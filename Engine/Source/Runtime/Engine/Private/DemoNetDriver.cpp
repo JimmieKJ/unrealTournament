@@ -879,9 +879,6 @@ void UDemoNetDriver::TickDispatch( float DeltaSeconds )
 			{
 				SpectatorController->GetSpectatorPawn()->CustomTimeDilation = SpectatorController->CustomTimeDilation;
 
-				// Disable collision on the spectator
-				SpectatorController->GetSpectatorPawn()->SetActorEnableCollision(false);
-
 				SpectatorController->GetSpectatorPawn()->PrimaryActorTick.bTickEvenWhenPaused = true;
 
 				USpectatorPawnMovement* SpectatorMovement = Cast<USpectatorPawnMovement>(SpectatorController->GetSpectatorPawn()->GetMovementComponent());
