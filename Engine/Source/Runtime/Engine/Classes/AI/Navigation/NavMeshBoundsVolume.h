@@ -14,14 +14,17 @@ class ANavMeshBoundsVolume : public AVolume
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin AActor Interface
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	FNavAgentSelector SupportedAgents;
+
+	//~ Begin AActor Interface
 	virtual void PostRegisterAllComponents() override;
 	virtual void PostUnregisterAllComponents() override;
-	// End AActor Interface
+	//~ End AActor Interface
 #if WITH_EDITOR
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End UObject Interface
+	//~ End UObject Interface
 #endif // WITH_EDITOR
 };
 

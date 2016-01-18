@@ -427,7 +427,7 @@ FReply SStatsViewer::OnExportClicked()
 	CSVFilename /= FString::Printf(
 		TEXT("%s-%i-%s.csv"),
 		FApp::GetGameName(),
-		GEngineVersion.GetChangelist(),
+		FEngineVersion::Current().GetChangelist(),
 		*FDateTime::Now().ToString() );
 
 	// Create the CSV (can't use ToNumber or FormatIntToHumanReadable as it'll break the CSV!)

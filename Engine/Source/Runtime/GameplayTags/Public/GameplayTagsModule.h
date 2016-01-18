@@ -6,6 +6,8 @@
 #include "GameplayTagsManager.h"
 
 
+class UGameplayTagsManager;
+
 /**
  * The public interface to this module
  */
@@ -37,8 +39,6 @@ public:
 		return FModuleManager::Get().IsModuleLoaded(GameplayTagModuleName);
 	}
 
-	virtual UGameplayTagsManager& GetGameplayTagsManager() = 0;
-
 	/**
 	 * Helper function to request a gameplay tag by name
 	 * 
@@ -46,10 +46,23 @@ public:
 	 * 
 	 * @return Gameplay tag associated with the specified name. Will be marked invalid if tag not found
 	 */
-	static FGameplayTag RequestGameplayTag(FName InTagName, bool ErrorIfNotFound=true)
+	FORCEINLINE_DEBUGGABLE static FGameplayTag RequestGameplayTag(FName InTagName, bool ErrorIfNotFound=true)
 	{
 		IGameplayTagsModule& GameplayTagsModule = IGameplayTagsModule::Get();
 		return GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(InTagName, ErrorIfNotFound);
 	}
+
+
+	// Gets the UGameplayTagsManager manager
+	FORCEINLINE_DEBUGGABLE static UGameplayTagsManager& GetGameplayTagsManager()
+	{
+		if (GGameplayTagsManager == nullptr)
+		{
+			IGameplayTagsModule::Get();
+		}
+		
+		return *GGameplayTagsManager;
+	}
+
 };
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Kismet/KismetSystemLibrary.h"
@@ -113,8 +113,8 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	 * if you pass a Class, saves the values in its default object
 	 * if you pass anything else, the instance's values are saved as its class's new defaults
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Config")
-	static void SaveConfig(UObject* Obj);
+	UFUNCTION(BlueprintCallable, Category = "Config", meta = (DisplayName = "SaveConfig"))
+	static void K2_SaveConfig(UObject* Obj);
 
 
 	/** Not replicated. Plays a sound cue on an actor, sound wave may change depending on team affiliation compared to the listener */

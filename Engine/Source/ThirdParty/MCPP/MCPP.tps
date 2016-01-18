@@ -2,7 +2,7 @@
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>MCPP version 2.7.2</Name>
   <Location>//depot/UE4/Engine/Source/ThirdParty/MCPP/ or //depot/UE4/Engine/Binaries/ThirdParty/MCPP/</Location>
-  <Date>2014-12-23T17:14:53.8887392-05:00</Date>
+  <Date>2015-09-04T19:33:53.2848042-04:00</Date>
   <Function>Preprocesses GLSL source code into a compact ?distilled? version</Function>
   <Justification>Could be used for numerous other purposes</Justification>
   <Platforms>
@@ -20,7 +20,14 @@
   <RedistributeTo />
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
+  <NoticeType>Full EULA Text</NoticeType>
+  <Notification>MCPP version 2.7.2
+Copyright (c) 1998, 2002-2008 Kiyoshi Matsui kmatsui@t3.rim.or.jp  All rights reserved.
+This software including the files in this directory is provided under the following license.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+53. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+XX. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS’’ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+</Notification>
   <LicenseFolder />
 </TpsData>

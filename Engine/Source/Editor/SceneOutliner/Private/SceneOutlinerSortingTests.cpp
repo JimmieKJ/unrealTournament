@@ -3,7 +3,7 @@
 #include "SceneOutlinerPrivatePCH.h"
 #include "SortHelper.h"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSortBasicTest, "System.Editor.Scene Outliner.SortBasic", 0)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSortBasicTest, "System.Editor.Scene Outliner.SortBasic", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FSortBasicTest::RunTest(const FString& Parameters)
 {
 	TArray<SceneOutliner::FNumericStringWrapper> Muddled;

@@ -46,6 +46,9 @@ namespace UnrealBuildTool.Rules
 			if (UEBuildConfiguration.bBuildEditor == true)
 			{
 				PrivateDependencyModuleNames.Add("UnrealEd");
+                PrivateDependencyModuleNames.Add("SourceControl");
+                PrivateDependencyModuleNames.Add("Slate");
+                PrivateDependencyModuleNames.Add("SlateCore");
 			}
 		}
 	}

@@ -32,7 +32,7 @@ fi
 if [ -e /etc/os-release ]; then
   source /etc/os-release
   # Ubuntu/Debian/Mint
-  if [[ "$ID" == "ubuntu" ]] || [[ "$ID_LIKE" == "ubuntu" ]] || [[ "$ID" == "debian" ]] || [[ "$ID_LIKE" == "debian" ]]; then
+  if [[ "$ID" == "ubuntu" ]] || [[ "$ID_LIKE" == "ubuntu" ]] || [[ "$ID" == "debian" ]] || [[ "$ID_LIKE" == "debian" ]] || [[ "$ID" == "tanglu" ]] || [[ "$ID_LIKE" == "tanglu" ]]; then
     # Install the necessary dependencies (require clang-3.5, although 3.3 and 3.6 should work too for this release)
     DEPS="mono-xbuild \
       mono-dmcs \
@@ -43,6 +43,8 @@ if [ -e /etc/os-release ]; then
       libmono-system-xml-linq4.0-cil
       libmono-corlib4.0-cil
       libmono-windowsbase4.0-cil
+      libmono-system-io-compression4.0-cil
+      libmono-system-io-compression-filesystem4.0-cil
       clang-3.5
       "
 
@@ -83,6 +85,27 @@ if [ -e /etc/os-release ]; then
     done
   fi
 
+  # Fedora
+  if [[ "$ID" == "fedora" ]]; then
+    # Install all necessary dependencies
+    DEPS="mono-core
+      mono-devel
+      qt-devel
+      dos2unix
+      cmake
+      "
+
+    for DEP in $DEPS; do
+      if ! rpm -q $DEP > /dev/null 2>&1; then
+        echo "Attempting installation of missing package: $DEP"
+        set -x
+        sudo dnf -y install $DEP
+        set +x
+      fi
+    done
+  fi
+
+
   # Arch Linux
   if [[ "$ID" == "arch" ]] || [[ "$ID_LIKE" == "arch" ]]; then
     DEPS="clang mono python sdl2 qt4 dos2unix cmake"
@@ -96,10 +119,18 @@ if [ -e /etc/os-release ]; then
     if [ "$MISSING" = true ]; then
       echo "Attempting to install missing packages: $DEPS"
       set -x
-      sudo pacman -Sy --needed --noconfirm $DEPS
+      sudo pacman -S --needed --noconfirm $DEPS
       set +x
     fi
   fi
+fi
+
+MONO_MINIMUM_VERSION=3
+MONO_VERSION=$(mono -V | sed -n 's/.* version \([0-9]\+\).*/\1/p')
+if [[ "$MONO_VERSION" -lt "$MONO_MINIMUM_VERSION" ]]; then
+  echo "Minimum required Mono version is $MONO_MINIMUM_VERSION. Installed is:"
+  mono -V | sed -n '/version/p'
+  exit 1
 fi
 
 echo 
@@ -132,9 +163,10 @@ CreateLinkIfNoneExists ../../Engine/shaders/Fxaa3_11.usf  ../Engine/Shaders/Fxaa
 echo Removing a stable libLND.so binary that was relocated in 4.8
 rm -f ../Engine/Binaries/Linux/libLND.so
 
-echo
-pushd Build/BatchFiles/Linux > /dev/null
-./BuildThirdParty.sh
-popd > /dev/null
+# As of 4.9 no third party library needs to be (re)built on any distro, so do not call BuildThirdParty.sh at all
+#echo
+#pushd Build/BatchFiles/Linux > /dev/null
+#./BuildThirdParty.sh
+#popd > /dev/null
 
 touch Build/OneTimeSetupPerformed

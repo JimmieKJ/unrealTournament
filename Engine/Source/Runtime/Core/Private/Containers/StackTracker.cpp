@@ -12,7 +12,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogStackTracker, Log, All);
  * optionally stores a user data pointer that the tracker will take ownership of and delete upon reset
  * you must allocate the memory with FMemory::Malloc()
  */
-void FStackTracker::CaptureStackTrace(int32 EntriesToIgnore /*=2*/, void* UserData /*=NULL*/)
+void FStackTracker::CaptureStackTrace(int32 EntriesToIgnore, void* UserData, int32 StackLen, bool bLookupStringsForAliasRemoval)
 {
 	// Avoid re-rentrancy as the code uses TArray/TMap.
 	if( !bAvoidCapturing && bIsEnabled )
@@ -21,14 +21,57 @@ void FStackTracker::CaptureStackTrace(int32 EntriesToIgnore /*=2*/, void* UserDa
 		bAvoidCapturing = true;
 
 		// Capture callstack and create CRC.
-		uint64* FullBackTrace = NULL;
-		FullBackTrace = static_cast<uint64*>(FMemory_Alloca((MAX_BACKTRACE_DEPTH + EntriesToIgnore) * sizeof(uint64)));
+		int32 Size = (MAX_BACKTRACE_DEPTH + EntriesToIgnore) * sizeof(uint64);
+		uint64* FullBackTrace = static_cast<uint64*>(FMemory_Alloca(Size));
+
+		FMemory::Memzero(FullBackTrace, Size);
 
 		FPlatformStackWalk::CaptureStackBackTrace( FullBackTrace, MAX_BACKTRACE_DEPTH + EntriesToIgnore );
 		CA_ASSUME(FullBackTrace);
 
 		// Skip first NUM_ENTRIES_TO_SKIP entries as they are inside this code
 		uint64* BackTrace = &FullBackTrace[EntriesToIgnore];
+		if (StackLen < MAX_BACKTRACE_DEPTH)
+		{
+			FMemory::Memzero(BackTrace + StackLen, sizeof(uint64) * (MAX_BACKTRACE_DEPTH - StackLen));
+		}
+		if (bLookupStringsForAliasRemoval)
+		{
+			for (int32 Index = 0; Index < StackLen; Index++)
+			{
+				if (BackTrace[Index])
+				{
+					uint64* Existing = AliasMap.Find(BackTrace[Index]);
+					if (Existing)
+					{
+						BackTrace[Index] = *Existing;
+					}
+					else
+					{
+						ANSICHAR AddressInformation[512];
+						AddressInformation[0] = 0;
+						FPlatformStackWalk::ProgramCounterToHumanReadableString( 1, BackTrace[Index], AddressInformation, ARRAY_COUNT(AddressInformation)-1 );
+						FString Symbol(AddressInformation);
+						int32 Spot = Symbol.Find(TEXT(" - "));
+						if (Spot != INDEX_NONE)
+						{
+							Symbol = Symbol.RightChop(Spot + 3);
+						}
+						Existing = StringAliasMap.Find(Symbol);
+						if (Existing)
+						{
+							AliasMap.Add(BackTrace[Index], *Existing);
+							BackTrace[Index] = *Existing;
+						}
+						else
+						{
+							AliasMap.Add(BackTrace[Index], BackTrace[Index]);
+							StringAliasMap.Add(Symbol, BackTrace[Index]);
+						}
+					}
+				}
+			}
+		}
 		uint32 CRC = FCrc::MemCrc_DEPRECATED( BackTrace, MAX_BACKTRACE_DEPTH * sizeof(uint64) );
         
 		// Use index if found
@@ -72,8 +115,9 @@ void FStackTracker::CaptureStackTrace(int32 EntriesToIgnore /*=2*/, void* UserDa
 /**
  * Dumps capture stack trace summary to the passed in log.
  */
-void FStackTracker::DumpStackTraces( int32 StackThreshold, FOutputDevice& Ar )
+void FStackTracker::DumpStackTraces(int32 StackThreshold, FOutputDevice& Ar, float SampleCountCorrectionFactor)
 {
+	check(SampleCountCorrectionFactor > 0.0f);
 	// Avoid distorting results while we log them.
 	check( !bAvoidCapturing );
 	bAvoidCapturing = true;
@@ -108,7 +152,16 @@ void FStackTracker::DumpStackTraces( int32 StackThreshold, FOutputDevice& Ar )
 	}
 
 	// Log quick summary as we don't log each individual so totals in CSV won't represent real totals.
-	Ar.Logf(TEXT("Captured %i unique callstacks totalling %i function calls over %i frames, averaging %5.2f calls/frame, Avg Per Frame"), SortedCallStacks.Num(), (int32)TotalStackCount, FramesCaptured, (float) TotalStackCount / FramesCaptured);
+	if (SampleCountCorrectionFactor != 1.0f)
+	{
+		StackThreshold = FMath::Max<int32>(1, int32(float(StackThreshold) / SampleCountCorrectionFactor));
+		// assume here the user has already rolled the number of frames into the correction factor
+		Ar.Logf(TEXT("Captured %i unique callstacks averaging %f function calls per frame"), SortedCallStacks.Num(), float(TotalStackCount) * SampleCountCorrectionFactor);
+	}
+	else
+	{
+		Ar.Logf(TEXT("Captured %i unique callstacks totalling %i function calls over %i frames, averaging %5.2f calls/frame, Avg Per Frame"), SortedCallStacks.Num(), (int32)TotalStackCount, FramesCaptured, (float) TotalStackCount / FramesCaptured);
+	}
 
 	// Iterate over each callstack and write out info in human readable form in CSV format
 	for( int32 CallStackIndex=0; CallStackIndex<SortedCallStacks.Num(); CallStackIndex++ )
@@ -118,9 +171,19 @@ void FStackTracker::DumpStackTraces( int32 StackThreshold, FOutputDevice& Ar )
 		// Avoid log spam by only logging above threshold.
 		if( CallStack.StackCount > StackThreshold )
 		{
-			// First row is stack count.
-			FString CallStackString = FString::FromInt((int32)CallStack.StackCount);
-			CallStackString += FString::Printf( TEXT(",%5.2f"), static_cast<float>(CallStack.StackCount)/static_cast<float>(FramesCaptured) );
+			FString CallStackString;
+			if (SampleCountCorrectionFactor != 1.0f)
+			{
+				// First row is stack count.
+				CallStackString = FString::FromInt((int32)(float(CallStack.StackCount) * SampleCountCorrectionFactor));
+				CallStackString += FString::Printf( TEXT(",%5.2f"), float(CallStack.StackCount) * SampleCountCorrectionFactor);
+			}
+			else
+			{
+				// First row is stack count.
+				CallStackString = FString::FromInt((int32)CallStack.StackCount);
+				CallStackString += FString::Printf( TEXT(",%5.2f"), static_cast<float>(CallStack.StackCount)/static_cast<float>(FramesCaptured) );
+			}
 			
 
 			// Iterate over all addresses in the callstack to look up symbol name.
@@ -140,6 +203,10 @@ void FStackTracker::DumpStackTraces( int32 StackThreshold, FOutputDevice& Ar )
 			{
 				ReportFn(CallStack, CallStack.StackCount, Ar);
 			}
+		}
+		else
+		{
+			break;
 		}
 	}
 
@@ -172,17 +239,31 @@ void FStackTracker::ResetTracking()
 /** Toggles tracking. */
 void FStackTracker::ToggleTracking()
 {
-	bIsEnabled = !bIsEnabled;
-	// Enabled
-	if( bIsEnabled )
+	ToggleTracking(!bIsEnabled, false);
+}
+
+void FStackTracker::ToggleTracking(bool bEnable, bool bSilent)
+{
+	if (bEnable != bIsEnabled)
 	{
-		UE_LOG(LogStackTracker, Log, TEXT("Stack tracking is now enabled."));
-		StartFrameCounter = GFrameCounter;
-	}
-	// Disabled.
-	else
-	{
-		StopFrameCounter = GFrameCounter;
-		UE_LOG(LogStackTracker, Log, TEXT("Stack tracking is now disabled."));
+		bIsEnabled = bEnable;
+		// Enabled
+		if( bIsEnabled )
+		{
+			if (!bSilent)
+			{
+				UE_LOG(LogStackTracker, Log, TEXT("Stack tracking is now enabled."));
+			}
+			StartFrameCounter = GFrameCounter;
+		}
+		// Disabled.
+		else
+		{
+			StopFrameCounter = GFrameCounter;
+			if (!bSilent)
+			{
+				UE_LOG(LogStackTracker, Log, TEXT("Stack tracking is now disabled."));
+			}
+		}
 	}
 }

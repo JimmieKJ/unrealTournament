@@ -15,13 +15,15 @@ class FPostprocessContext
 {
 public:
 
-	FPostprocessContext(FRenderingCompositionGraph& InGraph, const FViewInfo& InView);
+	FPostprocessContext(FRHICommandListImmediate& InRHICmdList, FRenderingCompositionGraph& InGraph, const FViewInfo& InView);
 
+	FRHICommandListImmediate& RHICmdList;
 	FRenderingCompositionGraph& Graph;
 	const FViewInfo& View;
 
 	// 0 if there was no scene color available at constructor call time
 	FRenderingCompositePass* SceneColor;
+	// never 0
 	FRenderingCompositePass* SceneDepth;
 
 	FRenderingCompositeOutputRef FinalOutput;

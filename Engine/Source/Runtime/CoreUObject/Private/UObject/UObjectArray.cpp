@@ -8,20 +8,16 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectArray, Log, All);
 
-void FUObjectArray::AllocatePermanentObjectPool(int32 MaxObjectsNotConsideredByGC)
+void FUObjectArray::AllocateObjectPool(int32 MaxUObjects, int32 MaxObjectsNotConsideredByGC)
 {
 	check(IsInGameThread());
 
 	// GObjFirstGCIndex is the index at which the garbage collector will start for the mark phase.
 	ObjFirstGCIndex = MaxObjectsNotConsideredByGC;
 
-	// Presize array.
+	// Pre-size array.
 	check(ObjObjects.Num() == 0);
-	if (ObjFirstGCIndex >= 0)
-	{
-		ObjObjects.Reserve(ObjFirstGCIndex);
-	}
-	FWeakObjectPtr::Init(); // this adds a delete listener
+	ObjObjects.PreAllocate(MaxUObjects);
 }
 
 void FUObjectArray::CloseDisregardForGC()
@@ -44,7 +40,7 @@ void FUObjectArray::AllocateUObjectIndex(UObjectBase* Object, bool bMergingThrea
 	{
 		// Disregard from GC pool is only available from the game thread, at least for now
 		check(IsInGameThread());
-		Index = ObjObjects.AddZeroed(1);
+		Index = ObjObjects.AddSingle();
 		ObjLastNonGCIndex = Index;
 		ObjFirstGCIndex = FMath::Max(ObjFirstGCIndex, Index + 1);
 	}
@@ -54,12 +50,12 @@ void FUObjectArray::AllocateUObjectIndex(UObjectBase* Object, bool bMergingThrea
 		int32* AvailableIndex = ObjAvailableList.Pop();
 		if (AvailableIndex)
 		{
-#if WITH_EDITOR
-			ObjAvailableCount.Decrement();
-			checkSlow(ObjAvailableCount.GetValue() >= 0);
+#if UE_GC_TRACK_OBJ_AVAILABLE
+			const int32 AvailableCount = ObjAvailableCount.Decrement();
+			checkSlow(AvailableCount >= 0);
 #endif
 			Index = (int32)(uintptr_t)AvailableIndex;
-			check(ObjObjects[Index]==nullptr);
+			check(ObjObjects[Index].Object==nullptr);
 		}
 		else
 		{
@@ -68,15 +64,16 @@ void FUObjectArray::AllocateUObjectIndex(UObjectBase* Object, bool bMergingThrea
 #else
 			check(IsInGameThread());
 #endif
-			Index = ObjObjects.AddZeroed(1);
+			Index = ObjObjects.AddSingle();
 		}
 		check(Index >= ObjFirstGCIndex);
 	}
 	// Add to global table.
-	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&ObjObjects[Index], Object, NULL) != NULL) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
+	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&ObjObjects[Index].Object, Object, NULL) != NULL) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
 	{
 		UE_LOG(LogUObjectArray, Fatal, TEXT("Unexpected concurency while adding new object"));
 	}
+	IndexToObject(Index)->ResetSerialNumberAndFlags();
 	Object->InternalIndex = Index;
 	//  @todo: threading: lock UObjectCreateListeners
 	for (int32 ListenerIndex = 0; ListenerIndex < UObjectCreateListeners.Num(); ListenerIndex++)
@@ -97,7 +94,7 @@ void FUObjectArray::FreeUObjectIndex(UObjectBase* Object)
 
 	int32 Index = Object->InternalIndex;
 	// At this point no two objects exist with the same index so no need to lock here
-	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&ObjObjects[Index], NULL, Object) == NULL) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
+	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&ObjObjects[Index].Object, NULL, Object) == NULL) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
 	{
 		UE_LOG(LogUObjectArray, Fatal, TEXT("Unexpected concurency while adding new object"));
 	}
@@ -111,8 +108,9 @@ void FUObjectArray::FreeUObjectIndex(UObjectBase* Object)
 	// No point in filling this list when doing exit purge. Nothing should be allocated afterwards anyway.
 	if (Index > ObjLastNonGCIndex && !GExitPurge)  
 	{
+		IndexToObject(Index)->ResetSerialNumberAndFlags();
 		ObjAvailableList.Push((int32*)(uintptr_t)Index);
-#if WITH_EDITOR
+#if UE_GC_TRACK_OBJ_AVAILABLE
 		ObjAvailableCount.Increment();
 #endif
 	}
@@ -147,6 +145,9 @@ void FUObjectArray::RemoveUObjectCreateListener(FUObjectCreateListener* Listener
  */
 void FUObjectArray::AddUObjectDeleteListener(FUObjectDeleteListener* Listener)
 {
+#if THREADSAFE_UOBJECTS
+	FScopeLock UObjectDeleteListenersLock(&UObjectDeleteListenersCritical);
+#endif
 	check(!UObjectDeleteListeners.Contains(Listener));
 	UObjectDeleteListeners.Add(Listener);
 }
@@ -158,6 +159,9 @@ void FUObjectArray::AddUObjectDeleteListener(FUObjectDeleteListener* Listener)
  */
 void FUObjectArray::RemoveUObjectDeleteListener(FUObjectDeleteListener* Listener)
 {
+#if THREADSAFE_UOBJECTS
+	FScopeLock UObjectDeleteListenersLock(&UObjectDeleteListenersCritical);
+#endif
 	UObjectDeleteListeners.RemoveSingleSwap(Listener);
 }
 
@@ -182,18 +186,40 @@ bool FUObjectArray::IsValid(const UObjectBase* Object) const
 		UE_LOG(LogUObjectArray, Warning, TEXT("Invalid object index %i"), Index );
 		return false;
 	}
-	const UObjectBase *Slot = ObjObjects[Index];
-	if( Slot == NULL )
+	const FUObjectItem& Slot = ObjObjects[Index];
+	if( Slot.Object == NULL )
 	{
 		UE_LOG(LogUObjectArray, Warning, TEXT("Empty slot") );
 		return false;
 	}
-	if( Slot != Object )
+	if( Slot.Object != Object )
 	{
 		UE_LOG(LogUObjectArray, Warning, TEXT("Other object in slot") );
 		return false;
 	}
 	return true;
+}
+
+int32 FUObjectArray::AllocateSerialNumber(int32 Index)
+{
+	FUObjectItem* ObjectItem = IndexToObject(Index);
+	checkSlow(ObjectItem);
+
+	volatile int32 *SerialNumberPtr = &ObjectItem->SerialNumber;
+	int32 SerialNumber = *SerialNumberPtr;
+	if (!SerialNumber)
+	{
+		SerialNumber = MasterSerialNumber.Increment();
+		UE_CLOG(SerialNumber <= START_SERIAL_NUMBER, LogUObjectArray, Fatal, TEXT("UObject serial numbers overflowed (trying to allocate serial number %d)."), SerialNumber);
+		int32 ValueWas = FPlatformAtomics::InterlockedCompareExchange((int32*)SerialNumberPtr, SerialNumber, 0);
+		if (ValueWas != 0)
+		{
+			// someone else go it first, use their value
+			SerialNumber = ValueWas;
+		}
+	}
+	checkSlow(SerialNumber > START_SERIAL_NUMBER);
+	return SerialNumber;
 }
 
 /**
@@ -205,5 +231,5 @@ void FUObjectArray::ShutdownUObjectArray()
 
 UObjectBase*** FUObjectArray::GetObjectArrayForDebugVisualizers()
 {
-	return GetUObjectArray().ObjObjects.GetRootBlockForDebuggerVisualizers();
+	return GUObjectArray.ObjObjects.GetRootBlockForDebuggerVisualizers();
 }

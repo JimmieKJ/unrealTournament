@@ -47,7 +47,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogObjectTools, Log, All);
 
 // This function should ONLY be needed by ConsolidateObjects and ForceDeleteObjects
 // Use anywhere else could be dangerous as this involves a map transition and GC
-void ReloadEditorWorldForReferenceReplacementIfNecessary(TArray<UObject*>& InOutObjectsToReplace)
+void ReloadEditorWorldForReferenceReplacementIfNecessary(TArray< TWeakObjectPtr<UObject> >& InOutObjectsToReplace)
 {
 	// If we are force-deleting or consolidating the editor world, first transition to an empty map to prevent reference problems.
 	// Then, re-load the world from disk to set it up for delete as an inactive world which isn't attached to the editor engine or other systems.
@@ -86,7 +86,7 @@ namespace ObjectTools
 			if( ObjectPackage != NULL )
 			{
 				if( ObjectPackage != GetTransientPackage()
-					&& (ObjectPackage->PackageFlags & PKG_PlayInEditor) == 0
+					&& (ObjectPackage->HasAnyPackageFlags(PKG_PlayInEditor) == false)
 					&& !Obj->IsPendingKill() )
 				{
 					bIsSupported = true;
@@ -494,6 +494,30 @@ namespace ObjectTools
 		TArray<UObject*> ReplaceableObjects;
 		// Objects whose references could not be successfully replaced
 		TArray<UObject*> UnreplaceableObjects;
+
+		void AppendUnique(const FForceReplaceInfo& ForceReplaceInfo)
+		{
+			const TArray<UPackage*>& ForceReplaceInfoDirtiedPackages = ForceReplaceInfo.DirtiedPackages;
+			DirtiedPackages.Reserve(DirtiedPackages.Num() + ForceReplaceInfoDirtiedPackages.Num());
+			for (UPackage* Package : ForceReplaceInfoDirtiedPackages)
+			{
+				DirtiedPackages.AddUnique(Package);
+			}
+
+			const TArray<UObject*>& ForceReplaceInfoReplaceableObjects = ForceReplaceInfo.ReplaceableObjects;
+			ReplaceableObjects.Reserve(ReplaceableObjects.Num() + ForceReplaceInfoReplaceableObjects.Num());
+			for (UObject* Object : ForceReplaceInfoReplaceableObjects)
+			{
+				ReplaceableObjects.Add(Object);
+			}
+
+			const TArray<UObject*>& ForceReplaceInfoUnreplaceableObjects = ForceReplaceInfo.UnreplaceableObjects;
+			UnreplaceableObjects.Reserve(UnreplaceableObjects.Num() + ForceReplaceInfoUnreplaceableObjects.Num());
+			for (UObject* Object : ForceReplaceInfoUnreplaceableObjects)
+			{
+				UnreplaceableObjects.Add(Object);
+			}
+		}
 	};
 
 	/**
@@ -630,7 +654,7 @@ namespace ObjectTools
 				// If an object is "unreplaceable" store it separately to warn the user about later
 				else
 				{
-					OutInfo.UnreplaceableObjects.Add( CurObjToReplace );
+					OutInfo.UnreplaceableObjects.AddUnique(CurObjToReplace);
 				}
 			}
 		}
@@ -765,16 +789,63 @@ namespace ObjectTools
 			// objects they are replacing until the objects are garbage collected
 			TMap<UObjectRedirector*, FName> RedirectorToObjectNameMap;
 
-			// If the current editor world is in this list, transition to a new map and reload the world to finish the consolidate
-			ReloadEditorWorldForReferenceReplacementIfNecessary(ObjectsToConsolidate);
+			{
+				// Note reloading the world via ReloadEditorWorldForReferenceReplacementIfNecessary will cause a garbage collect and potentially cause entries in the ObjectsToConsolidate list to become invalid
+				// We refresh the list here after reloading the editor world
+				TArray< TWeakObjectPtr<UObject> > ObjectsToConsolidateWeakList;
+				for(UObject* Object : ObjectsToConsolidate)
+				{
+					ObjectsToConsolidateWeakList.Add(Object);
+				}
+
+				ObjectsToConsolidate.Empty();
+
+				// If the current editor world is in this list, transition to a new map and reload the world to finish the delete
+				ReloadEditorWorldForReferenceReplacementIfNecessary(ObjectsToConsolidateWeakList);
+
+				for(TWeakObjectPtr<UObject> WeakObject : ObjectsToConsolidateWeakList)
+				{
+					if( WeakObject.IsValid() )
+					{
+						ObjectsToConsolidate.Add(WeakObject.Get());
+					}
+				}
+			}
 
 			FForceReplaceInfo ReplaceInfo;
+			FForceReplaceInfo GeneratedClassReplaceInfo;
+
 			// Scope the reregister context below to complete after object deletion and before garbage collection
 			{
 				// Replacing references inside already loaded objects could cause rendering issues, so globally detach all components from their scenes for now
 				FGlobalComponentReregisterContext ReregisterContext;
 				
-				ForceReplaceReferences( ObjectToConsolidateTo, ObjectsToConsolidate, ReplaceInfo );
+				ForceReplaceReferences(ObjectToConsolidateTo, ObjectsToConsolidate, ReplaceInfo);
+
+				if (UBlueprint* ObjectToConsolidateTo_BP = Cast<UBlueprint>(ObjectToConsolidateTo))
+				{
+					// Replace all UClass/TSubClassOf properties of generated class.
+					TArray<UObject*> ObjectsToConsolidate_BP;
+					TArray<UClass*> OldGeneratedClasses;
+					ObjectsToConsolidate_BP.Reserve(ObjectsToConsolidate.Num());
+					OldGeneratedClasses.Reserve(ObjectsToConsolidate.Num());
+					for (UObject* ObjectToConsolidate : ObjectsToConsolidate)
+					{
+						UClass* OldGeneratedClass = Cast<UBlueprint>(ObjectToConsolidate)->GeneratedClass;
+						ObjectsToConsolidate_BP.Add(OldGeneratedClass);
+						OldGeneratedClasses.Add(OldGeneratedClass);
+					}
+
+					ForceReplaceReferences(ObjectToConsolidateTo_BP->GeneratedClass, ObjectsToConsolidate_BP, GeneratedClassReplaceInfo);
+
+					// Repair the references of GeneratedClass on the object being consolidated so they can be properly disposed of upon deletion.
+					for (int32 Index = 0, MaxIndex = ObjectsToConsolidate.Num(); Index < MaxIndex; ++Index)
+					{
+						Cast<UBlueprint>(ObjectsToConsolidate[Index])->GeneratedClass = OldGeneratedClasses[Index];
+					}
+
+					ReplaceInfo.AppendUnique(GeneratedClassReplaceInfo);
+				}
 				DirtiedPackages.Append( ReplaceInfo.DirtiedPackages );
 				UnconsolidatableObjects.Append( ReplaceInfo.UnreplaceableObjects );
 			}
@@ -792,7 +863,7 @@ namespace ObjectTools
 						// then repair the references on the object being consolidated so those objects can be properly disposed of upon deletion.
 						UClass* OldClass = BlueprintToConsolidate->GeneratedClass;
 						UClass* OldSkeletonClass = BlueprintToConsolidate->SkeletonGeneratedClass;
-						FBlueprintCompileReinstancer::ReplaceInstancesOfClass(OldClass, BlueprintToConsolidateTo->GeneratedClass);
+						FBlueprintCompileReinstancer::ReplaceInstancesOfClass(OldClass, BlueprintToConsolidateTo->GeneratedClass, nullptr, nullptr, true );
 						BlueprintToConsolidate->GeneratedClass = OldClass;
 						BlueprintToConsolidate->SkeletonGeneratedClass = OldSkeletonClass;
 					}
@@ -801,6 +872,8 @@ namespace ObjectTools
 				// Clean up the actors we replaced
 				CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
 			}
+
+			FEditorDelegates::OnAssetsPreDelete.Broadcast(ReplaceInfo.ReplaceableObjects);
 
 			// With all references to the objects to consolidate to eliminated from objects that are currently loaded, it should now be safe to delete
 			// the objects to be consolidated themselves, leaving behind a redirector in their place to fix up objects that were not currently loaded at the time
@@ -837,7 +910,10 @@ namespace ObjectTools
 					Redirector->DestinationObject = ObjectToConsolidateTo;
 
 					// Keep track of the object name so we can rename the redirector later
-					RedirectorToObjectNameMap.Add(Redirector, CurObjName);
+					if (!RedirectorToObjectNameMap.FindKey(CurObjName))
+					{
+						RedirectorToObjectNameMap.Add(Redirector, CurObjName);
+					}
 
 					// If consolidating blueprints, make sure redirectors are created for the consolidated blueprint class and CDO
 					if ( BlueprintToConsolidateTo != NULL && BlueprintToConsolidate != NULL )
@@ -985,19 +1061,19 @@ namespace ObjectTools
 
 				FReferencerInformationList Refs;
 
-				if ( IsReferenced( Object,RF_Native | RF_Public, true, &Refs) )
+				if (IsReferenced(Object, RF_Public, EInternalObjectFlags::Native, true, &Refs))
 				{
 					FStringOutputDevice Ar;
-					Object->OutputReferencers( Ar, &Refs );
-					UE_LOG(LogObjectTools, Warning, TEXT("%s"), *Ar );  // also print the objects to the log so you can actually utilize the data
-					
+					Object->OutputReferencers(Ar, &Refs);
+					UE_LOG(LogObjectTools, Warning, TEXT("%s"), *Ar);  // also print the objects to the log so you can actually utilize the data
+
 					// Display a dialog containing all referencers; the dialog is designed to destroy itself upon being closed, so this
 					// allocation is ok and not a memory leak
-					SGenericDialogWidget::OpenDialog(NSLOCTEXT("ObjectTools", "ShowReferencers", "Show Referencers"), SNew(STextBlock).Text( FText::FromString(Ar) ));
+					SGenericDialogWidget::OpenDialog(NSLOCTEXT("ObjectTools", "ShowReferencers", "Show Referencers"), SNew(STextBlock).Text(FText::FromString(Ar)));
 				}
 				else
 				{
-					FMessageDialog::Open( EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "ObjectNotReferenced", "Object '{0}' Is Not Referenced"), FText::FromString(Object->GetName())) );
+					FMessageDialog::Open(EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "ObjectNotReferenced", "Object '{0}' Is Not Referenced"), FText::FromString(Object->GetName())));
 				}
 
 				GEditor->GetSelectedObjects()->Select( Object );
@@ -1171,7 +1247,7 @@ namespace ObjectTools
 	void SelectActorsInLevelDirectlyReferencingObject( UObject* RefObj )
 	{
 		UPackage* Package = Cast<UPackage>(RefObj->GetOutermost());
-		if (Package && ((Package->PackageFlags & PKG_ContainsMap) != 0))
+		if (Package && Package->ContainsMap())
 		{
 			// Walk the chain of outers to find the object that is 'in' the level...
 			UObject* ObjToSelect = NULL;
@@ -1217,7 +1293,7 @@ namespace ObjectTools
 	{
 		if(Object)
 		{
-			if(IsReferenced(Object,RF_Native | RF_Public))
+			if(IsReferenced(Object, RF_Public, EInternalObjectFlags::Native))
 			{
 				TArray<UObject*> ObjectsToSelect;
 
@@ -1370,13 +1446,13 @@ namespace ObjectTools
 			if ( bPerformReferenceCheck )
 			{
 				FReferencerInformationList FoundReferences;
-				bIsReferenced = IsReferenced(Package, GARBAGE_COLLECTION_KEEPFLAGS, true, &FoundReferences);
+				bIsReferenced = IsReferenced(Package, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags,  true, &FoundReferences);
 				if ( bIsReferenced )
 				{
 					// determine whether the transaction buffer is the only thing holding a reference to the object
 					// and if so, offer the user the option to reset the transaction buffer.
 					GEditor->Trans->DisableObjectSerialization();
-					bIsReferenced = IsReferenced(Package, GARBAGE_COLLECTION_KEEPFLAGS, true, &FoundReferences);
+					bIsReferenced = IsReferenced(Package, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &FoundReferences);
 					GEditor->Trans->EnableObjectSerialization();
 
 					// only ref to this object is the transaction buffer, clear the transaction buffer
@@ -1555,6 +1631,23 @@ namespace ObjectTools
 		// Allows deleting of sounds after they have been previewed
 		GEditor->ClearPreviewComponents();
 
+		// Ensure the audio manager is not holding on to any sounds
+		FAudioDeviceManager* AudioDeviceManager = GEditor->GetAudioDeviceManager();
+		if (AudioDeviceManager != nullptr)
+		{
+			AudioDeviceManager->UpdateActiveAudioDevices(false);
+
+			const int32 NumAudioDevices = AudioDeviceManager->GetNumActiveAudioDevices();
+			for (int32 DeviceIndex = 0; DeviceIndex < NumAudioDevices; DeviceIndex++)
+			{
+				FAudioDevice* AudioDevice = AudioDeviceManager->GetAudioDevice(DeviceIndex);
+				if (AudioDevice != nullptr)
+				{
+					AudioDevice->StopAllSounds();
+				}
+			}
+		}
+
 		const FScopedBusyCursor BusyCursor;
 
 		// Make sure packages being saved are fully loaded.
@@ -1629,14 +1722,50 @@ namespace ObjectTools
 		return DeleteModel->GetDeletedObjectCount();
 	}
 
-	int32 DeleteObjectsUnchecked( const TArray< UObject* >& ObjectsToDelete )
+	static bool MakeReadOnlyPackageWritable(UObject* ObjectToDelete, bool& bMakeWritable)
+	{
+		// If an object's package is read only, and source control is not enabled, ask the user whether they wish
+		// to make it writable.
+		if (!ISourceControlModule::Get().IsEnabled())
+		{
+			UPackage* ObjectPackage = ObjectToDelete->GetOutermost();
+			check(ObjectPackage != nullptr);
+
+			FString PackageFilename;
+			if (FPackageName::DoesPackageExist(ObjectPackage->GetName(), nullptr, &PackageFilename))
+			{
+				if (IFileManager::Get().IsReadOnly(*PackageFilename))
+				{
+					EAppReturnType::Type ReturnType = EAppReturnType::No;
+					if (!bMakeWritable)
+					{
+						ReturnType = FMessageDialog::Open(EAppMsgType::YesNoYesAll, NSLOCTEXT("ObjectTools", "DeleteReadOnlyWarning", "File is read-only on disk, are you sure you want to delete it?"));
+						bMakeWritable = ReturnType == EAppReturnType::YesAll;
+					}
+
+					if (bMakeWritable || ReturnType == EAppReturnType::Yes)
+					{
+						FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*PackageFilename, false);
+					}
+					else
+					{
+						return false;
+					}
+				}
+			}
+		}
+
+		return true;
+	}
+
+	int32 DeleteObjectsUnchecked(const TArray< UObject* >& ObjectsToDelete)
 	{
 		GWarn->BeginSlowTask( NSLOCTEXT( "UnrealEd", "Deleting", "Deleting" ), true );
 
 		TArray<UObject*> ObjectsDeletedSuccessfully;
-		TArray<UObject*> ObjectsDeletedUnsuccessfully;
 
-		bool bSawSuccessfulDelete = true;
+		bool bSawSuccessfulDelete = false;
+		bool bMakeWritable = false;
 
 		for ( int32 Index = 0; Index < ObjectsToDelete.Num(); Index++ )
 		{
@@ -1648,16 +1777,18 @@ namespace ObjectTools
 				continue;
 			}
 
+			// Early exclusion for assets contained in read-only packages if the user chooses not to write enable them
+			if (!MakeReadOnlyPackageWritable(ObjectToDelete, bMakeWritable))
+			{
+				continue;
+			}
+
 			// We already know it's not referenced or we wouldn't be performing the safe delete, so don't repeat the reference check.
 			bool bPerformReferenceCheck = false;
 			if ( DeleteSingleObject( ObjectToDelete, bPerformReferenceCheck ) )
 			{
 				ObjectsDeletedSuccessfully.Push( ObjectToDelete );
-			}
-			else
-			{
-				ObjectsDeletedUnsuccessfully.Push( ObjectToDelete );
-				bSawSuccessfulDelete = false;
+				bSawSuccessfulDelete = true;
 			}
 		}
 
@@ -1706,13 +1837,13 @@ namespace ObjectTools
 			FReferencerInformationList Refs;
 
 			// Check and see whether we are referenced by any objects that won't be garbage collected. 
-			bool bIsReferenced = IsReferenced( ObjectToDelete, GARBAGE_COLLECTION_KEEPFLAGS, true, &Refs );
+			bool bIsReferenced = IsReferenced(ObjectToDelete, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &Refs);
 			if ( bIsReferenced )
 			{
 				// determine whether the transaction buffer is the only thing holding a reference to the object
 				// and if so, offer the user the option to reset the transaction buffer.
 				GEditor->Trans->DisableObjectSerialization();
-				bIsReferenced = IsReferenced( ObjectToDelete, GARBAGE_COLLECTION_KEEPFLAGS, true, &Refs );
+				bIsReferenced = IsReferenced(ObjectToDelete, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &Refs);
 				GEditor->Trans->EnableObjectSerialization();
 
 				// only ref to this object is the transaction buffer, clear the transaction buffer
@@ -1782,7 +1913,8 @@ namespace ObjectTools
 		TArray<AActor*> ActorsToDelete;
 		TArray<UObject*> ObjectsToDelete;
 		bool bNeedsGarbageCollection = false;
-	
+		bool bMakeWritable = false;
+
 		// Clear audio components to allow previewed sounds to be consolidated
 		GEditor->ClearPreviewComponents();
 
@@ -1791,6 +1923,12 @@ namespace ObjectTools
 			UObject* CurrentObject = *ObjectItr;
 
 			GEditor->GetSelectedObjects()->Deselect( CurrentObject );
+
+			// Early exclusion for assets contained in read-only packages if the user chooses not to write enable them
+			if (!MakeReadOnlyPackageWritable(CurrentObject, bMakeWritable))
+			{
+				continue;
+			}
 
 			ObjectsToDelete.Add( CurrentObject );
 
@@ -1804,6 +1942,12 @@ namespace ObjectTools
 				for ( TArray<UObject*>::TConstIterator InstanceItr( InstancesToDelete ); InstanceItr; ++InstanceItr )
 				{
 					UObject* CurrentInstance = *InstanceItr;
+
+					// Don't include derived class CDOs.
+					if(CurrentInstance->HasAnyFlags(RF_ClassDefaultObject))
+					{
+						continue;
+					}
 
 					AActor* CurrentInstanceAsActor = Cast<AActor>( CurrentInstance );
 					UActorComponent* CurrentInstanceAsComponent = Cast<UActorComponent>(CurrentInstance);
@@ -1819,10 +1963,8 @@ namespace ObjectTools
 						UBlueprintGeneratedClass* UBGC = CurrentInstanceAsComponent->GetTypedOuter<UBlueprintGeneratedClass>();
 						if (UBGC && UBGC->SimpleConstructionScript)
 						{
-							TArray<USCS_Node*> SCSNodes = UBGC->SimpleConstructionScript->GetAllNodes();
-							for (int32 SCSNodeIndex = 0; SCSNodeIndex < SCSNodes.Num(); ++SCSNodeIndex)
+							for (USCS_Node* SCS_Node : UBGC->SimpleConstructionScript->GetAllNodes())
 							{
-								USCS_Node* SCS_Node = SCSNodes[SCSNodeIndex];
 								if (SCS_Node && SCS_Node->ComponentTemplate == CurrentInstanceAsComponent)
 								{
 									FSCSNodeToDelete DeleteNode;
@@ -1923,8 +2065,28 @@ namespace ObjectTools
 			GEditor->NoteSelectionChange();
 		}
 
-		// If the current editor world is in this list, transition to a new map and reload the world to finish the delete
-		ReloadEditorWorldForReferenceReplacementIfNecessary(ObjectsToDelete);
+		{
+			// Note reloading the world via ReloadEditorWorldForReferenceReplacementIfNecessary will cause a gabage collect and potentially cause entries in the ObjectsToDelete list to become invalid
+			// We refresh the list here
+			TArray< TWeakObjectPtr<UObject> > ObjectsToDeleteWeakList;
+			for(UObject* Object : ObjectsToDelete)
+			{
+				ObjectsToDeleteWeakList.Add(Object);
+			}
+
+			ObjectsToDelete.Empty();
+
+			// If the current editor world is in this list, transition to a new map and reload the world to finish the delete
+			ReloadEditorWorldForReferenceReplacementIfNecessary(ObjectsToDeleteWeakList);
+
+			for(TWeakObjectPtr<UObject> WeakObject : ObjectsToDeleteWeakList)
+			{
+				if( WeakObject.IsValid() )
+				{
+					ObjectsToDelete.Add(WeakObject.Get());
+				}
+			}
+		}
 
 		{
 			int32 ReplaceableObjectsNum = 0;
@@ -2045,7 +2207,10 @@ namespace ObjectTools
 			PotentialPackagesToDelete.AddUnique(ObjectsToDelete[ObjIdx]->GetOutermost());
 		}
 
-		CleanupAfterSuccessfulDelete(PotentialPackagesToDelete);
+		if (PotentialPackagesToDelete.Num() > 0)
+		{
+			CleanupAfterSuccessfulDelete(PotentialPackagesToDelete);
+		}
 		ObjectsToDelete.Empty();
 
 		GWarn->EndSlowTask();
@@ -2484,6 +2649,13 @@ namespace ObjectTools
 					// We can rename on top of an object redirection (basically destroy the redirection and put us in its place).
 					UPackage* NewPackage = CreatePackage( NULL, *FullPackageName );
 					NewPackage->GetOutermost()->FullyLoad();
+
+					// Make sure we copy all the cooked package flags if the asset was already cooked.
+					if (Object->GetOutermost()->HasAnyPackageFlags(PKG_FilterEditorOnly))
+					{
+						NewPackage->SetPackageFlags(PKG_FilterEditorOnly);
+					}
+					NewPackage->bIsCookedForEditor = Object->GetOutermost()->bIsCookedForEditor;
 
 					UObjectRedirector* Redirector = Cast<UObjectRedirector>( StaticFindObject(UObjectRedirector::StaticClass(), NewPackage, *NewObjectName) );
 					bool bFoundCompatibleRedirector = false;
@@ -3335,7 +3507,7 @@ namespace ObjectTools
 
 		
 			// If the object is not flagged for GC and it is in one of the level packages do an indepth search to see what references it.
-			if( !Obj->HasAnyFlags( RF_PendingKill | RF_Unreachable ) && LevelPackages.Find( Obj->GetOutermost() ) != NULL )
+			if( !Obj->IsPendingKillOrUnreachable() && LevelPackages.Find( Obj->GetOutermost() ) != NULL )
 			{
 				// Determine if the current object is in one of the search levels.  This is the same as UObject::IsIn except that we can
 				// search through many levels at once.

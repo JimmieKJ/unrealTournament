@@ -48,7 +48,7 @@ public:
 		SLATE_ATTRIBUTE( FMargin, ContentPadding )
 	
 		/** The text to display in this button, if no custom content is specified */
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE( FText, Text )
 	
 		/** Called when the button is clicked */
 		SLATE_EVENT( FOnClicked, OnClicked )
@@ -58,6 +58,10 @@ public:
 
 		/** Called when the button is released */
 		SLATE_EVENT( FSimpleDelegate, OnReleased )
+
+		SLATE_EVENT( FSimpleDelegate, OnHovered )
+
+		SLATE_EVENT( FSimpleDelegate, OnUnhovered )
 
 		/** Sets the rules to use for determining whether the button was clicked.  This is an advanced setting and generally should be left as the default. */
 		SLATE_ARGUMENT( EButtonClickMethod::Type, ClickMethod )
@@ -84,6 +88,12 @@ public:
 
 		/** The sound to play when the button is hovered */
 		SLATE_ARGUMENT( TOptional<FSlateSound>, HoveredSoundOverride )
+
+		/** Which text shaping method should we use? (unset to use the default returned by GetDefaultTextShapingMethod) */
+		SLATE_ARGUMENT( TOptional<ETextShapingMethod>, TextShapingMethod )
+		
+		/** Which text flow direction should we use? (unset to use the default returned by GetDefaultTextFlowDirection) */
+		SLATE_ARGUMENT( TOptional<ETextFlowDirection>, TextFlowDirection )
 
 	SLATE_END_ARGS()
 
@@ -127,6 +137,8 @@ public:
 
 	// SWidget overrides
 
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
+
 	virtual bool SupportsKeyboardFocus() const override;
 
 	virtual void OnFocusLost( const FFocusEvent& InFocusEvent ) override;
@@ -154,6 +166,9 @@ protected:
 	/** @return combines the user-specified margin and the button's internal margin. */
 	FMargin GetCombinedPadding() const;
 
+	/** @return True if the disab;ed effect should be shown. */
+	bool GetShowDisabledEffect() const;
+
 	/** Padding specified by the user; it will be combind with the button's internal padding. */
 	TAttribute<FMargin> ContentPadding;
 
@@ -175,6 +190,10 @@ protected:
 	/** The delegate to execute when the button is released */
 	FSimpleDelegate OnReleased;
 
+	FSimpleDelegate OnHovered;
+
+	FSimpleDelegate OnUnhovered;
+
 	/** Style resource for the button */
 	const FButtonStyle* Style;
 
@@ -184,6 +203,8 @@ protected:
 	const FSlateBrush* HoverImage;
 	/** Brush resource that represents a button when it is pressed */
 	const FSlateBrush* PressedImage;
+	/** Brush resource that represents a button when it is disabled */
+	const FSlateBrush* DisabledImage;
 
 	/** Sets whether a click should be triggered on mouse down, mouse up, or that both a mouse down and up are required. */
 	EButtonClickMethod::Type ClickMethod;

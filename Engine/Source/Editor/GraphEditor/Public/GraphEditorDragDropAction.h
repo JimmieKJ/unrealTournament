@@ -13,7 +13,7 @@ public:
 	void SetHoveredPin(class UEdGraphPin* InPin);
 	void SetHoveredNode(const TSharedPtr<class SGraphNode>& InNode);
 	void SetHoveredGraph(const TSharedPtr<class SGraphPanel>& InGraph);
-	void SetHoveredCategoryName(const FString& InHoverCategoryName);
+	void SetHoveredCategoryName(const FText& InHoverCategoryName);
 	void SetHoveredAction(TSharedPtr<struct FEdGraphSchemaAction> Action);
 	void SetDropTargetValid( bool bValid ) { bDropTargetValid = bValid; }
 
@@ -23,7 +23,7 @@ public:
 	virtual FReply DroppedOnNode(FVector2D ScreenPosition, FVector2D GraphPosition) { return FReply::Unhandled(); }
 	virtual FReply DroppedOnPanel( const TSharedRef< class SWidget >& Panel, FVector2D ScreenPosition, FVector2D GraphPosition, UEdGraph& Graph) { return FReply::Unhandled(); }
 	virtual FReply DroppedOnAction(TSharedRef<struct FEdGraphSchemaAction> Action) { return FReply::Unhandled(); }
-	virtual FReply DroppedOnCategory(FString Category) { return FReply::Unhandled(); }
+	virtual FReply DroppedOnCategory(FText Category) { return FReply::Unhandled(); }
 	virtual void OnDragBegin(const TSharedRef<class SGraphPin>& InPin) {}
 	// End of interface to override
 	
@@ -58,7 +58,7 @@ private:
 protected:
 
 	// Name of category we are hovering over
-	FString HoveredCategoryName;
+	FText HoveredCategoryName;
 
 	// Action we are hovering over
 	TWeakPtr<struct FEdGraphSchemaAction> HoveredAction;

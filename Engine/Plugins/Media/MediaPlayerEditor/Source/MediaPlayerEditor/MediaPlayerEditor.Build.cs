@@ -8,9 +8,9 @@ public class MediaPlayerEditor : ModuleRules
 	{
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
-                "AssetTools",
+				"AssetTools",
 				"MainFrame",
-                "Media",
+				"Media",
 				"WorkspaceMenuStructure",
 			}
 		);
@@ -18,41 +18,43 @@ public class MediaPlayerEditor : ModuleRules
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				"MediaPlayerEditor/Private",
-                "MediaPlayerEditor/Private/AssetTools",
-                "MediaPlayerEditor/Private/Factories",
-                "MediaPlayerEditor/Private/Models",
-                "MediaPlayerEditor/Private/Styles",
-                "MediaPlayerEditor/Private/Widgets",
+				"MediaPlayerEditor/Private/AssetTools",
+                "MediaPlayerEditor/Private/Customizations",
+				"MediaPlayerEditor/Private/Factories",
+				"MediaPlayerEditor/Private/Models",
+				"MediaPlayerEditor/Private/Styles",
+				"MediaPlayerEditor/Private/Widgets",
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
-                "ContentBrowser",
+				"ContentBrowser",
 				"Core",
 				"CoreUObject",
-                "EditorStyle",
+                "DesktopWidgets",
+				"EditorStyle",
 				"Engine",
-                "InputCore",
-                "MediaAssets",
-                "PropertyEditor",
+				"InputCore",
+				"MediaAssets",
+				"PropertyEditor",
 				"RenderCore",
 				"RHI",
 				"ShaderCore",
 				"Slate",
 				"SlateCore",
-                "TextureEditor",
-				"UnrealEd"
+				"TextureEditor",
+				"UnrealEd",
 			}
 		);
 
-        PrivateIncludePathModuleNames.AddRange(
-            new string[] {
-                "AssetTools",
-                "Media",
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"AssetTools",
+				"Media",
 				"UnrealEd",
-                "WorkspaceMenuStructure",
+				"WorkspaceMenuStructure",
 			}
-        );
-    }
+		);
+	}
 }

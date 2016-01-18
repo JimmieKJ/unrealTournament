@@ -68,6 +68,8 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 		GWarn->BeginSlowTask( StatusUpdate, true );	
 	}
 
+	PreMeshBuild.Broadcast(this);
+
 	// Detach all instances of this static mesh from the scene.
 	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(this,false);
 
@@ -91,7 +93,6 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 	CreateBodySetup();
 	check(BodySetup != NULL);
 
-#if WITH_EDITOR
 	if( SourceModels.Num() )
 	{
 		// Rescale simple collision if the user changed the mesh build scale
@@ -102,7 +103,6 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 	// TODO_STATICMESH: Not necessary any longer?
 	BodySetup->InvalidatePhysicsData();
 	BodySetup->CreatePhysicsMeshes();
-#endif
 
 	// Compare the derived data keys to see if renderable mesh data has actually changed.
 	check(RenderData);
@@ -117,7 +117,8 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 			FFormatNamedArguments Arguments;
 			Arguments.Add( TEXT("Meshname"), FText::FromString(GetName()) );
 			Arguments.Add( TEXT("Options"), SourceModels[0].BuildSettings.bRecomputeTangents ? FText::GetEmpty() : LOCTEXT("MeshRecomputeTangents", "Consider enabling Recompute Tangents in the mesh's Build Settings.") );
-			const FText WarningMsg = FText::Format( LOCTEXT("MeshHasDegenerateTangents", "{Meshname} has degenerate tangent bases which will result in incorrect shading. {Options}"), Arguments );
+			Arguments.Add( TEXT("MikkTSpace"), SourceModels[0].BuildSettings.bUseMikkTSpace ? LOCTEXT("MeshUseMikkTSpace", "MikkTSpace relies on tangent bases and may result in mesh corruption, consider disabling this option.") : FText::GetEmpty() );
+			const FText WarningMsg = FText::Format( LOCTEXT("MeshHasDegenerateTangents", "{Meshname} has degenerate tangent bases which will result in incorrect shading. {Options} {MikkTSpace}"), Arguments );
 			UE_LOG(LogStaticMesh,Warning,TEXT("%s"),*WarningMsg.ToString());
 			if (!bSilent && OutErrors)
 			{
@@ -140,6 +141,11 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 		}
 
 	}
+
+	// Calculate extended bounds
+	CalculateExtendedBounds();
+
+	PostMeshBuild.Broadcast(this);
 
 	if(!bSilent)
 	{

@@ -63,13 +63,16 @@ bool UGatherTextCommandletBase::WriteJSONToTextFile(TSharedPtr<FJsonObject> Outp
 	// If the user specified a reference file - write the entries read from code to a ref file
 	if ( !Filename.IsEmpty() && Output.IsValid() )
 	{
-		if( SourceControl.IsValid() )
+		const bool DidFileExist = FPaths::FileExists(Filename);
+		if (DidFileExist)
 		{
-			FText SCCErrorText;
-			if (!SourceControl->CheckOutFile(Filename, SCCErrorText))
+			if( SourceControl.IsValid() )
 			{
-				UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Check out of file %s failed: %s"), *Filename, *SCCErrorText.ToString());
-				WasSuccessful = false;
+				FText SCCErrorText;
+				if (!SourceControl->CheckOutFile(Filename, SCCErrorText))
+				{
+					UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Check out of file %s failed: %s"), *Filename, *SCCErrorText.ToString());
+				}
 			}
 		}
 
@@ -84,6 +87,18 @@ bool UGatherTextCommandletBase::WriteJSONToTextFile(TSharedPtr<FJsonObject> Outp
 			{
 				UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Failed to write localization entries to file %s"), *Filename);
 				WasSuccessful = false;
+			}
+		}
+
+		if (!DidFileExist)
+		{
+			if( SourceControl.IsValid() )
+			{
+				FText SCCErrorText;
+				if (!SourceControl->CheckOutFile(Filename, SCCErrorText))
+				{
+					UE_LOG(LogGatherTextCommandletBase, Error, TEXT("Check out of file %s failed: %s"), *Filename, *SCCErrorText.ToString());
+				}
 			}
 		}
 	}
@@ -275,7 +290,7 @@ bool FManifestInfo::AddManifestDependencies( const TArray< FString >& InManifest
 }
 
 
-TSharedPtr< FManifestEntry > FManifestInfo::FindDependencyEntrybyContext( const FString& Namespace, const FContext& Context, FString& OutFileName )
+TSharedPtr< FManifestEntry > FManifestInfo::FindDependencyEntryByContext( const FString& Namespace, const FContext& Context, FString& OutFileName )
 {
 	TSharedPtr<FManifestEntry> DependencyEntry = NULL;
 	OutFileName = TEXT("");
@@ -292,7 +307,7 @@ TSharedPtr< FManifestEntry > FManifestInfo::FindDependencyEntrybyContext( const 
 	return DependencyEntry;
 }
 
-TSharedPtr< FManifestEntry > FManifestInfo::FindDependencyEntrybySource( const FString& Namespace, const FLocItem& Source, FString& OutFileName )
+TSharedPtr< FManifestEntry > FManifestInfo::FindDependencyEntryBySource( const FString& Namespace, const FLocItem& Source, FString& OutFileName )
 {
 	TSharedPtr<FManifestEntry> DependencyEntry = NULL;
 	OutFileName = TEXT("");
@@ -323,7 +338,7 @@ void FManifestInfo::ApplyManifestDependencies()
 			{
 				FString DependencyFileName;
 
-				const TSharedPtr<FManifestEntry> DependencyEntry = FindDependencyEntrybyContext( ManifestEntry->Namespace, *ContextIt, DependencyFileName );
+				const TSharedPtr<FManifestEntry> DependencyEntry = FindDependencyEntryByContext( ManifestEntry->Namespace, *ContextIt, DependencyFileName );
 				
 				if( DependencyEntry.IsValid() )
 				{
@@ -378,7 +393,7 @@ bool FManifestInfo::AddEntry( const FString& EntryDescription, const FString& Na
 	TSharedPtr< FManifestEntry > ExistingEntry = Manifest->FindEntryByContext( Namespace, Context );
 	if( !ExistingEntry.IsValid() )
 	{
-		ExistingEntry = FindDependencyEntrybyContext( Namespace, Context, ExistingEntryFileName );
+		ExistingEntry = FindDependencyEntryByContext( Namespace, Context, ExistingEntryFileName );
 	}
 
 	if( ExistingEntry.IsValid() )
@@ -727,7 +742,7 @@ FGatherTextSCC::~FGatherTextSCC()
 
 bool FGatherTextSCC::CheckOutFile(const FString& InFile, FText& OutError)
 {
-	if ( InFile.IsEmpty() )
+	if ( InFile.IsEmpty() || InFile.StartsWith(TEXT("\\\\")) )
 	{
 		OutError = NSLOCTEXT("GatherTextCmdlet", "InvalidFileSpecified", "Could not checkout file at invalid path.");
 		return false;
@@ -905,7 +920,7 @@ bool FGatherTextSCC::IsReady(FText& OutError)
 
 bool FGatherTextSCC::RevertFile( const FString& InFile, FText& OutError )
 {
-	if( InFile.IsEmpty() )
+	if( InFile.IsEmpty() || InFile.StartsWith(TEXT("\\\\")) )
 	{
 		OutError = NSLOCTEXT("GatherTextCmdlet", "CouldNotRevertFile", "Could not revert file.");
 		return false;

@@ -179,6 +179,17 @@ UEdGraph* FEdGraphUtilities::CloneGraph(UEdGraph* InSource, UObject* NewOuter, F
 			UObject* const Dest = It.Value();
 
 			MessageLog->NotifyIntermediateObjectCreation(Dest, Source);
+
+			// During compilation, set cloned nodes to a non-conditional enabled state.
+			if (bCloningForCompile)
+			{
+				const UEdGraphNode* SrcNode = Cast<UEdGraphNode>(Source);
+				UEdGraphNode* DstNode = Cast<UEdGraphNode>(Dest);
+				if(SrcNode && DstNode)
+				{
+					DstNode->EnabledState = SrcNode->IsNodeEnabled() ? ENodeEnabledState::Enabled : ENodeEnabledState::Disabled;
+				}
+			}
 		}
 	}
 
@@ -218,9 +229,15 @@ void FEdGraphUtilities::MergeChildrenGraphsIn(UEdGraph* MergeTarget, UEdGraph* P
 	{
 		UEdGraph* ChildGraph = ParentGraph->SubGraphs[Index];
 
+		auto NodeOwner = Cast<const UEdGraphNode>(ChildGraph ? ChildGraph->GetOuter() : nullptr);
+		const bool bNonVirtualGraph = NodeOwner ? NodeOwner->ShouldMergeChildGraphs() : true;
+
 		// Only merge children in with the same schema as the parent
-		const bool bSchemaMatches = ChildGraph->GetSchema()->GetClass()->IsChildOf(MergeTarget->GetSchema()->GetClass());
-		if (!bRequireSchemaMatch || bSchemaMatches)
+		auto ChildSchema = ChildGraph ? ChildGraph->GetSchema() : nullptr;
+		auto TargetSchema = MergeTarget ? MergeTarget->GetSchema() : nullptr;
+		const bool bSchemaMatches = ChildSchema && TargetSchema && ChildSchema->GetClass()->IsChildOf(TargetSchema->GetClass());
+		const bool bDoMerge = bNonVirtualGraph && (!bRequireSchemaMatch || bSchemaMatches);
+		if (bDoMerge)
 		{
 			// Even if we don't require a match to recurse, we do to actually copy the nodes
 			if (bSchemaMatches)

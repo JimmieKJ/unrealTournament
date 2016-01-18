@@ -12,11 +12,12 @@
 #include "SLogWindow.h"
 #include "SLogDialog.h"
 
+#include "NUTUtil.h"
+#include "NUTUtilDebug.h"
 #include "NUTUtilNet.h"
 #include "NUTUtilProfiler.h"
-#include "NUTUtil.h"
 
-// @todo JohnB: Add an overall-timer, and then start debugging the memory management in more detail
+// @todo #JohnBFeature: Add an overall-timer, and then start debugging the memory management in more detail
 
 
 UUnitTestManager* GUnitTestManager = NULL;
@@ -33,10 +34,10 @@ static TMap<FString, FString> UnsupportedUnitTests;
 
 
 
-// @todo JohnB: Add detection for unit tests that either 1: Never end (e.g. if they become outdated and break, or 2: keep on hitting
+// @todo #JohnBHighPri: Add detection for unit tests that either 1: Never end (e.g. if they become outdated and break, or 2: keep on hitting
 //				memory limits and get auto-closed and re-run recursively, forever
 
-// @todo JohnB: For unit tests that are running in the background (no log window for controlling them),
+// @todo #JohnBFeatureUI: For unit tests that are running in the background (no log window for controlling them),
 //				add a drop-down listbox button to the status window, for re-opening background unit test log windows
 //				(can even add an option, to have them all running in background by default, so you have to do this to open
 //				log window at all)
@@ -53,6 +54,7 @@ UUnitTestManager::UUnitTestManager(const FObjectInitializer& ObjectInitializer)
 	, bCapUnitTestMemory(false)
 	, MaxMemoryPercent(0)
 	, AutoCloseMemoryPercent(0)
+	, MaxAutoCloseCount(0)
 	, PendingUnitTests()
 	, ActiveUnitTests()
 	, FinishedUnitTests()
@@ -64,6 +66,7 @@ UUnitTestManager::UUnitTestManager(const FObjectInitializer& ObjectInitializer)
 	, DialogWindows()
 	, StatusWindow()
 	, AbortAllDialog()
+	, LastMemoryLimitHit(0.0)
 	, MemoryTickCountdown(0)
 	, MemoryUsageUponCountdown(0)
 {
@@ -99,13 +102,15 @@ void UUnitTestManager::Initialize()
 		// Since the above can undershoot, the limit at which unit tests are automatically terminated, is a bit higher
 		AutoCloseMemoryPercent = 90;
 
+		MaxAutoCloseCount = 4;
+
 		UE_LOG(LogUnitTest, Log, TEXT("Creating initial unit test config file"));
 
 		SaveConfig();
 	}
 
 	// Add this object to the root set, to disable garbage collection until desired (it is not referenced by any UProperties)
-	SetFlags(RF_RootSet);
+	AddToRoot();
 
 	// Add a log hook
 	if (!GLog->IsRedirectingTo(this))
@@ -143,17 +148,18 @@ bool UUnitTestManager::QueueUnitTest(UClass* UnitTestClass, bool bRequeued/*=fal
 
 
 	bool bValidUnitTestClass = UnitTestClass->IsChildOf(UUnitTest::StaticClass()) && UnitTestClass != UUnitTest::StaticClass() &&
-								UnitTestClass != UClientUnitTest::StaticClass();
+								UnitTestClass != UClientUnitTest::StaticClass() && UnitTestClass != UProcessUnitTest::StaticClass();
 
 	UUnitTest* UnitTestDefault = (bValidUnitTestClass ? Cast<UUnitTest>(UnitTestClass->GetDefaultObject()) : NULL);
+	bool bSupportsAllGames = (bValidUnitTestClass ? UnitTestDefault->GetSupportedGames().Contains("NullUnitEnv") : false);
 
 	bValidUnitTestClass = UnitTestDefault != NULL;
 
 
-	if (bValidUnitTestClass && UUnitTest::UnitEnv != NULL)
+	if (bValidUnitTestClass && (UUnitTest::UnitEnv != NULL || bSupportsAllGames))
 	{
 		FString UnitTestName = UnitTestDefault->GetUnitTestName();
-		bool bCurrentGameSupported = UnitTestDefault->GetSupportedGames().Contains(FApp::GetGameName());
+		bool bCurrentGameSupported = bSupportsAllGames || UnitTestDefault->GetSupportedGames().Contains(FApp::GetGameName());
 
 		if (bCurrentGameSupported)
 		{
@@ -219,8 +225,20 @@ bool UUnitTestManager::QueueUnitTest(UClass* UnitTestClass, bool bRequeued/*=fal
 	}
 	else if (UUnitTest::UnitEnv == NULL)
 	{
-		STATUS_LOG(ELogType::StatusError | ELogType::StyleBold,
-					TEXT("No unit test environment found (need to load unit test environment module for this game, or create it)."));
+		ELogType StatusType = ELogType::StyleBold;
+
+		// @todo #JohnBAutomation: This should be enabled by default instead, so automation testing does give an error when a game doesn't
+		//				have a unit test environment. You should probably setup a whitelist of 'known-unsupported-games' somewhere,
+		//				to keep track of what games need support added, without breaking automation testing (but without breaking the
+		//				flow of setting-up/running automation tests)
+		if (!GIsAutomationTesting)
+		{
+			StatusType |= ELogType::StatusError;
+		}
+
+		STATUS_LOG(StatusType,
+				TEXT("No unit test environment found (need to load unit test environment module for this game '%s', or create it)."),
+				FApp::GetGameName());
 	}
 
 	return bSuccess;
@@ -228,84 +246,88 @@ bool UUnitTestManager::QueueUnitTest(UClass* UnitTestClass, bool bRequeued/*=fal
 
 void UUnitTestManager::PollUnitTestQueue()
 {
-	// @todo JohnB: Maybe consider staggering the start of unit tests, as perhaps this may give late-starters
+	// @todo #JohnB: Maybe consider staggering the start of unit tests, as perhaps this may give late-starters
 	//				a boost from OS precaching of file data, and may also help stagger the 'peak memory' time,
 	//				which often gets multiple unit tests closed early due to happening at the same time?
 
-	// Keep kicking off unit tests in order, until the list is empty, or until the unit test cap is reached
-	for (int32 i=0; i<PendingUnitTests.Num(); i++)
+	// If the memory limit was recently hit, wait a number of seconds before launching any more unit tests
+	if (PendingUnitTests.Num() > 0 && (FPlatformTime::Seconds() - LastMemoryLimitHit) > 4.0)
 	{
-		bool bAlreadyRemoved = false;
-
-		// Lambda for remove-safe and multi-remove-safe handling within this loop
-		auto RemoveCurrent = [&]()
-			{
-				if (!bAlreadyRemoved)
-				{
-					bAlreadyRemoved = true;
-					PendingUnitTests.RemoveAt(i);
-					i--;
-				}
-			};
-
-
-		UClass* CurUnitTestClass = PendingUnitTests[i];
-		bool bWithinUnitTestLimits = ActiveUnitTests.Num() == 0 || WithinUnitTestLimits(CurUnitTestClass);
-
-		// This unit test isn't within limits, continue to the next one and see if it fits
-		if (!bWithinUnitTestLimits)
+		// Keep kicking off unit tests in order, until the list is empty, or until the unit test cap is reached
+		for (int32 i=0; i<PendingUnitTests.Num(); i++)
 		{
-			continue;
-		}
+			bool bAlreadyRemoved = false;
+
+			// Lambda for remove-safe and multi-remove-safe handling within this loop
+			auto RemoveCurrent = [&]()
+				{
+					if (!bAlreadyRemoved)
+					{
+						bAlreadyRemoved = true;
+						PendingUnitTests.RemoveAt(i);
+						i--;
+					}
+				};
 
 
-		UUnitTest* CurUnitTestDefault = Cast<UUnitTest>(CurUnitTestClass->GetDefaultObject());
+			UClass* CurUnitTestClass = PendingUnitTests[i];
+			bool bWithinUnitTestLimits = ActiveUnitTests.Num() == 0 || WithinUnitTestLimits(CurUnitTestClass);
 
-		if (CurUnitTestDefault != NULL)
-		{
-			auto CurUnitTest = NewObject<UUnitTest>(GetTransientPackage(), CurUnitTestClass);
-
-			if (CurUnitTest != NULL)
+			// This unit test isn't within limits, continue to the next one and see if it fits
+			if (!bWithinUnitTestLimits)
 			{
-				if (UUnitTest::UnitEnv != NULL)
+				continue;
+			}
+
+
+			UUnitTest* CurUnitTestDefault = Cast<UUnitTest>(CurUnitTestClass->GetDefaultObject());
+
+			if (CurUnitTestDefault != NULL)
+			{
+				auto CurUnitTest = NewObject<UUnitTest>(GetTransientPackage(), CurUnitTestClass);
+
+				if (CurUnitTest != NULL)
 				{
-					CurUnitTest->InitializeEnvironmentSettings();
-				}
+					if (UUnitTest::UnitEnv != NULL)
+					{
+						CurUnitTest->InitializeEnvironmentSettings();
+					}
 
-				// Remove from PendingUnitTests, and add to ActiveUnitTests
-				RemoveCurrent();
-				ActiveUnitTests.Add(CurUnitTest);
+					// Remove from PendingUnitTests, and add to ActiveUnitTests
+					RemoveCurrent();
+					ActiveUnitTests.Add(CurUnitTest);
 
-				// Create the log window (if starting the unit test fails, this is unset during cleanup)
-				if (!FApp::IsUnattended())
-				{
-					OpenUnitTestLogWindow(CurUnitTest);
-				}
+					// Create the log window (if starting the unit test fails, this is unset during cleanup)
+					if (!FApp::IsUnattended())
+					{
+						OpenUnitTestLogWindow(CurUnitTest);
+					}
 
 
-				if (CurUnitTest->StartUnitTest())
-				{
-					STATUS_LOG(ELogType::StatusImportant, TEXT("Started unit test '%s'"), *CurUnitTest->GetUnitTestName());
+					if (CurUnitTest->StartUnitTest())
+					{
+						STATUS_LOG(ELogType::StatusImportant, TEXT("Started unit test '%s'"), *CurUnitTest->GetUnitTestName());
+					}
+					else
+					{
+						STATUS_LOG(ELogType::StatusError | ELogType::StyleBold, TEXT("Failed to kickoff unit test '%s'"),
+										*CurUnitTestDefault->GetUnitTestName());
+					}
 				}
 				else
 				{
-					STATUS_LOG(ELogType::StatusError | ELogType::StyleBold, TEXT("Failed to kickoff unit test '%s'"),
+					STATUS_LOG(ELogType::StatusError | ELogType::StyleBold, TEXT("Failed to construct unit test: %s"),
 									*CurUnitTestDefault->GetUnitTestName());
 				}
 			}
 			else
 			{
-				STATUS_LOG(ELogType::StatusError | ELogType::StyleBold, TEXT("Failed to construct unit test: %s"),
-								*CurUnitTestDefault->GetUnitTestName());
+				STATUS_LOG(ELogType::StatusError | ELogType::StyleBold, TEXT("Failed to find default object for unit test class '%s'"),
+								*CurUnitTestClass->GetName());
 			}
-		}
-		else
-		{
-			STATUS_LOG(ELogType::StatusError | ELogType::StyleBold, TEXT("Failed to find default object for unit test class '%s'"),
-							*CurUnitTestClass->GetName());
-		}
 
-		RemoveCurrent();
+			RemoveCurrent();
+		}
 	}
 }
 
@@ -313,11 +335,17 @@ bool UUnitTestManager::WithinUnitTestLimits(UClass* PendingUnitTest/*=NULL*/)
 {
 	bool bReturnVal = false;
 
-	// @todo JohnB: Could do with non-spammy logging of when limits are reached
+	// @todo #JohnBReview: Could do with non-spammy logging of when limits are reached
 
 	// Check max unit test count
 	bReturnVal = !bCapUnitTestCount || ActiveUnitTests.Num() < MaxUnitTestCount;
 
+	int32 CommandlineCap = 0;
+
+	if (bReturnVal && FParse::Value(FCommandLine::Get(), TEXT("UnitTestCap="), CommandlineCap) && CommandlineCap > 0)
+	{
+		bReturnVal = ActiveUnitTests.Num() < CommandlineCap;
+	}
 
 	// Limit the number of first-run unit tests (which don't have any stats gathered), to MaxUnitTestCount, even if !bCapUnitTestCount.
 	// If any first-run unit tests have had to be aborted, this might signify a problem, so make the cap very strict (two at a time)
@@ -325,7 +353,7 @@ bool UUnitTestManager::WithinUnitTestLimits(UClass* PendingUnitTest/*=NULL*/)
 
 	if (bReturnVal && !bCapUnitTestCount && ActiveUnitTests.Num() >= FirstRunCap)
 	{
-		// @todo JohnB: Add prominent logging for hitting this cap - preferably 'status' log window
+		// @todo #JohnB: Add prominent logging for hitting this cap - preferably 'status' log window
 
 		uint32 FirstRunCount = 0;
 
@@ -464,14 +492,10 @@ bool UUnitTestManager::WithinUnitTestLimits(UClass* PendingUnitTest/*=NULL*/)
 		SIZE_T EstimatedPeakPhysicalMem = (UsedPhysicalMem - CurrentTotalUnitMemUsage) + WorstCaseTotalUnitMemUsage;
 
 		bReturnVal = MaxPhysicalMem > EstimatedPeakPhysicalMem;
-
-
-		// @todo JohnB: Remove this debug code
-		//UE_LOG(LogUnitTest, Log, TEXT("Estimated peak physical mem: %llumb"), (EstimatedPeakPhysicalMem / (SIZE_T)1048576));
 	}
 
 
-	// @todo JohnB: How to improve unit test memory estimates:
+	// @todo #JohnBFeature: How to improve unit test memory estimates:
 	// NOTE: Not to be done, unless above implementation proves problematic (seems to provide decent estimates so-far)
 	//	- Can improve future-memory-usage estimation, by storing time-series stats, mapping the memory usage of each unit test
 	//		- Problem here though, is this is liable to vary over time, so perhaps only do this for each unit tests 'most recent run'
@@ -509,11 +533,11 @@ void UUnitTestManager::NotifyUnitTestCleanup(UUnitTest* InUnitTest)
 {
 	ActiveUnitTests.Remove(InUnitTest);
 
-	UClientUnitTest* CurClientUnitTest = Cast<UClientUnitTest>(InUnitTest);
+	UProcessUnitTest* CurProcUnitTest = Cast<UProcessUnitTest>(InUnitTest);
 
-	if (CurClientUnitTest != NULL)
+	if (CurProcUnitTest != NULL)
 	{
-		CurClientUnitTest->OnServerSuspendState.Unbind();
+		CurProcUnitTest->OnSuspendStateChange.Unbind();
 	}
 
 
@@ -584,18 +608,17 @@ void UUnitTestManager::NotifyLogWindowClosed(const TSharedRef<SWindow>& ClosedWi
 
 		if (CurUnitTest != NULL)
 		{
-			UClientUnitTest* CurClientUnitTest = Cast<UClientUnitTest>(CurUnitTest);
+			UProcessUnitTest* CurProcUnitTest = Cast<UProcessUnitTest>(CurUnitTest);
 
-			if (CurClientUnitTest != NULL)
+			if (CurProcUnitTest != NULL)
 			{
-				CurClientUnitTest->OnServerSuspendState.Unbind();
+				CurProcUnitTest->OnSuspendStateChange.Unbind();
 			}
+
 
 			if (!CurUnitTest->bCompleted && !CurUnitTest->bAborted)
 			{
 				// Show a message box, asking the player if they'd like to also abort the unit test
-				// @todo JohnB: Perhaps add an option somewhere, to abort-by-default as well, to save the time spent on UI
-				//				(could even make it a tickbox on the status window)
 				FString UnitTestName = CurUnitTest->GetUnitTestName();
 
 				FText CloseMsg = FText::FromString(FString::Printf(TEXT("Abort unit test '%s'? (currently running in background)"),
@@ -678,8 +701,11 @@ void UUnitTestManager::DumpStatus(bool bForce/*=false*/)
 		// doesn't disrupt the flow of text (otherwise, all the other events/updates in the status window, become hard to read)
 		STATUS_SET_COLOR(FLinearColor(0.f, 1.f, 1.f));
 
-		// @todo JohnB: Prettify the status command, by seeing if you can evenly space unit test info into columns;
+		// @todo #JohnB: Prettify the status command, by seeing if you can evenly space unit test info into columns;
 		//				use the console monospacing to help do this (if it looks ok)
+
+		// @todo #JohnBFeatureUI: Better yet, replace the unit test status, text, with an actual list of running unit tests
+
 		SIZE_T TotalMemoryUsage = 0;
 
 		STATUS_LOG(, TEXT(""));
@@ -715,7 +741,7 @@ void UUnitTestManager::DumpStatus(bool bForce/*=false*/)
 	}
 }
 
-void UUnitTestManager::PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSummary/*=false*/)
+void UUnitTestManager::PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSummary/*=false*/, bool bUnfinished/*=false*/)
 {
 	static const UEnum* VerificationStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUnitTestVerification"));
 
@@ -730,7 +756,7 @@ void UUnitTestManager::PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSum
 	}
 
 	STATUS_LOG_OBJ(InUnitTest, ELogType::StatusImportant,	TEXT("  - Result: %s"),
-					*VerificationStateEnum->GetEnumName((uint32)UnitTestResult));
+					(bUnfinished ? TEXT("Aborted/Unfinished") : *VerificationStateEnum->GetEnumName((uint32)UnitTestResult)));
 	STATUS_LOG_OBJ(InUnitTest, ELogType::StatusVerbose,	TEXT("  - Execution Time: %f"), InUnitTest->LastExecutionTime);
 
 
@@ -787,8 +813,12 @@ void UUnitTestManager::PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSum
 
 	EUnitTestVerification ExpectedResult = InUnitTest->GetExpectedResult();
 
-	// @todo JohnB: Perhaps make this an execution-blocking error instead? (simplifies the code/error-cases here)
-	if (ExpectedResult == EUnitTestVerification::Unverified)
+	if (bUnfinished)
+	{
+		STATUS_LOG_OBJ(InUnitTest, ELogType::StatusWarning | StatusAutomationFlag | ELogType::StyleBold,
+						TEXT("  - WARNING: Unit test was aborted and could not be successfully run."))
+	}
+	else if (ExpectedResult == EUnitTestVerification::Unverified)
 	{
 		STATUS_LOG_OBJ(InUnitTest, ELogType::StatusError | StatusAutomationFlag | ELogType::StyleBold,
 						TEXT("  - Unit test does not have 'ExpectedResult' set"));
@@ -854,7 +884,7 @@ void UUnitTestManager::PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSum
 
 void UUnitTestManager::PrintFinalSummary()
 {
-	// @todo JohnB: Add some extra stats eventually, such as overall time taken etc.
+	// @todo #JohnBFeatureUI: Add some extra stats eventually, such as overall time taken etc.
 
 	STATUS_LOG(ELogType::StatusImportant, TEXT(""));
 	STATUS_LOG(ELogType::StatusImportant, TEXT(""));
@@ -879,8 +909,9 @@ void UUnitTestManager::PrintFinalSummary()
 	UnsupportedUnitTests.Empty();
 
 
-	// Then print the aborted unit tests
+	// Then print the aborted unit tests, and unit tests that have aborted so many times that they can't complete
 	TArray<FString> AbortList;
+	TArray<UUnitTest*> UnfinishedUnitTests;
 
 	for (auto CurUnitTest : FinishedUnitTests)
 	{
@@ -902,69 +933,120 @@ void UUnitTestManager::PrintFinalSummary()
 			{
 				NumberOfAborts++;
 				AbortList.RemoveAt(DupeIdx);
-				DupeIdx--;
+			}
+
+			// NOTE: DupeIdx is invalid past here (as it can not be decremented after RemoveAt above)
+		}
+
+
+		// If the unit test did not have a successful execution, note this
+		UUnitTest* UnfinishedTest = NULL;
+
+		bool bUnitTestCompleted = false;
+
+		for (auto CurUnitTest : FinishedUnitTests)
+		{
+			if (CurUnitTest->GetUnitTestName() == CurAbort)
+			{
+				UnfinishedTest = CurUnitTest;
+
+				if (!CurUnitTest->bAborted)
+				{
+					bUnitTestCompleted = true;
+					break;
+				}
 			}
 		}
+
+		if (!bUnitTestCompleted)
+		{
+			UnfinishedUnitTests.Add(UnfinishedTest);
+		}
+
+
+		FString AbortMsg;
 
 		if (NumberOfAborts == 1)
 		{
-			STATUS_LOG(ELogType::StatusWarning | ELogType::StyleBold, TEXT("%s: Aborted."), *CurAbort);
+			AbortMsg = FString::Printf(TEXT("%s: Aborted."), *CurAbort);
 		}
 		else
 		{
-			STATUS_LOG(ELogType::StatusWarning | ELogType::StyleBold, TEXT("%s: Aborted ('%i' times)."), *CurAbort, NumberOfAborts);
+			AbortMsg = FString::Printf(TEXT("%s: Aborted ('%i' times)."), *CurAbort, NumberOfAborts);
+		}
+
+		if (bUnitTestCompleted)
+		{
+			STATUS_LOG(ELogType::StatusWarning | ELogType::StyleBold, TEXT("%s"), *AbortMsg);
+		}
+		else
+		{
+			AbortMsg += TEXT(" Failed to successfully retry unit test after aborting.");
+
+			STATUS_LOG(ELogType::StatusWarning | ELogType::StyleBold | ELogType::StyleItalic, TEXT("%s"), *AbortMsg);
 		}
 	}
 
 
-	if (AbortList.Num() > 0 || UnsupportedUnitTests.Num() > 0)
+	if (AbortList.Num() > 0 || UnfinishedUnitTests.Num() > 0)
 	{
 		STATUS_LOG(ELogType::StatusImportant, TEXT(""));
 		STATUS_LOG(ELogType::StatusImportant, TEXT(""));
 	}
 
-	// Now print the completed unit tests, which have more detailed information
+	// Now print the completed and unfinished unit tests, which have more detailed information
+	auto StatusPrintResult =
+		[&](UUnitTest* CurUnitTest, bool bUnfinished)
+		{
+			if (!CurUnitTest->bAborted || bUnfinished)
+			{
+				STATUS_SET_COLOR(FLinearColor(0.25f, 0.25f, 0.25f));
+
+				STATUS_LOG(ELogType::StatusImportant | ELogType::StatusAutomation | ELogType::StyleBold | ELogType::StyleUnderline,
+							TEXT("%s:"), *CurUnitTest->GetUnitTestName());
+
+				STATUS_RESET_COLOR();
+
+
+				// Print out the main result header
+				PrintUnitTestResult(CurUnitTest, true, bUnfinished);
+
+
+				// Now print out the full event history
+				bool bHistoryContainsImportant = CurUnitTest->StatusLogSummary.ContainsByPredicate(
+					[](const TSharedPtr<FUnitStatusLog>& CurEntry)
+					{
+						return ((CurEntry->LogType & ELogType::StatusImportant) == ELogType::StatusImportant);
+					});
+
+
+				if (bHistoryContainsImportant)
+				{
+					STATUS_LOG(ELogType::StatusImportant, TEXT("  - Log summary:"));
+				}
+				else
+				{
+					STATUS_LOG(ELogType::StatusVerbose, TEXT("  - Log summary:"));
+				}
+
+				for (auto CurStatusLog : CurUnitTest->StatusLogSummary)
+				{
+					STATUS_LOG(CurStatusLog->LogType, TEXT("      %s"), *CurStatusLog->LogLine);
+				}
+
+
+				STATUS_LOG(ELogType::StatusImportant, TEXT(""));
+			}
+		};
+
 	for (auto CurUnitTest : FinishedUnitTests)
 	{
-		if (!CurUnitTest->bAborted)
-		{
-			STATUS_SET_COLOR(FLinearColor(0.25f, 0.25f, 0.25f));
+		StatusPrintResult(CurUnitTest, false);
+	}
 
-			STATUS_LOG(ELogType::StatusImportant | ELogType::StatusAutomation | ELogType::StyleBold | ELogType::StyleUnderline,
-						TEXT("%s:"), *CurUnitTest->GetUnitTestName());
-
-			STATUS_RESET_COLOR();
-
-
-			// Print out the main result header
-			PrintUnitTestResult(CurUnitTest, true);
-
-
-			// Now print out the full event history
-			bool bHistoryContainsImportant = CurUnitTest->StatusLogSummary.ContainsByPredicate(
-				[](const TSharedPtr<FUnitStatusLog>& CurEntry)
-				{
-					return ((CurEntry->LogType & ELogType::StatusImportant) == ELogType::StatusImportant);
-				});
-
-
-			if (bHistoryContainsImportant)
-			{
-				STATUS_LOG(ELogType::StatusImportant, TEXT("  - Log summary:"));
-			}
-			else
-			{
-				STATUS_LOG(ELogType::StatusVerbose, TEXT("  - Log summary:"));
-			}
-
-			for (auto CurStatusLog : CurUnitTest->StatusLogSummary)
-			{
-				STATUS_LOG(CurStatusLog->LogType, TEXT("      %s"), *CurStatusLog->LogLine);
-			}
-
-
-			STATUS_LOG(ELogType::StatusImportant, TEXT(""));
-		}
+	for (auto CurUnitTest : UnfinishedUnitTests)
+	{
+		StatusPrintResult(CurUnitTest, true);
 	}
 }
 
@@ -974,25 +1056,23 @@ void UUnitTestManager::OpenUnitTestLogWindow(UUnitTest* InUnitTest)
 	if (LogWindowManager != NULL)
 	{
 		InUnitTest->LogWindow = LogWindowManager->CreateLogWindow(InUnitTest->GetUnitTestName(), InUnitTest->GetExpectedLogTypes());
+		TSharedPtr<SLogWidget> CurLogWidget = (InUnitTest->LogWindow.IsValid() ? InUnitTest->LogWindow->LogWidget : NULL);
 
-		UClientUnitTest* CurClientUnitTest = Cast<UClientUnitTest>(InUnitTest);
-
-		if (InUnitTest->LogWindow.IsValid() && CurClientUnitTest != NULL)
+		if (CurLogWidget.IsValid())
 		{
-			TSharedPtr<SLogWidget> CurLogWidget = InUnitTest->LogWindow->LogWidget;
+			// Setup the widget console command context list, and then bind the console command delegate
+			InUnitTest->GetCommandContextList(CurLogWidget->ConsoleContextList, CurLogWidget->DefaultConsoleContext);
 
-			if (CurLogWidget.IsValid())
+			CurLogWidget->OnConsoleCommand.BindUObject(InUnitTest, &UUnitTest::NotifyConsoleCommandRequest);
+			CurLogWidget->OnDeveloperClicked.BindUObject(InUnitTest, &UUnitTest::NotifyDeveloperModeRequest);
+
+
+			UProcessUnitTest* CurProcUnitTest = Cast<UProcessUnitTest>(InUnitTest);
+
+			if (CurProcUnitTest != NULL)
 			{
-				CurLogWidget->OnSuspendClicked.BindUObject(CurClientUnitTest, &UClientUnitTest::NotifySuspendRequest);
-				CurClientUnitTest->OnServerSuspendState.BindSP(CurLogWidget.Get(), &SLogWidget::OnSuspendStateChanged);
-
-				CurLogWidget->OnDeveloperClicked.BindUObject(CurClientUnitTest, &UClientUnitTest::NotifyDeveloperModeRequest);
-
-
-				// Setup the widget console command context list, and then bind the console command delegate
-				CurClientUnitTest->GetCommandContextList(CurLogWidget->ConsoleContextList, CurLogWidget->DefaultConsoleContext);
-
-				CurLogWidget->OnConsoleCommand.BindUObject(CurClientUnitTest, &UClientUnitTest::NotifyConsoleCommandRequest);
+				CurLogWidget->OnSuspendClicked.BindUObject(CurProcUnitTest, &UProcessUnitTest::NotifySuspendRequest);
+				CurProcUnitTest->OnSuspendStateChange.BindSP(CurLogWidget.Get(), &SLogWidget::OnSuspendStateChanged);
 			}
 		}
 	}
@@ -1014,7 +1094,7 @@ void UUnitTestManager::OpenStatusWindow()
 				{
 					bool bSuccess = false;
 
-					// @todo JohnB: Revisit this - doesn't STATUS_LOG on its own (>not< STATUS_LOG_BASE),
+					// @todo #JohnBReview: Revisit this - doesn't STATUS_LOG on its own (>not< STATUS_LOG_BASE),
 					//				already output to log? Don't think the extra code here is needed.
 
 					// Need an output device redirector, to send console command log output to both GLog and unit test status log,
@@ -1027,7 +1107,7 @@ void UUnitTestManager::OpenStatusWindow()
 						{
 							FString LogLine = FOutputDevice::FormatLogLine(Verbosity, Category, V);
 
-							STATUS_LOG_BASE(, TEXT("%s"), *LogLine);
+							STATUS_LOG_BASE(ELogType::OriginConsole, TEXT("%s"), *LogLine);
 						});
 
 
@@ -1136,6 +1216,8 @@ void UUnitTestManager::Tick(float DeltaTime)
 		MemoryTickCountdown = 10;
 		MemoryUsageUponCountdown = UsedPhysicalMem;
 
+		LastMemoryLimitHit = FPlatformTime::Seconds();
+
 
 		for (int32 i=ActiveUnitTests.Num()-1; i>=0; i--)
 		{
@@ -1149,7 +1231,39 @@ void UUnitTestManager::Tick(float DeltaTime)
 			CurUnitTest->AbortUnitTest();
 			CurUnitTest = NULL;
 
-			QueueUnitTest(UnitTestClass, true);
+
+			if (bAllowRequeuingUnitTests)
+			{
+				bool bAllowRequeue = true;
+
+				// If the number of auto-abort re-queue's is limited, make sure we're not exceeding the limit
+				if (MaxAutoCloseCount > 0)
+				{
+					uint8 CloseCount = 0;
+
+					for (auto CurFinished : FinishedUnitTests)
+					{
+						if (CurFinished->bAborted && CurFinished->GetClass() == UnitTestClass)
+						{
+							CloseCount++;
+						}
+					}
+
+					if (CloseCount >= MaxAutoCloseCount)
+					{
+						STATUS_LOG(ELogType::StatusWarning | ELogType::StyleBold,
+									TEXT("Unit Test '%s' was aborted more than the maximum of '%i' times, and can't be re-queued."),
+									*GetDefault<UUnitTest>(UnitTestClass)->GetUnitTestName(), MaxAutoCloseCount);
+
+						bAllowRequeue = false;
+					}
+				}
+
+				if (bAllowRequeue)
+				{
+					QueueUnitTest(UnitTestClass, true);
+				}
+			}
 
 
 			// Keep closing unit tests, until we get back within memory limits
@@ -1197,14 +1311,14 @@ bool UUnitTestManager::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 {
 	bool bReturnVal = true;
 
-	// @todo JohnB: Detecting the originating unit test, by World, no longer works due to delayed fake client launches;
+	// @todo #JohnBBug: Detecting the originating unit test, by World, no longer works due to delayed fake client launches;
 	//				either find another way of determining the originating unit test, or give all unit tests a unique World early on,
 	//				before the fake client launch
 
 	FString UnitTestName = FParse::Token(Cmd, false);
 	bool bValidUnitTestName = false;
 
-	// @todo JohnB: Refactor some of this function, so that the unit test defaults scanning/updating,
+	// @todo #JohnBReview: Refactor some of this function, so that the unit test defaults scanning/updating,
 	//				is done in a separate specific function
 	//				IMPORTANT: It should be called multiple times, when needed, not just once,
 	//				as there will likely be unit tests in multiple loaded packages in the future
@@ -1215,13 +1329,13 @@ bool UUnitTestManager::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 	NUTUtil::GetUnitTestClassDefList(UnitTestClassDefaults);
 
 	// All unit tests should be given a proper date, so give big errors when this is not set
-	// @todo JohnB: Move to the unit test validation function
+	// @todo #JohnBReview: Move to the unit test validation function
 	for (int i=0; i<UnitTestClassDefaults.Num(); i++)
 	{
 		if (UnitTestClassDefaults[i]->GetUnitTestDate() == FDateTime::MinValue())
 		{
-			Ar.Logf(TEXT("ERROR: Unit Test '%s' does not have a date set!!!! A date must be added to every unit test!"),
-					*UnitTestClassDefaults[i]->GetUnitTestName());
+			Ar.Logf(TEXT("ERROR: Unit Test '%s' (%s) does not have a date set!!!! A date must be added to every unit test!"),
+					*UnitTestClassDefaults[i]->GetUnitTestName(), *UnitTestClassDefaults[i]->GetClass()->GetName());
 		}
 	}
 
@@ -1247,7 +1361,7 @@ bool UUnitTestManager::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 				FFrameProfiler* NewProfiler = new FFrameProfiler(FName(*TargetEvent), FramePercentThreshold);
 				NewProfiler->Start();
 
-				// @todo JohnB: Perhaps add tracking at some stage, and remove self-destruct code from above class
+				// @todo #JohnBLowPri: Perhaps add tracking at some stage, and remove self-destruct code from above class
 			}
 			else
 			{
@@ -1293,54 +1407,78 @@ bool UUnitTestManager::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 	// Debug unit test commands
 	else if (UnitTestName == TEXT("debug"))
 	{
-		if (InWorld != NULL)
-		{
-			UUnitTest** TargetUnitTestRef = ActiveUnitTests.FindByPredicate(
-				[&InWorld](const UUnitTest* InElement)
-				{
-					auto CurUnitTest = Cast<UClientUnitTest>(InElement);
-
-					return CurUnitTest != NULL && CurUnitTest->UnitWorld == InWorld;
-				});
-
-			UClientUnitTest* TargetUnitTest = (TargetUnitTestRef != NULL ? Cast<UClientUnitTest>(*TargetUnitTestRef) : NULL);
-
-			if (TargetUnitTest != NULL)
+		UUnitTest** TargetUnitTestRef = (InWorld != NULL ? ActiveUnitTests.FindByPredicate(
+			[&InWorld](const UUnitTest* InElement)
 			{
-				if (FParse::Command(&Cmd, TEXT("Requirements")))
+				auto CurUnitTest = Cast<UClientUnitTest>(InElement);
+
+				return CurUnitTest != NULL && CurUnitTest->UnitWorld == InWorld;
+			})
+			: NULL);
+
+		UClientUnitTest* TargetUnitTest = (TargetUnitTestRef != NULL ? Cast<UClientUnitTest>(*TargetUnitTestRef) : NULL);
+
+		// Alternatively, if a unit test has not launched started connecting to a server, its world may not be setup,
+		// so can detect by checking the active log unit test too
+		if (TargetUnitTest == NULL && GActiveLogUnitTest != NULL)
+		{
+			TargetUnitTest = Cast<UClientUnitTest>(GActiveLogUnitTest);
+		}
+
+		if (TargetUnitTest != NULL)
+		{
+			if (FParse::Command(&Cmd, TEXT("Requirements")))
+			{
+				EUnitTestFlags RequirementsFlags = (TargetUnitTest->UnitTestFlags & EUnitTestFlags::RequirementsMask);
+				EUnitTestFlags MetRequirements = TargetUnitTest->GetMetRequirements();
+
+				// Iterate over the requirements mask flag bits
+				FString RequiredBits = TEXT("");
+				FString MetBits = TEXT("");
+				FString FailBits = TEXT("");
+				TArray<FString> FlagResults;
+				EUnitTestFlags FirstFlag =
+					(EUnitTestFlags)(1UL << (31 - FMath::CountLeadingZeros((uint32)EUnitTestFlags::RequirementsMask)));
+
+				for (EUnitTestFlags CurFlag=FirstFlag; !!(CurFlag & EUnitTestFlags::RequirementsMask);
+						CurFlag = (EUnitTestFlags)((uint32)CurFlag >> 1))
 				{
-					EUnitTestFlags RequirementsFlags = (TargetUnitTest->UnitTestFlags & EUnitTestFlags::RequirementsMask);
-					EUnitTestFlags MetRequirements = TargetUnitTest->GetMetRequirements();
+					bool bCurFlagReq = !!(CurFlag & RequirementsFlags);
+					bool bCurFlagSet = !!(CurFlag & MetRequirements);
 
-					// Iterate over the requirements mask flag bits
-					FString RequiredBits = TEXT("");
-					FString MetBits = TEXT("");
-					FString FailBits = TEXT("");
-					TArray<FString> FlagResults;
-					EUnitTestFlags FirstFlag =
-						(EUnitTestFlags)(1UL << (31 - FMath::CountLeadingZeros((uint32)EUnitTestFlags::RequirementsMask)));
+					RequiredBits += (bCurFlagReq ? TEXT("1") : TEXT("0"));
+					MetBits += (bCurFlagSet ? TEXT("1") : TEXT("0"));
+					FailBits += ((bCurFlagReq && !bCurFlagSet) ? TEXT("1") : TEXT("0"));
 
-					for (EUnitTestFlags CurFlag=FirstFlag; !!(CurFlag & EUnitTestFlags::RequirementsMask);
-							CurFlag = (EUnitTestFlags)((uint32)CurFlag >> 1))
-					{
-						bool bCurFlagReq = !!(CurFlag & RequirementsFlags);
-						bool bCurFlagSet = !!(CurFlag & MetRequirements);
+					FlagResults.Add(FString::Printf(TEXT(" - %s: Required: %i, Set: %i, Failed: %i"), *GetUnitTestFlagName(CurFlag),
+									(uint32)bCurFlagReq, (uint32)bCurFlagSet, (uint32)(bCurFlagReq && !bCurFlagSet)));
+				}
 
-						RequiredBits += (bCurFlagReq ? TEXT("1") : TEXT("0"));
-						MetBits += (bCurFlagSet ? TEXT("1") : TEXT("0"));
-						FailBits += ((bCurFlagReq && !bCurFlagSet) ? TEXT("1") : TEXT("0"));
+				Ar.Logf(TEXT("Requirements flags for unit test '%s': Required: %s, Set: %s, Failed: %s"),
+						*TargetUnitTest->GetUnitTestName(), *RequiredBits, *MetBits, *FailBits);
 
-						FlagResults.Add(FString::Printf(TEXT(" - %s: Required: %i, Set: %i, Failed: %i"), *GetUnitTestFlagName(CurFlag),
-										(uint32)bCurFlagReq, (uint32)bCurFlagSet, (uint32)(bCurFlagReq && !bCurFlagSet)));
-					}
+				for (auto CurResult : FlagResults)
+				{
+					Ar.Logf(*CurResult);
+				}
+			}
+			else if (FParse::Command(&Cmd, TEXT("ForceReady")))
+			{
+				if (TargetUnitTest != NULL && !!(TargetUnitTest->UnitTestFlags & EUnitTestFlags::LaunchServer) &&
+					TargetUnitTest->ServerHandle.IsValid() && TargetUnitTest->UnitPC == NULL)
+				{
+					Ar.Logf(TEXT("Forcing unit test '%s' as ready to connect client."), *TargetUnitTest->GetUnitTestName());
 
-					Ar.Logf(TEXT("Requirements flags for unit test '%s': Required: %s, Set: %s, Failed: %s"),
-							*TargetUnitTest->GetUnitTestName(), *RequiredBits, *MetBits, *FailBits);
+					TargetUnitTest->ConnectFakeClient();
+				}
+			}
+			else if (FParse::Command(&Cmd, TEXT("Disconnect")))
+			{
+				if (TargetUnitTest != NULL && TargetUnitTest->UnitConn != NULL)
+				{
+					Ar.Logf(TEXT("Forcing unit test '%s' to disconnect."), *TargetUnitTest->GetUnitTestName());
 
-					for (auto CurResult : FlagResults)
-					{
-						Ar.Logf(*CurResult);
-					}
+					TargetUnitTest->UnitConn->Close();
 				}
 			}
 		}
@@ -1490,8 +1628,9 @@ void UUnitTestManager::Serialize(const TCHAR* Data, ELogVerbosity::Type Verbosit
 				}
 
 				TSharedRef<FString> LogLineRef = MakeShareable(LogLine);
+				bool bRequestFocus = !!(CurLogType & ELogType::FocusMask);
 
-				LogWidget->AddLine(CurLogType, LogLineRef, StatusColor);
+				LogWidget->AddLine(CurLogType, LogLineRef, StatusColor, bRequestFocus);
 
 
 				if (bSetTypeColor)
@@ -1609,6 +1748,141 @@ static bool UnitTestExec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 		NUTNet::CleanupUnitTestWorlds();
 
 		return true;
+	}
+	/**
+	 * Special 'StackTrace' command, for adding complex arbitrary stack tracing, as a debugging method.
+	 *
+	 * Usage: (NOTE: Replace 'TraceName' as desired, to help identify traces in logs)
+	 *
+	 * Once-off stack trace/dump:
+	 *	GEngine->Exec(NULL, TEXT("StackTrace TraceName"));
+	 *
+	 *
+	 * Multiple tracked stack traces: (grouped by TraceName)
+	 *	- Add a stack trace to tracking: ('-Log' also logs that a stack trace was added, and '-Dump' immediately dumps it to log,
+	 *										'-StartDisabled' only begins tracking once the 'enable' command below is called)
+	 *		GEngine->Exec(NULL, TEXT("StackTrace TraceName Add"));
+	 *		GEngine->Exec(NULL, TEXT("StackTrace TraceName Add -Log"));
+	 *		GEngine->Exec(NULL, TEXT("StackTrace TraceName Add -Log -Dump"));
+	 *		GEngine->Exec(NULL, TEXT("StackTrace TraceName Add -StartDisabled"));
+	 *
+	 *	- Dump collected/tracked stack traces: (also removes from tracking by default, unless -Keep is added)
+	 *		GEngine->Exec(NULL, TEXT("StackTrace TraceName Dump"));
+	 *		GEngine->Exec(NULL, TEXT("StackTrace TraceName Dump -Keep"));
+	 *
+	 *	- Temporarily disable tracking: (NOTE: Dump must be used with -Keep to use this)
+	 *		GEngine->Exec(NULL, TEXT("StackTrace TraceName Disable"));
+	 *
+	 *	- Enable/re-enable tracking: (usually not necessary, unless tracking was previously disabled)
+	 *		GEngine->Exec(NULL, TEXT("StackTrace TraceName Enable"));
+	 *
+	 *
+	 * Additional commands:
+	 * - Dump all active stack traces (optionally skip resetting built up stack traces, and optionally stop all active traces)
+	 *		"StackTrace DumpAll"
+	 *		"StackTrace DumpAll -NoReset"
+	 *		"StackTrace DumpAll -Stop"
+	 */
+	else if (FParse::Command(&Cmd, TEXT("StackTrace")))
+	{
+		FString TraceName;
+
+		if (FParse::Command(&Cmd, TEXT("DumpAll")))
+		{
+			bool bKeepTraceHistory = FParse::Param(Cmd, TEXT("KEEPHISTORY"));
+			bool bStopTracking = FParse::Param(Cmd, TEXT("STOP"));
+
+			GTraceManager.DumpAll(bKeepTraceHistory, !bStopTracking);
+		}
+		else if (FParse::Token(Cmd, TraceName, true))
+		{
+			if (FParse::Command(&Cmd, TEXT("Enable")))
+			{
+				GTraceManager.Enable(TraceName);
+			}
+			else if (FParse::Command(&Cmd, TEXT("Disable")))
+			{
+				GTraceManager.Disable(TraceName);
+			}
+			else if (FParse::Command(&Cmd, TEXT("Add")))
+			{
+				bool bLogAdd = FParse::Param(Cmd, TEXT("LOG"));
+				bool bDump = FParse::Param(Cmd, TEXT("DUMP"));
+				bool bStartDisabled = FParse::Param(Cmd, TEXT("STARTDISABLED"));
+
+				GTraceManager.AddTrace(TraceName, bLogAdd, bDump, bStartDisabled);
+			}
+			else if (FParse::Command(&Cmd, TEXT("Dump")))
+			{
+				GTraceManager.Dump(TraceName);
+			}
+			// If no subcommands above are specified, assume this is a once-off stack trace dump
+			// @todo #JohnB: This will also capture mistyped commands, so find a way to detect that
+			else
+			{
+				GTraceManager.TraceAndDump(TraceName);
+			}
+		}
+		else
+		{
+			Ar.Logf(TEXT("Need to specify TraceName, i.e. 'StackTrace TraceName'"));
+		}
+	}
+	/**
+	 * Special 'LogTrace' command, which ties into the stack tracking code as used by the 'StackTrace' command.
+	 * Every time a matching log entry is encountered, a stack trace is dumped.
+	 *
+	 * NOTE: Does not track the category or verbosity of log entries
+	 *
+	 * Usage: (NOTE: Replace 'LogLine' with the log text to be tracked)
+	 *
+	 *	- Add an exact log line to tracking (case sensitive, and must match length too):
+	 *		GEngine->Exec(NULL, TEXT("LogTrace Add LogLine"));
+	 *
+	 *	- Add a partial log line to tracking (case insensitive, and can match substrings):
+	 *		GEngine->Exec(NULL, TEXT("LogTrace AddPartial LogLine"));
+	 *
+	 *	- Dump accumulated log entries, for a specified log line, and clears it from tracing:
+	 *		GEngine->Exec(NULL, TEXT("LogTrace Dump LogLine"));
+	 *
+	 *	- Clear the specified log line from tracing:
+	 *		GEngine->Exec(NULL, TEXT("LogTrace Clear LogLine"));
+	 *
+	 *	- Clear all log lines from tracing:
+	 *		GEngine->Exec(NULL, TEXT("LogTrace ClearAll"));
+	 *		GEngine->Exec(NULL, TEXT("LogTrace ClearAll -Dump"));
+	 */
+	else if (FParse::Command(&Cmd, TEXT("LogTrace")))
+	{
+		FString LogLine = TEXT("NotSet");
+
+		if (FParse::Command(&Cmd, TEXT("Add")) && (LogLine = Cmd).Len() > 0)
+		{
+			GLogTraceManager.AddLogTrace(LogLine, false);
+		}
+		else if (FParse::Command(&Cmd, TEXT("AddPartial")) && (LogLine = Cmd).Len() > 0)
+		{
+			GLogTraceManager.AddLogTrace(LogLine, true);
+		}
+		else if (FParse::Command(&Cmd, TEXT("Dump")) && (LogLine = Cmd).Len() > 0)
+		{
+			GLogTraceManager.ClearLogTrace(LogLine, true);
+		}
+		else if (FParse::Command(&Cmd, TEXT("Clear")) && (LogLine = Cmd).Len() > 0)
+		{
+			GLogTraceManager.ClearLogTrace(LogLine, false);
+		}
+		else if (FParse::Command(&Cmd, TEXT("ClearAll")))
+		{
+			bool bDump = FParse::Param(Cmd, TEXT("DUMP"));
+
+			GLogTraceManager.ClearAll(bDump);
+		}
+		// If LogLine is now zero-length instead of 'NotSet', that means a valid command was encountered, but no LogLine specified
+		else if (LogLine.Len() == 0)
+		{
+			Ar.Logf(TEXT("Need to specify a log line for tracing."));
+		}
 	}
 
 	return bReturnVal;

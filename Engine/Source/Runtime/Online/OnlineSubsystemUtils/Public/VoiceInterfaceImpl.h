@@ -73,6 +73,11 @@ PACKAGE_SCOPE:
 	void ProcessMuteChangeNotification() override;
 
 	/**
+	 * Cleanup voice interface
+	 */
+	void Shutdown();
+
+	/**
 	 * Processes any talking delegates that need to be fired off
 	 *
 	 * @param DeltaTime the amount of time that has elapsed since the last tick

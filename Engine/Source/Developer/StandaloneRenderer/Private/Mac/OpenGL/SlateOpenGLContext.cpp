@@ -11,6 +11,30 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 
+void LockGLContext(NSOpenGLContext* Context)
+{
+	if (FPlatformMisc::IsRunningOnMavericks())
+	{
+		CGLLockContext([Context CGLContextObj]);
+	}
+	else
+	{
+		[Context lock];
+	}
+}
+
+void UnlockGLContext(NSOpenGLContext* Context)
+{
+	if (FPlatformMisc::IsRunningOnMavericks())
+	{
+		CGLUnlockContext([Context CGLContextObj]);
+	}
+	else
+	{
+		[Context unlock];
+	}
+}
+
 @implementation FSlateOpenGLLayer
 
 - (NSOpenGLPixelFormat *)openGLPixelFormatForDisplayMask:(uint32)Mask
@@ -34,6 +58,16 @@
 	return self;
 }
 
+- (BOOL)canDrawInOpenGLContext:(NSOpenGLContext *)context pixelFormat:(NSOpenGLPixelFormat *)pixelFormat forLayerTime:(CFTimeInterval)timeInterval displayTime:(const CVTimeStamp *)timeStamp
+{
+	BOOL bOK = [super canDrawInOpenGLContext:context pixelFormat:pixelFormat forLayerTime:timeInterval displayTime:timeStamp];
+	if ( bOK && context && (self.Context == context) )
+	{
+		LockGLContext(context);
+	}
+	// TODO: Should we return NO if !(contex && self.Context == context)?
+	return bOK;
+}
 @end
 
 @implementation FSlateCocoaView
@@ -78,6 +112,7 @@
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 	}
+	UnlockGLContext(self.Context);
 }
 
 - (BOOL)isOpaque
@@ -168,12 +203,7 @@ void FSlateOpenGLContext::Destroy()
 {
 	if (View)
 	{
-		NSWindow* Window = [View window];
-		if (Window)
-		{
-			[Window setContentView:NULL];
-		}
-		
+		LockGLContext(Context);
 		NSOpenGLContext* Current = [NSOpenGLContext currentContext];
 		[Context makeCurrentContext];
 		FSlateCocoaView* SlateView = ((FSlateCocoaView*)View);
@@ -197,6 +227,7 @@ void FSlateOpenGLContext::Destroy()
 
 		[PixelFormat release];
 		[Context clearDrawable];
+		UnlockGLContext(Context);
 		[Context release];
 		PixelFormat = NULL;
 		Context = NULL;

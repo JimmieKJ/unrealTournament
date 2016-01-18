@@ -9,7 +9,7 @@ FDetailWidgetExtensionHandler::FDetailWidgetExtensionHandler(TSharedPtr<FWidgetB
 	: BlueprintEditor( InBlueprintEditor )
 {}
 
-bool FDetailWidgetExtensionHandler::IsPropertyExtenable(const UClass* InObjectClass, const IPropertyHandle& InPropertyHandle) const
+bool FDetailWidgetExtensionHandler::IsPropertyExtendable(const UClass* InObjectClass, const IPropertyHandle& InPropertyHandle) const
 {
 	// TODO UMG make this work for multiple widgets.
 	if ( InPropertyHandle.GetNumOuterObjects() == 1 )

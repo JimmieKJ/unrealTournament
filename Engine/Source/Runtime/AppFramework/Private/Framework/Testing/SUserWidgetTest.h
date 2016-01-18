@@ -2,6 +2,7 @@
 
 #pragma once
 
+#if !UE_BUILD_SHIPPING
 
 class SUserWidgetExample
 	: public SUserWidget
@@ -18,3 +19,5 @@ class SUserWidgetExample
 
 	virtual void DoStuff() = 0;
 };
+
+#endif // #if !UE_BUILD_SHIPPING

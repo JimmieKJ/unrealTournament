@@ -2,6 +2,8 @@
 
 #pragma once
 
+class FSlateShaderResourceProxy;
+
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Data GPU Memory"), STAT_SlateTextureGPUMemory, STATGROUP_SlateMemory, SLATECORE_API);
 
 namespace ESlateShaderResource
@@ -18,7 +20,10 @@ namespace ESlateShaderResource
 		TextureObject,
 
 		/** Material resource. */
-		Material
+		Material,
+
+		/** No Resource. */
+		Invalid,
 	};
 }
 
@@ -57,6 +62,22 @@ public:
 	virtual ~FSlateShaderResource() { }
 };
 
+/**
+ * Data used to lookup a resource from a handle and to determine validity of the handle.  
+ * This is shared between the handle and the resource
+ *
+ */
+class FSlateSharedHandleData
+{
+public:
+	FSlateSharedHandleData( FSlateShaderResourceProxy* InProxy = nullptr )
+		: Proxy( InProxy )
+	{}
+
+public:
+	/** Rendering proxy used to directly access the rendering resource quickly */
+	FSlateShaderResourceProxy* Proxy;
+};
 
 /** 
  * A proxy resource.  
@@ -80,6 +101,9 @@ public:
 	/** The size of the texture.  Regardless of atlasing this is the size of the actual texture */
 	FIntPoint ActualSize;
 
+	/** Shared data between resources and handles to this resource.  Is created the first time a handle is needed */
+	TSharedPtr<FSlateSharedHandleData> HandleData;
+
 	/** Default constructor. */
 	FSlateShaderResourceProxy( )
 		: StartUV(0.0f, 0.0f)
@@ -87,6 +111,16 @@ public:
 		, Resource(nullptr)
 		, ActualSize(0.0f, 0.0f)
 	{ }
+
+	~FSlateShaderResourceProxy()
+	{
+		if( HandleData.IsValid() )
+		{
+			// Handles exist for this proxy.
+			// Null out the proxy to invalidate all handles
+			HandleData->Proxy = nullptr; 
+		}
+	}
 };
 
 
@@ -145,3 +179,20 @@ public:
 	virtual FSlateShaderResource* GetViewportRenderTargetTexture() = 0;
 };
 
+/**
+ * A SlateResourceHandle is used as fast path for looking up a rendering resource for a given brush when adding Slate draw elements
+ * This can be cached and stored safely in code.  It will become invalid when a resource is destroyed
+*/
+class FSlateResourceHandle
+{
+	friend class FSlateShaderResourceManager;
+	friend class FSlateDrawElement;
+public:
+	/**
+	 * @return true if the handle still points to a valid rendering resource
+	 */
+	bool IsValid() const { return Data.IsValid() && Data->Proxy; }
+private:
+	/** Internal data to pair the handle to the resource */
+	TSharedPtr<FSlateSharedHandleData> Data;
+};

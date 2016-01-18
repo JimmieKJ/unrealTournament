@@ -404,7 +404,7 @@ public:
 	DestructibleAsset*					getAsset() { return mAsset; }
 	NxConvexMesh*						getConvexMesh(physx::PxU32 hullIndex, const physx::PxVec3& scale);
 
-	physx::PxFileBuf&					deserialize(physx::PxFileBuf& stream);
+	physx::PxFileBuf&					deserialize(physx::PxFileBuf& stream, const char* assetName);
 	physx::PxFileBuf&					serialize(physx::PxFileBuf& stream) const;
 
 	bool								platformAndVersionMatch() const;

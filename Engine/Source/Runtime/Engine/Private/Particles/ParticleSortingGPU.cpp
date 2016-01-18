@@ -192,6 +192,13 @@ static int32 GenerateParticleSortKeys(
 	const uint32 MaxGroupCount = 128;
 	int32 TotalParticleCount = 0;
 
+	FUnorderedAccessViewRHIParamRef OutputUAVs[2];
+	OutputUAVs[0] = KeyBufferUAV;
+	OutputUAVs[1] = SortedVertexBufferUAV;
+
+	//make sure our outputs are safe to write to.
+	RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, OutputUAVs, 2);
+
 	// Grab the shader, set output.
 	TShaderMapRef<FParticleSortKeyGenCS> KeyGenCS(GetGlobalShaderMap(FeatureLevel));
 	RHICmdList.SetComputeShader(KeyGenCS->GetComputeShader());
@@ -221,12 +228,18 @@ static int32 GenerateParticleSortKeys(
 		KeyGenCS->SetParameters(RHICmdList, KeyGenUniformBuffer, SortInfo.VertexBufferSRV);
 		DispatchComputeShader(RHICmdList, *KeyGenCS, GroupCount, 1, 1);
 
+		//we may be able to remove this transition if each step isn't dependent on the previous one.
+		RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, OutputUAVs, 2);
+
 		// Update offset in to the buffer.
 		TotalParticleCount += ParticleCount;
 	}
 
 	// Clear the output buffer.
 	KeyGenCS->UnbindBuffers(RHICmdList);
+
+	//make sure our outputs are readable as SRVs to further gfx steps.
+	RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, OutputUAVs, 2);
 
 	return TotalParticleCount;
 }

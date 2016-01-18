@@ -13,6 +13,12 @@
 #include <sched.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/vfs.h>	// statfs()
+#include <sys/ioctl.h>
+
+#include <ifaddrs.h>	// ethernet mac
+#include <net/if.h>
+#include <net/if_arp.h>
 
 #include "ModuleManager.h"
 
@@ -95,7 +101,7 @@ void FLinuxPlatformMisc::NormalizePath(FString& InPath)
 			// if var failed
 			if (!bHaveHome)
 			{
-				struct passwd * UserInfo = getpwuid(getuid());
+				struct passwd * UserInfo = getpwuid(geteuid());
 				if (NULL != UserInfo && NULL != UserInfo->pw_dir)
 				{
 					FCString::Strcpy(CachedResult, ARRAY_COUNT(CachedResult) - 1, ANSI_TO_TCHAR(UserInfo->pw_dir));
@@ -118,19 +124,51 @@ namespace
 	bool GInitializedSDL = false;
 }
 
+size_t GCacheLineSize = CACHE_LINE_SIZE;
+
+void LinuxPlatform_UpdateCacheLineSize()
+{
+	// sysfs "API", as usual ;/
+	FILE * SysFsFile = fopen("/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size", "r");
+	if (SysFsFile)
+	{
+		int SystemLineSize = 0;
+		fscanf(SysFsFile, "%d", &SystemLineSize);
+		fclose(SysFsFile);
+
+		if (SystemLineSize > 0)
+		{
+			GCacheLineSize = SystemLineSize;
+		}
+	}
+}
+
 void FLinuxPlatformMisc::PlatformInit()
 {
 	// install a platform-specific signal handler
 	InstallChildExitedSignalHanlder();
 
+	// do not remove the below check for IsFirstInstance() - it is not just for logging, it actually lays the claim to be first
+	bool bFirstInstance = FPlatformProcess::IsFirstInstance();
+
 	UE_LOG(LogInit, Log, TEXT("Linux hardware info:"));
+	UE_LOG(LogInit, Log, TEXT(" - we are %sthe first instance of this executable"), bFirstInstance ? TEXT("") : TEXT("not "));
 	UE_LOG(LogInit, Log, TEXT(" - this process' id (pid) is %d, parent process' id (ppid) is %d"), static_cast< int32 >(getpid()), static_cast< int32 >(getppid()));
 	UE_LOG(LogInit, Log, TEXT(" - we are %srunning under debugger"), IsDebuggerPresent() ? TEXT("") : TEXT("not "));
 	UE_LOG(LogInit, Log, TEXT(" - machine network name is '%s'"), FPlatformProcess::ComputerName());
+	UE_LOG(LogInit, Log, TEXT(" - user name is '%s' (%s)"), FPlatformProcess::UserName(), FPlatformProcess::UserName(false));
 	UE_LOG(LogInit, Log, TEXT(" - we're logged in %s"), FPlatformMisc::HasBeenStartedRemotely() ? TEXT("remotely") : TEXT("locally"));
 	UE_LOG(LogInit, Log, TEXT(" - Number of physical cores available for the process: %d"), FPlatformMisc::NumberOfCores());
 	UE_LOG(LogInit, Log, TEXT(" - Number of logical cores available for the process: %d"), FPlatformMisc::NumberOfCoresIncludingHyperthreads());
+	LinuxPlatform_UpdateCacheLineSize();
+	UE_LOG(LogInit, Log, TEXT(" - Cache line size: %Zu"), GCacheLineSize);
 	UE_LOG(LogInit, Log, TEXT(" - Memory allocator used: %s"), GMalloc->GetDescriptiveName());
+
+	// programs don't need it by default
+	if (!IS_PROGRAM || FParse::Param(FCommandLine::Get(), TEXT("calibrateclock")))
+	{
+		FPlatformTime::CalibrateClock();
+	}
 
 	UE_LOG(LogInit, Log, TEXT("Linux-specific commandline switches:"));
 	UE_LOG(LogInit, Log, TEXT(" -%s (currently %s): suppress parsing of DWARF debug info (callstacks will be generated faster, but won't have line numbers)"), 
@@ -144,20 +182,13 @@ void FLinuxPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT(" -reuseconn - allow libcurl to reuse HTTP connections (only matters if compiled with libcurl)"));
 	UE_LOG(LogInit, Log, TEXT(" -virtmemkb=NUMBER - sets process virtual memory (address space) limit (overrides VirtualMemoryLimitInKB value from .ini)"));
 
-	UE_LOG(LogInit, Log, TEXT("Setting LC_NUMERIC to en_US"));
-	if (setenv("LC_NUMERIC", "en_US", 1) != 0)
-	{
-		int ErrNo = errno;
-		UE_LOG(LogInit, Warning, TEXT("Unable to setenv(): errno=%d (%s)"), ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
-	}
-
 	// skip for servers and programs, unless they request later
 	if (!UE_SERVER && !IS_PROGRAM)
 	{
 		PlatformInitMultimedia();
 	}
 
-	if (FPlatformMisc::HasBeenStartedRemotely())
+	if (FPlatformMisc::HasBeenStartedRemotely() || FPlatformMisc::IsDebuggerPresent())
 	{
 		// print output immediately
 		setvbuf(stdout, NULL, _IONBF, 0);
@@ -180,13 +211,22 @@ bool FLinuxPlatformMisc::PlatformInitMultimedia()
 			return false;
 		}
 
+		// print out version information
+		SDL_version CompileTimeSDLVersion;
+		SDL_version RunTimeSDLVersion;
+		SDL_VERSION(&CompileTimeSDLVersion);
+		SDL_GetVersion(&RunTimeSDLVersion);
+		UE_LOG(LogInit, Log, TEXT("Initialized SDL %d.%d.%d (compiled against %d.%d.%d)"),
+			CompileTimeSDLVersion.major, CompileTimeSDLVersion.minor, CompileTimeSDLVersion.patch,
+			RunTimeSDLVersion.major, RunTimeSDLVersion.minor, RunTimeSDLVersion.patch
+			);
+
 		// Used to make SDL push SDL_TEXTINPUT events.
 		SDL_StartTextInput();
 
 		GInitializedSDL = true;
 
 		// needs to come after GInitializedSDL, otherwise it will recurse here
-		// @TODO [RCL] 2014-09-30 - move to FDisplayMetrics itself sometime after 4.5
 		if (!UE_BUILD_SHIPPING)
 		{
 			// dump information about screens for debug
@@ -207,6 +247,8 @@ void FLinuxPlatformMisc::PlatformTearDown()
 		SDL_Quit();
 		GInitializedSDL = false;
 	}
+
+	FPlatformProcess::CeaseBeingFirstInstance();
 }
 
 GenericApplication* FLinuxPlatformMisc::CreateApplication()
@@ -245,21 +287,34 @@ void FLinuxPlatformMisc::SetEnvironmentVar(const TCHAR* InVariableName, const TC
 
 void FLinuxPlatformMisc::PumpMessages( bool bFromMainLoop )
 {
-	if( bFromMainLoop )
+	if (GInitializedSDL && bFromMainLoop)
 	{
-		SDL_Event event;
-
-		while (SDL_PollEvent(&event))
+		if( LinuxApplication )
 		{
-			if( LinuxApplication )
+			LinuxApplication->SaveWindowLocationsForEventLoop();
+
+			SDL_Event event;
+
+			while (SDL_PollEvent(&event))
 			{
 				LinuxApplication->AddPendingEvent( event );
+			}
+
+			LinuxApplication->ClearWindowLocationsAfterEventLoop();
+		}
+		else
+		{
+			// No application to send events to. Just flush out the
+			// queue.
+			SDL_Event event;
+			while (SDL_PollEvent(&event))
+			{
 			}
 		}
 	}
 }
 
-uint32 FLinuxPlatformMisc::GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings)
+uint32 FLinuxPlatformMisc::GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
 {
 	return FGenericPlatformMisc::GetStandardPrintableKeyMap(KeyCodes, KeyNames, MaxMappings, false, true);
 }
@@ -270,7 +325,7 @@ void FLinuxPlatformMisc::LowLevelOutputDebugString(const TCHAR *Message)
 	fprintf(stderr, "%ls", Message);	// there's no good way to implement that really
 }
 
-uint32 FLinuxPlatformMisc::GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings )
+uint32 FLinuxPlatformMisc::GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings )
 {
 #define ADDKEYMAP(KeyCode, KeyName)		if (NumMappings<MaxMappings) { KeyCodes[NumMappings]=KeyCode; KeyNames[NumMappings]=KeyName; ++NumMappings; };
 
@@ -278,52 +333,87 @@ uint32 FLinuxPlatformMisc::GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint3
 
 	if (KeyCodes && KeyNames && (MaxMappings > 0))
 	{
-		ADDKEYMAP(SDL_SCANCODE_BACKSPACE, TEXT("BackSpace"));
-		ADDKEYMAP(SDL_SCANCODE_TAB, TEXT("Tab"));
-		ADDKEYMAP(SDL_SCANCODE_RETURN, TEXT("Enter"));
-		ADDKEYMAP(SDL_SCANCODE_RETURN2, TEXT("Enter"));
-		ADDKEYMAP(SDL_SCANCODE_KP_ENTER, TEXT("Enter"));
-		ADDKEYMAP(SDL_SCANCODE_PAUSE, TEXT("Pause"));
+		ADDKEYMAP(SDLK_BACKSPACE, TEXT("BackSpace"));
+		ADDKEYMAP(SDLK_TAB, TEXT("Tab"));
+		ADDKEYMAP(SDLK_RETURN, TEXT("Enter"));
+		ADDKEYMAP(SDLK_RETURN2, TEXT("Enter"));
+		ADDKEYMAP(SDLK_KP_ENTER, TEXT("Enter"));
+		ADDKEYMAP(SDLK_PAUSE, TEXT("Pause"));
 
-		ADDKEYMAP(SDL_SCANCODE_ESCAPE, TEXT("Escape"));
-		ADDKEYMAP(SDL_SCANCODE_SPACE, TEXT("SpaceBar"));
-		ADDKEYMAP(SDL_SCANCODE_PAGEUP, TEXT("PageUp"));
-		ADDKEYMAP(SDL_SCANCODE_PAGEDOWN, TEXT("PageDown"));
-		ADDKEYMAP(SDL_SCANCODE_END, TEXT("End"));
-		ADDKEYMAP(SDL_SCANCODE_HOME, TEXT("Home"));
+		ADDKEYMAP(SDLK_ESCAPE, TEXT("Escape"));
+		ADDKEYMAP(SDLK_SPACE, TEXT("SpaceBar"));
+		ADDKEYMAP(SDLK_PAGEUP, TEXT("PageUp"));
+		ADDKEYMAP(SDLK_PAGEDOWN, TEXT("PageDown"));
+		ADDKEYMAP(SDLK_END, TEXT("End"));
+		ADDKEYMAP(SDLK_HOME, TEXT("Home"));
 
-		ADDKEYMAP(SDL_SCANCODE_LEFT, TEXT("Left"));
-		ADDKEYMAP(SDL_SCANCODE_UP, TEXT("Up"));
-		ADDKEYMAP(SDL_SCANCODE_RIGHT, TEXT("Right"));
-		ADDKEYMAP(SDL_SCANCODE_DOWN, TEXT("Down"));
+		ADDKEYMAP(SDLK_LEFT, TEXT("Left"));
+		ADDKEYMAP(SDLK_UP, TEXT("Up"));
+		ADDKEYMAP(SDLK_RIGHT, TEXT("Right"));
+		ADDKEYMAP(SDLK_DOWN, TEXT("Down"));
 
-		ADDKEYMAP(SDL_SCANCODE_INSERT, TEXT("Insert"));
-		ADDKEYMAP(SDL_SCANCODE_DELETE, TEXT("Delete"));
+		ADDKEYMAP(SDLK_INSERT, TEXT("Insert"));
+		ADDKEYMAP(SDLK_DELETE, TEXT("Delete"));
 
-		ADDKEYMAP(SDL_SCANCODE_F1, TEXT("F1"));
-		ADDKEYMAP(SDL_SCANCODE_F2, TEXT("F2"));
-		ADDKEYMAP(SDL_SCANCODE_F3, TEXT("F3"));
-		ADDKEYMAP(SDL_SCANCODE_F4, TEXT("F4"));
-		ADDKEYMAP(SDL_SCANCODE_F5, TEXT("F5"));
-		ADDKEYMAP(SDL_SCANCODE_F6, TEXT("F6"));
-		ADDKEYMAP(SDL_SCANCODE_F7, TEXT("F7"));
-		ADDKEYMAP(SDL_SCANCODE_F8, TEXT("F8"));
-		ADDKEYMAP(SDL_SCANCODE_F9, TEXT("F9"));
-		ADDKEYMAP(SDL_SCANCODE_F10, TEXT("F10"));
-		ADDKEYMAP(SDL_SCANCODE_F11, TEXT("F11"));
-		ADDKEYMAP(SDL_SCANCODE_F12, TEXT("F12"));
+		ADDKEYMAP(SDLK_F1, TEXT("F1"));
+		ADDKEYMAP(SDLK_F2, TEXT("F2"));
+		ADDKEYMAP(SDLK_F3, TEXT("F3"));
+		ADDKEYMAP(SDLK_F4, TEXT("F4"));
+		ADDKEYMAP(SDLK_F5, TEXT("F5"));
+		ADDKEYMAP(SDLK_F6, TEXT("F6"));
+		ADDKEYMAP(SDLK_F7, TEXT("F7"));
+		ADDKEYMAP(SDLK_F8, TEXT("F8"));
+		ADDKEYMAP(SDLK_F9, TEXT("F9"));
+		ADDKEYMAP(SDLK_F10, TEXT("F10"));
+		ADDKEYMAP(SDLK_F11, TEXT("F11"));
+		ADDKEYMAP(SDLK_F12, TEXT("F12"));
 
-        ADDKEYMAP(SDL_SCANCODE_CAPSLOCK, TEXT("CapsLock"));
-        ADDKEYMAP(SDL_SCANCODE_LCTRL, TEXT("LeftControl"));
-        ADDKEYMAP(SDL_SCANCODE_LSHIFT, TEXT("LeftShift"));
-        ADDKEYMAP(SDL_SCANCODE_LALT, TEXT("LeftAlt"));
-        ADDKEYMAP(SDL_SCANCODE_RCTRL, TEXT("RightControl"));
-        ADDKEYMAP(SDL_SCANCODE_RSHIFT, TEXT("RightShift"));
-        ADDKEYMAP(SDL_SCANCODE_RALT, TEXT("RightAlt"));
+        ADDKEYMAP(SDLK_LCTRL, TEXT("LeftControl"));
+        ADDKEYMAP(SDLK_LSHIFT, TEXT("LeftShift"));
+        ADDKEYMAP(SDLK_LALT, TEXT("LeftAlt"));
+		ADDKEYMAP(SDLK_LGUI, TEXT("LeftCommand"));
+        ADDKEYMAP(SDLK_RCTRL, TEXT("RightControl"));
+        ADDKEYMAP(SDLK_RSHIFT, TEXT("RightShift"));
+        ADDKEYMAP(SDLK_RALT, TEXT("RightAlt"));
+		ADDKEYMAP(SDLK_RGUI, TEXT("RightCommand"));
+
+		ADDKEYMAP(SDLK_KP_0, TEXT("NumPadZero"));
+		ADDKEYMAP(SDLK_KP_1, TEXT("NumPadOne"));
+		ADDKEYMAP(SDLK_KP_2, TEXT("NumPadTwo"));
+		ADDKEYMAP(SDLK_KP_3, TEXT("NumPadThree"));
+		ADDKEYMAP(SDLK_KP_4, TEXT("NumPadFour"));
+		ADDKEYMAP(SDLK_KP_5, TEXT("NumPadFive"));
+		ADDKEYMAP(SDLK_KP_6, TEXT("NumPadSix"));
+		ADDKEYMAP(SDLK_KP_7, TEXT("NumPadSeven"));
+		ADDKEYMAP(SDLK_KP_8, TEXT("NumPadEight"));
+		ADDKEYMAP(SDLK_KP_9, TEXT("NumPadNine"));
+		ADDKEYMAP(SDLK_KP_MULTIPLY, TEXT("Multiply"));
+		ADDKEYMAP(SDLK_KP_PLUS, TEXT("Add"));
+		ADDKEYMAP(SDLK_KP_MINUS, TEXT("Subtract"));
+		ADDKEYMAP(SDLK_KP_DECIMAL, TEXT("Decimal"));
+		ADDKEYMAP(SDLK_KP_DIVIDE, TEXT("Divide"));
+
+        ADDKEYMAP(SDLK_CAPSLOCK, TEXT("CapsLock"));
+		ADDKEYMAP(SDLK_NUMLOCKCLEAR, TEXT("NumLock"));
+		ADDKEYMAP(SDLK_SCROLLLOCK, TEXT("ScrollLock"));
 	}
 
 	check(NumMappings < MaxMappings);
 	return NumMappings;
+}
+
+const TCHAR* FLinuxPlatformMisc::GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error)
+{
+	check(OutBuffer && BufferCount);
+	if (Error == 0)
+	{
+		Error = errno;
+	}
+
+	FString Message = FString::Printf(TEXT("errno=%d (%s)"), Error, UTF8_TO_TCHAR(strerror(Error)));
+	FCString::Strncpy(OutBuffer, *Message, BufferCount);
+
+	return OutBuffer;
 }
 
 void FLinuxPlatformMisc::ClipboardCopy(const TCHAR* Str)
@@ -513,55 +603,91 @@ int32 FLinuxPlatformMisc::NumberOfCores()
 {
 	// WARNING: this function ignores edge cases like affinity mask changes (and even more fringe cases like CPUs going offline)
 	// in the name of performance (higher level code calls NumberOfCores() way too often...)
-	static int32 NumCoreIds = 0;
-	if (NumCoreIds == 0)
+	static int32 NumberOfCores = 0;
+	if (NumberOfCores == 0)
 	{
-		cpu_set_t AvailableCpusMask;
-		CPU_ZERO(&AvailableCpusMask);
-
-		if (0 != sched_getaffinity(0, sizeof(AvailableCpusMask), &AvailableCpusMask))
+		if (FParse::Param(FCommandLine::Get(), TEXT("usehyperthreading")))
 		{
-			NumCoreIds = 1;	// we are running on something, right?
+			NumberOfCores = NumberOfCoresIncludingHyperthreads();
 		}
 		else
 		{
-			char FileNameBuffer[1024];
-			unsigned char PossibleCores[CPU_SETSIZE] = { 0 };
+			cpu_set_t AvailableCpusMask;
+			CPU_ZERO(&AvailableCpusMask);
 
-			for(int32 CpuIdx = 0; CpuIdx < CPU_SETSIZE; ++CpuIdx)
+			if (0 != sched_getaffinity(0, sizeof(AvailableCpusMask), &AvailableCpusMask))
 			{
-				if (CPU_ISSET(CpuIdx, &AvailableCpusMask))
-				{
-					sprintf(FileNameBuffer, "/sys/devices/system/cpu/cpu%d/topology/core_id", CpuIdx);
-					
-					FILE* CoreIdFile = fopen(FileNameBuffer, "r");
-					unsigned int CoreId = 0;
-					if (CoreIdFile)
-					{
-						if (1 != fscanf(CoreIdFile, "%d", &CoreId))
-						{
-							CoreId = 0;
-						}
-						fclose(CoreIdFile);
-					}
-
-					if (CoreId >= ARRAY_COUNT(PossibleCores))
-					{
-						CoreId = 0;
-					}
-					
-					PossibleCores[ CoreId ] = 1;
-				}
+				NumberOfCores = 1;	// we are running on something, right?
 			}
-
-			for(int32 Idx = 0; Idx < ARRAY_COUNT(PossibleCores); ++Idx)
+			else
 			{
-				NumCoreIds += PossibleCores[Idx];
+				char FileNameBuffer[1024];
+				struct CpuInfo
+				{
+					int Core;
+					int Package;
+				}
+				CpuInfos[CPU_SETSIZE];
+
+				FMemory::Memzero(CpuInfos);
+				int MaxCoreId = 0;
+				int MaxPackageId = 0;
+
+				for(int32 CpuIdx = 0; CpuIdx < CPU_SETSIZE; ++CpuIdx)
+				{
+					if (CPU_ISSET(CpuIdx, &AvailableCpusMask))
+					{
+						sprintf(FileNameBuffer, "/sys/devices/system/cpu/cpu%d/topology/core_id", CpuIdx);
+
+						if (FILE* CoreIdFile = fopen(FileNameBuffer, "r"))
+						{
+							if (1 != fscanf(CoreIdFile, "%d", &CpuInfos[CpuIdx].Core))
+							{
+								CpuInfos[CpuIdx].Core = 0;
+							}
+							fclose(CoreIdFile);
+						}
+
+						sprintf(FileNameBuffer, "/sys/devices/system/cpu/cpu%d/topology/physical_package_id", CpuIdx);
+
+						unsigned int PackageId = 0;
+						if (FILE* PackageIdFile = fopen(FileNameBuffer, "r"))
+						{
+							if (1 != fscanf(PackageIdFile, "%d", &CpuInfos[CpuIdx].Package))
+							{
+								CpuInfos[CpuIdx].Package = 0;
+							}
+							fclose(PackageIdFile);
+						}
+
+						MaxCoreId = FMath::Max(MaxCoreId, CpuInfos[CpuIdx].Core);
+						MaxPackageId = FMath::Max(MaxPackageId, CpuInfos[CpuIdx].Package);
+					}
+				}
+
+				int NumCores = MaxCoreId + 1;
+				int NumPackages = MaxPackageId + 1;
+				int NumPairs = NumPackages * NumCores;
+				unsigned char * Pairs = reinterpret_cast<unsigned char *>(FMemory_Alloca(NumPairs * sizeof(unsigned char)));
+				FMemory::Memzero(Pairs, NumPairs * sizeof(unsigned char));
+
+				for (int32 CpuIdx = 0; CpuIdx < CPU_SETSIZE; ++CpuIdx)
+				{
+					if (CPU_ISSET(CpuIdx, &AvailableCpusMask))
+					{
+						Pairs[CpuInfos[CpuIdx].Package * NumCores + CpuInfos[CpuIdx].Core] = 1;
+					}
+				}
+
+				for (int32 Idx = 0; Idx < NumPairs; ++Idx)
+				{
+					NumberOfCores += Pairs[Idx];
+				}
 			}
 		}
 	}
 
-	return NumCoreIds;
+	return NumberOfCores;
 }
 
 int32 FLinuxPlatformMisc::NumberOfCoresIncludingHyperthreads()
@@ -689,6 +815,24 @@ bool FLinuxPlatformMisc::IsDebuggerPresent()
 }
 #endif // !UE_BUILD_SHIPPING
 
+#if !UE_BUILD_SHIPPING
+void FLinuxPlatformMisc::UngrabAllInput()
+{
+	if (GInitializedSDL)
+	{
+		SDL_Window * GrabbedWindow = SDL_GetGrabbedWindow();
+		if (GrabbedWindow)
+		{
+			SDL_SetWindowGrab(GrabbedWindow, SDL_FALSE);
+			SDL_SetKeyboardGrab(GrabbedWindow, SDL_FALSE);
+		}
+
+		SDL_CaptureMouse(SDL_FALSE);
+	}
+}
+
+#endif // !UE_BUILD_SHIPPING
+
 bool FLinuxPlatformMisc::HasBeenStartedRemotely()
 {
 	static bool bHaveAnswer = false;
@@ -733,4 +877,118 @@ FString FLinuxPlatformMisc::GetOperatingSystemId()
 	}
 
 	return CachedResult;
+}
+
+bool FLinuxPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes)
+{
+	struct statfs FSStat = { 0 };
+	FTCHARToUTF8 Converter(*InPath);
+	int Err = statfs((ANSICHAR*)Converter.Get(), &FSStat);
+	if (Err == 0)
+	{
+		TotalNumberOfBytes = FSStat.f_blocks * FSStat.f_bsize;
+		NumberOfFreeBytes = FSStat.f_bavail * FSStat.f_bsize;
+	}
+	else
+	{
+		int ErrNo = errno;
+		UE_LOG(LogLinux, Warning, TEXT("Unable to statfs('%s'): errno=%d (%s)"), *InPath, ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
+	}
+	return (Err == 0);
+}
+
+
+TArray<uint8> FLinuxPlatformMisc::GetMacAddress()
+{
+	struct ifaddrs *ifap, *ifaptr;
+	TArray<uint8> Result;
+
+	if (getifaddrs(&ifap) == 0)
+	{
+		for (ifaptr = ifap; ifaptr != nullptr; ifaptr = (ifaptr)->ifa_next)
+		{
+			struct ifreq ifr;
+
+			strncpy(ifr.ifr_name, ifaptr->ifa_name, IFNAMSIZ-1);
+
+			int Socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+			if (Socket == -1)
+			{
+				continue;
+			}
+
+			if (ioctl(Socket, SIOCGIFHWADDR, &ifr) == -1)
+			{
+				close(Socket);
+				continue;
+			}
+
+			close(Socket);
+
+			if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER)
+			{
+				continue;
+			}
+
+			const uint8 *MAC = (uint8 *) ifr.ifr_hwaddr.sa_data;
+
+			for (int32 i=0; i < 6; i++)
+			{
+				Result.Add(MAC[i]);
+			}
+
+			break;
+		}
+
+		freeifaddrs(ifap);
+	}
+
+	return Result;
+}
+
+
+static int64 LastBatteryCheck = 0;
+static bool bIsOnBattery = false;
+
+bool FLinuxPlatformMisc::IsRunningOnBattery()
+{
+	char Scratch[8];
+	FDateTime Time = FDateTime::Now();
+	int64 Seconds = Time.ToUnixTimestamp();
+
+	// don't poll the OS for battery state on every tick. Just do it once every 10 seconds.
+	if (LastBatteryCheck != 0 && (Seconds - LastBatteryCheck) < 10)
+	{
+		return bIsOnBattery;
+	}
+
+	LastBatteryCheck = Seconds;
+	bIsOnBattery = false;
+
+	// [RCL] 2015-09-30 FIXME: find a more robust way?
+	const int kHardCodedNumBatteries = 10;
+	for (int IdxBattery = 0; IdxBattery < kHardCodedNumBatteries; ++IdxBattery)
+	{
+		char Filename[128];
+		sprintf(Filename, "/sys/class/power_supply/ADP%d/online", IdxBattery);
+
+		int State = open(Filename, O_RDONLY);
+		if (State != -1)
+		{
+			// found ACAD device. check its state.
+			ssize_t ReadBytes = read(State, Scratch, 1);
+			close(State);
+
+			if (ReadBytes > 0)
+			{
+				bIsOnBattery = (Scratch[0] == '0');
+			}
+
+			break;	// quit checking after we found at least one
+		}
+	}
+
+	// lack of ADP most likely means that we're not on laptop at all
+
+	return bIsOnBattery;
 }

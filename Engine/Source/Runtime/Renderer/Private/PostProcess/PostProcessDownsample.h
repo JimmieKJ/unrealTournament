@@ -11,13 +11,13 @@
 
 // derives from TRenderingCompositePassBase<InputCount, OutputCount>
 // ePId_Input0: Color input
-// ePId_Input1: optional depth input
+// ePId_Input1: optional depth input (then quality is ignores and it uses the a 4 sample unfiltered samples method)
 class FRCPassPostProcessDownsample : public TRenderingCompositePassBase<2, 1>
 {
 public:
 	// constructor
 	// @param InDebugName we store the pointer so don't release this string
-	// @param Quality 0:1 sample, 1:4 samples with blurring
+	// @param Quality only used if ePId_Input1 is not set, 0:one filtered sample, 1:four filtered samples
 	FRCPassPostProcessDownsample(EPixelFormat InOverrideFormat = PF_Unknown,
 			uint32 InQuality = 1,
 			const TCHAR *InDebugName = TEXT("Downsample"));
@@ -29,7 +29,7 @@ public:
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 private:
-	template <uint32 Method> static void SetShader(const FRenderingCompositePassContext& Context);
+	template <uint32 Method> static void SetShader(const FRenderingCompositePassContext& Context, const FPooledRenderTargetDesc* InputDesc);
 
 	EPixelFormat OverrideFormat;
 	// explained in constructor

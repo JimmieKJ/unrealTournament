@@ -18,11 +18,13 @@ enum ETerrainCoordMappingType
 UENUM()
 enum ELandscapeCustomizedCoordType
 {
-	LCCT_None, // Don't use customized UV, just use original UV
+	/** Don't use customized UV, just use original UV. */
+	LCCT_None,
 	LCCT_CustomUV0,
 	LCCT_CustomUV1,
 	LCCT_CustomUV2,
-	LCCT_WeightMapUV, // Use original WeightMapUV, which could not be customized
+	/** Use original WeightMapUV, which could not be customized. */
+	LCCT_WeightMapUV,
 	LCCT_MAX,
 };
 
@@ -55,10 +57,10 @@ class UMaterialExpressionLandscapeLayerCoords : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionLandscapeLayerCoords)
 	float MappingPanV;
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 
 

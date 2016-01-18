@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "SharedMapView.h"
+
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetData, Log, All);
 /** A class to hold important information about an assets found by the Asset Registry */
 class FAssetData
@@ -21,9 +23,11 @@ public:
 	/** The name of the asset's class */
 	FName AssetClass;
 	/** The map of values for properties that were marked AssetRegistrySearchable */
-	TMap<FName, FString> TagsAndValues;
+	TSharedMapView<FName, FString> TagsAndValues;
 	/** The IDs of the chunks this asset is located in for streaming install.  Empty if not assigned to a chunk */
 	TArray<int32> ChunkIDs;
+	/** Asset package flags */
+	uint32 PackageFlags;
 
 public:
 	/** Default constructor */
@@ -31,15 +35,16 @@ public:
 	{}
 
 	/** Constructor */
-	FAssetData(FName InPackageName, FName InPackagePath, FName InGroupNames, FName InAssetName, FName InAssetClass, const TMap<FName, FString>& InTags, const TArray<int32>& InChunkIDs)
+	FAssetData(FName InPackageName, FName InPackagePath, FName InGroupNames, FName InAssetName, FName InAssetClass, TMap<FName, FString> InTags, TArray<int32> InChunkIDs, uint32 InPackageFlags)
+		: PackageName(InPackageName)
+		, PackagePath(InPackagePath)
+		, GroupNames(InGroupNames)
+		, AssetName(InAssetName)
+		, AssetClass(InAssetClass)
+		, TagsAndValues(MakeSharedMapView(MoveTemp(InTags)))
+		, ChunkIDs(MoveTemp(InChunkIDs))
+		, PackageFlags(InPackageFlags)
 	{
-		PackageName = InPackageName;
-		PackagePath = InPackagePath;
-		GroupNames = InGroupNames;
-		AssetName = InAssetName;
-		AssetClass = InAssetClass;
-		TagsAndValues = InTags;
-
 		FString ObjectPathStr = PackageName.ToString() + TEXT(".");
 
 		if ( GroupNames != NAME_None )
@@ -50,7 +55,6 @@ public:
 		ObjectPathStr += AssetName.ToString();
 
 		ObjectPath = FName(*ObjectPathStr);
-		ChunkIDs = InChunkIDs;
 	}
 
 	/** Constructor taking a UObject */
@@ -83,12 +87,15 @@ public:
 			TArray<UObject::FAssetRegistryTag> TagList;
 			InAsset->GetAssetRegistryTags(TagList);
 
+			TMap<FName, FString> TagsAndValuesMap;
 			for ( auto TagIt = TagList.CreateConstIterator(); TagIt; ++TagIt )
 			{
-				TagsAndValues.Add(TagIt->Name, TagIt->Value);
+				TagsAndValuesMap.Add(TagIt->Name, TagIt->Value);
 			}
+			TagsAndValues = MakeSharedMapView(MoveTemp(TagsAndValuesMap));
 
 			ChunkIDs = Outermost->GetChunkIDs();
+			PackageFlags = Outermost->GetPackageFlags();
 		}
 	}
 
@@ -98,12 +105,22 @@ public:
 		return ObjectPath == Other.ObjectPath;
 	}
 
+	bool operator>(const FAssetData& Other) const
+	{
+		return ObjectPath > Other.ObjectPath;
+	}
+
+	bool operator<(const FAssetData& Other) const
+	{
+		return ObjectPath < Other.ObjectPath;
+	}
+
 	/** Checks to see if this AssetData refers to an asset or is NULL */
 	bool IsValid() const
 	{
 		return ObjectPath != NAME_None;
 	}
-	
+
 	/** Returns true if this asset was found in a UAsset file */
 	bool IsUAsset() const
 	{
@@ -113,13 +130,36 @@ public:
 	/** Returns the full name for the asset in the form: Class ObjectPath */
 	FString GetFullName() const
 	{
-		return FString::Printf(TEXT("%s %s"), *AssetClass.ToString(), *ObjectPath.ToString());
+		FString FullName;
+		GetFullName(FullName);
+		return FullName;
+	}
+
+	/** Populates OutFullName with the full name for the asset in the form: Class ObjectPath */
+	void GetFullName(FString& OutFullName) const
+	{
+		OutFullName.Reset();
+		AssetClass.AppendString(OutFullName);
+		OutFullName.AppendChar(' ');
+		ObjectPath.AppendString(OutFullName);
 	}
 
 	/** Returns the name for the asset in the form: Class'ObjectPath' */
 	FString GetExportTextName() const
 	{
-		return FString::Printf(TEXT("%s'%s'"), *AssetClass.ToString(), *ObjectPath.ToString());
+		FString ExportTextName;
+		GetExportTextName(ExportTextName);
+		return ExportTextName;
+	}
+
+	/** Populates OutExportTextName with the name for the asset in the form: Class'ObjectPath' */
+	void GetExportTextName(FString& OutExportTextName) const
+	{
+		OutExportTextName.Reset();
+		AssetClass.AppendString(OutExportTextName);
+		OutExportTextName.AppendChar('\'');
+		ObjectPath.AppendString(OutExportTextName);
+		OutExportTextName.AppendChar('\'');
 	}
 
 	/** Returns true if the this asset is a redirector. */
@@ -206,7 +246,7 @@ public:
 	{
 		return IsValid() && FindObject<UObject>(NULL, *ObjectPath.ToString()) != NULL;
 	}
-	
+
 	/** Prints the details of the asset to the log */
 	void PrintAssetData() const
 	{
@@ -219,17 +259,19 @@ public:
 		UE_LOG(LogAssetData, Log, TEXT("        AssetClass: %s"), *AssetClass.ToString());
 		UE_LOG(LogAssetData, Log, TEXT("        TagsAndValues: %d"), TagsAndValues.Num());
 
-		for (TMap<FName, FString>::TConstIterator TagIt(TagsAndValues); TagIt; ++TagIt)
+		for (const auto& TagValue: TagsAndValues)
 		{
-			UE_LOG(LogAssetData, Log, TEXT("            %s : %s"), *TagIt.Key().ToString(), *TagIt.Value());
+			UE_LOG(LogAssetData, Log, TEXT("            %s : %s"), *TagValue.Key.ToString(), *TagValue.Value);
 		}
 
 		UE_LOG(LogAssetData, Log, TEXT("        ChunkIDs: %d"), ChunkIDs.Num());
 
-		for (auto ChunkIt = ChunkIDs.CreateConstIterator(); ChunkIt; ++ChunkIt)
+		for (int32 Chunk: ChunkIDs)
 		{
-			UE_LOG(LogAssetData, Log, TEXT("                 %d"), *ChunkIt);
+			UE_LOG(LogAssetData, Log, TEXT("                 %d"), Chunk);
 		}
+
+		UE_LOG(LogAssetData, Log, TEXT("        PackageFlags: %d"), PackageFlags);
 	}
 
 	/** Get the first FAssetData of a particular class from an Array of FAssetData */
@@ -270,31 +312,7 @@ public:
 		Ar << AssetData.PackageName;
 		Ar << AssetData.AssetName;
 
-		static FName BlueprintClassName = TEXT("Blueprint");
-		if (Ar.IsFilterEditorOnly() && AssetData.AssetClass == BlueprintClassName)
-		{
-			// Exclude FiB data from serialization
-			static FName FiBName = TEXT("FiB");
-			if (Ar.IsSaving())
-			{
-				TMap<FName, FString> LocalTagsAndValues = AssetData.TagsAndValues;
-				LocalTagsAndValues.Remove(FiBName);
-				Ar << LocalTagsAndValues;
-			}
-			else if (Ar.IsLoading())
-			{
-				Ar << AssetData.TagsAndValues;
-				AssetData.TagsAndValues.Remove(FiBName);
-			}
-			else
-			{
-				Ar << AssetData.TagsAndValues;
-			}
-		}
-		else
-		{
-			Ar << AssetData.TagsAndValues;
-		}
+		Ar << const_cast<TMap<FName, FString>&>(AssetData.TagsAndValues.GetMap());
 
 		if (Ar.UE4Ver() >= VER_UE4_CHANGED_CHUNKID_TO_BE_AN_ARRAY_OF_CHUNKIDS)
 		{
@@ -305,6 +323,11 @@ public:
 			// loading old assetdata.  we weren't using this value yet, so throw it away
 			int ChunkID = -1;
 			Ar << ChunkID;
+		}
+
+		if (Ar.UE4Ver() >= VER_UE4_COOKED_ASSETS_IN_EDITOR_SUPPORT)
+		{
+			Ar << AssetData.PackageFlags;
 		}
 
 		return Ar;

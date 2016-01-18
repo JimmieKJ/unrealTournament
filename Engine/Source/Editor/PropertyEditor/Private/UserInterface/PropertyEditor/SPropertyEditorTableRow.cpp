@@ -242,13 +242,37 @@ TSharedRef<SWidget> SPropertyEditorTableRow::ConstructPropertyEditorWidget()
 		{
 			PropertyWidget = SNew( SPropertyEditorNumeric<float>, PropertyEditorRef );
 		}
-		if ( SPropertyEditorNumeric<int32>::Supports(PropertyEditorRef) )
+		else if (SPropertyEditorNumeric<int8>::Supports(PropertyEditorRef))
 		{
-			PropertyWidget = SNew( SPropertyEditorNumeric<int32>, PropertyEditorRef );
+			PropertyWidget = SNew(SPropertyEditorNumeric<int8>, PropertyEditorRef);
 		}
-		if ( SPropertyEditorNumeric<uint8>::Supports(PropertyEditorRef) )
+		else if (SPropertyEditorNumeric<int16>::Supports(PropertyEditorRef))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<int16>, PropertyEditorRef);
+		}
+		else if (SPropertyEditorNumeric<int32>::Supports(PropertyEditorRef))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<int32>, PropertyEditorRef);
+		}
+		else if ( SPropertyEditorNumeric<int64>::Supports(PropertyEditorRef) )
+		{
+			PropertyWidget = SNew( SPropertyEditorNumeric<int64>, PropertyEditorRef );
+		}
+		else if ( SPropertyEditorNumeric<uint8>::Supports(PropertyEditorRef) )
 		{
 			PropertyWidget = SNew( SPropertyEditorNumeric<uint8>, PropertyEditorRef );
+		}
+		else if (SPropertyEditorNumeric<uint16>::Supports(PropertyEditorRef))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<uint16>, PropertyEditorRef);
+		}
+		else if (SPropertyEditorNumeric<uint32>::Supports(PropertyEditorRef))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<uint32>, PropertyEditorRef);
+		}
+		else if (SPropertyEditorNumeric<uint64>::Supports(PropertyEditorRef))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<uint64>, PropertyEditorRef);
 		}
 		else if ( SPropertyEditorArray::Supports(PropertyEditorRef) )
 		{

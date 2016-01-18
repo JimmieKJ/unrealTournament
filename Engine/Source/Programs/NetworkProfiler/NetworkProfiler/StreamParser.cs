@@ -24,7 +24,7 @@ namespace NetworkProfiler
 			if ( TokenReplicateActor != null )
 			{
 				int ClassNameIndex = NetworkStream.GetClassNameIndex(TokenReplicateActor.ActorNameIndex);
-                NetworkStream.UpdateSummary(ref NetworkStream.ActorNameToSummary, ClassNameIndex, TokenReplicateActor.GetNumReplicatedBits("", "", ""), TokenReplicateActor.TimeInMS );
+                NetworkStream.UpdateSummary(ref NetworkStream.ActorNameToSummary, ClassNameIndex, TokenReplicateActor.GetNumReplicatedBits( new FilterValues() ), TokenReplicateActor.TimeInMS );
 			}
 		}
 
@@ -57,7 +57,7 @@ namespace NetworkProfiler
 		 * @param	ParserStream	Raw data stream, needs to support seeking
 		 * @return	NetworkStream data was parsed into
 		 */
-		public static NetworkStream Parse( Stream ParserStream )
+		public static NetworkStream Parse( MainWindow InMainWindow, Stream ParserStream )
 		{
             var StartTime = DateTime.UtcNow;
 
@@ -86,6 +86,13 @@ namespace NetworkProfiler
 				}
 			}
 
+			// Seek to address table and serialize it.
+			ParserStream.Seek( Header.AddressTableOffset, SeekOrigin.Begin );
+			for ( int AddressIndex = 0; AddressIndex < Header.AddressTableEntries; AddressIndex++ )
+			{
+				NetworkStream.AddressArray.Add( BinaryStream.ReadUInt64() );
+			}
+
 			// Seek to beginning of token stream.
 			ParserStream.Seek(TokenStreamOffset,SeekOrigin.Begin);
 
@@ -97,12 +104,32 @@ namespace NetworkProfiler
 			List<TokenWritePropertyHeader> LastPropertyHeaders = new List<TokenWritePropertyHeader>();
 
 			TokenFrameMarker LastFrameMarker = null;
-			
+
+			InMainWindow.ShowProgress( true );
+
+			int Count = 0;
+
+			var AllFrames = new PartialNetworkStream( NetworkStream.NameIndexUnreal, 1.0f / 30.0f );
+
+			int EarlyOutMinutes = InMainWindow.GetMaxProfileMinutes();
+
 			// Parse stream till we reach the end, marked by special token.
 			bool bHasReachedEndOfStream = false;
 			while( bHasReachedEndOfStream == false )
 			{
+				if ( Count++ % 1000 == 0 )
+				{
+					float Percent = ( float )ParserStream.Position / ( float )ParserStream.Length;
+					InMainWindow.UpdateProgress( ( int )( Percent * 100 ) );
+				}
+
 				TokenBase Token = TokenBase.ReadNextToken( BinaryStream, NetworkStream );
+
+				if ( Token.TokenType == ETokenTypes.ConnectionChange )
+				{
+					NetworkStream.CurrentConnectionIndex = ( Token as TokenConnectionChanged ).AddressIndex;
+					continue;
+				}
 
 				// Convert current tokens to frame if we reach a frame boundary or the end of the stream.
 				if( ((Token.TokenType == ETokenTypes.FrameMarker) || (Token.TokenType == ETokenTypes.EndOfStreamMarker))
@@ -120,6 +147,9 @@ namespace NetworkProfiler
 
 					// Create per frame partial stream and add it to the full stream.
 					var FrameStream = new PartialNetworkStream( CurrentFrameTokens, NetworkStream.NameIndexUnreal, DeltaTime );
+					
+					AllFrames.AddStream( FrameStream );
+
 					NetworkStream.Frames.Add(FrameStream);
 					CurrentFrameTokens.Clear();
 
@@ -183,7 +213,16 @@ namespace NetworkProfiler
 						CurrentFrameTokens.Add(Token);
 					}
 				}
+
+				if ( EarlyOutMinutes > 0 && ( ( AllFrames.EndTime - AllFrames.StartTime  ) > 60 * EarlyOutMinutes ) )
+				{
+					break;
+				}
 			}
+
+			InMainWindow.SetCurrentStreamSelection( NetworkStream, AllFrames, false );
+
+			InMainWindow.ShowProgress( false );
 
 			// Stats for profiling.
             double ParseTime = (DateTime.UtcNow - StartTime).TotalSeconds;

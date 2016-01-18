@@ -136,6 +136,10 @@ public:
 		check(!NumMarks && !MinMarksToAlloc);
 		FreeChunks(nullptr);
 	}
+	FORCEINLINE int32 GetNumMarks()
+	{
+		return NumMarks;
+	}
 	/** @return the number of bytes allocated for this FMemStack that are currently in use. */
 	int32 GetByteCount() const;
 

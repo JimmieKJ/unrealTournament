@@ -25,23 +25,23 @@ class UK2Node_ComponentBoundEvent : public UK2Node_Event
 	UPROPERTY()
 	FName ComponentPropertyName;
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
 	virtual void Serialize(FArchive& Ar) override;
-	// End UObject interface
+	//~ End UObject Interface
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FString GetDocumentationLink() const override;
 	virtual FString GetDocumentationExcerptName() const override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin K2Node interface
+	//~ Begin K2Node Interface
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
 	virtual UClass* GetDynamicBindingClass() const override;
 	virtual void RegisterDynamicBinding(UDynamicBlueprintBinding* BindingObject) const override;
-	// End K2Node interface
+	//~ End K2Node Interface
 
 	virtual bool IsUsedByAuthorityOnlyDelegate() const override;
 

@@ -1,13 +1,19 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
-
+#include "PropertyPortFlags.h"
 
 /* FTimespan interface
  *****************************************************************************/
 
 bool FTimespan::ExportTextItem( FString& ValueStr, FTimespan const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
+	if (0 != (PortFlags & EPropertyPortFlags::PPF_ExportCpp))
+	{
+		ValueStr += FString::Printf(TEXT("FTimespan(0x%016X)"), Ticks);
+		return true;
+	}
+
 	ValueStr += ToString(TEXT("%N%d.%h:%m:%s.%f"));
 
 	return true;

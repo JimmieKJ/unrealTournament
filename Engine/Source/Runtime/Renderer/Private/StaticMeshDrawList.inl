@@ -4,11 +4,11 @@
 	StaticMeshDrawList.inl: Static mesh draw list implementation.
 =============================================================================*/
 
-#ifndef __STATICMESHDRAWLIST_INL__
-#define __STATICMESHDRAWLIST_INL__
+#pragma once
 
 #include "RHICommandList.h"
 #include "EngineStats.h"
+#include "ParallelFor.h"
 
 // Expensive
 #define PER_MESH_DRAW_STATS 0
@@ -96,14 +96,20 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawElement(
 			for (uint32 BackFace = 0; BackFace < BackFaceEnd; ++BackFace)
 			{
 				INC_DWORD_STAT(STAT_StaticDrawListMeshDrawCalls);
+				const FPrimitiveSceneProxy* Proxy = Element.Mesh->PrimitiveSceneInfo->Proxy;
 
+				TDrawEvent<FRHICommandList> MeshEvent;
+				BeginMeshDrawEvent(RHICmdList, Proxy, *Element.Mesh, MeshEvent);
+
+				float DitherValue = View.GetDitheredLODTransitionValue(*Element.Mesh);
 				DrawingPolicyLink->DrawingPolicy.SetMeshRenderState(
 					RHICmdList, 
 					View,
-					Element.Mesh->PrimitiveSceneInfo->Proxy,
+					Proxy,
 					*Element.Mesh,
 					BatchElementIndex,
 					!!BackFace,
+					DitherValue,
 					Element.PolicyData,
 					PolicyContext
 					);
@@ -171,6 +177,8 @@ void TStaticMeshDrawList<DrawingPolicyType>::AddMesh(
 
 template<typename DrawingPolicyType>
 TStaticMeshDrawList<DrawingPolicyType>::TStaticMeshDrawList()
+	: FrameNumberForVisibleCount(MAX_uint32)
+	, ViewStateUniqueId(0)
 {
 	if(IsInRenderingThread())
 	{
@@ -220,6 +228,7 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisible(
 	)
 {
 	bool bDirty = false;
+	STAT(int32 StatInc = 0;)
 	for(typename TArray<FSetElementId>::TConstIterator PolicyIt(OrderedDrawingPolicies); PolicyIt; ++PolicyIt)
 	{
 		FDrawingPolicyLink* DrawingPolicyLink = &DrawingPolicySet(*PolicyIt);
@@ -233,7 +242,7 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisible(
 			if(StaticMeshVisibilityMap.AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
 			{
 				const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
-				INC_DWORD_STAT_BY(STAT_StaticMeshTriangles,Element.Mesh->GetNumPrimitives());
+				STAT(StatInc +=  Element.Mesh->GetNumPrimitives();)
 				// Avoid the virtual call looking up batch visibility if there is only one element.
 				uint32 BatchElementMask = Element.Mesh->Elements.Num() == 1 ? 1 : Element.Mesh->VertexFactory->GetStaticBatchElementVisibility(View,Element.Mesh);
 				DrawElement(View, PolicyContext, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
@@ -241,6 +250,7 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisible(
 			}
 		}
 	}
+	INC_DWORD_STAT_BY(STAT_StaticMeshTriangles, StatInc);
 	return bDirty;
 }
 
@@ -251,10 +261,12 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 	const typename DrawingPolicyType::ContextDataType PolicyContext,
 	const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap,
 	const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray,
-	int32 FirstPolicy, int32 LastPolicy
+	int32 FirstPolicy, int32 LastPolicy,
+	bool bUpdateCounts
 	)
 {
 	bool bDirty = false;
+	STAT(int32 StatInc = 0;)
 	for (int32 Index = FirstPolicy; Index <= LastPolicy; Index++)
 	{
 		FDrawingPolicyLink* DrawingPolicyLink = &DrawingPolicySet[OrderedDrawingPolicies[Index]];
@@ -263,19 +275,27 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 		const int32 NumElements = DrawingPolicyLink->Elements.Num();
 		FPlatformMisc::Prefetch(&DrawingPolicyLink->CompactElements.GetData()->MeshId);
 		const FElementCompact* CompactElementPtr = DrawingPolicyLink->CompactElements.GetData();
+		uint32 Count = 0;
 		for (int32 ElementIndex = 0; ElementIndex < NumElements; ElementIndex++, CompactElementPtr++)
 		{
 			if (StaticMeshVisibilityMap.AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
 			{
 				const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
-				INC_DWORD_STAT_BY(STAT_StaticMeshTriangles, Element.Mesh->GetNumPrimitives());
+				STAT(StatInc +=  Element.Mesh->GetNumPrimitives();)
+				int32 SubCount = Element.Mesh->Elements.Num();
+				Count += SubCount;
 				// Avoid the cache miss looking up batch visibility if there is only one element.
-				uint64 BatchElementMask = Element.Mesh->Elements.Num() == 1 ? 1 : BatchVisibilityArray[Element.Mesh->Id];
+				uint64 BatchElementMask = SubCount == 1 ? 1 : BatchVisibilityArray[Element.Mesh->Id];
 				DrawElement(RHICmdList, View, PolicyContext, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
-				bDirty = true;
 			}
 		}
+		bDirty = bDirty || !!Count;
+		if (bUpdateCounts)
+		{
+			DrawingPolicyLink->VisibleCount = Count;
+		}
 	}
+	INC_DWORD_STAT_BY(STAT_StaticMeshTriangles, StatInc);
 	return bDirty;
 }
 
@@ -288,7 +308,7 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisible(
 	const TArray<uint64,SceneRenderingAllocator>& BatchVisibilityArray
 	)
 {
-	return DrawVisibleInner(RHICmdList, View, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, 0, OrderedDrawingPolicies.Num() - 1);
+	return DrawVisibleInner(RHICmdList, View, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, 0, OrderedDrawingPolicies.Num() - 1, false);
 }
 
 
@@ -305,7 +325,7 @@ class FDrawVisibleAnyThreadTask
 	const int32 FirstPolicy;
 	const int32 LastPolicy;
 
-	bool& OutDirty;
+	const TArray<uint16, SceneRenderingAllocator>* PerDrawingPolicyCounts;
 
 public:
 
@@ -318,7 +338,7 @@ public:
 		const TArray<uint64, SceneRenderingAllocator>& InBatchVisibilityArray,
 		int32 InFirstPolicy,
 		int32 InLastPolicy,
-		bool& InOutDirty
+		const TArray<uint16, SceneRenderingAllocator>* InPerDrawingPolicyCounts
 		)
 		: Caller(InCaller)
 		, RHICmdList(InRHICmdList)
@@ -328,7 +348,7 @@ public:
 		, BatchVisibilityArray(InBatchVisibilityArray)
 		, FirstPolicy(InFirstPolicy)
 		, LastPolicy(InLastPolicy)
-		, OutDirty(InOutDirty)
+		, PerDrawingPolicyCounts(InPerDrawingPolicyCounts)
 	{
 	}
 
@@ -346,9 +366,31 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
-		if (this->Caller.DrawVisibleInner(this->RHICmdList, this->View, this->PolicyContext, this->StaticMeshVisibilityMap, this->BatchVisibilityArray, this->FirstPolicy, this->LastPolicy))
+		if (this->PerDrawingPolicyCounts)
 		{
-			this->OutDirty = true;
+			int32 Start = this->FirstPolicy;
+			// we have per policy draw counts, lets not look at the zeros
+			while (Start <= this->LastPolicy)
+			{
+				while (Start <= this->LastPolicy && !(*PerDrawingPolicyCounts)[Start])
+				{
+					Start++;
+				}
+				if (Start <= this->LastPolicy)
+				{
+					int32 BatchEnd = Start;
+					while (BatchEnd < this->LastPolicy && (*PerDrawingPolicyCounts)[BatchEnd + 1])
+					{
+						BatchEnd++;
+					}
+					this->Caller.DrawVisibleInner(this->RHICmdList, this->View, this->PolicyContext, this->StaticMeshVisibilityMap, this->BatchVisibilityArray, Start, BatchEnd, true);
+					Start = BatchEnd + 1;
+				}
+			}
+		}
+		else
+		{
+			this->Caller.DrawVisibleInner(this->RHICmdList, this->View, this->PolicyContext, this->StaticMeshVisibilityMap, this->BatchVisibilityArray, this->FirstPolicy, this->LastPolicy, true);
 		}
 		this->RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
@@ -362,35 +404,220 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallel(
 	FParallelCommandListSet& ParallelCommandListSet
 	)
 {
-
-	int32 EffectiveThreads = FMath::Min<int32>(OrderedDrawingPolicies.Num(), ParallelCommandListSet.Width);
-
-	int32 Start = 0;
+	int32 NumPolicies = OrderedDrawingPolicies.Num();
+	int32 EffectiveThreads = FMath::Min<int32>(NumPolicies, ParallelCommandListSet.Width);
 	if (EffectiveThreads)
 	{
 
-		int32 NumPer = OrderedDrawingPolicies.Num() / EffectiveThreads;
-		int32 Extra = OrderedDrawingPolicies.Num() - NumPer * EffectiveThreads;
-
-
-		for (int32 ThreadIndex = 0; ThreadIndex < EffectiveThreads; ThreadIndex++)
+		if (ParallelCommandListSet.bBalanceCommands)
 		{
-			int32 Last = Start + (NumPer - 1) + (ThreadIndex < Extra);
-			check(Last >= Start);
+			TArray<uint16, SceneRenderingAllocator>& PerDrawingPolicyCounts = *new (FMemStack::Get()) TArray<uint16, SceneRenderingAllocator>();
+			PerDrawingPolicyCounts.AddZeroed(NumPolicies);
 
+			bool bNeedScan = true;
+			bool bCountsAreAccurate = false;
+			uint32 ViewKey = ParallelCommandListSet.View.GetViewKey();
+			uint32 ViewFrame = ParallelCommandListSet.View.GetOcclusionFrameCounter();
+			if (ParallelCommandListSet.bBalanceCommandsWithLastFrame)
 			{
-				FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
-
-				FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(nullptr, ENamedThreads::RenderThread)
-					.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, Start, Last, ParallelCommandListSet.OutDirty);
-
-				ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
+				// this means this will never work in split screen or the editor (multiple views) I am ok with that. It is fixable with more elaborate bookkeeping and additional memory.
+				if (ViewKey && ViewStateUniqueId == ViewKey && FrameNumberForVisibleCount + 1 == ViewFrame)
+				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_DrawVisibleParallel_LastFrameScan);
+					// could use a ParallelFor here, but would rather leave that perf for the game thread.
+					for (int32 Index = 0; Index < NumPolicies; Index++)
+					{
+						FDrawingPolicyLink* DrawingPolicyLink = &DrawingPolicySet[OrderedDrawingPolicies[Index]];
+						PerDrawingPolicyCounts[Index] = (uint16)FMath::Min<uint32>(DrawingPolicyLink->VisibleCount, MAX_uint16);
+					}
+					bNeedScan = false;
+				}
 			}
 
-			Start = Last + 1;
+			if (bNeedScan)
+			{
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_DrawVisibleParallel_FullVisibilityScan);
+				ParallelForWithPreWork(NumPolicies, 
+					[this, &PerDrawingPolicyCounts, &StaticMeshVisibilityMap, &BatchVisibilityArray](int32 Index)
+					{
+						int32 Count = 0;
+
+						FDrawingPolicyLink* DrawingPolicyLink = &DrawingPolicySet[OrderedDrawingPolicies[Index]];
+						const FElementCompact* CompactElementPtr = DrawingPolicyLink->CompactElements.GetData();
+						FPlatformMisc::Prefetch(CompactElementPtr);
+						const int32 NumElements = DrawingPolicyLink->CompactElements.Num();
+						FPlatformMisc::Prefetch(&DrawingPolicyLink->CompactElements.GetData()->MeshId);
+						for (int32 ElementIndex = 0; ElementIndex < NumElements; ElementIndex++, CompactElementPtr++)
+						{
+							if (StaticMeshVisibilityMap.AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
+							{
+								const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
+								Count += Element.Mesh->Elements.Num();
+							}
+						}
+						if (Count)
+						{
+							// this is unlikely to overflow, but I don't think it would matter much if it did
+							PerDrawingPolicyCounts[Index] = (uint16)FMath::Min<int32>(Count, MAX_uint16);
+						}
+						DrawingPolicyLink->VisibleCount = Count;
+					},
+					[]()
+					{
+						QUICK_SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_DrawVisibleParallel_ServiceLocalQueue);
+						FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::RenderThread_Local);
+					}
+				);
+				bCountsAreAccurate = true;
+			}
+			FrameNumberForVisibleCount = ViewFrame;
+			ViewStateUniqueId = ViewKey;
+
+			int32 Total = 0;
+			for (uint16 Count : PerDrawingPolicyCounts)
+			{
+				Total += Count;
+			}
+			if (bCountsAreAccurate && Total == 0)
+			{
+				return;
+			}
+			UE_CLOG(ParallelCommandListSet.bSpewBalance, LogTemp, Display, TEXT("Total Draws %d"), Total);
+
+			EffectiveThreads = FMath::Min<int32>(EffectiveThreads, FMath::DivideAndRoundUp(FMath::Max<int32>(1, Total), ParallelCommandListSet.MinDrawsPerCommandList));
+			check(EffectiveThreads > 0 && EffectiveThreads <= ParallelCommandListSet.Width);
+
+			int32 DrawsPerCmdList = FMath::DivideAndRoundUp(FMath::Max<int32>(1, Total), EffectiveThreads);
+			int32 DrawsPerCmdListMergeLimit = FMath::DivideAndRoundUp(DrawsPerCmdList, 3); // if the last list would be small, we just merge it into the previous one
+
+			int32 Start = 0;
+
+			int32 PreviousBatchStart = -1;
+			int32 PreviousBatchEnd = -2;
+			int32 PreviousBatchDraws = 0;
+
+#if DO_CHECK
+			int32 LastOutput = -1;
+			int32 NumTasks = 0;
+			auto CheckBatches = [&LastOutput, &NumTasks, bCountsAreAccurate, NumPolicies](int32 First, int32 Last)
+			{
+				check(Last >= First && Last < NumPolicies && First >= 0);
+				check(First == LastOutput + 1 || bCountsAreAccurate);
+				LastOutput = Last;
+				NumTasks++;
+			};
+#endif
+			while (Start < NumPolicies)
+			{
+				// skip zeros
+				while (bCountsAreAccurate && Start < NumPolicies && !PerDrawingPolicyCounts[Start])
+				{
+					Start++;
+				}
+				if (Start < NumPolicies)
+				{
+					int32 BatchCount = PerDrawingPolicyCounts[Start];
+					int32 BatchEnd = Start;
+					int32 LastNonZeroPolicy = Start;
+					while (BatchEnd < NumPolicies - 1 && BatchCount < DrawsPerCmdList)
+					{
+						BatchEnd++;
+						if (!bCountsAreAccurate || PerDrawingPolicyCounts[BatchEnd])
+						{
+							BatchCount += PerDrawingPolicyCounts[BatchEnd];
+							LastNonZeroPolicy = BatchEnd;
+						}
+					}
+					if (BatchCount || !bCountsAreAccurate)
+					{
+						if (PreviousBatchStart <= PreviousBatchEnd)
+						{
+							FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
+							if (BatchCount < DrawsPerCmdListMergeLimit)
+							{
+								// this is the last batch and it is small, let merge it
+#if DO_CHECK
+								CheckBatches(PreviousBatchStart, LastNonZeroPolicy);
+#endif
+								UE_CLOG(ParallelCommandListSet.bSpewBalance, LogTemp, Display, TEXT("    Index %d  BatchCount %d    (last merge)"), ParallelCommandListSet.NumParallelCommandLists(), PreviousBatchDraws + BatchCount);
+								FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::RenderThread)
+									.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, PreviousBatchStart, LastNonZeroPolicy, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
+								ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent, FMath::Max<int32>(1, PreviousBatchDraws + BatchCount));
+								PreviousBatchStart = -1;
+								PreviousBatchEnd = -2;
+								PreviousBatchDraws = 0;
+							}
+							else
+							{
+#if DO_CHECK
+								CheckBatches(PreviousBatchStart, PreviousBatchEnd);
+#endif
+								// this is a decent sized batch, emit the previous batch and save this one for possible merging
+								UE_CLOG(ParallelCommandListSet.bSpewBalance, LogTemp, Display, TEXT("    Index %d  BatchCount %d    "), ParallelCommandListSet.NumParallelCommandLists(), PreviousBatchDraws);
+								FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::RenderThread)
+									.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, PreviousBatchStart, PreviousBatchEnd, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
+								ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent, FMath::Max<int32>(1, PreviousBatchDraws));
+								PreviousBatchStart = Start;
+								PreviousBatchEnd = LastNonZeroPolicy;
+								PreviousBatchDraws = BatchCount;
+							}
+						}
+						else
+						{
+							// no batch yet, save this one
+							PreviousBatchStart = Start;
+							PreviousBatchEnd = LastNonZeroPolicy;
+							PreviousBatchDraws = BatchCount;
+						}
+					}
+					Start = BatchEnd + 1;
+				}
+			}
+			// we didn't merge the last batch, emit now
+			if (PreviousBatchStart <= PreviousBatchEnd)
+			{
+#if DO_CHECK
+				CheckBatches(PreviousBatchStart, PreviousBatchEnd);
+#endif
+				UE_CLOG(ParallelCommandListSet.bSpewBalance, LogTemp, Display, TEXT("    Index %d  BatchCount %d    (last)"), ParallelCommandListSet.NumParallelCommandLists(), PreviousBatchDraws);
+				FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
+				FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::RenderThread)
+					.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, PreviousBatchStart, PreviousBatchEnd, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
+				ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent, FMath::Max<int32>(1, PreviousBatchDraws));
+			}
+#if DO_CHECK
+			if (!bCountsAreAccurate)
+			{
+				checkf(LastOutput + 1 == NumPolicies, TEXT("DrawVisibleParallel balance fail %d %d"), LastOutput, NumPolicies);
+			}
+			check(NumTasks > 0 && NumTasks <= ParallelCommandListSet.Width * 2); // there is a little slop here
+#endif
+
+		}
+		else
+		{
+			int32 NumPer = OrderedDrawingPolicies.Num() / EffectiveThreads;
+			int32 Extra = OrderedDrawingPolicies.Num() - NumPer * EffectiveThreads;
+				int32 Start = 0;
+			for (int32 ThreadIndex = 0; ThreadIndex < EffectiveThreads; ThreadIndex++)
+			{
+				int32 Last = Start + (NumPer - 1) + (ThreadIndex < Extra);
+				check(Last >= Start);
+
+				{
+					FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
+
+						FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::RenderThread)
+							.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, Start, Last, nullptr);
+
+					ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
+				}
+
+				Start = Last + 1;
+			}
+			check(Start == OrderedDrawingPolicies.Num());
 		}
 	}
-	check(Start == OrderedDrawingPolicies.Num());
 }
 
 template<typename DrawingPolicyType>
@@ -434,6 +661,7 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBack(
 	int32 LastDrawingPolicyIndex = INDEX_NONE;
 	FDrawingPolicyLink* DrawingPolicyLink = NULL;
 	bool bDrawnShared = false;
+	STAT(int32 StatInc = 0;)
 	for (int32 SortedIndex = 0, NumSorted = FMath::Min(SortKeys.Num(),MaxToDraw); SortedIndex < NumSorted; ++SortedIndex)
 	{
 		int32 DrawingPolicyIndex = SortKeys[SortedIndex].Fields.DrawingPolicyIndex;
@@ -446,27 +674,22 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBack(
 		}
 
 		const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
-		INC_DWORD_STAT_BY(STAT_StaticMeshTriangles,Element.Mesh->GetNumPrimitives());
+		STAT(StatInc +=  Element.Mesh->GetNumPrimitives();)
 		// Avoid the cache miss looking up batch visibility if there is only one element.
 		uint64 BatchElementMask = Element.Mesh->Elements.Num() == 1 ? 1 : BatchVisibilityArray[Element.Mesh->Id];
 		DrawElement(RHICmdList, View, PolicyContext, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
 		NumDraws++;
 	}
+	INC_DWORD_STAT_BY(STAT_StaticMeshTriangles, StatInc);
 
 	return NumDraws;
 }
 
 template<typename DrawingPolicyType>
-FVector TStaticMeshDrawList<DrawingPolicyType>::SortViewPosition = FVector(0);
-
-template<typename DrawingPolicyType>
-typename TStaticMeshDrawList<DrawingPolicyType>::TDrawingPolicySet* TStaticMeshDrawList<DrawingPolicyType>::SortDrawingPolicySet;
-
-template<typename DrawingPolicyType>
-int32 TStaticMeshDrawList<DrawingPolicyType>::Compare(FSetElementId A, FSetElementId B)
+int32 TStaticMeshDrawList<DrawingPolicyType>::Compare(FSetElementId A, FSetElementId B, const TDrawingPolicySet * const InSortDrawingPolicySet, const FVector InSortViewPosition)
 {
-	const FSphere& BoundsA = (*SortDrawingPolicySet)[A].CachedBoundingSphere;
-	const FSphere& BoundsB = (*SortDrawingPolicySet)[B].CachedBoundingSphere;
+	const FSphere& BoundsA = (*InSortDrawingPolicySet)[A].CachedBoundingSphere;
+	const FSphere& BoundsB = (*InSortDrawingPolicySet)[B].CachedBoundingSphere;
 
 	// Assume state buckets with large bounds are background geometry
 	if (BoundsA.W >= HALF_WORLD_MAX / 2 && BoundsB.W < HALF_WORLD_MAX / 2)
@@ -479,8 +702,8 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::Compare(FSetElementId A, FSetEleme
 	}
 	else
 	{
-		const float DistanceASquared = (BoundsA.Center - SortViewPosition).SizeSquared();
-		const float DistanceBSquared = (BoundsB.Center - SortViewPosition).SizeSquared();
+		const float DistanceASquared = (BoundsA.Center - InSortViewPosition).SizeSquared();
+		const float DistanceBSquared = (BoundsB.Center - InSortViewPosition).SizeSquared();
 		// Sort front to back
 		return DistanceASquared > DistanceBSquared ? 1 : -1;
 	}
@@ -495,22 +718,22 @@ void TStaticMeshDrawList<DrawingPolicyType>::SortFrontToBack(FVector ViewPositio
 		FBoxSphereBounds AccumulatedBounds(ForceInit);
 
 		FDrawingPolicyLink& DrawingPolicyLink = *DrawingPolicyIt;
-		if (DrawingPolicyLink.Elements.Num())
+
+		const int32 NumElements = DrawingPolicyLink.Elements.Num();
+		if (NumElements)
 		{
 			AccumulatedBounds = DrawingPolicyLink.Elements[0].Bounds;
-			for (int32 ElementIndex = 1; ElementIndex < DrawingPolicyLink.Elements.Num(); ElementIndex++)
+
+		    for (int32 ElementIndex = 1; ElementIndex < NumElements; ElementIndex++)
 		    {
-		        FElement& Element = DrawingPolicyLink.Elements[ElementIndex];
-		        AccumulatedBounds = AccumulatedBounds + Element.Bounds;
+			    AccumulatedBounds = AccumulatedBounds + DrawingPolicyLink.Elements[ElementIndex].Bounds;
 		    }
 		}
+
 		DrawingPolicyIt->CachedBoundingSphere = AccumulatedBounds.GetSphere();
 	}
 
-	SortViewPosition = ViewPosition;
-	SortDrawingPolicySet = &DrawingPolicySet;
-
-	OrderedDrawingPolicies.Sort( TCompareStaticMeshDrawList<DrawingPolicyType>() );
+	OrderedDrawingPolicies.Sort(TCompareStaticMeshDrawList<DrawingPolicyType>(&DrawingPolicySet, ViewPosition));
 }
 
 template<typename DrawingPolicyType>
@@ -530,6 +753,7 @@ void TStaticMeshDrawList<DrawingPolicyType>::GetUsedPrimitivesBasedOnMaterials(E
 
 			if (Proxy)
 			{
+				check(!Proxy->IsDeleted());
 				FMaterial* MaterialResource = Proxy->GetMaterialNoFallback(FeatureLevel);
 
 				if (Materials.Contains(MaterialResource))
@@ -596,4 +820,3 @@ void TStaticMeshDrawList<DrawingPolicyType>::ApplyWorldOffset(FVector InOffset)
 	}
 }
 
-#endif

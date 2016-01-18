@@ -14,10 +14,13 @@ UEditableText::UEditableText(const FObjectInitializer& ObjectInitializer)
 	SEditableText::FArguments Defaults;
 	WidgetStyle = *Defaults._Style;
 
-	ColorAndOpacity = FLinearColor::Black;
+	ColorAndOpacity_DEPRECATED = FLinearColor::Black;
 
-	static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
-	Font = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	if (!IsRunningDedicatedServer())
+	{
+		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
+		Font_DEPRECATED = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	}
 
 	// Grab other defaults from slate arguments.
 	IsReadOnly = Defaults._IsReadOnly.Get();
@@ -39,18 +42,17 @@ void UEditableText::ReleaseSlateResources(bool bReleaseChildren)
 
 TSharedRef<SWidget> UEditableText::RebuildWidget()
 {
-	MyEditableText = SNew(SEditableText)
-	.Style(&WidgetStyle)
-	.Font(Font)
-	.MinDesiredWidth(MinimumDesiredWidth)
-	.IsCaretMovedWhenGainFocus(IsCaretMovedWhenGainFocus)
-	.SelectAllTextWhenFocused(SelectAllTextWhenFocused)
-	.RevertTextOnEscape(RevertTextOnEscape)
-	.ClearKeyboardFocusOnCommit(ClearKeyboardFocusOnCommit)
-	.SelectAllTextOnCommit(SelectAllTextOnCommit)
-	.OnTextChanged(BIND_UOBJECT_DELEGATE(FOnTextChanged, HandleOnTextChanged))
-	.OnTextCommitted(BIND_UOBJECT_DELEGATE(FOnTextCommitted, HandleOnTextCommitted))
-	;
+	MyEditableText = SNew( SEditableText )
+		.Style( &WidgetStyle )
+		.MinDesiredWidth( MinimumDesiredWidth )
+		.IsCaretMovedWhenGainFocus( IsCaretMovedWhenGainFocus )
+		.SelectAllTextWhenFocused( SelectAllTextWhenFocused )
+		.RevertTextOnEscape( RevertTextOnEscape )
+		.ClearKeyboardFocusOnCommit( ClearKeyboardFocusOnCommit )
+		.SelectAllTextOnCommit( SelectAllTextOnCommit )
+		.OnTextChanged( BIND_UOBJECT_DELEGATE( FOnTextChanged, HandleOnTextChanged ) )
+		.OnTextCommitted( BIND_UOBJECT_DELEGATE( FOnTextCommitted, HandleOnTextCommitted ) )
+		.VirtualKeyboardType( EVirtualKeyboardType::AsKeyboardType( KeyboardType.GetValue() ) );
 	
 	return BuildDesignTimeWidget( MyEditableText.ToSharedRef() );
 }
@@ -66,7 +68,6 @@ void UEditableText::SynchronizeProperties()
 	MyEditableText->SetHintText(HintTextBinding);
 	MyEditableText->SetIsReadOnly(IsReadOnly);
 	MyEditableText->SetIsPassword(IsPassword);
-	MyEditableText->SetColorAndOpacity(ColorAndOpacity);
 
 	// TODO UMG Complete making all properties settable on SEditableText
 }
@@ -150,12 +151,6 @@ void UEditableText::PostLoad()
 			BackgroundImageSelected_DEPRECATED = nullptr;
 		}
 
-		if ( BackgroundImageSelectionTarget_DEPRECATED != nullptr )
-		{
-			WidgetStyle.BackgroundImageSelectionTarget = BackgroundImageSelectionTarget_DEPRECATED->Brush;
-			BackgroundImageSelectionTarget_DEPRECATED = nullptr;
-		}
-
 		if ( BackgroundImageComposing_DEPRECATED != nullptr )
 		{
 			WidgetStyle.BackgroundImageComposing = BackgroundImageComposing_DEPRECATED->Brush;
@@ -166,6 +161,21 @@ void UEditableText::PostLoad()
 		{
 			WidgetStyle.CaretImage = CaretImage_DEPRECATED->Brush;
 			CaretImage_DEPRECATED = nullptr;
+		}
+	}
+
+	if (GetLinkerUE4Version() < VER_UE4_DEPRECATE_UMG_STYLE_OVERRIDES)
+	{
+		if (Font_DEPRECATED.HasValidFont())
+		{
+			WidgetStyle.Font = Font_DEPRECATED;
+			Font_DEPRECATED = FSlateFontInfo();
+		}
+
+		if (ColorAndOpacity_DEPRECATED != FLinearColor::Black)
+		{
+			WidgetStyle.ColorAndOpacity = ColorAndOpacity_DEPRECATED;
+			ColorAndOpacity_DEPRECATED = FLinearColor::Black;
 		}
 	}
 }

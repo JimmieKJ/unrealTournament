@@ -96,6 +96,9 @@ private:
 
 	TSharedPtr< STreeView< TSharedPtr<FWidgetViewModel> > > WidgetTemplatesView;
 
+	/** The search box used to update the filter text */
+	TSharedPtr<class SSearchBox> SearchBoxPtr;
+
 	/** The filter instance which is used by the TreeFilterHandler to filter the TreeView. */
 	TSharedPtr<WidgetViewModelTextFilter> WidgetFilter;
 

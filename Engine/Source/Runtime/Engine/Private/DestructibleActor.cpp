@@ -14,7 +14,6 @@ ADestructibleActor::ADestructibleActor(const FObjectInitializer& ObjectInitializ
 	: Super(ObjectInitializer)
 {
 	DestructibleComponent = CreateDefaultSubobject<UDestructibleComponent>(TEXT("DestructibleComponent0"));
-	DestructibleComponent->bCanEverAffectNavigation = bAffectNavigation;
 	RootComponent = DestructibleComponent;
 }
 
@@ -29,9 +28,27 @@ bool ADestructibleActor::GetReferencedContentObjects( TArray<UObject*>& Objects 
 	}
 	return true;
 }
+
+void ADestructibleActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ADestructibleActor, bAffectNavigation))
+	{
+		DestructibleComponent->SetCanEverAffectNavigation(bAffectNavigation);
+	}
+}
 #endif // WITH_EDITOR
 
-
+void ADestructibleActor::PostLoad()
+{
+	Super::PostLoad();
+	
+	if (DestructibleComponent)
+	{
+		DestructibleComponent->SetCanEverAffectNavigation(bAffectNavigation);
+	}
+}
 
 /** Returns DestructibleComponent subobject **/
 UDestructibleComponent* ADestructibleActor::GetDestructibleComponent() const { return DestructibleComponent; }

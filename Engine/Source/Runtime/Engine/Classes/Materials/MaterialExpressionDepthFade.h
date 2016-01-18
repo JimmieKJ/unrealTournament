@@ -30,7 +30,7 @@ class UMaterialExpressionDepthFade : public UMaterialExpression
 	float FadeDistanceDefault;
 
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual FString GetInputName(int32 InputIndex) const override
 	{
 		if (InputIndex == 0)
@@ -47,7 +47,7 @@ class UMaterialExpressionDepthFade : public UMaterialExpression
 	{
 		OutCaptions.Add(TEXT("Depth Fade"));
 	}
-	// End UMaterialExpression Interface#endif
+	//~ End UMaterialExpression Interface#endif
 };
 
 

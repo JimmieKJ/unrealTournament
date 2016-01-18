@@ -42,7 +42,7 @@ public:
 			.TextStyle(FEditorStyle::Get(), "NormalText")
 			.HAlign(HAlign_Center)
 			.ForegroundColor(FSlateColor::UseForeground())
-			.ToolTipText(FText::FromString(Action->TooltipDescription))
+			.ToolTipText(FText::FromString(Action->GetTooltipDescription()))
 			.OnClicked(this, &SGraphSchemaActionButton::AddOrViewEventBinding)
 			[
 				InArgs._Content.Widget
@@ -55,12 +55,8 @@ private:
 	{
 		UBlueprint* Blueprint = Editor.Pin()->GetBlueprintObj();
 
-		UEdGraph* TargetGraph = nullptr;
-		if ( Blueprint->UbergraphPages.Num() > 0 )
-		{
-			TargetGraph = Blueprint->UbergraphPages[0]; // Just use the first graph
-		}
-
+		UEdGraph* TargetGraph = Blueprint->GetLastEditedUberGraph();
+		
 		if ( TargetGraph != nullptr )
 		{
 			Editor.Pin()->SetCurrentMode(FWidgetBlueprintApplicationModes::GraphMode);
@@ -98,7 +94,7 @@ void FBlueprintWidgetCustomization::CreateEventCustomization( IDetailLayoutBuild
 	IDetailCategoryBuilder& PropertyCategory = DetailLayout.EditCategory(FObjectEditorUtils::GetCategoryFName(Property), FText::GetEmpty(), ECategoryPriority::Uncommon);
 
 	IDetailPropertyRow& PropertyRow = PropertyCategory.AddProperty(DelegatePropertyHandle);
-	PropertyRow.OverrideResetToDefault(true, FSimpleDelegate::CreateSP(this, &FBlueprintWidgetCustomization::ResetToDefault_RemoveBinding, DelegatePropertyHandle));
+	PropertyRow.OverrideResetToDefault(FResetToDefaultOverride::Create(FResetToDefaultHandler::CreateSP(this, &FBlueprintWidgetCustomization::ResetToDefault_RemoveBinding)));
 
 	FString LabelStr = Property->GetName();
 	LabelStr.RemoveFromEnd(TEXT("Event"));
@@ -175,7 +171,7 @@ void FBlueprintWidgetCustomization::CreateMulticastEventCustomization(IDetailLay
 	}
 
 	// Add on category for delegate property
-	const FString EventCategory = FObjectEditorUtils::GetCategory(DelegateProperty);
+	const FText EventCategory = FObjectEditorUtils::GetCategoryText(DelegateProperty);
 
 	UObjectProperty* ComponentProperty = FindField<UObjectProperty>(Blueprint->SkeletonGeneratedClass, ThisComponentName);
 

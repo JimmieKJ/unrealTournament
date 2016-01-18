@@ -11,6 +11,9 @@ struct ENGINE_API FStreamableManager
 {
 	GENERATED_USTRUCT_BODY();
 
+	// Default priority for all async loads
+	static const TAsyncLoadPriority DefaultAsyncLoadPriority = 0;
+
 	FStreamableManager();
 	~FStreamableManager();
 
@@ -19,12 +22,18 @@ struct ENGINE_API FStreamableManager
 	 * No references are made to the object, and this can be very slow.
 	 */
 	UObject* SynchronousLoad(FStringAssetReference const& Target);
+
+	template< typename T >
+	T* SynchronousLoadType( FStringAssetReference const& Target )
+	{
+		return Cast< T >( SynchronousLoad( Target ) );
+	}
 	
 	/** 
 	 * Perform a simple asynchronous load of a single object.
 	 * Object will be strongly referenced until Unload is manually called on it
 	 */
-	void SimpleAsyncLoad(FStringAssetReference const& Target);
+	void SimpleAsyncLoad(FStringAssetReference const& Target, TAsyncLoadPriority Priority = DefaultAsyncLoadPriority);
 
 	/** 
 	 * Releases a reference to an asynchonously loaded object, that was loaded by SimpleAsyncLoad
@@ -40,8 +49,11 @@ struct ENGINE_API FStreamableManager
 	 * Request streaming of one or more target objects, and call a delegate on completion. 
 	 * Objects will be strongly referenced until the delegate is called, then Unload is called automatically 
 	 */
-	void RequestAsyncLoad(const TArray<FStringAssetReference>& TargetsToStream, FStreamableDelegate DelegateToCall);
-	void RequestAsyncLoad( const FStringAssetReference& TargetToStream, FStreamableDelegate DelegateToCall );
+	void RequestAsyncLoad(const TArray<FStringAssetReference>& TargetsToStream, FStreamableDelegate DelegateToCall, TAsyncLoadPriority Priority = DefaultAsyncLoadPriority);
+	void RequestAsyncLoad(const FStringAssetReference& TargetToStream, FStreamableDelegate DelegateToCall, TAsyncLoadPriority Priority = DefaultAsyncLoadPriority);
+
+	void RequestAsyncLoad( const TArray<FStringAssetReference>& TargetsToStream, TFunction<void()>&& Callback, TAsyncLoadPriority Priority = DefaultAsyncLoadPriority );
+	void RequestAsyncLoad( const FStringAssetReference& TargetToStream, TFunction<void()>&& Callback, TAsyncLoadPriority Priority = DefaultAsyncLoadPriority );
 
 	/** Exposes references to GC system */
 	void AddStructReferencedObjects(class FReferenceCollector& Collector) const;
@@ -49,7 +61,7 @@ struct ENGINE_API FStreamableManager
 private:
 	FStringAssetReference ResolveRedirects(FStringAssetReference const& Target) const;
 	void FindInMemory(FStringAssetReference& InOutTarget, struct FStreamable* Existing);
-	struct FStreamable* StreamInternal(FStringAssetReference const& Target);
+	struct FStreamable* StreamInternal(FStringAssetReference const& Target, TAsyncLoadPriority Priority);
 	UObject* GetStreamed(FStringAssetReference const& Target);
 	void CheckCompletedRequests(FStringAssetReference const& Target, struct FStreamable* Existing);
 

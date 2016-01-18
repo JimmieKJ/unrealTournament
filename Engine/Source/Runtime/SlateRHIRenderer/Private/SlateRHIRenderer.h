@@ -7,12 +7,8 @@ class FSlateRHIRenderingPolicy;
 class FSlateElementBatcher;
 
 
-#define USE_MAX_DRAWBUFFERS 1
-
-#if USE_MAX_DRAWBUFFERS
 // Number of draw buffers that can be active at any given time
 const uint32 NumDrawBuffers = 3;
-#endif
 
 // Enable to visualize overdraw in Slate
 #define DEBUG_OVERDRAW 0
@@ -153,7 +149,7 @@ private:
 	private:		
 	};
 public:
-	FSlateRHIRenderer( TSharedPtr<FSlateRHIResourceManager> InResourceManager, TSharedPtr<FSlateFontCache> InFontCache, TSharedPtr<FSlateFontMeasure> InFontMeasure );
+	FSlateRHIRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager );
 	~FSlateRHIRenderer();
 
 	/**
@@ -179,16 +175,22 @@ public:
 	virtual void FlushCommands() const override;
 	virtual void Sync() const override;
 	virtual void ReleaseDynamicResource( const FSlateBrush& InBrush ) override;
+	virtual void RemoveDynamicBrushResource( TSharedPtr<FSlateDynamicImageBrush> BrushToRemove ) override;
 	virtual FIntPoint GenerateDynamicImageResource(const FName InTextureName) override;
 	virtual bool GenerateDynamicImageResource( FName ResourceName, uint32 Width, uint32 Height, const TArray< uint8 >& Bytes ) override;
+	virtual FSlateResourceHandle GetResourceHandle( const FSlateBrush& Brush ) override;
 	virtual void* GetViewportResource( const SWindow& Window ) override;
 	virtual void SetColorVisionDeficiencyType( uint32 Type ) override;
 	virtual FSlateUpdatableTexture* CreateUpdatableTexture(uint32 Width, uint32 Height) override;
 	virtual void ReleaseUpdatableTexture(FSlateUpdatableTexture* Texture) override;
 	virtual ISlateAtlasProvider* GetTextureAtlasProvider() override;
+	virtual void ReleaseAccessedResources(bool bImmediatelyFlush) override;
+	virtual TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> CacheElementRenderData(const ILayoutCache* Cacher, FSlateWindowElementList& ElementList) override;
+	virtual void ReleaseCachingResourcesFor(const ILayoutCache* Cacher) override;
+	virtual void ReleaseCachedRenderData(FSlateRenderDataHandle* RenderHandle) override;
 
 	/** Draws windows from a FSlateDrawBuffer on the render thread */
-	void DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, const FSlateRHIRenderer::FViewportInfo& ViewportInfo, const FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear);
+	void DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, const FSlateRHIRenderer::FViewportInfo& ViewportInfo, FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear);
 
 
 	/**
@@ -217,15 +219,7 @@ public:
 	 */
 	virtual void ReloadTextureResources() override;
 
-
 	virtual void LoadStyleResources( const ISlateStyle& Style ) override;
-
-	/**
-	 * Returns the viewport RHI reference for the provided window
-	 *
-	 * @param Window	The window to get the RHI viewport from 
-	 */
-
 
 	/** Returns whether shaders that Slate depends on have been compiled. */
 	virtual bool AreShadersInitialized() const override;
@@ -272,13 +266,11 @@ private:
 	/** Keep a pointer around for when we have deferred drawing happening */
 	FSlateDrawBuffer* EnqueuedWindowDrawBuffer;
 
-#if USE_MAX_DRAWBUFFERS
 	/** Double buffered draw buffers so that the rendering thread can be rendering windows while the game thread is setting up for next frame */
 	FSlateDrawBuffer DrawBuffers[NumDrawBuffers];
 
 	/** The draw buffer which is currently free for use by the game thread */
 	uint8 FreeBufferIndex;
-#endif
 
 	/** Element batcher which renders draw elements */
 	TSharedPtr<FSlateElementBatcher> ElementBatcher;
@@ -288,6 +280,8 @@ private:
 
 	/** Drawing policy */
 	TSharedPtr<FSlateRHIRenderingPolicy> RenderingPolicy;
+
+	TArray< TSharedPtr<FSlateDynamicImageBrush> > DynamicBrushesToRemove[NumDrawBuffers];
 
 	/** The resource which allows us to capture the editor to a buffer */
 	FSlateCrashReportResource* CrashTrackerResource;

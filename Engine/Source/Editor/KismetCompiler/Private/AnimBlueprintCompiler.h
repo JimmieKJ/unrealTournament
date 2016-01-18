@@ -5,11 +5,11 @@
 #include "KismetCompiler.h"
 #include "AnimGraphDefinitions.h"
 #include "Animation/AnimNodeBase.h"
-
+#include "AnimationGraphSchema.h"
+#include "K2Node_TransitionRuleGetter.h"
 //
 // Forward declarations.
 //
-class UAnimationGraphSchema;
 class UAnimGraphNode_SaveCachedPose;
 class UAnimGraphNode_UseCachedPose;
 class UBlueprintGeneratedClass;
@@ -25,6 +25,9 @@ protected:
 public:
 	FAnimBlueprintCompiler(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions, TArray<UObject*>* InObjLoaded);
 	virtual ~FAnimBlueprintCompiler();
+
+	virtual void PostCompile() override;
+
 protected:
 	// Implementation of FKismetCompilerContext interface
 	virtual UEdGraphSchema_K2* CreateSchema() override;
@@ -36,6 +39,7 @@ protected:
 	virtual void PostCompileDiagnostics() override;
 	virtual void EnsureProperGeneratedClass(UClass*& TargetClass) override;
 	virtual void CleanAndSanitizeClass(UBlueprintGeneratedClass* ClassToClean, UObject*& OldCDO) override;
+	virtual void FinishCompilingClass(UClass* Class) override;
 	// End of FKismetCompilerContext interface
 
 protected:
@@ -49,8 +53,24 @@ protected:
 
 		UEdGraphPin* SinglePin;
 
+		// If this is valid we are a 'simple property copy', avoiding BP thunk
+		FName SimpleCopyPropertyName;
+
+		// If this is a sub-struct property, this will be something other than NAME_None
+		FName SubStructPropertyName;
+
+		// Any operation we want to perform post-copy on the destination data
+		EPostCopyOperation Operation;
+
+		// Whether this node chain only ever accesses members
+		bool bHasOnlyMemberAccess;
+
 		FAnimNodeSinglePropertyHandler()
 			: SinglePin(NULL)
+			, SimpleCopyPropertyName(NAME_None)
+			, SubStructPropertyName(NAME_None)
+			, Operation(EPostCopyOperation::None)
+			, bHasOnlyMemberAccess(false)
 		{
 		}
 	};
@@ -113,32 +133,37 @@ protected:
 		{
 		}
 
+		bool OnlyUsesCopyRecords() const
+		{
+			for(TMap<FName, FAnimNodeSinglePropertyHandler>::TConstIterator It(ServicedProperties); It; ++It)
+			{
+				const FAnimNodeSinglePropertyHandler& AnimNodeSinglePropertyHandler = It.Value();
+				if(AnimNodeSinglePropertyHandler.SimpleCopyPropertyName == NAME_None)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
 		bool IsValid() const
 		{
 			return (NodeVariableProperty != NULL) && (EvaluationHandlerProperty != NULL);
 		}
 
-		void PatchFunctionNameInto(UObject* TargetObject) const
-		{
-			EvaluationHandlerProperty->ContainerPtrToValuePtr<FExposedValueHandler>(
-				NodeVariableProperty->ContainerPtrToValuePtr<void>(TargetObject)
-			)->BoundFunction = HandlerFunctionName;
-		}
+		void PatchFunctionNameAndCopyRecordsInto(UObject* TargetObject) const;
 
-		void RegisterPin(UEdGraphPin* SourcePin, UProperty* AssociatedProperty, int32 AssociatedPropertyArrayIndex)
-		{
-			FAnimNodeSinglePropertyHandler& Handler = ServicedProperties.FindOrAdd(AssociatedProperty->GetFName());
+		void RegisterPin(UEdGraphPin* SourcePin, UProperty* AssociatedProperty, int32 AssociatedPropertyArrayIndex);
 
-			if (AssociatedPropertyArrayIndex != INDEX_NONE)
-			{
-				Handler.ArrayPins.Add(AssociatedPropertyArrayIndex, SourcePin);
-			}
-			else
-			{
-				check(Handler.SinglePin == NULL);
-				Handler.SinglePin = SourcePin;
-			}
-		}
+	private:
+		bool CheckForVariableGet(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
+
+		bool CheckForLogicalNot(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
+
+		bool CheckForStructMemberAccess(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
+
+		bool CheckForMemberOnlyAccess(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
 	};
 
 	// State machines may get processed before their inner graphs, so their node index needs to be patched up later
@@ -190,6 +215,9 @@ protected:
 	// Map of cache name to encountered save cached pose nodes
 	TMap<FString, UAnimGraphNode_SaveCachedPose*> SaveCachedPoseNodes;
 
+	// Set of used handler function names
+	TSet<FName> HandlerFunctionNames;
+
 	// True if any parent class is also generated from an animation blueprint
 	bool bIsDerivedAnimBlueprint;
 private:
@@ -220,6 +248,9 @@ private:
 
 	//
 	void ProcessAnimationNodesGivenRoot(TArray<UAnimGraphNode_Base*>& AnimNodeList, const TArray<UAnimGraphNode_Base*>& RootSet);
+
+	// Automatically fill in parameters for the specified Getter node
+	void AutoWireAnimGetter(class UK2Node_AnimGetter* Getter, UAnimStateTransitionNode* InTransitionNode);
 
 	// This function does the following steps:
 	//   Clones the nodes in the specified source graph

@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
-#include "MallocBinned.h"
+#include "MallocBinned2.h"
 #include "MallocAnsi.h"
 #include "unistd.h"
 #include <jni.h>
@@ -35,6 +35,8 @@ static int64 GetNativeHeapAllocatedSize()
 
 void FAndroidPlatformMemory::Init()
 {
+	FGenericPlatformMemory::Init();
+
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	FPlatformMemoryStats MemoryStats = GetStats();
 	UE_LOG(LogInit, Log, TEXT("Memory total: Physical=%.2fMB (%dGB approx) Available=%.2fMB PageSize=%.1fKB"), 
@@ -90,13 +92,14 @@ FMalloc* FAndroidPlatformMemory::BaseAllocator()
 	uint64 MemoryLimit = FMath::Min<uint64>( uint64(1) << FMath::CeilLogTwo(MemoryConstants.TotalPhysical), 0x100000000);
 
 	//return new FMallocAnsi();
-	return new FMallocBinned(MemoryConstants.PageSize, MemoryLimit);
+	return new FMallocBinned2(MemoryConstants.PageSize, MemoryLimit);
 }
 
 void* FAndroidPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 {
 	// valloc was deprecated, this is a functional equivalent, for SDK 21
-	return memalign(sysconf(_SC_PAGESIZE), Size);
+	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
+	return memalign(MemoryConstants.PageSize, Size);
 }
 
 void FAndroidPlatformMemory::BinnedFreeToOS( void* Ptr )

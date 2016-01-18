@@ -44,6 +44,8 @@ class USceneCaptureComponent : public USceneComponent
 	FEngineShowFlags ShowFlags;
 
 public:
+	/** Indicates which stereo pass this component is capturing for, if any */
+    EStereoscopicPass CaptureStereoPass;
 
 	/** Adds the component to our list of hidden components. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|SceneCapture")

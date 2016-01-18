@@ -7,8 +7,15 @@ UCLASS()
 class UNREALED_API UNiagaraNode : public UEdGraphNode
 {
 	GENERATED_UCLASS_BODY()
+protected:
+
+	void ReallocatePins();
 
 public:
+
+	//~ Begin EdGraphNode Interface
+	virtual void AutowireNewNode(UEdGraphPin* FromPin)override;
+	//~ End EdGraphNode Interface
 
 	/** Get the Niagara graph that owns this node */
 	const class UNiagaraGraph* GetNiagaraGraph()const;

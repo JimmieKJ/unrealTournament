@@ -19,13 +19,16 @@
  *	the user types (e.g, autocomplete 'Damage.Physical' as the user is adding a 'Damage.Physical.Slash' tag).
  *	
  */
-UCLASS(config=Engine, defaultconfig, notplaceable)
+UCLASS(config=GameplayTags, defaultconfig, notplaceable)
 class GAMEPLAYTAGS_API UGameplayTagsSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(config, EditAnywhere, Category=GameplayTags)
 	TArray<FString>		GameplayTags;
+
+	/** Sorts tags alphabetically */
+	void SortTags();
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

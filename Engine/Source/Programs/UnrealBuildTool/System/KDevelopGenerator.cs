@@ -15,7 +15,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
-		public KDevelopFolder( ProjectFileGenerator InitOwnerProjectFileGenerator, string InitFolderName )
+		public KDevelopFolder(ProjectFileGenerator InitOwnerProjectFileGenerator, string InitFolderName)
 			: base(InitOwnerProjectFileGenerator, InitFolderName)
 		{
 		}
@@ -23,7 +23,7 @@ namespace UnrealBuildTool
 
 	public class KDevelopProjectFile : ProjectFile
 	{
-		public KDevelopProjectFile( string InitFilePath )
+		public KDevelopProjectFile(FileReference InitFilePath)
 			: base(InitFilePath)
 		{
 		}
@@ -34,6 +34,10 @@ namespace UnrealBuildTool
 	/// </summary>
 	public class KDevelopGenerator : ProjectFileGenerator
 	{
+		public KDevelopGenerator(FileReference InOnlyGameProject)
+			: base(InOnlyGameProject)
+		{
+		}
 
 		/// File extension for project files we'll be generating (e.g. ".vcxproj")
 		override public string ProjectFileExtension
@@ -44,26 +48,26 @@ namespace UnrealBuildTool
 			}
 		}
 
-		protected override bool WriteMasterProjectFile( ProjectFile UBTProject )
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
 		{
 			bool bSuccess = true;
 			return bSuccess;
 		}
-					
+
 		/// <summary>
 		/// Write the primare $ProjectName.kdev4 project file, the one that should be opened when loading the project
 		/// into KDevelop
 		/// </summary>
 		/// <param name="FileContent">File content.</param>
 		/// <param name="Name">Name.</param>
-		private void WriteKDevMasterProjectSection( ref StringBuilder FileContent, string Name)
+		private void WriteKDevMasterProjectSection(ref StringBuilder FileContent, string Name)
 		{
-			FileContent.Append ("\n");
-			FileContent.Append ("[Project] \n");
-			FileContent.Append ("Manager=KDevCustomBuildSystem \n");
-			FileContent.Append ("Name=");
-			FileContent.Append (Name);
-			FileContent.Append ("\n");
+			FileContent.Append("\n");
+			FileContent.Append("[Project] \n");
+			FileContent.Append("Manager=KDevCustomBuildSystem \n");
+			FileContent.Append("Name=");
+			FileContent.Append(Name);
+			FileContent.Append("\n");
 		}
 
 		/// <summary>
@@ -82,23 +86,24 @@ namespace UnrealBuildTool
 			string BuildCommand = "";
 
 			if (TargetName == GameProjectName)
-			{			
-				ProjectCmdArg = " -project=\"" + UnrealBuildTool.GetUProjectFile () + "\"";
+			{
+				ProjectCmdArg = " -project=\"" + OnlyGameProject.FullName + "\"";
 				Executable = "mono";
 				BuildCommand = "Engine/Binaries/DotNET/UnrealBuildTool.exe";
 
-				if (Type == 1) 
+				if (Type == 1)
 				{
 					ProjectCmdArg = " -makefile -kdevelopfile " + ProjectCmdArg + " -game -engine ";
 				}
 
-			} 
-			else if (TargetName == (GameProjectName + "Editor")) {
-				ProjectCmdArg = " -editorrecompile -project=\"" + UnrealBuildTool.GetUProjectFile () + "\"";
+			}
+			else if (TargetName == (GameProjectName + "Editor"))
+			{
+				ProjectCmdArg = " -editorrecompile -project=\"" + OnlyGameProject.FullName + "\"";
 				Executable = "mono";
 				BuildCommand = "Engine/Binaries/DotNET/UnrealBuildTool.exe";
 
-				if (Type == 1) 
+				if (Type == 1)
 				{
 					ProjectCmdArg = " -makefile -kdevelopfile " + ProjectCmdArg + " -game -engine ";
 				}
@@ -109,7 +114,7 @@ namespace UnrealBuildTool
 				Executable = "bash";
 				BuildCommand = "Engine/Build/BatchFiles/Linux/Build.sh";
 
-				if (Type == 1) 
+				if (Type == 1)
 				{
 					// Override BuildCommand and ProjectCmdArg
 					BuildCommand = "./GenerateProjectFiles.sh";
@@ -120,23 +125,23 @@ namespace UnrealBuildTool
 			if (Type == 0)
 			{
 				ToolType = "Build";
-			} 
-			else if (Type == 1) 
+			}
+			else if (Type == 1)
 			{
 				ToolType = "Configure";
 			}
-			else if (Type == 3) 
+			else if (Type == 3)
 			{
 				ToolType = "Clean";
 				ConfName = ConfName + " -clean";
 			}
 
-			FileContent.Append (String.Format("[CustomBuildSystem][BuildConfig{0}][Tool{1}]\n", BuildConfigIndex, ToolType));
-			FileContent.Append (String.Format ("Arguments={0} {1} {2} Linux {3}\n", BuildCommand, ProjectCmdArg, TargetName, ConfName));
-			FileContent.Append ("Enabled=true\n");
-			FileContent.Append ("Environment=\n");
-			FileContent.Append (String.Format("Executable={0}\n", Executable));
-			FileContent.Append (String.Format("Type={0}\n\n",Type));
+			FileContent.Append(String.Format("[CustomBuildSystem][BuildConfig{0}][Tool{1}]\n", BuildConfigIndex, ToolType));
+			FileContent.Append(String.Format("Arguments={0} {1} {2} Linux {3}\n", BuildCommand, ProjectCmdArg, TargetName, ConfName));
+			FileContent.Append("Enabled=true\n");
+			FileContent.Append("Environment=\n");
+			FileContent.Append(String.Format("Executable={0}\n", Executable));
+			FileContent.Append(String.Format("Type={0}\n\n", Type));
 
 		}
 
@@ -144,104 +149,112 @@ namespace UnrealBuildTool
 		///  Write the Command section for a .kdev4/$ProjectName.kdev4 file.
 		/// </summary>
 		/// <param name="FileContent">File content.</param>
-		private void WriteCommandSection( ref StringBuilder FileContent)
+		private void WriteCommandSection(ref StringBuilder FileContent)
 		{
 			int BuildConfigIndex = 1;
 
 			var UnrealRootPath = Path.GetFullPath(ProjectFileGenerator.RootRelativePath);
-			FileContent.Append ("[CustomBuildSystem]\n");
+			FileContent.Append("[CustomBuildSystem]\n");
 			FileContent.Append("CurrentConfiguration=BuildConfig0\n\n"); //
 
 			// The Basics to get up and running with the editor, utilizing the Makefile.
-			FileContent.Append (String.Format("[CustomBuildSystem][BuildConfig0]\nBuildDir=file://{0}\n", UnrealRootPath ));
+			FileContent.Append(String.Format("[CustomBuildSystem][BuildConfig0]\nBuildDir=file://{0}\n", UnrealRootPath));
 
-			FileContent.Append ("Title=BuildMeFirst\n\n");
-			FileContent.Append ("[CustomBuildSystem][BuildConfig0][ToolBuild]\n");
-			FileContent.Append ("Arguments=-f Makefile UE4Editor UE4Game ShaderCompileWorker UnrealLightmass UnrealPak\n");
-			FileContent.Append ("Enabled=true\n");
-			FileContent.Append ("Environment=\n");
-			FileContent.Append ("Executable=make\n");
-			FileContent.Append ("Type=0\n\n");
+			FileContent.Append("Title=BuildMeFirst\n\n");
+			FileContent.Append("[CustomBuildSystem][BuildConfig0][ToolBuild]\n");
+			FileContent.Append("Arguments=-f Makefile UE4Editor UE4Game ShaderCompileWorker UnrealLightmass UnrealPak\n");
+			FileContent.Append("Enabled=true\n");
+			FileContent.Append("Environment=\n");
+			FileContent.Append("Executable=make\n");
+			FileContent.Append("Type=0\n\n");
 
-			FileContent.Append ("[CustomBuildSystem][BuildConfig0][ToolClean]\n");
-			FileContent.Append ("Arguments=-f Makefile UE4Editor UE4Game ShaderCompileWorker UnrealLightmass UnrealPak -clean\n");
-			FileContent.Append ("Enabled=true\n");
-			FileContent.Append ("Environment=\n");
-			FileContent.Append ("Executable=make\n");
-			FileContent.Append ("Type=3\n\n");
+			FileContent.Append("[CustomBuildSystem][BuildConfig0][ToolClean]\n");
+			FileContent.Append("Arguments=-f Makefile UE4Editor UE4Game ShaderCompileWorker UnrealLightmass UnrealPak -clean\n");
+			FileContent.Append("Enabled=true\n");
+			FileContent.Append("Environment=\n");
+			FileContent.Append("Executable=make\n");
+			FileContent.Append("Type=3\n\n");
 
-			FileContent.Append ("[CustomBuildSystem][BuildConfig0][ToolConfigure]\n");
-			FileContent.Append ("Arguments=./GenerateProjectFiles.sh\n");
-			FileContent.Append ("Enabled=true\n");
-			FileContent.Append ("Environment=\n");
-			FileContent.Append ("Executable=bash\n");
-			FileContent.Append ("Type=1\n\n");
+			FileContent.Append("[CustomBuildSystem][BuildConfig0][ToolConfigure]\n");
+			FileContent.Append("Arguments=./GenerateProjectFiles.sh\n");
+			FileContent.Append("Enabled=true\n");
+			FileContent.Append("Environment=\n");
+			FileContent.Append("Executable=bash\n");
+			FileContent.Append("Type=1\n\n");
 
-			foreach (string TargetFilePath in DiscoverTargets())
+			foreach (var Project in GeneratedProjectFiles)
 			{
-				var TargetName = Utils.GetFilenameWithoutAnyExtensions(TargetFilePath);		
-
-				// Remove both ".cs" and ".
-				foreach (UnrealTargetConfiguration CurConfiguration in Enum.GetValues(typeof(UnrealTargetConfiguration))) 
+				foreach (var TargetFile in Project.ProjectTargets)
 				{
-					if (CurConfiguration != UnrealTargetConfiguration.Unknown && CurConfiguration != UnrealTargetConfiguration.Development) 
+					if (TargetFile.TargetFilePath == null)
 					{
-						if (UnrealBuildTool.IsValidConfiguration (CurConfiguration)) 
-						{
-							var ConfName = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
-							FileContent.Append (String.Format("[CustomBuildSystem][BuildConfig{0}]\nBuildDir=file://{1}\n", BuildConfigIndex, UnrealRootPath ));
+						continue;
+					}
 
-							if (TargetName == GameProjectName)
+					var TargetName = TargetFile.TargetFilePath.GetFileNameWithoutAnyExtensions();
+
+					// Remove both ".cs" and ".
+					foreach (UnrealTargetConfiguration CurConfiguration in Enum.GetValues(typeof(UnrealTargetConfiguration)))
+					{
+						if (CurConfiguration != UnrealTargetConfiguration.Unknown && CurConfiguration != UnrealTargetConfiguration.Development)
+						{
+							if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
 							{
-								FileContent.Append (String.Format ("Title={0}-Linux-{1}\n\n", TargetName, ConfName));
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 0);
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 1);
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 3);
-							} 
-							else if (TargetName == (GameProjectName + "Editor")) 
-							{
-								FileContent.Append (String.Format ("Title={0}-Linux-{1}\n\n", TargetName, ConfName));
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 0);
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 1);
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 3);
-							} 
-							else
-							{
-								FileContent.Append (String.Format ("Title={0}-Linux-{1}\n\n", TargetName, ConfName));
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 0);
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 1);
-								WriteCommandSubSection (ref FileContent, TargetName, ConfName, BuildConfigIndex, 3);
+								var ConfName = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
+								FileContent.Append(String.Format("[CustomBuildSystem][BuildConfig{0}]\nBuildDir=file://{1}\n", BuildConfigIndex, UnrealRootPath));
+
+								if (TargetName == GameProjectName)
+								{
+									FileContent.Append(String.Format("Title={0}-Linux-{1}\n\n", TargetName, ConfName));
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 0);
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 1);
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 3);
+								}
+								else if (TargetName == (GameProjectName + "Editor"))
+								{
+									FileContent.Append(String.Format("Title={0}-Linux-{1}\n\n", TargetName, ConfName));
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 0);
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 1);
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 3);
+								}
+								else
+								{
+									FileContent.Append(String.Format("Title={0}-Linux-{1}\n\n", TargetName, ConfName));
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 0);
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 1);
+									WriteCommandSubSection(ref FileContent, TargetName, ConfName, BuildConfigIndex, 3);
+								}
+								BuildConfigIndex++;
 							}
-							BuildConfigIndex++;
 						}
 					}
-				}
 
-				FileContent.Append (String.Format("[CustomBuildSystem][BuildConfig{0}]\nBuildDir=file://{1}\n", BuildConfigIndex, UnrealRootPath ));
-				if (TargetName == GameProjectName)
-				{
-					FileContent.Append (String.Format ("Title={0}\n\n", TargetName));
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 0);
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 1);
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 3);
+					FileContent.Append(String.Format("[CustomBuildSystem][BuildConfig{0}]\nBuildDir=file://{1}\n", BuildConfigIndex, UnrealRootPath));
+					if (TargetName == GameProjectName)
+					{
+						FileContent.Append(String.Format("Title={0}\n\n", TargetName));
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 0);
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 1);
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 3);
 
-				} 
-				else if (TargetName == (GameProjectName + "Editor")) 
-				{
-					FileContent.Append (String.Format ("Title={0}\n\n", TargetName));
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 0);
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 1);
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 3);
+					}
+					else if (TargetName == (GameProjectName + "Editor"))
+					{
+						FileContent.Append(String.Format("Title={0}\n\n", TargetName));
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 0);
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 1);
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 3);
+					}
+					else
+					{
+						FileContent.Append(String.Format("Title={0}\n\n", TargetName));
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 0);
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 1);
+						WriteCommandSubSection(ref FileContent, TargetName, "Development", BuildConfigIndex, 3);
+					}
+					BuildConfigIndex++;
 				}
-				else
-				{
-					FileContent.Append (String.Format ("Title={0}\n\n", TargetName));
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 0);
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 1);
-					WriteCommandSubSection (ref FileContent, TargetName, "Development" , BuildConfigIndex, 3);
-				}
-				BuildConfigIndex++;
-			}			
+			}
 		}
 
 		/// <summary>
@@ -250,8 +263,8 @@ namespace UnrealBuildTool
 		/// <param name="FileContent">File content.</param>
 		private void WriteIncludeSection(ref StringBuilder FileContent)
 		{
-			List<string> IncludeDirectories = new List<string> ();
-			List<string> SystemIncludeDirectories = new List<string> ();
+			List<string> IncludeDirectories = new List<string>();
+			List<string> SystemIncludeDirectories = new List<string>();
 
 			var UnrealEngineRootPath = Path.GetFullPath(ProjectFileGenerator.RootRelativePath);
 
@@ -259,18 +272,18 @@ namespace UnrealBuildTool
 			// Iterate through all the include paths that
 			// UnrealBuildTool.exe generates
 
-			foreach (var CurProject in GeneratedProjectFiles) 
+			foreach (var CurProject in GeneratedProjectFiles)
 			{
 				KDevelopProjectFile KDevelopProject = CurProject as KDevelopProjectFile;
 				if (KDevelopProject == null)
 				{
-					System.Console.WriteLine ("KDevelopProject == null");
+					System.Console.WriteLine("KDevelopProject == null");
 					continue;
 				}
 
-				foreach (var CurPath in KDevelopProject.IntelliSenseIncludeSearchPaths) 
+				foreach (var CurPath in KDevelopProject.IntelliSenseIncludeSearchPaths)
 				{
-					string FullProjectPath = Path.GetFullPath(ProjectFileGenerator.MasterProjectRelativePath);
+					string FullProjectPath = ProjectFileGenerator.MasterProjectPath.FullName;
 					string FullPath = "";
 
 					// need to test to see if this in the project souce tree
@@ -282,24 +295,24 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						FullPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(KDevelopProject.ProjectFilePath), CurPath));
+						FullPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(KDevelopProject.ProjectFilePath.FullName), CurPath));
 						FullPath = Utils.MakePathRelativeTo(FullPath, FullProjectPath);
 						FullPath = FullPath.TrimEnd('/');
 						FullPath = Path.Combine(UnrealEngineRootPath, FullPath);
 
 					}
 
-					if (!IncludeDirectories.Contains (FullPath) && !FullPath.Contains ("FortniteGame/") && !FullPath.Contains ("Intermediate/") && Directory.Exists (FullPath))
+					if (!IncludeDirectories.Contains(FullPath) && !FullPath.Contains("FortniteGame/") && Directory.Exists(FullPath))
 					{
-						SystemIncludeDirectories.Add (String.Format ("{0}", FullPath)); 
+						SystemIncludeDirectories.Add(String.Format("{0}", FullPath));
 						IncludeIndex++;
 					}
 
 				}
 
-				foreach (var CurPath in KDevelopProject.IntelliSenseSystemIncludeSearchPaths) 
+				foreach (var CurPath in KDevelopProject.IntelliSenseSystemIncludeSearchPaths)
 				{
-					string FullProjectPath = Path.GetFullPath(ProjectFileGenerator.MasterProjectRelativePath);
+					string FullProjectPath = ProjectFileGenerator.MasterProjectPath.FullName;
 					string FullPath = "";
 
 					if (CurPath.StartsWith("/") && !CurPath.StartsWith(FullProjectPath))
@@ -309,30 +322,30 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						FullPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(KDevelopProject.ProjectFilePath), CurPath));
+						FullPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(KDevelopProject.ProjectFilePath.FullName), CurPath));
 						FullPath = Utils.MakePathRelativeTo(FullPath, FullProjectPath);
 						FullPath = FullPath.TrimEnd('/');
 						FullPath = Path.Combine(UnrealEngineRootPath, FullPath);
 					}
 
-					if (!SystemIncludeDirectories.Contains(FullPath) && !FullPath.Contains("FortniteGame/")  && !FullPath.Contains("Intermediate/") && Directory.Exists(FullPath)) // @todo: skipping Fortnite header paths to shorten clang command line for building UE4XcodeHelper
+					if (!SystemIncludeDirectories.Contains(FullPath) && !FullPath.Contains("FortniteGame/") && !FullPath.Contains("Intermediate/") && Directory.Exists(FullPath)) // @todo: skipping Fortnite header paths to shorten clang command line for building UE4XcodeHelper
 					{
-						SystemIncludeDirectories.Add(String.Format("{0}",FullPath));
+						SystemIncludeDirectories.Add(String.Format("{0}", FullPath));
 						IncludeIndex++;
 					}
 				}
 			}
 
-			foreach (var CurPath in IncludeDirectories) 
+			foreach (var CurPath in IncludeDirectories)
 			{
-				FileContent.Append (CurPath);
-				FileContent.Append (" \n");
+				FileContent.Append(CurPath);
+				FileContent.Append(" \n");
 			}
 
-			foreach (var CurPath in SystemIncludeDirectories) 
+			foreach (var CurPath in SystemIncludeDirectories)
 			{
-				FileContent.Append (CurPath);
-				FileContent.Append (" \n");
+				FileContent.Append(CurPath);
+				FileContent.Append(" \n");
 			}
 			FileContent.Append("\n");
 		}
@@ -341,7 +354,7 @@ namespace UnrealBuildTool
 		/// Write the defines section to the .kdev4/$ProjectName.kdev4 project file.
 		/// </summary>
 		/// <param name="FileContent">File content.</param>
-		private void WriteDefineSection( ref StringBuilder FileContent) 
+		private void WriteDefineSection(ref StringBuilder FileContent)
 		{
 			List<string> DefineHolder = new List<string>();
 
@@ -350,35 +363,35 @@ namespace UnrealBuildTool
 				KDevelopProjectFile KDevelopProject = CurProject as KDevelopProjectFile;
 				if (KDevelopProject == null)
 				{
-					System.Console.WriteLine ("KDevelopProject == null");
+					System.Console.WriteLine("KDevelopProject == null");
 					continue;
 				}
 
 				foreach (var CurDefine in KDevelopProject.IntelliSensePreprocessorDefinitions)
 				{
-					if (!DefineHolder.Contains (CurDefine)) 
+					if (!DefineHolder.Contains(CurDefine))
 					{
-						DefineHolder.Add (CurDefine);
+						DefineHolder.Add(CurDefine);
 					}
 				}
 			}
 
 			foreach (var Def in DefineHolder)
 			{
-				FileContent.Append (Def + "\n");
+				FileContent.Append(Def + "\n");
 			}
 
-			FileContent.Append ("\n\n");
+			FileContent.Append("\n\n");
 		}
 
 		/// <summary>
 		/// Excludes list in one big ugly list.
 		/// </summary>
 		/// <param name="FileContent">File content.</param>
-		private void WriteExcludeSection( ref StringBuilder FileContent)
+		private void WriteExcludeSection(ref StringBuilder FileContent)
 		{
 			// Default excludes list with Engine/Intermediate, *PCH.h, and *.gch added to the exclude list
-			FileContent.Append ("[Filters]\nsize=30\n\n[Filters][0]\ninclusive=0\npattern=.*\ntargets=3\n\n" +
+			FileContent.Append("[Filters]\nsize=30\n\n[Filters][0]\ninclusive=0\npattern=.*\ntargets=3\n\n" +
 				"[Filters][1]\ninclusive=0\npattern=.git\ntargets=2\n\n[Filters][10]\ninclusive=0\npattern=*.o\ntargets=1\n\n" +
 				"[Filters][11]\ninclusive=0\npattern=*.a\ntargets=1\n\n[Filters][12]\ninclusive=0\npattern=*.so\ntargets=1\n\n" +
 				"[Filters][13]\ninclusive=0\npattern=*.so.*\ntargets=1\n\n[Filters][14]\ninclusive=0\npattern=moc_*.cpp\ntargets=1\n\n" +
@@ -403,57 +416,57 @@ namespace UnrealBuildTool
 			/// RAKE! Take one KDevelopProjectFileContent and pass
 			/// it through each function that writes out the sections.
 			var KDevelopFileContent = new StringBuilder();
-			var KDevelopMasterFileContent = new StringBuilder ();
+			var KDevelopMasterFileContent = new StringBuilder();
 
 			// These are temp files until we can write them to the 
 			// *.kdev4 filename directly 
-			var DefinesFileContent = new StringBuilder ();
-			var IncludesFileContent = new StringBuilder ();
+			var DefinesFileContent = new StringBuilder();
+			var IncludesFileContent = new StringBuilder();
 
 			var FileName = MasterProjectName + ".kdev4";
 
 			var DefinesFileName = "Defines.txt"; // RAKE! TEMP!
 			var IncludesFileName = "Includes.txt"; // RAKE! TEMP!
 
-			WriteKDevMasterProjectSection (ref KDevelopMasterFileContent, MasterProjectName);
+			WriteKDevMasterProjectSection(ref KDevelopMasterFileContent, MasterProjectName);
 
-			WriteCommandSection (ref KDevelopFileContent);
-			WriteIncludeSection (ref IncludesFileContent);
-			WriteDefineSection (ref DefinesFileContent);
-			WriteExcludeSection (ref KDevelopFileContent);
+			WriteCommandSection(ref KDevelopFileContent);
+			WriteIncludeSection(ref IncludesFileContent);
+			WriteDefineSection(ref DefinesFileContent);
+			WriteExcludeSection(ref KDevelopFileContent);
 
 			// Write the master kdev file.
-			var FullMasterProjectPath = Path.Combine (MasterProjectRelativePath,".kdev4/");
+			var FullMasterProjectPath = Path.Combine(MasterProjectPath.FullName, ".kdev4/");
 
-			if(!Directory.Exists(FullMasterProjectPath))
+			if (!Directory.Exists(FullMasterProjectPath))
 			{
-				Directory.CreateDirectory (FullMasterProjectPath);
+				Directory.CreateDirectory(FullMasterProjectPath);
 			}
 
-			var FullKDevelopMasterFileName = Path.Combine(MasterProjectRelativePath, FileName);
-			var FullKDevelopFileName = Path.Combine (FullMasterProjectPath, FileName);
+			var FullKDevelopMasterFileName = Path.Combine(MasterProjectPath.FullName, FileName);
+			var FullKDevelopFileName = Path.Combine(FullMasterProjectPath, FileName);
 
-			var FullDefinesFileName = Path.Combine (FullMasterProjectPath, DefinesFileName);
-			var FullIncludesFileName = Path.Combine (FullMasterProjectPath, IncludesFileName);
+			var FullDefinesFileName = Path.Combine(FullMasterProjectPath, DefinesFileName);
+			var FullIncludesFileName = Path.Combine(FullMasterProjectPath, IncludesFileName);
 
-			WriteFileIfChanged (FullDefinesFileName, DefinesFileContent.ToString());
-			WriteFileIfChanged (FullIncludesFileName, IncludesFileContent.ToString());
+			WriteFileIfChanged(FullDefinesFileName, DefinesFileContent.ToString());
+			WriteFileIfChanged(FullIncludesFileName, IncludesFileContent.ToString());
 
-			return WriteFileIfChanged (FullKDevelopMasterFileName, KDevelopMasterFileContent.ToString ()) &&
-			WriteFileIfChanged (FullKDevelopFileName, KDevelopFileContent.ToString ());
+			return WriteFileIfChanged(FullKDevelopMasterFileName, KDevelopMasterFileContent.ToString()) &&
+			WriteFileIfChanged(FullKDevelopFileName, KDevelopFileContent.ToString());
 		}
 
 		/// ProjectFileGenerator interface
 		//protected override bool WriteMasterProjectFile( ProjectFile UBTProject )
-		protected override bool WriteProjectFiles ()
+		protected override bool WriteProjectFiles()
 		{
 			return WriteKDevelopPro();
 		}
 
 		/// ProjectFileGenerator interface
-		public override MasterProjectFolder AllocateMasterProjectFolder( ProjectFileGenerator InitOwnerProjectFileGenerator, string InitFolderName )
+		public override MasterProjectFolder AllocateMasterProjectFolder(ProjectFileGenerator InitOwnerProjectFileGenerator, string InitFolderName)
 		{
-			return new KDevelopFolder( InitOwnerProjectFileGenerator, InitFolderName );
+			return new KDevelopFolder(InitOwnerProjectFileGenerator, InitFolderName);
 		}
 
 		/// ProjectFileGenerator interface
@@ -462,13 +475,13 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InitFilePath">Path to the project file</param>
 		/// <returns>The newly allocated project file object</returns>
-		protected override ProjectFile AllocateProjectFile( string InitFilePath )
+		protected override ProjectFile AllocateProjectFile(FileReference InitFilePath)
 		{
-			return new KDevelopProjectFile( InitFilePath );
+			return new KDevelopProjectFile(InitFilePath);
 		}
 
 		/// ProjectFileGenerator interface
-		public override void CleanProjectFiles(string InMasterProjectRelativePath, string InMasterProjectName, string InIntermediateProjectFilesPath)
+		public override void CleanProjectFiles(DirectoryReference InMasterProjectDirectory, string InMasterProjectName, DirectoryReference InIntermediateProjectFilesDirectory)
 		{
 		}
 	}

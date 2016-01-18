@@ -31,6 +31,12 @@ inline void SetPromise(TPromise<ResultType>& Promise, TFunction<ResultType()> Fu
 	Promise.SetValue(Function());
 }
 
+template<typename ResultType>
+inline void SetPromise(TPromise<ResultType>& Promise, TFunctionRef<ResultType()> Function)
+{
+	Promise.SetValue(Function());
+}
+
 
 /**
  * Template for setting a promise's value from a function (specialization for void results).
@@ -42,23 +48,20 @@ inline void SetPromise(TPromise<void>& Promise, TFunction<void()> Function)
 	Promise.SetValue();
 }
 
+template<>
+inline void SetPromise(TPromise<void>& Promise, TFunctionRef<void()> Function)
+{
+	Function();
+	Promise.SetValue();
+}
+
 
 /**
  * Base class for asynchronous functions that are executed in the Task Graph system.
  */
-class FAsyncTaskBase
+class FAsyncGraphTaskBase
 {
 public:
-
-	/**
-	 * Returns the name of the thread that this task should run on.
-	 *
-	 * @return Always run on any thread.
-	 */
-	ENamedThreads::Type GetDesiredThread()
-	{
-		return ENamedThreads::AnyThread;
-	}
 
 	/**
 	 * Gets the task's stats tracking identifier.
@@ -86,8 +89,8 @@ public:
  * Template for asynchronous functions that are executed in the Task Graph system.
  */
 template<typename ResultType>
-class TAsyncTask
-	: public FAsyncTaskBase
+class TAsyncGraphTask
+	: public FAsyncGraphTaskBase
 {
 public:
 
@@ -97,7 +100,7 @@ public:
 	 * @param InFunction The function to execute asynchronously.
 	 * @param InPromise The promise object used to return the function's result.
 	 */
-	TAsyncTask(TFunction<ResultType()>&& InFunction, TPromise<ResultType>&& InPromise)
+	TAsyncGraphTask(TFunction<ResultType()>&& InFunction, TPromise<ResultType>&& InPromise)
 		: Function(MoveTemp(InFunction))
 		, Promise(MoveTemp(InPromise))
 	{ }
@@ -113,6 +116,16 @@ public:
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
 		SetPromise(Promise, Function);
+	}
+
+	/**
+	 * Returns the name of the thread that this task should run on.
+	 *
+	 * @return Always run on any thread.
+	 */
+	ENamedThreads::Type GetDesiredThread()
+	{
+		return ENamedThreads::AnyThread;
 	}
 
 	/**
@@ -224,12 +237,12 @@ private:
 /**
  * Helper struct used to generate unique ids for the stats.
  */
-struct FAsyncIndex
+struct FAsyncThreadIndex
 {
 	CORE_API static int32 GetNext()
 	{
-		static FThreadSafeCounter TAsyncThreadIndex;
-		return TAsyncThreadIndex.Add(1);
+		static FThreadSafeCounter ThreadIndex;
+		return ThreadIndex.Add(1);
 	}
 };
 
@@ -268,6 +281,7 @@ struct FAsyncIndex
  *			return 123;
  *		}
  *
+ * @param ResultType The type of the function's return value.
  * @param Execution The execution method to use, i.e. on Task Graph or in a separate thread.
  * @param Function The function to execute.
  * @result A TFuture object that will receive the return value from the function.
@@ -282,7 +296,7 @@ TFuture<ResultType> Async(EAsyncExecution Execution, TFunction<ResultType()> Fun
 	{
 	case EAsyncExecution::TaskGraph:
 		{
-			TGraphTask<TAsyncTask<ResultType>>::CreateTask().ConstructAndDispatchWhenReady(MoveTemp(Function), MoveTemp(Promise));
+			TGraphTask<TAsyncGraphTask<ResultType>>::CreateTask().ConstructAndDispatchWhenReady(MoveTemp(Function), MoveTemp(Promise));
 		}
 		break;
 	
@@ -291,7 +305,7 @@ TFuture<ResultType> Async(EAsyncExecution Execution, TFunction<ResultType()> Fun
 			TPromise<FRunnableThread*> ThreadPromise;
 			TAsyncRunnable<ResultType>* Runnable = new TAsyncRunnable<ResultType>(MoveTemp(Function), MoveTemp(Promise), ThreadPromise.GetFuture());
 			
-			const FString TAsyncThreadName = FString::Printf(TEXT("TAsync %d"), FAsyncIndex::GetNext());
+			const FString TAsyncThreadName = FString::Printf(TEXT("TAsync %d"), FAsyncThreadIndex::GetNext());
 			FRunnableThread* RunnableThread = FRunnableThread::Create(Runnable, *TAsyncThreadName);
 
 			check(RunnableThread != nullptr);
@@ -314,7 +328,20 @@ TFuture<ResultType> Async(EAsyncExecution Execution, TFunction<ResultType()> Fun
 }
 
 
-template<typename ResultType> uint32 TAsyncRunnable<ResultType>::Run()
+/**
+ * Convenience function for executing code asynchronously on the Task Graph.
+ *
+ * @param Thread The name of the thread to run on.
+ * @param Function The function to execute.
+ */
+CORE_API void AsyncTask(ENamedThreads::Type Thread, TFunction<void()> Function);
+
+
+/* Inline functions
+ *****************************************************************************/
+
+template<typename ResultType>
+uint32 TAsyncRunnable<ResultType>::Run()
 {
 	SetPromise(Promise, Function);
 

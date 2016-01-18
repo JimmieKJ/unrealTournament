@@ -261,13 +261,18 @@ void Gu::GeometryUnion::computeBounds(
 		{
 			const PxHeightFieldGeometryLL& shape = get<const PxHeightFieldGeometryLL>();
 			const PxMeshScale scale(PxVec3(shape.rowScale, shape.heightScale, shape.columnScale), PxQuat(PxIdentity));
-			PxReal thickness;
 			PxVec3 origin, extents;
 			if(localSpaceBounds)
 			{
-				computeMeshBounds(pose, localSpaceBounds, scale, origin, extents);
+				PxBounds3 aabb = *localSpaceBounds;
+				const PxF32 thickness = shape.heightFieldData->thickness;
+				const PxReal thicknessScaled = thickness/shape.heightScale;
+				if(thicknessScaled < 0.f)
+					aabb.minimum.y += thicknessScaled;
+				else
+					aabb.maximum.y += thicknessScaled;
 
-				thickness = shape.heightFieldData->thickness;
+				computeMeshBounds(pose, &aabb, scale, origin, extents);
 			}
 			else
 			{
@@ -275,17 +280,19 @@ void Gu::GeometryUnion::computeBounds(
 				HeightFieldData* data = Cm::memFetchAsync<HeightFieldData>(Cm::MemFetchPtr(shape.heightFieldData), 1, dataBuffer);
 				Cm::memFetchWait(1);
 
-				computeMeshBounds(pose, &data->mAABB, scale, origin, extents);
+				PxBounds3 aabb = data->mAABB;
+				const PxF32 thickness = shape.heightFieldData->thickness;
+				const PxReal thicknessScaled = thickness/shape.heightScale;
+				if(thicknessScaled < 0.f)
+					aabb.minimum.y += thicknessScaled;
+				else
+					aabb.maximum.y += thicknessScaled;
 
-				thickness = data->thickness;
+				computeMeshBounds(pose, &aabb, scale, origin, extents);
 			}
 			const PxVec3 offset(contactOffset);	// PT: TODO: pass this directly to computeMeshBounds?
 			bounds.minimum = origin - extents - offset;
 			bounds.maximum = origin + extents + offset;
-			if(thickness < 0.f)
-				bounds.minimum.y += thickness;
-			else
-				bounds.maximum.y += thickness;
 		}
 		break;
 	case PxGeometryType::eGEOMETRY_COUNT:

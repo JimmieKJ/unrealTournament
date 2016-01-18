@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "UTCheatManager.generated.h"
@@ -49,6 +49,9 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	virtual void ImpartEyewear(const FString& Eyewear);
 
 	UFUNCTION(exec)
+	virtual void ImpartWeaponSkin(const FString& Skin);
+
+	UFUNCTION(exec)
 	virtual void Ann(int32 Switch);
 
 	UFUNCTION(exec)
@@ -58,13 +61,19 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 
 	virtual void God() override;
 
-#if WITH_PROFILE
 	UFUNCTION(exec)
 	void McpGrantItem(const FString& ItemId);
 
 	UFUNCTION(exec)
 	void McpDestroyItem(const FString& ItemId);
 
+	UFUNCTION(exec)
+	void McpCheat();
+
+	UFUNCTION(exec)
+	void McpRefreshProfile();
+
+#if WITH_PROFILE
 	void LogWebResponse(const FMcpQueryResult& Response);
 #endif
 };

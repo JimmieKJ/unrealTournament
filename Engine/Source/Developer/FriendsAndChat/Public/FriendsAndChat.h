@@ -8,19 +8,15 @@
 
 #include "Core.h"
 #include "ModuleManager.h"
-#include "Http.h"
 #include "SlateBasics.h"
 #include "SlateStyle.h"
-#include "OnlineSubsystem.h"
-
 
 /* Interfaces
  *****************************************************************************/
-#include "IChatViewModel.h"
-#include "IFriendsApplicationViewModel.h"
-#include "FriendsAndChatMessage.h"
-#include "FriendsAndChatUserSettings.h"
-#include "IFriendsAndChatManager.h"
 #include "IFriendsAndChatModule.h"
+#include "FriendsFontStyle.h"
+#include "FriendsComboStyle.h"
+#include "FriendsListStyle.h"
+#include "FriendsChatStyle.h"
+#include "FriendsChatChromeStyle.h"
 #include "FriendsAndChatStyle.h"
-#include "IFriendItem.h"

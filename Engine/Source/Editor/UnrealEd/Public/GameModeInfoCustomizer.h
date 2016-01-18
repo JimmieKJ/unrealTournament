@@ -4,6 +4,7 @@
 
 #include "IDocumentation.h"
 #include "KismetEditorUtilities.h"
+#include "EditorClassUtils.h"
 #include "GameFramework/GameMode.h"
 #include "Engine/BlueprintGeneratedClass.h"
 
@@ -154,12 +155,13 @@ public:
 		static FName SelectedGameModeDetailsName(TEXT("SelectedGameModeDetails"));		
 		IDetailGroup& Group = CategoryBuilder.AddGroup(SelectedGameModeDetailsName, LOCTEXT("SelectedGameModeDetails", "Selected GameMode"));
 
-
 		// Then add rows to show key properties and let you edit them
 		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, DefaultPawnClass));
 		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, HUDClass));
 		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, PlayerControllerClass));
 		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, GameStateClass));
+		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, PlayerStateClass));
+		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, SpectatorClass));
 	}
 
 	/** Get the currently set GameMode class */
@@ -168,23 +170,17 @@ public:
 		FString ClassName;
 		DefaultGameModeClassHandle->GetValueAsFormattedString(ClassName);
 
-		if (ClassName.IsEmpty() || ClassName == "None")
+		// Blueprints may have type information before the class name, so make sure and strip that off now
+		ConstructorHelpers::StripObjectClass(ClassName);
+
+		// Do we have a valid cached class pointer? (Note: We can't search for the class while a save is happening)
+		const UClass* GameModeClass = CachedGameModeClass.Get();
+		if ((!GameModeClass || GameModeClass->GetPathName() != ClassName) && !GIsSavingPackage)
 		{
-			CachedGameModeClass = nullptr;
-			return nullptr;
+			GameModeClass = FEditorClassUtils::GetClassFromString(ClassName);
+			CachedGameModeClass = GameModeClass;
 		}
-
-		FString StrippedClassName = ClassName;
-		ConstructorHelpers::StripObjectClass(StrippedClassName);
-
-		// Just returned the cached value if it's already up-to-date, or if we're saving packages since we can't search for the object while a save is happening
-		if ((CachedGameModeClass.IsValid() && CachedGameModeClass->GetPathName() == StrippedClassName) || GIsSavingPackage)
-		{
-			return CachedGameModeClass.Get();
-		}
-
-		CachedGameModeClass = FindObject<UClass>(ANY_PACKAGE, *StrippedClassName);
-		return CachedGameModeClass.Get();
+		return GameModeClass;
 	}
 
 	void SetCurrentGameModeClass(const UClass* NewGameModeClass)
@@ -346,7 +342,7 @@ private:
 	/** Handle to the DefaultGameMode property */
 	TSharedPtr<IPropertyHandle> DefaultGameModeClassHandle;
 	/** Cached class pointer from the DefaultGameModeClassHandle */
-	mutable TWeakObjectPtr<const UClass> CachedGameModeClass;
+	mutable TWeakObjectPtr<UClass> CachedGameModeClass;
 };
 
 #undef LOCTEXT_NAMESPACE

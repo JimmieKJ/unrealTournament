@@ -53,7 +53,7 @@ struct ENGINE_API FSmartNameMapping
 	// Return UID * if it finds it
 	//  @param NewName - New name to set 
 	// @return UID pointer - null if it doesn't find. pointer if it finds. 
-	const FSmartNameMapping::UID* FindUID(const FName& Name);
+	const FSmartNameMapping::UID* FindUID(const FName& Name) const;
 
 	// Check whether a name already exists in the mapping
 	// @param Uid - the UID to check
@@ -66,7 +66,7 @@ struct ENGINE_API FSmartNameMapping
 	bool Exists(const FName& Name);
 
 	// Get the number of names currently stored in this container
-	int32 GetNumNames();
+	int32 GetNumNames() const;
 
 	// Serialize this to the provided archive; required for TMap serialization
 	void Serialize(FArchive& Ar);

@@ -17,6 +17,47 @@
 
 DEFINE_LOG_CATEGORY(LogShaders);
 
+static TAutoConsoleVariable<int32> CVarUsePipelines(
+	TEXT("r.ShaderPipelines"),
+	1,
+	TEXT("Enable using Shader pipelines."));
+
+/**
+ * Find the shader pipeline type with the given name.
+ * @return NULL if no type matched.
+ */
+inline const FShaderPipelineType* FindShaderPipelineType(FName TypeName)
+{
+	for (TLinkedList<FShaderPipelineType*>::TIterator ShaderPipelineTypeIt(FShaderPipelineType::GetTypeList()); ShaderPipelineTypeIt; ShaderPipelineTypeIt.Next())
+	{
+		if (ShaderPipelineTypeIt->GetFName() == TypeName)
+		{
+			return *ShaderPipelineTypeIt;
+		}
+	}
+	return nullptr;
+}
+
+
+/**
+ * Serializes a reference to a shader pipeline type.
+ */
+FArchive& operator<<(FArchive& Ar, const FShaderPipelineType*& TypeRef)
+{
+	if (Ar.IsSaving())
+	{
+		FName TypeName = TypeRef ? FName(TypeRef->Name) : NAME_None;
+		Ar << TypeName;
+	}
+	else if (Ar.IsLoading())
+	{
+		FName TypeName = NAME_None;
+		Ar << TypeName;
+		TypeRef = FindShaderPipelineType(TypeName);
+	}
+	return Ar;
+}
+
 
 void FShaderParameterMap::VerifyBindingsAreComplete(const TCHAR* ShaderTypeName, EShaderFrequency Frequency, FVertexFactoryType* InVertexFactoryType) const
 {
@@ -79,6 +120,7 @@ FShaderType::FShaderType(
 	GetStreamOutElementsType InGetStreamOutElementsRef
 	):
 	Name(InName),
+	TypeName(InName),
 	SourceFilename(InSourceFilename),
 	FunctionName(InFunctionName),
 	Frequency(InFrequency),
@@ -99,8 +141,8 @@ FShaderType::FShaderType(
 	check(FCString::Strlen(InName) < NAME_SIZE);
 
 	// register this shader type
-	GlobalListLink.Link(GetTypeList());
-	GetNameToTypeMap().Add(FName(InName), this);
+	GlobalListLink.LinkHead(GetTypeList());
+	GetNameToTypeMap().Add(TypeName, this);
 
 	// Assign the shader type the next unassigned hash index.
 	static uint32 NextHashIndex = 0;
@@ -110,12 +152,12 @@ FShaderType::FShaderType(
 FShaderType::~FShaderType()
 {
 	GlobalListLink.Unlink();
-	GetNameToTypeMap().Remove(FName(Name));
+	GetNameToTypeMap().Remove(TypeName);
 }
 
 TLinkedList<FShaderType*>*& FShaderType::GetTypeList()
 {
-	static TLinkedList<FShaderType*>* GShaderTypeList = NULL;
+	static TLinkedList<FShaderType*>* GShaderTypeList = nullptr;
 	return GShaderTypeList;
 }
 
@@ -131,7 +173,7 @@ FShaderType* FShaderType::GetShaderTypeByName(const TCHAR* Name)
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 TArray<FShaderType*> FShaderType::GetShaderTypesByFilename(const TCHAR* Filename)
@@ -159,31 +201,41 @@ TMap<FName, FShaderType*>& FShaderType::GetNameToTypeMap()
 	return *GShaderNameToTypeMap;
 }
 
+inline bool FShaderType::GetOutdatedCurrentType(TArray<FShaderType*>& OutdatedShaderTypes, TArray<const FVertexFactoryType*>& OutdatedFactoryTypes) const
+{
+	bool bOutdated = false;
+	for (TMap<FShaderId, FShader*>::TConstIterator ShaderIt(ShaderIdMap);ShaderIt;++ShaderIt)
+	{
+		FShader* Shader = ShaderIt.Value();
+		const FVertexFactoryParameterRef* VFParameterRef = Shader->GetVertexFactoryParameterRef();
+		const FSHAHash& SavedHash = Shader->GetHash();
+		const FSHAHash& CurrentHash = GetSourceHash();
+		const bool bOutdatedShader = SavedHash != CurrentHash;
+		const bool bOutdatedVertexFactory =
+			VFParameterRef && VFParameterRef->GetVertexFactoryType() && VFParameterRef->GetVertexFactoryType()->GetSourceHash() != VFParameterRef->GetHash();
+
+		if (bOutdatedShader)
+		{
+			OutdatedShaderTypes.AddUnique(Shader->Type);
+			bOutdated = true;
+		}
+
+		if (bOutdatedVertexFactory)
+		{
+			OutdatedFactoryTypes.AddUnique(VFParameterRef->GetVertexFactoryType());
+			bOutdated = true;
+		}
+	}
+
+	return bOutdated;
+}
+
 void FShaderType::GetOutdatedTypes(TArray<FShaderType*>& OutdatedShaderTypes, TArray<const FVertexFactoryType*>& OutdatedFactoryTypes)
 {
 	for(TLinkedList<FShaderType*>::TIterator It(GetTypeList()); It; It.Next())
 	{
 		FShaderType* Type = *It;
-		for(TMap<FShaderId,FShader*>::TConstIterator ShaderIt(Type->ShaderIdMap);ShaderIt;++ShaderIt)
-		{
-			FShader* Shader = ShaderIt.Value();
-			const FVertexFactoryParameterRef* VFParameterRef = Shader->GetVertexFactoryParameterRef();
-			const FSHAHash& SavedHash = Shader->GetHash();
-			const FSHAHash& CurrentHash = Type->GetSourceHash();
-			const bool bOutdatedShader = SavedHash != CurrentHash;
-			const bool bOutdatedVertexFactory =
-				VFParameterRef && VFParameterRef->GetVertexFactoryType() && VFParameterRef->GetVertexFactoryType()->GetSourceHash() != VFParameterRef->GetHash();
-
-			if (bOutdatedShader)
-			{
-				OutdatedShaderTypes.AddUnique(Shader->Type);
-			}
-
-			if (bOutdatedVertexFactory)
-			{
-				OutdatedFactoryTypes.AddUnique(VFParameterRef->GetVertexFactoryType());
-			}
-		}
+		Type->GetOutdatedCurrentType(OutdatedShaderTypes, OutdatedFactoryTypes);
 	}
 
 	for (int32 TypeIndex = 0; TypeIndex < OutdatedShaderTypes.Num(); TypeIndex++)
@@ -249,6 +301,7 @@ const FSHAHash& FShaderType::GetSourceHash() const
 
 void FShaderType::Initialize(const TMap<FString, TArray<const TCHAR*> >& ShaderFileToUniformBufferVariables)
 {
+	//#todo-rco: Need to call this only when Initializing from a Pipeline once it's removed from the global linked list
 	if (!FPlatformProperties::RequiresCookedData())
 	{
 		for(TLinkedList<FShaderType*>::TIterator It(FShaderType::GetTypeList()); It; It.Next())
@@ -313,7 +366,9 @@ FShaderResource::FShaderResource(const FShaderCompilerOutput& Output, FShaderTyp
 	
 {
 	Target = Output.Target;
-	Code = Output.Code;
+	// todo: can we avoid the memcpy?
+	Code = Output.ShaderCode.GetReadAccess();
+
 	check(Code.Num() > 0);
 
 	OutputHash = Output.OutputHash;
@@ -376,7 +431,7 @@ void FShaderResource::AddRef()
 {
 	// Lock shader id map to prevent anything from acquiring shaders while we manipulate their references
 	FScopeLock ShaderResourceIdMapLock(&ShaderResourceIdMapCritical);
-	check(Canary != FShader::ShaderMagic_CleaningUp);
+	check(Canary != FShader::ShaderMagic_CleaningUp);	
 	++NumRefs;
 }
 
@@ -389,7 +444,7 @@ void FShaderResource::Release()
 	check(NumRefs != 0);
 	if(--NumRefs == 0)
 	{
-			ShaderResourceIdMap.Remove(GetId());
+		ShaderResourceIdMap.Remove(GetId());
 
 		// Send a release message to the rendering thread when the shader loses its last reference.
 		BeginReleaseResource(this);
@@ -451,17 +506,23 @@ bool FShaderResource::ArePlatformsCompatible(EShaderPlatform CurrentPlatform, ES
 			bFeatureLevelCompatible = GetMaxSupportedFeatureLevel(CurrentPlatform) >= GetMaxSupportedFeatureLevel(TargetPlatform);
 		}
 
-		bool bIsTargetD3D = TargetPlatform == SP_PCD3D_SM5 ||
-								TargetPlatform == SP_PCD3D_SM4 ||
-								TargetPlatform == SP_PCD3D_ES3_1 ||
-								TargetPlatform == SP_PCD3D_ES2;
-
-		bool bIsCurrentPlatformD3D = CurrentPlatform == SP_PCD3D_SM5 ||
-								CurrentPlatform == SP_PCD3D_SM4 ||
-								TargetPlatform == SP_PCD3D_ES3_1 ||
-								CurrentPlatform == SP_PCD3D_ES2;
-
-		bFeatureLevelCompatible = bFeatureLevelCompatible && (bIsCurrentPlatformD3D == bIsTargetD3D);
+		bool const bIsTargetD3D = TargetPlatform == SP_PCD3D_SM5 ||
+		TargetPlatform == SP_PCD3D_SM4 ||
+		TargetPlatform == SP_PCD3D_ES3_1 ||
+		TargetPlatform == SP_PCD3D_ES2;
+		
+		bool const bIsCurrentPlatformD3D = CurrentPlatform == SP_PCD3D_SM5 ||
+		CurrentPlatform == SP_PCD3D_SM4 ||
+		TargetPlatform == SP_PCD3D_ES3_1 ||
+		CurrentPlatform == SP_PCD3D_ES2;
+		
+		bool const bIsCurrentMetal = IsMetalPlatform(CurrentPlatform);
+		bool const bIsTargetMetal = IsMetalPlatform(TargetPlatform);
+		
+		bool const bIsCurrentOpenGL = IsOpenGLPlatform(CurrentPlatform);
+		bool const bIsTargetOpenGL = IsOpenGLPlatform(TargetPlatform);
+		
+		bFeatureLevelCompatible = bFeatureLevelCompatible && (bIsCurrentPlatformD3D == bIsTargetD3D && bIsCurrentMetal == bIsTargetMetal && bIsCurrentOpenGL == bIsTargetOpenGL);
 	}
 
 	return bFeatureLevelCompatible;
@@ -552,27 +613,7 @@ void FShaderResource::ReleaseRHI()
 	ComputeShader.SafeRelease();
 }
 
-void FShaderResource::InitializeVertexShaderRHI() 
-{ 
-	if (!IsInitialized())
-	{
-		STAT(double ShaderInitializationTime = 0);
-		{
-			SCOPE_CYCLE_COUNTER(STAT_Shaders_FrameRTShaderInitForRenderingTime);
-			SCOPE_SECONDS_COUNTER(ShaderInitializationTime);
-
-			InitResourceFromPossiblyParallelRendering();
-
-		}
-
-		INC_FLOAT_STAT_BY(STAT_Shaders_TotalRTShaderInitForRenderingTime,(float)ShaderInitializationTime);
-	}
-
-	checkSlow(IsInitialized());
-}
-
-
-void FShaderResource::InitializePixelShaderRHI() 
+void FShaderResource::InitializeShaderRHI() 
 { 
 	if (!IsInitialized())
 	{
@@ -588,97 +629,6 @@ void FShaderResource::InitializePixelShaderRHI()
 	}
 
 	checkSlow(IsInitialized());
-}
-
-
-const FHullShaderRHIRef& FShaderResource::GetHullShader() 
-{ 
-	checkSlow(Target.Frequency == SF_Hull);
-	if (!IsInitialized())
-	{
-		STAT(double ShaderInitializationTime = 0);
-		{
-			SCOPE_CYCLE_COUNTER(STAT_Shaders_FrameRTShaderInitForRenderingTime);
-			SCOPE_SECONDS_COUNTER(ShaderInitializationTime);
-
-			InitResourceFromPossiblyParallelRendering();
-		}
-
-		INC_FLOAT_STAT_BY(STAT_Shaders_TotalRTShaderInitForRenderingTime,(float)ShaderInitializationTime);
-	}
-
-	checkSlow(IsInitialized());
-
-	return HullShader; 
-}
-
-
-const FDomainShaderRHIRef& FShaderResource::GetDomainShader() 
-{ 
-	checkSlow(Target.Frequency == SF_Domain);
-
-	if (!IsInitialized())
-	{
-		STAT(double ShaderInitializationTime = 0);
-		{
-			SCOPE_CYCLE_COUNTER(STAT_Shaders_FrameRTShaderInitForRenderingTime);
-			SCOPE_SECONDS_COUNTER(ShaderInitializationTime);
-
-			InitResourceFromPossiblyParallelRendering();
-		}
-		
-		INC_FLOAT_STAT_BY(STAT_Shaders_TotalRTShaderInitForRenderingTime,(float)ShaderInitializationTime);
-	}
-	
-	checkSlow(IsInitialized());
-
-	return DomainShader; 
-}
-
-
-const FGeometryShaderRHIRef& FShaderResource::GetGeometryShader() 
-{ 
-	checkSlow(Target.Frequency == SF_Geometry);
-
-	if (!IsInitialized())
-	{
-		STAT(double ShaderInitializationTime = 0);
-		{
-			SCOPE_CYCLE_COUNTER(STAT_Shaders_FrameRTShaderInitForRenderingTime);
-			SCOPE_SECONDS_COUNTER(ShaderInitializationTime);
-
-			InitResourceFromPossiblyParallelRendering();
-		}
-
-		INC_FLOAT_STAT_BY(STAT_Shaders_TotalRTShaderInitForRenderingTime,(float)ShaderInitializationTime);
-	}
-
-	checkSlow(IsInitialized());
-
-	return GeometryShader; 
-}
-
-
-const FComputeShaderRHIRef& FShaderResource::GetComputeShader() 
-{ 
-	checkSlow(Target.Frequency == SF_Compute);
-
-	if (!IsInitialized())
-	{
-		STAT(double ShaderInitializationTime = 0);
-		{
-			SCOPE_CYCLE_COUNTER(STAT_Shaders_FrameRTShaderInitForRenderingTime);
-			SCOPE_SECONDS_COUNTER(ShaderInitializationTime);
-
-			InitResourceFromPossiblyParallelRendering();
-		}
-
-		INC_FLOAT_STAT_BY(STAT_Shaders_TotalRTShaderInitForRenderingTime,(float)ShaderInitializationTime);
-	}
-
-	checkSlow(IsInitialized());
-
-	return ComputeShader; 
 }
 
 FShaderResourceId FShaderResource::GetId() const
@@ -690,8 +640,9 @@ FShaderResourceId FShaderResource::GetId() const
 	return ShaderId;
 }
 
-FShaderId::FShaderId(const FSHAHash& InMaterialShaderMapHash, FVertexFactoryType* InVertexFactoryType, FShaderType* InShaderType, FShaderTarget InTarget)
+FShaderId::FShaderId(const FSHAHash& InMaterialShaderMapHash, const FShaderPipelineType* InShaderPipeline, FVertexFactoryType* InVertexFactoryType, FShaderType* InShaderType, FShaderTarget InTarget)
 	: MaterialShaderMapHash(InMaterialShaderMapHash)
+	, ShaderPipeline(InShaderPipeline)
 	, ShaderType(InShaderType)
 	, SourceHash(InShaderType->GetSourceHash())
 	, SerializationHistory(InShaderType->GetSerializationHistory())
@@ -705,8 +656,8 @@ FShaderId::FShaderId(const FSHAHash& InMaterialShaderMapHash, FVertexFactoryType
 	}
 	else
 	{
-		VFSerializationHistory = NULL;
-		VertexFactoryType = NULL;
+		VFSerializationHistory = nullptr;
+		VertexFactoryType = nullptr;
 	}
 }
 
@@ -718,6 +669,7 @@ FSelfContainedShaderId::FSelfContainedShaderId(const FShaderId& InShaderId)
 {
 	MaterialShaderMapHash = InShaderId.MaterialShaderMapHash;
 	VertexFactoryTypeName = InShaderId.VertexFactoryType ? InShaderId.VertexFactoryType->GetName() : TEXT("");
+	ShaderPipelineName = InShaderId.ShaderPipeline ? InShaderId.ShaderPipeline->GetName() : TEXT("");
 	VFSourceHash = InShaderId.VFSourceHash;
 	VFSerializationHistory = InShaderId.VFSerializationHistory ? *InShaderId.VFSerializationHistory : FSerializationHistory();
 	ShaderTypeName = InShaderId.ShaderType->GetName();
@@ -729,7 +681,6 @@ FSelfContainedShaderId::FSelfContainedShaderId(const FShaderId& InShaderId)
 bool FSelfContainedShaderId::IsValid()
 {
 	FShaderType** TypePtr = FShaderType::GetNameToTypeMap().Find(FName(*ShaderTypeName));
-
 	if (TypePtr && SourceHash == (*TypePtr)->GetSourceHash() && SerializationHistory == (*TypePtr)->GetSerializationHistory())
 	{
 		FVertexFactoryType* VFTypePtr = FVertexFactoryType::GetVFByName(VertexFactoryTypeName);
@@ -748,6 +699,7 @@ FArchive& operator<<(FArchive& Ar,class FSelfContainedShaderId& Ref)
 {
 	Ar << Ref.MaterialShaderMapHash 
 		<< Ref.VertexFactoryTypeName
+		<< Ref.ShaderPipelineName
 		<< Ref.VFSourceHash
 		<< Ref.VFSerializationHistory
 		<< Ref.ShaderTypeName
@@ -763,8 +715,9 @@ FArchive& operator<<(FArchive& Ar,class FSelfContainedShaderId& Ref)
  * This still needs to initialize members to safe values since FShaderType::GenerateSerializationHistory uses this constructor.
  */
 FShader::FShader() : 
-	VFType(NULL),
-	Type(NULL), 
+	ShaderPipeline(nullptr),
+	VFType(nullptr),
+	Type(nullptr), 
 	NumRefs(0),
 	SetParametersId(0),
 	Canary(ShaderMagic_Uninitialized)
@@ -779,6 +732,7 @@ FShader::FShader() :
  */
 FShader::FShader(const CompiledShaderInitializerType& Initializer):
 	MaterialShaderMapHash(Initializer.MaterialShaderMapHash),
+	ShaderPipeline(Initializer.ShaderPipeline),
 	VFType(Initializer.VertexFactoryType),
 	Type(Initializer.Type),
 	Target(Initializer.Target),
@@ -845,6 +799,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 
 	Ar << OutputHash;
 	Ar << MaterialShaderMapHash;
+	Ar << ShaderPipeline;
 	Ar << VFType;
 	Ar << VFSourceHash;
 	Ar << Type;
@@ -927,6 +882,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 			FShaderResourceId ResourceId;
 			ResourceId.Target = Target;
 			ResourceId.OutputHash = OutputHash;
+			ResourceId.SpecificShaderTypeName = Type->LimitShaderResourceToThisType() ? Type->GetName() : NULL;
 
 			// use it to look up in the registered resource map
 			TRefCountPtr<FShaderResource> ExistingResource = FShaderResource::FindShaderResourceById(ResourceId);
@@ -938,7 +894,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 }
 
 void FShader::AddRef()
-{
+{	
 	check(Canary != ShaderMagic_CleaningUp);
 	// Lock shader Id maps
 	LockShaderIdMap();
@@ -1001,6 +957,7 @@ FShaderId FShader::GetId() const
 {
 	FShaderId ShaderId(Type->GetSerializationHistory());
 	ShaderId.MaterialShaderMapHash = MaterialShaderMapHash;
+	ShaderId.ShaderPipeline = ShaderPipeline;
 	ShaderId.VertexFactoryType = VFType;
 	ShaderId.VFSourceHash = VFSourceHash;
 	ShaderId.VFSerializationHistory = VFType ? VFType->GetSerializationHistory((EShaderFrequency)GetTarget().Frequency) : NULL;
@@ -1023,44 +980,366 @@ void FShader::FinishCleanup()
 	delete this;
 }
 
-void FShader::VerifyBoundUniformBufferParameters()
-{
-	// Support being called on a NULL pointer
-// TODO: doesn't work with uniform buffer parameters on helper structs like FDeferredPixelShaderParameters
-	//@todo parallelrendering
-	if (0)//&&this)
-	{
-		for (int32 StructIndex = 0; StructIndex < UniformBufferParameters.Num(); StructIndex++)
-		{
-			const FShaderUniformBufferParameter& UniformParameter = *UniformBufferParameters[StructIndex];
 
-			if (UniformParameter.SetParametersId != SetParametersId)
+bool FShaderPipelineType::bInitialized = false;
+
+FShaderPipelineType::FShaderPipelineType(
+	const TCHAR* InName,
+	const FShaderType* InVertexShader,
+	const FShaderType* InHullShader,
+	const FShaderType* InDomainShader,
+	const FShaderType* InGeometryShader,
+	const FShaderType* InPixelShader,
+	bool bInShouldOptimizeUnusedOutputs) :
+	Name(InName),
+	TypeName(Name),
+	GlobalListLink(this),
+	bShouldOptimizeUnusedOutputs(bInShouldOptimizeUnusedOutputs)
+{
+	checkf(Name && *Name, TEXT("Shader Pipeline Type requires a valid Name!"));
+
+	checkf(InVertexShader, TEXT("A Shader Pipeline always requires a Vertex Shader"));
+
+	checkf((InHullShader == nullptr && InDomainShader == nullptr) || (InHullShader != nullptr && InDomainShader != nullptr), TEXT("Both Hull & Domain shaders are needed for tessellation on Pipeline %s"), Name);
+
+	//make sure the name is shorter than the maximum serializable length
+	check(FCString::Strlen(InName) < NAME_SIZE);
+
+	FMemory::Memzero(AllStages);
+
+	if (InPixelShader)
+	{
+		Stages.Add(InPixelShader);
+		AllStages[SF_Pixel] = InPixelShader;
+	}
+	if (InGeometryShader)
+	{
+		Stages.Add(InGeometryShader);
+		AllStages[SF_Geometry] = InGeometryShader;
+	}
+	if (InDomainShader)
+	{
+		Stages.Add(InDomainShader);
+		AllStages[SF_Domain] = InDomainShader;
+
+		Stages.Add(InHullShader);
+		AllStages[SF_Hull] = InHullShader;
+	}
+	Stages.Add(InVertexShader);
+	AllStages[SF_Vertex] = InVertexShader;
+
+	static uint32 TypeHashCounter = 0;
+	++TypeHashCounter;
+	HashIndex = TypeHashCounter;
+
+	GlobalListLink.LinkHead(GetTypeList());
+	GetNameToTypeMap().Add(FName(InName), this);
+
+	// This will trigger if an IMPLEMENT_SHADER_TYPE was in a module not loaded before InitializeShaderTypes
+	// Shader types need to be implemented in modules that are loaded before that
+	checkf(!bInitialized, TEXT("Shader Pipeline was loaded after Engine init, use ELoadingPhase::PostConfigInit on your module to cause it to load earlier."));
+}
+
+FShaderPipelineType::~FShaderPipelineType()
+{
+	GetNameToTypeMap().Remove(FName(Name));
+	GlobalListLink.Unlink();
+}
+
+TMap<FName, FShaderPipelineType*>& FShaderPipelineType::GetNameToTypeMap()
+{
+	static TMap<FName, FShaderPipelineType*>* GShaderPipelineNameToTypeMap = NULL;
+	if (!GShaderPipelineNameToTypeMap)
+	{
+		GShaderPipelineNameToTypeMap = new TMap<FName, FShaderPipelineType*>();
+	}
+	return *GShaderPipelineNameToTypeMap;
+}
+
+TLinkedList<FShaderPipelineType*>*& FShaderPipelineType::GetTypeList()
+{
+	static TLinkedList<FShaderPipelineType*>* GShaderPipelineList = nullptr;
+	return GShaderPipelineList;
+}
+
+TArray<const FShaderPipelineType*> FShaderPipelineType::GetShaderPipelineTypesByFilename(const TCHAR* Filename)
+{
+	TArray<const FShaderPipelineType*> PipelineTypes;
+	for (TLinkedList<FShaderPipelineType*>::TIterator It(FShaderPipelineType::GetTypeList()); It; It.Next())
+	{
+		auto* PipelineType = *It;
+		for (auto* ShaderType : PipelineType->Stages)
+		{
+			if (FPlatformString::Strcmp(Filename, ShaderType->GetShaderFilename()) == 0)
 			{
-				// Log an error when a shader was used for rendering but did not have all of its uniform buffers set
-				// This can have false positives, for example when sharing state between draw calls with the same shader, the SetParametersId logic will break down
-				// Also if the uniform buffer is compiled into the shader but not actually used due to control flow, failing to set that parameter will cause this error
-				UE_LOG(LogShaders, Error, TEXT("Automatically bound uniform buffer parameter %s %s was not set before used for rendering in shader %s!"), 
-					UniformBufferParameterStructs[StructIndex]->GetStructTypeName(), 
-					UniformBufferParameterStructs[StructIndex]->GetShaderVariableName(),
-					GetType()->GetName());
+				PipelineTypes.AddUnique(PipelineType);
+				break;
+			}
+		}
+	}
+	return PipelineTypes;
+}
+
+void FShaderPipelineType::Initialize()
+{
+	check(!bInitialized);
+
+	TSet<FName> UsedNames;
+
+	for (TLinkedList<FShaderPipelineType*>::TIterator It(FShaderPipelineType::GetTypeList()); It; It.Next())
+	{
+		const auto* PipelineType = *It;
+
+		// Validate stages
+		for (int32 Index = 0; Index < SF_NumFrequencies; ++Index)
+		{
+			check(!PipelineType->AllStages[Index] || PipelineType->AllStages[Index]->GetFrequency() == (EShaderFrequency)Index);
+		}
+
+		auto& Stages = PipelineType->GetStages();
+
+		// #todo-rco: Do we allow mix/match of global/mesh/material stages?
+		// Check all shaders are the same type, start from the top-most stage
+		const FGlobalShaderType* GlobalType = Stages[0]->GetGlobalShaderType();
+		const FMeshMaterialShaderType* MeshType = Stages[0]->GetMeshMaterialShaderType();
+		const FMaterialShaderType* MateriallType = Stages[0]->GetMaterialShaderType();
+		for (int32 Index = 1; Index < Stages.Num(); ++Index)
+		{
+			if (GlobalType)
+			{
+				checkf(Stages[Index]->GetGlobalShaderType(), TEXT("Invalid combination of Shader types on Pipeline %s"), PipelineType->Name);
+			}
+			else if (MeshType)
+			{
+				checkf(Stages[Index]->GetMeshMaterialShaderType(), TEXT("Invalid combination of Shader types on Pipeline %s"), PipelineType->Name);
+			}
+			else if (MateriallType)
+			{
+				checkf(Stages[Index]->GetMaterialShaderType(), TEXT("Invalid combination of Shader types on Pipeline %s"), PipelineType->Name);
 			}
 		}
 
-		SetParametersId++;
+		FName PipelineName = PipelineType->GetFName();
+		checkf(!UsedNames.Contains(PipelineName), TEXT("Two Pipelines with the same name %s found!"), PipelineType->Name);
+		UsedNames.Add(PipelineName);
+	}
+
+	bInitialized = true;
+}
+
+void FShaderPipelineType::Uninitialize()
+{
+	check(bInitialized);
+
+	bInitialized = false;
+}
+
+void FShaderPipelineType::GetOutdatedTypes(TArray<FShaderType*>& OutdatedShaderTypes, TArray<const FShaderPipelineType*>& OutdatedShaderPipelineTypes, TArray<const FVertexFactoryType*>& OutdatedFactoryTypes)
+{
+	for (TLinkedList<FShaderPipelineType*>::TIterator It(FShaderPipelineType::GetTypeList()); It; It.Next())
+	{
+		const auto* PipelineType = *It;
+		auto& Stages = PipelineType->GetStages();
+		bool bOutdated = false;
+		for (const FShaderType* ShaderType : Stages)
+		{
+			bOutdated = ShaderType->GetOutdatedCurrentType(OutdatedShaderTypes, OutdatedFactoryTypes) || bOutdated;
+		}
+
+		if (bOutdated)
+		{
+			OutdatedShaderPipelineTypes.AddUnique(PipelineType);
+		}
+	}
+
+	for (int32 TypeIndex = 0; TypeIndex < OutdatedShaderPipelineTypes.Num(); TypeIndex++)
+	{
+		UE_LOG(LogShaders, Warning, TEXT("		Recompiling Pipeline %s"), OutdatedShaderPipelineTypes[TypeIndex]->GetName());
 	}
 }
 
+const FShaderPipelineType* FShaderPipelineType::GetShaderPipelineTypeByName(FName Name)
+{
+	for (TLinkedList<FShaderPipelineType*>::TIterator It(GetTypeList()); It; It.Next())
+	{
+		const FShaderPipelineType* Type = *It;
+		if (Name == Type->GetFName())
+		{
+			return Type;
+		}
+	}
 
-void DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency )
+	return nullptr;
+}
+
+const FSHAHash& FShaderPipelineType::GetSourceHash() const
+{
+	TArray<FString> Filenames;
+	for (const FShaderType* ShaderType : Stages)
+	{
+		Filenames.Add(ShaderType->GetShaderFilename());
+	}
+	return GetShaderFilesHash(Filenames);
+}
+
+
+FShaderPipeline::FShaderPipeline(
+	const FShaderPipelineType* InPipelineType,
+	FShader* InVertexShader,
+	FShader* InHullShader,
+	FShader* InDomainShader,
+	FShader* InGeometryShader,
+	FShader* InPixelShader) :
+	PipelineType(InPipelineType),
+	VertexShader(InVertexShader),
+	HullShader(InHullShader),
+	DomainShader(InDomainShader),
+	GeometryShader(InGeometryShader),
+	PixelShader(InPixelShader)
+{
+	check(InPipelineType);
+	Validate();
+}
+
+FShaderPipeline::FShaderPipeline(const FShaderPipelineType* InPipelineType, const TArray<FShader*>& InStages) :
+	PipelineType(InPipelineType),
+	VertexShader(nullptr),
+	HullShader(nullptr),
+	DomainShader(nullptr),
+	GeometryShader(nullptr),
+	PixelShader(nullptr)
+{
+	check(InPipelineType);
+	for (FShader* Shader : InStages)
+	{
+		if (Shader)
+		{
+			switch (Shader->GetType()->GetFrequency())
+			{
+			case SF_Vertex:
+				check(!VertexShader);
+				VertexShader = Shader;
+				break;
+			case SF_Pixel:
+				check(!PixelShader);
+				PixelShader = Shader;
+				break;
+			case SF_Hull:
+				check(!HullShader);
+				HullShader = Shader;
+				break;
+			case SF_Domain:
+				check(!DomainShader);
+				DomainShader = Shader;
+				break;
+			case SF_Geometry:
+				check(!GeometryShader);
+				GeometryShader = Shader;
+				break;
+			default:
+				checkf(0, TEXT("Invalid stage %u found!"), Shader->GetType()->GetFrequency());
+				break;
+			}
+		}
+	}
+
+	Validate();
+}
+
+FShaderPipeline::FShaderPipeline(const FShaderPipelineType* InPipelineType, const TArray< TRefCountPtr<FShader> >& InStages) :
+	PipelineType(InPipelineType),
+	VertexShader(nullptr),
+	HullShader(nullptr),
+	DomainShader(nullptr),
+	GeometryShader(nullptr),
+	PixelShader(nullptr)
+{
+	check(InPipelineType);
+	for (FShader* Shader : InStages)
+	{
+		if (Shader)
+		{
+			switch (Shader->GetType()->GetFrequency())
+			{
+			case SF_Vertex:
+				check(!VertexShader);
+				VertexShader = Shader;
+				break;
+			case SF_Pixel:
+				check(!PixelShader);
+				PixelShader = Shader;
+				break;
+			case SF_Hull:
+				check(!HullShader);
+				HullShader = Shader;
+				break;
+			case SF_Domain:
+				check(!DomainShader);
+				DomainShader = Shader;
+				break;
+			case SF_Geometry:
+				check(!GeometryShader);
+				GeometryShader = Shader;
+				break;
+			default:
+				checkf(0, TEXT("Invalid stage %u found!"), Shader->GetType()->GetFrequency());
+				break;
+			}
+		}
+	}
+
+	Validate();
+}
+
+FShaderPipeline::~FShaderPipeline()
+{
+	// Manually set references to nullptr, helps debugging
+	VertexShader = nullptr;
+	HullShader = nullptr;
+	DomainShader = nullptr;
+	GeometryShader = nullptr;
+	PixelShader = nullptr;
+}
+
+void FShaderPipeline::Validate()
+{
+	for (const FShaderType* Stage : PipelineType->GetStages())
+	{
+		switch (Stage->GetFrequency())
+		{
+		case SF_Vertex:
+			check(VertexShader && VertexShader->GetType() == Stage);
+			break;
+		case SF_Pixel:
+			check(PixelShader && PixelShader->GetType() == Stage);
+			break;
+		case SF_Hull:
+			check(HullShader && HullShader->GetType() == Stage);
+			break;
+		case SF_Domain:
+			check(DomainShader && DomainShader->GetType() == Stage);
+			break;
+		case SF_Geometry:
+			check(GeometryShader && GeometryShader->GetType() == Stage);
+			break;
+		default:
+			// Can never happen :)
+			break;
+		}
+	}
+}
+
+void DumpShaderStats(EShaderPlatform Platform, EShaderFrequency Frequency)
 {
 #if ALLOW_DEBUG_FILES
 	FDiagnosticTableViewer ShaderTypeViewer(*FDiagnosticTableViewer::GetUniqueTemporaryFilePath(TEXT("ShaderStats")));
 
 	// Iterate over all shader types and log stats.
 	int32 TotalShaderCount		= 0;
-	int32 TotalTypeCount			= 0;
+	int32 TotalTypeCount		= 0;
 	int32 TotalInstructionCount	= 0;
 	int32 TotalSize				= 0;
+	int32 TotalPipelineCount	= 0;
 	float TotalSizePerType		= 0;
 
 	// Write a row of headings for the table's columns.
@@ -1069,19 +1348,23 @@ void DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency )
 	ShaderTypeViewer.AddColumn(TEXT("Average instructions"));
 	ShaderTypeViewer.AddColumn(TEXT("Size"));
 	ShaderTypeViewer.AddColumn(TEXT("AvgSizePerInstance"));
+	ShaderTypeViewer.AddColumn(TEXT("Pipelines"));
+	ShaderTypeViewer.AddColumn(TEXT("Shared Pipelines"));
 	ShaderTypeViewer.CycleRow();
 
 	for( TLinkedList<FShaderType*>::TIterator It(FShaderType::GetTypeList()); It; It.Next() )
 	{
 		const FShaderType* Type = *It;
-		if(Type->GetNumShaders())
+		if (Type->GetNumShaders())
 		{
 			// Calculate the average instruction count and total size of instances of this shader type.
 			float AverageNumInstructions	= 0.0f;
 			int32 NumInitializedInstructions	= 0;
 			int32 Size						= 0;
 			int32 NumShaders					= 0;
-			for(TMap<FShaderId,FShader*>::TConstIterator ShaderIt(Type->ShaderIdMap);ShaderIt;++ShaderIt)
+			int32 NumPipelines = 0;
+			int32 NumSharedPipelines = 0;
+			for (TMap<FShaderId,FShader*>::TConstIterator ShaderIt(Type->ShaderIdMap);ShaderIt;++ShaderIt)
 			{
 				const FShader* Shader = ShaderIt.Value();
 				// Skip shaders that don't match frequency.
@@ -1094,12 +1377,40 @@ void DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency )
 				{
 					continue;
 				}
+
 				NumInitializedInstructions += Shader->GetNumInstructions();
 				Size += Shader->GetCode().Num();
 				NumShaders++;
 			}
 			AverageNumInstructions = (float)NumInitializedInstructions / (float)Type->GetNumShaders();
 			
+			for (TLinkedList<FShaderPipelineType*>::TConstIterator PipelineIt(FShaderPipelineType::GetTypeList()); PipelineIt; PipelineIt.Next())
+			{
+				const FShaderPipelineType* PipelineType = *PipelineIt;
+				bool bFound = false;
+				if (Frequency == SF_NumFrequencies)
+				{
+					if (PipelineType->GetShader(Type->GetFrequency()) == Type)
+					{
+						++NumPipelines;
+						bFound = true;
+					}
+				}
+				else
+				{
+					if (PipelineType->GetShader(Frequency) == Type)
+					{
+						++NumPipelines;
+						bFound = true;
+					}
+				}
+
+				if (!PipelineType->ShouldOptimizeUnusedOutputs() && bFound)
+				{
+					++NumSharedPipelines;
+				}
+			}
+
 			// Only add rows if there is a matching shader.
 			if( NumShaders )
 			{
@@ -1109,9 +1420,12 @@ void DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency )
 				ShaderTypeViewer.AddColumn(TEXT("%.1f"),AverageNumInstructions);
 				ShaderTypeViewer.AddColumn(TEXT("%u"),Size);
 				ShaderTypeViewer.AddColumn(TEXT("%.1f"),Size / (float)NumShaders);
+				ShaderTypeViewer.AddColumn(TEXT("%d"), NumPipelines);
+				ShaderTypeViewer.AddColumn(TEXT("%d"), NumSharedPipelines);
 				ShaderTypeViewer.CycleRow();
 
 				TotalShaderCount += NumShaders;
+				TotalPipelineCount += NumPipelines;
 				TotalInstructionCount += NumInitializedInstructions;
 				TotalTypeCount++;
 				TotalSize += Size;
@@ -1120,12 +1434,16 @@ void DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency )
 		}
 	}
 
+	// go through non shared pipelines
+
 	// Write a total row.
 	ShaderTypeViewer.AddColumn(TEXT("Total"));
 	ShaderTypeViewer.AddColumn(TEXT("%u"),TotalShaderCount);
 	ShaderTypeViewer.AddColumn(TEXT("%u"),TotalInstructionCount);
 	ShaderTypeViewer.AddColumn(TEXT("%u"),TotalSize);
 	ShaderTypeViewer.AddColumn(TEXT("0"));
+	ShaderTypeViewer.AddColumn(TEXT("%u"), TotalPipelineCount);
+	ShaderTypeViewer.AddColumn(TEXT("-"));
 	ShaderTypeViewer.CycleRow();
 
 	// Write an average row.
@@ -1134,21 +1452,22 @@ void DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency )
 	ShaderTypeViewer.AddColumn(TEXT("%.1f"),(float)TotalInstructionCount / TotalShaderCount);
 	ShaderTypeViewer.AddColumn(TEXT("%.1f"),TotalSize / (float)TotalShaderCount);
 	ShaderTypeViewer.AddColumn(TEXT("%.1f"),TotalSizePerType / TotalTypeCount);
+	ShaderTypeViewer.AddColumn(TEXT("-"));
+	ShaderTypeViewer.AddColumn(TEXT("-"));
 	ShaderTypeViewer.CycleRow();
 #endif
 }
 
 
-FShaderType* FindShaderTypeByName(const TCHAR* ShaderTypeName)
+FShaderType* FindShaderTypeByName(FName ShaderTypeName)
 {
-	for(TLinkedList<FShaderType*>::TIterator ShaderTypeIt(FShaderType::GetTypeList());ShaderTypeIt;ShaderTypeIt.Next())
+	FShaderType** FoundShader = FShaderType::GetNameToTypeMap().Find(ShaderTypeName);
+	if (FoundShader)
 	{
-		if(!FCString::Stricmp(ShaderTypeIt->GetName(),ShaderTypeName))
-		{
-			return *ShaderTypeIt;
-		}
+		return *FoundShader;
 	}
-	return NULL;
+
+	return nullptr;
 }
 
 
@@ -1159,10 +1478,18 @@ void DispatchComputeShader(
 	uint32 ThreadGroupCountY,
 	uint32 ThreadGroupCountZ)
 {
-	Shader->VerifyBoundUniformBufferParameters();
 	RHICmdList.DispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 }
 
+void DispatchComputeShader(
+	FRHIAsyncComputeCommandListImmediate& RHICmdList,
+	FShader* Shader,
+	uint32 ThreadGroupCountX,
+	uint32 ThreadGroupCountY,
+	uint32 ThreadGroupCountZ)
+{
+	RHICmdList.DispatchComputeShader(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
+}
 
 void DispatchIndirectComputeShader(
 	FRHICommandList& RHICmdList,
@@ -1170,7 +1497,6 @@ void DispatchIndirectComputeShader(
 	FVertexBufferRHIParamRef ArgumentBuffer,
 	uint32 ArgumentOffset)
 {
-	Shader->VerifyBoundUniformBufferParameters();
 	RHICmdList.DispatchIndirectComputeShader(ArgumentBuffer, ArgumentOffset);
 }
 
@@ -1236,6 +1562,14 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 	}
 
 	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SelectiveBasePassOutputs"));
+		if (CVar && CVar->GetValueOnGameThread() != 0)
+		{
+			KeyString += TEXT("_SO");
+		}
+	}
+
+	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GBuffer"));
 		if (CVar ? CVar->GetValueOnAnyThread() == 0 : false)
 		{
@@ -1258,7 +1592,7 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("") : TEXT("_NoOpt");
 	}
 
-	if( Platform == SP_PS4 )
+	if (Platform == SP_PS4)
 	{
 		{
 			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PS4MixedModeShaderDebugInfo"));
@@ -1273,6 +1607,14 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 			if (CVar && CVar->GetValueOnAnyThread() != 0)
 			{
 				KeyString += TEXT("_SDB");
+			}
+		}
+
+		{
+			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PS4UseTTrace"));
+			if (CVar && CVar->GetValueOnAnyThread() > 0)
+			{
+				KeyString += FString::Printf(TEXT("TT%d"), CVar->GetValueOnAnyThread());
 			}
 		}
 	}

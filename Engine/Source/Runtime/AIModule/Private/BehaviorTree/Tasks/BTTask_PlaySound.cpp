@@ -20,7 +20,7 @@ EBTNodeResult::Type UBTTask_PlaySound::ExecuteTask(UBehaviorTreeComponent& Owner
 	{
 		if (const APawn* MyPawn = MyController->GetPawn())
 		{
-			AC = UGameplayStatics::PlaySoundAttached(SoundToPlay, MyPawn->GetRootComponent());
+			AC = UGameplayStatics::SpawnSoundAttached(SoundToPlay, MyPawn->GetRootComponent());
 		}
 	}
 	return AC ? EBTNodeResult::Succeeded : EBTNodeResult::Failed;

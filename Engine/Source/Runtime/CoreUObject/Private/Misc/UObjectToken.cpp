@@ -7,7 +7,7 @@ FOnMessageTokenActivated FUObjectToken::DefaultMessageTokenActivated;
 
 FUObjectToken::FOnGetDisplayName FUObjectToken::DefaultGetObjectDisplayName;
 
-FUObjectToken::FUObjectToken( UObject* InObject,  const FText& InLabelOverride )
+FUObjectToken::FUObjectToken( const UObject* InObject,  const FText& InLabelOverride )
 	: ObjectBeingReferenced(InObject)
 {
 	if ( !InLabelOverride.IsEmpty() )

@@ -16,13 +16,14 @@ struct FLogStatusItem
 {
 	FString ItemText;
 	FString ValueText;
+	FString HeaderText;
 
 	TArray< TSharedPtr< FLogStatusItem > > Children;
 
+	FLogStatusItem() {}
 	FLogStatusItem(const FString& InItemText) : ItemText(InItemText) {}
 	FLogStatusItem(const FString& InItemText, const FString& InValueText) : ItemText(InItemText), ValueText(InValueText) {}
 };
-
 
 void SVisualLoggerStatusView::Construct(const FArguments& InArgs, const TSharedRef<FUICommandList>& InCommandList)
 {
@@ -32,14 +33,41 @@ void SVisualLoggerStatusView::Construct(const FArguments& InArgs, const TSharedR
 			.Padding(1)
 			.BorderImage(FLogVisualizerStyle::Get().GetBrush("ToolPanel.GroupBorder"))
 			[
-				SAssignNew(StatusItemsView, STreeView<TSharedPtr<FLogStatusItem> >)
-				.ItemHeight(40.0f)
-				.TreeItemsSource(&StatusItems)
-				.OnGenerateRow(this, &SVisualLoggerStatusView::HandleGenerateLogStatus)
-				.OnGetChildren(this, &SVisualLoggerStatusView::OnLogStatusGetChildren)
-				.SelectionMode(ESelectionMode::None)
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				[
+					SAssignNew(StatusItemsView, STreeView<TSharedPtr<FLogStatusItem> >)
+					.ItemHeight(40.0f)
+					.TreeItemsSource(&StatusItems)
+					.OnGenerateRow(this, &SVisualLoggerStatusView::HandleGenerateLogStatus)
+					.OnGetChildren(this, &SVisualLoggerStatusView::OnLogStatusGetChildren)
+					.OnExpansionChanged(this, &SVisualLoggerStatusView::OnExpansionChanged)
+					.SelectionMode(ESelectionMode::None)
+					.Visibility(EVisibility::Visible)
+				]
 			]
 		];
+
+	FVisualLoggerDatabase::Get().GetEvents().OnRowSelectionChanged.AddRaw(this, &SVisualLoggerStatusView::OnObjectSelectionChanged);
+	FVisualLoggerDatabase::Get().GetEvents().OnItemSelectionChanged.AddRaw(this, &SVisualLoggerStatusView::OnItemSelectionChanged);
+}
+
+SVisualLoggerStatusView::~SVisualLoggerStatusView()
+{
+	FVisualLoggerDatabase::Get().GetEvents().OnRowSelectionChanged.RemoveAll(this);
+	FVisualLoggerDatabase::Get().GetEvents().OnItemSelectionChanged.RemoveAll(this);
+}
+
+void SVisualLoggerStatusView::OnExpansionChanged(TSharedPtr<FLogStatusItem> Item, bool bIsExpanded)
+{
+	if (bIsExpanded)
+	{
+		ExpandedCategories.AddUnique(Item->ItemText);
+	}
+	else
+	{
+		ExpandedCategories.RemoveSwap(Item->ItemText);
+	}
 }
 
 void GenerateChildren(TSharedPtr<FLogStatusItem> StatusItem, const FVisualLogStatusCategory LogCategory)
@@ -61,22 +89,92 @@ void GenerateChildren(TSharedPtr<FLogStatusItem> StatusItem, const FVisualLogSta
 		GenerateChildren(ChildCategory, Child);
 	}
 }
-void SVisualLoggerStatusView::OnItemSelectionChanged(const FVisualLogDevice::FVisualLogEntryItem& LogEntry)
+
+void SVisualLoggerStatusView::ResetData()
 {
-	TArray<FString> ExpandedCategories;
-	for (int32 ItemIndex = 0; ItemIndex < StatusItems.Num(); ItemIndex++)
+	StatusItems.Empty();
+	StatusItemsView->RequestTreeRefresh();
+}
+
+void SVisualLoggerStatusView::OnObjectSelectionChanged(const TArray<FName>& SelectedItems)
+{
+	if (SelectedItems.Num() == 0)
 	{
-		const bool bIsExpanded = StatusItemsView->IsItemExpanded(StatusItems[ItemIndex]);
-		if (bIsExpanded)
+		ResetData();
+	}
+}
+
+void SVisualLoggerStatusView::OnItemSelectionChanged(const FVisualLoggerDBRow& ChangedDBRow, int32 ItemIndex)
+{
+	StatusItems.Empty();
+	StatusItemsView->RequestTreeRefresh();
+
+	const TArray<FName>& SelectedRows = FVisualLoggerDatabase::Get().GetSelectedRows();
+	for (auto RowName : SelectedRows)
+	{
+		const FVisualLoggerDBRow& CurrentDBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+		if (FVisualLoggerDatabase::Get().IsRowVisible(RowName) == false || CurrentDBRow.GetCurrentItemIndex() == INDEX_NONE)
 		{
-			ExpandedCategories.Add(StatusItems[ItemIndex]->ItemText);
+			continue;
+		}
+
+		const TArray<FVisualLogDevice::FVisualLogEntryItem>& Entries = CurrentDBRow.GetItems();
+		//int32 BestItemIndex = INDEX_NONE;
+		//float BestDistance = MAX_FLT;
+		//for (int32 Index = 0; Index < Entries.Num(); Index++)
+		//{
+		//	auto& CurrentEntryItem = Entries[Index];
+
+		//	if (CurrentDBRow.IsItemVisible(Index) == false)
+		//	{
+		//		continue;
+		//	}
+
+		//	TArray<FVisualLoggerCategoryVerbosityPair> OutCategories;
+		//	const float LastSelectedTimestep = CurrentDBRow.GetCurrentItemIndex() != INDEX_NONE ? CurrentDBRow.GetCurrentItem().Entry.TimeStamp : CurrentEntryItem.Entry.TimeStamp;
+		//	const float CurrentDist = FMath::Abs(CurrentEntryItem.Entry.TimeStamp - LastSelectedTimestep);
+		//	if (CurrentDist < BestDistance)
+		//	{
+		//		BestDistance = CurrentDist;
+		//		BestItemIndex = Index;
+		//	}
+		//}
+		
+
+		//if (Entries.IsValidIndex(BestItemIndex))
+		{
+			//GenerateStatusData(Entries[BestItemIndex], SelectedRows.Num() > 1);
+			GenerateStatusData(CurrentDBRow.GetCurrentItem(), SelectedRows.Num() > 1);
 		}
 	}
 
-	StatusItems.Empty();
+	{
+		for (int32 StatusItemIndex = 0; StatusItemIndex < StatusItems.Num(); StatusItemIndex++)
+		{
+			for (const FString& Category : ExpandedCategories)
+			{	if (StatusItems[StatusItemIndex]->ItemText == Category)
+				{
+					StatusItemsView->SetItemExpansion(StatusItems[StatusItemIndex], true);
+					break;
+				}
+			}
+		}
+	}
+}
 
-	FString TimestampDesc = FString::Printf(TEXT("%.2fs"), LogEntry.Entry.TimeStamp);
-	StatusItems.Add(MakeShareable(new FLogStatusItem(LOCTEXT("VisLogTimestamp", "Time").ToString(), TimestampDesc)));
+void SVisualLoggerStatusView::GenerateStatusData(const FVisualLogDevice::FVisualLogEntryItem& LogEntry, bool bAddHeader)
+{
+	if (bAddHeader)
+	{
+		FLogStatusItem* HeaderItem = new FLogStatusItem();
+		HeaderItem->HeaderText = FString::Printf(TEXT("%s at Time: %.2fs"), *LogEntry.OwnerName.ToString(), LogEntry.Entry.TimeStamp);;
+		StatusItems.Add(MakeShareable(HeaderItem));
+	}
+	else
+	{
+		FString TimestampDesc = FString::Printf(TEXT("%.2fs"), LogEntry.Entry.TimeStamp);
+		StatusItems.Add(MakeShareable(new FLogStatusItem(LOCTEXT("VisLogTimestamp", "Time").ToString(), TimestampDesc)));
+	}
 
 	for (int32 CategoryIndex = 0; CategoryIndex < LogEntry.Entry.Status.Num(); CategoryIndex++)
 	{
@@ -92,7 +190,8 @@ void SVisualLoggerStatusView::OnItemSelectionChanged(const FVisualLogDevice::FVi
 			const bool bHasValue = LogEntry.Entry.Status[CategoryIndex].GetDesc(LineIndex, KeyDesc, ValueDesc);
 			if (bHasValue)
 			{
-				StatusItem->Children.Add(MakeShareable(new FLogStatusItem(KeyDesc, ValueDesc)));
+				TSharedPtr< FLogStatusItem > NewItem = MakeShareable(new FLogStatusItem(KeyDesc, ValueDesc));
+				StatusItem->Children.Add(NewItem);
 			}
 		}
 
@@ -107,18 +206,6 @@ void SVisualLoggerStatusView::OnItemSelectionChanged(const FVisualLogDevice::FVi
 	}
 
 	StatusItemsView->RequestTreeRefresh();
-
-	for (int32 ItemIndex = 0; ItemIndex < StatusItems.Num(); ItemIndex++)
-	{
-		for (const FString& Category : ExpandedCategories)
-		{
-			if (StatusItems[ItemIndex]->ItemText == Category)
-			{
-				StatusItemsView->SetItemExpansion(StatusItems[ItemIndex], true);
-				break;
-			}
-		}
-	}
 }
 
 void SVisualLoggerStatusView::OnLogStatusGetChildren(TSharedPtr<FLogStatusItem> InItem, TArray< TSharedPtr<FLogStatusItem> >& OutItems)
@@ -128,6 +215,17 @@ void SVisualLoggerStatusView::OnLogStatusGetChildren(TSharedPtr<FLogStatusItem> 
 
 TSharedRef<ITableRow> SVisualLoggerStatusView::HandleGenerateLogStatus(TSharedPtr<FLogStatusItem> InItem, const TSharedRef<STableViewBase>& OwnerTable)
 {
+	if (InItem->HeaderText.Len() > 0)
+	{
+		return SNew(STableRow<TSharedPtr<FLogStatusItem> >, OwnerTable)
+			.Style(&FLogVisualizerStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.DarkRow"))
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(InItem->HeaderText))
+				.ColorAndOpacity(FColorList::LightGrey)
+			];
+	}
+	
 	if (InItem->Children.Num() > 0)
 	{
 		return SNew(STableRow<TSharedPtr<FLogStatusItem> >, OwnerTable)

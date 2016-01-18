@@ -18,7 +18,13 @@ public class UnrealHeaderTool : ModuleRules
 			}
 		);
 	
-		PrivateIncludePaths.Add("Runtime/Launch/Private");		// For LaunchEngineLoop.cpp include
+		PrivateIncludePaths.AddRange(
+			new string[]
+			{
+				// For LaunchEngineLoop.cpp include
+				"Runtime/Launch/Private",
+				"Programs/UnrealHeaderTool/Private",
+			});
 		
 		bEnableExceptions = true;
 	}

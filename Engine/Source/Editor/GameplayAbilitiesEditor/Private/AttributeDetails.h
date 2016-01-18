@@ -47,6 +47,7 @@ private:
 	TSharedPtr<FString>	GetPropertyType() const;
 
 	void OnChangeProperty(TSharedPtr<FString> ItemSelected, ESelectInfo::Type SelectInfo);
+	void OnAttributeChanged(UProperty* SelectedAttribute);
 };
 
 class FScalableFloatDetails : public IPropertyTypeCustomization

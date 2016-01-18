@@ -22,6 +22,33 @@ enum class EUnusedAttributeBehaviour : uint8
 	MarkInvalid, 
 };
 
+USTRUCT()
+struct FNiagaraDataSetProperties
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(VisibleAnywhere, Category = "Data Set")
+	FNiagaraDataSetID ID;
+
+	UPROPERTY()
+	TArray<FNiagaraVariableInfo> Variables;
+};
+
+/** Struct containt usage information about a script. Things such as whether it reads attribute data, reads or writes events data etc.*/
+USTRUCT()
+struct FNiagaraScriptUsageInfo
+{
+	GENERATED_BODY()
+	
+	FNiagaraScriptUsageInfo()
+	: bReadsAttriubteData(false)
+	{}
+
+	/** If true, this script reads attribute data. */
+	UPROPERTY()
+	bool bReadsAttriubteData;
+};
+
 /** Runtime script for a Niagara system */
 UCLASS(MinimalAPI)
 class UNiagaraScript : public UObject
@@ -39,6 +66,18 @@ class UNiagaraScript : public UObject
 	/** Attributes used by this script. */
 	UPROPERTY()
  	TArray<FNiagaraVariableInfo> Attributes;
+
+	/** Information about the events this script receives and which variables are accessed. */
+	UPROPERTY()
+	TArray<FNiagaraDataSetProperties> EventReceivers;
+
+	/** Information about the events this script generates and which variables are written. */
+	UPROPERTY()
+	TArray<FNiagaraDataSetProperties> EventGenerators;
+
+	/** Contains various usage information for this script. */
+	UPROPERTY()
+	FNiagaraScriptUsageInfo Usage;
 
 #if WITH_EDITORONLY_DATA
 	/** 'Source' data/graphs for this script */

@@ -30,8 +30,11 @@ class AIMODULE_API AEQSTestingPawn : public ACharacter, public IEQSQueryResultSo
 	UEnvQuery* QueryTemplate;
 
 	/** optional parameters for query */
-	UPROPERTY(Category=EQS, EditAnywhere)
+	UPROPERTY(Category=EQS, VisibleAnywhere, meta=(DisplayName="QueryParams_DEPRECATED"))
 	TArray<FEnvNamedValue> QueryParams;
+
+	UPROPERTY(Category=EQS, EditAnywhere)
+	TArray<FAIDynamicParam> QueryConfig;
 
 	UPROPERTY(Category=EQS, EditAnywhere)
 	float TimeLimitPerStep;
@@ -53,6 +56,9 @@ class AIMODULE_API AEQSTestingPawn : public ACharacter, public IEQSQueryResultSo
 
 	UPROPERTY(Category=EQS, EditAnywhere)
 	uint32 bShouldBeVisibleInGame:1;
+
+	UPROPERTY(Category = EQS, EditAnywhere)
+	uint32 bTickDuringGame : 1;
 
 	UPROPERTY(Category=EQS, EditAnywhere)
 	TEnumAsByte<EEnvQueryRunMode::Type> QueryingMode;

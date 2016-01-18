@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2308546
+﻿INTSourceChangelist:2573127
 Availability:NoPublish
 Title:FBodyInstance RTTs
 Crumbs:
 
 [EXCERPT:bStartAwake]
 
-この物理ボディが起きている状態で開始するかどうか起きている物理ボディは、アクティブにシミュレーションしています (眠っていない)。起きている物理ボディは一定の時間停止すると、スリープ状態に戻ります。
+この物理ボディが起きている状態で開始するかどうかを決定します。起きている物理ボディは、アクティブにシミュレーションしています (眠っていない)。起きている物理ボディは一定の時間停止すると、スリープ状態に戻ります。
 [VAR:ToolTipFullLink]
 Engine/Physics/PhysicsBodies#physics
 [/VAR]
@@ -91,7 +91,7 @@ Engine/Physics/PhysicsBodies#physics
 
 スケルタルメッシュが異なるマテリアルあるいは様々な密度で作成されているように見せるために使用します。物理ボディの質量を定義する計算は全ての物理ボディ間で均一なので、これが必要になります。
 
-これにより、レベル内の力の影響を多少受けるようにできます。質量を低めにすると、よりふんわりした感じを出すことができます。質量を増やすと、定位置の物理アセットをルートすることができます。
+これにより、レベル内の力の影響を多少受けるようにできます。質量を低めにするとよりふんわりした感じを出すことができ、質量を増やすと配置されている Physics アセットをルートすることができます。
 [VAR:ToolTipFullLink]
 Engine/Physics/PhysicsBodies#physics
 [/VAR]
@@ -149,7 +149,7 @@ Engine/Physics/PhysicsBodies#physics
 選択した物理ボディが、コリジョンがあったことをブループリントやコード エレメントに報告ができるようにします。これをオフにすると、物理ボディは物と衝突をしますが、衝突したことを実際には報告しません。
 Engine/Physics/PhysicsBodies/#collision
 [/EXCERPT:bNotifyRigidBodyCollision]
-
+ 
 
 
 

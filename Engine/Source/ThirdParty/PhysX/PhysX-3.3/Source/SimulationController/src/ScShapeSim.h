@@ -88,7 +88,7 @@ namespace Sc
 						void							onRestOffsetChange();
 						void							onFlagChange(PxShapeFlags oldFlags);
 						void							onResetFiltering();
-						void							onGeometryChange();
+						void							onVolumeChange();
 						void							onTransformChange();
 						void							onMaterialChange();  // remove when material properties are gone from PxcNpWorkUnit
 
@@ -117,7 +117,7 @@ namespace Sc
 	}
 	PX_ALIGN_SUFFIX(16);
 
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 	PX_COMPILE_TIME_ASSERT(32==sizeof(Sc::ShapeSim)); // after removing bounds from shapes
 	PX_COMPILE_TIME_ASSERT((sizeof(Sc::ShapeSim) % 16) == 0); // aligned mem bounds are better for prefetching
 #endif

@@ -50,10 +50,6 @@ public:
 	UPROPERTY()
 	USlateBrushAsset* BackgroundImageSelected_DEPRECATED;
 
-	/** Background image for the selection targeting effect (overrides Style) */
-	UPROPERTY()
-	USlateBrushAsset* BackgroundImageSelectionTarget_DEPRECATED;
-
 	/** Background image for the composing text (overrides Style) */
 	UPROPERTY()
 	USlateBrushAsset* BackgroundImageComposing_DEPRECATED;
@@ -63,12 +59,12 @@ public:
 	USlateBrushAsset* CaretImage_DEPRECATED;
 
 	/** Font color and opacity (overrides Style) */
-	UPROPERTY(EditAnywhere, Category=Appearance)
-	FSlateFontInfo Font;
+	UPROPERTY()
+	FSlateFontInfo Font_DEPRECATED;
 
 	/** Text color and opacity (overrides Style) */
-	UPROPERTY(EditAnywhere, Category=Appearance)
-	FSlateColor ColorAndOpacity;
+	UPROPERTY()
+	FSlateColor ColorAndOpacity_DEPRECATED;
 
 	/** Sets whether this text box can actually be modified interactively by the user */
 	UPROPERTY(EditAnywhere, Category=Appearance)
@@ -101,6 +97,10 @@ public:
 	/** Whether to select all text when pressing enter to commit changes */
 	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	bool SelectAllTextOnCommit;
+
+	/** If we're on a platform that requires a virtual keyboard, what kind of keyboard should this widget use? */
+	UPROPERTY( EditAnywhere, Category = Behavior, AdvancedDisplay )
+	TEnumAsByte< EVirtualKeyboardType::Type > KeyboardType;
 
 public:
 
@@ -138,26 +138,26 @@ public:
 
 public:
 	
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
-	// UVisual interface
+	//~ Begin UVisual Interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
+	//~ End UVisual Interface
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End of UObject interface
+	//~ End UObject Interface
 
 #if WITH_EDITOR
 	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 #endif
-	// End of UWidget interface
+	//~ End UWidget Interface
 
 protected:
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	// End of UWidget
 

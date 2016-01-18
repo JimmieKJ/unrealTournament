@@ -14,14 +14,14 @@ class UMaterialExpressionConstant : public UMaterialExpression
 	float R;
 
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #if WITH_EDITOR
 	virtual FString GetDescription() const override;
 #endif // WITH_EDITOR
 
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 
 

@@ -1,8 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SlatePrivatePCH.h"
+#include "BreakIterator.h"
 #include "TextEditHelper.h"
 #include "GenericCommands.h"
+#include "IMenu.h"
 
 /** A pointer to the editable text currently under the mouse cursor. nullptr when there isn't one. */
 SEditableText* SEditableText::EditableTextUnderCursor = nullptr;
@@ -12,9 +14,7 @@ SEditableText* SEditableText::EditableTextUnderCursor = nullptr;
 SEditableText::SEditableText()
 	: ScrollHelper()
 	, CaretPosition( 0 )
-	, CaretVisualPositionSpring()
 	, LastCaretInteractionTime( -1000.0 )
-	, LastSelectionInteractionTime( -1000.0 )
 	, bIsDragSelecting( false )
 	, bWasFocusedByLastMouseDown( false )
 	, bHasDragSelectedSinceFocused( false )
@@ -23,16 +23,7 @@ SEditableText::SEditableText()
 	, bIsChangingText( false )
 	, UICommandList( new FUICommandList() )
 	, bTextChangedByVirtualKeyboard( false )
-	, bIsSpringing( false )
 {
-	// Setup springs
-	FFloatSpring1D::FSpringConfig SpringConfig;
-	SpringConfig.SpringConstant = EditableTextDefs::CaretSpringConstant;
-	CaretVisualPositionSpring.SetConfig( SpringConfig );
-
-	SpringConfig.SpringConstant = EditableTextDefs::SelectionTargetSpringConstant;
-	SelectionTargetLeftSpring.SetConfig( SpringConfig );
-	SelectionTargetRightSpring.SetConfig( SpringConfig );
 }
 
 /** Destructor */
@@ -67,7 +58,6 @@ void SEditableText::Construct( const FArguments& InArgs )
 	Font = InArgs._Font.IsSet() ? InArgs._Font : InArgs._Style->Font;
 	ColorAndOpacity = InArgs._ColorAndOpacity.IsSet() ? InArgs._ColorAndOpacity : InArgs._Style->ColorAndOpacity;
 	BackgroundImageSelected = InArgs._BackgroundImageSelected.IsSet() ? InArgs._BackgroundImageSelected : &InArgs._Style->BackgroundImageSelected;
-	BackgroundImageSelectionTarget = InArgs._BackgroundImageSelectionTarget.IsSet() ? InArgs._BackgroundImageSelectionTarget : &InArgs._Style->BackgroundImageSelectionTarget;
 	BackgroundImageComposing = InArgs._BackgroundImageComposing.IsSet() ? InArgs._BackgroundImageComposing : &InArgs._Style->BackgroundImageComposing;	
 	CaretImage = InArgs._CaretImage.IsSet() ? InArgs._CaretImage : &InArgs._Style->CaretImage;
 
@@ -77,17 +67,21 @@ void SEditableText::Construct( const FArguments& InArgs )
 	bSelectAllTextWhenFocused = InArgs._SelectAllTextWhenFocused;
 	RevertTextOnEscape = InArgs._RevertTextOnEscape;
 	ClearKeyboardFocusOnCommit = InArgs._ClearKeyboardFocusOnCommit;
+	OnContextMenuOpening = InArgs._OnContextMenuOpening;
 	OnIsTypedCharValid = InArgs._OnIsTypedCharValid;
 	OnTextChanged = InArgs._OnTextChanged;
 	OnTextCommitted = InArgs._OnTextCommitted;
 	MinDesiredWidth = InArgs._MinDesiredWidth;
 	SelectAllTextOnCommit = InArgs._SelectAllTextOnCommit;
 	VirtualKeyboardType = IsPassword.Get() ? EKeyboardType::Keyboard_Password : InArgs._VirtualKeyboardType;
+	OnKeyDownHandler = InArgs._OnKeyDownHandler;
+	bShowingVirtualKeyboard = false;
 
 	// Map UI commands to delegates which are called when the command should be executed
 	UICommandList->MapAction( FGenericCommands::Get().Undo,
 		FExecuteAction::CreateSP( this, &SEditableText::Undo ),
-		FCanExecuteAction::CreateSP( this, &SEditableText::CanExecuteUndo ) );
+		FCanExecuteAction::CreateSP( this, &SEditableText::CanExecuteUndo ),
+		EUIActionRepeatMode::RepeatEnabled );
 
 	UICommandList->MapAction( FGenericCommands::Get().Cut,
 		FExecuteAction::CreateSP( this, &SEditableText::CutSelectedTextToClipboard ),
@@ -95,7 +89,8 @@ void SEditableText::Construct( const FArguments& InArgs )
 
 	UICommandList->MapAction( FGenericCommands::Get().Paste,
 		FExecuteAction::CreateSP( this, &SEditableText::PasteTextFromClipboard ),
-		FCanExecuteAction::CreateSP( this, &SEditableText::CanExecutePaste ) );
+		FCanExecuteAction::CreateSP( this, &SEditableText::CanExecutePaste ),
+		EUIActionRepeatMode::RepeatEnabled );
 
 	UICommandList->MapAction( FGenericCommands::Get().Copy,
 		FExecuteAction::CreateSP( this, &SEditableText::CopySelectedTextToClipboard ),
@@ -164,7 +159,7 @@ void SEditableText::SetText( const TAttribute< FText >& InNewText )
 	}
 }
 
-void SEditableText::SetTextFromVirtualKeyboard(const FText& InNewText)
+void SEditableText::SetTextFromVirtualKeyboard(const FText& InNewText, ESetTextType SetTextType, ETextCommit::Type CommitType)
 {
 	// Only set the text if the text attribute doesn't have a getter binding (otherwise it would be blown away).
 	// If it is bound, we'll assume that OnTextCommitted will handle the update.
@@ -190,6 +185,9 @@ void SEditableText::RestoreOriginalText()
 	{
 		EditedText = OriginalText;
 
+		// Reset the cursor position
+		SetCaretPosition(0);
+
 		SaveText();
 
 		// Let outsiders know that the text content has been changed
@@ -214,6 +212,10 @@ void SEditableText::Tick( const FGeometry& AllottedGeometry, const double InCurr
 	if (bTextChangedByVirtualKeyboard)
 	{
 		OnEnter();
+
+		// Move the cursor to the end of the string
+		SetCaretPosition(EditedText.ToString().Len());
+
 		bTextChangedByVirtualKeyboard = false;
 	}
 
@@ -226,28 +228,16 @@ void SEditableText::Tick( const FGeometry& AllottedGeometry, const double InCurr
 	const FString VisibleText = GetStringToRender();
 	const FSlateFontInfo& FontInfo = Font.Get();
 	const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-	const float FontMaxCharHeight = FontMeasureService->Measure( FString( ), FontInfo, AllottedGeometry.Scale ).Y;
+	const float FontMaxCharHeight = FontMeasureService->GetMaxCharacterHeight( FontInfo );
 
 	const bool bShouldAppearFocused = ShouldAppearFocused();
 	
-	// Update caret position if focused
+	float CaretVisualPosition = 0.0f;
 	if( bShouldAppearFocused )
 	{
-		FString TextBeforeCaret( VisibleText.Left( CaretPosition ) );
-		const FVector2D TextBeforeCaretSize( FontMeasureService->Measure( TextBeforeCaret, FontInfo, AllottedGeometry.Scale ) );
-
-		if (FSlateApplication::Get().IsRunningAtTargetFrameRate())
-		{
-			// Spring toward the caret's position!
-			CaretVisualPositionSpring.SetTarget(TextBeforeCaretSize.X);
-		}
-		else
-		{
-			// Just set the caret position directly
-			CaretVisualPositionSpring.SetPosition(TextBeforeCaretSize.X);
-		}
+		const FVector2D TextBeforeCaretSize = FontMeasureService->Measure( VisibleText, 0, CaretPosition, FontInfo, false, AllottedGeometry.Scale );
+		CaretVisualPosition = TextBeforeCaretSize.X;
 	}
-
 
 	// Make sure the caret is scrolled into view.  Note that even if we don't have keyboard focus (and the caret
 	// is hidden), we still do this to make sure the beginning of the string is in view.
@@ -255,8 +245,8 @@ void SEditableText::Tick( const FGeometry& AllottedGeometry, const double InCurr
 		const float CaretWidth = FTextEditHelper::CalculateCaretWidth(FontMaxCharHeight);
 
 		// Grab the caret position in the scrolled area space
-		const float CaretLeft = CaretVisualPositionSpring.GetPosition();
-		const float CaretRight = CaretVisualPositionSpring.GetPosition() + CaretWidth;
+		const float CaretLeft = CaretVisualPosition;
+		const float CaretRight = CaretVisualPosition + CaretWidth;
 
 		// Figure out where the caret is in widget space
 		const float WidgetSpaceCaretLeft = ScrollHelper.FromScrollerSpace( FVector2D( CaretLeft, ScrollHelper.GetPosition().Y ) ).X;
@@ -275,7 +265,6 @@ void SEditableText::Tick( const FGeometry& AllottedGeometry, const double InCurr
 			ScrollHelper.SetPosition( FVector2D( CaretRight - AllotedGeometryDrawX, ScrollHelper.GetPosition( ).Y ) );
 		}
 
-
 		// Make sure text is never scrolled out of view when it doesn't need to be!
 		{
 			// Measure the total widget of text string, plus the caret's width!
@@ -290,42 +279,6 @@ void SEditableText::Tick( const FGeometry& AllottedGeometry, const double InCurr
 			}
 		}
 	}
-
-
-	// Update selection 'target' effect
-	{
-		bool bSelectionTargetChanged = false;
-		if( AnyTextSelected() )
-		{
-			const float SelectionLeftX = EditableTextDefs::SelectionRectLeftOffset + FontMeasureService->Measure( VisibleText.Left( Selection.GetMinIndex() ), FontInfo, AllottedGeometry.Scale ).X;
-			const float SelectionRightX = EditableTextDefs::SelectionRectRightOffset + FontMeasureService->Measure( VisibleText.Left( Selection.GetMaxIndex( ) ), FontInfo, AllottedGeometry.Scale ).X;
-
-			SelectionTargetLeftSpring.SetTarget( SelectionLeftX );
-			SelectionTargetRightSpring.SetTarget( SelectionRightX );
-		}
-	}
-}
-
-EActiveTimerReturnType SEditableText::AnimateSpringsWhileFocused(double InCurrentTime, float InDeltaTime)
-{
-	// Keep ticking as long as we should appear focused or the caret is in transit
-	const bool bShouldAppearFocused = ShouldAppearFocused();
-	if (bShouldAppearFocused || !CaretVisualPositionSpring.IsAtRest())
-	{
-		// Update all the springs
-		CaretVisualPositionSpring.Tick(InDeltaTime);
-		
-		const float TimeSinceSelectionInteraction = (float)( InCurrentTime - LastSelectionInteractionTime );
-		if (TimeSinceSelectionInteraction <= EditableTextDefs::SelectionTargetEffectDuration || ( bShouldAppearFocused && AnyTextSelected() ))
-		{
-			SelectionTargetLeftSpring.Tick(InDeltaTime);
-			SelectionTargetRightSpring.Tick(InDeltaTime);
-		}
-
-		return EActiveTimerReturnType::Continue;
-	}
-
-	return EActiveTimerReturnType::Stop;
 }
 
 bool SEditableText::FTextInputMethodContext::IsReadOnly()
@@ -458,8 +411,8 @@ bool SEditableText::FTextInputMethodContext::GetTextBounds(const uint32 BeginInd
 		const FString VisibleText = OwningWidgetPtr->GetStringToRender();
 		const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
 
-		const float TextLeft = FontMeasureService->Measure( VisibleText.Left( BeginIndex ), FontInfo, CachedGeometry.Scale ).X;
-		const float TextRight = FontMeasureService->Measure( VisibleText.Left( BeginIndex + Length ), FontInfo, CachedGeometry.Scale ).X;
+		const float TextLeft = FontMeasureService->Measure( VisibleText, 0, BeginIndex, FontInfo, false, CachedGeometry.Scale ).X;
+		const float TextRight = FontMeasureService->Measure( VisibleText, 0, BeginIndex + Length, FontInfo, false, CachedGeometry.Scale ).X;
 
 		const float ScrollAreaLeft = OwningWidgetPtr->ScrollHelper.ToScrollerSpace( FVector2D::ZeroVector ).X;
 		const float ScrollAreaRight = OwningWidgetPtr->ScrollHelper.ToScrollerSpace( CachedGeometry.Size ).X;
@@ -819,12 +772,6 @@ void SEditableText::JumpTo(ETextLocation JumpLocation, ECursorAction Action)
 
 void SEditableText::ClearSelection()
 {
-	// Only animate clearing of the selection if there was actually a character selected
-	if( AnyTextSelected() )
-	{
-		RestartSelectionTargetAnimation();
-	}
-
 	// Explicitly invalidate the selection range indices.  The user no longer has a selection
 	// start and finish point
 	Selection.Clear();
@@ -838,13 +785,6 @@ void SEditableText::SelectAllText()
 	
 	Selection.StartIndex = EditedText.ToString().Len();
 	Selection.FinishIndex = 0;
-	RestartSelectionTargetAnimation();
-
-	// Make sure the animated selection effect starts roughly where the cursor is
-	const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-	const float SelectionTargetX = EditableTextDefs::SelectionRectLeftOffset + FontMeasureService->Measure( EditedText.ToString( ).Left( CaretPosition ), Font.Get( ), 1.0f/*CachedGeometry.Scale*/ ).X;
-	SelectionTargetLeftSpring.SetPosition( SelectionTargetX );
-	SelectionTargetRightSpring.SetPosition( SelectionTargetX );
 }
 
 bool SEditableText::SelectAllTextWhenFocused()
@@ -885,7 +825,6 @@ void SEditableText::SelectWordAt( const FGeometry& MyGeometry, const FVector2D& 
 		// Select the word!
 		Selection.StartIndex = FirstWordCharIndex;
 		Selection.FinishIndex = LastWordCharIndex;
-		RestartSelectionTargetAnimation();
 	}
 }
 
@@ -1264,7 +1203,7 @@ int32 SEditableText::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedG
 	const FSlateFontInfo& FontInfo = Font.Get();
 	const FString VisibleText = GetStringToRender();
 	const FLinearColor ThisColorAndOpacity = ColorAndOpacity.Get().GetColor(InWidgetStyle);
-	const FColor ColorAndOpacitySRGB = ThisColorAndOpacity * InWidgetStyle.GetColorAndOpacityTint();
+	const FLinearColor ColorAndOpacitySRGB = ThisColorAndOpacity * InWidgetStyle.GetColorAndOpacityTint();
 	const float FontMaxCharHeight = FTextEditHelper::GetFontHeight(FontInfo) * AllottedGeometry.Scale;
 	const double CurrentTime = FSlateApplication::Get().GetCurrentTime();
 
@@ -1274,10 +1213,10 @@ int32 SEditableText::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedG
 	if( AnyTextSelected() && ( bShouldAppearFocused || bIsReadonly ) )
 	{
 		// Figure out a universally visible selection color.
-		const FColor SelectionBackgroundColorAndOpacity = ( (FLinearColor::White - ThisColorAndOpacity)*0.5f + FLinearColor(-0.2f, -0.05f, 0.15f)) * InWidgetStyle.GetColorAndOpacityTint();
+		const FLinearColor SelectionBackgroundColorAndOpacity = ( (FLinearColor::White - ThisColorAndOpacity)*0.5f + FLinearColor(-0.2f, -0.05f, 0.15f)) * InWidgetStyle.GetColorAndOpacityTint();
 
-		const float SelectionLeftX = EditableTextDefs::SelectionRectLeftOffset + FontMeasureService->Measure( VisibleText.Left( Selection.GetMinIndex() ), FontInfo, AllottedGeometry.Scale ).X;
-		const float SelectionRightX = EditableTextDefs::SelectionRectRightOffset + FontMeasureService->Measure( VisibleText.Left( Selection.GetMaxIndex( ) ), FontInfo, AllottedGeometry.Scale ).X;
+		const float SelectionLeftX = EditableTextDefs::SelectionRectLeftOffset + FontMeasureService->Measure( VisibleText, 0, Selection.GetMinIndex(), FontInfo, false, AllottedGeometry.Scale ).X;
+		const float SelectionRightX = EditableTextDefs::SelectionRectRightOffset + FontMeasureService->Measure( VisibleText, 0, Selection.GetMaxIndex(), FontInfo, false, AllottedGeometry.Scale ).X;
 		const float SelectionTopY = 0.0f;
 		const float SelectionBottomY = DrawGeometrySize.Y;
 
@@ -1299,10 +1238,10 @@ int32 SEditableText::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedG
 	const FTextRange CompositionRange(TextInputMethodContext->CompositionBeginIndex, TextInputMethodContext->CompositionBeginIndex + TextInputMethodContext->CompositionLength);
 	if( TextInputMethodContext->IsComposing && CompositionRange.InclusiveContains(CaretPosition) )
 	{
-		const float CompositionLeft = FontMeasureService->Measure( VisibleText.Left( CompositionRange.BeginIndex ), FontInfo, AllottedGeometry.Scale ).X;
-		const float CompositionRight = FontMeasureService->Measure( VisibleText.Left( CompositionRange.EndIndex ), FontInfo, AllottedGeometry.Scale ).X;
+		const float CompositionLeft = FontMeasureService->Measure( VisibleText, 0, CompositionRange.BeginIndex, FontInfo, false, AllottedGeometry.Scale ).X;
+		const float CompositionRight = FontMeasureService->Measure( VisibleText, 0, CompositionRange.EndIndex, FontInfo, false, AllottedGeometry.Scale ).X;
 		const float CompositionTop = 0.0f;
-		const float CompositionBottom = FontMeasureService->Measure( VisibleText.Mid( TextInputMethodContext->CompositionBeginIndex, TextInputMethodContext->CompositionLength ), FontInfo, AllottedGeometry.Scale ).Y;
+		const float CompositionBottom = FontMeasureService->Measure( VisibleText, TextInputMethodContext->CompositionBeginIndex, TextInputMethodContext->CompositionLength, FontInfo, false, AllottedGeometry.Scale ).Y;
 
 		const FVector2D DrawPosition = ScrollHelper.FromScrollerSpace( FVector2D( CompositionLeft, CompositionTop ) );
 		const FVector2D DrawSize = ScrollHelper.SizeFromScrollerSpace( FVector2D( CompositionRight - CompositionLeft, CompositionBottom - CompositionTop ) );
@@ -1321,12 +1260,12 @@ int32 SEditableText::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedG
 	if (VisibleText.Len() == 0)
 	{
 		// Draw the hint text.
-		const FLinearColor HintTextColor = FLinearColor(ColorAndOpacitySRGB.R, ColorAndOpacitySRGB.G, ColorAndOpacitySRGB.B, 0.35f);
+		const FLinearColor HintTextColor = FLinearColor(ColorAndOpacitySRGB.R, ColorAndOpacitySRGB.G, ColorAndOpacitySRGB.B, 0.35f) * InWidgetStyle.GetColorAndOpacityTint();
 		const FString ThisHintText = this->HintText.Get().ToString();
 		FSlateDrawElement::MakeText(
 			OutDrawElements,
 			LayerId + TextLayer,
-			AllottedGeometry.ToPaintGeometry( FVector2D( 0, DrawPositionY ), AllottedGeometry.Size ),
+			AllottedGeometry.ToPaintGeometry(FVector2D(0, DrawPositionY * ScaleInverse), AllottedGeometry.Size),
 			ThisHintText,          // Text
 			FontInfo,              // Font information (font name, size)
 			MyClippingRect,        // Clipping rect
@@ -1344,7 +1283,7 @@ int32 SEditableText::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedG
 		const int32 FirstVisibleCharacter = FontMeasureService->FindCharacterIndexAtOffset( VisibleText, FontInfo, ScrollAreaLeft, AllottedGeometry.Scale );
 		const int32 LastVisibleCharacter = FontMeasureService->FindCharacterIndexAtOffset( VisibleText, FontInfo, ScrollAreaRight, AllottedGeometry.Scale );
 		const FString PotentiallyVisibleText( VisibleText.Mid( FirstVisibleCharacter, ( LastVisibleCharacter - FirstVisibleCharacter ) + 1 ) );
-		const float FirstVisibleCharacterPosition = FontMeasureService->Measure( VisibleText.Left( FirstVisibleCharacter ), FontInfo, AllottedGeometry.Scale ).X;
+		const float FirstVisibleCharacterPosition = FontMeasureService->Measure( VisibleText, 0, FirstVisibleCharacter, FontInfo, false, AllottedGeometry.Scale ).X;
 
 		const float TextVertOffset = EditableTextDefs::TextVertOffsetPercent * FontMaxCharHeight;
 		const FVector2D DrawPosition = ScrollHelper.FromScrollerSpace( FVector2D( FirstVisibleCharacterPosition, DrawPositionY + TextVertOffset ) );
@@ -1363,84 +1302,23 @@ int32 SEditableText::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedG
 	}
 
 
-	// Draw selection targeting effect
-	const float TimeSinceSelectionInteraction = (float)( CurrentTime - LastSelectionInteractionTime );
-	if( TimeSinceSelectionInteraction <= EditableTextDefs::SelectionTargetEffectDuration )
-	{
-		// Don't draw selection effect when drag-selecting text using the mouse
-		if( !bIsDragSelecting || !bHasDragSelectedSinceMouseDown )
-		{
-			const bool bIsClearingSelection = !AnyTextSelected() || ( !bIsReadonly && !bShouldAppearFocused );
-
-			// Compute animation progress
-			float EffectAlpha = FMath::Clamp( TimeSinceSelectionInteraction / EditableTextDefs::SelectionTargetEffectDuration, 0.0f, 1.0f );
-			EffectAlpha = 1.0f - EffectAlpha * EffectAlpha;  // Inverse square falloff (looks nicer!)
-
-			// Apply extra opacity falloff when deselecting text
-			float EffectOpacity = EffectAlpha;
-			if( bIsClearingSelection )
-			{
-				EffectOpacity *= EffectOpacity;
-			}
-
-			const FSlateBrush* SelectionTargetBrush = BackgroundImageSelectionTarget.Get();
-
-			// Set final opacity of the effect
-			FLinearColor SelectionTargetColorAndOpacity = SelectionTargetBrush->GetTint( InWidgetStyle );
-			SelectionTargetColorAndOpacity.A *= EditableTextDefs::SelectionTargetOpacity * EffectOpacity;
-			const FColor SelectionTargetColorAndOpacitySRGB = SelectionTargetColorAndOpacity;
-
-			// Compute the bounds offset of the selection target from where the selection target spring
-			// extents currently lie.  This is used to "grow" or "shrink" the selection as needed.
-			const float SelectingAnimOffset = EditableTextDefs::SelectingAnimOffsetPercent * FontMaxCharHeight;
-			const float DeselectingAnimOffset = EditableTextDefs::DeselectingAnimOffsetPercent * FontMaxCharHeight;
-
-			// Choose an offset amount depending on whether we're selecting text, or clearing selection
-			const float EffectOffset = bIsClearingSelection ? ( 1.0f - EffectAlpha ) * DeselectingAnimOffset : EffectAlpha * SelectingAnimOffset;
-
-			const float SelectionLeftX = SelectionTargetLeftSpring.GetPosition() - EffectOffset;
-			const float SelectionRightX = SelectionTargetRightSpring.GetPosition() + EffectOffset;
-			const float SelectionTopY = 0.0f - EffectOffset;
-			const float SelectionBottomY = AllottedGeometry.Size.Y + EffectOffset;
-
-			const FVector2D DrawPosition = ScrollHelper.FromScrollerSpace( FVector2D( SelectionLeftX, SelectionTopY ) );
-			const FVector2D DrawSize = ScrollHelper.SizeFromScrollerSpace( FVector2D( SelectionRightX - SelectionLeftX, SelectionBottomY - SelectionTopY ) );
-
-			// NOTE: We rely on scissor clipping for the selection rectangle
-			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId + TextLayer,
-				AllottedGeometry.ToPaintGeometry( DrawPosition, DrawSize, ScaleInverse ),	// Position, Size, Scale
-				SelectionTargetBrush,										// Image
-				MyClippingRect,												// Clipping rect
-				DrawEffects,												// Effects to use
-				SelectionTargetColorAndOpacitySRGB );						// Color
-		}
-	}
-
-
 	// Draw the caret!
 	if( bShouldAppearFocused )
 	{
-		// Handle caret blinking
+		// The caret is always visible (i.e. not blinking) when we're interacting with it; otherwise it might get lost.
+		const bool bForceCaretVisible = (CurrentTime - LastCaretInteractionTime) < EditableTextDefs::CaretBlinkPauseTime;
+		float CaretOpacity = (bForceCaretVisible)
+			? 1.0f
+			: FMath::RoundToFloat( FMath::MakePulsatingValue( CurrentTime, EditableTextDefs::BlinksPerSecond ));
+		CaretOpacity *= CaretOpacity;	// Squared falloff, because it looks more interesting
+
 		FLinearColor CursorColorAndOpacity = ThisColorAndOpacity;
-		{
-			// Only blink when the user isn't actively typing
-			const double BlinkPauseEndTime = LastCaretInteractionTime + EditableTextDefs::CaretBlinkPauseTime;
-			if( CurrentTime > BlinkPauseEndTime )
-			{
-				// Caret pulsate time is relative to the last time that we stopped interacting with
-				// the cursor.  This just makes sure that the caret starts out fully opaque.
-				const double PulsateTime = CurrentTime - BlinkPauseEndTime;
+		CursorColorAndOpacity.A = CaretOpacity;
 
-				// Blink the caret!
-				float CaretOpacity = FMath::MakePulsatingValue( PulsateTime, EditableTextDefs::BlinksPerSecond );
-				CaretOpacity *= CaretOpacity;	// Squared falloff, because it looks more interesting
-				CursorColorAndOpacity.A = CaretOpacity;
-			}
-		}
+		const FVector2D TextBeforeCaretSize = FontMeasureService->Measure( VisibleText, 0, CaretPosition, FontInfo, false, AllottedGeometry.Scale );
+		const float CaretVisualPosition = TextBeforeCaretSize.X;
 
-		const float CaretX = CaretVisualPositionSpring.GetPosition();
+		const float CaretX = CaretVisualPosition;
 		const float CaretY = DrawPositionY + EditableTextDefs::CaretVertOffset;
 		const float CaretWidth = FTextEditHelper::CalculateCaretWidth(FontMaxCharHeight);
 		const float CaretHeight = EditableTextDefs::CaretHeightPercent * FontMaxCharHeight;
@@ -1502,20 +1380,14 @@ FReply SEditableText::OnFocusReceived( const FGeometry& MyGeometry, const FFocus
 	// Skip the rest of the focus received code if it's due to the context menu closing
 	if ( !ActiveContextMenu.IsValid() )
 	{
-		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SEditableText::AnimateSpringsWhileFocused));
+		EnsureActiveTick();
 
 		// Don't unselect text when focus is set because another widget lost focus, as that may be in response to a
 		// dismissed context menu where the user clicked an option to select text.
 		if( InFocusEvent.GetCause() != EFocusCause::OtherWidgetLostFocus )
 		{
-			// Deselect text, but override the last selection interaction time, so that the user doesn't
-			// see a selection transition animation when keyboard focus is received.
 			ClearSelection();
-			LastSelectionInteractionTime = -1000.0;
 		}
-
-		// Reset the cursor position spring
-		CaretVisualPositionSpring.SetPosition( CaretVisualPositionSpring.GetPosition() );
 	 
 		bHasDragSelectedSinceFocused = false;
 
@@ -1546,8 +1418,12 @@ FReply SEditableText::OnFocusReceived( const FGeometry& MyGeometry, const FFocus
 		FSlateApplication& SlateApplication = FSlateApplication::Get();
 		if (FPlatformMisc::GetRequiresVirtualKeyboard())
 		{
-			// @TODO: Create ITextInputMethodSystem derivations for mobile
-			SlateApplication.ShowVirtualKeyboard(true, InFocusEvent.GetUser(), SharedThis(this));
+			if (!GetIsReadOnly())
+			{
+				// @TODO: Create ITextInputMethodSystem derivations for mobile
+				SlateApplication.ShowVirtualKeyboard(true, InFocusEvent.GetUser(), SharedThis(this));
+				bShowingVirtualKeyboard = true;
+			}
 		}
 		else
 		{
@@ -1569,20 +1445,16 @@ void SEditableText::OnFocusLost( const FFocusEvent& InFocusEvent )
 	if ( !ActiveContextMenu.IsValid() )
 	{
 		// Place the caret at the front of the text
-		if (FSlateApplication::Get().IsRunningAtTargetFrameRate())
-		{
-			// Spring back when the frame rate is high enough
-			CaretVisualPositionSpring.SetTarget(0.f);
-		}
-		else
-		{
-			CaretVisualPositionSpring.SetPosition(0.f);
-		}
+		SetCaretPosition(0);
 
 		FSlateApplication& SlateApplication = FSlateApplication::Get();
 		if (FPlatformMisc::GetRequiresVirtualKeyboard())
 		{
-			SlateApplication.ShowVirtualKeyboard(false, InFocusEvent.GetUser());
+			if (bShowingVirtualKeyboard)
+			{
+				SlateApplication.ShowVirtualKeyboard(false, InFocusEvent.GetUser());
+				bShowingVirtualKeyboard = false;
+			}
 		}
 		else
 		{
@@ -1634,12 +1506,31 @@ FReply SEditableText::OnKeyChar( const FGeometry& MyGeometry, const FCharacterEv
 
 FReply SEditableText::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
 {
-	FReply Reply = FTextEditHelper::OnKeyDown( InKeyEvent, SharedThis( this ) );
+	FReply Reply = FReply::Unhandled();
 
-	// Process keybindings if the event wasn't already handled
-	if( !Reply.IsEventHandled() && UICommandList->ProcessCommandBindings( InKeyEvent ) )
+	// First call the user defined key handler, there might be overrides to normal functionality
+	if (OnKeyDownHandler.IsBound())
 	{
-		Reply = FReply::Handled();
+		Reply = OnKeyDownHandler.Execute(MyGeometry, InKeyEvent);
+	}
+
+	if( !Reply.IsEventHandled() )
+	{
+		Reply = FTextEditHelper::OnKeyDown( InKeyEvent, SharedThis( this ) );
+		
+		if (!Reply.IsEventHandled())
+		{
+			// Process keybindings if the event wasn't already handled
+			if ( UICommandList->ProcessCommandBindings( InKeyEvent ) )
+			{
+				Reply = FReply::Handled();
+			}
+			else
+			{
+				Reply = SLeafWidget::OnKeyDown( MyGeometry, InKeyEvent );
+			}
+		}
+
 	}
 
 	return Reply;
@@ -1674,25 +1565,6 @@ FReply SEditableText::OnMouseButtonDown( const FGeometry& InMyGeometry, const FP
 
 FReply SEditableText::OnMouseButtonUp( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent )
 {
-	// The mouse must have been captured by either left or right button down before we'll process mouse ups
-	if( HasMouseCapture() )
-	{
-		if( InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && bIsDragSelecting )
-		{
-			// If we selected any text while dragging, then kick off the selection target animation
-			if( bHasDragSelectedSinceMouseDown && Selection.StartIndex != Selection.FinishIndex )
-			{
-				// Start the selection animation wherever the user started the click/drag
-				const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-				const float SelectionTargetX = EditableTextDefs::SelectionRectLeftOffset + FontMeasureService->Measure( EditedText.ToString( ).Left( Selection.StartIndex ), Font.Get( ), InMyGeometry.Scale ).X;
-				SelectionTargetLeftSpring.SetPosition( SelectionTargetX );
-				SelectionTargetRightSpring.SetPosition( SelectionTargetX );
-
-				RestartSelectionTargetAnimation();
-			}
-		}
-	}
-
 	return FTextEditHelper::OnMouseButtonUp( InMyGeometry, InMouseEvent, SharedThis( this ) );
 }
 
@@ -1720,6 +1592,18 @@ FCursorReply SEditableText::OnCursorQuery( const FGeometry& MyGeometry, const FP
 }
 
 
+const FSlateBrush* SEditableText::GetFocusBrush() const
+{
+	return nullptr;
+}
+
+
+bool SEditableText::IsInteractable() const
+{
+	return IsEnabled();
+}
+
+
 void SEditableText::SelectText( const int32 InOldCaretPosition )
 {
 	if( InOldCaretPosition != CaretPosition )
@@ -1728,8 +1612,6 @@ void SEditableText::SelectText( const int32 InOldCaretPosition )
 		{
 			// Start selecting
 			Selection.StartIndex = Selection.FinishIndex = InOldCaretPosition;
-
-			RestartSelectionTargetAnimation();
 		}
 		else
 		{
@@ -1752,12 +1634,6 @@ void SEditableText::DeleteSelectedText()
 		const FString& OldText = EditedText.ToString();
 		const FString NewText = OldText.Left( Selection.GetMinIndex() ) + OldText.Mid( Selection.GetMaxIndex() );
 		EditedText = FText::FromString(NewText);
-
-		// Visually collapse the selection target right before we clear selection
-		const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-		const float SelectionTargetX = EditableTextDefs::SelectionRectLeftOffset + FontMeasureService->Measure( NewText.Left( CaretPosition ), Font.Get( ), 1.0f/*CachedGeometry.Scale*/ ).X;
-		SelectionTargetLeftSpring.SetTarget( SelectionTargetX );
-		SelectionTargetRightSpring.SetTarget( SelectionTargetX );
 
 		// Clear selection
 		ClearSelection();
@@ -1791,43 +1667,54 @@ int32 SEditableText::FindClickedCharacterIndex( const FVector2D& InLocalCursorPo
 
 int32 SEditableText::ScanForWordBoundary( const int32 Location, int8 Direction ) const
 {
-	const FString& EditedTextString = EditedText.ToString();
-	const int32 StringLength = EditedTextString.Len();
+	// We delay creating the iterator until we actually need it
+	if (!WordBreakIterator.IsValid())
+	{
+		WordBreakIterator = FBreakIterator::CreateWordBreakIterator();
+	}
 
+	const FString& EditedTextString = EditedText.ToString();
+	WordBreakIterator->SetString(EditedTextString);
+
+	int32 NewLocation = Location;
 	if (Direction > 0)
 	{
-		// Scan right for text
-		int32 CurCharIndex = Location;
-		while( CurCharIndex < StringLength && !FText::IsWhitespace( EditedTextString[ CurCharIndex ] ) )
+		// First move right to the next break candidate
+		NewLocation = WordBreakIterator->MoveToCandidateAfter(NewLocation);
+
+		// Then step over any whitespace
+		while (EditedTextString.IsValidIndex(NewLocation) && FText::IsWhitespace(EditedTextString[NewLocation]))
 		{
-			++CurCharIndex;
+			++NewLocation;
 		}
 
-		// Scan right for whitespace
-		while( CurCharIndex < StringLength && FText::IsWhitespace( EditedTextString[ CurCharIndex ] ) )
+		// No subsequent break candidate, just set to the upper-range
+		if (NewLocation == INDEX_NONE)
 		{
-			++CurCharIndex;
+			NewLocation = EditedTextString.Len();
 		}
-
-		return CurCharIndex;
 	}
 	else
 	{
-		// Scan left for whitespace
-		int32 CurCharIndex = Location;
-		while( CurCharIndex > 0 && FText::IsWhitespace( EditedTextString[ CurCharIndex - 1 ] ) )
+		// First step over any whitespace
+		while (EditedTextString.IsValidIndex(NewLocation-1) && FText::IsWhitespace(EditedTextString[NewLocation-1]))
 		{
-			--CurCharIndex;
+			--NewLocation;
 		}
 
-		// Scan left for text
-		while( CurCharIndex > 0 && !FText::IsWhitespace( EditedTextString[ CurCharIndex - 1 ] ) )
-		{
-			--CurCharIndex;
-		}
+		// Then move left to the next previous candidate
+		NewLocation = WordBreakIterator->MoveToCandidateBefore(NewLocation);
 
-		return CurCharIndex;
+		// No previous break candidate, just set to the lower-range
+		if (NewLocation == INDEX_NONE)
+		{
+			NewLocation = 0;
+		}
 	}
+
+	WordBreakIterator->ClearString();
+
+	return NewLocation;
 }
 
 
@@ -1835,7 +1722,7 @@ bool SEditableText::IsAtWordStart( const int32 Location ) const
 {
 	const FString& EditedTextString = EditedText.ToString();
 
-	if (Location > 0)
+	if (Location > 0 && Location < EditedTextString.Len())
 	{
 		const TCHAR CharBeforeCursor = EditedTextString[Location - 1];
 		const TCHAR CharAtCursor = EditedTextString[Location];
@@ -1935,71 +1822,84 @@ void SEditableText::SaveText()
 	}
 }
 
-
-void SEditableText::SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow)
+void SEditableText::SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow, const FWidgetPath& EventPath)
 {
-	// Set the menu to automatically close when the user commits to a choice
-	const bool bShouldCloseWindowAfterMenuSelection = true;
+	TSharedPtr<SWidget> MenuContentWidget;
 
-#define LOCTEXT_NAMESPACE "EditableTextContextMenu"
-
-	// This is a context menu which could be summoned from within another menu if this text block is in a menu
-	// it should not close the menu it is inside
-	bool bCloseSelfOnly = true;
-	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, UICommandList, MenuExtender, bCloseSelfOnly, &FCoreStyle::Get() );
+	if (OnContextMenuOpening.IsBound())
 	{
-		MenuBuilder.BeginSection( "EditText", LOCTEXT( "Heading", "Modify Text" ) );
-		{
-			// Undo
-			MenuBuilder.AddMenuEntry( FGenericCommands::Get().Undo );
-		}
-		MenuBuilder.EndSection();
-
-		MenuBuilder.BeginSection("EditableTextModify2");
-		{
-			// Cut
-			MenuBuilder.AddMenuEntry( FGenericCommands::Get().Cut );
-
-			// Copy
-			MenuBuilder.AddMenuEntry( FGenericCommands::Get().Copy );
-
-			// Paste
-			MenuBuilder.AddMenuEntry( FGenericCommands::Get().Paste );
-
-			// Delete
-			MenuBuilder.AddMenuEntry( FGenericCommands::Get().Delete );
-		}
-		MenuBuilder.EndSection();
-
-		MenuBuilder.BeginSection("EditableTextModify3");
-		{
-			// Select All
-			MenuBuilder.AddMenuEntry( FGenericCommands::Get().SelectAll );
-		}
-		MenuBuilder.EndSection();
-	}
-
-#undef LOCTEXT_NAMESPACE
-
-	ActiveContextMenu.PrepareToSummon();
-
-	const bool bFocusImmediately = true;
-	TSharedRef<SWidget> MenuParent = SharedThis(this);
-	if (ParentWindow.IsValid())
-	{
-		MenuParent = StaticCastSharedRef<SWidget>(ParentWindow.ToSharedRef());
-	}
-	TSharedPtr< SWindow > ContextMenuWindow = FSlateApplication::Get().PushMenu(MenuParent, MenuBuilder.MakeWidget(), InLocation, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu), bFocusImmediately );
-	
-	// Make sure the window is valid.  It's possible for the parent to already be in the destroy queue, for example if the editable text was configured to dismiss it's window during OnTextCommitted.
-	if( ContextMenuWindow.IsValid() )
-	{
-		ContextMenuWindow->SetOnWindowClosed( FOnWindowClosed::CreateSP( this, &SEditableText::OnWindowClosed ) );
-		ActiveContextMenu.SummonSucceeded( ContextMenuWindow.ToSharedRef() );
+		MenuContentWidget = OnContextMenuOpening.Execute();
 	}
 	else
 	{
-		ActiveContextMenu.SummonFailed();
+		// Set the menu to automatically close when the user commits to a choice
+		const bool bShouldCloseWindowAfterMenuSelection = true;
+
+#define LOCTEXT_NAMESPACE "EditableTextContextMenu"
+
+		// This is a context menu which could be summoned from within another menu if this text block is in a menu
+		// it should not close the menu it is inside
+		bool bCloseSelfOnly = true;
+		FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, UICommandList, MenuExtender, bCloseSelfOnly, &FCoreStyle::Get());
+		{
+			MenuBuilder.BeginSection("EditText", LOCTEXT("Heading", "Modify Text"));
+			{
+				// Undo
+				MenuBuilder.AddMenuEntry(FGenericCommands::Get().Undo);
+			}
+			MenuBuilder.EndSection();
+
+			MenuBuilder.BeginSection("EditableTextModify2");
+			{
+				// Cut
+				MenuBuilder.AddMenuEntry(FGenericCommands::Get().Cut);
+
+				// Copy
+				MenuBuilder.AddMenuEntry(FGenericCommands::Get().Copy);
+
+				// Paste
+				MenuBuilder.AddMenuEntry(FGenericCommands::Get().Paste);
+
+				// Delete
+				MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete);
+			}
+			MenuBuilder.EndSection();
+
+			MenuBuilder.BeginSection("EditableTextModify3");
+			{
+				// Select All
+				MenuBuilder.AddMenuEntry(FGenericCommands::Get().SelectAll);
+			}
+			MenuBuilder.EndSection();
+		}
+
+		MenuContentWidget = MenuBuilder.MakeWidget();
+
+#undef LOCTEXT_NAMESPACE
+	}
+
+	if (MenuContentWidget.IsValid())
+	{
+		ActiveContextMenu.PrepareToSummon();
+
+		const bool bFocusImmediately = true;
+		TSharedRef<SWidget> MenuParent = SharedThis(this);
+		if (ParentWindow.IsValid())
+		{
+			MenuParent = StaticCastSharedRef<SWidget>(ParentWindow.ToSharedRef());
+		}
+		TSharedPtr< IMenu > ContextMenu = FSlateApplication::Get().PushMenu(MenuParent, EventPath, MenuContentWidget.ToSharedRef(), InLocation, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu), bFocusImmediately);
+
+		// Make sure the menu is valid.  It's possible for the parent to already be in the destroy queue, for example if the editable text was configured to dismiss it's window during OnTextCommitted.
+		if (ContextMenu.IsValid())
+		{
+			ContextMenu->GetOnMenuDismissed().AddSP(this, &SEditableText::OnContextMenuClosed);
+			ActiveContextMenu.SummonSucceeded(ContextMenu.ToSharedRef());
+		}
+		else
+		{
+			ActiveContextMenu.SummonFailed();
+		}
 	}
 }
 
@@ -2113,17 +2013,7 @@ FString SEditableText::GetStringToRender() const
 	return VisibleText;
 }
 
-void SEditableText::RestartSelectionTargetAnimation()
-{
-	// Don't bother with this unless we're running at a decent frame rate
-	if( FSlateApplication::Get().IsRunningAtTargetFrameRate() )
-	{
-		LastSelectionInteractionTime = FSlateApplication::Get().GetCurrentTime();
-	}
-}
-
-
-void SEditableText::OnWindowClosed(const TSharedRef<SWindow>&)
+void SEditableText::OnContextMenuClosed(TSharedRef<IMenu> Menu)
 {
 	// Note: We don't reset the ActiveContextMenu here, as Slate hasn't yet finished processing window focus events, and we need 
 	// to know that the window is still available for OnFocusReceived and OnFocusLost even though it's about to be destroyed
@@ -2150,4 +2040,52 @@ void SEditableText::SetIsPassword( TAttribute< bool > InIsPassword )
 void SEditableText::SetColorAndOpacity(TAttribute<FSlateColor> Color)
 {
 	ColorAndOpacity = Color;
+}
+
+void SEditableText::SetMinDesiredWidth(const TAttribute<float>& InMinDesiredWidth)
+{
+	MinDesiredWidth = InMinDesiredWidth;
+}
+
+void SEditableText::SetIsCaretMovedWhenGainFocus(const TAttribute<bool>& InIsCaretMovedWhenGainFocus)
+{
+	IsCaretMovedWhenGainFocus = InIsCaretMovedWhenGainFocus;
+}
+
+void SEditableText::SetSelectAllTextWhenFocused(const TAttribute<bool>& InSelectAllTextWhenFocused)
+{
+	bSelectAllTextWhenFocused = InSelectAllTextWhenFocused;
+}
+
+void SEditableText::SetRevertTextOnEscape(const TAttribute<bool>& InRevertTextOnEscape)
+{
+	RevertTextOnEscape = InRevertTextOnEscape;
+}
+
+void SEditableText::SetClearKeyboardFocusOnCommit(const TAttribute<bool>& InClearKeyboardFocusOnCommit)
+{
+	ClearKeyboardFocusOnCommit = InClearKeyboardFocusOnCommit;
+}
+
+void SEditableText::SetSelectAllTextOnCommit(const TAttribute<bool>& InSelectAllTextOnCommit)
+{
+	SelectAllTextOnCommit = InSelectAllTextOnCommit;
+}
+
+void SEditableText::EnsureActiveTick()
+{
+	TSharedPtr<FActiveTimerHandle> ActiveTickTimerPin = ActiveTickTimer.Pin();
+	if(ActiveTickTimerPin.IsValid())
+	{
+		return;
+	}
+
+	auto DoActiveTick = [this](double InCurrentTime, float InDeltaTime) -> EActiveTimerReturnType
+	{
+		// Continue if we still have focus, otherwise treat as a fire-and-forget Tick() request
+		const bool bShouldAppearFocused = HasKeyboardFocus() || ActiveContextMenu.IsValid();
+		return (bShouldAppearFocused) ? EActiveTimerReturnType::Continue : EActiveTimerReturnType::Stop;
+	};
+
+	ActiveTickTimer = RegisterActiveTimer(0.5f, FWidgetActiveTimerDelegate::CreateLambda(DoActiveTick));
 }

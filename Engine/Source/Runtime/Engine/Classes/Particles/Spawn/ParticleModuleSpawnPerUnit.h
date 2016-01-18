@@ -5,7 +5,7 @@
 #include "Particles/Spawn/ParticleModuleSpawnBase.h"
 #include "ParticleModuleSpawnPerUnit.generated.h"
 
-UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Spawn PerUnit"))
+UCLASS(editinlinenew, MinimalAPI, hidecategories=Object, meta=(DisplayName = "Spawn PerUnit"))
 class UParticleModuleSpawnPerUnit : public UParticleModuleSpawnBase
 {
 	GENERATED_UCLASS_BODY()
@@ -66,22 +66,22 @@ class UParticleModuleSpawnPerUnit : public UParticleModuleSpawnBase
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void CompileModule( struct FParticleEmitterBuildInfo& EmitterInfo ) override;
 	virtual uint32	RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
-	// Begin UParticleModuleSpawnBase Interface
+	//~ Begin UParticleModuleSpawnBase Interface
 	virtual bool GetSpawnAmount(FParticleEmitterInstance* Owner, int32 Offset, float OldLeftover, 
 		float DeltaTime, int32& Number, float& Rate) override;
-	// End UParticleModuleSpawnBase Interface
+	//~ End UParticleModuleSpawnBase Interface
 };
 
 

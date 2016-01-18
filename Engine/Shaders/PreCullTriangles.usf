@@ -1,0 +1,262 @@
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PreCullTriangles.usf
+=============================================================================*/
+
+#include "Common.usf"
+#include "DeferredShadingCommon.usf"
+#include "DistanceFieldLightingShared.usf"
+#include "DistanceFieldAOShared.usf"
+
+
+RWBuffer<float4> RWCulledObjectBounds;
+RWBuffer<float4> RWCulledObjectData;
+
+uint ObjectBoundingGeometryIndexCount;
+float3 ObjectBoundsCenter;
+float3 ObjectBoundsExtent;
+
+groupshared uint NumGroupObjects;
+
+groupshared uint GroupBaseIndex;
+groupshared uint GroupObjectIndices[UPDATEOBJECTS_THREADGROUP_SIZE];
+
+float4 FetchObjectDataFloat4(uint SourceIndex)
+{
+	return float4(ObjectData[4 * SourceIndex + 0], ObjectData[4 * SourceIndex + 1], ObjectData[4 * SourceIndex + 2], ObjectData[4 * SourceIndex + 3]);
+}
+
+void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
+{
+	RWCulledObjectBounds[DestIndex] = float4(ObjectBounds[4 * SourceIndex + 0], ObjectBounds[4 * SourceIndex + 1], ObjectBounds[4 * SourceIndex + 2], ObjectBounds[4 * SourceIndex + 3]);
+
+	UNROLL
+	for (uint VectorIndex = 0; VectorIndex < CULLED_OBJECT_DATA_STRIDE; VectorIndex++)
+	{
+		float4 Data = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
+
+		// Note: only copying the first CULLED_OBJECT_DATA_STRIDE of the original object data
+		RWCulledObjectData[DestIndex * CULLED_OBJECT_DATA_STRIDE + VectorIndex] = Data;
+	}
+}
+
+float PreCullMaxDistance;
+
+[numthreads(UPDATEOBJECTS_THREADGROUP_SIZE, 1, 1)]
+void CullObjectsForBoundsCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint ObjectIndex = DispatchThreadId.x;
+
+#define USE_FRUSTUM_CULLING 1
+#if USE_FRUSTUM_CULLING
+	if (DispatchThreadId.x == 0)
+	{
+		// RWObjectIndirectArguments is zeroed by a clear before this shader, only need to set things that are non-zero (and are not read by this shader as that would be a race condition)
+		// IndexCount, NumInstances, StartIndex, BaseVertexIndex, FirstInstance
+		RWObjectIndirectArguments[0] = ObjectBoundingGeometryIndexCount;
+	}
+
+	if (GroupThreadId.x == 0)
+	{
+		NumGroupObjects = 0;
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	if (ObjectIndex < NumSceneObjects)
+	{
+		uint SourceIndex = ObjectIndex;
+
+		float4 ObjectBoundingSphere = float4(ObjectBounds[4 * SourceIndex + 0], ObjectBounds[4 * SourceIndex + 1], ObjectBounds[4 * SourceIndex + 2], ObjectBounds[4 * SourceIndex + 3]);
+
+		if (ComputeSquaredDistanceFromBoxToPoint(ObjectBoundsCenter, ObjectBoundsExtent, ObjectBoundingSphere.xyz) < Square(PreCullMaxDistance + ObjectBoundingSphere.w))
+		{
+			uint DestIndex;
+			InterlockedAdd(NumGroupObjects, 1U, DestIndex);
+			GroupObjectIndices[DestIndex] = SourceIndex;
+		}
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	if (GroupThreadId.x == 0)
+	{
+		InterlockedAdd(RWObjectIndirectArguments[1], NumGroupObjects, GroupBaseIndex);
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	if (GroupThreadId.x < NumGroupObjects)
+	{
+		uint SourceIndex = GroupObjectIndices[GroupThreadId.x];
+		uint DestIndex = GroupBaseIndex + GroupThreadId.x;
+		CopyCulledObjectData(DestIndex, SourceIndex);
+	}
+
+#else
+
+	if (DispatchThreadId.x == 0)
+	{
+		// IndexCount, NumInstances, StartIndex, BaseVertexIndex, FirstInstance
+		RWObjectIndirectArguments[0] = ObjectBoundingGeometryIndexCount;
+		RWObjectIndirectArguments[1] = NumSceneObjects;
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	if (ObjectIndex < NumSceneObjects)
+	{
+		uint SourceIndex = ObjectIndex;
+		uint DestIndex = ObjectIndex;
+
+		CopyCulledObjectData(DestIndex, SourceIndex);
+	}
+
+#endif
+}
+
+// In float's, must match FConvertToUniformMeshVertex and ComputeUniformVertexStride()
+#define TRIANGLE_VERTEX_DATA_STRIDE 24
+
+uint StartIndex;
+uint NumTriangles;
+Buffer<float> TriangleVertexData;
+
+float LoadVertexAttribute(uint TriangleIndex, uint VertexIndex, uint AttributeIndex)
+{
+	return TriangleVertexData[(TriangleIndex * 3 + VertexIndex) * TRIANGLE_VERTEX_DATA_STRIDE + AttributeIndex];
+}
+
+uint NumCullVolumes;
+Buffer<uint> CullVolumePlaneOffsets;
+Buffer<float4> CullVolumePlaneData;
+
+RWBuffer<uint> RWTriangleVisibleMask;
+
+bool IsTriangleInsideAnyCullVolume(float3 Position0, float3 Position1, float3 Position2)
+{
+	for (uint VolumeIndex = 0; VolumeIndex < NumCullVolumes; VolumeIndex++)
+	{
+		uint NumPlanes = CullVolumePlaneOffsets[VolumeIndex * 2 + 0];
+		uint StartPlaneIndex = CullVolumePlaneOffsets[VolumeIndex * 2 + 1];
+
+		bool bInsideAllPlanes = true;
+
+		for (uint PlaneIndex = 0; PlaneIndex < NumPlanes; PlaneIndex++)
+		{
+			float4 PlaneData = CullVolumePlaneData[StartPlaneIndex + PlaneIndex];
+			float PlaneDot0 = dot(PlaneData.xyz, Position0) - PlaneData.w;
+			float PlaneDot1 = dot(PlaneData.xyz, Position1) - PlaneData.w;
+			float PlaneDot2 = dot(PlaneData.xyz, Position2) - PlaneData.w;
+
+			bInsideAllPlanes = bInsideAllPlanes && PlaneDot0 < 0.0f && PlaneDot1 < 0.0f && PlaneDot2 < 0.0f;
+		}
+
+		if (bInsideAllPlanes)
+		{
+			// Note: assumes convex volumes, all triangle vertices being inside the volume means the whole triangle is inside
+			return true;
+		}
+	}
+
+	return false;
+}
+
+[numthreads(THREADGROUP_TOTALSIZE, 1, 1)]
+void PreCullTrianglesCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint TriangleIndex = DispatchThreadId.x;
+
+	if (TriangleIndex < NumTriangles)
+	{
+		uint GlobalTriangleIndex = TriangleIndex + StartIndex / 3;
+		float3 Position0 = float3(LoadVertexAttribute(GlobalTriangleIndex, 0, 0), LoadVertexAttribute(GlobalTriangleIndex, 0, 1), LoadVertexAttribute(GlobalTriangleIndex, 0, 2));
+		float3 Position1 = float3(LoadVertexAttribute(GlobalTriangleIndex, 1, 0), LoadVertexAttribute(GlobalTriangleIndex, 1, 1), LoadVertexAttribute(GlobalTriangleIndex, 1, 2));
+		float3 Position2 = float3(LoadVertexAttribute(GlobalTriangleIndex, 2, 0), LoadVertexAttribute(GlobalTriangleIndex, 2, 1), LoadVertexAttribute(GlobalTriangleIndex, 2, 2));
+
+		bool bTriangleIsVisible = false;
+
+		float3 TriangleNormal = cross(Position2 - Position0, Position1 - Position0);
+		float TriangleArea = .5f * length(TriangleNormal);
+		uint NumSamplesOneDim = 10;
+		float SampleArea = TriangleArea / (NumSamplesOneDim * NumSamplesOneDim);
+		float SampleRadius = .5f * sqrt(2 * SampleArea);
+
+		//float3 InterpolatedPosition = (Position0 + Position1 + Position2) / 3.0f;
+		//float SampleRadius = length(InterpolatedPosition - Position0);
+
+		if (SampleRadius < PreCullMaxDistance)
+		{
+			uint NumCulledObjects = GetCulledNumObjects();
+
+			for (uint SampleIndex = 0; SampleIndex < NumSamplesOneDim && !bTriangleIsVisible; SampleIndex++)
+			{
+				for (uint SampleIndex2 = 0; SampleIndex2 < NumSamplesOneDim && !bTriangleIsVisible; SampleIndex2++)
+				{
+					float U = sqrt(SampleIndex / (float)NumSamplesOneDim);
+					float V = U * SampleIndex2 / (float)NumSamplesOneDim;
+					U = 1 - U;
+					float W = 1 - U - V;
+
+					float3 InterpolatedPosition = Position0 * U + Position1 * V + Position2 * W;
+
+					float MinDistanceToSurface = PreCullMaxDistance;
+
+					LOOP
+					for (uint ObjectIndex = 0; ObjectIndex < NumCulledObjects; ObjectIndex++)
+					{
+						float4 SphereCenterAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
+
+						float3 LocalPositionExtent = LoadObjectLocalPositionExtent(ObjectIndex);
+						float4x4 WorldToVolume = LoadObjectWorldToVolume(ObjectIndex);
+						bool bGeneratedAsTwoSided;
+						float4 UVScaleAndVolumeScale = LoadObjectUVScale(ObjectIndex, bGeneratedAsTwoSided);
+						float3 WorldTexelSize = DistanceFieldAtlasTexelSize / UVScaleAndVolumeScale.xyz * UVScaleAndVolumeScale.w;
+						float MaxWorldTexelSize = .5f * max(WorldTexelSize.x, max(WorldTexelSize.y, WorldTexelSize.z));
+/*
+						float3 VolumeShadingPosition = mul(float4(InterpolatedPosition, 1), WorldToVolume).xyz;
+						float BoxDistance = ComputeDistanceFromBoxToPoint(-LocalPositionExtent, LocalPositionExtent, VolumeShadingPosition) * UVScaleAndVolumeScale.w;
+
+						BRANCH
+						if (BoxDistance > 0)
+						{
+							bTriangleIsVisible = true;
+						}*/
+
+						{
+							float3 UVAdd = LoadObjectUVAdd(ObjectIndex);
+							float3 VolumeSamplePosition = mul(float4(InterpolatedPosition, 1), WorldToVolume).xyz;
+							float3 ClampedSamplePosition = clamp(VolumeSamplePosition, -LocalPositionExtent, LocalPositionExtent);
+							float DistanceToClamped = length(VolumeSamplePosition - ClampedSamplePosition);
+
+							float3 StepVolumeUV = DistanceFieldVolumePositionToUV(ClampedSamplePosition, UVScaleAndVolumeScale.xyz, UVAdd);
+							float DistanceToOccluder = (Texture3DSampleLevel(DistanceFieldTexture, DistanceFieldSampler, StepVolumeUV, 0).x + DistanceToClamped) * UVScaleAndVolumeScale.w;
+
+							MinDistanceToSurface = min(MinDistanceToSurface, DistanceToOccluder + MaxWorldTexelSize);
+						}
+					}
+
+					if (MinDistanceToSurface > -SampleRadius)
+					{
+						bTriangleIsVisible = true;
+					}
+				}
+			}
+		}
+		else
+		{
+			bTriangleIsVisible = true;
+		}
+		
+		bool bInsideCullVolume = IsTriangleInsideAnyCullVolume(Position0, Position1, Position2);
+
+		RWTriangleVisibleMask[GlobalTriangleIndex] = bTriangleIsVisible && !bInsideCullVolume ? 1 : 0;
+	}
+}

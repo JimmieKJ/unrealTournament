@@ -196,10 +196,10 @@ public:
 	bool AddManifestDependency( const FString& InManifestFile );
 
 	// Return the first entry in the dependencies that matches the passed in namespace and context.
-	TSharedPtr< FManifestEntry > FindDependencyEntrybyContext(  const FString& Namespace, const FContext& Context, FString& OutFileName );
+	TSharedPtr< FManifestEntry > FindDependencyEntryByContext(  const FString& Namespace, const FContext& Context, FString& OutFileName );
 
 	// Return the first entry in the dependencies that matches the passed in namespace and source.
-	TSharedPtr< FManifestEntry > FindDependencyEntrybySource( const FString& Namespace, const FLocItem& Source, FString& OutFileName );
+	TSharedPtr< FManifestEntry > FindDependencyEntryBySource( const FString& Namespace, const FLocItem& Source, FString& OutFileName );
 
 	// Returns the number of manifest dependencies
 	int32 NumDependencies() { return ManifestDependencies.Num(); }

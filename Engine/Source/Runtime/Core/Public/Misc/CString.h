@@ -194,6 +194,15 @@ struct TCString
 	static const CharType* Spc( int32 NumSpaces );
 
 	/**
+	 * Returns a static string that is filled with a variable number of tabs
+	 *
+	 * @param NumTabs Number of tabs to put into the string, max of 255
+	 * 
+	 * @return The string of NumTabs tabs.
+	 */
+	static const CharType* Tab( int32 NumTabs );
+
+	/**
 	 * Find string in string, case insensitive, requires non-alphanumeric lead-in.
 	 */
 	static const CharType* Strfind( const CharType* Str, const CharType* Find );
@@ -319,7 +328,7 @@ struct TCString
 
 typedef TCString<TCHAR>    FCString;
 typedef TCString<ANSICHAR> FCStringAnsi;
-typedef TCString<WIDECHAR>  FCStringWide;
+typedef TCString<WIDECHAR> FCStringWide;
 
 /*-----------------------------------------------------------------------------
 	generic TCString implementations
@@ -328,61 +337,28 @@ typedef TCString<WIDECHAR>  FCStringWide;
 template <typename CharType>
 struct TCStringSpcHelper
 {
-	friend struct TCString<CharType>;
-	friend struct TForceInitAtBoot<TCStringSpcHelper<CharType>>;
-
-private:
 	/** Number of characters to be stored in string. */
 	static const int32 MAX_SPACES = 255;
 
-	/** String storage. */
-	CharType StaticString[ MAX_SPACES + 1 ];
+	/** Number of tabs to be stored in string. */
+	static const int32 MAX_TABS = 255;
 
-	/** Constructor, fills the string storage with spaces. */
-	TCStringSpcHelper()
-	{
-		CharType SpcChar = LITERAL(CharType, ' ');
-
-		for( int32 Cx = 0; Cx < MAX_SPACES; ++Cx )
-		{
-			StaticString[Cx] = SpcChar;
-		}
-		StaticString[MAX_SPACES] = 0;
-	}
-	
-	/**
-	 * @param NumSpaces - Number of characters to put into the string, max of 255
-	 *
-	 * @return The string filled with spaces
-	 */
-	const CharType* Spc( int32 NumSpaces ) const
-	{
-		check( NumSpaces >= 0 );
-		check( NumSpaces <= MAX_SPACES );
-
-		const uint32 SpcPos = MAX_SPACES - NumSpaces;
-		return &StaticString[SpcPos];
-	}
-
-	/** Gets TCStringSpcHelper singleton instance. */
-	static TCStringSpcHelper& Get()
-	{
-		static TCStringSpcHelper StringHelper;
-		return StringHelper;
-	}
+	static CORE_API const CharType SpcArray[MAX_SPACES + 1];
+	static CORE_API const CharType TabArray[MAX_TABS + 1];
 };
 
-/**
- * Returns a static string that is filled with a variable number of spaces
- *
- * @param NumSpaces Number of spaces to put into the string, max of 255
- * 
- * @return The string of NumSpaces spaces.
- */
 template <typename T>
 const typename TCString<T>::CharType* TCString<T>::Spc( int32 NumSpaces )
 {
-	return TCStringSpcHelper<T>::Get().Spc( NumSpaces );
+	check(NumSpaces >= 0 && NumSpaces <= TCStringSpcHelper<T>::MAX_SPACES);
+	return TCStringSpcHelper<T>::SpcArray + TCStringSpcHelper<T>::MAX_SPACES - NumSpaces;
+}
+
+template <typename T>
+const typename TCString<T>::CharType* TCString<T>::Tab( int32 NumTabs )
+{
+	check(NumTabs >= 0 && NumTabs <= TCStringSpcHelper<T>::MAX_TABS);
+	return TCStringSpcHelper<T>::TabArray + TCStringSpcHelper<T>::MAX_TABS - NumTabs;
 }
 
 //

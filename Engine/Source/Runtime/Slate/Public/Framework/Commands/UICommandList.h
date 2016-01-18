@@ -16,8 +16,9 @@ public:
 	 *
 	 * @param InUICommandInfo	The command info to map
 	 * @param ExecuteAction		The delegate to call when the command should be executed
+	 * @param RepeatMode		Can this action can be repeated if the chord used to call it is held down?
 	 */
-	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction );
+	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, EUIActionRepeatMode RepeatMode = EUIActionRepeatMode::RepeatDisabled );
 
 	/**
 	 * Maps a command info to a series of delegates that are executed by a multibox or mouse/keyboard input
@@ -25,8 +26,9 @@ public:
 	 * @param InUICommandInfo	The command info to map
 	 * @param ExecuteAction		The delegate to call when the command should be executed
 	 * @param CanExecuteAction	The delegate to call to see if the command can be executed
+	 * @param RepeatMode		Can this action can be repeated if the chord used to call it is held down?
 	 */
-	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction );
+	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, EUIActionRepeatMode RepeatMode = EUIActionRepeatMode::RepeatDisabled );
 
 	/**
 	 * Maps a command info to a series of delegates that are executed by a multibox or mouse/keyboard input
@@ -35,8 +37,20 @@ public:
 	 * @param ExecuteAction		The delegate to call when the command should be executed
 	 * @param CanExecuteAction	The delegate to call to see if the command can be executed
 	 * @param IsCheckedDelegate	The delegate to call to see if the command should appear checked when visualized in a multibox
+	 * @param RepeatMode		Can this action can be repeated if the chord used to call it is held down?
 	 */
-	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FIsActionChecked IsCheckedDelegate );
+	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FIsActionChecked IsCheckedDelegate, EUIActionRepeatMode RepeatMode = EUIActionRepeatMode::RepeatDisabled );
+
+	/**
+	 * Maps a command info to a series of delegates that are executed by a multibox or mouse/keyboard input
+	 *
+	 * @param InUICommandInfo		The command info to map
+	 * @param ExecuteAction			The delegate to call when the command should be executed
+	 * @param CanExecuteAction		The delegate to call to see if the command can be executed
+	 * @param GetActionCheckState	The delegate to call to see what the check state of the action should be when visualized in a multibox
+	 * @param RepeatMode			Can this action can be repeated if the chord used to call it is held down?
+	 */
+	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FGetActionCheckState GetActionCheckState, EUIActionRepeatMode RepeatMode = EUIActionRepeatMode::RepeatDisabled );
 
 	/**
 	 * Maps a command info to a series of delegates that are executed by a multibox or mouse/keyboard input
@@ -46,8 +60,21 @@ public:
 	 * @param CanExecuteAction	The delegate to call to see if the command can be executed
 	 * @param IsCheckedDelegate	The delegate to call to see if the command should appear checked when visualized in a multibox
 	 * @param IsVisibleDelegate	The delegate to call to see if the command should appear or be hidden when visualized in a multibox
+	 * @param RepeatMode		Can this action can be repeated if the chord used to call it is held down?
 	 */
-	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FIsActionChecked IsCheckedDelegate, FIsActionButtonVisible IsVisibleDelegate );
+	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FIsActionChecked IsCheckedDelegate, FIsActionButtonVisible IsVisibleDelegate, EUIActionRepeatMode RepeatMode = EUIActionRepeatMode::RepeatDisabled );
+
+	/**
+	 * Maps a command info to a series of delegates that are executed by a multibox or mouse/keyboard input
+	 *
+	 * @param InUICommandInfo		The command info to map
+	 * @param ExecuteAction			The delegate to call when the command should be executed
+	 * @param CanExecuteAction		The delegate to call to see if the command can be executed
+	 * @param GetActionCheckState	The delegate to call to see what the check state of the action should be when visualized in a multibox
+	 * @param IsVisibleDelegate		The delegate to call to see if the command should appear or be hidden when visualized in a multibox
+	 * @param RepeatMode			Can this action can be repeated if the chord used to call it is held down?
+	 */
+	void MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FGetActionCheckState GetActionCheckState, FIsActionButtonVisible IsVisibleDelegate, EUIActionRepeatMode RepeatMode = EUIActionRepeatMode::RepeatDisabled );
 
 	/**
 	 * Maps a command info to a series of delegates that are executed by a multibox or mouse/keyboard input
@@ -93,11 +120,11 @@ public:
 	EVisibility GetVisibility( const TSharedRef< const FUICommandInfo > InUICommandInfo ) const;
 
 	/**
-	 * Calls the IsChecked delegate to see if the visualization of this command in a multibox should appear checked
+	 * Calls the GetCheckState delegate to see if the visualization of this command in a multibox should appear checked
 	 *
 	 * @param InUICommandInfo	The command info execute
 	 */
-	bool IsChecked( const TSharedRef< const FUICommandInfo > InUICommandInfo ) const;
+	ECheckBoxState GetCheckState( const TSharedRef< const FUICommandInfo > InUICommandInfo ) const;
 
 	/**
 	 * Processes any UI commands which are activated by the specified key event

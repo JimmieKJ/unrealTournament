@@ -35,7 +35,7 @@ void UAbilityTask_WaitCancel::OnLocalCancelCallback()
 
 UAbilityTask_WaitCancel* UAbilityTask_WaitCancel::WaitCancel(UObject* WorldContextObject)
 {
-	return NewTask<UAbilityTask_WaitCancel>(WorldContextObject);
+	return NewAbilityTask<UAbilityTask_WaitCancel>(WorldContextObject);
 }
 
 void UAbilityTask_WaitCancel::Activate()

@@ -12,7 +12,7 @@ UAbilityTask_WaitDelay::UAbilityTask_WaitDelay(const FObjectInitializer& ObjectI
 
 UAbilityTask_WaitDelay* UAbilityTask_WaitDelay::WaitDelay(UObject* WorldContextObject, float Time)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitDelay>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitDelay>(WorldContextObject);
 	MyObj->Time = Time;
 	return MyObj;
 }

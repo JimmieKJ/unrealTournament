@@ -313,6 +313,8 @@ void UK2Node_MakeArray::PostReconstructNode()
 			break;
 		}
 	}
+
+	Super::PostReconstructNode();
 }
 
 FText UK2Node_MakeArray::GetTooltipText() const
@@ -327,8 +329,9 @@ void UK2Node_MakeArray::AddInputPin()
 
 	++NumInputs;
 	FEdGraphPinType OutputPinType = GetOutputPin()->PinType;
-	CreatePin(EGPD_Input, OutputPinType.PinCategory, OutputPinType.PinSubCategory, OutputPinType.PinSubCategoryObject.Get(), false, false, *FString::Printf(TEXT("[%d]"), (NumInputs-1)));
-	
+	UEdGraphPin* Pin = CreatePin(EGPD_Input, OutputPinType.PinCategory, OutputPinType.PinSubCategory, OutputPinType.PinSubCategoryObject.Get(), false, false, *FString::Printf(TEXT("[%d]"), (NumInputs-1)));
+	GetDefault<UEdGraphSchema_K2>()->SetPinDefaultValueBasedOnType(Pin);
+
 	const bool bIsCompiling = GetBlueprint()->bBeingCompiled;
 	if( !bIsCompiling )
 	{

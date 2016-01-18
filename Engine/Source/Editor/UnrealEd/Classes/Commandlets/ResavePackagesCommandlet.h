@@ -64,6 +64,9 @@ class UNREALED_API UResavePackagesCommandlet : public UCommandlet
 	/** if we should auto checkin packages that were checked out**/
 	bool bAutoCheckIn;
 
+	/** Should we build lighting for the packages we are saving? **/
+	bool bShouldBuildLighting;
+
 	// Running count of packages that got modified and will need to be resaved
 	int32 PackagesRequiringResave;
 
@@ -72,18 +75,20 @@ class UNREALED_API UResavePackagesCommandlet : public UCommandlet
 
 	// List of files to submit
 	TArray<FString> FilesToSubmit;
+
+	// The list of switches that were passed on the commandline
+	TArray<FString> Switches;
 protected:
 	/**
 	 * Evaluates the command-line to determine which maps to check.  By default all maps are checked
 	 * Provides child classes with a chance to initialize any variables, parse the command line, etc.
 	 *
 	 * @param	Tokens			the list of tokens that were passed to the commandlet
-	 * @param	Switches		the list of switches that were passed on the commandline
 	 * @param	MapPathNames	receives the list of path names for the maps that will be checked.
 	 *
 	 * @return	0 to indicate that the commandlet should continue; otherwise, the error code that should be returned by Main()
 	 */
-	virtual int32 InitializeResaveParameters( const TArray<FString>& Tokens, const TArray<FString>& Switches, TArray<FString>& MapPathNames );
+	virtual int32 InitializeResaveParameters( const TArray<FString>& Tokens, TArray<FString>& MapPathNames );
 
 	// Loads and saves a single package
 	virtual void LoadAndSaveOnePackage(const FString& Filename);
@@ -119,6 +124,15 @@ protected:
 	virtual void PerformAdditionalOperations( class UPackage* Package, bool& bSavePackage );
 
 	/**
+	* Allows the commandlet to perform any additional operations on the world before it is resaved.
+	*
+	* @param	World			the world that is currently being processed
+	* @param	bSavePackage	[in]	indicates whether the package is currently going to be saved
+	*							[out]	set to true to resave the package
+	*/
+	virtual void PerformAdditionalOperations(class UWorld* World, bool& bSavePackage);
+
+	/**
 	 * Removes any UClass exports from packages which aren't script packages.
 	 *
 	 * @param	Package			the package that is currently being processed
@@ -133,7 +147,7 @@ protected:
 	// Print out a message only if running in very verbose mode
 	void VerboseMessage(const FString& Message);
 public:		
-	// Begin UCommandlet Interface
+	//~ Begin UCommandlet Interface
 	virtual int32 Main(const FString& Params) override;
-	// End UCommandlet Interface
+	//~ End UCommandlet Interface
 };

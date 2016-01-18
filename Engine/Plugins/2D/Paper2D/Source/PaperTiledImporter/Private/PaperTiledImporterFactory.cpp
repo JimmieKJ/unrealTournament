@@ -271,8 +271,7 @@ UObject* UPaperTiledImporterFactory::FactoryCreateText(UClass* InClass, UObject*
 	{
 		// Store the current file path and timestamp for re-import purposes
 		UTileMapAssetImportData* ImportData = UTileMapAssetImportData::GetImportDataForTileMap(Result);
-		ImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(CurrentFilename, Result);
-		ImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*CurrentFilename).ToString();
+		ImportData->Update(CurrentFilename);
 
 		//GlobalInfo.TileSets
 	}
@@ -321,7 +320,7 @@ bool UPaperTiledImporterFactory::CanReimport(UObject* Obj, TArray<FString>& OutF
 	{
 		if (TileMap->AssetImportData != nullptr)
 		{
-			OutFilenames.Add(FReimportManager::ResolveImportFilename(TileMap->AssetImportData->SourceFilePath, TileMap));
+			TileMap->AssetImportData->ExtractFilenames(OutFilenames);
 		}
 		else
 		{
@@ -339,8 +338,7 @@ void UPaperTiledImporterFactory::SetReimportPaths(UObject* Obj, const TArray<FSt
 		if (ensure(NewReimportPaths.Num() == 1))
 		{
 			UTileMapAssetImportData* ImportData = UTileMapAssetImportData::GetImportDataForTileMap(TileMap);
-
-			ImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(NewReimportPaths[0], TileMap);
+			ImportData->UpdateFilenameOnly(NewReimportPaths[0]);
 		}
 	}
 }
@@ -350,7 +348,7 @@ EReimportResult::Type UPaperTiledImporterFactory::Reimport(UObject* Obj)
 	if (UPaperTileMap* TileMap = Cast<UPaperTileMap>(Obj))
 	{
 		//@TODO: Not implemented yet
-		ensureMsg(false, TEXT("Tile map reimport is not implemented yet"));
+		ensureMsgf(false, TEXT("Tile map reimport is not implemented yet"));
 	}
 	return EReimportResult::Failed;
 }
@@ -1132,7 +1130,7 @@ void FTiledObject::AddToSpriteGeometryCollection(const FVector2D& Offset, const 
 			UE_LOG(LogPaperTiledImporter, Warning, TEXT("Ignoring Tiled Object of type Polyline"));
 			break;
 		default:
-			ensureMsg(false, TEXT("Unknown enumerant in ETiledObjectType"));
+			ensureMsgf(false, TEXT("Unknown enumerant in ETiledObjectType"));
 			break;
 		}
 

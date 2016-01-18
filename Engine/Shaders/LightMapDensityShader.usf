@@ -153,13 +153,13 @@ SamplerState	GridNormalTextureSampler;
 void MainPixelShader(
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants,
 	float4 WorldPosition	: TEXCOORD6,
-	in float4 SvPosition	: SV_Position,
+	in float4 SvPosition	: SV_Position
 	OPTIONAL_IsFrontFace,
 	out float4 OutColor		: SV_Target0
 	)
 {
-	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters( FactoryInterpolants, WorldPosition );
-	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, float4(0,0,.00001f,1));
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(FactoryInterpolants, SvPosition);
+	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace);
 	GetMaterialCoverageAndClipping(MaterialParameters);
 
 	float2 LightMapUV,LightMapUV1;

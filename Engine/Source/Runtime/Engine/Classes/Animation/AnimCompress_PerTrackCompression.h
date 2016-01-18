@@ -131,11 +131,11 @@ public:
 	struct FPerTrackCachedInfo* PerReductionCachedData;
 
 protected:
-	// Begin UAnimCompress Interface
+	//~ Begin UAnimCompress Interface
 	virtual void DoReduction(class UAnimSequence* AnimSeq, const TArray<class FBoneData>& BoneData) override;
-	// Begin UAnimCompress Interface
+	//~ Begin UAnimCompress Interface
 
-	// Begin UAnimCompress_RemoveLinearKeys Interface
+	//~ Begin UAnimCompress_RemoveLinearKeys Interface
 	virtual void CompressUsingUnderlyingCompressor(
 		UAnimSequence* AnimSeq,
 		const TArray<FBoneData>& BoneData, 
@@ -149,7 +149,7 @@ protected:
 		TArray<FTranslationTrack>& TranslationData,
 		TArray<FRotationTrack>& RotationData,
 		TArray<FScaleTrack>& ScaleData) override;
-	// End UAnimCompress_RemoveLinearKeys Interface
+	//~ End UAnimCompress_RemoveLinearKeys Interface
 };
 
 

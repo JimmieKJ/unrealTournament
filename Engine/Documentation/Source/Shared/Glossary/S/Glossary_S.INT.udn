@@ -1,7 +1,7 @@
 Title:S
 Crumbs:Shared/Glossary
 Description:
-Availability:Public
+Availability:NoPublish
 
 [EXCERPT:Glossary_S]
 
@@ -54,7 +54,7 @@ Skeletal Mesh Actor
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Skeletal_Mesh_Actor]
-A **Skeletal Mesh Actor** is an asset that was created as an animatable 3D model in an external 3D modeling program and then imported into the Unreal Editor. A Skeletal Mesh Actor consists of two parts: the mesh itself and a hierarchical skeleton whose bones can be used to create animation by deforming the mesh according to rules defined in the 3D modeling program. You can import Skeletal Mesh Actors as assets in the **Content Browser**.
+A **Skeletal Mesh Actor** is a 3D model asset that can be animated in an external 3D modeling program and then imported into the Unreal Editor. A Skeletal Mesh Actor consists of two parts: the mesh itself and a hierarchical skeleton whose bones can be used to create animation by deforming the mesh according to rules defined in the 3D modeling program. You can import Skeletal Mesh Actors as assets in the **Content Browser**.
 [/EXCERPT:Glossary_Skeletal_Mesh_Actor]
 
 	[/PARAM]
@@ -67,7 +67,7 @@ socket
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_socket]
-Commonly in games, you will want to attach an object to the bone of a character. This might be a weapon attached to a hand, or a hat attached to the head. For this purpose, Unreal Engine allows you to create **sockets** in its animation toolset - [Persona](Engine/Animation/Persona) - which are offset from a bone within the Skeletal Mesh. Sockets can then be translated, rotated, and scaled relative to the bone. Static Meshes and/or Skeletal Meshes can also be previewed attached to sockets. This allows content creators to easily set up sockets for a Skeletal Mesh, and then tell the programmer the names of the sockets to attach objects to.
+Commonly in games, you will want to attach an object to the bone of a character. This might be a weapon attached to a hand, or a hat attached to the head. For this purpose, Unreal Engine allows you to create **Sockets** in its animation toolset - [Persona](Engine/Animation/Persona) - which are offset from a bone within the Skeletal Mesh. Sockets can then be translated, rotated, and scaled relative to the bone. Static Meshes and/or Skeletal Meshes can also be previewed attached to sockets. This allows content creators to easily set up sockets for a Skeletal Mesh, and then tell the programmer the names of the sockets to attach objects to.
 [/EXCERPT:Glossary_socket]
 
 	[/PARAM]

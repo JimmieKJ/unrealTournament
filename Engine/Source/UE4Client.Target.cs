@@ -38,6 +38,54 @@ public class UE4ClientTarget : TargetRules
 		return true;
 	}
 
+	public override void GetModulesToPrecompile(TargetInfo Target, List<string> ModuleNames)
+	{
+		// Add all the precompiled modules for this target
+		ModuleNames.Add("Launch");
+		ModuleNames.Add("InputDevice");
+		ModuleNames.Add("GameMenuBuilder");
+		ModuleNames.Add("GameplayAbilities");
+		ModuleNames.Add("XmlParser");
+		ModuleNames.Add("UE4Game");
+		ModuleNames.Add("AITestSuite");
+		ModuleNames.Add("RuntimeAssetCache");
+		ModuleNames.Add("UnrealCodeAnalyzerTests");
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			ModuleNames.Add("OnlineSubsystemNull");
+			ModuleNames.Add("OnlineSubsystemAmazon");
+			if (UEBuildConfiguration.bCompileSteamOSS == true)
+			{
+				ModuleNames.Add("OnlineSubsystemSteam");
+			}
+			ModuleNames.Add("OnlineSubsystemFacebook");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			ModuleNames.Add("OnlineSubsystemNull");
+			if (UEBuildConfiguration.bCompileSteamOSS == true)
+			{
+				ModuleNames.Add("OnlineSubsystemSteam");
+			}
+		}
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
+		{
+			ModuleNames.Add("OnlineSubsystemFacebook");
+			ModuleNames.Add("OnlineSubsystemIOS");
+			ModuleNames.Add("IOSAdvertising");
+			ModuleNames.Add("MetalRHI");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Android)
+		{
+			// @todo android: Add Android online subsystem
+			ModuleNames.Add("AndroidAdvertising");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.HTML5)
+		{
+			ModuleNames.Add("OnlineSubsystemNull");
+		}
+	}
+
     public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
     {
 		List<UnrealTargetPlatform> Platforms = null;

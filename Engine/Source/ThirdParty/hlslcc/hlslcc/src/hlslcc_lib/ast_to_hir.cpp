@@ -555,8 +555,16 @@ bool apply_type_conversion(
 	{
 		if (is_explicit == false)
 		{
-			_mesa_glsl_warning(loc, state, "implicit truncation from '%s' to '%s'",
-				from->type->name, to->name);
+			if (from->type->base_type == GLSL_TYPE_HALF && to->base_type == GLSL_TYPE_FLOAT)
+			{
+				// Don't warn going from half to float
+			}
+			else
+			{
+				_mesa_glsl_warning(loc, state, "implicit truncation from '%s' to '%s'",
+					(from->type->HlslName ? from->type->HlslName : from->type->name),
+					to->HlslName ? to->HlslName : to->name);
+			}
 		}
 
 		ir_variable* var = new(state)ir_variable(to, NULL, ir_var_temporary);

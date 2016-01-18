@@ -25,14 +25,18 @@ struct FSubmeshInfo
 	uint32 TriangleCount;
 	uint32 SimulVertexCount;
 	uint32 FixedVertexCount;
-
+	uint32 NumUsedBones;
+	int32  NumBoneSpheres;
 	bool operator==(const FSubmeshInfo& Other) const
 	{
 		return (SubmeshIndex		== Other.SubmeshIndex
 				&& VertexCount		== Other.VertexCount
 				&& TriangleCount	== Other.TriangleCount
 				&& SimulVertexCount == Other.SimulVertexCount
-				&& FixedVertexCount == Other.FixedVertexCount);
+				&& FixedVertexCount == Other.FixedVertexCount
+				&& NumUsedBones     == Other.NumUsedBones
+				&& NumBoneSpheres   == Other.NumBoneSpheres
+				);
 	}
 };
 
@@ -67,7 +71,7 @@ namespace ApexClothingUtils
 	// Function to restore all clothing section to original mesh section related to specified asset index
 	UNREALED_API void RemoveAssetFromSkeletalMesh(USkeletalMesh* SkelMesh, uint32 AssetIndex, bool bRecreateSkelMeshComponent = false);
 	// Function to restore clothing section to original mesh section
-	UNREALED_API void RestoreOriginalClothingSection(USkeletalMesh* SkelMesh, uint32 LODIndex, uint32 SectionIndex);
+	UNREALED_API void RestoreOriginalClothingSection(USkeletalMesh* SkelMesh, uint32 LODIndex, uint32 SectionIndex, bool bReregisterSkelMeshComponent = true);
 	UNREALED_API void RestoreOriginalClothingSectionAllLODs(USkeletalMesh* SkelMesh, uint32 LOD0_SectionIndex);
 
 	// using global variable for backing up clothing data

@@ -29,7 +29,7 @@ FArchive& operator<<( FArchive& Ar, FUniqueNetIdRepl& UniqueNetId)
 			IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface();
 			if (IdentityInt.IsValid())
 			{
-				TSharedPtr<FUniqueNetId> UniqueNetIdPtr = IdentityInt->CreateUniquePlayerId(Contents);
+				TSharedPtr<const FUniqueNetId> UniqueNetIdPtr = IdentityInt->CreateUniquePlayerId(Contents);
 				UniqueNetId.SetUniqueNetId(UniqueNetIdPtr);
 			}
 		}
@@ -53,13 +53,13 @@ bool FUniqueNetIdRepl::Serialize(FArchive& Ar)
 
 bool FUniqueNetIdRepl::ExportTextItem(FString& ValueStr, FUniqueNetIdRepl const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const
 {
+	if (0 != (PortFlags & EPropertyPortFlags::PPF_ExportCpp))
+	{
+		return false;
+	}
+
 	ValueStr += UniqueNetId.IsValid() ? UniqueNetId->ToString() : TEXT("INVALID");
 	return true;
-}
-
-FString FUniqueNetIdRepl::ToString() const
-{
-	return IsValid() ? UniqueNetId->ToString() : TEXT("INVALID");
 }
 
 void TestUniqueIdRepl(UWorld* InWorld)
@@ -69,7 +69,7 @@ void TestUniqueIdRepl(UWorld* InWorld)
 	IOnlineIdentityPtr IdentityPtr = Online::GetIdentityInterface(InWorld);
 	if (IdentityPtr.IsValid())
 	{
-		TSharedPtr<FUniqueNetId> UserId = IdentityPtr->GetUniquePlayerId(0);
+		TSharedPtr<const FUniqueNetId> UserId = IdentityPtr->GetUniquePlayerId(0);
 
 		FUniqueNetIdRepl EmptyIdIn;
 		if (EmptyIdIn.IsValid())

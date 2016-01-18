@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,10 +14,7 @@ class UNREALTOURNAMENT_API UUTHUDWidgetMessage_KillIconMessages : public UUTHUDW
 	GENERATED_UCLASS_BODY()
 	
 public:
-	virtual bool ShouldDraw_Implementation(bool bShowScores) override
-	{
-		return true;
-	}
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
 	/**Background for kills that dont involve the local player*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
@@ -42,6 +39,8 @@ public:
 	/**The padding between the player names and the icon*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float ColumnPadding;
+
+	virtual void AgeMessages_Implementation(float DeltaTime) override; 
 
 protected:
 	virtual void DrawMessages(float DeltaTime);

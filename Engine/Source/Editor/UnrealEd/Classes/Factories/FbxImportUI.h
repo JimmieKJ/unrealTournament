@@ -59,7 +59,7 @@ class UFbxImportUI : public UObject
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=Mesh, meta=(ToolTip="If enabled, combines all meshes into a single mesh", ImportType="StaticMesh"))
 	uint32 bCombineMeshes:1;
 
-	/** Skeleton to use for imported asset. When importing a mesh, leaving this as "None" will create a new skeleton. When importing and animation this MUST be specified to import the asset. */
+	/** Skeleton to use for imported asset. When importing a mesh, leaving this as "None" will create a new skeleton. When importing an animation this MUST be specified to import the asset. */
 	UPROPERTY(EditAnywhere, Category=Mesh, meta=(ImportType="SkeletalMesh|Animation"))
 	class USkeleton* Skeleton;
 
@@ -82,10 +82,6 @@ class UFbxImportUI : public UObject
 	/** Enables importing of 'rigid skeletalmesh' (unskinned, hierarchy-based animation) from this FBX file, no longer shown, used behind the scenes */
 	UPROPERTY()
 	uint32 bImportRigidMesh:1;
-
-	/** Enable this option to use default sample rate for the imported animation at 30 frames per second */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=Animation, meta=(editcondition = "bImportAnimations", ToolTip="If enabled, samples all animation curves to 30 FPS", ImportType="SkeletalMesh|Animation"))
-	uint32 bUseDefaultSampleRate:1;
 
 	/** Whether to automatically create Unreal materials for materials found in the FBX scene */
 	UPROPERTY(EditAnywhere, config, Category = Material, meta = (OBJRestrict="true"))
@@ -111,9 +107,9 @@ class UFbxImportUI : public UObject
 	UPROPERTY(EditAnywhere, Instanced, Category=Material)
 	class UFbxTextureImportData* TextureImportData;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual bool CanEditChange( const UProperty* InProperty ) const override;
-	// End UObject Interface
+	//~ End UObject Interface
 };
 
 

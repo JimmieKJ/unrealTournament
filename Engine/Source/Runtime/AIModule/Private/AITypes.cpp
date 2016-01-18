@@ -9,11 +9,56 @@
 FAIResourceLock::FAIResourceLock()
 {
 	Locks = 0;
+	bUseResourceLockCount = false;
+}
+
+void FAIResourceLock::SetLock(EAIRequestPriority::Type LockPriority)
+{
+	if (bUseResourceLockCount)
+	{
+		const uint8 ResourceLockCountIndex = static_cast<uint8>(LockPriority);
+		ResourceLockCount[ResourceLockCountIndex] += 1;
+	}
+
+	Locks |= (1 << LockPriority);
+}
+
+void FAIResourceLock::ClearLock(EAIRequestPriority::Type LockPriority)
+{
+	if (bUseResourceLockCount)
+	{
+		const uint8 ResourceLockCountIndex = static_cast<uint8>(LockPriority);
+
+		ensure(ResourceLockCount[ResourceLockCountIndex] > 0);
+		ResourceLockCount[ResourceLockCountIndex] -= 1;
+
+		if (ResourceLockCount[ResourceLockCountIndex] == 0)
+		{
+			Locks &= ~(1 << LockPriority);
+		}
+	}
+	else
+	{
+		Locks &= ~(1 << LockPriority);
+	}
+}
+
+void FAIResourceLock::SetUseResourceLockCount(bool inUseResourceLockCount)
+{
+	bUseResourceLockCount = inUseResourceLockCount;
+	ForceClearAllLocks();
+
 }
 
 void FAIResourceLock::ForceClearAllLocks()
 {
 	FMemory::Memzero(Locks);
+
+	ResourceLockCount.Reset();
+	if (bUseResourceLockCount)
+	{
+		ResourceLockCount.AddZeroed(sizeof(FAIResourceLock::FLockFlags) * 8);
+	}
 }
 
 FString FAIResourceLock::GetLockPriorityName() const
@@ -111,7 +156,7 @@ const FAIRequestID FAIRequestID::CurrentRequest(FAIRequestID::AnyRequestID);
 
 FAIMoveRequest::FAIMoveRequest() : 
 	GoalActor(nullptr), GoalLocation(FAISystem::InvalidLocation), FilterClass(nullptr),
-	bInitialized(false), bHasGoalActor(false),
+	bInitialized(false), bMoveToActor(false),
 	bUsePathfinding(true), bAllowPartialPath(true), bProjectGoalOnNavigation(true),
 	bStopOnOverlap(true), bCanStrafe(false)
 {
@@ -119,8 +164,8 @@ FAIMoveRequest::FAIMoveRequest() :
 }
 
 FAIMoveRequest::FAIMoveRequest(const AActor* InGoalActor) :
-	GoalActor((AActor*)InGoalActor), GoalLocation(FAISystem::InvalidLocation), FilterClass(nullptr),
-	bInitialized(true), bHasGoalActor(true),
+	GoalActor(const_cast<AActor*>(InGoalActor)), GoalLocation(FAISystem::InvalidLocation), FilterClass(nullptr),
+	bInitialized(true), bMoveToActor(true),
 	bUsePathfinding(true), bAllowPartialPath(true), bProjectGoalOnNavigation(true),
 	bStopOnOverlap(true), bCanStrafe(false)
 {
@@ -129,7 +174,7 @@ FAIMoveRequest::FAIMoveRequest(const AActor* InGoalActor) :
 
 FAIMoveRequest::FAIMoveRequest(const FVector& InGoalLocation) :
 	GoalActor(nullptr), GoalLocation(InGoalLocation), FilterClass(nullptr),
-	bInitialized(true), bHasGoalActor(false),
+	bInitialized(true), bMoveToActor(false),
 	bUsePathfinding(true), bAllowPartialPath(true), bProjectGoalOnNavigation(true),
 	bStopOnOverlap(true), bCanStrafe(false)
 {
@@ -141,7 +186,7 @@ void FAIMoveRequest::SetGoalActor(const AActor* InGoalActor)
 	if (!bInitialized)
 	{
 		GoalActor = (AActor*)InGoalActor;
-		bHasGoalActor = true;
+		bMoveToActor = true;
 		bInitialized = true;
 	}
 }
@@ -157,7 +202,7 @@ void FAIMoveRequest::SetGoalLocation(const FVector& InGoalLocation)
 
 bool FAIMoveRequest::UpdateGoalLocation(const FVector& NewLocation) const
 {
-	if (!bHasGoalActor)
+	if (!bMoveToActor)
 	{
 		GoalLocation = NewLocation;
 		return true;
@@ -169,7 +214,7 @@ bool FAIMoveRequest::UpdateGoalLocation(const FVector& NewLocation) const
 FString FAIMoveRequest::ToString() const
 {
 	return FString::Printf(TEXT("%s(%s) Mode(%s) Filter(%s) AcceptanceRadius(%.1f%s)"),
-		bHasGoalActor ? TEXT("Actor") : TEXT("Location"), bHasGoalActor ? *GetNameSafe(GoalActor) : *GoalLocation.ToString(),
+		bMoveToActor ? TEXT("Actor") : TEXT("Location"), bMoveToActor ? *GetNameSafe(GoalActor) : *GoalLocation.ToString(),
 		bUsePathfinding ? (bAllowPartialPath ? TEXT("partial path") : TEXT("complete path")) : TEXT("direct"),
 		*GetNameSafe(FilterClass),
 		AcceptanceRadius, bStopOnOverlap ? TEXT(" + overlap") : TEXT("")

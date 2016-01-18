@@ -135,6 +135,7 @@ void UCameraShake::PlayShake(APlayerCameraManager* Camera, float Scale, ECameraA
 		}
 	}
 
+	PlaySpace = InPlaySpace;
 	if (InPlaySpace == ECameraAnimPlaySpace::UserDefined)
 	{
 		UserPlaySpaceMatrix = FRotationMatrix(UserPlaySpaceRot);
@@ -292,4 +293,8 @@ bool UCameraShake::ReceiveIsFinished_Implementation() const
 	return true;
 }
 
+bool UCameraShake::IsLooping() const
+{
+	return OscillationDuration < 0.0f;
+}
 

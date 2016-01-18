@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "OnlineBlueprintCallProxyBase.h"
 #include "Runtime/Online/OnlineSubsystem/Public/Interfaces/OnlineIdentityInterface.h"
 #include "ConnectionCallbackProxy.generated.h"
 
@@ -22,7 +23,7 @@ class UConnectionCallbackProxy : public UOnlineBlueprintCallProxyBase
 	FOnlineConnectionResult OnFailure;
 
 	// Connects to an online service such as Google Play
-	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext="WorldContextObject"), Category = "Online|Achievements")
+	UFUNCTION(BlueprintCallable, meta = (DeprecatedFunction, DeprecationMessage="Please use Show External Login UI instead", BlueprintInternalUseOnly = "true", WorldContext="WorldContextObject"), Category = "Online|Achievements")
 		static UConnectionCallbackProxy* ConnectToService(UObject* WorldContextObject, class APlayerController* PlayerController);
 
 	// UOnlineBlueprintCallProxyBase interface

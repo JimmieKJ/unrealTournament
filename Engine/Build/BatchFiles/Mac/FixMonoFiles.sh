@@ -16,8 +16,6 @@ try_symlink ../gac/Accessibility/4.0.0.0__b03f5f7f11d50a3a/Accessibility.dll lib
 try_symlink ../gac/Commons.Xml.Relaxng/4.0.0.0__0738eb9f132ed756/Commons.Xml.Relaxng.dll lib/mono/4.5/Commons.Xml.Relaxng.dll
 try_symlink ../gac/cscompmgd/0.0.0.0__b03f5f7f11d50a3a/cscompmgd.dll lib/mono/4.5/cscompmgd.dll
 try_symlink ../gac/CustomMarshalers/4.0.0.0__b03f5f7f11d50a3a/CustomMarshalers.dll lib/mono/4.5/CustomMarshalers.dll
-try_symlink ../gac/EntityFramework/6.0.0.0__b77a5c561934e089/EntityFramework.dll lib/mono/4.5/EntityFramework.dll
-try_symlink ../gac/EntityFramework.SqlServer/6.0.0.0__b77a5c561934e089/EntityFramework.SqlServer.dll lib/mono/4.5/EntityFramework.SqlServer.dll
 try_symlink ../gac/I18N.CJK/4.0.0.0__0738eb9f132ed756/I18N.CJK.dll lib/mono/4.5/I18N.CJK.dll
 try_symlink ../gac/I18N/4.0.0.0__0738eb9f132ed756/I18N.dll lib/mono/4.5/I18N.dll
 try_symlink ../gac/I18N.MidEast/4.0.0.0__0738eb9f132ed756/I18N.MidEast.dll lib/mono/4.5/I18N.MidEast.dll
@@ -52,20 +50,17 @@ try_symlink ../gac/Mono.Security/4.0.0.0__0738eb9f132ed756/Mono.Security.dll lib
 try_symlink ../gac/Mono.Security.Win32/4.0.0.0__0738eb9f132ed756/Mono.Security.Win32.dll lib/mono/4.5/Mono.Security.Win32.dll
 try_symlink ../gac/Mono.Simd/4.0.0.0__0738eb9f132ed756/Mono.Simd.dll lib/mono/4.5/Mono.Simd.dll
 try_symlink ../gac/Mono.Tasklets/4.0.0.0__0738eb9f132ed756/Mono.Tasklets.dll lib/mono/4.5/Mono.Tasklets.dll
-try_symlink ../gac/Mono.Web/4.0.0.0__0738eb9f132ed756/Mono.Web.dll lib/mono/4.5/Mono.Web.dll
 try_symlink ../gac/Mono.WebBrowser/4.0.0.0__0738eb9f132ed756/Mono.WebBrowser.dll lib/mono/4.5/Mono.WebBrowser.dll
 try_symlink ../gac/Mono.XBuild.Tasks/4.0.0.0__0738eb9f132ed756/Mono.XBuild.Tasks.dll lib/mono/4.5/Mono.XBuild.Tasks.dll
 try_symlink ../gac/Novell.Directory.Ldap/4.0.0.0__0738eb9f132ed756/Novell.Directory.Ldap.dll lib/mono/4.5/Novell.Directory.Ldap.dll
-try_symlink ../gac/Npgsql/4.0.0.0__5d8b90d52f46fda7/Npgsql.dll lib/mono/4.5/Npgsql.dll
-try_symlink ../2.0/nunit-console-runner.dll lib/mono/4.5/nunit-console-runner.dll
-try_symlink ../2.0/nunit.core.dll lib/mono/4.5/nunit.core.dll
-try_symlink ../2.0/nunit.core.extensions.dll lib/mono/4.5/nunit.core.extensions.dll
-try_symlink ../2.0/nunit.core.interfaces.dll lib/mono/4.5/nunit.core.interfaces.dll
-try_symlink ../2.0/nunit.framework.dll lib/mono/4.5/nunit.framework.dll
-try_symlink ../2.0/nunit.framework.extensions.dll lib/mono/4.5/nunit.framework.extensions.dll
-try_symlink ../2.0/nunit.mocks.dll lib/mono/4.5/nunit.mocks.dll
-try_symlink ../2.0/nunit.util.dll lib/mono/4.5/nunit.util.dll
-try_symlink ../gac/OpenSystem.C/4.0.0.0__b77a5c561934e089/OpenSystem.C.dll lib/mono/4.5/OpenSystem.C.dll
+try_symlink ../gac/nunit-console-runner/2.4.8.0__96d09a1eb7f44a77/nunit-console-runner.dll lib/mono/4.5/nunit-console-runner.dll
+try_symlink ../gac/nunit.core/2.4.8.0__96d09a1eb7f44a77/nunit.core.dll lib/mono/4.5/nunit.core.dll
+try_symlink ../gac/nunit.core.extensions/2.4.8.0__96d09a1eb7f44a77/nunit.core.extensions.dll lib/mono/4.5/nunit.core.extensions.dll
+try_symlink ../gac/nunit.core.interfaces/2.4.8.0__96d09a1eb7f44a77/nunit.core.interfaces.dll lib/mono/4.5/nunit.core.interfaces.dll
+try_symlink ../gac/nunit.framework/2.4.8.0__96d09a1eb7f44a77/nunit.framework.dll lib/mono/4.5/nunit.framework.dll
+try_symlink ../gac/nunit.framework.extensions/2.4.8.0__96d09a1eb7f44a77/nunit.framework.extensions.dll lib/mono/4.5/nunit.framework.extensions.dll
+try_symlink ../gac/nunit.mocks/2.4.8.0__96d09a1eb7f44a77/nunit.mocks.dll lib/mono/4.5/nunit.mocks.dll
+try_symlink ../gac/nunit.util/2.4.8.0__96d09a1eb7f44a77/nunit.util.dll lib/mono/4.5/nunit.util.dll
 try_symlink ../gac/PEAPI/4.0.0.0__0738eb9f132ed756/PEAPI.dll lib/mono/4.5/PEAPI.dll
 try_symlink ../gac/RabbitMQ.Client/4.0.0.0__b03f5f7f11d50a3a/RabbitMQ.Client.dll lib/mono/4.5/RabbitMQ.Client.dll
 try_symlink ../gac/System.ComponentModel.Composition/4.0.0.0__b77a5c561934e089/System.ComponentModel.Composition.dll lib/mono/4.5/System.ComponentModel.Composition.dll
@@ -75,6 +70,7 @@ try_symlink ../gac/System.Configuration.Install/4.0.0.0__b03f5f7f11d50a3a/System
 try_symlink ../gac/System.Core/4.0.0.0__b77a5c561934e089/System.Core.dll lib/mono/4.5/System.Core.dll
 try_symlink ../gac/System.Data.DataSetExtensions/4.0.0.0__b77a5c561934e089/System.Data.DataSetExtensions.dll lib/mono/4.5/System.Data.DataSetExtensions.dll
 try_symlink ../gac/System.Data/4.0.0.0__b77a5c561934e089/System.Data.dll lib/mono/4.5/System.Data.dll
+try_symlink ../gac/System.Data.Entity/4.0.0.0__b77a5c561934e089/System.Data.Entity.dll lib/mono/4.5/System.Data.Entity.dll
 try_symlink ../gac/System.Data.Linq/4.0.0.0__b77a5c561934e089/System.Data.Linq.dll lib/mono/4.5/System.Data.Linq.dll
 try_symlink ../gac/System.Data.OracleClient/4.0.0.0__b77a5c561934e089/System.Data.OracleClient.dll lib/mono/4.5/System.Data.OracleClient.dll
 try_symlink ../gac/System.Data.Services.Client/4.0.0.0__b77a5c561934e089/System.Data.Services.Client.dll lib/mono/4.5/System.Data.Services.Client.dll
@@ -103,11 +99,14 @@ try_symlink ../gac/System.Numerics/4.0.0.0__b77a5c561934e089/System.Numerics.dll
 try_symlink ../gac/System.Reactive.Core/2.2.0.0__31bf3856ad364e35/System.Reactive.Core.dll lib/mono/4.5/System.Reactive.Core.dll
 try_symlink ../gac/System.Reactive.Debugger/2.2.0.0__31bf3856ad364e35/System.Reactive.Debugger.dll lib/mono/4.5/System.Reactive.Debugger.dll
 try_symlink ../gac/System.Reactive.Experimental/2.2.0.0__31bf3856ad364e35/System.Reactive.Experimental.dll lib/mono/4.5/System.Reactive.Experimental.dll
+try_symlink ../gac/System.Reactive.Interfaces/2.2.0.0__31bf3856ad364e35/System.Reactive.Interfaces.dll lib/mono/4.5/System.Reactive.Interfaces.dll
 try_symlink ../gac/System.Reactive.Linq/2.2.0.0__31bf3856ad364e35/System.Reactive.Linq.dll lib/mono/4.5/System.Reactive.Linq.dll
 try_symlink ../gac/System.Reactive.Observable.Aliases/0.0.0.0__31bf3856ad364e35/System.Reactive.Observable.Aliases.dll lib/mono/4.5/System.Reactive.Observable.Aliases.dll
 try_symlink ../gac/System.Reactive.PlatformServices/2.2.0.0__31bf3856ad364e35/System.Reactive.PlatformServices.dll lib/mono/4.5/System.Reactive.PlatformServices.dll
 try_symlink ../gac/System.Reactive.Providers/2.2.0.0__31bf3856ad364e35/System.Reactive.Providers.dll lib/mono/4.5/System.Reactive.Providers.dll
 try_symlink ../gac/System.Reactive.Runtime.Remoting/2.2.0.0__31bf3856ad364e35/System.Reactive.Runtime.Remoting.dll lib/mono/4.5/System.Reactive.Runtime.Remoting.dll
+try_symlink ../gac/System.Reactive.Windows.Forms/2.2.0.0__31bf3856ad364e35/System.Reactive.Windows.Forms.dll lib/mono/4.5/System.Reactive.Windows.Forms.dll
+try_symlink ../gac/System.Reactive.Windows.Threading/2.2.0.0__31bf3856ad364e35/System.Reactive.Windows.Threading.dll lib/mono/4.5/System.Reactive.Windows.Threading.dll
 try_symlink ../gac/System.Runtime.Caching/4.0.0.0__b03f5f7f11d50a3a/System.Runtime.Caching.dll lib/mono/4.5/System.Runtime.Caching.dll
 try_symlink ../gac/System.Runtime.DurableInstancing/4.0.0.0__31bf3856ad364e35/System.Runtime.DurableInstancing.dll lib/mono/4.5/System.Runtime.DurableInstancing.dll
 try_symlink ../gac/System.Runtime.Remoting/4.0.0.0__b77a5c561934e089/System.Runtime.Remoting.dll lib/mono/4.5/System.Runtime.Remoting.dll
@@ -152,7 +151,13 @@ try_symlink ../../../gac/Microsoft.Build.Engine/12.0.0.0__b03f5f7f11d50a3a/Micro
 try_symlink ../../../gac/Microsoft.Build.Framework/12.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Framework.dll lib/mono/xbuild/12.0/bin/Microsoft.Build.Framework.dll
 try_symlink ../../../gac/Microsoft.Build.Tasks.v12.0/12.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Tasks.v12.0.dll lib/mono/xbuild/12.0/bin/Microsoft.Build.Tasks.v12.0.dll
 try_symlink ../../../gac/Microsoft.Build.Utilities.v12.0/12.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Utilities.v12.0.dll lib/mono/xbuild/12.0/bin/Microsoft.Build.Utilities.v12.0.dll
-try_symlink ../../../gac/Mono.XBuild.Tasks/4.0.0.0__0738eb9f132ed756/Mono.XBuild.Tasks.dll lib/mono/xbuild/12.0/bin/Mono.XBuild.Tasks.dll
+try_symlink ../../../gac/Mono.XBuild.Tasks/12.0.0.0__0738eb9f132ed756/Mono.XBuild.Tasks.dll lib/mono/xbuild/12.0/bin/Mono.XBuild.Tasks.dll
+try_symlink ../../../gac/Microsoft.Build/14.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.dll lib/mono/xbuild/14.0/bin/Microsoft.Build.dll
+try_symlink ../../../gac/Microsoft.Build.Engine/14.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Engine.dll lib/mono/xbuild/14.0/bin/Microsoft.Build.Engine.dll
+try_symlink ../../../gac/Microsoft.Build.Framework/14.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Framework.dll lib/mono/xbuild/14.0/bin/Microsoft.Build.Framework.dll
+try_symlink ../../../gac/Microsoft.Build.Tasks.Core/14.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Tasks.Core.dll lib/mono/xbuild/14.0/bin/Microsoft.Build.Tasks.Core.dll
+try_symlink ../../../gac/Microsoft.Build.Utilities.Core/14.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Utilities.Core.dll lib/mono/xbuild/14.0/bin/Microsoft.Build.Utilities.Core.dll
+try_symlink ../../../gac/Mono.XBuild.Tasks/14.0.0.0__0738eb9f132ed756/Mono.XBuild.Tasks.dll lib/mono/xbuild/14.0/bin/Mono.XBuild.Tasks.dll
 if [ ! -d lib/mono/monodoc ]; then
   mkdir lib/mono/monodoc
 fi
@@ -169,6 +174,7 @@ try_chmod bin/al2
 try_chmod bin/caspol
 try_chmod bin/cccheck
 try_chmod bin/ccrewrite
+try_chmod bin/cert-sync
 try_chmod bin/cert2spc
 try_chmod bin/certmgr
 try_chmod bin/chktrust
@@ -181,7 +187,6 @@ try_chmod bin/dtd2xsd
 try_chmod bin/gacutil
 try_chmod bin/gacutil2
 try_chmod bin/genxs
-try_chmod bin/gmcs
 try_chmod bin/httpcfg
 try_chmod bin/idkasm
 try_chmod bin/ilasm

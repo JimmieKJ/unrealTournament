@@ -10,6 +10,8 @@
 #include "AudioDerivedData.h"
 #include "SubtitleManager.h"
 #include "DerivedDataCacheInterface.h"
+#include "EditorFramework/AssetImportData.h"
+
 /*-----------------------------------------------------------------------------
 	FStreamedAudioChunk
 -----------------------------------------------------------------------------*/
@@ -65,10 +67,17 @@ SIZE_T USoundWave::GetResourceSize(EResourceSizeMode::Type Mode)
 {
 	int32 CalculatedResourceSize = 0;
 
-	if( DecompressionType == DTYPE_Native )
+	if (DecompressionType == DTYPE_Native)
 	{
 		// If we've been decompressed, need to account for decompressed and also compressed
 		CalculatedResourceSize += RawPCMDataSize;
+	}
+	else if (DecompressionType == DTYPE_RealTime)
+	{
+		if (CachedRealtimeFirstBuffer)
+		{
+			CalculatedResourceSize += MONO_PCM_BUFFER_SIZE * NumChannels;
+		}
 	}
 
 	if (GEngine && GEngine->GetMainAudioDevice())
@@ -129,7 +138,10 @@ void USoundWave::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	Super::GetAssetRegistryTags(OutTags);
 	
 #if WITH_EDITORONLY_DATA
-	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+	if (AssetImportData)
+	{
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
+	}
 #endif
 	// GetCompressedDataSize could technically modify this->CompressedFormatData therefore it is not const, however this information
 	// is very useful in the asset registry so we will allow GetCompressedDataSize to be modified if the formats do not exist
@@ -162,12 +174,20 @@ void USoundWave::Serialize( FArchive& Ar )
 		Ar << CompressionName;
 	}
 
+	bool bSupportsStreaming = false;
+	if (Ar.IsLoading() && FPlatformProperties::SupportsAudioStreaming())
+	{
+		bSupportsStreaming = true;
+	}
+	else if (Ar.IsCooking() && Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::AudioStreaming))
+	{
+		bSupportsStreaming = true;
+	}
+
 	if (bCooked)
 	{
 		// Only want to cook/load full data if we don't support streaming
-		if (!IsStreaming() ||
-			(Ar.IsLoading() && !FPlatformProperties::SupportsAudioStreaming()) ||
-			(Ar.IsCooking() && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::AudioStreaming)))
+		if (!IsStreaming() || !bSupportsStreaming)
 		{
 			if (Ar.IsCooking())
 			{
@@ -203,15 +223,14 @@ void USoundWave::Serialize( FArchive& Ar )
 		if (bCooked)
 		{
 			// only cook/load streaming data if it's supported
-			if ((Ar.IsLoading() && FPlatformProperties::SupportsAudioStreaming()) ||
-				(Ar.IsCooking() && Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::AudioStreaming)))
+			if (bSupportsStreaming)
 			{
 				SerializeCookedPlatformData(Ar);
 			}
 		}
 
 #if WITH_EDITORONLY_DATA	
-		if (Ar.IsLoading() && !Ar.IsTransacting() && !bCooked && !(GetOutermost()->PackageFlags & PKG_ReloadingForCooker))
+		if (Ar.IsLoading() && !Ar.IsTransacting() && !bCooked && !GetOutermost()->HasAnyPackageFlags(PKG_ReloadingForCooker))
 		{
 			BeginCachePlatformData();
 		}
@@ -255,6 +274,13 @@ void USoundWave::PostInitProperties()
 	{
 		InvalidateCompressedData();
 	}
+
+#if WITH_EDITORONLY_DATA
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
+	}
+#endif
 }
 
 FByteBulkData* USoundWave::GetCompressedData(FName Format)
@@ -298,7 +324,7 @@ void USoundWave::PostLoad()
 {
 	Super::PostLoad();
 
-	if (GetOutermost()->PackageFlags & PKG_ReloadingForCooker)
+	if (GetOutermost()->HasAnyPackageFlags(PKG_ReloadingForCooker))
 	{
 		return;
 	}
@@ -341,6 +367,15 @@ void USoundWave::PostLoad()
 #endif // #if WITH_EDITORONLY_DATA
 		IStreamingManager::Get().GetAudioStreamingManager().AddStreamingSoundWave(this);
 	}
+
+#if WITH_EDITORONLY_DATA
+	if (!SourceFilePath_DEPRECATED.IsEmpty() && AssetImportData)
+	{
+		FAssetImportInfo Info;
+		Info.Insert(FAssetImportInfo::FSourceFile(SourceFilePath_DEPRECATED));
+		AssetImportData->SourceData = MoveTemp(Info);
+	}
+#endif // #if WITH_EDITORONLY_DATA
 
 	INC_FLOAT_STAT_BY( STAT_AudioBufferTime, Duration );
 	INC_FLOAT_STAT_BY( STAT_AudioBufferTimeChannels, NumChannels * Duration );
@@ -442,18 +477,24 @@ void USoundWave::FreeResources()
 	{
 		// Notify the audio device to free the bulk data associated with this wave.
 		FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
-		if (AudioDeviceManager != NULL)
+		if (AudioDeviceManager)
 		{
 			AudioDeviceManager->StopSoundsUsingWave(this);
 			AudioDeviceManager->FreeResource(this);
 		}
 	}
 
+	if (CachedRealtimeFirstBuffer)
+	{
+		FMemory::Free(CachedRealtimeFirstBuffer);
+		CachedRealtimeFirstBuffer = nullptr;
+	}
+
 	// Just in case the data was created but never uploaded
-	if (RawPCMData != NULL)
+	if (RawPCMData)
 	{
 		FMemory::Free(RawPCMData);
-		RawPCMData = NULL;
+		RawPCMData = nullptr;
 	}
 
 	// Remove the compressed copy of the data
@@ -464,13 +505,10 @@ void USoundWave::FreeResources()
 	DEC_DWORD_STAT_BY(STAT_AudioMemory, TrackedMemoryUsage);
 	TrackedMemoryUsage = 0;
 
-	SampleRate = 0;
-	Duration = 0.0f;
 	ResourceID = 0;
 	bDynamicResource = false;
 	DecompressionType = DTYPE_Setup;
 	bDecompressedFromOgg = 0;
-	RawPCMDataSize = 0;
 }
 
 FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT WaveInstanceHash )
@@ -483,15 +521,15 @@ FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT
 	// Add in the subtitle if they exist
 	if (ActiveSound.bHandleSubtitles && Subtitles.Num() > 0)
 	{
-		if (UAudioComponent* AudioComponent = ActiveSound.AudioComponent.Get())
+		if (UAudioComponent* AudioComponent = ActiveSound.GetAudioComponent())
 		{
 			// TODO - Audio Threading. This would need to be a call back to the main thread.
 			if (AudioComponent->OnQueueSubtitles.IsBound())
 			{
 				// intercept the subtitles if the delegate is set
-				ActiveSound.AudioComponent->OnQueueSubtitles.ExecuteIfBound( Subtitles, Duration );
+				AudioComponent->OnQueueSubtitles.ExecuteIfBound( Subtitles, Duration );
 			}
-			else
+			else if( ActiveSound.World.IsValid() )
 			{
 				// otherwise, pass them on to the subtitle manager for display
 				// Subtitles are hashed based on the associated sound (wave instance).
@@ -535,7 +573,7 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 	{
 		if( !ActiveSound.bRadioFilterSelected )
 		{
-			ActiveSound.ApplyRadioFilter( AudioDevice, ParseParams );
+			ActiveSound.ApplyRadioFilter(ParseParams);
 		}
 
 		WaveInstance = HandleStart( ActiveSound, NodeWaveInstanceHash);
@@ -545,8 +583,8 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 	if (bLooping || ParseParams.bLooping)
 	{
 		WaveInstance->bIsFinished = false;
-#if !NO_LOGGING
-		if (!ActiveSound.bWarnedAboutOrphanedLooping && !ActiveSound.AudioComponent.IsValid())
+#if !(NO_LOGGING || UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (!ActiveSound.bWarnedAboutOrphanedLooping && ActiveSound.GetAudioComponent() == nullptr)
 		{
 			UE_LOG(LogAudio, Warning, TEXT("Detected orphaned looping sound '%s'."), *ActiveSound.Sound->GetName());
 			ActiveSound.bWarnedAboutOrphanedLooping = true;
@@ -560,14 +598,18 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		// Propagate properties and add WaveInstance to outgoing array of FWaveInstances.
 		WaveInstance->Volume = ParseParams.Volume * Volume;
 		WaveInstance->VolumeMultiplier = ParseParams.VolumeMultiplier;
-		WaveInstance->VolumeWeightedPriorityScale = ParseParams.VolumeWeightedPriorityScale;
 		WaveInstance->Pitch = ParseParams.Pitch * Pitch;
-		WaveInstance->HighFrequencyGain = ParseParams.HighFrequencyGain;
+		WaveInstance->bEnableLowPassFilter = ParseParams.bEnableLowPassFilter;
+		WaveInstance->bIsOccluded = ParseParams.bIsOccluded;
+		WaveInstance->LowPassFilterFrequency = ParseParams.LowPassFilterFrequency;
+		WaveInstance->OcclusionFilterFrequency = ParseParams.OcclusionFilterFrequency;
+		WaveInstance->AttenuationFilterFrequency = ParseParams.AttenuationFilterFrequency;
+		WaveInstance->AmbientZoneFilterFrequency = ParseParams.AmbientZoneFilterFrequency;
 		WaveInstance->bApplyRadioFilter = ActiveSound.bApplyRadioFilter;
 		WaveInstance->StartTime = ParseParams.StartTime;
 		WaveInstance->UserIndex = ActiveSound.UserIndex;
 		WaveInstance->OmniRadius = ParseParams.OmniRadius;
-
+		WaveInstance->StereoSpread = ParseParams.StereoSpread;
 		bool bAlwaysPlay = false;
 
 		// Properties from the sound class
@@ -612,14 +654,16 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 			bAlwaysPlay = ActiveSound.bAlwaysPlay;
 		}
 
-		// This is a first-guess at priority, this will later change according to VolumeWeightedPriorityScale
-		WaveInstance->PlayPriority = (WaveInstance->Volume + (bAlwaysPlay ? 1.0f : 0.0f) + WaveInstance->RadioFilterVolume);
-
-		// If set to bAlwaysPlay, double the current sound's priority scale. This will still result in a possible 0-priority output if the sound has 0 actual volume
+		// If set to bAlwaysPlay, increase the current sound's priority scale by 10x. This will still result in a possible 0-priority output if the sound has 0 actual volume
 		if (bAlwaysPlay)
 		{
-			WaveInstance->VolumeWeightedPriorityScale *= 2.0f;
+			WaveInstance->Priority = MAX_FLT;
 		}
+		else
+		{
+			WaveInstance->Priority = ParseParams.Priority;
+		}
+
 		WaveInstance->Location = ParseParams.Transform.GetTranslation();
 		WaveInstance->bIsStarted = true;
 		WaveInstance->bAlreadyNotifiedHook = false;
@@ -639,7 +683,7 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		}
 
 		// Don't add wave instances that are not going to be played at this point.
-		if( WaveInstance->PlayPriority > KINDA_SMALL_NUMBER )
+		if( WaveInstance->Volume > KINDA_SMALL_NUMBER )
 		{
 			WaveInstances.Add( WaveInstance );
 		}
@@ -648,7 +692,7 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		ActiveSound.bFinished = false;
 
 		// Sanity check
-		if( NumChannels >= 2 && WaveInstance->bUseSpatialization && !WaveInstance->bReportedSpatializationWarning)
+		if( NumChannels > 2 && WaveInstance->bUseSpatialization && !WaveInstance->bReportedSpatializationWarning)
 		{
 			static TSet<USoundWave*> ReportedSounds;
 			if (!ReportedSounds.Contains(this))
@@ -659,11 +703,11 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 					SoundWarningInfo += FString::Printf(TEXT(" SoundCue: %s"), *ActiveSound.Sound->GetName());
 				}
 
-				if (ActiveSound.AudioComponent.IsValid())
+				if (UAudioComponent* AudioComponent = ActiveSound.GetAudioComponent())
 				{
 					// TODO - Audio Threading. This log would have to be a task back to game thread
-					AActor* SoundOwner = ActiveSound.AudioComponent->GetOwner();
-					UE_LOG(LogAudio, Warning, TEXT( "%s Actor: %s AudioComponent: %s" ), *SoundWarningInfo, (SoundOwner ? *SoundOwner->GetName() : TEXT("None")), *ActiveSound.AudioComponent->GetName() );
+					AActor* SoundOwner = AudioComponent->GetOwner();
+					UE_LOG(LogAudio, Warning, TEXT( "%s Actor: %s AudioComponent: %s" ), *SoundWarningInfo, (SoundOwner ? *SoundOwner->GetName() : TEXT("None")), *AudioComponent->GetName() );
 				}
 				else
 				{

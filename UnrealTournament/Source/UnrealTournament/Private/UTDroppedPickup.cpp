@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTPickup.h"
 #include "UTPickupInventory.h"
@@ -35,7 +35,7 @@ void AUTDroppedPickup::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!bPendingKillPending)
+	if (!IsPendingKillPending())
 	{
 		// don't allow Instigator to touch until a little time has passed so a live player throwing an item doesn't immediately pick it back up again
 		GetWorld()->GetTimerManager().SetTimer(EnableInstigatorTouchHandle, this, &AUTDroppedPickup::EnableInstigatorTouch, 1.0f, false);
@@ -168,7 +168,7 @@ void AUTDroppedPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 
 void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 {
-	if (Inventory != NULL && !Inventory->bPendingKillPending)
+	if (Inventory != NULL && !Inventory->IsPendingKillPending())
 	{
 		AUTCharacter* C = Cast<AUTCharacter>(Target);
 		if (C != NULL)
@@ -177,6 +177,48 @@ void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 			if (Duplicate == NULL || !Duplicate->StackPickup(Inventory))
 			{
 				C->AddInventory(Inventory, true);
+
+				AUTWeapon* WeaponInv = Cast<AUTWeapon>(Inventory);
+				if (WeaponInv)
+				{
+					if (WeaponSkin)
+					{
+						C->SetSkinForWeapon(WeaponSkin);
+					}
+					else
+					{
+						FString WeaponPathName = WeaponInv->GetPathName();
+
+						bool bFoundSkin = false;
+						// Set character's skin back to what the UTPlayerState has
+						AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+						if (PS)
+						{
+							for (int32 i = 0; i < PS->WeaponSkins.Num(); i++)
+							{
+								if (PS->WeaponSkins[i]->WeaponType == WeaponPathName)
+								{
+									C->SetSkinForWeapon(PS->WeaponSkins[i]);
+									bFoundSkin = true;
+									break;
+								}
+							}
+						}
+
+						if (!bFoundSkin)
+						{
+							for (int32 i = 0; i < C->WeaponSkins.Num(); i++)
+							{
+								if (C->WeaponSkins[i]->WeaponType == WeaponPathName)
+								{
+									C->WeaponSkins.RemoveAt(i);
+									break;
+								}
+							}
+						}
+					}
+				}
+
 				if (Cast<APlayerController>(Target->GetController()) && (!Cast<AUTWeapon>(Inventory) || !C->GetPendingWeapon() ||(C->GetPendingWeapon()->GetClass() != Inventory->GetClass())))
 				{
 					Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());
@@ -244,6 +286,15 @@ void AUTDroppedPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Ou
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTDroppedPickup, InventoryType, COND_None);
+	DOREPLIFETIME_CONDITION(AUTDroppedPickup, WeaponSkin, COND_None);
+}
+
+void AUTDroppedPickup::OnRepWeaponSkin()
+{
+	if (WeaponSkin && Mesh)
+	{
+		Mesh->CreateAndSetMaterialInstanceDynamicFromMaterial(0, WeaponSkin->Material);
+	}
 }
 
 float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float PathDistance)

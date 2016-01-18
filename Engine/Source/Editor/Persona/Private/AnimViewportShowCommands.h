@@ -78,6 +78,7 @@ public:
 	/** Show skeletal mesh info */
 	TSharedPtr< FUICommandInfo > ShowDisplayInfoBasic;
 	TSharedPtr< FUICommandInfo > ShowDisplayInfoDetailed;
+	TSharedPtr< FUICommandInfo > ShowDisplayInfoSkelControls;
 	TSharedPtr< FUICommandInfo > HideDisplayInfo;
 
 	/** Show selected bone weight */

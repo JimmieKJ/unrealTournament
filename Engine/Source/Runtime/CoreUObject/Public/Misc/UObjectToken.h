@@ -13,7 +13,7 @@ class FUObjectToken : public IMessageToken
 {
 public:
 	/** Factory method, tokens can only be constructed as shared refs */
-	COREUOBJECT_API static TSharedRef<FUObjectToken> Create( UObject* InObject, const FText& InLabelOverride = FText() )
+	COREUOBJECT_API static TSharedRef<FUObjectToken> Create( const UObject* InObject, const FText& InLabelOverride = FText() )
 	{
 		return MakeShareable(new FUObjectToken(InObject, InLabelOverride));
 	}
@@ -40,7 +40,7 @@ public:
 	}
 
 	/** Get the delegate for displaying the object name */
-	DECLARE_DELEGATE_RetVal_TwoParams(FText, FOnGetDisplayName, UObject*, bool);
+	DECLARE_DELEGATE_RetVal_TwoParams(FText, FOnGetDisplayName, const UObject*, bool);
 	COREUOBJECT_API static FOnGetDisplayName& DefaultOnGetObjectDisplayName()
 	{
 		return DefaultGetObjectDisplayName;
@@ -48,7 +48,7 @@ public:
 
 private:
 	/** Private constructor */
-	FUObjectToken( UObject* InObject,  const FText& InLabelOverride );
+	FUObjectToken( const UObject* InObject,  const FText& InLabelOverride );
 
 	/** An object being referenced by this token, if any */
 	FWeakObjectPtr ObjectBeingReferenced;

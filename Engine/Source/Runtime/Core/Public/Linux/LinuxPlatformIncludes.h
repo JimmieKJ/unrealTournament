@@ -25,7 +25,6 @@
 #include "Linux/LinuxPlatformSplash.h"
 #include "Linux/LinuxPlatformFile.h"
 #include "Linux/LinuxPlatformSurvey.h"
-#include "Linux/LinuxPlatformHttp.h"
 
 typedef FGenericPlatformRHIFramePacer FPlatformRHIFramePacer;
 

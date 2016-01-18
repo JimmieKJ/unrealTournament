@@ -8,17 +8,16 @@ class FSlateOpenGLTextureCache;
 class FSlateOpenGLRenderingPolicy : public FSlateRenderingPolicy
 {
 public:
-	FSlateOpenGLRenderingPolicy( TSharedPtr<FSlateFontCache>& InFontCache, TSharedPtr<FSlateOpenGLTextureManager>& InTextureManager );
+	FSlateOpenGLRenderingPolicy( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateOpenGLTextureManager> InTextureManager );
 	~FSlateOpenGLRenderingPolicy();
 
 	/**
 	 * Updates vertex and index buffers used in drawing
 	 *
-	 * @param InVertices	The vertices to copy to the vertex buffer
-	 * @param InIndices		The indices to copy to the index buffer
+	 * @param BatchData	The batch data that contains rendering data we need to upload to the buffers
 	 */
-	void UpdateBuffers( const FSlateWindowElementList& InElementList );
-	
+	void UpdateVertexAndIndexBuffers(FSlateBatchData& BatchData);
+
 	/**
 	 * Draws Slate elements
 	 *
@@ -27,12 +26,9 @@ public:
 	 */
 	void DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches );
 
+	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() const override;
 
-	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() override;
-	/**
-	 * Returns the font cache used when the OpenGL rendering policy is active
- 	 */
-	virtual TSharedRef<FSlateFontCache> GetFontCache() override { return FontCache.ToSharedRef(); }
+	virtual bool IsVertexColorInLinearSpace() const override { return false; }
 
 	/** 
 	 * Initializes resources if needed
@@ -56,8 +52,6 @@ private:
 	FSlateOpenGLIndexBuffer IndexBuffer;
 	/** A default white texture to use if no other texture can be found */
 	FSlateOpenGLTexture* WhiteTexture;
-	/** The font cache for accessing text rendering data */
-	TSharedPtr<FSlateFontCache> FontCache;
 	/** Texture manager for accessing OpenGL textures */
 	TSharedPtr<FSlateOpenGLTextureManager> TextureManager;
 	/** True if the rendering policy has been initialized */

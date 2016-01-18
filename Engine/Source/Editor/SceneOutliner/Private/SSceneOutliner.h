@@ -79,7 +79,7 @@ namespace SceneOutliner
 		/** Sends a requests to the Scene Outliner to refresh itself the next chance it gets */
 		virtual void Refresh() override;
 
-		// Begin FEditorUndoClient Interface
+		//~ Begin FEditorUndoClient Interface
 		virtual void PostUndo(bool bSuccess) override;
 		virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }
 		// End of FEditorUndoClient

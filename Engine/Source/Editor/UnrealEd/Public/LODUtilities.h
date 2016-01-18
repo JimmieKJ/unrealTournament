@@ -36,6 +36,14 @@ public:
 	 * @param InSettings   - The user settings passed from the Simplification tool.
 	 */
 	static void SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateContext, TArray<FSkeletalMeshOptimizationSettings> &InSettings, bool bForceRegenerate = false );
+	/**
+	*	Simplifies the static mesh based upon various user settings for DesiredLOD.
+	*
+	* @param UpdateContext - The skeletal mesh and actor components to operate on.
+	* @param Setting	- The user settings passed 
+	* @param DesiredLOD - The LOD to simplify
+	*/
+	static void SimplifySkeletalMeshLOD(FSkeletalMeshUpdateContext& UpdateContext, const FSkeletalMeshOptimizationSettings& Setting, int32 DesiredLOD, bool bReregisterComponent = true);
 
 	/**
 	 * Refresh LOD Change
@@ -58,5 +66,5 @@ private:
 	 * @param InSetting   - The user settings passed from the Simplification tool.
 	 * @param DesiredLOD - Desired LOD
 	 */
-	static void SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, const FSkeletalMeshOptimizationSettings& InSetting, int32 DesiredLOD );
+	static void SimplifySkeletalMeshLOD(USkeletalMesh* SkeletalMesh, const FSkeletalMeshOptimizationSettings& InSetting, int32 DesiredLOD, bool bReregisterComponent = true);
 };

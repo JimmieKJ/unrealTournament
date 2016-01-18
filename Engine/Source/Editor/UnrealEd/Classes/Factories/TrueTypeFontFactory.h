@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // TrueTypeFontFactory
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "TrueTypeFontFactory.generated.h"
@@ -24,11 +24,11 @@ class UNREALED_API UTrueTypeFontFactory : public UTextureFactory, public FReimpo
 	UPROPERTY()
 	bool bFontSelected;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
 	virtual bool ShouldShowInNewMenu() const override
@@ -36,14 +36,14 @@ class UNREALED_API UTrueTypeFontFactory : public UTextureFactory, public FReimpo
 		// Don't show this factory in the content browser menu; it's invoked manually when changing the UFont cache type to "Offline" 
 		return false;
 	}
-	// Begin UFactory Interface	
+	//~ Begin UFactory Interface	
 
-	// Begin FReimportHandler interface
+	//~ Begin FReimportHandler Interface
 	virtual bool CanReimport( UObject* Obj, TArray<FString>& OutFilenames ) override;
 	virtual void SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths ) override;
 	virtual EReimportResult::Type Reimport( UObject* Obj ) override;
 	virtual int32 GetPriority() const override;
-	// End FReimportHandler interface
+	//~ End FReimportHandler Interface
 
 	/** Creates the import options structure for this font */
 	void SetupFontImportOptions();

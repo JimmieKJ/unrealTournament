@@ -362,6 +362,18 @@ static Ps::aos::FloatV pcmDistancePointTriangleSquared(	const Ps::aos::Vec3VArg 
 	const FloatV d6 = V3Dot(ac, cp); // -tdenom
 	const FloatV unom = FSub(d4, d3);
 	const FloatV udenom = FSub(d5, d6);
+
+	const Vec3V n = V3Cross(ab, ac);
+	const VecCrossV crossA = V3PrepareCross(ap);
+	const VecCrossV crossB = V3PrepareCross(bp);
+	const VecCrossV crossC = V3PrepareCross(cp);
+	const Vec3V bCrossC = V3Cross(crossB, crossC);
+	const Vec3V cCrossA = V3Cross(crossC, crossA);
+	const Vec3V aCrossB = V3Cross(crossA, crossB);
+
+	//const FloatV va = V3Dot(n, bCrossC);//edge region of BC, signed area rbc, u = S(rbc)/S(abc) for a
+	//const FloatV vb = V3Dot(n, cCrossA);//edge region of AC, signed area rac, v = S(rca)/S(abc) for b
+	//const FloatV vc = V3Dot(n, aCrossB);//edge region of AB, signed area rab, w = S(rab)/S(abc) for c
 	
 	//check if p in vertex region outside a
 	const BoolV con00 = FIsGrtr(zero, d1); // snom <= 0
@@ -401,8 +413,8 @@ static Ps::aos::FloatV pcmDistancePointTriangleSquared(	const Ps::aos::Vec3VArg 
 	}
 
 	//check if p in edge region of AB
-	const FloatV vc = FSub(FMul(d1, d4), FMul(d3, d2));
-	
+	//const FloatV vc = FSub(FMul(d1, d4), FMul(d3, d2));
+	const FloatV vc = V3Dot(n, aCrossB);//edge region of AB, signed area rab, w = S(rab)/S(abc) for c
 	const BoolV con30 = FIsGrtr(zero, vc);
 	const BoolV con31 = FIsGrtrOrEq(d1, zero);
 	const BoolV con32 = FIsGrtr(zero, d3);
@@ -419,7 +431,9 @@ static Ps::aos::FloatV pcmDistancePointTriangleSquared(	const Ps::aos::Vec3VArg 
 	}
 
 	//check if p in edge region of BC
-	const FloatV va = FSub(FMul(d3, d6),FMul(d5, d4));
+	//const FloatV va = FSub(FMul(d3, d6),FMul(d5, d4));
+	const FloatV va = V3Dot(n, bCrossC);//edge region of BC, signed area rbc, u = S(rbc)/S(abc) for a
+	
 	const BoolV con40 = FIsGrtr(zero, va);
 	const BoolV con41 = FIsGrtrOrEq(d4, d3);
 	const BoolV con42 = FIsGrtrOrEq(d5, d6);
@@ -436,7 +450,8 @@ static Ps::aos::FloatV pcmDistancePointTriangleSquared(	const Ps::aos::Vec3VArg 
 	}
 
 	//check if p in edge region of AC
-	const FloatV vb = FSub(FMul(d5, d2), FMul(d1, d6));
+	//const FloatV vb = FSub(FMul(d5, d2), FMul(d1, d6));
+	const FloatV vb = V3Dot(n, cCrossA);//edge region of AC, signed area rac, v = S(rca)/S(abc) for b
 	const BoolV con50 = FIsGrtr(zero, vb);
 	const BoolV con51 = FIsGrtrOrEq(d2, zero);
 	const BoolV con52 = FIsGrtr(zero, d6);
@@ -453,16 +468,13 @@ static Ps::aos::FloatV pcmDistancePointTriangleSquared(	const Ps::aos::Vec3VArg 
 	}
 
 	generateContact = true;
-	//P must project inside face region. Compute Q using Barycentric coordinates
-	const FloatV denom = FRecip(FAdd(va, FAdd(vb, vc)));
-	const FloatV t = FMul(vb, denom);
-	const FloatV w = FMul(vc, denom);
-	const Vec3V cCom = V3Scale(ac, w);
-	const Vec3V closest6 = V3Add(a, V3ScaleAdd(ab, t, cCom));
-	closestP = closest6;
-	const Vec3V vv = V3Sub(p, closest6);
 
-	return V3Dot(vv, vv);
+	//P must project inside face region. Compute Q using Barycentric coordinates
+	const FloatV nn = V3Dot(n, n);
+	const FloatV t = FDiv(V3Dot(n, V3Sub(a, p)), nn); 
+	const Vec3V vv = V3Scale(n, t);
+	closestP = V3Add(p, vv);
+	return V3Dot(vv, vv);	
 }
 
 bool Gu::PCMSphereVsMeshContactGeneration::processTriangle(const PxVec3* verts, PxU32 triangleIndex, PxU8 triFlags, const PxU32* vertInds)
@@ -500,11 +512,14 @@ bool Gu::PCMSphereVsMeshContactGeneration::processTriangle(const PxVec3* verts, 
 	bool generateContact = false;
 	const FloatV sqDist = pcmDistancePointTriangleSquared(mSphereCenter, v0, v1, v2, triFlags, closestP, generateContact);
 
-	//sphere overlap with triangles
-	const Vec3V patchNormal = V3Normalize(V3Sub(mSphereCenter, closestP));
+	//sphere center is on the triangle surface, we take triangle normal as the patchNormal. Otherwise, we need to calculate the patchNormal
+	Vec3V patchNormal = n;
+	if(FAllGrtr(sqDist, FEps() ))
+		patchNormal = V3Normalize(V3Sub(mSphereCenter, closestP));
+
 	const FloatV cosTheta = V3Dot(patchNormal, n);
 	
-
+	//sphere overlap with triangles
 	if(FAllGrtr(mSqInflatedSphereRadius, sqDist) && (generateContact || FAllGrtr(cosTheta, tolerance)))
 	{
 		const FloatV dist = FSqrt(sqDist);

@@ -130,8 +130,9 @@ void FRCPassPostProcessLensFlares::Process(FRenderingCompositePassContext& Conte
 	FIntPoint TexSize1 = InputDesc1->Extent;
 	FIntPoint TexSize2 = InputDesc2->Extent;
 
-	uint32 ScaleToFullRes1 = GSceneRenderTargets.GetBufferSizeXY().X / TexSize1.X;
-	uint32 ScaleToFullRes2 = GSceneRenderTargets.GetBufferSizeXY().X / TexSize2.X;
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
+	uint32 ScaleToFullRes1 = SceneContext.GetBufferSizeXY().X / TexSize1.X;
+	uint32 ScaleToFullRes2 = SceneContext.GetBufferSizeXY().X / TexSize2.X;
 
 	FIntRect ViewRect1 = FIntRect::DivideAndRoundUp(View.ViewRect, ScaleToFullRes1);
 	FIntRect ViewRect2 = FIntRect::DivideAndRoundUp(View.ViewRect, ScaleToFullRes2);
@@ -241,7 +242,7 @@ void FRCPassPostProcessLensFlares::Process(FRenderingCompositePassContext& Conte
 
 FPooledRenderTargetDesc FRCPassPostProcessLensFlares::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
 	Ret.DebugName = TEXT("LensFlares");

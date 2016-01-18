@@ -165,7 +165,6 @@ namespace Manzana
 		int DeviceInfoOpen(IntPtr handle, ref IntPtr dict);
 		int DirectoryClose(TypedPtr<AFCCommConnection> conn, IntPtr dir);
 		int DirectoryCreate(TypedPtr<AFCCommConnection> conn, string path);
-		int DirectoryOpen(TypedPtr<AFCCommConnection> conn, byte[] path, ref IntPtr dir);
 		int DirectoryRead(TypedPtr<AFCCommConnection> conn, IntPtr dir, ref IntPtr dirent);
 		int FileInfoOpen(TypedPtr<AFCCommConnection> conn, string path, out TypedPtr<AFCDictionary> OutDict);
 		int FileRefClose(TypedPtr<AFCCommConnection> conn, Int64 handle);
@@ -344,7 +343,7 @@ namespace Manzana
 			return AFC.DirectoryCreate(conn, path);
 		}
 
-		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, byte[] path, ref IntPtr dir)
+		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
 		{
 			return AFC.DirectoryOpen(conn, path, ref dir);
 		}
@@ -694,11 +693,6 @@ namespace Manzana
 
 #region AFC Operations
 
-		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
-		{
-			return AFC.DirectoryOpen((IntPtr)conn, Encoding.UTF8.GetBytes(path), ref dir);
-		}
-
 		public int DirectoryRead(TypedPtr<AFCCommConnection> conn, IntPtr dir, ref string buffer)
 		{
 			int ret;
@@ -753,12 +747,12 @@ namespace Manzana
 
 			public static int DirectoryCreate(TypedPtr<AFCCommConnection> conn, string path)
 			{
-				return AFCDirectoryCreate((IntPtr)conn, path);
+				return AFCDirectoryCreate((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path));
 			}
 
-			public static int DirectoryOpen(TypedPtr<AFCCommConnection> conn, byte[] path, ref IntPtr dir)
+			public static int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
 			{
-				return AFCDirectoryOpen((IntPtr)conn, path, ref dir);
+				return AFCDirectoryOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), ref dir);
 			}
 
 			public static int DirectoryRead(TypedPtr<AFCCommConnection> conn, IntPtr dir, ref IntPtr dirent)
@@ -769,7 +763,7 @@ namespace Manzana
 			public static int FileInfoOpen(TypedPtr<AFCCommConnection> conn, string path, out TypedPtr<AFCDictionary> OutDict)
 			{
 				IntPtr UntypedDict;
-				int Result = AFCFileInfoOpen((IntPtr)conn, path, out UntypedDict);
+				int Result = AFCFileInfoOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), out UntypedDict);
 				OutDict = UntypedDict;
 
 				return Result;
@@ -782,7 +776,7 @@ namespace Manzana
 
 			public static int FileRefOpen(TypedPtr<AFCCommConnection> conn, string path, Int64 mode, out Int64 handle)
 			{
-				return AFCFileRefOpen((IntPtr)conn, path, mode, out handle);
+				return AFCFileRefOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), mode, out handle);
 			}
 
 			public static int FileRefRead(TypedPtr<AFCCommConnection> conn, Int64 handle, byte[] buffer, ref uint len)
@@ -827,12 +821,12 @@ namespace Manzana
 
 			public static int RemovePath(TypedPtr<AFCCommConnection> conn, string path)
 			{
-				return AFCRemovePath((IntPtr)conn, path);
+				return AFCRemovePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path));
 			}
 
 			public static int RenamePath(TypedPtr<AFCCommConnection> conn, string OldPath, string NewPath)
 			{
-				return AFCRenamePath((IntPtr)conn, OldPath, NewPath);
+				return AFCRenamePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(OldPath), MobileDevice.StringToFileSystemRepresentation(NewPath));
 			}
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
@@ -854,7 +848,7 @@ namespace Manzana
 			private extern static int AFCDirectoryClose(IntPtr/*AFCCommConnection*/ conn, IntPtr dir);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCDirectoryCreate(IntPtr/*AFCCommConnection*/ conn, string path);
+			private extern static int AFCDirectoryCreate(IntPtr/*AFCCommConnection*/ conn, byte[] path);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCDirectoryOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, ref IntPtr dir);
@@ -863,13 +857,13 @@ namespace Manzana
 			private extern static int AFCDirectoryRead(IntPtr/*AFCCommConnection*/ conn, IntPtr dir, ref IntPtr dirent);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCFileInfoOpen(IntPtr/*AFCCommConnection*/ conn, string path, out IntPtr OutDict);
+			private extern static int AFCFileInfoOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, out IntPtr OutDict);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCFileRefClose(IntPtr/*AFCCommConnection*/ conn, Int64 handle);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCFileRefOpen(IntPtr/*AFCCommConnection*/ conn, string path, Int64 mode, out Int64 handle);
+			private extern static int AFCFileRefOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, Int64 mode, out Int64 handle);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCFileRefRead(IntPtr/*AFCCommConnection*/ conn, Int64 handle, byte[] buffer, ref uint len);
@@ -898,10 +892,10 @@ namespace Manzana
 
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCRemovePath(IntPtr/*AFCCommConnection*/ conn, string path);
+			private extern static int AFCRemovePath(IntPtr/*AFCCommConnection*/ conn, byte[] path);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, string old_path, string new_path);
+			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, byte[] old_path, byte[] new_path);
 		}
 
 		#endregion
@@ -1114,7 +1108,7 @@ namespace Manzana
 			return AFC.DirectoryCreate(conn, path);
 		}
 
-		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, byte[] path, ref IntPtr dir)
+		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
 		{
 			return AFC.DirectoryOpen(conn, path, ref dir);
 		}
@@ -1464,11 +1458,6 @@ namespace Manzana
 
 		#region AFC Operations
 
-		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
-		{
-			return AFC.DirectoryOpen((IntPtr)conn, Encoding.UTF8.GetBytes(path), ref dir);
-		}
-
 		public int DirectoryRead(TypedPtr<AFCCommConnection> conn, IntPtr dir, ref string buffer)
 		{
 			int ret;
@@ -1523,12 +1512,12 @@ namespace Manzana
 
 			public static int DirectoryCreate(TypedPtr<AFCCommConnection> conn, string path)
 			{
-				return AFCDirectoryCreate((IntPtr)conn, path);
+				return AFCDirectoryCreate((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path));
 			}
 
-			public static int DirectoryOpen(TypedPtr<AFCCommConnection> conn, byte[] path, ref IntPtr dir)
+			public static int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
 			{
-				return AFCDirectoryOpen((IntPtr)conn, path, ref dir);
+				return AFCDirectoryOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), ref dir);
 			}
 
 			public static int DirectoryRead(TypedPtr<AFCCommConnection> conn, IntPtr dir, ref IntPtr dirent)
@@ -1539,7 +1528,7 @@ namespace Manzana
 			public static int FileInfoOpen(TypedPtr<AFCCommConnection> conn, string path, out TypedPtr<AFCDictionary> OutDict)
 			{
 				IntPtr UntypedDict;
-				int Result = AFCFileInfoOpen((IntPtr)conn, path, out UntypedDict);
+				int Result = AFCFileInfoOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), out UntypedDict);
 				OutDict = UntypedDict;
 
 				return Result;
@@ -1552,7 +1541,7 @@ namespace Manzana
 
 			public static int FileRefOpen(TypedPtr<AFCCommConnection> conn, string path, Int64 mode, out Int64 handle)
 			{
-				return AFCFileRefOpen((IntPtr)conn, path, mode, out handle);
+				return AFCFileRefOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), mode, out handle);
 			}
 
 			public static int FileRefRead(TypedPtr<AFCCommConnection> conn, Int64 handle, byte[] buffer, ref uint len)
@@ -1597,12 +1586,12 @@ namespace Manzana
 
 			public static int RemovePath(TypedPtr<AFCCommConnection> conn, string path)
 			{
-				return AFCRemovePath((IntPtr)conn, path);
+				return AFCRemovePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path));
 			}
 
 			public static int RenamePath(TypedPtr<AFCCommConnection> conn, string OldPath, string NewPath)
 			{
-				return AFCRenamePath((IntPtr)conn, OldPath, NewPath);
+				return AFCRenamePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(OldPath), MobileDevice.StringToFileSystemRepresentation(NewPath));
 			}
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
@@ -1624,7 +1613,7 @@ namespace Manzana
 			private extern static int AFCDirectoryClose(IntPtr/*AFCCommConnection*/ conn, IntPtr dir);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCDirectoryCreate(IntPtr/*AFCCommConnection*/ conn, string path);
+			private extern static int AFCDirectoryCreate(IntPtr/*AFCCommConnection*/ conn, byte[] path);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCDirectoryOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, ref IntPtr dir);
@@ -1633,13 +1622,13 @@ namespace Manzana
 			private extern static int AFCDirectoryRead(IntPtr/*AFCCommConnection*/ conn, IntPtr dir, ref IntPtr dirent);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCFileInfoOpen(IntPtr/*AFCCommConnection*/ conn, string path, out IntPtr OutDict);
+			private extern static int AFCFileInfoOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, out IntPtr OutDict);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCFileRefClose(IntPtr/*AFCCommConnection*/ conn, Int64 handle);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCFileRefOpen(IntPtr/*AFCCommConnection*/ conn, string path, Int64 mode, out Int64 handle);
+			private extern static int AFCFileRefOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, Int64 mode, out Int64 handle);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCFileRefRead(IntPtr/*AFCCommConnection*/ conn, Int64 handle, byte[] buffer, ref uint len);
@@ -1668,10 +1657,10 @@ namespace Manzana
 
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCRemovePath(IntPtr/*AFCCommConnection*/ conn, string path);
+			private extern static int AFCRemovePath(IntPtr/*AFCCommConnection*/ conn, byte[] path);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, string old_path, string new_path);
+			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, byte[] old_path, byte[] new_path);
 		}
 
 		#endregion
@@ -1884,7 +1873,7 @@ namespace Manzana
 			return AFC.DirectoryCreate(conn, path);
 		}
 
-		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, byte[] path, ref IntPtr dir)
+		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
 		{
 			return AFC.DirectoryOpen(conn, path, ref dir);
 		}
@@ -2234,11 +2223,6 @@ namespace Manzana
 
 		#region AFC Operations
 
-		public int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
-		{
-			return AFC.DirectoryOpen((IntPtr)conn, Encoding.UTF8.GetBytes(path), ref dir);
-		}
-
 		public int DirectoryRead(TypedPtr<AFCCommConnection> conn, IntPtr dir, ref string buffer)
 		{
 			int ret;
@@ -2293,12 +2277,12 @@ namespace Manzana
 
 			public static int DirectoryCreate(TypedPtr<AFCCommConnection> conn, string path)
 			{
-				return AFCDirectoryCreate((IntPtr)conn, path);
+				return AFCDirectoryCreate((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path));
 			}
 
-			public static int DirectoryOpen(TypedPtr<AFCCommConnection> conn, byte[] path, ref IntPtr dir)
+			public static int DirectoryOpen(TypedPtr<AFCCommConnection> conn, string path, ref IntPtr dir)
 			{
-				return AFCDirectoryOpen((IntPtr)conn, path, ref dir);
+				return AFCDirectoryOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), ref dir);
 			}
 
 			public static int DirectoryRead(TypedPtr<AFCCommConnection> conn, IntPtr dir, ref IntPtr dirent)
@@ -2309,7 +2293,7 @@ namespace Manzana
 			public static int FileInfoOpen(TypedPtr<AFCCommConnection> conn, string path, out TypedPtr<AFCDictionary> OutDict)
 			{
 				IntPtr UntypedDict;
-				int Result = AFCFileInfoOpen((IntPtr)conn, path, out UntypedDict);
+				int Result = AFCFileInfoOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), out UntypedDict);
 				OutDict = UntypedDict;
 
 				return Result;
@@ -2322,7 +2306,7 @@ namespace Manzana
 
 			public static int FileRefOpen(TypedPtr<AFCCommConnection> conn, string path, Int64 mode, out Int64 handle)
 			{
-				return AFCFileRefOpen((IntPtr)conn, path, mode, out handle);
+				return AFCFileRefOpen((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path), mode, out handle);
 			}
 
 			public static int FileRefRead(TypedPtr<AFCCommConnection> conn, Int64 handle, byte[] buffer, ref uint len)
@@ -2367,12 +2351,12 @@ namespace Manzana
 
 			public static int RemovePath(TypedPtr<AFCCommConnection> conn, string path)
 			{
-				return AFCRemovePath((IntPtr)conn, path);
+				return AFCRemovePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(path));
 			}
 
 			public static int RenamePath(TypedPtr<AFCCommConnection> conn, string OldPath, string NewPath)
 			{
-				return AFCRenamePath((IntPtr)conn, OldPath, NewPath);
+				return AFCRenamePath((IntPtr)conn, MobileDevice.StringToFileSystemRepresentation(OldPath), MobileDevice.StringToFileSystemRepresentation(NewPath));
 			}
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
@@ -2394,7 +2378,7 @@ namespace Manzana
 			private extern static int AFCDirectoryClose(IntPtr/*AFCCommConnection*/ conn, IntPtr dir);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCDirectoryCreate(IntPtr/*AFCCommConnection*/ conn, string path);
+			private extern static int AFCDirectoryCreate(IntPtr/*AFCCommConnection*/ conn, byte[] path);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCDirectoryOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, ref IntPtr dir);
@@ -2403,13 +2387,13 @@ namespace Manzana
 			private extern static int AFCDirectoryRead(IntPtr/*AFCCommConnection*/ conn, IntPtr dir, ref IntPtr dirent);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCFileInfoOpen(IntPtr/*AFCCommConnection*/ conn, string path, out IntPtr OutDict);
+			private extern static int AFCFileInfoOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, out IntPtr OutDict);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCFileRefClose(IntPtr/*AFCCommConnection*/ conn, Int64 handle);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCFileRefOpen(IntPtr/*AFCCommConnection*/ conn, string path, Int64 mode, out Int64 handle);
+			private extern static int AFCFileRefOpen(IntPtr/*AFCCommConnection*/ conn, byte[] path, Int64 mode, out Int64 handle);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AFCFileRefRead(IntPtr/*AFCCommConnection*/ conn, Int64 handle, byte[] buffer, ref uint len);
@@ -2438,10 +2422,10 @@ namespace Manzana
 
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCRemovePath(IntPtr/*AFCCommConnection*/ conn, string path);
+			private extern static int AFCRemovePath(IntPtr/*AFCCommConnection*/ conn, byte[] path);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
-			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, string old_path, string new_path);
+			private extern static int AFCRenamePath(IntPtr/*AFCCommConnection*/ conn, byte[] old_path, byte[] new_path);
 		}
 
 		#endregion

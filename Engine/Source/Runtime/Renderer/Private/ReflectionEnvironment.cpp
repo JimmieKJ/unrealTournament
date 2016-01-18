@@ -18,11 +18,14 @@
 #include "ShaderParameterUtils.h"
 #include "LightRendering.h"
 #include "SceneUtils.h"
+#include "LightPropagationVolumeBlendable.h"
 
 /** Tile size for the reflection environment compute shader, tweaked for 680 GTX. */
 const int32 GReflectionEnvironmentTileSizeX = 16;
 const int32 GReflectionEnvironmentTileSizeY = 16;
 extern ENGINE_API int32 GReflectionCaptureSize;
+
+extern TAutoConsoleVariable<int32> CVarLPVMixing;
 
 static TAutoConsoleVariable<int32> CVarDiffuseFromCaptures(
 	TEXT("r.DiffuseFromCaptures"),
@@ -34,28 +37,25 @@ static TAutoConsoleVariable<int32> CVarDiffuseFromCaptures(
 static TAutoConsoleVariable<int32> CVarReflectionEnvironment(
 	TEXT("r.ReflectionEnvironment"),
 	1,
-	TEXT("0:off, 1:on and blend with scene, 2:on and overwrite scene.\n")
-	TEXT("Whether to render the reflection environment feature, which implements local reflections through Reflection Capture actors."),
-	ECVF_RenderThreadSafe);
+	TEXT("Whether to render the reflection environment feature, which implements local reflections through Reflection Capture actors.\n")
+	TEXT(" 0: off\n")
+	TEXT(" 1: on and blend with scene (default)")
+	TEXT(" 2: on and overwrite scene (only in non-shipping builds)"),
+	ECVF_RenderThreadSafe | ECVF_Scalability);
 
-static TAutoConsoleVariable<int32> CVarHalfResReflections(
-	TEXT("r.HalfResReflections"),
-	0,
-	TEXT("Compute ReflectionEnvironment samples at half resolution.\n")
-	TEXT(" 0 is off (default), 1 is on"),
-	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarDoTiledReflections(
 	TEXT("r.DoTiledReflections"),
 	1,
 	TEXT("Compute Reflection Environment with Tiled compute shader..\n")
-	TEXT(" 1 is on (default), 1 is on"),
+	TEXT(" 0: off\n")
+	TEXT(" 1: on (default)"),
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<float> CVarSkySpecularOcclusionStrength(
 	TEXT("r.SkySpecularOcclusionStrength"),
 	1,
-	TEXT("Strength of skylight specular occlusion from DFAO"),
+	TEXT("Strength of skylight specular occlusion from DFAO (default is 1.0)"),
 	ECVF_RenderThreadSafe);
 
 // to avoid having direct access from many places
@@ -76,33 +76,42 @@ static int GetReflectionEnvironmentCVar()
 
 bool IsReflectionEnvironmentAvailable(ERHIFeatureLevel::Type InFeatureLevel)
 {
-	static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
-	const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnAnyThread() != 0);
+	return (InFeatureLevel >= ERHIFeatureLevel::SM4) && (GetReflectionEnvironmentCVar() != 0);
+}
 
-	return (InFeatureLevel >= ERHIFeatureLevel::SM4) && (GetReflectionEnvironmentCVar() != 0) && bAllowStaticLighting;
+bool IsReflectionCaptureAvailable()
+{
+	static IConsoleVariable* AllowStaticLightingVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AllowStaticLighting"));
+	return (!AllowStaticLightingVar || AllowStaticLightingVar->GetInt() != 0);
 }
 
 void FReflectionEnvironmentCubemapArray::InitDynamicRHI()
 {
 	if (GetFeatureLevel() >= ERHIFeatureLevel::SM5)
 	{
+
 		const int32 NumReflectionCaptureMips = FMath::CeilLogTwo(GReflectionCaptureSize) + 1;
 
 		ReleaseCubeArray();
 
 		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::CreateCubemapDesc(
 		GReflectionCaptureSize,
-		//@todo - get rid of the alpha channel (currently stores brightness which is a constant), could use PF_FloatRGB for half memory, would need to implement RHIReadSurface support
+		// Alpha stores sky mask
 		PF_FloatRGBA, 
+		FClearValueBinding::None,
 		TexCreate_None,
 		TexCreate_None,
 		false, 
 		// Cubemap array of 1 produces a regular cubemap, so guarantee it will be allocated as an array
 		FMath::Max<uint32>(MaxCubemaps, 2),
 		NumReflectionCaptureMips));
+
+		Desc.AutoWritable = false;
 	
+		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
 		// Allocate TextureCubeArray for the scene's reflection captures
-		GRenderTargetPool.FindFreeElement(Desc, ReflectionEnvs, TEXT("ReflectionEnvs"));
+		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, ReflectionEnvs, TEXT("ReflectionEnvs"));
 	}
 }
 
@@ -145,8 +154,8 @@ public:
 		MinSkySpecularOcclusion.Bind(ParameterMap, TEXT("MinSkySpecularOcclusion"));
 	}
 
-	template<typename ShaderRHIParamRef>
-	void SetParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef& ShaderRHI, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, float SkySpecularOcclusionStrength, float MinOcclusionValue)
+	template<typename ShaderRHIParamRef, typename TRHICmdList>
+	void SetParameters(TRHICmdList& RHICmdList, const ShaderRHIParamRef& ShaderRHI, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, float SkySpecularOcclusionStrength, float MinOcclusionValue)
 	{
 		FTextureRHIParamRef BentNormalAO = GWhiteTexture->TextureRHI;
 		bool bApplyBentNormalAO = false;
@@ -254,7 +263,7 @@ public:
 	{
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, FTextureRHIParamRef SSRTexture, TArray<FReflectionCaptureSortData>& SortData, FUnorderedAccessViewRHIParamRef OutSceneColorUAV, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO)
+	void SetParameters(FRHIAsyncComputeCommandListImmediate& RHICmdList, const FSceneView& View, FTextureRHIParamRef SSRTexture, TArray<FReflectionCaptureSortData>& SortData, FUnorderedAccessViewRHIParamRef OutSceneColorUAV, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO)
 	{
 		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 
@@ -278,7 +287,9 @@ public:
 
 		SetTextureParameter(RHICmdList, ShaderRHI, ScreenSpaceReflections, SSRTexture );
 
-		SetTextureParameter(RHICmdList, ShaderRHI, InSceneColor, GSceneRenderTargets.GetSceneColor()->GetRenderTargetItem().ShaderResourceTexture );
+		SetTextureParameter(RHICmdList, ShaderRHI, InSceneColor, FSceneRenderTargets::Get(RHICmdList).GetSceneColor()->GetRenderTargetItem().ShaderResourceTexture );
+
+		RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, OutSceneColorUAV);
 		OutSceneColor.SetTexture(RHICmdList, ShaderRHI, NULL, OutSceneColorUAV);
 
 		SetShaderValue(RHICmdList, ShaderRHI, ViewDimensionsParameter, View.ViewRect);
@@ -304,9 +315,9 @@ public:
 		SpecularOcclusionParameters.SetParameters(RHICmdList, ShaderRHI, DynamicBentNormalAO, CVarSkySpecularOcclusionStrength.GetValueOnRenderThread(), MinOcclusion);
 	}
 
-	void UnsetParameters(FRHICommandList& RHICmdList)
+	void UnsetParameters(FRHIAsyncComputeCommandListImmediate& RHICmdList, FUnorderedAccessViewRHIParamRef OutSceneColorUAV)
 	{
-		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
+		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();		
 		OutSceneColor.UnsetUAV(RHICmdList, ShaderRHI);
 	}
 
@@ -636,7 +647,8 @@ IMPLEMENT_SHADER_TYPE(template<>,TStandardDeferredReflectionPS<false>,TEXT("Refl
 
 void FDeferredShadingSceneRenderer::RenderReflectionCaptureSpecularBounceForAllViews(FRHICommandListImmediate& RHICmdList)
 {
-	GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+	SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 	RHICmdList.SetRasterizerState(TStaticRasterizerState< FM_Solid, CM_None >::GetRHI());
 	RHICmdList.SetDepthStencilState(TStaticDepthStencilState< false, CF_Always >::GetRHI());
 	RHICmdList.SetBlendState(TStaticBlendState< CW_RGB, BO_Add, BF_One, BF_One >::GetRHI());
@@ -665,12 +677,12 @@ void FDeferredShadingSceneRenderer::RenderReflectionCaptureSpecularBounceForAllV
 			0, 0,
 			View.ViewRect.Width(), View.ViewRect.Height(),
 			FIntPoint(View.ViewRect.Width(), View.ViewRect.Height()),
-			GSceneRenderTargets.GetBufferSizeXY(),
+			SceneContext.GetBufferSizeXY(),
 			*VertexShader,
 			EDRF_UseTriangleOptimization);
 	}
 
-	GSceneRenderTargets.FinishRenderingSceneColor(RHICmdList);
+	SceneContext.FinishRenderingSceneColor(RHICmdList);
 }
 
 bool FDeferredShadingSceneRenderer::ShouldDoReflectionEnvironment() const
@@ -833,18 +845,21 @@ FReflectionEnvironmentTiledDeferredCS* SelectReflectionEnvironmentTiledDeferredC
 
 void FDeferredShadingSceneRenderer::RenderTiledDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO)
 {
-	const bool bUseLightmaps = CVarDiffuseFromCaptures.GetValueOnRenderThread() == 0;
-	const uint32 bHalfRes = CVarHalfResReflections.GetValueOnRenderThread() != 0;
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+	static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
+	const bool bUseLightmaps = (AllowStaticLightingVar->GetValueOnRenderThread() == 1) && (CVarDiffuseFromCaptures.GetValueOnRenderThread() == 0);
 
 	TRefCountPtr<IPooledRenderTarget> NewSceneColor;
 	{
-		GSceneRenderTargets.ResolveSceneColor(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
+		SceneContext.ResolveSceneColor(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
 
-		FPooledRenderTargetDesc Desc = GSceneRenderTargets.GetSceneColor()->GetDesc();
+		FPooledRenderTargetDesc Desc = SceneContext.GetSceneColor()->GetDesc();
 		Desc.TargetableFlags |= TexCreate_UAV;
+		Desc.TargetableFlags |= TexCreate_NoFastClear;
+		Desc.ClearValue = FClearValueBinding::None;
 
 		// we don't create a new name to make it easier to use "vis SceneColor" and get the last HDRSceneColor
-		GRenderTargetPool.FindFreeElement( Desc, NewSceneColor, TEXT("SceneColor") );
+		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, NewSceneColor, TEXT("SceneColor") );
 	}
 
 	// If we are in SM5, use the compute shader gather method
@@ -862,18 +877,10 @@ void FDeferredShadingSceneRenderer::RenderTiledDeferredImageBasedReflections(FRH
 
 		// ReflectionEnv is assumed to be on when going into this method
 		{
-			// Render the reflection environment with tiled deferred culling
-			SCOPED_DRAW_EVENT(RHICmdList, ReflectionEnvironmentGather);
-
 			SetRenderTarget(RHICmdList, NULL, NULL);
 
 			FReflectionEnvironmentTiledDeferredCS* ComputeShader = NULL;
-			uint32 AdjustedReflectionTileSizeX = GReflectionEnvironmentTileSizeX;
-			if (bHalfRes)
-			{
-				AdjustedReflectionTileSizeX *= 2;
-			}
-			
+			// Render the reflection environment with tiled deferred culling
 			TArray<FReflectionCaptureSortData> SortData;
 			int32 NumBoxCaptures = 0;
 			int32 NumSphereCaptures = 0;
@@ -882,26 +889,66 @@ void FDeferredShadingSceneRenderer::RenderTiledDeferredImageBasedReflections(FRH
 			bool bHasBoxCaptures = (NumBoxCaptures > 0);
 			bool bHasSphereCaptures = (NumSphereCaptures > 0);
 			bool bNeedsClearCoat = (View.ShadingModelMaskInView & (1 << MSM_ClearCoat)) != 0;
-			ComputeShader = SelectReflectionEnvironmentTiledDeferredCS(View.ShaderMap, bUseLightmaps, bNeedsClearCoat, bHasBoxCaptures, bHasSphereCaptures);
 
-			RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
+			static const FName TiledReflBeginComputeName(TEXT("ReflectionEnvBeginComputeFence"));
+			static const FName TiledReflEndComputeName(TEXT("ReflectionEnvEndComputeFence"));
+			FComputeFenceRHIRef ReflectionBeginFence = RHICmdList.CreateComputeFence(TiledReflBeginComputeName);
+			FComputeFenceRHIRef ReflectionEndFence = RHICmdList.CreateComputeFence(TiledReflEndComputeName);
 
-			ComputeShader->SetParameters(RHICmdList, View, SSROutput->GetRenderTargetItem().ShaderResourceTexture, SortData, NewSceneColor->GetRenderTargetItem().UAV, DynamicBentNormalAO);
+			//Grab the async compute commandlist.
+			FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
 
-			uint32 GroupSizeX = (View.ViewRect.Size().X + AdjustedReflectionTileSizeX - 1) / AdjustedReflectionTileSizeX;
-			uint32 GroupSizeY = (View.ViewRect.Size().Y + GReflectionEnvironmentTileSizeY - 1) / GReflectionEnvironmentTileSizeY;
-			DispatchComputeShader(RHICmdList, ComputeShader, GroupSizeX, GroupSizeY, 1);
+			{
+				SCOPED_COMPUTE_EVENTF(RHICmdListComputeImmediate, ReflectionEnvironment, TEXT("ReflectionEnvironment ComputeShader %dx%d Tile:%dx%d Box:%d Sphere:%d ClearCoat:%d"),
+					View.ViewRect.Width(), View.ViewRect.Height(), GReflectionEnvironmentTileSizeX, GReflectionEnvironmentTileSizeY,
+					NumBoxCaptures, NumSphereCaptures, bNeedsClearCoat);
 
-			ComputeShader->UnsetParameters(RHICmdList);
+				ComputeShader = SelectReflectionEnvironmentTiledDeferredCS(View.ShaderMap, bUseLightmaps, bNeedsClearCoat, bHasBoxCaptures, bHasSphereCaptures);
+
+
+
+				//Really we should write this fence where we transition the final depedency for the reflections.  We may add an RHI command just for writing fences if this
+				//can't be done in the general case.  In the meantime, hack this command a bit to write the fence.
+				RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EGfxToCompute, nullptr, 0, ReflectionBeginFence);
+
+				//we must wait on the fence written from the Gfx pipe to let us know all our dependencies are ready.
+				RHICmdListComputeImmediate.WaitComputeFence(ReflectionBeginFence);
+
+				//standard compute setup, but on the async commandlist.
+				RHICmdListComputeImmediate.SetComputeShader(ComputeShader->GetComputeShader());
+
+				FUnorderedAccessViewRHIParamRef OutUAV = NewSceneColor->GetRenderTargetItem().UAV;
+				ComputeShader->SetParameters(RHICmdListComputeImmediate, View, SSROutput->GetRenderTargetItem().ShaderResourceTexture, SortData, OutUAV, DynamicBentNormalAO);
+
+				uint32 GroupSizeX = (View.ViewRect.Size().X + GReflectionEnvironmentTileSizeX - 1) / GReflectionEnvironmentTileSizeX;
+				uint32 GroupSizeY = (View.ViewRect.Size().Y + GReflectionEnvironmentTileSizeY - 1) / GReflectionEnvironmentTileSizeY;
+				DispatchComputeShader(RHICmdListComputeImmediate, ComputeShader, GroupSizeX, GroupSizeY, 1);
+
+				ComputeShader->UnsetParameters(RHICmdListComputeImmediate, OutUAV);
+
+				//transition the output to readable and write the fence to allow the Gfx pipe to carry on.
+				RHICmdListComputeImmediate.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, &OutUAV, 1, ReflectionEndFence);
+			}
+
+			//immediately dispatch our async compute commands to the RHI thread to be submitted to the GPU as soon as possible.
+			FRHIAsyncComputeCommandListImmediate::ImmediateDispatch(RHICmdListComputeImmediate);			
+			
+			//Gfx pipe must wait for the async compute reflection job to complete.
+			RHICmdList.WaitComputeFence(ReflectionEndFence);
 		}
 	}
 
-	GSceneRenderTargets.SetSceneColor(NewSceneColor);
-	check(GSceneRenderTargets.GetSceneColor());
+	SceneContext.SetSceneColor(NewSceneColor);
+	check(SceneContext.GetSceneColor());
 }
 
 void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, bool bReflectionEnv, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO)
 {
+	if(!ViewFamily.EngineShowFlags.Lighting)
+	{
+		return;
+	}
+
 	const bool bSkyLight = Scene->SkyLight
 		&& Scene->SkyLight->ProcessedTexture
 		&& ViewFamily.EngineShowFlags.SkyLighting;
@@ -956,15 +1003,29 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 
 		SortData.Sort();
 	}
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
 	// Use standard deferred shading to composite reflection capture contribution
 	for (int32 ViewIndex = 0, Num = Views.Num(); ViewIndex < Num; ViewIndex++)
 	{
 		FViewInfo& View = Views[ViewIndex];
+		FSceneViewState* ViewState = (FSceneViewState*)View.State;
 
-		// FIXME: UT workaround for rendering bug when reflection environments are off and map has a skylight
-		//bool bRequiresApply = bSkyLight;
-		bool bRequiresApply = false;
+		bool bLPV = false;
+		
+		if(ViewState && ViewState->GetLightPropagationVolume(View.GetFeatureLevel()))
+		{
+			const FLightPropagationVolumeSettings& LPVSettings = View.FinalPostProcessSettings.BlendableManager.GetSingleFinalDataConst<FLightPropagationVolumeSettings>();
+
+			bLPV = LPVSettings.LPVIntensity > 0.0f;
+		} 
+		
+		bool bAmbient = View.FinalPostProcessSettings.ContributingCubemaps.Num() > 0;
+		bool bMixing = bLPV && (CVarLPVMixing.GetValueOnRenderThread() != 0);
+		bool bEnvironmentMixing = bMixing && (bAmbient || bLPV);
+		bool bRequiresApply = bSkyLight
+			// If Reflection Environment is active and mixed with indirect lighting (Ambient + LPV), apply is required!
+			|| (View.Family->EngineShowFlags.ReflectionEnvironment && (bReflectionEnv || bEnvironmentMixing) );
 
 		const bool bSSR = DoScreenSpaceReflections(View);
 
@@ -976,23 +1037,33 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 			ScreenSpaceReflections(RHICmdList, View, SSROutput);
 		}
 
-		TRefCountPtr<IPooledRenderTarget> LightAccumulation;
+	    /* Light Accumulation moved to SceneRenderTargets */
+	    TRefCountPtr<IPooledRenderTarget> LightAccumulation = SceneContext.LightAccumulation;
+
+		if (!LightAccumulation)
+		{
+			// should never be used but during debugging it can happen
+			LightAccumulation = GSystemTextures.WhiteDummy;
+		}
 
 		if (bReflectionEnv)
 		{
 			bRequiresApply = true;
 
-			SCOPED_DRAW_EVENT(RHICmdList, StandardDeferredReflectionEnvironment);
+			SCOPED_DRAW_EVENTF(RHICmdList, ReflectionEnvironment, TEXT("ReflectionEnvironment PixelShader"));
 
 			{
-				FPooledRenderTargetDesc Desc = GSceneRenderTargets.GetSceneColor()->GetDesc();
-				// Make sure we get an alpha channel
-				Desc.Format = PF_FloatRGBA;
-				GRenderTargetPool.FindFreeElement(Desc, LightAccumulation, TEXT("LightAccumulation"));
+				// Clear to no reflection contribution, alpha of 1 indicates full background contribution
+				ESimpleRenderTargetMode SimpleRenderTargetMode = ESimpleRenderTargetMode::EExistingColorAndDepth;
+
+				// If Reflection Environment is mixed with indirect lighting (Ambient + LPV), skip clear!
+				if (!bMixing)
+				{
+					SimpleRenderTargetMode = ESimpleRenderTargetMode::EClearColorExistingDepth;
+				}
+				SetRenderTarget(RHICmdList, LightAccumulation->GetRenderTargetItem().TargetableTexture, NULL, SimpleRenderTargetMode);
 			}
 
-			// Clear to no reflection contribution, alpha of 1 indicates full background contribution
-			SetRenderTarget(RHICmdList, LightAccumulation->GetRenderTargetItem().TargetableTexture, NULL, ESimpleRenderTargetMode::EClearColorToBlackWithFullAlpha);
 
 			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 
@@ -1016,7 +1087,7 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 
 						static FGlobalBoundShaderState BoundShaderState;
 						
-						SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+						SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GetVertexDeclarationFVector4(), *VertexShader, *PixelShader);
 
 						PixelShader->SetParameters(RHICmdList, View, ReflectionCapture);
 					}
@@ -1026,7 +1097,7 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 
 						static FGlobalBoundShaderState BoundShaderState;
 						
-						SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+						SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GetVertexDeclarationFVector4(), *VertexShader, *PixelShader);
 
 						PixelShader->SetParameters(RHICmdList, View, ReflectionCapture);
 					}
@@ -1036,6 +1107,7 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 					StencilingGeometry::DrawSphere(RHICmdList);
 				}
 			}
+			RHICmdList.CopyToResolveTarget(LightAccumulation->GetRenderTargetItem().TargetableTexture, LightAccumulation->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
 
 			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, LightAccumulation);
 		}
@@ -1045,7 +1117,7 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 			// Apply reflections to screen
 			SCOPED_DRAW_EVENT(RHICmdList, ReflectionApply);
 
-			GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+			SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
 
 			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 			RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
@@ -1064,11 +1136,9 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 
 			TShaderMapRef< FPostProcessVS >		VertexShader(View.ShaderMap);
 
-			if (!LightAccumulation)
-			{
-				// should never be used but during debugging it can happen
-				LightAccumulation = GSystemTextures.WhiteDummy;
-			}
+			// Activate Reflection Environment if we choose to mix it with indirect lighting (Ambient + LPV)
+			// todo: refactor (we abuse another boolean to pass the data through)
+			bReflectionEnv = bReflectionEnv || bEnvironmentMixing;
 
 #define CASE(A,B,C) \
 			case ((A << 2) | (B << 1) | C) : \
@@ -1100,10 +1170,10 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 				View.ViewRect.Min.X, View.ViewRect.Min.Y,
 				View.ViewRect.Width(), View.ViewRect.Height(),
 				FIntPoint(View.ViewRect.Width(), View.ViewRect.Height()),
-				GSceneRenderTargets.GetBufferSizeXY(),
+				SceneContext.GetBufferSizeXY(),
 				*VertexShader);
 
-			GSceneRenderTargets.FinishRenderingSceneColor(RHICmdList);
+			SceneContext.FinishRenderingSceneColor(RHICmdList);
 		}
 	}
 }

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2284738
+﻿INTSourceChangelist:2687868
 Availability:NoPublish
 Title:UAnimMontage
 Crumbs:
@@ -12,3 +12,12 @@ AnimMontage, 애님 몽타주(혹은 그냥 줄여서 Montage, 몽타주)는 다
 Engine/Animation/AnimMontage
 [/VAR]
 [/EXCERPT:UAnimMontage]
+[EXCERPT:BlendIn]
+작업중 - 블렌드 인 옵션입니다. http://easings.net/#
+
+[/EXCERPT:BlendIn]
+
+[EXCERPT:BlendOut]
+작업중 - 블렌드 아웃 옵션입니다. http://easings.net/#
+
+[/EXCERPT:BlendOut]

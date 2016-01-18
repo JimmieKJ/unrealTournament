@@ -24,6 +24,6 @@ void FAssetTypeActions_Curve::GetResolvedSourceFilePaths(const TArray<UObject*>&
 	for (auto& Asset : TypeAssets)
 	{
 		const auto Curve = CastChecked<UCurveBase>(Asset);
-		OutSourceFilePaths.Add(FReimportManager::ResolveImportFilename(Curve->ImportPath, Curve));
+		Curve->AssetImportData->ExtractFilenames(OutSourceFilePaths);
 	}
 }

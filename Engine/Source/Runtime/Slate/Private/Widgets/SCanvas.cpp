@@ -4,16 +4,12 @@
 #include "LayoutUtils.h"
 
 
-/* SCanvas structors
- *****************************************************************************/
-
 SCanvas::SCanvas()
-	: Children()
-{ }
-
-
-/* SCanvas interface
- *****************************************************************************/
+: Children()
+{
+	bCanTick = false;
+	bCanSupportFocus = false;
+}
 
 void SCanvas::Construct( const SCanvas::FArguments& InArgs )
 {
@@ -24,12 +20,10 @@ void SCanvas::Construct( const SCanvas::FArguments& InArgs )
 	}
 }
 
-
 void SCanvas::ClearChildren( )
 {
 	Children.Empty();
 }
-
 
 int32 SCanvas::RemoveSlot( const TSharedRef<SWidget>& SlotWidget )
 {
@@ -44,10 +38,6 @@ int32 SCanvas::RemoveSlot( const TSharedRef<SWidget>& SlotWidget )
 
 	return -1;
 }
-
-
-/* SWidget overrides
- *****************************************************************************/
 
 void SCanvas::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
@@ -101,7 +91,6 @@ void SCanvas::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChi
 	}
 }
 
-
 int32 SCanvas::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 	FArrangedChildren ArrangedChildren(EVisibility::Visible);
@@ -127,13 +116,11 @@ int32 SCanvas::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	return MaxLayerId;
 }
 
-
 FVector2D SCanvas::ComputeDesiredSize( float ) const
 {
 	// Canvas widgets have no desired size -- their size is always determined by their container
 	return FVector2D::ZeroVector;
 }
-
 
 FChildren* SCanvas::GetChildren()
 {

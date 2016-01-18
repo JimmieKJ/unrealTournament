@@ -3,6 +3,7 @@
 #pragma once
 #include "TimerManager.h"
 #include "AI/RVOAvoidanceInterface.h"
+#include "NavEdgeProviderInterface.h"
 #include "AvoidanceManager.generated.h"
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Avoidance Time"),STAT_AI_ObstacleAvoidance,STATGROUP_AI, );
@@ -27,7 +28,7 @@ struct FNavAvoidanceData
 	float Radius;
 
 	/** Height (object is treated as a cylinder) */
-	float Height;
+	float HalfHeight;
 
 	/** Weight for RVO (set by user) */
 	float Weight;
@@ -51,7 +52,7 @@ struct FNavAvoidanceData
 	FNavAvoidanceData(UAvoidanceManager* Manager, IRVOAvoidanceInterface* AvoidanceComp);
 
 	/** Init function for internal use to guard against data changes not being reflected in blueprint-accessible creation functions */
-	void Init(UAvoidanceManager* Avoidance, const FVector& InCenter, float InRadius, float InHeight,
+	void Init(UAvoidanceManager* Avoidance, const FVector& InCenter, float InRadius, float InHalfHeight,
 		const FVector& InVelocity, float InWeight = 0.5f,
 		int32 InGroupMask = 1, int32 InGroupsToAvoid = 0xffffffff, int32 InGroupsToIgnore = 0,
 		float InTestRadius2D = 500.0f);
@@ -97,9 +98,13 @@ class ENGINE_API UAvoidanceManager : public UObject, public FSelfRegisteringExec
 	UPROPERTY(EditAnywhere, Category="Avoidance", config, meta=(ClampMin = "0.0"))
 	float ArtificialRadiusExpansion;
 
-	/** Test against obstacles within given height difference from moving agent */
+	/** Deprecated - use HeightCheckMargin, generally a much smaller value. */
+	UPROPERTY()
+	float TestHeightDifference_DEPRECATED;
+
+	/** Allowable height margin between obstacles and agents. This is over and above the difference in agent heights. */
 	UPROPERTY(EditAnywhere, Category="Avoidance", config, meta=(ClampMin = "0.0"))
-	float TestHeightDifference;
+	float HeightCheckMargin;
 
 	/** Get the number of avoidance objects currently in the manager. */
 	UFUNCTION(BlueprintCallable, Category="AI")
@@ -149,10 +154,12 @@ class ENGINE_API UAvoidanceManager : public UObject, public FSelfRegisteringExec
 	void HandleToggleDebugAll( const TCHAR* Cmd, FOutputDevice& Ar );
 	void HandleToggleAvoidance( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif
-	
-	// Begin FExec Interface
+
+	//~ Begin FExec Interface
 	virtual bool Exec(UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& Ar) override;
-	// End FExec Interface
+	//~ End FExec Interface
+
+	void SetNavEdgeProvider(INavEdgeProviderInterface* InEdgeProvider);
 
 private:
 
@@ -179,6 +186,10 @@ private:
 
 	/** Keeping this here to avoid constant allocation */
 	TArray<FVelocityAvoidanceCone> AllCones;
+
+	/** Provider of navigation edges to consider for avoidance */
+	TWeakObjectPtr<UObject> EdgeProviderOb;
+	INavEdgeProviderInterface* EdgeProviderInterface;
 
 	/** set when RemoveOutdatedObjects timer is already requested */
 	uint32 bRequestedUpdateTimer : 1;

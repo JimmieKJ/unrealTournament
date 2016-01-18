@@ -23,8 +23,8 @@ public:
 	 */
 	static void Register()
 	{
-		// Example
-		//AddUnitTestEnvironment(TEXT("UE4"), new FUnitTestEnvironment());
+		// A special unit test environment, for unit tests which support all games
+		AddUnitTestEnvironment(TEXT("NullUnitEnv"), new FUnitTestEnvironment());
 	}
 
 	/**
@@ -73,17 +73,20 @@ public:
 	/**
 	 * Returns the default parameters for launched servers
 	 *
-	 * @return	Returns the default parameters
+	 * @param InLogCmds		Used to pass in -LogCmds= entries, which need special parsing (don't specify the -LogCmds= part)
+	 * @param InExecCmds	Used to pass in -ExecCmds= entries, which need special parsing (don't specify the -ExecCmds= part)
+	 * @return				Returns the default parameters
 	 */
-	FString GetDefaultServerParameters();
+	FString GetDefaultServerParameters(FString InLogCmds=TEXT(""), FString InExecCmds=TEXT(""));
 
 	/**
-	 * Sets up the default server parameters, specifying commandline and '-LogCmds=x' separately (combined within parent function above)
+	 * Sets up the default server parameters, specifying commandline and '-*Cmds=x' separately (combined within parent function above)
 	 *
 	 * @param OutCommandline	Passes in the current state of the commandline, for modification
 	 * @param OutLogCmds		Passes in the current LogCmds list, for modification
+	 * @param OutExecCmds		Passes in the current ExecCmds list, for modification
 	 */
-	virtual void SetupDefaultServerParameters(FString& OutCommandline, FString& OutLogCmds)
+	virtual void SetupDefaultServerParameters(FString& OutCommandline, FString& OutLogCmds, FString& OutExecCmds)
 	{
 	}
 
@@ -111,7 +114,7 @@ public:
 	virtual FString GetDefaultClientConnectURL();
 
 	/**
-	 * Returns server log message, for the current game, that indicate progress in starting up
+	 * Returns server log messages, for the current game, that indicate progress in starting up
 	 *
 	 * @param OutStartProgressLogs	Outputs partial server log messages that indicate progress starting up
 	 * @param OutReadyLogs			Outputs partial server log messages that indicate startup is complete
@@ -121,7 +124,7 @@ public:
 										const TArray<FString>*& OutTimeoutResetLogs);
 
 	/**
-	 * Called when initializing the static arrays, containing the progress logs
+	 * Called when initializing the static arrays, containing the server progress logs
 	 *
 	 * @param StartProgressLogs		The static array containing logs indicating progress starting up
 	 * @param ReadyLogs				The static array containing logs indicating startup is complete
@@ -129,6 +132,41 @@ public:
 	 */
 	virtual void InitializeServerProgressLogs(TArray<FString>& StartProgressLogs, TArray<FString>& ReadyLogs,
 												TArray<FString>& TimeoutResetLogs)
+	{
+	}
+
+
+	/**
+	 * Returns client log messages, for the current game, that indicate progress logs for resetting unit test timeout
+	 *
+	 * @param OutTimeoutResetLogs	Outputs partial client log messages that indicate resetting unit-test/connection timeout is required
+	 */
+	void GetClientProgressLogs(const TArray<FString>*& OutTimeoutResetLogs);
+
+	/**
+	 * Called when initializing the static arrays, containing the client progress logs
+	 *
+	 * @param TimeoutResetLogs		The static array containing logs indicating resetting of unit-test/connection timeout is required
+	 */
+	virtual void InitializeClientProgressLogs(TArray<FString>& TimeoutResetLogs)
+	{
+	}
+
+
+	/**
+	 * Returns child process names, that indicate progress blockers in starting up (e.g. shader compiler)
+	 * All child processes, including server/client child processes (and their children) are checked.
+	 *
+	 * @param OutBlockingProcesses	Outputs process names, for processes which indicate a blocking task, which is blocking progression
+	 */
+	void GetProgressBlockingProcesses(const TArray<FString>*& OutBlockingProcesses);
+
+	/**
+	 * Called when initializing the static arrays, containing the progress blocking processes
+	 *
+	 * @param BlockingProcesses		The static array containing processes indicating a blocking task
+	 */
+	virtual void InitializeProgressBlockingProcesses(TArray<FString>& BlockingProcesses)
 	{
 	}
 

@@ -50,6 +50,7 @@
 #include "Distributions/DistributionVectorUniform.h"
 #include "Distributions/DistributionVectorUniformCurve.h"
 #include "UnrealEngine.h"
+#include "IMenu.h"
 
 static const FName Cascade_PreviewViewportTab("Cascade_PreviewViewport");
 static const FName Cascade_EmmitterCanvasTab("Cascade_EmitterCanvas");
@@ -1330,7 +1331,7 @@ void FCascade::CopyModuleToEmitter(UParticleModule* pkSourceModule, UParticleEmi
 		return;
 	}
 
-	UObject* DupObject = StaticDuplicateObject(pkSourceModule, pkTargetSystem, TEXT("None"));
+	UObject* DupObject = StaticDuplicateObject(pkSourceModule, pkTargetSystem);
 	if (DupObject)
 	{
 		UParticleModule* Module	= Cast<UParticleModule>(DupObject);
@@ -1351,7 +1352,7 @@ void FCascade::CopyModuleToEmitter(UParticleModule* pkSourceModule, UParticleEmi
 				UParticleModule* CopySource = DraggedModules[LODIndex];
 				if (CopySource)
 				{
-					DupObject = StaticDuplicateObject(CopySource, pkTargetSystem, TEXT("None"));
+					DupObject = StaticDuplicateObject(CopySource, pkTargetSystem);
 					if (DupObject)
 					{
 						UParticleModule* NewModule	= Cast<UParticleModule>(DupObject);
@@ -2133,6 +2134,12 @@ void FCascade::BindCommands()
 		FIsActionChecked::CreateSP(this, &FCascade::IsViewParticleMemoryChecked));
 
 	ToolkitCommands->MapAction(
+		Commands.View_SystemCompleted,
+		FExecuteAction::CreateSP(this, &FCascade::OnViewSystemCompleted),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FCascade::IsViewSystemCompletedChecked));
+
+	ToolkitCommands->MapAction(
 		Commands.ToggleGeometry,
 		FExecuteAction::CreateSP(this, &FCascade::OnViewGeometry),
 		FCanExecuteAction(),
@@ -2727,7 +2734,7 @@ bool FCascade::DuplicateEmitter(UParticleEmitter* SourceEmitter, UParticleSystem
 				}
 				else
 				{
-					DupObject = StaticDuplicateObject(SourceLODLevel->RequiredModule, DestSystem, TEXT("None"));
+					DupObject = StaticDuplicateObject(SourceLODLevel->RequiredModule, DestSystem);
 					check(DupObject);
 					NewLODLevel->RequiredModule						= Cast<UParticleModuleRequired>(DupObject);
 					NewLODLevel->RequiredModule->ModuleEditorColor	= FColor::MakeRandomColor();
@@ -2749,7 +2756,7 @@ bool FCascade::DuplicateEmitter(UParticleEmitter* SourceEmitter, UParticleSystem
 				}
 				else
 				{
-					DupObject = StaticDuplicateObject(SourceLODLevel->SpawnModule, DestSystem, TEXT("None"));
+					DupObject = StaticDuplicateObject(SourceLODLevel->SpawnModule, DestSystem);
 					check(DupObject);
 					NewLODLevel->SpawnModule					= Cast<UParticleModuleSpawn>(DupObject);
 					NewLODLevel->SpawnModule->ModuleEditorColor	= FColor::MakeRandomColor();
@@ -2775,7 +2782,7 @@ bool FCascade::DuplicateEmitter(UParticleEmitter* SourceEmitter, UParticleSystem
 					}
 					else
 					{
-						DupObject = StaticDuplicateObject(SourceModule, DestSystem, TEXT("None"));
+						DupObject = StaticDuplicateObject(SourceModule, DestSystem);
 						if (DupObject)
 						{
 							UParticleModule* Module				= Cast<UParticleModule>(DupObject);
@@ -2802,7 +2809,7 @@ bool FCascade::DuplicateEmitter(UParticleEmitter* SourceEmitter, UParticleSystem
 					}
 					else
 					{
-						DupObject = StaticDuplicateObject(SourceLODLevel->TypeDataModule, DestSystem, TEXT("None"));
+						DupObject = StaticDuplicateObject(SourceLODLevel->TypeDataModule, DestSystem);
 						if (DupObject)
 						{
 							UParticleModule* Module		= Cast<UParticleModule>(DupObject);
@@ -3148,6 +3155,9 @@ void FCascade::ExportSelectedEmitter()
 					DestPartSys->LODSettings[DistIndex] = FParticleSystemLOD::CreateParticleSystemLOD();
 				}
 			}
+
+			ParticleSystem->SetupSoloing();		// we may have changed the number of LODs, so our soloing information could be invalid
+
 
 			if (!DuplicateEmitter(SelectedEmitter, DestPartSys, false))
 			{
@@ -3577,6 +3587,16 @@ bool FCascade::IsViewParticleMemoryChecked() const
 	return IsDrawOptionEnabled(FCascadeEdPreviewViewportClient::ParticleMemory);
 }
 
+void FCascade::OnViewSystemCompleted()
+{
+	ToggleDrawOption(FCascadeEdPreviewViewportClient::ParticleSystemCompleted);
+}
+
+bool FCascade::IsViewSystemCompletedChecked() const
+{
+	return IsDrawOptionEnabled(FCascadeEdPreviewViewportClient::ParticleSystemCompleted);
+}
+
 void FCascade::OnViewGeometry()
 {
 	if ((PreviewViewport.IsValid() && PreviewViewport->GetViewportClient().IsValid()) &&
@@ -3711,8 +3731,9 @@ void FCascade::OnSetMotionRadius()
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		PreviewViewport.ToSharedRef(),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -3815,7 +3836,7 @@ void FCascade::OnToggleGrid()
 		EditorOptions->SaveConfig();
 		DrawHelper.bDrawGrid = bShowGrid;
 
-		PreviewViewport->GetViewportClient()->EngineShowFlags.Grid = bShowGrid;
+		PreviewViewport->GetViewportClient()->EngineShowFlags.SetGrid(bShowGrid);
 		PreviewViewport->RefreshViewport();
 	}
 }
@@ -3932,8 +3953,9 @@ void FCascade::OnToggleWireframeSphere()
 			.SelectAllTextWhenFocused(true)
 			.ClearKeyboardFocusOnCommit(false);
 
-		EntryPopupWindow = FSlateApplication::Get().PushMenu(
+		EntryMenu = FSlateApplication::Get().PushMenu(
 			PreviewViewport.ToSharedRef(),
+			FWidgetPath(),
 			TextEntry,
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -4665,7 +4687,7 @@ bool FCascade::ConvertModuleToSeeded(UParticleSystem* ParticleSystem, UParticleE
 		UParticleModule* NewModule = ConvertModule;
 		if ((LODIdx == 0) || ((ConvertModule->LODValidity & (1 << (LODIdx - 1))) == 0))
 		{
-			NewModule = CastChecked<UParticleModule>(StaticDuplicateObject(ConvertModule, ParticleSystem, TEXT("None"), RF_AllFlags, InSeededClass));
+			NewModule = CastChecked<UParticleModule>(StaticDuplicateObject(ConvertModule, ParticleSystem, NAME_None, RF_AllFlags, InSeededClass));
 
 			// Since we used the non-randomseed module to create, this flag won't be set during construction...
 			NewModule->bSupportsRandomSeed = true;
@@ -4823,8 +4845,9 @@ void FCascade::OnRenameEmitter()
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		EmitterCanvas.ToSharedRef(),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -5043,9 +5066,9 @@ void FCascade::OnRemoveDuplicateModules()
 
 void FCascade::CloseEntryPopup()
 {
-	if( EntryPopupWindow.IsValid() )
+	if (EntryMenu.IsValid())
 	{
-		EntryPopupWindow.Pin()->RequestDestroyWindow();
+		EntryMenu.Pin()->Dismiss();
 	}
 }
 

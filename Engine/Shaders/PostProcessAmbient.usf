@@ -11,6 +11,7 @@
 #include "Random.usf"
 #include "BRDF.usf"
 #include "MonteCarlo.usf"
+#include "ShadingModels.usf"
 
 #define IMPORTANCE_SAMPLE		0
 
@@ -90,153 +91,6 @@ float3 SpecularIBL( uint2 Random, float3 SpecularColor, float Roughness, float3 
 	return SpecularLighting / NumSamples;
 }
 
-float3 StandardShading( FGBufferData GBuffer, float Roughness, float3 L, float3 V, half3 N )
-{
-	float3 H = normalize(V + L);
-	float NoL = saturate( dot(N, L) );
-	float NoV = saturate( dot(N, V) );
-	float NoH = saturate( dot(N, H) );
-	float VoH = saturate( dot(V, H) );
-	
-	// Generalized microfacet specular
-	float D = D_GGX( Roughness, NoH );
-	float Vis = Vis_SmithJointApprox( Roughness, NoV, NoL );
-	float3 F = F_Schlick( GBuffer.SpecularColor, VoH );
-
-	float3 Diffuse = Diffuse_Burley( GBuffer.DiffuseColor, Roughness, NoV, NoL, VoH );
-
-	return Diffuse + (D * Vis) * F;
-}
-
-float3 ClearCoatShading( FGBufferData GBuffer, float Roughness, float3 L, float3 V, half3 N )
-{
-	const float ClearCoat			= GBuffer.CustomData.x;
-	const float ClearCoatRoughness	= GBuffer.CustomData.y;
-	const float Film = 1 * ClearCoat;
-	const float MetalSpec = 0.9;
-
-#if 0
-	float3 H = normalize(V + L);
-	float NoL = saturate( dot(N, L) );
-	float NoV = saturate( dot(N, V) );
-	float NoH = saturate( dot(N, H) );
-	float VoH = saturate( dot(V, H) );
-	
-	// Generalized microfacet specular
-	float D = D_GGX( ClearCoatRoughness, NoH );
-	float Vis = Vis_Kelemen( VoH );
-	
-	// F_Schlick
-	float F0 = 0.04;
-	float Fc = pow( 1 - VoH, 5 );
-	float F = Fc + (1 - Fc) * F0;
-	F *= ClearCoat;
-
-	float Fr1 = D * Vis * F;
-
-	float LayerAttenuation = (1 - F);
-
-	// Generalized microfacet specular
-	float D2 = D_GGX( Roughness, NoH );
-	float Vis2 = Vis_Schlick( Roughness, NoV, NoL );
-	float3 F2 = saturate( 50.0 * GBuffer.SpecularColor.g ) * Fc + (1 - Fc) * GBuffer.SpecularColor;
-
-	float3 Fr2 = Diffuse_Lambert( GBuffer.DiffuseColor ) + (D2 * Vis2) * F2;
-	
-	return Fr1 + Fr2 * LayerAttenuation;
-#else
-	float3 H = normalize(V + L);
-	float NoL = saturate( dot(N, L) );
-	float NoV = saturate( dot(N, V) );
-	float NoH = saturate( dot(N, H) );
-	float VoH = saturate( dot(V, H) );
-	
-	// Hard coded IOR of 1.5
-
-	// Generalized microfacet specular
-	float D = D_GGX( ClearCoatRoughness, NoH );
-	float Vis = Vis_Kelemen( VoH );
-	
-	// F_Schlick
-	float F0 = 0.04;
-	float Fc = pow( 1 - VoH, 5 );
-	float F = Fc + (1 - Fc) * F0;
-
-	float Fr1 = D * Vis * F;
-
-#if 1
-	// Refract rays
-	float3 L2 = refract( -L, -H, 1 / 1.5 );
-	float3 V2 = refract( -V, -H, 1 / 1.5 );
-
-	// LoH == VoH
-	float RefractBlend = sqrt( 4 * VoH*VoH + 5 ) / 3 + 2.0 / 3 * VoH;
-	//float3 L2 = RefractBlend * H - L / 1.5;
-	//float3 V2 = RefractBlend * H - V / 1.5;
-
-	float3 H2 = normalize( V2 + L2 );
-	float NoL2 = saturate( dot(N, L2) );
-	float NoV2 = saturate( dot(N, V2) );
-	float NoH2 = saturate( dot(N, H2) );
-	float VoH2 = saturate( dot(V2, H2) );
-#else
-	// Approximation
-	float RefractBlend = (0.22 * VoH + 0.7) * VoH + 0.745;	// 2 mad
-	// Dot products distribute. No need for L2 and V2.
-	float RefractNoH = RefractBlend * NoH;					// 1 mul
-	float NoL2 = saturate( RefractNoH - (1 / 1.5) * NoL );	// 1 mad
-	float NoV2 = saturate( RefractNoH - (1 / 1.5) * NoV );	// 1 mad
-	// Should refract H too but unimportant
-#endif
-
-	NoL2 = max( 0.001, NoL2 );
-	NoV2 = max( 0.001, NoV2 );
-
-	float3 AbsorptionColor = (1 - Film) + GBuffer.BaseColor * ( Film * (1 / MetalSpec) );
-	float  AbsorptionDist = rcp(NoV2) + rcp(NoL2);
-	float3 Absorption = pow( AbsorptionColor, 0.5 * AbsorptionDist );
-
-	// Approximation
-	//float  AbsorptionDist = ( NoV2 + NoL2 ) / ( NoV2 * NoL2 );
-	//float3 Absorption = AbsorptionColor * ( AbsorptionColor * (AbsorptionDist * 0.5 - 1) + (2 - 0.5 * AbsorptionDist) );
-	//float3 Absorption = AbsorptionColor + AbsorptionColor * (AbsorptionColor - 1) * (AbsorptionDist * 0.5 - 1);	// use for shared version
-	
-#if 1
-	float F21 = F_Schlick( 0.04, saturate( dot(V2, H) ) );
-
-	float k = Square( Roughness ) * 0.5;
-	float G_SchlickV2 = NoV2 / ( NoV2 * (1 - k) + k );
-	float G_SchlickL2 = NoL2 / ( NoL2 * (1 - k) + k );
-	float TotalInternalReflection = 1 - F21 * G_SchlickV2 * G_SchlickL2;
-	float3 LayerAttenuation = ( (1 - F) * TotalInternalReflection ) * Absorption;
-#else
-	// Approximation
-	float3 LayerAttenuation = (1 - F) * Absorption;
-#endif
-
-	// Approximation for IOR == 1.5
-	//SpecularColor = ChangeBaseMedium( SpecularColor, 1.5 );
-	//SpecularColor = saturate( ( 0.55 * SpecularColor + (0.45 * 1.08) ) * SpecularColor - (0.45 * 0.08) );
-	// Treat SpecularColor as relative to IOR. Artist compensates.
-	
-	// Generalized microfacet specular
-#if 1
-	float D2 = D_GGX( Roughness, NoH2 );
-	float Vis2 = Vis_Schlick( Roughness, NoV2, NoL2 );
-	float3 F2 = F_Schlick( MetalSpec, VoH2 );
-#else
-	// Approximation
-	float D2 = D_GGX( Roughness, NoH );
-	float Vis2 = Vis_Schlick( Roughness, NoV2, NoL2 );
-	float3 F2 = F_Schlick( GBuffer.SpecularColor, VoH );
-#endif
-
-	float3 Fr2 = Diffuse_Lambert( GBuffer.DiffuseColor ) + (D2 * Vis2) * F2;
-	
-	return Fr1 + Fr2 * LayerAttenuation;
-#endif
-}
-
 
 float3 ImageBasedLightingMIS( FGBufferData GBuffer, float3 V, float3 N, uint2 Random )
 {
@@ -304,12 +158,28 @@ float3 ImageBasedLightingMIS( FGBufferData GBuffer, float3 V, float3 N, uint2 Ra
 #if USE_CLEARCOAT
 				BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 				{
-					Shading = ClearCoatShading( GBuffer, GBuffer.Roughness, L, V, N );
+					Shading = ClearCoatShading( GBuffer, GBuffer.Roughness, 1, L, V, N );
 				}
 				else
 #endif
+//#if USE_CLOTH
+				BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLOTH )
 				{
-					Shading = StandardShading( GBuffer, GBuffer.Roughness, L, V, N );
+					Shading = ClothShading( GBuffer, GBuffer.Roughness, 1, L, V, N );
+				}
+				else
+//#endif
+//#if USE_EYE
+				BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_EYE )
+				{
+					Shading  = EyeShading( GBuffer, GBuffer.Roughness, 1, L, V, N ) * NoL;
+					Shading += EyeSubsurfaceShading( GBuffer, L, V, N );
+					NoL = 1;
+				}
+				else
+//#endif
+				{
+					Shading = StandardShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1 );
 				}
 			
 				Lighting += SampleColor * Shading * ( NoL * Weight );
@@ -443,7 +313,38 @@ float3 ApproximateSpecularIBL( uint2 Random, float3 SpecularColor, float Roughne
 	return PrefilteredColor * ( SpecularColor * AB.x + AB.y );
 }
 
-void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+
+float3 ImageBasedLightingHair( FGBufferData GBuffer, float3 V, float3 N, uint2 Random )
+{
+	float3 Lighting = 0;
+
+	uint NumSamples = 32;
+	
+	LOOP
+	for( uint i = 0; i < NumSamples; i++ )
+	{
+		float2 E = Hammersley( i, NumSamples, Random );
+		float3 L = UniformSampleSphere( E ).xyz;
+		
+		{
+			float3 SampleColor = AmbientCubemap.SampleLevel( AmbientCubemapSampler, L, 0 ).rgb;
+
+			float PDF = 1.0 / (4 * PI);
+
+			float InvWeight = PDF * NumSamples;
+			float Weight = rcp( InvWeight );
+
+			float3 Shading = 0;
+			Shading = HairShading( GBuffer, L, V, N, 1, 0, 0, Random );
+			
+			Lighting += SampleColor * Shading * Weight;
+		}
+	}
+
+	return Lighting;
+}
+
+void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 
@@ -453,7 +354,7 @@ void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targe
 
 	// screen position in [-1, 1] screen space
 	float2 ScreenSpacePos = UVAndScreenPos.zw;
-	int2 PixelPos = int2(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
+	int2 PixelPos = (int2)SvPosition.xy;
 
 	float3 ScreenVector = normalize(mul(float4(ScreenSpacePos, 1, 0), View.ScreenToWorld).xyz);
 
@@ -461,7 +362,8 @@ void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targe
 	float3 V = -ScreenVector;
 	float3 R = 2 * dot( V, N ) * N - V;
 
-	float NoV = abs( dot(N, V) ) + 1e-5;
+	//float NoV = max( dot(N, V), 1e-5 );
+	float NoV = saturate( dot(N, V) );
 
 	// Point lobe in off-specular peak direction
 	float a = Square( GBuffer.Roughness );
@@ -474,19 +376,8 @@ void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targe
 	float3 NonSpecularContribution = 0;
 	float3 SpecularContribution = 0;
 
-#if 1
-	float3 RetroReflectionDir = lerp( N, V, saturate( ( NoV * (1.02341 * a - 1.51174) + -0.511705 * a + 0.755868 ) * a ) );
-	float3 DiffuseLookup =  TextureCubeSampleLevel(AmbientCubemap, AmbientCubemapSampler, RetroReflectionDir, AbsoluteDiffuseMip).rgb;
-
-	float3 ABC = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rgb;
-	//float3 ABC = IntegrateBRDF( Random, GBuffer.Roughness, NoV );
-	
-	NonSpecularContribution += GBuffer.DiffuseColor * DiffuseLookup * ABC.z;
-	//NonSpecularContribution += DiffuseIBL( Random, GBuffer.DiffuseColor, GBuffer.Roughness, N, V );// * ABC.z;
-#else
 	float3 DiffuseLookup =  TextureCubeSampleLevel(AmbientCubemap, AmbientCubemapSampler, N, AbsoluteDiffuseMip).rgb;
 	NonSpecularContribution += GBuffer.DiffuseColor * DiffuseLookup;
-#endif
 
 	// Diffuse
 	{
@@ -536,15 +427,32 @@ void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targe
 		SpecularContribution += SampleColor * F;
 	}
 #endif
+	
+	BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
+	{
+		float3 FakeNormal = normalize( V - N * dot(V,N) );
+		FakeNormal = normalize( FakeNormal + 0 * float3(0,0,1) );
+		SpecularContribution = TextureCubeSampleLevel(AmbientCubemap, AmbientCubemapSampler, FakeNormal, AbsoluteDiffuseMip).rgb;
+		SpecularContribution *= PI * HairShading( GBuffer, FakeNormal, V, N, 1, 0, 0.2, Random );
+		NonSpecularContribution = 0;
+	}
 
 #if IMPORTANCE_SAMPLE
-	if( GBuffer.ShadingModelID > 0 )
+	if( GBuffer.ShadingModelID > 0 && UV.x > 0.5 )
 	{
 		NonSpecularContribution = 0;
-		SpecularContribution = ImageBasedLightingMIS( GBuffer, -ScreenVector, GBuffer.WorldNormal, Random );
+
+		BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
+		{
+			SpecularContribution = ImageBasedLightingHair( GBuffer, -ScreenVector, GBuffer.WorldNormal, Random );
+		}
+		else
+		{
+			SpecularContribution = ImageBasedLightingMIS( GBuffer, -ScreenVector, GBuffer.WorldNormal, Random );
+		}
 	}
 #endif
-	
+
 	// apply darkening from ambient occlusion (does not use PostprocessInput1 to set white texture if SSAO is off)
 	float AmbientOcclusion = GBuffer.GBufferAO * ScreenSpaceData.AmbientOcclusion;
 

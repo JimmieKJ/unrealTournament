@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2290023
+﻿INTSourceChangelist:2591123
 Availability:NoPublish
 Title:マテリアル エディタの Welcome Tutorial
 Crumbs:
@@ -22,7 +22,7 @@ Description:
 グラフ
 [/VAR]
 
-各マテリアルはグラフで表されます。グラフには、シェーダーを定義するためにワイヤーに接続されたノードが配置されます。マテリアル エディタ中央のグリッド入りの広い領域は、[Graph] パネルです。
+各マテリアルはグラフで表されます。グラフには、シェーダーを定義するためにワイヤーに接続されたノードが配置されます。マテリアル エディタ中央のグリッドの広い領域は、[Graph]（グラフ） パネルです。
 
 ![](graphPanel.png)
 
@@ -40,7 +40,7 @@ Description:
 
 ![](baseMaterialNode.png)
 
-ベース マテリアル ノードを選択すると、[Details] パネルが更新され、すべての一般的なマテリアル プロパティが表示されます。ここから、マテリアルに対して透過処理、テッセレーション (細分化処理)、Two Sided など数多くのオプションを設定することができます。
+ベース マテリアル ノードを選択すると、[Details]（詳細）パネルが更新され、すべての一般的なマテリアル プロパティが表示されます。ここから、マテリアルに対して透過処理、テッセレーション (細分化処理)、Two Sided など数多くのオプションを設定することができます。
 
 [/EXCERPT:MaterialNode]
 
@@ -52,7 +52,7 @@ Description:
 ノードの作成
 [/VAR]
 
-マテリアル エディタでノードを作成するにはいくつかの方法があります。[Palette] パネルからノードをクリックしてグラフ ビューにドラッグすることができます。
+マテリアル エディタでノードを作成するにはいくつかの方法があります。[Palette]（パレット） パネルからノードをクリックしてグラフ ビューにドラッグすることができます。
 
 ![](ClicknDrag.png)
 
@@ -63,7 +63,7 @@ Description:
 
 ![](createDrag.png)
 
-[See the Material Editor Interface Documentation for more information.](DOCLINK:Engine/Rendering/Materials/Editor/Interface)
+[詳しい情報については、マテリアル エディタ インターフェースのドキュメントをご覧ください](DOCLINK:Engine/Rendering/Materials/Editor/Interface)
 
 [/EXCERPT:Stage2]
 
@@ -100,7 +100,7 @@ A, D, または M :Add、Divide、または Multiply のノードを作成
 
 ![](HotkeyNodes.png)
 
-上記以外のホットキーは、[Palette] パネルにあります。または、独自のホットキーを以下で設定することができます。Edit Menu -> Editor Preferences -> Keyboard Shortcuts -> Material Editor - Spawn Nodesこのカテゴリを表示するには、必ずマテリアル エディタが開いている必要があります。
+上記以外のホットキーは、[Palette] パネルにあります。または、独自のホットキーを以下で設定することができます。Edit Menu -> Editor Preferences -> Keyboard Shortcuts -> Material Editor - Spawn Nodes (編集メニュー -> エディタの環境設定 -> キーボードのショートカット -> スポーン ノード) このカテゴリを表示するには、必ずマテリアル エディタが開いている必要があります。
 
 
 
@@ -124,7 +124,7 @@ A, D, または M :Add、Divide、または Multiply のノードを作成
 
 ここからグリッドとビューポートのリアルタイム プレビューを切り替えることができます。
 
-[Click here for more information on the Material Editor interface.](DOCLINK:Engine/Rendering/Materials/Editor/Interface)
+[マテリアル エディタのインターフェースに関する詳しい情報はここをクリック](DOCLINK:Engine/Rendering/Materials/Editor/Interface)
 
 [/EXCERPT:Stage5]
 
@@ -143,9 +143,9 @@ A, D, または M :Add、Divide、または Multiply のノードを作成
 
 ![](toolbar_live_update.png)
 
-これに対してライブ アップデートでは、変更が加えられるたびにネットワーク内の各ノードがそのシェーダーをリコンパイルします。こうした変更には、新規ノードの作成、ノードの削除、ノードの接続、ノードの切断、プロパティの変更などがあります。ノードに対して描かれたマテリアル プレビューが最新のものになるように、このリコンパイルが必要です。しかし、こうした中間シェーダーのリコンパイルには、非常に時間がかかる場合があります。特に、マテリアルに多くのノードが含まれる場合は時間がかかります。変更毎に長い待ち時間がある場合、ライブ アップデート オプションを無効にしたい場合があるかもしれません。
+これに対してライブ アップデートでは、変更が加えられるたびにネットワーク内の各ノードがそのシェーダーをリコンパイルします。こうした変更には、新規ノードの作成、ノードの削除、ノードの接続、ノードの切断、プロパティの変更などがあります。ノードに対して描かれたマテリアル プレビューが最新のものになるように、この再コンパイルが必要です。しかし、こうした中間シェーダーのリコンパイルには、非常に時間がかかる場合があります。特に、マテリアルに多くのノードが含まれる場合は時間がかかります。変更毎に長い待ち時間がある場合、ライブ アップデート オプションを無効にしたい場合があるかもしれません。
 
-[See the Material Editor documentation for more information.](DOCLINK:Engine/Rendering/Materials/Editor#LiveNodesandLiveUpdate)
+[詳しい情報についてはマテリアル エディタのドキュメントをご覧ください。](DOCLINK:Engine/Rendering/Materials/Editor#LiveNodesandLiveUpdate)
 
 [/EXCERPT:Stage6]
 
@@ -176,7 +176,7 @@ A, D, または M :Add、Divide、または Multiply のノードを作成
 
 ![](params.png)
 
-[See the Parameters Reference for more information.](DOCLINK:Engine/Rendering/Materials/ExpressionReference/Parameters)
+[詳しい情報については、パラメータのリファレンスをご覧ください。](DOCLINK:Engine/Rendering/Materials/ExpressionReference/Parameters)
 
 [/EXCERPT:Stage8]
 
@@ -192,7 +192,7 @@ A, D, または M :Add、Divide、または Multiply のノードを作成
 
 ![](functions.png)
 
-[See the Functions documentation for more information.](DOCLINK:Engine/Rendering/Materials/Functions)
+[詳しい情報については、関数のドキュメントをご覧ください。](DOCLINK:Engine/Rendering/Materials/Functions)
 
 [/EXCERPT:Stage9]
 
@@ -207,11 +207,11 @@ A, D, または M :Add、Divide、または Multiply のノードを作成
 
 
 
-[Material Editor Interface](DOCLINK:Engine/Rendering/Materials/Editor/Interface)
-[Materials and Textures](DOCLINK:Engine/Rendering/Materials)
-[Material Parameters](DOCLINK:Engine/Rendering/Materials/ExpressionReference/Parameters)
-[Material Functions](DOCLINK:Engine/Rendering/Materials/Functions)
-[Material Instances](DOCLINK:Engine/Rendering/Materials/MaterialInstances)
+[マテリアル エディタのインタフェース](DOCLINK:Engine/Rendering/Materials/Editor/Interface)
+[マテリアルとテクスチャ](DOCLINK:Engine/Rendering/Materials)
+[マテリアル パラメータ](DOCLINK:Engine/Rendering/Materials/ExpressionReference/Parameters)
+[マテリアル関数](DOCLINK:Engine/Rendering/Materials/Functions)
+[マテリアル インスタンス](DOCLINK:Engine/Rendering/Materials/MaterialInstances)
 
 ![](Stage1.png)
 

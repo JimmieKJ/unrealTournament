@@ -1696,7 +1696,7 @@ void ClothingAuthoring::startCreateApexScene()
 		sceneDesc.gravity = physx::PxVec3(0.0f);
 		sceneDesc.gravity[mConfig.ui.zAxisUp ? 2 : 1] = -0.1f; // will be set to the right value later, we just need the right direction for cooking
 
-		mSimulation.physxScene = _mApexSDK->getPhysXSDK()->createScene(sceneDesc);
+		mSimulation.physxScene = _mApexSDK->getPhysXSDK()->createScene(sceneDesc); // disable this
 #endif
 	}
 
@@ -1705,9 +1705,12 @@ void ClothingAuthoring::startCreateApexScene()
 #if NX_SDK_VERSION_MAJOR == 2
 	_mApexSDK->getPhysXSDK()->setParameter(NX_VISUALIZATION_SCALE, 1.0f);
 #elif NX_SDK_VERSION_MAJOR == 3
-	mSimulation.physxScene->lockWrite(__FILE__, __LINE__);
-	mSimulation.physxScene->setVisualizationParameter(physx::PxVisualizationParameter::eSCALE, 1.0f);
-	mSimulation.physxScene->unlockWrite();
+	if (mSimulation.physxScene)
+	{
+		mSimulation.physxScene->lockWrite(__FILE__, __LINE__);
+		mSimulation.physxScene->setVisualizationParameter(physx::PxVisualizationParameter::eSCALE, 1.0f);
+		mSimulation.physxScene->unlockWrite();
+	}
 #endif
 
 	mSimulation.apexScene->setPhysXScene(mSimulation.physxScene);
@@ -2339,9 +2342,12 @@ void ClothingAuthoring::startSimulation()
 #if NX_SDK_VERSION_MAJOR == 2
 			mSimulation.physxScene->setGravity(mGravities[mCurrentActorDesc]);
 #else
-			mSimulation.physxScene->lockWrite(__FILE__, __LINE__);
-			mSimulation.physxScene->setGravity(mGravities[mCurrentActorDesc]);
-			mSimulation.physxScene->unlockWrite();
+			if (mSimulation.physxScene)
+			{
+				mSimulation.physxScene->lockWrite(__FILE__, __LINE__);
+				mSimulation.physxScene->setGravity(mGravities[mCurrentActorDesc]);
+				mSimulation.physxScene->unlockWrite();
+			}
 #endif
 		}
 		mSimulation.apexScene->simulate(dt);

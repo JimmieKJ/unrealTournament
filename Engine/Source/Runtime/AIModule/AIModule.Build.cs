@@ -24,7 +24,8 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"Engine",    
-               		"GameplayTags"
+               		"GameplayTags",
+                    "GameplayTasks"
 				}
 				);
 
@@ -32,6 +33,7 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"RHI",
                     "RenderCore",
+                    "ShaderCore",
 				}
 				);
 

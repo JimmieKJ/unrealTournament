@@ -1,9 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Spectator.h"
 #include "UTCarriedObject.h"
-
+#include "UTCTFGameState.h"
 
 UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -21,7 +21,7 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
 	if (!bShowScores && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
-		if (UTGameState->IsMatchAtHalftime() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
+		if (UTGameState->IsMatchIntermission() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
 		{
 			return true;
 		}
@@ -138,7 +138,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 		}
 		else if (!UTGameState->HasMatchEnded())
 		{
-			if (UTGameState->IsMatchAtHalftime())
+			if (UTGameState->IsMatchIntermission())
 			{
 				if (UTGameState->bCasterControl && UTGameState->bStopGameClock == true && UTPS != nullptr)
 				{
@@ -150,7 +150,10 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				{
 					FFormatNamedArguments Args;
 					Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args);
+					AUTCTFGameState* CTFGameState = Cast<AUTCTFGameState>(UTGameState);
+					SpectatorMessage = !CTFGameState || (CTFGameState->CTFRound > 0)
+											? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args)
+											: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "Intermission", "Game resumes in {Time}"), Args);
 				}
 			}
 			else if (UTPS && UTPS->bOnlySpectator)
@@ -177,10 +180,6 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 					bViewingMessage = true;
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
 				}
-				else if (!UTHUDOwner->UTPlayerOwner->bHasUsedSpectatingBind)
-				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [ENTER] to view camera binds.");
-				}
 				else
 				{
 					LastViewedPS = NULL;
@@ -197,7 +196,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
 				}
-				else
+				else if (!UTPS->bOutOfLives)
 				{
 					SpectatorMessage = (UTPS->RespawnChoiceA != nullptr)
 						? NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]")
@@ -207,19 +206,18 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 		}
 		else
 		{
-			AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
-			AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
-			if (ViewCharacter && ViewCharacter->PlayerState)
+			AUTCharacter* ViewCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+			AUTPlayerState* PS = ViewCharacter ? Cast<AUTPlayerState>(ViewCharacter->PlayerState) : NULL;
+			if (PS)
 			{
 				FFormatNamedArguments Args;
-				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
+				Args.Add("PlayerName", FText::AsCultureInvariant(PS->PlayerName));
 				bViewingMessage = true;
-				AUTPlayerState* PS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
 				if (UTGameState->bTeamGame && PS && PS->Team && (!UTGameState->GameModeClass || !UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>() || UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>()->bAnnounceTeam))
 				{
 					SpectatorMessage = (PS->Team->TeamIndex == 0)
-						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Red Team Led by {PlayerName}"), Args)
-						: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Blue Team Led by {PlayerName}"), Args);
+						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatchingRed", "Red Team Led by {PlayerName}"), Args)
+						: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatchingBlue", "Blue Team Led by {PlayerName}"), Args);
 				}
 				else
 				{

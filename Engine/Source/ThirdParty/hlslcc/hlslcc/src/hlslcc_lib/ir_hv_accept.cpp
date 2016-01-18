@@ -550,12 +550,15 @@ ir_visitor_status ir_atomic::accept(ir_hierarchical_visitor *v)
 		return (s == visit_continue_with_parent) ? visit_continue : s;
 	}
 
-	v->in_assignee = true;
-	s = this->lhs->accept(v);
-	v->in_assignee = false;
-	if (s != visit_continue)
+	if (this->lhs)
 	{
-		return (s == visit_continue_with_parent) ? visit_continue : s;
+		v->in_assignee = true;
+		s = this->lhs->accept(v);
+		v->in_assignee = false;
+		if (s != visit_continue)
+		{
+			return (s == visit_continue_with_parent) ? visit_continue : s;
+		}
 	}
 
 	s = this->memory_ref->accept(v);
@@ -564,10 +567,13 @@ ir_visitor_status ir_atomic::accept(ir_hierarchical_visitor *v)
 		return (s == visit_continue_with_parent) ? visit_continue : s;
 	}
 
-	s = this->operands[0]->accept(v);
-	if (s != visit_continue)
+	if (this->operands[0])
 	{
-		return (s == visit_continue_with_parent) ? visit_continue : s;
+		s = this->operands[0]->accept(v);
+		if (s != visit_continue)
+		{
+			return (s == visit_continue_with_parent) ? visit_continue : s;
+		}
 	}
 
 	if (this->operands[1])

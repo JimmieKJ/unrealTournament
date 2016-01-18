@@ -71,7 +71,7 @@ public:
 	 */
 	bool Equals( const FSphere& Sphere, float Tolerance = KINDA_SMALL_NUMBER ) const
 	{
-		return Center.Equals(Sphere.Center, Tolerance) && FMath::Abs(W - Sphere.W) < Tolerance;
+		return Center.Equals(Sphere.Center, Tolerance) && FMath::Abs(W - Sphere.W) <= Tolerance;
 	}
 
 	/**
@@ -172,4 +172,19 @@ public:
 
 		return Ar;
 	}
+};
+
+struct FCapsuleShape
+{
+	FVector Center;
+	float Radius;
+	FVector Orientation;
+	float Length;
+
+	FCapsuleShape(FVector InCenter, float InRadius, FVector InOrientation, float InLength) :
+		Center(InCenter),
+		Radius(InRadius),
+		Orientation(InOrientation),
+		Length(InLength)
+	{}
 };

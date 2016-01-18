@@ -98,16 +98,8 @@ void DrawClearQuadMRT(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type Featur
 		PixelShader = *MRTPixelShader;
 	}
 
-	SetGlobalBoundShaderState(RHICmdList, FeatureLevel, GClearMRTBoundShaderState[FMath::Max(NumClearColors - 1, 0)], GetVertexDeclarationFVector4(), *VertexShader, PixelShader);
-	FLinearColor ShaderClearColors[MaxSimultaneousRenderTargets];
-	FMemory::Memzero(ShaderClearColors);
-
-	for (int32 i = 0; i < NumClearColors; i++)
-	{
-		ShaderClearColors[i] = ClearColorArray[i];
-	}
-
-	SetShaderValueArray(RHICmdList, PixelShader->GetPixelShader(),PixelShader->ColorParameter,ShaderClearColors,NumClearColors);
+	SetGlobalBoundShaderState(RHICmdList, FeatureLevel, GClearMRTBoundShaderState[FMath::Max(NumClearColors - 1, 0)], GetVertexDeclarationFVector4(), *VertexShader, PixelShader);	
+	PixelShader->SetColors(RHICmdList, ClearColorArray, NumClearColors);
 		
 	{
 		// Draw a fullscreen quad

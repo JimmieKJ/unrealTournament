@@ -230,7 +230,7 @@ namespace BuildPatchServices
 			FDataScannerImpl::NumIncompleteScanners.Decrement();
 			return MoveTemp(Result);
 		};
-		FutureResult = Async(EAsyncExecution::ThreadPool, Task);
+		FutureResult = Async(EAsyncExecution::ThreadPool, MoveTemp(Task));
 	}
 
 	FDataScannerImpl::~FDataScannerImpl()

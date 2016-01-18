@@ -22,6 +22,7 @@ class UGameplayAbility;
 
 struct FGameplayEffectSpec;
 struct FGameplayEffectModCallbackData;
+struct FActiveGameplayEffect;
 
 GAMEPLAYABILITIES_API FString EGameplayModOpToString(int32 Type);
 
@@ -36,15 +37,17 @@ namespace EGameplayModOp
 {
 	enum Type
 	{		
-		// Numeric
+		/** Numeric. */
 		Additive = 0		UMETA(DisplayName="Add"),
-		Multiplicitive		UMETA(DisplayName="Multiply"),
-		Division			UMETA(DisplayName="Divide"),
+		/** Numeric. */
+		Multiplicitive		UMETA(DisplayName = "Multiply"),
+		/** Numeric. */
+		Division			UMETA(DisplayName = "Divide"),
 
-		// Other
+		/** Other. */
 		Override 			UMETA(DisplayName="Override"),	// This should always be the first non numeric ModOp
 
-		// This must always be at the end
+		// This must always be at the end.
 		Max					UMETA(DisplayName="Invalid")
 	};
 }
@@ -73,25 +76,25 @@ namespace GameplayEffectUtilities
 }
 
 
-/** Enumeration for options of where to capture gameplay attributes from for gameplay effects */
+/** Enumeration for options of where to capture gameplay attributes from for gameplay effects. */
 UENUM()
 enum class EGameplayEffectAttributeCaptureSource : uint8
 {
-	// Source (caster) of the gameplay effect
+	/** Source (caster) of the gameplay effect. */
 	Source,	
-	// Target (recipient) of the gameplay effect
+	/** Target (recipient) of the gameplay effect. */
 	Target	
 };
 
-/** Enumeration for ways a single GameplayEffect asset can stack */
+/** Enumeration for ways a single GameplayEffect asset can stack. */
 UENUM()
 enum class EGameplayEffectStackingType : uint8
 {
-	// No stacking. Multiple applications of this GameplayEffect are treated as separate instances.
+	/** No stacking. Multiple applications of this GameplayEffect are treated as separate instances. */
 	None,
-	// Each caster has its own stack
+	/** Each caster has its own stack. */
 	AggregateBySource,
-	// Each target has its own stack
+	/** Each target has its own stack. */
 	AggregateByTarget,
 };
 
@@ -147,6 +150,11 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectHandle
 	FString ToString() const
 	{
 		return FString::Printf(TEXT("%d"), Handle);
+	}
+
+	void Invalidate()
+	{
+		Handle = INDEX_NONE;
 	}
 
 private:
@@ -208,7 +216,8 @@ struct GAMEPLAYABILITIES_API FGameplayEffectAttributeCaptureDefinition
 
 	FGameplayEffectAttributeCaptureDefinition()
 	{
-
+		AttributeSource = EGameplayEffectAttributeCaptureSource::Source;
+		bSnapshot = false;
 	}
 
 	FGameplayEffectAttributeCaptureDefinition(FGameplayAttribute InAttribute, EGameplayEffectAttributeCaptureSource InSource, bool InSnapshot)
@@ -378,6 +387,8 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 	}
 
 	virtual bool IsLocallyControlled() const;
+
+	virtual bool IsLocallyControlledPlayer() const;
 
 	virtual bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
@@ -564,6 +575,15 @@ struct FGameplayEffectContextHandle
 		return false;
 	}
 
+	bool IsLocallyControlledPlayer() const
+	{
+		if (IsValid())
+		{
+			return Data->IsLocallyControlledPlayer();
+		}
+		return false;
+	}
+
 	void AddActors(TArray<TWeakObjectPtr<AActor>> InActors, bool bReset = false)
 	{
 		if (IsValid())
@@ -681,7 +701,7 @@ struct TStructOpsTypeTraits<FGameplayEffectContextHandle> : public TStructOpsTyp
 
 
 USTRUCT(BlueprintType)
-struct FGameplayCueParameters
+struct GAMEPLAYABILITIES_API FGameplayCueParameters
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -689,7 +709,14 @@ struct FGameplayCueParameters
 	: NormalizedMagnitude(0.0f)
 	, RawMagnitude(0.0f)
 	, MatchedTagName(NAME_None)
+	, Location(ForceInitToZero)
+	, Normal(ForceInitToZero)
 	{}
+
+	/** Projects can override this via UAbilitySystemGlobals */
+	FGameplayCueParameters(const struct FGameplayEffectSpecForRPC &Spec);
+
+	FGameplayCueParameters(const struct FGameplayEffectContextHandle& EffectContext);
 
 	/** Magnitude of source gameplay effect, normalzed from 0-1. Use this for "how strong is the gameplay effect" (0=min, 1=,max) */
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
@@ -699,7 +726,7 @@ struct FGameplayCueParameters
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	float RawMagnitude;
 
-	/** Effect context, contains information about hit reslt, etc */
+	/** Effect context, contains information about hit result, etc */
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	FGameplayEffectContextHandle EffectContext;
 
@@ -718,6 +745,45 @@ struct FGameplayCueParameters
 	/** The aggregated target tags taken from the effect spec */
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	FGameplayTagContainer AggregatedTargetTags;
+
+	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
+	FVector_NetQuantize10 Location;
+
+	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
+	FVector_NetQuantizeNormal Normal;
+
+	/** Instigator actor, the actor that owns the ability system component */
+	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
+	TWeakObjectPtr<AActor> Instigator;
+
+	/** The physical actor that actually did the damage, can be a weapon or projectile */
+	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
+	TWeakObjectPtr<AActor> EffectCauser;
+
+	/** Object this effect was created from, can be an actor or static object. Useful to bind an effect to a gameplay object */
+	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
+	TWeakObjectPtr<const UObject> SourceObject;
+
+	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
+
+	bool IsInstigatorLocallyControlled() const;
+
+	bool IsInstigatorLocallyControlledPlayer() const;
+
+	AActor* GetInstigator() const;
+
+	AActor* GetEffectCauser() const;
+
+	const UObject* GetSourceObject() const;
+};
+
+template<>
+struct TStructOpsTypeTraits<FGameplayCueParameters> : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithNetSerializer = true		
+	};
 };
 
 UENUM(BlueprintType)
@@ -738,6 +804,10 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGameplayEffectTagCountChanged, const FGa
 
 DECLARE_MULTICAST_DELEGATE(FOnActiveGameplayEffectRemoved);
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnGivenActiveGameplayEffectRemoved, const FActiveGameplayEffect&);
+
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnActiveGameplayEffectStackChange, FActiveGameplayEffectHandle, int32, int32);
+
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGameplayAttributeChange, float, const FGameplayEffectModCallbackData*);
 
 DECLARE_DELEGATE_RetVal(FGameplayTagContainer, FGetGameplayTags);
@@ -745,6 +815,20 @@ DECLARE_DELEGATE_RetVal(FGameplayTagContainer, FGetGameplayTags);
 DECLARE_DELEGATE_RetVal_OneParam(FOnGameplayEffectTagCountChanged&, FRegisterGameplayTagChangeDelegate, FGameplayTag);
 
 // -----------------------------------------------------------
+
+
+UENUM(BlueprintType)
+namespace EGameplayTagEventType
+{
+	enum Type
+	{		
+		/** Event only happens when tag is new or completely removed */
+		NewOrRemoved,
+
+		/** Event happens any time tag "count" changes */
+		AnyCountChange		
+	};
+}
 
 /**
  * Struct that tracks the number/count of tag applications within it. Explicitly tracks the tags added or removed,
@@ -803,13 +887,19 @@ struct GAMEPLAYABILITIES_API FGameplayTagCountContainer
 	void UpdateTagCount(const FGameplayTag& Tag, int32 CountDelta);
 
 	/**
+	 *	Broadcasts the AnyChange event for this tag. This is called when the stack count of the backing gameplay effect change.
+	 *	It is up to the receiver of the broadcasted delegate to decide what to do with this.
+	 */
+	void Notify_StackCountChange(const FGameplayTag& Tag);
+
+	/**
 	 * Return delegate that can be bound to for when the specific tag's count changes to or off of zero
 	 *
 	 * @param Tag	Tag to get a delegate for
 	 * 
 	 * @return Delegate for when the specified tag's count changes to or off of zero
 	 */
-	FOnGameplayEffectTagCountChanged& RegisterGameplayTagEvent(const FGameplayTag& Tag);
+	FOnGameplayEffectTagCountChanged& RegisterGameplayTagEvent(const FGameplayTag& Tag, EGameplayTagEventType::Type EventType=EGameplayTagEventType::NewOrRemoved);
 	
 	/**
 	 * Return delegate that can be bound to for when the any tag's count changes to or off of zero
@@ -823,8 +913,14 @@ struct GAMEPLAYABILITIES_API FGameplayTagCountContainer
 
 private:
 
+	struct FDelegateInfo
+	{
+		FOnGameplayEffectTagCountChanged	OnNewOrRemove;
+		FOnGameplayEffectTagCountChanged	OnAnyChange;
+	};
+
 	/** Map of tag to delegate that will be fired when the count for the key tag changes to or away from zero */
-	TMap<FGameplayTag, FOnGameplayEffectTagCountChanged> GameplayTagEventMap;
+	TMap<FGameplayTag, FDelegateInfo> GameplayTagEventMap;
 
 	/** Map of tag to active count of that tag */
 	TMap<FGameplayTag, int32> GameplayTagCountMap;

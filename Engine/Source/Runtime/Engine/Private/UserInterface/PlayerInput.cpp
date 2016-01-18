@@ -122,7 +122,70 @@ void UPlayerInput::FlushPressedKeys()
 	}
 }
 
-bool UPlayerInput::InputKey( FKey Key, EInputEvent Event, float AmountDepressed, bool bGamepad )
+void UPlayerInput::FlushPressedActionBindingKeys(FName ActionName)
+{
+	//need an action name and a local player to move forward
+	APlayerController* PlayerController = (ActionName != NAME_None) ? GetOuterAPlayerController() : nullptr;
+	ULocalPlayer* LocalPlayer = PlayerController ? Cast<ULocalPlayer>(PlayerController->Player) : nullptr;
+	if (!LocalPlayer)
+	{
+		return;
+	}
+
+	//there can't be more than 32 keys...
+	TArray<FKey, TInlineAllocator<32>> AssociatedPressedKeys;
+
+	//grab the action key details
+	if (const FActionKeyDetails* KeyDetails = ActionKeyMap.Find(ActionName))
+	{
+		//go through the details
+		for (const FInputActionKeyMapping& KeyMapping : KeyDetails->Actions)
+		{
+			//grab out key state
+			if (const FKeyState* KeyState = KeyStateMap.Find(KeyMapping.Key))
+			{
+				//if the key is down, add it to the associated keys array
+				if (KeyState->bDown)
+				{
+					AssociatedPressedKeys.AddUnique(KeyMapping.Key);
+				}
+			}
+		}
+	}
+
+	//if there are no keys, nothing to do here
+	if (AssociatedPressedKeys.Num() > 0)
+	{
+		// we may have gotten here as a result of executing an input bind.  in order to ensure that the simulated IE_Released events
+		// we're about to fire are actually propagated to the game, we need to clear the bExecutingBindCommand flag
+		bExecutingBindCommand = false;
+
+		//go through all the keys, releasing them
+		for (const FKey& Key : AssociatedPressedKeys)
+		{
+			InputKey(Key, IE_Released, 0, Key.IsGamepadKey());
+		}
+
+		UWorld* World = GetWorld();
+		check(World);
+		float TimeSeconds = World->GetRealTimeSeconds();
+
+		//go through the details
+		for (const FKey& Key : AssociatedPressedKeys)
+		{
+			//grab out key state
+			if (FKeyState* KeyState = KeyStateMap.Find(Key))
+			{
+				KeyState->RawValue = FVector(0.f, 0.f, 0.f);
+				KeyState->bDown = false;
+				KeyState->bDownPrevious = false;
+				KeyState->LastUpDownTransitionTime = TimeSeconds;
+			}
+		}
+	}
+}
+
+bool UPlayerInput::InputKey(FKey Key, EInputEvent Event, float AmountDepressed, bool bGamepad)
 {
 	// first event associated with this key, add it to the map
 	FKeyState& KeyState = KeyStateMap.FindOrAdd(Key);
@@ -254,6 +317,9 @@ bool UPlayerInput::InputTouch(uint32 Handle, ETouchType::Type Type, const FVecto
 		break;
 	}
 
+	// store current touch location paired with event id
+	TouchEventLocations.Add(EventCount, Touches[Handle]);
+
 	// accumulate deltas until processed next
 	KeyState.SampleCountAccumulator++;
 	KeyState.RawValueAccumulator = KeyState.Value = KeyState.RawValue = FVector(TouchLocation.X, TouchLocation.Y, 0);
@@ -320,7 +386,7 @@ void UPlayerInput::SetAxisProperties(const FKey AxisKey, const FInputAxisPropert
 		}
 	}
 
-	AxisProperties.Empty(AxisProperties.Num());
+	AxisProperties.Reset();
 }
 
 float UPlayerInput::GetMouseSensitivity()
@@ -357,9 +423,7 @@ void UPlayerInput::SetMouseSensitivityToDefault()
 		const FKey AxisKey = AxisConfigEntry.AxisKeyName;
 		if (AxisKey == EKeys::MouseX)
 		{
-			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			SetMouseSensitivity(AxisConfigEntry.AxisProperties.Sensitivity);
-			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			break;
 		}
 	}
@@ -423,14 +487,13 @@ void UPlayerInput::InvertAxis(const FName AxisName)
 
 bool UPlayerInput::GetInvertAxisKey(const FKey AxisKey)
 {
-	ConditionalInitAxisProperties();
-
 	bool bAxisInverted = false;
-	FInputAxisProperties* const AxisProps = AxisProperties.Find(AxisKey);
-	if (AxisProps)
+	FInputAxisProperties AxisKeyProperties;
+	if (GetAxisProperties(AxisKey, AxisKeyProperties))
 	{
-		bAxisInverted = AxisProps->bInvert;
+		bAxisInverted = AxisKeyProperties.bInvert;
 	}
+
 	return bAxisInverted;
 }
 
@@ -438,11 +501,11 @@ void UPlayerInput::InvertAxisKey(const FKey AxisKey)
 {
 	ConditionalInitAxisProperties();
 
-	FInputAxisProperties* AxisProps = AxisProperties.Find(AxisKey);
-	if (AxisProps)
+	FInputAxisProperties AxisKeyProperties;
+	if (GetAxisProperties(AxisKey, AxisKeyProperties))
 	{
-		AxisProps->bInvert = !AxisProps->bInvert;
-		SaveConfig();
+		AxisKeyProperties.bInvert = !AxisKeyProperties.bInvert;
+		SetAxisProperties(AxisKey, AxisKeyProperties);
 	}
 }
 
@@ -470,7 +533,7 @@ struct FAxisDelegate
 void UPlayerInput::AddActionMapping(const FInputActionKeyMapping& KeyMapping)
 {
 	ActionMappings.AddUnique(KeyMapping);
-	ActionKeyMap.Empty(ActionKeyMap.Num());
+	ActionKeyMap.Reset();
 }
 
 void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
@@ -480,7 +543,7 @@ void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
 		if (ActionMappings[ActionIndex] == KeyMapping)
 		{
 			ActionMappings.RemoveAtSwap(ActionIndex);
-			ActionKeyMap.Empty(ActionKeyMap.Num());
+			ActionKeyMap.Reset();
 			// we don't break because the mapping may have been in the array twice
 		}
 	}
@@ -489,7 +552,7 @@ void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
 void UPlayerInput::AddAxisMapping(const FInputAxisKeyMapping& KeyMapping)
 {
 	AxisMappings.AddUnique(KeyMapping);
-	AxisKeyMap.Empty(AxisKeyMap.Num());
+	AxisKeyMap.Reset();
 }
 
 void UPlayerInput::RemoveAxisMapping(const FInputAxisKeyMapping& InKeyMapping)
@@ -501,7 +564,7 @@ void UPlayerInput::RemoveAxisMapping(const FInputAxisKeyMapping& InKeyMapping)
 			&& KeyMapping.Key == InKeyMapping.Key)
 		{
 			AxisMappings.RemoveAtSwap(AxisIndex);
-			AxisKeyMap.Empty(AxisKeyMap.Num());
+			AxisKeyMap.Reset();
 			// we don't break because the mapping may have been in the array twice
 		}
 	}
@@ -512,7 +575,7 @@ void UPlayerInput::AddEngineDefinedActionMapping(const FInputActionKeyMapping& A
 	EngineDefinedActionMappings.AddUnique(ActionMapping);
 	for (TObjectIterator<UPlayerInput> It; It; ++It)
 	{
-		It->ActionKeyMap.Empty(It->ActionKeyMap.Num());
+		It->ActionKeyMap.Reset();
 	}
 }
 
@@ -521,7 +584,7 @@ void UPlayerInput::AddEngineDefinedAxisMapping(const FInputAxisKeyMapping& AxisM
 	EngineDefinedAxisMappings.AddUnique(AxisMapping);
 	for (TObjectIterator<UPlayerInput> It; It; ++It)
 	{
-		It->AxisKeyMap.Empty(It->AxisKeyMap.Num());
+		It->AxisKeyMap.Reset();
 	}
 }
 
@@ -534,9 +597,9 @@ void UPlayerInput::ForceRebuildingKeyMaps(const bool bRestoreDefaults)
 		ActionMappings = GetDefault<UInputSettings>()->ActionMappings;
 	}
 
-	ActionKeyMap.Empty(ActionKeyMap.Num());
-	AxisKeyMap.Empty(AxisKeyMap.Num());
-	AxisProperties.Empty(AxisProperties.Num());
+	ActionKeyMap.Reset();
+	AxisKeyMap.Reset();
+	AxisProperties.Reset();
 }
 
 void UPlayerInput::ConditionalBuildKeyMappings()
@@ -600,6 +663,64 @@ void UPlayerInput::ConditionalBuildKeyMappings()
 	}
 }
 
+void UPlayerInput::GetChordsForKeyMapping(const FInputActionKeyMapping& KeyMapping, const FInputActionBinding& ActionBinding, const bool bGamePaused, TArray<FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume)
+{
+	TArray<uint32> EventIndices;
+	bool bConsumeInput = false;
+
+	// test modifier conditions and ignore the event if they failed
+	if (	(KeyMapping.bAlt == false || IsAltPressed())
+		&&	(KeyMapping.bCtrl == false || IsCtrlPressed())
+		&&	(KeyMapping.bShift == false || IsShiftPressed())
+		&&	(KeyMapping.bCmd == false || IsCmdPressed())
+		&& 	KeyEventOccurred(KeyMapping.Key, ActionBinding.KeyEvent, EventIndices))
+	{
+		bool bAddDelegate = true;
+
+		// look through the found chords and determine if this is masked (or masks) anything in the array
+		const FInputChord Chord(KeyMapping.Key, KeyMapping.bShift, KeyMapping.bCtrl, KeyMapping.bAlt, KeyMapping.bCmd);
+		for (int32 ChordIndex = FoundChords.Num() - 1; ChordIndex >= 0; --ChordIndex)
+		{
+			FInputChord::ERelationshipType ChordRelationship = Chord.GetRelationship(FoundChords[ChordIndex].Chord);
+
+			if (ChordRelationship == FInputChord::Masks)
+			{
+				// If we mask the found one, then remove it from the list
+				FoundChords.RemoveAtSwap(ChordIndex);
+			}
+			else if (ChordRelationship == FInputChord::Masked)
+			{
+				bAddDelegate = false;
+				break;
+			}
+		}
+
+		if (bAddDelegate)
+		{
+			check(EventIndices.Num() > 0);
+			FDelegateDispatchDetails FoundChord(  
+										EventIndices[0]
+										, FoundChords.Num()
+										, Chord
+										, ((!bGamePaused || ActionBinding.bExecuteWhenPaused) ? ActionBinding.ActionDelegate : FInputActionUnifiedDelegate())
+										, ActionBinding.KeyEvent
+										, &ActionBinding);
+			FoundChords.Add(FoundChord);
+
+			for (int32 EventsIndex = 1; EventsIndex < EventIndices.Num(); ++EventsIndex)
+			{
+				FoundChord.EventIndex = EventIndices[EventsIndex];
+				FoundChords.Add(FoundChord);
+			}
+			bConsumeInput = true;
+		}
+	}
+	if (ActionBinding.bConsumeInput && (bConsumeInput || !(KeyMapping.bAlt || KeyMapping.bCtrl || KeyMapping.bShift || KeyMapping.bCmd || ActionBinding.KeyEvent == EInputEvent::IE_DoubleClick)))
+	{
+		KeysToConsume.AddUnique(KeyMapping.Key);
+	}
+}
+
 void UPlayerInput::GetChordsForAction(const FInputActionBinding& ActionBinding, const bool bGamePaused, TArray<FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume)
 {
 	ConditionalBuildKeyMappings();
@@ -607,63 +728,23 @@ void UPlayerInput::GetChordsForAction(const FInputActionBinding& ActionBinding, 
 	FActionKeyDetails* KeyDetails = ActionKeyMap.Find(ActionBinding.ActionName);
 	if (KeyDetails)
 	{
-		for (int32 ActionIndex = 0; ActionIndex < KeyDetails->Actions.Num(); ++ActionIndex)
+		for (const FInputActionKeyMapping& KeyMapping : KeyDetails->Actions)
 		{
-			const FInputActionKeyMapping& KeyMapping = KeyDetails->Actions[ActionIndex];
-			if ( !IsKeyConsumed(KeyMapping.Key) )
+			if (KeyMapping.Key == EKeys::AnyKey)
 			{
-				TArray<uint32> EventIndices;
-
-				// test modifier conditions and ignore the event if they failed
-				if (	(KeyMapping.bAlt == false || IsAltPressed())
-					&&	(KeyMapping.bCtrl == false || IsCtrlPressed())
-					&&	(KeyMapping.bShift == false || IsShiftPressed())
-					&&	(KeyMapping.bCmd == false || IsCmdPressed())
-					&& 	KeyEventOccurred(KeyMapping.Key, ActionBinding.KeyEvent, EventIndices))
+				for (auto KeyStateIt(KeyStateMap.CreateConstIterator()); KeyStateIt; ++KeyStateIt)
 				{
-					bool bAddDelegate = true;
-
-					// look through the found chords and determine if this is masked (or masks) anything in the array
-					const FInputChord Chord(KeyMapping.Key, KeyMapping.bShift, KeyMapping.bCtrl, KeyMapping.bAlt, KeyMapping.bCmd);
-					for (int32 ChordIndex = FoundChords.Num() - 1; ChordIndex >= 0; --ChordIndex)
+					if (!KeyStateIt.Key().IsFloatAxis() && !KeyStateIt.Key().IsVectorAxis() && !IsKeyConsumed(KeyStateIt.Key()))
 					{
-						FInputChord::ERelationshipType ChordRelationship = Chord.GetRelationship(FoundChords[ChordIndex].Chord);
-
-						if (ChordRelationship == FInputChord::Masks)
-						{
-							// If we mask the found one, then remove it from the list
-							FoundChords.RemoveAtSwap(ChordIndex);
-						}
-						else if (ChordRelationship == FInputChord::Masked)
-						{
-							bAddDelegate = false;
-							break;
-						}
-					}
-
-					if (bAddDelegate)
-					{
-						check(EventIndices.Num() > 0);
-						FDelegateDispatchDetails FoundChord(  
-													EventIndices[0]
-													, FoundChords.Num()
-													, Chord
-													, ((!bGamePaused || ActionBinding.bExecuteWhenPaused) ? ActionBinding.ActionDelegate : FInputActionUnifiedDelegate())
-													, ActionBinding.KeyEvent
-													, &ActionBinding);
-						FoundChords.Add(FoundChord);
-
-						for (int32 EventsIndex = 1; EventsIndex < EventIndices.Num(); ++EventsIndex)
-						{
-							FoundChord.EventIndex = EventIndices[EventsIndex];
-							FoundChords.Add(FoundChord);
-						}
-						if (ActionBinding.bConsumeInput)
-						{
-							KeysToConsume.AddUnique(KeyMapping.Key);
-						}
+						FInputActionKeyMapping SubKeyMapping(KeyMapping);
+						SubKeyMapping.Key = KeyStateIt.Key();
+						GetChordsForKeyMapping(SubKeyMapping, ActionBinding, bGamePaused, FoundChords, KeysToConsume);
 					}
 				}
+			}
+			else if ( !IsKeyConsumed(KeyMapping.Key) )
+			{
+				GetChordsForKeyMapping(KeyMapping, ActionBinding, bGamePaused, FoundChords, KeysToConsume);
 			}
 		}
 	}
@@ -671,9 +752,21 @@ void UPlayerInput::GetChordsForAction(const FInputActionBinding& ActionBinding, 
 
 void UPlayerInput::GetChordForKey(const FInputKeyBinding& KeyBinding, const bool bGamePaused, TArray<FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume)
 {
-	bool bKeyOccurred = false;
+	bool bConsumeInput = false;
 
-	if ( !IsKeyConsumed(KeyBinding.Chord.Key) )
+	if (KeyBinding.Chord.Key == EKeys::AnyKey)
+	{
+		for (auto KeyStateIt(KeyStateMap.CreateConstIterator()); KeyStateIt; ++KeyStateIt)
+		{
+			if (!KeyStateIt.Key().IsFloatAxis() && !KeyStateIt.Key().IsVectorAxis() && !IsKeyConsumed(KeyStateIt.Key()))
+			{
+				FInputKeyBinding SubKeyBinding(KeyBinding);
+				SubKeyBinding.Chord.Key = KeyStateIt.Key();
+				GetChordForKey(SubKeyBinding, bGamePaused, FoundChords, KeysToConsume);
+			}
+		}
+	}
+	else if ( !IsKeyConsumed(KeyBinding.Chord.Key) )
 	{
 		TArray<uint32> EventIndices;
 
@@ -718,12 +811,13 @@ void UPlayerInput::GetChordForKey(const FInputKeyBinding& KeyBinding, const bool
 					FoundChord.EventIndex = EventIndices[EventsIndex];
 					FoundChords.Add(FoundChord);
 				}
-				if (KeyBinding.bConsumeInput)
-				{
-					KeysToConsume.AddUnique(KeyBinding.Chord.Key);
-				}
+				bConsumeInput = true;
 			}
 		}
+	}
+	if (KeyBinding.bConsumeInput && (bConsumeInput || !(KeyBinding.Chord.bAlt || KeyBinding.Chord.bCtrl || KeyBinding.Chord.bShift || KeyBinding.Chord.bCmd || KeyBinding.KeyEvent == EInputEvent::IE_DoubleClick)))
+	{
+		KeysToConsume.AddUnique(KeyBinding.Chord.Key);
 	}
 }
 
@@ -801,10 +895,11 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 
 		for (uint8 EventIndex = 0; EventIndex < IE_MAX; ++EventIndex)
 		{
-			KeyState->EventCounts[EventIndex] = MoveTemp(KeyState->EventAccumulator[EventIndex]);
+			KeyState->EventCounts[EventIndex].Reset();
+			Exchange(KeyState->EventCounts[EventIndex], KeyState->EventAccumulator[EventIndex]);
 		}
 
-		if ( (KeyState->SampleCountAccumulator > 0) || (Key == EKeys::MouseX) || (Key == EKeys::MouseY) )
+		if ( (KeyState->SampleCountAccumulator > 0) || Key.ShouldUpdateAxisWithoutSamples() )
 		{
 			// if we had no samples, we'll assume the state hasn't changed
 			// except for some axes, where no samples means the mouse stopped moving
@@ -861,9 +956,16 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 		{
 		}
 	};
-	TArray<FAxisDelegateDetails> AxisDelegates;
-	TArray<FVectorAxisDelegateDetails> VectorAxisDelegates;
-	TArray<FDelegateDispatchDetails> NonAxisDelegates;
+	static TArray<FAxisDelegateDetails> AxisDelegates;
+	static TArray<FVectorAxisDelegateDetails> VectorAxisDelegates;
+	static TArray<FDelegateDispatchDetails> NonAxisDelegates;
+	static TArray<FKey> KeysToConsume;
+	static TArray<FDelegateDispatchDetails> FoundChords;
+
+
+	// must be called non-recursively and on the game thread
+	check(IsInGameThread() && !AxisDelegates.Num() && !VectorAxisDelegates.Num() && !NonAxisDelegates.Num() && !KeysToConsume.Num() && !FoundChords.Num());
+
 	struct FDelegateDispatchDetailsSorter
 	{
 		bool operator()( const FDelegateDispatchDetails& A, const FDelegateDispatchDetails& B ) const
@@ -880,8 +982,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 		UInputComponent* const IC = InputComponentStack[StackIndex];
 		if (IC)
 		{
-			TArray<FKey> KeysToConsume;
-			TArray<FDelegateDispatchDetails> FoundChords;
+			check(!KeysToConsume.Num() && !FoundChords.Num())
 
 			for (int32 ActionIndex=0; ActionIndex<IC->GetNumActionBindings(); ++ActionIndex)
 			{
@@ -941,11 +1042,12 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 						if (TB.bExecuteWhenPaused || !bGamePaused)
 						{
 							check(EventIndices.Num() > 0);
-							FDelegateDispatchDetails TouchInfo(EventIndices[0], NonAxisDelegates.Num(), TB.TouchDelegate, Touches[TouchIndex], TouchIndex);
+							FDelegateDispatchDetails TouchInfo(EventIndices[0], NonAxisDelegates.Num(), TB.TouchDelegate, TouchEventLocations[EventIndices[0]], TouchIndex);
 							NonAxisDelegates.Add(TouchInfo);
 							for (int32 EventsIndex = 1; EventsIndex < EventIndices.Num(); ++EventsIndex)
 							{
 								TouchInfo.EventIndex = EventIndices[EventsIndex];
+								TouchInfo.TouchLocation = TouchEventLocations[TouchInfo.EventIndex];
 								NonAxisDelegates.Add(TouchInfo);
 							}
 						}
@@ -1042,16 +1144,18 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 			{
 				// stop traversing the stack, all input has been consumed by this InputComponent
 				--StackIndex;
+				KeysToConsume.Reset();
+				FoundChords.Reset();
 				break;
 			}
-			else
+
+			// we do this after finishing the whole component, so we don't consume a key while there might be more bindings to it
+			for (int32 KeyIndex=0; KeyIndex<KeysToConsume.Num(); ++KeyIndex)
 			{
-				// we do this after finishing the whole component, so we don't consume a key while there might be more bindings to it
-				for (int32 KeyIndex=0; KeyIndex<KeysToConsume.Num(); ++KeyIndex)
-				{
-					ConsumeKey(KeysToConsume[KeyIndex]);
-				}
-			}		
+				ConsumeKey(KeysToConsume[KeyIndex]);
+			}
+			KeysToConsume.Reset();
+			FoundChords.Reset();
 		}
 	}
 
@@ -1081,7 +1185,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 	{
 		if (Details.ActionDelegate.IsBound())
 		{
-			Details.ActionDelegate.Execute();
+			Details.ActionDelegate.Execute(Details.Chord.Key);
 		}
 		else if (Details.TouchDelegate.IsBound())
 		{
@@ -1111,6 +1215,10 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 	PlayerController->PostProcessInput(DeltaTime, bGamePaused);
 
 	FinishProcessingPlayerInput();
+	AxisDelegates.Reset();
+	VectorAxisDelegates.Reset();
+	NonAxisDelegates.Reset();
+	TouchEventLocations.Reset();
 }
 
 void UPlayerInput::DiscardPlayerInput()
@@ -1221,10 +1329,9 @@ void UPlayerInput::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& 
 {
 	if (Canvas)
 	{
-		Canvas->SetDrawColor(255,0,0);
-		UFont* RenderFont = GEngine->GetSmallFont();
-		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("INPUT %s"), *GetName()), 4.0f, YPos );
-		YPos += YL;
+		FDisplayDebugManager& DisplayDebugManager = Canvas->DisplayDebugManager;
+		DisplayDebugManager.SetDrawColor(FColor::Red);
+		DisplayDebugManager.DrawString(FString::Printf(TEXT("INPUT %s"), *GetName()));
 
 		UWorld* World = GetWorld();
 		check(World);
@@ -1243,26 +1350,22 @@ void UPlayerInput::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& 
 				{
 					Str += FString::Printf(TEXT(" time: %.2f"), WorldRealTimeSeconds - KeyState->LastUpDownTransitionTime);
 				}
-				Canvas->SetDrawColor(180,255,180);
-				YL = Canvas->DrawText(RenderFont, Str,4.0f, YPos);
+				DisplayDebugManager.SetDrawColor(FColor(180, 255, 180));
+				DisplayDebugManager.DrawString(Str);
 			}
 			else
 			{
-				Canvas->SetDrawColor(180,180,180);
-				YL = Canvas->DrawText(RenderFont, Str,4.0f, YPos);
+				DisplayDebugManager.SetDrawColor(FColor(180, 180, 180));
+				DisplayDebugManager.DrawString(Str);
 			}
-			YPos += YL;
 		}
 
 		float const DetectedMouseSampleHz = MouseSamples / MouseSamplingTotal;
 
-		Canvas->SetDrawColor(FColor::White);
-		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseSampleRate: %.2f"), DetectedMouseSampleHz),4.0f, YPos);
-		YPos += YL;
-		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseX ZeroTime: %.2f, Smoothed: %.2f"), ZeroTime[0], SmoothedMouse[0]),4.0f, YPos);
-		YPos += YL;
-		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseY ZeroTime: %.2f, Smoothed: %.2f"), ZeroTime[1], SmoothedMouse[1]),4.0f, YPos);
-		YPos += YL;
+		DisplayDebugManager.SetDrawColor(FColor::White);
+		DisplayDebugManager.DrawString(FString::Printf(TEXT("MouseSampleRate: %.2f"), DetectedMouseSampleHz));
+		DisplayDebugManager.DrawString(FString::Printf(TEXT("MouseX ZeroTime: %.2f, Smoothed: %.2f"), ZeroTime[0], SmoothedMouse[0]));
+		DisplayDebugManager.DrawString(FString::Printf(TEXT("MouseY ZeroTime: %.2f, Smoothed: %.2f"), ZeroTime[1], SmoothedMouse[1]));
 
 		if ( (ZeroTime[0] > 2.f && ZeroTime[1] > 2.f) && GetDefault<UInputSettings>()->bEnableMouseSmoothing )
 		{
@@ -1523,7 +1626,7 @@ bool UPlayerInput::IsKeyHandledByAction( FKey Key ) const
 {
 	for (const FInputActionKeyMapping& Mapping : ActionMappings)
 	{
-		if( Mapping.Key == Key && 
+		if( (Mapping.Key == Key || Mapping.Key == EKeys::AnyKey) && 
 			(Mapping.bAlt == false || IsAltPressed()) &&
 			(Mapping.bCtrl == false || IsCtrlPressed()) &&
 			(Mapping.bShift == false || IsShiftPressed()) &&
@@ -1695,13 +1798,11 @@ void UPlayerInput::SetBind(FName BindName, const FString& Command)
 			if (DebugExecBindings[BindIndex].Key == BindKey)
 			{
 				DebugExecBindings[BindIndex].Command = CommandMod;
-				// `log("Binding '"@BindName@"' found, setting CommandMod '"@CommandMod@"'");
 				SaveConfig();
 				return;
 			}
 		}
 
-		// `log("Binding '"@BindName@"' NOT found, adding new binding with CommandMod '"@CommandMod@"'");
 		FKeyBind NewBind;
 		NewBind.Key = BindKey;
 		NewBind.Command = CommandMod;

@@ -35,7 +35,6 @@ Sc::ConstraintCore::ConstraintCore(PxConstraintConnector& connector, const PxCon
 ,	mDataSize(dataSize)
 ,	mLinearBreakForce(PX_MAX_F32)
 ,	mAngularBreakForce(PX_MAX_F32)
-,	mMinResponseThreshold(0)
 ,	mSim(NULL)
 {
 }
@@ -100,18 +99,14 @@ void Sc::ConstraintCore::getBreakForce(PxReal& linear, PxReal& angular) const
 	angular = mAngularBreakForce;
 }
 
-
-PxConstraint* NpGetPxConstraint(Sc::ConstraintCore&);
-const PxConstraint* NpGetPxConstraint(const Sc::ConstraintCore&);
-
 PxConstraint* Sc::ConstraintCore::getPxConstraint()
 {
-	return NpGetPxConstraint(*this);
+	return gOffsetTable.convertScConstraint2Px(this);
 }
 
 const PxConstraint* Sc::ConstraintCore::getPxConstraint() const
 {
-	return NpGetPxConstraint(*this);
+	return gOffsetTable.convertScConstraint2Px(this);
 }
 
 void Sc::ConstraintCore::breakApart()

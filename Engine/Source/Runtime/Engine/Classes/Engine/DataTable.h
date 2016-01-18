@@ -2,10 +2,8 @@
 
 #pragma once
 
+#include "DataTableUtils.h" // Needed here for LogDataTable
 #include "DataTable.generated.h"
-
-
-ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogDataTable, Log, All);
 
 
 // forward declare JSON writer
@@ -40,23 +38,29 @@ class UDataTable
 	UPROPERTY()
 	UScriptStruct*			RowStruct;
 
-	/** The filename that was used to create this object. Relative to the object's package, BaseDir() or absolute */
-	UPROPERTY()
-	FString ImportPath;
-
 	/** Map of name of row to row data structure. */
 	TMap<FName, uint8*>		RowMap;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	ENGINE_API virtual void FinishDestroy() override;
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 #if WITH_EDITORONLY_DATA
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
-#endif
-	// End  UObject interface
+	ENGINE_API virtual void PostInitProperties() override;
+	ENGINE_API virtual void PostLoad() override;
 
-	// Begin UDataTable interface
+	UPROPERTY(VisibleAnywhere, Instanced, Category=ImportSettings)
+	class UAssetImportData* AssetImportData;
+
+	/** The filename imported to create this object. Relative to this object's package, BaseDir() or absolute */
+	UPROPERTY()
+	FString ImportPath_DEPRECATED;
+#endif	// WITH_EDITORONLY_DATA
+
+	//~ End  UObject Interface
+
+	//~ Begin UDataTable Interface
 
 	/** Function to find the row of a table given its name. */
 	template <class T>
@@ -185,7 +189,7 @@ public:
 	ENGINE_API TArray< TArray<FString> > GetTableData() const;
 #endif //WITH_EDITOR
 
-	// End UDataTable interface
+	//~ End UDataTable Interface
 
 private:
 	void SaveStructData(FArchive& Ar);

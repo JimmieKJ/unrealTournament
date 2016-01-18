@@ -20,9 +20,9 @@ enum EThreadPriority
 
 	/** Below normal priority. */
 	TPri_BelowNormal,
-    
-    /** Highest priority. */
-    TPri_Highest
+	
+	/** Highest priority. */
+	TPri_Highest
 };
 
 
@@ -103,8 +103,39 @@ public:
 		return Wait(WaitTime.GetTotalMilliseconds(), bIgnoreThreadIdleStats);
 	}
 
+	/** Default constructor. */
+	FEvent()
+		: EventId( 0 )
+		, EventStartCycles( 0 )
+	{}
+
 	/** Virtual destructor. */
-	virtual ~FEvent() { }
+	virtual ~FEvent() 
+	{}
+
+	// DO NOT MODIFY THESE
+
+	/** Advances stats associated with this event. Used to monitor wait->trigger history. */
+	void AdvanceStats();
+
+protected:
+	/** Sends to the stats a special messages which encodes a wait for the event. */
+	void WaitForStats();
+
+	/** Send to the stats a special message which encodes a trigger for the event. */
+	void TriggerForStats();
+
+	/** Resets start cycles to 0. */
+	void ResetForStats();
+
+	/** Counter used to generate an unique id for the events. */
+	static uint32 EventUniqueId;
+
+	/** An unique id of this event. */
+	uint32 EventId;
+
+	/** Greater than 0, if the event called wait. */
+	uint32 EventStartCycles;
 };
 
 
@@ -294,16 +325,16 @@ public:
 	virtual void Suspend( bool bShouldPause = true ) = 0;
 
 	/**
-	 * Tells the thread to exit. If the caller needs to know when the thread
-	 * has exited, it should use the bShouldWait value and tell it how long
-	 * to wait before deciding that it is deadlocked and needs to be destroyed.
-	 * The implementation is responsible for calling Stop() on the runnable.
-	 * NOTE: having a thread forcibly destroyed can cause leaks in TLS, etc.
-	 *
-	 * @param bShouldWait If true, the call will wait for the thread to exit
-	 * @return True if the thread exited graceful, false otherwise
+	 * Tells the thread to exit. If the caller needs to know when the thread has exited, it should use the bShouldWait value.
+	 * It's highly recommended not to kill the thread without waiting for it.
+	 * Having a thread forcibly destroyed can cause leaks and deadlocks.
+	 * 
+	 * The kill method is calling Stop() on the runnable to kill the thread gracefully.
+	 * 
+	 * @param bShouldWait	If true, the call will wait infinitely for the thread to exit.					
+	 * @return Always true
 	 */
-	virtual bool Kill( bool bShouldWait = false ) = 0;
+	virtual bool Kill( bool bShouldWait = true ) = 0;
 
 	/** Halts the caller until this thread is has completed its work. */
 	virtual void WaitForCompletion() = 0;
@@ -347,7 +378,7 @@ protected:
 	 * @param InThreadPri Tells the thread whether it needs to adjust its priority or not. Defaults to normal priority
 	 * @return True if the thread and all of its initialization was successful, false otherwise
 	 */
-	virtual bool CreateInternal( FRunnable* InRunnable, const TCHAR* ThreadName,
+	virtual bool CreateInternal( FRunnable* InRunnable, const TCHAR* InThreadName,
 		uint32 InStackSize = 0,
 		EThreadPriority InThreadPri = TPri_Normal, uint64 InThreadAffinityMask = 0 ) = 0;
 
@@ -843,8 +874,6 @@ public:
 class FMultiReaderSingleWriterGT
 {
 public:
-	FMultiReaderSingleWriterGT();
-
 	/** Protect data from modification while reading. If issued on game thread, doesn't wait for write to finish. */
 	void LockRead();
 
@@ -877,8 +906,15 @@ private:
 	static const int32 NoAction = 0;
 	static const int32 ReadingAction = 1;
 
-	TFunction<bool()> CanRead;
-	TFunction<bool()> CanWrite;
+	bool CanRead()
+	{
+		return FPlatformAtomics::InterlockedCompareExchange(&CriticalSection.Action, ReadingAction, NoAction) == ReadingAction;
+	}
+	
+	bool CanWrite()
+	{
+		return FPlatformAtomics::InterlockedCompareExchange(&CriticalSection.Action, WritingAction, NoAction) == WritingAction;
+	}
 };
 
 class FReadScopeLock
@@ -1102,7 +1138,7 @@ public:
 	/**
 	* @return an instance of a singleton for the current thread.
 	*/
-	static CORE_API FTlsAutoCleanup* Get( const TFunctionRef<FTlsAutoCleanup*()>& CreateInstance, uint32& TlsSlot );
+	static CORE_API FTlsAutoCleanup* Get( TFunctionRef<FTlsAutoCleanup*()> CreateInstance, uint32& TlsSlot );
 };
 
 

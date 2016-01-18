@@ -14,11 +14,6 @@ DECLARE_DELEGATE_OneParam( FToggleExpressionCollapsed, UMaterialExpression* );
  */
 struct FMaterialInputInfo
 {
-	/** Name of the input shown to user */
-	FText Name;
-	/** Type of the input */
-	EMaterialProperty Property;
-
 	/** Constructor */
 	FMaterialInputInfo()
 	{
@@ -43,11 +38,26 @@ struct FMaterialInputInfo
 		return *Ret;
 	}
 
-	bool IsVisiblePin(const UMaterial* Material) const
+	bool IsVisiblePin(const UMaterial* Material, bool bIgnoreMaterialAttriubtes = false) const
 	{
-		if(Material->bUseMaterialAttributes)
+		if(Material->bUseMaterialAttributes && !bIgnoreMaterialAttriubtes)
 		{
 			return Property == MP_MaterialAttributes;
+		}
+		else if( Material->IsUIMaterial() )
+		{
+			if( Property == MP_EmissiveColor || Property == MP_Opacity || Property == MP_OpacityMask || Property == MP_WorldPositionOffset )
+			{
+				return true;
+			}
+
+			if (Property >= MP_CustomizedUVs0 && Property <= MP_CustomizedUVs7)
+			{
+				return (Property - MP_CustomizedUVs0) < Material->NumCustomizedUVs;
+			}
+
+			return false;
+
 		}
 		else
 		{
@@ -64,10 +74,21 @@ struct FMaterialInputInfo
 			return true;
 		}
 	}
+
+	const FText& GetName() const { return Name; }
+
+	EMaterialProperty GetProperty() const { return Property; }
+
+private:
+	/** Name of the input shown to user */
+	FText Name;
+	/** Type of the input */
+	EMaterialProperty Property;
+
 };
 
-UCLASS(MinimalAPI)
-class UMaterialGraph : public UEdGraph
+UCLASS()
+class UNREALED_API UMaterialGraph : public UEdGraph
 {
 	GENERATED_UCLASS_BODY()
 
@@ -103,7 +124,7 @@ public:
 	/**
 	 * Completely rebuild the graph from the material, removing all old nodes
 	 */
-	UNREALED_API void RebuildGraph();
+	void RebuildGraph();
 
 	/**
 	 * Add an Expression to the Graph
@@ -112,36 +133,37 @@ public:
 	 *
 	 * @return	UMaterialGraphNode*	Newly created Graph node to represent expression
 	 */
-	UNREALED_API class UMaterialGraphNode*			AddExpression(UMaterialExpression* Expression);
+	class UMaterialGraphNode*			AddExpression(UMaterialExpression* Expression);
 
 	/**
 	 * Add a Comment to the Graph
 	 *
-	 * @param	Comment	Comment to add
+	 * @param	Comment			Comment to add
+	 * @param	bIsUserInvoked	Whether the comment has just been created by the user via the UI
 	 *
 	 * @return	UMaterialGraphNode_Comment*	Newly created Graph node to represent comment
 	 */
-	UNREALED_API class UMaterialGraphNode_Comment*	AddComment(UMaterialExpressionComment* Comment);
+	class UMaterialGraphNode_Comment*	AddComment(UMaterialExpressionComment* Comment, bool bIsUserInvoked = false);
 
 	/** Link all of the Graph nodes using the Material's connections */
 	void LinkGraphNodesFromMaterial();
 
 	/** Link the Material using the Graph node's connections */
-	UNREALED_API void LinkMaterialExpressionsFromGraph() const;
+	void LinkMaterialExpressionsFromGraph() const;
 
 	/**
 	 * Check whether a material input should be marked as active
 	 *
 	 * @param	GraphPin	Pin representing the material input
 	 */
-	UNREALED_API bool IsInputActive(class UEdGraphPin* GraphPin) const;
+	bool IsInputActive(class UEdGraphPin* GraphPin) const;
 
 	/**
 	 * Get a list of nodes representing expressions that are not used in the Material
 	 *
 	 * @param	UnusedNodes	Array to contain nodes representing unused expressions
 	 */
-	UNREALED_API void GetUnusedExpressions(TArray<class UEdGraphNode*>& UnusedNodes) const;
+	void GetUnusedExpressions(TArray<class UEdGraphNode*>& UnusedNodes) const;
 
 private:
 	/**
@@ -155,4 +177,12 @@ private:
 	 * @param	Input	Input we are finding an output index for
 	 */
 	int32 GetValidOutputIndex(FExpressionInput* Input) const;
+
+	FText GetEmissivePinName() const;
+	FText GetBaseColorPinName() const;
+	FText GetMetallicPinName() const;
+	FText GetNormalPinName() const;
+	FText GetWorldPositionOffsetPinName() const;
+	FText GetSubsurfacePinName() const;
+	FText GetCustomDataPinName( uint32 Index ) const;
 };

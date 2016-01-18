@@ -73,6 +73,12 @@ public:
 	 */
 	virtual IDetailCategoryBuilder& EditCategory( FName CategoryName, const FText& NewLocalizedDisplayName = FText::GetEmpty(), ECategoryPriority::Type CategoryType = ECategoryPriority::Default ) = 0;
 
+	/**
+	 * Hides an entire category
+	 *
+	 * @param CategoryName	The name of the category to hide
+	 */
+	virtual void HideCategory( FName CategoryName ) = 0;
 	
 	/**
 	 * Gets a handle to a property which can be used to read and write the property value and identify the property in other detail customization interfaces.

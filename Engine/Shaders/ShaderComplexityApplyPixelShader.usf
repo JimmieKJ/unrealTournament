@@ -6,51 +6,70 @@
 
 #include "Common.usf"
 #include "PostProcessCommon.usf"
+#include "MiniFontCommon.usf"		// for PrintFloat()
+
+#include "QuadOverdraw.usf"
+ 
+#if READ_QUAD_OVERDRAW
+
+Texture2D<uint> QuadOverdrawTexture;
+
+uint2 QuadOverdrawOffset()
+{
+	uint QuadBufferWidth, QuadBufferHeight, QuadBufferNumLevels;
+	QuadOverdrawTexture.GetDimensions(0, QuadBufferWidth, QuadBufferHeight, QuadBufferNumLevels);
+	return uint2(QuadBufferWidth / 2, 0);
+}
+
+#endif // READ_QUAD_OVERDRAW
+
 
 float3 ShaderComplexityColors[NUM_COMPLEXITY_COLORS];
 
-void Main(
-	in float2 UV : TEXCOORD0,
-	out float4 OutColor : SV_Target0
-	)
+// float4(bLegend,bUseQuadOverdraw, bShowQuadComplexity,0), can be optimzied as define if needed
+float4 ShaderComplexityParams;
+
+// @param In  0..1
+// @return color in 0..1 range
+half3 ColorizeComplexity(float In)
 {
-	float3 SceneColor = clamp(Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, UV, 0), 0.0f, .999f);
+	In = clamp(In, 0.0f, .999f);
 
 	//expand the stored complexity from [0, 1/3] into [0, NUM_COMPLEXITY_COLORS - 3] 
 	//the first third of the maximum complexity gets NUM_COMPLEXITY_COLORS - 3 unique colors to blend between,
 	//and ShaderComplexityColors[6] represents 1/3rd of the maximum complexity.
-	float FinalShaderComplexity = SceneColor.r * 3.0f * (NUM_COMPLEXITY_COLORS - 3);
-	
+	float Value = In * 3.0f * (NUM_COMPLEXITY_COLORS - 3);
+
 	half3 LowerColor = half3(0,0,0);
 	half3 HigherColor = half3(0,0,0);
 	
-	//map the complexity to the passed in colors
-	if (FinalShaderComplexity <= 1)
+	// map the complexity to the passed in colors
+	if (Value < 1)
 	{
 		LowerColor = ShaderComplexityColors[0];
 		HigherColor = ShaderComplexityColors[1];
 	}
-	else if (FinalShaderComplexity > 1 && FinalShaderComplexity <= 2)
+	else if (Value < 2)
 	{
 		LowerColor = ShaderComplexityColors[1];
 		HigherColor = ShaderComplexityColors[2];
 	}
-	else if (FinalShaderComplexity > 2 && FinalShaderComplexity <= 3)
+	else if (Value < 3)
 	{
 		LowerColor = ShaderComplexityColors[2];
 		HigherColor = ShaderComplexityColors[3];
 	}
-	else if (FinalShaderComplexity > 3 && FinalShaderComplexity <= 4)
+	else if (Value < 4)
 	{
 		LowerColor = ShaderComplexityColors[3];
 		HigherColor = ShaderComplexityColors[4];
 	}
-	else if (FinalShaderComplexity > 4 && FinalShaderComplexity <= 5)
+	else if (Value < 5)
 	{
 		LowerColor = ShaderComplexityColors[4];
 		HigherColor = ShaderComplexityColors[5];
 	}
-	else if (FinalShaderComplexity > 5 && FinalShaderComplexity <= 6)
+	else if (Value < 6)
 	{
 		LowerColor = ShaderComplexityColors[5];
 		HigherColor = ShaderComplexityColors[6];
@@ -59,8 +78,8 @@ void Main(
 	{
 		//transform complexity from [1/3,1] to [0,2]
 		//ShaderComplexityColors[8] represents the maximum complexity.
-		FinalShaderComplexity = (SceneColor.r - .33333333f) * 3.0f;
-		if (FinalShaderComplexity <= 1)
+		Value = (In - .33333333f) * 3.0f;
+		if (Value <= 1)
 		{
 			LowerColor = ShaderComplexityColors[6];
 			HigherColor = ShaderComplexityColors[7];
@@ -72,9 +91,228 @@ void Main(
 		}
 	}
 
-	half ComplexityFraction = frac(FinalShaderComplexity);
-	//weight between the nearest colors based on the fraction
-	half4 ComplexityColor = half4(lerp(LowerColor, HigherColor, ComplexityFraction), 1);
+	// weight between the nearest colors based on the fraction
+	return lerp(LowerColor, HigherColor, frac(Value));
+}
 
-	OutColor = RETURN_COLOR(ComplexityColor);
+// @param In  0..1
+// @return color in 0..1 range
+half3 ColorizeComplexityLinear(float In)
+{
+	float Value = clamp(In, 0.0f, .999f) * (NUM_COMPLEXITY_COLORS - 1);
+	int ColorIndex = floor(Value);
+	return lerp(ShaderComplexityColors[ColorIndex], ShaderComplexityColors[ColorIndex + 1], frac(Value));
+}
+
+// @param In  0..1
+// @return color in 0..1 range
+half3 ColorizeComplexityStep(float In)
+{
+	int ColorIndex = round(saturate(In) * (NUM_COMPLEXITY_COLORS - 1));
+	return ShaderComplexityColors[ColorIndex];
+}
+
+
+void Main(
+	noperspective float4 UVAndScreenPos : TEXCOORD0,
+	float4 SvPosition : SV_POSITION,		// after all interpolators
+	out float4 OutColor : SV_Target0
+	)
+{
+	float2 UV = UVAndScreenPos.xy;
+	int2 PixelPos = (int2)SvPosition.xy;
+	float2 ViewLocalUV = float2(UVAndScreenPos.z * 0.5f + 0.5f, 0.5f - 0.5f * UVAndScreenPos.w);
+
+	int2 ViewportCenter = (int2)(ViewportRect.xy + ViewportSize.xy / 2);
+
+	// float3(PS/ShaderBudget, VS/ShaderBudget, overdraw)
+	float3 SceneColor = Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, UV, 0).rgb;
+
+
+	bool bLegend = ShaderComplexityParams.x > 0;
+
+#if READ_QUAD_OVERDRAW
+	bool bUseQuadOverdraw = ShaderComplexityParams.y > 0;
+	bool bShowQuadComplexity = ShaderComplexityParams.z > 0;
+
+	[branch]
+	if (bUseQuadOverdraw)
+	{
+		uint2 QuadID = SvPosition.xy / 2 + QuadOverdrawOffset();
+		SceneColor.r += ComplexityToFloat(QuadOverdrawTexture.Load(int3(QuadID,0)));
+	}
+
+#else
+
+	bool bUseQuadOverdraw = false;
+	bool bShowQuadComplexity = false;
+
+#endif // READ_QUAD_OVERDRAW
+
+	// show overdraw
+	float Overdraw = SceneColor.b;
+
+	// PS cost
+	[branch]
+	if (bShowQuadComplexity)
+	{
+		OutColor = float4(ColorizeComplexityStep(SceneColor.r), 0);
+	}
+	else
+	{
+		OutColor = float4(ColorizeComplexity(SceneColor.r), 0);
+	}
+	
+	if(!bLegend)
+	{
+		// can be optimized if needed
+		return;
+	}
+
+	// crosshair
+	{
+		float CrossHairMask = PixelPos.x == ViewportCenter.x || PixelPos.y == ViewportCenter.y;
+		float2 DistAbs = abs(PixelPos - ViewportCenter);
+		float Dist = max(DistAbs.x, DistAbs.y);
+		float DistMask = Dist >= 2 && Dist < 17;
+
+		OutColor.xyz = lerp(OutColor.xyz, float3(1, 1, 1), CrossHairMask * DistMask);
+	}
+	
+	// value under crosshair
+	float3 CenterViewportHDRColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, ViewportCenter * PostprocessInput0Size.zw).rgb;
+
+#if READ_QUAD_OVERDRAW
+	[branch]
+	if (bUseQuadOverdraw)
+	{
+		uint2 QuadID = ViewportCenter / 2 + QuadOverdrawOffset();
+		CenterViewportHDRColor.r += ComplexityToFloat(QuadOverdrawTexture.Load(int3(QuadID,0)));
+	}
+#endif
+
+	if(0)
+	{
+		float PSValue = CenterViewportHDRColor.r;
+		float VSValue = CenterViewportHDRColor.g;
+
+		int2 Cursor;
+
+		Cursor = ViewportCenter + int2(-35, 17 + 0 * 8);
+		PrintCharacter(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, _P_);
+		PrintCharacter(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, _S_);
+		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, PSValue);
+
+		Cursor = ViewportCenter + int2(-35, 17 + 1 * 8); 
+		PrintCharacter(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, _V_);
+		PrintCharacter(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, _S_);
+		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, VSValue);
+	}
+
+	const int BorderX = 64;
+
+	// Legend
+	{
+		// left top of the border
+		const int Height = 18;
+		const int2 LeftTop = int2(BorderX, ViewportRect.w - Height - 52);
+		const int2 Size = int2(ViewportRect.z - ViewportRect.x - BorderX * 2, Height);
+		const int OuterBorder = 1;
+
+		// (0, 0) .. (1, 1)
+		float2 InsetPx = PixelPos - LeftTop;
+		float2 InsetUV = InsetPx / Size;
+	
+		float3 LegendColor = 0;
+		[branch]
+		if (bShowQuadComplexity)
+		{
+			LegendColor = ColorizeComplexityStep(InsetUV.x);
+		}
+		else
+		{
+			LegendColor = ColorizeComplexity(InsetUV.x);
+		}
+
+		float BorderDistance = ComputeDistanceToRect(PixelPos, LeftTop, Size);
+		
+		// thin black border around the Legend
+		OutColor.xyz = lerp(0, OutColor.xyz, saturate(BorderDistance - (OuterBorder + 17)));
+		// Legend
+		OutColor.xyz = lerp(LegendColor, OutColor.xyz, saturate(BorderDistance - (OuterBorder + 1)));
+
+		[branch]
+		if (bShowQuadComplexity)
+		{
+			// OverDraw
+			int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.r) * (Size.x - 2 * 8), 5);
+			PrintCharacter(PixelPos, OutColor.xyz, .2, Cursor, _O_);
+			PrintCharacter(PixelPos, OutColor.xyz, .2, Cursor, _D_);
+		}
+		else
+		{
+			// PS
+			{
+				int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.r) * (Size.x - 2 * 8), 0);
+
+				PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _P_);
+				PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _S_);
+			}
+
+			// VS
+			{
+				int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.g) * (Size.x - 2 * 8), 11);
+			
+				PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _V_);
+				PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _S_);
+			}
+		}
+
+	}
+
+	// Overdraw
+	if(0)	// later
+	{
+		const int2 Size = ViewportSize.xy / 3;
+		const int2 LeftTop = int2(ViewportRect.z - Size.x - BorderX, ViewportRect.w - Size.y - 80);
+		const int OuterBorder = 0;
+
+		// (0, 0) .. (1, 1)
+		float2 InsetPx = PixelPos - LeftTop;
+		float2 InsetUV = InsetPx / Size;
+		float2 BufferUV = ScreenAlignedUV(InsetUV);
+
+		const float Overdraw = Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, BufferUV, 0).b;
+	
+		float BorderDistance = ComputeDistanceToRect(PixelPos, LeftTop, Size);
+		
+		// thin black border around the Legend
+		OutColor.xyz = lerp(0, OutColor.xyz, saturate(BorderDistance - (OuterBorder + 2)));
+		// Legend
+		OutColor.xyz = lerp(Overdraw, OutColor.xyz, saturate(BorderDistance - (OuterBorder + 1)));
+	}
+
+	// VS
+	if(0)	// later
+	{
+		const int2 Size = ViewportSize.xy / 3;
+		const int2 LeftTop = int2(ViewportRect.x + BorderX, ViewportRect.w - Size.y - 80);
+		const int OuterBorder = 0;
+
+		// (0, 0) .. (1, 1)
+		float2 InsetPx = PixelPos - LeftTop;
+		float2 InsetUV = InsetPx / Size;
+		float2 BufferUV = ScreenAlignedUV(InsetUV);
+
+		const float3 VSColor = ColorizeComplexity(Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, BufferUV, 0).g);
+	
+		float BorderDistance = ComputeDistanceToRect(PixelPos, LeftTop, Size);
+		
+		// thin black border around the Legend
+		OutColor.xyz = lerp(0, OutColor.xyz, saturate(BorderDistance - (OuterBorder + 2)));
+		// Legend
+		OutColor.xyz = lerp(VSColor, OutColor.xyz, saturate(BorderDistance - (OuterBorder + 1)));
+	}
+
+	OutColor = RETURN_COLOR(OutColor);
 }

@@ -63,7 +63,7 @@ class UDialogueWave : public UObject
 	FGuid LocalizationGUID;
 
 public:
-	// Begin UObject interface. 
+	//~ Begin UObject Interface. 
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual FString GetDesc() override;
@@ -76,13 +76,13 @@ public:
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif
 
-	// End UObject interface. 
+	//~ End UObject Interface. 
 
-	// Begin UDialogueWave interface.
+	//~ Begin UDialogueWave Interface.
 	ENGINE_API bool SupportsContext(const FDialogueContext& Context) const;
 	ENGINE_API USoundBase* GetWaveFromContext(const FDialogueContext& Context) const;
 	ENGINE_API FString GetContextLocalizationKey( const FDialogueContext& Context ) const;
-	// End UDialogueWave interface.
+	//~ End UDialogueWave Interface.
 
 protected:
 	void UpdateMappingProxy(FDialogueContextMapping& ContextMapping);

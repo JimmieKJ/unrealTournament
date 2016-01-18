@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2303191
+﻿INTSourceChangelist:2574205
 Availability:NoPublish
 Title:
 Crumbs:
 Description:
 
 [EXCERPT:ManageMode]
-Manage モードには、ランドスケープの新規作成、ランドスケープのインポート / エクスポート、ランドスケープ コンポーネントの追加 / 削除、ランドスケープ ストリーミングの管理を可能にするツールが含まれています。Manage モードでは、レベルエディタの [詳細] パネルでコンポーネントを個別に選択して、そのプロパティを修正することも出来ます。
+Manage モードには、ランドスケープの新規作成、ランドスケープのインポート / エクスポート、ランドスケープ コンポーネントの追加 / 削除、ランドスケープ ストリーミングの管理を可能にするツールが含まれています。Manage モードでは、レベル エディタの [Details] パネルでコンポーネントを個別に選択して、そのプロパティを修正することも出来ます。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/ManageMode
 [/VAR]

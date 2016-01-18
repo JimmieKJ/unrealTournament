@@ -96,6 +96,17 @@ void APlayerState::CopyProperties(APlayerState* PlayerState)
 	PlayerState->SavedNetworkAddress = SavedNetworkAddress;
 }
 
+void APlayerState::OnDeactivated()
+{
+	// By default we duplicate the inactive player state and destroy the old one
+	Destroy();
+}
+
+void APlayerState::OnReactivated()
+{
+	// Stub
+}
+
 void APlayerState::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
@@ -179,11 +190,14 @@ void APlayerState::OnRep_PlayerName()
 
 void APlayerState::OnRep_bIsInactive()
 {
-	// remove and re-add from the GameState so it's in the right list
-	GetWorld()->GameState->RemovePlayerState(this);
-	GetWorld()->GameState->AddPlayerState(this);
+	// remove and re-add from the GameState so it's in the right list  
+	UWorld* World = GetWorld();
+	if (ensure(World && World->GameState))
+	{
+		World->GameState->RemovePlayerState(this);
+		World->GameState->AddPlayerState(this);
+	}
 }
-
 
 bool APlayerState::ShouldBroadCastWelcomeMessage(bool bExiting)
 {
@@ -192,14 +206,15 @@ bool APlayerState::ShouldBroadCastWelcomeMessage(bool bExiting)
 
 void APlayerState::Destroyed()
 {
-	if ( GetWorld()->GameState != NULL )
+	UWorld* World = GetWorld();
+	if (World->GameState != NULL)
 	{
-		GetWorld()->GameState->RemovePlayerState(this);
+		World->GameState->RemovePlayerState(this);
 	}
 
 	if( ShouldBroadCastWelcomeMessage(true) )
 	{
-		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
+		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = *Iterator;
 			if( PlayerController )
@@ -247,7 +262,7 @@ void APlayerState::OnRep_UniqueId()
 	RegisterPlayerWithSession(false);
 }
 
-void APlayerState::SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId)
+void APlayerState::SetUniqueId(const TSharedPtr<const FUniqueNetId>& InUniqueId)
 {
 	UniqueId.SetUniqueNetId(InUniqueId);
 }
@@ -287,7 +302,7 @@ APlayerState* APlayerState::Duplicate()
 {
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.Instigator = Instigator;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save player states into a map
 	APlayerState* NewPlayerState = GetWorld()->SpawnActor<APlayerState>(GetClass(), SpawnInfo );
 	// Can fail in case of multiplayer PIE teardown

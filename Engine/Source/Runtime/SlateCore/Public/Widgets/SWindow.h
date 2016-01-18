@@ -7,9 +7,11 @@ class FHittestGrid;
 
 /** Notification that a window has been activated */
 DECLARE_DELEGATE( FOnWindowActivated );
+DECLARE_MULTICAST_DELEGATE( FOnWindowActivatedEvent );
 
 /** Notification that a window has been deactivated */
 DECLARE_DELEGATE( FOnWindowDeactivated );
+DECLARE_MULTICAST_DELEGATE( FOnWindowDeactivatedEvent );
 
 /** Notification that a window is about to be closed */
 DECLARE_DELEGATE_OneParam( FOnWindowClosed, const TSharedRef<SWindow>& );
@@ -434,10 +436,18 @@ public:
 	bool AppearsInTaskbar() const;
 
 	/** Sets the delegate to execute when the window is activated */
+	DEPRECATED(4.9, "SetOnWindowActivated() is deprecated. Use GetOnWindowActivatedEvent() and subscribe to the multicast event.")
 	void SetOnWindowActivated( const FOnWindowActivated& InDelegate );
 
+	/** Gets the multicast delegate executed when the window is deactivated */
+	FOnWindowActivatedEvent& GetOnWindowActivatedEvent() { return WindowActivatedEvent; }
+
 	/** Sets the delegate to execute when the window is deactivated */
+	DEPRECATED(4.9, "SetOnWindowDeactivated() is deprecated. Use GetOnWindowDeactivatedEvent() and subscribe to the multicast event.")
 	void SetOnWindowDeactivated( const FOnWindowDeactivated& InDelegate );
+
+	/** Gets the multicast delegate executed when the window is deactivated */
+	FOnWindowDeactivatedEvent& GetOnWindowDeactivatedEvent() { return WindowDeactivatedEvent; }
 
 	/** Sets the delegate to execute right before the window is closed */
 	void SetOnWindowClosed( const FOnWindowClosed& InDelegate );
@@ -622,7 +632,8 @@ private:
 	/** The window's desired size takes into account the ratio between the slate units and the pixel size */
 	virtual FVector2D ComputeDesiredSize(float) const override;
 
-	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override;
+	// For a given client size, calculate the window size required to accomodate any potential non-OS borders and tilebars
+	FVector2D GetWindowSizeFromClientSize(FVector2D InClientSize);
 
 public:
 	/** @return true if this window will be focused when it is first shown */
@@ -759,6 +770,9 @@ protected:
 	/** Transparency setting for this window */
 	EWindowTransparency TransparencySupport;
 
+	/** True if this window has a title bar */
+	bool bCreateTitleBar : 1;
+
 	/** True if this is a pop up window */
 	bool bIsPopupWindow : 1;
 
@@ -886,10 +900,12 @@ private:
 	
 	/** Invoked when the window has been activated. */
 	FOnWindowActivated OnWindowActivated;
-	
+	FOnWindowActivatedEvent WindowActivatedEvent;
+
 	/** Invoked when the window has been deactivated. */
 	FOnWindowDeactivated OnWindowDeactivated;
-	
+	FOnWindowDeactivatedEvent WindowDeactivatedEvent;
+
 	/** Invoked when the window is about to be closed. */
 	FOnWindowClosed OnWindowClosed;
 
@@ -945,7 +961,7 @@ private:
 	
 	virtual
 
-	void ConstructWindowInternals( const bool bCreateTitleBar );
+	void ConstructWindowInternals();
 
 	/**
 	 * @return EVisibility::Visible if we are showing this viewports content.  EVisibility::Hidden otherwise (we hide the content during full screen overlays)
@@ -1039,6 +1055,8 @@ private:
 };
 
 
+#if WITH_EDITOR
+
 /**
  * Hack to switch wolds in a scope and switch back when we fall out of scope                   
  */
@@ -1080,3 +1098,14 @@ private:
 	// The worldID serves as identification to the user about the world.  It can be anything although -1 is assumed to be always invalid.
 	int32 WorldId;
 };
+
+#else
+
+struct FScopedSwitchWorldHack
+{
+	FORCEINLINE FScopedSwitchWorldHack(const FWidgetPath& WidgetPath) { }
+	FORCEINLINE FScopedSwitchWorldHack(TSharedPtr<SWindow> InWindow) { }
+	FORCEINLINE ~FScopedSwitchWorldHack() { }
+};
+
+#endif

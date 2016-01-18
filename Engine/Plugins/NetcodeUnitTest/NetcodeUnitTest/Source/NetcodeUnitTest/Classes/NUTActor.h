@@ -14,7 +14,7 @@ class ANUTActor;
 /**
  * Enum for defining custom NetcodeUnitTest control channel commands (sent through NMT_NUTControl)
  */
-// @todo JohnB: Fully document individually
+// @todo #JohnBDoc: Fully document individually
 namespace ENUTControlCommand
 {
 	enum Type
@@ -49,6 +49,10 @@ class ANUTActor : public AActor, public FSelfRegisteringExec
 {
 	GENERATED_UCLASS_BODY()
 
+private:
+	/** The name of the beacon net driver */
+	FName BeaconDriverName;
+
 public:
 	/** The value of World.RealTimeSeconds as of the last time the client was marked as still alive */
 	float LastAliveTime;
@@ -67,7 +71,11 @@ public:
 
 	virtual void PostActorCreated() override;
 
+#if TARGET_UE4_CL < CL_CONSTNETCONN
+	virtual UNetConnection* GetNetConnection() override;
+#else
 	virtual UNetConnection* GetNetConnection() const override;
+#endif
 
 	bool NotifyControlMessage(UNetConnection* Connection, uint8 MessageType, FInBunch& Bunch);
 
@@ -154,7 +162,7 @@ public:
 	/**
 	 * Received by all clients, emits a ping to log
 	 */
-	// @todo JohnB: When the VM reflection helper is finished, remove NETCODEUNITTEST_API from this, and use reflection instead
+	// @todo #JohnBRefactor: When the VM reflection helper is finished, remove NETCODEUNITTEST_API from this, and use reflection instead
 	UFUNCTION(reliable, NetMulticast)
 	NETCODEUNITTEST_API void NetMulticastPing();
 
@@ -176,10 +184,12 @@ public:
 	void ServerExecute(const FString& InDelegate);
 
 
-	/**
-	 * Monitor for initial player on server, in order to assign ownership
-	 */
 	virtual void Tick(float DeltaSeconds) override;
+
+	/**
+	 * Update the owner for the NUTActor, if the current owner is no longer valid
+	 */
+	void UpdateOwner();
 };
 
 

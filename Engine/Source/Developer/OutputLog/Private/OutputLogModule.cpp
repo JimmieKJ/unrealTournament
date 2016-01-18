@@ -3,6 +3,7 @@
 #include "OutputLogPrivatePCH.h"
 #include "SDebugConsole.h"
 #include "SOutputLog.h"
+#include "SDeviceOutputLog.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "SDockTab.h"
 
@@ -11,6 +12,7 @@ IMPLEMENT_MODULE( FOutputLogModule, OutputLog );
 namespace OutputLogModule
 {
 	static const FName OutputLogTabName = FName(TEXT("OutputLog"));
+	static const FName DeviceOutputLogTabName = FName(TEXT("DeviceOutputLog"));
 }
 
 /** This class is to capture all log output even if the log window is closed */
@@ -67,6 +69,17 @@ TSharedRef<SDockTab> SpawnOutputLog( const FSpawnTabArgs& Args )
 		];
 }
 
+TSharedRef<SDockTab> SpawnDeviceOutputLog( const FSpawnTabArgs& Args )
+{
+	return SNew(SDockTab)
+		.Icon(FEditorStyle::GetBrush("Log.TabIcon"))
+		.TabRole( ETabRole::NomadTab )
+		.Label( NSLOCTEXT("OutputLog", "DeviceTabTitle", "Device Output Log") )
+		[
+			SNew(SDeviceOutputLog)
+		];
+}
+
 void FOutputLogModule::StartupModule()
 {
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(OutputLogModule::OutputLogTabName, FOnSpawnTab::CreateStatic( &SpawnOutputLog ) )
@@ -74,6 +87,13 @@ void FOutputLogModule::StartupModule()
 		.SetTooltipText(NSLOCTEXT("UnrealEditor", "OutputLogTooltipText", "Open the Output Log tab."))
 		.SetGroup( WorkspaceMenu::GetMenuStructure().GetDeveloperToolsLogCategory() )
 		.SetIcon( FSlateIcon(FEditorStyle::GetStyleSetName(), "Log.TabIcon") );
+
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(OutputLogModule::DeviceOutputLogTabName, FOnSpawnTab::CreateStatic( &SpawnDeviceOutputLog ) )
+		.SetDisplayName(NSLOCTEXT("UnrealEditor", "DeviceOutputLogTab", "Device Output Log"))
+		.SetTooltipText(NSLOCTEXT("UnrealEditor", "DeviceOutputLogTooltipText", "Open the Device Output Log tab."))
+		.SetGroup( WorkspaceMenu::GetMenuStructure().GetDeveloperToolsLogCategory() )
+		.SetIcon( FSlateIcon(FEditorStyle::GetStyleSetName(), "Log.TabIcon") )
+		.SetAutoGenerateMenuEntry(false); // remove once not Experimental
 	
 	OutputLogHistory = MakeShareable(new FOutputLogHistory);
 }
@@ -83,6 +103,7 @@ void FOutputLogModule::ShutdownModule()
 	if (FSlateApplication::IsInitialized())
 	{
 		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(OutputLogModule::OutputLogTabName);
+		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(OutputLogModule::DeviceOutputLogTabName);
 	}
 }
 

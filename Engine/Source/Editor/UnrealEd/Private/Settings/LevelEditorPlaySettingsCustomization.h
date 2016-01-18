@@ -4,6 +4,7 @@
 
 #include "PropertyEditing.h"
 #include "PropertyCustomizationHelpers.h"
+#include "Runtime/Engine/Classes/Sound/AudioSettings.h"
 
 
 #define LOCTEXT_NAMESPACE "FLevelEditorPlaySettingsCustomization"
@@ -296,9 +297,62 @@ public:
 	{
 		const float MaxPropertyWidth = 400.0f;
 
+		// play in editor settings
+		IDetailCategoryBuilder& PlayInEditorCategory = LayoutBuilder.EditCategory("PlayInEditor");
+		{
+			TArray<TSharedRef<IPropertyHandle>> PIECategoryProperties;
+			PlayInEditorCategory.GetDefaultProperties(PIECategoryProperties, true, false);
+
+			TSharedPtr<IPropertyHandle> PIEEnableSoundHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, EnableSound));
+			PIESoundQualityLevelHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, PlayInEditorSoundQualityLevel));
+			PIESoundQualityLevelHandle->MarkHiddenByCustomization();
+
+			for (TSharedRef<IPropertyHandle>& PropertyHandle : PIECategoryProperties)
+			{
+				if (PropertyHandle->GetProperty() != PIESoundQualityLevelHandle->GetProperty())
+				{
+					PlayInEditorCategory.AddProperty(PropertyHandle);
+				}
+
+				if (PropertyHandle->GetProperty() == PIEEnableSoundHandle->GetProperty())
+				{
+					PlayInEditorCategory.AddCustomRow(PIESoundQualityLevelHandle->GetPropertyDisplayName(), false)
+						.NameContent()
+						[
+							PIESoundQualityLevelHandle->CreatePropertyNameWidget()
+						]
+						.ValueContent()
+						.MaxDesiredWidth(MaxPropertyWidth)
+						[
+							SAssignNew(QualityLevelComboBox, SComboBox<TSharedPtr<FString>>)
+							.OptionsSource(&AvailableQualityLevels)
+							.OnComboBoxOpening(this, &FLevelEditorPlaySettingsCustomization::HandleQualityLevelComboBoxOpening)
+							.OnGenerateWidget(this, &FLevelEditorPlaySettingsCustomization::HandleQualityLevelComboBoxGenerateWidget)
+							.OnSelectionChanged(this, &FLevelEditorPlaySettingsCustomization::HandleQualityLevelSelectionChanged)
+							[
+								SNew(STextBlock)
+								.Text(this, &FLevelEditorPlaySettingsCustomization::GetSelectedQualityLevelName)
+							]
+						];
+				}
+			}
+
+
+		}
+
 		// play in new window settings
 		IDetailCategoryBuilder& PlayInNewWindowCategory = LayoutBuilder.EditCategory("PlayInNewWindow");
 		{
+		// Mac does not support parenting, do not show
+#if PLATFORM_MAC
+			PlayInNewWindowCategory.AddProperty("PIEAlwaysOnTop")
+				.DisplayName(LOCTEXT("PIEAlwaysOnTop", "Always On Top"))
+				.IsEnabled(false);
+#else
+			PlayInNewWindowCategory.AddProperty("PIEAlwaysOnTop")
+				.DisplayName(LOCTEXT("PIEAlwaysOnTop", "Always On Top"));
+#endif
+
 			// new window size
 			TSharedRef<IPropertyHandle> WindowHeightHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, NewWindowHeight));
 			TSharedRef<IPropertyHandle> WindowWidthHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, NewWindowWidth));
@@ -345,9 +399,13 @@ public:
 			// standalone window size
 			TSharedRef<IPropertyHandle> WindowHeightHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, StandaloneWindowHeight));
 			TSharedRef<IPropertyHandle> WindowWidthHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, StandaloneWindowWidth));
+			TSharedRef<IPropertyHandle> WindowPositionHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, StandaloneWindowPosition));
+			TSharedRef<IPropertyHandle> CenterNewWindowHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, CenterStandaloneWindow));
 
 			WindowHeightHandle->MarkHiddenByCustomization();
 			WindowWidthHandle->MarkHiddenByCustomization();
+			WindowPositionHandle->MarkHiddenByCustomization();
+			CenterNewWindowHandle->MarkHiddenByCustomization();
 
 			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("PlayInStandaloneWindowDetails", "Standalone Window Size"), false)
 				.NameContent()
@@ -362,6 +420,21 @@ public:
 				[
 					SNew(SScreenResolutionCustomization, &LayoutBuilder, WindowHeightHandle, WindowWidthHandle)
 				];
+
+			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("PlayInStandaloneWindowDetails", "Standalone Window Position"), false)
+				.NameContent()
+				[
+					SNew(STextBlock)
+						.Font(LayoutBuilder.GetDetailFont())
+						.Text(LOCTEXT("StandaloneWindowPosName", "Standalone Window Position"))
+						.ToolTipText(LOCTEXT("StandaloneWindowSizeTooltip", "Sets the width and height of standalone game windows (in pixels)"))
+				]
+				.ValueContent()
+				.MaxDesiredWidth(MaxPropertyWidth)
+				[
+					SNew(SScreenPositionCustomization, &LayoutBuilder, WindowPositionHandle, CenterNewWindowHandle)
+				];
+
 
 			// command line options
 			TSharedPtr<IPropertyHandle> DisableStandaloneSoundProperty = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, DisableStandaloneSound));
@@ -420,6 +493,11 @@ public:
 
 			WindowHeightHandle->MarkHiddenByCustomization();
 			WindowWidthHandle->MarkHiddenByCustomization();
+
+			NetworkCategory.AddProperty("AutoConnectToServer")
+				.DisplayName(LOCTEXT("AutoConnectToServerLabel", "Auto Connect To Server"))
+				.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FLevelEditorPlaySettingsCustomization::HandleAutoConnectToServerEnabled)))
+				.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FLevelEditorPlaySettingsCustomization::HandleAutoConnectToServerVisibility)));
 
 			NetworkCategory.AddProperty("RouteGamepadToSecondWindow")
 				.DisplayName(LOCTEXT("RouteGamepadToSecondWindowLabel", "Route 1st Gamepad to 2nd Client"))
@@ -611,6 +689,18 @@ private:
 		return GetDefault<ULevelEditorPlaySettings>()->IsAdditionalServerGameOptionsActive();
 	}
 
+	// Callback for getting the enabled state of the AutoConnectToServer property.
+	bool HandleAutoConnectToServerEnabled() const
+	{
+		return GetDefault<ULevelEditorPlaySettings>()->IsAutoConnectToServerActive();
+	}
+
+	// Callback for getting the visibility of the RerouteInputToSecondWindow property.
+	EVisibility HandleAutoConnectToServerVisibility() const
+	{
+		return GetDefault<ULevelEditorPlaySettings>()->GetAutoConnectToServerVisibility();
+	}
+
 	// Callback for getting the enabled state of the RerouteInputToSecondWindow property.
 	bool HandleRerouteInputToSecondWindowEnabled( ) const
 	{
@@ -634,6 +724,55 @@ private:
 	{
 		return GetDefault<ULevelEditorPlaySettings>()->GetAdditionalLaunchOptionsVisibility();
 	}
+
+	void HandleQualityLevelComboBoxOpening()
+	{
+		const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
+		AvailableQualityLevels.Empty(AudioSettings->QualityLevels.Num());
+		for (const FAudioQualitySettings& AQSettings : AudioSettings->QualityLevels)
+		{
+			AvailableQualityLevels.Add(MakeShareable(new FString(AQSettings.DisplayName.ToString())));
+		}
+		QualityLevelComboBox->RefreshOptions();
+	}
+
+	TSharedRef<SWidget> HandleQualityLevelComboBoxGenerateWidget(TSharedPtr<FString> InItem)
+	{
+		return SNew(STextBlock)
+				.Text(FText::FromString(*InItem));
+	}
+
+	void HandleQualityLevelSelectionChanged(TSharedPtr<FString> InSelection, ESelectInfo::Type SelectInfo)
+	{
+		if (InSelection.IsValid())
+		{
+			const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
+			for (int32 QualityLevel = 0; QualityLevel < AudioSettings->QualityLevels.Num(); ++QualityLevel)
+			{
+				if (AudioSettings->QualityLevels[QualityLevel].DisplayName.ToString() == *InSelection)
+				{
+					PIESoundQualityLevelHandle->SetValue(QualityLevel);
+					break;
+				}
+			}
+		}
+	}
+
+	FText GetSelectedQualityLevelName() const
+	{
+		int32 QualityLevel = 0;
+		PIESoundQualityLevelHandle->GetValue(QualityLevel);
+		const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
+		return (QualityLevel >= 0 && QualityLevel < AudioSettings->QualityLevels.Num() ? AudioSettings->QualityLevels[QualityLevel].DisplayName : FText::GetEmpty());
+	}
+
+private:
+
+	/** Collection of possible quality levels we can use as a parent for this profile */
+	TArray<TSharedPtr<FString>> AvailableQualityLevels;
+	TSharedPtr<IPropertyHandle> PIESoundQualityLevelHandle;
+	TSharedPtr<SComboBox<TSharedPtr<FString>>> QualityLevelComboBox;
+
 };
 
 

@@ -30,7 +30,7 @@ bool IPlatformFile::IterateDirectoryRecursively(const TCHAR* Directory, FDirecto
 			, Visitor(InVisitor)
 		{
 		}
-		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
 		{
 			bool Result = Visitor.Visit(FilenameOrDirectory, bIsDirectory);
 			if (Result && bIsDirectory)
@@ -42,6 +42,32 @@ bool IPlatformFile::IterateDirectoryRecursively(const TCHAR* Directory, FDirecto
 	};
 	FRecurse Recurse(*this, Visitor);
 	return IterateDirectory(Directory, Recurse);
+}
+
+bool IPlatformFile::IterateDirectoryStatRecursively(const TCHAR* Directory, FDirectoryStatVisitor& Visitor)
+{
+	class FStatRecurse : public FDirectoryStatVisitor
+	{
+	public:
+		IPlatformFile&			PlatformFile;
+		FDirectoryStatVisitor&	Visitor;
+		FStatRecurse(IPlatformFile&	InPlatformFile, FDirectoryStatVisitor& InVisitor)
+			: PlatformFile(InPlatformFile)
+			, Visitor(InVisitor)
+		{
+		}
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, const FFileStatData& StatData) override
+		{
+			bool Result = Visitor.Visit(FilenameOrDirectory, StatData);
+			if (Result && StatData.bIsDirectory)
+			{
+				Result = PlatformFile.IterateDirectoryStat(FilenameOrDirectory, *this);
+			}
+			return Result;
+		}
+	};
+	FStatRecurse Recurse(*this, Visitor);
+	return IterateDirectoryStat(Directory, Recurse);
 }
 
 bool IPlatformFile::DeleteDirectoryRecursively(const TCHAR* Directory)

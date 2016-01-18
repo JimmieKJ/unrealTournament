@@ -86,7 +86,10 @@ void UBTDecorator_CheckGameplayTagsOnActor::InitializeFromAsset(UBehaviorTree& A
 	Super::InitializeFromAsset(Asset);
 
 	UBlackboardData* BBAsset = GetBlackboardAsset();
-	ActorToCheck.CacheSelectedKey(BBAsset);
+	if (ensure(BBAsset))
+	{
+		ActorToCheck.ResolveSelectedKey(*BBAsset);
+	}
 
 #if WITH_EDITOR
 	BuildDescription();

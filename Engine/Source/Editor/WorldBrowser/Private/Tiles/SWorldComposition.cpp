@@ -9,6 +9,8 @@
 #include "SWorldTileItem.h"
 #include "SWorldLayers.h"
 #include "WorldTileCollectionModel.h"
+#include "IMenu.h"
+#include "WorldTileThumbnails.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -78,22 +80,10 @@ public:
 		, bHasNodeInteraction(true)
 		, BoundsSnappingDistance(20.f)
 	{
-
-		SharedThumbnailRT = new FSlateTextureRenderTarget2DResource(
-						FLinearColor::Black, 
-						512, 
-						512, 
-						PF_B8G8R8A8, SF_Point, TA_Wrap, TA_Wrap, 0.0f
-					);
-		BeginInitResource(SharedThumbnailRT);
 	}
 
 	~SWorldCompositionGrid()
 	{
-		BeginReleaseResource(SharedThumbnailRT);
-		FlushRenderingCommands();
-		delete SharedThumbnailRT;
-		
 		WorldModel->SelectionChanged.RemoveAll(this);
 		WorldModel->CollectionChanged.RemoveAll(this);
 
@@ -139,6 +129,8 @@ public:
 		SelectionManager.OnSelectionChanged.BindSP(this, &SWorldCompositionGrid::OnSelectionChanged);
 
 		FCoreDelegates::PreWorldOriginOffset.AddSP(this, &SWorldCompositionGrid::PreWorldOriginOffset);
+
+		ThumbnailCollection = MakeShareable(new FTileThumbnailCollection());
 	
 		RefreshView();
 	}
@@ -149,7 +141,7 @@ public:
 		auto NewNode = SNew(SWorldTileItem)
 							.InWorldModel(WorldModel)
 							.InItemModel(LevelModel)
-							.ThumbnailRenderTarget(SharedThumbnailRT);
+							.InThumbnailCollection(ThumbnailCollection);
 	
 		AddGraphNode(NewNode);
 	}
@@ -464,7 +456,7 @@ public:
 							{
 								const FVector2D AnchorNodeOldPos = NodeBeingDragged->GetPosition();
 								const FVector2D DeltaPos = AnchorNodeNewPos - AnchorNodeOldPos;
-								if (DeltaPos.Size() > KINDA_SMALL_NUMBER)
+								if (DeltaPos.SizeSquared() > FMath::Square(KINDA_SMALL_NUMBER))
 								{
 									MoveSelectedNodes(NodeBeingDragged, AnchorNodeNewPos);
 								}
@@ -657,8 +649,11 @@ protected:
 		WorldModel->BuildWorldCompositionMenu(MenuBuilder);
 		TSharedPtr<SWidget> MenuWidget = MenuBuilder.MakeWidget();
 
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+
 		FSlateApplication::Get().PushMenu(
 			AsShared(),
+			WidgetPath,
 			MenuWidget.ToSharedRef(),
 			MouseEvent.GetScreenSpacePosition(),
 			FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
@@ -945,8 +940,8 @@ private:
 	FVector2D								WorldMouseLocation;
 	// Current marquee rectangle size in world units
 	FVector2D								WorldMarqueeSize;
-
-	FSlateTextureRenderTarget2DResource*	SharedThumbnailRT;
+	// Thumbnail managment for tile items
+	TSharedPtr<FTileThumbnailCollection>	ThumbnailCollection;
 };
 
 //----------------------------------------------------------------
@@ -985,7 +980,7 @@ void SWorldComposition::OnBrowseWorld(UWorld* InWorld)
 	ContentParent->SetContent(SNullWidget::NullWidget);
 	LayersListWrapBox = nullptr;
 	NewLayerButton = nullptr;
-	NewLayerPopupWindow = nullptr;
+	NewLayerMenu.Reset();
 	GridView = nullptr;
 	TileWorldModel = nullptr;
 			
@@ -1205,13 +1200,15 @@ FReply SWorldComposition::NewLayer_Clicked()
 		return FReply::Handled();
 	}
 	
-	TSharedRef<SNewLayerPopup> CreateLayerWidget = 
-		SNew(SNewLayerPopup)
+	TSharedRef<SNewWorldLayerPopup> CreateLayerWidget = 
+		SNew(SNewWorldLayerPopup)
 		.OnCreateLayer(this, &SWorldComposition::CreateNewLayer)
-		.DefaultName(LOCTEXT("Layer_DefaultName", "MyLayer").ToString());
+		.DefaultName(LOCTEXT("Layer_DefaultName", "MyLayer").ToString())
+		.InWorldModel(TileWorldModel);
 
-	NewLayerPopupWindow = FSlateApplication::Get().PushMenu(
+	NewLayerMenu = FSlateApplication::Get().PushMenu(
 		this->AsShared(),
+		FWidgetPath(),
 		CreateLayerWidget,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )
@@ -1225,9 +1222,9 @@ FReply SWorldComposition::CreateNewLayer(const FWorldTileLayer& NewLayer)
 	TileWorldModel->AddManagedLayer(NewLayer);
 	PopulateLayersList();
 	
-	if (NewLayerPopupWindow.IsValid())
+	if (NewLayerMenu.IsValid())
 	{
-		NewLayerPopupWindow->RequestDestroyWindow();
+		NewLayerMenu.Pin()->Dismiss();
 	}
 		
 	return FReply::Handled();

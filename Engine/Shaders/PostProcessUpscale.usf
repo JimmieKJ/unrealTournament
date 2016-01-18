@@ -62,7 +62,7 @@ float2 PaniniProjectionScreenPos(float2 InScreenPos)
 // vertex shader entry point
 void MainVS(
 	in uint VertexId : SV_VertexID,
-	out float4 OutTexCoord : TEXCOORD0,
+	out noperspective float4 OutTexCoord : TEXCOORD0,
 	out float4 OutPosition : SV_POSITION
 	)
 {
@@ -84,7 +84,7 @@ void MainVS(
 }
 
 
-void MainPS(float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
+void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
 {
 #if METHOD == 0
 	// Nearest sampling (not blurry but blocky, more for testing)

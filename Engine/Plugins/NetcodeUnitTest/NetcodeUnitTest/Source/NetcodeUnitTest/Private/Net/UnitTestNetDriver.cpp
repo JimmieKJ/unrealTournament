@@ -15,7 +15,7 @@ UUnitTestNetDriver::UUnitTestNetDriver(const FObjectInitializer& ObjectInitializ
 }
 
 /**
- * @todo JohnB
+ * @todo #JohnBDoc
  */
 bool UUnitTestNetDriver::InitConnectionClass()
 {
@@ -36,7 +36,7 @@ bool UUnitTestNetDriver::InitConnectionClass()
 }
 
 /**
- * @todo JohnB
+ * @todo #JohnBDoc
  */
 bool UUnitTestNetDriver::InitConnect(FNetworkNotify* InNotify, const FURL& ConnectURL, FString& Error)
 {

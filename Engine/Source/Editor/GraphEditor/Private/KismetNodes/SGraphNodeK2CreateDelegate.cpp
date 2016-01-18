@@ -123,6 +123,7 @@ void SGraphNodeK2CreateDelegate::CreateBelowWidgetControls(TSharedPtr<SVerticalB
 			}
 
 			TSharedRef<SComboButton> SelectFunctionWidgetRef = SNew(SComboButton)
+				.Method(EPopupMethod::UseCurrentWindow)
 				.ButtonContent()
 				[
 					SNew(STextBlock)

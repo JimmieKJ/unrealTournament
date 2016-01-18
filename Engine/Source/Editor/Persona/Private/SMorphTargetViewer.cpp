@@ -270,10 +270,10 @@ float SMorphTargetListRow::GetWeight() const
 	if (PersonaPtr.IsValid() && Item->bAutoFillData)
 	{
 		USkeletalMeshComponent* SkelComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
-		if ( SkelComp && SkelComp->AnimScriptInstance )
+		if ( SkelComp && SkelComp->GetAnimInstance() )
 		{
 			// make sure if they have value that's not same as saved value
-			float* CurrentValue = SkelComp->AnimScriptInstance->MorphTargetCurves.Find(Item->Name);
+			float* CurrentValue = SkelComp->GetAnimInstance()->GetMorphTargetCurves().Find(Item->Name);
 			if (CurrentValue && *CurrentValue != 0.f)
 			{
 				return *CurrentValue;

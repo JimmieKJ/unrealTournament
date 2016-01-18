@@ -220,7 +220,7 @@ bool FMacHttpRequest::StartRequest()
 	const FString UserAgent = GetHeader("User-Agent");
 	if(UserAgent.IsEmpty())
 	{
-		NSString* Tag = FString::Printf(TEXT("UE4-%s,UE4Ver(%s)"), FApp::GetGameName(), *GEngineVersion.ToString()).GetNSString();
+		NSString* Tag = FString::Printf(TEXT("UE4-%s,UE4Ver(%s)"), FApp::GetGameName(), *FEngineVersion::Current().ToString()).GetNSString();
 		[Request addValue:Tag forHTTPHeaderField:@"User-Agent"];
 	}
 	else

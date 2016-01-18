@@ -171,6 +171,29 @@ void UFactory::DisplayOverwriteOptionsDialog(const FText& Message)
 	}
 }
 
+bool UFactory::SortFactoriesByPriority(const UFactory& A, const UFactory& B)
+{
+	// First sort so that higher priorities are earlier in the list
+	if( A.ImportPriority > B.ImportPriority )
+	{
+		return true;
+	}
+	else if( A.ImportPriority < B.ImportPriority )
+	{
+		return false;
+	}
+
+	// Then sort so that factories that only create new assets are tried after those that actually import the file data (when they have an equivalent priority)
+	const bool bFactoryAImportsFiles = !A.CanCreateNew();
+	const bool bFactoryBImportsFiles = !B.CanCreateNew();
+	if( bFactoryAImportsFiles && !bFactoryBImportsFiles )
+	{
+		return true;
+	}
+
+	return false;
+}
+
 UObject* UFactory::StaticImportObject
 (
 UClass*				Class,
@@ -207,7 +230,7 @@ UObject* UFactory::StaticImportObject
 	check(Class);
 
 	CurrentFilename = Filename;
-
+	FString extension = FPaths::GetExtension(CurrentFilename);
 	// Make list of all applicable factories.
 	TArray<UFactory*> Factories;
 	if( InFactory )
@@ -230,33 +253,18 @@ UObject* UFactory::StaticImportObject
 				UFactory* Default = It->GetDefaultObject<UFactory>();
 				if (Class->IsChildOf(Default->SupportedClass) && Default->ImportPriority >= 0)
 				{
-					Factories.Add(NewObject<UFactory>(TransientPackage, *It));
+					//Add the factory if there is no extension or the factory don't have any supported file extension or the factory support this file extension.
+					//Its ok to add CanCreateNew factory (even if there is an extension) since they will be less prioritize (if there priority is equal to) when sorting by priority.
+					//See UFactory::SortFactoriesByPriority
+					TArray<FString> FactoryExtension;
+					Default->GetSupportedFileExtensions(FactoryExtension);
+					if (extension.IsEmpty() || FactoryExtension.Num() == 0 || FactoryExtension.Contains(extension))
+						Factories.Add(NewObject<UFactory>(TransientPackage, *It));
 				}
 			}
 		}
 
-		Factories.Sort([](const UFactory& A, const UFactory& B) -> bool
-		{
-			// First sort so that higher priorities are earlier in the list
-			if( A.ImportPriority > B.ImportPriority )
-			{
-				return true;
-			}
-			else if( A.ImportPriority < B.ImportPriority )
-			{
-				return false;
-			}
-
-			// Then sort so that factories that only create new assets are tried after those that actually import the file data (when they have an equivalent priority)
-			const bool bFactoryAImportsFiles = !A.CanCreateNew();
-			const bool bFactoryBImportsFiles = !B.CanCreateNew();
-			if( bFactoryAImportsFiles && !bFactoryBImportsFiles )
-			{
-				return true;
-			}
-
-			return false;
-		});
+		Factories.Sort(&UFactory::SortFactoriesByPriority);
 	}
 
 	bool bLoadedFile = false;
@@ -283,7 +291,7 @@ UObject* UFactory::StaticImportObject
 					bLoadedFile = true;
 					const TCHAR* Ptr = *Data;
 					Factory->ParseParms( Parms );
-					Result = Factory->FactoryCreateText( Class, InOuter, Name, Flags, NULL, *FPaths::GetExtension(Filename), Ptr, Ptr+Data.Len(), Warn );
+					Result = Factory->FactoryCreateText( Class, InOuter, Name, Flags, NULL, *extension, Ptr, Ptr+Data.Len(), Warn );
 				}
 			}
 			else
@@ -307,7 +315,7 @@ UObject* UFactory::StaticImportObject
 					Data.Add( 0 );
 					const uint8* Ptr = &Data[ 0 ];
 					Factory->ParseParms( Parms );
-					Result = Factory->FactoryCreateBinary( Class, InOuter, Name, Flags, NULL, *FPaths::GetExtension(Filename), Ptr, Ptr+Data.Num()-1, Warn, bOutOperationCanceled );
+					Result = Factory->FactoryCreateBinary(Class, InOuter, Name, Flags, NULL, *extension, Ptr, Ptr + Data.Num() - 1, Warn, bOutOperationCanceled);
 				}
 			}
 		}

@@ -3,6 +3,9 @@
 #pragma once
 
 #include "AIPerceptionTypes.h"
+#if !UE_BUILD_SHIPPING
+#	include "Debug/GameplayDebuggerBaseObject.h"
+#endif
 #include "AISenseConfig.generated.h"
 
 class UAISenseImplementation;
@@ -26,16 +29,17 @@ protected:
 public:
 	UAISenseConfig(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	virtual TSubclassOf<UAISense> GetSenseImplementation() const { return UAISense::StaticClass(); }
+	virtual TSubclassOf<UAISense> GetSenseImplementation() const;
+
 	FAISenseID GetSenseID() const;
 	
-	float GetMaxAge() const { return MaxAge; }
+	float GetMaxAge() const { return MaxAge == 0.f ? FAIStimulus::NeverHappenedAge : MaxAge; }
 	bool IsEnabled() const { return bStartsEnabled; }
 
 #if !UE_BUILD_SHIPPING
 	//----------------------------------------------------------------------//
 	// DEBUG	
 	//----------------------------------------------------------------------//
-	virtual void DrawDebugInfo(UCanvas& Canvas, UAIPerceptionComponent& PerceptionComponent) const;
+	virtual void GetDebugData(TArray<FString>& OnScreenStrings, TArray<FGameplayDebuggerShapeElement>& DebugShapes, const UAIPerceptionComponent& PerceptionComponent) const {}
 #endif // !UE_BUILD_SHIPPING
 };

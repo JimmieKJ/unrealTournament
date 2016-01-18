@@ -61,14 +61,8 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditMove(bool bFinished) override;
-#endif // WITH_EDITOR
-
-public:
-
-	/** 
-	 * Override Destroyed so that we can re-calculate primitive draw distances after this volume has been deleted.
-	 */
 	virtual void Destroyed() override;
+#endif // WITH_EDITOR
 
 	/**
 	 * Returns whether the passed in primitive can be affected by cull distance volumes.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTTeamShowdownGame.h"
 #include "UTTimerMessage.h"
@@ -10,9 +10,13 @@
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
 #include "UTChallengeManager.h"
-#include "Slate/SlateGameResources.h"
-#include "Slate/SUWindowsStyle.h"
+#include "UTDroppedAmmoBox.h"
+#include "SlateGameResources.h"
+#include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
+#include "UTShowdownRewardMessage.h"
+#include "UTFirstBloodMessage.h"
+#include "UTMutator.h"
 
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -20,6 +24,7 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	TimeLimit = 3.0f; // per round
 	GoalScore = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Team Showdown");
+	bAnnounceTeam = true;
 }
 
 void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -37,15 +42,15 @@ void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Option
 			BotFillCount = ChallengeManager->GetNumPlayers(this);
 		}
 	}
-	else if (HasOption(Options, TEXT("Bots")))
+	else if (UGameplayStatics::HasOption(Options, TEXT("Bots")))
 	{
-		BotFillCount = GetIntOption(Options, TEXT("Bots"), SavedBotFillCount) + 1;
+		BotFillCount = UGameplayStatics::GetIntOption(Options, TEXT("Bots"), SavedBotFillCount) + 1;
 	}
 	else
 	{
-		BotFillCount = GetIntOption(Options, TEXT("BotFill"), SavedBotFillCount);
+		BotFillCount = UGameplayStatics::GetIntOption(Options, TEXT("BotFill"), SavedBotFillCount);
 	}
-	GameSession->MaxPlayers = GetIntOption(Options, TEXT("MaxPlayers"), GameSession->GetClass()->GetDefaultObject<AGameSession>()->MaxPlayers);
+	GameSession->MaxPlayers = UGameplayStatics::GetIntOption(Options, TEXT("MaxPlayers"), GameSession->GetClass()->GetDefaultObject<AGameSession>()->MaxPlayers);
 }
 
 bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
@@ -78,12 +83,10 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 
 void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 {
-	if (bAllowPlayerRespawns)
-	{
-		Super::RestartPlayer(aPlayer);
-	}
+	Super::RestartPlayer(aPlayer);
+
 	// go to spectating if dead and can't respawn
-	else if (IsMatchInProgress() && aPlayer->GetPawn() == NULL)
+	if (!bAllowPlayerRespawns && IsMatchInProgress() && aPlayer->GetPawn() == NULL)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 		if (PC != NULL)
@@ -105,6 +108,12 @@ void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 			}
 		}
 	}
+}
+
+void AUTTeamShowdownGame::PlayEndOfMatchMessage()
+{
+	// individual winner, not team
+	AUTTeamGameMode::PlayEndOfMatchMessage();
 }
 
 void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
@@ -136,6 +145,21 @@ void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
 				i++;
 			}
 		}
+		// spawn ammo box with any unassigned ammo
+		if (UTC->SavedAmmo.Num() > 0)
+		{
+			FVector FinalDir = FMath::VRand();
+			FinalDir.Z = 0.0f;
+			FinalDir.Normalize();
+			FActorSpawnParameters Params;
+			Params.Instigator = UTC;
+			AUTDroppedAmmoBox* Pickup = GetWorld()->SpawnActor<AUTDroppedAmmoBox>(AUTDroppedAmmoBox::StaticClass(), UTC->GetActorLocation(), FinalDir.Rotation(), Params);
+			if (Pickup != NULL)
+			{
+				Pickup->Movement->Velocity = FinalDir * 1000.0f + FVector(0.0f, 0.0f, 250.0f);
+				Pickup->Ammo = UTC->SavedAmmo;
+			}
+		}
 	}
 	Super::DiscardInventory(Other, Killer);
 }
@@ -149,20 +173,46 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
 			if (OtherPS != NULL && OtherPS->Team != NULL)
 			{
+				OtherPS->SetOutOfLives(true);
 				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 				AUTTeamInfo* KillerTeam = (KillerPS != NULL && KillerPS->Team != OtherPS->Team) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
 
-				bool bAnyOtherAlive = false;
+				int32 AliveCount = 0;
+				AController* LastAlive = NULL;
 				for (AController* C : OtherPS->Team->GetTeamMembers())
 				{
 					if (C != Other && C->GetPawn() != NULL && !C->GetPawn()->bTearOff)
 					{
-						bAnyOtherAlive = true;
-						break;
+						LastAlive = C;
+						AliveCount++;
 					}
 				}
-				if (!bAnyOtherAlive)
+				if (AliveCount == 1)
 				{
+					for (AController* C : OtherPS->Team->GetTeamMembers())
+					{
+						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 1, PC->PlayerState, NULL, NULL);
+						}
+					}
+					for (AController* C : KillerTeam->GetTeamMembers())
+					{
+						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 0, PC->PlayerState, NULL, NULL);
+						}
+					}
+				}
+				else if (AliveCount == 0)
+				{
+					AUTPlayerController* PC = Cast<AUTPlayerController>(Killer);
+					if (PC && (Killer != Other))
+					{
+						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+					}
 					KillerTeam->Score += 1;
 					if (LastRoundWinner == NULL)
 					{
@@ -178,11 +228,54 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 				}
 			}
 		}
-		AUTTeamGameMode::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+		if (Killer != Other && Killer != NULL && UTGameState->OnSameTeam(Killer, Other))
+		{
+			// AUTGameMode doesn't handle team kills and AUTTeamDMGameMode would change the team score so we need to do it ourselves
+			AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
+			if (KillerPS != NULL)
+			{
+				KillerPS->AdjustScore(-100);
+			}
+		}
+		else
+		{
+			AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
+			if ((Killer == Other) || (Killer == NULL))
+			{
+				// If it's a suicide, subtract a kill from the player...
+				if (OtherPlayerState)
+				{
+					OtherPlayerState->AdjustScore(-100);
+				}
+			}
+			else
+			{
+				OtherPlayerState->AdjustScore(-100);
+				AUTPlayerState * KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+				if (KillerPlayerState != NULL)
+				{
+					KillerPlayerState->AdjustScore(+100);
+					KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
+					CheckScore(KillerPlayerState);
+				}
+
+				if (!bFirstBloodOccurred)
+				{
+					BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
+					bFirstBloodOccurred = true;
+				}
+			}
+		}
+		AddKillEventToReplay(Killer, Other, DamageType);
+		if (BaseMutator != NULL)
+		{
+			BaseMutator->ScoreKill(Killer, Other, DamageType);
+		}
+		FindAndMarkHighScorer();
 	}
 }
 
-void AUTTeamShowdownGame::ScoreExpiredRoundTime()
+AInfo* AUTTeamShowdownGame::GetTiebreakWinner(FName* WinReason) const
 {
 	TArray<int32> LivingPlayersPerTeam;
 	TArray<int32> TotalHealthPerTeam;
@@ -205,7 +298,7 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 			}
 		}
 	}
-	
+
 	int32 BestNumIndex = INDEX_NONE;
 	int32 BestNum = 0;
 	int32 BestHealthIndex = INDEX_NONE;
@@ -232,15 +325,32 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 		}
 	}
 
-	LastRoundWinner = NULL;
 	if (BestNumIndex != INDEX_NONE)
 	{
-		LastRoundWinner = Teams[BestNumIndex];
+		if (WinReason != NULL)
+		{
+			*WinReason = FName(TEXT("Count"));
+		}
+		return Teams[BestNumIndex];
 	}
 	else if (BestHealthIndex != INDEX_NONE)
 	{
-		LastRoundWinner = Teams[BestHealthIndex];
+		if (WinReason != NULL)
+		{
+			*WinReason = FName(TEXT("Health"));
+		}
+		return Teams[BestHealthIndex];
 	}
+	else
+	{
+		return NULL;
+	}
+}
+
+void AUTTeamShowdownGame::ScoreExpiredRoundTime()
+{
+	FName WinReason = NAME_None;
+	LastRoundWinner = Cast<AUTTeamInfo>(GetTiebreakWinner(&WinReason));
 	if (LastRoundWinner == NULL)
 	{
 		for (AUTTeamInfo* Team : Teams)
@@ -254,7 +364,7 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 	{
 		LastRoundWinner->Score += 1.0f;
 		LastRoundWinner->ForceNetUpdate();
-		BroadcastLocalized(NULL, UUTTeamShowdownGameMessage::StaticClass(), (BestNumIndex != INDEX_NONE) ? 0 : 1, NULL, NULL, LastRoundWinner);
+		BroadcastLocalized(NULL, UUTTeamShowdownGameMessage::StaticClass(), (WinReason == FName(TEXT("Count"))) ? 0 : 1, NULL, NULL, LastRoundWinner);
 	}
 }
 

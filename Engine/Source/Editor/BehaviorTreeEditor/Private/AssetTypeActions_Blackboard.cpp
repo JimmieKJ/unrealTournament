@@ -10,6 +10,8 @@
 #include "AssetTypeActions_Blackboard.h"
 #include "AssetTypeActions_BehaviorTree.h"
 
+#include "AIModule.h"
+
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
 UClass* FAssetTypeActions_Blackboard::GetSupportedClass() const
@@ -30,6 +32,12 @@ void FAssetTypeActions_Blackboard::OpenAssetEditor( const TArray<UObject*>& InOb
 			BehaviorTreeEditorModule.CreateBehaviorTreeEditor( EToolkitMode::Standalone, EditWithinLevelEditor, BlackboardData );
 		}
 	}	
+}
+
+uint32 FAssetTypeActions_Blackboard::GetCategories()
+{ 
+	IAIModule& AIModule = FModuleManager::GetModuleChecked<IAIModule>("AIModule").Get();
+	return AIModule.GetAIAssetCategoryBit();
 }
 
 #undef LOCTEXT_NAMESPACE

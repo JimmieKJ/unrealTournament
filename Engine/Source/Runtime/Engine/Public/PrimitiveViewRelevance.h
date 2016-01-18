@@ -41,6 +41,8 @@ struct FPrimitiveViewRelevance
 	uint32 bNormalTranslucencyRelevance : 1;
 	// The primitive has one or more elements that have World Position Offset.
 	uint32 bHasWorldPositionOffset : 1;
+	uint32 bUsesGlobalDistanceField : 1;
+	uint32 bUsesLightingChannels : 1;
 
 	/** 
 	 * Whether this primitive view relevance has been initialized this frame.  
@@ -72,6 +74,8 @@ struct FPrimitiveViewRelevance
 		bSeparateTranslucencyRelevance(false),
 		bNormalTranslucencyRelevance(false),		
 		bHasWorldPositionOffset(false),
+		bUsesGlobalDistanceField(false),
+		bUsesLightingChannels(false),
 		bInitializedThisFrame(false)
 	{}
 
@@ -95,6 +99,8 @@ struct FPrimitiveViewRelevance
 		bNormalTranslucencyRelevance |= B.bNormalTranslucencyRelevance != 0;
 		bInitializedThisFrame |= B.bInitializedThisFrame;		
 		bHasWorldPositionOffset |= B.bHasWorldPositionOffset != 0;
+		bUsesGlobalDistanceField |= B.bUsesGlobalDistanceField;
+		bUsesLightingChannels |= B.bUsesLightingChannels;
 		return *this;
 	}
 

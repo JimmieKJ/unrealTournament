@@ -31,8 +31,7 @@ public:
 	TSharedPtr<FUICommandInfo> ScaleSingleSubCurveValues;
 	TSharedPtr<FUICommandInfo> FitHorizontally;
 	TSharedPtr<FUICommandInfo> FitVertically;
-	TSharedPtr<FUICommandInfo> FitToAll;
-	TSharedPtr<FUICommandInfo> FitToSelected;
+	TSharedPtr<FUICommandInfo> Fit;
 	TSharedPtr<FUICommandInfo> PanMode;
 	TSharedPtr<FUICommandInfo> ZoomMode;
 	TSharedPtr<FUICommandInfo> CurveAuto;

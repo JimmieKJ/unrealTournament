@@ -419,6 +419,11 @@ FText FFlipbookEditor::GetToolkitName() const
 	return FText::Format(LOCTEXT("FlipbookEditorAppLabel", "{FlipbookName}{DirtyState}"), Args);
 }
 
+FText FFlipbookEditor::GetToolkitToolTipText() const
+{
+	return FAssetEditorToolkit::GetToolTipTextForObject(FlipbookBeingEdited);
+}
+
 FString FFlipbookEditor::GetWorldCentricTabPrefix() const
 {
 	return TEXT("FlipbookEditor");

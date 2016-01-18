@@ -10,7 +10,7 @@ class UNavArea;
 /** 
  *	Allows applying selected AreaClass to navmesh, using Volume's shape
  */
-UCLASS(hidecategories=(Navigation))
+UCLASS(MinimalAPI, hidecategories=(Navigation))
 class ANavModifierVolume : public AVolume, public INavRelevantInterface
 {
 	GENERATED_BODY()
@@ -24,6 +24,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
 	void SetAreaClass(TSubclassOf<UNavArea> NewAreaClass = nullptr);
+
+	TSubclassOf<UNavArea> GetAreaClass() const { return AreaClass; }
 
 	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
 	virtual FBox GetNavigationBounds() const override;

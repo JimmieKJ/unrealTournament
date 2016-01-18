@@ -15,14 +15,18 @@
 #define PX_PHYSICS_SCP_CONSTRAINT_PROJECTION_MANAGER
 
 #include "PsPool.h"
+#include "PsHashSet.h"
 #include "ScConstraintGroupNode.h"
 
 namespace physx
 {
+	class PxcScratchAllocator;
+
 namespace Sc
 {
 	class ConstraintSim;
 	class BodySim;
+	template<typename T, const PxU32 elementsPerBlock = 64> class ScratchAllocatorList;
 
 	class ConstraintProjectionManager : public Ps::UserAllocated
 	{
@@ -33,7 +37,10 @@ namespace Sc
 		void addToPendingGroupUpdates(ConstraintSim& s);
 		void removeFromPendingGroupUpdates(ConstraintSim& s);
 
-		void buildGroups();
+		void addToPendingTreeUpdates(ConstraintGroupNode& n);
+		void removeFromPendingTreeUpdates(ConstraintGroupNode& n);
+
+		void processPendingUpdates(PxcScratchAllocator&);
 		void invalidateGroup(ConstraintGroupNode& node, ConstraintSim* constraintDeleted);
 
 	private:
@@ -41,12 +48,16 @@ namespace Sc
 
 		void addToGroup(BodySim& b, BodySim* other, ConstraintSim& c);
 		void groupUnion(ConstraintGroupNode& root0, ConstraintGroupNode& root1);
-		void dumpConnectedConstraints(BodySim& b, ConstraintSim* c, bool projConstrOnly);
+		void markConnectedConstraintsForUpdate(BodySim& b, ConstraintSim* c);
+		PX_FORCE_INLINE void processConstraintForGroupBuilding(ConstraintSim* c, ScratchAllocatorList<ConstraintSim*>&);
 
 
 	private:
-		Ps::Pool<ConstraintGroupNode>	mNodePool;
-		Ps::Array<ConstraintSim*>		mPendingGroupUpdates; //list of constraints for which constraint projection groups need to be generated/updated
+		Ps::Pool<ConstraintGroupNode>				mNodePool;
+		Ps::CoalescedHashSet<ConstraintSim*>		mPendingGroupUpdates; //list of constraints for which constraint projection groups need to be generated/updated
+		Ps::CoalescedHashSet<ConstraintGroupNode*>	mPendingTreeUpdates;	//list of constraint groups that need their projection trees rebuilt. Note: non of the
+																			//constraints in those groups are allowed to be in mPendingGroupUpdates at the same time
+																			//because a group update will automatically trigger tree rebuilds.
 	};
 
 } // namespace Sc

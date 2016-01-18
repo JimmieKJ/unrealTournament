@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -52,16 +52,16 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 	bool bHideWithOverlay;
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Killed Enemy"))
-	virtual void OnFlashCountIncremented();
-
+	void OnFlashCountIncremented();
+	
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Got Killing Spree"))
-	virtual void OnSpreeLevelChanged(int32 NewSpreeLevel);
+	void OnSpreeLevelChanged(int32 NewSpreeLevel);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Started Taunting"))
-	virtual void OnWearerEmoteStarted();
+	void OnWearerEmoteStarted();
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Stopped Taunting"))
-	virtual void OnWearerEmoteEnded();
+	void OnWearerEmoteEnded();
 
 	UFUNCTION(BlueprintNativeEvent)
 	void OnWearerHeadshot();

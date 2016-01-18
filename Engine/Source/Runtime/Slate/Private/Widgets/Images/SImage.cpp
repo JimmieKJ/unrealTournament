@@ -24,7 +24,7 @@ int32 SImage::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry
 		const bool bIsEnabled = ShouldBeEnabled(bParentEnabled);
 		const uint32 DrawEffects = bIsEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
-		const FColor FinalColorAndOpacity( InWidgetStyle.GetColorAndOpacityTint() * ColorAndOpacity.Get().GetColor(InWidgetStyle) * ImageBrush->GetTint( InWidgetStyle ) );
+		const FLinearColor FinalColorAndOpacity( InWidgetStyle.GetColorAndOpacityTint() * ColorAndOpacity.Get().GetColor(InWidgetStyle) * ImageBrush->GetTint( InWidgetStyle ) );
 
 		FSlateDrawElement::MakeBox(OutDrawElements, LayerId, AllottedGeometry.ToPaintGeometry(), ImageBrush, MyClippingRect, DrawEffects, FinalColorAndOpacity );
 	}
@@ -68,17 +68,26 @@ FVector2D SImage::ComputeDesiredSize( float ) const
 
 void SImage::SetColorAndOpacity( const TAttribute<FSlateColor>& InColorAndOpacity )
 {
-	ColorAndOpacity = InColorAndOpacity;
+	if ( !ColorAndOpacity.IdenticalTo(InColorAndOpacity) )
+	{
+		ColorAndOpacity = InColorAndOpacity;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SImage::SetColorAndOpacity( FLinearColor InColorAndOpacity )
 {
-	ColorAndOpacity = InColorAndOpacity;
+	if ( ColorAndOpacity.IsBound() || ColorAndOpacity.Get() != InColorAndOpacity )
+	{
+		ColorAndOpacity = InColorAndOpacity;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SImage::SetImage(TAttribute<const FSlateBrush*> InImage)
 {
 	Image = InImage;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void SImage::SetOnMouseButtonDown(FPointerEventHandler EventHandler)

@@ -55,7 +55,7 @@ namespace UnrealVS
 	{
 		/** Constants */
 
-		private const string VersionString = "v1.34";
+		private const string VersionString = "v1.41";
 		private const string UnrealSolutionFileNamePrefix = "UE4";
 		private const string ExtensionName = "UnrealVS";
 		private const string CommandLineOptionKey = ExtensionName + "CommandLineMRU";
@@ -451,6 +451,10 @@ namespace UnrealVS
 			return GetOutputPane(VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid, "Build");
 		}
 
+		public IEnumerable<string> GetLoadedProjectPaths()
+		{
+			return LoadedProjectPaths;
+		}
 
 		/// <summary>
 		/// Overrides Package.OnLoadOptions()
@@ -541,8 +545,10 @@ namespace UnrealVS
 
 			// Get the actual Project object from the IVsHierarchy object that was supplied
 			var OpenedProject = Utils.HierarchyObjectToProject( pHierarchy );
+			Utils.OnProjectListChanged();
 			if (OpenedProject != null && OnProjectOpened != null)
-            {
+			{
+				LoadedProjectPaths.Add(OpenedProject.FullName);
                 OnProjectOpened(OpenedProject);
             }
 
@@ -571,6 +577,7 @@ namespace UnrealVS
 			var ClosedProject = Utils.HierarchyObjectToProject( pHierarchy );
 			if (ClosedProject != null && OnProjectClosed != null)
             {
+				LoadedProjectPaths.Remove(ClosedProject.FullName);
                 OnProjectClosed(ClosedProject);
             }
 
@@ -836,6 +843,8 @@ namespace UnrealVS
 		private int bCancelTicker = 0;
 
 		private string _UBTVersion = string.Empty;
+
+		private readonly List<string> LoadedProjectPaths = new List<string>(); 
 
 		/// Obtains the DTE2 interface for this instance of VS from the RunningObjectTable
 		private static DTE2 GetDTE2ForCurrentInstance(DTE DTE)

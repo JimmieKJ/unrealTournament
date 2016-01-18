@@ -123,7 +123,10 @@ case $_ANDROID_ARCH in
 	  ;;
 	arch-x86)	  
       ANDROID_TOOLS="i686-linux-android-gcc i686-linux-android-ranlib i686-linux-android-ld"
-	  ;;	  
+	  ;;
+	arch-x86_64)
+      ANDROID_TOOLS="x86_64-linux-android-gcc x86_64-linux-android-ranlib x86_64-linux-android-ld"
+	  ;;
 	*)
 	  echo "ERROR ERROR ERROR"
 	  ;;
@@ -198,6 +201,7 @@ export SYSTEM=android
 export ARCH=arm
 export CROSS_COMPILE="arm-linux-androideabi-"
 export HOST=arm-linux-androideabi
+export SSL_CONFIG=android-armv7
 
 if [ "$_ANDROID_ARCH" == "arch-x86" ]; then
 	export MACHINE=i686
@@ -206,6 +210,7 @@ if [ "$_ANDROID_ARCH" == "arch-x86" ]; then
 	export ARCH=x86
 	export CROSS_COMPILE="i686-linux-android-"
 	export HOST=i686-linux-android
+	export SSL_CONFIG=android-x86
 fi
 
 if [ "$_ANDROID_ARCH" == "arch-x86_64" ]; then
@@ -215,6 +220,7 @@ if [ "$_ANDROID_ARCH" == "arch-x86_64" ]; then
 	export ARCH=x86_64
 	export CROSS_COMPILE="x86_64-linux-android-"
 	export HOST=x86_64-linux-android
+	export SSL_CONFIG=android-x86_64
 fi
 
 # For the Android toolchain
@@ -250,35 +256,43 @@ SSL_DIR=`pwd`/$SSL_VER/
 CURL_DIR=`pwd`/$CURL_VER/
 DEST_ARCH=
 
+alias ll="ls -l"
+
 # Unzip libraries
-tar xvf $SSL_VER.tar.gz
-tar xvf $CURL_VER.tar.bz2
+tar xvf $SSL_VER.tar.gz >& /dev/null
+tar xvf $CURL_VER.tar.bz2 >& /dev/null
+
+# Add android-x86_64 config
+cd $SSL_DIR/
+sed -i '/"android"/a \"android-x86_64\",\"gcc:-mandroid -I\\\$(ANDROID_DEV)\/include -B\\\$(ANDROID_DEV)\/lib -O2 -fomit-frame-pointer -fno-exceptions -fdata-sections -ffunction-sections -fno-short-enums -march=atom -fsigned-char -fPIC -Wall -MD -MF /dev/null -x c::-D_REENTRANT::-ldl:SIXTY_FOUR_BIT_LONG RC4_CHUNK DES_INT DES_UNROLL:\${no_asm}:dlfcn:linux-shared:-fPIC:-nostdlib -Wl,-shared,-Bsymbolic -Wl,--no-undefined -march=atom:.so.\\\$(SHLIB_MAJOR).\\\$(SHLIB_MINOR)\",' Configure
 
 # Config and build SSL
-cd $SSL_DIR/
-./config shared threads -no-ssl2 -no-zlib --openssldir=.
-make all
+echo "Configuring SSL for $SSL_CONFIG"
+./Configure shared threads -no-ssl2 -no-zlib --openssldir=. $SSL_CONFIG >& /dev/null
+echo "Building libcrypto"
+make build_crypto >& /dev/null
+echo "Building libssl"
+make build_ssl >& /dev/null
 
 # Setup destination folder based on selected architecture
 case $_ANDROID_ARCH in
 	arch-arm)
 	  DEST_ARCH=ARMv7
-	  export CFLAGS="-fPIC -fno-exceptions -fdata-sections -ffunction-sections -frtti -fno-short-enums -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -fsigned-char -x c"
+	  export CFLAGS="-fno-exceptions -fdata-sections -ffunction-sections -fno-short-enums -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -fsigned-char -x c"
 	  export CPPFLAGS="-I$ANDROID_DEV/include -DPIC -I$GNUSTL/include -I$GNUSTL/libs/armeabi-v7a/include"
 	  export LDFLAGS="-L$SSL_DIR -L$ANDROID_DEV/lib -L$GNUSTL/libs/armeabi-v7a -nostdlib -Wl,-shared,-Bsymbolic -Wl,--no-undefined -march=armv7-a -Wl,--fix-cortex-a8"
 	  ;;
 	arch-x86)
 	  DEST_ARCH=x86
-	  export CFLAGS="-fPIC -fno-exceptions  -fdata-sections -ffunction-sections -frtti -fno-short-enums -march=atom -fsigned-char -MD -MF /dev/null -x c"
+	  export CFLAGS="-fno-exceptions  -fdata-sections -ffunction-sections -fno-short-enums -march=atom -fsigned-char -MD -MF /dev/null -x c"
 	  export CPPFLAGS="-I$ANDROID_DEV/include -DPIC -I$GNUSTL/include -I$GNUSTL/libs/x86/include"
 	  export LDFLAGS="-L$SSL_DIR -L$ANDROID_DEV/lib -L$GNUSTL/libs/x86 -nostdlib -Wl,-shared,-Bsymbolic -Wl,--no-undefined -march=atom"
 	  ;;
 	arch-x86_64)
-	  export CFLAGS="-fPIC -fno-exceptions -fdata-sections -ffunction-sections -frtti -fno-short-enums -march=atom -fsigned-char -MD -MF /dev/null -x c"
-	  export CPPFLAGS="-I$ANDROID_DEV/include -DPIC -I$GNUSTL/include -I$GNUSTL/libs/x86_64/include"
-	  export LDFLAGS="-L$SSL_DIR -L$ANDROID_DEV/lib -L$GNUSTL/libs/x86_64 -nostdlib -Wl,-shared,-Bsymbolic -Wl,--no-undefined -march=atom"
-
 	  DEST_ARCH=x64
+	  export CFLAGS="-fno-exceptions -fdata-sections -ffunction-sections -fno-short-enums -march=atom -fsigned-char -MD -MF /dev/null -x c"
+	  export CPPFLAGS="-I$ANDROID_DEV/include -DPIC -I$GNUSTL/include -I$GNUSTL/libs/x86_64/include"
+	  export LDFLAGS="-L$SSL_DIR -L$ANDROID_DEV/lib64 -L$GNUSTL/libs/x86_64/lib64 -nostdlib -Wl,-shared,-Bsymbolic -Wl,--no-undefined -march=atom"
       ;;	  	  
 	*)
 	  echo "ERROR ERROR ERROR"
@@ -289,16 +303,18 @@ export LIBS="-lc -lgnustl_shared -lgcc"
 
 # Config and build Curl
 cd $CURL_DIR/
-./configure --prefix=$CURL_DIR --build=x86_64-unknown-cygwin --host=$HOST --target=$HOST --with-ssl=$OPENSSL_DIR --enable-static --disable-shared
-make
+echo "Configuring Curl for $HOST"
+./configure --prefix=$CURL_DIR --build=x86_64-unknown-cygwin --host=$HOST --target=$HOST --with-ssl=$OPENSSL_DIR --enable-static --disable-shared >& /dev/null
+echo "Building libcurl"
+make >& /dev/null
 
 # Deploy
 mkdir -p $BASE_DIR/../../lib/Android/$DEST_ARCH
 mkdir -p $BASE_DIR/../../include/Android/$DEST_ARCH/curl
-cp $SSL_DIR/libssl.a $BASE_DIR/../../lib/Android/$DEST_ARCH
-cp $SSL_DIR/libcrypto.a $BASE_DIR/../../lib/Android/$DEST_ARCH
-cp $CURL_DIR/include/curl/*.h $BASE_DIR/../../include/Android/$DEST_ARCH/curl
-cp $CURL_DIR/lib/.libs/libcurl.a $BASE_DIR/../../lib/Android/$DEST_ARCH
+cp -vf $SSL_DIR/libssl.a $BASE_DIR/../../lib/Android/$DEST_ARCH
+cp -vf $SSL_DIR/libcrypto.a $BASE_DIR/../../lib/Android/$DEST_ARCH
+cp -vf $CURL_DIR/include/curl/*.h $BASE_DIR/../../include/Android/$DEST_ARCH/curl
+cp -vf $CURL_DIR/lib/.libs/libcurl.a $BASE_DIR/../../lib/Android/$DEST_ARCH
 
 # Clean up
 cd $BASE_DIR

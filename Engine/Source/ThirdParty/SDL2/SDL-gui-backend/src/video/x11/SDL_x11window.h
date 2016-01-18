@@ -103,6 +103,12 @@ extern SDL_bool X11_GetWindowWMInfo(_THIS, SDL_Window * window,
                                     struct SDL_SysWMinfo *info);
 extern int X11_SetWindowHitTest(SDL_Window *window, SDL_bool enabled);
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+extern int X11_SetKeyboardGrab(_THIS, SDL_Window * window, SDL_bool enable);
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
 #endif /* _SDL_x11window_h */
 
 /* vi: set ts=4 sw=4 expandtab: */

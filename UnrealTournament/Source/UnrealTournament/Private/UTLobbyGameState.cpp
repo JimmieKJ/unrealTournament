@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "GameFramework/GameState.h"
@@ -225,7 +225,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 	return NULL;
 }
 
-void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bool bReturnedFromMatch)
+void AUTLobbyGameState::CheckForAutoPlacement(AUTLobbyPlayerState* NewPlayer)
 { 
 	// We are looking to join a player's match.. see if we can find the player....
 	if (NewPlayer->DesiredFriendToJoin != TEXT(""))
@@ -236,25 +236,13 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bo
 			JoinMatch(FriendsMatch, NewPlayer);
 		}
 	}
-	else if (!NewPlayer->DesiredMatchIdToJoin.IsEmpty() )
-	{
-		FGuid MatchGuid;
-		FGuid::Parse(NewPlayer->DesiredMatchIdToJoin, MatchGuid);
-		AUTLobbyMatchInfo* MatchInfo = FindMatch(MatchGuid);
-		NewPlayer->DesiredMatchIdToJoin.Empty();
-
-		if (MatchInfo)
-		{
-			JoinMatch(MatchInfo, NewPlayer, (NewPlayer->DesiredTeamNum == 255));
-		}
-	}
 }
 
 TWeakObjectPtr<AUTReplicatedGameRuleset> AUTLobbyGameState::FindRuleset(FString TagToFind)
 {
 	for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
 	{
-		if ( AvailableGameRulesets[i].IsValid() && AvailableGameRulesets[i]->UniqueTag.Equals(TagToFind, ESearchCase::IgnoreCase) )
+		if ( AvailableGameRulesets[i] != nullptr && AvailableGameRulesets[i]->UniqueTag.Equals(TagToFind, ESearchCase::IgnoreCase) )
 		{
 			return AvailableGameRulesets[i];
 		}
@@ -315,10 +303,16 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 
 	if (!MatchInfo->SkillTest(NewPlayer->AverageRank)) // MAKE THIS CONFIG
 	{
-		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchTooGood","Your skill rating is too high for this match."));	
+		if (NewPlayer->AverageRank > MatchInfo->AverageRank)
+		{
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchTooGood", "Your skill rating is too high for this match."));
+		}
+		else
+		{
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchTooLow", "Your skill rating is too low for this match."));
+		}
 		return;
 	}
-
 
 	if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
 	{
@@ -405,6 +399,7 @@ void AUTLobbyGameState::SetupLobbyBeacons()
 
 	if (LobbyBeacon_Listener && LobbyBeacon_Listener->InitHost())
 	{
+		LobbyBeacon_Listener->PauseBeaconRequests(false);
 		LobbyBeacon_Object = World->SpawnActor<AUTServerBeaconLobbyHostObject>(AUTServerBeaconLobbyHostObject::StaticClass());
 
 		if (LobbyBeacon_Object)
@@ -470,6 +465,11 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		if (!ForcedInstanceGameOptions.IsEmpty()) GameURL += ForcedInstanceGameOptions;
 
 		GameURL += FString::Printf(TEXT("?InstanceID=%i?HostPort=%i"), GameInstanceID, GameInstanceListenPort);
+
+		if (MatchOwner->bRankLocked)
+		{
+			GameURL += FString::Printf(TEXT("?RankCheck=%i"), MatchOwner->AverageRank);
+		}
 
 		int32 InstancePort = LobbyGame->StartingInstancePort + (LobbyGame->InstancePortStep * GameInstances.Num());
 
@@ -693,7 +693,7 @@ bool AUTLobbyGameState::IsMatchStillValid(AUTLobbyMatchInfo* TestMatch)
 // A New Client has joined.. Send them all of the server side settings
 void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 {
-	CheckForExistingMatch(NewPlayer, NewPlayer->bReturnedFromMatch);
+	CheckForAutoPlacement(NewPlayer);
 }
 
 
@@ -1185,12 +1185,26 @@ int32 AUTLobbyGameState::NumMatchesInProgress()
 	int32 Count = 0;
 	for (int32 i=0; i < AvailableMatches.Num(); i++)
 	{
-		if (AvailableMatches[i]->CurrentState == ELobbyMatchState::InProgress || AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching)
+		if (AvailableMatches[i] != nullptr)
 		{
-			Count++;
+			if (AvailableMatches[i]->CurrentState == ELobbyMatchState::InProgress || AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching)
+			{
+				Count++;
+			}
 		}
 	}
 
 	return Count;
+}
 
+void AUTLobbyGameState::AttemptDirectJoin(AUTLobbyPlayerState* PlayerState, const FString& SessionID, bool bSpectator)
+{
+	for (int32 i=0; i < AvailableMatches.Num(); i++)
+	{
+		if (AvailableMatches[i]->UniqueMatchID.ToString() == SessionID)
+		{
+			JoinMatch(AvailableMatches[i], PlayerState,bSpectator);
+			return;
+		}
+	}
 }

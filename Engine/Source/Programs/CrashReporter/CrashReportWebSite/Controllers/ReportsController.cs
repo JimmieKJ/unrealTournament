@@ -16,6 +16,15 @@ using Tools.DotNETCommon;
 namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 {
 
+	//How hard would it be for you to create a CSV of:
+	// Epic ID, 
+	// buggs ID, 
+	// engine version, 
+	// 
+	// # of crashes with that buggs ID for 
+	//	this engine version and 
+	//	user
+
 	/// <summary>
 	/// The controller to handle graphing of crashes per user group over time.
 	/// </summary>
@@ -36,6 +45,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 			CrashRepository CrashRepo = new CrashRepository();
 
 			// @TODO yrx 2015-02-17 BuggIDToBeAddedToJira replace with List<int> based on check box and Submit?
+			// It would be great to have a CSV export of this as well with buggs ID being the key I can then use to join them :)
+			// 
 			// Enumerate JIRA projects if needed.
 			// https://jira.ol.epicgames.net//rest/api/2/project
 			var JC = JiraConnection.Get();
@@ -49,12 +60,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 				int AnonymousGroupID = FRepository.Get( BuggsRepo ).FindOrAddGroup( AnonumousGroup );
 				HashSet<int> AnonumousIDs = FRepository.Get( BuggsRepo ).GetUserIdsFromUserGroup( AnonumousGroup );
 				int AnonymousID = AnonumousIDs.First();
-				HashSet<string> UserNamesForUserGroup = FRepository.Get( BuggsRepo ).GetUserNamesFromGroupName( AnonumousGroup );
-
-				//FormData.DateFrom = DateTime.Now.AddDays( -1 );
 
 				var Crashes = CrashRepo
-					.FilterByDate( CrashRepo.ListAll(), FormData.DateFrom, FormData.DateTo.AddDays( 1 ) )
+					.FilterByDate( CrashRepo.ListAll(), FormData.DateFrom, FormData.DateTo )
 					// Only crashes and asserts
 					.Where( Crash => Crash.CrashType == 1 || Crash.CrashType == 2 )
 					// Only anonymous user
@@ -65,12 +73,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 						TimeOfCrash = Crash.TimeOfCrash.Value,
 						//UserID = Crash.UserNameId.Value, 
 						BuildVersion = Crash.BuildVersion,
-						JIRA = Crash.TTPID,
+						JIRA = Crash.Jira,
 						Platform = Crash.PlatformName,
 						FixCL = Crash.FixedChangeList,
-						BuiltFromCL = Crash.ChangeListVersion,
+						BuiltFromCL = Crash.BuiltFromCL,
 						Pattern = Crash.Pattern,
-						MachineID = Crash.ComputerName,
+						MachineID = Crash.MachineId,
 						Branch = Crash.Branch,
 						Description = Crash.Description,
 						RawCallStack = Crash.RawCallStack,
@@ -127,8 +135,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 					}
 				}
 				var PatternToCountOrdered = PatternToCount.OrderByDescending( X => X.Value ).ToList();
-				// The 100 top.
-				var PatternAndCount = PatternToCountOrdered.Take( 100 ).ToDictionary( X => X.Key, Y => Y.Value );
+				const int NumTopRecords = 200;
+				var PatternAndCount = PatternToCountOrdered.Take( NumTopRecords ).ToDictionary( X => X.Key, Y => Y.Value );
 
 				int TotalUniqueAnonymousCrashes = UniquePatterns.Count;
 
@@ -141,7 +149,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 				HashSet<string> FoundJiras = new HashSet<string>();
 				Dictionary<string, List<Bugg>> JiraIDtoBugg = new Dictionary<string, List<Bugg>>();
 
-				List<Bugg> Buggs = new List<Bugg>( 100 );
+				List<Bugg> Buggs = new List<Bugg>( NumTopRecords );
 				foreach( var Top in PatternAndCount )
 				{
 					Bugg NewBugg = RealBuggs.Where( X => X.Pattern == Top.Key ).FirstOrDefault();
@@ -160,12 +168,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 									ID = Anon.ID,
 									TimeOfCrash = Anon.TimeOfCrash,
 									BuildVersion = Anon.BuildVersion,
-									JIRA = Anon.JIRA,
+									Jira = Anon.JIRA,
 									Platform = Anon.Platform,
 									FixCL = Anon.FixCL,
 									BuiltFromCL = Anon.BuiltFromCL,
 									Pattern = Anon.Pattern,
-									MachineID = Anon.MachineID,
+									MachineId = Anon.MachineID,
 									Branch = Anon.Branch,
 									Description = Anon.Description,
 									RawCallStack = Anon.RawCallStack,
@@ -175,10 +183,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 							NewBugg.PrepareBuggForJira( FullCrashesForBugg );
 
 							// Verify valid JiraID, this may be still a TTP 
-							if( !string.IsNullOrEmpty( NewBugg.TTPID ) )
+							if( !string.IsNullOrEmpty( NewBugg.Jira ) )
 							{
 								int TTPID = 0;
-								int.TryParse( NewBugg.TTPID, out TTPID );
+								int.TryParse( NewBugg.Jira, out TTPID );
 
 								if( TTPID == 0 )
 								{
@@ -209,23 +217,78 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 				{
 					var BuggsCopy = new List<Bugg>( Buggs );
 
+					HashSet<string> InvalidJiras = new HashSet<string>();
+
+					// Simple verification of JIRA
+					foreach (var Value in FoundJiras)
+					{
+						if( Value.Length < 3 || !Value.Contains('-') )
+						{
+							InvalidJiras.Add(Value);
+						}
+					}
+
+					foreach (var InvalidJira in InvalidJiras)
+					{
+						FoundJiras.Remove( InvalidJira );
+					}
+
 					// Grab the data form JIRA.
 					string JiraSearchQuery = string.Join( " OR ", FoundJiras );
 
 					using( FAutoScopedLogTimer JiraResultsTimer = new FAutoScopedLogTimer( "JiraResults" ) )
 					{
-						var JiraResults = JC.SearchJiraTickets(
+						bool bInvalid = false;
+						var JiraResults = new Dictionary<string, Dictionary<string, object>>();
+						try
+						{
+							JiraResults = JC.SearchJiraTickets(
 							JiraSearchQuery,
 							new string[] 
-						{ 
-							"key",				// string
-							"summary",			// string
-							"components",		// System.Collections.ArrayList, Dictionary<string,object>, name
-							"resolution",		// System.Collections.Generic.Dictionary`2[System.String,System.Object], name
-							"fixVersions",		// System.Collections.ArrayList, Dictionary<string,object>, name
-							"customfield_11200" // string
-						} );
+							{ 
+								"key",				// string
+								"summary",			// string
+								"components",		// System.Collections.ArrayList, Dictionary<string,object>, name
+								"resolution",		// System.Collections.Generic.Dictionary`2[System.String,System.Object], name
+								"fixVersions",		// System.Collections.ArrayList, Dictionary<string,object>, name
+								"customfield_11200" // string
+							} );
+						}
+						catch (System.Exception)
+						{
+							bInvalid = true;
+						}
 
+						// Invalid records have been found, find the broken using the slow path.
+						if( bInvalid )
+						{
+							foreach (var Query in FoundJiras)
+							{
+								try
+								{
+									var TempResult = JC.SearchJiraTickets(
+									Query,
+									new string[] 
+									{ 
+										"key",				// string
+										"summary",			// string
+										"components",		// System.Collections.ArrayList, Dictionary<string,object>, name
+										"resolution",		// System.Collections.Generic.Dictionary`2[System.String,System.Object], name
+										"fixVersions",		// System.Collections.ArrayList, Dictionary<string,object>, name
+										"customfield_11200" // string
+									} );
+
+									foreach(var Temp in TempResult)
+									{
+										JiraResults.Add( Temp.Key, Temp.Value );
+									}
+								}
+								catch (System.Exception)
+								{
+
+								}
+							}
+						}
 
 						// Jira Key, Summary, Components, Resolution, Fix version, Fix changelist
 						foreach( var Jira in JiraResults )
@@ -281,7 +344,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 
 					// If there are buggs, we need to update the summary to indicate an error.
 					// Usually caused when bugg's project has changed.
-					foreach( var Bugg in BuggsCopy.Where( b => !string.IsNullOrEmpty( b.TTPID ) ) )
+					foreach( var Bugg in BuggsCopy.Where( b => !string.IsNullOrEmpty( b.Jira ) ) )
 					{
 						Bugg.JiraSummary = "JIRA MISMATCH";
 						Bugg.JiraComponentsText = "JIRA MISMATCH";
@@ -291,7 +354,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 					}
 				}
 
-				Buggs = Buggs.OrderByDescending( b => b.NumberOfCrashes ).ToList();
+				Buggs = Buggs.OrderByDescending( b => b.CrashesInTimeFrameGroup ).ToList();
 
 				return new ReportsViewModel
 				{
@@ -308,7 +371,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 
 		private void AddBuggJiraMapping( Bugg NewBugg, ref HashSet<string> FoundJiras, ref Dictionary<string, List<Bugg>> JiraIDtoBugg )
 		{
-			string JiraID = NewBugg.TTPID;
+			string JiraID = NewBugg.Jira;
 			FoundJiras.Add( "key = " + JiraID );
 
 			bool bAdd = !JiraIDtoBugg.ContainsKey( JiraID );

@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Significance Manager",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.10.0",
+	"Description" : "The significance manager plugin provides an extensible framework for allowing games to calculate the significance of an object and change behavior in response.",
+	"Category" : "Programming",
+	"EnabledByDefault" : false,
+
+	"Modules" :
+	[
+		{
+			"Name" : "SignificanceManager",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PreDefault"
+		},
+	]
+}

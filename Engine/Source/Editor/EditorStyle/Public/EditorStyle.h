@@ -22,3 +22,4 @@
  *****************************************************************************/
 
 #include "EditorStyleSettings.h"
+#include "EditorFontGlyphs.h"

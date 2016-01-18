@@ -865,7 +865,7 @@ void Scb::Scene::updateLowLevelMaterial(NpMaterial** masterMaterial)
 ///////////////////////////////////////////////////////////////////////////////
 void Scb::Scene::preSimulateUpdateAppThread(PxReal timeStep)
 {
-
+	PX_UNUSED(timeStep);
 #if PX_USE_PARTICLE_SYSTEM_API
 	// Submit applied forces to particle systems
 	PxU32 nbParticleSystems = mScene.getNbParticleSystems();

@@ -14,13 +14,19 @@
 
 #define SECONDARY_OCCLUSION			1
 
-//@todo-rco: Remove this when reenabling for OpenGL
-#if !COMPILER_GLSL
+
+
+
+// With this enabled, very large or one-sided objects (e.g. terrain) inject an additional layer of GV cells 
+// to increase AO contribution. The AO calculation works best with closed geometry and small-medium scale objects
+#define LPV_GV_BOOST				1
+
+//@todo-rco: Remove this when reenabling for OpenGL & Metal
+#if !COMPILER_GLSL && !COMPILER_METAL
 #if REFLECTIVE_SHADOW_MAP
 	#include "LPVWriteVplCommon.usf"
 
 	#if RSM_TRANSMISSION
-		float TransmissionStrength;
 		float2 ReflectiveShadowMapTextureResolution;
 		row_major float4x4 ProjectionMatrix;
 	#endif
@@ -38,7 +44,7 @@ float3 GetMaterialBounceColor(FMaterialPixelParameters MaterialParameters)
 
 void Main( 
 	FShadowDepthVSToPS Inputs,
-	in float4 SvPosition : SV_Position,
+	in float4 SvPosition : SV_Position,		// after all interpolators
 	out float4 OutColor : SV_Target0
 #if REFLECTIVE_SHADOW_MAP
 	,out float4 OutReflectiveShadowMapDiffuse : SV_Target1
@@ -50,14 +56,17 @@ void Main(
 {
 #if INTERPOLATE_VF_ATTRIBUTES
 	
-	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Inputs.FactoryInterpolants, float4(0,0,.00001f,1));
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Inputs.FactoryInterpolants, SvPosition);
 
 	#if INTERPOLATE_POSITION
-		CalcMaterialParameters(MaterialParameters, SvPosition, 1, Inputs.PixelPosition);
+		{
+			float4 ScreenPosition = SvPositionToScreenPosition(SvPosition);
+			CalcMaterialParametersEx(MaterialParameters, SvPosition, ScreenPosition, 1, SvPositionToTranslatedWorld(SvPosition), SvPosition.xyz);
+		}
 	#else
-		// Note: Using default values for PixelPosition to reduce interpolator cost
-		CalcMaterialParameters(MaterialParameters, SvPosition, 1, float4(0,0,.00001f,1));
+		CalcMaterialParameters(MaterialParameters, SvPosition, 1);
 	#endif
+
 	// Evaluate the mask for masked materials
 	GetMaterialClippingShadowDepth(MaterialParameters);
 #else
@@ -81,32 +90,61 @@ void Main(
 	float3 normal = normalize( MaterialParameters.TangentToWorld[2] ); // Smooth normal
 	float3 flux = GetMaterialBounceColor(MaterialParameters);
 
-//@todo-rco: Remove this when reenabling for OpenGL
-#if !COMPILER_GLSL
+//@todo-rco: Remove this when reenabling for OpenGL & Metal
+#if !COMPILER_GLSL && !COMPILER_METAL
 #if MATERIAL_INJECT_EMISSIVE_INTO_LPV
 	float3 emissive = GetMaterialEmissive( MaterialParameters );
+
+	// Remove directionality from the light in the VPL.
+	normal = float3 (0.0f, 0.0f, 0.0f);
+#endif
+
+#if MATERIAL_INJECT_EMISSIVE_INTO_LPV || MATERIAL_BLOCK_GI
+	float opacity = GetMaterialOpacity( MaterialParameters );
 #endif
 
 #if SECONDARY_OCCLUSION || MATERIAL_INJECT_EMISSIVE_INTO_LPV
 	// Optimisation: only add to GV/VPL if the fragment is within the grid
-	float3 grid = WorldToGrid( MaterialParameters.WorldPosition.xyz );
+	float3 grid = WorldToGrid( MaterialParameters.AbsoluteWorldPosition.xyz );
 	float minGrid = min( grid.x, min(grid.y,grid.z ) );
 	float maxGrid = max( grid.x, max(grid.y,grid.z ) );
+
 	[branch]
-	if ( minGrid >= 0.0f && maxGrid <= 32.0f )
+	if ( minGrid > -0.5f && maxGrid <= 32.5f ) // Account for 0.5 cell offset
 	{
-#if SECONDARY_OCCLUSION && !( MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ALPHACOMPOSITE )
-		AddToGvList( MaterialParameters.WorldPosition - normal * LpvWrite.GeometryVolumeInjectionBias, flux, normal ); 
+#if SECONDARY_OCCLUSION && (MATERIALBLENDING_MASKED || MATERIALBLENDING_SOLID) && !MATERIAL_BLOCK_GI
+		float3 GvInjectPosition = MaterialParameters.AbsoluteWorldPosition - normal * LpvWrite.GeometryVolumeInjectionBias;
+#if LPV_GV_BOOST
+		if ( Primitive.LpvBiasMultiplier < 0.25 ) 
+		{
+			// Add an additional layer of GV cells facing the opposite direction to improve AO contribution
+			// TODO: add per-primitive AO-boost tickbox instead of hijacking LpvBiasMultiplier like this
+			// NOTE: The cost of this additional branch is minimal (on AMD at least)
+			float offset = ( LpvWrite.LpvScale * 3.0f );
+			AddToGvList( GvInjectPosition - normal * offset, flux, -normal );
+		}
+#endif
+		AddToGvList( GvInjectPosition, flux, normal ); 
+
 #endif
 
-#if MATERIAL_INJECT_EMISSIVE_INTO_LPV
-		AddToVplList( MaterialParameters.WorldPosition, emissive * LpvWrite.EmissiveInjectionMultiplier, normal, true );
+#if MATERIAL_INJECT_EMISSIVE_INTO_LPV && !MATERIAL_BLOCK_GI
+		AddToVplList( MaterialParameters.AbsoluteWorldPosition, emissive * LpvWrite.EmissiveInjectionMultiplier, normal, true );
 #endif
+	}
+	else
+	{
+		OutColor = 0;
+		OutReflectiveShadowMapDiffuse = 0;
+		return;
 	}
 #endif
 #endif
 
-#if MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ALPHACOMPOSITE
+#if MATERIAL_BLOCK_GI
+	OutColor = 1.0f;
+	OutReflectiveShadowMapDiffuse = opacity;
+#elif MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ALPHACOMPOSITE
 	OutColor = 0;
 	OutReflectiveShadowMapDiffuse = 0;
 	clip(-1);

@@ -55,7 +55,7 @@ public:
 
 		if(Category.Texture.IsValid())
 		{
-			UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, *Category.Texture.AssetLongPathname);
+			UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, *Category.Texture.ToString());
 			if(Texture != nullptr)
 			{
 				FIntPoint TextureSize = Texture->GetImportedSize();
@@ -79,7 +79,12 @@ public:
 	}
 
 	virtual ~FTutorialListEntry_Category()
-	{}
+	{
+		if( DynamicBrush.IsValid() )
+		{
+			DynamicBrush->ReleaseResource();
+		}
+	}
 
 	virtual TSharedRef<ITableRow> OnGenerateTutorialRow(const TSharedRef<STableViewBase>& OwnerTable) const override
 	{
@@ -296,7 +301,12 @@ public:
 	}
 
 	virtual ~FTutorialListEntry_Tutorial()
-	{}
+	{
+		if( DynamicBrush.IsValid() )
+		{
+			DynamicBrush->ReleaseResource();
+		}
+	}
 
 	virtual TSharedRef<ITableRow> OnGenerateTutorialRow(const TSharedRef<STableViewBase>& OwnerTable) const override
 	{
@@ -602,15 +612,11 @@ void STutorialsBrowser::Construct(const FArguments& InArgs)
 			+SVerticalBox::Slot()
 			.FillHeight(1.0f)
 			[
-				SNew(SScrollBox)
-				+SScrollBox::Slot()
-				[
-					SAssignNew(TutorialList, SListView<TSharedPtr<ITutorialListEntry>>)
-					.ItemHeight(128.0f)
-					.ListItemsSource(&FilteredEntries)
-					.OnGenerateRow(this, &STutorialsBrowser::OnGenerateTutorialRow)
-					.SelectionMode(ESelectionMode::None)
-				]
+				SAssignNew(TutorialList, SListView<TSharedPtr<ITutorialListEntry>>)
+				.ItemHeight(128.0f)
+				.ListItemsSource(&FilteredEntries)
+				.OnGenerateRow(this, &STutorialsBrowser::OnGenerateTutorialRow)
+				.SelectionMode(ESelectionMode::None)
 			]
 		]
 	];
@@ -734,6 +740,7 @@ void STutorialsBrowser::RebuildTutorials(TSharedPtr<FTutorialListEntry_Category>
 	FARFilter Filter;
 	Filter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
 	Filter.bRecursiveClasses = true;
+	Filter.TagsAndValues.Add(TEXT("NativeParentClass"), FString::Printf(TEXT("%s'%s'"), *UClass::StaticClass()->GetName(), *UEditorTutorial::StaticClass()->GetPathName()));
 	Filter.TagsAndValues.Add(TEXT("ParentClass"), FString::Printf(TEXT("%s'%s'"), *UClass::StaticClass()->GetName(), *UEditorTutorial::StaticClass()->GetPathName()));
 
 	TArray<FAssetData> AssetData;

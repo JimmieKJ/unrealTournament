@@ -17,7 +17,7 @@ public class ShaderCompileWorker : ModuleRules
 			}
 			);
 
-		if (Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.Platform == UnrealTargetPlatform.Linux || Target.Platform == UnrealTargetPlatform.Mac)
 		{
 			PrivateDependencyModuleNames.AddRange(
 			new string[] {

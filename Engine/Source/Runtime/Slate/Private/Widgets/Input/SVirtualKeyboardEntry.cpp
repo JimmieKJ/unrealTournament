@@ -47,7 +47,7 @@ void SVirtualKeyboardEntry::SetText(const TAttribute< FText >& InNewText)
 	bNeedsUpdate = true;
 }
 
-void SVirtualKeyboardEntry::SetTextFromVirtualKeyboard( const FText& InNewText )
+void SVirtualKeyboardEntry::SetTextFromVirtualKeyboard(const FText& InNewText, ESetTextType SetTextType, ETextCommit::Type CommitType)
 {
 	// Only set the text if the text attribute doesn't have a getter binding (otherwise it would be blown away).
 	// If it is bound, we'll assume that OnTextChanged will handle the update.
@@ -74,7 +74,7 @@ void SVirtualKeyboardEntry::RestoreOriginalText()
 {
 	if( HasTextChangedFromOriginal() )
 	{
-		SetTextFromVirtualKeyboard(OriginalText);
+		SetTextFromVirtualKeyboard(OriginalText, ESetTextType::Commited, ETextCommit::OnUserMovedFocus);
 	}
 }
 
@@ -172,7 +172,7 @@ int32 SVirtualKeyboardEntry::OnPaint( const FPaintArgs& Args, const FGeometry& A
 	const FSlateFontInfo& FontInfo = Font.Get();
 	const FString VisibleText = GetStringToRender();
 	const FLinearColor ThisColorAndOpacity = ColorAndOpacity.Get().GetColor(InWidgetStyle);
-	const FColor ColorAndOpacitySRGB = ThisColorAndOpacity * InWidgetStyle.GetColorAndOpacityTint();
+	const FLinearColor ColorAndOpacitySRGB = ThisColorAndOpacity * InWidgetStyle.GetColorAndOpacityTint();
 	const float FontMaxCharHeight = FTextEditHelper::GetFontHeight(FontInfo);
 	const double CurrentTime = FSlateApplication::Get().GetCurrentTime();
 

@@ -77,6 +77,7 @@ void SGraphPanel::Construct( const SGraphPanel::FArguments& InArgs )
 	this->GraphObjToDiff = InArgs._GraphObjToDiff;
 	this->SelectionManager.OnSelectionChanged = InArgs._OnSelectionChanged;
 	this->IsEditable = InArgs._IsEditable;
+	this->DisplayAsReadOnly = InArgs._DisplayAsReadOnly;
 	this->OnNodeDoubleClicked = InArgs._OnNodeDoubleClicked;
 	this->OnDropActor = InArgs._OnDropActor;
 	this->OnDropStreamingLevel = InArgs._OnDropStreamingLevel;
@@ -228,8 +229,8 @@ int32 SGraphPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 
 				// Draw the comments and information popups for this node, if it has any.
 				{
-					const SNodePanel::SNode::FNodeSlot& CommentSlot = ChildNode->GetOrAddSlot( ENodeZone::TopCenter );
-					float CommentBubbleY = -CommentSlot.Offset.Get().Y;
+					const SNodePanel::SNode::FNodeSlot* CommentSlot = ChildNode->GetSlot( ENodeZone::TopCenter );
+					float CommentBubbleY = CommentSlot ? -CommentSlot->Offset.Get().Y : 0.f;
 					Context.bSelected = bSelected;
 					TArray<FGraphInformationPopupInfo> Popups;
 
@@ -254,7 +255,7 @@ int32 SGraphPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 					{
 						NodeMatches.Add(NodeMatch);
 					}
-					const bool bNodeIsDifferent = (!GraphObjToDiff || NodeMatch.Diff());
+					const bool bNodeIsDifferent = (!GraphObjToDiff || NodeMatch.Diff(FGraphDiffControl::FNodeDiffContext()));
 
 					/* When dragging off a pin, we want to duck the alpha of some nodes */
 					TSharedPtr< SGraphPin > OnlyStartPin = (1 == PreviewConnectorFromPins.Num()) ? PreviewConnectorFromPins[0].FindInGraphPanel(*this) : TSharedPtr< SGraphPin >();
@@ -262,7 +263,7 @@ int32 SGraphPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 					const FWidgetStyle& NodeStyleToUse = (bNodeIsDifferent && !bNodeIsNotUsableInCurrentContext)? InWidgetStyle : FadedStyle;
 
 					// Draw the node.O
-					CurWidgetsMaxLayerId = CurWidget.Widget->Paint( Args.WithNewParent(this), CurWidget.Geometry, MyClippingRect, OutDrawElements, ChildLayerId, NodeStyleToUse, ShouldBeEnabled( bParentEnabled ) );
+					CurWidgetsMaxLayerId = CurWidget.Widget->Paint( Args.WithNewParent(this), CurWidget.Geometry, MyClippingRect, OutDrawElements, ChildLayerId, NodeStyleToUse, !DisplayAsReadOnly.Get() && ShouldBeEnabled( bParentEnabled ) );
 				}
 
 				// Draw the node's overlay, if it has one.
@@ -615,26 +616,31 @@ FReply SGraphPanel::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InK
 {
 	if( IsEditable.Get() )
 	{
-		if( InKeyEvent.GetKey() == EKeys::Up  ||InKeyEvent.GetKey() ==  EKeys::NumPadEight )
+		const bool bIsModifierActive = InKeyEvent.IsCommandDown() || InKeyEvent.IsAltDown() || InKeyEvent.IsShiftDown() || InKeyEvent.IsControlDown();
+		if (!bIsModifierActive)
 		{
-			UpdateSelectedNodesPositions(FVector2D(0.0f,-GetSnapGridSize()));
-			return FReply::Handled();
+			if( InKeyEvent.GetKey() == EKeys::Up  ||InKeyEvent.GetKey() ==  EKeys::NumPadEight )
+			{
+				UpdateSelectedNodesPositions(FVector2D(0.0f,-GetSnapGridSize()));
+				return FReply::Handled();
+			}
+			if( InKeyEvent.GetKey() ==  EKeys::Down || InKeyEvent.GetKey() ==  EKeys::NumPadTwo )
+			{
+				UpdateSelectedNodesPositions(FVector2D(0.0f,GetSnapGridSize()));
+				return FReply::Handled();
+			}
+			if( InKeyEvent.GetKey() ==  EKeys::Right || InKeyEvent.GetKey() ==  EKeys::NumPadSix )
+			{
+				UpdateSelectedNodesPositions(FVector2D(GetSnapGridSize(),0.0f));
+				return FReply::Handled();
+			}
+			if( InKeyEvent.GetKey() ==  EKeys::Left || InKeyEvent.GetKey() ==  EKeys::NumPadFour )
+			{
+				UpdateSelectedNodesPositions(FVector2D(-GetSnapGridSize(),0.0f));
+				return FReply::Handled();
+			}
 		}
-		if( InKeyEvent.GetKey() ==  EKeys::Down || InKeyEvent.GetKey() ==  EKeys::NumPadTwo )
-		{
-			UpdateSelectedNodesPositions(FVector2D(0.0f,GetSnapGridSize()));
-			return FReply::Handled();
-		}
-		if( InKeyEvent.GetKey() ==  EKeys::Right || InKeyEvent.GetKey() ==  EKeys::NumPadSix )
-		{
-			UpdateSelectedNodesPositions(FVector2D(GetSnapGridSize(),0.0f));
-			return FReply::Handled();
-		}
-		if( InKeyEvent.GetKey() ==  EKeys::Left || InKeyEvent.GetKey() ==  EKeys::NumPadFour )
-		{
-			UpdateSelectedNodesPositions(FVector2D(-GetSnapGridSize(),0.0f));
-			return FReply::Handled();
-		}
+
 		if(InKeyEvent.GetKey() == FGraphEditorCommands::Get().ZoomOut->GetActiveChord()->Key)
 		{
 			ChangeZoomLevel(-1, CachedAllottedGeometryScaledSize / 2.f, InKeyEvent.IsControlDown());
@@ -1059,6 +1065,7 @@ TSharedPtr<SWidget> SGraphPanel::SummonContextMenu(const FVector2D& WhereToSummo
 		
 		FSlateApplication::Get().PushMenu(
 			AsShared(),
+			FWidgetPath(),
 			MenuContent,
 			WhereToSummon,
 			FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
@@ -1077,6 +1084,273 @@ void SGraphPanel::AttachGraphEvents(TSharedPtr<SGraphNode> CreatedSubNode)
 	CreatedSubNode->SetDoubleClickEvent(OnNodeDoubleClicked);
 	CreatedSubNode->SetVerifyTextCommitEvent(OnVerifyTextCommit);
 	CreatedSubNode->SetTextCommittedEvent(OnTextCommitted);
+}
+
+bool SGraphPanel::GetBoundsForNode(const UObject* InNode, FVector2D& MinCorner, FVector2D& MaxCorner, float Padding) const
+{
+	return SNodePanel::GetBoundsForNode(InNode, MinCorner, MaxCorner, Padding);
+}
+
+class FConnectionAligner
+{
+public:
+	void DefineConnection(UEdGraphNode* SourceNode, const TSharedPtr<SGraphPin>& SourcePin, UEdGraphNode* DestinationNode, const TSharedPtr<SGraphPin>& DestinationPin)
+	{
+		auto& Dependencies = Connections.FindOrAdd(SourceNode);
+		if (SourcePin->GetPinObj()->Direction == EEdGraphPinDirection::EGPD_Output)
+		{
+			Dependencies.Outputs.FindOrAdd(DestinationNode).Add(FPinPair{ SourcePin, DestinationPin });
+		}
+		else
+		{
+			Dependencies.Inputs.FindOrAdd(DestinationNode).Add(FPinPair{ SourcePin, DestinationPin });
+		}
+	}
+
+	/** Align all the connections */
+	void Process()
+	{
+		struct FRankedNode
+		{
+			UEdGraphNode* Node;
+			uint32 Rank;
+		};
+
+		TArray<FRankedNode> RankedNodes;
+		RankedNodes.Reserve(Connections.Num());
+
+		TMap<UEdGraphNode*, uint32> LongestChainCache;
+		LongestChainCache.Reserve(Connections.Num());
+
+		for (auto& Pair : Connections)
+		{
+			RankedNodes.Add(FRankedNode{ Pair.Key, CalculateNodeRank(Pair.Key, LongestChainCache) });
+		}
+
+		// Sort the nodes based on dependencies - highest is processed first
+		RankedNodes.Sort([](const FRankedNode& A, const FRankedNode& B){
+			return A.Rank > B.Rank;
+		});
+
+		TSet<UEdGraphNode*> VistedNodes;
+		for (FRankedNode& RankedNode : RankedNodes)
+		{
+			StraightenConnectionsForNode(RankedNode.Node, VistedNodes, EEdGraphPinDirection::EGPD_Output);
+			if (VistedNodes.Num() == RankedNodes.Num())
+			{
+				return;
+			}
+
+			StraightenConnectionsForNode(RankedNode.Node, VistedNodes, EEdGraphPinDirection::EGPD_Input);
+			if (VistedNodes.Num() == RankedNodes.Num())
+			{
+				return;
+			}
+		}
+	}
+
+private:
+
+	void StraightenConnectionsForNode(UEdGraphNode* Node, TSet<UEdGraphNode*>& VisitedNodes, EEdGraphPinDirection Direction)
+	{
+		FDependencyInfo* Info = Connections.Find(Node);
+		if (!Info)
+		{
+			return;
+		}
+
+		for (auto& NodeToPins : Info->GetDirection(Direction))
+		{
+			if (NodeToPins.Value.Num() == 0 || VisitedNodes.Contains(NodeToPins.Key))
+			{
+				continue;
+			}
+
+			// Align the averages of all the pins
+			float AlignmentDelta = 0.f;
+			for (const FPinPair& Pins : NodeToPins.Value)
+			{
+				AlignmentDelta += (Node->NodePosY + Pins.SrcPin->GetNodeOffset().Y) - (NodeToPins.Key->NodePosY + Pins.DstPin->GetNodeOffset().Y);
+			}
+
+			NodeToPins.Key->Modify();
+			NodeToPins.Key->NodePosY += AlignmentDelta / NodeToPins.Value.Num();
+
+			VisitedNodes.Add(Node);
+			VisitedNodes.Add(NodeToPins.Key);
+			
+			StraightenConnectionsForNode(NodeToPins.Key, VisitedNodes, Direction);
+		}
+	}
+
+	/** Find the longest chain of single-connection nodes connected to the specified node */
+	uint32 FindLongestUniqueChain(UEdGraphNode* Node, TMap<UEdGraphNode*, uint32>& LongestChainCache, EEdGraphPinDirection Direction)
+	{
+		if (uint32* Length = LongestChainCache.Find(Node))
+		{
+			// Already set, or circular dependency - ignore
+			return *Length;
+		}
+
+		// Prevent reentrancy
+		LongestChainCache.Add(Node, 0);
+
+		uint32 ThisLength = 0;
+		
+		if (FDependencyInfo* Dependencies = Connections.Find(Node))
+		{
+			auto& ConnectedNodes = Dependencies->GetDirection(Direction);
+
+			// We only follow unique (1-1) connections
+			if (ConnectedNodes.Num() == 1)
+			{
+				for (auto& NodeToPins : ConnectedNodes)
+				{
+					ThisLength = FindLongestUniqueChain(NodeToPins.Key, LongestChainCache, Direction) + 1;
+				}
+			}
+		}
+
+		LongestChainCache[Node] = ThisLength;
+		return ThisLength;
+	};
+
+	/** Calculate the depth of dependencies for the specified node */
+	uint32 CalculateNodeRank(UEdGraphNode* Node, TMap<UEdGraphNode*, uint32>& LongestChainCache)
+	{
+		uint32 Rank = 0;
+		if (FDependencyInfo* PinMap = Connections.Find(Node))
+		{
+			for (auto& NodeToPins : PinMap->Outputs)
+			{
+				Rank += FindLongestUniqueChain(NodeToPins.Key, LongestChainCache, EEdGraphPinDirection::EGPD_Output) + 1;
+			}
+			for (auto& NodeToPins : PinMap->Inputs)
+			{
+				Rank += FindLongestUniqueChain(NodeToPins.Key, LongestChainCache, EEdGraphPinDirection::EGPD_Input) + 1;
+			}
+		}
+		return Rank;
+	}
+
+private:
+
+	/** A pair of pins */
+	struct FPinPair
+	{
+		TSharedPtr<SGraphPin> SrcPin, DstPin;
+	};
+
+	/** Map of nodes and pins that are connected to the owning pin */
+	struct FDependencyInfo
+	{
+		TMap<UEdGraphNode*, TArray<FPinPair>> Outputs;
+		TMap<UEdGraphNode*, TArray<FPinPair>> Inputs;
+		uint32 Rank;
+
+		TMap<UEdGraphNode*, TArray<FPinPair>>& GetDirection(EEdGraphPinDirection Direction)
+		{
+			return Direction == EEdGraphPinDirection::EGPD_Output ? Outputs : Inputs;
+		}
+	};
+	typedef TMap<UEdGraphNode*, FDependencyInfo> FConnections;
+
+	FConnections Connections;
+};
+
+void SGraphPanel::StraightenConnections()
+{
+	FConnectionAligner Aligner;
+	for (auto* It : SelectionManager.SelectedNodes)
+	{
+		UEdGraphNode* SourceNode = Cast<UEdGraphNode>(It);
+		if (!SourceNode)
+		{
+			continue;
+		}
+
+		TSharedRef<SNode>* ThisNodePtr = NodeToWidgetLookup.Find(SourceNode);
+		if (!ThisNodePtr)
+		{
+			continue;
+		}
+
+		for (UEdGraphPin* SourcePin : SourceNode->Pins)
+		{
+			for (UEdGraphPin* LinkedTo : SourcePin->LinkedTo)
+			{
+				UEdGraphNode* DestNode = LinkedTo ? LinkedTo->GetOwningNode() : nullptr;
+				if (DestNode && SelectionManager.SelectedNodes.Contains(DestNode))
+				{
+					TSharedRef<SNode>* DestGraphNodePtr = NodeToWidgetLookup.Find(DestNode);
+					if (!DestGraphNodePtr)
+					{
+						continue;
+					}
+
+					TSharedPtr<SGraphPin> PinWidget = StaticCastSharedRef<SGraphNode>(*ThisNodePtr)->FindWidgetForPin(SourcePin);
+					TSharedPtr<SGraphPin> LinkedPinWidget = StaticCastSharedRef<SGraphNode>(*DestGraphNodePtr)->FindWidgetForPin(LinkedTo);
+					
+					if (PinWidget.IsValid() && LinkedPinWidget.IsValid())
+					{
+						Aligner.DefineConnection(SourceNode, PinWidget, DestNode, LinkedPinWidget);
+					}
+				}
+			}
+		}
+	}
+
+	Aligner.Process();
+}
+
+void SGraphPanel::StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin* PinToAlign)
+{
+	UEdGraphNode* OwningNode = SourcePin->GetOwningNode();
+
+	TSharedRef<SNode>* OwningNodeWidgetPtr = NodeToWidgetLookup.Find(OwningNode);
+	if (!OwningNodeWidgetPtr)
+	{
+		return;
+	}
+
+	TSharedRef<SGraphNode> SourceGraphNode = StaticCastSharedRef<SGraphNode>(*OwningNodeWidgetPtr);
+
+	FConnectionAligner Aligner;
+
+	auto AddConnectedPin = [&](UEdGraphPin* ConnectedPin){
+		UEdGraphNode* ConnectedNode = ConnectedPin ? ConnectedPin->GetOwningNode() : nullptr;
+		if (!ConnectedNode)
+		{
+			return;
+		}
+
+		TSharedRef<SNode>* DestGraphNodePtr = NodeToWidgetLookup.Find(ConnectedNode);
+		if (!DestGraphNodePtr)
+		{
+			return;
+		}
+
+		TSharedPtr<SGraphPin> PinWidget = SourceGraphNode->FindWidgetForPin(SourcePin);
+		TSharedPtr<SGraphPin> LinkedPinWidget = StaticCastSharedRef<SGraphNode>(*DestGraphNodePtr)->FindWidgetForPin(ConnectedPin);
+			
+		if (PinWidget.IsValid() && LinkedPinWidget.IsValid())
+		{
+			Aligner.DefineConnection(OwningNode, PinWidget, ConnectedNode, LinkedPinWidget);
+		}
+	};
+
+	if (PinToAlign)
+	{
+		// If we're only aligning a specific pin, do that
+		AddConnectedPin(PinToAlign);
+	}
+	// Else add all the connected pins
+	else for (UEdGraphPin* ConnectedPin : SourcePin->LinkedTo)
+	{
+		AddConnectedPin(ConnectedPin);
+	}
+	
+	Aligner.Process();
 }
 
 const TSharedRef<SGraphNode> SGraphPanel::GetChild(int32 ChildIndex)
@@ -1157,7 +1431,7 @@ void SGraphPanel::Update()
 			}
 			else
 			{
-				UE_LOG(LogGraphPanel, Warning, TEXT("Found NULL Node in GraphObj array. A node type has been deleted without creating an ActiveClassRedictor to K2Node_DeadClass."));
+				UE_LOG(LogGraphPanel, Warning, TEXT("Found NULL Node in GraphObj array of a graph in asset '%s'. A node type has been deleted without creating an ActiveClassRedirector to K2Node_DeadClass."), *GraphObj->GetOutermost()->GetName());
 			}
 		}
 
@@ -1243,7 +1517,7 @@ bool SGraphPanel::JumpToRect(const FVector2D &TopLeft, const FVector2D &BottomRi
 	return true;
 }
 
-void SGraphPanel::JumpToNode(const UEdGraphNode* JumpToMe, bool bRequestRename)
+void SGraphPanel::JumpToNode(const UEdGraphNode* JumpToMe, bool bRequestRename, bool bSelectNode)
 {
 	if (JumpToMe != nullptr)
 	{
@@ -1257,8 +1531,16 @@ void SGraphPanel::JumpToNode(const UEdGraphNode* JumpToMe, bool bRequestRename)
 			}
 		}
 
-		// Select this node, and request that we jump to it.
-		SelectAndCenterObject(JumpToMe, true);
+		if (bSelectNode)
+		{
+			// Select this node, and request that we jump to it.
+			SelectAndCenterObject(JumpToMe, true);
+		}
+		else
+		{
+			// Jump to the node
+			CenterObject(JumpToMe);
+		}
 	}
 }
 
@@ -1266,7 +1548,7 @@ void SGraphPanel::JumpToPin(const UEdGraphPin* JumpToMe)
 {
 	if (JumpToMe != nullptr)
 	{
-		JumpToNode(JumpToMe->GetOwningNode(), false);
+		JumpToNode(JumpToMe->GetOwningNode(), false, true);
 	}
 }
 

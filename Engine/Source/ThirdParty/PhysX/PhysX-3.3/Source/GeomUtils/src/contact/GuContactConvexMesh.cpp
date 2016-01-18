@@ -32,7 +32,7 @@ using namespace Gu;
 using namespace shdfnd::aos;
 
 #ifdef __SPU__
-extern unsigned char HeightFieldBuffer[sizeof(Gu::HeightField)+16];
+extern unsigned char HeightFieldBuffer[sizeof(HeightField)+16];
 #include "CmMemFetch.h"
 #endif
 
@@ -161,7 +161,7 @@ static bool testFacesSepAxesBackface(	const PolygonalData& polyData0,
 	id = PX_INVALID_U32;
 
 	const PxU32 numHullPolys = polyData0.mNbPolygons;
-	const Gu::HullPolygonData* PX_RESTRICT polygons = polyData0.mPolygons;
+	const HullPolygonData* PX_RESTRICT polygons = polyData0.mPolygons;
 	const PxVec3* PX_RESTRICT vertices = polyData0.mVerts;
 	const PxVec3& trans = m0to1.base3;
 	{
@@ -175,7 +175,7 @@ static bool testFacesSepAxesBackface(	const PolygonalData& polyData0,
 		{
 			for(PxU32 i=0; i<numHullPolys; i++)
 			{
-				const Gu::HullPolygonData& P = polygons[i];
+				const HullPolygonData& P = polygons[i];
 				const PxPlane& PL = P.mPlane;
 
 #ifdef USE_TRIANGLE_NORMAL
@@ -212,7 +212,7 @@ static bool testFacesSepAxesBackface(	const PolygonalData& polyData0,
 #endif
 			for(PxU32 i=0; i<numHullPolys; i++)
 			{
-				const Gu::HullPolygonData& P = polygons[i];
+				const HullPolygonData& P = polygons[i];
 				const PxPlane& PL = P.mPlane;
 
 #ifdef USE_TRIANGLE_NORMAL
@@ -256,7 +256,7 @@ static bool testFacesSepAxesBackface(	const PolygonalData& polyData0,
 		{
 			for(PxU32 i=0; i<numHullPolys; i++)
 			{
-				const Gu::HullPolygonData& P = polygons[i];
+				const HullPolygonData& P = polygons[i];
 				const PxPlane& PL = P.mPlane;
 
 				const PxVec3 sepAxis = m0to1.rotate(PL.n);
@@ -280,7 +280,7 @@ static bool testFacesSepAxesBackface(	const PolygonalData& polyData0,
 		{
 			for(PxU32 i=0; i<numHullPolys; i++)
 			{
-				const Gu::HullPolygonData& P = polygons[i];
+				const HullPolygonData& P = polygons[i];
 				const PxPlane& PL = P.mPlane;
 
 				PxVec3 shapeSpaceNormal = convexScaling % PL.n;
@@ -311,6 +311,11 @@ static bool testFacesSepAxesBackface(	const PolygonalData& polyData0,
 	return true;
 }
 
+static PX_FORCE_INLINE bool edgeCulling(const PxPlane& plane, const PxVec3& p0, const PxVec3& p1, PxReal contactDistance)
+{
+	return plane.distance(p0)<=contactDistance || plane.distance(p1)<=contactDistance;
+}
+
 static bool performEETests(
 						const PolygonalData& polyData0,
 						const PxU8 triFlags,
@@ -326,19 +331,19 @@ static bool performEETests(
 	PxU32 nbTriangleAxes = 0;
 	PxVec3 triangleAxes[3];
 	{
-		const Gu::HullPolygonData& P = polyData0.mPolygons[id0];
+		const HullPolygonData& P = polyData0.mPolygons[id0];
 		const PxPlane& vertSpacePlane = P.mPlane;
 
 		const PxVec3 newN = m1to0.rotate(vertSpacePlane.n);
 		PxPlane hullWitness(convexScaling * newN, vertSpacePlane.d - m1to0.base3.dot(newN)); //technically not a fully xformed plane, just use property of x|My == Mx|y for symmetric M.
 		
-		if((triFlags & Gu::ETD_CONVEX_EDGE_01) && edgeCulling(hullWitness, triangle[0], triangle[1], contactDistance))
+		if((triFlags & ETD_CONVEX_EDGE_01) && edgeCulling(hullWitness, triangle[0], triangle[1], contactDistance))
 			triangleAxes[nbTriangleAxes++] = (triangle[0] - triangle[1]);
 
-		if((triFlags & Gu::ETD_CONVEX_EDGE_12) && edgeCulling(hullWitness, triangle[1], triangle[2], contactDistance))
+		if((triFlags & ETD_CONVEX_EDGE_12) && edgeCulling(hullWitness, triangle[1], triangle[2], contactDistance))
 			triangleAxes[nbTriangleAxes++] = (triangle[1] - triangle[2]);
 
-		if((triFlags & Gu::ETD_CONVEX_EDGE_20) && edgeCulling(hullWitness, triangle[2], triangle[0], contactDistance))
+		if((triFlags & ETD_CONVEX_EDGE_20) && edgeCulling(hullWitness, triangle[2], triangle[0], contactDistance))
 			triangleAxes[nbTriangleAxes++] = (triangle[2] - triangle[0]);
 	}
 
@@ -353,10 +358,10 @@ static bool performEETests(
 	SA.reset();
 
 	const PxU8* PX_RESTRICT vrefBase0 = polyData0.mPolygonVertexRefs;
-	const Gu::HullPolygonData* PX_RESTRICT polygons = polyData0.mPolygons;
+	const HullPolygonData* PX_RESTRICT polygons = polyData0.mPolygons;
 	while(numHullIndices--)
 	{
-		const Gu::HullPolygonData& P = polygons[*hullIndices++];
+		const HullPolygonData& P = polygons[*hullIndices++];
 		const PxU8* PX_RESTRICT data = vrefBase0 + P.mVRef8;
 
 		PxU32 numEdges = nbTriangleAxes;
@@ -518,6 +523,59 @@ static bool triangleConvexTest(	const PolygonalData& polyData0,
 	return true;
 }
 
+namespace
+{
+	struct ConvexMeshContactGeneration
+	{
+		Gu::Container&						mDelayedContacts;
+		Gu::CacheMap<Gu::CachedEdge, 128>	mEdgeCache;
+		Gu::CacheMap<Gu::CachedVertex, 128>	mVertCache;
+
+		const Cm::Matrix34					m0to1;
+		const Cm::Matrix34					m1to0;
+
+		PxVec3								mHullCenterMesh;
+		PxVec3								mHullCenterWorld;
+
+		const PolygonalData&				mPolyData0;
+		const Cm::Matrix34&					mWorld0;
+		const Cm::Matrix34&					mWorld1;
+
+		const Cm::FastVertex2ShapeScaling&	mConvexScaling;
+
+		PxReal								mContactDistance;
+		bool								mIdtMeshScale, mIdtConvexScale;
+		PxReal								mCCDEpsilon;
+		const PxTransform&					mTransform0;
+		const PxTransform&					mTransform1;
+		ContactBuffer&						mContactBuffer;
+		bool								mAnyHits;
+
+		ConvexMeshContactGeneration(
+			Gu::Container& delayedContacts,
+			const PxTransform& t0to1, const PxTransform& t1to0,
+			const PolygonalData& polyData0, const Cm::Matrix34& world0, const Cm::Matrix34& world1,
+			const Cm::FastVertex2ShapeScaling& convexScaling,
+			PxReal contactDistance,
+			bool idtConvexScale,
+			PxReal cCCDEpsilon,
+			const PxTransform& transform0, const PxTransform& transform1,
+			ContactBuffer& contactBuffer
+		);
+
+		void processTriangle(const PxVec3* verts, PxU32 triangleIndex, PxU8 triFlags, const PxU32* vertInds);
+		void generateLastContacts();
+
+		bool	generateContacts(
+			const PxPlane& localPlane,
+			const PxVec3* PX_RESTRICT localPoints,
+			const PxVec3& triCenter, PxVec3& groupAxis,
+			PxReal groupMinDepth, PxU32 index)	const;
+
+	private:
+		ConvexMeshContactGeneration& operator=(const ConvexMeshContactGeneration&);
+	};
+
 // 17 entries. 1088/17 = 64 triangles in the local array
 struct SavedContactData
 {
@@ -527,16 +585,13 @@ struct SavedContactData
 	PxVec3		mGroupAxis;
 	PxReal		mGroupMinDepth;
 };
+}
 
-ConvexVsMeshContactGeneration::ConvexVsMeshContactGeneration(
-	Gu::Container& delayedContacts,
-
+ConvexMeshContactGeneration::ConvexMeshContactGeneration(
+	Container& delayedContacts,
 	const PxTransform& t0to1, const PxTransform& t1to0,
-
 	const PolygonalData& polyData0, const Cm::Matrix34& world0, const Cm::Matrix34& world1,
-
 	const Cm::FastVertex2ShapeScaling& convexScaling,
-
 	PxReal contactDistance,
 	bool idtConvexScale,
 	PxReal cCCDEpsilon,
@@ -544,17 +599,18 @@ ConvexVsMeshContactGeneration::ConvexVsMeshContactGeneration(
 	ContactBuffer& contactBuffer
 ) :
 	mDelayedContacts(delayedContacts),
-
-	m0to1(t0to1), m1to0(t1to0),
-	
-	mPolyData0(polyData0), mWorld0(world0), mWorld1(world1),
-
-	mConvexScaling(convexScaling),
-
+	m0to1			(t0to1),
+	m1to0			(t1to0),
+	mPolyData0		(polyData0),
+	mWorld0			(world0),
+	mWorld1			(world1),
+	mConvexScaling	(convexScaling),
 	mContactDistance(contactDistance),
-//		mThreadCache(threadCache),
-	mIdtConvexScale(idtConvexScale), mCCDEpsilon(cCCDEpsilon),
-	mTransform0(transform0), mTransform1(transform1), mContactBuffer(contactBuffer)
+	mIdtConvexScale	(idtConvexScale),
+	mCCDEpsilon		(cCCDEpsilon),
+	mTransform0		(transform0),
+	mTransform1		(transform1),
+	mContactBuffer	(contactBuffer)
 {
 	delayedContacts.Reset();
 	mAnyHits = false;
@@ -567,59 +623,44 @@ ConvexVsMeshContactGeneration::ConvexVsMeshContactGeneration(
 	mHullCenterWorld = mWorld0.transform(hullCenterLocal);
 }
 
-struct ConvexVsMeshContactGenerationCallback : MeshHitCallback<PxRaycastHit>
+struct ConvexMeshContactGenerationCallback : MeshHitCallback<PxRaycastHit>
 {
-	static const PxU32 CacheSize = 16;
-	Gu::TriangleCache<CacheSize>		mCache;
-	ConvexVsMeshContactGeneration		mGeneration;
+	ConvexMeshContactGeneration			mGeneration;
 	const Cm::FastVertex2ShapeScaling&	mMeshScaling;
 	const PxU8* PX_RESTRICT				mExtraTrigData;
 	bool								mIdtMeshScale;
-	const Gu::InternalTriangleMeshData*	mMeshData;
-	Gu::OBBTriangleTest					mObbTriTest;
+	const InternalTriangleMeshData*		mMeshData;
+	OBBTriangleTest						mObbTriTest;
 
-	ConvexVsMeshContactGenerationCallback(
+	ConvexMeshContactGenerationCallback(
 		Container& delayedContacts,
-
 		const PxTransform& t0to1, const PxTransform& t1to0,
-
 		const PolygonalData& polyData0, const Cm::Matrix34& world0, const Cm::Matrix34& world1,
-
-		const Gu::InternalTriangleMeshData* meshData,
+		const InternalTriangleMeshData* meshData,
 		const PxU8* PX_RESTRICT extraTrigData,
 		const Cm::FastVertex2ShapeScaling& meshScaling,
 		const Cm::FastVertex2ShapeScaling& convexScaling,
-
 		PxReal contactDistance,
 		bool idtMeshScale, bool idtConvexScale,
 		PxReal cCCDEpsilon,
 		const PxTransform& transform0, const PxTransform& transform1,
 		ContactBuffer& contactBuffer,
-		const Gu::Box& box
-	) :	MeshHitCallback<PxRaycastHit>(CallbackMode::eMULTIPLE),
-		mGeneration(delayedContacts, t0to1, t1to0, polyData0, world0, world1, convexScaling, contactDistance, idtConvexScale,
-			cCCDEpsilon, transform0, transform1, contactBuffer),
-			mMeshScaling(meshScaling),
-			mExtraTrigData(extraTrigData),
-			mIdtMeshScale(idtMeshScale),
-			mMeshData(meshData),
-			mObbTriTest(box)
+		const Box& box
+	)	:
+		MeshHitCallback<PxRaycastHit>	(CallbackMode::eMULTIPLE),
+		mGeneration						(delayedContacts, t0to1, t1to0, polyData0, world0, world1, convexScaling, contactDistance, idtConvexScale, cCCDEpsilon, transform0, transform1, contactBuffer),
+		mMeshScaling					(meshScaling),
+		mExtraTrigData					(extraTrigData),
+		mIdtMeshScale					(idtMeshScale),
+		mMeshData						(meshData),
+		mObbTriTest						(box)
 	{
-	}
-
-	void flushCache()
-	{
-		if (!mCache.isEmpty())
-		{
-			mGeneration.processTriangleCache(mCache);
-			mCache.reset();
-		}
 	}
 
 	virtual PxAgain processHit( // all reported coords are in mesh local space including hit.position
 		const PxRaycastHit& hit, const PxVec3& v0, const PxVec3& v1, const PxVec3& v2, PxReal&, const PxU32* vinds)
 	{
-		if (!mObbTriTest.obbTriTest(v0, v1, v2))
+		if(!mObbTriTest.obbTriTest(v0, v1, v2))
 			return true;
 
 		PxVec3 verts[3];
@@ -627,13 +668,7 @@ struct ConvexVsMeshContactGenerationCallback : MeshHitCallback<PxRaycastHit>
 
 		const PxU32 triangleIndex = hit.faceIndex;
 
-		if (mCache.isFull())
-		{
-			mGeneration.processTriangleCache(mCache);
-			mCache.reset();
-		}
-
-		PxU8 extraData = Gu::ETD_CONVEX_EDGE_01|Gu::ETD_CONVEX_EDGE_12|Gu::ETD_CONVEX_EDGE_20;
+		PxU8 extraData = ETD_CONVEX_EDGE_01|ETD_CONVEX_EDGE_12|ETD_CONVEX_EDGE_20;
 		if (PX_IS_SPU && mMeshData->mExtraTrigData)
 		{
 			extraData = Cm::memFetch<PxU8>(
@@ -641,16 +676,15 @@ struct ConvexVsMeshContactGenerationCallback : MeshHitCallback<PxRaycastHit>
 			Cm::memFetchWait(5);
 		}
 		const PxU8 triFlags = PX_IS_SPU ? extraData : mExtraTrigData[triangleIndex];
-		mCache.addTriangle(verts, vinds, triangleIndex, triFlags);
-
+		mGeneration.processTriangle(verts, triangleIndex, triFlags, vinds);
 		return true;
 	}
 
 protected:
-	ConvexVsMeshContactGenerationCallback &operator=(const ConvexVsMeshContactGenerationCallback &);
+	ConvexMeshContactGenerationCallback &operator=(const ConvexMeshContactGenerationCallback &);
 };
 
-bool ConvexVsMeshContactGeneration::generateContacts(
+bool ConvexMeshContactGeneration::generateContacts(
 	const PxPlane& localPlane,
 	const PxVec3* PX_RESTRICT localPoints,
 	const PxVec3& triCenter, PxVec3& groupAxis,
@@ -663,7 +697,7 @@ bool ConvexVsMeshContactGeneration::generateContacts(
 
 	const PxU32 id = (mPolyData0.mSelectClosestEdgeCB)(mPolyData0, mConvexScaling, mWorld0.rotateTranspose(-groupAxis));
 
-	const Gu::HullPolygonData& HP = mPolyData0.mPolygons[id];
+	const HullPolygonData& HP = mPolyData0.mPolygons[id];
 	PxPlane shapeSpacePlane0;
 	if(mIdtConvexScale)
 		copyPlane(&shapeSpacePlane0, &HP);
@@ -908,7 +942,7 @@ static FeatureCode computeFeatureCode(const PxVec3& point, const PxVec3* verts)
 }
 
 
-//static bool validateVertex(PxU32 vref, const PxU32 count, const Gu::ContactPoint* PX_RESTRICT contacts, const Gu::InternalTriangleMeshData& meshData)
+//static bool validateVertex(PxU32 vref, const PxU32 count, const ContactPoint* PX_RESTRICT contacts, const InternalTriangleMeshData& meshData)
 //{
 //	PxU32 previous = 0xffffffff;
 //	for(PxU32 i=0;i<count;i++)
@@ -937,7 +971,7 @@ static FeatureCode computeFeatureCode(const PxVec3& point, const PxVec3* verts)
 //	return true;
 //}
 
-//static bool validateEdge(PxU32 vref0, PxU32 vref1, const PxU32 count, const Gu::ContactPoint* PX_RESTRICT contacts, const Gu::InternalTriangleMeshData& meshData)
+//static bool validateEdge(PxU32 vref0, PxU32 vref1, const PxU32 count, const ContactPoint* PX_RESTRICT contacts, const InternalTriangleMeshData& meshData)
 //{
 //	if(vref0>vref1)
 //		Ps::swap(vref0, vref1);
@@ -987,14 +1021,14 @@ static FeatureCode computeFeatureCode(const PxVec3& point, const PxVec3* verts)
 
 //#endif
 
-bool ConvexVsMeshContactGeneration::processTriangle(const PxVec3* verts, PxU32 triangleIndex, PxU8 triFlags, const PxU32* vertInds)
+void ConvexMeshContactGeneration::processTriangle(const PxVec3* verts, PxU32 triangleIndex, PxU8 triFlags, const PxU32* vertInds)
 {
 	const PxPlane localPlane(verts[0], verts[1], verts[2]);
 
 	// Backface culling
 	if(localPlane.distance(mHullCenterMesh)<0.0f)
 //		if(localPlane.normal.dot(mHullCenterMesh - T.mVerts[0]) <= 0.0f)
-		return false;
+		return;
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -1016,13 +1050,12 @@ bool ConvexVsMeshContactGeneration::processTriangle(const PxVec3* verts, PxU32 t
 							localPlane,
 							groupCenterHull,
 							mWorld0, mWorld1, m0to1, m1to0,
-//								mThreadCache,
 							mConvexScaling,
 							mContactDistance,
 							groupAxis, groupMinDepth, faceContact,
 							mIdtConvexScale
 							))
-		return false;
+		return;
 
 	if(faceContact)
 	{
@@ -1069,12 +1102,9 @@ bool ConvexVsMeshContactGeneration::processTriangle(const PxVec3* verts, PxU32 t
 		}
 #endif
 	}
-	return true;
 }
 
-
-
-void ConvexVsMeshContactGeneration::generateLastContacts()
+void ConvexMeshContactGeneration::generateLastContacts()
 {
 	// Process delayed contacts
 	PxU32 nbEntries = mDelayedContacts.GetNbEntries();
@@ -1084,7 +1114,7 @@ void ConvexVsMeshContactGeneration::generateLastContacts()
 
 		// PT: TODO: replicate this fix in sphere-vs-mesh ###FIX
 		//const PxU32 count = mContactBuffer.count;
-		//const Gu::ContactPoint* PX_RESTRICT contacts = mContactBuffer.contacts;
+		//const ContactPoint* PX_RESTRICT contacts = mContactBuffer.contacts;
 
 //pxPrintf("nbEntries=%d\n", nbEntries);
 		const SavedContactData* PX_RESTRICT cd = (const SavedContactData*)mDelayedContacts.GetEntries();
@@ -1112,22 +1142,22 @@ void ConvexVsMeshContactGeneration::generateLastContacts()
 			{
 				// PT: trying the same as in sphere-mesh here
 				case FC_VERTEX0:
-					generateContact = !mVertCache.contains(Gu::CachedVertex(ref0));
+					generateContact = !mVertCache.contains(CachedVertex(ref0));
 					break;
 				case FC_VERTEX1:
-					generateContact =!mVertCache.contains(Gu::CachedVertex(ref1));
+					generateContact =!mVertCache.contains(CachedVertex(ref1));
 					break;
 				case FC_VERTEX2:
-					generateContact = !mVertCache.contains(Gu::CachedVertex(ref2));
+					generateContact = !mVertCache.contains(CachedVertex(ref2));
 					break;
 				case FC_EDGE01:
-					generateContact = !mEdgeCache.contains(Gu::CachedEdge(ref0, ref1));
+					generateContact = !mEdgeCache.contains(CachedEdge(ref0, ref1));
 					break;
 				case FC_EDGE12:
-					generateContact = !mEdgeCache.contains(Gu::CachedEdge(ref1, ref2));
+					generateContact = !mEdgeCache.contains(CachedEdge(ref1, ref2));
 					break;
 				case FC_EDGE20:
-					generateContact = !mEdgeCache.contains(Gu::CachedEdge(ref0, ref2));
+					generateContact = !mEdgeCache.contains(CachedEdge(ref0, ref2));
 					break;
 				case FC_FACE:
 					generateContact = true;
@@ -1189,25 +1219,25 @@ static bool contactHullMesh2(const PolygonalData& polyData0, const PxBounds3& hu
 	const PxTransform t0to1 = transform1.transformInv(transform0);
 	const PxTransform t1to0 = transform0.transformInv(transform1);
 
-	Gu::Box hullOBB;
-	Gu::computeHullOBB(hullOBB, hullAABB, contactDistance, transform0, world0, world1, meshScaling, idtMeshScale);
+	Box hullOBB;
+	computeHullOBB(hullOBB, hullAABB, contactDistance, transform0, world0, world1, meshScaling, idtMeshScale);
 
 	// Setup the collider
-	const Gu::InternalTriangleMeshData* PX_RESTRICT meshData = shape1.meshData;
+	const InternalTriangleMeshData* PX_RESTRICT meshData = shape1.meshData;
 #if defined(__SPU__)
 	// fetch meshData to temp buffer
-	PX_ALIGN_PREFIX(16) char meshDataBuf[sizeof(Gu::InternalTriangleMeshData)] PX_ALIGN_SUFFIX(16);
-	Cm::memFetchAlignedAsync(Cm::MemFetchPtr(meshDataBuf), Cm::MemFetchPtr(shape1.meshData), sizeof(Gu::InternalTriangleMeshData), 5);
+	PX_ALIGN_PREFIX(16) char meshDataBuf[sizeof(InternalTriangleMeshData)] PX_ALIGN_SUFFIX(16);
+	Cm::memFetchAlignedAsync(Cm::MemFetchPtr(meshDataBuf), Cm::MemFetchPtr(shape1.meshData), sizeof(InternalTriangleMeshData), 5);
 	Cm::memFetchWait(5);
-	meshData = reinterpret_cast<const Gu::InternalTriangleMeshData*>(meshDataBuf);
+	meshData = reinterpret_cast<const InternalTriangleMeshData*>(meshDataBuf);
 #endif
 
-	Gu::RTreeMidphaseData hmd;
+	RTreeMidphaseData hmd;
 	meshData->mCollisionModel.getRTreeMidphaseData(hmd);
 
 	LocalContainer(delayedContacts, LOCAL_CONTACTS_SIZE);
 
-	ConvexVsMeshContactGenerationCallback blockCallback(
+	ConvexMeshContactGenerationCallback blockCallback(
 		delayedContacts,
 		t0to1, t1to0, polyData0, world0, world1, meshData, meshData->mExtraTrigData, meshScaling,
 		convexScaling, contactDistance,
@@ -1219,160 +1249,13 @@ static bool contactHullMesh2(const PolygonalData& polyData0, const PxBounds3& hu
 	MPT_SET_CONTEXT("coxm", transform1, shape1.scale);
 	MeshRayCollider::collideOBB(hullOBB, false, hmd, blockCallback);
 
-	//pxPrintf("before flush=%d\n", contactBuffer.count);
-	blockCallback.flushCache();
-	//pxPrintf("after flush, cachesize=%d\n", blockCallback.mCache.mNumTriangles);
 	blockCallback.mGeneration.generateLastContacts();
-	//pxPrintf("dc=%d,%d   ", delayedContacts.GetNbEntries(), contactBuffer.count);
 	
 	return blockCallback.mGeneration.mAnyHits;
 }
 
-
-
-struct ConvexVsHeightfieldContactGenerationCallback : Gu::EntityReport<PxU32>
-{
-	ConvexVsMeshContactGeneration mGeneration;
-	Gu::HeightFieldUtil& mHfUtil;
-
-	ConvexVsHeightfieldContactGenerationCallback(
-		Gu::HeightFieldUtil& hfUtil,
-		Gu::Container& delayedContacts,
-		const PxTransform& t0to1, const PxTransform& t1to0,
-		const PolygonalData& polyData0, const Cm::Matrix34& world0, const Cm::Matrix34& world1,
-		const Cm::FastVertex2ShapeScaling& convexScaling,
-		PxReal contactDistance,
-		bool idtConvexScale,
-		PxReal cCCDEpsilon,
-		const PxTransform& transform0, const PxTransform& transform1,
-		ContactBuffer& contactBuffer
-		) : mGeneration(delayedContacts, t0to1, t1to0, polyData0, world0, world1, convexScaling, contactDistance, idtConvexScale, cCCDEpsilon, transform0,
-			transform1, contactBuffer),
-			mHfUtil(hfUtil)
-	{
-	}
-
-
-	virtual bool onEvent(PxU32 nb, PxU32* indices)
-	{
-		const PxU32 CacheSize = 16;
-		Gu::TriangleCache<CacheSize> cache;
-
-		PxU32 nbPasses = (nb+(CacheSize-1))/CacheSize;
-		PxU32 nbTrigs = nb;
-		PxU32* inds = indices;
-
-		PxU8 nextInd[] = {2,0,1};
-
-
-		for(PxU32 b = 0; b < nbPasses; ++b)
-		{
-			cache.mNumTriangles = 0;
-			PxU32 trigCount = PxMin(nbTrigs, CacheSize);
-			nbTrigs -= trigCount;
-			while(trigCount--)
-			{
-				PxU32 triangleIndex = *(inds++);
-				PxU32 vertIndices[3];
-
-				PxTriangle currentTriangle;	// in world space
-
-				PxU32 adjInds[3];
-				mHfUtil.getTriangle(mGeneration.mTransform1, currentTriangle, vertIndices, adjInds, triangleIndex, false, false);
-
-				PxVec3 normal;
-				currentTriangle.normal(normal);
-
-				PxU8 triFlags = 0; //KS - temporary until we can calculate triFlags for HF
-
-				for(PxU32 a = 0; a < 3; ++a)
-				{
-					if(adjInds[a] != 0xFFFFFFFF)
-					{
-						PxTriangle adjTri;
-						mHfUtil.getTriangle(mGeneration.mTransform1, adjTri, NULL, NULL, adjInds[a], false, false);
-						//We now compare the triangles to see if this edge is active
-
-						PxVec3 adjNormal;
-						adjTri.denormalizedNormal(adjNormal);
-						PxU32 otherIndex = nextInd[a];
-						PxF32 projD = adjNormal.dot(currentTriangle.verts[otherIndex] - adjTri.verts[0]);
-						if(projD < 0.f)
-						{
-							adjNormal.normalize();
-
-							PxF32 proj = adjNormal.dot(normal);
-
-							if(proj < 0.999f)
-							{
-								triFlags |= 1 << (a+3);
-							}
-						}
-					}
-					else
-						triFlags |= (1 << (a+3));
-				}
-
-				cache.addTriangle(currentTriangle.verts, vertIndices, triangleIndex, triFlags);
-			}
-			mGeneration.processTriangleCache<CacheSize>(cache);
-		}
-		return true;
-	}
-
-protected:
-	ConvexVsHeightfieldContactGenerationCallback &operator=(const ConvexVsHeightfieldContactGenerationCallback &);
-};
-
-
 /////////////
-static bool contactHullHeightfield2(const PolygonalData& polyData0, const PxBounds3& hullAABB, const PxHeightFieldGeometry& shape1,
-						const PxTransform& transform0, const PxTransform& transform1,
-						PxReal contactDistance, ContactBuffer& contactBuffer,
-						const Cm::FastVertex2ShapeScaling& convexScaling,
-						bool idtConvexScale)
-{
 
-		//We need to create a callback that fills triangles from the HF
-
-#ifdef __SPU__
-		const Gu::HeightField& hf = *Cm::memFetchAsync<const Gu::HeightField>(HeightFieldBuffer, Cm::MemFetchPtr(static_cast<Gu::HeightField*>(shape1.heightField)), sizeof(Gu::HeightField), 1);
-		Cm::memFetchWait(1);
-#if HF_TILED_MEMORY_LAYOUT
-		g_sampleCache.init((uintptr_t)(hf.getData().samples), hf.getData().tilesU);
-#endif
-#else
-	const Gu::HeightField& hf = *static_cast<Gu::HeightField*>(shape1.heightField);
-#endif
-
-	Gu::HeightFieldUtil hfUtil(shape1, hf);
-
-	const Cm::Matrix34 world0(transform0);
-	const Cm::Matrix34 world1(transform1);
-
-	////////////////////
-
-	// Compute relative transforms
-	const PxTransform t0to1 = transform1.transformInv(transform0);
-	const PxTransform t1to0 = transform0.transformInv(transform1);
-
-	LocalContainer(delayedContacts, LOCAL_CONTACTS_SIZE);
-
-	ConvexVsHeightfieldContactGenerationCallback blockCallback(hfUtil, delayedContacts, t0to1, t1to0, polyData0, world0, world1, convexScaling, contactDistance,
-		idtConvexScale, contactBuffer.meshContactMargin, transform0, transform1, contactBuffer);
-
-	MPT_SET_CONTEXT("coxh", PxTransform(), PxMeshScale());
-	hfUtil.overlapAABBTriangles(transform1, PxBounds3::transformFast(t0to1, hullAABB), 0, &blockCallback);
-
-	blockCallback.mGeneration.generateLastContacts();
-
-	return blockCallback.mGeneration.mAnyHits;
-}
-
-
-
-namespace physx
-{
 bool Gu::contactConvexMesh(GU_CONTACT_METHOD_ARGS)
 {
 	PX_UNUSED(cache);
@@ -1388,7 +1271,6 @@ bool Gu::contactConvexMesh(GU_CONTACT_METHOD_ARGS)
 	Cm::FastVertex2ShapeScaling convexScaling;
 	PxBounds3 hullAABB;
 	PolygonalData polyData0;
-	PX_ASSERT(!convexScaling.flipsNormal());
 	const bool idtScaleConvex = getConvexData(shape0, convexScaling, hullAABB, polyData0);
 
 	return contactHullMesh2(polyData0, hullAABB, shapeMesh, transform0, transform1, contactDistance, contactBuffer, convexScaling, meshScaling, idtScaleConvex, idtScaleMesh);
@@ -1418,6 +1300,131 @@ bool Gu::contactBoxMesh(GU_CONTACT_METHOD_ARGS)
 	return contactHullMesh2(polyData0, hullAABB, shapeMesh, transform0, transform1, contactDistance, contactBuffer, idtScaling, meshScaling, true, idtScaleMesh);
 }
 
+/////////////
+
+namespace
+{
+struct ConvexVsHeightfieldContactGenerationCallback : EntityReport<PxU32>
+{
+	ConvexMeshContactGeneration	mGeneration;
+	HeightFieldUtil&			mHfUtil;
+
+	ConvexVsHeightfieldContactGenerationCallback(
+		HeightFieldUtil& hfUtil,
+		Container& delayedContacts,
+		const PxTransform& t0to1, const PxTransform& t1to0,
+		const PolygonalData& polyData0, const Cm::Matrix34& world0, const Cm::Matrix34& world1,
+		const Cm::FastVertex2ShapeScaling& convexScaling,
+		PxReal contactDistance,
+		bool idtConvexScale,
+		PxReal cCCDEpsilon,
+		const PxTransform& transform0, const PxTransform& transform1,
+		ContactBuffer& contactBuffer
+		) : mGeneration(delayedContacts, t0to1, t1to0, polyData0, world0, world1, convexScaling, contactDistance, idtConvexScale, cCCDEpsilon, transform0,
+			transform1, contactBuffer),
+			mHfUtil(hfUtil)
+	{
+	}
+
+	virtual bool onEvent(PxU32 nb, PxU32* indices)
+	{
+		const PxU8 nextInd[] = {2,0,1};
+
+		while(nb--)
+		{
+			const PxU32 triangleIndex = *indices++;
+
+			PxU32 vertIndices[3];
+			PxTriangle currentTriangle;	// in world space
+			PxU32 adjInds[3];
+			mHfUtil.getTriangle(mGeneration.mTransform1, currentTriangle, vertIndices, adjInds, triangleIndex, false, false);
+
+			PxVec3 normal;
+			currentTriangle.normal(normal);
+
+			PxU8 triFlags = 0; //KS - temporary until we can calculate triFlags for HF
+
+			for(PxU32 a = 0; a < 3; ++a)
+			{
+				if(adjInds[a] != 0xFFFFFFFF)
+				{
+					PxTriangle adjTri;
+					mHfUtil.getTriangle(mGeneration.mTransform1, adjTri, NULL, NULL, adjInds[a], false, false);
+					//We now compare the triangles to see if this edge is active
+
+					PxVec3 adjNormal;
+					adjTri.denormalizedNormal(adjNormal);
+					PxU32 otherIndex = nextInd[a];
+					PxF32 projD = adjNormal.dot(currentTriangle.verts[otherIndex] - adjTri.verts[0]);
+					if(projD < 0.f)
+					{
+						adjNormal.normalize();
+
+						PxF32 proj = adjNormal.dot(normal);
+
+						if(proj < 0.999f)
+						{
+							triFlags |= 1 << (a+3);
+						}
+					}
+				}
+				else
+					triFlags |= (1 << (a+3));
+			}
+
+			mGeneration.processTriangle(currentTriangle.verts, triangleIndex, triFlags, vertIndices);
+		}
+		return true;
+	}
+
+protected:
+	ConvexVsHeightfieldContactGenerationCallback &operator=(const ConvexVsHeightfieldContactGenerationCallback &);
+};
+}
+
+/////////////
+static bool contactHullHeightfield2(const PolygonalData& polyData0, const PxBounds3& hullAABB, const PxHeightFieldGeometry& shape1,
+						const PxTransform& transform0, const PxTransform& transform1,
+						PxReal contactDistance, ContactBuffer& contactBuffer,
+						const Cm::FastVertex2ShapeScaling& convexScaling,
+						bool idtConvexScale)
+{
+	//We need to create a callback that fills triangles from the HF
+
+#ifdef __SPU__
+	const HeightField& hf = *Cm::memFetchAsync<const HeightField>(HeightFieldBuffer, Cm::MemFetchPtr(static_cast<HeightField*>(shape1.heightField)), sizeof(HeightField), 1);
+	Cm::memFetchWait(1);
+#if HF_TILED_MEMORY_LAYOUT
+	g_sampleCache.init((uintptr_t)(hf.getData().samples), hf.getData().tilesU);
+#endif
+#else
+	const HeightField& hf = *static_cast<HeightField*>(shape1.heightField);
+#endif
+
+	HeightFieldUtil hfUtil(shape1, hf);
+
+	const Cm::Matrix34 world0(transform0);
+	const Cm::Matrix34 world1(transform1);
+
+	////////////////////
+
+	// Compute relative transforms
+	const PxTransform t0to1 = transform1.transformInv(transform0);
+	const PxTransform t1to0 = transform0.transformInv(transform1);
+
+	LocalContainer(delayedContacts, LOCAL_CONTACTS_SIZE);
+
+	ConvexVsHeightfieldContactGenerationCallback blockCallback(hfUtil, delayedContacts, t0to1, t1to0, polyData0, world0, world1, convexScaling, contactDistance,
+		idtConvexScale, contactBuffer.meshContactMargin, transform0, transform1, contactBuffer);
+
+	MPT_SET_CONTEXT("coxh", PxTransform(), PxMeshScale());
+	hfUtil.overlapAABBTriangles(transform1, PxBounds3::transformFast(t0to1, hullAABB), 0, &blockCallback);
+
+	blockCallback.mGeneration.generateLastContacts();
+
+	return blockCallback.mGeneration.mAnyHits;
+}
+
 bool Gu::contactConvexHeightfield(GU_CONTACT_METHOD_ARGS)
 {
 	PX_UNUSED(cache);
@@ -1429,7 +1436,7 @@ bool Gu::contactConvexHeightfield(GU_CONTACT_METHOD_ARGS)
 	PxBounds3 hullAABB;
 	PolygonalData polyData0;
 	const bool idtScaleConvex = getConvexData(shape0, convexScaling, hullAABB, polyData0);
-	PxVec3 inflation(contactDistance);
+	const PxVec3 inflation(contactDistance);
 	hullAABB.minimum -= inflation;
 	hullAABB.maximum += inflation;
 
@@ -1448,15 +1455,12 @@ bool Gu::contactBoxHeightfield(GU_CONTACT_METHOD_ARGS)
 	PolygonalData polyData0;
 	PolygonalBox polyBox(shapeBox.halfExtents);
 	polyBox.getPolygonalData(&polyData0);
-
 	
-	PxVec3 inflatedExtents = shapeBox.halfExtents + PxVec3(contactDistance);
+	const PxVec3 inflatedExtents = shapeBox.halfExtents + PxVec3(contactDistance);
 
 	const PxBounds3 hullAABB = PxBounds3(-inflatedExtents, inflatedExtents);
 
-	Cm::FastVertex2ShapeScaling idtScaling;
+	const Cm::FastVertex2ShapeScaling idtScaling;
 
 	return contactHullHeightfield2(polyData0, hullAABB, shapeMesh, transform0, transform1, contactDistance, contactBuffer, idtScaling, true);
-}
-
 }

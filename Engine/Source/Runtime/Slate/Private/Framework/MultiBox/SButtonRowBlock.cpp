@@ -83,6 +83,10 @@ void SButtonRowBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, const F
 		ActualToolTip = ButtonRowBlock->ToolTipOverride;
 	}
 
+	// Add this widget to the search list of the multibox
+	if (MultiBlock->GetSearchable())
+		OwnerMultiBoxWidget.Pin()->AddSearchElement(this->AsWidget(), ActualLabel.Get());
+
 	// Allow the block to override the button icon, too
 	const FSlateIcon& ActualIcon = !ButtonRowBlock->IconOverride.IsSet() && ButtonRowBlock->GetAction().IsValid() ? ButtonRowBlock->GetAction()->GetIcon() : ButtonRowBlock->IconOverride;
 
@@ -254,19 +258,18 @@ ECheckBoxState SButtonRowBlock::OnIsChecked() const
 	TSharedPtr< const FUICommandInfo > Action = MultiBlock->GetAction();
 	const FUIAction& DirectActions = MultiBlock->GetDirectActions();
 
-	bool bIsChecked = true;
+	ECheckBoxState CheckState = ECheckBoxState::Unchecked;
 	if( ActionList.IsValid() && Action.IsValid() )
 	{
-		bIsChecked = ActionList->IsChecked( Action.ToSharedRef() );
+		CheckState = ActionList->GetCheckState( Action.ToSharedRef() );
 	}
 	else
 	{
 		// There is no action list or action associated with this block via a UI command.  Execute any direct action we have
-		bIsChecked = DirectActions.IsChecked();
+		CheckState = DirectActions.GetCheckState();
 	}
 
-	return bIsChecked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-
+	return CheckState;
 }
 
 /**

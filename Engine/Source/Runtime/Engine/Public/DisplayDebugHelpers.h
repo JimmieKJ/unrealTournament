@@ -8,7 +8,6 @@ class FDebugDisplayInfo
 private:
 
 	TArray<FName> DisplayNames;
-
 	TArray<FName> ToggledCategories;
 
 public:

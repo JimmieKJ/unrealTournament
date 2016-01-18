@@ -55,7 +55,7 @@ TArray<FRichCurveEditInfoConst> UCurveFloat::GetCurves() const
 TArray<FRichCurveEditInfo> UCurveFloat::GetCurves()
 {
 	TArray<FRichCurveEditInfo> Curves;
-	Curves.Add(FRichCurveEditInfo(&FloatCurve));
+	Curves.Add(FRichCurveEditInfo(&FloatCurve, FName(*GetName())));
 	return Curves;
 }
 

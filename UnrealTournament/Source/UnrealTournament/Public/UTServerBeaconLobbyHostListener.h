@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconHost.h"
-#include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconHostObject.h"
+#include "Runtime/Online/OnlineSubsystemUtils/Public/OnlineBeaconHost.h"
+#include "Runtime/Online/OnlineSubsystemUtils/Public/OnlineBeaconHostObject.h"
 #include "UTServerBeaconLobbyHostObject.h"
 #include "UTServerBeaconLobbyHostListener.generated.h"
 

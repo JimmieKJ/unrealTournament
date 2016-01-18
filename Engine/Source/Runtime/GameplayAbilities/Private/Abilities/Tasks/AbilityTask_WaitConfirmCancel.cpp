@@ -55,7 +55,7 @@ void UAbilityTask_WaitConfirmCancel::OnLocalCancelCallback()
 
 UAbilityTask_WaitConfirmCancel* UAbilityTask_WaitConfirmCancel::WaitConfirmCancel(UObject* WorldContextObject)
 {
-	return NewTask<UAbilityTask_WaitConfirmCancel>(WorldContextObject);
+	return NewAbilityTask<UAbilityTask_WaitConfirmCancel>(WorldContextObject);
 }
 
 void UAbilityTask_WaitConfirmCancel::Activate()

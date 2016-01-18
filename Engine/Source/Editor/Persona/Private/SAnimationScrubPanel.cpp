@@ -16,6 +16,7 @@ void SAnimationScrubPanel::Construct( const SAnimationScrubPanel::FArguments& In
 	bSliderBeingDragged = false;
 	PersonaPtr = InArgs._Persona;
 	LockedSequence = InArgs._LockedSequence;
+	OnSetInputViewRange = InArgs._OnSetInputViewRange;
 
 	// register delegate for anim change notification
 	PersonaPtr.Pin()->RegisterOnAnimChanged( FPersona::FOnAnimChanged::CreateSP(this, &SAnimationScrubPanel::AnimChanged) );
@@ -53,6 +54,7 @@ void SAnimationScrubPanel::Construct( const SAnimationScrubPanel::FArguments& In
 			.OnSetInputViewRange(InArgs._OnSetInputViewRange)
 			.OnCropAnimSequence( this, &SAnimationScrubPanel::OnCropAnimSequence )
 			.OnAddAnimSequence( this, &SAnimationScrubPanel::OnInsertAnimSequence )
+			.OnAppendAnimSequence(this, &SAnimationScrubPanel::OnAppendAnimSequence )
 			.OnReZeroAnimSequence( this, &SAnimationScrubPanel::OnReZeroAnimSequence )
 			.bAllowZoom(InArgs._bAllowZoom)
 			.IsRealtimeStreamingMode(this, &SAnimationScrubPanel::IsRealtimeStreamingMode)
@@ -84,7 +86,7 @@ FReply SAnimationScrubPanel::OnClick_Forward_Step()
 
 			// Advance a single frame, leaving it paused afterwards
 			SMC->GlobalAnimRateScale = 1.0f;
-			SMC->TickAnimation(1.0f / TargetFramerate);
+			SMC->TickAnimation(1.0f / TargetFramerate, false);
 			SMC->GlobalAnimRateScale = 0.0f;
 		}
 	}
@@ -131,8 +133,8 @@ FReply SAnimationScrubPanel::OnClick_Forward()
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
 	if (PreviewInstance)
 	{
-		bool bIsReverse = PreviewInstance->bReverse;
-		bool bIsPlaying = PreviewInstance->bPlaying;
+		bool bIsReverse = PreviewInstance->IsReverse();
+		bool bIsPlaying = PreviewInstance->IsPlaying();
 		// if current bIsReverse and bIsPlaying, we'd like to just turn off reverse
 		if (bIsReverse && bIsPlaying)
 		{
@@ -170,8 +172,8 @@ FReply SAnimationScrubPanel::OnClick_Backward()
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
 	if (PreviewInstance)
 	{
-		bool bIsReverse = PreviewInstance->bReverse;
-		bool bIsPlaying = PreviewInstance->bPlaying;
+		bool bIsReverse = PreviewInstance->IsReverse();
+		bool bIsPlaying = PreviewInstance->IsPlaying();
 		// if currently playing forward, just simply turn on reverse
 		if (!bIsReverse && bIsPlaying)
 		{
@@ -201,7 +203,7 @@ FReply SAnimationScrubPanel::OnClick_ToggleLoop()
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
 	if (PreviewInstance)
 	{
-		bool bIsLooping = PreviewInstance->bLooping;
+		bool bIsLooping = PreviewInstance->IsLooping();
 		PreviewInstance->SetLooping(!bIsLooping);
 	}
 	return FReply::Handled();
@@ -210,16 +212,16 @@ FReply SAnimationScrubPanel::OnClick_ToggleLoop()
 bool SAnimationScrubPanel::IsLoopStatusOn() const
 {
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
-	return (PreviewInstance && PreviewInstance->bLooping);
+	return (PreviewInstance && PreviewInstance->IsLooping());
 }
 
 EPlaybackMode::Type SAnimationScrubPanel::GetPlaybackMode() const
 {
 	if (UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance())
 	{
-		if (PreviewInstance->bPlaying)
+		if (PreviewInstance->IsPlaying())
 		{
-			return PreviewInstance->bReverse ? EPlaybackMode::PlayingReverse : EPlaybackMode::PlayingForward;
+			return PreviewInstance->IsReverse() ? EPlaybackMode::PlayingReverse : EPlaybackMode::PlayingForward;
 		}
 		return EPlaybackMode::Stopped;
 	}
@@ -234,7 +236,7 @@ EPlaybackMode::Type SAnimationScrubPanel::GetPlaybackMode() const
 bool SAnimationScrubPanel::IsRealtimeStreamingMode() const
 {
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
-	return ( ! (PreviewInstance && PreviewInstance->CurrentAsset) );
+	return ( ! (PreviewInstance && PreviewInstance->GetCurrentAsset()) );
 }
 
 void SAnimationScrubPanel::OnValueChanged(float NewValue)
@@ -282,9 +284,9 @@ uint32 SAnimationScrubPanel::GetNumOfFrames() const
 		float Length = PreviewInstance->GetLength();
 		// if anim sequence, use correct num frames
 		int32 NumFrames = (int32) (Length/0.0333f); 
-		if (PreviewInstance->CurrentAsset && PreviewInstance->CurrentAsset->IsA(UAnimSequenceBase::StaticClass()))
+		if (PreviewInstance->GetCurrentAsset() && PreviewInstance->GetCurrentAsset()->IsA(UAnimSequenceBase::StaticClass()))
 		{
-			NumFrames = CastChecked<UAnimSequenceBase>(PreviewInstance->CurrentAsset)->GetNumberOfFrames();
+			NumFrames = CastChecked<UAnimSequenceBase>(PreviewInstance->GetCurrentAsset())->GetNumberOfFrames();
 		}
 		return NumFrames;
 	}
@@ -333,7 +335,7 @@ bool SAnimationScrubPanel::DoesSyncViewport() const
 {
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
 
-	return (( LockedSequence==NULL && PreviewInstance ) || ( LockedSequence && PreviewInstance && PreviewInstance->CurrentAsset == LockedSequence ));
+	return (( LockedSequence==NULL && PreviewInstance ) || ( LockedSequence && PreviewInstance && PreviewInstance->GetCurrentAsset() == LockedSequence ));
 }
 
 void SAnimationScrubPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
@@ -365,7 +367,7 @@ float SAnimationScrubPanel::GetScrubValue() const
 		UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
 		if (PreviewInstance)
 		{
-			return PreviewInstance->CurrentTime; 
+			return PreviewInstance->GetCurrentTime(); 
 		}
 	}
 	else
@@ -390,7 +392,7 @@ UAnimInstance* SAnimationScrubPanel::GetAnimInstanceWithBlueprint() const
 {
 	if (UDebugSkelMeshComponent* DebugComponent = PersonaPtr.Pin()->GetPreviewMeshComponent())
 	{
-		UAnimInstance* Instance = DebugComponent->AnimScriptInstance;
+		UAnimInstance* Instance = DebugComponent->GetAnimInstance();
 
 		if ((Instance != NULL) && (Instance->GetClass()->ClassGeneratedBy != NULL))
 		{
@@ -430,9 +432,9 @@ void SAnimationScrubPanel::OnCropAnimSequence( bool bFromStart, float CurrentTim
 	if(PreviewInstance)
 	{
 		float Length = PreviewInstance->GetLength();
-		if (PreviewInstance->CurrentAsset)
+		if (PreviewInstance->GetCurrentAsset())
 		{
-			UAnimSequence* AnimSequence = Cast<UAnimSequence>( PreviewInstance->CurrentAsset );
+			UAnimSequence* AnimSequence = Cast<UAnimSequence>( PreviewInstance->GetCurrentAsset() );
 			if( AnimSequence )
 			{
 				const FScopedTransaction Transaction( LOCTEXT("CropAnimSequence", "Crop Animation Sequence") );
@@ -443,35 +445,6 @@ void SAnimationScrubPanel::OnCropAnimSequence( bool bFromStart, float CurrentTim
 				//Call modify to restore anim sequence current state
 				AnimSequence->Modify();
 
-				//Adjust anim notify time based on current time and bFromStart flag. 
-				for( int32 i=0; i<AnimSequence->Notifies.Num(); i++ )
-				{
-					FAnimNotifyEvent& Notify = AnimSequence->Notifies[i];
-					float NotifyTime = Notify.GetTime();
-					if( bFromStart )
-					{
-						//Cropping from start to current time
-						if( NotifyTime <= CurrentTime )
-						{
-							Notify.SetTime(0.0f);
-							Notify.TriggerTimeOffset = GetTriggerTimeOffsetForType(EAnimEventTriggerOffsets::OffsetAfter);
-						}
-						else
-						{
-							Notify.SetTime(NotifyTime - CurrentTime);
-						}
-					}
-					else
-					{
-						//Cropping from current time to the end.
-						if( NotifyTime >= CurrentTime )
-						{
-							Notify.SetTime(CurrentTime);
-							Notify.TriggerTimeOffset = GetTriggerTimeOffsetForType(EAnimEventTriggerOffsets::OffsetBefore);
-						}
-					}
-				}
-
 				// Crop the raw anim data.
 				AnimSequence->CropRawAnimData( CurrentTime, bFromStart );
 				// Recompress animation from Raw.
@@ -479,7 +452,38 @@ void SAnimationScrubPanel::OnCropAnimSequence( bool bFromStart, float CurrentTim
 
 				//Resetting slider position to the first frame
 				PreviewInstance->SetPosition( 0.0f, false );
+
+				OnSetInputViewRange.ExecuteIfBound(0, AnimSequence->SequenceLength);
 			}
+		}
+	}
+}
+
+void SAnimationScrubPanel::OnAppendAnimSequence( bool bFromStart, int32 NumOfFrames )
+{
+	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
+	if(PreviewInstance && PreviewInstance->GetCurrentAsset())
+	{
+		UAnimSequence* AnimSequence = Cast<UAnimSequence>(PreviewInstance->GetCurrentAsset());
+		if(AnimSequence)
+		{
+			const FScopedTransaction Transaction(LOCTEXT("InsertAnimSequence", "Insert Animation Sequence"));
+
+			//Call modify to restore slider position
+			PreviewInstance->Modify();
+
+			//Call modify to restore anim sequence current state
+			AnimSequence->Modify();
+
+			// Crop the raw anim data.
+			int32 StartFrame = (bFromStart)? 0 : AnimSequence->NumFrames - 1;
+			int32 EndFrame = StartFrame + NumOfFrames;
+			int32 CopyFrame = StartFrame;
+			AnimSequence->InsertFramesToRawAnimData(StartFrame, EndFrame, CopyFrame);
+			// Recompress animation from Raw.
+			FAnimationUtils::CompressAnimSequence(AnimSequence, false, false);
+
+			OnSetInputViewRange.ExecuteIfBound(0, AnimSequence->SequenceLength);
 		}
 	}
 }
@@ -487,29 +491,27 @@ void SAnimationScrubPanel::OnCropAnimSequence( bool bFromStart, float CurrentTim
 void SAnimationScrubPanel::OnInsertAnimSequence( bool bBefore, int32 CurrentFrame )
 {
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
-	if(PreviewInstance)
+	if(PreviewInstance && PreviewInstance->GetCurrentAsset())
 	{
-		float Length = PreviewInstance->GetLength();
-		if(PreviewInstance->CurrentAsset)
+		UAnimSequence* AnimSequence = Cast<UAnimSequence>(PreviewInstance->GetCurrentAsset());
+		if(AnimSequence)
 		{
-			UAnimSequence* AnimSequence = Cast<UAnimSequence>(PreviewInstance->CurrentAsset);
-			if(AnimSequence)
-			{
-				const FScopedTransaction Transaction(LOCTEXT("InsertAnimSequence", "Insert Animation Sequence"));
+			const FScopedTransaction Transaction(LOCTEXT("InsertAnimSequence", "Insert Animation Sequence"));
 
-				//Call modify to restore slider position
-				PreviewInstance->Modify();
+			//Call modify to restore slider position
+			PreviewInstance->Modify();
 
-				//Call modify to restore anim sequence current state
-				AnimSequence->Modify();
+			//Call modify to restore anim sequence current state
+			AnimSequence->Modify();
 
-				// Crop the raw anim data.
-				int32 StartFrame = (bBefore)? CurrentFrame : CurrentFrame + 1;
-				int32 EndFrame = StartFrame + 1;
-				AnimSequence->InsertFramesToRawAnimData(StartFrame, EndFrame, CurrentFrame);
-				// Recompress animation from Raw.
-				FAnimationUtils::CompressAnimSequence(AnimSequence, false, false);
-			}
+			// Crop the raw anim data.
+			int32 StartFrame = (bBefore)? CurrentFrame : CurrentFrame + 1;
+			int32 EndFrame = StartFrame + 1;
+			AnimSequence->InsertFramesToRawAnimData(StartFrame, EndFrame, CurrentFrame);
+			// Recompress animation from Raw.
+			FAnimationUtils::CompressAnimSequence(AnimSequence, false, false);
+
+			OnSetInputViewRange.ExecuteIfBound(0, AnimSequence->SequenceLength);
 		}
 	}
 }
@@ -521,9 +523,9 @@ void SAnimationScrubPanel::OnReZeroAnimSequence( )
 	{
 		UDebugSkelMeshComponent* PreviewSkelComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
 
-		if (PreviewInstance->CurrentAsset && PreviewSkelComp )
+		if (PreviewInstance->GetCurrentAsset() && PreviewSkelComp )
 		{
-			UAnimSequence* AnimSequence = Cast<UAnimSequence>( PreviewInstance->CurrentAsset );
+			UAnimSequence* AnimSequence = Cast<UAnimSequence>( PreviewInstance->GetCurrentAsset() );
 			if( AnimSequence )
 			{
 				const FScopedTransaction Transaction( LOCTEXT("ReZeroAnimation", "ReZero Animation Sequence") );

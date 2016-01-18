@@ -5,9 +5,9 @@
 #include "OutputLogModule.h"
 #include "LevelEditor.h"
 #include "SDockTab.h"
-
 #include "SGlobalOpenAssetDialog.h"
 #include "SGlobalTabSwitchingDialog.h"
+#include "IMenu.h"
 
 #define LOCTEXT_NAMESPACE "GlobalEditorCommonCommands"
 
@@ -69,7 +69,7 @@ void FGlobalEditorCommonCommands::OnPressedCtrlTab(TSharedPtr<FUICommandInfo> Tr
 		// Create the contents of the popup
 		TSharedRef<SWidget> ActualWidget = SNew(SGlobalTabSwitchingDialog, TabListSize, *TriggeringCommand->GetActiveChord());
 
-		TSharedPtr<SWindow> NewWindow = OpenPopup(ActualWidget, TabListSize);
+		OpenPopupMenu(ActualWidget, TabListSize);
 	}
 }
 
@@ -86,10 +86,20 @@ void FGlobalEditorCommonCommands::OnSummonedAssetPicker()
 	MenuBuilder.AddWidget(ActualWidget, FText::GetEmpty(), /*bNoIndent=*/ true);
 	MenuBuilder.EndSection();
 
-	OpenPopup(MenuBuilder.MakeWidget(), AssetPickerSize);
+	OpenPopupMenu(MenuBuilder.MakeWidget(), AssetPickerSize);
 }
 
 TSharedPtr<SWindow> FGlobalEditorCommonCommands::OpenPopup(TSharedRef<SWidget> WindowContents, const FVector2D& PopupDesiredSize)
+{
+	TSharedPtr<IMenu> Menu = OpenPopupMenu(WindowContents, PopupDesiredSize);
+	if (Menu.IsValid())
+	{
+		return Menu->GetOwnedWindow();
+	}
+	return TSharedPtr<SWindow>();
+}
+
+TSharedPtr<IMenu> FGlobalEditorCommonCommands::OpenPopupMenu(TSharedRef<SWidget> WindowContents, const FVector2D& PopupDesiredSize)
 {
 	// Determine where the pop-up should open
 	TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().GetActiveTopLevelWindow();
@@ -109,12 +119,10 @@ TSharedPtr<SWindow> FGlobalEditorCommonCommands::OpenPopup(TSharedRef<SWidget> W
 
 		// Open the pop-up
 		FPopupTransitionEffect TransitionEffect(FPopupTransitionEffect::None);
-		TSharedRef<SWindow> PopupWindow = FSlateApplication::Get().PushMenu(ParentWindow.ToSharedRef(), WindowContents, WindowPosition, TransitionEffect, /*bFocusImmediately=*/ true);
-		
-		return PopupWindow;
+		return FSlateApplication::Get().PushMenu(ParentWindow.ToSharedRef(), FWidgetPath(), WindowContents, WindowPosition, TransitionEffect, /*bFocusImmediately=*/ true);
 	}
 
-	return TSharedPtr<SWindow>();
+	return TSharedPtr<IMenu>();
 }
 
 static void CloseDebugConsole()

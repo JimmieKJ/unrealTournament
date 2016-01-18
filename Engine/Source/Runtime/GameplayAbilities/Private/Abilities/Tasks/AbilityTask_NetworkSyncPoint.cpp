@@ -21,7 +21,7 @@ void UAbilityTask_NetworkSyncPoint::OnSignalCallback()
 
 UAbilityTask_NetworkSyncPoint* UAbilityTask_NetworkSyncPoint::WaitNetSync(class UObject* WorldContextObject, EAbilityTaskNetSyncType InSyncType)
 {
-	auto MyObj = NewTask<UAbilityTask_NetworkSyncPoint>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_NetworkSyncPoint>(WorldContextObject);
 	MyObj->SyncType = InSyncType;
 	return MyObj;
 }

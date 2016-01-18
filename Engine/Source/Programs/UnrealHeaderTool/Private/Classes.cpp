@@ -180,7 +180,7 @@ FClass* FClasses::FindScriptClass(const FString& InClassName, FString& OutErrorM
 	return NULL;
 }
 
-TArray<FClass*> FClasses::GetClassesInPackage(UPackage* InPackage) const
+TArray<FClass*> FClasses::GetClassesInPackage(const UPackage* InPackage) const
 {
 	TArray<FClass*> Result;
 	Result.Add(UObjectClass);

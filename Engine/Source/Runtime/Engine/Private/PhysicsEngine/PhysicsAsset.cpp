@@ -407,3 +407,19 @@ void UPhysicsAsset::BodyFindConstraints(int32 BodyIndex, TArray<int32>& Constrai
 		}
 	}
 }
+
+SIZE_T UPhysicsAsset::GetResourceSize(EResourceSizeMode::Type Mode)
+{
+	SIZE_T ResourceSize = 0;
+
+	for (const auto& SingleBody : BodySetup)
+	{
+		ResourceSize += SingleBody->GetResourceSize(Mode);
+	}
+
+	ResourceSize += BodySetupIndexMap.GetAllocatedSize();
+	ResourceSize += CollisionDisableTable.GetAllocatedSize();
+
+	// @todo implement inclusive mode
+	return ResourceSize;
+}

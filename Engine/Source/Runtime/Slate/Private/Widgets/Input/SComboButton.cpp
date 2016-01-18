@@ -111,7 +111,7 @@ FReply SComboButton::OnButtonClicked()
 
 void SComboButton::SetMenuContent(TSharedRef<SWidget> InContent)
 {
-	MenuContent = 
+	WrappedContent = MenuContent =
 		SNew(SBorder)
 		.BorderImage(MenuBorderBrush)
 		.Padding(MenuBorderPadding)

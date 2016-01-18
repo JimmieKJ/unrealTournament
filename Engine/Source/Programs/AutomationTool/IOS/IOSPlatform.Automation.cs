@@ -86,7 +86,7 @@ public class IOSPlatform : Platform
 
 	protected string MakeIPAFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params )
 	{
-		string ProjectIPA = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath), "Binaries", "IOS", (Params.Distribution ? "Distro_" : "") + Params.ShortProjectName);
+		string ProjectIPA = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", "IOS", (Params.Distribution ? "Distro_" : "") + Params.ShortProjectName);
 		if (TargetConfiguration != UnrealTargetConfiguration.Development)
 		{
 			ProjectIPA += "-" + PlatformType.ToString() + "-" + TargetConfiguration.ToString();
@@ -133,9 +133,8 @@ public class IOSPlatform : Platform
 		string FullExePath = CombinePaths(Path.GetDirectoryName(Params.ProjectGameExeFilename), SC.StageExecutables[0] + (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac ? ".stub" : ""));
 		if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(FullExePath))
 		{
-			Log("Failed to find game binary " + FullExePath);
-			AutomationTool.ErrorReporter.Error("Stage Failed.", (int)AutomationTool.ErrorCodes.Error_MissingExecutable);
-			throw new AutomationException("Could not find binary {0}. You may need to build the UE4 project with your target configuration and platform.", FullExePath);
+			LogError("Failed to find game binary " + FullExePath);
+			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find binary {0}. You may need to build the UE4 project with your target configuration and platform.", FullExePath);
 		}
 
 		//@TODO: We should be able to use this code on both platforms, when the following issues are sorted:
@@ -147,10 +146,11 @@ public class IOSPlatform : Platform
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 		{
 			// copy in all of the artwork and plist
-			var DeployHandler = UEBuildDeploy.GetBuildDeploy(UnrealTargetPlatform.IOS);
+			var DeployHandler = new UEDeployIOS();
 
-			DeployHandler.PrepForUATPackageOrDeploy(Params.ShortProjectName,
-				Path.GetDirectoryName(Params.RawProjectPath),
+			DeployHandler.PrepForUATPackageOrDeploy(Params.RawProjectPath,
+				Params.ShortProjectName,
+				Path.GetDirectoryName(Params.RawProjectPath.FullName),
 				CombinePaths(Path.GetDirectoryName(Params.ProjectGameExeFilename), SC.StageExecutables[0]),
 				CombinePaths(SC.LocalRoot, "Engine"),
 				Params.Distribution, 
@@ -208,6 +208,21 @@ public class IOSPlatform : Platform
 			}
 		}
 
+		if (String.IsNullOrEmpty(Params.Provision))
+		{
+			UnrealBuildTool.IOSPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as UnrealBuildTool.IOSPlatform;
+			UnrealBuildTool.IOSPlatformContext BuildPlatContext = (IOSPlatformContext)BuildPlat.CreateContext(Params.RawProjectPath);
+			BuildPlatContext.SetUpProjectEnvironment();
+			Params.Provision = BuildPlatContext.MobileProvision;
+		}
+		if (String.IsNullOrEmpty(Params.Certificate))
+		{
+			UnrealBuildTool.IOSPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as UnrealBuildTool.IOSPlatform;
+			UnrealBuildTool.IOSPlatformContext BuildPlatContext = (IOSPlatformContext)BuildPlat.CreateContext(Params.RawProjectPath);
+			BuildPlatContext.SetUpProjectEnvironment();
+			Params.Certificate = BuildPlatContext.SigningCertificate;
+		}
+
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 		{
 			var TargetConfiguration = SC.StageTargetConfigurations[0];
@@ -217,10 +232,10 @@ public class IOSPlatform : Platform
 			// package a .ipa from the now staged directory
 			var IPPExe = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/IOS/IPhonePackager.exe");
 
-			Log("ProjectName={0}", Params.ShortProjectName);
-			Log("ProjectStub={0}", ProjectStub);
-			Log("ProjectIPA={0}", ProjectIPA);
-			Log("IPPExe={0}", IPPExe);
+			LogLog("ProjectName={0}", Params.ShortProjectName);
+			LogLog("ProjectStub={0}", ProjectStub);
+			LogLog("ProjectIPA={0}", ProjectIPA);
+			LogLog("IPPExe={0}", IPPExe);
 
 			bool cookonthefly = Params.CookOnTheFly || Params.SkipCookOnTheFly;
 
@@ -234,7 +249,7 @@ public class IOSPlatform : Platform
 
 				if (RemoteToolChain.bUseRPCUtil)
 				{
-					string IPPArguments = "RepackageFromStage \"" + (Params.IsCodeBasedProject ? Params.RawProjectPath : "Engine") + "\"";
+					string IPPArguments = "RepackageFromStage \"" + (Params.IsCodeBasedProject ? Params.RawProjectPath.FullName : "Engine") + "\"";
 					IPPArguments += " -config " + TargetConfiguration.ToString();
 
 					if (TargetConfiguration == UnrealTargetConfiguration.Shipping)
@@ -268,6 +283,14 @@ public class IOSPlatform : Platform
 					{
 						IPPArguments += " -iterate";
 					}
+					if (!string.IsNullOrEmpty(Params.Provision))
+					{
+						IPPArguments += " -provision \"" + Params.Provision + "\""; 
+					}
+					if (!string.IsNullOrEmpty(Params.Certificate))
+					{
+						IPPArguments += " -certificate \"" + Params.Certificate + "\"";
+					}
 
 					RunAndLog(CmdEnv, IPPExe, IPPArguments);
 				}
@@ -275,7 +298,7 @@ public class IOSPlatform : Platform
 				{
 					List<string> IPPArguments = new List<string>();
 					IPPArguments.Add("RepackageFromStage");
-					IPPArguments.Add(Params.IsCodeBasedProject ? Params.RawProjectPath : "Engine");
+					IPPArguments.Add(Params.IsCodeBasedProject ? Params.RawProjectPath.FullName : "Engine");
 					IPPArguments.Add("-config");
 					IPPArguments.Add(TargetConfiguration.ToString());
 
@@ -307,10 +330,20 @@ public class IOSPlatform : Platform
 					IPPArguments.Add(" -stagedir");
 					IPPArguments.Add(CombinePaths(Params.BaseStageDirectory, "IOS"));
 					IPPArguments.Add(" -project");
-					IPPArguments.Add(Params.RawProjectPath);
+					IPPArguments.Add(Params.RawProjectPath.FullName);
 					if (Params.IterativeDeploy)
 					{
 						IPPArguments.Add(" -iterate");
+					}
+					if (!string.IsNullOrEmpty(Params.Provision))
+					{
+						IPPArguments.Add(" -provision");
+						IPPArguments.Add(Params.Provision);
+					}
+					if (!string.IsNullOrEmpty(Params.Certificate))
+					{
+						IPPArguments.Add(" -certificate");
+						IPPArguments.Add(Params.Certificate);
 					}
 
 					if (RunIPP(IPPArguments.ToArray()) != 0)
@@ -323,8 +356,7 @@ public class IOSPlatform : Platform
 			// verify the .ipa exists
 			if (!FileExists(ProjectIPA))
 			{
-				ErrorReporter.Error(String.Format("PACKAGE FAILED - {0} was not created", ProjectIPA), (int)ErrorCodes.Error_FailedToCreateIPA);
-				throw new AutomationException("PACKAGE FAILED - {0} was not created", ProjectIPA);
+				throw new AutomationException(ExitCode.Error_FailedToCreateIPA, "PACKAGE FAILED - {0} was not created", ProjectIPA);
 			}
 
 			if (WorkingCL > 0)
@@ -345,28 +377,28 @@ public class IOSPlatform : Platform
 		else
 		{
 			// create the ipa
-			string IPAName = CombinePaths(Path.GetDirectoryName(Params.RawProjectPath), "Binaries", "IOS", (Params.Distribution ? "Distro_" : "") + Params.ShortProjectName + (SC.StageTargetConfigurations[0] != UnrealTargetConfiguration.Development ? ("-IOS-" + SC.StageTargetConfigurations[0].ToString()) : "") + ".ipa");
+			string IPAName = CombinePaths(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", "IOS", (Params.Distribution ? "Distro_" : "") + Params.ShortProjectName + (SC.StageTargetConfigurations[0] != UnrealTargetConfiguration.Development ? ("-IOS-" + SC.StageTargetConfigurations[0].ToString()) : "") + ".ipa");
 
 			if (!Params.IterativeDeploy || !File.Exists(IPAName) || bNeedsIPA)
 			{
 				bCreatedIPA = true;
 
 				// code sign the app
-				CodeSign(Path.GetDirectoryName(Params.ProjectGameExeFilename), Params.IsCodeBasedProject ? Params.ShortProjectName : Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename), Params.RawProjectPath, SC.StageTargetConfigurations[0], SC.LocalRoot, Params.ShortProjectName, Path.GetDirectoryName(Params.RawProjectPath), SC.IsCodeBasedProject, Params.Distribution);
+				CodeSign(Path.GetDirectoryName(Params.ProjectGameExeFilename), Params.IsCodeBasedProject ? Params.ShortProjectName : Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename), Params.RawProjectPath, SC.StageTargetConfigurations[0], SC.LocalRoot, Params.ShortProjectName, Path.GetDirectoryName(Params.RawProjectPath.FullName), SC.IsCodeBasedProject, Params.Distribution, Params.Provision, Params.Certificate);
 
 				// now generate the ipa
-				PackageIPA(Path.GetDirectoryName(Params.ProjectGameExeFilename), Params.IsCodeBasedProject ? Params.ShortProjectName : Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename), Params.ShortProjectName, Path.GetDirectoryName(Params.RawProjectPath), SC.StageTargetConfigurations[0], Params.Distribution);
+				PackageIPA(Path.GetDirectoryName(Params.ProjectGameExeFilename), Params.IsCodeBasedProject ? Params.ShortProjectName : Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename), Params.ShortProjectName, Path.GetDirectoryName(Params.RawProjectPath.FullName), SC.StageTargetConfigurations[0], Params.Distribution);
 			}
 		}
 
 		PrintRunTime();
 	}
 
-	private string EnsureXcodeProjectExists(string RawProjectPath, string LocalRoot, string ShortProjectName, string ProjectRoot, bool IsCodeBasedProject, out bool bWasGenerated)
+	private string EnsureXcodeProjectExists(FileReference RawProjectPath, string LocalRoot, string ShortProjectName, string ProjectRoot, bool IsCodeBasedProject, out bool bWasGenerated)
 	{
 		// first check for ue4.xcodeproj
 		bWasGenerated = false;
-		string XcodeProj = RawProjectPath.Replace(".uproject", "_IOS.xcodeproj");
+		string XcodeProj = RawProjectPath.FullName.Replace(".uproject", "_IOS.xcodeproj");
 		Console.WriteLine ("Project: " + XcodeProj);
 		//		if (!Directory.Exists (XcodeProj))
 		{
@@ -394,7 +426,7 @@ public class IOSPlatform : Platform
 		return XcodeProj;
 	}
 
-	private void CodeSign(string BaseDirectory, string GameName, string RawProjectPath, UnrealTargetConfiguration TargetConfig, string LocalRoot, string ProjectName, string ProjectDirectory, bool IsCode, bool Distribution = false)
+	private void CodeSign(string BaseDirectory, string GameName, FileReference RawProjectPath, UnrealTargetConfiguration TargetConfig, string LocalRoot, string ProjectName, string ProjectDirectory, bool IsCode, bool Distribution = false, string Provision = null, string Certificate = null)
 	{
 		// check for the proper xcodeproject
 		bool bWasGenerated = false;
@@ -407,7 +439,34 @@ public class IOSPlatform : Platform
 		Arguments += " - iOS'";
 		Arguments += " -configuration " + TargetConfig.ToString();
 		Arguments += " -sdk iphoneos";
-		Arguments += " CODE_SIGN_IDENTITY=" + (Distribution ? "\"iPhone Distribution\"" : "\"iPhone Developer\"");
+		if (!string.IsNullOrEmpty(Certificate))
+		{
+			Arguments += " CODE_SIGN_IDENTITY=\"" + Certificate + "\"";
+		}
+		else
+		{
+			Arguments += " CODE_SIGN_IDENTITY=" + (Distribution ? "\"iPhone Distribution\"" : "\"iPhone Developer\"");
+		}
+		if (!string.IsNullOrEmpty(Provision))
+		{
+			// read the provision to get the UUID
+			if (File.Exists(Environment.GetEnvironmentVariable("HOME") + "/Library/MobileDevice/Provisioning Profiles/" + Provision))
+			{
+				string UUID = "";
+				string AllText = File.ReadAllText(Environment.GetEnvironmentVariable("HOME") + "/Library/MobileDevice/Provisioning Profiles/" + Provision);
+				int idx = AllText.IndexOf("<key>UUID</key>");
+				if (idx > 0)
+				{
+					idx = AllText.IndexOf("<string>", idx);
+					if (idx > 0)
+					{
+						idx += "<string>".Length;
+						UUID = AllText.Substring(idx, AllText.IndexOf("</string>", idx) - idx);
+						Arguments += " PROVISIONING_PROFILE=" + UUID;
+					}
+				}
+			}
+		}
 		ProcessResult Result = Run ("/usr/bin/env", Arguments, null, ERunOptions.Default);
 		if (bWasGenerated)
 		{
@@ -415,8 +474,7 @@ public class IOSPlatform : Platform
 		}
 		if (Result.ExitCode != 0)
 		{
-			ErrorReporter.Error("CodeSign Failed", (int)ErrorCodes.Error_FailedToCodeSign);
-			throw new AutomationException("CodeSign Failed");
+			throw new AutomationException(ExitCode.Error_FailedToCodeSign, "CodeSign Failed");
 		}
 	}
 
@@ -577,7 +635,7 @@ public class IOSPlatform : Platform
 //				if (!File.Exists(TargetPListFile))
 				{
 					// ensure the plist, entitlements, and provision files are properly copied
-					UnrealBuildTool.IOS.UEDeployIOS.GeneratePList((SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine"), !SC.IsCodeBasedProject, (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game"), SC.ShortProjectName, SC.LocalRoot + "/Engine", (SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine") + "/Binaries/IOS/Payload/" + (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game") + ".app");
+					UnrealBuildTool.UEDeployIOS.GeneratePList((SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine"), !SC.IsCodeBasedProject, (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game"), SC.ShortProjectName, SC.LocalRoot + "/Engine", (SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine") + "/Binaries/IOS/Payload/" + (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game") + ".app");
 				}
 
 				SC.StageFiles(StagedFileType.NonUFS, SourcePath, Path.GetFileName(TargetPListFile), false, null, "", false, false, "Info.plist");
@@ -824,12 +882,9 @@ public class IOSPlatform : Platform
 			switch (Result.ExitCode)
 			{
 				case 253:
-					ErrorReporter.Error("Launch Failure", (int)ErrorCodes.Error_DeviceNotSetupForDevelopment);
-					break;
-
+                    throw new AutomationException(ExitCode.Error_DeviceNotSetupForDevelopment, "Launch Failure");
 				case 255:
-					ErrorReporter.Error("Launch Failure", (int)ErrorCodes.Error_DeviceOSNewerThanSDK);
-					break;
+                    throw new AutomationException(ExitCode.Error_DeviceOSNewerThanSDK, "Launch Failure");
 			}
 		}
 	}

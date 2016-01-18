@@ -12,7 +12,7 @@ namespace AutomationScripts.Automation
 
 			var GlobalParams = new ProjectParams(
 				Command: this,
-				RawProjectPath: @"D:\UE-Main\UE4\Samples\Games\TappyChicken\TappyChicken.uproject"
+				RawProjectPath: new FileReference(@"D:\UE-Main\UE4\Samples\Games\TappyChicken\TappyChicken.uproject")
 				);
 
 			if (ParseParam("android"))

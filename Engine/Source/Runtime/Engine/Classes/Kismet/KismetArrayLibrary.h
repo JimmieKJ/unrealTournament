@@ -14,8 +14,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	NewItem			The item to add to the array
 	 *@return	The index of the newly added item
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Add", CompactNodeTitle = "ADD", ArrayParm = "TargetArray|ArrayProperty", ArrayTypeDependentParams = "NewItem", AutoCreateRefTerm = "NewItem"), Category="Utilities|Array")
-	static int32 Array_Add(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, const int32& NewItem);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Add", CompactNodeTitle = "ADD", ArrayParm = "TargetArray", ArrayTypeDependentParams = "NewItem", AutoCreateRefTerm = "NewItem"), Category="Utilities|Array")
+	static int32 Array_Add(const TArray<int32>& TargetArray, const int32& NewItem);
 
 	/**
 	*Add item to array (unique)
@@ -24,16 +24,16 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	*@param		NewItem			The item to add to the array
 	*@return	The index of the newly added item, or INDEX_NONE if the item is already present in the array
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta = (DisplayName = "Add Unique", CompactNodeTitle = "ADDUNIQUE", ArrayParm = "TargetArray|ArrayProperty", ArrayTypeDependentParams = "NewItem", AutoCreateRefTerm = "NewItem"), Category = "Utilities|Array")
-	static int32 Array_AddUnique(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, const int32& NewItem);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta = (DisplayName = "Add Unique", CompactNodeTitle = "ADDUNIQUE", ArrayParm = "TargetArray", ArrayTypeDependentParams = "NewItem", AutoCreateRefTerm = "NewItem"), Category = "Utilities|Array")
+	static int32 Array_AddUnique(const TArray<int32>& TargetArray, const int32& NewItem);
 
 	/** 
 	 * Shuffle (randomize) the elements of an array
 	 *
 	 *@param	TargetArray		The array to shuffle
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Shuffle", CompactNodeTitle = "SHUFFLE", ArrayParm = "TargetArray|ArrayProperty"), Category="Utilities|Array")
-	static void Array_Shuffle(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Shuffle", CompactNodeTitle = "SHUFFLE", ArrayParm = "TargetArray"), Category="Utilities|Array")
+	static void Array_Shuffle(const TArray<int32>& TargetArray);
 
 	/** 
 	 *Append an array to another array
@@ -41,8 +41,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	TargetArray		The array to add the source array to
 	 *@param	SourceArray		The array to add to the target array
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Append Array", CompactNodeTitle = "APPEND", ArrayParm = "TargetArray|TargetArrayProperty,SourceArray|SourceArrayProperty", ArrayTypeDependentParams = "SourceArray"), Category="Utilities|Array")
-	static void Array_Append(const TArray<int32>& TargetArray, const UArrayProperty* TargetArrayProperty, const TArray<int32>& SourceArray, const UArrayProperty* SourceArrayProperty);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Append Array", CompactNodeTitle = "APPEND", ArrayParm = "TargetArray,SourceArray", ArrayTypeDependentParams = "SourceArray"), Category="Utilities|Array")
+	static void Array_Append(const TArray<int32>& TargetArray, const TArray<int32>& SourceArray);
 
 	/* 
 	 *Insert item at the given index into the array.
@@ -51,8 +51,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	NewItem			The item to insert into the array
 	 *@param	Index			The index at which to insert the item into the array
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Insert", CompactNodeTitle = "INSERT", ArrayParm = "TargetArray|ArrayProperty", ArrayTypeDependentParams = "NewItem", AutoCreateRefTerm = "NewItem"), Category="Utilities|Array")
-	static void Array_Insert(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, const int32& NewItem, int32 Index);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Insert", CompactNodeTitle = "INSERT", ArrayParm = "TargetArray", ArrayTypeDependentParams = "NewItem", AutoCreateRefTerm = "NewItem"), Category="Utilities|Array")
+	static void Array_Insert(const TArray<int32>& TargetArray, const int32& NewItem, int32 Index);
 
 
 	/* 
@@ -61,8 +61,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	TargetArray		The array to remove from
 	 *@param	IndexToRemove	The index into the array to remove from
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Remove Index", CompactNodeTitle = "REMOVE INDEX", ArrayParm = "TargetArray|ArrayProperty"), Category="Utilities|Array")
-	static void Array_Remove(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, int32 IndexToRemove);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Remove Index", CompactNodeTitle = "REMOVE INDEX", ArrayParm = "TargetArray"), Category="Utilities|Array")
+	static void Array_Remove(const TArray<int32>& TargetArray, int32 IndexToRemove);
 
 	/* 
 	 *Remove all instances of item from array.
@@ -71,16 +71,16 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	Item			The item to remove from the array
 	 *@return	True if one or more items were removed
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Remove Item", CompactNodeTitle = "REMOVE", ArrayParm = "TargetArray|ArrayProperty", ArrayTypeDependentParams = "Item", AutoCreateRefTerm = "Item"), Category="Utilities|Array")
-	static bool Array_RemoveItem(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, const int32 &Item);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Remove Item", CompactNodeTitle = "REMOVE", ArrayParm = "TargetArray", ArrayTypeDependentParams = "Item", AutoCreateRefTerm = "Item"), Category="Utilities|Array")
+	static bool Array_RemoveItem(const TArray<int32>& TargetArray, const int32 &Item);
 
 	/* 
 	 *Clear an array, removes all content
 	 *
 	 *@param	TargetArray		The array to clear
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Clear", CompactNodeTitle = "CLEAR", ArrayParm = "TargetArray|ArrayProperty"), Category="Utilities|Array")
-	static void Array_Clear(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Clear", CompactNodeTitle = "CLEAR", ArrayParm = "TargetArray"), Category="Utilities|Array")
+	static void Array_Clear(const TArray<int32>& TargetArray);
 
 	/* 
 	 *Resize Array to specified size. 
@@ -88,8 +88,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	TargetArray		The array to resize
 	 *@param	Size			The new size of the array
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Resize", CompactNodeTitle = "RESIZE", ArrayParm = "TargetArray|ArrayProperty"), Category="Utilities|Array")
-	static void Array_Resize(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, int32 Size);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Resize", CompactNodeTitle = "RESIZE", ArrayParm = "TargetArray"), Category="Utilities|Array")
+	static void Array_Resize(const TArray<int32>& TargetArray, int32 Size);
 
 	/* 
 	 *Get the number of items in an array
@@ -97,8 +97,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	TargetArray		The array to get the length of
 	 *@return	The length of the array
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Length", CompactNodeTitle = "LENGTH", ArrayParm = "TargetArray|ArrayProperty", Keywords = "num size count"), Category="Utilities|Array")
-	static int32 Array_Length(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty);
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Length", CompactNodeTitle = "LENGTH", ArrayParm = "TargetArray", Keywords = "num size count"), Category="Utilities|Array")
+	static int32 Array_Length(const TArray<int32>& TargetArray);
 
 
 	/* 
@@ -107,8 +107,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	TargetArray		The array to perform the operation on
 	 *@return	The last valid index of the array
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Last Index", CompactNodeTitle = "LAST INDEX", ArrayParm = "TargetArray|ArrayProperty"), Category="Utilities|Array")
-	static int32 Array_LastIndex(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty);
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Last Index", CompactNodeTitle = "LAST INDEX", ArrayParm = "TargetArray"), Category="Utilities|Array")
+	static int32 Array_LastIndex(const TArray<int32>& TargetArray);
 
 	/* 
 	 *Given an array and an index, returns the item found at that index
@@ -117,8 +117,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	Index			The index in the array to get an item from
 	 *@return	The item stored at the index
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Get", CompactNodeTitle = "GET", ArrayParm = "TargetArray|ArrayProperty", ArrayTypeDependentParams = "Item"), Category="Utilities|Array")
-	static void Array_Get(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, int32 Index, int32& Item);
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Get", CompactNodeTitle = "GET", ArrayParm = "TargetArray", ArrayTypeDependentParams = "Item"), Category="Utilities|Array")
+	static void Array_Get(const TArray<int32>& TargetArray, int32 Index, int32& Item);
 
 	/* 
 	 *Given an array and an index, assigns the item to that array element
@@ -128,8 +128,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	Item			The item to assign to the index of the array
 	 *@param	bSizeToFit		If true, the array will expand if Index is greater than the current size of the array
 	*/
-	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Set Array Elem", ArrayParm = "TargetArray|ArrayProperty", ArrayTypeDependentParams = "Item", AutoCreateRefTerm = "Item"), Category="Utilities|Array")
-	static void Array_Set(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, int32 Index, const int32& Item, bool bSizeToFit);
+	UFUNCTION(BlueprintCallable, CustomThunk, meta=(DisplayName = "Set Array Elem", ArrayParm = "TargetArray", ArrayTypeDependentParams = "Item", AutoCreateRefTerm = "Item"), Category="Utilities|Array")
+	static void Array_Set(const TArray<int32>& TargetArray, int32 Index, const int32& Item, bool bSizeToFit);
 
 	/*  
 	 *Finds the index of the first instance of the item within the array
@@ -138,8 +138,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	ItemToFind		The item to look for
 	 *@return	The index the item was found at, or -1 if not found
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Find Item", CompactNodeTitle = "FIND", ArrayParm = "TargetArray|ArrayProperty", ArrayTypeDependentParams = "ItemToFind", AutoCreateRefTerm = "ItemToFind"), Category="Utilities|Array")
-	static int32 Array_Find(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, const int32& ItemToFind);
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Find Item", CompactNodeTitle = "FIND", ArrayParm = "TargetArray", ArrayTypeDependentParams = "ItemToFind", AutoCreateRefTerm = "ItemToFind"), Category="Utilities|Array")
+	static int32 Array_Find(const TArray<int32>& TargetArray, const int32& ItemToFind);
 
 	/*  
 	 *Returns true if the array contains the given item
@@ -148,8 +148,8 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	ItemToFind		The item to look for
 	 *@return	True if the item was found within the array
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Contains Item", CompactNodeTitle = "CONTAINS", ArrayParm = "TargetArray|ArrayProperty", ArrayTypeDependentParams = "ItemToFind", AutoCreateRefTerm = "ItemToFind"), Category="Utilities|Array")
-	static bool Array_Contains(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, const int32& ItemToFind);
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Contains Item", CompactNodeTitle = "CONTAINS", ArrayParm = "TargetArray", ArrayTypeDependentParams = "ItemToFind", AutoCreateRefTerm = "ItemToFind"), Category="Utilities|Array")
+	static bool Array_Contains(const TArray<int32>& TargetArray, const int32& ItemToFind);
 
 	/*  
 	 *Filter an array based on a Class derived from Actor.  
@@ -197,10 +197,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_Add)
 	{
+		Stack.MostRecentProperty = nullptr;
  		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
- 		
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
  
  		// Since NewItem isn't really an int, step the stack manually
  		const UProperty* InnerProp = ArrayProperty->Inner;
@@ -221,10 +226,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_AddUnique)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 
 		// Since NewItem isn't really an int, step the stack manually
 		const UProperty* InnerProp = ArrayProperty->Inner;
@@ -245,10 +255,16 @@ public:
 
 	DECLARE_FUNCTION(execArray_Shuffle)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
 		P_FINISH;
 
 		GenericArray_Shuffle(ArrayAddr, ArrayProperty);
@@ -257,16 +273,25 @@ public:
 	DECLARE_FUNCTION(execArray_Append)
 	{
 		// Retrieve the target array
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* TargetArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, TargetArrayProperty);
-
+		UArrayProperty* TargetArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!TargetArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		// Retrieve the source array
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* SourceArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, SourceArrayProperty);
+		UArrayProperty* SourceArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!TargetArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 
 		P_FINISH;
 
@@ -275,10 +300,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_Insert)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 
 		// Since NewItem isn't really an int, step the stack manually
 		const UProperty* InnerProp = ArrayProperty->Inner;
@@ -300,10 +330,16 @@ public:
 
 	DECLARE_FUNCTION(execArray_Remove)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
 		P_GET_PROPERTY(UIntProperty, Index);
 		P_FINISH;
 
@@ -312,11 +348,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_RemoveItem)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
-
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		// Since Item isn't really an int, step the stack manually
 		const UProperty* InnerProp = ArrayProperty->Inner;
 		const int32 PropertySize = InnerProp->ElementSize * InnerProp->ArrayDim;
@@ -340,10 +380,15 @@ public:
 	
 	DECLARE_FUNCTION(execArray_Clear)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		P_FINISH;
 
 		GenericArray_Clear(ArrayAddr, ArrayProperty);
@@ -351,10 +396,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_Resize)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		P_GET_PROPERTY(UIntProperty, Size);
 		P_FINISH;
 
@@ -363,10 +413,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_Length)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		P_FINISH;
 
 		*(int32*)RESULT_PARAM = GenericArray_Length(ArrayAddr, ArrayProperty);
@@ -374,10 +429,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_LastIndex)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		P_FINISH;
 
 		*(int32*)RESULT_PARAM = GenericArray_LastIndex(ArrayAddr, ArrayProperty);
@@ -385,10 +445,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_Get)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		P_GET_PROPERTY(UIntProperty, Index);
 
 		// Since Item isn't really an int, step the stack manually
@@ -410,10 +475,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_Set)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		P_GET_PROPERTY(UIntProperty, Index);
 
 		// Since NewItem isn't really an int, step the stack manually
@@ -437,11 +507,15 @@ public:
 
 	DECLARE_FUNCTION(execArray_Find)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
-
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		// Since ItemToFind isn't really an int, step the stack manually
 		const UProperty* InnerProp = ArrayProperty->Inner;
 		const int32 PropertySize = InnerProp->ElementSize * InnerProp->ArrayDim;
@@ -466,11 +540,15 @@ public:
 	
 	DECLARE_FUNCTION(execArray_Contains)
 	{
+		Stack.MostRecentProperty = nullptr;
 		Stack.StepCompiledIn<UArrayProperty>(NULL);
 		void* ArrayAddr = Stack.MostRecentPropertyAddress;
-
-		P_GET_OBJECT(UArrayProperty, ArrayProperty);
-
+		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Stack.MostRecentProperty);
+		if (!ArrayProperty)
+		{
+			Stack.bArrayContextFailed = true;
+			return;
+		}
 		// Since ItemToFind isn't really an int, step the stack manually
 		const UProperty* InnerProp = ArrayProperty->Inner;
 		const int32 PropertySize = InnerProp->ElementSize * InnerProp->ArrayDim;

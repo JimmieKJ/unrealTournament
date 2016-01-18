@@ -37,6 +37,7 @@ struct INPUTCORE_API FKey
 	bool IsFloatAxis() const;
 	bool IsVectorAxis() const;
 	bool IsBindableInBlueprints() const;
+	bool ShouldUpdateAxisWithoutSamples() const;
 	FText GetDisplayName() const;
 	FString ToString() const;
 	FName GetFName() const;
@@ -90,6 +91,7 @@ struct INPUTCORE_API FKeyDetails
 		NotBlueprintBindableKey	= 0x08,
 		FloatAxis				= 0x10,
 		VectorAxis				= 0x20,
+		UpdateAxisWithoutSamples = 0x40,
 
 		NoFlags                 = 0,
 	};
@@ -102,6 +104,7 @@ struct INPUTCORE_API FKeyDetails
 	bool IsFloatAxis() const { return AxisType == EInputAxisType::Float; }
 	bool IsVectorAxis() const { return AxisType == EInputAxisType::Vector; }
 	bool IsBindableInBlueprints() const { return bIsBindableInBlueprints != 0; }
+	bool ShouldUpdateAxisWithoutSamples() const { return bShouldUpdateAxisWithoutSamples != 0; }
 	FName GetMenuCategory() const { return MenuCategory; }
 	FText GetDisplayName() const;
 	const FKey& GetKey() const { return Key; }
@@ -125,6 +128,7 @@ private:
 	int32 bIsGamepadKey:1;
 	int32 bIsMouseButton:1;
 	int32 bIsBindableInBlueprints:1;
+	int32 bShouldUpdateAxisWithoutSamples:1;
 	EInputAxisType AxisType;
 
 };
@@ -132,6 +136,7 @@ private:
 UENUM(BlueprintType)
 namespace ETouchIndex
 {
+	// The number of entries in ETouchIndex must match the number of touch keys defined in EKeys and NUM_TOUCH_KEYS above
 	enum Type
 	{
 		Touch1,
@@ -143,7 +148,7 @@ namespace ETouchIndex
 		Touch7,
 		Touch8,
 		Touch9,
-		Touch10 // The number of entries in ETouchIndex must match the number of touch keys defined in EKeys and NUM_TOUCH_KEYS above
+		Touch10
 	};
 }
 
@@ -159,10 +164,13 @@ namespace EConsoleForGamepadLabels
 }
 struct INPUTCORE_API EKeys
 {
+	static const FKey AnyKey;
+
 	static const FKey MouseX;
 	static const FKey MouseY;
 	static const FKey MouseScrollUp;
 	static const FKey MouseScrollDown;
+	static const FKey MouseWheelAxis;
 
 	static const FKey LeftMouseButton;
 	static const FKey RightMouseButton;
@@ -299,6 +307,7 @@ struct INPUTCORE_API EKeys
 	static const FKey E_AccentGrave;
 	static const FKey E_AccentAigu;
 	static const FKey C_Cedille;
+	static const FKey Section;
 
 	// Platform Keys
 	// These keys platform specific versions of keys that go by different names.
@@ -306,7 +315,7 @@ struct INPUTCORE_API EKeys
 	// On Macs, the Delete key is the virtual key for BackSpace.
 	static const FKey Platform_Delete;
 
-	// Gameplay Keys
+	// Gamepad Keys
 	static const FKey Gamepad_LeftX;
 	static const FKey Gamepad_LeftY;
 	static const FKey Gamepad_RightX;
@@ -351,6 +360,66 @@ struct INPUTCORE_API EKeys
 	// Gestures
 	static const FKey Gesture_Pinch;
 	static const FKey Gesture_Flick;
+
+	// Motion Controllers
+	//		Left Controller
+	static const FKey MotionController_Left_FaceButton1;
+	static const FKey MotionController_Left_FaceButton2;
+	static const FKey MotionController_Left_FaceButton3;
+	static const FKey MotionController_Left_FaceButton4;
+	static const FKey MotionController_Left_FaceButton5;
+	static const FKey MotionController_Left_FaceButton6;
+	static const FKey MotionController_Left_FaceButton7;
+	static const FKey MotionController_Left_FaceButton8;
+
+	static const FKey MotionController_Left_Shoulder;
+	static const FKey MotionController_Left_Trigger;
+
+	static const FKey MotionController_Left_Grip1;
+	static const FKey MotionController_Left_Grip2;
+
+	static const FKey MotionController_Left_Thumbstick;
+	static const FKey MotionController_Left_Thumbstick_Up;
+	static const FKey MotionController_Left_Thumbstick_Down;
+	static const FKey MotionController_Left_Thumbstick_Left;
+	static const FKey MotionController_Left_Thumbstick_Right;
+
+	//		Right Controller
+	static const FKey MotionController_Right_FaceButton1;
+	static const FKey MotionController_Right_FaceButton2;
+	static const FKey MotionController_Right_FaceButton3;
+	static const FKey MotionController_Right_FaceButton4;
+	static const FKey MotionController_Right_FaceButton5;
+	static const FKey MotionController_Right_FaceButton6;
+	static const FKey MotionController_Right_FaceButton7;
+	static const FKey MotionController_Right_FaceButton8;
+
+	static const FKey MotionController_Right_Shoulder;
+	static const FKey MotionController_Right_Trigger;
+
+	static const FKey MotionController_Right_Grip1;
+	static const FKey MotionController_Right_Grip2;
+
+	static const FKey MotionController_Right_Thumbstick;
+	static const FKey MotionController_Right_Thumbstick_Up;
+	static const FKey MotionController_Right_Thumbstick_Down;
+	static const FKey MotionController_Right_Thumbstick_Left;
+	static const FKey MotionController_Right_Thumbstick_Right;
+	 
+	//   Motion Controller Axes
+	//		Left Controller
+	static const FKey MotionController_Left_Thumbstick_X;
+	static const FKey MotionController_Left_Thumbstick_Y;
+	static const FKey MotionController_Left_TriggerAxis;
+	static const FKey MotionController_Left_Grip1Axis;
+	static const FKey MotionController_Left_Grip2Axis;
+
+	//		Right Controller
+	static const FKey MotionController_Right_Thumbstick_X;
+	static const FKey MotionController_Right_Thumbstick_Y;
+	static const FKey MotionController_Right_TriggerAxis;
+	static const FKey MotionController_Right_Grip1Axis;
+	static const FKey MotionController_Right_Grip2Axis;
 
 	// PS4-specific
 	static const FKey PS4_Special;
@@ -419,7 +488,7 @@ private:
 
 };
 
-// various states of touch inputs
+/** Various states of touch inputs. */
 UENUM()
 namespace ETouchType
 {
@@ -440,13 +509,13 @@ struct INPUTCORE_API FInputKeyManager
 public:
 	static FInputKeyManager& Get();
 
-	void GetCodesFromKey(const FKey Key, const uint16*& KeyCode, const uint16*& CharCode) const;
+	void GetCodesFromKey(const FKey Key, const uint32*& KeyCode, const uint32*& CharCode) const;
 
 	/**
 	 * Retrieves the key mapped to the specified character code.
 	 * @param KeyCode	The key code to get the name for.
 	 */
-	FKey GetKeyFromCodes( const uint16 KeyCode, const uint16 CharCode ) const;
+	FKey GetKeyFromCodes( const uint32 KeyCode, const uint32 CharCode ) const;
 	void InitKeyMappings();
 private:
 	FInputKeyManager()
@@ -455,8 +524,8 @@ private:
 	}
 
 	static TSharedPtr< FInputKeyManager > Instance;
-	TMap<uint16, FKey> KeyMapVirtualToEnum;
-	TMap<uint16, FKey> KeyMapCharToEnum;
+	TMap<uint32, FKey> KeyMapVirtualToEnum;
+	TMap<uint32, FKey> KeyMapCharToEnum;
 };
 
 UCLASS(abstract)

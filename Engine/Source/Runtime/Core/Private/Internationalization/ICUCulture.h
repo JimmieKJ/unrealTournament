@@ -10,6 +10,8 @@
 #include <unicode/decimfmt.h>
 #include <unicode/datefmt.h>
 
+struct FDecimalNumberFormattingRules;
+
 inline UColAttributeValue UEToICU(const ETextComparisonLevel::Type ComparisonLevel)
 {
 	UColAttributeValue Value;
@@ -95,6 +97,39 @@ inline icu::DecimalFormat::ERoundingMode UEToICU(const ERoundingMode RoundingMod
 		break;
 	default:
 		Value = icu::DecimalFormat::ERoundingMode::kRoundHalfEven;
+		break;
+	}
+	return Value;
+}
+
+inline ERoundingMode ICUToUE(const icu::DecimalFormat::ERoundingMode RoundingMode)
+{
+	ERoundingMode Value;
+	switch(RoundingMode)
+	{
+	case icu::DecimalFormat::ERoundingMode::kRoundHalfEven:
+		Value = ERoundingMode::HalfToEven;
+		break;
+	case icu::DecimalFormat::ERoundingMode::kRoundHalfUp:
+		Value = ERoundingMode::HalfFromZero;
+		break;
+	case icu::DecimalFormat::ERoundingMode::kRoundHalfDown:
+		Value = ERoundingMode::HalfToZero;
+		break;
+	case icu::DecimalFormat::ERoundingMode::kRoundUp:
+		Value = ERoundingMode::FromZero;
+		break;
+	case icu::DecimalFormat::ERoundingMode::kRoundDown:
+		Value = ERoundingMode::ToZero;
+		break;
+	case icu::DecimalFormat::ERoundingMode::kRoundFloor:
+		Value = ERoundingMode::ToNegativeInfinity;
+		break;
+	case icu::DecimalFormat::ERoundingMode::kRoundCeiling:
+		Value = ERoundingMode::ToPositiveInfinity;
+		break;
+	default:
+		Value = ERoundingMode::HalfToEven;
 		break;
 	}
 	return Value;
@@ -365,6 +400,10 @@ class FCulture::FICUCultureImplementation
 	TSharedRef<const icu::DateFormat> GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
 	TSharedRef<const icu::DateFormat> GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
 
+	const FDecimalNumberFormattingRules& GetDecimalNumberFormattingRules();
+	const FDecimalNumberFormattingRules& GetPercentFormattingRules();
+	const FDecimalNumberFormattingRules& GetCurrencyFormattingRules(const FString& InCurrencyCode);
+
 	icu::Locale ICULocale;
 	TSharedPtr<const icu::BreakIterator> ICUGraphemeBreakIterator;
 	TSharedPtr<const icu::BreakIterator> ICUWordBreakIterator;
@@ -384,5 +423,17 @@ class FCulture::FICUCultureImplementation
 	TSharedPtr<const icu::DateFormat> ICUDateFormat;
 	TSharedPtr<const icu::DateFormat> ICUTimeFormat;
 	TSharedPtr<const icu::DateFormat> ICUDateTimeFormat;
+
+	TSharedPtr<const FDecimalNumberFormattingRules, ESPMode::ThreadSafe> UEDecimalNumberFormattingRules;
+	FCriticalSection UEDecimalNumberFormattingRulesCS;
+
+	TSharedPtr<const FDecimalNumberFormattingRules, ESPMode::ThreadSafe> UEPercentFormattingRules;
+	FCriticalSection UEPercentFormattingRulesCS;
+
+	TSharedPtr<const FDecimalNumberFormattingRules, ESPMode::ThreadSafe> UECurrencyFormattingRules;
+	FCriticalSection UECurrencyFormattingRulesCS;
+
+	TMap<FString, TSharedPtr<const FDecimalNumberFormattingRules>> UEAlternateCurrencyFormattingRules;
+	FCriticalSection UEAlternateCurrencyFormattingRulesCS;
 };
 #endif

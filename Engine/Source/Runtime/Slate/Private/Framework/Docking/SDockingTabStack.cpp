@@ -43,6 +43,7 @@ void SDockingTabStack::Construct( const FArguments& InArgs, const TSharedRef<FTa
 
 	InlineContentAreaLeft = NULL;
 	InlineContentAreaRight = NULL;
+	BackgroundContentArea = NULL;
 	TitleBarSlot = NULL;
 
 	this->TabStackGeometry = FGeometry();
@@ -78,43 +79,51 @@ void SDockingTabStack::Construct( const FArguments& InArgs, const TSharedRef<FTa
 	const FButtonStyle* const UnhideTabWellButtonStyle = &FCoreStyle::Get().GetWidgetStyle< FButtonStyle >( "Docking.UnhideTabwellButton" );
 
 	// create inline title bar content
-	TitleBarContent = SNew(SHorizontalBox)
+	TitleBarContent = 
+	SNew(SOverlay)
+	+ SOverlay::Slot().Expose(BackgroundContentArea)
+	+ SOverlay::Slot()
+	[
+	
+		
+		SNew(SHorizontalBox)
 		.Visibility(EVisibility::SelfHitTestInvisible)
 
-	+ SHorizontalBox::Slot()
+		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		.Expose(InlineContentAreaLeft)
 
-	+ SHorizontalBox::Slot() 
+		+ SHorizontalBox::Slot() 
 		.FillWidth(1.0f)
 		.VAlign(VAlign_Bottom)
 		.Padding(4.0f, 0.0f, 0.0f, 0.0f)
 		[
 			SNew(SVerticalBox)
-				.Visibility(EVisibility::SelfHitTestInvisible)
+			.Visibility(EVisibility::SelfHitTestInvisible)
 
 			+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(SSpacer)
-						.Visibility(this, &SDockingTabStack::GetMaximizeSpacerVisibility)
-						.Size(FVector2D(0.0f, 10.0f))
-				]
+			.AutoHeight()
+			[
+				SNew(SSpacer)
+				.Visibility(this, &SDockingTabStack::GetMaximizeSpacerVisibility)
+				.Size(FVector2D(0.0f, 10.0f))
+			]
 
 			+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					// TabWell
-					SAssignNew(TabWell, SDockingTabWell)
-						.ParentStackNode(SharedThis(this))
-				]
+			.AutoHeight()
+			[
+				// TabWell
+				SAssignNew(TabWell, SDockingTabWell)
+				.ParentStackNode(SharedThis(this))
+			]
 		]
 
-	+ SHorizontalBox::Slot()
+		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		.Expose(InlineContentAreaRight)
 		.Padding(5.0f, 0.0f, 0.0f, 0.0f)
-		.VAlign((VAlign_Center));
+		.VAlign((VAlign_Center))
+	];
 
 	ChildSlot
 	[
@@ -137,8 +146,8 @@ void SDockingTabStack::Construct( const FArguments& InArgs, const TSharedRef<FTa
 				.Visibility(EVisibility::SelfHitTestInvisible)
 
 				+ SVerticalBox::Slot()
-				.AutoHeight()
 				.Expose(TitleBarSlot)
+				.AutoHeight()				
 
 				+ SVerticalBox::Slot()
 				.AutoHeight()
@@ -208,7 +217,7 @@ void SDockingTabStack::Construct( const FArguments& InArgs, const TSharedRef<FTa
 
 	if (bIsDocumentArea)
 	{
-		this->SetNodeContent(SDocumentAreaWidget::MakeDocumentAreaWidget(), SNullWidget::NullWidget, SNullWidget::NullWidget);
+		this->SetNodeContent(SDocumentAreaWidget::MakeDocumentAreaWidget(), SNullWidget::NullWidget, SNullWidget::NullWidget, SNullWidget::NullWidget);
 	}
 }
 
@@ -219,11 +228,11 @@ void SDockingTabStack::OnLastTabRemoved()
 	{
 		// Stop holding onto any meaningful window content.
 		// The user should not see any content in this DockNode.
-		this->SetNodeContent( SNullWidget::NullWidget, SNullWidget::NullWidget, SNullWidget::NullWidget );
+		this->SetNodeContent(SNullWidget::NullWidget, SNullWidget::NullWidget, SNullWidget::NullWidget, SNullWidget::NullWidget);
 	}
 	else
 	{
-		this->SetNodeContent( SDocumentAreaWidget::MakeDocumentAreaWidget(), SNullWidget::NullWidget, SNullWidget::NullWidget );
+		this->SetNodeContent(SDocumentAreaWidget::MakeDocumentAreaWidget(), SNullWidget::NullWidget, SNullWidget::NullWidget, SNullWidget::NullWidget);
 	}
 }
 
@@ -328,11 +337,12 @@ void SDockingTabStack::BringToFront( const TSharedRef<SDockTab>& TabToBringToFro
 	TabWell->BringTabToFront(TabToBringToFront);
 }
 
-void SDockingTabStack::SetNodeContent( const TSharedRef<SWidget>& InContent, const TSharedRef<SWidget>& ContentLeft, const TSharedRef<SWidget>& ContentRight )
+void SDockingTabStack::SetNodeContent(const TSharedRef<SWidget>& InContent, const TSharedRef<SWidget>& ContentLeft, const TSharedRef<SWidget>& ContentRight, const TSharedRef<SWidget>& InContentBackground)
 {
 	ContentSlot->SetContent(InContent);
 	(*InlineContentAreaLeft)[ContentLeft];
 	(*InlineContentAreaRight)[ContentRight];
+	(*BackgroundContentArea)[InContentBackground];
 }
 
 FReply SDockingTabStack::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
@@ -483,9 +493,10 @@ void SDockingTabStack::CloseAllButForegroundTab(ETabsToClose TabsToClose)
 
 FReply SDockingTabStack::TabWellRightClicked( const FGeometry& TabWellGeometry, const FPointerEvent& MouseEvent )
 {
-	if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
+	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
 	{
-		FSlateApplication::Get().PushMenu( SharedThis( this ), MakeContextMenu(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect::ContextMenu );
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+		FSlateApplication::Get().PushMenu(AsShared(), WidgetPath, MakeContextMenu(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect::ContextMenu);
 		return FReply::Handled();
 	}
 	else

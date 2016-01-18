@@ -11,50 +11,127 @@
 
 USplineComponent::USplineComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bAllowSplineEditingPerInstance(true)
+	, bAllowSplineEditingPerInstance_DEPRECATED(true)
 	, ReparamStepsPerSegment(10)
 	, Duration(1.0f)
 	, bStationaryEndpoints(false)
+	, bSplineHasBeenEdited(false)
 	, bClosedLoop(false)
+	, DefaultUpVector(FVector::UpVector)
 #if WITH_EDITORONLY_DATA
 	, EditorUnselectedSplineSegmentColor(FLinearColor(1.0f, 1.0f, 1.0f))
 	, EditorSelectedSplineSegmentColor(FLinearColor(1.0f, 0.0f, 0.0f))
+	, bShouldVisualizeScale(false)
+	, ScaleVisualizationWidth(30.0f)
 #endif
 {
 	SplineInfo.Points.Reset(10);
+	SplineRotInfo.Points.Reset(10);
+	SplineScaleInfo.Points.Reset(10);
 
-	// Add 2 keys by default
-	int32 PointIndex = SplineInfo.AddPoint(0.f, FVector(0,0,0));
-	SplineInfo.Points[PointIndex].InterpMode = CIM_CurveAuto;
+	SplineInfo.Points.Emplace(0.0f, FVector(0, 0, 0), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
+	SplineRotInfo.Points.Emplace(0.0f, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto);
+	SplineScaleInfo.Points.Emplace(0.0f, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
 
-	PointIndex = SplineInfo.AddPoint(1.f, FVector(100,0,0));
-	SplineInfo.Points[PointIndex].InterpMode = CIM_CurveAuto;
+	SplineInfo.Points.Emplace(1.0f, FVector(100, 0, 0), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
+	SplineRotInfo.Points.Emplace(1.0f, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto);
+	SplineScaleInfo.Points.Emplace(1.0f, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
 
 	UpdateSpline();
 }
 
 
+static EInterpCurveMode ConvertSplinePointTypeToInterpCurveMode(ESplinePointType::Type SplinePointType)
+{
+	switch (SplinePointType)
+	{
+		case ESplinePointType::Linear:				return CIM_Linear;
+		case ESplinePointType::Curve:				return CIM_CurveAuto;
+		case ESplinePointType::Constant:			return CIM_Constant;
+		case ESplinePointType::CurveCustomTangent:	return CIM_CurveUser;
+		case ESplinePointType::CurveClamped:		return CIM_CurveAutoClamped;
+
+		default:									return CIM_Unknown;
+	}
+}
+
+static ESplinePointType::Type ConvertInterpCurveModeToSplinePointType(EInterpCurveMode InterpCurveMode)
+{
+	switch (InterpCurveMode)
+	{
+		case CIM_Linear:			return ESplinePointType::Linear;
+		case CIM_CurveAuto:			return ESplinePointType::Curve;
+		case CIM_Constant:			return ESplinePointType::Constant;
+		case CIM_CurveUser:			return ESplinePointType::CurveCustomTangent;
+		case CIM_CurveAutoClamped:	return ESplinePointType::CurveClamped;
+
+		default:					return ESplinePointType::Constant;
+	}
+}
+
+
+#if WITH_EDITOR
+void USplineComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	// Support old resources which don't have the rotation and scale splines present
+	const int32 ArchiveUE4Version = Ar.UE4Ver();
+	if (ArchiveUE4Version < VER_UE4_INTERPCURVE_SUPPORTS_LOOPING)
+	{
+		int32 NumPoints = SplineInfo.Points.Num();
+
+		// The start point is no longer cloned as the endpoint when the spline is looped, so remove the extra endpoint if present
+		const bool bHasExtraEndpoint = bClosedLoop && (SplineInfo.Points[0].OutVal == SplineInfo.Points[NumPoints - 1].OutVal);
+
+		if (bHasExtraEndpoint)
+		{
+			SplineInfo.Points.RemoveAt(NumPoints - 1, 1, false);
+			NumPoints--;
+		}
+
+		// Fill the other two splines with some defaults
+		SplineRotInfo.Points.Reset(NumPoints);
+		SplineScaleInfo.Points.Reset(NumPoints);
+		for (int32 Count = 0; Count < NumPoints; Count++)
+		{
+			SplineRotInfo.Points.Emplace(0.0f, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto);
+			SplineScaleInfo.Points.Emplace(0.0f, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
+		}
+
+		USplineComponent* Archetype = CastChecked<USplineComponent>(GetArchetype());
+		bSplineHasBeenEdited = (SplineInfo.Points != Archetype->SplineInfo.Points);
+		UpdateSpline();
+	}
+}
+#endif
+
+
 void USplineComponent::PostLoad()
 {
 	Super::PostLoad();
-	UpdateSpline();
 }
 
 
 void USplineComponent::PostEditImport()
 {
 	Super::PostEditImport();
-	UpdateSpline();
 }
 
 
 void USplineComponent::UpdateSpline()
 {
 	const int32 NumPoints = SplineInfo.Points.Num();
-	check(!bClosedLoop || NumPoints == 0 || (NumPoints >= 2 && SplineInfo.Points[0].OutVal == SplineInfo.Points[NumPoints - 1].OutVal));
+	check(SplineRotInfo.Points.Num() == NumPoints && SplineScaleInfo.Points.Num() == NumPoints);
 
-	// Automatically set the tangents on any CurveAuto keys
-	SplineInfo.AutoSetTangents(0.0f, bStationaryEndpoints);
+	// Ensure input keys are ascending in steps of 1.0
+	for (int32 Index = 0; Index < NumPoints; Index++)
+	{
+		const float InVal = static_cast<float>(Index);
+		SplineInfo.Points[Index].InVal = InVal;
+		SplineRotInfo.Points[Index].InVal = InVal;
+		SplineScaleInfo.Points[Index].InVal = InVal;
+	}
 
 	// Nothing else to do if less than 2 points
 	if (NumPoints < 2)
@@ -62,33 +139,28 @@ void USplineComponent::UpdateSpline()
 		return;
 	}
 
-	// Adjust auto tangents for first and last keys to take into account the looping
+	// Ensure splines' looping status matches with that of the spline component
 	if (bClosedLoop)
 	{
-		auto& FirstPoint = SplineInfo.Points[0];
-		auto& LastPoint = SplineInfo.Points[NumPoints - 1];
-		const auto& SecondPoint = SplineInfo.Points[1];
-		const auto& PenultimatePoint = SplineInfo.Points[NumPoints - 2];
-
-		if (FirstPoint.InterpMode == CIM_CurveAuto || FirstPoint.InterpMode == CIM_CurveAutoClamped)
-		{
-			FVector Tangent;
-			ComputeCurveTangent(
-				PenultimatePoint.InVal - LastPoint.InVal, PenultimatePoint.OutVal,
-				FirstPoint.InVal, FirstPoint.OutVal,
-				SecondPoint.InVal, SecondPoint.OutVal,
-				0.0f,
-				FirstPoint.InterpMode == CIM_CurveAutoClamped,
-				Tangent);
-
-			FirstPoint.LeaveTangent = Tangent;
-			FirstPoint.ArriveTangent = Tangent;
-			LastPoint.LeaveTangent = Tangent;
-			LastPoint.ArriveTangent = Tangent;
-		}
+		const float LoopKey = static_cast<float>(NumPoints);
+		SplineInfo.SetLoopKey(LoopKey);
+		SplineRotInfo.SetLoopKey(LoopKey);
+		SplineScaleInfo.SetLoopKey(LoopKey);
+	}
+	else
+	{
+		SplineInfo.ClearLoopKey();
+		SplineRotInfo.ClearLoopKey();
+		SplineScaleInfo.ClearLoopKey();
 	}
 
-	const int32 NumSegments = NumPoints - 1;
+	// Automatically set the tangents on any CurveAuto keys
+	SplineInfo.AutoSetTangents(0.0f, bStationaryEndpoints);
+	SplineRotInfo.AutoSetTangents(0.0f, bStationaryEndpoints);
+	SplineScaleInfo.AutoSetTangents(0.0f, bStationaryEndpoints);
+
+	// Now initialize the spline reparam table
+	const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
 
 	// Start by clearing it
 	SplineReparamTable.Points.Reset(NumSegments * ReparamStepsPerSegment + 1);
@@ -99,17 +171,22 @@ void USplineComponent::UpdateSpline()
 		{
 			const float Param = static_cast<float>(Step) / ReparamStepsPerSegment;
 			const float SegmentLength = (Step == 0) ? 0.0f : GetSegmentLength(SegmentIndex, Param);
-			SplineReparamTable.AddPoint(SegmentLength + AccumulatedLength, SegmentIndex + Param);
+
+			SplineReparamTable.Points.Emplace(SegmentLength + AccumulatedLength, SegmentIndex + Param, 0.0f, 0.0f, CIM_Linear);
 		}
 		AccumulatedLength += GetSegmentLength(SegmentIndex, 1.0f);
 	}
-	SplineReparamTable.AddPoint(AccumulatedLength, static_cast<float>(NumSegments));
+
+	SplineReparamTable.Points.Emplace(AccumulatedLength, static_cast<float>(NumSegments), 0.0f, 0.0f, CIM_Linear);
 }
 
 
 float USplineComponent::GetSegmentLength(const int32 Index, const float Param) const
 {
-	check(Index < SplineInfo.Points.Num() - 1);
+	const int32 NumPoints = SplineInfo.Points.Num();
+	const int32 LastPoint = NumPoints - 1;
+
+	check(Index >= 0 && ((bClosedLoop && Index < NumPoints) || (!bClosedLoop && Index < LastPoint)));
 	check(Param >= 0.0f && Param <= 1.0f);
 
 	// Evaluate the length of a Hermite spline segment.
@@ -134,8 +211,8 @@ float USplineComponent::GetSegmentLength(const int32 Index, const float Param) c
 	};
 
 	const auto& StartPoint = SplineInfo.Points[Index];
-	const auto& EndPoint = SplineInfo.Points[Index + 1];
-	check(static_cast<int32>(EndPoint.InVal) - static_cast<int32>(StartPoint.InVal) == 1);
+	const auto& EndPoint = SplineInfo.Points[Index == LastPoint ? 0 : Index + 1];
+	check(Index == LastPoint || (static_cast<int32>(EndPoint.InVal) - static_cast<int32>(StartPoint.InVal) == 1));
 
 	const auto& P0 = StartPoint.OutVal;
 	const auto& T0 = StartPoint.LeaveTangent;
@@ -154,7 +231,7 @@ float USplineComponent::GetSegmentLength(const int32 Index, const float Param) c
 	{
 		// Calculate derivative at each Legendre-Gauss sample, and perform a weighted sum
 		const float Alpha = HalfParam * (1.0f + LegendreGaussCoefficient.Abscissa);
-		const FVector Derivative = (Coeff1 * Alpha + Coeff2) * Alpha + Coeff3;
+		const FVector Derivative = ((Coeff1 * Alpha + Coeff2) * Alpha + Coeff3) * ComponentToWorld.GetScale3D();
 		Length += Derivative.Size() * LegendreGaussCoefficient.Weight;
 	}
 	Length *= HalfParam;
@@ -187,9 +264,12 @@ float USplineComponent::GetSegmentParamFromLength(const int32 Index, const float
 	//        f(t) is the function whose root we wish to find = L(t) - d,
 	//        (df/dt) = d(L(t))/dt = |dP/dt|
 
-	check(Index < SplineInfo.Points.Num() - 1);
+	const int32 NumPoints = SplineInfo.Points.Num();
+	const int32 LastPoint = NumPoints - 1;
+
+	check(Index >= 0 && ((bClosedLoop && Index < NumPoints) || (!bClosedLoop && Index < LastPoint)));
 	check(Length >= 0.0f && Length <= SegmentLength);
-	check(static_cast<int32>(SplineInfo.Points[Index + 1].InVal) - static_cast<int32>(SplineInfo.Points[Index].InVal) == 1);
+	check(Index == LastPoint || (static_cast<int32>(SplineInfo.Points[Index + 1].InVal) - static_cast<int32>(SplineInfo.Points[Index].InVal) == 1));
 
 	float Param = Length / SegmentLength;  // initial estimate for t
 
@@ -208,59 +288,138 @@ float USplineComponent::GetSegmentParamFromLength(const int32 Index, const float
 }
 
 
-void USplineComponent::SetClosedLoop(bool bInClosedLoop)
+FVector USplineComponent::GetLocationAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	UpdateLoopEndpoint(bInClosedLoop);
-	UpdateSpline();
+	FVector Location = SplineInfo.Eval(InKey, FVector::ZeroVector);
+
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		Location = ComponentToWorld.TransformPosition(Location);
+	}
+
+	return Location;
 }
 
 
-void USplineComponent::UpdateLoopEndpoint(bool bInClosedLoop)
+FVector USplineComponent::GetTangentAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	if (bClosedLoop != bInClosedLoop)
-	{
-		bClosedLoop = bInClosedLoop;
+	FVector Tangent = SplineInfo.EvalDerivative(InKey, FVector::ZeroVector);
 
-		if (bClosedLoop)
-		{
-			AddLoopEndpoint();
-		}
-		else
-		{
-			RemoveLoopEndpoint();
-		}
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		Tangent = ComponentToWorld.TransformVector(Tangent);
 	}
+
+	return Tangent;
+}
+
+
+FVector USplineComponent::GetDirectionAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	FVector Direction = SplineInfo.EvalDerivative(InKey, FVector::ZeroVector).GetSafeNormal();
+
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		Direction = ComponentToWorld.TransformVectorNoScale(Direction);
+	}
+
+	return Direction;
+}
+
+
+FRotator USplineComponent::GetRotationAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	return GetQuaternionAtSplineInputKey(InKey, CoordinateSpace).Rotator();
+}
+
+
+FQuat USplineComponent::GetQuaternionAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	FQuat Quat = SplineRotInfo.Eval(InKey, FQuat::Identity);
+	Quat.Normalize();
+
+	const FVector Direction = SplineInfo.EvalDerivative(InKey, FVector::ZeroVector).GetSafeNormal();
+	const FVector UpVector = Quat.RotateVector(DefaultUpVector);
+
+	FQuat Rot = (FRotationMatrix::MakeFromXZ(Direction, UpVector)).ToQuat();
+
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		Rot = ComponentToWorld.GetRotation() * Rot;
+	}
+
+	return Rot;
+}
+
+
+FVector USplineComponent::GetUpVectorAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const FQuat Quat = GetQuaternionAtSplineInputKey(InKey, ESplineCoordinateSpace::Local);
+	FVector UpVector = Quat.RotateVector(FVector::UpVector);
+
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		UpVector = ComponentToWorld.TransformVectorNoScale(UpVector);
+	}
+
+	return UpVector;
+}
+
+
+FVector USplineComponent::GetRightVectorAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const FQuat Quat = GetQuaternionAtSplineInputKey(InKey, ESplineCoordinateSpace::Local);
+	FVector RightVector = Quat.RotateVector(FVector::RightVector);
+
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		RightVector = ComponentToWorld.TransformVectorNoScale(RightVector);
+	}
+
+	return RightVector;
+}
+
+
+FTransform USplineComponent::GetTransformAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseScale) const
+{
+	const FVector Location(GetLocationAtSplineInputKey(InKey, ESplineCoordinateSpace::Local));
+	const FQuat Rotation(GetQuaternionAtSplineInputKey(InKey, ESplineCoordinateSpace::Local));
+	const FVector Scale = bUseScale ? GetScaleAtSplineInputKey(InKey) : FVector(1.0f);
+
+	FTransform Transform(Rotation, Location, Scale);
+
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		Transform = Transform * ComponentToWorld;
+	}
+
+	return Transform;
+}
+
+
+float USplineComponent::GetRollAtSplineInputKey(float InKey, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	return GetRotationAtSplineInputKey(InKey, CoordinateSpace).Roll;
+}
+
+
+FVector USplineComponent::GetScaleAtSplineInputKey(float InKey) const
+{
+	const FVector Scale = SplineScaleInfo.Eval(InKey, FVector(1.0f));
+	return Scale;
+}
+
+
+void USplineComponent::SetClosedLoop(bool bInClosedLoop)
+{
+	bClosedLoop = bInClosedLoop;
+	UpdateSpline();
 }
 
 
 bool USplineComponent::IsClosedLoop() const
 {
 	return bClosedLoop;
-}
-
-
-void USplineComponent::RemoveLoopEndpoint()
-{
-	const int32 NumPoints = SplineInfo.Points.Num();
-	check(!bClosedLoop);
-	check(NumPoints == 0 || (NumPoints >= 2 && SplineInfo.Points[0].OutVal == SplineInfo.Points[NumPoints - 1].OutVal));
-	if (NumPoints > 0)
-	{
-		SplineInfo.Points.RemoveAt(NumPoints - 1, 1, false);
-	}
-}
-
-
-void USplineComponent::AddLoopEndpoint()
-{
-	check(bClosedLoop);
-	const int32 NumPoints = SplineInfo.Points.Num();
-	if (NumPoints > 0)
-	{
-		FInterpCurvePoint<FVector> EndPoint(SplineInfo.Points[0]);
-		EndPoint.InVal = static_cast<float>(NumPoints);
-		SplineInfo.Points.Add(EndPoint);
-	}
 }
 
 
@@ -282,106 +441,120 @@ void USplineComponent::SetSelectedSplineSegmentColor(const FLinearColor& Color)
 
 void USplineComponent::ClearSplinePoints()
 {
-	SplineInfo.Reset();
-	SplineReparamTable.Reset();
-}
-
-
-void USplineComponent::AddSplineWorldPoint(const FVector& Position)
-{
-	// If it's a closed loop, remove the endpoint before adding a new point
-	const bool bWasLoop = IsClosedLoop();
-	UpdateLoopEndpoint(false);
-
-	float InputKey = static_cast<float>(SplineInfo.Points.Num());
-	const int32 PointIndex = SplineInfo.AddPoint(InputKey, ComponentToWorld.InverseTransformPosition(Position));
-	SplineInfo.Points[PointIndex].InterpMode = CIM_CurveAuto;
-
-	// Then re-close the spline if required
-	UpdateLoopEndpoint(bWasLoop);
-
+	SplineInfo.Points.Reset();
+	SplineRotInfo.Points.Reset();
+	SplineScaleInfo.Points.Reset();
 	UpdateSpline();
 }
 
 
-void USplineComponent::AddSplineLocalPoint(const FVector& Position)
+void USplineComponent::AddSplinePoint(const FVector& Position, ESplineCoordinateSpace::Type CoordinateSpace)
 {
-	// If it's a closed loop, remove the endpoint before adding a new point
-	const bool bWasLoop = IsClosedLoop();
-	UpdateLoopEndpoint(false);
+	const FVector TransformedPosition = (CoordinateSpace == ESplineCoordinateSpace::World) ?
+		ComponentToWorld.InverseTransformPosition(Position) : Position;
 
-	float InputKey = static_cast<float>(SplineInfo.Points.Num());
-	const int32 PointIndex = SplineInfo.AddPoint(InputKey, Position);
-	SplineInfo.Points[PointIndex].InterpMode = CIM_CurveAuto;
+	const float InKey = static_cast<float>(SplineInfo.Points.Num());
 
-	// Then re-close the spline if required
-	UpdateLoopEndpoint(bWasLoop);
+	SplineInfo.Points.Emplace(InKey, TransformedPosition, FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
+	SplineRotInfo.Points.Emplace(InKey, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto);
+	SplineScaleInfo.Points.Emplace(InKey, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
 
 	UpdateSpline();
 }
 
-
-void USplineComponent::SetSplineWorldPoints(const TArray<FVector>& Points)
+void USplineComponent::AddSplinePointAtIndex(const FVector& Position, int32 Index, ESplineCoordinateSpace::Type CoordinateSpace)
 {
-	// If it's a closed loop, mark it as not closed before setting a new array of points
-	const bool bWasLoop = IsClosedLoop();
-	UpdateLoopEndpoint(false);
+	const FVector TransformedPosition = (CoordinateSpace == ESplineCoordinateSpace::World) ?
+		ComponentToWorld.InverseTransformPosition(Position) : Position;
 
-	SplineInfo.Points.Reset(bWasLoop ? Points.Num() + 1 : Points.Num());
+	const float InKey = static_cast<float>(Index);
+
+	if (((Index >= 0) && 
+		(Index < SplineInfo.Points.Num())) &&
+		(Index < SplineRotInfo.Points.Num()) &&
+		(Index < SplineScaleInfo.Points.Num()))
+	{
+		SplineInfo.Points.Insert(FInterpCurvePoint<FVector>(InKey, TransformedPosition, FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto), Index);
+		SplineRotInfo.Points.Insert(FInterpCurvePoint<FQuat>(InKey, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto), Index);
+		SplineScaleInfo.Points.Insert(FInterpCurvePoint<FVector>(InKey, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto), Index);
+	}
+
+	UpdateSpline();
+}
+
+void USplineComponent::RemoveSplinePoint(const int32 Index)
+{
+	int32 Count = 1;
+
+	if ((Index >= 0) &&
+		(SplineInfo.Points.Num() >= 0) &&
+		(SplineRotInfo.Points.Num() >= 0) &&
+		(SplineScaleInfo.Points.Num() >= 0) &&
+		(Index + Count <= SplineInfo.Points.Num()) &&
+		(Index + Count <= SplineRotInfo.Points.Num()) &&
+		(Index + Count <= SplineScaleInfo.Points.Num())
+		)
+	{
+		SplineInfo.Points.RemoveAt(Index, Count, false);
+		SplineRotInfo.Points.RemoveAt(Index, Count, false);
+		SplineScaleInfo.Points.RemoveAt(Index, Count, false);
+	}
+
+	UpdateSpline();
+}
+
+void USplineComponent::SetSplinePoints(const TArray<FVector>& Points, ESplineCoordinateSpace::Type CoordinateSpace)
+{
+	const int32 NumPoints = Points.Num();
+	SplineInfo.Points.Reset(NumPoints);
+	SplineRotInfo.Points.Reset(NumPoints);
+	SplineScaleInfo.Points.Reset(NumPoints);
+
 	float InputKey = 0.0f;
 	for (const auto& Point : Points)
 	{
-		int32 PointIndex = SplineInfo.AddPoint(InputKey, ComponentToWorld.InverseTransformPosition(Point));
-		SplineInfo.Points[PointIndex].InterpMode = CIM_CurveAuto;
+		const FVector TransformedPoint = (CoordinateSpace == ESplineCoordinateSpace::World) ?
+			ComponentToWorld.InverseTransformPosition(Point) : Point;
+
+		SplineInfo.Points.Emplace(InputKey, TransformedPoint, FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
+		SplineRotInfo.Points.Emplace(InputKey, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto);
+		SplineScaleInfo.Points.Emplace(InputKey, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
+
 		InputKey += 1.0f;
 	}
-
-	UpdateLoopEndpoint(bWasLoop);
 
 	UpdateSpline();
 }
 
 
-void USplineComponent::SetSplineLocalPoints(const TArray<FVector>& Points)
-{
-	const bool bWasLoop = IsClosedLoop();
-	UpdateLoopEndpoint(false);
-
-	SplineInfo.Points.Reset(bWasLoop ? Points.Num() + 1 : Points.Num());
-	float InputKey = 0.0f;
-	for (const auto& Point : Points)
-	{
-		int32 PointIndex = SplineInfo.AddPoint(InputKey, Point);
-		SplineInfo.Points[PointIndex].InterpMode = CIM_CurveAuto;
-		InputKey += 1.0f;
-	}
-
-	UpdateLoopEndpoint(bWasLoop);
-
-	UpdateSpline();
-}
-
-
-void USplineComponent::SetWorldLocationAtSplinePoint(int32 PointIndex, const FVector& InLocation)
+void USplineComponent::SetLocationAtSplinePoint(int32 PointIndex, const FVector& InLocation, ESplineCoordinateSpace::Type CoordinateSpace)
 {
 	const int32 NumPoints = SplineInfo.Points.Num();
 
 	if ((PointIndex >= 0) && (PointIndex < NumPoints))
 	{
-		SplineInfo.Points[PointIndex].OutVal = ComponentToWorld.InverseTransformPosition(InLocation);
+		const FVector TransformedLocation = (CoordinateSpace == ESplineCoordinateSpace::World) ?
+			ComponentToWorld.InverseTransformPosition(InLocation) : InLocation;
 
-		if (IsClosedLoop())
-		{
-			// In a closed loop, the first and last points are tied, so update one with the other
-			if (PointIndex == 0)
-			{
-				SplineInfo.Points[NumPoints - 1].OutVal = InLocation;
-			}
-			else if (PointIndex == NumPoints - 1)
-			{
-				SplineInfo.Points[0].OutVal = InLocation;
-			}
-		}
+		SplineInfo.Points[PointIndex].OutVal = TransformedLocation;
+
+		UpdateSpline();
+	}
+}
+
+
+void USplineComponent::SetTangentAtSplinePoint(int32 PointIndex, const FVector& InTangent, ESplineCoordinateSpace::Type CoordinateSpace)
+{
+	const int32 NumPoints = SplineInfo.Points.Num();
+
+	if ((PointIndex >= 0) && (PointIndex < NumPoints))
+	{
+		const FVector TransformedTangent = (CoordinateSpace == ESplineCoordinateSpace::World) ?
+			ComponentToWorld.InverseTransformVector(InTangent) : InTangent;
+
+		SplineInfo.Points[PointIndex].LeaveTangent = TransformedTangent;
+		SplineInfo.Points[PointIndex].ArriveTangent = TransformedTangent;
+		SplineInfo.Points[PointIndex].InterpMode = CIM_CurveUser;
 
 		UpdateSpline();
 	}
@@ -392,12 +565,7 @@ ESplinePointType::Type USplineComponent::GetSplinePointType(int32 PointIndex) co
 {
 	if ((PointIndex >= 0) && (PointIndex < SplineInfo.Points.Num()))
 	{
-		switch (SplineInfo.Points[PointIndex].InterpMode)
-		{
-			case CIM_CurveAuto:			return ESplinePointType::Curve;
-			case CIM_CurveAutoClamped:	return ESplinePointType::CurveClamped;
-			case CIM_Linear:			return ESplinePointType::Linear;
-		}
+		return ConvertInterpCurveModeToSplinePointType(SplineInfo.Points[PointIndex].InterpMode);
 	}
 
 	return ESplinePointType::Constant;
@@ -406,74 +574,102 @@ ESplinePointType::Type USplineComponent::GetSplinePointType(int32 PointIndex) co
 
 void USplineComponent::SetSplinePointType(int32 PointIndex, ESplinePointType::Type Type)
 {
-	EInterpCurveMode InterpMode;
-	switch (Type)
+	if ((PointIndex >= 0) && (PointIndex < SplineInfo.Points.Num()))
 	{
-		case ESplinePointType::Curve:			InterpMode = CIM_CurveAuto; break;
-		case ESplinePointType::CurveClamped:	InterpMode = CIM_CurveAutoClamped; break;
-		case ESplinePointType::Linear:			InterpMode = CIM_Linear; break;
-		default:								InterpMode = CIM_Constant;
-	}
-
-	const int32 NumPoints = SplineInfo.Points.Num();
-
-	if ((PointIndex >= 0) && (PointIndex < NumPoints))
-	{
-		SplineInfo.Points[PointIndex].InterpMode = InterpMode;
-
-		if (IsClosedLoop())
-		{
-			// In a closed loop, the first and last points are tied, so update one with the other
-			if (PointIndex == 0)
-			{
-				SplineInfo.Points[NumPoints - 1].InterpMode = InterpMode;
-			}
-			else if (PointIndex == NumPoints - 1)
-			{
-				SplineInfo.Points[0].InterpMode = InterpMode;
-			}
-		}
-
+		SplineInfo.Points[PointIndex].InterpMode = ConvertSplinePointTypeToInterpCurveMode(Type);
 		UpdateSpline();
 	}
 }
 
 
-int32 USplineComponent::GetNumSplinePoints() const
+int32 USplineComponent::GetNumberOfSplinePoints() const
 {
-	return SplineInfo.Points.Num();
+	// No longer returns an imaginary extra endpoint if closed loop is set
+	const int32 NumPoints = SplineInfo.Points.Num();
+	return NumPoints;
 }
 
-FVector USplineComponent::GetWorldLocationAtSplinePoint(int32 PointIndex) const
+
+FVector USplineComponent::GetLocationAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	FVector LocalLocation(0,0,0);
-	if ((PointIndex >= 0) && (PointIndex < SplineInfo.Points.Num()))
-	{
-		LocalLocation = SplineInfo.Points[PointIndex].OutVal;
-	}
-	return ComponentToWorld.TransformPosition(LocalLocation);
+	return GetLocationAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
 }
 
-void USplineComponent::GetLocalLocationAndTangentAtSplinePoint(int32 PointIndex, FVector& LocalLocation, FVector& LocalTangent) const
+
+FVector USplineComponent::GetDirectionAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	LocalTangent = FVector(0, 0, 0);
-	LocalLocation = FVector(0, 0, 0);
-	if ((PointIndex >= 0) && (PointIndex < SplineInfo.Points.Num()))
-	{
-		LocalTangent = SplineInfo.Points[PointIndex].LeaveTangent;
-		LocalLocation = SplineInfo.Points[PointIndex].OutVal;
-	}
+	return GetLocationAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
 }
+
+
+FVector USplineComponent::GetTangentAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	return GetTangentAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+}
+
+
+FQuat USplineComponent::GetQuaternionAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	return GetQuaternionAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+}
+
+
+FRotator USplineComponent::GetRotationAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	return GetRotationAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+}
+
+
+FVector USplineComponent::GetUpVectorAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	return GetUpVectorAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+}
+
+
+FVector USplineComponent::GetRightVectorAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	return GetRightVectorAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+}
+
+
+float USplineComponent::GetRollAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	return GetRollAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+}
+
+
+FVector USplineComponent::GetScaleAtSplinePoint(int32 PointIndex) const
+{
+	return GetScaleAtSplineInputKey(static_cast<float>(PointIndex));
+}
+
+
+FTransform USplineComponent::GetTransformAtSplinePoint(int32 PointIndex, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseScale) const
+{
+	return GetTransformAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace, bUseScale);
+}
+
+
+void USplineComponent::GetLocationAndTangentAtSplinePoint(int32 PointIndex, FVector& Location, FVector& Tangent, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	Location = GetLocationAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+	Tangent = GetTangentAtSplineInputKey(static_cast<float>(PointIndex), CoordinateSpace);
+}
+
 
 float USplineComponent::GetDistanceAlongSplineAtSplinePoint(int32 PointIndex) const
 {
-	if ((PointIndex >= 0) && (PointIndex < SplineInfo.Points.Num()))
+	const int32 NumPoints = SplineInfo.Points.Num();
+	const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+
+	if ((PointIndex >= 0) && (PointIndex < NumSegments + 1))
 	{
 		return SplineReparamTable.Points[PointIndex * ReparamStepsPerSegment].InVal;
 	}
 
 	return 0.0f;
 }
+
 
 float USplineComponent::GetSplineLength() const
 {
@@ -482,10 +678,38 @@ float USplineComponent::GetSplineLength() const
 	// This is given by the input of the last entry in the remap table
 	if (NumPoints > 0)
 	{
-		return SplineReparamTable.Points[NumPoints - 1].InVal;
+		return SplineReparamTable.Points.Last().InVal;
 	}
 	
-	return 0.f;
+	return 0.0f;
+}
+
+
+void USplineComponent::SetDefaultUpVector(const FVector& UpVector, ESplineCoordinateSpace::Type CoordinateSpace)
+{
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		DefaultUpVector = ComponentToWorld.InverseTransformVector(UpVector);
+	}
+	else
+	{
+		DefaultUpVector = UpVector;
+	}
+
+	UpdateSpline();
+}
+
+
+FVector USplineComponent::GetDefaultUpVector(ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	if (CoordinateSpace == ESplineCoordinateSpace::World)
+	{
+		return ComponentToWorld.TransformVector(DefaultUpVector);
+	}
+	else
+	{
+		return DefaultUpVector;
+	}
 }
 
 
@@ -499,42 +723,81 @@ float USplineComponent::GetInputKeyAtDistanceAlongSpline(float Distance) const
 	}
 
 	const float TimeMultiplier = Duration / (NumPoints - 1.0f);
-	return SplineReparamTable.Eval(Distance, 0.f) * TimeMultiplier;
+	return SplineReparamTable.Eval(Distance, 0.0f) * TimeMultiplier;
 }
 
 
-FVector USplineComponent::GetWorldLocationAtDistanceAlongSpline(float Distance) const
+FVector USplineComponent::GetLocationAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	const float Param = SplineReparamTable.Eval(Distance, 0.f);
-	const FVector Location = SplineInfo.Eval(Param, FVector::ZeroVector);
-	return ComponentToWorld.TransformPosition(Location);
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetLocationAtSplineInputKey(Param, CoordinateSpace);
 }
 
 
-FVector USplineComponent::GetWorldTangentAtDistanceAlongSpline(float Distance) const
+FVector USplineComponent::GetTangentAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	const float Param = SplineReparamTable.Eval(Distance, 0.f);
-	const FVector Tangent = SplineInfo.EvalDerivative(Param, FVector::ZeroVector);
-	return ComponentToWorld.TransformVector(Tangent);
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetTangentAtSplineInputKey(Param, CoordinateSpace);
 }
 
 
-FVector USplineComponent::GetWorldDirectionAtDistanceAlongSpline(float Distance) const
+FVector USplineComponent::GetDirectionAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	const float Param = SplineReparamTable.Eval(Distance, 0.f);
-	const FVector Tangent = SplineInfo.EvalDerivative(Param, FVector::ZeroVector).GetSafeNormal();
-	return ComponentToWorld.TransformVectorNoScale(Tangent);
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetDirectionAtSplineInputKey(Param, CoordinateSpace);
 }
 
 
-FRotator USplineComponent::GetWorldRotationAtDistanceAlongSpline(float Distance) const
+FQuat USplineComponent::GetQuaternionAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace) const
 {
-	const FVector Dir = GetWorldDirectionAtDistanceAlongSpline(Distance);
-	return Dir.Rotation();
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetQuaternionAtSplineInputKey(Param, CoordinateSpace);
 }
 
 
-FVector USplineComponent::GetWorldLocationAtTime(float Time, bool bUseConstantVelocity) const
+FRotator USplineComponent::GetRotationAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetRotationAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FVector USplineComponent::GetUpVectorAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetUpVectorAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FVector USplineComponent::GetRightVectorAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetRightVectorAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+float USplineComponent::GetRollAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetRollAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FVector USplineComponent::GetScaleAtDistanceAlongSpline(float Distance) const
+{
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetScaleAtSplineInputKey(Param);
+}
+
+
+FTransform USplineComponent::GetTransformAtDistanceAlongSpline(float Distance, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseScale) const
+{
+	const float Param = SplineReparamTable.Eval(Distance, 0.0f);
+	return GetTransformAtSplineInputKey(Param, CoordinateSpace, bUseScale);
+}
+
+
+FVector USplineComponent::GetLocationAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity) const
 {
 	if (Duration == 0.0f)
 	{
@@ -543,16 +806,19 @@ FVector USplineComponent::GetWorldLocationAtTime(float Time, bool bUseConstantVe
 
 	if (bUseConstantVelocity)
 	{
-		return GetWorldLocationAtDistanceAlongSpline(Time / Duration * GetSplineLength());
+		return GetLocationAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace);
 	}
-
-	const float TimeMultiplier = (SplineInfo.Points.Num() - 1.0f) / Duration;
-	const FVector Location = SplineInfo.Eval(Time * TimeMultiplier, FVector::ZeroVector);
-	return ComponentToWorld.TransformPosition(Location);
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetLocationAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace);
+	}
 }
 
 
-FVector USplineComponent::GetWorldDirectionAtTime(float Time, bool bUseConstantVelocity) const
+FVector USplineComponent::GetDirectionAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity) const
 {
 	if (Duration == 0.0f)
 	{
@@ -561,28 +827,261 @@ FVector USplineComponent::GetWorldDirectionAtTime(float Time, bool bUseConstantV
 
 	if (bUseConstantVelocity)
 	{
-		return GetWorldDirectionAtDistanceAlongSpline(Time / Duration * GetSplineLength());
+		return GetDirectionAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace);
 	}
-
-	const float TimeMultiplier = (SplineInfo.Points.Num() - 1.0f) / Duration;
-	const FVector Tangent = SplineInfo.EvalDerivative(Time * TimeMultiplier, FVector::ZeroVector).GetSafeNormal();
-	return ComponentToWorld.TransformVectorNoScale(Tangent);
-}
-
-
-FRotator USplineComponent::GetWorldRotationAtTime(float Time, bool bUseConstantVelocity) const
-{
-	FVector WorldDir = GetWorldDirectionAtTime(Time, bUseConstantVelocity);
-	return WorldDir.Rotation();
-}
-
-
-void USplineComponent::RefreshSplineInputs()
-{
-	for(int32 KeyIdx=0; KeyIdx<SplineInfo.Points.Num(); KeyIdx++)
+	else
 	{
-		SplineInfo.Points[KeyIdx].InVal = KeyIdx;
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetDirectionAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace);
 	}
+}
+
+
+FVector USplineComponent::GetTangentAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity) const
+{
+	if (Duration == 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (bUseConstantVelocity)
+	{
+		return GetTangentAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace);
+	}
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetTangentAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace);
+	}
+}
+
+
+FRotator USplineComponent::GetRotationAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity) const
+{
+	if (Duration == 0.0f)
+	{
+		return FRotator::ZeroRotator;
+	}
+
+	if (bUseConstantVelocity)
+	{
+		return GetRotationAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace);
+	}
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetRotationAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace);
+	}
+}
+
+
+FQuat USplineComponent::GetQuaternionAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity) const
+{
+	if (Duration == 0.0f)
+	{
+		return FQuat::Identity;
+	}
+
+	if (bUseConstantVelocity)
+	{
+		return GetQuaternionAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace);
+	}
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetQuaternionAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace);
+	}
+}
+
+
+FVector USplineComponent::GetUpVectorAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity) const
+{
+	if (Duration == 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (bUseConstantVelocity)
+	{
+		return GetUpVectorAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace);
+	}
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetUpVectorAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace);
+	}
+}
+
+
+FVector USplineComponent::GetRightVectorAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity) const
+{
+	if (Duration == 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (bUseConstantVelocity)
+	{
+		return GetRightVectorAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace);
+	}
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetRightVectorAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace);
+	}
+}
+
+
+float USplineComponent::GetRollAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity) const
+{
+	if (Duration == 0.0f)
+	{
+		return 0.0f;
+	}
+
+	if (bUseConstantVelocity)
+	{
+		return GetRollAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace);
+	}
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetRollAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace);
+	}
+}
+
+
+FTransform USplineComponent::GetTransformAtTime(float Time, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseConstantVelocity, bool bUseScale) const
+{
+	if (Duration == 0.0f)
+	{
+		return FTransform::Identity;
+	}
+
+	if (bUseConstantVelocity)
+	{
+		return GetTransformAtDistanceAlongSpline(Time / Duration * GetSplineLength(), CoordinateSpace, bUseScale);
+	}
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetTransformAtSplineInputKey(Time * TimeMultiplier, CoordinateSpace, bUseScale);
+	}
+}
+
+
+FVector USplineComponent::GetScaleAtTime(float Time, bool bUseConstantVelocity) const
+{
+	if (Duration == 0.0f)
+	{
+		return FVector(1.0f);
+	}
+
+	if (bUseConstantVelocity)
+	{
+		return GetScaleAtDistanceAlongSpline(Time / Duration * GetSplineLength());
+	}
+	else
+	{
+		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumSegments = bClosedLoop ? NumPoints : NumPoints - 1;
+		const float TimeMultiplier = NumSegments / Duration;
+		return GetScaleAtSplineInputKey(Time * TimeMultiplier);
+	}
+}
+
+
+float USplineComponent::FindInputKeyClosestToWorldLocation(const FVector& WorldLocation) const
+{
+	const FVector LocalLocation = ComponentToWorld.InverseTransformPosition(WorldLocation);
+	float Dummy;
+	return SplineInfo.InaccurateFindNearest(LocalLocation, Dummy);
+}
+
+
+FVector USplineComponent::FindLocationClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetLocationAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FVector USplineComponent::FindDirectionClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetDirectionAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FVector USplineComponent::FindTangentClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetTangentAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FQuat USplineComponent::FindQuaternionClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetQuaternionAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FRotator USplineComponent::FindRotationClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetRotationAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FVector USplineComponent::FindUpVectorClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetUpVectorAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FVector USplineComponent::FindRightVectorClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetRightVectorAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+float USplineComponent::FindRollClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetRollAtSplineInputKey(Param, CoordinateSpace);
+}
+
+
+FVector USplineComponent::FindScaleClosestToWorldLocation(const FVector& WorldLocation) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetScaleAtSplineInputKey(Param);
+}
+
+
+FTransform USplineComponent::FindTransformClosestToWorldLocation(const FVector& WorldLocation, ESplineCoordinateSpace::Type CoordinateSpace, bool bUseScale) const
+{
+	const float Param = FindInputKeyClosestToWorldLocation(WorldLocation);
+	return GetTransformAtSplineInputKey(Param, CoordinateSpace, bUseScale);
 }
 
 
@@ -598,123 +1097,66 @@ public:
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
 	{
 		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<USplineComponent>(Component)->ApplyComponentInstanceData(this);
+		CastChecked<USplineComponent>(Component)->ApplyComponentInstanceData(this, (CacheApplyPhase == ECacheApplyPhase::PostUserConstructionScript));
 	}
 
 	FInterpCurveVector SplineInfo;
-	bool bClosedLoop;
+	FInterpCurveQuat SplineRotInfo;
+	FInterpCurveVector SplineScaleInfo;
+	bool bSplineHasBeenEdited;
 };
 
-FName USplineComponent::GetComponentInstanceDataType() const
-{
-	static const FName SplineInstanceDataTypeName(TEXT("SplineInstanceData"));
-	return SplineInstanceDataTypeName;
-}
 
 FActorComponentInstanceData* USplineComponent::GetComponentInstanceData() const
 {
-	FActorComponentInstanceData* InstanceData = nullptr;
-	if (bAllowSplineEditingPerInstance)
+	FSplineInstanceData* SplineInstanceData = new FSplineInstanceData(this);
+	if (bSplineHasBeenEdited)
 	{
-		FSplineInstanceData* SplineInstanceData = new FSplineInstanceData(this);
 		SplineInstanceData->SplineInfo = SplineInfo;
-		SplineInstanceData->bClosedLoop = bClosedLoop;
+		SplineInstanceData->SplineRotInfo = SplineRotInfo;
+		SplineInstanceData->SplineScaleInfo = SplineScaleInfo;
+	}
+	SplineInstanceData->bSplineHasBeenEdited = bSplineHasBeenEdited;
 
-		InstanceData = SplineInstanceData;
-	}
-	else
-	{
-		InstanceData = Super::GetComponentInstanceData();
-	}
-	return InstanceData;
+	return SplineInstanceData;
 }
 
-void USplineComponent::ApplyComponentInstanceData(FSplineInstanceData* SplineInstanceData)
+
+void USplineComponent::ApplyComponentInstanceData(FSplineInstanceData* SplineInstanceData, const bool bPostUCS)
 {
-	if (SplineInstanceData)
+	check(SplineInstanceData);
+
+	if (SplineInstanceData->bSplineHasBeenEdited)
 	{
-		if (bAllowSplineEditingPerInstance)
-		{
-			SplineInfo = SplineInstanceData->SplineInfo;
-
-			// If the construction script changed bClosedLoop, amend the applied points accordingly
-			if (SplineInstanceData->bClosedLoop != bClosedLoop)
-			{
-				if (bClosedLoop)
-				{
-					AddLoopEndpoint();
-				}
-				else
-				{
-					RemoveLoopEndpoint();
-				}
-			}
-
-			UpdateSpline();
-		}
+		SplineInfo = SplineInstanceData->SplineInfo;
+		SplineRotInfo = SplineInstanceData->SplineRotInfo;
+		SplineScaleInfo = SplineInstanceData->SplineScaleInfo;
 	}
+
+	bSplineHasBeenEdited = SplineInstanceData->bSplineHasBeenEdited;
+
+	UpdateSpline();
 }
+
 
 #if WITH_EDITOR
-void USplineComponent::PreEditChange(UProperty* PropertyAboutToChange)
-{
-	Super::PreEditChange(PropertyAboutToChange);
-
-	if (PropertyAboutToChange != nullptr && PropertyAboutToChange->GetFName() == GET_MEMBER_NAME_CHECKED(USplineComponent, bClosedLoop))
-	{
-		if (bClosedLoop)
-		{
-			// We need to detect changes in state in order to correctly open or close the loop.
-			// Since we don't know what state is about to be set, we ensure that the spline is marked as not closed here, so that either:
-			//  a) Nothing needs to be done if the property is set to false, or
-			//  b) The spline is already set as not looped, so that setting the property to true will work correctly in PostEditChangeProperty.
-			bClosedLoop = false;
-			RemoveLoopEndpoint();
-		}
-	}
-}
-
-void USplineComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedChainEvent)
-{
-	if (PropertyChangedChainEvent.Property != nullptr)
-	{
-		const FName PropertyName(PropertyChangedChainEvent.Property->GetFName());
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(USplineComponent, bClosedLoop))
-		{
-			if (bClosedLoop)
-			{
-				// Spline is guaranteed to be non-looping when we get here (due to PreEditChange).
-				// Now just force the loop endpoint to be added if bClosedLoop == true.
-				AddLoopEndpoint();
-			}
-
-			UpdateSpline();
-		}
-	}
-
-	Super::PostEditChangeChainProperty(PropertyChangedChainEvent);
-}
-
-void USplineComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+void USplineComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
 {
 	if (PropertyChangedEvent.Property != nullptr)
 	{
+		static const FName ReparamStepsPerSegmentName = GET_MEMBER_NAME_CHECKED(USplineComponent, ReparamStepsPerSegment);
+		static const FName StationaryEndpointsName = GET_MEMBER_NAME_CHECKED(USplineComponent, bStationaryEndpoints);
+		static const FName DefaultUpVectorName = GET_MEMBER_NAME_CHECKED(USplineComponent, DefaultUpVector);
+		static const FName ClosedLoopName = GET_MEMBER_NAME_CHECKED(USplineComponent, bClosedLoop);
+		static const FName SplineInfoName = GET_MEMBER_NAME_CHECKED(USplineComponent, SplineInfo);
+		static const FName SplineHasBeenEditedName = GET_MEMBER_NAME_CHECKED(USplineComponent, bSplineHasBeenEdited);
+
 		const FName PropertyName(PropertyChangedEvent.Property->GetFName());
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(USplineComponent, ReparamStepsPerSegment) ||
-			PropertyName == GET_MEMBER_NAME_CHECKED(USplineComponent, bStationaryEndpoints))
+		if (PropertyName == ReparamStepsPerSegmentName ||
+			PropertyName == StationaryEndpointsName ||
+			PropertyName == DefaultUpVectorName ||
+			PropertyName == ClosedLoopName)
 		{
-			UpdateSpline();
-		}
-
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(USplineComponent, bClosedLoop))
-		{
-			if (bClosedLoop)
-			{
-				// Spline is guaranteed to be non-looping when we get here (due to PreEditChange).
-				// Now just force the loop endpoint to be added if bClosedLoop == true.
-				AddLoopEndpoint();
-			}
-
 			UpdateSpline();
 		}
 	}

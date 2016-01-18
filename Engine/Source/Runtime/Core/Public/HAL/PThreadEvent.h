@@ -24,9 +24,6 @@ class FPThreadEvent
     pthread_mutex_t Mutex;
     pthread_cond_t Condition;
 
-	/** Stat ID of this event. */
-	TStatId StatID;
-
 	inline void LockEventMutex()
 	{
 		const int rc = pthread_mutex_lock(&Mutex);
@@ -117,7 +114,6 @@ public:
 				pthread_mutex_destroy(&Mutex);
 			}
 		}
-		StatID = FEventStats::CreateStatID();
 		return RetVal;
 	}
 
@@ -128,6 +124,8 @@ public:
 
 	virtual void Trigger() override
 	{
+		TriggerForStats();
+
 		check(bInitialized);
 
 		LockEventMutex();
@@ -148,15 +146,17 @@ public:
 			check(rc == 0);
 		}
 
-		UnlockEventMutex();
+		UnlockEventMutex();	
 	}
 
 	virtual void Reset() override
 	{
+		ResetForStats();
+
 		check(bInitialized);
 		LockEventMutex();
 		Triggered = TRIGGERED_NONE;
-		UnlockEventMutex();
+		UnlockEventMutex();	
 	}
 
 	virtual bool Wait( uint32 WaitTime = (uint32)-1, const bool bIgnoreThreadIdleStats = false ) override;

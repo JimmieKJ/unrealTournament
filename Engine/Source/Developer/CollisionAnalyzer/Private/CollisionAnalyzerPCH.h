@@ -10,6 +10,7 @@
 #include "ICollisionAnalyzer.h"
 
 #include "CollisionAnalyzer.h"
+#include "CollisionAnalyzerStyle.h"
 
 #include "SCAQueryTableRow.h"
 #include "SCAQueryDetails.h"

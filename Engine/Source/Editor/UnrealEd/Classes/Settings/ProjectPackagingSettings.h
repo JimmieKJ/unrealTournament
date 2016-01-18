@@ -30,13 +30,13 @@ enum class EProjectPackagingInternationalizationPresets
 	/** English only. */
 	English,
 
-	/** English, French, Italian, German, Spanish */
+	/** English, French, Italian, German, Spanish. */
 	EFIGS,
 
-	/** English, French, Italian, German, Spanish, Chinese, Japanese, Korean */
+	/** English, French, Italian, German, Spanish, Chinese, Japanese, Korean. */
 	EFIGSCJK,
 
-	/** Chinese, Japanese, Korean */
+	/** Chinese, Japanese, Korean. */
 	CJK,
 
 	/** All known cultures. */
@@ -82,6 +82,10 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Project)
 	bool IncludeDebugFiles;
 
+	/** If enabled, then the project's Blueprint assets (including structs and enums) will be intermediately converted into C++ and used in the packaged project (in place of the .uasset files).*/
+	UPROPERTY(config, EditAnywhere, Category=Experimental)
+	bool bNativizeBlueprintAssets;
+
 	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool UsePakFile;
@@ -92,6 +96,13 @@ public:
 	 */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool bGenerateChunks;
+
+	/**
+	* Normally during chunk generation all dependencies of a package in a chunk will be pulled into that package's chunk.
+	* If this is enabled then only hard dependencies are pulled in. Soft dependencies stay in their original chunk.
+	*/
+	UPROPERTY(config, EditAnywhere, Category = Packaging)
+	bool bChunkHardReferencesOnly;
 
 	/** 
 	 * If enabled, will generate data for HTTP Chunk Installer. This data can be hosted on webserver to be installed at runtime. Requires "Generate Chunks" enabled.
@@ -154,6 +165,12 @@ public:
 	bool bCompressed;
 	
 	/**
+	* Skip editor content
+	*/
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Do not include editor content in this package may cause game to crash / error if you are using this content."))
+	bool bSkipEditorContent;
+
+	/**
 	 * List of maps to include when no other map list is specified on commandline
 	 */
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="List of maps to include in a packaged build", RelativeToGameContentDir))
@@ -166,6 +183,15 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Asset Directories to Cook", RelativeToGameContentDir))
 	TArray<FDirectoryPath> DirectoriesToAlwaysCook;
 	
+
+	/**
+	* Directories containing .uasset files that should always be cooked regardless of whether they're referenced by anything in your project
+	* Note: These paths are relative to your project Content directory
+	*/
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Directories to never cook", RelativeToGameContentDir))
+	TArray<FDirectoryPath> DirectoriesToNeverCook;
+
+
 	/**
 	 * Directories containing files that should always be added to the .pak file (if using a .pak file; otherwise they're copied as individual files)
 	 * This is used to stage additional files that you manually load via the UFS (Unreal File System) file IO API

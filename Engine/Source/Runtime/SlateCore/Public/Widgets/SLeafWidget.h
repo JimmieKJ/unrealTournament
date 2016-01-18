@@ -13,6 +13,11 @@ class SLATECORE_API SLeafWidget
 	: public SWidget
 {
 public:
+	SLeafWidget()
+	{
+		bCanHaveChildren = false;
+	}
+
 	virtual void SetVisibility( TAttribute<EVisibility> InVisibility ) override final;
 
 private:

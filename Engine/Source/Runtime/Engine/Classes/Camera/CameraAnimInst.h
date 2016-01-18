@@ -136,7 +136,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category=CameraAnimInst)
 	void SetDuration(float NewDuration);
 
-	
+	/** Changes the scale of the animation while playing.*/
+	UFUNCTION(BlueprintCallable, Category = CameraAnimInst)
+	void SetScale(float NewDuration);
+
 
 protected:
 	/** Returns InterpGroupInst subobject **/

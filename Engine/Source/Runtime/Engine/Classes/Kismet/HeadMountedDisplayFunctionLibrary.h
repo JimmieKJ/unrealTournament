@@ -114,4 +114,21 @@ class ENGINE_API UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionL
 	 */
 	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay")
 	static float GetScreenPercentage();
+
+
+	/**
+	* Sets the World to Meters scale, which changes the scale of the world as perceived by the player
+	*
+	* @param NewScale	Specifies how many Unreal units correspond to one meter in the real world
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Input|HeadMountedDisplay", meta = (WorldContext = "WorldContext"))
+	static void SetWorldToMetersScale(UObject* WorldContext, float NewScale = 100.f);
+
+	/**
+	* Returns the World to Meters scale, which corresponds to the scale of the world as perceived by the player
+	*
+	* @return	How many Unreal units correspond to one meter in the real world
+	*/
+	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay", meta = (WorldContext = "WorldContext"))
+	static float GetWorldToMetersScale(UObject* WorldContext);
 };

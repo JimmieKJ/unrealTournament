@@ -40,12 +40,15 @@ public:
 			DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FTargetPlatformManagerModule.StartAutoSDK" ), STAT_FTargetPlatformManagerModule_StartAutoSDK, STATGROUP_TargetPlatform );
 
 			// amortize UBT cost by calling it once for all platforms, rather than once per platform.
-			FString UBTParams(TEXT("-autosdkonly"));
-			int32 UBTReturnCode = -1;
-			FString UBTOutput;
-			if (!FDesktopPlatformModule::Get()->InvokeUnrealBuildToolSync(UBTParams, *GLog, true, UBTReturnCode, UBTOutput))
+			if (FParse::Param(FCommandLine::Get(), TEXT("Multiprocess"))==false)
 			{
-				UE_LOG(LogTargetPlatformManager, Fatal, TEXT("Failed to run UBT to check SDK status!"));
+				FString UBTParams(TEXT("-autosdkonly"));
+				int32 UBTReturnCode = -1;
+				FString UBTOutput;
+				if (!FDesktopPlatformModule::Get()->InvokeUnrealBuildToolSync(UBTParams, *GLog, true, UBTReturnCode, UBTOutput))
+				{
+					UE_LOG(LogTargetPlatformManager, Fatal, TEXT("Failed to run UBT to check SDK status!"));
+				}
 			}
 
 			// we have to setup our local environment according to AutoSDKs or the ITargetPlatform's IsSDkInstalled calls may fail
@@ -587,12 +590,32 @@ protected:
 				if (Platform != nullptr)
 				{
 					// would like to move this check to GetActiveTargetPlatforms, but too many things cache this result
-					// this setup will become faster after TTP 341897 is complete.					
+					// this setup will become faster after TTP 341897 is complete.
+RETRY_SETUPANDVALIDATE:
 					if (SetupAndValidateAutoSDK(Platform->GetPlatformInfo().AutoSDKPath))
 					{
 						UE_LOG(LogTemp, Display, TEXT("Loaded TP %s"), *Modules[Index].ToString());
 						Platforms.Add(Platform);
 					}
+					else
+					{
+						// this hack is here because if you try and setup and validate autosdk some times it will fail because shared files are in use by another child cooker
+						static bool bIsChildCooker = FParse::Param(FCommandLine::Get(), TEXT("cookchild"));
+						if (bIsChildCooker)
+						{
+							static int Counter = 0;
+							++Counter;
+							if (Counter < 10)
+							{
+								goto RETRY_SETUPANDVALIDATE;
+							}
+						}
+						UE_LOG(LogTemp, Display, TEXT("Failed to SetupAndValidateAutoSDK for platform %s"), *Modules[Index].ToString());
+					}
+				}
+				else
+				{
+					UE_LOG(LogTemp, Display, TEXT("Failed to get target platform %s"), *Modules[Index].ToString());
 				}
 			}
 		}
@@ -694,7 +717,7 @@ protected:
 		}
 		else
 		{	
-			UE_LOG(LogTargetPlatformManager, Warning, TEXT("install manifest file for Platform %s not found.  Platform not set up."), *AutoSDKPath);			
+			UE_LOG(LogTargetPlatformManager, Log, TEXT("Install manifest file for Platform %s not found.  Platform not set up."), *AutoSDKPath);			
 			return false;			
 		}		
 

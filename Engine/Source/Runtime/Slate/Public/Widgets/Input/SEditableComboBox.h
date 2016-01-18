@@ -38,7 +38,7 @@ public:
 		, _OptionsSource()
 	 { }
 
-		SLATE_TEXT_ATTRIBUTE(AddButtonToolTip)
+		SLATE_ATTRIBUTE(FText, AddButtonToolTip)
 
 		SLATE_STYLE_ARGUMENT(FButtonStyle, ButtonStyle)
 
@@ -66,9 +66,9 @@ public:
 
 		SLATE_ARGUMENT(const TArray<OptionType>*, OptionsSource)
 
-		SLATE_TEXT_ATTRIBUTE(RemoveButtonToolTip)
+		SLATE_ATTRIBUTE(FText, RemoveButtonToolTip)
 
-		SLATE_TEXT_ATTRIBUTE(RenameButtonToolTip)
+		SLATE_ATTRIBUTE(FText, RenameButtonToolTip)
 
 	SLATE_END_ARGS()
 

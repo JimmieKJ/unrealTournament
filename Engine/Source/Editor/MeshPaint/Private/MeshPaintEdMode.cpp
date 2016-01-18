@@ -13,6 +13,7 @@
 #include "Editor/UnrealEd/Public/ObjectTools.h"
 #include "AssetToolsModule.h"
 #include "EditorSupportDelegates.h"
+#include "EditorReimportHandler.h"
 
 //Slate dependencies
 #include "Editor/LevelEditor/Public/LevelEditor.h"
@@ -30,6 +31,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "MeshPaintAdapterFactory.h"
+#include "Components/SplineMeshComponent.h"
 
 #define LOCTEXT_NAMESPACE "MeshPaint_Mode"
 
@@ -128,6 +130,11 @@ void FEdModeMeshPaint::AddReferencedObjects( FReferenceCollector& Collector )
 		Collector.AddReferencedObject( It.Key() );
 		It.Value().AddReferencedObjects( Collector );
 	}
+
+	for (const auto& Pair : ComponentToAdapterMap)
+	{
+		Pair.Value->AddReferencedObjects(Collector);
+	}
 }
 
 bool FEdModeMeshPaint::UsesToolkits() const
@@ -150,7 +157,14 @@ void FEdModeMeshPaint::Enter()
 		bShouldUpdateTextureList = true;
 
 	}
-	
+
+	// Catch assets if they are about to be (re)imported
+	FEditorDelegates::OnAssetPreImport.AddSP(this, &FEdModeMeshPaint::OnPreImportAsset);
+	FReimportManager::Instance()->OnPreReimport().AddSP(this, &FEdModeMeshPaint::OnPreReimportAsset);
+
+	// Initialize adapter globals
+	FMeshPaintAdapterFactory::InitializeAdapterGlobals();
+
 	if (!Toolkit.IsValid())
 	{
 		Toolkit = MakeShareable(new FMeshPaintToolKit(this));
@@ -233,6 +247,9 @@ void FEdModeMeshPaint::Exit()
 		ClearAllTextureOverrides();
 	}
 
+	// Remove all adapters
+	RemoveAllGeometryAdapters();
+
 	PaintTargetData.Empty();
 
 	// Remove any existing texture targets
@@ -245,6 +262,10 @@ void FEdModeMeshPaint::Exit()
 	{
 		EndTransaction();
 	}
+
+	// Unbind delegates
+	FReimportManager::Instance()->OnPreReimport().RemoveAll(this);
+	FEditorDelegates::OnAssetPreImport.RemoveAll(this);
 
 	// Call parent implementation
 	FEdMode::Exit();
@@ -915,6 +936,65 @@ bool FEdModeMeshPaint::PaintVertex( const FVector& InVertexPosition,
 	return false;
 }
 
+IMeshPaintGeometryAdapter* FEdModeMeshPaint::FindOrAddGeometryAdapter(UMeshComponent* MeshComponent)
+{
+	TSharedPtr<IMeshPaintGeometryAdapter>* MeshAdapter = ComponentToAdapterMap.Find(MeshComponent);
+	if (!MeshAdapter)
+	{
+		// If this component hasn't yet been seen, make an adapter for it and add it to the map
+		TSharedPtr<IMeshPaintGeometryAdapter> NewAdapter = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*TODO: Shouldn't be part of the construction contract: FMeshPaintSettings::Get().UVChannel*/ 0);
+		ComponentToAdapterMap.Add(MeshComponent, NewAdapter);
+		NewAdapter->OnAdded();
+		return NewAdapter.Get();
+	}
+	else
+	{
+		// Use existing adapter
+		return MeshAdapter->Get();
+	}
+}
+
+void FEdModeMeshPaint::CleanStaleGeometryAdapters(const TArray<UMeshComponent*>& ValidComponents)
+{
+	// Remove any stale components from the map
+	for (auto It = ComponentToAdapterMap.CreateIterator(); It; ++It)
+	{
+		if (!ValidComponents.Contains(It.Key()))
+		{
+			It.Value()->OnRemoved();
+			It.RemoveCurrent();
+		}
+	}
+}
+
+void FEdModeMeshPaint::RemoveAllGeometryAdapters()
+{
+	// Remove all components from the map
+	for (auto It = ComponentToAdapterMap.CreateIterator(); It; ++It)
+	{
+		It.Value()->OnRemoved();
+		It.RemoveCurrent();
+	}
+}
+
+void FEdModeMeshPaint::OnPreImportAsset(UFactory* Factory, UClass* Class, UObject* Object, const FName& Name, const TCHAR* Type)
+{
+	if (Class->IsChildOf(UStaticMesh::StaticClass()))
+	{
+		// Remove all geometry adapters to force them all to be recached next time they're required
+		RemoveAllGeometryAdapters();
+	}
+}
+
+void FEdModeMeshPaint::OnPreReimportAsset(UObject* Object)
+{
+	if (Object->IsA(UStaticMesh::StaticClass()))
+	{
+		// Remove all geometry adapters to force them all to be recached next time they're required
+		RemoveAllGeometryAdapters();
+	}
+}
+
 
 /** Paint the mesh that impacts the specified ray */
 void FEdModeMeshPaint::DoPaint( const FVector& InCameraOrigin,
@@ -928,8 +1008,6 @@ void FEdModeMeshPaint::DoPaint( const FVector& InCameraOrigin,
 {
 	const float BrushRadius = GetBrushRadiiDefault();
 
-	// Map of components that we could potentially interact with
-	TMap<UMeshComponent*, TSharedPtr<IMeshPaintGeometryAdapter>> PotentialComponentMap;
 	TArray<UMeshComponent*> PaintableComponents;
 
 	// Fire out a ray to see if there is a *selected* component under the mouse cursor that can be painted.
@@ -939,56 +1017,39 @@ void FEdModeMeshPaint::DoPaint( const FVector& InCameraOrigin,
 		const FVector TraceStart( InRayOrigin );
 		const FVector TraceEnd( InRayOrigin + InRayDirection * HALF_WORLD_MAX );
 
-		// Iterate over selected actors looking for static meshes
-		USelection& SelectedActors = *Owner->GetSelectedActors();
-		for( int32 CurSelectedActorIndex = 0; CurSelectedActorIndex < SelectedActors.Num(); ++CurSelectedActorIndex )
-		{
-			bool bHasKDOPTree = true;
-			bool bCurActorIsValid = false;
-			AActor* CurActor = Cast< AActor >( SelectedActors.GetSelectedObject( CurSelectedActorIndex ) );
+		TArray<UMeshComponent*> SelectedMeshComponents = GetSelectedMeshComponents();
 
-			// No matter the actor type, disregard NULL, hidden or non-selected actors
-			if ( !CurActor || CurActor->bHidden || !CurActor->IsSelected() )
+		for (UMeshComponent* MeshComponent : SelectedMeshComponents)
+		{
+			IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
+			check(MeshAdapter);
+
+			//@TODO: MESHPAINT: This is copied from the original logic, but the split between this loop and the next still feels a bit off
+			if (InPaintAction == EMeshPaintAction::Fill)
 			{
-				continue;
+				PaintableComponents.AddUnique(MeshComponent);
+			}
+			else if (InPaintAction == EMeshPaintAction::PushInstanceColorsToMesh)
+			{
+				PaintableComponents.AddUnique(MeshComponent);
 			}
 
-			bool bHasStaticMesh = false;
-			TInlineComponentArray<UMeshComponent*> MeshComponents;
-			CurActor->GetComponents<UMeshComponent>(MeshComponents);
-			for (const auto& CurMeshComponent : MeshComponents)
+			// Ray trace
+			FHitResult TraceHitResult(1.0f);
+
+			static FName DoPaintName(TEXT("DoPaint"));
+			if (MeshAdapter->LineTraceComponent(TraceHitResult, TraceStart, TraceEnd, FCollisionQueryParams(DoPaintName, true)))
 			{
-				// Create the geometry adapter
-				TSharedPtr<IMeshPaintGeometryAdapter> MeshAdapter = FMeshPaintAdapterFactory::CreateAdapterForMesh(CurMeshComponent, PaintingMeshLODIndex, FMeshPaintSettings::Get().UVChannel);
-				if (MeshAdapter.IsValid())
+				// Find the closest impact
+				if ((BestTraceResult.GetComponent() == nullptr) || (TraceHitResult.Time < BestTraceResult.Time))
 				{
-					PotentialComponentMap.Add(CurMeshComponent, MeshAdapter);
-
-					//@TODO: MESHPAINT: This is copied from the original logic, but the split between this loop and the next still feels a bit off
-					if (InPaintAction == EMeshPaintAction::Fill)
-					{
-						PaintableComponents.AddUnique(CurMeshComponent);
-					}
-					else if (InPaintAction == EMeshPaintAction::PushInstanceColorsToMesh)
-					{
-						PaintableComponents.AddUnique(CurMeshComponent);
-					}
-
-					// Ray trace
-					FHitResult TraceHitResult(1.0f);
-
-					static FName DoPaintName(TEXT("DoPaint"));
-					if (MeshAdapter->LineTraceComponent(TraceHitResult, TraceStart, TraceEnd, FCollisionQueryParams(DoPaintName, true)))
-					{
-						// Find the closest impact
-						if ((BestTraceResult.GetComponent() == nullptr) || (TraceHitResult.Time < BestTraceResult.Time))
-						{
-							BestTraceResult = TraceHitResult;
-						}
-					}
+					BestTraceResult = TraceHitResult;
 				}
 			}
 		}
+
+		// Remove any stale components from the map
+		CleanStaleGeometryAdapters(SelectedMeshComponents);
 
 		if (BestTraceResult.GetComponent() != NULL)
 		{
@@ -1005,9 +1066,8 @@ void FEdModeMeshPaint::DoPaint( const FVector& InCameraOrigin,
 				FBox BrushBounds = FBox::BuildAABB( BestTraceResult.Location, FVector( BrushRadius * 1.25f, BrushRadius * 1.25f, BrushRadius * 1.25f ) );
 
 				// Vertex paint mode, so we want all valid components overlapping the brush hit location
-				for (auto PotentialComponentPair : PotentialComponentMap)
+				for (auto TestComponent : SelectedMeshComponents)
 				{
-					UMeshComponent* TestComponent = PotentialComponentPair.Key;
 					const FBox ComponentBounds = TestComponent->Bounds.GetBox();
 					
 					if (ComponentBounds.Intersect(BrushBounds))
@@ -1058,7 +1118,8 @@ void FEdModeMeshPaint::DoPaint( const FVector& InCameraOrigin,
 	// Iterate over the selected meshes under the cursor and paint them!
 	for (UMeshComponent* MeshComponent : PaintableComponents)
 	{
-		TSharedPtr<IMeshPaintGeometryAdapter> MeshAdapter = PotentialComponentMap.FindChecked(MeshComponent);
+		IMeshPaintGeometryAdapter* MeshAdapter = ComponentToAdapterMap.FindRef(MeshComponent).Get();
+		MeshAdapter->SetCurrentUVChannelIndex(FMeshPaintSettings::Get().UVChannel);
 
 		// Brush properties
 		const float BrushDepth = BrushRadius;	// NOTE: Actually half of the total depth (like a radius)
@@ -1185,7 +1246,7 @@ void FEdModeMeshPaint::DoPaint( const FVector& InCameraOrigin,
 						FStaticMeshLODResources& LODModel = StaticMeshComponent->StaticMesh->RenderData->LODResources[PaintingMeshLODIndex];
 
 						// Painting vertex colors
-						PaintMeshVertices(StaticMeshComponent, Params, bShouldApplyPaint, LODModel, ComponentSpaceCameraPosition, ComponentToWorldMatrix, PDI, VisualBiasDistance);
+						PaintMeshVertices(StaticMeshComponent, Params, bShouldApplyPaint, LODModel, ComponentSpaceCameraPosition, ComponentToWorldMatrix, PDI, VisualBiasDistance, *MeshAdapter);
 					}
 				}
 			}
@@ -1293,7 +1354,8 @@ void FEdModeMeshPaint::PaintMeshVertices(
 	const FVector& ComponentSpaceCameraPosition, 
 	const FMatrix& ComponentToWorldMatrix, 
 	FPrimitiveDrawInterface* PDI, 
-	const float VisualBiasDistance)
+	const float VisualBiasDistance,
+	const IMeshPaintGeometryAdapter& GeometryInfo)
 {
 	const bool bOnlyFrontFacing = FMeshPaintSettings::Get().bOnlyFrontFacingTriangles;
 	const bool bUsingInstancedVertexColors = ( FMeshPaintSettings::Get().VertexPaintTarget == EMeshVertexPaintTarget::ComponentInstance ) && (Params.PaintAction != EMeshPaintAction::PushInstanceColorsToMesh);
@@ -1487,7 +1549,6 @@ void FEdModeMeshPaint::PaintMeshVertices(
 			{
 				// @todo MeshPaint: Use a spatial database to reduce the triangle set here (kdop)
 
-
 				// Make sure we're dealing with triangle lists
 				FIndexArrayView Indices = LODModel.IndexBuffer.GetArrayView();
 				const int32 NumIndexBufferIndices = Indices.Num();
@@ -1508,7 +1569,7 @@ void FEdModeMeshPaint::PaintMeshVertices(
 					for( int32 TriVertexNum = 0; TriVertexNum < 3; ++TriVertexNum )
 					{
 						VertexIndices[ TriVertexNum ] = Indices[ TriIndex * 3 + TriVertexNum ];
-						TriVertices[ TriVertexNum ] = LODModel.PositionVertexBuffer.VertexPosition( VertexIndices[ TriVertexNum ] );
+						TriVertices[ TriVertexNum ] = GeometryInfo.GetMeshVertex( VertexIndices[ TriVertexNum ] );
 					}
 
 					// Check to see if the triangle is front facing
@@ -1527,7 +1588,7 @@ void FEdModeMeshPaint::PaintMeshVertices(
 				{
 					// Grab the mesh vertex and transform it to world space
 					const int32 VertexIndex = CurIndexIt.GetIndex();
-					const FVector& ModelSpaceVertexPosition = LODModel.PositionVertexBuffer.VertexPosition( VertexIndex );
+					FVector	ModelSpaceVertexPosition = GeometryInfo.GetMeshVertex( VertexIndex );
 					FVector WorldSpaceVertexPosition = ComponentToWorldMatrix.TransformPosition( ModelSpaceVertexPosition );
 
 					FColor OriginalVertexColor = FColor( 255, 255, 255 );
@@ -1705,7 +1766,7 @@ void FEdModeMeshPaint::PaintMeshTexture( UMeshComponent* MeshComponent, const FM
 			FBox Bounds; 
 			for (int32 VertIndex = 0; VertIndex < Indices.Num(); ++VertIndex)
 			{
-				FVector CurVector = LODModel.PositionVertexBuffer.VertexPosition( Indices[VertIndex] );
+				FVector	CurVector = GeometryInfo.GetMeshVertex( Indices[ VertIndex ] );
 				if(VertIndex > 0)
 				{
 					Bounds.Min.X = FMath::Min<float>( Bounds.Min.X, CurVector.X );
@@ -1731,7 +1792,7 @@ void FEdModeMeshPaint::PaintMeshTexture( UMeshComponent* MeshComponent, const FM
 				for( int32 TriVertexNum = 0; TriVertexNum < 3; ++TriVertexNum )
 				{
 					const int32 VertexIndex = Indices[ TriIndex * 3 + TriVertexNum ];
-					MeshTri.Vertices[ TriVertexNum ] = LODModel.PositionVertexBuffer.VertexPosition( VertexIndex );
+					MeshTri.Vertices[ TriVertexNum ] = GeometryInfo.GetMeshVertex( VertexIndex );
 				}
 				MeshTri.Index = TriIndex;
 				FBox TriBox;
@@ -1809,8 +1870,6 @@ void FEdModeMeshPaint::PaintMeshTexture( UMeshComponent* MeshComponent, const FM
 		PaintTexture(Params, InfluencedTriangles, ComponentToWorldMatrix, GeometryInfo);
 	}
 }
-
-
 
 
 /** Starts painting a texture */
@@ -2642,7 +2701,6 @@ void FEdModeMeshPaint::Render( const FSceneView* View, FViewport* Viewport, FPri
 	}
 }
 
-// @TODO MeshPaint: Cache selected mesh components each time selection change
 /** Returns valid MeshComponents in the current selection */
 TArray<UMeshComponent*> FEdModeMeshPaint::GetSelectedMeshComponents() const
 {
@@ -2666,6 +2724,7 @@ TArray<UMeshComponent*> FEdModeMeshPaint::GetSelectedMeshComponents() const
 
 	return Result;
 }
+
 
 /** Saves out cached mesh settings for the given actor */
 void FEdModeMeshPaint::SaveSettingsForActor( AActor* InActor )
@@ -2774,48 +2833,58 @@ bool FEdModeMeshPaint::Select( AActor* InActor, bool bInSelected )
 {
 	TInlineComponentArray<UMeshComponent*> MeshComponents;
 	InActor->GetComponents<UMeshComponent>(MeshComponents);
+
 	for(const auto& MeshComponent : MeshComponents)
 	{
-		if (MeshComponent != nullptr)
+		check(MeshComponent);
+
+		if (!bInSelected)
 		{
-			TSharedPtr<IMeshPaintGeometryAdapter> GeomInfo = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*TODO: Shouldn't be part of the construction contract: FMeshPaintSettings::Get().UVChannel*/ 0);
-			if (GeomInfo.IsValid())
+			IMeshPaintGeometryAdapter* GeomInfo = ComponentToAdapterMap.FindRef(MeshComponent).Get();
+			if (GeomInfo)
 			{
-				if (!bInSelected)
+				if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::Texture)
 				{
-					if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::Texture)
+					// When un-selecting a mesh, save it's settings based on the current properties
+					ClearMeshTextureOverrides(*GeomInfo, MeshComponent);
+					SaveSettingsForActor(InActor);
+				}
+				else if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::VertexColors)
+				{
+					// Propagate painting to lower LODs and stop forcing the rendered mesh to LOD0.
+					ApplyVertexColorsToAllLODs(*GeomInfo, MeshComponent);
+					ApplyOrRemoveForceBestLOD(*GeomInfo, MeshComponent, /*bApply=*/ false);
 					{
-						// When un-selecting a mesh, save it's settings based on the current properties
-						ClearMeshTextureOverrides(*GeomInfo, MeshComponent);
-						SaveSettingsForActor(InActor);
-					}
-					else if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::VertexColors)
-					{
-						// Propagate painting to lower LODs and stop forcing the rendered mesh to LOD0.
-						ApplyVertexColorsToAllLODs(*GeomInfo, MeshComponent);
-						ApplyOrRemoveForceBestLOD(*GeomInfo, MeshComponent, /*bApply=*/ false);
-						{
-							FComponentReregisterContext ReregisterContext(MeshComponent);
-						}
+						FComponentReregisterContext ReregisterContext(MeshComponent);
 					}
 				}
-				else
+
+				GeomInfo->OnRemoved();
+				ensure(ComponentToAdapterMap.Remove(MeshComponent) == 1);
+			}
+		}
+		else
+		{
+			if (!ComponentToAdapterMap.Contains(MeshComponent))
+			{
+				TSharedPtr<IMeshPaintGeometryAdapter> GeomInfo = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*TODO: Shouldn't be part of the construction contract: FMeshPaintSettings::Get().UVChannel*/ 0);
+				ComponentToAdapterMap.Add(MeshComponent, GeomInfo);
+				GeomInfo->OnAdded();
+
+				if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::Texture)
 				{
-					if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::Texture)
+					SetAllTextureOverrides(*GeomInfo.Get(), MeshComponent);
+				}
+				else if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::VertexColors)
+				{
+					//Painting is done on LOD0 so force the mesh to render only LOD0.
+					ApplyOrRemoveForceBestLOD(*GeomInfo.Get(), MeshComponent, /*bApply=*/ true);
 					{
-						SetAllTextureOverrides(*GeomInfo, MeshComponent);
-					}
-					else if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::VertexColors)
-					{
-						//Painting is done on LOD0 so force the mesh to render only LOD0.
-						ApplyOrRemoveForceBestLOD(*GeomInfo, MeshComponent, /*bApply=*/ true);
-						{
-							FComponentReregisterContext ReregisterContext(MeshComponent);
-						}
+						FComponentReregisterContext ReregisterContext(MeshComponent);
 					}
 				}
 			}
-		}	
+		}
 	}
 	
 	return false;
@@ -2938,7 +3007,7 @@ void FEdModeMeshPaint::SetViewportShowFlags( const bool bAllowColorViewModes, FE
 				{
 					// If we're transitioning to normal mode then restore the backup
 					// Clear the flags relevant to vertex color modes
-					Viewport.EngineShowFlags.VertexColors = 0;
+					Viewport.EngineShowFlags.SetVertexColors(false);
 						
 					// Restore the vertex color mode flags that were set when we last entered vertex color mode
 					ApplyViewMode(Viewport.GetViewMode(), Viewport.IsPerspective(), Viewport.EngineShowFlags);
@@ -2947,13 +3016,13 @@ void FEdModeMeshPaint::SetViewportShowFlags( const bool bAllowColorViewModes, FE
 			}
 			else
 			{
-				Viewport.EngineShowFlags.Materials = 1;
-				Viewport.EngineShowFlags.Lighting = 0;
-				Viewport.EngineShowFlags.BSPTriangles = 1;
-				Viewport.EngineShowFlags.VertexColors = 1;
-				Viewport.EngineShowFlags.PostProcessing = 0;
-				Viewport.EngineShowFlags.HMDDistortion = 0;
-					
+				Viewport.EngineShowFlags.SetMaterials(true);
+				Viewport.EngineShowFlags.SetLighting(false);
+				Viewport.EngineShowFlags.SetBSPTriangles(true);
+				Viewport.EngineShowFlags.SetVertexColors(true);
+				Viewport.EngineShowFlags.SetPostProcessing(false);
+				Viewport.EngineShowFlags.SetHMDDistortion(false);
+
 				switch( ColorViewMode )
 				{
 					case EMeshPaintColorViewMode::RGB:
@@ -3443,30 +3512,22 @@ void FEdModeMeshPaint::RemoveComponentInstanceVertexColors(UStaticMeshComponent*
 {
 	if( StaticMeshComponent != NULL && StaticMeshComponent->StaticMesh != NULL && StaticMeshComponent->StaticMesh->GetNumLODs() > PaintingMeshLODIndex )
 	{
-		// Make sure we have component-level LOD information
-		if( StaticMeshComponent->LODData.Num() > PaintingMeshLODIndex )
+		// Mark the mesh component as modified
+		StaticMeshComponent->Modify();
+
+		// If this is called from the Remove button being clicked the SMC wont be in a Reregister context,
+		// but when it gets called from a Paste or Copy to Source operation it's already inside a more specific
+		// SMCRecreateScene context so we shouldn't put it inside another one.
+		if (StaticMeshComponent->IsRenderStateCreated())
 		{
-			FStaticMeshComponentLODInfo* InstanceMeshLODInfo = &StaticMeshComponent->LODData[ PaintingMeshLODIndex ];
+			// Detach all instances of this static mesh from the scene.
+			FComponentReregisterContext ComponentReregisterContext(StaticMeshComponent);
 
-			if(InstanceMeshLODInfo->OverrideVertexColors)
-			{
-				// @todo MeshPaint: Should make this undoable
-
-				// If this is called from the Remove button being clicked the SMC wont be in a Reregister context,
-				// but when it gets called from a Paste or Copy to Source operation it's already inside a more specific
-				// SMCRecreateScene context so we shouldn't put it inside another one.
-				if(StaticMeshComponent->IsRenderStateCreated())
-				{
-					// Detach all instances of this static mesh from the scene.
-					FComponentReregisterContext ComponentReregisterContext( StaticMeshComponent );
-
-					RemoveInstanceVertexColorsWorker(StaticMeshComponent, InstanceMeshLODInfo);
-				}
-				else
-				{
-					RemoveInstanceVertexColorsWorker(StaticMeshComponent, InstanceMeshLODInfo);
-				}
-			}
+			StaticMeshComponent->RemoveInstanceVertexColors();
+		}
+		else
+		{
+			StaticMeshComponent->RemoveInstanceVertexColors();
 		}
 	}
 }
@@ -3482,27 +3543,6 @@ void FEdModeMeshPaint::RemoveInstanceVertexColors() const
 		RemoveInstanceVertexColors( SelectedActors.GetSelectedObject( CurSelectedActorIndex ) );
 	}
 }
-
-/**
- * Does the work of removing instance vertex colors from a single static mesh component.
- *
- * @param	StaticMeshComponent		The SMC to remove vertex colors from.
- * @param	InstanceMeshLODInfo		The instance's LODInfo which stores the painted information to be cleared.
- */
-void FEdModeMeshPaint::RemoveInstanceVertexColorsWorker(UStaticMeshComponent *StaticMeshComponent, FStaticMeshComponentLODInfo *InstanceMeshLODInfo) const
-{
-	// Mark the mesh component as modified
-	StaticMeshComponent->Modify();
-
-	InstanceMeshLODInfo->ReleaseOverrideVertexColorsAndBlock();
-
-	// With no colors, there's no longer a reason to store vertex color positions. Remove them and count
-	// the component as up-to-date with the source mesh.
-	InstanceMeshLODInfo->PaintedVertices.Empty();
-	StaticMeshComponent->StaticMeshDerivedDataKey = StaticMeshComponent->StaticMesh->RenderData->DerivedDataKey;
-}
-
-
 
 /** Copies vertex colors associated with the currently selected mesh */
 void FEdModeMeshPaint::CopyInstanceVertexColors()
@@ -3766,24 +3806,18 @@ void FEdModeMeshPaint::FixupInstanceVertexColors() const
 
 void FEdModeMeshPaint::ApplyOrRemoveForceBestLOD(bool bApply)
 {
-	USelection& SelectedActors = *Owner->GetSelectedActors();
-	for (int32 CurSelectedActorIndex = 0; CurSelectedActorIndex < SelectedActors.Num(); ++CurSelectedActorIndex)
+	TArray<UMeshComponent*> SelectedMeshComponents = GetSelectedMeshComponents();
+
+	for (UMeshComponent* MeshComponent : SelectedMeshComponents)
 	{
-		if (AActor* SelectedActor = Cast<AActor>(SelectedActors.GetSelectedObject(CurSelectedActorIndex)))
-		{
-			TInlineComponentArray<UMeshComponent*> MeshComponents;
-			SelectedActor->GetComponents<UMeshComponent>(MeshComponents);
-			for (UMeshComponent* MeshComponent : MeshComponents)
-			{
-				TSharedPtr<IMeshPaintGeometryAdapter> MeshAdapter = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*TODO: Shouldn't be part of the construction contract: FMeshPaintSettings::Get().UVChannel*/ 0);
-				if (MeshAdapter.IsValid())
-				{
-					ApplyOrRemoveForceBestLOD(*MeshAdapter, MeshComponent, bApply);
-				}
-			}
-		}
+		IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
+		check(MeshAdapter);
+		ApplyOrRemoveForceBestLOD(*MeshAdapter, MeshComponent, bApply);
 	}
+
+	CleanStaleGeometryAdapters(SelectedMeshComponents);
 }
+
 void FEdModeMeshPaint::ApplyOrRemoveForceBestLOD(const IMeshPaintGeometryAdapter& GeometryInfo, UMeshComponent* MeshComponent, bool bApply)
 {
 	if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(MeshComponent))
@@ -3796,24 +3830,16 @@ void FEdModeMeshPaint::ApplyOrRemoveForceBestLOD(const IMeshPaintGeometryAdapter
 
 void FEdModeMeshPaint::ApplyVertexColorsToAllLODs()
 {	
-	// Find each mesh component of any selected actors
-	USelection& SelectedActors = *Owner->GetSelectedActors();
-	for (int32 CurSelectedActorIndex = 0; CurSelectedActorIndex < SelectedActors.Num(); ++CurSelectedActorIndex)
+	TArray<UMeshComponent*> SelectedMeshComponents = GetSelectedMeshComponents();
+
+	for (UMeshComponent* MeshComponent : SelectedMeshComponents)
 	{
-		if (AActor* SelectedActor = Cast<AActor>(SelectedActors.GetSelectedObject(CurSelectedActorIndex)))
-		{
-			TInlineComponentArray<UMeshComponent*> MeshComponents;
-			SelectedActor->GetComponents<UMeshComponent>(MeshComponents);
-			for (UMeshComponent* MeshComponent : MeshComponents)
-			{
-				TSharedPtr<IMeshPaintGeometryAdapter> MeshAdapter = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*TODO: Shouldn't be part of the construction contract: FMeshPaintSettings::Get().UVChannel*/ 0);
-				if (MeshAdapter.IsValid())
-				{
-					ApplyVertexColorsToAllLODs(*MeshAdapter, MeshComponent);
-				}
-			}
-		}
+		IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
+		check(MeshAdapter);
+		ApplyVertexColorsToAllLODs(*MeshAdapter, MeshComponent);
 	}
+
+	CleanStaleGeometryAdapters(SelectedMeshComponents);
 }
 
 void FEdModeMeshPaint::ApplyVertexColorsToAllLODs(const IMeshPaintGeometryAdapter& GeometryInfo, UMeshComponent* InMeshComponent)
@@ -4331,9 +4357,9 @@ void FEdModeMeshPaint::UpdateTexturePaintTargetList()
 				int32 DefaultIndex = INDEX_NONE;
 				for (const auto& MeshComponent : MeshComponents)
 				{
-					// Create the geometry adapter
-					TSharedPtr<IMeshPaintGeometryAdapter> MeshAdapter = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*TODO: Shouldn't be part of the construction contract: FMeshPaintSettings::Get().UVChannel*/ 0);
-					if (MeshAdapter.IsValid())
+					// Get the geometry adapter
+					IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
+					if (MeshAdapter)
 					{
 						// We already know the material we are painting on, take it off the static mesh component
 						UMaterialInterface* Material = MeshComponent->GetMaterial(MaterialIndex);
@@ -4713,16 +4739,16 @@ void FEdModeMeshPaint::Tick(FEditorViewportClient* ViewportClient,float DeltaTim
 	// Will set the texture override up for the selected texture, important for the drop down combo-list and selecting between material instances.
 	if (FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::Texture)
 	{
-		TArray<UMeshComponent*> MeshComponents = GetSelectedMeshComponents();
+		TArray<UMeshComponent*> SelectedMeshComponents = GetSelectedMeshComponents();
 
-		for (UMeshComponent* MeshComponent : MeshComponents)
+		for (UMeshComponent* MeshComponent : SelectedMeshComponents)
 		{
-			TSharedPtr<IMeshPaintGeometryAdapter> GeometryInfo = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*FMeshPaintSettings::Get().UVChannel*/ 0);
-			if (GeometryInfo.IsValid())
-			{
-				SetSpecificTextureOverrideForMesh(*GeometryInfo, GetSelectedTexture());
-			}
+			IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
+			check(MeshAdapter != nullptr);
+			SetSpecificTextureOverrideForMesh(*MeshAdapter, GetSelectedTexture());
 		}
+
+		CleanStaleGeometryAdapters(SelectedMeshComponents);
 	}
 
 	if( bDoRestoreRenTargets && FMeshPaintSettings::Get().ResourceType == EMeshPaintResource::Texture )
@@ -4777,8 +4803,8 @@ void FEdModeMeshPaint::DuplicateTextureMaterialCombo()
 			{
 				UMeshComponent* MeshComponent = MeshComponents[0];
 
-				TSharedPtr<IMeshPaintGeometryAdapter> MeshAdapter = FMeshPaintAdapterFactory::CreateAdapterForMesh(MeshComponent, PaintingMeshLODIndex, /*FMeshPaintSettings::Get().UVChannel*/ 0);
-				if (!MeshAdapter.IsValid())
+				IMeshPaintGeometryAdapter* MeshAdapter = FindOrAddGeometryAdapter(MeshComponent);
+				if (!MeshAdapter)
 				{
 					return;
 				}

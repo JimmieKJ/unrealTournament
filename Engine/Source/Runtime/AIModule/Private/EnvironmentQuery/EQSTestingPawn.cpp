@@ -146,6 +146,18 @@ void AEQSTestingPawn::PostLoad()
 	{
 		SpriteComponent->bHiddenInGame = !bShouldBeVisibleInGame;
 	}
+
+	if (QueryParams.Num() > 0)
+	{
+		FAIDynamicParam::GenerateConfigurableParamsFromNamedValues(*this, QueryConfig, QueryParams);
+		QueryParams.Empty();
+	}
+
+	UWorld* World = GetWorld();
+	if (World && World->IsGameWorld() && bTickDuringGame)
+	{
+		PrimaryActorTick.bCanEverTick = false;
+	}
 }
 
 void AEQSTestingPawn::RunEQSQuery()
@@ -187,7 +199,16 @@ void AEQSTestingPawn::MakeOneStep()
 	if (QueryInstance.IsValid() == false && QueryTemplate != NULL)
 	{
 		FEnvQueryRequest QueryRequest(QueryTemplate, this);
-		QueryRequest.SetNamedParams(QueryParams);
+		for (FAIDynamicParam& RuntimeParam : QueryConfig)
+		{
+			// check if given param requires runtime resolve, like reading from BB
+			if (RuntimeParam.BBKey.IsSet())
+			{
+				// grab info from BB
+			}
+
+			QueryRequest.SetFloatParam(RuntimeParam.ParamName, RuntimeParam.Value);
+		}
 		QueryInstance = EQS->PrepareQueryInstance(QueryRequest, QueryingMode);
 		if (QueryInstance.IsValid())
 		{
@@ -253,18 +274,18 @@ void AEQSTestingPawn::PostEditChangeProperty( FPropertyChangedEvent& PropertyCha
 {
 	static const FName NAME_QueryTemplate = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, QueryTemplate);
 	static const FName NAME_StepToDebugDraw = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, StepToDebugDraw);
-	static const FName NAME_QueryParams = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, QueryParams);
+	static const FName NAME_QueryConfig = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, QueryConfig);
 	static const FName NAME_ShouldBeVisibleInGame = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, bShouldBeVisibleInGame);
 	static const FName NAME_QueryingMode = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, QueryingMode);
 
 	if (PropertyChangedEvent.Property != NULL)
 	{
 		const FName PropName = PropertyChangedEvent.MemberProperty->GetFName();
-		if (PropName == NAME_QueryTemplate || PropName == NAME_QueryParams)
+		if (PropName == NAME_QueryTemplate || PropName == NAME_QueryConfig)
 		{
 			if (QueryTemplate)
 			{
-				QueryTemplate->CollectQueryParams(QueryParams);
+				QueryTemplate->CollectQueryParams(*this, QueryConfig);
 			}
 
 			RunEQSQuery();

@@ -55,6 +55,8 @@ public:
 	virtual void RestoreSystemResolution(const TSharedRef<SWindow> InWindow) override {}
 	virtual void ReleaseDynamicResource( const FSlateBrush& Brush ) override;
 	virtual bool GenerateDynamicImageResource(FName ResourceName, uint32 Width, uint32 Height, const TArray< uint8 >& Bytes) override;
+	virtual FSlateResourceHandle GetResourceHandle( const FSlateBrush& Brush ) override;
+	virtual void RemoveDynamicBrushResource( TSharedPtr<FSlateDynamicImageBrush> BrushToRemove ) override;
 	virtual void LoadStyleResources( const ISlateStyle& Style ) override;
 	virtual FSlateUpdatableTexture* CreateUpdatableTexture(uint32 Width, uint32 Height) override;
 	virtual void ReleaseUpdatableTexture(FSlateUpdatableTexture* Texture) override;
@@ -74,6 +76,7 @@ private:
 	TSharedPtr<FSlateElementBatcher> ElementBatcher;
 	TSharedPtr<FSlateD3DTextureManager> TextureManager;
 	TSharedPtr<FSlateD3D11RenderingPolicy> RenderingPolicy;
+	TArray<TSharedPtr<FSlateDynamicImageBrush>> DynamicBrushesToRemove;
 };
 
 #endif

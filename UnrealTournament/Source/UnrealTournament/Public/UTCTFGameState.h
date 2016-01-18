@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -136,8 +136,8 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
 	uint32 bSecondHalf : 1;
 
-	UPROPERTY(BlueprintReadOnly,Replicated,ReplicatedUsing=OnHalftimeChanged, Category = CTF)
-	uint32 bHalftime : 1;
+	UPROPERTY(BlueprintReadOnly,Replicated,ReplicatedUsing=OnIntermissionChanged, Category = CTF)
+	uint32 bIsAtIntermission : 1;
 
 	/** The Elapsed time at which Overtime began */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
@@ -156,6 +156,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 
 	UPROPERTY(Replicated)
 	uint8 AdvantageTeamIndex;
+
+	UPROPERTY(Replicated)
+		int32 CTFRound;
 
 	/** Sets the # of teams.  This will also Pre-seed FlagsBases */
 	virtual void SetMaxNumberOfTeams(int32 TeamCount);
@@ -177,13 +180,13 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	virtual float GetClockTime() override;
 	virtual bool IsMatchInProgress() const override;
 	virtual bool IsMatchInOvertime() const override;
-	virtual bool IsMatchAtHalftime() const override;
+	virtual bool IsMatchIntermission() const override;
 	virtual void OnRep_MatchState() override;
 
 	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
 	
 	UFUNCTION()
-	virtual void OnHalftimeChanged();
+		virtual void OnIntermissionChanged();
 
 	virtual void ToggleScoreboards();
 

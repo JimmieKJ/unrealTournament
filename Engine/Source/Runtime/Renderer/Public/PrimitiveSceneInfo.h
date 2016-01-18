@@ -29,7 +29,8 @@ public:
 		CurrentSkyBentNormal(FVector4(0, 0, 1, 1)),
 		bHasEverUpdatedSingleSample(false),
 		bPointSample(true),
-		bIsDirty(false)
+		bIsDirty(false),
+		bUnbuiltPreview(false)
 	{
 		for (int32 VectorIndex = 0; VectorIndex < ARRAY_COUNT(TargetSamplePacked); VectorIndex++)
 		{
@@ -89,6 +90,8 @@ public:
 	/** Whether the primitive allocation is dirty and should be updated regardless of having moved. */
 	bool bIsDirty;
 
+	bool bUnbuiltPreview;
+
 	void SetDirty() 
 	{ 
 		bIsDirty = true; 
@@ -99,7 +102,7 @@ public:
 		return MinTexel.X >= 0 && MinTexel.Y >= 0 && MinTexel.Z >= 0 && AllocationTexelSize > 0;
 	}
 
-	void SetParameters(FIntVector InMinTexel, int32 InAllocationTexelSize, FVector InScale, FVector InAdd, FVector InMinUV, FVector InMaxUV, bool bInPointSample)
+	void SetParameters(FIntVector InMinTexel, int32 InAllocationTexelSize, FVector InScale, FVector InAdd, FVector InMinUV, FVector InMaxUV, bool bInPointSample, bool bInUnbuiltPreview)
 	{
 		Add = InAdd;
 		Scale = InScale;
@@ -109,6 +112,7 @@ public:
 		AllocationTexelSize = InAllocationTexelSize;
 		bIsDirty = false;
 		bPointSample = bInPointSample;
+		bUnbuiltPreview = bInUnbuiltPreview;
 	}
 };
 
@@ -196,6 +200,13 @@ public:
 	const FIndirectLightingCacheAllocation* IndirectLightingCacheAllocation;
 
 	/** 
+	 * The uniform buffer holding precomputed lighting parameters for the indirect lighting cache allocation.
+	 * WARNING : This can hold buffer valid for a single frame only, don't cache anywhere. 
+	 * See FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
+	 */
+	FUniformBufferRHIRef IndirectLightingCacheUniformBuffer;
+
+	/** 
 	 * Reflection capture proxy that was closest to this primitive, used for the forward shading rendering path. 
 	 */
 	const FReflectionCaptureProxy* CachedReflectionCaptureProxy;
@@ -205,9 +216,6 @@ public:
 
 	/** Whether the primitive is newly registered or moved and CachedReflectionCaptureProxy needs to be updated on the next render. */
 	uint32 bNeedsCachedReflectionCaptureUpdate : 1;
-
-	/** This primitive has the Motion Blur explicitly disabled */
-	uint32 bVelocityIsSupressed : 1;
 
 	/** The hit proxies used by the primitive. */
 	TArray<TRefCountPtr<HHitProxy> > HitProxies;
@@ -230,6 +238,9 @@ public:
 	/** The scene the primitive is in. */
 	FScene* Scene;
 
+	/** The number of dynamic point lights for ES2 */
+	int32 NumES2DynamicPointLights;
+
 	/** Initialization constructor. */
 	FPrimitiveSceneInfo(UPrimitiveComponent* InPrimitive,FScene* InScene);
 
@@ -248,6 +259,24 @@ public:
 		return bNeedsStaticMeshUpdate;
 	}
 
+	/** return true if we need to call LazyUpdateForRendering */
+	FORCEINLINE bool NeedsUniformBufferUpdate() const
+	{
+		return bNeedsUniformBufferUpdate;
+	}
+
+	/** return true if we need to call LazyUpdateForRendering */
+	FORCEINLINE bool NeedsPrecomputedLightingBufferUpdate()
+	{
+		return bPrecomputedLightingBufferDirty;
+	}
+
+	/** return true if we need to call ConditionalLazyUpdateForRendering */
+	FORCEINLINE bool NeedsLazyUpdateForRendering()
+	{
+		return NeedsUniformBufferUpdate() || NeedsUpdateStaticMeshes();
+	}
+
 	/** Updates the primitive's static meshes in the scene. */
 	void UpdateStaticMeshes(FRHICommandListImmediate& RHICmdList);
 
@@ -258,6 +287,25 @@ public:
 		{
 			UpdateStaticMeshes(RHICmdList);
 		}
+	}
+
+	/** Updates the primitive's uniform buffer. */
+	void UpdateUniformBuffer(FRHICommandListImmediate& RHICmdList);
+
+	/** Updates the primitive's uniform buffer. */
+	FORCEINLINE void ConditionalUpdateUniformBuffer(FRHICommandListImmediate& RHICmdList)
+	{
+		if (NeedsUniformBufferUpdate())
+		{
+			UpdateUniformBuffer(RHICmdList);
+		}
+	}
+
+	/** Updates all lazy data for the rendering. */
+	FORCEINLINE void ConditionalLazyUpdateForRendering(FRHICommandListImmediate& RHICmdList)
+	{
+		ConditionalUpdateUniformBuffer(RHICmdList);
+		ConditionalUpdateStaticMeshes(RHICmdList);
 	}
 
 	/** Sets a flag to update the primitive's static meshes before it is next rendered. */
@@ -286,6 +334,7 @@ public:
 	 * This only works on potential parents (!LightingAttachmentRoot.IsValid()) and will include the current primitive in the output array.
 	 */
 	void GatherLightingAttachmentGroupPrimitives(TArray<FPrimitiveSceneInfo*, SceneRenderingAllocator>& OutChildSceneInfos);
+	void GatherLightingAttachmentGroupPrimitives(TArray<const FPrimitiveSceneInfo*, SceneRenderingAllocator>& OutChildSceneInfos) const;
 
 	/** 
 	 * Builds a cumulative bounding box of this primitive and all the primitives in the same attachment group. 
@@ -316,6 +365,19 @@ public:
 	 */
 	void ApplyWorldOffset(FVector InOffset);
 
+	FORCEINLINE void SetNeedsUniformBufferUpdate(bool bInNeedsUniformBufferUpdate)
+	{
+		bNeedsUniformBufferUpdate = bInNeedsUniformBufferUpdate;
+	}
+
+	FORCEINLINE void MarkPrecomputedLightingBufferDirty()
+	{
+		bPrecomputedLightingBufferDirty = true;
+	}
+
+	void UpdatePrecomputedLightingBuffer();
+	void ClearPrecomputedLightingBuffer(bool bSingleFrameOnly);
+
 private:
 
 	/** Let FScene have direct access to the Id. */
@@ -334,8 +396,14 @@ private:
 	 */
 	const UPrimitiveComponent* ComponentForDebuggingOnly;
 
-	/** If this is TRUE, this primitive's static meshes need to be updated before it can be rendered. */
+	/** If this is TRUE, this primitive's static meshes needs to be updated before it can be rendered. */
 	bool bNeedsStaticMeshUpdate;
+
+	/** If this is TRUE, this primitive's uniform buffer needs to be updated before it can be rendered. */
+	bool bNeedsUniformBufferUpdate;
+
+	/** If this is TRUE, this primitive's precomputed lighting buffer needs to be updated before it can be rendered. */
+	bool bPrecomputedLightingBufferDirty;
 };
 
 /** Defines how the primitive is stored in the scene's primitive octree. */

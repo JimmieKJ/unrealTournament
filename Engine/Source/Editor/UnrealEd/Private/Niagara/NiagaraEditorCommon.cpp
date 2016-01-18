@@ -21,6 +21,9 @@ void FNiagaraOpInfo::Init()
 	FName Y(TEXT("Y"));	FText YText = NSLOCTEXT("NiagaraOpInfo", "Second Vector Component", "Y");
 	FName Z(TEXT("Z"));	FText ZText = NSLOCTEXT("NiagaraOpInfo", "Third Vector Component", "Z");
 	FName W(TEXT("W"));	FText WText = NSLOCTEXT("NiagaraOpInfo", "Fourth Vector Component", "W");
+
+	FName Selection(TEXT("Selection"));	FText SelectionText = NSLOCTEXT("NiagaraOpInfo", "Selection", "Selection");
+	FName Mask(TEXT("Mask"));	FText MaskText = NSLOCTEXT("NiagaraOpInfo", "Mask", "Mask");
 	
 	FText MinText = NSLOCTEXT("NiagaraOpInfo", "Min", "Min");
 	FText MaxText = NSLOCTEXT("NiagaraOpInfo", "Max", "Max");
@@ -58,6 +61,15 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, BText, BText, DefaultStr_VecOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
 	Op->OpDelegate.BindStatic(&INiagaraCompiler::Multiply);
+
+	Op = &OpInfos.Add(Divide);
+	Op->Name = Divide;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Divide Name", "Divide");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "Divide Desc", "Result = A / B = {{A.x / B.x, A.y / B.y, A.z / B.z, A.w / B.w}}");
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, AText, AText, DefaultStr_VecOne));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, BText, BText, DefaultStr_VecOne));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
+	Op->OpDelegate.BindStatic(&INiagaraCompiler::Divide);
 
 	Op = &OpInfos.Add(MultiplyAdd);
 	Op->Name = MultiplyAdd;
@@ -441,7 +453,7 @@ void FNiagaraOpInfo::Init()
 
 	Op = &OpInfos.Add(Split);
 	Op->Name = Split;
-	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Split Name", "Compose");
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Split Name", "Split");
 	Op->Description = NSLOCTEXT("NiagaraOpInfo", "Split Desc", "X = A.xxxx, Y = A.yyyy, Z = A.zzzz, W = A.wwww");
 	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, AText, AText, DefaultStr_VecOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(X, ENiagaraDataType::Vector, XText, XText, DefaultStr_VecOne));
@@ -507,7 +519,6 @@ void FNiagaraOpInfo::Init()
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Matrix, ResultText, ResultText, DefaultStr_VecOne));
 	Op->OpDelegate.BindStatic(&INiagaraCompiler::Inverse);
 
-
 	Op = &OpInfos.Add(LessThan);
 	Op->Name = LessThan;
 	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "LessThan Name", "A Less Than B");
@@ -516,6 +527,25 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, BText, BText, DefaultStr_VecOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
 	Op->OpDelegate.BindStatic(&INiagaraCompiler::LessThan);
+
+	Op = &OpInfos.Add(GreaterThan);
+	Op->Name = GreaterThan;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "GreaterThan Name", "A Greater Than B");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "GreaterThan Desc", "Result = 1 if A>B, 0 otherwise");
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, AText, AText, DefaultStr_VecZero));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, BText, BText, DefaultStr_VecOne));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
+	Op->OpDelegate.BindStatic(&INiagaraCompiler::GreaterThan);
+
+	Op = &OpInfos.Add(Select);
+	Op->Name = Select;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Select Name", "Select");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "Select Desc", "Selects A or B depending on Selection. Selection > 0.0f = A, otherwise B.");
+	Op->Inputs.Add(FNiagaraOpInOutInfo(Selection, ENiagaraDataType::Vector, SelectionText, SelectionText, DefaultStr_VecOne));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, AText, AText, DefaultStr_VecZero));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, BText, BText, DefaultStr_VecOne));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
+	Op->OpDelegate.BindStatic(&INiagaraCompiler::Select);
 
 	Op = &OpInfos.Add(Sample);
 	Op->Name = Sample;
@@ -535,14 +565,6 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "Value", "Value"), NSLOCTEXT("NiagaraOpInfo", "Value", "Value"), DefaultStr_VecZero));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
 	Op->OpDelegate.BindStatic(&INiagaraCompiler::Write);
-
-	Op = &OpInfos.Add(EventBroadcast);
-	Op->Name = EventBroadcast;
-	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "EventBroadcast Name", "Broadcast Event");
-	Op->Description = NSLOCTEXT("NiagaraOpInfo", "EventBroadcast Desc", "Broadcast Event if trigger is >=1.0");
-	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "Trigger", "Trigger"), NSLOCTEXT("NiagaraOpInfo", "Trigger", "Trigger"), DefaultStr_VecOne));
-//	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
-	Op->OpDelegate.BindStatic(&INiagaraCompiler::EventBroadcast);
 
 	Op = &OpInfos.Add(EaseIn);
 	Op->Name = EaseIn;
@@ -605,7 +627,7 @@ TMap<FName, FNiagaraOpInfo>& FNiagaraOpInfo::GetOpInfoMap()
 
 //Debugging variant that checks inputs and outputs match expectations of FNiagaraOpInfo.
 #if DO_CHECK
-#define NiagaraOp(OpName) void INiagaraCompiler::OpName(INiagaraCompiler* Compiler, TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)\
+#define NiagaraOp(OpName) bool INiagaraCompiler::OpName(INiagaraCompiler* Compiler, TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)\
 {\
 	Compiler->CheckInputs(FNiagaraOpInfo::OpName, InputExpressions); \
 	return Compiler->OpName##_Internal(InputExpressions, OutputExpressions); \
@@ -616,7 +638,7 @@ NiagaraOpList
 
 #else//DO_CHECK
 
-#define NiagaraOp(OpName) void INiagaraCompiler::OpName(INiagaraCompiler* Compiler, TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)\
+#define NiagaraOp(OpName) bool INiagaraCompiler::OpName(INiagaraCompiler* Compiler, TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)\
 { \
 	return Compiler->OpName##_Internal(InputExpressions, OutputExpressions); \
 }

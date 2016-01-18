@@ -32,6 +32,8 @@ class UAnimStateNodeBase : public UEdGraphNode
 	//
 	virtual UEdGraph* GetBoundGraph() const { return NULL; }
 
+	ANIMGRAPH_API UAnimBlueprint* GetAnimBlueprint() const;
+
 protected:
 	// Name used as a seed when pasting nodes
 	virtual FString GetDesiredNewNodeName() const { return TEXT("State"); }

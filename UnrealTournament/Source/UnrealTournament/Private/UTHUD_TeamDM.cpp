@@ -1,10 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTHUD.h"
 #include "UTHUD_DM.h"
 #include "UTHUD_TeamDM.h"
-#include "UTHUDWidget_TeamScore.h"
-#include "UTHUDWidget_DMPlayerScore.h"
 
 AUTHUD_TeamDM::AUTHUD_TeamDM(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

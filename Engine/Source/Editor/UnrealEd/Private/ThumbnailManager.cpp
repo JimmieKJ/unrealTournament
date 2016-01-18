@@ -51,9 +51,9 @@ UThumbnailManager::UThumbnailManager(const FObjectInitializer& ObjectInitializer
 		EditorSkySphere = ConstructorStatics.EditorSkySphereMesh.Object;
 		FloorPlaneMaterial = ConstructorStatics.FloorPlaneMaterial.Object;
 		AmbientCubemap = ConstructorStatics.DaylightAmbientCubemap.Object;
-	}
 
-	SetupCheckerboardTexture();
+		SetupCheckerboardTexture();
+	}
 }
 
 void UThumbnailManager::Initialize(void)

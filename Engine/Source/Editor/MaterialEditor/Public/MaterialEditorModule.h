@@ -33,7 +33,7 @@ public:
 	 *
 	 * @param	Material			The material to retrieve the parameters from.
 	 * @param	MaterialInstance	The material instance that contains all parameter overrides.
-	 * @param	VisisbleExpressions	The array that will contain the id's of the visible parameter expressions.
+	 * @param	VisibleExpressions	The array that will contain the id's of the visible parameter expressions.
 	 */
 	virtual void GetVisibleMaterialParameters(const class UMaterial* Material, class UMaterialInstance* MaterialInstance, TArray<struct FGuid>& VisibleExpressions) = 0;
 
@@ -43,10 +43,26 @@ public:
 	virtual TArray<FMaterialMenuExtender>& GetAllMaterialCanvasMenuExtenders() {return MaterialCanvasMenuExtenders;}
 	virtual TArray<FMaterialMenuExtender_MaterialInterface>& GetAllMaterialDragDropContextMenuExtenders() {return MaterialInheritanceMenuExtenders;}
 
+	/** Delegate to be called when a Material Editor is created, for toolbar, tab, and menu extension **/
+	DECLARE_EVENT_OneParam(IMaterialEditorModule, FMaterialEditorOpenedEvent, TWeakPtr<IMaterialEditor>);
+	virtual FMaterialEditorOpenedEvent& OnMaterialEditorOpened() { return MaterialEditorOpenedEvent; };
+
+	/** Delegate to be called when a Material Function Editor is created, for toolbar, tab, and menu extension **/
+	DECLARE_EVENT_OneParam(IMaterialEditorModule, FMaterialFunctionEditorOpenedEvent, TWeakPtr<IMaterialEditor>);
+	virtual FMaterialFunctionEditorOpenedEvent& OnMaterialFunctionEditorOpened() { return MaterialFunctionEditorOpenedEvent; };
+
+	/** Delegate to be called when a Material Instance Editor is created, for toolbar, tab, and menu extension **/
+	DECLARE_EVENT_OneParam(IMaterialEditorModule, FMaterialInstanceEditorOpenedEvent, TWeakPtr<IMaterialEditor>);
+	virtual FMaterialInstanceEditorOpenedEvent& OnMaterialInstanceEditorOpened() { return MaterialInstanceEditorOpenedEvent; };
+
 private:
 	/** All extender delegates for the material menus */
 	TArray<FMaterialMenuExtender> MaterialCanvasMenuExtenders;
 	TArray<FMaterialMenuExtender_MaterialInterface> MaterialInheritanceMenuExtenders;
+
+	FMaterialEditorOpenedEvent MaterialEditorOpenedEvent;
+	FMaterialFunctionEditorOpenedEvent MaterialFunctionEditorOpenedEvent;
+	FMaterialInstanceEditorOpenedEvent MaterialInstanceEditorOpenedEvent;
 };
 
 #endif // __MaterialEditorModule_h__

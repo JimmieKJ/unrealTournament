@@ -83,3 +83,35 @@ void UTurnBasedBlueprintLibrary::RegisterTurnBasedMatchInterfaceObject(UObject* 
 		}
 	}
 }
+
+void UTurnBasedBlueprintLibrary::GetPlayerDisplayName(UObject* WorldContextObject, APlayerController* PlayerController, FString MatchID, int32 PlayerIndex, /*out*/ FString& PlayerDisplayName)
+{
+	FOnlineSubsystemBPCallHelper Helper(TEXT("GetMyPlayerIndex"), GEngine->GetWorldFromContextObject(WorldContextObject));
+	Helper.QueryIDFromPlayerController(PlayerController);
+
+	if (Helper.IsValid())
+	{
+		IOnlineTurnBasedPtr OnlineTurnBasedPtr = Helper.OnlineSub->GetTurnBasedInterface();
+		if (OnlineTurnBasedPtr.IsValid())
+		{
+			FTurnBasedMatchPtr Match = OnlineTurnBasedPtr->GetMatchWithID(MatchID);
+			if (Match.IsValid())
+			{
+				if (Match->GetPlayerDisplayName(PlayerIndex, PlayerDisplayName) == false)
+				{
+					FString Message = FString::Printf(TEXT("Player index %d not within bounds of player array."), PlayerIndex);
+					FFrame::KismetExecutionMessage(*Message, ELogVerbosity::Warning);
+				}
+			}
+			else
+			{
+				FString Message = FString::Printf(TEXT("Match ID %s not found"), *MatchID);
+				FFrame::KismetExecutionMessage(*Message, ELogVerbosity::Warning);
+			}
+		}
+		else
+		{
+			FFrame::KismetExecutionMessage(TEXT("Turn Based Matches not supported by Online Subsystem"), ELogVerbosity::Warning);
+		}
+	}
+}

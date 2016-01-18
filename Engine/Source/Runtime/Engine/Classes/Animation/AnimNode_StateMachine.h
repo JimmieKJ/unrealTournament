@@ -23,8 +23,8 @@ struct FAnimationActiveTransitionEntry
 	// Duration of this cross-fade (may be shorter than the nominal duration specified by the state machine if the target state had non-zero weight at the start)
 	float CrossfadeDuration;
 
-	// Blend type (type of curve applied to time)
-	TEnumAsByte<ETransitionBlendMode::Type> CrossfadeMode;
+	// Type of blend to use
+	EAlphaBlendOption BlendOption;
 
 	// Is this transition active?
 	bool bActive;
@@ -51,15 +51,21 @@ struct FAnimationActiveTransitionEntry
 
 	TArray<FAnimNode_TransitionPoseEvaluator*> PoseEvaluators;
 
+	// Blend data used for per-bone animation evaluation
+	TArray<FBlendSampleData> StateBlendData;
+
 #if WITH_EDITORONLY_DATA
 	TArray<int32, TInlineAllocator<3>> SourceTransitionIndices;
 #endif
 
+	// Blend profile to use for this transition. Specifying this will make the transition evaluate per-bone
+	UPROPERTY()
+	UBlendProfile* BlendProfile;
 
 public:
 	FAnimationActiveTransitionEntry();
-	FAnimationActiveTransitionEntry(int32 NextStateID, float ExistingWeightOfNextState, int32 PreviousStateID, const FAnimationTransitionBetweenStates& ReferenceTransitionInfo);
-	
+	FAnimationActiveTransitionEntry(int32 NextStateID, float ExistingWeightOfNextState, FAnimationActiveTransitionEntry* ExistingTransitionForNextState, int32 PreviousStateID, const FAnimationTransitionBetweenStates& ReferenceTransitionInfo);
+
 	void InitializeCustomGraphLinks(const FAnimationUpdateContext& Context, const FBakedStateExitTransition& TransitionRule);
 
 	void Update(const FAnimationUpdateContext& Context, int32 CurrentStateIndex, bool &OutFinished);
@@ -70,8 +76,11 @@ public:
 	bool Serialize(FArchive& Ar);
 
 protected:
-	float CalculateInverseAlpha(ETransitionBlendMode::Type BlendType, float InFraction) const;
+	float CalculateInverseAlpha(EAlphaBlendOption BlendMode, float InFraction) const;
 	float CalculateAlpha(float InFraction) const;
+
+	// Blend object to handle alpha interpolation
+	FAlphaBlend Blend;
 };
 
 USTRUCT()
@@ -121,13 +130,15 @@ public:
 		return ElapsedTime;
 	}
 
+	FName GetCurrentStateName() const;
+
 #if WITH_EDITORONLY_DATA
 	bool IsTransitionActive(int32 TransIndex) const;
 #endif
 
 protected:
 	// The state machine description this is an instance of
-	FBakedAnimationStateMachine* PRIVATE_MachineDescription;
+	const FBakedAnimationStateMachine* PRIVATE_MachineDescription;
 
 	// The current state within the state machine
 	UPROPERTY()
@@ -159,6 +170,10 @@ private:
 	// true if it is the first update.
 	bool bFirstUpdate;
 
+	TArray<FPoseContext*> StateCachedPoses;
+
+	TArray<FGraphTraversalCounter> StateCacheBoneCounters;
+
 public:
 	FAnimNode_StateMachine()
 		: MaxTransitionsPerFrame(3)
@@ -176,15 +191,22 @@ public:
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 	// End of FAnimNode_Base interface
 
+	void ConditionallyCacheBonesForState(int32 StateIndex, FAnimationBaseContext Context);
+
 	// Returns the blend weight of the specified state, as calculated by the last call to Update()
 	float GetStateWeight(int32 StateIndex) const;
 
 	const FBakedAnimationState& GetStateInfo(int32 StateIndex) const;
 	const FAnimationTransitionBetweenStates& GetTransitionInfo(int32 TransIndex) const;
 	
+	bool IsValidTransitionIndex(int32 TransitionIndex) const;
+
+	/** Cache the internal machine description */
+	void CacheMachineDescription(IAnimClassInterface* AnimBlueprintClass);
+
 protected:
 	// Tries to get the instance information for the state machine
-	FBakedAnimationStateMachine* GetMachineDescription();
+	const FBakedAnimationStateMachine* GetMachineDescription() const;
 
 	void SetState(const FAnimationBaseContext& Context, int32 NewStateIndex);
 	void SetStateInternal(int32 NewStateIndex);
@@ -207,12 +229,15 @@ protected:
 
 	// helper functions for calling update and evaluate on state nodes
 	void UpdateState(int32 StateIndex, const FAnimationUpdateContext& Context);
-	void EvaluateState(int32 StateIndex, FPoseContext& Output);
+	const FPoseContext& EvaluateState(int32 StateIndex, const FPoseContext& Context);
 
 	// transition type evaluation functions
 	void EvaluateTransitionStandardBlend(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, bool bIntermediatePoseIsValid);
+	void EvaluateTransitionStandardBlendInternal(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, const FPoseContext& PreviousStateResult, const FPoseContext& NextStateResult);
 	void EvaluateTransitionCustomBlend(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, bool bIntermediatePoseIsValid);
 
+	FAnimNode_AssetPlayerBase* GetRelevantAssetPlayerFromState(const FAnimationUpdateContext& Context, const FBakedAnimationState& StateInfo);
+
 public:
-	friend class UAnimInstance;
+	friend struct FAnimInstanceProxy;
 };

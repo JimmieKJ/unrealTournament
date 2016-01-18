@@ -12,8 +12,9 @@ class FRCPassPostProcessVisualizeComplexity : public TRenderingCompositePassBase
 {
 public:
 
-	FRCPassPostProcessVisualizeComplexity(const TArray<FLinearColor>& InColors) :
-		Colors(InColors)
+	FRCPassPostProcessVisualizeComplexity(const TArray<FLinearColor>& InColors, bool bInLegend)
+		: Colors(InColors)
+		, bLegend(bInLegend)
 	{}
 
 	// interface FRenderingCompositePass ---------
@@ -24,4 +25,5 @@ public:
 private: 
 
 	TArray<FLinearColor> Colors;
+	bool bLegend;
 };

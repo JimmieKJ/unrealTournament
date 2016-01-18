@@ -28,14 +28,14 @@ private:
 	uint8*	ResourceData;
 
 public:	
-	// Begin UObject interface. 
+	//~ Begin UObject Interface. 
 	virtual void Serialize(FArchive& Ar) override;
-	// End UObject interface. 
+	//~ End UObject Interface. 
 
-	// Begin USoundBase interface.
+	//~ Begin USoundBase Interface.
 	virtual bool IsPlayable() const override;
 	virtual void Parse(class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances) override;
 	virtual float GetMaxAudibleDistance() override;
-	// End USoundBase interface.
+	//~ End USoundBase Interface.
 };
 

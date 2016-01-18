@@ -4,6 +4,7 @@
 
 #include "Containers/Array.h"
 #include "Containers/BitArray.h"
+#include "MemoryOps.h"
 
 
 // Forward declarations.
@@ -339,18 +340,50 @@ public:
 	}
 
 	/** Compacts the allocated elements into a contiguous index range. */
-	void Compact()
+	/** Returns true if any elements were relocated, false otherwise. */
+	bool Compact()
 	{
-		// Copy the existing elements to a new array.
-		TSparseArray<ElementType,Allocator> CompactedArray;
-		CompactedArray.Empty(Num());
-		for(TConstIterator It(*this);It;++It)
+		int32 NumFree = NumFreeIndices;
+		if (NumFree == 0)
 		{
-			new(CompactedArray.AddUninitialized()) ElementType(*It);
+			return false;
 		}
 
-		// Replace this array with the compacted array.
-		Exchange(*this,CompactedArray);
+		bool bResult = false;
+
+		FElementOrFreeListLink* ElementData = Data.GetData();
+
+		int32 EndIndex    = Data.Num();
+		int32 TargetIndex = EndIndex - NumFree;
+		int32 FreeIndex   = FirstFreeIndex;
+		while (FreeIndex != -1)
+		{
+			int32 NextFreeIndex = GetData(FreeIndex).NextFreeIndex;
+			if (FreeIndex < TargetIndex)
+			{
+				// We need an element here
+				do
+				{
+					--EndIndex;
+				}
+				while (!AllocationFlags[EndIndex]);
+
+				RelocateConstructItems<FElementOrFreeListLink>(ElementData + FreeIndex, ElementData + EndIndex, 1);
+				AllocationFlags[FreeIndex] = true;
+
+				bResult = true;
+			}
+
+			FreeIndex = NextFreeIndex;
+		}
+
+		Data           .RemoveAt(TargetIndex, NumFree);
+		AllocationFlags.RemoveAt(TargetIndex, NumFree);
+
+		NumFreeIndices = 0;
+		FirstFreeIndex = -1;
+
+		return bResult;
 	}
 
 	/** Sorts the elements using the provided comparison class. */

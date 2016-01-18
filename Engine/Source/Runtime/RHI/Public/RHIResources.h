@@ -79,7 +79,7 @@ private:
 	mutable FThreadSafeCounter NumRefs;
 	mutable int32 MarkedForDelete;
 	bool bDoNotDeferDelete;
-	static TLockFreePointerList<FRHIResource> PendingDeletes;
+	static TLockFreePointerListUnordered<FRHIResource> PendingDeletes;
 	static FRHIResource* CurrentlyDeleting;
 };
 
@@ -112,6 +112,11 @@ public:
 	void SetHash(FSHAHash InHash) { Hash = InHash; }
 	FSHAHash GetHash() const { return Hash; }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	// for debugging only e.g. MaterialName:ShaderFile.usf or ShaderFile.usf/EntryFunc
+	FString ShaderName;
+#endif
+
 private:
 	FSHAHash Hash;
 };
@@ -141,7 +146,7 @@ struct FRHIUniformBufferLayout
 	{
 		if (!bComputedHash)
 		{
-			uint32 TmpHash = ConstantBufferSize;
+			uint32 TmpHash = ConstantBufferSize << 16;
 			// This is to account for 32vs64 bits difference in pointer sizes.
 			TmpHash ^= Align(ResourceOffset, 8);
 			uint32 N = Resources.Num();
@@ -151,6 +156,11 @@ struct FRHIUniformBufferLayout
 				TmpHash ^= (Resources[--N] << 8);
 				TmpHash ^= (Resources[--N] << 16);
 				TmpHash ^= (Resources[--N] << 24);
+			}
+			while (N >= 2)
+			{
+				TmpHash ^= Resources[--N] << 0;
+				TmpHash ^= Resources[--N] << 16;
 			}
 			while (N > 0)
 			{
@@ -162,15 +172,44 @@ struct FRHIUniformBufferLayout
 		return Hash;
 	}
 
-	FRHIUniformBufferLayout() :
+	explicit FRHIUniformBufferLayout(FName InName) :
 		ConstantBufferSize(0),
 		ResourceOffset(0),
+		Name(InName),
 		Hash(0),
 		bComputedHash(false)
 	{
 	}
 
+	enum EInit
+	{
+		Zero
+	};
+	explicit FRHIUniformBufferLayout(EInit) :
+		ConstantBufferSize(0),
+		ResourceOffset(0),
+		Name(FName()),
+		Hash(0),
+		bComputedHash(false)
+	{
+	}
+
+	void CopyFrom(const FRHIUniformBufferLayout& Source)
+	{
+		ConstantBufferSize = Source.ConstantBufferSize;
+		ResourceOffset = Source.ResourceOffset;
+		Resources = Source.Resources;
+		Name = Source.Name;
+		Hash = Source.Hash;
+		bComputedHash = Source.bComputedHash;
+	}
+
+	const FName GetDebugName() const { return Name; }
+
 private:
+	// for debugging / error message
+	FName Name;
+
 	mutable uint32 Hash;
 	mutable bool bComputedHash;
 };
@@ -231,7 +270,10 @@ class FRHIVertexBuffer : public FRHIResource
 {
 public:
 
-	/** Initialization constructor. */
+	/**
+	 * Initialization constructor.
+	 * @apram InUsage e.g. BUF_UnorderedAccess
+	 */
 	FRHIVertexBuffer(uint32 InSize,uint32 InUsage)
 	: Size(InSize)
 	, Usage(InUsage)
@@ -240,13 +282,15 @@ public:
 	/** @return The number of bytes in the vertex buffer. */
 	uint32 GetSize() const { return Size; }
 
-	/** @return The usage flags used to create the vertex buffer. */
+	/** @return The usage flags used to create the vertex buffer. e.g. BUF_UnorderedAccess */
 	uint32 GetUsage() const { return Usage; }
 
 private:
 	uint32 Size;
+	// e.g. BUF_UnorderedAccess
 	uint32 Usage;
 };
+
 class FRHIStructuredBuffer : public FRHIResource
 {
 public:
@@ -295,12 +339,13 @@ class RHI_API FRHITexture : public FRHIResource
 public:
 	
 	/** Initialization constructor. */
-	FRHITexture(uint32 InNumMips,uint32 InNumSamples,EPixelFormat InFormat,uint32 InFlags,FLastRenderTimeContainer* InLastRenderTime)
-	: NumMips(InNumMips)
+	FRHITexture(uint32 InNumMips, uint32 InNumSamples, EPixelFormat InFormat, uint32 InFlags, FLastRenderTimeContainer* InLastRenderTime, const FClearValueBinding& InClearValue)
+	: ClearValue(InClearValue)
+	, NumMips(InNumMips)
 	, NumSamples(InNumSamples)
 	, Format(InFormat)
 	, Flags(InFlags)
-	, LastRenderTime(InLastRenderTime ? *InLastRenderTime : DefaultLastRenderTime)
+	, LastRenderTime(InLastRenderTime ? *InLastRenderTime : DefaultLastRenderTime)	
 	{}
 
 	// Dynamic cast methods.
@@ -377,13 +422,50 @@ public:
 		return TextureName;
 	}
 
+	bool HasClearValue() const
+	{
+		return ClearValue.ColorBinding != EClearBinding::ENoneBound;
+	}
+
+	FLinearColor GetClearColor() const
+	{
+		return ClearValue.GetClearColor();
+	}
+
+	void GetDepthStencilClearValue(float& OutDepth, uint32& OutStencil) const
+	{
+		return ClearValue.GetDepthStencil(OutDepth, OutStencil);
+	}
+
+	float GetDepthClearValue() const
+	{
+		float Depth;
+		uint32 Stencil;
+		ClearValue.GetDepthStencil(Depth, Stencil);
+		return Depth;
+	}
+
+	uint32 GetStencilClearValue() const
+	{
+		float Depth;
+		uint32 Stencil;
+		ClearValue.GetDepthStencil(Depth, Stencil);
+		return Stencil;
+	}
+
+	const FClearValueBinding GetClearBinding() const
+	{
+		return ClearValue;
+	}
+
 private:
+	FClearValueBinding ClearValue;
 	uint32 NumMips;
 	uint32 NumSamples;
 	EPixelFormat Format;
 	uint32 Flags;
 	FLastRenderTimeContainer& LastRenderTime;
-	FLastRenderTimeContainer DefaultLastRenderTime;
+	FLastRenderTimeContainer DefaultLastRenderTime;	
 	FName TextureName;
 };
 
@@ -392,8 +474,8 @@ class RHI_API FRHITexture2D : public FRHITexture
 public:
 	
 	/** Initialization constructor. */
-	FRHITexture2D(uint32 InSizeX,uint32 InSizeY,uint32 InNumMips,uint32 InNumSamples,EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture(InNumMips,InNumSamples,InFormat,InFlags,NULL)
+	FRHITexture2D(uint32 InSizeX,uint32 InSizeY,uint32 InNumMips,uint32 InNumSamples,EPixelFormat InFormat,uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture(InNumMips, InNumSamples, InFormat, InFlags, NULL, InClearValue)
 	, SizeX(InSizeX)
 	, SizeY(InSizeY)
 	{}
@@ -418,8 +500,8 @@ class RHI_API FRHITexture2DArray : public FRHITexture
 public:
 	
 	/** Initialization constructor. */
-	FRHITexture2DArray(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture(InNumMips,1,InFormat,InFlags,NULL)
+	FRHITexture2DArray(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,EPixelFormat InFormat,uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture(InNumMips,1,InFormat,InFlags,NULL, InClearValue)
 	, SizeX(InSizeX)
 	, SizeY(InSizeY)
 	, SizeZ(InSizeZ)
@@ -449,8 +531,8 @@ class RHI_API FRHITexture3D : public FRHITexture
 public:
 	
 	/** Initialization constructor. */
-	FRHITexture3D(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture(InNumMips,1,InFormat,InFlags,NULL)
+	FRHITexture3D(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,EPixelFormat InFormat,uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture(InNumMips,1,InFormat,InFlags,NULL, InClearValue)
 	, SizeX(InSizeX)
 	, SizeY(InSizeY)
 	, SizeZ(InSizeZ)
@@ -480,8 +562,8 @@ class RHI_API FRHITextureCube : public FRHITexture
 public:
 	
 	/** Initialization constructor. */
-	FRHITextureCube(uint32 InSize,uint32 InNumMips,EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture(InNumMips,1,InFormat,InFlags,NULL)
+	FRHITextureCube(uint32 InSize,uint32 InNumMips,EPixelFormat InFormat,uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture(InNumMips,1,InFormat,InFlags,NULL, InClearValue)
 	, Size(InSize)
 	{}
 	
@@ -500,7 +582,7 @@ class RHI_API FRHITextureReference : public FRHITexture
 {
 public:
 	explicit FRHITextureReference(FLastRenderTimeContainer* InLastRenderTime)
-		: FRHITexture(0,0,PF_Unknown,0,InLastRenderTime)
+		: FRHITexture(0,0,PF_Unknown,0,InLastRenderTime, FClearValueBinding())
 	{}
 
 	virtual FRHITextureReference* GetTextureReference() override { return this; }
@@ -534,6 +616,45 @@ public:
 //
 
 class FRHIRenderQuery : public FRHIResource {};
+
+class FRHIComputeFence : public FRHIResource
+{
+public:
+
+	FRHIComputeFence(FName InName)
+		: Name(InName)
+		, bWriteEnqueued(false)
+	{}
+
+	FORCEINLINE FName GetName() const
+	{
+		return Name;
+	}
+
+	FORCEINLINE bool GetWriteEnqueued() const
+	{
+		return bWriteEnqueued;
+	}
+
+	virtual void Reset()
+	{
+		bWriteEnqueued = false;
+	}
+
+	virtual void WriteFence()
+	{
+		ensureMsgf(!bWriteEnqueued, TEXT("ComputeFence: %s already written this frame. You should use a new label"), *Name.ToString());
+		bWriteEnqueued = true;
+	}
+
+private:
+	//debug name of the label.
+	FName Name;
+
+	//has the label been written to since being created.
+	//check this when queuing waits to catch GPU hangs on the CPU at command creation time.
+	bool bWriteEnqueued;
+};
 
 class FRHIViewport : public FRHIResource 
 {
@@ -625,6 +746,10 @@ typedef TRefCountPtr<FRHIGeometryShader> FGeometryShaderRHIRef;
 
 typedef FRHIComputeShader*              FComputeShaderRHIParamRef;
 typedef TRefCountPtr<FRHIComputeShader> FComputeShaderRHIRef;
+
+typedef FRHIComputeFence*				FComputeFenceRHIParamRef;
+typedef TRefCountPtr<FRHIComputeFence>	FComputeFenceRHIRef;
+
 
 typedef FRHIBoundShaderState*              FBoundShaderStateRHIParamRef;
 typedef TRefCountPtr<FRHIBoundShaderState> FBoundShaderStateRHIRef;
@@ -787,6 +912,12 @@ public:
 	{
 		return ExtractStencil() == StencilWrite;
 	}
+
+	inline bool IsAnyWrite() const
+	{
+		return IsDepthWrite() || IsStencilWrite();
+	}
+
 	inline void SetDepthWrite()
 	{
 		Value = (Type)(ExtractStencil() | DepthWrite);
@@ -959,9 +1090,9 @@ public:
 	}
 
 	void Validate() const
-	{
-		// Missed optimization, resolve is not needed for read only ops
-		ensure(!(DepthStencilAccess == FExclusiveDepthStencil::DepthRead_StencilRead && StencilStoreAction != ERenderTargetStoreAction::ENoAction));
+	{		
+		ensureMsgf(DepthStencilAccess.IsDepthWrite() || DepthStoreAction == ERenderTargetStoreAction::ENoAction, TEXT("Depth is read-only, but we are performing a store.  This is a waste on mobile.  If depth can't change, we don't need to store it out again"));
+		ensureMsgf(DepthStencilAccess.IsStencilWrite() || StencilStoreAction == ERenderTargetStoreAction::ENoAction, TEXT("Stencil is read-only, but we are performing a store.  This is a waste on mobile.  If stencil can't change, we don't need to store it out again"));
 	}
 
 	bool operator==(const FRHIDepthRenderTargetView& Other)
@@ -980,45 +1111,43 @@ class FRHISetRenderTargetsInfo
 {
 public:
 	// Color Render Targets Info
-	FRHIRenderTargetView ColorRenderTarget[MaxSimultaneousRenderTargets];
-	FLinearColor ClearColors[MaxSimultaneousRenderTargets];
+	FRHIRenderTargetView ColorRenderTarget[MaxSimultaneousRenderTargets];	
 	int32 NumColorRenderTargets;
 	bool bClearColor;
 
 	// Depth/Stencil Render Target Info
-	FRHIDepthRenderTargetView DepthStencilRenderTarget;
-	float DepthClearValue;
-	uint32 StencilClearValue;
+	FRHIDepthRenderTargetView DepthStencilRenderTarget;	
 	bool bClearDepth;
 	bool bClearStencil;
 
+	// UAVs info.
+	FUnorderedAccessViewRHIRef UnorderedAccessView[MaxSimultaneousUAVs];
+	int32 NumUAVs;
+
 	FRHISetRenderTargetsInfo() :
 		NumColorRenderTargets(0),
-		bClearColor(false),
-		DepthClearValue((float)ERHIZBuffer::FarPlane),
-		StencilClearValue(0),
+		bClearColor(false),		
 		bClearDepth(false),
-		bClearStencil(false)
+		bClearStencil(false),
+		NumUAVs(0)
 	{}
 
 	FRHISetRenderTargetsInfo(int32 InNumColorRenderTargets, const FRHIRenderTargetView* InColorRenderTargets, const FRHIDepthRenderTargetView& InDepthStencilRenderTarget) :
 		NumColorRenderTargets(InNumColorRenderTargets),
 		bClearColor(InNumColorRenderTargets > 0 && InColorRenderTargets[0].LoadAction == ERenderTargetLoadAction::EClear),
-		DepthStencilRenderTarget(InDepthStencilRenderTarget),
-		DepthClearValue((float)ERHIZBuffer::FarPlane),
-		StencilClearValue(0),
+		DepthStencilRenderTarget(InDepthStencilRenderTarget),		
 		bClearDepth(InDepthStencilRenderTarget.Texture && InDepthStencilRenderTarget.DepthLoadAction == ERenderTargetLoadAction::EClear),
-		bClearStencil(InDepthStencilRenderTarget.Texture && InDepthStencilRenderTarget.StencilLoadAction == ERenderTargetLoadAction::EClear)
+		bClearStencil(InDepthStencilRenderTarget.Texture && InDepthStencilRenderTarget.StencilLoadAction == ERenderTargetLoadAction::EClear),
+		NumUAVs(0)
 	{
 		check(InNumColorRenderTargets <= 0 || InColorRenderTargets);
 		for (int32 Index = 0; Index < InNumColorRenderTargets; ++Index)
 		{
-			ColorRenderTarget[Index] = InColorRenderTargets[Index];
-			ClearColors[Index] = FLinearColor(0, 0, 0, 1);
+			ColorRenderTarget[Index] = InColorRenderTargets[Index];			
 		}
 	}
 	// @todo metal mrt: This can go away after all the cleanup is done
-	void SetClearDepthStencil(bool bInClearDepth, float InDepthClear, bool bInClearStencil = false, uint32 InClearStencil = 0)
+	void SetClearDepthStencil(bool bInClearDepth, bool bInClearStencil = false)
 	{
 		if (bInClearDepth)
 		{
@@ -1028,10 +1157,8 @@ public:
 		{
 			DepthStencilRenderTarget.StencilLoadAction = ERenderTargetLoadAction::EClear;
 		}
-		bClearDepth = bInClearDepth;
-		DepthClearValue = InDepthClear;
-		bClearStencil = bInClearStencil;
-		StencilClearValue = InClearStencil;
+		bClearDepth = bInClearDepth;		
+		bClearStencil = bInClearStencil;		
 	}
 };
 
@@ -1053,6 +1180,11 @@ public:
 	// @return	true if normal Present should be performed; false otherwise. If it returns
 	// true, then InOutSyncInterval could be modified to switch between VSync/NoVSync for the normal Present.
 	virtual bool Present(int32& InOutSyncInterval) = 0;
+
+	// Called when rendering thread is acquired
+	virtual void OnAcquireThreadOwnership() {}
+	// Called when rendering thread is released
+	virtual void OnReleaseThreadOwnership() {}
 
 protected:
 	// Weak reference, don't create a circular dependency that would prevent the viewport from being destroyed.

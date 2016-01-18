@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "SlateBasics.h"
@@ -33,6 +33,7 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		, _IsFocusable( true )
 		, _IsToggleButton(false)
 		, _WidgetTag(0)
+		, _CaptionHAlign( HAlign_Left )
 
 		{}
 
@@ -55,7 +56,7 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		SLATE_ATTRIBUTE( FMargin, ContentPadding )
 	
 		/** The text to display in this button, if no custom content is specified */
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE(FText, Text)
 	
 		/** Called when the button is clicked */
 		SLATE_EVENT( FUTButtonClick, UTOnButtonClicked )
@@ -102,6 +103,9 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		SLATE_EVENT( FUTMouseOver, UTOnMouseOver)
 
 		SLATE_EVENT( FOnClicked, OnClicked )
+
+		/** Horizontal alignment */
+		SLATE_ARGUMENT( EHorizontalAlignment, CaptionHAlign )
 
 	SLATE_END_ARGS()
 

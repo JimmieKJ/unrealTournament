@@ -447,9 +447,8 @@ bool FLayers::SelectActorsInLayers( const TArray< FName >& LayerNames, bool bSel
 	bool bChangesOccurred = false;
 
 	// Iterate over all actors, looking for actors in the specified layers.
-	for( FActorIterator It(GetWorld()); It ; ++It )
+	for( const TWeakObjectPtr< AActor > Actor : FActorRange(GetWorld()) )
 	{
-		const TWeakObjectPtr< AActor > Actor = *It;
 		if( !IsActorValidForLayer( Actor ) )
 		{
 			continue;

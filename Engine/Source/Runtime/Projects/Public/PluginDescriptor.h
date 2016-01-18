@@ -61,6 +61,9 @@ struct PROJECTS_API FPluginDescriptor
 	/** Marketplace URL for this plugin. This URL will be embedded into projects that enable this plugin, so we can redirect to the marketplace if a user doesn't have it installed. */
 	FString MarketplaceURL;
 
+	/** Support URL/email for this plugin. */
+	FString SupportURL;
+
 	/** List of all modules associated with this plugin */
 	TArray<FModuleDescriptor> Modules;
 
@@ -102,7 +105,10 @@ struct PROJECTS_API FPluginReferenceDescriptor
 
 	/** Whether it should be enabled by default */
 	bool bEnabled;
-	
+
+	/** Whether this plugin is optional, and the game should silently ignore it not being present */
+	bool bOptional;
+
 	/** Description of the plugin for users that do not have it installed. */
 	FString Description;
 

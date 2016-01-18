@@ -74,6 +74,7 @@ struct ENGINE_API FAreaNavModifier : public FNavigationModifier
 	FAreaNavModifier(const FBox& Box, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
 	FAreaNavModifier(const TArray<FVector>& Points, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
 	FAreaNavModifier(const TArray<FVector>& Points, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
+	FAreaNavModifier(const TNavStatArray<FVector>& Points, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
 	FAreaNavModifier(const UBrushComponent* BrushComponent, const TSubclassOf<UNavArea> AreaClass);
 
 	FORCEINLINE const FBox& GetBounds() const { return Bounds; }
@@ -101,8 +102,8 @@ protected:
 	/** if set, area shape will be extended by agent's height to cover area underneath like regular colliding geometry */
 	uint8 bIncludeAgentHeight : 1;
 
-	void Init(const TSubclassOf<UNavArea> AreaClass);
-	void SetConvex(const TArray<FVector>& Points, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld);
+	void Init(const TSubclassOf<UNavArea> InAreaClass);
+	void SetConvex(const FVector* InPoints, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld);
 	void SetBox(const FBox& Box, const FTransform& LocalToWorld);
 };
 
@@ -178,6 +179,7 @@ struct ENGINE_API FSimpleLinkNavModifier : public FNavigationModifier
 	void AppendSegmentLinks(const TArray<FNavigationSegmentLink>& InLinks);
 	void AddLink(const FNavigationLink& InLink);
 	void AddSegmentLink(const FNavigationSegmentLink& InLink);
+	void UpdateFlags();
 
 protected:
 	/** set to true if any of links stored is a "fall down" link, i.e. requires vertical snapping to geometry */
@@ -191,7 +193,7 @@ struct ENGINE_API FCustomLinkNavModifier : public FNavigationModifier
 	FTransform LocalToWorld;
 
 	FCustomLinkNavModifier() : LinkDefinitionClass(NULL) {}
-	void Set(TSubclassOf<UNavLinkDefinition> LinkDefinitionClass, const FTransform& LocalToWorld);
+	void Set(TSubclassOf<UNavLinkDefinition> LinkDefinitionClass, const FTransform& InLocalToWorld);
 	FORCEINLINE const TSubclassOf<UNavLinkDefinition> GetNavLinkClass() const { return LinkDefinitionClass; }
 
 protected:

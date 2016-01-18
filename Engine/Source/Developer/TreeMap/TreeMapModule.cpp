@@ -25,6 +25,3 @@ public:
 
 
 IMPLEMENT_MODULE(FTreeMapModule, TreeMap);
-
-
-#undef LOCTEXT_NAMESPACE

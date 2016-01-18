@@ -20,14 +20,15 @@ AGameplayAbilityTargetActor::AGameplayAbilityTargetActor(const FObjectInitialize
 	bDestroyOnConfirmation = true;
 }
 
-void AGameplayAbilityTargetActor::Destroyed()
+void AGameplayAbilityTargetActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	// We must remove ourselves from GenericLocalConfirmCallbacks/GenericLocalCancelCallbacks, since while these are bound they will inhibit any *other* abilities
-	// that are bound to the same key.
-
-	if (OwningAbility)
+	if (GenericDelegateBoundASC)
 	{
-		const FGameplayAbilityActorInfo* Info = OwningAbility->GetCurrentActorInfo();
+		// We must remove ourselves from GenericLocalConfirmCallbacks/GenericLocalCancelCallbacks, since while these are bound they will inhibit any *other* abilities
+		// that are bound to the same key.
+
+		UAbilitySystemComponent* UnboundASC = nullptr;
+		const FGameplayAbilityActorInfo* Info = (OwningAbility ? OwningAbility->GetCurrentActorInfo() : nullptr);
 		if (Info && Info->IsLocallyControlled())
 		{
 			UAbilitySystemComponent* ASC = Info->AbilitySystemComponent.Get();
@@ -35,11 +36,15 @@ void AGameplayAbilityTargetActor::Destroyed()
 			{
 				ASC->GenericLocalConfirmCallbacks.RemoveDynamic(this, &AGameplayAbilityTargetActor::ConfirmTargeting);
 				ASC->GenericLocalCancelCallbacks.RemoveDynamic(this, &AGameplayAbilityTargetActor::CancelTargeting);
+
+				UnboundASC = ASC;
 			}
 		}
+
+		ensure(GenericDelegateBoundASC == UnboundASC); // Error checking that we have removed delegates from the same ASC we bound them to
 	}
 
-	Super::Destroyed();
+	Super::EndPlay(EndPlayReason);
 }
 
 void AGameplayAbilityTargetActor::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -72,8 +77,16 @@ void AGameplayAbilityTargetActor::ConfirmTargetingAndContinue()
 
 void AGameplayAbilityTargetActor::ConfirmTargeting()
 {
-	UAbilitySystemComponent* ASC = OwningAbility->GetCurrentActorInfo()->AbilitySystemComponent.Get();
-	ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::GenericConfirm, OwningAbility->GetCurrentAbilitySpecHandle(), OwningAbility->GetCurrentActivationInfo().GetActivationPredictionKey() ).Remove(GenericConfirmHandle);
+	const FGameplayAbilityActorInfo* ActorInfo = (OwningAbility ? OwningAbility->GetCurrentActorInfo() : nullptr);
+	UAbilitySystemComponent* ASC = (ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr);
+	if (ASC)
+	{
+		ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::GenericConfirm, OwningAbility->GetCurrentAbilitySpecHandle(), OwningAbility->GetCurrentActivationInfo().GetActivationPredictionKey() ).Remove(GenericConfirmHandle);
+	}
+	else
+	{
+		ABILITY_LOG(Warning, TEXT("AGameplayAbilityTargetActor::ConfirmTargeting called with null Ability/ASC! Actor %s"), *GetName());
+	}
 
 	if (IsConfirmTargetingAllowed())
 	{
@@ -88,8 +101,16 @@ void AGameplayAbilityTargetActor::ConfirmTargeting()
 /** Outside code is saying 'stop everything and just forget about it' */
 void AGameplayAbilityTargetActor::CancelTargeting()
 {
-	UAbilitySystemComponent* ASC = OwningAbility->GetCurrentActorInfo()->AbilitySystemComponent.Get();
-	ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::GenericCancel, OwningAbility->GetCurrentAbilitySpecHandle(), OwningAbility->GetCurrentActivationInfo().GetActivationPredictionKey() ).Remove(GenericCancelHandle);
+	const FGameplayAbilityActorInfo* ActorInfo = (OwningAbility ? OwningAbility->GetCurrentActorInfo() : nullptr);
+	UAbilitySystemComponent* ASC = (ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr);
+	if (ASC)
+	{
+		ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::GenericCancel, OwningAbility->GetCurrentAbilitySpecHandle(), OwningAbility->GetCurrentActivationInfo().GetActivationPredictionKey() ).Remove(GenericCancelHandle);
+	}
+	else
+	{
+		ABILITY_LOG(Warning, TEXT("AGameplayAbilityTargetActor::CancelTargeting called with null ASC! Actor %s"), *GetName());
+	}
 
 	CanceledDelegate.Broadcast(FGameplayAbilityTargetDataHandle());
 	Destroy();
@@ -144,6 +165,9 @@ void AGameplayAbilityTargetActor::BindToConfirmCancelInputs()
 			// We have to wait for the callback from the AbilitySystemComponent. Which will always be instigated locally
 			ASC->GenericLocalConfirmCallbacks.AddDynamic(this, &AGameplayAbilityTargetActor::ConfirmTargeting);	// Tell me if the confirm input is pressed
 			ASC->GenericLocalCancelCallbacks.AddDynamic(this, &AGameplayAbilityTargetActor::CancelTargeting);	// Tell me if the cancel input is pressed
+
+			// Save off which ASC we bound so that we can error check that we're removing them later
+			GenericDelegateBoundASC = ASC;
 		}
 		else
 		{	

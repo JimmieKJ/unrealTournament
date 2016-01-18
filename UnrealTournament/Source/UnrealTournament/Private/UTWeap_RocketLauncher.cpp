@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTWeaponStateEquipping.h"
@@ -490,7 +490,7 @@ void AUTWeap_RocketLauncher::StateChanged()
 bool AUTWeap_RocketLauncher::CanLockTarget(AActor *Target)
 {
 	//Make sure its not dead
-	if (Target != NULL && !Target->bTearOff && !bPendingKillPending)
+	if (Target != NULL && !Target->bTearOff && !IsPendingKillPending())
 	{
 		AUTCharacter* UTP = Cast<AUTCharacter>(Target);
 

@@ -119,7 +119,7 @@ bool SGraphNodeSequencePlayer::GetSequencePositionInfo(float& Out_Position, floa
 	{
 		if (UAnimSequenceBase* BoundSequence = SequencePlayer->Sequence)
 		{
-			Out_Position = SequencePlayer->InternalTimeAccumulator;
+			Out_Position = SequencePlayer->GetAccumulatedTime();
 			Out_Length = BoundSequence->SequenceLength;
 			Out_FrameCount = BoundSequence->GetNumberOfFrames();
 
@@ -152,7 +152,7 @@ void SGraphNodeSequencePlayer::SetSequencePositionRatio(float NewRatio)
 		if (SequencePlayer->Sequence != NULL)
 		{
 			const float NewTime = NewRatio * SequencePlayer->Sequence->SequenceLength;
-			SequencePlayer->InternalTimeAccumulator = NewTime;
+			SequencePlayer->SetAccumulatedTime(NewTime);
 		}
 	}
 }

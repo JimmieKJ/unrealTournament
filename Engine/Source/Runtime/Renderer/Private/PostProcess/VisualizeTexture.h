@@ -41,6 +41,13 @@ public:
 	int32 Mode;
 	//
 	float RGBMul;
+
+	// -1=off, 0=R, 1=G, 2=B, 3=A
+	int32 SingleChannel;
+
+	// Multiplier for the single channel
+	float SingleChannelMul;
+
 	//
 	float AMul;
 	// 0=view in left top, 1=whole texture, 2=pixel perfect centered, 3=Picture in Picture
@@ -112,6 +119,8 @@ struct FVisualizeTextureData
 	const FPooledRenderTargetDesc& Desc;
 	TRefCountPtr<FRHIShaderResourceView> StencilSRV;
 	float RGBMul;
+	float SingleChannelMul;
+	int32 SingleChannel;
 	float AMul;
 	FVector2D Tex00;
 	FVector2D Tex11;

@@ -19,3 +19,5 @@
 #include "AbilitySystemStats.h"
 #include "GameplayAbilitiesModule.h"
 #include "AbilitySystemLog.h"
+
+#include "GameplayTasksComponent.h"

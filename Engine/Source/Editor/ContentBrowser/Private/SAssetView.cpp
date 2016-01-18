@@ -15,6 +15,9 @@
 #include "KismetEditorUtilities.h"
 #include "IPluginManager.h"
 #include "NativeClassHierarchy.h"
+#include "MessageLog.h"
+#include "SNotificationList.h"
+#include "NotificationManager.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -88,10 +91,11 @@ void SAssetView::Construct( const FArguments& InArgs )
 	AssetRegistryModule.Get().OnPathAdded().AddSP( this, &SAssetView::OnAssetRegistryPathAdded );
 	AssetRegistryModule.Get().OnPathRemoved().AddSP( this, &SAssetView::OnAssetRegistryPathRemoved );
 
-	FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 	CollectionManagerModule.Get().OnAssetsAdded().AddSP( this, &SAssetView::OnAssetsAddedToCollection );
 	CollectionManagerModule.Get().OnAssetsRemoved().AddSP( this, &SAssetView::OnAssetsRemovedFromCollection );
 	CollectionManagerModule.Get().OnCollectionRenamed().AddSP( this, &SAssetView::OnCollectionRenamed );
+	CollectionManagerModule.Get().OnCollectionUpdated().AddSP( this, &SAssetView::OnCollectionUpdated );
 
 	// Listen for when assets are loaded or changed to update item data
 	FCoreUObjectDelegates::OnAssetLoaded.AddSP(this, &SAssetView::OnAssetLoaded);
@@ -147,9 +151,15 @@ void SAssetView::Construct( const FArguments& InArgs )
 
 	bCanShowDevelopersFolder = InArgs._CanShowDevelopersFolder;
 
+	bCanShowCollections = InArgs._CanShowCollections;
+
 	bPreloadAssetsForContextMenu = InArgs._PreloadAssetsForContextMenu;
 
 	SelectionMode = InArgs._SelectionMode;
+
+	bShowPathInColumnView = InArgs._ShowPathInColumnView;
+	bShowTypeInColumnView = InArgs._ShowTypeInColumnView;
+	bSortByPathInColumnView = bShowPathInColumnView & InArgs._SortByPathInColumnView;
 
 	bPendingUpdateThumbnails = false;
 	CurrentThumbnailSize = TileViewThumbnailSize;
@@ -391,6 +401,19 @@ void SAssetView::Construct( const FArguments& InArgs )
 		AssetsToSync.Add( InArgs._InitialAssetSelection );
 		SyncToAssets( AssetsToSync );
 	}
+
+	// If currently looking at column, and you could choose to sort by path in column first and then name
+	// Generalizing this is a bit difficult because the column ID is not accessible or is not known
+	// Currently I assume this won't work, if this view mode is not column. Otherwise, I don't think sorting by path
+	// is a good idea. 
+	if (CurrentViewType == EAssetViewType::Column && bSortByPathInColumnView)
+	{
+		SortManager.SetSortColumnId(EColumnSortPriority::Primary, SortManager.PathColumnId);
+		SortManager.SetSortColumnId(EColumnSortPriority::Secondary, SortManager.NameColumnId);
+		SortManager.SetSortMode(EColumnSortPriority::Primary, EColumnSortMode::Ascending);
+		SortManager.SetSortMode(EColumnSortPriority::Secondary, EColumnSortMode::Ascending);
+		SortList();
+	}
 }
 
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -495,8 +518,9 @@ void SAssetView::DeferredCreateNewAsset()
 		FName AssetClassName = DeferredAssetToCreate->AssetClass->GetFName();
 		TMap<FName, FString> EmptyTags;
 		TArray<int32> EmptyChunkIDs;
-	
-		FAssetData NewAssetData(PackageName, PackagePathFName, NAME_None, AssetName, AssetClassName, EmptyTags, EmptyChunkIDs);
+		const uint32 EmptyPackageFlags = 0;
+
+		FAssetData NewAssetData(PackageName, PackagePathFName, NAME_None, AssetName, AssetClassName, EmptyTags, EmptyChunkIDs, EmptyPackageFlags);
 		TSharedPtr<FAssetViewItem> NewItem = MakeShareable(new FAssetViewCreation(NewAssetData, DeferredAssetToCreate->AssetClass, DeferredAssetToCreate->Factory));
 
 		NewItem->bRenameWhenScrolledIntoview = true;
@@ -533,8 +557,9 @@ void SAssetView::DuplicateAsset(const FString& PackagePath, const TWeakObjectPtr
 	FName AssetClass = OriginalObject->GetClass()->GetFName();
 	TMap<FName, FString> EmptyTags;
 	TArray<int32> EmptyChunkIDs;
+	const uint32 EmptyPackageFlags = 0;
 
-	FAssetData NewAssetData(PackageName, PackagePathFName, NAME_None, AssetName, AssetClass, EmptyTags, EmptyChunkIDs);
+	FAssetData NewAssetData(PackageName, PackagePathFName, NAME_None, AssetName, AssetClass, EmptyTags, EmptyChunkIDs, EmptyPackageFlags);
 	TSharedPtr<FAssetViewItem> NewItem = MakeShareable(new FAssetViewDuplication(NewAssetData, OriginalObject));
 	NewItem->bRenameWhenScrolledIntoview = true;
 
@@ -1080,19 +1105,35 @@ void SAssetView::ProcessQueriedItems( const double TickStartTime )
 
 void SAssetView::OnDragLeave( const FDragDropEvent& DragDropEvent )
 {
-	TSharedPtr< FAssetDragDropOp > DragAssetOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
-	if( DragAssetOp.IsValid() )
+	TSharedPtr< FAssetDragDropOp > AssetDragDropOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
+	if( AssetDragDropOp.IsValid() )
 	{
-		DragAssetOp->ResetToDefaultToolTip();
+		AssetDragDropOp->ResetToDefaultToolTip();
+		return;
+	}
+
+	TSharedPtr<FDragDropOperation> DragDropOp = DragDropEvent.GetOperation();
+	if (DragDropOp.IsValid())
+	{
+		// Do we have a custom handler for this drag event?
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>("ContentBrowser");
+		const TArray<FAssetViewDragAndDropExtender>& AssetViewDragAndDropExtenders = ContentBrowserModule.GetAssetViewDragAndDropExtenders();
+		for (const auto& AssetViewDragAndDropExtender : AssetViewDragAndDropExtenders)
+		{
+			if (AssetViewDragAndDropExtender.OnDragLeaveDelegate.IsBound() && AssetViewDragAndDropExtender.OnDragLeaveDelegate.Execute(FAssetViewDragAndDropExtender::FPayload(DragDropOp, SourcesData.PackagePaths, SourcesData.Collections)))
+			{
+				return;
+			}
+		}
 	}
 }
 
 FReply SAssetView::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
 {
-	TSharedPtr< FExternalDragOperation > DragDropOp = DragDropEvent.GetOperationAs< FExternalDragOperation >();
-	if ( DragDropOp.IsValid() )
+	TSharedPtr< FExternalDragOperation > ExternalDragDropOp = DragDropEvent.GetOperationAs< FExternalDragOperation >();
+	if ( ExternalDragDropOp.IsValid() )
 	{
-		if ( DragDropOp->HasFiles() )
+		if ( ExternalDragDropOp->HasFiles() )
 		{
 			return FReply::Handled();
 		}
@@ -1103,12 +1144,13 @@ FReply SAssetView::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent
 
 		if ( AssetDatas.Num() > 0 )
 		{
-			TSharedPtr< FAssetDragDropOp > DragAssetOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
-			if( DragAssetOp.IsValid() )
+			TSharedPtr< FAssetDragDropOp > AssetDragDropOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
+			if( AssetDragDropOp.IsValid() )
 			{
 				TArray< FName > ObjectPaths;
-				FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
-				CollectionManagerModule.Get().GetObjectsInCollection( SourcesData.Collections[0].Name, SourcesData.Collections[0].Type, ObjectPaths );
+				FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+				const FCollectionNameType& Collection = SourcesData.Collections[0];
+				CollectionManagerModule.Get().GetObjectsInCollection( Collection.Name, Collection.Type, ObjectPaths );
 
 				bool IsValidDrop = false;
 				for (const auto& AssetData : AssetDatas)
@@ -1127,11 +1169,26 @@ FReply SAssetView::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent
 
 				if ( IsValidDrop )
 				{
-					DragAssetOp->SetToolTip( NSLOCTEXT( "AssetView", "OnDragOverCollection", "Add to Collection" ), FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.OK"))) ;
+					AssetDragDropOp->SetToolTip( NSLOCTEXT( "AssetView", "OnDragOverCollection", "Add to Collection" ), FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.OK"))) ;
 				}
 			}
 
 			return FReply::Handled();
+		}
+	}
+
+	TSharedPtr<FDragDropOperation> DragDropOp = DragDropEvent.GetOperation();
+	if (DragDropOp.IsValid())
+	{
+		// Do we have a custom handler for this drag event?
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>("ContentBrowser");
+		const TArray<FAssetViewDragAndDropExtender>& AssetViewDragAndDropExtenders = ContentBrowserModule.GetAssetViewDragAndDropExtenders();
+		for (const auto& AssetViewDragAndDropExtender : AssetViewDragAndDropExtenders)
+		{
+			if (AssetViewDragAndDropExtender.OnDragOverDelegate.IsBound() && AssetViewDragAndDropExtender.OnDragOverDelegate.Execute(FAssetViewDragAndDropExtender::FPayload(DragDropOp, SourcesData.PackagePaths, SourcesData.Collections)))
+			{
+				return FReply::Handled();
+			}
 		}
 	}
 
@@ -1143,13 +1200,13 @@ FReply SAssetView::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 	// Handle drag drop for import
 	if ( IsAssetPathSelected() )
 	{
-		TSharedPtr<FExternalDragOperation> DragDropOp = DragDropEvent.GetOperationAs<FExternalDragOperation>();
-		if (DragDropOp.IsValid())
+		TSharedPtr<FExternalDragOperation> ExternalDragDropOp = DragDropEvent.GetOperationAs<FExternalDragOperation>();
+		if (ExternalDragDropOp.IsValid())
 		{
-			if ( DragDropOp->HasFiles() )
+			if ( ExternalDragDropOp->HasFiles() )
 			{
 				FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-				AssetToolsModule.Get().ImportAssets( DragDropOp->GetFiles(), SourcesData.PackagePaths[0].ToString() );
+				AssetToolsModule.Get().ImportAssets( ExternalDragDropOp->GetFiles(), SourcesData.PackagePaths[0].ToString() );
 			}
 
 			return FReply::Handled();
@@ -1172,11 +1229,27 @@ FReply SAssetView::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 
 			if (ObjectPaths.Num() > 0)
 			{
-				FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
-				CollectionManagerModule.Get().AddToCollection(SourcesData.Collections[0].Name, SourcesData.Collections[0].Type, ObjectPaths);
+				FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+				const FCollectionNameType& Collection = SourcesData.Collections[0];
+				CollectionManagerModule.Get().AddToCollection(Collection.Name, Collection.Type, ObjectPaths);
 			}
 
 			return FReply::Handled();
+		}
+	}
+
+	TSharedPtr<FDragDropOperation> DragDropOp = DragDropEvent.GetOperation();
+	if (DragDropOp.IsValid())
+	{
+		// Do we have a custom handler for this drag event?
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>("ContentBrowser");
+		const TArray<FAssetViewDragAndDropExtender>& AssetViewDragAndDropExtenders = ContentBrowserModule.GetAssetViewDragAndDropExtenders();
+		for (const auto& AssetViewDragAndDropExtender : AssetViewDragAndDropExtenders)
+		{
+			if (AssetViewDragAndDropExtender.OnDropDelegate.IsBound() && AssetViewDragAndDropExtender.OnDropDelegate.Execute(FAssetViewDragAndDropExtender::FPayload(DragDropOp, SourcesData.PackagePaths, SourcesData.Collections)))
+			{
+				return FReply::Handled();
+			}
 		}
 	}
 
@@ -1200,10 +1273,30 @@ FReply SAssetView::OnKeyChar( const FGeometry& MyGeometry,const FCharacterEvent&
 FReply SAssetView::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
 {
 	{
+		const bool bTestOnly = true;
+		if ( InKeyEvent.IsControlDown() && InKeyEvent.GetCharacter() == 'V' && IsAssetPathSelected() )
+		{
+			FString DestPaths;
+			TArray<FString> DestPathsSplit;
+
+			// Get the copied asset paths
+			FPlatformMisc::ClipboardPaste( DestPaths );
+			DestPaths.ParseIntoArrayLines( DestPathsSplit );
+
+			// Get assets and copy them
+			TArray<UObject*> ObjectsToCopy;
+			for (FString DestPath : DestPathsSplit)
+			{
+				if ( !(DestPath == TEXT("None")) )
+				{
+					ObjectsToCopy.Add( LoadObject<UObject>( NULL, *DestPath ));
+				}
+			}
+			ContentBrowserUtils::CopyAssets( ObjectsToCopy, SourcesData.PackagePaths[0].ToString() );
+		}
 		// Swallow the key-presses used by the quick-jump in OnKeyChar to avoid other things (such as the viewport commands) getting them instead
 		// eg) Pressing "W" without this would set the viewport to "translate" mode
-		const bool bTestOnly = true;
-		if(HandleQuickJumpKeyDown(InKeyEvent.GetCharacter(), InKeyEvent.IsControlDown(), InKeyEvent.IsAltDown(), bTestOnly).IsEventHandled())
+		else if( HandleQuickJumpKeyDown(InKeyEvent.GetCharacter(), InKeyEvent.IsControlDown(), InKeyEvent.IsAltDown(), bTestOnly).IsEventHandled() )
 		{
 			return FReply::Handled();
 		}
@@ -1260,7 +1353,7 @@ TSharedRef<SAssetListView> SAssetView::CreateListView()
 
 TSharedRef<SAssetColumnView> SAssetView::CreateColumnView()
 {
-	return SNew(SAssetColumnView)
+	TSharedPtr<SAssetColumnView> NewColumnView = SNew(SAssetColumnView)
 		.SelectionMode( SelectionMode )
 		.ListItemsSource(&FilteredAssetItems)
 		.OnGenerateRow(this, &SAssetView::MakeColumnViewWidget)
@@ -1278,14 +1371,34 @@ TSharedRef<SAssetColumnView> SAssetView::CreateColumnView()
 			.SortPriority(TAttribute< EColumnSortPriority::Type >::Create(TAttribute< EColumnSortPriority::Type >::FGetter::CreateSP(this, &SAssetView::GetColumnSortPriority, SortManager.NameColumnId)))
 			.OnSort( FOnSortModeChanged::CreateSP( this, &SAssetView::OnSortColumnHeader ) )
 			.DefaultLabel( LOCTEXT("Column_Name", "Name") )
-			//@TODO: Query the OnAssetTagWantsToBeDisplayed column filter here too, in case the user wants to bury the type column
-			+ SHeaderRow::Column(SortManager.ClassColumnId)
-			.FillWidth(160)
-			.SortMode( TAttribute< EColumnSortMode::Type >::Create( TAttribute< EColumnSortMode::Type >::FGetter::CreateSP( this, &SAssetView::GetColumnSortMode, SortManager.ClassColumnId ) ) )
-			.SortPriority(TAttribute< EColumnSortPriority::Type >::Create(TAttribute< EColumnSortPriority::Type >::FGetter::CreateSP(this, &SAssetView::GetColumnSortPriority, SortManager.ClassColumnId)))
-			.OnSort( FOnSortModeChanged::CreateSP( this, &SAssetView::OnSortColumnHeader ) )
-			.DefaultLabel( LOCTEXT("Column_Class", "Type") )
 		);
+
+	if(bShowTypeInColumnView)
+	{
+		NewColumnView->GetHeaderRow()->AddColumn(
+				SHeaderRow::Column(SortManager.ClassColumnId)
+				.FillWidth(160)
+				.SortMode(TAttribute< EColumnSortMode::Type >::Create(TAttribute< EColumnSortMode::Type >::FGetter::CreateSP(this, &SAssetView::GetColumnSortMode, SortManager.ClassColumnId)))
+				.SortPriority(TAttribute< EColumnSortPriority::Type >::Create(TAttribute< EColumnSortPriority::Type >::FGetter::CreateSP(this, &SAssetView::GetColumnSortPriority, SortManager.ClassColumnId)))
+				.OnSort(FOnSortModeChanged::CreateSP(this, &SAssetView::OnSortColumnHeader))
+				.DefaultLabel(LOCTEXT("Column_Class", "Type"))
+			);
+	}
+
+
+	if (bShowPathInColumnView)
+	{
+		NewColumnView->GetHeaderRow()->AddColumn(
+				SHeaderRow::Column(SortManager.PathColumnId)
+				.FillWidth(160)
+				.SortMode(TAttribute< EColumnSortMode::Type >::Create(TAttribute< EColumnSortMode::Type >::FGetter::CreateSP(this, &SAssetView::GetColumnSortMode, SortManager.PathColumnId)))
+				.SortPriority(TAttribute< EColumnSortPriority::Type >::Create(TAttribute< EColumnSortPriority::Type >::FGetter::CreateSP(this, &SAssetView::GetColumnSortPriority, SortManager.PathColumnId)))
+				.OnSort(FOnSortModeChanged::CreateSP(this, &SAssetView::OnSortColumnHeader))
+				.DefaultLabel(LOCTEXT("Column_Path", "Path"))
+			);
+	}
+
+	return NewColumnView.ToSharedRef();
 }
 
 bool SAssetView::IsValidSearchToken(const FString& Token) const
@@ -1338,6 +1451,7 @@ void SAssetView::RefreshSourceItems()
 		// force recursion when the user is searching
 		const bool bRecurse = ShouldFilterRecursively();
 		const bool bUsingFolders = IsShowingFolders();
+		const bool bIsDynamicCollection = SourcesData.IsDynamicCollection();
 		FARFilter Filter = SourcesData.MakeFilter(bRecurse, bUsingFolders);
 
 		// Add the backend filters from the filter list
@@ -1358,9 +1472,9 @@ void SAssetView::RefreshSourceItems()
 
 		// Only show classes if we have class paths, and the filter allows classes to be shown
 		const bool bFilterAllowsClasses = Filter.ClassNames.Num() == 0 || Filter.ClassNames.Contains(NAME_Class);
-		bShowClasses = ClassPathsToShow.Num() > 0 && bFilterAllowsClasses;
+		bShowClasses = (ClassPathsToShow.Num() > 0 || bIsDynamicCollection) && bFilterAllowsClasses;
 
-		if ( SourcesData.Collections.Num() > 0 && Filter.ObjectPaths.Num() == 0 )
+		if ( SourcesData.HasCollections() && Filter.ObjectPaths.Num() == 0 && !bIsDynamicCollection )
 		{
 			// This is an empty collection, no asset will pass the check
 		}
@@ -1376,16 +1490,20 @@ void SAssetView::RefreshSourceItems()
 
 		if ( bFilterAllowsClasses )
 		{
+			FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+
+			// Include objects from child collections if we're recursing
+			const ECollectionRecursionFlags::Flags CollectionRecursionMode = (Filter.bRecursivePaths) ? ECollectionRecursionFlags::SelfAndChildren : ECollectionRecursionFlags::Self;
+
 			TArray< FName > ClassPaths;
-			FCollectionManagerModule& CollectionManagerModule = FModuleManager::GetModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
-			for (int32 Index = 0; Index < SourcesData.Collections.Num(); Index++)
+			for (const FCollectionNameType& Collection : SourcesData.Collections)
 			{
-				CollectionManagerModule.Get().GetClassesInCollection( SourcesData.Collections[Index].Name, SourcesData.Collections[Index].Type, ClassPaths );
+				CollectionManagerModule.Get().GetClassesInCollection( Collection.Name, Collection.Type, ClassPaths, CollectionRecursionMode );
 			}
 
-			for (int32 Index = 0; Index < ClassPaths.Num(); Index++)
+			for (const FName& ClassPath : ClassPaths)
 			{
-				UClass* Class = FindObject<UClass>(ANY_PACKAGE, *ClassPaths[Index].ToString());
+				UClass* Class = FindObject<UClass>(ANY_PACKAGE, *ClassPath.ToString());
 
 				if ( Class != NULL )
 				{
@@ -1420,19 +1538,18 @@ void SAssetView::RefreshSourceItems()
 	for (int32 AssetIdx = Items.Num() - 1; AssetIdx >= 0; --AssetIdx)
 	{
 		const FAssetData& Item = Items[AssetIdx];
-		if ( Item.AssetClass == UObjectRedirector::StaticClass()->GetFName() && !Item.IsUAsset() )
+		// Do not show redirectors if they are not the main asset in the uasset file.
+		const bool IsMainlyARedirector = Item.AssetClass == UObjectRedirector::StaticClass()->GetFName() && !Item.IsUAsset();
+		// If this is an engine folder, and we don't want to show them, remove
+		const bool IsHiddenEngineFolder = !bDisplayEngine && ContentBrowserUtils::IsEngineFolder(Item.PackagePath.ToString());
+		// If this is a plugin folder, and we don't want to show them, remove
+		const bool IsAHiddenPluginFolder = !bDisplayPlugins && ContentBrowserUtils::IsPluginFolder(Item.PackagePath.ToString());
+		// Do not show localized content folders.
+		const bool IsLocalizedContentFolder = ContentBrowserUtils::IsLocalizationFolder(Item.PackagePath.ToString());
+
+		const bool ShouldFilterOut = IsMainlyARedirector || IsHiddenEngineFolder || IsAHiddenPluginFolder || IsLocalizedContentFolder;
+		if (ShouldFilterOut)
 		{
-			// Do not show redirectors if they are not the main asset in the uasset file.
-			Items.RemoveAtSwap(AssetIdx);
-		}
-		else if ( !bDisplayEngine && ContentBrowserUtils::IsEngineFolder(Item.PackagePath.ToString()) )
-		{
-			// If this is an engine folder, and we don't want to show them, remove
-			Items.RemoveAtSwap(AssetIdx);
-		}
-		else if ( !bDisplayPlugins && ContentBrowserUtils::IsPluginFolder(Item.PackagePath.ToString()) )
-		{
-			// If this is a plugin folder, and we don't want to show them, remove
 			Items.RemoveAtSwap(AssetIdx);
 		}
 	}
@@ -1665,21 +1782,30 @@ void SAssetView::RefreshFolders()
 
 	const bool bDisplayDev = GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder();
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	for(const FName& PackagePath : AssetPathsToShow)
-	{		
+	{
 		TArray<FString> SubPaths;
-		AssetRegistryModule.Get().GetSubPaths(PackagePath.ToString(), SubPaths, false);
-		for(const FString& SubPath : SubPaths)
+		for(const FName& PackagePath : AssetPathsToShow)
 		{
-			// If this is a developer folder, and we don't want to show them try the next path
-			if(!bDisplayDev && ContentBrowserUtils::IsDevelopersFolder(SubPath))
-			{
-				continue;
-			}
+			SubPaths.Reset();
+			AssetRegistryModule.Get().GetSubPaths(PackagePath.ToString(), SubPaths, false);
 
-			if(!Folders.Contains(SubPath))
+			for(const FString& SubPath : SubPaths)
 			{
-				FoldersToAdd.Add(SubPath);
+				// If this is a developer folder, and we don't want to show them try the next path
+				if(!bDisplayDev && ContentBrowserUtils::IsDevelopersFolder(SubPath))
+				{
+					continue;
+				}
+
+				if (ContentBrowserUtils::IsLocalizationFolder(SubPath))
+				{
+					continue;
+				}
+
+				if(!Folders.Contains(SubPath))
+				{
+					FoldersToAdd.Add(SubPath);
+				}
 			}
 		}
 	}
@@ -1698,6 +1824,25 @@ void SAssetView::RefreshFolders()
 		TArray<FString> MatchingFolders;
 		NativeClassHierarchy->GetMatchingFolders(ClassFilter, MatchingFolders);
 		FoldersToAdd.Append(MatchingFolders);
+	}
+
+	// Add folders for any child collections of the currently selected collections
+	if(SourcesData.HasCollections())
+	{
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+		
+		TArray<FCollectionNameType> ChildCollections;
+		for(const FCollectionNameType& Collection : SourcesData.Collections)
+		{
+			ChildCollections.Reset();
+			CollectionManagerModule.Get().GetChildCollections(Collection.Name, Collection.Type, ChildCollections);
+
+			for(const FCollectionNameType& ChildCollection : ChildCollections)
+			{
+				// Use "Collections" as the root of the path to avoid this being confused with other asset view folders - see ContentBrowserUtils::IsCollectionPath
+				FoldersToAdd.Add(FString::Printf(TEXT("/Collections/%s/%s"), ECollectionShareType::ToString(ChildCollection.Type), *ChildCollection.Name.ToString()));
+			}
+		}
 	}
 
 	if(FoldersToAdd.Num() > 0)
@@ -1727,7 +1872,12 @@ void SAssetView::SetMajorityAssetType(FName NewMajorityAssetType)
 		for ( int32 ColumnIdx = Columns.Num() - 1; ColumnIdx >= 0; --ColumnIdx )
 		{
 			const FName ColumnId = Columns[ColumnIdx].ColumnId;
-			if ( ColumnId != SortManager.NameColumnId && ColumnId != SortManager.ClassColumnId && ColumnId != NAME_None )
+
+			const bool bIsFixedNameColumn = ColumnId == SortManager.NameColumnId;
+			const bool bIsFixedClassColumn = bShowTypeInColumnView && ColumnId == SortManager.ClassColumnId;
+			const bool bIsFixedPathColumn = bShowPathInColumnView && ColumnId == SortManager.PathColumnId;
+
+			if ( ColumnId != NAME_None && !(bIsFixedNameColumn || bIsFixedClassColumn || bIsFixedPathColumn) )
 			{
 				ColumnView->GetHeaderRow()->RemoveColumn(ColumnId);
 			}
@@ -1985,9 +2135,9 @@ void SAssetView::OnAssetRegistryPathAdded(const FString& Path)
 		const bool bDisplayDev = GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder();
 		if ( bDisplayDev || !ContentBrowserUtils::IsDevelopersFolder(Path) )
 		{
-			for(auto SourcePathIt(SourcesData.PackagePaths.CreateConstIterator()); SourcePathIt; SourcePathIt++)
+			for (const FName& SourcePathName : SourcesData.PackagePaths)
 			{
-				const FString SourcePath = (*SourcePathIt).ToString();
+				const FString SourcePath = SourcePathName.ToString();
 				if(Path.StartsWith(SourcePath))
 				{
 					const FString SubPath = Path.RightChop(SourcePath.Len());
@@ -2091,6 +2241,12 @@ void SAssetView::OnCollectionRenamed( const FCollectionNameType& OriginalCollect
 	}
 }
 
+void SAssetView::OnCollectionUpdated( const FCollectionNameType& Collection )
+{
+	// A collection has changed in some way, so we need to refresh our backend list
+	RequestSlowFullListRefresh();
+}
+
 void SAssetView::OnAssetRenamed(const FAssetData& AssetData, const FString& OldObjectPath)
 {
 	// Remove the old asset, if it exists
@@ -2157,9 +2313,10 @@ void SAssetView::RunAssetsThroughBackendFilter(TArray<FAssetData>& InOutAssetDat
 {
 	const bool bRecurse = ShouldFilterRecursively();
 	const bool bUsingFolders = IsShowingFolders();
+	const bool bIsDynamicCollection = SourcesData.IsDynamicCollection();
 	FARFilter Filter = SourcesData.MakeFilter(bRecurse, bUsingFolders);
 	
-	if ( SourcesData.Collections.Num() > 0 && Filter.ObjectPaths.Num() == 0 )
+	if ( SourcesData.HasCollections() && Filter.ObjectPaths.Num() == 0 && !bIsDynamicCollection )
 	{
 		// This is an empty collection, no asset will pass the check
 		InOutAssetDataList.Empty();
@@ -2172,13 +2329,16 @@ void SAssetView::RunAssetsThroughBackendFilter(TArray<FAssetData>& InOutAssetDat
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		AssetRegistryModule.Get().RunAssetsThroughFilter(InOutAssetDataList, Filter);
 
-		if ( SourcesData.Collections.Num() > 0 )
+		if ( SourcesData.HasCollections() && !bIsDynamicCollection )
 		{
-			FCollectionManagerModule& CollectionManagerModule = FModuleManager::GetModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+			// Include objects from child collections if we're recursing
+			const ECollectionRecursionFlags::Flags CollectionRecursionMode = (Filter.bRecursivePaths) ? ECollectionRecursionFlags::SelfAndChildren : ECollectionRecursionFlags::Self;
+
+			FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 			TArray< FName > CollectionObjectPaths;
-			for (int Index = 0; Index < SourcesData.Collections.Num(); Index++)
+			for (const FCollectionNameType& Collection : SourcesData.Collections)
 			{
-				CollectionManagerModule.Get().GetObjectsInCollection(SourcesData.Collections[Index].Name, SourcesData.Collections[Index].Type, CollectionObjectPaths);
+				CollectionManagerModule.Get().GetObjectsInCollection(Collection.Name, Collection.Type, CollectionObjectPaths, CollectionRecursionMode);
 			}
 
 			for ( int32 AssetDataIdx = InOutAssetDataList.Num() - 1; AssetDataIdx >= 0; --AssetDataIdx )
@@ -2352,6 +2512,19 @@ TSharedRef<SWidget> SAssetView::GetViewButtonContent()
 			NAME_None,
 			EUserInterfaceActionType::ToggleButton
 			);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ShowCollectionOption", "Show Collections"),
+			LOCTEXT("ShowCollectionOptionToolTip", "Show the collections list in the view."),
+			FSlateIcon(),
+			FUIAction(
+			FExecuteAction::CreateSP( this, &SAssetView::ToggleShowCollections ),
+			FCanExecuteAction::CreateSP( this, &SAssetView::IsToggleShowCollectionsAllowed ),
+			FIsActionChecked::CreateSP( this, &SAssetView::IsShowingCollections )
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+			);
 	}
 	MenuBuilder.EndSection();
 
@@ -2503,6 +2676,23 @@ bool SAssetView::IsToggleShowDevelopersFolderAllowed() const
 bool SAssetView::IsShowingDevelopersFolder() const
 {
 	return GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder();
+}
+
+void SAssetView::ToggleShowCollections()
+{
+	const bool bDisplayCollections = GetDefault<UContentBrowserSettings>()->GetDisplayCollections();
+	GetMutableDefault<UContentBrowserSettings>()->SetDisplayCollections( !bDisplayCollections );
+	GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
+}
+
+bool SAssetView::IsToggleShowCollectionsAllowed() const
+{
+	return bCanShowCollections;
+}
+
+bool SAssetView::IsShowingCollections() const
+{
+	return GetDefault<UContentBrowserSettings>()->GetDisplayCollections();
 }
 
 void SAssetView::SetCurrentViewType(EAssetViewType::Type NewType)
@@ -2696,7 +2886,10 @@ TSharedRef<ITableRow> SAssetView::MakeListViewWidget(TSharedPtr<FAssetViewItem> 
 			.OnItemDestroyed(this, &SAssetView::AssetItemWidgetDestroyed)
 			.ShouldAllowToolTip(this, &SAssetView::ShouldAllowToolTips)
 			.HighlightText(HighlightedText)
-			.IsSelected( FIsSelected::CreateSP(TableRowWidget.Get(), &STableRow<TSharedPtr<FAssetViewItem>>::IsSelectedExclusively) );
+			.IsSelected( FIsSelected::CreateSP(TableRowWidget.Get(), &STableRow<TSharedPtr<FAssetViewItem>>::IsSelectedExclusively) )
+			.OnAssetsDragDropped(this, &SAssetView::OnAssetsDragDropped)
+			.OnPathsDragDropped(this, &SAssetView::OnPathsDragDropped)
+			.OnFilesDragDropped(this, &SAssetView::OnFilesDragDropped);
 
 		TableRowWidget->SetContent(Item);
 
@@ -3151,6 +3344,12 @@ bool SAssetView::CanOpenContextMenu() const
 		return false;
 	}
 
+	if ( SelectedAssets.Num() == 0 && SourcesData.HasCollections() )
+	{
+		// Don't allow a context menu when we're viewing a collection and have no assets selected
+		return false;
+	}
+
 	// Build a list of selected object paths
 	TArray<FString> ObjectPaths;
 	for(auto AssetIt = SelectedAssets.CreateConstIterator(); AssetIt; ++AssetIt)
@@ -3159,37 +3358,20 @@ bool SAssetView::CanOpenContextMenu() const
 	}
 
 	bool bLoadSuccessful = true;
-	bool bShouldPromptToLoadAssets = false;
 
 	if ( bPreloadAssetsForContextMenu )
 	{
-		// Should the user be asked to load unloaded assets
+		// Get and load assets that are unloaded
 		TArray<FString> UnloadedObjects;
-		bShouldPromptToLoadAssets = ContentBrowserUtils::ShouldPromptToLoadAssets(ObjectPaths, UnloadedObjects);
+		ContentBrowserUtils::GetUnloadedAssets(ObjectPaths, UnloadedObjects);
 
-		bool bShouldLoadAssets = false;
-		if ( bShouldPromptToLoadAssets )
-		{
-			// The user should be prompted to loaded assets
-			bShouldLoadAssets = ContentBrowserUtils::PromptToLoadAssets(UnloadedObjects);
-		}
-		else
-		{
-			// The user should not be prompted to load assets but assets should still be loaded
-			bShouldLoadAssets = true;
-		}
-
-		if ( bShouldLoadAssets )
-		{
-			// Load assets that are unloaded
-			TArray<UObject*> LoadedObjects;
-			const bool bAllowedToPrompt = false;
-			bLoadSuccessful = ContentBrowserUtils::LoadAssetsIfNeeded(ObjectPaths, LoadedObjects, bAllowedToPrompt);
-		}
+		TArray<UObject*> LoadedObjects;
+		const bool bAllowedToPrompt = false;
+		bLoadSuccessful = ContentBrowserUtils::LoadAssetsIfNeeded(ObjectPaths, LoadedObjects, bAllowedToPrompt);
 	}
 
-	// Do not show the context menu if we prompted the user to load assets or if the load failed
-	return !bShouldPromptToLoadAssets && bLoadSuccessful;
+	// Do not show the context menu if the load failed
+	return bLoadSuccessful;
 }
 
 void SAssetView::OnListMouseButtonDoubleClick(TSharedPtr<FAssetViewItem> AssetItem)
@@ -3256,7 +3438,7 @@ FReply SAssetView::OnDraggingAssetItem( const FGeometry& MyGeometry, const FPoin
 		{
 			// are we dragging some folders?
 			TArray<FString> SelectedFolders = GetSelectedFolders();
-			if(SelectedFolders.Num() > 0)
+			if(SelectedFolders.Num() > 0 && !SourcesData.HasCollections())
 			{
 				return FReply::Handled().BeginDragDrop(FAssetPathDragDropOp::New(SelectedFolders));
 			}
@@ -3325,8 +3507,26 @@ void SAssetView::AssetRenameCommit(const TSharedPtr<FAssetViewItem>& Item, const
 
 		// Committed rename
 		Asset = ItemAsAsset->Data.GetAsset();
-		ContentBrowserUtils::RenameAsset(Asset, NewName, ErrorMessage);
-		bSuccess = true;
+		if(Asset == NULL)
+		{
+			//put back the original name
+			RenamingAsset.Reset();
+			
+			//Notify the user rename fail and link the output log
+			FNotificationInfo Info(LOCTEXT("RenameAssetsFailed", "Failed to rename assets"));
+			Info.ExpireDuration = 5.0f;
+			Info.Hyperlink = FSimpleDelegate::CreateStatic([](){ FGlobalTabmanager::Get()->InvokeTab(FName("OutputLog")); });
+			Info.HyperlinkText = LOCTEXT("ShowOutputLogHyperlink", "Show Output Log");
+			FSlateNotificationManager::Get().AddNotification(Info);
+			
+			//Set the content browser error message
+			ErrorMessage = LOCTEXT("RenameAssetsFailed", "Failed to rename assets");
+		}
+		else
+		{
+			ContentBrowserUtils::RenameAsset(Asset, NewName, ErrorMessage);
+			bSuccess = true;
+		}
 	}
 	else if ( ItemType == EAssetItemType::Creation || ItemType == EAssetItemType::Duplication )
 	{
@@ -3645,7 +3845,7 @@ FText SAssetView::GetAssetShowWarningText() const
 		NothingToShowText = LOCTEXT( "NothingToShowCheckFilter", "No results, check your filter." );
 	}
 
-	if ( SourcesData.Collections.Num() > 0 )
+	if ( SourcesData.HasCollections() && !SourcesData.IsDynamicCollection() )
 	{
 		DropText = LOCTEXT( "DragAssetsHere", "Drag and drop assets here to add them to the collection." );
 	}

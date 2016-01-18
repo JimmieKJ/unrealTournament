@@ -35,6 +35,13 @@ public:
 
 public:
 
+	/**
+	 * Defines a custom cursor shape for the EMouseCursor::Custom type.
+	 * 
+	 * @param CursorHandle	A native cursor handle to show when EMouseCursor::Custom is selected.
+	 */
+	virtual void SetCustomShape( SDL_HCursor CursorHandle );
+
 	bool UpdateCursorClipping( FVector2D& CursorPosition );
 
 	bool IsHidden();
@@ -52,6 +59,9 @@ public:
 	 */
 	void InvalidateCaches();
 
+	/** Set the internal cached position, setting the cache to valid */
+	void SetCachedPosition( const int32 X, const int32 Y );
+
 private:
 
 	EMouseCursor::Type CurrentType;
@@ -63,12 +73,6 @@ private:
 	FIntRect CursorClipRect;
 
 	uint32 CursorEvent;
-
-	/** Accumulated X offset (from relative mouse movement events) used for reconstructing global cursor position */
-	int32 AccumulatedOffsetX;
-
-	/** Accumulated Y offset (from relative mouse movement events) used for reconstructing global cursor position */
-	int32 AccumulatedOffsetY;
 
 	/** Cached global X position */
 	mutable int32 CachedGlobalXPosition;

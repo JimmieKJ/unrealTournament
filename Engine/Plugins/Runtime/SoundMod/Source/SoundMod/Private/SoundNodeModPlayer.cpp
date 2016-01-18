@@ -6,10 +6,49 @@
 
 #define LOCTEXT_NAMESPACE "SoundNodeModPlayer"
 
-USoundNodeModPlayer::USoundNodeModPlayer(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+void USoundNodeModPlayer::LoadAsset()
 {
+	if (IsAsyncLoading())
+	{
+		SoundMod = SoundModAssetPtr.Get();
+		if (SoundMod == nullptr)
+		{
+			const FString LongPackageName = SoundModAssetPtr.GetLongPackageName();
+			if (!LongPackageName.IsEmpty())
+			{
+				LoadPackageAsync(LongPackageName, FLoadPackageAsyncDelegate::CreateUObject(this, &USoundNodeModPlayer::OnSoundModLoaded));
+			}
+		}
+	}
+	else
+	{
+		SoundMod = SoundModAssetPtr.LoadSynchronous();
+	}
 }
+
+void USoundNodeModPlayer::OnSoundModLoaded(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result)
+{
+	if (Result == EAsyncLoadingResult::Succeeded)
+	{
+		SoundMod = SoundModAssetPtr.Get();
+	}
+}
+
+void USoundNodeModPlayer::SetSoundMod(USoundMod* InSoundMod)
+{
+	SoundMod = InSoundMod;
+	SoundModAssetPtr = InSoundMod;
+}
+
+#if WITH_EDITOR
+void USoundNodeModPlayer::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USoundNodeModPlayer, SoundModAssetPtr))
+	{
+		LoadAsset();
+	}
+}
+#endif
 
 void USoundNodeModPlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
 {
@@ -53,7 +92,7 @@ float USoundNodeModPlayer::GetDuration()
 }
 
 #if WITH_EDITOR
-FString USoundNodeModPlayer::GetTitle() const
+FText USoundNodeModPlayer::GetTitle() const
 {
 	FText SoundModName;
 	if (SoundMod)
@@ -65,18 +104,19 @@ FString USoundNodeModPlayer::GetTitle() const
 		SoundModName = LOCTEXT("NoSoundMod", "NONE");
 	}
 
-	FString Title;
+	FText Title;
+
+	FFormatNamedArguments Arguments;
+	Arguments.Add(TEXT("Description"), Super::GetTitle());
+	Arguments.Add(TEXT("SoundModName"), SoundModName);
 
 	if (bLooping)
 	{
-		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("Description"), FText::FromString(Super::GetTitle()));
-		Arguments.Add(TEXT("SoundModName"), SoundModName);
-		Title = FText::Format(LOCTEXT("LoopingSoundWaveDescription", "Looping {Description} : {SoundModName}"), Arguments).ToString();
+		Title = FText::Format(LOCTEXT("LoopingSoundModDescription", "Looping {Description} : {SoundModName}"), Arguments);
 	}
 	else
 	{
-		Title = Super::GetTitle() + FString(TEXT(" : ")) + SoundModName.ToString();
+		Title = FText::Format(LOCTEXT("NonLoopingSoundModDescription", "{Description} : {SoundModName}"), Arguments);
 	}
 
 	return Title;

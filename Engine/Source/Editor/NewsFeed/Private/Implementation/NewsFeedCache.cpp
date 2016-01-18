@@ -141,7 +141,7 @@ void FNewsFeedCache::LoadTitleFile( )
 	}
 	else if (NewsFeedSettings->Source == NEWSFEED_Mcp)
 	{
-		TitleFile = Online::GetTitleFileInterface(TEXT("MCP"));
+		TitleFile = Online::GetTitleFileInterface(MCP_SUBSYSTEM);
 	}
 
 	// fetch news feed

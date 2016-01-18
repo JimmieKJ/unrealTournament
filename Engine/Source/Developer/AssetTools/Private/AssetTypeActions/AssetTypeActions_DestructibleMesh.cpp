@@ -26,3 +26,5 @@ void FAssetTypeActions_DestructibleMesh::OpenAssetEditor( const TArray<UObject*>
 		}
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -132,11 +132,14 @@ void FActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 	// Defaults only show tick properties
 	if (DetailLayout.GetDetailsView().HasClassDefaultObject() && !HideCategories.Contains(TEXT("Tick")))
 	{
-		IDetailCategoryBuilder& TickCategory = DetailLayout.EditCategory("Tick");
+		// Note: the category is renamed to differentiate between 
+		IDetailCategoryBuilder& TickCategory = DetailLayout.EditCategory("Tick", LOCTEXT("TickCategoryName", "Actor Tick") );
 
 		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, bStartWithTickEnabled)));
+		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, TickInterval)));
 		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, bTickEvenWhenPaused)), EPropertyLocation::Advanced);
 		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, bAllowTickOnDedicatedServer)), EPropertyLocation::Advanced);
+		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, TickGroup)), EPropertyLocation::Advanced);
 	}
 
 	PrimaryTickProperty->MarkHiddenByCustomization();
@@ -335,7 +338,7 @@ TSharedRef<SWidget> FActorDetails::MakeConvertMenu( const FSelectedActorInfo& Se
 		.ButtonContent()
 		[
 			SNew(STextBlock)
-			.Text(LOCTEXT("ConvertButton", "Select a Type"))
+			.Text(LOCTEXT("SelectAType", "Select a Type"))
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 		];
 
@@ -546,8 +549,8 @@ void FActorDetails::AddActorCategory( IDetailLayoutBuilder& DetailBuilder, const
 		.NameContent()
 		[
 			SNew(STextBlock)
-			.Text(LOCTEXT("ConvertButton", "Convert Actor"))
-			.ToolTipText(LOCTEXT("ConvertButton_ToolTip", "Convert actors to different types"))
+			.Text(LOCTEXT("ConvertActor", "Convert Actor"))
+			.ToolTipText(LOCTEXT("ConvertActor_ToolTip", "Convert actors to different types"))
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
 		.ValueContent()

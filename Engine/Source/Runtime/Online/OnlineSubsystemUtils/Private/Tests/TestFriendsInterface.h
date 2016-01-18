@@ -26,11 +26,11 @@
 	/** Default name of friends list for running tests */
 	FString FriendsListName;
 	/** Filled in after reading friends list. Invites that are pending will be auto-accepted */
-	TArray<TSharedPtr<FUniqueNetId> > InvitesToAccept;
+	TArray<TSharedPtr<const FUniqueNetId> > InvitesToAccept;
 	/** List of friends to send invites to. From test options */
-	TArray<TSharedPtr<FUniqueNetId> > InvitesToSend;
+	TArray<TSharedPtr<const FUniqueNetId> > InvitesToSend;
 	/** List of friends to delete */
-	TArray<TSharedPtr<FUniqueNetId> > FriendsToDelete;
+	TArray<TSharedPtr<const FUniqueNetId> > FriendsToDelete;
 	
 	/** true to enable friends list read */
 	bool bReadFriendsList;
@@ -44,6 +44,8 @@
 	bool bDeleteFriendsList;
 	/** true to query for recent players */
 	bool bQueryRecentPlayers;
+
+	FString RecentPlayersNamespace;
 
 	/** Hidden on purpose */
 	FTestFriendsInterface()
@@ -78,7 +80,7 @@
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 * @param Error string representing the error condition
 	 */
-	void OnQueryRecentPlayersComplete(const FUniqueNetId& UserId, bool bWasSuccessful, const FString& ErrorStr);
+	void OnQueryRecentPlayersComplete(const FUniqueNetId& UserId, const FString& Namespace, bool bWasSuccessful, const FString& ErrorStr);
 
 	/**
 	 * Delegate used when an invite accept request has completed
@@ -139,6 +141,7 @@
 		, bDeleteFriends(true)
 		, bDeleteFriendsList(false)
 		, bQueryRecentPlayers(true)
+		, RecentPlayersNamespace(TEXT("ut"))
 	{
 	}
 

@@ -113,7 +113,24 @@ bool UMulticastDelegateProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Ma
 
 FString UMulticastDelegateProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CPPExportFlags/*=0*/ ) const
 {
+#if HACK_HEADER_GENERATOR
+	// We have this test because sometimes the delegate hasn't been set up by FixupDelegateProperties at the time
+	// we need the type for an error message.  We deliberately format it so that it's unambiguously not CPP code, but is still human-readable.
+	if (!SignatureFunction)
+	{
+		return FString(TEXT("{multicast delegate type}"));
+	}
+#endif
+
 	FString UnmangledFunctionName = SignatureFunction->GetName().LeftChop( FString( HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX ).Len() );
+	const UClass* OwnerClass = SignatureFunction->GetOwnerClass();
+	if ((0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_BlueprintCppBackend)) && OwnerClass && !OwnerClass->HasAnyClassFlags(CLASS_Native))
+	{
+		// the name must be unique
+		const FString OwnerName = UnicodeToCPPIdentifier(OwnerClass->GetName(), false, TEXT(""));
+		const FString NewUnmangledFunctionName = FString::Printf(TEXT("%s__%s"), *UnmangledFunctionName, *OwnerName);
+		UnmangledFunctionName = NewUnmangledFunctionName;
+	}
 	if (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_CustomTypeName))
 	{
 		UnmangledFunctionName += TEXT("__MulticastDelegate");
@@ -124,6 +141,12 @@ FString UMulticastDelegateProperty::GetCPPType( FString* ExtendedTypeText/*=NULL
 
 void UMulticastDelegateProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		ValueStr += TEXT("{}");
+		return;
+	}
+
 	const FMulticastScriptDelegate* MulticastDelegate = (const FMulticastScriptDelegate*)( PropertyValue );
 	check( MulticastDelegate != NULL );
 
@@ -167,6 +190,16 @@ const TCHAR* UMulticastDelegateProperty::ImportText_Internal( const TCHAR* Buffe
 
 	// Clear the existing delegate
 	MulticastDelegate.Clear();
+
+	// process opening parenthesis
+	++Buffer;
+	SkipWhitespace(Buffer);
+
+	// Empty Multi-cast delegates is still valid.
+	if (*Buffer == TCHAR(')'))
+	{
+		return Buffer;
+	}
 
 	do
 	{

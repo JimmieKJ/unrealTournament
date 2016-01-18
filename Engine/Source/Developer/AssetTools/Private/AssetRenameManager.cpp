@@ -4,10 +4,12 @@
 #include "AssetToolsPrivatePCH.h"
 #include "AssetRegistryModule.h"
 #include "AssetToolsModule.h"
+#include "CollectionManagerModule.h"
 #include "ISourceControlModule.h"
 #include "FileHelpers.h"
 #include "ObjectTools.h"
 #include "MainFrame.h"
+#include "Kismet2/KismetEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "AssetRenameManager"
 
@@ -165,9 +167,9 @@ void FAssetRenameManager::FixReferencesAndRename(TArray<FAssetRenameData> Assets
 	// Prep a list of assets to rename with an extra boolean to determine if they should leave a redirector or not
 	TArray<FAssetRenameDataWithReferencers> AssetsToRename;
 	AssetsToRename.Reset(AssetsAndNames.Num());
-	for (int32 AssetIdx = 0; AssetIdx < AssetsAndNames.Num(); ++AssetIdx)
+	for (const FAssetRenameData& AssetRenameData : AssetsAndNames)
 	{
-		new(AssetsToRename)FAssetRenameDataWithReferencers(AssetsAndNames[AssetIdx]);
+		AssetsToRename.Emplace(FAssetRenameDataWithReferencers(AssetRenameData));
 	}
 
 	// Warn the user if they are about to rename an asset that is referenced by a CDO
@@ -199,6 +201,9 @@ void FAssetRenameManager::FixReferencesAndRename(TArray<FAssetRenameData> Assets
 	// Update the source control state for the packages containing the assets we are renaming if source control is enabled. If source control is enabled and this fails we can not continue.
 	if ( UpdatePackageStatus(AssetsToRename) )
 	{
+		// Detect whether the assets are being referenced by a collection. Assets within a collection must leave a redirector to avoid the collection losing its references.
+		DetectReferencingCollections(AssetsToRename);
+
 		// Load all referencing packages and mark any assets that must have redirectors.
 		TArray<UPackage*> ReferencingPackagesToSave;
 		LoadReferencingPackages(AssetsToRename, ReferencingPackagesToSave);
@@ -241,6 +246,12 @@ TArray<TWeakObjectPtr<UObject>> FAssetRenameManager::FindCDOReferencedAssets(con
 		UObject* CDO = Cls->ClassDefaultObject;
 
 		if (!CDO || !CDO->HasAllFlags(RF_ClassDefaultObject) || Cls->ClassGeneratedBy != NULL)
+		{
+			continue;
+		}
+
+		// Ignore deprecated and temporary trash classes.
+		if (Cls->HasAnyClassFlags(CLASS_Deprecated | CLASS_NewerVersionExists) || FKismetEditorUtilities::IsClassABlueprintSkeleton(Cls))
 		{
 			continue;
 		}
@@ -465,6 +476,25 @@ bool FAssetRenameManager::CheckOutPackages(TArray<FAssetRenameDataWithReferencer
 	return bUserAcceptedCheckout;
 }
 
+void FAssetRenameManager::DetectReferencingCollections(TArray<FAssetRenameDataWithReferencers>& AssetsToRename) const
+{
+	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+
+	for (auto& AssetToRename : AssetsToRename)
+	{
+		if (AssetToRename.Asset.IsValid())
+		{
+			TArray<FCollectionNameType> ReferencingCollections;
+			CollectionManagerModule.Get().GetCollectionsContainingObject(*AssetToRename.Asset->GetPathName(), ReferencingCollections);
+
+			if (ReferencingCollections.Num() > 0)
+			{
+				AssetToRename.bCreateRedirector = true;
+			}
+		}
+	}
+}
+
 void FAssetRenameManager::DetectReadOnlyPackages(TArray<FAssetRenameDataWithReferencers>& AssetsToRename, TArray<UPackage*>& InOutReferencingPackagesToSave) const
 {
 	// For each valid package...
@@ -518,15 +548,15 @@ void FAssetRenameManager::RenameReferencingStringAssetReferences(const TArray<UP
 
 		FArchive& operator<<(FStringAssetReference& Reference) override
 		{
-			if (Reference.AssetLongPathname == OldAssetPath)
+			if (Reference.ToString() == OldAssetPath)
 			{
-				Reference.AssetLongPathname = NewAssetPath;
+				Reference.SetPath(NewAssetPath);
 			}
 
 			// Generated class path support.
-			if (Reference.AssetLongPathname == OldAssetPath + "_C")
+			if (Reference.ToString() == OldAssetPath + "_C")
 			{
-				Reference.AssetLongPathname = NewAssetPath + "_C";
+				Reference.SetPath(NewAssetPath + "_C");
 			}
 
 			return *this;
@@ -666,7 +696,12 @@ void FAssetRenameManager::PerformAssetRename(TArray<FAssetRenameDataWithReferenc
 	// Now branch the files in source control if possible
 	for (const auto& AssetToRename : AssetsToRename)
 	{
-		SourceControlHelpers::BranchPackage(AssetToRename.Asset->GetOutermost(), FindPackage(nullptr, *AssetToRename.OriginalAssetPath));
+		// If something went wrong when saving and the new asset does not exist on disk, don't branch it
+		// as it will just create a copy and any attempt to load it will result in crashes.
+		if (FPackageName::DoesPackageExist(AssetToRename.Asset->GetOutermost()->GetFName().ToString()))
+		{
+			SourceControlHelpers::BranchPackage(AssetToRename.Asset->GetOutermost(), FindPackage(nullptr, *AssetToRename.OriginalAssetPath));
+		}
 	}
 
 	// Clean up all packages that were left empty

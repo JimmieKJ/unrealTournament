@@ -5,6 +5,7 @@
 #include "SDockTab.h"
 #include "ModuleManager.h"
 #include "SAtlasVisualizer.h"
+#include "WidgetSnapshotService.h"
 
 
 #define LOCTEXT_NAMESPACE "FSlateReflectorModule"
@@ -20,26 +21,29 @@ public:
 
 	// ISlateReflectorModule interface
 
-	virtual TSharedRef<SWidget> GetWidgetReflector() override
+	TSharedRef<SWidget> GetWidgetReflector(const TSharedRef<SDockTab>& InParentTab)
 	{
 		TSharedPtr<SWidgetReflector> WidgetReflector = WidgetReflectorPtr.Pin();
 
 		if (!WidgetReflector.IsValid())
 		{
-			WidgetReflector = SNew(SWidgetReflector);
+			WidgetReflector = SNew(SWidgetReflector)
+				.ParentTab(InParentTab)
+				.WidgetSnapshotService(WidgetSnapshotService);
+			WidgetReflectorPtr = WidgetReflector;
 			FSlateApplication::Get().SetWidgetReflector(WidgetReflector.ToSharedRef());
 		}
 
 		return WidgetReflector.ToSharedRef();
 	}
 
-	virtual TSharedRef<SWidget> GetAtlasVisualizer( ISlateAtlasProvider* InAtlasProvider ) override
+	TSharedRef<SWidget> GetAtlasVisualizer( ISlateAtlasProvider* InAtlasProvider )
 	{
 		return SNew(SAtlasVisualizer)
 			.AtlasProvider(InAtlasProvider);
 	}
 
-	virtual TSharedRef<SWidget> GetTextureAtlasVisualizer() override
+	TSharedRef<SWidget> GetTextureAtlasVisualizer()
 	{
 		ISlateAtlasProvider* const AtlasProvider = FSlateApplication::Get().GetRenderer()->GetTextureAtlasProvider();
 
@@ -59,7 +63,7 @@ public:
 		}
 	}
 
-	virtual TSharedRef<SWidget> GetFontAtlasVisualizer() override
+	TSharedRef<SWidget> GetFontAtlasVisualizer()
 	{
 		ISlateAtlasProvider* const AtlasProvider = FSlateApplication::Get().GetRenderer()->GetFontAtlasProvider();
 
@@ -81,91 +85,66 @@ public:
 
 	virtual void DisplayWidgetReflector() override
 	{
-		if( bHasRegisteredTabSpawners )
-		{
-			FGlobalTabmanager::Get()->InvokeTab(FTabId("WidgetReflector"));
-		}
-		else if( !WidgetReflectorWindowPtr.IsValid() )
-		{
-			const TSharedRef<SWindow> ReflectorWindow = SNew(SWindow)
-				.AutoCenter(EAutoCenter::PrimaryWorkArea)
-				.ClientSize(FVector2D(600,400))
-				.Title(LOCTEXT("WidgetReflectorTitle", "Widget Reflector"))
-				[
-					GetWidgetReflector()
-				];
-		
-			WidgetReflectorWindowPtr = ReflectorWindow;
-		
-			FSlateApplication::Get().AddWindow( ReflectorWindow );
-		}
+		check(bHasRegisteredTabSpawners);
+		FGlobalTabmanager::Get()->InvokeTab(FTabId("WidgetReflector"));
 	}
 
 	virtual void DisplayTextureAtlasVisualizer() override
 	{
-		if( bHasRegisteredTabSpawners )
-		{
-			FGlobalTabmanager::Get()->InvokeTab(FTabId("TextureAtlasVisualizer"));
-		}
-		else if( !TextureAtlasVisualizerWindowPtr.IsValid() )
-		{
-			const TSharedRef<SWindow> AtlasVisWindow = SNew(SWindow)
-				.AutoCenter(EAutoCenter::PrimaryWorkArea)
-				.ClientSize(FVector2D(1040, 900))
-				.Title(LOCTEXT("TextureAtlasVisualizerTitle", "Texture Atlas Visualizer"))
-				[
-					GetTextureAtlasVisualizer()
-				];
-		
-			TextureAtlasVisualizerWindowPtr = AtlasVisWindow;
-		
-			FSlateApplication::Get().AddWindow( AtlasVisWindow );
-		}
+		check(bHasRegisteredTabSpawners);
+		FGlobalTabmanager::Get()->InvokeTab(FTabId("TextureAtlasVisualizer"));
 	}
 
 	virtual void DisplayFontAtlasVisualizer() override
 	{
-		if( bHasRegisteredTabSpawners )
-		{
-			FGlobalTabmanager::Get()->InvokeTab(FTabId("FontAtlasVisualizer"));
-		}
-		else if( !FontAtlasVisualizerWindowPtr.IsValid() )
-		{
-			const TSharedRef<SWindow> AtlasVisWindow = SNew(SWindow)
-				.AutoCenter(EAutoCenter::PrimaryWorkArea)
-				.ClientSize(FVector2D(1040, 900))
-				.Title(LOCTEXT("FontAtlasVisualizerTitle", "Font Atlas Visualizer"))
-				[
-					GetFontAtlasVisualizer()
-				];
-		
-			FontAtlasVisualizerWindowPtr = AtlasVisWindow;
-		
-			FSlateApplication::Get().AddWindow( AtlasVisWindow );
-		}
+		check(bHasRegisteredTabSpawners);
+		FGlobalTabmanager::Get()->InvokeTab(FTabId("FontAtlasVisualizer"));
 	}
 
-	virtual void RegisterTabSpawner( const TSharedRef<FWorkspaceItem>& WorkspaceGroup ) override
+	virtual void RegisterTabSpawner( const TSharedPtr<FWorkspaceItem>& WorkspaceGroup ) override
 	{
+		if (bHasRegisteredTabSpawners)
+		{
+			UnregisterTabSpawner();
+		}
+
 		bHasRegisteredTabSpawners = true;
 
-		FGlobalTabmanager::Get()->RegisterNomadTabSpawner("WidgetReflector", FOnSpawnTab::CreateRaw(this, &FSlateReflectorModule::MakeWidgetReflectorTab) )
-			.SetDisplayName(LOCTEXT("WidgetReflectorTitle", "Widget Reflector"))
-			.SetTooltipText(LOCTEXT("WidgetReflectorTooltipText", "Open the Widget Reflector tab."))
-			.SetGroup(WorkspaceGroup)
-			.SetIcon(FSlateIcon(FCoreStyle::Get().GetStyleSetName(), "WidgetReflector.TabIcon"));
+		{
+			FTabSpawnerEntry& SpawnerEntry = FGlobalTabmanager::Get()->RegisterNomadTabSpawner("WidgetReflector", FOnSpawnTab::CreateRaw(this, &FSlateReflectorModule::MakeWidgetReflectorTab) )
+				.SetDisplayName(LOCTEXT("WidgetReflectorTitle", "Widget Reflector"))
+				.SetTooltipText(LOCTEXT("WidgetReflectorTooltipText", "Open the Widget Reflector tab."))
+				.SetIcon(FSlateIcon(FCoreStyle::Get().GetStyleSetName(), "WidgetReflector.TabIcon"));
 
-		FGlobalTabmanager::Get()->RegisterNomadTabSpawner("TextureAtlasVisualizer", FOnSpawnTab::CreateRaw(this, &FSlateReflectorModule::MakeTextureAtlasVisualizerTab) )
-			.SetDisplayName(LOCTEXT("TextureAtlasVisualizerTitle", "Texture Atlas Visualizer"))
-			.SetTooltipText(LOCTEXT("TextureAtlasVisualizerTooltipText", "Open the Texture Atlas Visualizer tab."))
-			.SetGroup(WorkspaceGroup)
-			.SetMenuType(ETabSpawnerMenuType::Hidden);
+			if (WorkspaceGroup.IsValid())
+			{
+				SpawnerEntry.SetGroup(WorkspaceGroup.ToSharedRef());
+			}
+		}
 
-		FGlobalTabmanager::Get()->RegisterNomadTabSpawner("FontAtlasVisualizer", FOnSpawnTab::CreateRaw(this, &FSlateReflectorModule::MakeFontAtlasVisualizerTab) )
-			.SetDisplayName(LOCTEXT("FontAtlasVisualizerTitle", "Font Atlas Visualizer"))
-			.SetTooltipText(LOCTEXT("FontAtlasVisualizerTooltipText", "Open the Font Atlas Visualizer tab."))
-			.SetGroup(WorkspaceGroup)
-			.SetMenuType(ETabSpawnerMenuType::Hidden);
+		{
+			FTabSpawnerEntry& SpawnerEntry = FGlobalTabmanager::Get()->RegisterNomadTabSpawner("TextureAtlasVisualizer", FOnSpawnTab::CreateRaw(this, &FSlateReflectorModule::MakeTextureAtlasVisualizerTab) )
+				.SetDisplayName(LOCTEXT("TextureAtlasVisualizerTitle", "Texture Atlas Visualizer"))
+				.SetTooltipText(LOCTEXT("TextureAtlasVisualizerTooltipText", "Open the Texture Atlas Visualizer tab."))
+				.SetMenuType(ETabSpawnerMenuType::Hidden);
+
+			if (WorkspaceGroup.IsValid())
+			{
+				SpawnerEntry.SetGroup(WorkspaceGroup.ToSharedRef());
+			}
+		}
+
+		{
+			FTabSpawnerEntry& SpawnerEntry = FGlobalTabmanager::Get()->RegisterNomadTabSpawner("FontAtlasVisualizer", FOnSpawnTab::CreateRaw(this, &FSlateReflectorModule::MakeFontAtlasVisualizerTab) )
+				.SetDisplayName(LOCTEXT("FontAtlasVisualizerTitle", "Font Atlas Visualizer"))
+				.SetTooltipText(LOCTEXT("FontAtlasVisualizerTooltipText", "Open the Font Atlas Visualizer tab."))
+				.SetMenuType(ETabSpawnerMenuType::Hidden);
+
+			if (WorkspaceGroup.IsValid())
+			{
+				SpawnerEntry.SetGroup(WorkspaceGroup.ToSharedRef());
+			}
+		}
 	}
 
 	virtual void UnregisterTabSpawner() override
@@ -183,23 +162,27 @@ public:
 
 	virtual void StartupModule() override
 	{
+		WidgetSnapshotService = MakeShareable(new FWidgetSnapshotService());
+
 		bHasRegisteredTabSpawners = false;
+		RegisterTabSpawner(nullptr);
 	}
 
 	virtual void ShutdownModule() override
 	{
 		UnregisterTabSpawner();
+
+		WidgetSnapshotService.Reset();
 	}
 
 private:
 
 	TSharedRef<SDockTab> MakeWidgetReflectorTab( const FSpawnTabArgs& )
 	{
-		return SNew(SDockTab)
-			.TabRole(ETabRole::NomadTab)
-			[
-				GetWidgetReflector()
-			];
+		TSharedRef<SDockTab> WidgetReflectorTab = SNew(SDockTab)
+			.TabRole(ETabRole::NomadTab);
+		WidgetReflectorTab->SetContent(GetWidgetReflector(WidgetReflectorTab));
+		return WidgetReflectorTab;
 	}
 
 	TSharedRef<SDockTab> MakeTextureAtlasVisualizerTab( const FSpawnTabArgs& )
@@ -228,14 +211,8 @@ private:
 	/** Holds the widget reflector singleton. */
 	TWeakPtr<SWidgetReflector> WidgetReflectorPtr;
 
-	/** Holds the widget reflector singleton. */
-	TWeakPtr<SWindow> WidgetReflectorWindowPtr;
-
-	/** Holds the texture atlas viewer singleton. */
-	TWeakPtr<SWindow> TextureAtlasVisualizerWindowPtr;
-
-	/** Holds the font atlas viewer singleton. */
-	TWeakPtr<SWindow> FontAtlasVisualizerWindowPtr;
+	/** The service for handling remote widget snapshots */
+	TSharedPtr<FWidgetSnapshotService> WidgetSnapshotService;
 };
 
 

@@ -278,6 +278,7 @@ void FEnvQueryTestDetails::BuildScoreEquationValues()
 			ScoreEquationValues.Add(FTextIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::Linear), EEnvTestScoreEquation::Linear));
 			ScoreEquationValues.Add(FTextIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::Square), EEnvTestScoreEquation::Square));
 			ScoreEquationValues.Add(FTextIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::InverseLinear), EEnvTestScoreEquation::InverseLinear));
+			ScoreEquationValues.Add(FTextIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::SquareRoot), EEnvTestScoreEquation::SquareRoot));
 		}
 	}
 }
@@ -471,15 +472,23 @@ FText FEnvQueryTestDetails::GetScoreEquationInfo() const
 	{
 		case EEnvTestScoreEquation::Linear:
 			return LOCTEXT("Linear","Final score = ScoringFactor * NormalizedItemValue");
+			break;
 
 		case EEnvTestScoreEquation::Square:
 			return LOCTEXT("Square","Final score = ScoringFactor * (NormalizedItemValue * NormalizedItemValue)\nBias towards items with big values.");
+			break;
 
 		case EEnvTestScoreEquation::InverseLinear:
 			return LOCTEXT("Inverse","Final score = ScoringFactor * (1.0 - NormalizedItemValue)\nBias towards items with values close to zero.  (Linear, but flipped from 1 to 0 rather than 0 to 1.");
+			break;
+
+		case EEnvTestScoreEquation::SquareRoot:
+			return LOCTEXT("Square root", "Final score = ScoringFactor * Sqrt(NormalizedItemValue)\nNon-linearly bias towards items with big values.");
+			break;
 
 		case EEnvTestScoreEquation::Constant:
 			return LOCTEXT("Constant", "Final score (for values that 'pass') = ScoringFactor\nNOTE: In this case, the score is normally EITHER the ScoringFactor value or zero.\nThe score will be zero if the Normalized Test Value is zero (or if the test value is false for a boolean query).\nOtherwise, score will be the ScoringFactor.");
+			break;
 
 		default:
 			break;

@@ -6,6 +6,9 @@
 	#error Nesting AllowWindowsPLatformTypes.h is not allowed!
 #endif
 
+#pragma warning( push )
+#pragma warning( disable : 4459 )
+
 #define INT ::INT
 #define UINT ::UINT
 #define DWORD ::DWORD

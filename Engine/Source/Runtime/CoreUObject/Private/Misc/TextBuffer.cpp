@@ -32,6 +32,10 @@ void UTextBuffer::Serialize (const TCHAR* Data, ELogVerbosity::Type Verbosity, c
 	Text += (TCHAR*)Data;
 }
 
+void UTextBuffer::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time )
+{
+	Text += (TCHAR*)Data;
+}
 
 /* UObject interface
  *****************************************************************************/

@@ -38,9 +38,9 @@ namespace
 	template <>                   FORCEINLINE TArray<TUniquePtr<TTraceThreadData<FOverlapDatum>>>& GetTraceContainer<FOverlapDatum>(AsyncTraceData& DataBuffer) { return DataBuffer.OverlapData; }
 
 	// Helper functions to return the right named member trace index based on a datum type
-	template <typename DatumType> FORCEINLINE int32& GetTraceIndex               (FWorldAsyncTraceState& State);
-	template <>                   FORCEINLINE int32& GetTraceIndex<FTraceDatum>  (FWorldAsyncTraceState& State) { return State.NextAvailableTraceIndex;   }
-	template <>                   FORCEINLINE int32& GetTraceIndex<FOverlapDatum>(FWorldAsyncTraceState& State) { return State.NextAvailableOverlapIndex; }
+	template <typename DatumType> FORCEINLINE int32& GetTraceIndex(AsyncTraceData& DataBuffer);
+	template <>                   FORCEINLINE int32& GetTraceIndex<FTraceDatum>(AsyncTraceData& DataBuffer) { return DataBuffer.NumQueuedTraceData; }
+	template <>                   FORCEINLINE int32& GetTraceIndex<FOverlapDatum>(AsyncTraceData& DataBuffer) { return DataBuffer.NumQueuedOverlapData; }
 
 	/** For referencing a thread data buffer and a datum within it */
 	struct FBufferIndexPair
@@ -230,7 +230,9 @@ namespace
 	template <typename DatumType>
 	void ExecuteAsyncTraceIfAvailable(FWorldAsyncTraceState& State, bool bExecuteAll)
 	{
-		FBufferIndexPair Next(GetTraceIndex<DatumType>(State));
+		auto& DataBuffer = State.GetBufferForCurrentFrame();
+
+		FBufferIndexPair Next(GetTraceIndex<DatumType>(DataBuffer));
 
 		// when Next.Index == 0, and Next.Block > 0 , that means next one will be in the next buffer
 		// but that case we'd like to send to thread
@@ -245,7 +247,6 @@ namespace
 			return;
 		}
 
-		auto& DataBuffer = State.GetBufferForCurrentFrame();
 		auto* Datum      = GetTraceContainer<DatumType>(DataBuffer)[Next.Block]->Buffer;
 		#if RUN_ASYNC_TRACE
 			DataBuffer.AsyncTraceCompletionEvent.Emplace(TGraphTask<FAsyncTraceTask>::CreateTask(NULL, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(Datum, Next.Index));
@@ -264,7 +265,7 @@ namespace
 		check(DataBuffer.bAsyncAllowed);
 
 		auto&  TraceData  = GetTraceContainer<DatumType>(DataBuffer);
-		int32& TraceIndex = GetTraceIndex    <DatumType>(State);
+		int32& TraceIndex = GetTraceIndex<DatumType>(DataBuffer);
 
 		// we calculate index as continuous, not as each chunk, but continuous way 
 		int32 LastAvailableIndex = TraceData.Num() * ASYNC_TRACE_BUFFER_SIZE;
@@ -289,9 +290,9 @@ namespace
 
 FWorldAsyncTraceState::FWorldAsyncTraceState()
 	: CurrentFrame             (0)
-	, NextAvailableTraceIndex  (0)
-	, NextAvailableOverlapIndex(0)
 {
+	// initial buffer is open for business
+	DataBuffer[CurrentFrame].bAsyncAllowed = true;
 }
 
 FTraceHandle UWorld::AsyncLineTraceByChannel(const FVector& Start,const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params /* = FCollisionQueryParams::DefaultQueryParam */, const FCollisionResponseParams& ResponseParam /* = FCollisionResponseParams::DefaultResponseParam */, FTraceDelegate * InDelegate/* =NULL */, uint32 UserData /* = 0 */, bool bMultiTrace/* =false */ )
@@ -406,21 +407,17 @@ void UWorld::ResetAsyncTrace()
 	WaitForAllAsyncTraceTasks();
 
 	// do run delegates before starting next round
-	for (int32 Idx = 0; Idx != AsyncTraceState.NextAvailableTraceIndex; ++Idx)
+	for (int32 Idx = 0; Idx != DataBufferExecuted.NumQueuedTraceData; ++Idx)
 	{
 		auto& TraceData = FBufferIndexPair(Idx).DatumLookupChecked(DataBufferExecuted.TraceData);
 		TraceData.Delegate.ExecuteIfBound(FTraceHandle(TraceData.FrameNumber, Idx), TraceData);
 	}
-	for (int32 Idx = 0; Idx != AsyncTraceState.NextAvailableOverlapIndex; ++Idx)
+
+	for (int32 Idx = 0; Idx != DataBufferExecuted.NumQueuedOverlapData; ++Idx)
 	{
 		auto& TraceData = FBufferIndexPair(Idx).DatumLookupChecked(DataBufferExecuted.OverlapData);
 		TraceData.Delegate.ExecuteIfBound(FTraceHandle(TraceData.FrameNumber, Idx), TraceData);
 	}
-
-	// re-initialize all variables
-	AsyncTraceState.GetBufferForCurrentFrame().bAsyncAllowed = true;
-	AsyncTraceState.NextAvailableTraceIndex   = 0;
-	AsyncTraceState.NextAvailableOverlapIndex = 0;
 }
 
 void UWorld::FinishAsyncTrace()
@@ -434,4 +431,12 @@ void UWorld::FinishAsyncTrace()
 
 	// increase buffer index to next one
 	++AsyncTraceState.CurrentFrame;
+
+	// set up new buffer to accept trace requests
+	AsyncTraceData& NewAsyncBuffer = AsyncTraceState.GetBufferForCurrentFrame();
+	NewAsyncBuffer.bAsyncAllowed = true;
+	NewAsyncBuffer.NumQueuedTraceData = 0;
+	NewAsyncBuffer.NumQueuedOverlapData = 0;
+
 }
+

@@ -93,4 +93,7 @@ enum EPropertyPortFlags
 
 	/** Ignores CPF_Deprecated flag */
 	PPF_UseDeprecatedProperties		= 0x08000000,
+
+	/** Export in C++ form */
+	PPF_ExportCpp					= 0x10000000,
 };

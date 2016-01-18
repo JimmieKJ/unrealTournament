@@ -63,12 +63,12 @@ void MigratePreviousEngineInis()
 		return;
 	}
 
-	int32 MinorVersion = GEngineVersion.GetMinor() - 1;
+	int32 MinorVersion = FEngineVersion::Current().GetMinor() - 1;
 
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 	while(MinorVersion >= 0)
 	{
-		const FEngineVersion PreviousVersion(GEngineVersion.GetMajor(), MinorVersion--, 0, 0, FString());
+		const FEngineVersion PreviousVersion(FEngineVersion::Current().GetMajor(), MinorVersion--, 0, 0, FString());
 	
 		const FString Directory = FString(FPlatformProcess::UserSettingsDir()) / ENGINE_VERSION_TEXT(EPIC_PRODUCT_IDENTIFIER) / PreviousVersion.ToString(EVersionComponent::Minor) / TEXT("Saved") / TEXT("Config") / ANSI_TO_TCHAR(FPlatformProperties::PlatformName());
 		if (FPaths::DirectoryExists(Directory))

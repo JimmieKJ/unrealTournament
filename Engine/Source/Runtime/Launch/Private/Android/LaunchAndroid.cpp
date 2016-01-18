@@ -15,6 +15,8 @@
 #include "AndroidWindow.h"
 #include <android/sensor.h>
 #include "Core.h"
+#include "AndroidApplication.h"
+#include "IHeadMountedDisplayModule.h"
 
 // Function pointer for retrieving joystick events
 // Function has been part of the OS since Honeycomb, but only appeared in the
@@ -30,29 +32,20 @@ static const int32_t AxisList[] =
 	AMOTION_EVENT_AXIS_X,
     AMOTION_EVENT_AXIS_Y,
 	AMOTION_EVENT_AXIS_Z,
-    AMOTION_EVENT_AXIS_RZ,
-    AMOTION_EVENT_AXIS_LTRIGGER,
-    AMOTION_EVENT_AXIS_RTRIGGER,
-	AMOTION_EVENT_AXIS_GAS,
-    AMOTION_EVENT_AXIS_BRAKE,
+	AMOTION_EVENT_AXIS_RX,
+	AMOTION_EVENT_AXIS_RY,
+	AMOTION_EVENT_AXIS_RZ,
 
 	//These are DPAD analogs
-    //AMOTION_EVENT_AXIS_HAT_X,
-    //AMOTION_EVENT_AXIS_HAT_Y,
+	AMOTION_EVENT_AXIS_HAT_X,
+	AMOTION_EVENT_AXIS_HAT_Y,
 };
 
 // map of all supported keycodes
-static TSet<uint16> MappedKeyCodes;
-
-// List of gamepad keycodes to ignore
-static const uint16 IgnoredGamepadKeyCodesList[] =
-{
-	AKEYCODE_VOLUME_UP,
-	AKEYCODE_VOLUME_DOWN
-};
+static TSet<uint32> MappedKeyCodes;
 
 // List of desired gamepad keycodes
-static const uint16 ValidGamepadKeyCodesList[] =
+static const uint32 ValidGamepadKeyCodesList[] =
 {
 	AKEYCODE_BUTTON_A,
 	AKEYCODE_DPAD_CENTER,
@@ -75,11 +68,8 @@ static const uint16 ValidGamepadKeyCodesList[] =
 	AKEYCODE_DPAD_RIGHT
 };
 
-// map of gamepad keycodes that should be ignored
-static TSet<uint16> IgnoredGamepadKeyCodes;
-
 // map of gamepad keycodes that should be passed forward
-static TSet<uint16> ValidGamepadKeyCodes;
+static TSet<uint32> ValidGamepadKeyCodes;
 
 // -nostdlib means no crtbegin_so.o, so we have to provide our own __dso_handle and atexit()
 extern "C"
@@ -201,6 +191,8 @@ static void InitCommandLine()
 	}
 }
 
+extern void AndroidThunkCpp_DismissSplashScreen();
+
 //Main function called from the android entry point
 int32 AndroidMain(struct android_app* state)
 {
@@ -228,7 +220,7 @@ int32 AndroidMain(struct android_app* state)
 	}
 
 	// setup joystick support
-	// r19 is the first NDK to include AMotionEvenet_getAxisValue in the headers
+	// r19 is the first NDK to include AMotionEvent_getAxisValue in the headers
 	// However, it has existed in the so since Honeycomb, query for the symbol
 	// to determine whether to try controller support
 	{
@@ -250,7 +242,7 @@ int32 AndroidMain(struct android_app* state)
 
 	// setup key filtering
 	static const uint32 MAX_KEY_MAPPINGS(256);
-	uint16 KeyCodes[MAX_KEY_MAPPINGS];
+	uint32 KeyCodes[MAX_KEY_MAPPINGS];
 	uint32 NumKeyCodes = FPlatformMisc::GetKeyMap(KeyCodes, nullptr, MAX_KEY_MAPPINGS);
 
 	for (int i = 0; i < NumKeyCodes; ++i)
@@ -258,13 +250,7 @@ int32 AndroidMain(struct android_app* state)
 		MappedKeyCodes.Add(KeyCodes[i]);
 	}
 
-	const int IgnoredGamepadKeyCodeCount = sizeof(IgnoredGamepadKeyCodesList)/sizeof(uint16);
-	for (int i = 0; i < IgnoredGamepadKeyCodeCount; ++i)
-	{
-		IgnoredGamepadKeyCodes.Add(IgnoredGamepadKeyCodesList[i]);
-	}
-
-	const int ValidGamepadKeyCodeCount = sizeof(ValidGamepadKeyCodesList)/sizeof(uint16);
+	const int ValidGamepadKeyCodeCount = sizeof(ValidGamepadKeyCodesList)/sizeof(uint32);
 	for (int i = 0; i < ValidGamepadKeyCodeCount; ++i)
 	{
 		ValidGamepadKeyCodes.Add(ValidGamepadKeyCodesList[i]);
@@ -293,16 +279,6 @@ int32 AndroidMain(struct android_app* state)
 	// OBBs and APK are found.
 	IPlatformFile::GetPlatformPhysical().Initialize(nullptr, FCommandLine::Get());
 
-#if 0
-	for (int32 i = 0; i < 10; i++)
-	{
-		sleep(1);
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("[Patch %d]"), i);
-
-	}
-	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("[Patch] : Dont Patch \n"));
-#endif
-
 	// initialize the engine
 	GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
 
@@ -316,6 +292,8 @@ int32 AndroidMain(struct android_app* state)
 	GEngineLoop.Init();
 
 	UE_LOG(LogAndroid, Log, TEXT("Passed GEngineLoop.Init()"));
+
+	AndroidThunkCpp_DismissSplashScreen();
 
 	// tick until done
 	while (!GIsRequestingExit)
@@ -455,26 +433,40 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 //	FPlatformMisc::LowLevelOutputDebugStringf(L"INPUT - type: %x, action: %x, source: %x, keycode: %x, buttons: %x", AInputEvent_getType(event), 
 //		AMotionEvent_getAction(event), AInputEvent_getSource(event), AKeyEvent_getKeyCode(event), AMotionEvent_getButtonState(event));
 
-	if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION)
+	int32 EventType = AInputEvent_getType(event);
+	int32 EventSource = AInputEvent_getSource(event);
+
+	if (EventType == AINPUT_EVENT_TYPE_MOTION)
 	{
 		int action = AMotionEvent_getAction(event);
 		int actionType = action & AMOTION_EVENT_ACTION_MASK;
 		size_t actionPointer = (size_t)((action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT);
 		bool isActionTargeted = (actionType == AMOTION_EVENT_ACTION_POINTER_DOWN || actionType == AMOTION_EVENT_ACTION_POINTER_UP);
+		int32 device = AInputEvent_getDeviceId(event);
 
 		// trap Joystick events first, with fallthrough if there is no joystick support
-		if (((AInputEvent_getSource(event) & AINPUT_SOURCE_CLASS_JOYSTICK) != 0) &&
-				(GetAxes != NULL) &&
-				(actionType == AMOTION_EVENT_ACTION_MOVE))
+		if (((EventSource & AINPUT_SOURCE_CLASS_JOYSTICK) == AINPUT_SOURCE_CLASS_JOYSTICK) &&
+			(GetAxes != NULL) &&
+			(actionType == AMOTION_EVENT_ACTION_MOVE))
 		{
 			const int axisCount = sizeof(AxisList)/sizeof(int32_t);
-			int device = AInputEvent_getDeviceId(event);
 
+			// poll all the axes and forward to update controller state
 			for (int axis = 0; axis < axisCount; axis++)
 			{
 				float val = GetAxes( event, AxisList[axis], 0);
-				FAndroidInputInterface::JoystickAxisEvent( device, AxisList[axis], val);
+				FAndroidInputInterface::JoystickAxisEvent(device, AxisList[axis], val);
 			}
+
+			// handle L/R trigger and Brake/Gas special (all in 0..1 range)
+			// LTRIGGER will either be LTRIGGER or BRAKE, whichever is larger
+			// RTRIGGER will either be RTRIGGER or GAS, whichever is larger
+			float ltrigger = GetAxes(event, AMOTION_EVENT_AXIS_LTRIGGER, 0);
+			float rtrigger = GetAxes(event, AMOTION_EVENT_AXIS_RTRIGGER, 0);
+			float brake = GetAxes(event, AMOTION_EVENT_AXIS_BRAKE, 0);
+			float gas = GetAxes(event, AMOTION_EVENT_AXIS_GAS, 0);
+			FAndroidInputInterface::JoystickAxisEvent(device, AMOTION_EVENT_AXIS_LTRIGGER, ltrigger > brake ? ltrigger : brake);
+			FAndroidInputInterface::JoystickAxisEvent(device, AMOTION_EVENT_AXIS_RTRIGGER, rtrigger > gas ? rtrigger : gas);
 		}
 		else
 		{
@@ -543,6 +535,7 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 				UE_LOG(LogAndroid, Verbose, TEXT("Received targeted motion event from pointer %u (id %d) action %d: (%.2f, %.2f)"), actionPointer, pointerId, action, x, y);
 
 				TouchInput TouchMessage;
+				TouchMessage.DeviceId = device;
 				TouchMessage.Handle = pointerId;
 				TouchMessage.Type = type;
 				TouchMessage.Position = FVector2D(x, y);
@@ -560,10 +553,11 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 					float y = FMath::Min<float>(AMotionEvent_getY(event, i) / Height, 1.f);
 					y *= (ScreenRect.Bottom - 1);
 
-					UE_LOG(LogAndroid, Verbose, TEXT("Received motion event from pointer %u (id %d) action %d: (%.2f, %.2f)"), i, action, AMotionEvent_getPointerId(event,i), x, y);
+					UE_LOG(LogAndroid, Verbose, TEXT("Received motion event from index %u (id %d) action %d: (%.2f, %.2f)"), i, pointerId, action, x, y);
 
 					TouchInput TouchMessage;
-					TouchMessage.Handle = AMotionEvent_getPointerId(event, i);
+					TouchMessage.DeviceId= device;
+					TouchMessage.Handle = pointerId;
 					TouchMessage.Type = type;
 					TouchMessage.Position = FVector2D(x, y);
 					TouchMessage.LastPosition = FVector2D(x, y);		//@todo android: AMotionEvent_getHistoricalRawX
@@ -589,23 +583,26 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 
 		return 1;
 	}
-	else if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY)
+
+	if (EventType == AINPUT_EVENT_TYPE_KEY)
 	{
 		int keyCode = AKeyEvent_getKeyCode(event);
 
 		FPlatformMisc::LowLevelOutputDebugStringf(L"Received keycode: %d", keyCode);
 
-		//Trap Joystick events first, with fallthrough if there is no joystick support
-		if (((AInputEvent_getSource(event) & (AINPUT_SOURCE_GAMEPAD | AINPUT_SOURCE_DPAD)) != 0) && (GetAxes != NULL) && ValidGamepadKeyCodes.Contains(keyCode))
+		//Trap codes handled as possible gamepad events
+		if (ValidGamepadKeyCodes.Contains(keyCode))
 		{
-			if (IgnoredGamepadKeyCodes.Contains(keyCode))
+			//Only pass on the device id if really a gamepad, joystick or dpad (allows menu and back to be treated as gamepad events)
+			int32 device = 0;
+			if ( (((EventSource & AINPUT_SOURCE_JOYSTICK) == AINPUT_SOURCE_JOYSTICK) && (GetAxes != NULL)) ||
+				 ((EventSource & AINPUT_SOURCE_GAMEPAD) == AINPUT_SOURCE_GAMEPAD) ||
+				 ((EventSource & AINPUT_SOURCE_DPAD) == AINPUT_SOURCE_DPAD) )
 			{
-				return 0;
+				device = AInputEvent_getDeviceId(event);
 			}
-
-			int device = AInputEvent_getDeviceId(event);
 			bool down = AKeyEvent_getAction(event) != AKEY_EVENT_ACTION_UP;
-			FAndroidInputInterface::JoystickButtonEvent( device, keyCode, down);
+			FAndroidInputInterface::JoystickButtonEvent(device, keyCode, down);
 			FPlatformMisc::LowLevelOutputDebugStringf(L"Received gamepad button: %d", keyCode);
 		}
 		else
@@ -642,13 +639,6 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 
 	return 0;
 }
-
-static void onNativeWindowResized(ANativeActivity* activity, ANativeWindow* window)
-{
-	FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_WINDOW_CHANGED,window);
-}
-
-
 
 //Called from the event process thread
 static void OnAppCommandCB(struct android_app* app, int32_t cmd)
@@ -758,10 +748,18 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_CONTENT_RECT_CHANGED"));
 		break;
 	case APP_CMD_CONFIG_CHANGED:
-		/**
-		 * Command from main thread: the current device configuration has changed.
-		 */
-		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_CONFIG_CHANGED"));
+		{
+			/**
+			* Command from main thread: the current device configuration has changed.
+			*/
+			UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_CONFIG_CHANGED"));
+			
+			bool bPortrait = (AConfiguration_getOrientation(app->config) == ACONFIGURATION_ORIENTATION_PORT);
+			if (FAndroidWindow::OnWindowOrientationChanged(bPortrait))
+			{
+				FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_WINDOW_CHANGED, nullptr);
+			}
+		}
 		break;
 	case APP_CMD_LOW_MEMORY:
 		/**
@@ -775,7 +773,6 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		 * Command from main thread: the app's activity has been started.
 		 */
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_START"));
-		app->activity->callbacks->onNativeWindowResized  = onNativeWindowResized; //currently not handled in glue code.
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_START);
 	
 		break;
@@ -809,7 +806,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		* and waiting for the app thread to clean up and exit before proceeding.
 		*/
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_DESTROY"));
-		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_PAUSE);
+		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_DESTROY);
 		break;
 	}
 

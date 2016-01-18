@@ -28,11 +28,12 @@ void FAnimNode_ConvertComponentToLocalSpace::Update(const FAnimationUpdateContex
 void FAnimNode_ConvertComponentToLocalSpace::Evaluate(FPoseContext & Output)
 {
 	// Evaluate the child and convert
-	FComponentSpacePoseContext InputCSPose(Output.AnimInstance);
+	FComponentSpacePoseContext InputCSPose(Output.AnimInstanceProxy);
 	ComponentPose.EvaluateComponentSpace(InputCSPose);
 
-	checkSlow( InputCSPose.Pose.IsValid() );
+	checkSlow( InputCSPose.Pose.GetPose().IsValid() );
 	InputCSPose.Pose.ConvertToLocalPoses(Output.Pose);
+	Output.Curve = InputCSPose.Curve;
 }
 
 void FAnimNode_ConvertComponentToLocalSpace::GatherDebugData(FNodeDebugData& DebugData)
@@ -74,8 +75,9 @@ void FAnimNode_ConvertLocalToComponentSpace::GatherDebugData(FNodeDebugData& Deb
 void FAnimNode_ConvertLocalToComponentSpace::EvaluateComponentSpace(FComponentSpacePoseContext & OutputCSPose)
 {
 	// Evaluate the child and convert
-	FPoseContext InputPose(OutputCSPose.AnimInstance);
+	FPoseContext InputPose(OutputCSPose.AnimInstanceProxy);
 	LocalPose.Evaluate(InputPose);
 
-	OutputCSPose.Pose.AllocateLocalPoses(OutputCSPose.AnimInstance->RequiredBones, InputPose.Pose);
+	OutputCSPose.Pose.InitPose(InputPose.Pose);
+	OutputCSPose.Curve = InputPose.Curve;
 }

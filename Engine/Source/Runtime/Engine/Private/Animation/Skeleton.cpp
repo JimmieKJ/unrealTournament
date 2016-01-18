@@ -10,6 +10,8 @@
 #include "AssetRegistryModule.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/Rig.h"
+#include "Animation/BlendProfile.h"
+#include "MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "Skeleton"
 #define ROOT_BONE_PARENT	INDEX_NONE
@@ -204,7 +206,7 @@ void USkeleton::ConvertToFReferenceSkeleton()
 	ensure (AnimRetargetSources.Num() == 0);
 }
 
-bool USkeleton::DoesParentChainMatch(int32 StartBoneIndex, USkeletalMesh * InSkelMesh) const
+bool USkeleton::DoesParentChainMatch(int32 StartBoneIndex, const USkeletalMesh* InSkelMesh) const
 {
 	const FReferenceSkeleton& SkeletonRefSkel = ReferenceSkeleton;
 	const FReferenceSkeleton& MeshRefSkel = InSkelMesh->RefSkeleton;
@@ -249,7 +251,7 @@ bool USkeleton::DoesParentChainMatch(int32 StartBoneIndex, USkeletalMesh * InSke
 	return true;
 }
 
-bool USkeleton::IsCompatibleMesh(USkeletalMesh* InSkelMesh) const
+bool USkeleton::IsCompatibleMesh(const USkeletalMesh* InSkelMesh) const
 {
 	// at least % of bone should match 
 	int32 NumOfBoneMatches = 0;
@@ -261,13 +263,21 @@ bool USkeleton::IsCompatibleMesh(USkeletalMesh* InSkelMesh) const
 	// first ensure the parent exists for each bone
 	for (int32 MeshBoneIndex=0; MeshBoneIndex<NumBones; MeshBoneIndex++)
 	{
+		FName MeshBoneName = MeshRefSkel.GetBoneName(MeshBoneIndex);
 		// See if Mesh bone exists in Skeleton.
-		int32 SkeletonBoneIndex = SkeletonRefSkel.FindBoneIndex( MeshRefSkel.GetBoneName(MeshBoneIndex) );
+		int32 SkeletonBoneIndex = SkeletonRefSkel.FindBoneIndex( MeshBoneName );
 
 		// if found, increase num of bone matches count
 		if( SkeletonBoneIndex != INDEX_NONE )
 		{
 			++NumOfBoneMatches;
+
+			// follow the parent chain to verify the chain is same
+			if(!DoesParentChainMatch(SkeletonBoneIndex, InSkelMesh))
+			{
+				UE_LOG(LogAnimation, Warning, TEXT("%s : Hierarchy does not match."), *MeshBoneName.ToString());
+				return false;
+			}
 		}
 		else
 		{
@@ -280,7 +290,8 @@ bool USkeleton::IsCompatibleMesh(USkeletalMesh* InSkelMesh) const
 				if ( ParentMeshBoneIndex != INDEX_NONE )
 				{
 					// @TODO: make sure RefSkeleton's root ParentIndex < 0 if not, I'll need to fix this by checking TreeBoneIdx
-					SkeletonBoneIndex = SkeletonRefSkel.FindBoneIndex(MeshRefSkel.GetBoneName(ParentMeshBoneIndex));
+					FName ParentBoneName = MeshRefSkel.GetBoneName(ParentMeshBoneIndex);
+					SkeletonBoneIndex = SkeletonRefSkel.FindBoneIndex(ParentBoneName);
 				}
 
 				// root is reached
@@ -297,12 +308,14 @@ bool USkeleton::IsCompatibleMesh(USkeletalMesh* InSkelMesh) const
 			// still no match, return false, no parent to look for
 			if( SkeletonBoneIndex == INDEX_NONE )
 			{
+				UE_LOG(LogAnimation, Warning, TEXT("%s : Missing joint on skeleton.  Make sure to assign to the skeleeton."), *MeshBoneName.ToString());
 				return false;
 			}
 
 			// second follow the parent chain to verify the chain is same
 			if( !DoesParentChainMatch(SkeletonBoneIndex, InSkelMesh) )
 			{
+				UE_LOG(LogAnimation, Warning, TEXT("%s : Hierarchy does not match."), *MeshBoneName.ToString());
 				return false;
 			}
 		}
@@ -351,6 +364,57 @@ int32 USkeleton::BuildLinkup(const USkeletalMesh* InSkelMesh)
 	// so whenever map transition happens, this links will need to clear up
 	FSkeletonToMeshLinkup NewMeshLinkup;
 
+	// First, make sure the Skeleton has all the bones the SkeletalMesh possesses.
+	// This can get out of sync if a mesh was imported on that Skeleton, but the Skeleton was not saved.
+
+	const int32 NumMeshBones = MeshRefSkel.GetNum();
+	NewMeshLinkup.MeshToSkeletonTable.Empty(NumMeshBones);
+	NewMeshLinkup.MeshToSkeletonTable.AddUninitialized(NumMeshBones);
+
+#if WITH_EDITOR
+	// The message below can potentially fire many times if the skeleton has been put into a state where it is no longer
+	// fully compatible with the mesh we're trying to merge into the bone tree. We use this flag to only show it once per mesh
+	bool bDismissedMessage = false;
+#endif
+
+	for (int32 MeshBoneIndex = 0; MeshBoneIndex < NumMeshBones; MeshBoneIndex++)
+	{
+		const FName MeshBoneName = MeshRefSkel.GetBoneName(MeshBoneIndex);
+		int32 SkeletonBoneIndex = SkeletonRefSkel.FindBoneIndex(MeshBoneName);
+
+#if WITH_EDITOR
+		// If we're in editor, and skeleton is missing a bone, fix it.
+		// not currently supported in-game.
+		if (SkeletonBoneIndex == INDEX_NONE)
+		{
+			if(!bDismissedMessage)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("SkeletonBuildLinkupMissingBones", "The Skeleton {0}, is missing bones that SkeletalMesh {1} needs. They will be added now. Please save the Skeleton!"), FText::FromString(GetNameSafe(this)), FText::FromString(GetNameSafe(InSkelMesh))));
+				bDismissedMessage = true;
+			}
+
+			static FName NAME_LoadErrors("LoadErrors");
+			FMessageLog LoadErrors(NAME_LoadErrors);
+
+			TSharedRef<FTokenizedMessage> Message = LoadErrors.Error();
+			Message->AddToken(FTextToken::Create(LOCTEXT("SkeletonBuildLinkupMissingBones1", "The Skeleton ")));
+			Message->AddToken(FAssetNameToken::Create(GetPathName(), FText::FromString( GetNameSafe(this) ) ));
+			Message->AddToken(FTextToken::Create(LOCTEXT("SkeletonBuildLinkupMissingBones2", " is missing bones that SkeletalMesh ")));
+			Message->AddToken(FAssetNameToken::Create(InSkelMesh->GetPathName(), FText::FromString( GetNameSafe(InSkelMesh) )));
+			Message->AddToken(FTextToken::Create(LOCTEXT("SkeletonBuildLinkupMissingBones3", "  needs. They will be added now. Please save the Skeleton!")));
+			LoadErrors.Open();
+
+			// Re-add all SkelMesh bones to the Skeleton.
+			MergeAllBonesToBoneTree(InSkelMesh);
+
+			// Fix missing bone.
+			SkeletonBoneIndex = SkeletonRefSkel.FindBoneIndex(MeshBoneName);
+		}
+#endif
+
+		NewMeshLinkup.MeshToSkeletonTable[MeshBoneIndex] = SkeletonBoneIndex;
+	}
+
 	const int32 NumSkeletonBones = SkeletonRefSkel.GetNum();
 	NewMeshLinkup.SkeletonToMeshTable.Empty(NumSkeletonBones);
 	NewMeshLinkup.SkeletonToMeshTable.AddUninitialized(NumSkeletonBones);
@@ -359,19 +423,6 @@ int32 USkeleton::BuildLinkup(const USkeletalMesh* InSkelMesh)
 	{
 		const int32 MeshBoneIndex = MeshRefSkel.FindBoneIndex( SkeletonRefSkel.GetBoneName(SkeletonBoneIndex) );
 		NewMeshLinkup.SkeletonToMeshTable[SkeletonBoneIndex] = MeshBoneIndex;
-	}
-
-	// adding the other direction mapping table
-	// since now we're planning to use Skeleton.BoneTree to be main RequiredBones,
-	// we'll need a lot of conversion back/forth between ref pose and skeleton
-	const int32 NumMeshBones = MeshRefSkel.GetNum();
-	NewMeshLinkup.MeshToSkeletonTable.Empty(NumMeshBones);
-	NewMeshLinkup.MeshToSkeletonTable.AddUninitialized(NumMeshBones);
-
-	for (int32 MeshBoneIndex=0; MeshBoneIndex<NumMeshBones; MeshBoneIndex++)
-	{
-		const int32 SkeletonBoneIndex = SkeletonRefSkel.FindBoneIndex( MeshRefSkel.GetBoneName(MeshBoneIndex) );
-		NewMeshLinkup.MeshToSkeletonTable[MeshBoneIndex] = SkeletonBoneIndex;
 	}
 
 	int32 NewIndex = LinkupCache.Add(NewMeshLinkup);
@@ -416,28 +467,13 @@ bool USkeleton::RecreateBoneTree(USkeletalMesh* InSkelMesh)
 		BoneTree.Empty();
 		ReferenceSkeleton.Empty();
 
-		bool bResult = MergeAllBonesToBoneTree(InSkelMesh);
-
-		if (bResult)
-		{
-			// this has to go through all assets and fix up
-			for (FObjectIterator Iter(UAnimationAsset::StaticClass()); Iter; ++Iter)
-			{
-				UAnimationAsset* AnimAsset = Cast<UAnimationAsset>(*Iter);
-				if (AnimAsset->GetSkeleton() == this)
-				{
-					AnimAsset->ValidateSkeleton();
-				}
-			}
-		}
-		
-		return bResult;
+		return MergeAllBonesToBoneTree(InSkelMesh);
 	}
 
 	return false;
 }
 
-bool USkeleton::MergeAllBonesToBoneTree(USkeletalMesh * InSkelMesh)
+bool USkeleton::MergeAllBonesToBoneTree(const USkeletalMesh* InSkelMesh)
 {
 	if( InSkelMesh )
 	{
@@ -498,10 +534,11 @@ bool USkeleton::CreateReferenceSkeletonFromMesh(const USkeletalMesh* InSkeletalM
 }
 
 
-bool USkeleton::MergeBonesToBoneTree(USkeletalMesh * InSkeletalMesh, const TArray<int32> & RequiredRefBones)
+bool USkeleton::MergeBonesToBoneTree(const USkeletalMesh* InSkeletalMesh, const TArray<int32> & RequiredRefBones)
 {
 	// see if it needs all animation data to remap - only happens when bone structure CHANGED - added
 	bool bSuccess = false;
+	bool bShouldHandleHierarchyChange = false;
 	// clear cache data since it won't work anymore once this is done
 	ClearCacheData();
 
@@ -509,6 +546,7 @@ bool USkeleton::MergeBonesToBoneTree(USkeletalMesh * InSkeletalMesh, const TArra
 	if( BoneTree.Num() == 0 )
 	{
 		bSuccess = CreateReferenceSkeletonFromMesh(InSkeletalMesh, RequiredRefBones);
+		bShouldHandleHierarchyChange = true;
 	}
 	else
 	{
@@ -540,6 +578,7 @@ bool USkeleton::MergeBonesToBoneTree(USkeletalMesh * InSkeletalMesh, const TArra
 
 					ReferenceSkeleton.Add(NewMeshBoneInfo, InSkeletalMesh->RefSkeleton.GetRefBonePose()[MeshBoneIndex]);
 					BoneTree.AddZeroed(1);
+					bShouldHandleHierarchyChange = true;
 				}
 			}
 
@@ -548,19 +587,10 @@ bool USkeleton::MergeBonesToBoneTree(USkeletalMesh * InSkeletalMesh, const TArra
 	}
 
 	// if succeed
-	if (bSuccess)
+	if (bShouldHandleHierarchyChange)
 	{
-		if (InSkeletalMesh->Skeleton != this)
-		{
-			InSkeletalMesh->Skeleton = this;
-			InSkeletalMesh->MarkPackageDirty();
-		}
-
-		MarkPackageDirty();
-		// make sure to refresh all base poses
-		// so that they have same number of bones of ref pose
-#if WITH_EDITORONLY_DATA
-		RefreshAllRetargetSources();
+#if WITH_EDITOR
+		HandleSkeletonHierarchyChange();
 #endif
 	}
 
@@ -810,64 +840,6 @@ int32 USkeleton::ValidatePreviewAttachedObjects()
 	return NumBrokenAssets;
 }
 
-int32 USkeleton::RemoveBoneFromLOD(int32 LODIndex, int32 BoneIndex)
-{
-	// we don't remove from LOD 0
-	if (!LODIndex)
-	{
-		return 0;
-	}
-	
-	int32 NumOfLODSetting = BoneReductionSettingsForLODs.Num();
-	if (NumOfLODSetting < LODIndex)
-	{
-		BoneReductionSettingsForLODs.AddZeroed(LODIndex-NumOfLODSetting);
-	}
-
-	int32 TotalNumberAdded=0;
-	FName BoneName = ReferenceSkeleton.GetBoneName(BoneIndex);
-	if ( BoneReductionSettingsForLODs[LODIndex-1].Add(BoneName) )
-	{
-		++TotalNumberAdded;
-	}
-
-	// make sure to add all children
-	const int32 NumBones = ReferenceSkeleton.GetNum();
-	for(int32 ChildIndex=BoneIndex+1; ChildIndex<NumBones; ChildIndex++)
-	{
-		if( ReferenceSkeleton.BoneIsChildOf(ChildIndex, BoneIndex) )
-		{
-			BoneName = ReferenceSkeleton.GetBoneName(ChildIndex);
-			if ( BoneReductionSettingsForLODs[LODIndex-1].Add(BoneName) )
-			{
-				++TotalNumberAdded;
-			}
-		}
-	}
-
-	return TotalNumberAdded;
-}
-
-bool USkeleton::IsBoneIncludedInLOD(int32 LODIndex, int32 BoneIndex)
-{
-	if (LODIndex && BoneReductionSettingsForLODs.Num() >= LODIndex)
-	{
-		const FName BoneName = ReferenceSkeleton.GetBoneName(BoneIndex);
-		return BoneReductionSettingsForLODs[LODIndex-1].Contains(BoneName) == false;
-	}
-
-	return true;
-}
-
-void USkeleton::AddBoneToLOD(int32 LODIndex, int32 BoneIndex)
-{
-	if (LODIndex && BoneReductionSettingsForLODs.Num() >= LODIndex)
-	{
-		const FName BoneName = ReferenceSkeleton.GetBoneName(BoneIndex);
-		BoneReductionSettingsForLODs[LODIndex-1].Remove(BoneName);
-	}
-}
-
 #if WITH_EDITOR
 
 void USkeleton::RemoveBonesFromSkeleton( const TArray<FName>& BonesToRemove, bool bRemoveChildBones )
@@ -890,14 +862,22 @@ void USkeleton::HandleSkeletonHierarchyChange()
 
 	RegenerateGuid();
 
+	// Clear exiting MeshLinkUp tables.
+	ClearCacheData();
+
 	// Fix up loaded animations (any animations that aren't loaded will be fixed on load)
 	for(TObjectIterator<UAnimationAsset> It; It; ++It)
 	{
 		UAnimationAsset* CurrentAnimation = *It;
-		CurrentAnimation->ValidateSkeleton();
+		if (CurrentAnimation->GetSkeleton() == this)
+		{
+			CurrentAnimation->ValidateSkeleton();
+		}
 	}
 
+#if WITH_EDITORONLY_DATA
 	RefreshAllRetargetSources();
+#endif
 
 	OnSkeletonHierarchyChanged.Broadcast();
 }
@@ -1263,6 +1243,29 @@ void USkeleton::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	FString RigFullName = (RigConfig.Rig)? RigConfig.Rig->GetFullName() : TEXT("");
 
 	OutTags.Add(FAssetRegistryTag(USkeleton::RigTag, RigFullName, FAssetRegistryTag::TT_Hidden));
+}
+
+UBlendProfile* USkeleton::CreateNewBlendProfile(const FName& InProfileName)
+{
+	Modify();
+	UBlendProfile* NewProfile = NewObject<UBlendProfile>(this, InProfileName, RF_Public);
+	BlendProfiles.Add(NewProfile);
+
+	return NewProfile;
+}
+
+UBlendProfile* USkeleton::GetBlendProfile(const FName& InProfileName)
+{
+	UBlendProfile** FoundProfile = BlendProfiles.FindByPredicate([InProfileName](const UBlendProfile* Profile)
+	{
+		return Profile->GetName() == InProfileName.ToString();
+	});
+
+	if(FoundProfile)
+	{
+		return *FoundProfile;
+	}
+	return nullptr;
 }
 
 #endif //WITH_EDITOR

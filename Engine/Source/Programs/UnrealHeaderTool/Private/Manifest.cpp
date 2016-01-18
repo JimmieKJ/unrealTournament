@@ -176,3 +176,72 @@ FManifest FManifest::LoadFromFile(const FString& Filename)
 
 	return Result;
 }
+
+bool FManifestModule::NeedsRegeneration() const
+{
+	if (ShouldForceRegeneration())
+	{
+		return true;
+	}
+	FString Timestamp;
+	TCHAR TimestampText[] = TEXT("Timestamp");
+	Timestamp.Empty(GeneratedIncludeDirectory.Len() + ARRAY_COUNT(TimestampText));
+	Timestamp += GeneratedIncludeDirectory;
+	Timestamp += TEXT("Timestamp");
+
+	if (!FPaths::FileExists(Timestamp))
+	{
+		// No timestamp, must regenerate.
+		return true;
+	}
+
+	FDateTime TimestampFileLastModify = IFileManager::Get().GetTimeStamp(*Timestamp);
+
+	for (const FString& Header : PublicUObjectClassesHeaders)
+	{
+		if (IFileManager::Get().GetTimeStamp(*Header) > TimestampFileLastModify)
+		{
+			UE_LOG(LogCompile, Log, TEXT("File %s is newer than last timestamp. Regenerating reflection data for module %s."), *Header, *Name);
+			return true;
+		}
+	}
+
+	for (const FString& Header : PublicUObjectHeaders)
+	{
+		if (IFileManager::Get().GetTimeStamp(*Header) > TimestampFileLastModify)
+		{
+			UE_LOG(LogCompile, Log, TEXT("File %s is newer than last timestamp. Regenerating reflection data for module %s."), *Header, *Name);
+			return true;
+		}
+	}
+
+	for (const FString& Header : PrivateUObjectHeaders)
+	{
+		if (IFileManager::Get().GetTimeStamp(*Header) > TimestampFileLastModify)
+		{
+			UE_LOG(LogCompile, Log, TEXT("File %s is newer than last timestamp. Regenerating reflection data for module %s."), *Header, *Name);
+			return true;
+		}
+	}
+
+	// No header is newer than timestamp, no need to regenerate.
+	return false;
+}
+
+bool FManifestModule::IsCompatibleWith(const FManifestModule& ManifestModule)
+{
+	return Name == ManifestModule.Name
+		&& ModuleType == ManifestModule.ModuleType
+		&& LongPackageName == ManifestModule.LongPackageName
+		&& BaseDirectory == ManifestModule.BaseDirectory
+		&& IncludeBase == ManifestModule.IncludeBase
+		&& GeneratedIncludeDirectory == ManifestModule.GeneratedIncludeDirectory
+		&& BaseDirectory == ManifestModule.BaseDirectory
+		&& PublicUObjectClassesHeaders == ManifestModule.PublicUObjectClassesHeaders
+		&& PublicUObjectHeaders == ManifestModule.PublicUObjectHeaders
+		&& PrivateUObjectHeaders == ManifestModule.PrivateUObjectHeaders
+		&& PCH == ManifestModule.PCH
+		&& GeneratedCPPFilenameBase == ManifestModule.GeneratedCPPFilenameBase
+		&& SaveExportedHeaders == SaveExportedHeaders
+		&& GeneratedCodeVersion == GeneratedCodeVersion;
+}

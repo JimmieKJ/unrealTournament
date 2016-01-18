@@ -17,17 +17,21 @@ class UUnitTestPackageMap : public UPackageMapClient
 						TSharedPtr<FNetGUIDCache> InNetGUIDCache)
 		: UPackageMapClient(ObjectInitializer, InConnection, InNetGUIDCache)
 		, bWithinSerializeNewActor(false)
+		, bPendingArchetypeSpawn(false)
 	{
 	}
 #endif
 
 
-	virtual bool SerializeObject(FArchive& Ar, UClass* Class, UObject*& Obj, FNetworkGUID* OutNetGUID=NULL) override;
+	virtual bool SerializeObject(FArchive& Ar, UClass* InClass, UObject*& Obj, FNetworkGUID* OutNetGUID=NULL) override;
 
 	virtual bool SerializeNewActor(FArchive& Ar, class UActorChannel* Channel, class AActor*& Actor) override;
 
 public:
 	/** Whether or not we are currently within execution of SerializeNewActor */
 	bool bWithinSerializeNewActor;
+
+	/** Whether or not SerializeNewActor is about to spawn an actor, from an archetype */
+	bool bPendingArchetypeSpawn;
 };
 

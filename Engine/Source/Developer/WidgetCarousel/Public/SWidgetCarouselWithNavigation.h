@@ -17,8 +17,14 @@ public:
 	typedef typename TSlateDelegates< ItemType >::FOnGenerateWidget FOnGenerateWidget;
 
 	SLATE_BEGIN_ARGS(SWidgetCarouselWithNavigation<ItemType>)
-		: _WidgetItemsSource(static_cast<const TArray<ItemType>*>(NULL))
+		: _NavigationBarStyle()
+		, _NavigationButtonStyle()
+		, _WidgetItemsSource(static_cast<const TArray<ItemType>*>(NULL))
 	{ }
+
+		SLATE_STYLE_ARGUMENT(FWidgetCarouselNavigationBarStyle, NavigationBarStyle)
+
+		SLATE_STYLE_ARGUMENT(FWidgetCarouselNavigationButtonStyle, NavigationButtonStyle)
 
 		/** Called when we change a widget */
 		SLATE_EVENT(FOnGenerateWidget, OnGenerateWidget)
@@ -76,6 +82,7 @@ public:
 						.HAlign(HAlign_Left)
 						[
 							SNew(SCarouselNavigationButton)
+							.Style(InArgs._NavigationButtonStyle)
 							.OnClicked(this, &SWidgetCarouselWithNavigation::HandleNextButtonClicked)
 							.Visibility(this, &SWidgetCarouselWithNavigation::GetScreenshotNavigationVisibility)
 							.OnBeginPeek(this, &SWidgetCarouselWithNavigation::HandlePeak, EWidgetCarouselScrollDirection::Carousel_Right)
@@ -86,6 +93,7 @@ public:
 						.HAlign(HAlign_Right)
 						[
 							SNew(SCarouselNavigationButton)
+							.Style(InArgs._NavigationButtonStyle)
 							.OnClicked(this, &SWidgetCarouselWithNavigation::HandlePreviousButtonClicked)
 							.Visibility(this, &SWidgetCarouselWithNavigation::GetScreenshotNavigationVisibility)
 							.OnBeginPeek(this, &SWidgetCarouselWithNavigation::HandlePeak, EWidgetCarouselScrollDirection::Carousel_Left)
@@ -101,6 +109,7 @@ public:
 			.Padding(10.0f, 10.f)
 			[
 				SNew(SCarouselNavigationBar)
+				.Style(InArgs._NavigationBarStyle)
 				.Visibility(this, &SWidgetCarouselWithNavigation::GetScreenshotNavigationVisibility)
 				.ItemCount(WidgetItemsSource->Num())
 				.CurrentItemIndex(this, &SWidgetCarouselWithNavigation::GetCurrentItemIndex)

@@ -150,7 +150,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if (foundObj != NULL)
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || (!foundObj->IsTemplate() && (foundObj->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
+			if (!GIsEditor || (!foundObj->IsTemplate() && foundObj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor)))
 			{
 				EditObject(foundObj, true);
 			}
@@ -175,7 +175,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if (foundObj != NULL)
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || (!foundObj->IsTemplate() && (foundObj->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
+			if (!GIsEditor || (!foundObj->IsTemplate() && foundObj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor)))
 			{
 				EditObject(foundObj, false);
 			}
@@ -194,7 +194,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 
 		if (FParse::Command(&Cmd, TEXT("TRACE")))
 		{
-			APlayerController* PlayerController = InWorld->GetFirstPlayerController();
+			APlayerController* PlayerController = InWorld->GetGameInstance() ? InWorld->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
 			if (PlayerController != NULL)
 			{
 				// Do a trace in the player's facing direction and edit anything that's hit.
@@ -213,7 +213,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 			
 			// Look for the closest actor of this class to the player.
 			FVector PlayerLocation(0.0f);
-			APlayerController* PlayerController = InWorld->GetFirstPlayerController();
+			APlayerController* PlayerController = InWorld->GetGameInstance() ? InWorld->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
 			if (PlayerController != NULL)
 			{
 				FRotator DummyRotation;
@@ -256,7 +256,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if( Found )
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || (!Found->IsTemplate() && (Found->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
+			if (!GIsEditor || (!Found->IsTemplate() && Found->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor)))
 			{
 				EditObject(Found, true);
 			}

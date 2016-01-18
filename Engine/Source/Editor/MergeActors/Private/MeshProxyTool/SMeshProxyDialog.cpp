@@ -35,6 +35,11 @@ void SMeshProxyDialog::Construct(const FArguments& InArgs, FMeshProxyTool* InToo
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SMeshProxyDialog::CreateLayout()
 {
+	int32 TextureResEntryIndex = FindTextureResolutionEntryIndex(Tool->ProxySettings.MaterialSettings.TextureSize.X);
+	int32 LightMapResEntryIndex = FindTextureResolutionEntryIndex(Tool->ProxySettings.LightMapResolution);
+	TextureResEntryIndex = FMath::Max(TextureResEntryIndex, 0);
+	LightMapResEntryIndex = FMath::Max(LightMapResEntryIndex, 0);
+		
 	this->ChildSlot
 	[
 		SNew(SVerticalBox)
@@ -71,6 +76,7 @@ void SMeshProxyDialog::CreateLayout()
 						SNew(STextBlock)
 						.Text(LOCTEXT("OnScreenSizeLabel", "On Screen Size (pixels)"))
 						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, ScreenSize)))
 					]
 					+ SHorizontalBox::Slot()
 					.FillWidth(0.5f)
@@ -107,6 +113,7 @@ void SMeshProxyDialog::CreateLayout()
 						SNew(STextBlock)
 						.Text(LOCTEXT("MergeDistanceLabel", "Merge Distance (pixels)"))
 						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, MergeDistance)))
 					]
 					+ SHorizontalBox::Slot()
 					.FillWidth(0.5f)
@@ -152,7 +159,7 @@ void SMeshProxyDialog::CreateLayout()
 						SNew(STextComboBox)
 						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
 						.OptionsSource(&TextureResolutionOptions)
-						.InitiallySelectedItem(TextureResolutionOptions[3]) //512
+						.InitiallySelectedItem(TextureResolutionOptions[TextureResEntryIndex])
 						.OnSelectionChanged(this, &SMeshProxyDialog::SetTextureResolution)
 					]
 				]
@@ -161,15 +168,26 @@ void SMeshProxyDialog::CreateLayout()
 				.AutoHeight()
 				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
 				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshProxyDialog::GetRecalculateNormals)
-					.OnCheckStateChanged(this, &SMeshProxyDialog::SetRecalculateNormals)
-					.Content()
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.FillWidth(0.5f)
+					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("RecalcNormalsLabel", "Recalculate Normals"))
+						.Text(LOCTEXT("LightMapResolutionLabel", "LightMap Resolution"))
 						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, LightMapResolution)))
+					]
+					+ SHorizontalBox::Slot()
+					.FillWidth(0.5f)
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextComboBox)
+						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						.OptionsSource(&TextureResolutionOptions)
+						.InitiallySelectedItem(TextureResolutionOptions[LightMapResEntryIndex])
+						.OnSelectionChanged(this, &SMeshProxyDialog::SetLightMapResolution)
 					]
 				]
 
@@ -183,25 +201,10 @@ void SMeshProxyDialog::CreateLayout()
 					.VAlign(VAlign_Center)
 					.Padding(0.0, 0.0, 3.0, 0.0)
 					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SBox)
-							.MinDesiredWidth(30)
-							[
-								SNullWidget::NullWidget
-							]
-						]
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						.HAlign(HAlign_Left)
-						[
-							SNew(STextBlock)
-							.IsEnabled(this, &SMeshProxyDialog::HardAngleThresholdEnabled)
-							.Text(LOCTEXT("HardAngleLabel", "Hard Angle"))
-							.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-						]
+						SNew(STextBlock)
+						.Text(LOCTEXT("HardAngleLabel", "Hard Edge Angle"))
+						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, HardAngleThreshold)))
 					]
 					+SHorizontalBox::Slot()
 					.FillWidth(0.5f)
@@ -233,6 +236,23 @@ void SMeshProxyDialog::CreateLayout()
 				[
 					SNew(SCheckBox)
 					.Type(ESlateCheckBoxType::CheckBox)
+					.IsChecked(this, &SMeshProxyDialog::GetRecalculateNormals)
+					.OnCheckStateChanged(this, &SMeshProxyDialog::SetRecalculateNormals)
+					.Content()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("RecalcNormalsLabel", "Recalculate Normals"))
+						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, bRecalculateNormals)))
+					]
+				]
+
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+				[
+					SNew(SCheckBox)
+					.Type(ESlateCheckBoxType::CheckBox)
 					.IsChecked(this, &SMeshProxyDialog::GetUseClippingPlane)
 					.OnCheckStateChanged(this, &SMeshProxyDialog::SetUseClippingPlane)
 					.Content()
@@ -240,6 +260,7 @@ void SMeshProxyDialog::CreateLayout()
 						SNew(STextBlock)
 						.Text(LOCTEXT("ClippingPlaneLabel", "Use Clipping Plane"))
 						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, bUseClippingPlane)))
 					]
 				]
 
@@ -270,6 +291,7 @@ void SMeshProxyDialog::CreateLayout()
 							.IsEnabled(this, &SMeshProxyDialog::UseClippingPlaneEnabled)
 							.Text(LOCTEXT("ClippingAxisLabel", "Clipping Axis"))
 							.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+							.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, AxisIndex)))
 						]
 					]
 					+SHorizontalBox::Slot()
@@ -315,6 +337,7 @@ void SMeshProxyDialog::CreateLayout()
 							.Text(LOCTEXT("PlaneLevelLabel", "Plane level"))
 							.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
 							.IsEnabled(this, &SMeshProxyDialog::UseClippingPlaneEnabled)
+							.ToolTipText(GetPropertyToolTipText(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, ClippingLevel)))
 						]
 					]
 					+SHorizontalBox::Slot()
@@ -403,6 +426,29 @@ void SMeshProxyDialog::CreateLayout()
 	];
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+int32 SMeshProxyDialog::FindTextureResolutionEntryIndex(int32 InResolution) const
+{
+	FString ResolutionStr = TTypeToString<int32>::ToString(InResolution);
+	
+	int32 Result = TextureResolutionOptions.IndexOfByPredicate([&](const TSharedPtr<FString>& Entry)
+	{
+		return (ResolutionStr == *Entry);
+	});
+
+	return Result;
+}
+
+FText SMeshProxyDialog::GetPropertyToolTipText(const FName& PropertyName) const
+{
+	UProperty* Property = FMeshProxySettings::StaticStruct()->FindPropertyByName(PropertyName);
+	if (Property)
+	{
+		return Property->GetToolTipText();
+	}
+	
+	return FText::GetEmpty();
+}
 
 //Screen size
 TOptional<int32> SMeshProxyDialog::GetScreenSize() const
@@ -512,49 +558,57 @@ void SMeshProxyDialog::SetTextureResolution(TSharedPtr<FString> NewSelection, ES
 {
 	int32 Resolution = 512;
 	TTypeFromString<int32>::FromString(Resolution, **NewSelection);
+	FIntPoint TextureSize(Resolution, Resolution);
 	
-	Tool->ProxySettings.TextureWidth	= Resolution;
-	Tool->ProxySettings.TextureHeight = Resolution;
+	Tool->ProxySettings.MaterialSettings.TextureSize = TextureSize;
+}
+
+void SMeshProxyDialog::SetLightMapResolution(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	int32 Resolution = 256;
+	TTypeFromString<int32>::FromString(Resolution, **NewSelection);
+		
+	Tool->ProxySettings.LightMapResolution = Resolution;
 }
 
 ECheckBoxState SMeshProxyDialog::GetExportNormalMap() const
 {
-	return Tool->ProxySettings.bExportNormalMap ? ECheckBoxState::Checked :  ECheckBoxState::Unchecked;
+	return Tool->ProxySettings.MaterialSettings.bNormalMap ? ECheckBoxState::Checked :  ECheckBoxState::Unchecked;
 }
 
 void SMeshProxyDialog::SetExportNormalMap(ECheckBoxState NewValue)
 {
-	Tool->ProxySettings.bExportNormalMap = (NewValue == ECheckBoxState::Checked);
+	Tool->ProxySettings.MaterialSettings.bNormalMap = (NewValue == ECheckBoxState::Checked);
 }
 
 ECheckBoxState SMeshProxyDialog::GetExportMetallicMap() const
 {
-	return Tool->ProxySettings.bExportMetallicMap ? ECheckBoxState::Checked :  ECheckBoxState::Unchecked;
+	return Tool->ProxySettings.MaterialSettings.bMetallicMap ? ECheckBoxState::Checked :  ECheckBoxState::Unchecked;
 }
 
 void SMeshProxyDialog::SetExportMetallicMap(ECheckBoxState NewValue)
 {
-	Tool->ProxySettings.bExportMetallicMap = (NewValue == ECheckBoxState::Checked);
+	Tool->ProxySettings.MaterialSettings.bMetallicMap = (NewValue == ECheckBoxState::Checked);
 }
 
 ECheckBoxState SMeshProxyDialog::GetExportRoughnessMap() const
 {
-	return Tool->ProxySettings.bExportRoughnessMap ? ECheckBoxState::Checked :  ECheckBoxState::Unchecked;
+	return Tool->ProxySettings.MaterialSettings.bRoughnessMap ? ECheckBoxState::Checked :  ECheckBoxState::Unchecked;
 }
 
 void SMeshProxyDialog::SetExportRoughnessMap(ECheckBoxState NewValue)
 {
-	Tool->ProxySettings.bExportRoughnessMap = (NewValue == ECheckBoxState::Checked);
+	Tool->ProxySettings.MaterialSettings.bRoughnessMap = (NewValue == ECheckBoxState::Checked);
 }
 
 ECheckBoxState SMeshProxyDialog::GetExportSpecularMap() const
 {
-	return Tool->ProxySettings.bExportSpecularMap ? ECheckBoxState::Checked :  ECheckBoxState::Unchecked;
+	return Tool->ProxySettings.MaterialSettings.bSpecularMap ? ECheckBoxState::Checked :  ECheckBoxState::Unchecked;
 }
 
 void SMeshProxyDialog::SetExportSpecularMap(ECheckBoxState NewValue)
 {
-	Tool->ProxySettings.bExportSpecularMap = (NewValue == ECheckBoxState::Checked);
+	Tool->ProxySettings.MaterialSettings.bSpecularMap = (NewValue == ECheckBoxState::Checked);
 }
 
 

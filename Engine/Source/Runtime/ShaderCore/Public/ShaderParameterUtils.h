@@ -16,9 +16,9 @@
  * NOTE: Shader should be the param ref type, NOT the param type, since Shader is passed by value. 
  * Otherwise AddRef/ReleaseRef will be called many times.
  */
-template<typename ShaderRHIParamRef, class ParameterType>
+template<typename ShaderRHIParamRef, class ParameterType, typename TRHICmdList>
 void SetShaderValue(
-	FRHICommandList& RHICmdList, 
+	TRHICmdList& RHICmdList,
 	ShaderRHIParamRef Shader,
 	const FShaderParameter& Parameter,
 	const ParameterType& Value,
@@ -44,6 +44,37 @@ void SetShaderValue(
 			);
 	}
 }
+
+template<typename ShaderRHIParamRef, class ParameterType>
+void SetShaderValueOnContext(
+	IRHICommandContext& RHICmdListContext,
+	ShaderRHIParamRef Shader,
+	const FShaderParameter& Parameter,
+	const ParameterType& Value,
+	uint32 ElementIndex = 0
+	)
+{
+	static_assert(!TIsPointerType<ParameterType>::Value, "Passing by value is not valid.");
+
+	const uint32 AlignedTypeSize = Align(sizeof(ParameterType), ShaderArrayElementAlignBytes);
+	const int32 NumBytesToSet = FMath::Min<int32>(sizeof(ParameterType), Parameter.GetNumBytes() - ElementIndex * AlignedTypeSize);
+
+	// This will trigger if the parameter was not serialized
+	checkSlow(Parameter.IsInitialized());
+
+	if (NumBytesToSet > 0)
+	{
+		RHICmdListContext.RHISetShaderParameter(
+			Shader,
+			Parameter.GetBufferIndex(),
+			Parameter.GetBaseIndex() + ElementIndex * AlignedTypeSize,
+			(uint32)NumBytesToSet,
+			&Value
+			);
+	}
+}
+
+
 
 /** Specialization of the above for C++ bool type. */
 template<typename ShaderRHIParamRef>
@@ -137,9 +168,9 @@ inline void SetPixelShaderBool(
 /**
  * Sets the value of a shader texture parameter.  Template'd on shader type
  */
-template<typename ShaderTypeRHIParamRef>
+template<typename ShaderTypeRHIParamRef, typename TRHICmdList>
 FORCEINLINE void SetTextureParameter(
-	FRHICommandList& RHICmdList, 
+	TRHICmdList& RHICmdList,
 	ShaderTypeRHIParamRef Shader,
 	const FShaderResourceParameter& TextureParameter,
 	const FShaderResourceParameter& SamplerParameter,
@@ -178,9 +209,9 @@ FORCEINLINE void SetTextureParameter(
 /**
  * Sets the value of a shader texture parameter. Template'd on shader type.
  */
-template<typename ShaderTypeRHIParamRef>
+template<typename ShaderTypeRHIParamRef, typename TRHICmdList>
 FORCEINLINE void SetTextureParameter(
-	FRHICommandList& RHICmdList, 
+	TRHICmdList& RHICmdList,
 	ShaderTypeRHIParamRef Shader,
 	const FShaderResourceParameter& TextureParameter,
 	const FShaderResourceParameter& SamplerParameter,
@@ -218,9 +249,9 @@ FORCEINLINE void SetTextureParameter(
  * Sets the value of a shader surface parameter (e.g. to access MSAA samples).
  * Template'd on shader type (e.g. pixel shader or compute shader).
  */
-template<typename ShaderTypeRHIParamRef>
+template<typename ShaderTypeRHIParamRef, typename TRHICmdList>
 FORCEINLINE void SetTextureParameter(
-	FRHICommandList& RHICmdList, 
+	TRHICmdList& RHICmdList,
 	ShaderTypeRHIParamRef Shader,
 	const FShaderResourceParameter& Parameter,
 	FTextureRHIParamRef NewTextureRHI
@@ -239,9 +270,9 @@ FORCEINLINE void SetTextureParameter(
 /**
  * Sets the value of a shader sampler parameter. Template'd on shader type.
  */
-template<typename ShaderTypeRHIParamRef>
+template<typename ShaderTypeRHIParamRef, typename TRHICmdList>
 FORCEINLINE void SetSamplerParameter(
-	FRHICommandList& RHICmdList, 
+	TRHICmdList& RHICmdList,
 	ShaderTypeRHIParamRef Shader,
 	const FShaderResourceParameter& Parameter,
 	FSamplerStateRHIParamRef SamplerStateRHI
@@ -261,9 +292,9 @@ FORCEINLINE void SetSamplerParameter(
  * Sets the value of a shader resource view parameter
  * Template'd on shader type (e.g. pixel shader or compute shader).
  */
-template<typename ShaderTypeRHIParamRef>
+template<typename ShaderTypeRHIParamRef, typename TRHICmdList>
 FORCEINLINE void SetSRVParameter(
-	FRHICommandList& RHICmdList,
+	TRHICmdList& RHICmdList,
 	ShaderTypeRHIParamRef Shader,
 	const FShaderResourceParameter& Parameter,
 	FShaderResourceViewRHIParamRef NewShaderResourceViewRHI
@@ -282,8 +313,9 @@ FORCEINLINE void SetSRVParameter(
 /**
  * Sets the value of a unordered access view parameter
  */
+template<typename TRHICmdList>
 FORCEINLINE void SetUAVParameter(
-	FRHICommandList& RHICmdList, 
+TRHICmdList& RHICmdList,
 	FComputeShaderRHIParamRef ComputeShader,
 	const FShaderResourceParameter& Parameter,
 	FUnorderedAccessViewRHIParamRef NewUnorderedAccessViewRHI
@@ -299,36 +331,47 @@ FORCEINLINE void SetUAVParameter(
 	}
 }
 
-template<typename TShaderRHIRef>
-inline void SetUAVParameterIfCS(FRHICommandList& RHICmdList, TShaderRHIRef,const FShaderResourceParameter& UAVParameter,FUnorderedAccessViewRHIParamRef UAV)
+template<typename TShaderRHIRef, typename TRHICmdList>
+inline void SetUAVParameterIfCS(TRHICmdList& RHICmdList, TShaderRHIRef, const FShaderResourceParameter& UAVParameter, FUnorderedAccessViewRHIParamRef UAV)
 {
 }
 
-template<> inline void SetUAVParameterIfCS<FComputeShaderRHIParamRef>(FRHICommandList& RHICmdList, FComputeShaderRHIParamRef ComputeShader,const FShaderResourceParameter& UAVParameter,FUnorderedAccessViewRHIParamRef UAV)
-{
-	SetUAVParameter(RHICmdList, ComputeShader,UAVParameter,UAV);
-}
-
-template<> inline void SetUAVParameterIfCS<FComputeShaderRHIRef>(FRHICommandList& RHICmdList, FComputeShaderRHIRef ComputeShader,const FShaderResourceParameter& UAVParameter,FUnorderedAccessViewRHIParamRef UAV)
+template<> inline void SetUAVParameterIfCS<FComputeShaderRHIParamRef, FRHICommandList>(FRHICommandList& RHICmdList, FComputeShaderRHIParamRef ComputeShader,const FShaderResourceParameter& UAVParameter,FUnorderedAccessViewRHIParamRef UAV)
 {
 	SetUAVParameter(RHICmdList, ComputeShader,UAVParameter,UAV);
 }
 
-template<typename TShaderRHIRef>
-inline void FRWShaderParameter::SetBuffer(FRHICommandList& RHICmdList, TShaderRHIRef Shader,const FRWBuffer& RWBuffer) const
+template<> inline void SetUAVParameterIfCS<FComputeShaderRHIRef, FRHICommandList>(FRHICommandList& RHICmdList, FComputeShaderRHIRef ComputeShader, const FShaderResourceParameter& UAVParameter, FUnorderedAccessViewRHIParamRef UAV)
+{
+	SetUAVParameter(RHICmdList, ComputeShader,UAVParameter,UAV);
+}
+
+template<> inline void SetUAVParameterIfCS<FComputeShaderRHIParamRef, FRHIAsyncComputeCommandListImmediate>(FRHIAsyncComputeCommandListImmediate& RHICmdList, FComputeShaderRHIParamRef ComputeShader, const FShaderResourceParameter& UAVParameter, FUnorderedAccessViewRHIParamRef UAV)
+{
+	SetUAVParameter(RHICmdList, ComputeShader, UAVParameter, UAV);
+}
+
+template<> inline void SetUAVParameterIfCS<FComputeShaderRHIRef, FRHIAsyncComputeCommandListImmediate>(FRHIAsyncComputeCommandListImmediate& RHICmdList, FComputeShaderRHIRef ComputeShader, const FShaderResourceParameter& UAVParameter, FUnorderedAccessViewRHIParamRef UAV)
+{
+	SetUAVParameter(RHICmdList, ComputeShader, UAVParameter, UAV);
+}
+
+template<typename TShaderRHIRef, typename TRHICmdList>
+inline void FRWShaderParameter::SetBuffer(TRHICmdList& RHICmdList, TShaderRHIRef Shader, const FRWBuffer& RWBuffer) const
 {
 	SetSRVParameter(RHICmdList, Shader,SRVParameter,RWBuffer.SRV);
 	SetUAVParameterIfCS(RHICmdList, Shader,UAVParameter,RWBuffer.UAV);
 }
 
-template<typename TShaderRHIRef>
-inline void FRWShaderParameter::SetTexture(FRHICommandList& RHICmdList, TShaderRHIRef Shader,const FTextureRHIParamRef Texture,FUnorderedAccessViewRHIParamRef UAV) const
+template<typename TShaderRHIRef, typename TRHICmdList>
+inline void FRWShaderParameter::SetTexture(TRHICmdList& RHICmdList, TShaderRHIRef Shader, const FTextureRHIParamRef Texture, FUnorderedAccessViewRHIParamRef UAV) const
 {
 	SetTextureParameter(RHICmdList, Shader,SRVParameter,Texture);
 	SetUAVParameterIfCS(RHICmdList, Shader,UAVParameter,UAV);
 }
 
-inline void FRWShaderParameter::UnsetUAV(FRHICommandList& RHICmdList, FComputeShaderRHIParamRef ComputeShader) const
+template<typename TRHICmdList>
+inline void FRWShaderParameter::UnsetUAV(TRHICmdList& RHICmdList, FComputeShaderRHIParamRef ComputeShader) const
 {
 	SetUAVParameter(RHICmdList, ComputeShader,UAVParameter,FUnorderedAccessViewRHIRef());
 }
@@ -352,9 +395,9 @@ inline void SetLocalUniformBufferParameter(
 }
 
 /** Sets the value of a shader uniform buffer parameter to a uniform buffer containing the struct. */
-template<typename TShaderRHIRef>
+template<typename TShaderRHIRef, typename TRHICmdList>
 inline void SetUniformBufferParameter(
-	FRHICommandList& RHICmdList,
+	TRHICmdList& RHICmdList,
 	TShaderRHIRef Shader,
 	const FShaderUniformBufferParameter& Parameter,
 	FUniformBufferRHIParamRef UniformBufferRHI
@@ -369,9 +412,9 @@ inline void SetUniformBufferParameter(
 }
 
 /** Sets the value of a shader uniform buffer parameter to a uniform buffer containing the struct. */
-template<typename TShaderRHIRef,typename TBufferStruct>
+template<typename TShaderRHIRef, typename TBufferStruct, typename TRHICmdList>
 inline void SetUniformBufferParameter(
-	FRHICommandList& RHICmdList,
+	TRHICmdList& RHICmdList,
 	TShaderRHIRef Shader,
 	const TShaderUniformBufferParameter<TBufferStruct>& Parameter,
 	const TUniformBufferRef<TBufferStruct>& UniformBufferRef
@@ -386,9 +429,9 @@ inline void SetUniformBufferParameter(
 }
 
 /** Sets the value of a shader uniform buffer parameter to a uniform buffer containing the struct. */
-template<typename TShaderRHIRef,typename TBufferStruct>
+template<typename TShaderRHIRef, typename TBufferStruct, typename TRHICmdList>
 inline void SetUniformBufferParameter(
-	FRHICommandList& RHICmdList,
+	TRHICmdList& RHICmdList,
 	TShaderRHIRef Shader,
 	const TShaderUniformBufferParameter<TBufferStruct>& Parameter,
 	const TUniformBuffer<TBufferStruct>& UniformBuffer
@@ -406,6 +449,27 @@ inline void SetUniformBufferParameter(
 template<typename TShaderRHIRef,typename TBufferStruct>
 inline void SetUniformBufferParameterImmediate(
 	FRHICommandList& RHICmdList,
+	TShaderRHIRef Shader,
+	const TShaderUniformBufferParameter<TBufferStruct>& Parameter,
+	const TBufferStruct& UniformBufferValue
+	)
+{
+	// This will trigger if the parameter was not serialized
+	checkSlow(Parameter.IsInitialized());
+	if(Parameter.IsBound())
+	{
+		RHICmdList.SetShaderUniformBuffer(
+			Shader,
+			Parameter.GetBaseIndex(),
+			RHICreateUniformBuffer(&UniformBufferValue,TBufferStruct::StaticStruct.GetLayout(),UniformBuffer_SingleDraw)
+			);
+	}
+}
+
+/** Sets the value of a shader uniform buffer parameter to a value of the struct. */
+template<typename TShaderRHIRef,typename TBufferStruct, typename TRHICmdList>
+inline void SetUniformBufferParameterImmediate(
+	TRHICmdList& RHICmdList,
 	TShaderRHIRef Shader,
 	const TShaderUniformBufferParameter<TBufferStruct>& Parameter,
 	const TBufferStruct& UniformBufferValue

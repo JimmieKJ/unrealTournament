@@ -24,7 +24,8 @@ SSessionConsole::~SSessionConsole()
 /* SSessionConsolePanel interface
  *****************************************************************************/
 
-void SSessionConsole::Construct( const FArguments& InArgs, ISessionManagerRef InSessionManager )
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+void SSessionConsole::Construct(const FArguments& InArgs, ISessionManagerRef InSessionManager)
 {
 	SessionManager = InSessionManager;
 	ShouldScrollToLast = true;
@@ -51,7 +52,7 @@ void SSessionConsole::Construct( const FArguments& InArgs, ISessionManagerRef In
 
 				+ SVerticalBox::Slot()
 					.AutoHeight()
-					.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
 					[
 						// filter bar
 						SNew(SExpandableArea)
@@ -111,11 +112,11 @@ void SSessionConsole::Construct( const FArguments& InArgs, ISessionManagerRef In
 
 						//Shortcut buttons
 						+ SHorizontalBox::Slot()
-						.FillWidth(0.2f)
-						[
-							SAssignNew(ShortcutWindow, SSessionConsoleShortcutWindow)
-								.OnCommandSubmitted(this, &SSessionConsole::HandleCommandSubmitted)
-						]
+							.FillWidth(0.2f)
+							[
+								SAssignNew(ShortcutWindow, SSessionConsoleShortcutWindow)
+									.OnCommandSubmitted(this, &SSessionConsole::HandleCommandSubmitted)
+							]
 					]
 
 				+ SVerticalBox::Slot()
@@ -144,7 +145,7 @@ void SSessionConsole::Construct( const FArguments& InArgs, ISessionManagerRef In
 					.Visibility(this, &SSessionConsole::HandleSelectSessionOverlayVisibility)
 					[
 						SNew(STextBlock)
-							.Text(LOCTEXT("SelectSessionOverlayText", "Please select a session from the Session Browser"))
+							.Text(LOCTEXT("SelectSessionOverlayText", "Please select at least one instance from the Session Browser"))
 					]
 			]
 	];
@@ -155,6 +156,7 @@ void SSessionConsole::Construct( const FArguments& InArgs, ISessionManagerRef In
 
 	ReloadLog(true);
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
 /* SSessionConsolePanel implementation
@@ -194,42 +196,39 @@ void SSessionConsole::CopyLog()
 {
 	TArray<FSessionLogMessagePtr> SelectedItems = LogListView->GetSelectedItems();
 
-	if (SelectedItems.Num() > 0)
+	if (SelectedItems.Num() == 0)
 	{
-		FString SelectedText;
-
-		for( int32 Index = 0; Index < SelectedItems.Num(); ++Index )
-		{
-			SelectedText += FString::Printf(TEXT("%s [%s] %09.3f: %s"),
-				*SelectedItems[Index]->Time.ToString(),
-				*SelectedItems[Index]->InstanceName,
-				SelectedItems[Index]->TimeSeconds,
-				*SelectedItems[Index]->Text
-			) + LINE_TERMINATOR;
-		}
-
-		FPlatformMisc::ClipboardCopy( *SelectedText );
+		return;
 	}
+
+	FString SelectedText;
+
+	for (const auto& Item : SelectedItems)
+	{
+		SelectedText += FString::Printf(TEXT("%s [%s] %09.3f: %s"), *Item->Time.ToString(), *Item->InstanceName, Item->TimeSeconds, *Item->Text);
+		SelectedText += LINE_TERMINATOR;
+	}
+
+	FPlatformMisc::ClipboardCopy(*SelectedText);
 }
 
 
-void SSessionConsole::ReloadLog( bool FullyReload )
+void SSessionConsole::ReloadLog(bool FullyReload)
 {
 	// reload log list
 	if (FullyReload)
 	{
 		AvailableLogs.Reset();
 
-		TArray<ISessionInstanceInfoPtr> SelectedInstances;
-		SessionManager->GetSelectedInstances(SelectedInstances);
+		const auto& SelectedInstances = SessionManager->GetSelectedInstances();
 
-		for (int32 InstanceIndex = 0; InstanceIndex < SelectedInstances.Num(); ++InstanceIndex)
+		for (const auto& Instance : SelectedInstances)
 		{
-			const TArray<FSessionLogMessagePtr>& InstanceLog = SelectedInstances[InstanceIndex]->GetLog();
+			const TArray<FSessionLogMessagePtr>& InstanceLog = Instance->GetLog();
 
-			for (int32 LogIndex = 0; LogIndex < InstanceLog.Num(); ++LogIndex)
+			for (const auto& LogMessage : InstanceLog)
 			{
-				AvailableLogs.HeapPush(InstanceLog[LogIndex], FSessionLogMessage::TimeComparer());
+				AvailableLogs.HeapPush(LogMessage, FSessionLogMessage::TimeComparer());
 			}
 		}
 
@@ -241,10 +240,8 @@ void SSessionConsole::ReloadLog( bool FullyReload )
 	// filter log list
 	FilterBar->ResetFilter();
 
-	for (int32 Index = 0; Index < AvailableLogs.Num(); ++Index)
+	for (const auto& LogMessage : AvailableLogs)
 	{
-		const FSessionLogMessagePtr& LogMessage = AvailableLogs[Index];
-
 		if (FilterBar->FilterLogMessage(LogMessage.ToSharedRef()))
 		{
 			LogMessages.Add(LogMessage);
@@ -265,81 +262,84 @@ void SSessionConsole::SaveLog()
 {
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 
-	if (DesktopPlatform != NULL)
+	if (DesktopPlatform == nullptr)
 	{
-		TArray<FString> Filenames;
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveLogDialogUnsupportedError", "Saving is not supported on this platform!"));
 
-		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
-		void* ParentWindowHandle = (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid()) ? ParentWindow->GetNativeWindow()->GetOSWindowHandle() : nullptr;
+		return;
+	}
 
-		if (DesktopPlatform->SaveFileDialog(
-			ParentWindowHandle,
-			LOCTEXT("SaveLogDialogTitle", "Save Log As...").ToString(),
-			LastLogFileSaveDirectory,
-			TEXT("Session.log"),
-			TEXT("Log Files (*.log)|*.log"),
-			EFileDialogFlags::None,
-			Filenames))
+	TArray<FString> Filenames;
+
+	// open file dialog
+	TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+	void* ParentWindowHandle = (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid()) ? ParentWindow->GetNativeWindow()->GetOSWindowHandle() : nullptr;
+
+	if (!DesktopPlatform->SaveFileDialog(
+		ParentWindowHandle,
+		LOCTEXT("SaveLogDialogTitle", "Save Log As...").ToString(),
+		LastLogFileSaveDirectory,
+		TEXT("Session.log"),
+		TEXT("Log Files (*.log)|*.log"),
+		EFileDialogFlags::None,
+		Filenames))
+	{
+		return;
+	}
+
+	// no log file selected?
+	if (Filenames.Num() == 0)
+	{
+		return;
+	}
+
+	FString Filename = Filenames[0];
+
+	// keep path as default for next time
+	LastLogFileSaveDirectory = FPaths::GetPath(Filename);
+
+	// add a file extension if none was provided
+	if (FPaths::GetExtension(Filename).IsEmpty())
+	{
+		Filename += Filename + TEXT(".log");
+	}
+
+	// save file
+	FArchive* LogFile = IFileManager::Get().CreateFileWriter(*Filename);
+
+	if (LogFile != nullptr)
+	{
+		for (const auto& LogMessage : LogMessages)
 		{
-			if (Filenames.Num() > 0)
-			{
-				FString Filename = Filenames[0];
+			FString LogEntry = FString::Printf(TEXT("%s [%s] %09.3f: %s"),
+				*LogMessage->Time.ToString(),
+				*LogMessage->InstanceName,
+				LogMessage->TimeSeconds,
+				*LogMessage->Text) + LINE_TERMINATOR;
 
-				// keep path as default for next time
-				LastLogFileSaveDirectory = FPaths::GetPath(Filename);
-
-				// add a file extension if none was provided
-				if (FPaths::GetExtension(Filename).IsEmpty())
-				{
-					Filename += Filename + TEXT(".log");
-				}
-
-				// save file
-				FArchive* LogFile = IFileManager::Get().CreateFileWriter(*Filename);
-
-				if (LogFile != NULL)
-				{
-					for( int32 Index = 0; Index < LogMessages.Num(); ++Index )
-					{
-						FString LogEntry = FString::Printf(TEXT("%s [%s] %09.3f: %s"),
-							*LogMessages[Index]->Time.ToString(),
-							*LogMessages[Index]->InstanceName,
-							LogMessages[Index]->TimeSeconds,
-							*LogMessages[Index]->Text) + LINE_TERMINATOR;
-
-						LogFile->Serialize(TCHAR_TO_ANSI(*LogEntry), LogEntry.Len());
-					}
-
-					LogFile->Close();
-
-					delete LogFile;
-				}
-				else
-				{
-					FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveLogDialogFileError", "Failed to open the specified file for saving!"));
-				}
-			}
+			LogFile->Serialize(TCHAR_TO_ANSI(*LogEntry), LogEntry.Len());
 		}
+
+		LogFile->Close();
+		delete LogFile;
 	}
 	else
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveLogDialogUnsupportedError", "Saving is not supported on this platform!"));
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveLogDialogFileError", "Failed to open the specified file for saving!"));
 	}
 }
 
 
-void SSessionConsole::SendCommand( const FString& CommandString )
+void SSessionConsole::SendCommand(const FString& CommandString)
 {
-	if (!CommandString.IsEmpty())
+	if (CommandString.IsEmpty())
 	{
-		TArray<ISessionInstanceInfoPtr> SelectedInstances;
+		return;
+	}
 
-		SessionManager->GetSelectedInstances(SelectedInstances);
-
-		for (int32 Index = 0; Index < SelectedInstances.Num(); Index++)
-		{
-			SelectedInstances[Index]->ExecuteCommand(CommandString);
-		}
+	for (auto& Instance : SessionManager->GetSelectedInstances())
+	{
+		Instance->ExecuteCommand(CommandString);
 	}
 }
 
@@ -348,7 +348,7 @@ void SSessionConsole::SendCommand( const FString& CommandString )
 /* SWidget implementation
  *****************************************************************************/
 
-FReply SSessionConsole::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
+FReply SSessionConsole::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
 	if (InKeyEvent.IsControlDown())
 	{
@@ -358,7 +358,8 @@ FReply SSessionConsole::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent&
 
 			return FReply::Handled();
 		}
-		else if (InKeyEvent.GetKey() == EKeys::S)
+	
+		if (InKeyEvent.GetKey() == EKeys::S)
 		{
 			SaveLog();
 
@@ -385,13 +386,13 @@ bool SSessionConsole::HandleClearActionCanExecute()
 }
 
 
-void SSessionConsole::HandleCommandBarPromoteToShortcutClicked( const FString& CommandString )
+void SSessionConsole::HandleCommandBarPromoteToShortcutClicked(const FString& CommandString)
 {
 	ShortcutWindow->AddShortcut(CommandString, CommandString);
 }
 
 
-void SSessionConsole::HandleCommandSubmitted( const FString& CommandString )
+void SSessionConsole::HandleCommandSubmitted(const FString& CommandString)
 {
 	SendCommand(CommandString);
 }
@@ -417,7 +418,7 @@ void SSessionConsole::HandleFilterChanged()
 }
 
 
-void SSessionConsole::HandleLogListItemScrolledIntoView( FSessionLogMessagePtr Item, const TSharedPtr<ITableRow>& TableRow )
+void SSessionConsole::HandleLogListItemScrolledIntoView(FSessionLogMessagePtr Item, const TSharedPtr<ITableRow>& TableRow)
 {
 	if (LogMessages.Num() > 0)
 	{
@@ -430,7 +431,7 @@ void SSessionConsole::HandleLogListItemScrolledIntoView( FSessionLogMessagePtr I
 }
 
 
-TSharedRef<ITableRow> SSessionConsole::HandleLogListGenerateRow( FSessionLogMessagePtr Message, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SSessionConsole::HandleLogListGenerateRow(FSessionLogMessagePtr Message, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SSessionConsoleLogTableRow, OwnerTable)
 		.HighlightText(this, &SSessionConsole::HandleLogListGetHighlightText)
@@ -447,7 +448,7 @@ FText SSessionConsole::HandleLogListGetHighlightText() const
 
 bool SSessionConsole::HandleMainContentIsEnabled() const
 {
-	return SessionManager->GetSelectedSession().IsValid();
+	return (SessionManager->GetSelectedInstances().Num() > 0);
 }
 
 
@@ -465,7 +466,7 @@ bool SSessionConsole::HandleSaveActionCanExecute()
 
 EVisibility SSessionConsole::HandleSelectSessionOverlayVisibility() const
 {
-	if (SessionManager->GetSelectedSession().IsValid())
+	if (SessionManager->GetSelectedInstances().Num() > 0)
 	{
 		return EVisibility::Hidden;
 	}
@@ -474,33 +475,32 @@ EVisibility SSessionConsole::HandleSelectSessionOverlayVisibility() const
 }
 
 
-void SSessionConsole::HandleSessionManagerInstanceSelectionChanged()
+void SSessionConsole::HandleSessionManagerInstanceSelectionChanged(const TSharedPtr<ISessionInstanceInfo>& /*Instance*/, bool /*Selected*/)
 {
 	ReloadLog(true);
 }
 
 
-void SSessionConsole::HandleSessionManagerLogReceived( const ISessionInfoRef& Session, const ISessionInstanceInfoRef& Instance, const FSessionLogMessageRef& Message)
+void SSessionConsole::HandleSessionManagerLogReceived(const ISessionInfoRef& Session, const ISessionInstanceInfoRef& Instance, const FSessionLogMessageRef& Message)
 {
-	if (SessionManager->IsInstanceSelected(Instance))
+	if (!SessionManager->IsInstanceSelected(Instance) || !FilterBar->FilterLogMessage(Message))
 	{
-		if (FilterBar->FilterLogMessage(Message))
-		{
-			AvailableLogs.Add(Message);
-			LogMessages.Add(Message);
+		return;
+	}
 
-			LogListView->RequestListRefresh();
+	AvailableLogs.Add(Message);
+	LogMessages.Add(Message);
 
-			if (ShouldScrollToLast)
-			{
-				LogListView->RequestScrollIntoView(Message);
-			}
-		}
+	LogListView->RequestListRefresh();
+
+	if (ShouldScrollToLast)
+	{
+		LogListView->RequestScrollIntoView(Message);
 	}
 }
 
 
-void SSessionConsole::HandleSessionManagerSelectedSessionChanged( const ISessionInfoPtr& SelectedSession )
+void SSessionConsole::HandleSessionManagerSelectedSessionChanged(const ISessionInfoPtr& SelectedSession)
 {
 	ReloadLog(true);
 }

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "AssetTypeCategories.h"
+
 class IAssetTypeActions;
 class IClassTypeActions;
 class FAssetData;
@@ -27,30 +29,6 @@ struct FAssetRenameData
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FAssetPostRenameEvent, const TArray<FAssetRenameData>&);
-
-// The list of categories for Asset Type Actions and UFactory subclasses
-namespace EAssetTypeCategories
-{
-	enum Type
-	{
-		None					= 0,
-		Basic					= 1 << 0,
-		Animation				= 1 << 1,
-		MaterialsAndTextures	= 1 << 2,
-		Sounds					= 1 << 3,
-		Physics					= 1 << 4,
-		UI						= 1 << 5,
-		Misc					= 1 << 6,
-		Gameplay				= 1 << 7,
-		Blueprint				= 1 << 8,
-
-		// Items below this will be allocated at runtime via RegisterAdvancedAssetCategory
-		FirstUser				= 1 << 9,
-		LastUser				= 1 << 31,
-		// Last allowed value is 1 << 31
-	};
-}
-
 
 struct FAdvancedAssetCategory
 {

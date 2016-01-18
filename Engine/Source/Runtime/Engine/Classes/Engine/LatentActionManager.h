@@ -123,8 +123,9 @@ public:
 	/** Resets the list of objects we have processed the latent action list for.	 */	
 	void BeginFrame()
 	{
-		ProcessedThisFrame.Empty();
+		ProcessedThisFrame.Reset();
 	}
+
 #if WITH_EDITOR
 	/** 
 	 * Builds a set of the UUIDs of pending latent actions on a specific object.
@@ -135,7 +136,6 @@ public:
 	 */
 	void GetActiveUUIDs(UObject* InObject, TSet<int32>& UUIDList) const;
 
-	
 	/** 
 	 * Gets the description string of a pending latent action with the specified UUID for a given object, or the empty string if it's an invalid UUID
 	 *
@@ -145,6 +145,8 @@ public:
 	 */
 	FString GetDescription(UObject* InObject, int32 UUID) const;
 #endif
+
+	~FLatentActionManager();
 
 protected:
 	/** 

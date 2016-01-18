@@ -16,10 +16,10 @@ public:
 		{}
 
 		/** The text to display in this button in it's collapsed state (if nothing is specified for CollapsedButtonContent) */
-		SLATE_TEXT_ATTRIBUTE( CollapsedText )
+		SLATE_ATTRIBUTE( FText, CollapsedText )
 
 		/** The text to display in this button in it's expanded state (if nothing is specified for ExpandedButtonContent) */
-		SLATE_TEXT_ATTRIBUTE( ExpandedText )
+		SLATE_ATTRIBUTE( FText, ExpandedText )
 
 		/** Slot for this button's collapsed content (optional) */
 		SLATE_NAMED_SLOT( FArguments, CollapsedButtonContent )

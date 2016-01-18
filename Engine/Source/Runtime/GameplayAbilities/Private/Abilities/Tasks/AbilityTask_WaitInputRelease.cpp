@@ -39,7 +39,7 @@ void UAbilityTask_WaitInputRelease::OnReleaseCallback()
 
 UAbilityTask_WaitInputRelease* UAbilityTask_WaitInputRelease::WaitInputRelease(class UObject* WorldContextObject, bool bTestAlreadyReleased)
 {
-	UAbilityTask_WaitInputRelease* Task = NewTask<UAbilityTask_WaitInputRelease>(WorldContextObject);
+	UAbilityTask_WaitInputRelease* Task = NewAbilityTask<UAbilityTask_WaitInputRelease>(WorldContextObject);
 	Task->bTestInitialState = bTestAlreadyReleased;
 	return Task;
 }
@@ -62,7 +62,10 @@ void UAbilityTask_WaitInputRelease::Activate()
 		DelegateHandle = AbilitySystemComponent->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::InputReleased, GetAbilitySpecHandle(), GetActivationPredictionKey()).AddUObject(this, &UAbilityTask_WaitInputRelease::OnReleaseCallback);
 		if (IsForRemoteClient())
 		{
-			AbilitySystemComponent->CallReplicatedEventDelegateIfSet(EAbilityGenericReplicatedEvent::InputReleased, GetAbilitySpecHandle(), GetActivationPredictionKey());
+			if (!AbilitySystemComponent->CallReplicatedEventDelegateIfSet(EAbilityGenericReplicatedEvent::InputReleased, GetAbilitySpecHandle(), GetActivationPredictionKey()))
+			{
+				SetWaitingOnRemotePlayerData();
+			}
 		}
 	}
 }

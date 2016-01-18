@@ -10,9 +10,9 @@ class UActorFactoryInteractiveFoliage : public UActorFactoryStaticMesh
 	GENERATED_UCLASS_BODY()
 
 
-	// Begin UActorFactory Interface
+	//~ Begin UActorFactory Interface
 	virtual bool CanCreateActorFrom( const FAssetData& AssetData, FText& OutErrorMsg ) override { return false; };
-	// End UActorFactory Interface
+	//~ End UActorFactory Interface
 };
 
 

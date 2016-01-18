@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTReplicatedGameRuleset.h"
@@ -6,7 +6,7 @@
 #include "Net/UnrealNetwork.h"
 
 #if !UE_SERVER
-#include "Slate/SUWindowsStyle.h"
+#include "SUWindowsStyle.h"
 #endif
 
 AUTReplicatedGameRuleset::AUTReplicatedGameRuleset(const class FObjectInitializer& ObjectInitializer)
@@ -37,22 +37,19 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bCustomRuleset);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, GameMode);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bTeamGame);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, bCompetitiveMatch);
 }
-
 
 int32 AUTReplicatedGameRuleset::AddMapAssetToMapList(const FAssetData& Asset)
 {
-
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
 		AUTReplicatedMapInfo* MapInfo = GameState->CreateMapInfo(Asset);
 		return MapList.Add(MapInfo);
 	}
-
 	return INDEX_NONE;
 }
-
 
 void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<FAssetData>& MapAssets)
 {
@@ -66,8 +63,8 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	bTeamGame			= NewRules->bTeamGame;
 	DefaultMap			= NewRules->DefaultMap;
 	QuickPlayMaps		= NewRules->QuickPlayMaps;
-
-	MaxMapsInList = NewRules->MaxMapsInList;
+	bCompetitiveMatch	= NewRules->bCompetitiveMatch;
+	MaxMapsInList		= NewRules->MaxMapsInList;
 
 	// First add the Epic maps.
 	if (!NewRules->EpicMaps.IsEmpty())
@@ -145,6 +142,71 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	GameOptions = NewRules->GameOptions;
 	BuildSlateBadge();
 
+	// Fix up the Description
+	TArray<FString> PropertyLookups;
+	int32 Left = Description.Find(TEXT("%"),ESearchCase::IgnoreCase, ESearchDir::FromStart, 0);
+	while (Left != INDEX_NONE)
+	{
+		int32 Right = Description.Find(TEXT("%"),ESearchCase::IgnoreCase, ESearchDir::FromStart, Left + 1);
+		if (Right > Left)
+		{
+			FString PropertyString = Description.Mid(Left, Right-Left + 1);
+			if (PropertyLookups.Find(PropertyString) == INDEX_NONE)
+			{
+				PropertyLookups.Add(PropertyString);
+			}
+			Left = Description.Find(TEXT("%"),ESearchCase::IgnoreCase, ESearchDir::FromStart, Right +1);	
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	AUTGameMode* DefaultGameObject = GetDefaultGameModeObject();
+	for (int32 i = 0; i < PropertyLookups.Num(); i++)
+	{
+		if ( PropertyLookups[i].Equals(TEXT("%maxplayers%"),ESearchCase::IgnoreCase) )		
+		{
+			Description = Description.Replace(*PropertyLookups[i], *FString::FromInt(MaxPlayers), ESearchCase::IgnoreCase);
+		}
+		else
+		{
+			// Grab the prop name.
+			FString PropName = PropertyLookups[i].LeftChop(1).RightChop(1);	// Remove the %
+			FString Value = TEXT("");
+
+			// First search the url for PropName=
+			if (UGameplayStatics::HasOption(GameOptions, *PropName))
+			{
+				Value = UGameplayStatics::ParseOption(GameOptions,  PropName);
+			}
+			else if (DefaultGameObject)
+			{
+				for (TFieldIterator<UProperty> It(DefaultGameObject->GetClass()); It; ++It)
+				{
+					UProperty* Prop = *It;
+					if ( Prop->GetName().Equals(PropName,ESearchCase::IgnoreCase) )
+					{
+						uint8* ObjData = (uint8*)DefaultGameObject;
+						Prop->ExportText_InContainer(0, Value, DefaultGameObject, DefaultGameObject, DefaultGameObject, PPF_IncludeTransient);
+						break;
+					}
+				}
+			}
+
+			if (Value.Equals(TEXT("true"), ESearchCase::IgnoreCase))
+			{
+				Value = TEXT("On");
+			}
+			else if (Value.Equals(TEXT("false"), ESearchCase::IgnoreCase))
+			{
+				Value = TEXT("Off");
+			}
+
+			Description = Description.Replace(*PropertyLookups[i], *Value, ESearchCase::IgnoreCase);
+		}
+	}
 }
 
 FString AUTReplicatedGameRuleset::Fixup(FString OldText)
@@ -154,7 +216,6 @@ FString AUTReplicatedGameRuleset::Fixup(FString OldText)
 
 	return Final;
 }
-
 
 void AUTReplicatedGameRuleset::BuildSlateBadge()
 {
@@ -174,14 +235,7 @@ void AUTReplicatedGameRuleset::BuildSlateBadge()
 #if !UE_SERVER
 const FSlateBrush* AUTReplicatedGameRuleset::GetSlateBadge() const
 {
-	if (SlateBadge != nullptr) 
-	{
-		return SlateBadge;
-	}
-	else
-	{
-		return SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");	
-	}
+	return (SlateBadge != nullptr) ? SlateBadge : SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");	
 }
 #endif
 
@@ -200,12 +254,16 @@ AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
 			AUTGameMode* DefaultGameModeObject = GModeClass->GetDefaultObject<AUTGameMode>();
 			return DefaultGameModeObject;
 		}
-	
 	}
 	else
 	{
 		UE_LOG(UT, Warning, TEXT("%s Empty GameModeClass for Ruleset %s"), *GetName(), *Title);
 	}
-
 	return NULL;
 }
+
+FString AUTReplicatedGameRuleset::GetDescription()
+{
+	return Description;
+}
+

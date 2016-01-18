@@ -141,7 +141,8 @@ FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI, EPixelFormat Pixe
 		PixelFormat,
 		false,
 		false,
-		false
+		false,
+		FClearValueBinding()
 		);
 
 	D3D11TextureAllocated2D(*NewTexture);
@@ -194,11 +195,9 @@ void FD3D11Viewport::Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
 	{
 		check(BackBuffer->GetRefCount() == 1);
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		checkComRefCount(BackBuffer->GetResource(),1);
 		checkComRefCount(BackBuffer->GetRenderTargetView(0, -1),1);
 		checkComRefCount(BackBuffer->GetShaderResourceView(),1);
-#endif
 	}
 	BackBuffer.SafeRelease();
 
@@ -512,6 +511,7 @@ void FD3D11DynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI,
 	if( RenderTarget == NULL )
 	{
 		RenderTarget = Viewport->GetBackBuffer();
+		RHITransitionResources(EResourceTransitionAccess::EWritable, &RenderTarget, 1);
 	}
 	FRHIRenderTargetView View(RenderTarget);
 	RHISetRenderTargets(1,&View,nullptr,0,NULL);
@@ -522,6 +522,7 @@ void FD3D11DynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI,
 
 void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bool bPresent,bool bLockToVsync)
 {
+	++PresentCounter;
 	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
 
 	SCOPE_CYCLE_COUNTER(STAT_D3D11PresentTime);
@@ -593,16 +594,6 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 #if CHECK_SRV_TRANSITIONS
 	UnresolvedTargets.Reset();
 #endif
-}
-
-/**
- * Determine if currently drawing the viewport
- *
- * @return true if currently within a BeginDrawingViewport/EndDrawingViewport block
- */
-bool FD3D11DynamicRHI::RHIIsDrawingViewport()
-{
-	return DrawingViewport != NULL;
 }
 
 void FD3D11DynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()

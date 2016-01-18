@@ -34,7 +34,7 @@ public:
 	 * @param Interceptor The interceptor to add.
 	 * @param MessageType The type of messages to intercept.
 	 */
-	FORCEINLINE void AddInterceptor( const IMessageInterceptorRef& Interceptor, const FName& MessageType )
+	FORCEINLINE void AddInterceptor(const IMessageInterceptorRef& Interceptor, const FName& MessageType)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleAddInterceptor, Interceptor, MessageType));
 	}
@@ -45,7 +45,7 @@ public:
 	 * @param Address The address of the recipient to add.
 	 * @param Recipient The recipient.
 	 */
-	FORCEINLINE void AddRecipient( const FMessageAddress& Address, const IReceiveMessagesRef& Recipient )
+	FORCEINLINE void AddRecipient(const FMessageAddress& Address, const IReceiveMessagesRef& Recipient)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleAddRecipient, Address, IReceiveMessagesWeakPtr(Recipient)));
 	}
@@ -55,7 +55,7 @@ public:
 	 *
 	 * @param Subscription The subscription to add.
 	 */
-	FORCEINLINE void AddSubscription( const IMessageSubscriptionRef& Subscription )
+	FORCEINLINE void AddSubscription(const IMessageSubscriptionRef& Subscription)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleAddSubscriber, Subscription));
 	}
@@ -76,7 +76,7 @@ public:
 	 * @param Interceptor The interceptor to remove.
 	 * @param MessageType The type of messages to stop intercepting.
 	 */
-	FORCEINLINE void RemoveInterceptor( const IMessageInterceptorRef& Interceptor, const FName& MessageType )
+	FORCEINLINE void RemoveInterceptor(const IMessageInterceptorRef& Interceptor, const FName& MessageType)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRemoveInterceptor, Interceptor, MessageType));
 	}
@@ -86,7 +86,7 @@ public:
 	 *
 	 * @param Address The address of the recipient to remove.
 	 */
-	FORCEINLINE void RemoveRecipient( const FMessageAddress& Address )
+	FORCEINLINE void RemoveRecipient(const FMessageAddress& Address)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRemoveRecipient, Address));
 	}
@@ -97,7 +97,7 @@ public:
 	 * @param Subscriber The subscriber to stop routing messages to.
 	 * @param MessageType The type of message to unsubscribe from (NAME_None = all types).
 	 */
-	FORCEINLINE void RemoveSubscription( const IReceiveMessagesRef& Subscriber, const FName& MessageType )
+	FORCEINLINE void RemoveSubscription(const IReceiveMessagesRef& Subscriber, const FName& MessageType)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRemoveSubscriber, IReceiveMessagesWeakPtr(Subscriber), MessageType));
 	}
@@ -107,7 +107,7 @@ public:
 	 *
 	 * @param Context The context of the message to route.
 	 */
-	FORCEINLINE void RouteMessage( const IMessageContextRef& Context )
+	FORCEINLINE void RouteMessage(const IMessageContextRef& Context)
 	{
 		Tracer->TraceSentMessage(Context);
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRouteMessage, Context));
@@ -137,7 +137,7 @@ protected:
 	 * @param Command The command to queue up.
 	 * @return true if the command was enqueued, false otherwise.
 	 */
-	FORCEINLINE bool EnqueueCommand( CommandDelegate Command )
+	FORCEINLINE bool EnqueueCommand(CommandDelegate Command)
 	{
 		if (!Commands.Enqueue(Command))
 		{
@@ -157,14 +157,14 @@ protected:
 	 * @param Sender The message sender (may be nullptr if the sender has no subscriptions).
 	 * @param OutRecipients Will hold the collection of recipients.
 	 */
-	void FilterSubscriptions( TArray<IMessageSubscriptionPtr>& Subscriptions, const IMessageContextRef& Context, TArray<IReceiveMessagesPtr>& OutRecipients );
+	void FilterSubscriptions(TArray<IMessageSubscriptionPtr>& Subscriptions, const IMessageContextRef& Context, TArray<IReceiveMessagesPtr>& OutRecipients);
 
 	/**
 	 * Dispatches a single message to its recipients.
 	 *
 	 * @param Message The message to dispatch.
 	 */
-	void DispatchMessage( const IMessageContextRef& Message );
+	void DispatchMessage(const IMessageContextRef& Message);
 
 	/** Processes all delayed messages. */
 	void ProcessDelayedMessages();
@@ -185,13 +185,13 @@ private:
 		FDelayedMessage() { }
 
 		// Creates and initializes a new instance.
-		FDelayedMessage( const IMessageContextRef& InContext, int64 InSequence )
+		FDelayedMessage(const IMessageContextRef& InContext, int64 InSequence)
 			: Context(InContext)
 			, Sequence(InSequence)
 		{ }
 
 		// Comparison operator for heap sorting.
-		bool operator<( const FDelayedMessage& Other ) const
+		bool operator<(const FDelayedMessage& Other) const
 		{
 			const FTimespan Difference = Other.Context->GetTimeSent() - Context->GetTimeSent();
 
@@ -207,25 +207,25 @@ private:
 private:
 
 	/** Handles adding message interceptors. */
-	void HandleAddInterceptor( IMessageInterceptorRef Interceptor, FName MessageType );
+	void HandleAddInterceptor(IMessageInterceptorRef Interceptor, FName MessageType);
 
 	/** Handles adding message recipients. */
-	void HandleAddRecipient( FMessageAddress Address, IReceiveMessagesWeakPtr RecipientPtr );
+	void HandleAddRecipient(FMessageAddress Address, IReceiveMessagesWeakPtr RecipientPtr);
 
 	/** Handles adding of subscriptions. */
-	void HandleAddSubscriber( IMessageSubscriptionRef Subscription );
+	void HandleAddSubscriber(IMessageSubscriptionRef Subscription);
 
 	/** Handles the removal of message interceptors. */
-	void HandleRemoveInterceptor( IMessageInterceptorRef Interceptor, FName MessageType );
+	void HandleRemoveInterceptor(IMessageInterceptorRef Interceptor, FName MessageType);
 
 	/** Handles the removal of message recipients. */
-	void HandleRemoveRecipient( FMessageAddress Address );
+	void HandleRemoveRecipient(FMessageAddress Address);
 
 	/** Handles the removal of subscribers. */
-	void HandleRemoveSubscriber( IReceiveMessagesWeakPtr SubscriberPtr, FName MessageType );
+	void HandleRemoveSubscriber(IReceiveMessagesWeakPtr SubscriberPtr, FName MessageType);
 
 	/** Handles the routing of messages. */
-	void HandleRouteMessage( IMessageContextRef Context );
+	void HandleRouteMessage(IMessageContextRef Context);
 
 private:
 

@@ -29,7 +29,12 @@ namespace UnrealBuildTool.Rules
 					"SlateCore"
 				}
 				);
-			
+            
+            if (UEBuildConfiguration.bBuildEditor == true)
+            {
+                PrivateDependencyModuleNames.Add("UnrealEd");
+            }
+
             if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
             {
 				AddThirdPartyPrivateStaticDependencies(Target, "OpenVR");

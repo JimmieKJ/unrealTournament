@@ -25,20 +25,6 @@
 	check(Status == noErr);\
 }
 
-FCoreAudioSoundSource *GAudioChannels[MAX_AUDIOCHANNELS + 1];
-
-static int32 FindFreeAudioChannel()
-{
-	for( int32 Index = 1; Index < MAX_AUDIOCHANNELS + 1; Index++ )
-	{
-		if( GAudioChannels[Index] == NULL )
-		{
-			return Index;
-		}
-	}
-
-	return 0;
-}
 
 /*------------------------------------------------------------------------------------
  FCoreAudioSoundSource.
@@ -51,14 +37,15 @@ FCoreAudioSoundSource::FCoreAudioSoundSource( FAudioDevice* InAudioDevice )
 :	FSoundSource( InAudioDevice ),
 	Buffer( NULL ),
 	CoreAudioConverter( NULL ),
+	RealtimeAsyncTask(nullptr),
 	bStreamedSound( false ),
 	bBuffersToFlush( false ),
 	SourceNode( 0 ),
 	SourceUnit( NULL ),
-	StreamSplitterNode( 0 ),
-	StreamSplitterUnit( NULL ),
 	EQNode( 0 ),
 	EQUnit( NULL ),
+	LowPassNode( 0 ),
+	LowPassUnit( NULL ),
 	RadioNode( 0 ),
 	RadioUnit( NULL ),
 	bRadioMuted( false ),
@@ -66,8 +53,6 @@ FCoreAudioSoundSource::FCoreAudioSoundSource( FAudioDevice* InAudioDevice )
 	ReverbUnit( NULL ),
 	bReverbMuted( false ),
 	bDryMuted( false ),
-	StreamMergerNode( 0 ),
-	StreamMergerUnit( NULL ),
 	AudioChannel( 0 ),
 	BufferInUse( 0 ),
 	NumActiveBuffers( 0 ),
@@ -94,19 +79,27 @@ FCoreAudioSoundSource::~FCoreAudioSoundSource()
  */
 void FCoreAudioSoundSource::FreeResources( void )
 {
+	if (RealtimeAsyncTask)
+	{
+		RealtimeAsyncTask->EnsureCompletion();
+		delete RealtimeAsyncTask;
+		RealtimeAsyncTask = nullptr;
+	}
+
 	// If we're a streaming buffer...
 	if( bStreamedSound )
 	{
 		// ... free the buffers
 		FMemory::Free( ( void* )CoreAudioBuffers[0].AudioData );
 		FMemory::Free( ( void* )CoreAudioBuffers[1].AudioData );
+		FMemory::Free( ( void* )CoreAudioBuffers[2].AudioData );
 		
 		// Buffers without a valid resource ID are transient and need to be deleted.
 		if( Buffer )
 		{
 			check( Buffer->ResourceID == 0 );
 			delete Buffer;
-			Buffer = NULL;
+			Buffer = nullptr;
 		}
 		
 		bStreamedSound = false;
@@ -131,35 +124,47 @@ void FCoreAudioSoundSource::SubmitPCMBuffers( void )
 	CoreAudioBuffers[0].AudioDataSize = Buffer->PCMDataSize;
 }
 
-bool FCoreAudioSoundSource::ReadProceduralData( const int32 BufferIndex )
-{
-	const int32 MaxSamples = ( MONO_PCM_BUFFER_SIZE * Buffer->NumChannels ) / sizeof( int16 );
-	const int32 BytesRead = WaveInstance->WaveData->GeneratePCMData( CoreAudioBuffers[BufferIndex].AudioData, MaxSamples );
-
-	CoreAudioBuffers[BufferIndex].AudioDataSize = BytesRead;
-
-	if (BytesRead > 0)
-	{
-		++NumActiveBuffers;
-	}
-	
-	// convenience return value: we're never actually "looping" here.
-	return false;
-}
-
-bool FCoreAudioSoundSource::ReadMorePCMData( const int32 BufferIndex )
+bool FCoreAudioSoundSource::ReadMorePCMData( const int32 BufferIndex, EDataReadMode DataReadMode )
 {
 	CoreAudioBuffers[BufferIndex].ReadCursor = 0;
 
-	USoundWave *WaveData = WaveInstance->WaveData;
+	USoundWave* WaveData = WaveInstance->WaveData;
 	if( WaveData && WaveData->bProcedural )
 	{
-		return ReadProceduralData( BufferIndex );
+		const int32 MaxSamples = ( MONO_PCM_BUFFER_SIZE * Buffer->NumChannels ) / sizeof( int16 );
+
+		if (DataReadMode == EDataReadMode::Synchronous || WaveData->bCanProcessAsync == false)
+		{
+			const int32 BytesRead = WaveData->GeneratePCMData(CoreAudioBuffers[BufferIndex].AudioData, MaxSamples);
+			CoreAudioBuffers[BufferIndex].AudioDataSize = BytesRead;
+
+			if (BytesRead > 0)
+			{
+				++NumActiveBuffers;
+			}
+		}
+		else
+		{
+			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(WaveData, (uint8*)CoreAudioBuffers[BufferIndex].AudioData, MaxSamples);
+			RealtimeAsyncTask->StartBackgroundTask();
+		}
+	
+		// we're never actually "looping" here.
+		return false;
 	}
 	else
 	{
-		NumActiveBuffers++;
-		return Buffer->ReadCompressedData( CoreAudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never );
+		if (DataReadMode == EDataReadMode::Synchronous)
+		{
+			++NumActiveBuffers;
+			return Buffer->ReadCompressedData( CoreAudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never );
+		}
+		else
+		{
+			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(Buffer, (uint8*)CoreAudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never, DataReadMode == EDataReadMode::AsynchronousSkipFirstFrame);
+			RealtimeAsyncTask->StartBackgroundTask();
+			return false;
+		}
 	}
 }
 
@@ -170,22 +175,42 @@ void FCoreAudioSoundSource::SubmitPCMRTBuffers( void )
 {
 	SCOPE_CYCLE_COUNTER( STAT_AudioSubmitBuffersTime );
 
-	FMemory::Memzero( CoreAudioBuffers, sizeof( CoreAudioBuffer ) * 2 );
+	FMemory::Memzero( CoreAudioBuffers, sizeof( CoreAudioBuffer ) * 3 );
 
 	bStreamedSound = true;
 
-	// Set up double buffer area to decompress to
-	CoreAudioBuffers[0].AudioData = ( uint8* )FMemory::Malloc( MONO_PCM_BUFFER_SIZE * Buffer->NumChannels );
-	CoreAudioBuffers[0].AudioDataSize = MONO_PCM_BUFFER_SIZE * Buffer->NumChannels;
+	const uint32 BufferSize = MONO_PCM_BUFFER_SIZE * Buffer->NumChannels;
 
-	CoreAudioBuffers[1].AudioData = ( uint8* )FMemory::Malloc( MONO_PCM_BUFFER_SIZE * Buffer->NumChannels );
-	CoreAudioBuffers[1].AudioDataSize = MONO_PCM_BUFFER_SIZE * Buffer->NumChannels;
+	// Set up double buffer area to decompress to
+	CoreAudioBuffers[0].AudioData = (uint8*)FMemory::Malloc(BufferSize);
+	CoreAudioBuffers[0].AudioDataSize = BufferSize;
+
+	CoreAudioBuffers[1].AudioData = (uint8*)FMemory::Malloc(BufferSize);
+	CoreAudioBuffers[1].AudioDataSize = BufferSize;
+
+	CoreAudioBuffers[2].AudioData = (uint8*)FMemory::Malloc(BufferSize);
+	CoreAudioBuffers[2].AudioDataSize = BufferSize;
 
 	NumActiveBuffers = 0;
 	BufferInUse = 0;
 	
-	ReadMorePCMData(0);
-	ReadMorePCMData(1);
+	// Only use the cached data if we're starting from the beginning, otherwise we'll have to take a synchronous hit
+	bool bSkipFirstBuffer = false;;
+	if (WaveInstance->WaveData && WaveInstance->WaveData->CachedRealtimeFirstBuffer && WaveInstance->StartTime == 0.f)
+	{
+		FMemory::Memcpy((uint8*)CoreAudioBuffers[0].AudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer, BufferSize);
+		FMemory::Memcpy((uint8*)CoreAudioBuffers[1].AudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer + BufferSize, BufferSize);
+		bSkipFirstBuffer = true;
+		NumActiveBuffers = 2;
+	}
+	else
+	{
+		ReadMorePCMData(0, EDataReadMode::Synchronous);
+		ReadMorePCMData(1, EDataReadMode::Synchronous);
+	}
+
+	// Start the async population of the next buffer
+	ReadMorePCMData(2, (bSkipFirstBuffer ? EDataReadMode::AsynchronousSkipFirstFrame : EDataReadMode::Asynchronous));
 }
 
 /**
@@ -205,7 +230,28 @@ bool FCoreAudioSoundSource::Init( FWaveInstance* InWaveInstance )
 		if( Buffer && Buffer->NumChannels > 0 )
 		{
 			SCOPE_CYCLE_COUNTER( STAT_AudioSourceInitTime );
-		
+
+			if (Buffer->NumChannels < 3)
+			{
+				MixerInputNumber = AudioDevice->GetFreeMixer3DInput();
+			}
+			else
+			{
+				MixerInputNumber = AudioDevice->GetFreeMatrixMixerInput();
+			}
+
+			if (MixerInputNumber == -1)
+			{
+				return false;
+			}
+
+			AudioChannel = AudioDevice->FindFreeAudioChannel();
+			if (AudioChannel == 0)
+			{
+				return false;
+			}
+
+
 			WaveInstance = InWaveInstance;
 
 			// Set whether to apply reverb
@@ -251,13 +297,18 @@ void FCoreAudioSoundSource::Update( void )
 		return;
 	}
 
+	check(AudioChannel != 0);
+	check(MixerInputNumber != -1);
+
 	float Volume = 0.0f;
 	
 	if (!AudioDevice->bIsDeviceMuted)
 	{
 		Volume = WaveInstance->GetActualVolume();
 	}
-	
+
+	Volume *= AudioDevice->PlatformAudioHeadroom;
+
 	if( Buffer->NumChannels < 3 )
 	{
 		float Azimuth = 0.0f;
@@ -280,7 +331,7 @@ void FCoreAudioSoundSource::Update( void )
 		const float Pitch = FMath::Clamp<float>( WaveInstance->Pitch, MIN_PITCH, MAX_PITCH );
 		
 		// Set the HighFrequencyGain value
-		SetHighFrequencyGain();
+		SetFilterFrequency();
 		
 		if( WaveInstance->bApplyRadioFilter )
 		{
@@ -300,95 +351,7 @@ void FCoreAudioSoundSource::Update( void )
 			Elevation = Rotation.Pitch;
 		}
 
-		// Apply any debug settings
-		{
-			bool bMuteDry, bMuteReverb, bMuteRadio;
-			switch( AudioDevice->GetMixDebugState() )
-			{
-			case DEBUGSTATE_IsolateReverb:		bMuteDry = true;	bMuteReverb = false;	bMuteRadio = false;	break;
-			case DEBUGSTATE_IsolateDryAudio:	bMuteDry = false;	bMuteReverb = true;		bMuteRadio = true;	break;
-			default:							bMuteDry = false;	bMuteReverb = false;	bMuteRadio = false;	break;
-			};
-
-			// Dry audio or EQ node
-			if( bMuteDry != bDryMuted )
-			{
-				if( bMuteDry )
-				{
-					if( StreamSplitterUnit )
-					{
-						for( int32 OutputChannelIndex = 0; OutputChannelIndex < AudioDevice->Mixer3DFormat.mChannelsPerFrame; ++OutputChannelIndex )
-						{
-							SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, OutputChannelIndex, 0.0, 0 ) );
-						}
-					}
-					else
-					{
-						SAFE_CA_CALL( AudioUnitSetParameter( AudioDevice->GetMixer3DUnit(), k3DMixerParam_Gain, kAudioUnitScope_Input, MixerInputNumber, 0.0, 0 ) );
-					}
-					bDryMuted = true;
-				}
-				else
-				{
-					if( StreamSplitterUnit )
-					{
-						for( int32 OutputChannelIndex = 0; OutputChannelIndex < AudioDevice->Mixer3DFormat.mChannelsPerFrame; ++OutputChannelIndex )
-						{
-							SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, OutputChannelIndex, 1.0, 0 ) );
-						}
-					}
-					bDryMuted = false;
-				}
-			}
-
-			if( ReverbNode && bMuteReverb != bReverbMuted )
-			{
-				int ReverbNodeBaseIndex = AudioDevice->Mixer3DFormat.mChannelsPerFrame;
-				if( bMuteReverb )
-				{
-					for( int32 OutputChannelIndex = 0; OutputChannelIndex < AudioDevice->Mixer3DFormat.mChannelsPerFrame; ++OutputChannelIndex )
-					{
-						SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, ReverbNodeBaseIndex + OutputChannelIndex, 0.0, 0 ) );
-					}
-					bReverbMuted = true;
-				}
-				else
-				{
-					for( int32 OutputChannelIndex = 0; OutputChannelIndex < AudioDevice->Mixer3DFormat.mChannelsPerFrame; ++OutputChannelIndex )
-					{
-						SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, ReverbNodeBaseIndex + OutputChannelIndex, 1.0, 0 ) );
-					}
-					bReverbMuted = false;
-				}
-			}
-
-			if( RadioNode && bMuteRadio != bRadioMuted )
-			{
-				int RadioNodeBaseIndex = ( 1 + ( ReverbNode ? 1 : 0 ) ) * AudioDevice->Mixer3DFormat.mChannelsPerFrame;
-				if( bMuteRadio )
-				{
-					for( int32 OutputChannelIndex = 0; OutputChannelIndex < AudioDevice->Mixer3DFormat.mChannelsPerFrame; ++OutputChannelIndex )
-					{
-						SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, RadioNodeBaseIndex + OutputChannelIndex, 0.0, 0 ) );
-					}
-					bRadioMuted = true;
-				}
-				else
-				{
-					for( int32 OutputChannelIndex = 0; OutputChannelIndex < AudioDevice->Mixer3DFormat.mChannelsPerFrame; ++OutputChannelIndex )
-					{
-						SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, RadioNodeBaseIndex + OutputChannelIndex, 1.0, 0 ) );
-					}
-					bRadioMuted = false;
-				}
-			}
-		}
-
-		if( !bDryMuted || StreamSplitterUnit )
-		{
-			SAFE_CA_CALL( AudioUnitSetParameter( AudioDevice->GetMixer3DUnit(), k3DMixerParam_Gain, kAudioUnitScope_Input, MixerInputNumber, Volume, 0 ) );
-		}
-
+		SAFE_CA_CALL( AudioUnitSetParameter( AudioDevice->GetMixer3DUnit(), k3DMixerParam_Gain, kAudioUnitScope_Input, MixerInputNumber, Volume, 0 ) );
 		SAFE_CA_CALL( AudioUnitSetParameter( AudioDevice->GetMixer3DUnit(), k3DMixerParam_PlaybackRate, kAudioUnitScope_Input, MixerInputNumber, Pitch, 0 ) );
 		SAFE_CA_CALL( AudioUnitSetParameter( AudioDevice->GetMixer3DUnit(), k3DMixerParam_Azimuth, kAudioUnitScope_Input, MixerInputNumber, Azimuth, 0 ) );
 		SAFE_CA_CALL( AudioUnitSetParameter( AudioDevice->GetMixer3DUnit(), k3DMixerParam_Elevation, kAudioUnitScope_Input, MixerInputNumber, Elevation, 0 ) );
@@ -415,13 +378,22 @@ void FCoreAudioSoundSource::Play( void )
 {
 	if( WaveInstance )
 	{
-		if( AttachToAUGraph() )
+		if (!Paused)
 		{
+			if (AttachToAUGraph())
+			{
+				Paused = false;
+				Playing = true;
+
+				// Updates the source which e.g. sets the pitch and volume.
+				Update();
+			}
+		}
+		else
+		{
+			// No need to re-attach the sound to the graph if its just unpausing
 			Paused = false;
 			Playing = true;
-
-			// Updates the source which e.g. sets the pitch and volume.
-			Update();
 		}
 	}
 }
@@ -456,24 +428,14 @@ void FCoreAudioSoundSource::Stop( void )
 void FCoreAudioSoundSource::Pause( void )
 {
 	if( WaveInstance )
-	{	
-		if( Playing && AudioChannel )
-		{
-			DetachFromAUGraph();
-		}
-
+	{
+		// Note: no need to detach from graph when pausing (this is not stopping a sound)
 		Paused = true;
 	}
 }
 
-/**
- * Handles feeding new data to a real time decompressed sound
- */
-void FCoreAudioSoundSource::HandleRealTimeSource( void )
+void FCoreAudioSoundSource::HandleRealTimeSourceData(bool bLooped)
 {
-	// Get the next bit of streaming data
-	const bool bLooped = ReadMorePCMData(1 - BufferInUse);
-
 	// Have we reached the end of the compressed sound?
 	if( bLooped )
 	{
@@ -497,6 +459,66 @@ void FCoreAudioSoundSource::HandleRealTimeSource( void )
 }
 
 /**
+ * Handles feeding new data to a real time decompressed sound
+ */
+void FCoreAudioSoundSource::HandleRealTimeSource(bool bBlockForData)
+{
+	const bool bGetMoreData = bBlockForData || (RealtimeAsyncTask == nullptr);
+	int32 BufferIndex = (BufferInUse + NumActiveBuffers) % 3;
+	if (RealtimeAsyncTask)
+	{
+		const bool bTaskDone = RealtimeAsyncTask->IsDone();
+		if (bTaskDone || bBlockForData)
+		{
+			bool bLooped = false;
+
+			if (!bTaskDone)
+			{
+				RealtimeAsyncTask->EnsureCompletion();
+			}
+
+			switch(RealtimeAsyncTask->GetTask().GetTaskType())
+			{
+			case ERealtimeAudioTaskType::Decompress:
+				bLooped = RealtimeAsyncTask->GetTask().GetBufferLooped();
+				++NumActiveBuffers;
+				break;
+
+			case ERealtimeAudioTaskType::Procedural:
+				const int32 BytesWritten = RealtimeAsyncTask->GetTask().GetBytesWritten();
+				CoreAudioBuffers[BufferIndex].AudioDataSize = BytesWritten;
+				if (BytesWritten > 0)
+				{
+					++NumActiveBuffers;
+				}
+				break;
+			}
+
+			delete RealtimeAsyncTask;
+			RealtimeAsyncTask = nullptr;
+
+			HandleRealTimeSourceData(bLooped);
+
+			if (++BufferIndex > 2)
+			{
+				BufferIndex = 0;
+			}
+		}
+	}
+
+	if (bGetMoreData)
+	{
+		// Get the next bit of streaming data
+		const bool bLooped = ReadMorePCMData(BufferIndex, EDataReadMode::Asynchronous);
+
+		if (RealtimeAsyncTask == nullptr)
+		{
+			HandleRealTimeSourceData(bLooped);
+		}
+	}
+}
+
+/**
  * Queries the status of the currently associated wave instance.
  *
  * @return	true if the wave instance/ source has finished playback and false if it is 
@@ -513,30 +535,19 @@ bool FCoreAudioSoundSource::IsFinished( void )
 	if( WaveInstance )
 	{
 		// If not rendering, we're either at the end of a sound, or starved
-		if( NumActiveBuffers == 0 )
+		// and we are expecting the sound to be finishing
+		if (NumActiveBuffers == 0 && (bBuffersToFlush || !bStreamedSound))
 		{
-			// ... are we expecting the sound to be finishing?
-			if( bBuffersToFlush || !bStreamedSound )
-			{
-				// ... notify the wave instance that it has finished playing.
-				WaveInstance->NotifyFinished();
-				return( true );
-			}
+			// ... notify the wave instance that it has finished playing.
+			WaveInstance->NotifyFinished();
+			return true;
 		}
 
 		// Service any real time sounds
-		if( bStreamedSound )
+		if( bStreamedSound && !bBuffersToFlush && NumActiveBuffers < 3)
 		{
-			if( NumActiveBuffers < 2 )
-			{
-				// Continue feeding new sound data (unless we are waiting for the sound to finish)
-				if( !bBuffersToFlush )
-				{
-					HandleRealTimeSource();
-				}
-
-				return( false );
-			}
+			// Continue feeding new sound data (unless we are waiting for the sound to finish)
+			HandleRealTimeSource(NumActiveBuffers < 2);
 		}
 
 		return( false );
@@ -601,276 +612,305 @@ OSStatus FCoreAudioSoundSource::CreateAndConnectAudioUnit( OSType Type, OSType S
 	return Status;
 }
 
+void FCoreAudioSoundSource::InitSourceUnit(AudioStreamBasicDescription* StreamFormat, AUNode& HeadNode)
+{
+	AudioComponentDescription Desc = {kAudioUnitType_FormatConverter, kAudioUnitSubType_AUConverter, kAudioUnitManufacturer_Apple, 0, 0};
+	OSStatus ErrorStatus = AUGraphAddNode(AudioDevice->GetAudioUnitGraph(), &Desc, &SourceNode);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AUGraphNodeInfo(AudioDevice->GetAudioUnitGraph(), SourceNode, nullptr, &SourceUnit);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(SourceUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(SourceUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	// Setup the callback which feeds audio to the source audio unit
+	AURenderCallbackStruct Input;
+	Input.inputProc = &CoreAudioRenderCallback;
+	Input.inputProcRefCon = this;
+	SAFE_CA_CALL( AudioUnitSetProperty(SourceUnit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &Input, sizeof(Input)));
+
+	HeadNode = SourceNode;
+}
+
+void FCoreAudioSoundSource::InitLowPassEffect(AudioStreamBasicDescription* StreamFormat, AUNode& HeadNode)
+{
+	AudioComponentDescription Desc = {kAudioUnitType_Effect, kAudioUnitSubType_LowPassFilter, kAudioUnitManufacturer_Apple, 0, 0};
+	OSStatus ErrorStatus = AUGraphAddNode(AudioDevice->GetAudioUnitGraph(), &Desc, &LowPassNode);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AUGraphNodeInfo(AudioDevice->GetAudioUnitGraph(), LowPassNode, nullptr, &LowPassUnit);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(LowPassUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(LowPassUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	// Set the cutoff frequency to be the nyquist at first
+	float CutoffFreq = AudioDevice->SampleRate * 0.5f;
+	ErrorStatus = AudioUnitSetParameter(LowPassUnit, kLowPassParam_CutoffFrequency,	kAudioUnitScope_Global, 0, CutoffFreq, 0);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitInitialize(LowPassUnit);
+	check(ErrorStatus == noErr);
+
+	// Connect the current head node to the radio node (i.e. source -> radio effect)
+	ErrorStatus = AUGraphConnectNodeInput(AudioDevice->GetAudioUnitGraph(), HeadNode, 0, LowPassNode, 0);
+	check(ErrorStatus == noErr);
+
+	// The radio node becomes the head node
+	HeadNode = LowPassNode;
+}
+
+void FCoreAudioSoundSource::InitRadioSourceEffect(AudioStreamBasicDescription* StreamFormat, AUNode& HeadNode)
+{
+	AudioComponentDescription Desc = {kAudioUnitType_Effect, 'Rdio', 'Epic', 0, 0};
+	OSStatus ErrorStatus = AUGraphAddNode(AudioDevice->GetAudioUnitGraph(), &Desc, &RadioNode);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AUGraphNodeInfo(AudioDevice->GetAudioUnitGraph(), RadioNode, nullptr, &RadioUnit);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(RadioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(RadioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitInitialize(RadioUnit);
+	check(ErrorStatus == noErr);
+
+	// Connect the current head node to the radio node (i.e. source -> radio effect)
+	ErrorStatus = AUGraphConnectNodeInput(AudioDevice->GetAudioUnitGraph(), HeadNode, 0, RadioNode, 0);
+	check(ErrorStatus == noErr);
+
+	// The radio node becomes the head node
+	HeadNode = RadioNode;
+}
+
+void FCoreAudioSoundSource::InitEqSourceEffect(AudioStreamBasicDescription* StreamFormat, AUNode& HeadNode)
+{
+	AudioComponentDescription Desc = { kAudioUnitType_Effect, kAudioUnitSubType_NBandEQ, kAudioUnitManufacturer_Apple, 0, 0 };
+
+	OSStatus ErrorStatus = AUGraphAddNode(AudioDevice->GetAudioUnitGraph(), &Desc, &EQNode);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AUGraphNodeInfo(AudioDevice->GetAudioUnitGraph(), EQNode, nullptr, &EQUnit);
+	check(ErrorStatus == noErr);
+
+	UInt32 NumBands = 4;
+	ErrorStatus = AudioUnitSetProperty(EQUnit, kAUNBandEQProperty_NumberOfBands, kAudioUnitScope_Global, 0, &NumBands, sizeof(NumBands));
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(EQUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(EQUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	for (int32 Band = 0; Band < 4; ++Band)
+	{
+		// Now set the filter types for each band
+		ErrorStatus = AudioUnitSetParameter(EQUnit, kAUNBandEQParam_FilterType + Band, kAudioUnitScope_Global, 0, kAUNBandEQFilterType_Parametric, 0);
+		check(ErrorStatus == noErr);
+
+		// Now make sure the bands are not bypassed
+		ErrorStatus = AudioUnitSetParameter(EQUnit, kAUNBandEQParam_BypassBand + Band, kAudioUnitScope_Global, 0, 0, 0);
+		check(ErrorStatus == noErr);
+	}
+
+	ErrorStatus = AudioUnitInitialize(EQUnit);
+	check(ErrorStatus == noErr);
+
+	// Connect the current head node to the radio node (i.e. head -> eq effect)
+	ErrorStatus = AUGraphConnectNodeInput(AudioDevice->GetAudioUnitGraph(), HeadNode, 0, EQNode, 0);
+	check(ErrorStatus == noErr);
+
+	// The radio node becomes the head node
+	HeadNode = EQNode;
+}
+
+void FCoreAudioSoundSource::InitReverbSourceEffect(AudioStreamBasicDescription* StreamFormat, AUNode& HeadNode)
+{
+	AudioComponentDescription Desc = {kAudioUnitType_Effect, kAudioUnitSubType_MatrixReverb, kAudioUnitManufacturer_Apple, 0, 0};
+	OSStatus ErrorStatus = AUGraphAddNode(AudioDevice->GetAudioUnitGraph(), &Desc, &ReverbNode);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AUGraphNodeInfo(AudioDevice->GetAudioUnitGraph(), ReverbNode, nullptr, &ReverbUnit);
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(ReverbUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitSetProperty(ReverbUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, StreamFormat, sizeof(AudioStreamBasicDescription));
+	check(ErrorStatus == noErr);
+
+	ErrorStatus = AudioUnitInitialize(ReverbUnit);
+	check(ErrorStatus == noErr);
+
+	// Connect the current head node to the input of the reverb node (i.e. head -> reverb effect)
+	ErrorStatus = AUGraphConnectNodeInput(AudioDevice->GetAudioUnitGraph(), HeadNode, 0, ReverbNode, 0);
+	check(ErrorStatus == noErr);
+
+	// The radio node becomes the head node
+	HeadNode = ReverbNode;
+}
+
+
 bool FCoreAudioSoundSource::AttachToAUGraph()
 {
-	AudioChannel = FindFreeAudioChannel();
+	// We should usually have a non-zero AudioChannel here, but this can happen when unpausing a sound
+	if (AudioChannel == 0)
+	{
+		AudioChannel = AudioDevice->FindFreeAudioChannel();
+		if (AudioChannel == 0)
+		{
+			return false;
+		}
+	}
+
+	check(MixerInputNumber != -1);
 
 	OSStatus ErrorStatus = noErr;
-	AUNode DestNode = -1;
-	int32 DestInputNumber = 0;
+	AUNode HeadNode = -1;
+	AUNode FinalNode = -1;
 	AudioStreamBasicDescription* StreamFormat = NULL;
 	
-	if( Buffer->NumChannels < 3 )
+	if (Buffer->NumChannels < 3)
 	{
 		ErrorStatus = AudioConverterNew( &Buffer->PCMFormat, &AudioDevice->Mixer3DFormat, &CoreAudioConverter );
-		DestNode = AudioDevice->GetMixer3DNode();
-		MixerInputNumber = DestInputNumber = AudioDevice->GetFreeMixer3DInput();
-		
+		FinalNode = AudioDevice->GetMixer3DNode();
+
 		uint32 SpatialSetting = ( Buffer->NumChannels == 1 ) ? kSpatializationAlgorithm_SoundField : kSpatializationAlgorithm_StereoPassThrough;
-		AudioUnitSetProperty( AudioDevice->GetMixer3DUnit(), kAudioUnitProperty_SpatializationAlgorithm, kAudioUnitScope_Input, MixerInputNumber, &SpatialSetting, sizeof( SpatialSetting ) );
-		AudioUnitSetParameter( AudioDevice->GetMixer3DUnit(), k3DMixerParam_Distance, kAudioUnitScope_Input, MixerInputNumber, 1.0f, 0 );
+		ErrorStatus = AudioUnitSetProperty( AudioDevice->GetMixer3DUnit(), kAudioUnitProperty_SpatializationAlgorithm, kAudioUnitScope_Input, MixerInputNumber, &SpatialSetting, sizeof( SpatialSetting ) );
+		check(ErrorStatus == noErr);
+
+		ErrorStatus = AudioUnitSetParameter( AudioDevice->GetMixer3DUnit(), k3DMixerParam_Distance, kAudioUnitScope_Input, MixerInputNumber, 1.0f, 0 );
+		check(ErrorStatus == noErr);
 
 		StreamFormat = &AudioDevice->Mixer3DFormat;
 	}
 	else
-	{
-		MixerInputNumber = DestInputNumber = AudioDevice->GetFreeMatrixMixerInput();
-		DestNode = AudioDevice->GetMatrixMixerNode();
+	{	
+		FinalNode = AudioDevice->GetMatrixMixerNode();
 		StreamFormat = &AudioDevice->MatrixMixerInputFormat;
 		
 		ErrorStatus = AudioConverterNew( &Buffer->PCMFormat, &AudioDevice->MatrixMixerInputFormat, &CoreAudioConverter );
+		check(ErrorStatus == noErr);
 
 		bool bIs6ChannelOGG = Buffer->NumChannels == 6
 							&& ((Buffer->DecompressionState && Buffer->DecompressionState->UsesVorbisChannelOrdering())
 							|| WaveInstance->WaveData->bDecompressedFromOgg);
 
-		AudioDevice->SetupMatrixMixerInput( DestInputNumber, bIs6ChannelOGG );
+		AudioDevice->SetupMatrixMixerInput( MixerInputNumber, bIs6ChannelOGG );
 	}
 
-	if( ErrorStatus != noErr )
-	{
-		UE_LOG(LogCoreAudio, Warning, TEXT("CoreAudioConverter creation failed, error code %d"), ErrorStatus);
-	}
+	// Initiliaze the "source" node, the node that is generating audio
+	// This node becomes the "head" node
+	InitSourceUnit(StreamFormat, HeadNode);
 
-	int FiltersNeeded = 0;
-#if EQ_ENABLED
-	bool bNeedEQFilter = IsEQFilterApplied();
-	if( bNeedEQFilter )
-	{
-		++FiltersNeeded;
-	}
-#else
+	// Figure out what filters are needed
+
 	bool bNeedEQFilter = false;
-#endif
-
-#if RADIO_ENABLED
-	bool bNeedRadioFilter = Effects->bRadioAvailable && WaveInstance->bApplyRadioFilter;
-	if( bNeedRadioFilter )
-	{
-		++FiltersNeeded;
-	}
-#else
 	bool bNeedRadioFilter = false;
-#endif
-
-#if REVERB_ENABLED
-	bool bNeedReverbFilter = bReverbApplied;
-	if( bNeedReverbFilter )
-	{
-		++FiltersNeeded;
-	}
-#else
 	bool bNeedReverbFilter = false;
+
+#if CORE_AUDIO_EQ_ENABLED
+	bNeedEQFilter = IsEQFilterApplied();
 #endif
 
-	if( FiltersNeeded > 0 )
+#if CORE_AUDIO_RADIO_ENABLED
+	bNeedRadioFilter = Effects->bRadioAvailable && WaveInstance->bApplyRadioFilter;
+#endif
+
+#if CORE_AUDIO_REVERB_ENABLED
+	bNeedReverbFilter = IsReverbApplied();
+#endif
+
+#if CORE_AUDIO_LOWPASS_ENABLED
+	InitLowPassEffect(StreamFormat, HeadNode);
+#endif
+
+	// Radio filter will always go first
+	if (bNeedRadioFilter)
 	{
-		uint32 BusCount = FiltersNeeded + ( bNeedEQFilter ? 0 : 1 );	// one for each filter, plus one for dry voice if there's no EQ filter
-
-		// Prepare Voice Merger
-		SAFE_CA_CALL( CreateAudioUnit( kAudioUnitType_Mixer, kAudioUnitSubType_MatrixMixer, kAudioUnitManufacturer_Apple, NULL, NULL, &StreamMergerNode, &StreamMergerUnit ) );
-
-		// Set Bus Counts
-		uint32 NumBuses = BusCount;
-		SAFE_CA_CALL( AudioUnitSetProperty( StreamMergerUnit, kAudioUnitProperty_ElementCount, kAudioUnitScope_Input, 0, &NumBuses, sizeof(uint32) ) );
-		NumBuses = 1;
-		SAFE_CA_CALL( AudioUnitSetProperty(	StreamMergerUnit, kAudioUnitProperty_ElementCount, kAudioUnitScope_Output, 0, &NumBuses, sizeof(uint32) ) );
-
-		// Set Input Formats
-		for( int32 InputIndex = 0; InputIndex < BusCount; ++InputIndex )
-		{
-			SAFE_CA_CALL( AudioUnitSetProperty( StreamMergerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, InputIndex, StreamFormat, sizeof( AudioStreamBasicDescription ) ) );
-		}
-
-		// Set Output Format
-		SAFE_CA_CALL( AudioUnitSetProperty( StreamMergerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, StreamFormat, sizeof( AudioStreamBasicDescription ) ) );
-
-		SAFE_CA_CALL( AudioUnitInitialize( StreamMergerUnit ) );
-
-		// Set Master volume
-		SAFE_CA_CALL( AudioUnitSetParameter( StreamMergerUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Global, 0xFFFFFFFF, 1.0, 0 ) );
-
-		// Enable Output
-		SAFE_CA_CALL( AudioUnitSetParameter( StreamMergerUnit, kMatrixMixerParam_Enable, kAudioUnitScope_Output, 0, 1.0, 0 ) );
-
-		// Set Output volumes
-		for( int32 ChannelIndex = 0; ChannelIndex < StreamFormat->mChannelsPerFrame; ++ChannelIndex )
-		{
-			SAFE_CA_CALL( AudioUnitSetParameter( StreamMergerUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, ChannelIndex, 1.0, 0 ) );
-		}
-
-		for( int32 InputIndex = 0; InputIndex < BusCount; ++InputIndex )
-		{
-			// Enable Input
-			SAFE_CA_CALL( AudioUnitSetParameter( StreamMergerUnit, kMatrixMixerParam_Enable, kAudioUnitScope_Input, InputIndex, 1.0, 0 ) );
-		}
-
-		for( int32 ChannelIndex = 0; ChannelIndex < StreamFormat->mChannelsPerFrame; ++ChannelIndex )
-		{
-			for( int32 InputBusIndex = 0; InputBusIndex < BusCount; ++InputBusIndex )
-			{
-				int32 InputChannelIndex = InputBusIndex*StreamFormat->mChannelsPerFrame + ChannelIndex;
-
-				// Set Input Channel Volume
-				SAFE_CA_CALL( AudioUnitSetParameter( StreamMergerUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Input, InputChannelIndex, 1.0, 0 ) );
-
-				// Set Crossfade Volume - each input channel goes to specific output channel. The rest of connections is left at zero.
-				SAFE_CA_CALL( AudioUnitSetParameter( StreamMergerUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Global, ( InputChannelIndex << 16 ) | ChannelIndex, 1.0, 0 ) );
-			}
-		}
-
-		SAFE_CA_CALL( AUGraphConnectNodeInput( AudioDevice->GetAudioUnitGraph(), StreamMergerNode, 0, DestNode, DestInputNumber ) );
-
-		DestNode = StreamMergerNode;
-		DestInputNumber = 0;
-
-		// Prepare and initialize stream splitter
-		SAFE_CA_CALL( CreateAudioUnit( kAudioUnitType_Mixer, kAudioUnitSubType_MatrixMixer, kAudioUnitManufacturer_Apple, NULL, NULL, &StreamSplitterNode, &StreamSplitterUnit ) );
-
-		// Set bus counts
-		NumBuses = 1;
-		SAFE_CA_CALL( AudioUnitSetProperty( StreamSplitterUnit, kAudioUnitProperty_ElementCount, kAudioUnitScope_Input, 0, &NumBuses, sizeof(uint32) ) );
-		NumBuses = BusCount;
-		SAFE_CA_CALL( AudioUnitSetProperty(	StreamSplitterUnit, kAudioUnitProperty_ElementCount, kAudioUnitScope_Output, 0, &NumBuses, sizeof(uint32) ) );
-
-		// Set Input format
-		SAFE_CA_CALL( AudioUnitSetProperty( StreamSplitterUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, StreamFormat, sizeof( AudioStreamBasicDescription ) ) );
-
-		// Set Output formats
-		for( int32 OutputIndex = 0; OutputIndex < BusCount; ++OutputIndex )
-		{
-			SAFE_CA_CALL( AudioUnitSetProperty( StreamSplitterUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, OutputIndex, StreamFormat, sizeof( AudioStreamBasicDescription ) ) );
-		}
-
-		SAFE_CA_CALL( AudioUnitInitialize( StreamSplitterUnit ) );
-
-		// Set Master volume
-		SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Global, 0xFFFFFFFF, 1.0, 0 ) );
-
-		// Enable Input
-		SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Enable, kAudioUnitScope_Input, 0, 1.0, 0 ) );
-
-		// Set Input Volumes
-		for( int32 ChannelIndex = 0; ChannelIndex < StreamFormat->mChannelsPerFrame; ++ChannelIndex )
-		{
-			SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Input, ChannelIndex, 1.0, 0 ) );
-		}
-
-		for( int32 OutputIndex = 0; OutputIndex < BusCount; ++OutputIndex )
-		{
-			// Enable Output
-			SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Enable, kAudioUnitScope_Output, OutputIndex, 1.0, 0 ) );
-		}
-
-		for( int32 ChannelIndex = 0; ChannelIndex < StreamFormat->mChannelsPerFrame; ++ChannelIndex )
-		{
-			for( int32 OutputBusIndex = 0; OutputBusIndex < BusCount; ++OutputBusIndex )
-			{
-				int32 OutputChannelIndex = OutputBusIndex*StreamFormat->mChannelsPerFrame + ChannelIndex;
-
-				// Set Output Channel Volume
-				SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, OutputChannelIndex, 1.0, 0 ) );
-
-				// Set Crossfade Volume - each output channel goes from specific input channel. The rest of connections is left at zero.
-				SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Global, ( ChannelIndex << 16 ) | OutputChannelIndex, 1.0, 0 ) );
-			}
-		}
-
-		// Prepare and connect appropriate filters
-#if EQ_ENABLED
-		if( bNeedEQFilter )
-		{
-			SAFE_CA_CALL( CreateAndConnectAudioUnit( kAudioUnitType_Effect, kAudioUnitSubType_AUFilter, kAudioUnitManufacturer_Apple, DestNode, DestInputNumber, StreamFormat, StreamFormat, &EQNode, &EQUnit ) );
-			SAFE_CA_CALL( AUGraphConnectNodeInput( AudioDevice->GetAudioUnitGraph(), StreamSplitterNode, DestInputNumber, EQNode, 0 ) );
-		}
-		else
-#endif
-		{
-			// Add direct connection between stream splitter and stream merger, for dry voice
-			SAFE_CA_CALL( AUGraphConnectNodeInput( AudioDevice->GetAudioUnitGraph(), StreamSplitterNode, 0, StreamMergerNode, 0 ) );
-
-			// Silencing dry voice (for testing)
-//			for( int32 ChannelIndex = 0; ChannelIndex < StreamFormat->mChannelsPerFrame; ++ChannelIndex )
-//			{
-//				SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Volume, kAudioUnitScope_Output, ChannelIndex, 0.0, 0 ) );
-//			}
-//			SAFE_CA_CALL( AudioUnitSetParameter( StreamSplitterUnit, kMatrixMixerParam_Enable, kAudioUnitScope_Output, 0, 0.0, 0 ) );
-		}
-		++DestInputNumber;
-
-#if RADIO_ENABLED
-		if( bNeedRadioFilter )
-		{
-			SAFE_CA_CALL( CreateAndConnectAudioUnit( kAudioUnitType_Effect, 'Rdio', 'Epic', DestNode, DestInputNumber, StreamFormat, StreamFormat, &RadioNode, &RadioUnit ) );
-			SAFE_CA_CALL( AUGraphConnectNodeInput( AudioDevice->GetAudioUnitGraph(), StreamSplitterNode, DestInputNumber, RadioNode, 0 ) );
-			++DestInputNumber;
-		}
-#endif
-#if REVERB_ENABLED
-		if( bNeedReverbFilter )
-		{
-			SAFE_CA_CALL( CreateAndConnectAudioUnit( kAudioUnitType_Effect, kAudioUnitSubType_MatrixReverb, kAudioUnitManufacturer_Apple, DestNode, DestInputNumber, StreamFormat, StreamFormat, &ReverbNode, &ReverbUnit ) );
-			SAFE_CA_CALL( AUGraphConnectNodeInput( AudioDevice->GetAudioUnitGraph(), StreamSplitterNode, DestInputNumber, ReverbNode, 0 ) );
-			++DestInputNumber;
-		}
-#endif
-
-		DestNode = StreamSplitterNode;
-		DestInputNumber = 0;
+		InitRadioSourceEffect(StreamFormat, HeadNode);
 	}
 
-	SAFE_CA_CALL( CreateAndConnectAudioUnit( kAudioUnitType_FormatConverter, kAudioUnitSubType_AUConverter, kAudioUnitManufacturer_Apple, DestNode, DestInputNumber, StreamFormat, StreamFormat, &SourceNode, &SourceUnit ) );
+	if (bNeedEQFilter)
+	{
+		InitEqSourceEffect(StreamFormat, HeadNode);
+	}
+
+	// Reverb filter always goes last
+	if (bNeedReverbFilter)
+	{
+		InitReverbSourceEffect(StreamFormat, HeadNode);
+	}
+
+	// Now connect the head node to the final output node
+	// Connect the current head node to the radio node (i.e. source -> radio effect)
+	ErrorStatus = AUGraphConnectNodeInput(AudioDevice->GetAudioUnitGraph(), HeadNode, 0, FinalNode, MixerInputNumber);
+	check(ErrorStatus == noErr);
 
 	if( ErrorStatus == noErr )
 	{
-		AURenderCallbackStruct Input;
-		Input.inputProc = &CoreAudioRenderCallback;
-		Input.inputProcRefCon = this;
-		SAFE_CA_CALL( AudioUnitSetProperty( SourceUnit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &Input, sizeof( Input ) ) );
+		AUGraph Graph = AudioDevice->GetAudioUnitGraph();
+		check(Graph);
+		SAFE_CA_CALL(AUGraphUpdate( Graph, NULL ));
 
-		SAFE_CA_CALL( AUGraphUpdate( AudioDevice->GetAudioUnitGraph(), NULL ) );
-
-		GAudioChannels[AudioChannel] = this;
+		AudioDevice->AudioChannels[AudioChannel] = this;
 	}
 	return ErrorStatus == noErr;
 }
 
 bool FCoreAudioSoundSource::DetachFromAUGraph()
 {
+	check(AudioChannel != 0);
+	check(MixerInputNumber != -1);
+
 	AURenderCallbackStruct Input;
 	Input.inputProc = NULL;
 	Input.inputProcRefCon = NULL;
 	SAFE_CA_CALL( AudioUnitSetProperty( SourceUnit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &Input, sizeof( Input ) ) );
 
-	if( StreamSplitterNode )
-	{
-		SAFE_CA_CALL( AUGraphDisconnectNodeInput( AudioDevice->GetAudioUnitGraph(), StreamSplitterNode, 0 ) );
-	}
-	if( ReverbNode )
+// Make sure we still have null nodes
+#if !CORE_AUDIO_RADIO_ENABLED
+	check(RadioNode == 0);
+#endif
+
+#if !CORE_AUDIO_REVERB_ENABLED
+	check(ReverbNode == 0);
+#endif
+
+#if !CORE_AUDIO_EQ_ENABLED
+	check(EQNode == 0);
+#endif
+
+#if !CORE_AUDIO_LOWPASS_ENABLED
+	check(LowPassNode == 0);
+#endif
+
+	if (ReverbNode)
 	{
 		SAFE_CA_CALL( AUGraphDisconnectNodeInput( AudioDevice->GetAudioUnitGraph(), ReverbNode, 0 ) );
 	}
-	if( RadioNode )
+	if (RadioNode)
 	{
 		SAFE_CA_CALL( AUGraphDisconnectNodeInput( AudioDevice->GetAudioUnitGraph(), RadioNode, 0 ) );
 	}
-	if( EQNode )
+	if (EQNode)
 	{
 		SAFE_CA_CALL( AUGraphDisconnectNodeInput( AudioDevice->GetAudioUnitGraph(), EQNode, 0 ) );
 	}
-	if( StreamMergerNode )
+	if (LowPassNode)
 	{
-		SAFE_CA_CALL( AUGraphDisconnectNodeInput( AudioDevice->GetAudioUnitGraph(), StreamMergerNode, 0 ) );
+		SAFE_CA_CALL( AUGraphDisconnectNodeInput( AudioDevice->GetAudioUnitGraph(), LowPassNode, 0 ) );
 	}
 
 	if( AudioChannel )
@@ -887,9 +927,9 @@ bool FCoreAudioSoundSource::DetachFromAUGraph()
 		}
 	}
 
-	if( StreamMergerNode )
+	if (LowPassNode)
 	{
-		SAFE_CA_CALL( AUGraphRemoveNode( AudioDevice->GetAudioUnitGraph(), StreamMergerNode ) );
+		SAFE_CA_CALL( AUGraphRemoveNode( AudioDevice->GetAudioUnitGraph(), LowPassNode ) );
 	}
 	if( EQNode )
 	{
@@ -903,10 +943,6 @@ bool FCoreAudioSoundSource::DetachFromAUGraph()
 	{
 		SAFE_CA_CALL( AUGraphRemoveNode( AudioDevice->GetAudioUnitGraph(), ReverbNode ) );
 	}
-	if( StreamSplitterNode )
-	{
-		SAFE_CA_CALL( AUGraphRemoveNode( AudioDevice->GetAudioUnitGraph(), StreamSplitterNode ) );
-	}
 	if( AudioChannel )
 	{
 		SAFE_CA_CALL( AUGraphRemoveNode( AudioDevice->GetAudioUnitGraph(), SourceNode ) );
@@ -917,21 +953,19 @@ bool FCoreAudioSoundSource::DetachFromAUGraph()
 	AudioConverterDispose( CoreAudioConverter );
 	CoreAudioConverter = NULL;
 
-	StreamMergerNode = 0;
-	StreamMergerUnit = NULL;
+	LowPassNode = 0;
+	LowPassUnit = nullptr;
 	EQNode = 0;
-	EQUnit = NULL;
+	EQUnit = nullptr;
 	RadioNode = 0;
-	RadioUnit = NULL;
+	RadioUnit = nullptr;
 	ReverbNode = 0;
-	ReverbUnit = NULL;
-	StreamSplitterNode = 0;
-	StreamSplitterUnit = NULL;
+	ReverbUnit = nullptr;
 	SourceNode = 0;
-	SourceUnit = NULL;
+	SourceUnit = nullptr;
 	MixerInputNumber = -1;
-	
-	GAudioChannels[AudioChannel] = NULL;
+
+	AudioDevice->AudioChannels[AudioChannel] = nullptr;
 	AudioChannel = 0;
 	
 	return true;
@@ -1029,7 +1063,10 @@ OSStatus FCoreAudioSoundSource::CoreAudioConvertCallback( AudioConverterRef Conv
 		if( Source->bStreamedSound )
 		{
 			Source->NumActiveBuffers--;
-			Source->BufferInUse = 1 - Source->BufferInUse;
+			if (++Source->BufferInUse > 2)
+			{
+				Source->BufferInUse = 0;
+			}
 		}
 		else if( Source->WaveInstance )
 		{

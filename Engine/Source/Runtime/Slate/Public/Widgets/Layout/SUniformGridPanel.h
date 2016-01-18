@@ -55,11 +55,11 @@ public:
 
 	void Construct( const FArguments& InArgs );
 
-	// BEGIN SPanel INTERFACE	
+	//~ Begin SPanel Interface	
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual FChildren* GetChildren() override;
-	// END SPanel INTERFACE
+	//~ End SPanel Interface
 
 	/** See SlotPadding attribute */
 	void SetSlotPadding(TAttribute<FMargin> InSlotPadding);

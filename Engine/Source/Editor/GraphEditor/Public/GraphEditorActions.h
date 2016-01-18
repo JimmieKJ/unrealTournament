@@ -60,12 +60,33 @@ public:
 	TSharedPtr< FUICommandInfo > CollapseSelectionToFunction;
 	TSharedPtr< FUICommandInfo > CollapseSelectionToMacro;
 
+	// Alignment commands
+	TSharedPtr< FUICommandInfo > AlignNodesTop;
+	TSharedPtr< FUICommandInfo > AlignNodesMiddle;
+	TSharedPtr< FUICommandInfo > AlignNodesBottom;
+
+	TSharedPtr< FUICommandInfo > AlignNodesLeft;
+	TSharedPtr< FUICommandInfo > AlignNodesCenter;
+	TSharedPtr< FUICommandInfo > AlignNodesRight;
+
+	TSharedPtr< FUICommandInfo > StraightenConnections;
+
+	TSharedPtr< FUICommandInfo > DistributeNodesHorizontally;
+	TSharedPtr< FUICommandInfo > DistributeNodesVertically;
+	
+	// Enable/disable commands
+	TSharedPtr< FUICommandInfo > EnableNodes;
+	TSharedPtr< FUICommandInfo > DisableNodes;
+	TSharedPtr< FUICommandInfo > EnableNodes_Always;
+	TSharedPtr< FUICommandInfo > EnableNodes_DevelopmentOnly;
+
 	//
 	TSharedPtr< FUICommandInfo > SelectReferenceInLevel;
 	TSharedPtr< FUICommandInfo > AssignReferencedActor;
 
-	// Find variable references
-	TSharedPtr< FUICommandInfo > FindVariableReferences;
+	// Find references
+	TSharedPtr< FUICommandInfo > FindReferences;
+	TSharedPtr< FUICommandInfo > FindAndReplaceReferences;
 
 	// Goto native code actions
 	TSharedPtr< FUICommandInfo > GotoNativeFunctionDefinition;
@@ -77,6 +98,7 @@ public:
 	// Pin-specific actions
 	TSharedPtr< FUICommandInfo > BreakPinLinks;
 	TSharedPtr< FUICommandInfo > PromoteToVariable;
+	TSharedPtr< FUICommandInfo > PromoteToLocalVariable;
 	TSharedPtr< FUICommandInfo > SplitStructPin;
 	TSharedPtr< FUICommandInfo > RecombineStructPin;
 	TSharedPtr< FUICommandInfo > StartWatchingPin;
@@ -101,9 +123,6 @@ public:
 
 	//create a comment node
 	TSharedPtr< FUICommandInfo > CreateComment;
-
-	// Find instances of a Custom event node
-	TSharedPtr< FUICommandInfo > FindInstancesOfCustomEvent;
 
 	// Zoom in and out on the graph editor
 	TSharedPtr< FUICommandInfo > ZoomIn;

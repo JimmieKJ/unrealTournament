@@ -14,6 +14,7 @@ class UMG_API UNativeWidgetHost : public UWidget
 	GENERATED_UCLASS_BODY()
 
 	void SetContent(TSharedRef<SWidget> InContent);
+	TSharedPtr< SWidget > GetContent() const { return NativeWidget; }
 
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 

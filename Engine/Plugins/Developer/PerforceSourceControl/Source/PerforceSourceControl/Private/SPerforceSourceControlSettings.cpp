@@ -21,6 +21,7 @@ void SPerforceSourceControlSettings::Construct(const FArguments& InArgs)
 
 	if (PortName.IsEmpty() && UserName.IsEmpty())
 	{
+#if USE_P4_API
 		ClientApi TestP4;
 		Error P4Error;
 		TestP4.Init(&P4Error);
@@ -31,6 +32,7 @@ void SPerforceSourceControlSettings::Construct(const FArguments& InArgs)
 		PerforceSourceControl.AccessSettings().SetPort(PortName);
 		PerforceSourceControl.AccessSettings().SetUserName(UserName);
 		PerforceSourceControl.SaveSettings();
+#endif
 	}
 
 	FSlateFontInfo Font = FEditorStyle::GetFontStyle(TEXT("SourceControl.LoginWindow.Font"));

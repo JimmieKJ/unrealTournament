@@ -103,6 +103,10 @@ protected:
 	UPROPERTY(Category = PawnAction, EditDefaultsOnly, BlueprintReadWrite)
 	uint32 bShouldPauseMovement : 1;
 
+	/** if set, action will call OnFinished notify even when ending as FailedToStart */
+	UPROPERTY(Category = PawnAction, EditDefaultsOnly, BlueprintReadWrite, AdvancedDisplay)
+	uint32 bAlwaysNotifyOnFinished : 1;
+
 private:
 	/** indicates whether action is in the process of abortion, and if so on what state */
 	EPawnActionAbortState::Type AbortState;
@@ -197,7 +201,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AI|PawnActions")
 	TEnumAsByte<EAIRequestPriority::Type> GetActionPriority();
 
-	UFUNCTION(BlueprintCallable, Category = "AI|PawnActions", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "AI|PawnActions", meta = (WorldContext="WorldContextObject"))
 	static UPawnAction* CreateActionInstance(UObject* WorldContextObject, TSubclassOf<UPawnAction> ActionClass);
 
 	//----------------------------------------------------------------------//

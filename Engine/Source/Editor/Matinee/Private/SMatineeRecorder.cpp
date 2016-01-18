@@ -121,7 +121,7 @@ void SMatineeRecorder::Construct(const FArguments& InArgs)
 	LevelViewportClient->SetViewRotation( EditorViewportDefs::DefaultPerspectiveViewRotation );
 
 	LevelViewportClient->SetRealtime( true );
-	LevelViewportClient->SetAllowMatineePreview( true );
+	LevelViewportClient->SetAllowCinematicPreview( true );
 	LevelViewportClient->Viewport->SetUserFocus(true);
 	LevelViewportClient->SetMatineeRecordingWindow( ParentMatineeWindow.Pin().Get() );
 

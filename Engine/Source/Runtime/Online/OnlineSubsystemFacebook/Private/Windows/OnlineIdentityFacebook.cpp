@@ -5,7 +5,7 @@
 
 // FUserOnlineAccountFacebook
 
-TSharedRef<FUniqueNetId> FUserOnlineAccountFacebook::GetUserId() const
+TSharedRef<const FUniqueNetId> FUserOnlineAccountFacebook::GetUserId() const
 {
 	return UserIdPtr;
 }
@@ -23,6 +23,11 @@ FString FUserOnlineAccountFacebook::GetDisplayName() const
 }
 
 bool FUserOnlineAccountFacebook::GetUserAttribute(const FString& AttrName, FString& OutAttrValue) const
+{
+	return false;
+}
+
+bool FUserOnlineAccountFacebook::SetUserAttribute(const FString& AttrName, const FString& AttrValue)
 {
 	return false;
 }
@@ -205,9 +210,9 @@ TArray<TSharedPtr<FUserOnlineAccount> > FOnlineIdentityFacebook::GetAllUserAccou
 	return Result;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityFacebook::GetUniquePlayerId(int32 LocalUserNum) const
+TSharedPtr<const FUniqueNetId> FOnlineIdentityFacebook::GetUniquePlayerId(int32 LocalUserNum) const
 {
-	const TSharedPtr<FUniqueNetId>* FoundId = UserIds.Find(LocalUserNum);
+	const TSharedPtr<const FUniqueNetId>* FoundId = UserIds.Find(LocalUserNum);
 	if (FoundId != NULL)
 	{
 		return *FoundId;
@@ -263,7 +268,7 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 	return true;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityFacebook::CreateUniquePlayerId(uint8* Bytes, int32 Size)
+TSharedPtr<const FUniqueNetId> FOnlineIdentityFacebook::CreateUniquePlayerId(uint8* Bytes, int32 Size)
 {
 	if (Bytes != NULL && Size > 0)
 	{
@@ -273,7 +278,7 @@ TSharedPtr<FUniqueNetId> FOnlineIdentityFacebook::CreateUniquePlayerId(uint8* By
 	return NULL;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityFacebook::CreateUniquePlayerId(const FString& Str)
+TSharedPtr<const FUniqueNetId> FOnlineIdentityFacebook::CreateUniquePlayerId(const FString& Str)
 {
 	return MakeShareable(new FUniqueNetIdString(Str));
 }
@@ -282,7 +287,7 @@ TSharedPtr<FUniqueNetId> FOnlineIdentityFacebook::CreateUniquePlayerId(const FSt
 
 bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 {
-	TSharedPtr<FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
+	TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 	if (UserId.IsValid())
 	{
 		// remove cached user account
@@ -310,7 +315,7 @@ bool FOnlineIdentityFacebook::AutoLogin(int32 LocalUserNum)
 
 ELoginStatus::Type FOnlineIdentityFacebook::GetLoginStatus(int32 LocalUserNum) const
 {
-	TSharedPtr<FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
+	TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 	if (UserId.IsValid())
 	{
 		return GetLoginStatus(*UserId);
@@ -332,7 +337,7 @@ ELoginStatus::Type FOnlineIdentityFacebook::GetLoginStatus(const FUniqueNetId& U
 
 FString FOnlineIdentityFacebook::GetPlayerNickname(int32 LocalUserNum) const
 {
-	TSharedPtr<FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
+	TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 	if (UserId.IsValid())
 	{
 		return  GetPlayerNickname(*UserId);
@@ -353,7 +358,7 @@ FString FOnlineIdentityFacebook::GetPlayerNickname(const FUniqueNetId& UserId) c
 
 FString FOnlineIdentityFacebook::GetAuthToken(int32 LocalUserNum) const
 {
-	TSharedPtr<FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
+	TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 	if (UserId.IsValid())
 	{
 		TSharedPtr<FUserOnlineAccount> UserAccount = GetUserAccount(*UserId);
@@ -447,5 +452,10 @@ FPlatformUserId FOnlineIdentityFacebook::GetPlatformUserIdFromUniqueNetId(const 
 	}
 
 	return PLATFORMUSERID_NONE;
+}
+
+FString FOnlineIdentityFacebook::GetAuthType() const
+{
+	return TEXT("");
 }
 

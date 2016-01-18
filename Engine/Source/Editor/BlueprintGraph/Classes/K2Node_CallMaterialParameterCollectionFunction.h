@@ -9,7 +9,7 @@ class UK2Node_CallMaterialParameterCollectionFunction : public UK2Node_CallFunct
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin EdGraphNode interface
+	//~ Begin EdGraphNode Interface
 	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
-	// End EdGraphNode interface
+	//~ End EdGraphNode Interface
 };

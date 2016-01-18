@@ -3,8 +3,6 @@
 #include "RHI.h"
 #include "ModuleManager.h"
 
-#if USE_DYNAMIC_RHI
-
 FDynamicRHI* PlatformCreateDynamicRHI()
 {
 	FDynamicRHI* DynamicRHI = NULL;
@@ -15,5 +13,3 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 	DynamicRHI = DynamicRHIModule->CreateRHI();
 	return DynamicRHI;
 }
-
-#endif // USE_DYNAMIC_RHI

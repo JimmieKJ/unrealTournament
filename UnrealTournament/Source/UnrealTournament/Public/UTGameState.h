@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTReplicatedLoadoutInfo.h"
@@ -45,7 +45,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bTeamGame : 1;
 
-	/** True if plaeyrs are allowed to switch teams (if team game). */
+	/** True if players are allowed to switch teams (if team game). */
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bAllowTeamSwitches : 1;
 
@@ -65,6 +65,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 bPlayPlayerIntro : 1;
 
+	/** If true, kill icon messages persist through a round/ */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		uint32 bPersistentKillIconMessages : 1;
+
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
 	int32 GoalScore;
@@ -83,8 +87,12 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	TSubclassOf<UUTLocalMessage> MultiKillMessageClass;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	TSubclassOf<UUTLocalMessage> SpreeMessageClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText GoalScoreText;
 
 	/** amount of time between kills to qualify as a multikill */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
@@ -161,6 +169,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** Called once per second (or so depending on TimeDilation) after RemainingTime() has been replicated */
 	virtual void DefaultTimer();
 
+	/** called to check for time message broadcasts ("3 minutes remain", etc) */
+	virtual void CheckTimerMessage();
+
 	/** Determines if a player is on the same team */
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool OnSameTeam(const AActor* Actor1, const AActor* Actor2);
@@ -177,9 +188,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInProgress() const;
-
-	UFUNCTION(BlueprintCallable, Category = GameState)
-	virtual bool IsMatchAtHalftime() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInOvertime() const;
@@ -340,11 +348,11 @@ public:
 
 protected:
 	// These IDs are banned for the remainder of the match
-	TArray<TSharedPtr<class FUniqueNetId>> TempBans;
+	TArray<TSharedPtr<const FUniqueNetId>> TempBans;
 
 public:
 	// Returns true if this player has been temp banned from this server/instance
-	bool IsTempBanned(const TSharedPtr<class FUniqueNetId>& UniqueId);
+	bool IsTempBanned(const TSharedPtr<const FUniqueNetId>& UniqueId);
 
 	// Registers a vote for temp banning a player.  If the player goes above the threashhold, they will be banned for the remainder of the match
 	void VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter);
@@ -370,6 +378,9 @@ public:
 	/** Used to translate replicated FName refs to highlights into text. */
 	TMap< FName, FText> HighlightMap;
 
+	/** Used to translate replicated FName refs to highlights into text. */
+	TMap< FName, FText> ShortHighlightMap;
+
 	/** Used to prioritize which highlights to show (lower value = higher priority). */
 	TMap< FName, float> HighlightPriority;
 
@@ -391,8 +402,10 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = "Game")
 		void AddMinorHighlights(AUTPlayerState* PS);
 
-	/** Add appropriate top scorer highlights to each team score leader. */
-	virtual void SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue);
+	virtual FText FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index);
+
+	/** Return short version of top highlight for that player. */
+	virtual FText ShortPlayerHighlightText(AUTPlayerState* PS);
 
 	/** Return a score value for the "impressiveness" of the Match highlights for PS. */
 	virtual float MatchHighlightScore(AUTPlayerState* PS);
@@ -471,6 +484,13 @@ public:
 		int32 TauntSelectionIndex;
 
 	virtual void FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList);
+
+	/** hook for blueprints */
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	TSubclassOf<AGameMode> GetGameModeClass() const
+	{
+		return GameModeClass;
+	}
 };
 
 

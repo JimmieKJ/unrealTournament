@@ -9,10 +9,11 @@
 
 
 
-void SProjectLauncherProfileNameDescEditor::Construct(const FArguments& InArgs, bool InShowAddDescriptionText)
+void SProjectLauncherProfileNameDescEditor::Construct(const FArguments& InArgs, const FProjectLauncherModelRef& InModel, bool InShowAddDescriptionText)
 {
 	EnterTextDescription = FText(LOCTEXT("LaunchProfileEnterDescription", "Enter a description here."));
 
+	Model = InModel;
 	LaunchProfileAttr = InArgs._LaunchProfile;
 	bShowAddDescriptionText = InShowAddDescriptionText;
 

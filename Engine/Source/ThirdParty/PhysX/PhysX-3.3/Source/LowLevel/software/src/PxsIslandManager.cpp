@@ -51,20 +51,26 @@ public:
 		mCellIslandGenSPUInput.mNodeManagerElems=(Node*)islandManager->mNodeManager.mElems;
 		mCellIslandGenSPUInput.mNodeManagerFreeElems=(NodeType*)islandManager->mNodeManager.mFreeElems;
 		mCellIslandGenSPUInput.mNodeManagerNextFreeElem=islandManager->mNodeManager.mNextFreeElem;
+		mCellIslandGenSPUInput.mNodeManagerNumFreeElems=islandManager->mNodeManager.mNumFreeElems;
 		mCellIslandGenSPUInput.mNodeManagerCapacity=islandManager->mNodeManager.mCapacity;
 		mCellIslandGenSPUInput.mNodeManagerNextNodeIds=islandManager->mNodeManager.mNextNodeIds;
-		mCellIslandGenSPUInput.mKinematicNodeBitmapWords=islandManager->mNodeManager.mKinematicNodeIdBitmapWords;
-		mCellIslandGenSPUInput.mKinematicNodeBitmapWordCount=islandManager->mNodeManager.mKinematicNodeIdBitmapWordsSize;
+		for(PxU32 i = 0; i < NodeManager::eMAX_NB_BITMAPS; i++)
+		{
+			mCellIslandGenSPUInput.mNodeManagerBitmapWords[i]=islandManager->mNodeManager.mBitmapWords[i];
+			mCellIslandGenSPUInput.mNodeManagerBitmapWordCounts[i]=islandManager->mNodeManager.mBitmapWordCounts[i];
+		}
 
 		mCellIslandGenSPUInput.mEdgeManagerElems=(Edge*)islandManager->mEdgeManager.mElems;
 		mCellIslandGenSPUInput.mEdgeManagerFreeElems=(EdgeType*)islandManager->mEdgeManager.mFreeElems;
 		mCellIslandGenSPUInput.mEdgeManagerNextFreeElem=islandManager->mEdgeManager.mNextFreeElem;
+		mCellIslandGenSPUInput.mEdgeManagerNumFreeElems=islandManager->mEdgeManager.mNumFreeElems;
 		mCellIslandGenSPUInput.mEdgeManagerCapacity=islandManager->mEdgeManager.mCapacity;
 		mCellIslandGenSPUInput.mEdgeManagerNextEdgeIds=islandManager->mEdgeManager.mNextEdgeIds;
 
 		mCellIslandGenSPUInput.mIslandsElems=(Island*)islandManager->mIslands.mElems;
 		mCellIslandGenSPUInput.mIslandsFreeElems=(IslandType*)islandManager->mIslands.mFreeElems;
 		mCellIslandGenSPUInput.mIslandsNextFreeElem=islandManager->mIslands.mNextFreeElem;
+		mCellIslandGenSPUInput.mIslandsNumFreeElems=islandManager->mIslands.mNumFreeElems;
 		mCellIslandGenSPUInput.mIslandsCapacity=islandManager->mIslands.mCapacity;
 		mCellIslandGenSPUInput.mIslandsBitmapWords=islandManager->mIslands.mBitmapWords;
 		mCellIslandGenSPUInput.mIslandsBitmapWordCount=islandManager->mIslands.mBitmapWordCount;
@@ -132,7 +138,7 @@ public:
 			mCellIslandGenSPUInput.mSolverConstraintsSize=islandManager->mProcessSleepingIslandsComputeData.mSolverConstraintsSize;
 			mCellIslandGenSPUInput.mIslandIndicesSize=islandManager->mProcessSleepingIslandsComputeData.mIslandIndicesSize;
 			mCellIslandGenSPUInput.mIslandIndicesSecondPassSize=islandManager->mProcessSleepingIslandsComputeData.mIslandIndicesSecondPassSize;
-			mCellIslandGenSPUInput.mSecondPassIslandsBitmapWords=islandManager->mIslandManagerUpdateWorkBuffers.mIslandBitmap2Words;
+			mCellIslandGenSPUInput.mSecondPassIslandsBitmapWords=islandManager->mIslandManagerUpdateWorkBuffers.mBitmapWords[IslandManagerUpdateWorkBuffers::ePROCESS_ISLANDS];
 		}
 
 #if SPU_PROFILE
@@ -157,8 +163,12 @@ public:
 		if(CellIslandGenSPUOutput::eSUCCESS_STATE_PASSED==mCellIslandGenSPUOutput.mSuccessState)
 		{
 			islandManager->mNodeManager.mNextFreeElem=mCellIslandGenSPUOutput.mNodeManagerNextFreeElem;
+			islandManager->mNodeManager.mNumFreeElems=mCellIslandGenSPUOutput.mNodeManagerNumFreeElems;
 			islandManager->mEdgeManager.mNextFreeElem=mCellIslandGenSPUOutput.mEdgeManagerNextFreeElem;
+			islandManager->mEdgeManager.mNumFreeElems=mCellIslandGenSPUOutput.mEdgeManagerNumFreeElems;
 			islandManager->mIslands.mNextFreeElem=mCellIslandGenSPUOutput.mIslandsNextFreeElem;
+			islandManager->mIslands.mNumFreeElems=mCellIslandGenSPUOutput.mIslandsNumFreeElems;
+
 
 			islandManager->mProcessSleepingIslandsComputeData.mBodiesToWakeSize=mCellIslandGenSPUOutput.mBodiesToWakeSize;
 			islandManager->mProcessSleepingIslandsComputeData.mBodiesToSleepSize=mCellIslandGenSPUOutput.mBodiesToSleepSize;
@@ -192,7 +202,8 @@ public:
 					islandManager->mEdgeChangeManager.getCreatedEdges(),islandManager->mEdgeChangeManager.getNumCreatedEdges(),
 					islandManager->mEdgeChangeManager.getBrokenEdges(),islandManager->mEdgeChangeManager.getNumBrokenEdges(),
 					islandManager->mEdgeChangeManager.getJoinedEdges(),islandManager->mEdgeChangeManager.getNumJoinedEdges(),
-					islandManager->mNodeManager.getKinematicNodeBitmap(), islandManager->mNumAddedKinematics,
+					islandManager->mNodeManager.getBitmap(NodeManager::eKINEMATIC), islandManager->mNodeManager.getBitmap(NodeManager::eKINEMATIC_CHANGE), islandManager->mNumAddedKinematics,
+					islandManager->mNodeManager.getBitmap(NodeManager::eNOT_READY_FOR_SLEEPING), islandManager->mNodeManager.getBitmap(NodeManager::eNOT_READY_FOR_SLEEPING_CHANGE),
 					islandManager->mNodeManager,islandManager->mEdgeManager,islandManager->mIslands,islandManager->mRootArticulationManager,
 					islandManager->mProcessSleepingIslandsComputeData,
 					islandManager->mIslandManagerUpdateWorkBuffers,
@@ -201,7 +212,7 @@ public:
 			else
 			{
 				updateIslandsSecondPassMain(
-					islandManager->mRigidBodyOffset, *islandManager->mIslandManagerUpdateWorkBuffers.mIslandBitmap2,
+					islandManager->mRigidBodyOffset, *islandManager->mIslandManagerUpdateWorkBuffers.mBitmap[IslandManagerUpdateWorkBuffers::eBROKEN_EDGE_ISLANDS],
 					islandManager->mEdgeChangeManager.getBrokenEdges(),islandManager->mEdgeChangeManager.getNumBrokenEdges(),
 					islandManager->mNodeManager,islandManager->mEdgeManager,islandManager->mIslands,islandManager->mRootArticulationManager,
 					islandManager->mProcessSleepingIslandsComputeData,
@@ -213,11 +224,13 @@ public:
 		}
 
 		PX_ASSERT(islandManager->mProcessSleepingIslandsComputeData.mSolverBodiesSize<=islandManager->mNumAddedRBodies);
-		PX_ASSERT(islandManager->mProcessSleepingIslandsComputeData.mSolverKinematicsSize<=islandManager->mNumEdgesWithKinematicNodes);
+		PX_ASSERT(islandManager->mProcessSleepingIslandsComputeData.mSolverKinematicsSize<=islandManager->mNumRequiredKinematicDuplicates);
 		PX_ASSERT(islandManager->mProcessSleepingIslandsComputeData.mSolverArticulationsSize<=islandManager->mNumAddedArtics);
 
 		islandManager->mNodeChangeManager.reset();
 		islandManager->mEdgeChangeManager.reset();
+		islandManager->mNodeManager.clearKinematicStateChanges();
+		islandManager->mNodeManager.clearNotReadyForSleepStateChanges();
 
 		PxSpuTask::release();
 	}
@@ -254,19 +267,19 @@ PxsIslandManager::PxsIslandManager(const PxU32 rigidBodyOffset, PxcScratchAlloca
 	mNumAddedEdges[EDGE_TYPE_CONSTRAINT]=0;
 	mNumAddedEdges[EDGE_TYPE_ARTIC]=0;
 
-	mNumEdgesWithKinematicNodes=0;
+	mNumEdgeReferencesToKinematic=0;
+	mNumRequiredKinematicDuplicates=0;
 
 	mEverythingAsleep = false;
 	mHasAnythingChanged = true;
 	mPerformIslandUpdate = false;
 
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap1Words=NULL;
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap1WordCount=0;
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap1=(Cm::BitMap*)mIslandManagerUpdateWorkBuffers.mIslandsBitmap1Buffer;
-
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap2Words=NULL;
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap2WordCount=0;
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap2=(Cm::BitMap*)mIslandManagerUpdateWorkBuffers.mIslandsBitmap2Buffer;
+	for(PxU32 i = 0; i < IslandManagerUpdateWorkBuffers::eMAX_NB_BITMAPS; i++)
+	{
+		mIslandManagerUpdateWorkBuffers.mBitmapWords[i]=NULL;
+		mIslandManagerUpdateWorkBuffers.mBitmapWordCount[i]=0;
+		mIslandManagerUpdateWorkBuffers.mBitmap[i]=(Cm::BitMap*)mIslandManagerUpdateWorkBuffers.mBitmapBuffer[i];
+	}
 
 	mIslandManagerUpdateWorkBuffers.mKinematicProxySourceNodeIds=NULL;
 	mIslandManagerUpdateWorkBuffers.mKinematicProxyNextNodeIds=NULL;
@@ -402,6 +415,8 @@ void PxsIslandManager::setKinematic(const PxsIslandManagerNodeHook& hook, bool i
 			mNodeManager.clearKinematicNode(hook.index);
 		}
 
+		mNodeManager.setKinematicStateChange(hook.index);
+
 		mHasAnythingChanged = true;
 	}
 }
@@ -457,11 +472,6 @@ void PxsIslandManager::removeNode(PxsIslandManagerNodeHook& hook)
 		mNumAddedArtics -=  1;
 	}
 
-	if(node.getIsKinematic())
-	{
-		mNodeManager.deleteKinematicNode(hook.index);
-	}
-
 	hook.index=INVALID_NODE;
 
 	mHasAnythingChanged = true;
@@ -479,6 +489,7 @@ void PxsIslandManager::addEdge(const eEdgeType edgeType, const PxsIslandManagerN
 	edge.init();
 	edge.setNode1(body0hook.index);
 	edge.setNode2(body1hook.index);
+	edge.setCreated();
 	mEdgeChangeManager.addCreatedEdge(freeEdge);
 	mNumAddedEdges[edgeType]++;
 }
@@ -555,7 +566,7 @@ void PxsIslandManager::removeEdge(const eEdgeType edgeType, PxsIslandManagerEdge
 void PxsIslandManager::freeBuffers()
 {
 	//CCD can call postSolver so we can get here an extra time but there will be nothing to do for ccd passes.
-	if(NULL==mIslandManagerUpdateWorkBuffers.mIslandBitmap1Words)
+	if(NULL==mIslandManagerUpdateWorkBuffers.mBitmapWords[0])
 	{
 		return;
 	}
@@ -570,10 +581,11 @@ void PxsIslandManager::freeBuffers()
 		IslandType* graphStartIslands=mIslandManagerUpdateWorkBuffers.mGraphStartIslands;
 		IslandType* graphNextIslands=mIslandManagerUpdateWorkBuffers.mGraphNextIslands;
 
-		Cm::BitMap& kinematicIslandsBitmap=*mIslandManagerUpdateWorkBuffers.mIslandBitmap2;
+		//Any of the bitmaps will do here.
+		Cm::BitMap& kinematicIslandsBitmap=*mIslandManagerUpdateWorkBuffers.mBitmap[IslandManagerUpdateWorkBuffers::eBROKEN_EDGE_ISLANDS];
 		kinematicIslandsBitmap.clearFast();
 
-		const Cm::BitMap& kinematicNodesBitmap=mNodeManager.getKinematicNodeBitmap();
+		const Cm::BitMap& kinematicNodesBitmap=mNodeManager.getBitmap(NodeManager::eKINEMATIC);
 
 		mergeKinematicProxiesBackToSource
 			(kinematicNodesBitmap,
@@ -597,8 +609,10 @@ void PxsIslandManager::freeBuffers()
 	mHasAnythingChanged = false;
 	mPerformIslandUpdate = false;
 
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap1Words=NULL;
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap2Words=NULL;
+	for(PxU32 i = 0; i < IslandManagerUpdateWorkBuffers::eMAX_NB_BITMAPS; i++)
+	{
+		mIslandManagerUpdateWorkBuffers.mBitmapWords[i]=NULL;
+	}
 
 	mIslandManagerUpdateWorkBuffers.mKinematicProxySourceNodeIds=NULL;
 	mIslandManagerUpdateWorkBuffers.mKinematicProxyNextNodeIds=NULL;
@@ -625,196 +639,312 @@ PX_FORCE_INLINE PxU32 alignSize16(const PxU32 size)
 	return ((size + 15) & ~15);
 }
 
-PxU32 PxsIslandManager::resizeForKinematics()
+#ifdef PX_DEBUG
+PxU32 PxsIslandManager::countNumReferencedKinematics()
 {
-	//First count the number of available nodes.
-	const PxU32 numAvailableNodes=mNodeManager.getNumAvailableElems();
+	PxU32 numKinematicDupes = 0;
 
-	//Now count the number of edges that reference a kinematic.
-	PxU32 numEdgesWithKinematicNode=0;
-	const Node* PX_RESTRICT allNodes=mNodeManager.getAll();
-	const Edge* PX_RESTRICT allEdges=mEdgeManager.getAll();
+	const Node* PX_RESTRICT allNodes = mNodeManager.getAll();
+	const Edge* PX_RESTRICT allEdges = mEdgeManager.getAll();
 
-	//First count the new edges that aren't connected.
-	//(don't count new edges twice because new edges that are connected will also be in the joined edges array).
-	//Any new kinematics can only be involved in a new edge so this takes care of all the new kinematics.
-	const PxU32 createdEdgeSize=mEdgeChangeManager.getNumCreatedEdges();
-	const EdgeType* PX_RESTRICT createdEdges=mEdgeChangeManager.getCreatedEdges();
-	for(PxU32 i=0;i<createdEdgeSize;i++)
+	//Count the number of dupes from joined edges not yet in islands.
+	const PxU32 joinedEdgesSize = mEdgeChangeManager.getNumJoinedEdges();
+	const EdgeType* PX_RESTRICT joinedEdges = mEdgeChangeManager.getJoinedEdges();
+	for(PxU32 i = 0; i < joinedEdgesSize; i++)
 	{
-		const EdgeType edgeId=createdEdges[i];
+		const EdgeType edgeId = joinedEdges[i];
 		PX_ASSERT(edgeId < mEdgeManager.getCapacity());
-		const Edge& edge=allEdges[edgeId];
-		if(!edge.getIsConnected())
+		const Edge& edge = allEdges[edgeId];
+		if(!edge.getIsRemoved())
 		{
-			const NodeType nodeId1=edge.getNode1();
-			if(INVALID_NODE!=nodeId1)
+			PX_ASSERT(edge.getIsConnected());
+			const NodeType nodeIds[2] = {edge.getNode1(), edge.getNode2()};
+			for(PxU32 k = 0; k < 2; k++)
 			{
-				PX_ASSERT(nodeId1<mNodeManager.getCapacity());
-				const Node& node1=allNodes[nodeId1];
-				if(node1.getIsKinematic())
+				const NodeType nodeId = nodeIds[k];
+				if(INVALID_NODE != nodeId)
 				{
-					numEdgesWithKinematicNode++;				
-				}
-			}
-
-			const NodeType nodeId2=edge.getNode2();
-			if(INVALID_NODE!=nodeId2)
-			{
-				PX_ASSERT(nodeId2<mNodeManager.getCapacity());
-				const Node& node2=allNodes[nodeId2];
-				if(node2.getIsKinematic())
-				{
-					numEdgesWithKinematicNode++;				
+					PX_ASSERT(nodeId < mNodeManager.getCapacity());
+					const Node& node = allNodes[nodeId];
+					PX_ASSERT(!node.getIsDeleted());
+					if(node.getIsKinematic())
+					{
+						numKinematicDupes++;	
+					}
 				}
 			}
 		}
 	}
 
-	//Now count the joined edges.
-	const PxU32 joinedEdgesSize=mEdgeChangeManager.getNumJoinedEdges();
-	const EdgeType* PX_RESTRICT joinedEdges=mEdgeChangeManager.getJoinedEdges();
-	for(PxU32 i=0;i<joinedEdgesSize;i++)
+	const Cm::BitMap& islandBitmap = mIslands.getBitmap();
+	const PxU32* islandBitmapWords = islandBitmap.getWords();
+	const PxU32 lastSetBit = islandBitmap.findLast();
+	const EdgeType* nextEdgeIds = mEdgeManager.getNextEdgeIds();
+	for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
 	{
-		const EdgeType edgeId=joinedEdges[i];
-		PX_ASSERT(edgeId < mEdgeManager.getCapacity());
-		const Edge& edge=allEdges[edgeId];
-
-		const NodeType nodeId1=edge.getNode1();
-		if(INVALID_NODE!=nodeId1)
+		for(PxU32 b = islandBitmapWords[w]; b; b &= b-1)
 		{
-			PX_ASSERT(nodeId1<mNodeManager.getCapacity());
-			const Node& node1=allNodes[nodeId1];
-			if(node1.getIsKinematic())
+			const IslandType islandId = (NodeType)(w<<5|Ps::lowestSetBit(b));
+			const Island& island = mIslands.get(islandId);
+			EdgeType nextEdgeId = island.mStartEdgeId;
+			while(INVALID_EDGE != nextEdgeId)
 			{
-				numEdgesWithKinematicNode++;				
-			}
-		}
+				const Edge& edge = allEdges[nextEdgeId];
 
-		const NodeType nodeId2=edge.getNode2();
-		if(INVALID_NODE!=nodeId2)
-		{
-			PX_ASSERT(nodeId2<mNodeManager.getCapacity());
-			const Node& node2=allNodes[nodeId2];
-			if(node2.getIsKinematic())
-			{
-				numEdgesWithKinematicNode++;				
+				//If the edge is removed or broken and the edge references a kinematic then remove then decrement the count.
+				if(!edge.getIsRemoved() && edge.getIsConnected())
+				{
+					const NodeType nodeIds[2] = {edge.getNode1(), edge.getNode2()};
+					for(PxU32 k = 0; k < 2; k++)
+					{
+						const NodeType nodeId = nodeIds[k];
+						if(nodeId != INVALID_NODE && allNodes[nodeId].getIsKinematic() && !allNodes[nodeId].getIsDeleted())
+						{
+							numKinematicDupes++;
+						}
+					}
+				}
+
+				nextEdgeId = nextEdgeIds[nextEdgeId];
 			}
 		}
 	}
 
-	//Now count the edges that have already been sorted into islands.
-	//No need to count edges that have been removed.
+	return numKinematicDupes;
+}
+#endif
+
+PxI32 PxsIslandManager::computeChangeToNumEdgeReferencesToKinematic()
+{
+	//Now count the changes to the number of required duplicate kinematic nodes.
+	PxU32 numAddedDuplicateKinematicNodes = 0;
+	PxU32 numRemovedDuplicateKinematicNodes = 0;
+
+	const Node* PX_RESTRICT allNodes = mNodeManager.getAll();
+	const Edge* PX_RESTRICT allEdges = mEdgeManager.getAll();
+	const Cm::BitMap& kinematicStateChangeNodes = mNodeManager.getBitmap(NodeManager::eKINEMATIC_CHANGE);
+
+	//Now count the change from joined edges.
+	const PxU32 joinedEdgesSize = mEdgeChangeManager.getNumJoinedEdges();
+	const EdgeType* PX_RESTRICT joinedEdges = mEdgeChangeManager.getJoinedEdges();
+	for(PxU32 i = 0; i < joinedEdgesSize; i++)
+	{
+		const EdgeType edgeId = joinedEdges[i];
+		PX_ASSERT(edgeId < mEdgeManager.getCapacity());
+		const Edge& edge = allEdges[edgeId];
+		if(!edge.getIsRemoved())
+		{
+			PX_ASSERT(edge.getIsConnected());
+
+			const NodeType nodeIds[2] = {edge.getNode1(), edge.getNode2()};
+			for(PxU32 k = 0; k < 2; k++)
+			{
+				const NodeType nodeId = nodeIds[k];
+				if(INVALID_NODE != nodeId)
+				{
+					PX_ASSERT(nodeId < mNodeManager.getCapacity());
+					const Node& node = allNodes[nodeId];
+					if(node.getIsKinematic())
+					{
+						numAddedDuplicateKinematicNodes++;		
+					}
+				}
+			}
+		}
+	}
+
+	//Now account for edges that are already in islands.
 	if(mBuffer)
 	{
-		//Compute the islands affected by a kinematic.
+		//Compute the islands affected by change to kinematic state.
 		Cm::BitMap islandsAffectedBitmap;
-
-		//Set up the bitmap words.
 		const PxU32 islandsAffectedWordCount = (mIslands.getCapacity() >> 5);
 		const PxU32 islandsAffectedWordsByteSize = alignSize16(sizeof(PxU32)*islandsAffectedWordCount);
-		PX_ASSERT(islandsAffectedWordsByteSize<=mBufferSize);
+		PX_ASSERT(islandsAffectedWordsByteSize <= mBufferSize);
 		PxU32* islandsAffectedWords=(PxU32*)(mBuffer);
 		PxMemZero(islandsAffectedWords, islandsAffectedWordsByteSize);
 		islandsAffectedBitmap.setWords(islandsAffectedWords,islandsAffectedWordCount);
 
-		//Set the bitmap of islands affected by kinematic nodes.
+		//Count the change from broken edges.
+		//Only decrement if the kinematic node was kinematic at a previous frame
+		//because it would only have counted if it had been previously kinematic.
+		const PxU32 brokenEdgesSize = mEdgeChangeManager.getNumBrokenEdges();
+		const EdgeType* PX_RESTRICT brokenEdges = mEdgeChangeManager.getBrokenEdges();
+		for(PxU32 i = 0; i < brokenEdgesSize; i++)
 		{
-			const Cm::BitMap& kinematicNodeBitmap=mNodeManager.getKinematicNodeBitmap();
-			const PxU32* PX_RESTRICT kinematicNodeBitmapWords=kinematicNodeBitmap.getWords();
-			const PxU32 lastSetBit = kinematicNodeBitmap.findLast();
-			for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
+			const EdgeType edgeId = brokenEdges[i];
+			PX_ASSERT(edgeId < mEdgeManager.getCapacity());
+			const Edge& edge = allEdges[edgeId];
+			PX_ASSERT(!edge.getIsConnected());
+
+			const NodeType nodeIds[2] = {edge.getNode1(), edge.getNode2()};
+			for(PxU32 k = 0; k < 2; k++)
 			{
-				for(PxU32 b = kinematicNodeBitmapWords[w]; b; b &= b-1)
+				const NodeType nodeId = nodeIds[k];
+				if(INVALID_NODE != nodeId)
 				{
-					const NodeType kinematicNodeId = (NodeType)(w<<5|Ps::lowestSetBit(b));
-					PX_ASSERT(kinematicNodeId<mNodeManager.getCapacity());
-					const Node& kinematicNode=allNodes[kinematicNodeId];
-					PX_ASSERT(kinematicNode.getIsKinematic());
-					PX_ASSERT(!kinematicNode.getIsDeleted());
-					if(!kinematicNode.getIsNew())
+					PX_ASSERT(nodeId < mNodeManager.getCapacity());
+					const Node& node = allNodes[nodeId];
+					if(node.getIsKinematic() && !kinematicStateChangeNodes.test(nodeId))
 					{
-						PX_ASSERT(kinematicNode.getIslandId()!=INVALID_ISLAND);
-						PX_ASSERT(kinematicNode.getIslandId() < mIslands.getCapacity());
-						islandsAffectedBitmap.set(kinematicNode.getIslandId());
+						const IslandType islandId = node.getIslandId();
+						if(INVALID_ISLAND != islandId)
+						{
+							islandsAffectedBitmap.set(islandId);
+						}
 					}
 				}
 			}
 		}
 
+		//Now count the change from deleted edges that were deleted without being marked as disconnected.
+		//Only decrement if the kinematic node was kinematic at a previous frame
+		//because it would only have counted if it had been previously kinematic.
+		//If the edge was created and deleted this frame then ignore it
+		//because the edge doesn't yet participate in any island.  
+		const PxU32 deletedEdgesSize = mEdgeChangeManager.getNumDeletedEdges();
+		const EdgeType* PX_RESTRICT deletedEdges = mEdgeChangeManager.getDeletedEdges();
+		for(PxU32 i = 0; i < deletedEdgesSize; i++)
+		{
+			const EdgeType edgeId = deletedEdges[i];
+			PX_ASSERT(edgeId < mEdgeManager.getCapacity());
+			const Edge& edge = allEdges[edgeId];
+			if(!edge.getIsCreated() && edge.getIsConnected())
+			{
+				const NodeType nodeIds[2] = {edge.getNode1(), edge.getNode2()};
+				for(PxU32 k = 0; k < 2; k++)
+				{
+					const NodeType nodeId = nodeIds[k];
+					if(INVALID_NODE != nodeId)
+					{
+						PX_ASSERT(nodeId < mNodeManager.getCapacity());
+						const Node& node = allNodes[nodeId];
+						if(node.getIsKinematic() && !kinematicStateChangeNodes.test(nodeId))
+						{
+							const IslandType islandId = node.getIslandId();
+							PX_ASSERT(INVALID_ISLAND != islandId);
+							islandsAffectedBitmap.set(islandId);
+						}
+					}
+				}
+			}
+		}
+
+		//Now find all islands that contain a node that changed kinematic state.
+		PxU32 lastSetBit = kinematicStateChangeNodes.findLast();
+		const PxU32* kinematicStateChangeNodeWords = kinematicStateChangeNodes.getWords();
+		for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
+		{
+			for(PxU32 b = kinematicStateChangeNodeWords[w]; b; b &= b-1)
+			{
+				const NodeType kinematicNodeId = (NodeType)(w<<5|Ps::lowestSetBit(b));
+				PX_ASSERT(kinematicNodeId<mNodeManager.getCapacity());
+				const Node& kinematicNode = allNodes[kinematicNodeId];
+				PX_ASSERT(!kinematicNode.getIsNew());
+				const IslandType islandId = kinematicNode.getIslandId();
+				PX_ASSERT(islandId != INVALID_ISLAND);
+				PX_ASSERT(islandId < mIslands.getCapacity());
+				islandsAffectedBitmap.set(islandId);
+			}
+		}
+
 		//Iterate over all affected islands and count the number of edges that reference a kinematic.
-		const PxU32 lastSetBit = islandsAffectedBitmap.findLast();
-		const Island* PX_RESTRICT allIslands=mIslands.getAll();
-		const EdgeType* PX_RESTRICT nextEdgeIds=mEdgeManager.getNextEdgeIds();
+		lastSetBit = islandsAffectedBitmap.findLast();
+		const Island* PX_RESTRICT allIslands = mIslands.getAll();
+		const EdgeType* PX_RESTRICT nextEdgeIds = mEdgeManager.getNextEdgeIds();
 		for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
 		{
 			for(PxU32 b = islandsAffectedWords[w]; b; b &= b-1)
 			{
 				const IslandType islandId = (IslandType)(w<<5|Ps::lowestSetBit(b));
 				PX_ASSERT(islandId < mIslands.getCapacity());
-				const Island& island=allIslands[islandId];
-				const EdgeType startEdge=island.mStartEdgeId;
-				EdgeType nextEdge=startEdge;
-				while(INVALID_EDGE!=nextEdge)
+				const Island& island = allIslands[islandId];
+				const EdgeType startEdge = island.mStartEdgeId;
+				EdgeType nextEdge = startEdge;
+				while(INVALID_EDGE != nextEdge)
 				{
 					PX_ASSERT(nextEdge < mEdgeManager.getCapacity());
-					const Edge& edge=allEdges[nextEdge];
-					if(!edge.getIsRemoved())
+					const Edge& edge = allEdges[nextEdge];
+
+					if(!edge.getIsConnected() || edge.getIsRemoved())
 					{
-						const NodeType nodeId1=edge.getNode1();
-						if(INVALID_NODE!=nodeId1)
+						const NodeType nodeIds[2] = {edge.getNode1(), edge.getNode2()};
+						for(PxU32 k = 0; k < 2; k++)
 						{
-							PX_ASSERT(nodeId1<mNodeManager.getCapacity());
-							const Node& node1=allNodes[nodeId1];
-							if(node1.getIsKinematic())
+							const NodeType nodeId = nodeIds[k];
+							if(INVALID_NODE != nodeId)
 							{
-								numEdgesWithKinematicNode++;				
+								const Node& node = allNodes[nodeId];
+								const bool remainsKinematic = node.getIsKinematic() && !kinematicStateChangeNodes.test(nodeId);
+								const bool wasKinematic = !node.getIsKinematic() && kinematicStateChangeNodes.test(nodeId);
+								if(remainsKinematic || wasKinematic)
+								{
+									numRemovedDuplicateKinematicNodes++;
+								}
 							}
 						}
-
-						const NodeType nodeId2=edge.getNode2();
-						if(INVALID_NODE!=nodeId2)
+					}
+					else
+					{
+						const NodeType nodeIds[2] = {edge.getNode1(), edge.getNode2()};
+						for(PxU32 k = 0; k < 2; k++)
 						{
-							PX_ASSERT(nodeId2<mNodeManager.getCapacity());
-							const Node& node2=allNodes[nodeId2];
-							if(node2.getIsKinematic())
+							const NodeType nodeId = nodeIds[k];
+							if(INVALID_NODE != nodeId)
 							{
-								numEdgesWithKinematicNode++;				
+								if(kinematicStateChangeNodes.test(nodeId))
+								{
+									const Node& node = allNodes[nodeId];
+									if(node.getIsKinematic())
+									{
+										numAddedDuplicateKinematicNodes++;
+									}
+									else
+									{
+										numRemovedDuplicateKinematicNodes++;
+									}
+								}
 							}
 						}
 					}
 
 					nextEdge=nextEdgeIds[nextEdge];
+
 				}//edges
 			}//bitmap word
 		}//bitmap words
 	}
 
-	const PxU32 requiredNodeCapacity = mNodeManager.getCapacity() - numAvailableNodes + numEdgesWithKinematicNode;
-	const PxU32 currentCapacity = mNodeManager.getCapacity();
-	if(requiredNodeCapacity > currentCapacity)
-	{
-		const PxU32 roundedCapacity = ((requiredNodeCapacity + 31) & ~31);
-		mNodeManager.resize(roundedCapacity);
-	}
-
-	return numEdgesWithKinematicNode;
+	return ((PxI32)numAddedDuplicateKinematicNodes - (PxI32)numRemovedDuplicateKinematicNodes);
 }
 
 void PxsIslandManager::resizeArrays()
 {
+	//We will create a proxy kinematic node each time an edge references a kinematic and a proxy for each kinematic node itself.
 	//Compute the number of edges that reference a kinematic node.
-	//We will create a proxy kinematic node for each referenced kinematic node.
-	//Don't forget that a kinematic not referenced by an edge still needs to exist in an island.
-	PxU32 numEdgesWithKinematicNodes=resizeForKinematics() + mNumAddedKinematics;
-	mNumEdgesWithKinematicNodes=numEdgesWithKinematicNodes;
+	CM_PROFILE_START(mEventProfiler, Cm::ProfileEventId::IslandGen::GetresizeForKinematics());
+	const PxI32 changeToNumEdgeReferencesToKinematic = computeChangeToNumEdgeReferencesToKinematic();
+	CM_PROFILE_STOP(mEventProfiler, Cm::ProfileEventId::IslandGen::GetresizeForKinematics());
+	//Increment the change to the number of times an edge references a kinematic.
+	PX_ASSERT((changeToNumEdgeReferencesToKinematic >= 0) || (mNumEdgeReferencesToKinematic >= (PxU32)(-changeToNumEdgeReferencesToKinematic)));
+	mNumEdgeReferencesToKinematic += changeToNumEdgeReferencesToKinematic;
+	PX_ASSERT(countNumReferencedKinematics() == mNumEdgeReferencesToKinematic);
+	//The number of required kinematic duplicates is one for each kinematic and one for each edge reference
+	mNumRequiredKinematicDuplicates = mNumEdgeReferencesToKinematic + mNumAddedKinematics;
+	//If we don't have enough nodes then allocate more.
+	const PxU32 numAvailableNodes = mNodeManager.getNumAvailableElems();
+	if(mNumRequiredKinematicDuplicates > numAvailableNodes)
+	{
+		const PxU32 requiredNodeCapacity = mNodeManager.getCapacity() + (mNumRequiredKinematicDuplicates - numAvailableNodes);
+		const PxU32 roundedCapacity = ((requiredNodeCapacity + 31) & ~31);
+		mNodeManager.resize(roundedCapacity);
+	}
 
 	const PxU32 allNodesCapacity=mNodeManager.getCapacity();
 	const PxU32 allEdgesCapacity=mEdgeManager.getCapacity();
 	PX_UNUSED(allEdgesCapacity);
 
-	const PxU32 islandsAffectedWordCount = (allNodesCapacity >> 5);
-	const PxU32 emptyIslandsWordCount = (allNodesCapacity >> 5);
+	const PxU32 islandsWordCount = (allNodesCapacity >> 5);
 
 	const PxU32 numContactManagerEdges = mNumAddedEdges[EDGE_TYPE_CONTACT_MANAGER];
 	const PxU32 numConstraintEdges = mNumAddedEdges[EDGE_TYPE_CONSTRAINT];
@@ -823,7 +953,7 @@ void PxsIslandManager::resizeArrays()
 	PX_ASSERT(numEdges<=allEdgesCapacity);
 
 	const PxU32 numBodiesToWakeSleep = mNumAddedRBodies + mNumAddedArtics;
-	const PxU32 numSolverBodyItems = mNumAddedRBodies + mNumEdgesWithKinematicNodes + mNumAddedArtics;
+	const PxU32 numSolverBodyItems = mNumAddedRBodies + mNumRequiredKinematicDuplicates + mNumAddedArtics;
 
 	const PxU32 kinematicSourceNodesByteSize = alignSize16(sizeof(NodeType)*allNodesCapacity);
 	const PxU32 kinematicProxyNextNodeIdsByteSize = alignSize16(sizeof(NodeType)*allNodesCapacity);
@@ -833,15 +963,14 @@ void PxsIslandManager::resizeArrays()
 	const PxU32 npContactManagersByteSize = alignSize16(sizeof(NarrowPhaseContactManager)*numEdges);
 	const PxU32 solverBodyMapByteSize = alignSize16(sizeof(NodeType)*allNodesCapacity);
 	const PxU32 solverRBodyByteSize = alignSize16(sizeof(PxsRigidBody*)*mNumAddedRBodies);
-	const PxU32 solverKinematicsByteSize = alignSize16(sizeof(PxsRigidBody*)*numEdgesWithKinematicNodes);
+	const PxU32 solverKinematicsByteSize = alignSize16(sizeof(PxsRigidBody*)*mNumRequiredKinematicDuplicates);
 	const PxU32 solverArticByteSize = alignSize16(sizeof(PxsArticulation*)*mNumAddedArtics);
 	const PxU32 solverArticOwnerByteSize = alignSize16(sizeof(void*)*mNumAddedArtics);
 	const PxU32 solverContactManagerByteSize = alignSize16(sizeof(PxsIndexedContactManager)*numContactManagerEdges);
 	const PxU32 solverConstraintByteSize = alignSize16(sizeof(PxsIndexedConstraint)*numConstraintEdges);
 	const PxU32 islandIndicesByteSize = alignSize16(sizeof(PxsIslandIndices)*(numSolverBodyItems+1));
 
-	const PxU32 islandsAffectedWordsByteSize = alignSize16(sizeof(PxU32)*islandsAffectedWordCount);
-	const PxU32 emptyIslandsWordsByteSize = alignSize16(sizeof(PxU32)*emptyIslandsWordCount);
+	const PxU32 islandWordsByteSize = alignSize16(sizeof(PxU32)*islandsWordCount);
 
 	const PxU32 graphNextNodesByteSize = alignSize16(sizeof(NodeType)*allNodesCapacity);
 	const PxU32 graphStartIslandsByteSize = alignSize16(sizeof(IslandType)*allNodesCapacity);
@@ -866,8 +995,7 @@ void PxsIslandManager::resizeArrays()
 		solverDataByteSize;
 
 	const PxU32 nonPersistentworkBufferByteSize=
-		islandsAffectedWordsByteSize+
-		emptyIslandsWordsByteSize+
+		islandWordsByteSize*IslandManagerUpdateWorkBuffers::eMAX_NB_BITMAPS+
 		graphNextNodesByteSize+
 		graphStartIslandsByteSize+
 		graphNextIslandsByteSize;
@@ -944,7 +1072,7 @@ void PxsIslandManager::resizeArrays()
 	PX_ASSERT(NULL==mProcessSleepingIslandsComputeData.mSolverKinematics);
 	mProcessSleepingIslandsComputeData.mSolverKinematics=(PxsRigidBody**)(newBuffer+offset);
 	offset+=solverKinematicsByteSize;
-	mProcessSleepingIslandsComputeData.mSolverKinematicsCapacity=numEdgesWithKinematicNodes;
+	mProcessSleepingIslandsComputeData.mSolverKinematicsCapacity=mNumRequiredKinematicDuplicates;
 	mProcessSleepingIslandsComputeData.mSolverKinematicsSize=0;
 
 	//Resize the array of solver bodies to to be big enough for all bodies.
@@ -998,20 +1126,15 @@ void PxsIslandManager::resizeArrays()
 	offset=persistentWorkbufferByteSize;
 
 	//First island bitmap.
-	PX_ASSERT(NULL==mIslandManagerUpdateWorkBuffers.mIslandBitmap1Words);
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap1Words=(PxU32*)(newBuffer+offset);
-	offset+=islandsAffectedWordsByteSize;
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap1WordCount=islandsAffectedWordCount;
-	PxMemZero(mIslandManagerUpdateWorkBuffers.mIslandBitmap1Words, sizeof(PxU32)*islandsAffectedWordCount);
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap1->setWords(mIslandManagerUpdateWorkBuffers.mIslandBitmap1Words,mIslandManagerUpdateWorkBuffers.mIslandBitmap1WordCount);
-
-	//Second island bitmap.
-	PX_ASSERT(NULL==mIslandManagerUpdateWorkBuffers.mIslandBitmap2Words);
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap2Words=(PxU32*)(newBuffer+offset);
-	offset+=emptyIslandsWordsByteSize;
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap2WordCount=emptyIslandsWordCount;
-	PxMemZero(mIslandManagerUpdateWorkBuffers.mIslandBitmap2Words, sizeof(PxU32)*emptyIslandsWordCount);
-	mIslandManagerUpdateWorkBuffers.mIslandBitmap2->setWords(mIslandManagerUpdateWorkBuffers.mIslandBitmap2Words,mIslandManagerUpdateWorkBuffers.mIslandBitmap2WordCount);
+	for(PxU32 i = 0; i < IslandManagerUpdateWorkBuffers::eMAX_NB_BITMAPS; i++)
+	{
+		PX_ASSERT(NULL==mIslandManagerUpdateWorkBuffers.mBitmapWords[i]);
+		mIslandManagerUpdateWorkBuffers.mBitmapWords[i]=(PxU32*)(newBuffer+offset);
+		offset+=islandWordsByteSize;
+		mIslandManagerUpdateWorkBuffers.mBitmapWordCount[i]=islandsWordCount;
+		PxMemZero(mIslandManagerUpdateWorkBuffers.mBitmapWords[i], sizeof(PxU32)*islandsWordCount);
+		mIslandManagerUpdateWorkBuffers.mBitmap[i]->setWords(mIslandManagerUpdateWorkBuffers.mBitmapWords[i],mIslandManagerUpdateWorkBuffers.mBitmapWordCount[i]);
+	}
 
 	//Array for a copy of nodes for each island.
 	PX_ASSERT(NULL==mIslandManagerUpdateWorkBuffers.mGraphNextNodes);
@@ -1048,6 +1171,9 @@ void PxsIslandManager::resizeArrays()
 
 void PxsIslandManager::cleanupEdgeEvents()
 {
+	PxU8* workBuffer = mBuffer;
+	const PxU32 workBufferByteSize = mBufferSize;
+
 	const PxU32 oldBrokenEdgesSize = mEdgeChangeManager.getNumBrokenEdges();
 	const PxU32 oldJoinedEdgesSize = mEdgeChangeManager.getNumJoinedEdges();
 
@@ -1056,26 +1182,26 @@ void PxsIslandManager::cleanupEdgeEvents()
 		const PxU32 edgeCapacity = mEdgeManager.getCapacity();
 		const PxU32 necessaryByteCapacity = edgeCapacity * sizeof(PxI32);
 		
-		PxU8* workBuffer;
+		PxU8* workBufferToUse;
 		bool scratchAllocated = false;
-		if (mProcessSleepingIslandsComputeData.mDataBlockSize >= necessaryByteCapacity)
-			workBuffer = mProcessSleepingIslandsComputeData.mDataBlock;
+		if (workBufferByteSize >= necessaryByteCapacity)
+			workBufferToUse = workBuffer;
 		else
 		{
-			workBuffer = (PxU8*)mScratchAllocator.alloc(necessaryByteCapacity, true);
+			workBufferToUse = (PxU8*)mScratchAllocator.alloc(necessaryByteCapacity, true);
 			scratchAllocated = true;
 		}
 
-		if (workBuffer)
+		if (workBufferToUse)
 		{
-			PxMemZero(workBuffer, necessaryByteCapacity);
-			mEdgeChangeManager.cleanupEdgeEvents((PxI32*)workBuffer, edgeCapacity);
+			PxMemZero(workBufferToUse, necessaryByteCapacity);
+			mEdgeChangeManager.cleanupEdgeEvents((PxI32*)workBufferToUse, edgeCapacity);
 
 			if (!scratchAllocated)
 				return;
 			else
 			{
-				mScratchAllocator.free(workBuffer);
+				mScratchAllocator.free(workBufferToUse);
 				return;
 			}
 		}
@@ -1088,6 +1214,31 @@ void PxsIslandManager::cleanupEdgeEvents()
 	}
 }
 
+void PxsIslandManager::clearEdgeCreatedFlags()
+{
+	const PxU32 numCreatedEdges = mEdgeChangeManager.getNumCreatedEdges();
+	const EdgeType* createdEdges = mEdgeChangeManager.getCreatedEdges();
+	Edge* allEdges = mEdgeManager.getAll();
+	for(PxU32 i = 0; i < numCreatedEdges; i++)
+	{
+		const EdgeType edgeId = createdEdges[i];
+		Edge& edge = allEdges[edgeId];
+		PX_ASSERT(edge.getIsCreated());
+		edge.clearCreated();
+	}
+}
+
+void PxsIslandManager::clearDeletedNodeStateChanges()
+{
+	const PxU32 numDeletedNodes = mNodeChangeManager.getNumDeletedNodes();
+	const NodeType* deletedNodes = mNodeChangeManager.getDeletedNodes();
+	for(PxU32 i = 0; i < numDeletedNodes; i++)
+	{
+		const NodeType nodeId = deletedNodes[i];
+		PX_ASSERT(mNodeManager.get(nodeId).getIsDeleted());
+		mNodeManager.deleteNode(nodeId);
+	}
+}
 
 void PxsIslandManager::setWokenPairContactManagers()
 {
@@ -1243,7 +1394,12 @@ PxU32 IslandManager::getNumFreeIslands() const
 
 bool PxsIslandManager::isValid()
 {
-	PxU32 numNodes=0;
+	PxU32 numJoinedEdges=0;
+	PxU32 numArtics=0;
+	PxU32 numRigidBodies=0;
+	Cm::BitMap countedKinematics;
+	countedKinematics.clear(sizeof(PxU32)*mNodeManager.getCapacity());
+	PxU32 numKinematics=0;
 
 	const Node* PX_RESTRICT allNodes=mNodeManager.getAll();
 	const PxU32 allNodesCapacity=mNodeManager.getCapacity();
@@ -1252,7 +1408,6 @@ bool PxsIslandManager::isValid()
 	const NodeType* PX_RESTRICT nextNodeIds=mNodeManager.getNextNodeIds();
 	const EdgeType* PX_RESTRICT nextEdgeIds=mEdgeManager.getNextEdgeIds();
 	Cm::BitMap& islandBitmap=mIslands.getBitmap();
-
 	const PxU32 lastSetBit = islandBitmap.findLast();
 	for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
 	{
@@ -1261,13 +1416,43 @@ bool PxsIslandManager::isValid()
 			const IslandType islandId = (IslandType)(w<<5|Ps::lowestSetBit(b));
 			Island& island=mIslands.get(islandId);
 
+
 			//Test that all nodes in the island know they are in the island.
 			NodeType nextNode=island.mStartNodeId;
 			while(INVALID_NODE!=nextNode)
 			{
-				numNodes++;
 				PX_ASSERT(nextNode<allNodesCapacity);
-				if(allNodes[nextNode].getIslandId()!=islandId)
+				const Node& node = allNodes[nextNode];
+
+				if(!node.getIsArticulated())
+				{
+					if(!node.getIsKinematic())
+					{
+						numRigidBodies++;
+					}
+					else
+					{
+						const NodeType proxySourceNode = mIslandManagerUpdateWorkBuffers.mKinematicProxySourceNodeIds[nextNode];
+						if(INVALID_NODE == proxySourceNode)
+						{
+							numKinematics++;
+						}
+						else
+						{
+							if(!countedKinematics.test(proxySourceNode))
+							{
+								numKinematics++;
+								countedKinematics.set(proxySourceNode);
+							}
+						}
+					}
+				}
+				else if(node.getIsRootArticulationLink())
+				{
+					numArtics++;
+				}
+
+				if(node.getIslandId()!=islandId)
 				{
 					return false;
 				}
@@ -1280,6 +1465,12 @@ bool PxsIslandManager::isValid()
 			{
 				PX_ASSERT(nextEdge<allEdgesCapacity);
 				const Edge& edge=allEdges[nextEdge];
+				numJoinedEdges++;
+
+				if(edge.getIsCreated())
+				{
+					return false;
+				}
 
 				//Test that node1 is in the correct island.
 				if(INVALID_NODE!=edge.getNode1())
@@ -1332,6 +1523,41 @@ bool PxsIslandManager::isValid()
 		return false;
 	}
 
+	if(mNodeManager.getNumAvailableElems() != mNodeManager.computeNumAvailableElems())
+	{
+		return false;
+	}
+
+	if(mEdgeManager.getNumAvailableElems() != mEdgeManager.computeNumAvailableElems())
+	{
+		return false;
+	}
+
+	if(mIslands.getNumAvailableElems() != mIslands.computeNumAvailableElems())
+	{
+		return false;
+	}
+
+	if(mRootArticulationManager.getNumAvailableElems() != mRootArticulationManager.computeNumAvailableElems())
+	{
+		return false;
+	}
+
+	if(numRigidBodies != mNumAddedRBodies)
+	{
+		return false;
+	}
+
+	if(numArtics != mNumAddedArtics)
+	{
+		return false;
+	}
+
+	if(numKinematics != mNumAddedKinematics)
+	{
+		return false;
+	}
+
 	return true;
 }
 #endif
@@ -1362,19 +1588,22 @@ void PxsIslandManager::updateIslands()
 		mEdgeChangeManager.getCreatedEdges(),mEdgeChangeManager.getNumCreatedEdges(),
 		mEdgeChangeManager.getBrokenEdges(),mEdgeChangeManager.getNumBrokenEdges(),
 		mEdgeChangeManager.getJoinedEdges(),mEdgeChangeManager.getNumJoinedEdges(),
-		mNodeManager.getKinematicNodeBitmap(),mNumAddedKinematics,
+		mNodeManager.getBitmap(NodeManager::eKINEMATIC), mNodeManager.getBitmap(NodeManager::eKINEMATIC_CHANGE), mNumAddedKinematics,
+		mNodeManager.getBitmap(NodeManager::eNOT_READY_FOR_SLEEPING), mNodeManager.getBitmap(NodeManager::eNOT_READY_FOR_SLEEPING_CHANGE),
 		mNodeManager,mEdgeManager,mIslands,mRootArticulationManager,
 		mProcessSleepingIslandsComputeData,
 		mIslandManagerUpdateWorkBuffers,
 		mEventProfiler);
 
 	PX_ASSERT(mProcessSleepingIslandsComputeData.mSolverBodiesSize<=mNumAddedRBodies);
-	PX_ASSERT(mProcessSleepingIslandsComputeData.mSolverKinematicsSize<=mNumEdgesWithKinematicNodes);
+	PX_ASSERT(mProcessSleepingIslandsComputeData.mSolverKinematicsSize<=mNumRequiredKinematicDuplicates);
 	PX_ASSERT(mProcessSleepingIslandsComputeData.mSolverArticulationsSize<=mNumAddedArtics);
 
 	PX_ASSERT(isValid());	
 	mNodeChangeManager.reset();
 	mEdgeChangeManager.reset();
+	mNodeManager.clearKinematicStateChanges();
+	mNodeManager.clearNotReadyForSleepStateChanges();
 }
 
 void PxsIslandManager::updateIslands(PxBaseTask* continuation, const PxU32 numSpus)
@@ -1483,9 +1712,19 @@ void PxsIslandManager::updateIslands(PxBaseTask* continuation, const PxU32 numSp
 
 #endif //LOG_ISLANDGEN
 
-	resizeArrays();
+	{
+		CM_PROFILE_START(mEventProfiler, Cm::ProfileEventId::IslandGen::GetcleanupEdgeEvents());
+		cleanupEdgeEvents();
+		CM_PROFILE_STOP(mEventProfiler, Cm::ProfileEventId::IslandGen::GetcleanupEdgeEvents());
+	}
 
-	cleanupEdgeEvents();
+	{
+		CM_PROFILE_START(mEventProfiler, Cm::ProfileEventId::IslandGen::GetresizeArrays());
+		resizeArrays();
+		clearEdgeCreatedFlags();
+		clearDeletedNodeStateChanges();
+		CM_PROFILE_STOP(mEventProfiler, Cm::ProfileEventId::IslandGen::GetresizeArrays());
+	}
 
 	//If everything was asleep at the last update and nothing has changed since the last update
 	//then we can avoid doing all island work.
@@ -1523,7 +1762,7 @@ void PxsIslandManager::updateIslandsSecondPass(Cm::BitMap& affectedIslandsBitmap
 		mEventProfiler);
 
 	PX_ASSERT(mProcessSleepingIslandsComputeData.mSolverBodiesSize<=mNumAddedRBodies);
-	PX_ASSERT(mProcessSleepingIslandsComputeData.mSolverKinematicsSize<=mNumEdgesWithKinematicNodes);
+	PX_ASSERT(mProcessSleepingIslandsComputeData.mSolverKinematicsSize<=mNumRequiredKinematicDuplicates);
 	PX_ASSERT(mProcessSleepingIslandsComputeData.mSolverArticulationsSize<=mNumAddedArtics);
 
 	PX_ASSERT(isValid());
@@ -1549,8 +1788,36 @@ void PxsIslandManager::updateIslandsSecondPass(PxBaseTask* continuation, const P
 
 	mEdgeChangeManager.cleanupBrokenEdgeEvents(mEdgeManager.getAll());
 
+	//Decrement the number of kinematic duplicates each time a broken edge references a kinematic.
+	const PxU32 numBrokenEdges = mEdgeChangeManager.getNumBrokenEdges();
+	const EdgeType* brokenEdges = mEdgeChangeManager.getBrokenEdges();
+	PxU32 changeToNumEdgeReferencesToKinematic = 0;
+	for(PxU32 i = 0; i < numBrokenEdges; i++)
+	{
+		const EdgeType edgeId = brokenEdges[i];
+		const Edge& edge = mEdgeManager.get(edgeId);
+		PX_ASSERT(!edge.getIsConnected());
+		const NodeType nodeIds[2] = {edge.getNode1(), edge.getNode2()};
+		for(PxU32 k = 0; k < 2; k++)
+		{
+			const NodeType nodeId = nodeIds[k];
+			if(INVALID_NODE != nodeId)
+			{
+				const Node& node = mNodeManager.get(nodeId);
+				if(node.getIsKinematic())
+				{
+					PX_ASSERT(mIslandManagerUpdateWorkBuffers.mKinematicProxySourceNodeIds[nodeId] < mNodeManager.getCapacity());
+					PX_ASSERT(mNodeManager.get(mIslandManagerUpdateWorkBuffers.mKinematicProxySourceNodeIds[nodeId]).getIsKinematic());
+					changeToNumEdgeReferencesToKinematic++;
+				}
+			}
+		}
+	}
+	PX_ASSERT(changeToNumEdgeReferencesToKinematic <= mNumEdgeReferencesToKinematic);
+	mNumEdgeReferencesToKinematic -= changeToNumEdgeReferencesToKinematic;
+
 	//Mark all second pass islands dirty (note: when splitting islands some might get added/removed later)
-	Cm::BitMap& affectedIslandsBitmap=*mIslandManagerUpdateWorkBuffers.mIslandBitmap2;
+	Cm::BitMap& affectedIslandsBitmap=*mIslandManagerUpdateWorkBuffers.mBitmap[IslandManagerUpdateWorkBuffers::ePROCESS_ISLANDS];
 	affectedIslandsBitmap.clearFast();
 	PxsIslandIndices* PX_RESTRICT islandIndices=mProcessSleepingIslandsComputeData.mIslandIndices;
 	const PxU32 islandIndicesCapacity=mProcessSleepingIslandsComputeData.mIslandIndicesCapacity;

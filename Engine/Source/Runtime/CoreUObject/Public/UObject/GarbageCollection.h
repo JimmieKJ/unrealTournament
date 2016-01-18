@@ -6,7 +6,7 @@
 =============================================================================*/
 
 /** Context sensitive keep flags for garbage collection */
-#define GARBAGE_COLLECTION_KEEPFLAGS	(GIsEditor ? RF_Native|RF_AsyncLoading|RF_Standalone|RF_Async : RF_Native|RF_AsyncLoading|RF_Async)
+#define GARBAGE_COLLECTION_KEEPFLAGS	(GIsEditor ? RF_Standalone : RF_NoFlags)
 
 /*-----------------------------------------------------------------------------
 	Realtime garbage collection helper classes.
@@ -26,6 +26,7 @@ enum EGCReferenceType
 	GCRT_AddStructReferencedObjects,
 	GCRT_AddReferencedObjects,
 	GCRT_AddTMapReferencedObjects,
+	GCRT_EndOfPointer,
 	GCRT_EndOfStream,
 };
 

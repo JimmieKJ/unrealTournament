@@ -45,3 +45,15 @@ bool FEmptyDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI,
 
 	return false;
 }
+
+void FEmptyDynamicRHI::RHIBeginOcclusionQueryBatch()
+{
+}
+
+void FEmptyDynamicRHI::RHIEndOcclusionQueryBatch()
+{
+}
+
+void FEmptyDynamicRHI::RHISubmitCommandsHint()
+{
+}

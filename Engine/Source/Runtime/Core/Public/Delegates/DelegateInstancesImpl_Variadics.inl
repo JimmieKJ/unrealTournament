@@ -95,9 +95,9 @@ public:
 
 	// IBaseDelegateInstance interface
 
-	virtual Super* CreateCopy( ) override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new UnwrappedThisType(*(UnwrappedThisType*)this);
+		new (Base) UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -135,9 +135,9 @@ public:
 	 * @param InFunctionName The name of the function call.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static Super* Create(UserClass* InUserObject, const FName& InFunctionName, VarTypes... Vars)
+	FORCEINLINE static void Create(FDelegateBase& Base, UserClass* InUserObject, const FName& InFunctionName, VarTypes... Vars)
 	{
-		return new UnwrappedThisType(InUserObject, InFunctionName, Vars...);
+		new (Base) UnwrappedThisType(InUserObject, InFunctionName, Vars...);
 	}
 
 public:
@@ -257,9 +257,9 @@ public:
 
 	// IBaseDelegateInstance interface
 
-	virtual Super* CreateCopy() override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new UnwrappedThisType(*(UnwrappedThisType*)this);
+		new (Base) UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -310,9 +310,9 @@ public:
 	 * @param InFunc Member function pointer to your class method.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static Super* Create(const TSharedPtr<UserClass, SPMode>& InUserObjectRef, FMethodPtr InFunc, VarTypes... Vars)
+	FORCEINLINE static void Create(FDelegateBase& Base, const TSharedPtr<UserClass, SPMode>& InUserObjectRef, FMethodPtr InFunc, VarTypes... Vars)
 	{
-		return new UnwrappedThisType(InUserObjectRef, InFunc, Vars...);
+		new (Base) UnwrappedThisType(InUserObjectRef, InFunc, Vars...);
 	}
 
 	/**
@@ -324,11 +324,11 @@ public:
 	 * @param InFunc  Member function pointer to your class method.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static Super* Create(UserClass* InUserObject, FMethodPtr InFunc, VarTypes... Vars)
+	FORCEINLINE static void Create(FDelegateBase& Base, UserClass* InUserObject, FMethodPtr InFunc, VarTypes... Vars)
 	{
 		// We expect the incoming InUserObject to derived from TSharedFromThis.
 		auto UserObjectRef = StaticCastSharedRef<UserClass>(InUserObject->AsShared());
-		return Create(UserObjectRef, InFunc, Vars...);
+		Create(Base, UserObjectRef, InFunc, Vars...);
 	}
 
 protected:
@@ -470,9 +470,9 @@ public:
 
 	// IBaseDelegateInstance interface
 
-	virtual Super* CreateCopy( ) override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new UnwrappedThisType(*(UnwrappedThisType*)this);
+		new (Base) UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -520,9 +520,9 @@ public:
 	 * @param InFunc Member function pointer to your class method.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static Super* Create(UserClass* InUserObject, FMethodPtr InFunc, VarTypes... Vars)
+	FORCEINLINE static void Create(FDelegateBase& Base, UserClass* InUserObject, FMethodPtr InFunc, VarTypes... Vars)
 	{
-		return new UnwrappedThisType(InUserObject, InFunc, Vars...);
+		new (Base) UnwrappedThisType(InUserObject, InFunc, Vars...);
 	}
 
 protected:
@@ -657,9 +657,9 @@ public:
 
 	// IBaseDelegateInstance interface
 
-	virtual Super* CreateCopy( ) override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new UnwrappedThisType(*(UnwrappedThisType*)this);
+		new (Base) UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -708,9 +708,9 @@ public:
 	 * @param InFunc Member function pointer to your class method.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static Super* Create(UserClass* InUserObject, FMethodPtr InFunc, VarTypes... Vars)
+	FORCEINLINE static void Create(FDelegateBase& Base, UserClass* InUserObject, FMethodPtr InFunc, VarTypes... Vars)
 	{
-		return new UnwrappedThisType(InUserObject, InFunc, Vars...);
+		new (Base) UnwrappedThisType(InUserObject, InFunc, Vars...);
 	}
 
 protected:
@@ -840,9 +840,9 @@ public:
 
 	// IBaseDelegateInstance interface
 
-	virtual Super* CreateCopy( ) override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new UnwrappedThisType(*(UnwrappedThisType*)this);
+		new (Base) UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -881,9 +881,9 @@ public:
 	 * @param InFunc Static function pointer.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static Super* Create(FFuncPtr InFunc, VarTypes... Vars)
+	FORCEINLINE static void Create(FDelegateBase& Base, FFuncPtr InFunc, VarTypes... Vars)
 	{
-		return new UnwrappedThisType(InFunc, Vars...);
+		new (Base) UnwrappedThisType(InFunc, Vars...);
 	}
 
 private:
@@ -997,9 +997,9 @@ public:
 
 public:
 	// IBaseDelegateInstance interface
-	virtual Super* CreateCopy() override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new UnwrappedThisType(*(UnwrappedThisType*)this);
+		new (Base) UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -1025,13 +1025,13 @@ public:
 	 * @param InFunctor C++ functor
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static Super* Create(const FunctorType& InFunctor, VarTypes... Vars)
+	FORCEINLINE static void Create(FDelegateBase& Base, const FunctorType& InFunctor, VarTypes... Vars)
 	{
-		return new UnwrappedThisType(InFunctor, Vars...);
+		new (Base) UnwrappedThisType(InFunctor, Vars...);
 	}
-	FORCEINLINE static Super* Create(FunctorType&& InFunctor, VarTypes... Vars)
+	FORCEINLINE static void Create(FDelegateBase& Base, FunctorType&& InFunctor, VarTypes... Vars)
 	{
-		return new UnwrappedThisType(MoveTemp(InFunctor), Vars...);
+		new (Base) UnwrappedThisType(MoveTemp(InFunctor), Vars...);
 	}
 
 private:

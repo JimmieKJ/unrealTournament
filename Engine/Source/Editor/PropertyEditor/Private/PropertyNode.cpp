@@ -133,6 +133,9 @@ void FPropertyNode::InitNode( const FPropertyNodeInitParams& InitParams )
 		const bool bEditInline = bIsObjectOrInterface && GotReadAddresses && MyProperty->HasMetaData(TEXT("EditInline"));
 		SetNodeFlags(EPropertyNodeFlags::EditInline, bEditInline);
 
+		const bool bPersistentInstance = MyProperty->HasAllPropertyFlags(CPF_PersistentInstance);
+		SetNodeFlags(EPropertyNodeFlags::PersistentInstance, bPersistentInstance);
+
 		//Get the property max child depth
 		if (Property->HasMetaData(TEXT("MaxPropertyDepth")))
 		{
@@ -380,7 +383,7 @@ FPropertyNode::DataValidationResult FPropertyNode::EnsureDataIsValid()
 			//make sure we got the addresses correctly
 			if (!bSuccess)
 			{
-				UE_LOG( LogPropertyNode, Log, TEXT("Object is invalid %s"), *Property->GetName() );
+				UE_LOG( LogPropertyNode, Verbose, TEXT("Object is invalid %s"), *Property->GetName() );
 				return ObjectInvalid;
 			}
 
@@ -392,7 +395,7 @@ FPropertyNode::DataValidationResult FPropertyNode::EnsureDataIsValid()
 				//make sure the data still exists
 				if (Addr==NULL)
 				{
-					UE_LOG( LogPropertyNode, Log, TEXT("Object is invalid %s"), *Property->GetName() );
+					UE_LOG( LogPropertyNode, Verbose, TEXT("Object is invalid %s"), *Property->GetName() );
 					return ObjectInvalid;
 				}
 
@@ -1648,7 +1651,7 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 		{
 			// Call PostEditchange on all the objects
 			// Assume reset to default, can change topology
-			FPropertyChangedEvent ChangeEvent( TheProperty );
+			FPropertyChangedEvent ChangeEvent( TheProperty, EPropertyChangeType::ValueSet );
 			NotifyPostChange( ChangeEvent, InNotifyHook );
 		}
 
@@ -2017,7 +2020,7 @@ void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEv
 	}
 
 	// Broadcast the change to any listeners
-	BroadcastPropertyValueChanged();
+	BroadcastPropertyChangedDelegates();
 
 	// Call through to the property window's notify hook.
 	if( InNotifyHook )
@@ -2060,9 +2063,23 @@ void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEv
 	ClearCachedReadAddresses(true);
 }
 
-void FPropertyNode::BroadcastPropertyValueChanged() const
+
+void FPropertyNode::BroadcastPropertyChangedDelegates()
 {
 	PropertyValueChangedEvent.Broadcast();
+
+	// Walk through the parents and broadcast
+	FPropertyNode* LocalParentNode = GetParentNode();
+	while( LocalParentNode )
+	{
+		if( LocalParentNode->OnChildPropertyValueChanged().IsBound() )
+		{
+			LocalParentNode->OnChildPropertyValueChanged().Broadcast();
+		}
+
+		LocalParentNode = LocalParentNode->GetParentNode();
+	}
+
 }
 
 void FPropertyNode::SetOnRebuildChildren( FSimpleDelegate InOnRebuildChildren )
@@ -2159,6 +2176,16 @@ FPropertyChangedEvent& FPropertyNode::FixPropertiesInEvent(FPropertyChangedEvent
 	}
 
 	return Event;
+}
+
+void FPropertyNode::SetInstanceMetaData(const FName& Key, const FString& Value)
+{
+	InstanceMetaData.Add(Key, Value);
+}
+
+const FString* FPropertyNode::GetInstanceMetaData(const FName& Key) const
+{
+	return InstanceMetaData.Find(Key);
 }
 
 /**

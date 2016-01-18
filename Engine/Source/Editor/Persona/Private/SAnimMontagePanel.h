@@ -50,10 +50,13 @@ public:
 	SLATE_ATTRIBUTE( float, ViewInputMax )
 	SLATE_ATTRIBUTE( float, InputMin )
 	SLATE_ATTRIBUTE( float, InputMax )
+	SLATE_ATTRIBUTE(EVisibility, SectionTimingNodeVisibility)
 	SLATE_EVENT( FOnSetInputViewRange, OnSetInputViewRange )
 	SLATE_EVENT( FOnGetScrubValue, OnGetScrubValue )
 	SLATE_EVENT( FOnAnimObjectChange, OnMontageChange )
 	SLATE_END_ARGS()
+
+	~SAnimMontagePanel();
 
 	void Construct(const FArguments& InArgs);
 	void SetMontage(class UAnimMontage * InMontage);
@@ -95,6 +98,9 @@ public:
 	// Context menu callback to set all elements in the montage to a given slot
 	void OnSetElementsToSlot(int32 SlotIndex);
 
+	// Clears the name track of timing nodes and rebuilds them
+	void RefreshTimingNodes();
+
 private:
 	TWeakPtr<FPersona> Persona;
 	TWeakPtr<SMontageEditor>	MontageEditor;
@@ -116,8 +122,11 @@ private:
 
 	TArray< TSharedPtr<SImage> > SlotWarningImages;
 
+	TSharedPtr<STrack> SectionNameTrack;
+	TAttribute<EVisibility> SectionTimingNodeVisibility;
+
 	/************************************************************************/
-	/* Status Bar                                                                     */
+	/* Status Bar                                                           */
 	/************************************************************************/
 	TSharedPtr<STextBlock> StatusBarTextBlock;
 	TSharedPtr<SImage> StatusBarWarningImage;
@@ -139,5 +148,4 @@ private:
 	/** Gets the length of the montage we are currently editing
 	 */
 	virtual float GetSequenceLength() const override;
-
 };

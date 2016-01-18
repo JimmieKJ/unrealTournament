@@ -20,7 +20,7 @@ void SAboutScreen::Construct(const FArguments& InArgs)
 #pragma warning(pop)
 #endif
 
-	FText Version = FText::Format( LOCTEXT("VersionLabel", "Version: {0}"), FText::FromString( GEngineVersion.ToString( ) ) );
+	FText Version = FText::Format( LOCTEXT("VersionLabel", "Version: {0}"), FText::FromString( FEngineVersion::Current().ToString( ) ) );
 
 	ChildSlot
 		[

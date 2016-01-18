@@ -37,8 +37,8 @@ public:
 	~FMessageLogListingViewModel();
 
 	/** Begin IMessageLogListing interface */
-	virtual void AddMessage( const TSharedRef< class FTokenizedMessage >& NewMessage ) override;
-	virtual void AddMessages( const TArray< TSharedRef< class FTokenizedMessage > >& NewMessages ) override;
+	virtual void AddMessage( const TSharedRef< class FTokenizedMessage >& NewMessage, bool bMirrorToOutputLog ) override;
+	virtual void AddMessages( const TArray< TSharedRef< class FTokenizedMessage > >& NewMessages, bool bMirrorToOutputLog ) override;
 	virtual void ClearMessages() override;
 	virtual TSharedPtr<FTokenizedMessage> GetMessageFromData(const struct FTokenizedMiscData& MessageData) const override;
 	virtual const TArray< TSharedRef<class FTokenizedMessage> >& GetSelectedMessages() const override;

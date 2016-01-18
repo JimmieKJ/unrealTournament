@@ -354,77 +354,58 @@ bool FDesktopPlatformMac::OpenFontDialog(const void* ParentWindowHandle, FString
 	return bSuccess;
 }
 
-void OpenLauncherCommandLine( const FString& InCommandLine )
-{
-	FString CommandLine = InCommandLine;
-	FString TransferFilePath = FPaths::Combine(FPlatformProcess::UserSettingsDir(), TEXT("UnrealEngineLauncher"), TEXT("com"), TEXT("transfer.tmp"));
-
-	IFileManager& FileManager = IFileManager::Get();
-	FArchive* TransferFile = NULL;
-	int32 RetryCount = 0;
-
-	while (RetryCount < 2000)
-	{
-		TransferFile = FileManager.CreateFileWriter(*TransferFilePath, FILEWRITE_EvenIfReadOnly);
-
-		if (TransferFile != nullptr)
-		{
-			break;
-		}
-
-		++RetryCount;
-		FPlatformProcess::Sleep(0.01f);
-	}
-
-	if (TransferFile == NULL)
-	{
-		TransferFile = FileManager.CreateFileWriter(*TransferFilePath, FILEWRITE_EvenIfReadOnly | FILEWRITE_NoFail);
-	}
-
-	if (TransferFile != NULL)
-	{
-		*TransferFile << CommandLine;
-		TransferFile->Close();
-		delete TransferFile;
-	}
-	
-}
-
 bool FDesktopPlatformMac::CanOpenLauncher(bool Install)
 {
 	FString Path;
-	return GetLauncherPath(Path) || (Install && GetLauncherInstallerPath(Path));
+	return IsLauncherInstalled() || (Install && GetLauncherInstallerPath(Path));
 }
 
-bool FDesktopPlatformMac::OpenLauncher(bool Install, FString CommandLineParams )
+bool FDesktopPlatformMac::OpenLauncher(bool Install, FString LauncherRelativeUrl, FString CommandLineParams)
 {
+	FString LauncherUriRequest;
+	if (LauncherRelativeUrl.IsEmpty())
+	{
+		LauncherUriRequest = TEXT("com.epicgames.launcher:");
+	}
+	else
+	{
+		LauncherUriRequest = FString::Printf(TEXT("com.epicgames.launcher://%s"), *LauncherRelativeUrl);
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("Dev")))
+	{
+		CommandLineParams += TEXT(" -noselfupdate");
+	}
+
 	// If the launcher is already running, bring it to front
-	NSArray* RunningLaunchers = [NSRunningApplication runningApplicationsWithBundleIdentifier: @"com.epicgames.UnrealEngineLauncher"];
+	NSArray* RunningLaunchers = [NSRunningApplication runningApplicationsWithBundleIdentifier: @"com.epicgames.EpicGamesLauncher"];
+	if ([RunningLaunchers count] == 0)
+	{
+		RunningLaunchers = [NSRunningApplication runningApplicationsWithBundleIdentifier: @"com.epicgames.UnrealEngineLauncher"];
+	}
+
 	if ([RunningLaunchers count] > 0)
 	{
 		NSRunningApplication* Launcher = [RunningLaunchers objectAtIndex: 0];
 		if (!Launcher.hidden || Install || CommandLineParams.Len() > 0) // If the launcher is running, but hidden, don't activate on editor startup
 		{
-			[Launcher activateWithOptions: NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps];
-			OpenLauncherCommandLine(CommandLineParams); // create a temp file that will tell running Launcher instance to switch to Marketplace tab
+			[Launcher activateWithOptions : NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps];
+			FString Error;
+			FPlatformProcess::LaunchURL(*LauncherUriRequest, *CommandLineParams, &Error);
 		}
 		return true;
 	}
 
-	// Try to start a new instance
-	FString LauncherPath;
-	if(GetLauncherPath(LauncherPath))
+	if (IsLauncherInstalled())
 	{
-		if (FParse::Param(FCommandLine::Get(), TEXT("Dev")))
-		{
-			CommandLineParams += TEXT(" -noselfupdate");
-		}
-		return FPlatformProcess::CreateProc(*LauncherPath, *CommandLineParams, true, false, false, NULL, 0, *FPaths::GetPath(LauncherPath), NULL).IsValid();
+		FString Error;
+		FPlatformProcess::LaunchURL(*LauncherUriRequest, *CommandLineParams, &Error);
+		return true;
 	}
 
 	// Try to install it
 	FString InstallerPath;
-	if(GetLauncherInstallerPath(InstallerPath))
+	if (GetLauncherInstallerPath(InstallerPath))
 	{
 		FPlatformProcess::LaunchFileInDefaultExternalApplication(*InstallerPath);
 		return true;
@@ -516,9 +497,11 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 				}
 
 				// Make sure all filenames gathered have their paths normalized
-				for (auto FilenameIt = OutFilenames.CreateIterator(); FilenameIt; ++FilenameIt)
+				for (auto OutFilenameIt = OutFilenames.CreateIterator(); OutFilenameIt; ++OutFilenameIt)
 				{
-					FPaths::NormalizeFilename(*FilenameIt);
+					FString& OutFilename = *OutFilenameIt;
+					OutFilename = IFileManager::Get().ConvertToRelativePath(*OutFilename);
+					FPaths::NormalizeFilename(OutFilename);
 				}
 
 				bOkPressed = true;
@@ -550,7 +533,7 @@ bool FDesktopPlatformMac::RegisterEngineInstallation(const FString &RootDir, FSt
 		ConfigFile.Read(ConfigPath);
 
 		FConfigSection &Section = ConfigFile.FindOrAdd(TEXT("Installations"));
-		OutIdentifier = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+		OutIdentifier = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
 		Section.AddUnique(*OutIdentifier, RootDir);
 
 		ConfigFile.Dirty = true;
@@ -613,7 +596,9 @@ void FDesktopPlatformMac::EnumerateEngineInstallations(TMap<FString, FString> &O
 				const FName* Key = Section.FindKey(EngineDir);
 				if (Key)
 				{
-					EngineId = Key->ToString();
+					FGuid IdGuid;
+					FGuid::Parse(Key->ToString(), IdGuid);
+					EngineId = IdGuid.ToString(EGuidFormats::DigitsWithHyphensInBraces);;
 				}
 				else
 				{
@@ -687,34 +672,13 @@ bool FDesktopPlatformMac::IsUnrealBuildToolRunning()
 	return FPlatformProcess::IsApplicationRunning(TEXT("mono"));
 }
 
-bool FDesktopPlatformMac::GetLauncherPath(FString& OutLauncherPath) const
+bool FDesktopPlatformMac::IsLauncherInstalled() const
 {
-	// Try the default executable in the binaries directory
-	if (FParse::Param(FCommandLine::Get(), TEXT("Dev")))
-	{
-		FString LauncherPath = FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries"), TEXT("Mac"), TEXT("UnrealEngineLauncher-Mac-Debug.app/Contents/MacOS/UnrealEngineLauncher-Mac-Debug"));
-		if(FPaths::FileExists(LauncherPath))
-		{
-			OutLauncherPath = LauncherPath;
-			return true;
-		}
-	}
-	else
-	{
-		FString LauncherPath = TEXT("/Applications/Epic Games Launcher.app/Contents/MacOS/UnrealEngineLauncher-Mac-Shipping");
-		if(FPaths::FileExists(LauncherPath))
-		{
-			OutLauncherPath = LauncherPath;
-			return true;
-		}
-	}
-
 	// Otherwise search for it...
 	NSWorkspace* Workspace = [NSWorkspace sharedWorkspace];
 	NSString* Path = [Workspace fullPathForApplication:@"Epic Games Launcher"];
 	if( Path )
 	{
-		OutLauncherPath = FString(Path);
 		return true;
 	}
 
@@ -722,7 +686,6 @@ bool FDesktopPlatformMac::GetLauncherPath(FString& OutLauncherPath) const
 	Path = [Workspace fullPathForApplication:@"Unreal Engine"];
 	if( Path )
 	{
-		OutLauncherPath = FString(Path);
 		return true;
 	}
 

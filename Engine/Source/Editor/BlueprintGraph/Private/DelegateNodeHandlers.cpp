@@ -210,18 +210,24 @@ void FKCHandler_CreateDelegate::RegisterNets(FKismetFunctionContext& Context, UE
 	{
 		UEdGraphPin* InputPin = DelegateNode->GetObjectInPin();
 		check(NULL != InputPin);
-		if(!InputPin->LinkedTo.Num())
-		{
-			CompilerContext.MessageLog.Error(*LOCTEXT("NoDelegateObject", "No delegate object @@").ToString(), DelegateNode);
-			return;
-		}
+
 		UEdGraphPin* Net = FEdGraphUtilities::GetNetFromPin(InputPin);
 
 		FBPTerminal** FoundTerm = Context.NetMap.Find(Net);
 		FBPTerminal* InputObjTerm = FoundTerm ? *FoundTerm : NULL;
 		if(NULL == InputObjTerm)
 		{
-			InputObjTerm = Context.CreateLocalTerminalFromPinAutoChooseScope(Net, Context.NetNameMap->MakeValidName(Net));
+			if (InputPin->LinkedTo.Num() == 0)
+			{
+				InputObjTerm = Context.CreateLocalTerminal(ETerminalSpecification::TS_Literal);
+				InputObjTerm->Name = Context.NetNameMap->MakeValidName(Net);
+				InputObjTerm->Type.PinSubCategory = CompilerContext.GetSchema()->PN_Self;
+			}
+			else
+			{
+				InputObjTerm = Context.CreateLocalTerminalFromPinAutoChooseScope(Net, Context.NetNameMap->MakeValidName(Net));
+			}
+
 			Context.NetMap.Add(Net, InputObjTerm);
 		}
 	}

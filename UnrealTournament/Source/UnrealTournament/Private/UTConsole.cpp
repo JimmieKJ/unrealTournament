@@ -45,7 +45,13 @@ void UUTConsole::FakeGotoState(FName NextStateName)
 
 			if (bReopenMenus)
 			{
-				LP->ShowMenu(TEXT(""));
+				AUTBasePlayerController* BasePC = Cast<AUTBasePlayerController>(LP->PlayerController);
+				if (BasePC)
+				{
+					BasePC->bRequestShowMenu = true;
+				}
+
+				//LP->ShowMenu(TEXT(""));
 			}
 		}
 		bReopenMenus = false;

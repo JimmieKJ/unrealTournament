@@ -37,83 +37,96 @@ public:
 		// only generate the needed shaders (which should be very restrictive for fast recompiling during editing)
 		// @todo: Add a FindShaderType by fname or something
 
-		bool bEditorStatsMaterial = Material->bIsMaterialEditorStatsMaterial;
-
-		// Always allow HitProxy shaders.
-		if (FCString::Stristr(ShaderType->GetName(), TEXT("HitProxy")))
+		if( Material->IsUIMaterial() )
 		{
-			return true;
-		}
-
-		// we only need local vertex factory for the preview static mesh
-		if (VertexFactoryType != FindVertexFactoryType(FName(TEXT("FLocalVertexFactory"), FNAME_Find)))
-		{
-			//cache for gpu skinned vertex factory if the material allows it
-			//this way we can have a preview skeletal mesh
-			if (bEditorStatsMaterial ||
-				!IsUsedWithSkeletalMesh() ||
-				(VertexFactoryType != FindVertexFactoryType(FName(TEXT("TGPUSkinVertexFactoryfalse"), FNAME_Find)) &&
-				VertexFactoryType != FindVertexFactoryType(FName(TEXT("TGPUSkinVertexFactorytrue"), FNAME_Find))))
+			if (FCString::Stristr(ShaderType->GetName(), TEXT("TSlateMaterialShaderPS")) ||
+				FCString::Stristr(ShaderType->GetName(), TEXT("TSlateMaterialShaderVS")))
 			{
-				return false;
+				return true;
 			}
+	
 		}
 
-		if (bEditorStatsMaterial)
-		{
-			TArray<FString> ShaderTypeNames;
-			TArray<FString> ShaderTypeDescriptions;
-			GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNames, ShaderTypeDescriptions);
 
-			//Only allow shaders that are used in the stats.
-			return ShaderTypeNames.Find(ShaderType->GetName()) != INDEX_NONE;
-		}
+		{
+			bool bEditorStatsMaterial = Material->bIsMaterialEditorStatsMaterial;
 
-		// look for any of the needed type
-		bool bShaderTypeMatches = false;
+			// Always allow HitProxy shaders.
+			if (FCString::Stristr(ShaderType->GetName(), TEXT("HitProxy")))
+			{
+				return true;
+			}
 
-		// For FMaterialResource::GetRepresentativeInstructionCounts
-		if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSTDistanceFieldShadowsAndLightMapPolicyHQ")))
-		{
-			bShaderTypeMatches = true;
-		}
-		else if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSFNoLightMapPolicy")))
-		{
-			bShaderTypeMatches = true;
-		}
-		else if (FCString::Stristr(ShaderType->GetName(), TEXT("CachedPointIndirectLightingPolicy")))
-		{
-			bShaderTypeMatches = true;
-		}
-		else if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSFSelfShadowedTranslucencyPolicy")))
-		{
-			bShaderTypeMatches = true;
-		}
-		// Pick tessellation shader based on material settings
-		else if(FCString::Stristr(ShaderType->GetName(), TEXT("BasePassVSFNoLightMapPolicy")) ||
-			FCString::Stristr(ShaderType->GetName(), TEXT("BasePassHSFNoLightMapPolicy")) ||
-			FCString::Stristr(ShaderType->GetName(), TEXT("BasePassDSFNoLightMapPolicy")))
-		{
-			bShaderTypeMatches = true;
-		}
-		else if (FCString::Stristr(ShaderType->GetName(), TEXT("DepthOnly")))
-		{
-			bShaderTypeMatches = true;
-		}
-		else if (FCString::Stristr(ShaderType->GetName(), TEXT("ShadowDepth")))
-		{
-			bShaderTypeMatches = true;
-		}
-		else if (FCString::Stristr(ShaderType->GetName(), TEXT("TDistortion")))
-		{
-			bShaderTypeMatches = true;
-		}
-		else if (FCString::Stristr(ShaderType->GetName(), TEXT("TBasePassForForwardShading")))
-		{
-			bShaderTypeMatches = true;
-		}
+			// we only need local vertex factory for the preview static mesh
+			if (VertexFactoryType != FindVertexFactoryType(FName(TEXT("FLocalVertexFactory"), FNAME_Find)))
+			{
+				//cache for gpu skinned vertex factory if the material allows it
+				//this way we can have a preview skeletal mesh
+				if (bEditorStatsMaterial ||
+					!IsUsedWithSkeletalMesh() ||
+					(VertexFactoryType != FindVertexFactoryType(FName(TEXT("TGPUSkinVertexFactoryfalse"), FNAME_Find)) &&
+					VertexFactoryType != FindVertexFactoryType(FName(TEXT("TGPUSkinVertexFactorytrue"), FNAME_Find))))
+				{
+					return false;
+				}
+			}
 
-		return bShaderTypeMatches;
+			if (bEditorStatsMaterial)
+			{
+				TMap<FName, FString> ShaderTypeNamesAndDescriptions;
+				GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNamesAndDescriptions);
+
+				//Only allow shaders that are used in the stats.
+				return ShaderTypeNamesAndDescriptions.Contains(ShaderType->GetFName());
+			}
+
+			// look for any of the needed type
+			bool bShaderTypeMatches = false;
+
+			// For FMaterialResource::GetRepresentativeInstructionCounts
+			if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSTDistanceFieldShadowsAndLightMapPolicyHQ")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSFNoLightMapPolicy")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("CachedPointIndirectLightingPolicy")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSFSelfShadowedTranslucencyPolicy")))
+			{
+				bShaderTypeMatches = true;
+			}
+			// Pick tessellation shader based on material settings
+			else if(FCString::Stristr(ShaderType->GetName(), TEXT("BasePassVSFNoLightMapPolicy")) ||
+				FCString::Stristr(ShaderType->GetName(), TEXT("BasePassHSFNoLightMapPolicy")) ||
+				FCString::Stristr(ShaderType->GetName(), TEXT("BasePassDSFNoLightMapPolicy")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("DepthOnly")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("ShadowDepth")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("TDistortion")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("TBasePassForForwardShading")))
+			{
+				bShaderTypeMatches = true;
+			}
+
+			return bShaderTypeMatches;
+		}
+	
 	}
 
 	/**
@@ -310,9 +323,9 @@ void UMaterialEditorInstanceConstant::RegenerateArrays()
 		}
 		// Scalar Parameters.
 		ParentMaterial->GetAllScalarParameterNames(ParameterNames, Guids);
-		for(int32 ParameterIdx=0; ParameterIdx<ParameterNames.Num(); ParameterIdx++)
+		for (int32 ParameterIdx=0; ParameterIdx<ParameterNames.Num(); ParameterIdx++)
 		{			
-			UDEditorScalarParameterValue & ParameterValue = *(NewObject<UDEditorScalarParameterValue>());
+			UDEditorScalarParameterValue& ParameterValue = *(NewObject<UDEditorScalarParameterValue>());
 			FName ParameterName = ParameterNames[ParameterIdx];
 			float Value;
 
@@ -320,11 +333,11 @@ void UMaterialEditorInstanceConstant::RegenerateArrays()
 			ParameterValue.ParameterName = ParameterName;
 			ParameterValue.ExpressionId = Guids[ParameterIdx];
 
-			if(SourceInstance->GetScalarParameterValue(ParameterName, Value))
+			if (SourceInstance->GetScalarParameterValue(ParameterName, Value))
 			{
+				ParentMaterial->GetScalarParameterSliderMinMax(ParameterName, ParameterValue.SliderMin, ParameterValue.SliderMax);
 				ParameterValue.ParameterValue = Value;
 			}
-
 
 			// @todo: This is kind of slow, maybe store these in a map for lookup?
 			// See if this keyname exists in the source instance.
@@ -596,8 +609,6 @@ void UMaterialEditorInstanceConstant::CopyToSourceInstance()
 		SourceInstance->SetDiffuseBoost(LightmassSettings.DiffuseBoost.ParameterValue);
 		SourceInstance->SetOverrideExportResolutionScale(LightmassSettings.ExportResolutionScale.bOverride);
 		SourceInstance->SetExportResolutionScale(LightmassSettings.ExportResolutionScale.ParameterValue);
-		SourceInstance->SetOverrideDistanceFieldPenumbraScale(LightmassSettings.DistanceFieldPenumbraScale.bOverride);
-		SourceInstance->SetDistanceFieldPenumbraScale(LightmassSettings.DistanceFieldPenumbraScale.ParameterValue);
 
 		// Copy Refraction bias setting
 		SourceInstance->SetScalarParameterValueEditorOnly(TEXT("RefractionDepthBias"), RefractionDepthBias);
@@ -686,8 +697,6 @@ void UMaterialEditorInstanceConstant::SetSourceInstance(UMaterialInstanceConstan
 	LightmassSettings.DiffuseBoost.ParameterValue = SourceInstance->GetDiffuseBoost();
 	LightmassSettings.ExportResolutionScale.bOverride = SourceInstance->GetOverrideExportResolutionScale();
 	LightmassSettings.ExportResolutionScale.ParameterValue = SourceInstance->GetExportResolutionScale();
-	LightmassSettings.DistanceFieldPenumbraScale.bOverride = SourceInstance->GetOverrideDistanceFieldPenumbraScale();
-	LightmassSettings.DistanceFieldPenumbraScale.ParameterValue = SourceInstance->GetDistanceFieldPenumbraScale();
 
 	//Copy refraction settings
 	SourceInstance->GetRefractionSettings(RefractionDepthBias);

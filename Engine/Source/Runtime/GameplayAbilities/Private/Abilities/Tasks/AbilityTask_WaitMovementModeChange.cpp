@@ -11,7 +11,7 @@ UAbilityTask_WaitMovementModeChange::UAbilityTask_WaitMovementModeChange(const F
 
 UAbilityTask_WaitMovementModeChange* UAbilityTask_WaitMovementModeChange::CreateWaitMovementModeChange(class UObject* WorldContextObject, EMovementMode NewMode)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitMovementModeChange>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitMovementModeChange>(WorldContextObject);
 	MyObj->RequiredMode = NewMode;
 	return MyObj;
 }

@@ -79,4 +79,44 @@ namespace CrossCompiler
 		Ar << Info.TypeIndex;
 		return Ar;
 	}
+
+	struct FShaderBindings
+	{
+		TArray<TArray<FPackedArrayInfo>>	PackedUniformBuffers;
+		TArray<FPackedArrayInfo>			PackedGlobalArrays;
+		FShaderCompilerResourceTable		ShaderResourceTable;
+
+		uint16	InOutMask;
+		uint8	NumSamplers;
+		uint8	NumUniformBuffers;
+		uint8	NumUAVs;
+		bool	bHasRegularUniformBuffers;
+	};
+
+	// Information for copying members from uniform buffers to packed
+	struct FUniformBufferCopyInfo
+	{
+		uint16 SourceOffsetInFloats;
+		uint8 SourceUBIndex;
+		uint8 DestUBIndex;
+		uint8 DestUBTypeName;
+		uint8 DestUBTypeIndex;
+		uint16 DestOffsetInFloats;
+		uint16 SizeInFloats;
+	};
+
+	inline FArchive& operator<<(FArchive& Ar, FUniformBufferCopyInfo& Info)
+	{
+		Ar << Info.SourceOffsetInFloats;
+		Ar << Info.SourceUBIndex;
+		Ar << Info.DestUBIndex;
+		Ar << Info.DestUBTypeName;
+		if (Ar.IsLoading())
+		{
+			Info.DestUBTypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(Info.DestUBTypeName);
+		}
+		Ar << Info.DestOffsetInFloats;
+		Ar << Info.SizeInFloats;
+		return Ar;
+	}
 }

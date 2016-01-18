@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2308648
+﻿INTSourceChangelist:2568349
 Availability:NoPublish
 Title:UPrimitiveComponent RTTs
 Crumbs:
@@ -32,8 +32,9 @@ Engine/Physics/Collision#properties
 [/EXCERPT:bGenerateOverlapEvents]
 
 
-<!-- true の場合、マルチボディ コンポーネントであれば、このコンポーネントはオーバーラップする各物理ボディに対して個々のオーバーラップを生成します。False の場合、物理ボディの数や、他のコンポーネント / ボディとオーバーラップしている物理ボディ数に関係なく、このコンポーネントは 1 つだけオーバーラップを生成します。
-このフラグは、単一のボディ コンポーネントには何も影響はありません。 -->
+<!-- true の場合、マルチボディ コンポーネントであれば、このコンポーネントはオーバーラップする各物理ボディに対して個々のオーバーラップを生成します。False の場合、物理ボディの数や、他のコンポーネント / ボディとオーバーラップしている物理ボディ数に関係なく、
+このコンポーネントは 1 つだけオーバーラップを生成します。このフラグは、単一のボディ コンポーネントには
+何も影響はありません。 -->
 [EXCERPT:bMultiBodyOverlap]
 
 True に設定されていると、このコンポーネントは中に含まれている物理ボディ 1 つ 1 つに対してオーバーラップ イベントを生成できます。
@@ -132,9 +133,15 @@ Engine/Physics/PhysicsBodies#collision
 [/EXCERPT:bRenderCustomDepth]
 
 
+<!-- オプションでこの 0-255 値を CustomDepth パスのstencil buffer へ書き出します (プロジェクト設定もしくは r.CustomDepth == 3 が必要です)  -->
+[EXCERPT:CustomDepthStencilValue]
+[/EXCERPT:CustomDepthStencilValue]
+
+
 <!-- true の場合、このコンポーネントはメインパスでレンダリングされます (z プレパス、ベースパス、透過) -->
 [EXCERPT:bRenderInMainPass]
 [/EXCERPT:bRenderInMainPass]
+
 
 <!-- プリミティブはデカールを受け取るかどうか -->
 [EXCERPT:bReceivesDecals]
@@ -209,9 +216,9 @@ Engine/Physics/PhysicsBodies#collision
 
 
 <!-- 
-True の場合、bHidden が true であってもプリミティブはシャドウをキャストします。
-非表示の際に、プリミティブによるシャドウのキャストを制御します。
-このフラグは、CastShadow が true の時のみ使用します。
+	True の場合、bHidden が true であってもプリミティブはシャドウをキャストします。
+	非表示の際に、プリミティブによるシャドウのキャストを制御します。
+	このフラグは、CastShadow が true の時のみ使用します。
 -->
 [EXCERPT:bCastHiddenShadow]
 [/EXCERPT:bCastHiddenShadow]

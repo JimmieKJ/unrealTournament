@@ -187,6 +187,10 @@ public:
 
 	const TArray<TSharedRef<FMacWindow>>& GetAllWindows() const { return Windows; }
 
+	void OnCursorLock();
+
+	void IgnoreMouseMoveDelta() { bIgnoreMouseMoveDelta = true; }
+
 private:
 
 	static NSEvent* HandleNSEvent(NSEvent* Event);
@@ -216,11 +220,13 @@ private:
 	void OnApplicationWillResignActive();
 	void OnWindowsReordered(bool bIsAppInBackground);
 
+	void ConditionallyUpdateModifierKeys(const FDeferredMacEvent& Event);
 	void HandleModifierChange(NSUInteger NewModifierFlags, NSUInteger FlagsShift, NSUInteger UE4Shift, EMacModifierKeys TranslatedCode);
 
 	FCocoaWindow* FindEventWindow(NSEvent* CocoaEvent) const;
 	NSScreen* FindScreenByPoint(int32 X, int32 Y) const;
-	bool IsWindowMovable(TSharedRef<FMacWindow> Window, bool* OutMovableByBackground) const;
+	EWindowZone::Type GetCurrentWindowZone(const TSharedRef<FMacWindow>& Window) const;
+	bool IsEdgeZone(EWindowZone::Type Zone) const;
 	bool IsPrintableKey(uint32 Character) const;
 	TCHAR ConvertChar(TCHAR Character) const;
 	TCHAR TranslateCharCode(TCHAR CharCode, uint32 KeyCode) const;
@@ -275,6 +281,10 @@ private:
 
 	/** The current set of Cocoa modifier flags, used to detect when Mission Control has been invoked & returned so that we can synthesis the modifier events it steals */
 	NSUInteger CurrentModifierFlags;
+
+	bool bEmulatingRightClick;
+
+	bool bIgnoreMouseMoveDelta;
 
 	TArray<FCocoaWindow*> WindowsToClose;
 

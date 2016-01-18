@@ -43,8 +43,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>The date of the most recent crash in a Bugg.</summary>
 		public long DateTo { get; set; }
 
-		/// <summary>The build version of the most recent crash in a Bugg.</summary>
-		public string BuildVersion { get; set; }
+		/// <summary>The version to filter by.</summary>
+		public string VersionName { get; set; }
 
 		/// <summary>A dictionary of the number of Buggs per user group.</summary>
 		public SortedDictionary<string, int> GroupCounts { get; set; }
@@ -71,26 +71,18 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>User input from the client.</summary>
 		public FormCollection FormCollection { get; set; }
 
-		/// <summary> Build versions. </summary>
-		public IEnumerable<string> BuildVersions
-		{
-			get 
-			{
-				return new List<string>(
-					new string[] 
-					{ 
-						"",
-						"4.1.0", 
-						"4.2.0", 
-						"4.2.1", 
-						"4.3.0", 
-						"4.3.1", 
-						"4.4.0" 
-					} );
-			}
-		}
+		/// <summary>A collection of Version names used in the drop down on the main search form</summary>
+		public List<SelectListItem> VersionNames { get; set; }
 
-		/// <summary></summary>
+		/// <summary>Time spent in generating this site, formatted as a string.</summary>
 		public string GenerationTime { get; set; }
+
+		/// <summary>
+		/// Default constructor
+		/// </summary>
+		public BuggsViewModel()
+		{
+			VersionNames = CrashRepository.GetVersionsAsListItems();
+		}
 	}
 }

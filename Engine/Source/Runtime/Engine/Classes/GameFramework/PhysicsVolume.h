@@ -14,17 +14,17 @@ class ENGINE_API APhysicsVolume : public AVolume
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void LoadedFromAnotherClass(const FName& OldClassName) override;
 #endif // WITH_EDITOR	
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	virtual void PostInitializeComponents() override;
 	virtual void Destroyed() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	//======================================================================================
+	//~======================================================================================
 	// Character Movement related properties
 
 	/** Terminal velocity of pawns using CharacterMovement when falling. */
@@ -43,7 +43,7 @@ class ENGINE_API APhysicsVolume : public AVolume
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CharacterMovement)
 	uint32 bWaterVolume:1;
 
-	//======================================================================================
+	//~======================================================================================
 	// Physics related properties
 	
 	/**	By default, the origin of an AActor must be inside a PhysicsVolume for it to affect the actor. However if this flag is true, the other actor only has to touch the volume to be affected by it. */

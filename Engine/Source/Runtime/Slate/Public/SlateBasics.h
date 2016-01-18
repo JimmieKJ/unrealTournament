@@ -6,7 +6,6 @@
 #include "CoreUObject.h"
 #include "Json.h"
 #include "SlateCore.h"
-#include "SlateClasses.h"
 #include "SlateOptMacros.h"
 
 #include "IPlatformTextField.h"
@@ -66,6 +65,7 @@ class FGenericCommands;
 #include "SUniformGridPanel.h"
 #include "SMenuAnchor.h"
 #include "MultiBoxDefs.h"
+#include "SMenuOwner.h"
 ////
 #include "MultiBox.h"
 ////

@@ -108,7 +108,7 @@ namespace Sq
 
 	PX_FORCE_INLINE PxU32 hash(const PrunerPayload& payload)
 	{
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 		const PxU32 h0 = Ps::hash((const void*)payload.data[0]);
 		const PxU32 h1 = Ps::hash((const void*)payload.data[1]);
 		return hash64(PxU64(h0)|(PxU64(h1)<<32));

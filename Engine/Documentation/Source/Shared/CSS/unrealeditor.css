@@ -136,3 +136,31 @@ BODY
     margin:0;
     padding:0;
 }
+
+.simple-overlay.wide TD.table-cell-content
+{
+    max-width:22em;
+	color:#f0f0f0;
+    /*white-space:nowrap;*/
+}
+
+.simple-overlay TABLE.subtable
+{
+    margin:-4px;
+}
+
+.simple-overlay TABLE.subtable TD:first-child
+{
+    /*text-align:right;*/
+}
+
+.simple-overlay TABLE.subtable TD
+{
+    border-bottom:0px solid #404043;
+    padding:4px;
+}
+
+.simple-overlay TD.table-cell-content TABLE.subtable div
+{
+    margin:3px 0px 0px;
+}

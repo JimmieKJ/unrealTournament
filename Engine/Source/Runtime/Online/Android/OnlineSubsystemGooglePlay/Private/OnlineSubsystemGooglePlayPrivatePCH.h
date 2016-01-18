@@ -3,9 +3,10 @@
 #pragma once
 
 /** FName declaration of Steam subsystem */
-#define GOOGLEPLAY_SUBSYSTEM FName(TEXT("GooglePlay"))
 
-#include "Core.h"
+
+#include "Engine.h"
+#include "CoreUObject.h"
 #include "SocketSubsystem.h"
 #include "ModuleManager.h"
 

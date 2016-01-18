@@ -17,13 +17,8 @@
  OpenGL static variables.
  ------------------------------------------------------------------------------*/
 
-// @todo: remove once Apple fixes radr://16754329 AMD Cards don't always perform FRAMEBUFFER_SRGB if the draw FBO has mixed sRGB & non-SRGB colour attachments
-static TAutoConsoleVariable<int32> CVarMacUseFrameBufferSRGB(
-	TEXT("r.Mac.UseFrameBufferSRGB"),
-	0,
-	TEXT("Flag to toggle use of GL_FRAMEBUFFER_SRGB for better color accuracy.\n"),
-	ECVF_RenderThreadSafe
-	);
+// As of 10.11.0 Apple fixed radr://16754329 AMD Cards don't always perform FRAMEBUFFER_SRGB if the draw FBO has mixed sRGB & non-SRGB colour attachments
+bool FMacOpenGL::bUseSRGBFramebuffer = false;
 
 // @todo: remove once Apple fixes radr://15553950, TTP# 315197
 static int32 GMacFlushTexStorage = true;
@@ -194,7 +189,14 @@ static void UnlockGLContext(NSOpenGLContext* Context)
 
 - (CALayer*)makeBackingLayer
 {
-	return [[FSlateOpenGLLayer alloc] initWithContext:self.Context->OpenGLContext andPixelFormat:self.Context->OpenGLPixelFormat];
+	if(FMacOpenGL::SupportsCoreAnimation())
+	{
+		return [[FSlateOpenGLLayer alloc] initWithContext:self.Context->OpenGLContext andPixelFormat:self.Context->OpenGLPixelFormat];
+	}
+	else
+	{
+		return nil;
+	}
 }
 
 - (id)initWithFrame:(NSRect)frameRect context:(FPlatformOpenGLContext*)context
@@ -222,7 +224,10 @@ static void UnlockGLContext(NSOpenGLContext* Context)
 
 - (void)drawRect:(NSRect)DirtyRect
 {
-	DrawOpenGLViewport(self.Context, self.frame.size.width, self.frame.size.height);
+	if(FMacOpenGL::SupportsCoreAnimation())
+	{
+		DrawOpenGLViewport(self.Context, self.frame.size.width, self.frame.size.height);
+	}
 }
 
 - (BOOL)isOpaque
@@ -367,21 +372,34 @@ FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Devic
 		{
 			NSView* SuperView = [[Context->WindowHandle contentView] superview];
 			[SuperView addSubview:Context->OpenGLView];
-			[SuperView setWantsLayer:YES];
+			if(FMacOpenGL::SupportsCoreAnimation())
+			{
+				[SuperView setWantsLayer:YES];
+			}
 			[SuperView addSubview:[Context->WindowHandle standardWindowButton:NSWindowCloseButton]];
 			[SuperView addSubview:[Context->WindowHandle standardWindowButton:NSWindowMiniaturizeButton]];
 			[SuperView addSubview:[Context->WindowHandle standardWindowButton:NSWindowZoomButton]];
 		}
 		else
 		{
-			[Context->OpenGLView setWantsLayer:YES];
+			if(FMacOpenGL::SupportsCoreAnimation())
+			{
+				[Context->OpenGLView setWantsLayer:YES];
+			}
 			[Context->WindowHandle setContentView:Context->OpenGLView];
 		}
 
 		[[Context->WindowHandle standardWindowButton:NSWindowCloseButton] setAction:@selector(performClose:)];
-
-		Context->OpenGLView.layer.magnificationFilter = kCAFilterNearest;
-		Context->OpenGLView.layer.minificationFilter = kCAFilterNearest;
+		
+		if(FMacOpenGL::SupportsCoreAnimation())
+		{
+			Context->OpenGLView.layer.magnificationFilter = kCAFilterNearest;
+			Context->OpenGLView.layer.minificationFilter = kCAFilterNearest;
+		}
+		else
+		{
+			[Context->OpenGLContext setView:Context->OpenGLView];
+		}
 	}, NSDefaultRunLoopMode, true);
 
 	return Context;
@@ -430,6 +448,22 @@ bool PlatformBlitToViewport(FPlatformOpenGLDevice* Device, const FOpenGLViewport
 			[Context->OpenGLContext update];
 		}
 
+		if (Viewport.GetCustomPresent())
+		{
+			SCOPED_AUTORELEASE_POOL;
+
+			// Clear the Alpha channel
+			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
+			glClearColor(0.f, 0.f, 0.f, 1.f);
+			glClear(GL_COLOR_BUFFER_BIT);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glClearColor(0.f, 0.f, 0.f, 0.f);
+
+			glDisable(GL_FRAMEBUFFER_SRGB);
+			bPresent = Viewport.GetCustomPresent()->Present(SyncInterval);
+			glEnable(GL_FRAMEBUFFER_SRGB);
+		}
+
 		if (bPresent)
 		{
 			int32 RealSyncInterval = bLockToVsync ? SyncInterval : 0;
@@ -440,7 +474,7 @@ bool PlatformBlitToViewport(FPlatformOpenGLDevice* Device, const FOpenGLViewport
 				Context->SyncInterval = RealSyncInterval;
 			}
 
-			[(FCocoaWindow*)Context->WindowHandle startRendering];
+			MainThreadCall(^{ [(FCocoaWindow*)Context->WindowHandle startRendering]; }, NSDefaultRunLoopMode, false);
 			
 			int32 CurrentReadFramebuffer = 0;
 			glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &CurrentReadFramebuffer);
@@ -462,7 +496,14 @@ bool PlatformBlitToViewport(FPlatformOpenGLDevice* Device, const FOpenGLViewport
 			Context->ViewportSize[0] = BackbufferSizeX;
 			Context->ViewportSize[1] = BackbufferSizeY;
 
-			MainThreadCall(^{ [Context->OpenGLView setNeedsDisplay:YES]; }, NSDefaultRunLoopMode, false);
+			if(FMacOpenGL::SupportsCoreAnimation())
+			{
+				MainThreadCall(^{ [Context->OpenGLView setNeedsDisplay:YES]; }, NSDefaultRunLoopMode, false);
+			}
+			else
+			{
+				DrawOpenGLViewport(Context, BackbufferSizeX, BackbufferSizeY);
+			}
 
 			TArray<GLuint>& TexturesToDelete = GMacTexturesToDelete[(GFrameNumberRenderThread - (GMacTexturePoolNum - 1)) % GMacTexturePoolNum];
 			if(TexturesToDelete.Num() && TexturesToDelete.Num() > GMacMinTexturesToDeletePerFrame)
@@ -481,6 +522,16 @@ bool PlatformBlitToViewport(FPlatformOpenGLDevice* Device, const FOpenGLViewport
 void DrawOpenGLViewport(FPlatformOpenGLContext* const Context, uint32 Width, uint32 Height)
 {
 	FCocoaWindow* Window = (FCocoaWindow*)Context->WindowHandle;
+	
+	int32 CurrentDrawFramebuffer = 0;
+	
+	if(!FMacOpenGL::SupportsCoreAnimation())
+	{
+		glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &CurrentDrawFramebuffer);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		glDrawBuffer(GL_BACK);
+	}
+	
 	if ([Window isRenderInitialized] && Context->ViewportSize[0] && Context->ViewportSize[1] && Context->ViewportFramebuffer && Context->ViewportRenderbuffer && ([Window styleMask] & (NSTexturedBackgroundWindowMask|NSFullSizeContentViewWindowMask) || !Window.inLiveResize))
 	{
 		int32 CurrentReadFramebuffer = 0;
@@ -497,8 +548,17 @@ void DrawOpenGLViewport(FPlatformOpenGLContext* const Context, uint32 Width, uin
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 	}
+	
 	[Context->OpenGLContext flushBuffer];
-	UnlockGLContext(Context->OpenGLContext);
+
+	if(FMacOpenGL::SupportsCoreAnimation())
+	{
+		UnlockGLContext(Context->OpenGLContext);
+	}
+	else
+	{
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CurrentDrawFramebuffer);
+	}
 }
 
 void PlatformRenderingContextSetup(FPlatformOpenGLDevice* Device)
@@ -1153,6 +1213,8 @@ void FMacOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	
 	// SSOs require structs in geometry shaders - which only work in 10.10.0 and later
 	bSupportsSeparateShaderObjects &= (FMacPlatformMisc::MacOSXVersionCompare(10,10,0) >= 0);
+	
+	bUseSRGBFramebuffer = (!IsRHIDeviceAMD() || FMacPlatformMisc::MacOSXVersionCompare(10,11,0) >= 0);
 }
 
 void FMacOpenGL::MacQueryTimestampCounter(GLuint QueryID)
@@ -1274,20 +1336,6 @@ bool FMacOpenGL::MustFlushTexStorage(void)
 	// @todo Fixed in 10.10.1.
 	FPlatformOpenGLContext::VerifyCurrentContext();
 	return GMacFlushTexStorage || GMacMustFlushTexStorage;
-}
-
-/** Is the current renderer the Intel HD3000? */
-bool FMacOpenGL::IsIntelHD3000()
-{
-	// Get the current renderer ID
-	GLint RendererID = 0;
-	CGLContextObj Current = CGLGetCurrentContext();
-	if (Current)
-	{
-		CGLError Error = CGLGetParameter(Current, kCGLCPCurrentRendererID, &RendererID);
-		check(Error == kCGLNoError && RendererID != 0);
-	}
-	return (RendererID & kCGLRendererIDMatchingMask) == kCGLRendererIntelHDID;
 }
 
 void FMacOpenGL::DeleteTextures(GLsizei Number, const GLuint* Textures)

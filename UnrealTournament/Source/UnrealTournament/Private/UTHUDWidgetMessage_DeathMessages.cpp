@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTLocalMessage.h"
@@ -35,5 +35,5 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)
 
 bool UUTHUDWidgetMessage_DeathMessages::ShouldDraw_Implementation(bool bShowScores)
 {
-	return !bShowScores;
+	return !bShowScores && GetWorld()->GetGameState() &&  (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission);
 }

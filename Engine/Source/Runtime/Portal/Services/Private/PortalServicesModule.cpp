@@ -1,7 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "PortalServicesPrivatePCH.h"
-#include "TypeContainer.h"
+#include "IPortalServicesModule.h"
+#include "PortalServiceLocator.h"
 #include "ModuleManager.h"
 
 
@@ -18,34 +19,20 @@ public:
 
 public:
 
-	// IPortalServicesModule
+	// IPortalServicesModule interface
 
-	virtual FTypeContainer& GetServiceContainer() override
+	virtual TSharedRef<IPortalServiceLocator> CreateLocator(const TSharedRef<FTypeContainer>& ServiceDependencies) override
 	{
-		return ServiceContainer;
+		return FPortalServiceLocatorFactory::Create(ServiceDependencies);
 	}
 
 public:
 
 	// IModuleInterface interface
 
-	virtual void StartupModule() override
-	{
-	}
-
-	virtual void ShutdownModule() override
-	{
-	}
-
-	virtual bool SupportsDynamicReloading() override
-	{
-		return false;
-	}
-
-private:
-
-	/** Holds registered service instances. */
-	FTypeContainer ServiceContainer;
+	virtual void StartupModule() override { }
+	virtual void ShutdownModule() override { }
+	virtual bool SupportsDynamicReloading() override { return true; }
 };
 
 

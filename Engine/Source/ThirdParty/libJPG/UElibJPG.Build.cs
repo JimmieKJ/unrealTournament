@@ -14,6 +14,8 @@ public class UElibJPG : ModuleRules
         // cpp files being used like header files in implementation
         PublicAdditionalShadowFiles.Add(libJPGPath + "/jpgd.cpp");
         PublicAdditionalShadowFiles.Add(libJPGPath + "/jpge.cpp");
+
+        bEnableShadowVariableWarnings = false;
     }
 }
 

@@ -49,8 +49,32 @@ public:
 	/** */
 	virtual TSharedPtr<SWidget> GenerateContextMenu() const { return TSharedPtr<SWidget>(); }
 
+	struct FPropertyNameAndIndex
+	{
+		FPropertyNameAndIndex()
+			: Name(NAME_None)
+			, Index(INDEX_NONE)
+		{}
+
+		explicit FPropertyNameAndIndex(FName InName, int32 InIndex = 0)
+			: Name(InName)
+			, Index(InIndex)
+		{}
+
+		bool IsValid() const { return Name != NAME_None && Index != INDEX_NONE; }
+
+		void Clear()
+		{
+			Name = NAME_None;
+			Index = INDEX_NONE;
+		}
+
+		FName Name;
+		int32 Index;
+	};
+
 	/** Find the name of the property that points to this component */
-	static FName GetComponentPropertyName(const UActorComponent* Component);
+	static FPropertyNameAndIndex GetComponentPropertyName(const UActorComponent* Component);
 	/** Get a component pointer from the property name */
-	static UActorComponent* GetComponentFromPropertyName(const AActor* CompOwner, FName PropertyName);
+	static UActorComponent* GetComponentFromPropertyName(const AActor* CompOwner, const FPropertyNameAndIndex& Property);
 };

@@ -18,11 +18,10 @@ UFbxAnimSequenceImportData* UFbxAnimSequenceImportData::GetImportDataForAnimSequ
 	{
 		ImportData = NewObject<UFbxAnimSequenceImportData>(AnimSequence, NAME_None, RF_NoFlags, TemplateForCreation);
 
-		// Try to preserve the source file path if possible
+		// Try to preserve the source file data if possible
 		if ( AnimSequence->AssetImportData != NULL )
 		{
-			ImportData->SourceFilePath = AnimSequence->AssetImportData->SourceFilePath;
-			ImportData->SourceFileTimestamp = AnimSequence->AssetImportData->SourceFileTimestamp;
+			ImportData->SourceData = AnimSequence->AssetImportData->SourceData;
 		}
 
 		AnimSequence->AssetImportData = ImportData;

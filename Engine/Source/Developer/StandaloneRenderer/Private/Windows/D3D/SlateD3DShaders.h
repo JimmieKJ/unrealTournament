@@ -172,21 +172,27 @@ public:
 	void SetShaderType( uint32 InShaderType );
 	void SetDrawEffects( uint32 InDrawEffects );
 	void SetShaderParams( const FVector4& InShaderParams );
+	void SetGammaValues(const FVector2D& InGammaValues);
 protected:
 	void UpdateParameters();
 private:
-	struct FPerElementConstants
+	MS_ALIGN(16) struct FPerElementConstants
 	{
 		FVector4 ShaderParams;
 		uint32 DrawEffects;
 		uint32 ShaderType;
-		// Constant buffers must be 16 byte aligned
-		uint32 Padding[2];
+	};
+
+	MS_ALIGN(16) struct FPerFrameConstants
+	{
+		FVector2D GammaValues;
 	};
 
 	FSlateD3DConstantBuffer<FPerElementConstants> PerElementConstants;
+	FSlateD3DConstantBuffer<FPerFrameConstants> PerFrameConstants;
 	TSlateD3DTypedShaderParameter<ID3D11ShaderResourceView>* Texture;
 	TSlateD3DTypedShaderParameter<ID3D11SamplerState>* TextureSampler;
+	TSlateD3DTypedShaderParameter<ID3D11Buffer>* PerFrameCBufferParam;
 	TSlateD3DTypedShaderParameter<ID3D11Buffer>* PerElementCBufferParam;
 	TRefCountPtr<ID3D11SamplerState> SamplerState;
 };

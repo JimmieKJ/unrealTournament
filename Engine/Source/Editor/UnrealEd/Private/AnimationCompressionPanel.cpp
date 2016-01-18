@@ -3,6 +3,7 @@
 #include "UnrealEd.h"
 #include "Animation/AnimCompress.h"
 #include "AnimationCompressionPanel.h"
+#include "AnimationEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "AnimationCompression"
 
@@ -128,24 +129,16 @@ void SAnimationCompressionPanel::ApplyAlgorithm(class UAnimCompress* Algorithm)
 {
 	if ( Algorithm )
 	{
-		const bool bProceed = EAppReturnType::Yes == FMessageDialog::Open( EAppMsgType::YesNo,
-			FText::Format( NSLOCTEXT("UnrealEd", "AboutToCompressAnimations_F", "About to compress {0} animations.  Proceed?"), FText::AsNumber(AnimSequences.Num()) ) );
-		if ( bProceed )
+		TArray<UAnimSequence*> AnimSequencePtrs;
+		AnimSequencePtrs.Reserve(AnimSequences.Num());
+
+		for(int32 Index = 0; Index < AnimSequences.Num(); ++Index)
 		{
-			TArray<UAnimSequence*> AnimSequencePtrs;
-			AnimSequencePtrs.Reserve(AnimSequences.Num());
+			AnimSequencePtrs.Add(AnimSequences[Index].Get());
+		}
 
-			for(int32 Index = 0; Index < AnimSequences.Num(); ++Index)
-			{
-				AnimSequencePtrs.Add(AnimSequences[Index].Get());
-			}
-
-			GWarn->BeginSlowTask( LOCTEXT("AnimCompressing", "Compressing"), true);
-			
-			Algorithm->Reduce(AnimSequencePtrs, true);
-
-			GWarn->EndSlowTask( );
-
+		if (AnimationEditorUtils::ApplyCompressionAlgorithm(AnimSequencePtrs, Algorithm))
+		{
 			ParentWindow->RequestDestroyWindow();
 		}
 	}

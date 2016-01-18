@@ -19,16 +19,16 @@ public:
 	 *
 	 * @param InMessageBus The message bus to use.
 	 */
-	FSessionService( const IMessageBusRef& InMessageBus );
+	FSessionService(const IMessageBusRef& InMessageBus);
 
-	/** Destructor. */
-	~FSessionService();
+	/** Virtual destructor. */
+	virtual ~FSessionService();
 
 public:
 
 	// FOutputDevice interface
 
-	virtual void Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category ) override
+	virtual void Serialize(const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category) override
 	{
 		SendLog(Data, Verbosity, Category);
 	}
@@ -54,7 +54,7 @@ protected:
 	 * @param Verbosity The verbosity type.
 	 * @param Category The log category.
 	 */
-	void SendLog( const TCHAR* Data, ELogVerbosity::Type Verbosity = ELogVerbosity::Log, const class FName& Category = "Log" );
+	void SendLog(const TCHAR* Data, ELogVerbosity::Type Verbosity = ELogVerbosity::Log, const class FName& Category = "Log");
 
 	/**
 	 * Sends a notification to the specified recipient.
@@ -62,14 +62,15 @@ protected:
 	 * @param NotificationText The notification text.
 	 * @param Recipient The recipient's message address.
 	 */
-	void SendNotification( const TCHAR* NotificationText, const FMessageAddress& Recipient );
+	void SendNotification(const TCHAR* NotificationText, const FMessageAddress& Recipient);
 
 	/**
 	 * Publishes a ping response.
 	 *
 	 * @param Context The context of the received Ping message.
+	 * @param UserName The name of the user that sent the ping.
 	 */
-	void SendPong( const IMessageContextRef& Context );
+	void SendPong(const IMessageContextRef& Context, const FString& UserName);
 
 private:
 
@@ -77,13 +78,13 @@ private:
 	void HandleMessageEndpointShutdown();
 
 	/** Handles FSessionServiceLogSubscribe messages. */
-	void HandleSessionLogSubscribeMessage( const FSessionServiceLogSubscribe& Message, const IMessageContextRef& Context );
+	void HandleSessionLogSubscribeMessage(const FSessionServiceLogSubscribe& Message, const IMessageContextRef& Context);
 
 	/** Handles FSessionServiceLogUnsubscribe messages. */
-	void HandleSessionLogUnsubscribeMessage( const FSessionServiceLogUnsubscribe& Message, const IMessageContextRef& Context );
+	void HandleSessionLogUnsubscribeMessage(const FSessionServiceLogUnsubscribe& Message, const IMessageContextRef& Context);
 
 	/** Handles FSessionServicePing messages. */
-	void HandleSessionPingMessage( const FSessionServicePing& Message, const IMessageContextRef& Context );
+	void HandleSessionPingMessage(const FSessionServicePing& Message, const IMessageContextRef& Context);
 
 private:
 

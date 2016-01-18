@@ -68,8 +68,11 @@ FReply SDockTab::OnDragDetected( const FGeometry& MyGeometry, const FPointerEven
 	const FVector2D TabGrabOffsetFraction = FVector2D(
 		FMath::Clamp(TabGrabOffset.X / TabSize.X, 0.0f, 1.0f),
 		FMath::Clamp(TabGrabOffset.Y / TabSize.Y, 0.0f, 1.0f) );
-			
-	return ParentPtr.Pin()->StartDraggingTab( SharedThis(this), TabGrabOffsetFraction, MouseEvent );
+	
+	auto PinnedParent = ParentPtr.Pin();
+	return ensure(PinnedParent.IsValid())
+		? PinnedParent->StartDraggingTab(SharedThis(this), TabGrabOffsetFraction, MouseEvent)
+		: FReply::Unhandled();
 }
 
 FReply SDockTab::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
@@ -177,6 +180,15 @@ void SDockTab::SetRightContent( TSharedRef<SWidget> InContent )
 	}
 }
 
+void SDockTab::SetBackgroundContent(TSharedRef<SWidget> InContent)
+{
+	this->TabWellContentBackground = InContent;
+	if (ParentPtr.IsValid())
+	{
+		ParentPtr.Pin()->RefreshParentContent();
+	}
+}
+
 
 bool SDockTab::IsActive() const
 {
@@ -248,6 +260,11 @@ TSharedRef<SWidget> SDockTab::GetRightContent()
 	return TabWellContentRight;
 }
 
+TSharedRef<SWidget> SDockTab::GetBackgrounfContent()
+{
+	return TabWellContentBackground;
+}
+
 FMargin SDockTab::GetContentPadding() const
 {
 	return ContentAreaPadding.Get();
@@ -307,6 +324,7 @@ SDockTab::SDockTab()
 	: Content(SNew(SSpacer))
 	, TabWellContentLeft(SNullWidget::NullWidget)
 	, TabWellContentRight(SNullWidget::NullWidget)
+	, TabWellContentBackground(SNullWidget::NullWidget)
 	, LayoutIdentifier(NAME_None)
 	, TabRole(ETabRole::PanelTab)
 	, ParentPtr()
@@ -496,7 +514,8 @@ void SDockTab::Construct( const FArguments& InArgs )
 			[
 				SNew(SHorizontalBox)
 				.Visibility(EVisibility::Visible)
-				.ToolTip( InArgs._ToolTip.IsValid() ? InArgs._ToolTip : SNew( SToolTip ).Text( this, &SDockTab::GetTabLabel ) )
+				.ToolTip( InArgs._ToolTip )
+				.ToolTipText( InArgs._ToolTipText.IsSet() ? InArgs._ToolTipText : TAttribute<FText>( this, &SDockTab::GetTabLabel ) )
 
 				// Tab Icon
 				+ SHorizontalBox::Slot()
@@ -731,4 +750,9 @@ FVector2D SDockTab::GetAnimatedScale() const
 	static FVector2D FullyOpen = FVector2D::UnitVector;
 	static FVector2D FullyClosed = FVector2D(1.0f, 0.0f);
 	return FMath::Lerp(FullyClosed, FullyOpen, SpawnAnimCurve.GetLerp());
+}
+
+void SDockTab::UpdateActivationTime()
+{
+	LastActivationTime = FSlateApplication::Get().GetCurrentTime();
 }

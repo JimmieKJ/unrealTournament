@@ -164,18 +164,21 @@ UPawnActionsComponent::UPawnActionsComponent(const FObjectInitializer& ObjectIni
 
 void UPawnActionsComponent::OnUnregister()
 {
-	Super::OnUnregister();
-
-	// call for every regular priority 
-	for (int32 PriorityIndex = 0; PriorityIndex < EAIRequestPriority::MAX; ++PriorityIndex)
+	if ((ControlledPawn != nullptr) && !ControlledPawn->IsPendingKillPending())
 	{
-		UPawnAction* Action = ActionStacks[PriorityIndex].GetTop();
-		while (Action)
+		// call for every regular priority 
+		for (int32 PriorityIndex = 0; PriorityIndex < EAIRequestPriority::MAX; ++PriorityIndex)
 		{
-			Action->Abort(EAIForceParam::Force);
-			Action = Action->ParentAction;
+			UPawnAction* Action = ActionStacks[PriorityIndex].GetTop();
+			while (Action)
+			{
+				Action->Abort(EAIForceParam::Force);
+				Action = Action->ParentAction;
+			}
 		}
 	}
+
+	Super::OnUnregister();
 }
 
 void UPawnActionsComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
@@ -415,7 +418,7 @@ EPawnActionAbortState::Type UPawnActionsComponent::K2_ForceAbortAction(UPawnActi
 {
 	if (ActionToAbort)
 	{
-		ForceAbortAction(*ActionToAbort);
+		return ForceAbortAction(*ActionToAbort);
 	}
 	return EPawnActionAbortState::NeverStarted;
 }
@@ -550,7 +553,7 @@ bool UPawnActionsComponent::K2_PerformAction(APawn* Pawn, UPawnAction* Action, T
 {
 	if (Pawn && Action)
 	{
-		PerformAction(*Pawn, *Action, Priority);
+		return PerformAction(*Pawn, *Action, Priority);
 	}
 	return false;
 }

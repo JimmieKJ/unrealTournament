@@ -90,6 +90,8 @@ public:
 	DECLARE_EVENT_OneParam(UTranslationUnit, FTranslationUnitPropertyChangedEvent, FName /*PropertyName*/);
 	FTranslationUnitPropertyChangedEvent& OnPropertyChanged() { return TranslationUnitPropertyChangedEvent; }
 
+	TSharedPtr<FLocMetadataObject> KeyMetaDataObject;
+
 protected:
 	/**
 	* Called when a property on this object has been modified externally

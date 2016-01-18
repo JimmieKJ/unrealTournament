@@ -48,7 +48,7 @@ void FPaperSpriteSheetAssetTypeActions::GetResolvedSourceFilePaths(const TArray<
 		const auto SpriteSheet = CastChecked<UPaperSpriteSheet>(Asset);
 		if (SpriteSheet->AssetImportData)
 		{
-			OutSourceFilePaths.Add(FReimportManager::ResolveImportFilename(SpriteSheet->AssetImportData->SourceFilePath, SpriteSheet));
+			SpriteSheet->AssetImportData->ExtractFilenames(OutSourceFilePaths);
 		}
 	}
 }

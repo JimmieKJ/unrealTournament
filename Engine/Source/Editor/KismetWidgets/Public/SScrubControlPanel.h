@@ -63,6 +63,8 @@ public:
 		SLATE_EVENT( FOnCropAnimSequence, OnCropAnimSequence )
 		/** Called when an frane is added before/after a selected frame */
 		SLATE_EVENT(FOnAddAnimSequence, OnAddAnimSequence)
+		/** Called when an frame is appended in the beginning or at the end */
+		SLATE_EVENT(FOnAppendAnimSequence, OnAppendAnimSequence)
 		/** Called to zero out selected frame's translation from origin */
 		SLATE_EVENT( FSimpleDelegate, OnReZeroAnimSequence )
 		SLATE_ATTRIBUTE( bool, IsRealtimeStreamingMode )

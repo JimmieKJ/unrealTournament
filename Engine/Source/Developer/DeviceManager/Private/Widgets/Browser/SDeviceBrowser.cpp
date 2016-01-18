@@ -105,6 +105,8 @@ void SDeviceBrowser::Construct( const FArguments& InArgs, const FDeviceManagerMo
 
 	Filter->OnFilterChanged().AddSP(this, &SDeviceBrowser::HandleFilterChanged);
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 void SDeviceBrowser::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	//@TODO Passive - Only happens in response to the addition or removal of a device to the device service manager

@@ -4,6 +4,9 @@
 	HitProxyVertexShader.hlsl: Vertex shader for rendering hit proxies.
 =============================================================================*/
 
+// Some input nodes can't compute their output value at hit proxy rendering time, and so their implementation changes.
+#define HIT_PROXY_SHADER 1
+
 #include "Common.usf"
 #include "Material.usf"
 #include "VertexFactory.usf"

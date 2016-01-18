@@ -37,12 +37,12 @@ public class BehaviorTreeEditor : ModuleRules
 				"MessageLog", 
 				"GraphEditor",
                 "Kismet",
+				"KismetWidgets",
                 "PropertyEditor",
 				"AnimGraph",
 				"BlueprintGraph",
                 "AIGraph",
                 "AIModule",
-                "GameplayDebugger",
 				"ClassViewer"
 			}
 		);
@@ -52,7 +52,6 @@ public class BehaviorTreeEditor : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
             new string[] { 
                 "WorkspaceMenuStructure",
-                "PropertyEditor",
 				"AssetTools",
 				"AssetRegistry",
 				"ContentBrowser"

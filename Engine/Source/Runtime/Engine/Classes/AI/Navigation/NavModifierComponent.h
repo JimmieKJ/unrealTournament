@@ -9,12 +9,16 @@ class UNavArea;
 struct FCompositeNavModifier;
 
 UCLASS(ClassGroup = (Navigation), meta = (BlueprintSpawnableComponent), hidecategories = (Activation))
-class UNavModifierComponent : public UNavRelevantComponent
+class ENGINE_API UNavModifierComponent : public UNavRelevantComponent
 {
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditAnywhere, Category = Navigation)
 	TSubclassOf<UNavArea> AreaClass;
+
+	/** box extent used ONLY when owning actor doesn't have collision component */
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	FVector FailsafeExtent;
 
 	virtual void CalcAndCacheBounds() const override;
 	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;

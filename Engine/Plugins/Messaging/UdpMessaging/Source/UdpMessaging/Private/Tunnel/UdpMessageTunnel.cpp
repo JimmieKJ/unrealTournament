@@ -6,7 +6,7 @@
 /* FUdpMessageTunnel structors
  *****************************************************************************/
 
-FUdpMessageTunnel::FUdpMessageTunnel( const FIPv4Endpoint& InUnicastEndpoint, const FIPv4Endpoint& InMulticastEndpoint )
+FUdpMessageTunnel::FUdpMessageTunnel(const FIPv4Endpoint& InUnicastEndpoint, const FIPv4Endpoint& InMulticastEndpoint)
 	: Listener(nullptr)
 	, MulticastEndpoint(InMulticastEndpoint)
 	, Stopping(false)
@@ -103,35 +103,35 @@ void FUdpMessageTunnel::Exit()
 /* IUdpMessageTunnel interface
  *****************************************************************************/
 
-bool FUdpMessageTunnel::Connect( const FIPv4Endpoint& RemoteEndpoint )
+bool FUdpMessageTunnel::Connect(const FIPv4Endpoint& RemoteEndpoint)
 {
 	FSocket* Socket = FTcpSocketBuilder(TEXT("FUdpMessageTunnel.RemoteConnection"));
 
-	if (Socket != nullptr)
+	if (Socket == nullptr)
 	{
-		if (Socket->Connect(*RemoteEndpoint.ToInternetAddr()))
-		{
-			PendingConnections.Enqueue(MakeShareable(new FUdpMessageTunnelConnection(Socket, RemoteEndpoint)));
-
-			return true;
-		}
-		else
-		{
-			ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
-		}
+		return false;
 	}
 
-	return false;
+	if (!Socket->Connect(*RemoteEndpoint.ToInternetAddr()))
+	{
+		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
+
+		return false;
+	}
+
+	PendingConnections.Enqueue(MakeShareable(new FUdpMessageTunnelConnection(Socket, RemoteEndpoint)));
+
+	return true;
 }
 
 
-int32 FUdpMessageTunnel::GetConnections( TArray<IUdpMessageTunnelConnectionPtr>& OutConnections )
+int32 FUdpMessageTunnel::GetConnections(TArray<IUdpMessageTunnelConnectionPtr>& OutConnections)
 {
 	FScopeLock Lock(&CriticalSection);
 
-	for (TArray<FUdpMessageTunnelConnectionPtr>::TConstIterator It(Connections); It; ++It)
+	for (const auto& Connection : Connections)
 	{
-		OutConnections.Add(*It);
+		OutConnections.Add(Connection);
 	}
 
 	return OutConnections.Num();
@@ -162,7 +162,7 @@ FSimpleDelegate& FUdpMessageTunnel::OnConnectionsChanged()
 }
 
 
-void FUdpMessageTunnel::StartServer( const FIPv4Endpoint& LocalEndpoint )
+void FUdpMessageTunnel::StartServer(const FIPv4Endpoint& LocalEndpoint)
 {
 	StopServer();
 
@@ -181,7 +181,7 @@ void FUdpMessageTunnel::StopServer()
 /* FUdpMessageTunnel implementation
  *****************************************************************************/
 
-void FUdpMessageTunnel::RemoveExpiredNodes( TMap<FGuid, FNodeInfo>& Nodes )
+void FUdpMessageTunnel::RemoveExpiredNodes(TMap<FGuid, FNodeInfo>& Nodes)
 {
 	for (TMap<FGuid, FNodeInfo>::TIterator It(Nodes); It; ++It)
 	{
@@ -250,7 +250,7 @@ void FUdpMessageTunnel::TcpToUdp()
 }
 
 
-void FUdpMessageTunnel::UdpToTcp( FSocket* Socket )
+void FUdpMessageTunnel::UdpToTcp(FSocket* Socket)
 {
 	TSharedRef<FInternetAddr> Sender = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 
@@ -321,7 +321,6 @@ void FUdpMessageTunnel::UpdateConnections()
 		if (!Connections[ConnectionIndex]->IsOpen())
 		{
 			Connections.RemoveAtSwap(ConnectionIndex);
-
 			ConnectionsChanged = true;
 		}
 	}
@@ -350,7 +349,7 @@ void FUdpMessageTunnel::UpdateConnections()
 /* FUdpMessageTunnel callbacks
  *****************************************************************************/
 
-bool FUdpMessageTunnel::HandleListenerConnectionAccepted( FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint )
+bool FUdpMessageTunnel::HandleListenerConnectionAccepted(FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint)
 {
 	PendingConnections.Enqueue(MakeShareable(new FUdpMessageTunnelConnection(ClientSocket, ClientEndpoint)));
 

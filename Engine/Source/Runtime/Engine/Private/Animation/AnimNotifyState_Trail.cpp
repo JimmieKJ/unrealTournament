@@ -14,6 +14,29 @@
 
 DEFINE_LOG_CATEGORY(LogAnimTrails);
 
+typedef TInlineComponentArray<UParticleSystemComponent*, 8> ParticleSystemComponentArray;
+
+static void GetCandidateSystems(USkeletalMeshComponent& MeshComp, ParticleSystemComponentArray& Components)
+{
+	if (AActor* Owner = MeshComp.GetOwner())
+	{
+		Owner->GetComponents(Components);
+	}
+	else
+	{
+		// No actor owner in some editor windows. Get PSCs spawned by the MeshComp.
+		TArray<UObject*> Children;
+		GetObjectsWithOuter(&MeshComp, Children, false, RF_NoFlags, EInternalObjectFlags::PendingKill);
+		for (UObject* Child : Children)
+		{
+			if (UParticleSystemComponent* ChildPSC = Cast<UParticleSystemComponent>(Child))
+			{
+				Components.Add(ChildPSC);
+			}
+		}
+	}
+}
+
 /////////////////////////////////////////////////////
 // UAnimNotifyState_Trail
 
@@ -26,6 +49,8 @@ UAnimNotifyState_Trail::UAnimNotifyState_Trail(const FObjectInitializer& ObjectI
 	WidthScaleMode = ETrailWidthMode_FromCentre;
 	WidthScaleCurve = NAME_None;
 
+	bRecycleSpawnedSystems = true;
+
 #if WITH_EDITORONLY_DATA
 	bRenderGeometry = true;
 	bRenderSpawnPoints = false;
@@ -34,13 +59,23 @@ UAnimNotifyState_Trail::UAnimNotifyState_Trail(const FObjectInitializer& ObjectI
 #endif // WITH_EDITORONLY_DATA
 }
 
+UParticleSystem* UAnimNotifyState_Trail::GetOverridenPSTemplate(class USkeletalMeshComponent* MeshComp, class UAnimSequenceBase* Animation) const
+{
+	return OverridePSTemplate(MeshComp, Animation);
+}
+
 void UAnimNotifyState_Trail::NotifyBegin(class USkeletalMeshComponent * MeshComp, class UAnimSequenceBase * Animation, float TotalDuration)
 {
 	bool bError = ValidateInput(MeshComp);
 
-	TArray<USceneComponent*> Children;
-	MeshComp->GetChildrenComponents(false, Children);
-	
+	if (MeshComp->GetWorld()->GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	ParticleSystemComponentArray Children;
+	GetCandidateSystems(*MeshComp, Children);
+
 	UAnimInstance* AnimInst = MeshComp->GetAnimInstance();
 	float Width = 1.0f;
 	if (WidthScaleCurve != NAME_None && AnimInst)
@@ -48,67 +83,93 @@ void UAnimNotifyState_Trail::NotifyBegin(class USkeletalMeshComponent * MeshComp
 		Width = AnimInst->GetCurveValue(WidthScaleCurve);
 	}
 
-	UParticleSystem* ParticleSystemTemplate = OverridePSTemplate(MeshComp, Animation);
-	if (ParticleSystemTemplate == nullptr)
+	UParticleSystem* ParticleSystemTemplate = GetOverridenPSTemplate(MeshComp, Animation);
+	if (ParticleSystemTemplate != nullptr)
 	{
-		ParticleSystemTemplate = PSTemplate;
+		PSTemplate = ParticleSystemTemplate;
 	}
 
+	UParticleSystemComponent* RecycleCandidates[3] = {nullptr, nullptr, nullptr}; // in order of priority
 	bool bFoundExistingTrail = false;
-	for (USceneComponent* Comp : Children)
+	for (UParticleSystemComponent* ParticleComp : Children)
 	{
-		UParticleSystemComponent* ParticleComp = Cast<UParticleSystemComponent>(Comp);
-		if (ParticleComp)
+		if (ParticleComp->IsActive())
 		{
-			TArray< FParticleAnimTrailEmitterInstance* > TrailEmitters;
+			UParticleSystemComponent::TrailEmitterArray TrailEmitters;
 			ParticleComp->GetOwnedTrailEmitters(TrailEmitters, this, false);
 
-			bFoundExistingTrail = TrailEmitters.Num() > 0;
+			if (TrailEmitters.Num() > 0)
+			{
+				// This has active emitters, we'll just restart this one.
+				bFoundExistingTrail = true;
 
-			//If there are any trails, ensure the template hasn't been changed. Also destroy the component if there are errors.
-			if (TrailEmitters.Num() > 0 && (bError || PSTemplate != ParticleComp->Template))
-			{
-				//The PSTemplate was changed so we need to destroy this system and create it again with the new template. May be able to just change the template?
-				ParticleComp->DestroyComponent();
-			}
-			else
-			{
-				for (FParticleAnimTrailEmitterInstance* Trail : TrailEmitters)
+				//If there are any trails, ensure the template hasn't been changed. Also destroy the component if there are errors.
+				if (bError || (PSTemplate != ParticleComp->Template && ParticleComp->GetOuter() == MeshComp))
 				{
-					Trail->BeginTrail();
-					Trail->SetTrailSourceData(FirstSocketName, SecondSocketName, WidthScaleMode, Width);
-
-#if WITH_EDITORONLY_DATA
-					Trail->SetTrailDebugData( bRenderGeometry, bRenderSpawnPoints, bRenderTessellation, bRenderTangents);
-#endif
+					//The PSTemplate was changed so we need to destroy this system and create it again with the new template. May be able to just change the template?
+					ParticleComp->DestroyComponent();
 				}
-			}
+				else
+				{
+					for (FParticleAnimTrailEmitterInstance* Trail : TrailEmitters)
+					{
+						Trail->BeginTrail();
+						Trail->SetTrailSourceData(FirstSocketName, SecondSocketName, WidthScaleMode, Width);
 
-			if (bFoundExistingTrail)
-			{
-				break;//Found and re-used the existing trail so can exit now.
+	#if WITH_EDITORONLY_DATA
+						Trail->SetTrailDebugData(bRenderGeometry, bRenderSpawnPoints, bRenderTessellation, bRenderTangents);
+	#endif
+					}
+				}
+
+				break;
 			}
+		}
+		else if (ParticleComp->bAllowRecycling && !ParticleComp->IsActive())
+		{
+			// We prefer to recycle one with a matching template, and prefer one created by us.
+			// 0: matching template, owned by mesh
+			// 1: matching template, owned by actor
+			// 2: non-matching template, owned by actor or mesh
+			int32 RecycleIndex = 2;
+			if (ParticleComp->Template == PSTemplate)
+			{
+				RecycleIndex = (ParticleComp->GetOuter() == MeshComp ? 0 : 1);
+			}
+			RecycleCandidates[RecycleIndex] = ParticleComp;
 		}
 	}
 
 	if (!bFoundExistingTrail && !bError)
 	{
-		//Spawn a new component from PSTemplate. This notify is made the outer so that the component can be identified later.
-		UParticleSystemComponent* NewParticleComp = NewObject<UParticleSystemComponent>(MeshComp);
-		NewParticleComp->bAutoDestroy = true;
+		// Spawn a new component from PSTemplate, or recycle an old one.
+		UParticleSystemComponent* RecycleComponent = (RecycleCandidates[0] ? RecycleCandidates[0] : (RecycleCandidates[1] ? RecycleCandidates[1] : RecycleCandidates[2]));
+		UParticleSystemComponent* NewParticleComp = (RecycleComponent ? RecycleComponent : NewObject<UParticleSystemComponent>(MeshComp));
+		NewParticleComp->bAutoDestroy = (RecycleComponent ? false : !bRecycleSpawnedSystems);
+		NewParticleComp->bAllowRecycling = true;
 		NewParticleComp->SecondsBeforeInactive = 0.0f;
 		NewParticleComp->bAutoActivate = false;
-		NewParticleComp->SetTemplate(PSTemplate);
 		NewParticleComp->bOverrideLODMethod = false;
+		NewParticleComp->RelativeScale3D = FVector(1.f);
+		NewParticleComp->bAutoManageAttachment = true; // Let it detach when finished (only happens if not auto-destroying)
+		NewParticleComp->SetAutoAttachParams(MeshComp, NAME_None);
 
-		NewParticleComp->RegisterComponentWithWorld(MeshComp->GetWorld());
+		// When recycling we can avoid setting the template if set already.
+		if (NewParticleComp->Template != PSTemplate)
+		{
+			NewParticleComp->SetTemplate(PSTemplate);
+		}
+
+		// Recycled components are usually already registered
+		if (!NewParticleComp->IsRegistered())
+		{
+			NewParticleComp->RegisterComponentWithWorld(MeshComp->GetWorld());
+		}
+
 		NewParticleComp->AttachTo(MeshComp, NAME_None);
-		//NewParticleComp->SetWorldLocationAndRotation(Location, Rotation);
-
-		NewParticleComp->SetRelativeScale3D(FVector(1.f));
 		NewParticleComp->ActivateSystem(true);
 
-		TArray< FParticleAnimTrailEmitterInstance* > TrailEmitters;
+		UParticleSystemComponent::TrailEmitterArray TrailEmitters;
 		NewParticleComp->GetOwnedTrailEmitters(TrailEmitters, this, true);
 
 		for (FParticleAnimTrailEmitterInstance* Trail : TrailEmitters)
@@ -129,8 +190,13 @@ void UAnimNotifyState_Trail::NotifyTick(class USkeletalMeshComponent * MeshComp,
 {
 	bool bError = ValidateInput(MeshComp, true);
 
-	TArray<USceneComponent*> Children;
-	MeshComp->GetChildrenComponents(false, Children);
+	if (MeshComp->GetWorld()->GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	ParticleSystemComponentArray Children;
+	GetCandidateSystems(*MeshComp, Children);
 
 	UAnimInstance* AnimInst = MeshComp->GetAnimInstance();
 	float Width = 1.0f;
@@ -139,16 +205,15 @@ void UAnimNotifyState_Trail::NotifyTick(class USkeletalMeshComponent * MeshComp,
 		Width = AnimInst->GetCurveValue(WidthScaleCurve);
 	}
 
-	for (USceneComponent* Comp : Children)
+	for (UParticleSystemComponent* ParticleComp : Children)
 	{
-		UParticleSystemComponent* ParticleComp = Cast<UParticleSystemComponent>(Comp);
-		if ( ParticleComp )
+		if (ParticleComp->IsActive())
 		{
-			TArray< FParticleAnimTrailEmitterInstance* > TrailEmitters;
+			UParticleSystemComponent::TrailEmitterArray TrailEmitters;
 			ParticleComp->GetOwnedTrailEmitters(TrailEmitters, this, false);
 			if (bError && TrailEmitters.Num() > 0)
 			{
-				Comp->DestroyComponent();
+				ParticleComp->DestroyComponent();
 			}
 			else
 			{
@@ -156,9 +221,9 @@ void UAnimNotifyState_Trail::NotifyTick(class USkeletalMeshComponent * MeshComp,
 				{
 					Trail->SetTrailSourceData(FirstSocketName, SecondSocketName, WidthScaleMode, Width);
 
-#if WITH_EDITORONLY_DATA
+	#if WITH_EDITORONLY_DATA
 					Trail->SetTrailDebugData(bRenderGeometry, bRenderSpawnPoints, bRenderTessellation, bRenderTangents);
-#endif
+	#endif
 				}
 			}
 		}
@@ -169,15 +234,19 @@ void UAnimNotifyState_Trail::NotifyTick(class USkeletalMeshComponent * MeshComp,
 
 void UAnimNotifyState_Trail::NotifyEnd(class USkeletalMeshComponent * MeshComp, class UAnimSequenceBase * Animation)
 {
-	TArray<USceneComponent*> Children;
-	MeshComp->GetChildrenComponents(false, Children);
-
-	for (USceneComponent* Comp : Children)
+	if (MeshComp->GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
-		UParticleSystemComponent* ParticleComp = Cast<UParticleSystemComponent>(Comp);
-		if (ParticleComp)
+		return;
+	}
+
+	ParticleSystemComponentArray Children;
+	GetCandidateSystems(*MeshComp, Children);
+
+	for (UParticleSystemComponent* ParticleComp : Children)
+	{
+		if (ParticleComp->IsActive())
 		{
-			TArray< FParticleAnimTrailEmitterInstance* > TrailEmitters;
+			UParticleSystemComponent::TrailEmitterArray TrailEmitters;
 			ParticleComp->GetOwnedTrailEmitters(TrailEmitters, this, false);
 			for (FParticleAnimTrailEmitterInstance* Trail : TrailEmitters)
 			{
@@ -193,11 +262,6 @@ bool UAnimNotifyState_Trail::ValidateInput(class USkeletalMeshComponent * MeshCo
 {
 #if WITH_EDITOR
 	bool bError = false;
-	FText FirstSocketEqualsNoneErrorText = FText::Format( LOCTEXT("NoneFirstSocket", "{0}: Must set First Socket Name."), FText::FromString(GetName()));
-	FText SecondSocketEqualsNoneErrorText = FText::Format( LOCTEXT("NoneSecondSocket", "{0}: Must set Second Socket Name."), FText::FromString(GetName()));
-	FText PSTemplateEqualsNoneErrorText = FText::Format( LOCTEXT("NonePSTemplate", "{0}: Trail must have a PSTemplate."), FText::FromString(GetName()));
-	FString PSTemplateName = PSTemplate ? PSTemplate->GetName() : "";
-	FText PSTemplateInvalidErrorText = FText::Format(LOCTEXT("InvalidPSTemplateFmt", "{0}: {1} does not contain any trail emittter."), FText::FromString(GetName()), FText::FromString(PSTemplateName));
 
 	MeshComp->ClearAnimNotifyErrors(this);
 
@@ -206,6 +270,7 @@ bool UAnimNotifyState_Trail::ValidateInput(class USkeletalMeshComponent * MeshCo
 	{
 		if (bReportErrors)
 		{
+			const FText FirstSocketEqualsNoneErrorText = FText::Format( LOCTEXT("NoneFirstSocket", "{0}: Must set First Socket Name."), FText::FromString(GetName()));
 			MeshComp->ReportAnimNotifyError(FirstSocketEqualsNoneErrorText, this);
 		}
 		bError = true;
@@ -215,6 +280,7 @@ bool UAnimNotifyState_Trail::ValidateInput(class USkeletalMeshComponent * MeshCo
 	{
 		if (bReportErrors)
 		{
+			const FText SecondSocketEqualsNoneErrorText = FText::Format( LOCTEXT("NoneSecondSocket", "{0}: Must set Second Socket Name."), FText::FromString(GetName()));
 			MeshComp->ReportAnimNotifyError(SecondSocketEqualsNoneErrorText, this);
 		}
 		bError = true;
@@ -224,6 +290,7 @@ bool UAnimNotifyState_Trail::ValidateInput(class USkeletalMeshComponent * MeshCo
 	{
 		if (bReportErrors)
 		{
+			const FText PSTemplateEqualsNoneErrorText = FText::Format( LOCTEXT("NonePSTemplate", "{0}: Trail must have a PSTemplate."), FText::FromString(GetName()));
 			MeshComp->ReportAnimNotifyError(PSTemplateEqualsNoneErrorText, this);
 		}
 		bError = true;
@@ -234,6 +301,8 @@ bool UAnimNotifyState_Trail::ValidateInput(class USkeletalMeshComponent * MeshCo
 		{
 			if (bReportErrors)
 			{
+				const FString PSTemplateName = PSTemplate ? PSTemplate->GetName() : "";
+				const FText PSTemplateInvalidErrorText = FText::Format(LOCTEXT("InvalidPSTemplateFmt", "{0}: {1} does not contain any trail emittter."), FText::FromString(GetName()), FText::FromString(PSTemplateName));
 				MeshComp->ReportAnimNotifyError(PSTemplateInvalidErrorText, this);
 			}
 
@@ -246,4 +315,4 @@ bool UAnimNotifyState_Trail::ValidateInput(class USkeletalMeshComponent * MeshCo
 #endif // WITH_EDITOR
 }
 
-#undef  LOCTEXT_NAMESPACE
+#undef LOCTEXT_NAMESPACE

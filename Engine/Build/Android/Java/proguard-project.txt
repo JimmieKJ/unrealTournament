@@ -25,8 +25,14 @@
 -keep class com.epicgames.ue4.MessageBox01 {
    public *;
 }
+-keep class com.epicgames.ue4.WebViewControl {
+   public *;
+}
 
 # Needed...
+-keep class com.epicgames.ue4.GameActivity$InputDeviceInfo {
+   public *;
+}
 -keep class com.epicgames.ue4.GameActivity$JavaAchievement {
    public *;
 }

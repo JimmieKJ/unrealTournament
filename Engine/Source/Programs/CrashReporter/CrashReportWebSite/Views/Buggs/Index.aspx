@@ -8,104 +8,138 @@
 </asp:Content>
 
 <asp:Content ID="TitleContent" ContentPlaceHolderID="TitleContent" runat="server">
-	Crash Report: Buggs
+[CR] Buggs
 </asp:Content>
 
-<asp:Content ID="ScriptContent"  ContentPlaceHolderID="ScriptContent" runat="server" >
-<script type="text/javascript">
-	$(function ()
-	{
-		$("#dateFromVisible")
-			.datepicker({ maxDate: '+0D' })
-			.datepicker('setDate', new Date(parseInt($('#dateFrom').val())));
-
-		$("#dateToVisible")
-			.datepicker({ maxDate: '+0D' })
-			.datepicker('setDate', new Date(parseInt($('#dateTo').val())));
-
-	});
-
-	$.datepicker.setDefaults({
-		onSelect: function ()
+<asp:Content ID="ScriptContent" ContentPlaceHolderID="ScriptContent" runat="server">
+	<script src="../../Scripts/searchCollapse.js"></script>
+	<script type="text/javascript">
+		$(function ()
 		{
-			$("#dateFrom").val($("#dateFromVisible").datepicker('getDate').getTime());
-			$("#dateTo").val($("#dateToVisible").datepicker('getDate').getTime());
-			$("#FilterBuggsForm").submit();
-		}
-	});
+			$("#dateFromVisible")
+				.datepicker({ maxDate: '+0D' })
+				.datepicker('setDate', new Date(parseInt($('#dateFrom').val())));
 
-	$(document).ready(function ()
-	{
-		//Shift Check box
-		$(":checkbox").shiftcheckbox();
+			$("#dateToVisible")
+				.datepicker({ maxDate: '+0D' })
+				.datepicker('setDate', new Date(parseInt($('#dateTo').val())));
 
-		//Zebrastripes
-		$("#CrashesTable tr:nth-child(even)").css("background-color", "#C3CAD0");
-		$("#CrashesTable tr:nth-child(odd)").css("background-color", "#eeeeee");
-
-		$(".CrashType").click(function ()
-		{
-			$("#FilterBuggsForm").submit();
 		});
-	});
-</script>
+
+		$.datepicker.setDefaults({
+			onSelect: function ()
+			{
+				$("#dateFrom").val($("#dateFromVisible").datepicker('getDate').getTime());
+				$("#dateTo").val($("#dateToVisible").datepicker('getDate').getTime());
+			}
+		});
+
+		$(document).ready(function ()
+		{
+			//Shift Check box
+			$(":checkbox").shiftcheckbox();
+
+			//Zebrastripes
+			$("#CrashesTable tr:nth-child(even)").css("background-color", "#C3CAD0");
+			$("#CrashesTable tr:nth-child(odd)").css("background-color", "#eeeeee");
+
+		});
+	</script>
 </asp:Content>
 
-<asp:Content ID="AboveMainContent" ContentPlaceHolderID="AboveMainContent" runat="server" >
-	<div style="clear:both;"><small style="color: lightgray;">Generated in <%=Model.GenerationTime%> second(s)</small><br /></div>
+<asp:Content ID="Content"  ContentPlaceHolderID="AboveMainContent" runat="server" >
+	<div style="clear: both;">
+		<small style="color: lightgray;">Generated in <%=Model.GenerationTime%> second(s)</small>
+		<br />
 
-<div id='SearchForm' style="clear:both;">
-<%using( Html.BeginForm( "", "Buggs", FormMethod.Get, new { id = "FilterBuggsForm" } ) )
-{ %>
-	<%=Html.HiddenFor( u => u.UserGroup )%>
-	<%=Html.Hidden( "SortTerm", Model.SortTerm )%>
-	<%=Html.Hidden( "SortOrder", Model.SortOrder )%>
+		<div id='SearchForm' style="clear: both">
+			<div id="TitleBar" class="TitleBar">
+				SEARCH OPTIONS
+			</div>
+			<% using (Html.BeginForm( "", "Buggs", FormMethod.Get, new { id = "FilterBuggsForm" } ))
+	  { %>
+			<%=Html.HiddenFor( u => u.UserGroup )%>
+			<%=Html.Hidden( "SortTerm", Model.SortTerm )%>
+			<%=Html.Hidden( "SortOrder", Model.SortOrder )%>
 
-	<span style="float:left;">
-			<input type="radio" name="CrashType" class="CrashType" value="CrashesAsserts" <%=( Model.CrashType == "CrashesAsserts" ) ? "checked='checked'" : "" %> /> <span title='All Crashes Except Ensures'>Crashes+Asserts</span>
-			<input type="radio" name="CrashType" class="CrashType" value="Ensure" <%=( Model.CrashType == "Ensure" ) ? "checked='checked'" : "" %>/> <span title='Only Ensures'>Ensures</span>
-			<input type="radio" name="CrashType" class="CrashType" value="Assert" <%=( Model.CrashType == "Assert" ) ? "checked='checked'" : "" %>/> <span title='Only Asserts'>Asserts</span>
-			<input type="radio" name="CrashType" class="CrashType" value="Crashes" <%=( Model.CrashType == "Crashes" ) ? "checked='checked'" : "" %>/> <span title='Crashes Except Ensures and Asserts'>Crashes</span>
-			<input type="radio" name="CrashType" class="CrashType" value="All" <%=( Model.CrashType == "All" ) ? "checked='checked'" : "" %>/> <span title='All Crashes'>All</span>
-	</span>
+			<div id="Container">
+				<table>
+					<tr>
+						<td rowspan="3">
+							<div id="CrashTypeList">
+								<p class="SearchTextTitle" title="Press to hide">Show buggs of type</p>
+								<ul>
+									<li>
+										<input type="radio" name="CrashType" value="CrashesAsserts" <%=( Model.CrashType == "CrashesAsserts" ) ? "checked='checked'" : "" %> />
+										<span title='All Crashes Except Ensures'>Crashes+Asserts</span></li>
+									<li>
+										<input type="radio" name="CrashType" value="Ensure" <%=( Model.CrashType == "Ensure" ) ? "checked='checked'" : "" %> />
+										<span title='Only Ensures'>Ensures</span></li>
+									<li>
+										<input type="radio" name="CrashType" value="Assert" <%=( Model.CrashType == "Assert" ) ? "checked='checked'" : "" %> />
+										<span title='Only Asserts'>Asserts</span></li>
+									<li>
+										<input type="radio" name="CrashType" value="Crashes" <%=( Model.CrashType == "Crashes" ) ? "checked='checked'" : "" %> />
+										<span title='Crashes Except Ensures and Asserts'>Crashes</span></li>
+									<li>
+										<input type="radio" name="CrashType" value="All" <%=( Model.CrashType == "All" ) ? "checked='checked'" : "" %> />
+										<span title='All Crashes'>All</span></li>
+								</ul>
+							</div>
+						</td>
+						
+						<td>
+							<p class="SearchTextTitle">Call Stack</p>
+						</td>
+						<td>
+							<input name="SearchQuery" type="text" value="<%=Model.SearchQuery%>" title="" />
+						</td>
 
-	<div id="SearchBox"><%=Html.TextBox( "SearchQuery", Model.SearchQuery, new { width = "1000" })%><input type="submit" value="Search" class='SearchButton' /></div>
+						<td>
+							<p class="SearchTextTitle">Filter by Date</p>
+						</td>
+						<td>
+							<script>$.datepicker.setDefaults($.datepicker.regional['']);</script>
+							<span class="SearchTextTitle">From:</span>
+							<input id="dateFromVisible" type="text" class="date" autocomplete="OFF" style="width:80px" />
+							<input id="dateFrom" name="dateFrom" type="hidden" value="<%=Model.DateFrom %>" autocomplete="OFF" />
+							<span class="SearchTextTitle">To:</span>
+							<input id="dateToVisible" type="text" class="date" autocomplete="OFF" style="width:80px" />
+							<input id="dateTo" name="dateTo" type="hidden" value="<%=Model.DateTo %>"autocomplete="OFF"  />
+						</td>
+					</tr>
 
-	<script>$.datepicker.setDefaults($.datepicker.regional['']);</script>
 
-	<span style="margin-left: 10px; font-weight: bold;">Filter by Date </span>
-
-	<span>From: 
-	<input id="dateFromVisible" type="text" class="date" autocomplete="OFF" /></span>
-	<input id="dateFrom" name="dateFrom" type="hidden" value="<%=Model.DateFrom %>" autocomplete="OFF" />
-
-	<span>To: 
-	<input id="dateToVisible" type="text" class="date" autocomplete="OFF" /></span>
-	<input id="dateTo" name="dateTo" type="hidden" value="<%=Model.DateTo %>" autocomplete="OFF" />
-
-
-	<span style="margin-left: 10px; font-weight:bold;">Filter Build Version:</span>
-	<span><input id="BuildVersion" name="BuildVersion" type="text" value="<%=Model.BuildVersion%>" AUTOCOMPLETE=OFF title="Build version to filter by; eg: 4.4.0 or 4.3"/></span>
-
-<%--	<select id="BuildVersionVisible" name="BuildVersionVisible">
-		<option selected="selected" value=""></option>
-		<%foreach( var BuildVersion in Model.BuildVersions )
-		{%>
-			<option value="<%=BuildVersion%>"><%=BuildVersion%></option>
-		<%}
-		%>
-	</select>--%>
-
-<%} %>
-</div>
+					<tr>
+						
+						<td>
+							<p class="SearchTextTitle">Filter by Version</p>
+						</td>
+						<td>
+							<%=Html.DropDownListFor( m=>m.VersionName, Model.VersionNames )%>
+						</td>
+					</tr>
+					<tr>
+						<td colspan="7" >
+							<input type="submit" value="Search" class='SearchButton' />
+						</td>
+					</tr>
+				</table>
+			</div>
+			<% } %>
+		</div>
+	</div>
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="MainContent" runat="server">
 	<div id='CrashesTableContainer'>
 		<div id='UserGroupBar'>
-			<%foreach( var GroupCount in Model.GroupCounts )
-			{%>
-				<span class=<%if( Model.UserGroup == GroupCount.Key ){ %> "UserGroupTabSelected" <%} else {%> "UserGroupTab"<%} %> id="<%=GroupCount.Key%>Tab">
+			<%foreach (var GroupCount in Model.GroupCounts)
+	 {%>
+				<span class=<%if (Model.UserGroup == GroupCount.Key)
+				  { %> "UserGroupTabSelected" <%}
+				  else
+				  {%> "UserGroupTab"<%} %> id="<%=GroupCount.Key%>Tab">
 					<%=Url.UserGroupLink( GroupCount.Key, Model )%> 
 				<span class="UserGroupResults">
 					(<%=GroupCount.Value%>)
@@ -121,14 +155,14 @@
 						<%=Html.ActionLink( "Crashes", "Index", "Crashes", 		
 							new 
 							{ 
-								SearchQuery = Model.SearchQuery, 
-								SortTerm = Model.SortTerm, 
-								SortOrder = Model.SortOrder, 
-								UserGroup = Model.UserGroup, 
-								DateFrom = Model.DateFrom, 
-								DateTo = Model.DateTo, 
-								BuildVersion = Model.BuildVersion,
-								CrashType = Model.CrashType
+								SortTerm = Model.SortTerm,
+								SortOrder = Model.SortOrder,
+								CrashType = Model.CrashType,
+								UserGroup = Model.UserGroup,
+								SearchQuery = Model.SearchQuery,
+								DateFrom = Model.DateFrom,
+								DateTo = Model.DateTo,
+								VersionName = Model.VersionName,
 							}
 							, 
 							new { style = "color:black; text-decoration:none;" } )%></span>
@@ -137,19 +171,19 @@
 						<%=Html.ActionLink( "CrashGroups", "Index", "Buggs", 
 							new 
 							{ 
-								SearchQuery = Model.SearchQuery, 
-								SortTerm = Model.SortTerm, 
-								SortOrder = Model.SortOrder, 
-								UserGroup = Model.UserGroup, 
-								DateFrom = Model.DateFrom, 
-								DateTo = Model.DateTo, 
-								BuildVersion = Model.BuildVersion,
-								CrashType = Model.CrashType
+								SortTerm = Model.SortTerm,
+								SortOrder = Model.SortOrder,
+								CrashType = Model.CrashType,
+								UserGroup = Model.UserGroup,
+								SearchQuery = Model.SearchQuery,
+								DateFrom = Model.DateFrom,
+								DateTo = Model.DateTo,
+								VersionName = Model.VersionName,
 							}
 							, 
 							new { style = "color:black; text-decoration:none;" } )%></span>
 				</div>
-				<% Html.RenderPartial("/Views/Buggs/ViewBuggs.ascx"); %>
+				<% Html.RenderPartial( "/Views/Buggs/ViewBuggs.ascx" ); %>
 			</form>
 		</div>
 	</div>
@@ -159,14 +193,14 @@
 			new 
 			{ 
 				page = i, 
-				SearchQuery = Model.SearchQuery, 
-				SortTerm = Model.SortTerm, 
-				SortOrder = Model.SortOrder, 
-				UserGroup = Model.UserGroup, 
-				DateFrom = Model.DateFrom, 
-				DateTo = Model.DateTo, 
-				BuildVersion = Model.BuildVersion,
-				CrashType = Model.CrashType
+				SortTerm = Model.SortTerm,
+				SortOrder = Model.SortOrder,
+				CrashType = Model.CrashType,
+				UserGroup = Model.UserGroup,
+				SearchQuery = Model.SearchQuery,
+				DateFrom = Model.DateFrom,
+				DateTo = Model.DateTo,
+				VersionName = Model.VersionName,
 			} 
 		) )%>
 		<div id="clear"></div>

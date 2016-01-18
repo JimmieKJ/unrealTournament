@@ -7,6 +7,7 @@
 
 #include "Engine.h"
 #include "SoundDefinitions.h"
+#include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
 #include "OnlineSubsystemUtils.h"
 
 /** Largest size preallocated for compressed data */
@@ -117,36 +118,32 @@ bool FVoiceEngineImpl::Init(int32 MaxLocalTalkers, int32 MaxRemoteTalkers)
 
 	if (!OnlineSubsystem->IsDedicated())
 	{
-		bool bHasVoiceEnabled = false;
-		if (GConfig->GetBool(TEXT("OnlineSubsystem"),TEXT("bHasVoiceEnabled"), bHasVoiceEnabled, GEngineIni) && bHasVoiceEnabled)
+		FVoiceModule& VoiceModule = FVoiceModule::Get();
+		if (VoiceModule.IsVoiceEnabled())
 		{
-			FVoiceModule& VoiceModule = FVoiceModule::Get();
-			if (VoiceModule.IsVoiceEnabled())
+			VoiceCapture = VoiceModule.CreateVoiceCapture();
+			VoiceEncoder = VoiceModule.CreateVoiceEncoder();
+
+			bSuccess = VoiceCapture.IsValid() && VoiceEncoder.IsValid();
+			if (bSuccess)
 			{
-				VoiceCapture = VoiceModule.CreateVoiceCapture();
-				VoiceEncoder = VoiceModule.CreateVoiceEncoder();
+				CompressedVoiceBuffer.Empty(MAX_COMPRESSED_VOICE_BUFFER_SIZE);
+				DecompressedVoiceBuffer.Empty(MAX_UNCOMPRESSED_VOICE_BUFFER_SIZE);
 
-				bSuccess = VoiceCapture.IsValid() && VoiceEncoder.IsValid();
-				if (bSuccess)
+				for (int32 TalkerIdx = 0; TalkerIdx < MaxLocalTalkers; TalkerIdx++)
 				{
-					CompressedVoiceBuffer.Empty(MAX_COMPRESSED_VOICE_BUFFER_SIZE);
-					DecompressedVoiceBuffer.Empty(MAX_UNCOMPRESSED_VOICE_BUFFER_SIZE);
-
-					for (int32 TalkerIdx=0; TalkerIdx < MaxLocalTalkers; TalkerIdx++)
-					{
-						PlayerVoiceData[TalkerIdx].VoiceRemainderSize = 0;
-						PlayerVoiceData[TalkerIdx].VoiceRemainder.Empty(MAX_VOICE_REMAINDER_SIZE);
-					}
+					PlayerVoiceData[TalkerIdx].VoiceRemainderSize = 0;
+					PlayerVoiceData[TalkerIdx].VoiceRemainder.Empty(MAX_VOICE_REMAINDER_SIZE);
 				}
-				else
-				{
-					UE_LOG(LogVoiceEncode, Warning, TEXT("Voice capture initialization failed!"));
-				}
+			}
+			else
+			{
+				UE_LOG(LogVoice, Warning, TEXT("Voice capture initialization failed!"));
 			}
 		}
 		else
 		{
-			UE_LOG(LogVoiceEncode, Warning, TEXT("Voice interface disabled by config"));
+			UE_LOG(LogVoice, Log, TEXT("Voice module disabled by config [Voice].bEnabled"));
 		}
 	}
 
@@ -387,7 +384,7 @@ uint32 FVoiceEngineImpl::SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalkerI
 			QueuedData.AudioComponent->Play();
 		}
 
-		USoundWaveStreaming* SoundStreaming = CastChecked<USoundWaveStreaming>(QueuedData.AudioComponent->Sound);
+		USoundWaveProcedural* SoundStreaming = CastChecked<USoundWaveProcedural>(QueuedData.AudioComponent->Sound);
 
 		if (0)
 		{

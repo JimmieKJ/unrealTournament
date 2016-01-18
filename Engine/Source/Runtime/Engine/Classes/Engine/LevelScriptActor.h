@@ -56,17 +56,17 @@ class ENGINE_API ALevelScriptActor : public AActor
 	void WorldOriginLocationChanged(FIntVector OldOriginLocation, FIntVector NewOriginLocation);
 	
 #if WITH_EDITOR
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void BeginDestroy() override;
 #endif
 	virtual void PreInitializeComponents() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void EnableInput(class APlayerController* PlayerController) override;
 	virtual void DisableInput(class APlayerController* PlayerController) override;
-	// End AActor Interface
+	//~ End AActor Interface
 
 	bool InputEnabled() const { return bInputEnabled; }
 

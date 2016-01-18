@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
@@ -17,8 +17,24 @@
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
-#include "Private/Slate/SUWindowsStyle.h"
+#include "SUWindowsStyle.h"
 #endif
+
+// prevent setting MipBias to an intentionally broken value to make textures turn solid color
+static void MipBiasClamp()
+{
+	IConsoleVariable* MipBiasVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.MipBias"));
+	if (MipBiasVar != NULL)
+	{
+		TConsoleVariableData<float>* FloatVar = MipBiasVar->AsVariableFloat();
+		if (FloatVar->GetValueOnGameThread() > 1.0f)
+		{
+			MipBiasVar->ClearFlags(ECVF_SetByConsole);
+			MipBiasVar->Set(1.0f);
+		}
+	}
+}
+FAutoConsoleVariableSink MipBiasSink(FConsoleCommandDelegate::CreateStatic(&MipBiasClamp));
 
 UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -80,7 +96,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	{
 		for (auto WeaponClassRef : AlwaysLoadedWeaponsStringRefs)
 		{
-			AlwaysLoadedWeapons.Add(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *WeaponClassRef.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn)));
+			AlwaysLoadedWeapons.Add(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *WeaponClassRef.ToStringReference().ToString(), NULL, LOAD_NoWarn)));
 		}
 	}
 
@@ -197,6 +213,13 @@ bool UUTGameEngine::GetMonitorRefreshRate(int32& MonitorRefreshRate)
 
 bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 {
+#if UE_BUILD_SHIPPING
+	// make these debug commands illegal in shipping builds
+	if (FParse::Command(&Cmd, TEXT("SET")) || FParse::Command(&Cmd, TEXT("SETNOPEC")) || FParse::Command(&Cmd, TEXT("GET")) || FParse::Command(&Cmd, TEXT("GETALL")))
+	{
+		return true;
+	}
+#endif
 	if (FParse::Command(&Cmd, TEXT("START")))
 	{
 		FWorldContext &WorldContext = GetWorldContextFromWorldChecked(InWorld);
@@ -336,6 +359,13 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 		{
 			UTLocalPlayer->SaveProfileSettings();
 		}
+
+		UUTProgressionStorage* Storage = UTLocalPlayer->GetProgressionStorage();
+		if (Storage && Storage->NeedsToBeUpdate())
+		{
+			UTLocalPlayer->SaveProgression();
+		}
+
 	}
 
 #if !UE_SERVER && !UE_EDITOR
@@ -942,4 +972,18 @@ UUTFlagInfo* UUTGameEngine::GetFlag(FName FlagName)
 	}
 	UE_LOG(UT, Warning, TEXT("UUTGameEngine::GetFlag() Couldn't find flag for '%s'"), *FlagName.ToString());
 	return nullptr;
+}
+
+bool UUTGameEngine::HandleReconnectCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld )
+{
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayerFromControllerId(GWorld,0));
+	if (UTLocalPlayer)
+	{
+		UTLocalPlayer->Reconnect(false);
+		return true;
+	}
+	else
+	{
+		return Super::HandleReconnectCommand(Cmd, Ar, InWorld );
+	}
 }

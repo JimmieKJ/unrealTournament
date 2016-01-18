@@ -59,13 +59,13 @@ public:
 	virtual void OnRep_ReplicatedMaterial1();
 
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 protected:
 	virtual FString GetDetailedInfoInternal() const override;
 public:
-	// End UObject interface
+	//~ End UObject Interface
 
-	// Begin AActor interface
+	//~ Begin AActor Interface
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 	virtual bool GetReferencedContentObjects( TArray<UObject*>& Objects ) const override;
@@ -73,9 +73,9 @@ public:
 	virtual void LoadedFromAnotherClass(const FName& OldClassName) override;
 #endif
 	virtual void PostInitializeComponents() override;
-	// End AActor interface
+	//~ End AActor Interface
 
-	// Begin IMatineeAnimInterface Interface
+	//~ Begin IMatineeAnimInterface Interface
 	virtual void PreviewBeginAnimControl(class UInterpGroup* InInterpGroup) override;
 	virtual void PreviewSetAnimPosition(FName SlotName, int32 ChannelIndex, UAnimSequence* InAnimSequence, float InPosition, bool bLooping, bool bFireNotifies, float AdvanceTime) override;
 	virtual void PreviewSetAnimWeights(TArray<FAnimSlotInfo>& SlotInfos) override;
@@ -85,7 +85,7 @@ public:
 	virtual void BeginAnimControl(class UInterpGroup* InInterpGroup) override;
 	virtual void SetAnimPosition(FName SlotName, int32 ChannelIndex, class UAnimSequence* InAnimSequence, float InPosition, bool bFireNotifies, bool bLooping) override;
 	virtual void FinishAnimControl(class UInterpGroup* InInterpGroup) override;
-	// End IMatineeAnimInterface Interface
+	//~ End IMatineeAnimInterface Interface
 
 private:
 	// utility function to see if it can play animation or not

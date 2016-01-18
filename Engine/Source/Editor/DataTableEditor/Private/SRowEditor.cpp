@@ -510,3 +510,4 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 	];
 }
 
+#undef LOCTEXT_NAMESPACE

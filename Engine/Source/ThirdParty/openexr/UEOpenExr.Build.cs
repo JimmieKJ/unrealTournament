@@ -58,7 +58,7 @@ public class UEOpenEXR : ModuleRules
 				);
 			}
 
-            PublicIncludePaths.AddRange(
+            PublicSystemIncludePaths.AddRange(
                 new string[] {
                     UEBuildConfiguration.UEThirdPartySourceDirectory + "openexr/Deploy/include",
 			    }

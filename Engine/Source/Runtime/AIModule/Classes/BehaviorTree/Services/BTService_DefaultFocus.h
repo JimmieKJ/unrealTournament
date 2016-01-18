@@ -26,7 +26,8 @@ UCLASS(hidecategories=(Service))
 class AIMODULE_API UBTService_DefaultFocus : public UBTService_BlackboardBase
 {
 	GENERATED_BODY()
-	
+
+protected:
 	// not exposed to users on purpose. Here to make reusing focus-setting mechanics by derived classes possible
 	UPROPERTY()
 	uint8 FocusPriority;
@@ -38,7 +39,8 @@ class AIMODULE_API UBTService_DefaultFocus : public UBTService_BlackboardBase
 	virtual void OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
 	virtual FString GetStaticDescription() const override;
-	virtual void DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const override;
+
+	EBlackboardNotificationResult OnBlackboardKeyValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID);
 
 #if WITH_EDITOR
 	virtual FName GetNodeIconName() const override;

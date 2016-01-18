@@ -156,7 +156,7 @@ void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Off
 	check(Owner);
 	check(Owner->Component);
 	UWorld* World = Owner->Component->GetWorld();
-	if (bDropDetail && World && World->bDropDetail)
+	if (Owner->ActiveParticles == 0 || (bDropDetail && World && World->bDropDetail))
 	{
 		return;
 	}
@@ -347,6 +347,7 @@ void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Off
 		if (MeshType && MeshType->Mesh)
 		{
 			Extent = MeshType->Mesh->GetBounds().BoxExtent;
+			Extent = MeshType->bCollisionsConsiderPartilceSize ? Extent * Size : Extent;
 		}
 		
 		FHitResult Hit;
@@ -637,6 +638,7 @@ void UParticleModuleCollisionGPU::SetToSensibleDefaults(UParticleEmitter* Owner)
 void UParticleModuleCollisionGPU::CompileModule(struct FParticleEmitterBuildInfo& EmitterInfo)
 {
 	EmitterInfo.bEnableCollision = true;
+	EmitterInfo.CollisionMode = CollisionMode;
 	EmitterInfo.CollisionResponse = Response;
 	EmitterInfo.CollisionRadiusScale = RadiusScale;
 	EmitterInfo.CollisionRadiusBias = RadiusBias;
@@ -666,10 +668,21 @@ bool UParticleModuleCollisionGPU::IsValidForLODLevel(UParticleLODLevel* LODLevel
 		BlendMode = MaterialResource->GetBlendMode();
 	}
 
-	if (BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked)
+	if (CollisionMode == EParticleCollisionMode::SceneDepth && (BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked))
 	{
 		OutErrorString = NSLOCTEXT("UnrealEd", "CollisionOnOpaqueEmitter", "Scene depth collision cannot be used on emitters with an opaque material.").ToString();
 		return false;
+	}
+
+	if (CollisionMode == EParticleCollisionMode::DistanceField)
+	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
+
+		if (CVar->GetValueOnGameThread() == 0)
+		{
+			OutErrorString = NSLOCTEXT("UnrealEd", "CollisionWithoutDistanceField", "Distance Field collision requires the 'Generate Mesh Distance Fields' Renderer project setting to be enabled.").ToString();
+			return false;
+		}
 	}
 
 	if (LODLevel->TypeDataModule && LODLevel->TypeDataModule->IsA(UParticleModuleTypeDataGpu::StaticClass()))

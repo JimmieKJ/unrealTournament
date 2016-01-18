@@ -463,16 +463,26 @@ class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy, public FLands
 		}
 
 		// FLightCacheInterface
-		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const;
+		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const override;
 
-		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const
+		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const override
 		{
 			return LightMap ? LightMap->GetInteraction(InFeatureLevel) : FLightMapInteraction();
 		}
 
-		virtual FShadowMapInteraction GetShadowMapInteraction() const
+		virtual FShadowMapInteraction GetShadowMapInteraction() const override
 		{
 			return ShadowMap ? ShadowMap->GetInteraction() : FShadowMapInteraction();
+		}
+
+		virtual void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer) override
+		{
+			PrecomputedLightingUniformBuffer = InPrecomputedLightingUniformBuffer;
+		}
+
+		virtual FUniformBufferRHIRef GetPrecomputedLightingBuffer() const override
+		{
+			return PrecomputedLightingUniformBuffer;
 		}
 
 	private:
@@ -483,6 +493,9 @@ class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy, public FLands
 		const FShadowMap* ShadowMap;
 
 		TArray<FGuid> IrrelevantLights;
+
+		/** The uniform buffer holding mapping the lightmap policy resources. */
+		FUniformBufferRHIRef PrecomputedLightingUniformBuffer;
 	};
 
 protected:
@@ -572,7 +585,7 @@ public:
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 	virtual uint32 GetMemoryFootprint() const override { return(sizeof(*this) + GetAllocatedSize()); }
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override;
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
 	virtual void GetLightRelevance(const FLightSceneProxy* LightSceneProxy, bool& bDynamic, bool& bRelevant, bool& bLightMapped, bool& bShadowMapped) const override;
 	virtual void OnTransformChanged() override;
@@ -599,6 +612,8 @@ public:
 	void ChangeLODDistanceFactor_RenderThread(float InLODDistanceFactor);
 
 	virtual void GetHeightfieldRepresentation(UTexture2D*& OutHeightmapTexture, UTexture2D*& OutDiffuseColorTexture, FHeightfieldComponentDescription& OutDescription) override;
+
+	virtual void GetLCIs(FLCIArray& LCIs) override;
 };
 
 class FLandscapeDebugMaterialRenderProxy : public FMaterialRenderProxy

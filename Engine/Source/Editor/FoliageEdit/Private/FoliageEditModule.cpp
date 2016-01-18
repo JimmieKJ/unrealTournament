@@ -19,6 +19,8 @@ const FName FoliageEditAppIdentifier = FName(TEXT("FoliageEdApp"));
 #include "ProceduralFoliageBlockingVolume.h"
 #include "ProceduralFoliageComponent.h"
 #include "FoliageTypeObjectCustomization.h"
+#include "FoliageType_InstancedStaticMesh.h"
+#include "FoliageType_ISMThumbnailRenderer.h"
 
 /**
  * Foliage Edit Mode module
@@ -63,6 +65,9 @@ public:
 
 		SubscribeEvents();
 #endif
+
+		// Register thumbnail renderer
+		UThumbnailManager::Get().RegisterCustomRenderer(UFoliageType_InstancedStaticMesh::StaticClass(), UFoliageType_ISMThumbnailRenderer::StaticClass());
 	}
 
 	/**

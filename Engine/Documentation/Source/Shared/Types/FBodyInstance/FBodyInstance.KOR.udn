@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2308546
+﻿INTSourceChangelist:2573127
 Availability:NoPublish
 Title:FBodyInstance RTTs
 Crumbs:
 
 [EXCERPT:bStartAwake]
 
-이 피직스 바디를 깨어있는(awake) 상태로 시작시킬지 입니다. 깨어있는 (잠들지 않은) 피직스 바디에는 시뮬레이션이 활발히 적용됩니다. 깨어있는 피직스 바디가 일정 시간동안 정지해 있게 되면, 다시 잠든(Sleep) 상태로 돌아갑니다.
+이 피직스 바디를 깨어있는(awake) 상태로 시작시킬지 결정합니다. 깨어있는 (잠들지 않은) 피직스 바디에는 시뮬레이션이 활발히 적용됩니다. 깨어있는 피직스 바디가 일정 시간동안 정지해 있게 되면, 다시 잠든(Sleep) 상태로 돌아갑니다.
 [VAR:ToolTipFullLink]
 Engine/Physics/PhysicsBodies#physics
 [/VAR]

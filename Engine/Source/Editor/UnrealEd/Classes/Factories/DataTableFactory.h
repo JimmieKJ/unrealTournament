@@ -12,10 +12,10 @@ class UDataTableFactory : public UFactory
 	UPROPERTY()
 	class UScriptStruct* Struct;
 
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 };
 
 

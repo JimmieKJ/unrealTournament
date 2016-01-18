@@ -23,6 +23,7 @@ UFTextCrash::UFTextCrash(const FObjectInitializer& ObjectInitializer)
 
 	UnitTestDate = FDateTime(2014, 07, 11);
 
+	UnitTestBugTrackIDs.Add(TEXT("JIRA UE-5691"));
 
 	UnitTestCLs.Add(TEXT("2367048 (//depot/UE4/)"));
 
@@ -36,8 +37,8 @@ UFTextCrash::UFTextCrash(const FObjectInitializer& ObjectInitializer)
 
 
 	UnitTestFlags |= (EUnitTestFlags::LaunchServer | EUnitTestFlags::AcceptActors | EUnitTestFlags::AcceptPlayerController |
-						EUnitTestFlags::SendRPCs | EUnitTestFlags::NotifyAllowNetActor | EUnitTestFlags::NotifyNetActors |
-						EUnitTestFlags::RequireNUTActor | EUnitTestFlags::ExpectServerCrash);
+						EUnitTestFlags::SendRPCs | EUnitTestFlags::NotifyNetActors | EUnitTestFlags::RequireNUTActor |
+						EUnitTestFlags::ExpectServerCrash);
 }
 
 void UFTextCrash::InitializeEnvironmentSettings()

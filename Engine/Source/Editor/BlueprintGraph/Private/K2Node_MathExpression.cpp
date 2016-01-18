@@ -2,13 +2,15 @@
 
 #include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_MathExpression.h"
-#include "BlueprintGraphClasses.h"
 #include "Kismet2NameValidators.h"
 #include "EdGraphUtilities.h"
 #include "BasicTokenParser.h"
 #include "UnrealMathUtility.h"
 #include "BlueprintEditorUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
+#include "DiffResults.h"
+#include "MathExpressionHandler.h"
+#include "BlueprintNodeSpawner.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
 
@@ -476,17 +478,24 @@ public:
 	virtual FString ToString() const override
 	{
 		FString AsString("(");
-		for (TSharedRef<IFExpressionNode> Child : Children)
+		if (Children.Num() > 0)
 		{
-			AsString += Child->ToString();
-			if (Child == Children.Last())
+			for (TSharedRef<IFExpressionNode> Child : Children)
 			{
-				AsString += ")";
+				AsString += Child->ToString();
+				if (Child == Children.Last())
+				{
+					AsString += ")";
+				}
+				else 
+				{
+					AsString += ", ";
+				}
 			}
-			else 
-			{
-				AsString += ", ";
-			}
+		}
+		else
+		{
+			AsString += ")";
 		}
 		return AsString;
 	}
@@ -494,17 +503,24 @@ public:
 	virtual FString ToDisplayString(UBlueprint* InBlueprint) const
 	{
 		FString AsString("(");
-		for (TSharedRef<IFExpressionNode> Child : Children)
+		if (Children.Num() > 0)
 		{
-			AsString += Child->ToDisplayString(InBlueprint);
-			if (Child == Children.Last())
+			for (TSharedRef<IFExpressionNode> Child : Children)
 			{
-				AsString += ")";
+				AsString += Child->ToDisplayString(InBlueprint);
+				if (Child == Children.Last())
+				{
+					AsString += ")";
+				}
+				else 
+				{
+					AsString += ", ";
+				}
 			}
-			else 
-			{
-				AsString += ", ";
-			}
+		}
+		else
+		{
+			AsString += ")";
 		}
 		return AsString;
 	}
@@ -789,9 +805,9 @@ public:
 						{
 							FunctionName = TestFunction->GetMetaData(FBlueprintMetadata::MD_CompactNodeTitle);
 						}
-						else if (TestFunction->HasMetaData(FBlueprintMetadata::MD_FriendlyName))
+						else if (TestFunction->HasMetaData(FBlueprintMetadata::MD_DisplayName))
 						{
-							FunctionName = TestFunction->GetMetaData(FBlueprintMetadata::MD_FriendlyName);
+							FunctionName = TestFunction->GetMetaData(FBlueprintMetadata::MD_DisplayName);
 						}
 						Add(FunctionName, TestFunction);
 					}
@@ -936,6 +952,11 @@ private:
 			ADD_ALIAS("ACOS")
 			ADD_ALIAS("ARCCOS")
 		FUNC_ALIASES_END
+
+		FUNC_ALIASES_BEGIN("ATan")
+			ADD_ALIAS("ATAN")
+			ADD_ALIAS("ARCTAN")
+		FUNC_ALIASES_END
 		
 		FUNC_ALIASES_BEGIN("MakeVector")
 			ADD_ALIAS("VECTOR")
@@ -949,7 +970,7 @@ private:
 			ADD_ALIAS("VECT2D")
 		FUNC_ALIASES_END
 	
-		FUNC_ALIASES_BEGIN("MakeRot")
+		FUNC_ALIASES_BEGIN("MakeRotator")
 			ADD_ALIAS("ROTATOR")
 			ADD_ALIAS("ROT")
 		FUNC_ALIASES_END
@@ -1359,7 +1380,10 @@ public:
 				if (!VariableGuid.IsValid())
 				{
 					VariableGuid = FBlueprintEditorUtils::FindLocalVariableGuidByName(TargetBlueprint, CompilingNode->GetGraph(), FName(*VariableName));
-					VariableReference.SetLocalMember(FName(*VariableName), CompilingNode->GetGraph()->GetName(), VariableGuid);
+					if (VariableGuid.IsValid())
+					{
+						VariableReference.SetLocalMember(FName(*VariableName), CompilingNode->GetGraph()->GetName(), VariableGuid);
+					}
 				}
 				else
 				{
@@ -1775,7 +1799,7 @@ private:
 									MessageLog.Error(*ErrorText.ToString(), FunctionCall);
 								}
 							}
-							else
+							else if (InputPin->DefaultValue.IsEmpty()) // there is an ErrorTolerance parameter with a default value in EqualEqual_VectorVector
 							{
 								// too many pins - shouldn't be possible due to the checking in FindMatchingFunction() above
 								FText ErrorText = LOCTEXT("ConnectPinError", "The '@@' function requires more parameters than were provided");
@@ -2390,6 +2414,71 @@ UK2Node_MathExpression::UK2Node_MathExpression(const FObjectInitializer& ObjectI
 	// renaming the node rebuilds the expression (the node name is where they 
 	// specify the math equation)
 	bCanRenameNode = true;
+
+	bMadeAfterRotChange = false;
+}
+
+void UK2Node_MathExpression::Serialize(FArchive& Ar)
+{
+	UK2Node_Composite::Serialize(Ar);
+
+	if (Ar.IsLoading() && !bMadeAfterRotChange)
+	{
+		// remember that this logic has been run, we only want to run it once:
+		bMadeAfterRotChange = true;
+
+		// We need to reorder the parameters to MakeRot/MakeRotator/Rotator/Rot, to filter this expensive logic I'm just searching
+		// expressions for 'rot':
+		if (Expression.Contains(TEXT("Rot")))
+		{
+			// Now parse the expression and look for function expressions to the old MakeRot function:
+			FExpressionParser Parser;
+			TSharedPtr<IFExpressionNode> ExpressionRoot = Parser.ParseExpression(Expression);
+			
+			struct FMakeRotFixupVisitor : public FExpressionVisitor
+			{
+				virtual bool Visit(class FFunctionExpression& Node, EVisitPhase Phase)
+				{ 
+					if (Phase != VISIT_Pre)
+					{
+						return false;
+					}
+
+					const bool bIsMakeRot = (Node.FuncName == TEXT("makerot"));
+					if (bIsMakeRot ||
+						Node.FuncName == TEXT("rotator") ||
+						Node.FuncName == TEXT("rot"))
+					{
+						// reorder parameters to match new order of MakeRotator:
+						if (Node.ParamList->Children.Num() == 3)
+						{
+							TSharedRef<IFExpressionNode> OldPitch = Node.ParamList->Children[0];
+							TSharedRef<IFExpressionNode> OldYaw = Node.ParamList->Children[1];
+							TSharedRef<IFExpressionNode> OldRoll = Node.ParamList->Children[2];
+							
+							Node.ParamList->Children[0] = OldRoll;
+							Node.ParamList->Children[1] = OldPitch;
+							Node.ParamList->Children[2] = OldYaw;
+						}
+
+						// MakeRot also needs to be updated to the new name:
+						if (bIsMakeRot)
+						{
+							Node.FuncName = TEXT("MakeRotator");
+						}
+					}
+					return true;
+				}
+			};
+
+			// perform the update:
+			FMakeRotFixupVisitor Fixup;
+			ExpressionRoot->Accept(Fixup);
+
+			// reform the expression with the updated parameter order/function names:
+			Expression = ExpressionRoot->ToString();
+		}
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -2423,6 +2512,39 @@ void UK2Node_MathExpression::GetMenuActions(FBlueprintActionDatabaseRegistrar& A
 
 		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
 	}
+}
+
+
+//------------------------------------------------------------------------------
+FNodeHandlingFunctor* UK2Node_MathExpression::CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const
+{
+	return new FKCHandler_MathExpression(CompilerContext);
+}
+
+//------------------------------------------------------------------------------
+bool UK2Node_MathExpression::ShouldExpandInsteadCompile() const
+{
+	const int32 TunnelNodesNum = 2;
+	if (!BoundGraph || (TunnelNodesNum >= BoundGraph->Nodes.Num()))
+	{
+		return true;
+	}
+
+	if ((TunnelNodesNum + 1) == BoundGraph->Nodes.Num())
+	{
+		TArray<UEdGraphNode*> InnerNodes = BoundGraph->Nodes;
+		InnerNodes.RemoveSingleSwap(GetEntryNode(), false);
+		InnerNodes.RemoveSingleSwap(GetExitNode(), false);
+		const bool bTheOnlyNodeIsNotAFunctionCall = (1 == InnerNodes.Num())
+			&& (nullptr != InnerNodes[0])
+			&& !InnerNodes[0]->IsA<UK2Node_CallFunction>();
+		if (bTheOnlyNodeIsNotAFunctionCall)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 //------------------------------------------------------------------------------
@@ -2600,6 +2722,11 @@ FText UK2Node_MathExpression::GetNodeTitle(ENodeTitleType::Type TitleType) const
 			{
 				CachedDisplayExpression.SetCachedText(FText::FromString(SanitizeDisplayExpression(ExpressionRoot->ToDisplayString(GetBlueprint()))), this);
 			}
+			else
+			{
+				// Fallback and display the expression in it's raw form
+				CachedDisplayExpression.SetCachedText(FText::FromString(Expression), this);
+			}
 		}
 		return CachedDisplayExpression;
 	}
@@ -2620,6 +2747,7 @@ FText UK2Node_MathExpression::GetNodeTitle(ENodeTitleType::Type TitleType) const
 //------------------------------------------------------------------------------
 void UK2Node_MathExpression::PostPlacedNewNode()
 {
+	bMadeAfterRotChange = true;
 	Super::PostPlacedNewNode();
 	FEdGraphUtilities::RenameGraphToNameOrCloseToName(BoundGraph, "MathExpression");
 }
@@ -2648,6 +2776,34 @@ FText UK2Node_MathExpression::GetFullTitle(FText InExpression) const
 {
 	// FText::Format() is slow, so we cache this to save on performance
 	return FText::Format(LOCTEXT("MathExpressionSecondTitleLine", "{0}\nMath Expression"), InExpression);
+}
+
+void UK2Node_MathExpression::FindDiffs(class UEdGraphNode* OtherNode, struct FDiffResults& Results )
+{
+	UK2Node_MathExpression* MathExpression1 = this;
+	UK2Node_MathExpression* MathExpression2 = Cast<UK2Node_MathExpression>(OtherNode);
+
+	// Compare the visual display of a math expression (the visual display involves consolidating variable Guid's into readable parameters)
+	FText Expression1 = MathExpression1->GetNodeTitle(ENodeTitleType::EditableTitle);
+	FText Expression2 = MathExpression2->GetNodeTitle(ENodeTitleType::EditableTitle);
+	if (Expression1.CompareTo(Expression2) != 0)
+	{
+		FDiffSingleResult Diff;
+		Diff.Node1 = MathExpression2;
+		Diff.Node2 = MathExpression1;
+
+		Diff.Diff = EDiffType::NODE_PROPERTY;
+		FText NodeName = GetNodeTitle(ENodeTitleType::ListView);
+
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("Expression1"), Expression1);
+		Args.Add(TEXT("Expression2"), Expression2);
+
+		Diff.ToolTip =  FText::Format(LOCTEXT("DIF_MathExpressionToolTip", "Math Expression '{Expression1}' changed to '{Expression2}'"), Args);
+		Diff.DisplayColor = FLinearColor(0.85f,0.71f,0.25f);
+		Diff.DisplayString = FText::Format(LOCTEXT("DIF_MathExpression", "Math Expression '{Expression1}' changed to '{Expression2}'"), Args);
+		Results.Add(Diff);
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

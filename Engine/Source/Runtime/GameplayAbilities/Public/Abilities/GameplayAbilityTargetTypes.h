@@ -65,9 +65,11 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 
 	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffect(const UGameplayEffect* GameplayEffect, const FGameplayEffectContextHandle& InEffectContext, float Level, FPredictionKey PredictionKey = FPredictionKey());
 
-	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectSpec(const FGameplayEffectSpec& Spec, FPredictionKey PredictionKey = FPredictionKey());
+	virtual TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectSpec(FGameplayEffectSpec& Spec, FPredictionKey PredictionKey = FPredictionKey());
 
 	virtual void AddTargetDataToContext(FGameplayEffectContextHandle& Context, bool bIncludeActorArray);
+
+	virtual void AddTargetDataToGameplayCueParameters(FGameplayCueParameters& Parameters);
 
 	virtual TArray<TWeakObjectPtr<AActor> >	GetActors() const
 	{
@@ -259,6 +261,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetingLocationInfo
 	: LocationType(EGameplayAbilityTargetingLocationType::LiteralTransform)
 	, SourceActor(nullptr)
 	, SourceComponent(nullptr)
+	, SourceAbility(nullptr)
 	{
 	};
 
@@ -318,6 +321,10 @@ public:
 	/** Socket-based targeting requires a skeletal mesh component to check for the named socket. */
 	UPROPERTY(BlueprintReadWrite, meta = (ExposeOnSpawn = true), Category = Targeting)
 	UMeshComponent* SourceComponent;
+
+	/** Ability that will be using the targeting data */
+	UPROPERTY(BlueprintReadWrite, meta = (ExposeOnSpawn = true), Category = Targeting)
+	UGameplayAbility* SourceAbility;
 
 	/** If SourceComponent is valid, this is the name of the socket transform that will be used. If no Socket is provided, SourceComponent's transform will be used. */
 	UPROPERTY(BlueprintReadWrite, meta = (ExposeOnSpawn = true), Category = Targeting)
@@ -418,7 +425,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_ActorArray : public FGam
 	FGameplayAbilityTargetingLocationInfo SourceLocation;
 
 	/** Rather than targeting a single point, this type of targeting selects multiple actors. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Targeting)
+	UPROPERTY(EditAnywhere, Category = Targeting)
 	TArray<TWeakObjectPtr<AActor> > TargetActorArray;
 
 	virtual TArray<TWeakObjectPtr<AActor> >	GetActors() const override
@@ -630,9 +637,12 @@ namespace EAbilityGenericReplicatedEvent
 
 struct FAbilityReplicatedData
 {
-	FAbilityReplicatedData() : bTriggered(false) {}
+	FAbilityReplicatedData() : bTriggered(false), VectorPayload(ForceInitToZero) {}
 	/** Event has triggered */
 	bool bTriggered;
+
+	/** Optional Vector payload for event */
+	FVector_NetQuantize100 VectorPayload;
 
 	FSimpleMulticastDelegate Delegate;
 };
@@ -672,6 +682,7 @@ struct FAbilityReplicatedDataCache
 		for (int32 i=0; i < (int32) EAbilityGenericReplicatedEvent::MAX; ++i)
 		{
 			GenericEvents[i].bTriggered = false;
+			GenericEvents[i].VectorPayload = FVector::ZeroVector;
 		}
 
 	}

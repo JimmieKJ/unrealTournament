@@ -35,8 +35,6 @@ namespace physx
 static const size_t PXC_ARTICULATION_MAX_SIZE = 64;
 static const size_t PXC_ARTICULATION_IDMASK = PXC_ARTICULATION_MAX_SIZE-1;
 
-typedef PX_ALIGN_PREFIX(16) PxVec4 PX_ALIGN_SUFFIX(16) PxVec4Aligned16;
-
 PX_FORCE_INLINE PxU32 PxcArticulationLowestSetBit(PxcArticulationBitField val)
 {
 #ifdef _XBOX
@@ -181,9 +179,9 @@ class PxsArticulation;
 struct PxcFsData
 {
 	PxsArticulation*	articulationX;																//4
-
-#if !defined(PX_X64) && !defined(PX_ARM64)
-	PxU32				pad0;																		//8
+	
+#if !defined(PX_P64)
+	PxU32				pad0;																		//8	
 #endif
 	PxU16				linkCount;						// number of links							//10
 	PxU16				jointVectorOffset;				// offset of read-only data					//12

@@ -15,29 +15,10 @@
 
 using namespace physx;
 
-void Sc::ElementInteractionMarker::initialize()
-{
-	ElementSimInteraction::initialize();
-}
-
-
-void Sc::ElementInteractionMarker::destroy()
-{
-	ElementSimInteraction::destroy();
-}
-
-
-void Sc::ElementInteractionMarker::updateState(bool removeFromDirtyList)
-{
-	ElementSimInteraction::updateState(removeFromDirtyList);
-}
-
-
 bool Sc::ElementInteractionMarker::onActivate(PxU32)
 {
 	return false;
 }
-
 
 bool Sc::ElementInteractionMarker::onDeactivate(PxU32)
 {

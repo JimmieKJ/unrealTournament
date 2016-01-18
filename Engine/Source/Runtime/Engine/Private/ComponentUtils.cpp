@@ -41,11 +41,9 @@ namespace ComponentUtils
 			return NULL;
 		}
 
-		TArray<USCS_Node*> AllSCSNodes = BlueprintSCS->GetAllNodes();
-		for(int32 SCSNodeIndex = 0; SCSNodeIndex < AllSCSNodes.Num(); ++SCSNodeIndex)
+		for(USCS_Node* SCSNode : BlueprintSCS->GetAllNodes())
 		{
-			USCS_Node* SCSNode = AllSCSNodes[SCSNodeIndex];
-			if(SCSNode->ComponentTemplate == ComponentObj)
+			if (SCSNode && SCSNode->ComponentTemplate == ComponentObj)
 			{
 				return SCSNode;
 			}

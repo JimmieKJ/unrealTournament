@@ -100,12 +100,20 @@ private:
 	void OnColorPickerCancelled(FLinearColor OriginalColor);
 	void OnColorPickerInteractiveBegin();
 	void OnColorPickerInteractiveEnd();
+
+	/** Whether color button should be visible, depends on whether sub-level is loaded */
+	EVisibility GetColorButtonVisibility() const;
 	
 	/**
 	 *  @return The text of level name while it is not being edited
 	 */
 	FText GetLevelDisplayNameText() const;
-	
+
+	/**
+	*  @return The tooltip of level name (shows the full path of the asset package)
+	*/
+	FText GetLevelDisplayNameTooltip() const;
+
 	/** */
 	FSlateFontInfo GetLevelDisplayNameFont() const;
 	

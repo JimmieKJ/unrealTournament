@@ -6,8 +6,8 @@ class FObjectBaseAddress
 {
 public:
 	FObjectBaseAddress()
-		:	Object( NULL )
-		,	BaseAddress( NULL )
+		:	Object( nullptr )
+		,	BaseAddress( nullptr )
 		,	bIsStruct(false)
 	{}
 	FObjectBaseAddress(UObject* InObject, uint8* InBaseAddress, bool InIsStruct)
@@ -129,6 +129,11 @@ public:
 	 * Sets a delegate to call when the property value changes
 	 */
 	void SetOnPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged );
+	
+	/**
+	 * Sets a delegate to call when the propery value of a child changes
+	 */
+	void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnChildPropertyValueChanged );
 
 	/**
 	 * Sets a delegate to call when children of the property node must be rebuilt
@@ -192,19 +197,7 @@ public:
 	 * @param true if the property is a ClassType
 	 */
 	bool IsPropertyTypeOf( UClass* ClassType ) const ;
-
-
-	/**
-	 * @return Clamps the value as a float from meta data stored on the property
-	 */
-	float ClampFloatValueFromMetaData( float InValue ) const ;
-
-	/**
-	 * @return Clamps the value as an integer from meta data stored on the property
-	 */
-	int32 ClampIntValueFromMetaData( int32 InValue ) const ;
 	
-
 	/**
 	 * @return The property node used by this value
 	 */
@@ -219,15 +212,15 @@ public:
 	 * Gets a child node of the property node
 	 * 
 	 * @param ChildName	The name of the child to get
-	 * @return The child property node or NULL if it doesnt exist
+	 * @return The child property node or nullptr if it doesnt exist
 	 */
-	TSharedPtr<FPropertyNode> GetChildNode( FName ChildName ) const;
+	TSharedPtr<FPropertyNode> GetChildNode( FName ChildName, bool bRecurse = true ) const;
 
 	/**
 	 * Gets a child node of the property node
 	 * 
 	 * @param ChildIndex	The child index where the child is stored
-	 * @return The child property node or NULL if it doesnt exist
+	 * @return The child property node or nullptr if it doesnt exist
 	 */
 	TSharedPtr<FPropertyNode> GetChildNode( int32 ChildIndex ) const ;
 
@@ -295,7 +288,7 @@ public:
 	/**
 	 * @return true if the property node is valid
 	 */
-	bool HasValidProperty() const;
+	bool HasValidPropertyNode() const;
 
 	/**
 	 * @return The display name of the property
@@ -328,8 +321,6 @@ protected:
 	/** Property node used to access UProperty and address of object to change */
 	TWeakPtr<FPropertyNode> PropertyNode;
 	TWeakPtr<IPropertyUtilities> PropertyUtilities;
-	/** This delegate is executed when the property value changed.  The property node is registed with this callback and we store it so we can remove it later */
-	FSimpleDelegate PropertyValueChangedDelegate;
 	/** Notify hook to call when properties change */
 	FNotifyHook* NotifyHook;
 	/** Set true if a change was made with bFinished=false */
@@ -352,11 +343,17 @@ public:
 
 	/** IPropertyHandle interface */
 	DECLARE_PROPERTY_ACCESSOR( bool )
+	DECLARE_PROPERTY_ACCESSOR( int8 )
+	DECLARE_PROPERTY_ACCESSOR( int16)
 	DECLARE_PROPERTY_ACCESSOR( int32 )
+	DECLARE_PROPERTY_ACCESSOR( int64 )
+	DECLARE_PROPERTY_ACCESSOR( uint8 )
+	DECLARE_PROPERTY_ACCESSOR( uint16 )
+	DECLARE_PROPERTY_ACCESSOR( uint32 )
+	DECLARE_PROPERTY_ACCESSOR( uint64 )
 	DECLARE_PROPERTY_ACCESSOR( float )
 	DECLARE_PROPERTY_ACCESSOR( FString )
 	DECLARE_PROPERTY_ACCESSOR( FName )
-	DECLARE_PROPERTY_ACCESSOR( uint8 )
 	DECLARE_PROPERTY_ACCESSOR( FVector )
 	DECLARE_PROPERTY_ACCESSOR( FVector2D )
 	DECLARE_PROPERTY_ACCESSOR( FVector4 )
@@ -375,9 +372,10 @@ public:
 	virtual bool IsCustomized() const override;
 	virtual FString GeneratePathToProperty() const override;
 	virtual TSharedRef<SWidget> CreatePropertyNameWidget( const FText& NameOverride = FText::GetEmpty(), const FText& ToolTipOverride = FText::GetEmpty(), bool bDisplayResetToDefault = false, bool bDisplayText = true, bool bDisplayThumbnail = true ) const override;
-	virtual TSharedRef<SWidget> CreatePropertyValueWidget() const override;
+	virtual TSharedRef<SWidget> CreatePropertyValueWidget( bool bDisplayDefaultPropertyButtons = true ) const override;
 	virtual bool IsEditConst() const override;
 	virtual void SetOnPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
+	virtual void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual int32 GetIndexInArray() const override;
 	virtual FPropertyAccess::Result GetValueAsFormattedString( FString& OutValue ) const override;
 	virtual FPropertyAccess::Result GetValueAsDisplayString( FString& OutValue ) const override;
@@ -385,14 +383,14 @@ public:
 	virtual FPropertyAccess::Result GetValueAsDisplayText( FText& OutValue ) const override;
 	virtual FPropertyAccess::Result SetValueFromFormattedString( const FString& InValue,  EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
 	virtual TSharedPtr<IPropertyHandle> GetChildHandle( uint32 ChildIndex ) const override;
-	virtual TSharedPtr<IPropertyHandle> GetChildHandle( FName ChildName ) const override;
+	virtual TSharedPtr<IPropertyHandle> GetChildHandle( FName ChildName, bool bRecurse = true ) const override;
 	virtual TSharedPtr<IPropertyHandle> GetParentHandle() const override;
 	virtual void AccessRawData( TArray<void*>& RawData ) override;
 	virtual void AccessRawData( TArray<const void*>& RawData ) const override;
 	virtual uint32 GetNumOuterObjects() const override;
 	virtual void GetOuterObjects( TArray<UObject*>& OuterObjects ) const override;
 	virtual FPropertyAccess::Result GetNumChildren( uint32& OutNumChildren ) const override;
-	virtual TSharedPtr<IPropertyHandleArray> AsArray() override { return NULL; }
+	virtual TSharedPtr<IPropertyHandleArray> AsArray() override { return nullptr; }
 	virtual const UClass* GetPropertyClass() const override;
 	virtual UProperty* GetProperty() const override;
 	virtual UProperty* GetMetaDataProperty() const override;
@@ -402,6 +400,8 @@ public:
 	virtual int32 GetINTMetaData(const FName& Key) const override;
 	virtual float GetFLOATMetaData(const FName& Key) const override;
 	virtual UClass* GetClassMetaData(const FName& Key) const override;
+	virtual void SetInstanceMetaData(const FName& Key, const FString& Value) override;
+	virtual const FString* GetInstanceMetaData(const FName& Key) const override;
 	virtual FText GetToolTipText() const override;
 	virtual void SetToolTipText(const FText& ToolTip) override;
 	virtual FPropertyAccess::Result SetPerObjectValues( const TArray<FString>& InPerObjectValues,  EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
@@ -410,13 +410,14 @@ public:
 	virtual FPropertyAccess::Result SetObjectValueFromSelection() override;
 	virtual void NotifyPreChange() override;
 	virtual void NotifyPostChange() override;
+	virtual void NotifyFinishedChangingProperties() override;
 	virtual void AddRestriction( TSharedRef<const FPropertyRestriction> Restriction )override;
 	virtual bool IsRestricted(const FString& Value) const override;
 	virtual bool IsRestricted(const FString& Value, TArray<FText>& OutReasons) const override;
 	virtual bool GenerateRestrictionToolTip(const FString& Value, FText& OutTooltip) const override;
 	virtual void SetIgnoreValidation(bool bInIgnore) override;
 
-	TSharedPtr<FPropertyNode> GetPropertyNode();
+	TSharedPtr<FPropertyNode> GetPropertyNode() const;
 protected:
 	TSharedPtr<FPropertyValueImpl> Implementation;
 };
@@ -426,8 +427,27 @@ class FPropertyHandleInt : public FPropertyHandleBase
 public:
 	FPropertyHandleInt( TSharedRef<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities );
 	static bool Supports( TSharedRef<FPropertyNode> PropertyNode );
-	virtual FPropertyAccess::Result GetValue( int32& OutValue ) const override;
-	virtual FPropertyAccess::Result SetValue( const int32& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
+
+	virtual FPropertyAccess::Result GetValue(int8& OutValue ) const override;
+	virtual FPropertyAccess::Result SetValue(const int8& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
+
+	virtual FPropertyAccess::Result GetValue(int16& OutValue) const override;
+	virtual FPropertyAccess::Result SetValue(const int16& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+
+	virtual FPropertyAccess::Result GetValue(int32& OutValue) const override;
+	virtual FPropertyAccess::Result SetValue(const int32& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+
+	virtual FPropertyAccess::Result GetValue(int64& OutValue) const override;
+	virtual FPropertyAccess::Result SetValue(const int64& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+
+	virtual FPropertyAccess::Result GetValue(uint16& OutValue) const override;
+	virtual FPropertyAccess::Result SetValue(const uint16& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+
+	virtual FPropertyAccess::Result GetValue(uint32& OutValue) const override;
+	virtual FPropertyAccess::Result SetValue(const uint32& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+
+	virtual FPropertyAccess::Result GetValue(uint64& OutValue) const override;
+	virtual FPropertyAccess::Result SetValue(const uint64& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
 };
 
 class FPropertyHandleFloat : public FPropertyHandleBase

@@ -11,25 +11,41 @@
 #include "Engine/LightMapTexture2D.h"
 
 /** Emits draw events for a given FMeshBatch and the FPrimitiveSceneProxy corresponding to that mesh element. */
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-void EmitMeshDrawEvents_Inner(FRHICommandList& RHICmdList, const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMeshBatch& Mesh)
+#if WANTS_DRAW_MESH_EVENTS
+
+void BeginMeshDrawEvent_Inner(FRHICommandList& RHICmdList, const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMeshBatch& Mesh, TDrawEvent<FRHICommandList>& MeshEvent)
 {
-	// Only show material name at the top level
-	// Note: this is the parent's material name, not the material instance
-	SCOPED_DRAW_EVENTF(RHICmdList, MaterialEvent, *Mesh.MaterialRenderProxy->GetMaterial(PrimitiveSceneProxy ? PrimitiveSceneProxy->GetScene().GetFeatureLevel() : GMaxRHIFeatureLevel)->GetFriendlyName());
+	// Only show material and resource name at the top level
 	if (PrimitiveSceneProxy)
 	{
-		// Show Actor, level and resource name inside the material name
-		// These are separate draw events since some platforms only allow 32 character event names (xenon)
-		{
-			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, LevelEvent, PrimitiveSceneProxy->GetLevelName() != NAME_None, PrimitiveSceneProxy->GetLevelName().IsValid() ? *PrimitiveSceneProxy->GetLevelName().ToString() : TEXT(""));
-		}
-		{
-			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, OwnerEvent,PrimitiveSceneProxy->GetOwnerName() != NAME_None, *PrimitiveSceneProxy->GetOwnerName().ToString());
-		}
-		SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, ResourceEvent,PrimitiveSceneProxy->GetResourceName() != NAME_None, PrimitiveSceneProxy->GetResourceName().IsValid() ? *PrimitiveSceneProxy->GetResourceName().ToString() : TEXT(""));
+		BEGIN_DRAW_EVENTF(
+			RHICmdList, 
+			MaterialEvent, 
+			MeshEvent, 
+			TEXT("%s %s"), 
+			// Note: this is the parent's material name, not the material instance
+			*Mesh.MaterialRenderProxy->GetMaterial(PrimitiveSceneProxy ? PrimitiveSceneProxy->GetScene().GetFeatureLevel() : GMaxRHIFeatureLevel)->GetFriendlyName(),
+			PrimitiveSceneProxy->GetResourceName().IsValid() ? *PrimitiveSceneProxy->GetResourceName().ToString() : TEXT(""));
+
+			// Show Actor, level and resource name inside the material name
+			// These are separate draw events since some platforms have a limit on draw event length
+			// Note: empty leaf events are culled from profilegpu by default so these won't show up
+			{
+				//SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, LevelEvent, PrimitiveSceneProxy->GetLevelName() != NAME_None, PrimitiveSceneProxy->GetLevelName().IsValid() ? *PrimitiveSceneProxy->GetLevelName().ToString() : TEXT(""));
+			}
+			//SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, OwnerEvent,PrimitiveSceneProxy->GetOwnerName() != NAME_None, *PrimitiveSceneProxy->GetOwnerName().ToString());
+	}
+	else
+	{
+		BEGIN_DRAW_EVENTF(
+			RHICmdList, 
+			MaterialEvent, 
+			MeshEvent, 
+			// Note: this is the parent's material name, not the material instance
+			*Mesh.MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel)->GetFriendlyName());
 	}
 }
+
 #endif
 
 void DrawPlane10x10(class FPrimitiveDrawInterface* PDI,const FMatrix& ObjectToWorld, float Radii, FVector2D UVMin, FVector2D UVMax, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriorityGroup)
@@ -1265,11 +1281,13 @@ bool IsRichView(const FSceneViewFamily& ViewFamily)
 		ViewFamily.EngineShowFlags.StationaryLightOverlap ||
 		ViewFamily.EngineShowFlags.BSPSplit ||
 		ViewFamily.EngineShowFlags.LightMapDensity ||
+		ViewFamily.EngineShowFlags.VertexDensities ||
 		ViewFamily.EngineShowFlags.PropertyColoration ||
 		ViewFamily.EngineShowFlags.MeshEdges ||
 		ViewFamily.EngineShowFlags.LightInfluences ||
 		ViewFamily.EngineShowFlags.Wireframe ||
-		ViewFamily.EngineShowFlags.LevelColoration)
+		ViewFamily.EngineShowFlags.LevelColoration ||
+		ViewFamily.EngineShowFlags.LODColoration)
 	{
 		return true;
 	}
@@ -1333,27 +1351,22 @@ void ApplyViewModeOverrides(
 			Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
 		}
 	}
-	else if (EngineShowFlags.LightComplexity)
+	else if (EngineShowFlags.LODColoration)
 	{
-		// Don't render unlit translucency when in 'light complexity' viewmode.
-		if (!Mesh.IsTranslucent(FeatureLevel) || Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->GetShadingModel() != MSM_Unlit)
+		if (!Mesh.IsTranslucent(FeatureLevel) && GEngine->LODColorationColors.Num()  > 0)
 		{
-			// Count the number of lights interacting with this primitive.
-			int32 NumDynamicLights = GetRendererModule().GetNumDynamicLightsAffectingPrimitive(PrimitiveSceneProxy->GetPrimitiveSceneInfo(),Mesh.LCI);
+			int32 lodColorationIndex =  FMath::Clamp((int32)Mesh.VisualizeLODIndex, 0, GEngine->LODColorationColors.Num() - 1);
+	
+			bool bLit = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->GetShadingModel() != MSM_Unlit;
+			const UMaterial* LODColorationMaterial = (bLit && EngineShowFlags.Lighting) ? GEngine->LevelColorationLitMaterial : GEngine->LevelColorationUnlitMaterial;
 
-			// Get a colored material to represent the number of lights.
-			// Some component types (BSP) have multiple FLightCacheInterface's per component, so make sure the whole component represents the number of dominant lights affecting
-			NumDynamicLights = FMath::Min( NumDynamicLights, GEngine->LightComplexityColors.Num() - 1 );
-			const FColor Color = GEngine->LightComplexityColors[NumDynamicLights];
-
-			auto LightComplexityMaterialInstance = new FColoredMaterialRenderProxy(
-				GEngine->LevelColorationUnlitMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered()),
-				Color
+			auto LODColorationMaterialInstance = new FColoredMaterialRenderProxy(
+				LODColorationMaterial->GetRenderProxy( Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered() ),
+				GetSelectionColor(GEngine->LODColorationColors[lodColorationIndex], bSelected, Mesh.MaterialRenderProxy->IsHovered() )
 				);
 
-			// Draw the mesh colored by light complexity.
-			Mesh.MaterialRenderProxy = LightComplexityMaterialInstance;
-			Collector.RegisterOneFrameMaterialProxy(LightComplexityMaterialInstance);
+			Mesh.MaterialRenderProxy = LODColorationMaterialInstance;
+			Collector.RegisterOneFrameMaterialProxy(LODColorationMaterialInstance);
 		}
 	}
 	else if (!EngineShowFlags.Materials)

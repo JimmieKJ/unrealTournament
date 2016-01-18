@@ -307,6 +307,7 @@ public:
 	bool GetString( const TCHAR* Section, const TCHAR* Key, FString& Value, const FString& Filename );
 	bool GetText( const TCHAR* Section, const TCHAR* Key, FText& Value, const FString& Filename );
 	bool GetSection( const TCHAR* Section, TArray<FString>& Result, const FString& Filename );
+	bool DoesSectionExist(const TCHAR* Section, const FString& Filename);
 	FConfigSection* GetSectionPrivate( const TCHAR* Section, bool Force, bool Const, const FString& Filename );
 	void SetString( const TCHAR* Section, const TCHAR* Key, const TCHAR* Value, const FString& Filename );
 	void SetText( const TCHAR* Section, const TCHAR* Key, const FText& Value, const FString& Filename );

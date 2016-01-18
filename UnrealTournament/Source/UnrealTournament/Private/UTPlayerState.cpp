@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTGameMode.h"
@@ -8,10 +8,9 @@
 #include "UTGameMessage.h"
 #include "UTHat.h"
 #include "UTCharacterContent.h"
-#include "../Private/Slate/SUWindowsStyle.h"
-#include "../Private/Slate/SUTSTyle.h"
-#include "Slate/SUWPlayerInfoDialog.h"
-#include "Slate/Widgets/SUTTabWidget.h"
+#include "SUWindowsStyle.h"
+#include "Dialogs/SUTPlayerInfoDialog.h"
+#include "Widgets/SUTTabWidget.h"
 #include "StatNames.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -23,7 +22,8 @@
 #include "UTEngineMessage.h"
 #include "UTGameState.h"
 #include "UTDemoRecSpectator.h"
-#include "Slate/SUTStyle.h"
+#include "SUTStyle.h"
+#include "UTHUDWidget_SpectatorSlideOut.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -40,6 +40,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bCaster = false;
 	LastKillTime = 0.0f;
 	Kills = 0;
+	DamageDone = 0;
+	RoundDamageDone = 0;
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
@@ -55,6 +57,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	TDMSkillRatingThisMatch = 0;
 	DMSkillRatingThisMatch = 0;
 	CTFSkillRatingThisMatch = 0;
+	ShowdownSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
 	ReadyScale = 1.f;
 	bIsDemoRecording = false;
@@ -89,6 +92,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
+	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
 	DOREPLIFETIME(AUTPlayerState, CTFRank);
 	DOREPLIFETIME(AUTPlayerState, TDMRank);
@@ -127,12 +131,19 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, MatchHighlightData);
 	DOREPLIFETIME(AUTPlayerState, EmoteReplicationInfo);
 	DOREPLIFETIME(AUTPlayerState, EmoteSpeed);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSkins, COND_OwnerOnly);
 }
 
 void AUTPlayerState::Destroyed()
 {
 	Super::Destroyed();
 	GetWorldTimerManager().ClearAllTimersForObject(this);
+}
+
+void AUTPlayerState::IncrementDamageDone(int32 AddedDamage)
+{
+	DamageDone += AddedDamage;
+	RoundDamageDone += AddedDamage;
 }
 
 bool AUTPlayerState::IsFemale()
@@ -339,12 +350,12 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			bShouldTauntKill = true;
 			if (MyPC != NULL)
 			{
-				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, VictimPS);
+				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
 			}
 
 			if (GM)
 			{
-				GM->AddMultiKillEventToReplay(Controller, MultiKillLevel - 1);
+				GM->AddMultiKillEventToReplay(Controller, FMath::Min(MultiKillLevel - 1, 3));
 			}
 		}
 		else
@@ -530,6 +541,33 @@ void AUTPlayerState::OnDeathsReceived()
 	}
 }
 
+void AUTPlayerState::SetOutOfLives(bool bNewValue)
+{
+	bOutOfLives = bNewValue;
+	OnOutOfLives();
+}
+
+void AUTPlayerState::OnOutOfLives()
+{
+	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+	UUTLocalPlayer* UTLP = MyPC ? Cast<UUTLocalPlayer>(MyPC->Player) : NULL;
+	if (UTLP)
+	{
+		if (bOutOfLives)
+		{
+			UTLP->OpenSpectatorWindow();
+			if (MyPC && MyPC->MyUTHUD && MyPC->MyUTHUD->GetSpectatorSlideOut())
+			{
+				MyPC->MyUTHUD->GetSpectatorSlideOut()->SetMouseInteractive(true);
+			}
+		}
+		else
+		{
+			UTLP->CloseSpectatorWindow();
+		}
+	}
+}
+
 void AUTPlayerState::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -574,6 +612,71 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 	}
 
 	return CachedCharacter;
+}
+
+void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon)
+{
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
+	if (PC)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP)
+		{
+			UUTProfileSettings* ProfileSettings = LP->GetProfileSettings();
+			if (ProfileSettings)
+			{
+				FString WeaponPathName = Weapon->GetPathName();
+				for (int32 i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+				{
+					if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType.ToString() == WeaponPathName)
+					{
+						if (!WeaponSkins.Contains(ProfileSettings->WeaponSkins[i]))
+						{
+							ServerReceiveWeaponSkin(ProfileSettings->WeaponSkins[i]->GetPathName());
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void AUTPlayerState::ServerReceiveWeaponSkin_Implementation(const FString& NewWeaponSkin)
+{
+	if (!bOnlySpectator)
+	{
+		UUTWeaponSkin* WeaponSkin = LoadObject<UUTWeaponSkin>(NULL, *NewWeaponSkin, NULL, GetCosmeticLoadFlags(), NULL);
+		
+		if (WeaponSkin != nullptr && ValidateEntitlementSingleObject(WeaponSkin))
+		{
+			bool bAlreadyAssigned = false;
+			// Verify we don't already have a skin for this weapon
+			for (int32 i = 0; i < WeaponSkins.Num(); i++)
+			{
+				if (WeaponSkins[i]->WeaponType == WeaponSkin->WeaponType)
+				{
+					WeaponSkins[i] = WeaponSkin;
+					bAlreadyAssigned = true;
+				}
+			}
+
+			if (!bAlreadyAssigned)
+			{
+				WeaponSkins.Add(WeaponSkin);
+			}
+
+			AUTCharacter* UTChar = GetUTCharacter();
+			if (UTChar != nullptr)
+			{
+				UTChar->SetSkinForWeapon(WeaponSkin);
+			}
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveWeaponSkin_Validate(const FString& NewWeaponSkin)
+{
+	return true;
 }
 
 void AUTPlayerState::OnRepHat()
@@ -808,8 +911,10 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->DMSkillRatingThisMatch = DMSkillRatingThisMatch;
 		PS->TDMSkillRatingThisMatch = TDMSkillRatingThisMatch;
 		PS->CTFSkillRatingThisMatch = CTFSkillRatingThisMatch;
+		PS->ShowdownSkillRatingThisMatch = ShowdownSkillRatingThisMatch;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
+		PS->DamageDone = DamageDone;
 		PS->Deaths = Deaths;
 		PS->Assists = Assists;
 		PS->HatClass = HatClass;
@@ -820,6 +925,8 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->SelectedCharacter = SelectedCharacter;
 		PS->StatManager = StatManager;
 		PS->StatsData = StatsData;
+		PS->TauntClass = TauntClass;
+		PS->Taunt2Class = Taunt2Class;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);
@@ -852,6 +959,11 @@ void AUTPlayerState::SetCarriedObject(AUTCarriedObject* NewCarriedObject)
 		CarriedObject = NewCarriedObject;
 		ForceNetUpdate();
 	}
+	AUTPlayerController *PlayerOwner = Cast<AUTPlayerController>(GetOwner());
+	if (PlayerOwner && PlayerOwner->MyUTHUD && CarriedObject)
+	{
+		PlayerOwner->MyUTHUD->LastFlagGrabTime = GetWorld()->GetTimeSeconds();
+	}
 }
 
 void AUTPlayerState::ClearCarriedObject(AUTCarriedObject* OldCarriedObject)
@@ -883,6 +995,12 @@ void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 
 void AUTPlayerState::BeginPlay()
 {
+	// default so value is never NULL
+	if (SelectedCharacter == NULL)
+	{
+		SelectedCharacter = GetDefault<AUTCharacter>()->CharacterData;
+	}
+
 	Super::BeginPlay();
 
 	if (Role == ROLE_Authority && StatManager == nullptr)
@@ -932,24 +1050,53 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
 	if (Role == ROLE_Authority)
 	{
-		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL) : NULL;
+		TSubclassOf<AUTCharacterContent> NewCharacter = (CharacterPath.Len() > 0) ? TSubclassOf<AUTCharacterContent>(FindObject<UClass>(NULL, *CharacterPath, false)) : GetDefault<AUTCharacter>()->CharacterData;
 // redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
-		if (SelectedCharacter == NULL && CharacterPath.Len() > 0)
+		if (NewCharacter == NULL && CharacterPath.Len() > 0 && GetNetMode() == NM_Standalone)
 		{
-			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL);
+			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, LOAD_NoWarn, NULL);
 			if (BP != NULL)
 			{
-				SelectedCharacter = *BP->GeneratedClass;
+				NewCharacter = *BP->GeneratedClass;
 			}
 		}
 #endif
-		// make sure it's not an invalid base class
-		if (SelectedCharacter != NULL && ((SelectedCharacter->ClassFlags & CLASS_Abstract) || SelectedCharacter.GetDefaultObject()->GetMesh()->SkeletalMesh == NULL))
+		if (NewCharacter == NULL)
 		{
-			SelectedCharacter = NULL;
+			// async load the character class
+			UObject* CharPkg = NULL;
+			FString Path = CharacterPath;
+			if (ResolveName(CharPkg, Path, true, false) && Cast<UPackage>(CharPkg) != NULL)
+			{
+				TWeakObjectPtr<AUTPlayerState> PS(this);
+				if (FPackageName::DoesPackageExist(CharPkg->GetName()))
+				{
+					LoadPackageAsync(CharPkg->GetName(), FLoadPackageAsyncDelegate::CreateLambda([PS, CharacterPath](const FName& PackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result)
+					{
+						if (Result == EAsyncLoadingResult::Succeeded && PS.IsValid() && TSubclassOf<AUTCharacterContent>(FindObject<UClass>(NULL, *CharacterPath, false)) != NULL)
+						{
+							PS->SetCharacter(CharacterPath);
+						}
+						else
+						{
+							// redirectors don't work when using FindObject, handle that case
+							UObjectRedirector* Redirector = FindObject<UObjectRedirector>(NULL, *CharacterPath, true);
+							if (Redirector != NULL && Redirector->DestinationObject != NULL)
+							{
+								PS->SetCharacter(Redirector->DestinationObject->GetPathName());
+							}
+						}
+					}));
+				}
+			}
 		}
-		NotifyTeamChanged();
+		// make sure it's not an invalid base class
+		else if (NewCharacter != NULL && !(NewCharacter->ClassFlags & CLASS_Abstract) && NewCharacter.GetDefaultObject()->GetMesh()->SkeletalMesh != NULL)
+		{
+			SelectedCharacter = NewCharacter;
+			NotifyTeamChanged();
+		}
 	}
 }
 
@@ -959,7 +1106,12 @@ bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
 }
 void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
 {
+#if WITH_EDITOR
+	// Don't allow character loading during join in progress right now, it causes poor performance
+	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || !GetWorld()->GetGameState()->HasMatchStarted()))
+#else
 	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
+#endif
 	{
 		AUTCharacter* MyPawn = GetUTCharacter();
 		// suicide if feign death because the mesh reset causes physics issues
@@ -1011,33 +1163,24 @@ void AUTPlayerState::ServerNextChatDestination_Implementation()
 	}
 }
 
-void AUTPlayerState::SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId)
+void AUTPlayerState::ProfileNotification(const FOnlineNotification& Notification)
 {
-	Super::SetUniqueId(InUniqueId);
-
-	if (Role == ROLE_Authority && InUniqueId.IsValid())
+	if (Role == ROLE_Authority)
 	{
-		ReadProfileItems();
+		// route to client
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC != NULL && Notification.Payload.IsValid())
+		{
+			FString OutputJsonString;
+			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+			FJsonSerializer::Serialize(Notification.Payload->AsObject().ToSharedRef(), Writer);
+			PC->ClientBackendNotify(Notification.TypeStr, OutputJsonString);
+		}
 	}
 }
 
-void AUTPlayerState::ReadProfileItems()
+void AUTPlayerState::ProfileItemsChanged(const TSet<FString>& ChangedTypes, int64 ProfileRevision)
 {
-	if (!IsProfileItemListPending() && UniqueId.IsValid())
-	{
-		FHttpRequestCompleteDelegate Delegate;
-		Delegate.BindUObject(this, &AUTPlayerState::ProfileItemListReqComplete);
-		ItemListReq = ReadBackendStats(Delegate, UniqueId->ToString());
-	}
-}
-
-void AUTPlayerState::ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
-{
-	if (bSucceeded)
-	{
-		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems, PrevXP);
-	}
-	ItemListReq.Reset();
 	ValidateEntitlements();
 }
 
@@ -1119,6 +1262,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_TDMSkillRating);
 					DMSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_DMSkillRating);
 					CTFSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_CTFSkillRating);
+					ShowdownSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_ShowdownSkillRating);
 
 					// Sanitize the elo rankings
 					const int32 StartingELO = 1500;
@@ -1137,6 +1281,10 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					if (CTFSkillRatingThisMatch <= 0)
 					{
 						CTFSkillRatingThisMatch = StartingELO;
+					}
+					if (ShowdownSkillRatingThisMatch <= 0)
+					{
+						ShowdownSkillRatingThisMatch = StartingELO;
 					}
 
 					// 3000 should be fairly difficult to achieve
@@ -1158,11 +1306,16 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					{
 						CTFSkillRatingThisMatch = MaximumELO;
 					}
+					if (ShowdownSkillRatingThisMatch > MaximumELO)
+					{
+						ShowdownSkillRatingThisMatch = MaximumELO;
+					}
 
 					StatManager->ModifyStat(NAME_SkillRating, DuelSkillRatingThisMatch, EStatMod::Set);
 					StatManager->ModifyStat(NAME_TDMSkillRating, TDMSkillRatingThisMatch, EStatMod::Set);
 					StatManager->ModifyStat(NAME_DMSkillRating, DMSkillRatingThisMatch, EStatMod::Set);
 					StatManager->ModifyStat(NAME_CTFSkillRating, CTFSkillRatingThisMatch, EStatMod::Set);
+					StatManager->ModifyStat(NAME_ShowdownSkillRating, ShowdownSkillRatingThisMatch, EStatMod::Set);
 				}
 			}
 		}
@@ -1284,9 +1437,9 @@ void AUTPlayerState::WriteStatsToCloud()
 			}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 #else
-			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 #endif
 
 			FString McpConfigOverride;
@@ -1294,21 +1447,32 @@ void AUTPlayerState::WriteStatsToCloud()
 
 			if (McpConfigOverride == TEXT("prodnet"))
 			{
-				BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+				BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 			}
 			else if (McpConfigOverride == TEXT("localhost"))
 			{
-				BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+				BaseURL = TEXT("http://localhost:8080");
 			}
 			else if (McpConfigOverride == TEXT("gamedev"))
 			{
-				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 			}
+
+			FString EpicApp;
+			FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
+			const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
+			if (bIsPublicTest)
+			{
+				BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
+			}
+
+			FString CommandURL = TEXT("/ut/api/stats/accountId/");
+			FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk?ownertype=1");
 
 			FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();
 			if (StatsWriteRequest.IsValid())
 			{
-				StatsWriteRequest->SetURL(BaseURL);
+				StatsWriteRequest->SetURL(FinalStatsURL);
 				StatsWriteRequest->OnProcessRequestComplete().BindUObject(this, &AUTPlayerState::StatsWriteComplete);
 				StatsWriteRequest->SetVerb(TEXT("POST"));
 				StatsWriteRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
@@ -1372,6 +1536,10 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 	else if (SkillStatName == NAME_CTFSkillRating)
 	{
 		SkillRating = CTFSkillRatingThisMatch;
+	}
+	else if (SkillStatName == NAME_ShowdownSkillRating)
+	{
+		SkillRating = ShowdownSkillRatingThisMatch;
 	}
 	else
 	{
@@ -1566,13 +1734,20 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 
 bool AUTPlayerState::OwnsItemFor(const FString& Path, int32 VariantId) const
 {
-	for (const FProfileItemEntry& Entry : ProfileItems)
+#if WITH_PROFILE
+	if (GetMcpProfile() != NULL)
 	{
-		if (Entry.Item != NULL && Entry.Item->Grants(Path, VariantId))
+		TArray<UUTProfileItem*> ItemList;
+		GetMcpProfile()->GetItemsOfType<UUTProfileItem>(ItemList);
+		for (UUTProfileItem* Item : ItemList)
 		{
-			return true;
+			if (Item != NULL && Item->Grants(Path, VariantId))
+			{
+				return true;
+			}
 		}
 	}
+#endif
 	return false;
 }
 
@@ -1595,6 +1770,29 @@ bool AUTPlayerState::HasRightsFor(UObject* Obj) const
 			return !NeedsProfileItem(Obj) || OwnsItemFor(Obj->GetPathName());
 		}
 	}
+}
+
+bool AUTPlayerState::ValidateEntitlementSingleObject(UObject* Object)
+{
+	if (IOnlineSubsystem::Get() != NULL && UniqueId.IsValid() && !IsProfileItemListPending())
+	{
+		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+		if (EntitlementInterface.IsValid())
+		{
+			// we assume that any successful entitlement query is going to return at least one - the entitlement to play the game
+			TArray< TSharedRef<FOnlineEntitlement> > AllEntitlements;
+			EntitlementInterface->GetAllEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"), AllEntitlements);
+			if (AllEntitlements.Num() > 0)
+			{
+				if (!HasRightsFor(Object))
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 void AUTPlayerState::ValidateEntitlements()
@@ -1799,22 +1997,22 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		];
 
 		VBox->AddSlot()
-		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(NSLOCTEXT("Generic", "RankPrompt", "Overall Rank :"), AverageRank)
-		];
-		VBox->AddSlot()
 		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 		.AutoHeight()
 		[
-			BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
+			BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank)
 		];
 		VBox->AddSlot()
 		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 		.AutoHeight()
 		[
 			BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank)
+		];
+		VBox->AddSlot()
+		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+		.AutoHeight()
+		[
+			BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
 		];
 		VBox->AddSlot()
 		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
@@ -2068,7 +2266,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 
 	if (LP && StatsID.IsEmpty() && OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
 		if (UserId.IsValid())
 		{
 			StatsID = UserId->ToString();
@@ -2309,7 +2507,9 @@ void AUTPlayerState::UpdateReady()
 		}
 		if (ReadySwitchCount > 10)
 		{
-			ReadyScale = 1.f + 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime);
+			ReadyScale = (ReadySwitchCount % 2 == 0) 
+							? 1.f + 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime)
+							: 1.4f - 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime);
 		}
 	}
 	else if (!bReadyToPlay && (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f))
@@ -2366,7 +2566,7 @@ int32 AUTPlayerState::CountBanVotes()
 				// only count bans of people online
 				for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
 				{
-					if (GameState->PlayerArray[i]->UniqueId == BanVotes[Idx].Voter)
+					if (GameState->PlayerArray[i]->UniqueId.GetUniqueNetId() == BanVotes[Idx].Voter)
 					{
 						VoteCount++;
 						break;
@@ -2451,7 +2651,7 @@ bool AUTPlayerState::AllowFreezingTaunts() const
 	if (!bResult)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bResult = (GS != NULL && GS->IsMatchAtHalftime());
+		bResult = (GS != NULL && GS->IsMatchIntermission());
 	}
 	return bResult;
 }

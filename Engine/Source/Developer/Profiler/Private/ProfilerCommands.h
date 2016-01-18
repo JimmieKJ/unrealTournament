@@ -151,8 +151,8 @@ protected:
 	void ToggleDataPreview_Execute( const FGuid SessionInstanceID );
 	/** Handles FCanExecuteAction for ToggleDataPreview. */
 	bool ToggleDataPreview_CanExecute( const FGuid SessionInstanceID ) const;
-	/** Handles FIsActionChecked for ToggleDataPreview. */
-	bool ToggleDataPreview_IsChecked( const FGuid SessionInstanceID ) const;
+	/** Handles FGetActionCheckState for ToggleDataPreview. */
+	ECheckBoxState ToggleDataPreview_GetCheckState( const FGuid SessionInstanceID ) const;
 
 	/*-----------------------------------------------------------------------------
 		ProfilerManager_ToggleLivePreview
@@ -166,8 +166,8 @@ protected:
 	void ProfilerManager_ToggleLivePreview_Execute();
 	/** Handles FCanExecuteAction for ProfilerManager_ToggleLivePreview. */
 	bool ProfilerManager_ToggleLivePreview_CanExecute( ) const;
-	/** Handles FIsActionChecked for ProfilerManager_ToggleLivePreview. */
-	bool ProfilerManager_ToggleLivePreview_IsChecked() const;
+	/** Handles FGetActionCheckState for ProfilerManager_ToggleLivePreview. */
+	ECheckBoxState ProfilerManager_ToggleLivePreview_GetCheckState() const;
 
 	/*-----------------------------------------------------------------------------
 		ToggleDataCapture
@@ -190,8 +190,8 @@ protected:
 	void ToggleDataCapture_Execute( const FGuid SessionInstanceID );
 	/** Handles FCanExecuteAction for ToggleDataCapture. */
 	bool ToggleDataCapture_CanExecute( const FGuid SessionInstanceID ) const;
-	/** Handles FIsActionChecked for ToggleDataCapture. */
-	bool ToggleDataCapture_IsChecked( const FGuid SessionInstanceID ) const;
+	/** Handles FGetActionCheckState for ToggleDataCapture. */
+	ECheckBoxState ToggleDataCapture_GetCheckState( const FGuid SessionInstanceID ) const;
 
 	/*-----------------------------------------------------------------------------
 		ToggleShowDataGraph
@@ -211,8 +211,8 @@ protected:
 	void ToggleShowDataGraph_Execute( const FGuid SessionInstanceID );
 	/** Handles FCanExecuteAction for ToggleShowDataGraph_Execute. */
 	bool ToggleShowDataGraph_CanExecute( const FGuid SessionInstanceID ) const;
-	/** Handles FIsActionChecked for ToggleShowDataGraph_Execute. */
-	bool ToggleShowDataGraph_IsChecked( const FGuid SessionInstanceID ) const;
+	/** Handles FGetActionCheckState for ToggleShowDataGraph_Execute. */
+	ECheckBoxState ToggleShowDataGraph_GetCheckState( const FGuid SessionInstanceID ) const;
 	/** Handles IsActionButtonVisible for ToggleShowDataGraph_Execute. */
 	bool ToggleShowDataGraph_IsActionButtonVisible( const FGuid SessionInstanceID ) const;
 

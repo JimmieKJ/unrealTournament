@@ -12,8 +12,10 @@ FGuid FApp::InstanceId = FGuid::NewGuid();
 FGuid FApp::SessionId = FGuid::NewGuid();
 FString FApp::SessionName = FString();
 FString FApp::SessionOwner = FString();
+TArray<FString> FApp::SessionUsers = TArray<FString>();
 bool FApp::Standalone = true;
 bool FApp::bIsBenchmarking = false;
+bool FApp::bUseFixedTimeStep = false;
 double FApp::FixedDeltaTime = 1 / 30.0;
 double FApp::CurrentTime = 0.0;
 double FApp::LastTime = 0.0;
@@ -25,9 +27,21 @@ float FApp::UnfocusedVolumeMultiplier = 0.0f;
 /* FApp static interface
  *****************************************************************************/
 
-FString FApp::GetBranchName( )
+FString FApp::GetBranchName()
 {
 	return FString(TEXT(BRANCH_NAME));
+}
+
+
+int32 FApp::GetEngineIsPromotedBuild()
+{
+	return ENGINE_IS_PROMOTED_BUILD;
+}
+
+
+FString FApp::GetEpicProductIdentifier()
+{
+	return FString(TEXT(EPIC_PRODUCT_IDENTIFIER));
 }
 
 
@@ -58,13 +72,13 @@ EBuildConfigurations::Type FApp::GetBuildConfiguration()
 }
 
 
-FString FApp::GetBuildDate( )
+FString FApp::GetBuildDate()
 {
 	return FString(ANSI_TO_TCHAR(__DATE__));
 }
 
 
-void FApp::InitializeSession( )
+void FApp::InitializeSession()
 {
 	// parse session details on command line
 	FString InstanceIdString;
@@ -100,14 +114,14 @@ void FApp::InitializeSession( )
 
 	if (!FParse::Value(FCommandLine::Get(), TEXT("-SessionOwner="), SessionOwner))
 	{
-		SessionOwner = FPlatformProcess::UserName(true);
+		SessionOwner = FPlatformProcess::UserName(false);
 	}
 }
 
 
 bool FApp::IsInstalled()
 {
-#if !UE_EDITOR && PLATFORM_DESKTOP && !UE_SERVER
+#if UE_BUILD_SHIPPING && PLATFORM_DESKTOP && !UE_SERVER
 	static bool bIsInstalled = !FParse::Param(FCommandLine::Get(), TEXT("NotInstalled"));
 #else
 	static bool bIsInstalled = FParse::Param(FCommandLine::Get(), TEXT("Installed"));
@@ -124,23 +138,27 @@ bool FApp::IsEngineInstalled()
 
 
 #if HAVE_RUNTIME_THREADING_SWITCHES
-bool FApp::ShouldUseThreadingForPerformance( )
+bool FApp::ShouldUseThreadingForPerformance()
 {
 	static bool OnlyOneThread = FParse::Param(FCommandLine::Get(), TEXT("ONETHREAD")) || IsRunningDedicatedServer() || !FPlatformProcess::SupportsMultithreading() || FPlatformMisc::NumberOfCores() < 2;
 	return !OnlyOneThread;
 }
-
-
 #endif // HAVE_RUNTIME_THREADING_SWITCHES
 
+
+static bool GUnfocusedVolumeMultiplierItialised = false;
 float FApp::GetUnfocusedVolumeMultiplier()
 {
-	static bool bInitialisedFromConfig = false;
-
-	if (!bInitialisedFromConfig)
+	if (!GUnfocusedVolumeMultiplierItialised)
 	{
-		bInitialisedFromConfig = true;
+		GUnfocusedVolumeMultiplierItialised = true;
 		GConfig->GetFloat(TEXT("Audio"), TEXT("UnfocusedVolumeMultiplier"), UnfocusedVolumeMultiplier, GEngineIni);
 	}
 	return UnfocusedVolumeMultiplier;
+}
+
+void FApp::SetUnfocusedVolumeMultiplier(float InVolumeMultiplier)
+{
+	UnfocusedVolumeMultiplier = InVolumeMultiplier;
+	GUnfocusedVolumeMultiplierItialised = true;
 }

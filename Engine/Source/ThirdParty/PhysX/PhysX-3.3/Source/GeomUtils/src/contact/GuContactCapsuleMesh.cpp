@@ -21,7 +21,6 @@
 #include "GuContactBuffer.h"
 #include "GuMidphase.h"
 #include "CmScaling.h"
-#include "GuTriangleCache.h"
 #include "GuEntityReport.h"
 #include "GuHeightFieldUtil.h"
 #include "GuConvexEdgeFlags.h"
@@ -38,7 +37,7 @@ using namespace Gu;
 #endif
 
 #ifdef __SPU__
-extern unsigned char HeightFieldBuffer[sizeof(Gu::HeightField)+16];
+extern unsigned char HeightFieldBuffer[sizeof(HeightField)+16];
 #include "CmMemFetch.h"
 #endif
 
@@ -46,7 +45,6 @@ extern unsigned char HeightFieldBuffer[sizeof(Gu::HeightField)+16];
 
 //#define USE_CAPSULE_TRI_PROJ_CULLING
 //#define USE_CAPSULE_TRI_SAT_CULLING
-//#define PRINT_STATS
 #define VISUALIZE_TOUCHED_TRIS	0
 #define VISUALIZE_CULLING_BOX	0
 
@@ -76,7 +74,7 @@ static PxU32 gColors[8] = { 0xff0000ff, 0xff00ff00, 0xffff0000,
 
 static const float fatBoxEdgeCoeff = 0.01f;
 
-static bool PxcTestAxis(const PxVec3& axis, const Gu::Segment& segment, PxReal radius, 
+static bool PxcTestAxis(const PxVec3& axis, const Segment& segment, PxReal radius, 
 						const PxVec3* PX_RESTRICT triVerts, PxReal& depth)
 {
 	// Project capsule
@@ -121,7 +119,7 @@ PX_FORCE_INLINE static PxVec3 PxcComputeTriangleCenter(const PxVec3* PX_RESTRICT
 	return (triVerts[0] + triVerts[1] + triVerts[2]) * inv3;
 }
 
-static bool PxcCapsuleTriOverlap3(PxU8 edgeFlags, const Gu::Segment& segment, PxReal radius, const PxVec3* PX_RESTRICT triVerts,
+static bool PxcCapsuleTriOverlap3(PxU8 edgeFlags, const Segment& segment, PxReal radius, const PxVec3* PX_RESTRICT triVerts,
 								  PxReal* PX_RESTRICT t=NULL, PxVec3* PX_RESTRICT pp=NULL)
 {
 	PxReal penDepth = PX_MAX_REAL;
@@ -132,10 +130,10 @@ static bool PxcCapsuleTriOverlap3(PxU8 edgeFlags, const Gu::Segment& segment, Px
 		return false;
 
 	// Test edges
-	// PT: are those flags correct? Shouldn't we use Gu::ETD_CONVEX_EDGE_01/etc ?
-	//const PxU8 ignoreEdgeFlag[] = {1, 4, 2};  // for edges 0-1, 1-2, 2-0 (see Gu::InternalTriangleMeshData::mExtraTrigData)
+	// PT: are those flags correct? Shouldn't we use ETD_CONVEX_EDGE_01/etc ?
+	//const PxU8 ignoreEdgeFlag[] = {1, 4, 2};  // for edges 0-1, 1-2, 2-0 (see InternalTriangleMeshData::mExtraTrigData)
 	// ML:: use the active edge flag instead of the concave flag
-	const PxU32 activeEdgeFlag[] = {Gu::ETD_CONVEX_EDGE_01, Gu::ETD_CONVEX_EDGE_12, Gu::ETD_CONVEX_EDGE_20};
+	const PxU32 activeEdgeFlag[] = {ETD_CONVEX_EDGE_01, ETD_CONVEX_EDGE_12, ETD_CONVEX_EDGE_20};
 	const PxVec3 capsuleAxis = (segment.p1 - segment.p0).getNormalized();
 	for(PxU32 i=0;i<3;i++)
 	{
@@ -178,7 +176,7 @@ static bool PxcCapsuleTriOverlap3(PxU8 edgeFlags, const Gu::Segment& segment, Px
 	return true;
 }
 
-static void PxcGenerateVFContacts(	const Cm::Matrix34& meshAbsPose, ContactBuffer& contactBuffer, const Gu::Segment& segment,
+static void PxcGenerateVFContacts(	const Cm::Matrix34& meshAbsPose, ContactBuffer& contactBuffer, const Segment& segment,
 									const PxReal radius, const PxVec3* PX_RESTRICT triVerts, const PxVec3& normal, 
 									PxU32 triangleIndex, PxReal contactDistance)
 {
@@ -187,7 +185,7 @@ static void PxcGenerateVFContacts(	const Cm::Matrix34& meshAbsPose, ContactBuffe
 	{
 		const PxVec3& Pos = Ptr[i];
 		PxReal t,u,v;
-		if(Gu::intersectRayTriangleCulling(Pos, -normal, triVerts[0], triVerts[1], triVerts[2], t, u, v) && t < radius + contactDistance)
+		if(intersectRayTriangleCulling(Pos, -normal, triVerts[0], triVerts[1], triVerts[2], t, u, v) && t < radius + contactDistance)
 		{
 			const PxVec3 Hit = meshAbsPose.transform(Pos - t * normal);
 			const PxVec3 wn = meshAbsPose.rotate(normal);
@@ -205,7 +203,7 @@ static void PxcGenerateVFContacts(	const Cm::Matrix34& meshAbsPose, ContactBuffe
 // PT: PxcGenerateEEContacts2 uses a segment-triangle distance function, which breaks when the segment
 // intersects the triangle, in which case you need to switch to a penetration-depth computation.
 // If you don't do this thin capsules don't work.
-static void PxcGenerateEEContacts(	const Cm::Matrix34& meshAbsPose, ContactBuffer& contactBuffer, const Gu::Segment& segment, const PxReal radius,
+static void PxcGenerateEEContacts(	const Cm::Matrix34& meshAbsPose, ContactBuffer& contactBuffer, const Segment& segment, const PxReal radius,
 									const PxVec3* PX_RESTRICT triVerts, const PxVec3& normal, PxU32 triangleIndex)
 {
 	PxVec3 s0 = segment.p0;
@@ -216,7 +214,7 @@ static void PxcGenerateEEContacts(	const Cm::Matrix34& meshAbsPose, ContactBuffe
 	{
 		PxReal dist;
 		PxVec3 ip;
-		if(Gu::intersectEdgeEdge(triVerts[i], triVerts[Ps::getNextIndex3(i)], -normal, s0, s1, dist, ip))
+		if(intersectEdgeEdge(triVerts[i], triVerts[Ps::getNextIndex3(i)], -normal, s0, s1, dist, ip))
 		{
 			ip = meshAbsPose.transform(ip);
 			const PxVec3 wn = meshAbsPose.rotate(normal);
@@ -231,9 +229,7 @@ static void PxcGenerateEEContacts(	const Cm::Matrix34& meshAbsPose, ContactBuffe
 	}
 }
 
-
-
-static void PxcGenerateEEContacts2(	const Cm::Matrix34& meshAbsPose, ContactBuffer& contactBuffer, const Gu::Segment& segment, const PxReal radius,
+static void PxcGenerateEEContacts2(	const Cm::Matrix34& meshAbsPose, ContactBuffer& contactBuffer, const Segment& segment, const PxReal radius,
 									const PxVec3* PX_RESTRICT triVerts, const PxVec3& normal, PxU32 triangleIndex, PxReal contactDistance)
 {
 	PxVec3 s0 = segment.p0;
@@ -244,7 +240,7 @@ static void PxcGenerateEEContacts2(	const Cm::Matrix34& meshAbsPose, ContactBuff
 	{
 		PxReal dist;
 		PxVec3 ip;
-		if(Gu::intersectEdgeEdge(triVerts[i], triVerts[Ps::getNextIndex3(i)], normal, s0, s1, dist, ip) && dist < radius+contactDistance)
+		if(intersectEdgeEdge(triVerts[i], triVerts[Ps::getNextIndex3(i)], normal, s0, s1, dist, ip) && dist < radius+contactDistance)
 		{
 			ip = meshAbsPose.transform(ip);
 			const PxVec3 wn = meshAbsPose.rotate(normal);
@@ -259,342 +255,195 @@ static void PxcGenerateEEContacts2(	const Cm::Matrix34& meshAbsPose, ContactBuff
 	}
 }
 
-
-static void PxcContactCapsuleTriangle(	PxU8 data, const Cm::Matrix34& meshAbsPose, const PxVec3* PX_RESTRICT triVerts, 
-										const Gu::Segment& segment, PxReal capsuleRadius, 
-										ContactBuffer& contactBuffer, PxU32 triangleIndex, PxReal contactDistance)
+namespace
 {
-	const PxVec3& p0 = triVerts[0];
-	const PxVec3& p1 = triVerts[1];
-	const PxVec3& p2 = triVerts[2];
-
-	PxReal t,u,v;
-	const PxReal squareDist = Gu::distanceSegmentTriangleSquared(segment, p0, p1-p0, p2-p0, &t, &u, &v);
-
-	const PxReal inflatedRadius = capsuleRadius + contactDistance;
-
-	// PT: do cheaper test first!
-	if(squareDist >= inflatedRadius*inflatedRadius) 
-		return;
-
-	// Cull away back-facing triangles   
-	const PxPlane localPlane(p0, p1, p2);
-	if(localPlane.distance(segment.computeCenter()) < 0.0f)
-		return;
-
-	if(squareDist > 0.001f*0.001f)
-	{
-		// Contact information
-		PxVec3 normal;
-		if(selectNormal(data, u, v))
-		{
-			normal = localPlane.n;
-		}
-		else
-		{
-			PxVec3 pointOnTriangle = Ps::computeBarycentricPoint(p0, p1, p2, u, v);
-
-			const PxVec3 pointOnSegment = segment.getPointAt(t);
-			normal = pointOnSegment - pointOnTriangle;
-			PxReal l = normal.magnitude();
-			if(l == 0) 
-				return;
-			normal = normal / l;
-		}
-
-		PxcGenerateEEContacts2(meshAbsPose, contactBuffer, segment, capsuleRadius, triVerts, normal, triangleIndex, contactDistance);
-		PxcGenerateVFContacts(meshAbsPose, contactBuffer, segment, capsuleRadius, triVerts, normal, triangleIndex, contactDistance);
-	}
-	else
-	{
-		PxVec3 SepAxis;
-		if(!PxcCapsuleTriOverlap3(data, segment, inflatedRadius, triVerts, NULL, &SepAxis)) 
-			return;
-
-		PxcGenerateEEContacts(meshAbsPose, contactBuffer, segment, capsuleRadius, triVerts, SepAxis, triangleIndex);
-		PxcGenerateVFContacts(meshAbsPose, contactBuffer, segment, capsuleRadius, triVerts, SepAxis, triangleIndex, contactDistance);
-	}
-}
-
-struct ContactCapsuleMesh
+struct CapsuleMeshContactGeneration
 {
-	ContactBuffer&		contactBuffer;
-	const PxTransform&	transform1;
-	const Gu::Segment&	meshCapsule;
-	PxReal				inflatedRadius;
-	PxReal				contactDistance;
-	PxReal				shapeCapsuleRadius;
-	//Gu::Capsule		cacheCapsule;
+	ContactBuffer&		mContactBuffer;
+	const Cm::Matrix34	mMeshAbsPose;
+	const Segment&		mMeshCapsule;
+#ifdef USE_AABB_TRI_CULLING
+	PxVec3				mBC;
+	PxVec3				mBE;
+#endif
+	PxReal				mInflatedRadius;
+	PxReal				mContactDistance;
+	PxReal				mShapeCapsuleRadius;
 
-	ContactCapsuleMesh(
-		ContactBuffer& contactBuffer_,
-		const PxTransform& transform1_, const Gu::Segment& meshCapsule_,
-		PxReal inflatedRadius_, PxReal contactDistance_, PxReal shapeCapsuleRadius_) :
-		contactBuffer(contactBuffer_),
-		transform1(transform1_),
-		meshCapsule(meshCapsule_), inflatedRadius(inflatedRadius_),
-		contactDistance(contactDistance_),
-		shapeCapsuleRadius(shapeCapsuleRadius_)
+	CapsuleMeshContactGeneration(ContactBuffer& contactBuffer, const PxTransform& transform1, const Segment& meshCapsule, PxReal inflatedRadius, PxReal contactDistance, PxReal shapeCapsuleRadius) :
+		mContactBuffer		(contactBuffer),
+		mMeshAbsPose		(Cm::Matrix34(transform1)),
+		mMeshCapsule		(meshCapsule),
+		mInflatedRadius		(inflatedRadius),
+		mContactDistance	(contactDistance),
+		mShapeCapsuleRadius	(shapeCapsuleRadius)
 	{
 		PX_ASSERT(contactBuffer.count==0);
+#ifdef USE_AABB_TRI_CULLING
+		mBC = (meshCapsule.p0 + meshCapsule.p1)*0.5f;
+		const PxVec3 be = (meshCapsule.p0 - meshCapsule.p1)*0.5f;
+		mBE.x = fabsf(be.x) + inflatedRadius;
+		mBE.y = fabsf(be.y) + inflatedRadius;
+		mBE.z = fabsf(be.z) + inflatedRadius;
+#endif
 	}
 
-	template <PxU32 CacheSize>
-	bool processTriangleCache(Gu::TriangleCache<CacheSize>& cache)
+	void processTriangle(PxU32 triangleIndex, const PxVec3* triVerts, PxU8 extraData/*, const PxU32* vertInds*/)
 	{
-		const Cm::Matrix34 meshAbsPose = Cm::Matrix34(transform1);
-
 #ifdef USE_AABB_TRI_CULLING
-		PxVec3 bc = (meshCapsule.p0 + meshCapsule.p1)*0.5f;
-		PxVec3 be = (meshCapsule.p0 - meshCapsule.p1)*0.5f;
-		be.x = fabsf(be.x) + inflatedRadius;
-		be.y = fabsf(be.y) + inflatedRadius;
-		be.z = fabsf(be.z) + inflatedRadius;
-
 	#if VISUALIZE_CULLING_BOX
 		{
 			Cm::RenderOutput& out = context.mRenderOutput;
 			PxTransform idt = PxTransform(PxIdentity);
 			out << idt;
 			out << 0xffffffff;
-			out << Cm::DebugBox(bc, be, true);
+			out << Cm::DebugBox(mBC, mBE, true);
 		}
 	#endif
 #endif
 
-#ifdef USE_CAPSULE_TRI_PROJ_CULLING
-		PxVec3 capsuleCenter = (meshCapsule.p0 + meshCapsule.p1)*0.5f;
-#endif
-
-#ifdef PRINT_STATS
-		static int nb0=0;
-		static int nb1=0;
-#endif
-
-		PxVec3* verts = cache.mVertices;
-		PxU32* triInds = cache.mTriangleIndex;
-		//PxU32* triVertInds = cache.mIndices;
-		PxU8* edgeFlags = cache.mEdgeFlags;
-
-		PxU32 numTrigs = cache.mNumTriangles;
-
-		while(numTrigs--)
-		{
-			const PxU32 triangleIndex = *triInds++;
-			PxVec3 triVerts[3];
-			
-			triVerts[0] = verts[0];
-			triVerts[1] = verts[1];
-			triVerts[2] = verts[2];
-			
-			verts += 3;
-
-			PxU8 extraData = *edgeFlags++;
-
-#ifdef PRINT_STATS
-			nb0++;
-#endif
-
 #ifdef USE_AABB_TRI_CULLING
-			if(!Gu::intersectTriangleBox(bc, be, triVerts[0], triVerts[1], triVerts[2]))
-				continue;
+		if(!intersectTriangleBox(mBC, mBE, triVerts[0], triVerts[1], triVerts[2]))
+			return;
 #endif
 
 #ifdef USE_CAPSULE_TRI_PROJ_CULLING
-			PxVec3 triCenter = (triVerts[0] + triVerts[1] + triVerts[2])*0.33333333f;
-			PxVec3 delta = capsuleCenter - triCenter;
+		PxVec3 triCenter = (triVerts[0] + triVerts[1] + triVerts[2])*0.33333333f;
+		PxVec3 delta = mBC - triCenter;
 
-			PxReal depth;
-			if(!PxcTestAxis(delta, meshCapsule, inflatedRadius, triVerts, depth))
-				continue;
+		PxReal depth;
+		if(!PxcTestAxis(delta, mMeshCapsule, mInflatedRadius, triVerts, depth))
+			return;
 #endif
 
 #if VISUALIZE_TOUCHED_TRIS
-			gVisualizeTri(triVerts[0], triVerts[1], triVerts[2], context, PxDebugColor::eARGB_RED);
+		gVisualizeTri(triVerts[0], triVerts[1], triVerts[2], context, PxDebugColor::eARGB_RED);
 #endif
 
 #ifdef USE_CAPSULE_TRI_SAT_CULLING
-			PxVec3 SepAxis;
-			if(!PxcCapsuleTriOverlap3(extraData, meshCapsule, inflatedRadius, triVerts, NULL, &SepAxis)) 
-				continue;
+		PxVec3 SepAxis;
+		if(!PxcCapsuleTriOverlap3(extraData, mMeshCapsule, mInflatedRadius, triVerts, NULL, &SepAxis)) 
+			return;
 #endif
 
-			//PxU32 oldCount = contactBuffer.count;
-			PxcContactCapsuleTriangle(
-				extraData, meshAbsPose, triVerts, meshCapsule, shapeCapsuleRadius,
-				contactBuffer, triangleIndex, contactDistance);
+		const PxVec3& p0 = triVerts[0];
+		const PxVec3& p1 = triVerts[1];
+		const PxVec3& p2 = triVerts[2];
 
-#ifdef PRINT_STATS
-			nb1++;
-			printf("%f\n", float(nb1)*100.0f / float(nb0));
-#endif
-		}
-		return true;
-	}
+		PxReal t,u,v;
+		const PxReal squareDist = distanceSegmentTriangleSquared(mMeshCapsule, p0, p1-p0, p2-p0, &t, &u, &v);
 
-private:
-	ContactCapsuleMesh& operator=(const ContactCapsuleMesh&);
-};
+		// PT: do cheaper test first!
+		if(squareDist >= mInflatedRadius*mInflatedRadius) 
+			return;
 
-struct CapsuleHeightfieldContactGenerationCallback : Gu::EntityReport<PxU32>
-{
-	ContactCapsuleMesh mGeneration;
-	Gu::HeightFieldUtil& mHfUtil;
+		// Cull away back-facing triangles   
+		// PT: TODO: p1-p0 and p2-p0 have already been computed above
+		const PxPlane localPlane(p0, p1, p2);
+		if(localPlane.distance(mBC) < 0.0f)
+			return;
 
-	CapsuleHeightfieldContactGenerationCallback(
-		ContactBuffer& contactBuffer,
-		const PxTransform& transform1, Gu::HeightFieldUtil& hfUtil, const Gu::Segment& meshCapsule,
-		PxReal inflatedRadius, PxReal contactDistance, PxReal shapeCapsuleRadius
-	) : 
-		mGeneration(contactBuffer, transform1, meshCapsule, inflatedRadius, contactDistance, shapeCapsuleRadius),
-		mHfUtil(hfUtil)
-	{
-		PX_ASSERT(contactBuffer.count==0);
-	}
-
-	virtual bool onEvent(PxU32 nb, PxU32* indices)
-	{
-		const PxU32 CacheSize = 16;
-		Gu::TriangleCache<CacheSize> cache;
-
-		PxU32 nbPasses = (nb+(CacheSize-1))/CacheSize;
-		PxU32 nbTrigs = nb;
-		PxU32* inds = indices;
-
-		PxU8 nextInd[] = {2,0,1};
-
-		for(PxU32 i = 0; i < nbPasses; ++i)
+		if(squareDist > 0.001f*0.001f)
 		{
-			cache.mNumTriangles = 0;
-			PxU32 trigCount = PxMin(nbTrigs, CacheSize);
-			nbTrigs -= trigCount;
-			while(trigCount--)
+			// Contact information
+			PxVec3 normal;
+			if(selectNormal(extraData, u, v))
 			{
-				PxU32 triangleIndex = *(inds++);
-				PxU32 vertIndices[3];
-
-				PxTriangle currentTriangle;	// in world space
-
-				PxU32 adjInds[3];
-				mHfUtil.getTriangle(mGeneration.transform1, currentTriangle, vertIndices, adjInds, triangleIndex, false, false);
-
-				PxVec3 normal;
-				currentTriangle.normal(normal);
-
-				PxU8 triFlags = 0; //KS - temporary until we can calculate triFlags for HF
-
-				for(PxU32 a = 0; a < 3; ++a)
-				{
-					if(adjInds[a] != 0xFFFFFFFF)
-					{
-						PxTriangle adjTri;
-						mHfUtil.getTriangle(mGeneration.transform1, adjTri, NULL, NULL, adjInds[a], false, false);
-						//We now compare the triangles to see if this edge is active
-
-						PxVec3 adjNormal;
-						adjTri.denormalizedNormal(adjNormal);
-						PxU32 otherIndex = nextInd[a];
-						PxF32 projD = adjNormal.dot(currentTriangle.verts[otherIndex] - adjTri.verts[0]);
-						if(projD < 0.f)
-						{
-							adjNormal.normalize();
-
-							PxF32 proj = adjNormal.dot(normal);
-
-							if(proj < 0.999f)
-							{
-								triFlags |= 1 << (a+3);
-							}
-						}
-					}
-					else
-					{
-						triFlags |= 1 << (a+3);
-					}
-				}
-
-				cache.addTriangle(currentTriangle.verts, vertIndices, triangleIndex, triFlags);
+				normal = localPlane.n;
 			}
-			mGeneration.processTriangleCache<CacheSize>(cache);
+			else
+			{
+				const PxVec3 pointOnTriangle = Ps::computeBarycentricPoint(p0, p1, p2, u, v);
+
+				const PxVec3 pointOnSegment = mMeshCapsule.getPointAt(t);
+				normal = pointOnSegment - pointOnTriangle;
+				const PxReal l = normal.magnitude();
+				if(l == 0.0f)
+					return;
+				normal = normal / l;
+			}
+
+			PxcGenerateEEContacts2(mMeshAbsPose, mContactBuffer, mMeshCapsule, mShapeCapsuleRadius, triVerts, normal, triangleIndex, mContactDistance);
+			PxcGenerateVFContacts(mMeshAbsPose, mContactBuffer, mMeshCapsule, mShapeCapsuleRadius, triVerts, normal, triangleIndex, mContactDistance);
 		}
-		return true;
+		else
+		{
+			PxVec3 SepAxis;
+			if(!PxcCapsuleTriOverlap3(extraData, mMeshCapsule, mInflatedRadius, triVerts, NULL, &SepAxis)) 
+				return;
+
+			PxcGenerateEEContacts(mMeshAbsPose, mContactBuffer, mMeshCapsule, mShapeCapsuleRadius, triVerts, SepAxis, triangleIndex);
+			PxcGenerateVFContacts(mMeshAbsPose, mContactBuffer, mMeshCapsule, mShapeCapsuleRadius, triVerts, SepAxis, triangleIndex, mContactDistance);
+		}
 	}
 
 private:
-	CapsuleHeightfieldContactGenerationCallback& operator=(const CapsuleHeightfieldContactGenerationCallback&);
+	CapsuleMeshContactGeneration& operator=(const CapsuleMeshContactGeneration&);
 };
 
-
-struct ContactCapsuleMeshCallback : MeshHitCallback<PxRaycastHit>
+struct CapsuleMeshContactGenerationCallback : MeshHitCallback<PxRaycastHit>
 {
-	ContactCapsuleMesh					mGeneration;
-	const PxTriangleMeshGeometryLL&		shapeMesh;
-	const Cm::FastVertex2ShapeScaling&	scaling;
-	bool								idtMeshScale;
-	static const PxU32 MaxTriangles = 16;
-	Gu::TriangleCache<MaxTriangles>		mCache;
-	const Gu::InternalTriangleMeshData* meshData;
+	CapsuleMeshContactGeneration		mGeneration;
+	const Cm::FastVertex2ShapeScaling&	mScaling;
+	bool								mIdtMeshScale;
+	const InternalTriangleMeshData*		mMeshData;
 
-	ContactCapsuleMeshCallback(
+	CapsuleMeshContactGenerationCallback(
 		ContactBuffer& contactBuffer,
-		const PxTransform& transform1, const PxTriangleMeshGeometryLL& shapeMesh_, const Gu::Segment& meshCapsule,
-		PxReal inflatedRadius, const Cm::FastVertex2ShapeScaling& scaling_, PxReal contactDistance,
-		PxReal shapeCapsuleRadius, const Gu::InternalTriangleMeshData* meshData_, bool idtMeshScale_
-	) : MeshHitCallback<PxRaycastHit>(CallbackMode::eMULTIPLE),
-		mGeneration(contactBuffer, transform1, meshCapsule, inflatedRadius, contactDistance, shapeCapsuleRadius),
-		shapeMesh(shapeMesh_),
-		scaling(scaling_), idtMeshScale(idtMeshScale_),
-		meshData(meshData_)
+		const PxTransform& transform1, const Segment& meshCapsule,
+		PxReal inflatedRadius, const Cm::FastVertex2ShapeScaling& scaling, PxReal contactDistance,
+		PxReal shapeCapsuleRadius, const InternalTriangleMeshData* meshData, bool idtMeshScale
+	)	:
+		MeshHitCallback<PxRaycastHit>	(CallbackMode::eMULTIPLE),
+		mGeneration						(contactBuffer, transform1, meshCapsule, inflatedRadius, contactDistance, shapeCapsuleRadius),
+		mScaling						(scaling),
+		mIdtMeshScale					(idtMeshScale),
+		mMeshData						(meshData)
 	{
 		PX_ASSERT(contactBuffer.count==0);
-	}
-
-	void flushCache() 
-	{
-		if (!mCache.isEmpty())
-		{
-			mGeneration.processTriangleCache(mCache);
-			mCache.reset();
-		}
 	}
 
 	virtual PxAgain processHit(
-		const PxRaycastHit& hit, const PxVec3& v0, const PxVec3& v1, const PxVec3& v2, PxReal&, const PxU32* vInds)
+		const PxRaycastHit& hit, const PxVec3& v0, const PxVec3& v1, const PxVec3& v2, PxReal&, const PxU32* /*vInds*/)
 	{
 		PxVec3 v[3];
-		getScaledVertices(v, v0, v1, v2, idtMeshScale, scaling);
+		getScaledVertices(v, v0, v1, v2, mIdtMeshScale, mScaling);
 
 		const PxU32 triangleIndex = hit.faceIndex;
 		//ML::set all the edges to be active, if the mExtraTrigData exist, we overwrite this flag
-		PxU8 extraData = Gu::ETD_CONVEX_EDGE_01|Gu::ETD_CONVEX_EDGE_12|Gu::ETD_CONVEX_EDGE_20;
-		if (meshData->mExtraTrigData)
+		PxU8 extraData = ETD_CONVEX_EDGE_01|ETD_CONVEX_EDGE_12|ETD_CONVEX_EDGE_20;
+		if(mMeshData->mExtraTrigData)
 		{
 			extraData = Cm::memFetch<PxU8>(
-				Cm::MemFetchPtr(meshData->mExtraTrigData)+triangleIndex*sizeof(meshData->mExtraTrigData[0]), 5);
+				Cm::MemFetchPtr(mMeshData->mExtraTrigData)+triangleIndex*sizeof(mMeshData->mExtraTrigData[0]), 5);
 			Cm::memFetchWait(5);
 		}
 
-		if (mCache.isFull())
-		{
-			mGeneration.processTriangleCache(mCache);
-			mCache.reset();
-		}
-		mCache.addTriangle(v, vInds, triangleIndex, extraData);
-
+		mGeneration.processTriangle(triangleIndex, v, extraData);
 		return true;
 	}
 
 private:
-	ContactCapsuleMeshCallback& operator=(const ContactCapsuleMeshCallback&);
+	CapsuleMeshContactGenerationCallback& operator=(const CapsuleMeshContactGenerationCallback&);
 };
+}
 
-namespace physx
+static /*PX_FORCE_INLINE*/ Segment computeLocalCapsule(const PxTransform& transform0, const PxTransform& transform1, const PxCapsuleGeometry& shapeCapsule)
 {
+	// PT: TODO: avoid world-space here
+	Segment worldCapsule;
+	getCapsuleSegment(transform0, shapeCapsule, worldCapsule);
+
+	//to avoid transforming all the trig vertices to world space, transform the capsule to the mesh's space instead
+	return Segment(	// Capsule in mesh space
+		transform1.transformInv(worldCapsule.p0),
+		transform1.transformInv(worldCapsule.p1));
+}
+
 bool Gu::contactCapsuleMesh(GU_CONTACT_METHOD_ARGS)
 {
 	PX_UNUSED(cache);
 
-	// Get actual shape data
 	const PxCapsuleGeometry& shapeCapsule = shape0.get<const PxCapsuleGeometry>();
 	const PxTriangleMeshGeometryLL& shapeMesh = shape1.get<const PxTriangleMeshGeometryLL>();
 
@@ -604,91 +453,147 @@ bool Gu::contactCapsuleMesh(GU_CONTACT_METHOD_ARGS)
 	if(!idtMeshScale)
 		meshScaling.init(shapeMesh.scale);
 
-	// Capsule data
-	Gu::Segment worldCapsule;
-	getCapsuleSegment(transform0, shapeCapsule, worldCapsule);
 	const PxReal inflatedRadius = shapeCapsule.radius + contactDistance;		//AM: inflate!
+	const Segment meshCapsule = computeLocalCapsule(transform0, transform1, shapeCapsule);
 
-	//to avoid transforming all the trig vertices to world space, transform the capsule to the mesh's space instead
-	const Gu::Segment meshCapsule(	// Capsule in mesh space
-		transform1.transformInv(worldCapsule.p0),
-		transform1.transformInv(worldCapsule.p1));
-
-	// We must be in local space to use the cache
-	const Gu::Capsule queryCapsule(meshCapsule, inflatedRadius);
-
-	const Gu::InternalTriangleMeshData* meshData = shapeMesh.meshData;
+	const InternalTriangleMeshData* meshData = shapeMesh.meshData;
 #ifdef __SPU__
 	// fetch meshData to temp storage
-	PX_ALIGN_PREFIX(16) char meshDataBuf[sizeof(Gu::InternalTriangleMeshData)] PX_ALIGN_SUFFIX(16);
-	Cm::memFetchAlignedAsync(Cm::MemFetchPtr(meshDataBuf), Cm::MemFetchPtr(shapeMesh.meshData), sizeof(Gu::InternalTriangleMeshData), 5);
+	PX_ALIGN_PREFIX(16) char meshDataBuf[sizeof(InternalTriangleMeshData)] PX_ALIGN_SUFFIX(16);
+	Cm::memFetchAlignedAsync(Cm::MemFetchPtr(meshDataBuf), Cm::MemFetchPtr(shapeMesh.meshData), sizeof(InternalTriangleMeshData), 5);
 	Cm::memFetchWait(5);
-	meshData = reinterpret_cast<const Gu::InternalTriangleMeshData*>(meshDataBuf);
+	meshData = reinterpret_cast<const InternalTriangleMeshData*>(meshDataBuf);
 #endif
-	ContactCapsuleMeshCallback callback(contactBuffer, transform1, shapeMesh, meshCapsule,
+	CapsuleMeshContactGenerationCallback callback(contactBuffer, transform1, meshCapsule,
 		inflatedRadius, meshScaling, contactDistance, shapeCapsule.radius, meshData, idtMeshScale);
 
 	//switched from capsuleCollider to boxCollider so we can support nonuniformly scaled meshes by scaling the query region:
-	//callback.mGeneration.cacheCapsule = queryCapsule;
 
 	//bound the capsule in shape space by an OBB:
-	Gu::Box queryBox;
-	queryBox.create(queryCapsule);
+	Box queryBox;
+	{
+		const Capsule queryCapsule(meshCapsule, inflatedRadius);
+		queryBox.create(queryCapsule);
+	}
 
 	//apply the skew transform to the box:
 	if(!idtMeshScale)
 		meshScaling.transformQueryBounds(queryBox.center, queryBox.extents, queryBox.rot);
 
-	Gu::RTreeMidphaseData hmd;
+	RTreeMidphaseData hmd;
 	meshData->mCollisionModel.getRTreeMidphaseData(hmd);
 
 	MPT_SET_CONTEXT("cocm", transform1, shapeMesh.scale);
 	MeshRayCollider::collideOBB(queryBox, true, hmd, callback);
 
-	callback.flushCache(); // can't do in destructor since we rely on contactBuffer.count
+	return contactBuffer.count > 0;
+}
 
-	return (contactBuffer.count > 0);
+namespace
+{
+struct CapsuleHeightfieldContactGenerationCallback : EntityReport<PxU32>
+{
+	CapsuleMeshContactGeneration	mGeneration;
+	HeightFieldUtil&				mHfUtil;
+	const PxTransform&				mTransform1;
+
+	CapsuleHeightfieldContactGenerationCallback(
+		ContactBuffer& contactBuffer,
+		const PxTransform& transform1, HeightFieldUtil& hfUtil, const Segment& meshCapsule,
+		PxReal inflatedRadius, PxReal contactDistance, PxReal shapeCapsuleRadius
+	) : 
+		mGeneration	(contactBuffer, transform1, meshCapsule, inflatedRadius, contactDistance, shapeCapsuleRadius),
+		mHfUtil		(hfUtil),
+		mTransform1	(transform1)
+	{
+		PX_ASSERT(contactBuffer.count==0);
+	}
+
+	virtual bool onEvent(PxU32 nb, PxU32* indices)
+	{
+		const PxU8 nextInd[] = {2,0,1};
+
+		while(nb--)
+		{
+			const PxU32 triangleIndex = *indices++;
+
+			PxU32 vertIndices[3];
+			PxTriangle currentTriangle;	// in world space
+			PxU32 adjInds[3];
+			mHfUtil.getTriangle(mTransform1, currentTriangle, vertIndices, adjInds, triangleIndex, false, false);
+
+			PxVec3 normal;
+			currentTriangle.normal(normal);
+
+			PxU8 triFlags = 0; //KS - temporary until we can calculate triFlags for HF
+
+			for(PxU32 a = 0; a < 3; ++a)
+			{
+				if(adjInds[a] != 0xFFFFFFFF)
+				{
+					PxTriangle adjTri;
+					mHfUtil.getTriangle(mTransform1, adjTri, NULL, NULL, adjInds[a], false, false);
+					//We now compare the triangles to see if this edge is active
+
+					PxVec3 adjNormal;
+					adjTri.denormalizedNormal(adjNormal);
+					PxU32 otherIndex = nextInd[a];
+					PxF32 projD = adjNormal.dot(currentTriangle.verts[otherIndex] - adjTri.verts[0]);
+					if(projD < 0.f)
+					{
+						adjNormal.normalize();
+
+						PxF32 proj = adjNormal.dot(normal);
+
+						if(proj < 0.999f)
+						{
+							triFlags |= 1 << (a+3);
+						}
+					}
+				}
+				else
+				{
+					triFlags |= 1 << (a+3);
+				}
+			}
+
+			mGeneration.processTriangle(triangleIndex, currentTriangle.verts, triFlags);
+		}
+		return true;
+	}
+
+private:
+	CapsuleHeightfieldContactGenerationCallback& operator=(const CapsuleHeightfieldContactGenerationCallback&);
+};
 }
 
 bool Gu::contactCapsuleHeightfield(GU_CONTACT_METHOD_ARGS)
 {
 	PX_UNUSED(cache);
 
-	// Get actual shape data
 	const PxCapsuleGeometry& shapeCapsule = shape0.get<const PxCapsuleGeometry>();
 	const PxHeightFieldGeometryLL& shapeMesh = shape1.get<const PxHeightFieldGeometryLL>();
 
-	// Capsule data
-	Gu::Segment worldCapsule;
-	getCapsuleSegment(transform0, shapeCapsule, worldCapsule);
 	const PxReal inflatedRadius = shapeCapsule.radius + contactDistance;		//AM: inflate!
-
-	//to avoid transforming all the trig vertices to world space, transform the capsule to the mesh's space instead
-	const Gu::Segment meshCapsule(	// Capsule in mesh space
-		transform1.transformInv(worldCapsule.p0),
-		transform1.transformInv(worldCapsule.p1));
+	const Segment meshCapsule = computeLocalCapsule(transform0, transform1, shapeCapsule);
 
 	// We must be in local space to use the cache
-	//Gu::Capsule queryCapsule(meshCapsule, inflatedRadius);
 
 #ifdef __SPU__
-		const Gu::HeightField& hf = *Cm::memFetchAsync<const Gu::HeightField>(HeightFieldBuffer, Cm::MemFetchPtr(static_cast<Gu::HeightField*>(shapeMesh.heightField)), sizeof(Gu::HeightField), 1);
-		Cm::memFetchWait(1);
+	const HeightField& hf = *Cm::memFetchAsync<const HeightField>(HeightFieldBuffer, Cm::MemFetchPtr(static_cast<HeightField*>(shapeMesh.heightField)), sizeof(HeightField), 1);
+	Cm::memFetchWait(1);
 #if HF_TILED_MEMORY_LAYOUT
-		g_sampleCache.init((uintptr_t)(hf.getData().samples), hf.getData().tilesU);
+	g_sampleCache.init((uintptr_t)(hf.getData().samples), hf.getData().tilesU);
 #endif
 #else
-	const Gu::HeightField& hf = *static_cast<Gu::HeightField*>(shapeMesh.heightField);
+	const HeightField& hf = *static_cast<HeightField*>(shapeMesh.heightField);
 #endif
-	Gu::HeightFieldUtil hfUtil(shapeMesh, hf);
-
-	//Gu::HeightFieldUtil hfUtil((PxHeightFieldGeometry&)shapeMesh);
+	HeightFieldUtil hfUtil(shapeMesh, hf);
 
 	CapsuleHeightfieldContactGenerationCallback callback(
 		contactBuffer, transform1, hfUtil, meshCapsule, inflatedRadius, contactDistance, shapeCapsule.radius);
 
 	//switched from capsuleCollider to boxCollider so we can support nonuniformly scaled meshes by scaling the query region:
-	//callback.mGeneration.cacheCapsule = queryCapsule;
 
 	//bound the capsule in shape space by an OBB:
 
@@ -701,8 +606,5 @@ bool Gu::contactCapsuleHeightfield(GU_CONTACT_METHOD_ARGS)
 	MPT_SET_CONTEXT("coch", PxTransform(), PxMeshScale());
 	hfUtil.overlapAABBTriangles(transform1, bounds, 0, &callback);
 
-	return (contactBuffer.count > 0);
-}
-
-
+	return contactBuffer.count > 0;
 }

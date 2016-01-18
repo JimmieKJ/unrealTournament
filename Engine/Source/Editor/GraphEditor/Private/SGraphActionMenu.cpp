@@ -77,6 +77,11 @@ public:
 		ContentBorder->SetContent(InContent);
 	}
 
+	virtual void SetRowContent(TSharedRef< SWidget > InContent) override
+	{
+		ContentBorder->SetContent(InContent);
+	}
+
 private:
 	TSharedPtr<SBorder> ContentBorder;
 };
@@ -123,14 +128,14 @@ void SDefaultGraphActionWidget::Construct(const FArguments& InArgs, const FCreat
 	this->ChildSlot
 	[
 		SNew(SHorizontalBox)
-		.ToolTipText( FText::FromString(InCreateData->Action->TooltipDescription) )
+		.ToolTipText( FText::FromString(InCreateData->Action->GetTooltipDescription()) )
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
 			.Font(FSlateFontInfo( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 9 ))
-			.Text(InCreateData->Action->MenuDescription)
+			.Text(InCreateData->Action->GetMenuDescription())
 			.HighlightText(InArgs._HighlightText)
 		]
 	];
@@ -159,7 +164,7 @@ class SGraphActionCategoryWidget : public SCompoundWidget
 	SLATE_END_ARGS()
 
 	TWeakPtr<FGraphActionNode> ActionNode;
-
+	TAttribute<bool> IsReadOnly;
 public:
 	TWeakPtr<SInlineEditableTextBlock> InlineWidget;
 
@@ -172,6 +177,7 @@ public:
 		FEditorCategoryUtils::GetCategoryTooltipInfo(*InActionNode->GetDisplayName().ToString(), CategoryTooltip, CategoryLink, CategoryExcerpt);
 
 		TSharedRef<SToolTip> ToolTipWidget = IDocumentation::Get()->CreateToolTip(CategoryTooltip, NULL, CategoryLink, CategoryExcerpt);
+		IsReadOnly = InArgs._IsReadOnly;
 
 		this->ChildSlot
 		[
@@ -206,10 +212,15 @@ public:
 
 	virtual void OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override
 	{
+		if (IsReadOnly.Get())
+		{
+			return;
+		}
+
 		TSharedPtr<FGraphEditorDragDropAction> GraphDropOp = DragDropEvent.GetOperationAs<FGraphEditorDragDropAction>();
 		if (GraphDropOp.IsValid())
 		{
-			GraphDropOp->SetHoveredCategoryName( ActionNode.Pin()->GetDisplayName().ToString() );
+			GraphDropOp->SetHoveredCategoryName( ActionNode.Pin()->GetDisplayName() );
 		}
 	}
 
@@ -218,7 +229,7 @@ public:
 		TSharedPtr<FGraphEditorDragDropAction> GraphDropOp = DragDropEvent.GetOperationAs<FGraphEditorDragDropAction>();
 		if (GraphDropOp.IsValid())
 		{
-			GraphDropOp->SetHoveredCategoryName( FString(TEXT("")) );
+			GraphDropOp->SetHoveredCategoryName( FText::GetEmpty() );
 		}
 	}
 
@@ -308,6 +319,9 @@ void SGraphActionMenu::Construct( const FArguments& InArgs, bool bIsReadOnly/* =
 			]
 		]
 	];
+
+	// When the search box has focus, we want first chance handling of any key down events so we can handle the up/down and escape keys the way we want
+	FilterTextBox->SetOnKeyDownHandler(FOnKeyDown::CreateSP(this, &SGraphActionMenu::OnKeyDown));
 
 	if (!InArgs._ShowFilterTextBox)
 	{
@@ -543,15 +557,15 @@ bool SGraphActionMenu::SelectItemByName(const FName& ItemName, ESelectInfo::Type
 	return false;
 }
 
-void SGraphActionMenu::ExpandCategory(const FString& CategoryName)
+void SGraphActionMenu::ExpandCategory(const FText& CategoryName)
 {
-	if (CategoryName.Len())
+	if (!CategoryName.IsEmpty())
 	{
 		TArray<TSharedPtr<FGraphActionNode>> GraphNodes;
 		FilteredRootAction->GetAllNodes(GraphNodes);
 		for (int32 i = 0; i < GraphNodes.Num(); ++i)
 		{
-			if (GraphNodes[i]->GetDisplayName().ToString() == CategoryName)
+			if (GraphNodes[i]->GetDisplayName().EqualTo(CategoryName))
 			{
 				GraphNodes[i]->ExpandAllChildren(TreeView);
 			}
@@ -572,7 +586,7 @@ static bool CompareGraphActionNode(TSharedPtr<FGraphActionNode> A, TSharedPtr<FG
 
 	if (A->HasValidAction() && B->HasValidAction())
 	{
-		return A->GetPrimaryAction()->MenuDescription.CompareTo(B->GetPrimaryAction()->MenuDescription) == 0;
+		return A->GetPrimaryAction()->GetMenuDescription().CompareTo(B->GetPrimaryAction()->GetMenuDescription()) == 0;
 	}
 	else if(!A->HasValidAction() && !B->HasValidAction())
 	{
@@ -638,7 +652,11 @@ void SGraphActionMenu::GenerateFilteredItems(bool bPreserveExpansion)
 	// Tokenize the search box text into a set of terms; all of them must be present to pass the filter
 	TArray<FString> FilterTerms;
 	TrimmedFilterString.ParseIntoArray(FilterTerms, TEXT(" "), true);
-	
+	for (auto& String : FilterTerms)
+	{
+		String = String.ToLower();
+	}
+
 	// Generate a list of sanitized versions of the strings
 	TArray<FString> SanitizedFilterTerms;
 	for (int32 iFilters = 0; iFilters < FilterTerms.Num() ; iFilters++)
@@ -664,13 +682,12 @@ void SGraphActionMenu::GenerateFilteredItems(bool bPreserveExpansion)
 			// Combine the actions string, separate with \n so terms don't run into each other, and remove the spaces (incase the user is searching for a variable)
 			// In the case of groups containing multiple actions, they will have been created and added at the same place in the code, using the same description
 			// and keywords, so we only need to use the first one for filtering.
-			FString SearchText = CurrentAction.Actions[0]->GetSearchTitle().ToString() + LINE_TERMINATOR + CurrentAction.Actions[0]->GetSearchKeywords().ToString() + LINE_TERMINATOR +CurrentAction.Actions[0]->Category;
-			SearchText = SearchText.Replace( TEXT( " " ), TEXT( "" ) );
+			const FString& SearchText = CurrentAction.GetSearchTextForFirstAction();
 
 			FString EachTermSanitized;
 			for (int32 FilterIndex = 0; (FilterIndex < FilterTerms.Num()) && bShowAction; ++FilterIndex)
 			{
-				const bool bMatchesTerm = ( SearchText.Contains( FilterTerms[FilterIndex] ) || ( SearchText.Contains( SanitizedFilterTerms[FilterIndex] ) == true ) );
+				const bool bMatchesTerm = (SearchText.Contains(FilterTerms[FilterIndex], ESearchCase::CaseSensitive) || (SearchText.Contains(SanitizedFilterTerms[FilterIndex], ESearchCase::CaseSensitive) == true));
 				bShowAction = bShowAction && bMatchesTerm;
 			}
 
@@ -760,42 +777,38 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 	// Helper array
 	struct FArrayWithWeight
 	{
-		TArray< FString > Array;
+		FArrayWithWeight(const TArray< FString >* InArray, int32 InWeight)
+			: Array(InArray)
+			, Weight(InWeight)
+		{
+		}
+
+		const TArray< FString >* Array;
 		int32			  Weight;
 	};
 
 	// Setup an array of arrays so we can do a weighted search			
 	TArray< FArrayWithWeight > WeightedArrayList;
-	FArrayWithWeight EachEntry;
-
+	
 	int32 Action = 0;
 	if( InCurrentAction.Actions[Action].IsValid() == true )
 	{
 		// Combine the actions string, separate with \n so terms don't run into each other, and remove the spaces (incase the user is searching for a variable)
 		// In the case of groups containing multiple actions, they will have been created and added at the same place in the code, using the same description
 		// and keywords, so we only need to use the first one for filtering.
-		FString SearchText = InCurrentAction.Actions[Action]->GetSearchTitle().ToString() + LINE_TERMINATOR + InCurrentAction.Actions[Action]->GetSearchKeywords().ToString() + LINE_TERMINATOR +InCurrentAction.Actions[Action]->Category;
-		SearchText = SearchText.Replace( TEXT( " " ), TEXT( "" ) );
+		const FString& SearchText = InCurrentAction.GetSearchTextForFirstAction();
 
 		// First the keywords
-		InCurrentAction.Actions[Action]->GetSearchKeywords().ToString().ParseIntoArray( EachEntry.Array, TEXT(" "), true );
-		EachEntry.Weight = 10;
-		WeightedArrayList.Add( EachEntry );
+		WeightedArrayList.Add(FArrayWithWeight(&InCurrentAction.GetSearchKeywordsArrayForFirstAction(), 10));
 
 		// The description
-		InCurrentAction.Actions[Action]->MenuDescription.ToString().ParseIntoArray( EachEntry.Array, TEXT(" "), true );
-		EachEntry.Weight = DescriptionWeight;
-		WeightedArrayList.Add( EachEntry );
+		WeightedArrayList.Add(FArrayWithWeight(&InCurrentAction.GetMenuDescriptionArrayForFirstAction(), DescriptionWeight));
 
 		// The node search title weight
-		InCurrentAction.Actions[Action]->GetSearchTitle().ToString().ParseIntoArray( EachEntry.Array, TEXT(" "), true );
-		EachEntry.Weight = NodeTitleWeight;
-		WeightedArrayList.Add( EachEntry );
+		WeightedArrayList.Add(FArrayWithWeight(&InCurrentAction.GetSearchTitleArrayForFirstAction(), NodeTitleWeight));
 
 		// The category
-		InCurrentAction.Actions[Action]->Category.ParseIntoArray( EachEntry.Array, TEXT(" "), true );
-		EachEntry.Weight = CategoryWeight;
-		WeightedArrayList.Add( EachEntry );
+		WeightedArrayList.Add(FArrayWithWeight(&InCurrentAction.GetSearchCategoryArrayForFirstAction(), CategoryWeight));
 
 		// Now iterate through all the filter terms and calculate a 'weight' using the values and multipliers
 		FString EachTerm;
@@ -804,11 +817,11 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 		{
 			EachTerm = InFilterTerms[FilterIndex];
 			EachTermSanitized = InSanitizedFilterTerms[FilterIndex];
-			if( SearchText.Contains( EachTerm ) )
+			if( SearchText.Contains( EachTerm, ESearchCase::CaseSensitive ) )
 			{
 				TotalWeight += 2;
 			}
-			else if( SearchText.Contains( EachTermSanitized ) )
+			else if (SearchText.Contains(EachTermSanitized, ESearchCase::CaseSensitive))
 			{
 				TotalWeight++;
 			}		
@@ -816,27 +829,27 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 			for (int32 iFindCount = 0; iFindCount < WeightedArrayList.Num() ; iFindCount++)
 			{
 				int32 WeightPerList = 0;
-				TArray<FString>& KeywordArray = WeightedArrayList[iFindCount].Array;
+				const TArray<FString>& KeywordArray = *WeightedArrayList[iFindCount].Array;
 				int32 EachWeight = WeightedArrayList[iFindCount].Weight;
 				int32 WholeMatchCount = 0;
 				for (int32 iEachWord = 0; iEachWord < KeywordArray.Num() ; iEachWord++)
 				{
 					// If we get an exact match weight the find count to get exact matches higher priority
-					if( KeywordArray[ iEachWord ] == EachTerm )
+					if (KeywordArray[iEachWord] == EachTerm)
 					{
 						WeightPerList += EachWeight * WholeMatchWeightMultiplier;
 						WholeMatchCount++;
 					}
-					else if( KeywordArray[ iEachWord ].Contains( EachTerm ) )
+					else if (KeywordArray[iEachWord].Contains(EachTerm, ESearchCase::CaseSensitive))
 					{
 						WeightPerList += EachWeight;
 					}
-					else if( KeywordArray[ iEachWord ] == EachTermSanitized )
+					else if (KeywordArray[iEachWord] == EachTermSanitized)
 					{
 						WeightPerList += ( EachWeight * WholeMatchWeightMultiplier ) / 2;
 						WholeMatchCount++;
 					}
-					else if( KeywordArray[ iEachWord ].Contains( EachTermSanitized ) )
+					else if (KeywordArray[iEachWord].Contains(EachTermSanitized, ESearchCase::CaseSensitive))
 					{
 						WeightPerList += EachWeight / 2;
 					}
@@ -966,7 +979,7 @@ TSharedRef<ITableRow> SGraphActionMenu::MakeWidget( TSharedPtr<FGraphActionNode>
 	}
 
 	TSharedPtr<SHorizontalBox> RowContainer;
-	TableRow->SetContent
+	TableRow->SetRowContent
 	( 
 		SAssignNew(RowContainer, SHorizontalBox)
 	);
@@ -1224,7 +1237,7 @@ FReply SGraphActionMenu::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent
 	{
 		return TryToSpawnActiveSuggestion() ? FReply::Handled() : FReply::Unhandled();
 	}
-	else if (FilteredActionNodes.Num() > 0)
+	else if (FilteredActionNodes.Num() > 0 && !FilterTextBox->GetText().IsEmpty())
 	{
 		// Up and down move thru the filtered node list
 		if (KeyEvent.GetKey() == EKeys::Up)
@@ -1242,10 +1255,8 @@ FReply SGraphActionMenu::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent
 			if( SelectedSuggestion == INDEX_NONE )
 			{
 				SelectedSuggestion = (SelectedSuggestion + SelectionDelta + FilteredRootAction->Children.Num()) % FilteredRootAction->Children.Num();
-				TGuardValue<bool> PreventSelectionFromTriggeringCommit(bIgnoreUIUpdate, true);
-				TreeView->SetSelection(FilteredRootAction->Children[SelectedSuggestion], ESelectInfo::OnKeyPress);
-				TreeView->RequestScrollIntoView(FilteredRootAction->Children[SelectedSuggestion]);
-				return FReply::Handled().SetUserFocus(SharedThis(TreeView.Get()), EFocusCause::WindowActivate);
+				MarkActiveSuggestion();
+				return FReply::Handled();
 			}
 
 			//Move up or down one, wrapping around
@@ -1255,6 +1266,11 @@ FReply SGraphActionMenu::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent
 
 			return FReply::Handled();
 		}
+	}
+	else
+	{
+		// When all else fails, it means we haven't filtered the list and we want to handle it as if we were just scrolling through a normal tree view
+		return TreeView->OnKeyDown(FindChildGeometry(MyGeometry, TreeView.ToSharedRef()), KeyEvent);
 	}
 
 	return FReply::Unhandled();

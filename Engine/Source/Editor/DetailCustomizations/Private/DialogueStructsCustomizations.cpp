@@ -782,6 +782,9 @@ void SValidatedDialogueContextHeaderWidget::Construct( const FArguments& InArgs,
 		];
 	}
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+
 void SValidatedDialogueContextHeaderWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	if( DialogueWaveParameterPropertyHandle.IsValid() && DialogueWaveParameterPropertyHandle->IsValidHandle() )

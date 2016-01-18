@@ -188,7 +188,7 @@ private:
 	 * @param	MaterialExpressions	List of Material Expressions in the category.
 	 * @param	bMaterialFunction	Whether we are building for a material function.
 	 */
-	static void AddMaterialExpressionCategory(FGraphActionMenuBuilder& ActionMenuBuilder, FString CategoryName, TArray<struct FMaterialExpression>* MaterialExpressions, bool bMaterialFunction);
+	static void AddMaterialExpressionCategory(FGraphActionMenuBuilder& ActionMenuBuilder, FText CategoryName, TArray<struct FMaterialExpression>* MaterialExpressions, bool bMaterialFunction);
 
 	/**
 	 * Checks whether a Material Expression class has any connections that are compatible with a type/direction

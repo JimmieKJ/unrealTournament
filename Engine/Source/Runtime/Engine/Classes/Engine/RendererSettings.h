@@ -43,13 +43,14 @@ namespace ECompositingSampleCount
  * Enumerates available options for custom depth.
  */
 UENUM()
-namespace ECustomDepth
+namespace ECustomDepthStencil
 {
 	enum Type
 	{
 		Disabled = 0,
-		Enabled = 1,
-		EnabledOnDemand = 2,
+		Enabled = 1 UMETA(ToolTip="Depth buffer created immediately. Stencil disabled."),
+		EnabledOnDemand = 2 UMETA(ToolTip="Depth buffer created on first use, can save memory but cause stalls. Stencil disabled."),
+		EnabledWithStencil = 3 UMETA(ToolTip="Depth buffer created immediately. Stencil available for read/write."),
 	};
 }
 
@@ -97,6 +98,18 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip="If true, mobile renders in full HDR. Disable this setting for games that do not require lighting features for better performance on slow devices."))
 	uint32 bMobileHDR:1;
 
+	UPROPERTY(config, EditAnywhere, Category = Mobile, meta = (
+		ConsoleVariable = "r.MobileNumDynamicPointLights", DisplayName = "Max Dynamic Point Lights", ClampMax = 4, 
+		ToolTip = "The number of dynamic point lights to support on mobile devices. Setting this to 0 for games which do not require dynamic point lights will reduce the number of shaders generated. Changing this setting requires restarting the editor.",
+		ConfigRestartRequired = true))
+	uint32 MobileNumDynamicPointLights;
+
+	UPROPERTY(config, EditAnywhere, Category = Mobile, meta = (
+		ConsoleVariable = "r.MobileDynamicPointLightsUseStaticBranch", DisplayName = "Use Shared Dynamic Point Light Shaders",
+		ToolTip = "If this setting is enabled, the same shader will be used for any number of dynamic point lights (up to the maximum specified above) hitting a surface. This is slightly slower but reduces the number of shaders generated. Changing this setting requires restarting the editor.",
+		ConfigRestartRequired = true))
+	uint32 bMobileDynamicPointLightsUseStaticBranch : 1;
+
 	UPROPERTY(config, EditAnywhere, Category=Culling, meta=(
 		ConsoleVariable="r.AllowOcclusionQueries",DisplayName="Occlusion Culling",
 		ToolTip="Allows occluded meshes to be culled and no rendered."))
@@ -113,7 +126,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	float MinScreenRadiusForEarlyZPass;
 
 	UPROPERTY(config, EditAnywhere, Category=Culling, meta=(
-		ConsoleVariable="r.MinScreenRadiusForDepthPrepass",DisplayName="Min Screen Radius for Cascaded Shadow Maps",
+		ConsoleVariable="r.MinScreenRadiusForCSMDepth",DisplayName="Min Screen Radius for Cascaded Shadow Maps",
 		ToolTip="Screen radius at which objects are culled for cascaded shadow map depth passes. Larger values can improve performance but can cause artifacts as objects stop casting shadows."))
 	float MinScreenRadiusForCSMdepth;
 	
@@ -151,6 +164,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	uint32 bGenerateMeshDistanceFields:1;
 
 	UPROPERTY(config, EditAnywhere, Category = Lighting, meta = (
+		EditCondition = "bGenerateMeshDistanceFields",
 		ConsoleVariable = "r.GenerateLandscapeGIData", DisplayName = "Generate Landscape Real-time GI Data",
 		ToolTip = "Whether to generate a low-resolution base color texture for landscapes for rendering real-time global illumination.  This feature requires GenerateMeshDistanceFields is also enabled, and will increase mesh build times and memory usage."))
 		uint32 bGenerateLandscapeGIData : 1;
@@ -176,9 +190,9 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	FVector TranslucentSortAxis;
 
 	UPROPERTY(config, EditAnywhere, Category=Postprocessing, meta=(
-		ConsoleVariable="r.CustomDepth",DisplayName="Custom Depth Pass",
+		ConsoleVariable="r.CustomDepth",DisplayName="Custom Depth-Stencil Pass",
 		ToolTip="Whether the custom depth pass for tagging primitives for postprocessing passes is enabled. Enabling it on demand can save memory but may cause a hitch the first time the feature is used."))
-	TEnumAsByte<ECustomDepth::Type> CustomDepth;
+	TEnumAsByte<ECustomDepthStencil::Type> CustomDepthStencil;
 
 	UPROPERTY(config, EditAnywhere, Category = DefaultPostprocessingSettings, meta = (
 		ConsoleVariable = "r.DefaultFeature.Bloom", DisplayName = "Bloom",
@@ -241,6 +255,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired=true))
 	uint32 bBasePassOutputsVelocity:1;
 
+	UPROPERTY(config, EditAnywhere, Category=Optimizations, meta=(
+		ConsoleVariable="r.SelectiveBasePassOutputs", DisplayName="Selectively output to the GBuffer rendertargets",
+		ToolTip="Enables not exporting to the GBuffer rendertargets that are not relevant. Changing this setting requires restarting the editor.",
+		ConfigRestartRequired=true))
+	uint32 bSelectiveBasePassOutputs:1;
+
 	UPROPERTY(config, EditAnywhere, Category=Editor, meta=(
 		ConsoleVariable="r.WireframeCullThreshold",DisplayName="Wireframe Cull Threshold",
 		ToolTip="Screen radius at which wireframe objects are culled. Larger values can improve performance when viewing a scene in wireframe."))
@@ -248,7 +268,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 
 public:
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 
 	virtual void PostInitProperties() override;
 
@@ -256,7 +276,7 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
-	// End UObject interface
+	//~ End UObject Interface
 
 private:
 	

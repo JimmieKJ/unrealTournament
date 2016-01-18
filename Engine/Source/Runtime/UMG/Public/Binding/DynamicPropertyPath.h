@@ -97,7 +97,7 @@ inline bool IsConcreteTypeCompatibleWithReflectedType<FString>(UProperty* Proper
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<FLinearColor>(UProperty* Property)
 {
-	static const UScriptStruct* LinearColorStruct = GetBaseStructure(TEXT("LinearColor"));
+	static const UScriptStruct* LinearColorStruct = TBaseStructure<FLinearColor>::Get();
 	
 	if ( UStructProperty* StructProperty = Cast<UStructProperty>(Property) )
 	{
@@ -331,7 +331,7 @@ private:
 							if ( IsConcreteTypeCompatibleWithReflectedType<T>(ReturnProperty) )
 							{
 								// Ensure that the element sizes are the same, prevents the user from doing something terribly wrong.
-								if ( ReturnProperty->ElementSize == sizeof(T) )
+								if ( ReturnProperty->ElementSize == sizeof(T) && !ContainerObject->IsUnreachable() )
 								{
 									ContainerObject->ProcessEvent(Function, &OutValue);
 									return true;

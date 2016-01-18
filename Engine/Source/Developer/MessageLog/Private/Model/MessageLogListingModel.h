@@ -63,10 +63,10 @@ public:
 	int32 ReplaceMessage( const TSharedRef< FTokenizedMessage >& NewMessage, const uint32 PageIndex, const int32 MessageIndex );
 
 	/** Appends a message */
-	void AddMessage( const TSharedRef< FTokenizedMessage >& NewMessage );
+	void AddMessage( const TSharedRef< FTokenizedMessage >& NewMessage, bool bMirrorToOutputLog = true );
 
 	/** Appends multiple messages */
-	void AddMessages( const TArray< TSharedRef< FTokenizedMessage > >& NewMessages );
+	void AddMessages( const TArray< TSharedRef< FTokenizedMessage > >& NewMessages, bool bMirrorToOutputLog = true );
 
 	/** Clears all messages */
 	void ClearMessages();
@@ -120,6 +120,7 @@ private:
 	 */
 	FMessageLogListingModel( const FName& InLogName )
 		: LogName( InLogName )
+		, bIsPrintingToOutputLog( false )
 	{
 		check( LogName != NAME_None );
 
@@ -130,7 +131,7 @@ private:
 	}
 
 	/** Helper function for AddMessage and AddMessages */
-	void AddMessageInternal( const TSharedRef<FTokenizedMessage>& NewMessage );
+	void AddMessageInternal( const TSharedRef<FTokenizedMessage>& NewMessage, bool bMirrorToOutputLog );
 	
 private:
 	/** The name of a pending page */
@@ -147,6 +148,9 @@ private:
 
 	/** Delegate to call when data is changed */
 	FChangedEvent ChangedEvent;
+
+	// Are we currently processing the output log mirror?  If so, we drop any additional messages we receive, as they are duplicates
+	bool bIsPrintingToOutputLog;
 
 	/** Cached page index */
 	mutable uint32 CachedPageIndex;

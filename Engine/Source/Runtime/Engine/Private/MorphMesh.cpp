@@ -34,8 +34,18 @@ void UMorphTarget::Serialize( FArchive& Ar )
 
 SIZE_T UMorphTarget::GetResourceSize(EResourceSizeMode::Type Mode)
 {
-	return 0;
+	SIZE_T ResourceSize = 0;
+
+	for (const auto& LODModel : MorphLODModels)
+	{
+		ResourceSize += LODModel.GetResourceSize();
+	}
+	return ResourceSize;
 }
 
 
-
+//////////////////////////////////////////////////////////////////////
+SIZE_T FMorphTargetLODModel::GetResourceSize() const
+{
+	return Vertices.GetAllocatedSize() + sizeof(int32);
+}

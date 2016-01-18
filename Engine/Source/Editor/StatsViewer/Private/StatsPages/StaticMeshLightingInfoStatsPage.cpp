@@ -9,6 +9,7 @@
 #include "ScopedTransaction.h"
 #include "STextEntryPopup.h"
 #include "Engine/LevelStreaming.h"
+#include "IMenu.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer.StaticMeshLightingInfo"
 
@@ -462,9 +463,9 @@ void FStaticMeshLightingInfoStatsPage::OnResolutionCommitted(const FText& Resolu
 	}
 
 	// Remove the popup window
-	if (ResolutionEntryPopupWindow.IsValid())
+	if (ResolutionEntryMenu.IsValid())
 	{
-		ResolutionEntryPopupWindow->RequestDestroyWindow();
+		ResolutionEntryMenu.Pin()->Dismiss();
 	}
 
 	// Do we have a valid resolution to use
@@ -497,8 +498,9 @@ void FStaticMeshLightingInfoStatsPage::GetUserSetStaticLightmapResolution(TWeakP
 			.OnTextCommitted( FOnTextCommitted::CreateSP( this, &FStaticMeshLightingInfoStatsPage::OnResolutionCommitted, InParentStatsViewer, bSwap ) )
 			.ClearKeyboardFocusOnCommit( false );
 
-		ResolutionEntryPopupWindow = FSlateApplication::Get().PushMenu(
+		ResolutionEntryMenu = FSlateApplication::Get().PushMenu(
 			InParentStatsViewer.Pin().ToSharedRef(),
+			FWidgetPath(),
 			TextEntry,
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )

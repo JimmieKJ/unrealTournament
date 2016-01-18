@@ -52,7 +52,7 @@ namespace cloth
 	{
 		using namespace simdi;
 		PX_ALIGN(16, uint8x8x2_t) byteIndex = reinterpret_cast<const uint8x8x2_t&>(sPack);
-		uint8x8x2_t lohiIndex = reinterpret_cast<const uint8x8x2_t&>(index);
+        uint8x8x2_t lohiIndex = reinterpret_cast<const uint8x8x2_t&>(index);
 		byteIndex.val[0] = vtbl2_u8(lohiIndex, byteIndex.val[0]);
 		byteIndex.val[1] = vtbl2_u8(lohiIndex, byteIndex.val[1]);
 		mPermute = vshlq_n_u32(reinterpret_cast<const uint32x4_t&>(byteIndex), 2);

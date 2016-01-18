@@ -108,6 +108,41 @@ void SGameLayerManager::ClearWidgetsForPlayer(ULocalPlayer* Player)
 	}
 }
 
+TSharedPtr<IGameLayer> SGameLayerManager::FindLayerForPlayer(ULocalPlayer* Player, const FName& LayerName)
+{
+	TSharedPtr<FPlayerLayer>* PlayerLayerPtr = PlayerLayers.Find(Player);
+	if ( PlayerLayerPtr )
+	{
+		return (*PlayerLayerPtr)->Layers.FindRef(LayerName);
+	}
+
+	return TSharedPtr<IGameLayer>();
+}
+
+bool SGameLayerManager::AddLayerForPlayer(ULocalPlayer* Player, const FName& LayerName, TSharedRef<IGameLayer> Layer, int32 ZOrder)
+{
+	TSharedPtr<FPlayerLayer> PlayerLayer = FindOrCreatePlayerLayer(Player);
+	if ( PlayerLayer.IsValid() )
+	{
+		TSharedPtr<IGameLayer> ExistingLayer = PlayerLayer->Layers.FindRef(LayerName);
+		if ( ExistingLayer.IsValid() )
+		{
+			return false;
+		}
+
+		PlayerLayer->Layers.Add(LayerName, Layer);
+
+		PlayerLayer->Widget->AddSlot(ZOrder)
+		[
+			Layer->AsWidget()
+		];
+
+		return true;
+	}
+
+	return false;
+}
+
 void SGameLayerManager::ClearWidgets()
 {
 	PlayerCanvas->ClearChildren();
@@ -128,6 +163,14 @@ void SGameLayerManager::Tick(const FGeometry& AllottedGeometry, const double InC
 	CachedGeometry = AllottedGeometry;
 
 	UpdateLayout();
+}
+
+int32 SGameLayerManager::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+	FPlatformMisc::BeginNamedEvent(FColor::Green, "Paint: Game UI");
+	const int32 ResultLayer = SCompoundWidget::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+	FPlatformMisc::EndNamedEvent();
+	return ResultLayer;
 }
 
 bool SGameLayerManager::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent)

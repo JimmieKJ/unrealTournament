@@ -22,7 +22,7 @@ private:
 	/**
 	 * Allows a platform subclass to setup anything needed on the thread before running the Run function
 	 */
-	virtual void PreRun()
+	virtual void PreRun() override
 	{
 		pthread_setname_np(TCHAR_TO_ANSI(*ThreadName));
 	}
@@ -36,7 +36,7 @@ private:
 	/**
 	 * Allows platforms to adjust stack size
 	 */
-	virtual uint32 AdjustStackSize(uint32 InStackSize)
+	virtual uint32 AdjustStackSize(uint32 InStackSize) override
 	{
 		if (InStackSize < GetDefaultStackSize())
 		{

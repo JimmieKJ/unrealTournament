@@ -144,6 +144,13 @@ void FPluginStyle::Initialize()
 				StyleSet->Set( "PluginTile.NameText", NameText );
 			}
 
+			FTextBlockStyle DescriptionText = FTextBlockStyle(NormalText)
+				.SetColorAndOpacity(FLinearColor(0.8f, 0.8f, 0.8f));
+			{
+				DescriptionText.Font.Size = 10;
+				StyleSet->Set("PluginTile.DescriptionText", DescriptionText);
+			}
+
 			FTextBlockStyle BetaText = FTextBlockStyle( NormalText )
 				.SetColorAndOpacity( FLinearColor( 0.9f, 0.9f, 0.9f ) );
 			{
@@ -172,6 +179,14 @@ void FPluginStyle::Initialize()
 		{
 			StyleSet->Set("PluginMetadataNameFont", TTF_CORE_FONT("Fonts/Roboto-Bold", 18));
 		}
+	}
+
+	// Plugin Creator
+	{
+		const float PaddingAmount = 5.0f;
+		StyleSet->Set( "PluginCreator.Padding", PaddingAmount);
+
+		StyleSet->Set( "PluginCreator.Background", new BOX_BRUSH( "AppTabContentArea", FMargin(4/16.0f) ) );
 	}
 
 	FSlateStyleRegistry::RegisterSlateStyle( *StyleSet.Get() );

@@ -50,11 +50,6 @@ UBodySetup* UShapeComponent::GetBodySetup()
 	return ShapeBodySetup;
 }
 
-void UShapeComponent::GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const
-{
-	OutMaterials.Add( ShapeMaterial );
-}
-
 #if WITH_EDITOR
 void UShapeComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -78,4 +73,12 @@ void UShapeComponent::GetNavigationData(FNavigationRelevantData& Data) const
 	{
 		Data.Modifiers.CreateAreaModifiers(this, AreaClass);
 	}
+}
+
+bool UShapeComponent::IsNavigationRelevant() const
+{
+	// failed CanEverAffectNavigation() always takes priority
+	// dynamic obstacle overrides collision check
+
+	return (bDynamicObstacle && CanEverAffectNavigation()) || Super::IsNavigationRelevant();
 }

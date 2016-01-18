@@ -334,12 +334,9 @@ void SceneVisualDebugger::sendEntireScene()
 	{
 		PxsMaterialManager* manager = mScbScene.getScScene().getMaterialManager();
 		PxsMaterialManagerIterator iter(*manager);
-		while(iter.hasNextMaterial())
-		{
-			Sc::MaterialCore* mat = (Sc::MaterialCore*)iter.getNextMaterial();
-			const PxMaterial* theMaterial = mat->getNxMaterial();
-			sdkPvd.increaseReference(theMaterial);
-		};
+		PxsMaterialCore* mat;
+		while(iter.getNextMaterial(mat))
+			sdkPvd.increaseReference(mat->getNxMaterial());
 	}
 
 	if ( isConnectedAndSendingDebugInformation() )

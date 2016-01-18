@@ -361,7 +361,7 @@ namespace iPhonePackager
 							if (Arguments.Length > ArgIndex + 1)
 							{
 								Config.Provision = Arguments [++ArgIndex];
-								Config.bProvision = true;
+								Config.bProvision = !String.IsNullOrEmpty(Config.Provision);
 							}
 							else
 							{
@@ -373,7 +373,7 @@ namespace iPhonePackager
 							if (Arguments.Length > ArgIndex + 1)
 							{
 								Config.Certificate = Arguments [++ArgIndex];
-								Config.bCert = true;
+								Config.bCert = !String.IsNullOrEmpty(Config.Certificate);
 							}
 							else
 							{

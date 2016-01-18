@@ -14,8 +14,9 @@ namespace UnrealBuildTool.Rules
 				new string[]
 				{
 					"Core",
+					"Engine",
 					"NetworkReplayStreaming",
-                    "Json"
+                    "Json",
 				}
 			);
 		}

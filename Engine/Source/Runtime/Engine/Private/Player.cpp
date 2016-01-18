@@ -28,6 +28,68 @@ UPlayer::UPlayer(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+FString UPlayer::ConsoleCommand(const FString& Cmd, bool bWriteToLog)
+{
+	UNetConnection* NetConn = Cast<UNetConnection>(this);
+	bool bIsBeacon = NetConn && NetConn->OwningActor && !PlayerController;
+
+	UConsole* ViewportConsole = (GEngine->GameViewport != nullptr) ? GEngine->GameViewport->ViewportConsole : nullptr;
+	FConsoleOutputDevice StrOut(ViewportConsole);
+
+	const int32 CmdLen = Cmd.Len();
+	TCHAR* CommandBuffer = (TCHAR*)FMemory::Malloc((CmdLen + 1)*sizeof(TCHAR));
+	TCHAR* Line = (TCHAR*)FMemory::Malloc((CmdLen + 1)*sizeof(TCHAR));
+
+	const TCHAR* Command = CommandBuffer;
+	// copy the command into a modifiable buffer
+	FCString::Strcpy(CommandBuffer, (CmdLen + 1), *Cmd.Left(CmdLen));
+
+	// iterate over the line, breaking up on |'s
+	while (FParse::Line(&Command, Line, CmdLen + 1))	// The FParse::Line function expects the full array size, including the NULL character.
+	{
+		// if dissociated with the PC, stop processing commands
+		if (bIsBeacon || PlayerController)
+		{
+			if (!Exec(GetWorld(), Line, StrOut))
+			{
+				StrOut.Logf(TEXT("Command not recognized: %s"), Line);
+			}
+		}
+	}
+
+	// Free temp arrays
+	FMemory::Free(CommandBuffer);
+	CommandBuffer = nullptr;
+
+	FMemory::Free(Line);
+	Line = nullptr;
+
+	if (!bWriteToLog)
+	{
+		return StrOut;
+	}
+
+	return TEXT("");
+}
+
+APlayerController* UPlayer::GetPlayerController(UWorld* InWorld) const
+{
+	if (InWorld == nullptr)
+	{
+		return PlayerController;
+	}
+
+	for ( FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		if ( (*Iterator)->GetLocalPlayer() == this )
+		{
+			return *Iterator;
+		}
+	}
+
+	return nullptr;
+}
+
 bool UPlayer::Exec( UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 {
 	if(PlayerController)
@@ -56,10 +118,6 @@ bool UPlayer::Exec( UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 			return true;
 		}
 		else if( PlayerController->MyHUD && PlayerController->MyHUD->ProcessConsoleExec(Cmd,Ar,PCPawn) )
-		{
-			return true;
-		}
-		else if( World->GetGameInstance() && World->GetGameInstance()->ProcessConsoleExec(Cmd, Ar, PCPawn) )
 		{
 			return true;
 		}

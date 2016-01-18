@@ -118,14 +118,14 @@
 		<%using( Html.BeginForm( "Show", "Buggs" ) )
 		{	%>
 
-			<%if( string.IsNullOrEmpty( Model.Bugg.TTPID ) )
+			<%if (string.IsNullOrEmpty( Model.Bugg.Jira ))
 			{ %>
 				<dd class='even'>
-					<input type="submit" value="CopyToJira" title="<%=Model.Bugg.ToTooltip()%>" id="id <%=Model.Bugg.Id%>" name="CopyToJira-<%=Model.Bugg.Id%>" class="CopyToJiraStyle" />
+					<input type="submit" value="CopyToJira" title="<%=Model.Bugg.ToTooltip()%>" id="id <%=Model.Bugg.Id%>" name="CopyToJira-<%=Model.Bugg.Id%>" class="SearchButton CopyToJiraStyle" />
 				</dd>
 			<% } else { %>
 				<dd class='even'>
-					<a href="https://jira.ol.epicgames.net/browse/<%=Model.Bugg.TTPID%>" target="_blank"><%=Model.Bugg.TTPID%></a>
+					<a href="https://jira.ol.epicgames.net/browse/<%=Model.Bugg.Jira%>" target="_blank"><%=Model.Bugg.Jira%></a>
 				</dd>
 			<% } %>
 
@@ -199,10 +199,9 @@
 			<div>
 				<%foreach( CallStackEntry CallStackLine in Model.CallStack.CallStackEntries )
 					{%>
-					<span class="module-name"><%=Html.DisplayFor( m => CallStackLine.ModuleName )%>!</span>
-					<span class="function-name"><%=Html.DisplayFor( m => CallStackLine.FunctionName )%></span>
-					<span class="file-name"><%=Html.DisplayFor( m => CallStackLine.FileName )%></span>
-					<span class="file-path" style='display:none'><%=Html.DisplayFor( m => CallStackLine.FilePath )%></span>
+						<span class="module-name"><%=Html.DisplayFor( m => CallStackLine.ModuleName )%>!</span><span class="function-name"><%=Html.DisplayFor( m => CallStackLine.FunctionName )%></span>
+						<span class="file-name"><%=Html.DisplayFor( m => CallStackLine.FileName )%></span>
+						<span class="file-path" style='display: none'><%=Html.DisplayFor( m => CallStackLine.FilePath )%></span>
 					<br />
 				<%}%>
 			</div>
@@ -250,7 +249,12 @@
 					int IterationCount = 0;
 					foreach( Crash CrashInstance in Model.Crashes )
 					{
-						IterationCount++;%>
+						IterationCount++;
+						if (IterationCount > 64)
+						{
+							break;
+						}
+						%>
 			
 						<tr class='CrashRow'>
 							<td class="Id"><%=Html.ActionLink( CrashInstance.Id.ToString(), "Show", new { controller = "crashes", id = CrashInstance.Id }, null )%></td>
@@ -258,7 +262,7 @@
 							<td class="TimeOfCrash">
 								<%=CrashInstance.GetTimeOfCrash()[0]%> &nbsp;
 								<%=CrashInstance.GetTimeOfCrash()[1]%><br />
-								Change: <%= CrashInstance.ChangeListVersion %><br />
+								Change: <%= CrashInstance.BuiltFromCL %><br />
 							</td>
 							<td class="Summary">
 								<%=CrashInstance.UserName%><br />

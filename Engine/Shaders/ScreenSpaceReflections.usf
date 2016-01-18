@@ -38,20 +38,11 @@ uint ReverseUIntBits( uint bits )
 	return bits;
 }
 
-void ScreenSpaceReflectionsPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+float GetRoughness(const in FGBufferData GBuffer)
 {
-	float2 UV = UVAndScreenPos.xy;
-	float2 ScreenPos = UVAndScreenPos.zw;
-	int2 PixelPos = int2(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
-
-	OutColor = 0;
-
-	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
-	FGBufferData GBuffer = ScreenSpaceData.GBuffer;
-	
 	float Roughness = GBuffer.Roughness;
 
-#if USE_CLEARCOAT
+#if 1//USE_CLEARCOAT
 	BRANCH
 	if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 	{
@@ -62,16 +53,65 @@ void ScreenSpaceReflectionsPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 O
 	}
 #endif
 
-	// mask SSR to reduce noise and for better performance, roughness of 0 should have SSR, at MaxRoughness we fade to 0
-	float RoughnessFade = saturate(Roughness * SSRParams.y + 2);
+	return Roughness;
+}
 
-#if 1
-	// Early out
-	BRANCH if( RoughnessFade == 0 || GBuffer.ShadingModelID == 0 )
+float GetRoughnessFade(in float Roughness)
+{
+	// mask SSR to reduce noise and for better performance, roughness of 0 should have SSR, at MaxRoughness we fade to 0
+	return min(Roughness * SSRParams.y + 2, 1.0);
+}
+
+// Used only if r.SSR.Stencil = 1
+//
+// This shader generate the stencil buffer according to if a pixel needs to
+// compute SSR. If it doesn't, it initializes the pixel's color.
+//
+// This optimization use the stencil to test to prunes out the pixel
+// that dones't need to compute SSR, before pixel shader invocation are
+// packed into front lines.
+void ScreenSpaceReflectionsStencilPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+{
+	const float2 UV = UVAndScreenPos.xy;
+	
+	const FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+	const FGBufferData GBuffer = ScreenSpaceData.GBuffer;
+	
+	const float Roughness = GetRoughness(GBuffer);
+	const float RoughnessFade = GetRoughnessFade(Roughness);
+	
+	if (RoughnessFade > 0.0 && GBuffer.ShadingModelID != 0)
+	{
+		// we are going to compute SSR for this pixel, so we discard this
+		// pixel shader invocation to not overwrite the stencil buffer and
+		// tehrefore execute ScreenSpaceReflectionsPS() for this pixel. 
+		discard;
+	}
+	
+	// we are not going to compute SSR for this pixel, so we clear the color
+	// since ScreenSpaceReflectionsPS() won't be executed in this pixel.
+	OutColor = 0;
+}
+
+void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
+{
+	float2 UV = UVAndScreenPos.xy;
+	float2 ScreenPos = UVAndScreenPos.zw;
+	int2 PixelPos = (int2)SvPosition.xy;
+
+	OutColor = 0;
+
+	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+	FGBufferData GBuffer = ScreenSpaceData.GBuffer;
+	
+	float Roughness = GetRoughness(GBuffer);
+	float RoughnessFade = GetRoughnessFade(Roughness);
+
+	// Early out. Useless if using the stencil prepass.
+	BRANCH if( RoughnessFade <= 0.0 || GBuffer.ShadingModelID == 0 )
 	{
 		return;
 	}
-#endif
 
 #if SSR_QUALITY == 0
 	// visualize SSR
@@ -82,13 +122,10 @@ void ScreenSpaceReflectionsPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 O
 	return;
 #endif
 
-	float3 N = GBuffer.WorldNormal;
-	float SceneDepth = CalcSceneDepth(UV);
-
-	float3 PositionTranslatedWorld = mul( float3( ScreenPos * SceneDepth, SceneDepth ), (float3x3)View.ScreenToTranslatedWorld );
-
-	float3 V = View.TranslatedViewOrigin.xyz - PositionTranslatedWorld;
-	V = normalize( V );
+	const float3 N = GBuffer.WorldNormal;
+	const float SceneDepth = CalcSceneDepth(UV);
+	const float3 PositionTranslatedWorld = mul( float4( ScreenPos * SceneDepth, SceneDepth, 1 ), View.ScreenToTranslatedWorld ).xyz;
+	const float3 V = normalize(View.TranslatedWorldCameraOrigin - PositionTranslatedWorld);
 
 	uint FrameRandom;
 	{
@@ -108,6 +145,40 @@ void ScreenSpaceReflectionsPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 O
 		}
 	}
 
+#if SSR_QUALITY == SSR_CONE_QUALITY
+	const int NumSteps = 16;
+	
+	{
+		const float2 PixelPos = SvPosition.xy;
+		const float2 E = float2(PseudoRandom(PixelPos + int2(FrameRandom, 0)), PseudoRandom(PixelPos + int2(0, FrameRandom)));
+		const float StepOffset = PseudoRandom(PixelPos + FrameRandom);
+
+		const float4 HNAndPDF = ImportanceSampleBlinn( E, Roughness );
+		const float3 H = TangentToWorld( HNAndPDF.xyz, N );
+		const float3 R = 2 * dot( V, H ) * H - V;
+
+		const float ReflectPDF = HNAndPDF.w / (4 * saturate(dot(V, H)));
+		const float TotalSamples = View.TemporalAAParams.g;
+		const float SolidAngleSample = 1.0 / ( TotalSamples * ReflectPDF );
+		const float ConeAngleWorld = acos( 1 - SolidAngleSample / (2*PI) );
+
+		float4 HitUVzTime;
+		float HCBLevel;
+		
+		RayCast(
+			PostprocessInput1, PostprocessInput1Sampler, PostprocessInput1Size,
+			PositionTranslatedWorld, R, Roughness, ConeAngleWorld, SceneDepth,
+			NumSteps, StepOffset,
+			HitUVzTime, HCBLevel
+		);
+
+		// if there was a hit
+		BRANCH if( HitUVzTime.w < 1 )
+		{
+			OutColor = SampleHCBLevel( PostprocessInput2, PostprocessInput2Sampler, HitUVzTime.xyz, HCBLevel );
+		}
+	}
+#else //SSR_QUALITY != SSR_CONE_QUALITY
 #if SSR_QUALITY == 1
 	const int NumSteps = 8;
 	const int NumRays = 1;
@@ -142,15 +213,20 @@ void ScreenSpaceReflectionsPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 O
 			float3 H = TangentToWorld( ImportanceSampleBlinn( E, Roughness ).xyz, N );
 			float3 R = 2 * dot( V, H ) * H - V;
 
-			float4 HitUVzTime = RayCast( PostprocessInput1, PostprocessInput1Sampler, R, Roughness, SceneDepth, PositionTranslatedWorld, NumSteps, StepOffset );
+			float4 HitUVzTime;
+			float HCBLevel;
+
+			RayCast(
+				PostprocessInput1, PostprocessInput1Sampler, PostprocessInput1Size,
+				PositionTranslatedWorld, R, Roughness, 0.001, SceneDepth,
+				NumSteps, StepOffset,
+				HitUVzTime, HCBLevel
+			);
 
 			// if there was a hit
 			BRANCH if( HitUVzTime.w < 1 )
 			{
 				float4 SampleColor = SampleScreenColor( PostprocessInput0, PostprocessInput0Sampler, HitUVzTime.xyz );
-				
-				// Fade end of trace
-				SampleColor *= saturate( 4 - 4 * HitUVzTime.w );
 				
 				SampleColor.rgb /= 1 + Luminance(SampleColor.rgb);
 				OutColor += SampleColor;
@@ -167,17 +243,24 @@ void ScreenSpaceReflectionsPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 O
 		StepOffset -= 0.5;
 		
 		float3 R = reflect( -V, N );
+		
+		float4 HitUVzTime;
+		float HCBLevel;
 
-		float4 HitUVzTime = RayCast( PostprocessInput1, PostprocessInput1Sampler, R, Roughness, SceneDepth, PositionTranslatedWorld, NumSteps, StepOffset );
+		RayCast(
+			PostprocessInput1, PostprocessInput1Sampler, PostprocessInput1Size,
+			PositionTranslatedWorld, R, Roughness, 0.001, SceneDepth,
+			NumSteps, StepOffset,
+			HitUVzTime, HCBLevel
+		);
+
 		// if there was a hit
 		BRANCH if( HitUVzTime.w < 1 )
 		{
 			OutColor = SampleScreenColor( PostprocessInput0, PostprocessInput0Sampler, HitUVzTime.xyz );
-
-			// Fade end of trace
-			OutColor *= saturate( 4 - 4 * HitUVzTime.w );
 		}
 	}
+#endif //SSR_QUALITY  != SSR_CONE_QUALITY
 	
 	OutColor *= RoughnessFade;
 	OutColor *= SSRParams.r;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCarriedObject.h"
 #include "UTProjectileMovementComponent.h"
@@ -44,7 +44,10 @@ void AUTCarriedObject::OnConstruction(const FTransform& Transform)
 
 	// backwards compatibility; force values on existing instances
 	Collision->SetAbsolute(false, false, true);
-	Collision->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+	if (Role == ROLE_Authority)
+	{
+		Collision->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+	}
 }
 
 void AUTCarriedObject::Init(AUTGameObjective* NewBase)
@@ -98,6 +101,7 @@ void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeLocation(Holder3PTransform);
 		Collision->SetRelativeRotation(Holder3PRotation);
 		AttachRootComponentTo(AttachToMesh, Holder3PSocketName);
+		ClientUpdateAttachment(true);
 	}
 }
 
@@ -109,8 +113,12 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeRotation(FRotator(0,0,0));
 		Collision->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
 		DetachRootComponentFromParent(true);
+		ClientUpdateAttachment(false);
 	}
 }
+
+void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
+{}
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -203,7 +211,7 @@ void AUTCarriedObject::ChangeState(FName NewCarriedObjectState)
 bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS != NULL && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
+	if (GS != NULL && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
 	{
 		return false;
 	}
@@ -245,7 +253,7 @@ void AUTCarriedObject::SendGameMessage(uint32 Switch, APlayerState* PS1, APlayer
 void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 {
 	// Sanity Checks
-	if (NewHolder == NULL || NewHolder->bPendingKillPending || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL)
+	if (NewHolder == NULL || NewHolder->IsPendingKillPending() || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL)
 	{
 		return;
 	}
@@ -450,7 +458,11 @@ void AUTCarriedObject::Drop(AController* Killer)
 	UUTGameplayStatics::UTPlaySound(GetWorld(), DropSound, (HoldingPawn != NULL) ? (AActor*)HoldingPawn : (AActor*)this);
 
 	SendGameMessage(3, Holder, NULL);
-	NoLongerHeld(Killer);
+	{
+		// NoLongerHeld() results in collision being enabled, but we will check for new touches in TossObject()
+		TGuardValue<bool> DropGuard(bIsDropping, true);
+		NoLongerHeld(Killer);
+	}
 
 	// Toss is out
 	TossObject(LastHoldingPawn);
@@ -498,6 +510,18 @@ FVector AUTCarriedObject::GetHomeLocation() const
 		return HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
 	}
 }
+FRotator AUTCarriedObject::GetHomeRotation() const
+{
+	if (HomeBase == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Carried object querying home rotation with no home"), *GetName());
+		return GetActorRotation();
+	}
+	else
+	{
+		return HomeBase->GetActorRotation() + HomeBaseRotOffset;
+	}
+}
 
 void AUTCarriedObject::MoveToHome()
 {
@@ -507,7 +531,7 @@ void AUTCarriedObject::MoveToHome()
 	if (HomeBase != NULL)
 	{
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
-		SetActorLocationAndRotation(GetHomeLocation(), HomeBase->GetActorRotation());
+		SetActorLocationAndRotation(GetHomeLocation(), GetHomeRotation());
 		ForceNetUpdate();
 	}
 }
@@ -591,12 +615,14 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 				RootComponent->RelativeScale3D = NewRelativeScale3D;
 
 				RootComponent->UpdateComponentToWorld();
+				ClientUpdateAttachment(Cast<APawn>(AttachmentReplication.AttachParent) != nullptr);
 			}
 		}
 	}
 	else
 	{
 		DetachRootComponentFromParent();
+		ClientUpdateAttachment(false);
 	}
 }
 

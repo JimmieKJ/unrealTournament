@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
+#include "UObject/LinkerManager.h"
+#include "UObject/UObjectThreadContext.h"
 
 /*-----------------------------------------------------------------------------
 	UPackage.
@@ -32,9 +34,14 @@ void UPackage::PostInitProperties()
 	MetaData = NULL;
 	LinkerPackageVersion = GPackageFileUE4Version;
 	LinkerLicenseeVersion = GPackageFileLicenseeUE4Version;
-
 #if WITH_EDITOR
 	PIEInstanceID = INDEX_NONE;
+#endif
+#if WITH_EDITORONLY_DATA
+	bIsCookedForEditor = false;
+	// Mark this package as editor-only by default. As soon as something in it is accessed through a non editor-only
+	// property the flag will be removed.
+	bLoadedByEditorPropertiesOnly = !HasAnyFlags(RF_ClassDefaultObject) && !HasAnyPackageFlags(PKG_CompiledIn);
 #endif
 }
 
@@ -48,7 +55,7 @@ void UPackage::SetDirtyFlag( bool bIsDirty )
 	{
 		if ( GUndo != NULL
 		// PIE world objects should never end up in the transaction buffer as we cannot undo during gameplay.
-		&& !(GetOutermost()->PackageFlags & (PKG_PlayInEditor|PKG_ContainsScript)) )
+		&& !GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor|PKG_ContainsScript) )
 		{
 			// make sure we're marked as transactional
 			SetFlags(RF_Transactional);
@@ -61,8 +68,8 @@ void UPackage::SetDirtyFlag( bool bIsDirty )
 		bDirty = bIsDirty;
 
 		if( GIsEditor									// Only fire the callback in editor mode
-			&& !(PackageFlags & PKG_ContainsScript)		// Skip script packages
-			&& !(PackageFlags & PKG_PlayInEditor)		// Skip packages for PIE
+			&& !HasAnyPackageFlags(PKG_ContainsScript)	// Skip script packages
+			&& !HasAnyPackageFlags(PKG_PlayInEditor)	// Skip packages for PIE
 			&& GetTransientPackage() != this )			// Skip the transient package
 		{
 			// Package is changing dirty state, let the editor know so we may prompt for source control checkout
@@ -82,6 +89,14 @@ void UPackage::Serialize( FArchive& Ar )
 	if ( Ar.IsTransacting() )
 	{
 		Ar << bDirty;
+	}
+	if (Ar.IsCountingMemory())
+	{		
+		if (LinkerLoad)
+		{
+			FLinker* Loader = LinkerLoad;
+			Loader->Serialize(Ar);
+		}
 	}
 }
 
@@ -173,12 +188,16 @@ bool UPackage::IsFullyLoaded()
 	// Newly created packages aren't loaded and therefore haven't been marked as being fully loaded. They are treated as fully
 	// loaded packages though in this case, which is why we are looking to see whether the package exists on disk and assume it
 	// has been fully loaded if it doesn't.
-	if( !bHasBeenFullyLoaded )
+	if( !bHasBeenFullyLoaded && !HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading) )
 	{
 		FString DummyFilename;
 		// Try to find matching package in package file cache.
-		if( !FPackageName::DoesPackageExist( *GetName(), NULL, &DummyFilename ) 
-		||	(GIsEditor && IFileManager::Get().FileSize(*DummyFilename) < 0) )
+		if (	!GetConvertedDynamicPackageNameToTypeName().Contains(GetFName()) &&
+				(
+					!FPackageName::DoesPackageExist( *GetName(), NULL, &DummyFilename ) || 
+					(GIsEditor && IFileManager::Get().FileSize(*DummyFilename) < 0) 
+				)
+			)
 		{
 			// Package has NOT been found, so we assume it's a newly created one and therefore fully loaded.
 			bHasBeenFullyLoaded = true;
@@ -193,12 +212,38 @@ void UPackage::BeginDestroy()
 	// Detach linker if still attached
 	if (LinkerLoad)
 	{
-		delete LinkerLoad;
+		LinkerLoad->Detach();
+		FLinkerManager::Get().RemoveLinker(LinkerLoad);
 		LinkerLoad = nullptr;
 	}
 
 	Super::BeginDestroy();
 }
+
+// UE-21181 - Tracking where the loaded editor level's package gets flagged as a PIE object
+#if WITH_EDITOR
+UPackage* UPackage::EditorPackage = nullptr;
+void UPackage::SetPackageFlagsTo( uint32 NewFlags )
+{
+	PackageFlagsPrivate = NewFlags;
+	ensure(((NewFlags & PKG_PlayInEditor) == 0) || (this != EditorPackage));
+}
+#endif
+
+#if WITH_EDITORONLY_DATA
+void FixupPackageEditorOnlyFlag(FName PackageThatGotEditorOnlyFlagCleared, bool bRecursive);
+
+void UPackage::SetLoadedByEditorPropertiesOnly(bool bIsEditorOnly, bool bRecursive /*= false*/)
+{
+	const bool bWasEditorOnly = bLoadedByEditorPropertiesOnly;
+	bLoadedByEditorPropertiesOnly = bIsEditorOnly;
+	if (bWasEditorOnly && !bIsEditorOnly)
+	{
+		FixupPackageEditorOnlyFlag(GetFName(), bRecursive);
+	}
+}
+#endif
+
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UPackage, UObject,
 	{

@@ -1197,7 +1197,7 @@ void DestructibleStructure::crumbleChunk(const FractureEvent& fractureEvent, Chu
 
 	dscene->getChunkReportData(chunk, NxApexChunkFlag::DESTROYED_CRUMBLED);
 
-	PX_ASSERT(chunk.reportID < dscene->mDamageEventReportData.size() || chunk.reportID == DestructibleScene::InvalidReportID);
+	PX_ASSERT(chunk.reportID < dscene->mChunkReportHandles.size() || chunk.reportID == DestructibleScene::InvalidReportID);
 	if (chunk.reportID < dscene->mChunkReportHandles.size())
 	{
 		IntPair& handle = dscene->mChunkReportHandles[chunk.reportID];
@@ -2610,7 +2610,7 @@ void DestructibleStructure::addChunkImpluseForceAtPos(Chunk& chunk, const physx:
 		}
 		else // the actor hasn't been added to the scene yet, so store the forces to apply later.
 		{
-			ActorForceAtPosition forceToAdd(impulse, position, PxForceMode::eIMPULSE, wakeup);
+			ActorForceAtPosition forceToAdd(impulse, position, PxForceMode::eIMPULSE, wakeup, true);
 			dscene->addForceToAddActorsMap(actor, forceToAdd);
 		}
 #endif

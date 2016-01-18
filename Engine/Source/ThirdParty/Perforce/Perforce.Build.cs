@@ -32,11 +32,16 @@ public class Perforce : ModuleRules
             LibFolder += "linux/" + Target.Architecture;
         }
 
-        if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win64)
+        if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
         {
             if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
                 LibPostfixAndExt = "d.";
-            if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
+
+            if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+            {
+                P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2015.1/";
+            }
+            else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
             {
                 P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2014.2/";
             }
@@ -46,6 +51,9 @@ public class Perforce : ModuleRules
             }
             LibPostfixAndExt += "lib";
             PublicLibraryPaths.Add(P4APIPath + LibFolder);
+
+            RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Perforce/p4api.dll"));
+            RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Perforce/p4api.xml"));
         }
         else
         {
@@ -63,5 +71,13 @@ public class Perforce : ModuleRules
 
         PublicAdditionalLibraries.Add(LibPrefix + "librpc" + LibPostfixAndExt);
         PublicAdditionalLibraries.Add(LibPrefix + "libsupp" + LibPostfixAndExt);
-	}
+
+        // VS2015 updated some of the CRT definitions but not all of the Windows SDK has been updated to match.
+        // Microsoft provides this shim library to enable building with VS2015 until they fix everything up.
+        //@todo: remove when no longer neeeded (no other code changes should be necessary).
+//         if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+//         {
+//             PublicAdditionalLibraries.Add("legacy_stdio_definitions.lib");
+//         }
+    }
 }

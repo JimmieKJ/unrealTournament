@@ -32,6 +32,11 @@ private:
 	/** Number of name table entries.					*/
 	uint32	NameTableEntries;
 
+	/** Offset in file for address table.				*/
+	uint32	AddressTableOffset;
+	/** Number of address table entries.				*/
+	uint32	AddressTableEntries;
+
 	/** Tag, set via -networkprofiler=TAG				*/
 	FString Tag;
 	/** Game name, e.g. Example							*/
@@ -51,6 +56,13 @@ public:
 	{
 		NameTableOffset = Offset;
 		NameTableEntries = Entries;
+	}
+
+	/** Sets the final address table values.				*/
+	void SetAddressTableValues( uint32 Offset, uint32 Entries )
+	{
+		AddressTableOffset = Offset;
+		AddressTableEntries = Entries;
 	}
 
 	/** Returns the URL stored in the header.			*/
@@ -84,11 +96,18 @@ private:
 
 	/** Mapping from name to index in name array.													*/
 	TMap<FString,int32>						NameToNameTableIndexMap;
+
 	/** Array of unique names.																		*/
 	TArray<FString>							NameArray;
 
+	/** Mapping from address to index in address array.												*/
+	TMap<uint64, int32>						AddressTableIndexMap;
+
+	/** Array of unique addresses																	*/
+	TArray<uint64>							AddressArray;
+
 	/**	Temp file used for sessions in progress.													*/
-	FString								TempFileName;
+	FString									TempFileName;
 
 	/** Whether noticeable network traffic has occured in this session. Used to discard it.			*/
 	bool									bHasNoticeableNetworkTrafficOccured;
@@ -97,6 +116,9 @@ private:
 
 	/** Header for the current session.																*/
 	FNetworkProfilerHeader					CurrentHeader;
+
+	/** Last known address																			*/
+	uint64									LastAddress;
 
 	/** All the data required for writing sent bunches to the profiler stream						*/
 	struct FSendBunchInfo
@@ -127,8 +149,8 @@ private:
 	{
 		UNetConnection* Connection;
 		UObject* TargetObject;
-		int32 ActorNameIndex;
-		int32 FunctionNameIndex;
+		uint32 ActorNameIndex;
+		uint32 FunctionNameIndex;
 		uint16 NumHeaderBits;
 		uint16 NumParameterBits;
 		uint16 NumFooterBits;
@@ -153,6 +175,14 @@ private:
 	 */
 	int32 GetNameTableIndex( const FString& Name );
 
+	/**
+	* Returns index of passed in address into address array. If not found, adds it.
+	*
+	* @param	Address	Address to find index for
+	* @return	Index of passed in name
+	*/
+	int32 GetAddressTableIndex( uint64 Address );
+
 public:
 	/**
 	 * Constructor, initializing members.
@@ -170,6 +200,12 @@ public:
 	 * Marks the beginning of a frame.
 	 */
 	ENGINE_API void TrackFrameBegin();
+
+	/**
+	* Tracks when connection address changes
+	*/
+	ENGINE_API void SetCurrentConnection( UNetConnection* Connection );
+
 	
 	/**
 	 * Tracks and RPC being sent.
@@ -180,7 +216,7 @@ public:
 	 * @param	NumParameterBits	Number of bits serialized into parameters of this RPC
 	 * @param	NumFooterBits		Number of bits serialized into the footer of this RPC (EndContentBlock)
 	 */
-	void TrackSendRPC( const AActor* Actor, const UFunction* Function, uint16 NumHeaderBits, uint16 NumParameterBits, uint16 NumFooterBits );
+	void TrackSendRPC( const AActor* Actor, const UFunction* Function, uint16 NumHeaderBits, uint16 NumParameterBits, uint16 NumFooterBits, UNetConnection* Connection );
 	
 	/**
 	 * Tracks queued RPCs (unreliable multicast) being sent.
@@ -222,7 +258,7 @@ public:
 	 * @param	NumBunchBits			Number of bits sent in bunches
 	 * @param	NumAckBits				Number of bits sent in acks
 	 * @param	NumPaddingBits			Number of bits appended to the end to byte-align the data
-	 * @param	Destination				Destination address
+	 * @param	Connection				Destination address
 	 */
 	ENGINE_API void TrackSocketSendTo(
 		const FString& SocketDesc,
@@ -232,7 +268,7 @@ public:
 		uint16 NumBunchBits,
 		uint16 NumAckBits,
 		uint16 NumPaddingBits,
-		const FInternetAddr& Destination );
+		UNetConnection* Connection );
 
 	/**
 	 * Low level FSocket::SendTo information.
@@ -240,7 +276,7 @@ public:
  	 * @param	SocketDesc				Description of socket data is being sent to
 	 * @param	Data					Data sent
 	 * @param	BytesSent				Bytes actually being sent
-	 * @param	IpAddr					Destination address
+	 * @param	Connection				Destination address
 	 */
 	void TrackSocketSendToCore(
 		const FString& SocketDesc,
@@ -250,7 +286,7 @@ public:
 		uint16 NumBunchBits,
 		uint16 NumAckBits,
 		uint16 NumPaddingBits,
-		uint32 IpAddr );
+		UNetConnection* Connection );
 
 	
 	/**
@@ -259,7 +295,7 @@ public:
 	 * @param	OutBunch	FOutBunch being sent
 	 * @param	NumBits		Num bits to serialize for this bunch (not including merging)
 	 */
-	void TrackSendBunch( FOutBunch* OutBunch, uint16 NumBits );
+	void TrackSendBunch( FOutBunch* OutBunch, uint16 NumBits, UNetConnection* Connection );
 	
 	/**
 	 * Add a sent bunch to the stack. These bunches are not written to the stream immediately,
@@ -291,7 +327,7 @@ public:
 	 *
 	 * @param	Actor		Actor being replicated
 	 */
-	void TrackReplicateActor( const AActor* Actor, FReplicationFlags RepFlags, uint32 Cycles );
+	void TrackReplicateActor( const AActor* Actor, FReplicationFlags RepFlags, uint32 Cycles, UNetConnection* Connection );
 	
 	/**
 	 * Track property being replicated.
@@ -299,7 +335,7 @@ public:
 	 * @param	Property	Property being replicated
 	 * @param	NumBits		Number of bits used to replicate this property
 	 */
-	void TrackReplicateProperty( const UProperty* Property, uint16 NumBits );
+	void TrackReplicateProperty( const UProperty* Property, uint16 NumBits, UNetConnection* Connection );
 
 	/**
 	 * Track property header being written.
@@ -307,7 +343,7 @@ public:
 	 * @param	Property	Property being replicated
 	 * @param	NumBits		Number of bits used in the header
 	 */
-	void TrackWritePropertyHeader( const UProperty* Property, uint16 NumBits );
+	void TrackWritePropertyHeader( const UProperty* Property, uint16 NumBits, UNetConnection* Connection );
 
 	/**
 	 * Track event occuring, like e.g. client join/ leave
@@ -315,7 +351,7 @@ public:
 	 * @param	EventName			Name of the event
 	 * @param	EventDescription	Additional description/ information for event
 	 */
-	void TrackEvent( const FString& EventName, const FString& EventDescription );
+	void TrackEvent( const FString& EventName, const FString& EventDescription, UNetConnection* Connection );
 
 	/**
 	 * Called when the server first starts listening and on round changes or other
@@ -332,14 +368,14 @@ public:
 	 *
 	 * @param NumBits Number of bits in the ack
 	 */
-	void TrackSendAck( uint16 NumBits );
+	void TrackSendAck( uint16 NumBits, UNetConnection* Connection );
 
 	/**
 	 * Track NetGUID export bunches.
 	 *
 	 * @param NumBits Number of bits in the GUIDs
 	 */
-	void TrackExportBunch( uint16 NumBits );
+	void TrackExportBunch( uint16 NumBits, UNetConnection* Connection );
 
 	/**
 	 * Track "must be mapped" GUIDs
@@ -347,7 +383,7 @@ public:
 	 * @param NumGuids Number of GUIDs added to the bunch
 	 * @param NumBits Number of bits added to the bunch for the GUIDs
 	 */
-	void TrackMustBeMappedGuids( uint16 NumGuids, uint16 NumBits );
+	void TrackMustBeMappedGuids( uint16 NumGuids, uint16 NumBits, UNetConnection* Connection );
 
 	/**
 	 * Track actor content block headers
@@ -355,7 +391,7 @@ public:
 	 * @param Object the object being replicated (might be a subobject of the actor)
 	 * @param NumBits the number of bits in the content block header
 	 */
-	void TrackBeginContentBlock( UObject* Object, uint16 NumBits );
+	void TrackBeginContentBlock( UObject* Object, uint16 NumBits, UNetConnection* Connection );
 
 	/**
 	 * Track actor content block headers
@@ -363,13 +399,13 @@ public:
 	 * @param Object the object being replicated (might be a subobject of the actor)
 	 * @param NumBits the number of bits in the content block footer
 	 */
-	void TrackEndContentBlock( UObject* Object, uint16 NumBits );
+	void TrackEndContentBlock( UObject* Object, uint16 NumBits, UNetConnection* Connection );
 
 	/** Track property handles
 	 *
 	 * @param NumBits Number of bits in the property handle
 	 */
-	void TrackWritePropertyHandle( uint16 NumBits );
+	void TrackWritePropertyHandle( uint16 NumBits, UNetConnection* Connection );
 
 	/**
 	 * Processes any network profiler specific exec commands

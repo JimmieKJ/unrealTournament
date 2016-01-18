@@ -6,9 +6,17 @@ public class VectorVM : ModuleRules
 {
 	public VectorVM(TargetInfo Target)
 	{
+        PublicDependencyModuleNames.AddRange(
+            new string[] {
+                "Core",
+                "Engine"
+            }
+        );
+
 		PrivateDependencyModuleNames.AddRange(
             new string[] {
                 "Core",
+				"CoreUObject", 
                 "Engine"
             }
         );

@@ -8,13 +8,6 @@
 
 DECLARE_DELEGATE_RetVal(FSubversionSourceControlWorkerRef, FGetSubversionSourceControlWorker)
 
-// We disable the deprecation warnings here because otherwise it'll complain about us
-// implementing RegisterSourceControlStateChanged and UnregisterSourceControlStateChanged.  We know
-// that, but we only want it to complain if *others* implement or call these functions.
-//
-// These macros should be removed when those functions are removed.
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-
 class FSubversionSourceControlProvider : public ISourceControlProvider
 {
 public:
@@ -32,9 +25,7 @@ public:
 	virtual bool IsAvailable() const override;
 	virtual const FName& GetName(void) const override;
 	virtual ECommandResult::Type GetState( const TArray<FString>& InFiles, TArray< TSharedRef<ISourceControlState, ESPMode::ThreadSafe> >& OutState, EStateCacheUsage::Type InStateCacheUsage ) override;
-	virtual TArray<FSourceControlStateRef> GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const override;
-	virtual void RegisterSourceControlStateChanged(const FSourceControlStateChanged::FDelegate& SourceControlStateChanged) override;
-	virtual void UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) override;
+	virtual TArray<FSourceControlStateRef> GetCachedStateByPredicate(TFunctionRef<bool(const FSourceControlStateRef&)> Predicate) const override;
 	virtual FDelegateHandle RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) override;
 	virtual void UnregisterSourceControlStateChanged_Handle( FDelegateHandle Handle ) override;
 	virtual ECommandResult::Type Execute( const TSharedRef<ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TArray<FString>& InFiles, EConcurrency::Type InConcurrency = EConcurrency::Synchronous, const FSourceControlOperationComplete& InOperationCompleteDelegate = FSourceControlOperationComplete() ) override;
@@ -68,6 +59,9 @@ public:
 
 	/** Helper function used to update state cache */
 	TSharedRef<FSubversionSourceControlState, ESPMode::ThreadSafe> GetStateInternal(const FString& Filename);
+
+	/** Remove a named file from the state cache */
+	bool RemoveFileFromCache(const FString& Filename);
 
 	/**
 	 * Register a worker with the provider.
@@ -142,5 +136,3 @@ private:
 	/** For notifying when the source control states in the cache have changed */
 	FSourceControlStateChanged OnSourceControlStateChanged;
 };
-
-PRAGMA_ENABLE_DEPRECATION_WARNINGS

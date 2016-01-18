@@ -1,7 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UnrealTournament.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "Slate/SlateBrushAsset.h"
@@ -300,18 +300,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	}
 
 	{  // Icons
-		
 		Style.Set("UT.Icon.Home", new IMAGE_BRUSH("Icons/UT.Icon.Home", Icon48x48));
-		Style.Set("UT.Icon.Online", new IMAGE_BRUSH("Icons/UT.Icon.Online", Icon48x48));
-		Style.Set("UT.Icon.SocialBang", new IMAGE_BRUSH("Icons/UT.Icon.SocialBang", Icon12x12));
-		Style.Set("UT.Icon.Settings", new IMAGE_BRUSH("Icons/UT.Icon.Settings", Icon48x48));
-		Style.Set("UT.Icon.Exit", new IMAGE_BRUSH("Icons/UT.Icon.Exit", Icon48x48));
-		Style.Set("UT.Icon.Stats", new IMAGE_BRUSH("Icons/UT.Icon.Stats", Icon48x48));
-		Style.Set("UT.Icon.About", new IMAGE_BRUSH("Icons/UT.Icon.About", Icon48x48));
-		Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("Icons/UT.Icon.SignOut", Icon48x48));
-		Style.Set("UT.Icon.SignIn", new IMAGE_BRUSH("Icons/UT.Icon.SignIn", Icon48x48));
-		Style.Set("UT.Icon.Chat36", new IMAGE_BRUSH("Icons/UT.Icon.Chat36", Icon36x36));
-		Style.Set("UT.Icon.Browser", new IMAGE_BRUSH("Icons/UT.Icon.Browser", Icon48x48));
 
 		Style.Set("UT.Icon.UpArrow", new IMAGE_BRUSH("Icons/UT.Icon.UpArrow", Icon48x48));
 		Style.Set("UT.Icon.DownArrow", new IMAGE_BRUSH("Icons/UT.Icon.DownArrow", Icon48x48));
@@ -1608,6 +1597,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	//Chat Window Style
 	Style.Set("FriendsStyle", FFriendsAndChatStyle()
+		/*
 		.SetOnlineBrush(*Style.GetBrush("OnlineState"))
 		.SetOfflineBrush(*Style.GetBrush("OfflineState"))
 		.SetAwayBrush(*Style.GetBrush("AwayState"))
@@ -1627,7 +1617,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetFriendComboBackgroundLeftFlippedBrush(*MenuBorderBrush)
 		.SetFriendComboBackgroundRightFlippedBrush(*MenuBorderBrush)
 		.SetAddFriendButtonContentBrush(*Style.GetBrush("FriendsList.AddFriendContent"))
-		.SetAddFriendButtonContentHoveredBrush(*Style.GetBrush("FriendsList.AddFriendContent"))
+//		.SetAddFriendButtonContentHoveredBrush(*Style.GetBrush("FriendsList.AddFriendContent"))
 		.SetAddFriendCloseButtonStyle(FriendsListCloseAddFriendButtonStyle)
 		.SetBackgroundBrush(*FriendsDefaultBackgroundBrush)
 		.SetFriendContainerHeader(*FriendContainerHeaderBrush)
@@ -1667,8 +1657,8 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetChatEditableTextStyle(ChatEntryEditableTextStyle)
 		.SetFriendCheckboxStyle(FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("Checkbox"))
 		.SetStatusButtonSize(FVector2D(136, 40))
-		.SetActionComboButtonStyle(ActionButtonComboButtonStyle)
-		.SetActionComboButtonSize(FVector2D(25, 25))
+//		.SetActionComboButtonStyle(ActionButtonComboButtonStyle)
+		//.SetActionComboButtonSize(FVector2D(25, 25))
 		.SetButtonInvertedForegroundColor(FLinearColor::White)
 		.SetBorderPadding(FMargin(10, 20))
 		.SetFriendsListWidth(500.f)
@@ -1683,7 +1673,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetComboItemContentPadding(FMargin(10, 4, 10, 4))
 		.SetChatFooterBrush(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::Black))
 		.SetFriendUserHeaderBackground(*FriendsListPanelBackgroundBrush)
-		.SetHasUserHeader(true)
+		.SetHasUserHeader(true)*/
 		);
 }
 

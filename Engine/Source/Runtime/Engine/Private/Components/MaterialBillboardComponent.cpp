@@ -89,7 +89,7 @@ public:
 	FMaterialSpriteSceneProxy(const UMaterialBillboardComponent* InComponent)
 	: FPrimitiveSceneProxy(InComponent)
 	, Elements(InComponent->Elements)
-	, BaseColor(FLinearColor::White)
+	, BaseColor(FColor::White)
 	{
 		AActor* Owner = InComponent->GetOwner();
 		if (Owner)
@@ -179,7 +179,7 @@ public:
 
 						for(uint32 VertexIndex = 0;VertexIndex < 4;++VertexIndex)
 						{
-							VertexArray.Vertices[VertexIndex].Color = Color;
+							VertexArray.Vertices[VertexIndex].Color = Color.ToFColor(true);
 							VertexArray.Vertices[VertexIndex].TangentX = FPackedNormal(LocalCameraRight.GetSafeNormal());
 							VertexArray.Vertices[VertexIndex].TangentZ = FPackedNormal(-LocalCameraForward.GetSafeNormal());
 						}
@@ -230,7 +230,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		bool bVisible = View->Family->EngineShowFlags.BillboardSprites;
 		FPrimitiveViewRelevance Result;
@@ -263,7 +263,23 @@ FPrimitiveSceneProxy* UMaterialBillboardComponent::CreateSceneProxy()
 
 FBoxSphereBounds UMaterialBillboardComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
-	const float BoundsSize = 32.0f;
+	float BoundsSize = 1.0f;
+	for (int32 i = 0; i < Elements.Num(); ++i)
+	{
+		if (Elements[i].bSizeIsInScreenSpace)
+		{
+			// Workaround static bounds by disabling culling. Still allows override such as 'use parent bounds', etc.
+			// Note: Bounds are dynamically calculated at draw time per view, so difficult to cull correctly. (UE-4725)
+			BoundsSize = float(HALF_WORLD_MAX); 
+			break;
+		}
+		else
+		{
+			BoundsSize = FMath::Max3(BoundsSize, Elements[i].BaseSizeX, Elements[i].BaseSizeY);
+		}
+	}
+	BoundsSize *= LocalToWorld.GetMaximumAxisScale();
+
 	return FBoxSphereBounds(LocalToWorld.GetLocation(),FVector(BoundsSize,BoundsSize,BoundsSize),FMath::Sqrt(3.0f * FMath::Square(BoundsSize)));
 }
 

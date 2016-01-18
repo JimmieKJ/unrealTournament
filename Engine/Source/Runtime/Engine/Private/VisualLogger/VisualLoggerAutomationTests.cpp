@@ -11,7 +11,7 @@ namespace
 	UWorld* GetSimpleEngineAutomationTestWorld(const int32 TestFlags)
 	{
 		// Accessing the game world is only valid for game-only 
-		if (((TestFlags & EAutomationTestFlags::ATF_Editor) || (TestFlags & EAutomationTestFlags::ATF_Game)) == false)
+		if (((TestFlags & EAutomationTestFlags::EditorContext) || (TestFlags & EAutomationTestFlags::ClientContext)) == false)
 		{
 			return nullptr;
 		}
@@ -83,7 +83,7 @@ struct FTestDeviceContext
 	{
 		Device.Cleanup();
 		FVisualLogger::Get().SetIsRecording(false);
-		FVisualLogger::Get().Cleanup();
+		FVisualLogger::Get().Cleanup(nullptr);
 		FVisualLogger::Get().AddDevice(&Device);
 
 		EngineDisableAILoggingFlag = GEngine->bDisableAILogging;
@@ -95,7 +95,7 @@ struct FTestDeviceContext
 	{
 		FVisualLogger::Get().SetIsRecording(false);
 		FVisualLogger::Get().RemoveDevice(&Device);
-		FVisualLogger::Get().Cleanup();
+		FVisualLogger::Get().Cleanup(nullptr);
 		Device.Cleanup();
 
 		GEngine->bDisableAILogging = EngineDisableAILoggingFlag;
@@ -105,7 +105,7 @@ struct FTestDeviceContext
 	uint32 EngineDisableAILoggingFlag : 1;
 };
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVisualLogTest, "System.Engine.VisualLogger.Logging simple text", EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVisualLogTest, "System.Engine.VisualLogger.Logging simple text", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 /**
 *
 *
@@ -166,7 +166,7 @@ bool FVisualLogTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVisualLogSegmentsTest, "System.Engine.VisualLogger.Logging segment shape", EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVisualLogSegmentsTest, "System.Engine.VisualLogger.Logging segment shape", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FVisualLogSegmentsTest::RunTest(const FString& Parameters)
 {
 	UWorld* World = GetSimpleEngineAutomationTestWorld(GetTestFlags());
@@ -226,7 +226,7 @@ DEFINE_VLOG_EVENT(EventTest2, All, "Second simple event for vlog tests")
 
 DEFINE_VLOG_EVENT(EventTest3, All, "Third simple event for vlog tests")
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVisualLogEventsTest, "System.Engine.VisualLogger.Logging events", EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVisualLogEventsTest, "System.Engine.VisualLogger.Logging events", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FVisualLogEventsTest::RunTest(const FString& Parameters)
 {
 	UWorld* World = GetSimpleEngineAutomationTestWorld(GetTestFlags());

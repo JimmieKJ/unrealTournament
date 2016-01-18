@@ -526,10 +526,11 @@ void UK2Node_LiveEditObject::ExpandNode(class FKismetCompilerContext& CompilerCo
 		// The Convert function to go from (int)Delta to ULiveEditorKismetLibrary::ModifyPropertyByName(... float Delta ...)
 		//
 		FName ConvertFunctionName;
-		bool success = Schema->SearchForAutocastFunction( EventDeltaPin, MultiplyNodeFirstPin, ConvertFunctionName );
+		UClass* ConvertFunctionOwner = nullptr;
+		bool success = Schema->SearchForAutocastFunction(EventDeltaPin, MultiplyNodeFirstPin, ConvertFunctionName, ConvertFunctionOwner);
 		check( success );
 		UK2Node_CallFunction *ConvertDeltaNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this,SourceGraph);
-		ConvertDeltaNode->FunctionReference.SetExternalMember( ConvertFunctionName, UKismetMathLibrary::StaticClass() );
+		ConvertDeltaNode->FunctionReference.SetExternalMember(ConvertFunctionName, ConvertFunctionOwner ? ConvertFunctionOwner : UKismetMathLibrary::StaticClass());
 		ConvertDeltaNode->AllocateDefaultPins();
 
 		FName PinName;

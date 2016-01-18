@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreUObject.h"
-
+#include "Curves/CurveFloat.h"
 #include "SoundAttenuation.generated.h"
 
 UENUM()
@@ -14,6 +14,7 @@ enum ESoundDistanceModel
 	ATTENUATION_Inverse,
 	ATTENUATION_LogReverse,
 	ATTENUATION_NaturalSound,
+	ATTENUATION_Custom,
 	ATTENUATION_MAX,
 };
 
@@ -66,9 +67,16 @@ struct ENGINE_API FAttenuationSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LowPassFilter )
 	uint32 bAttenuateWithLPF:1;
 
+	/** Whether or not listener-focus calculations are enabled for this attenuation. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bSpatialize"))
+	uint32 bEnableListenerFocus:1;
+
 	/* The type of volume versus distance algorithm to use for the attenuation model. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attenuation )
 	TEnumAsByte<enum ESoundDistanceModel> DistanceAlgorithm;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attenuation)
+	FRuntimeFloatCurve CustomAttenuationCurve;
 
 	UPROPERTY()
 	TEnumAsByte<enum ESoundDistanceCalc> DistanceType_DEPRECATED;
@@ -84,6 +92,10 @@ struct ENGINE_API FAttenuationSettings
 	/** At what distance we start treating the sound source as spatialized */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attenuation, meta=(ClampMin = "0", EditCondition="bSpatialize", DisplayName="Non-Spatialized Radius"))
 	float OmniRadius;
+
+	/** The distance between left and right stereo channels when stereo assets spatialized. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attenuation, meta = (ClampMin = "0", EditCondition = "bSpatialize", DisplayName = "3D Stereo Spread"))
+	float StereoSpread;
 
 	/** Which spatialization algorithm to use if spatializing mono sources. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attenuation, meta = (ClampMin = "0", EditCondition = "bSpatialize", DisplayName = "Spatialization Algorithm"))
@@ -120,14 +132,53 @@ struct ENGINE_API FAttenuationSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LowPassFilter )
 	float LPFRadiusMax;
 
+	/* The Frequency in hertz at which to set the LPF when the sound is at LPFRadiusMin. (defaults to bypass) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LowPassFilter)
+	float LPFFrequencyAtMin;
+
+	/* The Frequency in hertz at which to set the LPF when the sound is at LPFRadiusMax. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LowPassFilter)
+	float LPFFrequencyAtMax;
+
+	/** Azimuth angle (in degrees) relative to the listener forward vector which defines the focus region of sounds. Sounds playing at an angle less than this will be in focus. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	float FocusAzimuth;
+
+	/** Azimuth angle (in degrees) relative to the listener forward vector which defines the non-focus region of sounds. Sounds playing at an angle greater than this will be out of focus. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	float NonFocusAzimuth;
+
+	/** Amount to scale the distance calculation of sounds that are in-focus. Can be used to make in-focus sounds appear to be closer or further away than they actually are. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	float FocusDistanceScale;
+
+	/** Amount to scale the distance calculation of sounds that are not in-focus. Can be used to make in-focus sounds appear to be closer or further away than they actually are.  */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	float NonFocusDistanceScale;
+
+	/** Amount to scale the priority of sounds that are in focus. Can be used to boost the priority of sounds that are in focus. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	float FocusPriorityScale;
+
+	/** Amount to scale the priority of sounds that are not in-focus. Can be used to reduce the priority of sounds that are not in focus. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	float NonFocusPriorityScale;
+
+	/** Amount to attenuate sounds that are not in focus. Can be overridden at the sound-level. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (EditCondition = "bEnableListenerFocus"))
+	float NonFocusVolumeAttenuation;
+
 	FAttenuationSettings()
 		: bAttenuate(true)
 		, bSpatialize(true)
 		, bAttenuateWithLPF(false)
+		, bEnableListenerFocus(false)
 		, DistanceAlgorithm(ATTENUATION_Linear)
 		, DistanceType_DEPRECATED(SOUNDDISTANCE_Normal)
 		, AttenuationShape(EAttenuationShape::Sphere)
 		, dBAttenuationAtMax(-60.f)
+		, OmniRadius(0.0f)
+		, StereoSpread(0.0f)
 		, SpatializationAlgorithm(ESoundSpatializationAlgorithm::SPATIALIZATION_Default)
 		, RadiusMin_DEPRECATED(400.f)
 		, RadiusMax_DEPRECATED(4000.f)
@@ -136,13 +187,20 @@ struct ENGINE_API FAttenuationSettings
 		, FalloffDistance(3600.f)
 		, LPFRadiusMin(3000.f)
 		, LPFRadiusMax(6000.f)
+		, LPFFrequencyAtMin(20000.f)
+		, LPFFrequencyAtMax(20000.f)
+		, FocusAzimuth(30.0f)
+		, NonFocusAzimuth(60.0f)
+		, FocusDistanceScale(1.0f)
+		, NonFocusDistanceScale(1.0f)
+		, FocusPriorityScale(1.0f)
+		, NonFocusPriorityScale(1.0f)
+		, NonFocusVolumeAttenuation(1.0f)
 	{
 	}
 
 	bool operator==(const FAttenuationSettings& Other) const;
 	void PostSerialize(const FArchive& Ar);
-
-	void ApplyAttenuation( const FTransform& SoundTransform, const FVector ListenerLocation, float& Volume, float& HighFrequencyGain ) const;
 
 	struct AttenuationShapeDetails
 	{
@@ -153,12 +211,10 @@ struct ENGINE_API FAttenuationSettings
 
 	void CollectAttenuationShapesForVisualization(TMultiMap<EAttenuationShape::Type, AttenuationShapeDetails>& ShapeDetailsMap) const;
 	float GetMaxDimension() const;
-
-private:
-
-	float AttenuationEvalBox(const FTransform& SoundLocation, const FVector ListenerLocation) const;
-	float AttenuationEvalCapsule(const FTransform& SoundLocation, const FVector ListenerLocation) const;
-	float AttenuationEvalCone(const FTransform& SoundLocation, const FVector ListenerLocation) const;
+	float AttenuationEval(const float Distance, const float Falloff, const float DistanceScale) const;
+	float AttenuationEvalBox(const FTransform& SoundLocation, const FVector ListenerLocation, const float DistanceScale) const;
+	float AttenuationEvalCapsule(const FTransform& SoundLocation, const FVector ListenerLocation, const float DistanceScale) const;
+	float AttenuationEvalCone(const FTransform& SoundLocation, const FVector ListenerLocation, const float DistanceScale) const;
 };
 
 template<>
@@ -178,6 +234,6 @@ class USoundAttenuation : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, Category=Settings)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Settings)
 	FAttenuationSettings Attenuation;
 };

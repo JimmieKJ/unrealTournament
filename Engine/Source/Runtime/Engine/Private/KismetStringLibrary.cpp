@@ -414,3 +414,15 @@ FString UKismetStringLibrary::Mid(const FString& SourceString, int32 Start, int3
 	return SourceString.Mid(Start, Count);
 }
 
+FString UKismetStringLibrary::TimeSecondsToString(float InSeconds)
+{
+	// Get whole minutes
+	const int32 NumMinutes = FMath::FloorToInt(InSeconds/60.f);
+	// Get seconds not part of whole minutes
+	const int32 NumSeconds = FMath::FloorToInt(InSeconds-(NumMinutes*60.f));
+	// Get fraction of non-whole seconds, convert to 100th of a second, then floor to get whole 100ths
+	const int32 NumCentiseconds = FMath::FloorToInt((InSeconds - FMath::FloorToFloat(InSeconds)) * 100.f);
+
+	// Create string, including leading zeroes
+	return FString::Printf(TEXT("%02d:%02d:%02d"), NumMinutes, NumSeconds, NumCentiseconds);
+}

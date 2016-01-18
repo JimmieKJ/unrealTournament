@@ -6,7 +6,7 @@
 
 // DEPRECATED, please use UBlackboardKeyType_Enum instead
 
-UCLASS(NotEditInlineNew)
+UCLASS(NotEditInlineNew, HideDropDown)
 class AIMODULE_API UBlackboardKeyType_NativeEnum : public UBlackboardKeyType
 {
 	GENERATED_UCLASS_BODY()

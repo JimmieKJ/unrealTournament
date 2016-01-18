@@ -6,6 +6,7 @@
 
 #include "Common.usf"
 #include "ColorUtils.usf"
+#include "GammaCorrectionCommon.usf"
 
 Texture2D InTexture;
 SamplerState InTextureSampler;
@@ -64,8 +65,7 @@ void Main(
 
 	if( Gamma != 1.0 )
 	{
-		// Gamma correct the output color.
-		FinalColor.rgb = pow(saturate(FinalColor.rgb),Gamma);
+		FinalColor.rgb = ApplyGammaCorrection(saturate(FinalColor.rgb), 2.2 / (1.0 / Gamma));
 	}
 	
 	FinalColor = RETURN_COLOR(FinalColor);	

@@ -27,7 +27,7 @@ void UDerivedDataCacheCommandlet::MaybeMarkPackageAsAlreadyLoaded(UPackage *Pack
 	if (PackagesToNotReload.Contains(Name))
 	{
 		UE_LOG(LogDerivedDataCacheCommandlet, Verbose, TEXT("Marking %s already loaded."), *Name);
-		Package->PackageFlags |= PKG_ReloadingForCooker;
+		Package->SetPackageFlags(PKG_ReloadingForCooker);
 	}
 }
 
@@ -162,7 +162,7 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 							ProcessedPackages.Add(Filename);
 
 							PackagesToNotReload.Add(Pkg->GetName());
-							Pkg->PackageFlags |= PKG_ReloadingForCooker;
+							Pkg->SetPackageFlags(PKG_ReloadingForCooker);
 							{
 								TArray<UObject *> ObjectsInPackage;
 								GetObjectsWithOuter(Pkg, ObjectsInPackage, true);
@@ -184,13 +184,13 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 				if (NumProcessedSinceLastGC >= GCInterval || FileIndex < 0)
 				{
 					UE_LOG(LogDerivedDataCacheCommandlet, Display, TEXT("GC (Full)..."));
-					CollectGarbage( RF_Native );
+					CollectGarbage(RF_NoFlags);
 					NumProcessedSinceLastGC = 0;
 				}
 				else
 				{
 					UE_LOG(LogDerivedDataCacheCommandlet, Display, TEXT("GC..."));
-					CollectGarbage( RF_Native | RF_Standalone );
+					CollectGarbage(RF_Standalone);
 				}				
 				GCTime += FPlatformTime::Seconds() - StartGCTime;
 
@@ -226,9 +226,12 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 				// cache all the resources for this platform
 				for ( TObjectIterator<UObject> It; It; ++It )
 				{
-					for ( auto Platform : Platforms )
+					if (ProcessedPackages.Contains(It->GetOutermost()->GetName()))
 					{
-						It->BeginCacheForCookedPlatformData( Platform );
+						for (auto Platform : Platforms)
+						{
+							It->BeginCacheForCookedPlatformData(Platform);
+						}
 					}
 				}
 

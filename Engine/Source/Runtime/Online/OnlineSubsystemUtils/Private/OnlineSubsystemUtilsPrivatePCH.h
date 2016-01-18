@@ -11,7 +11,10 @@
 #include "OnlineSubsystemUtilsModule.h"
 #include "SocketSubsystem.h"
 #include "ModuleManager.h"
-#include "OnlineSubsystemUtilsClasses.h"
+#include "Classes/IpConnection.h"
+#include "Classes/IpNetDriver.h"
+
+class FUniqueNetId;
 
 // Helper class for various methods to reduce the call hierarchy
 struct FOnlineSubsystemBPCallHelper
@@ -27,7 +30,7 @@ public:
 	}
 
 public:
-	TSharedPtr<class FUniqueNetId> UserID;
+	TSharedPtr<const FUniqueNetId> UserID;
 	IOnlineSubsystem* const OnlineSub;
 	const TCHAR* FunctionContext;
 };

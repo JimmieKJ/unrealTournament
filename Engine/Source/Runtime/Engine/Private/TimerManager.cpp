@@ -6,6 +6,9 @@
 
 #include "EnginePrivate.h"
 
+DECLARE_CYCLE_STAT(TEXT("SetTimer"), STAT_SetTimer, STATGROUP_Engine);
+DECLARE_CYCLE_STAT(TEXT("ClearTimer"), STAT_ClearTimer, STATGROUP_Engine);
+
 void FTimerHandle::MakeValid()
 {
 	static int LastAssignedHandle = -1;
@@ -20,63 +23,39 @@ void FTimerHandle::MakeValid()
 }
 
 
-inline bool DEPRECATED_CompareUnifiedDelegates(const FTimerUnifiedDelegate& Lhs, const FTimerUnifiedDelegate& Rhs)
+
+FString FTimerUnifiedDelegate::ToString() const
 {
-	return ( Lhs.FuncDelegate.IsBound() && (Lhs.FuncDelegate.DEPRECATED_Compare(Rhs.FuncDelegate)) ) || ( Lhs.FuncDynDelegate.IsBound() && (Lhs.FuncDynDelegate == Rhs.FuncDynDelegate) );
+	const UObject* Object = nullptr;
+	FName FunctionName = NAME_None;
+	bool bDynDelegate = false;
+
+	if (FuncDelegate.IsBound())
+	{
+		Object = FuncDelegate.GetUObject();
+		if (IDelegateInstance* Ptr = FuncDelegate.GetDelegateInstance())
+		{
+			FunctionName = Ptr->GetFunctionName();
+		}
+	}
+	else if (FuncDynDelegate.IsBound())
+	{
+		Object = FuncDynDelegate.GetUObject();
+		FunctionName = FuncDynDelegate.GetFunctionName();
+		bDynDelegate = true;
+	}
+	else
+	{
+		static FName NotBoundName(TEXT("NotBound!"));
+		FunctionName = NotBoundName;
+	}
+
+	return FString::Printf(TEXT("%s,%s,%s"), bDynDelegate ? TEXT("DELEGATE") : TEXT("DYN DELEGATE"), Object == nullptr ? TEXT("NO OBJ") : *Object->GetPathName(), *FunctionName.ToString());
 }
 
 // ---------------------------------
 // Private members
 // ---------------------------------
-
-/** Will find and return a timer if it exists, regardless whether it is paused. */ 
-FTimerData const* FTimerManager::DEPRECATED_FindTimer(FTimerUnifiedDelegate const& InDelegate, int32* OutTimerIndex) const
-{
-	if (!CurrentlyExecutingTimer.TimerHandle.IsValid() && DEPRECATED_CompareUnifiedDelegates(InDelegate, CurrentlyExecutingTimer.TimerDelegate))
-	{
-		// found it currently executing
-		if (OutTimerIndex)
-		{
-			*OutTimerIndex = -1;
-		}
-		return &CurrentlyExecutingTimer;
-	}
-
-	int32 ActiveTimerIdx = DEPRECATED_FindTimerInList(ActiveTimerHeap, InDelegate);
-	if (ActiveTimerIdx != INDEX_NONE)
-	{
-		// found it in the active heap
-		if (OutTimerIndex)
-		{
-			*OutTimerIndex = ActiveTimerIdx;
-		}
-		return &ActiveTimerHeap[ActiveTimerIdx];
-	}
-
-	int32 PausedTimerIdx = DEPRECATED_FindTimerInList(PausedTimerList, InDelegate);
-	if (PausedTimerIdx != INDEX_NONE)
-	{
-		// found it in the paused list
-		if (OutTimerIndex)
-		{
-			*OutTimerIndex = PausedTimerIdx;
-		}
-		return &PausedTimerList[PausedTimerIdx];
-	}
-
-	int32 PendingTimerIdx = DEPRECATED_FindTimerInList(PendingTimerList, InDelegate);
-	if (PendingTimerIdx != INDEX_NONE)
-	{
-		// found it in the pending list
-		if (OutTimerIndex)
-		{
-			*OutTimerIndex = PendingTimerIdx;
-		}
-		return &PendingTimerList[PendingTimerIdx];
-	}
-
-	return nullptr;
-}
 
 FTimerData const* FTimerManager::FindTimer(FTimerHandle const& InHandle, int32* OutTimerIndex) const
 {
@@ -129,21 +108,6 @@ FTimerData const* FTimerManager::FindTimer(FTimerHandle const& InHandle, int32* 
 	return nullptr;
 }
 
-
-/** Will find the given timer in the given TArray and return its index. */ 
-int32 FTimerManager::DEPRECATED_FindTimerInList(const TArray<FTimerData> &SearchArray, FTimerUnifiedDelegate const& InDelegate) const
-{
-	for (int32 Idx=0; Idx<SearchArray.Num(); ++Idx)
-	{
-		if (!SearchArray[Idx].TimerHandle.IsValid() && DEPRECATED_CompareUnifiedDelegates(SearchArray[Idx].TimerDelegate, InDelegate))
-		{
-			return Idx;
-		}
-	}
-
-	return INDEX_NONE;
-}
-
 /** Will find the given timer in the given TArray and return its index. */
 int32 FTimerManager::FindTimerInList(const TArray<FTimerData> &SearchArray, FTimerHandle const& InHandle) const
 {
@@ -187,28 +151,10 @@ FTimerHandle FTimerManager::K2_FindDynamicTimerHandle(FTimerDynamicDelegate InDy
 	return FTimerHandle();
 }
 
-
-void FTimerManager::DEPRECATED_InternalSetTimer(FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
-{
-	// not currently threadsafe
-	check(IsInGameThread());
-
-	// if the timer is already set, just clear it and we'll re-add it, since 
-	// there's no data to maintain.
-	DEPRECATED_InternalClearTimer(InDelegate);
-
-	if (InRate > 0.f)
-	{
-		// set up the new timer
-		FTimerData NewTimerData;
-		NewTimerData.TimerDelegate = InDelegate;
-
-		InternalSetTimer(NewTimerData, InRate, InbLoop, InFirstDelay);
-	}
-}
-
 void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
 {
+	SCOPE_CYCLE_COUNTER(STAT_SetTimer);
+
 	// not currently threadsafe
 	check(IsInGameThread());
 
@@ -273,21 +219,10 @@ void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InD
 	ActiveTimerHeap.HeapPush(NewTimerData);
 }
 
-void FTimerManager::DEPRECATED_InternalClearTimer(FTimerUnifiedDelegate const& InDelegate)
-{
-	// not currently threadsafe
-	check(IsInGameThread());
-
-	int32 TimerIdx;
-	FTimerData const* const TimerData = DEPRECATED_FindTimer(InDelegate, &TimerIdx);
-	if (TimerData)
-	{
-		InternalClearTimer(TimerIdx, TimerData->Status);
-	}
-}
-
 void FTimerManager::InternalClearTimer(FTimerHandle const& InHandle)
 {
+	SCOPE_CYCLE_COUNTER(STAT_ClearTimer);
+
 	// not currently threadsafe
 	check(IsInGameThread());
 
@@ -310,15 +245,15 @@ void FTimerManager::InternalClearTimer(int32 TimerIdx, ETimerStatus TimerStatus)
 	switch (TimerStatus)
 	{
 		case ETimerStatus::Pending:
-			PendingTimerList.RemoveAtSwap(TimerIdx);
+			PendingTimerList.RemoveAtSwap(TimerIdx, 1, /*bAllowShrinking=*/ false);
 			break;
 
 		case ETimerStatus::Active:
-			ActiveTimerHeap.HeapRemoveAt(TimerIdx);
+			ActiveTimerHeap.HeapRemoveAt(TimerIdx, /*bAllowShrinking=*/ false);
 			break;
 
 		case ETimerStatus::Paused:
-			PausedTimerList.RemoveAtSwap(TimerIdx);
+			PausedTimerList.RemoveAtSwap(TimerIdx, 1, /*bAllowShrinking=*/ false);
 			break;
 
 		case ETimerStatus::Executing:
@@ -346,7 +281,7 @@ void FTimerManager::InternalClearAllTimers(void const* Object)
 			{
 				// remove this item
 				// this will break the heap property, but we will re-heapify afterward
-				ActiveTimerHeap.RemoveAtSwap(Idx--);
+				ActiveTimerHeap.RemoveAtSwap(Idx--, 1, /*bAllowShrinking=*/ false);
 			}
 		}
 		if (OldActiveHeapSize != ActiveTimerHeap.Num())
@@ -360,7 +295,7 @@ void FTimerManager::InternalClearAllTimers(void const* Object)
 		{
 			if (PausedTimerList[Idx].TimerDelegate.IsBoundToObject(Object))
 			{
-				PausedTimerList.RemoveAtSwap(Idx--);
+				PausedTimerList.RemoveAtSwap(Idx--, 1, /*bAllowShrinking=*/ false);
 			}
 		}
 
@@ -369,7 +304,7 @@ void FTimerManager::InternalClearAllTimers(void const* Object)
 		{
 			if (PendingTimerList[Idx].TimerDelegate.IsBoundToObject(Object))
 			{
-				PendingTimerList.RemoveAtSwap(Idx--);
+				PendingTimerList.RemoveAtSwap(Idx--, 1, /*bAllowShrinking=*/ false);
 			}
 		}
 
@@ -448,19 +383,22 @@ void FTimerManager::InternalPauseTimer( FTimerData const* TimerToPause, int32 Ti
 			FTimerData& NewTimer = PausedTimerList[NewIndex];
 			NewTimer.Status = ETimerStatus::Paused;
 
-			// Store time remaining in ExpireTime while paused
-			NewTimer.ExpireTime = NewTimer.ExpireTime - InternalTime;
+			// Store time remaining in ExpireTime while paused. Don't do this if the timer is in the pending list.
+			if (PreviousStatus != ETimerStatus::Pending)
+			{
+				NewTimer.ExpireTime = NewTimer.ExpireTime - InternalTime;
+			}
 		}
 
 		// Remove from previous TArray
 		switch( PreviousStatus )
 		{
 			case ETimerStatus::Active:
-				ActiveTimerHeap.HeapRemoveAt(TimerIdx);
+				ActiveTimerHeap.HeapRemoveAt(TimerIdx, /*bAllowShrinking=*/ false);
 				break;
 
 			case ETimerStatus::Pending:
-				PendingTimerList.RemoveAtSwap(TimerIdx);
+				PendingTimerList.RemoveAtSwap(TimerIdx, 1, /*bAllowShrinking=*/ false);
 				break;
 
 			case ETimerStatus::Executing:
@@ -498,7 +436,7 @@ void FTimerManager::InternalUnPauseTimer(int32 PausedTimerIdx)
 		}
 
 		// remove from paused list
-		PausedTimerList.RemoveAtSwap(PausedTimerIdx);
+		PausedTimerList.RemoveAtSwap(PausedTimerIdx, 1, /*bAllowShrinking=*/ false);
 	}
 }
 
@@ -506,10 +444,19 @@ void FTimerManager::InternalUnPauseTimer(int32 PausedTimerIdx)
 // Public members
 // ---------------------------------
 
+DECLARE_DWORD_COUNTER_STAT(TEXT("TimerManager Heap Size"),STAT_NumHeapEntries,STATGROUP_Game);
+
 void FTimerManager::Tick(float DeltaTime)
 {
 	// @todo, might need to handle long-running case
 	// (e.g. every X seconds, renormalize to InternalTime = 0)
+
+	INC_DWORD_STAT_BY(STAT_NumHeapEntries, ActiveTimerHeap.Num());
+
+	if (HasBeenTickedThisFrame())
+	{
+		return;
+	}
 
 	InternalTime += DeltaTime;
 
@@ -521,7 +468,7 @@ void FTimerManager::Tick(float DeltaTime)
 			// Timer has expired! Fire the delegate, then handle potential looping.
 
 			// Remove it from the heap and store it while we're executing
-			ActiveTimerHeap.HeapPop(CurrentlyExecutingTimer);
+			ActiveTimerHeap.HeapPop(CurrentlyExecutingTimer, /*bAllowShrinking=*/ false);
 			CurrentlyExecutingTimer.Status = ETimerStatus::Executing;
 
 			// Determine how many times the timer may have elapsed (e.g. for large DeltaTime on a short looping timer)
@@ -577,7 +524,7 @@ void FTimerManager::Tick(float DeltaTime)
 			TimerToActivate.Status = ETimerStatus::Active;
 			ActiveTimerHeap.HeapPush( TimerToActivate );
 		}
-		PendingTimerList.Empty();
+		PendingTimerList.Reset();
 	}
 }
 
@@ -585,3 +532,45 @@ TStatId FTimerManager::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(FTimerManager, STATGROUP_Tickables);
 }
+
+void FTimerManager::ListTimers() const
+{
+	UE_LOG(LogEngine, Log, TEXT("------- %d Active Timers -------"), ActiveTimerHeap.Num());
+	for(const FTimerData& Data : ActiveTimerHeap)
+	{
+		FString TimerString = Data.TimerDelegate.ToString();
+		UE_LOG(LogEngine, Log, TEXT("%s"), *TimerString);
+	}
+
+	UE_LOG(LogEngine, Log, TEXT("------- %d Paused Timers -------"), PausedTimerList.Num());
+	for (const FTimerData& Data : PausedTimerList)
+	{
+		FString TimerString = Data.TimerDelegate.ToString();
+		UE_LOG(LogEngine, Log, TEXT("%s"), *TimerString);
+	}
+
+	UE_LOG(LogEngine, Log, TEXT("------- %d Pending Timers -------"), PendingTimerList.Num());
+	for (const FTimerData& Data : PendingTimerList)
+	{
+		FString TimerString = Data.TimerDelegate.ToString();
+		UE_LOG(LogEngine, Log, TEXT("%s"), *TimerString);
+	}
+
+	UE_LOG(LogEngine, Log, TEXT("------- %d Total Timers -------"), PendingTimerList.Num() + PausedTimerList.Num() + ActiveTimerHeap.Num());
+}
+
+// Handler for ListTimers console command
+static void OnListTimers(UWorld* World)
+{
+	if(World != nullptr)
+	{
+		World->GetTimerManager().ListTimers();
+	}
+}
+
+// Register ListTimers console command, needs a World context
+FAutoConsoleCommandWithWorld ListTimersConsoleCommand(
+	TEXT("ListTimers"),
+	TEXT(""),
+	FConsoleCommandWithWorldDelegate::CreateStatic(OnListTimers)
+	);

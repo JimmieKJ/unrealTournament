@@ -224,7 +224,7 @@ void FCurveEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		int32 MinY = FMath::Min(BoxStartY, BoxEndY);
 		int32 MaxX = FMath::Max(BoxStartX, BoxEndX);
 		int32 MaxY = FMath::Max(BoxStartY, BoxEndY);
-		FCanvasBoxItem BoxItem( FVector2D(MinX, MinY), FVector2D(BoxEndX-BoxStartX, BoxEndY-BoxStartY) );
+		FCanvasBoxItem BoxItem( FVector2D(MinX, MinY), FVector2D(MaxX-MinX, MaxY-MinY) );
 		BoxItem.SetColor( FLinearColor::Red );
 		Canvas->DrawItem( BoxItem );
 	}
@@ -624,15 +624,7 @@ bool FCurveEditorViewportClient::InputKey(FViewport* Viewport, int32 ControllerI
 		{
 			if(!bBoxSelecting && !bBegunMoving && !bDraggingHandle)
 			{
-				CurveEditorPtr.Pin()->OnFitToAll();
-			}
-			bHandled = true;
-		}
-		else if ((Key == EKeys::D) && bCtrlDown)
-		{
-			if(!bBoxSelecting && !bBegunMoving && !bDraggingHandle)
-			{
-				CurveEditorPtr.Pin()->OnFitToSelected();
+				CurveEditorPtr.Pin()->OnFit();
 			}
 			bHandled = true;
 		}
@@ -817,19 +809,23 @@ void FCurveEditorViewportClient::Exec(const TCHAR* Cmd)
 		{
 			CurveEditorPtr.Pin()->OnFitVertically();
 		}
-		else if(FParse::Command(&Str, TEXT("FitViewToAll")))
+		// Multiple commands to support backwards compat. with old selected/all code paths
+		else if(FParse::Command(&Str, TEXT("FitViewToAll")) ||
+				FParse::Command(&Str, TEXT("FitViewToSelected")) ||
+				FParse::Command(&Str, TEXT("FitView")))
 		{
-			CurveEditorPtr.Pin()->OnFitToAll();
-		}
-		else if(FParse::Command(&Str, TEXT("FitViewToSelected")))
-		{
-			CurveEditorPtr.Pin()->OnFitToSelected();
+			CurveEditorPtr.Pin()->OnFit();
 		}
 	}
 }
 
 float FCurveEditorViewportClient::GetViewportVerticalScrollBarRatio() const
 {
+	if (SharedData->LabelContentBoxHeight == 0.0f)
+	{
+		return 1.0f;
+	}
+
 	float WidgetHeight = 1.0f;
 	if (CurveEditorViewportPtr.Pin()->GetVerticalScrollBar().IsValid())
 	{
@@ -1106,7 +1102,7 @@ void FCurveEditorViewportClient::DrawEntry(FViewport* Viewport, FCanvas* Canvas,
 			FCurveEditorSelectedKey TestKey(CurveIndex, SubIdx, KeyIdx);
 			bool bSelectedKey = SharedData->SelectedKeys.Contains(TestKey);
 			FColor BorderColor = EdInterface->GetKeyColor(SubIdx, KeyIdx, Entry.CurveColor);
-			FColor CenterColor = bSelectedKey ? (FColor)SelectedKeyColor : Entry.CurveColor;
+			FColor CenterColor = bSelectedKey ? SelectedKeyColor.ToFColor(true) : Entry.CurveColor;
 
 			if(Canvas->IsHitTesting()) Canvas->SetHitProxy(new HCurveEditorKeyProxy(CurveIndex, SubIdx, KeyIdx));
 			Canvas->DrawTile( NewKeyPos.X-3, NewKeyPos.Y-3, 7, 7, 0.f, 0.f, 1.f, 1.f, BorderColor);
@@ -1278,26 +1274,29 @@ void FCurveEditorViewportClient::DrawGrid(FViewport* Viewport, FCanvas* Canvas)
 		AuxFrameStep = CurveEditor::CalculateBestFrameStep(InSnapAmount, PixelsPerIn, 6);
 	}
 
+	const static FLinearColor NormalLine(FColor(80, 80, 80));
+	const static FLinearColor ImportantLine(FColor(110, 110, 110));
+
 	// Draw input grid
 	FCanvasLineItem LineItem;
 	int32 InNum = FMath::FloorToInt(SharedData->StartIn/InGridSpacing);
-	while(InNum*InGridSpacing < SharedData->EndIn)
+	while(InNum * InGridSpacing < SharedData->EndIn)
 	{
-		FColor LineColor = GridColor;
+		FLinearColor LineColor = GridColor;
 
 		// Change line color for important frames.
 		if (bSnapToFrames)
 		{
-			LineColor = FColor(80,80,80);
+			LineColor = NormalLine;
 			if (InNum % FrameStep == 0)
 			{
-				LineColor = FColor(110,110,110);
+				LineColor = ImportantLine;
 			}
 		}
 
 		// Draw grid line.
 		// In frames mode auxiliary lines cannot be too close.
-		FIntPoint GridPos = CalcScreenPos(FVector2D(InNum*InGridSpacing, 0.f));		
+		FIntPoint GridPos = CalcScreenPos(FVector2D(InNum * InGridSpacing, 0.f));		
 		if (!bSnapToFrames || (FMath::Abs(InNum) % AuxFrameStep == 0))
 		{
 			LineItem.SetColor( LineColor );

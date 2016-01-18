@@ -30,8 +30,8 @@ public:
 	virtual void SetEnabled(bool bShouldBeEnabled) override;
 	virtual void SetSupport(const int32 ClusterIndex) override;
 	virtual bool IsSupported(const int32 ClusterIndex) const override;
-	virtual void SetTestType( const uint8 TestType ) override;
-	virtual uint8 GetTestType( ) const override;
+	virtual void SetTestFlags(const uint32 TestFlags) override;
+	virtual uint32 GetTestFlags( ) const override;
 	virtual const bool IsParent( ) override;
 	virtual const bool IsSmokeTest( ) override;
 	virtual bool SetFilter( TSharedPtr< AutomationFilterCollection > InFilter, const bool ParentPassedFilter = false ) override;

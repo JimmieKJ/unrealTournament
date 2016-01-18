@@ -49,11 +49,11 @@ int32 SColorBlock::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 	{
 		FLinearColor NormalizedLinearColor = InColor / MaxRGB;
 		NormalizedLinearColor.A = InColor.A;
-		const FColor DrawNormalizedColor = InWidgetStyle.GetColorAndOpacityTint() * NormalizedLinearColor.ToFColor(bUseSRGB.Get());
+		const FLinearColor DrawNormalizedColor = InWidgetStyle.GetColorAndOpacityTint() * NormalizedLinearColor.ToFColor(bUseSRGB.Get());
 
 		FLinearColor ClampedLinearColor = InColor;
 		ClampedLinearColor.A = InColor.A * MaxRGB;
-		const FColor DrawClampedColor = InWidgetStyle.GetColorAndOpacityTint() * ClampedLinearColor.ToFColor(bUseSRGB.Get());
+		const FLinearColor DrawClampedColor = InWidgetStyle.GetColorAndOpacityTint() * ClampedLinearColor.ToFColor(bUseSRGB.Get());
 
 		TArray<FSlateGradientStop> GradientStops;
 		

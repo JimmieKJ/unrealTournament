@@ -45,7 +45,7 @@ float CalcSimpleLightAttenuation(float3 WorldPosition)
 void SimpleLightInjectMainPS(
 	FWriteToSliceGeometryOutput Input,
 	out float4 OutColor0 : SV_Target0,
-	out float3 OutColor1 : SV_Target1
+	out float4 OutColor1 : SV_Target1
 	)
 {
 	OutColor0 = 0;
@@ -75,7 +75,7 @@ void SimpleLightInjectMainPS(
 	float3 Coefficient0 = float3(SHLighting.R.V.y, SHLighting.G.V.y, SHLighting.B.V.y);
 	float3 Coefficient1 = float3(SHLighting.R.V.z, SHLighting.G.V.z, SHLighting.B.V.z);
 	float3 Coefficient2 = float3(SHLighting.R.V.w, SHLighting.G.V.w, SHLighting.B.V.w);
-	OutColor1 = float3(dot(Coefficient0, LuminanceWeights), dot(Coefficient1, LuminanceWeights), dot(Coefficient2, LuminanceWeights));
+	OutColor1 = float4(dot(Coefficient0, LuminanceWeights), dot(Coefficient1, LuminanceWeights), dot(Coefficient2, LuminanceWeights), 0);
 }
 
 #if INJECTION_PIXEL_SHADER
@@ -110,15 +110,15 @@ SamplerState StaticShadowDepthTextureSampler;
 /** Transform used for static shadowing by spot and directional lights. */
 float4x4 WorldToStaticShadowMatrix;
 
-float GetLightFunctionShadowFactor(float3 WorldPositionForLighting)
+float GetLightFunctionShadowFactor(float3 AbsoluteWorldPositionForLighting)
 {
 	float ShadowFactor = 1;
 
 	// Apply light function after edge fading, so that a black light function at the edges can cause distant translucency to also be black
 	#if APPLY_LIGHT_FUNCTION
-		float4 LightVector = mul(float4(WorldPositionForLighting, 1),LightFunctionWorldToLight);
+		float4 LightVector = mul(float4(AbsoluteWorldPositionForLighting, 1),LightFunctionWorldToLight);
 		LightVector.xyz /= LightVector.w;
-		float3 LightFunction = GetLightFunctionColor(LightVector.xyz, WorldPositionForLighting);
+		float3 LightFunction = GetLightFunctionColor(LightVector.xyz, AbsoluteWorldPositionForLighting);
 
 		// We only suport monochrome light functions
 		ShadowFactor = dot(LightFunction, .3333f).x;
@@ -204,7 +204,7 @@ float ComputeVolumeShadowing(float3 WorldPositionForLighting)
 
 		// fade shadows in the distance
 		#if !RADIAL_ATTENUATION 
-			float Depth = dot(WorldPositionForLighting - View.ViewOrigin.xyz, View.ViewForward);
+			float Depth = dot(WorldPositionForLighting - View.WorldCameraOrigin, View.ViewForward);
 			float DistanceFade = saturate(Depth * ShadowInjectParams.z + ShadowInjectParams.w);
 			DynamicShadowFactor = lerp(DynamicShadowFactor, 1.0f, DistanceFade * DistanceFade);
 		#endif
@@ -221,7 +221,7 @@ float ComputeVolumeShadowing(float3 WorldPositionForLighting)
 void InjectMainPS(
 	FWriteToSliceGeometryOutput Input,
 	out float4 OutColor0 : SV_Target0,
-	out float3 OutColor1 : SV_Target1
+	out float4 OutColor1 : SV_Target1
 	)
 {
 	OutColor0 = 0;
@@ -322,7 +322,7 @@ void InjectMainPS(
 		float3 Coefficient0 = float3(SHLighting.R.V.y, SHLighting.G.V.y, SHLighting.B.V.y);
 		float3 Coefficient1 = float3(SHLighting.R.V.z, SHLighting.G.V.z, SHLighting.B.V.z);
 		float3 Coefficient2 = float3(SHLighting.R.V.w, SHLighting.G.V.w, SHLighting.B.V.w);
-		OutColor1 = float3(dot(Coefficient0, LuminanceWeights), dot(Coefficient1, LuminanceWeights), dot(Coefficient2, LuminanceWeights));
+		OutColor1 = float4(dot(Coefficient0, LuminanceWeights), dot(Coefficient1, LuminanceWeights), dot(Coefficient2, LuminanceWeights), 0);
 	}
 
 	// debug, make inner cascase green

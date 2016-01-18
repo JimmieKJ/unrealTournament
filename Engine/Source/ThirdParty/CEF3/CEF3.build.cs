@@ -8,7 +8,7 @@ public class CEF3 : ModuleRules
 	public CEF3(TargetInfo Target)
 	{
 		/** Mark the current version of the library */
-        string CEFVersion = "3.1750.1738";
+		string CEFVersion = "3.2357.1291.g47e6d4b";
 		string CEFPlatform = "";
 
 		Type = ModuleType.External;
@@ -23,7 +23,6 @@ public class CEF3 : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			CEFVersion = "3.2272.24.ga8ab9ad";
 			CEFPlatform = "macosx64";
 		}
 
@@ -31,37 +30,61 @@ public class CEF3 : ModuleRules
 		{
 			Definitions.Add("WITH_CEF3=1");
 
-			string PlatformPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "CEF3/cef_binary_" + CEFVersion + "_" + CEFPlatform;
+			string PlatformPath = Path.Combine(UEBuildConfiguration.UEThirdPartySourceDirectory, "CEF3", "cef_binary_" + CEFVersion + "_" + CEFPlatform);
 
-			PublicIncludePaths.Add(PlatformPath);
+			PublicSystemIncludePaths.Add(PlatformPath);
 
-			string LibraryPath = PlatformPath + "/Release";
+			string LibraryPath = Path.Combine(PlatformPath, "Release");
+            string RuntimePath = Path.Combine(UEBuildConfiguration.UEThirdPartyBinariesDirectory , "CEF3", Target.Platform.ToString());
 
 			if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
 			{
-				PublicLibraryPaths.Add(LibraryPath);
+                PublicLibraryPaths.Add(LibraryPath);
+                PublicAdditionalLibraries.Add("libcef.lib");
 
-				//PublicAdditionalLibraries.Add("cef_sandbox.lib");
-				PublicAdditionalLibraries.Add("libcef.lib");
-				if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
+                // There are different versions of the C++ wrapper lib depending on the version of VS we're using
+                string VSVersionFolderName = "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName();
+                string WrapperLibraryPath = Path.Combine(PlatformPath, VSVersionFolderName, "libcef_dll", "Release");
+
+                PublicLibraryPaths.Add(WrapperLibraryPath);
+                PublicAdditionalLibraries.Add("libcef_dll_wrapper.lib");
+                
+                string[] Dlls = {
+                    "d3dcompiler_43.dll",
+                    "d3dcompiler_47.dll",
+                    "ffmpegsumo.dll",
+                    "libcef.dll",
+                    "libEGL.dll",
+                    "libGLESv2.dll",
+                };
+
+				PublicDelayLoadDLLs.AddRange(Dlls);
+
+                // Add the runtime dlls to the build receipt
+                foreach (string Dll in Dlls)
+                {
+                    RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/CEF3/" + Target.Platform.ToString() + "/" + Dll));
+                }
+                // We also need the icu translations table required by CEF
+                RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/CEF3/" + Target.Platform.ToString() + "/icudtl.dat"));
+
+				// Add the V8 binary data files as well
+                RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/CEF3/" + Target.Platform.ToString() + "/natives_blob.bin"));
+                RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/CEF3/" + Target.Platform.ToString() + "/snapshot_blob.bin"));
+
+				// For Win32 builds, we need a helper executable when running under WOW (32 bit apps under 64 bit windows)
+				if (Target.Platform == UnrealTargetPlatform.Win32)
 				{
-					PublicAdditionalLibraries.Add("libcef_dll_wrapperD.lib");
-				}
-				else
-				{
-					PublicAdditionalLibraries.Add("libcef_dll_wrapper.lib");
+					RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/CEF3/Win32/wow_helper.exe"));
 				}
 
-                PublicDelayLoadDLLs.Add("d3dcompiler_43.dll");
-                PublicDelayLoadDLLs.Add("d3dcompiler_46.dll");
-                PublicDelayLoadDLLs.Add("ffmpegsumo.dll");
-                PublicDelayLoadDLLs.Add("icudt.dll");
-                PublicDelayLoadDLLs.Add("libcef.dll");
-                PublicDelayLoadDLLs.Add("libEGL.dll");
-                PublicDelayLoadDLLs.Add("libGLESv2.dll");
-
-				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/" + Target.Platform.ToString() + "/UnrealCEFSubProcess.exe"));
-			}
+                // And the entire Resources folder. Enunerate the entire directory instead of mentioning each file manually here.
+                foreach (string FileName in Directory.EnumerateFiles(Path.Combine(RuntimePath, "Resources"), "*", SearchOption.AllDirectories))
+                {
+                    string DependencyName = FileName.Substring(UEBuildConfiguration.UEThirdPartyBinariesDirectory.Length).Replace('\\', '/');
+                    RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/" + DependencyName));
+                }
+            }
 			// TODO: Ensure these are filled out correctly when adding other platforms
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
@@ -75,6 +98,12 @@ public class CEF3 : ModuleRules
 				foreach (var FolderName in LocaleFolders)
 				{
 					AdditionalBundleResources.Add(new UEBuildBundleResource(FolderName, bInShouldLog:false));
+				}
+
+				// Add contents of framework directory as runtime dependencies
+				foreach (string FilePath in Directory.EnumerateFiles(FrameworkPath, "*", SearchOption.AllDirectories))
+				{
+					RuntimeDependencies.Add(new RuntimeDependency(FilePath));
 				}
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Linux)

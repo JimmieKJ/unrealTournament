@@ -188,7 +188,7 @@ namespace BuildPatchServices
 		, bShouldAbort(false)
 	{
 		TFunction<void()> Task = [this]() { ReadData(); };
-		Future = Async(EAsyncExecution::Thread, Task);
+		Future = Async(EAsyncExecution::Thread, MoveTemp(Task));
 	}
 
 	FBuildStreamerImpl::~FBuildStreamerImpl()

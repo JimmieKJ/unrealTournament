@@ -774,8 +774,9 @@ bool FLevelEditorViewportClient::AttemptApplyObjAsMaterialToSurface( UObject* Ob
 
 				Model->ModifySurf(SelectedSurfIndex, true);
 				Model->Surfs[SelectedSurfIndex].Material = DroppedObjAsMaterial;
-				GEditor->polyUpdateMaster(Model, SelectedSurfIndex, false);
-			
+				const bool bUpdateTexCoords = false;
+				const bool bOnlyRefreshSurfaceMaterials = true;
+				GEditor->polyUpdateMaster(Model, SelectedSurfIndex, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 			}
 
 			bResult = true;
@@ -952,9 +953,9 @@ bool FLevelEditorViewportClient::DropObjectsOnWidget(FSceneView* View, FViewport
 	const bool bOldModeWidgets1 = EngineShowFlags.ModeWidgets;
 	const bool bOldModeWidgets2 = View->Family->EngineShowFlags.ModeWidgets;
 
-	EngineShowFlags.ModeWidgets = 0;
+	EngineShowFlags.SetModeWidgets(false);
 	FSceneViewFamily* SceneViewFamily = const_cast< FSceneViewFamily* >( View->Family );
-	SceneViewFamily->EngineShowFlags.ModeWidgets = 0;
+	SceneViewFamily->EngineShowFlags.SetModeWidgets(false);
 
 	// Invalidate the hit proxy map so it will be rendered out again when GetHitProxy is called
 	Viewport->InvalidateHitProxy();
@@ -975,8 +976,8 @@ bool FLevelEditorViewportClient::DropObjectsOnWidget(FSceneView* View, FViewport
 	bResult = DropObjectsAtCoordinates(CursorPos.X, CursorPos.Y, DroppedObjects, TemporaryActors, bOnlyDropOnTarget, bCreateDropPreview);
 
 	// Restore the original flags
-	EngineShowFlags.ModeWidgets = bOldModeWidgets1;
-	SceneViewFamily->EngineShowFlags.ModeWidgets = bOldModeWidgets2;
+	EngineShowFlags.SetModeWidgets(bOldModeWidgets1);
+	SceneViewFamily->EngineShowFlags.SetModeWidgets(bOldModeWidgets2);
 
 	return bResult;
 }
@@ -1183,12 +1184,12 @@ FDropQuery FLevelEditorViewportClient::CanDropObjectsAtCoordinates(int32 MouseX,
 		if ( AssetObj->IsA( AActor::StaticClass() ) || bHasActorFactory )
 		{
 			Result.bCanDrop = true;
-			bPivotMovedIndependently = false;
+			GUnrealEd->SetPivotMovedIndependently(false);
 		}
 		else if( AssetObj->IsA( UBrushBuilder::StaticClass()) )
 		{
 			Result.bCanDrop = true;
-			bPivotMovedIndependently = false;
+			GUnrealEd->SetPivotMovedIndependently(false);
 		}
 		else
 		{
@@ -1199,7 +1200,7 @@ FDropQuery FLevelEditorViewportClient::CanDropObjectsAtCoordinates(int32 MouseX,
 				{
 					// If our asset is a material and the target is a valid recipient
 					Result.bCanDrop = true;
-					bPivotMovedIndependently = false;
+					GUnrealEd->SetPivotMovedIndependently(false);
 
 					//if ( HitProxy->IsA(HActor::StaticGetType()) )
 					//{
@@ -1244,7 +1245,7 @@ bool FLevelEditorViewportClient::DropObjectsAtCoordinates(int32 MouseX, int32 Mo
 		FSnappingUtils::SnapPointToGrid(GEditor->ClickLocation, FVector::ZeroVector);
 
 		EObjectFlags ObjectFlags = bCreateDropPreview ? RF_Transient : RF_Transactional;
-		if ( HitProxy == nullptr )
+		if (HitProxy == nullptr || HitProxy->IsA(HInstancedStaticMeshInstance::StaticGetType()))
 		{
 			bResult = DropObjectsOnBackground(Cursor, DroppedObjects, ObjectFlags, OutNewActors, bCreateDropPreview, SelectActors, FactoryToUse);
 		}
@@ -1530,6 +1531,7 @@ FLevelEditorViewportClient::FLevelEditorViewportClient(const TSharedPtr<SLevelVi
 	, bDuplicateOnNextDrag( false )
 	, bDuplicateActorsInProgress( false )
 	, bIsTrackingBrushModification( false )
+	, bOnlyMovedPivot(false)
 	, bLockedCameraView(true)
 	, bReceivedFocusRecently(false)
 	, SpriteCategoryVisibility()
@@ -1711,6 +1713,39 @@ bool FLevelEditorViewportClient::ShouldLockPitch() const
 	return FEditorViewportClient::ShouldLockPitch() || !ModeTools->GetActiveMode(FBuiltinEditorModes::EM_InterpEdit) ;
 }
 
+void FLevelEditorViewportClient::BeginCameraMovement(bool bHasMovement)
+{
+	// If there's new movement broadcast it
+	if (bHasMovement)
+	{
+		if (!bIsCameraMoving)
+		{
+			AActor* ActorLock = GetActiveActorLock().Get();
+			if (!bIsCameraMovingOnTick && ActorLock)
+			{
+				GEditor->BroadcastBeginCameraMovement(*ActorLock);
+			}
+			bIsCameraMoving = true;
+		}
+	}
+	else
+	{
+		bIsCameraMoving = false;
+	}
+}
+
+void FLevelEditorViewportClient::EndCameraMovement()
+{
+	// If there was movement and it has now stopped, broadcast it
+	if (bIsCameraMovingOnTick && !bIsCameraMoving)
+	{
+		if (AActor* ActorLock = GetActiveActorLock().Get())
+		{
+			GEditor->BroadcastEndCameraMovement(*ActorLock);
+		}
+	}
+}
+
 void FLevelEditorViewportClient::PerspectiveCameraMoved()
 {
 	// Update the locked actor (if any) from the camera
@@ -1823,9 +1858,6 @@ void FLevelEditorViewportClient::ReceivedFocus(FViewport* InViewport)
 //
 void FLevelEditorViewportClient::ProcessClick(FSceneView& View, HHitProxy* HitProxy, FKey Key, EInputEvent Event, uint32 HitX, uint32 HitY)
 {
-	// We clicked, allow the pivot to reposition itself.
-	bPivotMovedIndependently = false;
-
 	static FName ProcessClickTrace = FName(TEXT("ProcessClickTrace"));
 
 	const FViewportClick Click(&View,this,Key,Event,HitX,HitY);
@@ -1847,9 +1879,9 @@ void FLevelEditorViewportClient::ProcessClick(FSceneView& View, HHitProxy* HitPr
 			const bool bOldModeWidgets1 = EngineShowFlags.ModeWidgets;
 			const bool bOldModeWidgets2 = View.Family->EngineShowFlags.ModeWidgets;
 
-			EngineShowFlags.ModeWidgets = 0;
+			EngineShowFlags.SetModeWidgets(false);
 			FSceneViewFamily* SceneViewFamily = const_cast<FSceneViewFamily*>(View.Family);
-			SceneViewFamily->EngineShowFlags.ModeWidgets = 0;
+			SceneViewFamily->EngineShowFlags.SetModeWidgets(false);
 			bool bWasWidgetDragging = Widget->IsDragging();
 			Widget->SetDragging(false);
 
@@ -1866,8 +1898,8 @@ void FLevelEditorViewportClient::ProcessClick(FSceneView& View, HHitProxy* HitPr
 			}
 
 			// Undo the evil
-			EngineShowFlags.ModeWidgets = bOldModeWidgets1;
-			SceneViewFamily->EngineShowFlags.ModeWidgets = bOldModeWidgets2;
+			EngineShowFlags.SetModeWidgets(bOldModeWidgets1);
+			SceneViewFamily->EngineShowFlags.SetModeWidgets(bOldModeWidgets2);
 
 			Widget->SetDragging(bWasWidgetDragging);
 
@@ -1904,6 +1936,9 @@ void FLevelEditorViewportClient::ProcessClick(FSceneView& View, HHitProxy* HitPr
 			{
 				ClickHandlers::ClickActor(this, ActorHitProxy->Actor, Click, true);
 			}
+
+			// We clicked an actor, allow the pivot to reposition itself.
+//			GUnrealEd->SetPivotMovedIndependently(false);
 		}
 		else if (HitProxy->IsA(HInstancedStaticMeshInstance::StaticGetType()))
 		{
@@ -1991,9 +2026,9 @@ void FLevelEditorViewportClient::Tick(float DeltaTime)
 {
 	FEditorViewportClient::Tick(DeltaTime);
 
-	if( !bPivotMovedIndependently && GCurrentLevelEditingViewportClient == this &&
+	if (!GUnrealEd->IsPivotMovedIndependently() && GCurrentLevelEditingViewportClient == this &&
 		bIsRealtime &&
-		( Widget == NULL || !Widget->IsDragging() ) )
+		(Widget == NULL || !Widget->IsDragging()))
 	{
 		// @todo SIE: May be very expensive for lots of actors
 		GUnrealEd->UpdatePivotLocationForSelection();
@@ -2023,11 +2058,10 @@ void FLevelEditorViewportClient::Tick(float DeltaTime)
 	UpdateViewForLockedActor();
 }
 
-
 void FLevelEditorViewportClient::UpdateViewForLockedActor()
 {
 	// We can't be locked to a matinee actor if this viewport doesn't allow matinee control
-	if ( !bAllowMatineePreview && ActorLockedByMatinee.IsValid() )
+	if ( !bAllowCinematicPreview && ActorLockedByMatinee.IsValid() )
 	{
 		ActorLockedByMatinee = nullptr;
 	}
@@ -2035,38 +2069,55 @@ void FLevelEditorViewportClient::UpdateViewForLockedActor()
 	bUseControllingActorViewInfo = false;
 	ControllingActorViewInfo = FMinimalViewInfo();
 
-	const AActor* Actor = ActorLockedByMatinee.IsValid() ? ActorLockedByMatinee.Get() : ActorLockedToCamera.Get();
+	AActor* Actor = ActorLockedByMatinee.IsValid() ? ActorLockedByMatinee.Get() : ActorLockedToCamera.Get();
 	if( Actor != NULL )
 	{
-		// Update transform
-		if( Actor->GetAttachParentActor() != NULL )
+		// Check if the viewport is transitioning
+		FViewportCameraTransform& ViewTransform = GetViewTransform();
+		if (!ViewTransform.IsPlaying())
 		{
-			// Actor is parented, so use the actor to world matrix for translation and rotation information.
-			SetViewLocation( Actor->GetActorLocation() );
-			SetViewRotation( Actor->GetActorRotation() );				
-		}
-		else if( Actor->GetRootComponent() != NULL )
-		{
-			// No attachment, so just use the relative location, so that we don't need to
-			// convert from a quaternion, which loses winding information.
-			SetViewLocation( Actor->GetRootComponent()->RelativeLocation );
-			SetViewRotation( Actor->GetRootComponent()->RelativeRotation );
-		}
-
-		if( bLockedCameraView )
-		{
-			// If this is a camera actor, then inherit some other settings
-			UCameraComponent* CameraComponent = Actor->FindComponentByClass<UCameraComponent>();
-			if( CameraComponent != NULL )
+			// Update transform
+			if (Actor->GetAttachParentActor() != NULL)
 			{
-				bUseControllingActorViewInfo = true;
-				CameraComponent->GetCameraView(0.0f, ControllingActorViewInfo);
+				// Actor is parented, so use the actor to world matrix for translation and rotation information.
+				SetViewLocation(Actor->GetActorLocation());
+				SetViewRotation(Actor->GetActorRotation());
+			}
+			else if (Actor->GetRootComponent() != NULL)
+			{
+				// No attachment, so just use the relative location, so that we don't need to
+				// convert from a quaternion, which loses winding information.
+				SetViewLocation(Actor->GetRootComponent()->RelativeLocation);
+				SetViewRotation(Actor->GetRootComponent()->RelativeRotation);
+			}
 
-				// Post processing is handled by OverridePostProcessingSettings
-				ViewFOV = ControllingActorViewInfo.FOV;
-				AspectRatio = ControllingActorViewInfo.AspectRatio;
-				SetViewLocation(ControllingActorViewInfo.Location);
-				SetViewRotation(ControllingActorViewInfo.Rotation);
+			if (bLockedCameraView)
+			{
+				// If this is a camera actor, then inherit some other settings
+				TArray<UCameraComponent*> CamComps;
+				Actor->GetComponents<UCameraComponent>(CamComps);
+
+				UCameraComponent* CameraComponent = nullptr;
+				for (UCameraComponent* Comp : CamComps)
+				{
+					if (Comp->bIsActive)
+					{
+						CameraComponent = Comp;
+						break;
+					}
+				}
+
+				if (CameraComponent != NULL)
+				{
+					bUseControllingActorViewInfo = true;
+					CameraComponent->GetCameraView(0.0f, ControllingActorViewInfo);
+
+					// Post processing is handled by OverridePostProcessingSettings
+					ViewFOV = ControllingActorViewInfo.FOV;
+					AspectRatio = ControllingActorViewInfo.AspectRatio;
+					SetViewLocation(ControllingActorViewInfo.Location);
+					SetViewRotation(ControllingActorViewInfo.Rotation);
+				}
 			}
 		}
 	}
@@ -2255,7 +2306,9 @@ bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* Viewport, EAxisList
 						{
 							// Widget hasn't been dragged since ALT+LMB went down.
 							bDuplicateOnNextDrag = false;
+							ABrush::SetSuppressBSPRegeneration(true);
 							GEditor->edactDuplicateSelected(GetWorld()->GetCurrentLevel(), false);
+							ABrush::SetSuppressBSPRegeneration(false);
 						}
 					}
 				}
@@ -2294,7 +2347,8 @@ bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* Viewport, EAxisList
 				else
 				{
 					FSnappingUtils::SnapDragLocationToNearestVertex( ModeTools->PivotLocation, Drag, this );
-					bPivotMovedIndependently = true;
+					GUnrealEd->SetPivotMovedIndependently(true);
+					bOnlyMovedPivot = true;
 				}
 
 				ModeTools->PivotLocation += Drag;
@@ -2499,6 +2553,8 @@ void FLevelEditorViewportClient::TrackingStarted( const FInputEventState& InInpu
 		}
 	}
 
+	bOnlyMovedPivot = false;
+
 	const bool bIsDraggingComponents = GEditor->GetSelectedComponentCount() > 0;
 	PreDragActorTransforms.Empty();
 	if (bIsDraggingComponents)
@@ -2641,7 +2697,7 @@ void FLevelEditorViewportClient::TrackingStopped()
 	// Finish tracking a brush transform and update the Bsp
 	if (bIsTrackingBrushModification)
 	{
-		bDidAnythingActuallyChange = HaveSelectedObjectsBeenChanged();
+		bDidAnythingActuallyChange = HaveSelectedObjectsBeenChanged() && !bOnlyMovedPivot;
 
 		bIsTrackingBrushModification = false;
 		if ( bDidAnythingActuallyChange && bWidgetAxisControlledByDrag )
@@ -2680,7 +2736,7 @@ void FLevelEditorViewportClient::TrackingStopped()
 			GEditor->BroadcastEndObjectMovement(*Actor);
 		}
 
-		if (!bPivotMovedIndependently)
+		if (!GUnrealEd->IsPivotMovedIndependently())
 		{
 			GUnrealEd->UpdatePivotLocationForSelection();
 		}
@@ -2736,7 +2792,7 @@ void FLevelEditorViewportClient::HandleViewportSettingChanged(FName PropertyName
 {
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, bUseSelectionOutline))
 	{
-		EngineShowFlags.SelectionOutline = GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline;
+		EngineShowFlags.SetSelectionOutline(GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline);
 	}
 }
 
@@ -3261,7 +3317,7 @@ static float CheckScaleValue( float ScaleDeltaToCheck, float CurrentScaleFactor,
 		AbsoluteScaleValue = FMath::GridSnap( AbsoluteScaleValue, GEditor->GetScaleGridSize() );
 	}
 	// In some situations CurrentExtent can be 0 (eg: when scaling a plane in Z), this causes a divide by 0 that we need to avoid.
-	if(CurrentExtent < KINDA_SMALL_NUMBER) {
+	if(FMath::Abs(CurrentExtent) < KINDA_SMALL_NUMBER) {
 		return AbsoluteScaleValue;
 	}
 	float UnscaledExtent = CurrentExtent / CurrentScaleFactor;
@@ -3281,30 +3337,77 @@ static float CheckScaleValue( float ScaleDeltaToCheck, float CurrentScaleFactor,
 	return AbsoluteScaleValue;
 }
 
-/** 
- * Helper function for ValidateScale().
- * If the setting is enabled, this function will appropriately re-scale the scale delta so that 
- * proportions are preserved when snapping.
- * @param	CurrentScale	The object's current scale
- * @param	bActiveAxes		The axes that are active when scaling interactively.
- * @param	InOutScaleDelta	The scale delta we are potentially transforming.
- * @return true if the axes should be snapped individually, according to the snap setting (i.e. this function had no effect)
- */
-static bool OptionallyPreserveNonUniformScale(const FVector& InCurrentScale, const bool bActiveAxes[3], FVector& InOutScaleDelta)
+/**
+* Helper function for ValidateScale().
+* If the "PreserveNonUniformScale" setting is enabled, this function will appropriately re-scale the scale delta so that
+* proportions are preserved also when snapping.
+* This function will modify the scale delta sign so that scaling is apply in the good direction when using multiple axis in same time.
+* The function will not transform the scale delta in the case the scale delta is not uniform
+* @param    InOriginalPreDragScale		The object's original scale
+* @param	bActiveAxes					The axes that are active when scaling interactively.
+* @param	InOutScaleDelta				The scale delta we are potentially transforming.
+* @return true if the axes should be snapped individually, according to the snap setting (i.e. this function had no effect)
+*/
+static bool ApplyScalingOptions(const FVector& InOriginalPreDragScale, const bool bActiveAxes[3], FVector& InOutScaleDelta)
 {
+	int ActiveAxisCount = 0;
+	bool CurrentValueSameSign = true;
+	bool FirstSignPositive = true;
+	float MaxComponentSum = -1.0f;
+	int32 MaxAxisIndex = -1;
 	const ULevelEditorViewportSettings* ViewportSettings = GetDefault<ULevelEditorViewportSettings>();
+	bool SnapScaleAfter = ViewportSettings->SnapScaleEnabled;
 
-	if(ViewportSettings->SnapScaleEnabled && ViewportSettings->PreserveNonUniformScale)
+	//Found the number of active axis
+	//Found if we have to swap some sign
+	for (int Axis = 0; Axis < 3; ++Axis)
 	{
-		// when using 'auto-precision', we take the max component & snap its scale, then proportionally scale the other components
-		float MaxComponentSum = -1.0f;
-		int32 MaxAxisIndex = -1;
-		for( int Axis = 0; Axis < 3; ++Axis )
+		if (bActiveAxes[Axis])
 		{
-			if( bActiveAxes[Axis] ) 
+			bool CurrentValueIsZero = FMath::IsNearlyZero(InOriginalPreDragScale[Axis], SMALL_NUMBER);
+			//when the current value is zero we assume it is positive
+			bool IsCurrentValueSignPositive = CurrentValueIsZero ? true : InOriginalPreDragScale[Axis] > 0.0f;
+			if (ActiveAxisCount == 0)
 			{
-				const float AbsScale = FMath::Abs(InOutScaleDelta[Axis] + InCurrentScale[Axis]);
-				if(AbsScale > MaxComponentSum)
+				//Set the first value when we find the first active axis
+				FirstSignPositive = IsCurrentValueSignPositive;
+			}
+			else
+			{
+				if (FirstSignPositive != IsCurrentValueSignPositive)
+				{
+					CurrentValueSameSign = false;
+				}
+			}
+			ActiveAxisCount++;
+		}
+	}
+
+	//If we scale more then one axis and
+	//we have to swap some sign
+	if (ActiveAxisCount > 1 && !CurrentValueSameSign)
+	{
+		//Change the scale delta to reflect the sign of the value
+		for (int Axis = 0; Axis < 3; ++Axis)
+		{
+			if (bActiveAxes[Axis])
+			{
+				bool CurrentValueIsZero = FMath::IsNearlyZero(InOriginalPreDragScale[Axis], SMALL_NUMBER);
+				//when the current value is zero we assume it is positive
+				bool IsCurrentValueSignPositive = CurrentValueIsZero ? true : InOriginalPreDragScale[Axis] > 0.0f;
+				InOutScaleDelta[Axis] = IsCurrentValueSignPositive ? InOutScaleDelta[Axis] : -(InOutScaleDelta[Axis]);
+			}
+		}
+	}
+
+	if (ViewportSettings->PreserveNonUniformScale)
+	{
+		for (int Axis = 0; Axis < 3; ++Axis)
+		{
+			if (bActiveAxes[Axis])
+			{
+				const float AbsScale = FMath::Abs(InOutScaleDelta[Axis] + InOriginalPreDragScale[Axis]);
+				if (AbsScale > MaxComponentSum)
 				{
 					MaxAxisIndex = Axis;
 					MaxComponentSum = AbsScale;
@@ -3314,38 +3417,40 @@ static bool OptionallyPreserveNonUniformScale(const FVector& InCurrentScale, con
 
 		check(MaxAxisIndex != -1);
 
-		float AbsoluteScaleValue = FMath::GridSnap( InCurrentScale[MaxAxisIndex] + InOutScaleDelta[MaxAxisIndex], GEditor->GetScaleGridSize() );
-		float ScaleRatioMax = InCurrentScale[MaxAxisIndex] == 0.0f ? 1.0f : AbsoluteScaleValue / InCurrentScale[MaxAxisIndex];
-		for( int Axis = 0; Axis < 3; ++Axis )
+		float AbsoluteScaleValue = InOriginalPreDragScale[MaxAxisIndex] + InOutScaleDelta[MaxAxisIndex];
+		if (ViewportSettings->SnapScaleEnabled)
 		{
-			if( bActiveAxes[Axis] ) 
-			{
-				if(Axis == MaxAxisIndex)
-				{
-					InOutScaleDelta[Axis] = AbsoluteScaleValue - InCurrentScale[Axis];
-				}
-				else
-				{
-					InOutScaleDelta[Axis] = (InCurrentScale[Axis] * ScaleRatioMax) - InCurrentScale[Axis];
-				}
-			}
+			AbsoluteScaleValue = FMath::GridSnap(InOriginalPreDragScale[MaxAxisIndex] + InOutScaleDelta[MaxAxisIndex], GEditor->GetScaleGridSize());
+			SnapScaleAfter = false;
 		}
 
-		return false;
+		float ScaleRatioMax = 1.0f;
+		ScaleRatioMax = AbsoluteScaleValue / InOriginalPreDragScale[MaxAxisIndex];
+		for (int Axis = 0; Axis < 3; ++Axis)
+		{
+			if (bActiveAxes[Axis])
+			{
+				InOutScaleDelta[Axis] = (InOriginalPreDragScale[Axis] * ScaleRatioMax) - InOriginalPreDragScale[Axis];
+			}
+		}
 	}
 
-	return ViewportSettings->SnapScaleEnabled;
+	
+	return SnapScaleAfter;
 }
 
+
 /** Helper function for ModifyScale - Check scale criteria to see if this is allowed */
-void FLevelEditorViewportClient::ValidateScale( const FVector& InCurrentScale, const FVector& InBoxExtent, FVector& InOutScaleDelta, bool bInCheckSmallExtent ) const
+void FLevelEditorViewportClient::ValidateScale(const FVector& InOriginalPreDragScale, const FVector& InCurrentScale, const FVector& InBoxExtent, FVector& InOutScaleDelta, bool bInCheckSmallExtent ) const
 {
 	// get the axes that are active in this operation
 	bool bActiveAxes[3];
 	CheckActiveAxes( Widget != NULL ? Widget->GetCurrentAxis() : EAxisList::None, bActiveAxes );
 
-	bool bSnapAxes = OptionallyPreserveNonUniformScale(InCurrentScale, bActiveAxes, InOutScaleDelta);
-	
+	//When scaling with more then one active axis, We must make sure we apply the correct delta sign to each delta scale axis
+	//We also want to support the PreserveNonUniformScale option
+	bool bSnapAxes = ApplyScalingOptions(InOriginalPreDragScale, bActiveAxes, InOutScaleDelta);
+
 	// check each axis
 	for( int Axis = 0; Axis < 3; ++Axis )
 	{
@@ -3369,7 +3474,14 @@ void FLevelEditorViewportClient::ModifyScale( AActor* InActor, FVector& ScaleDel
 
 		const FBox LocalBox = InActor->GetComponentsBoundingBox( true );
 		const FVector ScaledExtents = LocalBox.GetExtent() * CurrentScale;
-		ValidateScale( CurrentScale, ScaledExtents, ScaleDelta, bCheckSmallExtent );
+		const FTransform* PreDragTransform = PreDragActorTransforms.Find(InActor);
+		//In scale mode we need the predrag transform before the first delta calculation
+		if (PreDragTransform == nullptr)
+		{
+			PreDragTransform = &PreDragActorTransforms.Add(InActor, InActor->GetTransform());
+		}
+		check(PreDragTransform);
+		ValidateScale(PreDragTransform->GetScale3D(), CurrentScale, ScaledExtents, ScaleDelta, bCheckSmallExtent);
 
 		if( ScaleDelta.IsNearlyZero() )
 		{
@@ -3380,7 +3492,17 @@ void FLevelEditorViewportClient::ModifyScale( AActor* InActor, FVector& ScaleDel
 
 void FLevelEditorViewportClient::ModifyScale( USceneComponent* InComponent, FVector& ScaleDelta ) const
 {
-	ValidateScale( InComponent->RelativeScale3D, InComponent->Bounds.GetBox().GetExtent(), ScaleDelta );
+	AActor* Actor = InComponent->GetOwner();
+	const FTransform* PreDragTransform = PreDragActorTransforms.Find(Actor);
+	//In scale mode we need the predrag transform before the first delta calculation
+	if (PreDragTransform == nullptr)
+	{
+		PreDragTransform = &PreDragActorTransforms.Add(Actor, Actor->GetTransform());
+	}
+	check(PreDragTransform);
+	const FBox LocalBox = Actor->GetComponentsBoundingBox(true);
+	const FVector ScaledExtents = LocalBox.GetExtent() * InComponent->RelativeScale3D;
+	ValidateScale(PreDragTransform->GetScale3D(), InComponent->RelativeScale3D, ScaledExtents, ScaleDelta);
 
 	if( ScaleDelta.IsNearlyZero() )
 	{
@@ -3943,20 +4065,20 @@ void FLevelEditorViewportClient::SetupViewForRendering( FSceneViewFamily& ViewFa
 		}
 	}
 
-	if (ModeTools->GetActiveMode(FBuiltinEditorModes::EM_InterpEdit) == 0 || !AllowMatineePreview())
+	if (ModeTools->GetActiveMode(FBuiltinEditorModes::EM_InterpEdit) == 0 || !AllowsCinematicPreview())
 	{
 		// in the editor, disable camera motion blur and other rendering features that rely on the former frame
 		// unless the view port is Matinee controlled
 		ViewFamily.EngineShowFlags.CameraInterpolation = 0;
 		// keep the image sharp - ScreenPercentage is an optimization and should not affect the editor
-		ViewFamily.EngineShowFlags.ScreenPercentage = 0;
+		ViewFamily.EngineShowFlags.SetScreenPercentage(false);
 	}
 
 	TSharedPtr<FDragDropOperation> DragOperation = FSlateApplication::Get().GetDragDroppingContent();
 	if (!(DragOperation.IsValid() && DragOperation->IsOfType<FBrushBuilderDragDropOp>()))
 	{
 		// Hide the builder brush when not in geometry mode
-		ViewFamily.EngineShowFlags.BuilderBrush = 0;
+		ViewFamily.EngineShowFlags.SetBuilderBrush(false);
 	}
 
 	// Update the listener.
@@ -4057,7 +4179,7 @@ void FLevelEditorViewportClient::CopyLayoutFromViewport( const FLevelEditorViewp
 	ViewportType = InViewport.ViewportType;
 	SetOrthoZoom( InViewport.GetOrthoZoom() );
 	ActorLockedToCamera = InViewport.ActorLockedToCamera;
-	bAllowMatineePreview = InViewport.bAllowMatineePreview;
+	bAllowCinematicPreview = InViewport.bAllowCinematicPreview;
 }
 
 

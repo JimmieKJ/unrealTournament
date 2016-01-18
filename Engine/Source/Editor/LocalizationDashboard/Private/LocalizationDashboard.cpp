@@ -8,7 +8,7 @@
 #include "IMainFrameModule.h"
 #include "ModuleManager.h"
 #include "SLocalizationTargetEditor.h"
-#include "LocalizationDashboardSettings.h"
+#include "LocalizationSettings.h"
 #include "LocalizationTargetTypes.h"
 #include "SSettingsEditorCheckoutNotice.h"
 
@@ -60,12 +60,12 @@ void SLocalizationDashboard::Construct(const FArguments& InArgs, const TSharedPt
 		if (SpawnTabArgs.GetTabId() == EngineTargetSetDetailsTabName)
 		{
 			DockTabLabel = LOCTEXT("EngineTargetsTabLabel", "Engine Targets");
-			TargetSet = ULocalizationDashboardSettings::GetEngineTargetSet();
+			TargetSet = ULocalizationSettings::GetEngineTargetSet();
 		}
 		else if (SpawnTabArgs.GetTabId() == ProjectTargetSetDetailsTabName)
 		{
 			DockTabLabel = LOCTEXT("ProjectTargetsTabLabel", "Project Targets");
-			TargetSet = ULocalizationDashboardSettings::GetGameTargetSet();
+			TargetSet = ULocalizationSettings::GetGameTargetSet();
 		}
 
 		const TSharedRef<SDockTab> DockTab = SNew(SDockTab)
@@ -117,7 +117,7 @@ void SLocalizationDashboard::Construct(const FArguments& InArgs, const TSharedPt
 	const TSharedRef<SWidget> MenuWidget = MainFrameModule.MakeMainMenu( TabManager, MenuExtender );
 
 	FString ConfigFilePath;
-	ConfigFilePath = GetDefault<ULocalizationDashboardSettings>()->GetDefaultConfigFilename();
+	ConfigFilePath = GetDefault<ULocalizationSettings>()->GetDefaultConfigFilename();
 	ConfigFilePath = FPaths::ConvertRelativePathToFull(ConfigFilePath);
 
 	ChildSlot
@@ -240,7 +240,7 @@ void FLocalizationDashboard::RegisterTabSpawner()
 		return DockTab;
 	};
 
-	FGlobalTabmanager::Get()->RegisterTabSpawner(TabName, FOnSpawnTab::CreateLambda( TFunction<TSharedRef<SDockTab> (const FSpawnTabArgs&)>(SpawnMainTab) ) )
+	FGlobalTabmanager::Get()->RegisterTabSpawner(TabName, FOnSpawnTab::CreateLambda( MoveTemp(SpawnMainTab) ) )
 		.SetDisplayName(LOCTEXT("MainTabTitle", "Localization Dashboard"));
 }
 

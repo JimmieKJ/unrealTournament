@@ -9,6 +9,8 @@
 #include "MessageLogModule.h"
 #include "SHyperlink.h"
 
+#define LOCTEXT_NAMESPACE "ReimportContext"
+
 class SWidgetStack : public SVerticalBox
 {
 	SLATE_BEGIN_ARGS(SWidgetStack){}
@@ -43,8 +45,6 @@ class SWidgetStack : public SVerticalBox
 	{
 		const float Lerp = SizeCurve.GetLerp();
 		FVector2D DesiredSize = ComputeTotalSize() * Lerp + StartSizeOffset * (1.f-Lerp);
-		DesiredSize.X = FMath::Min(500.f, DesiredSize.X);
-
 		return DesiredSize;
 	}
 
@@ -216,104 +216,298 @@ class SWidgetStack : public SVerticalBox
 	int32 MaxNumVisible;
 };
 
-void SReimportFeedback::Disable()
-{
-	WidgetStack->SetVisibility(EVisibility::HitTestInvisible);
-}
+class SWidgetStack;
 
-void SReimportFeedback::Add(const TSharedRef<SWidget>& Widget)
+/** Feedback context that overrides GWarn for import operations to prevent popup spam */
+class SReimportFeedback : public SCompoundWidget
 {
-	WidgetStack->Add(Widget);
-}
+public:
+	SLATE_BEGIN_ARGS(SReimportFeedback) : _ExpireDuration(3.f) {}
 
-void SReimportFeedback::SetMainText(FText InText)
-{
-	MainText = InText;
-}
+		SLATE_ARGUMENT(TWeakPtr<FReimportFeedbackContext>, FeedbackContext)
+		SLATE_ARGUMENT(float, ExpireDuration)
+		SLATE_EVENT(FSimpleDelegate, OnExpired)
 
-FText SReimportFeedback::GetMainText() const
-{
-	return MainText;
-}
+		SLATE_EVENT(FSimpleDelegate, OnPauseClicked)
+		SLATE_EVENT(FSimpleDelegate, OnAbortClicked)
 
-EVisibility SReimportFeedback::GetHyperlinkVisibility() const
-{
-	return WidgetStack->NumSlots() != 0 ? EVisibility::Visible : EVisibility::Collapsed;
-}
+	SLATE_END_ARGS()
 
-void SReimportFeedback::Construct(const FArguments& InArgs, FText InMainText)
-{
-	MainText = InMainText;
 
-	ChildSlot
-	[
-		SNew(SBorder)
-		.Padding(FMargin(10))
-		.BorderImage(FCoreStyle::Get().GetBrush("NotificationList.ItemBackground"))
+	virtual FVector2D ComputeDesiredSize(float LayoutScale) const override
+	{
+		auto Size = SCompoundWidget::ComputeDesiredSize(LayoutScale);
+		// The width is determined by the top row, plus some padding
+		Size.X = TopRow->GetDesiredSize().X + 2*20;
+		return Size;
+	}
+	/** Construct this widget */
+	void Construct(const FArguments& InArgs)
+	{
+		ExpireDuration = InArgs._ExpireDuration;
+		OnExpired = InArgs._OnExpired;
+		FeedbackContext = InArgs._FeedbackContext;
+
+		bPaused = false;
+		bExpired = false;
+
+		auto OpenMessageLog = []{
+			FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
+			MessageLogModule.OpenMessageLog("AssetReimport");
+		};
+
+		ChildSlot
 		[
-			SNew(SVerticalBox)
-
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0))
-			.AutoHeight()
+			SNew(SBorder)
+			.Padding(FMargin(10))
+			.BorderImage(FCoreStyle::Get().GetBrush("NotificationList.ItemBackground"))
 			[
-				SNew(STextBlock)
-				.Text(this, &SReimportFeedback::GetMainText)
-				.Font(FCoreStyle::Get().GetFontStyle(TEXT("NotificationList.FontBold")))
-			]
+				SNew(SVerticalBox)
 
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0, 5, 0, 0))
-			.AutoHeight()
-			[
-				SAssignNew(WidgetStack, SWidgetStack, 3)
-			]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SAssignNew(TopRow, SHorizontalBox)
 
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0, 5, 0, 0))
-			.AutoHeight()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SHyperlink)
-				.Visibility(this, &SReimportFeedback::GetHyperlinkVisibility)
-				.Text(NSLOCTEXT("ReimportContext", "OpenMessageLog", "Open message log"))
-				.TextStyle(FCoreStyle::Get(), "SmallText")
-				.OnNavigate_Lambda([]{
-					FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
-					MessageLogModule.OpenMessageLog("AssetReimport");
-				})
-			]
-		]
-	];
-}
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ProcessingChanges", "Processing source file changes..."))
+						.Font(FCoreStyle::Get().GetFontStyle(TEXT("NotificationList.FontLight")))
+					]
 
-FReimportFeedbackContext::FReimportFeedbackContext()
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.Padding(FMargin(4,0,4,0))
+					[
+						SAssignNew(PauseButton, SButton)
+						.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+						.ToolTipText(LOCTEXT("PauseTooltip", "Temporarily pause processing of these source content files"))
+						.OnClicked(this, &SReimportFeedback::OnPauseClicked, InArgs._OnPauseClicked)
+						[
+							SNew(SImage)
+							.ColorAndOpacity(FLinearColor(.8f,.8f,.8f,1.f))
+							.Image(this, &SReimportFeedback::GetPlayPauseBrush)
+						]
+					]
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					[
+						SAssignNew(AbortButton, SButton)
+						.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+						.ToolTipText(LOCTEXT("AbortTooltip", "Permanently abort processing of these source content files"))
+						.OnClicked(this, &SReimportFeedback::OnAbortClicked, InArgs._OnAbortClicked)
+						[
+							SNew(SImage)
+							.ColorAndOpacity(FLinearColor(0.8f,0.8f,0.8f,1.f))
+							.Image(FEditorStyle::GetBrush("GenericStop"))
+						]
+					]
+				]
+
+				+ SVerticalBox::Slot()
+				.Padding(FMargin(0, 1))
+				.AutoHeight()
+				[
+					SNew(SBox)
+					.HeightOverride(2)
+					[
+						SAssignNew(ProgressBar, SProgressBar)
+						.BorderPadding(FVector2D::ZeroVector)
+						.Percent( this, &SReimportFeedback::GetProgressFraction )
+						.BackgroundImage( FEditorStyle::GetBrush("ProgressBar.ThinBackground") )
+						.FillImage( FEditorStyle::GetBrush("ProgressBar.ThinFill") )
+					]
+				]
+
+				+ SVerticalBox::Slot()
+				.Padding(FMargin(0, 5, 0, 0))
+				.AutoHeight()
+				[
+					SAssignNew(WidgetStack, SWidgetStack, 3)
+				]
+
+				+ SVerticalBox::Slot()
+				.Padding(FMargin(0, 5, 0, 0))
+				.AutoHeight()
+				.HAlign(HAlign_Right)
+				[
+					SNew(SHyperlink)
+					.Visibility(this, &SReimportFeedback::GetHyperlinkVisibility)
+					.Text(LOCTEXT("OpenMessageLog", "Open message log"))
+					.TextStyle(FCoreStyle::Get(), "SmallText")
+					.OnNavigate_Lambda(OpenMessageLog)
+				]
+			]
+		];
+	}
+
+	/** Add a widget to this feedback's widget stack */
+	void Add(const TSharedRef<SWidget>& Widget)
+	{
+		WidgetStack->Add(Widget);
+	}
+
+	/** Disable input to this widget's dynamic content (except the message log hyperlink) */
+	void Disable()
+	{
+
+		ExpireTimeout = DirectoryWatcher::FTimeLimit(ExpireDuration);
+
+		WidgetStack->SetVisibility(EVisibility::HitTestInvisible);
+		PauseButton->SetVisibility(EVisibility::Collapsed);
+		AbortButton->SetVisibility(EVisibility::Collapsed);
+		ProgressBar->SetVisibility(EVisibility::Collapsed);
+	}
+
+	/** Enable, if previously disabled */
+	void Enable()
+	{
+		ExpireTimeout = DirectoryWatcher::FTimeLimit();
+
+		bPaused = false;
+		WidgetStack->SetVisibility(EVisibility::Visible);
+		PauseButton->SetVisibility(EVisibility::Visible);
+		AbortButton->SetVisibility(EVisibility::Visible);
+		ProgressBar->SetVisibility(EVisibility::Visible);
+	}
+
+private:
+	
+	TOptional<float> GetProgressFraction() const
+	{
+		auto PinnedContext = FeedbackContext.Pin();
+		if (PinnedContext.IsValid() && PinnedContext->GetScopeStack().Num() >= 0 )
+		{
+			return PinnedContext->GetScopeStack().GetProgressFraction(0);
+		}
+		return 1.f;
+	}
+
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
+	{
+		if (bExpired)
+		{
+			return;
+		}
+		else if(ExpireTimeout.IsValid())
+		{
+			if (ExpireTimeout.Exceeded())
+			{	
+				OnExpired.ExecuteIfBound();
+				bExpired = true;
+			}
+		}
+	}
+
+	/** Get the play/pause image */
+	const FSlateBrush* GetPlayPauseBrush() const
+	{
+		return bPaused ? FEditorStyle::GetBrush("GenericPlay") : FEditorStyle::GetBrush("GenericPause");
+	}
+
+	/** Called when pause is clicked */
+	FReply OnPauseClicked(FSimpleDelegate UserOnClicked)
+	{
+		bPaused = !bPaused;
+
+		UserOnClicked.ExecuteIfBound();
+		return FReply::Handled();
+	}
+	
+	/** Called when abort is clicked */
+	FReply OnAbortClicked(FSimpleDelegate UserOnClicked)
+	{
+		//Destroy();
+		UserOnClicked.ExecuteIfBound();
+		return FReply::Handled();
+	}
+
+	/** Get the visibility of the hyperlink to open the message log */
+	EVisibility GetHyperlinkVisibility() const
+	{
+		return WidgetStack->NumSlots() != 0 ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+private:
+
+	/** The expire timeout used to fire OnExpired. Invalid when no timeout is set. */
+	DirectoryWatcher::FTimeLimit ExpireTimeout;
+
+	/** Amount of time to wait after this widget has been disabled before calling OnExpired */
+	float ExpireDuration;
+
+	/** Event that is called when this widget has been inactive and open for too long, and will fade out */
+	FSimpleDelegate OnExpired;
+
+	/** Whether we are paused and/or expired */
+	bool bPaused, bExpired;
+
+	/** The widget stack, displaying contextural information about the current state of the process */
+	TSharedPtr<SWidgetStack> WidgetStack;
+	TSharedPtr<SWidget> PauseButton, AbortButton, ProgressBar, TopRow;
+	TWeakPtr<FReimportFeedbackContext> FeedbackContext;
+};
+
+FReimportFeedbackContext::FReimportFeedbackContext(const FSimpleDelegate& InOnPauseClicked, const FSimpleDelegate& InOnAbortClicked)
 	: bSuppressSlowTaskMessages(false)
+	, OnPauseClickedEvent(InOnPauseClicked)
+	, OnAbortClickedEvent(InOnAbortClicked)
 	, MessageLog("AssetReimport")
-{}
-
-void FReimportFeedbackContext::Initialize(TSharedRef<SReimportFeedback> Widget)
 {
-	NotificationContent = Widget;
-
-	FNotificationInfo Info(SharedThis(this));
-	Info.ExpireDuration = 3.f;
-	Info.bFireAndForget = false;
-
-	Notification = FSlateNotificationManager::Get().AddNotification(Info);
-
-	MessageLog.NewPage(FText::Format(NSLOCTEXT("ReimportContext", "MessageLogPageLabel", "Outstanding source content changes {0}"), FText::AsTime(FDateTime::Now())));
 }
 
-void FReimportFeedbackContext::Destroy()
+void FReimportFeedbackContext::Show(int32 TotalWork)
 {
-	MessageLog.Notify(FText(), EMessageSeverity::Error);
+	// Important - we first destroy the old main task, then create a new one to ensure that they are (removed from/added to) the scope stack in the correct order
+	MainTask.Reset();
+	MainTask.Reset(new FScopedSlowTask(TotalWork, FText(), true, *this));
+
+	if (NotificationContent.IsValid())
+	{
+		NotificationContent->Enable();
+	}
+	else
+	{
+		NotificationContent = SNew(SReimportFeedback)
+			.FeedbackContext(AsShared())
+			.OnExpired(this, &FReimportFeedbackContext::OnNotificationExpired)
+			.OnPauseClicked(OnPauseClickedEvent)
+			.OnAbortClicked(OnAbortClickedEvent);
+
+		FNotificationInfo Info(AsShared());
+		Info.bFireAndForget = false;
+
+		Notification = FSlateNotificationManager::Get().AddNotification(Info);
+
+		MessageLog.NewPage(FText::Format(LOCTEXT("MessageLogPageLabel", "Outstanding source content changes {0}"), FText::AsTime(FDateTime::Now())));
+	}
+}
+
+void FReimportFeedbackContext::Hide()
+{
+	MainTask.Reset();
 
 	if (Notification.IsValid())
 	{
 		NotificationContent->Disable();
 		Notification->SetCompletionState(SNotificationItem::CS_Success);
-		Notification->ExpireAndFadeout();
+	}
+}
+
+void FReimportFeedbackContext::OnNotificationExpired()
+{
+	if (Notification.IsValid())
+	{
+		MessageLog.Notify(FText(), EMessageSeverity::Error);
+		Notification->Fadeout();
+
+		NotificationContent = nullptr;
+		Notification = nullptr;
 	}
 }
 
@@ -325,15 +519,49 @@ void FReimportFeedbackContext::AddMessage(EMessageSeverity::Type Severity, const
 
 void FReimportFeedbackContext::AddWidget(const TSharedRef<SWidget>& Widget)
 {
-	NotificationContent->Add(Widget);
+	if (NotificationContent.IsValid())
+	{
+		NotificationContent->Add(Widget);
+	}
+}
+
+TSharedRef<SWidget> FReimportFeedbackContext::AsWidget()
+{
+	return NotificationContent.ToSharedRef();
 }
 
 void FReimportFeedbackContext::StartSlowTask(const FText& Task, bool bShowCancelButton)
 {
 	FFeedbackContext::StartSlowTask(Task, bShowCancelButton);
 
-	if (!bSuppressSlowTaskMessages && !Task.IsEmpty())
+	if (NotificationContent.IsValid() && !bSuppressSlowTaskMessages && !Task.IsEmpty())
 	{
-		NotificationContent->Add(SNew(STextBlock).Text(Task));
+		if (SlowTaskText.IsValid())
+		{
+			SlowTaskText->SetText(FText::Format(LOCTEXT("SlowTaskPattern_Default", "{0} (0%)"), Task));
+		}
+		else
+		{
+			NotificationContent->Add(SAssignNew(SlowTaskText, STextBlock).Text(Task));
+		}
 	}
 }
+
+void FReimportFeedbackContext::ProgressReported(const float TotalProgressInterp, FText DisplayMessage)
+{
+	if (SlowTaskText.IsValid())
+	{
+		SlowTaskText->SetText(FText::Format(LOCTEXT("SlowTaskPattern", "{0} ({1}%)"), DisplayMessage, FText::AsNumber(int(TotalProgressInterp * 100))));
+	}
+}
+
+void FReimportFeedbackContext::FinalizeSlowTask()
+{
+	if (SlowTaskText.IsValid())
+	{
+		SlowTaskText->SetVisibility(EVisibility::Collapsed);
+		SlowTaskText = nullptr;
+	}
+}
+
+#undef LOCTEXT_NAMESPACE

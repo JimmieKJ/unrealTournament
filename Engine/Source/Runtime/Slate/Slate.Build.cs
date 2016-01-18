@@ -21,11 +21,14 @@ public class Slate : ModuleRules
 		if (Target.Type.Value != TargetRules.TargetType.Server && UEBuildConfiguration.bCompileFreeType)
         {
 			AddThirdPartyPrivateStaticDependencies(Target, "FreeType2");
+			AddThirdPartyPrivateStaticDependencies(Target, "HarfBuzz");
+			AddThirdPartyPrivateStaticDependencies(Target, "ICU");
 			Definitions.Add("WITH_FREETYPE=1");
 		}
 		else
 		{
 			Definitions.Add("WITH_FREETYPE=0");
+			Definitions.Add("WITH_HARFBUZZ=0");
 		}
 
 		PrivateIncludePaths.AddRange(

@@ -77,9 +77,7 @@ UAnimSequence * UEditorEngine::ImportFbxAnimation( USkeleton* Skeleton, UObject*
 			{
 				// since to know full path, reimport will need to do same
 				UFbxAnimSequenceImportData* ImportData = UFbxAnimSequenceImportData::GetImportDataForAnimSequence(NewAnimation, TemplateImportData);
-				ImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(UFactory::CurrentFilename, NewAnimation);
-				ImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*UFactory::CurrentFilename).ToString();
-				ImportData->bDirty = false;
+				ImportData->Update(UFactory::CurrentFilename);
 			}
 		}
 	}
@@ -175,7 +173,7 @@ bool UEditorEngine::ReimportFbxAnimation( USkeleton* Skeleton, UAnimSequence* An
 			//this is to make it easier for people who use content creation programs that only export one animation and/or ones that don't allow naming animations			
 			if (FbxImporter->Scene->GetSrcObjectCount(FbxCriteria::ObjectType(FbxAnimStack::ClassId)) > 1 && !ImportData->SourceAnimationName.IsEmpty())
 			{
-				CurAnimStack = FbxCast<FbxAnimStack>(FbxImporter->Scene->FindSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId), TCHAR_TO_ANSI(*ImportData->SourceAnimationName), 0));
+				CurAnimStack = FbxCast<FbxAnimStack>(FbxImporter->Scene->FindSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId), TCHAR_TO_UTF8(*ImportData->SourceAnimationName), 0));
 			}
 			else
 			{
@@ -185,7 +183,11 @@ bool UEditorEngine::ReimportFbxAnimation( USkeleton* Skeleton, UAnimSequence* An
 			if (CurAnimStack)
 			{
 				// set current anim stack
-				int32 ResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+				int32 ResampleRate = DEFAULT_SAMPLERATE;
+				if (FbxImporter->ImportOptions->bResample)
+				{
+					ResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+				}
 				FbxTimeSpan AnimTimeSpan = FbxImporter->GetAnimationTimeSpan(SortedLinks[0], CurAnimStack);
 				// for now it's not importing morph - in the future, this should be optional or saved with asset
 				if (FbxImporter->ValidateAnimStack(SortedLinks, FBXMeshNodeArray, CurAnimStack, ResampleRate, bImportMorphTracks, AnimTimeSpan))
@@ -234,7 +236,7 @@ static void ApplyUnroll(FbxNode *pNode, FbxAnimLayer* pLayer, FbxAnimCurveFilter
 		// Set bone rotation order
 		EFbxRotationOrder RotationOrder = eEulerXYZ;
 		pNode->GetRotationOrder(FbxNode::eSourcePivot, RotationOrder);
-		pUnrollFilter->SetRotationOrder(RotationOrder*2);
+		pUnrollFilter->SetRotationOrder((FbxEuler::EOrder)(RotationOrder*2));
 
 		pUnrollFilter->Apply(lRCurve, 3);
 	}
@@ -283,14 +285,14 @@ bool UnFbx::FFbxImporter::IsValidAnimationData(TArray<FbxNode*>& SortedLinks, TA
 		// debug purpose
 		for (int32 BoneIndex = 0; BoneIndex < SortedLinks.Num(); BoneIndex++)
 		{
-			FString BoneName = MakeName(SortedLinks[BoneIndex]->GetName());
+			FString BoneName = UTF8_TO_TCHAR(MakeName(SortedLinks[BoneIndex]->GetName()));
 			UE_LOG(LogFbx, Log, TEXT("SortedLinks :(%d) %s"), BoneIndex, *BoneName );
 		}
 
 		FbxTimeSpan AnimTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack);
 		if (AnimTimeSpan.GetDuration() <= 0)
 		{
-			AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("FBXImport_ZeroLength", "Animation Stack {0} does not contain any valid key. Try different time options when import."), FText::FromString(CurAnimStack->GetName()))), FFbxErrors::Animation_ZeroLength);
+			AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("FBXImport_ZeroLength", "Animation Stack {0} does not contain any valid key. Try different time options when import."), FText::FromString(UTF8_TO_TCHAR(CurAnimStack->GetName())))), FFbxErrors::Animation_ZeroLength);
 			continue;
 		}
 
@@ -342,7 +344,7 @@ void UnFbx::FFbxImporter::FillAndVerifyBoneNames(USkeleton* Skeleton, TArray<Fbx
 	// copy to the data
 	for (int32 BoneIndex = 0; BoneIndex < TrackNum; BoneIndex++)
 	{
-		OutRawBoneNames[BoneIndex] = FName(*FSkeletalMeshImportData::FixupBoneName( (ANSICHAR*)MakeName(SortedLinks[BoneIndex]->GetName()) ));
+		OutRawBoneNames[BoneIndex] = FName(*FSkeletalMeshImportData::FixupBoneName( UTF8_TO_TCHAR(MakeName(SortedLinks[BoneIndex]->GetName())) ));
 	}
 
 	const FReferenceSkeleton& RefSkeleton = Skeleton->GetReferenceSkeleton();
@@ -511,7 +513,7 @@ UAnimSequence * UnFbx::FFbxImporter::ImportAnimations(USkeleton* Skeleton, UObje
 		if (ValidTakeCount > 1)
 		{
 			SequenceName += "_";
-			SequenceName += ANSI_TO_TCHAR(CurAnimStack->GetName());
+			SequenceName += UTF8_TO_TCHAR(CurAnimStack->GetName());
 		}
 
 		// See if this sequence already exists.
@@ -545,9 +547,7 @@ UAnimSequence * UnFbx::FFbxImporter::ImportAnimations(USkeleton* Skeleton, UObje
 
 		// since to know full path, reimport will need to do same
 		UFbxAnimSequenceImportData* ImportData = UFbxAnimSequenceImportData::GetImportDataForAnimSequence(DestSeq, TemplateImportData);
-		ImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(UFactory::CurrentFilename, DestSeq);
-		ImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*UFactory::CurrentFilename).ToString();
-		ImportData->bDirty = false;
+		ImportData->Update(UFactory::CurrentFilename);
 
 		ImportAnimation(Skeleton, DestSeq, Name, SortedLinks, NodeArray, CurAnimStack, ResampleRate, AnimTimeSpan);
 
@@ -628,7 +628,7 @@ bool UnFbx::FFbxImporter::ValidateAnimStack(TArray<FbxNode*>& SortedLinks, TArra
 	// set current anim stack
 	Scene->SetCurrentAnimationStack(CurAnimStack);
 
-	UE_LOG(LogFbx, Log, TEXT("Parsing AnimStack %s"),ANSI_TO_TCHAR(CurAnimStack->GetName()));
+	UE_LOG(LogFbx, Log, TEXT("Parsing AnimStack %s"),UTF8_TO_TCHAR(CurAnimStack->GetName()));
 
 	// There are a FBX unroll filter bug, so don't bake animation layer at all
 	MergeAllLayerAnimation(CurAnimStack, ResampleRate);
@@ -699,7 +699,7 @@ bool UnFbx::FFbxImporter::ImportCurve(const FbxAnimCurve* FbxCurve, FFloatCurve 
 			FbxAnimCurveKey Key = FbxCurve->KeyGet(KeyIndex);
 			FbxTime KeyTime = Key.GetTime() - AnimTimeSpan.GetStart();
 			float Value = Key.GetValue() * ValueScale;
-			FKeyHandle NewKeyHandle = Curve->FloatCurve.AddKey(KeyTime.GetSecondDouble(), Value, true);
+			FKeyHandle NewKeyHandle = Curve->FloatCurve.AddKey(KeyTime.GetSecondDouble(), Value, false);
 
 			FbxAnimCurveDef::ETangentMode KeyTangentMode = Key.GetTangentMode();
 			FbxAnimCurveDef::EInterpolationType KeyInterpMode = Key.GetInterpolation();
@@ -742,17 +742,21 @@ bool UnFbx::FFbxImporter::ImportCurve(const FbxAnimCurve* FbxCurve, FFloatCurve 
 				break;
 			}
 
+			// break or any other tangent mode doesn't work well with DCC
+			// it's because we don't support tangent weights, break with tangent weights won't work
+			// I added new ticket to support this, but meanwhile, we'll have to just import using auto. 
+			// @Todo: fix me: UE-20414
 			// when we import tangent, we only support break or user
 			// since it's modified by DCC and we only assume these two are valid
 			// auto does our own stuff, which doesn't work with what you see in DCC
-			if (KeyTangentMode & FbxAnimCurveDef::eTangentBreak)
-			{
-				NewTangentMode = RCTM_Break;
-			}
-			else
-			{
-				NewTangentMode = RCTM_User;
-			}
+// 			if (KeyTangentMode & FbxAnimCurveDef::eTangentGenericBreak)
+// 			{
+// 				NewTangentMode = RCTM_Break;
+// 			}
+// 			else
+// 			{
+// 				NewTangentMode = RCTM_User;
+// 			}
 
 			// @fix me : weight of tangent is not used, but we'll just save this for future where we might use it. 
 			switch (KeyTangentWeightMode)
@@ -955,7 +959,7 @@ bool UnFbx::FFbxImporter::ImportCurveToAnimSequence(class UAnimSequence * Target
 			else
 			{
 				// this should not happen, we already checked before adding
-				ensureMsg(0, TEXT("FBX Import: Critical error: no memory?"));
+				ensureMsgf(0, TEXT("FBX Import: Critical error: no memory?"));
 			}
 		}
 		else
@@ -1022,7 +1026,7 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 
 					const int32 BlendShapeChannelCount = BlendShape->GetBlendShapeChannelCount();
 
-					FString BlendShapeName = ANSI_TO_TCHAR(MakeName(BlendShape->GetName()));
+					FString BlendShapeName = UTF8_TO_TCHAR(MakeName(BlendShape->GetName()));
 
 					for(int32 ChannelIndex = 0; ChannelIndex<BlendShapeChannelCount; ++ChannelIndex)
 					{
@@ -1030,7 +1034,7 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 
 						if(Channel)
 						{
-							FString ChannelName = ANSI_TO_TCHAR(MakeName(Channel->GetName()));
+							FString ChannelName = UTF8_TO_TCHAR(MakeName(Channel->GetName()));
 
 							// Maya adds the name of the blendshape and an underscore to the front of the channel name, so remove it
 							if(ChannelName.StartsWith(BlendShapeName))
@@ -1071,10 +1075,10 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 			{
 				FbxAnimCurveNode* CurveNode = Property.GetCurveNode();
 				// do this if user defined and animated and leaf node
-				if( CurveNode && Property.GetFlag(FbxPropertyAttr::eUserDefined) && 
+				if( CurveNode && Property.GetFlag(FbxPropertyFlags::eUserDefined) &&
 					CurveNode->IsAnimated() && IsSupportedCurveDataType(Property.GetPropertyDataType().GetType()) )
 				{
-					FString CurveName = CurveNode->GetName();
+					FString CurveName = UTF8_TO_TCHAR(CurveNode->GetName());
 					UE_LOG(LogFbx, Log, TEXT("CurveName : %s"), *CurveName );
 
 					int32 TotalCount = CurveNode->GetChannelsCount();
@@ -1145,7 +1149,7 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 		FMatrix AddedMatrix = Converter.ConvertMatrix(FbxAddedMatrix);
 
 		const int32 NumSamplingKeys = FMath::FloorToInt(AnimTimeSpan.GetDuration().GetSecondDouble() * ResampleRate);
-		const FbxTime TimeIncrement = AnimTimeSpan.GetDuration() / NumSamplingKeys;
+		const FbxTime TimeIncrement = (NumSamplingKeys > 1)? AnimTimeSpan.GetDuration() / (NumSamplingKeys - 1) : AnimTimeSpan.GetDuration();
 		for(int32 SourceTrackIdx = 0; SourceTrackIdx < FbxRawBoneNames.Num(); ++SourceTrackIdx)
 		{
 			int32 NumKeysForTrack = 0;

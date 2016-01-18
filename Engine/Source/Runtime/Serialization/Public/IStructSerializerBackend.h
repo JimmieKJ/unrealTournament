@@ -9,6 +9,31 @@ class UStruct;
 
 
 /**
+ * Structure for the write state stack.
+ */
+struct FStructSerializerState
+{
+	/** Holds a flag indicating whether the property has been processed. */
+	bool HasBeenProcessed;
+
+	/** Holds a pointer to the key property's data. */
+	const void* KeyData;
+
+	/** Holds the key property's meta data (only used for TMap). */
+	UProperty* KeyProperty;
+
+	/** Holds a pointer to the property value's data. */
+	const void* ValueData;
+
+	/** Holds the property value's meta data. */
+	UProperty* ValueProperty;
+
+	/** Holds a pointer to the UStruct describing the data. */
+	UStruct* ValueType;
+};
+
+
+/**
  * Interface for UStruct serializer backends.
  */
 class IStructSerializerBackend
@@ -18,54 +43,67 @@ public:
 	/**
 	 * Signals the beginning of an array.
 	 *
-	 * @param Property The property that holds the array.
+	 * State.ValueProperty points to the property that holds the array.
+	 *
+	 * @param State The serializer's current state.
+	 * @see BeginStructure, EndArray
 	 */
-	virtual void BeginArray( UProperty* Property ) = 0;
+	virtual void BeginArray(const FStructSerializerState& State) = 0;
 
 	/**
 	 * Signals the beginning of a child structure.
 	 *
-	 * @param Property The property that holds the object.
-	 */
-	virtual void BeginStructure( UProperty* Property ) = 0;
-
-	/**
-	 * Signals the beginning of a root structure.
+	 * State.ValueProperty points to the property that holds the struct.
 	 *
-	 * @param TypeInfo The object's type information.
+	 * @param State The serializer's current state.
+	 * @see BeginArray, EndStructure
 	 */
-	virtual void BeginStructure( UStruct* TypeInfo ) = 0;
+	virtual void BeginStructure(const FStructSerializerState& State) = 0;
 
 	/**
 	 * Signals the end of an array.
 	 *
-	 * @param Property The property that holds the array.
+	 * State.ValueProperty points to the property that holds the array.
+	 *
+	 * @param State The serializer's current state.
+	 * @see BeginArray, EndStructure
 	 */
-	virtual void EndArray( UProperty* Property ) = 0;
+	virtual void EndArray(const FStructSerializerState& State) = 0;
 
 	/**
 	 * Signals the end of an object.
+	 *
+	 * State.ValueProperty points to the property that holds the struct.
+	 *
+	 * @param State The serializer's current state.
+	 * @see BeginStructure, EndArray
 	 */
-	virtual void EndStructure() = 0;
+	virtual void EndStructure(const FStructSerializerState& State) = 0;
 
 	/**
 	 * Writes a comment to the output stream.
 	 *
 	 * @param Comment The comment text.
+	 * @see BeginArray, BeginStructure, EndArray, EndStructure, WriteProperty
 	 */
-	virtual void WriteComment( const FString& Comment ) = 0;
+	virtual void WriteComment(const FString& Comment) = 0;
 
 	/**
 	 * Writes a property to the output stream.
 	 *
 	 * Depending on the context, properties to be written can be either object properties or array elements.
 	 *
-	 * @param Property The property that holds the data to write.
-	 * @param Data The property's data to write.
-	 * @param TypeInfo The property data's type information.
-	 * @param ArrayIndex An index into the property array (for static arrays).
+	 * State.KeyProperty points to the key property that holds the data to write.
+	 * State.KeyData points to the key property's data.
+	 * State.ValueProperty points to the property that holds the value to write.
+	 * State.ValueData points to the actual data to write.
+	 * State.TypeInfo contains the data's type information
+	 * State.ArrayIndex is the optional index if the data is a value in an array.
+	 *
+	 * @param State The serializer's current state.
+	 * @see BeginArray, BeginStructure, EndArray, EndStructure, WriteComment
 	 */
-	virtual void WriteProperty( UProperty* Property, const void* Data, UStruct* TypeInfo, int32 ArrayIndex = 0 ) = 0;
+	virtual void WriteProperty(const FStructSerializerState& State, int32 ArrayIndex = 0) = 0;
 
 public:
 

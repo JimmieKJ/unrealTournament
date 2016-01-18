@@ -123,7 +123,7 @@ void UAnimGraphNode_Base::PostEditChangeProperty(struct FPropertyChangedEvent& P
 {
 	FName PropertyName = (PropertyChangedEvent.Property != NULL) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
 
-	if ((PropertyName == TEXT("bShowPin")))
+	if ((PropertyName == GET_MEMBER_NAME_CHECKED(FOptionalPinFromProperty, bShowPin)))
 	{
 		GetSchema()->ReconstructNode(*this);
 	}
@@ -248,7 +248,7 @@ FText UAnimGraphNode_Base::GetMenuCategory() const
 
 void UAnimGraphNode_Base::GetPinAssociatedProperty(const UScriptStruct* NodeType, UEdGraphPin* InputPin, UProperty*& OutProperty, int32& OutIndex)
 {
-	OutProperty = NULL;
+	OutProperty = nullptr;
 	OutIndex = INDEX_NONE;
 
 	//@TODO: Name-based hackery, avoid the roundtrip and better indicate when it's an array pose pin
@@ -264,7 +264,9 @@ void UAnimGraphNode_Base::GetPinAssociatedProperty(const UScriptStruct* NodeType
 			OutIndex = ArrayIndex;
 		}
 	}
-	else
+	
+	// If the array check failed or we have no underscores
+	if(OutProperty == nullptr)
 	{
 		if (UProperty* Property = FindField<UProperty>(NodeType, *(InputPin->PinName)))
 		{

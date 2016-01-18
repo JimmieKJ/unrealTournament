@@ -175,6 +175,15 @@ void FKismet2Menu::FillDebugMenu( FMenuBuilder& MenuBuilder )
 	MenuBuilder.EndSection();
 }
 
+void FKismet2Menu::FillProfilerMenu( FMenuBuilder& MenuBuilder )
+{
+	MenuBuilder.BeginSection("Profiler", LOCTEXT("ProfilerMenu_Heading", "Profiler") );
+	{
+		MenuBuilder.AddMenuEntry( FFullBlueprintEditorCommands::Get().ToggleProfiler );
+	}
+	MenuBuilder.EndSection();
+}
+
 void FKismet2Menu::SetupBlueprintEditorMenu( TSharedPtr< FExtender > Extender, FBlueprintEditor& BlueprintEditor)
 {
 	// Extend the File menu with asset actions
@@ -210,6 +219,16 @@ void FKismet2Menu::SetupBlueprintEditorMenu( TSharedPtr< FExtender > Extender, F
 					LOCTEXT("DebugMenu_ToolTip", "Open the debug menu"),
 					FNewMenuDelegate::CreateStatic( &FKismet2Menu::FillDebugMenu ),
 					"Debug");
+
+				if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+				{
+					// Profiler
+					MenuBarBuilder.AddPullDownMenu( 
+						LOCTEXT("ProfilerMenu", "Profiler"),
+						LOCTEXT("ProfilerMenu_ToolTip", "Toggle the Profiler Menu"),
+						FNewMenuDelegate::CreateStatic( &FKismet2Menu::FillProfilerMenu ),
+						"Profiler");
+				}
 			}
 		};
 
@@ -343,6 +362,8 @@ void FFullBlueprintEditorCommands::RegisterCommands()
 	UI_COMMAND(SwitchToScriptingMode, "Graph", "Switches to Graph Editing Mode", EUserInterfaceActionType::ToggleButton, FInputChord());
 	UI_COMMAND(SwitchToBlueprintDefaultsMode, "Defaults", "Switches to Class Defaults Mode", EUserInterfaceActionType::ToggleButton, FInputChord());
 	UI_COMMAND(SwitchToComponentsMode, "Components", "Switches to Components Mode", EUserInterfaceActionType::ToggleButton, FInputChord());
+
+	UI_COMMAND(ToggleProfiler,"Profiler", "Toggle Profiler State", EUserInterfaceActionType::ToggleButton, FInputChord());
 
 	UI_COMMAND(EditGlobalOptions, "Class Settings", "Edit Class Settings (Previously known as Blueprint Props)", EUserInterfaceActionType::ToggleButton, FInputChord());
 	UI_COMMAND(EditClassDefaults, "Class Defaults", "Edit the initial values of your class.", EUserInterfaceActionType::ToggleButton, FInputChord());
@@ -480,6 +501,17 @@ void FBlueprintEditorToolbar::AddComponentsToolbar(TSharedPtr<FExtender> Extende
 		FToolBarExtensionDelegate::CreateSP( this, &FBlueprintEditorToolbar::FillComponentsToolbar ) );
 }
 
+void FBlueprintEditorToolbar::AddProfilerToolbar(TSharedPtr<FExtender> Extender)
+{
+	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = BlueprintEditor.Pin();
+
+	Extender->AddToolBarExtension(
+		"Asset",
+		EExtensionHook::After,
+		BlueprintEditorPtr->GetToolkitCommands(),
+		FToolBarExtensionDelegate::CreateSP( this, &FBlueprintEditorToolbar::FillProfilerToolbar ) );
+}
+
 void FBlueprintEditorToolbar::FillBlueprintEditorModesToolbar(FToolBarBuilder& ToolbarBuilder)
 {
 	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = BlueprintEditor.Pin();
@@ -543,6 +575,29 @@ void FBlueprintEditorToolbar::FillCompileToolbar(FToolBarBuilder& ToolbarBuilder
 			/*bSimpleComboBox =*/true
 		);
 	}
+	ToolbarBuilder.EndSection();
+}
+
+void FBlueprintEditorToolbar::FillProfilerToolbar(FToolBarBuilder& ToolbarBuilder)
+{
+	const FFullBlueprintEditorCommands& Commands = FFullBlueprintEditorCommands::Get();
+	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = BlueprintEditor.Pin();
+	UBlueprint* BlueprintObj = BlueprintEditorPtr->GetBlueprintObj();
+	
+	ToolbarBuilder.BeginSection("Profiler");
+	
+	if(BlueprintObj != NULL)
+	{
+		ToolbarBuilder.AddToolBarButton( Commands.ToggleProfiler,
+										 NAME_None, 
+										 TAttribute<FText>(),
+										 TAttribute<FText>(this, &FBlueprintEditorToolbar::GetProfilerStatusTooltip),
+										 FSlateIcon(FEditorStyle::GetStyleSetName(), "BlueprintEditor.EnableProfiling"),
+										 FName(TEXT("ToggleProfiler")));
+
+
+	}
+	
 	ToolbarBuilder.EndSection();
 }
 
@@ -666,6 +721,12 @@ FText FBlueprintEditorToolbar::GetStatusTooltip() const
 	case BS_UpToDateWithWarnings:
 		return LOCTEXT("GoodToGoWarning_Status", "There was a warning during compilation, see the log for details");
 	}
+}
+
+FText FBlueprintEditorToolbar::GetProfilerStatusTooltip() const
+{
+	return BlueprintEditor.Pin()->IsProfilerActive() ? LOCTEXT("Profiling_Enabled", "Profiling Active") :
+														LOCTEXT("Profiling_Disabled", "Profiling Inactive");
 }
 
 TArray< TSharedPtr< SWidget> > FBlueprintEditorToolbar::GenerateToolbarWidgets(const UBlueprint* BlueprintObj, TAttribute<FName> ActiveModeGetter, FOnModeChangeRequested ActiveModeSetter)

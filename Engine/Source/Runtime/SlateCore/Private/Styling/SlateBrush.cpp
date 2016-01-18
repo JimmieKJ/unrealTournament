@@ -17,6 +17,7 @@ FSlateBrush::FSlateBrush( ESlateBrushDrawType::Type InDrawType, const FName InRe
 	, ResourceObject( InObjectResource )
 	, ResourceName( InResourceName )
 	, bIsDynamicallyLoaded( bInDynamicallyLoaded )
+	, UVRegion( ForceInit )
 {
 	bHasUObject_DEPRECATED = (InObjectResource != nullptr) || InResourceName.ToString().StartsWith(FSlateBrush::UTextureIdentifier());
 
@@ -39,6 +40,7 @@ FSlateBrush::FSlateBrush( ESlateBrushDrawType::Type InDrawType, const FName InRe
 	, ResourceObject( InObjectResource )
 	, ResourceName( InResourceName )
 	, bIsDynamicallyLoaded( bInDynamicallyLoaded )
+	, UVRegion( ForceInit )
 {
 	bHasUObject_DEPRECATED = (InObjectResource != nullptr) || InResourceName.ToString().StartsWith(FSlateBrush::UTextureIdentifier());
 
@@ -61,6 +63,7 @@ FSlateBrush::FSlateBrush( ESlateBrushDrawType::Type InDrawType, const FName InRe
 	, ResourceObject(InObjectResource)
 	, ResourceName(InResourceName)
 	, bIsDynamicallyLoaded(bInDynamicallyLoaded)
+	, UVRegion(ForceInit)
 {
 	bHasUObject_DEPRECATED = (InObjectResource != nullptr) || InResourceName.ToString().StartsWith(FSlateBrush::UTextureIdentifier());
 

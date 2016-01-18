@@ -19,6 +19,8 @@ void UDestructibleChunkParamsProxy::PostEditChangeProperty( struct FPropertyChan
 		DestructibleMesh->FractureSettings->ChunkParameters[ChunkIndex] = ChunkParams;
 	}
 
+#if WITH_APEX
 	BuildDestructibleMeshFromFractureSettings(*DestructibleMesh, NULL);
+#endif
 	DestructibleMeshEditorPtr.Pin()->RefreshViewport();
 }

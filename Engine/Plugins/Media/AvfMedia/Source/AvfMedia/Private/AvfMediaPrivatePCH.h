@@ -8,10 +8,10 @@
 
 #include "Core.h"
 #include "IMediaSink.h"
-#include "IMediaTrack.h"
-#include "IMediaTrackAudioDetails.h"
-#include "IMediaTrackCaptionDetails.h"
-#include "IMediaTrackVideoDetails.h"
+#include "IMediaStream.h"
+#include "IMediaAudioTrack.h"
+#include "IMediaCaptionTrack.h"
+#include "IMediaVideoTrack.h"
 
 #import <AVFoundation/AVFoundation.h>
 

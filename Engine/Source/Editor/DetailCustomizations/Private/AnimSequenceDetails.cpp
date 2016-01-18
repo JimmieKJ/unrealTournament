@@ -6,6 +6,7 @@
 #include "AnimPreviewInstance.h"
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "Editor/KismetWidgets/Public/SScrubControlPanel.h"
+#include "AnimationEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE	"AnimSequenceDetails"
 
@@ -20,7 +21,9 @@ TSharedRef<IDetailCustomization> FAnimSequenceDetails::MakeInstance()
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FAnimSequenceDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-	// retarget source handler
+	/////////////////////////////////////////////////////////////////////////////////
+	// retarget source handler in Animation
+	/////////////////////////////////////////////////////////////////////////////////
 	IDetailCategoryBuilder& AnimationCategory = DetailBuilder.EditCategory("Animation");
 	RetargetSourceNameHandler = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UAnimSequence, RetargetSource));
 
@@ -36,20 +39,27 @@ void FAnimSequenceDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 	
 	// Check if we use only one skeleton
 	USkeleton* Skeleton = NULL;
+	SelectedAnimSequences.Reset();
 	TArray< TWeakObjectPtr<UObject> > SelectedObjectsList = DetailBuilder.GetDetailsView().GetSelectedObjects();
 	for (auto SelectionIt = SelectedObjectsList.CreateIterator(); SelectionIt; ++SelectionIt)
 	{
 		if (UAnimSequence* TestAnimSequence = Cast<UAnimSequence>(SelectionIt->Get()))
 		{
-			// we should only have one selected anim sequence
-			if(Skeleton && Skeleton != TestAnimSequence->GetSkeleton())
-			{
-				// Multiple different skeletons
-				Skeleton = NULL;
-				break;
-			}
-			Skeleton = TestAnimSequence->GetSkeleton();
+			SelectedAnimSequences.Add(TestAnimSequence);
 		}
+	}
+
+	// do it in separate loop since before it only cared AnimSequence 
+	for (auto& It : SelectedAnimSequences)
+	{
+		// we should only have one selected anim sequence
+		if(Skeleton && Skeleton != It->GetSkeleton())
+		{
+			// Multiple different skeletons
+			Skeleton = NULL;
+			break;
+		}
+		Skeleton = It->GetSkeleton();
 	}
 
 	// set target skeleton. It can be null
@@ -99,6 +109,9 @@ void FAnimSequenceDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 
 	DetailBuilder.HideProperty(RetargetSourceNameHandler);
 
+	/////////////////////////////////////////////////////////////////////////////
+	// Additive settings category
+	/////////////////////////////////////////////////////////////////////////////
 	// now customize to combo box
 	IDetailCategoryBuilder& AdditiveSettingsCategory = DetailBuilder.EditCategory("AdditiveSettings");
 
@@ -139,6 +152,38 @@ void FAnimSequenceDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 	];
 
 	CreateOverridenProperty(DetailBuilder, AdditiveSettingsCategory, RefFrameIndexHandle, TAttribute<EVisibility>( this, &FAnimSequenceDetails::ShouldShowRefFrameIndex ));
+
+	/////////////////////////////////////////////////////////////////
+	//  compression category!
+	///////////////////////////////////////////////////////////////
+	// add Apply button Compression
+	IDetailCategoryBuilder& CompressionCategory = DetailBuilder.EditCategory("Compression");
+
+	TArray<TSharedRef<IPropertyHandle>> CompressionProperties;
+
+	CompressionCategory.GetDefaultProperties( CompressionProperties );
+
+	for (auto& Property : CompressionProperties)
+	{
+		CompressionCategory.AddProperty(Property);
+	}
+
+	FDetailWidgetRow& CustomRow = CompressionCategory.AddCustomRow(LOCTEXT("ApplyCompressionLabel", "Apply"))
+		.WholeRowContent()
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2.0f, 0.0f)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Left)
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("ApplyCompressionButton_Label", "Apply"))
+				.ToolTipText(LOCTEXT("ApplyCompressionButton_Tooltip", "Click Apply to apply the changes you've made to Compression Settings"))
+				.OnClicked(this, &FAnimSequenceDetails::OnApplyCompression)
+			]
+		];
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -286,7 +331,34 @@ TSharedPtr<FString> FAnimSequenceDetails::GetRetargetSourceString(FName Retarget
 	return RetargetSourceComboList[0];
 }
 
+FReply FAnimSequenceDetails::OnApplyCompression()
+{
+	TArray<UAnimSequence*> AnimSequences;
+	UAnimCompress* CompressAlgorithm = NULL;
 
+	for(auto SelectionIt = SelectedAnimSequences.CreateIterator(); SelectionIt; ++SelectionIt)
+	{
+		if(UAnimSequence* TestAnimSequence = Cast<UAnimSequence>(SelectionIt->Get()))
+		{
+			AnimSequences.Add(TestAnimSequence);
+
+			if (!CompressAlgorithm)
+			{
+				// it should be all same by now
+				// better way is to get this from property handler
+				// but by this time, they should have all same value
+				CompressAlgorithm = TestAnimSequence->CompressionScheme;
+			}
+		}
+	}
+
+	if (CompressAlgorithm)
+	{
+		AnimationEditorUtils::ApplyCompressionAlgorithm(AnimSequences, CompressAlgorithm);
+	}
+
+	return FReply::Handled();
+}
 ////////////////////////////////////////////////
 // based on SAnimationSegmentViewport
 SAnimationRefPoseViewport::~SAnimationRefPoseViewport()
@@ -421,7 +493,7 @@ void SAnimationRefPoseViewport::InitSkeleton()
 		{
 			UAnimSingleNodeInstance * Preview = PreviewComponent->PreviewInstance;
 			USkeletalMesh* PreviewSkeletalMesh = Skeleton->GetPreviewMesh();
-			if((Preview == NULL || Preview->CurrentAsset != AnimRef) || PreviewComponent->SkeletalMesh != PreviewSkeletalMesh)
+			if((Preview == NULL || Preview->GetCurrentAsset() != AnimRef) || PreviewComponent->SkeletalMesh != PreviewSkeletalMesh)
 			{
 				PreviewComponent->SetSkeletalMesh(PreviewSkeletalMesh);
 				PreviewComponent->EnablePreview(true, AnimRef, NULL);
@@ -476,9 +548,9 @@ void SAnimationRefPoseViewport::Tick( const FGeometry& AllottedGeometry, const d
 
 			Description->SetText( FText::Format( LOCTEXT( "Previewing", "Previewing {0}" ), FText::FromString( Component->GetPreviewText() ) ) );
 		}
-		else if ( Component->AnimBlueprintGeneratedClass )
+		else if ( Component->AnimClass )
 		{
-			Description->SetText( FText::Format( LOCTEXT( "Previewing", "Previewing {0}" ), FText::FromString( Component->AnimBlueprintGeneratedClass->GetName() ) ) );
+			Description->SetText( FText::Format( LOCTEXT( "Previewing", "Previewing {0}" ), FText::FromString( Component->AnimClass->GetName() ) ) );
 		}
 		else if ( AnimRef && AnimRef->GetSkeleton() != TargetSkeleton )
 		{
@@ -518,9 +590,9 @@ float SAnimationRefPoseViewport::GetViewMinInput() const
 		{
 			return 0.0f;
 		}
-		else if (PreviewComponent->AnimScriptInstance != NULL)
+		else if (PreviewComponent->GetAnimInstance() != NULL)
 		{
-			return FMath::Max<float>((float)(PreviewComponent->AnimScriptInstance->LifeTimer - 30.0), 0.0f);
+			return FMath::Max<float>((float)(PreviewComponent->GetAnimInstance()->LifeTimer - 30.0), 0.0f);
 		}
 	}
 
@@ -535,9 +607,9 @@ float SAnimationRefPoseViewport::GetViewMaxInput() const
 		{
 			return PreviewComponent->PreviewInstance->GetLength();
 		}
-		else if (PreviewComponent->AnimScriptInstance != NULL)
+		else if (PreviewComponent->GetAnimInstance() != NULL)
 		{
-			return PreviewComponent->AnimScriptInstance->LifeTimer;
+			return PreviewComponent->GetAnimInstance()->LifeTimer;
 		}
 	}
 

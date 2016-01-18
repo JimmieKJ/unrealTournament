@@ -13,6 +13,11 @@ namespace FBTNodeBPImplementationHelper
 	static const int32 AISpecific = 1 << 1;
 	static const int32 All = Generic | AISpecific;
 
+	/** checks if given object implements GenericEventName and/or AIEventName BP events, and returns an result as flags set on return integer 
+	 *	@return flags set in returned integer indicate kinds of events implemented by given object */
+	AIMODULE_API int32 CheckEventImplementationVersion(FName GenericEventName, FName AIEventName, const UObject& Object, const UClass& StopAtClass);
+
+	DEPRECATED(4.11, "This version of CheckEventImplementationVersion is deprecated. Please use the one taking reference to UObject and StopAtClass rather than a pointers.")
 	AIMODULE_API int32 CheckEventImplementationVersion(FName GenericEventName, FName AIEventName, const UObject* Ob, const UClass* StopAtClass);
 }
 
@@ -24,6 +29,9 @@ class AIMODULE_API UBTFunctionLibrary : public UBlueprintFunctionLibrary
 public:
 	UFUNCTION(BlueprintPure, Category="AI|BehaviorTree", Meta=(HidePin="NodeOwner", DefaultToSelf="NodeOwner"))
 	static UBlackboardComponent* GetOwnersBlackboard(UBTNode* NodeOwner);
+
+	UFUNCTION(BlueprintPure, Category = "AI|BehaviorTree", Meta=(HidePin="NodeOwner", DefaultToSelf="NodeOwner"))
+	static UBehaviorTreeComponent* GetOwnerComponent(UBTNode* NodeOwner);
 
 	UFUNCTION(BlueprintPure, Category="AI|BehaviorTree", Meta=(HidePin="NodeOwner", DefaultToSelf="NodeOwner"))
 	static UObject* GetBlackboardValueAsObject(UBTNode* NodeOwner, const FBlackboardKeySelector& Key);

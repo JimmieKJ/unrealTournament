@@ -7,11 +7,12 @@
 #include "Android/AndroidJNI.h"
 #include "OnlineAsyncTaskManagerGooglePlay.h"
 #include "OnlineAsyncTaskGooglePlayLogin.h"
+#include "OnlineAsyncTaskGooglePlayLogout.h"
+#include "OnlineAsyncTaskGooglePlayShowLoginUI.h"
 
 #include <android_native_app_glue.h>
 
 #include "gpg/android_initialization.h"
-#include "gpg/android_platform_configuration.h"
 #include "gpg/builder.h"
 #include "gpg/debug.h"
 #include "gpg/android_support.h"
@@ -24,6 +25,8 @@ FOnlineSubsystemGooglePlay::FOnlineSubsystemGooglePlay()
 	, AchievementsInterface(nullptr)
 	, StoreInterface(nullptr)
 	, CurrentLoginTask(nullptr)
+	, CurrentShowLoginUITask(nullptr)
+	, CurrentLogoutTask(nullptr)
 {
 
 }
@@ -64,11 +67,6 @@ IOnlineSharedCloudPtr FOnlineSubsystemGooglePlay::GetSharedCloudInterface() cons
 }
 
 IOnlineUserCloudPtr FOnlineSubsystemGooglePlay::GetUserCloudInterface() const
-{
-	return nullptr;
-}
-
-IOnlineUserCloudPtr FOnlineSubsystemGooglePlay::GetUserCloudInterface(const FString& Key) const
 {
 	return nullptr;
 }
@@ -116,7 +114,7 @@ bool FOnlineSubsystemGooglePlay::Init()
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FOnlineSubsystemAndroid::Init"));
 	
 	OnlineAsyncTaskThreadRunnable.Reset(new FOnlineAsyncTaskManagerGooglePlay);
-	OnlineAsyncTaskThread.Reset(FRunnableThread::Create(OnlineAsyncTaskThreadRunnable.Get(), TEXT("OnlineAsyncTaskThread")));
+	OnlineAsyncTaskThread.Reset(FRunnableThread::Create(OnlineAsyncTaskThreadRunnable.Get(), *FString::Printf(TEXT("OnlineAsyncTaskThread %s"), *InstanceName.ToString())));
 
 	IdentityInterface = MakeShareable(new FOnlineIdentityGooglePlay(this));
 	LeaderboardsInterface = MakeShareable(new FOnlineLeaderboardsGooglePlay(this));
@@ -133,53 +131,9 @@ bool FOnlineSubsystemGooglePlay::Init()
 	AndroidInitialization::android_main(GNativeAndroidApp);
 
 	extern jobject GJavaGlobalNativeActivity;
-	AndroidPlatformConfiguration PlatformConfiguration;
 	PlatformConfiguration.SetActivity(GNativeAndroidApp->activity->clazz);
 
-	// Queue up a task for the login so that other tasks execute after it.
-	check(CurrentLoginTask == nullptr);
-	CurrentLoginTask = new FOnlineAsyncTaskGooglePlayLogin(this, 0);
-	QueueAsyncTask(CurrentLoginTask);
-
-	WaitingForLogin = true;
-	WaitForLostFocus = false;
-
 	OnActivityResultDelegateHandle = FJavaWrapper::OnActivityResultDelegate.AddRaw(this, &FOnlineSubsystemGooglePlay::OnActivityResult);
-
-	// Create() returns a std::unqiue_ptr, but we convert it to a TUniquePtr.
-	GameServicesPtr.Reset( GameServices::Builder()
-		.SetDefaultOnLog(LogLevel::VERBOSE)
-		.SetOnAuthActionStarted([](AuthOperation op) {
-			UE_LOG(LogOnline, Log, TEXT("GPG sign in started"));
-		})
-		.SetOnAuthActionFinished([this](AuthOperation Op, AuthStatus Status) {
-			OnAuthActionFinished(Op, Status);
-
-			if (Op == AuthOperation::SIGN_IN)
-			{
-				if (Status != AuthStatus::VALID)
-				{
-					WaitForLostFocus = true;
-				}
-				WaitingForLogin = false;
-			}
-		})
-		.Create(PlatformConfiguration).release() );
-
-	// Wait for GooglePlay to complete login task
-	while (WaitingForLogin)
-	{
-		FPlatformProcess::Sleep(0.01f);
-	}
-	if (WaitForLostFocus)
-	{
-		extern bool WaitForAndroidLoseFocusEvent(double TimeoutSeconds);
-		if (!WaitForAndroidLoseFocusEvent(3.0))
-		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("FOnlineSubsystemAndroid::Init - timed out"));
-			OnAuthActionFinished(AuthOperation::SIGN_IN, AuthStatus::ERROR_NOT_AUTHORIZED);
-		}
-	}
 
 	return true;
 }
@@ -203,6 +157,8 @@ bool FOnlineSubsystemGooglePlay::Tick(float DeltaTime)
 bool FOnlineSubsystemGooglePlay::Shutdown() 
 {
 	UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemAndroid::Shutdown()"));
+
+	FOnlineSubsystemImpl::Shutdown();
 
 	FJavaWrapper::OnActivityResultDelegate.Remove(OnActivityResultDelegateHandle);
 
@@ -254,6 +210,58 @@ bool FOnlineSubsystemGooglePlay::IsInAppPurchasingEnabled()
 	return bEnabledIAP;
 }
 
+void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const FOnLoginUIClosedDelegate& Delegate)
+{
+	if (AreAnyAsyncLoginTasksRunning())
+	{
+		UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemGooglePlay::StartShowLoginUITask: An asynchronous login task is already running."));
+		Delegate.ExecuteIfBound(nullptr, PlayerId);
+		return;
+	}
+
+	if (GameServicesPtr.get() == nullptr)
+	{
+		// This is likely the first login attempt during this run. Attempt to create the
+		// GameServices object, which will automatically start a "silent" login attempt.
+		// If that succeeds, there's no need to show the login UI explicitly. If it fails,
+		// we'll call ShowAuthorizationUI.
+		
+		auto TheDelegate = FOnlineAsyncTaskGooglePlayLogin::FOnCompletedDelegate::CreateLambda([this, PlayerId, Delegate]()
+		{
+			 StartShowLoginUITask_Internal(PlayerId, Delegate);
+		});
+
+		CurrentLoginTask = new FOnlineAsyncTaskGooglePlayLogin(this, PlayerId, TheDelegate);
+		QueueAsyncTask(CurrentLoginTask);
+	}
+	else
+	{
+		// We already have a GameServices object, so we can directly go to ShowAuthorizationUI.
+		StartShowLoginUITask_Internal(PlayerId, Delegate);
+	}
+}
+
+void FOnlineSubsystemGooglePlay::StartLogoutTask(int32 LocalUserNum)
+{
+	if (CurrentLogoutTask != nullptr)
+	{
+		UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemGooglePlay::StartLogoutTask: A logout task is already in progress."));
+		IdentityInterface->TriggerOnLogoutCompleteDelegates(LocalUserNum, false);
+		return;
+	}
+
+	CurrentLogoutTask = new FOnlineAsyncTaskGooglePlayLogout(this, LocalUserNum);
+	QueueAsyncTask(CurrentLogoutTask);
+}
+
+void FOnlineSubsystemGooglePlay::StartShowLoginUITask_Internal(int PlayerId, const FOnLoginUIClosedDelegate& Delegate)
+{
+	check(!AreAnyAsyncLoginTasksRunning());
+
+	CurrentShowLoginUITask = new FOnlineAsyncTaskGooglePlayShowLoginUI(this, PlayerId, Delegate);
+	QueueAsyncTask(CurrentShowLoginUITask);
+}
+
 void FOnlineSubsystemGooglePlay::QueueAsyncTask(FOnlineAsyncTask* AsyncTask)
 {
 	check(OnlineAsyncTaskThreadRunnable);
@@ -262,24 +270,28 @@ void FOnlineSubsystemGooglePlay::QueueAsyncTask(FOnlineAsyncTask* AsyncTask)
 
 void FOnlineSubsystemGooglePlay::OnAuthActionFinished(AuthOperation Op, AuthStatus Status)
 {
-	FString OpString(DebugString(Op).c_str());
-	FString StatusString(DebugString(Status).c_str());
-	UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemGooglePlay::OnAuthActionFinished, Op: %s, Status: %s"), *OpString, *StatusString);
-
 	if (Op == AuthOperation::SIGN_IN)
 	{
-		if (CurrentLoginTask == nullptr)
+		if (CurrentLoginTask != nullptr)
 		{
-			UE_LOG(LogOnline, Warning, TEXT("FOnlineSubsystemGooglePlay::OnAuthActionFinished: sign-in operation with a null CurrentLoginTask"));
-			return;
+			// Only one login task should be active at a time
+			check(CurrentShowLoginUITask == nullptr);
+
+			CurrentLoginTask->OnAuthActionFinished(Op, Status);
 		}
-
-		CurrentLoginTask->OnAuthActionFinished(Op, Status);
-
-		if (CurrentLoginTask->bIsComplete)
+		else if(CurrentShowLoginUITask != nullptr)
 		{
-			// Async task manager owns the task now and is responsible for cleaning it up.
-			CurrentLoginTask = nullptr;
+			// Only one login task should be active at a time
+			check(CurrentLoginTask == nullptr);
+
+			CurrentShowLoginUITask->OnAuthActionFinished(Op, Status);
+		}
+	}
+	else if (Op == AuthOperation::SIGN_OUT)
+	{
+		if (CurrentLogoutTask != nullptr)
+		{
+			CurrentLogoutTask->OnAuthActionFinished(Op, Status);
 		}
 	}
 }

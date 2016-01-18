@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "BlueprintNodeBinder.h" // for IBlueprintNodeBinder::FBindingSet
+#include "BlueprintNodeBinder.h"  // for IBlueprintNodeBinder::FBindingSet
+#include "BlueprintGraphModule.h" // for FActionMenuRejectionTest
 
 // Forward declarations
 class UBlueprintNodeSpawner;
@@ -150,7 +151,7 @@ class BLUEPRINTGRAPH_API FBlueprintActionFilter
 {
 public:
 	/** The filter uses a series of rejection tests matching */
-	DECLARE_DELEGATE_RetVal_TwoParams(bool, FRejectionTestDelegate, FBlueprintActionFilter const&, FBlueprintActionInfo&);
+	typedef FBlueprintGraphModule::FActionMenuRejectionTest FRejectionTestDelegate;
 
 public:
 	enum EFlags // Flags, which configure certain rejection tests.
@@ -206,9 +207,24 @@ public:
 	/**
 	 * A list of classes that you want members for. If an action would produce
 	 * a node with a TargetPin, and that pin is incompatible with one of these
-	 * classes, then the action is filtered out.
+	 * classes, then the action is filtered out. Extra data is cached in 
+	 * FTargetClassFilterData so that it can be reused by filters efficiently.
 	 */
-	TArray<UClass*> TargetClasses;
+	struct FTargetClassFilterData
+	{
+		UClass* TargetClass;
+		TArray<FString> HiddenCategories;
+	};
+	TArray<FTargetClassFilterData> TargetClasses;
+
+	/** Helper to add a class to the TargetClasses, TargetClass may already be in the array */
+	static void AddUnique(TArray<FTargetClassFilterData>& ToArray, UClass* TargetClass);
+
+	/** Helper to add a class to the TargetClasses, fills out FTargetClassFilterData */
+	static void Add(TArray<FTargetClassFilterData>& ToArray, UClass* TargetClass);
+
+	/** Cached reference to the BluprintGraphModule, which has extra rejection tests: */
+	class FBlueprintGraphModule* BluprintGraphModule;
 
 	/**
 	 * Users can extend the filter and add their own rejection tests with this

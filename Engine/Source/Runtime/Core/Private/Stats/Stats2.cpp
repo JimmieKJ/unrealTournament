@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
+#include "StatsData.h"
+#include "TaskGraphInterfaces.h"
 
 /*-----------------------------------------------------------------------------
 	Global
@@ -33,6 +35,128 @@ DECLARE_CYCLE_STAT(TEXT("Flush Raw Stats"),STAT_FlushRawStats,STATGROUP_StatSyst
 DECLARE_MEMORY_STAT( TEXT("Stats Descriptions"), STAT_StatDescMemory, STATGROUP_StatSystem );
 
 DEFINE_STAT(STAT_FrameTime);
+DEFINE_STAT(STAT_NamedMarker);
+
+/*-----------------------------------------------------------------------------
+	DebugLeakTest, for the stats based memory profiler
+-----------------------------------------------------------------------------*/
+
+#if	!UE_BUILD_SHIPPING
+
+static TAutoConsoleVariable<int32> CVarEnableLeakTest(
+	TEXT( "debug.EnableLeakTest" ),
+	0,
+	TEXT( "If set to 1, enables leak test, for testing stats based memory profiler" )
+	);
+
+void DebugLeakTest()
+{
+	if (CVarEnableLeakTest.GetValueOnGameThread() == 1)
+	{
+		if (GFrameCounter == 60)
+		{
+			DirectStatsCommand( TEXT( "stat namedmarker Frame-060" ), true );
+		}
+
+		if (GFrameCounter == 120)
+		{
+			DirectStatsCommand( TEXT( "stat namedmarker Frame-120" ), true );
+		}
+
+
+		if (GFrameCounter == 240)
+		{
+			DirectStatsCommand( TEXT( "stat namedmarker Frame-240" ), true );
+		}
+
+		if (GFrameCounter == 300)
+		{
+			GIsRequestingExit = true;
+		}
+
+		// Realloc.
+		static TArray<uint8> Array;
+		static int32 Initial = 1;
+		{
+			DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "LeakTest::Realloc" ), Stat_LeakTest_Realloc, STATGROUP_Quick );
+			Array.AddZeroed( Initial );
+			Initial += 100;
+		}
+
+		if (GFrameCounter == 300)
+		{
+			UE_LOG( LogTemp, Warning, TEXT( "Stat_ReallocTest: %i / %i" ), Array.GetAllocatedSize(), Initial );
+		}
+
+		// General memory leak.
+		{
+			DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "LeakTest::NewInt8" ), Stat_LeakTest_NewInt8, STATGROUP_Quick );
+			int8* Leak = new int8[1000 * 1000];
+		}
+
+
+		if (GFrameCounter < 250)
+		{
+			// Background threads memory test.
+			struct FAllocTask
+			{
+				static void Alloc()
+				{
+					DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FAllocTask::Alloc" ), Stat_FAllocTask_Alloc, STATGROUP_Quick );
+
+					int8* IntAlloc = new int8[112233];
+					int8* LeakTask = new int8[100000];
+					delete[] IntAlloc;
+				}
+			};
+
+			for (int32 Index = 0; Index < 40; ++Index)
+			{
+				FSimpleDelegateGraphTask::CreateAndDispatchWhenReady( FSimpleDelegateGraphTask::FDelegate::CreateStatic( FAllocTask::Alloc ), TStatId() );
+			}
+
+			class FAllocPool : public FNonAbandonableTask
+			{
+			public:
+				void DoWork()
+				{
+					DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FAllocPool::DoWork" ), Stat_FAllocPool_DoWork, STATGROUP_Quick );
+
+					int8* IntAlloc = new int8[223311];
+					int8* LeakTask = new int8[100000];
+					delete[] IntAlloc;
+				}
+
+				TStatId GetStatId() const
+				{
+					return TStatId();
+				}
+			};
+
+			for (int32 Index = 0; Index < 40; ++Index)
+			{
+				(new FAutoDeleteAsyncTask<FAllocPool>())->StartBackgroundTask();
+			}
+		}
+
+		for (int32 Index = 0; Index < 40; ++Index)
+		{
+			DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "DebugLeakTest::Alloc" ), Stat_LeakTest_Alloc, STATGROUP_Quick );
+
+			int8* IntAlloc = new int8[331122];
+			int8* LeakTask = new int8[100000];
+			delete[] IntAlloc;
+		}
+
+		if (GIsRequestingExit)
+		{
+			// If we are writing stats data, stop it now.
+			DirectStatsCommand( TEXT( "stat stopfile" ), true );
+		}
+	}
+}
+
+#endif // !UE_BUILD_SHIPPING
 
 /*-----------------------------------------------------------------------------
 	FStats2
@@ -64,11 +188,10 @@ void FStats::AdvanceFrame( bool bDiscardCallstack, const FOnAdvanceRenderingThre
 	// Update the seconds per cycle.
 	SET_FLOAT_STAT( STAT_SecondsPerCycle, FPlatformTime::GetSecondsPerCycle() );
 
-	static FStatNameAndInfo Adv( NAME_AdvanceFrame, "", "", TEXT( "" ), EStatDataType::ST_int64, true, false );
-	FThreadStats::AddMessage( Adv.GetEncodedName(), EStatOperation::AdvanceFrameEventGameThread, Frame ); // we need to flush here if we aren't collecting stats to make sure the meta data is up to date
+	FThreadStats::AddMessage( FStatConstants::AdvanceFrame.GetEncodedName(), EStatOperation::AdvanceFrameEventGameThread, Frame ); // we need to flush here if we aren't collecting stats to make sure the meta data is up to date
 	if( FPlatformProperties::IsServerOnly() )
 	{
-		FThreadStats::AddMessage( Adv.GetEncodedName(), EStatOperation::AdvanceFrameEventRenderThread, Frame ); // we need to flush here if we aren't collecting stats to make sure the meta data is up to date
+		FThreadStats::AddMessage( FStatConstants::AdvanceFrame.GetEncodedName(), EStatOperation::AdvanceFrameEventRenderThread, Frame ); // we need to flush here if we aren't collecting stats to make sure the meta data is up to date
 	}
 
 	if( AdvanceRenderingThreadStatsDelegate.IsBound() )
@@ -78,7 +201,7 @@ void FStats::AdvanceFrame( bool bDiscardCallstack, const FOnAdvanceRenderingThre
 	else
 	{
 		// There is no rendering thread, so this message is sufficient to make stats happy and don't leak memory.
-		FThreadStats::AddMessage( Adv.GetEncodedName(), EStatOperation::AdvanceFrameEventRenderThread, Frame );
+		FThreadStats::AddMessage( FStatConstants::AdvanceFrame.GetEncodedName(), EStatOperation::AdvanceFrameEventRenderThread, Frame );
 	}
 
 	FThreadStats::ExplicitFlush( bDiscardCallstack );
@@ -87,10 +210,39 @@ void FStats::AdvanceFrame( bool bDiscardCallstack, const FOnAdvanceRenderingThre
 #endif
 }
 
+void FStats::TickCommandletStats()
+{
+	if (EnabledForCommandlet())
+	{
+		//FThreadStats* ThreadStats = FThreadStats::GetThreadStats();
+		//check( ThreadStats->ScopeCount == 0 && TEXT( "FStats::TickCommandletStats must be called outside any scope counters" ) );
+
+		FTaskGraphInterface::Get().ProcessThreadUntilIdle( ENamedThreads::GameThread );
+		FTicker::GetCoreTicker().Tick( 1 / 60.0f );
+
+		FStats::AdvanceFrame( false );
+	}
+}
+
+bool FStats::EnabledForCommandlet()
+{
+	static bool bHasStatsForCommandletsToken = HasLoadTimeStatsForCommandletToken() || HasLoadTimeFileForCommandletToken();
+	return bHasStatsForCommandletsToken;
+}
+
+bool FStats::HasLoadTimeStatsForCommandletToken()
+{
+	static bool bHasLoadTimeStatsForCommandletToken = FParse::Param( FCommandLine::Get(), TEXT( "LoadTimeStatsForCommandlet" ) );
+	return bHasLoadTimeStatsForCommandletToken;
+}
+
+bool FStats::HasLoadTimeFileForCommandletToken()
+{
+	static bool bHasLoadTimeFileForCommandletToken = FParse::Param( FCommandLine::Get(), TEXT( "LoadTimeFileForCommandlet" ) );
+	return bHasLoadTimeFileForCommandletToken;
+}
 
 /* Todo
-
-FStatsThreadState::FStatsThreadState(FString const& Filename) - needs to be more careful about files that are "cut off". Should look for < 16 bytes left OR next 8 bytes are zero. Bad files will end with zeros and it can't be a valid record.
 
 ST_int64 combined with IsPackedCCAndDuration is fairly bogus, ST_uint32_pair should probably be a first class type. IsPackedCCAndDuration can stay, it says what kind of data is in the pair. remove FromPackedCallCountDuration_Duration et al
 
@@ -719,8 +871,9 @@ public:
 		}
 		else
 		{
-			// For regular stats we won't process more than every 5ms or every 16 packets.
-			bShouldProcess = bReadyToProcess && (FPlatformTime::Seconds() - LastTime > 0.005f || IncomingData.Packets.Num() > MaxIncomingPackets);
+			// For regular stats we won't process more than every 5ms or every 16 packets. 
+			// Commandlet stats are flushed as soon as.
+			bShouldProcess = bReadyToProcess && (FPlatformTime::Seconds() - LastTime > 0.005f || IncomingData.Packets.Num() > MaxIncomingPackets || FStats::EnabledForCommandlet());
 		}
 
 		if( bShouldProcess )
@@ -894,7 +1047,7 @@ FThreadStats::FThreadStats( EConstructor ):
 void FThreadStats::CheckEnable()
 {
 	bool bOldMasterEnable(bMasterEnable);
-	bool bNewMasterEnable( WillEverCollectData() && !IsRunningCommandlet() && IsThreadingReady() && (MasterEnableCounter.GetValue()) );
+	bool bNewMasterEnable( WillEverCollectData() && (!IsRunningCommandlet() || FStats::EnabledForCommandlet()) && IsThreadingReady() && (MasterEnableCounter.GetValue()) );
 	if (bMasterEnable != bNewMasterEnable)
 	{
 		MasterDisableChangeTagLockAdd();
@@ -903,7 +1056,7 @@ void FThreadStats::CheckEnable()
 	}
 }
 
-void FThreadStats::Flush(bool bHasBrokenCallstacks /*= false*/, bool bForceFlush /*= false*/)
+void FThreadStats::Flush( bool bHasBrokenCallstacks /*= false*/, bool bForceFlush /*= false*/ )
 {
 	if (bMasterDisableForever)
 	{
@@ -941,7 +1094,7 @@ void FThreadStats::FlushRegularStats( bool bHasBrokenCallstacks, bool bForceFlus
 		return;
 	}
 
-	if (!ScopeCount && Packet.StatMessages.Num())
+	if ((!ScopeCount || bForceFlush) && Packet.StatMessages.Num())
 	{
 		if( Packet.StatMessagesPresize.Num() >= PRESIZE_MAX_NUM_ENTRIES )
 		{
@@ -1056,13 +1209,19 @@ void FThreadStats::CheckForCollectingStartupStats()
 	{
 		DirectStatsCommand( TEXT( "stat group enable LinkerLoad" ) );
 		DirectStatsCommand( TEXT( "stat group enable AsyncLoad" ) );
-		DirectStatsCommand(TEXT("stat dumpsum -start -ms=250 -num=240"));
+		DirectStatsCommand( TEXT( "stat dumpsum -start -ms=250 -num=240" ), true );
 	}
-	if (FParse::Param( FCommandLine::Get(), TEXT( "LoadTimeFile" ) ))
+	else if (FParse::Param( FCommandLine::Get(), TEXT( "LoadTimeFile" ) ) || FStats::HasLoadTimeFileForCommandletToken())
 	{
 		DirectStatsCommand( TEXT( "stat group enable LinkerLoad" ) );
 		DirectStatsCommand( TEXT( "stat group enable AsyncLoad" ) );
-		DirectStatsCommand( TEXT( "stat startfile" ) );
+		DirectStatsCommand( TEXT( "stat startfile" ), true );
+	}
+	else if (FStats::HasLoadTimeStatsForCommandletToken())
+	{
+		DirectStatsCommand( TEXT( "stat group enable LinkerLoad" ) );
+		DirectStatsCommand( TEXT( "stat group enable AsyncLoad" ) );
+		DirectStatsCommand( TEXT( "stat dumpsum -start" ), true );
 	}
 
 	// Now we can safely enable malloc profiler.
@@ -1073,6 +1232,8 @@ void FThreadStats::CheckForCollectingStartupStats()
 		FStatsMallocProfilerProxy::Get()->SetState( true );
 		DirectStatsCommand( TEXT( "stat startfileraw" ), true );
 	}
+
+	STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, TEXT("CheckForCollectingStartupStats") );
 }
 
 void FThreadStats::ExplicitFlush(bool DiscardCallstack)
@@ -1120,7 +1281,7 @@ void FThreadStats::StartThread()
 
 	CheckForCollectingStartupStats();
 
-	UE_LOG( LogStats, Log, TEXT( "Stats thread started" ) );
+	UE_LOG( LogStats, Log, TEXT( "Stats thread started at %f" ), FPlatformTime::Seconds() - GStartTime );
 }
 
 static FGraphEventRef LastFramesEvents[MAX_STAT_LAG];
@@ -1131,8 +1292,14 @@ void FThreadStats::StopThread()
 	// Nothing to stop if it was never started
 	if (IsThreadingReady())
 	{	
+		if (FStats::HasLoadTimeStatsForCommandletToken())
+		{
+			// Dump all the collected stats to the log, if any.
+			DirectStatsCommand( TEXT( "stat dumpsum -stop -ms=100" ), true );
+		}
+
 		// If we are writing stats data, stop it now.
-		DirectStatsCommand(TEXT("stat stopfile"), true);
+		DirectStatsCommand( TEXT( "stat stopfile" ), true );
 
 		FThreadStats::MasterDisableForever();
 
@@ -1165,6 +1332,10 @@ void FThreadStats::WaitForStats()
 
 		LastFramesEvents[(CurrentEventIndex + MAX_STAT_LAG - 1) % MAX_STAT_LAG] = TGraphTask<FNullGraphTask>::CreateTask(NULL, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(GET_STATID(STAT_FNullGraphTask_StatWaitFence), FPlatformProcess::SupportsMultithreading() ? ENamedThreads::StatsThread : ENamedThreads::GameThread);
 		CurrentEventIndex++;
+
+#if	!UE_BUILD_SHIPPING
+		DebugLeakTest();
+#endif // !UE_BUILD_SHIPPING
 	}
 }
 

@@ -117,6 +117,8 @@ class GAMEPLAYDEBUGGER_API AGameplayDebuggingReplicator : public AActor
 
 	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 
+	virtual void BeginDestroy() override;
+
 	UGameplayDebuggingComponent* GetDebugComponent();
 
 	bool IsToolCreated();
@@ -148,7 +150,7 @@ class GAMEPLAYDEBUGGER_API AGameplayDebuggingReplicator : public AActor
 	uint32 DebuggerShowFlags;
 
 	static FOnSelectionChanged OnSelectionChangedDelegate;
-	FOnChangeEQSQuery OnChangeEQSQuery;
+	FOnCycleDetailsView OnCycleDetailsView;
 protected:
 	void OnDebugAIDelegate(class UCanvas* Canvas, class APlayerController* PC);
 	void DrawDebugDataDelegate(class UCanvas* Canvas, class APlayerController* PC);

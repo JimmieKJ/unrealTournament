@@ -61,9 +61,9 @@ int32 SFxWidget::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 	const FVector2D ScaleOrigin = RenderScaleOrigin.Get() * AllottedGeometry.Size;
 	const FVector2D Offset = VisualOffset.Get() * AllottedGeometry.Size;
 	// create the render transform as a scale around ScaleOrigin and offset it by Offset.
-	const auto RenderTransform = Concatenate(Inverse(ScaleOrigin), RenderScale.Get(), ScaleOrigin, Offset);
+	const auto SlateRenderTransform = Concatenate(Inverse(ScaleOrigin), RenderScale.Get(), ScaleOrigin, Offset);
 	// This will append the render transform to the layout transform, and we only use it for rendering.
-	FGeometry ModifiedGeometry = AllottedGeometry.MakeChild(AllottedGeometry.Size, RenderTransform);
+	FGeometry ModifiedGeometry = AllottedGeometry.MakeChild(AllottedGeometry.Size, SlateRenderTransform);
 	
 	FArrangedChildren ArrangedChildren(EVisibility::Visible);
 	this->ArrangeChildren(ModifiedGeometry, ArrangedChildren);

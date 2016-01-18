@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTProj_Rocket.h"
@@ -10,7 +10,7 @@ AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer
 : Super(ObjectInitializer)
 {
 	DamageParams.BaseDamage = 100;
-	DamageParams.OuterRadius = 320.f;  
+	DamageParams.OuterRadius = 340.f;  
 	DamageParams.InnerRadius = 15.f; 
 	DamageParams.MinimumDamage = 20.f;
 	Momentum = 140000.0f;
@@ -63,16 +63,12 @@ void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPri
 	{
 		// Air Rocket reward
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
-		if (PC != NULL)
+		if (PC && PC->UTPlayerState)
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
 			int32 AirRoxCount = 0;
-			if (PS)
-			{
-				PS->ModifyStatsValue(NAME_AirRox, 1);
-				AirRoxCount = PS->GetStatsValue(NAME_AirRox);
-			}
-			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount, PS, HitCharacter->PlayerState);
+			PC->UTPlayerState->ModifyStatsValue(NAME_AirRox, 1);
+			AirRoxCount = PC->UTPlayerState->GetStatsValue(NAME_AirRox);
+			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount, PC->UTPlayerState, HitCharacter->PlayerState);
 		}
 	}
 	bPendingSpecialReward = false;

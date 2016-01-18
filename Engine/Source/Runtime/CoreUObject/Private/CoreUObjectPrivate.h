@@ -22,6 +22,7 @@
 #include "AssetPtr.h"					// Object pointer types
 #include "CoreObject.h"					// Core object class definitions.
 #include "UnrealType.h"					// Base property type.
+#include "UTextProperty.h"				// Text property type.
 #include "Stack.h"						// Script stack frame definition.
 #include "ObjectRedirector.h"			// Cross-package object redirector
 #include "UObjectAnnotation.h"

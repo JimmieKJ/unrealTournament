@@ -95,7 +95,7 @@ public:
 	};
 
 	SLATE_BEGIN_ARGS(SCarouselNavigationButton)
-		: _Style(&FWidgetCarouselModuleStyle::Get().GetWidgetStyle<FWidgetCarouselNavigationButtonStyle>("CarouselNavigationButton"))
+		: _Style()
 		{}
 
 		SLATE_STYLE_ARGUMENT(FWidgetCarouselNavigationButtonStyle, Style)

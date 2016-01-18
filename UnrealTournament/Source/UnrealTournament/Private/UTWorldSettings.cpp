@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWorldSettings.h"
 #include "UTDmgType_KillZ.h"
@@ -95,7 +95,7 @@ void AUTWorldSettings::BeginPlay()
 
 	Super::BeginPlay();
 
-	if (!bPendingKillPending)
+	if (!IsPendingKillPending())
 	{
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWorldSettings::ExpireImpactEffects, 0.5f, true);

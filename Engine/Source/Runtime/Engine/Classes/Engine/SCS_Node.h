@@ -20,9 +20,11 @@ class USCS_Node : public UObject
 	UPROPERTY()
 	FName VariableName;
 
+#if WITH_EDITORONLY_DATA
 	/** If non-None, the assigned category name */
 	UPROPERTY()
-	FName CategoryName;
+	FText CategoryName;
+#endif //WITH_EDITORONLY_DATA
 
 	/** Socket/Bone that Node might attach to */
 	UPROPERTY()
@@ -70,9 +72,9 @@ class USCS_Node : public UObject
 
 #if WITH_EDITOR
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/** The scene component constructed for component editing in the SCS editor */
 	class USceneComponent* EditorComponentInstance;
@@ -92,11 +94,26 @@ class USCS_Node : public UObject
 	 */
 	UActorComponent* ExecuteNodeOnActor(AActor* Actor, USceneComponent* ParentComponent, const FTransform* RootTransform, bool bIsDefaultTransform);
 
+	/** Return the actual component template used in the BPGC. The template can be overridden in a child. */
+	ENGINE_API UActorComponent* GetActualComponentTemplate(class UBlueprintGeneratedClass* ActualBPGC) const;
+
 	/** Returns an array containing this node and all children below it */
 	TArray<USCS_Node*> GetAllNodes();
 	
+	/** Returns an constant reference to the child nodes array of this node */
+	const TArray<USCS_Node*>& GetChildNodes() const { return ChildNodes; }
+
 	/** Adds the given node as a child node */
-	ENGINE_API void AddChildNode(USCS_Node* InNode);
+	ENGINE_API void AddChildNode(USCS_Node* InNode, bool bAddToAllNodes = true);
+
+	/** Removes the child node at the given index */
+	ENGINE_API void RemoveChildNode(USCS_Node* InNode, bool bRemoveFromAllNodes = true);
+
+	/** Removes the child node at the given index */
+	ENGINE_API void RemoveChildNodeAt(int32 ChildIndex, bool bRemoveFromAllNodes = true);
+
+	/** Moves a list of nodes from their current list to this node's ChildNode list */
+	ENGINE_API void MoveChildNodes(USCS_Node* SourceNode, int32 InsertLocation = INDEX_NONE);
 
 	/** Returns an array containing this node and all children below it */
 	TArray<const USCS_Node*> GetAllNodes() const;

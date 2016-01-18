@@ -14,14 +14,14 @@ class UMaterialExpressionStaticBool : public UMaterialExpression
 	uint32 Value:1;
 
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #if WITH_EDITOR
 	virtual uint32 GetOutputType(int32 OutputIndex) override {return MCT_StaticBool;}
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 
 

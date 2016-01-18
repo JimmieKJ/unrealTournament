@@ -18,6 +18,7 @@ ASpectatorPawn::ASpectatorPawn(const FObjectInitializer& ObjectInitializer)
 
 	BaseEyeHeight = 0.0f;
 	bCollideWhenPlacing = false;
+	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	static FName CollisionProfileName(TEXT("Spectator"));
 	GetCollisionComponent()->SetCollisionProfileName(CollisionProfileName);

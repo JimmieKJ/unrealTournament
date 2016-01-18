@@ -111,6 +111,7 @@ void UAnimGraphNode_StateMachineBase::PostPlacedNewNode()
 	Schema->CreateDefaultNodesForGraph(*EditorStateMachineGraph);
 
 	// Add the new graph as a child of our parent graph
+	GetGraph()->Modify();
 	GetGraph()->SubGraphs.Add(EditorStateMachineGraph);
 }
 

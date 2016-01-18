@@ -12,6 +12,14 @@
 
 FBoxSphereBounds FBoxSphereBounds::TransformBy(const FMatrix& M) const
 {
+#if ENABLE_NAN_DIAGNOSTIC
+	if (M.ContainsNaN())
+	{
+		logOrEnsureNanError(TEXT("Input Matrix contains NaN/Inf! %s"), *M.ToString());
+		(const_cast<FMatrix*>(&M))->SetIdentity();
+	}
+#endif
+
 	FBoxSphereBounds Result;
 
 	const VectorRegister VecOrigin = VectorLoadFloat3(&Origin);
@@ -40,11 +48,16 @@ FBoxSphereBounds FBoxSphereBounds::TransformBy(const FMatrix& M) const
 	MaxRadius = VectorMax(VectorMax(MaxRadius, VectorReplicate(MaxRadius, 1)), VectorReplicate(MaxRadius, 2));
 	Result.SphereRadius = FMath::Sqrt(VectorGetComponent( MaxRadius, 0) ) * SphereRadius;
 
+	Result.DiagnosticCheckNaN();
 	return Result;
 }
 
 FBoxSphereBounds FBoxSphereBounds::TransformBy(const FTransform& M) const
 {
+#if ENABLE_NAN_DIAGNOSTIC
+	M.DiagnosticCheckNaN_All();
+#endif
+
 	const FMatrix Mat = M.ToMatrixWithScale();
 	FBoxSphereBounds Result = TransformBy(Mat);
 	return Result;

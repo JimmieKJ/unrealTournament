@@ -134,7 +134,7 @@ struct PxcNpWorkUnit
 #endif
 };
 
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 PX_COMPILE_TIME_ASSERT(0 == (sizeof(PxcNpWorkUnit) & 0x0f));
 #endif
 
@@ -205,7 +205,7 @@ PX_FORCE_INLINE PxReal* PxcNpWorkUnitGetContactForcesDC_Safe(const PxcNpWorkUnit
 }
 
 
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 //PX_COMPILE_TIME_ASSERT(sizeof(PxcNpWorkUnit)==128);
 #endif
 

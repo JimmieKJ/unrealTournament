@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	TriangleRendering.h: Simple tile rendering implementation.
+	TriangleRendering.h: Simple triangle rendering implementation.
 =============================================================================*/
 
 #ifndef _INC_TRIANGLERENDERING
@@ -12,10 +12,14 @@ class FTriangleRenderer
 public:
 
 	/**
-	 * Draw a tile at the given location and size, using the given UVs
-	 * (UV = [0..1]
+	 * Draw a triangle using the given vertices using optional color.
 	 */
 	ENGINE_API static void DrawTriangle(FRHICommandListImmediate& RHICmdList, const class FSceneView& View, const FMaterialRenderProxy* MaterialRenderProxy, bool bNeedsToSwitchVerticalAxis, const FCanvasUVTri& Tri, bool bIsHitTesting = false, const FHitProxyId HitProxyId = FHitProxyId(), const FColor InVertexColor = FColor(255, 255, 255, 255));
+	
+	/**
+	* Draw a triangle using the given vertices. Same as DrawTriangle but uses the colors in the supplied vertices
+	*/
+	ENGINE_API static void DrawTriangleUsingVertexColor(FRHICommandListImmediate& RHICmdList, const class FSceneView& View, const FMaterialRenderProxy* MaterialRenderProxy, bool bNeedsToSwitchVerticalAxis, const FCanvasUVTri& Tri, bool bIsHitTesting, const FHitProxyId HitProxyId);
 
 private:
 

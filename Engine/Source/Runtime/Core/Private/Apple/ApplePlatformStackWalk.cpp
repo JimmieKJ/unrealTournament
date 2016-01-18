@@ -11,6 +11,10 @@
 #include <mach-o/dyld.h>
 #include <cxxabi.h>
 
+#if PLATFORM_MAC
+#include "PLCrashReporter.h"
+#endif
+
 // Internal helper functions not exposed to public
 int32 GetModuleImageSize( const struct mach_header* Header )
 {
@@ -155,6 +159,14 @@ void FApplePlatformStackWalk::CaptureStackBackTrace( uint64* BackTrace, uint32 M
 		return;
 	}
 
+#if PLATFORM_MAC
+	if(Context)
+	{
+		int i = plcrashreporter_backtrace((void**)BackTrace, MaxDepth);
+		
+		return;
+	}
+#endif
 	backtrace((void**)BackTrace, MaxDepth);
 }
 
@@ -294,10 +306,6 @@ void CreateExceptionInfoString(int32 Signal, struct __siginfo* Info)
 	FCString::Strncpy(GErrorExceptionDescription, *ErrorString, FMath::Min(ErrorString.Len() + 1, (int32)ARRAY_COUNT(GErrorExceptionDescription)));
 #endif
 #undef HANDLE_CASE
-}
-
-void NewReportEnsure( const TCHAR* ErrorMessage )
-{
 }
 
 int32 ReportCrash(ucontext_t *Context, int32 Signal, struct __siginfo* Info)

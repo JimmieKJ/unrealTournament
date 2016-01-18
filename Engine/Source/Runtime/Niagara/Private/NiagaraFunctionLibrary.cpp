@@ -87,12 +87,15 @@ void UNiagaraFunctionLibrary::SetUpdateScriptConstant(UNiagaraComponent* Compone
 	TArray<TSharedPtr<FNiagaraSimulation>> &Emitters = Component->GetEffectInstance()->GetEmitters();
 
 	for (TSharedPtr<FNiagaraSimulation> &Emitter : Emitters)
-	{
-		FName CurName = *Emitter->GetProperties()->Name;
-		if (CurName == EmitterName)
+	{		
+		if(UNiagaraEmitterProperties* PinnedProps = Emitter->GetProperties().Get())
 		{
-			Emitter->GetProperties()->ExternalConstants.SetOrAdd(ConstantName, Value);
-			break;
+			FName CurName = *PinnedProps->EmitterName;
+			if (CurName == EmitterName)
+			{
+				Emitter->GetProperties()->UpdateScriptProps.ExternalConstants.SetOrAdd(ConstantName, Value);
+				break;
+			}
 		}
 	}
 }

@@ -31,10 +31,6 @@
 #include "DetourAssert.h"
 #include <new>
 
-#if TRACK_PATHFINDING_PERF
-#include "PerfTimer.h"
-#endif
-
 /// @class dtQueryFilter
 ///
 /// <b>The Default Implementation</b>
@@ -194,7 +190,6 @@ dtNavMeshQuery::dtNavMeshQuery() :
 	m_tinyNodePool(0),
 	m_nodePool(0),
 	m_openList(0),
-	m_queryTime(0.0f),
 	m_queryNodes(0)
 {
 	memset(&m_query, 0, sizeof(dtQueryData));
@@ -219,10 +214,10 @@ dtNavMeshQuery::~dtNavMeshQuery()
 /// functions are used.
 ///
 /// This function can be used multiple times.
-dtStatus dtNavMeshQuery::init(const dtNavMesh* nav, const int maxNodes, const dtQuerySpecialLinkFilter* linkFilter)
+dtStatus dtNavMeshQuery::init(const dtNavMesh* nav, const int maxNodes, dtQuerySpecialLinkFilter* linkFilter)
 {
 	m_nav = nav;
-	m_linkFilter = linkFilter;
+	updateLinkFilter(linkFilter);
 
 	if (maxNodes > 0)
 	{
@@ -276,9 +271,13 @@ dtStatus dtNavMeshQuery::init(const dtNavMesh* nav, const int maxNodes, const dt
 	return DT_SUCCESS;
 }
 
-void dtNavMeshQuery::updateLinkFilter(const dtQuerySpecialLinkFilter* linkFilter)
+void dtNavMeshQuery::updateLinkFilter(dtQuerySpecialLinkFilter* linkFilter)
 {
 	m_linkFilter = linkFilter;
+	if (m_linkFilter)
+	{
+		m_linkFilter->initialize();
+	}
 }
 
 dtStatus dtNavMeshQuery::findRandomPoint(const dtQueryFilter* filter, float (*frand)(),
@@ -1065,6 +1064,61 @@ dtStatus dtNavMeshQuery::findNearestPoly(const float* center, const float* exten
 	return DT_SUCCESS;
 }
 
+/// @par 
+///
+/// @note If the search box does not intersect any polygons the search will 
+/// return #DT_SUCCESS, but @p nearestRef will be zero. So if in doubt, check 
+/// @p nearestRef before using @p nearestPt.
+///
+/// @warning This function is not suitable for large area searches.  If the search
+/// extents overlaps more than 128 polygons it may return an invalid result.
+///
+dtStatus dtNavMeshQuery::findNearestContainingPoly(const float* center, const float* extents,
+												   const dtQueryFilter* filter,
+												   dtPolyRef* nearestRef, float* nearestPt) const
+{
+	dtAssert(m_nav);
+
+	*nearestRef = 0;
+
+	// Get nearby polygons from proximity grid.
+	dtPolyRef polys[128];
+	int polyCount = 0;
+	if (dtStatusFailed(queryPolygons(center, extents, filter, polys, &polyCount, 128)))
+		return DT_FAILURE | DT_INVALID_PARAM;
+
+	// Find nearest polygon amongst the nearby polygons.
+	dtPolyRef nearest = 0;
+	float nearestDistanceSqr = FLT_MAX;
+	for (int i = 0; i < polyCount; ++i)
+	{
+		dtPolyRef ref = polys[i];
+
+		bool inPoly = false;
+		isPointInsidePoly(ref, center, inPoly);
+
+		if (inPoly)
+		{
+			float closestPtPoly[3];
+			closestPointOnPoly(ref, center, closestPtPoly);
+			float d = dtVdistSqr(center, closestPtPoly);
+			float h = dtAbs(center[1] - closestPtPoly[1]);
+			if (d < nearestDistanceSqr && h < extents[1])
+			{
+				if (nearestPt)
+					dtVcopy(nearestPt, closestPtPoly);
+				nearestDistanceSqr = d;
+				nearest = ref;
+			}
+		}
+	}
+
+	if (nearestRef)
+		*nearestRef = nearest;
+
+	return DT_SUCCESS;
+}
+
 dtPolyRef dtNavMeshQuery::findNearestPolyInTile(const dtMeshTile* tile, const float* center, const float* extents,
 												const dtQueryFilter* filter, float* nearestPt) const
 {
@@ -1216,6 +1270,10 @@ dtStatus dtNavMeshQuery::queryPolygons(const float* center, const float* extents
 									   dtPolyRef* polys, int* polyCount, const int maxPolys) const
 {
 	dtAssert(m_nav);
+	if (m_nav == NULL)
+	{
+		return DT_FAILURE;
+	}
 	
 	float bmin[3], bmax[3];
 	dtVsub(bmin, center, extents);
@@ -1273,7 +1331,6 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 	dtAssert(m_nodePool);
 	dtAssert(m_openList);
 	
-	m_queryTime = 0.0f;
 	m_queryNodes = 0;
 
 	if (!startRef || !endRef)
@@ -1293,10 +1350,6 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 	const float H_SCALE = filter->getModifiedHeuristicScale();
 	//@UE4 END
 
-#if TRACK_PATHFINDING_PERF
-	const TimeVal startTime = getPerfTime();
-#endif
-
 	m_nodePool->clear();
 	m_openList->clear();
 	
@@ -1314,7 +1367,10 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 	float lastBestNodeCost = startNode->total;
 	
 	dtStatus status = DT_SUCCESS;
-	
+
+	int loopCounter = 0;
+	const int loopLimit = m_nodePool->getMaxNodes() + 1;
+
 	while (!m_openList->empty())
 	{
 		// Remove node from open list and put it in closed list.
@@ -1329,6 +1385,13 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 			break;
 		}
 		
+		loopCounter++;
+		// failsafe for cycles in navigation graph resulting in infinite loop 
+		if (loopCounter >= loopLimit * 4)
+		{
+			break;
+		}
+
 		// Get current poly and tile.
 		// The API input has been cheked already, skip checking internal data.
 		const dtPolyRef bestRef = bestNode->id;
@@ -1474,10 +1537,14 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 		node->pidx = m_nodePool->getNodeIdx(prev);
 		prev = node;
 		node = next;
-		n++;
 	}
-	while (node);
+	while (node && ++n < loopLimit);
 	
+	if (n >= loopLimit)
+	{
+		return DT_FAILURE | DT_INVALID_CYCLE_PATH;
+	}
+
 	result.reserve(n);
 
 	// Store path
@@ -1497,11 +1564,6 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 		*totalCost = lastBestNode->total;
 	}
 
-#if TRACK_PATHFINDING_PERF
-	const TimeVal endTime = getPerfTime();
-	m_queryTime = getPerfDeltaTimeUsec(startTime, endTime) / 1000.0f;
-#endif
-
 	return status;
 }
 
@@ -1512,7 +1574,6 @@ dtStatus dtNavMeshQuery::testClusterPath(dtPolyRef startRef, dtPolyRef endRef) c
 	const unsigned int startPolyIdx = m_nav->decodePolyIdPoly(startRef);
 	const unsigned int endPolyIdx = m_nav->decodePolyIdPoly(endRef);
 
-	m_queryTime = 0.0f;
 	m_queryNodes = 0;
 
 	if (startTile == 0 || endTile == 0 ||
@@ -1535,10 +1596,6 @@ dtStatus dtNavMeshQuery::testClusterPath(dtPolyRef startRef, dtPolyRef endRef) c
 	{
 		return DT_SUCCESS;
 	}
-
-#if TRACK_PATHFINDING_PERF
-	const TimeVal startTime = getPerfTime();
-#endif
 
 	m_nodePool->clear();
 	m_openList->clear();
@@ -1656,11 +1713,6 @@ dtStatus dtNavMeshQuery::testClusterPath(dtPolyRef startRef, dtPolyRef endRef) c
 			}
 		}
 	}
-
-#if TRACK_PATHFINDING_PERF
-	const TimeVal endTime = getPerfTime();
-	m_queryTime = getPerfDeltaTimeUsec(startTime, endTime) / 1000.0f;
-#endif
 
 	if (lastBestNode->id == endCRef)
 		status = DT_SUCCESS;
@@ -2225,7 +2277,7 @@ dtStatus dtNavMeshQuery::findStraightPath(const float* startPos, const float* en
 				}
 
 				// If starting really close the portal, advance.
-				if (i == 0)
+				if (i == 0 && toType == DT_POLYTYPE_GROUND)
 				{
 					float t;
 					if (dtDistancePtSegSqr2D(portalApex, left, right, t) < dtSqr(0.001f))

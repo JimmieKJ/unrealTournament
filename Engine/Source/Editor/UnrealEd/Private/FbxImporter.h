@@ -107,6 +107,7 @@ namespace UnFbx
 struct FBXImportOptions
 {
 	// General options
+	bool bImportScene;
 	bool bImportMaterials;
 	bool bInvertNormalMap;
 	bool bImportTextures;
@@ -118,15 +119,20 @@ struct FBXImportOptions
 	FRotator ImportRotation;
 	float ImportUniformScale;
 	EFBXNormalImportMethod NormalImportMethod;
+	EFBXNormalGenerationMethod::Type NormalGenerationMethod;
+	bool bTransformVertexToAbsolute;
 	// Static Mesh options
 	bool bCombineToSingle;
 	EVertexColorImportOption::Type VertexColorImportOption;
 	FColor VertexOverrideColor;
 	bool bRemoveDegenerates;
+	bool bBuildAdjacencyBuffer;
+	bool bBuildReversedIndexBuffer;
 	bool bGenerateLightmapUVs;
 	bool bOneConvexHullPerUCX;
 	bool bAutoGenerateCollision;
 	FName StaticMeshLODGroup;
+	bool bImportStaticMeshLODs;
 	// Skeletal Mesh options
 	bool bImportMorph;
 	bool bImportAnimations;
@@ -138,7 +144,9 @@ struct FBXImportOptions
 	bool bKeepOverlappingVertices;
 	bool bImportMeshesInBoneHierarchy;
 	bool bCreatePhysicsAsset;
+	bool bUseExperimentalTangentGeneration;
 	UPhysicsAsset *PhysicsAsset;
+	bool bImportSkeletalMeshLODs;
 	// Animation option
 	USkeleton* SkeletonForAnimation;
 	EFBXAnimationLengthImportType AnimationLengthImportType;
@@ -147,6 +155,13 @@ struct FBXImportOptions
 	bool	bPreserveLocalTransform;
 	bool	bDeleteExistingMorphTargetCurves;
 	bool	bImportCustomAttribute;
+
+	/** This allow to add a prefix to the material name when unreal material get created.	
+	*   This prefix can just modify the name of the asset for materials (i.e. TEXT("Mat"))
+	*   This prefix can modify the package path for materials (i.e. TEXT("/Materials/")).
+	*   Or both (i.e. TEXT("/Materials/Mat"))
+	*/
+	FName MaterialPrefixName;
 
 	bool ShouldImportNormals()
 	{
@@ -167,17 +182,35 @@ struct FBXImportOptions
 
 struct FbxMeshInfo
 {
-	char* Name;
+	FString Name;
+	uint64 UniqueId;
 	int32 FaceNum;
 	int32 VertexNum;
 	bool bTriangulated;
 	int32 MaterialNum;
 	bool bIsSkelMesh;
-	char* SkeletonRoot;
+	FString SkeletonRoot;
 	int32 SkeletonElemNum;
-	char* LODGroup;
+	FString LODGroup;
 	int32 LODLevel;
 	int32 MorphNum;
+};
+
+//Node use to store the scene hierarchy transform will be relative to the parent
+struct FbxNodeInfo
+{
+	const char* ObjectName;
+	uint64 UniqueId;
+	FbxAMatrix Transform;
+	
+	const char* AttributeName;
+	uint64 AttributeUniqueId;
+	const char* AttributeType;
+
+	const char* ParentName;
+	uint64 ParentUniqueId;
+	
+	
 };
 
 struct FbxSceneInfo
@@ -194,9 +227,10 @@ struct FbxSceneInfo
 	int32 TotalTextureNum;
 	
 	TArray<FbxMeshInfo> MeshInfo;
+	TArray<FbxNodeInfo> HierarchyInfo;
 	
-	// only one take supported currently
-	char* TakeName;
+	/* true if it has animation */
+	bool bHasAnimation;
 	double FrameRate;
 	double TotalTime;
 
@@ -208,29 +242,25 @@ struct FbxSceneInfo
 class FFbxDataConverter
 {
 public:
+	static FVector ConvertPos(FbxVector4 Vector);
+	static FVector ConvertDir(FbxVector4 Vector);
+	static FRotator ConvertEuler(FbxDouble3 Euler);
+	static FVector ConvertScale(FbxDouble3 Vector);
+	static FVector ConvertScale(FbxVector4 Vector);
+	static FRotator ConvertRotation(FbxQuaternion Quaternion);
+	static FVector ConvertRotationToFVect(FbxQuaternion Quaternion, bool bInvertRot);
+	static FQuat ConvertRotToQuat(FbxQuaternion Quaternion);
+	static float ConvertDist(FbxDouble Distance);
+	static bool ConvertPropertyValue(FbxProperty& FbxProperty, UProperty& UnrealProperty, union UPropertyValue& OutUnrealPropertyValue);
+	static FTransform ConvertTransform(FbxAMatrix Matrix);
+	static FMatrix ConvertMatrix(FbxAMatrix Matrix);
 
-	FFbxDataConverter() 
-	{}
-
-	FVector ConvertPos(FbxVector4 Vector);
-	FVector ConvertDir(FbxVector4 Vector);
-	FRotator ConvertEuler( FbxDouble3 Euler );
-	FVector ConvertScale(FbxDouble3 Vector);
-	FVector ConvertScale(FbxVector4 Vector);
-	FRotator ConvertRotation(FbxQuaternion Quaternion);
-	FVector ConvertRotationToFVect(FbxQuaternion Quaternion, bool bInvertRot);
-	FQuat ConvertRotToQuat(FbxQuaternion Quaternion);
-	float ConvertDist(FbxDouble Distance);
-	bool ConvertPropertyValue(FbxProperty& FbxProperty, UProperty& UnrealProperty, union UPropertyValue& OutUnrealPropertyValue);
-	FTransform ConvertTransform(FbxAMatrix Matrix);
-	FMatrix ConvertMatrix(FbxAMatrix Matrix);
-
-	FbxVector4 ConvertToFbxPos(FVector Vector);
-	FbxVector4 ConvertToFbxRot(FVector Vector);
-	FbxVector4 ConvertToFbxScale(FVector Vector);
-	FbxVector4 ConvertToFbxColor(FColor Color);
-	FbxString	ConvertToFbxString(FName Name);
-	FbxString	ConvertToFbxString(const FString& String);
+	static FbxVector4 ConvertToFbxPos(FVector Vector);
+	static FbxVector4 ConvertToFbxRot(FVector Vector);
+	static FbxVector4 ConvertToFbxScale(FVector Vector);
+	static FbxVector4 ConvertToFbxColor(FColor Color);
+	static FbxString	ConvertToFbxString(FName Name);
+	static FbxString	ConvertToFbxString(const FString& String);
 };
 
 FBXImportOptions* GetImportOptions( class FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, const FString& FullPath, bool& OutOperationCanceled, bool& OutImportAll, bool bIsObjFormat, bool bForceImportType = false, EFBXImportType ImportType = FBXIT_StaticMesh );
@@ -279,7 +309,6 @@ public:
 	 * @return bool true if get scene info successfully
 	 */
 	bool GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo);
-	
 
 	/**
 	 * Initialize Fbx file for import.
@@ -383,14 +412,13 @@ public:
 	 * @param NodeArray	Fbx Nodes to import
 	 * @param Name	the Unreal Mesh name after import
 	 * @param Flags
-	 * @param Filename	Fbx file name
 	 * @param FbxShapeArray	Fbx Morph objects.
 	 * @param OutData - Optional import data to populate
 	 * @param bCreateRenderData - Whether or not skeletal mesh rendering data will be created.
 	 *
 	 * @return The USkeletalMesh object created
 	 */
-	USkeletalMesh* ImportSkeletalMesh(UObject* InParent, TArray<FbxNode*>& NodeArray, const FName& Name, EObjectFlags Flags, UFbxSkeletalMeshImportData* TemplateImportData, FString Filename, TArray<FbxShape*> *FbxShapeArray=NULL, FSkeletalMeshImportData* OutData=NULL, bool bCreateRenderData = true );
+	USkeletalMesh* ImportSkeletalMesh(UObject* InParent, TArray<FbxNode*>& NodeArray, const FName& Name, EObjectFlags Flags, UFbxSkeletalMeshImportData* TemplateImportData, bool* bCancelOperation = nullptr, TArray<FbxShape*> *FbxShapeArray = nullptr, FSkeletalMeshImportData* OutData = nullptr, bool bCreateRenderData = true );
 
 	/**
 	 * Add to the animation set, the animations contained within the FBX scene, for the given skeletal mesh
@@ -444,10 +472,9 @@ public:
 	 *
 	 * @param SkelMeshNodeArray - Fbx Nodes that the base Skeletal Mesh construct from
 	 * @param BaseSkelMesh - base Skeletal Mesh
-	 * @param Filename - Fbx file name
 	 * @param LODIndex - LOD index
 	 */
-	void ImportFbxMorphTarget(TArray<FbxNode*> &SkelMeshNodeArray, USkeletalMesh* BaseSkelMesh, UObject* Parent, const FString& Filename, int32 LODIndex);
+	void ImportFbxMorphTarget(TArray<FbxNode*> &SkelMeshNodeArray, USkeletalMesh* BaseSkelMesh, UObject* Parent, int32 LODIndex);
 
 	/**
 	 * Import LOD object for skeletal mesh
@@ -487,6 +514,7 @@ public:
 
 	//help
 	ANSICHAR* MakeName(const ANSICHAR* name);
+	FString MakeString(const ANSICHAR* Name);
 	FName MakeNameForMesh(FString InName, FbxObject* FbxObject);
 
 	// meshes
@@ -622,10 +650,9 @@ private:
 	 *
 	 * @param SkelMeshNodeArray - Fbx Nodes that the base Skeletal Mesh construct from
 	 * @param BaseSkelMesh - base Skeletal Mesh
-	 * @param Filename - Fbx file name
 	 * @param LODIndex - LOD index of the skeletal mesh
 	 */
-	void ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMeshNodeArray, USkeletalMesh* BaseSkelMesh, UObject* Parent, const FString& InFilename, int32 LODIndex );
+	void ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMeshNodeArray, USkeletalMesh* BaseSkelMesh, UObject* Parent, int32 LODIndex );
 
 	/**
 	* sub-method called from ImportSkeletalMeshLOD method
@@ -680,6 +707,10 @@ protected:
 	// Initialized as true when start to import a FBX scene
 	bool bFirstMesh;
 	
+	// Set when importing skeletal meshes if the merge bones step fails. Used to track
+	// YesToAll and NoToAll for an entire scene
+	EAppReturnType::Type LastMergeBonesChoice;
+
 	/**
 	 * Collision model list. The key is fbx node name
 	 * If there is an collision model with old name format, the key is empty string("").
@@ -697,7 +728,7 @@ protected:
 	 * @param LODIndex	LOD level to set up for StaticMesh
 	 * @return bool true if set up successfully
 	 */
-	bool BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex,FRawMesh& RawMesh,
+	bool BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex, FRawMesh& RawMesh,
 									 EVertexColorImportOption::Type VertexColorImportOption, const TMap<FVector, FColor>& ExistingVertexColorData, const FColor& VertexOverrideColor);
 	
 	/**
@@ -921,7 +952,7 @@ protected:
 	 * @param ImportData
 	 * @return int32 number of points that added when process unsmooth faces
 	*/
-	int32 DoUnSmoothVerts(FSkeletalMeshImportData &ImportData);
+	int32 DoUnSmoothVerts(FSkeletalMeshImportData &ImportData, bool bDuplicateUnSmoothWedges = true);
 	
 	/**
 	 * Merge all layers of one AnimStack to one layer.
@@ -931,6 +962,15 @@ protected:
 	 */
 	void MergeAllLayerAnimation(FbxAnimStack* AnimStack, int32 ResampleRate);
 	
+	/**
+	* Fill the FbxNodeInfo structure recursively to reflect the FbxNode hierarchy. The result will be an array sorted with the parent first
+	*
+	* @param SceneInfo   The scene info to modify
+	* @param Parent      The parent FbxNode
+	* @param ParentInfo  The parent FbxNodeInfo
+	*/
+	void TraverseHierarchyNodeRecursively(FbxSceneInfo& SceneInfo, FbxNode *ParentNode, FbxNodeInfo &ParentInfo);
+
 	//
 	// for matinee export
 	//

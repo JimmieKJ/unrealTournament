@@ -66,9 +66,10 @@ UObject* UScriptFactory::FactoryCreateText(UClass* InClass, UObject* InParent, F
 	    {
 		    NewBlueprint = CastChecked<UScriptBlueprint>(FKismetEditorUtilities::CreateBlueprint(ParentClass, InParent, InName, BPTYPE_Normal, UScriptBlueprint::StaticClass(), UScriptBlueprintGeneratedClass::StaticClass(), "UScriptFactory"));
 		}
-		NewBlueprint->SourceFilePath = FReimportManager::SanitizeImportFilename(CurrentFilename, NewBlueprint);
+		
 		NewBlueprint->SourceCode = Buffer;
-		NewBlueprint->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*NewBlueprint->SourceFilePath).ToString();
+
+		NewBlueprint->AssetImportData->Update(CurrentFilename);
 
 		// Need to make sure we compile with the new source code
 		FKismetEditorUtilities::CompileBlueprint(NewBlueprint);
@@ -101,7 +102,7 @@ bool UReimportScriptFactory::CanReimport(UObject* Obj, TArray<FString>& OutFilen
 	UScriptBlueprint* ScriptClass = Cast<UScriptBlueprint>(Obj);
 	if (ScriptClass)
 	{
-		OutFilenames.Add(FReimportManager::ResolveImportFilename(ScriptClass->SourceFilePath, ScriptClass));
+		ScriptClass->AssetImportData->ExtractFilenames(OutFilenames);
 		return true;
 	}
 	return false;
@@ -112,7 +113,7 @@ void UReimportScriptFactory::SetReimportPaths(UObject* Obj, const TArray<FString
 	UScriptBlueprint* ScriptClass = Cast<UScriptBlueprint>(Obj);
 	if (ScriptClass && ensure(NewReimportPaths.Num() == 1))
 	{
-		ScriptClass->SourceFilePath = FReimportManager::SanitizeImportFilename(NewReimportPaths[0], Obj);
+		ScriptClass->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
 	}
 }
 
@@ -129,7 +130,7 @@ EReimportResult::Type UReimportScriptFactory::Reimport(UObject* Obj)
 
 	TGuardValue<UScriptBlueprint*> OriginalScriptGuardValue(OriginalScript, ScriptClass);
 
-	const FString ResolvedSourceFilePath = FReimportManager::ResolveImportFilename(ScriptClass->SourceFilePath, ScriptClass);
+	const FString ResolvedSourceFilePath = ScriptClass->AssetImportData->GetFirstFilename();
 	if (!ResolvedSourceFilePath.Len())
 	{
 		return EReimportResult::Failed;

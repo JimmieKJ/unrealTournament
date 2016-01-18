@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "UTAnnouncer.h"
 #include "UTShowdownGameMessage.generated.h"
 
 UCLASS()
@@ -18,12 +19,33 @@ public:
 
 		WinByHealthMsg = NSLOCTEXT("ShowdownMessage", "WinByHealthMsg", "{0} had the most total remaining health and wins the round.");
 		TieByHealthMsg = NSLOCTEXT("ShowdownMessage", "TieByHealthMsg", "Both players had the same total remaining health and both get a point.");
+		OnDeckAnnounce = FName(TEXT("SUV_OnDeck"));
+		RedTeamRound = FName(TEXT("RedTeamWinsRound"));
+		BlueTeamRound = FName(TEXT("BlueTeamWinsRound"));
+		NewRoundIn = FName(TEXT("NewRoundIn"));
+		FinalRound = FName(TEXT("FinalRound"));
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FText WinByHealthMsg;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FText TieByHealthMsg;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName OnDeckAnnounce;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName RedTeamRound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName BlueTeamRound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName NewRoundIn;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName FinalRound;
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
@@ -42,8 +64,37 @@ public:
 	{
 		return FLinearColor::White;
 	}
+
 	virtual bool UseLargeFont(int32 MessageIndex) const override
 	{
 		return true;
+	}
+
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	{
+		switch (Switch)
+		{
+		case 2:
+			return OnDeckAnnounce;
+		case 3:
+			return RedTeamRound;
+		case 4:
+			return BlueTeamRound;
+		case 5:
+			return NewRoundIn;
+		case 6:
+			return FinalRound;
+		default:
+			return NAME_None;
+		}
+	}
+
+	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
+	{
+		Announcer->PrecacheAnnouncement(OnDeckAnnounce);
+		Announcer->PrecacheAnnouncement(RedTeamRound);
+		Announcer->PrecacheAnnouncement(BlueTeamRound);
+		Announcer->PrecacheAnnouncement(NewRoundIn);
+		Announcer->PrecacheAnnouncement(FinalRound);
 	}
 };

@@ -255,6 +255,7 @@ protected:
 	bool EventGraphType_IsEnabled( const EEventGraphTypes::Type InEventGraphType ) const;
 
 	void FilteringSearchBox_OnTextChanged( const FText& InFilterText );
+	void FilteringSearchBox_OnTextCommitted( const FText& NewText, ETextCommit::Type CommitType );
 	bool FilteringSearchBox_IsEnabled() const;
 
 	TSharedPtr<SWidget> EventGraph_GetMenuContent() const;
@@ -297,8 +298,6 @@ public:
 		FUIAction UIAction;
 		UIAction.ExecuteAction = FExecuteAction::CreateSP( this, &SEventGraph::SelectAllFrames_Execute );
 		UIAction.CanExecuteAction = FCanExecuteAction::CreateSP( this, &SEventGraph::SelectAllFrames_CanExecute );
-		UIAction.IsCheckedDelegate = FIsActionChecked();
-		UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
 		return UIAction;
 	}
 		
@@ -365,8 +364,6 @@ public:
 		FUIAction UIAction;
 		UIAction.ExecuteAction = FExecuteAction::CreateSP( this, &SEventGraph::SetRoot_Execute );
 		UIAction.CanExecuteAction = FCanExecuteAction::CreateSP( this, &SEventGraph::SetRoot_CanExecute );
-		UIAction.IsCheckedDelegate = FIsActionChecked();
-		UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
 		return UIAction;
 	}
 		
@@ -388,8 +385,6 @@ public:
 		FUIAction UIAction;
 		UIAction.ExecuteAction = FExecuteAction::CreateSP( this, &SEventGraph::ClearHistory_Execute );
 		UIAction.CanExecuteAction = FCanExecuteAction::CreateSP( this, &SEventGraph::ClearHistory_CanExecute );
-		UIAction.IsCheckedDelegate = FIsActionChecked();
-		UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
 		return UIAction;
 	}
 		
@@ -410,8 +405,7 @@ public:
 		FUIAction UIAction;
 		UIAction.ExecuteAction = FExecuteAction::CreateSP( this, &SEventGraph::ShowSelectedEventsInViewMode_Execute, NewViewMode );
 		UIAction.CanExecuteAction = FCanExecuteAction::CreateSP( this, &SEventGraph::ShowSelectedEventsInViewMode_CanExecute, NewViewMode );
-		UIAction.IsCheckedDelegate = FIsActionChecked::CreateSP( this, &SEventGraph::ShowSelectedEventsInViewMode_IsChecked, NewViewMode );
-		UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
+		UIAction.GetActionCheckState = FGetActionCheckState::CreateSP( this, &SEventGraph::ShowSelectedEventsInViewMode_GetCheckState, NewViewMode );
 		return UIAction;
 	}
 		
@@ -420,8 +414,8 @@ protected:
 	void ShowSelectedEventsInViewMode_Execute(EEventGraphViewModes::Type NewViewMode);
 	/** Handles FCanExecuteAction for ShowSelectedEventsInViewMode. */
 	bool ShowSelectedEventsInViewMode_CanExecute(EEventGraphViewModes::Type NewViewMode) const;
-	/** Handles FIsActionChecked for ShowSelectedEventsInViewMode. */
-	bool ShowSelectedEventsInViewMode_IsChecked(EEventGraphViewModes::Type NewViewMode) const;
+	/** Handles FGetActionCheckState for ShowSelectedEventsInViewMode. */
+	ECheckBoxState ShowSelectedEventsInViewMode_GetCheckState(EEventGraphViewModes::Type NewViewMode) const;
 
 	/*-----------------------------------------------------------------------------
 		FilterOutByProperty
@@ -434,7 +428,6 @@ public:
 		FUIAction UIAction;
 		UIAction.ExecuteAction = FExecuteAction::CreateSP( this, &SEventGraph::FilterOutByProperty_Execute, EventPtr, PropertyName, bReset );
 		UIAction.CanExecuteAction = FCanExecuteAction::CreateSP( this, &SEventGraph::FilterOutByProperty_CanExecute, EventPtr, PropertyName, bReset );
-		UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
 		return UIAction;
 	}
 		
@@ -456,7 +449,6 @@ public:
 		FUIAction UIAction;
 		UIAction.ExecuteAction = FExecuteAction::CreateSP( this, &SEventGraph::CullByProperty_Execute, EventPtr, PropertyName, bReset );
 		UIAction.CanExecuteAction = FCanExecuteAction::CreateSP( this, &SEventGraph::CullByProperty_CanExecute, EventPtr, PropertyName, bReset );
-		UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
 		return UIAction;
 	}
 		
@@ -477,8 +469,7 @@ public:
 		FUIAction UIAction;
 		UIAction.ExecuteAction = FExecuteAction::CreateSP( this, &SEventGraph::HistoryList_GoTo_Execute, StateIndex );
 		UIAction.CanExecuteAction = FCanExecuteAction();
-		UIAction.IsCheckedDelegate = FIsActionChecked::CreateSP( this, &SEventGraph::HistoryList_GoTo_IsChecked, StateIndex );
-		UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
+		UIAction.GetActionCheckState = FGetActionCheckState::CreateSP( this, &SEventGraph::HistoryList_GoTo_GetCheckState, StateIndex );
 		return UIAction;
 	}
 		
@@ -494,15 +485,10 @@ protected:
 	/** Handles FExecuteAction for HistoryList_GoTo. */
 	void HistoryList_GoTo_Execute( int32 StateIndex );
 
-	ECheckBoxState HistoryList_GoTo_IsCheckedRadioState( int32 StateIndex ) const
+	/** Handles FGetActionCheckState for HistoryList_GoTo. */
+	ECheckBoxState HistoryList_GoTo_GetCheckState( int32 StateIndex ) const
 	{
-		return HistoryList_GoTo_IsChecked( StateIndex ) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-	}
-
-	/** Handles FIsActionChecked for HistoryList_GoTo. */
-	bool HistoryList_GoTo_IsChecked( int32 StateIndex ) const
-	{
-		return StateIndex == CurrentStateIndex;
+		return StateIndex == CurrentStateIndex ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 
 	/*-----------------------------------------------------------------------------
@@ -516,8 +502,6 @@ public:
 		FUIAction UIAction;
 		UIAction.ExecuteAction = FExecuteAction::CreateSP( this, &SEventGraph::SetExpansionForEvents_Execute, SelectedEventType, bShouldExpand );
 		UIAction.CanExecuteAction = FCanExecuteAction::CreateSP( this, &SEventGraph::SetExpansionForEvents_CanExecute, SelectedEventType, bShouldExpand );
-		UIAction.IsCheckedDelegate = FIsActionChecked();
-		UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
 		return UIAction;
 	}
 		
@@ -624,6 +608,12 @@ protected:
 			return new FEventGraphState( *this, InFilterPropertyName, InFilterEventPtr, FFilteredTag() );
 		}
 
+		FEventGraphState* CreateCopyWithTextFiltering(const FString& InFilterText)
+		{
+			FEventGraphState* Result = new FEventGraphState( *this, NAME_None, nullptr, FFilteredTag() );
+			InFilterText.ParseIntoArray(Result->TextBasedFilterStringTokens, TEXT(" "));
+			return Result;
+		}
 	protected:
 		/** Copy constructor for setting new root. */
 		FEventGraphState( const FEventGraphState& EventGraphState, const TArray<FEventGraphSamplePtr>& UniqueLeafs )
@@ -721,6 +711,9 @@ protected:
 		/** Value of the property used to filter out the event graph. */
 		FEventGraphSamplePtr FilterEventPtr;
 
+		/** Text substrings to match for text-based filtering (AND - all must be present) */
+		TArray<FString> TextBasedFilterStringTokens;
+
 		const double CreationTime;
 		EEventHistoryTypes::Type HistoryType;
 
@@ -810,9 +803,58 @@ protected:
 			}
 		}
 
+private:
+		static bool PassesTokenFilter(const TArray<FString>& FilterTokens, const FString& TestString)
+		{
+			for (const FString& Token : FilterTokens)
+			{
+				if (!TestString.Contains(Token))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		// Sets the filter and optionally culled properties, returning true if any child passed the filter
+		bool ApplyTextBasedFilterInternal(TArray< FEventGraphSamplePtr >& Nodes, bool bCullAsWell)
+		{
+			bool bAnyPasses = false;
+
+			for (FEventGraphSamplePtr& Node : Nodes)
+			{
+				const bool bChildPassesFilter = ApplyTextBasedFilterInternal(Node->GetChildren(), bCullAsWell);
+
+				const bool bThisPassesFilter = PassesTokenFilter(TextBasedFilterStringTokens, Node->_StatName.ToString());
+
+				bAnyPasses = bAnyPasses || bThisPassesFilter || bChildPassesFilter;
+
+				Node->PropertyValueAsBool(EEventPropertyIndex::bIsFiltered) = !bThisPassesFilter;
+				
+				if (bCullAsWell)
+				{
+					const bool bChildSavesFromCull = (ViewMode == EEventGraphViewModes::Hierarchical) && bChildPassesFilter;
+
+					bool& bCullState = Node->PropertyValueAsBool(EEventPropertyIndex::bIsCulled);
+
+					bCullState = (bCullState || !bChildPassesFilter) && !bChildSavesFromCull;
+				}
+			}
+
+			return bAnyPasses;
+		}
+
+public:
 		void ApplyFiltering()
 		{
-			if( IsFiltered() )
+			if (TextBasedFilterStringTokens.Num() > 0)
+			{
+				// Apply text substring filtering (and optionally culling).
+				const bool bAlsoCull = true;
+				ApplyTextBasedFilterInternal(GetRoot()->GetChildren(), bAlsoCull);
+			}
+			else if (IsFiltered())
 			{
 				// Apply filtering.
 				FEventArrayBooleanOp::ExecuteOperation

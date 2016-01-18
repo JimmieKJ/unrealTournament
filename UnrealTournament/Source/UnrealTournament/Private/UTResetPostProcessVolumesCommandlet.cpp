@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 
@@ -182,7 +182,7 @@ int32 UUTResetPostProcessVolumesCommandlet::Main(const FString& Params)
 
 		// get rid of the loaded world
 		UE_LOG(LogResetPostProcessVolumesCommandlet, Warning, TEXT("GCing..."));
-		CollectGarbage(RF_Native);
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 	}
 
 	// UEditorEngine::FinishDestroy() expects GWorld to exist

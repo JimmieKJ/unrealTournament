@@ -10,52 +10,6 @@
 #include <cxxabi.h>
 #include <stdio.h>
 
-bool FAndroidPlatformStackWalk::ProgramCounterToHumanReadableString(int32 CurrentCallDepth, uint64 ProgramCounter, ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize, FGenericCrashContext* Context)
-{
-	Dl_info DylibInfo;
-	int32 Result = dladdr((const void*)ProgramCounter, &DylibInfo);
-	if (Result == 0)
-	{
-		return false;
-	}
-
-	FProgramCounterSymbolInfo SymbolInfo;
-	ProgramCounterToSymbolInfo(ProgramCounter, SymbolInfo);
-
-	// Write out function name.
-	FCStringAnsi::Strcat(HumanReadableString, HumanReadableStringSize, SymbolInfo.FunctionName);
-
-	// Get filename.
-	{
-		ANSICHAR FileNameLine[MAX_SPRINTF];
-		if (SymbolInfo.LineNumber == 0)
-		{
-			// No line number. Print out the module offset address instead.
-			FCStringAnsi::Sprintf(FileNameLine, "Address = 0x%-8x ", SymbolInfo.OffsetInModule);
-		}
-		else
-		{
-			// try to add source file and line number, too
-			FCStringAnsi::Sprintf(FileNameLine, "[%s, line %d] ", SymbolInfo.Filename, SymbolInfo.LineNumber);
-		}
-
-		FCStringAnsi::Strcat(HumanReadableString, HumanReadableStringSize, FileNameLine);
-	}
-
-	// Get module name.
-	{
-		ANSICHAR ModuleName[MAX_SPRINTF];
-		// Write out Module information if there is sufficient space.
-		FCStringAnsi::Sprintf(ModuleName, "[in %s]", SymbolInfo.ModuleName);
-		FCStringAnsi::Strcat(HumanReadableString, HumanReadableStringSize, ModuleName);
-	}
-
-	// For the crash reporting code this needs a Windows line ending, the caller is responsible for the '\n'
-	FCStringAnsi::Strcat(HumanReadableString, HumanReadableStringSize, "\r");
-
-	return true;
-}
-
 void FAndroidPlatformStackWalk::ProgramCounterToSymbolInfo(uint64 ProgramCounter, FProgramCounterSymbolInfo& out_SymbolInfo)
 {
 	Dl_info DylibInfo;
@@ -70,8 +24,8 @@ void FAndroidPlatformStackWalk::ProgramCounterToSymbolInfo(uint64 ProgramCounter
 
 	// Increased the size of the demangle destination to reduce the chances that abi::__cxa_demangle will allocate
 	// this causes the app to hang as malloc isn't signal handler safe. Ideally we wouldn't call this function in a handler.
-	size_t DemangledNameLen = 65536;
-	ANSICHAR DemangledNameBuffer[65536] = { 0 };
+	size_t DemangledNameLen = 8192;
+	ANSICHAR DemangledNameBuffer[8192] = { 0 };
 	DemangledName = abi::__cxa_demangle(DylibInfo.dli_sname, DemangledNameBuffer, &DemangledNameLen, &Status);
 
 	if (DemangledName)
@@ -131,6 +85,8 @@ namespace AndroidStackWalkHelpers
 	}
 }
 
+extern int32 unwind_backtrace_signal(void* sigcontext, uint64* Backtrace, int32 MaxDepth);
+
 void FAndroidPlatformStackWalk::CaptureStackBackTrace(uint64* BackTrace, uint32 MaxDepth, void* Context)
 {
 	// Make sure we have place to store the information
@@ -141,8 +97,19 @@ void FAndroidPlatformStackWalk::CaptureStackBackTrace(uint64* BackTrace, uint32 
 
 	// zero results
 	FPlatformMemory::Memzero(BackTrace, MaxDepth*sizeof(uint64));
-
-	// backtrace
+	
+#if PLATFORM_ANDROID_ARM
+	if (Context != nullptr)
+	{
+		// Android signal handlers always catch signals before user handlers and passes it down to user later
+		// _Unwind_Backtrace does not use signal context and will produce wrong callstack in this case
+		// We use code from libcorkscrew to unwind backtrace using actual signal context
+		// Code taken from https://android.googlesource.com/platform/system/core/+/jb-dev/libcorkscrew/arch-arm/backtrace-arm.c
+		unwind_backtrace_signal(Context, BackTrace, MaxDepth);
+		return;
+	}
+#endif //PLATFORM_ANDROID_ARM
+	
 	AndroidStackWalkHelpers::BackTrace = BackTrace;
 	AndroidStackWalkHelpers::MaxDepth = MaxDepth;
 	uint32 Depth = 0;

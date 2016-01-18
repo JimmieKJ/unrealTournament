@@ -13,16 +13,22 @@ void SEditableTextBox::Construct( const FArguments& InArgs )
 	check (InArgs._Style);
 	SetStyle(InArgs._Style);
 
-	TAttribute<FMargin> Padding = InArgs._Padding.IsSet() ? InArgs._Padding : InArgs._Style->Padding;
-	TAttribute<FSlateFontInfo> Font = InArgs._Font.IsSet() ? InArgs._Font : InArgs._Style->Font;
-	TAttribute<FSlateColor> ForegroundColor = InArgs._ForegroundColor.IsSet() ? InArgs._ForegroundColor : InArgs._Style->ForegroundColor;
-	TAttribute<FSlateColor> BackgroundColor = InArgs._BackgroundColor.IsSet() ? InArgs._BackgroundColor : InArgs._Style->BackgroundColor;
-	ReadOnlyForegroundColor = InArgs._ReadOnlyForegroundColor.IsSet() ? InArgs._ReadOnlyForegroundColor : InArgs._Style->ReadOnlyForegroundColor;
+	PaddingOverride = InArgs._Padding;
+	FontOverride = InArgs._Font;
+	ForegroundColorOverride = InArgs._ForegroundColor;
+	BackgroundColorOverride = InArgs._BackgroundColor;
+	ReadOnlyForegroundColorOverride = InArgs._ReadOnlyForegroundColor;
+
+	TAttribute<FMargin> Padding = PaddingOverride.IsSet() ? PaddingOverride : InArgs._Style->Padding;
+	TAttribute<FSlateFontInfo> Font = FontOverride.IsSet() ? FontOverride : InArgs._Style->Font;
+	TAttribute<FSlateColor> BorderForegroundColor = ForegroundColorOverride.IsSet() ? ForegroundColorOverride : InArgs._Style->ForegroundColor;
+	TAttribute<FSlateColor> BackgroundColor = BackgroundColorOverride.IsSet() ? BackgroundColorOverride : InArgs._Style->BackgroundColor;
+	ReadOnlyForegroundColor = ReadOnlyForegroundColorOverride.IsSet() ? ReadOnlyForegroundColorOverride : InArgs._Style->ReadOnlyForegroundColor;
 
 	SBorder::Construct( SBorder::FArguments()
 		.BorderImage( this, &SEditableTextBox::GetBorderImage )
 		.BorderBackgroundColor( BackgroundColor )
-		.ForegroundColor( ForegroundColor )
+		.ForegroundColor( BorderForegroundColor )
 		.Padding( 0 )
 		[
 			SAssignNew( Box, SHorizontalBox)
@@ -32,7 +38,7 @@ void SEditableTextBox::Construct( const FArguments& InArgs )
 			.HAlign(HAlign_Fill)
 			.FillWidth(1)
 			[
-				SNew( SBox )
+				SAssignNew(PaddingBox, SBox)
 				.Padding( Padding )
 				[
 					SAssignNew( EditableText, SEditableText )
@@ -45,10 +51,13 @@ void SEditableTextBox::Construct( const FArguments& InArgs )
 					.SelectAllTextWhenFocused( InArgs._SelectAllTextWhenFocused )
 					.RevertTextOnEscape( InArgs._RevertTextOnEscape )
 					.ClearKeyboardFocusOnCommit( InArgs._ClearKeyboardFocusOnCommit )
+					.OnContextMenuOpening( InArgs._OnContextMenuOpening )
 					.OnTextChanged( InArgs._OnTextChanged )
 					.OnTextCommitted( InArgs._OnTextCommitted )
 					.MinDesiredWidth( InArgs._MinDesiredWidth )
 					.SelectAllTextOnCommit( InArgs._SelectAllTextOnCommit )
+					.OnKeyDownHandler( InArgs._OnKeyDownHandler )
+					.VirtualKeyboardType( InArgs._VirtualKeyboardType )
 				]
 			]
 		]
@@ -76,6 +85,31 @@ void SEditableTextBox::SetStyle(const FEditableTextBoxStyle* InStyle)
 	{
 		FArguments Defaults;
 		Style = Defaults._Style;
+	}
+
+	if (!PaddingOverride.IsSet() && PaddingBox.IsValid())
+	{
+		PaddingBox->SetPadding(Style->Padding);
+	}
+
+	if (!FontOverride.IsSet() && EditableText.IsValid())
+	{
+		EditableText->SetFont(Style->Font);
+	}
+
+	if (!ForegroundColorOverride.IsSet())
+	{
+		SetForegroundColor(Style->ForegroundColor);
+	}
+
+	if (!BackgroundColorOverride.IsSet())
+	{
+		SetBorderBackgroundColor(Style->BackgroundColor);
+	}
+
+	if (!ReadOnlyForegroundColorOverride.IsSet())
+	{
+		ReadOnlyForegroundColor = Style->ReadOnlyForegroundColor;
 	}
 
 	BorderImageNormal = &Style->BackgroundImageNormal;
@@ -117,6 +151,10 @@ void SEditableTextBox::SetError( const FString& InError )
 	ErrorReporting->SetError( InError );
 }
 
+void SEditableTextBox::SetOnKeyDownHandler(FOnKeyDown InOnKeyDownHandler)
+{
+	EditableText->SetOnKeyDownHandler(InOnKeyDownHandler);
+}
 
 /** @return Border image for the text box based on the hovered and focused state */
 const FSlateBrush* SEditableTextBox::GetBorderImage() const
@@ -200,4 +238,71 @@ void SEditableTextBox::SetIsReadOnly(TAttribute< bool > InIsReadOnly)
 void SEditableTextBox::SetIsPassword(TAttribute< bool > InIsPassword)
 {
 	EditableText->SetIsPassword(InIsPassword);
+}
+
+
+void SEditableTextBox::SetFont(const TAttribute<FSlateFontInfo>& InFont)
+{
+	FontOverride = InFont;
+
+	EditableText->SetFont(FontOverride.IsSet() ? FontOverride : Style->Font);
+}
+
+
+void SEditableTextBox::SetTextBoxForegroundColor(const TAttribute<FSlateColor>& InForegroundColor)
+{
+	ForegroundColorOverride = InForegroundColor;
+
+	SetForegroundColor(ForegroundColorOverride.IsSet() ? ForegroundColorOverride : Style->ForegroundColor);
+}
+
+void SEditableTextBox::SetTextBoxBackgroundColor(const TAttribute<FSlateColor>& InBackgroundColor)
+{
+	BackgroundColorOverride = InBackgroundColor;
+
+	SetBorderBackgroundColor(BackgroundColorOverride.IsSet() ? BackgroundColorOverride : Style->BackgroundColor);
+}
+
+
+void SEditableTextBox::SetReadOnlyForegroundColor(const TAttribute<FSlateColor>& InReadOnlyForegroundColor)
+{
+	ReadOnlyForegroundColorOverride = InReadOnlyForegroundColor;
+
+	ReadOnlyForegroundColor = ReadOnlyForegroundColorOverride.IsSet() ? ReadOnlyForegroundColorOverride : Style->ReadOnlyForegroundColor;
+}
+
+
+void SEditableTextBox::SetMinimumDesiredWidth(const TAttribute<float>& InMinimumDesiredWidth)
+{
+	EditableText->SetMinDesiredWidth(InMinimumDesiredWidth);
+}
+
+
+void SEditableTextBox::SetIsCaretMovedWhenGainFocus(const TAttribute<bool>& InIsCaretMovedWhenGainFocus)
+{
+	EditableText->SetIsCaretMovedWhenGainFocus(InIsCaretMovedWhenGainFocus);
+}
+
+
+void SEditableTextBox::SetSelectAllTextWhenFocused(const TAttribute<bool>& InSelectAllTextWhenFocused)
+{
+	EditableText->SetSelectAllTextWhenFocused(InSelectAllTextWhenFocused);
+}
+
+
+void SEditableTextBox::SetRevertTextOnEscape(const TAttribute<bool>& InRevertTextOnEscape)
+{
+	EditableText->SetRevertTextOnEscape(InRevertTextOnEscape);
+}
+
+
+void SEditableTextBox::SetClearKeyboardFocusOnCommit(const TAttribute<bool>& InClearKeyboardFocusOnCommit)
+{
+	EditableText->SetClearKeyboardFocusOnCommit(InClearKeyboardFocusOnCommit);
+}
+
+
+void SEditableTextBox::SetSelectAllTextOnCommit(const TAttribute<bool>& InSelectAllTextOnCommit)
+{
+	EditableText->SetSelectAllTextOnCommit(InSelectAllTextOnCommit);
 }

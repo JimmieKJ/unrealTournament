@@ -185,11 +185,10 @@ FGraphActionNode::FGraphActionNode(TArray< TSharedPtr<FEdGraphSchemaAction> > co
 //------------------------------------------------------------------------------
 TSharedPtr<FGraphActionNode> FGraphActionNode::AddChild(FGraphActionListBuilderBase::ActionGroup const& ActionSet)
 {
-	TArray<FString> CategoryStack;
-	ActionSet.GetCategoryChain(CategoryStack);
+	const TArray<FString>& CategoryStack = ActionSet.GetCategoryChain();
 
 	TSharedPtr<FGraphActionNode> ActionNode = FGraphActionNode::NewActionNode(ActionSet.Actions);
-	AddChildRecursively(CategoryStack, ActionNode);
+	AddChildRecursively(CategoryStack, 0, ActionNode);
 	
 	return ActionNode;
 }
@@ -283,6 +282,7 @@ void FGraphActionNode::ExpandAllChildren(TSharedPtr< STreeView< TSharedPtr<FGrap
 void FGraphActionNode::ClearChildren()
 {
 	Children.Empty();
+	CategoryNodes.Empty();
 	ChildGroupings.Empty();
 	ChildSections.Empty();
 }
@@ -308,7 +308,7 @@ bool FGraphActionNode::IsCategoryNode() const
 //------------------------------------------------------------------------------
 bool FGraphActionNode::IsActionNode() const
 {
-	return HasValidAction();
+	return Actions.Num() != 0;
 }
 
 //------------------------------------------------------------------------------
@@ -330,12 +330,12 @@ FText const& FGraphActionNode::GetDisplayName() const
 }
 
 //------------------------------------------------------------------------------
-FString FGraphActionNode::GetCategoryPath() const
+FText FGraphActionNode::GetCategoryPath() const
 {
-	FString CategoryPath;
+	FText CategoryPath;
 	if (IsCategoryNode())
 	{
-		CategoryPath = DisplayText.ToString();
+		CategoryPath = DisplayText;
 	}
 
 	TWeakPtr<FGraphActionNode> AncestorNode = ParentNode;
@@ -345,7 +345,7 @@ FString FGraphActionNode::GetCategoryPath() const
 
 		if( !AncestorDisplayText.IsEmpty() )
 		{
-			CategoryPath = AncestorDisplayText.ToString() + TEXT("|") + CategoryPath;
+			CategoryPath = FText::Format(FText::FromString(TEXT("{0}|{1}")), AncestorDisplayText, CategoryPath);
 		}
 		AncestorNode = AncestorNode.Pin()->GetParentNode();
 	}
@@ -361,15 +361,14 @@ bool FGraphActionNode::HasValidAction() const
 //------------------------------------------------------------------------------
 TSharedPtr<FEdGraphSchemaAction> FGraphActionNode::GetPrimaryAction() const
 {
-	TSharedPtr<FEdGraphSchemaAction> PrimaryAction;
-	for (TSharedPtr<FEdGraphSchemaAction> NodeAction : Actions)
+	for (const TSharedPtr<FEdGraphSchemaAction>& NodeAction : Actions)
 	{
 		if (NodeAction.IsValid())
 		{
-			PrimaryAction = NodeAction;
+			return NodeAction;
 		}
 	}
-	return PrimaryAction;
+	return TSharedPtr<FEdGraphSchemaAction>();
 }
 
 //------------------------------------------------------------------------------
@@ -422,18 +421,18 @@ TSharedPtr<FGraphActionNode> FGraphActionNode::NewActionNode(TArray< TSharedPtr<
 
 	for (TSharedPtr<FEdGraphSchemaAction> const& Action : ActionList)
 	{
-		Grouping = FMath::Max(Grouping, Action->Grouping);
+		Grouping = FMath::Max(Grouping, Action->GetGrouping());
 		if (SectionID == INVALID_SECTION_ID)
 		{
 			// take the first non-zero section ID
-			SectionID = Action->SectionID;
+			SectionID = Action->GetSectionID();
 		}
 	}
 
 	FGraphActionNode* ActionNode = new FGraphActionNode(ActionList, Grouping, SectionID);
 	TSharedPtr<FEdGraphSchemaAction> PrimeAction = ActionNode->GetPrimaryAction();
 	checkSlow(PrimeAction.IsValid());
-	ActionNode->DisplayText = PrimeAction->MenuDescription;
+	ActionNode->DisplayText = PrimeAction->GetMenuDescription();
 
 	return MakeShareable(ActionNode);
 }
@@ -449,46 +448,48 @@ TSharedPtr<FGraphActionNode> FGraphActionNode::NewGroupDividerNode(TWeakPtr<FGra
 }
 
 //------------------------------------------------------------------------------
-void FGraphActionNode::AddChildRecursively(TArray<FString>& CategoryStack, TSharedPtr<FGraphActionNode> NodeToAdd)
+void FGraphActionNode::AddChildRecursively(const TArray<FString>& CategoryStack, int32 Idx, TSharedPtr<FGraphActionNode> NodeToAdd)
 {
-	TSharedPtr<FGraphActionNode> FoundSectionNode;
-	for ( TSharedPtr<FGraphActionNode> const& ChildNode : Children )
+	if (NodeToAdd->SectionID != INVALID_SECTION_ID)
 	{
-		if ( NodeToAdd->SectionID == ChildNode->SectionID && ChildNode->IsSectionHeadingNode() )
+		TSharedPtr<FGraphActionNode> FoundSectionNode;
+		for ( TSharedPtr<FGraphActionNode> const& ChildNode : Children )
 		{
-			FoundSectionNode = ChildNode;
-			break;
+			if ( NodeToAdd->SectionID == ChildNode->SectionID && ChildNode->IsSectionHeadingNode() )
+			{
+				FoundSectionNode = ChildNode;
+				break;
+			}
+		}
+
+		if ( FoundSectionNode.IsValid() )
+		{
+			FoundSectionNode->AddChildRecursively(CategoryStack, Idx, NodeToAdd);
+			return;
 		}
 	}
 
-	if ( FoundSectionNode.IsValid() )
+	if ( Idx < CategoryStack.Num() )
 	{
-		FoundSectionNode->AddChildRecursively(CategoryStack, NodeToAdd);
-	}
-	else
-	{
-		if ( CategoryStack.Num() > 0 )
-		{
-			FString CategorySection = CategoryStack[0];
-			CategoryStack.RemoveAt(0, 1);
+		const FString& CategorySection = CategoryStack[Idx];
+		++Idx;
 
-			// make sure we don't already have a child that this can nest under
-			TSharedPtr<FGraphActionNode> ExistingNode = FindMatchingParent(CategorySection, NodeToAdd);
-			if ( ExistingNode.IsValid() )
-			{
-				ExistingNode->AddChildRecursively(CategoryStack, NodeToAdd);
-			}
-			else
-			{
-				TSharedPtr<FGraphActionNode> CategoryNode = NewCategoryNode(CategorySection, NodeToAdd->Grouping, NodeToAdd->SectionID);
-				InsertChild(CategoryNode);
-				CategoryNode->AddChildRecursively(CategoryStack, NodeToAdd);
-			}
+		// make sure we don't already have a child that this can nest under
+		TSharedPtr<FGraphActionNode> ExistingNode = FindMatchingParent(CategorySection, NodeToAdd);
+		if ( ExistingNode.IsValid() )
+		{
+			ExistingNode->AddChildRecursively(CategoryStack, Idx, NodeToAdd);
 		}
 		else
 		{
-			InsertChild(NodeToAdd);
+			TSharedPtr<FGraphActionNode> CategoryNode = NewCategoryNode(CategorySection, NodeToAdd->Grouping, NodeToAdd->SectionID);
+			InsertChild(CategoryNode);
+			CategoryNode->AddChildRecursively(CategoryStack, Idx, NodeToAdd);
 		}
+	}
+	else
+	{
+		InsertChild(NodeToAdd);
 	}
 }
 
@@ -501,30 +502,43 @@ TSharedPtr<FGraphActionNode> FGraphActionNode::FindMatchingParent(FString const&
 	// actions (meaning that action node can have children).
 	bool const bCanNestUnderActionNodes = NodeToAdd->IsActionNode() && NodeToAdd->GetPrimaryAction()->IsParentable();
 
-	for (TSharedPtr<FGraphActionNode> const& ChildNode : Children)
+	if (bCanNestUnderActionNodes)
 	{
-		if (ChildNode->IsCategoryNode())
+		// slow path, not commonly used:
+		for (TSharedPtr<FGraphActionNode> const& ChildNode : Children)
 		{
-			if ((NodeToAdd->SectionID == ChildNode->SectionID) &&
-				(ParentName == ChildNode->DisplayText.ToString()))
+			if (ChildNode->IsCategoryNode())
 			{
-				FoundCategoryNode = ChildNode;
-				break;
+				if ((NodeToAdd->SectionID == ChildNode->SectionID) &&
+					(ParentName == ChildNode->DisplayText.ToString()))
+				{
+					FoundCategoryNode = ChildNode;
+					break;
+				}
+			}
+			else if (bCanNestUnderActionNodes && ChildNode->IsActionNode())
+			{
+				// make the action's name into a display name, all categories are 
+				// set as such (to ensure that the action name best matches the 
+				// category ParentName)
+				FString ChildNodeName = FName::NameToDisplayString(ChildNode->DisplayText.ToString(), /*bIsBool =*/false);
+
+				// @TODO: should we be matching section/grouping as well?
+				if (ChildNodeName == ParentName)
+				{
+					FoundCategoryNode = ChildNode;
+					break;
+				}
 			}
 		}
-		else if (bCanNestUnderActionNodes && ChildNode->IsActionNode())
+	}
+	else
+	{
+		// fast path, just look up in category map:
+		TSharedPtr<FGraphActionNode>* PotentialCategoryNode = CategoryNodes.Find(ParentName);
+		if (PotentialCategoryNode && (*PotentialCategoryNode)->SectionID == NodeToAdd->SectionID)
 		{
-			// make the action's name into a display name, all categories are 
-			// set as such (to ensure that the action name best matches the 
-			// category ParentName)
-			FString ChildNodeName = FName::NameToDisplayString(ChildNode->DisplayText.ToString(), /*bIsBool =*/false);
-
-			// @TODO: should we be matching section/grouping as well?
-			if (ChildNodeName == ParentName)
-			{
-				FoundCategoryNode = ChildNode;
-				break;
-			}
+			FoundCategoryNode = *PotentialCategoryNode;
 		}
 	}
 
@@ -546,7 +560,7 @@ void FGraphActionNode::InsertChild(TSharedPtr<FGraphActionNode> NodeToAdd)
 			// make sure we already haven't already added a heading for this section
 			!ChildSections.Contains(NodeToAdd->SectionID) &&
 			// if this node also has a category, use that over a section heading
-			(!NodeToAdd->IsActionNode() || NodeToAdd->GetPrimaryAction()->Category.IsEmpty());
+			(!NodeToAdd->IsActionNode() || NodeToAdd->GetPrimaryAction()->GetCategory().IsEmpty());
 
 		if (bAddSectionHeading)
 		{
@@ -558,6 +572,10 @@ void FGraphActionNode::InsertChild(TSharedPtr<FGraphActionNode> NodeToAdd)
 
 			NodeToAdd->InsertOrder = NewSection->Children.Num();
 			NewSection->Children.Add(NodeToAdd);
+			if (NodeToAdd->IsCategoryNode())
+			{
+				CategoryNodes.Add(NodeToAdd->DisplayText.ToString(), NodeToAdd);
+			}
 			return;
 		}
 	}
@@ -590,6 +608,10 @@ void FGraphActionNode::InsertChild(TSharedPtr<FGraphActionNode> NodeToAdd)
 
 	NodeToAdd->InsertOrder = Children.Num();
 	Children.Add(NodeToAdd);
+	if (NodeToAdd->IsCategoryNode())
+	{
+		CategoryNodes.Add(NodeToAdd->DisplayText.ToString(), NodeToAdd);
+	}
 }
 
 

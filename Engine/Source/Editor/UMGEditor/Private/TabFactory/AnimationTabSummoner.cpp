@@ -138,10 +138,10 @@ private:
 			{
 				const FScopedTransaction Transaction(TransactionName);
 				WidgetAnimation->Modify();
-				WidgetAnimation->MovieScene->Modify();
+				WidgetAnimation->GetMovieScene()->Modify();
 
 				WidgetAnimation->Rename(*InText.ToString());
-				WidgetAnimation->MovieScene->Rename(*InText.ToString());
+				WidgetAnimation->GetMovieScene()->Rename(*InText.ToString());
 
 				if(bNewAnimation)
 				{
@@ -239,7 +239,7 @@ public:
 					.Padding(2.0f, 0.0f)
 					.VAlign( VAlign_Center )
 					[
-						SNew(SSearchBox)
+						SAssignNew(SearchBoxPtr, SSearchBox)
 						.HintText(LOCTEXT("Search Animations", "Search Animations"))
 						.OnTextChanged(this, &SUMGAnimationList::OnSearchChanged)
 					]
@@ -297,9 +297,12 @@ private:
 
 		if(ViewedAnim)
 		{
-			TSharedPtr<FWidgetAnimationListItem> FoundListItem = *Animations.FindByPredicate( [&](const TSharedPtr<FWidgetAnimationListItem>& ListItem ) { return ListItem->Animation == ViewedAnim; } );
-			
-			AnimationListView->SetSelection(FoundListItem);
+			const TSharedPtr<FWidgetAnimationListItem>* FoundListItemPtr = Animations.FindByPredicate( [&](const TSharedPtr<FWidgetAnimationListItem>& ListItem ) { return ListItem->Animation == ViewedAnim; } );
+
+			if (FoundListItemPtr != nullptr)
+			{
+				AnimationListView->SetSelection(*FoundListItemPtr);
+			}
 		}
 
 	}
@@ -315,10 +318,16 @@ private:
 
 	FReply OnNewAnimationClicked()
 	{
+		const float InTime = 0.f;
+		const float OutTime = 5.0f;
+
 		UWidgetBlueprint* WidgetBlueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
 
 		UWidgetAnimation* NewAnimation = NewObject<UWidgetAnimation>(WidgetBlueprint, MakeUniqueObjectName(WidgetBlueprint, UWidgetAnimation::StaticClass(), "NewAnimation"), RF_Transactional);
 		NewAnimation->MovieScene = NewObject<UMovieScene>(NewAnimation, NewAnimation->GetFName(), RF_Transactional);
+
+		NewAnimation->MovieScene->SetPlaybackRange(InTime, OutTime);
+		NewAnimation->MovieScene->GetEditorData().WorkingRange = TRange<float>(InTime, OutTime);
 
 		bool bRequestRename = true;
 		bool bNewAnimation = true;
@@ -347,6 +356,7 @@ private:
 			TTextFilter<UWidgetAnimation*> TextFilter(TTextFilter<UWidgetAnimation*>::FItemToStringArray::CreateStatic(&Local::UpdateFilterStrings));
 
 			TextFilter.SetRawFilterText(InSearchText);
+			SearchBoxPtr->SetError(TextFilter.GetFilterErrorText());
 
 			Animations.Reset();
 
@@ -362,6 +372,8 @@ private:
 		}
 		else
 		{
+			SearchBoxPtr->SetError(FText::GetEmpty());
+
 			// Just regenerate the whole list
 			UpdateAnimationList();
 		}
@@ -369,7 +381,6 @@ private:
 
 	void OnSelectionChanged( TSharedPtr<FWidgetAnimationListItem> InSelectedItem, ESelectInfo::Type SelectionInfo )
 	{
-		UWidgetBlueprint* WidgetBlueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
 		UWidgetAnimation* WidgetAnimation;
 		if( InSelectedItem.IsValid() )
 		{
@@ -379,7 +390,12 @@ private:
 		{
 			WidgetAnimation = UWidgetAnimation::GetNullAnimation();
 		}
-		BlueprintEditor.Pin()->ChangeViewedAnimation( *WidgetAnimation );
+
+		const UWidgetAnimation* CurrentWidgetAnimation = BlueprintEditor.Pin()->RefreshCurrentAnimation();
+		if (WidgetAnimation != CurrentWidgetAnimation)
+		{
+			BlueprintEditor.Pin()->ChangeViewedAnimation( *WidgetAnimation );
+		}
 	}
 
 	TSharedPtr<SWidget> OnContextMenuOpening() const
@@ -446,7 +462,7 @@ private:
 			(
 				SelectedAnimation->Animation,
 				WidgetBlueprint, 
-				*MakeUniqueObjectName( WidgetBlueprint, UWidgetAnimation::StaticClass(), SelectedAnimation->Animation->GetFName() ).ToString()
+				MakeUniqueObjectName( WidgetBlueprint, UWidgetAnimation::StaticClass(), SelectedAnimation->Animation->GetFName() )
 			);
 	
 		NewAnimation->MovieScene->Rename(*NewAnimation->GetName(), nullptr, REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
@@ -504,6 +520,7 @@ private:
 	TWeakPtr<FWidgetBlueprintEditor> BlueprintEditor;
 	TSharedPtr<SWidgetAnimationListView> AnimationListView;
 	TArray< TSharedPtr<FWidgetAnimationListItem> > Animations;
+	TSharedPtr<SSearchBox> SearchBoxPtr;
 };
 
 

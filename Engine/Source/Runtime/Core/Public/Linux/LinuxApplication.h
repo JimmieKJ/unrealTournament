@@ -6,13 +6,11 @@
 #include "LinuxWindow.h"
 #include "LinuxCursor.h"
 
-typedef SDL_GameController* SDL_HController;
-
 class FLinuxWindow;
 class FGenericApplicationMessageHandler;
 
 
-class FLinuxApplication : public GenericApplication
+class FLinuxApplication : public GenericApplication, public FSelfRegisteringExec
 {
 
 public:
@@ -27,6 +25,9 @@ public:
 	virtual ~FLinuxApplication();
 	
 	virtual void DestroyApplication() override;
+
+	// FSelfRegisteringExec
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 
 public:
 	virtual void SetMessageHandler( const TSharedRef< class FGenericApplicationMessageHandler >& InMessageHandler ) override;
@@ -48,11 +49,11 @@ public:
 	virtual void SetHighPrecisionMouseMode( const bool Enable, const TSharedPtr< FGenericWindow >& InWindow ) override;
 
 	virtual bool IsUsingHighPrecisionMouseMode() const override { return bUsingHighPrecisionMouseInput; }
-	//	
+
 	virtual FModifierKeysState GetModifierKeys() const override;
-	//	
+
 	virtual FPlatformRect GetWorkArea( const FPlatformRect& CurrentWindow ) const override;
-	//	X
+
 	virtual bool TryCalculatePopupWindowPosition( const FPlatformRect& InAnchor, const FVector2D& InSize, const EPopUpOrientation::Type Orientation, /*OUT*/ FVector2D* const CalculatedPopUpPosition ) const override;
 
 	virtual EWindowTransparency GetWindowTransparencySupport() const override
@@ -78,6 +79,41 @@ public:
 
 	virtual bool IsCursorDirectlyOverSlateWindow() const override;
 
+	/** Returns true if this application is foreground */
+	FORCEINLINE bool IsForeground()
+	{
+		// if there are no windows, consider ourselves foreground so servers and commandlets aren't impacted
+		return (Windows.Num() > 0) ? bActivateApp : true;
+	}
+
+	/**
+	 * Windows can move during an event loop (like in
+	 * FLinuxPlatformMisc::PumpMessages(), but SDL queues many events
+	 * up before any windows move. This can lead to the screen-space
+	 * position of the mouse cursor being calculated incorrectly with
+	 * the old event data and new window location data. Use this to
+	 * save the window locations for use during the loop.
+	 */
+	void SaveWindowLocationsForEventLoop(void);
+
+	/** Clear out data saved in SaveWindowLocationsForEventLoop(). */
+	void ClearWindowLocationsAfterEventLoop(void);
+
+	/**
+	 * Get a window position inside the event loop. Fall back on
+	 * SDL_GetWindowPosition if not present in the saved window
+	 * locations.
+	 *
+	 * @param NativeWindow The native SDL_HWindow to look up. This is
+	 *					 a drop-in replacement for
+	 *					 SDL_GetWindowPosition, so it uses the
+	 *					 native window type.
+	 * @param x			Pointer to the X component of the position.
+	 * @param y			Pointer to the Y component of the position.
+	 */
+	void GetWindowPositionInEventLoop(SDL_HWindow NativeWindow, int *x, int *y);
+
+	virtual bool IsMouseAttached() const override;
 private:
 
 	FLinuxApplication();
@@ -107,19 +143,53 @@ private:
 	 */
 	static bool GeneratesKeyCharMessage(const SDL_KeyboardEvent & KeyDownEvent);
 
+	/** Activate this Slate application */
+	void ActivateApplication();
+
+	/** Deactivate this Slate application */
+	void DeactivateApplication();
+
+	/** 
+	 * Acivate the specified Window. That includes the deactivation of the previous window
+	 * if one was active.
+	 */
+	void ActivateWindow(const TSharedPtr< FLinuxWindow >& Window);
+
+	void ActivateRootWindow(const TSharedPtr< FLinuxWindow >& Window);
+
+	TSharedPtr< FLinuxWindow > GetRootWindow(const TSharedPtr< FLinuxWindow >& Window);
+
+	/** Handles "Cursor" exec commands" */
+	bool HandleCursorCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+
+	/** Handles "Window" exec commands" */
+	bool HandleWindowCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+
 private:
 
 	void RefreshDisplayCache();
 
 	struct SDLControllerState
 	{
-		SDL_HController controller;
+		/** SDL controller */
+		SDL_GameController* Controller;
 
-		// We need to remember if the "button" was previously pressed so we don't generate extra events
-		bool analogOverThreshold[10];
+		/** Tracks whether the "button" was previously pressed so we don't generate extra events */
+		bool AnalogOverThreshold[10];
+
+		/** The player index of the controller, because the joystick index includes devices that are not controllers. */
+		int32 ControllerIndex;
+
+		/** Store axis values from events here to be handled once per frame. */
+		TMap<FGamepadKeyNames::Type, float> AxisEvents;
+
+		SDLControllerState()
+			:	Controller(nullptr)
+			,	ControllerIndex(-1)
+		{
+			FMemory::Memzero(AnalogOverThreshold);
+		}
 	};
-
-	bool bUsingHighPrecisionMouseInput;
 
 	TArray< SDL_Event > PendingEvents;
 
@@ -131,13 +201,30 @@ private:
 	/** Array of windows to focus when current gets removed. */
 	TArray< TSharedRef< FLinuxWindow > > RevertFocusStack;
 
+	/**
+	 * Saved window locations used for event loop. Note: Using raw
+	 * handle here because weak pointers can change meaning as a
+	 * response to some event in the middle of the loop, potentially
+	 * corrupting our indexing. These keys should not be de-referenced
+	 * (but comparison is okay).
+	 */
+	TMap< SDL_HWindow, FVector2D > SavedWindowLocationsForEventLoop;
+
 	int32 bAllowedToDeferMessageProcessing;
 
+	/** Using high precision mouse input */
+	bool bUsingHighPrecisionMouseInput;
+
+	/** TODO: describe */
 	bool bIsMouseCursorLocked;
+
+	/** TODO: describe */
 	bool bIsMouseCaptureEnabled;
 
 	/** Window that we think has been activated last. */
 	TSharedPtr< FLinuxWindow > CurrentlyActiveWindow;
+	TSharedPtr< FLinuxWindow > CurrentFocusWindow;
+	TSharedPtr< FLinuxWindow > CurrentClipWindow;
 
 	/** Stores (unescaped) file URIs received during current drag-n-drop operation. */
 	TArray<FString> DragAndDropQueue;
@@ -150,7 +237,7 @@ private:
 
 	SDL_HWindow MouseCaptureWindow;
 
-	SDLControllerState *ControllerStates;
+	TMap<SDL_JoystickID, SDLControllerState> ControllerStates;
 
 	float fMouseWheelScrollAccel;
 
@@ -177,9 +264,6 @@ private:
 
 	/** Last time we asked about work area (this is a hack. What we need is a callback when screen config changes). */
 	mutable double			LastTimeCachedDisplays;
-
-	/** Somewhat hacky way to know whether a window was deleted because the user pressed Escape. */
-	bool bEscapeKeyPressed;
 };
 
 extern FLinuxApplication* LinuxApplication;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTProj_StingerShard.h"
@@ -6,6 +6,7 @@
 #include "UTImpactEffect.h"
 #include "UTLift.h"
 #include "UTProjectileMovementComponent.h"
+#include "PhysicsEngine/BodySetup.h"
 
 AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -176,7 +177,7 @@ void AUTProj_StingerShard::DetachRagdollsInFlight()
 	{
 		for (AUTCharacter* HitChar : AttachedPawns)
 		{
-			if (HitChar != NULL && !HitChar->bPendingKillPending && HitChar->RagdollConstraint != NULL && HitChar->RagdollConstraint->GetOuter() == this)
+			if (HitChar != NULL && !HitChar->IsPendingKillPending() && HitChar->RagdollConstraint != NULL && HitChar->RagdollConstraint->GetOuter() == this)
 			{
 				HitChar->RagdollConstraint->DestroyComponent();
 				HitChar->RagdollConstraint = NULL;

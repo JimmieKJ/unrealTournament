@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #include "BlueprintGraphPrivatePCH.h"
 #include "CompilerResultsLog.h"
 #include "KismetCompiler.h"
@@ -46,16 +45,37 @@ void UK2Node_Event::Serialize(FArchive& Ar)
 	// Fix up legacy nodes that may not yet have a delegate pin
 	if(Ar.IsLoading())
 	{
-		if(!FindPin(DelegateOutputName))
-		{
-			const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-			CreatePin(EGPD_Output, K2Schema->PC_Delegate, TEXT(""), NULL, false, false, DelegateOutputName);
-		}
-
 		if(Ar.UE4Ver() < VER_UE4_K2NODE_EVENT_MEMBER_REFERENCE)
 		{
 			EventReference.SetExternalMember(EventSignatureName_DEPRECATED, EventSignatureClass_DEPRECATED);
 		}
+
+		// @TODO: Dev-BP=>Main; gate this with a version check once it makes its way into main
+		//if (Ar.UE4Ver() < VER_UE4_OVERRIDDEN_EVENT_REFERENCE_FIXUP)
+		{
+			FixupEventReference();
+		}
+	}
+}
+
+void UK2Node_Event::PostLoad()
+{
+	UK2Node_EditablePinBase::PostLoad();
+
+	// Fix up legacy nodes that may not yet have a delegate pin
+	if (!FindPin(DelegateOutputName))
+	{
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		CreatePin(EGPD_Output, K2Schema->PC_Delegate, TEXT(""), NULL, false, false, DelegateOutputName);
+	}
+}
+
+void UK2Node_Event::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+	if (!bDuplicateForPIE)
+	{
+		FixupEventReference();
 	}
 }
 
@@ -172,6 +192,54 @@ FString UK2Node_Event::GetDocumentationExcerptName() const
 void UK2Node_Event::PostReconstructNode()
 {
 	UpdateDelegatePin();
+
+	Super::PostReconstructNode();
+}
+
+
+void UK2Node_Event::FixupEventReference()
+{
+	if (bOverrideFunction && !HasAnyFlags(RF_Transient))
+	{
+		if (!EventReference.IsSelfContext())
+		{
+			UBlueprint* Blueprint = GetBlueprint();
+			UClass* BlueprintType = (Blueprint != nullptr) ? Blueprint->SkeletonGeneratedClass : nullptr;
+
+			UClass* ParentType = EventReference.GetMemberParentClass();
+			if ((BlueprintType != nullptr) && ( (ParentType == nullptr) || !(BlueprintType->IsChildOf(ParentType) || BlueprintType->ImplementsInterface(ParentType)) ))
+			{
+				FName EventName = EventReference.GetMemberName();
+
+				const UFunction* OverriddenFunc = BlueprintType->FindFunctionByName(EventName);
+				while (OverriddenFunc != nullptr)
+				{
+					if (UFunction* SuperFunc = OverriddenFunc->GetSuperFunction())
+					{
+						OverriddenFunc = SuperFunc;
+					}
+					else
+					{
+						break;
+					}
+				}
+
+				if (OverriddenFunc != nullptr)
+				{
+					UClass* SuperClass = OverriddenFunc->GetOwnerClass();
+					if (UBlueprint* SuperBlueprint = Cast<UBlueprint>(SuperClass->ClassGeneratedBy))
+					{
+						SuperClass = SuperBlueprint->GeneratedClass;
+					}
+
+					if (SuperClass != nullptr)
+					{
+						EventReference.SetExternalMember(EventName, SuperClass);
+					}
+				}
+			}
+		}
+	}
 }
 
 void UK2Node_Event::UpdateDelegatePin(bool bSilent)
@@ -439,7 +507,7 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 						// If the event function is already handled in this Blueprint, don't paste this event
 						for(int32 i = 0; i < ExistingEventNodes.Num() && !bDisallowPaste; ++i)
 						{
-							bDisallowPaste = ExistingEventNodes[i]->bOverrideFunction && ExistingEventNodes[i]->bIsNodeEnabled && AreEventNodesIdentical(this, ExistingEventNodes[i]);
+							bDisallowPaste = ExistingEventNodes[i]->bOverrideFunction && ExistingEventNodes[i]->IsNodeEnabled() && AreEventNodesIdentical(this, ExistingEventNodes[i]);
 						}
 
 						// We need to also check for 'const' BPIE methods that might already be implemented as functions with a read-only 'self' context (these were previously implemented as events)
@@ -676,14 +744,12 @@ void UK2Node_Event::GetNodeAttributes( TArray<TKeyValuePair<FString, FString>>& 
 
 FText UK2Node_Event::GetMenuCategory() const
 {
-	FString FuncSubCategory;
+	FText FunctionCategory = LOCTEXT("AddEventCategory", "Add Event");
 	if (UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
 	{
-		FuncSubCategory = UK2Node_CallFunction::GetDefaultCategoryForFunction(Function, TEXT(""));
+		FunctionCategory = UK2Node_CallFunction::GetDefaultCategoryForFunction(Function, FunctionCategory);
 	}
-
-	FString RootCategory = LOCTEXT("AddEventCategory", "Add Event").ToString();
-	return FText::FromString(RootCategory + TEXT("|") + FuncSubCategory);
+	return FunctionCategory;
 }
 
 bool UK2Node_Event::IsDeprecated() const
@@ -732,6 +798,22 @@ bool UK2Node_Event::AreEventNodesIdentical(const UK2Node_Event* InNodeA, const U
 {
 	return InNodeA->EventReference.GetMemberName() == InNodeB->EventReference.GetMemberName()
 		&& InNodeA->EventReference.GetMemberParentClass(InNodeA->GetBlueprintClassFromNode()) == InNodeB->EventReference.GetMemberParentClass(InNodeB->GetBlueprintClassFromNode());
+}
+
+bool UK2Node_Event::HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const
+{
+	const UBlueprint* SourceBlueprint = GetBlueprint();
+
+	UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode());
+	const UClass* SourceClass = Function ? Function->GetOwnerClass() : nullptr;
+	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
+	if (bResult && OptionalOutput)
+	{
+		OptionalOutput->AddUnique(Function);
+	}
+
+	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);
+	return bSuperResult || bResult;
 }
 
 #undef LOCTEXT_NAMESPACE

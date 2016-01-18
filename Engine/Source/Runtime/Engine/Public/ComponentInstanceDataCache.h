@@ -4,6 +4,7 @@
 
 class UActorComponent;
 class AActor;
+enum class EComponentCreationMethod : uint8;
 
 /** At what point in the rerun construction script process is ApplyToActor being called for */
 enum class ECacheApplyPhase
@@ -16,18 +17,14 @@ enum class ECacheApplyPhase
 class ENGINE_API FActorComponentInstanceData
 {
 public:
-	FActorComponentInstanceData()
-		: SourceComponentClass(nullptr)
-		, SourceComponentTypeSerializedIndex(-1)
-	{}
-
+	FActorComponentInstanceData();
 	FActorComponentInstanceData(const UActorComponent* SourceComponent);
 
 	virtual ~FActorComponentInstanceData()
 	{}
 
 	/** Determines whether this component instance data matches the component */
-	bool MatchesComponent(const UActorComponent* Component) const;
+	bool MatchesComponent(const UActorComponent* Component, const UObject* ComponentTemplate) const;
 
 	/** Applies this component instance data to the supplied component */
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase);
@@ -39,16 +36,18 @@ public:
 
 	bool ContainsSavedProperties() const { return SavedProperties.Num() > 0; }
 
-protected:
-	/** The name of the source component */
-	FName SourceComponentName;
+	const UClass* GetComponentClass() const { return SourceComponentTemplate ? SourceComponentTemplate->GetClass() : nullptr; }
 
-	/** The class type of the source component */
-	UClass* SourceComponentClass;
+protected:
+	/** The template used to create the source component */
+	const UObject* SourceComponentTemplate;
 
 	/** The index of the source component in its owner's serialized array 
 		when filtered to just that component type */
 	int32 SourceComponentTypeSerializedIndex;
+
+	/** The method that was used to create the source component */
+	EComponentCreationMethod SourceComponentCreationMethod;
 
 	TArray<uint8> SavedProperties;
 };
@@ -74,13 +73,13 @@ public:
 	/** Iterates over components and replaces any object references with the reinstanced information */
 	void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
 
-	bool HasInstanceData() const { return TypeToDataMap.Num() > 0; }
+	bool HasInstanceData() const { return ComponentsInstanceData.Num() > 0; }
 
 	void AddReferencedObjects(FReferenceCollector& Collector);
 
 private:
 	/** Map of data type name to data of that type */
-	TMultiMap< FName, FActorComponentInstanceData* >	TypeToDataMap;
+	TArray< FActorComponentInstanceData* > ComponentsInstanceData;
 
 	TMap< USceneComponent*, FTransform > InstanceComponentTransformToRootMap;
 };

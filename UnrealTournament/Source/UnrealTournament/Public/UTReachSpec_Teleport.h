@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_Teleport : public UUTReachSpec
 		PathColor = FLinearColor(0.0f, 0.0f, 1.0f);
 	}
 
-	virtual TWeakObjectPtr<AActor> GetSourceActor() const override
+	virtual TWeakObjectPtr<AActor> GetDestActor() const override
 	{
 		return Teleporter;
 	}

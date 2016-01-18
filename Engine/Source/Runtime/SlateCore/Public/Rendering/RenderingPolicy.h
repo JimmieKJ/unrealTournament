@@ -20,20 +20,22 @@ public:
 	 *
 	 * @param InPixelCenterOffset
 	 */
-	FSlateRenderingPolicy( float InPixelCenterOffset )
-		: PixelCenterOffset( InPixelCenterOffset )
+	FSlateRenderingPolicy( const TSharedRef<class FSlateFontServices>& InFontServices, float InPixelCenterOffset )
+		: FontServices( InFontServices )
+		, PixelCenterOffset( InPixelCenterOffset )
 	{ }
 
-	/** Virtual constructor. */
+	/** Virtual destructor. */
 	virtual ~FSlateRenderingPolicy( ) { }
 
-	virtual void UpdateBuffers( const FSlateWindowElementList& WindowElementList ) = 0;
+	TSharedRef<class FSlateFontCache> GetFontCache() const;
+	TSharedRef<class FSlateFontServices> GetFontServices() const;
 
-	virtual TSharedRef<class FSlateFontCache> GetFontCache( ) = 0;
+	virtual TSharedRef<class FSlateShaderResourceManager> GetResourceManager() const = 0;
 
-	virtual TSharedRef<class FSlateShaderResourceManager> GetResourceManager() = 0;
+	virtual bool IsVertexColorInLinearSpace() const = 0;
 
-	float GetPixelCenterOffset( ) const
+	float GetPixelCenterOffset() const
 	{
 		return PixelCenterOffset;
 	}
@@ -45,6 +47,7 @@ private:
 
 private:
 
+	TSharedRef<FSlateFontServices> FontServices;
 	float PixelCenterOffset;
 
 };

@@ -204,7 +204,7 @@ public:
 
 	// header size must be big enough for a link node and aligned at 16n+12 - so 28 for 64-bit platforms
 
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 	static const PxU32 HEADER_SIZE		= 28;
 	static const PxU32 QWORD_CAPACITY	= 1022;
 #else	

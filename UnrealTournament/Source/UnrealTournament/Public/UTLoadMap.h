@@ -1,5 +1,5 @@
 // this is included in the definitions of the various UEngine subclasses as we want it in all of them but don't want to have to potentially change several places
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #ifndef UT_LOADING_SCREEN_HOOK
 #define UT_LOADING_SCREEN_HOOK

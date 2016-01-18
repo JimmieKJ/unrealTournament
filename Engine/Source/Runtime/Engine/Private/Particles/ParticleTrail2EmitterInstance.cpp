@@ -2036,6 +2036,7 @@ void FParticleRibbonEmitterInstance::SetupTrailModules()
 
 void FParticleRibbonEmitterInstance::ResolveSource()
 {
+	check(IsInGameThread());
 	if (SourceModule && SourceModule->SourceName != NAME_None)
 	{
 		switch (SourceModule->SourceMethod)
@@ -2261,13 +2262,30 @@ bool FParticleRibbonEmitterInstance::ResolveSourcePoint(int32 InTrailIdx,
 						SourceIndices[InTrailIdx] = Index;
 					}
 
+					bool bEncounteredNaNError = false;
+
 					// Grab the particle
-					FBaseParticle* SourceParticle = (SourceIndices[InTrailIdx] != -1) ? SourceEmitter->GetParticleDirect(SourceIndices[InTrailIdx]) : NULL;
-					if (SourceParticle != NULL)
+					
+					const int32 SourceEmitterParticleIndex = SourceIndices[InTrailIdx];
+					FBaseParticle* SourceParticle = ((SourceEmitterParticleIndex >= 0) && (SourceEmitterParticleIndex < SourceEmitter->ActiveParticles)) ? SourceEmitter->GetParticle(SourceEmitterParticleIndex) : nullptr;
+					if (SourceParticle != nullptr)
 					{
-						OutPosition = SourceParticle->Location + SourceEmitter->SimulationToWorld.GetOrigin();
-						OutTangent = SourceParticle->Location - SourceParticle->OldLocation;
-						SourceTimes[InTrailIdx] = SourceParticle->RelativeTime;
+						const FVector WorldOrigin = SourceEmitter->SimulationToWorld.GetOrigin();
+						UParticleSystemComponent* Comp = SourceEmitter->Component;
+						if (!ensureMsgf(!SourceParticle->Location.ContainsNaN(), TEXT("NaN in SourceParticle Location. Template: %s, Component: %s"), Comp ? *GetNameSafe(Comp->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Comp)) ||
+							!ensureMsgf(!SourceParticle->OldLocation.ContainsNaN(), TEXT("NaN in SourceParticle OldLocation. Template: %s, Component: %s"), Comp ? *GetNameSafe(Comp->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Comp)) ||
+							!ensureMsgf(!WorldOrigin.ContainsNaN(), TEXT("NaN in WorldOrigin. Template: %s, Component: %s"), Comp ? *GetNameSafe(Comp->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Comp))
+							)
+						{
+							// Contains NaN!
+							bEncounteredNaNError = true;
+						}
+						else
+						{
+							OutPosition = SourceParticle->Location + WorldOrigin;
+							OutTangent = SourceParticle->Location - SourceParticle->OldLocation;
+							SourceTimes[InTrailIdx] = SourceParticle->RelativeTime;
+						}
 					}
 					else
 					{
@@ -2287,7 +2305,7 @@ bool FParticleRibbonEmitterInstance::ResolveSourcePoint(int32 InTrailIdx,
 
 					//@todo. Support source offset
 
-					bSourceWasSet = true;
+					bSourceWasSet = !bEncounteredNaNError;
 				}
 			}
 			break;
@@ -2557,7 +2575,7 @@ FDynamicEmitterDataBase* FParticleRibbonEmitterInstance::GetDynamicData(bool bSe
 	}
 
 	// Allocate the dynamic data
-	FDynamicRibbonEmitterData* NewEmitterData = ::new FDynamicRibbonEmitterData(LODLevel->RequiredModule);
+	FDynamicRibbonEmitterData* NewEmitterData = new FDynamicRibbonEmitterData(LODLevel->RequiredModule);
 	{
 		SCOPE_CYCLE_COUNTER(STAT_ParticleMemTime);
 		INC_DWORD_STAT(STAT_DynamicEmitterCount);
@@ -2649,7 +2667,7 @@ FDynamicEmitterReplayDataBase* FParticleRibbonEmitterInstance::GetReplayData()
 		return NULL;
 	}
 
-	FDynamicEmitterReplayDataBase* NewEmitterReplayData = ::new FDynamicRibbonEmitterReplayData();
+	FDynamicEmitterReplayDataBase* NewEmitterReplayData = new FDynamicRibbonEmitterReplayData();
 	check(NewEmitterReplayData != NULL);
 
 	if (!FillReplayData(*NewEmitterReplayData))
@@ -3308,8 +3326,10 @@ float FParticleAnimTrailEmitterInstance::Spawn(float DeltaTime)
 	// Figure out spawn rate for this tick.
 	if (bProcessSpawnRate)
 	{
+		static IConsoleVariable* EffectsQuality = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.EffectsQuality"));
+
 		float RateScale = LODLevel->SpawnModule->RateScale.GetValue(EmitterTime, Component) * LODLevel->SpawnModule->GetGlobalRateScale();
-		float QualityMult = 0.25f * (1 << Scalability::GetQualityLevels().EffectsQuality);
+		float QualityMult = 0.25f * (1 << EffectsQuality->GetInt());
 		RateScale *= SpriteTemplate->QualityLevelSpawnRateScale*QualityMult;
 		SpawnRate += LODLevel->SpawnModule->Rate.GetValue(EmitterTime, Component) * FMath::Clamp<float>(RateScale, 0.0f, RateScale);
 	}
@@ -3859,7 +3879,7 @@ void FParticleAnimTrailEmitterInstance::DetermineVertexAndTriangleCount()
 
 			// @todo: We're going and modifying the original ParticleData here!  This is kind of sketchy
 			//    since it's not supposed to be changed at this phase
-			check(TRAIL_EMITTER_IS_HEAD(CurrTrailData->Flags));
+			//check(TRAIL_EMITTER_IS_HEAD(CurrTrailData->Flags));
 			CurrTrailData->TriangleCount = LocalIndexCount - 2;
 
 			// The last particle in the chain will always have 1 here!
@@ -3903,7 +3923,7 @@ FDynamicEmitterDataBase* FParticleAnimTrailEmitterInstance::GetDynamicData(bool 
 	}
 
 	// Allocate the dynamic data
-	FDynamicAnimTrailEmitterData* NewEmitterData = ::new FDynamicAnimTrailEmitterData(LODLevel->RequiredModule);
+	FDynamicAnimTrailEmitterData* NewEmitterData = new FDynamicAnimTrailEmitterData(LODLevel->RequiredModule);
 	{
 		SCOPE_CYCLE_COUNTER(STAT_ParticleMemTime);
 		INC_DWORD_STAT(STAT_DynamicEmitterCount);
@@ -4009,7 +4029,7 @@ FDynamicEmitterReplayDataBase* FParticleAnimTrailEmitterInstance::GetReplayData(
 		return NULL;
 	}
 
-	FDynamicTrailsEmitterReplayData* NewEmitterReplayData = ::new FDynamicTrailsEmitterReplayData();
+	FDynamicTrailsEmitterReplayData* NewEmitterReplayData = new FDynamicTrailsEmitterReplayData();
 	check(NewEmitterReplayData != NULL);
 
 	if (!FillReplayData(*NewEmitterReplayData))

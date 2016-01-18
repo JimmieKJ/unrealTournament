@@ -48,6 +48,18 @@ static const FString CommonClassGroup(TEXT("Common"));
 // This has to stay in sync with logic in FKismetCompilerContext::FinishCompilingClass
 static const FString BlueprintComponents(TEXT("Custom"));
 
+template <typename ObjectType>
+static ObjectType* FindOrLoadObject( const FString& ObjectPath )
+{
+	ObjectType* Object = FindObject<ObjectType>( nullptr, *ObjectPath );
+	if( !Object )
+	{
+		Object = LoadObject<ObjectType>( nullptr, *ObjectPath );
+	}
+
+	return Object;
+}
+
 void FComponentTypeRegistryData::AddBasicShapeComponents(TArray<FComponentClassComboEntryPtr>& SortedClassList)
 {
 	FString BasicShapesHeading = LOCTEXT("BasicShapesHeading", "Basic Shapes").ToString();
@@ -57,13 +69,14 @@ void FComponentTypeRegistryData::AddBasicShapeComponents(TArray<FComponentClassC
 		UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(Component);
 		if (SMC)
 		{
-			SMC->SetMaterial(0, LoadObject<UMaterial>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")));
+			const FString MaterialName = TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial");
+			SMC->SetMaterial(0, FindOrLoadObject<UMaterial>(MaterialName));
 		}
 	};
 
 	{
 		FComponentEntryCustomizationArgs Args;
-		Args.AssetOverride = LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCube.ToString());
+		Args.AssetOverride = FindOrLoadObject<UStaticMesh>(UActorFactoryBasicShape::BasicCube.ToString());
 		Args.OnComponentCreated = FOnComponentCreated::CreateStatic(OnBasicShapeCreated);
 		Args.ComponentNameOverride = LOCTEXT("BasicCubeShapeDisplayName", "Cube").ToString();
 		Args.IconOverrideBrushName = FName("ClassIcon.Cube");
@@ -83,7 +96,7 @@ void FComponentTypeRegistryData::AddBasicShapeComponents(TArray<FComponentClassC
 
 	{
 		FComponentEntryCustomizationArgs Args;
-		Args.AssetOverride = LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicSphere.ToString());
+		Args.AssetOverride = FindOrLoadObject<UStaticMesh>(UActorFactoryBasicShape::BasicSphere.ToString());
 		Args.OnComponentCreated = FOnComponentCreated::CreateStatic(OnBasicShapeCreated);
 		Args.ComponentNameOverride = LOCTEXT("BasicSphereShapeDisplayName", "Sphere").ToString();
 		Args.IconOverrideBrushName = FName("ClassIcon.Sphere");
@@ -102,7 +115,7 @@ void FComponentTypeRegistryData::AddBasicShapeComponents(TArray<FComponentClassC
 
 	{
 		FComponentEntryCustomizationArgs Args;
-		Args.AssetOverride = LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCylinder.ToString());
+		Args.AssetOverride = FindOrLoadObject<UStaticMesh>(UActorFactoryBasicShape::BasicCylinder.ToString());
 		Args.OnComponentCreated = FOnComponentCreated::CreateStatic(OnBasicShapeCreated);
 		Args.ComponentNameOverride = LOCTEXT("BasicCylinderShapeDisplayName", "Cylinder").ToString();
 		Args.IconOverrideBrushName = FName("ClassIcon.Cylinder");
@@ -113,7 +126,7 @@ void FComponentTypeRegistryData::AddBasicShapeComponents(TArray<FComponentClassC
 
 	{
 		FComponentEntryCustomizationArgs Args;
-		Args.AssetOverride = LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCone.ToString());
+		Args.AssetOverride = FindOrLoadObject<UStaticMesh>(UActorFactoryBasicShape::BasicCone.ToString());
 		Args.OnComponentCreated = FOnComponentCreated::CreateStatic(OnBasicShapeCreated);
 		Args.ComponentNameOverride = LOCTEXT("BasicConeShapeDisplayName", "Cone").ToString();
 		Args.IconOverrideBrushName = FName("ClassIcon.Cone");
@@ -269,33 +282,40 @@ void FComponentTypeRegistryData::ForceRefreshComponentList()
 		auto InMemoryClassesSet = TSet<FName>(InMemoryClasses);
 		auto OnDiskClasses = DerivedClassNames.Difference(InMemoryClassesSet);
 
-		// GetAssetsByClass call is a cludget to get the full asset paths for the blueprints we care about, Bob T. thinks 
-		// that the Asset Registry could just keep asset paths:
-		TArray<FAssetData> BlueprintAssetData;
-		AssetRegistryModule.Get().GetAssetsByClass(UBlueprint::StaticClass()->GetFName(), BlueprintAssetData);
-
-		for (auto OnDiskClass : OnDiskClasses)
+		if (OnDiskClasses.Num() > 0)
 		{
-			FAssetData AssetData;
-			FString FixedString = OnDiskClass.ToString();
-			FixedString.RemoveFromEnd(TEXT("_C"));
-			for (auto Blueprint : BlueprintAssetData)
+			// GetAssetsByClass call is a kludge to get the full asset paths for the blueprints we care about, Bob T. thinks 
+			// that the Asset Registry could just keep asset paths:
+			TArray<FAssetData> BlueprintAssetData;
+			AssetRegistryModule.Get().GetAssetsByClass(UBlueprint::StaticClass()->GetFName(), BlueprintAssetData);
+
+			for (auto OnDiskClass : OnDiskClasses)
 			{
-				if (Blueprint.AssetName.ToString() == FixedString)
+				FString FixedString = OnDiskClass.ToString();
+				FixedString.RemoveFromEnd(TEXT("_C"));
+
+				FAssetData AssetData;
 				{
-					AssetData = Blueprint;
-					break;
+					// find asset data for this unloaded class, this makes our logic n^2 and may provide opportunity for further performance improvement:
+					for (auto& Blueprint : BlueprintAssetData)
+					{
+						if (Blueprint.AssetName.ToString() == FixedString)
+						{
+							AssetData = Blueprint;
+							break;
+						}
+					}
 				}
+
+				FComponentTypeEntry Entry = { FixedString, AssetData.ObjectPath.ToString(), nullptr };
+				ComponentTypeList.Add(Entry);
+
+				// The blueprint is unloaded, so we need to work out which icon to use for it using its asset data
+				const UClass* BlueprintIconClass = FClassIconFinder::GetIconClassForAssetData(AssetData);
+
+				FComponentClassComboEntryPtr NewEntry(new FComponentClassComboEntry(BlueprintComponents, FixedString, AssetData.ObjectPath, BlueprintIconClass, bIncludeInFilter));
+				SortedClassList.Add(NewEntry);
 			}
-
-			FComponentTypeEntry Entry = { FixedString, AssetData.ObjectPath.ToString(), nullptr };
-			ComponentTypeList.Add(Entry);
-
-			// The blueprint is unloaded, so we need to work out which icon to use for it using its asset data
-			const UClass* BlueprintIconClass = FClassIconFinder::GetIconClassForAssetData(AssetData);
-
-			FComponentClassComboEntryPtr NewEntry(new FComponentClassComboEntry(BlueprintComponents, FixedString, AssetData.ObjectPath, BlueprintIconClass, bIncludeInFilter));
-			SortedClassList.Add(NewEntry);
 		}
 	}
 
@@ -349,7 +369,7 @@ void FComponentTypeRegistryData::Tick(float)
 			const FName BPParentClassName(GET_MEMBER_NAME_CHECKED(UBlueprint, ParentClass));
 
 			bool FoundBPNotify = false;
-			for (TMap<FName, FString>::TConstIterator TagIt(Asset.TagsAndValues); TagIt; ++TagIt)
+			for (auto TagIt = Asset.TagsAndValues.CreateConstIterator(); TagIt; ++TagIt)
 			{
 				FString TagValue = Asset.TagsAndValues.FindRef(BPParentClassName);
 				const FString ObjectPath = FPackageName::ExportTextPathToObjectPath(TagValue);

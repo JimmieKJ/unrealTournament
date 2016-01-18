@@ -33,8 +33,8 @@ void FVisualLoggerBinaryFileDevice::StartRecordingToFile(float TimeStamp)
 	StartRecordingTime = TimeStamp;
 	LastLogTimeStamp = StartRecordingTime;
 	TempFileName = FVisualLoggerHelpers::GenerateTemporaryFilename(VISLOG_FILENAME_EXT);
-	const FString FullFilename = FString::Printf(TEXT("%slogs/%s"), *FPaths::GameSavedDir(), *TempFileName);
-
+	
+	const FString FullFilename = FPaths::Combine(*FPaths::GameLogDir(), *TempFileName);
 	FileArchive = IFileManager::Get().CreateFileWriter(*FullFilename);
 }
 
@@ -57,13 +57,15 @@ void FVisualLoggerBinaryFileDevice::StopRecordingToFile(float TimeStamp)
 	delete FileArchive;
 	FileArchive = nullptr;
 
-	const FString TempFullFilename = FString::Printf(TEXT("%slogs/%s"), *FPaths::GameSavedDir(), *TempFileName);
+	const FString TempFullFilename = FPaths::Combine(*FPaths::GameLogDir(), *TempFileName);
 	const FString NewFileName = FVisualLoggerHelpers::GenerateFilename(TempFileName, FileName, StartRecordingTime, LastLogTimeStamp);
 
 	if (TotalSize > 0)
 	{
 		// rename file when we serialized some data
 		IFileManager::Get().Move(*NewFileName, *TempFullFilename, true);
+
+		UE_LOG(LogVisual, Display, TEXT("Vislog file saved: %s"), *NewFileName);
 	}
 	else
 	{

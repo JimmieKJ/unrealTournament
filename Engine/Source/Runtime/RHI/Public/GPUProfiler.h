@@ -6,6 +6,7 @@
 
 #pragma once
 
+
 /** Stats for a single perf event node. */
 class FGPUProfilerEventNodeStats : public FRefCountedObject
 {
@@ -33,6 +34,17 @@ public:
 
 	/** Inclusive number of other perf events that this is the parent of. */
 	uint32 NumEvents;
+
+	const FGPUProfilerEventNodeStats operator+=(const FGPUProfilerEventNodeStats& rhs)
+	{
+		NumDraws += rhs.NumDraws;
+		NumPrimitives += rhs.NumPrimitives;
+		NumVertices += rhs.NumVertices;
+		TimingResult += rhs.TimingResult;
+		NumEvents += rhs.NumEvents;
+
+		return *this;
+	}
 };
 
 /** Stats for a single perf event node. */
@@ -207,4 +219,78 @@ struct RHI_API FGPUProfiler
 
 	void BeginFrame();
 	void EndFrame();
+};
+
+
+
+/**
+ * Simple moving window averaged GPU timer; create an instance, call Begin() and End() around the block to time, 
+ * then call GetElapsedAverage to get the averaged timings; BufferSize determines the number of queries in the window,
+ * FramesBehind determines how long we wait to grab query results, so we don't have to block on them, so the effective
+ * window size is BufferSize - FramesBehind
+ * The timer keeps track of failed queries; GetElapsedAverage returns a float [0;1] that indicates fail rate: 0 means
+ * no queries have failed, 1 means all queries within the window have failed. If more than 0.1, it's a good indication
+ * that FramesBehind has to be increased.
+ */
+class FWindowedGPUTimer
+{
+public:
+	explicit FWindowedGPUTimer(FRHICommandListImmediate& RHICmdList)
+	{
+		PrivateInit(10,2,RHICmdList);
+	}
+
+	FWindowedGPUTimer(uint32 BufferSize, uint32 FramesBehind, FRHICommandListImmediate& RHICmdList)
+	{
+		PrivateInit(BufferSize,FramesBehind,RHICmdList);
+	}
+
+	void Begin(FRHICommandListImmediate& RHICmdList)
+	{
+		RotateQueryBuffer(StartQueries);
+		RHICmdList.EndRenderQuery(StartQueries[0]);
+	}
+
+
+	void End(FRHICommandListImmediate& RHICmdList)
+	{
+		RotateQueryBuffer(EndQueries);
+		RHICmdList.EndRenderQuery(EndQueries[0]);
+		QueriesFinished++;
+	}
+
+	void RotateQueryBuffer(TArray<FRenderQueryRHIRef> &QueryArray)
+	{
+		FRenderQueryRHIRef LastQuery = QueryArray.Last();
+
+		for (int32 i = QueryArray.Num() - 1; i > 0; --i)
+		{
+			QueryArray[i] = QueryArray[i - 1];
+		}
+		QueryArray[0] = LastQuery;
+	}
+
+
+	float GetElapsedAverage(FRHICommandListImmediate& RHICmdList, float &OutAvgTimeInSeconds);
+
+private:
+	void PrivateInit(uint32 BufferSize, uint32 FramesBehind, FRHICommandListImmediate& RHICmdList)
+	{
+		QueriesFailed = 0;
+		QueriesFinished = 0;
+		StartQueries.AddZeroed(BufferSize);
+		EndQueries.AddZeroed(BufferSize);
+		for (uint32 i = 0; i < BufferSize; i++)
+		{
+			StartQueries[i] = RHICmdList.CreateRenderQuery(RQT_AbsoluteTime);;
+			EndQueries[i] = RHICmdList.CreateRenderQuery(RQT_AbsoluteTime);;
+		}
+		WindowSize = BufferSize - FramesBehind;
+	}
+
+	int32 QueriesFailed;
+	uint32 WindowSize;
+	int32 QueriesFinished;
+	TArray<FRenderQueryRHIRef> StartQueries;
+	TArray<FRenderQueryRHIRef> EndQueries;
 };

@@ -17,7 +17,7 @@ public:
 	virtual FReply DroppedOnNode(FVector2D ScreenPosition, FVector2D GraphPosition) override;
 	virtual FReply DroppedOnPanel(const TSharedRef< class SWidget >& Panel, FVector2D ScreenPosition, FVector2D GraphPosition, UEdGraph& Graph) override;
 	virtual FReply DroppedOnAction(TSharedRef<struct FEdGraphSchemaAction> Action) override;
-	virtual FReply DroppedOnCategory(FString Category) override;
+	virtual FReply DroppedOnCategory(FText Category) override;
 	// End of FGraphEditorDragDropAction
 
 	static TSharedRef<FKismetVariableDragDropAction> New(FName InVariableName, UStruct* InVariableSource, FNodeCreationAnalytic AnalyticCallback)

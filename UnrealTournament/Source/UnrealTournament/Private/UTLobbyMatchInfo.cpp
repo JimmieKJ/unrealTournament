@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "GameFramework/PlayerState.h"
@@ -40,9 +40,7 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 	bJoinAnytime = true;
 	bMapChanged = false;
 	BotSkillLevel = -1;
-
 }
-
 
 void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
@@ -66,7 +64,6 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, DedicatedServerMaxPlayers);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bDedicatedTeamGame);
 
-
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerDescription, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerGameMode, COND_InitialOnly);
@@ -89,7 +86,6 @@ bool AUTLobbyMatchInfo::CheckLobbyGameState()
 	LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	return LobbyGameState != NULL;
 }
-
 
 void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 {
@@ -174,7 +170,6 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 				}
 			}
 			PlayerToAdd->DesiredTeamNum = BestTeam;
-
 		}
 		else
 		{
@@ -230,7 +225,6 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 	}
 
 	return false;
-
 }
 
 bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
@@ -249,50 +243,49 @@ bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
 	return false;
 }
 
-
 FText AUTLobbyMatchInfo::GetActionText()
 {
 	if (CurrentState == ELobbyMatchState::Dead)
 	{
-		return NSLOCTEXT("SUMatchPanel","Dead","!! DEAD - BUG !!");
+		return NSLOCTEXT("SUTMatchPanel","Dead","!! DEAD - BUG !!");
 	}
 	else if (CurrentState == ELobbyMatchState::Setup)
 	{
-		return NSLOCTEXT("SUMatchPanel","Setup","Initializing...");
+		return NSLOCTEXT("SUTMatchPanel","Setup","Initializing...");
 	}
 	else if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{
 		if (MatchHasRoom())
 		{
-			return NSLOCTEXT("SUMatchPanel","ClickToJoin","Click to Join");
+			return NSLOCTEXT("SUTMatchPanel","ClickToJoin","Click to Join");
 		}
 		else
 		{
-			return NSLOCTEXT("SUMatchPanel","Full","Match is Full");
+			return NSLOCTEXT("SUTMatchPanel","Full","Match is Full");
 		}
 	}
 	else if (CurrentState == ELobbyMatchState::Launching)
 	{
-		return NSLOCTEXT("SUMatchPanel","Launching","Launching...");
+		return NSLOCTEXT("SUTMatchPanel","Launching","Launching...");
 	}
 	else if (CurrentState == ELobbyMatchState::InProgress)
 	{
 		if (bJoinAnytime)
 		{
-			return NSLOCTEXT("SUMatchPanel","ClickToJoin","Click to Join");
+			return NSLOCTEXT("SUTMatchPanel","ClickToJoin","Click to Join");
 		}
 		else if (bSpectatable)
 		{
-			return NSLOCTEXT("SUMatchPanel","Spectate","Click to Spectate");
+			return NSLOCTEXT("SUTMatchPanel","Spectate","Click to Spectate");
 		}
 		else 
 		{
-			return NSLOCTEXT("SUMatchPanel","InProgress","In Progress...");
+			return NSLOCTEXT("SUTMatchPanel","InProgress","In Progress...");
 		}
 	}
 	else if (CurrentState == ELobbyMatchState::Returning)
 	{
-		return NSLOCTEXT("SUMatchPanel","MatchOver","!! Match is over !!");
+		return NSLOCTEXT("SUTMatchPanel","MatchOver","!! Match is over !!");
 	}
 
 	return FText::GetEmpty();
@@ -364,6 +357,7 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 	{
 		// Right now we only have kicks and bans.
 		RemovePlayer(Target);
+		AllowedPlayerList.Remove(Target->UniqueId.ToString());
 		Target->UninviteFromMatch(this);
 		if (CommandID == 3)
 		{
@@ -408,7 +402,7 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 		AUTTeamGameMode* TeamGame = Cast<AUTTeamGameMode>(CurrentRuleset->GetDefaultGameModeObject());
 		if (TeamGame != NULL)
 		{
-			bool bBalanceTeams = AUTBaseGameMode::EvalBoolOptions(TeamGame->ParseOption(CurrentRuleset->GameOptions, TEXT("BalanceTeams")), TeamGame->bBalanceTeams);
+			bool bBalanceTeams = AUTBaseGameMode::EvalBoolOptions(UGameplayStatics::ParseOption(CurrentRuleset->GameOptions, TEXT("BalanceTeams")), TeamGame->bBalanceTeams);
 			if (bBalanceTeams)
 			{
 				 // don't allow starting if the teams aren't balanced
@@ -455,11 +449,14 @@ void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay, int32 DebugCode)
 		}
 
 		// build all of the data needed to launch the map.
-
 		FString GameURL = FString::Printf(TEXT("%s?Game=%s?MaxPlayers=%i"),*InitialMap, *CurrentRuleset->GameMode, CurrentRuleset->MaxPlayers);
 		GameURL += CurrentRuleset->GameOptions;
 
-		if (!CurrentRuleset->bCustomRuleset)
+		if (CurrentRuleset->bCompetitiveMatch)
+		{
+			bJoinAnytime = false;
+		}
+		else if (!CurrentRuleset->bCustomRuleset)
 		{
 			// Custom rules already have their bot info set
 
@@ -467,7 +464,7 @@ void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay, int32 DebugCode)
 
 			if (BotSkillLevel >= 0)
 			{
-				GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(BotSkillLevel,0,7));			
+				GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), FMath::Clamp<int32>(OptimalPlayerCount,0, CurrentRuleset->MaxPlayers), FMath::Clamp<int32>(BotSkillLevel,0,7));			
 			}
 			else
 			{
@@ -498,7 +495,6 @@ void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 {
 	GameInstanceGUID = inGameInstanceGUID.ToString();
-
 	UWorld* World = GetWorld();
 	if (World == NULL) return;
 
@@ -507,7 +503,7 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
-			if (Players[i].IsValid() && !Players[i]->bPendingKillPending)	//  Just in case.. they shouldn't be here anyway..
+			if (Players[i].IsValid() && !Players[i]->IsPendingKillPending())	//  Just in case.. they shouldn't be here anyway..
 			{
 				// Tell the client to connect to the instance
 
@@ -525,7 +521,6 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 			NotifyBeacons[i]->ClientJoinQuickplay(GameInstanceGUID);
 		}
 	}
-
 	NotifyBeacons.Empty();
 }
 
@@ -544,13 +539,10 @@ void AUTLobbyMatchInfo::RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState
 				AUTGameSession* UTGameSession = Cast<AUTGameSession>(LobbyGameMode->GameSession);
 				if (UTGameSession) UTGameSession->UpdateGameState();
 			}
-
-
 			break;
 		}
 	}
 }
-
 
 bool AUTLobbyMatchInfo::IsInProgress()
 {
@@ -602,11 +594,8 @@ void AUTLobbyMatchInfo::ServerSetPrivateMatch_Implementation(bool bIsPrivate)
 	bPrivateMatch = bIsPrivate;
 }
 
-
-
 FText AUTLobbyMatchInfo::GetDebugInfo()
 {
-
 	FText Owner = NSLOCTEXT("UTLobbyMatchInfo","NoOwner","NONE");
 	if (OwnerId.IsValid())
 	{
@@ -614,14 +603,12 @@ FText AUTLobbyMatchInfo::GetDebugInfo()
 		else Owner = FText::FromString(OwnerId.ToString());
 	}
 
-
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("OwnerName"), Owner);
 	Args.Add(TEXT("CurrentState"), FText::FromName(CurrentState));
 	Args.Add(TEXT("CurrentRuleSet"), FText::FromString(CurrentRuleset.IsValid() ? CurrentRuleset->Title : TEXT("None")));
 	Args.Add(TEXT("ShouldShowInDock"), FText::AsNumber(ShouldShowInDock()));
 	Args.Add(TEXT("InProgress"), FText::AsNumber(IsInProgress()));
-
 
 	return FText::Format(NSLOCTEXT("UTLobbyMatchInfo","DebugFormat","Owner [{OwnerName}] State [{CurrentState}] RuleSet [{CurrentRuleSet}] Flags [{ShouldShowInDock}, {InProgress}]  Stats: {MatchStats}"), Args);
 }
@@ -631,7 +618,6 @@ void AUTLobbyMatchInfo::OnRep_CurrentRuleset()
 	OnRep_Update();
 	OnRulesetUpdatedDelegate.ExecuteIfBound();
 }
-
 
 void AUTLobbyMatchInfo::OnRep_Update()
 {
@@ -671,7 +657,7 @@ void AUTLobbyMatchInfo::SetRedirects()
 		{
 			Redirects.Add(Redirect);
 		}
-		FString AllMutators = BaseGame->ParseOption(CurrentRuleset->GameOptions, TEXT("Mutator"));
+		FString AllMutators = UGameplayStatics::ParseOption(CurrentRuleset->GameOptions, TEXT("Mutator"));
 		while (AllMutators.Len() > 0)
 		{
 			FString MutPath;
@@ -725,13 +711,14 @@ void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRul
 	bool bOldTeamGame = CurrentRuleset.IsValid() ? CurrentRuleset->bTeamGame : false;
 	CurrentRuleset = NewRuleset;
 
-	if (bOldTeamGame != CurrentRuleset->bTeamGame) AssignTeams();
+	if (bOldTeamGame != CurrentRuleset->bTeamGame)
+	{
+		AssignTeams();
+	}
 
 	InitialMap = StartingMap;
 	GetMapInformation();
-
 	SetRedirects();
-
 	bMapChanged = true;
 }
 
@@ -746,9 +733,7 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 		{
 			SetRules(NewRuleSet, StartingMap);
 		}
-
 		BotSkillLevel = NewBotSkillLevel;
-
 	}
 }
 
@@ -780,14 +765,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		NewReplicatedRuleset->Tooltip = TEXT("");
 		NewReplicatedRuleset->Description = Description;
 		int32 PlayerCount = 20;
-
-		if (DesiredSkillLevel >= 0)
-		{
-			//NewReplicatedRuleset->
-		}
-
 		NewReplicatedRuleset->GameMode = GameMode;
-
 		FString FinalGameOptions = TEXT("");
 
 		AUTGameMode* CustomGameModeDefaultObject = NewReplicatedRuleset->GetDefaultGameModeObject();
@@ -987,10 +965,7 @@ bool AUTLobbyMatchInfo::SkillTest(int32 Rank, bool bForceLock)
 {
 	if (bRankLocked || bForceLock)
 	{
-		// Beginners should always join a beginner match
-		if (Rank < 1400 && AverageRank < 1400) return true;
-
-		return (Rank >= AverageRank - 400) && (Rank <= AverageRank + 400);
+		return CheckRank(Rank, AverageRank);
 	}
 
 	return true;

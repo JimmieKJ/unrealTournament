@@ -10,7 +10,7 @@
 #define USE_IES_PROFILE 1
 #include "IESLightProfilesCommon.usf"
 
-#define ENABLE_EDITOR_COMPOSITING (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || ES2_EMULATION)
+#define ENABLE_EDITOR_COMPOSITING (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || MOBILE_EMULATION)
 
 Texture2D InTexture;
 SamplerState InTextureSampler;
@@ -60,6 +60,43 @@ void PerformEditorCompositingDepthTest(float4 SvPosition)
 
 #endif
 
+float3 SimpleElementFrameBufferBlendOp(float4 Source)
+{
+#if (COMPILER_GLSL_ES2)
+	half4 Dest = FramebufferFetchES2();
+	Dest.rgb = Decode32BPPHDR(Dest);
+#else
+	half4 Dest = half4(0, 0, 0, 0);
+#endif
+
+#if SE_BLEND_MODE == SE_BLEND_OPAQUE || SE_BLEND_MODE == SE_BLEND_MASKED || SE_BLEND_MODE == SE_BLEND_MASKEDDISTANCEFIELD || SE_BLEND_MODE == SE_BLEND_MASKEDDISTANCEFIELDSHADOWED
+	return Source.rgb;
+#elif SE_BLEND_MODE == SE_BLEND_TRANSLUCENT || SE_BLEND_MODE == SE_BLEND_TRANSLUCENTALPHAONLY || SE_BLEND_MODE == SE_BLEND_ALPHABLEND || SE_BLEND_MODE == SE_BLEND_TRANSLUCENTDISTANCEFIELD || SE_BLEND_MODE == SE_BLEND_TRANSLUCENTDISTANCEFIELDSHADOWED
+	return (Source.rgb*Source.a) + (Dest.rgb*(1.0 - Source.a));
+#elif SE_BLEND_MODE == SE_BLEND_ADDITIVE
+	return Source.rgb + Dest.rgb;
+#elif SE_BLEND_MODE == SE_BLEND_MODULATE
+	return Source.rgb * Dest.rgb;
+#elif SE_BLEND_MODE == SE_BLEND_ALPHACOMPOSITE
+	return Source.rgb + (Dest.rgb*(1.0 - Source.a));
+#endif
+
+	return Source.rgb;
+}
+
+float4 SimpleElementEncodeFor32BPPHDR(float4 OutColor)
+{
+#if ES2_PROFILE && USE_32BPP_HDR
+	if (GetHDR32bppEncodeMode() == HDR_ENCODE_RGBA)
+	{
+		OutColor.rgb = SimpleElementFrameBufferBlendOp(OutColor);
+	}
+	return Encode32BPPHDR(OutColor, float2(0,0)); // TODO: fix for mosaic.
+#else
+	return RETURN_COLOR(OutColor);
+#endif
+}
+
 void Main(
 	in float2 TextureCoordinate : TEXCOORD0,
 	in float4 Color : TEXCOORD1,
@@ -86,6 +123,8 @@ void Main(
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
+
+	OutColor = SimpleElementEncodeFor32BPPHDR(OutColor);
 }
 
 void AlphaOnlyMain(
@@ -113,7 +152,10 @@ void AlphaOnlyMain(
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
+
+	OutColor = SimpleElementEncodeFor32BPPHDR(OutColor);
 }
+
 
 #if METAL_PROFILE
 static const half Gamma = 1.0f;
@@ -152,6 +194,8 @@ void GammaMain(
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
+
+	OutColor = SimpleElementEncodeFor32BPPHDR(OutColor);
 }
 
 void GammaAlphaOnlyMain(
@@ -184,6 +228,7 @@ void GammaAlphaOnlyMain(
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
+	OutColor = SimpleElementEncodeFor32BPPHDR(OutColor);
 }
 
 float ClipRef;
@@ -220,6 +265,7 @@ void GammaMaskedMain(
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
+	OutColor = SimpleElementEncodeFor32BPPHDR(OutColor);
 }
 
 
@@ -307,8 +353,9 @@ void GammaDistanceFieldMain(
 	{
 		// Gamma correct the output color.
 		OutColor.rgb = pow(saturate(OutColor.rgb),Gamma);	
-	}	
-	OutColor = RETURN_COLOR(OutColor);
+	}
+
+	OutColor = SimpleElementEncodeFor32BPPHDR(OutColor);
 }
 
 TextureCube CubeTexture;

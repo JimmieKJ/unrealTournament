@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 //
 #include "SteamVRPrivatePCH.h"
-#include "SteamVRHMD.h"
 #include "Classes/SteamVRFunctionLibrary.h"
+#include "SteamVRHMD.h"
 
 USteamVRFunctionLibrary::USteamVRFunctionLibrary(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -19,7 +19,7 @@ FSteamVRHMD* GetSteamVRHMD()
 	return nullptr;
 }
 
-void USteamVRFunctionLibrary::GetValidTrackedDeviceIds(TEnumAsByte<ESteamVRTrackedDeviceType::Type> DeviceType, TArray<int32>& OutTrackedDeviceIds)
+void USteamVRFunctionLibrary::GetValidTrackedDeviceIds(TEnumAsByte<ESteamVRTrackedDeviceType> DeviceType, TArray<int32>& OutTrackedDeviceIds)
 {
 	OutTrackedDeviceIds.Empty();
 
@@ -45,20 +45,22 @@ bool USteamVRFunctionLibrary::GetTrackedDevicePositionAndOrientation(int32 Devic
 	return RetVal;
 }
 
-bool USteamVRFunctionLibrary::GetTrackedDeviceIdFromControllerIndex(int32 ControllerIndex, int32& OutDeviceId)
+bool USteamVRFunctionLibrary::GetHandPositionAndOrientation(int32 ControllerIndex, EControllerHand Hand, FVector& OutPosition, FRotator& OutOrientation)
 {
-	OutDeviceId = -1;
+	bool RetVal = false;
 
 	FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
 	if (SteamVRHMD)
 	{
-		return SteamVRHMD->GetTrackedDeviceIdFromControllerIndex(ControllerIndex, OutDeviceId);
+		FQuat DeviceOrientation = FQuat::Identity;
+		RetVal = SteamVRHMD->GetControllerHandPositionAndOrientation(ControllerIndex, Hand, OutPosition, DeviceOrientation);
+		OutOrientation = DeviceOrientation.Rotator();
 	}
 
-	return false;
+	return RetVal;
 }
 
-void USteamVRFunctionLibrary::SetTrackingSpace(TEnumAsByte<ESteamVRTrackingSpace::Type> NewSpace)
+void USteamVRFunctionLibrary::SetTrackingSpace(TEnumAsByte<ESteamVRTrackingSpace> NewSpace)
 {
 	FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
 	if (SteamVRHMD)
@@ -67,9 +69,9 @@ void USteamVRFunctionLibrary::SetTrackingSpace(TEnumAsByte<ESteamVRTrackingSpace
 	}
 }
 
-TEnumAsByte<ESteamVRTrackingSpace::Type> USteamVRFunctionLibrary::GetTrackingSpace()
+TEnumAsByte<ESteamVRTrackingSpace> USteamVRFunctionLibrary::GetTrackingSpace()
 {
-	ESteamVRTrackingSpace::Type RetVal = ESteamVRTrackingSpace::Standing;
+	ESteamVRTrackingSpace RetVal = ESteamVRTrackingSpace::Standing;
 
 	FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
 	if (SteamVRHMD)

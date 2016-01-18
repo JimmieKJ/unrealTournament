@@ -22,6 +22,18 @@ struct FOnlineEntitlement
 	FString ItemId;
 	/**  Namespace of the entitlement */
 	FString Namespace;
+	/** True if the entitlement is a consumable */
+	bool bIsConsumable;
+	/** Number of uses still available for a consumable */
+	int32 RemainingCount;
+	/** Number of prior uses for a consumable */
+	int32 ConsumedCount;
+
+	FOnlineEntitlement()
+		: bIsConsumable(false)
+		, RemainingCount(1)
+		, ConsumedCount(0)
+	{}
 
 	/**
 	 * @return Any additional data associated with the entitlement
@@ -49,7 +61,7 @@ struct FOnlineEntitlement
  * @param Namespace optional namespace that was used to query. Empty means all entitlements were queried
  * @param Error string representing the error condition
  */
-DECLARE_MULTICAST_DELEGATE_FourParams(FOnQueryEntitlementsComplete, bool, const FUniqueNetId&, const FString&, const FString&);
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnQueryEntitlementsComplete, bool /*bWasSuccessful*/, const FUniqueNetId& /*UserId*/, const FString& /*Namespace*/, const FString& /*Error*/);
 typedef FOnQueryEntitlementsComplete::FDelegate FOnQueryEntitlementsCompleteDelegate;
 
 /**
@@ -105,7 +117,7 @@ public:
 	 * @param Namespace optional namespace that was used to query. Empty means all entitlements were queried
 	 * @param Error string representing the error condition
 	 */
-	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnQueryEntitlementsComplete, bool, const FUniqueNetId&, const FString&, const FString&);
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnQueryEntitlementsComplete, bool /*bWasSuccessful*/, const FUniqueNetId& /*UserId*/, const FString& /*Namespace*/, const FString& /*Error*/);
 };
 
 typedef TSharedPtr<IOnlineEntitlements, ESPMode::ThreadSafe> IOnlineEntitlementsPtr;

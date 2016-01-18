@@ -89,6 +89,17 @@ public:
 		return ((CurrentIndex + 1) & IndexMask);
 	}
 
+	/**
+	 * Calculates the index previous to the given index.
+	 *
+	 * @param CurrentIndex The current index.
+	 * @return The previous index.
+	 */
+	FORCEINLINE uint32 GetPreviousIndex( uint32 CurrentIndex ) const
+	{
+		return ( ( CurrentIndex - 1 ) & IndexMask );
+	}
+
 private:
 
 	/** Holds the mask for indexing the buffer's elements. */

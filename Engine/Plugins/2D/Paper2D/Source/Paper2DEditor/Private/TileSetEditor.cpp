@@ -438,6 +438,11 @@ FText FTileSetEditor::GetToolkitName() const
 	return FText::Format(LOCTEXT("TileSetAppLabel", "{TileSetName}{DirtyState}"), Args);
 }
 
+FText FTileSetEditor::GetToolkitToolTipText() const
+{
+	return FAssetEditorToolkit::GetToolTipTextForObject(TileSetBeingEdited);
+}
+
 FString FTileSetEditor::GetWorldCentricTabPrefix() const
 {
 	return TEXT("TileSetEditor");

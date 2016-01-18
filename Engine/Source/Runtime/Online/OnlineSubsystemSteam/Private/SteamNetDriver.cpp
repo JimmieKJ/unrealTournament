@@ -1,13 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemSteamPrivatePCH.h"
-#include "Engine.h"
+#include "SteamNetDriver.h"
 #include "IPAddressSteam.h"
-#include "OnlineSubsystemUtilsClasses.h"
-#include "OnlineSubsystemSteamClasses.h"
 #include "OnlineSubsystemSteam.h"
 #include "SocketSubsystemSteam.h"
 #include "SocketsSteam.h"
+#include "SteamNetDriver.h"
+#include "SteamNetConnection.h"
 
 USteamNetDriver::USteamNetDriver(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),

@@ -20,6 +20,10 @@
 
 //------------------------------------------------------------------------------
 
+#define CLEAR_EDGES 0
+
+//------------------------------------------------------------------------------
+
 [numthreads(4,4,4)]
 void CSClear(uint3 DTid : SV_DispatchThreadID) 
 {
@@ -33,10 +37,6 @@ void CSClear(uint3 DTid : SV_DispatchThreadID)
 
 	float maxExtent = MaxGridExtent( (float3)idx );
 	float mul = PREV_FRAME_MULTIPLIER;
-	if ( maxExtent > 15.5 )
-	{
-		mul = 0.0f;
-	}
 
 	idx = clamp( idx, int3(0,0,0), int3(31,31,31) );
 	int sourceCell = GetGridAddress( idx );
@@ -45,7 +45,24 @@ void CSClear(uint3 DTid : SV_DispatchThreadID)
 
 	mul *= LpvWrite.ClearMultiplier;
 
-	//@TODO: add a separate shader for this
+	// corruption detection (workaround for brightlodge lighting corruption)
+	{
+		if ( isnan( cell.AO ) || isinf( cell.AO ) )
+		{
+			mul = 0.0f;
+		}
+		[unroll]
+		for ( int i=0; i<9; i++ )
+		{
+			float df = dot( cell.coeffs[i], float3(1.0f,1.0f,1.0f) );
+			if ( isnan( df ) || isinf( df ) )
+			{
+				mul = 0.0f;
+			}
+		}
+	}
+
+	////@TODO: add a separate shader for this
 	[branch]
 	if ( mul == 0.0f ) // This is needed in order to fix QNANs 
 	{
@@ -53,8 +70,15 @@ void CSClear(uint3 DTid : SV_DispatchThreadID)
 	}
 	else
 	{
-		MultiplyCell( cell, mul );
+		MultiplyCellCoeffs( cell, mul );
 	}
+#if CLEAR_EDGES
+	if ( maxExtent > 13.5 && false )
+	{
+		ClearCell( cell );
+		cell.AO = 0.5;
+	}
+#endif
 
 	WriteLpvCell( cell, i );
 
@@ -73,4 +97,3 @@ void CSClearGeometryVolume(uint3 DTid : SV_DispatchThreadID)
 	uint i = GetGridAddress( DTid );
 	ClearGvCell( i );
 }
-

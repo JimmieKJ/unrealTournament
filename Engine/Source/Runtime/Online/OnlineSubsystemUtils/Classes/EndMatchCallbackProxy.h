@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "OnlineBlueprintCallProxyBase.h"
 #include "OnlineTurnBasedInterface.h"
 #include "EndMatchCallbackProxy.generated.h"
 

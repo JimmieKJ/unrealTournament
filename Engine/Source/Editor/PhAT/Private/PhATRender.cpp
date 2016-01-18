@@ -14,7 +14,7 @@ UPhATEdSkeletalMeshComponent::UPhATEdSkeletalMeshComponent(const FObjectInitiali
 	, ElemSelectedColor(255,166,0)
 	, ElemSelectedBodyColor(255, 255, 100)
 	, NoCollisionColor(200, 200, 200)
-	, FixedColor(225,64,64)
+	, FixedColor(125,125,0)
 	, ConstraintBone1Color(255,166,0)
 	, ConstraintBone2Color(0,150,150)
 	, HierarchyDrawColor(220, 255, 220)
@@ -81,6 +81,7 @@ void UPhATEdSkeletalMeshComponent::RenderAssetTools(const FSceneView* View, clas
 		{
 			FTransform BoneTM = GetBoneTransform(BoneIndex);
 			float Scale = BoneTM.GetScale3D().GetAbsMax();
+			FVector VectorScale(Scale);
 			BoneTM.RemoveScaling();
 
 			FKAggregateGeom* AggGeom = &PhysicsAsset->BodySetup[i]->AggGeom;
@@ -98,7 +99,7 @@ void UPhATEdSkeletalMeshComponent::RenderAssetTools(const FSceneView* View, clas
 				if( (CollisionViewMode == FPhATSharedData::PRM_Solid && !bHitTest) || bHitTestAndBodyMode)
 				{
 					UMaterialInterface*	PrimMaterial = GetPrimitiveMaterial(i, KPT_Sphere, j, bHitTestAndBodyMode);
-					AggGeom->SphereElems[j].DrawElemSolid(PDI, ElemTM, Scale, PrimMaterial->GetRenderProxy(0));
+					AggGeom->SphereElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy(0));
 				}
 
 				//wires are never used during hit
@@ -106,7 +107,7 @@ void UPhATEdSkeletalMeshComponent::RenderAssetTools(const FSceneView* View, clas
 				{
 					if (CollisionViewMode == FPhATSharedData::PRM_Solid || CollisionViewMode == FPhATSharedData::PRM_Wireframe)
 					{
-						AggGeom->SphereElems[j].DrawElemWire(PDI, ElemTM, Scale, GetPrimitiveColor(i, KPT_Sphere, j));
+						AggGeom->SphereElems[j].DrawElemWire(PDI, ElemTM, VectorScale, GetPrimitiveColor(i, KPT_Sphere, j));
 					}
 				}
 
@@ -129,14 +130,14 @@ void UPhATEdSkeletalMeshComponent::RenderAssetTools(const FSceneView* View, clas
 				if ( (CollisionViewMode == FPhATSharedData::PRM_Solid && !bHitTest) || bHitTestAndBodyMode)
 				{
 					UMaterialInterface*	PrimMaterial = GetPrimitiveMaterial(i, KPT_Box, j, bHitTestAndBodyMode);
-					AggGeom->BoxElems[j].DrawElemSolid(PDI, ElemTM, Scale, PrimMaterial->GetRenderProxy(0));
+					AggGeom->BoxElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy(0));
 				}
 
 				if(!bHitTest)
 				{
 					if (CollisionViewMode == FPhATSharedData::PRM_Solid || CollisionViewMode == FPhATSharedData::PRM_Wireframe)
 					{
-						AggGeom->BoxElems[j].DrawElemWire(PDI, ElemTM, Scale, GetPrimitiveColor(i, KPT_Box, j));
+						AggGeom->BoxElems[j].DrawElemWire(PDI, ElemTM, VectorScale, GetPrimitiveColor(i, KPT_Box, j));
 					}
 				}
 				
@@ -159,14 +160,14 @@ void UPhATEdSkeletalMeshComponent::RenderAssetTools(const FSceneView* View, clas
 				if ( (CollisionViewMode == FPhATSharedData::PRM_Solid && !bHitTest) || bHitTestAndBodyMode)
 				{
 					UMaterialInterface*	PrimMaterial = GetPrimitiveMaterial(i, KPT_Sphyl, j, bHitTestAndBodyMode);
-					AggGeom->SphylElems[j].DrawElemSolid(PDI, ElemTM, Scale, PrimMaterial->GetRenderProxy(0));
+					AggGeom->SphylElems[j].DrawElemSolid(PDI, ElemTM, VectorScale, PrimMaterial->GetRenderProxy(0));
 				}
 
 				if(!bHitTest)
 				{
 					if (CollisionViewMode == FPhATSharedData::PRM_Solid || CollisionViewMode == FPhATSharedData::PRM_Wireframe)
 					{
-						AggGeom->SphylElems[j].DrawElemWire(PDI, ElemTM, Scale, GetPrimitiveColor(i, KPT_Sphyl, j));
+						AggGeom->SphylElems[j].DrawElemWire(PDI, ElemTM, VectorScale, GetPrimitiveColor(i, KPT_Sphyl, j));
 					}
 				}
 
@@ -438,20 +439,7 @@ FColor UPhATEdSkeletalMeshComponent::GetPrimitiveColor(int32 BodyIndex, EKCollis
 		}
 	}
 
-	if (SharedData->bRunningSimulation)
-	{
-		// @todo draw fixed, too?
-		if (SharedData->bShowFixedStatus && BodySetup->PhysicsType == PhysType_Simulated)
-		{
-			return FixedColor;
-		}
-		else
-		{
-			return BoneUnselectedColor;
-		}
-	}
-
-	if (SharedData->EditingMode == FPhATSharedData::PEM_ConstraintEdit)
+	if (!SharedData->bRunningSimulation && SharedData->EditingMode == FPhATSharedData::PEM_ConstraintEdit)
 	{
 		return BoneUnselectedColor;
 	}
@@ -466,40 +454,38 @@ FColor UPhATEdSkeletalMeshComponent::GetPrimitiveColor(int32 BodyIndex, EKCollis
 			bInBody = true;
 		}
 
-		if (Body == SharedData->SelectedBodies[i])
+		if (Body == SharedData->SelectedBodies[i] && !SharedData->bRunningSimulation)
 		{
 			return ElemSelectedColor;
 		}
 	}
 
-	if(bInBody)	//this primitive is in a body that's currently selected, but this primitive itself isn't selected
+	if(bInBody && !SharedData->bRunningSimulation)	//this primitive is in a body that's currently selected, but this primitive itself isn't selected
 	{
 		return ElemSelectedBodyColor;
 	}
 	
-	if (SharedData->bShowFixedStatus)
+	if (SharedData->bShowFixedStatus && SharedData->bRunningSimulation)
 	{
-		if (BodySetup->PhysicsType == PhysType_Simulated)
+		const bool bIsSimulatedAtAll = BodySetup->PhysicsType == PhysType_Simulated || (BodySetup->PhysicsType == PhysType_Default && SharedData->EditorSimOptions->PhysicsBlend > 0.f);
+		if (!bIsSimulatedAtAll)
 		{
 			return FixedColor;
-		}
-		else
-		{
-			return BoneUnselectedColor;
 		}
 	}
 	else
 	{
-		// If there is no collision with this body, use 'no collision material'.
-		if (SharedData->NoCollisionBodies.Find(BodyIndex) != INDEX_NONE)
+		if (!SharedData->bRunningSimulation && SharedData->SelectedBodies.Num())
 		{
-			return NoCollisionColor;
-		}
-		else
-		{
-			return BoneUnselectedColor;
+			// If there is no collision with this body, use 'no collision material'.
+			if (SharedData->NoCollisionBodies.Find(BodyIndex) != INDEX_NONE)
+			{
+				return NoCollisionColor;
+			}
 		}
 	}
+
+	return BoneUnselectedColor;
 }
 
 UMaterialInterface* UPhATEdSkeletalMeshComponent::GetPrimitiveMaterial(int32 BodyIndex, EKCollisionPrimitiveType PrimitiveType, int32 PrimitiveIndex, bool bHitTest)
@@ -513,14 +499,14 @@ UMaterialInterface* UPhATEdSkeletalMeshComponent::GetPrimitiveMaterial(int32 Bod
 
 	for(int32 i=0; i< SharedData->SelectedBodies.Num(); ++i)
 	{
-		if (Body == SharedData->SelectedBodies[i])
+		if (Body == SharedData->SelectedBodies[i] && !SharedData->bRunningSimulation)
 		{
 			return bHitTest ? BoneMaterialHit : ElemSelectedMaterial;
 		}
 	}
 
 	// If there is no collision with this body, use 'no collision material'.
-	if (SharedData->NoCollisionBodies.Find(BodyIndex) != INDEX_NONE)
+	if (SharedData->NoCollisionBodies.Find(BodyIndex) != INDEX_NONE && !SharedData->bRunningSimulation)
 	{
 		return bHitTest ? BoneMaterialHit : BoneNoCollisionMaterial;
 	}

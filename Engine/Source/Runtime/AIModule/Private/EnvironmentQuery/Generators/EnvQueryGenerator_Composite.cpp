@@ -20,6 +20,7 @@ void UEnvQueryGenerator_Composite::GenerateItems(FEnvQueryInstance& QueryInstanc
 		{
 			if (Generators[Idx])
 			{
+				FScopeCycleCounterUObject GeneratorScope(Generators[Idx]);
 				Generators[Idx]->GenerateItems(QueryInstance);
 			}
 		}

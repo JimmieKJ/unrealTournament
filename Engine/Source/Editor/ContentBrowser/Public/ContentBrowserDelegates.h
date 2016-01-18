@@ -92,3 +92,50 @@ DECLARE_DELEGATE_OneParam(FOnAssetsChosenForOpen, const TArray<FAssetData>& /*Se
 
 /** Called from the Asset Dialog when an asset name is chosen in non-modal Save dialogs */
 DECLARE_DELEGATE_OneParam(FOnObjectPathChosenForSave, const FString& /*ObjectPath*/);
+
+/** Contains the delegates used to handle a custom drag-and-drop in the asset view */
+struct FAssetViewDragAndDropExtender
+{
+	struct FPayload
+	{
+		FPayload(TSharedPtr<FDragDropOperation> InDragDropOp, const TArray<FName>& InPackagePaths, const TArray<FCollectionNameType>& InCollections)
+			: DragDropOp(MoveTemp(InDragDropOp))
+			, PackagePaths(InPackagePaths)
+			, Collections(InCollections)
+		{
+		}
+
+		TSharedPtr<FDragDropOperation> DragDropOp;
+		const TArray<FName>& PackagePaths;
+		const TArray<FCollectionNameType>& Collections;
+	};
+
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnDropDelegate, const FPayload&);
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnDragOverDelegate, const FPayload&);
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnDragLeaveDelegate, const FPayload&);
+
+	FAssetViewDragAndDropExtender(FOnDropDelegate InOnDropDelegate)
+		: OnDropDelegate(MoveTemp(InOnDropDelegate))
+		, OnDragOverDelegate()
+		, OnDragLeaveDelegate()
+	{
+	}
+
+	FAssetViewDragAndDropExtender(FOnDropDelegate InOnDropDelegate, FOnDragOverDelegate InOnDragOverDelegate)
+		: OnDropDelegate(MoveTemp(InOnDropDelegate))
+		, OnDragOverDelegate(MoveTemp(InOnDragOverDelegate))
+		, OnDragLeaveDelegate()
+	{
+	}
+
+	FAssetViewDragAndDropExtender(FOnDropDelegate InOnDropDelegate, FOnDragOverDelegate InOnDragOverDelegate, FOnDragLeaveDelegate InOnDragLeaveDelegate)
+		: OnDropDelegate(MoveTemp(InOnDropDelegate))
+		, OnDragOverDelegate(MoveTemp(InOnDragOverDelegate))
+		, OnDragLeaveDelegate(MoveTemp(InOnDragLeaveDelegate))
+	{
+	}
+
+	FOnDropDelegate OnDropDelegate;
+	FOnDragOverDelegate OnDragOverDelegate;
+	FOnDragLeaveDelegate OnDragLeaveDelegate;
+};

@@ -6,21 +6,24 @@
 
 
 class FTypeContainer;
-class IPortalService;
+class IPortalServiceLocator;
 
 
-/**
- * Interface for the PortalServices module.
- */
 class IPortalServicesModule
 	: public IModuleInterface
 {
 public:
 
 	/**
-	 * Gets a container with registered Portal services.
+	 * Create a locator for Portal services.
 	 *
-	 * @return The type container.
+	 * @param ServiceDependencies Any dependencies that the services may need.
+	 * @return A service locator.
 	 */
-	virtual FTypeContainer& GetServiceContainer() = 0;
+	virtual TSharedRef<IPortalServiceLocator> CreateLocator(const TSharedRef<FTypeContainer>& ServiceDependencies) = 0;
+
+public:
+
+	/** Virtual destructor. */
+	virtual ~IPortalServicesModule() { }
 };

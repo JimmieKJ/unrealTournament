@@ -8,6 +8,7 @@
 UNavModifierComponent::UNavModifierComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	AreaClass = UNavArea_Null::StaticClass();
+	FailsafeExtent = FVector(100, 100, 100);
 }
 
 void UNavModifierComponent::CalcAndCacheBounds() const
@@ -17,7 +18,14 @@ void UNavModifierComponent::CalcAndCacheBounds() const
 	{
 		const float Radius = MyOwner->GetSimpleCollisionRadius();
 		const float HalfHeght = MyOwner->GetSimpleCollisionHalfHeight();
+		
 		ObstacleExtent = FVector(Radius, Radius, HalfHeght);
+		if (ObstacleExtent.IsNearlyZero())
+		{
+			const FVector ActorScale3D = MyOwner->GetActorScale3D();
+			ObstacleExtent = FailsafeExtent * ActorScale3D;
+		}
+
 		Bounds = FBox::BuildAABB(MyOwner->GetActorLocation(), ObstacleExtent);
 	}
 }

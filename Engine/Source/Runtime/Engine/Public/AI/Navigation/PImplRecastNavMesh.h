@@ -50,11 +50,13 @@ public:
 
 struct ENGINE_API FRecastSpeciaLinkFilter : public dtQuerySpecialLinkFilter
 {
-	FRecastSpeciaLinkFilter(UNavigationSystem* NavSystem, const UObject* Owner) : NavSys(NavSystem), SearchOwner(Owner) {}
+	FRecastSpeciaLinkFilter(UNavigationSystem* NavSystem, const UObject* Owner) : NavSys(NavSystem), SearchOwner(Owner), CachedOwnerOb(nullptr) {}
 	virtual bool isLinkAllowed(const int32 UserId) const override;
+	virtual void initialize() override;
 
 	UNavigationSystem* NavSys;
-	const UObject* SearchOwner;
+	FWeakObjectPtr SearchOwner;
+	UObject* CachedOwnerOb;
 };
 
 /** Engine Private! - Private Implementation details of ARecastNavMesh */
@@ -97,7 +99,7 @@ public:
 	void GetNavMeshTilesIn(const TArray<FBox>& InclusionBounds, TArray<int32>& Indices) const;
 
 	/** Retrieves number of tiles in this navmesh */
-	FORCEINLINE int32 GetNavMeshTilesCount() const { return DetourNavMesh->getMaxTiles(); }
+	FORCEINLINE int32 GetNavMeshTilesCount() const { return DetourNavMesh ? DetourNavMesh->getMaxTiles() : 0; }
 
 	/** Supported queries */
 
@@ -171,6 +173,14 @@ public:
 	bool GetPolyData(NavNodeRef PolyID, uint16& Flags, uint8& AreaType) const;
 	/** Retrieves area ID for the specified polygon. */
 	uint32 GetPolyAreaID(NavNodeRef PolyID) const;
+	/** Sets area ID for the specified polygon. */
+	void SetPolyAreaID(NavNodeRef PolyID, uint8 AreaID);
+	/** Finds all polys connected with specified one */
+	bool GetPolyNeighbors(NavNodeRef PolyID, TArray<FNavigationPortalEdge>& Neighbors) const;
+	/** Finds all polys connected with specified one, results expressed as array of NavNodeRefs */
+	bool GetPolyNeighbors(NavNodeRef PolyID, TArray<NavNodeRef>& Neighbors) const;
+	/** Finds all polys connected with specified one */
+	bool GetPolyEdges(NavNodeRef PolyID, TArray<FNavigationPortalEdge>& Edges) const;
 	/** Finds closest point constrained to given poly */
 	bool GetClosestPointOnPoly(NavNodeRef PolyID, const FVector& TestPt, FVector& PointOnPoly) const;
 	/** Decode poly ID into tile index and poly index */

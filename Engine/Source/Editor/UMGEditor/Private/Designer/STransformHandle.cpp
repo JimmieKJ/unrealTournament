@@ -314,7 +314,7 @@ ETransformAction STransformHandle::ComputeActionAtLocation(const FGeometry& MyGe
 {
 	FVector2D LocalPosition = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
 	FVector2D GrabOriginOffset = LocalPosition - DragOrigin;
-	if ( GrabOriginOffset.Size() < 6 )
+	if ( GrabOriginOffset.SizeSquared() < 36.f )
 	{
 		return ETransformAction::Primary;
 	}

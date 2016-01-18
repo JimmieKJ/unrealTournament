@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTProj_TransDisk.h"
 #include "UTWeap_Translocator.h"
@@ -69,6 +69,14 @@ float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent cons
 				{
 					FTimerHandle TempHandle;
 					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTProj_TransDisk::ShutDown, DisruptDestroyTime, false);
+					if (MyTranslocator != NULL && MyTranslocator->GetUTOwner() != NULL)
+					{
+						AUTBot* B = Cast<AUTBot>(MyTranslocator->GetUTOwner()->Controller);
+						if (B != NULL)
+						{
+							B->bHasTranslocator = false; // note: this (intentionally) won't prevent bot from trying to use this disk in flight
+						}
+					}
 				}
 				//Play and deactivate effects
 				OnDisrupted();

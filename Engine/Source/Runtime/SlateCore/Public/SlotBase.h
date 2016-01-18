@@ -12,16 +12,22 @@ public:
 
 	FSlotBase( const TSharedRef<SWidget>& InWidget );
 
-	void AttachWidget( const TSharedRef<SWidget>& InWidget );
-
 	virtual ~FSlotBase();
+
+	FORCEINLINE_DEBUGGABLE void AttachWidget( const TSharedRef<SWidget>& InWidget )
+	{
+		Widget = InWidget;
+	}
 
 	/**
 	 * Access the widget in the current slot.
 	 * There will always be a widget in the slot; sometimes it is
 	 * the SNullWidget instance.
 	 */
-	const TSharedRef<SWidget>& GetWidget() const;
+	FORCEINLINE_DEBUGGABLE const TSharedRef<SWidget>& GetWidget() const
+	{
+		return Widget;
+	}
 
 	/**
 	 * Remove the widget from its current slot.

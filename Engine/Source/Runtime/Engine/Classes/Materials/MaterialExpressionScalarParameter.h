@@ -13,11 +13,23 @@ class UMaterialExpressionScalarParameter : public UMaterialExpressionParameter
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionScalarParameter)
 	float DefaultValue;
 
+	/** 
+	 * Sets the lower bound for the slider on this parameter in the material instance editor. 
+	 */
+	UPROPERTY(EditAnywhere, Category=MaterialExpressionScalarParameter)
+	float SliderMin;
 
-	// Begin UMaterialExpression Interface
+	/** 
+	 * Sets the upper bound for the slider on this parameter in the material instance editor. 
+	 * The slider will be disabled if SliderMax <= SliderMin.
+	 */
+	UPROPERTY(EditAnywhere, Category=MaterialExpressionScalarParameter)
+	float SliderMax;
+
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 	/** Return whether this is the named parameter, and fill in its value */
 	bool IsNamedParameter(FName InParameterName, float& OutValue) const;

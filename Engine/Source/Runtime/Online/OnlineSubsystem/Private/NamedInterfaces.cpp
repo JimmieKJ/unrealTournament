@@ -8,6 +8,15 @@ UNamedInterfaces::UNamedInterfaces(const FObjectInitializer& ObjectInitializer) 
 {
 }
 
+void UNamedInterfaces::BeginDestroy()
+{
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		OnCleanup().Broadcast();
+	}
+	Super::BeginDestroy();
+}
+
 void UNamedInterfaces::Initialize()
 {
 	// Iterate through each configured named interface load it and create an instance

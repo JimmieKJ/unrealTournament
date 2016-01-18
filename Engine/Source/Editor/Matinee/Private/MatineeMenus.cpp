@@ -60,6 +60,7 @@
 #include "Sound/SoundBase.h"
 #include "Camera/CameraAnim.h"
 
+#include "IMenu.h"
 
 #define LOCTEXT_NAMESPACE "MatineeMenus"
 
@@ -120,21 +121,22 @@ void FMatinee::GenericTextEntryModeless(const FText& DialogText, const FText& De
 		.OnTextCommitted(OnTextComitted)
 		.ClearKeyboardFocusOnCommit(false)
 		.SelectAllTextWhenFocused(true)
-		.MaxWidth(1024.0f)
-		;
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+		.MaxWidth(1024.0f);
+
+	EntryPopupMenu = FSlateApplication::Get().PushMenu(
 		ToolkitHost.Pin()->GetParentWidget(),
+		FWidgetPath(),
 		TextEntryPopup,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
 }
 
-void FMatinee::CloseEntryPopupWindow()
+void FMatinee::CloseEntryPopupMenu()
 {
-	if (EntryPopupWindow.IsValid())
+	if (EntryPopupMenu.IsValid())
 	{
-		EntryPopupWindow.Pin()->RequestDestroyWindow();
+		EntryPopupMenu.Pin()->Dismiss();
 	}
 }
 
@@ -171,7 +173,7 @@ void FMatinee::OnNewNamePopupTextCommitted(const FText& InText, ETextCommit::Typ
 {
 	if (CommitInfo == ETextCommit::OnEnter)
 	{	
-		CloseEntryPopupWindow();
+		CloseEntryPopupMenu();
 		if (!InText.IsEmpty())
 		{
 			// Make sure there are no spaces!
@@ -403,7 +405,7 @@ void FMatinee::NewGroupPopupTextCommitted(
 		// Duplicate each selected group.
 		for( TMap<UInterpGroup*,FName>::TIterator GroupIt(DuplicateGroupToNameMap); GroupIt; ++GroupIt )
 		{
-			UInterpGroup* DupGroup = (UInterpGroup*)StaticDuplicateObject( GroupIt.Key(), IData, TEXT("None"), RF_Transactional );
+			UInterpGroup* DupGroup = (UInterpGroup*)StaticDuplicateObject( GroupIt.Key(), IData, NAME_None, RF_Transactional );
 			DupGroup->GroupName = GroupIt.Value();
 			// we need to insert these into correct spot if we'd keep the folder, and if not this will add to the last group or folder or whatever
 			// which will crash again, so I'm disabling duplicating parenting. 
@@ -836,7 +838,7 @@ void FMatinee::StretchSection( bool bUseSelectedOnly )
 
 void FMatinee::OnStretchSectionTextEntered(const FText& InText, ETextCommit::Type CommitInfo, float SectionStart, float SectionEnd, float CurrentSectionLength )
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		double dNewSectionLength = FCString::Atod(*InText.ToString());
@@ -978,7 +980,7 @@ void FMatinee::OnMenuInsertSpace()
 
 void FMatinee::OnInsertSpaceTextEntry(const FText& InText, ETextCommit::Type CommitInfo)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		bool bIsNumber = InText.IsNumeric();
@@ -1821,7 +1823,7 @@ bool FMatinee::CanGroupCreateTab() const
 
 void FMatinee::OnContextGroupCreateTabTextCommitted(const FText& InText, ETextCommit::Type CommitInfo)
 {
-	CloseEntryPopupWindow();	
+	CloseEntryPopupMenu();	
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		// Create a new tab.
@@ -2215,7 +2217,7 @@ void FMatinee::OnContextSetKeyTime()
 
 void FMatinee::OnContextSetKeyTimeTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FInterpEdSelKey* SelKey, UInterpTrack* Track)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		double dNewTime = FCString::Atod(*InText.ToString());
@@ -2275,7 +2277,7 @@ void FMatinee::OnContextSetValue()
 
 void FMatinee::OnContextSetValueTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FInterpEdSelKey* SelKey, UInterpTrackFloatBase* FloatTrack)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		double dNewVal = FCString::Atod(*InText.ToString());
@@ -2336,7 +2338,7 @@ void FMatinee::OnContextSetColor()
 		FVector CurrentColorVector = ColorPropTrack->VectorTrack.Points[SelKey.KeyIndex].OutVal;
 		static FColor CurrentColor;
 
-		CurrentColor = FColor(FLinearColor(CurrentColorVector.X, CurrentColorVector.Y, CurrentColorVector.Z));
+		CurrentColor = FLinearColor(CurrentColorVector.X, CurrentColorVector.Y, CurrentColorVector.Z).ToFColor(true);
 
 		TArray<FColor*> FColorArray;
 		FColorArray.Add(&CurrentColor);
@@ -2496,8 +2498,9 @@ void FMatinee::OnSetMoveKeyLookupGroup()
 			.OnTextChosen(this, &FMatinee::OnSetMoveKeyLookupGroupTextChosen, SelKey.KeyIndex, MoveTrack, MoveTrackAxis)
 			;
 
-		EntryPopupWindow = FSlateApplication::Get().PushMenu( 
+		EntryPopupMenu = FSlateApplication::Get().PushMenu(
 			ToolkitHost.Pin()->GetParentWidget(),
+			FWidgetPath(),
 			TextEntryPopup,
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -2516,7 +2519,7 @@ void FMatinee::OnSetMoveKeyLookupGroupTextChosen(const FString& ChosenText, int3
 	{
 		MoveTrackAxis->SetLookupKeyGroupName( KeyIndex, KeyframeLookupGroup );
 	}
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 }
 
 
@@ -2583,7 +2586,7 @@ void FMatinee::OnContextRenameEventKey()
 
 void FMatinee::OnContextRenameEventKeyTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FName EventNameToChange)
 { 
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		FString TempString = InText.ToString().Left(NAME_SIZE);
@@ -2690,7 +2693,7 @@ void FMatinee::OnSetAnimOffset( bool bInEndOffset )
 
 void FMatinee::OnSetAnimOffsetTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FInterpEdSelKey* SelKey, UInterpTrackAnimControl* AnimTrack, bool bEndOffset)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		double dNewOffset = FCString::Atod(*InText.ToString());
@@ -2739,7 +2742,7 @@ void FMatinee::OnSetAnimPlayRate()
 
 void FMatinee::OnSetAnimPlayRateTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FInterpEdSelKey* SelKey, UInterpTrackAnimControl* AnimTrack)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		double dNewRate = FCString::Atod(*InText.ToString());
@@ -2873,7 +2876,7 @@ void FMatinee::ExportCameraAnimationNameCommitted(const FText& InAnimationPackag
 		}
 	}
 
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 }
 
 void FMatinee::OnContextSaveAsCameraAnimation()
@@ -2893,8 +2896,9 @@ void FMatinee::OnContextSaveAsCameraAnimation()
 		.OnTextCommitted(this, &FMatinee::ExportCameraAnimationNameCommitted)
 		.ClearKeyboardFocusOnCommit( false );
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryPopupMenu = FSlateApplication::Get().PushMenu(
 		ToolkitHost.Pin()->GetParentWidget(),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )
@@ -3139,7 +3143,7 @@ void FMatinee::OnSetSoundVolume()
 
 void FMatinee::OnSetSoundVolumeTextEntered( const FText& InText, ETextCommit::Type CommitInfo, TArray<int32> SoundTrackKeyIndices)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if( CommitInfo ==  ETextCommit::OnEnter )
 	{
 		double NewVolume = FCString::Atod(*InText.ToString());
@@ -3321,7 +3325,7 @@ void FMatinee::OnKeyContext_SetMasterVolume()
 
 void FMatinee::OnKeyContext_SetMasterVolumeTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, TArray<int32> SoundTrackKeyIndices)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		double NewVolume = FCString::Atod(*InText.ToString());
@@ -3401,7 +3405,7 @@ void FMatinee::OnKeyContext_SetMasterPitch()
 }
 void FMatinee::OnKeyContext_SetMasterPitchTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, TArray<int32> SoundTrackKeyIndices)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		double NewPitch = FCString::Atod(*InText.ToString());
@@ -3456,7 +3460,7 @@ void FMatinee::OnParticleReplayKeyContext_SetClipIDNumber()
 
 void FMatinee::OnParticleReplayKeyContext_SetClipIDNumberTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FParticleReplayTrackKey* ParticleReplayKey)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		int32 NewClipIDNumber = FCString::Atoi(*InText.ToString());
@@ -3501,7 +3505,7 @@ void FMatinee::OnParticleReplayKeyContext_SetDuration()
 
 void FMatinee::OnParticleReplayKeyContext_SetDurationTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FParticleReplayTrackKey* ParticleReplayKey)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		int32 NewDuration = FCString::Atoi(*InText.ToString());
@@ -3554,7 +3558,7 @@ void FMatinee::OnContextDirKeyTransitionTime()
 
 void FMatinee::OnContextDirKeyTransitionTimeTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FInterpEdSelKey* SelKey, UInterpTrackDirector* DirTrack)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		double dNewTime = FCString::Atod(*InText.ToString());
@@ -3595,7 +3599,7 @@ void FMatinee::OnContextDirKeyRenameCameraShot()
 
 void FMatinee::OnContextDirKeyRenameCameraShotTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, FInterpEdSelKey* SelKey, UInterpTrackDirector* DirTrack)
 {
-	CloseEntryPopupWindow();
+	CloseEntryPopupMenu();
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
 		uint32 NewShot = FCString::Atoi(*InText.ToString());    
@@ -4269,6 +4273,7 @@ void FMatinee::OnSplitTranslationAndRotation()
 	check( HasATrackSelected() );
 
 	ClearKeySelection();
+
 	// Check to make sure there is a movement track in list
 	// before attempting to start the transaction system.
 	if( HasATrackSelected( UInterpTrackMove::StaticClass() ) )
@@ -4295,6 +4300,9 @@ void FMatinee::OnSplitTranslationAndRotation()
 
 		UpdateTrackWindowScrollBars();
 	}
+	
+	// Make sure the curve editor is in sync
+	CurveEd->CurveChanged();
 }
 
 /** Normalize Velocity Dialog */
@@ -4752,7 +4760,7 @@ void FMatinee::ScaleTranslationByAmount( const FText& InText, ETextCommit::Type 
 {
 	if (CommitInfo == ETextCommit::OnEnter)
 	{
-		CloseEntryPopupWindow();
+		CloseEntryPopupMenu();
 		float Amount = FCString::Atof(*InText.ToString());
 		const bool bIsNumber = InText.IsNumeric();
 		if (bIsNumber)

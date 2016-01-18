@@ -20,9 +20,11 @@ class FMaterial;
 class FMaterialRenderProxy;
 class FMeshMaterialShaderMap;
 class FMeshMaterialShaderType;
+class FShaderCommonCompileJob;
 class FShaderCompileJob;
 class FShaderType;
 class FShaderTypeDependency;
+class FShaderPipelineTypeDependency;
 class FVertexFactoryType;
 class FVertexFactoryTypeDependency;
 class UMaterial;
@@ -52,7 +54,9 @@ extern void GetMaterialQualityLevelName(EMaterialQualityLevel::Type InMaterialQu
 
 inline bool IsSubsurfaceShadingModel(EMaterialShadingModel ShadingModel)
 {
-	return ShadingModel == MSM_Subsurface || ShadingModel == MSM_PreintegratedSkin || ShadingModel == MSM_SubsurfaceProfile || ShadingModel == MSM_TwoSidedFoliage;
+	return ShadingModel == MSM_Subsurface || ShadingModel == MSM_PreintegratedSkin || 
+		ShadingModel == MSM_SubsurfaceProfile || ShadingModel == MSM_TwoSidedFoliage || 
+		ShadingModel == MSM_Cloth;
 }
 
 /**
@@ -93,6 +97,7 @@ enum EMaterialCommonBasis
 	MCB_TranslatedWorld,
 	MCB_World,
 	MCB_View,
+	MCB_Camera,
 	MCB_MAX,
 };
 
@@ -242,7 +247,8 @@ public:
 
 	void SetParameterCollections(const TArray<class UMaterialParameterCollection*>& Collections);
 	void CreateBufferStruct();
-	const FUniformBufferStruct& GetUniformBufferStruct() const;
+	ENGINE_API const FUniformBufferStruct& GetUniformBufferStruct() const;
+
 	ENGINE_API FUniformBufferRHIRef CreateUniformBuffer(const FMaterialRenderContext& MaterialRenderContext, FRHICommandList* CommandListIfLocalMode, struct FLocalUniformBuffer* OutLocalUniformBuffer) const;
 
 	uint32 GetAllocatedSize() const
@@ -293,7 +299,8 @@ public:
 		bNeedsSceneTextures(false),
 		bUsesEyeAdaptation(false),
 		bModifiesMeshPosition(false),
-		bNeedsGBuffer(false)
+		bNeedsGBuffer(false),
+		bUsesGlobalDistanceField(false)
 	{}
 
 	ENGINE_API void Serialize(FArchive& Ar);
@@ -316,6 +323,9 @@ public:
 
 	/** true if the material uses any GBuffer textures */
 	bool bNeedsGBuffer;
+
+	/** true if material uses the global distance field */
+	bool bUsesGlobalDistanceField;
 };
 
 
@@ -346,7 +356,11 @@ namespace EMaterialShaderMapUsage
 		MaterialExportSpecular,
 		MaterialExportNormal,
 		MaterialExportMetallic,
-		MaterialExportRoughness
+		MaterialExportRoughness,
+		MaterialExportAO,
+		MaterialExportEmissive,
+		MaterialExportOpacity,
+		MaterialExportSubSurfaceColor
 	};
 }
 
@@ -390,6 +404,9 @@ public:
 	/** Shader types of shaders that are inlined in this shader map in the DDC. */
 	TArray<FShaderTypeDependency> ShaderTypeDependencies;
 
+	/** Shader pipeline types of shader pipelines that are inlined in this shader map in the DDC. */
+	TArray<FShaderPipelineTypeDependency> ShaderPipelineTypeDependencies;
+
 	/** Vertex factory types of shaders that are inlined in this shader map in the DDC. */
 	TArray<FVertexFactoryTypeDependency> VertexFactoryTypeDependencies;
 
@@ -414,7 +431,7 @@ public:
 	~FMaterialShaderMapId()
 	{ }
 
-	ENGINE_API void SetShaderDependencies(const TArray<FShaderType*>& ShaderTypes, const TArray<FVertexFactoryType*>& VFTypes);
+	ENGINE_API void SetShaderDependencies(const TArray<FShaderType*>& ShaderTypes, const TArray<const FShaderPipelineType*>& ShaderPipelineTypes, const TArray<FVertexFactoryType*>& VFTypes);
 
 	void Serialize(FArchive& Ar);
 
@@ -429,6 +446,7 @@ public:
 			+ ReferencedFunctions.GetAllocatedSize()
 			+ ReferencedParameterCollections.GetAllocatedSize()
 			+ ShaderTypeDependencies.GetAllocatedSize()
+			+ ShaderPipelineTypeDependencies.GetAllocatedSize()
 			+ VertexFactoryTypeDependencies.GetAllocatedSize();
 	}
 
@@ -453,6 +471,9 @@ public:
 
 	/** Returns true if the requested shader type is a dependency of this shader map Id. */
 	bool ContainsShaderType(const FShaderType* ShaderType) const;
+
+	/** Returns true if the requested shader type is a dependency of this shader map Id. */
+	bool ContainsShaderPipelineType(const FShaderPipelineType* ShaderPipelineType) const;
 
 	/** Returns true if the requested vertex factory type is a dependency of this shader map Id. */
 	bool ContainsVertexFactoryType(const FVertexFactoryType* VFType) const;
@@ -481,15 +502,8 @@ public:
 		const FMaterial* Material,
 		FShaderCompilerEnvironment* MaterialEnvironment,
 		EShaderPlatform Platform,
-		TArray<FShaderCompileJob*>& NewJobs
+		TArray<FShaderCommonCompileJob*>& NewJobs
 		);
-
-	/**
-	 * Creates shaders for all of the compile jobs and caches them in this shader map.
-	 * @param Material - The material to compile shaders for.
-	 * @param CompilationResults - The compile results that were enqueued by BeginCompile.
-	 */
-	void FinishCompile(uint32 ShaderMapId, const FUniformExpressionSet& UniformExpressionSet, const FSHAHash& MaterialShaderMapHash, const TArray<FShaderCompileJob*>& CompilationResults, const FString& InDebugDescription);
 
 	/**
 	 * Checks whether a material shader map is missing any shader types necessary for the given material.
@@ -517,12 +531,20 @@ public:
 	 */
 	void FlushShadersByShaderType(FShaderType* ShaderType);
 
+		/**
+	 * Removes all entries in the cache with exceptions based on a shader type
+	 * @param ShaderType - The shader type to flush
+	 */
+	void FlushShadersByShaderPipelineType(const FShaderPipelineType* ShaderPipelineType);
+
 	// Accessors.
-	FVertexFactoryType* GetVertexFactoryType() const { return VertexFactoryType; }
+	inline FVertexFactoryType* GetVertexFactoryType() const { return VertexFactoryType; }
 
 private:
 	/** The vertex factory type these shaders are for. */
 	FVertexFactoryType* VertexFactoryType;
+
+	static bool IsMeshShaderComplete(const FMeshMaterialShaderMap* MeshShaderMap, EShaderPlatform Platform, const FMaterial* Material, const FMeshMaterialShaderType* ShaderType, const FShaderPipelineType* Pipeline, FVertexFactoryType* InVertexFactoryType, bool bSilent);
 };
 
 /**
@@ -541,9 +563,12 @@ public:
 	static FMaterialShaderMap* FindId(const FMaterialShaderMapId& ShaderMapId, EShaderPlatform Platform);
 
 	/** Flushes the given shader types from any loaded FMaterialShaderMap's. */
-	static void FlushShaderTypes(TArray<FShaderType*>& ShaderTypesToFlush, TArray<const FVertexFactoryType*>& VFTypesToFlush);
+	static void FlushShaderTypes(TArray<FShaderType*>& ShaderTypesToFlush, TArray<const FShaderPipelineType*>& ShaderPipelineTypesToFlush, TArray<const FVertexFactoryType*>& VFTypesToFlush);
 
-	static void FixupShaderTypes(EShaderPlatform Platform, const TMap<FShaderType*, FString>& ShaderTypeNames, const TMap<FVertexFactoryType*, FString>& VertexFactoryTypeNames);
+	static void FixupShaderTypes(EShaderPlatform Platform, 
+		const TMap<FShaderType*, FString>& ShaderTypeNames,
+		const TMap<const FShaderPipelineType*, FString>& ShaderPipelineTypeNames,
+		const TMap<FVertexFactoryType*, FString>& VertexFactoryTypeNames);
 
 	/** 
 	 * Attempts to load the shader map for the given material from the Derived Data Cache.
@@ -573,7 +598,7 @@ public:
 		);
 
 	/** Sorts the incoming compiled jobs into the appropriate mesh shader maps, and finalizes this shader map so that it can be used for rendering. */
-	bool ProcessCompilationResults(const TArray<FShaderCompileJob*>& InCompilationResults, int32& ResultIndex, float& TimeBudget);
+	bool ProcessCompilationResults(const TArray<FShaderCommonCompileJob*>& InCompilationResults, int32& ResultIndex, float& TimeBudget, TMap<const FVertexFactoryType*, TArray<const FShaderPipelineType*> >& SharedPipelines);
 
 	/**
 	 * Checks whether the material shader map is missing any shader types necessary for the given material.
@@ -594,7 +619,10 @@ public:
 	bool TryToAddToExistingCompilationTask(FMaterial* Material);
 
 	/** Builds a list of the shaders in a shader map. */
-	ENGINE_API void GetShaderList(TMap<FShaderId,FShader*>& OutShaders) const;
+	ENGINE_API void GetShaderList(TMap<FShaderId, FShader*>& OutShaders) const;
+
+	/** Builds a list of the shader pipelines in a shader map. */
+	ENGINE_API void GetShaderPipelineList(TArray<FShaderPipeline*>& OutShaderPipelines) const;
 
 	/** Registers a material shader map in the global map so it can be used by materials. */
 	void Register(EShaderPlatform InShaderPlatform);
@@ -615,6 +643,12 @@ public:
 	 * @param ShaderType - The shader type to flush
 	 */
 	void FlushShadersByShaderType(FShaderType* ShaderType);
+
+	/**
+	 * Removes all entries in the cache with exceptions based on a shader pipeline type
+	 * @param ShaderPipelineType - The shader pipeline type to flush
+	 */
+	void FlushShadersByShaderPipelineType(const FShaderPipelineType* ShaderPipelineType);
 
 	/**
 	 * Removes all entries in the cache with exceptions based on a vertex factory type
@@ -669,6 +703,7 @@ public:
 	const FString& GetDebugDescription() const { return DebugDescription; }
 	bool RequiresSceneColorCopy() const { return MaterialCompilationOutput.bRequiresSceneColorCopy; }
 	bool NeedsSceneTextures() const { return MaterialCompilationOutput.bNeedsSceneTextures; }
+	bool UsesGlobalDistanceField() const { return MaterialCompilationOutput.bUsesGlobalDistanceField; }
 	bool NeedsGBuffer() const { return MaterialCompilationOutput.bNeedsGBuffer; }
 	bool UsesEyeAdaptation() const { return MaterialCompilationOutput.bUsesEyeAdaptation; }
 	bool ModifiesMeshPosition() const { return MaterialCompilationOutput.bModifiesMeshPosition; }
@@ -748,6 +783,10 @@ private:
 
 	/** Debug information about how the material shader map was compiled. */
 	FString DebugDescription;
+
+	FShader* ProcessCompilationResultsForSingleJob(class FShaderCompileJob* SingleJob, const FShaderPipelineType* ShaderPipeline, const FSHAHash& MaterialShaderMapHash);
+
+	bool IsMaterialShaderComplete(const FMaterial* Material, const FMaterialShaderType* ShaderType, const FShaderPipelineType* Pipeline, bool bSilent);
 
 	/** Initializes OrderedMeshShaderMaps from the contents of MeshShaderMaps. */
 	void InitOrderedMeshShaderMaps();
@@ -865,7 +904,7 @@ public:
 		RenderingThreadShaderMap(NULL),
 		Id_DEPRECATED(0,0,0,0),
 		QualityLevel(EMaterialQualityLevel::High),
-		bQualityLevelHasDifferentNodes(false),
+		bHasQualityLevelUsage(false),
 		FeatureLevel(ERHIFeatureLevel::SM4),
 		bContainsInlineShaders(false)
 	{}
@@ -912,8 +951,10 @@ public:
 	ENGINE_API virtual void GetShaderMapId(EShaderPlatform Platform, FMaterialShaderMapId& OutId) const;
 	virtual int32 GetMaterialDomain() const = 0; // See EMaterialDomain.
 	virtual bool IsTwoSided() const = 0;
+	virtual bool IsDitheredLODTransition() const = 0;
 	virtual bool IsTangentSpaceNormal() const { return false; }
 	virtual bool ShouldInjectEmissiveIntoLPV() const { return false; }
+	virtual bool ShouldBlockGI() const { return false; }
 	virtual bool ShouldGenerateSphericalParticleNormals() const { return false; }
 	virtual	bool ShouldDisableDepthTest() const { return false; }
 	virtual	bool ShouldEnableResponsiveAA() const { return false; }
@@ -922,6 +963,7 @@ public:
 	virtual bool IsUsedWithEditorCompositing() const { return false; }
 	virtual bool IsUsedWithDeferredDecal() const = 0;
 	virtual bool IsWireframe() const = 0;
+	virtual bool IsUIMaterial() const { return false; }
 	virtual bool IsSpecialEngineMaterial() const = 0;
 	virtual bool IsUsedWithSkeletalMesh() const { return false; }
 	virtual bool IsUsedWithLandscape() const { return false; }
@@ -943,6 +985,7 @@ public:
 	virtual bool IsNonmetal() const { return false; }
 	virtual bool UseLmDirectionality() const { return true; }
 	virtual bool IsMasked() const = 0;
+	virtual bool IsDitherMasked() const { return false; }
 	virtual enum EBlendMode GetBlendMode() const = 0;
 	virtual enum EMaterialShadingModel GetShadingModel() const = 0;
 	virtual enum ETranslucencyLightingMode GetTranslucencyLightingMode() const { return TLM_VolumetricNonDirectional; };
@@ -969,7 +1012,7 @@ public:
 	virtual bool HasNormalConnected() const { return false; }
 	virtual bool RequiresSynchronousCompilation() const { return false; };
 	virtual bool IsDefaultMaterial() const { return false; };
-
+	virtual int32 GetNumCustomizedUVs() const { return 0; }
 	/**
 	 * Should shaders compiled for this material be saved to disk?
 	 */
@@ -1031,6 +1074,7 @@ public:
 	ENGINE_API bool NeedsSceneTextures() const;
 	ENGINE_API bool NeedsGBuffer() const;
 	ENGINE_API bool UsesEyeAdaptation() const;	
+	ENGINE_API bool UsesGlobalDistanceField_GameThread() const;
 
 	/** Does the material modify the mesh position. */
 	ENGINE_API bool MaterialModifiesMeshPosition_RenderThread() const;
@@ -1083,6 +1127,8 @@ public:
 		return (ShaderType*)GetShader(&ShaderType::StaticType, VertexFactoryType);
 	}
 
+	ENGINE_API FShaderPipeline* GetShaderPipeline(class FShaderPipelineType* ShaderPipelineType, FVertexFactoryType* VertexFactoryType) const;
+
 	/** Returns a string that describes the material's usage for debugging purposes. */
 	virtual FString GetMaterialUsageDescription() const = 0;
 
@@ -1096,6 +1142,12 @@ public:
 	* @return - true on Success
 	*/
 	ENGINE_API bool GetMaterialExpressionSource(FString& OutSource);
+
+	/* Helper function to look at both IsMasked and IsDitheredLODTransition to determine if it writes every pixel */
+	ENGINE_API bool WritesEveryPixel() const
+	{
+		return !IsMasked() && !IsDitheredLODTransition() && !IsWireframe();
+	}
 
 	/** 
 	 * Adds an FMaterial to the global list.
@@ -1115,6 +1167,10 @@ public:
 	static void RestoreEditorLoadedMaterialShadersFromMemory(const TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData);
 
 protected:
+	
+	// shared code needed for GetUniformScalarParameterExpressions, GetUniformVectorParameterExpressions, GetUniformCubeTextureExpressions..
+	// @return can be 0
+	const FMaterialShaderMap* GetShaderMapToUse() const;
 
 	/**
 	* Fills the passed array with IDs of shader maps unfinished compilation jobs.
@@ -1137,10 +1193,10 @@ protected:
 	/** Useful for debugging. */
 	virtual FString GetBaseMaterialPathName() const { return TEXT(""); }
 
-	void SetQualityLevelProperties(EMaterialQualityLevel::Type InQualityLevel, bool bInQualityLevelHasDifferentNodes, ERHIFeatureLevel::Type InFeatureLevel)
+	void SetQualityLevelProperties(EMaterialQualityLevel::Type InQualityLevel, bool bInHasQualityLevelUsage, ERHIFeatureLevel::Type InFeatureLevel)
 	{
 		QualityLevel = InQualityLevel;
-		bQualityLevelHasDifferentNodes = bInQualityLevelHasDifferentNodes;
+		bHasQualityLevelUsage = bInHasQualityLevelUsage;
 		FeatureLevel = InFeatureLevel;
 	}
 
@@ -1155,7 +1211,7 @@ protected:
 	virtual FGuid GetMaterialId() const = 0;
 	
 	/** Produces arrays of any shader and vertex factory type that this material is dependent on. */
-	ENGINE_API void GetDependentShaderAndVFTypes(EShaderPlatform Platform, TArray<FShaderType*>& OutShaderTypes, TArray<FVertexFactoryType*>& OutVFTypes) const;
+	ENGINE_API void GetDependentShaderAndVFTypes(EShaderPlatform Platform, TArray<FShaderType*>& OutShaderTypes, TArray<const FShaderPipelineType*>& OutShaderPipelineTypes, TArray<FVertexFactoryType*>& OutVFTypes) const;
 
 private:
 
@@ -1201,7 +1257,7 @@ private:
 	EMaterialQualityLevel::Type QualityLevel;
 
 	/** Whether this material has quality level specific nodes. */
-	bool bQualityLevelHasDifferentNodes;
+	bool bHasQualityLevelUsage;
 
 	/** Feature level that this material is representing. */
 	ERHIFeatureLevel::Type FeatureLevel;
@@ -1233,11 +1289,11 @@ private:
 	 */
 	ENGINE_API FShader* GetShader(class FMeshMaterialShaderType* ShaderType, FVertexFactoryType* VertexFactoryType) const;
 
-	void GetReferencedTexturesHash(FSHAHash& OutHash) const;
+	void GetReferencedTexturesHash(EShaderPlatform Platform, FSHAHash& OutHash) const;
 
 	EMaterialQualityLevel::Type GetQualityLevelForShaderMapId() const 
 	{
-		return bQualityLevelHasDifferentNodes ? QualityLevel : EMaterialQualityLevel::Num;
+		return bHasQualityLevelUsage ? QualityLevel : EMaterialQualityLevel::Num;
 	}
 
 	friend class FMaterialShaderMap;
@@ -1326,9 +1382,9 @@ public:
 	virtual bool GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const = 0;
 	virtual bool GetScalarValue(const FName ParameterName, float* OutValue, const FMaterialRenderContext& Context) const = 0;
 	virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const = 0;
-	virtual float GetDistanceFieldPenumbraScale() const { return 1.0f; }
 	bool IsSelected() const { return bSelected; }
 	bool IsHovered() const { return bHovered; }
+	bool IsDeleted() const { return DeletedFlag != 0; }
 
 	// FRenderResource interface.
 	ENGINE_API virtual void InitDynamicRHI() override;
@@ -1350,6 +1406,9 @@ private:
 	bool bHovered : 1;
 	/** 0 if not set, game thread pointer, do not dereference, only for comparison */
 	const USubsurfaceProfile* SubsurfaceProfileRT;
+
+	/** For tracking down a bug accessing a deleted proxy. */
+	int32 DeletedFlag;
 
 	/** 
 	 * Tracks all material render proxies in all scenes, can only be accessed on the rendering thread.
@@ -1462,8 +1521,10 @@ public:
 	ENGINE_API virtual void GetShaderMapId(EShaderPlatform Platform, FMaterialShaderMapId& OutId) const override;
 	ENGINE_API virtual int32 GetMaterialDomain() const override;
 	ENGINE_API virtual bool IsTwoSided() const override;
+	ENGINE_API virtual bool IsDitheredLODTransition() const override;
 	ENGINE_API virtual bool IsTangentSpaceNormal() const override;
 	ENGINE_API virtual bool ShouldInjectEmissiveIntoLPV() const override;
+	ENGINE_API virtual bool ShouldBlockGI() const override;
 	ENGINE_API virtual bool ShouldGenerateSphericalParticleNormals() const override;
 	ENGINE_API virtual bool ShouldDisableDepthTest() const override;
 	ENGINE_API virtual bool ShouldEnableResponsiveAA() const override;
@@ -1472,6 +1533,7 @@ public:
 	ENGINE_API virtual bool IsUsedWithEditorCompositing() const override;
 	ENGINE_API virtual bool IsUsedWithDeferredDecal() const override;
 	ENGINE_API virtual bool IsWireframe() const override;
+	ENGINE_API virtual bool IsUIMaterial() const override;
 	ENGINE_API virtual bool IsSpecialEngineMaterial() const override;
 	ENGINE_API virtual bool IsUsedWithSkeletalMesh() const override;
 	ENGINE_API virtual bool IsUsedWithLandscape() const override;
@@ -1484,6 +1546,7 @@ public:
 	ENGINE_API virtual bool IsUsedWithSplineMeshes() const override;
 	ENGINE_API virtual bool IsUsedWithInstancedStaticMeshes() const override;
 	ENGINE_API virtual bool IsUsedWithAPEXCloth() const override;
+	DEPRECATED(4.9, "IsUsedWithUI is now replaced by IsUIMaterial")
 	ENGINE_API virtual bool IsUsedWithUI() const override;
 	ENGINE_API virtual enum EMaterialTessellationMode GetTessellationMode() const override;
 	ENGINE_API virtual bool IsCrackFreeDisplacementEnabled() const override;
@@ -1510,9 +1573,11 @@ public:
 	ENGINE_API virtual FLinearColor GetTranslucentMultipleScatteringExtinction() const override;
 	ENGINE_API virtual float GetTranslucentShadowStartOffset() const override;
 	ENGINE_API virtual bool IsMasked() const override;
+	ENGINE_API virtual bool IsDitherMasked() const override;
 	ENGINE_API virtual FString GetFriendlyName() const override;
 	ENGINE_API virtual bool RequiresSynchronousCompilation() const override;
 	ENGINE_API virtual bool IsDefaultMaterial() const override;
+	ENGINE_API virtual int32 GetNumCustomizedUVs() const override;
 	ENGINE_API virtual float GetRefractionDepthBiasValue() const override;
 	ENGINE_API virtual float GetMaxDisplacement() const override;
 	ENGINE_API virtual bool UseTranslucencyVertexFog() const override;
@@ -1532,7 +1597,7 @@ public:
 	 */
 	ENGINE_API void GetRepresentativeInstructionCounts(TArray<FString> &Descriptions, TArray<int32> &InstructionCounts) const;
 
-	ENGINE_API void GetRepresentativeShaderTypesAndDescriptions(TArray<FString> &ShaderTypeNames, TArray<FString> &ShaderTypeDescriptions) const;
+	ENGINE_API void GetRepresentativeShaderTypesAndDescriptions(TMap<FName, FString>& OutShaderTypeNameAndDescriptions) const;
 
 	ENGINE_API SIZE_T GetResourceSizeInclusive();
 
@@ -1541,6 +1606,7 @@ public:
 	ENGINE_API virtual const TArray<UTexture*>& GetReferencedTextures() const override;
 
 	ENGINE_API virtual bool GetAllowDevelopmentShaderCompile() const override;
+
 protected:
 	UMaterial* Material;
 	UMaterialInstance* MaterialInstance;

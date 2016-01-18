@@ -52,7 +52,7 @@ void FDragConnection::HoverTargetChanged()
 
 				if (Response.Response == ECanCreateConnectionResponse::CONNECT_RESPONSE_DISALLOW)
 				{
-					 TSharedPtr<SGraphNode> NodeWidget = TargetPinObj->GetOwningNode()->NodeWidget.Pin();
+					TSharedPtr<SGraphNode> NodeWidget = TargetPinObj->GetOwningNode()->DEPRECATED_NodeWidget.Pin();
 					 if (NodeWidget.IsValid())
 					 {
 						 NodeWidget->NotifyDisallowedPinConnection(StartingPinObj, TargetPinObj);

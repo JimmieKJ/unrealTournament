@@ -758,6 +758,8 @@ public:
 #if defined(APEX_TEST)
 	virtual void setSeed(physx::PxU32 seed) = 0;
 #endif
+
+	virtual void updateGravity() = 0;
 };
 
 /**

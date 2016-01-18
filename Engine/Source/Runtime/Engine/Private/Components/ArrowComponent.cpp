@@ -222,7 +222,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View) && (View->Family->EngineShowFlags.BillboardSprites);
@@ -334,7 +334,7 @@ void UArrowComponent::SetArrowColor_DEPRECATED(FColor NewColor)
 
 void UArrowComponent::SetArrowColor_New(FLinearColor NewColor)
 {
-	ArrowColor = NewColor;
+	ArrowColor = NewColor.ToFColor(true);
 	MarkRenderStateDirty();
 }
 

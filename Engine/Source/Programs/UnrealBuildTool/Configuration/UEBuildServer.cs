@@ -4,14 +4,20 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Runtime.Serialization;
 
 namespace UnrealBuildTool
 {
 	[Serializable]
 	public class UEBuildServer : UEBuildTarget
 	{
-		public UEBuildServer(TargetDescriptor InDesc, TargetRules InRulesObject, string InTargetCsFilename)
-			: base(InDesc, InRulesObject, "UE4Server", InTargetCsFilename)
+		public UEBuildServer(SerializationInfo Info, StreamingContext Context)
+			: base(Info, Context)
+		{
+		}
+
+		public UEBuildServer(TargetDescriptor InDesc, TargetRules InRulesObject, RulesAssembly InRulesAssembly, FileReference InTargetCsFilename)
+			: base(InDesc, InRulesObject, InRulesAssembly, "UE4Server", InTargetCsFilename)
 		{
 		}
 
@@ -28,14 +34,14 @@ namespace UnrealBuildTool
 
 			{
 				// Make the game executable.
-				UEBuildBinaryConfiguration Config = new UEBuildBinaryConfiguration( InType: UEBuildBinaryType.Executable,
+				UEBuildBinaryConfiguration Config = new UEBuildBinaryConfiguration(InType: UEBuildBinaryType.Executable,
 																					InOutputFilePaths: OutputPaths,
 																					InIntermediateDirectory: EngineIntermediateDirectory,
 																					bInCreateImportLibrarySeparately: (ShouldCompileMonolithic() ? false : true),
-																					bInAllowExports:!ShouldCompileMonolithic(),
-																					InModuleNames: new List<string>() { "Launch" } );
+																					bInAllowExports: !ShouldCompileMonolithic(),
+																					InModuleNames: new List<string>() { "Launch" });
 
-				AppBinaries.Add( new UEBuildBinaryCPP( this, Config ) );
+				AppBinaries.Add(new UEBuildBinaryCPP(this, Config));
 			}
 
 			// Add the other modules that we want to compile along with the executable.  These aren't necessarily
@@ -44,9 +50,6 @@ namespace UnrealBuildTool
 				// Modules should properly identify the 'extra modules' they need now.
 				// There should be nothing here!
 			}
-
-			// Allow the platform to setup binaries
-			UEBuildPlatform.GetBuildPlatform(Platform).SetupBinaries(this);
 		}
 
 		public override void SetupDefaultGlobalEnvironment(

@@ -1,7 +1,7 @@
 // user-selectable content for a player character (mesh, etc)
 // this is not done as UTCharacter subclasses for networking reasons (don't want players to be invisible if there is packet loss, loading issues, etc)
 // defined as an Actor for the friendly editor tools but is never spawned directly (similar to UTImpactEffect)
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTCharacterContent.generated.h"
@@ -35,10 +35,9 @@ public:
 		Mesh->bCastDynamicShadow = true;
 		Mesh->bAffectDynamicIndirectLighting = true;
 		Mesh->PrimaryComponentTick.TickGroup = TG_PrePhysics;
-		Mesh->bChartDistanceFactor = true;
 		Mesh->SetCollisionProfileName(FName(TEXT("CharacterMesh")));
 		Mesh->bGenerateOverlapEvents = false;
-		Mesh->bCanEverAffectNavigation = false;
+		Mesh->SetCanEverAffectNavigation(false);
 		Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Mesh->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server

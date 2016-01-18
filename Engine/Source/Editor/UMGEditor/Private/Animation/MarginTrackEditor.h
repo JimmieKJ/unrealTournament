@@ -2,20 +2,29 @@
 
 #pragma once
 
-#include "Editor/Sequencer/Public/MovieSceneTrackEditor.h"
+#include "PropertyTrackEditor.h"
+#include "MovieSceneMarginTrack.h"
+#include "MovieSceneMarginSection.h"
 
-class IPropertyHandle;
 
-class FMarginTrackEditor : public FMovieSceneTrackEditor
+class UMovieSceneTrack;
+
+
+class FMarginTrackEditor
+	: public FPropertyTrackEditor<UMovieSceneMarginTrack, UMovieSceneMarginSection, FMarginKey>
 {
 public:
+
 	/**
 	 * Constructor
 	 *
-	 * @param InSequencer	The sequencer instance to be used by this tool
+	 * @param InSequencer The sequencer instance to be used by this tool
 	 */
-	FMarginTrackEditor( TSharedRef<ISequencer> InSequencer );
-	~FMarginTrackEditor();
+	FMarginTrackEditor( TSharedRef<ISequencer> InSequencer )
+		: FPropertyTrackEditor<UMovieSceneMarginTrack, UMovieSceneMarginSection, FMarginKey>( InSequencer, "Margin" )
+	{ }
+
+	/** Virtual destructor. */
 
 	/**
 	 * Creates an instance of this class.  Called by a sequencer 
@@ -23,23 +32,22 @@ public:
 	 * @param OwningSequencer The sequencer instance to be used by this tool
 	 * @return The new instance of this class
 	 */
-	static TSharedRef<FMovieSceneTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
+	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
 
-	/** FMovieSceneTrackEditor Interface */
-	virtual bool SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const override;
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack* Track ) override;
+protected:
+
+	// FPropertyTrackEditor Interface
+
+	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
+	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FMarginKey>& GeneratedKeys ) override;
+
+	// FKeyframeTrackEditor interface
+	virtual bool ShouldAddKey(UMovieSceneMarginTrack* InTrack, FMarginKey InKey, FKeyParams InKeyParams) const override;
 
 private:
-	/**
-	 * Called by the details panel when an animatable property changes
-	 *
-	 * @param InObjectsThatChanged	List of objects that changed
-	 * @param PropertyValue			Handle to the property value which changed
-	 */
-	void OnMarginChanged( const struct FKeyPropertyParams& PropertyKeyParams );
 
-	/** Called After OnMarginChanged if we actually can key the margin */
-	void OnKeyMargin( float KeyTime, const struct FKeyPropertyParams* PropertyKeyParams );
+	static FName LeftName;
+	static FName TopName;
+	static FName RightName;
+	static FName BottomName;
 };
-
-

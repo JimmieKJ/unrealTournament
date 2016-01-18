@@ -38,6 +38,16 @@ public:
 	int32 NumIndirectLightingBounces;
 
 	/** 
+	 * Whether to use Embree for ray tracing or not.
+	 */
+	bool bUseEmbree;
+
+	/** 
+	 * Whether to check for Embree coherency.
+	 */
+	bool bVerifyEmbree;
+
+	/** 
 	 * Smoothness factor to apply to indirect lighting.  This is useful in some lighting conditions when Lightmass cannot resolve accurate indirect lighting.
 	 * 1 is default smoothness tweaked for a variety of lighting situations.
 	 * Higher values like 3 smooth out the indirect lighting more, but at the cost of indirect shadows losing detail as well.
@@ -212,6 +222,13 @@ public:
 	 * When enabled, some final gather rays will be traced even if only direct lighting is being calculated.
 	 */
 	bool bUseAmbientOcclusion;
+
+	/** 
+	 * Whether to generate textures storing the AO computed by Lightmass.
+	 * These can be accessed through the PrecomputedAmbientOcclusion material node, 
+	 * Which is useful for blending between material layers on environment assets.
+	 */
+	bool bGenerateAmbientOcclusionMaterialMask;
 
 	/** Debugging - whether to only show the ambient occlusion term, useful for seeing the impact of AO settings in isolation. */
 	bool bVisualizeAmbientOcclusion;
@@ -673,11 +690,6 @@ struct FDebugLightingInputData
 	/** Size of the texture mapping that was selected to debug */
 	int32 MappingSizeX;
 	int32 MappingSizeY;
-	/** Position in the lightmap atlas of the texel to debug */
-	int32 LightmapX;
-	int32 LightmapY;
-	/** Color in the lightmap atlas before the sample was selected */
-	FColor OriginalColor;
 	/** Position of the camera */
 	FVector4 CameraPosition;
 	/** VisibilityId of a component from the currently selected actor or BSP surface. */
@@ -733,6 +745,7 @@ struct FSceneFileHeader
 
 	int32		NumImportanceVolumes;
 	int32		NumCharacterIndirectDetailVolumes;
+	int32		NumPortals;
 	int32		NumDirectionalLights;
 	int32		NumPointLights;
 	int32		NumSpotLights;
@@ -882,6 +895,11 @@ struct FMaterialElementData
 	uint32 bShadowIndirectOnly:1;
 	/** If true, allow using the emissive for static lighting.						*/
 	uint32 bUseEmissiveForStaticLighting:1;
+	/** 
+	 * Typically the triangle normal is used for hemisphere gathering which prevents incorrect self-shadowing from artist-tweaked vertex normals. 
+	 * However in the case of foliage whose vertex normal has been setup to match the underlying terrain, gathering in the direction of the vertex normal is desired.
+	 */
+	uint32 bUseVertexNormalForHemisphereGather:1;
 	/** Direct lighting falloff exponent for mesh area lights created from emissive areas on this primitive. */
 	float EmissiveLightFalloffExponent;
 	/** 
@@ -904,6 +922,7 @@ struct FMaterialElementData
 		  bUseTwoSidedLighting(false)
 		, bShadowIndirectOnly(false)
 		, bUseEmissiveForStaticLighting(true)
+		, bUseVertexNormalForHemisphereGather(false)
 	    , EmissiveLightFalloffExponent(2.0f)
 		, EmissiveLightExplicitInfluenceRadius(0.0f)
 		, EmissiveBoost(1.0f)
@@ -1001,7 +1020,8 @@ struct FSplineMeshParams
 struct FStaticMeshStaticLightingMeshData
 {
 	/** The LOD this mesh represents. */
-	int32 EncodedLODIndex;
+	uint32 EncodedLODIndices;
+	uint32 EncodedHLODRange;
 	FMatrix LocalToWorld;
 	/** true if the primitive has a transform which reverses the winding of its triangles. */
 	bool bReverseWinding;

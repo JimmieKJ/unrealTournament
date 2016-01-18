@@ -11,7 +11,7 @@ public:
 	void Construct(const FArguments& InArgs, UEdGraphPin* InPin);
 
 protected:
-	// Begin SGraphPin interface
+	//~ Begin SGraphPin Interface
 	virtual const FSlateBrush* GetPinIcon() const override;
-	// End SGraphPin interface
+	//~ End SGraphPin Interface
 };

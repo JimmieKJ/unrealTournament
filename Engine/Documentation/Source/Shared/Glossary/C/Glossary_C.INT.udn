@@ -1,7 +1,7 @@
 Title:C
 Crumbs:Shared/Glossary
 Description:
-Availability:Public
+Availability:NoPublish
 
 [EXCERPT:Glossary_C]
 
@@ -129,7 +129,7 @@ Components Mode
 In **Components Mode**, you can add components to your Blueprint, manage the details of existing components, and arrange components. The list of components in Components Mode is hierarchical.
 [/EXCERPT:Glossary_Components_Mode]
 
-**Components Mode** is one of three modes; the others are **Default Mode** and **Graph Mode**.
+Components Mode is one of three modes; the others are Default Mode and Graph Mode.
 	[/PARAM]
 [/OBJECT]
 
@@ -142,11 +142,11 @@ Construction Script
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Construction_Script]
-The **Construction Script** runs following the **Components** list when an instance of a _Blueprint Class_ 
-is created. It contains a node graph that is executed allowing the _Blueprint Class_ instance to perform initialization operations. 
+The **Construction Script** runs following the Components list when an instance of a Blueprint Class 
+is created. It contains a node graph that is executed allowing the Blueprint Class instance to perform initialization operations. 
 This can be extremely powerful as actions like performing traces into the world, setting meshes and materials, and so on can be 
-used to achieve context-specific setup. For instance, a light _Blueprint_ could determine what type of ground it is placed 
-upon and choose the correct mesh to use from a set of meshes or a fence _Blueprint_ could perform traces extending out in 
+used to achieve context-specific setup. For instance, a light Blueprint could determine what type of ground it is placed 
+upon and choose the correct mesh to use from a set of meshes or a fence Blueprint could perform traces extending out in 
 each direction to determine how long of a fence is needed to span the distance.
 [/EXCERPT:Glossary_Construction_Script]
 
@@ -183,7 +183,7 @@ Controller Class
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Controller_Class]
-**Controllers** are non-physical Actors that can possess a Pawn (or Pawn-derived class like Character) to control its actions. A **PlayerController** is used by human players to control Pawns, while an **AIController** implements the artificial intelligence for the Pawns they control. Controllers take control of a Pawn with the **Possess** function, and give up control of the Pawn with the **Unpossess** function.
+**Controllers** are non-physical Actors that can possess a Pawn (or Pawn-derived class like Character) to control its actions. A PlayerController is used by human players to control Pawns, while an AIController implements the artificial intelligence for the Pawns they control. Controllers take control of a Pawn with the Possess function, and give up control of the Pawn with the Unpossess function.
 [/EXCERPT:Glossary_Controller_Class]
 
 	[/PARAM]

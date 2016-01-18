@@ -137,7 +137,7 @@ void FNavLinkRenderingProxy::StorePointLinks(const FTransform& LocalToWorld, con
 		LinkDrawing.Color = UNavArea::GetColor(Link->AreaClass);
 		LinkDrawing.SnapRadius = Link->SnapRadius;
 		LinkDrawing.SnapHeight = Link->bUseSnapHeight ? Link->SnapHeight : -1.0f;
-		LinkDrawing.SupportedAgentsBits = Link->SupportedAgentsBits;
+		LinkDrawing.SupportedAgentsBits = Link->SupportedAgents.PackedBits;
 		OffMeshPointLinks.Add(LinkDrawing);
 	}
 }
@@ -156,7 +156,7 @@ void FNavLinkRenderingProxy::StoreSegmentLinks(const FTransform& LocalToWorld, c
 		LinkDrawing.Color = UNavArea::GetColor(Link->AreaClass);
 		LinkDrawing.SnapRadius = Link->SnapRadius;
 		LinkDrawing.SnapHeight = Link->bUseSnapHeight ? Link->SnapHeight : -1.0f;
-		LinkDrawing.SupportedAgentsBits = Link->SupportedAgentsBits;
+		LinkDrawing.SupportedAgentsBits = Link->SupportedAgents.PackedBits;
 		OffMeshSegmentLinks.Add(LinkDrawing);
 	}
 }
@@ -417,12 +417,13 @@ void FNavLinkRenderingProxy::DrawLinks(FPrimitiveDrawInterface* PDI, TArray<FNav
 	}
 }
 
-FPrimitiveViewRelevance FNavLinkRenderingProxy::GetViewRelevance(const FSceneView* View)
+FPrimitiveViewRelevance FNavLinkRenderingProxy::GetViewRelevance(const FSceneView* View) const
 {
 	FPrimitiveViewRelevance Result;
 	Result.bDrawRelevance = IsShown(View) && IsSelected() && (View && View->Family && View->Family->EngineShowFlags.Navigation);
 	Result.bDynamicRelevance = true;
-	Result.bNormalTranslucencyRelevance = IsShown(View);
+	// ideally the TranslucencyRelevance should be filled out by the material, here we do it conservative
+	Result.bSeparateTranslucencyRelevance = Result.bNormalTranslucencyRelevance = IsShown(View);
 	Result.bShadowRelevance = IsShadowCast(View);
 	Result.bEditorPrimitiveRelevance = UseEditorCompositing(View);
 	return Result;

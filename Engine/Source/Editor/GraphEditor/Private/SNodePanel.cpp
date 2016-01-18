@@ -132,7 +132,7 @@ void FGraphSelectionManager::SetSelectionSet(FGraphPanelSelectionSet& NewSet)
 
 void FGraphSelectionManager::SetNodeSelection(SelectedItemType Node, bool bSelect)
 {
-	ensureMsg(Node != nullptr, TEXT("Node is invalid"));
+	ensureMsgf(Node != nullptr, TEXT("Node is invalid"));
 	if (bSelect)
 	{
 		SelectedNodes.Add(Node);
@@ -437,6 +437,7 @@ void SNodePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 {
 	CachedGeometry = AllottedGeometry;
 	bool bWasActiveTimerRegisteredThisFrame = false;
+	bool bCanMoveToTargetObjectThisFrame = true;
 
 	if(DeferredSelectionTargetObjects.Num() > 0)
 	{
@@ -453,22 +454,26 @@ void SNodePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 		{
 			SelectionManager.SetSelectionSet(NewSelectionSet);
 		}
+
 		DeferredSelectionTargetObjects.Empty();
 
-
-		// Since we want to move to a target object, do not zoom to extent. Panning and zoom will not begin until next tick however due to the nodes potentially not having a size yet.
-		if( DeferredMovementTargetObject )
-		{
-			bDeferredZoomToNodeExtents = false;
-		}
+		// Do not allow movement to happen this Tick as the selected nodes may not yet have a size set (if they're newly added)
+		bCanMoveToTargetObjectThisFrame = false;
 	}
-	else if(DeferredMovementTargetObject != nullptr && GetBoundsForNodes(true, ZoomTargetTopLeft, ZoomTargetBottomRight, ZoomPadding))
+	
+	if(DeferredMovementTargetObject)
 	{
-		DeferredMovementTargetObject = nullptr;
-		if (!ActiveTimerHandle.IsValid())
+		// Since we want to move to a target object, do not zoom to extent
+		bDeferredZoomToNodeExtents = false;
+
+		if (bCanMoveToTargetObjectThisFrame && GetBoundsForNode(DeferredMovementTargetObject, ZoomTargetTopLeft, ZoomTargetBottomRight, ZoomPadding))
 		{
-			ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SNodePanel::HandleZoomToFit));
-			bWasActiveTimerRegisteredThisFrame = true;
+			DeferredMovementTargetObject = nullptr;
+			if (!ActiveTimerHandle.IsValid())
+			{
+				ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SNodePanel::HandleZoomToFit));
+				bWasActiveTimerRegisteredThisFrame = true;
+			}
 		}
 	}
 	
@@ -1040,32 +1045,6 @@ void SNodePanel::ApplyMarqueeSelection( const FMarqueeOperation& InMarquee, cons
 	}
 }
 
-FSlateRect SNodePanel::ComputeSensibleGraphBounds() const
-{
-	float Left = 0.0f;
-	float Top = 0.0f;
-	float Right = 0.0f;
-	float Bottom = 0.0f;
-
-	// Find the bounds of the node positions
-	for (int32 ChildIndex = 0; ChildIndex < Children.Num(); ++ChildIndex)
-	{
-		const TSharedRef<SNode>& SomeChild = Children[ChildIndex];
-
-		FVector2D ChildPos = SomeChild->GetPosition();
-
-		Left = FMath::Min( Left, ChildPos.X );
-		Right = FMath::Max( Right, ChildPos.X );
-		Top = FMath::Min( Top, ChildPos.Y );
-		Bottom = FMath::Max( Bottom, ChildPos.Y );
-	}
-
-	// Pad it out in every direction, to roughly account for nodes being of non-zero extent
-	const float Padding = 100.0f;
-
-	return FSlateRect( Left - Padding, Top - Padding, Right + Padding, Bottom + Padding );
-}
-
 void SNodePanel::SelectAndCenterObject(const UObject* ObjectToSelect, bool bCenter)
 {
 	DeferredSelectionTargetObjects.Empty();
@@ -1075,6 +1054,18 @@ void SNodePanel::SelectAndCenterObject(const UObject* ObjectToSelect, bool bCent
 	{
 		DeferredMovementTargetObject = ObjectToSelect;
 	}
+
+	auto PinnedActiveTimerHandle = ActiveTimerHandle.Pin();
+	if (PinnedActiveTimerHandle.IsValid())
+	{
+		// Stop zooming for now and let the a new zoom target be established
+		UnRegisterActiveTimer(PinnedActiveTimerHandle.ToSharedRef());
+	}
+}
+
+void SNodePanel::CenterObject(const UObject* ObjectToCenter)
+{
+	DeferredMovementTargetObject = ObjectToCenter;
 
 	auto PinnedActiveTimerHandle = ActiveTimerHandle.Pin();
 	if (PinnedActiveTimerHandle.IsValid())
@@ -1387,6 +1378,39 @@ bool SNodePanel::IsNodeCulled(const TSharedRef<SNode>& Node, const FGeometry& Al
 
 }
 
+bool SNodePanel::GetBoundsForNode(const UObject* InNode, /*out*/ FVector2D& MinCorner, /*out*/ FVector2D& MaxCorner, float Padding) const
+{
+	MinCorner = FVector2D(MAX_FLT, MAX_FLT);
+	MaxCorner = FVector2D(-MAX_FLT, -MAX_FLT);
+
+	bool bValid = false;
+
+	const TSharedRef<SNode>* pWidget = (InNode) ? NodeToWidgetLookup.Find(InNode) : nullptr;
+	if (pWidget)
+	{
+		const SNode& Widget = pWidget->Get();
+		const FVector2D Lower = Widget.GetPosition();
+		const FVector2D Upper = Lower + Widget.GetDesiredSize();
+
+		MinCorner.X = FMath::Min(MinCorner.X, Lower.X);
+		MinCorner.Y = FMath::Min(MinCorner.Y, Lower.Y);
+		MaxCorner.X = FMath::Max(MaxCorner.X, Upper.X);
+		MaxCorner.Y = FMath::Max(MaxCorner.Y, Upper.Y);
+
+		bValid = true;
+	}
+
+	if (bValid)
+	{
+		MinCorner.X -= Padding;
+		MinCorner.Y -= Padding;
+		MaxCorner.X += Padding;
+		MaxCorner.Y += Padding;
+	}
+
+	return bValid;
+}
+
 bool SNodePanel::GetBoundsForNodes(bool bSelectionSetOnly, FVector2D& MinCorner, FVector2D& MaxCorner, float Padding)
 {
 	MinCorner = FVector2D(MAX_FLT, MAX_FLT);
@@ -1450,7 +1474,7 @@ bool SNodePanel::ScrollToLocation(const FGeometry& MyGeometry, FVector2D Desired
 	ViewOffset = NewPosition - HalfOFScreenInGraphSpace;
 
 	// If within 1 pixel of target, stop interpolating
-	return ((NewPosition - DesiredCenterPosition).Size() < 1.f);
+	return ((NewPosition - DesiredCenterPosition).SizeSquared() < 1.f);
 }
 
 bool SNodePanel::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, const FVector2D& DesiredSize, bool bDoneScrolling)

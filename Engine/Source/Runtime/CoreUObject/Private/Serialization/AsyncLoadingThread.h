@@ -5,6 +5,8 @@
 =============================================================================*/
 #pragma once
 
+class IAssetRegistryInterface;
+
 /**
  * Async loading thread. Preloads/serializes packages on async loading thread. Postloads objects on the game thread.
  */
@@ -41,12 +43,25 @@ class FAsyncLoadingThread : public FRunnable
 #endif
 	/** [GAME THREAD] Event used to signal there's queued packages to stream */
 	TArray<FAsyncPackage*> LoadedPackagesToProcess;
-	
+#if THREADSAFE_UOBJECTS
+	/** [ASYNC/GAME THREAD] Critical section for LoadedPackagesToProcess list. 
+	 * Note this is only required for looking up existing packages on the async loading thread 
+	 */
+	FCriticalSection LoadedPackagesToProcessCritical;
+#endif
+
 	/** [ASYNC THREAD] Array of packages that are being preloaded */
 	TArray<FAsyncPackage*> AsyncPackages;
 #if THREADSAFE_UOBJECTS
 	/** We only lock AsyncPackages array to make GetAsyncLoadPercentage thread safe, so we only care about locking Add/Remove operations on the async thread */
 	FCriticalSection AsyncPackagesCritical;
+#endif
+
+	/** List of all pending package requests */
+	TSet<int32> PendingRequests;
+#if THREADSAFE_UOBJECTS
+	/** Synchronization object for PendingRequests list */
+	FCriticalSection PendingRequestsCritical;
 #endif
 
 	/** [ASYNC/GAME THREAD] Number of package load requests in the async loading queue */
@@ -60,6 +75,16 @@ class FAsyncLoadingThread : public FRunnable
 
 	/** Async loading thread ID */
 	static uint32 AsyncLoadingThreadID;
+
+	/** Helper for tracking the dependency packages that have been requested while loading a package */
+	TSet<FName> DependencyTracker;
+
+	/** Enum describing async package request insertion mode */
+	enum class EAsyncPackageInsertMode
+	{
+		InsertBeforeMatchingPriorities,	// Insert this package before all other packages of the same priority
+		InsertAfterMatchingPriorities	// Insert this package after all other packages of the same priority
+	};
 
 #if LOOKING_FOR_PERF_ISSUES
 	/** Thread safe counter used to accumulate cycles spent on blocking. Using stats may generate to many stats messages. */
@@ -87,11 +112,11 @@ class FAsyncLoadingThread : public FRunnable
 
 public:
 
-	// Begin FRunnable interface.
+	//~ Begin FRunnable Interface.
 	virtual bool Init();
 	virtual uint32 Run();
 	virtual void Stop();
-	// End FRunnable interface
+	//~ End FRunnable Interface
 
 	/** Returns the async loading thread singleton */
 	static FAsyncLoadingThread& Get();
@@ -109,7 +134,7 @@ public:
 				{
 					check(GConfig);
 					bool bConfigValue = true;
-					GConfig->GetBool(TEXT("Core.System"), TEXT("AsyncLoadingThreadEnabled"), bConfigValue, GEngineIni);
+					GConfig->GetBool(TEXT("/Script/Engine.StreamingSettings"), TEXT("s.AsyncLoadingThreadEnabled"), bConfigValue, GEngineIni);
 					bool bCommandLineNoAsyncThread = false;
 					Value = bConfigValue && FApp::ShouldUseThreadingForPerformance() && !FParse::Param(FCommandLine::Get(), TEXT("NoAsyncLoadingThread"));
 				}
@@ -190,9 +215,10 @@ public:
 	/**
 	* [ASYNC THREAD] Inserts package to queue according to priority.
 	*
-	* @param PackageName async package name.
+	* @param PackageName - async package name.
+	* @param InsertMode - Insert mode, describing how we insert this package into the request list
 	*/
-	void InsertPackage(FAsyncPackage* Package);
+	void InsertPackage(FAsyncPackage* Package, EAsyncPackageInsertMode InsertMode = EAsyncPackageInsertMode::InsertBeforeMatchingPriorities);
 
 	/**
 	* [ASYNC THREAD] Finds an existing async package in the LoadedPackages by its name.
@@ -246,10 +272,9 @@ public:
 	* @param bUseTimeLimit True if time limit should be used [time-slicing].
 	* @param bUseFullTimeLimit True if full time limit should be used [time-slicing].
 	* @param TimeLimit Maximum amount of time that can be spent in this call [time-slicing].
-	* @param ExcludeType Packages to exclude.
 	* @return The current state of async loading
 	*/
-	EAsyncPackageState::Type ProcessAsyncLoading(int32& OutPackagesProcessed, bool bUseTimeLimit = false, bool bUseFullTimeLimit = false, float TimeLimit = 0.0f, FName ExcludeType = NAME_None);
+	EAsyncPackageState::Type ProcessAsyncLoading(int32& OutPackagesProcessed, bool bUseTimeLimit = false, bool bUseFullTimeLimit = false, float TimeLimit = 0.0f);
 
 	/**
 	* [GAME THREAD] Ticks game thread side of async loading.
@@ -257,10 +282,9 @@ public:
 	* @param bUseTimeLimit True if time limit should be used [time-slicing].
 	* @param bUseFullTimeLimit True if full time limit should be used [time-slicing].
 	* @param TimeLimit Maximum amount of time that can be spent in this call [time-slicing].
-	* @param ExcludeType Packages to exclude.
 	* @return The current state of async loading
 	*/
-	EAsyncPackageState::Type TickAsyncLoading(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, FName ExcludeType);
+	EAsyncPackageState::Type TickAsyncLoading(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, int32 WaitForRequestID = INDEX_NONE);
 
 	/**
 	* [ASYNC THREAD] Main thread loop
@@ -281,6 +305,45 @@ public:
 	 */
 	float GetAsyncLoadPercentage(const FName& PackageName);
 
+	/** 
+	 * [ASYNC/GAME THREAD] Checks if a request ID already is added to the loading queue
+	 */
+	bool ContainsRequestID(int32 RequestID)
+	{
+#if THREADSAFE_UOBJECTS
+		FScopeLock Lock(&PendingRequestsCritical);
+#endif
+		return PendingRequests.Contains(RequestID);
+	}
+
+	/** 
+	 * [ASYNC/GAME THREAD] Adds a request ID to the list of pending requests
+	 */
+	void AddPendingRequest(int32 RequestID)
+	{
+#if THREADSAFE_UOBJECTS
+		FScopeLock Lock(&PendingRequestsCritical);
+#endif
+		if (!PendingRequests.Contains(RequestID))
+		{
+			PendingRequests.Add(RequestID);
+		}
+	}
+
+	/** 
+	 * [ASYNC/GAME THREAD] Removes a request ID from the list of pending requests
+	 */
+	void RemovePendingRequests(TArray<int32>& RequestIDs)
+	{
+#if THREADSAFE_UOBJECTS
+		FScopeLock Lock(&PendingRequestsCritical);
+#endif
+		for (int32 ID : RequestIDs)
+		{
+			PendingRequests.Remove(ID);
+		}		
+	}
+
 private:
 
 	/**
@@ -289,15 +352,31 @@ private:
 	* @param bUseTimeLimit True if time limit should be used [time-slicing].
 	* @param bUseFullTimeLimit True if full time limit should be used [time-slicing].
 	* @param TimeLimit Maximum amount of time that can be spent in this call [time-slicing].
-	* @param ExcludeType Packages to exclude.
+	* @param WaitForRequestID If the package request ID is valid, exits as soon as the request is no longer in the qeueue.
 	* @return The current state of async loading
 	*/
-	EAsyncPackageState::Type ProcessLoadedPackages(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, FName ExcludeType);
+	EAsyncPackageState::Type ProcessLoadedPackages(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, int32 WaitForRequestID = INDEX_NONE);
 
 	/**
 	* [ASYNC THREAD] Creates async packages from the queued requests
 	*/
 	int32 CreateAsyncPackagesFromQueue();
+
+	/**
+	* [ASYNC THREAD] Internal helper function for processing a package load request. If dependency preloading is enabled, 
+	* it will call itself recursively for all the package dependencies
+	*/
+	void ProcessAsyncPackageRequest(FAsyncPackageDesc* InRequest, FAsyncPackage* InRootPackage, TSet<FName>& InDependencyTracker, IAssetRegistryInterface* InAssetRegistry);
+
+	/**
+	* [ASYNC THREAD] Internal helper function for updating the priorities of an existing package and all its dependencies
+	*/
+	void UpdateExistingPackagePriorities(FAsyncPackage* InPackage, TAsyncLoadPriority InNewPriority, TSet<FName>& InDependencyTracker, IAssetRegistryInterface* InAssetRegistry);
+
+	/**
+	* [ASYNC THREAD] Finds existing async package and adds the new request's completion callback to it.
+	*/
+	FAsyncPackage* FindExistingPackageAndAddCompletionCallback(FAsyncPackageDesc* PackageRequest, TArray<FAsyncPackage*>& PackageList);
 
 	/**
 	* [ASYNC THREAD] Adds a package to a list of packages that have finished loading on the async thread

@@ -22,27 +22,70 @@ namespace UnrealBuildTool
 				const float LoopSleepTime = 0.1f;
 
 				int MaxActionsToExecuteInParallel = 0;
+
 				string UserDir = Environment.GetEnvironmentVariable("HOME");
 				string HostsInfo = UserDir + "/.dmucs/hosts-info";
-				System.IO.StreamReader File = new System.IO.StreamReader(HostsInfo);
-				string Line = null;
-				while((Line = File.ReadLine()) != null)
+				string NumUBTBuildTasks = Environment.GetEnvironmentVariable("NumUBTBuildTasks");
+				Int32 MaxUBTBuildTasks = MaxActionsToExecuteInParallel;
+				if (Int32.TryParse(NumUBTBuildTasks, out MaxUBTBuildTasks))
 				{
-					var HostInfo = Line.Split(' ');
-					if (HostInfo.Count () == 3) 
+					MaxActionsToExecuteInParallel = MaxUBTBuildTasks;
+				}
+				else if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
+				{
+					using (System.Diagnostics.Process DefaultsProcess = new System.Diagnostics.Process())
 					{
-						int NumCPUs = 0;
-						if (System.Int32.TryParse (HostInfo [1], out NumCPUs)) 
+						try
 						{
-							MaxActionsToExecuteInParallel += NumCPUs;
+							DefaultsProcess.StartInfo.FileName = "/usr/bin/defaults";
+							DefaultsProcess.StartInfo.CreateNoWindow = true;
+							DefaultsProcess.StartInfo.UseShellExecute = false;
+							DefaultsProcess.StartInfo.RedirectStandardOutput = true;
+							DefaultsProcess.StartInfo.Arguments = "com.apple.dt.Xcode IDEBuildOperationMaxNumberOfConcurrentCompileTasks";
+							DefaultsProcess.Start();
+							string Output = DefaultsProcess.StandardOutput.ReadToEnd();
+							DefaultsProcess.WaitForExit();
+							if (DefaultsProcess.ExitCode == 0 && Int32.TryParse(Output, out MaxUBTBuildTasks))
+							{
+								MaxActionsToExecuteInParallel = MaxUBTBuildTasks;
+							}
+						}
+						catch (Exception)
+						{
 						}
 					}
 				}
-				File.Close();
+				else if (System.IO.File.Exists(HostsInfo))
+				{
+					System.IO.StreamReader File = new System.IO.StreamReader(HostsInfo);
+					string Line = null;
+					while ((Line = File.ReadLine()) != null)
+					{
+						var HostInfo = Line.Split(' ');
+						if (HostInfo.Count() == 3)
+						{
+							int NumCPUs = 0;
+							if (System.Int32.TryParse(HostInfo[1], out NumCPUs))
+							{
+								MaxActionsToExecuteInParallel += NumCPUs;
+							}
+						}
+					}
+					File.Close();
+				}
+				else
+				{
+					MaxActionsToExecuteInParallel = System.Environment.ProcessorCount;
+				}
 
-				if (BuildConfiguration.bAllowDistccLocalFallback == false) 
+				if (BuildConfiguration.bAllowDistccLocalFallback == false)
 				{
 					Environment.SetEnvironmentVariable("DISTCC_FALLBACK", "0");
+				}
+
+				if (BuildConfiguration.bVerboseDistccOutput == true)
+				{
+					Environment.SetEnvironmentVariable("DISTCC_VERBOSE", "1");
 				}
 
 				string DistccExecutable = BuildConfiguration.DistccExecutablesPath + "/distcc";
@@ -52,10 +95,10 @@ namespace UnrealBuildTool
 
 				Dictionary<Action, ActionThread> ActionThreadDictionary = new Dictionary<Action, ActionThread>();
 				int JobNumber = 1;
-				using(ProgressWriter ProgressWriter = new ProgressWriter("Compiling source code...", false))
+				using (ProgressWriter ProgressWriter = new ProgressWriter("Compiling source code...", false))
 				{
 					int ProgressValue = 0;
-					while(true)
+					while (true)
 					{
 						// Count the number of pending and still executing actions.
 						int NumUnexecutedActions = 0;
@@ -100,7 +143,7 @@ namespace UnrealBuildTool
 							bool bFoundActionProcess = ActionThreadDictionary.TryGetValue(Action, out ActionProcess);
 							if (bFoundActionProcess == false)
 							{
-								if (NumExecutingActions < Math.Max(1,MaxActionsToExecuteInParallel))
+								if (NumExecutingActions < Math.Max(1, MaxActionsToExecuteInParallel))
 								{
 									// Determine whether there are any prerequisites of the action that are outdated.
 									bool bHasOutdatedPrerequisites = false;
@@ -110,7 +153,7 @@ namespace UnrealBuildTool
 										if (PrerequisiteItem.ProducingAction != null && Actions.Contains(PrerequisiteItem.ProducingAction))
 										{
 											ActionThread PrerequisiteProcess = null;
-											bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue( PrerequisiteItem.ProducingAction, out PrerequisiteProcess );
+											bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
 											if (bFoundPrerequisiteProcess == true)
 											{
 												if (PrerequisiteProcess == null)
@@ -137,14 +180,15 @@ namespace UnrealBuildTool
 									if (bHasFailedPrerequisites)
 									{
 										// Add a null entry in the dictionary for this action.
-										ActionThreadDictionary.Add( Action, null );
+										ActionThreadDictionary.Add(Action, null);
 									}
 									// If there aren't any outdated prerequisites of this action, execute it.
 									else if (!bHasOutdatedPrerequisites)
 									{
-										if ((Action.ActionType == ActionType.Compile || Action.ActionType == ActionType.Link) && DistccExecutable != null && GetHostExecutable != null) 
+										if ((Action.ActionType == ActionType.Compile || Action.ActionType == ActionType.Link) && DistccExecutable != null && GetHostExecutable != null)
 										{
-											string NewCommandArguments = "--wait -1 \"" + DistccExecutable + "\" " + Action.CommandPath + " " + Action.CommandArguments;
+											string TypeCommand = String.IsNullOrEmpty(BuildConfiguration.DMUCSDistProp) ? "" : (" --type " + BuildConfiguration.DMUCSDistProp);
+											string NewCommandArguments = "--server " + BuildConfiguration.DMUCSCoordinator + TypeCommand + " --wait -1 \"" + DistccExecutable + "\" " + Action.CommandPath + " " + Action.CommandArguments;
 											Action.CommandPath = GetHostExecutable;
 											Action.CommandArguments = NewCommandArguments;
 										}
@@ -165,8 +209,8 @@ namespace UnrealBuildTool
 					}
 				}
 
-				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, TraceEventType.Information, "-------- Begin Detailed Action Stats ----------------------------------------------------------");
-				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, TraceEventType.Information, "^Action Type^Duration (seconds)^Tool^Task^Using PCH");
+				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, LogEventType.Console, "-------- Begin Detailed Action Stats ----------------------------------------------------------");
+				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, LogEventType.Console, "^Action Type^Duration (seconds)^Tool^Task^Using PCH");
 
 				double TotalThreadSeconds = 0;
 
@@ -191,40 +235,40 @@ namespace UnrealBuildTool
 					double ThreadSeconds = Action.Duration.TotalSeconds;
 
 					Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats,
-						TraceEventType.Information,
-						"^{0}^{1:0.00}^{2}^{3}^{4}", 
+						LogEventType.Console,
+						"^{0}^{1:0.00}^{2}^{3}^{4}",
 						Action.ActionType.ToString(),
 						ThreadSeconds,
-						Path.GetFileName(Action.CommandPath), 
+						Path.GetFileName(Action.CommandPath),
 						Action.StatusDescription,
 						Action.bIsUsingPCH);
 
 					// Update statistics
 					switch (Action.ActionType)
 					{
-					case ActionType.BuildProject:
-						UnrealBuildTool.TotalBuildProjectTime += ThreadSeconds;
-						break;
+						case ActionType.BuildProject:
+							UnrealBuildTool.TotalBuildProjectTime += ThreadSeconds;
+							break;
 
-					case ActionType.Compile:
-						UnrealBuildTool.TotalCompileTime += ThreadSeconds;
-						break;
+						case ActionType.Compile:
+							UnrealBuildTool.TotalCompileTime += ThreadSeconds;
+							break;
 
-					case ActionType.CreateAppBundle:
-						UnrealBuildTool.TotalCreateAppBundleTime += ThreadSeconds;
-						break;
+						case ActionType.CreateAppBundle:
+							UnrealBuildTool.TotalCreateAppBundleTime += ThreadSeconds;
+							break;
 
-					case ActionType.GenerateDebugInfo:
-						UnrealBuildTool.TotalGenerateDebugInfoTime += ThreadSeconds;
-						break;
+						case ActionType.GenerateDebugInfo:
+							UnrealBuildTool.TotalGenerateDebugInfoTime += ThreadSeconds;
+							break;
 
-					case ActionType.Link:
-						UnrealBuildTool.TotalLinkTime += ThreadSeconds;
-						break;
+						case ActionType.Link:
+							UnrealBuildTool.TotalLinkTime += ThreadSeconds;
+							break;
 
-					default:
-						UnrealBuildTool.TotalOtherActionsTime += ThreadSeconds;
-						break;
+						default:
+							UnrealBuildTool.TotalOtherActionsTime += ThreadSeconds;
+							break;
 					}
 
 					// Keep track of total thread seconds spent on tasks.
@@ -232,12 +276,12 @@ namespace UnrealBuildTool
 				}
 
 				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats || BuildConfiguration.bPrintDebugInfo,
-					TraceEventType.Information, 
+					LogEventType.Console,
 					"-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 				// Log total CPU seconds and numbers of processors involved in tasks.
-				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats || BuildConfiguration.bPrintDebugInfo, 
-					TraceEventType.Information, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
+				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats || BuildConfiguration.bPrintDebugInfo,
+					LogEventType.Console, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
 			}
 			return bDistccResult;
 		}

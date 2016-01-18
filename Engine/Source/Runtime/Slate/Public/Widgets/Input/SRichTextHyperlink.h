@@ -12,10 +12,14 @@ public:
 		: _Text()
 		, _Style(&FCoreStyle::Get().GetWidgetStyle< FHyperlinkStyle >("Hyperlink"))
 		, _OnNavigate()
+		, _TextShapingMethod()
+		, _TextFlowDirection()
 	{}
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE( FText, Text )
 		SLATE_STYLE_ARGUMENT( FHyperlinkStyle, Style )
 		SLATE_EVENT( FSimpleDelegate, OnNavigate )
+		SLATE_ARGUMENT( TOptional<ETextShapingMethod>, TextShapingMethod )
+		SLATE_ARGUMENT( TOptional<ETextFlowDirection>, TextFlowDirection )
 	SLATE_END_ARGS()
 
 public:
@@ -30,6 +34,8 @@ public:
 			.Style( InArgs._Style )
 			.Padding( FMargin(0))
 			.OnNavigate( InArgs._OnNavigate )
+			.TextShapingMethod( InArgs._TextShapingMethod )
+			.TextFlowDirection( InArgs._TextFlowDirection )
 		);
 	}
 

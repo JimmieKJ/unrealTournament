@@ -50,11 +50,11 @@ public:
 	UPROPERTY()
 	float BasePostProcessBlendWeight;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PreSave() override;
 	virtual void PostLoad() override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/** 
 	 * Construct a camera animation from an InterpGroup.  The InterpGroup must control a CameraActor.  

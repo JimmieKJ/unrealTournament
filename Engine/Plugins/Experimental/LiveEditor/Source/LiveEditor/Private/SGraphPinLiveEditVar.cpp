@@ -25,22 +25,22 @@ TSharedRef<SWidget>	SGraphPinLiveEditVar::GetDefaultValueWidget()
 		.OnGetDisplayName(this, &SGraphPinLiveEditVar::OnGetFriendlyName);
 }
 
-FString SGraphPinLiveEditVar::OnGetFriendlyName(int32 EnumIndex) const
+FText SGraphPinLiveEditVar::OnGetFriendlyName(int32 EnumIndex) const
 {
 	if ( EnumIndex >= 0 && EnumIndex < VariableNameList.Num() )
 	{
-		return VariableNameList[EnumIndex];
+		return FText::FromString(VariableNameList[EnumIndex]);
 	}
 	else
 	{
-		return FString::Printf( TEXT("BOOM - should never happen"), EnumIndex );
+		return FText::FromString(FString::Printf( TEXT("BOOM - should never happen"), EnumIndex ));
 	}
 }
 
 void SGraphPinLiveEditVar::ComboBoxSelectionChanged( TSharedPtr<int32> NewSelection, ESelectInfo::Type /*SelectInfo*/ )
 {
 	//Set new selection
-	CurrentValue = OnGetFriendlyName( *NewSelection.Get() );
+	CurrentValue = OnGetFriendlyName( *NewSelection.Get() ).ToString();
 	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, CurrentValue);
 }
 

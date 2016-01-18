@@ -14,9 +14,12 @@ namespace EAnimLinkMethod
 {
 	enum Type
 	{
-		Absolute,		// Element stays at a specific time without moving
-		Relative,		// Element moves with its segment, but not when the segment changes size
-		Proportional	// Element moves with its segment and will stay at a certain proportion through the segment
+		/** Element stays at a specific time without moving. */
+		Absolute,
+		/** Element moves with its segment, but not when the segment changes size. */
+		Relative,
+		/** Element moves with its segment and will stay at a certain proportion through the segment. */
+		Proportional
 	};
 }
 
@@ -115,8 +118,13 @@ struct FAnimLinkableElement
 	 */
 	ENGINE_API void SetSegmentIndex(int32 NewSegmentIndex) {SegmentIndex = NewSegmentIndex;}
 
-	/** Relinks this element if it is outside of its segments */
-	ENGINE_API void ConditionalRelink();
+	/** Relinks this element if internal state requires relinking */
+	ENGINE_API bool ConditionalRelink();
+
+	/** Refreshes the current segment data (Begin time, length etc.) and validate the link time
+	 *  Intended to update the internal state when segment lengths/times could have changed
+	 */
+	ENGINE_API void RefreshSegmentOnLoad();
 
 protected:
 

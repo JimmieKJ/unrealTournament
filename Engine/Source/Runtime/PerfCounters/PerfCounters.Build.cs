@@ -12,7 +12,10 @@ public class PerfCounters : ModuleRules
 				"CoreUObject",
 				"Json",
 				"Sockets",
+				"HTTP"
 			}
         );
-    }
+
+		Definitions.Add("WITH_PERFCOUNTERS=1");
+	}
 }

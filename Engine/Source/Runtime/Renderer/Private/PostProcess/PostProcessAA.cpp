@@ -271,11 +271,9 @@ void FRCPassPostProcessAA::Process(FRenderingCompositePassContext& Context)
 		default: SetShaderTemplAA<6>(Context); break;
 	}
 	
-	// Draw a quad mapping scene color to the view's render target
 	TShaderMapRef<FFXAAVS> VertexShader(Context.GetShaderMap());
 
-	DrawRectangle(
-		Context.RHICmdList,
+	DrawPostProcessPass(Context.RHICmdList,
 		DestRect.Min.X, DestRect.Min.Y,
 		DestRect.Width(), DestRect.Height(),
 		SrcRect.Min.X, SrcRect.Min.Y,
@@ -283,6 +281,8 @@ void FRCPassPostProcessAA::Process(FRenderingCompositePassContext& Context)
 		DestSize,
 		SrcSize,
 		*VertexShader,
+		View.StereoPass,
+		Context.HasHmdMesh(),
 		EDRF_Default);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
@@ -290,7 +290,7 @@ void FRCPassPostProcessAA::Process(FRenderingCompositePassContext& Context)
 
 FPooledRenderTargetDesc FRCPassPostProcessAA::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
 	Ret.DebugName = TEXT("PostProcessAA");

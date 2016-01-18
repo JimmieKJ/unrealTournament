@@ -172,7 +172,7 @@ public:
 	 * 
 	 * @return the test type.
 	 */
-	virtual uint8 GetTestType() const = 0;
+	virtual uint32 GetTestFlags() const = 0;
 
 	/** Recursively gets the number of child nodes */
 	virtual int32 GetTotalNumChildren() const = 0;
@@ -210,11 +210,11 @@ public:
 	virtual void SetSupport(const int32 ClusterIndex) = 0;
 
 	/**
-	 * Set the test type.
+	 * Set the test flags.
 	 * 
-	 * @param InTestType The type of test.
+	 * @param InTestFlags The EAutomationTestFlags of the test.
 	 */
-	virtual void SetTestType(const uint8 InTestType) = 0;
+	virtual void SetTestFlags(const uint32 InTestFlags) = 0;
 
 	/** Returns if a particular platform is supported */
 	virtual bool IsSupported(const int32 ClusterIndex) const = 0;

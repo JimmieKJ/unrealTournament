@@ -7,6 +7,6 @@
 void FOnlineAsyncTaskManagerNull::OnlineTick()
 {
 	check(NullSubsystem);
-	check(FPlatformTLS::GetCurrentThreadId() == OnlineThreadId);
+	check(FPlatformTLS::GetCurrentThreadId() == OnlineThreadId || !FPlatformProcess::SupportsMultithreading());
 }
 

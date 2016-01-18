@@ -46,6 +46,38 @@ handle_configure(void *data, struct wl_shell_surface *shell_surface,
     SDL_Window *window = wind->sdlwindow;
     struct wl_region *region;
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    /* wl_shell_surface spec states that this is a suggestion.
+       Ignore if less than or greater than max/min size. */
+
+    if (width == 0 || height == 0) {
+        return;
+    }
+
+    if (!(window->flags & SDL_WINDOW_FULLSCREEN)) {
+        if ((window->flags & SDL_WINDOW_RESIZABLE)) {
+            if (window->max_w > 0) {
+                width = SDL_min(width, window->max_w);
+            } 
+            width = SDL_max(width, window->min_w);
+
+            if (window->max_h > 0) {
+                height = SDL_min(height, window->max_h);
+            }
+            height = SDL_max(height, window->min_h);
+        } else {
+            height = window->h;
+            width = window->w;
+        }
+    }
+
+    if (width == window->w && height == window->h) {
+        return;
+    }
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
     window->w = width;
     window->h = height;
     WAYLAND_wl_egl_window_resize(wind->egl_window, window->w, window->h, 0, 0);

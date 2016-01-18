@@ -117,6 +117,21 @@ public:
 		Release,
 	};
 
+	static const TCHAR* ToString(BuildType Type)
+	{
+		switch (Type)
+		{
+			case Development:		return TEXT("Development");
+			case Test:				return TEXT("Test");
+			case Debug:				return TEXT("Debug");
+			case Release:			return TEXT("Release");
+			default:
+				break;
+		}
+
+		return TEXT("Undefined");
+	}
+
 	/** Get the analytics build type. Generally used to determine the keys to use to configure an analytics provider. */
 	virtual BuildType GetBuildType() const;
 
@@ -217,6 +232,10 @@ public:
 	 */
 	virtual FString GetConfigValueFromIni(const FString& IniName, const FString& SectionName, const FString& KeyName, bool bIsRequired);
 
+	/**
+	 * Helper for writing configuration values from to an INI file (which will be a common scenario). 
+	 */
+	virtual void WriteConfigValueToIni(const FString& IniName, const FString& SectionName, const FString& KeyName, const FString& Value);
 private:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;

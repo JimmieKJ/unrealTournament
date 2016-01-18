@@ -30,7 +30,7 @@ public:
 	/** BentNormal occlusion of the sky, packed into an FColor.  This is only valid in the high quality lightmap data. */
 	FColor PackedSkyBentNormal;
 
-	/** Shadow factor for the stationary directional light.  This is only valid in the low quality lightmap data. */
+	/** Shadow factor for the stationary directional light. */
 	float DirectionalLightShadowing;
 
 	FVolumeLightingSample() :
@@ -127,7 +127,9 @@ public:
 		const FIntVector& DestCellPosition,
 		TArray<float>& AccumulatedWeights,
 		TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance,
-		TArray<FVector>& AccumulatedSkyBentNormal) const;
+		FVector& AccumulatedCenterSkyBentNormal,
+		float& AccumulatedCenterDirectionalLightShadowing,
+		float& AccumulatedCenterWeight) const;
 
 	ENGINE_API void DebugDrawSamples(FPrimitiveDrawInterface* PDI, bool bDrawDirectionalShadowing) const;
 

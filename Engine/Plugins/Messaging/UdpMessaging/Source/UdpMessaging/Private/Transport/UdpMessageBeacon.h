@@ -6,7 +6,7 @@
 /**
  * Implements a beacon sender thread.
  *
- * @todo gmp: add documentation for FUdpMessageBeacon
+ * @todo udpmessaging: gmp: add documentation for FUdpMessageBeacon
  */
 class FUdpMessageBeacon
 	: public FRunnable
@@ -20,9 +20,9 @@ public:
 	 * @param InSocketId The network socket identifier (used to detect unicast endpoint).
 	 * @param InMulticastEndpoint The multicast group endpoint to transport messages to.
 	 */
-	FUdpMessageBeacon( FSocket* InSocket, const FGuid& InSocketId, const FIPv4Endpoint& InMulticastEndpoint );
+	FUdpMessageBeacon(FSocket* InSocket, const FGuid& InSocketId, const FIPv4Endpoint& InMulticastEndpoint);
 
-	/** Destructor. */
+	/** Virtual destructor. */
 	virtual ~FUdpMessageBeacon();
 
 public:
@@ -42,7 +42,7 @@ public:
 	 *
 	 * @param EndpointCount The current number of known endpoints.
 	 */
-	void SetEndpointCount( int32 EndpointCount );
+	void SetEndpointCount(int32 EndpointCount);
 
 public:
 
@@ -60,7 +60,7 @@ protected:
 	 *
 	 * @param SegmentType The type of segment to send (Hello or Bye).
 	 */
-	void SendSegment( EUdpMessageSegments::Type SegmentType );
+	void SendSegment(EUdpMessageSegments::Type SegmentType);
 
 private:
 

@@ -329,7 +329,7 @@ void UMaterialGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& Cont
 	{
 		const FText PasteDesc = LOCTEXT("PasteDesc", "Paste Here");
 		const FText PasteToolTip = LOCTEXT("PasteToolTip", "Pastes copied items at this location.");
-		TSharedPtr<FMaterialGraphSchemaAction_Paste> PasteAction(new FMaterialGraphSchemaAction_Paste(TEXT(""), PasteDesc, PasteToolTip.ToString(), 0));
+		TSharedPtr<FMaterialGraphSchemaAction_Paste> PasteAction(new FMaterialGraphSchemaAction_Paste(FText::GetEmpty(), PasteDesc, PasteToolTip.ToString(), 0));
 		ContextMenuBuilder.AddAction(PasteAction);
 	}
 }
@@ -397,7 +397,7 @@ void UMaterialGraphSchema::GetContextMenuActions(const UEdGraph* CurrentGraph, c
 						if(MaterialGraph->MaterialInputs[Index].IsVisiblePin(MaterialGraph->Material))
 						{
 							FFormatNamedArguments Arguments;
-							Arguments.Add(TEXT("Name"), MaterialGraph->MaterialInputs[Index].Name);
+							Arguments.Add(TEXT("Name"), MaterialGraph->MaterialInputs[Index].GetName());
 							const FText Label = FText::Format( LOCTEXT( "ConnectToInput", "Connect To {Name}" ), Arguments );
 							const FText ToolTip = FText::Format( LOCTEXT( "ConnectToInputTooltip", "Connects to the material input {Name}" ), Arguments );
 							MenuBuilder->AddMenuEntry(Label,
@@ -695,10 +695,8 @@ void UMaterialGraphSchema::GetMaterialFunctionActions(FGraphActionMenuBuilder& A
 	TArray<FAssetData> AssetDataList;
 	AssetRegistryModule.Get().GetAssetsByClass(UMaterialFunction::StaticClass()->GetFName(), AssetDataList);
 
-	for (int32 AssetIndex = 0; AssetIndex < AssetDataList.Num(); ++AssetIndex)
+	for (const FAssetData& AssetData : AssetDataList)
 	{
-		const FAssetData& AssetData = AssetDataList[AssetIndex];
-
 		const bool bExposeToLibrary = AssetData.TagsAndValues.FindRef("bExposeToLibrary") == TEXT("TRUE");
 
 		// If this was a function that was selected to be exposed to the library
@@ -722,14 +720,39 @@ void UMaterialGraphSchema::GetMaterialFunctionActions(FGraphActionMenuBuilder& A
 					const FString LibraryCategoriesString = AssetData.TagsAndValues.FindRef("LibraryCategories");
 					if ( !LibraryCategoriesString.IsEmpty() )
 					{
-						UArrayProperty* LibraryCategoriesProperty = FindFieldChecked<UArrayProperty>(UMaterialFunction::StaticClass(), GET_MEMBER_NAME_CHECKED(UMaterialFunction, LibraryCategories));
-						uint8* DestAddr = (uint8*)(&LibraryCategories);
+						if (UArrayProperty* LibraryCategoriesProperty = FindFieldChecked<UArrayProperty>(UMaterialFunction::StaticClass(), TEXT("LibraryCategories")))
+						{
+							uint8* DestAddr = (uint8*)(&LibraryCategories);
+							LibraryCategoriesProperty->ImportText(*LibraryCategoriesString, DestAddr, PPF_None, NULL, GWarn);
+						}
+					}
+				}
+				TArray<FText> LibraryCategoriesText;
+				{
+					const FString LibraryCategoriesString = AssetData.TagsAndValues.FindRef("LibraryCategoriesText");
+					if ( !LibraryCategoriesString.IsEmpty() )
+					{
+						UArrayProperty* LibraryCategoriesProperty = FindFieldChecked<UArrayProperty>(UMaterialFunction::StaticClass(), GET_MEMBER_NAME_CHECKED(UMaterialFunction, LibraryCategoriesText));
+						uint8* DestAddr = (uint8*)(&LibraryCategoriesText);
 						LibraryCategoriesProperty->ImportText(*LibraryCategoriesString, DestAddr, PPF_None, NULL, GWarn);
 					}
 
-					if ( LibraryCategories.Num() == 0 )
+					for (const FString& Category : LibraryCategories)
 					{
-						LibraryCategories.Add( LOCTEXT("UncategorizedMaterialFunction", "Uncategorized").ToString() );
+						if (!LibraryCategoriesText.ContainsByPredicate(
+							[&Category](const FText& Text)
+							{
+								return Text.ToString() == Category;
+							}
+							))
+						{
+							LibraryCategoriesText.Add(FText::FromString(Category));
+						}
+					}
+
+					if ( LibraryCategoriesText.Num() == 0 )
+					{
+						LibraryCategoriesText.Add( LOCTEXT("UncategorizedMaterialFunction", "Uncategorized") );
 					}
 				}
 
@@ -743,9 +766,8 @@ void UMaterialGraphSchema::GetMaterialFunctionActions(FGraphActionMenuBuilder& A
 				}
 
 				// For each category the function should belong to...
-				for (int32 CategoryIndex = 0; CategoryIndex < LibraryCategories.Num(); CategoryIndex++)
+				for (const FText& CategoryName : LibraryCategoriesText)
 				{
-					const FString& CategoryName = LibraryCategories[CategoryIndex];
 					TSharedPtr<FMaterialGraphSchemaAction_NewFunctionCall> NewFunctionAction(new FMaterialGraphSchemaAction_NewFunctionCall(
 						CategoryName,
 						FText::FromString(FunctionName),
@@ -767,7 +789,7 @@ void UMaterialGraphSchema::GetCommentAction(FGraphActionMenuBuilder& ActionMenuB
 		const FText MultiCommentDesc = LOCTEXT("MultiCommentDesc", "Create Comment from Selection");
 		const FText CommentToolTip = LOCTEXT("CommentToolTip", "Creates a comment.");
 		const FText MenuDescription = bIsManyNodesSelected ? MultiCommentDesc : CommentDesc;
-		TSharedPtr<FMaterialGraphSchemaAction_NewComment> NewAction(new FMaterialGraphSchemaAction_NewComment(TEXT(""), MenuDescription, CommentToolTip.ToString(), 0));
+		TSharedPtr<FMaterialGraphSchemaAction_NewComment> NewAction(new FMaterialGraphSchemaAction_NewComment(FText::GetEmpty(), MenuDescription, CommentToolTip.ToString(), 0));
 		ActionMenuBuilder.AddAction( NewAction );
 	}
 }

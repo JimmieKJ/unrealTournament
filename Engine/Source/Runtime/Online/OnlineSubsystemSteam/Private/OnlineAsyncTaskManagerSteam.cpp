@@ -373,19 +373,6 @@ public:
 	{
 		return FString::Printf(TEXT("FOnlineAsyncEventSteamStatsReceived bWasSuccessful: %d User: %s Result: %s"), (StatsReceivedResult == k_EResultOK) ? 1 : 0, *UserId.ToDebugString(), *SteamResultString(StatsReceivedResult));	
 	}
-
-	/**
-	 * Give the async task a chance to marshal its data back to the game thread
-	 * Can only be called on the game thread by the async task manager
-	 */
-	virtual void Finalize() override
-	{
-		FOnlineAsyncEvent::Finalize();
-
-		// Add given user's stats to the cached list
-		FOnlineLeaderboardsSteamPtr Leaderboards = StaticCastSharedPtr<FOnlineLeaderboardsSteam>(Subsystem->GetLeaderboardsInterface());
-		Leaderboards->SetUserStatsState(UserId, (StatsReceivedResult == k_EResultOK) ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed);
-	}
 };
 
 /**
@@ -473,7 +460,7 @@ public:
 	{
 		FOnlineAsyncEvent::Finalize();
 		FOnlineLeaderboardsSteamPtr Leaderboards = StaticCastSharedPtr<FOnlineLeaderboardsSteam>(Subsystem->GetLeaderboardsInterface());
-		Leaderboards->SetUserStatsStoreState(UserId, StatsStoredResult == k_EResultOK ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed);
+		Leaderboards->UserStatsStoreStatsFinishedDelegate.ExecuteIfBound(StatsStoredResult == k_EResultOK ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed);
 	}
 };
 
@@ -548,18 +535,6 @@ public:
 	virtual FString ToString() const override
 	{
 		return FString::Printf(TEXT("FOnlineAsyncEventSteamStatsUnloaded UserId: %s"), *UserId.ToDebugString());	
-	}
-
-	/**
-	 * Give the async task a chance to marshal its data back to the game thread
-	 * Can only be called on the game thread by the async task manager
-	 */
-	virtual void Finalize() override
-	{
-		FOnlineAsyncEvent::Finalize();
-		// Remove given user's stats from the cached list
-		FOnlineLeaderboardsSteamPtr Leaderboards = StaticCastSharedPtr<FOnlineLeaderboardsSteam>(Subsystem->GetLeaderboardsInterface());
-		Leaderboards->SetUserStatsState(UserId, EOnlineAsyncTaskState::NotStarted);
 	}
 };
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTPickupCoin.h"
@@ -20,7 +20,7 @@ AUTPickupCoin::AUTPickupCoin(const FObjectInitializer& ObjectInitializer)
 	StaticMesh->PrimaryComponentTick.TickGroup = TG_PrePhysics;
 	StaticMesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
 	StaticMesh->bGenerateOverlapEvents = false;
-	StaticMesh->bCanEverAffectNavigation = false;
+	StaticMesh->SetCanEverAffectNavigation(false);
 	StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	StaticMesh->bReceivesDecals = false;
 	StaticMesh->SetStaticMesh(CrownMesh.Object);

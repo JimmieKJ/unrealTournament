@@ -46,8 +46,8 @@ UUTT61_DebugReplicateData::UUTT61_DebugReplicateData(const FObjectInitializer& O
 
 
 	UnitTestFlags |= (EUnitTestFlags::LaunchServer | EUnitTestFlags::AcceptActors | EUnitTestFlags::NotifyNetActors |
-						EUnitTestFlags::NotifyAllowNetActor | EUnitTestFlags::AcceptPlayerController |
-						EUnitTestFlags::RequirePlayerController | EUnitTestFlags::SendRPCs | EUnitTestFlags::ExpectServerCrash);
+						EUnitTestFlags::AcceptPlayerController | EUnitTestFlags::RequirePlayerController | EUnitTestFlags::SendRPCs |
+						EUnitTestFlags::ExpectServerCrash);
 }
 
 void UUTT61_DebugReplicateData::InitializeEnvironmentSettings()
@@ -56,9 +56,9 @@ void UUTT61_DebugReplicateData::InitializeEnvironmentSettings()
 	BaseServerParameters = UnitEnv->GetDefaultServerParameters();
 }
 
-bool UUTT61_DebugReplicateData::NotifyAllowNetActor(UClass* ActorClass)
+bool UUTT61_DebugReplicateData::NotifyAllowNetActor(UClass* ActorClass, bool bActorChannel)
 {
-	bool bAllow = Super::NotifyAllowNetActor(ActorClass);
+	bool bAllow = Super::NotifyAllowNetActor(ActorClass, bActorChannel);
 
 	if (!bAllow)
 	{

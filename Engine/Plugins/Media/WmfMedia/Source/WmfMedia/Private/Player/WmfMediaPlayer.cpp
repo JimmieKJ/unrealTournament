@@ -2,6 +2,7 @@
 
 #include "WmfMediaPrivatePCH.h"
 #include "AllowWindowsPlatformTypes.h"
+#include "Async/Async.h"
 
 
 /* FWmfVideoPlayer structors
@@ -10,12 +11,30 @@
 FWmfMediaPlayer::FWmfMediaPlayer()
 	: Duration(0)
 	, MediaSession(nullptr)
-{ }
+{
+	Resolver = new(std::nothrow) FWmfMediaResolver;
+	{
+		Resolver->OnResolveComplete().BindLambda([=](TComPtr<IUnknown> SourceObject, FString ResolvedUrl) {
+			AsyncTask(ENamedThreads::GameThread, [=]() {
+				InitializeMediaSession(SourceObject, ResolvedUrl)
+					? OpenedEvent.Broadcast(ResolvedUrl)
+					: OpenFailedEvent.Broadcast(ResolvedUrl);
+			});
+		});
+
+		Resolver->OnResolveFailed().BindLambda([=](FString FailedUrl) {
+			AsyncTask(ENamedThreads::GameThread, [=]() {
+				OpenFailedEvent.Broadcast(FailedUrl);
+			});
+		});
+	}
+}
 
 
 FWmfMediaPlayer::~FWmfMediaPlayer()
 {
 	Close();
+	Resolver->OnResolveComplete().Unbind();
 }
 
 
@@ -28,7 +47,7 @@ FTimespan FWmfMediaPlayer::GetDuration() const
 }
 
 
-TRange<float> FWmfMediaPlayer::GetSupportedRates( EMediaPlaybackDirections Direction, bool Unthinned ) const
+TRange<float> FWmfMediaPlayer::GetSupportedRates(EMediaPlaybackDirections Direction, bool Unthinned) const
 {
 	if (MediaSession != NULL)
 	{
@@ -72,6 +91,8 @@ bool FWmfMediaPlayer::SupportsSeeking() const
 
 void FWmfMediaPlayer::Close()
 {
+	Resolver->Cancel();
+
 	if (MediaSession == NULL)
 	{
 		return;
@@ -86,12 +107,27 @@ void FWmfMediaPlayer::Close()
 		MediaSource = NULL;
 	}
 
-	Tracks.Reset();
+	AudioTracks.Reset();
+	CaptionTracks.Reset();
+	VideoTracks.Reset();
 
 	Duration = 0;
 	MediaUrl = FString();
 
+	TracksChangedEvent.Broadcast();
 	ClosedEvent.Broadcast();
+}
+
+
+const TArray<IMediaAudioTrackRef>& FWmfMediaPlayer::GetAudioTracks() const
+{
+	return AudioTracks;
+}
+
+
+const TArray<IMediaCaptionTrackRef>& FWmfMediaPlayer::GetCaptionTracks() const
+{
+	return CaptionTracks;
 }
 
 
@@ -117,9 +153,9 @@ FTimespan FWmfMediaPlayer::GetTime() const
 }
 
 
-const TArray<IMediaTrackRef>& FWmfMediaPlayer::GetTracks() const
+const TArray<IMediaVideoTrackRef>& FWmfMediaPlayer::GetVideoTracks() const
 {
-	return Tracks;
+	return VideoTracks;
 }
 
 
@@ -159,72 +195,35 @@ bool FWmfMediaPlayer::IsReady() const
 }
 
 
-bool FWmfMediaPlayer::Open( const FString& Url )
+bool FWmfMediaPlayer::Open(const FString& Url)
 {
 	if (Url.IsEmpty())
 	{
 		return false;
 	}
 
-	TComPtr<IMFSourceResolver> SourceResolver;
-
-	if (FAILED(::MFCreateSourceResolver(&SourceResolver)))
-	{
-		return false;
-	}
-
-	// resolve the media source from the given URL
-	MF_OBJECT_TYPE ObjectType = MF_OBJECT_INVALID;
-	TComPtr<IUnknown> SourceObject;
-
-	if (FAILED(SourceResolver->CreateObjectFromURL(*Url, MF_RESOLUTION_MEDIASOURCE, NULL, &ObjectType, &SourceObject)))
-	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to create source object from URL for %s"), *Url);
-
-		return false;
-	}
-
-	return InitializeMediaSession(SourceObject, Url);
+	return Resolver->ResolveUrl(Url);
 }
 
 
-bool FWmfMediaPlayer::Open( const TSharedRef<TArray<uint8>>& Buffer, const FString& OriginalUrl )
+bool FWmfMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl)
 {
-	if ((Buffer->Num() == 0) || OriginalUrl.IsEmpty())
+	if ((Archive->TotalSize() == 0) || OriginalUrl.IsEmpty())
 	{
 		return false;
 	}
 
-	TComPtr<IMFSourceResolver> SourceResolver;
-	
-	if (FAILED(::MFCreateSourceResolver(&SourceResolver)))
-	{
-		return false;
-	}
-
-	// create the media source from the given buffer
-	TComPtr<FWmfMediaByteStream> ByteStream = new FWmfMediaByteStream(Buffer);
-	MF_OBJECT_TYPE ObjectType = MF_OBJECT_INVALID;
-	TComPtr<IUnknown> SourceObject;
-	
-	if (FAILED(SourceResolver->CreateObjectFromByteStream(ByteStream, *OriginalUrl, MF_RESOLUTION_MEDIASOURCE, NULL, &ObjectType, &SourceObject)))
-	{
-		UE_LOG(LogWmfMedia, Error, TEXT("Failed to create source object from buffer for %s"), *OriginalUrl);
-
-		return false;
-	}
-
-	return InitializeMediaSession(SourceObject, OriginalUrl);
+	return Resolver->ResolveByteStream(Archive, OriginalUrl);
 }
 
 
-bool FWmfMediaPlayer::Seek( const FTimespan& Time )
+bool FWmfMediaPlayer::Seek(const FTimespan& Time)
 {
 	return ((MediaSession != NULL) && MediaSession->SetPosition(Time));
 }
 
 
-bool FWmfMediaPlayer::SetLooping( bool Looping )
+bool FWmfMediaPlayer::SetLooping(bool Looping)
 {
 	if (MediaSession == NULL)
 	{
@@ -237,7 +236,7 @@ bool FWmfMediaPlayer::SetLooping( bool Looping )
 }
 
 
-bool FWmfMediaPlayer::SetRate( float Rate )
+bool FWmfMediaPlayer::SetRate(float Rate)
 {
 	if (MediaSession == NULL)
 	{
@@ -261,7 +260,7 @@ bool FWmfMediaPlayer::SetRate( float Rate )
 /* FWmfMediaPlayer implementation
  *****************************************************************************/
 
-void FWmfMediaPlayer::AddStreamToTopology( uint32 StreamIndex, IMFTopology* Topology, IMFPresentationDescriptor* PresentationDescriptor, IMFMediaSource* MediaSource )
+void FWmfMediaPlayer::AddStreamToTopology(uint32 StreamIndex, IMFTopology* Topology, IMFPresentationDescriptor* PresentationDescriptor, IMFMediaSource* MediaSourceObject)
 {
 	// get stream descriptor
 	TComPtr<IMFStreamDescriptor> StreamDescriptor;
@@ -357,7 +356,7 @@ void FWmfMediaPlayer::AddStreamToTopology( uint32 StreamIndex, IMFTopology* Topo
 		TComPtr<IMFTopologyNode> SourceNode;
 		{
 			if (FAILED(::MFCreateTopologyNode(MF_TOPOLOGY_SOURCESTREAM_NODE, &SourceNode)) ||
-				FAILED(SourceNode->SetUnknown(MF_TOPONODE_SOURCE, MediaSource)) ||
+				FAILED(SourceNode->SetUnknown(MF_TOPONODE_SOURCE, MediaSourceObject)) ||
 				FAILED(SourceNode->SetUnknown(MF_TOPONODE_PRESENTATION_DESCRIPTOR, PresentationDescriptor)) ||
 				FAILED(SourceNode->SetUnknown(MF_TOPONODE_STREAM_DESCRIPTOR, StreamDescriptor)) ||
 				FAILED(Topology->AddNode(SourceNode)))
@@ -387,20 +386,20 @@ void FWmfMediaPlayer::AddStreamToTopology( uint32 StreamIndex, IMFTopology* Topo
 	// create and add track
 	if (MajorType == MFMediaType_Audio)
 	{
-		Tracks.Add(MakeShareable(new FWmfMediaAudioTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
+		AudioTracks.Add(MakeShareable(new FWmfMediaAudioTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
 	}
 	else if (MajorType == MFMediaType_SAMI)
 	{
-		Tracks.Add(MakeShareable(new FWmfMediaCaptionTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
+		CaptionTracks.Add(MakeShareable(new FWmfMediaCaptionTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
 	}
 	else if (MajorType == MFMediaType_Video)
 	{
-		Tracks.Add(MakeShareable(new FWmfMediaVideoTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
+		VideoTracks.Add(MakeShareable(new FWmfMediaVideoTrack(OutputType, PresentationDescriptor, Sampler, StreamDescriptor, StreamIndex)));
 	}
 }
 
 
-bool FWmfMediaPlayer::InitializeMediaSession( IUnknown* SourceObject, const FString& SourceUrl )
+bool FWmfMediaPlayer::InitializeMediaSession(IUnknown* SourceObject, const FString& SourceUrl)
 {
 	Close();
 
@@ -454,7 +453,8 @@ bool FWmfMediaPlayer::InitializeMediaSession( IUnknown* SourceObject, const FStr
 		AddStreamToTopology(StreamIndex, Topology, PresentationDescriptor, MediaSourceObject);
 	}
 
-	UE_LOG(LogWmfMedia, Verbose, TEXT("Added a total of %i tracks"), Tracks.Num());
+	UE_LOG(LogWmfMedia, Verbose, TEXT("Added a total of %i audio tracks, %i caption tracks, %i video tracks"), AudioTracks.Num(), CaptionTracks.Num(), VideoTracks.Num());
+	TracksChangedEvent.Broadcast();
 
 	UINT64 PresentationDuration = 0;
 	PresentationDescriptor->GetUINT64(MF_PD_DURATION, &PresentationDuration);
@@ -467,8 +467,6 @@ bool FWmfMediaPlayer::InitializeMediaSession( IUnknown* SourceObject, const FStr
 	{
 		MediaSession->OnError().AddRaw(this, &FWmfMediaPlayer::HandleSessionError);
 	}
-
-	OpenedEvent.Broadcast(SourceUrl);
 
 	return (MediaSession->GetState() != EMediaStates::Error);
 }

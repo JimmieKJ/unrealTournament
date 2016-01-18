@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectHash.cpp: Unreal object name hashes
@@ -40,7 +40,7 @@ FString FPackageName::GetShortName(const FString& LongName)
 	return LongName.Mid(IndexOfLastSlash + 1);
 }
 
-FString FPackageName::GetShortName(UPackage* Package)
+FString FPackageName::GetShortName(const UPackage* Package)
 {
 	check(Package != NULL);
 	return GetShortName(Package->GetName());
@@ -206,10 +206,10 @@ private:
 
 		FString RebasedGameDir = FString::Printf(TEXT("../../../%s/"), FApp::GetGameName());
 
-        GameContentPathRebased = RebasedGameDir / TEXT("Content/");
+		GameContentPathRebased = RebasedGameDir / TEXT("Content/");
 		GameConfigPathRebased  = RebasedGameDir / TEXT("Config/");
-        GameScriptPathRebased  = RebasedGameDir / TEXT("Script/");
-        GameSavedPathRebased   = RebasedGameDir / TEXT("Saved/");
+		GameScriptPathRebased  = RebasedGameDir / TEXT("Script/");
+		GameSavedPathRebased   = RebasedGameDir / TEXT("Saved/");
 		
 		ContentPathToRoot.Empty(11);
 		ContentPathToRoot.Emplace(EngineRootPath, EngineContentPath);
@@ -328,23 +328,37 @@ FString FPackageName::FilenameToLongPackageName(const FString& InFilename)
 	return Result;
 }
 
-FString FPackageName::LongPackageNameToFilename(const FString& InLongPackageName, const FString& InExtension)
+bool FPackageName::TryConvertLongPackageNameToFilename(const FString& InLongPackageName, FString& OutFilename, const FString& InExtension, const bool ShouldGetLocalizedPackage)
 {
 	const auto& Paths = FLongPackagePathsSingleton::Get();
+
+	const FCultureRef CurrentCulture = FInternationalization::Get().GetCurrentCulture();
+	const FString LocalizationPathParticle = FString::Printf(TEXT("L10N/%s/"), *CurrentCulture->GetName());
 
 	for (const auto& Pair : Paths.ContentRootToPath)
 	{
 		if (InLongPackageName.StartsWith(Pair.RootPath))
 		{
-			FString Result = Pair.ContentPath + InLongPackageName.Mid(Pair.RootPath.Len()) + InExtension;
-			return Result;
+			const FString RootRelativePath = InLongPackageName.Mid(Pair.RootPath.Len());
+			const bool IsLocalizedPath = RootRelativePath.StartsWith(LocalizationPathParticle);
+			OutFilename = Pair.ContentPath + (ShouldGetLocalizedPackage && !IsLocalizedPath ? LocalizationPathParticle : TEXT("")) + RootRelativePath + InExtension;
+			return true;
 		}
 	}
 
 	// This is not a long package name or the root folder is not handled in the above cases
-	UE_LOG(LogPackageName, Fatal,TEXT("LongPackageNameToFilename failed to convert '%s'. Path does not map to any roots."), *InLongPackageName);
+	return false;
+}
 
-	return InLongPackageName;
+FString FPackageName::LongPackageNameToFilename(const FString& InLongPackageName, const FString& InExtension, const bool ShouldGetLocalizedPackage)
+{
+	FString FailureReason;
+	FString Result;
+	if (!TryConvertLongPackageNameToFilename(InLongPackageName, Result, InExtension, ShouldGetLocalizedPackage))
+	{
+		UE_LOG(LogPackageName, Fatal,TEXT("LongPackageNameToFilename failed to convert '%s'. Path does not map to any roots."), *InLongPackageName);
+	}
+	return Result;
 }
 
 FString FPackageName::GetLongPackagePath(const FString& InLongPackageName)
@@ -599,7 +613,7 @@ bool FPackageName::FindPackageFileWithoutExtension(const FString& InPackageFilen
 	return false;
 }
 
-bool FPackageName::DoesPackageExist(const FString& LongPackageName, const FGuid* Guid /*= NULL*/, FString* OutFilename /*= NULL*/)
+bool FPackageName::DoesPackageExist(const FString& LongPackageName, const FGuid* Guid /*= NULL*/, FString* OutFilename /*= NULL*/, const bool ShouldGetLocalizedPackage /*= false*/)
 {
 	bool bFoundFile = false;
 
@@ -627,7 +641,7 @@ bool FPackageName::DoesPackageExist(const FString& LongPackageName, const FGuid*
 	}
 
 	// Convert to filename (no extension yet).
-	FString Filename = LongPackageNameToFilename(PackageName);
+	FString Filename = LongPackageNameToFilename(PackageName, TEXT(""), ShouldGetLocalizedPackage);
 	// Find the filename (with extension).
 	bFoundFile = FindPackageFileWithoutExtension(Filename, Filename);
 
@@ -748,11 +762,67 @@ bool FPackageName::SearchForPackageOnDisk(const FString& PackageName, FString* O
 		}
 	}
 	float ThisTime = FPlatformTime::Seconds() - StartTime;
-	UE_LOG(LogPackageName, Log, TEXT("SearchForPackageOnDisk took %7.3fs to resolve %s"), ThisTime, *PackageName);
+
+	if ( bResult )
+	{
+		UE_LOG(LogPackageName, Log, TEXT("SearchForPackageOnDisk took %7.3fs to resolve %s."), ThisTime, *PackageName);
+	}
+	else
+	{
+		UE_LOG(LogPackageName, Log, TEXT("SearchForPackageOnDisk took %7.3fs, but failed to resolve %s."), ThisTime, *PackageName);
+	}
+
 	return bResult;
 }
 
-FString FPackageName::PackageFromPath( const TCHAR* InPathName )
+bool FPackageName::TryConvertShortPackagePathToLongInObjectPath(const FString& ObjectPath, FString& ConvertedObjectPath)
+{
+	FString PackagePath;
+	FString ObjectName;
+
+	int32 DotPosition = ObjectPath.Find(TEXT("."), ESearchCase::CaseSensitive);
+	if (DotPosition != INDEX_NONE)
+	{
+		PackagePath = ObjectPath.Mid(0, DotPosition);
+		ObjectName = ObjectPath.Mid(DotPosition + 1);
+	}
+	else
+	{
+		PackagePath = ObjectPath;
+	}
+
+	FString LongPackagePath;
+	if (!SearchForPackageOnDisk(PackagePath, &LongPackagePath))
+	{
+		return false;
+	}
+
+	ConvertedObjectPath = FString::Printf(TEXT("%s.%s"), *LongPackagePath, *ObjectName);
+	return true;
+}
+
+FString FPackageName::GetNormalizedObjectPath(const FString& ObjectPath)
+{
+	if (!ObjectPath.IsEmpty() && FPackageName::IsShortPackageName(ObjectPath))
+	{
+		FString LongPath;
+
+		UE_LOG(LogPackageName, Warning, TEXT("String asset reference \"%s\" is in short form, which is unsupported and -- even if valid -- resolving it will be really slow. Please consider resaving package in order to speed-up loading."), *ObjectPath);
+
+		if (!FPackageName::TryConvertShortPackagePathToLongInObjectPath(ObjectPath, LongPath))
+		{
+			UE_LOG(LogPackageName, Warning, TEXT("String asset reference \"%s\" could not be resolved."), *ObjectPath);
+		}
+
+		return LongPath;
+	}
+	else
+	{
+		return ObjectPath;
+	}
+}
+
+FString FPackageName::PackageFromPath(const TCHAR* InPathName)
 {
 	FString PackageName;
 	if (FPackageName::TryConvertFilenameToLongPackageName(InPathName, PackageName))
@@ -797,6 +867,55 @@ bool FPackageName::FindPackagesInDirectory( TArray<FString>& OutPackages, const 
 	return OutPackages.Num() > PreviousPackagesCount;
 }
 
+void FPackageName::IteratePackagesInDirectory(const FString& RootDir, const FPackageNameVisitor& Callback)
+{
+	class FPackageVisitor : public IPlatformFile::FDirectoryVisitor
+	{
+	public:
+		const FPackageNameVisitor& Callback;
+		explicit FPackageVisitor(const FPackageNameVisitor& InCallback)
+			: Callback(InCallback)
+		{
+		}
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
+		{
+			bool Result = true;
+			if (!bIsDirectory && IsPackageFilename(FilenameOrDirectory))
+			{
+				Result = Callback(FilenameOrDirectory);
+			}
+			return Result;
+		}
+	};
+
+	FPackageVisitor PackageVisitor(Callback);
+	IFileManager::Get().IterateDirectoryRecursively(*RootDir, PackageVisitor);
+}
+
+void FPackageName::IteratePackagesInDirectory(const FString& RootDir, const FPackageNameStatVisitor& Callback)
+{
+	class FPackageStatVisitor : public IPlatformFile::FDirectoryStatVisitor
+	{
+	public:
+		const FPackageNameStatVisitor& Callback;
+		explicit FPackageStatVisitor(const FPackageNameStatVisitor& InCallback)
+			: Callback(InCallback)
+		{
+		}
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, const FFileStatData& StatData) override
+		{
+			bool Result = true;
+			if (!StatData.bIsDirectory && IsPackageFilename(FilenameOrDirectory))
+			{
+				Result = Callback(FilenameOrDirectory, StatData);
+			}
+			return Result;
+		}
+	};
+
+	FPackageStatVisitor PackageVisitor(Callback);
+	IFileManager::Get().IterateDirectoryStatRecursively(*RootDir, PackageVisitor);
+}
 
 void FPackageName::QueryRootContentPaths( TArray<FString>& OutRootContentPaths )
 {

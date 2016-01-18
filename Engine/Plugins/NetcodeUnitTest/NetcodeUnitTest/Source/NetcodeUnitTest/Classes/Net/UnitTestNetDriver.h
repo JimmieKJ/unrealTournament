@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "OnlineSubsystemUtilsClasses.h"
-
+#include "IpNetDriver.h"
 #include "UnitTestNetDriver.generated.h"
 
 

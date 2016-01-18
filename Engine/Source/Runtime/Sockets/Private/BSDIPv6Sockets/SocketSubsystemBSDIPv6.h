@@ -19,7 +19,7 @@ class FSocketSubsystemBSDIPv6
 {
 public:
 
-	// Begin ISocketSubsystem interface
+	//~ Begin ISocketSubsystem Interface
 
 	virtual TSharedRef<FInternetAddr> CreateInternetAddr( uint32 Address = 0, uint32 Port = 0 ) override;
 
@@ -56,7 +56,7 @@ public:
 
 	virtual ESocketErrors TranslateErrorCode( int32 Code ) override;
 
-	// End ISocketSubsystem interface
+	//~ End ISocketSubsystem Interface
 
 
 protected:

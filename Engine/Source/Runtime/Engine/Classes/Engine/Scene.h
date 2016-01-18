@@ -5,19 +5,20 @@
 //=============================================================================
 
 #pragma once
+#include "BlendableInterface.h"
 #include "Scene.generated.h"
 
-/** used by FPostProcessSettings Depth of Field */
+/** Used by FPostProcessSettings Depth of Fields */
 UENUM()
 enum EDepthOfFieldMethod
 {
 	DOFM_BokehDOF UMETA(DisplayName="BokehDOF"),
-	DOFM_Gaussian UMETA(DisplayName="Gaussian"),
+	DOFM_Gaussian UMETA(DisplayName="GaussianDOF"),
 	DOFM_CircleDOF UMETA(DisplayName="CircleDOF"),
 	DOFM_MAX,
 };
 
-/** used by FPostProcessSettings Anti-aliasing */
+/** Used by FPostProcessSettings Anti-aliasings */
 UENUM()
 enum EAntiAliasingMethod
 {
@@ -27,11 +28,51 @@ enum EAntiAliasingMethod
 	AAM_MAX,
 };
 
+USTRUCT()
+struct FWeightedBlendable
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** 0:no effect .. 1:full effect */
+	UPROPERTY(interp, BlueprintReadWrite, Category=FWeightedBlendable, meta=(ClampMin = "0.0", ClampMax = "1.0", Delta = "0.01"))
+	float Weight;
+
+	/** should be of the IBlendableInterface* type but UProperties cannot express that */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FWeightedBlendable, meta=( AllowedClasses="BlendableInterface", Keywords="PostProcess" ))
+	UObject* Object;
+
+	// default constructor
+	FWeightedBlendable()
+		: Weight(-1)
+		, Object(0)
+	{
+	}
+
+	// constructor
+	// @param InWeight -1 is used to hide the weight and show the "Choose" UI, 0:no effect .. 1:full effect
+	FWeightedBlendable(float InWeight, UObject* InObject)
+		: Weight(InWeight)
+		, Object(InObject)
+	{
+	}
+};
+
+// for easier detail customization, needed?
+USTRUCT()
+struct FWeightedBlendables
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PostProcessSettings", meta=( Keywords="PostProcess" ))
+	TArray<FWeightedBlendable> Array;
+};
+
+
 /** To be able to use struct PostProcessSettings. */
 // Each property consists of a bool to enable it (by default off),
 // the variable declaration and further down the default value for it.
 // The comment should include the meaning and usable range.
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, meta=(HiddenByDefault))
 struct FPostProcessSettings
 {
 	GENERATED_USTRUCT_BODY()
@@ -106,9 +147,6 @@ struct FPostProcessSettings
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_SceneFringeIntensity:1;
-
-	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
-	uint32 bOverride_SceneFringeSaturation:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_AmbientCubemapTint:1;
@@ -266,8 +304,23 @@ struct FPostProcessSettings
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_LPVIntensity:1;
 
-	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
-	uint32 bOverride_LPVWarpIntensity:1;
+	UPROPERTY()
+	uint32 bOverride_LPVDirectionalOcclusionIntensity:1;
+
+	UPROPERTY()
+	uint32 bOverride_LPVDirectionalOcclusionRadius:1;
+
+	UPROPERTY()
+	uint32 bOverride_LPVDiffuseOcclusionExponent:1;
+
+	UPROPERTY()
+	uint32 bOverride_LPVSpecularOcclusionExponent:1;
+
+	UPROPERTY()
+	uint32 bOverride_LPVDiffuseOcclusionIntensity:1;
+
+	UPROPERTY()
+	uint32 bOverride_LPVSpecularOcclusionIntensity:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_LPVSize:1;
@@ -286,9 +339,6 @@ struct FPostProcessSettings
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_LPVEmissiveInjectionIntensity:1;
-
-	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
-	uint32 bOverride_LPVTransmissionIntensity:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_IndirectLightingColor:1;
@@ -352,6 +402,9 @@ struct FPostProcessSettings
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_DepthOfFieldSkyFocusDistance:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_DepthOfFieldVignetteSize:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_MotionBlurAmount:1;
@@ -444,19 +497,15 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category=SceneColor, meta=(UIMin = "0.0", UIMax = "5.0", editcondition = "bOverride_SceneFringeIntensity", DisplayName = "Fringe Intensity"))
 	float SceneFringeIntensity;
 
-	/** 0..1, Scene chromatic aberration / color fringe (camera imperfection) to simulate an artifact that happens in real-world lens, mostly visible in the image corners. */
-	UPROPERTY(interp, BlueprintReadWrite, Category=SceneColor, AdvancedDisplay, meta=(ClampMin = "0.0", UIMax = "1.0", editcondition = "bOverride_SceneFringeSaturation", DisplayName = "Fringe Saturation"))
-	float SceneFringeSaturation;
-
 	/** Multiplier for all bloom contributions >=0: off, 1(default), >1 brighter */
 	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, meta=(ClampMin = "0.0", UIMax = "8.0", editcondition = "bOverride_BloomIntensity", DisplayName = "Intensity"))
 	float BloomIntensity;
 
 	/**
 	 * minimum brightness the bloom starts having effect
-	 * -1:all pixels affect bloom equally (dream effect), 0:all pixels affect bloom brights more, 1(default), >1 brighter
+	 * -1:all pixels affect bloom equally (physically correct, faster as a threshold pass is omitted), 0:all pixels affect bloom brights more, 1(default), >1 brighter
 	 */
-	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(ClampMin = "-1.0", UIMin = "0.0", UIMax = "8.0", editcondition = "bOverride_BloomThreshold", DisplayName = "Threshold"))
+	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(ClampMin = "-1.0", UIMax = "8.0", editcondition = "bOverride_BloomThreshold", DisplayName = "Threshold"))
 	float BloomThreshold;
 
 	/**
@@ -545,12 +594,8 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, meta=(editcondition = "bOverride_LPVIntensity", UIMin = "0", UIMax = "20", DisplayName = "Intensity") )
 	float LPVIntensity;
 
-	/** CURRENTLY DISABLED - The strength of the warp offset for reducing light bleeding. 0.0 is off, 1.0 is the "normal" value, but higher values can be used to boost the effect*/
-	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, AdvancedDisplay, meta=(editcondition = "bOverride_LPVWarpIntensity", UIMin = "0", UIMax = "1", DisplayName = "(DISABLED) Grid Warp Intensity"))
-	float LPVWarpIntensity;
-
 	/** Bias applied to light injected into the LPV in cell units. Increase to reduce bleeding through thin walls*/
-	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, meta=(editcondition = "bOverride_LPVVplInjectionBias", UIMin = "0", UIMax = "2", DisplayName = "Light Injection Bias") )
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, AdvancedDisplay, meta=(editcondition = "bOverride_LPVVplInjectionBias", UIMin = "0", UIMax = "2", DisplayName = "Light Injection Bias") )
 	float LPVVplInjectionBias;
 
 	/** The size of the LPV volume, in Unreal units*/
@@ -562,20 +607,40 @@ struct FPostProcessSettings
 	float LPVSecondaryOcclusionIntensity;
 
 	/** Secondary bounce light strength (bounce light shadows). Set to 0 to disable*/
-	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, meta=(editcondition = "bOverride_LPVSecondaryBounceIntensity", UIMin = "0", UIMax = "1", DisplayName = "Secondary Bounce Intensity") )
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, AdvancedDisplay, meta=(editcondition = "bOverride_LPVSecondaryBounceIntensity", UIMin = "0", UIMax = "1", DisplayName = "Secondary Bounce Intensity") )
 	float LPVSecondaryBounceIntensity;
 
 	/** Bias applied to the geometry volume in cell units. Increase to reduce darkening due to secondary occlusion */
 	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, AdvancedDisplay, meta=(editcondition = "bOverride_LPVGeometryVolumeBias", UIMin = "0", UIMax = "2", DisplayName = "Geometry Volume Bias"))
 	float LPVGeometryVolumeBias;
 
-	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, meta=(editcondition = "bOverride_LPVEmissiveInjectionIntensity", UIMin = "0", UIMax = "20", DisplayName = "Emissive Injection Intensity") )
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, AdvancedDisplay, meta=(editcondition = "bOverride_LPVEmissiveInjectionIntensity", UIMin = "0", UIMax = "20", DisplayName = "Emissive Injection Intensity") )
 	float LPVEmissiveInjectionIntensity;
 
-	/** How strong light transmission from the LPV should be. 0.0 is off, 1.0 is the "normal" value, but higher values can be used to boost the effect*/
-	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, meta=(editcondition = "bOverride_LPVTransmissionIntensity", UIMin = "0", UIMax = "2", DisplayName = "Transmission Intensity") )
-	float LPVTransmissionIntensity;
+	/** Controls the amount of directional occlusion. Requires LPV. Values very close to 1.0 are recommended */
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, meta=(editcondition = "bOverride_LPVDirectionalOcclusionIntensity", UIMin = "0", UIMax = "1", DisplayName = "Occlusion Intensity") )
+	float LPVDirectionalOcclusionIntensity;
 
+	/** Occlusion Radius - 16 is recommended for most scenes */
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, AdvancedDisplay, meta=(editcondition = "bOverride_LPVDirectionalOcclusionRadius", UIMin = "1", UIMax = "16", DisplayName = "Occlusion Radius") )
+	float LPVDirectionalOcclusionRadius;
+
+	/** Diffuse occlusion exponent - increase for more contrast. 1 to 2 is recommended */
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, meta=(editcondition = "bOverride_LPVDiffuseOcclusionExponent", UIMin = "0.5", UIMax = "5", DisplayName = "Diffuse occlusion exponent") )
+	float LPVDiffuseOcclusionExponent;
+
+	/** Specular occlusion exponent - increase for more contrast. 6 to 9 is recommended */
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, meta=(editcondition = "bOverride_LPVSpecularOcclusionExponent", UIMin = "1", UIMax = "16", DisplayName = "Specular occlusion exponent") )
+	float LPVSpecularOcclusionExponent;
+
+	/** Diffuse occlusion intensity - higher values provide increased diffuse occlusion.*/
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, AdvancedDisplay, meta=(editcondition = "bOverride_LPVDiffuseOcclusionIntensity", UIMin = "0", UIMax = "4", DisplayName = "Diffuse occlusion intensity") )
+	float LPVDiffuseOcclusionIntensity;
+
+	/** Specular occlusion intensity - higher values provide increased specular occlusion.*/
+	UPROPERTY(interp, BlueprintReadWrite, Category=LightPropagationVolume, AdvancedDisplay, meta=(editcondition = "bOverride_LPVSpecularOcclusionIntensity", UIMin = "0", UIMax = "4", DisplayName = "Specular occlusion intensity") )
+	float LPVSpecularOcclusionIntensity;
+	
 	/** AmbientCubemap tint color */
 	UPROPERTY(interp, BlueprintReadWrite, Category=AmbientCubemap, AdvancedDisplay, meta=(editcondition = "bOverride_AmbientCubemapTint", DisplayName = "Tint", HideAlphaChannel))
 	FLinearColor AmbientCubemapTint;
@@ -760,21 +825,21 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DepthOfField, meta=(editcondition = "bOverride_DepthOfFieldMethod", DisplayName = "Method"))
 	TEnumAsByte<enum EDepthOfFieldMethod> DepthOfFieldMethod;
 
-	/** CircleDOF only: Depth blur km for 50% */
-	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(ClampMin = "0.000001", ClampMax = "100.0", editcondition = "bOverride_DepthOfFieldDepthBlurAmount", DisplayName = "Depth Blur km for 50%"))
-	float DepthOfFieldDepthBlurAmount;
-
-	/** CircleDOF only: Depth blur radius in pixels at 1920x */
-	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(ClampMin = "0.0", ClampMax = "4.0", editcondition = "bOverride_DepthOfFieldDepthBlurRadius", DisplayName = "Depth Blur Radius"))
-	float DepthOfFieldDepthBlurRadius;
-	
-	/** CircleDOF only: F-stop number (1/fstop) */
-	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(ClampMin = "1.0", ClampMax = "32.0", editcondition = "bOverride_DepthOfFieldFstop", DisplayName = "1/Fstop"))
+	/** CircleDOF only: Defines the opening of the camera lens, Aperture is 1/fstop, typical lens go down to f/1.2 (large opening), larger numbers reduce the DOF effect */
+	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(ClampMin = "1.0", ClampMax = "32.0", editcondition = "bOverride_DepthOfFieldFstop", DisplayName = "Aperture F-stop"))
 	float DepthOfFieldFstop;
 
 	/** Distance in which the Depth of Field effect should be sharp, in unreal units (cm) */
-	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(UIMin = "0.0", UIMax = "10000.0", editcondition = "bOverride_DepthOfFieldFocalDistance", DisplayName = "Focal Distance"))
+	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(ClampMin = "0.0", UIMin = "1.0", UIMax = "10000.0", editcondition = "bOverride_DepthOfFieldFocalDistance", DisplayName = "Focal Distance"))
 	float DepthOfFieldFocalDistance;
+
+	/** CircleDOF only: Depth blur km for 50% */
+	UPROPERTY(interp, BlueprintReadWrite, AdvancedDisplay, Category=DepthOfField, meta=(ClampMin = "0.000001", ClampMax = "100.0", editcondition = "bOverride_DepthOfFieldDepthBlurAmount", DisplayName = "Depth Blur km for 50%"))
+	float DepthOfFieldDepthBlurAmount;
+
+	/** CircleDOF only: Depth blur radius in pixels at 1920x */
+	UPROPERTY(interp, BlueprintReadWrite, AdvancedDisplay, Category=DepthOfField, meta=(ClampMin = "0.0", ClampMax = "4.0", editcondition = "bOverride_DepthOfFieldDepthBlurRadius", DisplayName = "Depth Blur Radius"))
+	float DepthOfFieldDepthBlurRadius;
 
 	/** Artificial region where all content is in focus, starting after DepthOfFieldFocalDistance, in unreal units  (cm) */
 	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(UIMin = "0.0", UIMax = "10000.0", editcondition = "bOverride_DepthOfFieldFocalRegion", DisplayName = "Focal Region"))
@@ -812,18 +877,22 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_DepthOfFieldOcclusion", DisplayName = "Occlusion"))
 	float DepthOfFieldOcclusion;
 	
-	/** Color threshold to do full quality DOF */
+	/** Color threshold to do full quality DOF (BokehDOF only) */
 	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "10.0", editcondition = "bOverride_DepthOfFieldColorThreshold", DisplayName = "Color Threshold"))
 	float DepthOfFieldColorThreshold;
 
-	/** Size threshold to do full quality DOF */
+	/** Size threshold to do full quality DOF (BokehDOF only) */
 	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_DepthOfFieldSizeThreshold", DisplayName = "Size Threshold"))
 	float DepthOfFieldSizeThreshold;
 	
 	/** Artificial distance to allow the skybox to be in focus (e.g. 200000), <=0 to switch the feature off, only for GaussianDOF, can cost performance */
 	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "200000.0", editcondition = "bOverride_DepthOfFieldSkyFocusDistance", DisplayName = "Sky Distance"))
 	float DepthOfFieldSkyFocusDistance;
-	
+
+	/** Artificial circular mask to (near) blur content outside the radius, only for GaussianDOF, diameter in percent of screen width, costs performance if the mask is used, keep Feather can Radius on default to keep it off */
+	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "100.0", editcondition = "bOverride_DepthOfFieldVignetteSize", DisplayName = "Vignette Size"))
+	float DepthOfFieldVignetteSize;
+
 	/** Strength of motion blur, 0:off, should be renamed to intensity */
 	UPROPERTY(interp, BlueprintReadWrite, Category=MotionBlur, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_MotionBlurAmount", DisplayName = "Amount"))
 	float MotionBlurAmount;
@@ -866,10 +935,69 @@ struct FPostProcessSettings
 	
 	/**
 	 * Allows custom post process materials to be defined, using a MaterialInstance with the same Material as its parent to allow blending.
-	 * Make sure you use the "PostProcess" domain type. This can be used for any UObject object implementing the IBlendableInterface (e.g. could be used to fade weather settings).
+	 * For materials this needs to be the "PostProcess" domain type. This can be used for any UObject object implementing the IBlendableInterface (e.g. could be used to fade weather settings).
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Misc", meta=( AllowedClasses="BlendableInterface", Keywords="PostProcess" ))
-	TArray<UObject*> Blendables;
+	UPROPERTY(EditAnywhere, Category="PostProcessSettings", meta=( Keywords="PostProcess", DisplayName = "Blendables" ))
+	FWeightedBlendables WeightedBlendables;
+
+	// for backwards compatibility
+	UPROPERTY()
+	TArray<UObject*> Blendables_DEPRECATED;
+
+	// for backwards compatibility
+	void OnAfterLoad()
+	{
+		for(int32 i = 0, count = Blendables_DEPRECATED.Num(); i < count; ++i)
+		{
+			if(Blendables_DEPRECATED[i])
+			{
+				FWeightedBlendable Element(1.0f, Blendables_DEPRECATED[i]);
+				WeightedBlendables.Array.Add(Element);
+			}
+		}
+		Blendables_DEPRECATED.Empty();
+	}
+
+	// Adds an Blendable (implements IBlendableInterface) to the array of Blendables (if it doesn't exist) and update the weight
+	// @param InBlendableObject silently ignores if no object is referenced
+	// @param 0..1 InWeight, values outside of the range get clampled later in the pipeline
+	void AddBlendable(TScriptInterface<IBlendableInterface> InBlendableObject, float InWeight)
+	{
+		// update weight, if the Blendable is already in the array
+		if(UObject* Object = InBlendableObject.GetObject())
+		{
+			for (int32 i = 0, count = WeightedBlendables.Array.Num(); i < count; ++i)
+			{
+				if (WeightedBlendables.Array[i].Object == Object)
+				{
+					WeightedBlendables.Array[i].Weight = InWeight;
+					// We assumes we only have one
+					return;
+				}
+			}
+
+			// add in the end
+			WeightedBlendables.Array.Add(FWeightedBlendable(InWeight, Object));
+		}
+	}
+
+	// removes one or multiple blendables from the array
+	void RemoveBlendable(TScriptInterface<IBlendableInterface> InBlendableObject)
+	{
+		if(UObject* Object = InBlendableObject.GetObject())
+		{
+			for (int32 i = 0, count = WeightedBlendables.Array.Num(); i < count; ++i)
+			{
+				if (WeightedBlendables.Array[i].Object == Object)
+				{
+					// this might remove multiple
+					WeightedBlendables.Array.RemoveAt(i);
+					--i;
+					--count;
+				}
+			}
+		}
+	}
 
 	// good start values for a new volume, by default no value is overriding
 	FPostProcessSettings()
@@ -879,7 +1007,7 @@ struct FPostProcessSettings
 
 		WhiteTemp = 6500.0f;
 		WhiteTint = 0.0f;
-
+		 
 		ColorSaturation = FVector( 1.0f, 1.0f, 1.0f );
 		ColorContrast = FVector( 1.0f, 1.0f, 1.0f );
 		ColorGamma = FVector( 1.0f, 1.0f, 1.0f );
@@ -909,7 +1037,6 @@ struct FPostProcessSettings
 
 		SceneColorTint = FLinearColor(1, 1, 1);
 		SceneFringeIntensity = 0.0f;
-		SceneFringeSaturation = 0.5f;
 		// next value might get overwritten by r.DefaultFeature.Bloom
 		BloomIntensity = 0.675f;
 		BloomThreshold = -1.0f;
@@ -932,14 +1059,12 @@ struct FPostProcessSettings
 		AmbientCubemapIntensity = 1.0f;
 		AmbientCubemapTint = FLinearColor(1, 1, 1);
 		LPVIntensity = 1.0f;
-		LPVWarpIntensity = 0.0f;
 		LPVSize = 5312.0f;
 		LPVSecondaryOcclusionIntensity = 0.0f;
 		LPVSecondaryBounceIntensity = 0.0f;
 		LPVVplInjectionBias = 0.64f;
 		LPVGeometryVolumeBias = 0.384f;
 		LPVEmissiveInjectionIntensity = 1.0f;
-		LPVTransmissionIntensity = 1.0f;
 		AutoExposureLowPercent = 80.0f;
 		AutoExposureHighPercent = 98.3f;
 		// next value might get overwritten by r.DefaultFeature.AutoExposure
@@ -949,6 +1074,12 @@ struct FPostProcessSettings
 		AutoExposureBias = 0.0f;
 		AutoExposureSpeedUp = 3.0f;
 		AutoExposureSpeedDown = 1.0f;
+		LPVDirectionalOcclusionIntensity = 0.0f;
+		LPVDirectionalOcclusionRadius = 8.0f;
+		LPVDiffuseOcclusionExponent = 1.0f;
+		LPVSpecularOcclusionExponent = 7.0f;
+		LPVDiffuseOcclusionIntensity = 1.0f;
+		LPVSpecularOcclusionIntensity = 1.0f;
 		HistogramLogMin = -8.0f;
 		HistogramLogMax = 4.0f;
 		// next value might get overwritten by r.DefaultFeature.LensFlare
@@ -992,6 +1123,8 @@ struct FPostProcessSettings
 		DepthOfFieldColorThreshold = 1.0f;
 		DepthOfFieldSizeThreshold = 0.08f;
 		DepthOfFieldSkyFocusDistance = 0.0f;
+		// 200 should be enough even for extreme aspect ratios to give the default no effect
+		DepthOfFieldVignetteSize = 200.0f;
 		LensFlareTints[0] = FLinearColor(1.0f, 0.8f, 0.4f, 0.6f);
 		LensFlareTints[1] = FLinearColor(1.0f, 1.0f, 0.6f, 0.53f);
 		LensFlareTints[2] = FLinearColor(0.8f, 0.8f, 1.0f, 0.46f);

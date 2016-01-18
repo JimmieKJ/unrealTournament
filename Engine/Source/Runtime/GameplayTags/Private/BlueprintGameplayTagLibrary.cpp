@@ -32,9 +32,19 @@ bool UBlueprintGameplayTagLibrary::DoesContainerMatchAllTagsInContainer(const FG
 	return TagContainer.MatchesAll(OtherContainer, bCountEmptyAsMatch);
 }
 
+bool UBlueprintGameplayTagLibrary::DoesContainerMatchTagQuery(const FGameplayTagContainer& TagContainer, const FGameplayTagQuery& TagQuery)
+{
+	return TagQuery.Matches(TagContainer);
+}
+
 FGameplayTag UBlueprintGameplayTagLibrary::MakeLiteralGameplayTag(FGameplayTag Value)
 {
 	return Value;
+}
+
+FGameplayTagQuery UBlueprintGameplayTagLibrary::MakeGameplayTagQuery(FGameplayTagQuery TagQuery)
+{
+	return TagQuery;
 }
 
 bool UBlueprintGameplayTagLibrary::HasAllMatchingGameplayTags(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, const FGameplayTagContainer& OtherContainer, bool bCountEmptyAsMatch)
@@ -61,4 +71,11 @@ bool UBlueprintGameplayTagLibrary::DoesTagAssetInterfaceHaveTag(TScriptInterface
 	FGameplayTagContainer OwnedTags;
 	TagContainerInterface->GetOwnedGameplayTags(OwnedTags);
 	return (OwnedTags.HasTag(Tag, ContainerTagsMatchType, TagMatchType));
+}
+
+bool UBlueprintGameplayTagLibrary::AppendGameplayTagContainers(const FGameplayTagContainer& InTagContainer, UPARAM(ref) FGameplayTagContainer& InOutTagContainer)
+{
+	InOutTagContainer.AppendTags(InTagContainer);
+
+	return true;
 }

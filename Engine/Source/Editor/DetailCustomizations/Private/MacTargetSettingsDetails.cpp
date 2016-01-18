@@ -88,6 +88,10 @@ static FString GetIconFilename(EMacImageScope::Type Scope)
 
 void FMacTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
+	// Setup the supported/targeted RHI property view
+	TargetShaderFormatsDetails = MakeShareable(new FMacTargetShaderFormatsPropertyDetails(&DetailBuilder));
+	TargetShaderFormatsDetails->CreateTargetShaderFormatsPropertyView();
+	
 	// Add the splash image customization
 	const FText EditorSplashDesc(LOCTEXT("EditorSplashLabel", "Editor Splash"));
 	IDetailCategoryBuilder& SplashCategoryBuilder = DetailBuilder.EditCategory(TEXT("Splash"));
@@ -210,6 +214,115 @@ bool FMacTargetSettingsDetails::HandlePostExternalIconCopy(const FString& InChos
 {
 	FEditorDirectories::Get().SetLastDirectory(ELastDirectory::GENERIC_OPEN, FPaths::GetPath(InChosenImage));
 	return true;
+}
+
+FText GetFriendlyNameFromRHINameMac(const FString& InRHIName)
+{
+	FText FriendlyRHIName = LOCTEXT("UnknownRHI", "UnknownRHI");
+	if (InRHIName == TEXT("GLSL_150_MAC"))
+	{
+		FriendlyRHIName = LOCTEXT("OpenGL3", "OpenGL 3 (SM4)");
+	}
+	else if (InRHIName == TEXT("SF_METAL_SM4"))
+	{
+		FriendlyRHIName = LOCTEXT("MetalSM4", "Metal (SM4)");
+	}
+	else if (InRHIName == TEXT("SF_METAL_SM5"))
+	{
+		FriendlyRHIName = LOCTEXT("MetalSM5", "Metal (SM5, Experimental)");
+	}
+	
+	return FriendlyRHIName;
+}
+
+FMacTargetShaderFormatsPropertyDetails::FMacTargetShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder)
+: DetailBuilder(InDetailBuilder)
+{
+	TargetShaderFormatsPropertyHandle = DetailBuilder->GetProperty("TargetedRHIs");
+	ensure(TargetShaderFormatsPropertyHandle.IsValid());
+}
+
+void FMacTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView()
+{
+	DetailBuilder->HideProperty(TargetShaderFormatsPropertyHandle);
+	
+	// List of supported RHI's and selected targets
+	ITargetPlatform* TargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("MacTargetPlatform").GetTargetPlatform();
+	TArray<FName> ShaderFormats;
+	TargetPlatform->GetAllPossibleShaderFormats(ShaderFormats);
+	
+	IDetailCategoryBuilder& TargetedRHICategoryBuilder = DetailBuilder->EditCategory(TEXT("Targeted RHIs"));
+	
+	for (const FName& ShaderFormat : ShaderFormats)
+	{
+		FText FriendlyShaderFormatName = GetFriendlyNameFromRHINameMac(ShaderFormat.ToString());
+		
+		FDetailWidgetRow& TargetedRHIWidgetRow = TargetedRHICategoryBuilder.AddCustomRow(FriendlyShaderFormatName);
+		
+		TargetedRHIWidgetRow
+		.NameContent()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(FMargin(0, 1, 0, 1))
+			.FillWidth(1.0f)
+			[
+				SNew(STextBlock)
+				.Text(FriendlyShaderFormatName)
+				.Font(DetailBuilder->GetDetailFont())
+			 ]
+		 ]
+		.ValueContent()
+		[
+			SNew(SCheckBox)
+			.OnCheckStateChanged(this, &FMacTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged, ShaderFormat)
+			.IsChecked(this, &FMacTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked, ShaderFormat)
+		 ];
+	}
+}
+
+
+void FMacTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState InNewValue, FName InRHIName)
+{
+	TArray<void*> RawPtrs;
+	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
+	
+	// Update the CVars with the selection
+	{
+		TargetShaderFormatsPropertyHandle->NotifyPreChange();
+		for (void* RawPtr : RawPtrs)
+		{
+			TArray<FString>& Array = *(TArray<FString>*)RawPtr;
+			if(InNewValue == ECheckBoxState::Checked)
+			{
+				Array.Add(InRHIName.ToString());
+			}
+			else
+			{
+				Array.Remove(InRHIName.ToString());
+			}
+		}
+		TargetShaderFormatsPropertyHandle->NotifyPostChange();
+	}
+}
+
+
+ECheckBoxState FMacTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked(FName InRHIName) const
+{
+	ECheckBoxState CheckState = ECheckBoxState::Unchecked;
+	
+	TArray<void*> RawPtrs;
+	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
+	
+	for(void* RawPtr : RawPtrs)
+	{
+		TArray<FString>& Array = *(TArray<FString>*)RawPtr;
+		if(Array.Contains(InRHIName.ToString()))
+		{
+			CheckState = ECheckBoxState::Checked;
+		}
+	}
+	return CheckState;
 }
 
 #undef LOCTEXT_NAMESPACE

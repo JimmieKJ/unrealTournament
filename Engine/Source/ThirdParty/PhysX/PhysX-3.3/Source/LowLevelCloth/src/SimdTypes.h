@@ -22,7 +22,7 @@
 #endif
 #define NVMATH_VMX128 (defined _M_PPC)
 #define NVMATH_ALTIVEC (defined __CELLOS_LV2__)
-#define NVMATH_NEON ((defined _M_ARM || defined __ARM_NEON__) && !defined(PX_ARM64))
+#define NVMATH_NEON ((defined _M_ARM || defined __ARM_NEON__) && !defined(PX_A64))
 
 // which simd types are implemented (one or both are all valid options)
 #define NVMATH_SIMD (NVMATH_SSE2 || NVMATH_VMX128 || NVMATH_ALTIVEC || NVMATH_NEON)
@@ -36,7 +36,7 @@
 // Simd4f and Simd4i map to different types
 #define NVMATH_DISTINCT_TYPES (NVMATH_SSE2 || NVMATH_ALTIVEC || NVMATH_NEON)
 // support inline assembler
-#define NVMATH_INLINE_ASSEMBLER (!_M_ARM && !defined(PX_ARM64) && !SN_TARGET_PSP2)
+#define NVMATH_INLINE_ASSEMBLER !(defined _M_ARM || defined SN_TARGET_PSP2 || defined __arm64__)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 // expression template

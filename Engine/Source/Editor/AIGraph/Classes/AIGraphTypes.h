@@ -14,7 +14,7 @@ struct AIGRAPH_API FGraphNodeClassData
 
 	FString ToString() const;
 	FString GetClassName() const;
-	FString GetCategory() const;
+	FText GetCategory() const;
 	FString GetDisplayName() const;
 	UClass* GetClass(bool bSilent = false);
 	bool IsAbstract() const;
@@ -48,7 +48,7 @@ private:
 
 	/** User-defined category for this class */
 	UPROPERTY()
-	FString Category;
+	FText Category;
 
 	/** message for deprecated class */
 	FString DeprecatedMessage;

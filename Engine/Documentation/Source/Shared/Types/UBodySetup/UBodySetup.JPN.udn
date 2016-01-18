@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2308784
+﻿INTSourceChangelist:2574188
 Availability:NoPublish
 Title:UBodySetup RTTs
 Crumbs:
@@ -103,6 +103,6 @@ Engine/Physics/PhAT/Properties#physicsbodyproperties
 - Use Simple Collision As Complex - 複雑なコリジョンとして簡単なコリジョンを追加します。簡単な形状を追加し、それは簡単なクエリと複雑なクエリに使用されます。
 - Use Complex Collision As Simple - 簡単なコリジョンとして複雑なクエリを追加します。複雑な形状を追加し、それは簡単なクエリと複雑なクエリに使用されます。
 
+
+
 [/EXCERPT:CollisionTraceFlag]
-
-

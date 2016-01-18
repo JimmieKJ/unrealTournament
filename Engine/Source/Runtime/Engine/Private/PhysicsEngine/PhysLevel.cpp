@@ -19,33 +19,6 @@
 #endif
 
 
-/** Physics stats */
-
-DEFINE_STAT(STAT_TotalPhysicsTime);
-DEFINE_STAT(STAT_PhysicsKickOffDynamicsTime);
-DEFINE_STAT(STAT_PhysicsFetchDynamicsTime);
-DEFINE_STAT(STAT_PhysicsEventTime);
-DEFINE_STAT(STAT_SetBodyTransform);
-
-DEFINE_STAT(STAT_NumBroadphaseAdds);
-DEFINE_STAT(STAT_NumBroadphaseRemoves);
-DEFINE_STAT(STAT_NumActiveConstraints);
-DEFINE_STAT(STAT_NumActiveSimulatedBodies);
-DEFINE_STAT(STAT_NumActiveKinematicBodies);
-DEFINE_STAT(STAT_NumMobileBodies);
-DEFINE_STAT(STAT_NumStaticBodies);
-DEFINE_STAT(STAT_NumShapes);
-
-DEFINE_STAT(STAT_NumBroadphaseAddsAsync);
-DEFINE_STAT(STAT_NumBroadphaseRemovesAsync);
-DEFINE_STAT(STAT_NumActiveConstraintsAsync);
-DEFINE_STAT(STAT_NumActiveSimulatedBodiesAsync);
-DEFINE_STAT(STAT_NumActiveKinematicBodiesAsync);
-DEFINE_STAT(STAT_NumMobileBodiesAsync);
-DEFINE_STAT(STAT_NumStaticBodiesAsync);
-DEFINE_STAT(STAT_NumShapesAsync);
-
-
 FPhysCommandHandler * GPhysCommandHandler = NULL;
 FDelegateHandle GPreGarbageCollectDelegateHandle;
 
@@ -87,6 +60,12 @@ static TAutoConsoleVariable<int32> CVarAPEXSortDynamicChunksByBenefit(
 	TEXT("True if APEX should sort dynamic chunks by benefit."),
 	ECVF_Default);
 
+static TAutoConsoleVariable<int32> CVarUseUnifiedHeightfield(
+	TEXT("p.bUseUnifiedHeightfield"),
+	1,
+	TEXT("Whether to use the PhysX unified heightfield. This feature of PhysX makes landscape collision consistent with triangle meshes but the thickness parameter is not supported for unified heightfields. 1 enables and 0 disables. Default: 1"),
+	ECVF_ReadOnly);
+
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -101,18 +80,14 @@ void UWorld::SetupPhysicsTickFunctions(float DeltaSeconds)
 	EndPhysicsTickFunction.bCanEverTick = true;
 	EndPhysicsTickFunction.Target = this;
 	
-	StartClothTickFunction.bCanEverTick = true;
-	StartClothTickFunction.Target = this;
-	
-	EndClothTickFunction.bCanEverTick = true;
-	EndClothTickFunction.Target = this;
+	StartAsyncTickFunction.bCanEverTick = true;
+	StartAsyncTickFunction.Target = this;
 	
 	
 	// see if we need to update tick registration
 	bool bNeedToUpdateTickRegistration = (bShouldSimulatePhysics != StartPhysicsTickFunction.IsTickFunctionRegistered())
 		|| (bShouldSimulatePhysics != EndPhysicsTickFunction.IsTickFunctionRegistered())
-		|| (bShouldSimulatePhysics != StartClothTickFunction.IsTickFunctionRegistered())
-		|| (bShouldSimulatePhysics != EndClothTickFunction.IsTickFunctionRegistered());
+		|| (bShouldSimulatePhysics != StartAsyncTickFunction.IsTickFunctionRegistered());
 
 	if (bNeedToUpdateTickRegistration && PersistentLevel)
 	{
@@ -138,27 +113,16 @@ void UWorld::SetupPhysicsTickFunctions(float DeltaSeconds)
 			EndPhysicsTickFunction.UnRegisterTickFunction();
 		}
 
-		//cloth
-		if (bShouldSimulatePhysics && !StartClothTickFunction.IsTickFunctionRegistered())
+		//async scene
+		if (bShouldSimulatePhysics && !StartAsyncTickFunction.IsTickFunctionRegistered() && UPhysicsSettings::Get()->bEnableAsyncScene)
 		{
-			StartClothTickFunction.TickGroup = TG_StartCloth;
-			StartClothTickFunction.RegisterTickFunction(PersistentLevel);
+			StartAsyncTickFunction.TickGroup = TG_EndPhysics;
+			StartAsyncTickFunction.RegisterTickFunction(PersistentLevel);
+			StartAsyncTickFunction.AddPrerequisite(this, EndPhysicsTickFunction);
 		}
-		else if (!bShouldSimulatePhysics && StartClothTickFunction.IsTickFunctionRegistered())
+		else if (!bShouldSimulatePhysics && StartAsyncTickFunction.IsTickFunctionRegistered())
 		{
-			StartClothTickFunction.UnRegisterTickFunction();
-		}
-
-		if (bShouldSimulatePhysics && !EndClothTickFunction.IsTickFunctionRegistered())
-		{
-			EndClothTickFunction.TickGroup = TG_EndCloth;
-			EndClothTickFunction.RegisterTickFunction(PersistentLevel);
-			EndClothTickFunction.AddPrerequisite(this, StartClothTickFunction);
-		}
-		else if (!bShouldSimulatePhysics && EndClothTickFunction.IsTickFunctionRegistered())
-		{
-			EndClothTickFunction.RemovePrerequisite(this, StartClothTickFunction);
-			EndClothTickFunction.UnRegisterTickFunction();
+			StartAsyncTickFunction.UnRegisterTickFunction();
 		}
 	}
 
@@ -203,15 +167,12 @@ void UWorld::FinishPhysicsSim()
 	PhysScene->EndFrame(LineBatcher);
 }
 
-void UWorld::StartClothSim()
+void UWorld::StartAsyncSim()
 {
-	FPhysScene* PhysScene = GetPhysicsScene();
-	if (PhysScene == NULL)
+	if (FPhysScene* PhysScene = GetPhysicsScene())
 	{
-		return;
+		PhysScene->StartAsync();
 	}
-
-	PhysScene->StartCloth();
 }
 
 // the physics tick functions
@@ -274,37 +235,20 @@ FString FEndPhysicsTickFunction::DiagnosticMessage()
 	return TEXT("FEndPhysicsTickFunction");
 }
 
-void FStartClothSimulationFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+void FStartAsyncSimulationFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
-	QUICK_SCOPE_CYCLE_COUNTER(FStartClothSimulationFunction_ExecuteTick);
+	QUICK_SCOPE_CYCLE_COUNTER(FStartAsyncSimulationFunction_ExecuteTick);
 
 	check(Target);
-	Target->StartClothSim();
+	Target->StartAsyncSim();
 }
 
-FString FStartClothSimulationFunction::DiagnosticMessage()
+FString FStartAsyncSimulationFunction::DiagnosticMessage()
 {
-	return TEXT("FStartClothSimulationFunction");
+	return TEXT("FStartAsyncSimulationFunction");
 }
 
-void FEndClothSimulationFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(FEndClothSimulationFunction_ExecuteTick);
-
-	//We currently have nothing to do in this tick group, but we still want to wait on cloth simulation so that PostPhysics is ensured this is done
-	check(Target);
-	FPhysScene* PhysScene = Target->GetPhysicsScene();
-	if (PhysScene == NULL)
-	{
-		return;
-	}
-	PhysScene->WaitClothScene();
-}
-
-FString FEndClothSimulationFunction::DiagnosticMessage()
-{
-	return TEXT("FStartClothSimulationFunction");
-}
+void PvdConnect(FString Host, bool bVisualization);
 
 //////// GAME-LEVEL RIGID BODY PHYSICS STUFF ///////
 void InitGamePhys()
@@ -348,6 +292,8 @@ void InitGamePhys()
 	GPhysXSDK = PxCreatePhysics(PX_PHYSICS_VERSION, *GPhysXFoundation, PScale, false, GPhysXProfileZoneManager);
 	check(GPhysXSDK);
 
+	FPhysxSharedData::Initialize();
+
 	GPhysCommandHandler = new FPhysCommandHandler();
 
 	GPreGarbageCollectDelegateHandle = FCoreUObjectDelegates::PreGarbageCollect.AddRaw(GPhysCommandHandler, &FPhysCommandHandler::Flush);
@@ -358,10 +304,23 @@ void InitGamePhys()
 	PxInitVehicleSDK(*GPhysXSDK);
 #endif
 
-	//Turn on PhysX 3.3 unified height field collision detection. 
-	//This approach shares the collision detection code between meshes and height fields such that height fields behave identically to the equivalent terrain created as a mesh. 
-	//This approach facilitates mixing the use of height fields and meshes in the application with no tangible difference in collision behavior between the two approaches
-	PxRegisterUnifiedHeightFields(*GPhysXSDK);
+	if (CVarUseUnifiedHeightfield.GetValueOnGameThread())
+	{
+		//Turn on PhysX 3.3 unified height field collision detection. 
+		//This approach shares the collision detection code between meshes and height fields such that height fields behave identically to the equivalent terrain created as a mesh. 
+		//This approach facilitates mixing the use of height fields and meshes in the application with no tangible difference in collision behavior between the two approaches except that 
+		//heightfield thickness is not supported for unified heightfields.
+		PxRegisterUnifiedHeightFields(*GPhysXSDK);
+	}
+	else
+	{
+		PxRegisterHeightFields(*GPhysXSDK);
+	}
+
+	if( FParse::Param( FCommandLine::Get(), TEXT( "PVD" ) ) )
+	{
+		PvdConnect(TEXT("localhost"), true);
+	}
 
 
 #if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
@@ -465,6 +424,8 @@ void TermGamePhys()
 #endif
 
 #if WITH_PHYSX
+	FPhysxSharedData::Terminate();
+
 	// Do nothing if they were never initialized
 	if(GPhysXFoundation == NULL)
 	{

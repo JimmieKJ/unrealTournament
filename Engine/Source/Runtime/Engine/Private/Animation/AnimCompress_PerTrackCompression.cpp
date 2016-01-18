@@ -466,7 +466,7 @@ protected:
 		const bool bHasY = (FMath::Abs(KeyBounds.Max.Y) >= ZeroingThreshold) || (FMath::Abs(KeyBounds.Min.Y) >= ZeroingThreshold);
 		const bool bHasZ = (FMath::Abs(KeyBounds.Max.Z) >= ZeroingThreshold) || (FMath::Abs(KeyBounds.Min.Z) >= ZeroingThreshold);
 
-		if ((!bHasX && !bHasY && !bHasZ) || (Range.Size() > 4.0f))
+		if ((!bHasX && !bHasY && !bHasZ) || (Range.SizeSquared() > 16.0f))
 		{
 			// If there are no components, then there is no point in using this over the identity encoding
 			// If the range is insane, error out early (error metric will be high)

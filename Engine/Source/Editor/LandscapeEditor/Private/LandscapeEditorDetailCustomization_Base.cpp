@@ -41,14 +41,8 @@ bool FLandscapeEditorDetailCustomization_Base::IsBrushSetActive(FName BrushSetNa
 
 TOptional<int32> FLandscapeEditorDetailCustomization_Base::OnGetValue(TSharedRef<IPropertyHandle> PropertyHandle)
 {
-	// Try getting as float, if that fails then get as int
-	float FloatValue = 0.0f;
-	int32 IntValue = 0.0f;
-	if (PropertyHandle->GetValue(FloatValue) == FPropertyAccess::Success)
-	{
-		return TOptional<int32>(FloatValue);
-	}
-	else if (ensure(PropertyHandle->GetValue(IntValue) == FPropertyAccess::Success))
+	int32 IntValue = 0;
+	if (ensure(PropertyHandle->GetValue(IntValue) == FPropertyAccess::Success))
 	{
 		return TOptional<int32>(IntValue);
 	}
@@ -59,21 +53,13 @@ TOptional<int32> FLandscapeEditorDetailCustomization_Base::OnGetValue(TSharedRef
 
 void FLandscapeEditorDetailCustomization_Base::OnValueChanged(int32 NewValue, TSharedRef<IPropertyHandle> PropertyHandle)
 {
-	// Try setting as float, if that fails then set as int
-	EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::InteractiveChange;
-	if (PropertyHandle->SetValue(NewValue, Flags) != FPropertyAccess::Success)
-	{
-		ensure(PropertyHandle->SetValue(NewValue, Flags) == FPropertyAccess::Success);
-	}
+	const EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::InteractiveChange;
+	ensure(PropertyHandle->SetValue(NewValue, Flags) == FPropertyAccess::Success);
 }
 
 void FLandscapeEditorDetailCustomization_Base::OnValueCommitted(int32 NewValue, ETextCommit::Type CommitType, TSharedRef<IPropertyHandle> PropertyHandle)
 {
-	// Try setting as float, if that fails then set as int
-	if (PropertyHandle->SetValue(NewValue) != FPropertyAccess::Success)
-	{
-		ensure(PropertyHandle->SetValue(NewValue) == FPropertyAccess::Success);
-	}
+	ensure(PropertyHandle->SetValue(NewValue) == FPropertyAccess::Success);
 }
 
 //////////////////////////////////////////////////////////////////////////

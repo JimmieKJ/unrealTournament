@@ -3,6 +3,9 @@
 #pragma once
 
 
+class IStructureDetailsView;
+
+
 /**
  * Implements the message data panel.
  */
@@ -29,18 +32,18 @@ public:
 	 * @param InModel The view model to use.
 	 * @param InStyle The visual style to use for this widget.
 	 */
-	void Construct( const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle );
+	void Construct(const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle);
 
 public:
 
 	// FNotifyHook interface
 
-	virtual void NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, class FEditPropertyChain* PropertyThatChanged ) override;
+	virtual void NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, class FEditPropertyChain* PropertyThatChanged) override;
 
 private:
 
-	/** Handles checking whether the details view is enabled. */
-	bool HandleDetailsViewEnabled() const;
+	/** Handles checking whether the details view is editable. */
+	bool HandleDetailsViewIsPropertyEditable() const;
 
 	/** Handles determining the visibility of the details view. */
 	EVisibility HandleDetailsViewVisibility() const;
@@ -50,18 +53,17 @@ private:
 
 private:
 
-	/** Holds the details view. */
-//	TSharedPtr<IDetailsView> DetailsView;
+#if WITH_EDITOR
+	/** Holds the structure details view. */
+	TSharedPtr<IStructureDetailsView> StructureDetailsView;
+#else
+	/** Holds the details text box. */
+	TSharedPtr<SMultiLineEditableTextBox> TextBox;
+#endif //WITH_EDITOR
 
 	/** Holds a pointer to the view model. */
 	FMessagingDebuggerModelPtr Model;
 
 	/** Holds the widget's visual style. */
 	TSharedPtr<ISlateStyle> Style;
-
-	/** Holds the details text box. */
-	TSharedPtr<SMultiLineEditableTextBox> TextBox;
 };
-
-
-#undef LOCTEXT_NAMESPACE

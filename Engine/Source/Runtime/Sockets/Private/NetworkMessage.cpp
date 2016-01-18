@@ -85,7 +85,7 @@ bool FNFSMessageHeader::ReceivePayload(FArrayReader& OutPayload, const FSimpleAb
 		
 	if (!Socket.Receive(HeaderBytes.GetData(), Size))
 	{
-		UE_LOG(LogSockets, Error, TEXT("Unable to read full header"));
+		UE_LOG(LogSockets, Error, TEXT("Unable to read full network header"));
 		return false;
 	}
 

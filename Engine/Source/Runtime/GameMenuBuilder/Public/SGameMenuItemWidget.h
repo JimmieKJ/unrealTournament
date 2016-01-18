@@ -41,7 +41,7 @@ public:
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
 
-	// Begin SWidget interface
+	//~ Begin SWidget Interface
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 	
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -49,7 +49,7 @@ public:
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	// End SWidget interface
+	//~ End SWidget Interface
 
 	/** Sets this menu item as active (selected) */
 	void SetMenuItemActive(bool bIsMenuItemActive);

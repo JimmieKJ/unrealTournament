@@ -16,7 +16,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogMorpheusHMDPostProcess, All, All);
 
-#if HAS_MORPHEUS
+#if MORPHEUS_ENGINE_DISTORTION
 
 /** Encapsulates the post processing HMD distortion and correction pixel shader. */
 class FPostProcessMorpheusPS : public FGlobalShader
@@ -251,7 +251,7 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 
 FPooledRenderTargetDesc FRCPassPostProcessMorpheus::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.NumSamples = 1;	// no MSAA
 	Ret.Reset();

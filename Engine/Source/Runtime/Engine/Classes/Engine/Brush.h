@@ -13,15 +13,15 @@
 UENUM()
 enum ECsgOper
 {
-	// Active brush. (deprecated do not use)
+	/** Active brush. (deprecated, do not use.) */
 	CSG_Active,
-	// Add to world. (deprecated do not use)
+	/** Add to world. (deprecated, do not use.) */
 	CSG_Add,
-	// Subtract from world. (deprecated do not use)
+	/** Subtract from world. (deprecated, do not use.) */
 	CSG_Subtract,
-	// Form from intersection with world.
+	/** Form from intersection with world. */
 	CSG_Intersect,
-	// Form from negative intersection with world.
+	/** Form from negative intersection with world. */
 	CSG_Deintersect,
 	CSG_None,
 	CSG_MAX,
@@ -31,11 +31,11 @@ enum ECsgOper
 UENUM()
 enum EBrushType
 {
-	// Default/builder brush.
+	/** Default/builder brush. */
 	Brush_Default UMETA(Hidden),
-	// Add to world.
+	/** Add to world. */
 	Brush_Add UMETA(DisplayName=Additive),
-	// Subtract from world.
+	/** Subtract from world. */
 	Brush_Subtract UMETA(DisplayName=Subtractive),
 	Brush_MAX,
 };
@@ -139,12 +139,11 @@ public:
 public:
 	
 	// UObject interface.
-
-	virtual void PostLoad() override;
-
 #if WITH_EDITOR
+	virtual void PostLoad() override;
 	virtual void PostEditMove(bool bFinished) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 
 	virtual bool Modify(bool bAlwaysMarkDirty = false) override;
@@ -162,11 +161,11 @@ public:
 public:
 	
 	// AActor interface
-	virtual void Destroyed() override;
-	virtual void PostRegisterAllComponents() override;
 	virtual bool IsLevelBoundsRelevant() const override;
 
 #if WITH_EDITOR
+	virtual void Destroyed() override;
+	virtual void PostRegisterAllComponents() override;
 	virtual void CheckForErrors() override;
 	virtual void SetIsTemporarilyHiddenInEditor( bool bIsHidden ) override;
 
@@ -175,6 +174,8 @@ public:
 	virtual void InitPosRotScale();
 	virtual void CopyPosRotScaleFrom( ABrush* Other );
 
+	static void SetSuppressBSPRegeneration(bool bSuppress) { bSuppressBSPRegeneration = bSuppress; }
+
 private:
 
 	/** An array to keep track of all the levels that need rebuilding. This is checked via NeedsRebuild() in the editor tick and triggers a csg rebuild. */
@@ -182,6 +183,9 @@ private:
 
 	/** Delegate called when PostRegisterAllComponents is called for a Brush */
 	static FOnBrushRegistered OnBrushRegistered;
+
+	/** Global bool to suppress automatic BSP regeneration */
+	static bool bSuppressBSPRegeneration;
 
 public:
 
@@ -215,10 +219,6 @@ public:
 	 * @param	InLevel The level that needs rebuilding
 	 */
 	static void SetNeedRebuild(ULevel* InLevel){if(InLevel){LevelsToRebuild.AddUnique(InLevel);}}
-#else
-	static bool NeedsRebuild(TArray< TWeakObjectPtr< ULevel > >* OutLevels = nullptr){return false;}
-	static void OnRebuildDone(){}
-	static void SetNeedRebuild(ULevel* InLevel){}
 #endif//WITH_EDITOR
 
 	/** @return true if this is a static brush */
@@ -233,9 +233,11 @@ public:
 	// ABrush interface.
 
 	/** Returns the prepivot FVector of the RootComponent of this actor */
+	DEPRECATED(4.9, "This method has been superseded by AActor::GetPivotOffset.")
 	FVector GetPrePivot() const;
 
 	/** Set the PrePivot of the root component */
+	DEPRECATED(4.9, "This method has been superseded by AActor::SetPivotOffset.")
 	void SetPrePivot(const FVector& InPrePivot);
 
 	/** Figures out the best color to use for this brushes wireframe drawing.	*/

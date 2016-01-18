@@ -7,7 +7,7 @@
 /**
  * A panel that evenly divides up available space between all of its children.
  * 
- * ● Many Children
+ * * Many Children
  */
 UCLASS()
 class UMG_API UGridPanel : public UPanelWidget

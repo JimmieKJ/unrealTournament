@@ -31,16 +31,28 @@ static FPropertySoftPathSet GetPropertyNameSet(const UObject* ForObj)
 FResolvedProperty FPropertySoftPath::Resolve(const UObject* Object) const
 {
 	// dig into the object, finding nested objects, etc:
+	const void* CurrentBlock = Object;
+	const UStruct* NextClass = Object->GetClass();
+	const void* NextBlock = CurrentBlock;
 	const UProperty* Property = nullptr;
+
 	for( int32 i = 0; i < PropertyChain.Num(); ++i )
 	{
-		const UProperty* NextProperty = ::Resolve(Object->GetClass(), PropertyChain[i]);
+		CurrentBlock = NextBlock;
+		const UProperty* NextProperty = ::Resolve(NextClass, PropertyChain[i]);
 		if( NextProperty )
 		{
 			Property = NextProperty;
 			if (const UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property))
 			{
-				Object = ObjectProperty->GetObjectPropertyValue(Property->ContainerPtrToValuePtr<UObject*>(Object));
+				const UObject* NextObject = ObjectProperty->GetObjectPropertyValue(Property->ContainerPtrToValuePtr<UObject*>(CurrentBlock));
+				NextBlock = NextObject;
+				NextClass = NextObject ? NextObject->GetClass() : nullptr;
+			}
+			else if (const UStructProperty* StructProperty = Cast<UStructProperty>(Property))
+			{
+				NextBlock = StructProperty->ContainerPtrToValuePtr<void>(CurrentBlock);
+				NextClass = StructProperty->Struct;
 			}
 			else
 			{
@@ -53,7 +65,7 @@ FResolvedProperty FPropertySoftPath::Resolve(const UObject* Object) const
 		}
 	}
 
-	return FResolvedProperty(Object, Property);
+	return FResolvedProperty(CurrentBlock, Property);
 }
 
 FPropertyPath FPropertySoftPath::ResolvePath(const UObject* Object) const

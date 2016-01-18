@@ -211,7 +211,8 @@ class SLATE_API SNotificationList
 public:
 
 	SLATE_BEGIN_ARGS( SNotificationList ){}
-
+		/** Sets the font used to draw the text */
+		SLATE_ATTRIBUTE(FSlateFontInfo, Font)
 	SLATE_END_ARGS()
 	
 	/**
@@ -244,6 +245,9 @@ protected:
 
 	/** The parent window of this list. */
 	TWeakPtr<SWindow> ParentWindowPtr;
+
+	/** Holds passed in font */
+	TAttribute<FSlateFontInfo> Font;
 
 	/** Flag to auto-destroy this list. */
 	bool bDone;

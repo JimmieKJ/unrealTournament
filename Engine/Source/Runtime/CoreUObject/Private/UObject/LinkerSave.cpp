@@ -27,9 +27,9 @@ FLinkerSave::FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForc
 		// Set main summary info.
 		Summary.Tag           = PACKAGE_FILE_TAG;
 		Summary.SetFileVersions( GPackageFileUE4Version, GPackageFileLicenseeUE4Version, bInSaveUnversioned );
-		Summary.SavedByEngineVersion = GEngineVersion;
-		Summary.CompatibleWithEngineVersion = GCompatibleWithEngineVersion;
-		Summary.PackageFlags = Package ? (Package->PackageFlags & ~PKG_NewlyCreated) : 0;
+		Summary.SavedByEngineVersion = FEngineVersion::Current();
+		Summary.CompatibleWithEngineVersion = FEngineVersion::CompatibleWith();
+		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
 
 		if (Package)
 		{
@@ -41,6 +41,43 @@ FLinkerSave::FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForc
 		ArIsSaving				= 1;
 		ArIsPersistent			= 1;
 		ArForceByteSwapping		= bForceByteSwapping;
+	}
+}
+
+
+FLinkerSave::FLinkerSave(UPackage* InParent, FArchive *InSaver, bool bForceByteSwapping, bool bInSaveUnversioned)
+: FLinker(ELinkerType::Save, InParent, TEXT("$$Memory$$"))
+, Saver(nullptr)
+{
+	if (FPlatformProperties::HasEditorOnlyData())
+	{
+		// Create file saver.
+		Saver = InSaver;
+		check(Saver);
+#if WITH_EDITOR
+		ArDebugSerializationFlags = Saver->ArDebugSerializationFlags;
+#endif
+		
+
+		UPackage* Package = dynamic_cast<UPackage*>(LinkerRoot);
+
+		// Set main summary info.
+		Summary.Tag = PACKAGE_FILE_TAG;
+		Summary.SetFileVersions(GPackageFileUE4Version, GPackageFileLicenseeUE4Version, bInSaveUnversioned);
+		Summary.SavedByEngineVersion = FEngineVersion::Current();
+		Summary.CompatibleWithEngineVersion = FEngineVersion::CompatibleWith();
+		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
+
+		if (Package)
+		{
+			Summary.FolderName = Package->GetFolderName().ToString();
+			Summary.ChunkIDs = Package->GetChunkIDs();
+		}
+
+		// Set status info.
+		ArIsSaving = 1;
+		ArIsPersistent = 1;
+		ArForceByteSwapping = bForceByteSwapping;
 	}
 }
 
@@ -59,9 +96,9 @@ FLinkerSave::FLinkerSave(UPackage* InParent, bool bForceByteSwapping, bool bInSa
 		// Set main summary info.
 		Summary.Tag           = PACKAGE_FILE_TAG;
 		Summary.SetFileVersions( GPackageFileUE4Version, GPackageFileLicenseeUE4Version, bInSaveUnversioned );
-		Summary.SavedByEngineVersion = GEngineVersion;
-		Summary.CompatibleWithEngineVersion = GCompatibleWithEngineVersion;
-		Summary.PackageFlags = Package ? (Package->PackageFlags & ~PKG_NewlyCreated) : 0;
+		Summary.SavedByEngineVersion = FEngineVersion::Current();
+		Summary.CompatibleWithEngineVersion = FEngineVersion::CompatibleWith();
+		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
 
 		if (Package)
 		{
@@ -130,12 +167,22 @@ int64 FLinkerSave::Tell()
 
 void FLinkerSave::Serialize( void* V, int64 Length )
 {
+#if WITH_EDITOR
+	Saver->ArDebugSerializationFlags = ArDebugSerializationFlags;
+#endif
 	Saver->Serialize( V, Length );
 }
 	
+
+FString FLinkerSave::GetArchiveName() const
+{
+	return Saver->GetArchiveName();
+}
+
 FArchive& FLinkerSave::operator<<( FName& InName )
 {
 	int32 Save = MapName(InName);
+	ensure(Save != INDEX_NONE);
 	int32 Number = InName.GetNumber();
 	FArchive& Ar = *this;
 	return Ar << Save << Number;

@@ -37,8 +37,8 @@ void FOnlineAsyncTaskGooglePlayQueryAchievements::Tick()
 	// We're already running on the online thread. Using the blocking version of the API function
 	// won't block the main thread and simplifies things a bit.
 	// Try a 10 second timeout.
-	Response = Subsystem->GetGameServices()->Achievements().FetchAllBlocking(DataSource::CACHE_OR_NETWORK, Timeout(10000));
+	Response = Subsystem->GetGameServices()->Achievements().FetchAllBlocking(gpg::DataSource::CACHE_OR_NETWORK, gpg::Timeout(10000));
 	
-	bWasSuccessful = Response.status == ResponseStatus::VALID || Response.status == ResponseStatus::VALID_BUT_STALE;
+	bWasSuccessful = Response.status == gpg::ResponseStatus::VALID || Response.status == gpg::ResponseStatus::VALID_BUT_STALE;
 	bIsComplete = true;
 }

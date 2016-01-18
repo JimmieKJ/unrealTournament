@@ -29,6 +29,14 @@ fb=0
 # Xcode doesn't setup the environment, so we load it here:
 source ~/.bash_profile
 
+export PATH="/usr/local/bin:/usr/bin:$PATH"
+
+P4TOOL_PATH=`which p4`
+
+if [ $P4TOOL_PATH == "" ] || [ ! -f $P4TOOL_PATH ]; then
+	P4TOOL_PATH = "/usr/local/bin/p4"
+fi
+
 fn=${XcodeAlertAffectedPaths}
 fn=$(printf $(echo -n $fn | sed 's/\\/\\\\/g;s/\(%\)\([0-9a-fA-F][0-9a-fA-F]\)/\\x\2/g') )
 
@@ -37,7 +45,7 @@ fp=$(dirname "${fn}")
 echo "fp=" ${fp}
 
 # A check to confirm the current P4CONFIG setting:
-conf=$(/usr/bin/p4 -d "${fp}" set P4CONFIG 2>&1)
+conf=$($P4TOOL_PATH -d "${fp}" set P4CONFIG 2>&1)
 echo ${conf}
 
 if [ -a "${fn}" ]; then
@@ -46,7 +54,7 @@ if [ -a "${fn}" ]; then
     export XC_TO=${to}
 
     # Check the file out from Perforce:
-    res=$(/usr/bin/p4 -d "${fp}" edit "${fn}" 2>&1)
+    res=$($P4TOOL_PATH -d "${fp}" edit "${fn}" 2>&1)
     echo "res=" ${res}
 
     # Save the result as an environment variable

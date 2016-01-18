@@ -76,10 +76,22 @@ public:
 		SupportedFileTypes.Add(TEXT("avi"), LOCTEXT("FormatAvi", "Audio Video Interleave File"));
 		SupportedFileTypes.Add(TEXT("m4v"), LOCTEXT("FormatM4v", "Apple MPEG-4 Video"));
 		SupportedFileTypes.Add(TEXT("mov"), LOCTEXT("FormatMov", "Apple QuickTime Movie"));
+		SupportedFileTypes.Add(TEXT("mp3"), LOCTEXT("FormatMp3", "MPEG-2 Audio"));
 		SupportedFileTypes.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
 		SupportedFileTypes.Add(TEXT("sami"), LOCTEXT("FormatSami", "Synchronized Accessible Media Interchange (SAMI) File"));
 		SupportedFileTypes.Add(TEXT("smi"), LOCTEXT("FormatSmi", "Synchronized Multimedia Integration (SMIL) File"));
+		SupportedFileTypes.Add(TEXT("wav"), LOCTEXT("FormatWav", "Wave Audio File"));
+		SupportedFileTypes.Add(TEXT("wma"), LOCTEXT("FormatWma", "Windows Media Audio"));
 		SupportedFileTypes.Add(TEXT("wmv"), LOCTEXT("FormatWmv", "Windows Media Video"));
+
+		// initialize supported URI schemes
+		SupportedUriSchemes.Add(TEXT("http://"));
+		SupportedUriSchemes.Add(TEXT("httpd://"));
+		SupportedUriSchemes.Add(TEXT("https://"));
+		SupportedUriSchemes.Add(TEXT("mms://"));
+		SupportedUriSchemes.Add(TEXT("rtsp://"));
+		SupportedUriSchemes.Add(TEXT("rtspt://"));
+		SupportedUriSchemes.Add(TEXT("rtspu://"));
 
 		// register factory
 		MediaModule->RegisterPlayerFactory(*this);
@@ -129,7 +141,22 @@ public:
 
 	virtual bool SupportsUrl(const FString& Url) const override
 	{
-		return SupportedFileTypes.Contains(FPaths::GetExtension(Url));
+		const FString Extension = FPaths::GetExtension(Url);
+
+		if (!Extension.IsEmpty())
+		{
+			return SupportedFileTypes.Contains(Extension);
+		}
+
+		for (const FString& Scheme : SupportedUriSchemes)
+		{
+			if (Url.StartsWith(Scheme))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 protected:
@@ -179,6 +206,9 @@ private:
 
 	/** The collection of supported media file types. */
 	FMediaFileTypes SupportedFileTypes;
+
+	/** The collection of supported URI schemes. */
+	TArray<FString> SupportedUriSchemes;
 };
 
 

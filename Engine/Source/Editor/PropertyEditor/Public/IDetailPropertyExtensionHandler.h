@@ -7,7 +7,7 @@ class IDetailPropertyExtensionHandler
 public:
 	virtual ~IDetailPropertyExtensionHandler(){ }
 
-	virtual bool IsPropertyExtenable(const UClass* InObjectClass, const class IPropertyHandle& PropertyHandle) const = 0;
+	virtual bool IsPropertyExtendable(const UClass* InObjectClass, const class IPropertyHandle& PropertyHandle) const = 0;
 
 	virtual TSharedRef<SWidget> GenerateExtensionWidget(const UClass* InObjectClass, TSharedPtr<IPropertyHandle> PropertyHandle) = 0;
 };

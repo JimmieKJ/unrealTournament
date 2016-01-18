@@ -23,6 +23,24 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category=Settings)
 	FString RedirectURI;
 
+	/** The port number on the localhost to use when authenticating using implicit grant authentication.  This should be the same
+	    port number as the one used in the RedirectURI. */
+	UPROPERTY( Config, EditAnywhere, Category = Settings )
+	int32 LocalPortNumber;
+
+	/** The web page the user should be sent to after they've logged in successfully.  This page should usually tell the user
+	    that they've logged in, and they can task switch back to the application now. */
+	UPROPERTY( Config, EditAnywhere, Category = Settings )
+	FString AuthSuccessRedirectURI;
+
+	/** The web page the user should be sent to if something went wrong after logging in. */
+	UPROPERTY( Config, EditAnywhere, Category = Settings )
+	FString AuthFailureRedirectURI;
+
+	/** Twitch "client secret" ID.  This is required if you want to use direct authentication instead of authenticating through
+	    a web browser. */
+	UPROPERTY( Config, EditAnywhere, Category = Settings )
+	FString DirectAuthenticationClientSecretID;
 };
 
 

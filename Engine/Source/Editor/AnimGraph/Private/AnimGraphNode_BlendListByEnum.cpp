@@ -58,37 +58,26 @@ void UAnimGraphNode_BlendListByEnum::PostPlacedNewNode()
 
 void UAnimGraphNode_BlendListByEnum::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	auto CustomizeBlendListEnumNodeLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, UEnum* EnumValue)
+	struct GetMenuActions_Utils
 	{
-		UAnimGraphNode_BlendListByEnum* BlendListEnumNode = CastChecked<UAnimGraphNode_BlendListByEnum>(NewNode);
-		BlendListEnumNode->BoundEnum = EnumValue;
+		static void SetNodeEnum(UEdGraphNode* NewNode, bool /*bIsTemplateNode*/, TWeakObjectPtr<UEnum> NonConstEnumPtr)
+		{
+			UAnimGraphNode_BlendListByEnum* BlendListEnumNode = CastChecked<UAnimGraphNode_BlendListByEnum>(NewNode);
+			BlendListEnumNode->BoundEnum = NonConstEnumPtr.Get();
+		}
 	};
 
+	UClass* NodeClass = GetClass();
 	// add all blendlist enum entries
-	for (TObjectIterator<UEnum> EnumIt; EnumIt; ++EnumIt)
+	ActionRegistrar.RegisterEnumActions( FBlueprintActionDatabaseRegistrar::FMakeEnumSpawnerDelegate::CreateLambda([NodeClass](const UEnum* Enum)->UBlueprintNodeSpawner*
 	{
-		UEnum* CurrentEnum = *EnumIt;
+		UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(NodeClass);
+		check(NodeSpawner != nullptr);
+		TWeakObjectPtr<UEnum> NonConstEnumPtr = Enum;
+		NodeSpawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(GetMenuActions_Utils::SetNodeEnum, NonConstEnumPtr);
 
-		// to keep from needlessly instantiating a UBlueprintNodeSpawner, first   
-		// check to make sure that the registrar is looking for actions of this type
-		// (could be regenerating actions for a specific asset, and therefore the 
-		// registrar would only accept actions corresponding to that asset)
-		if (!ActionRegistrar.IsOpenForRegistration(CurrentEnum))
-		{
-			continue;
-		}
-
-		const bool bIsBlueprintType = UEdGraphSchema_K2::IsAllowableBlueprintVariableType(CurrentEnum);
-		if (bIsBlueprintType)
-		{
-			UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(GetClass());
-			check(NodeSpawner != nullptr);
-
-			NodeSpawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeBlendListEnumNodeLambda, CurrentEnum);
-
-			ActionRegistrar.AddBlueprintAction(CurrentEnum, NodeSpawner);
-		}
-	}
+		return NodeSpawner;
+	}) );
 }
 
 void UAnimGraphNode_BlendListByEnum::GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const
@@ -267,6 +256,36 @@ void UAnimGraphNode_BlendListByEnum::CustomizePinData(UEdGraphPin* Pin, FName So
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("PinFriendlyName"), Pin->PinFriendlyName);
 			Pin->PinFriendlyName = FText::Format(LOCTEXT("FriendlyNameBlendTime", "{PinFriendlyName} Blend Time"), Args);
+		}
+	}
+}
+
+void UAnimGraphNode_BlendListByEnum::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		if (BoundEnum != NULL)
+		{
+			PreloadObject(BoundEnum);
+
+			for (auto ExposedIt = VisibleEnumEntries.CreateIterator(); ExposedIt; ++ExposedIt)
+			{
+				FName& EnumElementName = *ExposedIt;
+				const int32 EnumIndex = BoundEnum->FindEnumIndex(EnumElementName);
+
+				if (EnumIndex != INDEX_NONE)
+				{
+					// This handles redirectors, we need to update the VisibleEnumEntries if the name has changed
+					FName NewElementName = BoundEnum->GetEnum(EnumIndex);
+
+					if (NewElementName != EnumElementName)
+					{
+						EnumElementName = NewElementName;
+					}
+				}
+			}
 		}
 	}
 }

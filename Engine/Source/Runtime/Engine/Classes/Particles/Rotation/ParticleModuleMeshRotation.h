@@ -22,6 +22,9 @@ class UParticleModuleMeshRotation : public UParticleModuleRotationBase
 	uint32 bInheritParent:1;
 
 	//Begin UObject Interface
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif // WITH_EDITOR
 	virtual void	PostInitProperties() override;
 	//End UObject Interface
 
@@ -29,6 +32,9 @@ class UParticleModuleMeshRotation : public UParticleModuleRotationBase
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual bool	TouchesMeshRotation() const override { return true; }
 	//End UParticleModule Interface
+
+	/** Initializes the default values for this property */
+	void InitializeDefaults();
 
 	/**
 	 *	Extended version of spawn, allows for using a random stream for distribution value retrieval

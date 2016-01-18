@@ -115,9 +115,9 @@ private:
 	uint32 bIsSelected:1;
 
 public:
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostLoad() override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 
 	/** Iterate over all InterpTracks in this UInterpGroup, doing any actions to bring the state to the specified time. */

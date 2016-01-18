@@ -3,7 +3,6 @@
 #include "LogVisualizer.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "LogVisualizerStyle.h"
-#include "SDockTab.h"
 #include "VisualLoggerRenderingActor.h"
 #include "LogVisualizerSettings.h"
 #if WITH_EDITOR
@@ -27,10 +26,6 @@ public:
 	virtual void ShutdownModule() override;
 	// End IModuleInterface
 
-	virtual void Goto(float Timestamp, FName LogOwner) override;
-	virtual void GotoNextItem() override;
-	virtual void GotoPreviousItem() override;
-
 private:
 	TSharedRef<SDockTab> SpawnLogVisualizerTab(const FSpawnTabArgs& SpawnTabArgs);
 };
@@ -38,7 +33,9 @@ private:
 void FLogVisualizerModule::StartupModule()
 {
 	FLogVisualizerStyle::Initialize();
+	FVisualLoggerDatabase::Initialize();
 	FLogVisualizer::Initialize();
+	FVisualLoggerFilters::Initialize();
 
 	FVisualLoggerCommands::Register();
 	IModularFeatures::Get().RegisterModularFeature(VisualLoggerTabName, this);
@@ -74,13 +71,15 @@ void FLogVisualizerModule::ShutdownModule()
 		SettingsModule->UnregisterSettings("Editor", "General", "VisualLogger");
 	}
 
+	FVisualLoggerFilters::Shutdown();
 	FLogVisualizer::Shutdown();
+	FVisualLoggerDatabase::Shutdown();
 	FLogVisualizerStyle::Shutdown();
 }
 
 TSharedRef<SDockTab> FLogVisualizerModule::SpawnLogVisualizerTab(const FSpawnTabArgs& SpawnTabArgs)
 {
-	const TSharedRef<SDockTab> MajorTab = SNew(SDockTab)
+	const TSharedRef<SDockTab> MajorTab = SNew(SVisualLoggerTab)
 		.TabRole(ETabRole::NomadTab);
 
 	TSharedPtr<SWidget> TabContent;
@@ -91,22 +90,6 @@ TSharedRef<SDockTab> FLogVisualizerModule::SpawnLogVisualizerTab(const FSpawnTab
 
 	return MajorTab;
 }
-
-void FLogVisualizerModule::Goto(float Timestamp, FName LogOwner)
-{
-	FLogVisualizer::Get().Goto(Timestamp, LogOwner);
-}
-
-void FLogVisualizerModule::GotoNextItem()
-{
-	FLogVisualizer::Get().GotoNextItem();
-}
-
-void FLogVisualizerModule::GotoPreviousItem()
-{
-	FLogVisualizer::Get().GotoPreviousItem();
-}
-
 
 IMPLEMENT_MODULE(FLogVisualizerModule, LogVisualizer);
 #undef LOCTEXT_NAMESPACE

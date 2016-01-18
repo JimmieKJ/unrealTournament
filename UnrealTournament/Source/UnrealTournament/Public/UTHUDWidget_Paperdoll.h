@@ -1,9 +1,5 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once 
-
-/**
- *
- **/
 
 #include "UTHUDWidget_Paperdoll.generated.h"
 
@@ -13,13 +9,11 @@ class UNREALTOURNAMENT_API UUTHUDWidget_Paperdoll : public UUTHUDWidget
 	GENERATED_UCLASS_BODY()
 
 public:
-
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 	virtual void Draw_Implementation(float DeltaTime) override;
 	virtual void InitializeWidget(AUTHUD* Hud) override;
 
 protected:
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture BackgroundSlate;
 
@@ -77,7 +71,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FLinearColor ArmorNegativeFlashColor;
 
-
 	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
 	FText GetPlayerHealth();
 
@@ -87,10 +80,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "PaperDoll")
 	virtual void ProcessArmor();
 
-
-
 	int32 PlayerArmor;
-
 
 private:
 	int32 LastHealth;
@@ -98,5 +88,4 @@ private:
 
 	int32 LastArmor;
 	float ArmorFlashTimer;
-
 };

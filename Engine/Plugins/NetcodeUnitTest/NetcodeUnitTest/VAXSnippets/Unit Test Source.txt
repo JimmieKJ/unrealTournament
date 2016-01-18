@@ -5,7 +5,7 @@ Description: Creates the source file for a basic unit test.
 Source:
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "$UnitTestProject$PCH.h"
 
 #include "UnitTests/$FILE_BASE$.h"
 
@@ -26,7 +26,7 @@ U$FILE_BASE$::U$FILE_BASE$(const FObjectInitializer& ObjectInitializer)
 
 	bWorkInProgress = true;
 
-	// @todo JohnB: Bugtracking/changelist notes
+	// @todo #JohnBExploitCL: Bugtracking/changelist notes
 
 	ExpectedResult.Add(TEXT("$TargetGame$"), EUnitTestVerification::VerifiedNotFixed);
 
@@ -38,15 +38,13 @@ U$FILE_BASE$::U$FILE_BASE$(const FObjectInitializer& ObjectInitializer)
 
 void U$FILE_BASE$::InitializeEnvironmentSettings()
 {
-	TArray<FString> SupportedGames = GetSupportedGames();
-
-	BaseServerURL = UnitEnv->GetDefaultMap(SupportedGames, UnitTestFlags);
-	BaseServerParameters = UnitEnv->GetDefaultServerParameters(SupportedGames);
+	BaseServerURL = UnitEnv->GetDefaultMap(UnitTestFlags);
+	BaseServerParameters = UnitEnv->GetDefaultServerParameters();
 }
 
 void U$FILE_BASE$::ExecuteClientUnitTest()
 {
-	// @todo JohnB
+	// @todo #JohnB
 }
 
 void U$FILE_BASE$::NotifyProcessLog(TWeakPtr<FUnitTestProcess> InProcess, const TArray<FString>& InLogLines)
@@ -57,7 +55,7 @@ void U$FILE_BASE$::NotifyProcessLog(TWeakPtr<FUnitTestProcess> InProcess, const 
 	{
 		for (auto CurLine : InLogLines)
 		{
-			// @todo JohnB
+			// @todo #JohnB
 		}
 	}
 }

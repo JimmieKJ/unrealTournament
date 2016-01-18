@@ -47,6 +47,9 @@ public class OpenVR : ModuleRules
 			string DylibPath = SdkBase + "/bin/osx32/libopenvr_api.dylib";
 			PublicDelayLoadDLLs.Add(DylibPath);
 			PublicAdditionalShadowFiles.Add(DylibPath);
+
+			string OpenVRBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/OpenVR/OpenVR{0}/osx32/", OpenVRVersion);
+			RuntimeDependencies.Add(new RuntimeDependency(OpenVRBinariesDir + "libopenvr_api.dylib"));
 		}
 	}
 }

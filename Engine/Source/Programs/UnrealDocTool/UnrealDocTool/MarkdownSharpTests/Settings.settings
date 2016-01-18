@@ -50,5 +50,8 @@
     <Setting Name="InternationalizationDirectory" Type="System.String" Scope="Application">
       <Value Profile="(Default)">Internationalization</Value>
     </Setting>
+    <Setting Name="SupportedLanguageLabels" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">English,中国,日本人,한국어</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

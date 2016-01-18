@@ -15,6 +15,18 @@ enum class ENiagaraDataType : uint8
 	Curve,
 };
 
+
+
+
+enum ENiagaraTickState
+{
+	NTS_Running,
+	NTS_Suspended,
+	NTS_Dieing,
+	NTS_Dead
+};
+
+
 USTRUCT()
 struct FNiagaraVariableInfo
 {
@@ -54,6 +66,63 @@ FORCEINLINE FArchive& operator<<(FArchive& Ar, FNiagaraVariableInfo& VarInfo)
 }
 
 FORCEINLINE uint32 GetTypeHash(const FNiagaraVariableInfo& Var)
+{
+	return HashCombine(GetTypeHash(Var.Name), (uint32)(Var.Type.GetValue()));
+}
+
+
+UENUM()
+enum class ENiagaraDataSetType : uint8
+{
+	ParticleData,
+	Shared,
+	Event,
+};
+
+USTRUCT()
+struct FNiagaraDataSetID
+{
+	GENERATED_USTRUCT_BODY()
+
+	FNiagaraDataSetID()
+	: Name(NAME_None)
+	, Type(ENiagaraDataSetType::Event)
+	{}
+
+	FNiagaraDataSetID(FName InName, ENiagaraDataSetType InType)
+		: Name(InName)
+		, Type(InType)
+	{}
+
+	UPROPERTY(EditAnywhere, Category = "Data Set")
+	FName Name;
+
+	UPROPERTY()
+	TEnumAsByte<ENiagaraDataSetType> Type;
+
+	FORCEINLINE bool operator==(const FNiagaraDataSetID& Other)const
+	{
+		return Name == Other.Name && Type == Other.Type;
+	}
+
+	FORCEINLINE bool operator!=(const FNiagaraDataSetID& Other)const
+	{
+		return !(*this == Other);
+	}
+
+	//Some special case data sets.
+	static FNiagaraDataSetID DeathEvent;
+	static FNiagaraDataSetID SpawnEvent;
+	static FNiagaraDataSetID CollisionEvent;
+};
+
+FORCEINLINE FArchive& operator<<(FArchive& Ar, FNiagaraDataSetID& VarInfo)
+{
+	Ar << VarInfo.Name << VarInfo.Type;
+	return Ar;
+}
+
+FORCEINLINE uint32 GetTypeHash(const FNiagaraDataSetID& Var)
 {
 	return HashCombine(GetTypeHash(Var.Name), (uint32)(Var.Type.GetValue()));
 }

@@ -80,6 +80,10 @@ void FSimpleHMD::GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat
 {
 }
 
+void FSimpleHMD::RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const
+{
+}
+
 void FSimpleHMD::SetInterpupillaryDistance(float NewInterpupillaryDistance)
 {
 }
@@ -330,7 +334,7 @@ void FSimpleHMD::SetupViewFamily(FSceneViewFamily& InViewFamily)
 {
 	InViewFamily.EngineShowFlags.MotionBlur = 0;
 	InViewFamily.EngineShowFlags.HMDDistortion = true;
-	InViewFamily.EngineShowFlags.ScreenPercentage = 1.0f;
+	InViewFamily.EngineShowFlags.SetScreenPercentage(true);
 	InViewFamily.EngineShowFlags.StereoRendering = IsStereoEnabled();
 }
 

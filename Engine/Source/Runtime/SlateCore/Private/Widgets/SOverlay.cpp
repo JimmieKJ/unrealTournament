@@ -7,13 +7,10 @@
 SOverlay::SOverlay()
 : Children()
 {
+	bCanTick = false;
+	bCanSupportFocus = false;
 }
 
-/**
- * Construct this widget
- *
- * @param	InArgs	The declaration data for this widget
- */
 void SOverlay::Construct( const SOverlay::FArguments& InArgs )
 {
 	const int32 NumSlots = InArgs.Slots.Num();
@@ -22,7 +19,6 @@ void SOverlay::Construct( const SOverlay::FArguments& InArgs )
 		Children.Add( InArgs.Slots[SlotIndex] );
 	}
 }
-
 
 void SOverlay::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
@@ -45,13 +41,6 @@ void SOverlay::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedCh
 	}
 }
 
-
-/**
- * A Panel's desired size in the space required to arrange of its children on the screen while respecting all of
- * the children's desired sizes and any layout-related options specified by the user. See StackPanel for an example.
- *
- * @return The desired size.
- */
 FVector2D SOverlay::ComputeDesiredSize( float ) const
 {
 	FVector2D MaxSize(0,0);
@@ -70,7 +59,6 @@ FVector2D SOverlay::ComputeDesiredSize( float ) const
 	return MaxSize;
 }
 
-/** @return  The children of a panel in a slot-agnostic way. */
 FChildren* SOverlay::GetChildren()
 {
 	return &Children;
@@ -167,12 +155,10 @@ void SOverlay::ClearChildren()
 	Children.Empty();
 }
 
-/** Returns the number of child widgets */
 int32 SOverlay::GetNumWidgets() const
 {
 	return Children.Num();
 }
-
 
 void SOverlay::RemoveSlot( TSharedRef< SWidget > Widget )
 {

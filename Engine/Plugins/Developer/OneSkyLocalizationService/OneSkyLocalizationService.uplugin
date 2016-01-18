@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "OneSky",
+	"Version" : 1,
+	"VersionName" : "0.5",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.8.0",
+	"Description" : "OneSky localization service",
+	"Category" : "Localization",
+	"EnabledByDefault" : false,
+    "IsBetaVersion": true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "OneSkyLocalizationService",
+			"Type" : "Developer"
+		}
+	]
+}

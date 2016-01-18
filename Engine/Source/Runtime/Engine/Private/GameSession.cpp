@@ -23,25 +23,30 @@ static TAutoConsoleVariable<int32> CVarMaxPlayersOverride( TEXT( "net.MaxPlayers
  */
 APlayerController* GetPlayerControllerFromNetId(UWorld* World, const FUniqueNetId& PlayerNetId)
 {
-	// Iterate through the controller list looking for the net id
-	for(FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	if (PlayerNetId.IsValid())
 	{
-		APlayerController* PlayerController = *Iterator;
-		// Determine if this is a player with replication
-		if (PlayerController->PlayerState != NULL)
+		// Iterate through the controller list looking for the net id
+		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			// If the ids match, then this is the right player.
-			if (*PlayerController->PlayerState->UniqueId == PlayerNetId)
+			APlayerController* PlayerController = *Iterator;
+			// Determine if this is a player with replication
+			if (PlayerController->PlayerState != NULL && PlayerController->PlayerState->UniqueId.IsValid())
 			{
-				return PlayerController;
+				// If the ids match, then this is the right player.
+				if (*PlayerController->PlayerState->UniqueId == PlayerNetId)
+				{
+					return PlayerController;
+				}
 			}
 		}
 	}
-	return NULL;
+
+	return nullptr;
 }
 
 AGameSession::AGameSession(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+	: Super(ObjectInitializer),
+	MaxPartySize(INDEX_NONE)
 {
 }
 
@@ -53,7 +58,7 @@ void AGameSession::HandleMatchHasStarted()
 {
 	UWorld* World = GetWorld();
 	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
-	if (SessionInt.IsValid())
+	if (SessionInt.IsValid() && SessionInt->GetNamedSession(SessionName) != nullptr)
 	{
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
@@ -66,6 +71,15 @@ void AGameSession::HandleMatchHasStarted()
 
 		StartSessionCompleteHandle = SessionInt->AddOnStartSessionCompleteDelegate_Handle(FOnStartSessionCompleteDelegate::CreateUObject(this, &AGameSession::OnStartSessionComplete));
 		SessionInt->StartSession(SessionName);
+	}
+
+	if (STATS && !UE_BUILD_SHIPPING)
+	{
+		if (FParse::Param(FCommandLine::Get(), TEXT("MatchAutoStatCapture")))
+		{
+			UE_LOG(LogGameSession, Log, TEXT("Match has started - begin automatic stat capture"));
+			GEngine->Exec(GetWorld(), TEXT("stat startfile"));
+		}
 	}
 }
 
@@ -82,6 +96,15 @@ void AGameSession::OnStartSessionComplete(FName InSessionName, bool bWasSuccessf
 
 void AGameSession::HandleMatchHasEnded()
 {
+	if (STATS && !UE_BUILD_SHIPPING)
+	{
+		if (FParse::Param(FCommandLine::Get(), TEXT("MatchAutoStatCapture")))
+		{
+			UE_LOG(LogGameSession, Log, TEXT("Match has ended - end automatic stat capture"));
+			GEngine->Exec(GetWorld(), TEXT("stat stopfile"));
+		}
+	}
+
 	UWorld* World = GetWorld();
 	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
 	if (SessionInt.IsValid())
@@ -95,7 +118,7 @@ void AGameSession::HandleMatchHasEnded()
 			}
 		}
 
-		SessionInt->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &AGameSession::OnEndSessionComplete));
+		EndSessionCompleteHandle = SessionInt->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &AGameSession::OnEndSessionComplete));
 		SessionInt->EndSession(SessionName);
 	}
 }
@@ -118,13 +141,25 @@ bool AGameSession::HandleStartMatchRequest()
 
 void AGameSession::InitOptions( const FString& Options )
 {
-	UWorld* World = GetWorld();
+	UWorld* const World = GetWorld();
 	check(World);
-	AGameMode* const GameMode = World->GetAuthGameMode();
+	AGameMode* const GameMode = World ? World->GetAuthGameMode() : nullptr;
 
-	MaxPlayers = GameMode->GetIntOption( Options, TEXT("MaxPlayers"), MaxPlayers );
-	MaxSpectators = GameMode->GetIntOption( Options, TEXT("MaxSpectators"), MaxSpectators );
-	SessionName = GetDefault<APlayerState>(GameMode->PlayerStateClass)->SessionName;
+	MaxPlayers = UGameplayStatics::GetIntOption( Options, TEXT("MaxPlayers"), MaxPlayers );
+	MaxSpectators = UGameplayStatics::GetIntOption( Options, TEXT("MaxSpectators"), MaxSpectators );
+	
+	if (GameMode)
+	{
+		APlayerState const* const DefaultPlayerState = GetDefault<APlayerState>(GameMode->PlayerStateClass);
+		if (DefaultPlayerState)
+		{
+			SessionName = DefaultPlayerState->SessionName;
+		}
+		else
+		{
+			UE_LOG(LogGameSession, Error, TEXT("Player State class is invalid for game mode: %s!"), *GameMode->GetName());
+		}
+	}
 }
 
 bool AGameSession::ProcessAutoLogin()
@@ -160,13 +195,18 @@ void AGameSession::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, cons
 		}
 		else
 		{
-			UE_LOG(LogGameSession, Warning, TEXT("Autologin attempt failed, unable to register server!"));
+			RegisterServerFailed();
 		}
 	}
 }
 
 void AGameSession::RegisterServer()
 {
+}
+
+void AGameSession::RegisterServerFailed()
+{
+	UE_LOG(LogGameSession, Warning, TEXT("Autologin attempt failed, unable to register server!"));
 }
 
 FString AGameSession::ApproveLogin(const FString& Options)
@@ -178,19 +218,20 @@ FString AGameSession::ApproveLogin(const FString& Options)
 	check(GameMode);
 
 	int32 SpectatorOnly = 0;
-	SpectatorOnly = GameMode->GetIntOption(Options, TEXT("SpectatorOnly"), SpectatorOnly);
+	SpectatorOnly = UGameplayStatics::GetIntOption(Options, TEXT("SpectatorOnly"), SpectatorOnly);
 
 	if (AtCapacity(SpectatorOnly == 1))
 	{
-		return NSLOCTEXT("NetworkErrors", "ServerAtCapacity", "Server full.").ToString();
+		return TEXT( "Server full." );
 	}
 
 	int32 SplitscreenCount = 0;
-	SplitscreenCount = GameMode->GetIntOption(Options, TEXT("SplitscreenCount"), SplitscreenCount);
+	SplitscreenCount = UGameplayStatics::GetIntOption(Options, TEXT("SplitscreenCount"), SplitscreenCount);
 
 	if (SplitscreenCount > MaxSplitscreensPerConnection)
 	{
-		return FText::Format(NSLOCTEXT("NetworkErrors", "ServerAtCapacitySS", "A maximum of '{0}' splitscreen players are allowed"), FText::AsNumber(MaxSplitscreensPerConnection)).ToString();
+		UE_LOG(LogGameSession, Warning, TEXT("ApproveLogin: A maximum of %i splitscreen players are allowed"), MaxSplitscreensPerConnection);
+		return TEXT("Maximum splitscreen players");
 	}
 
 	return TEXT("");
@@ -200,7 +241,6 @@ void AGameSession::PostLogin(APlayerController* NewPlayer)
 {
 }
 
-/** @return A new unique player ID */
 int32 AGameSession::GetNextPlayerID()
 {
 	// Start at 256, because 255 is special (means all team for some UT Emote stuff)
@@ -208,14 +248,7 @@ int32 AGameSession::GetNextPlayerID()
 	return NextPlayerID++;
 }
 
-/**
- * Register a player with the online service session
- * 
- * @param NewPlayer player to register
- * @param UniqueId uniqueId they sent over on Login
- * @param bWasFromInvite was this from an invite
- */
-void AGameSession::RegisterPlayer(APlayerController* NewPlayer, const TSharedPtr<FUniqueNetId>& UniqueId, bool bWasFromInvite)
+void AGameSession::RegisterPlayer(APlayerController* NewPlayer, const TSharedPtr<const FUniqueNetId>& UniqueId, bool bWasFromInvite)
 {
 	if (NewPlayer != NULL)
 	{
@@ -227,24 +260,31 @@ void AGameSession::RegisterPlayer(APlayerController* NewPlayer, const TSharedPtr
 	}
 }
 
-/**
- * Unregister a player from the online service session
- */
-void AGameSession::UnregisterPlayer(APlayerController* ExitingPlayer)
+void AGameSession::UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId)
 {
 	UWorld* World = GetWorld();
 	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
 	if (SessionInt.IsValid())
 	{
-		if (GetNetMode() != NM_Standalone && 
-			ExitingPlayer != NULL &&
-			ExitingPlayer->PlayerState && 
-			ExitingPlayer->PlayerState->UniqueId.IsValid() &&
-			ExitingPlayer->PlayerState->UniqueId->IsValid())
+		if (GetNetMode() != NM_Standalone &&
+			UniqueId.IsValid() &&
+			UniqueId->IsValid())
 		{
 			// Remove the player from the session
-			SessionInt->UnregisterPlayer(ExitingPlayer->PlayerState->SessionName, *ExitingPlayer->PlayerState->UniqueId);
+			SessionInt->UnregisterPlayer(InSessionName, *UniqueId);
 		}
+	}
+}
+
+void AGameSession::UnregisterPlayer(const APlayerController* ExitingPlayer)
+{
+	if (GetNetMode() != NM_Standalone &&
+		ExitingPlayer != NULL &&
+		ExitingPlayer->PlayerState &&
+		ExitingPlayer->PlayerState->UniqueId.IsValid() &&
+		ExitingPlayer->PlayerState->UniqueId->IsValid())
+	{
+		UnregisterPlayer(ExitingPlayer->PlayerState->SessionName, ExitingPlayer->PlayerState->UniqueId);
 	}
 }
 
@@ -268,7 +308,13 @@ bool AGameSession::AtCapacity(bool bSpectator)
 	}
 }
 
-void AGameSession::NotifyLogout(APlayerController* PC)
+void AGameSession::NotifyLogout(FName InSessionName, const FUniqueNetIdRepl& UniqueId)
+{
+	// Unregister the player from the online layer
+	UnregisterPlayer(InSessionName, UniqueId);
+}
+
+void AGameSession::NotifyLogout(const APlayerController* PC)
 {
 	// Unregister the player from the online layer
 	UnregisterPlayer(PC);
@@ -383,6 +429,35 @@ void AGameSession::DumpSessionState()
 bool AGameSession::CanRestartGame()
 {
 	return true;
+}
+
+bool AGameSession::GetSessionJoinability(FName InSessionName, FJoinabilitySettings& OutSettings)
+{
+	UWorld* const World = GetWorld();
+	check(World);
+
+	bool bValidData = false;
+
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
+	if (SessionInt.IsValid())
+	{
+		FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(InSessionName);
+		if (SessionSettings)
+		{
+			OutSettings.SessionName = InSessionName;
+			OutSettings.bPublicSearchable = SessionSettings->bShouldAdvertise;
+			OutSettings.bAllowInvites = SessionSettings->bAllowInvites;
+			OutSettings.bJoinViaPresence = SessionSettings->bAllowJoinViaPresence;
+			OutSettings.bJoinViaPresenceFriendsOnly = SessionSettings->bAllowJoinViaPresenceFriendsOnly;
+
+			OutSettings.MaxPlayers = MaxPlayers;
+			OutSettings.MaxPartySize = MaxPartySize;
+
+			bValidData = true;
+		}
+	}
+
+	return bValidData;
 }
 
 void AGameSession::UpdateSessionJoinability(FName InSessionName, bool bPublicSearchable, bool bAllowInvites, bool bJoinViaPresence, bool bJoinViaPresenceFriendsOnly)

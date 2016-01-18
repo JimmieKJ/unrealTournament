@@ -19,7 +19,7 @@ namespace
 	UWorld* GetSimpleEngineAutomationTestGameWorld(const int32 TestFlags)
 	{
 		// Accessing the game world is only valid for game-only 
-		check((TestFlags & EAutomationTestFlags::ATF_ApplicationMask) == EAutomationTestFlags::ATF_Game);
+		check((TestFlags & EAutomationTestFlags::ApplicationContextMask) == EAutomationTestFlags::ClientContext);
 		check(GEngine->GetWorldContexts().Num() == 1);
 		check(GEngine->GetWorldContexts()[0].WorldType == EWorldType::Game);
 
@@ -63,7 +63,7 @@ namespace
 /**
  * SetRes Verification - Verify changing resolution works
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FSetResTest, "System.Windows.Set Resolution", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSetResTest, "System.Windows.Set Resolution", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 /** 
  * Change resolutions, wait, and change back
@@ -97,7 +97,7 @@ bool FSetResTest::RunTest(const FString& Parameters)
 /**
  * Stats verification - Toggle various "stats" commands
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FStatsVerificationMapTest, "System.Maps.Stats Verification", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStatsVerificationMapTest, "System.Maps.Stats Verification", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 /** 
  * Execute the loading of one map to verify screen captures and performance captures work
@@ -192,7 +192,7 @@ bool FStatsVerificationMapTest::RunTest(const FString& Parameters)
  * LoadAutomationMap
  * Verification automation test to make sure features of map loading work (load, screen capture, performance capture)
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FPerformanceCaptureTest, "System.Maps.Performance Capture", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPerformanceCaptureTest, "System.Maps.Performance Capture", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 /** 
  * Execute the loading of one map to verify screen captures and performance captures work
@@ -229,7 +229,7 @@ bool FTakeViewportScreenshotCommand::Update()
  * LoadAllMapsInGame
  * Verification automation test to make sure loading all maps succeed without crashing AND does performance captures
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FLoadAllMapsInGameTest, "Project.Maps.Load All In Game", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FLoadAllMapsInGameTest, "Project.Maps.Load All In Game", EAutomationTestFlags::ClientContext | EAutomationTestFlags::StressFilter)
 
 /** 
  * Requests a enumeration of all maps to be loaded
@@ -277,7 +277,7 @@ bool FLoadAllMapsInGameTest::RunTest(const FString& Parameters)
  * SaveGameTest
  * Test makes sure a save game (without UI) saves and loads correctly
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FSaveGameTest, "System.Engine.Game.Noninteractive Save", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSaveGameTest, "System.Engine.Game.Noninteractive Save", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 /** 
  * Saves and loads a savegame file
@@ -339,7 +339,7 @@ bool FSaveGameTest::RunTest(const FString& Parameters)
 /**
  * Automation test to load a map and capture FPS performance charts
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCinematicFPSPerfTest, "Project.Maps.Cinematic FPS Perf Capture", (EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_NonNullRHI));
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCinematicFPSPerfTest, "Project.Maps.Cinematic FPS Perf Capture", (EAutomationTestFlags::ClientContext | EAutomationTestFlags::NonNullRHI | EAutomationTestFlags::StressFilter));
 
 void FCinematicFPSPerfTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const
 {
@@ -356,7 +356,7 @@ bool FCinematicFPSPerfTest::RunTest(const FString& Parameters)
 
 	//Check we are running from commandline
 	const FString CommandLine(FCommandLine::Get());
-	if (CommandLine.Contains(TEXT("AutomationTests")))
+	if (CommandLine.Contains(TEXT("Automation")))
 	{
 		//Get the name of the matinee to be used.
 		//If the game was not launched with the -MatineeName argument then this test will be ran based on time.
@@ -428,28 +428,54 @@ bool FCinematicFPSPerfTest::RunTest(const FString& Parameters)
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLogTypesTest, "System.Automation Framework.Logging Test", EAutomationTestFlags::ATF_None)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAutomationLogAddMessage, "System.Automation.Log.Add Log Message", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::EngineFilter)
 
-bool FLogTypesTest::RunTest(const FString& Parameters)
+bool FAutomationLogAddMessage::RunTest(const FString& Parameters)
 {
-	UE_LOG(LogEngineAutomationTests, Log, TEXT("This 'Log' log is created using the UE_LOG Macro"));
-	UE_LOG(LogEngineAutomationTests, Display, TEXT("This 'Display' log is created using the UE_LOG Macro"));
+	//** TEST **//
+	AddLogItem(TEXT("Test log message."));
 
-	ExecutionInfo.LogItems.Add(TEXT("This was added to the ExecutionInfo.LogItems"));
-	ExecutionInfo.Errors.Add(TEXT("This was added to the ExecutionInfo.Error."));
-	if (ExecutionInfo.Errors.Last().Contains(TEXT("This was added to the ExecutionInfo.Error.")))
-	{
-		UE_LOG(LogEngineAutomationTests, Display, TEXT("ExecutionInfo.Error has the correct info when used."));
-		ExecutionInfo.Errors.Empty();
-	}
+	//** VERIFY **//
+	TestEqual<FString>(TEXT("Test log message was not added to the ExecutionInfo.Log array."), ExecutionInfo.LogItems.Last(), TEXT("Test log message."));
+	
+	//** TEARDOWN **//
+	// We have to empty this log array so that it doesn't show in the automation results window as it may cause confusion.
+	ExecutionInfo.LogItems.Empty();
 
-	ExecutionInfo.Warnings.Add(TEXT("This was added to the ExecutionInfo.Warnings"));
-	if (ExecutionInfo.Warnings.Last().Contains(TEXT("This was added to the ExecutionInfo.Warnings")))
-	{
-		UE_LOG(LogEngineAutomationTests, Display, TEXT("ExecutionInfo.Warnings has the correct info when used."));
-		ExecutionInfo.Warnings.Empty();
-	}
+	return true;
+}
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAutomationLogAddWarning, "System.Automation.Log.Add Warning Message", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAutomationLogAddWarning::RunTest(const FString& Parameters)
+{
+	//** TEST **//
+	AddWarning(TEXT("Test warning message."));
+
+	//** VERIFY **//
+	FString CurrentWarningMessage = ExecutionInfo.Warnings.Last();
+	// The warnings array is emptied so that it doesn't cause a false positive warning for this test.
+	ExecutionInfo.Warnings.Empty();
+
+	TestEqual<FString>(TEXT("Test warning message was not added to the ExecutionInfo.Warning array."), CurrentWarningMessage, TEXT("Test warning message."));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAutomationLogAddError, "System.Automation.Log.Add Error Message", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAutomationLogAddError::RunTest(const FString& Parameters)
+{
+	//** TEST **//
+	AddError(TEXT("Test error message"));
+	
+	//** VERIFY **//
+	FString CurrentErrorMessage = ExecutionInfo.Errors.Last();
+	// The errors array is emptied so that this doesn't cause a false positive failure for this test.
+	ExecutionInfo.Errors.Empty();
+
+	TestEqual<FString>(TEXT("Test error message was not added to the ExecutionInfo.Error array."), CurrentErrorMessage, TEXT("Test error message"));
+	
 	return true;
 }
 

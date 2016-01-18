@@ -46,4 +46,6 @@ private:
 
 	/** Notify hook to use */
 	FNotifyHook* NotifyHook;
+
+	IDetailCategoryBuilder* MaterialCategory;
 };

@@ -8,6 +8,13 @@
 #include "SNodePanel.h"
 #include "SAnimEditorBase.h"
 
+class SAnimMontagePanel;
+class SAnimNotifyPanel;
+class SAnimCurvePanel;
+class SAnimMontageSectionsPanel;
+class SAnimMontageScrubPanel;
+class SAnimTimingPanel;
+
 //////////////////////////////////////////////////////////////////////////
 // SMontageEditor
 
@@ -33,16 +40,18 @@ public:
 
 private:
 	/** Persona reference **/
-	TSharedPtr<class SAnimMontagePanel> AnimMontagePanel;
-	TSharedPtr<class SAnimNotifyPanel> AnimNotifyPanel;
-	TSharedPtr<class SAnimCurvePanel>	AnimCurvePanel;
-	TSharedPtr<class SAnimMontageSectionsPanel> AnimMontageSectionsPanel;
-	TSharedPtr<class SAnimMontageScrubPanel> AnimMontageScrubPanel;
+	TSharedPtr<SAnimMontagePanel> AnimMontagePanel;
+	TSharedPtr<SAnimNotifyPanel> AnimNotifyPanel;
+	TSharedPtr<SAnimCurvePanel>	AnimCurvePanel;
+	TSharedPtr<SAnimMontageSectionsPanel> AnimMontageSectionsPanel;
+	TSharedPtr<SAnimMontageScrubPanel> AnimMontageScrubPanel;
+	TSharedPtr<SAnimTimingPanel> AnimTimingPanel;
 
+	TWeakPtr<FPersona> WeakPersona;
 protected:
-	// Begin SAnimEditorBase interface
+	//~ Begin SAnimEditorBase Interface
 	virtual TSharedRef<class SAnimationScrubPanel> ConstructAnimScrubPanel() override;
-	// End SAnimEditorBase interface
+	//~ End SAnimEditorBase Interface
 
 public:
 	void Construct(const FArguments& InArgs);
@@ -132,7 +141,7 @@ public:
 	void			PreAnimUpdate();
 	void			PostAnimUpdate();
 
-	// Begin SAnimEditorBase interface
+	//~ Begin SAnimEditorBase Interface
 	virtual TSharedRef<SWidget> CreateDocumentAnchor() override;
-	// End SAnimEditorBase interface
+	//~ End SAnimEditorBase Interface
 };

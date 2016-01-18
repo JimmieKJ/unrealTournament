@@ -20,7 +20,7 @@ public:
 	
 	TSharedPtr<FUICommandInfo> ChangeDefaultMesh;
 	TSharedPtr<FUICommandInfo> ResetEntireAsset;
-	TSharedPtr<FUICommandInfo> RestetBoneCollision;
+	TSharedPtr<FUICommandInfo> ResetBoneCollision;
 	TSharedPtr<FUICommandInfo> ApplyPhysicalMaterial;
 	TSharedPtr<FUICommandInfo> EditingMode_Body;
 	TSharedPtr<FUICommandInfo> EditingMode_Constraint;

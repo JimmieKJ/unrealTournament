@@ -26,19 +26,59 @@
 
 //-------------------------------------------------------------------------------------------------
 
+float ComputeAttenuation( float3 WorldPosition )
+{
+	float3 ToLight = LpvInject.LightPosition - WorldPosition;		
+	float DistanceSqr = dot( ToLight, ToLight );
+	float3 L = ToLight * rsqrt( DistanceSqr );
+	float Attenuation = 1.0f;
+
+	if (LpvInject.bLightInverseSquaredAttenuation > 0.0f )
+	{
+		// @TODO: From DeferredLightingCommon.usf GetDynamicLighting() - could refactor to avoid duplication
+		BRANCH
+		if( LpvInject.LightSourceLength > 0 )
+		{
+			// Line segment irradiance
+			float3 L01 = LpvInject.LightDirection * LpvInject.LightSourceLength;
+			float3 L0 = ToLight - 0.5 * L01;
+			float3 L1 = ToLight + 0.5 * L01;
+			Attenuation = rcp( ( length( L0 ) * length( L1 ) + dot( L0, L1 ) ) * 0.5 + 1 );
+		}
+		else
+		{
+			// Sphere irradiance (technically just 1/d^2 but this avoids inf)
+			Attenuation = 1 / ( DistanceSqr + 1 );
+		}
+		Attenuation *= Square( saturate( 1 - Square( DistanceSqr * Square(1.0f/LpvInject.LightRadius) ) ) );
+	}
+	else
+	{
+		Attenuation = RadialAttenuation( ToLight/LpvInject.LightRadius, LpvInject.LightFalloffExponent );
+	}
+
+#if SPOT_ATTENUATION
+	Attenuation *= SpotAttenuation(L, -LpvInject.LightDirection, LpvInject.LightSpotAngles);
+#endif 
+
+	return Attenuation;
+}
+
 [numthreads(4,4,4)]
-void CSPointLightInject_ListGenCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID ) 
+void CSLightInject_ListGenCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID ) 
 {
 	int index = GetGridAddress( DTid );
 
 	// TODO: optimise this. Don't read/write unless we need to. Requires read/write access to UAV, which requires
 	// aliasing for the textures... 
 	LPVCell cell = ReadLpvCell( index ); 
-	float3 gridPos = float3( DTid );
+
+	float3 GridPosition = float3( DTid );
 
 	float3 LightPos = LpvInject.LightPosition;
-	float3 worldPos = GridToWorld( gridPos+0.5  );
-	float3 LightVector = float3( LightPos-worldPos );
+
+	float3 WorldPosition = GridToWorld( GridPosition+0.5  );
+	float3 LightVector = float3( LightPos-WorldPosition );
 
 	float len = length( LightVector );
 	if ( len < LpvInject.LightRadius )
@@ -54,18 +94,14 @@ void CSPointLightInject_ListGenCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid :
 		if ( LightVector.z < 0 ) gvOffset += zStride;
 
 		int gvIndex = index + gvOffset;
-#if FILTER
-		GeometryVolumeEntry gvCell = ReadFilteredGvCell( gvIndex );
-#else
 		GeometryVolumeEntry gvCell = ReadGvCell( gvIndex );
-#endif
 
 		if ( gvCell.SH[0] > 0.1f )
 		{
 			float3 LightDirection = LightVector/len;
 
 			// TODO: Not ideal for thin walls! Use SH directly rather than approximating the normal?
-			float3 normal = -SHGetDominantDirectionApproxScalar( gvCell.SH );
+			float3 normal = -GvGetDominantDirectionApprox( gvCell );
 
 			float nDotL = saturate( dot( normal, LightDirection ) );
 			
@@ -78,14 +114,15 @@ void CSPointLightInject_ListGenCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid :
 				if ( distance > 100.0f )
 				{
 					float3 inc = LightVector / 16.0f;
-					float3 pos = worldPos + inc*2;
+
+					float3 pos = WorldPosition + inc*2;
 
 					for ( int i=0; i<15; i++ )
 					{
 						int traceGvIndex = GetGridIndex( pos ) + gvOffset;
 						GeometryVolumeEntry sCell = ReadGvCell( traceGvIndex );
 
-						float s = 1-SHLookupScalar( sCell.SH, -LightDirection );
+						float s = 1-SHLookupGeometryVolume( sCell, -LightDirection );
 
 						shadowValue = min( shadowValue, s );
 						pos+=inc;
@@ -95,12 +132,12 @@ void CSPointLightInject_ListGenCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid :
 #endif
 
 				float3 flux = LpvInject.LightColor * gvCell.color * DIRECT_LIGHT_INJECTION_STRENGTH;
-				float Attenuation = nDotL*shadowValue;
-				float DistanceAttenuation = RadialAttenuation( LightVector/LpvInject.LightRadius, LpvInject.LightFalloffExponent );
-				Attenuation *= DistanceAttenuation;
+
+				float Attenuation = ComputeAttenuation( WorldPosition );
+				Attenuation *= nDotL*shadowValue;
 				flux *= Attenuation;
 
-				worldPos += normal * LpvWrite.VplInjectionBias;
+				WorldPosition += normal * LpvWrite.VplInjectionBias;
 
 				float solidAngle = 3.14;
 				AccumulateLighting( flux, -normal, solidAngle, cell );

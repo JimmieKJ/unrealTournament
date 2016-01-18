@@ -34,21 +34,29 @@ class UMG_API UWidgetNavigation : public UObject
 	GENERATED_UCLASS_BODY()
 	
 public:
-	/**  */
+	/** Happens when the user presses up arrow, joystick, d-pad. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	FWidgetNavigationData Up;
 
-	/**  */
+	/** Happens when the user presses down arrow, joystick, d-pad. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	FWidgetNavigationData Down;
 
-	/**  */
+	/** Happens when the user presses left arrow, joystick, d-pad. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	FWidgetNavigationData Left;
 
-	/**  */
+	/** Happens when the user presses right arrow, joystick, d-pad. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	FWidgetNavigationData Right;
+
+	/** Happens when the user presses Tab. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
+	FWidgetNavigationData Next;
+
+	/** Happens when the user presses Shift+Tab. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
+	FWidgetNavigationData Previous;
 
 public:
 
@@ -62,6 +70,7 @@ public:
 
 #endif
 
+	/** Resolve widget names */
 	void ResolveExplictRules(class UWidgetTree* WidgetTree);
 
 	/** Updates a slate metadata object to match this configured navigation ruleset. */

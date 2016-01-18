@@ -85,7 +85,7 @@ namespace shdfnd
 	// Hash function for pointers
 	PX_INLINE PxU32 hash(const void* ptr)
 	{
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 		return hash(PxU64(ptr));
 #else
 		return hash((PxU32)(PX_MAX_U32 & (size_t)ptr));

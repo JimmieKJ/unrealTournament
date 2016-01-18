@@ -63,6 +63,15 @@ public:
 	UPROPERTY()
 	class UWidgetTree* WidgetTree;
 
+#if WITH_EDITORONLY_DATA
+	/**
+	 * A tree of the widget templates to be created.  This is only used by the designer to inject a new 
+	 * tree into a previously compiled class.
+	 */
+	UPROPERTY(Transient)
+	class UWidgetTree* DesignerWidgetTree;
+#endif
+
 	UPROPERTY()
 	TArray< FDelegateRuntimeBinding > Bindings;
 
@@ -71,6 +80,12 @@ public:
 
 	UPROPERTY()
 	TArray< FName > NamedSlots;
+
+	UPROPERTY()
+	uint32 bCanEverTick : 1;
+
+	UPROPERTY()
+	uint32 bCanEverPaint : 1;
 
 public:
 
@@ -82,4 +97,13 @@ public:
 	 * binding and wiring necessary to have the user's widget perform as desired.
 	 */
 	void InitializeWidget(UUserWidget* UserWidget) const;
+
+	static void InitializeWidgetStatic(UUserWidget* UserWidget
+		, const UClass* InClass
+		, bool InCanEverTick
+		, bool InCanEverPaint
+		, UWidgetTree* InWidgetTree
+		, const TArray< UWidgetAnimation* >& InAnimations
+		, const TArray< FDelegateRuntimeBinding >& InBindings
+		, UWidgetTree* InDesignerWidgetTree);
 };

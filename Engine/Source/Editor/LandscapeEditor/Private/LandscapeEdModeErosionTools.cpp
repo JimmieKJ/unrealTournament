@@ -21,7 +21,7 @@ class FLandscapeToolStrokeErosionBase : public FLandscapeToolStrokeBase
 {
 public:
 	FLandscapeToolStrokeErosionBase(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
 		, HeightCache(InTarget)
 		, WeightCache(InTarget)
 		, bWeightApplied(InTarget.TargetType != ELandscapeToolTargetType::Heightmap)
@@ -29,7 +29,6 @@ public:
 	}
 
 protected:
-	ULandscapeInfo* LandscapeInfo;
 	FLandscapeHeightCache HeightCache;
 	FLandscapeFullWeightCache WeightCache;
 	bool bWeightApplied;

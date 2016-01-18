@@ -6,18 +6,6 @@
 
 #include "EmptyRHIPrivate.h"
 
-
-void FEmptyDynamicRHI::RHIGpuTimeBegin(uint32 Hash, bool bCompute)
-{
-	return;
-}
-
-void FEmptyDynamicRHI::RHIGpuTimeEnd(uint32 Hash, bool bCompute)
-{
-	return;
-}
-
-
 void FEmptyDynamicRHI::RHISetStreamSource(uint32 StreamIndex,FVertexBufferRHIParamRef VertexBufferRHI,uint32 Stride,uint32 Offset)
 {
 	FEmptyVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
@@ -396,22 +384,8 @@ void FEmptyDynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 
 }
 
-
-
-void FEmptyDynamicRHI::RHISuspendRendering()
+void FEmptyDynamicRHI::RHIBindClearMRTValues(bool bClearColor, bool bClearDepth, bool bClearStencil)
 {
-	// Not supported
-}
-
-void FEmptyDynamicRHI::RHIResumeRendering()
-{
-	// Not supported
-}
-
-bool FEmptyDynamicRHI::RHIIsRenderingSuspended()
-{
-	// Not supported
-	return false;
 }
 
 void FEmptyDynamicRHI::RHIBlockUntilGPUIdle()
@@ -439,3 +413,10 @@ void* FEmptyDynamicRHI::RHIGetNativeDevice()
 	return nullptr;
 }
 
+void FEmptyDynamicRHI::RHIExecuteCommandList(FRHICommandList* CmdList)
+{
+}
+
+void FEmptyDynamicRHI::RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth)
+{
+}

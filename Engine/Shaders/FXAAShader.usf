@@ -46,14 +46,13 @@ float2 fxaaQualityRcpFrame;
 void FxaaVS(
 	in float4 InPosition : ATTRIBUTE0,
 	in float2 UV : ATTRIBUTE1,
-	out float2 OutCenterUV : TEXCOORD0,
-	out float4 OutCornersUV : TEXCOORD1,
+	out noperspective float2 OutCenterUV : TEXCOORD0,
+	out noperspective float4 OutCornersUV : TEXCOORD1,
 	out float4 OutPosition : SV_POSITION
 	)
 {
 	DrawRectangle(InPosition, UV, OutPosition, OutCenterUV);
 	OutCornersUV = float4(OutCenterUV.xy - 0.5f * fxaaQualityRcpFrame, OutCenterUV.xy + 0.5f * fxaaQualityRcpFrame);
-
 }
 
 
@@ -86,7 +85,7 @@ void FxaaVS(
 	// include NVIDIA FXAA source
 	#include "Fxaa3_11.usf"
 
-	void FxaaPS(float2 TexCenter : TEXCOORD0, float4 TexCorners : TEXCOORD1, out float4 OutColor : SV_Target0)
+	void FxaaPS(noperspective float2 TexCenter : TEXCOORD0, noperspective float4 TexCorners : TEXCOORD1, out float4 OutColor : SV_Target0)
 	{
 		FxaaTex TextureAndSampler;
 		TextureAndSampler.tex = PostprocessInput0;

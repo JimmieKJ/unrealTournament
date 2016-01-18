@@ -360,9 +360,16 @@ SampleApexRendererVertexBuffer::SampleApexRendererVertexBuffer(SampleRenderer::R
 	{
 		physx::apex::NxRenderVertexSemantic::Enum apexSemantic = physx::apex::NxRenderVertexSemantic::Enum(i);
 		physx::apex::NxRenderDataFormat::Enum apexFormat = desc.buffersRequest[i];
-		if (apexSemantic == physx::apex::NxRenderVertexSemantic::TANGENT && apexFormat != physx::apex::NxRenderDataFormat::UNSPECIFIED)
+		if ((apexSemantic == physx::apex::NxRenderVertexSemantic::NORMAL || apexSemantic == physx::apex::NxRenderVertexSemantic::BINORMAL) && apexFormat != physx::apex::NxRenderDataFormat::UNSPECIFIED)
 		{
-			PX_ASSERT(apexFormat == physx::apex::NxRenderDataFormat::FLOAT3 || apexFormat == physx::apex::NxRenderDataFormat::FLOAT4);
+			PX_ASSERT(apexFormat == physx::apex::NxRenderDataFormat::FLOAT3 || apexFormat == physx::apex::NxRenderDataFormat::BYTE_SNORM3);
+			// always use FLOAT3 for normals and binormals
+			apexFormat = physx::apex::NxRenderDataFormat::FLOAT3;
+		}
+		else if (apexSemantic == physx::apex::NxRenderVertexSemantic::TANGENT && apexFormat != physx::apex::NxRenderDataFormat::UNSPECIFIED)
+		{
+			PX_ASSERT(apexFormat == physx::apex::NxRenderDataFormat::FLOAT3 || apexFormat == physx::apex::NxRenderDataFormat::BYTE_SNORM3 ||
+					  apexFormat == physx::apex::NxRenderDataFormat::FLOAT4 || apexFormat == physx::apex::NxRenderDataFormat::BYTE_SNORM4);
 			// always use FLOAT4 for tangents!!!
 			apexFormat = physx::apex::NxRenderDataFormat::FLOAT4;
 		}
@@ -595,7 +602,17 @@ void SampleApexRendererVertexBuffer::writeBuffer(const physx::apex::NxApexRender
 					dstData = ((physx::PxU8*)dstData) + firstVertex * semanticStride;
 					physx::PxU32 formatSize = RendererVertexBuffer::getFormatByteSize(format);
 
-					if (apexSemantic == physx::apex::NxRenderVertexSemantic::TANGENT && semanticData.format == physx::apex::NxRenderDataFormat::FLOAT4)
+					if ((apexSemantic == physx::apex::NxRenderVertexSemantic::NORMAL || apexSemantic == physx::apex::NxRenderVertexSemantic::BINORMAL) && semanticData.format == physx::apex::NxRenderDataFormat::BYTE_SNORM3)
+					{
+						for (physx::PxU32 j = 0; j < numVerts; j++)
+						{
+							physx::PxI8* vector = (physx::PxI8*)srcData;
+							*(physx::PxVec3*)dstData = physx::PxVec3(vector[0], vector[1], vector[2])/127.0f;
+							dstData = ((physx::PxU8*)dstData) + semanticStride;
+							srcData = ((physx::PxU8*)srcData) + srcStride;
+						}
+					}
+					else if (apexSemantic == physx::apex::NxRenderVertexSemantic::TANGENT && semanticData.format == physx::apex::NxRenderDataFormat::FLOAT4)
 					{
 						// invert entire tangent
 						for (physx::PxU32 j = 0; j < numVerts; j++)
@@ -606,9 +623,20 @@ void SampleApexRendererVertexBuffer::writeBuffer(const physx::apex::NxApexRender
 							srcData = ((physx::PxU8*)srcData) + srcStride;
 						}
 					}
-					else if (apexSemantic == physx::apex::NxRenderVertexSemantic::TANGENT && semanticData.format == physx::apex::NxRenderDataFormat::FLOAT3)
+					else if (apexSemantic == physx::apex::NxRenderVertexSemantic::TANGENT && semanticData.format == physx::apex::NxRenderDataFormat::BYTE_SNORM4)
 					{
-						// we need to increase the data from float3 to float4
+						// invert entire tangent
+						for (physx::PxU32 j = 0; j < numVerts; j++)
+						{
+							physx::PxI8* tangent = (physx::PxI8*)srcData;
+							*(physx::PxVec4*)dstData = physx::PxVec4(tangent[0], tangent[1], tangent[2], tangent[3])/-127.0f;
+							dstData = ((physx::PxU8*)dstData) + semanticStride;
+							srcData = ((physx::PxU8*)srcData) + srcStride;
+						}
+					}
+					else if (apexSemantic == physx::apex::NxRenderVertexSemantic::TANGENT && (semanticData.format == physx::apex::NxRenderDataFormat::FLOAT3 || semanticData.format == physx::apex::NxRenderDataFormat::BYTE_SNORM3))
+					{
+						// we need to increase the data from 3 components to 4
 						const physx::apex::NxApexRenderSemanticData& bitangentData = data.getSemanticData(physx::apex::NxRenderVertexSemantic::BINORMAL);
 						const physx::apex::NxApexRenderSemanticData& normalData = data.getSemanticData(physx::apex::NxRenderVertexSemantic::NORMAL);
 						if (bitangentData.format != physx::apex::NxRenderDataFormat::UNSPECIFIED && normalData.format != physx::apex::NxRenderDataFormat::UNSPECIFIED)
@@ -623,9 +651,12 @@ void SampleApexRendererVertexBuffer::writeBuffer(const physx::apex::NxApexRender
 
 							for (physx::PxU32 j = 0; j < numVerts; j++)
 							{
-								physx::PxVec3 normal = *(physx::PxVec3*)srcDataNormal;
-								physx::PxVec3 bitangent = *(physx::PxVec3*)srcDataBitangent;
-								physx::PxVec3 tangent = *(physx::PxVec3*)srcData;
+								physx::PxVec3 normal = normalData.format == physx::NxRenderDataFormat::FLOAT3 ? *(physx::PxVec3*)srcDataNormal :
+									physx::PxVec3(((physx::PxI8*)srcDataNormal)[0], ((physx::PxI8*)srcDataNormal)[1], ((physx::PxI8*)srcDataNormal)[2])/127.0f;
+								physx::PxVec3 bitangent = bitangentData.format == physx::NxRenderDataFormat::FLOAT3 ? *(physx::PxVec3*)srcDataBitangent :
+									physx::PxVec3(((physx::PxI8*)srcDataBitangent)[0], ((physx::PxI8*)srcDataBitangent)[1], ((physx::PxI8*)srcDataBitangent)[2])/127.0f;
+								physx::PxVec3 tangent = semanticData.format == physx::NxRenderDataFormat::FLOAT3 ? *(physx::PxVec3*)srcData :
+									physx::PxVec3(((physx::PxI8*)srcData)[0], ((physx::PxI8*)srcData)[1], ((physx::PxI8*)srcData)[2])/127.0f;
 								float tangentw = physx::PxSign(normal.cross(tangent).dot(bitangent));
 								*(physx::PxVec4*)dstData = physx::PxVec4(tangent, -tangentw);
 
@@ -638,12 +669,25 @@ void SampleApexRendererVertexBuffer::writeBuffer(const physx::apex::NxApexRender
 						else
 						{
 							// just assume 1.0 as tangent.w if there is no bitangent to calculate this from
-							for (physx::PxU32 j = 0; j < numVerts; j++)
+							if (semanticData.format == physx::apex::NxRenderDataFormat::FLOAT3)
 							{
-								physx::PxVec3 tangent = *(physx::PxVec3*)srcData;
-								*(physx::PxVec4*)dstData = physx::PxVec4(tangent, 1.0f);
-								dstData = ((physx::PxU8*)dstData) + semanticStride;
-								srcData = ((physx::PxU8*)srcData) + srcStride;
+								for (physx::PxU32 j = 0; j < numVerts; j++)
+								{
+									physx::PxVec3 tangent = *(physx::PxVec3*)srcData;
+									*(physx::PxVec4*)dstData = physx::PxVec4(tangent, 1.0f);
+									dstData = ((physx::PxU8*)dstData) + semanticStride;
+									srcData = ((physx::PxU8*)srcData) + srcStride;
+								}
+							}
+							else
+							{
+								for (physx::PxU32 j = 0; j < numVerts; j++)
+								{
+									physx::PxI8* tangent = (physx::PxI8*)srcData;
+									*(physx::PxVec4*)dstData = physx::PxVec4(tangent[0]/127.0f, tangent[1]/127.0f, tangent[2]/127.0f, 1.0f);
+									dstData = ((physx::PxU8*)dstData) + semanticStride;
+									srcData = ((physx::PxU8*)srcData) + srcStride;
+								}
 							}
 						}
 					}

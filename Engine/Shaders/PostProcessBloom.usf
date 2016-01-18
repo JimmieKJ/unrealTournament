@@ -16,23 +16,31 @@ float4 ColorScale1;
 void MainPostprocessCommonVS(
 	in float4 InPosition : ATTRIBUTE0,
 	in float2 InTexCoord : ATTRIBUTE1,
-	out float4 OutTexCoord : TEXCOORD0,
+	out noperspective float4 OutTexCoord : TEXCOORD0,
 	out float4 OutPosition : SV_POSITION
 	)
 {
+	// hlslcc creates temporaries with noperspective qualifier, which is a bad thing
+#if COMPILER_GLSL || COMPILER_GLSL_ES2
+	float2 Temp;
+	DrawRectangle(InPosition, InTexCoord, OutPosition, Temp);
+	OutTexCoord = float4(Temp.x, Temp.y, OutPosition.x, OutPosition.y);
+#else
 	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord.xy);
-	OutTexCoord.zw =  OutPosition.xy;
+	OutTexCoord.zw = OutPosition.xy;
+#endif
 }
 
 void VisualizeBloomSetupPS(
-	  float4 UVAndScreenPos : TEXCOORD0
-	, out float4 OutColor : SV_Target0)
+	noperspective float4 UVAndScreenPos : TEXCOORD0,
+	float4 SvPosition : SV_POSITION, 
+	out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 
 	OutColor = 0;
 
-	int2 PixelPos = (int2)ComputePixelPosCenter(UVAndScreenPos.zw, true);
+	int2 PixelPos = (int2)SvPosition.xy;
 
 	int2 ViewportCenter = (int2)(ViewportRect.xy + ViewportSize.xy / 2);
 
@@ -56,11 +64,12 @@ void VisualizeBloomSetupPS(
 }
 
 void VisualizeBloomOverlayPS(
-	  float4 UVAndScreenPos : TEXCOORD0
-	, out float4 OutColor : SV_Target0)
+	noperspective float4 UVAndScreenPos : TEXCOORD0,
+	float4 SvPosition : SV_POSITION,
+	out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
-	int2 PixelPos = (int2)ComputePixelPosCenter(UVAndScreenPos.zw, true);
+	int2 PixelPos = (int2)SvPosition.xy;
 
 	int2 ViewportCenter = (int2)(ViewportRect + ViewportSize / 2);
 
@@ -128,10 +137,10 @@ void VisualizeBloomOverlayPS(
 
 // vertex shader entry point
 void MainVS(
-	in float4 InPosition : ATTRIBUTE0,
-	in float2 InTexCoord : ATTRIBUTE1,
-	out float4 OutTexCoord : TEXCOORD0,
-	out float OutExposureScale : TEXCOORD1,
+	float4 InPosition : ATTRIBUTE0,
+	float2 InTexCoord : ATTRIBUTE1,
+	out noperspective float4 OutTexCoord : TEXCOORD0,
+	out nointerpolation float OutExposureScale : TEXCOORD1,
 	out float4 OutPosition : SV_POSITION
 	)
 {
@@ -150,9 +159,9 @@ float4 BloomThreshold;
 // -----------------------------
 // bloom threshold
 void MainPS(
-	  float4 UVAndScreenPos : TEXCOORD0
-	, float InExposureScale : TEXCOORD1
-	, out float4 OutColor : SV_Target0)
+	noperspective float4 UVAndScreenPos : TEXCOORD0,
+	nointerpolation float InExposureScale : TEXCOORD1,
+	out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 

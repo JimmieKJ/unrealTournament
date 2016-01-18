@@ -23,8 +23,8 @@ class UParticleModuleVectorFieldRotation : public UParticleModuleVectorFieldBase
 	FVector MaxInitialRotation;
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void CompileModule(struct FParticleEmitterBuildInfo& EmitterInfo) override;
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 };
 

@@ -35,7 +35,7 @@ void SRichTextBlock::Construct( const FArguments& InArgs )
 			Marshaller->AppendInlineDecorator( Decorator );
 		}
 
-		TextLayoutCache = FTextBlockLayout::Create(TextStyle, Marshaller, nullptr);
+		TextLayoutCache = FTextBlockLayout::Create(TextStyle, InArgs._TextShapingMethod, InArgs._TextFlowDirection, Marshaller, nullptr);
 	}
 }
 
@@ -49,9 +49,6 @@ int32 SRichTextBlock::OnPaint( const FPaintArgs& Args, const FGeometry& Allotted
 
 FVector2D SRichTextBlock::ComputeDesiredSize(float LayoutScaleMultiplier) const
 {
-	// todo: jdale - The scale needs to be passed to ComputeDesiredSize
-	//const float Scale = CachedScale;
-
 	// ComputeDesiredSize will also update the text layout cache if required
 	const FVector2D TextSize = TextLayoutCache->ComputeDesiredSize(
 		FTextBlockLayout::FWidgetArgs(BoundText, HighlightText, WrapTextAt, AutoWrapText, Margin, LineHeightPercentage, Justification), 

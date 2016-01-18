@@ -17,7 +17,18 @@ using System.Web.Mvc;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Models
 {
-	
+	class CrashComparer : IEqualityComparer<Crash>
+	{
+		public bool Equals( Crash C1, Crash C2 )
+		{
+			return C1.Id == C2.Id;
+		}
+
+		public int GetHashCode( Crash C )
+		{
+			return C.Id;
+		}
+	}
 
 	/// <summary>
 	/// A model to talk to the database.
@@ -61,18 +72,113 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			Context.Dispose();
 		}
 
+		private static DateTime LastBranchesDate = DateTime.UtcNow.AddDays(-1);
+		private static List<SelectListItem> BranchesAsSelectList = null;
 		/// <summary>
 		/// Retrieves a list of distinct UE4 Branches from the CrashRepository
 		/// </summary>
-		/// <returns></returns>
-		public static List<SelectListItem> GetBranches()
+		public static List<SelectListItem> GetBranchesAsListItems()
 		{
-			CrashReportDataContext Context = new CrashReportDataContext();
+			using (FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( "CrashRepository.GetBranches" ))
+			{
+				CrashReportDataContext Context = new CrashReportDataContext();
 
-			var lm = Context.Crashes.Where( n => n.Branch.Contains( "UE4" ) ).Select( n => n.Branch ).Distinct().ToList();
-			var list = lm.Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } ).ToList();
-			list.Insert( 0, new SelectListItem { Selected = true, Text = "", Value = "" } );
-			return list;
+				DateTime Now = DateTime.UtcNow;
+
+				if (Now - LastBranchesDate > TimeSpan.FromHours( 1 ))
+				{
+					var BranchList = Context.Crashes
+					.Where( n => n.TimeOfCrash > DateTime.Now.AddMonths( -3 ) )
+					// Depot || Stream
+					.Where( n => n.Branch.StartsWith( "UE4" ) || n.Branch.StartsWith( "//UE4" ) )
+					.Select( n => n.Branch )
+					.Distinct()
+					.ToList();
+					BranchesAsSelectList = BranchList
+						.Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } )
+						.ToList();
+					BranchesAsSelectList.Insert( 0, new SelectListItem { Selected = true, Text = "", Value = "" } );
+
+					LastBranchesDate = Now;
+				}
+
+				return BranchesAsSelectList;
+			}
+		}
+
+		private static List<SelectListItem> PlatformsAsListItems = null;
+		/// <summary>
+		/// Static list of platforms for filtering
+		/// </summary>
+		public static List<SelectListItem> GetPlatformsAsListItems()
+		{
+			if( PlatformsAsListItems == null )
+			{
+				string[] PlatformNames = { "Win64", "Win32", "Mac", "Linux", "PS4", "XboxOne" };
+				List<string> Platforms = new List<string>( PlatformNames );
+
+				PlatformsAsListItems = Platforms
+						.Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } )
+						.ToList();
+				PlatformsAsListItems.Insert( 0, new SelectListItem { Selected = true, Text = "", Value = "" } );
+			}
+			return PlatformsAsListItems;
+		
+		}
+
+		private static DateTime LastVersionDate = DateTime.UtcNow.AddDays( -1 );
+		private static List<SelectListItem> VersionsAsSelectList = null;
+		private static HashSet<string> DistinctBuildVersions = null;
+		/// <summary>
+		/// Retrieves a list of distinct UE4 Versions from the CrashRepository
+		/// </summary>
+		public static List<SelectListItem> GetVersionsAsListItems()
+		{
+			using (FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( "CrashRepository.GetVersions" ))
+			{
+				CrashReportDataContext Context = new CrashReportDataContext();
+				DateTime Now = DateTime.UtcNow;
+
+				if (Now - LastVersionDate > TimeSpan.FromHours( 1 ))
+				{
+					var BuildVersions = Context.Crashes
+					.Where( c => c.TimeOfCrash > DateTime.Now.AddMonths( -3 ) )
+					.Select( c => c.BuildVersion )
+					.Distinct()
+					.ToList();
+
+					DistinctBuildVersions = new HashSet<string>();
+
+					foreach (var BuildVersion in BuildVersions)
+					{
+						var BVParts = BuildVersion.Split( new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries );
+						if (BVParts.Length > 2 && BVParts[0] != "0")
+						{
+							string CleanBV = string.Format( "{0}.{1}.{2}", BVParts[0], BVParts[1], BVParts[2] );
+							DistinctBuildVersions.Add( CleanBV );
+						}
+					}
+
+
+					VersionsAsSelectList = DistinctBuildVersions
+						.Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } )
+						.ToList();
+					VersionsAsSelectList.Insert( 0, new SelectListItem { Selected = true, Text = "", Value = "" } );
+
+					LastVersionDate = Now;
+				}
+
+				return VersionsAsSelectList;
+			}
+		}
+
+		/// <summary>
+		/// Retrieves a list of distinct UE4 Versions from the CrashRepository
+		/// </summary>
+		public static HashSet<string> GetVersions()
+		{
+			GetVersionsAsListItems();
+			return DistinctBuildVersions;
 		}
 		
 		/// <summary>
@@ -82,7 +188,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <returns>The crash with the requested id.</returns>
 		public Crash GetCrash( int Id )
 		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(CrashId" + Id + ")" ) )
+			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(CrashId=" + Id + ")" ) )
 			{
 				try
 				{
@@ -93,7 +199,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 						select CrashDetail
 					);
 
-					return Crashes.FirstOrDefault();
+					Crash Result = Crashes.FirstOrDefault();
+					Result.ReadCrashContextIfAvailable();
+					return Result;
 				}
 				catch( Exception Ex )
 				{
@@ -157,18 +265,18 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					{
 						Results = Results.Where( X =>
 
-							( !string.IsNullOrEmpty( X.ChangeListVersion ) ? X.ChangeListVersion.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.BuiltFromCL ) ? X.BuiltFromCL.ToLower().Contains( Term ) : false ) ||
 							( !string.IsNullOrEmpty( X.PlatformName ) ? X.PlatformName.ToLower().Contains( Term ) : false ) ||
 							( !string.IsNullOrEmpty( X.Summary ) ? X.Summary.ToLower().Contains( Term ) : false ) ||
 							( !string.IsNullOrEmpty( X.Description ) ? X.Description.ToLower().Contains( Term ) : false ) ||
 							( !string.IsNullOrEmpty( X.RawCallStack ) ? X.RawCallStack.ToLower().Contains( Term ) : false ) ||
 							( !string.IsNullOrEmpty( X.CommandLine ) ? X.CommandLine.ToLower().Contains( Term ) : false ) ||
-							( !string.IsNullOrEmpty( X.ComputerName ) ? X.ComputerName.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.MachineId ) ? X.MachineId.ToLower().Contains( Term ) : false ) ||
 
 							( !string.IsNullOrEmpty( X.Module ) ? X.Module.ToLower().Contains( Term ) : false ) ||
 
 							( !string.IsNullOrEmpty( X.BaseDir ) ? X.BaseDir.ToLower().Contains( Term ) : false ) ||
-							( !string.IsNullOrEmpty( X.TTPID ) ? X.TTPID.ToLower().Contains( Term ) : false ) 
+							( !string.IsNullOrEmpty( X.Jira ) ? X.Jira.ToLower().Contains( Term ) : false ) 
 						);
 					}
 
@@ -211,12 +319,32 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				int Skip = ( FormData.Page - 1 ) * FormData.PageSize;
 				int Take = FormData.PageSize;
 
-				var ResultsAll = ConstructQuery(FormData);
+				var ResultsAll = ConstructQueryForFiltering(FormData);
 
 				// Filter by data and get as enumerable.
-			    Results = FilterByDate(ResultsAll, FormData.DateFrom, FormData.DateTo);
+				Results = FilterByDate(ResultsAll, FormData.DateFrom, FormData.DateTo);
 
-			    // Get UserGroup ResultCounts
+				// Filter by BuggId
+				if (!string.IsNullOrEmpty( FormData.BuggId ))
+				{
+					int BuggId = 0;
+					bool bValid = int.TryParse( FormData.BuggId, out BuggId );
+
+					if (bValid)
+					{
+						BuggRepository Buggs = new BuggRepository();
+						Bugg NewBugg = Buggs.GetBugg( BuggId );
+
+						if( NewBugg != null )
+						{
+							List<Crash> Crashes = NewBugg.GetCrashes();
+							var NewResult = Results.Intersect( Crashes, new CrashComparer() );
+							Results = NewResult;
+						}
+					}
+				}				
+
+				// Get UserGroup ResultCounts
 				Dictionary<string, int> GroupCounts = GetCountsByGroupFromCrashes( Results );
 
 				// Filter by user group if present
@@ -280,14 +408,16 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					CrashType = FormData.CrashType,
 					SearchQuery = FormData.SearchQuery,
 					UsernameQuery = FormData.UsernameQuery,
-					EpicIdQuery = FormData.EpicIdQuery,
-					MachineIdQuery = FormData.MachineIdQuery,
-                    DescriptionQuery = FormData.DescriptionQuery,
-                    MessageQuery = FormData.MessageQuery,
+					EpicIdOrMachineQuery = FormData.EpicIdOrMachineQuery,
+					MessageQuery = FormData.MessageQuery,
+					BuiltFromCL = FormData.BuiltFromCL,
+					BuggId = FormData.BuggId,
 					JiraQuery = FormData.JiraQuery,
 					DateFrom = (long)( FormData.DateFrom - CrashesViewModel.Epoch ).TotalMilliseconds,
 					DateTo = (long)( FormData.DateTo - CrashesViewModel.Epoch ).TotalMilliseconds,
 					BranchName = FormData.BranchName,
+					VersionName = FormData.VersionName,
+					PlatformName = FormData.PlatformName,
 					GameName = FormData.GameName,
 					GroupCounts = GroupCounts,
 					RealUserName = UniqueUser != null ? UniqueUser.ToString() : null,
@@ -422,7 +552,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 						break;
 
 					case "TTPID":
-						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.TTPID, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.Jira, bSortByDescending );
 						break;
 
 					case "Branch":
@@ -430,11 +560,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 						break;
 
 					case "ChangeListVersion":
-						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.ChangeListVersion, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.BuiltFromCL, bSortByDescending );
 						break;
 
 					case "ComputerName":
-						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.ComputerName, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.MachineId, bSortByDescending );
 						break;
 
 					case "PlatformName":
@@ -487,10 +617,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			NewCrash.Branch = NewCrashInfo.BranchName;
 			NewCrash.BaseDir = NewCrashInfo.BaseDir;
 			NewCrash.BuildVersion = NewCrashInfo.BuildVersion;
-			NewCrash.ChangeListVersion = NewCrashInfo.BuiltFromCL.ToString();
+			NewCrash.BuiltFromCL = NewCrashInfo.BuiltFromCL.ToString();
 			NewCrash.CommandLine = NewCrashInfo.CommandLine;
 			NewCrash.EngineMode = NewCrashInfo.EngineMode;
-			NewCrash.ComputerName = NewCrashInfo.MachineGuid;
+			NewCrash.MachineId = NewCrashInfo.MachineGuid;
 
 			// Valid MachineID and UserName, updated crash from non-UE4 release
 			if(!string.IsNullOrEmpty(NewCrashInfo.UserName))
@@ -541,27 +671,28 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 
 			NewCrash.TimeOfCrash = NewCrashInfo.TimeofCrash;
-					
-			NewCrash.HasLogFile = NewCrashInfo.bHasLog;
-			NewCrash.HasMiniDumpFile = NewCrashInfo.bHasMiniDump;
-			NewCrash.HasDiagnosticsFile = NewCrashInfo.bHasDiags;
-			NewCrash.HasVideoFile = NewCrashInfo.bHasVideo;
-			NewCrash.HasMetaData = NewCrashInfo.bHasWERData;
-
 			NewCrash.bAllowToBeContacted = NewCrashInfo.bAllowToBeContacted;
 
-			NewCrash.TTPID = "";
+			NewCrash.Jira = "";
 			NewCrash.FixedChangeList = "";
 
 			// Set the crash type
 			NewCrash.CrashType = 1;
 			if (NewCrash.RawCallStack != null)
 			{
-				if (NewCrash.RawCallStack.Contains("FDebug::AssertFailed()"))
+				if (NewCrash.RawCallStack.Contains( "FDebug::AssertFailed" ))
 				{
 					NewCrash.CrashType = 2;
 				}
-				else if (NewCrash.RawCallStack.Contains("FDebug::EnsureFailed()"))
+				else if (NewCrash.RawCallStack.Contains( "FDebug::Ensure" ))
+				{
+					NewCrash.CrashType = 3;			
+				}
+				else if (NewCrash.RawCallStack.Contains( "FDebug::OptionallyLogFormattedEnsureMessageReturningFalse" ))
+				{
+					NewCrash.CrashType = 3;
+				}
+				else if (NewCrash.RawCallStack.Contains( "NewReportEnsure" ))
 				{
 					NewCrash.CrashType = 3;
 				}
@@ -604,24 +735,28 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			return NewID;
 		}
 
-		private IQueryable<Crash> ConstructQuery(FormHelper FormData)
+		/// <summary>Constructs query for filtering.</summary>
+		private IQueryable<Crash> ConstructQueryForFiltering( FormHelper FormData )
 		{
-			var results = ListAll();
+			var Results = ListAll();
 
 			// Grab Results 
-			if (!string.IsNullOrEmpty(FormData.SearchQuery))
+			string QueryString = HttpUtility.HtmlDecode( FormData.SearchQuery );
+			if (!string.IsNullOrEmpty( QueryString ))
 			{
-				if (!string.IsNullOrEmpty(FormData.UsernameQuery))
+				if (!string.IsNullOrEmpty( QueryString ))
 				{
-					//We only use SearchQuery now for CallStack searching - if there's a searchquery value and a Username value, we need to get rid of the 
+					//We only use SearchQuery now for CallStack searching - if there's a SearchQuery value and a Username value, we need to get rid of the 
 					//Username so that we can create a broader search range
 					FormData.UsernameQuery = "";
 				}
-				string DecodedQuery = HttpUtility.HtmlDecode(FormData.SearchQuery).ToLower();
-				using (FScopedLogTimer LogTimer2 = new FScopedLogTimer("CrashRepository.GetResults.FindUserFromQuery" + "(Query=" + DecodedQuery + ")"))
-				{
-					results = results.Where(item => item.RawCallStack.Contains(FormData.SearchQuery));
-				}
+
+				Results =
+					(
+						from CrashDetail in Results
+						where SqlMethods.Like( CrashDetail.RawCallStack, "%" + FormData.SearchQuery + "%" )
+						select CrashDetail
+					);
 			}
 
 			// Filter by Crash Type
@@ -630,149 +765,142 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				switch (FormData.CrashType)
 				{
 					case "Crashes":
-						results = results.Where(CrashInstance => CrashInstance.CrashType == 1);
+						Results = Results.Where( CrashInstance => CrashInstance.CrashType == 1 );
 						break;
 					case "Assert":
-						results = results.Where(CrashInstance => CrashInstance.CrashType == 2);
+						Results = Results.Where( CrashInstance => CrashInstance.CrashType == 2 );
 						break;
 					case "Ensure":
-						results = results.Where(CrashInstance => CrashInstance.CrashType == 3);
+						Results = Results.Where( CrashInstance => CrashInstance.CrashType == 3 );
 						break;
 					case "CrashesAsserts":
-						results = results.Where(CrashInstance => CrashInstance.CrashType == 1 || CrashInstance.CrashType == 2);
+						Results = Results.Where( CrashInstance => CrashInstance.CrashType == 1 || CrashInstance.CrashType == 2 );
 						break;
 				}
 			}
 
-			if (!string.IsNullOrEmpty(FormData.UsernameQuery))
+			// JRX Restore EpicID/UserName searching
+			if (!string.IsNullOrEmpty( FormData.UsernameQuery ))
 			{
-				results =
+				var DecodedUsername = HttpUtility.HtmlDecode( FormData.UsernameQuery ).ToLower();
+				Results =
 					(
-						from CrashDetail in results
-						where CrashDetail.UserName.Equals(FormData.UsernameQuery)
+						from CrashDetail in Results
+						where CrashDetail.UserName.Equals( DecodedUsername )
 						select CrashDetail
 						);
 			}
 
 			// Start Filtering the results
-			if (!string.IsNullOrEmpty(FormData.EpicIdQuery))
+			if (!string.IsNullOrEmpty( FormData.EpicIdOrMachineQuery ))
 			{
-				var DecodedQuery = HttpUtility.HtmlDecode(FormData.EpicIdQuery).ToLower();
-				results =
+				var DecodedEpicOrMachineID = HttpUtility.HtmlDecode( FormData.EpicIdOrMachineQuery ).ToLower();
+				Results =
 						(
-							from CrashDetail in results
-							where CrashDetail.EpicAccountId.Equals(FormData.EpicIdQuery)
+							from CrashDetail in Results
+							where CrashDetail.EpicAccountId.Equals( DecodedEpicOrMachineID ) || CrashDetail.MachineId.Equals( DecodedEpicOrMachineID )
 							select CrashDetail
 						);
 			}
 
-			if (!string.IsNullOrEmpty(FormData.MachineIdQuery))
+			if (!string.IsNullOrEmpty( FormData.JiraQuery ))
 			{
-				var DecodedQuery = HttpUtility.HtmlDecode(FormData.MachineIdQuery).ToLower();
-				results =
-						(
-							from CrashDetail in results
-							where CrashDetail.ComputerName.Equals(FormData.MachineIdQuery)
-							select CrashDetail
-						);
-			}
-
-			if (!string.IsNullOrEmpty(FormData.JiraQuery))
-			{
-				var DecodedQuery = HttpUtility.HtmlDecode(FormData.JiraQuery).ToLower();
-				results =
+				var DecodedJIRA = HttpUtility.HtmlDecode( FormData.JiraQuery ).ToLower();
+				Results =
 					(
-						from CrashDetail in results
-						where CrashDetail.TTPID.Equals(FormData.JiraQuery)
+						from CrashDetail in Results
+						where CrashDetail.Jira.Contains( DecodedJIRA )
 						select CrashDetail
 					);
 			}
+
 			// Filter by BranchName
-			if (!string.IsNullOrEmpty(FormData.BranchName))
+			if (!string.IsNullOrEmpty( FormData.BranchName ))
 			{
-				if (FormData.BranchName.StartsWith("-"))
-				{
-					results =
+				Results =
 					(
-						from CrashDetail in results
-						where !CrashDetail.Branch.Contains(FormData.BranchName.Substring(1))
+						from CrashDetail in Results
+						where CrashDetail.Branch.Equals( FormData.BranchName )
 						select CrashDetail
 					);
-				}
-				else
-				{
-					results =
-					(
-						from CrashDetail in results
-						where CrashDetail.Branch.Equals(FormData.BranchName)
-						select CrashDetail
-					);
-				}
 			}
-			else
+
+			// Filter by VersionName
+			if (!string.IsNullOrEmpty( FormData.VersionName ))
 			{
-			    results = 
-                    (
-                    from CrashDetail in results
-                    where !CrashDetail.Branch.Equals("UE4-UT-Releases") && !CrashDetail.Branch.Equals("UE4-UT")
-			        select CrashDetail
-                    );
+				Results =
+					(
+						from CrashDetail in Results
+						where CrashDetail.BuildVersion.Equals( FormData.VersionName )
+						select CrashDetail
+					);
+			}
+
+			// Filter by PlatformName
+			if (!string.IsNullOrEmpty( FormData.PlatformName ))
+			{
+				Results =
+					(
+						from CrashDetail in Results
+						where CrashDetail.PlatformName.Contains( FormData.PlatformName )
+						select CrashDetail
+					);
 			}
 
 			// Filter by GameName
-			if (!string.IsNullOrEmpty(FormData.GameName))
+			if (!string.IsNullOrEmpty( FormData.GameName ))
 			{
-				if (FormData.GameName.StartsWith("-"))
+				var DecodedGameName = HttpUtility.HtmlDecode( FormData.GameName ).ToLower();
+
+				if (DecodedGameName.StartsWith( "-" ))
 				{
-					results =
+					Results =
 					(
-						from CrashDetail in results
-						where !CrashDetail.GameName.Contains(FormData.GameName.Substring(1))
+						from CrashDetail in Results
+						where !CrashDetail.GameName.Contains( DecodedGameName.Substring( 1 ) )
 						select CrashDetail
 					);
 				}
 				else
 				{
-					results =
+					Results =
 					(
-						from CrashDetail in results
-						where CrashDetail.GameName.Contains(FormData.GameName)
+						from CrashDetail in Results
+						where CrashDetail.GameName.Contains( DecodedGameName )
 						select CrashDetail
 					);
 				}
 			}
 
-		    if (!string.IsNullOrEmpty(FormData.MessageQuery))
-		    {
-		        results =
-		            (
-		                from CrashDetail in results
-		                where SqlMethods.Like(CrashDetail.Summary, "%" + FormData.MessageQuery + "%")
-		                select CrashDetail
-		                );
-		    }
+			// Filter by MessageQuery
+			if (!string.IsNullOrEmpty( FormData.MessageQuery ))
+			{
+				Results =
+					(
+						from CrashDetail in Results
+						where SqlMethods.Like( CrashDetail.Summary, "%" + FormData.MessageQuery + "%" ) || SqlMethods.Like( CrashDetail.Description, "%" + FormData.MessageQuery + "%" )
+						select CrashDetail
+						);
+			}
 
-		    if (!string.IsNullOrEmpty(FormData.DescriptionQuery))
-		    {
-		        results = 
-                    (
-                        from CrashDetail in results
-                        where SqlMethods.Like(CrashDetail.Description, "%" + FormData.DescriptionQuery + "%")
-		                select CrashDetail
-                    );
-		    }
+			// Filter by BuiltFromCL
+			if (!string.IsNullOrEmpty( FormData.BuiltFromCL ))
+			{
+				int BuiltFromCL = 0;
+				bool bValid = int.TryParse( FormData.BuiltFromCL, out BuiltFromCL );
 
-		    if (!string.IsNullOrEmpty(FormData.SearchQuery))
-		    {
-		        results = 
-                    (
-                        from CrashDetail in results
-                        where SqlMethods.Like(CrashDetail.RawCallStack, "%" + FormData.SearchQuery + "%")
-		                select CrashDetail
-                    );
-		    }
+				if (bValid)
+				{
+					Results =
+						(
+							from CrashDetail in Results
+							where CrashDetail.BuiltFromCL.Equals( BuiltFromCL )
+							select CrashDetail
+						);
+				}
+			}
 
-			return results;
+			return Results;
 		}
 	}
 }

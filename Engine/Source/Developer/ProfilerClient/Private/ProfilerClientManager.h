@@ -102,6 +102,9 @@ struct FServiceConnection
 	 */
 	bool ReadAndConvertStatMessages( FArchive& Reader, bool bUseInAsync );
 
+	/** Generates a new frame for the profiler. */
+	void GenerateNewFrame( FStatMessage Message, FArchive &Reader, bool bUseInAsync );
+
 	/** Adds all collected stat messages to the current stats thread state. */
 	void AddCollectedStatMessages( FStatMessage Message );
 

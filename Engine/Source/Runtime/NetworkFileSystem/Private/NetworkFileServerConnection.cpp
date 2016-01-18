@@ -72,12 +72,16 @@ void FNetworkFileServerClientConnection::ConvertClientFilenameToServerFilename(F
 static TMap<FString, FDateTime> FixupSandboxPathsForClient(FSandboxPlatformFile* Sandbox, const TMap<FString, FDateTime>& SandboxPaths, const FString& LocalEngineDir, const FString& LocalGameDir, bool bLowerCaseFiles)
 {
 	TMap<FString, FDateTime> FixedFiletimes;
-	FString SandboxEngine = Sandbox->ConvertToSandboxPath(*LocalEngineDir) + TEXT("/");
+	FString SandboxEngine = Sandbox->ConvertToSandboxPath(*LocalEngineDir);
+	if (SandboxEngine.EndsWith(TEXT("/"), ESearchCase::CaseSensitive) == false)
+	{
+		SandboxEngine += TEXT("/");
+	}
 
 	// we need to add an extra bit to the game path to make the sandbox convert it correctly (investigate?)
 	// @todo: double check this
 	FString SandboxGame = Sandbox->ConvertToSandboxPath(*(LocalGameDir + TEXT("a.txt"))).Replace(TEXT("a.txt"), TEXT(""));
-
+	
 	// since the sandbox remaps from A/B/C to C, and the client has no idea of this, we need to put the files
 	// into terms of the actual LocalGameDir, which is all that the client knows about
 	for (TMap<FString, FDateTime>::TConstIterator It(SandboxPaths); It; ++It)
@@ -633,7 +637,7 @@ void FNetworkFileServerClientConnection::ProcessToAbsolutePathForWrite( FArchive
 bool FNetworkFileServerClientConnection::ProcessGetFileList( FArchive& In, FArchive& Out )
 {
 	// get the list of directories to process
-	TArray<FString> TargetPlatformNames;
+ 	TArray<FString> TargetPlatformNames;
 	FString GameName;
 	FString EngineRelativePath;
 	FString GameRelativePath;
@@ -809,8 +813,10 @@ bool FNetworkFileServerClientConnection::ProcessGetFileList( FArchive& In, FArch
 
 	// report the package version information
 	// The downside of this is that ALL cooked data will get tossed on package version changes
-	Out << GPackageFileUE4Version;
-	Out << GPackageFileLicenseeUE4Version;
+	int32 PackageFileUE4Version = GPackageFileUE4Version;
+	Out << PackageFileUE4Version;
+	int32 PackageFileLicenseeUE4Version = GPackageFileLicenseeUE4Version;
+	Out << PackageFileLicenseeUE4Version;
 
 	// Send *our* engine and game dirs
 	Out << LocalEngineDir;

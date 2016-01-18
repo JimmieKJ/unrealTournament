@@ -144,6 +144,7 @@ public:
 	virtual IDetailGroup& AddGroup( FName GroupName, const FText& LocalizedDisplayName, bool bForAdvanced = false, bool bStartExpanded = false ) override;
 	virtual void GetDefaultProperties( TArray<TSharedRef<IPropertyHandle> >& OutAllProperties, bool bSimpleProperties = true, bool bAdvancedProperties = true ) override;
 	virtual const FText& GetDisplayName() const override { return DisplayName; }
+	virtual void SetCategoryVisibility( bool bIsVisible ) override;
 
 	/** IDetailTreeNode interface */
 	virtual IDetailsViewPrivate& GetDetailsView() const override{ return DetailLayoutBuilder.Pin()->GetDetailsView(); }
@@ -359,15 +360,17 @@ private:
 	/** The sort order of this category (amongst all categories) */
 	int32 SortOrder;
 	/** Whether or not to restore the expansion state between sessions */
-	bool bRestoreExpansionState;
+	bool bRestoreExpansionState:1;
 	/** Whether or not the category should be initially collapsed */
-	bool bShouldBeInitiallyCollapsed;
+	bool bShouldBeInitiallyCollapsed:1;
 	/** Whether or not advanced properties should be shown (as specified by the user) */
-	bool bUserShowAdvanced;
+	bool bUserShowAdvanced:1;
 	/** Whether or not advanced properties are forced to be shown (this is an independent toggle from bShowAdvanced which is user driven)*/
-	bool bForceAdvanced;
+	bool bForceAdvanced:1;
 	/** Whether or not the content in the category is being filtered */
-	bool bHasFilterStrings;
+	bool bHasFilterStrings:1;
 	/** true if anything is visible in the category */
-	bool bHasVisibleDetails;
+	bool bHasVisibleDetails:1;
+	/** true if the category is visible at all */
+	bool bIsCategoryVisible:1;
 };

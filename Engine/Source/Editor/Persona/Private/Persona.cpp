@@ -113,9 +113,9 @@ public:
 	{
 		if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->GetPreviewMeshComponent())
 		{
-			if (PreviewComponent->AnimScriptInstance != nullptr)
+			if (PreviewComponent->GetAnimInstance() != nullptr)
 			{
-				return PreviewComponent->AnimScriptInstance;
+				return PreviewComponent->GetAnimInstance();
 			}
 		}
 
@@ -251,6 +251,7 @@ FPersona::FPersona()
 	, PreviewComponent(NULL)
 	, PersonaMeshDetailLayout(NULL)
 	, PreviewScene(FPreviewScene::ConstructionValues().AllowAudioPlayback(true).ShouldSimulatePhysics(true))
+	, LastCachedLODForPreviewComponent(0)
 {
 	// Register to be notified when properties are edited
 	OnPropertyChangedHandle = FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate::CreateRaw(this, &FPersona::OnPropertyChanged);
@@ -434,6 +435,9 @@ TSharedPtr<SDockTab> FPersona::OpenNewAnimationDocumentTab(UObject* InAnimAsset)
 
 TSharedPtr<SDockTab> FPersona::OpenNewDocumentTab(class UAnimationAsset* InAnimAsset)
 {
+	/// before opening new asset, clear the currently selected object
+	SetDetailObject(NULL);
+
 	TSharedPtr<SDockTab> NewTab;
 	if (InAnimAsset)
 	{
@@ -770,7 +774,7 @@ void FPersona::InitPersona(const EToolkitMode::Type Mode, const TSharedPtr< clas
 	else
 	{
 		// Make sure the object being debugged is the preview instance
-		AnimBlueprint->SetObjectBeingDebugged(PreviewComponent->AnimScriptInstance);
+		AnimBlueprint->SetObjectBeingDebugged(PreviewComponent->GetAnimInstance());
 	}
 
 	ExtendMenu();
@@ -947,7 +951,9 @@ void FPersona::ExtendDefaultPersonaToolbar()
 		{
 			ToolbarBuilder.BeginSection("Skeleton");
 			{
-				ToolbarBuilder.AddToolBarButton(FPersonaCommands::Get().ChangeSkeletonPreviewMesh, NAME_None, LOCTEXT("Toolbar_ChangePreviewMesh", "Set Preview"));
+				ToolbarBuilder.AddToolBarButton(FPersonaCommands::Get().TogglePreviewAsset, NAME_None, LOCTEXT("Toolbar_PreviewAsset", "Preview"), TAttribute<FText>(PersonaPtr, &FPersona::GetPreviewAssetTooltip));
+				ToolbarBuilder.AddToolBarButton(FPersonaCommands::Get().ToggleReferencePose, NAME_None, LOCTEXT("Toolbar_ToggleReferencePose", "Ref Pose"), LOCTEXT("Toolbar_ToggleReferencePoseTooltip", "Show Reference Pose"));
+				ToolbarBuilder.AddSeparator();
 				ToolbarBuilder.AddToolBarButton(FPersonaCommands::Get().AnimNotifyWindow);
 				ToolbarBuilder.AddToolBarButton(FPersonaCommands::Get().RetargetManager, NAME_None, LOCTEXT("Toolbar_RetargetManager", "Retarget Manager"));
 				ToolbarBuilder.AddToolBarButton(FPersonaCommands::Get().ImportMesh);
@@ -1031,7 +1037,7 @@ UObject* FPersona::GetPreviewAnimationAsset() const
 			// if same, do not overwrite. It will reset time and everything
 			if (PreviewComponent->PreviewInstance != NULL)
 			{
-				return PreviewComponent->PreviewInstance->CurrentAsset;
+				return PreviewComponent->PreviewInstance->GetCurrentAsset();
 			}
 		}
 	}
@@ -1088,7 +1094,7 @@ void FPersona::SetPreviewVertexAnim(UVertexAnimation* VertexAnim)
 			// if same, do not overwrite. It will reset time and everything
 			if( VertexAnim && 
 				PreviewComponent->PreviewInstance && 
-				VertexAnim == PreviewComponent->PreviewInstance->CurrentVertexAnim )
+				VertexAnim == PreviewComponent->PreviewInstance->GetCurrentVertexAnimation() )
 			{
 				return;
 			}
@@ -1244,6 +1250,18 @@ void FPersona::CreateDefaultCommands()
 		FExecuteAction::CreateSP( this, &FPersona::ChangeSkeletonPreviewMesh ),
 		FCanExecuteAction::CreateSP( this, &FPersona::CanChangeSkeletonPreviewMesh )
 		);
+
+	ToolkitCommands->MapAction(FPersonaCommands::Get().ToggleReferencePose,
+	FExecuteAction::CreateSP(this, &FPersona::ShowReferencePose, true),
+	FCanExecuteAction::CreateSP(this, &FPersona::CanShowReferencePose),
+	FIsActionChecked::CreateSP(this, &FPersona::IsShowReferencePoseEnabled)
+	);
+
+	ToolkitCommands->MapAction(FPersonaCommands::Get().TogglePreviewAsset,
+	FExecuteAction::CreateSP(this, &FPersona::ShowReferencePose, false),
+	FCanExecuteAction::CreateSP(this, &FPersona::CanPreviewAsset),
+	FIsActionChecked::CreateSP(this, &FPersona::IsPreviewAssetEnabled)
+	);
 
 	ToolkitCommands->MapAction( FPersonaCommands::Get().RemoveUnusedBones,
 		FExecuteAction::CreateSP( this, &FPersona::RemoveUnusedBones ),
@@ -1671,16 +1689,27 @@ bool FPersona::CanRemovePosePin() const
 	return true;
 }
 
+void FPersona::RecompileAnimBlueprintIfDirty()
+{
+	if (UBlueprint* Blueprint = GetBlueprintObj())
+	{
+		if (!Blueprint->IsUpToDate())
+		{
+			Compile();
+		}
+	}
+}
+
 void FPersona::Compile()
 {
 	// Note if we were debugging the preview
 	UObject* CurrentDebugObject = GetBlueprintObj()->GetObjectBeingDebugged();
-	const bool bIsDebuggingPreview = (PreviewComponent != NULL) && PreviewComponent->IsAnimBlueprintInstanced() && (PreviewComponent->AnimScriptInstance == CurrentDebugObject);
+	const bool bIsDebuggingPreview = (PreviewComponent != NULL) && PreviewComponent->IsAnimBlueprintInstanced() && (PreviewComponent->GetAnimInstance() == CurrentDebugObject);
 
 	if (PreviewComponent != NULL)
 	{
 		// Force close any asset editors that are using the AnimScriptInstance (such as the Property Matrix), the class will be garbage collected
-		FAssetEditorManager::Get().CloseOtherEditors(PreviewComponent->AnimScriptInstance, nullptr);
+		FAssetEditorManager::Get().CloseOtherEditors(PreviewComponent->GetAnimInstance(), nullptr);
 	}
 
 	// Compile the blueprint
@@ -1688,7 +1717,7 @@ void FPersona::Compile()
 
 	if (PreviewComponent != NULL)
 	{
-		if (PreviewComponent->AnimScriptInstance == NULL)
+		if (PreviewComponent->GetAnimInstance() == NULL)
 		{
 			// try reinitialize animation if it doesn't exist
 			PreviewComponent->InitAnim(true);
@@ -1696,7 +1725,7 @@ void FPersona::Compile()
 
 		if (bIsDebuggingPreview)
 		{
-			GetBlueprintObj()->SetObjectBeingDebugged(PreviewComponent->AnimScriptInstance);
+			GetBlueprintObj()->SetObjectBeingDebugged(PreviewComponent->GetAnimInstance());
 		}
 	}
 
@@ -1746,6 +1775,18 @@ FText FPersona::GetToolkitName() const
 	}
 }
 
+FText FPersona::GetToolkitToolTipText() const
+{
+	if (IsEditingSingleBlueprint())
+	{
+		return FAssetEditorToolkit::GetToolTipTextForObject(GetBlueprintObj());
+	}
+	else
+	{
+		check(TargetSkeleton != NULL);
+		return FAssetEditorToolkit::GetToolTipTextForObject(TargetSkeleton);
+	}
+}
 
 FString FPersona::GetWorldCentricTabPrefix() const
 {
@@ -1820,92 +1861,106 @@ void FPersona::OnActiveTabChanged( TSharedPtr<SDockTab> PreviouslyActive, TShare
 	}
 }
 
+void FPersona::SetPreviewMeshInternal(USkeletalMesh* NewPreviewMesh)
+{
+	ValidatePreviewAttachedAssets(NewPreviewMesh);
+	if(NewPreviewMesh != PreviewComponent->SkeletalMesh)
+	{
+		if(PreviewComponent->SkeletalMesh != NULL)
+		{
+			RemoveEditingObject(PreviewComponent->SkeletalMesh);
+		}
+
+		if(NewPreviewMesh != NULL)
+		{
+			AddEditingObject(NewPreviewMesh);
+		}
+
+		// setting skeletalmesh unregister/re-register, 
+		// so I have to save the animation settings and resetting after setting mesh
+		UAnimationAsset* AnimAssetToPlay = NULL;
+		float PlayPosition = 0.f;
+		bool bPlaying = false;
+		bool bNeedsToCopyAnimationData = PreviewComponent->GetAnimInstance() && PreviewComponent->GetAnimInstance() == PreviewComponent->PreviewInstance;
+		if(bNeedsToCopyAnimationData)
+		{
+			AnimAssetToPlay = PreviewComponent->PreviewInstance->GetCurrentAsset();
+			PlayPosition = PreviewComponent->PreviewInstance->GetCurrentTime();
+			bPlaying = PreviewComponent->PreviewInstance->IsPlaying();
+		}
+
+		PreviewComponent->SetSkeletalMesh(NewPreviewMesh);
+
+		if(bNeedsToCopyAnimationData)
+		{
+			SetPreviewAnimationAsset(AnimAssetToPlay);
+			PreviewComponent->PreviewInstance->SetPosition(PlayPosition);
+			PreviewComponent->PreviewInstance->SetPlaying(bPlaying);
+		}
+	}
+	else
+	{
+		PreviewComponent->InitAnim(true);
+	}
+
+	if(NewPreviewMesh != NULL)
+	{
+		PreviewScene.AddComponent(PreviewComponent, FTransform::Identity);
+		for(auto Iter = AdditionalMeshes.CreateIterator(); Iter; ++Iter)
+		{
+			PreviewScene.AddComponent((*Iter), FTransform::Identity);
+		}
+
+		// Set up the mesh for transactions
+		NewPreviewMesh->SetFlags(RF_Transactional);
+
+		AddPreviewAttachedObjects();
+
+		if(Viewport.IsValid())
+		{
+			Viewport.Pin()->SetPreviewComponent(PreviewComponent);
+		}
+	}
+
+	for(auto Iter = AdditionalMeshes.CreateIterator(); Iter; ++Iter)
+	{
+		(*Iter)->SetMasterPoseComponent(PreviewComponent);
+		(*Iter)->UpdateMasterBoneMap();
+	}
+
+	OnPreviewMeshChanged.Broadcast(NewPreviewMesh);
+}
+
 // Sets the current preview mesh
 void FPersona::SetPreviewMesh(USkeletalMesh* NewPreviewMesh)
 {
 	if(!TargetSkeleton->IsCompatibleMesh(NewPreviewMesh))
 	{
-		// Send a notification that the skeletal mesh cannot work with the skeleton
-		FFormatNamedArguments Args;
-		Args.Add( TEXT("PreviewMeshName"), FText::FromString( NewPreviewMesh->GetName() ) );
-		Args.Add( TEXT("TargetSkeletonName"), FText::FromString( TargetSkeleton->GetName() ) );
-		FNotificationInfo Info( FText::Format( LOCTEXT("SkeletalMeshIncompatible", "Skeletal Mesh \"{PreviewMeshName}\" incompatible with Skeleton \"{TargetSkeletonName}\"" ), Args ) );
-		Info.ExpireDuration = 3.0f;
-		Info.bUseLargeFont = false;
-		TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
-		if ( Notification.IsValid() )
+		// message box, ask if they'd like to regenerate skeleton
+		if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("RenerateSkeleton", "The preview mesh hierarchy doesn't match with Skeleton anymore. Would you like to regenerate skeleton?")) == EAppReturnType::Yes)
 		{
-			Notification->SetCompletionState( SNotificationItem::CS_Fail );
+			TargetSkeleton->RecreateBoneTree( NewPreviewMesh );
+			SetPreviewMeshInternal(NewPreviewMesh);
+		}
+		else
+		{
+			// Send a notification that the skeletal mesh cannot work with the skeleton
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("PreviewMeshName"), FText::FromString(NewPreviewMesh->GetName()));
+			Args.Add(TEXT("TargetSkeletonName"), FText::FromString(TargetSkeleton->GetName()));
+			FNotificationInfo Info(FText::Format(LOCTEXT("SkeletalMeshIncompatible", "Skeletal Mesh \"{PreviewMeshName}\" incompatible with Skeleton \"{TargetSkeletonName}\""), Args));
+			Info.ExpireDuration = 3.0f;
+			Info.bUseLargeFont = false;
+			TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
+			if(Notification.IsValid())
+			{
+				Notification->SetCompletionState(SNotificationItem::CS_Fail);
+			}
 		}
 	}
 	else
 	{
-		ValidatePreviewAttachedAssets(NewPreviewMesh);
-		if (NewPreviewMesh != PreviewComponent->SkeletalMesh)
-		{
-			if ( PreviewComponent->SkeletalMesh != NULL )
-			{
-				RemoveEditingObject(PreviewComponent->SkeletalMesh);
-			}
-
-			if ( NewPreviewMesh != NULL )
-			{
-				AddEditingObject(NewPreviewMesh);
-			}
-
-			// setting skeletalmesh unregister/re-register, 
-			// so I have to save the animation settings and resetting after setting mesh
-			UAnimationAsset* AnimAssetToPlay = NULL;
-			float PlayPosition = 0.f;
-			bool bPlaying = false;
-			bool bNeedsToCopyAnimationData = PreviewComponent->AnimScriptInstance && PreviewComponent->AnimScriptInstance == PreviewComponent->PreviewInstance;
-			if(bNeedsToCopyAnimationData)
-			{
-				AnimAssetToPlay = PreviewComponent->PreviewInstance->CurrentAsset;
-				PlayPosition = PreviewComponent->PreviewInstance->CurrentTime;
-				bPlaying = PreviewComponent->PreviewInstance->bPlaying;
-			}
-
-			PreviewComponent->SetSkeletalMesh(NewPreviewMesh);
-
-			if(bNeedsToCopyAnimationData)
-			{
-				SetPreviewAnimationAsset(AnimAssetToPlay);
-				PreviewComponent->PreviewInstance->SetPosition(PlayPosition);
-				PreviewComponent->PreviewInstance->bPlaying = bPlaying;
-			}
-		}
-		else
-		{
-			PreviewComponent->InitAnim(true);
-		}
-
-		if (NewPreviewMesh != NULL)
-		{
-			PreviewScene.AddComponent(PreviewComponent, FTransform::Identity);
-			for (auto Iter = AdditionalMeshes.CreateIterator(); Iter; ++Iter)
-			{
-				PreviewScene.AddComponent((*Iter), FTransform::Identity);
-			}
-
-			// Set up the mesh for transactions
-			NewPreviewMesh->SetFlags(RF_Transactional);
-
-			AddPreviewAttachedObjects();
-
-			if(Viewport.IsValid())
-			{
-				Viewport.Pin()->SetPreviewComponent(PreviewComponent);
-			}
-		}
-
-		for(auto Iter = AdditionalMeshes.CreateIterator(); Iter; ++Iter)
-		{
-			(*Iter)->SetMasterPoseComponent(PreviewComponent);
-			(*Iter)->UpdateMasterBoneMap();
-		}
-
-		OnPreviewMeshChanged.Broadcast(NewPreviewMesh);
+		SetPreviewMeshInternal(NewPreviewMesh);
 	}
 }
 
@@ -1926,9 +1981,13 @@ void FPersona::RefreshPreviewInstanceTrackCurves()
 
 void FPersona::PostUndo(bool bSuccess)
 {
+	DocumentManager->CleanInvalidTabs();
 	DocumentManager->RefreshAllTabs();
 
 	FBlueprintEditor::PostUndo(bSuccess);
+
+	// If we undid a node creation that caused us to clean up a tab/graph we need to refresh the UI state
+	RefreshEditors();
 
 	// PostUndo broadcast
 	OnPostUndo.Broadcast();	
@@ -1973,7 +2032,7 @@ void FPersona::GetCustomDebugObjects(TArray<FCustomDebugObject>& DebugList) cons
 {
 	if (PreviewComponent->IsAnimBlueprintInstanced())
 	{
-		new (DebugList) FCustomDebugObject(PreviewComponent->AnimScriptInstance, LOCTEXT("PreviewObjectLabel", "Preview Instance").ToString());
+		new (DebugList) FCustomDebugObject(PreviewComponent->GetAnimInstance(), LOCTEXT("PreviewObjectLabel", "Preview Instance").ToString());
 	}
 }
 
@@ -2536,7 +2595,10 @@ void FPersona::FindInContentBrowser_Execute()
 {
 	FName CurrentMode = GetCurrentMode();
 	TArray<UObject*> ObjectsToSyncTo = GetEditorObjectsForMode(CurrentMode);
-	GEditor->SyncBrowserToObjects( ObjectsToSyncTo );
+	if (ObjectsToSyncTo.Num() > 0)
+	{
+		GEditor->SyncBrowserToObjects( ObjectsToSyncTo );
+	}
 }
 
 void FPersona::OnCommandGenericDelete()
@@ -2987,6 +3049,12 @@ void FPersona::Tick(float DeltaTime)
 		// make sure you don't allow switch previewcomponent
 		Recorder.UpdateRecord(PreviewComponent, DeltaTime);
 	}
+
+	if (PreviewComponent && LastCachedLODForPreviewComponent != PreviewComponent->PredictedLODLevel)
+	{
+		OnLODChanged.Broadcast();
+		LastCachedLODForPreviewComponent = PreviewComponent->PredictedLODLevel;
+	}
 }
 
 bool FPersona::CanChangeSkeletonPreviewMesh() const
@@ -3138,6 +3206,126 @@ void FPersona::OnBlueprintPreCompile(UBlueprint* BlueprintToCompile)
 			}
 		}
 	}
+}
+
+void FPersona::OnBlueprintChangedImpl(UBlueprint* InBlueprint, bool bIsJustBeingCompiled /*= false*/)
+{
+	FBlueprintEditor::OnBlueprintChangedImpl(InBlueprint, bIsJustBeingCompiled);
+
+	UObject* CurrentDebugObject = GetBlueprintObj()->GetObjectBeingDebugged();
+	const bool bIsDebuggingPreview = (PreviewComponent != NULL) && PreviewComponent->IsAnimBlueprintInstanced() && (PreviewComponent->GetAnimInstance() == CurrentDebugObject);
+
+	if(PreviewComponent != NULL)
+	{
+		// Reinitialize the animation, anything we reference could have changed triggering
+		// the blueprint change
+		PreviewComponent->InitAnim(true);
+
+		if(bIsDebuggingPreview)
+		{
+			GetBlueprintObj()->SetObjectBeingDebugged(PreviewComponent->GetAnimInstance());
+		}
+	}
+
+	// calls PostCompile to copy proper values between anim nodes
+	if(Viewport.IsValid())
+	{
+		Viewport.Pin()->GetAnimationViewportClient()->PostCompile();
+	}
+}
+
+void FPersona::ShowReferencePose(bool bReferencePose)
+{
+	if(PreviewComponent)
+	{
+		if(bReferencePose == false)
+		{
+			if(IsInPersonaMode(FPersonaModes::AnimBlueprintEditMode))
+			{
+				PreviewComponent->EnablePreview(false, NULL, NULL);
+
+				UAnimBlueprint* AnimBP = GetAnimBlueprint();
+				if(AnimBP)
+				{
+					PreviewComponent->SetAnimInstanceClass(AnimBP->GeneratedClass);
+				}
+			}
+			else
+			{
+				UObject* PreviewAsset = CachedPreviewAsset.IsValid()? CachedPreviewAsset.Get() : (GetAnimationAssetBeingEdited());
+				PreviewComponent->EnablePreview(true, Cast<UAnimationAsset>(PreviewAsset), NULL);
+			}
+		}
+		else
+		{
+			if (PreviewComponent->PreviewInstance && PreviewComponent->PreviewInstance->GetCurrentAsset())
+			{
+				CachedPreviewAsset = PreviewComponent->PreviewInstance->GetCurrentAsset();
+			}
+			
+			PreviewComponent->EnablePreview(true, NULL, NULL);
+		}
+	}
+}
+
+bool FPersona::CanShowReferencePose() const
+{
+	return PreviewComponent != NULL;
+}
+
+bool FPersona::IsShowReferencePoseEnabled() const
+{
+	if(PreviewComponent)
+	{
+		return PreviewComponent->IsPreviewOn() && PreviewComponent->PreviewInstance->GetCurrentAsset() == NULL;
+	}
+	return false;
+}
+
+bool FPersona::CanPreviewAsset() const
+{
+	return CanShowReferencePose();
+}
+
+bool FPersona::IsPreviewAssetEnabled() const
+{
+	return IsShowReferencePoseEnabled() == false;
+}
+
+FText FPersona::GetPreviewAssetTooltip() const
+{
+	// if already looking at ref pose
+	if(IsShowReferencePoseEnabled())
+	{
+		FString AssetName = TEXT("None Available. Please select asset to preview.");
+
+		if(IsInPersonaMode(FPersonaModes::AnimBlueprintEditMode))
+		{
+			UAnimBlueprint* AnimBP = GetAnimBlueprint();
+			if(AnimBP)
+			{
+				AssetName = AnimBP->GetName();
+			}
+		}
+		else
+		{
+			UObject* PreviewAsset = CachedPreviewAsset.IsValid()? CachedPreviewAsset.Get() : (GetAnimationAssetBeingEdited());
+			if (PreviewAsset)
+			{
+				AssetName = PreviewAsset->GetName();
+			}
+		}
+		return FText::FromString(FString::Printf(TEXT("Preview %s"), *AssetName));
+	}
+	else
+	{
+		return FText::FromString(FString::Printf(TEXT("Currently previewing %s"), *PreviewComponent->GetPreviewText()));
+	}
+}
+
+void FPersona::SetSelectedBlendProfile(UBlendProfile* InBlendProfile)
+{
+	OnBlendProfileSelected.Broadcast(InBlendProfile);
 }
 
 static class FMeshHierarchyCmd : private FSelfRegisteringExec

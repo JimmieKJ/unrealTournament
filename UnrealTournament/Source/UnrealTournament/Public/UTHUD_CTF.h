@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,6 +11,5 @@ class UNREALTOURNAMENT_API AUTHUD_CTF : public AUTHUD
 
 	virtual FLinearColor GetBaseHUDColor() override;
 	virtual void NotifyMatchStateChange() override;
-
 	virtual void DrawMinimapSpectatorIcons() override;
 };

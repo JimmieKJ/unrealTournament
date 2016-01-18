@@ -50,4 +50,20 @@ public:
 	 * @param Bytes Array of texture data
 	 */
 	virtual void UpdateTextureThreadSafe(const TArray<uint8>& Bytes) = 0;
+	
+	/**
+	 * Update the texture from a raw byte buffer.
+	 * Should only be used when integrating with third party APIs that provide a raw pointer to texture data.
+	 * This method does a copy of the buffer for thread safety. 
+	 * Will resize the texture if the passed in width and height is different from the current size.
+	 * The passed in size must correspond to the size of the buffer and the data must be valid for the entire texture, even when
+	 * passing in a Dirty rectangle, as the implementation may chose to copy a larger area than specified. 
+	 * The RHI renderer currently ignores the Dirty argument completely.
+	 *
+	 * @param Width New texture width
+	 * @param Height New texture height
+	 * @param Buffer A void pointer to a byte buffer.
+	 * @param Dirty An optional hint of the area to update. An empty rectangle means that the entire texture should be updated.
+	 */
+	virtual void UpdateTextureThreadSafeRaw(uint32 Width, uint32 Height, const void* Buffer, const FIntRect& Dirty = FIntRect()) = 0;
 };

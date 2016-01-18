@@ -84,6 +84,12 @@ template <> struct TIsPODType<FLinkerIndexPair> { enum { Value = false }; };
  */
 static FUObjectAnnotationDense<FLinkerIndexPair,false> LinkerAnnotation;
 
+/** Remove all annotations on exit. This is to prevent issues with the order of static destruction of singletons. */
+void CleanupLinkerAnnotations()
+{
+	// Remove all annotations and remove LinkerAnnotation from UObject delete listeners.
+	LinkerAnnotation.RemoveAllAnnotations();
+}
 
 
 void UObject::SetLinker( FLinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShouldDetachExisting )

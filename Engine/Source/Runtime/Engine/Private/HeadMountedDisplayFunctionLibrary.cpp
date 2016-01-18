@@ -155,3 +155,16 @@ float UHeadMountedDisplayFunctionLibrary::GetScreenPercentage()
 	}
 	return 0.0f;
 }
+
+void UHeadMountedDisplayFunctionLibrary::SetWorldToMetersScale(UObject* WorldContext, float NewScale)
+{
+	if (WorldContext)
+	{
+		WorldContext->GetWorld()->GetWorldSettings()->WorldToMeters = NewScale;
+	}
+}
+
+float UHeadMountedDisplayFunctionLibrary::GetWorldToMetersScale(UObject* WorldContext)
+{
+	return WorldContext ? WorldContext->GetWorld()->GetWorldSettings()->WorldToMeters : 0.f;
+}

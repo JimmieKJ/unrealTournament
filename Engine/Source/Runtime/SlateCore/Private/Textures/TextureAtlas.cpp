@@ -7,6 +7,23 @@ DEFINE_STAT(STAT_SlateTextureGPUMemory);
 DEFINE_STAT(STAT_SlateTextureDataMemory);
 DECLARE_MEMORY_STAT(TEXT("Texture Atlas CPU Memory"), STAT_SlateTextureAtlasMemory, STATGROUP_SlateMemory);
 
+ESlateTextureAtlasThreadId GetCurrentSlateTextureAtlasThreadId()
+{
+	// Note: For Game thread ownership, there is a point at which multiple worker threads operate on text simultaneously while the game thread is blocked
+	// Access to the font cache is controlled through mutexes so we simply need to check that we are not accessing it from the render thread
+	// Game thread access is also allowed when the game thread and render thread are the same
+	if (!IsInActualRenderingThread())
+	{
+		return ESlateTextureAtlasThreadId::Game;
+	}
+	else if (IsInRenderingThread())
+	{
+		return ESlateTextureAtlasThreadId::Render;
+	}
+
+	return ESlateTextureAtlasThreadId::Unknown;
+}
+
 /* FSlateTextureAtlas helper class
  *****************************************************************************/
 
@@ -22,8 +39,30 @@ FSlateTextureAtlas::~FSlateTextureAtlas()
 void FSlateTextureAtlas::Empty()
 {
 	// Remove all nodes
-	DestroyNodes( RootNode );
-	RootNode = nullptr;
+	TArray<FAtlasedTextureSlot*> DeleteSlots;
+
+	for (FAtlasedTextureSlot::TIterator SlotIt(AtlasUsedSlots); SlotIt; SlotIt.Next())
+	{
+		FAtlasedTextureSlot& CurSlot = *SlotIt;
+		DeleteSlots.Add(&CurSlot);
+	}
+
+	for (FAtlasedTextureSlot::TIterator SlotIt(AtlasEmptySlots); SlotIt; SlotIt.Next())
+	{
+		FAtlasedTextureSlot& CurSlot = *SlotIt;
+		DeleteSlots.Add(&CurSlot);
+	}
+
+	AtlasUsedSlots = NULL;
+	AtlasEmptySlots = NULL;
+
+	for (FAtlasedTextureSlot* CurSlot : DeleteSlots)
+	{
+		delete CurSlot;
+	}
+
+	DeleteSlots.Empty();
+
 
 	STAT(uint32 MemoryBefore = AtlasData.GetAllocatedSize());
 
@@ -54,47 +93,33 @@ const FAtlasedTextureSlot* FSlateTextureAtlas::AddTexture( uint32 TextureWidth, 
 
 void FSlateTextureAtlas::MarkTextureDirty()
 {
-	check( 
-		(GSlateLoadingThreadId != 0) || 
-		(AtlasOwnerThread == ESlateTextureAtlasOwnerThread::Game && IsInGameThread()) || 
-		(AtlasOwnerThread == ESlateTextureAtlasOwnerThread::Render && IsInRenderingThread()) 
-		);
+	{
+		check(IsInGameThread() || IsInRenderingThread());
+
+		const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
+		check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
+
+		check((GSlateLoadingThreadId != 0) || (AtlasOwnerThread == AtlasThreadId));
+	}
 
 	bNeedsUpdate = true;
 }
 
-
-const FAtlasedTextureSlot* FSlateTextureAtlas::FindSlotForTexture( uint32 InWidth, uint32 InHeight )
-{
-	return FindSlotForTexture(*RootNode, InWidth, InHeight);
-}
-
-void FSlateTextureAtlas::DestroyNodes( FAtlasedTextureSlot* StartNode )
-{
-	if (StartNode->Left)
-	{
-		DestroyNodes(StartNode->Left);
-	}
-
-	if (StartNode->Right)
-	{
-		DestroyNodes(StartNode->Right);
-	}
-
-	delete StartNode;
-}
-
-
 void FSlateTextureAtlas::InitAtlasData()
 {
-	check(RootNode == nullptr && AtlasData.Num() == 0);
+	check(AtlasEmptySlots == NULL && AtlasData.Num() == 0);
 
-	RootNode = new FAtlasedTextureSlot(0, 0, AtlasWidth, AtlasHeight, GetPaddingAmount());
+	FAtlasedTextureSlot* RootSlot = new FAtlasedTextureSlot(0, 0, AtlasWidth, AtlasHeight, GetPaddingAmount());
+
+	RootSlot->LinkHead(AtlasEmptySlots);
+
 	AtlasData.Reserve(AtlasWidth * AtlasHeight * BytesPerPixel);
 	AtlasData.AddZeroed(AtlasWidth * AtlasHeight * BytesPerPixel);
 
 	check(IsInGameThread() || IsInRenderingThread());
-	AtlasOwnerThread = (IsInGameThread()) ? ESlateTextureAtlasOwnerThread::Game : ESlateTextureAtlasOwnerThread::Render;
+
+	AtlasOwnerThread = GetCurrentSlateTextureAtlasThreadId();
+	check(AtlasOwnerThread != ESlateTextureAtlasThreadId::Unknown);
 
 	INC_MEMORY_STAT_BY(STAT_SlateTextureAtlasMemory, AtlasData.GetAllocatedSize());
 }
@@ -214,36 +239,9 @@ void FSlateTextureAtlas::CopyDataIntoSlot( const FAtlasedTextureSlot* SlotToCopy
 	}
 }
 
-
-const FAtlasedTextureSlot* FSlateTextureAtlas::FindSlotForTexture( FAtlasedTextureSlot& Start, uint32 InWidth, uint32 InHeight )
+const FAtlasedTextureSlot* FSlateTextureAtlas::FindSlotForTexture(uint32 InWidth, uint32 InHeight)
 {
-	// If there are left and right slots there are empty regions around this slot.  
-	// It also means this slot is occupied by a texture
-	if (Start.Left || Start.Right)
-	{
-		// Recursively search left for the smallest empty slot that can fit the texture
-		if (Start.Left)
-		{
-			const FAtlasedTextureSlot* NewSlot = FindSlotForTexture(*Start.Left, InWidth, InHeight);
-			if (NewSlot)
-			{
-				return NewSlot;
-			}
-		}
-
-		// Recursively search right for the smallest empty slot that can fit the texture
-		if (Start.Right)
-		{
-			const FAtlasedTextureSlot* NewSlot = FindSlotForTexture(*Start.Right, InWidth, InHeight);
-			if(NewSlot)
-			{
-				return NewSlot;
-			}
-		}
-
-		// Not enough space
-		return nullptr;
-	}
+	FAtlasedTextureSlot* ReturnVal = NULL;
 
 	// Account for padding on both sides
 	const uint32 Padding = GetPaddingAmount();
@@ -251,34 +249,87 @@ const FAtlasedTextureSlot* FSlateTextureAtlas::FindSlotForTexture( FAtlasedTextu
 	const uint32 PaddedWidth = InWidth + TotalPadding;
 	const uint32 PaddedHeight = InHeight + TotalPadding;
 
-	// This slot can't fit the character
-	if ((PaddedWidth > Start.Width) || (PaddedHeight > Start.Height))
+	// Previously, slots were stored as a binary tree - this has been replaced with a linked-list of slots on the edge of the tree
+	// (slots on the edge of the tree represent empty slots); this iterates empty slots in same order as a binary depth-first-search,
+	// except much faster.
+	for (FAtlasedTextureSlot::TIterator SlotIt(AtlasEmptySlots); SlotIt; SlotIt++)
 	{
-		// not enough space
-		return nullptr;
-	}
-	
-	// The width and height of the new child node
-	const uint32 RemainingWidth =  FMath::Max<int32>(0, Start.Width - PaddedWidth);
-	const uint32 RemainingHeight = FMath::Max<int32>(0, Start.Height - PaddedHeight);
+		FAtlasedTextureSlot& CurSlot = *SlotIt;
 
-	// Split the remaining area around this slot into two children.
-	if (RemainingHeight <= RemainingWidth)
-	{
-		// Split vertically
-		Start.Left = new FAtlasedTextureSlot(Start.X, Start.Y + PaddedHeight, PaddedWidth, RemainingHeight, Padding);
-		Start.Right = new FAtlasedTextureSlot(Start.X + PaddedWidth, Start.Y, RemainingWidth, Start.Height, Padding);
-	}
-	else
-	{
-		// Split horizontally
-		Start.Left = new FAtlasedTextureSlot(Start.X + PaddedWidth, Start.Y, RemainingWidth, PaddedHeight, Padding);
-		Start.Right = new FAtlasedTextureSlot(Start.X, Start.Y + PaddedHeight, Start.Width, RemainingHeight, Padding);
+		if (PaddedWidth <= CurSlot.Width && PaddedHeight <= CurSlot.Height)
+		{
+			ReturnVal = &CurSlot;
+			break;
+		}
 	}
 
-	// Shrink the slot to the remaining area.
-	Start.Width = PaddedWidth;
-	Start.Height = PaddedHeight;
 
-	return &Start;
+	if (ReturnVal != NULL)
+	{
+		// The width and height of the new child node
+		const uint32 RemainingWidth =  FMath::Max<int32>(0, ReturnVal->Width - PaddedWidth);
+		const uint32 RemainingHeight = FMath::Max<int32>(0, ReturnVal->Height - PaddedHeight);
+
+		// New slots must have a minimum width/height, to avoid excessive slots i.e. excessive memory usage and iteration.
+		// No glyphs seem to use slots this small, and cutting these slots out improves performance/memory-usage a fair bit
+		const uint32 MinSlotDim = 2;
+
+		// Split the remaining area around this slot into two children.
+		if (RemainingHeight >= MinSlotDim || RemainingWidth >= MinSlotDim)
+		{
+			FAtlasedTextureSlot* LeftSlot = NULL;
+			FAtlasedTextureSlot* RightSlot = NULL;
+
+			if (RemainingHeight <= RemainingWidth)
+			{
+				// Split vertically
+				// - - - - - - - - -
+				// |       |       |
+				// |  Slot |       |
+				// |       |       |
+				// | - - - | Right |
+				// |       |       |
+				// |  Left |       |
+				// |       |       |
+				// - - - - - - - - -
+				LeftSlot = new FAtlasedTextureSlot(ReturnVal->X, ReturnVal->Y + PaddedHeight, PaddedWidth, RemainingHeight, Padding);
+				RightSlot = new FAtlasedTextureSlot(ReturnVal->X + PaddedWidth, ReturnVal->Y, RemainingWidth, ReturnVal->Height, Padding);
+			}
+			else
+			{
+				// Split horizontally
+				// - - - - - - - - -
+				// |       |       |
+				// |  Slot | Left  |
+				// |       |       |
+				// | - - - - - - - |
+				// |               |
+				// |     Right     |
+				// |               |
+				// - - - - - - - - -
+				LeftSlot = new FAtlasedTextureSlot(ReturnVal->X + PaddedWidth, ReturnVal->Y, RemainingWidth, PaddedHeight, Padding);
+				RightSlot = new FAtlasedTextureSlot(ReturnVal->X, ReturnVal->Y + PaddedHeight, ReturnVal->Width, RemainingHeight, Padding);
+			}
+
+			// Replace the old slot within AtlasEmptySlots, with the new Left and Right slot, then add the old slot to AtlasUsedSlots
+			LeftSlot->LinkReplace(ReturnVal);
+			RightSlot->LinkAfter(LeftSlot);
+
+			ReturnVal->LinkHead(AtlasUsedSlots);
+		}
+		else
+		{
+			// Remove the old slot from AtlasEmptySlots, into AtlasUsedSlots
+			ReturnVal->Unlink();
+			ReturnVal->LinkHead(AtlasUsedSlots);
+		}
+
+
+		// Shrink the slot to the remaining area.
+		ReturnVal->Width = PaddedWidth;
+		ReturnVal->Height = PaddedHeight;
+	}
+
+	return ReturnVal;
 }
+

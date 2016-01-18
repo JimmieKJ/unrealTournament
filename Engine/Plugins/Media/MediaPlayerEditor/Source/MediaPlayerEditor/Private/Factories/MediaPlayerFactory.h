@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Factories/Factory.h"
 #include "MediaPlayerFactory.generated.h"
 
 

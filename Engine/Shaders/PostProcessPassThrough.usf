@@ -8,7 +8,7 @@
 #include "PostProcessCommon.usf"
 
 // pixel shader
-void MainPS(float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainPS(noperspective float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, InUV.xy);
 }

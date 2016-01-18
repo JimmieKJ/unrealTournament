@@ -93,9 +93,9 @@ public:
 	/** Mapping of command name's to array index. */
 	TMap<FName, int32>	CommandMap;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/**
 	 * Generates a mapping from commnands to their parent sets for quick lookup.

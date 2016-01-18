@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 #include "UTHUDWidgetMessage_GameMessages.generated.h"
 
@@ -10,6 +10,6 @@ class UNREALTOURNAMENT_API UUTHUDWidgetMessage_GameMessages : public UUTHUDWidge
 public:
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override
 	{
-		return !bShowScores;
+		return !bShowScores && GetWorld()->GetGameState() && (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission);
 	}
 };

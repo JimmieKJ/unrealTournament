@@ -47,7 +47,7 @@ public:
 
 protected:
 
-	virtual bool CreateInternal (FRunnable* InRunnable, const TCHAR* ThreadName,
+	virtual bool CreateInternal (FRunnable* InRunnable, const TCHAR* InThreadName,
 		uint32 InStackSize = 0,
 		EThreadPriority InThreadPri = TPri_Normal, uint64 InThreadAffinityMask = 0) 
 	{

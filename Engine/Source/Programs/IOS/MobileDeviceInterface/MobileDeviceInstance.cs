@@ -876,7 +876,9 @@ namespace Manzana
         ///	<remarks>Files cannot be moved across filesystem boundaries.</remarks>
         public bool Rename(string sourceName, string destName)
         {
-			return MobileDevice.DeviceImpl.RenamePath(AFCCommsHandle, FullPath(CurrentDirectory, sourceName), FullPath(CurrentDirectory, destName)) == 0;
+			return MobileDevice.DeviceImpl.RenamePath(AFCCommsHandle,
+				FullPath(CurrentDirectory, sourceName),
+				FullPath(CurrentDirectory, destName)) == 0;
         }
 
         /// <summary>

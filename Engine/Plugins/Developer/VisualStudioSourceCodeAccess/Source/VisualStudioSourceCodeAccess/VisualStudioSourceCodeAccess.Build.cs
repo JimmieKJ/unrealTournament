@@ -31,6 +31,8 @@ namespace UnrealBuildTool.Rules
 			{
 				Definitions.Add("VSACCESSOR_HAS_DTE=0");
 			}
+
+			bBuildLocallyWithSNDBS = true;
 		}
 	}
 }

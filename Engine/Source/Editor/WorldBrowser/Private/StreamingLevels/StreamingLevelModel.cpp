@@ -9,20 +9,18 @@
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
-FStreamingLevelModel::FStreamingLevelModel(const TWeakObjectPtr<UEditorEngine>& InEditor, 
-											FStreamingLevelCollectionModel& InWorldData, 
-											class ULevelStreaming* InLevelStreaming)
+FStreamingLevelModel::FStreamingLevelModel(FStreamingLevelCollectionModel& InWorldData, ULevelStreaming* InLevelStreaming)
 
-	: FLevelModel(InWorldData, InEditor)
+	: FLevelModel(InWorldData)
 	, LevelStreaming(InLevelStreaming)
 	, bHasValidPackageName(false)
 {
-	Editor->RegisterForUndo( this );
+	GEditor->RegisterForUndo( this );
 }
 
 FStreamingLevelModel::~FStreamingLevelModel()
 {
-	Editor->UnregisterForUndo( this );
+	GEditor->UnregisterForUndo( this );
 }
 
 bool FStreamingLevelModel::HasValidPackage() const
@@ -72,11 +70,6 @@ void FStreamingLevelModel::UpdateAsset(const FAssetData& AssetData)
 	{
 		LevelStreaming->SetWorldAssetByPackageName(AssetData.PackageName);
 	}
-}
-
-bool FStreamingLevelModel::SupportsLevelColor() const
-{
-	return LevelStreaming.IsValid();
 }
 
 FLinearColor FStreamingLevelModel::GetLevelColor() const

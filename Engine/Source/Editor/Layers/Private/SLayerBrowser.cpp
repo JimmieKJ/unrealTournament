@@ -36,10 +36,10 @@ void SLayerBrowser::Construct(const FArguments& InArgs)
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			[
-				SNew(SSearchBox)
+				SAssignNew(SearchBoxPtr, SSearchBox)
 				.ToolTipText(LOCTEXT("FilterSearchToolTip", "Type here to search layers"))
 				.HintText(LOCTEXT("FilterSearchHint", "Search Layers"))
-				.OnTextChanged(SearchBoxLayerFilter.Get(), &LayerTextFilter::SetRawFilterText)
+				.OnTextChanged(this, &SLayerBrowser::OnFilterTextChanged)
 			]
 
 			+ SVerticalBox::Slot()
@@ -164,6 +164,12 @@ void SLayerBrowser::Construct(const FArguments& InArgs)
 FText SLayerBrowser::GetLayerContentsHeaderText() const
 {
 	return FText::Format(LOCTEXT("SelectedContentsLabel", "{0} Contents"), FText::FromString(SelectedLayerViewModel->GetName()));
+}
+
+void SLayerBrowser::OnFilterTextChanged( const FText& InNewText )
+{
+	SearchBoxLayerFilter->SetRawFilterText(InNewText);
+	SearchBoxPtr->SetError(SearchBoxLayerFilter->GetFilterErrorText());
 }
 
 #undef LOCTEXT_NAMESPACE

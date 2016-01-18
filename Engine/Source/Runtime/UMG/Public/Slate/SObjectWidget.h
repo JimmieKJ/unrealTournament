@@ -10,7 +10,7 @@
  * The UWidget allowing it to be garbage collected.  It also forwards the slate events to the UUserWidget
  * so that it can forward them to listeners.
  */
-class SObjectWidget : public SCompoundWidget, public FGCObject
+class UMG_API SObjectWidget : public SCompoundWidget, public FGCObject
 {
 	SLATE_BEGIN_ARGS(SObjectWidget)
 	{
@@ -30,8 +30,14 @@ class SObjectWidget : public SCompoundWidget, public FGCObject
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	// End of FGCObject interface
 
+	UUserWidget* GetWidgetObject() const { return WidgetObject; }
+
+	void SetPadding(const TAttribute<FMargin>& InMargin);
+
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
+
+	virtual bool ComputeVolatility() const override;
 
 	virtual bool IsInteractable() const override;
 	virtual bool SupportsKeyboardFocus() const override;
@@ -72,7 +78,7 @@ class SObjectWidget : public SCompoundWidget, public FGCObject
 
 	virtual FNavigationReply OnNavigation(const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent) override;
 
-private:
+protected:
 
 	/** The UWidget that created this SObjectWidget who needs to be kept alive. */
 	UUserWidget* WidgetObject;

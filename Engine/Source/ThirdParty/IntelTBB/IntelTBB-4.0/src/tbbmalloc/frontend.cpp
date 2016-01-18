@@ -352,6 +352,7 @@ public:
     }
     const BackRefIdx *getBackRef() const { return &backRefIdx; }
     void initEmptyBlock(Bin* tlsBin, size_t size);
+	size_t findObjectSize(void* object) const;
 
 protected:
     void cleanBlockHeader();
@@ -1799,6 +1800,23 @@ inline FreeObject* Block::allocate()
     return NULL;
 }
 
+size_t Block::findObjectSize(void *object) const
+{
+	size_t blSize = getSize();
+#if MALLOC_CHECK_RECURSION
+	// Currently, there is no aligned allocations from startup blocks,
+	// so we can return just StartupBlock::msize().
+	// TODO: This must be extended if we add aligned allocation from startup blocks.
+	if (!blSize)
+		return StartupBlock::msize(object);
+#endif
+	// object can be aligned, so real size can be less than block's
+	size_t size =
+		blSize - ((uintptr_t)object - (uintptr_t)findObjectToFree(object));
+	MALLOC_ASSERT(size > 0 && size < minLargeObjectSize, ASSERT_TEXT);
+	return size;
+}
+
 void Bin::moveBlockToBinFront(Block *block)
 {
     /* move the block to the front of the bin */
@@ -1927,7 +1945,7 @@ static void *reallocAligned(MemoryPool *memPool, void *ptr,
         }
     } else {
         Block* block = (Block *)alignDown(ptr, slabSize);
-        copySize = block->getSize();
+        copySize = block->findObjectSize(ptr);
         if (size <= copySize && (0==alignment || isAligned(ptr, alignment))) {
             return ptr;
         } else {
@@ -2154,13 +2172,7 @@ static size_t internalMsize(void* ptr)
             return lmb->objectSize;
         } else {
             Block* block = (Block *)alignDown(ptr, slabSize);
-#if MALLOC_CHECK_RECURSION
-            size_t size = block->getSize()? block->getSize() : StartupBlock::msize(ptr);
-#else
-            size_t size = block->getSize();
-#endif
-            MALLOC_ASSERT(size>0 && size<minLargeObjectSize, ASSERT_TEXT);
-            return size;
+            return block->findObjectSize(ptr);
         }
     }
     errno = EINVAL;

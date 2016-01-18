@@ -420,7 +420,7 @@ public:
 	SLATE_DEFAULT_SLOT(FArguments, Content)
 		SLATE_ATTRIBUTE(float, MinWidth)
 		SLATE_ATTRIBUTE(FText, Text)
-		SLATE_ATTRIBUTE(FName, Icon)
+		SLATE_ARGUMENT(FName, Icon)
 		SLATE_ATTRIBUTE(EFeedbackMode::Type, Mode)
 		SLATE_ATTRIBUTE(const FSlateBrush*, ArrowBrush)
 	SLATE_END_ARGS()
@@ -431,12 +431,14 @@ public:
 		MinWidth = InArgs._MinWidth;
 		
 		TSharedRef<SWidget> IconWidget = SNullWidget::NullWidget;
-		if (InArgs._Icon != NAME_None )
+		if ( InArgs._Icon != NAME_None )
 		{
-			const FSlateBrush* IconBrush = FEditorStyle::GetOptionalBrush(InArgs._Icon.Get());
+			const FSlateBrush* IconBrush = FEditorStyle::GetOptionalBrush(InArgs._Icon);
 			if (IconBrush->GetResourceName() != NAME_None)
 			{
-				IconWidget = SNew( SImage ).Image(IconBrush);
+				IconWidget = 
+					SNew( SImage )
+					.Image(IconBrush);
 			}
 		}
 

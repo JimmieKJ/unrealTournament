@@ -410,23 +410,11 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 					FNewMenuDelegate::CreateStatic(&FLevelEditorContextMenuImpl::FillTransformMenu));
 			}
 
-			// @todo UE4: The current pivot options only work for brushes
-			if (SelectionInfo.bHaveBrush)
-			{
-				// You can only move the pivot in ortho viewports, but you can reset it in any viewport
-				if (GCurrentLevelEditingViewportClient->ViewportType != LVT_Perspective)
-				{
-					// Add a sub-menu for "Pivot"
-					MenuBuilder.AddSubMenu(
-						LOCTEXT("PivotSubMenu", "Pivot"),
-						LOCTEXT("PivotSubMenu_ToolTip", "Actor pivoting utils"),
-						FNewMenuDelegate::CreateStatic(&FLevelEditorContextMenuImpl::FillPivotMenu));
-				}
-				else
-				{
-					MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().ResetPivot);
-				}
-			}
+			// Add a sub-menu for "Pivot"
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("PivotSubMenu", "Pivot"),
+				LOCTEXT("PivotSubMenu_ToolTip", "Actor pivoting utils"),
+				FNewMenuDelegate::CreateStatic(&FLevelEditorContextMenuImpl::FillPivotMenu));
 		}
 		MenuBuilder.EndSection();
 
@@ -469,8 +457,12 @@ void FLevelEditorContextMenu::SummonMenu( const TSharedRef< SLevelEditor >& Leve
 		// @todo: Should actually use the location from a click event instead!
 		const FVector2D MouseCursorLocation = FSlateApplication::Get().GetCursorPos();
 	
-		TWeakPtr< SWindow > ContextMenuWindow = FSlateApplication::Get().PushMenu(
-			LevelEditor->GetActiveViewport().ToSharedRef(), MenuWidget.ToSharedRef(), MouseCursorLocation, FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ) );
+		FSlateApplication::Get().PushMenu(
+			LevelEditor->GetActiveViewport().ToSharedRef(),
+			FWidgetPath(),
+			MenuWidget.ToSharedRef(),
+			MouseCursorLocation,
+			FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ) );
 	}
 }
 
@@ -578,6 +570,15 @@ void FLevelEditorContextMenuImpl::FillSelectActorMenu( FMenuBuilder& MenuBuilder
 				MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectStaticMeshesAllClasses, NAME_None, LOCTEXT("SelectStaticMeshesAllClasses_Menu", "Select Matching (All Classes)") );
 			}
 			MenuBuilder.EndSection();
+
+			if (SelectionInfo.NumSelected == 1)
+			{
+				MenuBuilder.BeginSection("SelectHLODCluster", LOCTEXT("SelectHLODClusterHeading", "Hierachical LODs"));
+				{
+					MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().SelectOwningHierarchicalLODCluster, NAME_None, LOCTEXT("SelectOwningHierarchicalLODCluster_Menu", "Select Owning HierarchicalLODCluster"));
+				}
+				MenuBuilder.EndSection();
+			}			
 		}
 
 		if( SelectionInfo.bHavePawn || SelectionInfo.bHaveSkeletalMesh )
@@ -925,14 +926,13 @@ void FLevelEditorContextMenuImpl::FillPivotMenu( FMenuBuilder& MenuBuilder )
 	{
 		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SavePivotToPrePivot );
 		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().ResetPrePivot );
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().ResetPivot );
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().MovePivotHere);
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().MovePivotHereSnapped);
 	}
 	MenuBuilder.EndSection();
 
 	MenuBuilder.BeginSection("MovePivot");
 	{
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().MovePivotHere );
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().MovePivotHereSnapped );
 		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().MovePivotToCenter );
 	}
 	MenuBuilder.EndSection();

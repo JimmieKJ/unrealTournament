@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "Core.h"
+#include "CoreUObject.h"
 #include "ModuleInterface.h"
 #include "ModuleManager.h"
 #include "TargetPlatform.h"

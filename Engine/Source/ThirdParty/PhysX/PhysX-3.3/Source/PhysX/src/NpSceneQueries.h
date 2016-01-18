@@ -139,9 +139,6 @@ public:
 	~NpSceneQueries();
 
 	template<typename QueryHit>
-		#if (PX_IS_WINDOWS | PX_IS_X360)
-		PX_FORCE_INLINE
-		#endif
 					bool							multiQuery(
 														const MultiQueryInput& in,
 														PxHitCallback<QueryHit>& hits, PxHitFlags hitFlags, const PxQueryCache* cache,
@@ -197,15 +194,16 @@ namespace Sq { class StaticPruner; class AABBPruner; class AABBTree; class AABBT
 PX_ALIGN_PREFIX(16)
 struct NpQuerySpuContext
 {
-	const Sq::AABBPruner*	staticPruner;
-	const Sq::AABBPruner*	dynamicPruner;
-	Sq::AABBTree*			staticTree;
-	Sq::AABBTree*			dynamicTree;
-	Sq::AABBTreeNode*		staticNodes;
-	Sq::AABBTreeNode*		dynamicNodes;
-	const void*				actorOffsets; // AP: hacky, passing NpActor::Offsets to SPU, a better solution might be possible
-	PxI32					numOverflowHits; // only set on SPU
-	bool					scenePassForeignShapes;
+	const Sq::AABBPruner*		staticPruner;
+	const Sq::AABBPruner*		dynamicPruner;
+	Sq::AABBTree*				staticTree;
+	Sq::AABBTree*				dynamicTree;
+	Sq::AABBTreeNode*			staticNodes;
+	Sq::AABBTreeNode*			dynamicNodes;
+	const void*					actorOffsets; // AP: hacky, passing NpActor::Offsets to SPU, a better solution might be possible
+	const void*					scOffsets;
+	PxI32						numOverflowHits; // only set on SPU
+	bool						scenePassForeignShapes;
 	
 } PX_ALIGN_SUFFIX(16);
 

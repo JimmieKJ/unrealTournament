@@ -4,7 +4,7 @@
 #if WITH_EDITOR
 #include "UnrealEd.h"
 
-#include "AutomationTestCommon.h"
+#include "AutomationCommon.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHackAutomationTests, Log, All);
 
@@ -18,7 +18,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogHackAutomationTests, Log, All);
 //////////////////////////////////////////////////////////////////////////
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHttpTest,"System.OSS.Test Http", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHttpTest, "System.OSS.Test Http", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FHttpTest::RunTest(const FString& Parameters)
 {
@@ -28,7 +28,7 @@ bool FHttpTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPFriendsTest,"System.OSS.MCP.Test Friends", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPFriendsTest, "System.OSS.MCP.Test Friends", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMCPFriendsTest::RunTest(const FString& Parameters)
 {
@@ -39,7 +39,7 @@ bool FMCPFriendsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAmazonFriendsTest,"System.OSS.Amazon.Test Friends", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAmazonFriendsTest, "System.OSS.Amazon.Test Friends", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAmazonFriendsTest::RunTest(const FString& Parameters)
 {
@@ -49,7 +49,7 @@ bool FAmazonFriendsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFacebookFriendsTest,"System.OSS.Facebook.Test Friends", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFacebookFriendsTest, "System.OSS.Facebook.Test Friends", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FFacebookFriendsTest::RunTest(const FString& Parameters)
 {
@@ -59,7 +59,7 @@ bool FFacebookFriendsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamFriendsTest,"System.OSS.Steam.Test Friends", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamFriendsTest, "System.OSS.Steam.Test Friends", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSteamFriendsTest::RunTest(const FString& Parameters)
 {
@@ -69,7 +69,7 @@ bool FSteamFriendsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIOSFriendsTest,"System.OSS.IOS.Test Friends", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIOSFriendsTest, "System.OSS.IOS.Test Friends", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FIOSFriendsTest::RunTest(const FString& Parameters)
 {
@@ -83,7 +83,7 @@ bool FIOSFriendsTest::RunTest(const FString& Parameters)
 
 /////////////Currently crashing//////////////
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullFriendsTest,"System.OSS.NULL.Test Friends", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullFriendsTest,"System.OSS.NULL.Test Friends", EAutomationTestFlags::EditorContext )
 
 bool FNullFriendsTest::RunTest(const FString& Parameters)
 {
@@ -95,7 +95,7 @@ bool FNullFriendsTest::RunTest(const FString& Parameters)
 }
 */
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPCloudTest,"System.OSS.MCP.Test Cloud", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPCloudTest, "System.OSS.MCP.Test Cloud", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMCPCloudTest::RunTest(const FString& Parameters)
 {
@@ -105,7 +105,7 @@ bool FMCPCloudTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamCloudTest,"System.OSS.Steam.Test Cloud", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamCloudTest, "System.OSS.Steam.Test Cloud", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSteamCloudTest::RunTest(const FString& Parameters)
 {
@@ -119,7 +119,7 @@ bool FSteamCloudTest::RunTest(const FString& Parameters)
 
 /////////////Currently crashing//////////////
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullCloudTest,"System.OSS.NULL.Test Cloud", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullCloudTest,"System.OSS.NULL.Test Cloud", EAutomationTestFlags::EditorContext )
 
 bool FNullCloudTest::RunTest(const FString& Parameters)
 {
@@ -134,7 +134,7 @@ bool FNullCloudTest::RunTest(const FString& Parameters)
 
 /////////////Currently crashing//////////////
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullLeaderBoardTest,"System.OSS.NULL.Test Leaderboards", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullLeaderBoardTest,"System.OSS.NULL.Test Leaderboards", EAutomationTestFlags::EditorContext)
 
 bool FNullLeaderBoardTest::RunTest(const FString& Parameters)
 {
@@ -145,7 +145,7 @@ bool FNullLeaderBoardTest::RunTest(const FString& Parameters)
 }
 */
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIosLeaderBoardTest,"System.OSS.IOS.Test Leaderboards", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIosLeaderBoardTest, "System.OSS.IOS.Test Leaderboards", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FIosLeaderBoardTest::RunTest(const FString& Parameters)
 {
@@ -156,7 +156,7 @@ bool FIosLeaderBoardTest::RunTest(const FString& Parameters)
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamLeaderBoardTest,"System.OSS.Steam.Test Leaderboards", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamLeaderBoardTest, "System.OSS.Steam.Test Leaderboards", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSteamLeaderBoardTest::RunTest(const FString& Parameters)
 {
@@ -166,7 +166,7 @@ bool FSteamLeaderBoardTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPTimeTest,"System.OSS.MCP.Test Time", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPTimeTest, "System.OSS.MCP.Test Time", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMCPTimeTest::RunTest(const FString& Parameters)
 {
@@ -176,7 +176,7 @@ bool FMCPTimeTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPIdentityTest,"System.OSS.MCP.Test Identity", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPIdentityTest, "System.OSS.MCP.Test Identity", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMCPIdentityTest::RunTest(const FString& Parameters)
 {
@@ -186,7 +186,7 @@ bool FMCPIdentityTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamIdentityTest,"System.OSS.Steam.Test Identity", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamIdentityTest, "System.OSS.Steam.Test Identity", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSteamIdentityTest::RunTest(const FString& Parameters)
 {
@@ -196,7 +196,7 @@ bool FSteamIdentityTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAmazonIdentityTest,"System.OSS.Amazon.Test Identity", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAmazonIdentityTest, "System.OSS.Amazon.Test Identity", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAmazonIdentityTest::RunTest(const FString& Parameters)
 {
@@ -206,7 +206,7 @@ bool FAmazonIdentityTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFacebookIdentityTest,"System.OSS.Facebook.Test Identity", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFacebookIdentityTest, "System.OSS.Facebook.Test Identity", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FFacebookIdentityTest::RunTest(const FString& Parameters)
 {
@@ -216,7 +216,7 @@ bool FFacebookIdentityTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIOSIdentityTest,"System.OSS.IOS.Test Identity", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIOSIdentityTest, "System.OSS.IOS.Test Identity", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FIOSIdentityTest::RunTest(const FString& Parameters)
 {
@@ -230,7 +230,7 @@ bool FIOSIdentityTest::RunTest(const FString& Parameters)
 
 /////////////Currently crashing//////////////
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullIdentityTest,"System.OSS.NULL.Test Identity", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullIdentityTest,"System.OSS.NULL.Test Identity", EAutomationTestFlags::EditorContext )
 
 bool FNullIdentityTest::RunTest(const FString& Parameters)
 {
@@ -241,7 +241,7 @@ bool FNullIdentityTest::RunTest(const FString& Parameters)
 }
 */
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPEntitlementsTest,"System.OSS.MCP.Test Entitlements", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPEntitlementsTest, "System.OSS.MCP.Test Entitlements", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMCPEntitlementsTest::RunTest(const FString& Parameters)
 {
@@ -251,7 +251,7 @@ bool FMCPEntitlementsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPTitleFileTest,"System.OSS.MCP.Test Title File", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMCPTitleFileTest, "System.OSS.MCP.Test Title File", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMCPTitleFileTest::RunTest(const FString& Parameters)
 {
@@ -261,7 +261,7 @@ bool FMCPTitleFileTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamAchievementsTest,"System.OSS.Steam.Test Achievements", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSteamAchievementsTest, "System.OSS.Steam.Test Achievements", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSteamAchievementsTest::RunTest(const FString& Parameters)
 {
@@ -275,7 +275,7 @@ bool FSteamAchievementsTest::RunTest(const FString& Parameters)
 
 /////////////Currently crashing//////////////
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullAchievementsTest,"System.OSS.NULL.Test Achievements", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNullAchievementsTest,"System.OSS.NULL.Test Achievements", EAutomationTestFlags::EditorContext )
 
 bool FNullAchievementsTest::RunTest(const FString& Parameters)
 {

@@ -67,6 +67,9 @@ private:
 
 	void UpdateValidCollisionChannels();
 
+	void AddPhysicsCategory(TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils);
+	void AddCollisionCategory(TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils);
+
 private:
 	// property handles
 	TSharedPtr<IPropertyHandle> CollisionProfileNameHandle;
@@ -92,4 +95,41 @@ private:
 	TArray<FCollisionChannelInfo>	ValidCollisionChannels;
 
 	void RefreshCollisionProfiles();
+};
+
+class FBodyInstanceCustomizationHelper  : public TSharedFromThis<FBodyInstanceCustomizationHelper>
+{
+public:
+	FBodyInstanceCustomizationHelper(const TArray<TWeakObjectPtr<UObject>>& InObjectsCustomized);
+	void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder, TSharedRef<IPropertyHandle> BodyInstanceHandler );
+
+private:
+	void UpdateFilters();
+	bool IsSimulatePhysicsEditable() const;
+	bool IsUseAsyncEditable() const;
+
+	TOptional<float> OnGetBodyMass() const;
+	bool IsBodyMassReadOnly() const;
+	EVisibility IsMassVisible(bool bOverrideMass) const;
+	bool IsBodyMassEnabled() const { return !IsBodyMassReadOnly(); }
+	void AddMassInKg(IDetailCategoryBuilder& PhysicsCategory, TSharedRef<IPropertyHandle> BodyInstanceHandler);
+	void AddBodyConstraint(IDetailCategoryBuilder& PhysicsCategory, TSharedRef<IPropertyHandle> BodyInstanceHandler);
+	void AddMaxAngularVelocity(IDetailCategoryBuilder& PhysicsCategory, TSharedRef<IPropertyHandle> BodyInstanceHandler);
+
+	bool IsAutoWeldEditable() const;
+	EVisibility IsAutoWeldVisible() const;
+
+	EVisibility IsMaxAngularVelocityVisible(bool bOverrideMaxAngularVelocity) const;
+	TOptional<float> OnGetBodyMaxAngularVelocity() const;
+
+	bool IsMaxAngularVelocityReadOnly() const;
+	EVisibility IsDOFMode(EDOFMode::Type Mode) const;
+
+private:
+	bool bDisplayMass;
+	bool bDisplayConstraints;
+	bool bDisplayEnablePhysics;
+
+	TSharedPtr<IPropertyHandle> DOFModeProperty;
+	TArray<TWeakObjectPtr<UObject>> ObjectsCustomized;
 };

@@ -16,50 +16,97 @@ IMPLEMENT_MODULE( FGameLiveStreaming, GameLiveStreaming );
 FGameLiveStreaming::FGameLiveStreaming()
 	: BroadcastStartCommand
 		(
-			TEXT( "Broadcast.Start" ),
+			TEXT( "GameLiveStreaming.StartBroadcasting" ),
 			TEXT( "Starts broadcasting game video and audio using a live internet streaming service\n" )
 			TEXT( "\n" )
 			TEXT( "Optional parameters:\n" )
+			TEXT( "     LoginUserName=<string>              For direct authentication, the user name to login as\n" )
+			TEXT( "     LoginPassword=<string>              For direct authentication, the password to use\n" )
 			TEXT( "     FrameRate=<int32>                   Frame rate to stream video when broadcasting\n")
 			TEXT( "     ScreenScaling=<float>               How much to scale the broadcast video resolution down\n" )
-			TEXT( "     bEnableWebCam=<bool>                Enables video from your web camera to be captured and displayed\n" )
+			TEXT( "     bStartWebCam=<bool>				    If enabled, starts capturing video from your web camera right away\n" )
 			TEXT( "     DesiredWebCamWidth=<int32>          Horizontal resolution for web camera capture\n" )
 			TEXT( "     DesiredWebCamHeight=<int32>         Veritcal resolution for web camera capture\n" )
 			TEXT( "     bMirrorWebCamImage=<bool>			Flips the web camera image horizontally\n" )
+			TEXT( "     bDrawSimpleWebCamVideo=<bool>       Draws a simple web cam video on top of the viewport\n" )
 			TEXT( "     bCaptureAudioFromComputer=<bool>    Enables capturing sound that is played back through your PC\n" )
 			TEXT( "     bCaptureAudioFromMicrophone=<bool>  Enables capturing sound from your default microphone\n" )
-			TEXT( "     bDrawSimpleWebCamVideo=<bool>       Draws a simple web cam video on top of the viewport\n" ),
-			FConsoleCommandWithArgsDelegate::CreateStatic( 
+			TEXT( "     CoverUpImage=<2D Texture Path>      Broadcasts the specified texture instead of what's on screen\n" ),
+			FConsoleCommandWithArgsDelegate::CreateStatic(
 				[]( const TArray< FString >& Args )
 				{
 					FGameBroadcastConfig Config;
 					for( FString Arg : Args )
 					{
+						FParse::Value( *Arg, TEXT( "LoginUserName=" ), Config.LoginUserName );
+						FParse::Value( *Arg, TEXT( "LoginPassword=" ), Config.LoginPassword );
 						FParse::Value( *Arg, TEXT( "FrameRate="), Config.FrameRate );
 						FParse::Value( *Arg, TEXT( "ScreenScaling="), Config.ScreenScaling );
-						FParse::Bool( *Arg, TEXT( "bEnableWebCam="), Config.bEnableWebCam );
-						FParse::Value( *Arg, TEXT( "DesiredWebCamWidth="), Config.DesiredWebCamWidth );
-						FParse::Value( *Arg, TEXT( "DesiredWebCamHeight="), Config.DesiredWebCamHeight );
-						FParse::Bool( *Arg, TEXT( "bMirrorWebCamImage="), Config.bMirrorWebCamImage );
+						FParse::Bool( *Arg, TEXT( "bStartWebCam="), Config.bStartWebCam );
+						FParse::Value( *Arg, TEXT( "DesiredWebCamWidth="), Config.WebCamConfig.DesiredWebCamWidth );
+						FParse::Value( *Arg, TEXT( "DesiredWebCamHeight="), Config.WebCamConfig.DesiredWebCamHeight );
+						FParse::Bool( *Arg, TEXT( "bMirrorWebCamImage="), Config.WebCamConfig.bMirrorWebCamImage );
+						FParse::Bool( *Arg, TEXT( "bDrawSimpleWebCamVideo=" ), Config.WebCamConfig.bDrawSimpleWebCamVideo );
 						FParse::Bool( *Arg, TEXT( "bCaptureAudioFromComputer="), Config.bCaptureAudioFromComputer );
 						FParse::Bool( *Arg, TEXT( "bCaptureAudioFromMicrophone="), Config.bCaptureAudioFromMicrophone );
-						FParse::Bool( *Arg, TEXT( "bDrawSimpleWebCamVideo=" ), Config.bDrawSimpleWebCamVideo );
+						
+						FString CoverUpImagePath;
+						FParse::Value( *Arg, TEXT( "CoverUpImage" ), CoverUpImagePath );
+						if( !CoverUpImagePath.IsEmpty() )
+						{
+							Config.CoverUpImage = LoadObject<UTexture2D>( GetTransientPackage(), *CoverUpImagePath );
+						}
 					}
 					IGameLiveStreaming::Get().StartBroadcastingGame( Config );
 				} )
 		),
 	  BroadcastStopCommand
 		(
-			TEXT( "Broadcast.Stop" ),
+			TEXT( "GameLiveStreaming.StopBroadcasting" ),
 			TEXT( "Stops broadcasting game video" ),
 			FConsoleCommandDelegate::CreateStatic( 
 				[]
 				{
 					IGameLiveStreaming::Get().StopBroadcastingGame();
 				} )
+		),
+	  WebCamStartCommand
+		(
+			TEXT( "GameLiveStreaming.StartWebCam" ),
+			TEXT( "Starts capturing web camera video and previewing it on screen\n" )
+			TEXT( "\n" )
+			TEXT( "Optional parameters:\n" )
+			TEXT( "     DesiredWebCamWidth=<int32>          Horizontal resolution for web camera capture\n" )
+			TEXT( "     DesiredWebCamHeight=<int32>         Veritcal resolution for web camera capture\n" )
+			TEXT( "     bMirrorWebCamImage=<bool>			Flips the web camera image horizontally\n" )
+			TEXT( "     bDrawSimpleWebCamVideo=<bool>       Draws a simple web cam video on top of the viewport\n" ),
+			FConsoleCommandWithArgsDelegate::CreateStatic(
+				[]( const TArray< FString >& Args )
+				{
+					FGameWebCamConfig Config;
+					for( FString Arg : Args )
+					{
+						FParse::Value( *Arg, TEXT( "DesiredWebCamWidth="), Config.DesiredWebCamWidth );
+						FParse::Value( *Arg, TEXT( "DesiredWebCamHeight="), Config.DesiredWebCamHeight );
+						FParse::Bool( *Arg, TEXT( "bMirrorWebCamImage="), Config.bMirrorWebCamImage );
+						FParse::Bool( *Arg, TEXT( "bDrawSimpleWebCamVideo=" ), Config.bDrawSimpleWebCamVideo );
+					}
+					IGameLiveStreaming::Get().StartWebCam( Config );
+				} )
+		),
+	  WebCamStopCommand
+		(
+			TEXT( "GameLiveStreaming.StopWebCam" ),
+			TEXT( "Stops capturing web camera video" ),
+			FConsoleCommandDelegate::CreateStatic( 
+				[]
+				{
+					IGameLiveStreaming::Get().StopWebCam();
+				} )
 		)
 {
 	bIsBroadcasting = false;
+	bIsWebCamEnabled = false;
 	LiveStreamer = nullptr;
 	ReadbackTextureIndex = 0;
 	ReadbackBufferIndex = 0;
@@ -67,6 +114,7 @@ FGameLiveStreaming::FGameLiveStreaming()
 	ReadbackBuffers[1] = nullptr;
 	bMirrorWebCamImage = false;
 	bDrawSimpleWebCamVideo = true;
+	CoverUpImage = nullptr;
 }
 
 
@@ -77,14 +125,19 @@ void FGameLiveStreaming::StartupModule()
 
 void FGameLiveStreaming::ShutdownModule()
 {
-	// Stop broadcasting at shutdown
-	StopBroadcastingGame();
-
 	if( LiveStreamer != nullptr )
 	{
+		// Make sure the LiveStreaming plugin is actually still loaded.  During shutdown, it may have been unloaded before us,
+		// and we can't dereference our LiveStreamer pointer if the memory was deleted already!
 		static const FName LiveStreamingFeatureName( "LiveStreaming" );
 		if( IModularFeatures::Get().IsModularFeatureAvailable( LiveStreamingFeatureName ) )	// Make sure the feature hasn't been destroyed before us
 		{
+			// Turn off the web camera.  It's important this happens first to avoid a shutdown crash.
+			StopWebCam();
+
+			// Stop broadcasting at shutdown
+			StopBroadcastingGame();
+
 			LiveStreamer->OnStatusChanged().RemoveAll( this );
 			LiveStreamer->OnChatMessage().RemoveAll( this );
 		}
@@ -115,11 +168,14 @@ void FGameLiveStreaming::StartBroadcastingGame( const FGameBroadcastConfig& Game
 		// before we try to cache it's interface pointer
 		if( GetLiveStreamingService() != nullptr  )
 		{
+			CoverUpImage = GameBroadcastConfig.CoverUpImage;
+
 			FSlateRenderer* SlateRenderer = FSlateApplication::Get().GetRenderer().Get();
 			SlateRenderer->OnSlateWindowRendered().AddRaw( this, &FGameLiveStreaming::OnSlateWindowRenderedDuringBroadcasting );
 
-			this->bMirrorWebCamImage = GameBroadcastConfig.bMirrorWebCamImage;
-			this->bDrawSimpleWebCamVideo = GameBroadcastConfig.bDrawSimpleWebCamVideo;
+			FBroadcastConfig BroadcastConfig;
+			BroadcastConfig.LoginUserName = GameBroadcastConfig.LoginUserName;
+			BroadcastConfig.LoginPassword = GameBroadcastConfig.LoginPassword;
 
 			// @todo livestream: This will interfere with editor live streaming if both are running at the same time!  The editor live 
 			// streaming does check to make sure that game isn't already broadcasting, but the game currently doesn't have a good way to
@@ -129,7 +185,6 @@ void FGameLiveStreaming::StartBroadcastingGame( const FGameBroadcastConfig& Game
 			check( GameViewportClient != nullptr );
 
 			// @todo livestream: What about if viewport size changes while we are still broadcasting?  We need to restart the broadcast!
-			FBroadcastConfig BroadcastConfig;
 			BroadcastConfig.VideoBufferWidth = GameViewportClient->Viewport->GetSizeXY().X;
 			BroadcastConfig.VideoBufferHeight = GameViewportClient->Viewport->GetSizeXY().Y;
 
@@ -145,16 +200,32 @@ void FGameLiveStreaming::StartBroadcastingGame( const FGameBroadcastConfig& Game
 			{
 				for( int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex )
 				{
-					FRHIResourceCreateInfo CreateInfo;
-					ReadbackTextures[ TextureIndex ] = RHICreateTexture2D(
-						BroadcastConfig.VideoBufferWidth,
-						BroadcastConfig.VideoBufferHeight,
-						PF_B8G8R8A8,
-						1,
-						1,
-						TexCreate_CPUReadback,
-						CreateInfo
-						);
+					ReadbackTextures[ TextureIndex ] = nullptr;
+				}
+				ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+					FWebMRecordCreateBufers,
+					int32,InVideoWidth,BroadcastConfig.VideoBufferWidth,
+					int32,InVideoHeight,BroadcastConfig.VideoBufferHeight,
+					FTexture2DRHIRef*,InReadbackTextures,ReadbackTextures,
+				{
+					for (int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex)
+					{
+						FRHIResourceCreateInfo CreateInfo;
+						InReadbackTextures[ TextureIndex ] = RHICreateTexture2D(
+							InVideoWidth,
+							InVideoHeight,
+							PF_B8G8R8A8,
+							1,
+							1,
+							TexCreate_CPUReadback,
+							CreateInfo
+							);
+					}
+				});
+				FlushRenderingCommands();
+				for (int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex)
+				{
+					check(ReadbackTextures[TextureIndex].GetReference());
 				}
 	
 				ReadbackTextureIndex = 0;
@@ -170,13 +241,9 @@ void FGameLiveStreaming::StartBroadcastingGame( const FGameBroadcastConfig& Game
 			BroadcastConfig.bCaptureAudioFromMicrophone = GameBroadcastConfig.bCaptureAudioFromMicrophone;
 			LiveStreamer->StartBroadcasting( BroadcastConfig );
 
-			if( GameBroadcastConfig.bEnableWebCam )
+			if( GameBroadcastConfig.bStartWebCam && !bIsWebCamEnabled )
 			{
-				// @todo livestream: Allow web cam to be started/stopped independently from the broadcast itself, so users can setup their web cam
-				FWebCamConfig WebCamConfig;
-				WebCamConfig.DesiredWebCamWidth = GameBroadcastConfig.DesiredWebCamWidth;
-				WebCamConfig.DesiredWebCamHeight = GameBroadcastConfig.DesiredWebCamHeight;
-				LiveStreamer->StartWebCam( WebCamConfig );
+				this->StartWebCam( GameBroadcastConfig.WebCamConfig );
 			}
 
 			bIsBroadcasting = true;
@@ -193,7 +260,6 @@ void FGameLiveStreaming::StopBroadcastingGame()
 		{
 			if( LiveStreamer->IsBroadcasting() )
 			{
-				LiveStreamer->StopWebCam();
 				LiveStreamer->StopBroadcasting();
 			}
 		}
@@ -215,8 +281,56 @@ void FGameLiveStreaming::StopBroadcastingGame()
 			ReadbackBufferIndex = 0;
 		}
 	}
+
+	// Turn off the web camera, too.
+	StopWebCam();
 }
 
+
+bool FGameLiveStreaming::IsWebCamEnabled() const
+{
+	return bIsWebCamEnabled && LiveStreamer != nullptr && LiveStreamer->IsWebCamEnabled();
+}
+
+
+void FGameLiveStreaming::StartWebCam( const FGameWebCamConfig& GameWebCamConfig )
+{
+	if( !bIsWebCamEnabled )
+	{
+		this->bMirrorWebCamImage = GameWebCamConfig.bMirrorWebCamImage;
+		this->bDrawSimpleWebCamVideo = GameWebCamConfig.bDrawSimpleWebCamVideo;
+
+		// We can GetLiveStreamingService() here to fill in our LiveStreamer variable lazily, to make sure the service plugin is loaded 
+		// before we try to cache it's interface pointer
+		if( GetLiveStreamingService() != nullptr )
+		{
+			FWebCamConfig WebCamConfig;
+			WebCamConfig.DesiredWebCamWidth = GameWebCamConfig.DesiredWebCamWidth;
+			WebCamConfig.DesiredWebCamHeight = GameWebCamConfig.DesiredWebCamHeight;
+
+			LiveStreamer->StartWebCam( WebCamConfig );
+
+			bIsWebCamEnabled = true;
+		}
+	}
+}
+
+
+void FGameLiveStreaming::StopWebCam()
+{
+	if( bIsWebCamEnabled )
+	{
+		if( LiveStreamer != nullptr )
+		{
+			if( LiveStreamer->IsWebCamEnabled() )
+			{
+				LiveStreamer->StopWebCam();
+			}
+		}
+
+		bIsWebCamEnabled = false;
+	}
+}
 
 
 void FGameLiveStreaming::OnSlateWindowRenderedDuringBroadcasting( SWindow& SlateWindow, void* ViewportRHIPtr )
@@ -299,6 +413,7 @@ void FGameLiveStreaming::StartCopyingNextGameVideoFrame( const FViewportRHIRef& 
 		FViewportRHIRef ViewportRHI;
 		IRendererModule* RendererModule;
 		FIntPoint ResizeTo;
+		FTexture2DRHIRef CoverUpImage;
 		FGameLiveStreaming* This;
 	};
 	FCopyVideoFrame CopyVideoFrame =
@@ -306,6 +421,7 @@ void FGameLiveStreaming::StartCopyingNextGameVideoFrame( const FViewportRHIRef& 
 		ViewportRHI,
 		&RendererModule,
 		ResizeTo,
+		CoverUpImage != nullptr ? ( (FTexture2DResource*)( CoverUpImage->Resource ) )->GetTexture2DRHI() : nullptr,
 		this
 	};
 
@@ -313,12 +429,12 @@ void FGameLiveStreaming::StartCopyingNextGameVideoFrame( const FViewportRHIRef& 
 		ReadSurfaceCommand,
 		FCopyVideoFrame,Context,CopyVideoFrame,
 	{
-		FPooledRenderTargetDesc OutputDesc(FPooledRenderTargetDesc::Create2DDesc(Context.ResizeTo, PF_B8G8R8A8, TexCreate_None, TexCreate_RenderTargetable, false));
+		FPooledRenderTargetDesc OutputDesc(FPooledRenderTargetDesc::Create2DDesc(Context.ResizeTo, PF_B8G8R8A8, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
 			
 		const auto FeatureLevel = GMaxRHIFeatureLevel;
 
 		TRefCountPtr<IPooledRenderTarget> ResampleTexturePooledRenderTarget;
-		Context.RendererModule->RenderTargetPoolFindFreeElement(OutputDesc, ResampleTexturePooledRenderTarget, TEXT("ResampleTexture"));
+		Context.RendererModule->RenderTargetPoolFindFreeElement(RHICmdList, OutputDesc, ResampleTexturePooledRenderTarget, TEXT("ResampleTexture"));
 		check( ResampleTexturePooledRenderTarget );
 
 		const FSceneRenderTargetItem& DestRenderTarget = ResampleTexturePooledRenderTarget->GetRenderTargetItem();
@@ -330,7 +446,8 @@ void FGameLiveStreaming::StartCopyingNextGameVideoFrame( const FViewportRHIRef& 
 		RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
 		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_Always>::GetRHI());
 
-		FTexture2DRHIRef ViewportBackBuffer = RHICmdList.GetViewportBackBuffer(Context.ViewportRHI);
+		FTexture2DRHIRef SourceTexture = 
+			Context.CoverUpImage.IsValid() ? Context.CoverUpImage : RHICmdList.GetViewportBackBuffer(Context.ViewportRHI);
 
 		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
 		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
@@ -339,15 +456,15 @@ void FGameLiveStreaming::StartCopyingNextGameVideoFrame( const FViewportRHIRef& 
 		static FGlobalBoundShaderState BoundShaderState;
 		SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, Context.RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI, *VertexShader, *PixelShader);
 
-		if( Context.ResizeTo != FIntPoint( ViewportBackBuffer->GetSizeX(), ViewportBackBuffer->GetSizeY() ) )
+		if( Context.ResizeTo != FIntPoint( SourceTexture->GetSizeX(), SourceTexture->GetSizeY() ) )
 		{
 			// We're scaling down the window, so use bilinear filtering
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), ViewportBackBuffer);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SourceTexture);
 		}
 		else
 		{
 			// Drawing 1:1, so no filtering needed
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), ViewportBackBuffer);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceTexture);
 		}
 
 		Context.RendererModule->DrawRectangle(
@@ -401,7 +518,7 @@ void FGameLiveStreaming::StartCopyingNextGameVideoFrame( const FViewportRHIRef& 
 
 void FGameLiveStreaming::DrawSimpleWebCamVideo( UCanvas* Canvas )
 {
-	if( IsBroadcastingGame() && bDrawSimpleWebCamVideo && LiveStreamer->IsWebCamEnabled() )
+	if( IsWebCamEnabled() && bDrawSimpleWebCamVideo && LiveStreamer->IsWebCamEnabled() )
 	{
 		bool bIsImageFlippedHorizontally = false;
 		bool bIsImageFlippedVertically = false;
@@ -434,7 +551,7 @@ UTexture2D* FGameLiveStreaming::GetWebCamTexture( bool& bIsImageFlippedHorizonta
 	bIsImageFlippedVertically = false;
 
 	UTexture2D* WebCamTexture = nullptr;
-	if( IsBroadcastingGame() && bDrawSimpleWebCamVideo && LiveStreamer->IsWebCamEnabled() )
+	if( IsWebCamEnabled() && bDrawSimpleWebCamVideo && LiveStreamer->IsWebCamEnabled() )
 	{
 		WebCamTexture = LiveStreamer->GetWebCamTexture( bIsImageFlippedHorizontally, bIsImageFlippedVertically );
 	}
@@ -471,6 +588,12 @@ void FGameLiveStreaming::BroadcastStatusCallback( const FLiveStreamingStatus& St
 void FGameLiveStreaming::OnChatMessage( const FText& UserName, const FText& Text )
 {
 	// @todo livestream: Add support (and also, connecting, disconnecting, sending messages, etc.)
+}
+
+
+void FGameLiveStreaming::AddReferencedObjects( FReferenceCollector& Collector )
+{
+	Collector.AddReferencedObject( CoverUpImage );
 }
 
 

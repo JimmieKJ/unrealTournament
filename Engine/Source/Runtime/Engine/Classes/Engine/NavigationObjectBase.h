@@ -31,14 +31,14 @@ public:
 	uint32 bIsPIEPlayerStart:1;
 
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void GetSimpleCollisionCylinder(float& CollisionRadius, float& CollisionHalfHeight) const override;
 
 #if	WITH_EDITOR
 	virtual void PostEditMove(bool bFinished) override;
 	virtual void PostEditUndo() override;
 #endif	// WITH_EDITOR
-	// End AActor Interface
+	//~ End AActor Interface
 
 	/** @todo document */
 	virtual bool ShouldBeBased();

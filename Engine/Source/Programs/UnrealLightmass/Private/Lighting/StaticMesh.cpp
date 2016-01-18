@@ -258,7 +258,8 @@ void FStaticMeshStaticLightingMesh::Import( FLightmassImporter& Importer )
 //	Importer.ImportData( (FStaticMeshStaticLightingMeshData*) this );
 	FStaticMeshStaticLightingMeshData TempSMSLMD;
 	Importer.ImportData(&TempSMSLMD);
-	EncodedLODIndex = TempSMSLMD.EncodedLODIndex;
+	EncodedLODIndices = TempSMSLMD.EncodedLODIndices;
+	EncodedHLODRange = TempSMSLMD.EncodedHLODRange;
 	LocalToWorld = TempSMSLMD.LocalToWorld;
 	bReverseWinding = TempSMSLMD.bReverseWinding;
 	bShouldSelfShadow = TempSMSLMD.bShouldSelfShadow;

@@ -20,6 +20,11 @@ struct ID3D11Buffer;
 
 namespace physx
 {
+namespace Cm
+{
+	class Task;
+}
+
 namespace cloth
 {
 
@@ -274,6 +279,8 @@ public:
 	virtual bool isAsleep() const = 0;
 	virtual void putToSleep() = 0;
 	virtual void wakeUp() = 0;
+
+	virtual void simulate(float dt) = 0;
 
 	virtual void setUserData(void*) = 0;
 	virtual void* getUserData() const = 0;

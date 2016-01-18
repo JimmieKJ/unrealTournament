@@ -197,10 +197,10 @@ FAnalyticsProviderSwrve::FAnalyticsProviderSwrve(const FAnalyticsSwrve::Config& 
 			: FAnalyticsSwrve::Config::GetDefaultAPIServer()
 		: ConfigValues.APIServerSwrve;
 
-	// default to GEngineVersion if one is not provided, append GEngineVersion otherwise.
+	// default to FEngineVersion::Current() if one is not provided, append FEngineVersion::Current() otherwise.
 	AppVersion = ConfigValues.AppVersionSwrve.IsEmpty()
-		? FString::Printf(TEXT("%d"), GEngineVersion.GetChangelist())
-		: FString::Printf(TEXT("%s.%d"), *ConfigValues.AppVersionSwrve, GEngineVersion.GetChangelist());
+		? FString::Printf(TEXT("%d"), FEngineVersion::Current().GetChangelist())
+		: FString::Printf(TEXT("%s.%d"), *ConfigValues.AppVersionSwrve, FEngineVersion::Current().GetChangelist());
 
 	UE_LOG(LogAnalytics, Log, TEXT("Swrve APIKey = %s. APIServer = %s. AppVersion = %s"), *APIKey, *APIServer, *AppVersion);
 

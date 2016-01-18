@@ -208,12 +208,14 @@ void UPhysicsConstraintComponent::SetConstrainedComponents(UPrimitiveComponent* 
 {
 	if(Component1 != NULL)
 	{
+		this->ComponentName1.ComponentName = Component1->GetFName();
 		OverrideComponent1 = Component1;
 		ConstraintInstance.ConstraintBone1 = BoneName1;
 	}
 
 	if(Component2 != NULL)
 	{
+		this->ComponentName2.ComponentName = Component2->GetFName();
 		OverrideComponent2 = Component2;
 		ConstraintInstance.ConstraintBone2 = BoneName2;
 	}

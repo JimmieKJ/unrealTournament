@@ -383,8 +383,11 @@ public:
 	virtual const FString& GetPrereqPath() const override;
 	virtual const FString& GetPrereqArgs() const override;
 	virtual int64 GetDownloadSize() const override;
+	virtual int64 GetDownloadSize(const TSet<FString>& Tags) const override;
 	virtual int64 GetBuildSize() const override;
+	virtual int64 GetBuildSize(const TSet<FString>& Tags) const override;
 	virtual TArray<FString> GetBuildFileList() const override;
+	virtual void GetFileTagList(TSet<FString>& Tags) const override;
 	virtual void GetRemovableFiles(IBuildManifestRef OldManifest, TArray< FString >& RemovableFiles) const override;
 	virtual void GetRemovableFiles(const TCHAR* InstallPath, TArray< FString >& RemovableFiles) const override;
 	virtual bool NeedsResaving() const override;
@@ -493,12 +496,6 @@ public:
 	 * @param Filenames		OUT		Receives the array of files.
 	 */
 	void GetFileList(TArray<FString>& Filenames) const;
-
-	/**
-	 * Get the list of install tags in this manifest
-	 * @param Tags			OUT		Receives the tags referenced.
-	 */
-	void GetFileTagList(TSet<FString>& Tags) const;
 
 	/**
 	 * Get the list of files that are tagged with the provided tags

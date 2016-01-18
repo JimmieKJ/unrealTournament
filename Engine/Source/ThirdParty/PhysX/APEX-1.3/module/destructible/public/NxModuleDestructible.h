@@ -22,6 +22,8 @@ class NxActorDesc;
 class NxScene;
 #endif
 
+#define APEX_RUNTIME_FRACTURE 0
+
 #ifndef APEX_RUNTIME_FRACTURE
 #if (NX_SDK_VERSION_MAJOR == 3)
 #define APEX_RUNTIME_FRACTURE 1
@@ -254,7 +256,7 @@ public:
 		See the definition of NxApexDamageEventReportData for the information provided
 		to the function.
 	*/
-	virtual void	onDamageNotify(const NxApexDamageEventReportData& damageEvent) = 0;
+	virtual void	onDamageNotify(const physx::NxApexDamageEventReportData& damageEvent) = 0;
 
 	/**
 		User implementation of NxUserChunkReport must overload this function.
@@ -263,15 +265,29 @@ public:
 		See the definition of NxApexChunkStateEventData for the information provided
 		to the function.
 	*/
-	virtual void	onStateChangeNotify(const NxApexChunkStateEventData& visibilityEvent) = 0;
+	virtual void	onStateChangeNotify(const physx::NxApexChunkStateEventData& visibilityEvent) = 0;
 
 	/**
 		Called when an NxDestructibleActor contains no visible chunks.  If the user returns true,
 		APEX will release the destructible actor.  If the user returns false, they should not
 		release the destructible actor from within the callback, and instead must wait until
 		the completion of NxApexScene::fetchResults().
+
+		Default implementation returns false, which is the legacy behavior.
+
+		If this class (NxUserChunkReport) is not implemented, APEX will not destroy the NxDestructibleActor.
 	*/
-	virtual bool	releaseOnNoChunksVisible(const NxDestructibleActor* destructible) = 0;
+	virtual bool	releaseOnNoChunksVisible(const physx::NxDestructibleActor* destructible) { PX_UNUSED(destructible);  return false; }
+
+	/**
+		List of destructible actors that have just become awake (any associated PhysX actor has become awake).
+	**/
+	virtual void	onDestructibleWake(physx::NxDestructibleActor** destructibles, physx::PxU32 count) = 0;
+
+	/**
+		List of destructible actors that have just gone to sleep (all associated PhysX actors have gone to sleep).
+	**/
+	virtual void	onDestructibleSleep(physx::NxDestructibleActor** destructibles, physx::PxU32 count) = 0;
 
 protected:
 	virtual			~NxUserChunkReport() {}
@@ -348,7 +364,6 @@ public:
 	/** Called immediately before a PxActor is released in the Destruction module. */
 	virtual void	onPhysXActorRelease(const physx::PxActor& actor) = 0;
 #endif
-
 protected:
 	virtual		~NxUserDestructiblePhysXActorReport() {}
 };

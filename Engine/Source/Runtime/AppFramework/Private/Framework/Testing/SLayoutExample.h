@@ -2,5 +2,8 @@
 
 #pragma once
 
+#if !UE_BUILD_SHIPPING
 
-APPFRAMEWORK_API TSharedRef<SWidget> MakeLayoutExample();
+TSharedRef<SWidget> MakeLayoutExample();
+
+#endif // #if !UE_BUILD_SHIPPING

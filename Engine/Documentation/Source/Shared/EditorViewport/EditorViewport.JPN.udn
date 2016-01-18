@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2483247
+﻿INTSourceChangelist:2573873
 Availability:NoPublish
 Title:
 Crumbs:
@@ -31,9 +31,9 @@ Engine/UI/LevelEditor/Viewports/ViewportControls#transformcontrols
 
 ヒント：平行移動ツールを直接操作せずに Ctrl + 左マウスボタン、右マウスボタン、または左マウスボタン + 右マウスボタンを使用してアクタを軸に沿って移動することができます。
 
-* Ctrl + 左マウスボタンは、X 軸に制限します。
-* Ctrl + 右マウスボタンは、Y 軸に制限します。
-* Ctrl + 左マウスボタンおよび右マウスボタンは、Z 軸に制限します。
+* Ctrl + 左マウスボタンは、X 軸に拘束します。
+* Ctrl + 右マウスボタンは、Y 軸に拘束します。
+* Ctrl + 左マウスボタンおよび右マウスボタンは、Z 軸に拘束します。
 
 これは回転ツールでも機能します。
 

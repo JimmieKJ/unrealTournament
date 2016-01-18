@@ -25,7 +25,7 @@ public:
 	virtual void UpdatePreviewShape() override;
 	virtual float GetInfluenceBoundingRadius() const override;
 
-	// Begin UObject Interface
-	// End UObject Interface
+	//~ Begin UObject Interface
+	//~ End UObject Interface
 };
 

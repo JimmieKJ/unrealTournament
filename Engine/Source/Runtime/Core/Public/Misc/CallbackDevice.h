@@ -178,6 +178,20 @@ public:
 	// save state when ApplicationWillEnterBackgroundDelegate is called instead.
 	static FApplicationLifetimeDelegate ApplicationWillTerminateDelegate;
 
+	/** IOS-style push notification delegates */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationRegisteredForRemoteNotificationsDelegate, TArray<uint8>);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationFailedToRegisterForRemoteNotificationsDelegate, FString);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationReceivedRemoteNotificationDelegate, FString);
+
+	// called when the user grants permission to register for remote notifications
+	static FApplicationRegisteredForRemoteNotificationsDelegate ApplicationRegisteredForRemoteNotificationsDelegate;
+
+	// called when the application fails to register for remote notifications
+	static FApplicationFailedToRegisterForRemoteNotificationsDelegate ApplicationFailedToRegisterForRemoteNotificationsDelegate;
+
+	// called when the application receives a remote notification
+	static FApplicationReceivedRemoteNotificationDelegate ApplicationReceivedRemoteNotificationDelegate;
+
 	/** Checks to see if the stat is already enabled */
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FStatCheckEnabled, const TCHAR*, bool&, bool&);
 	static FStatCheckEnabled StatCheckEnabled;
@@ -202,6 +216,9 @@ public:
 	/** Sent when the platform changed its laptop mode (for convertible laptops).*/
 	DECLARE_MULTICAST_DELEGATE_OneParam(FPlatformChangedLaptopMode, EConvertibleLaptopMode);
 	static FPlatformChangedLaptopMode PlatformChangedLaptopMode;
+
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FLoadStringAssetReferenceInCook, FString&);
+	static FLoadStringAssetReferenceInCook LoadStringAssetReferenceInCook;
 
 private:
 

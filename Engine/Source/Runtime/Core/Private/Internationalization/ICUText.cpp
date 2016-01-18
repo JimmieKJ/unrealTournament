@@ -4,6 +4,7 @@
 
 #if UE_ENABLE_ICU
 #include "Text.h"
+#include "TextData.h"
 #include "TextHistory.h"
 #include "ICUCulture.h"
 
@@ -13,6 +14,8 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include <unicode/numfmt.h>
 #include <unicode/msgfmt.h>
 PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+#include <unicode/uniset.h>
+#include <unicode/ubidi.h>
 
 #include "ICUUtilities.h"
 #include "ICUTextCharacterIterator.h"
@@ -42,10 +45,7 @@ FText FText::AsDate(const FDateTime& DateTime, const EDateTimeStyle::Type DateSt
 	FString NativeString;
 	ICUUtilities::ConvertString(FormattedString, NativeString);
 
-	FText ResultText = FText::CreateChronologicalText(MoveTemp(NativeString));
-	ResultText.History = MakeShareable(new FTextHistory_AsDate(DateTime, DateStyle, TimeZone, TargetCulture));
-
-	return ResultText;
+	return FText::CreateChronologicalText(MakeShareable(new TGeneratedTextData<FTextHistory_AsDate>(MoveTemp(NativeString), FTextHistory_AsDate(DateTime, DateStyle, TimeZone, TargetCulture))));
 }
 
 FText FText::AsTime(const FDateTime& DateTime, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone, const FCulturePtr& TargetCulture)
@@ -65,10 +65,7 @@ FText FText::AsTime(const FDateTime& DateTime, const EDateTimeStyle::Type TimeSt
 	FString NativeString;
 	ICUUtilities::ConvertString(FormattedString, NativeString);
 
-	FText ResultText = FText::CreateChronologicalText(MoveTemp(NativeString));
-	ResultText.History = MakeShareable(new FTextHistory_AsTime(DateTime, TimeStyle, TimeZone, TargetCulture));
-
-	return ResultText;
+	return FText::CreateChronologicalText(MakeShareable(new TGeneratedTextData<FTextHistory_AsTime>(MoveTemp(NativeString), FTextHistory_AsTime(DateTime, TimeStyle, TimeZone, TargetCulture))));
 }
 
 FText FText::AsTimespan(const FTimespan& Timespan, const FCulturePtr& TargetCulture)
@@ -112,10 +109,7 @@ FText FText::AsDateTime(const FDateTime& DateTime, const EDateTimeStyle::Type Da
 	FString NativeString;
 	ICUUtilities::ConvertString(FormattedString, NativeString);
 
-	FText ResultText = FText::CreateChronologicalText(MoveTemp(NativeString));
-	ResultText.History = MakeShareable(new FTextHistory_AsDateTime(DateTime, DateStyle, TimeStyle, TimeZone, TargetCulture));
-
-	return ResultText;
+	return FText::CreateChronologicalText(MakeShareable(new TGeneratedTextData<FTextHistory_AsDateTime>(MoveTemp(NativeString), FTextHistory_AsDateTime(DateTime, DateStyle, TimeStyle, TimeZone, TargetCulture))));
 }
 
 FText FText::AsMemory(SIZE_T NumBytes, const FNumberFormattingOptions* const Options, const FCulturePtr& TargetCulture)
@@ -150,12 +144,12 @@ int32 FText::CompareTo( const FText& Other, const ETextComparisonLevel::Type Com
 
 	// Create an iterator for 'this' so that we can interface with ICU
 	UCharIterator DisplayStringICUIterator;
-	FICUTextCharacterIterator DisplayStringIterator(&DisplayString.Get());
+	FICUTextCharacterIterator DisplayStringIterator(&TextData->GetDisplayString());
 	uiter_setCharacterIterator(&DisplayStringICUIterator, &DisplayStringIterator);
 
 	// Create an iterator for 'Other' so that we can interface with ICU
 	UCharIterator OtherDisplayStringICUIterator;
-	FICUTextCharacterIterator OtherDisplayStringIterator(&Other.DisplayString.Get());
+	FICUTextCharacterIterator OtherDisplayStringIterator(&Other.TextData->GetDisplayString());
 	uiter_setCharacterIterator(&OtherDisplayStringICUIterator, &OtherDisplayStringIterator);
 
 	UErrorCode ICUStatus = U_ZERO_ERROR;
@@ -192,12 +186,12 @@ public:
 	{
 		// Create an iterator for 'A' so that we can interface with ICU
 		UCharIterator ADisplayStringICUIterator;
-		FICUTextCharacterIterator ADisplayStringIterator(&A.DisplayString.Get());
+		FICUTextCharacterIterator ADisplayStringIterator(&A.TextData->GetDisplayString());
 		uiter_setCharacterIterator(&ADisplayStringICUIterator, &ADisplayStringIterator);
 
 		// Create an iterator for 'B' so that we can interface with ICU
 		UCharIterator BDisplayStringICUIterator;
-		FICUTextCharacterIterator BDisplayStringIterator(&B.DisplayString.Get());
+		FICUTextCharacterIterator BDisplayStringIterator(&B.TextData->GetDisplayString());
 		uiter_setCharacterIterator(&BDisplayStringICUIterator, &BDisplayStringIterator);
 
 		UErrorCode ICUStatus = U_ZERO_ERROR;
@@ -221,5 +215,298 @@ bool FText::FSortPredicate::operator()(const FText& A, const FText& B) const
 {
 	return Implementation->Compare(A, B);
 }
+
+bool FText::IsLetter( const TCHAR Char )
+{
+	icu::UnicodeString PatternString = ICUUtilities::ConvertString(TEXT("[\\p{L}]"));
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+	icu::UnicodeSet Uniscode(PatternString, ICUStatus);
+	return Uniscode.contains(Char) != 0;
+}
+
+namespace TextBiDi
+{
+
+namespace Internal
+{
+
+FORCEINLINE ETextDirection ICUToUE(const UBiDiDirection InDirection)
+{
+	switch (InDirection)
+	{
+	case UBIDI_LTR:
+		return ETextDirection::LeftToRight;
+	case UBIDI_RTL:
+		return ETextDirection::RightToLeft;
+	case UBIDI_MIXED:
+		return ETextDirection::Mixed;
+	default:
+		break;
+	}
+
+	return ETextDirection::LeftToRight;
+}
+
+UBiDiLevel GetParagraphDirection(const ETextDirection InBaseDirection)
+{
+	check(InBaseDirection != ETextDirection::Mixed);
+	return (InBaseDirection == ETextDirection::LeftToRight) ? 0 : 1; // 0 = LTR, 1 = RTL
+}
+
+ETextDirection ComputeTextDirection(UBiDi* InICUBiDi, const icu::UnicodeString& InICUString)
+{
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+
+	ubidi_setPara(InICUBiDi, InICUString.getBuffer(), InICUString.length(), GetParagraphDirection(ETextDirection::LeftToRight), nullptr, &ICUStatus);
+
+	if (U_SUCCESS(ICUStatus))
+	{
+		return Internal::ICUToUE(ubidi_getDirection(InICUBiDi));
+	}
+	else
+	{
+		UE_LOG(LogCore, Warning, TEXT("Failed to set the string data on the ICU BiDi object (error code: %d). Text will assumed to be left-to-right"), static_cast<int32>(ICUStatus));
+	}
+
+	return ETextDirection::LeftToRight;
+}
+
+ETextDirection ComputeTextDirection(UBiDi* InICUBiDi, const icu::UnicodeString& InICUString, const int32 InStringOffset, const ETextDirection InBaseDirection, TArray<FTextDirectionInfo>& OutTextDirectionInfo)
+{
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+
+	ubidi_setPara(InICUBiDi, InICUString.getBuffer(), InICUString.length(), GetParagraphDirection(InBaseDirection), nullptr, &ICUStatus);
+
+	if (U_SUCCESS(ICUStatus))
+	{
+		const ETextDirection ReturnDirection = Internal::ICUToUE(ubidi_getDirection(InICUBiDi));
+
+		const int32 RunCount = ubidi_countRuns(InICUBiDi, &ICUStatus);
+		OutTextDirectionInfo.AddZeroed(RunCount);
+		for (int32 RunIndex = 0; RunIndex < RunCount; ++RunIndex)
+		{
+			FTextDirectionInfo& CurTextDirectionInfo = OutTextDirectionInfo[RunIndex];
+			CurTextDirectionInfo.TextDirection = Internal::ICUToUE(ubidi_getVisualRun(InICUBiDi, RunIndex, &CurTextDirectionInfo.StartIndex, &CurTextDirectionInfo.Length));
+			CurTextDirectionInfo.StartIndex += InStringOffset;
+		}
+
+		return ReturnDirection;
+	}
+	else
+	{
+		UE_LOG(LogCore, Warning, TEXT("Failed to set the string data on the ICU BiDi object (error code: %d). Text will assumed to be left-to-right"), static_cast<int32>(ICUStatus));
+	}
+
+	return ETextDirection::LeftToRight;
+}
+
+ETextDirection ComputeBaseDirection(const icu::UnicodeString& InICUString)
+{
+	const UBiDiDirection ICUBaseDirection = ubidi_getBaseDirection(InICUString.getBuffer(), InICUString.length());
+
+	// ICUToUE will treat UBIDI_NEUTRAL as LTR
+	return Internal::ICUToUE(ICUBaseDirection);
+}
+
+class FICUTextBiDi : public ITextBiDi
+{
+public:
+	FICUTextBiDi()
+		: ICUBiDi(ubidi_open())
+	{
+	}
+
+	~FICUTextBiDi()
+	{
+		ubidi_close(ICUBiDi);
+		ICUBiDi = nullptr;
+	}
+
+	virtual ETextDirection ComputeTextDirection(const FText& InText) override
+	{
+		return FICUTextBiDi::ComputeTextDirection(InText.ToString());
+	}
+
+	virtual ETextDirection ComputeTextDirection(const FString& InString) override
+	{
+		return FICUTextBiDi::ComputeTextDirection(*InString, 0, InString.Len());
+	}
+
+	virtual ETextDirection ComputeTextDirection(const TCHAR* InString, const int32 InStringStartIndex, const int32 InStringLen) override
+	{
+		if (InStringLen == 0)
+		{
+			return ETextDirection::LeftToRight;
+		}
+
+		StringConverter.ConvertString(InString, InStringStartIndex, InStringLen, ICUString);
+
+		return Internal::ComputeTextDirection(ICUBiDi, ICUString);
+	}
+
+	virtual ETextDirection ComputeTextDirection(const FText& InText, const ETextDirection InBaseDirection, TArray<FTextDirectionInfo>& OutTextDirectionInfo) override
+	{
+		return FICUTextBiDi::ComputeTextDirection(InText.ToString(), InBaseDirection, OutTextDirectionInfo);
+	}
+
+	virtual ETextDirection ComputeTextDirection(const FString& InString, const ETextDirection InBaseDirection, TArray<FTextDirectionInfo>& OutTextDirectionInfo) override
+	{
+		return FICUTextBiDi::ComputeTextDirection(*InString, 0, InString.Len(), InBaseDirection, OutTextDirectionInfo);
+	}
+
+	virtual ETextDirection ComputeTextDirection(const TCHAR* InString, const int32 InStringStartIndex, const int32 InStringLen, const ETextDirection InBaseDirection, TArray<FTextDirectionInfo>& OutTextDirectionInfo) override
+	{
+		OutTextDirectionInfo.Reset();
+
+		if (InStringLen == 0)
+		{
+			return ETextDirection::LeftToRight;
+		}
+
+		StringConverter.ConvertString(InString, InStringStartIndex, InStringLen, ICUString);
+
+		return Internal::ComputeTextDirection(ICUBiDi, ICUString, InStringStartIndex, InBaseDirection, OutTextDirectionInfo);
+	}
+
+	virtual ETextDirection ComputeBaseDirection(const FText& InText) override
+	{
+		return FICUTextBiDi::ComputeBaseDirection(InText.ToString());
+	}
+
+	virtual ETextDirection ComputeBaseDirection(const FString& InString) override
+	{
+		return FICUTextBiDi::ComputeBaseDirection(*InString, 0, InString.Len());
+	}
+
+	virtual ETextDirection ComputeBaseDirection(const TCHAR* InString, const int32 InStringStartIndex, const int32 InStringLen) override
+	{
+		if (InStringLen == 0)
+		{
+			return ETextDirection::LeftToRight;
+		}
+
+		StringConverter.ConvertString(InString, InStringStartIndex, InStringLen, ICUString);
+
+		return Internal::ComputeBaseDirection(ICUString);
+	}
+
+private:
+	/** Non-copyable */
+	FICUTextBiDi(const FICUTextBiDi&);
+	FICUTextBiDi& operator=(const FICUTextBiDi&);
+
+	UBiDi* ICUBiDi;
+	icu::UnicodeString ICUString;
+	ICUUtilities::FStringConverter StringConverter;
+};
+
+} // namespace Internal
+
+TUniquePtr<ITextBiDi> CreateTextBiDi()
+{
+	return MakeUnique<Internal::FICUTextBiDi>();
+}
+
+ETextDirection ComputeTextDirection(const FText& InText)
+{
+	return ComputeTextDirection(InText.ToString());
+}
+
+ETextDirection ComputeTextDirection(const FString& InString)
+{
+	return ComputeTextDirection(*InString, 0, InString.Len());
+}
+
+ETextDirection ComputeTextDirection(const TCHAR* InString, const int32 InStringStartIndex, const int32 InStringLen)
+{
+	if (InStringLen == 0)
+	{
+		return ETextDirection::LeftToRight;
+	}
+
+	icu::UnicodeString ICUString = ICUUtilities::ConvertString(InString, InStringStartIndex, InStringLen);
+
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+	UBiDi* ICUBiDi = ubidi_openSized(ICUString.length(), 0, &ICUStatus);
+	if (ICUBiDi && U_SUCCESS(ICUStatus))
+	{
+		const ETextDirection ReturnDirection = Internal::ComputeTextDirection(ICUBiDi, ICUString);
+
+		ubidi_close(ICUBiDi);
+		ICUBiDi = nullptr;
+
+		return ReturnDirection;
+	}
+	else
+	{
+		UE_LOG(LogCore, Warning, TEXT("Failed to create ICU BiDi object (error code: %d). Text will assumed to be left-to-right"), static_cast<int32>(ICUStatus));
+	}
+
+	return ETextDirection::LeftToRight;
+}
+
+ETextDirection ComputeTextDirection(const FText& InText, const ETextDirection InBaseDirection, TArray<FTextDirectionInfo>& OutTextDirectionInfo)
+{
+	return ComputeTextDirection(InText.ToString(), InBaseDirection, OutTextDirectionInfo);
+}
+
+ETextDirection ComputeTextDirection(const FString& InString, const ETextDirection InBaseDirection, TArray<FTextDirectionInfo>& OutTextDirectionInfo)
+{
+	return ComputeTextDirection(*InString, 0, InString.Len(), InBaseDirection, OutTextDirectionInfo);
+}
+
+ETextDirection ComputeTextDirection(const TCHAR* InString, const int32 InStringStartIndex, const int32 InStringLen, const ETextDirection InBaseDirection, TArray<FTextDirectionInfo>& OutTextDirectionInfo)
+{
+	OutTextDirectionInfo.Reset();
+
+	if (InStringLen == 0)
+	{
+		return ETextDirection::LeftToRight;
+	}
+
+	icu::UnicodeString ICUString = ICUUtilities::ConvertString(InString, InStringStartIndex, InStringLen);
+
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+	UBiDi* ICUBiDi = ubidi_openSized(ICUString.length(), 0, &ICUStatus);
+	if (ICUBiDi && U_SUCCESS(ICUStatus))
+	{
+		const ETextDirection ReturnDirection = Internal::ComputeTextDirection(ICUBiDi, ICUString, InStringStartIndex, InBaseDirection, OutTextDirectionInfo);
+
+		ubidi_close(ICUBiDi);
+		ICUBiDi = nullptr;
+
+		return ReturnDirection;
+	}
+	else
+	{
+		UE_LOG(LogCore, Warning, TEXT("Failed to create ICU BiDi object (error code: %d). Text will assumed to be left-to-right"), static_cast<int32>(ICUStatus));
+	}
+
+	return ETextDirection::LeftToRight;
+}
+
+ETextDirection ComputeBaseDirection(const FText& InText)
+{
+	return ComputeBaseDirection(InText.ToString());
+}
+
+ETextDirection ComputeBaseDirection(const FString& InString)
+{
+	return ComputeBaseDirection(*InString, 0, InString.Len());
+}
+
+ETextDirection ComputeBaseDirection(const TCHAR* InString, const int32 InStringStartIndex, const int32 InStringLen)
+{
+	if (InStringLen == 0)
+	{
+		return ETextDirection::LeftToRight;
+	}
+
+	icu::UnicodeString ICUString = ICUUtilities::ConvertString(InString, InStringStartIndex, InStringLen);
+
+	return Internal::ComputeBaseDirection(ICUString);
+}
+
+} // namespace TextBiDi
 
 #endif

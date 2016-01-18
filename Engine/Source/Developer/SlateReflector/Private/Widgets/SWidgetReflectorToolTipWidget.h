@@ -15,7 +15,7 @@ public:
 		: _WidgetInfoToVisualize()
 	{ }
 
-		SLATE_ARGUMENT(TSharedPtr<FReflectorNode>, WidgetInfoToVisualize)
+		SLATE_ARGUMENT(TSharedPtr<FWidgetReflectorNodeBase>, WidgetInfoToVisualize)
 
 	SLATE_END_ARGS()
 
@@ -25,6 +25,10 @@ public:
 	void Construct( const FArguments& InArgs )
 	{
 		this->WidgetInfo = InArgs._WidgetInfoToVisualize;
+		check(WidgetInfo.IsValid());
+
+		const FGeometry Geom = FGeometry().MakeChild(WidgetInfo->GetLocalSize(), WidgetInfo->GetAccumulatedLayoutTransform(), WidgetInfo->GetAccumulatedRenderTransform(), FVector2D::ZeroVector);
+		SizeInfoText = FText::FromString(Geom.ToString());
 
 		ChildSlot
 		[
@@ -97,43 +101,33 @@ private:
 
 	FText GetWidgetsDesiredSize() const
 	{
-		TSharedPtr<SWidget> TheWidget = WidgetInfo.Get()->Widget.Pin();
-
-		return TheWidget.IsValid()
-			? FText::FromString(TheWidget->GetDesiredSize().ToString())
-			: FText::GetEmpty();
+		return FText::FromString(WidgetInfo->GetWidgetDesiredSize().ToString());
 	}
 
 	FText GetWidgetActualSize() const
 	{
-		return FText::FromString(WidgetInfo.Get()->Geometry.Size.ToString());
+		return FText::FromString(WidgetInfo->GetLocalSize().ToString());
 	}
 
 	FText GetSizeInfo() const
 	{
-		TSharedPtr<SWidget> TheWidget = WidgetInfo.Get()->Widget.Pin();
-
-		return TheWidget.IsValid()
-			? FText::FromString(WidgetInfo.Get()->Geometry.ToString())
-			: FText::GetEmpty();
+		return SizeInfoText;
 	}
 
 	FText GetEnabled() const
 	{
 		static const FText TrueText = LOCTEXT("True", "True");
 		static const FText FalseText = LOCTEXT("False", "False");
-
-		TSharedPtr<SWidget> TheWidget = WidgetInfo.Get()->Widget.Pin();
-
-		return TheWidget.IsValid()
-			? (TheWidget->IsEnabled() ? TrueText : FalseText)
-			: FText::GetEmpty();
+		return (WidgetInfo->GetWidgetEnabled()) ? TrueText : FalseText;
 	}
 
 private:
 
 	/** The info about the widget that we are visualizing. */
-	TAttribute<TSharedPtr<FReflectorNode>> WidgetInfo;
+	TSharedPtr<FWidgetReflectorNodeBase> WidgetInfo;
+
+	/** The size info text */
+	FText SizeInfoText;
 };
 
 

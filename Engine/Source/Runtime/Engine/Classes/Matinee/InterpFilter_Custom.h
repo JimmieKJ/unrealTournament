@@ -22,8 +22,8 @@ class UInterpFilter_Custom : public UInterpFilter
 
 #endif // WITH_EDITORONLY_DATA
 
-	// Begin UInterpFilter Interface
+	//~ Begin UInterpFilter Interface
 	virtual void FilterData(class AMatineeActor* InMatineeActor) override;
-	// End UInterpFilter Interface
+	//~ End UInterpFilter Interface
 };
 

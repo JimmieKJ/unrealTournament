@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,6 +45,12 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
 	UCurveFloat* ReturnParamCurve;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+	FVector MeshOffset;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+	FVector HeldOffset;
+
 	/** duplicate of Mesh used temporarily as part of return effect */
 	UPROPERTY()
 	USkeletalMeshComponent* ReturningMesh;
@@ -73,8 +79,7 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 		return Mesh;
 	}
 
-	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh) override;
-	virtual void AttachTo(USkeletalMeshComponent* AttachToMesh) override;
+	virtual void ClientUpdateAttachment(bool bNowAttached) override;
 	virtual void OnObjectStateChanged();
 
 	FTimerHandle SendHomeWithNotifyHandle;

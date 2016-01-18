@@ -52,6 +52,16 @@ SPluginBrowser& SPluginCategoryTree::GetOwner()
 }
 
 
+static void ResetCategories(TArray<TSharedPtr<FPluginCategory>>& Categories)
+{
+	for (const TSharedPtr<FPluginCategory>& Category : Categories)
+	{
+		ResetCategories(Category->SubCategories);
+		Category->Plugins.Reset();
+		Category->SubCategories.Reset();
+	}
+}
+
 void SPluginCategoryTree::RebuildAndFilterCategoryTree()
 {
 	// Get a plugin from the currently selected category, so we can track it if it's removed
@@ -66,14 +76,7 @@ void SPluginCategoryTree::RebuildAndFilterCategoryTree()
 	}
 
 	// Clear the list of plugins in each current category
-	for(TSharedPtr<FPluginCategory> RootCategory: RootCategories)
-	{
-		for(TSharedPtr<FPluginCategory> Category: RootCategory->SubCategories)
-		{
-			Category->Plugins.Reset();
-			Category->SubCategories.Reset();
-		}
-	}
+	ResetCategories(RootCategories);
 
 	// Add all the known plugins into categories
 	TSharedPtr<FPluginCategory> SelectCategory;
@@ -121,6 +124,13 @@ void SPluginCategoryTree::RebuildAndFilterCategoryTree()
 			
 		// Associate the plugin with the category
 		FoundCategory->Plugins.Add(Plugin);
+
+		TSharedPtr<FPluginCategory> ParentCategory = FoundCategory->ParentCategory.Pin();
+		while (ParentCategory.IsValid())
+		{
+			ParentCategory->Plugins.Add(Plugin);
+			ParentCategory = ParentCategory->ParentCategory.Pin();
+		}
 
 		// Update the selection if this is the plugin we're tracking
 		if(TrackPlugin == Plugin)

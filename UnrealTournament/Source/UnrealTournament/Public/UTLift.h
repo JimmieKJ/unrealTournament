@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,7 +25,7 @@ class UNREALTOURNAMENT_API AUTLift : public AActor, public INavRelevantInterface
 
 	/** Event when encroach an actor (Overlap that can't be handled gracefully) */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = "Lift")
-	virtual void OnEncroachActor(class AActor* EncroachedActor);
+	void OnEncroachActor(class AActor* EncroachedActor);
 	
 	virtual void NotifyHit(class UPrimitiveComponent* MyComp, AActor* Other, class UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit) override;
 	
@@ -86,7 +86,7 @@ class UNREALTOURNAMENT_API AUTLift : public AActor, public INavRelevantInterface
 		if (PropertyChangedEvent.Property == NULL || PropertyChangedEvent.Property->GetFName() == FName(TEXT("NavmeshScale")))
 		{
 			UNavigationSystem::UpdateNavOctreeBounds(this);
-			UNavigationSystem::UpdateNavOctreeAll(this);
+			UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
 		}
 	}
 #endif

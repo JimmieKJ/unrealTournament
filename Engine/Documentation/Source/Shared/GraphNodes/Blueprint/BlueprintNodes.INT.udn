@@ -49,7 +49,7 @@ pulse down the appropriate output.
 
 **Input Pins**
 
-Selection - Takes in a Enum value used to indicate which output pin will be triggered. 
+Selection - Takes in an Enum value used to indicate which output pin will be triggered. 
 
 ---
 
@@ -94,7 +94,7 @@ Return Value - This outputs the new Actor instance that was spawned.
 
 The "Spawn Actor from Class Node" node takes an Actor Class (specified via the 'Class' input) and attempts to spawn an instance of that in the world.
 
-The 'Spawn Transform' input is used to define the Actor's spawn location (and its initial orientation). If that location is blocked by some collider, then the Actor will fail to spawn unless you set the 'Spawn Even if Colliding' input to _True_.
+The 'Spawn Transform' input is used to define the Actor's spawn location (and its initial orientation).
 
 ---
 
@@ -103,7 +103,7 @@ The 'Spawn Transform' input is used to define the Actor's spawn location (and it
 Unlabeled Execution Pin - This execution input triggers the spawning. 
 Class - Denotes the Actor Class you wish to spawn (required). 
 Spawn Transform - Takes in a Transform used to position and orient the Actor in the world. 
-Spawn Even if Colliding - Takes in a Boolean value used to determine if the Actor should be spawned when something is blocking the spawn location.  
+Collision Handling Override - Overrides actor class setting for how to handle a situation where something is blocking the spawn location. If "Default" is selected, the actor class's SpawnCollisionHandlingMethod is used.
 
 ---
 

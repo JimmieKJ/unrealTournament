@@ -65,4 +65,8 @@ public:
 	TSharedPtr<FUICommandInfo> CreateAanimMontage;
 	// Command to allow users to remove unused bones (not referenced by any skeletalmesh) from the skeleton
 	TSharedPtr<FUICommandInfo> UpdateSkeletonRefPose;
+
+	// Toggle Reference Pose
+	TSharedPtr<FUICommandInfo> ToggleReferencePose;
+	TSharedPtr<FUICommandInfo> TogglePreviewAsset;
 };

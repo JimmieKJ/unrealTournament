@@ -13,7 +13,7 @@ FOnlineFriendSteam::FOnlineFriendSteam(const CSteamID& InUserId)
 {
 }
 
-TSharedRef<FUniqueNetId> FOnlineFriendSteam::GetUserId() const
+TSharedRef<const FUniqueNetId> FOnlineFriendSteam::GetUserId() const
 {
 	return UserId;
 }
@@ -175,16 +175,36 @@ bool FOnlineFriendsSteam::IsFriend(int32 LocalUserNum, const FUniqueNetId& Frien
 	return bIsFriend;
 }
 
-bool FOnlineFriendsSteam::QueryRecentPlayers(const FUniqueNetId& UserId)
+bool FOnlineFriendsSteam::QueryRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsSteam::QueryRecentPlayers()"));
 
-	TriggerOnQueryRecentPlayersCompleteDelegates(UserId, false, TEXT("not implemented"));
+	TriggerOnQueryRecentPlayersCompleteDelegates(UserId, Namespace, false, TEXT("not implemented"));
 
 	return false;
 }
 
-bool FOnlineFriendsSteam::GetRecentPlayers(const FUniqueNetId& UserId, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers)
+bool FOnlineFriendsSteam::GetRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers)
+{
+	return false;
+}
+
+bool FOnlineFriendsSteam::BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
+{
+	return false;
+}
+
+bool FOnlineFriendsSteam::UnblockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
+{
+	return false;
+}
+
+bool FOnlineFriendsSteam::QueryBlockedPlayers(const FUniqueNetId& UserId)
+{
+	return false;
+}
+
+bool FOnlineFriendsSteam::GetBlockedPlayers(const FUniqueNetId& UserId, TArray< TSharedRef<FOnlineBlockedPlayer> >& OutBlockedPlayers)
 {
 	return false;
 }
@@ -214,7 +234,7 @@ void FOnlineAsyncTaskSteamReadFriendsList::Finalize()
 			const bool bIsPlayingAGame = SteamFriendsPtr->GetFriendGamePlayed(SteamPlayerId, &FriendGameInfo);
 			// Now fill in the friend info
 			Friend->AccountData.Add(TEXT("nickname"), NickName);
-			Friend->Presence.Status.StatusStr = UTF8_TO_TCHAR(SteamFriendsPtr->GetFriendRichPresence(SteamPlayerId,"connect"));
+			Friend->Presence.Status.StatusStr = UTF8_TO_TCHAR(SteamFriendsPtr->GetFriendRichPresence(SteamPlayerId,"status"));
 			FString JoinablePresenceString = UTF8_TO_TCHAR(SteamFriendsPtr->GetFriendRichPresence(SteamPlayerId,"Joinable"));
 			// Remote friend is responsible for updating their presence to have the joinable status
 			Friend->Presence.bIsJoinable = JoinablePresenceString == TEXT("true");

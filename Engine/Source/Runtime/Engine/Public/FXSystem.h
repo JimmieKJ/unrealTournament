@@ -161,11 +161,13 @@ public:
 	 */
 	virtual void PreInitViews() = 0;
 
+	virtual bool UsesGlobalDistanceField() const = 0;
+
 	/**
 	 * Notification from the renderer that it is about to draw FX belonging to
 	 * this system.
 	 */
-	virtual void PreRender(FRHICommandListImmediate& RHICmdList) = 0;
+	virtual void PreRender(FRHICommandListImmediate& RHICmdList, const class FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData) = 0;
 
 	/**
 	 * Notification from the renderer that opaque primitives have rendered.

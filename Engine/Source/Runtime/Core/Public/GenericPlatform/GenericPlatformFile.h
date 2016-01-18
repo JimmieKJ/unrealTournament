@@ -64,6 +64,56 @@ public:
 
 
 /**
+ * Contains the information that's returned from stat'ing a file or directory 
+ */
+struct FFileStatData
+{
+	FFileStatData()
+		: CreationTime(FDateTime::MinValue())
+		, AccessTime(FDateTime::MinValue())
+		, ModificationTime(FDateTime::MinValue())
+		, FileSize(-1)
+		, bIsDirectory(false)
+		, bIsReadOnly(false)
+		, bIsValid(false)
+	{
+	}
+
+	FFileStatData(FDateTime InCreationTime, FDateTime InAccessTime,	FDateTime InModificationTime, const int64 InFileSize, const bool InIsDirectory, const bool InIsReadOnly)
+		: CreationTime(InCreationTime)
+		, AccessTime(InAccessTime)
+		, ModificationTime(InModificationTime)
+		, FileSize(InFileSize)
+		, bIsDirectory(InIsDirectory)
+		, bIsReadOnly(InIsReadOnly)
+		, bIsValid(true)
+	{
+	}
+
+	/** The time that the file or directory was originally created, or FDateTime::MinValue if the creation time is unknown */
+	FDateTime CreationTime;
+
+	/** The time that the file or directory was last accessed, or FDateTime::MinValue if the access time is unknown */
+	FDateTime AccessTime;
+
+	/** The time the the file or directory was last modified, or FDateTime::MinValue if the modification time is unknown */
+	FDateTime ModificationTime;
+
+	/** Size of the file (in bytes), or -1 if the file size is unknown */
+	int64 FileSize;
+
+	/** True if this data is for a directory, false if it's for a file */
+	bool bIsDirectory : 1;
+
+	/** True if this file is read-only */
+	bool bIsReadOnly : 1;
+
+	/** True if file or directory was found, false otherwise. Note that this value being true does not ensure that the other members are filled in with meaningful data, as not all file systems have access to all of this data */
+	bool bIsValid : 1;
+};
+
+
+/**
 * File I/O Interface
 **/
 class CORE_API IPlatformFile
@@ -165,7 +215,10 @@ public:
 	/** Delete a directory and return true if the directory was deleted or otherwise does not exist. **/
 	virtual bool		DeleteDirectory(const TCHAR* Directory) = 0;
 
-	/** Base class for file and directory visitors. **/
+	/** Return the stat data for the given file or directory. Check the FFileStatData::bIsValid member before using the returned data */
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) = 0;
+
+	/** Base class for file and directory visitors that take only the name. **/
 	class FDirectoryVisitor
 	{
 	public:
@@ -177,6 +230,20 @@ public:
 		**/
 		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) = 0;
 	};
+
+	/** Base class for file and directory visitors that take all the stat data. **/
+	class FDirectoryStatVisitor
+	{
+	public:
+		/** 
+		 * Callback for a single file or a directory in a directory iteration.
+		 * @param FilenameOrDirectory		If bIsDirectory is true, this is a directory (with no trailing path delimiter), otherwise it is a file name.
+		 * @param StatData					The stat data for the file or directory.
+		 * @return							true if the iteration should continue.
+		**/
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, const FFileStatData& StatData) = 0;
+	};
+
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
 	 * @param Directory		The directory to iterate the contents of.
@@ -184,6 +251,14 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	virtual bool		IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor) = 0;
+
+	/** 
+	 * Call the Visit function of the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
+	 * @param Directory		The directory to iterate the contents of.
+	 * @param Visitor		Visitor to call for each element of the directory
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	virtual bool		IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor) = 0;
 
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -198,6 +273,14 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	virtual bool IterateDirectoryRecursively(const TCHAR* Directory, FDirectoryVisitor& Visitor);
+
+	/** 
+	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.
+	 * @param Directory		The directory to iterate the contents of, recursively.
+	 * @param Visitor		Visitor to call for each element of the directory and each element of all subdirectories.
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	virtual bool IterateDirectoryStatRecursively(const TCHAR* Directory, FDirectoryStatVisitor& Visitor);
 
 	/** 
 	 * Delete all files and subdirectories in a directory, then delete the directory itself
@@ -278,7 +361,7 @@ public:
 class CORE_API IPhysicalPlatformFile : public IPlatformFile
 {
 public:
-	// BEGIN IPlatformFile Interface
+	//~ Begin IPlatformFile Interface
 	virtual bool ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const override
 	{
 		return true;
@@ -292,5 +375,5 @@ public:
 	{
 		return IPlatformFile::GetPhysicalTypeName();
 	}
-	// END IPlatformFile Interface
+	//~ End IPlatformFile Interface
 };

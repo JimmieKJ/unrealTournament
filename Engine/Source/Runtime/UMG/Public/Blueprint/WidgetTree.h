@@ -102,7 +102,7 @@ public:
 
 	/** Constructs the widget, and adds it to the tree. */
 	template< class T >
-	FORCEINLINE T* ConstructWidget(TSubclassOf<UWidget> WidgetType, FName WidgetName = NAME_None)
+	FORCEINLINE T* ConstructWidget(TSubclassOf<UWidget> WidgetType = T::StaticClass(), FName WidgetName = NAME_None)
 	{
 		if ( WidgetType->IsChildOf(UUserWidget::StaticClass()) )
 		{

@@ -41,6 +41,7 @@ struct TIsDerivedFrom
 	// Overloading Test() s.t. only calling it with something that is
 	// a BaseType (or inherited from the BaseType) will return a Yes.
 	static Yes& Test( BaseType* );
+	static Yes& Test( const BaseType* );
 	static No& Test( ... );
 
 	// Makes a DerivedType ptr.
@@ -141,6 +142,7 @@ struct TFormatSpecifier<type> \
 	} \
 };
 
+Expose_TFormatSpecifier(bool, "%i")
 Expose_TFormatSpecifier(uint8, "%u")
 Expose_TFormatSpecifier(uint16, "%u")
 Expose_TFormatSpecifier(uint32, "%u")
@@ -180,7 +182,7 @@ template<typename T> struct TIsLValueReferenceType     { enum { Value = false };
 template<typename T> struct TIsLValueReferenceType<T&> { enum { Value = true  }; };
 
 /**
- * TIsLValueReferenceType
+ * TIsRValueReferenceType
  */
 template<typename T> struct TIsRValueReferenceType      { enum { Value = false }; };
 template<typename T> struct TIsRValueReferenceType<T&&> { enum { Value = true  }; };
@@ -198,10 +200,18 @@ template<> struct TIsVoidType<void const volatile> { enum { Value = true }; };
  * TIsPODType
  * @todo - POD array and member pointer detection
  */
+// __is_pod changed in VS2015, however the results are still correct for all usages I've been able to locate.
+#if _MSC_VER == 1900
+#pragma warning(push)
+#pragma warning(disable:4647)
+#endif // _MSC_VER == 1900
 template<typename T> struct TIsPODType 
 { 
 	enum { Value = IS_POD(T) || IS_ENUM(T) || TIsArithmeticType<T>::Value || TIsPointerType<T>::Value }; 
 };
+#if _MSC_VER == 1900
+#pragma warning(pop)
+#endif // _MSC_VER == 1900
 
 /**
  * TIsFundamentalType
@@ -604,3 +614,14 @@ struct TIsEnum
 {
 	enum { Value = IS_ENUM(T) };
 };
+
+/*-----------------------------------------------------------------------------
+ * Undef Macros abstracting the presence of certain compiler intrinsic type traits
+ -----------------------------------------------------------------------------*/
+#undef IS_EMPTY
+#undef IS_ENUM
+#undef IS_POD
+#undef HAS_TRIVIAL_COPY
+#undef HAS_TRIVIAL_ASSIGN
+#undef HAS_TRIVIAL_DESTRUCTOR
+#undef HAS_TRIVIAL_CONSTRUCTOR

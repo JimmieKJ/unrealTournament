@@ -47,7 +47,7 @@ void SProjectLauncherSettings::Construct( const FArguments& InArgs, const FProje
 				.VAlign(VAlign_Center)
 				.Padding(4.0f, 0.0f, 4.0f, 0.0f)
 				[
-					SNew(SProjectLauncherProfileNameDescEditor, true)
+					SNew(SProjectLauncherProfileNameDescEditor, InModel, true)
 					.LaunchProfile(this, &SProjectLauncherSettings::GetLaunchProfile)
 				]
 
@@ -299,7 +299,7 @@ void SProjectLauncherSettings::OnNameTextCommitted(const FText& NewText, ETextCo
 	const ILauncherProfilePtr& LaunchProfile = Model->GetSelectedProfile();
 	if (LaunchProfile.IsValid())
 	{
-		LaunchProfile->SetName(NewText.ToString());
+		Model->GetProfileManager()->ChangeProfileName(LaunchProfile.ToSharedRef(), NewText.ToString());
 	}
 }
 
@@ -331,7 +331,7 @@ void SProjectLauncherSettings::HandleCloseActionExecute()
 	const ILauncherProfilePtr& LaunchProfile = Model->GetSelectedProfile();
 	if (LaunchProfile.IsValid())
 	{
-		Model->GetProfileManager()->SaveProfile(LaunchProfile.ToSharedRef());
+		Model->GetProfileManager()->SaveJSONProfile(LaunchProfile.ToSharedRef());
 		//@Todo: FIX! Very Heavy Handed! Will have to re factor the device group saving code, but branch is tonight and this is safe. 
 		Model->GetProfileManager()->SaveDeviceGroups();
 	}

@@ -9,6 +9,7 @@
 UBlueprintAsyncActionBase::UBlueprintAsyncActionBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	SetFlags(RF_StrongRefOnFrame);
 }
 
 void UBlueprintAsyncActionBase::Activate()

@@ -361,6 +361,7 @@ AMatineeActor::AMatineeActor(const FObjectInitializer& ObjectInitializer)
 #endif // WITH_EDITORONLY_DATA
 
 	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
 	PrimaryActorTick.TickGroup = TG_PrePhysics;
 	bPlayOnLevelLoad = false;
 #if WITH_EDITORONLY_DATA
@@ -375,6 +376,12 @@ AMatineeActor::AMatineeActor(const FObjectInitializer& ObjectInitializer)
 	PlayRate = 1.0f;
 	ClientSidePositionErrorTolerance = 0.1f;
 	ReplicationForceIsPlaying = 0;
+}
+
+void AMatineeActor::PostLoad()
+{
+	SetReplicates(!bClientSideOnly);
+	Super::PostLoad();
 }
 
 FName AMatineeActor::GetFunctionNameForEvent(FName EventName,bool bUseCustomEventName)
@@ -417,6 +424,7 @@ void AMatineeActor::NotifyEventTriggered(FName EventName, float EventTime, bool 
 		}
 	}
 
+#if !UE_BUILD_SHIPPING
 	if (EventName == NAME_PerformanceCapture)
 	{
 		//get the map name
@@ -427,8 +435,9 @@ void AMatineeActor::NotifyEventTriggered(FName EventName, float EventTime, bool 
 		PackageName.Split(TEXT("/"), &FolderName, &MapName, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 
 		FString CaptureName = FString::Printf(TEXT("PerformanceCapture/%s/%s_%4.2f"), *MapName, *GetName(), EventTime);
-		GEngine->PerformanceCapture(CaptureName);
+		GEngine->PerformanceCapture(GetWorld(), CaptureName);
 	}
+#endif	// UE_BUILD_SHIPPING
 }
 
 void AMatineeActor::Play()
@@ -465,6 +474,7 @@ void AMatineeActor::Play()
 	bReversePlayback = false;
 	bIsPlaying = true;
 	bPaused = false;
+	SetActorTickEnabled(true);
 }
 
 void AMatineeActor::Reverse()
@@ -478,11 +488,23 @@ void AMatineeActor::Reverse()
 	bReversePlayback = true;
 	bIsPlaying = true;
 	bPaused = false;
+	SetActorTickEnabled(true);
 }
 
 void AMatineeActor::Stop()
 {
-	bPendingStop = true;
+	// Re-enable the radio filter
+	EnableRadioFilter();
+
+	bIsPlaying = false;
+	bPaused = false;
+	SetActorTickEnabled(false);
+
+	if (GetWorld()->IsGameWorld())
+	{
+		// We should only terminate the interp in the game.  The editor handles this from inside the matinee editor
+		TermInterp();
+	}
 }
 
 void AMatineeActor::Pause()
@@ -491,6 +513,7 @@ void AMatineeActor::Pause()
 	{
 		EnableRadioFilter();
 		bPaused = !bPaused;
+		SetActorTickEnabled(!bPaused);
 	}
 }
 
@@ -499,6 +522,7 @@ void AMatineeActor::ChangePlaybackDirection()
 	bReversePlayback = !bReversePlayback;
 	bIsPlaying = true;
 	bPaused = false;
+	SetActorTickEnabled(true);
 }
 
 void AMatineeActor::SetLoopingState(bool bNewLooping)
@@ -532,6 +556,17 @@ void AMatineeActor::OnObjectsReplaced(const TMap<UObject*,UObject*>& Replacement
 	ReplaceMapKeys(ReplacementMap, SavedActorVisibilities);
 }
 #endif //WITH_EDITOR
+
+void AMatineeActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(TimerHandle_CheckPriorityRefresh);
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
 
 void AMatineeActor::SetPosition(float NewPosition,bool bJump)
 {
@@ -596,22 +631,6 @@ void AMatineeActor::Tick(float DeltaTime)
 	if ( bIsPlaying && MatineeData != NULL )
 	{
 		StepInterp(DeltaTime, false);
-	}
-
-	if (bPendingStop)
-	{
-		// Re-enable the radio filter
-		EnableRadioFilter();
-
-		bIsPlaying = false;
-		bPaused = false;
-		bPendingStop = false;
-
-		if (GetWorld()->IsGameWorld())
-		{
-			// We should only terminate the interp in the game.  The editor handles this from inside the matinee editor
-			TermInterp();
-		}
 	}
 }
 
@@ -737,8 +756,21 @@ void AMatineeActor::UpdateInterp( float NewPosition, bool bPreview, bool bJump )
 			for( int32 GroupIndex = 0; GroupIndex < Groups.Num(); ++GroupIndex )
 			{
 				Groups[GroupIndex]->Group->UpdateGroup( NewPosition, Groups[GroupIndex], bPreview, bJump );
+
+				const bool bhasBeenTerminated = (GroupInst.Num() == 0);
+#if WITH_EDITORONLY_DATA
+				if (bhasBeenTerminated && !bIsBeingEdited)
+#else
+				if (bhasBeenTerminated)
+#endif
+				{
+					UE_LOG(LogMatinee, Log, TEXT("WARNING: A matinee was stopped while updating group '%s'; the next groups will not be updated."), *Groups[GroupIndex]->Group->GetFullGroupName(true));
+					InterpPosition = NewPosition;
+					return;
+				}
 			}
 		}
+
 
 		InterpPosition = NewPosition;
 	}
@@ -1002,6 +1034,11 @@ bool AMatineeActor::IsMatineeCompatibleWithPlayer( APlayerController* InPC ) con
 		}
 	}
 
+	if (bReplicates == false && InPC->IsLocalController() == false)
+	{
+		bBindPlayerToMatinee = false;
+	}
+
 	return bBindPlayerToMatinee;
 }
 
@@ -1159,7 +1196,10 @@ void AMatineeActor::EnableCinematicMode(bool bEnable)
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController *PC = *Iterator;
-			PC->SetCinematicMode(bEnable, bHidePlayer, bHideHud, bDisableMovementInput, bDisableLookAtInput);
+			if (bReplicates || PC->IsLocalController())
+			{
+				PC->SetCinematicMode(bEnable, bHidePlayer, bHideHud, bDisableMovementInput, bDisableLookAtInput);
+			}
 		}
 	}
 }
@@ -1754,19 +1794,6 @@ void AMatineeActor::CheckPriorityRefresh()
 			return;
 		}
 	}
-
-	// check if it is controlling a player Pawn, or a platform a player Pawn is standing on
-	
-	/*foreach WorldSettings.AllControllers(class'Controller', C)
-	{
-		if ( C.PlayerState && C.Pawn != None &&
-			( InterpAction.LatentActors.Find(C.Pawn) != INDEX_NONE ||
-				(C.Pawn.Base != None && InterpAction.LatentActors.Find(C.Pawn.Base) != INDEX_NONE) ) )
-		{
-			ForceNetUpdate();
-			return;
-		}
-	}*/
 }
 
 
@@ -2025,8 +2052,18 @@ void UInterpGroup::UpdateGroup(float NewPosition, UInterpGroupInst* GrInst, bool
 		UpdateAnimWeights(NewPosition, GrInst, bPreview, bJump);
 	}
 #endif
+
 	for(int32 i=0; i<InterpTracks.Num(); i++)
 	{
+		// If the track instances have been removed from the group instance, this means that a previous track update has terminated the sequence.
+		// The group instance itself will still be valid, but unreferenced.
+		const bool bHasBeenTerminated = (GrInst->TrackInst.Num() == 0);
+
+		if (bHasBeenTerminated)
+		{
+			break;
+		}
+
 		UInterpTrack* Track = InterpTracks[i];
 		UInterpTrackInst* TrInst = GrInst->TrackInst[i];
 
@@ -6037,7 +6074,7 @@ void UInterpTrackColorProp::UpdateTrack(float NewPosition, UInterpTrackInst* TrI
 	FLinearColor DefaultLinearColor = DefaultColor;
 	FVector DefaultColorAsVector(DefaultLinearColor.R, DefaultLinearColor.G, DefaultLinearColor.B);
 	FVector NewVectorValue = VectorTrack.Eval( NewPosition, DefaultColorAsVector );
-	FColor NewColorValue = FLinearColor(NewVectorValue.X, NewVectorValue.Y, NewVectorValue.Z);
+	FColor NewColorValue = FLinearColor(NewVectorValue.X, NewVectorValue.Y, NewVectorValue.Z).ToFColor(true);
 	*PropInst->ColorProp = NewColorValue;
 
 	// If we have a custom callback for this property, call that
@@ -7879,6 +7916,14 @@ void UInterpTrackSound::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst,
 			}
 			else if (!bTreatAsDialogue || !Actor) // Don't play at all if we had a dialogue actor but they are not available/dead now
 			{
+				float StartTime = NewPosition - SoundTrackKey.Time;
+				if (StartTime <= FApp::GetDeltaTime())
+				{
+					// If the start time is within the past frames delta time, start from the beginning
+					// TODO: Consider dealing with play rate, time dilation, clamping
+					StartTime = 0.f;
+				}
+
 				// If we have a sound playing already (ie. an AudioComponent exists) stop it now.
 				if(SoundInst->PlayAudioComp)
 				{
@@ -7901,7 +7946,7 @@ void UInterpTrackSound::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst,
 					SoundInst->PlayAudioComp->SetVolumeMultiplier(VolumePitchValue.X);
 					SoundInst->PlayAudioComp->SetPitchMultiplier(VolumePitchValue.Y);
 					SoundInst->PlayAudioComp->SubtitlePriority = bSuppressSubtitles ? 0.f : SUBTITLE_PRIORITY_MATINEE;
-					SoundInst->PlayAudioComp->Play(NewPosition - SoundTrackKey.Time);
+					SoundInst->PlayAudioComp->Play(StartTime);
 				}
 				else
 				{
@@ -7931,7 +7976,7 @@ void UInterpTrackSound::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst,
 						SoundInst->PlayAudioComp->SetVolumeMultiplier(VolumePitchValue.X);
 						SoundInst->PlayAudioComp->SetPitchMultiplier(VolumePitchValue.Y);
 						SoundInst->PlayAudioComp->SubtitlePriority = bSuppressSubtitles ? 0.f : SUBTITLE_PRIORITY_MATINEE;
-						SoundInst->PlayAudioComp->Play(NewPosition - SoundTrackKey.Time);
+						SoundInst->PlayAudioComp->Play(StartTime);
 					}
 				}
 			}
@@ -7995,6 +8040,21 @@ void UInterpTrackSound::PreviewUpdateTrack(float NewPosition, UInterpTrackInst* 
 	if ( NewPosition >= IData->InterpLength && !bContinueSoundOnMatineeEnd && SoundInst->PlayAudioComp && SoundInst->PlayAudioComp->IsPlaying() )
 	{
 		SoundInst->PlayAudioComp->Stop();
+		bPlaying = false;
+	}
+
+	// If the new position for the track is before the last interp position, then the playback must have looped,
+	// so force playback to restart from the new position
+	const bool bJustLooped = NewPosition < MatineeActor->InterpPosition && MatineeActor->bIsPlaying;
+	if (bJustLooped)
+	{
+		if (SoundInst->PlayAudioComp)
+		{
+			SoundInst->PlayAudioComp->Stop();
+		}
+		bPlaying = false;
+		const float Epsilon = 0.1f;
+		SoundInst->LastUpdatePosition = NewPosition - Epsilon;
 	}
 
 	// Dont play sounds unless we are preview playback (ie not scrubbing).
@@ -8023,7 +8083,7 @@ void UInterpTrackSound::PreviewUpdateTrack(float NewPosition, UInterpTrackInst* 
 			Component->bIsUISound = true;
 			Component->Play(NewPosition - SoundTrackKey.Time);
 
-			const float ScrubDuration = 0.05f;
+			const float ScrubDuration = 0.1f;
 			Component->FadeOut(ScrubDuration, 1.0f);
 		}
 	}
@@ -9645,6 +9705,29 @@ UInterpTrackFloatAnimBPParam::UInterpTrackFloatAnimBPParam(const FObjectInitiali
 	TrackTitle = TEXT("Float AnimBP Param");
 }
 
+void UInterpTrackFloatAnimBPParam::Serialize(FArchive& Ar)
+{
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS	
+	if (Ar.IsSaving() && Ar.UE4Ver() < VER_UE4_NO_ANIM_BP_CLASS_IN_GAMEPLAY_CODE)
+	{
+		if ((nullptr != AnimBlueprintClass) && (nullptr == AnimClass))
+		{
+			AnimClass = AnimBlueprintClass;
+		}
+	}
+
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_NO_ANIM_BP_CLASS_IN_GAMEPLAY_CODE)
+	{
+		if ((nullptr != AnimBlueprintClass) && (nullptr == AnimClass))
+		{
+			AnimClass = AnimBlueprintClass;
+		}
+	}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
 #if WITH_EDITOR
 
 void UInterpTrackFloatAnimBPParam::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -9655,7 +9738,7 @@ void UInterpTrackFloatAnimBPParam::PostEditChangeProperty(FPropertyChangedEvent&
 	FName PropertyName = PropertyThatChanged != NULL ? PropertyThatChanged->GetFName() : NAME_None;
 
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UInterpTrackFloatAnimBPParam, ParamName) ||
-		PropertyName == GET_MEMBER_NAME_CHECKED(UInterpTrackFloatAnimBPParam, AnimBlueprintClass))
+		PropertyName == GET_MEMBER_NAME_CHECKED(UInterpTrackFloatAnimBPParam, AnimClass))
 	{
 		bRefreshParamter = true;
 	}
@@ -9759,7 +9842,7 @@ void UInterpTrackInstFloatAnimBPParam::RefreshParameter(UInterpTrack* Track)
 			{
 				UAnimInstance* NewAnimInstance = SkeletalMeshComponents[0]->GetAnimInstance();
 
-				if(NewAnimInstance && NewAnimInstance->GetClass() == ParamTrack->AnimBlueprintClass)
+				if (NewAnimInstance && NewAnimInstance->GetClass() == ParamTrack->AnimClass)
 				{
 					AnimScriptInstance = NewAnimInstance;
 					// make sure the class has the parameter

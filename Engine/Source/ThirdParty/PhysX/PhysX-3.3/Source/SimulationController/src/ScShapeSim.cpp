@@ -215,8 +215,9 @@ void Sc::ShapeSim::onResetFiltering()
 	{
 		internalAddToBroadPhase();
 		PX_ASSERT(getAABBMgrId().mShapeHandle!=PX_INVALID_BP_HANDLE);
-		if(getBodySim())
-			getBodySim()->getLowLevelBody().setAABBMgrId(getAABBMgrId());
+		Sc::BodySim* bs = getBodySim();
+		if(bs)
+			bs->getLowLevelBody().setAABBMgrId(getAABBMgrId());
 	}
 }
 
@@ -247,8 +248,9 @@ void Sc::ShapeSim::onFlagChange(PxShapeFlags oldFlags)
 	{
 		PX_ASSERT(!hasAABBMgrHandle());
 		internalAddToBroadPhase();
-		if(getBodySim())
-			getBodySim()->getLowLevelBody().setAABBMgrId(getAABBMgrId());
+		Sc::BodySim* bs = getBodySim();
+		if(bs)
+			bs->getLowLevelBody().setAABBMgrId(getAABBMgrId());
 	}
 	else if (oldBp && !newBp)
 	{
@@ -396,7 +398,7 @@ void Sc::ShapeSim::onTransformChange()
 	}
 }
 
-void Sc::ShapeSim::onGeometryChange()
+void Sc::ShapeSim::onVolumeChange()
 {
 	const AABBMgrId aabbMgrId=getAABBMgrId();
 	if(PX_INVALID_BP_HANDLE!=aabbMgrId.mActorHandle)

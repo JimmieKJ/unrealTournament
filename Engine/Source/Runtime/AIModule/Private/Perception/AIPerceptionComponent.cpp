@@ -128,6 +128,9 @@ void UAIPerceptionComponent::SetMaxStimulusAge(int32 ConfigIndex, float MaxAge)
 		MaxActiveAge.AddUninitialized(ConfigIndex - MaxActiveAge.Num() + 1);
 	}
 	MaxActiveAge[ConfigIndex] = MaxAge;
+
+	// @todo process all data already gathered and see if any _still_active_ stimuli
+	// got it's expiration prolonged, with SetExpirationAge
 }
 
 void UAIPerceptionComponent::OnRegister()
@@ -181,7 +184,9 @@ void UAIPerceptionComponent::OnRegister()
 	// this should not be needed but aparently AAIController::PostRegisterAllComponents
 	// gets called component's OnRegister
 	AIOwner = Cast<AAIController>(GetOwner());
-	if (AIOwner)
+	ensure(AIOwner == nullptr || AIOwner->GetAIPerceptionComponent() == nullptr || AIOwner->GetAIPerceptionComponent() == this
+		|| (AIOwner->GetWorld() && AIOwner->GetWorld()->WorldType != EWorldType::Editor));
+	if (AIOwner && AIOwner->GetAIPerceptionComponent() == nullptr)
 	{
 		AIOwner->SetPerceptionComponent(*this);
 	}
@@ -369,7 +374,8 @@ AActor* UAIPerceptionComponent::GetMutableBodyActor()
 
 void UAIPerceptionComponent::RegisterStimulus(AActor* Source, const FAIStimulus& Stimulus)
 {
-	StimuliToProcess.Add(FStimulusToProcess(Source, Stimulus));
+	FStimulusToProcess& StimulusToProcess = StimuliToProcess[StimuliToProcess.Add(FStimulusToProcess(Source, Stimulus))];
+	StimulusToProcess.Stimulus.SetExpirationAge(MaxActiveAge[int32(Stimulus.Type)]);
 }
 
 void UAIPerceptionComponent::ProcessStimuli()
@@ -379,6 +385,8 @@ void UAIPerceptionComponent::ProcessStimuli()
 		UE_VLOG(GetOwner(), LogAIPerception, Warning, TEXT("UAIPerceptionComponent::ProcessStimuli called without any Stimuli to process"));
 		return;
 	}
+
+	const bool bBroadcastEveryTargetUpdate = OnTargetPerceptionUpdated.IsBound();
 	
 	FStimulusToProcess* SourcedStimulus = StimuliToProcess.GetData();
 	TArray<AActor*> UpdatedActors;
@@ -419,26 +427,35 @@ void UAIPerceptionComponent::ProcessStimuli()
 		check(SourcedStimulus->Stimulus.Type.IsValid());
 
 		FAIStimulus& StimulusStore = PerceptualInfo->LastSensedStimuli[SourcedStimulus->Stimulus.Type];
-
-		// if the new stimulus is "valid" or it's info that "no longer sensed" and it used to be sensed successfully
-		if (SourcedStimulus->Stimulus.WantsToNotifyOnlyOnPerceptionChange() == false || SourcedStimulus->Stimulus.WasSuccessfullySensed() != StimulusStore.WasSuccessfullySensed())
-		{
-			UpdatedActors.AddUnique(SourcedStimulus->Source);
-		}
+		const bool bActorInfoUpdated = SourcedStimulus->Stimulus.WantsToNotifyOnlyOnPerceptionChange() == false || SourcedStimulus->Stimulus.WasSuccessfullySensed() != StimulusStore.WasSuccessfullySensed();
 
 		if (SourcedStimulus->Stimulus.WasSuccessfullySensed())
 		{
 			RefreshStimulus(StimulusStore, SourcedStimulus->Stimulus);
 		}
-		else if (StimulusStore.IsExpired())
+		else if (StimulusStore.IsExpired() == false)
+		{	
+			if (bActorInfoUpdated)
+			{
+				// @note there some more valid info in SourcedStimulus->Stimulus regarding test that failed
+				// may be useful in future
+				StimulusStore.MarkNoLongerSensed();
+				StimulusStore.SetStimulusAge(0);
+			}
+		}
+		else if (StimulusStore.GetAge() != FAIStimulus::NeverHappenedAge)
 		{
 			HandleExpiredStimulus(StimulusStore);
 		}
-		else
+
+		// if the new stimulus is "valid" or it's info that "no longer sensed" and it used to be sensed successfully
+		if (bActorInfoUpdated)
 		{
-			// @note there some more valid info in SourcedStimulus->Stimulus regarding test that failed
-			// may be useful in future
-			StimulusStore.MarkNoLongerSensed();
+			UpdatedActors.AddUnique(SourcedStimulus->Source);
+			if (bBroadcastEveryTargetUpdate)
+			{
+				OnTargetPerceptionUpdated.Broadcast(SourcedStimulus->Source, StimulusStore);
+			}
 		}
 	}
 
@@ -463,12 +480,14 @@ void UAIPerceptionComponent::RefreshStimulus(FAIStimulus& StimulusStore, const F
 	if (NewStimulus.GetAge() <= StimulusStore.GetAge() || StimulusStore.Strength < NewStimulus.Strength)
 	{
 		StimulusStore = NewStimulus;
+		// update stimulus 
 	}
 }
 
 void UAIPerceptionComponent::HandleExpiredStimulus(FAIStimulus& StimulusStore)
 {
-	ensure(StimulusStore.IsExpired() == true && StimulusStore.WasSuccessfullySensed() == false && StimulusStore.IsActive() == false);
+	ensure(StimulusStore.IsExpired() == true);
+	StimulusStore = FAIStimulus();
 }
 
 bool UAIPerceptionComponent::AgeStimuli(const float ConstPerceptionAgingRate)
@@ -482,9 +501,9 @@ bool UAIPerceptionComponent::AgeStimuli(const float ConstPerceptionAgingRate)
 		for (FAIStimulus& Stimulus : ActorPerceptionInfo.LastSensedStimuli)
 		{
 			// Age the stimulus. If it is active but has just expired, mark it as such
-			if (Stimulus.AgeStimulus(ConstPerceptionAgingRate) == false && 
-				Stimulus.IsActive() && 
-				!Stimulus.IsExpired())
+			if (Stimulus.AgeStimulus(ConstPerceptionAgingRate) == false 
+				&& (Stimulus.IsActive() || Stimulus.WantsToNotifyOnlyOnPerceptionChange())
+				&& Stimulus.IsExpired() == false)
 			{
 				AActor* TargetActor = ActorPerceptionInfo.Target.Get();
 				if (TargetActor)
@@ -502,7 +521,30 @@ bool UAIPerceptionComponent::AgeStimuli(const float ConstPerceptionAgingRate)
 
 void UAIPerceptionComponent::ForgetActor(AActor* ActorToForget)
 {
-	PerceptualData.Remove(ActorToForget);
+	if (PerceptualData.Num() > 0)
+	{
+		UAIPerceptionSystem* AIPerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
+		if (AIPerceptionSys != nullptr && ActorToForget != nullptr)
+		{
+			AIPerceptionSys->OnListenerForgetsActor(*this, *ActorToForget);
+		}
+
+		PerceptualData.Remove(ActorToForget);
+	}
+}
+
+void UAIPerceptionComponent::ForgetAll()
+{
+	if (PerceptualData.Num() > 0)
+	{
+		UAIPerceptionSystem* AIPerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
+		if (AIPerceptionSys != nullptr)
+		{
+			AIPerceptionSys->OnListenerForgetsAll(*this);
+		}
+
+		PerceptualData.Reset();
+	}
 }
 
 float UAIPerceptionComponent::GetYoungestStimulusAge(const AActor& Source) const
@@ -616,61 +658,47 @@ bool UAIPerceptionComponent::GetActorsPerception(AActor* Actor, FActorPerception
 // debug
 //----------------------------------------------------------------------//
 #if !UE_BUILD_SHIPPING
-void UAIPerceptionComponent::DrawDebugInfo(UCanvas* Canvas)
+void UAIPerceptionComponent::GrabGameplayDebuggerData(TArray<FString>& OnScreenStrings, TArray<FGameplayDebuggerShapeElement>& DebugShapes) const
 {
-	if (Canvas == nullptr)
-	{
-		return;
-	}
+#if ENABLED_GAMEPLAY_DEBUGGER
+	UAIPerceptionSystem* PerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
+	check(PerceptionSys);
 
-	UWorld* World = GetWorld();
-	if (World)
+	for (UAIPerceptionComponent::TActorPerceptionContainer::TConstIterator It(GetPerceptualDataConstIterator()); It; ++It)
 	{
-		UAIPerceptionSystem* PerceptionSys = UAIPerceptionSystem::GetCurrent(World);
-		check(PerceptionSys);
-		UFont* Font = GEngine->GetSmallFont();
-
-		for (TActorPerceptionContainer::TIterator It(PerceptualData); It; ++It)
+		if (It->Key == NULL)
 		{
-			if (It->Key == NULL)
-			{
-				continue;
-			}
+			continue;
+		}
 
-			const FActorPerceptionInfo& ActorPerceptionInfo = It->Value;
-			
-			if (ActorPerceptionInfo.Target.IsValid())
-			{
-				const FVector TargetLocation = ActorPerceptionInfo.Target->GetActorLocation();
-				float VerticalLabelOffset = 0.f;
+		const FActorPerceptionInfo& ActorPerceptionInfo = It->Value;
 
-				for (const auto& Stimulus : ActorPerceptionInfo.LastSensedStimuli)
+		if (ActorPerceptionInfo.Target.IsValid())
+		{
+			const FVector TargetLocation = ActorPerceptionInfo.Target->GetActorLocation();
+			for (const auto& Stimulus : ActorPerceptionInfo.LastSensedStimuli)
+			{
+				if (Stimulus.Strength >= 0)
 				{
-					if (Stimulus.Strength >= 0)
-					{
-						const FVector ScreenLoc = Canvas->Project(Stimulus.StimulusLocation + FVector(0, 0, 30));
-						Canvas->DrawText(Font, FString::Printf(TEXT("%s: %.2f a:%.2f")
-							, *PerceptionSys->GetSenseName(Stimulus.Type)
-							, Stimulus.Strength, Stimulus.GetAge())
-							, ScreenLoc.X, ScreenLoc.Y + VerticalLabelOffset);
+					const FString Description = FString::Printf(TEXT("%s: %.2f a:%.2f"), *PerceptionSys->GetSenseName(Stimulus.Type), Stimulus.Strength, Stimulus.GetAge());
+					DebugShapes.Add(UGameplayDebuggerHelper::MakeString(Description, Stimulus.StimulusLocation + FVector(0, 0, 30)));
 
-						VerticalLabelOffset += 17.f;
-
-						const FColor DebugColor = PerceptionSys->GetSenseDebugColor(Stimulus.Type);
-						DrawDebugSphere(World, Stimulus.StimulusLocation, 30.f, 16, DebugColor);
-						DrawDebugLine(World, Stimulus.ReceiverLocation, Stimulus.StimulusLocation, DebugColor);
-						DrawDebugLine(World, TargetLocation, Stimulus.StimulusLocation, FColor::Black);
-					}
+					const FColor DebugColor = PerceptionSys->GetSenseDebugColor(Stimulus.Type);
+					DebugShapes.Add(UGameplayDebuggerHelper::MakePoint(Stimulus.StimulusLocation, DebugColor, 30));
+					DebugShapes.Add(UGameplayDebuggerHelper::MakeLine(Stimulus.ReceiverLocation, Stimulus.StimulusLocation, DebugColor));
+					DebugShapes.Add(UGameplayDebuggerHelper::MakeLine(TargetLocation, Stimulus.StimulusLocation, FColor::Black));
 				}
 			}
 		}
-
-		for (auto Sense : SensesConfig)
-		{
-			Sense->DrawDebugInfo(*Canvas, *this);
-		}
 	}
+
+	for (auto Sense : SensesConfig)
+	{
+		Sense->GetDebugData(OnScreenStrings, DebugShapes, *this);
+	}
+#endif
 }
+
 #endif // !UE_BUILD_SHIPPING
 
 #if ENABLE_VISUAL_LOG

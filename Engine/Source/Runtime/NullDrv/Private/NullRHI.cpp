@@ -3,8 +3,6 @@
 #include "NullDrvPrivate.h"
 #include "RHI.h"
 
-#if USE_DYNAMIC_RHI
-
 #include "NullRHI.h"
 #include "RenderResource.h"
 
@@ -23,7 +21,7 @@ void FNullDynamicRHI::Init()
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_PCD3D_SM4;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_PCD3D_SM5;
 #else
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_OPENGL_ES2;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_OPENGL_PCES2;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_NumPlatforms;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_OPENGL_SM4;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_OPENGL_SM5;
@@ -34,12 +32,12 @@ void FNullDynamicRHI::Init()
 	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
 	{
-		ResourceIt->InitDynamicRHI();
+		ResourceIt->InitRHI();
 	}
-
+	// Dynamic resources can have dependencies on static resources (with uniform buffers) and must initialized last!
 	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
 	{
-		ResourceIt->InitRHI();
+		ResourceIt->InitDynamicRHI();
 	}
 
 	GIsRHIInitialized = true;
@@ -73,10 +71,7 @@ This is used to get the same behavior as the old *_OR_IMMEDIATE present modes. *
 uint32 GPresentImmediateThreshold = 100;
 
 
-#else //USE_DYNAMIC_RHI
 
 
 // Suppress linker warning "warning LNK4221: no public symbols found; archive member will be inaccessible"
 int32 NullRHILinkerHelper;
-
-#endif //USE_DYNAMIC_RHI

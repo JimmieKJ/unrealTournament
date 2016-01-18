@@ -12,12 +12,12 @@ UCLASS()
 class UDiffAssetsCommandlet : public UCommandlet
 {
     GENERATED_UCLASS_BODY()
-	// Begin UCommandlet Interface
+	//~ Begin UCommandlet Interface
 	virtual int32 Main(const FString& Params) override
 	{
 		return !ExportFilesToTextAndDiff(Params);
 	}
-	// End UCommandlet Interface
+	//~ End UCommandlet Interface
 	
 	/** 
 	 * The meat of the commandlet, this can be called from the editor

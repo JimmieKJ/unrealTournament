@@ -47,7 +47,6 @@ public class ContentBrowser : ModuleRules
 				"AssetRegistry",
 				"AssetTools",
 				"CollectionManager",
-				"EditorWidgets",
 				"GameProjectGeneration",
                 "MainFrame",
                 "ReferenceViewer",

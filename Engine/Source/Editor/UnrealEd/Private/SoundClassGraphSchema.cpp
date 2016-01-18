@@ -81,7 +81,7 @@ void USoundClassGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& Co
 	const FText Name = LOCTEXT("NewSoundClass", "New Sound Class");
 	const FText ToolTip = LOCTEXT("NewSoundClassTooltip", "Create a new sound class");
 	
-	TSharedPtr<FSoundClassGraphSchemaAction_NewNode> NewAction(new FSoundClassGraphSchemaAction_NewNode(TEXT(""), Name, ToolTip.ToString(), 0));
+	TSharedPtr<FSoundClassGraphSchemaAction_NewNode> NewAction(new FSoundClassGraphSchemaAction_NewNode(FText::GetEmpty(), Name, ToolTip.ToString(), 0));
 
 	ContextMenuBuilder.AddAction( NewAction );
 }

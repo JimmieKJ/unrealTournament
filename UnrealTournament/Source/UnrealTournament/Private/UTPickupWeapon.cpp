@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTPickup.h"
 #include "UTPickupInventory.h"
@@ -7,7 +7,7 @@
 
 void AUTPickupWeapon::BeginPlay()
 {
-	if (!bPendingKillPending)
+	if (!IsPendingKillPending())
 	{
 		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 		if (WS != NULL)
@@ -92,7 +92,7 @@ bool AUTPickupWeapon::IsTaken(APawn* TestPawn)
 {
 	for (int32 i = Customers.Num() - 1; i >= 0; i--)
 	{
-		if (Customers[i].P == NULL || Customers[i].P->bTearOff || Customers[i].P->bPendingKillPending)
+		if (Customers[i].P == NULL || Customers[i].P->bTearOff || Customers[i].P->IsPendingKillPending())
 		{
 			Customers.RemoveAt(i);
 		}

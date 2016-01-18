@@ -13,9 +13,11 @@ class SLATE_API SExpanderArrow : public SCompoundWidget
 public:
 
 	SLATE_BEGIN_ARGS( SExpanderArrow )
-		: _IndentAmount(10)
+		: _StyleSet(&FCoreStyle::Get())
+		, _IndentAmount(10)
 		, _BaseIndentLevel(0)
 	{ }
+		SLATE_ARGUMENT(const ISlateStyle*, StyleSet)
 		SLATE_ATTRIBUTE(float, IndentAmount)
 		SLATE_ATTRIBUTE(int32, BaseIndentLevel)
 	SLATE_END_ARGS()
@@ -40,6 +42,9 @@ protected:
 
 	/** A reference to the expander button */
 	TSharedPtr<SButton> ExpanderArrow;
+
+	/** The slate style to use */
+	const ISlateStyle* StyleSet;
 
 	/** The amount of space to indent at each level */
 	TAttribute<float> IndentAmount;

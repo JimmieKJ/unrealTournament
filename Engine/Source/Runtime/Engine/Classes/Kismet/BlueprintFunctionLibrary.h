@@ -14,6 +14,22 @@ class UBlueprintFunctionLibrary : public UObject
 	ENGINE_API virtual int32 GetFunctionCallspace(UFunction* Function, void* Parms, FFrame* Stack) override;
 	// End of UObject interface
 
+	UFUNCTION(BlueprintPure, Category="StringAssetReference", CustomThunk, meta = (Keywords = "construct build", NativeMakeFunc))
+	static FStringAssetReference MakeStringAssetReference(const FString& AssetLongPathname);
+
+	/**
+	 * Custom MakeStringAssetReference blueprint node.
+	 */
+	static FStringAssetReference Generic_MakeStringAssetReference(FFrame& StackFrame, const FString& AssetLongPathname);
+
+	DECLARE_FUNCTION(execMakeStringAssetReference)
+	{
+		P_GET_PROPERTY(UStrProperty, Z_Param_AssetLongPathname);
+		P_FINISH;
+
+		*(FStringAssetReference*)Z_Param__Result = UBlueprintFunctionLibrary::Generic_MakeStringAssetReference(Stack, Z_Param_AssetLongPathname);
+	}
+
 protected:
 
 	//bool	CheckAuthority(UObject* 

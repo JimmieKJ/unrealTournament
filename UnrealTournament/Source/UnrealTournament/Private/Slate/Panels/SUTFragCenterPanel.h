@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Slate/SlateGameResources.h"
-#include "../SUWPanel.h"
+#include "../Base/SUTPanelBase.h"
 #include "../SUWindowsStyle.h"
 #include "SUTWebBrowserPanel.h"
 #include "../Widgets/SUTButton.h"

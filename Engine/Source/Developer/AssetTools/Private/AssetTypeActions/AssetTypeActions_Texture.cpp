@@ -45,7 +45,7 @@ void FAssetTypeActions_Texture::GetResolvedSourceFilePaths(const TArray<UObject*
 	for (auto& Asset : TypeAssets)
 	{
 		UTexture* Texture = CastChecked<UTexture>(Asset);
-		OutSourceFilePaths.Add(FReimportManager::ResolveImportFilename(Texture->SourceFilePath, Texture));
+		Texture->AssetImportData->ExtractFilenames(OutSourceFilePaths);
 	}
 }
 

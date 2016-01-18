@@ -193,7 +193,7 @@ public:
 	static bool ConvertAllModulesToSeeded(UParticleSystem* ParticleSystem);
 
 private:
-	// Begin FEditorUndoClient Interface
+	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }
 	// End of FEditorUndoClient
@@ -302,6 +302,8 @@ private:
 	bool IsViewParticleTimesChecked() const;
 	void OnViewParticleMemory();
 	bool IsViewParticleMemoryChecked() const;
+	void OnViewSystemCompleted();
+	bool IsViewSystemCompletedChecked() const;
 	void OnViewGeometry();
 	bool IsViewGeometryChecked() const;
 	void OnViewGeometryProperties();
@@ -383,7 +385,7 @@ private:
 	TSharedPtr<IDistributionCurveEditor> CurveEditor;
 
 	/** Reference to owner of the current popup */
-	TWeakPtr<SWindow> EntryPopupWindow;
+	TWeakPtr<class IMenu> EntryMenu;
 
 	/** Components used for drawing the particle system in the preview viewport */
 	UCascadeParticleSystemComponent* ParticleSystemComponent;

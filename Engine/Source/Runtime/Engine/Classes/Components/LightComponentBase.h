@@ -143,6 +143,12 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 	 */
 	virtual void UpdateLightGUIDs();
 
+	/** Returns true if the light's Mobility is set to Movable */
+	bool IsMovable() const
+	{
+		return (Mobility == EComponentMobility::Movable);
+	}
+
 	/**
 	 * Return True if a light's parameters as well as its position is static during gameplay, and can thus use static lighting.
 	 * A light with HasStaticLighting() == true will always have HasStaticShadowing() == true as well.

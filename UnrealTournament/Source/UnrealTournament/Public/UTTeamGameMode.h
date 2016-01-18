@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTTeamGameMode.generated.h"
@@ -63,7 +63,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void InitGameState() override;
-	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual bool ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer) override;
@@ -73,6 +73,12 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void HandlePlayerIntro() override;
 	virtual bool PlayerWonChallenge() override;
 	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType) override;
+
+	virtual bool CanSpectate_Implementation(APlayerController* Viewer, APlayerState* ViewTarget) override
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Viewer);
+		return (Viewer->PlayerState->bOnlySpectator || ViewTarget == NULL || ViewTarget->bOnlySpectator || (PC != NULL && PC->GetTeamNum() == 255) || GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(Viewer, ViewTarget));
+	}
 
 	virtual void CheckBotCount() override;
 	virtual void DefaultTimer() override;

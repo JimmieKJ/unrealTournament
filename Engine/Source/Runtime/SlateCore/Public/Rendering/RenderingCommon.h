@@ -2,13 +2,14 @@
 
 #pragma once
 
+#include "PopupMethodReply.h"
+
 struct FVector2D;
 class FSlateRect;
 enum class EPopupMethod : uint8;
 
-
+#define SLATE_PRE_MULTIPLY 1
 #define SLATE_USE_32BIT_INDICES !PLATFORM_USES_ES2
-#define SLATE_USE_FLOAT16 !PLATFORM_USES_ES2
 
 #if SLATE_USE_32BIT_INDICES
 typedef uint32 SlateIndex;
@@ -40,8 +41,10 @@ namespace ESlateShader
 	const Type Border = 1;
 	/** Font shader, same as default except uses an alpha only texture */
 	const Type Font = 2;
-	/** Line segment shader. For drawing anti-aliased lines **/
+	/** Line segment shader. For drawing anti-aliased lines */
 	const Type LineSegment = 3;
+	/** For completely customized materials.  Makes no assumptions on use*/
+	const Type Custom = 4;
 };
 
 /**
@@ -55,9 +58,11 @@ namespace ESlateDrawEffect
 	/** No effect applied */
 	const Type None = 0;
 	/** Draw the element with a disabled effect */
-	const Type DisabledEffect = 1<<0;
+	const Type DisabledEffect = 1 << 0;
 	/** Don't read from texture alpha channel */
-	const Type IgnoreTextureAlpha = 1<<2;
+	const Type IgnoreTextureAlpha = 1 << 1;
+	/** If this is provided, we will not perform pre-multiply of alpha of the source texture in the slate pixel shader, expecting it to already be the case. */
+	const Type PreMultipliedAlpha = 1 << 2;
 };
 
 
@@ -95,7 +100,7 @@ namespace ESlateLineJoinType
  * We provide a ctor that does the work common to slate drawing, but you could technically 
  * create this any way you want.
  */
-struct FSlateRotatedRect
+struct SLATECORE_API FSlateRotatedRect
 {
 	/** Default ctor. */
 	FSlateRotatedRect();
@@ -130,53 +135,32 @@ FSlateRotatedRect TransformRect(const TransformType& Transform, const FSlateRota
 	);
 }
 
-
-/**
- * Stores a Rotated rect as float16 (for rendering).
- */
-struct FSlateRotatedRectHalf
-{
-	/** Default ctor. */
-	FSlateRotatedRectHalf();
-	/** Construct a float16 version of a rotated rect from a full-float version. */
-	explicit FSlateRotatedRectHalf(const FSlateRotatedRect& RotatedRect);
-	/** Per-element constructor. */
-	FSlateRotatedRectHalf(const FVector2D& InTopLeft, const FVector2D& InExtentX, const FVector2D& InExtentY);
-	/** transformed Top-left corner. */
-	FVector2DHalf TopLeft;
-	/** transformed X extent (right-left). */
-	FVector2DHalf ExtentX;
-	/** transformed Y extent (bottom-top). */
-	FVector2DHalf ExtentY;
-};
-
-/**
- * Not all platforms support Float16, so we have to be tricky here and declare the proper vertex type.
- */
-#if SLATE_USE_FLOAT16
-typedef FSlateRotatedRectHalf FSlateRotatedClipRectType;
-#else
 typedef FSlateRotatedRect FSlateRotatedClipRectType;
-#endif
-
 
 /** 
  * A struct which defines a basic vertex seen by the Slate vertex buffers and shaders
  */
-struct FSlateVertex
+struct SLATECORE_API FSlateVertex
 {
 	/** Texture coordinates.  The first 2 are in xy and the 2nd are in zw */
 	float TexCoords[4]; 
+
+	/** Texture coordinates used as pass through to materials for custom texturing. */
+	float MaterialTexCoords[2];
+
 	/** Position of the vertex in window space */
-	int16 Position[2];
+	float Position[2];
+
 	/** clip center/extents in render window space (window space with render transforms applied) */
 	FSlateRotatedClipRectType ClipRect;
+
 	/** Vertex color */
 	FColor Color;
 	
 	FSlateVertex();
 	FSlateVertex( const FSlateRenderTransform& RenderTransform, const FVector2D& InLocalPosition, const FVector2D& InTexCoord, const FVector2D& InTexCoord2, const FColor& InColor, const FSlateRotatedClipRectType& InClipRect );
 	FSlateVertex( const FSlateRenderTransform& RenderTransform, const FVector2D& InLocalPosition, const FVector2D& InTexCoord, const FColor& InColor, const FSlateRotatedClipRectType& InClipRect );
+	FSlateVertex( const FSlateRenderTransform& RenderTransform, const FVector2D& InLocalPosition, const FVector4& InTexCoords, const FVector2D& InMaterialTexCoords, const FColor& InColor, const FSlateRotatedClipRectType& InClipRect );
 };
 
 template<> struct TIsPODType<FSlateVertex> { enum { Value = true }; };
@@ -250,6 +234,14 @@ public:
 	 * Returns true if the viewport should be vsynced.
 	 */
 	virtual bool RequiresVsync() const = 0;
+
+	/**
+	 * Whether the viewport contents should be scaled or not. Defaults to true.
+	 */
+	virtual bool AllowScaling() const
+	{
+		return true;
+	}
 
 	/**
 	 * Called when Slate needs to know what the mouse cursor should be.
@@ -497,9 +489,9 @@ public:
 	 * Making windows allows us to have popups that go outside the parent window, but cannot
 	 * be used in fullscreen and do not have per-pixel alpha.
 	 */
-	virtual TOptional<EPopupMethod> OnQueryPopupMethod() const
+	virtual FPopupMethodReply OnQueryPopupMethod() const
 	{
-		return TOptional<EPopupMethod>();
+		return FPopupMethodReply::Unhandled();
 	}
 
 	/**
@@ -546,4 +538,81 @@ public:
 	 * @param RenderTarget	handle to the platform specific render target implementation.  Note this is already bound by Slate initially 
 	 */
 	virtual void DrawRenderThread(class FRHICommandListImmediate& RHICmdList, const void* RenderTarget) = 0;
+};
+
+/**
+ * Represents a per instance data buffer for a custom Slate mesh element.
+ * Use FSlateInstanceBufferUpdate to update the per-instance data.
+ *  e.g.
+ *    TSharedRef<FSlateInstanceBufferUpdate> NewUpdate = InstanceBuffer.BeginUpdate();
+ *     NewUpdate.GetData().Add( FVector4(1,1,1,1) )
+ *     FSlateInstanceBufferUpdate::CommitUpdate(NewUpdate);
+ */
+class ISlateUpdatableInstanceBuffer
+{
+public:
+	virtual ~ISlateUpdatableInstanceBuffer(){};
+	friend class FSlateInstanceBufferUpdate;
+
+   /**
+	* Use this method to begin a new update to this instance of the buffer:
+	*/
+	virtual TSharedPtr<class FSlateInstanceBufferUpdate> BeginUpdate() = 0;
+
+	/** How many instances should we draw? */
+	virtual uint32 GetNumInstances() const = 0;
+
+private:
+	friend class FSlateInstanceBufferUpdate;
+
+	/** Updates rendering data for the GPU */
+	virtual void UpdateRenderingData(int32 NumInstancesToUse) = 0;
+
+	/** @return an array of instance data that is safe to populate (e.g not in use by the renderer) */
+	virtual TArray<FVector4>& GetBufferData() = 0;
+};
+
+/** Represents an update to the per-instance buffer. */
+class FSlateInstanceBufferUpdate
+{
+public:
+	/** Access the per-instance data for modiciation */
+	FORCEINLINE TArray<FVector4>& GetData(){ return Data; }
+	
+	/** Send an update to the render thread */
+	static void CommitUpdate(TSharedPtr<FSlateInstanceBufferUpdate>& UpdateToCommit)
+	{
+		ensure(UpdateToCommit.GetSharedReferenceCount() == 1);
+		UpdateToCommit->CommitUpdate_Internal();
+		UpdateToCommit.Reset();
+	}
+
+	~FSlateInstanceBufferUpdate()
+	{
+		if (!bWasCommitted)
+		{
+			CommitUpdate_Internal();
+		}
+	}
+
+private:
+	friend class FSlateUpdatableInstanceBuffer;
+	FSlateInstanceBufferUpdate(ISlateUpdatableInstanceBuffer& InBuffer)
+		: Buffer(InBuffer)
+		, Data(InBuffer.GetBufferData())
+		, InstanceCount(0)
+		, bWasCommitted(false)
+	{
+	}
+
+	void CommitUpdate_Internal()
+	{
+		Buffer.UpdateRenderingData(Data.Num());
+		bWasCommitted = true;
+	}
+
+	ISlateUpdatableInstanceBuffer& Buffer;
+	TArray<FVector4>& Data;
+	uint32 InstanceCount;
+	bool bWasCommitted;
 };

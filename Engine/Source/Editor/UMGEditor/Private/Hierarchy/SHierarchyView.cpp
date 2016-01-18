@@ -63,7 +63,7 @@ void SHierarchyView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluep
 			.Padding(4)
 			.AutoHeight()
 			[
-				SNew(SSearchBox)
+				SAssignNew(SearchBoxPtr, SSearchBox)
 				.HintText(LOCTEXT("SearchWidgets", "Search Widgets"))
 				.OnTextChanged(this, &SHierarchyView::OnSearchChanged)
 			]
@@ -175,6 +175,7 @@ void SHierarchyView::OnSearchChanged(const FText& InFilterText)
 	bRefreshRequested = true;
 	FilterHandler->SetIsEnabled(!InFilterText.IsEmpty());
 	SearchBoxWidgetFilter->SetRawFilterText(InFilterText);
+	SearchBoxPtr->SetError(SearchBoxWidgetFilter->GetFilterErrorText());
 }
 
 FText SHierarchyView::GetSearchText() const
@@ -218,7 +219,7 @@ void SHierarchyView::OnBlueprintChanged(UBlueprint* InBlueprint)
 
 TSharedPtr<SWidget> SHierarchyView::WidgetHierarchy_OnContextMenuOpening()
 {
-	FMenuBuilder MenuBuilder(true, nullptr);
+	FMenuBuilder MenuBuilder(true, CommandList);
 
 	FWidgetBlueprintEditorUtils::CreateWidgetContextMenu(MenuBuilder, BlueprintEditor.Pin().ToSharedRef(), FVector2D(0, 0));
 

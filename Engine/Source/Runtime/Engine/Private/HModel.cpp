@@ -29,6 +29,7 @@ public:
 
 	/** Initialization constructor. */
 	FModelHitState(int32 InHitX,int32 InHitY):
+		SurfaceIndex(INDEX_NONE),
 		SurfaceW(FLT_MAX),
 		bHitSurface(false),
 		HitX(InHitX),

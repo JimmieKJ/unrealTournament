@@ -58,42 +58,20 @@ public:
 		check(Property);
 		check(PropertyValueRoot.OwnerObject);
 
-		FPropertyNode* ParentNode		= InPropertyNode->GetParentNode();
-
-
-		//UArrayProperty* ArrayProp = Cast<UArrayProperty>(Property);
-		UArrayProperty* OuterArrayProp = Cast<UArrayProperty>(Property->GetOuter());
-
-		// calculate the values for the current object
-		
-		PropertyValueBaseAddress = OuterArrayProp == NULL
-			? InPropertyNode->GetValueBaseAddress(PropertyValueRoot.ValueAddress)
-			: ParentNode->GetValueBaseAddress(PropertyValueRoot.ValueAddress);
-
-		PropertyValueAddress = InPropertyNode->GetValueAddress(PropertyValueRoot.ValueAddress);
+		FPropertyNode* ParentNode = InPropertyNode->GetParentNode();
 	}
 
-	
 	/**
 	 * @return The property node we are inspecting
 	 */
 	TSharedPtr<FPropertyNode> GetPropertyNode() const { return PropertyNode.Pin(); }
 
 	/**
-	 * @return The address of the property's value.
-	 */
-	uint8* GetPropertyValueAddress() const { return PropertyValueAddress; }
-
-	/**
-	 * @return The address of the owning object's archetype
-	 */
-	FPropertyValueRoot GetPropertyValueRoot() const { return PropertyValueRoot; }
-
-	/**
 	 * Caches the property value
 	 */
 	void CacheValue()
 	{
+		FPropertyValueAddresses PropertyValueAddresses = GetPropertyValueAddresses();
 		Data.Reset();
 
 		FPropertyNode& PropertyNodeRef = *PropertyNode.Pin();
@@ -106,13 +84,13 @@ public:
 			{
 				// Check static arrays
 				Data.AddZeroed( Property->ArrayDim * Property->ElementSize );
-				Property->CopyCompleteValue( Data.GetData(), PropertyValueAddress);
+				Property->CopyCompleteValue( Data.GetData(), PropertyValueAddresses.Address);
 			}
 			else
 			{
 				// Regular properties
 				Data.AddZeroed( Property->ElementSize );
-				Property->CopySingleValue( Data.GetData(), PropertyValueAddress );
+				Property->CopySingleValue( Data.GetData(), PropertyValueAddresses.Address );
 			}
 		}
 	}
@@ -127,23 +105,31 @@ public:
 	{
 		FPropertyNode& PropertyNodeRef = *PropertyNode.Pin();
 		UProperty* Property = PropertyNodeRef.GetProperty();
+		FPropertyValueAddresses PropertyValueAddresses = GetPropertyValueAddresses();
 
 		bool bPropertyValid = true;
 		bool bChanged = false;
 
-		UArrayProperty* OuterArrayProperty = Cast<UArrayProperty>( Property->GetOuter() );
-		if ( OuterArrayProperty != NULL )
+		if ( PropertyValueAddresses.BaseAddress != nullptr && PropertyValueAddresses.Address != nullptr )
 		{
-			// make sure we're not trying to compare against an element that doesn't exist
-			if ( PropertyNodeRef.GetArrayIndex() >= FScriptArrayHelper::Num( PropertyValueBaseAddress ) )
+			UArrayProperty* OuterArrayProperty = Cast<UArrayProperty>( Property->GetOuter() );
+			if ( OuterArrayProperty != NULL )
 			{
-				bPropertyValid = false;
+				// make sure we're not trying to compare against an element that doesn't exist
+				if ( PropertyNodeRef.GetArrayIndex() >= FScriptArrayHelper::Num( PropertyValueAddresses.BaseAddress ) )
+				{
+					bPropertyValid = false;
+				}
 			}
+		}
+		else
+		{
+			bPropertyValid = false;
 		}
 
 		if( bPropertyValid )
 		{
-			bChanged = !Property->Identical( PropertyValueAddress, Data.GetData() );
+			bChanged = !Property->Identical( PropertyValueAddresses.Address, Data.GetData() );
 			if( bRecacheNewValues )
 			{
 				CacheValue();
@@ -151,6 +137,43 @@ public:
 		}
 
 		return bChanged;
+	}
+
+private:
+	struct FPropertyValueAddresses
+	{
+		/**
+		* The address of the property's value.
+		*/
+		uint8* Address;
+		/**
+		* The base address of this property's value.  i.e. for dynamic arrays, the location of the FScriptArray which
+		* contains the array property's value
+		*/
+		uint8* BaseAddress;
+	};
+
+	/**
+	 * Gets the addresses for the property value.  These addresses must be retrieved before access every time because
+	 * array item addresses will change if the array is resized and it's storage reallocated.
+	 */
+	FPropertyValueAddresses GetPropertyValueAddresses()
+	{
+		FPropertyNode& PropertyNodeRef = *PropertyNode.Pin();
+		UProperty* Property = PropertyNodeRef.GetProperty();
+
+		FPropertyNode* ParentNode = PropertyNodeRef.GetParentNode();
+		UArrayProperty* OuterArrayProp = Cast<UArrayProperty>( Property->GetOuter() );
+
+		FPropertyValueAddresses ValueAddresses;
+
+		ValueAddresses.BaseAddress = OuterArrayProp == NULL
+			? PropertyNodeRef.GetValueBaseAddress( PropertyValueRoot.ValueAddress )
+			: ParentNode->GetValueBaseAddress( PropertyValueRoot.ValueAddress );
+
+		ValueAddresses.Address = PropertyNodeRef.GetValueAddress( PropertyValueRoot.ValueAddress );
+
+		return ValueAddresses;
 	}
 
 private:
@@ -165,17 +188,6 @@ private:
 
 	/** The address of the owning object */
 	FPropertyValueRoot PropertyValueRoot;
-
-	/**
-	 * The address of this property's value.
-	 */
-	uint8* PropertyValueAddress;
-
-	/**
-	 * The base address of this property's value.  i.e. for dynamic arrays, the location of the FScriptArray which
-	 * contains the array property's value
-	 */
-	uint8* PropertyValueBaseAddress;
 };
 
 

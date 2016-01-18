@@ -11,9 +11,9 @@ class FLauncher
 {
 public:
 
-	// Begin ILauncher interface
+	//~ Begin ILauncher Interface
 
 	virtual ILauncherWorkerPtr Launch( const ITargetDeviceProxyManagerRef& DeviceProxyManager, const ILauncherProfileRef& Profile ) override;
 
-	// End ILauncher interface
+	//~ End ILauncher Interface
 };

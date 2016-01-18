@@ -8,19 +8,12 @@
  * Macros used to generate a serialization function for a class derived from FJsonSerializable
  */
 #define BEGIN_ONLINE_JSON_SERIALIZER \
-	virtual void Serialize(FOnlineJsonSerializerBase& Serializer) override \
+	virtual void Serialize(FOnlineJsonSerializerBase& Serializer, bool bFlatObject) override \
 	{ \
-		Serializer.StartObject();
+		if (!bFlatObject) { Serializer.StartObject(); }
 
 #define END_ONLINE_JSON_SERIALIZER \
-		Serializer.EndObject(); \
-	}
-
-#define BEGIN_ONLINE_JSON_SERIALIZER_FLAT \
-	virtual void Serialize(FOnlineJsonSerializerBase& Serializer) override \
-	{
-
-#define END_ONLINE_JSON_SERIALIZER_FLAT \
+		if (!bFlatObject) { Serializer.EndObject(); } \
 	}
 
 #define ONLINE_JSON_SERIALIZE(JsonName, JsonValue) \
@@ -33,7 +26,7 @@
 		Serializer.SerializeMap(TEXT(JsonName), JsonMap)
 
 #define ONLINE_JSON_SERIALIZE_SERIALIZABLE(JsonName, JsonValue) \
-		JsonValue.Serialize(Serializer)
+		JsonValue.Serialize(Serializer, false)
 
 #define ONLINE_JSON_SERIALIZE_ARRAY_SERIALIZABLE(JsonName, JsonArray, ElementType) \
 		if (Serializer.IsLoading()) \
@@ -52,7 +45,7 @@
 			Serializer.StartArray(JsonName); \
 			for (auto It = JsonArray.CreateIterator(); It; ++It) \
 			{ \
-				It->Serialize(Serializer); \
+				It->Serialize(Serializer, false); \
 			} \
 			Serializer.EndArray(); \
 		}
@@ -77,7 +70,7 @@
 			for (auto It = JsonMap.CreateIterator(); It; ++It) \
 			{ \
 				Serializer.StartObject(It.Key()); \
-				It.Value().Serialize(Serializer); \
+				It.Value().Serialize(Serializer, true); \
 				Serializer.EndObject(); \
 			} \
 			Serializer.EndObject(); \
@@ -99,10 +92,9 @@
 		} \
 		else \
 		{ \
-			/* Write the value to the JsonName field */ \
-			Serializer.StartObject(JsonName); \
-			JsonSerializableObject.Serialize(Serializer); \
-			Serializer.EndObject(); \
+			/* Write the value to the Name field */ \
+			Serializer.WriteIdentifierPrefix(TEXT(JsonName)); \
+			JsonSerializableObject.Serialize(Serializer, true); \
 		}
 
 /** Array of string data */
@@ -139,6 +131,7 @@ struct FOnlineJsonSerializerBase
 	virtual void SerializeMap(const TCHAR* Name, FJsonSerializableKeyValueMap& Map) = 0;
 	virtual void SerializeMap(const TCHAR* Name, FJsonSerializableKeyValueMapInt& Map) = 0;
 	virtual TSharedPtr<FJsonObject> GetObject() = 0;
+	virtual void WriteIdentifierPrefix(const TCHAR* Name) = 0;
 };
 
 /**
@@ -353,6 +346,11 @@ public:
 			Serialize(*(KeyValueIt.Key()), KeyValueIt.Value());
 		}
 		JsonWriter->WriteObjectEnd();
+	}
+
+	virtual void WriteIdentifierPrefix(const TCHAR* Name)
+	{
+		JsonWriter->WriteIdentifierPrefix(Name);
 	}
 };
 
@@ -585,6 +583,12 @@ public:
 			}
 		}
 	}
+
+	virtual void WriteIdentifierPrefix(const TCHAR* Name)
+	{
+		// Should never be called on a reader
+		check(false);
+	}
 };
 
 /**
@@ -606,29 +610,38 @@ struct FOnlineJsonSerializable
 	/**
 	 * Serializes this object to its JSON string form
 	 *
+	 * @param bPrettyPrint - If true, will use the pretty json formatter
 	 * @return the corresponding json string
-	 */	
-	virtual const FString ToJson(bool bPrettyPrint = true)
+	 */
+	virtual const FString ToJson(bool bPrettyPrint=true)
 	{
 		FString JsonStr;
 		if (bPrettyPrint)
 		{
 			TSharedRef<TJsonWriter<> > JsonWriter = TJsonWriterFactory<>::Create(&JsonStr);
 			FOnlineJsonSerializerWriter<> Serializer(JsonWriter);
-			Serialize(Serializer);
+			Serialize(Serializer, false);
 			JsonWriter->Close();
 		}
 		else
 		{
-			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy< TCHAR > > > JsonWriter = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy< TCHAR > >::Create(&JsonStr);
+			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy< TCHAR > > > JsonWriter = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy< TCHAR > >::Create( &JsonStr );
 			FOnlineJsonSerializerWriter<TCHAR, TCondensedJsonPrintPolicy< TCHAR >> Serializer(JsonWriter);
-			Serialize(Serializer);
+			Serialize(Serializer, false);
 			JsonWriter->Close();
 		}
 		return JsonStr;
-
 	}
-
+	virtual void ToJson(TSharedRef<TJsonWriter<> >& JsonWriter, bool bFlatObject) const
+	{
+		FOnlineJsonSerializerWriter<> Serializer(JsonWriter);
+		((FOnlineJsonSerializable*)this)->Serialize(Serializer, bFlatObject);
+	}
+	virtual void ToJson(TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy< TCHAR > > >& JsonWriter, bool bFlatObject) const
+	{
+		FOnlineJsonSerializerWriter<TCHAR, TCondensedJsonPrintPolicy< TCHAR >> Serializer(JsonWriter);
+		((FOnlineJsonSerializable*)this)->Serialize(Serializer, bFlatObject);
+	}
 	/**
 	 * Serializes the contents of a JSON string into this object
 	 *
@@ -642,7 +655,7 @@ struct FOnlineJsonSerializable
 			JsonObject.IsValid())
 		{
 			FOnlineJsonSerializerReader Serializer(JsonObject);
-			Serialize(Serializer);
+			Serialize(Serializer, false);
 			return true;
 		}
 		return false;
@@ -652,7 +665,7 @@ struct FOnlineJsonSerializable
 		if (JsonObject.IsValid())
 		{
 			FOnlineJsonSerializerReader Serializer(JsonObject);
-			Serialize(Serializer);
+			Serialize(Serializer, false);
 			return true;
 		}
 		return false;
@@ -662,7 +675,7 @@ struct FOnlineJsonSerializable
 	 * Abstract method that needs to be supplied using the macros
 	 *
 	 * @param Serializer the object that will perform serialization in/out of JSON
+	 * @param bFlatObject if true then no object wrapper is used
 	 */
-	virtual void Serialize(FOnlineJsonSerializerBase& Serializer) = 0;
+	virtual void Serialize(FOnlineJsonSerializerBase& Serializer, bool bFlatObject) = 0;
 };
-

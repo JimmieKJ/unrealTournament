@@ -60,25 +60,34 @@ class SLATECORE_API FArrangedChildren
 	 *                             of layout or performance (i.e. prevent redundant call to Widget->GetVisibility())
 	 * @param InWidgetGeometry     The arranged widget (i.e. widget and its geometry)
 	 */
-	void AddWidget( EVisibility VisibilityOverride, const FArrangedWidget& InWidgetGeometry );
+	FORCEINLINE_DEBUGGABLE void AddWidget(EVisibility VisibilityOverride, const FArrangedWidget& InWidgetGeometry)
+	{
+		if ( Accepts(VisibilityOverride) )
+		{
+			Array.Add(InWidgetGeometry);
+		}
+	}
 	
 	/**
 	 * Add an arranged widget (i.e. widget and its resulting geometry) to the list of Arranged children
 	 * based on the the visibility filter and the arranged widget's visibility
 	 */
-	void AddWidget( const FArrangedWidget& InWidgetGeometry );
+	void AddWidget(const FArrangedWidget& InWidgetGeometry);
 
-	EVisibility GetFilter() const
+	FORCEINLINE_DEBUGGABLE EVisibility GetFilter() const
 	{
 		return VisibilityFilter;
 	}
 
-	bool Accepts( EVisibility InVisibility ) const
+	FORCEINLINE_DEBUGGABLE bool Accepts(EVisibility InVisibility) const
 	{
 		return 0 != (InVisibility.Value & VisibilityFilter.Value);
 	}
 
-	bool Allows3DWidgets() const { return bAllow3DWidgets; }
+	FORCEINLINE_DEBUGGABLE bool Allows3DWidgets() const
+	{
+		return bAllow3DWidgets;
+	}
 
 	// We duplicate parts of TArray's interface here!
 	// Inheriting from "public TArray<FArrangedWidget>"
@@ -92,75 +101,63 @@ private:
 	bool bAllow3DWidgets;
 public:
 
-	FArrangedWidgetArray& GetInternalArray()
+	FORCEINLINE FArrangedWidgetArray& GetInternalArray()
 	{
 		return Array;
 	}
 
-	const FArrangedWidgetArray& GetInternalArray() const
+	FORCEINLINE const FArrangedWidgetArray& GetInternalArray() const
 	{
 		return Array;
 	}
 
-	int32 Num() const
+	FORCEINLINE int32 Num() const
 	{
 		return Array.Num();
 	}
 
-	const FArrangedWidget& operator[]( int32 Index ) const
+	FORCEINLINE const FArrangedWidget& operator[]( int32 Index ) const
 	{
 		return Array[Index];
 	}
 
-	FArrangedWidget& operator[]( int32 Index )
+	FORCEINLINE FArrangedWidget& operator[](int32 Index)
 	{
 		return Array[Index];
 	}
 
-	//// @todo umg na deprecate this
-	//const FArrangedWidget& operator()(int32 Index) const
-	//{
-	//	return Array[Index];
-	//}
-
-	//// @todo umg na deprecate this
-	//FArrangedWidget& operator()(int32 Index)
-	//{
-	//	return Array[Index];
-	//}
-
-	const FArrangedWidget& Last() const
+	FORCEINLINE const FArrangedWidget& Last() const
 	{
 		return Array.Last();
 	}
 
-	FArrangedWidget& Last()
+	FORCEINLINE FArrangedWidget& Last()
 	{
 		return Array.Last();
 	}
 
-	int32 FindItemIndex(const FArrangedWidget& ItemToFind ) const
+	FORCEINLINE int32 FindItemIndex(const FArrangedWidget& ItemToFind) const
 	{
 		return Array.Find(ItemToFind);
 	}
 
 	template<typename PredicateType>
-	int32 IndexOfByPredicate( const PredicateType& Pred ) const
+	FORCEINLINE int32 IndexOfByPredicate(const PredicateType& Pred) const
 	{
 		return Array.IndexOfByPredicate( Pred );
 	}
 
-	void Remove( int32 Index, int32 Count=1 )
+	FORCEINLINE void Remove(int32 Index, int32 Count=1)
 	{
 		Array.RemoveAt(Index, Count);
 	}
 
-	void Append( const FArrangedChildren& Source )
+	FORCEINLINE void Append(const FArrangedChildren& Source)
 	{
 		Array.Append( Source.Array );
 	}
 
-	void Empty()
+	FORCEINLINE void Empty()
 	{
 		Array.Empty();
 	}

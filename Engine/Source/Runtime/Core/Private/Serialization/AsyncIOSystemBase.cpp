@@ -31,6 +31,12 @@ DECLARE_FLOAT_COUNTER_STAT( TEXT( "Bandwidth (MByte/ sec)" ), STAT_AsyncIO_Bandw
 
 // Constrain bandwidth if wanted. Value is in MByte/ sec.
 float GAsyncIOBandwidthLimit = 0.0f;
+static FAutoConsoleVariableRef CVarAsyncIOBandwidthLimit(
+	TEXT("s.AsyncIOBandwidthLimit"),
+	GAsyncIOBandwidthLimit,
+	TEXT("Constrain bandwidth if wanted. Value is in MByte/ sec."),
+	ECVF_Default
+	);
 
 CORE_API bool GbLogAsyncLoading = false;
 

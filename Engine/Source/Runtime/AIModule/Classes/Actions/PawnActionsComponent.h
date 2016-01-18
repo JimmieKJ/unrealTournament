@@ -39,6 +39,10 @@ struct AIMODULE_API FPawnActionStack
 {
 	GENERATED_USTRUCT_BODY()
 
+	FPawnActionStack()
+		: TopAction(nullptr)
+	{}
+
 private:
 	UPROPERTY()
 	UPawnAction* TopAction;

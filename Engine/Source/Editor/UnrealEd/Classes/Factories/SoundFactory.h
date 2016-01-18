@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // SoundFactory
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "SoundFactory.generated.h"
@@ -37,9 +37,9 @@ class USoundFactory : public UFactory
 	FString CuePackageSuffix;
 
 
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	virtual UObject* FactoryCreateBinary( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn ) override;
-	// End UFactory Interface
+	//~ End UFactory Interface
 	
 	/** Suppresses the import overwrite dialog until one iteration of FactoryCreateBinary completes; this is primarily used for reimporting sounds */
 	UNREALED_API static void SuppressImportOverwriteDialog();

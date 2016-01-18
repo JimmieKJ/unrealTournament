@@ -17,7 +17,13 @@
 #define USE_PARTICLE_SIZE (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_SIZE)
 
 /** Buffer containing particle indices. */
-Buffer<float2> ParticleIndices;
+#if COMPILER_METAL
+	// Metal does not have buffer SRVs, so data types have to match
+	#undef half2
+	Buffer<half2> ParticleIndices;
+#else
+	Buffer<float2> ParticleIndices;
+#endif
 
 /** Offset in to the particle indices buffer. */
 uint ParticleIndicesOffset;
@@ -58,8 +64,13 @@ struct FVertexFactoryInterpolantsVSToPS
 	float4 ParticleSubUVs : PARTICLE_SUBUVS;
 #endif
 
+#if NEEDS_PARTICLE_RANDOM
+	/** X: SubImageLerp Y:RelativeTime Z:MotionBlurFade W:Random */
+	float4 Misc						: TEXCOORD4;
+#else
 	/** X: SubImageLerp Y:RelativeTime Z:MotionBlurFade */
 	float3 Misc						: TEXCOORD4;
+#endif
 
 #if NEEDS_PARTICLE_COLOR
 	/** Sprite color. */
@@ -107,6 +118,9 @@ struct FVertexFactoryIntermediates
 
 	/** The texture coordinate at this vertex. */
 	float4 TexCoord;
+#if NUM_MATERIAL_TEXCOORDS >= 3 //Unflipped UVs in texcoords 3 and 4
+	float4 TexCoord_Unflipped;
+#endif
 	/** The sprite tangent in world space (+V). */
 	float3 TangentUp;
 	/** The sprite tangent in world space (+U). */
@@ -121,6 +135,8 @@ struct FVertexFactoryIntermediates
 	float RelativeTime;
 	/** Amount to fade the sprite due to camera motion blur. */
 	float MotionBlurFade;
+	/** Random value per particle [0-1]. */
+	float Random;
 	/** Radius of the particle when represented by a sphere. */
 	float ParticleRadius;
 	/** Size of the particle. */
@@ -152,7 +168,7 @@ void GetSpriteTangents(
 	float3 CameraUp = lerp(-View.ViewUp, EmitterDynamicUniforms.AxisLockUp.xyz, EmitterDynamicUniforms.AxisLockUp.w);
 
 	// Determine the vector from the particle to the camera and the particle's movement direction.
-	float3 CameraDirection	= SafeNormalize(View.TranslatedViewOrigin.xyz - ParticleWorldPosition.xyz);
+	float3 CameraDirection	= SafeNormalize(View.TranslatedWorldCameraOrigin - ParticleWorldPosition.xyz);
 	float3 RightVector = CameraRight.xyz;
 	float3 UpVector = CameraUp.xyz;
 
@@ -250,9 +266,15 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 	float SubImageBV = floor( SubImageB * EmitterUniforms.SubImageSize.z );
 
 	// Compute the final texture coordinates for both subimages.
-	float4 TexCoord;
+	float4 TexCoord; 
 	TexCoord.xy = (float2( SubImageAH, SubImageAV ) + FlippedUV) * EmitterUniforms.SubImageSize.zw;
-	TexCoord.zw = (float2( SubImageBH, SubImageBV ) + FlippedUV) * EmitterUniforms.SubImageSize.zw;
+	TexCoord.zw = (float2(SubImageBH, SubImageBV) + FlippedUV) * EmitterUniforms.SubImageSize.zw;
+
+#if NUM_MATERIAL_TEXCOORDS >= 3 //Unflipped UVs in texcoords 3 and 4
+	float4 TexCoord_Unflipped;
+	TexCoord_Unflipped.xy = (float2(SubImageAH, SubImageAV) + Input.TexCoord.xy) * EmitterUniforms.SubImageSize.zw;
+	TexCoord_Unflipped.zw = (float2(SubImageBH, SubImageBV) + Input.TexCoord.xy) * EmitterUniforms.SubImageSize.zw;
+#endif
 
 	// Current rotation of the sprite. Map [0,1] to one full rotation.
 	float RotationRate = AttributeSample.w * EmitterUniforms.RotationRateScale;
@@ -272,7 +294,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 
 	// Optional camera motion blur.
 #if USES_PARTICLE_MOTION_BLUR
-	float3 MblurVector = -View.ViewOriginDelta;
+	float3 MblurVector = -View.WorldCameraMovementSinceLastFrame;
 	float3 MblurDirection = normalize(MblurVector + 0.0001f);
 	//float MblurFactor = saturate(dot(MblurDirection,normalize(VertexWorldOffset)) * 100000.0f);
 	float MblurFactor = clamp(dot(MblurDirection,normalize(VertexWorldOffset)) * 100000.0f,-1.0f,1.0f);
@@ -287,6 +309,11 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 	Intermediates.ParticleWorldPosition = ParticleWorldPosition;
 	Intermediates.VertexWorldPosition = VertexWorldPosition;
 
+#if USE_SPHERICAL_NORMALS
+	// Recenter the particle position for GENERATE_SPHERICAL_PARTICLE_NORMALS to use the right center.
+	Intermediates.ParticleWorldPosition += Size.x * (EmitterUniforms.PivotOffset.x + .5) * TangentRight + Size.y * (EmitterUniforms.PivotOffset.y + .5) * TangentUp;
+#endif
+
 #if USE_PARTICLE_LIGHTING_OFFSET
 	// Hash function based on the particle ID to generate a uniformly distributed 3d offset
 	float3 RandomParticleOffset = frac((ParticleIndex.x + 10) * (ParticleIndex.y + 10) * float3(1341.456345, 2633.578, 5623.983)) * 2 - 1;
@@ -294,6 +321,9 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 #endif
 
 	Intermediates.TexCoord = TexCoord;
+#if NUM_MATERIAL_TEXCOORDS >= 3 //Unflipped UVs in texcoords 3 and 4
+	Intermediates.TexCoord_Unflipped = TexCoord_Unflipped; 
+#endif
 	Intermediates.TangentUp = TangentUp;
 	Intermediates.TangentRight = TangentRight;
 	Intermediates.Color = Color;
@@ -305,6 +335,12 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 #else // #if USES_PARTICLE_MOTION_BLUR
 	Intermediates.MotionBlurFade = 0.0f;
 #endif // #if USES_PARTICLE_MOTION_BLUR
+#if NEEDS_PARTICLE_RANDOM
+	Intermediates.Random = PseudoRandom(ParticleIndex.xy);
+#else
+	Intermediates.Random = 0.0f;
+#endif
+
 	Intermediates.ParticleRadius = .5f * min(Size.x, Size.y);
 	Intermediates.ParticleSize = Size;
 	return Intermediates;
@@ -336,10 +372,11 @@ void SetUV(inout FVertexFactoryInterpolantsVSToPS Interpolants, int UVIndex, flo
  * @param Interpolants - Attributes interpolated from the vertex shader.
  * @returns per-pixel material parameters.
  */
-FMaterialPixelParameters GetMaterialPixelParameters( FVertexFactoryInterpolantsVSToPS Interpolants, float4 PixelPosition )
+FMaterialPixelParameters GetMaterialPixelParameters( FVertexFactoryInterpolantsVSToPS Interpolants, float4 SvPosition )
 {
 	// GetMaterialPixelParameters is responsible for fully initializing the result
 	FMaterialPixelParameters Result = MakeInitializedMaterialPixelParameters();
+	Result.Particle.MacroUV = EmitterDynamicUniforms.MacroUVParameters;
 
 #if NUM_MATERIAL_TEXCOORDS
 	UNROLL
@@ -359,6 +396,12 @@ FMaterialPixelParameters GetMaterialPixelParameters( FVertexFactoryInterpolantsV
 	Result.Particle.MotionBlurFade = 1.0f;
 #endif // #if USES_PARTICLE_MOTION_BLUR
 
+#if NEEDS_PARTICLE_RANDOM
+	Result.Particle.Random = Interpolants.Misc.w;
+#else
+	Result.Particle.Random = 0.0f;
+#endif
+
 #if USE_PARTICLE_VELOCITY
 	Result.Particle.Velocity = Interpolants.ParticleVelocity;
 #endif
@@ -368,7 +411,13 @@ FMaterialPixelParameters GetMaterialPixelParameters( FVertexFactoryInterpolantsV
 #endif
 
 #if USE_SPHERICAL_NORMALS
-	Result.TangentToWorld = GetSphericalParticleNormal(PixelPosition.xyz + View.ViewOrigin.xyz, Interpolants.ParticlePositionAndSize.xyz, Interpolants.ParticlePositionAndSize.w);
+	// can be optimized
+	{
+		float4 ScreenPosition = SvPositionToScreenPosition(SvPosition);
+		float3 TranslatedWorldPosition = SvPositionToTranslatedWorld(SvPosition);
+
+		Result.TangentToWorld = GetSphericalParticleNormal(TranslatedWorldPosition + View.WorldCameraOrigin, Interpolants.ParticlePositionAndSize.xyz, Interpolants.ParticlePositionAndSize.w);
+	}
 #else
 	half3 TangentToWorld0 = Interpolants.TangentToWorld0.xyz;
 	half4 TangentToWorld2 = Interpolants.TangentToWorld2;
@@ -413,6 +462,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.WorldPosition = WorldPosition;
 	Result.VertexColor = 1;
 	Result.TangentToWorld = mul(TangentToLocal, GetLocalToWorld3x3()); 
+	Result.Particle.MacroUV = EmitterDynamicUniforms.MacroUVParameters;
 
 #if USE_PARTICLE_TIME
 	Result.Particle.RelativeTime = Intermediates.RelativeTime;
@@ -424,6 +474,12 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.Particle.MotionBlurFade = 1.0f;
 #endif // #if USES_PARTICLE_MOTION_BLUR
 
+#if NEEDS_PARTICLE_RANDOM
+	Result.Particle.Random = Intermediates.Random;
+#else
+	Result.Particle.Random = 0.0f;
+#endif
+
 #if USE_PARTICLE_VELOCITY
 	Result.Particle.Velocity = Intermediates.ParticleVelocity;
 #endif
@@ -433,12 +489,18 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 #endif
 
 	Result.Particle.Color = Intermediates.Color;
-
+	
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 #if NUM_MATERIAL_TEXCOORDS_VERTEX >= 1
 		Result.TexCoords[0] = Intermediates.TexCoord.xy;
 #if NUM_MATERIAL_TEXCOORDS_VERTEX >= 2
 		Result.TexCoords[1] = Intermediates.TexCoord.zw;
+#if NUM_MATERIAL_TEXCOORDS_VERTEX >= 3
+		Result.TexCoords[2] = Intermediates.TexCoord_Unflipped.xy;
+#if NUM_MATERIAL_TEXCOORDS_VERTEX >= 4
+		Result.TexCoords[3] = Intermediates.TexCoord_Unflipped.zw;
+#endif	// >= 4
+#endif	// >= 3
 #endif	// >= 2
 #endif	// >= 1
 #endif	//NUM_MATERIAL_TEXCOORDS
@@ -527,6 +589,10 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS( FVertexFact
 	Interpolants.Misc.x = Intermediates.SubImageLerp;
 	Interpolants.Misc.y = Intermediates.RelativeTime;
 	Interpolants.Misc.z = Intermediates.MotionBlurFade;
+
+#if NEEDS_PARTICLE_RANDOM
+	Interpolants.Misc.w = Intermediates.Random;
+#endif
 
 #if NEEDS_PARTICLE_COLOR
 	Interpolants.Color = Intermediates.Color;

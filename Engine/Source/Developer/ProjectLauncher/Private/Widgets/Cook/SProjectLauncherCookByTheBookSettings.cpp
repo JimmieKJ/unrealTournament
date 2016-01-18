@@ -563,6 +563,27 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 						]
 					]
 
+				// multiprocess cooking options
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+					[
+						SNew(SProjectLauncherFormLabel)
+						.LabelText(LOCTEXT("MultiProcessCookerTextBoxLabel", "Num cookers to spawn:"))
+					]
+
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+					[
+						// cooker command line options
+						SNew(SEditableTextBox)
+						.ToolTipText(LOCTEXT("MultiProcessCookerTextBoxTooltip", "The number of cookers to spawn when we do a cook by the book."))
+						.Text(this, &SProjectLauncherCookByTheBookSettings::HandleMultiProcessCookerTextBlockText)
+						.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleMultiProcessCookerCommitted)
+					]
+
+				// unreal pak check box
 				+ SVerticalBox::Slot()
 					.AutoHeight()
 					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
@@ -580,11 +601,12 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 						]
 					]
 
+				// generate chunks check box
 				+ SVerticalBox::Slot()
 					.AutoHeight()
 					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
 					[
-						// unreal pak check box
+						
 						SNew(SCheckBox)
 						.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleGenerateChunksCheckBoxIsChecked)
 						.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleGenerateChunksCheckBoxCheckStateChanged)
@@ -596,6 +618,25 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 							.Text(LOCTEXT("GenerateChunksCheckBoxText", "Generate Chunks"))
 						]
 					]
+
+				// don't include editor content
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+					[
+
+						SNew(SCheckBox)
+						.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleDontIncludeEditorContentCheckBoxIsChecked)
+						.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleDontIncludeEditorContentCheckBoxCheckStateChanged)
+						.Padding(FMargin(4.0f, 0.0f))
+						.ToolTipText(LOCTEXT("DontIncludeEditorContentCheckBoxTooltip", "If checked the cooker will skip editor content and not include it in the build."))
+						.Content()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("DontIncludeEditorContentCheckBoxText", "Don't Include editor content in the build"))
+						]
+					]
+
 
 				+ SVerticalBox::Slot()
 					.AutoHeight()
@@ -703,6 +744,8 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 						.ToolTipText(LOCTEXT("CookConfigurationToolTipText", "Sets the build configuration to use for the cooker commandlet."))
 					]
 
+
+				// additional cooker options text box
 				+ SVerticalBox::Slot()
 					.AutoHeight()
 					.Padding(0.0f, 8.0f, 0.0f, 0.0f)
@@ -721,6 +764,8 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 						.Text(this, &SProjectLauncherCookByTheBookSettings::HandleCookOptionsTextBlockText)
 						.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleCookerOptionsCommitted)
 					]
+
+
 			]
 		];
 
@@ -1376,6 +1421,45 @@ void SProjectLauncherCookByTheBookSettings::HandleCookerOptionsCommitted(const F
 	}
 }
 
+
+
+FText SProjectLauncherCookByTheBookSettings::HandleMultiProcessCookerTextBlockText() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	FText result;
+
+	if (SelectedProfile.IsValid())
+	{
+		result = FText::FromString(FString::FromInt(SelectedProfile->GetNumCookersToSpawn()));
+	}
+
+	return result;
+}
+
+void SProjectLauncherCookByTheBookSettings::HandleMultiProcessCookerCommitted(const FText& NewText, ETextCommit::Type CommitType)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		int32 NumCookersToSpawn = FCString::Atoi(*NewText.ToString());
+		switch (CommitType)
+		{
+		case ETextCommit::Default:
+		case ETextCommit::OnCleared:
+			NumCookersToSpawn = 0;
+			break;
+		default:
+			break;
+		}
+		SelectedProfile->SetNumCookersToSpawn(NumCookersToSpawn);
+	}
+}
+
+
+
+
 void SProjectLauncherCookByTheBookSettings::HandleUnrealPakCheckBoxCheckStateChanged( ECheckBoxState NewState )
 {
 	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
@@ -1710,6 +1794,30 @@ ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleGenerateChunksCheckB
 	if (SelectedProfile.IsValid())
 	{
 		return SelectedProfile->IsGeneratingChunks() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+	return ECheckBoxState::Unchecked;
+}
+
+
+
+
+
+void SProjectLauncherCookByTheBookSettings::HandleDontIncludeEditorContentCheckBoxCheckStateChanged(ECheckBoxState NewState)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetSkipCookingEditorContent(NewState == ECheckBoxState::Checked);
+	}
+}
+
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleDontIncludeEditorContentCheckBoxIsChecked() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+	if (SelectedProfile.IsValid())
+	{
+		return SelectedProfile->GetSkipCookingEditorContent() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 	return ECheckBoxState::Unchecked;
 }

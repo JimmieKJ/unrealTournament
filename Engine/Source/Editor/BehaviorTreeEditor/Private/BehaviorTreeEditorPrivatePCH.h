@@ -14,7 +14,22 @@
 #include "BehaviorTree/BTService.h"
 #include "BehaviorTree/BTTaskNode.h"
 
-#include "BehaviorTreeEditorClasses.h"
+#include "Classes/BehaviorTreeDecoratorGraph.h"
+#include "Classes/BehaviorTreeDecoratorGraphNode.h"
+#include "Classes/BehaviorTreeEditorTypes.h"
+#include "Classes/BehaviorTreeDecoratorGraphNode_Decorator.h"
+#include "Classes/BehaviorTreeDecoratorGraphNode_Logic.h"
+#include "Classes/BehaviorTreeGraph.h"
+#include "Classes/BehaviorTreeGraphNode.h"
+#include "Classes/BehaviorTreeGraphNode_Composite.h"
+#include "Classes/BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "Classes/BehaviorTreeGraphNode_Decorator.h"
+#include "Classes/BehaviorTreeGraphNode_Root.h"
+#include "Classes/BehaviorTreeGraphNode_Service.h"
+#include "Classes/BehaviorTreeGraphNode_Task.h"
+#include "Classes/EdGraphSchema_BehaviorTree.h"
+#include "Classes/EdGraphSchema_BehaviorTreeDecorator.h"
+
 #include "AssetTypeActions_BehaviorTree.h"
 #include "AssetTypeActions_Blackboard.h"
 

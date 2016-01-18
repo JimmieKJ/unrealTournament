@@ -168,6 +168,7 @@ public:
 	void					enableHardSleeping();
 	void					disableHardSleeping(bool wake);
 	bool					setChunkPhysXActorAwakeState(physx::PxU32 chunkIndex, bool awake);
+	bool					addForce(PxU32 chunkIndex, const PxVec3& force, physx::PxForceMode::Enum mode, const PxVec3* position = NULL, bool wakeup = true);
 
 	void					setLODWeights(physx::PxF32 maxDistance, physx::PxF32 distanceWeight, physx::PxF32 maxAge, physx::PxF32 ageWeight, physx::PxF32 bias);
 	const DestructibleActorParamNS::LODWeights_Type& getLODWeights(){ return reinterpret_cast<DestructibleActorParamNS::LODWeights_Type&>(mState->internalLODWeights); }
@@ -185,6 +186,7 @@ public:
 	}
 #endif
 
+	void					setGlobalPose(const physx::PxMat44& pose);
 	void					setGlobalPoseForStaticChunks(const physx::PxMat44& pose);
 	bool					getGlobalPoseForStaticChunks(physx::PxMat44& pose) const;
 
@@ -764,7 +766,8 @@ private:
 public:
 	bool						mInDeleteChunkMode;
 
-	physx::PxU32				mAwakeActorCount; // number of awake NxActors.
+	physx::PxU32				mAwakeActorCount;	// number of awake NxActors.
+	physx::PxU32				mActiveFrames;		// Bit representation of active frame history.  Only used when mDestructibleScene->mUsingActiveTransforms == true
 
 	physx::PxU32				mDamageEventReportIndex;
 
@@ -781,57 +784,17 @@ public:
 	physx::Array<NxActor*>		mReferencingActors;
 
 public:
-	void						referencedByActor(NxActor* actor)
-	{
-		if (mReferencingActors.find(actor) == mReferencingActors.end())
-		{
-			// We need to check IS_SLEEPING instead of actor->isSleeping,
-			// because the state might have changed between the last callback and now.
-			// Here, the state of the last callback is needed.
-			NiApexPhysXObjectDesc* desc = (NiApexPhysXObjectDesc*)(NiGetApexSDK()->getPhysXObjectInfo(actor));
-			if (desc != NULL && !desc->getUserDefinedFlag(PhysXActorFlags::IS_SLEEPING))
-			{
-				incrementWakeCount();
-			}
-			mReferencingActors.pushBack(actor);
-		}
-	}
+	void						referencedByActor(NxActor* actor);
+	void						unreferencedByActor(NxActor* actor);
 
-	void						unreferencedByActor(NxActor* actor)
-	{
-		if (mReferencingActors.findAndReplaceWithLast(actor))
-		{
-			NiApexPhysXObjectDesc* desc = (NiApexPhysXObjectDesc*)(NiGetApexSDK()->getPhysXObjectInfo(actor));
-			if (desc != NULL && !desc->getUserDefinedFlag(PhysXActorFlags::IS_SLEEPING))
-			{
-				decrementWakeCount();
-			}
-		}
-	}
-
-	NxActor**			getReferencingActors(physx::PxU32& count)
+	NxActor**					getReferencingActors(physx::PxU32& count)
 	{
 		count = mReferencingActors.size();
 		return count ? &mReferencingActors[0] : NULL;
 	}
 
-	void				wakeForEvent()
-	{
-		if (!mWakeForEvent)
-		{
-			mWakeForEvent = true;
-			incrementWakeCount();
-		}
-	}
-
-	void				resetWakeForEvent()
-	{
-		if (mWakeForEvent)
-		{
-			mWakeForEvent = false;
-			decrementWakeCount();
-		}
-	}
+	void				wakeForEvent();
+	void				resetWakeForEvent();
 
 #if NX_SDK_VERSION_MAJOR == 2	// In 3.x this is put into the asset
 	physx::Array<NxConvexMesh*>*	mCollisionMeshes;

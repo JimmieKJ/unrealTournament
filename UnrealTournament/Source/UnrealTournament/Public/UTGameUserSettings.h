@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTAudioSettings.h"
@@ -123,7 +123,7 @@ private:
 	void RunSynthBenchmark(bool bSaveSettingsOnceDetected);
 
 	FSettingsAutodetected SettingsAutodetectedEvent;
-	TSharedPtr<class SUWDialog> AutoDetectingSettingsDialog;
+	TSharedPtr<class SUTDialogBase> AutoDetectingSettingsDialog;
 
 	TWeakObjectPtr<UUTLocalPlayer> BenchmarkingLocalPlayer;
 #endif // !UE_SERVER

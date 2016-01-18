@@ -27,11 +27,11 @@ class UParticleModuleRotationRate : public UParticleModuleRotationRateBase
 	virtual void	PostInitProperties() override;
 	//End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void CompileModule( struct FParticleEmitterBuildInfo& EmitterInfo ) override;
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void SetToSensibleDefaults(UParticleEmitter* Owner) override;
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 
 	/**
 	 *	Extended version of spawn, allows for using a random stream for distribution value retrieval

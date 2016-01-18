@@ -5,3 +5,5 @@
 #include "UMG.h"
 
 #include "UMGStyle.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogUMG, Log, All);

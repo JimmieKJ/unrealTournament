@@ -24,7 +24,7 @@ public:
 
 	// UNetConnection interface.
 
-	virtual void InitConnection( class UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed = 0 ) override;
+	virtual void InitConnection( class UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed = 0, int32 InMaxPacket=0) override;
 	virtual FString LowLevelGetRemoteAddress( bool bAppendPort = false ) override;
 	virtual FString LowLevelDescribe() override;
 	virtual void LowLevelSend( void* Data, int32 Count ) override;
@@ -48,4 +48,7 @@ public:
 	}
 
 	TArray<FQueuedDemoPacket> QueuedDemoPackets;
+
+private:
+	void TrackSendForProfiler(const void* Data, int32 NumBytes);
 };

@@ -263,7 +263,7 @@ void DoActionToAllPackages( UCommandlet* Commandlet, const FString& Params )
 
 		if( ( (++GCIndex % 10) == 0 ) || ( bGCEveryPackage == true ) )
 		{
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 		}
 	}
 }

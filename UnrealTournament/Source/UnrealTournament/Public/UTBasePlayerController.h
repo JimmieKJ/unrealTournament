@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -86,7 +86,7 @@ public:
 	/**
 	 *	User a GUID to find a server via the MCP and connect to it.  NOTE.. DesiredTeam = 0, 1, 255 or -1 for don't set the team
 	 **/
-	virtual void ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate=false, bool bFindLastMatch=false);
+	virtual void ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate=false);
 
 	/**
 	 *	Used by the hub system to cancel a pending connect if the player is downloading content.  Used for aborting.
@@ -108,7 +108,7 @@ public:
 	virtual void ClientGenericInitialization();
 
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerReceiveRank(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 TotalStars);
+	virtual void ServerReceiveRank(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListBegin(const FString& CloudId);
@@ -136,7 +136,6 @@ protected:
 	FString GUIDJoin_CurrentGUID;
 	bool GUIDJoinWantsToSpectate;
 	int32 GUIDJoinAttemptCount;
-	bool GUIDJoinWantsToFindMatch;
 	int32 GUIDJoinDesiredTeam;
 
 	void StartGUIDJoin();
@@ -149,6 +148,9 @@ protected:
 	virtual void OnDownloadComplete(class UUTGameViewportClient* ViewportClient, ERedirectStatus::Type RedirectStatus, const FString& PackageName);
 
 public:
+	UFUNCTION(Exec)
+	virtual void UTLogOut();
+
 	UFUNCTION(Exec)
 	virtual void RconAuth(FString Password);
 
@@ -209,4 +211,8 @@ public:
 
 	virtual void ShowAdminDialog(AUTRconAdminInfo* AdminInfo);
 	virtual void ShowAdminMessage(const FString& Message);
+
+	// If set to true, the player controller will pop up a menu as soon as it's safe
+	bool bRequestShowMenu;
+
 };

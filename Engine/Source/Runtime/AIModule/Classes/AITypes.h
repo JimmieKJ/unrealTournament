@@ -10,6 +10,7 @@
 namespace FAISystem
 {
 	static const FRotator InvalidRotation = FRotator(FLT_MAX);
+	static const FQuat InvalidOrientation = FQuat(FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX);
 	static const FVector InvalidLocation = FVector(FLT_MAX);
 	static const FVector InvalidDirection = FVector::ZeroVector; 
 	static const float InvalidRange = -1.f;
@@ -31,6 +32,11 @@ namespace FAISystem
 	{
 		return TestRotation != InvalidRotation;
 	}
+
+	FORCEINLINE bool IsValidOrientation(const FQuat& TestOrientation)
+	{
+		return TestOrientation != InvalidOrientation;
+	}
 }
 
 UENUM()
@@ -40,10 +46,24 @@ namespace EAIOptionFlag
 	{
 		Default,
 		Enable UMETA(DisplayName = "Yes"),	// UHT was complaining when tried to use True as value instead of Enable
+
 		Disable UMETA(DisplayName = "No"),
 
 		MAX UMETA(Hidden)
 	};
+}
+
+namespace FAISystem
+{
+	FORCEINLINE bool PickAIOption(EAIOptionFlag::Type Option, bool DefaultOption)
+	{
+		return Option == EAIOptionFlag::Default ? DefaultOption : (Option == EAIOptionFlag::Enable);
+	}
+
+	FORCEINLINE EAIOptionFlag::Type BoolToAIOption(bool Value)
+	{
+		return Value ? EAIOptionFlag::Enable : EAIOptionFlag::Disable;
+	}
 }
 
 namespace EAIForceParam
@@ -80,7 +100,8 @@ namespace EPawnActionAbortState
 	{
 		NeverStarted,
 		NotBeingAborted,
-		MarkPendingAbort,	// this means waiting for child to abort before aborting self
+		/** This means waiting for child to abort before aborting self. */
+		MarkPendingAbort,
 		LatentAbortInProgress,
 		AbortDone,
 
@@ -120,11 +141,16 @@ namespace EAIRequestPriority
 {
 	enum Type
 	{
-		SoftScript, // actions requested by Level Designers by placing AI-hinting elements on the map
-		Logic,	// actions AI wants to do due to its internal logic				
-		HardScript, // actions LDs really want AI to perform
-		Reaction,	// actions being result of game-world mechanics, like hit reactions, death, falling, etc. In general things not depending on what AI's thinking
-		Ultimate,	// ultimate priority, to be used with caution, makes AI perform given action regardless of anything else (for example disabled reactions)
+		/** Actions requested by Level Designers by placing AI-hinting elements on the map. */
+		SoftScript,
+		/** Actions AI wants to do due to its internal logic. */
+		Logic,
+		/** Actions LDs really want AI to perform. */
+		HardScript,
+		/** Actions being result of game-world mechanics, like hit reactions, death, falling, etc. In general things not depending on what AI's thinking. */
+		Reaction,
+		/** Ultimate priority, to be used with caution, makes AI perform given action regardless of anything else (for example disabled reactions). */
+		Ultimate,
 
 		MAX UMETA(Hidden)
 	};
@@ -303,21 +329,15 @@ struct AIMODULE_API FAIResourceLock
 {
 	/** @note feel free to change the type if you need to support more then 16 lock sources */
 	typedef uint16 FLockFlags;
-
-	FLockFlags Locks;
 	
 	FAIResourceLock();
-
-	FORCEINLINE void SetLock(EAIRequestPriority::Type LockPriority)
-	{
-		Locks |= (1 << LockPriority);
-	}
-
-	FORCEINLINE void ClearLock(EAIRequestPriority::Type LockPriority)
-	{
-		Locks &= ~(1 << LockPriority);
-	}
 	
+	void SetLock(EAIRequestPriority::Type LockPriority);
+	void ClearLock(EAIRequestPriority::Type LockPriority);
+
+	/** set whether we should use resource lock count.  clears all existing locks. */
+	void SetUseResourceLockCount(bool inUseResourceLockCount);
+
 	/** force-clears all locks */
 	void ForceClearAllLocks();
 
@@ -357,6 +377,11 @@ struct AIMODULE_API FAIResourceLock
 	{
 		return Locks == Other.Locks;
 	}
+
+private:
+	FLockFlags Locks;
+	TArray<uint8> ResourceLockCount;
+	bool bUseResourceLockCount;
 };
 
 namespace FAIResources
@@ -446,8 +471,11 @@ struct AIMODULE_API FAIMoveRequest
 	FAIMoveRequest& SetAcceptanceRadius(float Radius) { AcceptanceRadius = Radius; return *this; }
 	FAIMoveRequest& SetUserData(FCustomMoveSharedPtr Data) { UserData = Data; return *this; }
 
-	bool HasGoalActor() const { return bHasGoalActor; }
-	AActor* GetGoalActor() const { return bHasGoalActor ? GoalActor : nullptr; }
+	/** the request should be either set up to move to a location, of go to a valid actor */
+	bool IsValid() const { return bMoveToActor == false || GoalActor != nullptr; }
+
+	bool IsMoveToActorRequest() const { return bMoveToActor; }
+	AActor* GetGoalActor() const { return bMoveToActor ? GoalActor : nullptr; }
 	FVector GetGoalLocation() const { return GoalLocation; }
 
 	bool IsUsingPathfinding() const { return bUsePathfinding; }
@@ -482,7 +510,7 @@ protected:
 	uint32 bInitialized : 1;
 
 	/** move goal is an actor */
-	uint32 bHasGoalActor : 1;
+	uint32 bMoveToActor : 1;
 
 	/** pathfinding: if set - regular pathfinding will be used, if not - direct path between two points */
 	uint32 bUsePathfinding : 1;
@@ -504,4 +532,9 @@ protected:
 
 	/** pathfollowing: custom user data */
 	FCustomMoveSharedPtr UserData;
+
+public:
+	// deprecated
+	DEPRECATED(4.8, "FAIMoveRequest::HasGoalActor is deprecated, please use FAIMoveRequest::IsMoveToActorRequest instead.")
+	bool HasGoalActor() const { return bMoveToActor; }
 };

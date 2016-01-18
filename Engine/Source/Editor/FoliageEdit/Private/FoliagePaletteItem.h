@@ -23,7 +23,7 @@ namespace FoliagePaletteTreeColumns
 class FFoliagePaletteItemModel : public TSharedFromThis<FFoliagePaletteItemModel>
 {
 public:
-	FFoliagePaletteItemModel(FFoliageMeshUIInfoPtr InTypeInfo, TSharedRef<SFoliagePalette> InFoliagePalette, FEdModeFoliage* InFoliageEditMode);
+	FFoliagePaletteItemModel(FFoliageMeshUIInfoPtr InTypeInfo, TSharedRef<SFoliagePalette> InFoliagePalette, TSharedPtr<class FAssetThumbnailPool> InThumbnailPool, FEdModeFoliage* InFoliageEditMode);
 
 	/** @return The foliage palette that contains the item */
 	TSharedPtr<SFoliagePalette> GetFoliagePalette() const;
@@ -86,10 +86,8 @@ private:
 
 	/** Gets the source asset type text */
 	FText GetSourceAssetTypeText() const;
-
 private:
 	TSharedPtr<SWidget> ThumbnailWidget;
-
 	FName DisplayFName;
 	FFoliageMeshUIInfoPtr TypeInfo;
 	TWeakPtr<SFoliagePalette> FoliagePalette;

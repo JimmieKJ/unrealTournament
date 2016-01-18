@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWeap_ShockRifle.h"
 #include "UTProj_ShockBall.h"
@@ -121,7 +121,7 @@ void AUTWeap_ShockRifle::HitScanTrace(const FVector& StartLocation, const FVecto
 
 bool AUTWeap_ShockRifle::WaitingForCombo()
 {
-	if (ComboTarget != NULL && !ComboTarget->bPendingKillPending && !ComboTarget->bExploded)
+	if (ComboTarget != NULL && !ComboTarget->IsPendingKillPending() && !ComboTarget->bExploded)
 	{
 		return true;
 	}

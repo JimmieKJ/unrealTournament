@@ -56,4 +56,15 @@ public class UE4EditorServicesTarget : TargetRules
 		CrossCompile = false;
 		return true;
 	}
+    public override List<UnrealTargetPlatform> GUBP_ToolPlatforms(UnrealTargetPlatform InHostPlatform)
+    {
+		if(InHostPlatform == UnrealTargetPlatform.Mac)
+		{
+			return new List<UnrealTargetPlatform> { InHostPlatform };
+		}
+		else
+		{
+			return new List<UnrealTargetPlatform>();
+		}
+    }
 }

@@ -22,53 +22,8 @@ TSharedRef<IDetailCustomization> FLandscapeEditorDetails::MakeInstance()
 
 void FLandscapeEditorDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-	//FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	//TSharedPtr<SLevelEditor> LevelEditor = StaticCastSharedPtr<SLevelEditor>(LevelEditorModule.GetFirstLevelEditor());
-	//CommandList = LevelEditor->GetLevelEditorActions();
-
-	check(!CommandList.IsValid());
-	CommandList = MakeShareable(new FUICommandList);
-
-	auto NameToCommandMap = FLandscapeEditorCommands::Get().NameToCommandMap;
-
-#define MAP_TOOL(ToolName) CommandList->MapAction(NameToCommandMap.FindChecked("Tool_" ToolName), FUIAction(FExecuteAction::CreateSP(this, &FLandscapeEditorDetails::OnChangeTool, FName(ToolName)), FCanExecuteAction::CreateSP(this, &FLandscapeEditorDetails::IsToolEnabled, FName(ToolName)), FIsActionChecked::CreateStatic(&FLandscapeEditorDetails::IsToolActive, FName(ToolName))));
-	MAP_TOOL("NewLandscape");
-	MAP_TOOL("ResizeLandscape");
-
-	MAP_TOOL("Sculpt");
-	MAP_TOOL("Paint");
-	MAP_TOOL("Smooth");
-	MAP_TOOL("Flatten");
-	MAP_TOOL("Ramp");
-	MAP_TOOL("Erosion");
-	MAP_TOOL("HydraErosion");
-	MAP_TOOL("Noise");
-	MAP_TOOL("Retopologize");
-	MAP_TOOL("Visibility");
-
-	MAP_TOOL("Select");
-	MAP_TOOL("AddComponent");
-	MAP_TOOL("DeleteComponent");
-	MAP_TOOL("MoveToLevel");
-
-	MAP_TOOL("Mask");
-	MAP_TOOL("CopyPaste");
-
-	MAP_TOOL("Splines");
-#undef MAP_TOOL
-#define MAP_BRUSH_SET(BrushSetName) CommandList->MapAction(NameToCommandMap.FindChecked(BrushSetName), FUIAction(FExecuteAction::CreateSP(this, &FLandscapeEditorDetails::OnChangeBrushSet, FName(BrushSetName)), FCanExecuteAction::CreateSP(this, &FLandscapeEditorDetails::IsBrushSetEnabled, FName(BrushSetName)), FIsActionChecked::CreateStatic(&FLandscapeEditorDetails::IsBrushSetActive, FName(BrushSetName))));
-	MAP_BRUSH_SET("BrushSet_Circle");
-	MAP_BRUSH_SET("BrushSet_Alpha");
-	MAP_BRUSH_SET("BrushSet_Pattern");
-	MAP_BRUSH_SET("BrushSet_Component");
-	MAP_BRUSH_SET("BrushSet_Gizmo");
-#undef MAP_BRUSH_SET
-#define MAP_BRUSH(BrushName) CommandList->MapAction(NameToCommandMap.FindChecked(BrushName), FUIAction(FExecuteAction::CreateSP(this, &FLandscapeEditorDetails::OnChangeBrush, FName(BrushName)), FCanExecuteAction(), FIsActionChecked::CreateSP(this, &FLandscapeEditorDetails::IsBrushActive, FName(BrushName))));
-	MAP_BRUSH("Circle_Smooth");
-	MAP_BRUSH("Circle_Linear");
-	MAP_BRUSH("Circle_Spherical");
-	MAP_BRUSH("Circle_Tip");
-#undef MAP_BRUSH
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	CommandList = LandscapeEdMode->GetUICommandList();
 
 	static const FLinearColor BorderColor = FLinearColor(0.2f, 0.2f, 0.2f, 0.2f);
 	static const FSlateBrush* BorderStyle = FEditorStyle::GetBrush("DetailsView.GroupSection");
@@ -174,6 +129,7 @@ FText FLandscapeEditorDetails::GetLocalizedName(FString Name)
 
 		LOCTEXT("ToolSet_Mask", "Selection");
 		LOCTEXT("ToolSet_CopyPaste", "Copy/Paste");
+		LOCTEXT("ToolSet_Mirror", "Mirror");
 
 		LOCTEXT("ToolSet_Splines", "Edit Splines");
 
@@ -327,6 +283,7 @@ TSharedRef<SWidget> FLandscapeEditorDetails::GetToolSelector()
 			MenuBuilder.BeginSection(NAME_None, LOCTEXT("RegionToolsTitle", "Region Tools"));
 			MenuBuilder.AddToolButton(NameToCommandMap.FindChecked("Tool_Mask"), NAME_None, LOCTEXT("Tool.RegionSelect", "Selection"), LOCTEXT("Tool.RegionSelect.Tooltip", "Select a region of landscape to use as a mask for other tools"));
 			MenuBuilder.AddToolButton(NameToCommandMap.FindChecked("Tool_CopyPaste"), NAME_None, LOCTEXT("Tool.RegionCopyPaste", "Copy/Paste"), LOCTEXT("Tool.RegionCopyPaste.Tooltip", "Copy/Paste areas of the landscape, or import/export a copied area of landscape from disk"));
+			MenuBuilder.AddToolButton(NameToCommandMap.FindChecked("Tool_Mirror"), NAME_None, LOCTEXT("Tool.Mirror", "Mirror"), LOCTEXT("Tool.Mirror.Tooltip", "Copies one side of a landscape to the other, to easily create a mirrored landscape."));
 			MenuBuilder.EndSection();
 		}
 
@@ -367,29 +324,6 @@ EVisibility FLandscapeEditorDetails::GetToolSelectorVisibility() const
 		return EVisibility::Visible;
 	}
 	return EVisibility::Collapsed;
-}
-
-void FLandscapeEditorDetails::OnChangeTool(FName ToolName)
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
-	{
-		LandscapeEdMode->SetCurrentTool(ToolName);
-	}
-}
-
-bool FLandscapeEditorDetails::IsToolEnabled(FName ToolName) const
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
-	{
-		if (ToolName == "NewLandscape" || LandscapeEdMode->GetLandscapeList().Num() > 0)
-		{
-			return true;
-		}
-	}
-
-	return false;
 }
 
 FText FLandscapeEditorDetails::GetCurrentBrushName() const
@@ -476,26 +410,6 @@ bool FLandscapeEditorDetails::GetBrushSelectorIsVisible() const
 	return false;
 }
 
-void FLandscapeEditorDetails::OnChangeBrushSet(FName BrushSetName)
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
-	{
-		LandscapeEdMode->SetCurrentBrushSet(BrushSetName);
-	}
-}
-
-bool FLandscapeEditorDetails::IsBrushSetEnabled(FName BrushSetName) const
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode && LandscapeEdMode->CurrentTool)
-	{
-		return LandscapeEdMode->CurrentTool->ValidBrushes.Contains(BrushSetName);
-	}
-
-	return false;
-}
-
 FText FLandscapeEditorDetails::GetCurrentBrushFalloffName() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
@@ -556,27 +470,6 @@ bool FLandscapeEditorDetails::GetBrushFalloffSelectorIsVisible() const
 		{
 			return true;
 		}
-	}
-
-	return false;
-}
-
-void FLandscapeEditorDetails::OnChangeBrush(FName BrushName)
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
-	{
-		LandscapeEdMode->SetCurrentBrush(BrushName);
-	}
-}
-
-bool FLandscapeEditorDetails::IsBrushActive(FName BrushName) const
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode && LandscapeEdMode->CurrentBrush)
-	{
-		const FName CurrentBrushName = LandscapeEdMode->CurrentBrush->GetBrushName();
-		return CurrentBrushName == BrushName;
 	}
 
 	return false;

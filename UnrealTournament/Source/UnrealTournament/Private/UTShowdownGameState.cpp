@@ -1,19 +1,23 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTShowdownGameState.h"
 #include "UnrealNetwork.h"
-#include "UTPlayerStart.h"
+#include "UTTeamPlayerStart.h"
+#include "UTTimerMessage.h"
+#include "UTShowdownGame.h"
 
 AUTShowdownGameState::AUTShowdownGameState(const FObjectInitializer& OI)
 : Super(OI)
 {
+	bMatchHasStarted = false;
+	bPersistentKillIconMessages = true;
+	GoalScoreText = NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "Win {0} Rounds");
 }
 
 void AUTShowdownGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AUTShowdownGameState, bBroadcastPlayerHealth, COND_InitialOnly);
 	DOREPLIFETIME(AUTShowdownGameState, SpawnSelector);
 	DOREPLIFETIME(AUTShowdownGameState, IntermissionStageTime);
 	DOREPLIFETIME(AUTShowdownGameState, bStartedSpawnSelection);
@@ -30,21 +34,29 @@ bool AUTShowdownGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Ch
 	}
 	else
 	{
-		for (APlayerState* PS : PlayerArray)
+		AUTTeamPlayerStart* TeamStart = Cast<AUTTeamPlayerStart>(DesiredStart);
+		if (TeamStart != NULL && TeamStart->TeamNum != Chooser->GetTeamNum())
 		{
-			if (PS != Chooser && !PS->bOnlySpectator)
+			return false;
+		}
+		else
+		{
+			for (APlayerState* PS : PlayerArray)
 			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-				if (UTPS != NULL && UTPS->RespawnChoiceA != NULL)
+				if (PS != Chooser && !PS->bOnlySpectator)
 				{
-					if (UTPS->RespawnChoiceA == DesiredStart)
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+					if (UTPS != NULL && UTPS->RespawnChoiceA != NULL)
 					{
-						return false;
+						if (UTPS->RespawnChoiceA == DesiredStart)
+						{
+							return false;
+						}
 					}
 				}
 			}
+			return true;
 		}
-		return true;
 	}
 }
 
@@ -68,6 +80,15 @@ void AUTShowdownGameState::OnRep_MatchState()
 	// clean up old corpses after intermission
 	if (PreviousMatchState == MatchState::MatchIntermission && MatchState == MatchState::InProgress)
 	{
+		bMatchHasStarted = true;
+		for (APlayerState* PS : PlayerArray)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+			if (UTPS)
+			{
+				UTPS->RoundDamageDone = 0;
+			}
+		}
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
 			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
@@ -90,4 +111,39 @@ void AUTShowdownGameState::OnRep_MatchState()
 	}
 
 	Super::OnRep_MatchState();
+}
+
+void AUTShowdownGameState::CheckTimerMessage()
+{
+	// in Showdown do this server side so we can include the currently winning team
+	if (Role == ROLE_Authority && IsMatchInProgress())
+	{
+		int32 TimerMessageIndex = -1;
+		switch (RemainingTime)
+		{
+			case 300: TimerMessageIndex = 13; break;		// 5 mins remain
+			case 180: TimerMessageIndex = 12; break;		// 3 mins remain
+			case 60: TimerMessageIndex = 11; break;		// 1 min remains
+			case 30: TimerMessageIndex = 10; break;		// 30 seconds remain
+			default:
+				if (RemainingTime <= 10)
+				{
+					TimerMessageIndex = RemainingTime - 1;
+				}
+				break;
+		}
+
+		if (TimerMessageIndex >= 0)
+		{
+			AInfo* CurrentTiebreakWinner = GetWorld()->GetAuthGameMode<AUTShowdownGame>()->GetTiebreakWinner();
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
+				if (PC != NULL)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTTimerMessage::StaticClass(), TimerMessageIndex, NULL, NULL, CurrentTiebreakWinner);
+				}
+			}
+		}
+	}
 }

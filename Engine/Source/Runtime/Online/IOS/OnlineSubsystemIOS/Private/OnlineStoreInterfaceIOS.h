@@ -9,6 +9,7 @@
 #include <StoreKit/SKError.h>
 #include <StoreKit/SKProduct.h>
 #include <StoreKit/SKProductsRequest.h>
+#include <StoreKit/SKReceiptRefreshRequest.h>
 #include <StoreKit/SKPaymentTransaction.h>
 #include <StoreKit/SKPayment.h>
 #include <StoreKit/SKPaymentQueue.h>
@@ -30,7 +31,7 @@ namespace EInAppPurchaseResult
 
 
 /** Helper class, which allows us to manage IAP product information requests, AND transactions */
-@interface FStoreKitHelper : NSObject<SKProductsRequestDelegate, SKPaymentTransactionObserver>
+@interface FStoreKitHelper : NSObject<SKProductsRequestDelegate, SKPaymentTransactionObserver, SKRequestDelegate>
 {
 };
 /** Store kit request object, holds information about the products we are purchasing, or querying. */
@@ -46,6 +47,8 @@ namespace EInAppPurchaseResult
 /** Helper fn to direct a product request response back to our store interface */
 - (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response;
 
+/** Helper fn to restore previously purchased products */
+-(void)restorePurchases;
 @end
 
 
@@ -60,11 +63,12 @@ public:
 	/** Destructor */
 	virtual ~FOnlineStoreInterfaceIOS();
 
-	// Begin IOnlineStore interface
+	//~ Begin IOnlineStore Interface
 	virtual bool QueryForAvailablePurchases(const TArray<FString>& ProductIDs, FOnlineProductInformationReadRef& InReadObject) override;
 	virtual bool BeginPurchase(const FInAppPurchaseProductRequest& ProductRequest, FOnlineInAppPurchaseTransactionRef& InReadObject) override;
 	virtual bool IsAllowedToMakePurchases() override;
-	// End IOnlineStore interface
+	virtual bool RestorePurchases(FOnlineInAppPurchaseRestoreReadRef& InReadObject) override;
+	//~ End IOnlineStore Interface
 
 	/**
 	 * Process a response from the StoreKit
@@ -76,6 +80,9 @@ public:
     
 	/** Cached in-app purchase transaction object, used to provide details to the user, of the product that has just been purchased. */
 	FOnlineInAppPurchaseTransactionPtr CachedPurchaseStateObject;
+
+	/** Cached in-app purchase restore transaction object, used to provide details to the developer about what products should be restored */
+	FOnlineInAppPurchaseRestoreReadPtr CachedPurchaseRestoreObject;
 
 
 private:
@@ -90,6 +97,9 @@ private:
 
 	/** Delegate fired when a purchase transaction has completed, whether successful or unsuccessful */
 	FOnInAppPurchaseComplete OnPurchaseCompleteDelegate;
+
+	/** Delegate fired when the purchase restoration has completed, whether successful or unsuccessful */
+	FOnInAppPurchaseRestoreComplete OnPurchaseRestoreCompleteDelegate;
 };
 
 typedef TSharedPtr<FOnlineStoreInterfaceIOS, ESPMode::ThreadSafe> FOnlineStoreInterfaceIOSPtr;

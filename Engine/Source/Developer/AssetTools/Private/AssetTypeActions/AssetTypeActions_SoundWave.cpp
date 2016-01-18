@@ -36,7 +36,7 @@ void FAssetTypeActions_SoundWave::GetResolvedSourceFilePaths(const TArray<UObjec
 	for (auto& Asset : TypeAssets)
 	{
 		const auto SoundWave = CastChecked<USoundWave>(Asset);
-		OutSourceFilePaths.Add(FReimportManager::ResolveImportFilename(SoundWave->SourceFilePath, SoundWave));
+		SoundWave->AssetImportData->ExtractFilenames(OutSourceFilePaths);
 	}
 }
 

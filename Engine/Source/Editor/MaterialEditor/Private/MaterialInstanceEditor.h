@@ -25,6 +25,8 @@ public:
 	 */
 	void InitMaterialInstanceEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UObject* ObjectToEdit );
 
+	FMaterialInstanceEditor();
+
 	virtual ~FMaterialInstanceEditor();
 
 	/** FGCObject interface */
@@ -73,6 +75,10 @@ public:
 	/** Returns true if hidden parameters should be shown */
 	void GetShowHiddenParameters(bool& bShowHiddenParameters);
 
+	/** Gets the extensibility managers for outside entities to extend material editor's menus and toolbars */
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() { return MenuExtensibilityManager; }
+	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() { return ToolBarExtensibilityManager; }
+
 protected:
 	/** Saves editor settings. */
 	void SaveSettings();
@@ -118,10 +124,13 @@ private:
 	/** Creates all internal widgets for the tabs to point at */
 	void CreateInternalWidgets();
 
+	/** Updates the 3D and UI preview viewport visibility based on material domain */
+	void UpdatePreviewViewportsVisibility();
+
 	/** Builds the toolbar widget for the material editor */
 	void ExtendToolbar();
 
-	// IMaterialEditor interface
+	//~ Begin IMaterialEditor Interface
 	virtual bool ApproveSetPreviewAsset(UObject* InAsset) override;
 
 	/**	Spawns the preview tab */
@@ -139,7 +148,7 @@ private:
 	/**	Refresh the viewport and property window */
 	void Refresh();
 
-	// Begin FEditorUndoClient Interface
+	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo( bool bSuccess ) override;
 	virtual void PostRedo( bool bSuccess ) override;
 	// End of FEditorUndoClient
@@ -150,7 +159,10 @@ private:
 	TMap< FName, TWeakPtr<class SDockTab> > SpawnedToolPanels;
 
 	/** Preview Viewport widget */
-	TSharedPtr<class SMaterialEditorViewport> PreviewVC;
+	TSharedPtr<class SMaterialEditor3DPreviewViewport> PreviewVC;
+
+	/** Preview viewport widget used for UI materials */
+	TSharedPtr<class SMaterialEditorUIPreviewViewport> PreviewUIViewport;
 
 	/** Property View */
 	TSharedPtr<class IDetailsView> MaterialInstanceDetails;
@@ -169,6 +181,9 @@ private:
 
 	/** Whether to show mobile material stats. */
 	bool bShowMobileStats;
+
+	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
+	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
 
 	/**	The ids for the tabs spawned by this toolkit */
 	static const FName PreviewTabId;		

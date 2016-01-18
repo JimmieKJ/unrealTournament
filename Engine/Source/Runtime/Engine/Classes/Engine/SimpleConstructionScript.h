@@ -11,10 +11,10 @@ class USimpleConstructionScript : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	void PreloadChain();
 
@@ -40,8 +40,12 @@ class USimpleConstructionScript : public UObject
 	/** Return the Blueprint associated with this SCS instance */
 	ENGINE_API class UClass* GetOwnerClass() const;
 
+#if WITH_EDITOR
 	/** Return all nodes in tree as a flat list */
-	ENGINE_API TArray<USCS_Node*> GetAllNodes() const;
+	ENGINE_API const TArray<USCS_Node*>& GetAllNodes() const;
+#else
+	ENGINE_API const TArray<USCS_Node*>& GetAllNodes() const { return AllNodes; }
+#endif	
 
 	/** Return immutable references to nodes in tree as a flat list */
 	ENGINE_API TArray<const USCS_Node*> GetAllNodesConst() const;
@@ -79,6 +83,10 @@ private:
 	/** Root nodes of the construction script */
 	UPROPERTY()
 	TArray<class USCS_Node*> RootNodes;
+
+	/** All nodes that exist in the hierarchy of this SimpleConstructionScript */
+	UPROPERTY()
+	TArray<class USCS_Node*> AllNodes;
 
 	/** Default scene root node; used when no other nodes are available to use as the root */
 	UPROPERTY()
@@ -159,5 +167,16 @@ private:
 	/** True if we're constructing editable components in the SCS editor */
 	bool bIsConstructingEditorComponents;
 #endif
+
+	friend struct FSCSAllNodesHelper;
 };
 
+/** Helper struct to allow USCS_Node to manage USimpleConstructionScript's AllNodes array */
+struct FSCSAllNodesHelper
+{
+private:
+	static void Remove(USimpleConstructionScript* SCS, USCS_Node* SCSNode);
+	static void Add(USimpleConstructionScript* SCS, USCS_Node* SCSNode);
+
+	friend class USCS_Node;
+};

@@ -6,9 +6,8 @@
 #include "PropertyEditorModule.h"
 //#include "SBlueprintDiff.h"
 
-FDetailsDiff::FDetailsDiff(const UObject* InObject, const TArray< FPropertyPath >& InDifferingProperties, FOnDisplayedPropertiesChanged InOnDisplayedPropertiesChanged )
+FDetailsDiff::FDetailsDiff(const UObject* InObject, FOnDisplayedPropertiesChanged InOnDisplayedPropertiesChanged )
 	: OnDisplayedPropertiesChanged( InOnDisplayedPropertiesChanged )
-	, DifferingProperties( InDifferingProperties )
 	, DisplayedObject( InObject )
 	, DetailsView()
 {
@@ -17,7 +16,6 @@ FDetailsDiff::FDetailsDiff(const UObject* InObject, const TArray< FPropertyPath 
 
 	FPropertyEditorModule& EditModule = FModuleManager::Get().GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	DetailsView = EditModule.CreateDetailView(DetailsViewArgs);
-	DetailsView->SetDisableCustomDetailLayouts(true);
 	DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateStatic([]{return false; }));
 	// Forcing all advanced properties to be displayed for now, the logic to show changes made to advance properties
 	// conditionally is fragile and low priority for now:
@@ -26,7 +24,6 @@ FDetailsDiff::FDetailsDiff(const UObject* InObject, const TArray< FPropertyPath 
 	// level would stress the type system a little:
 	DetailsView->SetObject(const_cast<UObject*>(InObject));
 	DetailsView->SetOnDisplayedPropertiesChanged( ::FOnDisplayedPropertiesChanged::CreateRaw(this, &FDetailsDiff::HandlePropertiesChanged) );
-	DetailsView->UpdatePropertiesWhitelist( TSet<FPropertyPath>(InDifferingProperties) );
 
 	DifferingProperties = DetailsView->GetPropertiesInOrderDisplayed();
 }
@@ -65,4 +62,64 @@ TArray<FPropertySoftPath> FDetailsDiff::GetDisplayedProperties() const
 		Ret.Push( Property );
 	}
 	return Ret;
+}
+
+void FDetailsDiff::DiffAgainst(const FDetailsDiff& Newer, TArray< FSingleObjectDiffEntry > &OutDifferences) const
+{
+	TSharedPtr< class IDetailsView > OldDetailsView = DetailsView;
+	TSharedPtr< class IDetailsView > NewDetailsView = Newer.DetailsView;
+
+	const auto& OldSelectedObjects = OldDetailsView->GetSelectedObjects();
+	const auto& NewSelectedObjects = NewDetailsView->GetSelectedObjects();
+
+	check(OldSelectedObjects.Num() == 1);
+
+	auto OldProperties = OldDetailsView->GetPropertiesInOrderDisplayed();
+	auto NewProperties = NewDetailsView->GetPropertiesInOrderDisplayed();
+
+	TSet<FPropertySoftPath> OldPropertiesSet;
+	TSet<FPropertySoftPath> NewPropertiesSet;
+
+	auto ToSet = [](const TArray<FPropertyPath>& Array, TSet<FPropertySoftPath>& OutSet)
+	{
+		for (const auto& Entry : Array)
+		{
+			OutSet.Add(FPropertySoftPath(Entry));
+		}
+	};
+
+	ToSet(OldProperties, OldPropertiesSet);
+	ToSet(NewProperties, NewPropertiesSet);
+
+	// detect removed properties:
+	auto RemovedProperties = OldPropertiesSet.Difference(NewPropertiesSet);
+	for (const auto& RemovedProperty : RemovedProperties)
+	{
+		// @todo: (doc) label these as removed, rather than added to a
+		FSingleObjectDiffEntry Entry(RemovedProperty, EPropertyDiffType::PropertyAddedToA);
+		OutDifferences.Push(Entry);
+	}
+
+	// detect added properties:
+	auto AddededProperties = NewPropertiesSet.Difference(OldPropertiesSet);
+	for (const auto& AddedProperty : AddededProperties)
+	{
+		FSingleObjectDiffEntry Entry(AddedProperty, EPropertyDiffType::PropertyAddedToB);
+		OutDifferences.Push(Entry);
+	}
+
+	// check for changed properties
+	auto CommonProperties = NewPropertiesSet.Intersect(OldPropertiesSet);
+	for (const auto& CommonProperty : CommonProperties)
+	{
+		// get value, diff:
+		check(NewSelectedObjects.Num() == 1);
+		auto OldPoperty = CommonProperty.Resolve(OldSelectedObjects[0].Get());
+		auto NewProperty = CommonProperty.Resolve(NewSelectedObjects[0].Get());
+
+		if (!DiffUtils::Identical(OldPoperty, NewProperty))
+		{
+			OutDifferences.Push(FSingleObjectDiffEntry(CommonProperty, EPropertyDiffType::PropertyValueChanged));
+		}
+	}
 }

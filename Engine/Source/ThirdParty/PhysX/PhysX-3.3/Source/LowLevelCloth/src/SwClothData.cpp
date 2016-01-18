@@ -54,7 +54,7 @@ cloth::SwClothData::SwClothData( SwCloth& cloth, const SwFabric& fabric )
 
 	mTethers = fabric.mTethers.begin();
 	mNumTethers = uint32_t(fabric.mTethers.size());
-	mTetherConstraintStiffness = 1.0f - exp(stiffnessExponent * 
+	mTetherConstraintStiffness = 1.0f - PxExp(stiffnessExponent * 
 		cloth.mTetherConstraintLogStiffness);
 	mTetherConstraintScale = cloth.mTetherConstraintScale * fabric.mTetherLengthScale;
 
@@ -62,7 +62,7 @@ cloth::SwClothData::SwClothData( SwCloth& cloth, const SwFabric& fabric )
 		array(cloth.mMotionConstraints.mStart.front()) : 0;
 	mTargetMotionConstraints = !cloth.mMotionConstraints.mTarget.empty() ? 
 		array(cloth.mMotionConstraints.mTarget.front()) : 0;
-	mMotionConstraintStiffness = 1.0f - exp(stiffnessExponent * 
+	mMotionConstraintStiffness = 1.0f - PxExp(stiffnessExponent *
 		cloth.mMotionConstraintLogStiffness);
 
 	mStartSeparationConstraints = cloth.mSeparationConstraints.mStart.size() ? 
@@ -110,7 +110,7 @@ cloth::SwClothData::SwClothData( SwCloth& cloth, const SwFabric& fabric )
 	mFrictionScale = cloth.mFriction;
 
 	mSelfCollisionDistance = cloth.mSelfCollisionDistance;
-	mSelfCollisionStiffness = 1.0f - exp(stiffnessExponent * 
+	mSelfCollisionStiffness = 1.0f - PxExp(stiffnessExponent * 
 		cloth.mSelfCollisionLogStiffness);
 
 	mSelfCollisionIndices = cloth.mSelfCollisionIndices.empty() ? 

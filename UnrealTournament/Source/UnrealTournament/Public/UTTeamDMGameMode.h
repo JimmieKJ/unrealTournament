@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTTeamDMGameMode.generated.h"
@@ -19,4 +19,5 @@ class UNREALTOURNAMENT_API AUTTeamDMGameMode : public AUTTeamGameMode
 	virtual void ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual AUTPlayerState* IsThereAWinner_Implementation(bool& bTied) override;
 	virtual void UpdateSkillRating() override;
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
 };

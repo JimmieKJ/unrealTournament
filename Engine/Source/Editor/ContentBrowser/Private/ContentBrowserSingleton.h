@@ -5,6 +5,7 @@
 
 class SContentBrowser;
 class FNativeClassHierarchy;
+class FCollectionAssetRegistryBridge;
 
 #define MAX_CONTENT_BROWSERS 4
 
@@ -33,7 +34,7 @@ public:
 	virtual void SyncBrowserToAssets(const TArray<UObject*>& AssetList, bool bAllowLockedBrowsers = false) override;
 	virtual void GetSelectedAssets(TArray<FAssetData>& SelectedAssets) override;
 
-		/** Gets the content browser singleton as a FContentBrowserSingleton */
+	/** Gets the content browser singleton as a FContentBrowserSingleton */
 	static FContentBrowserSingleton& Get();
 	
 	/** Sets the current primary content browser. */
@@ -87,6 +88,8 @@ private:
 	TWeakPtr<SContentBrowser> PrimaryContentBrowser;
 
 	TSharedPtr<FNativeClassHierarchy> NativeClassHierarchy;
+
+	TSharedRef<FCollectionAssetRegistryBridge> CollectionAssetRegistryBridge;
 
 	/** An incrementing int32 which is used when making unique settings strings */
 	int32 SettingsStringID;

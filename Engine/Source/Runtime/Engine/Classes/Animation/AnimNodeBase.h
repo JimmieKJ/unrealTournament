@@ -6,73 +6,100 @@
 #include "AnimBlueprintGeneratedClass.h"
 #include "AnimInstance.h"
 #include "AnimationRuntime.h"
+#include "BonePose.h"
 #include "AnimNodeBase.generated.h"
 
+struct FAnimInstanceProxy;
 
-// Base class for update/evaluate contexts
+/** Base class for update/evaluate contexts */
 struct FAnimationBaseContext
 {
 public:
+	DEPRECATED(4.11, "Please use AnimInstanceProxy")
 	UAnimInstance* AnimInstance;
+
+	FAnimInstanceProxy* AnimInstanceProxy;
+
 protected:
-	FAnimationBaseContext(UAnimInstance* InInstance)
-		: AnimInstance(InInstance)
-	{
-	}
+	// DEPRECATED - Please use constructor that uses an FAnimInstanceProxy*
+	ENGINE_API FAnimationBaseContext(UAnimInstance* InAnimInstance);
+
+	ENGINE_API FAnimationBaseContext(FAnimInstanceProxy* InAnimInstanceProxy);
+
+public:
+	// we define a copy constructor here simply to avoid deprecation warnings with clang
+	ENGINE_API FAnimationBaseContext(const FAnimationBaseContext& InContext);
 
 public:
 	// Get the Blueprint Generated Class associated with this context, if there is one.
 	// Note: This can return NULL, so check the result.
-	UAnimBlueprintGeneratedClass* GetAnimBlueprintClass() const
-	{
-		return Cast<UAnimBlueprintGeneratedClass>(AnimInstance->GetClass());
-	}
+	DEPRECATED(4.11, "GetAnimBlueprintClass() is deprecated, UAnimBlueprintGeneratedClass should not be directly used at runtime. Please use GetAnimClass() instead.")
+	ENGINE_API UAnimBlueprintGeneratedClass* GetAnimBlueprintClass() const;
+
+	// Get the Blueprint IAnimClassInterface associated with this context, if there is one.
+	// Note: This can return NULL, so check the result.
+	ENGINE_API IAnimClassInterface* GetAnimClass() const;
 
 #if WITH_EDITORONLY_DATA
 	// Get the AnimBlueprint associated with this context, if there is one.
 	// Note: This can return NULL, so check the result.
-	UAnimBlueprint* GetAnimBlueprint() const
-	{
-		if (UAnimBlueprintGeneratedClass* Class = GetAnimBlueprintClass())
-		{
-			return Cast<UAnimBlueprint>(Class->ClassGeneratedBy);
-		}
-		return NULL;
-	}
+	ENGINE_API UAnimBlueprint* GetAnimBlueprint() const;
 #endif //WITH_EDITORONLY_DATA
 };
 
 
-// Initialization context passed around during animation tree initialization
+/** Initialization context passed around during animation tree initialization */
 struct FAnimationInitializeContext : public FAnimationBaseContext
 {
 public:
-	FAnimationInitializeContext(UAnimInstance* InInstance)
-		: FAnimationBaseContext(InInstance)
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
+	FAnimationInitializeContext(UAnimInstance* InAnimInstance)
+		: FAnimationBaseContext(InAnimInstance)
+	{
+	}
+
+	FAnimationInitializeContext(FAnimInstanceProxy* InAnimInstanceProxy)
+		: FAnimationBaseContext(InAnimInstanceProxy)
 	{
 	}
 };
 
-// Context passed around when RequiredBones array changed and cached bones indices have to be refreshed.
-// (RequiredBones array changed because of an LOD switch for example)
+/**
+ * Context passed around when RequiredBones array changed and cached bones indices have to be refreshed.
+ * (RequiredBones array changed because of an LOD switch for example)
+ */
 struct FAnimationCacheBonesContext : public FAnimationBaseContext
 {
 public:
-	FAnimationCacheBonesContext(UAnimInstance* InInstance)
-		: FAnimationBaseContext(InInstance)
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
+	FAnimationCacheBonesContext(UAnimInstance* InAnimInstance)
+		: FAnimationBaseContext(InAnimInstance)
+	{
+	}
+
+	FAnimationCacheBonesContext(FAnimInstanceProxy* InAnimInstanceProxy)
+		: FAnimationBaseContext(InAnimInstanceProxy)
 	{
 	}
 };
 
-// Update context passed around during animation tree update
+/** Update context passed around during animation tree update */
 struct FAnimationUpdateContext : public FAnimationBaseContext
 {
 private:
 	float CurrentWeight;
 	float DeltaTime;
 public:
-	FAnimationUpdateContext(UAnimInstance* Instance, float InDeltaTime)
-		: FAnimationBaseContext(Instance)
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
+	FAnimationUpdateContext(UAnimInstance* InAnimInstance, float InDeltaTime)
+		: FAnimationBaseContext(InAnimInstance)
+		, CurrentWeight(1.0f)
+		, DeltaTime(InDeltaTime)
+	{
+	}
+
+	FAnimationUpdateContext(FAnimInstanceProxy* InAnimInstanceProxy, float InDeltaTime)
+		: FAnimationBaseContext(InAnimInstanceProxy)
 		, CurrentWeight(1.0f)
 		, DeltaTime(InDeltaTime)
 	{
@@ -80,14 +107,14 @@ public:
 
 	FAnimationUpdateContext FractionalWeight(float Multiplier) const
 	{
-		FAnimationUpdateContext Result(AnimInstance, DeltaTime);
+		FAnimationUpdateContext Result(AnimInstanceProxy, DeltaTime);
 		Result.CurrentWeight = CurrentWeight * Multiplier;
 		return Result;
 	}
 
 	FAnimationUpdateContext FractionalWeightAndTime(float WeightMultiplier, float TimeMultiplier) const
 	{
-		FAnimationUpdateContext Result(AnimInstance, DeltaTime * TimeMultiplier);
+		FAnimationUpdateContext Result(AnimInstanceProxy, DeltaTime * TimeMultiplier);
 		Result.CurrentWeight = CurrentWeight * WeightMultiplier;
 		return Result;
 	}
@@ -100,127 +127,161 @@ public:
 };
 
 
-// Evaluation context passed around during animation tree evaluation
+/** Evaluation context passed around during animation tree evaluation */
 struct FPoseContext : public FAnimationBaseContext
 {
 public:
-	FA2Pose Pose;
+	FCompactPose	Pose;
+	FBlendedCurve	Curve;
 
 public:
-	// This constructor allocates a new uninitialized pose for the specified anim instance
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
 	FPoseContext(UAnimInstance* InAnimInstance)
 		: FAnimationBaseContext(InAnimInstance)
 	{
-		checkSlow( AnimInstance && AnimInstance->RequiredBones.IsValid() );
-		const int32 NumBones = AnimInstance->RequiredBones.GetNumBones();
-		Pose.Bones.Empty(NumBones);
-		Pose.Bones.AddUninitialized(NumBones);
+		Initialize(AnimInstanceProxy);
+	}
+
+	// This constructor allocates a new uninitialized pose for the specified anim instance
+	FPoseContext(FAnimInstanceProxy* InAnimInstanceProxy)
+		: FAnimationBaseContext(InAnimInstanceProxy)
+	{
+		Initialize(InAnimInstanceProxy);
 	}
 
 	// This constructor allocates a new uninitialized pose, copying non-pose state from the source context
 	FPoseContext(const FPoseContext& SourceContext)
-		: FAnimationBaseContext(SourceContext.AnimInstance)
+		: FAnimationBaseContext(SourceContext.AnimInstanceProxy)
 	{
-		checkSlow( AnimInstance && AnimInstance->RequiredBones.IsValid() );
-		const int32 NumBones = AnimInstance->RequiredBones.GetNumBones();
-		Pose.Bones.Empty(NumBones);
-		Pose.Bones.AddUninitialized(NumBones);
+		Initialize(SourceContext.AnimInstanceProxy);
 	}
+
+	ENGINE_API void Initialize(FAnimInstanceProxy* InAnimInstanceProxy);
 
 	void ResetToRefPose()
 	{
-		checkSlow( AnimInstance && AnimInstance->RequiredBones.IsValid() );
-		FAnimationRuntime::FillWithRefPose(Pose.Bones, AnimInstance->RequiredBones);
+		Pose.ResetToRefPose();	
 	}
 
 	void ResetToIdentity()
 	{
-		checkSlow( AnimInstance && AnimInstance->RequiredBones.IsValid() );
-		FAnimationRuntime::InitializeTransform(AnimInstance->RequiredBones, Pose.Bones);
+		Pose.ResetToIdentity();
 	}
 
-	bool ContainsNaN() const;
-	bool IsNormalized() const;
+	bool ContainsNaN() const
+	{
+		return Pose.ContainsNaN();
+	}
+
+	bool IsNormalized() const
+	{
+		return Pose.IsNormalized();
+	}
+
+	FPoseContext& operator=(const FPoseContext& Other)
+	{
+		if (AnimInstanceProxy != Other.AnimInstanceProxy)
+		{
+			Initialize(AnimInstanceProxy);
+		}
+
+		Pose = Other.Pose;
+		Curve = Other.Curve;
+		return *this;
+	}
 };
 
 
-// Evaluation context passed around during animation tree evaluation
+/** Evaluation context passed around during animation tree evaluation */
 struct FComponentSpacePoseContext : public FAnimationBaseContext
 {
 public:
-	FA2CSPose Pose;
+	FCSPose<FCompactPose>	Pose;
+	FBlendedCurve			Curve;
 
 public:
-	// This constructor allocates a new uninitialized pose for the specified anim instance
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
 	FComponentSpacePoseContext(UAnimInstance* InAnimInstance)
 		: FAnimationBaseContext(InAnimInstance)
+	{
+	}
+
+	// This constructor allocates a new uninitialized pose for the specified anim instance
+	FComponentSpacePoseContext(FAnimInstanceProxy* InAnimInstanceProxy)
+		: FAnimationBaseContext(InAnimInstanceProxy)
 	{
 		// No need to initialize, done through FA2CSPose::AllocateLocalPoses
 	}
 
 	// This constructor allocates a new uninitialized pose, copying non-pose state from the source context
 	FComponentSpacePoseContext(const FComponentSpacePoseContext& SourceContext)
-		: FAnimationBaseContext(SourceContext.AnimInstance)
+		: FAnimationBaseContext(SourceContext.AnimInstanceProxy)
 	{
 		// No need to initialize, done through FA2CSPose::AllocateLocalPoses
 	}
 
-	void ResetToRefPose()
-	{
-		checkSlow( AnimInstance && AnimInstance->RequiredBones.IsValid() );
-		Pose.AllocateLocalPoses(AnimInstance->RequiredBones, AnimInstance->RequiredBones.GetRefPoseArray());
-	}
+	ENGINE_API void ResetToRefPose();
 
-	bool ContainsNaN() const;
-	bool IsNormalized() const;
+	ENGINE_API bool ContainsNaN() const;
+	ENGINE_API bool IsNormalized() const;
 };
 
-struct FNodeDebugData
+struct ENGINE_API FNodeDebugData
 {
 private:
 	struct DebugItem
 	{
 		DebugItem(FString Data, bool bInPoseSource) : DebugData(Data), bPoseSource(bInPoseSource) {}
 		
-		// This node items debug text to display
+		/** This node item's debug text to display. */
 		FString DebugData;
 
-		// Whether we are supplying a pose instead of modifying one (e.g. an playing animation)
-		bool	bPoseSource;
+		/** Whether we are supplying a pose instead of modifying one (e.g. an playing animation). */
+		bool bPoseSource;
 
-		// Nodes that we are connected to
+		/** Nodes that we are connected to. */
 		TArray<FNodeDebugData> ChildNodeChain;
 	};
 
-	// This nodes final contribution weight (based on its own weight and the weight of its parents)
-	float			AbsoluteWeight;
+	/** This nodes final contribution weight (based on its own weight and the weight of its parents). */
+	float AbsoluteWeight;
 
-	// Nodes that we are dependent on
+	/** Nodes that we are dependent on. */
 	TArray<DebugItem> NodeChain;
+
+	/** Additional info provided, used in GetNodeName. States machines can provide the state names for the Root Nodes to use for example. */
+	FString NodeDescription;
 
 public:
 	struct FFlattenedDebugData
 	{
 		FFlattenedDebugData(FString Line, float AbsWeight, int32 InIndent, int32 InChainID, bool bInPoseSource) : DebugLine(Line), AbsoluteWeight(AbsWeight), Indent(InIndent), ChainID(InChainID), bPoseSource(bInPoseSource){}
 		FString DebugLine;
-		float	AbsoluteWeight;
-		int32	Indent;
-		int32	ChainID;
-		bool	bPoseSource;
+		float AbsoluteWeight;
+		int32 Indent;
+		int32 ChainID;
+		bool bPoseSource;
 
 		bool IsOnActiveBranch() { return AbsoluteWeight > ZERO_ANIMWEIGHT_THRESH; }
 	};
 
 	FNodeDebugData(const class UAnimInstance* InAnimInstance) : AbsoluteWeight(1.f), AnimInstance(InAnimInstance) {}
 	FNodeDebugData(const class UAnimInstance* InAnimInstance, const float AbsWeight) : AbsoluteWeight(AbsWeight), AnimInstance(InAnimInstance) {}
+	FNodeDebugData(const class UAnimInstance* InAnimInstance, const float AbsWeight, FString InNodeDescription) 
+		: AbsoluteWeight(AbsWeight)
+		, NodeDescription(InNodeDescription)
+		, AnimInstance(InAnimInstance) 
+	{}
 
-	void			AddDebugItem(FString DebugData, bool bPoseSource = false);
-	FNodeDebugData&	BranchFlow(float BranchWeight);
+	void AddDebugItem(FString DebugData, bool bPoseSource = false);
+	FNodeDebugData& BranchFlow(float BranchWeight, FString InNodeDescription = FString());
 
 	template<class Type>
 	FString GetNodeName(Type* Node)
 	{
-		return FString::Printf(TEXT("%s<W:%.1f%%>"), *Node->StaticStruct()->GetName(), AbsoluteWeight*100.f);
+		FString FinalString = FString::Printf(TEXT("%s<W:%.1f%%> %s"), *Node->StaticStruct()->GetName(), AbsoluteWeight*100.f, *NodeDescription);
+		NodeDescription.Empty();
+		return FinalString;
 	}
 
 	void GetFlattenedDebugData(TArray<FFlattenedDebugData>& FlattenedDebugData, int32 Indent, int32& ChainID);
@@ -234,50 +295,59 @@ public:
 	}
 
 	// Anim instance that we are generating debug data for
-	const class UAnimInstance* AnimInstance;
+	const UAnimInstance* AnimInstance;
 };
 
-// The display mode of editable values on an animation node
+/** The display mode of editable values on an animation node. */
 UENUM()
 namespace EPinHidingMode
 {
 	enum Type
 	{
-		// Never show this property as a pin, it is only editable in the details panel (default for everything but FPoseLink properties)
+		/** Never show this property as a pin, it is only editable in the details panel (default for everything but FPoseLink properties). */
 		NeverAsPin,
 
-		// Hide this property by default, but allow the user to expose it as a pin via the details panel
+		/** Hide this property by default, but allow the user to expose it as a pin via the details panel. */
 		PinHiddenByDefault,
 
-		// Show this property as a pin by default, but allow the user to hide it via the details panel
+		/** Show this property as a pin by default, but allow the user to hide it via the details panel. */
 		PinShownByDefault,
 
-		// Always show this property as a pin; it never makes sense to edit it in the details panel (default for FPoseLink properties)
+		/** Always show this property as a pin; it never makes sense to edit it in the details panel (default for FPoseLink properties). */
 		AlwaysAsPin
 	};
 }
 
-// A pose link to another node
+#define ENABLE_ANIMGRAPH_TRAVERSAL_DEBUG 0
+
+/** A pose link to another node */
 USTRUCT()
 struct ENGINE_API FPoseLinkBase
 {
 	GENERATED_USTRUCT_BODY()
 
-	// Serialized link ID, used to build the non-serialized pointer map
+	/** Serialized link ID, used to build the non-serialized pointer map. */
 	UPROPERTY()
 	int32 LinkID;
 
 #if WITH_EDITORONLY_DATA
-	// The source link ID, used for debug visualization
+	/** The source link ID, used for debug visualization. */
 	UPROPERTY()
 	int32 SourceLinkID;
 #endif
 
+#if ENABLE_ANIMGRAPH_TRAVERSAL_DEBUG
+	FGraphTraversalCounter InitializationCounter;
+	FGraphTraversalCounter CachedBonesCounter;
+	FGraphTraversalCounter UpdateCounter;
+	FGraphTraversalCounter EvaluationCounter;
+#endif
+
 protected:
-	// The non serialized node pointer
+	/** The non serialized node pointer. */
 	struct FAnimNode_Base* LinkedNode;
 
-	// Flag to prevent reentry when dealing with circular trees
+	/** Flag to prevent reentry when dealing with circular trees. */
 	bool bProcessed;
 
 public:
@@ -292,16 +362,19 @@ public:
 	}
 
 	// Interface
+
 	void Initialize(const FAnimationInitializeContext& Context);
 	void CacheBones(const FAnimationCacheBonesContext& Context) ;
 	void Update(const FAnimationUpdateContext& Context);
 	void GatherDebugData(FNodeDebugData& DebugData);
 
-	// Try to re-establish the linked node pointer
+	/** Try to re-establish the linked node pointer. */
 	void AttemptRelink(const FAnimationBaseContext& Context);
 };
 
-// A local-space pose link to another node
+#define ENABLE_ANIMNODE_POSE_DEBUG 0
+
+/** A local-space pose link to another node */
 USTRUCT()
 struct ENGINE_API FPoseLink : public FPoseLinkBase
 {
@@ -310,9 +383,15 @@ struct ENGINE_API FPoseLink : public FPoseLinkBase
 public:
 	// Interface
 	void Evaluate(FPoseContext& Output);
+
+#if ENABLE_ANIMNODE_POSE_DEBUG
+private:
+	// forwarded pose data from the wired node which current node's skeletal control is not applied yet
+	FCompactPose CurrentPose;
+#endif //#if ENABLE_ANIMNODE_POSE_DEBUG
 };
 
-// A component-space pose link to another node
+/** A component-space pose link to another node */
 USTRUCT()
 struct ENGINE_API FComponentSpacePoseLink : public FPoseLinkBase
 {
@@ -323,47 +402,128 @@ public:
 	void EvaluateComponentSpace(FComponentSpacePoseContext& Output);
 };
 
-// An exposed value updater
+UENUM()
+enum class EPostCopyOperation : uint8
+{
+	None,
+
+	LogicalNegateBool,
+};
+
 USTRUCT()
-struct FExposedValueHandler
+struct FExposedValueCopyRecord
 {
 	GENERATED_USTRUCT_BODY()
+
+	FExposedValueCopyRecord()
+		: SourceProperty_DEPRECATED(nullptr)
+		, SourcePropertyName(NAME_None)
+		, SourceSubPropertyName(NAME_None)
+		, SourceArrayIndex(0)
+		, DestProperty(nullptr)
+		, DestArrayIndex(0)
+		, Size(0)
+		, PostCopyOperation(EPostCopyOperation::None)
+		, Source(nullptr)
+		, Dest(nullptr)
+	{}
+
+	void PostSerialize(const FArchive& Ar);
+
+	UPROPERTY()
+	UProperty* SourceProperty_DEPRECATED;
+
+	UPROPERTY()
+	FName SourcePropertyName;
+
+	UPROPERTY()
+	FName SourceSubPropertyName;
+
+	UPROPERTY()
+	int32 SourceArrayIndex;
+
+	UPROPERTY()
+	UProperty* DestProperty;
+
+	UPROPERTY()
+	int32 DestArrayIndex;
+
+	UPROPERTY()
+	int32 Size;
+
+	UPROPERTY()
+	EPostCopyOperation PostCopyOperation;
+
+	// Cached source copy ptr
+	void* Source;
+
+	// Cached dest copy ptr
+	void* Dest;
+};
+
+template<>
+struct TStructOpsTypeTraits< FExposedValueCopyRecord > : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithPostSerialize = true,
+	};
+};
+
+// An exposed value updater
+USTRUCT()
+struct ENGINE_API FExposedValueHandler
+{
+	GENERATED_USTRUCT_BODY()
+
+	FExposedValueHandler()
+		: BoundFunction(NAME_None)
+		, Function(nullptr)
+		, bInitialized(false)
+	{
+	}
 
 	// The function to call to update associated properties (can be NULL)
 	UPROPERTY()
 	FName BoundFunction;
 
-	void Execute(const FAnimationBaseContext& Context) const
-	{
-		if (BoundFunction != NAME_None)
-		{
-			//@TODO: Should be able to be Checked, or at least produce a warning when it fails
-			if (UFunction* Function = Context.AnimInstance->FindFunction(BoundFunction))
-			{
-				Context.AnimInstance->ProcessEvent(Function, NULL);
-			}
-		}
-	}
+	// Direct data access to property in anim instance
+	UPROPERTY()
+	TArray<FExposedValueCopyRecord> CopyRecords;
+
+	// function pointer if BoundFunction != NAME_None
+	UFunction* Function;
+
+	// Prevent multiple initialization
+	bool bInitialized;
+
+	// Bind copy records and cache UFunction if necessary
+	void Initialize(FAnimNode_Base* AnimNode, UObject* AnimInstanceObject);
+
+	// Execute the function and copy records
+	void Execute(const FAnimationBaseContext& Context) const;
 };
 
-// To create a new animation node:
-//   Create a struct derived from FAnimNode_Base - this is your runtime node
-//   Create a class derived from UAnimGraphNode_Base, containing an instance of your runtime as a member - this is your visual/editor-only node
-
-// This is the base of all runtime animation nodes
+/**
+ * This is the base of all runtime animation nodes
+ *
+ * To create a new animation node:
+ *   Create a struct derived from FAnimNode_Base - this is your runtime node
+ *   Create a class derived from UAnimGraphNode_Base, containing an instance of your runtime node as a member - this is your visual/editor-only node
+ */
 USTRUCT()
 struct ENGINE_API FAnimNode_Base
 {
 	GENERATED_USTRUCT_BODY()
 
 	// The default handler for graph-exposed inputs
-	UPROPERTY()
+	UPROPERTY(meta=(BlueprintCompilerGeneratedDefaults))
 	FExposedValueHandler EvaluateGraphExposedInputs;
 
 	// A derived class should implement Initialize, Update, and either Evaluate or EvaluateComponentSpace, but not both of them
 
 	// Interface to implement
-	virtual void Initialize(const FAnimationInitializeContext& Context) {}
+	virtual void Initialize(const FAnimationInitializeContext& Context);
 	virtual void CacheBones(const FAnimationCacheBonesContext& Context) {}
 	virtual void Update(const FAnimationUpdateContext& Context) {}
 	virtual void Evaluate(FPoseContext& Output) { check(false); }
@@ -374,7 +534,15 @@ struct ENGINE_API FAnimNode_Base
 
 	virtual void GatherDebugData(FNodeDebugData& DebugData)
 	{ 
-		DebugData.AddDebugItem(TEXT("Non Overriden GatherDebugData")); 
+		DebugData.AddDebugItem(FString::Printf(TEXT("Non Overriden GatherDebugData! (%s)"), *DebugData.GetNodeName(this)));
 	}
+
+	virtual bool CanUpdateInWorkerThread() const { return true; }
 	// End of interface to implement
+
+	virtual ~FAnimNode_Base() {}
+
+protected:
+	/** return true if enabled, otherwise, return false. This is utility function that can be used per node level */
+	bool IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy, int32 InLODThreshold);
 };

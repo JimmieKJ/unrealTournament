@@ -5,32 +5,34 @@
 #include "Toolkits/IToolkit.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "TranslationEditorModule.h"
-#include "../Private/TranslationPickerWidget.h"
-
+#include "Private/TranslationPickerWidget.h"
+#include "LocalizationTargetTypes.h"
 
 /** Translation Editor public interface */
 class ITranslationEditor : public FAssetEditorToolkit
 {
-
 public:
-
-	TRANSLATIONEDITOR_API static void OpenTranslationEditor(const FString& InManifestFile, const FString& InArchiveFile);
+	TRANSLATIONEDITOR_API static void OpenTranslationEditor(const FString& InManifestFile, const FString& InNativeArchiveFile, const FString& InArchiveFileToEdit);
+	TRANSLATIONEDITOR_API static void OpenTranslationEditor(ULocalizationTarget* const LocalizationTarget, const FString& CultureToEdit);
 
 	TRANSLATIONEDITOR_API static void OpenTranslationPicker();
 
-	ITranslationEditor(const FString& InManifestFile, const FString& InArchiveFile)
+	ITranslationEditor(const FString& InManifestFile, const FString& InArchiveFile, ULocalizationTarget* const InAssociatedLocalizationTarget)
 		: ManifestFilePath(InManifestFile)
 		, ArchiveFilePath(InArchiveFile)
+		, AssociatedLocalizationTarget(InAssociatedLocalizationTarget)
 	{}
 
 	virtual bool OnRequestClose() override;
 
 protected:
 
-	/** Name of the project we are translating for */
+	/** The path to the manifest file being used for contexts. */
 	FString ManifestFilePath;
-	/** Name of the language we are translating to */
+	/** The path to the archive file being edited. */
 	FString ArchiveFilePath;
+	/** The localization target associated with the files being used/edited, if any. */
+	TWeakObjectPtr<ULocalizationTarget> AssociatedLocalizationTarget;
 
 private:
 

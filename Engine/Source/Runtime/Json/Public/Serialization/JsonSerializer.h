@@ -46,25 +46,53 @@ public:
 		return true;
 	}
 
+	template <class CharType>
+	static bool Deserialize(const TSharedRef< TJsonReader<CharType> >& Reader, TSharedPtr<FJsonValue>& OutValue)
+	{
+		StackState State;
+		if (!Deserialize(Reader, /*OUT*/State))
+		{
+			return false;
+		}
+
+		switch (State.Type)
+		{
+		case EJson::Object:
+			if (!State.Object.IsValid())
+			{
+				return false;
+			}
+			OutValue = MakeShareable(new FJsonValueObject(State.Object));
+			break;
+		case EJson::Array:
+			OutValue = MakeShareable(new FJsonValueArray(State.Array));
+			break;
+		default:
+			// FIXME: would be nice to handle non-composite root values but StackState Deserialize just drops them on the floor
+			return false;
+		}
+		return true;
+	}
+
 	template <class CharType, class PrintPolicy >
-	static bool Serialize( const TArray< TSharedPtr<FJsonValue> >& Array, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer )
+	static bool Serialize( const TArray< TSharedPtr<FJsonValue> >& Array, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer, bool bCloseWriter = true )
 	{
 		TSharedRef< FElement > StartingElement = MakeShareable( new FElement( Array ) );
-		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer );
+		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer, bCloseWriter );
 	}
 
 	template <class CharType, class PrintPolicy >
-	static bool Serialize( const TSharedRef< FJsonObject >& Object, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer )
+	static bool Serialize( const TSharedRef< FJsonObject >& Object, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer, bool bCloseWriter = true )
 	{
 		TSharedRef< FElement > StartingElement = MakeShareable( new FElement( Object ) );
-		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer );
+		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer, bCloseWriter );
 	}
 
 	template <class CharType, class PrintPolicy >
-	static bool Serialize( const TSharedPtr<FJsonValue >& Value, const FString& Identifier, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer )
+	static bool Serialize( const TSharedPtr<FJsonValue >& Value, const FString& Identifier, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer, bool bCloseWriter = true )
 	{
 		TSharedRef< FElement > StartingElement = MakeShareable( new FElement( Identifier, Value ) );
-		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer );
+		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer, bCloseWriter );
 	}
 
 private:
@@ -222,7 +250,7 @@ private:
 	}
 
 	template <class CharType, class PrintPolicy>
-	static bool Serialize( const TSharedRef<FElement>& StartingElement, const TSharedRef<TJsonWriter<CharType, PrintPolicy>>& Writer )
+	static bool Serialize( const TSharedRef<FElement>& StartingElement, const TSharedRef<TJsonWriter<CharType, PrintPolicy>>& Writer, bool bCloseWriter )
 	{
 		TArray<TSharedRef<FElement>> ElementStack;
 		ElementStack.Push(StartingElement);
@@ -357,6 +385,13 @@ private:
 			}
 		}
 
-		return Writer->Close();
+		if (bCloseWriter)
+		{
+			return Writer->Close();
+		}
+		else
+		{
+			return true;
+		}
 	}
 };

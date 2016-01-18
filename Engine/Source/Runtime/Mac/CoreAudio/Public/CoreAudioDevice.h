@@ -28,7 +28,9 @@ DECLARE_LOG_CATEGORY_EXTERN(LogCoreAudio, Log, All);
 /**
  * Maximum number of multichannel audio channels - used only for MatrixMixer setup
  */
-#define MAX_MULTICHANNEL_AUDIOCHANNELS 16
+
+#define CORE_AUDIO_MAX_CHANNELS (MAX_AUDIOCHANNELS)
+#define CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS 16
 
 class FCoreAudioDevice;
 class FCoreAudioEffectsManager;
@@ -161,6 +163,8 @@ public:
 	bool						bDynamicResource;
 };
 
+typedef FAsyncTask<class FAsyncRealtimeAudioTaskWorker<FCoreAudioSoundBuffer>> FAsyncRealtimeAudioTask;
+
 /**
  * CoreAudio implementation of FSoundSource, the interface used to play, stop and update sources
  */
@@ -209,11 +213,6 @@ public:
 	virtual void Pause( void );
 	
 	/**
-	 * Handles feeding new data to a real time decompressed sound
-	 */
-	void HandleRealTimeSource( void );
-	
-	/**
 	 * Queries the status of the currently associated wave instance.
 	 *
 	 * @return	true if the wave instance/ source has finished playback and false if it is 
@@ -238,11 +237,26 @@ public:
 											 AudioStreamPacketDescription **outPacketDescription, void *inUserData );
 
 protected:
-	/** Decompress USoundWave procedure to generate more PCM data. Returns true/false: did audio loop? */
-	bool ReadMorePCMData( const int32 BufferIndex );
 
-	/** Handle obtaining more data for procedural USoundWaves. Always returns false for convenience. */
-	bool ReadProceduralData( const int32 BufferIndex );
+	enum class EDataReadMode : uint8
+	{
+		Synchronous,
+		Asynchronous,
+		AsynchronousSkipFirstFrame
+	};
+
+	/**
+	 * Handles feeding new data to a real time decompressed sound
+	 */
+	void HandleRealTimeSourceData(bool bLooped);
+
+	/**
+	 * Handles feeding new data to a real time decompressed sound
+	 */
+	void HandleRealTimeSource(bool bBlockForData);
+
+	/** Decompress USoundWave procedure to generate more PCM data. Returns true/false: did audio loop? */
+	bool ReadMorePCMData( const int32 BufferIndex, EDataReadMode DataReadMode );
 
 	OSStatus CreateAudioUnit( OSType Type, OSType SubType, OSType Manufacturer, AudioStreamBasicDescription* InputFormat, AudioStreamBasicDescription* OutputFormat, AUNode* OutNode, AudioUnit* OutUnit );
 	OSStatus ConnectAudioUnit( AUNode DestNode, uint32 DestInputNumber, AUNode OutNode, AudioUnit OutUnit );
@@ -259,21 +273,24 @@ protected:
 
 	AudioConverterRef			CoreAudioConverter;
 
+	/** Asynchronous task for real time audio sources */
+	FAsyncRealtimeAudioTask* RealtimeAsyncTask;
+
 	/** Which sound buffer should be written to next - used for double buffering. */
 	bool						bStreamedSound;
 	/** A pair of sound buffers to allow notification when a sound loops. */
-	CoreAudioBuffer				CoreAudioBuffers[2];
+	CoreAudioBuffer				CoreAudioBuffers[3];
 	/** Set when we wish to let the buffers play themselves out */
 	bool						bBuffersToFlush;
 
 	AUNode						SourceNode;
 	AudioUnit					SourceUnit;
 
-	AUNode						StreamSplitterNode;
-	AudioUnit					StreamSplitterUnit;
-
 	AUNode						EQNode;
 	AudioUnit					EQUnit;
+
+	AUNode						LowPassNode;
+	AudioUnit					LowPassUnit;
 
 	AUNode						RadioNode;
 	AudioUnit					RadioUnit;
@@ -285,9 +302,6 @@ protected:
 
 	bool						bDryMuted;
 
-	AUNode						StreamMergerNode;
-	AudioUnit					StreamMergerUnit;
-
 	int32						AudioChannel;
 	int32						BufferInUse;
 	int32						NumActiveBuffers;
@@ -297,6 +311,12 @@ protected:
 private:
 
 	void FreeResources();
+
+	void InitSourceUnit(AudioStreamBasicDescription* Format, AUNode& HeadNode);
+	void InitLowPassEffect(AudioStreamBasicDescription* Format, AUNode& HeadNode);
+	void InitRadioSourceEffect(AudioStreamBasicDescription* Format, AUNode& HeadNode);
+	void InitEqSourceEffect(AudioStreamBasicDescription* Format, AUNode& HeadNode);
+	void InitReverbSourceEffect(AudioStreamBasicDescription* Format, AUNode& HeadNode);
 
 	friend class FCoreAudioDevice;
 	friend class FCoreAudioEffectsManager;
@@ -366,6 +386,19 @@ class FCoreAudioDevice : public FAudioDevice
 		return ( ( InputNum << 16 ) | ( OutputNum & 0x0000FFFF ) );
 	}
 
+	int32 FindFreeAudioChannel()
+	{
+		for (int32 Index = 1; Index < CORE_AUDIO_MAX_CHANNELS + 1; Index++)
+		{
+			if (AudioChannels[Index] == nullptr)
+			{
+				return Index;
+			}
+		}
+		return 0;
+	}
+
+
 protected:
 
 	/** Inverse listener transformation, used for spatialization */
@@ -384,11 +417,14 @@ private:
 	AudioStreamBasicDescription	MatrixMixerInputFormat;
 	AudioStreamBasicDescription	MatrixMixerOutputFormat;
 
-	bool						Mixer3DInputStatus[MAX_MULTICHANNEL_AUDIOCHANNELS];
-	bool						MatrixMixerInputStatus[MAX_AUDIOCHANNELS];
+	bool						Mixer3DInputStatus[CORE_AUDIO_MAX_CHANNELS];
+	bool						MatrixMixerInputStatus[CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS];
+
+	class FCoreAudioSoundSource* AudioChannels[CORE_AUDIO_MAX_CHANNELS + 1];
 
 	friend class FCoreAudioSoundBuffer;
 	friend class FCoreAudioSoundSource;
+	friend class FCoreAudioEffectsManager;
 };
 
 #endif

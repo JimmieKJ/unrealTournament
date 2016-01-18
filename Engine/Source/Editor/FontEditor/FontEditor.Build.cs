@@ -35,7 +35,6 @@ public class FontEditor : ModuleRules
 				"MainFrame",
 				"WorkspaceMenuStructure",
 				"MainFrame",
-				"DesktopPlatform",
 				"PropertyEditor"
 			}
 		);

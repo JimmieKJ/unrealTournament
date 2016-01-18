@@ -8,10 +8,12 @@
 class IBlueprintCompilerCppBackend
 {
 public:
-	virtual void GenerateCodeFromClass(UClass* SourceClass, FString NewClassName, TIndirectArray<FKismetFunctionContext>& Functions, bool bGenerateStubsOnly) = 0;
+	virtual FString GenerateCodeFromClass(UClass* SourceClass, TIndirectArray<FKismetFunctionContext>& Functions, bool bGenerateStubsOnly, FString& OutCppBody) = 0;
+	virtual FString GenerateCodeFromEnum(UUserDefinedEnum* SourceEnum) = 0;
+	virtual FString GenerateCodeFromStruct(UUserDefinedStruct* SourceStruct) = 0;
 
-	virtual const FString& GetBody() const = 0;
-	virtual const FString& GetHeader() const = 0;
+	// Generate a wrapper class, that helps accessing non-native properties and calling non-native functions
+	virtual FString GenerateWrapperForClass(UClass* SourceClass) = 0;
 
 	virtual ~IBlueprintCompilerCppBackend() {}
 };
@@ -44,5 +46,5 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("BlueprintCompilerCppBackend");
 	}
 
-	virtual IBlueprintCompilerCppBackend* Create(FKismetCompilerContext& InContext) = 0;
+	virtual IBlueprintCompilerCppBackend* Create() = 0;
 };

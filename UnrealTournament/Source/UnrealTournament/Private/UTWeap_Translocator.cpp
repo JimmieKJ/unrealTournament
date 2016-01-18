@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWeap_Translocator.h"
 #include "UTProj_TransDisk.h"
@@ -30,6 +30,9 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	KillStatsName = NAME_TelefragKills;
 	DeathStatsName = NAME_TelefragDeaths;
 	DisplayName = NSLOCTEXT("UTWeap_Translocator", "DisplayName", "Telefrag");
+
+	FirstFireInterval = 0.12f;
+	MinFastTranslocInterval = 0.7f;
 }
 
 void AUTWeap_Translocator::PostInitProperties()
@@ -68,6 +71,16 @@ void AUTWeap_Translocator::ClearDisk()
 		TransDisk->Explode(TransDisk->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
 	}
 	TransDisk = NULL;
+	
+	if (GetUTOwner() != NULL)
+	{
+		// reset bHasTranslocator if it was false due to disrupted disk
+		AUTBot* B = Cast<AUTBot>(GetUTOwner()->Controller);
+		if (B != NULL)
+		{
+			B->bHasTranslocator = true;
+		}
+	}
 }
 
 void AUTWeap_Translocator::RecallDisk()
@@ -108,9 +121,9 @@ void AUTWeap_Translocator::FireShot()
 		if (CurrentFireMode == 0)
 		{
 			//No disk. Shoot one
-			if (TransDisk == NULL)
+			if (TransDisk == NULL || TransDisk->IsPendingKillPending())
 			{
-				if (FakeTransDisk == NULL)
+				if (FakeTransDisk == NULL || FakeTransDisk->IsPendingKillPending())
 				{
 					ConsumeAmmo(CurrentFireMode);
 					if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
@@ -120,10 +133,14 @@ void AUTWeap_Translocator::FireShot()
 						{
 							// wait for disk to be replicated from server
 							AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
-							FakeTransDisk = TransDisk;
-							if (OwningPlayer && FakeTransDisk)
+							if (OwningPlayer && OwningPlayer->UTPlayerState)
 							{
-								FakeTransDisk->SetLifeSpan(FMath::Min(TransDisk->GetLifeSpan(), 0.001f * FMath::Max(0.f, OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor)));
+								FakeTransDisk = TransDisk;
+								float FakeDiskLife = (OwningPlayer && FakeTransDisk) ? 0.0015f * (OwningPlayer->UTPlayerState->ExactPing + OwningPlayer->PredictionFudgeFactor) : 0.001f* (OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor);
+								if (OwningPlayer && FakeTransDisk)
+								{
+									FakeTransDisk->SetLifeSpan(FMath::Min(TransDisk->GetLifeSpan(), FMath::Max(0.f, FakeDiskLife)));
+								}
 							}
 							TransDisk = NULL;
 						}
@@ -134,6 +151,22 @@ void AUTWeap_Translocator::FireShot()
 						}
 					}
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
+
+					// special recovery time for first shot
+					if (GetWorld()->GetTimeSeconds() - LastTranslocTime > MinFastTranslocInterval)
+					{
+						UUTWeaponStateFiringOnce* CurrentFiringState = Cast<UUTWeaponStateFiringOnce>(CurrentState);
+						if (CurrentFiringState && GetWorldTimerManager().IsTimerActive(CurrentFiringState->RefireCheckHandle))
+						{
+							typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
+							GetWorldTimerManager().SetTimer(CurrentFiringState->RefireCheckHandle, CurrentFiringState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, FirstFireInterval, false);
+						}
+					}
+				}
+				else
+				{
+					FakeTransDisk->Destroy();
+					FakeTransDisk = NULL;
 				}
 			}
 			else if (TransDisk->TransState == TLS_Disrupted)
@@ -143,6 +176,12 @@ void AUTWeap_Translocator::FireShot()
 				if (Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled())
 				{
 					Cast<AUTPlayerController>(UTOwner->GetController())->SendPersonalMessage(TranslocatorMessageClass, 0, NULL, NULL, NULL);
+				}
+				// end bot's move here if it requires translocation since it's not going to be able to refire to try again
+				AUTBot* B = Cast<AUTBot>(UTOwner->GetController());
+				if (B != NULL && Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get()) != NULL)
+				{
+					B->MoveTimer = -1.0f;
 				}
 			}
 			else
@@ -209,8 +248,7 @@ void AUTWeap_Translocator::FireShot()
 							UTOwner->DropFlag();
 							if (Flag)
 							{
-								Flag->MovementComponent->Velocity = UTOwner->GetMovementComponent()->Velocity;
-								Flag->MovementComponent->Velocity.Z = FMath::Min(Flag->MovementComponent->Velocity.Z, 0.f);
+								Flag->MovementComponent->Velocity = FVector(0.f ,0.f, FMath::Min(Flag->MovementComponent->Velocity.Z, 0.f));
 							}
 						}
 						UTOwner->bIsTranslocating = true;  // different telefrag rules than for teleporters
@@ -219,6 +257,7 @@ void AUTWeap_Translocator::FireShot()
 						AUTCharacter* SavedOwner = UTOwner;
 						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
 						{
+							LastTranslocTime = GetWorld()->GetTimeSeconds();
 							ConsumeAmmo(CurrentFireMode);
 							if (UTOwner && UTOwner->UTCharacterMovement && UTOwner->UTCharacterMovement->bIsFloorSliding)
 							{
@@ -229,7 +268,7 @@ void AUTWeap_Translocator::FireShot()
 							// spawn effects
 							FActorSpawnParameters SpawnParams;
 							SpawnParams.Instigator = SavedOwner;
-							SpawnParams.bNoCollisionFail = true;
+							SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 							SpawnParams.Owner = SavedOwner;
 							if (AfterImageType != NULL)
 							{
@@ -292,7 +331,7 @@ void AUTWeap_Translocator::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	// check for AI shooting disc at translocator target
-	if (CurrentState == ActiveState && (TransDisk == NULL || TransDisk->bPendingKillPending))
+	if (CurrentState == ActiveState && (TransDisk == NULL || TransDisk->IsPendingKillPending()))
 	{
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 		if (B != NULL && !B->TranslocTarget.IsZero() && (Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get()) == NULL || B->GetMovePoint() != B->GetMoveTarget().GetLocation(UTOwner)) && !B->NeedToTurn(B->GetFocalPoint(), true))
@@ -493,7 +532,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 		}
 		else
 		{
-			if (TransDisk == NULL || TransDisk->bPendingKillPending)
+			if (TransDisk == NULL || TransDisk->IsPendingKillPending())
 			{
 				// shoot!
 				UTOwner->StartFire(0);

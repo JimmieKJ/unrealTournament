@@ -76,6 +76,26 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	static bool DoesContainerMatchAllTagsInContainer(const FGameplayTagContainer& TagContainer, const FGameplayTagContainer& OtherContainer, bool bCountEmptyAsMatch);
 
 	/**
+	 * Check if the specified tag container matches the given Tag Query.
+	 * 
+	 * @param TagContainer			Container to check if it matches all of the tags in the other container
+	 * @param TagQuery				Query to match against
+	 * 
+	 * @return True if the container matches the query, false otherwise.
+	 */
+	UFUNCTION(BlueprintPure, Category = "GameplayTags|Tag Container")
+	static bool DoesContainerMatchTagQuery(const FGameplayTagContainer& TagContainer, const FGameplayTagQuery& TagQuery);
+
+	/**
+	* Takes 2 Gameplay Tag Containers Appends the In Container to the In/Out Container
+	*
+	* @param InTagContainer			The container to append.
+	* @param InOutTagContainer		The container that will be appended too.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "GameplayTags|Tag Container")
+	static bool AppendGameplayTagContainers(const FGameplayTagContainer& InTagContainer, UPARAM(ref) FGameplayTagContainer& InOutTagContainer);
+
+	/**
 	 * Creates a literal FGameplayTag
 	 *
 	 * @param	Value	value to set the FGameplayTag to
@@ -84,6 +104,17 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category = "GameplayTags")
 	static FGameplayTag MakeLiteralGameplayTag(FGameplayTag Value);
+
+
+	/**
+	 * Creates a literal FGameplayTagQuery
+	 *
+	 * @param	Value	value to set the FGameplayTagQuery to
+	 *
+	 * @return	The literal FGameplayTagQuery
+	 */
+	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	static FGameplayTagQuery MakeGameplayTagQuery(FGameplayTagQuery TagQuery);
 
 	/**
 	 * Check Gameplay tags in the interface has all of the specified tags in the tag container (expands to include parents of asset tags)
@@ -108,5 +139,6 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	*/
 	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "TRUE"))
 	static bool DoesTagAssetInterfaceHaveTag(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, TEnumAsByte<EGameplayTagMatchType::Type> ContainerTagsMatchType, const FGameplayTag& Tag, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType);
+
 
 };

@@ -5,6 +5,7 @@
 
 class ISessionInfo;
 class ISessionInstanceInfo;
+struct FSessionLogMessage;
 
 
 /**
@@ -24,9 +25,9 @@ public:
 	/**
 	  * Gets the collection of currently selected engine instances.
 	  *
-	  * @param OutInstances Will hold the selected instances.
+	  * @return The selected instances.
 	  */
-	virtual void GetSelectedInstances( TArray<TSharedPtr<ISessionInstanceInfo>>& OutInstances) const = 0;
+	virtual const TArray<TSharedPtr<ISessionInstanceInfo>>& GetSelectedInstances() const = 0;
 
 	/**
 	 * Get the selected session - as chosen in the session browser
@@ -71,7 +72,7 @@ public:
 	 * @param Selected Whether the instance should be selected (true) or unselected (false).
 	 * @return true if the instance was selected, false otherwise.
 	 */
-	virtual bool SetInstanceSelected( const TSharedPtr<ISessionInstanceInfo>& Instance, bool Selected ) = 0;
+	virtual bool SetInstanceSelected( const TSharedRef<ISessionInstanceInfo>& Instance, bool Selected ) = 0;
 
 public:
 
@@ -88,7 +89,7 @@ public:
 	 *
 	 * @return The delegate.
 	 */
-	DECLARE_EVENT(ISessionManager, FInstanceSelectionChangedEvent)
+	DECLARE_EVENT_TwoParams(ISessionManager, FInstanceSelectionChangedEvent, const TSharedPtr<ISessionInstanceInfo>& /*Instance*/, bool /*Selected*/)
 	virtual FInstanceSelectionChangedEvent& OnInstanceSelectionChanged() = 0;
 
 	/**

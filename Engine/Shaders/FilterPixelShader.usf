@@ -20,9 +20,6 @@ SamplerState AdditiveTextureSampler;
 Texture2D AdditiveTexture;
 #endif
 
-//
-half4 SampleWeights[NUM_SAMPLES];
-
 // UV.y and UV.wz are the input UV coordinates
 half ComputeMask(float2 UV)
 {
@@ -50,11 +47,99 @@ void Combine(inout float4 Dest, float4 Src, float4 Weight)
 #endif
 }
 
-#if (ES2_PROFILE || ES3_1_PROFILE)
+#if NUM_SAMPLES==0
+// dynamic number of sample
+
+float4 SampleOffsets[(MAX_NUM_SAMPLES + 1) / 2];
+half4 SampleWeights[MAX_NUM_SAMPLES];
+int SampleCount;
+
+# if (ES2_PROFILE || ES3_1_PROFILE)
 
 void Main(
-	float2 InUV : TEXCOORD0,
-	float2 InOffsetUVs[NUM_SAMPLES] : TEXCOORD1,
+	noperspective float2 InUV : TEXCOORD0,
+	out half4 OutColor : SV_Target0
+	)
+{
+	half3 Dest = 0;
+	
+	int SampleIndex;
+	LOOP for (SampleIndex = 0; SampleIndex < SampleCount - 1; SampleIndex += 2)
+	{
+		{
+			const float2 UV = InUV + SampleOffsets[SampleIndex / 2].xy;
+			Dest += FilterTexture.Sample(FilterTextureSampler, UV).rgb * SampleWeights[SampleIndex + 0];
+		}
+		
+		{
+			const float2 UV = InUV + SampleOffsets[SampleIndex / 2].wz;
+			Dest += FilterTexture.Sample(FilterTextureSampler, UV).rgb * SampleWeights[SampleIndex + 1];
+		}
+	}
+	BRANCH if (SampleIndex < SampleCount)
+	{
+		const float2 UV = InUV + SampleOffsets[SampleIndex / 2].xy;
+		Dest += FilterTexture.Sample(FilterTextureSampler, UV).rgb * SampleWeights[SampleIndex + 1];
+	}
+
+#  if COMBINE_METHOD == 1
+	Dest += Texture2DSample(AdditiveTexture, AdditiveTextureSampler, InUV).rgb;
+#  endif
+
+	// RETURN_COLOR not needed unless writing to SceneColor;
+	OutColor = half4(Dest, 0);
+}
+
+# else //!(ES2_PROFILE || ES3_1_PROFILE)
+
+void Main(
+	noperspective float2 InUV : TEXCOORD0,
+	out half4 OutColor : SV_Target0
+	)
+{
+	half4 Dest = 0;
+	
+	int SampleIndex;
+	LOOP for (SampleIndex = 0; SampleIndex < SampleCount - 1; SampleIndex += 2)
+	{
+		{
+			const float2 UV = InUV + SampleOffsets[SampleIndex / 2].xy;
+			const half Mask = ComputeMask(UV);
+			Combine(Dest, Texture2DSample(FilterTexture, FilterTextureSampler, UV), Mask * SampleWeights[SampleIndex + 0]);
+		}
+		
+		{
+			const float2 UV = InUV + SampleOffsets[SampleIndex / 2].wz;
+			const half Mask = ComputeMask(UV);
+			Combine(Dest, Texture2DSample(FilterTexture, FilterTextureSampler, UV), Mask * SampleWeights[SampleIndex + 1]);
+		}
+	}
+	BRANCH if (SampleIndex < SampleCount)
+	{
+		const float2 UV = InUV + SampleOffsets[SampleIndex / 2].xy;
+		const half Mask = ComputeMask(UV);
+		Combine(Dest, Texture2DSample(FilterTexture, FilterTextureSampler, UV), Mask * SampleWeights[SampleIndex + 0]);
+	}
+
+#  if COMBINE_METHOD == 1
+	Dest += Texture2DSample(AdditiveTexture, AdditiveTextureSampler, InUV);
+#  endif
+
+	// RETURN_COLOR not needed unless writing to SceneColor;
+	OutColor = Dest;
+}
+
+# endif //!(ES2_PROFILE || ES3_1_PROFILE)
+
+#else //NUM_SAMPLES!=0
+
+half4 SampleWeights[NUM_SAMPLES];
+
+# if (ES2_PROFILE || ES3_1_PROFILE)
+
+void Main(
+	noperspective float2 InUV : TEXCOORD0,
+	noperspective float2 InOffsetUVs[NUM_SAMPLES] : TEXCOORD1,
 	out half4 OutColor : SV_Target0
 	)
 {
@@ -64,18 +149,18 @@ void Main(
 		Dest += FilterTexture.Sample( FilterTextureSampler, InOffsetUVs[i] ).rgb * SampleWeights[i];
 	}
 
-#if COMBINE_METHOD == 1
+#  if COMBINE_METHOD == 1
 	Dest += AdditiveTexture.Sample( AdditiveTextureSampler, InUV ).rgb;
-#endif
+#  endif
 
 	OutColor.rgb = Dest;
 }
 
-#else
+# else //!(ES2_PROFILE || ES3_1_PROFILE)
 
 void Main(
-	float2 InUV : TEXCOORD0,
-	float4 InOffsetUVs[(NUM_SAMPLES + 1) / 2] : TEXCOORD1,
+	noperspective float2 InUV : TEXCOORD0,
+	noperspective float4 InOffsetUVs[(NUM_SAMPLES + 1) / 2] : TEXCOORD1,
 	out float4 OutColor : SV_Target0
 	)
 {
@@ -100,19 +185,21 @@ void Main(
 		Combine(Dest, Texture2DSample(FilterTexture, FilterTextureSampler,UVUV.xy), Mask * SampleWeights[SampleIndex + 0]);
 	}
 
-#if COMBINE_METHOD == 1
+#  if COMBINE_METHOD == 1
 	Dest += Texture2DSample(AdditiveTexture, AdditiveTextureSampler, InUV);
-#endif
+#  endif
 
 	// RETURN_COLOR not needed unless writing to SceneColor;
 	OutColor = Dest;
 }
-#endif
+
+# endif //!(ES2_PROFILE || ES3_1_PROFILE)
+#endif //NUM_SAMPLES!=0
 
 // currently only used for downsampling, doesn't need to be masked as it doesn't read outside bounds
 // reads 4 samples
 void DownsampleScene(
-	float4 InOffsetUVs[2] : TEXCOORD0,
+	noperspective float4 InOffsetUVs[2] : TEXCOORD0,
 	out float4 OutColor : SV_Target0
 	)
 {

@@ -54,6 +54,15 @@ FText FTileMapEdModeToolkit::GetToolkitName() const
 	return GetBaseToolkitName();
 }
 
+FText FTileMapEdModeToolkit::GetToolkitToolTipText() const
+{
+	if (CurrentTileSetPtr.IsValid())
+	{
+		return FAssetEditorToolkit::GetToolTipTextForObject(CurrentTileSetPtr.Get());
+	}
+	return GetBaseToolkitName();
+}
+
 FEdMode* FTileMapEdModeToolkit::GetEditorMode() const
 {
 	return TileMapEditor;

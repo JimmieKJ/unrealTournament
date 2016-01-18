@@ -31,12 +31,12 @@ public:
 	 * @param InMediaPlayer The UMediaPlayer asset to show the details for.
 	 * @param InStyleSet The style set to use.
 	 */
-	void Construct( const FArguments& InArgs, UMediaPlayer* InMediaPlayer, const TSharedRef<ISlateStyle>& InStyle );
+	void Construct(const FArguments& InArgs, UMediaPlayer* InMediaPlayer, const TSharedRef<ISlateStyle>& InStyle);
 
 protected:
 
 	/** Reloads the media texture and updates all options. */
-	void ReloadMediaPlayer();
+	void ReloadTracks();
 
 private:
 
@@ -44,19 +44,19 @@ private:
 	EActiveTimerReturnType HandleActiveTimer(double InCurrentTime, float InDeltaTime);
 
 	/** Callback for generating a widget for a value in the audio track combo box. */
-	TSharedRef<SWidget> HandleAudioTrackComboBoxGenerateWidget( IMediaTrackPtr Value ) const;
+	TSharedRef<SWidget> HandleAudioTrackComboBoxGenerateWidget(IMediaAudioTrackPtr Value) const;
 
 	/** Callback for changing the selected audio track. */
-	void HandleAudioTrackComboBoxSelectionChanged( IMediaTrackPtr Selection, ESelectInfo::Type SelectInfo );
+	void HandleAudioTrackComboBoxSelectionChanged(IMediaAudioTrackPtr Selection, ESelectInfo::Type SelectInfo);
 
 	/** Callback for getting the text in the audio track combo box. */
 	FText HandleAudioTrackComboBoxText() const;
 
 	/** Callback for generating a widget for a value in the caption track combo box. */
-	TSharedRef<SWidget> HandleCaptionTrackComboBoxGenerateWidget( IMediaTrackPtr Value ) const;
+	TSharedRef<SWidget> HandleCaptionTrackComboBoxGenerateWidget(IMediaCaptionTrackPtr Value) const;
 
 	/** Callback for changing the selected audio track. */
-	void HandleCaptionTrackComboBoxSelectionChanged( IMediaTrackPtr Selection, ESelectInfo::Type SelectInfo );
+	void HandleCaptionTrackComboBoxSelectionChanged(IMediaCaptionTrackPtr Selection, ESelectInfo::Type SelectInfo);
 
 	/** Callback for getting the text in the caption track combo box. */
 	FText HandleCaptionTrackComboBoxText() const;
@@ -66,6 +66,9 @@ private:
 
 	/** Callback for when the media player's media has changed. */
 	void HandleMediaPlayerMediaChanged();
+
+	/** Callback for when the media player's tracks changed. */
+	void HandleMediaPlayerTracksChanged();
 
 	/** Callback for getting the visibility of the 'No media selected' warning text. */
 	EVisibility HandleNoMediaSelectedTextVisibility() const;
@@ -110,10 +113,10 @@ private:
 	EVisibility HandleTrackSelectionBoxVisibility() const;
 
 	/** Callback for generating a widget for a value in the video track combo box. */
-	TSharedRef<SWidget> HandleVideoTrackComboBoxGenerateWidget( IMediaTrackPtr Value ) const;
+	TSharedRef<SWidget> HandleVideoTrackComboBoxGenerateWidget(IMediaVideoTrackPtr Value) const;
 
 	/** Callback for changing the selected video track. */
-	void HandleVideoTrackComboBoxSelectionChanged( IMediaTrackPtr Selection, ESelectInfo::Type SelectInfo );
+	void HandleVideoTrackComboBoxSelectionChanged(IMediaVideoTrackPtr Selection, ESelectInfo::Type SelectInfo);
 
 	/** Callback for getting the text in the video track combo box. */
 	FText HandleVideoTrackComboBoxText() const;
@@ -121,19 +124,19 @@ private:
 private:
 
 	/** The collection of available audio tracks. */
-	TArray<IMediaTrackPtr> AudioTracks;
+	TArray<IMediaAudioTrackPtr> AudioTracks;
 
 	/** Holds the audio track combo box. */
-	TSharedPtr<SComboBox<IMediaTrackPtr>> AudioTrackComboBox;
+	TSharedPtr<SComboBox<IMediaAudioTrackPtr>> AudioTrackComboBox;
 
 	/** Buffers text from the selected caption track. */
 	FMediaSampleBufferRef CaptionBuffer;
 
 	/** The collection of available caption tracks. */
-	TArray<IMediaTrackPtr> CaptionTracks;
+	TArray<IMediaCaptionTrackPtr> CaptionTracks;
 
 	/** Holds the caption track combo box. */
-	TSharedPtr<SComboBox<IMediaTrackPtr>> CaptionTrackComboBox;
+	TSharedPtr<SComboBox<IMediaCaptionTrackPtr>> CaptionTrackComboBox;
 
 	/** Pointer to the media player that is being viewed. */
 	UMediaPlayer* MediaPlayer;
@@ -145,11 +148,11 @@ private:
 	TSharedPtr<SSlider> ScrubberSlider;
 
 	/** The collection of available video tracks. */
-	TArray<IMediaTrackPtr> VideoTracks;
+	TArray<IMediaVideoTrackPtr> VideoTracks;
 
 	/** Holds the video track combo box. */
-	TSharedPtr<SComboBox<IMediaTrackPtr>> VideoTrackComboBox;
+	TSharedPtr<SComboBox<IMediaVideoTrackPtr>> VideoTrackComboBox;
 
-	/** Holds the Slate viewport. */
+	/** Holds the Slate view port. */
 	TSharedPtr<FMediaPlayerEditorViewport> Viewport;
 };

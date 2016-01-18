@@ -33,12 +33,7 @@ extern ENGINE_API FLightmassDebugOptions GLightmassDebugOptions;
 
 extern ENGINE_API FColor GTexelSelectionColor;
 
-/** 
- * Set to 1 to allow selecting lightmap texels by holding down T and left clicking in the editor,
- * And having debug information about that texel tracked during subsequent lighting rebuilds.
- * Be sure to set the define with the same name in Lightmass!
- */
-#define ALLOW_LIGHTMAP_SAMPLE_DEBUGGING 0
+extern ENGINE_API bool IsTexelDebuggingEnabled();
 
 /**
  * The abstract base class of 1D and 2D light-maps.
@@ -217,6 +212,8 @@ public:
 	 */
 	ENGINE_API UTexture2D* GetSkyOcclusionTexture();
 
+	ENGINE_API UTexture2D* GetAOMaterialMaskTexture();
+
 	/**
 	 * Returns whether the specified basis has a valid lightmap texture or not.
 	 * @param	BasisIndex - The basis index.
@@ -291,6 +288,8 @@ protected:
 	ULightMapTexture2D* Textures[2];
 
 	ULightMapTexture2D* SkyOcclusionTexture;
+
+	ULightMapTexture2D* AOMaterialMaskTexture;
 
 	/** A scale to apply to the coefficients. */
 	FVector4 ScaleVectors[NUM_STORED_LIGHTMAP_COEF];
@@ -403,10 +402,6 @@ struct FSelectedLightmapSample
 	int32 LocalY;
 	int32 MappingSizeX;
 	int32 MappingSizeY;
-	/** Position in the lightmap atlas */
-	int32 LightmapX;
-	int32 LightmapY;
-	FColor OriginalColor;
 	
 	/** Default ctor */
 	FSelectedLightmapSample() :
@@ -417,10 +412,7 @@ struct FSelectedLightmapSample
 		LocalX(-1),
 		LocalY(-1),
 		MappingSizeX(-1),
-		MappingSizeY(-1),
-		LightmapX(-1),
-		LightmapY(-1),
-		OriginalColor(FColor(0,0,0))
+		MappingSizeY(-1)
 	{}
 
 	/** Constructor used for a texture lightmap sample */
@@ -441,10 +433,7 @@ struct FSelectedLightmapSample
 		LocalX(InLocalX),
 		LocalY(InLocalY),
 		MappingSizeX(InMappingSizeX),
-		MappingSizeY(InMappingSizeY),
-		LightmapX(-1),
-		LightmapY(-1),
-		OriginalColor(FColor(0,0,0))
+		MappingSizeY(InMappingSizeY)
 	{}
 };
 
@@ -470,13 +459,18 @@ struct FLightMapCoefficients
 	uint8 Coverage;
 	uint8 Coefficients[NUM_STORED_LIGHTMAP_COEF][4];
 	uint8 SkyOcclusion[4];
+	uint8 AOMaterialMask;
 
 	/** Equality operator */
 	bool operator==( const FLightMapCoefficients& RHS ) const
 	{
 		return Coverage == RHS.Coverage &&
 			   Coefficients == RHS.Coefficients &&
-			   SkyOcclusion == RHS.SkyOcclusion;
+			   SkyOcclusion[0] == RHS.SkyOcclusion[0] &&
+			   SkyOcclusion[1] == RHS.SkyOcclusion[1] &&
+			   SkyOcclusion[2] == RHS.SkyOcclusion[2] &&
+			   SkyOcclusion[3] == RHS.SkyOcclusion[3] &&
+			   AOMaterialMask == RHS.AOMaterialMask;
 	}
 };
 

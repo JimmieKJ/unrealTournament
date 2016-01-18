@@ -33,7 +33,7 @@ public:
 
 public:
 
-	// Begin FImageWrapper Interface
+	//~ Begin FImageWrapper Interface
 
 	virtual void Compress( int32 Quality ) override;
 
@@ -41,7 +41,7 @@ public:
 	
 	virtual bool SetCompressed( const void* InCompressedData, int32 InCompressedSize ) override;
 
-	// End FImageWrapper Interface
+	//~ End FImageWrapper Interface
 
 private:
 	template <Imf::PixelType OutputFormat, typename sourcetype>

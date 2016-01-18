@@ -71,10 +71,13 @@ namespace ETestExternalUIInterfaceState
 	void OnExternalUIChange(bool bIsOpening);
 
 	/** Delegate executed when the user login UI has been closed. */
-	void OnLoginUIClosed(TSharedPtr<FUniqueNetId> LoggedInUserId, const int LocalUserId);
+	void OnLoginUIClosed(TSharedPtr<const FUniqueNetId> LoggedInUserId, const int LocalUserId);
 
 	/** Delegate executed when the user profile UI has been closed. */
 	void OnProfileUIClosed();
+
+	/** Delegate executed when the show web UI has been closed. */
+	void OnShowWebUrlClosed(const FString& FinalUrl);
 
  public:
 

@@ -6,6 +6,8 @@
 #include "AssetData.h"
 #endif
 
+#include "SuperSearchModule.h"
+
 /* 
  * Super search - Searches a number of resources including documentation, tutorials, Wiki and AnswerHub
  */
@@ -16,16 +18,29 @@ class SSuperSearchBox
 
 public:
 
+	DECLARE_DELEGATE_OneParam(FOnSearchEngineChanged, ESearchEngine);
+
 	SLATE_BEGIN_ARGS( SSuperSearchBox )
 		: _Style()
+		, _SearchEngineComboBoxStyle()
 		, _SuggestionListPlacement( MenuPlacement_ComboBoxRight )
+		, _SearchEngine(ESearchEngine::Google)
 		{}
 
 		/** Style used to draw this search box */
 		SLATE_ARGUMENT( TOptional<const FSearchBoxStyle*>, Style )
 
+		/** Style used to drag the search engine combobox */
+		SLATE_ARGUMENT( TOptional<const FComboBoxStyle*>, SearchEngineComboBoxStyle)
+
 		/** Where to place the suggestion list */
 		SLATE_ARGUMENT( EMenuPlacement, SuggestionListPlacement )
+
+		/** Where to place the suggestion list */
+		SLATE_ARGUMENT( ESearchEngine, SearchEngine)
+
+		/** Called when the user changes the search engine they prefer to use.  You should save this and restore it. */
+		SLATE_EVENT(FOnSearchEngineChanged, OnSearchEngineChanged)
 
 	SLATE_END_ARGS()
 
@@ -52,8 +67,6 @@ protected:
 	// e.g. Tab or Key_Up
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent );
 
-	void OnFocusLost( const FFocusEvent& InFocusEvent );
-
 	/** Handles entering in a command */
 	void OnTextCommitted(const FText& InText, ETextCommit::Type CommitInfo);
 
@@ -77,6 +90,14 @@ protected:
 	void ClearSuggestions();
 
 	FString GetSelectionText() const;
+
+	TSharedRef<SWidget> GenerateSearchEngineItem(TSharedPtr<ESearchEngine> SearchEngine);
+
+	void HandleSearchEngineChanged(TSharedPtr<ESearchEngine> InSearchEngine, ESelectInfo::Type);
+
+	FText GetSelectedSearchEngineText() const;
+
+	FText GetSearchEngineText(ESearchEngine Type) const;
 
 private:
 
@@ -115,5 +136,13 @@ private:
 	TSharedPtr<FSearchEntry> EntryClicked;
 
 	/** to prevent recursive calls in UI callback */
-	bool bIgnoreUIUpdate; 
+	bool bIgnoreUIUpdate;
+
+private:
+
+	TArray< TSharedPtr<ESearchEngine> > SearchEngines;
+
+	ESearchEngine CurrentSearchEngine;
+
+	FOnSearchEngineChanged SearchEngineChanged;
 };

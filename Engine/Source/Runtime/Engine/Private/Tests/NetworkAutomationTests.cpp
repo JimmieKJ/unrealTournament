@@ -2,7 +2,7 @@
 
 
 #include "EnginePrivate.h"
-#include "AutomationTestCommon.h"
+#include "AutomationCommon.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogNetworkAutomationTests, Log, All);
 
@@ -24,7 +24,7 @@ namespace EMultiplayerAutomationRoles
  * 2-Multiplayer session automation test
  * Verification for 2 player multiplayer session start up and tear down
  */
-IMPLEMENT_NETWORKED_AUTOMATION_TEST( FMultiplayer4PlayerTest, "System.Networking.Multiplayer.TwoPlayerSessionStartupShutdown", EAutomationTestFlags::ATF_Game, EMultiplayerAutomationRoles::MaxNumParticipants )
+IMPLEMENT_NETWORKED_AUTOMATION_TEST(FMultiplayer4PlayerTest, "System.Networking.Multiplayer.TwoPlayerSessionStartupShutdown", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter, EMultiplayerAutomationRoles::MaxNumParticipants)
 
 
 /** 
@@ -36,7 +36,7 @@ IMPLEMENT_NETWORKED_AUTOMATION_TEST( FMultiplayer4PlayerTest, "System.Networking
 bool FMultiplayer4PlayerTest::RunTest(const FString& Parameters)
 {
 	// Accessing the game world is only valid for game-only 
-	check((GetTestFlags() & EAutomationTestFlags::ATF_ApplicationMask) == EAutomationTestFlags::ATF_Game);
+	check((GetTestFlags() & EAutomationTestFlags::ApplicationContextMask) == EAutomationTestFlags::ClientContext);
 	check(GEngine->GetWorldContexts().Num() == 1);
 	check(GEngine->GetWorldContexts()[0].WorldType == EWorldType::Game);
 

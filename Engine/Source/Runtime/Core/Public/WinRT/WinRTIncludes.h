@@ -22,7 +22,6 @@
 #include "WinRT/WinRTTLS.h"
 #include "WinRT/WinRTSplash.h"
 #include "WinRT/WinRTSurvey.h"
-#include "WinRT/WinRTHttp.h"
 
 typedef FGenericPlatformRHIFramePacer FPlatformRHIFramePacer;
 

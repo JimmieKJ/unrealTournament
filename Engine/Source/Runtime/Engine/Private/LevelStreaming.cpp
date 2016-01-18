@@ -13,6 +13,7 @@
 #endif
 #include "Engine/LevelStreamingKismet.h"
 #include "Components/BrushComponent.h"
+#include "Engine/CoreSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLevelStreaming, Log, All);
 
@@ -171,7 +172,7 @@ bool FStreamLevelAction::UpdateLevel( ULevelStreaming* LevelStreamingObject )
 		return true;
 	}
 	// Level shouldn't be loaded but is as background level streaming is enabled so we need to fire finished event regardless.
-	else if( LevelStreamingObject->GetLoadedLevel() && !LevelStreamingObject->bShouldBeLoaded && !GEngine->bUseBackgroundLevelStreaming )
+	else if (LevelStreamingObject->GetLoadedLevel() && !LevelStreamingObject->bShouldBeLoaded && !GUseBackgroundLevelStreaming)
 	{
 		return true;
 	}
@@ -195,7 +196,7 @@ void ULevelStreaming::PostLoad()
 {
 	Super::PostLoad();
 
-	const bool PIESession = GetWorld()->WorldType == EWorldType::PIE || (GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0;
+	const bool PIESession = GetWorld()->WorldType == EWorldType::PIE || GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
 
 	// If this streaming level was saved with a short package name, try to convert it to a long package name
 	if ( !PIESession && PackageName_DEPRECATED != NAME_None )
@@ -255,20 +256,20 @@ UWorld* ULevelStreaming::GetWorld() const
 	}
 }
 
+#if WITH_EDITOR
 void ULevelStreaming::Serialize( FArchive& Ar )
 {
 	Super::Serialize(Ar);
 	
 	if (Ar.IsLoading())
 	{
-#if WITH_EDITOR
-		if ((GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0 && GetOutermost()->PIEInstanceID != INDEX_NONE)
+		if (GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor) && GetOutermost()->PIEInstanceID != INDEX_NONE)
 		{
 			RenameForPIE(GetOutermost()->PIEInstanceID);
 		}
-#endif
 	}
 }
+#endif
 
 FName ULevelStreaming::GetLODPackageName() const
 {
@@ -300,6 +301,7 @@ void ULevelStreaming::SetLoadedLevel(class ULevel* Level)
 	check(PendingUnloadLevel == nullptr);
 	PendingUnloadLevel = LoadedLevel;
 	LoadedLevel = Level;
+	CachedLoadedLevelPackageName = (LoadedLevel ? LoadedLevel->GetOutermost()->GetFName() : NAME_None);
 
 	// Cancel unloading for this level, in case it was queued for it
 	FLevelStreamingGCHelper::CancelUnloadRequest(LoadedLevel);
@@ -338,13 +340,13 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevelStreaming_RequestLevel);
 	FScopeCycleCounterUObject Context(PersistentWorld);
+
 	// Package name we want to load
-	FName DesiredPackageName = PersistentWorld->IsGameWorld() ? GetLODPackageName() : GetWorldAssetPackageFName();
-	FName DesiredPackageNameToLoad = PersistentWorld->IsGameWorld() ? GetLODPackageNameToLoad() : PackageNameToLoad;
+	const bool bIsGameWorld = PersistentWorld->IsGameWorld();
+	const FName DesiredPackageName = bIsGameWorld ? GetLODPackageName() : GetWorldAssetPackageFName();
 
 	// Check if currently loaded level is what we want right now
-	if (LoadedLevel != NULL && 
-		LoadedLevel->GetOutermost()->GetFName() == DesiredPackageName)
+	if (LoadedLevel && CachedLoadedLevelPackageName == DesiredPackageName)
 	{
 		return true;
 	}
@@ -356,7 +358,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	}
 		
 	// Try to find the [to be] loaded package.
-	UPackage* LevelPackage = (UPackage*) StaticFindObjectFast(UPackage::StaticClass(), NULL, DesiredPackageName, 0, 0, RF_PendingKill);
+	UPackage* LevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), NULL, DesiredPackageName, 0, 0, RF_NoFlags, EInternalObjectFlags::PendingKill);
 
 	// Package is already or still loaded.
 	if (LevelPackage)
@@ -409,7 +411,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	if ( PersistentWorld->IsPlayInEditor() )
 	{
 #if WITH_EDITOR
-		if ((PersistentWorld->GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0)
+		if (PersistentWorld->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			PackageFlags |= PKG_PlayInEditor;
 		}
@@ -454,11 +456,8 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	// Async load package if world object couldn't be found and we are allowed to request a load.
 	if (bAllowLevelLoadRequests)
 	{
-		FString PackageNameToLoadFrom = DesiredPackageName.ToString();
-		if (DesiredPackageNameToLoad != NAME_None)
-		{
-			PackageNameToLoadFrom = DesiredPackageNameToLoad.ToString();
-		}
+		const FName DesiredPackageNameToLoad = bIsGameWorld ? GetLODPackageNameToLoad() : PackageNameToLoad;
+		const FString PackageNameToLoadFrom = DesiredPackageNameToLoad != NAME_None ? DesiredPackageNameToLoad.ToString() : DesiredPackageName.ToString();
 
 		if (GUseSeekFreeLoading)
 		{
@@ -469,7 +468,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 			{
 				// Load localized part of level first in case it exists. We don't need to worry about GC or completion 
 				// callback as we always kick off another async IO for the level below.
-				LoadPackageAsync(*(GetWorldAssetPackageName() + LOCALIZED_SEEKFREE_SUFFIX), nullptr, NAME_None, *LocalizedPackageName, FLoadPackageAsyncDelegate(), PackageFlags, PIEInstanceID);
+				LoadPackageAsync(*(GetWorldAssetPackageName() + LOCALIZED_SEEKFREE_SUFFIX), nullptr, *LocalizedPackageName, FLoadPackageAsyncDelegate(), PackageFlags, PIEInstanceID);
 			}
 		}
 
@@ -481,14 +480,15 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 			UWorld::WorldTypePreLoadMap.FindOrAdd(DesiredPackageName) = PersistentWorld->WorldType;
 
 			// Kick off async load request.
-			LoadPackageAsync(DesiredPackageName.ToString(), nullptr, NAME_None, *PackageNameToLoadFrom, FLoadPackageAsyncDelegate::CreateUObject(this, &ULevelStreaming::AsyncLevelLoadComplete), PackageFlags, PIEInstanceID);
+			STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, *(FString( TEXT( "RequestLevel - " ) + DesiredPackageName.ToString() )) );
+			LoadPackageAsync(DesiredPackageName.ToString(), nullptr, *PackageNameToLoadFrom, FLoadPackageAsyncDelegate::CreateUObject(this, &ULevelStreaming::AsyncLevelLoadComplete), PackageFlags, PIEInstanceID);
 
 			// streamingServer: server loads everything?
 			// Editor immediately blocks on load and we also block if background level streaming is disabled.
 			if (bBlockOnLoad || ShouldBeAlwaysLoaded())
 			{
 				// Finish all async loading.
-				FlushAsyncLoading( NAME_None );
+				FlushAsyncLoading();
 			}
 		}
 		else
@@ -596,7 +596,8 @@ void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackag
 					FLinkerLoad* PackageLinker = FLinkerLoad::FindExistingLinkerForPackage(LevelPackage);
 					if (PackageLinker)
 					{
-						delete PackageLinker;
+						PackageLinker->Detach();
+						DeleteLoader(PackageLinker);
 						PackageLinker = nullptr;
 					}
 
@@ -623,7 +624,7 @@ void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackag
 						DestinationWorld->PersistentLevel->CommitModelSurfaces();
 					}
 					
-					WorldAsset = DestinationWorld;
+					SetWorldAsset(DestinationWorld);
 				}
 			}
 		}
@@ -637,11 +638,17 @@ void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackag
 	else
 	{
 		UE_LOG(LogLevelStreaming, Warning, TEXT("Failed to load package '%s'"), *InPackageName.ToString() );
+		
+		bFailedToLoad = true;
+ 		bHasLoadRequestPending = false;
+ 		bShouldBeLoaded = false;
 	}
 
 	// Clean up the world type list and owning world list now that PostLoad has occurred
 	UWorld::WorldTypePreLoadMap.Remove(InPackageName);
 	ULevel::StreamedLevelsOwningWorld.Remove(InPackageName);
+
+	STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, *(FString( TEXT( "RequestLevelComplete - " ) + InPackageName.ToString() )) );
 }
 
 bool ULevelStreaming::IsLevelVisible() const
@@ -661,8 +668,8 @@ bool ULevelStreaming::IsStreamingStatePending() const
 	{
 		if (IsLevelLoaded() == ShouldBeLoaded() && IsLevelVisible() == ShouldBeVisible())
 		{
-			FName DesiredPackageName = PersistentWorld->IsGameWorld() ? GetLODPackageName() : GetWorldAssetPackageFName();
-			if (!LoadedLevel || LoadedLevel->GetOutermost()->GetFName() == DesiredPackageName)
+			const FName DesiredPackageName = PersistentWorld->IsGameWorld() ? GetLODPackageName() : GetWorldAssetPackageFName();
+			if (!LoadedLevel || CachedLoadedLevelPackageName == DesiredPackageName)
 			{
 				return false;
 			}
@@ -748,28 +755,35 @@ void ULevelStreaming::BroadcastLevelVisibleStatus(UWorld* PersistentWorld, FName
 	}
 }
 
+void ULevelStreaming::SetWorldAsset(const TAssetPtr<UWorld>& NewWorldAsset)
+{
+	WorldAsset = NewWorldAsset;
+	bHasCachedWorldAssetPackageFName = false;
+}
+
 FString ULevelStreaming::GetWorldAssetPackageName() const
 {
-	const FString WorldAssetPath = WorldAsset.ToStringReference().ToString();
-	return FPackageName::ObjectPathToPackageName(WorldAssetPath);
+	return GetWorldAssetPackageFName().ToString();
 }
 
 FName ULevelStreaming::GetWorldAssetPackageFName() const
 {
-	const FString WorldAssetPackageName = GetWorldAssetPackageName();
-	if ( !WorldAssetPackageName.IsEmpty() )
+	if (!bHasCachedWorldAssetPackageFName)
 	{
-		return FName(*WorldAssetPackageName);
+		ULevelStreaming* MutableThis = const_cast<ULevelStreaming*>(this);
+		MutableThis->CachedWorldAssetPackageFName = FName(*FPackageName::ObjectPathToPackageName(WorldAsset.ToString()));
+		MutableThis->bHasCachedWorldAssetPackageFName = true;
 	}
-	
-	return NAME_None;
+	return CachedWorldAssetPackageFName;
 }
 
 void ULevelStreaming::SetWorldAssetByPackageName(FName InPackageName)
 {
 	const FString TargetWorldPackageName = InPackageName.ToString();
 	const FString TargetWorldObjectName = FPackageName::GetLongPackageAssetName(TargetWorldPackageName);
-	WorldAsset = TargetWorldPackageName + TEXT(".") + TargetWorldObjectName;
+	TAssetPtr<UWorld> NewWorld;
+	NewWorld = TargetWorldPackageName + TEXT(".") + TargetWorldObjectName;
+	SetWorldAsset(NewWorld);
 }
 
 void ULevelStreaming::RenameForPIE(int32 PIEInstanceID)
@@ -866,21 +880,14 @@ void ULevelStreaming::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		{
 			// Make sure the level's Level Color change is applied immediately by reregistering the
 			// components of the actor's in the level
-			if( LoadedLevel != NULL )
+			if (LoadedLevel != nullptr)
 			{
-				UPackage* Package = LoadedLevel->GetOutermost();
-				for( TObjectIterator<UActorComponent> It; It; ++It )
-				{
-					if( It->IsIn( Package ) )
-					{
-						UActorComponent* ActorComponent = Cast<UActorComponent>( *It );
-						if( ActorComponent )
-						{
-							ActorComponent->RecreateRenderState_Concurrent();
-						}
-					}
-				}
+				LoadedLevel->MarkLevelComponentsRenderStateDirty();
 			}
+		}
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(ULevelStreaming, WorldAsset))
+		{
+			bHasCachedWorldAssetPackageFName = false;
 		}
 	}
 
@@ -966,6 +973,15 @@ bool ULevelStreamingKismet::ShouldBeVisible() const
 bool ULevelStreamingKismet::ShouldBeLoaded() const
 {
 	return bShouldBeLoaded;
+}
+
+ALevelScriptActor* ULevelStreaming::GetLevelScriptActor()
+{
+	if (LoadedLevel)
+	{
+		return LoadedLevel->GetLevelScriptActor();
+	}
+	return nullptr;
 }
 
 /*-----------------------------------------------------------------------------

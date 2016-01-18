@@ -11,6 +11,8 @@ public:
 	SLATE_BEGIN_ARGS(STimelinesContainer){}
 	SLATE_END_ARGS()
 
+	virtual ~STimelinesContainer();
+
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -19,14 +21,12 @@ public:
 
 	/** Constructs this widget with InArgs */
 	void Construct(const FArguments& InArgs, TSharedRef<class SVisualLoggerView>, TSharedRef<FVisualLoggerTimeSliderController> TimeSliderController);
-	TSharedRef<SWidget> MakeTimeline(TSharedPtr<class SVisualLoggerView> VisualLoggerView, TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController, const FVisualLogDevice::FVisualLogEntryItem& Entry);
 	TSharedRef<SWidget> GetRightClickMenuContent();
 
 	void OnTimelineSelected(TSharedPtr<class STimelinesBar> Widget);
 	void ChangeSelection(class TSharedPtr<class STimeline>, const FPointerEvent& MouseEvent);
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 
-	void OnNewLogEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry);
 	void OnFiltersChanged();
 	void OnSearchChanged(const FText& Filter);
 	void OnFiltersSearchChanged(const FText& Filter);
@@ -47,7 +47,7 @@ public:
 	/**
 	* @return All currently selected nodes
 	*/
-	const TArray< TSharedPtr<class STimeline> >& GetSelectedNodes() const { return SelectedNodes; }
+	const TArray< TSharedPtr<class STimeline> >& GetSelectedNodes() const { return CachedSelectedTimelines; }
 
 	const TArray< TSharedPtr<class STimeline> >& GetAllNodes() const { return TimelineItems; }
 
@@ -60,10 +60,17 @@ public:
 	bool IsNodeSelected(TSharedPtr<class STimeline> Node) const;
 
 protected:
+	void OnNewRowHandler(const FVisualLoggerDBRow& DBRow);
+	void OnNewItemHandler(const FVisualLoggerDBRow& BDRow, int32 ItemIndex);
+	void OnObjectSelectionChanged(const TArray<FName>& RowNames);
+	void OnRowChangedVisibility(const FName&);
+
+protected:
+	TSharedPtr<SVerticalBox> ContainingBorder;
 	TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController;
 	TSharedPtr<class SVisualLoggerView> VisualLoggerView;
+
 	TArray<TSharedPtr<class STimeline> > TimelineItems;
-	TArray< TSharedPtr<class STimeline> > SelectedNodes;
-	TSharedPtr<SVerticalBox> ContainingBorder;
+	TArray< TSharedPtr<class STimeline> > CachedSelectedTimelines;
 	float CachedMinTime, CachedMaxTime;
 };

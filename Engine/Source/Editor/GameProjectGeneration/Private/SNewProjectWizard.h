@@ -23,6 +23,9 @@ public:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
+	/** Populates TemplateItemsSource with templates found on disk */
+	TMap<FName, TArray<TSharedPtr<FTemplateItem>> >& FindTemplateProjects();
+
 private:
 
 	/** Build the set of template category tabs */
@@ -135,6 +138,8 @@ private:
 
 	/** Returns the tooltip text (actual warning) of the starter content warning */
 	FText GetStarterContentWarningTooltip() const;
+
+
 private:
 
 	EHardwareClass::Type SelectedHardwareClassTarget;
@@ -144,11 +149,6 @@ private:
 	EGraphicsPreset::Type SelectedGraphicsPreset;
 	void SetGraphicsPreset(EGraphicsPreset::Type InGraphicsPreset);
 	EGraphicsPreset::Type GetGraphicsPreset() const { return SelectedGraphicsPreset; }
-
-private:
-
-	/** Populates TemplateItemsSource with templates found on disk */
-	void FindTemplateProjects();
 
 	/** Sets the default project name and path */
 	void SetDefaultProjectLocation();

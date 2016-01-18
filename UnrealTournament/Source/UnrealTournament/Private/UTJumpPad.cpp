@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTJumpPad.h"
@@ -366,7 +366,7 @@ void AUTJumpPad::CheckForErrors()
 	TSubclassOf<AUTGameMode> UTGameClass = *GameClass;
 	if (UTGameClass)
 	{
-		DefaultChar = Cast<ACharacter>(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *UTGameClass.GetDefaultObject()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn)));
+		DefaultChar = Cast<ACharacter>(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *UTGameClass.GetDefaultObject()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn)));
 	}
 	else
 	{

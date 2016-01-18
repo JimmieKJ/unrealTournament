@@ -24,7 +24,7 @@ typedef TSharedPtr<class IHttpResponse, ESPMode::ThreadSafe> FHttpResponsePtr;
  *   ImageCache.SetStandInBrush(FStyle::Get()->GetBrush("Foo"));
  *
  *   SNew(SImage)
- *   .Image(ImageCache.Download(Url).Attr())
+ *   .Image(ImageCache.Download(Url)->Attr())
  */
 class IMAGEDOWNLOAD_API FWebImage 
 	: public TSharedFromThis<FWebImage>
@@ -42,7 +42,13 @@ public:
 	FORCEINLINE FWebImage& SetStandInBrush(TAttribute<const FSlateBrush*> StandInBrushIn) { StandInBrush = StandInBrushIn; DownloadedBrush.Reset(); return *this; }
 
 	/** Begin downloading an image. This will automatically set the current brush to the downloaded image when it completes (if successful) */
-	bool BeginDownload(const FString& Url, const FOnImageDownloaded& DownloadCallback = FOnImageDownloaded());
+	bool BeginDownload(const FString& InUrl, const TOptional<FString>& StandInETag = TOptional<FString>(), const FOnImageDownloaded& DownloadCallback = FOnImageDownloaded());
+
+	/** Begin downloading an image. */
+	FORCEINLINE bool BeginDownload(const FString& InUrl, const FOnImageDownloaded& DownloadCallback)
+	{
+		return BeginDownload(InUrl, TOptional<FString>(), DownloadCallback);
+	}
 
 	/** Cancel any download in progress */
 	void CancelDownload();
@@ -70,6 +76,9 @@ public:
 	/** What URL was requested */
 	FORCEINLINE const FString& GetUrl() const { return Url; }
 
+	/** What is the ETag of the downloaded resource */
+	FORCEINLINE const TOptional<FString>& GetETag() const { return ETag; }
+
 private:
 	/** request complete callback */
 	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FOnImageDownloaded DownloadCb);
@@ -93,4 +102,7 @@ private:
 
 	/** When did the download complete */
 	FDateTime DownloadTimeUtc;
+
+	/** The ETag of the downloaded image */
+	TOptional<FString> ETag;
 };

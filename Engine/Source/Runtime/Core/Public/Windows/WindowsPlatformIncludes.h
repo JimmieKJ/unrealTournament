@@ -23,7 +23,6 @@
 #include "Windows/WindowsPlatformSplash.h"
 #include "Windows/WindowsPlatformFile.h"
 #include "Windows/WindowsPlatformSurvey.h"
-#include "Windows/WindowsPlatformHttp.h"
 
 
 typedef FGenericPlatformRHIFramePacer FPlatformRHIFramePacer;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTProjectileMovementComponent.h"
@@ -27,7 +27,19 @@ protected:
 	/** set after all needed properties are set for this pickup to grant its item (e.g. SetInventoryType() called in the case of the default implementation, may vary for subclasses) */
 	UPROPERTY(BlueprintReadWrite)
 	bool bFullyInitialized;
+
+	UPROPERTY(ReplicatedUsing = OnRepWeaponSkin)
+	UUTWeaponSkin* WeaponSkin;
+
+	UFUNCTION()
+	virtual void OnRepWeaponSkin();
+
 public:
+	inline void SetWeaponSkin(UUTWeaponSkin* InWeaponSkin)
+	{
+		WeaponSkin = InWeaponSkin;
+		OnRepWeaponSkin();
+	}
 	inline const UMeshComponent* GetMesh() const
 	{
 		return Mesh;

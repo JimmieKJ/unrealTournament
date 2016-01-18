@@ -13,6 +13,12 @@ struct FAnalyticsEventAttribute
 	FString AttrName;
 	FString AttrValue;
 
+	FAnalyticsEventAttribute()
+	{
+		AttrName = FString();
+		AttrValue = FString();
+	}
+
 	FAnalyticsEventAttribute(const FString& InName, const FString& InValue)
 		:AttrName(InName)
 		,AttrValue(InValue)

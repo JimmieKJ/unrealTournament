@@ -37,7 +37,7 @@ void ANavModifierVolume::SetAreaClass(TSubclassOf<UNavArea> NewAreaClass)
 		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
 		if (NavSys != nullptr)
 		{
-			NavSys->UpdateNavOctree(this);
+			NavSys->UpdateActorInNavOctree(*this);
 		}
 	}
 }
@@ -48,7 +48,7 @@ void ANavModifierVolume::PostEditUndo()
 {
 	Super::PostEditUndo();
 
-	UNavigationSystem::UpdateNavOctree(this);
+	UNavigationSystem::UpdateActorInNavOctree(*this);
 }
 
 void ANavModifierVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -57,7 +57,7 @@ void ANavModifierVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 
 	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ANavModifierVolume, AreaClass))
 	{
-		UNavigationSystem::UpdateNavOctree(this);
+		UNavigationSystem::UpdateActorInNavOctree(*this);
 	}
 }
 

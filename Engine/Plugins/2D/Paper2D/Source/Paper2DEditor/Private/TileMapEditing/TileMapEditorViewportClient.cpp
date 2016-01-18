@@ -44,7 +44,7 @@ FTileMapEditorViewportClient::FTileMapEditorViewportClient(TWeakPtr<FTileMapEdit
 	bShowPivot = false;
 
 	EngineShowFlags.DisableAdvancedFeatures();
-	EngineShowFlags.CompositeEditorPrimitives = true;
+	EngineShowFlags.SetCompositeEditorPrimitives(true);
 
 	// Create a render component for the tile map being edited
 	{
@@ -259,7 +259,7 @@ bool FTileMapEditorViewportClient::IsShowLayerGridChecked() const
 
 void FTileMapEditorViewportClient::ToggleShowMeshEdges()
 {
-	EngineShowFlags.MeshEdges = !EngineShowFlags.MeshEdges;
+	EngineShowFlags.SetMeshEdges(!EngineShowFlags.MeshEdges);
 	Invalidate();
 }
 

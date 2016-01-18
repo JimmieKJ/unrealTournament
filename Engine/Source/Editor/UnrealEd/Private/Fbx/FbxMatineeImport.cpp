@@ -351,7 +351,7 @@ void FFbxImporter::ImportAnimatedProperty(float* Value, const TCHAR* ValueName, 
 	if (Scene == NULL || Value == NULL || MatineeGroup == NULL) return;
 
 	// Retrieve the FBX animated element for this value and verify that it contains an animation curve.
-	if ( !InProperty.IsValid() || !InProperty.GetFlag(FbxPropertyAttr::eAnimatable) )
+	if ( !InProperty.IsValid() || !InProperty.GetFlag(FbxPropertyFlags::eAnimatable) )
 	{
 		return;
 	}

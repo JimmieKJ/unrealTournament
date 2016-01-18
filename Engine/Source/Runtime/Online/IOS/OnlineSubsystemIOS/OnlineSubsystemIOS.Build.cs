@@ -24,5 +24,8 @@ public class OnlineSubsystemIOS : ModuleRules
                 "Http",
             }
             );
+
+		PublicWeakFrameworks.Add("Cloudkit");
+		PublicWeakFrameworks.Add("MultipeerConnectivity");
 	}
 }

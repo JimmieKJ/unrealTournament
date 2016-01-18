@@ -64,19 +64,19 @@ namespace EUserPrivileges
  * Delegate called when a player logs in/out
  *
  * @param LocalUserNum the controller number of the associated user
- * @param LocalUserNum the player that logged in/out
  */
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnLoginChanged, int32);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnLoginChanged, int32 /*LocalUserNum*/);
 typedef FOnLoginChanged::FDelegate FOnLoginChangedDelegate;
 
 /**
  * Delegate called when a player's status changes but doesn't change profiles
  *
  * @param LocalUserNum the controller number of the associated user
+ * @param OldStatus the old login status for the user
  * @param NewStatus the new login status for the user
  * @param NewId the new id to associate with the user
  */
-DECLARE_MULTICAST_DELEGATE_FourParams(FOnLoginStatusChanged, int32, ELoginStatus::Type, ELoginStatus::Type, const FUniqueNetId&);
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnLoginStatusChanged, int32 /*LocalUserNum*/, ELoginStatus::Type /*OldStatus*/, ELoginStatus::Type /*NewStatus*/, const FUniqueNetId& /*NewId*/);
 typedef FOnLoginStatusChanged::FDelegate FOnLoginStatusChangedDelegate;
 
 /**
@@ -86,7 +86,7 @@ typedef FOnLoginStatusChanged::FDelegate FOnLoginStatusChangedDelegate;
  * @param PreviousUser the user that used to be paired with this controller
  * @param NewUser the user that is currently paired with this controller
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnControllerPairingChanged, int, const FUniqueNetId&, const FUniqueNetId&);
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnControllerPairingChanged, int /*LocalUserNum*/, const FUniqueNetId& /*PreviousUser*/, const FUniqueNetId& /*NewUser*/);
 typedef FOnControllerPairingChanged::FDelegate FOnControllerPairingChangedDelegate;
 
 /**
@@ -97,7 +97,7 @@ typedef FOnControllerPairingChanged::FDelegate FOnControllerPairingChangedDelega
  * @param UserId the user id received from the server on successful login
  * @param Error string representing the error condition
  */
-DECLARE_MULTICAST_DELEGATE_FourParams(FOnLoginComplete, int32, bool, const FUniqueNetId&, const FString&);
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnLoginComplete, int32 /*LocalUserNum*/, bool /*bWasSuccessful*/, const FUniqueNetId& /*UserId*/, const FString& /*Error*/);
 typedef FOnLoginComplete::FDelegate FOnLoginCompleteDelegate;
 
 
@@ -107,7 +107,7 @@ typedef FOnLoginComplete::FDelegate FOnLoginCompleteDelegate;
  * @param LocalUserNum the controller number of the associated user
  * @param bWasSuccessful whether the async call completed properly or not
  */
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLogoutComplete, int32, bool);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLogoutComplete, int32 /*LocalUserNum*/, bool /*bWasSuccessful*/);
 typedef FOnLogoutComplete::FDelegate FOnLogoutCompleteDelegate;
 
 /**
@@ -247,7 +247,7 @@ public:
 	 *
 	 * @return Valid player id object if the call succeeded, NULL otherwise
 	 */
-	virtual TSharedPtr<FUniqueNetId> GetUniquePlayerId(int32 LocalUserNum) const = 0;
+	virtual TSharedPtr<const FUniqueNetId> GetUniquePlayerId(int32 LocalUserNum) const = 0;
 
 	/**
 	 * Gets the platform specific unique id for the sponsor of the specified player
@@ -256,7 +256,7 @@ public:
 	 *
 	 * @return Valid player id object if the sponsor exists, NULL otherwise
 	 */
-	virtual TSharedPtr<FUniqueNetId> GetSponsorUniquePlayerId(int32 LocalUserNum) const { return nullptr; }
+	virtual TSharedPtr<const FUniqueNetId> GetSponsorUniquePlayerId(int32 LocalUserNum) const { return nullptr; }
 
 	/**
 	 * Create a unique id from binary data (used during replication)
@@ -266,7 +266,7 @@ public:
 	 *
 	 * @return UniqueId from the given data, NULL otherwise
 	 */
-	virtual TSharedPtr<FUniqueNetId> CreateUniquePlayerId(uint8* Bytes, int32 Size) = 0;
+	virtual TSharedPtr<const FUniqueNetId> CreateUniquePlayerId(uint8* Bytes, int32 Size) = 0;
 
 	/**
 	 * Create a unique id from string
@@ -275,7 +275,7 @@ public:
 	 *
 	 * @return UniqueId from the given data, NULL otherwise
 	 */
-	virtual TSharedPtr<FUniqueNetId> CreateUniquePlayerId(const FString& Str) = 0;
+	virtual TSharedPtr<const FUniqueNetId> CreateUniquePlayerId(const FString& Str) = 0;
 
 	/**
 	 * Fetches the login status for a given player
@@ -350,6 +350,13 @@ public:
 	 * @return The corresponding id or PLATFORMID_NONE if not found
 	 */
 	virtual FPlatformUserId GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId) = 0;
+
+	/**
+	 * Get the auth type associated with accounts for this platform
+	 *
+	 * @return The auth type associated with accounts for this platform
+	 */
+	virtual FString GetAuthType() const = 0;
 };
 
 typedef TSharedPtr<IOnlineIdentity, ESPMode::ThreadSafe> IOnlineIdentityPtr;

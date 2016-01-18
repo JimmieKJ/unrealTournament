@@ -8,6 +8,14 @@
 
 class UPawnAction;
 
+enum class EPawnActionTaskResult : uint8
+{
+	Unknown,
+	TaskFinished,
+	TaskAborted,
+	ActionLost,
+};
+
 /**
  * Base class for managing pawn actions
  *
@@ -32,8 +40,12 @@ protected:
 	/** action observer, updates state of task */
 	virtual void OnActionEvent(UPawnAction& Action, EPawnActionEventType::Type Event);
 
+	/** called when action is removed from stack (FinishedAborting) by some external event
+	 *  default behavior: finish task as failed */
+	virtual void OnActionLost(UPawnAction& Action);
+
 public:
 
 	/** helper functions, should be used when behavior tree task deals with pawn actions, but can't derive from this class */
-	static void ActionEventHandler(UBTTaskNode* TaskNode, UPawnAction& Action, EPawnActionEventType::Type Event);
+	static EPawnActionTaskResult ActionEventHandler(UBTTaskNode* TaskNode, UPawnAction& Action, EPawnActionEventType::Type Event);
 };

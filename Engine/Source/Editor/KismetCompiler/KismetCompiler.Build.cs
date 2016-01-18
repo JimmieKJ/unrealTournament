@@ -13,7 +13,7 @@ public class KismetCompiler : ModuleRules
 				"Engine",
                 "InputCore",
 				"UnrealEd",
-				"MovieSceneCore",
+				"MovieScene",
 				"MovieSceneTools",
 				"FunctionalTesting",
 				"BlueprintGraph",

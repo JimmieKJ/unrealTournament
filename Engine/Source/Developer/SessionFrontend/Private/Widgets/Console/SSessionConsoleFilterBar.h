@@ -25,7 +25,7 @@ public:
 	 *
 	 * @param InArgs The declaration data for this widget.
 	 */
-	void Construct( const FArguments& InArgs );
+	void Construct(const FArguments& InArgs);
 
 	/**
 	 * Filters the specified log message based on the current filter settings.
@@ -33,7 +33,7 @@ public:
 	 * @param LogMessage The log message to filter.
 	 * @return true if the log message passed the filter, false otherwise.
 	 */
-	bool FilterLogMessage( const FSessionLogMessageRef& LogMessage );
+	bool FilterLogMessage(const FSessionLogMessageRef& LogMessage);
 
 	/**
 	 * Gets the current filter string.
@@ -53,7 +53,7 @@ protected:
 	 * @param Category The filter's category.
 	 * @see AddVerbosityFilter
 	 */
-	void AddCategoryFilter( const FName& Category );
+	void AddCategoryFilter(const FName& Category);
 
 	/**
 	 * Adds a verbosity filter.
@@ -63,33 +63,33 @@ protected:
 	 * @param Icon The name of the filter's icon.
 	 * @see AddVerbosityFilter
 	 */
-	void AddVerbosityFilter( ELogVerbosity::Type Verbosity, const FString& Name, const FName& Icon );
+	void AddVerbosityFilter(ELogVerbosity::Type Verbosity, const FString& Name, const FName& Icon);
 
 private:
 
 	/** Callback for generating a row widget for the category filter list. */
-	TSharedRef<ITableRow> HandleCategoryFilterGenerateRow( FSessionConsoleCategoryFilterPtr Filter, const TSharedRef<STableViewBase>& OwnerTable );
+	TSharedRef<ITableRow> HandleCategoryFilterGenerateRow(FSessionConsoleCategoryFilterPtr Filter, const TSharedRef<STableViewBase>& OwnerTable);
 
 	/** Callback for getting the text for a row in the category filter drop-down. */
-	FText HandleCategoryFilterGetRowText( FSessionConsoleCategoryFilterPtr Filter ) const;
+	FText HandleCategoryFilterGetRowText(FSessionConsoleCategoryFilterPtr Filter) const;
 
 	/** Callback for changing the enabled state of a category filter. */
-	void HandleCategoryFilterStateChanged( const FName& ChangedCategory, bool Enabled );
+	void HandleCategoryFilterStateChanged(const FName& ChangedCategory, bool Enabled);
 
 	/** Callback for changing the filter string text box text. */
-	void HandleFilterStringTextChanged( const FText& NewText );
+	void HandleFilterStringTextChanged(const FText& NewText);
 
 	/** Callback for changing the checked state of the 'Filter' check box. */
-	void HandleHighlightOnlyCheckBoxCheckStateChanged( ECheckBoxState CheckedState );
+	void HandleHighlightOnlyCheckBoxCheckStateChanged(ECheckBoxState CheckedState);
 
 	/** Callback for generating a row widget for the verbosity filter list. */
-	TSharedRef<ITableRow> HandleVerbosityFilterGenerateRow( FSessionConsoleVerbosityFilterPtr Filter, const TSharedRef<STableViewBase>& OwnerTable );
+	TSharedRef<ITableRow> HandleVerbosityFilterGenerateRow(FSessionConsoleVerbosityFilterPtr Filter, const TSharedRef<STableViewBase>& OwnerTable);
 
 	/** Callback for getting the text for a row in the verbosity filter drop-down. */
-	FText HandleVerbosityFilterGetRowText( FSessionConsoleVerbosityFilterPtr Filter ) const;
+	FText HandleVerbosityFilterGetRowText(FSessionConsoleVerbosityFilterPtr Filter) const;
 
 	/** Callback for changing the check state of a filter button. */
-	void HandleVerbosityFilterStateChanged( ELogVerbosity::Type Verbosity, bool Enabled );
+	void HandleVerbosityFilterStateChanged(ELogVerbosity::Type Verbosity, bool Enabled);
 
 private:
 

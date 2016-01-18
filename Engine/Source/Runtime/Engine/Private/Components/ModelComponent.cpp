@@ -72,8 +72,6 @@ void UModelComponent::InitializeModelComponent(UModel* InModel, uint16 InCompone
 	// Model components are transacted.
 	SetFlags(RF_Transactional);
 
-	GenerateElements(true);
-
 	CastShadow = true;
 	bUseAsOccluder = true;
 	Mobility = EComponentMobility::Static;
@@ -255,7 +253,6 @@ void UModelComponent::PostEditUndo()
 	if(ensure(Level))
 	{
 		Level->InvalidateModelSurface();
-		Level->CommitModelSurfaces();
 	}
 	Super::PostEditUndo();
 }
@@ -387,6 +384,29 @@ void UModelComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveI
 
 #if WITH_EDITOR
 
+struct FNodeGroupKey
+{
+	FNodeGroup* NodeGroup;
+	uint32 LightMapScale;
+	UMaterialInterface* MaterialInterface;
+
+	FNodeGroupKey(FNodeGroup* InNodeGroup, float InLightMapScale, UMaterialInterface* InMaterialInterface)
+		: NodeGroup(InNodeGroup)
+		, LightMapScale(FMath::TruncToInt(InLightMapScale))
+		, MaterialInterface(InMaterialInterface)
+	{}
+
+	friend FORCEINLINE bool operator == (const FNodeGroupKey& A, const FNodeGroupKey& B)
+	{
+		return A.NodeGroup == B.NodeGroup && A.LightMapScale == B.LightMapScale && A.MaterialInterface == B.MaterialInterface;
+	}
+
+	friend FORCEINLINE uint32 GetTypeHash(const FNodeGroupKey& Key)
+	{
+		return HashCombine(GetTypeHash(Key.NodeGroup), HashCombine(Key.LightMapScale, GetTypeHash(Key.MaterialInterface)));
+	}
+};
+
 bool UModelComponent::GenerateElements(bool bBuildRenderData)
 {
 	Elements.Empty();
@@ -414,62 +434,42 @@ bool UModelComponent::GenerateElements(bool bBuildRenderData)
 	}
 	else
 	{
-		typedef TMap<UMaterialInterface*,FModelElement*> TMaterialElementMap;
-		typedef TMap<uint32,TMaterialElementMap*> TResolutionToMaterialElementMap;
-		TMap<FNodeGroup*,TResolutionToMaterialElementMap*> NodeGroupToResolutionToMaterialElementMap;
+		// Prebuild an array relating the node index to the corresponding NodeGroup
+		TArray<FNodeGroup*> NodeGroupForNode;
+		NodeGroupForNode.AddZeroed(Model->Nodes.Num());
+		for (const auto& NodeGroupPair : Model->NodeGroups)
+		{
+			FNodeGroup* NodeGroup = NodeGroupPair.Value;
+
+			for (int32 Node : NodeGroup->Nodes)
+			{
+				check(NodeGroupForNode[Node] == nullptr);
+				NodeGroupForNode[Node] = NodeGroup;
+			}
+		}
+
+		TMap<FNodeGroupKey, FModelElement*> NodeGroupToElementMap;
+		NodeGroupToElementMap.Empty(Nodes.Num());
 
 		// Find the BSP nodes which are in this component's zone.
-		for (int32 NodeIndex = 0;NodeIndex < Nodes.Num();NodeIndex++)
+		for (int32 NodeIndex = 0; NodeIndex < Nodes.Num(); NodeIndex++)
 		{
 			FBspNode& Node = Model->Nodes[Nodes[NodeIndex]];
 			FBspSurf& Surf = Model->Surfs[Node.iSurf];
 
 			// Find the node group it belong to
-			FNodeGroup* FoundNodeGroup = NULL;
-			// find the NodeGroup that this node went into, and get all of its node
-			for (TMap<int32, FNodeGroup*>::TIterator It(Model->NodeGroups); It && (FoundNodeGroup == NULL); ++It)
-			{
-				FNodeGroup* NodeGroup = It.Value();
-				for (int32 InnerNodeIdx = 0; InnerNodeIdx < NodeGroup->Nodes.Num(); InnerNodeIdx++)
-				{
-					if (NodeGroup->Nodes[InnerNodeIdx] == Nodes[NodeIndex])
-					{
-						FoundNodeGroup = NodeGroup;
-						break;
-					}
-				}
-			}
+			FNodeGroup* FoundNodeGroup = NodeGroupForNode[Nodes[NodeIndex]];
 
-			TResolutionToMaterialElementMap* ResToMaterialElementMap = NodeGroupToResolutionToMaterialElementMap.FindRef(FoundNodeGroup);
-			if (!ResToMaterialElementMap)
+			const FNodeGroupKey NodeGroupKey(FoundNodeGroup, Surf.LightMapScale, Surf.Material);
+			FModelElement** Element = NodeGroupToElementMap.Find(NodeGroupKey);
+			if (Element == nullptr)
 			{
-				TResolutionToMaterialElementMap* TempResToMaterialElementMap = new TResolutionToMaterialElementMap();
-				NodeGroupToResolutionToMaterialElementMap.Add(FoundNodeGroup, TempResToMaterialElementMap);
-				ResToMaterialElementMap = NodeGroupToResolutionToMaterialElementMap.FindRef(FoundNodeGroup);
-				check(ResToMaterialElementMap);
-			}
-
-			// Find an element with the same material as this node.
-			uint32 ResValue = FMath::TruncToInt(Surf.LightMapScale);
-			TMap<UMaterialInterface*,FModelElement*>* MaterialElementMap = ResToMaterialElementMap->FindRef(ResValue);
-			if (!MaterialElementMap)
-			{
-				TMap<UMaterialInterface*,FModelElement*>* TempMap = new TMap<UMaterialInterface*,FModelElement*>();
-				ResToMaterialElementMap->Add(ResValue, TempMap);
-				MaterialElementMap = ResToMaterialElementMap->FindRef(ResValue);
-				check(MaterialElementMap);
-			}
-
-			FModelElement* Element = MaterialElementMap->FindRef(Surf.Material);
-			if (!Element)
-			{
-				// If there's no matching element, create a new element.
-				Element = MaterialElementMap->Add(Surf.Material,new(Elements) FModelElement(this,Surf.Material));
+				Element = &NodeGroupToElementMap.Add(NodeGroupKey, new(Elements)FModelElement(this, Surf.Material));
 			}
 			check(Element);
 
 			// Add the node to the element.
-			Element->Nodes.Add(Nodes[NodeIndex]);
+			(*Element)->Nodes.Add(Nodes[NodeIndex]);
 		}
 	}
 

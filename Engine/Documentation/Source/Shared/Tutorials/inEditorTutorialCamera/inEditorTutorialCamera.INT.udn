@@ -10,7 +10,7 @@ Viewport Introduction
 [/VAR]
 
 [EXCERPT:ViewportIntro]
-The Viewports are your window into the worlds you create in Unreal. They can be navigated just as you would in a game, or can be used in a more schematic design sense as you would for an architectural blueprint. The Unreal Editor viewports contain a variety of tools and visualizers to help you see exactly the data you need. 
+The **Viewports** are your window into the worlds you create in Unreal. They can be navigated just as you would in a game, or can be used in a more schematic design sense as you would for an architectural blueprint. The Unreal Editor viewports contain a variety of tools and visualizers to help you see exactly the data you need. 
 [/EXCERPT:ViewportIntro]
 
 ![](viewports.png)

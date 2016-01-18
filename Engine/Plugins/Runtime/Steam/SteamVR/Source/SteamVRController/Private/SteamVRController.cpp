@@ -1,32 +1,85 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SteamVRControllerPrivatePCH.h"
-
+#include "ISteamVRControllerPlugin.h"
+#include "IMotionController.h"
+#include "../../SteamVR/Private/SteamVRHMD.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSteamVRController, Log, All);
 
-/** @todo steamvr - do something about this define */
-#ifndef MAX_STEAMVR_CONTROLLERS
-	#define MAX_STEAMVR_CONTROLLERS 8
-#endif
-
-/** Max number of controller buttons.  Must be < 256*/
-#define MAX_NUM_CONTROLLER_BUTTONS 9
+/** Total number of controllers in a set */
+#define CONTROLLERS_PER_PLAYER	2
 
 /** Controller axis mappings. @todo steamvr: should enumerate rather than hard code */
 #define TOUCHPAD_AXIS	0
 #define TRIGGER_AXIS	1
+#define DOT_45DEG		0.7071f
 
 //
 // Gamepad thresholds
 //
 #define TOUCHPAD_DEADZONE  0.0f
 
+// Controls whether or not we need to swap the input routing for the hands, for debugging
+static TAutoConsoleVariable<int32> CVarSwapHands(
+	TEXT("vr.SwapMotionControllerInput"),
+	0,
+	TEXT("This command allows you to swap the button / axis input handedness for the input controller, for debugging purposes.\n")
+	TEXT(" 0: don't swap (default)\n")
+	TEXT(" 1: swap left and right buttons"),
+	ECVF_Cheat);
 
-class FSteamVRController : public IInputDevice
+namespace SteamVRControllerKeyNames
 {
+	const FGamepadKeyNames::Type Touch0("Steam_Touch_0");
+	const FGamepadKeyNames::Type Touch1("Steam_Touch_1");
+}
+
+
+
+class FSteamVRController : public IInputDevice, public IMotionController
+{
+	FSteamVRHMD* GetSteamVRHMD() const
+	{
+		if (GEngine->HMDDevice.IsValid() && (GEngine->HMDDevice->GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR))
+		{
+			return static_cast<FSteamVRHMD*>(GEngine->HMDDevice.Get());
+		}
+
+		return nullptr;
+	}
 
 public:
+
+	/** The maximum number of Unreal controllers.  Each Unreal controller represents a pair of motion controller devices */
+	static const int32 MaxUnrealControllers = MAX_STEAMVR_CONTROLLER_PAIRS;
+
+	/** Total number of motion controllers we'll support */
+	static const int32 MaxControllers = MaxUnrealControllers * 2;
+
+	/**
+	 * Buttons on the SteamVR controller
+	 */
+	struct ESteamVRControllerButton
+	{
+		enum Type
+		{
+			System,
+			ApplicationMenu,
+			TouchPadPress,
+			TouchPadTouch,
+			TriggerPress,
+			Grip,
+			TouchPadUp,
+			TouchPadDown,
+			TouchPadLeft,
+			TouchPadRight,
+
+			/** Max number of controller buttons.  Must be < 256 */
+			TotalButtonCount
+		};
+	};
+
 
 	FSteamVRController(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler)
 		: MessageHandler(InMessageHandler),
@@ -36,12 +89,12 @@ public:
 
 		for (int32 i=0; i < vr::k_unMaxTrackedDeviceCount; ++i)
 		{
-			DeviceToControllerMap[i] = -1;
+			DeviceToControllerMap[i] = INDEX_NONE;
 		}
 
-		for (int32 i=0; i < MAX_STEAMVR_CONTROLLERS; ++i)
+		for (int32 i=0; i < MaxControllers; ++i)
 		{
-			ControllerToDeviceMap[i] = -1;
+			ControllerToDeviceMap[i] = INDEX_NONE;
 		}
 
 		NumControllersMapped = 0;
@@ -49,21 +102,37 @@ public:
 		InitialButtonRepeatDelay = 0.2f;
 		ButtonRepeatDelay = 0.1f;
 
-		// set up mapping	//@todo steamvr: these are all presses, do we want to map touches as well?
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::System ] = FGamepadKeyNames::SpecialLeft;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::ApplicationMenu ] = FGamepadKeyNames::MotionController_Left_Shoulder;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::TouchPadPress ] = FGamepadKeyNames::MotionController_Left_Thumbstick;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::TouchPadTouch ] = SteamVRControllerKeyNames::Touch0;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::TriggerPress ] = FGamepadKeyNames::MotionController_Left_Trigger;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::Grip ] = FGamepadKeyNames::MotionController_Left_Grip1;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::TouchPadUp ] = FGamepadKeyNames::MotionController_Left_FaceButton1;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::TouchPadDown ] = FGamepadKeyNames::MotionController_Left_FaceButton3;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::TouchPadLeft ] = FGamepadKeyNames::MotionController_Left_FaceButton4;
+		Buttons[ (int32)EControllerHand::Left ][ ESteamVRControllerButton::TouchPadRight ] = FGamepadKeyNames::MotionController_Left_FaceButton2;
 
-		Buttons[0] = EControllerButtons::SpecialLeft;				// system
-		Buttons[1] = EControllerButtons::SpecialRight;				// application menu
-		Buttons[2] = EControllerButtons::LeftThumb;					// touchpad press
-		Buttons[3] = EControllerButtons::LeftTriggerThreshold;		// trigger press
-		Buttons[4] = EControllerButtons::BackLeft;					// grip
-		Buttons[5] = EControllerButtons::LeftStickUp;				// touchpad d-pad up
-		Buttons[6] = EControllerButtons::LeftStickDown;				// touchpad d-pad down
-		Buttons[7] = EControllerButtons::LeftStickLeft;				// touchpad d-pad left
-		Buttons[8] = EControllerButtons::LeftStickRight;			// touchpad d-pad right
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::System ] = FGamepadKeyNames::SpecialRight;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::ApplicationMenu ] = FGamepadKeyNames::MotionController_Right_Shoulder;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::TouchPadPress ] = FGamepadKeyNames::MotionController_Right_Thumbstick;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::TouchPadTouch ] = SteamVRControllerKeyNames::Touch1;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::TriggerPress ] = FGamepadKeyNames::MotionController_Right_Trigger;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::Grip ] = FGamepadKeyNames::MotionController_Right_Grip1;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::TouchPadUp ] = FGamepadKeyNames::MotionController_Right_FaceButton1;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::TouchPadDown ] = FGamepadKeyNames::MotionController_Right_FaceButton3;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::TouchPadLeft ] = FGamepadKeyNames::MotionController_Right_FaceButton4;
+		Buttons[ (int32)EControllerHand::Right ][ ESteamVRControllerButton::TouchPadRight ] = FGamepadKeyNames::MotionController_Right_FaceButton2;
+
+		IModularFeatures::Get().RegisterModularFeature(GetModularFeatureName(), this);
+
+		//@todo:  fix this.  construction of the controller happens after InitializeMotionControllers(), so we manually insert into the array here.
+		GEngine->MotionControllerDevices.AddUnique(this);
 	}
 
 	virtual ~FSteamVRController()
 	{
+		GEngine->MotionControllerDevices.Remove(this);
 	}
 
 	virtual void Tick( float DeltaTime ) override
@@ -72,7 +141,7 @@ public:
 
 	virtual void SendControllerEvents() override
 	{
-		vr::VRControllerState_t ControllerState;
+		vr::VRControllerState_t VRControllerState;
 
 		vr::IVRSystem* VRSystem = GetVRSystem();
 
@@ -89,142 +158,205 @@ public:
 				}
 
 				// update the mappings if this is a new device
-				if (DeviceToControllerMap[DeviceIndex] == -1)
+				if (DeviceToControllerMap[DeviceIndex] == INDEX_NONE )
 				{
 					// don't map too many controllers
-					if (NumControllersMapped >= MAX_STEAMVR_CONTROLLERS)
+					if (NumControllersMapped >= MaxControllers)
 					{
 						continue;
 					}
 
-					DeviceToControllerMap[DeviceIndex] = NumControllersMapped;
+					DeviceToControllerMap[DeviceIndex] = FMath::FloorToInt(NumControllersMapped / CONTROLLERS_PER_PLAYER);
 					ControllerToDeviceMap[NumControllersMapped] = DeviceIndex;
+					ControllerStates[DeviceIndex].Hand = (EControllerHand)(NumControllersMapped % CONTROLLERS_PER_PLAYER);
 					++NumControllersMapped;
 
 					// update the SteamVR plugin with the new mapping
-					SteamVRPlugin->SetControllerToDeviceMap(ControllerToDeviceMap);
+					{
+						int32 UnrealControllerIdAndHandToDeviceIdMap[MaxUnrealControllers][CONTROLLERS_PER_PLAYER];
+						for( int32 UnrealControllerIndex = 0; UnrealControllerIndex < MaxUnrealControllers; ++UnrealControllerIndex )
+						{
+							for (int32 HandIndex = 0; HandIndex < CONTROLLERS_PER_PLAYER; ++HandIndex)
+							{
+								UnrealControllerIdAndHandToDeviceIdMap[ UnrealControllerIndex ][ HandIndex ] = ControllerToDeviceMap[ UnrealControllerIdToControllerIndex( UnrealControllerIndex, (EControllerHand)HandIndex ) ];
+							}
+						}
+						SteamVRPlugin->SetUnrealControllerIdAndHandToDeviceIdMap( UnrealControllerIdAndHandToDeviceIdMap );
+					}
 				}
 
 				// get the controller index for this device
 				int32 ControllerIndex = DeviceToControllerMap[DeviceIndex];
+				FControllerState& ControllerState = ControllerStates[ DeviceIndex ];
+				EControllerHand HandToUse = ControllerState.Hand;
 
-				if (VRSystem->GetControllerState(DeviceIndex, &ControllerState))
+				// check to see if we need to swap input hands for debugging
+				static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.SwapMotionControllerInput"));
+				bool bSwapHandInput= (CVar->GetValueOnGameThread() != 0) ? true : false;
+				if(bSwapHandInput)
 				{
-					if (ControllerState.unPacketNum != ControllerStates[ControllerIndex].PacketNum )
+					HandToUse = (HandToUse == EControllerHand::Left) ? EControllerHand::Right : EControllerHand::Left; 
+				}
+
+				if (VRSystem->GetControllerState(DeviceIndex, &VRControllerState))
+				{
+					if (VRControllerState.unPacketNum != ControllerState.PacketNum )
 					{
-						bool CurrentStates[MAX_NUM_CONTROLLER_BUTTONS] = {0};
-			
+						bool CurrentStates[ ESteamVRControllerButton::TotalButtonCount ] = {0};
+
 						// Get the current state of all buttons
-						CurrentStates[0] = !!(ControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_System));
-						CurrentStates[1] = !!(ControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu));
-						CurrentStates[2] = !!(ControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Touchpad));
-						CurrentStates[3] = !!(ControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger));
-						CurrentStates[4] = !!(ControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_Grip));
-						CurrentStates[5] = !!(ControllerState.rAxis[TOUCHPAD_AXIS].y > TOUCHPAD_DEADZONE);
-						CurrentStates[6] = !!(ControllerState.rAxis[TOUCHPAD_AXIS].y < -TOUCHPAD_DEADZONE);
-						CurrentStates[7] = !!(ControllerState.rAxis[TOUCHPAD_AXIS].x < -TOUCHPAD_DEADZONE);
-						CurrentStates[8] = !!(ControllerState.rAxis[TOUCHPAD_AXIS].x > TOUCHPAD_DEADZONE);
+						CurrentStates[ ESteamVRControllerButton::System ] = !!(VRControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_System));
+						CurrentStates[ ESteamVRControllerButton::ApplicationMenu ] = !!(VRControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu));
+						CurrentStates[ ESteamVRControllerButton::TouchPadPress ] = !!(VRControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Touchpad));
+						CurrentStates[ ESteamVRControllerButton::TouchPadTouch ] = !!( VRControllerState.ulButtonTouched & vr::ButtonMaskFromId( vr::k_EButton_SteamVR_Touchpad ) );
+						CurrentStates[ ESteamVRControllerButton::TriggerPress ] = !!(VRControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger));
+						CurrentStates[ ESteamVRControllerButton::Grip ] = !!(VRControllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_Grip));
 
-						if (ControllerStates[ControllerIndex].TouchPadXAnalog != ControllerState.rAxis[TOUCHPAD_AXIS].x)
+						// If the touchpad isn't currently pressed or touched, zero put both of the axes
+						if (!CurrentStates[ ESteamVRControllerButton::TouchPadTouch ])
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::LeftAnalogX, ControllerIndex, ControllerState.rAxis[TOUCHPAD_AXIS].x);
-							ControllerStates[ControllerIndex].TouchPadXAnalog = ControllerState.rAxis[TOUCHPAD_AXIS].x;
+ 							VRControllerState.rAxis[TOUCHPAD_AXIS].y = 0.0f;
+ 							VRControllerState.rAxis[TOUCHPAD_AXIS].x = 0.0f;
 						}
 
-						if (ControllerStates[ControllerIndex].TouchPadYAnalog != ControllerState.rAxis[TOUCHPAD_AXIS].y)
+						// D-pad emulation
+						const FVector2D TouchDir = FVector2D(VRControllerState.rAxis[TOUCHPAD_AXIS].x, VRControllerState.rAxis[TOUCHPAD_AXIS].y).GetSafeNormal();
+						const FVector2D UpDir(0.f, 1.f);
+						const FVector2D RightDir(1.f, 0.f);
+
+						const float VerticalDot = TouchDir | UpDir;
+						const float RightDot = TouchDir | RightDir;
+
+						const bool bPressed = !TouchDir.IsNearlyZero() && CurrentStates[ ESteamVRControllerButton::TouchPadPress ];
+						
+						CurrentStates[ ESteamVRControllerButton::TouchPadUp ]		= bPressed && (VerticalDot >= DOT_45DEG);
+						CurrentStates[ ESteamVRControllerButton::TouchPadDown ]		= bPressed && (VerticalDot <= -DOT_45DEG);
+						CurrentStates[ ESteamVRControllerButton::TouchPadLeft ]		= bPressed && (RightDot <= -DOT_45DEG);
+						CurrentStates[ ESteamVRControllerButton::TouchPadRight ]	= bPressed && (RightDot >= DOT_45DEG);
+
+						if ( ControllerState.TouchPadXAnalog != VRControllerState.rAxis[TOUCHPAD_AXIS].x)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::LeftAnalogY, ControllerIndex, ControllerState.rAxis[TOUCHPAD_AXIS].y);
-							ControllerStates[ControllerIndex].TouchPadYAnalog = ControllerState.rAxis[TOUCHPAD_AXIS].y;
+							const FGamepadKeyNames::Type AxisButton = (HandToUse == EControllerHand::Left) ? FGamepadKeyNames::MotionController_Left_Thumbstick_X : FGamepadKeyNames::MotionController_Right_Thumbstick_X;
+							MessageHandler->OnControllerAnalog(AxisButton, ControllerIndex, VRControllerState.rAxis[TOUCHPAD_AXIS].x);
+							ControllerState.TouchPadXAnalog = VRControllerState.rAxis[TOUCHPAD_AXIS].x;
 						}
 
-						if (ControllerStates[ControllerIndex].TriggerAnalog != ControllerState.rAxis[TRIGGER_AXIS].x)
+						if ( ControllerState.TouchPadYAnalog != VRControllerState.rAxis[TOUCHPAD_AXIS].y)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::LeftTriggerAnalog, ControllerIndex, ControllerState.rAxis[TRIGGER_AXIS].x);
-							ControllerStates[ControllerIndex].TriggerAnalog = ControllerState.rAxis[TRIGGER_AXIS].x;
+							const FGamepadKeyNames::Type AxisButton = (HandToUse == EControllerHand::Left) ? FGamepadKeyNames::MotionController_Left_Thumbstick_Y : FGamepadKeyNames::MotionController_Right_Thumbstick_Y;
+							MessageHandler->OnControllerAnalog(AxisButton, ControllerIndex, VRControllerState.rAxis[TOUCHPAD_AXIS].y);
+							ControllerState.TouchPadYAnalog = VRControllerState.rAxis[TOUCHPAD_AXIS].y;
+						}
+
+						if ( ControllerState.TriggerAnalog != VRControllerState.rAxis[TRIGGER_AXIS].x)
+						{
+							const FGamepadKeyNames::Type AxisButton = (HandToUse == EControllerHand::Left) ? FGamepadKeyNames::MotionController_Left_TriggerAxis : FGamepadKeyNames::MotionController_Right_TriggerAxis;
+							MessageHandler->OnControllerAnalog(AxisButton, ControllerIndex, VRControllerState.rAxis[TRIGGER_AXIS].x);
+							ControllerState.TriggerAnalog = VRControllerState.rAxis[TRIGGER_AXIS].x;
 						}
 
 						// For each button check against the previous state and send the correct message if any
-						for (int32 ButtonIndex = 0; ButtonIndex < MAX_NUM_CONTROLLER_BUTTONS; ++ButtonIndex)
+						for (int32 ButtonIndex = 0; ButtonIndex < ESteamVRControllerButton::TotalButtonCount; ++ButtonIndex)
 						{
-							if (CurrentStates[ButtonIndex] != ControllerStates[ControllerIndex].ButtonStates[ButtonIndex])
+							if (CurrentStates[ButtonIndex] != ControllerState.ButtonStates[ButtonIndex])
 							{
 								if (CurrentStates[ButtonIndex])
 								{
-									MessageHandler->OnControllerButtonPressed(Buttons[ButtonIndex], ControllerIndex, false);
+									MessageHandler->OnControllerButtonPressed( Buttons[ (int32)HandToUse ][ ButtonIndex ], ControllerIndex, false );
 								}
 								else
 								{
-									MessageHandler->OnControllerButtonReleased(Buttons[ButtonIndex], ControllerIndex, false);
+									MessageHandler->OnControllerButtonReleased( Buttons[ (int32)HandToUse ][ ButtonIndex ], ControllerIndex, false );
 								}
 
 								if (CurrentStates[ButtonIndex] != 0)
 								{
 									// this button was pressed - set the button's NextRepeatTime to the InitialButtonRepeatDelay
-									ControllerStates[ControllerIndex].NextRepeatTime[ButtonIndex] = CurrentTime + InitialButtonRepeatDelay;
+									ControllerState.NextRepeatTime[ButtonIndex] = CurrentTime + InitialButtonRepeatDelay;
 								}
 							}
 
 							// Update the state for next time
-							ControllerStates[ControllerIndex].ButtonStates[ButtonIndex] = CurrentStates[ButtonIndex];
+							ControllerState.ButtonStates[ButtonIndex] = CurrentStates[ButtonIndex];
 						}
 
-						ControllerStates[ControllerIndex].PacketNum = ControllerState.unPacketNum;
+						ControllerState.PacketNum = VRControllerState.unPacketNum;
 					}
 				}
 
-				for (int32 ButtonIndex = 0; ButtonIndex < MAX_NUM_CONTROLLER_BUTTONS; ++ButtonIndex)
+				for (int32 ButtonIndex = 0; ButtonIndex < ESteamVRControllerButton::TotalButtonCount; ++ButtonIndex)
 				{
-					if (ControllerStates[ControllerIndex].ButtonStates[ButtonIndex] != 0 && ControllerStates[ControllerIndex].NextRepeatTime[ButtonIndex] <= CurrentTime)
+					if ( ControllerState.ButtonStates[ButtonIndex] != 0 && ControllerState.NextRepeatTime[ButtonIndex] <= CurrentTime)
 					{
-						MessageHandler->OnControllerButtonPressed(Buttons[ButtonIndex], ControllerIndex, true);
+						MessageHandler->OnControllerButtonPressed( Buttons[ (int32)HandToUse ][ ButtonIndex ], ControllerIndex, true );
 
 						// set the button's NextRepeatTime to the ButtonRepeatDelay
-						ControllerStates[ControllerIndex].NextRepeatTime[ButtonIndex] = CurrentTime + ButtonRepeatDelay;
+						ControllerState.NextRepeatTime[ButtonIndex] = CurrentTime + ButtonRepeatDelay;
 					}
 				}
 			}
 		}
 	}
-	
-	void SetChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override
+
+
+	int32 UnrealControllerIdToControllerIndex( const int32 UnrealControllerId, const EControllerHand Hand ) const
 	{
-		// Skip unless this is the left large channel, which we consider to be the only SteamVRController feedback channel
-		if (ChannelType != FForceFeedbackChannelType::LEFT_LARGE)
+		return UnrealControllerId * CONTROLLERS_PER_PLAYER + (int32)Hand;
+	}
+
+	
+	void SetChannelValue(int32 UnrealControllerId, FForceFeedbackChannelType ChannelType, float Value) override
+	{
+		// Skip unless this is the left or right large channel, which we consider to be the only SteamVRController feedback channel
+		if( ChannelType != FForceFeedbackChannelType::LEFT_LARGE && ChannelType != FForceFeedbackChannelType::RIGHT_LARGE )
 		{
 			return;
 		}
 
-		if ((ControllerId >= 0) && (ControllerId < MAX_STEAMVR_CONTROLLERS))
+		const EControllerHand Hand = ( ChannelType == FForceFeedbackChannelType::LEFT_LARGE ) ? EControllerHand::Left : EControllerHand::Right;
+		const int32 ControllerIndex = UnrealControllerIdToControllerIndex( UnrealControllerId, Hand );
+
+		if ((ControllerIndex >= 0) && ( ControllerIndex < MaxControllers))
 		{
-			FControllerState& ControllerState = ControllerStates[ControllerId];
+			FControllerState& ControllerState = ControllerStates[ ControllerIndex ];
 
-			ControllerState.VibeValues.LeftLarge = Value;
+			ControllerState.ForceFeedbackValue = Value;
 
-			UpdateVibration(ControllerId);
+			UpdateVibration( ControllerIndex );
 		}
 	}
 
-	void SetChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) override
+	void SetChannelValues(int32 UnrealControllerId, const FForceFeedbackValues& Values) override
 	{
-		if ((ControllerId >= 0) && (ControllerId < MAX_STEAMVR_CONTROLLERS))
+		const int32 LeftControllerIndex = UnrealControllerIdToControllerIndex( UnrealControllerId, EControllerHand::Left );
+		if ((LeftControllerIndex >= 0) && ( LeftControllerIndex < MaxControllers))
 		{
-			FControllerState& ControllerState = ControllerStates[ControllerId];
-			ControllerState.VibeValues = Values;
+			FControllerState& ControllerState = ControllerStates[ LeftControllerIndex ];
+			ControllerState.ForceFeedbackValue = Values.LeftLarge;
 
-			UpdateVibration(ControllerId);
+			UpdateVibration( LeftControllerIndex );
+		}
+
+		const int32 RightControllerIndex = UnrealControllerIdToControllerIndex( UnrealControllerId, EControllerHand::Right );
+		if( ( RightControllerIndex >= 0 ) && ( RightControllerIndex < MaxControllers ) )
+		{
+			FControllerState& ControllerState = ControllerStates[ RightControllerIndex ];
+			ControllerState.ForceFeedbackValue = Values.RightLarge;
+
+			UpdateVibration( RightControllerIndex );
 		}
 	}
 
-	void UpdateVibration(int32 ControllerId)
+	void UpdateVibration( const int32 ControllerIndex )
 	{
-		// make sure there is a valid device for the controllerid
-		int32 DeviceIndex = ControllerToDeviceMap[ControllerId];
+		// make sure there is a valid device for this controller
+		int32 DeviceIndex = ControllerToDeviceMap[ ControllerIndex ];
 		if (DeviceIndex < 0)
 		{
 			return;
 		}
 
-		const FControllerState& ControllerState = ControllerStates[ControllerId];
+		const FControllerState& ControllerState = ControllerStates[ ControllerIndex ];
 		vr::IVRSystem* VRSystem = GetVRSystem();
 
 		if (VRSystem == nullptr)
@@ -233,7 +365,7 @@ public:
 		}
 
 		// Map the float values from [0,1] to be more reasonable values for the SteamController.  The docs say that [100,2000] are reasonable values
- 		const float LeftIntensity = FMath::Clamp(ControllerState.VibeValues.LeftLarge * 2000.f, 0.f, 2000.f);
+ 		const float LeftIntensity = FMath::Clamp(ControllerState.ForceFeedbackValue * 2000.f, 0.f, 2000.f);
 		if (LeftIntensity > 0.f)
 		{
 			VRSystem->TriggerHapticPulse(DeviceIndex, TOUCHPAD_AXIS, LeftIntensity);
@@ -243,6 +375,21 @@ public:
 	virtual void SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler ) override
 	{
 		MessageHandler = InMessageHandler;
+	}
+
+	virtual bool GetControllerOrientationAndPosition(const int32 ControllerIndex, const EControllerHand DeviceHand, FRotator& OutOrientation, FVector& OutPosition) const
+	{
+		bool RetVal = false;
+
+ 		FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
+ 		if (SteamVRHMD)
+ 		{
+ 			FQuat DeviceOrientation = FQuat::Identity;
+ 			RetVal = SteamVRHMD->GetControllerHandPositionAndOrientation(ControllerIndex, DeviceHand, OutPosition, DeviceOrientation);
+ 			OutOrientation = DeviceOrientation.Rotator();
+ 		}
+
+		return RetVal;
 	}
 
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar ) override
@@ -266,11 +413,15 @@ private:
 		return SteamVRPlugin->GetVRSystem();
 	}
 
+
+
 	struct FControllerState
 	{
+		/** Which hand this controller is representing */
+		EControllerHand Hand;
+
 		/** If packet num matches that on your prior call, then the controller state hasn't been changed since 
-		  * your last call and there is no need to process it.
-		  */
+		  * your last call and there is no need to process it. */
 		uint32 PacketNum;
 
 		/** touchpad analog values */
@@ -281,22 +432,22 @@ private:
 		float TriggerAnalog;
 
 		/** Last frame's button states, so we only send events on edges */
-		bool ButtonStates[MAX_NUM_CONTROLLER_BUTTONS];
+		bool ButtonStates[ ESteamVRControllerButton::TotalButtonCount ];
 
 		/** Next time a repeat event should be generated for each button */
-		double NextRepeatTime[MAX_NUM_CONTROLLER_BUTTONS];
+		double NextRepeatTime[ ESteamVRControllerButton::TotalButtonCount ];
 
-		/** Values for force feedback on this controller.  We only consider the LEFT_LARGE channel for SteamControllers */
-		FForceFeedbackValues VibeValues;
+		/** Value for force feedback on this controller hand */
+		float ForceFeedbackValue;
 	};
 
 	/** Mappings between tracked devices and 0 indexed controllers */
 	int32 NumControllersMapped;
-	int32 ControllerToDeviceMap[MAX_STEAMVR_CONTROLLERS];
+	int32 ControllerToDeviceMap[ MaxControllers ];
 	int32 DeviceToControllerMap[vr::k_unMaxTrackedDeviceCount];
 
 	/** Controller states */
-	FControllerState ControllerStates[MAX_STEAMVR_CONTROLLERS];
+	FControllerState ControllerStates[ MaxControllers ];
 
 	/** Delay before sending a repeat message after a button was first pressed */
 	float InitialButtonRepeatDelay;
@@ -305,7 +456,7 @@ private:
 	float ButtonRepeatDelay;
 
 	/** Mapping of controller buttons */
-	EControllerButtons::Type Buttons[MAX_NUM_CONTROLLER_BUTTONS];
+	FGamepadKeyNames::Type Buttons[ CONTROLLERS_PER_PLAYER ][ ESteamVRControllerButton::TotalButtonCount ];
 
 	/** handler to send all messages to */
 	TSharedRef<FGenericApplicationMessageHandler> MessageHandler;
@@ -318,7 +469,7 @@ private:
 };
 
 
-class FSteamVRControllerPlugin : public IInputDeviceModule
+class FSteamVRControllerPlugin : public ISteamVRControllerPlugin
 {
 	virtual TSharedPtr< class IInputDevice > CreateInputDevice(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler) override
 	{

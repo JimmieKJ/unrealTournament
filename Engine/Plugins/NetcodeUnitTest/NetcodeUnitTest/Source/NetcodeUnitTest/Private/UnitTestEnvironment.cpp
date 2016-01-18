@@ -24,6 +24,10 @@ void FUnitTestEnvironment::AddUnitTestEnvironment(FString Game, FUnitTestEnviron
 		{
 			UUnitTest::UnitEnv = Env;
 		}
+		else if (Game == TEXT("NullUnitEnv"))
+		{
+			UUnitTest::NullUnitEnv = Env;
+		}
 	}
 }
 
@@ -32,43 +36,62 @@ FString FUnitTestEnvironment::GetDefaultMap(EUnitTestFlags UnitTestFlags)
 	return TEXT("");
 }
 
-FString FUnitTestEnvironment::GetDefaultServerParameters()
+FString FUnitTestEnvironment::GetDefaultServerParameters(FString InLogCmds/*=TEXT("")*/, FString InExecCmds/*=TEXT("")*/)
 {
 	FString ReturnVal = TEXT("");
 	FString CmdLineServerParms;
-	FString FullLogCmds = TEXT("");
+	FString FullLogCmds = InLogCmds;
+	FString FullExecCmds = InExecCmds;
 
 	if (NUTUtil::ParseValue(FCommandLine::Get(), TEXT("UnitTestServerParms="), CmdLineServerParms))
 	{
-		// LogCmds needs to be specially merged, since it may be specified in multiple places
-		FString LogCmds;
-
-		if (FParse::Value(*CmdLineServerParms, TEXT("-LogCmds="), LogCmds, false))
-		{
-			if (FullLogCmds.Len() > 0)
+		auto ParseCmds =
+			[&](const TCHAR* CmdsParm, FString& OutFullCmds)
 			{
-				FullLogCmds += TEXT(",");
-			}
+				FString Cmds;
 
-			FullLogCmds += LogCmds.TrimQuotes();
+				if (FParse::Value(*CmdLineServerParms, CmdsParm, Cmds, false))
+				{
+					if (OutFullCmds.Len() > 0)
+					{
+						OutFullCmds += TEXT(",");
+					}
 
-			// Now remove the original LogCmds entry
-			FString SearchStr = FString::Printf(TEXT("-LogCmds=\"%s\""), *LogCmds.TrimQuotes());
+					OutFullCmds += Cmds.TrimQuotes();
 
-			CmdLineServerParms = CmdLineServerParms.Replace(*SearchStr, TEXT(""), ESearchCase::IgnoreCase);
-		}
+					// Now remove the original *Cmds entry
+					FString SearchStr = FString::Printf(TEXT("%s\"%s\""), CmdsParm, *Cmds.TrimQuotes());
+
+					CmdLineServerParms = CmdLineServerParms.Replace(*SearchStr, TEXT(""), ESearchCase::IgnoreCase);
+				}
+			};
+
+
+		// LogCmds and ExecCmds need to be specially merged, since they may be specified in muliple places
+		// (e.g. within unit tests, and using UnitTestServerParms)
+		ParseCmds(TEXT("-LogCmds="), FullLogCmds);
+		ParseCmds(TEXT("-ExecCmds="), FullExecCmds);
 
 
 		ReturnVal += TEXT(" ");
 		ReturnVal += CmdLineServerParms;
 	}
 
-	SetupDefaultServerParameters(ReturnVal, FullLogCmds);
+	SetupDefaultServerParameters(ReturnVal, FullLogCmds, FullExecCmds);
 
 	if (FullLogCmds.Len() > 0)
 	{
 		ReturnVal += FString::Printf(TEXT(" -LogCmds=\"%s\""), *FullLogCmds);
 	}
+
+	if (FullExecCmds.Len() > 0)
+	{
+		ReturnVal += FString::Printf(TEXT(" -ExecCmds=\"%s\""), *FullExecCmds);
+	}
+
+	// Need to force all shader compilation, to happen with ShaderCompileWorker, so it can be detected easily;
+	// sometimes it would occur within threads in the main UE4 process, which was not possible to detect, and which this disables
+	ReturnVal += TEXT(" -ini:Engine:[DevOptions.Shaders]:bAllowAsynchronousShaderCompiling=False");
 
 	return ReturnVal;
 }
@@ -78,7 +101,16 @@ FString FUnitTestEnvironment::GetDefaultClientParameters()
 	FString ReturnVal = TEXT("");
 	FString CmdLineClientParms;
 
-	ReturnVal = TEXT("-nullrhi -windowed -resx=640 -resy=480");
+	bool bDebugClient = FParse::Param(FCommandLine::Get(), TEXT("UnitTestClientDebug"));
+
+	if (!bDebugClient)
+	{
+		ReturnVal = TEXT("-nullrhi -windowed -resx=640 -resy=480");
+	}
+	else
+	{
+		ReturnVal = TEXT("-windowed -resx=1024 -resy=768");
+	}
 
 	// @todo JohnB: Add merging of LogCmds, from above function, if adding default LogCmds for any game
 
@@ -87,6 +119,10 @@ FString FUnitTestEnvironment::GetDefaultClientParameters()
 		ReturnVal += TEXT(" ");
 		ReturnVal += CmdLineClientParms;
 	}
+
+	// Need to force all shader compilation, to happen with ShaderCompileWorker, so it can be detected easily;
+	// sometimes it would occur within threads in the main UE4 process, which was not possible to detect, and which this disables
+	ReturnVal += TEXT(" -ini:Engine:[DevOptions.Shaders]:bAllowAsynchronousShaderCompiling=False");
 
 	SetupDefaultClientParameters(ReturnVal);
 
@@ -118,6 +154,10 @@ void FUnitTestEnvironment::GetServerProgressLogs(const TArray<FString>*& OutStar
 
 		// Logs which should trigger a timeout reset for all games
 		TimeoutResetLogs.Add(TEXT("LogStaticMesh: Building static mesh "));
+		TimeoutResetLogs.Add(TEXT("LogMaterial: Missing cached shader map for material "));
+		TimeoutResetLogs.Add(TEXT("LogTexture:Display: Building textures: "));
+		TimeoutResetLogs.Add(TEXT("Dumping tracked stack traces for TraceName '"));
+		TimeoutResetLogs.Add(TEXT("Dumping once-off stack trace for TraceName '"));
 
 		InitializeServerProgressLogs(StartProgressLogs, ReadyLogs, TimeoutResetLogs);
 
@@ -127,5 +167,44 @@ void FUnitTestEnvironment::GetServerProgressLogs(const TArray<FString>*& OutStar
 	OutStartProgressLogs = &StartProgressLogs;
 	OutReadyLogs = &ReadyLogs;
 	OutTimeoutResetLogs = &TimeoutResetLogs;
+}
+
+void FUnitTestEnvironment::GetClientProgressLogs(const TArray<FString>*& OutTimeoutResetLogs)
+{
+	static TArray<FString> TimeoutResetLogs;
+	static bool bSetupLogs = false;
+
+	// @todo JohnB: See what logs are common between client/server, and perhaps create a third generic progress log function for them
+
+	if (!bSetupLogs)
+	{
+		// Logs which should trigger a timeout reset for all games
+		TimeoutResetLogs.Add(TEXT("LogStaticMesh: Building static mesh "));
+		TimeoutResetLogs.Add(TEXT("LogMaterial: Missing cached shader map for material "));
+		TimeoutResetLogs.Add(TEXT("LogTexture:Display: Building textures: "));
+
+		InitializeClientProgressLogs(TimeoutResetLogs);
+
+		bSetupLogs = true;
+	}
+
+	OutTimeoutResetLogs = &TimeoutResetLogs;
+}
+
+void FUnitTestEnvironment::GetProgressBlockingProcesses(const TArray<FString>*& OutBlockingProcesses)
+{
+	static TArray<FString> BlockingProcesses;
+	static bool bSetupLogs = false;
+
+	if (!bSetupLogs)
+	{
+		BlockingProcesses.Add(TEXT("ShaderCompileWorker"));
+
+		InitializeProgressBlockingProcesses(BlockingProcesses);
+
+		bSetupLogs = true;
+	}
+
+	OutBlockingProcesses = &BlockingProcesses;
 }
 

@@ -115,7 +115,7 @@ class FChunkCacheWorker : public FRunnable
 	/** Stops this thread */
 	FThreadSafeCounter StopTaskCounter;
 	/** Available chunk requests */
-	TLockFreePointerList<FChunkRequest> FreeChunkRequests;
+	TLockFreePointerListUnordered<FChunkRequest> FreeChunkRequests;
 	/** Public decryption key */
 	FEncryptionKey DecryptionKey;
 
@@ -151,11 +151,11 @@ public:
 	FChunkCacheWorker(FArchive* InReader);
 	virtual ~FChunkCacheWorker();
 
-	// Begin FRunnable interface.
+	//~ Begin FRunnable Interface.
 	virtual bool Init();
 	virtual uint32 Run();
 	virtual void Stop();
-	// End FRunnable interface
+	//~ End FRunnable Interface
 
 	/** 
 	 * Requests a chunk to be loaded and verified
@@ -256,7 +256,7 @@ public:
 	FSignedArchiveReader(FArchive* InPakReader, FChunkCacheWorker* InSignatureChecker);
 	virtual ~FSignedArchiveReader();
 
-	// Begin FArchive interface
+	//~ Begin FArchive Interface
 	virtual void Serialize(void* Data, int64 Length) override;
 	virtual int64 Tell() override
 	{
@@ -270,5 +270,5 @@ public:
 	{
 		PakOffset = InPos;
 	}
-	// End FArchive interface
+	//~ End FArchive Interface
 };

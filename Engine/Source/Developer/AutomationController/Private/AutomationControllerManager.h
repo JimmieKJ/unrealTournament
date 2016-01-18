@@ -43,6 +43,16 @@ public:
 		bRequestFullScreenScreenshots = bNewValue;
 	}
 
+	virtual bool IsSendAnalytics() const override
+	{
+		return bSendAnalytics;
+	}
+
+	virtual void SetSendAnalytics(const bool bNewValue) override
+	{
+		bSendAnalytics = bNewValue;
+	}
+
 	virtual bool IsScreenshotAllowed() const override
 	{
 		return bScreenshotsEnabled;
@@ -123,14 +133,10 @@ public:
 		return bDeveloperDirectoryIncluded;
 	}
 
-	virtual void SetVisualCommandletFilter(const bool bInVisualCommandletFilterOn) override
+	virtual void SetRequestedTestFlags(const uint32 InRequestedTestFlags) override
 	{
-		bVisualCommandletFilterOn = bInVisualCommandletFilterOn;
-	}
-
-	virtual bool IsVisualCommandletFilterOn(void) const override
-	{
-		return bVisualCommandletFilterOn;
+		RequestedTestFlags = InRequestedTestFlags;
+		RequestTests();
 	}
 
 	virtual const bool CheckTestResultsAvailable() const override
@@ -178,6 +184,12 @@ public:
 	{
 		return TestsRefreshedDelegate;
 	}
+
+	virtual FOnAutomationControllerReset& OnControllerReset() override
+	{
+		return ControllerResetDelegate;
+	}
+
 
 	virtual bool IsDeviceGroupFlagSet( EAutomationDeviceGroupTypes::Type InDeviceGroup ) const override;
 	virtual void ToggleDeviceGroupFlag( EAutomationDeviceGroupTypes::Type InDeviceGroup ) override;
@@ -261,6 +273,9 @@ private:
 	/** Handles FAutomationWorkerRequestTestsReply messages. */
 	void HandleRequestTestsReplyMessage( const FAutomationWorkerRequestTestsReply& Message, const IMessageContextRef& Context );
 
+	/** Handles FAutomationWorkerRequestTestsReplyComplete messages. */
+	void HandleRequestTestsReplyCompleteMessage(const FAutomationWorkerRequestTestsReplyComplete& Message, const IMessageContextRef& Context);
+
 	/** Handles FAutomationWorkerRunTestsReply messages. */
 	void HandleRunTestsReplyMessage( const FAutomationWorkerRunTestsReply& Message, const IMessageContextRef& Context );
 
@@ -296,8 +311,8 @@ private:
 	/** Are tests results available */
 	bool bTestResultsAvailable;
 
-	/** Whether to use visual commandlet **/
-	bool bVisualCommandletFilterOn;
+	/** Which sets of tests to consider */
+	uint32 RequestedTestFlags;
 
 	/** Timer to keep track of the last time tests were updated */
 	double CheckTestTimer;
@@ -358,6 +373,9 @@ private:
 	/** If we should request full screen screen shots. */
 	bool bRequestFullScreenScreenshots;
 
+	/** If we should send result to analytics */
+	bool bSendAnalytics;
+
 	/** If we should track any test history for the next run. */
 	bool bTrackHistory;
 
@@ -374,6 +392,9 @@ private:
 
 	/** Holds a delegate that is invoked when the controller's tests are being refreshed. */
 	FOnAutomationControllerTestsRefreshed TestsRefreshedDelegate;
+
+	/** Holds a delegate that is invoked when the controller's reset. */
+	FOnAutomationControllerReset ControllerResetDelegate;	
 
 	/** Holds a delegate that is invoked when the tests have completed. */
 	FOnAutomationControllerTestsComplete TestsCompleteDelegate;

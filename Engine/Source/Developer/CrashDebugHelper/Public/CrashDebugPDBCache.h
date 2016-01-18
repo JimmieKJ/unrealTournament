@@ -216,7 +216,7 @@ protected:
 	/**
 	*	Reads an existing PDB Cache entry.
 	*/
-	FPDBCacheEntryRef ReadPDBCacheEntry( const FString& Directory );
+	FPDBCacheEntryPtr ReadPDBCacheEntry( const FString& Directory );
 
 	/**
 	*	Sort PDB Cache entries by last access time.

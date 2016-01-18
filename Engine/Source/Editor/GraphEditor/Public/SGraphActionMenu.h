@@ -78,7 +78,7 @@ public:
 	/** Delegate executed when an action is dragged */
 	DECLARE_DELEGATE_RetVal_TwoParams( FReply, FOnActionDragged, const TArray< TSharedPtr<FEdGraphSchemaAction> >&, const FPointerEvent& );
 	/** Delegate executed when a category is dragged */
-	DECLARE_DELEGATE_RetVal_TwoParams( FReply, FOnCategoryDragged, const FString&, const FPointerEvent& );
+	DECLARE_DELEGATE_RetVal_TwoParams( FReply, FOnCategoryDragged, const FText&, const FPointerEvent& );
 	/** Delegate executed when the list of all actions needs to be refreshed */
 	DECLARE_DELEGATE_OneParam( FOnCollectAllActions, FGraphActionListBuilderBase& );
 	/** Delegate executed when the list of all actions needs to be refreshed, should return any sections that should always be visible, even if they don't have children. */
@@ -242,7 +242,7 @@ public:
 	bool SelectItemByName(const FName& ItemName, ESelectInfo::Type SelectInfo = ESelectInfo::Direct, int32 SectionId = INDEX_NONE, bool bIsCategory = false );
 
 	/** Expands any category with the associated name */
-	void ExpandCategory(const FString& CategoryName);
+	void ExpandCategory(const FText& CategoryName);
 
 	/* Handler for mouse button going down */
 	bool OnMouseButtonDownEvent( TWeakPtr<FEdGraphSchemaAction> InAction );

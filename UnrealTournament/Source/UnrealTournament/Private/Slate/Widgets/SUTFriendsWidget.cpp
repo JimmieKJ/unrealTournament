@@ -1,9 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
+#include "UnrealTournament.h"
 #include "SUTFriendsWidget.h"
 #include "../SUWindowsStyle.h"
-#include "FriendsAndChat.h"
+
+#if WITH_SOCIAL
+#include "Social.h"
+#endif
 
 #if !UE_SERVER
 
@@ -17,15 +20,16 @@ void SUTFriendsWidget::Construct(const FArguments& InArgs, const FLocalPlayerCon
 	ChildSlot
 		.HAlign(HAlign_Right)
 		[
-			SAssignNew(ContentWidget, SWeakWidget)
+			SNew(SBox)
+			.WidthOverride(380)
+			.HeightOverride(1000)
+			[
+				SAssignNew(ContentWidget, SWeakWidget)
+			]
 		];
-
-	if (FModuleManager::Get().IsModuleLoaded(TEXT("FriendsAndChat")))
-	{
-		ContentWidget->SetContent(
-			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GenerateFriendsListWidget(&SUWindowsStyle::Get().GetWidgetStyle< FFriendsAndChatStyle >("FriendsStyle")).ToSharedRef()
-			);
-	}
+#if WITH_SOCIAL
+	ContentWidget->SetContent(ISocialModule::Get().GetFriendsAndChatManager()->GenerateFriendsListWidget(InArgs._FriendStyle).ToSharedRef());
+#endif
 }
 
 SUTFriendsWidget::~SUTFriendsWidget()

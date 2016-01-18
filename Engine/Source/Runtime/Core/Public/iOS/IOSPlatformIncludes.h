@@ -22,7 +22,6 @@
 #include "Apple/ApplePlatformFile.h"
 #include "IOS/IOSPlatformSurvey.h"
 #include "IOSAsyncTask.h"
-#include "IOS/IOSPlatformHttp.h"
 #include "IOS/IOSPlatformFramePacer.h"
 #import "IOSPlatformString.h"
 

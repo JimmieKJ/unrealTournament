@@ -6,6 +6,15 @@
 
 struct FEnvQueryInstance;
 
+UENUM()
+enum class EPointOnCircleSpacingMethod :uint8
+{
+	// Use the SpaceBetween value to determine how far apart points should be.
+	BySpaceBetween,
+	// Use a fixed number of points
+	ByNumberOfPoints
+};
+
 UCLASS(meta = (DisplayName = "Points: Circle"))
 class AIMODULE_API UEnvQueryGenerator_OnCircle : public UEnvQueryGenerator_ProjectedPoints
 {
@@ -18,6 +27,14 @@ class AIMODULE_API UEnvQueryGenerator_OnCircle : public UEnvQueryGenerator_Proje
 	/** items will be generated on a circle this much apart */
 	UPROPERTY(EditDefaultsOnly, Category = Generator)
 	FAIDataProviderFloatValue SpaceBetween;
+
+	/** this many items will be generated on a circle */
+	UPROPERTY(EditDefaultsOnly, Category = Generator)
+	FAIDataProviderIntValue NumberOfPoints;
+
+	/** how we are choosing where the points are in the circle */
+	UPROPERTY(EditDefaultsOnly, Category = Generator)
+	EPointOnCircleSpacingMethod PointOnCircleSpacingMethod;
 
 	/** If you generate items on a piece of circle you define direction of Arc cut here */
 	UPROPERTY(EditDefaultsOnly, Category=Generator, meta=(EditCondition="bDefineArc"))
@@ -33,6 +50,14 @@ class AIMODULE_API UEnvQueryGenerator_OnCircle : public UEnvQueryGenerator_Proje
 	/** context */
 	UPROPERTY(EditAnywhere, Category=Generator)
 	TSubclassOf<class UEnvQueryContext> CircleCenter;
+
+	/** ignore tracing into context actors when generating the circle */
+	UPROPERTY(EditDefaultsOnly, Category = Generator)
+	bool bIgnoreAnyContextActorsWhenGeneratingCircle;
+
+	/** context offset */
+	UPROPERTY(EditAnywhere, Category = Generator)
+	FAIDataProviderFloatValue CircleCenterZOffset;
 
 	/** horizontal trace for nearest obstacle */
 	UPROPERTY(EditAnywhere, Category=Generator)
@@ -57,6 +82,7 @@ protected:
 
 	void GenerateItemsForCircle(uint8* ContextRawData, UEnvQueryItemType* ContextItemType,
 		const FVector& CenterLocation, const FVector& StartDirection,
+		const TArray<AActor*>& IgnoredActors,
 		int32 StepsCount, float AngleStep, FEnvQueryInstance& OutQueryInstance) const;
 
 	virtual void AddItemDataForCircle(uint8* ContextRawData, UEnvQueryItemType* ContextItemType, 

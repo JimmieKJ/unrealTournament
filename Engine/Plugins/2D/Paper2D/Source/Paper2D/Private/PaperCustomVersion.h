@@ -58,6 +58,10 @@ struct FPaperCustomVersion
 		// Fixed the tangent generation for sprites, tile maps, etc... being incorrect for the front face
 		FixTangentGenerationForFrontFace = 16,
 
+		// Converted Paper2D vertex colors to be treated as linear space instead of sRGB space, and the color picker now matches the result on screen
+		// rather than sprites appearing far brighter than they should (note: they are still sent down as a FColor so they have limited precision)
+		FixVertexColorSpace = 17,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

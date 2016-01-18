@@ -48,6 +48,12 @@ void FSubversionSourceControlSettings::SetLabelsRoot(const FString& InString)
 	LabelsRoot = InString;
 }
 
+FString FSubversionSourceControlSettings::GetExecutableOverride() const
+{
+	FScopeLock ScopeLock(&CriticalSection);
+	return ExecutableLocation;
+}
+
 void FSubversionSourceControlSettings::LoadSettings()
 {
 	FScopeLock ScopeLock(&CriticalSection);
@@ -55,6 +61,7 @@ void FSubversionSourceControlSettings::LoadSettings()
 	GConfig->GetString(*SubversionSettingsConstants::SettingsSection, TEXT("Repository"), Repository, IniFile);
 	GConfig->GetString(*SubversionSettingsConstants::SettingsSection, TEXT("UserName"), UserName, IniFile);
 	GConfig->GetString(*SubversionSettingsConstants::SettingsSection, TEXT("LabelsRoot"), LabelsRoot, IniFile);
+	GConfig->GetString(*SubversionSettingsConstants::SettingsSection, TEXT("ExecutableLocation"), ExecutableLocation, IniFile);
 }
 
 void FSubversionSourceControlSettings::SaveSettings() const
@@ -64,4 +71,5 @@ void FSubversionSourceControlSettings::SaveSettings() const
 	GConfig->SetString(*SubversionSettingsConstants::SettingsSection, TEXT("Repository"), *Repository, IniFile);
 	GConfig->SetString(*SubversionSettingsConstants::SettingsSection, TEXT("UserName"), *UserName, IniFile);
 	GConfig->SetString(*SubversionSettingsConstants::SettingsSection, TEXT("LabelsRoot"), *LabelsRoot, IniFile);
+	GConfig->SetString(*SubversionSettingsConstants::SettingsSection, TEXT("ExecutableLocation"), *ExecutableLocation, IniFile);
 }

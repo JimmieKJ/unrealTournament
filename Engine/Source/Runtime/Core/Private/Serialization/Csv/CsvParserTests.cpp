@@ -49,7 +49,7 @@ namespace CsvParser_Tests
 	}
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBasicTest, "System.Core.CSV Parser.Basic", 0)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBasicTest, "System.Core.CSV Parser.Basic", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FBasicTest::RunTest(const FString& Parameters)
 {
@@ -64,7 +64,7 @@ bool FBasicTest::RunTest(const FString& Parameters)
 	return CsvParser_Tests::CheckRows(Parser.GetRows(), Expected, this);
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FQuotedStringTest, "System.Core.CSV Parser.Quoted String", 0)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FQuotedStringTest, "System.Core.CSV Parser.Quoted String", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FQuotedStringTest::RunTest(const FString& Parameters)
 {
@@ -82,7 +82,7 @@ bool FQuotedStringTest::RunTest(const FString& Parameters)
 	return CsvParser_Tests::CheckRows(Parser.GetRows(), Expected, this);
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEmptyCellsTest, "System.Core.CSV Parser.Empty Cells", 0)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEmptyCellsTest, "System.Core.CSV Parser.Empty Cells", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FEmptyCellsTest::RunTest(const FString& Parameters)
 {
@@ -100,7 +100,7 @@ bool FEmptyCellsTest::RunTest(const FString& Parameters)
 	return CsvParser_Tests::CheckRows(Parser.GetRows(), Expected, this);
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMixedNewLinesTest, "System.Core.CSV Parser.Mixed Newlines", 0)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMixedNewLinesTest, "System.Core.CSV Parser.Mixed Newlines", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FMixedNewLinesTest::RunTest(const FString& Parameters)
 {
@@ -113,7 +113,7 @@ bool FMixedNewLinesTest::RunTest(const FString& Parameters)
 	return CsvParser_Tests::CheckRows(Parser.GetRows(), Expected, this);
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEmptyStringTest, "System.Core.CSV Parser.Empty String", 0)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEmptyStringTest, "System.Core.CSV Parser.Empty String", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FEmptyStringTest::RunTest(const FString& Parameters)
 {
@@ -121,7 +121,7 @@ bool FEmptyStringTest::RunTest(const FString& Parameters)
 			FCsvParser(FString("")).GetRows().Num() == 0;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FOnlyNewLinesTest, "System.Core.CSV Parser.Only Newlines", 0)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FOnlyNewLinesTest, "System.Core.CSV Parser.Only Newlines", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FOnlyNewLinesTest::RunTest(const FString& Parameters)
 {

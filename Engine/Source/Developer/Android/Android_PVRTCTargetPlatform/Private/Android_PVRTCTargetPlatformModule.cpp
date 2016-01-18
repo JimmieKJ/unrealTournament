@@ -29,6 +29,11 @@ class FAndroid_PVRTCTargetPlatform
 		return FString(FAndroid_PVRTCPlatformProperties::PlatformName());
 	}
 
+	virtual bool SupportsCompressedNonPOT( ) const override
+	{
+		return false;
+	}
+	
 	virtual bool SupportsTextureFormat( FName Format ) const override
 	{
 		if( Format == AndroidTexFormat::NamePVRTC2 ||

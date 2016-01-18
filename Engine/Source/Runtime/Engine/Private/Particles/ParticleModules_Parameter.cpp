@@ -16,6 +16,7 @@
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
 #include "Engine/InterpCurveEdSetup.h"
+#include "Particles/Material/ParticleModuleMeshMaterial.h"
 
 UParticleModuleParameterBase::UParticleModuleParameterBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -63,10 +64,15 @@ void UParticleModuleParameterDynamic::PostInitProperties()
 		};
 		static FConstructorStatics ConstructorStatics;
 
-		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam1"))));
-		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam2"))));
-		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam3"))));
-		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam4"))));
+		UDistributionFloatConstant* NewParam1 = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam1")); NewParam1->Constant = 1.0f;
+		UDistributionFloatConstant* NewParam2 = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam2")); NewParam2->Constant = 1.0f;
+		UDistributionFloatConstant* NewParam3 = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam3")); NewParam3->Constant = 1.0f;
+		UDistributionFloatConstant* NewParam4 = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam4")); NewParam4->Constant = 1.0f;
+
+		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewParam1));
+		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewParam2));
+		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewParam3));
+		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewParam4));
 	}
 }
 
@@ -112,6 +118,19 @@ void UParticleModuleParameterDynamic::PostLoad()
 	Super::PostLoad();
 	UpdateUsageFlags();
 }
+
+bool UParticleModuleParameterDynamic::CanTickInAnyThread()
+{
+	for (FEmitterDynamicParameter& Parm : DynamicParams)
+	{
+		if (!Parm.ParamValue.OkForParallel())
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 
 void UParticleModuleParameterDynamic::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -393,15 +412,12 @@ UMaterial* UParticleModuleParameterDynamic_RetrieveMaterial(UMaterialInterface* 
 /**
  *	Helper function to find the DynamicParameter expression in a material
  */
-UMaterialExpressionDynamicParameter* UParticleModuleParameterDynamic_GetDynamicParameterExpression(UMaterial* InMaterial, bool bIsMeshEmitter)
+UMaterialExpressionDynamicParameter* UParticleModuleParameterDynamic_GetDynamicParameterExpression(UMaterial* InMaterial)
 {
 	UMaterialExpressionDynamicParameter* DynParamExp = NULL;
 	for (int32 ExpIndex = 0; ExpIndex < InMaterial->Expressions.Num(); ExpIndex++)
 	{
-		if (bIsMeshEmitter == false)
-		{
-			DynParamExp = Cast<UMaterialExpressionDynamicParameter>(InMaterial->Expressions[ExpIndex]);
-		}
+		DynParamExp = Cast<UMaterialExpressionDynamicParameter>(InMaterial->Expressions[ExpIndex]);
 
 		if (DynParamExp != NULL)
 		{
@@ -413,7 +429,7 @@ UMaterialExpressionDynamicParameter* UParticleModuleParameterDynamic_GetDynamicP
 }
 
 
-void UParticleModuleParameterDynamic::UpdateParameterNames(UMaterialInterface* InMaterialInterface, bool bIsMeshEmitter)
+void UParticleModuleParameterDynamic::UpdateParameterNames(UMaterialInterface* InMaterialInterface)
 {
 	UMaterial* Material = UParticleModuleParameterDynamic_RetrieveMaterial(InMaterialInterface);
 	if (Material == NULL)
@@ -422,7 +438,7 @@ void UParticleModuleParameterDynamic::UpdateParameterNames(UMaterialInterface* I
 	}
 
 	// Check the expressions...
-	UMaterialExpressionDynamicParameter* DynParamExp = UParticleModuleParameterDynamic_GetDynamicParameterExpression(Material, bIsMeshEmitter);
+	UMaterialExpressionDynamicParameter* DynParamExp = UParticleModuleParameterDynamic_GetDynamicParameterExpression(Material);
 	if (DynParamExp == NULL)
 	{
 		return;
@@ -450,10 +466,21 @@ void UParticleModuleParameterDynamic::RefreshModule(UInterpCurveEdSetup* EdSetup
 			}
 		}
 
-		UMaterialInterface* MaterialInterface = LODLevel->RequiredModule ? LODLevel->RequiredModule->Material : NULL;
+		UMaterialInterface* MaterialInterface = LODLevel->RequiredModule ? LODLevel->RequiredModule->Material : nullptr;
+		if( bIsMeshEmitter )
+		{
+			UParticleModuleMeshMaterial* MeshMaterialModule = nullptr;
+			LODLevel->Modules.FindItemByClass( &MeshMaterialModule );
+			if( MeshMaterialModule && MeshMaterialModule->MeshMaterials.Num() > 0 )
+			{
+				// Note: there is no way to know which material to gather parameter names from if there is more than one.  Assume the first material
+				MaterialInterface = MeshMaterialModule->MeshMaterials[0];
+			}
+		}
+
 		if (MaterialInterface)
 		{
-			UpdateParameterNames(MaterialInterface, bIsMeshEmitter);
+			UpdateParameterNames(MaterialInterface);
 			for (int32 ParamIndex = 0; ParamIndex < 4; ParamIndex++)
 			{
 				FString TempName = FString::Printf(TEXT("%s (DP%d)"), 

@@ -32,7 +32,7 @@ class UMaterialExpressionLandscapeLayerWeight : public UMaterialExpression
 
 public:
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
@@ -40,7 +40,7 @@ public:
 #if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Float | MCT_MaterialAttributes;}
 #endif //WITH_EDITOR
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 	LANDSCAPE_API virtual FGuid& GetParameterExpressionId() override;
 

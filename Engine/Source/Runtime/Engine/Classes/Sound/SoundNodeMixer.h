@@ -19,7 +19,7 @@ class USoundNodeMixer : public USoundNode
 
 
 public:
-	// Begin USoundNode interface.
+	//~ Begin USoundNode Interface.
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual int32 GetMaxChildNodes() const override 
 	{ 
@@ -32,6 +32,6 @@ public:
 	/** Ensure amount of inputs matches new amount of children */
 	virtual void SetChildNodes(TArray<USoundNode*>& InChildNodes) override;
 #endif //WITH_EDITOR
-	// End USoundNode interface.
+	//~ End USoundNode Interface.
 };
 

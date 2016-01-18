@@ -106,6 +106,26 @@ public:
 		Ar << Point.InterpMode;
 		return Ar;
 	}
+
+	/**
+	 * Compare equality of two Curve Points
+	 */
+	friend bool operator==( const FInterpCurvePoint& Point1, const FInterpCurvePoint& Point2 )
+	{
+		return (Point1.InVal == Point2.InVal &&
+				Point1.OutVal == Point2.OutVal &&
+				Point1.ArriveTangent == Point2.ArriveTangent &&
+				Point1.LeaveTangent == Point2.LeaveTangent &&
+				Point1.InterpMode == Point2.InterpMode);
+	}
+
+	/**
+	 * Compare inequality of two Curve Points
+	 */
+	friend bool operator!=(const FInterpCurvePoint& Point1, const FInterpCurvePoint& Point2)
+	{
+		return !(Point1 == Point2);
+	}
 };
 
 

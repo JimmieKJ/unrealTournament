@@ -174,8 +174,14 @@ protected:
 	void ApplyVisualizationToNodesRecursively( const FTreeMapNodeDataRef& Node, const FLinearColor& DefaultColor, const int32 TreeDepth );
 		
 	/** Displays a context menu at the specified location with options for configuring the tree display */
-	void ShowOptionsMenuAt( const FVector2D& ScreenSpacePosition );
+	DEPRECATED(4.9, "ShowOptionsMenuAt() taking a FVector2D param is deprecated. Use ShowOptionsMenuAt() that takes an FPointerEvent instead.")
+	void ShowOptionsMenuAt(const FVector2D& ScreenSpacePosition);
 
+	/** Displays a context menu at the specified location with options for configuring the tree display */
+	void ShowOptionsMenuAt( const FPointerEvent& InMouseEvent );
+
+private:
+	void ShowOptionsMenuAtInternal(const FVector2D& ScreenSpacePosition, const FWidgetPath& WidgetPath);
 
 private:
 

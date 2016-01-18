@@ -1,4 +1,5 @@
 #include "OnlineSubsystemUtilsPrivatePCH.h"
+#include "EndTurnCallbackProxy.h"
 #include "GameFramework/Actor.h"
 #include "RepLayout.h"
 

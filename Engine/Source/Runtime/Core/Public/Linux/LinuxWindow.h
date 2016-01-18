@@ -23,9 +23,6 @@ class CORE_API FLinuxWindow : public FGenericWindow
 public:
 	~FLinuxWindow();
 
-	/** Win32 requirement: see CreateWindowEx and RegisterClassEx. */
-	static const TCHAR AppWindowClass[];
-
 	/** Create a new SDLWindow.
 	 *
 	 * @param SlateWindows		List of all top level Slate windows.  This function will add the owner window to this list.
@@ -66,6 +63,9 @@ public:
 
 	/** TODO: describe */
 	bool IsActivateWhenFirstShown() const;
+	
+	/** TODO: describe */
+	bool IsFocusWhenFirstShown() const;
 
 	/** TODO: describe */
 	const TSharedPtr< FLinuxWindow >& GetParent() const;
@@ -159,20 +159,6 @@ public:
 	virtual void AdjustCachedSize( FVector2D& Size ) const override;
 
 	/**
-	 * Sets the state if the pointer entered/left the window.
-	 * 
-	 * @param PointerEnteredWindow If the pointer entered the window set 'true' else 'false'.
-	 */
-	void OnPointerEnteredWindow(bool PointerEnteredWindow);
-
-	/**
-	 * Is the pointer currently inside the window?
-	 * 
-	 * @return Returns 'true' if the pointer is inside the window else 'false'.
-	 */
-	bool IsPointerInsideWindow() const;
-
-	/**
 	 * Returns window border sizes (frame extents).
 	 * 
 	 * @param BorderWidth - width of a vertical border (left side)
@@ -193,8 +179,6 @@ private:
 	 */
 	FLinuxWindow();
 
-	void UpdateVisibility();
-
 private:
 
 	FLinuxApplication* OwningApplication;
@@ -208,8 +192,6 @@ private:
 	
 	/** The mode that the window is in (windowed, fullscreen, windowedfullscreen ) */
 	EWindowMode::Type WindowMode;
-
-	int32 OLEReferenceCount;
 
 	RECT PreFullscreenWindowRect;
 

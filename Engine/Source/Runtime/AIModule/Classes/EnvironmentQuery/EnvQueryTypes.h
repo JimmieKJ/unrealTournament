@@ -5,8 +5,10 @@
 #include "EnvironmentQuery/Items/EnvQueryItemType.h"
 #include "EnvironmentQuery/EnvQueryContext.h"
 #include "DataProviders/AIDataProvider.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "EnvQueryTypes.generated.h"
 
+class AActor;
 class ARecastNavMesh;
 class UNavigationQueryFilter;
 class UEnvQueryTest;
@@ -14,6 +16,9 @@ class UEnvQueryGenerator;
 class UEnvQueryItemType_VectorBase;
 class UEnvQueryItemType_ActorBase;
 class UEnvQueryContext;
+class UEnvQuery;
+class UBlackboardData;
+class UBlackboardComponent;
 struct FEnvQueryInstance;
 struct FEnvQueryOptionInstance;
 struct FEnvQueryItemDetails;
@@ -28,7 +33,9 @@ DECLARE_STATS_GROUP(TEXT("Environment Query"), STATGROUP_AI_EQS, STATCAT_Advance
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Tick"),STAT_AI_EQS_Tick,STATGROUP_AI_EQS, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Tick - EQS work"), STAT_AI_EQS_TickWork, STATGROUP_AI_EQS, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Tick - OnFinished delegates"), STAT_AI_EQS_TickNotifies, STATGROUP_AI_EQS, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Tick - Removal of completed queries"), STAT_AI_EQS_TickQueryRemovals, STATGROUP_AI_EQS, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Load Time"),STAT_AI_EQS_LoadTime,STATGROUP_AI_EQS, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Execute One Step Time"),STAT_AI_EQS_ExecuteOneStep,STATGROUP_AI_EQS, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Generator Time"),STAT_AI_EQS_GeneratorTime,STATGROUP_AI_EQS, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Test Time"),STAT_AI_EQS_TestTime,STATGROUP_AI_EQS, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Num Instances"),STAT_AI_EQS_NumInstances,STATGROUP_AI_EQS, );
@@ -51,10 +58,14 @@ namespace EEnvTestFilterType
 {
 	enum Type
 	{
-		Minimum,	// For numeric tests
-		Maximum,	// For numeric tests
-		Range,		// For numeric tests
-		Match		// For boolean tests
+		/** For numeric tests. */
+		Minimum,
+		/** For numeric tests. */
+		Maximum,
+		/** For numeric tests. */
+		Range,
+		/** For Boolean tests. */
+		Match
 	};
 }
 
@@ -65,7 +76,9 @@ namespace EEnvTestScoreEquation
 	{
 		Linear,
 		Square,
-		InverseLinear,	// For now...
+		InverseLinear,
+		SquareRoot,
+
 		Constant
 		// What other curve shapes should be supported?  At first I was thinking we'd have parametric (F*V^P + C), but
 		// many versions of that curve would violate the [0, 1] output range which I think we should preserve.  So instead
@@ -100,9 +113,12 @@ namespace EEnvTestCost
 {
 	enum Type
 	{
-		Low,				// reading data, math operations (e.g. distance)
-		Medium,				// processing data from multiple sources (e.g. fire tickets)
-		High,				// really expensive calls (e.g. visibility traces, pathfinding)
+		/** Reading data, math operations (e.g. distance). */
+		Low,
+		/** Processing data from multiple sources (e.g. fire tickets). */
+		Medium,
+		/** Really expensive calls (e.g. visibility traces, pathfinding).  */
+		High,
 	};
 }
 
@@ -124,6 +140,15 @@ namespace EEnvTestScoreOperator
 		AverageScore	UMETA(Tooltip = "Use average score from all contexts"),
 		MinScore		UMETA(Tooltip = "Use minimum score from all contexts"),
 		MaxScore		UMETA(Tooltip = "Use maximum score from all contexts"),
+	};
+}
+
+namespace EEnvItemStatus
+{
+	enum Type
+	{
+		Passed,
+		Failed,
 	};
 }
 
@@ -165,6 +190,14 @@ namespace EEnvQueryParam
 }
 
 UENUM()
+enum class EAIParamType : uint8
+{
+	Float,
+	Int,
+	Bool,
+};
+
+UENUM()
 namespace EEnvQueryTrace
 {
 	enum Type
@@ -188,6 +221,17 @@ namespace EEnvTraceShape
 }
 
 UENUM()
+namespace EEnvOverlapShape
+{
+	enum Type
+	{
+		Box,
+		Sphere,
+		Capsule,
+	};
+}
+
+UENUM()
 namespace EEnvDirection
 {
 	enum Type
@@ -203,8 +247,10 @@ namespace EEnvQueryTestClamping
 	enum Type
 	{
 		None,			
-		SpecifiedValue,	// Clamp to value specified in test
-		FilterThreshold	// Clamp to test's filter threshold
+		/** Clamp to value specified in test. */
+		SpecifiedValue,
+		/** Clamp to test's filter threshold. */
+		FilterThreshold
 	};
 }
 
@@ -216,10 +262,10 @@ struct AIMODULE_API FEnvNamedValue
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Param)
 	FName ParamName;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Param)
-	TEnumAsByte<EEnvQueryParam::Type> ParamType;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Param)
+	TEnumAsByte<EAIParamType> ParamType;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Param)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Param)
 	float Value;
 };
 
@@ -264,6 +310,10 @@ struct AIMODULE_API FEnvTraceData
 	{
 	}
 
+	/** version number for updates */
+	UPROPERTY()
+	int32 VersionNum;
+
 	/** navigation filter for tracing */
 	UPROPERTY(EditDefaultsOnly, Category=Trace)
 	TSubclassOf<UNavigationQueryFilter> NavigationFilter;
@@ -298,6 +348,10 @@ struct AIMODULE_API FEnvTraceData
 	/** geometry trace channel */
 	UPROPERTY(EditDefaultsOnly, Category=Trace)
 	TEnumAsByte<enum ETraceTypeQuery> TraceChannel;
+
+	/** geometry trace channel for serialization purposes */
+	UPROPERTY(EditDefaultsOnly, Category=Trace)
+	TEnumAsByte<enum ECollisionChannel> SerializedChannel;
 
 	/** shape used for geometry tracing */
 	UPROPERTY(EditDefaultsOnly, Category=Trace)
@@ -335,6 +389,56 @@ struct AIMODULE_API FEnvTraceData
 
 	void SetGeometryOnly();
 	void SetNavmeshOnly();
+	
+	void OnPostLoad();
+};
+
+USTRUCT()
+struct AIMODULE_API FEnvOverlapData
+{
+	GENERATED_USTRUCT_BODY()
+
+	FEnvOverlapData() :
+		ExtentX(10.0f),
+		ExtentY(10.0f),
+		ExtentZ(10.0f),
+		ShapeOffset(FVector::ZeroVector),
+		bOnlyBlockingHits(true),
+		bOverlapComplex(false)
+	{
+	}
+
+	/** shape parameter for overlap */
+	UPROPERTY(EditDefaultsOnly, Category = Trace, meta = (UIMin = 0, ClampMin = 0))
+	float ExtentX;
+
+	/** shape parameter for overlap */
+	UPROPERTY(EditDefaultsOnly, Category = Trace, meta = (UIMin = 0, ClampMin = 0))
+	float ExtentY;
+
+	/** shape parameter for overlap */
+	UPROPERTY(EditDefaultsOnly, Category = Trace, meta = (UIMin = 0, ClampMin = 0))
+	float ExtentZ;
+
+	UPROPERTY(EditDefaultsOnly, Category = Trace, AdvancedDisplay, Meta =
+		(Tooltip="Offset from the item location at which to test the overlap.  For example, you may need to offset vertically to avoid overlaps with flat ground."))
+	FVector ShapeOffset;
+
+	/** geometry trace channel used for overlap */
+	UPROPERTY(EditDefaultsOnly, Category = Overlap)
+	TEnumAsByte<enum ECollisionChannel> OverlapChannel;
+
+	/** shape used for geometry overlap */
+	UPROPERTY(EditDefaultsOnly, Category = Overlap)
+	TEnumAsByte<EEnvOverlapShape::Type> OverlapShape;
+
+	/** if set, overlap will look only for blocking hits */
+	UPROPERTY(EditDefaultsOnly, Category = Overlap, AdvancedDisplay)
+	uint32 bOnlyBlockingHits : 1;
+
+	/** if set, overlap will run on complex collisions */
+	UPROPERTY(EditDefaultsOnly, Category = Overlap, AdvancedDisplay)
+	uint32 bOverlapComplex : 1;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -349,7 +453,7 @@ struct AIMODULE_API FEnvQueryItem
 	int32 DataOffset:31;
 
 	/** has this item been discarded? */
-	int32 bIsDiscarded:1;
+	uint32 bIsDiscarded:1;
 
 	FORCEINLINE bool IsValid() const { return DataOffset >= 0 && !bIsDiscarded; }
 	FORCEINLINE void Discard() { bIsDiscarded = true; }
@@ -536,414 +640,6 @@ struct FEQSQueryDebugData
 	}
 };
 
-struct AIMODULE_API FEnvQueryInstance : public FEnvQueryResult
-{
-	typedef float FNamedParamValueType;
-
-	/** short name of query template */
-	FString QueryName;
-
-	/** world owning this query instance */
-	UWorld* World;
-
-	/** observer's delegate */
-	FQueryFinishedSignature FinishDelegate;
-
-	/** execution params */
-	TMap<FName, FNamedParamValueType> NamedParams;
-
-	/** contexts in use */
-	TMap<UClass*, FEnvQueryContextData> ContextCache;
-
-	/** list of options */
-	TArray<FEnvQueryOptionInstance> Options;
-
-	/** currently processed test (-1 = generator) */
-	int32 CurrentTest;
-
-	/** non-zero if test run last step has been stopped mid-process. This indicates
-	 *	index of the first item that needs processing when resumed */
-	int32 CurrentTestStartingItem;
-
-	/** list of item details */
-	TArray<FEnvQueryItemDetails> ItemDetails;
-
-	/** number of valid items on list */
-	int32 NumValidItems;
-
-	/** size of current value */
-	uint16 ValueSize;
-
-	/** used to breaking from item iterator loops */
-	uint8 bFoundSingleResult : 1;
-
-private:
-	/** set when testing final condition of an option */
-	uint8 bPassOnSingleResult : 1;
-
-public:
-#if USE_EQS_DEBUGGER
-	/** set to true to store additional debug info */
-	uint8 bStoreDebugInfo : 1;
-#endif // USE_EQS_DEBUGGER
-
-	/** run mode */
-	TEnumAsByte<EEnvQueryRunMode::Type> Mode;
-
-	/** item type's CDO for location tests */
-	UEnvQueryItemType_VectorBase* ItemTypeVectorCDO;
-
-	/** item type's CDO for actor tests */
-	UEnvQueryItemType_ActorBase* ItemTypeActorCDO;
-
-	/** if > 0 then it's how much time query has for performing current step */
-	double TimeLimit;
-
-	FEnvQueryInstance() : World(NULL), CurrentTest(-1), NumValidItems(0), bFoundSingleResult(false), bPassOnSingleResult(false)
-#if USE_EQS_DEBUGGER
-		, bStoreDebugInfo(bDebuggingInfoEnabled) 
-#endif // USE_EQS_DEBUGGER
-	{ IncStats(); }
-	FEnvQueryInstance(const FEnvQueryInstance& Other) { *this = Other; IncStats(); }
-	~FEnvQueryInstance() { DecStats(); }
-
-	/** execute single step of query */
-	void ExecuteOneStep(double TimeLimit);
-
-	/** update context cache */
-	bool PrepareContext(UClass* Context, FEnvQueryContextData& ContextData);
-
-	/** helpers for reading spatial data from context */
-	bool PrepareContext(UClass* Context, TArray<FEnvQuerySpatialData>& Data);
-	bool PrepareContext(UClass* Context, TArray<FVector>& Data);
-	bool PrepareContext(UClass* Context, TArray<FRotator>& Data);
-	/** helpers for reading actor data from context */
-	bool PrepareContext(UClass* Context, TArray<AActor*>& Data);
-	
-	bool IsInSingleItemFinalSearch() const { return !!bPassOnSingleResult; }
-	/** check if current test can batch its calculations */
-	bool CanBatchTest() const { return !IsInSingleItemFinalSearch(); }
-
-	/** raw data operations */
-	void ReserveItemData(int32 NumAdditionalItems);
-
-	template<typename TypeItem, typename TypeValue>
-	void AddItemData(TypeValue ItemValue)
-	{
-		DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
-
-		const int32 DataOffset = RawData.AddUninitialized(ValueSize);
-		TypeItem::SetValue(RawData.GetData() + DataOffset, ItemValue);
-		Items.Add(FEnvQueryItem(DataOffset));
-
-		INC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
-	}
-
-protected:
-
-	/** prepare item data after generator has finished */
-	void FinalizeGeneration();
-
-	/** update costs and flags after test has finished */
-	void FinalizeTest();
-	
-	/** final pass on items of finished query */
-	void FinalizeQuery();
-
-	/** normalize total score in range 0..1 */
-	void NormalizeScores();
-
-	/** sort all scores, from highest to lowest */
-	void SortScores();
-
-	/** pick one of items with score equal or higher than specified */
-	void PickBestItem(float MinScore);
-
-	/** discard all items but one */
-	void PickSingleItem(int32 ItemIndex);
-
-public:
-
-	/** removes all runtime data that can be used for debugging (not a part of actual query result) */
-	void StripRedundantData();
-
-#if STATS
-	FORCEINLINE void IncStats()
-	{
-		INC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, GetAllocatedSize());
-		INC_DWORD_STAT_BY(STAT_AI_EQS_NumItems, Items.Num());
-	}
-
-	FORCEINLINE void DecStats()
-	{
-		DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, GetAllocatedSize()); 
-		DEC_DWORD_STAT_BY(STAT_AI_EQS_NumItems, Items.Num());
-	}
-
-	uint32 GetAllocatedSize() const;
-	uint32 GetContextAllocatedSize() const;
-#else
-	FORCEINLINE uint32 GetAllocatedSize() const { return 0; }
-	FORCEINLINE uint32 GetContextAllocatedSize() const { return 0; }
-	FORCEINLINE void IncStats() {}
-	FORCEINLINE void DecStats() {}
-#endif // STATS
-
-#if !NO_LOGGING
-	void Log(const FString Msg) const;
-#endif // #if !NO_LOGGING
-
-#if USE_EQS_DEBUGGER
-#	define  UE_EQS_DBGMSG(Condition, Format, ...) \
-					if (Condition) \
-					{ \
-						Instance->ItemDetails[CurrentItem].FailedDescription = FString::Printf(Format, ##__VA_ARGS__); \
-					}
-
-#	define UE_EQS_LOG(CategoryName, Verbosity, Format, ...) \
-					UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__); \
-					UE_EQS_DBGMSG(true, Format, ##__VA_ARGS__); 
-#else
-#	define UE_EQS_DBGMSG(Condition, Format, ...)
-#	define UE_EQS_LOG(CategoryName, Verbosity, Format, ...) UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__); 
-#endif
-
-#if CPP || UE_BUILD_DOCS
-	struct AIMODULE_API ItemIterator
-	{
-		ItemIterator(const UEnvQueryTest* QueryTest, FEnvQueryInstance& QueryInstance, int32 StartingItemIndex = INDEX_NONE);
-
-		~ItemIterator()
-		{
-			Instance->CurrentTestStartingItem = CurrentItem;
-		}
-
-		void SetScore(EEnvTestPurpose::Type TestPurpose, EEnvTestFilterType::Type FilterType, float Score, float Min, float Max)
-		{
-			bool bPassedTest = true;
-
-			if (TestPurpose != EEnvTestPurpose::Score)	// May need to filter results!
-			{
-				switch (FilterType)
-				{
-					case EEnvTestFilterType::Maximum:
-						bPassedTest = (Score <= Max);
-						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is above maximum value set to %f"), Score, Max);
-						break;
-
-					case EEnvTestFilterType::Minimum:
-						bPassedTest = (Score >= Min);
-						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is below minimum value set to %f"), Score, Min);
-						break;
-
-					case EEnvTestFilterType::Range:
-						bPassedTest = (Score >= Min) && (Score <= Max);
-						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is out of range set to (%f, %f)"), Score, Min, Max);
-						break;
-
-					case EEnvTestFilterType::Match:
-						UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to 'Match' for floating point test.  Will consider test as failed in all cases."));
-						bPassedTest = false;
-						break;
-
-					default:
-						UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to invalid value for floating point test.  Will consider test as failed in all cases."));
-						bPassedTest = false;
-						break;
-				}
-			}
-
-			if (bPassedTest)
-			{
-				SetScoreInternal(Score);
-				NumPassedForItem++;
-			}
-
-			NumTestsForItem++;
-		}
-
-		void SetScore(EEnvTestPurpose::Type TestPurpose, EEnvTestFilterType::Type FilterType, bool bScore, bool bExpected)
-		{
-			bool bPassedTest = true;
-			switch (FilterType)
-			{
-				case EEnvTestFilterType::Match:
-					bPassedTest = (bScore == bExpected);
-					UE_EQS_DBGMSG(!bPassedTest, TEXT("Boolean score don't mach (expected %s and got %s)"), bExpected ? TEXT("TRUE") : TEXT("FALSE"), bScore ? TEXT("TRUE") : TEXT("FALSE"));
-					break;
-
-				case EEnvTestFilterType::Maximum:
-					UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to 'Maximum' for boolean test.  Will consider test as failed in all cases."));
-					bPassedTest = false;
-					break;
-
-				case EEnvTestFilterType::Minimum:
-					UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to 'Minimum' for boolean test.  Will consider test as failed in all cases."));
-					bPassedTest = false;
-					break;
-
-				case EEnvTestFilterType::Range:
-					UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to 'Range' for boolean test.  Will consider test as failed in all cases."));
-					bPassedTest = false;
-					break;
-
-				default:
-					UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to invalid value for boolean test.  Will consider test as failed in all cases."));
-					bPassedTest = false;
-					break;
-			}
-
-			if (bPassedTest)
-			{
-				SetScoreInternal(1.0f);
-				NumPassedForItem++;
-			}
-
-			NumTestsForItem++;
-		}
-
-		uint8* GetItemData()
-		{
-			return Instance->RawData.GetData() + Instance->Items[CurrentItem].DataOffset;
-		}
-
-		void DiscardItem()
-		{
-			bPassed = false;
-		}
-
-		void SkipItem()
-		{
-			bSkipped = true;
-		}
-
-		void IgnoreTimeLimit()
-		{
-			Deadline = -1.0f;
-		}
-
-		int32 GetIndex() const
-		{
-			return CurrentItem;
-		}
-
-		DEPRECATED(4.8, "This function is now deprecatewd, please use GetIndex() for current index or GetItemData() for raw data pointer")
-		int32 operator*() const
-		{
-			return GetIndex();
-		}
-
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
-		{
-			return CurrentItem < Instance->Items.Num() && !Instance->bFoundSingleResult && (Deadline < 0 || FPlatformTime::Seconds() < Deadline);
-		}
-
-		void operator++()
-		{
-			StoreTestResult();
-			if (!Instance->bFoundSingleResult)
-			{
-				InitItemScore();
-				FindNextValidIndex();
-			}
-		}
-
-	protected:
-
-		FEnvQueryInstance* Instance;
-		double Deadline;
-		float ItemScore;
-		int32 CurrentItem;
-		int16 NumPassedForItem;
-		int16 NumTestsForItem;
-		uint8 CachedFilterOp;
-		uint8 CachedScoreOp;
-		uint8 bPassed : 1;
-		uint8 bSkipped : 1;
-		uint8 bIsFiltering : 1;
-
-		void InitItemScore()
-		{
-			NumPassedForItem = 0;
-			NumTestsForItem = 0;
-			ItemScore = 0.0f;
-			bPassed = true;
-			bSkipped = false;
-		}
-
-		void HandleFailedTestResult();
-		void StoreTestResult();
-
-		FORCEINLINE void FindNextValidIndex()
-		{
-			for (CurrentItem++; CurrentItem < Instance->Items.Num() && !Instance->Items[CurrentItem].IsValid(); CurrentItem++)
-				;
-		}
-
-		FORCEINLINE void SetScoreInternal(float Score)
-		{
-			switch (CachedScoreOp)
-			{
-			case EEnvTestScoreOperator::AverageScore:
-				ItemScore += Score;
-				break;
-
-			case EEnvTestScoreOperator::MinScore:
-				if (!NumPassedForItem || ItemScore > Score)
-				{
-					ItemScore = Score;
-				}
-				break;
-
-			case EEnvTestScoreOperator::MaxScore:
-				if (!NumPassedForItem || ItemScore < Score)
-				{
-					ItemScore = Score;
-				}
-				break;
-			}
-		}
-
-		FORCEINLINE void CheckItemPassed()
-		{
-			if (!bIsFiltering)
-			{
-				bPassed = true;
-			}
-			else if (CachedFilterOp == EEnvTestFilterOperator::AllPass)
-			{
-				bPassed = bPassed && (NumPassedForItem == NumTestsForItem);
-			}
-			else
-			{
-				bPassed = bPassed && (NumPassedForItem > 0);
-			}
-		}
-	};
-#endif
-
-#undef UE_EQS_LOG
-#undef UE_EQS_DBGMSG
-
-#if USE_EQS_DEBUGGER
-	FEQSQueryDebugData DebugData;
-	static bool bDebuggingInfoEnabled;
-#endif // USE_EQS_DEBUGGER
-
-	FBox GetBoundingBox() const;
-};
-
-namespace FEQSHelpers
-{
-	AIMODULE_API const ANavigationData* FindNavigationDataForQuery(FEnvQueryInstance& QueryInstance);
-
-#if WITH_RECAST
-
-	DEPRECATED(4.8, "FindNavMeshForQuery is deprecated. Please use FindNavigationDataForQuery")
-	AIMODULE_API const ARecastNavMesh* FindNavMeshForQuery(FEnvQueryInstance& QueryInstance);
-#endif // WITH_RECAST
-}
-
 // BEGIN DEPRECATED SUPPORT
 
 USTRUCT()
@@ -1028,4 +724,552 @@ public:
 
 	static FText GetShortTypeName(const UObject* Ob);
 	static FText DescribeContext(TSubclassOf<UEnvQueryContext> ContextClass);
+};
+
+struct AIMODULE_API FEnvQueryInstance : public FEnvQueryResult
+{
+	typedef float FNamedParamValueType;
+
+	/** short name of query template */
+	FString QueryName;
+
+	/** world owning this query instance */
+	UWorld* World;
+
+	/** observer's delegate */
+	FQueryFinishedSignature FinishDelegate;
+
+	/** execution params */
+	TMap<FName, FNamedParamValueType> NamedParams;
+
+	/** contexts in use */
+	TMap<UClass*, FEnvQueryContextData> ContextCache;
+
+	/** list of options */
+	TArray<FEnvQueryOptionInstance> Options;
+
+	/** currently processed test (-1 = generator) */
+	int32 CurrentTest;
+
+	/** non-zero if test run last step has been stopped mid-process. This indicates
+	 *	index of the first item that needs processing when resumed */
+	int32 CurrentTestStartingItem;
+
+	/** list of item details */
+	TArray<FEnvQueryItemDetails> ItemDetails;
+
+	/** number of valid items on list */
+	int32 NumValidItems;
+
+	/** size of current value */
+	uint16 ValueSize;
+
+	/** used to breaking from item iterator loops */
+	uint8 bFoundSingleResult : 1;
+
+private:
+	/** set when testing final condition of an option */
+	uint8 bPassOnSingleResult : 1;
+
+	/** true if this query has logged a warning that it overran the time limit */
+	uint8 bHasLoggedTimeLimitWarning : 1;
+
+	/** if > 0 then it's how much time query has for performing current step */
+	double CurrentStepTimeLimit;
+
+	/** time spent executing this query */
+	double TotalExecutionTime;
+
+	/** time spent doing generation for this query */
+	double GenerationExecutionTime;
+
+	// @todo do we really need this data in shipped builds?
+	/** time spent on each test of this query */
+	TArray<double> PerStepExecutionTime;
+
+public:
+#if USE_EQS_DEBUGGER
+	/** set to true to store additional debug info */
+	uint8 bStoreDebugInfo : 1;
+#endif // USE_EQS_DEBUGGER
+
+	/** run mode */
+	EEnvQueryRunMode::Type Mode;
+
+	/** item type's CDO for location tests */
+	UEnvQueryItemType_VectorBase* ItemTypeVectorCDO;
+
+	/** item type's CDO for actor tests */
+	UEnvQueryItemType_ActorBase* ItemTypeActorCDO;
+
+	FEnvQueryInstance();
+	FEnvQueryInstance(const FEnvQueryInstance& Other);
+	~FEnvQueryInstance();
+
+	/** execute single step of query */
+	void ExecuteOneStep(double InCurrentStepTimeLimit);
+
+	/** have we logged that we overran time the time limit? */
+	bool HasLoggedTimeLimitWarning() const { return !!bHasLoggedTimeLimitWarning; }
+
+	/** set that we logged that we overran time the time limit. */
+	void SetHasLoggedTimeLimitWarning() { bHasLoggedTimeLimitWarning = true; }
+
+	/** get the amount of time spent executing query */
+	double GetTotalExecutionTime() const { return TotalExecutionTime; }
+
+	/** describe for logging purposes what the query spent time on */
+	FString GetExecutionTimeDescription() const;
+
+	/** update context cache */
+	bool PrepareContext(UClass* Context, FEnvQueryContextData& ContextData);
+
+	/** helpers for reading spatial data from context */
+	bool PrepareContext(UClass* Context, TArray<FEnvQuerySpatialData>& Data);
+	bool PrepareContext(UClass* Context, TArray<FVector>& Data);
+	bool PrepareContext(UClass* Context, TArray<FRotator>& Data);
+	/** helpers for reading actor data from context */
+	bool PrepareContext(UClass* Context, TArray<AActor*>& Data);
+	
+	bool IsInSingleItemFinalSearch() const { return !!bPassOnSingleResult; }
+	/** check if current test can batch its calculations */
+	bool CanBatchTest() const { return !IsInSingleItemFinalSearch(); }
+
+	/** raw data operations */
+	void ReserveItemData(int32 NumAdditionalItems);
+
+	template<typename TypeItem, typename TypeValue>
+	void AddItemData(TypeValue ItemValue)
+	{
+		DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
+
+		const int32 DataOffset = RawData.AddUninitialized(ValueSize);
+		TypeItem::SetValue(RawData.GetData() + DataOffset, ItemValue);
+		Items.Add(FEnvQueryItem(DataOffset));
+
+		INC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
+	}
+
+	/** AddItemData specialization for arrays if values */
+	template<typename TypeItem, typename TypeValue>
+	void AddItemData(TArray<TypeValue>& ItemCollection)
+	{
+		if (ItemCollection.Num() > 0)
+		{
+			DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
+
+			int32 DataOffset = RawData.AddUninitialized(ValueSize * ItemCollection.Num());
+			Items.Reserve(Items.Num() + ItemCollection.Num());
+
+			for (TypeValue& Item : ItemCollection)
+			{
+				TypeItem::SetValue(RawData.GetData() + DataOffset, Item);
+				Items.Add(FEnvQueryItem(DataOffset));
+				DataOffset += ValueSize;
+			}
+
+			INC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
+		}
+	}
+
+protected:
+
+	/** prepare item data after generator has finished */
+	void FinalizeGeneration();
+
+	/** update costs and flags after test has finished */
+	void FinalizeTest();
+	
+	/** final pass on items of finished query */
+	void FinalizeQuery();
+
+	/** normalize total score in range 0..1 */
+	void NormalizeScores();
+
+	/** sort all scores, from highest to lowest */
+	void SortScores();
+
+	/** pick one of items with score equal or higher than specified */
+	void PickRandomItemOfScoreAtLeast(float MinScore);
+
+	/** discard all items but one */
+	void PickSingleItem(int32 ItemIndex);
+
+public:
+
+	/** removes all runtime data that can be used for debugging (not a part of actual query result) */
+	void StripRedundantData();
+
+#if STATS
+	FORCEINLINE void IncStats()
+	{
+		INC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, GetAllocatedSize());
+		INC_DWORD_STAT_BY(STAT_AI_EQS_NumItems, Items.Num());
+	}
+
+	FORCEINLINE void DecStats()
+	{
+		DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, GetAllocatedSize()); 
+		DEC_DWORD_STAT_BY(STAT_AI_EQS_NumItems, Items.Num());
+	}
+
+	uint32 GetAllocatedSize() const;
+	uint32 GetContextAllocatedSize() const;
+#else
+	FORCEINLINE uint32 GetAllocatedSize() const { return 0; }
+	FORCEINLINE uint32 GetContextAllocatedSize() const { return 0; }
+	FORCEINLINE void IncStats() {}
+	FORCEINLINE void DecStats() {}
+#endif // STATS
+
+#if !NO_LOGGING
+	void Log(const FString Msg) const;
+#endif // #if !NO_LOGGING
+
+#if USE_EQS_DEBUGGER
+#	define  UE_EQS_DBGMSG(Condition, Format, ...) \
+					if (Condition) \
+					{ \
+						Instance->ItemDetails[CurrentItem].FailedDescription = FString::Printf(Format, ##__VA_ARGS__); \
+					}
+
+#	define UE_EQS_LOG(CategoryName, Verbosity, Format, ...) \
+					UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__); \
+					UE_EQS_DBGMSG(true, Format, ##__VA_ARGS__); 
+#else
+#	define UE_EQS_DBGMSG(Condition, Format, ...)
+#	define UE_EQS_LOG(CategoryName, Verbosity, Format, ...) UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__); 
+#endif
+
+#if CPP || UE_BUILD_DOCS
+	struct AIMODULE_API ItemIterator
+	{
+		ItemIterator(const UEnvQueryTest* QueryTest, FEnvQueryInstance& QueryInstance, int32 StartingItemIndex = INDEX_NONE);
+
+		~ItemIterator()
+		{
+			Instance->CurrentTestStartingItem = CurrentItem;
+		}
+
+		/** Filter and score an item - used by tests working on float values
+		 *  (can be called multiple times for single item when processing contexts with multiple entries)
+		 *  NOTE: The Score is the raw score, before clamping, normalizing, and multiplying by weight.  The FilterMin
+		 *  and FilterMax values are ONLY used for filtering (if any).
+		 */
+		void SetScore(EEnvTestPurpose::Type TestPurpose, EEnvTestFilterType::Type FilterType, float Score, float FilterMin, float FilterMax)
+		{
+			if (bForced)
+			{
+				return;
+			}
+
+			bool bPassedTest = true;
+
+			if (TestPurpose != EEnvTestPurpose::Score)	// May need to filter results!
+			{
+				switch (FilterType)
+				{
+					case EEnvTestFilterType::Maximum:
+						bPassedTest = (Score <= FilterMax);
+						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is above maximum value set to %f"), Score, FilterMax);
+						break;
+
+					case EEnvTestFilterType::Minimum:
+						bPassedTest = (Score >= FilterMin);
+						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is below minimum value set to %f"), Score, FilterMin);
+						break;
+
+					case EEnvTestFilterType::Range:
+						bPassedTest = (Score >= FilterMin) && (Score <= FilterMax);
+						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is out of range set to (%f, %f)"), Score, FilterMin, FilterMax);
+						break;
+
+					case EEnvTestFilterType::Match:
+						UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to 'Match' for floating point test.  Will consider test as failed in all cases."));
+						bPassedTest = false;
+						break;
+
+					default:
+						UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to invalid value for floating point test.  Will consider test as failed in all cases."));
+						bPassedTest = false;
+						break;
+				}
+			}
+
+			if (bPassedTest)
+			{
+				SetScoreInternal(Score);
+				NumPassedForItem++;
+			}
+
+			NumTestsForItem++;
+		}
+
+		/** Filter and score an item - used by tests working on bool values
+		 *  (can be called multiple times for single item when processing contexts with multiple entries)
+		 */
+		void SetScore(EEnvTestPurpose::Type TestPurpose, EEnvTestFilterType::Type FilterType, bool bScore, bool bExpected)
+		{
+			if (bForced)
+			{
+				return;
+			}
+
+			bool bPassedTest = true;
+			switch (FilterType)
+			{
+				case EEnvTestFilterType::Match:
+					bPassedTest = (bScore == bExpected);
+					UE_EQS_DBGMSG(!bPassedTest, TEXT("Boolean score don't mach (expected %s and got %s)"), bExpected ? TEXT("TRUE") : TEXT("FALSE"), bScore ? TEXT("TRUE") : TEXT("FALSE"));
+					break;
+
+				case EEnvTestFilterType::Maximum:
+					UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to 'Maximum' for boolean test.  Will consider test as failed in all cases."));
+					bPassedTest = false;
+					break;
+
+				case EEnvTestFilterType::Minimum:
+					UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to 'Minimum' for boolean test.  Will consider test as failed in all cases."));
+					bPassedTest = false;
+					break;
+
+				case EEnvTestFilterType::Range:
+					UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to 'Range' for boolean test.  Will consider test as failed in all cases."));
+					bPassedTest = false;
+					break;
+
+				default:
+					UE_EQS_LOG(LogEQS, Error, TEXT("Filtering Type set to invalid value for boolean test.  Will consider test as failed in all cases."));
+					bPassedTest = false;
+					break;
+			}
+
+			if (bPassedTest)
+			{
+				SetScoreInternal(1.0f);
+				NumPassedForItem++;
+			}
+
+			NumTestsForItem++;
+		}
+
+		uint8* GetItemData()
+		{
+			return Instance->RawData.GetData() + Instance->Items[CurrentItem].DataOffset;
+		}
+
+		/** Force state and score of item
+		 *  Any following SetScore calls for current item will be ignored
+		 */
+		void ForceItemState(EEnvItemStatus::Type Status, float Score = UEnvQueryTypes::SkippedItemValue)
+		{
+			bForced = true;
+			bPassed = (Status == EEnvItemStatus::Passed);
+			ItemScore = Score;
+		}
+
+		DEPRECATED(4.9, "This function is now deprecated, please use ForceItemState instead")
+		void DiscardItem()
+		{
+			ForceItemState(EEnvItemStatus::Failed);
+		}
+
+		DEPRECATED(4.9, "This function is now deprecated, please use ForceItemState instead")
+		void SkipItem()
+		{
+			ForceItemState(EEnvItemStatus::Passed);
+		}
+
+		/** Disables time slicing for this iterator, use with caution! */
+		void IgnoreTimeLimit()
+		{
+			Deadline = -1.0f;
+		}
+
+		int32 GetIndex() const
+		{
+			return CurrentItem;
+		}
+
+		DEPRECATED(4.8, "This function is now deprecatewd, please use GetIndex() for current index or GetItemData() for raw data pointer")
+		int32 operator*() const
+		{
+			return GetIndex();
+		}
+
+		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		{
+			return CurrentItem < Instance->Items.Num() && !Instance->bFoundSingleResult && (Deadline < 0 || FPlatformTime::Seconds() < Deadline);
+		}
+
+		void operator++()
+		{
+			StoreTestResult();
+			if (!Instance->bFoundSingleResult)
+			{
+				InitItemScore();
+				FindNextValidIndex();
+			}
+		}
+
+	protected:
+
+		FEnvQueryInstance* Instance;
+		double Deadline;
+		float ItemScore;
+		int32 CurrentItem;
+		int16 NumPassedForItem;
+		int16 NumTestsForItem;
+		uint8 CachedFilterOp;
+		uint8 CachedScoreOp;
+		uint8 bPassed : 1;
+		uint8 bForced : 1;
+		uint8 bIsFiltering : 1;
+
+		void InitItemScore()
+		{
+			NumPassedForItem = 0;
+			NumTestsForItem = 0;
+			ItemScore = 0.0f;
+			bPassed = true;
+			bForced = false;
+		}
+
+		void HandleFailedTestResult();
+		void StoreTestResult();
+
+		FORCEINLINE void FindNextValidIndex()
+		{
+			for (CurrentItem++; CurrentItem < Instance->Items.Num() && !Instance->Items[CurrentItem].IsValid(); CurrentItem++)
+				;
+		}
+
+		FORCEINLINE void SetScoreInternal(float Score)
+		{
+			switch (CachedScoreOp)
+			{
+			case EEnvTestScoreOperator::AverageScore:
+				ItemScore += Score;
+				break;
+
+			case EEnvTestScoreOperator::MinScore:
+				if (!NumPassedForItem || ItemScore > Score)
+				{
+					ItemScore = Score;
+				}
+				break;
+
+			case EEnvTestScoreOperator::MaxScore:
+				if (!NumPassedForItem || ItemScore < Score)
+				{
+					ItemScore = Score;
+				}
+				break;
+			}
+		}
+
+		FORCEINLINE void CheckItemPassed()
+		{
+			if (!bForced)
+			{
+				if (!bIsFiltering)
+				{
+					bPassed = true;
+				}
+				else if (CachedFilterOp == EEnvTestFilterOperator::AllPass)
+				{
+					bPassed = bPassed && (NumPassedForItem == NumTestsForItem);
+				}
+				else
+				{
+					bPassed = bPassed && (NumPassedForItem > 0);
+				}
+			}
+		}
+	};
+#endif
+
+#undef UE_EQS_LOG
+#undef UE_EQS_DBGMSG
+
+#if USE_EQS_DEBUGGER
+	FEQSQueryDebugData DebugData;
+	static bool bDebuggingInfoEnabled;
+#endif // USE_EQS_DEBUGGER
+
+	FBox GetBoundingBox() const;
+};
+
+namespace FEQSHelpers
+{
+	AIMODULE_API const ANavigationData* FindNavigationDataForQuery(FEnvQueryInstance& QueryInstance);
+
+#if WITH_RECAST
+	DEPRECATED(4.8, "FindNavMeshForQuery is deprecated. Please use FindNavigationDataForQuery")
+	AIMODULE_API const ARecastNavMesh* FindNavMeshForQuery(FEnvQueryInstance& QueryInstance);
+#endif // WITH_RECAST
+}
+
+USTRUCT(BlueprintType)
+struct AIMODULE_API FAIDynamicParam
+{
+	GENERATED_USTRUCT_BODY();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = EQS)
+	FName ParamName;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = EQS)
+	TEnumAsByte<EAIParamType> ParamType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = EQS)
+	float Value;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = EQS)
+	FBlackboardKeySelector BBKey;
+
+	FAIDynamicParam()
+	{
+		BBKey.AllowNoneAsValue(true);
+	}
+
+	void ConfigureBBKey(UObject &QueryOwner);
+
+	static void GenerateConfigurableParamsFromNamedValues(UObject &QueryOwner, TArray<FAIDynamicParam>& OutQueryConfig, TArray<FEnvNamedValue>& InQueryParams);
+};
+
+USTRUCT()
+struct FEQSParametrizedQueryExecutionRequest
+{
+	GENERATED_USTRUCT_BODY()
+
+	FEQSParametrizedQueryExecutionRequest();
+
+	UPROPERTY(Category = Node, EditAnywhere, meta = (EditCondition = "!bUseBBKeyForQueryTemplate"))
+	UEnvQuery* QueryTemplate;
+
+	UPROPERTY(Category = Node, EditAnywhere)
+	TArray<FAIDynamicParam> QueryConfig;
+	
+	/** blackboard key storing an EQS query template */
+	UPROPERTY(EditAnywhere, Category = Blackboard, meta = (EditCondition = "bUseBBKeyForQueryTemplate"))
+	FBlackboardKeySelector EQSQueryBlackboardKey;
+
+	/** determines which item will be stored (All = only first matching) */
+	UPROPERTY(Category = Node, EditAnywhere)
+	TEnumAsByte<EEnvQueryRunMode::Type> RunMode;
+
+	UPROPERTY()
+	uint32 bUseBBKeyForQueryTemplate : 1;
+
+	uint32 bInitialized : 1;
+
+	void InitForOwnerAndBlackboard(UObject& Owner, UBlackboardData* BBAsset);
+
+	bool IsValid() const { return bInitialized; }
+
+	int32 Execute(AActor& QueryOwner, const UBlackboardComponent* BlackboardComponent, FQueryFinishedSignature& QueryFinishedDelegate);
+
+#if WITH_EDITOR
+	void PostEditChangeProperty(UObject& Owner, struct FPropertyChangedEvent& PropertyChangedEvent);
+#endif // WITH_EDITOR
 };

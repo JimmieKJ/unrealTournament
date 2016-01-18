@@ -3,6 +3,7 @@
 #include "AppFrameworkPrivatePCH.h"
 #include "SLayoutExample.h"
 
+#if !UE_BUILD_SHIPPING
 
 #define LOCTEXT_NAMESPACE "ExampleLayoutTest"
 
@@ -381,7 +382,7 @@ public:
 
 
 
-APPFRAMEWORK_API TSharedRef<SWidget> MakeLayoutExample()
+TSharedRef<SWidget> MakeLayoutExample()
 {
 	extern TOptional<FSlateRenderTransform> GetTestRenderTransform();
 	extern FVector2D GetTestRenderTransformPivot();
@@ -392,3 +393,5 @@ APPFRAMEWORK_API TSharedRef<SWidget> MakeLayoutExample()
 }
 
 #undef LOCTEXT_NAMESPACE
+
+#endif // #if !UE_BUILD_SHIPPING

@@ -11,6 +11,19 @@ struct FColor;
 struct FVector;
 class FFloat16Color;
 
+/**
+ * Enum for the different kinds of gamma spaces we expect to need to convert from/to.
+ */
+enum class EGammaSpace
+{
+	/** No gamma correction is applied to this space, the incoming colors are assumed to already be in linear space. */
+	Linear,
+	/** A simplified sRGB gamma correction is applied, pow(1/2.2). */
+	Pow22,
+	/** Use the standard sRGB conversion. */
+	sRGB,
+};
+
 
 /**
  * A linear, 32-bit/component floating point RGBA color.
@@ -22,16 +35,26 @@ struct FLinearColor
 			B,
 			A;
 
-	/** Static lookup table used for FColor -> FLinearColor conversion. */
-	static float PowOneOver255Table[256];
+	/** Static lookup table used for FColor -> FLinearColor conversion. Pow(2.2) */
+	static float Pow22OneOver255Table[256];
+
+	/** Static lookup table used for FColor -> FLinearColor conversion. sRGB */
+	static float sRGBToLinearTable[256];
 
 	FORCEINLINE FLinearColor() {}
 	FORCEINLINE explicit FLinearColor(EForceInit)
 	: R(0), G(0), B(0), A(0)
 	{}
 	FORCEINLINE FLinearColor(float InR,float InG,float InB,float InA = 1.0f): R(InR), G(InG), B(InB), A(InA) {}
-	CORE_API FLinearColor(const FColor& C);
+	
+	/**
+	 * Converts an FColor which is assumed to be in sRGB space, into linear color space.
+	 * @param Color The sRGB color that needs to be converted into linear space.
+	 */
+	CORE_API FLinearColor(const FColor& Color);
+
 	CORE_API FLinearColor(const FVector& Vector);
+	
 	CORE_API explicit FLinearColor(const FFloat16Color& C);
 
 	// Serializer.
@@ -41,8 +64,26 @@ struct FLinearColor
 		return Ar << Color.R << Color.G << Color.B << Color.A;
 	}
 
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
+	}
+
 	// Conversions.
 	CORE_API FColor ToRGBE() const;
+
+	/**
+	 * Converts an FColor coming from an observed sRGB output, into a linear color.
+	 * @param Color The sRGB color that needs to be converted into linear space.
+	 */
+	CORE_API static FLinearColor FromSRGBColor(const FColor& Color);
+
+	/**
+	 * Converts an FColor coming from an observed Pow(1/2.2) output, into a linear color.
+	 * @param Color The Pow(1/2.2) color that needs to be converted into linear space.
+	 */
+	CORE_API static FLinearColor FromPow22Color(const FColor& Color);
 
 	// Operators.
 
@@ -355,14 +396,14 @@ struct FColor
 public:
 	// Variables.
 #if PLATFORM_LITTLE_ENDIAN
-    #if _MSC_VER
+	#if _MSC_VER
 		// Win32 x86
-	    union { struct{ uint8 B,G,R,A; }; uint32 AlignmentDummy; };
-    #else
+		union { struct{ uint8 B,G,R,A; }; uint32 AlignmentDummy; };
+	#else
 		// Linux x86, etc
-	    uint8 B GCC_ALIGN(4);
-	    uint8 G,R,A;
-    #endif
+		uint8 B GCC_ALIGN(4);
+		uint8 G,R,A;
+	#endif
 #else // PLATFORM_LITTLE_ENDIAN
 	union { struct{ uint8 A,R,G,B; }; uint32 AlignmentDummy; };
 #endif
@@ -386,18 +427,6 @@ public:
 		A = InA;
 
 	}
-	
-	// fast, for more accuracy use FLinearColor::ToFColor()
-	// TODO: doesn't handle negative colors well, implicit constructor can cause
-	// accidental conversion (better use .ToFColor(true))
-	FColor(const FLinearColor& C)
-		// put these into the body for proper ordering with INTEL vs non-INTEL_BYTE_ORDER
-	{
-		R = FMath::Clamp(FMath::TruncToInt(FMath::Pow(C.R,1.0f / 2.2f) * 255.0f),0,255);
-		G = FMath::Clamp(FMath::TruncToInt(FMath::Pow(C.G,1.0f / 2.2f) * 255.0f),0,255);
-		B = FMath::Clamp(FMath::TruncToInt(FMath::Pow(C.B,1.0f / 2.2f) * 255.0f),0,255);
-		A = FMath::Clamp(FMath::TruncToInt(       C.A              * 255.0f),0,255);
-	}
 
 	FORCEINLINE explicit FColor( uint32 InColor )
 	{ 
@@ -408,6 +437,12 @@ public:
 	friend FArchive& operator<< (FArchive &Ar, FColor &Color )
 	{
 		return Ar << Color.DWColor();
+	}
+
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
 	}
 
 	// Operators.
@@ -527,15 +562,63 @@ public:
 		return bSuccessful;
 	}
 
+	/**
+	 * Gets the color in a packed uint32 format packed in the order ARGB.
+	 */
+	FORCEINLINE uint32 ToPackedARGB() const
+	{
+		return ( A << 24 ) | ( R << 16 ) | ( G << 8 ) | ( B << 0 );
+	}
+
+	/**
+	 * Gets the color in a packed uint32 format packed in the order ABGR.
+	 */
+	FORCEINLINE uint32 ToPackedABGR() const
+	{
+		return ( A << 24 ) | ( B << 16 ) | ( G << 8 ) | ( R << 0 );
+	}
+
+	/**
+	 * Gets the color in a packed uint32 format packed in the order RGBA.
+	 */
+	FORCEINLINE uint32 ToPackedRGBA() const
+	{
+		return ( R << 24 ) | ( G << 16 ) | ( B << 8 ) | ( A << 0 );
+	}
+
+	/**
+	 * Gets the color in a packed uint32 format packed in the order BGRA.
+	 */
+	FORCEINLINE uint32 ToPackedBGRA() const
+	{
+		return ( B << 24 ) | ( G << 16 ) | ( R << 8 ) | ( A << 0 );
+	}
+
 	/** Some pre-inited colors, useful for debug code */
 	static CORE_API const FColor White;
 	static CORE_API const FColor Black;
+	static CORE_API const FColor Transparent;
 	static CORE_API const FColor Red;
 	static CORE_API const FColor Green;
 	static CORE_API const FColor Blue;
 	static CORE_API const FColor Yellow;
 	static CORE_API const FColor Cyan;
 	static CORE_API const FColor Magenta;
+	static CORE_API const FColor Orange;
+	static CORE_API const FColor Purple;
+	static CORE_API const FColor Turquoise;
+	static CORE_API const FColor Silver;
+	static CORE_API const FColor Emerald;
+
+private:
+	/**
+	 * Please use .ToFColor(true) on FLinearColor if you wish to convert from FLinearColor to FColor,
+	 * with proper sRGB conversion applied.
+	 *
+	 * Note: Do not implement or make public.  We don't want people needlessly and implicitly converting between
+	 * FLinearColor and FColor.  It's not a free conversion.
+	 */
+	explicit FColor(const FLinearColor& LinearColor);
 };
 
 FORCEINLINE uint32 GetTypeHash( const FColor& Color )
@@ -543,9 +626,10 @@ FORCEINLINE uint32 GetTypeHash( const FColor& Color )
 	return Color.DWColor();
 }
 
-FORCEINLINE uint32 GetTypeHash( const FLinearColor& Color )
+FORCEINLINE uint32 GetTypeHash( const FLinearColor& LinearColor )
 {
-	return GetTypeHash(FColor(Color));
+	// Note: this assumes there's no padding in FLinearColor that could contain uncompared data.
+	return FCrc::MemCrc_DEPRECATED(&LinearColor, sizeof(FLinearColor));
 }
 
 

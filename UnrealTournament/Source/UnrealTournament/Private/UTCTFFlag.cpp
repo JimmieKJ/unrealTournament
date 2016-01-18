@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCarriedObject.h"
 #include "UTCTFFlag.h"
@@ -13,15 +13,17 @@ static FName NAME_Wipe(TEXT("Wipe"));
 AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	static ConstructorHelpers::FObjectFinder<USkeletalMesh> FlagMesh (TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"));
-
 	Collision->InitCapsuleSize(92.f, 134.0f);
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
-	GetMesh()->SetSkeletalMesh(FlagMesh.Object);
 	GetMesh()->AlwaysLoadOnClient = true;
 	GetMesh()->AlwaysLoadOnServer = true;
 	GetMesh()->AttachParent = RootComponent;
 	GetMesh()->SetAbsolute(false, false, true);
+
+	MeshOffset = FVector(-64.f, 0.f, -48.f);
+	HeldOffset = FVector(0.f, 0.f, 0.f);
+	HomeBaseOffset = FVector(0.f, 64.f, -8.f);
+	HomeBaseRotOffset.Yaw = 90.0f;
 
 	FlagWorldScale = 1.75f;
 	FlagHeldScale = 1.f;
@@ -52,10 +54,7 @@ void AUTCTFFlag::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	if (GetNetMode() == NM_DedicatedServer || GetCachedScalabilityCVars().DetailMode == 0)
 	{
-		if (GetMesh())
-		{
-			GetMesh()->bDisableClothSimulation = true;
-		}
+		GetMesh()->bDisableClothSimulation = true;
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -84,24 +83,22 @@ void AUTCTFFlag::PlayCaptureEffect()
 	}
 }
 
-void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
+void AUTCTFFlag::ClientUpdateAttachment(bool bNowAttachedToPawn)
 {
-	Super::DetachFrom(AttachToMesh);
 	if (GetMesh())
 	{
 		GetMesh()->SetAbsolute(false, false, true);
-		GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
-	}
-}
-
-void AUTCTFFlag::AttachTo(USkeletalMeshComponent* AttachToMesh)
-{
-	Super::AttachTo(AttachToMesh);
-	if (AttachToMesh && GetMesh())
-	{
-		GetMesh()->SetAbsolute(false, false, true);
-		GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
-		GetMesh()->ClothBlendWeight = ClothBlendHeld;
+		if (bNowAttachedToPawn)
+		{
+			GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
+			GetMesh()->SetRelativeLocation(HeldOffset);
+			GetMesh()->ClothBlendWeight = ClothBlendHeld;
+		}
+		else
+		{
+			GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
+			GetMesh()->SetRelativeLocation(MeshOffset);
+		}
 	}
 }
 
@@ -120,10 +117,7 @@ void AUTCTFFlag::OnObjectStateChanged()
 			GetWorldTimerManager().ClearTimer(SendHomeWithNotifyHandle);
 		}
 	}
-	if (GetMesh())
-	{
-		GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? ClothBlendHeld : ClothBlendHome;
-	}
+	GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? ClothBlendHeld : ClothBlendHome;
 }
 
 void AUTCTFFlag::SendHome()
@@ -141,10 +135,8 @@ void AUTCTFFlag::SendHomeWithNotify()
 void AUTCTFFlag::MoveToHome()
 {
 	Super::MoveToHome();
-	if (GetMesh())
-	{
-		GetMesh()->ClothBlendWeight = ClothBlendHome;
-	}
+	GetMesh()->SetRelativeLocation(MeshOffset);
+	GetMesh()->ClothBlendWeight = ClothBlendHome;
 }
 
 void AUTCTFFlag::Drop(AController* Killer)
@@ -221,7 +213,7 @@ void AUTCTFFlag::PlayReturnedEffects()
 		UGameplayStatics::SpawnEmitterAtLocation(this, ReturnSrcEffect, GetActorLocation(), GetActorRotation());
 		if (HomeBase != NULL)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation(), HomeBase->GetActorRotation());
+			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation(), GetHomeRotation());
 		}
 	}
 }

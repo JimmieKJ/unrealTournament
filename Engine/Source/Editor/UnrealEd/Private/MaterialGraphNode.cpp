@@ -20,12 +20,15 @@
 #include "Materials/MaterialExpressionScalarParameter.h"
 #include "Materials/MaterialExpressionStaticBool.h"
 #include "Materials/MaterialExpressionStaticBoolParameter.h"
+#include "Materials/MaterialExpressionTangentOutput.h"
 #include "Materials/MaterialExpressionTextureBase.h"
 #include "Materials/MaterialExpressionTextureCoordinate.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
 #include "Materials/MaterialExpressionTextureObject.h"
+#include "Materials/MaterialExpressionTextureProperty.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
+#include "Materials/MaterialExpressionViewProperty.h"
 #include "Materials/MaterialFunction.h"
 
 #include "MaterialEditorUtilities.h"
@@ -137,7 +140,7 @@ bool UMaterialGraphNode::CanPasteHere(const UEdGraph* TargetGraph) const
 				bIsValidFunctionExpression = false;
 			}
 
-			if (bIsValidFunctionExpression && IsAllowedExpressionType(MaterialExpression->GetClass(), MaterialGraph->MaterialFunction != NULL))
+			if (bIsValidFunctionExpression && MaterialExpression && IsAllowedExpressionType(MaterialExpression->GetClass(), MaterialGraph->MaterialFunction != NULL))
 			{
 				return true;
 			}
@@ -176,7 +179,18 @@ FText UMaterialGraphNode::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 		if ( MaterialExpression->bShaderInputData && (MaterialExpression->bHidePreviewWindow || MaterialExpression->bCollapsed))
 		{
-			NodeTitle.AppendLine(LOCTEXT("InputData", "Input Data"));
+			if (MaterialExpression->IsA<UMaterialExpressionTextureProperty>())
+			{
+				NodeTitle.AppendLine(LOCTEXT("TextureProperty", "Texture Property"));
+			}
+			else if (MaterialExpression->IsA<UMaterialExpressionViewProperty>())
+			{
+				NodeTitle.AppendLine(LOCTEXT("ViewProperty", "View Property"));
+			}
+			else
+			{
+				NodeTitle.AppendLine(LOCTEXT("InputData", "Input Data"));
+			}
 		}
 
 		if (bIsPreviewExpression)
@@ -227,6 +241,11 @@ FLinearColor UMaterialGraphNode::GetNodeTitleColor() const
 		return Settings->FunctionCallNodeTitleColor;
 	}
 	else if (MaterialExpression->IsA(UMaterialExpressionFunctionOutput::StaticClass()))
+	{
+		// Previously FColor(255, 155, 0);
+		return Settings->ResultNodeTitleColor;
+	}
+	else if (MaterialExpression->IsA(UMaterialExpressionCustomOutput::StaticClass()))
 	{
 		// Previously FColor(255, 155, 0);
 		return Settings->ResultNodeTitleColor;
@@ -592,6 +611,7 @@ void UMaterialGraphNode::PostPlacedNewNode()
 	if (MaterialExpression)
 	{
 		NodeComment = MaterialExpression->Desc;
+		bCommentBubbleVisible = MaterialExpression->bCommentBubbleVisible;
 		NodePosX = MaterialExpression->MaterialExpressionEditorX;
 		NodePosY = MaterialExpression->MaterialExpressionEditorY;
 		bCanRenameNode = MaterialExpression->CanRenameNode();
@@ -628,6 +648,17 @@ void UMaterialGraphNode::OnUpdateCommentText( const FString& NewComment )
 	{
 		MaterialExpression->Modify();
 		MaterialExpression->Desc = NewComment;
+		MaterialDirtyDelegate.ExecuteIfBound();
+	}
+}
+
+void UMaterialGraphNode::OnCommentBubbleToggled( bool bInCommentBubbleVisible )
+{
+	if ( MaterialExpression )
+	{
+		MaterialExpression->Modify();
+		MaterialExpression->bCommentBubbleVisible = bInCommentBubbleVisible;
+		MaterialDirtyDelegate.ExecuteIfBound();
 	}
 }
 

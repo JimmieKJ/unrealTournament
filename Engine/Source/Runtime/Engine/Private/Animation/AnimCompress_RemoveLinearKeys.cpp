@@ -745,13 +745,12 @@ void UAnimCompress_RemoveLinearKeys::ProcessAnimationTracks(
 								// limit the range we will retarget to something reasonable (~60 degrees)
 								if (DotResult < 1.0f && DotResult > 0.5f)
 								{
-									FQuat Adjustment= FQuat::FindBetween(CurrentHeading, DesiredHeading); 
-									Adjustment.Normalize();
+									FQuat Adjustment= FQuat::FindBetweenVectors(CurrentHeading, DesiredHeading);
 									Adjustment= EnforceShortestArc(FQuat::Identity, Adjustment);
 
 									const FVector Test = Adjustment.RotateVector(CurrentHeading);
-									const float Delta = (Test - DesiredHeading).Size();
-									if (Delta < 0.001f)
+									const float DeltaSqr = (Test - DesiredHeading).SizeSquared();
+									if (DeltaSqr < FMath::Square(0.001f))
 									{
 										FQuat NewKey = Adjustment * Key;
 										NewKey.Normalize();
@@ -1057,7 +1056,7 @@ void UAnimCompress_RemoveLinearKeys::DoReduction(UAnimSequence* AnimSeq, const T
 	{
 		GWarn->EndSlowTask();
 	}
-	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( this, AnimSeq, TEXT("None")) );
+	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( this, AnimSeq ) );
 
 #endif // WITH_EDITORONLY_DATA
 }

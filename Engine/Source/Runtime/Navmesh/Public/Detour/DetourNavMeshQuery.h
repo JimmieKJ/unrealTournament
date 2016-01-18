@@ -53,6 +53,9 @@ struct NAVMESH_API dtQuerySpecialLinkFilter
 	/// Returns true if special link can be visited.  (I.e. Is traversable.)
 	///  @param[in]		UserId		Unique Id of link
 	virtual bool isLinkAllowed(const int UserId) const { return true; }
+
+	/// Called before accessing in A* loop (can be called multiple time for updateSlicedFindPath)
+	virtual void initialize() {}
 };
 
 // [UE4: moved all filter variables to struct, DO NOT mess with virtual functions here!]
@@ -319,10 +322,10 @@ public:
 	///  @param[in]		maxNodes	Maximum number of search nodes. [Limits: 0 < value <= 65536]
 	///  @param[in]		linkFilter	Special link filter used for every query
 	/// @returns The status flags for the query.
-	dtStatus init(const dtNavMesh* nav, const int maxNodes, const dtQuerySpecialLinkFilter* linkFilter = 0);
+	dtStatus init(const dtNavMesh* nav, const int maxNodes, dtQuerySpecialLinkFilter* linkFilter = 0);
 
 	/// UE4: updates special link filter for this query
-	void updateLinkFilter(const dtQuerySpecialLinkFilter* linkFilter);
+	void updateLinkFilter(dtQuerySpecialLinkFilter* linkFilter);
 	
 	/// @name Standard Pathfinding Functions
 	// /@{
@@ -472,7 +475,20 @@ public:
 	dtStatus findNearestPoly(const float* center, const float* extents,
 							 const dtQueryFilter* filter,
 							 dtPolyRef* nearestRef, float* nearestPt) const;
-	
+
+	//@UE4 BEGIN
+	/// Finds the nearest polygon containing the specified center point.
+	///  @param[in]		center		The center of the search box. [(x, y, z)]
+	///  @param[in]		extents		The search distance along each axis. [(x, y, z)]
+	///  @param[in]		filter		The polygon filter to apply to the query.
+	///  @param[out]	nearestRef	The reference id of the nearest polygon.
+	///  @param[out]	nearestPt	The nearest point on the polygon. [opt] [(x, y, z)]
+	/// @returns The status flags for the query.
+	dtStatus findNearestContainingPoly(const float* center, const float* extents,
+									   const dtQueryFilter* filter,
+									   dtPolyRef* nearestRef, float* nearestPt) const;
+	//@UE4 END
+
 	/// Finds polygons that overlap the search box.
 	///  @param[in]		center		The center of the search box. [(x, y, z)]
 	///  @param[in]		extents		The search distance along each axis. [(x, y, z)]
@@ -671,7 +687,6 @@ public:
 	/// Gets best node ref and cost from sliced pathfinding data
 	void getCurrentBestResult(struct dtNode*& bestNode, float& bestCost) const { bestNode = m_query.lastBestNode; bestCost = m_query.lastBestNodeCost; }
 
-	float getQueryTime() const { return m_queryTime; }
 	int getQueryNodes() const { return m_queryNodes; }
 	/// @}
 	
@@ -734,7 +749,7 @@ private:
 	}
 
 	const dtNavMesh* m_nav;							///< Pointer to navmesh data.
-	const dtQuerySpecialLinkFilter* m_linkFilter;	///< Pointer to optional special link filter
+	dtQuerySpecialLinkFilter* m_linkFilter;			///< Pointer to optional special link filter
 
 	struct dtQueryData
 	{
@@ -751,7 +766,6 @@ private:
 	class dtNodePool* m_nodePool;		///< Pointer to node pool.
 	class dtNodeQueue* m_openList;		///< Pointer to open list queue.
 
-	mutable float m_queryTime;
 	mutable int m_queryNodes;
 };
 

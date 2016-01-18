@@ -1,11 +1,12 @@
-	// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+	// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
 
 #if WITH_PROFILE
-#include "UTMcpProfile.h"
+#include "UtMcpProfile.h"
+#include "UtMcpProfileManager.h"
 #endif
 
 #include "UTPlayerController.generated.h"
@@ -88,6 +89,10 @@ public:
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
 
+
+	UFUNCTION(Reliable, Client)
+		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
+
 	virtual void BeginInactiveState() override;
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
@@ -119,6 +124,12 @@ public:
 		Super::ClientSay_Implementation(Speaker, Message, Destination);
 	}
 
+	UFUNCTION(client, unreliable)
+		void ClientUpdateDamageDone(int32 DamageDone, int32 RoundDamageDone);
+
+	UFUNCTION(exec)
+		virtual void ToggleShowDamage();
+
 	UFUNCTION(exec)
 	virtual void Mutate(FString MutateString);
 
@@ -140,7 +151,7 @@ public:
 
 	/** Notification from client that it detected a client side projectile hit (like a shock combo) */
 	UFUNCTION(server, unreliable, withvalidation)
-	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector HitLocation, AActor* DamageCauser, float TimeStamp);
+		virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp);
 
 	void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
 	{
@@ -171,6 +182,14 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
 
+
+	/** Selected an unavailable spawn location. */
+	UPROPERTY()
+		USoundBase* BadSelectSound;
+
+	UFUNCTION(client, unreliable)
+		virtual void ClientPlayBadSelectionSound();
+
 	/**	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun	 **/
 	virtual void ServerRestartPlayer_Implementation();
 	
@@ -196,10 +215,11 @@ public:
 	/** Timer function to bring up scoreboard after end of game. */
 	virtual void ShowEndGameScoreboard();
 
+	/** currently, when the server reports XP, etc to the player's profile, the server gets the results notifications (levelups, etc) and the client does not
+	 * until the backend routing is fixed, this works around the issue by having the server send the notify to the client manually
+	 */
 	UFUNCTION(reliable, client)
-	void ClientReceiveXP(FXPBreakdown GainedXP);
-	UFUNCTION(reliable, client)
-	void ClientReceiveLevelReward(int32 Level, const UUTProfileItem* NewItem);
+	void ClientBackendNotify(const FString& TypeStr, const FString& Data);
 
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
@@ -387,16 +407,12 @@ public:
 	UPROPERTY(BlueprintReadWrite, GlobalConfig)
 	bool bSpectateBehindView;
 
-	/** Whether should remaing in freecam on camera resets. */
+	/** whether player wants behindview when playing (subject to server and game mode restrictions) */
 	UPROPERTY(BlueprintReadOnly)
-		bool bCurrentlyBehindView;
+	bool bPlayBehindView;
 
 	UPROPERTY(BlueprintReadOnly)
-		bool bRequestingSlideOut;
-
-	/** True when spectator has used a spectating camera bind. */
-	UPROPERTY()
-		bool bHasUsedSpectatingBind;
+	bool bRequestingSlideOut;
 
 	UPROPERTY()
 		bool bShowCameraBinds;
@@ -473,12 +489,6 @@ public:
 
 	UPROPERTY()
 	FVector2D SavedMouseCursorLocation;
-
-	UPROPERTY()
-		float MouseButtonPressTime;
-
-	UPROPERTY()
-		float MouseButtonPressCount;
 
 	UPROPERTY()
 	class AUTPlayerState* LastSpectatedPlayerState;
@@ -846,12 +856,13 @@ protected:
 	FString FixedupKeyname(FString KeyName);
 
 	void TurnOffPawns();
-
-	FUniqueNetIdRepl GetGameAccountId() const;
-	virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
-	FDelegateHandle OnLoginStatusChangedDelegate;
+	
+	//virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
+	//FDelegateHandle OnLoginStatusChangedDelegate;
 
 public:
+	FUniqueNetIdRepl GetGameAccountId() const;
+
 	TMap<int32,FString> WeaponGroupKeys;
 	virtual void UpdateWeaponGroupKeys();
 
@@ -922,6 +933,21 @@ public:
 	/** Make sure no firing and scoreboard hidden before bringing up menu. */
 	virtual void ShowMenu(const FString& Parameters) override;
 	
+	/** used to preload things like selected character prior to players actually getting in to minimize on-join hitches
+	 * ideally the internal replication code would do this for us
+	 */
+	UFUNCTION(reliable, client)
+	void PreloadItem(const FString& ItemPath);
+
+	void PreloadComplete(const FName& PackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
+	UFUNCTION()
+	void PreloadExpired();
+	
+	// used to hold onto temporarily so they don't get GC'ed between preload and use
+	UPROPERTY()
+	TArray<UObject*> PreloadedItems;
+
+	UPROPERTY()
 	AUTCharacter* PreGhostChar;
 
 	/** When looking at a GhostCharacter, this will possess the GhostCharacter and begin recording */
@@ -938,6 +964,8 @@ public:
 
 	class AUTCharacter* GhostTrace();
 
+	UFUNCTION(exec)
+	virtual void TestCallstack();
 
 	UFUNCTION(exec)
 	virtual void OpenMatchSummary();
@@ -951,19 +979,35 @@ public:
 	 */
 	UPROPERTY()
 	TArray<const class UUTProfileItem*> LevelRewards;
-
+	
 #if WITH_PROFILE
-	void InitializeMcpProfile();
 
-	void SynchronizeProfileWithMcp(const FMcpQueryComplete& OnComplete = FMcpQueryComplete());
+	/* Get the profile manager */
+	UUtMcpProfileManager* GetMcpProfileManager();
 
-	UFUNCTION()
-	void SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback);
+	/* Get the profile manager */
+	UUtMcpProfileManager* GetActiveMcpProfileManager();
 
-	UPROPERTY(Transient)
-	UUTMcpProfile* McpProfile;
+	/* Get the profile manager for a shared account (or can be main) */
+	UUtMcpProfileManager* GetMcpProfileManager(const FString& AccountId);
+
+	UUtMcpProfile* GetMcpProfile()
+	{
+		return GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	}
+
 #endif
+
+	bool bSpectatorMouseChangesView;
+
+protected:
+	void SetSpectatorMouseChangesView(bool bNewValue);
+
+public:
+	void UpdateCrosshairs(AUTHUD* HUD);
+
 };
+
 
 
 

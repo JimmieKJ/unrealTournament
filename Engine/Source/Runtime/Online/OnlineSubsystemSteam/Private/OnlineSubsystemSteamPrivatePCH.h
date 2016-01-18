@@ -6,7 +6,6 @@
 #include "OnlineSubsystemSteamModule.h"
 #include "OnlineSubsystemModule.h"
 #include "OnlineSubsystemUtils.h"
-#include "OnlineSubsystemUtilsClasses.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSubsystemUtils.h"
 #include "SocketSubsystem.h"
@@ -22,8 +21,6 @@
 /** Root location of Steam SDK */
 #define STEAM_SDK_ROOT_PATH TEXT("Binaries/ThirdParty/Steamworks")
 
-/** FName declaration of Steam subsystem */
-#define STEAM_SUBSYSTEM FName(TEXT("STEAM"))
 /** URL Prefix when using Steam socket connection */
 #define STEAM_URL_PREFIX TEXT("steam.")
 /** Filename containing the appid during development */

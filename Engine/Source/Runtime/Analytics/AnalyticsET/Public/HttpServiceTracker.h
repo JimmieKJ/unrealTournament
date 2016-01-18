@@ -79,6 +79,7 @@ private:
 		int32 SuccessCount;
 		int32 FailCount;
 		TMap<int32, int32> ResponseCodes;
+		FString LastAnalyticsName;
 	};
 
 	/** Mapping of a service endpoint to summary metrics about it. */

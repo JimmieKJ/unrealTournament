@@ -89,3 +89,9 @@ FString UAnimStateNodeBase::GetDocumentationLink() const
 	return TEXT("Shared/GraphNodes/AnimationStateMachine");
 }
 
+UAnimBlueprint* UAnimStateNodeBase::GetAnimBlueprint() const
+{
+	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNode(this);
+	return CastChecked<UAnimBlueprint>(Blueprint);
+}
+

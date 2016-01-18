@@ -134,9 +134,9 @@ public:
 	class UTexture2D* CheckerboardTexture;
 
 public:
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/**
 	 * Fixes up any classes that need to be loaded in the thumbnail types

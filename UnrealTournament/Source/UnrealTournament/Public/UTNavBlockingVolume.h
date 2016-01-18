@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "AI/Navigation/NavigationSystem.h"
@@ -21,7 +21,7 @@ class UNREALTOURNAMENT_API AUTNavBlockingVolume : public AVolume, public INavRel
 	//: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTNavBlockingBrushComponent>("BrushComponent0"))
 	: Super(ObjectInitializer)
 	{
-		GetBrushComponent()->bCanEverAffectNavigation = true;
+		GetBrushComponent()->SetCanEverAffectNavigation(true);
 		GetBrushComponent()->SetCollisionProfileName(FName(TEXT("InvisibleWall")));
 		GetBrushComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision); // should match default for bBlockSpecialMoveTests
 		// NOTE: this relies on no nav building during gameplay

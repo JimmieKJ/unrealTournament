@@ -243,7 +243,7 @@ void ALevelStreamingVolume::CheckForErrors()
 	bool bHasAssociatedLevels = false;
 	for (auto It = GetWorld()->StreamingLevels.CreateConstIterator(); It; ++It)
 	{
-		if ((*It)->EditorStreamingVolumes.Find(this) != INDEX_NONE)
+		if ((*It)->EditorStreamingVolumes.Contains(this))
 		{
 			bHasAssociatedLevels = true;
 			break;

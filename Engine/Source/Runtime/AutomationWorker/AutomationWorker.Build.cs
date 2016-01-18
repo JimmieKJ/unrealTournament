@@ -18,6 +18,8 @@ namespace UnrealBuildTool.Rules
 				{
 					"AutomationMessages",
 					"CoreUObject",
+                    "Analytics",
+    				"AnalyticsET",
 				}
 			);
 

@@ -210,7 +210,7 @@ protected:
 };
 
 template<>
-FORCEINLINE void SetOctreeMemoryUsage(TOctree<FNavigationOctreeElement, FNavigationOctreeSemantics>* Octree, int32 NewSize)
+FORCEINLINE_DEBUGGABLE void SetOctreeMemoryUsage(TOctree<FNavigationOctreeElement, FNavigationOctreeSemantics>* Octree, int32 NewSize)
 {
 	{
 		DEC_DWORD_STAT_BY( STAT_NavigationMemory, Octree->TotalSizeBytes );

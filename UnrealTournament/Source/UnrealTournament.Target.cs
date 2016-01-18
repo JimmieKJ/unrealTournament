@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -13,6 +13,7 @@ public class UnrealTournamentTarget : TargetRules
 
         // Turn on shipping logging
         UEBuildConfiguration.bUseLoggingInShipping = true;
+        UEBuildConfiguration.bCompileBox2D = false;
 	}
 
 	//
@@ -59,6 +60,6 @@ public class UnrealTournamentTarget : TargetRules
     public override List<UnrealTargetConfiguration> GUBP_GetConfigs_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
     {
         // ORDER HERE MATTERS, THE FIRST ENTRY IS PUT IN Manifest_NonUFSFiles.txt AND THE FOLLOWING ARE PUT IN Manifest_DebugFiles.txt
-        return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Test };
+        return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test };
     }
 }

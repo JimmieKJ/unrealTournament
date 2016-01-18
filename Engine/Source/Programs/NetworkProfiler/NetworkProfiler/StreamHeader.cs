@@ -17,7 +17,7 @@ namespace NetworkProfiler
 		public const UInt32 ExpectedMagic = 0x1DBF348C;
 
 		/** We expect this version, or we can't proceed.			*/
-		public const UInt32 ExpectedVersion = 8;
+		public const UInt32 ExpectedVersion = 9;
 
 		/** Magic to ensure we're opening the right file.			*/
 		public UInt32 Magic;
@@ -28,6 +28,11 @@ namespace NetworkProfiler
 		public UInt32 NameTableOffset;
 		/** Number of name table entries.							*/
 		public UInt32 NameTableEntries;
+
+		/** Offset in file for address table.							*/
+		public UInt32 AddressTableOffset;
+		/** Number of address table entries.							*/
+		public UInt32 AddressTableEntries;
 
 		/** Tag, set via -networkprofiler=TAG						*/
 		public string Tag;
@@ -123,20 +128,31 @@ namespace NetworkProfiler
 			Magic = BinaryStream.ReadUInt32();
 
 			// Stop serializing data if magic number doesn't match. Most likely endian issue.
-			if( Magic == ExpectedMagic )
+			if ( Magic != ExpectedMagic )
 			{
-				// Version info for backward compatible serialization.
-				Version = BinaryStream.ReadUInt32();
-
-				// Name table offset in file and number of entries.
-				NameTableOffset = BinaryStream.ReadUInt32();
-				NameTableEntries = BinaryStream.ReadUInt32();
-
-				// Serialize various dynamically-sized strings.
-				Tag = SerializeAnsiString( BinaryStream );
-				GameName = SerializeAnsiString( BinaryStream );
-				URL = SerializeAnsiString( BinaryStream );
+				return;
 			}
+
+			// Version info for backward compatible serialization.
+			Version = BinaryStream.ReadUInt32();
+
+			// Stop serializing data if version number doesn't match
+			if ( Version != ExpectedVersion )
+			{
+				return;
+			}
+
+			// Name table offset in file and number of entries.
+			NameTableOffset = BinaryStream.ReadUInt32();
+			NameTableEntries = BinaryStream.ReadUInt32();
+
+			AddressTableOffset = BinaryStream.ReadUInt32();
+			AddressTableEntries = BinaryStream.ReadUInt32();
+
+			// Serialize various dynamically-sized strings.
+			Tag = SerializeAnsiString( BinaryStream );
+			GameName = SerializeAnsiString( BinaryStream );
+			URL = SerializeAnsiString( BinaryStream );
 		}
 
 		/**

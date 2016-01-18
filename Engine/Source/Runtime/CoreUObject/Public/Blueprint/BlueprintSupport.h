@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "GCObject.h"
+
 /** 
  * This set of functions contains blueprint related UObject functionality.
  */
@@ -23,8 +25,6 @@ struct FBlueprintSupport
 	 * aspects of the deferred loading (mostly for testing purposes). 
 	 */
 	static bool UseDeferredDependencyLoading();
-	static bool IsResolvingDeferredDependenciesDisabled();
-	static bool IsDeferredCDOSerializationDisabled();
 	static bool IsDeferredExportCreationDisabled();
 	static bool IsDeferredCDOInitializationDisabled();
 };
@@ -65,7 +65,91 @@ private:
 
 	FScopedClassDependencyGather();
 };
-#endif //WITH_EDITOR
+
+enum class EReplacementResult
+{
+	/** Don't replace the provided package at all */
+	DontReplace,
+
+	/** Generate a stub file, but don't replace the package */
+	GenerateStub,
+
+	/** Completely replace the file with generated code */
+	ReplaceCompletely
+};
+
+/**
+ * The struct is used while saving cooked package to find replacements for 
+ * converted Blueprint assets.
+ */
+struct COREUOBJECT_API FScriptCookReplacementCoordinator
+{
+	static FScriptCookReplacementCoordinator* Get();
+	static void Create(bool bEnabled, const TArray<FString>& ExcludedAssetTypes, const TArray<FString>& ExcludedBlueprintTypes, const TMap<UObject*, UClass*>& ReplacementMap);
+
+public:
+	/**
+	 * Enables this for handling (script) asset replacements (works only when  
+	 * running a commandlet - presumably the cooker).
+	 * 
+	 * @return True if this was successfully enabled, otherwise false.
+	 */
+	bool Initialize();
+
+	/** 
+	 * Checks to see if we're running with this on, aiming to swap out assets 
+	 * with native counterparts.
+	 */
+	bool IsEnabled() const
+	{
+		return bEnabled;
+	}
+
+	/**
+	 * Determines whether the provided package needs to be replaced (in part or completely)
+	 * 
+	 * @param Package	The package in question
+	 * @return Whether the package should be converted
+	 */
+	EReplacementResult IsTargetedForReplacement(const UPackage* Package) const;
+	
+	/**
+	* Determines whether the provided object needs to be replaced (in part or completely).
+	* Some objects in a package may require conversion and some may not. If any object 
+	* in a package wants to be converted then it is implied that all other objects will 
+	* be converted with it (no support for partial package conversion, beyond stubs)
+	*
+	* @param Object	The package in question
+	* @return Whether the object should be converted
+	*/
+	EReplacementResult IsTargetedForReplacement(const UObject* Object) const;
+
+	// Get class of converted asset. One that was specified in AddConvertedObject
+	UClass* FindReplacedClass(const UObject* Obj) const;
+
+private: 
+	/** Private so we can keep this as a singleton */
+	FScriptCookReplacementCoordinator(bool bEnabled, const TArray<FString>& ExcludedAssetTypes, const TArray<FString>& ExcludedBlueprintTypes, const TMap<UObject*, UClass*>& ReplacementMap);
+
+	/** 
+	 * Used to tell if replacements should be used (substituting native objects 
+	 * for assets). 
+	 */
+	bool bEnabled;
+
+	const TArray<FString> ExcludedAssetTypes;
+	const TArray<FString> ExcludedBlueprintTypes;
+
+	/** Tracks which assets has a replaced class */
+	TMap<UObject*, UClass*> ReplacementMap;
+
+	TSet<FString> ReplacedPackages;
+
+	/** singleton instance: */
+	static FScriptCookReplacementCoordinator* CoordinatorInstance;
+};
+
+#endif // WITH_EDITOR
 
 /** 
  * A helper struct for storing FObjectInitializers that were not run on 
@@ -114,4 +198,33 @@ private:
 	UClass* ResolvingClass;
 	/** Tracks sub-classes that have had their CDO deferred as a result of the super not being fully serialized */
 	TMultiMap<UClass*, UClass*> SuperClassMap;
+};
+
+
+struct COREUOBJECT_API FBlueprintDependencyData
+{
+	FName PackageName;
+	FName ObjectName;
+	FName ClassPackageName;
+	FName ClassName;
+};
+
+/**
+ *	Stores info about dependencies of native classes converted from BPs
+ */
+struct COREUOBJECT_API FConvertedBlueprintsDependencies
+{
+	typedef void(*GetDependenciesNamesFunc)(TArray<FBlueprintDependencyData>&);
+
+private:
+
+	TMap<FName, GetDependenciesNamesFunc> PackageNameToGetter;
+
+public:
+	static FConvertedBlueprintsDependencies& Get();
+
+	void RegisterClass(FName PackageName, GetDependenciesNamesFunc GetAssets);
+
+	/** Get all assets paths necessary for the class with the given class name and all converted classes that dependencies. */
+	void GetAssets(FName PackageName, TArray<FBlueprintDependencyData>& OutDependencies) const;
 };

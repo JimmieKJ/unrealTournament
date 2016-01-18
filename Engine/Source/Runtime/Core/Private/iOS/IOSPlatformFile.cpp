@@ -11,6 +11,28 @@
 // make an FTimeSpan object that represents the "epoch" for time_t (from a stat struct)
 const FDateTime IOSEpoch(1970, 1, 1);
 
+namespace
+{
+	FFileStatData IOSStatToUEFileData(struct stat& FileInfo)
+	{
+		const bool bIsDirectory = S_ISDIR(FileInfo.st_mode);
+
+		int64 FileSize = -1;
+		if (!bIsDirectory)
+		{
+			FileSize = FileInfo.st_size;
+		}
+
+		return FFileStatData(
+			IOSEpoch + FTimespan(0, 0, FileInfo.st_ctime), 
+			IOSEpoch + FTimespan(0, 0, FileInfo.st_atime), 
+			IOSEpoch + FTimespan(0, 0, FileInfo.st_mtime), 
+			FileSize,
+			bIsDirectory,
+			!!(FileInfo.st_mode & S_IWUSR)
+			);
+	}
+}
 
 
 
@@ -518,6 +540,24 @@ FString FIOSPlatformFile::GetFilenameOnDisk(const TCHAR* Filename)
 	return Filename;
 }
 
+FFileStatData FIOSPlatformFile::GetStatData(const TCHAR* FilenameOrDirectory)
+{
+	struct stat FileInfo;
+	FString NormalizedFilename = NormalizeFilename(FilenameOrDirectory);
+
+	// check the read path
+	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false)), &FileInfo) == -1)
+	{
+		// if not in the read path, check the write path
+		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true)), &FileInfo) == -1)
+		{
+			return FFileStatData();
+		}
+	}
+
+	return IOSStatToUEFileData(FileInfo);
+}
+
 IFileHandle* FIOSPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 {
 	FString NormalizedFilename = NormalizeFilename(Filename);
@@ -603,6 +643,47 @@ bool FIOSPlatformFile::DeleteDirectory(const TCHAR* Directory)
 
 bool FIOSPlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor)
 {
+	const FString DirectoryStr = Directory;
+	return IterateDirectoryCommon(Directory, [&](struct dirent* InEntry) -> bool
+	{
+		// Normalize any unicode forms so we match correctly
+		const FString NormalizedFilename = UTF8_TO_TCHAR(([[[NSString stringWithUTF8String:InEntry->d_name] precomposedStringWithCanonicalMapping] cStringUsingEncoding:NSUTF8StringEncoding]));
+		const FString FullPath = DirectoryStr / NormalizedFilename;
+
+		return Visitor.Visit(*FullPath, InEntry->d_type == DT_DIR);
+	});
+}
+
+bool FIOSPlatformFile::IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor)
+{
+	const FString DirectoryStr = Directory;
+	const FString NormalizedDirectoryStr = NormalizeFilename(Directory);
+
+	return IterateDirectoryCommon(Directory, [&](struct dirent* InEntry) -> bool
+	{
+		// Normalize any unicode forms so we match correctly
+		const FString NormalizedFilename = UTF8_TO_TCHAR(([[[NSString stringWithUTF8String:InEntry->d_name] precomposedStringWithCanonicalMapping] cStringUsingEncoding:NSUTF8StringEncoding]));
+		const FString FullPath = DirectoryStr / NormalizedFilename;
+		const FString FullNormalizedPath = NormalizedDirectoryStr / NormalizedFilename;
+
+		struct stat FileInfo;
+
+		// check the read path
+		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(FullNormalizedPath, false)), &FileInfo) == -1)
+		{
+			// if not in the read path, check the write path
+			if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(FullNormalizedPath, true)), &FileInfo) == -1)
+			{
+				return true;
+			}
+		}
+
+		return Visitor.Visit(*FullPath, IOSStatToUEFileData(FileInfo));
+	});
+}
+
+bool FIOSPlatformFile::IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct dirent*)>& Visitor)
+{
 	bool Result = false;
 	const ANSICHAR* FrameworksPath;
 	if (Directory[0] == 0)
@@ -633,9 +714,7 @@ bool FIOSPlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisito
 		{
 			if (FCStringAnsi::Strcmp(Entry->d_name, ".") && FCStringAnsi::Strcmp(Entry->d_name, ".."))
 			{
-				// Normalize any unicode forms so we match correctly
-				FString NormalizedFilename = UTF8_TO_TCHAR(([[[NSString stringWithUTF8String:Entry->d_name] precomposedStringWithCanonicalMapping] cStringUsingEncoding:NSUTF8StringEncoding]));
-				Result = Visitor.Visit(*(FString(Directory) / NormalizedFilename), Entry->d_type == DT_DIR);
+				Result = Visitor(Entry);
 			}
 		}
 		closedir(Handle);

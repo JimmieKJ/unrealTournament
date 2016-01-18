@@ -41,9 +41,9 @@ public:
 
 public:
 
-	// UWidget interface
+	//~ Begin UWidget interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	// End UWidget interface
 
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 

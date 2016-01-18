@@ -619,7 +619,7 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	ComponentLightInfo = MakeUnique<FLandscapeLCI>(InComponent);
 	check(ComponentLightInfo);
 
-	const bool bHasStaticLighting = InComponent->LightMap != nullptr || InComponent->ShadowMap != nullptr;
+	const bool bHasStaticLighting = InComponent->bHasCachedStaticLighting;
 
 	// Check material usage
 	if (MaterialInterface == nullptr ||
@@ -713,7 +713,7 @@ void FLandscapeComponentSceneProxy::CreateRenderThreadResources()
 		SharedBuffers->AdjacencyIndexBuffers->AddRef();
 
 		// Delayed Initialize for IndexBuffers
-		for (int i = 0; i < SharedBuffers->NumIndexBuffers; i++)
+		for (int32 i = 0; i < SharedBuffers->NumIndexBuffers; i++)
 		{
 			SharedBuffers->IndexBuffers[i]->InitResource();
 		}
@@ -744,6 +744,10 @@ void FLandscapeComponentSceneProxy::CreateRenderThreadResources()
 		FLandscapeBatchElementParams* BatchElementParams = &GrassBatchParams;
 		BatchElementParams->LocalToWorldNoScalingPtr = &LocalToWorldNoScaling;
 		BatchElement->UserData = BatchElementParams;
+		if (NeedsUniformBufferUpdate())
+		{
+			UpdateUniformBuffer();
+		}
 		BatchElement->PrimitiveUniformBufferResource = &GetUniformBuffer();
 		BatchElementParams->LandscapeUniformShaderParametersResource = &LandscapeUniformShaderParameters;
 		BatchElementParams->SceneProxy = this;
@@ -793,7 +797,7 @@ bool FLandscapeComponentSceneProxy::CanBeOccluded() const
 	return !MaterialRelevance.bDisableDepthTest;
 }
 
-FPrimitiveViewRelevance FLandscapeComponentSceneProxy::GetViewRelevance(const FSceneView* View)
+FPrimitiveViewRelevance FLandscapeComponentSceneProxy::GetViewRelevance(const FSceneView* View) const
 {
 	FPrimitiveViewRelevance Result;
 	Result.bDrawRelevance = IsShown(View) && View->Family->EngineShowFlags.Landscape;
@@ -870,14 +874,14 @@ FPrimitiveViewRelevance FLandscapeComponentSceneProxy::GetViewRelevance(const FS
 		View->Family->EngineShowFlags.Wireframe ||
 #if WITH_EDITOR
 		(IsSelected() && !GLandscapeEditModeActive) ||
-		GLandscapeViewMode != ELandscapeViewMode::Normal
+		GLandscapeViewMode != ELandscapeViewMode::Normal ||
 #else
-		IsSelected()
+		IsSelected() ||
 #endif
-		)
+		 !IsStaticPathAvailable())
 	{
 		Result.bDynamicRelevance = true;
-}
+	}
 	else
 	{
 		Result.bStaticRelevance = true;
@@ -1386,6 +1390,10 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					int32 SubSectionIdx = SubX + SubY*NumSubsections;
 					int32 CurrentLOD = CalcLODForSubsection(*View, SubX, SubY, CameraLocalPos);
 
+			#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+					// We simplify this by considering only the biggest LOD index for this mesh element.
+					Mesh.VisualizeLODIndex = (int8)FMath::Max((int32)Mesh.VisualizeLODIndex, CurrentLOD);
+			#endif
 					FMeshBatchElement& BatchElement = (SubX == 0 && SubY == 0) ? *Mesh.Elements.GetData() : *(new(Mesh.Elements) FMeshBatchElement);
 					BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 					FLandscapeBatchElementParams& BatchElementParams = ParameterArray.ElementParams[SubSectionIdx];
@@ -1482,24 +1490,24 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 
 			case ELandscapeViewMode::LOD:
 			{
-				FLinearColor WireColors[LANDSCAPE_LOD_LEVELS];
-				WireColors[0] = FLinearColor(1, 1, 1);
-				WireColors[1] = FLinearColor(1, 0, 0);
-				WireColors[2] = FLinearColor(0, 1, 0);
-				WireColors[3] = FLinearColor(0, 0, 1);
-				WireColors[4] = FLinearColor(1, 1, 0);
-				WireColors[5] = FLinearColor(1, 0, 1);
-				WireColors[6] = FLinearColor(0, 1, 1);
-				WireColors[7] = FLinearColor(0.5f, 0, 0.5f);
-
 				for (int32 i = 0; i < MeshTools.Elements.Num(); i++)
 				{
 					FMeshBatch& LODMesh = Collector.AllocateMesh();
 					LODMesh = MeshTools;
 					LODMesh.Elements.Empty(1);
 					LODMesh.Elements.Add(MeshTools.Elements[i]);
-					int32 ColorIndex = ((FLandscapeBatchElementParams*)MeshTools.Elements[i].UserData)->CurrentLOD;
-					FLinearColor Color = ForcedLOD >= 0 ? WireColors[ColorIndex] : WireColors[ColorIndex] * 0.2f;
+
+					int32 ColorIndex = INDEX_NONE;
+					if (GEngine->LODColorationColors.Num() > 0)
+					{
+						ColorIndex = ((FLandscapeBatchElementParams*)MeshTools.Elements[i].UserData)->CurrentLOD;
+						ColorIndex = FMath::Clamp(ColorIndex, 0, GEngine->LODColorationColors.Num() - 1);
+						LODMesh.VisualizeLODIndex = ColorIndex;
+					}
+
+					const FLinearColor& LODColor = ColorIndex != INDEX_NONE ? GEngine->LODColorationColors[ColorIndex] : FLinearColor::Gray;
+					FLinearColor Color = ForcedLOD >= 0 ? LODColor : LODColor * 0.2f;
+
 					auto LODMaterialInstance = new FColoredMaterialRenderProxy(GEngine->LevelColorationUnlitMaterial->GetRenderProxy(false), Color);
 					LODMesh.MaterialRenderProxy = LODMaterialInstance;
 					Collector.RegisterOneFrameMaterialProxy(LODMaterialInstance);
@@ -1559,11 +1567,11 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					GLandscapeDebugOptions.bDisableStatic ||
 					bIsWireframe ||
 #if WITH_EDITOR
-					(IsSelected() && !GLandscapeEditModeActive)
+					(IsSelected() && !GLandscapeEditModeActive) ||
 #else
-					IsSelected()
+					IsSelected() ||
 #endif
-					)
+					!IsStaticPathAvailable())
 				{
 					Mesh.MaterialRenderProxy = MaterialInterface->GetRenderProxy(false);
 
@@ -1694,8 +1702,9 @@ void FLandscapeVertexBuffer::InitRHI()
 {
 	// create a static vertex buffer
 	FRHIResourceCreateInfo CreateInfo;
-	VertexBufferRHI = RHICreateVertexBuffer(NumVertices * sizeof(FLandscapeVertex), BUF_Static, CreateInfo);
-	FLandscapeVertex* Vertex = (FLandscapeVertex*)RHILockVertexBuffer(VertexBufferRHI, 0, NumVertices * sizeof(FLandscapeVertex), RLM_WriteOnly);
+	void* BufferData = nullptr;
+	VertexBufferRHI = RHICreateAndLockVertexBuffer(NumVertices * sizeof(FLandscapeVertex), BUF_Static, CreateInfo, BufferData);
+	FLandscapeVertex* Vertex = (FLandscapeVertex*)BufferData;
 	int32 VertexIndex = 0;
 	for (int32 SubY = 0; SubY < NumSubsections; SubY++)
 	{
@@ -1871,7 +1880,7 @@ void FLandscapeSharedBuffers::CreateIndexBuffers(ERHIFeatureLevel::Type InFeatur
 		else
 		{
 			// non-ES2 version
-			int SubOffset = 0;
+			int32 SubOffset = 0;
 			for (int32 SubY = 0; SubY < NumSubsections; SubY++)
 			{
 				for (int32 SubX = 0; SubX < NumSubsections; SubX++)
@@ -2128,7 +2137,7 @@ FLandscapeSharedAdjacencyIndexBuffer::FLandscapeSharedAdjacencyIndexBuffer(FLand
 
 FLandscapeSharedAdjacencyIndexBuffer::~FLandscapeSharedAdjacencyIndexBuffer()
 {
-	for (int i = 0; i < IndexBuffers.Num(); ++i)
+	for (int32 i = 0; i < IndexBuffers.Num(); ++i)
 	{
 		IndexBuffers[i]->ReleaseResource();
 		delete IndexBuffers[i];
@@ -2626,6 +2635,15 @@ void FLandscapeComponentSceneProxy::GetHeightfieldRepresentation(UTexture2D*& Ou
 	OutDescription.NumSubsections = NumSubsections;
 
 	OutDescription.SubsectionScaleAndBias = FVector4(SubsectionSizeQuads, SubsectionSizeQuads, HeightmapSubsectionOffsetU, HeightmapSubsectionOffsetV);
+}
+
+void FLandscapeComponentSceneProxy::GetLCIs(FLCIArray& LCIs)
+{
+	FLightCacheInterface* LCI = ComponentLightInfo.Get();
+	if (LCI)
+	{
+		LCIs.Push(LCI);
+	}
 }
 
 //

@@ -1,7 +1,7 @@
 // this class is hit by weapons fire and can be used either to redirect it (e.g. teleport projectiles)
 // or to take the damage and pass it on to its owner
 // generally used for teleport "afterimage" effect
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTWeaponRedirector.generated.h"
@@ -103,6 +103,10 @@ public:
 	/** effect played when warping weapons fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UParticleSystem* WarpEffect;
+
+	/** effect played when warping weapons fire */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TSubclassOf<class AUTReplicatedEmitter> DamageEffect;
 
 	UFUNCTION(BlueprintNativeEvent, Category = Init)
 	void InitFor(APawn* InInstigator, const FRepCollisionShape& InCollision, UPrimitiveComponent* InBase, const FTransform& InDest = FTransform::Identity);

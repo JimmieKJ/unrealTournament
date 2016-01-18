@@ -14,7 +14,7 @@ public:
 		{}
 
 		/** Label, placed before text entry box */
-		SLATE_TEXT_ARGUMENT( Label )
+		SLATE_ARGUMENT( FText, Label )
 
 		/** Test to place into text entry box before anything is typed */
 		SLATE_ARGUMENT( FText, DefaultText )

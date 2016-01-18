@@ -526,20 +526,26 @@ namespace Agent
 			bool ReturnCode = false;
 			if( RemoteInterfaceAlive )
 			{
-				try
-				{
-					RequestChannelDelegate DRequestChannel = new RequestChannelDelegate( RemoteInterface.RequestChannel );
-					IAsyncResult Result = DRequestChannel.BeginInvoke( ConnectionHandle, ChannelName, JobGuid, null, null );
-					WaitHandle.WaitAny( new WaitHandle[2] { Result.AsyncWaitHandle, RemoteInterfaceDropped } );
-					if( Result.IsCompleted )
+				RetryCatch(
+					// Try {
+					() =>
 					{
-						ReturnCode = DRequestChannel.EndInvoke( Result );
-					}
-				}
-				catch( Exception )
-				{
-					SignalConnectionDropped();
-				}
+						RequestChannelDelegate DRequestChannel = new RequestChannelDelegate(RemoteInterface.RequestChannel);
+						IAsyncResult Result = DRequestChannel.BeginInvoke(ConnectionHandle, ChannelName, JobGuid, null, null);
+						WaitHandle.WaitAny(new WaitHandle[2] { Result.AsyncWaitHandle, RemoteInterfaceDropped });
+						if (Result.IsCompleted)
+						{
+							ReturnCode = DRequestChannel.EndInvoke(Result);
+						}
+					},
+					// } Catch (Exception) {
+					() =>
+					{
+						SignalConnectionDropped();
+					},
+					// }
+					5
+				);
 			}
 			return ReturnCode;
 		}
@@ -686,6 +692,33 @@ namespace Agent
 				}
 			}
 			return ReturnCode;
+		}
+
+		private void RetryCatch(Action TryClause, Action CatchClause, int RetriesOnFailure = 5)
+		{
+			int TryId = 1;
+			while(TryId <= RetriesOnFailure)
+			{
+				try
+				{
+					TryClause();
+					break;
+				}
+				catch(Exception Ex)
+				{
+					if(TryId == RetriesOnFailure)
+					{
+						AgentApplication.Log(EVerbosityLevel.Critical, ELogColour.Red, string.Format("Error (retry {0} of {1}): {2}. Stack trace:\n{3}\n", TryId, RetriesOnFailure, Ex.Message, Ex.StackTrace));
+						CatchClause();
+					}
+					else
+					{
+						AgentApplication.Log(EVerbosityLevel.Critical, ELogColour.Orange, string.Format("Error (retry {0} of {1}): {2}. Stack trace: {3}.\n", TryId, RetriesOnFailure, Ex.Message, Ex.StackTrace));
+					}
+				}
+
+				++TryId;
+			}
 		}
 
 		public string				RemoteAgentName;

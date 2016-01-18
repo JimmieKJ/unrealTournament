@@ -38,6 +38,7 @@ typedef FMacPlatformTypes FPlatformTypes;
 //#define PLATFORM_USE_PTHREADS						1
 #define PLATFORM_MAX_FILEPATH_LENGTH				MAX_PATH
 #define PLATFORM_SUPPORTS_TBB						1
+#define PLATFORM_SUPPORTS_STACK_SYMBOLS				1
 
 // Function type macros.
 #define VARARGS														/* Functions with variable arguments */

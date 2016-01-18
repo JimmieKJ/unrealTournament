@@ -68,15 +68,15 @@ public:
 	{
 		Close();
 	}
-	virtual void Seek( int64 InPos )
+	virtual void Seek( int64 InPos ) override
 	{
 		Pos = InPos;
 	}
-	virtual int64 Tell()
+	virtual int64 Tell() override
 	{
 		return Pos;
 	}
-	virtual void Serialize( void* V, int64 Length )
+	virtual void Serialize( void* V, int64 Length ) override
 	{
 		Pos += Length;
 	}
@@ -330,6 +330,11 @@ bool FFileManagerGeneric::Move( const TCHAR* Dest, const TCHAR* Src, bool Replac
 	return true;
 }
 
+bool FFileManagerGeneric::FileExists( const TCHAR* Filename )
+{
+	return GetLowLevel().FileExists( Filename );
+}
+
 bool FFileManagerGeneric::DirectoryExists( const TCHAR* InDirectory )
 {
 	return GetLowLevel().DirectoryExists( InDirectory );
@@ -354,6 +359,11 @@ bool FFileManagerGeneric::DeleteDirectory( const TCHAR* Path, bool RequireExists
 		return GetLowLevel().DeleteDirectoryRecursively( Path ) || ( !RequireExists && !GetLowLevel().DirectoryExists( Path ) );
 	}
 	return GetLowLevel().DeleteDirectory( Path ) || ( !RequireExists && !GetLowLevel().DirectoryExists( Path ) );
+}
+
+FFileStatData FFileManagerGeneric::GetStatData(const TCHAR* FilenameOrDirectory)
+{
+	return GetLowLevel().GetStatData(FilenameOrDirectory);
 }
 
 void FFileManagerGeneric::FindFiles( TArray<FString>& Result, const TCHAR* InFilename, bool Files, bool Directories )
@@ -390,6 +400,43 @@ void FFileManagerGeneric::FindFiles( TArray<FString>& Result, const TCHAR* InFil
 	GetLowLevel().IterateDirectory( *FPaths::GetPath(Filename), FileMatch );
 }
 
+void FFileManagerGeneric::FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension)
+{
+	if (!Directory)
+	{
+		return;
+	}
+
+	FString RootDir(Directory);
+	FString ExtStr = (FileExtension != nullptr) ? FString(FileExtension) : "";
+
+	// No Directory?
+	if (RootDir.Len() < 1)
+	{
+		return;
+	}
+
+	FPaths::NormalizeDirectoryName(RootDir);
+
+	// Don't modify the ExtStr if the user supplied the form "*.EXT" or "*" or "*.*" or "Name.*"
+	if (!ExtStr.Contains(TEXT("*")))
+	{
+		if (ExtStr == "")
+		{
+			ExtStr = "*.*";
+		}
+		else
+		{
+			//Complete the supplied extension with * or *. to yield "*.EXT"
+			ExtStr = (ExtStr.Left(1) == ".") ? "*" + ExtStr : "*." + ExtStr;
+		}
+	}
+
+	// Create the full filter, which is "Directory/*.EXT".
+	FString FinalPath = RootDir + "/" + ExtStr;
+	FindFiles(FoundFiles, *FinalPath, true, false);
+}
+
 bool FFileManagerGeneric::IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor)
 {
 	return GetLowLevel().IterateDirectory( Directory, Visitor );
@@ -398,6 +445,16 @@ bool FFileManagerGeneric::IterateDirectory(const TCHAR* Directory, IPlatformFile
 bool FFileManagerGeneric::IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor)
 {
 	return GetLowLevel().IterateDirectoryRecursively( Directory, Visitor );
+}
+
+bool FFileManagerGeneric::IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor)
+{
+	return GetLowLevel().IterateDirectoryStat( Directory, Visitor );
+}
+
+bool FFileManagerGeneric::IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor)
+{
+	return GetLowLevel().IterateDirectoryStatRecursively( Directory, Visitor );
 }
 
 double FFileManagerGeneric::GetFileAgeSeconds( const TCHAR* Filename )
@@ -530,12 +587,12 @@ void FFileManagerGeneric::FindFilesRecursiveInternal( TArray<FString>& FileNames
 }
 
 FArchiveFileReaderGeneric::FArchiveFileReaderGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InSize )
-	:	Filename		( InFilename )
-	,   Size           ( InSize )
-	,   Pos            ( 0 )
-	,   BufferBase     ( 0 )
-	,   BufferCount    ( 0 )
-	,		Handle( InHandle )
+	: Filename( InFilename )
+	, Size( InSize )
+	, Pos( 0 )
+	, BufferBase( 0 )
+	, BufferCount( 0 )
+	, Handle( InHandle )
 {
 	ArIsLoading = ArIsPersistent = true;
 }
@@ -601,7 +658,7 @@ bool FArchiveFileReaderGeneric::InternalPrecache( int64 PrecacheOffset, int64 Pr
 
 		// Read data from device via Win32 ReadFile API.
 		{
-			UE_CLOG( BufferCount > ARRAY_COUNT( Buffer ) || BufferCount <= 0, LogFileManager, Fatal, TEXT("Invalid BufferCount=%lld while reading %s. Pos=%lld, Size=%lld, PrecacheSize=%lld, PrecacheOffset=%lld"),
+			UE_CLOG( BufferCount > ARRAY_COUNT( Buffer ) || BufferCount <= 0, LogFileManager, Fatal, TEXT("Invalid BufferCount=%lld while reading %s. File is most likely corrupted, try deleting it if possible. Pos=%lld, Size=%lld, PrecacheSize=%lld, PrecacheOffset=%lld"),
 				BufferCount, *Filename, Pos, Size, PrecacheSize, PrecacheOffset );
 
 			ReadLowLevel( Buffer, BufferCount, Count );
@@ -661,10 +718,11 @@ void FArchiveFileReaderGeneric::Serialize( void* V, int64 Length )
 }
 
 FArchiveFileWriterGeneric::FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos )
-	:	Filename	( InFilename )
-	,   Pos			( InPos )
-	,   BufferCount	( 0 )
-	,	Handle		( InHandle )
+	: Filename( InFilename )
+	, Pos( InPos )
+	, BufferCount( 0 )
+	, Handle( InHandle )
+	, bLoggingError( false )
 {
 	ArIsSaving = ArIsPersistent = true;
 }
@@ -768,8 +826,14 @@ void FArchiveFileWriterGeneric::Flush()
 
 void FArchiveFileWriterGeneric::LogWriteError(const TCHAR* Message)
 {
-	TCHAR ErrorBuffer[1024];
-	UE_LOG(LogFileManager, Error, TEXT("%s: %s (%s)"), Message, *Filename, FPlatformMisc::GetSystemErrorMessage(ErrorBuffer, 1024, 0));
+	// Prevent re-entry if logging causes another log error leading to a stack overflow
+	if (!bLoggingError)
+	{
+		bLoggingError = true;
+		TCHAR ErrorBuffer[1024];
+		UE_LOG(LogFileManager, Error, TEXT("%s: %s (%s)"), Message, *Filename, FPlatformMisc::GetSystemErrorMessage(ErrorBuffer, 1024, 0));
+		bLoggingError = false;
+	}
 }
 //---
 

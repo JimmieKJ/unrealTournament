@@ -44,13 +44,12 @@ namespace physx
 namespace shdfnd
 {
 	template<class T, class Predicate, class Allocator>
-	void sort(T* elements, PxU32 count, const Predicate& compare, const Allocator& inAllocator)
+	void sort(T* elements, PxU32 count, const Predicate& compare, const Allocator& inAllocator, const PxU32 initialStackSize = 32)
 	{
-		static const int INITIAL_STACKSIZE = 32;
 		static const PxU32 SMALL_SORT_CUTOFF = 5; // must be >= 3 since we need 3 for median
 
-		PX_ALLOCA(stackMem, PxI32, INITIAL_STACKSIZE);
-		internal::Stack<Allocator> stack(stackMem, INITIAL_STACKSIZE,inAllocator);
+		PX_ALLOCA(stackMem, PxI32, initialStackSize);
+		internal::Stack<Allocator> stack(stackMem, initialStackSize, inAllocator);
 
 		PxI32 first = 0, last = PxI32(count-1);
 		if(last > first)
@@ -67,7 +66,7 @@ namespace shdfnd
 					}
 					else
 					{
-						PxI32 partIndex = internal::partition(elements, first, last, compare);
+						const PxI32 partIndex = internal::partition(elements, first, last, compare);
 
 						// push smaller sublist to minimize stack usage
 						if((partIndex - first) < (last - partIndex)) 

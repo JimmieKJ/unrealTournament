@@ -44,12 +44,14 @@ bool FLinkerManager::Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice
 			}
 			Ar.Logf
 				(
-				TEXT("%s (%s): Names=%i (%iK/%iK) Imports=%i (%iK) Exports=%i (%iK) Gen=%i Bulk=%i"),
+				TEXT("%s (%s): Names=%i (%iK/%iK) Text=%i (%iK) Imports=%i (%iK) Exports=%i (%iK) Gen=%i Bulk=%i"),
 				*Linker->Filename,
 				*Linker->LinkerRoot->GetFullName(),
 				Linker->NameMap.Num(),
 				Linker->NameMap.Num() * sizeof(FName) / 1024,
 				NameSize / 1024,
+				Linker->GatherableTextDataMap.Num(),
+				Linker->GatherableTextDataMap.Num() * sizeof(FGatherableTextData) / 1024,
 				Linker->ImportMap.Num(),
 				Linker->ImportMap.Num() * sizeof(FObjectImport) / 1024,
 				Linker->ExportMap.Num(),
@@ -106,7 +108,8 @@ void FLinkerManager::ResetLoaders(UObject* InPkg)
 			}
 			// Detach linker, also removes from array and sets LinkerRoot to NULL.
 			LinkerToReset->LoadAndDetachAllBulkData();
-			delete LinkerToReset;
+			LinkerToReset->Detach();
+			RemoveLinker(LinkerToReset);
 			LinkerToReset = nullptr;
 		}
 	}
@@ -119,7 +122,8 @@ void FLinkerManager::ResetLoaders(UObject* InPkg)
 		{
 			// Detach linker, also removes from array and sets LinkerRoot to NULL.
 			Linker->LoadAndDetachAllBulkData();
-			delete Linker;
+			Linker->Detach();
+			RemoveLinker(Linker);
 		}
 	}
 }
@@ -138,7 +142,7 @@ void FLinkerManager::DissociateImportsAndForcedExports()
 				for (int32 ImportIndex = 0; ImportIndex < Linker->ImportMap.Num(); ImportIndex++)
 				{
 					FObjectImport& Import = Linker->ImportMap[ImportIndex];
-					if (Import.XObject && !Import.XObject->HasAnyFlags(RF_Native))
+					if (Import.XObject && !Import.XObject->IsNative())
 					{
 						Import.XObject = nullptr;
 					}
@@ -172,4 +176,43 @@ void FLinkerManager::DissociateImportsAndForcedExports()
 		}	
 		ForcedExportCount = 0;
 	}	
+}
+
+void FLinkerManager::DeleteLinkers()
+{
+	check(IsInGameThread());
+
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FLinkerManager_DeleteLinkers);
+
+	TArray<FLinkerLoad*> CleanupArray;
+	{
+#if THREADSAFE_UOBJECTS
+		FScopeLock PendingCleanupListLock(&PendingCleanupListCritical);
+#endif
+		CleanupArray = PendingCleanupList.Array();
+		PendingCleanupList.Empty();
+	}
+
+	// Note that even though DeleteLinkers can only be called on the main thread,
+	// we store the IsDeletingLinkers in TLS so that we're sure nothing on
+	// another thread can delete linkers except FLinkerManager at the time
+	// we enter this loop.
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	ThreadContext.IsDeletingLinkers = true;
+	for (FLinkerLoad* Linker : CleanupArray)
+	{
+		delete Linker;
+	}
+	ThreadContext.IsDeletingLinkers = false;
+}
+
+void FLinkerManager::RemoveLinker(FLinkerLoad* Linker)
+{
+#if THREADSAFE_UOBJECTS
+	FScopeLock PendingCleanupListLock(&PendingCleanupListCritical);
+#endif
+	if (Linker && !PendingCleanupList.Contains(Linker))
+	{
+		PendingCleanupList.Add(Linker);
+	}
 }

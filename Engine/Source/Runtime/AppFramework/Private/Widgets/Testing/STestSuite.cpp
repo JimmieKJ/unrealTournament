@@ -1,13 +1,17 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AppFrameworkPrivatePCH.h"
+#include "STestSuite.h"
+
+#if !UE_BUILD_SHIPPING
+
+#include "ISlateReflectorModule.h"
 #include "STableViewTesting.h"
 #include "SLayoutExample.h"
 #include "SWidgetGallery.h"
 #include "TestStyle.h"
 #include "RichTextLayoutMarshaller.h"
 #include "SyntaxHighlighterTextLayoutMarshaller.h"
-#include "STestSuite.h"
 #include "SScissorRectBox.h"
 #include "TransformCalculus3D.h"
 #include "SlateRenderTransform.h"
@@ -23,6 +27,8 @@
 #include "SResponsiveGridPanel.h"
 #include "SColorPicker.h"
 #include "INotificationWidget.h"
+#include "IMenu.h"
+#include "SInvalidationPanel.h"
 
 #define LOCTEXT_NAMESPACE "STestSuite"
 
@@ -461,6 +467,12 @@ public:
 				+ SVerticalBox::Slot()
 				.FillHeight(3)
 				[
+					SNew(SCustomPaintWidget)
+					.OnPaintHandler(this, &SElementTesting::TestCustomVerts)
+				]
+				+ SVerticalBox::Slot()
+				.FillHeight(3)
+				[
 					SNew( SDynamicBrushTest )
 				]
 			]
@@ -689,6 +701,73 @@ private:
 			);
 
 		MakeRotationExample( InParams );
+
+		return InParams.Layer;
+	}
+
+	int32 TestCustomVerts(const FOnPaintHandlerParams& InParams)
+	{
+		const float Radius = FMath::Min(InParams.Geometry.Size.X, InParams.Geometry.Size.Y)*0.5f;
+		const FVector2D Center = InParams.Geometry.AbsolutePosition + InParams.Geometry.Size*0.5f;
+
+		const FSlateBrush* MyBrush = FCoreStyle::Get().GetBrush("ColorWheel.HueValueCircle");
+		// @todo this is not the correct way to do this
+		FSlateShaderResourceProxy *ResourceProxy = FSlateDataPayload::ResourceManager->GetShaderResource(*MyBrush);
+		FSlateResourceHandle Handle = FSlateApplication::Get().GetRenderer()->GetResourceHandle( *MyBrush );
+
+		FVector2D UVCenter = FVector2D::ZeroVector;
+		FVector2D UVRadius = FVector2D(1,1);
+		if (ResourceProxy != nullptr)
+		{
+			UVRadius = 0.5f*ResourceProxy->SizeUV;
+			UVCenter = ResourceProxy->StartUV + UVRadius;
+		}
+
+		// Make a triangle fan in the area allotted
+		const int NumTris = 12;
+		TArray<FSlateVertex> Verts;
+		Verts.Reserve(NumTris*3);
+
+		// Center Vertex
+		Verts.AddZeroed();
+		{
+			FSlateVertex& NewVert = Verts.Last();
+			NewVert.Position[0] = Center.X;
+			NewVert.Position[1] = Center.Y;
+			NewVert.TexCoords[0] = UVCenter.X;
+			NewVert.TexCoords[1] = UVCenter.Y;
+			NewVert.TexCoords[2] = NewVert.TexCoords[3] = 1.0f;
+			NewVert.Color = FColor::White;
+			NewVert.ClipRect = FSlateRotatedRect(InParams.ClippingRect);
+		}
+
+		for (int i = 0; i < NumTris; ++i)
+		{
+			Verts.AddZeroed();
+			{
+				const float Angle = (2*PI*i) / NumTris;
+				const FVector2D EdgeDirection(FMath::Cos(Angle), FMath::Sin(Angle));
+				const FVector2D Edge(Radius*EdgeDirection);
+				FSlateVertex& NewVert = Verts.Last();
+				NewVert.Position[0] = Center.X + Edge.X;
+				NewVert.Position[1] = Center.Y + Edge.Y;
+				NewVert.TexCoords[0] = UVCenter.X + UVRadius.X*EdgeDirection.X;
+				NewVert.TexCoords[1] = UVCenter.Y + UVRadius.Y*EdgeDirection.Y;
+				NewVert.TexCoords[2] = NewVert.TexCoords[3] = 1.0f;
+				NewVert.Color = FColor::White;
+				NewVert.ClipRect = FSlateRotatedRect(InParams.ClippingRect);
+			}
+		}
+
+		TArray<SlateIndex> Indexes;
+		for (int i = 1; i <= NumTris; ++i)
+		{
+			Indexes.Add(0);
+			Indexes.Add(i);
+			Indexes.Add( (i+1 > 12) ? (1) : (i+1) );
+		}
+
+		FSlateDrawElement::MakeCustomVerts(InParams.OutDrawElements, InParams.Layer, Handle, Verts, Indexes, nullptr, 0, 0);
 
 		return InParams.Layer;
 	}
@@ -1371,6 +1450,7 @@ struct RichTextHelper
 
 		FSlateApplication::Get().PushMenu(
 			ParentWidget, // Parent widget should be TestSuite, not the menu thats open or it will be closed when the menu is dismissed
+			FWidgetPath(),
 			Widget,
 			FSlateApplication::Get().GetCursorPos(), // summon location
 			FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
@@ -2060,6 +2140,22 @@ public:
 				[
 					SAssignNew(ErrorText, SErrorText)
 				]
+				+ SVerticalBox::Slot().AutoHeight() .HAlign(HAlign_Center) .VAlign(VAlign_Center) .Padding( 5 )
+				[
+					SNew( SEditableTextBox )
+					.Text( LOCTEXT( "CustomContextMenuInput", "This text box has a custom context menu" ) )
+					.RevertTextOnEscape( true )
+					.HintText(LOCTEXT("CustomContextMenuHint", "Custom context menu..."))
+					.OnContextMenuOpening( this, &STextEditTest::OnCustomContextMenuOpening )
+				]
+				+ SVerticalBox::Slot().AutoHeight() .HAlign(HAlign_Center) .VAlign(VAlign_Center) .Padding( 5 )
+				[
+					SNew( SEditableTextBox )
+					.Text( LOCTEXT( "DisabledContextMenuInput", "This text box has no context menu" ) )
+					.RevertTextOnEscape( true )
+					.HintText(LOCTEXT("DisabledContextMenuHint", "No context menu..."))
+					.OnContextMenuOpening(this, &STextEditTest::OnDisabledContextMenuOpening)
+				]
 			]
 		];
 	}
@@ -2089,6 +2185,22 @@ public:
 		NumericInput->SetError( Error );
 	}
 
+	TSharedPtr<SWidget> OnCustomContextMenuOpening()
+	{
+		return SNew(SBorder)
+			.Padding(5.0f)
+			.BorderImage(FCoreStyle::Get().GetBrush("BoxShadow"))
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("CustomContextMenuContent", "This context menu content is just a text block"))
+			];
+	}
+
+	TSharedPtr<SWidget> OnDisabledContextMenuOpening()
+	{
+		return TSharedPtr<SWidget>();
+	}
+
 	void ClearSearchBox()
 	{
 		SearchBox->SetText( FText::GetEmpty() );
@@ -2110,8 +2222,9 @@ public:
 			.OnTextCommitted( this, &STextEditTest::OnPopupTextCommitted ) 
 			.HintText( DefaultText );
 
-		PopupWindow = FSlateApplication::Get().PushMenu( 
+		PopupMenu = FSlateApplication::Get().PushMenu(
 			AsShared(), // Parent widget should be TestSyuite, not the menu thats open or it will be closed when the menu is dismissed
+			FWidgetPath(),
 			TextEntry,
 			FSlateApplication::Get().GetCursorPos(), // summon location
 			FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )
@@ -2135,9 +2248,9 @@ public:
 		if ( (CommitInfo == ETextCommit::OnEnter) && (NewText.ToString().Len() == 3) )
 		{
 			// manually close menu on validated committal
-			if ( PopupWindow.IsValid() )
+			if (PopupMenu.IsValid())
 			{		
-				PopupWindow->RequestDestroyWindow();
+				PopupMenu.Pin()->Dismiss();
 			}
 		}
 	}
@@ -2161,7 +2274,7 @@ protected:
 
 	TSharedPtr<STextEntryPopup> PopupInput;
 
-	TSharedPtr<SWindow> PopupWindow;
+	TWeakPtr<IMenu> PopupMenu;
 
 	TSharedPtr<SInlineEditableTextBlock> InlineEditableTextBlock;
 	FText InlineEditableText;
@@ -2709,6 +2822,7 @@ public:
 									.OnTextCommitted(this, &SRichTextEditTest::HandleRichEditableTextCommitted)
 									.OnCursorMoved(this, &SRichTextEditTest::HandleRichEditableTextCursorMoved)
 									.Marshaller(RichTextMarshaller)
+									.ClearTextSelectionOnFocusLoss(false)
 									.AutoWrapText(true)
 									.Margin(4)
 									.LineHeightPercentage(1.1f)
@@ -3803,6 +3917,152 @@ class SDPIScalingTest : public SCompoundWidget
 
 	float DPIScale;
 	SVerticalBox::FSlot* ScalerSlot;
+};
+
+class SInvalidationTest : public SCompoundWidget
+{
+	SLATE_BEGIN_ARGS(SInvalidationTest)
+	{}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		ChildSlot
+		.Padding(10)
+		[
+			SNew(SVerticalBox)
+
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SAssignNew(CachePanel1, SInvalidationPanel)
+				.Visibility(EVisibility::Visible)
+				[
+					SNew(SVerticalBox)
+
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("StaticText", "This text is static and cached."))
+					]
+				]
+			]
+
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("InvalidateManually", "Manually Invalidate"))
+				.OnClicked(this, &SInvalidationTest::ManuallyInvalidatePanel1)
+			]
+
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SInvalidationPanel)
+				.Visibility(EVisibility::Visible)
+				[
+					SNew(SVerticalBox)
+
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("StaticText", "Support Input"))
+					]
+
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SBorder)
+						.Padding(10)
+						[
+							SNew(SButton)
+							.Text(LOCTEXT("CachedClickable", "I'm Cached - But Clickable"))
+						]
+					]
+
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SBorder)
+						.Padding(10)
+						[
+							SNew(SButton)
+							.ForceVolatile(true)
+							.Text(LOCTEXT("VolatileClickable", "Volatile - But Clickable"))
+						]
+					]
+				]
+			]
+
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SInvalidationPanel)
+				.CacheRelativeTransforms(true)
+				[
+					SNew(SVerticalBox)
+
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("RelativeCacheMessage", "I cache relative transforms.  Moving the window has no effect on me, woo!"))
+					]
+				]
+			]
+		];
+	}
+
+private:
+	FReply ManuallyInvalidatePanel1()
+	{
+		CachePanel1->InvalidateCache();
+		return FReply::Handled();
+	}
+
+private:
+	TSharedPtr<SInvalidationPanel> CachePanel1;
+};
+
+class SGammaTest : public SCompoundWidget
+{
+	SLATE_BEGIN_ARGS(SGammaTest)
+	{}
+	SLATE_END_ARGS()
+	
+	void Construct(const FArguments& InArgs)
+	{
+		FColor Orange(200, 80, 15);
+		
+		ChildSlot
+		.Padding(10)
+		[
+			SNew(SVerticalBox)
+			
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+			 
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SColorBlock)
+					.Color(Orange)
+				]
+			 
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(Orange.ToString()))
+				]
+			]
+		];
+	}
 };
 
 class SColorPickerTest : public SCompoundWidget
@@ -5174,6 +5434,27 @@ TSharedRef<SDockTab> SpawnTab(const FSpawnTabArgs& Args, FName TabIdentifier)
 			]
 		];
 	}
+	else if ( TabIdentifier == FName(TEXT("InvalidationTest")) )
+	{
+		return SNew(SDockTab)
+			[
+				SNew(SScissorRectBox)
+				[
+					SNew(SInvalidationTest)
+					.RenderTransform_Static(&::GetTestRenderTransform)
+					.RenderTransformPivot_Static(&::GetTestRenderTransformPivot)
+				]
+			];
+	}
+	else if ( TabIdentifier == FName(TEXT("GammaTest")) )
+	{
+		return SNew(SDockTab)
+		[
+			SNew(SGammaTest)
+			.RenderTransform_Static(&::GetTestRenderTransform)
+			.RenderTransformPivot_Static(&::GetTestRenderTransformPivot)
+		];
+	}
 	else if (TabIdentifier == FName(TEXT("NotificationListTestTab")))
 	{
 		return SNew(SDockTab)
@@ -5395,6 +5676,8 @@ TSharedRef<SDockTab> SpawnTestSuite2( const FSpawnTabArgs& Args )
 			->AddTab("NotificationListTestTab", ETabState::OpenedTab)
 			->AddTab("GridPanelTest", ETabState::OpenedTab)
 			->AddTab("DPIScalingTest", ETabState::OpenedTab)
+			->AddTab("InvalidationTest", ETabState::OpenedTab)
+			->AddTab("GammaTest", ETabState::OpenedTab)
 		)
 	);
 
@@ -5428,8 +5711,15 @@ TSharedRef<SDockTab> SpawnTestSuite2( const FSpawnTabArgs& Args )
 
 		TestSuite2TabManager->RegisterTabSpawner( "DPIScalingTest", FOnSpawnTab::CreateStatic( &SpawnTab, FName("DPIScalingTest") )  )
 			.SetDisplayName( NSLOCTEXT("TestSuite1", "DPIScalingTest", "DPI Scaling") )
-			.SetGroup(TestSuiteMenu::SuiteTabs
-			);
+			.SetGroup(TestSuiteMenu::SuiteTabs);
+
+		TestSuite2TabManager->RegisterTabSpawner("InvalidationTest", FOnSpawnTab::CreateStatic(&SpawnTab, FName("InvalidationTest")))
+			.SetDisplayName(NSLOCTEXT("TestSuite1", "InvalidationTest", "Invalidtion"))
+			.SetGroup(TestSuiteMenu::SuiteTabs);
+		
+		TestSuite2TabManager->RegisterTabSpawner("GammaTest", FOnSpawnTab::CreateStatic(&SpawnTab, FName("GammaTest")))
+			.SetDisplayName(NSLOCTEXT("TestSuite1", "GammaTest", "Gamma"))
+			.SetGroup(TestSuiteMenu::SuiteTabs);
 	}
 
 	FMenuBarBuilder MenuBarBuilder = FMenuBarBuilder( TSharedPtr<FUICommandList>() );
@@ -5488,6 +5778,9 @@ TSharedRef<SDockTab> SpawnWidgetGallery(const FSpawnTabArgs& Args)
 
 void RestoreSlateTestSuite()
 {
+	// Need to load this module so we have the widget reflector tab available
+	FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector");
+
 	FTestStyle::ResetToDefault();
 
 	FGlobalTabmanager::Get()->RegisterTabSpawner("TestSuite1", FOnSpawnTab::CreateStatic( &SpawnTestSuite1 ) );
@@ -5545,3 +5838,5 @@ void MakeSplitterTest()
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 #undef LOCTEXT_NAMESPACE
+
+#endif // #if !UE_BUILD_SHIPPING

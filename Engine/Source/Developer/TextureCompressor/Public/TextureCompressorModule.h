@@ -83,6 +83,8 @@ struct FTextureBuildSettings
 	uint32 bLongLatSource : 1;
 	/** Whether the texture contains color data in the sRGB colorspace. */
 	uint32 bSRGB : 1;
+	/** Whether the texture should use the legacy gamma space for converting to sRGB */
+	uint32 bUseLegacyGamma : 1;
 	/** Whether the border of the image should be maintained during mipmap generation. */
 	uint32 bPreserveBorder : 1;
 	/** Whether the alpha channel should contain a dithered alpha value. */
@@ -136,6 +138,7 @@ struct FTextureBuildSettings
 		, bCubemap( false )
 		, bLongLatSource(false)
 		, bSRGB( false )
+		, bUseLegacyGamma( false )
 		, bPreserveBorder( false )
 		, bDitherMipMapAlpha( false )
 		, bComputeBokehAlpha( false )
@@ -158,6 +161,11 @@ struct FTextureBuildSettings
 		, ChromaKeyColor(FColorList::Magenta)
 		, ChromaKeyThreshold(1.0f / 255.0f)
 	{
+	}
+
+	FORCEINLINE EGammaSpace GetGammaSpace() const
+	{
+		return bSRGB ? ( bUseLegacyGamma ? EGammaSpace::Pow22 : EGammaSpace::sRGB ) : EGammaSpace::Linear;
 	}
 };
 

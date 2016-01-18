@@ -3,7 +3,9 @@
 #include "StandaloneRendererPrivate.h"
 #include "SlateOpenGLRenderer.h"
 #include "OpenGL/SlateOpenGLTextures.h"
-
+#if PLATFORM_MAC
+#include "Mac/OpenGL/SlateOpenGLMac.h"
+#endif
 #define USE_DEPRECATED_OPENGL_FUNCTIONALITY			(!PLATFORM_USES_ES2 && !PLATFORM_LINUX)
 
 GLuint FSlateOpenGLTexture::NullTexture = 0;
@@ -16,7 +18,7 @@ void FSlateOpenGLTexture::Init( GLenum TexFormat, const TArray<uint8>& TextureDa
 
 	// Ensure texturing is enabled before setting texture properties
 #if USE_DEPRECATED_OPENGL_FUNCTIONALITY
-    glEnable(GL_TEXTURE_2D);
+	glEnable(GL_TEXTURE_2D);
 #endif // USE_DEPRECATED_OPENGL_FUNCTIONALITY
 	glBindTexture(GL_TEXTURE_2D, ShaderResource);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -30,41 +32,77 @@ void FSlateOpenGLTexture::Init( GLenum TexFormat, const TArray<uint8>& TextureDa
 
 	// Upload the texture data
 	glTexImage2D( GL_TEXTURE_2D, 0, TexFormat, SizeX, SizeY, 0, Format, GL_UNSIGNED_INT_8_8_8_8_REV, TextureData.GetData() );
+	bHasPendingResize = false;
 	CHECK_GL_ERRORS;
 }
 
 void FSlateOpenGLTexture::Init( GLuint TextureID )
 {
 	ShaderResource = TextureID;
+	bHasPendingResize = false;
 }
 
 void FSlateOpenGLTexture::ResizeTexture(uint32 Width, uint32 Height)
 {
 	SizeX = Width;
 	SizeY = Height;
+	bHasPendingResize = true;
 }
 
 void FSlateOpenGLTexture::UpdateTexture(const TArray<uint8>& Bytes)
 {
+	UpdateTextureRaw(Bytes.GetData(), FIntRect());
+}
+
+void FSlateOpenGLTexture::UpdateTextureThreadSafeRaw(uint32 Width, uint32 Height, const void* Buffer, const FIntRect& Dirty)
+{
+	if (SizeX != Width || SizeY != Height)
+	{
+		ResizeTexture(Width, Height);
+	}
+	UpdateTextureRaw(Buffer, Dirty);
+}
+
+void FSlateOpenGLTexture::UpdateTextureRaw(const void* Buffer, const FIntRect& Dirty)
+{
+#if PLATFORM_MAC
+	LockGLContext([NSOpenGLContext currentContext]);
+#endif
 	// Ensure texturing is enabled before setting texture properties
 #if USE_DEPRECATED_OPENGL_FUNCTIONALITY
-    glEnable(GL_TEXTURE_2D);
+	glEnable(GL_TEXTURE_2D);
 #endif // USE_DEPRECATED_OPENGL_FUNCTIONALITY
 	glBindTexture(GL_TEXTURE_2D, ShaderResource);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 #if USE_DEPRECATED_OPENGL_FUNCTIONALITY
-    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 #endif // USE_DEPRECATED_OPENGL_FUNCTIONALITY
-
+	
 	// Upload the texture data
 #if !PLATFORM_USES_ES2
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, SizeX, SizeY, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, Bytes.GetData());
+
+	if (bHasPendingResize || Dirty.Area() == 0)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, SizeX, SizeY, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, Buffer);
+		bHasPendingResize = false;
+	}
+	else
+	{
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, SizeX);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, Dirty.Min.X, Dirty.Min.Y, Dirty.Width(), Dirty.Height(), GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, (uint8*)Buffer + Dirty.Min.Y * SizeX * 4 + Dirty.Min.X * 4);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	}
 #else
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8_EXT, SizeX, SizeY, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, Bytes.GetData());
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8_EXT, SizeX, SizeY, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, Buffer);
 #endif
 	CHECK_GL_ERRORS;
+#if PLATFORM_MAC
+	UnlockGLContext([NSOpenGLContext currentContext]);
+#endif
 }
+
 
 FSlateFontTextureOpenGL::FSlateFontTextureOpenGL( uint32 Width, uint32 Height )
 	: FSlateFontAtlas( Width, Height ) 
@@ -90,15 +128,15 @@ void FSlateFontTextureOpenGL::CreateFontTexture()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	// Font textures use an alpha texture only
-    GLint Format =
+	GLint Format =
 #if USE_DEPRECATED_OPENGL_FUNCTIONALITY
-        GL_ALPHA
+		GL_ALPHA
 #else
 		GL_RED
 #endif // USE_DEPRECATED_OPENGL_FUNCTIONALITY
-    ;
+	;
 
-    // Upload the data to the texture
+	// Upload the data to the texture
 	glTexImage2D( GL_TEXTURE_2D, 0, Format, AtlasWidth, AtlasHeight, 0, Format, GL_UNSIGNED_BYTE, NULL );
 
 	// Create a new slate texture for use in rendering
@@ -117,13 +155,13 @@ void FSlateFontTextureOpenGL::ConditionalUpdateTexture()
 
 		// Completely the texture data each time characters are added
 		glBindTexture(GL_TEXTURE_2D, FontTexture->GetTypedResource() );
-        GLint Format =
+		GLint Format =
 #if USE_DEPRECATED_OPENGL_FUNCTIONALITY
-            GL_ALPHA
+			GL_ALPHA
 #else
-            GL_RED
+			GL_RED
 #endif // USE_DEPRECATED_OPENGL_FUNCTIONALITY
-        ;
+		;
 
 #if PLATFORM_MAC // Make this texture use a DMA'd client storage backing store on OS X, where these extensions always exist
 				 // This avoids a problem on Intel & Nvidia cards that makes characters disappear as well as making the texture updates

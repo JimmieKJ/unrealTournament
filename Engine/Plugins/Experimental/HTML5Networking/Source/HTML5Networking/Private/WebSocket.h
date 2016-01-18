@@ -31,6 +31,8 @@ public:
 
 	/** service libwebsocket.			   */ 
 	void Tick();
+	/** service libwebsocket until outgoing buffer is empty */ 
+	void Flush();
 
 	/** Helper functions to describe end points. */
 	FString RemoteEndPoint();
@@ -38,6 +40,7 @@ public:
 
 private:
 
+	void HandlePacket();
 	void OnRawRecieve(void* Data, uint32 Size);
 	void OnRawWebSocketWritable(WebSocketInternal* wsi);
 

@@ -15,7 +15,16 @@ bool FStringClassReference::SerializeFromMismatchedTag(struct FPropertyTag const
 		static const FName FORCEINLINE GetTypeName() { return NAME_ClassProperty; }
 	};
 
-	return SerializeFromMismatchedTagTemplate<UClassTypePolicy>(AssetLongPathname, Tag, Ar);
+	FString Path = ToString();
+
+	bool bReturn = SerializeFromMismatchedTagTemplate<UClassTypePolicy>(Path, Tag, Ar);
+
+	if (Ar.IsLoading())
+	{
+		SetPath(MoveTemp(Path));
+	}
+
+	return bReturn;
 }
 
 UClass* FStringClassReference::ResolveClass() const

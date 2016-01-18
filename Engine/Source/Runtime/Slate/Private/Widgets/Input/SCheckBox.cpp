@@ -25,69 +25,17 @@ void SCheckBox::Construct( const SCheckBox::FArguments& InArgs )
 	UndeterminedHoveredImage = InArgs._UndeterminedHoveredImage;
 	UndeterminedPressedImage = InArgs._UndeterminedPressedImage;
 	
-	TAttribute<FMargin> Padding = InArgs._Padding.IsSet() ? InArgs._Padding : InArgs._Style->Padding;
-	TAttribute<FSlateColor> ForegroundColor = InArgs._ForegroundColor.IsSet() ? InArgs._ForegroundColor : InArgs._Style->ForegroundColor;
-	TAttribute<FSlateColor> BorderBackgroundColor = InArgs._BorderBackgroundColor.IsSet() ? InArgs._BorderBackgroundColor : InArgs._Style->BorderBackgroundColor;
-	ESlateCheckBoxType::Type CheckBoxType = InArgs._Type.IsSet() ? InArgs._Type.GetValue() : InArgs._Style->CheckBoxType.GetValue();
+	PaddingOverride = InArgs._Padding;
+	ForegroundColorOverride = InArgs._ForegroundColor;
+	BorderBackgroundColorOverride = InArgs._BorderBackgroundColor;
+	CheckBoxTypeOverride = InArgs._Type;
+
+	HorizontalAlignment = InArgs._HAlign;
 
 	bIsPressed = false;
 	bIsFocusable = InArgs._IsFocusable;
 
-	if( CheckBoxType == ESlateCheckBoxType::CheckBox )
-	{
-		// Check boxes use a separate check button to the side of the user's content (often, a text label or icon.)
-		this->ChildSlot
-		[
-			SNew(SHorizontalBox)
-			// Make sure we aren't trying to compute the desired size when the check box is collapsed
-			.Visibility(InArgs._Visibility)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign( VAlign_Center )
-			.HAlign( HAlign_Center )
-			[
-				SNew(SImage)
-				.Image( this, &SCheckBox::OnGetCheckImage )
-				.ColorAndOpacity( ForegroundColor )
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding( Padding )
-			.VAlign( VAlign_Center )
-			[
-				SAssignNew(ContentContainer, SBorder)
-				.BorderImage(FStyleDefaults::GetNoBrush())
-				.Padding(0.0f)
-				[
-					InArgs._Content.Widget
-				]
-			]
-		];
-	}
-	else if( ensure( CheckBoxType == ESlateCheckBoxType::ToggleButton ) )
-	{
-
-		// Toggle buttons have a visual appearance that is similar to a Slate button
-		this->ChildSlot
-		[
-			SAssignNew( ContentContainer, SBorder )
-			// Make sure we aren't trying to compute the desired size when the check box is collapsed
-			.Visibility(InArgs._Visibility)
-			// Bind the border background to our method that gets a slate brush for the current state of the control
-			.BorderImage( this, &SCheckBox::OnGetCheckImage )
-			// Let the user decide the padding amount
-			.Padding( Padding )
-			// Set the user's incoming content as the content of our border
-			.ForegroundColor( ForegroundColor )
-			// Set the color of the border image
-			.BorderBackgroundColor( BorderBackgroundColor )
-			// Content alignment
-			.HAlign( InArgs._HAlign )
-			[
-				InArgs._Content.Widget
-			]
-		];
-	}
+	BuildCheckBox(InArgs._Content.Widget);
 
 	IsCheckboxChecked = InArgs._IsChecked;
 	OnCheckStateChanged = InArgs._OnCheckStateChanged;
@@ -117,12 +65,13 @@ FReply SCheckBox::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyEv
 	if ( InKeyEvent.GetKey() == EKeys::SpaceBar )
 	{
 		ToggleCheckedState();
-		const TAttribute<ECheckBoxState>& State = IsCheckboxChecked.Get();
-		if(State == ECheckBoxState::Checked)
+
+		const ECheckBoxState State = IsCheckboxChecked.Get();
+		if ( State == ECheckBoxState::Checked )
 		{
 			PlayCheckedSound();
 		}
-		else if(State == ECheckBoxState::Unchecked)
+		else if ( State == ECheckBoxState::Unchecked )
 		{
 			PlayUncheckedSound();
 		}
@@ -150,7 +99,7 @@ FReply SCheckBox::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointer
 		if( ClickMethod == EButtonClickMethod::MouseDown )
 		{
 			ToggleCheckedState();
-			const TAttribute<ECheckBoxState>& State = IsCheckboxChecked.Get();
+			const ECheckBoxState State = IsCheckboxChecked.Get();
 			if(State == ECheckBoxState::Checked)
 			{
 				PlayCheckedSound();
@@ -171,8 +120,11 @@ FReply SCheckBox::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointer
 	}
 	else if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && OnGetMenuContent.IsBound() )
 	{
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+
 		FSlateApplication::Get().PushMenu(
 			AsShared(),
+			WidgetPath,
 			OnGetMenuContent.Execute(),
 			MouseEvent.GetScreenSpacePosition(),
 			FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
@@ -229,7 +181,7 @@ FReply SCheckBox::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEv
 				if( ClickMethod == EButtonClickMethod::MouseUp || HasMouseCapture() )
 				{
 					ToggleCheckedState();
-					const TAttribute<ECheckBoxState>& State = IsCheckboxChecked.Get();
+					const ECheckBoxState State = IsCheckboxChecked.Get();
 					if(State == ECheckBoxState::Checked)
 					{
 						PlayCheckedSound();
@@ -268,6 +220,11 @@ void SCheckBox::OnMouseLeave( const FPointerEvent& MouseEvent )
 	}
 }
 
+
+bool SCheckBox::IsInteractable() const
+{
+	return IsEnabled() && SupportsKeyboardFocus();
+}
 
 /**
  * Gets the check image to display for the current state of the check box
@@ -308,7 +265,7 @@ ECheckBoxState SCheckBox::GetCheckedState() const
  */
 void SCheckBox::ToggleCheckedState()
 {
-	const TAttribute<ECheckBoxState>& State = IsCheckboxChecked.Get();
+	const ECheckBoxState State = IsCheckboxChecked.Get();
 
 	// If the current check box state is checked OR undetermined we set the check box to checked.
 	if( State == ECheckBoxState::Checked || State == ECheckBoxState::Undetermined )
@@ -363,6 +320,8 @@ void SCheckBox::SetContent(const TSharedRef< SWidget >& InContent)
 void SCheckBox::SetStyle(const FCheckBoxStyle* InStyle)
 {
 	Style = InStyle;
+
+	BuildCheckBox(ContentContainer->GetContent());
 }
 
 void SCheckBox::SetUncheckedImage(const FSlateBrush* Brush)
@@ -408,6 +367,91 @@ void SCheckBox::SetUndeterminedHoveredImage(const FSlateBrush* Brush)
 void SCheckBox::SetUndeterminedPressedImage(const FSlateBrush* Brush)
 {
 	UndeterminedPressedImage = Brush;
+}
+
+void SCheckBox::BuildCheckBox(TSharedRef<SWidget> InContent)
+{
+	if (ContentContainer.IsValid())
+	{
+		ContentContainer->SetContent(SNullWidget::NullWidget);
+	}
+
+	ESlateCheckBoxType::Type CheckBoxType = OnGetCheckBoxType();
+
+	if (CheckBoxType == ESlateCheckBoxType::CheckBox)
+	{
+		// Check boxes use a separate check button to the side of the user's content (often, a text label or icon.)
+		this->ChildSlot
+		[
+			SNew(SHorizontalBox)
+			// Make sure we aren't trying to compute the desired size when the check box is collapsed
+			.Visibility(this->Visibility)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SImage)
+				.Image(this, &SCheckBox::OnGetCheckImage)
+				.ColorAndOpacity(this, &SCheckBox::OnGetForegroundColor)
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(TAttribute<FMargin>(this, &SCheckBox::OnGetPadding))
+			.VAlign(VAlign_Center)
+			[
+				SAssignNew(ContentContainer, SBorder)
+				.BorderImage(FStyleDefaults::GetNoBrush())
+				.Padding(0.0f)
+				[
+					InContent
+				]
+			]
+		];
+	}
+	else if (ensure(CheckBoxType == ESlateCheckBoxType::ToggleButton))
+	{
+		// Toggle buttons have a visual appearance that is similar to a Slate button
+		this->ChildSlot
+		[
+			SAssignNew(ContentContainer, SBorder)
+			// Make sure we aren't trying to compute the desired size when the check box is collapsed
+			.Visibility(this->Visibility)
+			// Bind the border background to our method that gets a slate brush for the current state of the control
+			.BorderImage(this, &SCheckBox::OnGetCheckImage)
+			// Let the user decide the padding amount
+			.Padding(this, &SCheckBox::OnGetPadding)
+			// Set the user's incoming content as the content of our border
+			.ForegroundColor(this, &SCheckBox::OnGetForegroundColor)
+			// Set the color of the border image
+			.BorderBackgroundColor(this, &SCheckBox::OnGetBorderBackgroundColor)
+			// Content alignment
+			.HAlign(HorizontalAlignment)
+			[
+				InContent
+			]
+		];
+	}
+}
+
+FSlateColor SCheckBox::OnGetForegroundColor() const
+{
+	return ForegroundColorOverride.IsSet() ? ForegroundColorOverride.Get() : Style->ForegroundColor;
+}
+
+FMargin SCheckBox::OnGetPadding() const
+{
+	return PaddingOverride.IsSet() ? PaddingOverride.Get() : Style->Padding;
+}
+
+FSlateColor SCheckBox::OnGetBorderBackgroundColor() const
+{
+	return BorderBackgroundColorOverride.IsSet() ? BorderBackgroundColorOverride.Get() : Style->BorderBackgroundColor;
+}
+
+ESlateCheckBoxType::Type SCheckBox::OnGetCheckBoxType() const
+{
+	return CheckBoxTypeOverride.IsSet() ? CheckBoxTypeOverride.GetValue() : Style->CheckBoxType.GetValue();
 }
 
 const FSlateBrush* SCheckBox::GetUncheckedImage() const

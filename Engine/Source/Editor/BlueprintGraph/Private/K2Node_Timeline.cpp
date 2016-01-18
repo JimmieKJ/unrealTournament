@@ -84,14 +84,14 @@ void UK2Node_Timeline::AllocateDefaultPins()
 		for(int32 i=0; i<Timeline->VectorTracks.Num(); i++)
 		{
 			FTTVectorTrack& VectorTrack = Timeline->VectorTracks[i];
-			UScriptStruct* VectorStruct = GetBaseStructure(TEXT("Vector"));
+			UScriptStruct* VectorStruct = TBaseStructure<FVector>::Get();
 			CreatePin(EGPD_Output, K2Schema->PC_Struct, TEXT(""), VectorStruct, false, false, VectorTrack.TrackName.ToString());			
 		}
 
 		for(int32 i=0; i<Timeline->LinearColorTracks.Num(); i++)
 		{
 			FTTLinearColorTrack& LinearColorTrack = Timeline->LinearColorTracks[i];
-			UScriptStruct* LinearColorStruct = GetBaseStructure(TEXT("LinearColor"));
+			UScriptStruct* LinearColorStruct = TBaseStructure<FLinearColor>::Get();
 			CreatePin(EGPD_Output, K2Schema->PC_Struct, TEXT(""), LinearColorStruct, false, false, LinearColorTrack.TrackName.ToString());			
 		}
 
@@ -161,7 +161,7 @@ void UK2Node_Timeline::PostPasteNode()
 		check(NULL != Blueprint->GeneratedClass);
 		Blueprint->Modify();
 		const FName TimelineTemplateName = *UTimelineTemplate::TimelineVariableNameToTemplateName(TimelineName);
-		UTimelineTemplate* Template = DuplicateObject<UTimelineTemplate>(OldTimeline, Blueprint->GeneratedClass, *TimelineTemplateName.ToString());
+		UTimelineTemplate* Template = DuplicateObject<UTimelineTemplate>(OldTimeline, Blueprint->GeneratedClass, TimelineTemplateName);
 		bAutoPlay = Template->bAutoPlay;
 		bLoop = Template->bLoop;
 		Template->SetFlags(RF_Transactional);

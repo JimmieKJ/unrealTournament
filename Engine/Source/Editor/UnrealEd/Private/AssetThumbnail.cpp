@@ -1373,9 +1373,10 @@ void FAssetThumbnailPool::DirtyThumbnailForObject(UObject* ObjectBeingModified)
 		// regenerated on demand later. (Before being displayed in the browser, or package saves, etc.)
 		FObjectThumbnail* Thumbnail = ThumbnailTools::GetThumbnailForObject(ObjectBeingModified);
 
-		if (Thumbnail == NULL)
+		if (Thumbnail == NULL && !IsGarbageCollecting())
 		{
 			// If we don't yet have a thumbnail map, load one from disk if possible
+			// Don't attempt to do this while garbage collecting since loading or finding objects during GC is illegal
 			FName ObjectFullName = FName(*ObjectBeingModified->GetFullName());
 			TArray<FName> ObjectFullNames;
 			FThumbnailMap LoadedThumbnails;

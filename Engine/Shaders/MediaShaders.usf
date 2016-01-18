@@ -1,0 +1,48 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+MediaShaders.usf: Shaders to convert various media decoder outputs to RGBA
+=============================================================================*/
+
+#include "Common.usf"
+
+/*=============================================================================
+* Vertex shader
+=============================================================================*/
+
+struct FMediaShaderVertexOutput
+{
+	float4 Position : SV_POSITION;
+	float2 UV : TEXCOORD0;
+};
+
+void MainVertexShader(
+	in float4 InPosition : ATTRIBUTE0,
+	in float2 InUV : ATTRIBUTE1,
+	out FMediaShaderVertexOutput Output
+	)
+{
+	Output.Position = InPosition;
+	Output.UV = InUV;
+}
+
+/*=============================================================================
+* Pixel shader
+=============================================================================*/
+
+//shader to convert from Full-range YCbCr to RGBA
+void YCbCrConvertPS(
+	float2 InUV : TEXCOORD0,
+	out float4 OutColor : SV_Target0)
+{
+	float3 YCbCr;
+	YCbCr.x = YCbCrConvertUB.LumaTexture.Sample(YCbCrConvertUB.LumaSampler, InUV.xy).x - 0.0625; //e.g. 16 / 255
+	YCbCr.yz = YCbCrConvertUB.CbCrTexture.Sample(YCbCrConvertUB.CbCrSampler, InUV.xy).xy - float2(0.5, 0.5);
+			
+	
+	OutColor =	float4(
+					dot(float3(1.1644f, 0.0f, 1.7927f), YCbCr), // R
+					dot(float3(1.1644f, -0.2133f, -0.5329f), YCbCr), // G
+					dot(float3(1.1644f, 2.1124f, 0.0f), YCbCr), // B
+					1.0f);
+}

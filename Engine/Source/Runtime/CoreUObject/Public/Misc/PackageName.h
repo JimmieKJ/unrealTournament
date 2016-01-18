@@ -20,7 +20,7 @@ public:
 	static FString ConvertToLongScriptPackageName(const TCHAR* InShortName);
 
 	/**
-	 * Registeres all short package names found in ini files.
+	 * Registers all short package names found in ini files.
 	 */
 	static void RegisterShortPackageNamesForUObjectModules();
 
@@ -50,13 +50,21 @@ public:
 	 */
 	static FString FilenameToLongPackageName(const FString& InFilename);
 	/** 
+	 * Tries to convert a long package name to a file name with the supplied extension.
+	 *
+	 * @param InLongPackageName Long Package Name
+	 * @param InExtension Package extension.
+	 * @return Package filename.
+	 */
+	static bool TryConvertLongPackageNameToFilename(const FString& InLongPackageName, FString& OutFilename, const FString& InExtension = TEXT(""), const bool ShouldGetLocalizedPackage = false);
+	/** 
 	 * Converts a long package name to a file name with the supplied extension.
 	 *
 	 * @param InLongPackageName Long Package Name
 	 * @param InExtension Package extension.
 	 * @return Package filename.
 	 */
-	static FString LongPackageNameToFilename(const FString& InLongPackageName, const FString& InExtension = TEXT(""));
+	static FString LongPackageNameToFilename(const FString& InLongPackageName, const FString& InExtension = TEXT(""), const bool ShouldGetLocalizedPackage = false);
 	/** 
 	 * Returns the path to the specified package, excluding the short package name
 	 *
@@ -111,7 +119,7 @@ public:
 	 * @param Package Package which name to convert.
 	 * @return Short package name.
 	 */
-	static FString GetShortName(UPackage* Package);
+	static FString GetShortName(const UPackage* Package);
 	/**
 	 * Converts package name to short name.
 	 *
@@ -179,13 +187,13 @@ public:
 	static FName GetPackageMountPoint(const FString& InPackagePath);
 
 	/**
-	 * Checks if the package exisits on disk.
+	 * Checks if the package exists on disk.
 	 * 
 	 * @param LongPackageName Package name.
 	 * @param OutFilename Package filename on disk.
 	 * @return true if the specified package name points to an existing package, false otherwise.
 	 **/
-	static bool DoesPackageExist(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutFilename = NULL);
+	static bool DoesPackageExist(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutFilename = NULL, const bool ShouldGetLocalizedPackage = false);
 
 	/**
 	 * Attempts to find a package given its short name on disk (very slow).
@@ -195,6 +203,25 @@ public:
 	 * @return true if the specified package name points to an existing package, false otherwise.
 	 **/
 	static bool SearchForPackageOnDisk(const FString& PackageName, FString* OutLongPackageName = NULL, FString* OutFilename = NULL, bool bUseLocalizedNames = false);
+
+	/**
+	 * Tries to convert object path with short package name to object path with long package name found on disk (very slow)
+	 *
+	 * @param ObjectPath Path to the object.
+	 * @param OutLongPackageName Converted object path.
+	 *
+	 * @returns True if succeeded. False otherwise.
+	 */
+	static bool TryConvertShortPackagePathToLongInObjectPath(const FString& ObjectPath, FString& ConvertedObjectPath);
+
+	/**
+	 * Gets normalized object path i.e. with long package format.
+	 *
+	 * @param ObjectPath Path to the object.
+	 *
+	 * @returns Normalized path (or empty path, if short object path was given and it wasn't found on the disk).
+	 */
+	static FString GetNormalizedObjectPath(const FString& ObjectPath);
 
 	/**
 	 * Strips all path and extension information from a relative or fully qualified file name.
@@ -253,6 +280,17 @@ public:
 	 * @return	Returns true if any packages have been found, otherwise false
 	 */
 	static bool FindPackagesInDirectory(TArray<FString>& OutPackages, const FString& RootDir);
+
+	/**
+	 * This will recurse over a directory structure looking for packages.
+	 * 
+	 * @param	RootDirectory		The root of the directory structure to recurse through
+	 * @param	Visitor				Visitor to call for each package file found (takes the package filename, and optionally the stat data for the file - returns true to continue iterating)
+	 */
+	typedef TFunctionRef<bool(const TCHAR*)> FPackageNameVisitor;
+	typedef TFunctionRef<bool(const TCHAR*, const FFileStatData&)> FPackageNameStatVisitor;
+	static void IteratePackagesInDirectory(const FString& RootDir, const FPackageNameVisitor& Visitor);
+	static void IteratePackagesInDirectory(const FString& RootDir, const FPackageNameStatVisitor& Visitor);
 
 	/** Event that is triggered when a new content path is mounted */
 	DECLARE_MULTICAST_DELEGATE_TwoParams( FOnContentPathMountedEvent, const FString& /* Asset path */, const FString& /* ContentPath */ );
@@ -316,6 +354,15 @@ public:
 	 * Checks if a package name contains characters that are invalid for package names.
 	 */
 	static bool DoesPackageNameContainInvalidCharacters(const FString& InLongPackageName, FText* OutReason = NULL);
+	
+	/**
+	* Checks if a package can be found using known package extensions.
+	*
+	* @param InPackageFilename Package filename without the extension.
+	* @param OutFilename If the package could be found, filename with the extension.
+	* @return true if the package could be found on disk.
+	*/
+	static bool FindPackageFileWithoutExtension(const FString& InPackageFilename, FString& OutFilename);
 
 private:
 
@@ -328,15 +375,6 @@ private:
 	 * @return Long package name.
 	 */
 	static FString InternalFilenameToLongPackageName(const FString& InFilename);
-
-	/**
-	 * Checks if a package can be found using known package extensions.
-	 *
-	 * @param InPackageFilename Package filename without the extension.
-	 * @param OutFilename If the package could be found, filename with the extension.
-	 * @return true if the package could be found on disk.
-	 */
-	static bool FindPackageFileWithoutExtension(const FString& InPackageFilename, FString& OutFilename);
 
 	/** Event that is triggered when a new content path is mounted */
 	static FOnContentPathMountedEvent OnContentPathMountedEvent;

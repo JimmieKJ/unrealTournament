@@ -25,12 +25,12 @@ class FDDCCleanup : public FRunnable
 	/** Destructor */
 	virtual ~FDDCCleanup();
 
-	// Begin FRunnable interface.
+	//~ Begin FRunnable Interface.
 	virtual bool Init();
 	virtual uint32 Run();
 	virtual void Stop();
 	virtual void Exit();
-	// End FRunnable interface
+	//~ End FRunnable Interface
 
 	/** Checks if there's been any Stop requests */
 	FORCEINLINE bool ShouldStop() const

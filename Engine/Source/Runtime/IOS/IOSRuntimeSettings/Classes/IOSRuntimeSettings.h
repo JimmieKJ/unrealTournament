@@ -8,16 +8,16 @@
 UENUM()
 enum class EPowerUsageFrameRateLock : uint8
 {
-    /** Frame rate is not limited */
+    /** Frame rate is not limited. */
     PUFRL_None = 0 UMETA(DisplayName="None"),
         
-    /** Frame rate is limited to a maximum of 20 frames per second */
+    /** Frame rate is limited to a maximum of 20 frames per second. */
     PUFRL_20 = 20 UMETA(DisplayName="20 FPS"),
     
-    /** Frame rate is limited to a maximum of 30 frames per second */
+    /** Frame rate is limited to a maximum of 30 frames per second. */
     PUFRL_30 = 30 UMETA(DisplayName="30 FPS"),
     
-    /** Frame rate is limited to a maximum of 60 frames per second */
+    /** Frame rate is limited to a maximum of 60 frames per second. */
     PUFRL_60 = 60 UMETA(DisplayName="60 FPS"),
 };
 
@@ -48,6 +48,11 @@ struct FIOSBuildResourceFilePath
 	 */
 	bool ExportTextItem(FString& ValueStr, FIOSBuildResourceFilePath const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const
 	{
+		if (0 != (PortFlags & EPropertyPortFlags::PPF_ExportCpp))
+		{
+			return false;
+		}
+
 		ValueStr += FilePath;
 		return true;
 	}
@@ -96,6 +101,11 @@ struct FIOSBuildResourceDirectory
 	 */
 	bool ExportTextItem(FString& ValueStr, FIOSBuildResourceDirectory const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const
 	{
+		if (0 != (PortFlags & EPropertyPortFlags::PPF_ExportCpp))
+		{
+			return false;
+		}
+
 		ValueStr += Path;
 		return true;
 	}
@@ -144,6 +154,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online, meta = (ConfigHierarchyEditable))
 	uint32 bEnableGameCenterSupport : 1;
 	
+	// Should Cloud Kit support (iOS Online Subsystem) be enabled?
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
+	uint32 bEnableCloudKitSupport : 1;
+
 	// Whether or not to add support for Metal API (requires IOS8 and A7 processors).
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Support Forward Rendering with Metal (A7 and up devices)"))
 	bool bSupportsMetal;
@@ -180,6 +194,14 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support armv7s in Shipping"))
 	bool bShipForArmV7S;
 	
+	// Any additional linker flags to pass to the linker in non-shipping builds
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DispalyName = "Additional Non-Shipping Linker Flags", ConfigHierarchyEditable))
+	FString AdditionalLinkerFlags;
+
+	// Any additional linker flags to pass to the linker in shipping builds
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DispalyName = "Additional Shipping Linker Flags", ConfigHierarchyEditable))
+	FString AdditionalShippingLinkerFlags;
+
 	// The name or ip address of the remote mac which will be used to build IOS
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (ConfigHierarchyEditable))
 	FString RemoteServerName;
@@ -212,11 +234,11 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)
 	uint32 bSupportsUpsideDownOrientation : 1;
 
-	// Supports left landscape orientation. Protrait will not be supported.
+	// Supports left landscape orientation. Portrait will not be supported.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)
 	uint32 bSupportsLandscapeLeftOrientation : 1;
 
-	// Supports right landscape orientation. Protrait will not be supported.
+	// Supports right landscape orientation. Portrait will not be supported.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)
 	uint32 bSupportsLandscapeRightOrientation : 1;
 
@@ -255,6 +277,23 @@ public:
 	// Any additional plist key/value data utilizing \n for a new line
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = ExtraData)
 	FString AdditionalPlistData;
+
+	// Whether the app supports Facebook
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
+	bool bEnableFacebookSupport;
+
+	// Facebook App ID obtained from Facebook's Developer Centre
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online, meta = (EditCondition = "bEnableFacebookSupport"))
+	FString FacebookAppID;
+
+	// Mobile provision to utilize when signing
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build)
+	FString MobileProvision;
+
+	// Signing certificate to utilize when signing
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build)
+	FString SigningCertificate;
+
 
 #if WITH_EDITOR
 	// UObject interface

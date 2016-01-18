@@ -43,6 +43,7 @@ namespace FHttpRetrySystem
     typedef TOptionalSetting<float>                           FRandomFailureRateSetting;
     typedef TOptionalSetting<RetryLimitCountType>             FRetryLimitCountSetting;
     typedef TOptionalSetting<RetryTimeoutRelativeSecondsType> FRetryTimeoutRelativeSecondsSetting;
+	typedef TSet<int32> FRetryResponseCodes;
 };
 
 
@@ -77,9 +78,11 @@ namespace FHttpRetrySystem
         DECLARE_DELEGATE_TwoParams(FOnProcessRequestCompleteDelegate, TSharedRef<class FRequest>&, bool);
 
     public:
-        HTTP_API FRequest(TSharedRef<IHttpRequest>& HttpRequest,
-                          FRetryLimitCountSetting InRetryLimitCountOverride = FRetryLimitCountSetting::Unused(),
-                          FRetryTimeoutRelativeSecondsSetting InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting::Unused());
+        HTTP_API FRequest(
+			const TSharedRef<IHttpRequest>& HttpRequest,
+			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting::Unused(),
+			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting::Unused(),
+			const FRetryResponseCodes& InRetryResponseCodes = FRetryResponseCodes());
 
         EStatus::Type                      GetStatus()                { return Status; }
         FOnProcessRequestCompleteDelegate& OnProcessRequestComplete() { return OnProcessRequestCompleteDelegate; }
@@ -94,6 +97,7 @@ namespace FHttpRetrySystem
 
         FRetryLimitCountSetting              RetryLimitCountOverride;
         FRetryTimeoutRelativeSecondsSetting  RetryTimeoutRelativeSecondsOverride;
+		FRetryResponseCodes					 RetryResponseCodesOverride;
 
         FOnProcessRequestCompleteDelegate    OnProcessRequestCompleteDelegate;
     };
@@ -105,7 +109,7 @@ namespace FHttpRetrySystem
     {
     public:
         // FManager
-        HTTP_API FManager(FRetryLimitCountSetting InRetryLimitCountDefault, FRetryTimeoutRelativeSecondsSetting InRetryTimeoutRelativeSecondsDefault);
+		HTTP_API FManager(const FRetryLimitCountSetting& InRetryLimitCountDefault, const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsDefault, const FRetryResponseCodes& InRetryResponseCodesDefault);
 
         /**
          * Updates the entries in the list of retry requests. Optional parameters are for future connection health assessment
@@ -154,6 +158,7 @@ namespace FHttpRetrySystem
         FRandomFailureRateSetting            RandomFailureRate;
         FRetryLimitCountSetting              RetryLimitCountDefault;
         FRetryTimeoutRelativeSecondsSetting  RetryTimeoutRelativeSecondsDefault;
+		FRetryResponseCodes					 RetryResponseCodesDefault;
 
         TArray<FHttpRetryRequestEntry>        RequestList;
     };

@@ -7,6 +7,7 @@
 #pragma once
 #include "GenericPlatform/GenericPlatformMath.h"
 #include "Mac/MacSystemIncludes.h"
+#include "Math/UnrealPlatformMathSSE.h"
 
 /**
 * Mac implementation of the Math OS functions
@@ -58,32 +59,51 @@ struct FMacPlatformMath : public FGenericPlatformMath
 	static FORCEINLINE bool IsNaN( float A ) { return isnan(A) != 0; }
 	static FORCEINLINE bool IsFinite( float A ) { return isfinite(A); }
 
-	//
-	// MSM: Fast float inverse square root using SSE.
-	// Accurate to within 1 LSB.
-	//
 #if PLATFORM_ENABLE_VECTORINTRINSICS
-	static FORCEINLINE float InvSqrt( float F )
+	static FORCEINLINE float InvSqrt(float F)
 	{
-		static const __m128 fThree = _mm_set_ss( 3.0f );
-		static const __m128 fOneHalf = _mm_set_ss( 0.5f );
-		__m128 Y0, X0, Temp;
-		float temp;
+		return UnrealPlatformMathSSE::InvSqrt(F);
+	}
 
-		Y0 = _mm_set_ss( F );
-		X0 = _mm_rsqrt_ss( Y0 );	// 1/sqrt estimate (12 bits)
-
-		// Newton-Raphson iteration (X1 = 0.5*X0*(3-(Y*X0)*X0))
-		Temp = _mm_mul_ss( _mm_mul_ss(Y0, X0), X0 );	// (Y*X0)*X0
-		Temp = _mm_sub_ss( fThree, Temp );				// (3-(Y*X0)*X0)
-		Temp = _mm_mul_ss( X0, Temp );					// X0*(3-(Y*X0)*X0)
-		Temp = _mm_mul_ss( fOneHalf, Temp );			// 0.5*X0*(3-(Y*X0)*X0)
-		_mm_store_ss( &temp, Temp );
-
-		return temp;
+	static FORCEINLINE float InvSqrtEst( float F )
+	{
+		return UnrealPlatformMathSSE::InvSqrtEst(F);
 	}
 #endif
 
+	/**
+	 * Counts the number of leading zeros in the bit representation of the value
+	 *
+	 * @param Value the value to determine the number of leading zeros for
+	 *
+	 * @return the number of zeros before the first "on" bit
+	 */
+	static FORCEINLINE uint32 CountLeadingZeros(uint32 Value)
+	{
+		if (Value == 0)
+		{
+			return 32;
+		}
+	
+		return __builtin_clz(Value);
+	}
+	
+	/**
+	 * Counts the number of trailing zeros in the bit representation of the value
+	 *
+	 * @param Value the value to determine the number of trailing zeros for
+	 *
+	 * @return the number of zeros after the last "on" bit
+	 */
+	static FORCEINLINE uint32 CountTrailingZeros(uint32 Value)
+	{
+		if (Value == 0)
+		{
+			return 32;
+		}
+	
+		return __builtin_ctz(Value);
+	}
 };
 
 typedef FMacPlatformMath FPlatformMath;

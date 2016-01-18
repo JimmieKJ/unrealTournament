@@ -29,6 +29,11 @@ public:
 	int32 TrackIndex;
 	/** Trigger when a rename is requested on the track */
 	FSimpleDelegate OnRenameRequest;
+	/** Whether or not this track is expanded in the UI. */
+	bool bIsExpanded;
+	/** Whether or not this track has its curve's view synchronized with the other curve views. */
+	bool bIsCurveViewSynchronized;
+
 public:
 	static TSharedRef<FTimelineEdTrack> Make(ETrackType InType, int32 InIndex)
 	{
@@ -40,7 +45,10 @@ private:
 	FTimelineEdTrack(ETrackType InType, int32 InIndex)
 		: TrackType(InType)
 		, TrackIndex(InIndex)
-	{}
+	{
+		bIsExpanded = true;
+		bIsCurveViewSynchronized = true;
+	}
 
 	/** Hidden constructor, always use Make above */
 	FTimelineEdTrack() {}
@@ -78,6 +86,18 @@ private:
 
 	/** String to display external curve path as tooltip*/
 	FString ExternalCurvePath;
+
+	/** The local curve input min to use when the this tracks curve view isn't synchronized. */
+	float LocalInputMin;
+
+	/** The local curve input max to use when the this tracks curve view isn't synchronized. */
+	float LocalInputMax;
+
+	/** The local curve output min to use when the this tracks curve view isn't synchronized. */
+	float LocalOutputMin;
+
+	/** The local curve output max to use when the this tracks curve view isn't synchronized. */
+	float LocalOutputMax;
 
 	/**Function to destroy popup window*/
 	void OnCloseCreateCurveWindow();
@@ -120,6 +140,34 @@ private:
 
 	/** Function to copy data from one curve to another*/
 	static void CopyCurveData( const FRichCurve* SrcCurve, FRichCurve* DestCurve );
+
+	/** Gets whether this track is expanded. */
+	ECheckBoxState GetIsExpandedState() const;
+	/** Callback for when the expanded state for this track changes. */
+	void OnIsExpandedStateChanged(ECheckBoxState IsExpandedState);
+
+	/** Gets whether or not the content of this track should be visible, based on whether or not it's expanded. */
+	EVisibility GetContentVisibility() const;
+
+	/** Gets a check box state representing whether or not this track's curve view is synchronized with other tracks. */
+	ECheckBoxState GetIsCurveViewSynchronizedState() const;
+	/** Callback for when the check box state representing whether or not this track's curve view is synchronized with other tracks changes. */
+	void OnIsCurveViewSynchronizedStateChanged(ECheckBoxState IsCurveViewSynchronized);
+
+	/** Get the minimum input for the curve view. */
+	float GetMinInput() const;
+	/** Get the maximum input for the curve view. */
+	float GetMaxInput() const;
+
+	/** Get the minimum output for the curve view. */
+	float GetMinOutput() const;
+	/** Get the maximum output for the curve view. */
+	float GetMaxOutput() const;
+
+	/** Callback to set the input view range for the curve editor. */
+	void OnSetInputViewRange(float Min, float Max);
+	/** Callback to set the output view range for the curve editor. */
+	void OnSetOutputViewRange(float Min, float Max);
 
 public:
 	/** Inline block for changing name of track */

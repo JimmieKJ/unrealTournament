@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTRecastNavMesh.h"
 #include "UTNavGraphRenderingComponent.h"
@@ -56,8 +56,8 @@ AUTRecastNavMesh::AUTRecastNavMesh(const FObjectInitializer& ObjectInitializer)
 
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
 
-	SizeSteps.Add(FCapsuleSize(42, 92));
-	SizeSteps.Add(FCapsuleSize(42, 60));
+	SizeSteps.Add(FCapsuleSize(46, 106));
+	SizeSteps.Add(FCapsuleSize(46, 69));
 	JumpTestThreshold2D = 2048.0f;
 	ScoutClass = AUTCharacter::StaticClass();
 }
@@ -74,7 +74,7 @@ AUTRecastNavMesh::~AUTRecastNavMesh()
 
 UPrimitiveComponent* AUTRecastNavMesh::ConstructRenderingComponent()
 {
-	return NewObject<UUTNavMeshRenderingComponent>(this, TEXT("NavMeshRenderer"));
+	return NewObject<UUTNavMeshRenderingComponent>(this, TEXT("NavMeshRenderer"), RF_Transient);
 }
 
 const dtQueryFilter* AUTRecastNavMesh::GetDefaultDetourFilter() const
@@ -710,8 +710,9 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 		for (bool bAnyNodeExpanded = true; bAnyNodeExpanded;)
 		{
 			bAnyNodeExpanded = false;
-			for (UUTPathNode* Node : PathNodes)
+			for (int32 NodeIndex = 0; NodeIndex < PathNodes.Num(); NodeIndex++)
 			{
+				UUTPathNode* Node = PathNodes[NodeIndex];
 				if (Node->bDestinationOnly)
 				{
 					continue;
@@ -774,7 +775,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 														// move over POIs that are inside the split polygons
 														for (int32 POIIndex = 0; POIIndex < DestNode->POIs.Num(); POIIndex++)
 														{
-															if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex].Get()))))
+															if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex]))))
 															{
 																NewNode->POIs.Add(DestNode->POIs[POIIndex]);
 																DestNode->POIs.RemoveAt(POIIndex--);
@@ -1075,7 +1076,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 			dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
 			FActorSpawnParameters SpawnParams;
-			SpawnParams.bNoCollisionFail = true;
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			ACharacter* DefaultScout = ScoutClass.GetDefaultObject();
 			float BaseJumpZ = DefaultEffectiveJumpZ;
 			if (BaseJumpZ == 0.0 && DefaultScout->GetCharacterMovement() != NULL)
@@ -2133,12 +2134,23 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			// ask any ReachSpecs along path if there is an Actor target to assign to the route point
 			if (NodeRoute.Num() > 0)
 			{
+				{
+					int32 LinkIndex = NextRouteNode->Node->GetBestLinkTo(NextRouteNode->Poly, NodeRoute[0], Asker, AgentProps, this);
+					if (LinkIndex != INDEX_NONE && NextRouteNode->Node->Paths[LinkIndex].Spec.IsValid())
+					{
+						NodeRoute[0].Actor = NextRouteNode->Node->Paths[LinkIndex].Spec->GetDestActor();
+					}
+				}
 				for (int32 i = 1; i < NodeRoute.Num(); i++)
 				{
 					int32 LinkIndex = NodeRoute[i - 1].Node->GetBestLinkTo(NodeRoute[i - 1].TargetPoly, NodeRoute[i], Asker, AgentProps, this);
 					if (LinkIndex != INDEX_NONE && NodeRoute[i - 1].Node->Paths[LinkIndex].Spec.IsValid())
 					{
-						NodeRoute[i - 1].Actor = NodeRoute[i - 1].Node->Paths[LinkIndex].Spec->GetSourceActor();
+						NodeRoute[i].Actor = NodeRoute[i - 1].Node->Paths[LinkIndex].Spec->GetDestActor();
+						if (NodeRoute[i - 1].Actor == NULL) // DestActor takes priority since we can repath afterwards to get SourceActor if necessary
+						{
+							NodeRoute[i - 1].Actor = NodeRoute[i - 1].Node->Paths[LinkIndex].Spec->GetSourceActor();
+						}
 					}
 				}
 			}
@@ -2427,7 +2439,7 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 				Teleporter->OnOverlapBegin(Asker);
 				return true;
 			}
-			else if (Target.IsDirectTarget())
+			else if (Target.IsDirectTarget() || !Target.Node.IsValid())
 			{
 				// if direct location with no nav data then require pawn box to touch target point
 				FBox TestBox(0);
@@ -2713,7 +2725,7 @@ void AUTRecastNavMesh::LoadMapLearningData()
 void AUTRecastNavMesh::AddToNavigation(AActor* NewPOI)
 {
 	// in editor this will be handled by path building
-	if (GetWorld()->IsGameWorld() && NewPOI != NULL && !NewPOI->bPendingKillPending)
+	if (GetWorld()->IsGameWorld() && NewPOI != NULL && !NewPOI->IsPendingKillPending())
 	{
 		// remove any previous entry
 		// we don't early out because the POI may have moved

@@ -6,43 +6,57 @@
 #include "Net/UnitTestPackageMap.h"
 
 
-// @todo JohnB: Should probably add a CL-define which wraps this code, since not all codebases will expose PackageMapClient?
-//				(probably better to just error, and force a code change for that, in that codebase - otherwise not all unit tests work)
-
-
 /**
  * Default constructor
  */
 UUnitTestPackageMap::UUnitTestPackageMap(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, bWithinSerializeNewActor(false)
+	, bPendingArchetypeSpawn(false)
 {
 }
 
-bool UUnitTestPackageMap::SerializeObject(FArchive& Ar, UClass* Class, UObject*& Obj, FNetworkGUID* OutNetGUID/*=NULL */)
+bool UUnitTestPackageMap::SerializeObject(FArchive& Ar, UClass* InClass, UObject*& Obj, FNetworkGUID* OutNetGUID/*=NULL */)
 {
 	bool bReturnVal = false;
 
-	bReturnVal = Super::SerializeObject(Ar, Class, Obj, OutNetGUID);
+	bReturnVal = Super::SerializeObject(Ar, InClass, Obj, OutNetGUID);
 
-	// This indicates that the new actor channel archetype has just been serialized;
-	// this is the first place we know what actor type the actor channel is initializing, but BEFORE it is spawned
-	if (GIsInitializingActorChan && bWithinSerializeNewActor && Class == UObject::StaticClass() && Obj != NULL)
+	if (bWithinSerializeNewActor)
 	{
-		UUnitTestNetConnection* UnitConn = Cast<UUnitTestNetConnection>(GActiveReceiveUnitConnection);
-		bool bAllowActorChan = true;
-
-		if (UnitConn != NULL && UnitConn->ActorChannelSpawnDel.IsBound())
+		// This indicates that SerializeObject has failed to find an existing instance when trying to serialize an actor,
+		// so it will be spawned clientside later on (after the archetype is serialized) instead.
+		// These spawns count as undesired clientside code execution, so filter them through NotifyAllowNetActor.
+		if (InClass == AActor::StaticClass() && Obj == NULL)
 		{
-			bAllowActorChan = UnitConn->ActorChannelSpawnDel.Execute(Obj->GetClass());
+			bPendingArchetypeSpawn = true;
 		}
-
-		if (!bAllowActorChan)
+		// This indicates that a new actor archetype has just been serialized (which may or may not be during actor channel init);
+		// this is the first place we know the type of a replicated actor (in an actor channel or otherwise), but BEFORE it is spawned
+		else if ((GIsInitializingActorChan || bPendingArchetypeSpawn) && InClass == UObject::StaticClass() && Obj != NULL)
 		{
-			Obj = NULL;
+			UUnitTestNetConnection* UnitConn = Cast<UUnitTestNetConnection>(GActiveReceiveUnitConnection);
+			bool bAllowActor = false;
 
-			// NULL the control channel, to break code that would disconnect the client (control chan is recovered, in ReceivedBunch)
-			Connection->Channels[0] = NULL;
+			if (UnitConn != NULL && UnitConn->ReplicatedActorSpawnDel.IsBound())
+			{
+				bAllowActor = UnitConn->ReplicatedActorSpawnDel.Execute(Obj->GetClass(), GIsInitializingActorChan);
+			}
+
+			if (!bAllowActor)
+			{
+				UE_LOG(LogUnitTest, Log,
+						TEXT("Blocking replication/spawning of actor on client (add to NotifyAllowNetActor if required)."));
+
+				UE_LOG(LogUnitTest, Log, TEXT("     ActorChannel: %s, Class: %s, Archetype: %s"),
+						(GIsInitializingActorChan ? TEXT("true") : TEXT("false")), *Obj->GetClass()->GetFullName(),
+						*Obj->GetFullName());
+
+				Obj = NULL;
+
+				// NULL the control channel, to break code that would disconnect the client (control chan is recovered, in ReceivedBunch)
+				Connection->Channels[0] = NULL;
+			}
 		}
 	}
 
@@ -54,10 +68,20 @@ bool UUnitTestPackageMap::SerializeNewActor(FArchive& Ar, class UActorChannel* C
 	bool bReturnVal = false;
 
 	bWithinSerializeNewActor = true;
+	bPendingArchetypeSpawn = false;
 
 	bReturnVal = Super::SerializeNewActor(Ar, Channel, Actor);
 
+	bPendingArchetypeSpawn = false;
 	bWithinSerializeNewActor = false;
+
+	// If we are initializing an actor channel, then make this returns false, to block PostNetInit from being called on the actor,
+	// which in turn, blocks BeginPlay being called (this can lead to actor component initialization, which can trigger garbage
+	// collection issues down the line)
+	if (GIsInitializingActorChan)
+	{
+		bReturnVal = false;
+	}
 
 	return bReturnVal;
 }

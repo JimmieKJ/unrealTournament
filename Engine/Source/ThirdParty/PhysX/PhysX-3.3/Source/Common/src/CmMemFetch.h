@@ -28,7 +28,7 @@ namespace Cm
 
 #define pxPrintf printf
 
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 	typedef unsigned int MemFetchPtr;
 #else
 	typedef PxU64 MemFetchPtr;

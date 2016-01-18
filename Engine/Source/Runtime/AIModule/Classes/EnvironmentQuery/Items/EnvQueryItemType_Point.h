@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
 #include "EnvQueryItemType_Point.generated.h"
 
@@ -21,6 +23,9 @@ class AIMODULE_API UEnvQueryItemType_Point : public UEnvQueryItemType_VectorBase
 
 	virtual FVector GetItemLocation(const uint8* RawData) const override;
 	virtual FNavLocation GetItemNavLocation(const uint8* RawData) const;
+
+	/** Update location data in existing item */
+	virtual void SetItemNavLocation(uint8* RawData, const FNavLocation& Value) const;
 };
 
 // a specialization to support saving locations with navigation data already gathered

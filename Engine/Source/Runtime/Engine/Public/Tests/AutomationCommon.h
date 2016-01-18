@@ -4,13 +4,15 @@
 
 #include "HardwareInfo.h"
 #include "AutomationTest.h"
+#include "Delegate.h"
 
 ///////////////////////////////////////////////////////////////////////
 // Common Latent commands which are used across test type. I.e. Engine, Network, etc...
 
-DEFINE_LOG_CATEGORY_STATIC(LogEditorAutomationTests, Log, All);
-DEFINE_LOG_CATEGORY_STATIC(LogEngineAutomationTests, Log, All);
-DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Log, All);
+ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEditorAutomationTests, Log, All);
+ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEngineAutomationTests, Log, All);
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnEditorAutomationMapLoad, const FString&);
 
 /** Common automation functions */
 namespace AutomationCommon
@@ -76,7 +78,13 @@ namespace AutomationCommon
 
 		FPaths::MakePathRelativeTo(PathName, *FPaths::RootDir());
 
-		OutScreenshotName = FString::Printf(TEXT("%s/%d.png"), *PathName, GEngineVersion.GetChangelist());
+		OutScreenshotName = FString::Printf(TEXT("%s/%d.png"), *PathName, FEngineVersion::Current().GetChangelist());
+	}
+
+	ENGINE_API extern FOnEditorAutomationMapLoad OnEditorAutomationMapLoad;
+	static FOnEditorAutomationMapLoad& OnEditorAutomationMapLoadDelegate()
+	{
+		return OnEditorAutomationMapLoad;
 	}
 }
 
@@ -88,6 +96,11 @@ struct WindowScreenshotParameters
 	FString ScreenshotName;
 	TSharedPtr<SWindow> CurrentWindow;
 };
+
+/**
+ * If Editor, Opens map and PIES.  If Game, transitions to map and waits for load
+ */
+ENGINE_API bool AutomationOpenMap(const FString& MapName);
 
 /**
  * Wait for the given amount of time
@@ -114,4 +127,47 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FLoadGameMapCommand, FString, Map
  */
 DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND( FRequestExitCommand );
 
+/**
+* Latent command to wait for map to complete loading
+*/
+DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND(FWaitForMapToLoadCommand);
 
+/**
+* Force a matinee to not loop and request that it play
+*/
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FPlayMatineeLatentCommand, AMatineeActor*, MatineeActor);
+
+
+/**
+* Wait for a particular matinee actor to finish playing
+*/
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FWaitForMatineeToCompleteLatentCommand, AMatineeActor*, MatineeActor);
+
+
+/**
+* Execute command string
+*/
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FExecStringLatentCommand, FString, ExecCommand);
+
+
+/**
+* Wait for the given amount of time
+*/
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FEngineWaitLatentCommand, float, Duration);
+
+
+/**
+* Enqueue performance capture commands after a map has been loaded
+*/
+DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND(FEnqueuePerformanceCaptureCommands);
+
+
+/**
+* Run FPS chart command using for the actual duration of the matinee.
+*/
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FMatineePerformanceCaptureCommand, FString, MatineeName);
+
+/**
+* Latent command to run an exec command that also requires a UWorld.
+*/
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FExecWorldStringLatentCommand, FString, ExecCommand);

@@ -8,12 +8,12 @@ if not exist ./Win32 (
 	goto:eof)
 cd ./Win32
 
-	REM VS2012 Make
-	if not exist ./VS2012 (
-		echo Error: VS2012 directory does not exist. Did you forget to run configuration?
+	REM VS2015 Make
+	if not exist ./VS2015 (
+		echo Error: VS2015 directory does not exist. Did you forget to run configuration?
 		goto:eof)
-	cd ./VS2012/data
-		call "%VS110COMNTOOLS%..\..\VC\vcvarsall.bat" x86
+	cd ./VS2015/data
+		call "%VS140COMNTOOLS%..\..\VC\vcvarsall.bat" x86
 		bash -c "make"
 	cd ../../
 	
@@ -35,12 +35,12 @@ if not exist ./Win64 (
 	goto:eof)
 cd ./Win64
 
-	REM VS2012 Make
-	if not exist ./VS2012 (
-		echo Error: VS2012 directory does not exist. Did you forget to run configuration?
+	REM VS2015 Make
+	if not exist ./VS2015 (
+		echo Error: VS2015 directory does not exist. Did you forget to run configuration?
 		goto:eof)
-	cd ./VS2012/data
-		call "%VS110COMNTOOLS%..\..\VC\vcvarsall.bat" amd64
+	cd ./VS2015/data
+		call "%VS140COMNTOOLS%..\..\VC\vcvarsall.bat" amd64
 		bash -c "make"
 	cd ../../
 

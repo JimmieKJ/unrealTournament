@@ -7,7 +7,7 @@ class SAssetTreeItem : public SCompoundWidget
 {
 public:
 	DECLARE_DELEGATE_ThreeParams( FOnNameChanged, const TSharedPtr<FTreeItem>& /*TreeItem*/, const FString& /*OldPath*/, const FVector2D& /*MessageLocation*/);
-	DECLARE_DELEGATE_RetVal_ThreeParams( bool, FOnVerifyNameChanged, const FText& /*InName*/, FText& /*OutErrorMessage*/, const FString& /*FolderPath*/);
+	DECLARE_DELEGATE_RetVal_ThreeParams( bool, FOnVerifyNameChanged, const FString& /*InName*/, FText& /*OutErrorMessage*/, const FString& /*FolderPath*/);
 	DECLARE_DELEGATE_TwoParams( FOnAssetsDragDropped, const TArray<FAssetData>& /*AssetList*/, const TSharedPtr<FTreeItem>& /*TreeItem*/);
 	DECLARE_DELEGATE_TwoParams( FOnPathsDragDropped, const TArray<FString>& /*PathNames*/, const TSharedPtr<FTreeItem>& /*TreeItem*/);
 	DECLARE_DELEGATE_TwoParams( FOnFilesDragDropped, const TArray<FString>& /*FileNames*/, const TSharedPtr<FTreeItem>& /*TreeItem*/);
@@ -58,7 +58,7 @@ public:
 
 private:
 	/** Used by OnDragEnter, OnDragOver, and OnDrop to check and update the validity of the drag operation */
-	bool ValidateDragDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) const;
+	bool ValidateDragDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, bool& OutIsKnownDragOperation ) const;
 
 	/** Handles verifying name changes */
 	bool VerifyNameChanged(const FText& InName, FText& OutError) const;
@@ -135,7 +135,7 @@ private:
 	const FSlateBrush* FolderClosedCodeBrush;
 	const FSlateBrush* FolderDeveloperBrush;
 
-	/** True when a drag is over this item with a valid operation for drop */
+	/** True when a drag is over this item with a drag operation that we know how to handle. The operation itself may not be valid to drop. */
 	bool bDraggedOver;
 
 	/** What type of stuff does this folder hold */
@@ -148,23 +148,26 @@ private:
 	FDelegateHandle EnterEditingModeDelegateHandle;
 };
 
-/** A single item in the collection list. */
-class SCollectionListItem : public SCompoundWidget
+/** A single item in the collection tree. */
+class SCollectionTreeItem : public SCompoundWidget
 {
 public:
-	/** Delegate for when a collection is renamed. If returning false, OutWarningMessage will be displayed over the collection. */
+	/** Delegates for when a collection is renamed. If returning false, OutWarningMessage will be displayed over the collection. */
 	DECLARE_DELEGATE_OneParam( FOnBeginNameChange, const TSharedPtr<FCollectionItem>& /*Item*/);
 	DECLARE_DELEGATE_RetVal_FourParams( bool, FOnNameChangeCommit, const TSharedPtr<FCollectionItem>& /*Item*/, const FString& /*NewName*/, bool /*bChangeConfirmed*/, FText& /*OutWarningMessage*/);
 	DECLARE_DELEGATE_RetVal_FourParams( bool, FOnVerifyRenameCommit, const TSharedPtr<FCollectionItem>& /*Item*/, const FString& /*NewName*/, const FSlateRect& /*MessageAnchor*/, FText& /*OutErrorMessage*/)
-	DECLARE_DELEGATE_ThreeParams( FOnAssetsDragDropped, const TArray<FAssetData>& /*AssetList*/, const TSharedPtr<FCollectionItem>& /*CollectionItem*/, FText& /*OutMessage*/);
+	
+	/** Delegates for when a collection item has something dropped into it */
+	DECLARE_DELEGATE_RetVal_FourParams( bool, FOnValidateDragDrop, TSharedRef<FCollectionItem> /*CollectionItem*/, const FGeometry& /*Geometry*/, const FDragDropEvent& /*DragDropEvent*/, bool& /*OutIsKnownDragOperation*/ );
+	DECLARE_DELEGATE_RetVal_ThreeParams( FReply, FOnHandleDragDrop, TSharedRef<FCollectionItem> /*CollectionItem*/, const FGeometry& /*Geometry*/, const FDragDropEvent& /*DragDropEvent*/ );
 
-	SLATE_BEGIN_ARGS( SCollectionListItem )
+	SLATE_BEGIN_ARGS( SCollectionTreeItem )
 		: _CollectionItem( TSharedPtr<FCollectionItem>() )
 		, _ParentWidget()
 	{}
 
-	/** Data for the collection this item represents */
-	SLATE_ARGUMENT( TSharedPtr<FCollectionItem>, CollectionItem )
+		/** Data for the collection this item represents */
+		SLATE_ARGUMENT( TSharedPtr<FCollectionItem>, CollectionItem )
 
 		/** The parent widget */
 		SLATE_ARGUMENT( TSharedPtr<SWidget>, ParentWidget )
@@ -178,8 +181,11 @@ public:
 		/** Delegate for when a collection name has been entered for an item to verify the name before commit */
 		SLATE_EVENT( FOnVerifyRenameCommit, OnVerifyRenameCommit )
 
-		/** Delegate for when assets are dropped on this folder */
-		SLATE_EVENT( FOnAssetsDragDropped, OnAssetsDragDropped )
+		/** Delegate to validate a drag drop operation on this collection item */
+		SLATE_EVENT( FOnValidateDragDrop, OnValidateDragDrop )
+
+		/** Delegate to handle a drag drop operation on this collection item */
+		SLATE_EVENT( FOnHandleDragDrop, OnHandleDragDrop )
 
 		/** Callback to check if the widget is selected, should only be hooked up if parent widget is handling selection or focus. */
 		SLATE_EVENT( FIsSelected, IsSelected )
@@ -187,12 +193,24 @@ public:
 		/** True if the item is read-only. It will not be able to be renamed if read-only */
 		SLATE_ATTRIBUTE( bool, IsReadOnly )
 
+		/** Text to highlight for this item */
+		SLATE_ATTRIBUTE( FText, HighlightText )
+
+		/** True if the check box of the collection item is enabled */
+		SLATE_ATTRIBUTE( bool, IsCheckBoxEnabled )
+
+		/** Whether the check box of the collection item is currently in a checked state (if unset, no check box will be shown) */
+		SLATE_ATTRIBUTE( ECheckBoxState, IsCollectionChecked )
+
+		/** Delegate for when the checked state of the collection item check box is changed */
+		SLATE_EVENT( FOnCheckStateChanged, OnCollectionCheckStateChanged )
+
 	SLATE_END_ARGS()
 
 	/** Constructs this widget with InArgs */
 	void Construct( const FArguments& InArgs );
 
-	~SCollectionListItem();
+	~SCollectionTreeItem();
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual void OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
@@ -201,6 +219,9 @@ public:
 	virtual FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
 
 private:
+	/** Used by OnDragEnter, OnDragOver, and OnDrop to check and update the validity of the drag operation */
+	bool ValidateDragDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, bool& OutIsKnownDragOperation ) const;
+
 	/** Handles beginning a name change */
 	void HandleBeginNameChange( const FText& OldText );
 
@@ -219,6 +240,18 @@ private:
 	/** Returns the image for the border around this item. Used for drag/drop operations */
 	const FSlateBrush* GetBorderImage() const;
 
+	/** Get the FontAwesome icon corresponding to the current collection storage mode */
+	FText GetCollectionStorageModeIconText() const;
+
+	/** Get the tooltip corresponding to the current collection storage mode */
+	FText GetCollectionStorageModeToolTipText() const;
+
+	/** Get the color to use for the collection item status */
+	FSlateColor GetCollectionStatusColor() const;
+
+	/** Get the tooltip corresponding to the current collection item status */
+	FText GetCollectionStatusToolTipText() const;
+
 private:
 	/** A shared pointer to the parent widget. */
 	TSharedPtr<SWidget> ParentWidget;
@@ -229,11 +262,14 @@ private:
 	/** The name of the asset as an editable text box */
 	TSharedPtr<SEditableTextBox> EditableName;
 
-	/** True when a drag is over this item with a valid operation for drop */
+	/** True when a drag is over this item with a drag operation that we know how to handle. The operation itself may not be valid to drop. */
 	bool bDraggedOver;
 
-	/** Delegate for when a list of assets */
-	FOnAssetsDragDropped OnAssetsDragDropped;
+	/** Delegate to validate a drag drop operation on this collection item */
+	FOnValidateDragDrop OnValidateDragDrop;
+
+	/** Delegate to handle a drag drop operation on this collection item */
+	FOnHandleDragDrop OnHandleDragDrop;
 
 	/** The geometry as of the last frame. Used to open warning messages over the item */
 	FGeometry CachedGeometry;

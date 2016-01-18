@@ -371,11 +371,11 @@ void SSCSEditorViewport::BindCommands()
 		FCanExecuteAction::CreateSP(SCSEditorWidget, &SSCSEditor::CanDeleteNodes)
 	);
 
-	const FBlueprintEditorCommands& Commands = FBlueprintEditorCommands::Get();
-
-	CommandList->Append(BlueprintEditor->GetToolkitCommands());
 	CommandList->Append(BlueprintEditor->GetSCSEditor()->CommandList.ToSharedRef());
+	CommandList->Append(BlueprintEditor->GetToolkitCommands());
 	SEditorViewport::BindCommands();
+
+	const FBlueprintEditorCommands& Commands = FBlueprintEditorCommands::Get();
 
 	BlueprintEditorPtr.Pin()->GetToolkitCommands()->MapAction(
 		Commands.EnableSimulation,

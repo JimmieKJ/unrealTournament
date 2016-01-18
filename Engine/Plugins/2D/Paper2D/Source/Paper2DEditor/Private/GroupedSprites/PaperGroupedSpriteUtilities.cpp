@@ -4,6 +4,8 @@
 #include "AssetData.h"
 #include "PaperGroupedSpriteActor.h"
 #include "PaperGroupedSpriteUtilities.h"
+#include "PaperSpriteActor.h"
+#include "PaperSpriteComponent.h"
 #include "ScopedTransaction.h"
 #include "ILayers.h"
 #include "ComponentReregisterContext.h"
@@ -108,7 +110,7 @@ void FPaperGroupedSpriteUtilities::SplitSprites(const TArray<UObject*>& InObject
 								FComponentReregisterContext ReregisterContext(SpawnedSpriteComponent);
 
 								SpawnedSpriteComponent->Modify();
-								SpawnedSpriteComponent->SetSpriteColor(InstanceData.VertexColor);
+								SpawnedSpriteComponent->SetSpriteColor(InstanceData.VertexColor.ReinterpretAsLinear());
 								SpawnedSpriteComponent->SetSprite(InstanceData.SourceSprite);
 
 								// Apply the material override if there is one

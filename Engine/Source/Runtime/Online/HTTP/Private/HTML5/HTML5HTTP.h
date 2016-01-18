@@ -35,7 +35,7 @@ public:
 	// implementation friends
 	friend class FHTML5HttpResponse;
 
-	// Begin IHttpBase interface
+	//~ Begin IHttpBase Interface
 	virtual FString GetURL() override;
 	virtual FString GetURLParameter(const FString& ParameterName) override;
 	virtual FString GetHeader(const FString& HeaderName) override;
@@ -43,9 +43,9 @@ public:
 	virtual FString GetContentType() override;
 	virtual int32 GetContentLength() override;
 	virtual const TArray<uint8>& GetContent() override;
-	// End IHttpBase interface
+	//~ End IHttpBase Interface
 
-	// Begin IHttpRequest interface
+	//~ Begin IHttpRequest Interface
 	virtual FString GetVerb() override;
 	virtual void SetVerb(const FString& InVerb) override;
 	virtual void SetURL(const FString& InURL) override;
@@ -60,7 +60,7 @@ public:
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual float GetElapsedTime() override;
-	// End IHttpRequest interface
+	//~ End IHttpRequest Interface
 
 	/**
 	* Marks request as completed.
@@ -153,7 +153,7 @@ public:
 	friend class FHTML5HttpRequest;
 
 
-	// Begin IHttpBase interface
+	//~ Begin IHttpBase Interface
 	virtual FString GetURL() override;
 	virtual FString GetURLParameter(const FString& ParameterName) override;
 	virtual FString GetHeader(const FString& HeaderName) override;
@@ -161,12 +161,12 @@ public:
 	virtual FString GetContentType() override;
 	virtual int32 GetContentLength() override;
 	virtual const TArray<uint8>& GetContent() override;
-	// End IHttpBase interface
+	//~ End IHttpBase Interface
 
-	// Begin IHttpResponse interface
+	//~ Begin IHttpResponse Interface
 	virtual int32 GetResponseCode() override;
 	virtual FString GetContentAsString() override;
-	// End IHttpResponse interface
+	//~ End IHttpResponse Interface
 
 	/**
 	* Check whether a response is ready or not.

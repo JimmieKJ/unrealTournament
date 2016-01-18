@@ -14,15 +14,15 @@ class UMaterialExpressionTextureSampleParameterSubUV : public UMaterialExpressio
 	uint32 bBlend:1;
 
 
-	// Begin UMaterialExpressionTextureSampleParameter Interface
+	//~ Begin UMaterialExpressionTextureSampleParameter Interface
 	virtual bool TextureIsValid( UTexture* InTexture ) override;
 	virtual const TCHAR* GetRequirements() override;
-	// End UMaterialExpressionTextureSampleParameter Interface
+	//~ End UMaterialExpressionTextureSampleParameter Interface
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 
 

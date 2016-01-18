@@ -6,10 +6,11 @@
 
 #pragma once
 #include "xmp.h"
+#include "Sound/SoundWaveProcedural.h"
 #include "SoundModWave.generated.h"
 
 UCLASS()
-class USoundModWave : public USoundWaveStreaming
+class USoundModWave : public USoundWaveProcedural
 {
 	GENERATED_UCLASS_BODY()
 
@@ -18,8 +19,8 @@ class USoundModWave : public USoundWaveStreaming
 
 	xmp_context xmpContext;
 
-	// Begin USoundWave interface.
+	//~ Begin USoundWave Interface.
 	virtual int32 GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded) override;
-	// End USoundWave interface.
+	//~ End USoundWave Interface.
 
 };

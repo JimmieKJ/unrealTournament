@@ -105,7 +105,7 @@
 	//-V:UE_BUILD_SHIPPING:501
 	//-V:WITH_EDITOR:501
 	//-V:PLATFORM_:517,547
-	//-V:ensureMsg:562
+	//-V:ensureMsgf:562
 	//-V:WindowsMinorVersion:547 
 	//-V:AddUninitialized(sizeof(void*)/:514
 	//-V:TestTrue:678

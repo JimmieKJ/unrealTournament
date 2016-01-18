@@ -41,7 +41,7 @@ class FNetcodeUnitTest : public INetcodeUnitTest
 private:
 	static FWorldDelegates::FWorldInitializationEvent::FDelegate OnWorldCreatedDelegate;
 
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 	static FDelegateHandle OnWorldCreatedDelegateHandle;
 #endif
 
@@ -58,7 +58,7 @@ public:
 			OnWorldCreatedDelegate = FWorldDelegates::FWorldInitializationEvent::FDelegate::CreateStatic(
 										&FNetcodeUnitTest::OnWorldCreated);
 
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 			OnWorldCreatedDelegateHandle = FWorldDelegates::OnPreWorldInitialization.Add(OnWorldCreatedDelegate);
 #else
 			FWorldDelegates::OnPreWorldInitialization.Add(OnWorldCreatedDelegate);
@@ -104,7 +104,7 @@ public:
 		}
 
 		// Now remove it, so it's only called once
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 		FWorldDelegates::OnPreWorldInitialization.Remove(OnWorldCreatedDelegateHandle);
 #else
 		FWorldDelegates::OnPreWorldInitialization.Remove(OnWorldCreatedDelegate);
@@ -114,7 +114,7 @@ public:
 
 FWorldDelegates::FWorldInitializationEvent::FDelegate FNetcodeUnitTest::OnWorldCreatedDelegate = NULL;
 
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 FDelegateHandle FNetcodeUnitTest::OnWorldCreatedDelegateHandle;
 #endif
 

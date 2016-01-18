@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,6 +48,18 @@ class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 	/** alternate (usually shorter) refire delay on the disk recall */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
 	float RecallFireInterval;
+
+	/** alternate shorter refire delay for transloc when haven't recently translocated */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+		float FirstFireInterval;
+
+	/** alternate shorter refire delay for transloc when haven't recently translocated */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+		float LastTranslocTime;
+
+	/** Minium time since last translocated to get FirstFireInterval. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+		float MinFastTranslocInterval;
 
 	virtual FRotator GetAdjustedAim_Implementation(FVector StartFireLoc) override;
 

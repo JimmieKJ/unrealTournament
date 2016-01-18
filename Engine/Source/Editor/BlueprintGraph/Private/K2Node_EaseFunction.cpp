@@ -444,7 +444,7 @@ void UK2Node_EaseFunction::RefreshPinVisibility()
 	const auto EaseFuncPin = GetEaseFuncPin();
 	UEnum * Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEasingFunc"), true);
 	check(Enum != NULL);
-	const int32 NewEasingFunc = CanCustomizeCurve() ? Enum->FindEnumIndex(*EaseFuncPin->DefaultValue) : -1;
+	const int32 NewEasingFunc = CanCustomizeCurve() ? Enum->GetValueByName(*EaseFuncPin->DefaultValue) : -1;
 	
 	// Early exit in case no changes are required
 	const UEdGraphSchema_K2* K2Schema = Cast<const UEdGraphSchema_K2>(GetSchema());

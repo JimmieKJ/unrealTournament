@@ -7,11 +7,11 @@
 UENUM()
 enum ECollisionTraceFlag
 {
-	// default, we keep simple/complex separate for each test
+	/** Keep simple/complex separate for each test. This is the default. */
 	CTF_UseDefault UMETA(DisplayName="Default"),
-	// use simple collision for complex collision test
+	/** Use simple collision for all collision tests. */
 	CTF_UseSimpleAsComplex UMETA(DisplayName="Use Simple Collision As Complex"),
-	// use complex collision (per poly) for simple collision test
+	/** Use complex collision (per poly) for all collision tests. */
 	CTF_UseComplexAsSimple UMETA(DisplayName="Use Complex Collision As Simple"),
 	CTF_MAX,
 };
@@ -19,11 +19,11 @@ enum ECollisionTraceFlag
 UENUM()
 enum EPhysicsType
 {
-	// follow owner option
+	/** Follow owner. */
 	PhysType_Default UMETA(DisplayName="Default"),	
-	// Do not follow owner, but make kinematic
+	/** Do not follow owner, but make kinematic. */
 	PhysType_Kinematic	UMETA(DisplayName="Kinematic"),		
-	// Do not follow owner, but simulate
+	/** Do not follow owner, but simulate. */
 	PhysType_Simulated	UMETA(DisplayName="Simulated")	
 };
 

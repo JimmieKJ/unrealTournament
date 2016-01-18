@@ -62,6 +62,12 @@ struct FLiveStreamingStatus
  */
 struct FBroadcastConfig
 {
+	/** Login user name, used only for direct authentication with a broadcasting end-point */
+	FString LoginUserName;
+
+	/** Login password, used only for direct authentication with a broadcasting end-point */
+	FString LoginPassword;
+
 	/** Width of the streaming buffer.  If this changes, you'll need to stop and restart broadcasting.  Note that some streaming services
 	    require the Width to be a multiple of 32 (for SSE compression).  Call MakeValidVideoBufferResolution() first to make sure it's valid. */
 	int VideoBufferWidth;
@@ -101,7 +107,9 @@ struct FBroadcastConfig
 
 	/** Default constructor */
 	FBroadcastConfig()
-		: VideoBufferWidth( 1280 ),
+		: LoginUserName(),
+		  LoginPassword(),
+		  VideoBufferWidth( 1280 ),
 		  VideoBufferHeight( 720 ),
 		  FramesPerSecond( 30 ),
 		  PixelFormat( EBroadcastPixelFormat::B8G8R8A8 ),

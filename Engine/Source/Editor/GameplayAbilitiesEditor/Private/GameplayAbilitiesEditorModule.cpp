@@ -15,10 +15,15 @@
 #include "AssetTypeActions_GameplayEffect.h"
 #include "GameplayAbilitiesGraphPanelPinFactory.h"
 #include "GameplayAbilitiesGraphPanelNodeFactory.h"
+#include "GameplayCueTagDetails.h"
 
 #include "Runtime/GameplayTags/Public/GameplayTagsModule.h"
 #include "Editor/BlueprintGraph/Public/BlueprintActionDatabase.h"
 #include "K2Node_GameplayCueEvent.h"
+
+#include "SGameplayCueEditor.h"
+#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
+#include "SDockTab.h"
 
 class FGameplayAbilitiesEditorModule : public IGameplayAbilitiesEditorModule
 {
@@ -26,6 +31,30 @@ class FGameplayAbilitiesEditorModule : public IGameplayAbilitiesEditorModule
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 	// End IModuleInterface
+
+	TSharedRef<SDockTab> SpawnGameplayCueEditorTab(const FSpawnTabArgs& Args);
+	TSharedPtr<SWidget> SummonGameplayCueEditorUI();
+
+	FGetGameplayCueNotifyClasses& GetGameplayCueNotifyClassesDelegate() override
+	{
+		return GetGameplayCueNotifyClasses;
+	}
+
+	FGetGameplayCuePath& GetGameplayCueNotifyPathDelegate()
+	{
+		return GetGameplayCueNotifyPath;
+	}
+
+	FGetGameplayCueInterfaceClasses& GetGameplayCueInterfaceClassesDelegate()
+	{
+		return GetGameplayCueInterfaceClasses;
+
+	}
+
+	FGetGameplayCueEditorStrings& GetGameplayCueEditorStringsDelegate()
+	{
+		return GetGameplayCueEditorStrings;
+	}
 
 protected:
 	void RegisterAssetTypeAction(class IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action);
@@ -43,6 +72,14 @@ private:
 
 	/** Handle to the registered GameplayTagTreeChanged delegate */
 	FDelegateHandle GameplayTagTreeChangedDelegateHandle;
+
+	FGetGameplayCueNotifyClasses GetGameplayCueNotifyClasses;
+
+	FGetGameplayCuePath GetGameplayCueNotifyPath;
+
+	FGetGameplayCueInterfaceClasses GetGameplayCueInterfaceClasses;
+	
+	FGetGameplayCueEditorStrings GetGameplayCueEditorStrings;
 };
 
 IMPLEMENT_MODULE(FGameplayAbilitiesEditorModule, GameplayAbilitiesEditor)
@@ -56,6 +93,7 @@ void FGameplayAbilitiesEditorModule::StartupModule()
 	PropertyModule.RegisterCustomPropertyTypeLayout( "GameplayEffectExecutionScopedModifierInfo", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FGameplayEffectExecutionScopedModifierInfoDetails::MakeInstance ) );
 	PropertyModule.RegisterCustomPropertyTypeLayout( "GameplayEffectExecutionDefinition", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FGameplayEffectExecutionDefinitionDetails::MakeInstance ) );
 	PropertyModule.RegisterCustomPropertyTypeLayout( "GameplayEffectModifierMagnitude", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FGameplayEffectModifierMagnitudeDetails::MakeInstance ) );
+	PropertyModule.RegisterCustomPropertyTypeLayout( "GameplayCueTag", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FGameplayCueTagDetails::MakeInstance ) );
 
 	PropertyModule.RegisterCustomClassLayout( "AttributeSet", FOnGetDetailCustomizationInstance::CreateStatic( &FAttributeDetails::MakeInstance ) );
 	PropertyModule.RegisterCustomClassLayout( "GameplayEffect", FOnGetDetailCustomizationInstance::CreateStatic( &FGameplayEffectDetails::MakeInstance ) );
@@ -75,8 +113,16 @@ void FGameplayAbilitiesEditorModule::StartupModule()
 	FEdGraphUtilities::RegisterVisualNodeFactory(GameplayAbilitiesGraphPanelNodeFactory);
 
 	// Listen for changes to the gameplay tag tree so we can refresh blueprint actions for the GameplayCueEvent node
-	UGameplayTagsManager& GameplayTagsManager = IGameplayTagsModule::Get().GetGameplayTagsManager();
+	UGameplayTagsManager& GameplayTagsManager = IGameplayTagsModule::GetGameplayTagsManager();
 	GameplayTagTreeChangedDelegateHandle = GameplayTagsManager.OnGameplayTagTreeChanged().AddStatic(&FGameplayAbilitiesEditorModule::GameplayTagTreeChanged);
+
+	// GameplayCue editor
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner( FName(TEXT("GameplayCueApp")), FOnSpawnTab::CreateRaw(this, &FGameplayAbilitiesEditorModule::SpawnGameplayCueEditorTab))
+		.SetDisplayName(NSLOCTEXT("GameplayAbilitiesEditorModule", "GameplayCueTabTitle", "GameplayCue Editor"))
+		.SetTooltipText(NSLOCTEXT("GameplayAbilitiesEditorModule", "GameplayCueTooltipText", "Open GameplayCue Editor tab."))
+		.SetGroup(WorkspaceMenu::GetMenuStructure().GetToolsCategory())
+		//.SetGroup(WorkspaceMenu::GetMenuStructure().GetDeveloperToolsDebugCategory());
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Profiler.EventGraph.ExpandHotPath16"));
 }
 
 void FGameplayAbilitiesEditorModule::RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action)
@@ -88,6 +134,10 @@ void FGameplayAbilitiesEditorModule::RegisterAssetTypeAction(IAssetTools& AssetT
 void FGameplayAbilitiesEditorModule::GameplayTagTreeChanged()
 {
 	// The tag tree changed so we should refresh which actions are provided by the gameplay cue event
+#if STATS
+	FString PerfMessage = FString::Printf(TEXT("FGameplayAbilitiesEditorModule::GameplayTagTreeChanged"));
+	SCOPE_LOG_TIME_IN_SECONDS(*PerfMessage, nullptr)
+#endif
 	FBlueprintActionDatabase::Get().RefreshClassActions(UK2Node_GameplayCueEvent::StaticClass());
 }
 
@@ -140,7 +190,28 @@ void FGameplayAbilitiesEditorModule::ShutdownModule()
 
 	if ( UObjectInitialized() && IGameplayTagsModule::IsAvailable() )
 	{
-		UGameplayTagsManager& GameplayTagsManager = IGameplayTagsModule::Get().GetGameplayTagsManager();
+		UGameplayTagsManager& GameplayTagsManager = IGameplayTagsModule::GetGameplayTagsManager();
 		GameplayTagsManager.OnGameplayTagTreeChanged().Remove(GameplayTagTreeChangedDelegateHandle);
 	}
+}
+
+
+TSharedRef<SDockTab> FGameplayAbilitiesEditorModule::SpawnGameplayCueEditorTab(const FSpawnTabArgs& Args)
+{
+	return SNew(SDockTab)
+		.TabRole(ETabRole::NomadTab)
+		[
+			SummonGameplayCueEditorUI().ToSharedRef()
+		];
+}
+
+
+TSharedPtr<SWidget> FGameplayAbilitiesEditorModule::SummonGameplayCueEditorUI()
+{
+	TSharedPtr<SWidget> ReturnWidget;
+	if( IsInGameThread() )
+	{
+		ReturnWidget = SNew(SGameplayCueEditor);			
+	}
+	return ReturnWidget;
 }

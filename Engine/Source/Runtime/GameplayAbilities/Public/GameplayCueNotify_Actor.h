@@ -4,6 +4,7 @@
 
 #include "GameplayTags.h"
 #include "GameplayEffect.h"
+#include "GameplayCue_Types.h"
 #include "GameplayCueNotify_Actor.generated.h"
 
 
@@ -38,6 +39,13 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 
 	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
+	virtual void GameplayCueFinishedCallback();
+
+	virtual bool GameplayCuePendingRemove();
+
+	/** Reset all state so that it can be reused. Return false if this class connot be recycled */
+	virtual bool Recycle();
+
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
@@ -58,7 +66,7 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 	UFUNCTION(BlueprintNativeEvent, Category = "GameplayCueNotify")
 	bool OnRemove(AActor* MyTarget, FGameplayCueParameters Parameters);
 
-	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	UPROPERTY(EditDefaultsOnly, Category=GameplayCue, meta=(Categories="GameplayCue"))
 	FGameplayTag	GameplayCueTag;
 
 	/** Mirrors GameplayCueTag in order to be asset registry searchable */
@@ -77,6 +85,32 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
 	bool IsOverride;
 
+	/**
+	 *	Does this cue get a new instance for each instigator? For example if two instigators apply a GC to the same source, do we create two of these GameplayCue Notify actors or just one?
+	 *	If the notify is simply playing FX or sounds on the source, it should not need unique instances. If this Notify is attaching a beam from the instigator to the target, it does need a unique instance per instigator.
+	 */ 	 
+	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	bool bUniqueInstancePerInstigator;
+
+	/**
+	 *	Does this cue get a new instance for each source object? For example if two source objects apply a GC to the same source, do we create two of these GameplayCue Notify actors or just one?
+	 *	If the notify is simply playing FX or sounds on the source, it should not need unique instances. If this Notify is attaching a beam from the source object to the target, it does need a unique instance per instigator.
+	 */ 	 
+	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	bool bUniqueInstancePerSourceObject;
+
+	/** How many instances of the gameplay cue to preallocate */
+	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	int32 NumPreallocatedInstances;
+
+	FGCNotifyActorKey NotifyKey;
+	
+	int32 StackCount;
+
+protected:
+	FTimerHandle FinishTimerHandle;
+
 private:
 	virtual void DeriveGameplayCueTagFromAssetName();
+
 };

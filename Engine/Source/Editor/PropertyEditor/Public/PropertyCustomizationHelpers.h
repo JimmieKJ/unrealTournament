@@ -211,11 +211,12 @@ class FDetailArrayBuilder : public IDetailCustomNodeBuilder
 {
 public:
 
-	FDetailArrayBuilder( TSharedRef<IPropertyHandle> InBaseProperty, bool InGenerateHeader = true, bool InDisplayResetToDefault = true)
+	FDetailArrayBuilder(TSharedRef<IPropertyHandle> InBaseProperty, bool InGenerateHeader = true, bool InDisplayResetToDefault = true, bool InDisplayElementNum = true)
 		: ArrayProperty( InBaseProperty->AsArray() )
 		, BaseProperty( InBaseProperty )
 		, bGenerateHeader( InGenerateHeader)
 		, bDisplayResetToDefault(InDisplayResetToDefault)
+		, bDisplayElementNum(InDisplayElementNum)
 	{
 		check( ArrayProperty.IsValid() );
 
@@ -258,7 +259,17 @@ public:
 		if (bGenerateHeader)
 		{
 			const bool bDisplayResetToDefaultInNameContent = false;
+
 			TSharedPtr<SHorizontalBox> ContentHorizontalBox;
+			SAssignNew(ContentHorizontalBox, SHorizontalBox);
+			if (bDisplayElementNum)
+			{
+				ContentHorizontalBox->AddSlot()
+				[
+					BaseProperty->CreatePropertyValueWidget()
+				];
+			}
+
 			NodeRow
 			.FilterString(!DisplayName.IsEmpty() ? DisplayName : BaseProperty->GetPropertyDisplayName())
 			.NameContent()
@@ -267,11 +278,7 @@ public:
 			]
 			.ValueContent()
 			[
-				SAssignNew(ContentHorizontalBox, SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				[
-					BaseProperty->CreatePropertyValueWidget()
-				]
+				ContentHorizontalBox.ToSharedRef()
 			];
 
 			if (bDisplayResetToDefault)
@@ -321,6 +328,7 @@ private:
 	FSimpleDelegate OnRebuildChildren;
 	bool bGenerateHeader;
 	bool bDisplayResetToDefault;
+	bool bDisplayElementNum;
 };
 
 /**
@@ -413,7 +421,7 @@ struct FMaterialListItem
 class FMaterialList : public IDetailCustomNodeBuilder, public TSharedFromThis<FMaterialList>
 {
 public:
-	PROPERTYEDITOR_API FMaterialList( IDetailLayoutBuilder& InDetailLayoutBuilder, FMaterialListDelegates& MaterialListDelegates );
+	PROPERTYEDITOR_API FMaterialList( IDetailLayoutBuilder& InDetailLayoutBuilder, FMaterialListDelegates& MaterialListDelegates, bool bInAllowCollapse = false);
 
 	/**
 	 * @return true if materials are being displayed                                                              
@@ -437,7 +445,7 @@ private:
 	virtual void GenerateHeaderRowContent( FDetailWidgetRow& NodeRow ) override;
 	virtual void GenerateChildContent( IDetailChildrenBuilder& ChildrenBuilder ) override;
 	virtual FName GetName() const override { return NAME_None; }
-	virtual bool InitiallyCollapsed() const override { return false; }
+	virtual bool InitiallyCollapsed() const override { return bAllowCollpase; }
 
 	/**
 	 * Adds a new material item to the list
@@ -464,4 +472,6 @@ private:
 	TSet<uint32> ExpandedSlots;
 	/** Material list builder used to generate materials */
 	TSharedRef<class FMaterialListBuilder> MaterialListBuilder;
+	/** Allow Collapse of material header row. Right now if you allow collapse, it will initially collapse. */
+	bool bAllowCollpase;
 };

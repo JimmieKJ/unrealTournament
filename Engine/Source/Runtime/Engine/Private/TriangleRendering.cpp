@@ -56,9 +56,9 @@ public:
 		uint32 Size = 3 * sizeof(FMaterialTriangleVertex);
 		// create vertex buffer
 		FRHIResourceCreateInfo CreateInfo;
-		VertexBufferRHI = RHICreateVertexBuffer(Size,BUF_Static,CreateInfo);
-		// lock it
-		void* Buffer = RHILockVertexBuffer(VertexBufferRHI,0,Size,RLM_WriteOnly);
+		void* Buffer = nullptr;
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(Size,BUF_Static,CreateInfo, Buffer);
+
 		// first vertex element
 		FMaterialTriangleVertex* DestVertex = (FMaterialTriangleVertex*)Buffer;
 		// fill out the verts
@@ -171,6 +171,37 @@ void FTriangleRenderer::DrawTriangle(FRHICommandListImmediate& RHICmdList, const
 	GetRendererModule().DrawTileMesh(RHICmdList, View, TriMesh, bIsHitTesting, HitProxyId);
 }
 
+void FTriangleRenderer::DrawTriangleUsingVertexColor(FRHICommandListImmediate& RHICmdList, const class FSceneView& View, const FMaterialRenderProxy* MaterialRenderProxy, bool bNeedsToSwitchVerticalAxis, const FCanvasUVTri& Tri, bool bIsHitTesting, const FHitProxyId HitProxyId)
+{
+	FMaterialTriangleVertex DestVertex[3];
+
+	// create verts
+	if (bNeedsToSwitchVerticalAxis)
+	{
+		DestVertex[0].Initialize(Tri.V1_Pos.X, View.ViewRect.Height() - Tri.V1_Pos.Y, Tri.V1_UV.X, Tri.V1_UV.Y);
+		DestVertex[1].Initialize(Tri.V0_Pos.X, View.ViewRect.Height() - Tri.V0_Pos.Y, Tri.V0_UV.X, Tri.V0_UV.Y);
+		DestVertex[2].Initialize(Tri.V2_Pos.X, View.ViewRect.Height() - Tri.V2_Pos.Y, Tri.V2_UV.X, Tri.V2_UV.Y);
+	}
+	else
+	{
+		DestVertex[0].Initialize(Tri.V1_Pos.X, Tri.V1_Pos.Y, Tri.V1_UV.X, Tri.V1_UV.Y);
+		DestVertex[1].Initialize(Tri.V0_Pos.X, Tri.V0_Pos.Y, Tri.V0_UV.X, Tri.V0_UV.Y);
+		DestVertex[2].Initialize(Tri.V2_Pos.X, Tri.V2_Pos.Y, Tri.V2_UV.X, Tri.V2_UV.Y);
+	}
+
+	DestVertex[0].Color = Tri.V0_Color.ToFColor(true).DWColor();
+	DestVertex[1].Color = Tri.V1_Color.ToFColor(true).DWColor();
+	DestVertex[2].Color = Tri.V2_Color.ToFColor(true).DWColor();
+
+	// update the FMeshBatch
+	FMeshBatch& TriMesh = GTriangleMesh.TriMeshElement;
+	TriMesh.UseDynamicData = true;
+	TriMesh.DynamicVertexData = DestVertex;
+	TriMesh.MaterialRenderProxy = MaterialRenderProxy;
+
+	GetRendererModule().DrawTileMesh(RHICmdList, View, TriMesh, bIsHitTesting, HitProxyId);
+}
+
 bool FCanvasTriangleRendererItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, const FCanvas* Canvas)
 {
 	float CurrentRealTime = 0.f;
@@ -215,7 +246,7 @@ bool FCanvasTriangleRendererItem::Render_RenderThread(FRHICommandListImmediate& 
 	for (int32 TriIdx = 0; TriIdx < Data->Triangles.Num(); TriIdx++)
 	{
 		const FRenderData::FTriangleInst& Tri = Data->Triangles[TriIdx];
-		FTriangleRenderer::DrawTriangle(
+		FTriangleRenderer::DrawTriangleUsingVertexColor(
 			RHICmdList,
 			*View,
 			Data->MaterialRenderProxy,
@@ -288,8 +319,8 @@ bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas)
 	{
 		View,
 		Data,
-		bNeedsToSwitchVerticalAxis,
-		Canvas->IsHitTesting(),
+		(uint32)bNeedsToSwitchVerticalAxis,
+		(uint32)Canvas->IsHitTesting(),
 		Canvas->GetAllowedModes()
 	};
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
@@ -300,7 +331,7 @@ bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas)
 		for (int32 TriIdx = 0; TriIdx < Parameters.RenderData->Triangles.Num(); TriIdx++)
 		{
 			const FRenderData::FTriangleInst& Tri = Parameters.RenderData->Triangles[TriIdx];
-			FTriangleRenderer::DrawTriangle(
+			FTriangleRenderer::DrawTriangleUsingVertexColor(
 				RHICmdList,
 				*Parameters.View,
 				Parameters.RenderData->MaterialRenderProxy,

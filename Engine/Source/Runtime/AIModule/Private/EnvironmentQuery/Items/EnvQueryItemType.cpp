@@ -16,7 +16,10 @@ UEnvQueryItemType::UEnvQueryItemType(const FObjectInitializer& ObjectInitializer
 void UEnvQueryItemType::FinishDestroy()
 {
 	// unregister from known types 
-	UEnvQueryManager::RegisteredItemTypes.RemoveSingleSwap(GetClass());
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		UEnvQueryManager::RegisteredItemTypes.RemoveSingleSwap(GetClass());
+	}
 
 	Super::FinishDestroy();
 }

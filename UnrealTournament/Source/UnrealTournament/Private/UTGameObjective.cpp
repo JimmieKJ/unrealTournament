@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCharacter.h"
 #include "UTGameObjective.h"
@@ -97,7 +97,7 @@ void AUTGameObjective::InitializeObjective()
 			for (const FPotentialDefensePoint& Pt : Choices)
 			{
 				FActorSpawnParameters Params;
-				Params.bNoCollisionFail = true;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				AUTDefensePoint* NewPoint = GetWorld()->SpawnActor<AUTDefensePoint>(Pt.Loc, (MyLoc - Pt.Loc).Rotation(), Params);
 				if (NewPoint != NULL)
 				{

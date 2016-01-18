@@ -175,7 +175,7 @@ void FDataTableEditorUtils::BroadcastPostChange(UDataTable* DataTable, EDataTabl
 {
 	if (DataTable && (EDataTableChangeInfo::RowList == Info))
 	{
-		for (TObjectIterator<UK2Node_GetDataTableRow> It(RF_Transient | RF_PendingKill | RF_ClassDefaultObject); It; ++It)
+		for (TObjectIterator<UK2Node_GetDataTableRow> It(RF_Transient | RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill); It; ++It)
 		{
 			It->OnDataTableRowListChanged(DataTable);
 		}
@@ -233,7 +233,7 @@ void FDataTableEditorUtils::CacheDataTableForEditing(const UDataTable* DataTable
 				const UProperty* Prop = StructProps[ColumnIndex];
 				FDataTableEditorColumnHeaderDataPtr CachedColumnData = OutAvailableColumns[ColumnIndex];
 
-				const FText CellText = FText::FromString(DataTableUtils::GetPropertyValueAsString(Prop, RowData));
+				const FText CellText = DataTableUtils::GetPropertyValueAsText(Prop, RowData);
 				CachedRowData->CellData.Add(CellText);
 
 				const float CellWidth = FontMeasure->Measure(CellText, CellTextStyle.Font).X + CellPadding;

@@ -2,12 +2,17 @@
 
 #pragma once
 
+#include "IWebBrowserDialog.h"
 
 struct FGeometry;
 struct FKeyEvent;
 struct FCharacterEvent;
 struct FPointerEvent;
+class FReply;
+class FCursorReply;
 class FSlateShaderResource;
+class IWebBrowserPopupFeatures;
+class SWidget;
 
 
 enum class EWebBrowserDocumentState
@@ -17,12 +22,6 @@ enum class EWebBrowserDocumentState
 	Loading,
 	NoDocument
 };
-
-DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
-DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceivedDelegate, int64, FString, bool, FJSQueryResultDelegate);
-DECLARE_DELEGATE_OneParam(FOnJSQueryCanceledDelegate, int64);
-DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowseDelegate, FString, bool);
-DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
 
 /**
  * Interface for dealing with a Web Browser window
@@ -47,6 +46,13 @@ public:
 	virtual void LoadString(FString Contents, FString DummyURL) = 0;
 
 	/**
+	 * Create the SWidget for this WebBrowser
+	 *
+	 * @param ViewportSize Size of viewport for CEF implementation on PC
+	 */
+	virtual TSharedRef<SWidget> CreateWidget(TAttribute<FVector2D> ViewportSize) = 0;
+
+	/**
 	 * Set the desired size of the web browser viewport
 	 * 
 	 * @param WindowSize Desired viewport size
@@ -56,9 +62,10 @@ public:
 	/**
 	 * Gets interface to the texture representation of the browser
 	 *
+	 * @param bISpopup Whether to return the popup menu texture instead of the main browser window.
 	 * @return A slate shader resource that can be rendered
 	 */
-	virtual FSlateShaderResource* GetTexture() = 0;
+	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) = 0;
 
 	/**
 	 * Checks whether the web browser is valid and ready for use
@@ -66,9 +73,9 @@ public:
 	virtual bool IsValid() const = 0;
 
 	/**
-	 * Checks whether the web browser has been painted at least once
+	 * Checks whether the web browser has finished loaded the initial page.
 	 */
-	virtual bool HasBeenPainted() const = 0;
+	virtual bool IsInitialized() const = 0;
 
 	/**
 	 * Checks whether the web browser is currently being shut down
@@ -95,66 +102,90 @@ public:
 	 *
 	 * @param  InKeyEvent  Key event
 	 */
-	virtual void OnKeyDown(const FKeyEvent& InKeyEvent) = 0;
+	virtual bool OnKeyDown(const FKeyEvent& InKeyEvent) = 0;
 
 	/**
 	 * Notify the browser that a key has been released
 	 *
 	 * @param  InKeyEvent  Key event
 	 */
-	virtual void OnKeyUp(const FKeyEvent& InKeyEvent) = 0;
+	virtual bool OnKeyUp(const FKeyEvent& InKeyEvent) = 0;
 
 	/**
 	 * Notify the browser of a character event
 	 *
 	 * @param InCharacterEvent Character event
 	 */
-	virtual void OnKeyChar(const FCharacterEvent& InCharacterEvent) = 0;
+	virtual bool OnKeyChar(const FCharacterEvent& InCharacterEvent) = 0;
 
 	/**
 	 * Notify the browser that a mouse button was pressed within it
 	 *
 	 * @param MyGeometry The Geometry of the browser
 	 * @param MouseEvent Information about the input event
+	 * @param bIsPopup True if the coordinates are relative to a popup menu window, otherwise false.
+	 *
+	 * @return FReply::Handled() if the mouse event was handled, FReply::Unhandled() oterwise
 	 */
-	virtual void OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) = 0;
+	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) = 0;
 
 	/**
 	 * Notify the browser that a mouse button was released within it
 	 *
 	 * @param MyGeometry The Geometry of the browser
 	 * @param MouseEvent Information about the input event
+	 * @param bIsPopup True if the coordinates are relative to a popup menu window, otherwise false.
+	 *
+	 * @return FReply::Handled() if the mouse event was handled, FReply::Unhandled() oterwise
 	 */
-	virtual void OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) = 0;
+	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) = 0;
 
 	/**
 	 * Notify the browser of a double click event
 	 *
 	 * @param MyGeometry The Geometry of the browser
 	 * @param MouseEvent Information about the input event
+	 * @param bIsPopup True if the coordinates are relative to a popup menu window, otherwise false.
+	 *
+	 * @return FReply::Handled() if the mouse event was handled, FReply::Unhandled() oterwise
 	 */
-	virtual void OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) = 0;
+	virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) = 0;
 
 	/**
 	 * Notify the browser that a mouse moved within it
 	 *
 	 * @param MyGeometry The Geometry of the browser
 	 * @param MouseEvent Information about the input event
+	 * @param bIsPopup True if the coordinates are relative to a popup menu window, otherwise false.
+	 *
+	 * @return FReply::Handled() if the mouse event was handled, FReply::Unhandled() oterwise
 	 */
-	virtual void OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) = 0;
+	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) = 0;
 
 	/**
 	 * Called when the mouse wheel is spun
 	 *
 	 * @param MyGeometry The Geometry of the browser
 	 * @param MouseEvent Information about the input event
+	 * @param bIsPopup True if the coordinates are relative to a popup menu window, otherwise false.
+	 *
+	 * @return FReply::Handled() if the mouse event was handled, FReply::Unhandled() oterwise
 	 */
-	virtual void OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) = 0;
+	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) = 0;
+
+	/**
+	 * The system asks each widget under the mouse to provide a cursor. This event is bubbled.
+	 * 
+	 * @return FCursorReply::Unhandled() if the event is not handled; return FCursorReply::Cursor() otherwise.
+	 */
+	virtual FCursorReply OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) = 0;
 
 	/**
 	 * Called when browser receives/loses focus
+	 * @param SetFocus Whether the window gained or lost focus.
+	 * @param bIsPopup True if the coordinates are relative to a popup menu window, otherwise false.
 	 */
-	virtual void OnFocus(bool SetFocus) = 0;
+	virtual void OnFocus(bool SetFocus, bool bIsPopup) = 0;
 
 	/** Called when Capture lost */
 	virtual void OnCaptureLost() = 0;
@@ -186,7 +217,35 @@ public:
 	/** Stop loading the page. */
 	virtual void StopLoad() = 0;
 
-	virtual void ExecuteJavascript(const FString&) = 0;
+	/** Execute Javascript on the page. */
+	virtual void ExecuteJavascript(const FString& Script) = 0;
+
+	/**
+	 * Close this window so that it can no longer be used.
+	 *
+	 * @param bForce Designates whether the web browser close should be forced.
+	 */
+	virtual void CloseBrowser(bool bForce) = 0;
+
+	/** 
+	 * Expose a UObject instance to the browser runtime.
+	 * Properties and Functions will be accessible from JavaScript side.
+	 * As all communication with the rendering procesis asynchronous, return values (both for properties and function results) are wrapped into JS Future objects.
+	 *
+	 * @param Name The name of the object. The object will show up as window.ue4.{Name} on the javascript side. If there is an existing object of the same name, this object will replace it. If bIsPermanent is false and there is an existing permanent binding, the permanent binding will be restored when the temporary one is removed.
+	 * @param Object The object instance.
+	 * @param bIsPermanent If true, the object will be visible to all pages loaded through this browser widget, otherwise, it will be deleted when navigating away from the current page. Non-permanent bindings should be registered from inside an OnLoadStarted event handler in order to be available before JS code starts loading.
+	 */
+	virtual void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) = 0;
+
+	/**
+	 * Remove an existing script binding registered by BindUObject.
+	 *
+	 * @param Name The name of the object to remove.
+	 * @param Object The object will only be removed if it is the same object as the one passed in.
+	 * @param bIsPermanent Must match the bIsPermanent argument passed to BindUObject.
+	 */
+	virtual void UnbindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) = 0;
 
 public:
 
@@ -205,21 +264,42 @@ public:
 	/** A delegate that is invoked when the off-screen window has been repainted and requires an update. */
 	DECLARE_EVENT(IWebBrowserWindow, FOnNeedsRedraw)
 	virtual FOnNeedsRedraw& OnNeedsRedraw() = 0;
-
-	/** A delegate that is invoked when JS code sends a query to the front end. The result delegate can either be executed immediately or saved and executed later (multiple times if the boolean persistent argument is true).
-	 * The arguments are an integer error code (0 for success) and a reply string. If you need pass more complex data to the JS code, you will have to pack the data in some way (such as JSON encoding it). */
-	DECLARE_DELEGATE_RetVal_FourParams(bool, FONJSQueryReceived, int64, FString, bool, FJSQueryResultDelegate)
-	virtual FONJSQueryReceived& OnJSQueryReceived() = 0;
-
-	/** A delegate that is invoked when an outstanding query is canceled. Implement this if you are saving delegates passed to OnQueryReceived. */
-	DECLARE_DELEGATE_OneParam(FONJSQueryCanceled, int64)
-	virtual FONJSQueryCanceled& OnJSQueryCanceled() = 0;
-
-	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, FString, bool)
+	
+	/** A delegate that is invoked prior to browser navigation. */
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString& /*Url*/, bool /*bIsRedirect*/)
 	virtual FOnBeforeBrowse& OnBeforeBrowse() = 0;
 
-	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopup, FString, FString)
-	virtual FOnBeforePopup& OnBeforePopup() = 0;
+	/** A delegate that is invoked to allow user code to override the contents of a Url. */
+	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /*OutBody*/)
+	virtual FOnLoadUrl& OnLoadUrl() = 0;
+
+	/** A delegate that is invoked when a popup window is attempting to open. */
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
+	virtual FOnBeforePopupDelegate& OnBeforePopup() = 0;
+
+	/** A delegate that is invoked when an existing browser requests creation of a new browser window. */
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnCreateWindow, const TWeakPtr<IWebBrowserWindow>& /*NewBrowserWindow*/, const TWeakPtr<IWebBrowserPopupFeatures>& /* PopupFeatures*/)
+	virtual FOnCreateWindow& OnCreateWindow() = 0;
+
+	/** A delegate that is invoked when closing created popup windows. */
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnCloseWindow, const TWeakPtr<IWebBrowserWindow>& /*BrowserWindow*/)
+	virtual FOnCloseWindow& OnCloseWindow() = 0;
+
+	/** A delegate that is invoked when the browser needs to show a popup menu. */
+	DECLARE_EVENT_OneParam(IWebBrowserWindow, FOnShowPopup, const FIntRect& /*PopupSize*/)
+	virtual FOnShowPopup& OnShowPopup() = 0;
+
+	/** A delegate that is invoked when the browser no longer wants to show the popup menu. */
+	DECLARE_EVENT(IWebBrowserWindow, FOnDismissPopup)
+	virtual FOnDismissPopup& OnDismissPopup() = 0;
+
+	/** A delegate that is invoked when the browser needs to show a dialog. */
+	DECLARE_DELEGATE_RetVal_OneParam(EWebBrowserDialogEventResponse, FOnShowDialog, const TWeakPtr<IWebBrowserDialog>& /*DialogParams*/)
+	virtual FOnShowDialog& OnShowDialog() = 0;
+
+	/** A delegate that is invoked when the browser needs to dismiss and reset all dialogs. */
+	DECLARE_DELEGATE(FOnDismissAllDialogs)
+	virtual FOnDismissAllDialogs& OnDismissAllDialogs() = 0;
 
 protected:
 

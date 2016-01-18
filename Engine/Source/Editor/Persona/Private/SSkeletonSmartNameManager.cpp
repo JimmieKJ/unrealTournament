@@ -244,10 +244,12 @@ void SSkeletonSmartNameManager::GenerateDisplayedList(const FText& FilterText)
 		for(FSmartNameMapping::UID Uid : UidList)
 		{
 			bool bAddToList = true;
+
+			FName CurrentName;
+			Mapping->GetName(Uid, CurrentName);
+
 			if(!FilterText.IsEmpty())
 			{
-				FName CurrentName;
-				Mapping->GetName(Uid, CurrentName);
 
 				if(!CurrentName.ToString().Contains(*FilterText.ToString()))
 				{
@@ -257,10 +259,19 @@ void SSkeletonSmartNameManager::GenerateDisplayedList(const FText& FilterText)
 			
 			if(bAddToList)
 			{
-				DisplayedInfoList.Add(FDisplayedSmartNameInfo::Make(CurrentSkeleton, ContainerName, Uid));
+				DisplayedInfoList.Add(FDisplayedSmartNameInfo::Make(CurrentSkeleton, ContainerName, Uid, CurrentName));
 			}
 		}
 
+		struct FSortSmartNamesAlphabetically
+		{
+			bool operator()(const TSharedPtr<FDisplayedSmartNameInfo>& A, const TSharedPtr<FDisplayedSmartNameInfo>& B) const
+			{
+				return (A.Get()->SmartName.Compare(B.Get()->SmartName) < 0);
+			}
+		};
+
+		DisplayedInfoList.Sort(FSortSmartNamesAlphabetically());
 		ListWidget->RequestListRefresh();
 	}
 }
@@ -311,6 +322,7 @@ void SSkeletonSmartNameManager::OnAddClicked()
 	FSlateApplication& SlateApp = FSlateApplication::Get();
 	SlateApp.PushMenu(
 		AsShared(),
+		FWidgetPath(),
 		TextEntry,
 		SlateApp.GetCursorPos(),
 		FPopupTransitionEffect::TypeInPopup
@@ -453,16 +465,18 @@ void SCurveNameManager::OnDeleteNameClicked()
 					Sequence->RawCurveData.DeleteCurveData(Uid);
 				}
 			}
-
-			// Remove names from skeleton
-			CurrentSkeleton->Modify(true);
-			FSmartNameMapping* Mapping = CurrentSkeleton->SmartNames.GetContainer(ContainerName);
-			for(FSmartNameMapping::UID Uid : SelectedUids)
-			{
-				Mapping->Remove(Uid);
-			}
-
 			GWarn->EndSlowTask();
+		}
+	}
+
+	if(SelectedUids.Num() > 0)
+	{
+		// Remove names from skeleton
+		CurrentSkeleton->Modify(true);
+		FSmartNameMapping* Mapping = CurrentSkeleton->SmartNames.GetContainer(ContainerName);
+		for(FSmartNameMapping::UID Uid : SelectedUids)
+		{
+			Mapping->Remove(Uid);
 		}
 	}
 

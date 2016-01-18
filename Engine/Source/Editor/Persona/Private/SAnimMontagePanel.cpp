@@ -11,6 +11,7 @@
 #include "SExpandableArea.h"
 #include "STextEntryPopup.h"
 #include "STextComboBox.h"
+#include "SAnimTimingPanel.h"
 
 #define LOCTEXT_NAMESPACE "AnimMontagePanel"
 
@@ -30,6 +31,7 @@ void SAnimMontagePanel::Construct(const FArguments& InArgs)
 	Persona = InArgs._Persona;
 	Montage = InArgs._Montage;
 	MontageEditor = InArgs._MontageEditor;
+	SectionTimingNodeVisibility = InArgs._SectionTimingNodeVisibility;
 
 	//TrackStyle = TRACK_Double;
 
@@ -53,13 +55,29 @@ void SAnimMontagePanel::Construct(const FArguments& InArgs)
 		]
 	];
 
+	TSharedPtr<FPersona> SharedPersona = Persona.Pin();
+	if(SharedPersona.IsValid())
+	{
+		SharedPersona->RegisterOnChangeAnimNotifies(FPersona::FOnAnimNotifiesChanged::CreateSP(this, &SAnimMontagePanel::Update));
+		SharedPersona->RegisterOnSectionsChanged(FPersona::FOnAnimNotifiesChanged::CreateSP(this, &SAnimMontagePanel::Update));
+	}
+
 	Update();
+}
+
+SAnimMontagePanel::~SAnimMontagePanel()
+{
+	TSharedPtr<FPersona> SharedPersona = Persona.Pin();
+	if(SharedPersona.IsValid())
+	{
+		SharedPersona->UnregisterOnChangeAnimNotifies(this);
+		SharedPersona->UnregisterOnSectionsChanged(this);
+	}
 }
 
 /** This is the main function that creates the UI widgets for the montage tool.*/
 void SAnimMontagePanel::Update()
 {
-	ClearSelected();
 	if ( Montage != NULL )
 	{
 		SMontageEditor * Editor = MontageEditor.Pin().Get();
@@ -127,7 +145,7 @@ void SAnimMontagePanel::Update()
 				.VAlign(VAlign_Center)
 				.Padding( FMargin(0.5f, 0.5f) )
 				[
-					SNew(STrack)
+					SAssignNew(SectionNameTrack, STrack)
 					.ViewInputMin(ViewInputMin)
 					.ViewInputMax(ViewInputMax)
 					.TrackColor( ColourTracker->GetNextColor() )
@@ -142,6 +160,8 @@ void SAnimMontagePanel::Update()
 					.OnTrackRightClickContextMenu( this, &SAnimMontagePanel::SummonTrackContextMenu, static_cast<int>(INDEX_NONE))
 					.ScrubPosition( Editor, &SMontageEditor::GetScrubValue )
 				];
+
+			RefreshTimingNodes();
 		}
 
 		// ===================================
@@ -362,6 +382,7 @@ void SAnimMontagePanel::OnNewSectionClicked(float DataPosX)
 	// Show dialog to enter new event name
 	FSlateApplication::Get().PushMenu(
 		AsShared(), // Menu being summoned from a menu that is closing: Parent widget should be k2 not the menu thats open or it will be closed when the menu is dismissed
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )
@@ -664,6 +685,39 @@ float SAnimMontagePanel::GetSequenceLength() const
 		return Montage->SequenceLength;
 	}
 	return 0.0f;
+}
+
+void SAnimMontagePanel::RefreshTimingNodes()
+{
+	if(SectionNameTrack.IsValid())
+	{
+		// Clear current nodes
+		SectionNameTrack->ClearTrack();
+		// Add section timing widgets
+		TArray<TSharedPtr<FTimingRelevantElementBase>> TimingElements;
+		TArray<TSharedRef<SAnimTimingNode>> SectionTimingNodes;
+		SAnimTimingPanel::GetTimingRelevantElements(Montage, TimingElements);
+		for(int32 Idx = 0 ; Idx < TimingElements.Num() ; ++Idx)
+		{
+			TSharedPtr<FTimingRelevantElementBase>& Element = TimingElements[Idx];
+			if(Element->GetType() == ETimingElementType::Section)
+			{
+				TSharedRef<SAnimTimingTrackNode> Node = SNew(SAnimTimingTrackNode)
+					.ViewInputMin(ViewInputMin)
+					.ViewInputMax(ViewInputMax)
+					.DataStartPos(Element->GetElementTime())
+					.Element(Element)
+					.bUseTooltip(false);
+
+				Node->SetVisibility(SectionTimingNodeVisibility);
+
+				SectionNameTrack->AddTrackNode
+				(
+					Node
+				);
+			}
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

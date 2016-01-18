@@ -23,6 +23,13 @@ void UAnimGraphNode_SequenceEvaluator::PreloadRequiredAssets()
 	Super::PreloadRequiredAssets();
 }
 
+void UAnimGraphNode_SequenceEvaluator::BakeDataDuringCompilation(class FCompilerResultsLog& MessageLog)
+{
+	UAnimBlueprint* AnimBlueprint = GetAnimBlueprint();
+	Node.GroupIndex = AnimBlueprint->FindOrAddGroup(SyncGroup.GroupName);
+	Node.GroupRole = SyncGroup.GroupRole;
+}
+
 void UAnimGraphNode_SequenceEvaluator::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& ComplexAnims, TArray<UAnimSequence*>& AnimationSequences) const
 {
 	if(Node.Sequence)

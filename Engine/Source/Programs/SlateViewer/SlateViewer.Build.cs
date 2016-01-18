@@ -15,10 +15,21 @@ public class SlateViewer : ModuleRules
 				"Projects",
 				"Slate",
 				"SlateCore",
-				"SlateReflector",
 				"StandaloneRenderer",
 				"SourceCodeAccess",
 				"WebBrowser",
+			}
+		);
+
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"SlateReflector",
+			}
+		);
+
+		DynamicallyLoadedModuleNames.AddRange(
+			new string[] {
+				"SlateReflector",
 			}
 		);
 
@@ -42,6 +53,15 @@ public class SlateViewer : ModuleRules
                     "StreamingFile"
                 }
             );
+		}
+
+		if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"LinuxCommonStartup"
+				}
+			);
 		}
 	}
 }

@@ -11,6 +11,7 @@ ANavMeshBoundsVolume::ANavMeshBoundsVolume(const FObjectInitializer& ObjectIniti
 	GetBrushComponent()->Mobility = EComponentMobility::Static;
 
 	BrushColor = FColor(200, 200, 200, 255);
+	SupportedAgents.MarkInitialized();
 
 	bColored = true;
 }
@@ -25,7 +26,9 @@ void ANavMeshBoundsVolume::PostEditChangeProperty( struct FPropertyChangedEvent&
 	if (GIsEditor && NavSys)
 	{
 		if (PropertyChangedEvent.Property == NULL ||
-			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ABrush, BrushBuilder))
+			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ABrush, BrushBuilder) ||
+			(PropertyChangedEvent.MemberProperty && 
+			 PropertyChangedEvent.MemberProperty->GetFName() == GET_MEMBER_NAME_CHECKED(ANavMeshBoundsVolume, SupportedAgents)))
 		{
 			NavSys->OnNavigationBoundsUpdated(this);
 		}

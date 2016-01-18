@@ -1,0 +1,23 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Linux Device Profile Selector",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Linux Device Profile Selector",
+	"Category" : "Device Profile Selectors",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "LinuxDeviceProfileSelector",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PostConfigInit",
+			"WhitelistPlatforms" : [ "Linux" ]
+		}
+	]
+}

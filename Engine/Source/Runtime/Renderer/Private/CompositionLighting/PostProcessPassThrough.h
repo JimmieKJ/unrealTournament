@@ -31,3 +31,12 @@ private:
 	bool bAdditiveBlend;
 	FPooledRenderTargetDesc NewDesc;
 };
+
+// useful to replace the SceneColor and leave the other views e.g. when doing stereo rendering, assumed there is no scaling on the size (input and output is BufferSize)
+// call before SetViewport()
+// assumes this to be called before
+//  SetRenderTarget()
+//  Context.RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
+//  Context.RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
+// 	Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+void CopyOverOtherViewportsIfNeeded(FRenderingCompositePassContext& Context, const FSceneView& ExcludeView);

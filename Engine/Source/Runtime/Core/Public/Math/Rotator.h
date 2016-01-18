@@ -11,14 +11,13 @@
 struct FRotator
 {
 public:
-
-	/** Looking up and down (0=Straight Ahead, +Up, -Down). */
+	/** Rotation around the right axis (around Y axis), Looking up and down (0=Straight Ahead, +Up, -Down) */
 	float Pitch; 
 
-	/** Rotating around (running in circles), 0=East, +North, -South. */
+	/** Rotation around the up axis (around Z axis), Running in circles 0=East, +North, -South. */
 	float Yaw; 
 
-	/** Rotation about axis of screen, 0=Straight, +Clockwise, -CCW. */
+	/** Rotation around the forward axis (around X axis), Tilting your head, 0=Straight, +Clockwise, -CCW. */
 	float Roll;
 
 public:
@@ -28,10 +27,23 @@ public:
 
 public:
 
+#if ENABLE_NAN_DIAGNOSTIC
+	FORCEINLINE void DiagnosticCheckNaN() const
+	{
+		if (ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("FRotator contains NaN: %s"), *ToString());
+			*const_cast<FRotator*>(this) = ZeroRotator;
+		}
+	}
+#else
+	FORCEINLINE void DiagnosticCheckNaN() const {}
+#endif
+
 	/**
 	 * Default constructor (no initialization).
 	 */
-	FORCEINLINE FRotator() { };
+	FORCEINLINE FRotator() { }
 
 	/**
 	 * Constructor
@@ -73,7 +85,7 @@ public:
 	 * @param R The other rotator.
 	 * @return The result of adding a rotator to this.
 	 */
-	FRotator operator+( const FRotator &R ) const;
+	FRotator operator+( const FRotator& R ) const;
 
 	/**
 	 * Get the result of subtracting a rotator from this.
@@ -81,7 +93,7 @@ public:
 	 * @param R The other rotator.
 	 * @return The result of subtracting a rotator from this.
 	 */
-	FRotator operator-( const FRotator &R ) const;
+	FRotator operator-( const FRotator& R ) const;
 
 	/**
 	 * Get the result of scaling this rotator.
@@ -106,6 +118,7 @@ public:
 	 *
 	 * @return A negated copy of the rotator.
 	 */
+	DEPRECATED(4.9, "The unary negation operator has been deprecated as componentwise negation is not meaningful for a Rotator. To get the inverse, please use FRotator::GetInverse()")
 	FORCEINLINE FRotator operator-() const;
 
 	// Binary comparison operators.
@@ -116,7 +129,7 @@ public:
 	 * @param R The other rotator.
 	 * @return true if two rotators are identical, otherwise false.
 	 */
-	bool operator==( const FRotator &R ) const;
+	bool operator==( const FRotator& R ) const;
 
 	/**
 	 * Checks whether two rotators are different.
@@ -124,7 +137,7 @@ public:
 	 * @param V The other rotator.
 	 * @return true if two rotators are different, otherwise false.
 	 */
-	bool operator!=( const FRotator &V ) const;
+	bool operator!=( const FRotator& V ) const;
 
 	// Assignment operators.
 
@@ -134,7 +147,7 @@ public:
 	 * @param R The other rotator.
 	 * @return Copy of rotator after addition.
 	 */
-	FRotator operator+=( const FRotator &R );
+	FRotator operator+=( const FRotator& R );
 
 	/**
 	 * Subtracts another rotator from this.
@@ -142,7 +155,7 @@ public:
 	 * @param R The other rotator.
 	 * @return Copy of rotator after subtraction.
 	 */
-	FRotator operator-=( const FRotator &R );
+	FRotator operator-=( const FRotator& R );
 
 public:
 
@@ -170,7 +183,7 @@ public:
 	 * @param Tolerance Error Tolerance.
 	 * @return true if two rotators are equal, within specified tolerance, otherwise false.
 	 */
-	bool Equals( const FRotator &R, float Tolerance=KINDA_SMALL_NUMBER ) const;
+	bool Equals( const FRotator& R, float Tolerance=KINDA_SMALL_NUMBER ) const;
 
 	/**
 	 * Adds to each component of the rotator.
@@ -183,17 +196,22 @@ public:
 	FRotator Add( float DeltaPitch, float DeltaYaw, float DeltaRoll );
 
 	/**
+	 * Returns the inverse of the rotator.
+	 */
+	CORE_API FRotator GetInverse() const;
+
+	/**
 	 * Get the rotation, snapped to specified degree segments.
 	 *
 	 * @param RotGrid A Rotator specifying how to snap each component.
 	 * @return Snapped version of rotation.
 	 */
-	FRotator GridSnap( const FRotator &RotGrid ) const;
+	FRotator GridSnap( const FRotator& RotGrid ) const;
 
 	/**
-	 * Convert a rotation into a vector facing in its direction.
+	 * Convert a rotation into a unit vector facing in its direction.
 	 *
-	 * @return Rotation as a direction vector.
+	 * @return Rotation as a unit direction vector.
 	 */
 	CORE_API FVector Vector() const;
 
@@ -378,6 +396,12 @@ public:
 		Ar << R.Pitch << R.Yaw << R.Roll;
 		return Ar;
 	}
+
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
+	}
 };
 
 
@@ -391,29 +415,24 @@ public:
  * @param R rotator to be scaled.
  * @return Scaled rotator.
  */
-FORCEINLINE FRotator operator*( float Scale, const FRotator &R )
+FORCEINLINE FRotator operator*( float Scale, const FRotator& R )
 {
 	return R.operator*( Scale );
 }
 
-#if PLATFORM_LITTLE_ENDIAN
-	#define INTEL_ORDER_ROTATOR(x) (x)
-#else
-	static FORCEINLINE FRotator INTEL_ORDER_ROTATOR(FRotator r)
-	{
-		return FRotator(INTEL_ORDER32(r.Pitch), INTEL_ORDER32(r.Yaw), INTEL_ORDER32(r.Roll));
-	}
-#endif
-
 
 FORCEINLINE FRotator::FRotator( float InF ) 
 	:	Pitch(InF), Yaw(InF), Roll(InF) 
-{}
+{
+	DiagnosticCheckNaN();
+}
 
 
 FORCEINLINE FRotator::FRotator( float InPitch, float InYaw, float InRoll )
 	:	Pitch(InPitch), Yaw(InYaw), Roll(InRoll) 
-{}
+{
+	DiagnosticCheckNaN();
+}
 
 
 FORCEINLINE FRotator::FRotator(EForceInit)
@@ -421,13 +440,13 @@ FORCEINLINE FRotator::FRotator(EForceInit)
 {}
 
 
-FORCEINLINE FRotator FRotator::operator+( const FRotator &R ) const
+FORCEINLINE FRotator FRotator::operator+( const FRotator& R ) const
 {
 	return FRotator( Pitch+R.Pitch, Yaw+R.Yaw, Roll+R.Roll );
 }
 
 
-FORCEINLINE FRotator FRotator::operator-( const FRotator &R ) const
+FORCEINLINE FRotator FRotator::operator-( const FRotator& R ) const
 {
 	return FRotator( Pitch-R.Pitch, Yaw-R.Yaw, Roll-R.Roll );
 }
@@ -442,6 +461,7 @@ FORCEINLINE FRotator FRotator::operator*( float Scale ) const
 FORCEINLINE FRotator FRotator::operator*= (float Scale)
 {
 	Pitch = Pitch*Scale; Yaw = Yaw*Scale; Roll = Roll*Scale;
+	DiagnosticCheckNaN();
 	return *this;
 }
 
@@ -452,38 +472,47 @@ FORCEINLINE FRotator FRotator::operator-() const
 }
 
 
-FORCEINLINE bool FRotator::operator==( const FRotator &R ) const
+FORCEINLINE bool FRotator::operator==( const FRotator& R ) const
 {
 	return Pitch==R.Pitch && Yaw==R.Yaw && Roll==R.Roll;
 }
 
 
-FORCEINLINE bool FRotator::operator!=( const FRotator &V ) const
+FORCEINLINE bool FRotator::operator!=( const FRotator& V ) const
 {
 	return Pitch!=V.Pitch || Yaw!=V.Yaw || Roll!=V.Roll;
 }
 
 
-FORCEINLINE FRotator FRotator::operator+=( const FRotator &R )
+FORCEINLINE FRotator FRotator::operator+=( const FRotator& R )
 {
 	Pitch += R.Pitch; Yaw += R.Yaw; Roll += R.Roll;
+	DiagnosticCheckNaN();
 	return *this;
 }
 
 
-FORCEINLINE FRotator FRotator::operator-=( const FRotator &R )
+FORCEINLINE FRotator FRotator::operator-=( const FRotator& R )
 {
 	Pitch -= R.Pitch; Yaw -= R.Yaw; Roll -= R.Roll;
+	DiagnosticCheckNaN();
 	return *this;
 }
 
 
 FORCEINLINE bool FRotator::IsNearlyZero(float Tolerance) const
 {
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	const VectorRegister RegA = VectorLoadFloat3_W0(this);
+	const VectorRegister Norm = VectorNormalizeRotator(RegA);
+	const VectorRegister AbsNorm = VectorAbs(Norm);
+	return !VectorAnyGreaterThan(AbsNorm, VectorLoadFloat1(&Tolerance));
+#else
 	return
-		FMath::Abs(NormalizeAxis(Pitch))<Tolerance
-		&&	FMath::Abs(NormalizeAxis(Yaw))<Tolerance
-		&&	FMath::Abs(NormalizeAxis(Roll))<Tolerance;
+		FMath::Abs(NormalizeAxis(Pitch))<=Tolerance
+		&&	FMath::Abs(NormalizeAxis(Yaw))<=Tolerance
+		&&	FMath::Abs(NormalizeAxis(Roll))<=Tolerance;
+#endif
 }
 
 
@@ -493,11 +522,19 @@ FORCEINLINE bool FRotator::IsZero() const
 }
 
 
-FORCEINLINE bool FRotator::Equals(const FRotator &R, float Tolerance) const
+FORCEINLINE bool FRotator::Equals(const FRotator& R, float Tolerance) const
 {
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	const VectorRegister RegA = VectorLoadFloat3_W0(this);
+	const VectorRegister RegB = VectorLoadFloat3_W0(&R);
+	const VectorRegister NormDelta = VectorNormalizeRotator(VectorSubtract(RegA, RegB));
+	const VectorRegister AbsNormDelta = VectorAbs(NormDelta);
+	return !VectorAnyGreaterThan(AbsNormDelta, VectorLoadFloat1(&Tolerance));
+#else
 	return (FMath::Abs(NormalizeAxis(Pitch - R.Pitch)) <= Tolerance) 
 		&& (FMath::Abs(NormalizeAxis(Yaw - R.Yaw)) <= Tolerance) 
 		&& (FMath::Abs(NormalizeAxis(Roll - R.Roll)) <= Tolerance);
+#endif
 }
 
 
@@ -506,11 +543,12 @@ FORCEINLINE FRotator FRotator::Add( float DeltaPitch, float DeltaYaw, float Delt
 	Yaw   += DeltaYaw;
 	Pitch += DeltaPitch;
 	Roll  += DeltaRoll;
+	DiagnosticCheckNaN();
 	return *this;
 }
 
 
-FORCEINLINE FRotator FRotator::GridSnap( const FRotator &RotGrid ) const
+FORCEINLINE FRotator FRotator::GridSnap( const FRotator& RotGrid ) const
 {
 	return FRotator
 		(
@@ -614,6 +652,7 @@ FORCEINLINE void FRotator::Normalize()
 	Yaw = NormalizeAxis(Yaw);
 	Roll = NormalizeAxis(Roll);
 #endif
+	DiagnosticCheckNaN();
 }
 
 FORCEINLINE FString FRotator::ToString() const
@@ -665,7 +704,7 @@ FORCEINLINE bool FRotator::InitFromString( const FString& InSourceString )
 
 	// The initialization is only successful if the X, Y, and Z values can all be parsed from the string
 	const bool bSuccessful = FParse::Value( *InSourceString, TEXT("P=") , Pitch ) && FParse::Value( *InSourceString, TEXT("Y="), Yaw ) && FParse::Value( *InSourceString, TEXT("R="), Roll );
-
+	DiagnosticCheckNaN();
 	return bSuccessful;
 }
 

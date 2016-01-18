@@ -2,22 +2,27 @@
 
 #pragma once
 
-class FPerformanceAnalyticsStats;
+#include "Editor.h" // for FEditorModeID
 
-namespace EMapChangeType
+class FPerformanceAnalyticsStats;
+class FTickableEditorObject;
+
+
+enum class EMapChangeType : uint8
 {
-	enum Type
-	{
-		/** Map has just been loaded*/
-		LoadMap,
-		/** Map is about to be saved*/
-		SaveMap,
-		/** A new map is loaded*/
-		NewMap,
-		/** The world is about to be torn down */
-		TearDownWorld,
-	};
-}
+	/** Map has just been loaded*/
+	LoadMap,
+
+	/** Map is about to be saved*/
+	SaveMap,
+
+	/** A new map is loaded*/
+	NewMap,
+
+	/** The world is about to be torn down */
+	TearDownWorld,
+};
+
 
 /** The public interface for the unreal editor misc singleton. */
 class UNREALED_API FUnrealEdMisc
@@ -43,7 +48,10 @@ public:
 
 	/** Initalizes various systems */
 	virtual void OnInit();
-	
+
+	/* Check if this we are editing a template project, and if so mount any shared resource paths it uses */
+	void MountTemplateSharedPaths();
+
 	/* Cleans up various systems */
 	virtual void OnExit();
 
@@ -241,7 +249,7 @@ private:
 	/**
 	 * Called when a map is changed (loaded,saved,new map, etc)
 	 */
-	void OnMapChanged( UWorld* World, EMapChangeType::Type MapChangeType );
+	void OnMapChanged( UWorld* World, EMapChangeType MapChangeType );
 
 	/** Called when the input manager records a user-defined chord */
 	void OnUserDefinedChordChanged(const FUICommandInfo& CommandInfo);
@@ -250,7 +258,7 @@ private:
 	void OnMessageTokenActivated(const TSharedRef<class IMessageToken>& Token);
 
 	/** Delegate for (default) display name of UObject tokens. Can display the name of the actor if an object is/is part of one */
-	FText OnGetDisplayName(UObject* InObject, bool bFullPath);
+	FText OnGetDisplayName(const UObject* InObject, const bool bFullPath);
 
 	/** Delegate for (default) message log message selection - selects the objects that the tokens refer to (if any) */
 	void OnMessageSelectionChanged(TArray< TSharedRef<class FTokenizedMessage> >& Selection);

@@ -2,7 +2,7 @@
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>V-HACD</Name>
   <Location>//depot/UE4/Engine/Source/ThirdParty/VHACD/</Location>
-  <Date>2015-03-23T12:49:39.9565168-04:00</Date>
+  <Date>2015-09-04T20:42:19.7076165-04:00</Date>
   <Function>Decomposes tri mesh into convex hull approximation for collision</Function>
   <Justification>Currently we use HACD which doesn't work that well, this is an improvement.</Justification>
   <Platforms>
@@ -27,10 +27,9 @@
   </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>true</IsSourceAvailable>
-  <NoticeType>Copyright Notice</NoticeType>
+  <NoticeType>Full EULA Text</NoticeType>
   <Notification>Copyright (c) 2011 Khaled Mamou (kmamou at gmail dot com)
  All rights reserved.
- 
  
  Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
  

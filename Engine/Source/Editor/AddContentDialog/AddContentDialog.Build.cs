@@ -10,7 +10,7 @@ public class AddContentDialog : ModuleRules
 			new string[] {
 				"AssetTools",
 				"ContentBrowser",
-				"SuperSearch",
+				"SuperSearch"
 			}
 		);
 
@@ -29,7 +29,7 @@ public class AddContentDialog : ModuleRules
 				"UnrealEd",
 				"CoreUObject",				
 				"WidgetCarousel",				
-
+			
 			}
 		);
 

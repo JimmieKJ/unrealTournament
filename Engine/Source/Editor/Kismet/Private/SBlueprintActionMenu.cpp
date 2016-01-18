@@ -23,13 +23,13 @@
 USTRUCT()
 struct FBlueprintAction_PromoteVariable : public FEdGraphSchemaAction
 {
-	FBlueprintAction_PromoteVariable()
-		: FEdGraphSchemaAction()
+	FBlueprintAction_PromoteVariable(bool bInToMemberVariable)
+		: FEdGraphSchemaAction(	FText(), 
+								bInToMemberVariable? LOCTEXT("PromoteToVariable", "Promote to variable") : LOCTEXT("PromoteToLocalVariable", "Promote to local variable"),
+								bInToMemberVariable ? LOCTEXT("PromoteToVariable", "Promote to variable").ToString() : LOCTEXT("PromoteToLocalVariable", "Promote to local variable").ToString(),
+								1)
+		, bToMemberVariable(bInToMemberVariable)
 	{
-		Category = TEXT("");
-		MenuDescription = LOCTEXT("PromoteToVariable", "Promote to variable");
-		TooltipDescription = LOCTEXT("PromoteToVariable", "Promote to variable").ToString();
-		Grouping = 1;
 	}
 
 	// FEdGraphSchemaAction interface
@@ -40,7 +40,7 @@ struct FBlueprintAction_PromoteVariable : public FEdGraphSchemaAction
 			UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(ParentGraph);
 			if( ( MyBlueprintEditor.IsValid() == true ) && ( Blueprint != NULL ) )
 			{
-				MyBlueprintEditor.Pin()->DoPromoteToVariable( Blueprint, FromPin );
+				MyBlueprintEditor.Pin()->DoPromoteToVariable( Blueprint, FromPin, bToMemberVariable );
 			}
 		}
 		return NULL;		
@@ -49,6 +49,9 @@ struct FBlueprintAction_PromoteVariable : public FEdGraphSchemaAction
 
 	/* Pointer to the blueprint editor containing the blueprint in which we will promote the variable. */
 	TWeakPtr<class FBlueprintEditor> MyBlueprintEditor;
+
+	/* TRUE if promoting to member variable, FALSE if promoting to local variable */
+	bool bToMemberVariable;
 };
 
 /**
@@ -537,9 +540,16 @@ void SBlueprintActionMenu::TryInsertPromoteToVariable(FBlueprintActionContext co
 	{
 		if (K2Schema->CanPromotePinToVariable(*MenuContext.Pins[0]))
 		{
-			TSharedPtr<FBlueprintAction_PromoteVariable> PromoteAction = TSharedPtr<FBlueprintAction_PromoteVariable>(new FBlueprintAction_PromoteVariable());
+			TSharedPtr<FBlueprintAction_PromoteVariable> PromoteAction = TSharedPtr<FBlueprintAction_PromoteVariable>(new FBlueprintAction_PromoteVariable(true));
 			PromoteAction->MyBlueprintEditor = EditorPtr;
 			OutAllActions.AddAction( PromoteAction );
+
+			if (MenuContext.Graphs.Num() == 1 && FBlueprintEditorUtils::DoesSupportLocalVariables(MenuContext.Graphs[0]))
+			{
+				TSharedPtr<FBlueprintAction_PromoteVariable> LocalPromoteAction = TSharedPtr<FBlueprintAction_PromoteVariable>(new FBlueprintAction_PromoteVariable(false));
+				LocalPromoteAction->MyBlueprintEditor = EditorPtr;
+				OutAllActions.AddAction( LocalPromoteAction );
+			}
 		}
 	}
 }

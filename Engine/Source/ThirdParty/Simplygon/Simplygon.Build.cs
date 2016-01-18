@@ -11,7 +11,10 @@ public class Simplygon : ModuleRules
 
         Definitions.Add("SGDEPRECATED_OFF=1");
 
-		string SimplygonPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/Simplygon/Simplygon-5.5.2156/";
+        //@third party code BEGIN SIMPLYGON
+        //Change the path to make it easier to update Simplygon
+        string SimplygonPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/Simplygon/Simplygon-latest/";
+        //@third party code END SIMPLYGON
 		PublicIncludePaths.Add(SimplygonPath + "Inc");
 
 		// Simplygon depends on D3DX9.

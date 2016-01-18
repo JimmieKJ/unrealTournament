@@ -8,7 +8,7 @@
 #define USE_VHACD (PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_MAC)
 
 #include "UnrealEd.h"
-
+#include "PhysicsEngine/BodySetup.h"
 
 #if USE_VHACD
 
@@ -53,9 +53,10 @@ public:
 
 	void Update(const double overallProgress, const double stageProgress, const double operationProgress, const char * const stage,	const char * const    operation)
 	{
-		FString StatusString = FString::Printf(TEXT("Processing...  [%s %d%]  [%s %d%]"), ANSI_TO_TCHAR(stage), (int)(stageProgress + 0.5), ANSI_TO_TCHAR(operation), (int)(operationProgress + 0.5));
+		FString StatusString = FString::Printf(TEXT("Processing [%s]..."), ANSI_TO_TCHAR(stage));
 
-		GWarn->StatusUpdate(overallProgress*10.f, 1000, FText::FromString(StatusString));
+		GWarn->StatusUpdate(stageProgress*10.f, 1000, FText::FromString(StatusString));
+		//GWarn->StatusUpdate(overallProgress*10.f, 1000, FText::FromString(StatusString));
 	};
 };
 #else

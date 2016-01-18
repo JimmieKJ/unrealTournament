@@ -83,10 +83,10 @@ void UK2Node_AddComponent::AllocatePinsForExposedVariables()
 	const bool bHideTransformPins = (ComponentClass != nullptr) ? !ComponentClass->IsChildOf(USceneComponent::StaticClass()) : false;
 
 	UEdGraphPin* ManualAttachmentPin = GetManualAttachmentPin();
-	ManualAttachmentPin->bHidden = bHideTransformPins;
+	ManualAttachmentPin->SafeSetHidden(bHideTransformPins);
 
 	UEdGraphPin* TransformPin = GetRelativeTransformPin();
-	TransformPin->bHidden = bHideTransformPins;
+	TransformPin->SafeSetHidden(bHideTransformPins);
 }
 
 const UClass* UK2Node_AddComponent::GetSpawnedType() const

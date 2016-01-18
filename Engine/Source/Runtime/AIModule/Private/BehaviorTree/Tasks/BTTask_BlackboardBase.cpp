@@ -13,5 +13,10 @@ UBTTask_BlackboardBase::UBTTask_BlackboardBase(const FObjectInitializer& ObjectI
 void UBTTask_BlackboardBase::InitializeFromAsset(UBehaviorTree& Asset)
 {
 	Super::InitializeFromAsset(Asset);
-	BlackboardKey.CacheSelectedKey(GetBlackboardAsset());
+
+	UBlackboardData* BBAsset = GetBlackboardAsset();
+	if (ensure(BBAsset))
+	{
+		BlackboardKey.ResolveSelectedKey(*BBAsset);
+	}
 }

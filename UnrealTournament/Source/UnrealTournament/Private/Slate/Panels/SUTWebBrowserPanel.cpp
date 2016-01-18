@@ -1,10 +1,10 @@
 
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UnrealTournament.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
-#include "../SUWScaleBox.h"
+#include "../Widgets/SUTScaleBox.h"
 #include "SlateExtras.h"
 #include "Slate/SlateGameResources.h"
 #include "SUTWebBrowserPanel.h"
@@ -17,14 +17,12 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 	ShowControls = InArgs._ShowControls;
 	DesiredViewportSize = InArgs._ViewportSize;
 	bAllowScaling = InArgs._AllowScaling;
-
-
-	OnJSQueryReceived = InArgs._OnJSQueryReceived;
-	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
+	
+	InitialURL = InArgs._InitialURL;
 	OnBeforeBrowse = InArgs._OnBeforeBrowse;
 	OnBeforePopup = InArgs._OnBeforePopup;
 
-	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
+	SUTPanelBase::Construct(SUTPanelBase::FArguments(), InPlayerOwner);
 }
 
 void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
@@ -41,6 +39,18 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 			+SOverlay::Slot()
 			[
 				SAssignNew(WebBrowserContainer, SVerticalBox)
+				+ SVerticalBox::Slot()
+				.VAlign(VAlign_Fill)
+				.HAlign(HAlign_Fill)
+				[
+					SAssignNew(WebBrowserPanel, SWebBrowser)
+					.InitialURL(InitialURL)
+					.ShowControls(ShowControls)
+					.ViewportSize(DesiredViewportSize)
+					.OnBeforeNavigation(SWebBrowser::FOnBeforeBrowse::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
+					.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
+				]
+
 			]
 		];
 	}
@@ -57,6 +67,17 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 				+ SOverlay::Slot()
 				[
 					SAssignNew(WebBrowserContainer, SVerticalBox)
+					+ SVerticalBox::Slot()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
+					[
+						SAssignNew(WebBrowserPanel, SWebBrowser)
+						.InitialURL(InitialURL)
+						.ShowControls(ShowControls)
+						.ViewportSize(DesiredViewportSize)
+						.OnBeforeNavigation(SWebBrowser::FOnBeforeBrowse::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
+						.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
+					]
 				]
 			]
 		];
@@ -65,22 +86,9 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 
 void SUTWebBrowserPanel::Browse(FString URL)
 {
-	if (WebBrowserContainer.IsValid())
+	if (WebBrowserPanel.IsValid())
 	{
-		WebBrowserContainer->ClearChildren();
-		WebBrowserContainer->AddSlot()
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
-		[
-			SAssignNew(WebBrowserPanel, SWebBrowser)
-			.InitialURL(URL)
-			.ShowControls(ShowControls)
-			.ViewportSize(DesiredViewportSize)
-			.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateSP(this, &SUTWebBrowserPanel::QueryReceived))
-			.OnJSQueryCanceled(FOnJSQueryCanceledDelegate::CreateSP(this, &SUTWebBrowserPanel::QueryCancelled))
-			.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
-			.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
-		];
+		WebBrowserPanel->LoadURL(URL);
 	}
 }
 
@@ -97,9 +105,9 @@ float SUTWebBrowserPanel::GetReverseScale() const
 }
 
 
-void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
-	SUWPanel::OnShowPanel(inParentWindow);
+	SUTPanelBase::OnShowPanel(inParentWindow);
 
 	// Temporarily change audio level
 	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
@@ -112,7 +120,7 @@ void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow
 }
 void SUTWebBrowserPanel::OnHidePanel()
 {
-	SUWPanel::OnHidePanel();
+	SUTPanelBase::OnHidePanel();
 	
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 
@@ -125,28 +133,13 @@ void SUTWebBrowserPanel::OnHidePanel()
 	}
 }
 
-bool SUTWebBrowserPanel::QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
-{
-	if (OnJSQueryReceived.IsBound())
-	{
-		return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
-	}
-	return false;
-}
-
-void SUTWebBrowserPanel::QueryCancelled(int64 QueryId)
-{
-	OnJSQueryCanceled.ExecuteIfBound(QueryId);
-}
-
-
-bool SUTWebBrowserPanel::BeforeBrowse(FString TargetURL, bool bRedirect)
+bool SUTWebBrowserPanel::BeforeBrowse(const FString& TargetURL, bool bRedirect)
 {
 	if (OnBeforeBrowse.IsBound())
 	{
 		return OnBeforeBrowse.Execute(TargetURL, bRedirect);
 	}
-
+	
 	return false;
 }
 

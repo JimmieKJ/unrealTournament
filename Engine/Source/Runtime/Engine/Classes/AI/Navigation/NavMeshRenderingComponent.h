@@ -11,25 +11,27 @@ class ENGINE_API UNavMeshRenderingComponent : public UPrimitiveComponent
 	GENERATED_UCLASS_BODY()
 
 public:
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual bool NeedsLoadForServer() const override;
-	// End UObject Interface
+	//~ End UObject Interface
 	
-	// Begin UPrimitiveComponent Interface
+	//~ Begin UPrimitiveComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual void OnRegister()  override;
 	virtual void OnUnregister()  override;
-	// End UPrimitiveComponent Interface
+	//~ End UPrimitiveComponent Interface
 
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
-	// End UActorComponent Interface
+	//~ End UActorComponent Interface
 
-	// Begin USceneComponent Interface
+	//~ Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform &LocalToWorld) const override;
-	// End USceneComponent Interface
+	//~ End USceneComponent Interface
 
+	void ForceUpdate() { bForceUpdate = true; }
+	bool IsForcingUpdate() const { return bForceUpdate; }
 	void GatherData(FNavMeshSceneProxyData& DebugDrawData) const;
 
 	static bool IsNavigationShowFlagSet(const UWorld* World);
@@ -39,5 +41,6 @@ protected:
 
 protected:
 	uint32 bCollectNavigationData : 1;
+	uint32 bForceUpdate : 1;
 	FTimerHandle TimerHandle;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTChatMessage.h"
 #include "Engine/Console.h"
@@ -9,6 +9,7 @@
 #include "UnrealNetwork.h"
 #include "UTGameViewportClient.h"
 #include "UTRconAdminInfo.h"
+#include "UTLocalPlayer.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -42,12 +43,15 @@ void AUTBasePlayerController::InitInputSystem()
 {
 	Super::InitInputSystem();
 
-	// read profile items on every level change so we can detect updates
+	// read profile on every level change so we can detect updates
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+#if WITH_PROFILE
 	if (LP != NULL && LP->IsLoggedIn())
 	{
-		LP->ReadProfileItems();
+		FClientUrlContext QueryContext = FClientUrlContext::Default; // IMPORTANT to make a copy!
+		LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->ForceQueryProfile(QueryContext);
 	}
+#endif
 
 	// Let the viewport client know we have connected to a server.
 	if (GetWorld()->GetNetMode() == ENetMode::NM_Client)
@@ -140,19 +144,21 @@ void AUTBasePlayerController::InitPlayerState()
 
 void AUTBasePlayerController::Talk()
 {
-	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
 	{
-		LP->ViewportClient->ViewportConsole->StartTyping("Say ");
+		LP->ShowMenu(TEXT("say"));
+		//LP->ViewportClient->ViewportConsole->StartTyping("Say ");
 	}
 }
 
 void AUTBasePlayerController::TeamTalk()
 {
-	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
 	{
-		LP->ViewportClient->ViewportConsole->StartTyping("TeamSay ");
+		LP->ShowMenu(TEXT("teamsay"));
+		//LP->ViewportClient->ViewportConsole->StartTyping("TeamSay ");
 	}
 }
 
@@ -257,8 +263,7 @@ void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, 
 
 uint8 AUTBasePlayerController::GetTeamNum() const
 {
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	return (PS != NULL && PS->Team != NULL) ? PS->Team->TeamIndex : 255;
+	return (UTPlayerState != NULL && UTPlayerState->Team != NULL) ? UTPlayerState->Team->TeamIndex : 255;
 }
 
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
@@ -266,7 +271,7 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState && GameState->HubGuid.IsValid())
 	{
-		ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
+		ConnectToServerViaGUID(GameState->HubGuid.ToString(), false);
 	}
 	else
 	{
@@ -277,7 +282,6 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 void AUTBasePlayerController::CancelConnectViaGUID()
 {
 		GUIDJoinWantsToSpectate = false;
-		GUIDJoinWantsToFindMatch = false;
 		GUIDJoin_CurrentGUID = TEXT("");
 		GUIDJoinAttemptCount = 0;
 		GUIDSessionSearchSettings.Reset();
@@ -292,8 +296,8 @@ void AUTBasePlayerController::CancelConnectViaGUID()
 		}
 }
 
-void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate, bool bFindLastMatch)
-	{
+void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate)
+{
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
 	{
@@ -303,7 +307,6 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 D
 		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
 		GUIDJoinWantsToSpectate = bSpectate;
-		GUIDJoinWantsToFindMatch = bFindLastMatch;
 		GUIDJoin_CurrentGUID = ServerGUID;
 		GUIDJoinAttemptCount = 0;
 		GUIDSessionSearchSettings.Reset();
@@ -417,14 +420,13 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				{
 					// Clear the Quickmatch wait timer.
 					LP->QuickMatchLimitTime = 0.0;
-					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, GUIDJoinWantsToFindMatch,GUIDJoinDesiredTeam))
+					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, GUIDJoinDesiredTeam))
 					{
 						//LP->HideMenu(); // should happen on level change now
 					}
 				}
 
 				GUIDJoinWantsToSpectate = false;
-				GUIDJoinWantsToFindMatch = false;
 				GUIDSessionSearchSettings.Reset();
 				return;
 			}
@@ -460,22 +462,22 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveRank(LP->GetBaseELORank(), LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetTotalChallengeStars());
+		ServerReceiveRank(LP->GetBaseELORank(), LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars());
 	}
 }
 
-bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 TotalStars) { return true; }
-void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 TotalStars)
+bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars) { return true; }
+void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars)
 {
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS)
+	if (UTPlayerState)
 	{
-		PS->AverageRank = NewAverageRank;
-		PS->DuelRank = NewDuelRank;
-		PS->CTFRank = NewCTFRank;
-		PS->TDMRank = NewTDMRank;
-		PS->DMRank = NewDMRank;
-		PS->TotalChallengeStars = TotalStars;
+		UTPlayerState->AverageRank = NewAverageRank;
+		UTPlayerState->DuelRank = NewDuelRank;
+		UTPlayerState->CTFRank = NewCTFRank;
+		UTPlayerState->TDMRank = NewTDMRank;
+		UTPlayerState->DMRank = NewDMRank;
+		UTPlayerState->ShowdownRank = NewShowdownRank;
+		UTPlayerState->TotalChallengeStars = TotalStars;
 	}
 }
 
@@ -657,6 +659,12 @@ void AUTBasePlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	UpdateInputMode();
+
+	if (bRequestShowMenu)
+	{
+		bRequestShowMenu = false;
+		ShowMenu(TEXT(""));
+	}
 }
 
 void AUTBasePlayerController::UpdateInputMode()
@@ -671,7 +679,7 @@ void AUTBasePlayerController::UpdateInputMode()
 		{
 			NewInputMode = EInputMode::EIM_UIOnly;
 		}
-		else if ((PlayerState && PlayerState->bOnlySpectator)
+		else if ((UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives))
 			     || LocalPlayer->ViewportClient->ViewportConsole->ConsoleState != NAME_None) //Console has some focus issues with UI Only
 		{
 			NewInputMode = EInputMode::EIM_GameAndUI;
@@ -752,5 +760,14 @@ void AUTBasePlayerController::ShowAdminMessage(const FString& Message)
 	if (UTLocalPlayer)
 	{
 		UTLocalPlayer->ShowAdminMessage(Message);
+	}
+}
+
+void AUTBasePlayerController::UTLogOut()
+{
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (UTLocalPlayer)
+	{
+		UTLocalPlayer->Logout();
 	}
 }

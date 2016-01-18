@@ -30,44 +30,50 @@ FObjectResource::FObjectResource( UObject* InObject )
 -----------------------------------------------------------------------------*/
 
 FObjectExport::FObjectExport()
-:	FObjectResource	()
-,	ObjectFlags		( RF_NoFlags												)
-,	bExportLoadFailed	( false													)
-,	SerialSize		( 0															)
-,	SerialOffset	( 0															)
-,	ScriptSerializationStartOffset	( 0											)
-,	ScriptSerializationEndOffset	( 0											)
-,	Object			( NULL														)
-,	HashNext		( INDEX_NONE												)
-,	bForcedExport	( false														)
-,	bNotForClient	( false														)
-,	bNotForServer	( false														)
-,	PackageGuid		( FGuid(0,0,0,0)											)
-,	bNotForEditorGame	(true													)
+: FObjectResource()
+, ObjectFlags(RF_NoFlags)
+, SerialSize(0)
+, SerialOffset(0)
+, ScriptSerializationStartOffset(0)
+, ScriptSerializationEndOffset(0)
+, Object(NULL)
+, HashNext(INDEX_NONE)
+, bForcedExport(false)
+, bNotForClient(false)
+, bNotForServer(false)
+, bNotForEditorGame(true)
+, bIsAsset(false)
+, bExportLoadFailed(false)
+, bDynamicClass(false)
+, PackageGuid(FGuid(0, 0, 0, 0))
+, PackageFlags(0)
 {}
 
 FObjectExport::FObjectExport( UObject* InObject )
-:	FObjectResource	( InObject													)
-,	ObjectFlags		( InObject ? InObject->GetMaskedFlags() : RF_NoFlags		)
-,	bExportLoadFailed	( false													)
-,	SerialSize		( 0															)
-,	SerialOffset	( 0															)
-,	ScriptSerializationStartOffset	( 0											)
-,	ScriptSerializationEndOffset	( 0											)
-,	Object			( InObject													)
-,	HashNext		( INDEX_NONE												)
-,	bForcedExport	( false														)
-,	bNotForClient	( false														)
-,	bNotForServer	( false														)
-,	PackageGuid		( FGuid(0,0,0,0)											)
-,	PackageFlags	( 0															)
-,	bNotForEditorGame	(true													)
+: FObjectResource(InObject)
+, ObjectFlags(InObject ? InObject->GetMaskedFlags() : RF_NoFlags)
+, SerialSize(0)
+, SerialOffset(0)
+, ScriptSerializationStartOffset(0)
+, ScriptSerializationEndOffset(0)
+, Object(InObject)
+, HashNext(INDEX_NONE)
+, bForcedExport(false)
+, bNotForClient(false)
+, bNotForServer(false)
+, bNotForEditorGame(true)
+, bIsAsset(false)
+, bExportLoadFailed(false)
+, bDynamicClass(false)
+, PackageGuid(FGuid(0, 0, 0, 0))
+, PackageFlags(0)
 {
 	if(Object)		
 	{
 		bNotForClient = Object->HasAnyMarks(OBJECTMARK_NotForClient);
 		bNotForServer = Object->HasAnyMarks(OBJECTMARK_NotForServer);
 		bNotForEditorGame = Object->HasAnyMarks(OBJECTMARK_NotForEditorGame);
+		bIsAsset = Object->IsAsset();
 	}
 }
 
@@ -100,6 +106,11 @@ FArchive& operator<<( FArchive& Ar, FObjectExport& E )
 		Ar << E.bNotForEditorGame;
 	}
 
+	if (Ar.UE4Ver() >= VER_UE4_COOKED_ASSETS_IN_EDITOR_SUPPORT)
+	{
+		Ar << E.bIsAsset;
+	}
+
 	return Ar;
 }
 
@@ -116,6 +127,16 @@ FObjectImport::FObjectImport( UObject* InObject )
 :	FObjectResource	( InObject																)
 ,	ClassPackage	( InObject ? InObject->GetClass()->GetOuter()->GetFName()	: NAME_None	)
 ,	ClassName		( InObject ? InObject->GetClass()->GetFName()				: NAME_None	)
+,	XObject			( InObject																)
+,	SourceLinker	( NULL																	)
+,	SourceIndex		( INDEX_NONE															)
+{
+}
+
+FObjectImport::FObjectImport(UObject* InObject, UClass* InClass)
+:	FObjectResource	( InObject																)
+,	ClassPackage	( (InObject && InClass) ? InClass->GetOuter()->GetFName()	: NAME_None	)
+,	ClassName		( (InObject && InClass) ? InClass->GetFName()				: NAME_None	)
 ,	XObject			( InObject																)
 ,	SourceLinker	( NULL																	)
 ,	SourceIndex		( INDEX_NONE															)

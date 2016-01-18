@@ -313,7 +313,7 @@ void PxVehicleWheelsSimData::getBinaryMetaData(PxOutputStream& stream)
 	PX_DEF_BIN_METADATA_ITEM(stream,		PxVehicleWheelsSimData, 	PxU32, 							mHighForwardSpeedSubStepCount,	0)
     PX_DEF_BIN_METADATA_ITEM(stream,		PxVehicleWheelsSimData, 	PxU32, 							mMinLongSlipDenominator,		0)
 
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 	PX_DEF_BIN_METADATA_ITEMS_AUTO(stream, PxVehicleWheelsSimData, PxU32, mPad, PxMetaDataFlag::ePADDING)
 #endif
 
@@ -331,7 +331,7 @@ void PxVehicleWheelsDynData::getBinaryMetaData(PxOutputStream& stream)
 	PX_DEF_BIN_METADATA_ITEM(stream,		PxVehicleTireForceCalculator, 	void*,	mShaderData,	PxMetaDataFlag::ePTR)	
 	PX_DEF_BIN_METADATA_ITEM(stream,		PxVehicleTireForceCalculator, 	PxU32,	mShader,		PxMetaDataFlag::ePTR)		
 
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 	PX_DEF_BIN_METADATA_ITEMS_AUTO(stream,	PxVehicleTireForceCalculator,	PxU32,	mPad,			PxMetaDataFlag::ePADDING)
 #endif
 

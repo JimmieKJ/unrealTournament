@@ -35,14 +35,14 @@ class UMaterialExpressionIf : public UMaterialExpression
 	UPROPERTY()
 	float ConstAEqualsB_DEPRECATED;
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override;
 	virtual uint32 GetOutputType(int32 InputIndex) override {return MCT_Unknown;}
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 
 

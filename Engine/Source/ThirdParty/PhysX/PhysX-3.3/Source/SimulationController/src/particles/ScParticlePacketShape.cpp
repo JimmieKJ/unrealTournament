@@ -106,6 +106,7 @@ void Sc::ParticlePacketShape::setInteractionsDirty(CoreInteraction::DirtyFlag fl
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// PT: TODO: refactor with Sc::Actor::reallocInteractions
 void Sc::ParticlePacketShape::reallocInteractions(Sc::ParticleElementRbElementInteraction**& mem, PxU16& capacity, PxU16 size, PxU16 requiredMinCapacity)
 {
 	ParticleElementRbElementInteraction** newMem;
@@ -123,7 +124,11 @@ void Sc::ParticlePacketShape::reallocInteractions(Sc::ParticleElementRbElementIn
 	}
 	else
 	{
-		newCapacity = Ps::to16(Ps::nextPowerOfTwo(PxU32(requiredMinCapacity-1)));
+		const PxU32 desiredCapacity = Ps::nextPowerOfTwo(PxU32(requiredMinCapacity-1));
+		PX_ASSERT(desiredCapacity<=65536);
+
+		const PxU32 limit = 0xffff;
+		newCapacity = Ps::to16(PxMin(limit, desiredCapacity));
 		newMem = reinterpret_cast<ParticleElementRbElementInteraction**>(getInteractionScene().allocatePointerBlock(newCapacity));
 	}
 

@@ -73,7 +73,7 @@ public:
 					.FillWidth(1.0f)
 					.VAlign(VAlign_Center)
 					[
-						SAssignNew(ProfileNameDescEditor, SProjectLauncherProfileNameDescEditor, false)
+						SAssignNew(ProfileNameDescEditor, SProjectLauncherProfileNameDescEditor, InModel, false)
 						.LaunchProfile(this, &SProjectLauncherProfileListRow::GetLaunchProfile)
 					]
 

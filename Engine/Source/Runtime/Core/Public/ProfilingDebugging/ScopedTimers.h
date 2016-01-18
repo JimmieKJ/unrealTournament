@@ -29,6 +29,11 @@ public:
 		return StopTime;
 	}
 
+	double GetAccumulatedTime() const
+	{
+		return Accumulator;
+	}
+
 private:
 	/** Start time, captured in ctor. */
 	double StartTime;

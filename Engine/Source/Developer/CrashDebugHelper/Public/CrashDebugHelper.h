@@ -120,7 +120,7 @@ public:
 	}
 };
 
-// @TODO yrx 2015-02-18 Merge with FCrashDescription
+// #YRX_Crash: 2015-07-24 Merge with FCrashDescription
 /** A platform independent representation of a crash */
 class CRASHDEBUGHELPER_API FCrashInfo
 {
@@ -271,6 +271,8 @@ public:
 	 *	@param	OutCrashDebugInfo	The crash dump info extracted from the file
 	 *
 	 *	@return	bool				true if successful, false if not
+	 *	
+	 *	Only used by Mac, to be removed.
 	 */
 	virtual bool ParseCrashDump(const FString& InCrashDumpName, FCrashDebugInfo& OutCrashDebugInfo)
 	{
@@ -288,28 +290,6 @@ public:
 	{
 		return false;
 	}
-
-	/**
-	 *	Sync the required files from source control for debugging
-	 *
-	 *	@param	InLabel			The label to sync files from
-	 *	@param	InPlatform		The platform to sync files for
-	 *
-	 *	@return bool			true if successful, false if not
-	 */
-	virtual bool SyncRequiredFilesForDebuggingFromLabel(const FString& InLabel, const FString& InPlatform);
-
-	/**
-	 *	Sync the required files from source control for debugging
-	 *	NOTE: Currently this will only handle changelists of 'valid' builds from the build machine
-	 *			Ie the changelist must map to a build label.
-	 *
-	 *	@param	InChangelist	The changelist to sync files from
-	 *	@param	InPlatform		The platform to sync files for
-	 *
-	 *	@return bool			true if successful, false if not
-	 */
-	virtual bool SyncRequiredFilesForDebuggingFromChangelist(int32 InChangelistNumber, const FString& InPlatform);
 
 	/**
 	 * Sync the branch root relative file names to the requested label

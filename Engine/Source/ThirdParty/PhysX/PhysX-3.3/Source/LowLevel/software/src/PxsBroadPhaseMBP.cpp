@@ -2335,12 +2335,14 @@ static void DoBipartiteBoxPruning(MBP_PairManager* PX_RESTRICT pairManager, cons
 #endif
 			staticBoxes[index1].mMinX<=limit)
 		{
+			{
 			MBP_OVERLAP_TEST(staticBoxes[index1])
 			{
 				outputPair_DynamicStatic(
 					*pairManager,
 					index0, index1, inToOut_Dynamic, inToOut_Static, mObjects, groups, mbpObjects
 					);
+			}
 			}
 #ifdef TWO_AT_A_TIME
 			if(
@@ -2385,12 +2387,14 @@ static void DoBipartiteBoxPruning(MBP_PairManager* PX_RESTRICT pairManager, cons
 
 		while(dynamicBoxes[index1].mMinX<=limit)
 		{
+			{
 			MBP_OVERLAP_TEST(dynamicBoxes[index1])
 			{
 				outputPair_DynamicStatic(
 					*pairManager,
 					index1, index0, inToOut_Dynamic, inToOut_Static, mObjects, groups, mbpObjects
 					);
+			}
 			}
 #ifdef TWO_AT_A_TIME
 			if(dynamicBoxes[index1+1].mMinX<=limit)

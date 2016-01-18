@@ -214,35 +214,38 @@ void FSourceControlModule::InitializeSourceControlProviders()
 
 void FSourceControlModule::Tick()
 {	
-	ISourceControlProvider& Provider = GetProvider();
-
-	// tick the provider, so any operation results can be read back
-	Provider.Tick();
-	
-	// don't allow background status updates when temporarily disabled for login
-	if(!bTemporarilyDisabled)
+	if( CurrentSourceControlProvider != nullptr )
 	{
-		// check for any pending dispatches
-		if(PendingStatusUpdateFiles.Num() > 0)
+		ISourceControlProvider& Provider = GetProvider();
+
+		// tick the provider, so any operation results can be read back
+		Provider.Tick();
+
+		// don't allow background status updates when temporarily disabled for login
+		if(!bTemporarilyDisabled)
 		{
-			// grab a batch of files
-			TArray<FString> FilesToDispatch;
-			for(auto Iter(PendingStatusUpdateFiles.CreateConstIterator()); Iter; Iter++)
+			// check for any pending dispatches
+			if(PendingStatusUpdateFiles.Num() > 0)
 			{
-				if(FilesToDispatch.Num() >= SourceControlConstants::MaxStatusDispatchesPerTick)
+				// grab a batch of files
+				TArray<FString> FilesToDispatch;
+				for(auto Iter(PendingStatusUpdateFiles.CreateConstIterator()); Iter; Iter++)
 				{
-					break;
+					if(FilesToDispatch.Num() >= SourceControlConstants::MaxStatusDispatchesPerTick)
+					{
+						break;
+					}
+					FilesToDispatch.Add(*Iter);
 				}
-				FilesToDispatch.Add(*Iter);
-			}
 
-			if(FilesToDispatch.Num() > 0)
-			{
-				// remove the files we are dispatching so we don't try again
-				PendingStatusUpdateFiles.RemoveAt(0, FilesToDispatch.Num());
+				if(FilesToDispatch.Num() > 0)
+				{
+					// remove the files we are dispatching so we don't try again
+					PendingStatusUpdateFiles.RemoveAt(0, FilesToDispatch.Num());
 
-				// dispatch update
-				Provider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), FilesToDispatch, EConcurrency::Asynchronous);
+					// dispatch update
+					Provider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), FilesToDispatch, EConcurrency::Asynchronous);
+				}
 			}
 		}
 	}
@@ -322,10 +325,20 @@ void FSourceControlModule::SetProvider( const FName& InName )
 
 void FSourceControlModule::ClearCurrentSourceControlProvider()
 {
-	if( CurrentSourceControlProvider != NULL )
+	if( !CurrentSourceControlProvider || CurrentSourceControlProvider != &DefaultSourceControlProvider )
 	{
-		CurrentSourceControlProvider->Close();
+		ISourceControlProvider* OldSourceControlProvider = CurrentSourceControlProvider;
+		if (CurrentSourceControlProvider)
+		{
+			CurrentSourceControlProvider->Close();
+		}
+
 		CurrentSourceControlProvider = &DefaultSourceControlProvider;
+
+		if (OldSourceControlProvider)
+		{
+			OnSourceControlProviderChanged.Broadcast(*OldSourceControlProvider, *CurrentSourceControlProvider);
+		}
 	}
 }
 
@@ -351,12 +364,19 @@ void FSourceControlModule::SetCurrentSourceControlProvider(ISourceControlProvide
 
 	ClearCurrentSourceControlProvider();
 
+	ISourceControlProvider* OldSourceControlProvider = CurrentSourceControlProvider;
+
 	CurrentSourceControlProvider = &InProvider;
 	CurrentSourceControlProvider->Init(false);	// Don't force a connection here, as its synchronous. Let the user establish a connection.
 
 	SourceControlSettings.SetProvider(CurrentSourceControlProvider->GetName().ToString());
 
 	SaveSettings();
+
+	if (OldSourceControlProvider)
+	{
+		OnSourceControlProviderChanged.Broadcast(*OldSourceControlProvider, *CurrentSourceControlProvider);
+	}
 }
 
 FName FSourceControlModule::GetSourceControlProviderName(int32 ProviderIndex)
@@ -399,6 +419,16 @@ void FSourceControlModule::SetUseGlobalSettings(bool bIsUseGlobalSettings)
 	// force the user to re-log in
 	ShowLoginDialog(FSourceControlLoginClosed(), ELoginWindowMode::Modeless, EOnLoginWindowStartup::PreserveProvider);
 }	
+
+FDelegateHandle FSourceControlModule::RegisterProviderChanged(const FSourceControlProviderChanged::FDelegate& SourceControlProviderChanged)
+{
+	return OnSourceControlProviderChanged.Add(SourceControlProviderChanged);
+}
+
+void FSourceControlModule::UnregisterProviderChanged(FDelegateHandle Handle)
+{
+	OnSourceControlProviderChanged.Remove(Handle);
+}
 
 IMPLEMENT_MODULE( FSourceControlModule, SourceControl );
 

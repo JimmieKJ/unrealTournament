@@ -31,6 +31,7 @@ namespace EDisplayInfoMode
 		None,
 		Basic,	
 		Detailed,
+		SkeletalControls,
 		NumInfoModes
 	};
 };
@@ -48,8 +49,11 @@ protected:
 	/** Function to display bone names*/
 	void ShowBoneNames( FCanvas* Canvas, FSceneView* View );
 
-	/** Function to display warning and info text on the viewport */
+	/** Function to display warning and info text on the viewport when outside of animBP mode */
 	void DisplayInfo( FCanvas* Canvas, FSceneView* View, bool bDisplayAllInfo );
+
+	/** Function to display debug lines generated from skeletal controls in animBP mode */
+	void DrawNodeDebugLines(TArray<FText>& Lines, FCanvas* Canvas, FSceneView* View);
 
 public:
 	FAnimationViewportClient(FAnimationEditorPreviewScene& InPreviewScene, TWeakPtr<FPersona> InPersonaPtr, const TSharedRef<SAnimationEditorViewport>& InAnimationEditorViewport);
@@ -152,9 +156,6 @@ public:
 	/* Places the viewport camera at a good location to view the preview target */
 	void FocusViewportOnPreviewMesh();
 
-	/* Sets the playback scale for this viewport. 1.0 == Normal, 0.5 == Half speed etc */
-	void SetPlaybackScale(float PlaybackScale) {AnimationPlaybackScale = PlaybackScale;}
-
 	/** Callback for toggling the normals show flag. */
 	void ToggleShowNormals();
 
@@ -223,6 +224,8 @@ public:
 	void OnSetShowMeshStats(int32 ShowMode);
 	/** Whether or not mesh stats are being displayed */
 	bool IsShowingMeshStats() const;
+	/** Whether or not selected node stats are being displayed */
+	bool IsShowingSelectedNodeStats() const;
 	/** Whether detailed mesh stats are being displayed or basic mesh stats */
 	bool IsDetailedMeshStats() const;
 
@@ -254,9 +257,6 @@ private:
 
 	/** Control where we display local axes for bones/sockets */
 	ELocalAxesMode::Type LocalAxesMode;
-
-	/** Scale value so we can slow down or speed up playback in the viewport */
-	float AnimationPlaybackScale;
 
 	/** User selected color using color picker */
 	FLinearColor SelectedHSVColor;

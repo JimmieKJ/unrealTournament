@@ -23,7 +23,7 @@ AWheeledVehicle::AWheeledVehicle(const FObjectInitializer& ObjectInitializer)
 	Mesh->BodyInstance.bUseCCD = true;
 	Mesh->bBlendPhysics = true;
 	Mesh->bGenerateOverlapEvents = true;
-	Mesh->bCanEverAffectNavigation = false;
+	Mesh->SetCanEverAffectNavigation(false);
 	RootComponent = Mesh;
 
 	VehicleMovement = CreateDefaultSubobject<UWheeledVehicleMovementComponent, UWheeledVehicleMovementComponent4W>(VehicleMovementComponentName);

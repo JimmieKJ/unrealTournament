@@ -131,7 +131,7 @@ private:
 	{
 		FString ClaimUser = DeviceService->GetClaimUser();
 
-		if ((ClaimUser == FPlatformProcess::UserName(true)) && !DeviceService->IsRunning())
+		if ((ClaimUser == FPlatformProcess::UserName(false)) && !DeviceService->IsRunning())
 		{
 			ClaimUser += LOCTEXT("RemotelyHint", " (remotely)").ToString();
 		}

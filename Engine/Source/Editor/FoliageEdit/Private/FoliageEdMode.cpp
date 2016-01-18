@@ -55,27 +55,8 @@ FFoliageMeshUIInfo::FFoliageMeshUIInfo(UFoliageType* InSettings)
 FText FFoliageMeshUIInfo::GetNameText() const
 {
 	//@todo: this is redundant with FFoliagePaletteItem::DisplayFName, should probably move sorting implementation over to SFoliagePalette
-	const UFoliageType* FoliageType = Settings;
-	if (FoliageType->IsAsset())
-	{
-		return FText::FromName(FoliageType->GetFName());
-	}
-	else if (UBlueprint* Blueprint = Cast<UBlueprint>(FoliageType->GetClass()->ClassGeneratedBy))
-	{
-		return FText::FromName(Blueprint->GetFName());
-	}
-	else
-	{
-		UStaticMesh* Mesh = FoliageType->GetStaticMesh();
-		if (Mesh)
-		{
-			return FText::FromName(Mesh->GetFName());
-		}
-		else
-		{
-			return LOCTEXT("EmptyMeshName", "[Empty Mesh]");
-		}
-	}
+	FName DisplayFName = Settings->GetDisplayFName();
+	return FText::FromName(DisplayFName);
 }
 
 //
@@ -156,6 +137,41 @@ public:
 	FORCEINLINE AInstancedFoliageActor* GetActor()
 	{
 		return CurrentIFA;
+	}
+};
+
+//
+// Painting filtering options
+//
+struct FFoliagePaintingGeometryFilter
+{
+	bool bAllowLandscape;
+	bool bAllowStaticMesh;
+	bool bAllowBSP;
+	bool bAllowTranslucent;
+
+	FFoliagePaintingGeometryFilter(const FFoliageUISettings& InUISettings)
+		: bAllowLandscape(InUISettings.bFilterLandscape)
+		, bAllowStaticMesh(InUISettings.bFilterStaticMesh)
+		, bAllowBSP(InUISettings.bFilterBSP)
+		, bAllowTranslucent(InUISettings.bFilterTranslucent)
+	{
+	}
+
+	bool operator() (const UPrimitiveComponent* Component) const
+	{
+		if (Component)
+		{
+			bool bShallNotPass = 
+				(!bAllowLandscape	&& Component->IsA(ULandscapeHeightfieldCollisionComponent::StaticClass())) ||
+				(!bAllowStaticMesh	&& Component->IsA(UStaticMeshComponent::StaticClass())) ||
+				(!bAllowBSP			&& Component->IsA(UModelComponent::StaticClass())) ||
+				(!bAllowTranslucent	&& Component->GetMaterial(0) && IsTranslucentBlendMode(Component->GetMaterial(0)->GetBlendMode()));
+			
+			return !bShallNotPass;
+		}
+		
+		return false;		
 	}
 };
 
@@ -601,18 +617,11 @@ void FEdModeFoliage::FoliageBrushTrace(FEditorViewportClient* ViewportClient, in
 			FHitResult Hit;
 			UWorld* World = ViewportClient->GetWorld();
 			static FName NAME_FoliageBrush = FName(TEXT("FoliageBrush"));
-			if (AInstancedFoliageActor::FoliageTrace(World, Hit, FDesiredFoliageInstance(Start, End), NAME_FoliageBrush))
+			FFoliagePaintingGeometryFilter FilterFunc = FFoliagePaintingGeometryFilter(UISettings);
+			if (AInstancedFoliageActor::FoliageTrace(World, Hit, FDesiredFoliageInstance(Start, End), NAME_FoliageBrush, false, FilterFunc))
 			{
-				// Check filters
 				UPrimitiveComponent* PrimComp = Hit.Component.Get();
-				UMaterialInterface* Material = PrimComp ? PrimComp->GetMaterial(0) : nullptr;
-
-				if (PrimComp &&
-					(UISettings.bFilterLandscape || !PrimComp->IsA(ULandscapeHeightfieldCollisionComponent::StaticClass())) &&
-					(UISettings.bFilterStaticMesh || !PrimComp->IsA(UStaticMeshComponent::StaticClass())) &&
-					(UISettings.bFilterBSP || !PrimComp->IsA(UModelComponent::StaticClass())) &&
-					(UISettings.bFilterTranslucent || !Material || !IsTranslucentBlendMode(Material->GetBlendMode())) &&
-					(CanPaint(PrimComp->GetComponentLevel())))
+				if (CanPaint(PrimComp->GetComponentLevel()))
 				{
 					if (!bAdjustBrushRadius)
 					{
@@ -678,6 +687,13 @@ void FEdModeFoliage::GetRandomVectorInBrush(FVector& OutStart, FVector& OutEnd)
 	OutEnd		= BrushLocation + UISettings.GetRadius() * (Point + Rw);
 }
 
+static bool IsWithinSlopeAngle(float NormalZ, float MinAngle, float MaxAngle, float Tolerance = SMALL_NUMBER)
+{
+	const float MaxNormalAngle = FMath::Cos(FMath::DegreesToRadians(MaxAngle));
+	const float MinNormalAngle = FMath::Cos(FMath::DegreesToRadians(MinAngle));
+	return !(MaxNormalAngle > (NormalZ+Tolerance) || MinNormalAngle < (NormalZ-Tolerance));
+}
+
 /** This does not check for overlaps or density */
 static bool CheckLocationForPotentialInstance_ThreadSafe(const UFoliageType* Settings, const FVector& Location, const FVector& Normal)
 {
@@ -688,14 +704,8 @@ static bool CheckLocationForPotentialInstance_ThreadSafe(const UFoliageType* Set
 	}
 
 	// Check slope
-	const float MaxNormalAngle = FMath::Cos(FMath::DegreesToRadians(Settings->GroundSlopeAngle.Max));
-	const float MinNormalAngle = FMath::Cos(FMath::DegreesToRadians(Settings->GroundSlopeAngle.Min));
-	if (MaxNormalAngle > Normal.Z || MinNormalAngle < Normal.Z)	//keep in mind Hit.ImpactNormal.Z is (0,0,1) dot normal. However, ground slope is with relation to plane vector, not plane normal - so we swap comparisons
-	{
-		return false;
-	}
-
-	return true;
+	// ImpactNormal sometimes is slightly non-normalized, so compare slope with some little deviation
+	return IsWithinSlopeAngle(Normal.Z, Settings->GroundSlopeAngle.Min, Settings->GroundSlopeAngle.Max, SMALL_NUMBER);
 }
 
 static bool CheckForOverlappingSphere(AInstancedFoliageActor* IFA, const UFoliageType* Settings, const FSphere& Sphere)
@@ -842,31 +852,6 @@ bool FilterByWeight(float Weight, const UFoliageType* Settings)
 	return Weight < FMath::Max(SMALL_NUMBER, WeightNeeded);
 }
 
-bool GeometryFilterCheck(const FHitResult& Hit, const UWorld* InWorld, const FDesiredFoliageInstance& DesiredInst, const FFoliageUISettings* UISettings)
-{
-	if (UPrimitiveComponent* PrimComp = Hit.Component.Get())
-	{
-		if (DesiredInst.PlacementMode == EFoliagePlacementMode::Manual)
-		{
-			UMaterialInterface* Material = PrimComp ? PrimComp->GetMaterial(0) : nullptr;
-			if ((!UISettings->bFilterLandscape && PrimComp->IsA(ULandscapeHeightfieldCollisionComponent::StaticClass())) ||
-				(!UISettings->bFilterStaticMesh && PrimComp->IsA(UStaticMeshComponent::StaticClass())) ||
-				(!UISettings->bFilterBSP && PrimComp->IsA(UModelComponent::StaticClass())) ||
-				(!UISettings->bFilterTranslucent && Material && IsTranslucentBlendMode(Material->GetBlendMode()))
-				)
-			{
-				return false;
-			}
-		}
-	}
-	else
-	{
-		return false;
-	}
-
-	return true;
-}
-
 bool FEdModeFoliage::VertexMaskCheck(const FHitResult& Hit, const UFoliageType* Settings)
 {
 	if (Settings->VertexColorMask != FOLIAGEVERTEXCOLORMASK_Disabled && Hit.FaceIndex != INDEX_NONE)
@@ -918,11 +903,18 @@ void FEdModeFoliage::CalculatePotentialInstances_ThreadSafe(const UWorld* InWorl
 		const FDesiredFoliageInstance& DesiredInst = (*DesiredInstances)[InstanceIdx];
 		FHitResult Hit;
 		static FName NAME_AddFoliageInstances = FName(TEXT("AddFoliageInstances"));
-		if (AInstancedFoliageActor::FoliageTrace(InWorld, Hit, DesiredInst, NAME_AddFoliageInstances, true))
+		
+		FFoliageTraceFilterFunc TraceFilterFunc;
+		if (DesiredInst.PlacementMode == EFoliagePlacementMode::Manual && UISettings != nullptr)
+		{
+			// Enable geometry filters when painting foliage manually
+			TraceFilterFunc = FFoliagePaintingGeometryFilter(*UISettings);
+		}
+		
+		if (AInstancedFoliageActor::FoliageTrace(InWorld, Hit, DesiredInst, NAME_AddFoliageInstances, true, TraceFilterFunc))
 		{
 			float HitWeight = 1.f;
-			const bool bValidInstance = GeometryFilterCheck(Hit, InWorld, DesiredInst, UISettings)
-										&& CheckLocationForPotentialInstance_ThreadSafe(Settings, Hit.ImpactPoint, Hit.ImpactNormal)
+			const bool bValidInstance = CheckLocationForPotentialInstance_ThreadSafe(Settings, Hit.ImpactPoint, Hit.ImpactNormal)
 										&& VertexMaskCheck(Hit, Settings)
 										&& LandscapeLayerCheck(Hit, Settings, LocalCache, HitWeight);
 
@@ -954,9 +946,16 @@ void FEdModeFoliage::CalculatePotentialInstances(const UWorld* InWorld, const UF
 
 	for (const FDesiredFoliageInstance& DesiredInst : DesiredInstances)
 	{
+		FFoliageTraceFilterFunc TraceFilterFunc;
+		if (DesiredInst.PlacementMode == EFoliagePlacementMode::Manual && UISettings != nullptr)
+		{
+			// Enable geometry filters when painting foliage manually
+			TraceFilterFunc = FFoliagePaintingGeometryFilter(*UISettings);
+		}
+				
 		FHitResult Hit;
 		static FName NAME_AddFoliageInstances = FName(TEXT("AddFoliageInstances"));
-		if (AInstancedFoliageActor::FoliageTrace(InWorld, Hit, DesiredInst, NAME_AddFoliageInstances, true))
+		if (AInstancedFoliageActor::FoliageTrace(InWorld, Hit, DesiredInst, NAME_AddFoliageInstances, true, TraceFilterFunc))
 		{
 			float HitWeight = 1.f;
 
@@ -966,11 +965,6 @@ void FEdModeFoliage::CalculatePotentialInstances(const UWorld* InWorld, const UF
 			ULevel* TargetLevel = InstanceBase->GetComponentLevel();
 			// We can paint into new level only if FoliageType is shared
 			if (!CanPaint(Settings, TargetLevel))
-			{
-				continue;
-			}
-
-			if (!GeometryFilterCheck(Hit, InWorld, DesiredInst, UISettings))
 			{
 				continue;
 			}
@@ -1165,21 +1159,17 @@ void FEdModeFoliage::RemoveInstancesForBrush(UWorld* InWorld, const UFoliageType
 
 		if (!UISettings.bFilterLandscape || !UISettings.bFilterStaticMesh || !UISettings.bFilterBSP || !UISettings.bFilterTranslucent)
 		{
+			FFoliagePaintingGeometryFilter GeometryFilterFunc(UISettings);
+			
 			// Filter PotentialInstancesToRemove
 			for (int32 Idx = 0; Idx < PotentialInstancesToRemove.Num(); Idx++)
 			{
 				auto BaseId = MeshInfo->Instances[PotentialInstancesToRemove[Idx]].BaseId;
 				auto BasePtr = IFA->InstanceBaseCache.GetInstanceBasePtr(BaseId);
 				UPrimitiveComponent* Base = Cast<UPrimitiveComponent>(BasePtr.Get());
-				UMaterialInterface* Material = Base ? Base->GetMaterial(0) : nullptr;
 
 				// Check if instance is candidate for removal based on filter settings
-				if (Base && (
-					(!UISettings.bFilterLandscape && Base->IsA(ULandscapeHeightfieldCollisionComponent::StaticClass())) ||
-					(!UISettings.bFilterStaticMesh && Base->IsA(UStaticMeshComponent::StaticClass())) ||
-					(!UISettings.bFilterBSP && Base->IsA(UModelComponent::StaticClass())) ||
-					(!UISettings.bFilterTranslucent && Material && IsTranslucentBlendMode(Material->GetBlendMode()))
-					))
+				if (Base && !GeometryFilterFunc(Base))
 				{
 					// Instance should not be removed, so remove it from the removal list.
 					PotentialInstancesToRemove.RemoveAtSwap(Idx);
@@ -1677,9 +1667,7 @@ void FEdModeFoliage::ReapplyInstancesForBrush(UWorld* InWorld, AInstancedFoliage
 					// Cull instances that don't meet the ground slope check.
 					if (Settings->ReapplyGroundSlope)
 					{
-						const float MaxNormalAngle = FMath::Cos(FMath::DegreesToRadians(Settings->GroundSlopeAngle.Max));
-						const float MinNormalAngle = FMath::Cos(FMath::DegreesToRadians(Settings->GroundSlopeAngle.Min));
-						if (MaxNormalAngle > Hit.Normal.Z || MinNormalAngle < Hit.Normal.Z)
+						if (!IsWithinSlopeAngle(Hit.Normal.Z, Settings->GroundSlopeAngle.Min, Settings->GroundSlopeAngle.Max))
 						{
 							InstancesToDelete.Add(InstanceIndex);
 							if (bReapplyLocation)
@@ -1977,7 +1965,7 @@ struct FFoliagePaintBucketTriangle
 			y = 1.f - y;
 		}
 
-		OutBaryVertexColor = (1.f - x - y) * VertexColor[0] + x * VertexColor[1] + y * VertexColor[2];
+		OutBaryVertexColor = ( ( 1.f - x - y ) * VertexColor[0] + x * VertexColor[1] + y * VertexColor[2] ).ToFColor(true);
 		OutPoint = Vertex + x * Vector1 + y * Vector2;
 	}
 
@@ -2129,9 +2117,7 @@ void FEdModeFoliage::ApplyPaintBucket_Add(AActor* Actor)
 				FFoliagePaintBucketTriangle& Triangle = PotentialTriangles[TriIdx];
 
 				// Check if we can reject this triangle based on normal.
-				const float MaxNormalAngle = FMath::Cos(FMath::DegreesToRadians(Settings->GroundSlopeAngle.Max));
-				const float MinNormalAngle = FMath::Cos(FMath::DegreesToRadians(Settings->GroundSlopeAngle.Min));
-				if (Triangle.WorldNormal.Z < MaxNormalAngle || Triangle.WorldNormal.Z > MinNormalAngle)
+				if (!IsWithinSlopeAngle(Triangle.WorldNormal.Z, Settings->GroundSlopeAngle.Min, Settings->GroundSlopeAngle.Max))
 				{
 					continue;
 				}
@@ -2673,7 +2659,7 @@ UFoliageType* FEdModeFoliage::CopySettingsObject(UFoliageType* Settings)
 	TUniqueObj<FFoliageMeshInfo> MeshInfo;
 	if (IFA->FoliageMeshes.RemoveAndCopyValue(Settings, MeshInfo))
 	{
-		Settings = (UFoliageType*)StaticDuplicateObject(Settings, IFA, nullptr, RF_AllFlags & ~(RF_Standalone | RF_Public));
+		Settings = (UFoliageType*)StaticDuplicateObject(Settings, IFA, NAME_None, RF_AllFlags & ~(RF_Standalone | RF_Public));
 		IFA->FoliageMeshes.Add(Settings, MoveTemp(MeshInfo));
 		return Settings;
 	}

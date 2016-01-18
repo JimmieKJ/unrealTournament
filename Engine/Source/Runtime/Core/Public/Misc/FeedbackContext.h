@@ -5,11 +5,11 @@
 #include "UniquePtr.h"
 
 
-struct FScopedSlowTask;
+struct FSlowTask;
 
 
 /** A stack of feedback scopes */
-struct FScopedSlowTaskStack : TArray<FScopedSlowTask*>
+struct FSlowTaskStack : TArray<FSlowTask*>
 {
 	/** Get the fraction of work that has been completed for the specified index in the stack (0=total progress) */
 	CORE_API float GetProgressFraction(int32 Index) const;
@@ -29,7 +29,7 @@ public:
 	virtual bool ReceivedUserCancel() { return false; };
 	
 	/** Public const access to the current state of the scope stack */
-	FORCEINLINE const FScopedSlowTaskStack& GetScopeStack() const
+	FORCEINLINE const FSlowTaskStack& GetScopeStack() const
 	{
 		return *ScopeStack;
 	}
@@ -82,8 +82,10 @@ public:
 
 	FFeedbackContext()
 		: TreatWarningsAsErrors(0)
-		, ScopeStack(MakeShareable(new FScopedSlowTaskStack))
+		, ScopeStack(MakeShareable(new FSlowTaskStack))
 	{}
+
+	virtual ~FFeedbackContext();
 
 private:
 	FFeedbackContext(const FFeedbackContext&);
@@ -91,11 +93,11 @@ private:
 
 protected:
 	
-	friend FScopedSlowTask;
+	friend FSlowTask;
 
 	/** Stack of pointers to feedback scopes that are currently open */
-	TSharedRef<FScopedSlowTaskStack> ScopeStack;
-	TArray<TUniquePtr<FScopedSlowTask>> LegacyAPIScopes;
+	TSharedRef<FSlowTaskStack> ScopeStack;
+	TArray<TUniquePtr<FSlowTask>> LegacyAPIScopes;
 
 	/** Ask that the UI be updated as a result of the scope stack changing */
 	void RequestUpdateUI(bool bForceUpdate = false);
@@ -103,6 +105,191 @@ protected:
 	/** Update the UI as a result of the scope stack changing */
 	void UpdateUI();
 
+};
+
+/** Enum to specify a particular slow task section should be shown */
+enum class ESlowTaskVisibility
+{
+	/** Default visibility (inferred by some heuristic of remaining work/time open) */
+	Default,
+	/** Force this particular slow task to be visible on the UI */
+	ForceVisible,
+	/** Forcibly prevent this slow task from being shown, but still use it for work progress calculations */
+	Invisible,
+};
+
+/**
+ * Data type used to store information about a currently running slow task. Direct use is not advised, use FScopedSlowTask instead
+ */
+struct CORE_API FSlowTask
+{
+	/** Default message to display to the user when not overridden by a frame */
+	FText DefaultMessage;
+
+	/** Message pertaining to the current frame's work */
+	FText FrameMessage;
+
+	/** The amount of work to do in this scope */
+	float TotalAmountOfWork;
+
+	/** The amount of work we have already completed in this scope */
+	float CompletedWork;
+
+	/** The amount of work the current frame is responsible for */
+	float CurrentFrameScope;
+
+	/** The visibility of this slow task */
+	ESlowTaskVisibility Visibility;
+
+	/** The time that this scope was created */
+	double StartTime;
+
+	/** Threshold before dialog is opened */
+	TOptional<float> OpenDialogThreshold;
+
+private:
+
+	/** Boolean flag to control whether this scope actually does anything (unset for quiet operations etc) */
+	bool bEnabled;
+
+	/** Flag that specifies whether this feedback scope created a new slow task dialog */
+	bool bCreatedDialog;
+	
+	/** The feedback context that we belong to */
+	FFeedbackContext& Context;
+
+	/** Specify whether the delayed dialog should show a cancel button */
+	bool bDelayedDialogShowCancelButton : 1;
+
+	/** Specify whether the delayed dialog is allowed in PIE */
+	bool bDelayedDialogAllowInPIE : 1;
+
+	/** Prevent copying */
+	FSlowTask(const FSlowTask&);
+
+public:
+
+	/**
+	 * Construct this scope from an amount of work to do, and a message to display
+	 * @param		InAmountOfWork			Arbitrary number of work units to perform (can be a percentage or number of steps).
+	 *										0 indicates that no progress frames are to be entered in this scope (automatically enters a frame encompassing the entire scope)
+	 * @param		InDefaultMessage		A message to display to the user to describe the purpose of the scope
+	 * @param		bInVisible				When false, this scope will have no effect. Allows for proper scoped objects that are conditionally hidden.
+	 */
+	FORCEINLINE FSlowTask(float InAmountOfWork, const FText& InDefaultMessage = FText(), bool bInEnabled = true, FFeedbackContext& InContext = *GWarn)
+		: DefaultMessage(InDefaultMessage)
+		, FrameMessage()
+		, TotalAmountOfWork(InAmountOfWork)
+		, CompletedWork(0)
+		, CurrentFrameScope(0)
+		, Visibility(ESlowTaskVisibility::Default)
+		, StartTime(FPlatformTime::Seconds())
+		, bEnabled(bInEnabled && IsInGameThread())
+		, bCreatedDialog(false)		// only set to true if we create a dialog
+		, Context(InContext)
+	{
+		// If we have no work to do ourselves, create an arbitrary scope so that any actions performed underneath this still contribute to this one.
+		if (TotalAmountOfWork == 0.f)
+		{
+			TotalAmountOfWork = CurrentFrameScope = 1.f;
+		}
+	}
+
+	/** Function that initializes the scope by adding it to its context's stack */
+	FORCEINLINE void Initialize()
+	{
+		if (bEnabled)
+		{
+			Context.ScopeStack->Push(this);
+		}
+	}
+
+	/** Function that finishes any remaining work and removes itself from the global scope stack */
+	FORCEINLINE void Destroy()
+	{
+		if (bEnabled)
+		{
+			if (bCreatedDialog)
+			{
+				checkSlow(GIsSlowTask);
+				Context.FinalizeSlowTask();
+			}
+
+			FSlowTaskStack& Stack = *Context.ScopeStack;
+			checkSlow(Stack.Num() != 0 && Stack.Last() == this);
+
+			auto* Task = Stack.Last();
+			if (ensureMsgf(Task == this, TEXT("Out-of-order scoped task construction/destruction")))
+			{
+				Stack.Pop(false);
+			}
+			else
+			{
+				Stack.RemoveSingleSwap(this, false);
+			}
+
+			if (Stack.Num() != 0)
+			{
+				// Stop anything else contributing to the parent frame
+				auto* Parent = Stack.Last();
+				Parent->EnterProgressFrame(0, Parent->FrameMessage);
+			}
+
+		}
+	}
+
+	/**
+	 * Creates a new dialog for this slow task after the given time threshold. If the task completes before this time, no dialog will be shown.
+	 * @param		Threshold				Time in seconds before dialog will be shown.
+	 * @param		bShowCancelButton		Whether to show a cancel button on the dialog or not
+	 * @param		bAllowInPIE				Whether to allow this dialog in PIE. If false, this dialog will not appear during PIE sessions.
+	 */
+	FORCEINLINE void MakeDialogDelayed(float Threshold, bool bShowCancelButton = false, bool bAllowInPIE = false)
+	{
+		OpenDialogThreshold = Threshold;
+		bDelayedDialogShowCancelButton = bShowCancelButton;
+		bDelayedDialogAllowInPIE = bAllowInPIE;
+	}
+
+	/**
+	 * Creates a new dialog for this slow task, if there is currently not one open
+	 * @param		bShowCancelButton		Whether to show a cancel button on the dialog or not
+	 * @param		bAllowInPIE				Whether to allow this dialog in PIE. If false, this dialog will not appear during PIE sessions.
+	 */
+	void MakeDialog(bool bShowCancelButton = false, bool bAllowInPIE = false);
+
+	/**
+	 * Indicate that we are to enter a frame that will take up the specified amount of work. Completes any previous frames (potentially contributing to parent scopes' progress).
+	 * @param		ExpectedWorkThisFrame	The amount of work that will happen between now and the next frame, as a numerator of TotalAmountOfWork.
+	 * @param		Text					Optional text to describe this frame's purpose.
+	 */
+	FORCEINLINE void EnterProgressFrame(float ExpectedWorkThisFrame = 1.f, FText Text = FText())
+	{
+		FrameMessage = Text;
+		CompletedWork += CurrentFrameScope;
+
+		const float WorkRemaining = TotalAmountOfWork - CompletedWork;
+		ensureMsgf(ExpectedWorkThisFrame <= WorkRemaining, TEXT("Work overflow in slow task. Please revise call-site to account for entire progress range."));
+		CurrentFrameScope = FMath::Min(WorkRemaining, ExpectedWorkThisFrame);
+
+		if (!bCreatedDialog && OpenDialogThreshold.IsSet() && static_cast<float>(FPlatformTime::Seconds() - StartTime) > OpenDialogThreshold.GetValue())
+		{
+			MakeDialog(bDelayedDialogShowCancelButton, bDelayedDialogAllowInPIE);
+		}
+
+		if (bEnabled)
+		{
+			Context.RequestUpdateUI(bCreatedDialog || (*Context.ScopeStack)[0] == this);
+		}
+	}
+
+	/**
+	 * Get the frame message or default message if empty
+	 */
+	FText GetCurrentMessage() const
+	{
+		return FrameMessage.IsEmpty() ? DefaultMessage : FrameMessage;
+	}
 };
 
 
@@ -128,151 +315,24 @@ protected:
  *	}
  *
  */
-struct CORE_API FScopedSlowTask
+struct FScopedSlowTask : FSlowTask
 {
-	/** Default message to display to the user when not overridden by a frame */
-	FText DefaultMessage;
-
-	/** Message pertaining to the current frame's work */
-	FText FrameMessage;
-
-	/** The amount of work to do in this scope */
-	float TotalAmountOfWork;
-
-	/** The amount of work we have already completed in this scope */
-	float CompletedWork;
-
-	/** The amount of work the current frame is responsible for */
-	float CurrentFrameScope;
-
-	/** true if this scope should be presented to the user */
-	bool bVisibleOnUI;
-
-	/** The time that this scope was created */
-	double StartTime;
-
-private:
-
-	/** Boolean flag to control whether this scope actually does anything (unset for quiet operations etc) */
-	bool bEnabled;
-
-	/** Flag that specifies whether this feedback scope created a new slow task dialog */
-	bool bCreatedDialog;
-	
-	/** The feedback context that we belong to */
-	FFeedbackContext& Context;
-
-	/** Prevent copying */
-	FScopedSlowTask(const FScopedSlowTask&);
-
-public:
 
 	/**
 	 * Construct this scope from an amount of work to do, and a message to display
 	 * @param		InAmountOfWork			Arbitrary number of work units to perform (can be a percentage or number of steps).
 	 *										0 indicates that no progress frames are to be entered in this scope (automatically enters a frame encompassing the entire scope)
 	 * @param		InDefaultMessage		A message to display to the user to describe the purpose of the scope
-	 * @param		bInVisible				When false, this scope will have no effect. Allows for proper scoped objects that are conditionally hidden.
+	 * @param		bInEnabled				When false, this scope will have no effect. Allows for proper scoped objects that are conditionally disabled.
 	 */
 	FORCEINLINE FScopedSlowTask(float InAmountOfWork, const FText& InDefaultMessage = FText(), bool bInEnabled = true, FFeedbackContext& InContext = *GWarn)
-		: DefaultMessage(InDefaultMessage)
-		, FrameMessage()
-		, TotalAmountOfWork(InAmountOfWork)
-		, CompletedWork(0)
-		, CurrentFrameScope(0)
-		, bVisibleOnUI(true)
-		, StartTime(FPlatformTime::Seconds())
-		, bEnabled(bInEnabled && IsInGameThread())
-		, bCreatedDialog(false)		// only set to true if we create a dialog
-		, Context(InContext)
+		: FSlowTask(InAmountOfWork, InDefaultMessage, bInEnabled, InContext)
 	{
-		// If we have no work to do ourselves, create an arbitrary scope so that any actions performed underneath this still contribute to this one.
-		if (TotalAmountOfWork == 0.f)
-		{
-			TotalAmountOfWork = CurrentFrameScope = 1.f;
-		}
-
-		if (bEnabled)
-		{
-			Context.ScopeStack->Push(this);
-		}
+		Initialize();
 	}
 
-	/** Destructor that finishes any remaining work and removes itself from the global scope stack */
 	FORCEINLINE ~FScopedSlowTask()
 	{
-		if (bEnabled)
-		{
-			if (bCreatedDialog)
-			{
-				checkSlow(GIsSlowTask);
-				Context.FinalizeSlowTask();
-			}
-
-			FScopedSlowTaskStack& Stack = *Context.ScopeStack;
-			checkSlow(Stack.Num() != 0 && Stack.Last() == this);
-
-			auto* Task = Stack.Last();
-			if (ensureMsg(Task == this, TEXT("Out-of-order scoped task construction/destruction")))
-			{
-				Stack.Pop(false);
-			}
-			else
-			{
-				Stack.RemoveSingleSwap(this, false);
-			}
-
-			if (Stack.Num() != 0)
-			{
-				// Stop anything else contributing to the parent frame
-				auto* Parent = Stack.Last();
-				Parent->EnterProgressFrame(0, Parent->FrameMessage);
-			}
-
-		}
-	}
-
-	/**
-	 * Creates a new dialog for this slow task, if there is currently not one open
-	 * @param		bShowCancelButton		Whether to show a cancel button on the dialog or not
-	 * @param		bAllowInPIE				Whether to allow this dialog in PIE. If false, this dialog will not appear during PIE sessions.
-	 */
-	void MakeDialog(bool bShowCancelButton = false, bool bAllowInPIE = false);
-
-	/**
-	 * Indicate that we are to enter a frame that will take up the specified amount of work. Completes any previous frames (potentially contributing to parent scopes' progress).
-	 * @param		ExpectedWorkThisFrame	The amount of work that will happen between now and the next frame, as a numerator of TotalAmountOfWork.
-	 * @param		Text					Optional text to describe this frame's purpose.
-	 */
-	FORCEINLINE void EnterProgressFrame(float ExpectedWorkThisFrame = 1.f, FText Text = FText())
-	{
-		FrameMessage = Text;
-		CompletedWork += CurrentFrameScope;
-
-		const float WorkRemaining = TotalAmountOfWork - CompletedWork;
-		verifySlow(ExpectedWorkThisFrame <= WorkRemaining);
-		CurrentFrameScope = FMath::Min(WorkRemaining, ExpectedWorkThisFrame);
-
-		if (bEnabled)
-		{
-			Context.RequestUpdateUI(bCreatedDialog || (*Context.ScopeStack)[0] == this);
-		}
-	}
-
-	/**
-	 * Get the frame message or default message if empty
-	 */
-	FText GetCurrentMessage() const
-	{
-		return FrameMessage.IsEmpty() ? DefaultMessage : FrameMessage;
-	}
-
-	/**
-	 * Return whether or not this scope should be presented to the user on slow task dialogs
-	 */
-	bool IsPresentableToUser() const
-	{
-		// For now we only show scopes that attempted to open a slow task dialog
-		return bVisibleOnUI;
+		Destroy();
 	}
 };

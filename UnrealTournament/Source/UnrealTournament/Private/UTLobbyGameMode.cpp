@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "GameFramework/GameMode.h"
@@ -53,18 +53,18 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 		}
 	}
 
-	MinPlayersToStart = FMath::Max(1, GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
+	MinPlayersToStart = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	// I should move this code up in to UTBaseGameMode and probably will (the code hooks are all there) but
 	// for right now I want to limit this to just Lobbies.
 
-	MinAllowedRank = FMath::Max(0, GetIntOption( Options, TEXT("MinAllowedRank"), MinAllowedRank));
+	MinAllowedRank = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("MinAllowedRank"), MinAllowedRank));
 	if (MinAllowedRank > 0)
 	{
 		UE_LOG(UT,Log,TEXT("  Minimum Allowed ELO Rank is: %i"), MinAllowedRank)
 	}
 
-	MaxAllowedRank = FMath::Max(0, GetIntOption( Options, TEXT("MaxAllowedRank"), MaxAllowedRank));
+	MaxAllowedRank = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("MaxAllowedRank"), MaxAllowedRank));
 	if (MaxAllowedRank > 0)
 	{
 		UE_LOG(UT,Log,TEXT("  Maximum Allowed ELO Rank is: %i"), MaxAllowedRank)
@@ -155,35 +155,34 @@ void AUTLobbyGameMode::OverridePlayerState(APlayerController* PC, APlayerState* 
 	}
 }
 
-FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
-	
 	AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(NewPlayerController->PlayerState);
 
 	if (PS)
 	{	
-		FString QuickStartOption = ParseOption(Options, TEXT("QuickStart"));
+		FString QuickStartOption = UGameplayStatics::ParseOption(Options, TEXT("QuickStart"));
 
 		if ( QuickStartOption != TEXT("") )
 		{
 			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? EEpicDefaultRuleTags::CTF : EEpicDefaultRuleTags::Deathmatch;
 		}
 
-		FString MatchId = ParseOption(Options, TEXT("MatchId"));
-		if (!MatchId.IsEmpty())
+		FString InstanceID = UGameplayStatics::ParseOption(Options,"Session");
+		if (!InstanceID.IsEmpty())
 		{
-			PS->DesiredMatchIdToJoin = MatchId;
-			
-			if (GetIntOption(Options, TEXT("SpectatorOnly"), 0) > 0)
-			{
-				PS->DesiredTeamNum=255;
-			}
+			// Can't use the playerstate's version here because it hasn't been set yet.
+			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+			UTLobbyGameState->AttemptDirectJoin(PS, InstanceID, bSpectator);
 		}
 
-		PS->bReturnedFromMatch = HasOption(Options,"RTM");
+		FString FriendId = UGameplayStatics::ParseOption(Options, TEXT("Friend"));
+		if (!FriendId.IsEmpty())
+		{
+			PS->DesiredFriendToJoin = FriendId;
+		}
 	}
-
 
 	return Result;
 }
@@ -254,11 +253,11 @@ FName AUTLobbyGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FNam
 	return ChatDestinations::Global;
 }
 
-void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	if (MinAllowedRank > 0 || MaxAllowedRank > 0)
 	{
-		int32 PendingRank = GetIntOption(Options, TEXT("Rank"), 0);
+		int32 PendingRank = UGameplayStatics::GetIntOption(Options, TEXT("Rank"), 0);
 		if (MinAllowedRank > 0 && PendingRank < MinAllowedRank)
 		{
 			ErrorMessage = TEXT("TOOWEAK");
@@ -290,11 +289,11 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 				if (MatchInfo->bDedicatedMatch)
 				{
 					FString Map = FString::Printf(TEXT("%s (%s)"), *MatchInfo->InitialMap, *MatchInfo->DedicatedServerGameMode);
-					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, TEXT(""), Map, MatchInfo->DedicatedServerMaxPlayers, MatchInfo->GetMatchFlags(), 1500, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, TEXT(""), false);
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, TEXT(""), Map, MatchInfo->DedicatedServerMaxPlayers, MatchInfo->GetMatchFlags(), 1500, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, false);
 				}
 				else
 				{
-					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, MatchInfo->CurrentRuleset->UniqueTag, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), MatchInfo->CurrentRuleset->MaxPlayers, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, TEXT(""), MatchInfo->bQuickPlayMatch);
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, MatchInfo->CurrentRuleset->UniqueTag, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), MatchInfo->CurrentRuleset->MaxPlayers, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, MatchInfo->bQuickPlayMatch);
 				}
 
 				Data->MatchData = MatchInfo->MatchUpdate;
@@ -359,12 +358,6 @@ void AUTLobbyGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerContr
 {
 	PlayerState->Destroy();
 	return;
-}
-
-bool AUTLobbyGameMode::IsHandlingReplays()
-{
-	// No replays for HUB
-	return false;
 }
 
 void AUTLobbyGameMode::DefaultTimer()

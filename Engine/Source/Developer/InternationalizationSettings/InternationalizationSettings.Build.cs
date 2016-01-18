@@ -17,14 +17,22 @@ namespace UnrealBuildTool.Rules
 				    "EditorStyle",
 				    "PropertyEditor",
 				    "SharedSettingsWidgets",
+                    "Localization",
                 }
             );
 
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
 					"Settings",
+                    "SettingsEditor"
 				}
 			);
+
+            DynamicallyLoadedModuleNames.AddRange(
+                new string[] {
+				    "SettingsEditor"
+                }
+            );
 		}
 	}
 }

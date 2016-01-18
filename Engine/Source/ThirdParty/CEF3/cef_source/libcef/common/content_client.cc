@@ -1,0 +1,360 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "libcef/common/content_client.h"
+#include "include/cef_stream.h"
+#include "include/cef_version.h"
+#include "libcef/browser/content_browser_client.h"
+#include "libcef/common/cef_switches.h"
+#include "libcef/common/scheme_registrar_impl.h"
+#include "libcef/common/scheme_registration.h"
+
+#include "base/command_line.h"
+#include "base/logging.h"
+#include "base/path_service.h"
+#include "base/files/file_util.h"
+#include "base/json/json_reader.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
+#include "chrome/common/chrome_constants.h"
+#include "chrome/common/chrome_paths.h"
+#include "chrome/common/chrome_switches.h"
+#include "chrome/common/pepper_flash.h"
+#include "content/public/common/content_constants.h"
+#include "content/public/common/content_switches.h"
+#include "content/public/common/pepper_plugin_info.h"
+#include "content/public/common/user_agent.h"
+#include "ui/base/resource/resource_bundle.h"
+
+
+namespace {
+
+CefContentClient* g_content_client = NULL;
+
+// The following Flash-related methods are from
+// chrome/common/chrome_content_client.cc
+
+content::PepperPluginInfo CreatePepperFlashInfo(const base::FilePath& path,
+                                                const std::string& version) {
+  content::PepperPluginInfo plugin;
+
+  plugin.is_out_of_process = true;
+  plugin.name = content::kFlashPluginName;
+  plugin.path = path;
+  plugin.permissions = chrome::kPepperFlashPermissions;
+
+  std::vector<std::string> flash_version_numbers;
+  base::SplitString(version, '.', &flash_version_numbers);
+  if (flash_version_numbers.size() < 1)
+    flash_version_numbers.push_back("11");
+  // |SplitString()| puts in an empty string given an empty string. :(
+  else if (flash_version_numbers[0].empty())
+    flash_version_numbers[0] = "11";
+  if (flash_version_numbers.size() < 2)
+    flash_version_numbers.push_back("2");
+  if (flash_version_numbers.size() < 3)
+    flash_version_numbers.push_back("999");
+  if (flash_version_numbers.size() < 4)
+    flash_version_numbers.push_back("999");
+  // E.g., "Shockwave Flash 10.2 r154":
+  plugin.description = plugin.name + " " + flash_version_numbers[0] + "." +
+      flash_version_numbers[1] + " r" + flash_version_numbers[2];
+  plugin.version = JoinString(flash_version_numbers, '.');
+  content::WebPluginMimeType swf_mime_type(content::kFlashPluginSwfMimeType,
+                                           content::kFlashPluginSwfExtension,
+                                           content::kFlashPluginSwfDescription);
+  plugin.mime_types.push_back(swf_mime_type);
+  content::WebPluginMimeType spl_mime_type(content::kFlashPluginSplMimeType,
+                                           content::kFlashPluginSplExtension,
+                                           content::kFlashPluginSplDescription);
+  plugin.mime_types.push_back(spl_mime_type);
+
+  return plugin;
+}
+
+void AddPepperFlashFromCommandLine(
+    std::vector<content::PepperPluginInfo>* plugins) {
+  const base::CommandLine::StringType flash_path =
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueNative(
+          switches::kPpapiFlashPath);
+  if (flash_path.empty())
+    return;
+
+  // Also get the version from the command-line. Should be something like 11.2
+  // or 11.2.123.45.
+  std::string flash_version =
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kPpapiFlashVersion);
+
+  plugins->push_back(
+      CreatePepperFlashInfo(base::FilePath(flash_path), flash_version));
+}
+
+#if defined(OS_WIN)
+const char kPepperFlashDLLBaseName[] =
+#if defined(ARCH_CPU_X86)
+    "pepflashplayer32_";
+#elif defined(ARCH_CPU_X86_64)
+    "pepflashplayer64_";
+#else
+#error Unsupported Windows CPU architecture.
+#endif  // defined(ARCH_CPU_X86)
+#endif  // defined(OS_WIN)
+
+bool GetSystemPepperFlash(content::PepperPluginInfo* plugin) {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+
+  if (!command_line->HasSwitch(switches::kEnableSystemFlash))
+    return false;
+
+  // Do not try and find System Pepper Flash if there is a specific path on
+  // the commmand-line.
+  if (command_line->HasSwitch(switches::kPpapiFlashPath))
+    return false;
+
+  base::FilePath flash_path;
+  if (!PathService::Get(chrome::DIR_PEPPER_FLASH_SYSTEM_PLUGIN, &flash_path))
+    return false;
+
+  if (!base::PathExists(flash_path))
+    return false;
+
+  base::FilePath manifest_path(flash_path.AppendASCII("manifest.json"));
+
+  std::string manifest_data;
+  if (!base::ReadFileToString(manifest_path, &manifest_data))
+    return false;
+  scoped_ptr<base::Value> manifest_value(
+      base::JSONReader::Read(manifest_data, base::JSON_ALLOW_TRAILING_COMMAS));
+  if (!manifest_value.get())
+    return false;
+  base::DictionaryValue* manifest = NULL;
+  if (!manifest_value->GetAsDictionary(&manifest))
+    return false;
+
+  Version version;
+  if (!chrome::CheckPepperFlashManifest(*manifest, &version))
+    return false;
+
+#if defined(OS_WIN)
+  // PepperFlash DLLs on Windows look like basename_v_x_y_z.dll.
+  std::string filename(kPepperFlashDLLBaseName);
+  filename.append(version.GetString());
+  base::ReplaceChars(filename, ".", "_", &filename);
+  filename.append(".dll");
+
+  base::FilePath path(flash_path.Append(base::ASCIIToUTF16(filename)));
+#else
+  // PepperFlash on OS X is called PepperFlashPlayer.plugin
+  base::FilePath path(flash_path.Append(chrome::kPepperFlashPluginFilename));
+#endif
+
+  if (!base::PathExists(path))
+    return false;
+
+  *plugin = CreatePepperFlashInfo(path, version.GetString());
+  return true;
+}
+
+}  // namespace
+
+CefContentClient::CefContentClient(CefRefPtr<CefApp> application)
+    : application_(application),
+      pack_loading_disabled_(false),
+      allow_pack_file_load_(false),
+      scheme_info_list_locked_(false) {
+  DCHECK(!g_content_client);
+  g_content_client = this;
+}
+
+CefContentClient::~CefContentClient() {
+  g_content_client = NULL;
+}
+
+// static
+CefContentClient* CefContentClient::Get() {
+  return g_content_client;
+}
+
+void CefContentClient::AddPepperPlugins(
+    std::vector<content::PepperPluginInfo>* plugins) {
+  AddPepperFlashFromCommandLine(plugins);
+
+  content::PepperPluginInfo plugin;
+  if (GetSystemPepperFlash(&plugin))
+    plugins->push_back(plugin);
+}
+
+void CefContentClient::AddAdditionalSchemes(
+    std::vector<std::string>* standard_schemes,
+    std::vector<std::string>* savable_schemes) {
+  DCHECK(!scheme_info_list_locked_);
+
+  if (application_.get()) {
+    CefRefPtr<CefSchemeRegistrarImpl> schemeRegistrar(
+        new CefSchemeRegistrarImpl());
+    application_->OnRegisterCustomSchemes(schemeRegistrar.get());
+    schemeRegistrar->GetStandardSchemes(standard_schemes);
+
+    // No references to the registar should be kept.
+    schemeRegistrar->Detach();
+    DCHECK(schemeRegistrar->VerifyRefCount());
+  }
+
+  scheme::AddInternalSchemes(standard_schemes);
+
+  scheme_info_list_locked_ = true;
+}
+
+std::string CefContentClient::GetUserAgent() const {
+  std::string product_version;
+
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kUserAgent))
+    return command_line->GetSwitchValueASCII(switches::kUserAgent);
+
+  if (command_line->HasSwitch(switches::kProductVersion)) {
+    product_version =
+        command_line->GetSwitchValueASCII(switches::kProductVersion);
+  } else {
+    product_version = base::StringPrintf("Chrome/%d.%d.%d.%d",
+        CHROME_VERSION_MAJOR, CHROME_VERSION_MINOR, CHROME_VERSION_BUILD,
+        CHROME_VERSION_PATCH);
+  }
+
+  return content::BuildUserAgentFromProduct(product_version);
+}
+
+base::string16 CefContentClient::GetLocalizedString(int message_id) const {
+  base::string16 value =
+      ResourceBundle::GetSharedInstance().GetLocalizedString(message_id);
+  if (value.empty())
+    LOG(ERROR) << "No localized string available for id " << message_id;
+
+  return value;
+}
+
+base::StringPiece CefContentClient::GetDataResource(
+    int resource_id,
+    ui::ScaleFactor scale_factor) const {
+  base::StringPiece value =
+      ResourceBundle::GetSharedInstance().GetRawDataResourceForScale(
+          resource_id, scale_factor);
+  if (value.empty())
+    LOG(ERROR) << "No data resource available for id " << resource_id;
+
+  return value;
+}
+
+gfx::Image& CefContentClient::GetNativeImageNamed(int resource_id) const {
+  gfx::Image& value =
+      ResourceBundle::GetSharedInstance().GetNativeImageNamed(resource_id);
+  if (value.IsEmpty())
+    LOG(ERROR) << "No native image available for id " << resource_id;
+
+  return value;
+}
+
+void CefContentClient::AddCustomScheme(const SchemeInfo& scheme_info) {
+  DCHECK(!scheme_info_list_locked_);
+  scheme_info_list_.push_back(scheme_info);
+
+  if (CefContentBrowserClient::Get()) {
+    CefContentBrowserClient::Get()->RegisterCustomScheme(
+        scheme_info.scheme_name);
+  }
+}
+
+const CefContentClient::SchemeInfoList* CefContentClient::GetCustomSchemes() {
+  DCHECK(scheme_info_list_locked_);
+  return &scheme_info_list_;
+}
+
+bool CefContentClient::HasCustomScheme(const std::string& scheme_name) {
+  DCHECK(scheme_info_list_locked_);
+  if (scheme_info_list_.empty())
+    return false;
+
+  SchemeInfoList::const_iterator it = scheme_info_list_.begin();
+  for (; it != scheme_info_list_.end(); ++it) {
+    if (it->scheme_name == scheme_name)
+      return true;
+  }
+
+  return false;
+}
+
+base::FilePath CefContentClient::GetPathForResourcePack(
+    const base::FilePath& pack_path,
+    ui::ScaleFactor scale_factor) {
+  // Only allow the cef pack file to load.
+  if (!pack_loading_disabled_ && allow_pack_file_load_)
+    return pack_path;
+  return base::FilePath();
+}
+
+base::FilePath CefContentClient::GetPathForLocalePack(
+    const base::FilePath& pack_path,
+    const std::string& locale) {
+  if (!pack_loading_disabled_)
+    return pack_path;
+  return base::FilePath();
+}
+
+gfx::Image CefContentClient::GetImageNamed(int resource_id) {
+  return gfx::Image();
+}
+
+gfx::Image CefContentClient::GetNativeImageNamed(
+    int resource_id,
+    ui::ResourceBundle::ImageRTL rtl) {
+  return gfx::Image();
+}
+
+base::RefCountedStaticMemory* CefContentClient::LoadDataResourceBytes(
+    int resource_id,
+    ui::ScaleFactor scale_factor) {
+  return NULL;
+}
+
+bool CefContentClient::GetRawDataResource(int resource_id,
+                                          ui::ScaleFactor scale_factor,
+                                          base::StringPiece* value) {
+  if (application_.get()) {
+    CefRefPtr<CefResourceBundleHandler> handler =
+        application_->GetResourceBundleHandler();
+    if (handler.get()) {
+      void* data = NULL;
+      size_t data_size = 0;
+      if (handler->GetDataResource(resource_id, data, data_size))
+        *value = base::StringPiece(static_cast<char*>(data), data_size);
+    }
+  }
+
+  return (pack_loading_disabled_ || !value->empty());
+}
+
+bool CefContentClient::GetLocalizedString(int message_id,
+                                          base::string16* value) {
+  if (application_.get()) {
+    CefRefPtr<CefResourceBundleHandler> handler =
+        application_->GetResourceBundleHandler();
+    if (handler.get()) {
+      CefString cef_str;
+      if (handler->GetLocalizedString(message_id, cef_str))
+        *value = cef_str;
+    }
+  }
+
+  return (pack_loading_disabled_ || !value->empty());
+}
+
+scoped_ptr<gfx::Font> CefContentClient::GetFont(
+    ui::ResourceBundle::FontStyle style) {
+  return scoped_ptr<gfx::Font>();
+}

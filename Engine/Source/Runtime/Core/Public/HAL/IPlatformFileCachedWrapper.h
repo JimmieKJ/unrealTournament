@@ -229,7 +229,26 @@ public:
 	}
 	virtual bool ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const override
 	{
-		return FPlatformProperties::RequiresCookedData();
+		// default to false on Windows since FAsyncBufferedFileReaderWindows already buffers the data
+		bool bResult = !PLATFORM_WINDOWS && FPlatformProperties::RequiresCookedData();
+
+		// Allow a choice between shorter load times or less memory on desktop platforms.
+		// Note: this cannot be in config since they aren't read at that point.
+		if (PLATFORM_DESKTOP)
+		{
+			if (FParse::Param(CmdLine, TEXT("NoCachedReadFile")))
+			{
+				bResult = false;
+			}
+			else if (FParse::Param(CmdLine, TEXT("CachedReadFile")))
+			{
+				bResult = true;
+			}
+
+			UE_LOG(LogPlatformFile, Log, TEXT("%s cached read wrapper"), bResult ? TEXT("Using") : TEXT("Not using"));
+		}
+
+		return bResult;
 	}
 	IPlatformFile* GetLowerLevel() override
 	{
@@ -310,6 +329,10 @@ public:
 	{
 		return LowerLevel->DeleteDirectory(Directory);
 	}
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override
+	{
+		return LowerLevel->GetStatData(FilenameOrDirectory);
+	}
 	virtual bool		IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override
 	{
 		return LowerLevel->IterateDirectory(Directory, Visitor);
@@ -317,6 +340,14 @@ public:
 	virtual bool		IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override
 	{
 		return LowerLevel->IterateDirectoryRecursively(Directory, Visitor);
+	}
+	virtual bool		IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		return LowerLevel->IterateDirectoryStat(Directory, Visitor);
+	}
+	virtual bool		IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		return LowerLevel->IterateDirectoryStatRecursively(Directory, Visitor);
 	}
 	virtual bool		DeleteDirectoryRecursively(const TCHAR* Directory) override
 	{

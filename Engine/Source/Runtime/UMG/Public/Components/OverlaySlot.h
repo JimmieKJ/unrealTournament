@@ -41,8 +41,6 @@ public:
 
 public:
 
-	void BuildSlot(TSharedRef<SHorizontalBox> HorizontalBox);
-
 	// UPanelSlot interface
 	virtual void SynchronizeProperties() override;
 	// End of UPanelSlot interface

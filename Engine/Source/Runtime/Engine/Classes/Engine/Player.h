@@ -30,9 +30,9 @@ class UPlayer : public UObject, public FExec
 	int32 ConfiguredLanSpeed;
 
 public:
-	// Begin FExec interface.
+	//~ Begin FExec Interface.
 	ENGINE_API virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar) override;
-	// End FExec interface.
+	//~ End FExec Interface.
 
 	/**
 	 * Dynamically assign Controller to Player and set viewport.
@@ -42,7 +42,19 @@ public:
 	ENGINE_API virtual void SwitchController( class APlayerController* PC );
 
 	/**
-	 * Return the main menu after graceful cleanup
+	 * Executes the Exec() command
+	 *
+	 * @param Command command to execute (string of commands optionally separated by a | (pipe))
+	 * @param bWriteToLog write out to the log
 	 */
-	virtual void HandleDisconnect(class UWorld *World, class UNetDriver *NetDriver) {}
+	ENGINE_API FString ConsoleCommand(const FString& Cmd, bool bWriteToLog = true);
+
+	/**
+	 * Gets the player controller in the given world for this player.
+	 *
+	 * @param InWorld The world in which to search for player controllers.
+	 *
+	 * @return The controller associated with this player in InWorld, if one exists.
+	 */
+	ENGINE_API APlayerController* GetPlayerController(UWorld* InWorld) const;
 };

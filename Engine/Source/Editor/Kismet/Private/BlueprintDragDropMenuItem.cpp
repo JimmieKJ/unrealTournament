@@ -21,66 +21,11 @@
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintDragDropMenuItem, Log, All);
 
 //------------------------------------------------------------------------------
-FBlueprintDragDropMenuItem::FBlueprintDragDropMenuItem(FBlueprintActionContext const& Context, UBlueprintNodeSpawner const* SampleAction, int32 MenuGrouping/* = 0*/)
+FBlueprintDragDropMenuItem::FBlueprintDragDropMenuItem(FBlueprintActionContext const& Context, UBlueprintNodeSpawner const* SampleAction, int32 MenuGrouping, const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip)
+: FEdGraphSchemaAction(InNodeCategory, InMenuDesc, InToolTip, MenuGrouping)
 {
 	AppendAction(SampleAction);
 	check(SampleAction != nullptr);
-	Grouping  = MenuGrouping;
-
-	UProperty const* SampleProperty = nullptr;
-	if (UBlueprintDelegateNodeSpawner const* DelegateSpawner = Cast<UBlueprintDelegateNodeSpawner const>(SampleAction))
-	{
-		SampleProperty = DelegateSpawner->GetDelegateProperty();
-	}
-	else if (UBlueprintVariableNodeSpawner const* VariableSpawner = Cast<UBlueprintVariableNodeSpawner const>(SampleAction))
-	{
-		SampleProperty = VariableSpawner->GetVarProperty();
-	}
-
-	if (SampleProperty != nullptr)
-	{
-		bool const bShowFriendlyNames = GetDefault<UEditorStyleSettings>()->bShowFriendlyNames;
-		MenuDescription = bShowFriendlyNames ? FText::FromString(UEditorEngine::GetFriendlyName(SampleProperty)) : FText::FromName(SampleProperty->GetFName());
-
-		TooltipDescription = SampleProperty->GetToolTipText().ToString();
-		Category = FObjectEditorUtils::GetCategory(SampleProperty);
-
-		bool const bIsDelegateProperty = SampleProperty->IsA<UMulticastDelegateProperty>();
-		if (bIsDelegateProperty && Category.IsEmpty())
-		{
-			Category = FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::Delegates).ToString();
-		}
-		else if (!bIsDelegateProperty)
-		{
-			check(Context.Blueprints.Num() > 0);
-			UBlueprint const* Blueprint = Context.Blueprints[0];
-			UClass const*     BlueprintClass = (Blueprint->SkeletonGeneratedClass != nullptr) ? Blueprint->SkeletonGeneratedClass : Blueprint->ParentClass;
-
-			UClass const* PropertyClass = SampleProperty->GetOwnerClass();
-			checkSlow(PropertyClass != nullptr);
-			bool const bIsMemberProperty = BlueprintClass->IsChildOf(PropertyClass);
-
-			FText TextCategory;
-			if (Category.IsEmpty())
-			{
-				TextCategory = FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::Variables);
-			}
-			else if (bIsMemberProperty)
-			{
-				TextCategory = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Variables, FText::FromString(Category));
-			}
-			
-			if (!bIsMemberProperty)
-			{
-				TextCategory = FText::Format(LOCTEXT("NonMemberVarCategory", "Class|{0}|{1}"), PropertyClass->GetDisplayNameText(), TextCategory);
-			}
-			Category = TextCategory.ToString();
-		}
-	}
-	else
-	{
-		UE_LOG(LogBlueprintDragDropMenuItem, Warning, TEXT("Unhandled (or invalid) spawner: '%s'"), *SampleAction->GetName());
-	}
 }
 
 //------------------------------------------------------------------------------

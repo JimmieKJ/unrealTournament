@@ -5,12 +5,12 @@
 class ISlate3DRenderer 
 {
 public:
-	virtual ~ISlate3DRenderer() {};
+	virtual ~ISlate3DRenderer() {}
 
 	/** @return The free buffer for drawing */
 	virtual FSlateDrawBuffer& GetDrawBuffer() = 0;
 
- 	/** 
+	/** 
 	 * Batches the draw elements in the buffer to prepare it for rendering.
 	 * Call in the game thread before sending to the render thread.
 	 *

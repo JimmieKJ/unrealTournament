@@ -17,8 +17,7 @@ FTaskGraphStyle::FStyle::FStyle()
 
 void FTaskGraphStyle::FStyle::Initialize()
 {
-	
-
+#if WITH_EDITORONLY_DATA
 	StyleInstance->SetContentRoot( FPaths::EngineContentDir() / TEXT("Editor/Slate") );
 	StyleInstance->SetCoreContentRoot(FPaths::EngineContentDir() / TEXT("Slate"));
 
@@ -37,6 +36,7 @@ void FTaskGraphStyle::FStyle::Initialize()
 	StyleInstance->Set( "TaskGraph.MenuDropdown", new IMAGE_BRUSH( "Common/ComboArrow", FVector2D(8,8) ) );
 
 	FSlateStyleRegistry::RegisterSlateStyle(*StyleInstance.Get());
+#endif
 }
 
 

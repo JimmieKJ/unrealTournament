@@ -30,6 +30,15 @@ DEFINE_STAT(STAT_VertexBufferMemory);
 DEFINE_STAT(STAT_StructuredBufferMemory);
 DEFINE_STAT(STAT_PixelBufferMemory);
 
+const FString FResourceTransitionUtility::ResourceTransitionAccessStrings[(int32)EResourceTransitionAccess::EMaxAccess + 1] =
+{
+	FString(TEXT("EReadable")),
+	FString(TEXT("EWritable")),	
+	FString(TEXT("ERWBarrier")),
+	FString(TEXT("ERWNoBarrier")),
+	FString(TEXT("EMaxAccess")),
+};
+
 #if STATS
 #include "StatsData.h"
 static void DumpRHIMemory(FOutputDevice& OutputDevice)
@@ -37,7 +46,7 @@ static void DumpRHIMemory(FOutputDevice& OutputDevice)
 	TArray<FStatMessage> Stats;
 	GetPermanentStats(Stats);
 
-	FName NAME_STATGROUP_RHI("STATGROUP_RHI");
+	FName NAME_STATGROUP_RHI(FStatGroup_STATGROUP_RHI::GetGroupName());
 	OutputDevice.Logf(TEXT("RHI resource memory (not tracked by our allocator)"));
 	int64 TotalMemory = 0;
 	for (int32 Index = 0; Index < Stats.Num(); Index++)
@@ -60,7 +69,19 @@ static FAutoConsoleCommandWithOutputDevice GDumpRHIMemoryCmd(
 	);
 #endif
 
-TLockFreePointerList<FRHIResource> FRHIResource::PendingDeletes;
+//DO NOT USE THE STATIC FLINEARCOLORS TO INITIALIZE THIS STUFF.  
+//Static init order is undefined and you will likely end up with bad values on some platforms.
+const FClearValueBinding FClearValueBinding::None(EClearBinding::ENoneBound);
+const FClearValueBinding FClearValueBinding::Black(FLinearColor(0.0f, 0.0f, 0.0f, 1.0f));
+const FClearValueBinding FClearValueBinding::White(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f));
+const FClearValueBinding FClearValueBinding::Transparent(FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+const FClearValueBinding FClearValueBinding::DepthOne(1.0f, 0);
+const FClearValueBinding FClearValueBinding::DepthZero(0.0f, 0);
+const FClearValueBinding FClearValueBinding::DepthNear((float)ERHIZBuffer::NearPlane, 0);
+const FClearValueBinding FClearValueBinding::DepthFar((float)ERHIZBuffer::FarPlane, 0);
+
+
+TLockFreePointerListUnordered<FRHIResource> FRHIResource::PendingDeletes;
 FRHIResource* FRHIResource::CurrentlyDeleting = nullptr;
 
 #if !DISABLE_RHI_DEFFERED_DELETE
@@ -171,6 +192,7 @@ bool GSupportsRenderDepthTargetableShaderResources = true;
 bool GSupportsRenderTargetFormat_PF_G8 = true;
 bool GSupportsRenderTargetFormat_PF_FloatRGBA = true;
 bool GSupportsShaderFramebufferFetch = false;
+bool GSupportsShaderDepthStencilFetch = false;
 bool GHardwareHiddenSurfaceRemoval = false;
 bool GRHISupportsAsyncTextureCreation = false;
 bool GSupportsQuads = false;
@@ -195,6 +217,10 @@ bool GRHISupportsFirstInstance = false;
 bool GRHIRequiresEarlyBackBufferRenderTarget = true;
 bool GRHISupportsRHIThread = false;
 bool GRHISupportsParallelRHIExecute = false;
+bool GSupportsHDR32bppEncodeModeIntrinsic = false;
+bool GSupportsParallelOcclusionQueries = false;
+
+bool GRHISupportsMSAADepthSampleAccess = false;
 
 /** Whether we are profiling GPU hitches. */
 bool GTriggerGPUHitchProfile = false;
@@ -277,15 +303,18 @@ static FName NAME_GLSL_150_MAC(TEXT("GLSL_150_MAC"));
 static FName NAME_SF_PS4(TEXT("SF_PS4"));
 static FName NAME_SF_XBOXONE(TEXT("SF_XBOXONE"));
 static FName NAME_GLSL_430(TEXT("GLSL_430"));
-static FName NAME_OPENGL_150_ES2(TEXT("GLSL_150_ES2"));
-static FName NAME_OPENGL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
-static FName NAME_OPENGL_150_ES3_1(TEXT("GLSL_150_ES31"));
-static FName NAME_OPENGL_ES2(TEXT("GLSL_ES2"));
-static FName NAME_OPENGL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
-static FName NAME_OPENGL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
+static FName NAME_GLSL_150_ES2(TEXT("GLSL_150_ES2"));
+static FName NAME_GLSL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
+static FName NAME_GLSL_150_ES31(TEXT("GLSL_150_ES31"));
+static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
+static FName NAME_GLSL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
+static FName NAME_GLSL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
 static FName NAME_SF_METAL(TEXT("SF_METAL"));
 static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
 static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
+static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
+static FName NAME_PC_VULKAN_ES2(TEXT("PC_VULKAN_ES2"));
+static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
 
 FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 {
@@ -312,22 +341,28 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 	case SP_OPENGL_PCES2:
 	{
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("OpenGL.UseEmulatedUBs"));
-		return (CVar && CVar->GetValueOnAnyThread() != 0) ? NAME_OPENGL_150_ES2_NOUB : NAME_OPENGL_150_ES2;
+		return (CVar && CVar->GetValueOnAnyThread() != 0) ? NAME_GLSL_150_ES2_NOUB : NAME_GLSL_150_ES2;
 	}
 	case SP_OPENGL_PCES3_1:
-		return NAME_OPENGL_150_ES3_1;
-	case SP_OPENGL_ES2:
-		return NAME_OPENGL_ES2;
+		return NAME_GLSL_150_ES31;
+	case SP_OPENGL_ES2_ANDROID:
+		return NAME_GLSL_ES2;
 	case SP_OPENGL_ES2_WEBGL:
-		return NAME_OPENGL_ES2_WEBGL;
+		return NAME_GLSL_ES2_WEBGL;
 	case SP_OPENGL_ES2_IOS:
-		return NAME_OPENGL_ES2_IOS;
+		return NAME_GLSL_ES2_IOS;
 	case SP_METAL:
 		return NAME_SF_METAL;
 	case SP_METAL_MRT:
 		return NAME_SF_METAL_MRT;
+	case SP_METAL_SM4:
+		return NAME_SF_METAL_SM4;
+	case SP_METAL_SM5:
+		return NAME_SF_METAL_SM5;
 	case SP_OPENGL_ES31_EXT:
 		return NAME_GLSL_310_ES_EXT;
+	case SP_VULKAN_ES2:
+		return NAME_PC_VULKAN_ES2;
 
 	default:
 		check(0);
@@ -346,15 +381,18 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_SF_PS4)				return SP_PS4;
 	if (ShaderFormat == NAME_SF_XBOXONE)			return SP_XBOXONE;
 	if (ShaderFormat == NAME_GLSL_430)			return SP_OPENGL_SM5;
-	if (ShaderFormat == NAME_OPENGL_150_ES2 || ShaderFormat == NAME_OPENGL_150_ES2_NOUB)
+	if (ShaderFormat == NAME_GLSL_150_ES2 || ShaderFormat == NAME_GLSL_150_ES2_NOUB)
 												return SP_OPENGL_PCES2;
-	if (ShaderFormat == NAME_OPENGL_150_ES3_1)	return SP_OPENGL_PCES3_1;
-	if (ShaderFormat == NAME_OPENGL_ES2)			return SP_OPENGL_ES2;
-	if (ShaderFormat == NAME_OPENGL_ES2_WEBGL)	return SP_OPENGL_ES2_WEBGL;
-	if (ShaderFormat == NAME_OPENGL_ES2_IOS)		return SP_OPENGL_ES2_IOS;
+	if (ShaderFormat == NAME_GLSL_150_ES31)		return SP_OPENGL_PCES3_1;
+	if (ShaderFormat == NAME_GLSL_ES2)			return SP_OPENGL_ES2_ANDROID;
+	if (ShaderFormat == NAME_GLSL_ES2_WEBGL)	return SP_OPENGL_ES2_WEBGL;
+	if (ShaderFormat == NAME_GLSL_ES2_IOS)		return SP_OPENGL_ES2_IOS;
 	if (ShaderFormat == NAME_SF_METAL)			return SP_METAL;
 	if (ShaderFormat == NAME_SF_METAL_MRT)		return SP_METAL_MRT;
 	if (ShaderFormat == NAME_GLSL_310_ES_EXT)	return SP_OPENGL_ES31_EXT;
+	if (ShaderFormat == NAME_SF_METAL_SM5)		return SP_METAL_SM5;
+	if (ShaderFormat == NAME_PC_VULKAN_ES2)		return SP_VULKAN_ES2;
+	if (ShaderFormat == NAME_SF_METAL_SM4)		return SP_METAL_SM4;
 	return SP_NumPlatforms;
 }
 

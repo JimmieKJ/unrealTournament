@@ -55,7 +55,7 @@ void SGraphPinAI::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 		.BorderBackgroundColor(this, &SGraphPinAI::GetPinColor)
 		.OnMouseButtonDown(this, &SGraphPinAI::OnPinMouseDown)
 		.Cursor(this, &SGraphPinAI::GetPinCursor)
-		.Padding(FMargin(5.0f))
+		.Padding(FMargin(10.0f))
 		);
 }
 
@@ -93,6 +93,13 @@ FText SGraphNodeAI::GetDescription() const
 {
 	UAIGraphNode* MyNode = CastChecked<UAIGraphNode>(GraphNode);
 	return MyNode ? MyNode->GetDescription() : FText::GetEmpty();
+}
+
+EVisibility SGraphNodeAI::GetDescriptionVisibility() const
+{
+	// LOD this out once things get too small
+	TSharedPtr<SGraphPanel> MyOwnerPanel = GetOwnerPanel();
+	return (!MyOwnerPanel.IsValid() || MyOwnerPanel->GetCurrentLOD() > EGraphRenderingLOD::LowDetail) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 void SGraphNodeAI::AddPin(const TSharedRef<SGraphPin>& PinToAdd)

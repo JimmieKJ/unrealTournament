@@ -531,7 +531,7 @@ void SKismetInspector::UpdateFromObjects(const TArray<UObject*>& PropertyObjects
 		{
 			if (!Object->IsValidLowLevel())
 			{
-				ensureMsg(false, TEXT("Object in KismetInspector is invalid, see TTP 281915"));
+				ensureMsgf(false, TEXT("Object in KismetInspector is invalid, see TTP 281915"));
 				continue;
 			}
 

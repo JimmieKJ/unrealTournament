@@ -42,7 +42,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		static public BuildHostPlatform Current
 		{
-			get 
+			get
 			{
 				if (CurrentPlatform == null)
 				{
@@ -110,7 +110,7 @@ namespace UnrealBuildTool
 				return String.Format("{0}, {1}", Name, Filename);
 			}
 		}
-			
+
 		/// <summary>
 		/// Gets all currently running processes.
 		/// </summary>
@@ -119,15 +119,16 @@ namespace UnrealBuildTool
 		{
 			var AllProcesses = Process.GetProcesses();
 			var Result = new List<ProcessInfo>(AllProcesses.Length);
-			foreach (var Proc in AllProcesses) 
+			foreach (var Proc in AllProcesses)
 			{
-				try 
+				try
 				{
-					if (!Proc.HasExited) 
+					if (!Proc.HasExited)
 					{
 						Result.Add(new ProcessInfo(Proc));
 					}
-				} catch {}
+				}
+				catch { }
 			}
 			return Result.ToArray();
 		}
@@ -140,9 +141,9 @@ namespace UnrealBuildTool
 		public virtual ProcessInfo GetProcessByName(string Name)
 		{
 			var AllProcess = GetProcesses();
-			foreach (var Info in AllProcess) 
+			foreach (var Info in AllProcess)
 			{
-				if (Info.Name == Name) 
+				if (Info.Name == Name)
 				{
 					return Info;
 				}
@@ -159,9 +160,9 @@ namespace UnrealBuildTool
 		{
 			var AllProcess = GetProcesses();
 			var Result = new List<ProcessInfo>();
-			foreach (var Info in AllProcess) 
+			foreach (var Info in AllProcess)
 			{
-				if (Info.Name == Name) 
+				if (Info.Name == Name)
 				{
 					Result.Add(Info);
 				}
@@ -309,14 +310,14 @@ namespace UnrealBuildTool
 		{
 			var Result = new List<ProcessInfo>();
 
-			var StartInfo = new ProcessStartInfo ();
+			var StartInfo = new ProcessStartInfo();
 			StartInfo.FileName = "ps";
 			StartInfo.Arguments = "-eaw -o pid,comm";
 			StartInfo.CreateNoWindow = true;
 			StartInfo.UseShellExecute = false;
 			StartInfo.RedirectStandardOutput = true;
 
-			var Proc = new Process ();
+			var Proc = new Process();
 			Proc.StartInfo = StartInfo;
 			try
 			{
@@ -341,12 +342,13 @@ namespace UnrealBuildTool
 								ProcInfo.Filename = Filename;
 								Result.Add(ProcInfo);
 							}
-						} catch {}
+						}
+						catch { }
 					}
 				}
 
 			}
-			catch {}
+			catch { }
 			return Result.ToArray();
 		}
 
@@ -427,7 +429,7 @@ namespace UnrealBuildTool
 			// @TODO: Implement for Linux
 			return new List<ProcessInfo>().ToArray();
 		}
-		
+
 		/// <summary>
 		/// Currently Mono returns incomplete list of modules for Process.Modules so we need to parse /proc/PID/maps.
 		/// (also, Mono locks up during process traversal sometimes, trying to open /dev/snd/pcm*)

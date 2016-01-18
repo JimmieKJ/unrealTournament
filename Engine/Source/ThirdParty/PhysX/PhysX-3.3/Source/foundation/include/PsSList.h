@@ -17,7 +17,7 @@
 #include "foundation/Px.h"
 #include "PsAlignedMalloc.h"
 
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 	#define PX_SLIST_ALIGNMENT 16
 #else
 	#define PX_SLIST_ALIGNMENT 8

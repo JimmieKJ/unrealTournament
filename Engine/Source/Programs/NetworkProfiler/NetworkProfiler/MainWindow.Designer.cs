@@ -30,66 +30,33 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
-			System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea1 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-			System.Windows.Forms.DataVisualization.Charting.Legend legend1 = new System.Windows.Forms.DataVisualization.Charting.Legend();
-			System.Windows.Forms.DataVisualization.Charting.Series series1 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series2 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series3 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series4 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series5 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series6 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series7 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series8 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series9 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series10 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series11 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series12 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series13 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series14 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series15 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series16 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series17 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series18 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series19 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series20 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series21 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series22 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series23 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series24 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series25 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series26 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series27 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series28 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series29 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series30 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series31 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series32 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series33 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series34 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series35 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series36 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series37 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series38 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series39 = new System.Windows.Forms.DataVisualization.Charting.Series();
-			System.Windows.Forms.DataVisualization.Charting.Series series40 = new System.Windows.Forms.DataVisualization.Charting.Series();
+			this.components = new System.ComponentModel.Container();
+			System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea2 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+			System.Windows.Forms.DataVisualization.Charting.Legend legend2 = new System.Windows.Forms.DataVisualization.Charting.Legend();
 			this.OpenButton = new System.Windows.Forms.Button();
 			this.NetworkChart = new System.Windows.Forms.DataVisualization.Charting.Chart();
 			this.ChartListBox = new System.Windows.Forms.CheckedListBox();
-			this.SummaryTextBox = new System.Windows.Forms.RichTextBox();
-			this.DetailTextBox = new System.Windows.Forms.RichTextBox();
-			this.ActorFilterTextBox = new System.Windows.Forms.TextBox();
-			this.PropertyFilterTextBox = new System.Windows.Forms.TextBox();
-			this.RPCFilterTextBox = new System.Windows.Forms.TextBox();
 			this.ApplyFiltersButton = new System.Windows.Forms.Button();
 			this.label1 = new System.Windows.Forms.Label();
 			this.label2 = new System.Windows.Forms.Label();
 			this.label3 = new System.Windows.Forms.Label();
 			this.tabControl1 = new System.Windows.Forms.TabControl();
 			this.tabPage1 = new System.Windows.Forms.TabPage();
+			this.Details = new System.Windows.Forms.TabControl();
+			this.tabPage2 = new System.Windows.Forms.TabPage();
+			this.ActorSummaryView = new System.Windows.Forms.TreeView();
+			this.tabPage6 = new System.Windows.Forms.TabPage();
+			this.ActorPerfPropsDetailsListView = new System.Windows.Forms.ListView();
+			this.ActorPerfPropsListView = new System.Windows.Forms.ListView();
+			this.tabPage8 = new System.Windows.Forms.TabPage();
+			this.TokenDetailsView = new System.Windows.Forms.TreeView();
+			this.ConnectionListBox = new System.Windows.Forms.CheckedListBox();
 			this.StackedBunchSizeRadioButton = new System.Windows.Forms.RadioButton();
 			this.LineViewRadioButton = new System.Windows.Forms.RadioButton();
-			this.ActorPerformanceView = new System.Windows.Forms.TreeView();
 			this.panel1 = new System.Windows.Forms.Panel();
+			this.RPCFilterBox = new System.Windows.Forms.ComboBox();
+			this.PropertyFilterBox = new System.Windows.Forms.ComboBox();
+			this.ActorFilterBox = new System.Windows.Forms.ComboBox();
 			this.tabPage3 = new System.Windows.Forms.TabPage();
 			this.ActorListView = new System.Windows.Forms.ListView();
 			this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -111,9 +78,17 @@
 			this.columnHeader8 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.columnHeader9 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.columnHeader10 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.CurrentProgress = new System.Windows.Forms.ProgressBar();
+			this.ContextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+			this.EarlyOutLabel = new System.Windows.Forms.Label();
+			this.MaxProfileMinutesTextBox = new System.Windows.Forms.TextBox();
 			((System.ComponentModel.ISupportInitialize)(this.NetworkChart)).BeginInit();
 			this.tabControl1.SuspendLayout();
 			this.tabPage1.SuspendLayout();
+			this.Details.SuspendLayout();
+			this.tabPage2.SuspendLayout();
+			this.tabPage6.SuspendLayout();
+			this.tabPage8.SuspendLayout();
 			this.panel1.SuspendLayout();
 			this.tabPage3.SuspendLayout();
 			this.tabPage4.SuspendLayout();
@@ -139,380 +114,51 @@
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.NetworkChart.AntiAliasing = System.Windows.Forms.DataVisualization.Charting.AntiAliasingStyles.Graphics;
 			this.NetworkChart.BackColor = System.Drawing.Color.Transparent;
-			chartArea1.AxisX.MajorGrid.LineColor = System.Drawing.Color.DarkGray;
-			chartArea1.AxisX.ScrollBar.IsPositionedInside = false;
-			chartArea1.AxisY.MajorGrid.LineColor = System.Drawing.Color.DarkGray;
-			chartArea1.AxisY.ScrollBar.IsPositionedInside = false;
-			chartArea1.BackColor = System.Drawing.Color.Transparent;
-			chartArea1.CursorX.IsUserEnabled = true;
-			chartArea1.CursorX.IsUserSelectionEnabled = true;
-			chartArea1.Name = "DefaultChartArea";
-			this.NetworkChart.ChartAreas.Add(chartArea1);
-			legend1.BackColor = System.Drawing.Color.Transparent;
-			legend1.DockedToChartArea = "DefaultChartArea";
-			legend1.Docking = System.Windows.Forms.DataVisualization.Charting.Docking.Top;
-			legend1.LegendStyle = System.Windows.Forms.DataVisualization.Charting.LegendStyle.Column;
-			legend1.Name = "DefaultLegend";
-			this.NetworkChart.Legends.Add(legend1);
+			chartArea2.AxisX.MajorGrid.LineColor = System.Drawing.Color.DarkGray;
+			chartArea2.AxisX.ScrollBar.IsPositionedInside = false;
+			chartArea2.AxisY.MajorGrid.LineColor = System.Drawing.Color.DarkGray;
+			chartArea2.AxisY.ScrollBar.IsPositionedInside = false;
+			chartArea2.BackColor = System.Drawing.Color.Transparent;
+			chartArea2.CursorX.IsUserEnabled = true;
+			chartArea2.CursorX.IsUserSelectionEnabled = true;
+			chartArea2.Name = "DefaultChartArea";
+			this.NetworkChart.ChartAreas.Add(chartArea2);
+			legend2.BackColor = System.Drawing.Color.Transparent;
+			legend2.DockedToChartArea = "DefaultChartArea";
+			legend2.Docking = System.Windows.Forms.DataVisualization.Charting.Docking.Top;
+			legend2.LegendStyle = System.Windows.Forms.DataVisualization.Charting.LegendStyle.Column;
+			legend2.Name = "DefaultLegend";
+			this.NetworkChart.Legends.Add(legend2);
 			this.NetworkChart.Location = new System.Drawing.Point(15, 6);
 			this.NetworkChart.Name = "NetworkChart";
 			this.NetworkChart.Palette = System.Windows.Forms.DataVisualization.Charting.ChartColorPalette.Bright;
-			series1.ChartArea = "DefaultChartArea";
-			series1.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series1.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series1.Legend = "DefaultLegend";
-			series1.Name = "ActorCount";
-			series2.ChartArea = "DefaultChartArea";
-			series2.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series2.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series2.Legend = "DefaultLegend";
-			series2.Name = "ActorCountSec";
-			series3.ChartArea = "DefaultChartArea";
-			series3.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series3.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series3.Legend = "DefaultLegend";
-			series3.Name = "PropertyCount";
-			series4.ChartArea = "DefaultChartArea";
-			series4.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series4.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series4.Legend = "DefaultLegend";
-			series4.Name = "PropertyCountSec";
-			series5.ChartArea = "DefaultChartArea";
-			series5.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series5.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series5.Legend = "DefaultLegend";
-			series5.Name = "PropertySize";
-			series6.ChartArea = "DefaultChartArea";
-			series6.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series6.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series6.Legend = "DefaultLegend";
-			series6.Name = "PropertySizeSec";
-			series7.ChartArea = "DefaultChartArea";
-			series7.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series7.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series7.Legend = "DefaultLegend";
-			series7.Name = "RPCCount";
-			series8.ChartArea = "DefaultChartArea";
-			series8.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series8.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series8.Legend = "DefaultLegend";
-			series8.Name = "RPCCountSec";
-			series9.ChartArea = "DefaultChartArea";
-			series9.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series9.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series9.Legend = "DefaultLegend";
-			series9.Name = "RPCSize";
-			series10.ChartArea = "DefaultChartArea";
-			series10.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series10.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series10.Legend = "DefaultLegend";
-			series10.Name = "RPCSizeSec";
-			series11.ChartArea = "DefaultChartArea";
-			series11.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series11.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series11.Legend = "DefaultLegend";
-			series11.Name = "ExportBunchCount";
-			series12.ChartArea = "DefaultChartArea";
-			series12.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series12.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series12.Legend = "DefaultLegend";
-			series12.Name = "ExportBunchSize";
-			series13.ChartArea = "DefaultChartArea";
-			series13.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series13.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series13.Legend = "DefaultLegend";
-			series13.Name = "MustBeMappedGuidsCount";
-			series14.ChartArea = "DefaultChartArea";
-			series14.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series14.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series14.Legend = "DefaultLegend";
-			series14.Name = "MustBeMappedGuidsSize";
-			series15.ChartArea = "DefaultChartArea";
-			series15.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series15.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series15.Legend = "DefaultLegend";
-			series15.Name = "SendAckCount";
-			series16.ChartArea = "DefaultChartArea";
-			series16.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series16.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series16.Legend = "DefaultLegend";
-			series16.Name = "SendAckCountSec";
-			series17.ChartArea = "DefaultChartArea";
-			series17.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series17.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series17.Legend = "DefaultLegend";
-			series17.Name = "SendAckSize";
-			series18.ChartArea = "DefaultChartArea";
-			series18.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series18.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series18.Legend = "DefaultLegend";
-			series18.Name = "SendAckSizeSec";
-			series19.ChartArea = "DefaultChartArea";
-			series19.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series19.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series19.Legend = "DefaultLegend";
-			series19.Name = "ContentBlockHeaderSize";
-			series20.ChartArea = "DefaultChartArea";
-			series20.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series20.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series20.Legend = "DefaultLegend";
-			series20.Name = "ContentBlockFooterSize";
-			series21.ChartArea = "DefaultChartArea";
-			series21.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series21.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series21.Legend = "DefaultLegend";
-			series21.Name = "PropertyHandleSize";
-			series22.ChartArea = "DefaultChartArea";
-			series22.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series22.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series22.Legend = "DefaultLegend";
-			series22.Name = "SendBunchHeaderSize";
-			series23.ChartArea = "DefaultChartArea";
-			series23.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series23.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series23.Legend = "DefaultLegend";
-			series23.Name = "SendBunchCount";
-			series24.ChartArea = "DefaultChartArea";
-			series24.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series24.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series24.Legend = "DefaultLegend";
-			series24.Name = "SendBunchCountSec";
-			series25.ChartArea = "DefaultChartArea";
-			series25.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series25.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series25.Legend = "DefaultLegend";
-			series25.Name = "SendBunchSize";
-			series25.YValuesPerPoint = 2;
-			series26.ChartArea = "DefaultChartArea";
-			series26.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series26.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series26.Legend = "DefaultLegend";
-			series26.Name = "SendBunchSizeSec";
-			series27.ChartArea = "DefaultChartArea";
-			series27.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series27.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series27.Legend = "DefaultLegend";
-			series27.Name = "GameSocketSendCount";
-			series28.ChartArea = "DefaultChartArea";
-			series28.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series28.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series28.Legend = "DefaultLegend";
-			series28.Name = "GameSocketSendCountSec";
-			series29.ChartArea = "DefaultChartArea";
-			series29.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series29.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series29.Legend = "DefaultLegend";
-			series29.Name = "GameSocketSendSize";
-			series30.ChartArea = "DefaultChartArea";
-			series30.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series30.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series30.Legend = "DefaultLegend";
-			series30.Name = "GameSocketSendSizeSec";
-			series31.ChartArea = "DefaultChartArea";
-			series31.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series31.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series31.Legend = "DefaultLegend";
-			series31.Name = "GameSocketSendSizeAvgSec";
-			series32.ChartArea = "DefaultChartArea";
-			series32.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series32.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series32.Legend = "DefaultLegend";
-			series32.Name = "MiscSocketSendCount";
-			series33.ChartArea = "DefaultChartArea";
-			series33.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series33.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series33.Legend = "DefaultLegend";
-			series33.Name = "MiscSocketSendCountSec";
-			series34.ChartArea = "DefaultChartArea";
-			series34.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series34.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series34.Legend = "DefaultLegend";
-			series34.Name = "MiscSocketSendSize";
-			series35.ChartArea = "DefaultChartArea";
-			series35.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series35.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series35.Legend = "DefaultLegend";
-			series35.Name = "MiscSocketSendSizeSec";
-			series36.ChartArea = "DefaultChartArea";
-			series36.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Point;
-			series36.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			series36.Legend = "DefaultLegend";
-			series36.Name = "Events";
-			series37.ChartArea = "DefaultChartArea";
-			series37.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series37.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series37.Legend = "DefaultLegend";
-			series37.Name = "OutgoingBandwidthSize";
-			series38.ChartArea = "DefaultChartArea";
-			series38.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series38.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series38.Legend = "DefaultLegend";
-			series38.Name = "OutgoingBandwidthSizeSec";
-			series39.ChartArea = "DefaultChartArea";
-			series39.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series39.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series39.Legend = "DefaultLegend";
-			series39.Name = "OutgoingBandwidthSizeAvgSec";
-			series40.ChartArea = "DefaultChartArea";
-			series40.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-			series40.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			series40.Legend = "DefaultLegend";
-			series40.Name = "ActorReplicateTimeInMS";
-			this.NetworkChart.Series.Add(series1);
-			this.NetworkChart.Series.Add(series2);
-			this.NetworkChart.Series.Add(series3);
-			this.NetworkChart.Series.Add(series4);
-			this.NetworkChart.Series.Add(series5);
-			this.NetworkChart.Series.Add(series6);
-			this.NetworkChart.Series.Add(series7);
-			this.NetworkChart.Series.Add(series8);
-			this.NetworkChart.Series.Add(series9);
-			this.NetworkChart.Series.Add(series10);
-			this.NetworkChart.Series.Add(series11);
-			this.NetworkChart.Series.Add(series12);
-			this.NetworkChart.Series.Add(series13);
-			this.NetworkChart.Series.Add(series14);
-			this.NetworkChart.Series.Add(series15);
-			this.NetworkChart.Series.Add(series16);
-			this.NetworkChart.Series.Add(series17);
-			this.NetworkChart.Series.Add(series18);
-			this.NetworkChart.Series.Add(series19);
-			this.NetworkChart.Series.Add(series20);
-			this.NetworkChart.Series.Add(series21);
-			this.NetworkChart.Series.Add(series22);
-			this.NetworkChart.Series.Add(series23);
-			this.NetworkChart.Series.Add(series24);
-			this.NetworkChart.Series.Add(series25);
-			this.NetworkChart.Series.Add(series26);
-			this.NetworkChart.Series.Add(series27);
-			this.NetworkChart.Series.Add(series28);
-			this.NetworkChart.Series.Add(series29);
-			this.NetworkChart.Series.Add(series30);
-			this.NetworkChart.Series.Add(series31);
-			this.NetworkChart.Series.Add(series32);
-			this.NetworkChart.Series.Add(series33);
-			this.NetworkChart.Series.Add(series34);
-			this.NetworkChart.Series.Add(series35);
-			this.NetworkChart.Series.Add(series36);
-			this.NetworkChart.Series.Add(series37);
-			this.NetworkChart.Series.Add(series38);
-			this.NetworkChart.Series.Add(series39);
-			this.NetworkChart.Series.Add(series40);
-			this.NetworkChart.Size = new System.Drawing.Size(998, 418);
+			this.NetworkChart.Size = new System.Drawing.Size(998, 356);
 			this.NetworkChart.TabIndex = 2;
 			this.NetworkChart.Text = "chart1";
 			this.NetworkChart.CursorPositionChanged += new System.EventHandler<System.Windows.Forms.DataVisualization.Charting.CursorEventArgs>(this.NetworkChart_CursorPositionChanged);
 			this.NetworkChart.SelectionRangeChanged += new System.EventHandler<System.Windows.Forms.DataVisualization.Charting.CursorEventArgs>(this.NetworkChart_SelectionRangeChanged);
+			this.NetworkChart.PostPaint += new System.EventHandler<System.Windows.Forms.DataVisualization.Charting.ChartPaintEventArgs>(this.NetworkChart_PostPaint);
 			this.NetworkChart.MouseClick += new System.Windows.Forms.MouseEventHandler(this.NetworkChart_MouseClick);
 			// 
 			// ChartListBox
 			// 
-			this.ChartListBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+			this.ChartListBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
 			this.ChartListBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
 			this.ChartListBox.CheckOnClick = true;
 			this.ChartListBox.FormattingEnabled = true;
-			this.ChartListBox.Items.AddRange(new object[] {
-            "Actor count",
-            "Actor count / sec",
-            "Property count",
-            "Property count / sec",
-            "Property size (bytes)",
-            "Property size (bytes / sec)",
-            "RPC count",
-            "RPC count / sec",
-            "RPC size (bytes)",
-            "RPC size (bytes / sec)",
-            "ExportBunch count",
-            "ExportBunch size (bytes)",
-            "MustBeMappedGuids count",
-            "MustBeMappedGuids size (bytes)",
-            "SendAck count",
-            "SendAck count / sec",
-            "SendAck size (bytes)",
-            "SendAck size (bytes / sec)",
-            "Content block header size",
-            "Content block footer size",
-            "Property handle size",
-            "SendBunch header size (bytes)",
-            "SendBunch count",
-            "SendBunch count / sec",
-            "SendBunch size (bytes)",
-            "SendBunch size (bytes / sec)",
-            "Game socket send count",
-            "Game socket send count / sec",
-            "Game socket send size (bytes)",
-            "Game socket send size (bytes / sec)",
-            "Game socket send size (avg / sec)",
-            "Misc socket send count",
-            "Misc socket send count / sec",
-            "Misc socket send size",
-            "Misc socket send size (bytes / sec)",
-            "Events",
-            "Outgoing bandwidth (bytes)",
-            "Outgoing bandwidth (bytes/ sec)",
-            "Outgoing bandwidth (avg/ sec)",
-            "Actor replication time (ms)"});
 			this.ChartListBox.Location = new System.Drawing.Point(1019, 36);
 			this.ChartListBox.Name = "ChartListBox";
-			this.ChartListBox.Size = new System.Drawing.Size(198, 390);
+			this.ChartListBox.Size = new System.Drawing.Size(198, 330);
 			this.ChartListBox.TabIndex = 3;
 			this.ChartListBox.SelectedValueChanged += new System.EventHandler(this.ChartListBox_SelectedValueChanged);
 			// 
-			// SummaryTextBox
-			// 
-			this.SummaryTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.SummaryTextBox.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.SummaryTextBox.Location = new System.Drawing.Point(15, 430);
-			this.SummaryTextBox.Name = "SummaryTextBox";
-			this.SummaryTextBox.ReadOnly = true;
-			this.SummaryTextBox.Size = new System.Drawing.Size(352, 539);
-			this.SummaryTextBox.TabIndex = 4;
-			this.SummaryTextBox.Text = "";
-			// 
-			// DetailTextBox
-			// 
-			this.DetailTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.DetailTextBox.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.DetailTextBox.Location = new System.Drawing.Point(374, 430);
-			this.DetailTextBox.Name = "DetailTextBox";
-			this.DetailTextBox.ReadOnly = true;
-			this.DetailTextBox.Size = new System.Drawing.Size(372, 539);
-			this.DetailTextBox.TabIndex = 5;
-			this.DetailTextBox.Text = "";
-			// 
-			// ActorFilterTextBox
-			// 
-			this.ActorFilterTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.ActorFilterTextBox.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			this.ActorFilterTextBox.Location = new System.Drawing.Point(103, 15);
-			this.ActorFilterTextBox.Name = "ActorFilterTextBox";
-			this.ActorFilterTextBox.Size = new System.Drawing.Size(198, 21);
-			this.ActorFilterTextBox.TabIndex = 7;
-			// 
-			// PropertyFilterTextBox
-			// 
-			this.PropertyFilterTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.PropertyFilterTextBox.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			this.PropertyFilterTextBox.Location = new System.Drawing.Point(103, 54);
-			this.PropertyFilterTextBox.Name = "PropertyFilterTextBox";
-			this.PropertyFilterTextBox.Size = new System.Drawing.Size(198, 21);
-			this.PropertyFilterTextBox.TabIndex = 8;
-			// 
-			// RPCFilterTextBox
-			// 
-			this.RPCFilterTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.RPCFilterTextBox.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			this.RPCFilterTextBox.Location = new System.Drawing.Point(103, 91);
-			this.RPCFilterTextBox.Name = "RPCFilterTextBox";
-			this.RPCFilterTextBox.Size = new System.Drawing.Size(198, 21);
-			this.RPCFilterTextBox.TabIndex = 9;
-			// 
 			// ApplyFiltersButton
 			// 
-			this.ApplyFiltersButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.ApplyFiltersButton.Location = new System.Drawing.Point(24, 127);
+			this.ApplyFiltersButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.ApplyFiltersButton.Location = new System.Drawing.Point(893, 723);
 			this.ApplyFiltersButton.Name = "ApplyFiltersButton";
-			this.ApplyFiltersButton.Size = new System.Drawing.Size(277, 23);
+			this.ApplyFiltersButton.Size = new System.Drawing.Size(231, 23);
 			this.ApplyFiltersButton.TabIndex = 10;
 			this.ApplyFiltersButton.Text = "Apply Filters";
 			this.ApplyFiltersButton.UseVisualStyleBackColor = true;
@@ -523,7 +169,7 @@
 			this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.label1.AutoSize = true;
 			this.label1.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			this.label1.Location = new System.Drawing.Point(37, 18);
+			this.label1.Location = new System.Drawing.Point(20, 12);
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size(60, 13);
 			this.label1.TabIndex = 11;
@@ -534,7 +180,7 @@
 			this.label2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.label2.AutoSize = true;
 			this.label2.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			this.label2.Location = new System.Drawing.Point(21, 57);
+			this.label2.Location = new System.Drawing.Point(4, 42);
 			this.label2.Name = "label2";
 			this.label2.Size = new System.Drawing.Size(76, 13);
 			this.label2.TabIndex = 12;
@@ -545,7 +191,7 @@
 			this.label3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.label3.AutoSize = true;
 			this.label3.Font = new System.Drawing.Font("Tahoma", 8.25F);
-			this.label3.Location = new System.Drawing.Point(43, 94);
+			this.label3.Location = new System.Drawing.Point(26, 71);
 			this.label3.Name = "label3";
 			this.label3.Size = new System.Drawing.Size(54, 13);
 			this.label3.TabIndex = 13;
@@ -563,29 +209,140 @@
 			this.tabControl1.Location = new System.Drawing.Point(12, 56);
 			this.tabControl1.Name = "tabControl1";
 			this.tabControl1.SelectedIndex = 0;
-			this.tabControl1.Size = new System.Drawing.Size(1231, 1001);
+			this.tabControl1.Size = new System.Drawing.Size(1231, 778);
 			this.tabControl1.TabIndex = 14;
 			// 
 			// tabPage1
 			// 
+			this.tabPage1.Controls.Add(this.Details);
+			this.tabPage1.Controls.Add(this.ApplyFiltersButton);
+			this.tabPage1.Controls.Add(this.ConnectionListBox);
 			this.tabPage1.Controls.Add(this.StackedBunchSizeRadioButton);
 			this.tabPage1.Controls.Add(this.LineViewRadioButton);
-			this.tabPage1.Controls.Add(this.ActorPerformanceView);
 			this.tabPage1.Controls.Add(this.panel1);
 			this.tabPage1.Controls.Add(this.NetworkChart);
 			this.tabPage1.Controls.Add(this.ChartListBox);
-			this.tabPage1.Controls.Add(this.SummaryTextBox);
-			this.tabPage1.Controls.Add(this.DetailTextBox);
 			this.tabPage1.Location = new System.Drawing.Point(4, 22);
 			this.tabPage1.Name = "tabPage1";
 			this.tabPage1.Padding = new System.Windows.Forms.Padding(3);
-			this.tabPage1.Size = new System.Drawing.Size(1223, 975);
+			this.tabPage1.Size = new System.Drawing.Size(1223, 752);
 			this.tabPage1.TabIndex = 0;
 			this.tabPage1.Text = "Chart, Filters, Details";
 			this.tabPage1.UseVisualStyleBackColor = true;
 			// 
+			// Details
+			// 
+			this.Details.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.Details.Controls.Add(this.tabPage2);
+			this.Details.Controls.Add(this.tabPage6);
+			this.Details.Controls.Add(this.tabPage8);
+			this.Details.Location = new System.Drawing.Point(26, 368);
+			this.Details.Name = "Details";
+			this.Details.SelectedIndex = 0;
+			this.Details.Size = new System.Drawing.Size(864, 384);
+			this.Details.TabIndex = 22;
+			// 
+			// tabPage2
+			// 
+			this.tabPage2.Controls.Add(this.ActorSummaryView);
+			this.tabPage2.Location = new System.Drawing.Point(4, 22);
+			this.tabPage2.Name = "tabPage2";
+			this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
+			this.tabPage2.Size = new System.Drawing.Size(856, 358);
+			this.tabPage2.TabIndex = 0;
+			this.tabPage2.Text = "Summary";
+			this.tabPage2.UseVisualStyleBackColor = true;
+			// 
+			// ActorSummaryView
+			// 
+			this.ActorSummaryView.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.ActorSummaryView.BorderStyle = System.Windows.Forms.BorderStyle.None;
+			this.ActorSummaryView.Font = new System.Drawing.Font("Consolas", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.ActorSummaryView.Location = new System.Drawing.Point(3, 2);
+			this.ActorSummaryView.Name = "ActorSummaryView";
+			this.ActorSummaryView.Size = new System.Drawing.Size(787, 355);
+			this.ActorSummaryView.TabIndex = 19;
+			// 
+			// tabPage6
+			// 
+			this.tabPage6.Controls.Add(this.ActorPerfPropsDetailsListView);
+			this.tabPage6.Controls.Add(this.ActorPerfPropsListView);
+			this.tabPage6.Location = new System.Drawing.Point(4, 22);
+			this.tabPage6.Name = "tabPage6";
+			this.tabPage6.Padding = new System.Windows.Forms.Padding(3);
+			this.tabPage6.Size = new System.Drawing.Size(856, 358);
+			this.tabPage6.TabIndex = 1;
+			this.tabPage6.Text = "Actors";
+			this.tabPage6.UseVisualStyleBackColor = true;
+			// 
+			// ActorPerfPropsDetailsListView
+			// 
+			this.ActorPerfPropsDetailsListView.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.ActorPerfPropsDetailsListView.Font = new System.Drawing.Font("Tahoma", 8.25F);
+			this.ActorPerfPropsDetailsListView.FullRowSelect = true;
+			this.ActorPerfPropsDetailsListView.GridLines = true;
+			this.ActorPerfPropsDetailsListView.Location = new System.Drawing.Point(577, 0);
+			this.ActorPerfPropsDetailsListView.Name = "ActorPerfPropsDetailsListView";
+			this.ActorPerfPropsDetailsListView.Size = new System.Drawing.Size(283, 359);
+			this.ActorPerfPropsDetailsListView.TabIndex = 22;
+			this.ActorPerfPropsDetailsListView.UseCompatibleStateImageBehavior = false;
+			this.ActorPerfPropsDetailsListView.View = System.Windows.Forms.View.Details;
+			this.ActorPerfPropsDetailsListView.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.ActorPerfPropsDetailsListView_ColumnClick);
+			// 
+			// ActorPerfPropsListView
+			// 
+			this.ActorPerfPropsListView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.ActorPerfPropsListView.Font = new System.Drawing.Font("Tahoma", 8.25F);
+			this.ActorPerfPropsListView.FullRowSelect = true;
+			this.ActorPerfPropsListView.GridLines = true;
+			this.ActorPerfPropsListView.Location = new System.Drawing.Point(-4, 0);
+			this.ActorPerfPropsListView.Name = "ActorPerfPropsListView";
+			this.ActorPerfPropsListView.Size = new System.Drawing.Size(584, 359);
+			this.ActorPerfPropsListView.TabIndex = 21;
+			this.ActorPerfPropsListView.UseCompatibleStateImageBehavior = false;
+			this.ActorPerfPropsListView.View = System.Windows.Forms.View.Details;
+			this.ActorPerfPropsListView.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.ActorPerfPropsListView_ColumnClick);
+			this.ActorPerfPropsListView.SelectedIndexChanged += new System.EventHandler(this.ActorPerfPropsListView_SelectedIndexChanged);
+			// 
+			// tabPage8
+			// 
+			this.tabPage8.Controls.Add(this.TokenDetailsView);
+			this.tabPage8.Location = new System.Drawing.Point(4, 22);
+			this.tabPage8.Name = "tabPage8";
+			this.tabPage8.Size = new System.Drawing.Size(856, 358);
+			this.tabPage8.TabIndex = 3;
+			this.tabPage8.Text = "Token Details";
+			this.tabPage8.UseVisualStyleBackColor = true;
+			// 
+			// TokenDetailsView
+			// 
+			this.TokenDetailsView.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.TokenDetailsView.BorderStyle = System.Windows.Forms.BorderStyle.None;
+			this.TokenDetailsView.Font = new System.Drawing.Font("Consolas", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.TokenDetailsView.Location = new System.Drawing.Point(4, 3);
+			this.TokenDetailsView.Name = "TokenDetailsView";
+			this.TokenDetailsView.Size = new System.Drawing.Size(787, 355);
+			this.TokenDetailsView.TabIndex = 21;
+			// 
+			// ConnectionListBox
+			// 
+			this.ConnectionListBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.ConnectionListBox.CheckOnClick = true;
+			this.ConnectionListBox.Font = new System.Drawing.Font("Consolas", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.ConnectionListBox.FormattingEnabled = true;
+			this.ConnectionListBox.Location = new System.Drawing.Point(893, 388);
+			this.ConnectionListBox.Name = "ConnectionListBox";
+			this.ConnectionListBox.Size = new System.Drawing.Size(322, 229);
+			this.ConnectionListBox.TabIndex = 21;
+			this.ConnectionListBox.SelectedValueChanged += new System.EventHandler(this.ConnectionListBox_SelectedValueChanged);
+			// 
 			// StackedBunchSizeRadioButton
 			// 
+			this.StackedBunchSizeRadioButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
 			this.StackedBunchSizeRadioButton.AutoSize = true;
 			this.StackedBunchSizeRadioButton.Location = new System.Drawing.Point(1096, 7);
 			this.StackedBunchSizeRadioButton.Name = "StackedBunchSizeRadioButton";
@@ -597,6 +354,7 @@
 			// 
 			// LineViewRadioButton
 			// 
+			this.LineViewRadioButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
 			this.LineViewRadioButton.AutoSize = true;
 			this.LineViewRadioButton.Checked = true;
 			this.LineViewRadioButton.Location = new System.Drawing.Point(1020, 7);
@@ -608,37 +366,61 @@
 			this.LineViewRadioButton.UseVisualStyleBackColor = true;
 			this.LineViewRadioButton.CheckedChanged += new System.EventHandler(this.LineViewRadioButton_CheckChanged);
 			// 
-			// ActorPerformanceView
-			// 
-			this.ActorPerformanceView.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.ActorPerformanceView.Location = new System.Drawing.Point(752, 593);
-			this.ActorPerformanceView.Name = "ActorPerformanceView";
-			this.ActorPerformanceView.Size = new System.Drawing.Size(465, 375);
-			this.ActorPerformanceView.TabIndex = 16;
-			// 
 			// panel1
 			// 
-			this.panel1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.panel1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.panel1.Controls.Add(this.RPCFilterBox);
+			this.panel1.Controls.Add(this.PropertyFilterBox);
+			this.panel1.Controls.Add(this.ActorFilterBox);
 			this.panel1.Controls.Add(this.label1);
-			this.panel1.Controls.Add(this.ActorFilterTextBox);
 			this.panel1.Controls.Add(this.label3);
-			this.panel1.Controls.Add(this.PropertyFilterTextBox);
 			this.panel1.Controls.Add(this.label2);
-			this.panel1.Controls.Add(this.RPCFilterTextBox);
-			this.panel1.Controls.Add(this.ApplyFiltersButton);
-			this.panel1.Location = new System.Drawing.Point(847, 430);
+			this.panel1.Location = new System.Drawing.Point(893, 620);
 			this.panel1.Name = "panel1";
-			this.panel1.Size = new System.Drawing.Size(370, 158);
+			this.panel1.Size = new System.Drawing.Size(324, 98);
 			this.panel1.TabIndex = 15;
+			// 
+			// RPCFilterBox
+			// 
+			this.RPCFilterBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.RPCFilterBox.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.Suggest;
+			this.RPCFilterBox.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.ListItems;
+			this.RPCFilterBox.FormattingEnabled = true;
+			this.RPCFilterBox.Location = new System.Drawing.Point(81, 68);
+			this.RPCFilterBox.Name = "RPCFilterBox";
+			this.RPCFilterBox.Size = new System.Drawing.Size(243, 21);
+			this.RPCFilterBox.TabIndex = 24;
+			// 
+			// PropertyFilterBox
+			// 
+			this.PropertyFilterBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.PropertyFilterBox.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.Suggest;
+			this.PropertyFilterBox.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.ListItems;
+			this.PropertyFilterBox.FormattingEnabled = true;
+			this.PropertyFilterBox.Location = new System.Drawing.Point(81, 39);
+			this.PropertyFilterBox.Name = "PropertyFilterBox";
+			this.PropertyFilterBox.Size = new System.Drawing.Size(243, 21);
+			this.PropertyFilterBox.TabIndex = 23;
+			// 
+			// ActorFilterBox
+			// 
+			this.ActorFilterBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.ActorFilterBox.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.Suggest;
+			this.ActorFilterBox.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.ListItems;
+			this.ActorFilterBox.FormattingEnabled = true;
+			this.ActorFilterBox.Location = new System.Drawing.Point(81, 10);
+			this.ActorFilterBox.Name = "ActorFilterBox";
+			this.ActorFilterBox.Size = new System.Drawing.Size(243, 21);
+			this.ActorFilterBox.TabIndex = 22;
 			// 
 			// tabPage3
 			// 
 			this.tabPage3.Controls.Add(this.ActorListView);
 			this.tabPage3.Location = new System.Drawing.Point(4, 22);
 			this.tabPage3.Name = "tabPage3";
-			this.tabPage3.Size = new System.Drawing.Size(1223, 975);
+			this.tabPage3.Size = new System.Drawing.Size(1223, 752);
 			this.tabPage3.TabIndex = 2;
-			this.tabPage3.Text = "Actors";
+			this.tabPage3.Text = "All Actors";
 			this.tabPage3.UseVisualStyleBackColor = true;
 			// 
 			// ActorListView
@@ -657,7 +439,7 @@
 			this.ActorListView.GridLines = true;
 			this.ActorListView.Location = new System.Drawing.Point(1, 2);
 			this.ActorListView.Name = "ActorListView";
-			this.ActorListView.Size = new System.Drawing.Size(1220, 1119);
+			this.ActorListView.Size = new System.Drawing.Size(1220, 750);
 			this.ActorListView.TabIndex = 1;
 			this.ActorListView.UseCompatibleStateImageBehavior = false;
 			this.ActorListView.View = System.Windows.Forms.View.Details;
@@ -689,9 +471,9 @@
 			this.tabPage4.Controls.Add(this.PropertyListView);
 			this.tabPage4.Location = new System.Drawing.Point(4, 22);
 			this.tabPage4.Name = "tabPage4";
-			this.tabPage4.Size = new System.Drawing.Size(1223, 975);
+			this.tabPage4.Size = new System.Drawing.Size(1223, 752);
 			this.tabPage4.TabIndex = 3;
-			this.tabPage4.Text = "Properties";
+			this.tabPage4.Text = "All Properties";
 			this.tabPage4.UseVisualStyleBackColor = true;
 			// 
 			// PropertyListView
@@ -710,7 +492,7 @@
 			this.PropertyListView.GridLines = true;
 			this.PropertyListView.Location = new System.Drawing.Point(3, 3);
 			this.PropertyListView.Name = "PropertyListView";
-			this.PropertyListView.Size = new System.Drawing.Size(1220, 1119);
+			this.PropertyListView.Size = new System.Drawing.Size(1220, 750);
 			this.PropertyListView.TabIndex = 0;
 			this.PropertyListView.UseCompatibleStateImageBehavior = false;
 			this.PropertyListView.View = System.Windows.Forms.View.Details;
@@ -742,9 +524,9 @@
 			this.tabPage5.Controls.Add(this.RPCListView);
 			this.tabPage5.Location = new System.Drawing.Point(4, 22);
 			this.tabPage5.Name = "tabPage5";
-			this.tabPage5.Size = new System.Drawing.Size(1223, 975);
+			this.tabPage5.Size = new System.Drawing.Size(1223, 752);
 			this.tabPage5.TabIndex = 4;
-			this.tabPage5.Text = "RPCs";
+			this.tabPage5.Text = "All RPCs";
 			this.tabPage5.UseVisualStyleBackColor = true;
 			// 
 			// RPCListView
@@ -763,7 +545,7 @@
 			this.RPCListView.GridLines = true;
 			this.RPCListView.Location = new System.Drawing.Point(1, 2);
 			this.RPCListView.Name = "RPCListView";
-			this.RPCListView.Size = new System.Drawing.Size(1220, 1119);
+			this.RPCListView.Size = new System.Drawing.Size(1220, 750);
 			this.RPCListView.TabIndex = 1;
 			this.RPCListView.UseCompatibleStateImageBehavior = false;
 			this.RPCListView.View = System.Windows.Forms.View.Details;
@@ -790,11 +572,43 @@
 			this.columnHeader10.Text = "RPC";
 			this.columnHeader10.Width = 145;
 			// 
+			// CurrentProgress
+			// 
+			this.CurrentProgress.Location = new System.Drawing.Point(485, 49);
+			this.CurrentProgress.Name = "CurrentProgress";
+			this.CurrentProgress.Size = new System.Drawing.Size(548, 23);
+			this.CurrentProgress.TabIndex = 19;
+			// 
+			// ContextMenuStrip1
+			// 
+			this.ContextMenuStrip1.Name = "ContextMenuStrip1";
+			this.ContextMenuStrip1.Size = new System.Drawing.Size(61, 4);
+			// 
+			// EarlyOutLabel
+			// 
+			this.EarlyOutLabel.AutoSize = true;
+			this.EarlyOutLabel.Location = new System.Drawing.Point(315, 55);
+			this.EarlyOutLabel.Name = "EarlyOutLabel";
+			this.EarlyOutLabel.Size = new System.Drawing.Size(102, 13);
+			this.EarlyOutLabel.TabIndex = 20;
+			this.EarlyOutLabel.Text = "Max Profile Minutes:";
+			// 
+			// EarlyOutMinTextBox
+			// 
+			this.MaxProfileMinutesTextBox.Location = new System.Drawing.Point(419, 51);
+			this.MaxProfileMinutesTextBox.Name = "EarlyOutMinTextBox";
+			this.MaxProfileMinutesTextBox.Size = new System.Drawing.Size(58, 20);
+			this.MaxProfileMinutesTextBox.TabIndex = 21;
+			this.MaxProfileMinutesTextBox.TextChanged += new System.EventHandler(this.MaxProfileMinutesTextBox_TextChanged);
+			// 
 			// MainWindow
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(1255, 1069);
+			this.ClientSize = new System.Drawing.Size(1255, 846);
+			this.Controls.Add(this.MaxProfileMinutesTextBox);
+			this.Controls.Add(this.EarlyOutLabel);
+			this.Controls.Add(this.CurrentProgress);
 			this.Controls.Add(this.tabControl1);
 			this.Controls.Add(this.OpenButton);
 			this.Name = "MainWindow";
@@ -803,12 +617,17 @@
 			this.tabControl1.ResumeLayout(false);
 			this.tabPage1.ResumeLayout(false);
 			this.tabPage1.PerformLayout();
+			this.Details.ResumeLayout(false);
+			this.tabPage2.ResumeLayout(false);
+			this.tabPage6.ResumeLayout(false);
+			this.tabPage8.ResumeLayout(false);
 			this.panel1.ResumeLayout(false);
 			this.panel1.PerformLayout();
 			this.tabPage3.ResumeLayout(false);
 			this.tabPage4.ResumeLayout(false);
 			this.tabPage5.ResumeLayout(false);
 			this.ResumeLayout(false);
+			this.PerformLayout();
 
 		}
 
@@ -817,11 +636,6 @@
 		private System.Windows.Forms.Button OpenButton;
 		private System.Windows.Forms.DataVisualization.Charting.Chart NetworkChart;
 		private System.Windows.Forms.CheckedListBox ChartListBox;
-		private System.Windows.Forms.RichTextBox SummaryTextBox;
-		private System.Windows.Forms.RichTextBox DetailTextBox;
-		private System.Windows.Forms.TextBox ActorFilterTextBox;
-		private System.Windows.Forms.TextBox PropertyFilterTextBox;
-		private System.Windows.Forms.TextBox RPCFilterTextBox;
 		private System.Windows.Forms.Button ApplyFiltersButton;
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Label label2;
@@ -850,9 +664,24 @@
 		private System.Windows.Forms.ColumnHeader columnHeader8;
 		private System.Windows.Forms.ColumnHeader columnHeader9;
 		private System.Windows.Forms.ColumnHeader columnHeader10;
-		private System.Windows.Forms.TreeView ActorPerformanceView;
 		private System.Windows.Forms.RadioButton StackedBunchSizeRadioButton;
 		private System.Windows.Forms.RadioButton LineViewRadioButton;
+		private System.Windows.Forms.ProgressBar CurrentProgress;
+		private System.Windows.Forms.TreeView ActorSummaryView;
+		private System.Windows.Forms.CheckedListBox ConnectionListBox;
+		private System.Windows.Forms.ContextMenuStrip ContextMenuStrip1;
+		private System.Windows.Forms.ComboBox ActorFilterBox;
+		private System.Windows.Forms.ComboBox PropertyFilterBox;
+		private System.Windows.Forms.ComboBox RPCFilterBox;
+		private System.Windows.Forms.TabControl Details;
+		private System.Windows.Forms.TabPage tabPage2;
+		private System.Windows.Forms.TabPage tabPage6;
+		private System.Windows.Forms.TabPage tabPage8;
+		private System.Windows.Forms.TreeView TokenDetailsView;
+		private System.Windows.Forms.ListView ActorPerfPropsListView;
+		private System.Windows.Forms.ListView ActorPerfPropsDetailsListView;
+		private System.Windows.Forms.Label EarlyOutLabel;
+		private System.Windows.Forms.TextBox MaxProfileMinutesTextBox;
 	}
 }
 

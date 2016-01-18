@@ -1,6 +1,6 @@
-pushd FreeType2-2.4.12\Builds
+pushd FreeType2-2.6\Builds
 
-	REM FreeType2-2.4.12
+	REM FreeType2-2.6
 
 	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\Win32\...
 	p4 edit %THIRD_PARTY_CHANGELIST% ..\lib\Win64\...	

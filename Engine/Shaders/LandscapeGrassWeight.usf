@@ -55,14 +55,14 @@ int OutputPass;
 // Pixel Shader
 void PSMain( 
 	FLandscapeGrassWeightInterpolantsVSToPS Interpolants,
-	in float4 SvPosition : SV_Position,
+	in float4 SvPosition : SV_Position
 	OPTIONAL_IsFrontFace,
 	out half4 OutColor	: SV_Target0
 	)
 {
-	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants.FactoryInterpolants, Interpolants.PixelPosition);
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants.FactoryInterpolants, SvPosition);
 
-	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, Interpolants.PixelPosition); 
+	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace); 
 
 #if NUM_MATERIAL_OUTPUTS_GETGRASSWEIGHT > 2
 	switch(OutputPass)

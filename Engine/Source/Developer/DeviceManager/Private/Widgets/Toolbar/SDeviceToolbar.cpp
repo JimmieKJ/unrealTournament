@@ -43,7 +43,7 @@ void SDeviceToolbar::Construct( const FArguments& InArgs, const FDeviceManagerMo
 			]
 	];
 }
-
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 /* SDeviceToolbar callbacks
  *****************************************************************************/

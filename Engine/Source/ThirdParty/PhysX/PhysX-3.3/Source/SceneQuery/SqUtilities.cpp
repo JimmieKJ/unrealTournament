@@ -9,7 +9,6 @@
  */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
-
 #include "SqUtilities.h"
 #include "NpActor.h"
 #include "ScbRigidStatic.h"
@@ -17,13 +16,14 @@
 #include "NpShape.h"
 #include "SqPruner.h"
 #include "CmTransformUtils.h"
+#include "SqSceneQueryManager.h"
 
 using namespace physx;
 using namespace shdfnd::aos;
 
 PxTransform Sq::getGlobalPose(const NpShape& shape, const PxRigidActor& actor)
 {
-	const Scb::Actor& scbActor = NpActor::getScbFromPxActor(actor);
+	const Scb::Actor& scbActor = gOffsetTable.convertPxActor2Scb(actor);
 	const Scb::Shape& scbShape = shape.getScbShape();
 
 	return getGlobalPose(scbShape, scbActor);
@@ -32,7 +32,7 @@ PxTransform Sq::getGlobalPose(const NpShape& shape, const PxRigidActor& actor)
 
 PxBounds3 Sq::computeWorldAABB(const Scb::Shape& scbShape, const Scb::Actor& scbActor)
 {
-	PxActorType::Enum actorType = scbActor.getActorType();
+	PxActorType::Enum actorType = gOffsetTable.convertScbActor2Sc(scbActor).getActorCoreType();
 	const Gu::GeometryUnion& geom = scbShape.getGeometryUnion();
 	const PxTransform& shape2Actor = scbShape.getShape2Actor();
 
@@ -56,7 +56,7 @@ PxBounds3 Sq::computeWorldAABB(const Scb::Shape& scbShape, const Scb::Actor& scb
 
 PxTransform Sq::getGlobalPose(const Scb::Shape& scbShape, const Scb::Actor& scbActor)
 {
-	PxActorType::Enum actorType = scbActor.getActorType();
+	PxActorType::Enum actorType = gOffsetTable.convertScbActor2Sc(scbActor).getActorCoreType();
 	if(actorType==PxActorType::eRIGID_STATIC)
 	{
 		return static_cast<const Scb::RigidStatic&>(scbActor).getActor2World() * scbShape.getShape2Actor();
@@ -99,7 +99,7 @@ void Sq::populate(const PrunerPayload& payload, PxActorShape2& as)
 PxRigidActor*	Sq::getHitActor(const Scb::Actor* scbActor)
 {
 	return scbActor ? 
-		static_cast<PxRigidActor*>(static_cast<const Sc::RigidCore&>(scbActor->getActorCore()).getPxActor()) 
+		static_cast<PxRigidActor*>(static_cast<const Sc::RigidCore&>(gOffsetTable.convertScbActor2Sc(*scbActor)).getPxActor()) 
 		: NULL;
 }
 PxShape*		Sq::getHitShape(const Scb::Shape* scbShape)

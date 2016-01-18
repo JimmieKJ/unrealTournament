@@ -614,7 +614,7 @@ FReply STreeMap::OnMouseButtonUp( const FGeometry& InMyGeometry, const FPointerE
 	else if( InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
 	{
 		// Show a pop-up menu!
-		ShowOptionsMenuAt( InMouseEvent.GetScreenSpacePosition() );
+		ShowOptionsMenuAt( InMouseEvent );
 	}
 
 	return Reply;
@@ -1162,8 +1162,7 @@ void STreeMap::StartRenamingNode( const FGeometry& MyGeometry, const FTreeMapNod
 	bIsNamingNewNode = bIsNewNode;
 
 	const bool bFocusImmediately = true;
-	const bool bShouldAutoSize = true;
-	FSlateApplication::Get().PushMenu( AsShared(), RenamerWidget, MyGeometry.LocalToAbsolute( RelativePosition ), FPopupTransitionEffect::None, bFocusImmediately, bShouldAutoSize );
+	FSlateApplication::Get().PushMenu( AsShared(), FWidgetPath(), RenamerWidget, MyGeometry.LocalToAbsolute( RelativePosition ), FPopupTransitionEffect::None, bFocusImmediately );
 
 	// Focus the text box right after we spawn it so that the user can start typing
 	FSlateApplication::Get().SetKeyboardFocus( EditableText, EKeyboardFocusCause::SetDirectly );
@@ -1296,9 +1295,21 @@ void STreeMap::ApplyVisualizationToNodesRecursively( const FTreeMapNodeDataRef& 
 
 }
 
+void STreeMap::ShowOptionsMenuAt(const FVector2D& ScreenSpacePosition)
+{
+	// deprecated
+	ShowOptionsMenuAtInternal(ScreenSpacePosition, FWidgetPath());
+}
 
+void STreeMap::ShowOptionsMenuAt(const FPointerEvent& InMouseEvent)
+{
+	FWidgetPath WidgetPath = InMouseEvent.GetEventPath() != nullptr ? *InMouseEvent.GetEventPath() : FWidgetPath();
+	const FVector2D& ScreenSpacePosition = InMouseEvent.GetScreenSpacePosition();
 
-void STreeMap::ShowOptionsMenuAt( const FVector2D& ScreenSpacePosition )
+	ShowOptionsMenuAtInternal(ScreenSpacePosition, WidgetPath);
+}
+
+void STreeMap::ShowOptionsMenuAtInternal(const FVector2D& ScreenSpacePosition, const FWidgetPath& WidgetPath)
 {
 	struct Local
 	{
@@ -1546,8 +1557,7 @@ void STreeMap::ShowOptionsMenuAt( const FVector2D& ScreenSpacePosition )
 			];
 
 		const bool bFocusImmediately = false;
-		const bool bShouldAutoSize = true;
-		FSlateApplication::Get().PushMenu( AsShared(), WindowContent, ScreenSpacePosition, FPopupTransitionEffect::ContextMenu, bFocusImmediately, bShouldAutoSize );
+		FSlateApplication::Get().PushMenu(AsShared(), WidgetPath, WindowContent, ScreenSpacePosition, FPopupTransitionEffect::ContextMenu, bFocusImmediately);
 	}
 }
 

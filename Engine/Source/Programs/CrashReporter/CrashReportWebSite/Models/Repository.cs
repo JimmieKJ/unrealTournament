@@ -309,5 +309,15 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				return Results;
 			}
 		}
+
+		/// <summary>Returns a list of all users, from the AnalyticsDB.</summary>
+		public List<UsersMapping> GetAnalyticsUsers()
+		{
+			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString()  ) )
+			{
+				var AllUsers = Context.ExecuteQuery<UsersMapping>( @"SELECT * FROM [analyticsdb-01.dmz.epicgames.net].[CrashReport].[dbo].[UsersMapping]" );
+				return AllUsers.ToList();
+			}
+		}
 	}
 }

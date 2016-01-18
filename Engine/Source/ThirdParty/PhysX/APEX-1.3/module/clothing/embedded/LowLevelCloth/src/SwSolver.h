@@ -51,18 +51,22 @@ class SwSolver : public UserAllocated, public Solver
 		virtual void runInternal();
 		virtual const char* getName() const;
 		SwSolver* mSolver;
-		float mDt;
 	};
 
 	struct CpuClothSimulationTask : public Cm::Task
 	{
-		CpuClothSimulationTask(SwCloth&, EndSimulationTask&);
+		void* operator new(size_t n){ return allocate(n); }
+		void operator delete(void* ptr){ return deallocate(ptr); }
+
+		CpuClothSimulationTask(SwCloth&, SwSolver&);
+		~CpuClothSimulationTask();
 		virtual void runInternal();
 		virtual const char* getName() const;
-		virtual void release();
+
+		void simulate(float dt);
 
 		SwCloth* mCloth;
-		EndSimulationTask* mContinuation;
+		SwSolver* mSolver;
 		uint32_t mScratchMemorySize;
 		void* mScratchMemory;
 		float mInvNumIterations;
@@ -113,6 +117,8 @@ public:
 	virtual void setSpuCount(uint32_t n) { mMaxSpuCount = n; }
 #endif
 
+	static void simulate(void*, float);
+
 private:
 	void beginFrame() const;
 	void endFrame() const;
@@ -120,10 +126,9 @@ private:
 	void interCollision();
 
 private:
-
 	StartSimulationTask mStartSimulationTask;
 	
-	typedef Vector<CpuClothSimulationTask>::Type CpuClothSimulationTaskVector;
+	typedef Vector<CpuClothSimulationTask*>::Type CpuClothSimulationTaskVector;
 	CpuClothSimulationTaskVector mCpuClothSimulationTasks;
 	
 	EndSimulationTask mEndSimulationTask;
@@ -131,6 +136,7 @@ private:
 	physx::PxProfileZone* mProfiler;
 	uint16_t mSimulateEventId;
 
+	float mDt;
 	float mInterCollisionDistance;
 	float mInterCollisionStiffness;
 	uint32_t mInterCollisionIterations;

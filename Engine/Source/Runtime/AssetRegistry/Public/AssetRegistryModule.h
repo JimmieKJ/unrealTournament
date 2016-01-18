@@ -5,6 +5,7 @@
 
 #include "ModuleInterface.h"
 #include "IAssetRegistry.h"
+#include "AssetRegistryInterface.h"
 
 namespace AssetRegistryConstants
 {
@@ -14,7 +15,7 @@ namespace AssetRegistryConstants
 /**
  * Asset registry module
  */
-class FAssetRegistryModule : public IModuleInterface
+class FAssetRegistryModule : public IAssetRegistryInterface
 {
 
 public:
@@ -63,6 +64,12 @@ public:
 			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName);
 			AssetRegistryModule.Get().AssetRenamed(RenamedAsset, OldObjectPath);
 		}
+	}
+
+	/** Access the dependent package names for a given source package */
+	void GetDependencies(FName InPackageName, TArray<FName>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType) override
+	{
+		Get().GetDependencies(InPackageName, OutDependencies, InDependencyType);
 	}
 
 private:

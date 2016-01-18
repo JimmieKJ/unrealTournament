@@ -2,6 +2,9 @@
 #pragma once
 #include "EngineDefines.h"
 
+class UObject;
+class UWorld;
+
 enum class ECreateIfNeeded : int8
 {
 	Invalid = -1,
@@ -52,6 +55,8 @@ enum class EVisualLoggerShapeElement : uint8
 	Cylinder,
 	Capsule,
 	Polygon,
+	Mesh,
+	NavAreaMesh, // convex based mesh with min and max Z values
 	// note that in order to remain backward compatibility in terms of log
 	// serialization new enum values need to be added at the end
 };
@@ -104,6 +109,11 @@ struct ENGINE_API FVisualLogStatusCategory
 	FString Category;
 	int32 UniqueId;
 	TArray<FVisualLogStatusCategory> Children;
+
+	FVisualLogStatusCategory(const FString& InCategory = TEXT(""))
+		: Category(InCategory)
+	{
+	}
 
 	void Add(const FString& Key, const FString& Value);
 	bool GetDesc(int32 Index, FString& Key, FString& Value) const;
@@ -191,6 +201,12 @@ struct ENGINE_API FVisualLogEntry
 	void AddElement(const FVector& Center, float HalfHeight, float Radius, const FQuat & Rotation, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color = FColor::White, const FString& Description = TEXT(""));
 	// custom element
 	void AddElement(const FVisualLogShapeElement& Element);
+	// NavAreaMesh
+	void AddElement(const TArray<FVector>& ConvexPoints, float MinZ, float MaxZ, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color = FColor::White, const FString& Description = TEXT(""));
+	// 3d Mesh
+	void AddElement(const TArray<FVector>& Vertices, const TArray<int32>& Indices, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color = FColor::White, const FString& Description = TEXT(""));
+	// 2d convex
+	void AddConvexElement(const TArray<FVector>& Points, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color = FColor::White, const FString& Description = TEXT(""));
 	// histogram sample
 	void AddHistogramData(const FVector2D& DataSample, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FName& GraphName, const FName& DataName);
 	// Custom data block
@@ -205,15 +221,6 @@ struct ENGINE_API FVisualLogEntry
 };
 
 #if  ENABLE_VISUAL_LOG
-
-class FVisualLogExtensionInterface
-{
-public:
-	virtual void OnTimestampChange(float Timestamp, class UWorld* InWorld, class AActor* HelperActor) = 0;
-	virtual void DrawData(class UWorld* InWorld, class UCanvas* Canvas, class AActor* HelperActor, const FName& TagName, const FVisualLogDataBlock& DataBlock, float Timestamp) = 0;
-	virtual void DisableDrawingForData(class UWorld* InWorld, class UCanvas* Canvas, class AActor* HelperActor, const FName& TagName, const FVisualLogDataBlock& DataBlock, float Timestamp) = 0;
-	virtual void LogEntryLineSelectionChanged(TSharedPtr<struct FLogEntryItem> SelectedItem, int64 UserData, FName TagName) = 0;
-};
 
 /**
  * Interface for Visual Logger Device
@@ -249,6 +256,12 @@ struct ENGINE_API FVisualLoggerCategoryVerbosityPair
 	ELogVerbosity::Type Verbosity;
 };
 
+inline bool operator==(const FVisualLoggerCategoryVerbosityPair& A, const FVisualLoggerCategoryVerbosityPair& B)
+{
+	return A.CategoryName == B.CategoryName
+		&& A.Verbosity == B.Verbosity;
+}
+
 struct ENGINE_API FVisualLoggerHelpers
 {
 	static FString GenerateTemporaryFilename(const FString& FileExt);
@@ -257,6 +270,32 @@ struct ENGINE_API FVisualLoggerHelpers
 	static FArchive& Serialize(FArchive& Ar, TArray<FVisualLogDevice::FVisualLogEntryItem>& RecordedLogs);
 	static void GetCategories(const FVisualLogEntry& RecordedLogs, TArray<FVisualLoggerCategoryVerbosityPair>& OutCategories);
 	static void GetHistogramCategories(const FVisualLogEntry& RecordedLogs, TMap<FString, TArray<FString> >& OutCategories);
+};
+
+struct IVisualLoggerEditorInterface
+{
+	virtual const FName& GetRowClassName(FName RowName) const = 0;
+	virtual int32 GetSelectedItemIndex(FName RowName) const = 0;
+	virtual const TArray<FVisualLogDevice::FVisualLogEntryItem>& GetRowItems(FName RowName) = 0;
+	virtual const FVisualLogDevice::FVisualLogEntryItem& GetSelectedItem(FName RowName) const = 0;
+
+	virtual const TArray<FName>& GetSelectedRows() const = 0;
+	virtual bool IsRowVisible(FName RowName) const = 0;
+	virtual bool IsItemVisible(FName RowName, int32 ItemIndex) const = 0;
+	virtual UWorld* GetWorld() const = 0;
+	virtual AActor* GetHelperActor(UWorld* InWorld = nullptr) const = 0;
+
+	virtual bool MatchCategoryFilters(const FString& String, ELogVerbosity::Type Verbosity = ELogVerbosity::All) = 0;
+};
+
+class FVisualLogExtensionInterface
+{
+public:
+	virtual void ResetData(IVisualLoggerEditorInterface* EdInterface) = 0;
+	virtual void DrawData(IVisualLoggerEditorInterface* EdInterface, UCanvas* Canvas) = 0;
+
+	virtual void OnItemsSelectionChanged(IVisualLoggerEditorInterface* EdInterface) {};
+	virtual void OnLogLineSelectionChanged(IVisualLoggerEditorInterface* EdInterface, TSharedPtr<struct FLogEntryItem> SelectedItem, int64 UserData) {};
 };
 
 ENGINE_API  FArchive& operator<<(FArchive& Ar, FVisualLogDevice::FVisualLogEntryItem& FrameCacheItem);
@@ -371,7 +410,9 @@ void FVisualLogShapeElement::SetType(EVisualLoggerShapeElement InType)
 inline
 FColor FVisualLogShapeElement::GetFColor() const
 {
-	return FColor(((Color & 0xc0) << 24) | ((Color & 0x30) << 18) | ((Color & 0x0c) << 12) | ((Color & 0x03) << 6));
+	FColor RetColor(((Color & 0xc0) << 24) | ((Color & 0x30) << 18) | ((Color & 0x0c) << 12) | ((Color & 0x03) << 6));
+	RetColor.A = (RetColor.A * 255) / 192; // convert alpha to 0-255 range
+	return RetColor;
 }
 
 

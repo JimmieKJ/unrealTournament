@@ -5,6 +5,8 @@
 #include <new>
 
 #include "AreTypesEqual.h"
+#include "ContainerAllocationPolicies.h"
+#include "UnrealMathUtility.h"
 #include "UnrealMemory.h"
 
 // Disable visualization hack for shipping or test builds.
@@ -47,15 +49,17 @@ template <typename T> struct TIsATFunctionRef<TFunctionRef<T>> { enum { Value = 
  */
 namespace UE4Function_Private
 {
+	struct FFunctionStorage;
+
 	/**
 	 * Common interface to a callable object owned by TFunction.
 	 */
 	struct IFunction_OwnedObject
 	{
 		/**
-		 * Returns a heap-allocated copy of the object, created by copy construction.
+		 * Creates a copy of the object in the allocator and returns a pointer to it.
 		 */
-		virtual IFunction_OwnedObject* CloneByCopy() const = 0;
+		virtual IFunction_OwnedObject* CopyToEmptyStorage(FFunctionStorage& Storage) const = 0;
 
 		/**
 		 * Returns the address of the object.
@@ -75,6 +79,69 @@ namespace UE4Function_Private
 	{
 	}
 
+	#if !defined(_WIN32) || defined(_WIN64)
+		// Let TFunction store up to 32 bytes which are 16-byte aligned before we heap allocate
+		typedef TAlignedBytes<16, 16> AlignedInlineFunctionType;
+		typedef TInlineAllocator<2> FunctionAllocatorType;
+	#else
+		// ... except on Win32, because we can't pass 16-byte aligned types by value, as some TFunctions are.
+		// So we'll just keep it heap-allocated, which is always sufficiently aligned.
+		typedef TAlignedBytes<16, 8> AlignedInlineFunctionType;
+		typedef FHeapAllocator FunctionAllocatorType;
+	#endif
+
+	struct FFunctionStorage
+	{
+		FFunctionStorage()
+			: AllocatedSize(0)
+		{
+		}
+
+		FFunctionStorage(FFunctionStorage&& Other)
+			: AllocatedSize(0)
+		{
+			Allocator.MoveToEmpty(Other.Allocator);
+			AllocatedSize       = Other.AllocatedSize;
+			Other.AllocatedSize = 0;
+		}
+
+		void Empty()
+		{
+			Allocator.ResizeAllocation(0, 0, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+			AllocatedSize = 0;
+		}
+
+		typedef FunctionAllocatorType::ForElementType<AlignedInlineFunctionType> AllocatorType;
+
+		IFunction_OwnedObject* GetBoundObject() const
+		{
+			return AllocatedSize ? (IFunction_OwnedObject*)Allocator.GetAllocation() : nullptr;
+		}
+
+		AllocatorType Allocator;
+		int32         AllocatedSize;
+	};
+}
+
+inline void* operator new(size_t Size, UE4Function_Private::FFunctionStorage& Storage)
+{
+	if (UE4Function_Private::IFunction_OwnedObject* Obj = Storage.GetBoundObject())
+	{
+		Obj->~IFunction_OwnedObject();
+	}
+
+	int32 NewSize = FMath::DivideAndRoundUp(Size, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+	if (Storage.AllocatedSize != NewSize)
+	{
+		Storage.Allocator.ResizeAllocation(0, NewSize, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+		Storage.AllocatedSize = NewSize;
+	}
+
+	return Storage.Allocator.GetAllocation();
+}
+
+namespace UE4Function_Private
+{
 	/**
 	 * Implementation of IFunction_OwnedObject for a given T.
 	 */
@@ -97,17 +164,11 @@ namespace UE4Function_Private
 		{
 		}
 
-		/**
-		 * Returns a heap-allocated copy of the object, created by copy construction.
-		 */
-		IFunction_OwnedObject* CloneByCopy() const override
+		IFunction_OwnedObject* CopyToEmptyStorage(FFunctionStorage& Storage) const override
 		{
-			return new TFunction_OwnedObject(Obj);
+			return new (Storage) TFunction_OwnedObject(Obj);
 		}
 
-		/**
-		 * Returns the address of the object.
-		 */
 		virtual void* GetAddress() override
 		{
 			return &Obj;
@@ -131,7 +192,7 @@ namespace UE4Function_Private
 	/**
 	 * A class which defines an operator() which will invoke the TFunctionRefCaller::Call function.
 	 */
-	template <typename FuncType>
+	template <typename DerivedType, typename FuncType>
 	struct TFunctionRefBase;
 
 	#if ENABLE_TFUNCTIONREF_VISUALIZATION
@@ -155,15 +216,69 @@ namespace UE4Function_Private
 	#endif
 
 	template <typename T>
-	inline T& FakeCall(T* Ptr)
+	inline T&& FakeCall(T* Ptr)
 	{
-		return *Ptr;
+		return MoveTemp(*Ptr);
 	}
 
 	inline void FakeCall(void* Ptr)
 	{
 	}
 
+	template <typename FuncType, typename CallableType>
+	struct TFunctionRefBaseCommon
+	{
+		explicit TFunctionRefBaseCommon(ENoInit)
+		{
+			// Not really designed to be initialized directly, but want to be explicit about that.
+		}
+
+		template <typename FunctorType>
+		void Set(FunctorType* Functor)
+		{
+			Callable = &UE4Function_Private::TFunctionRefCaller<FunctorType, FuncType>::Call;
+
+			#if ENABLE_TFUNCTIONREF_VISUALIZATION
+				// We placement new over the top of the same object each time.  This is illegal,
+				// but it ensures that the vptr is set correctly for the bound type, and so is
+				// visualizable.  We never depend on the state of this object at runtime, so it's
+				// ok.
+				new ((void*)&DebugPtrStorage) UE4Function_Private::TDebugHelper<FunctorType>;
+				DebugPtrStorage.Ptr = (void*)Functor;
+			#endif
+		}
+
+		void CopyAndReseat(const TFunctionRefBaseCommon& Other, void* Functor)
+		{
+			Callable = Other.Callable;
+
+			#if ENABLE_TFUNCTIONREF_VISUALIZATION
+				// Use Memcpy to copy the other DebugPtrStorage, including vptr (because we don't know the bound type
+				// here), and then reseat the underlying pointer.  Possibly even more evil than the Set code.
+				FMemory::Memcpy(&DebugPtrStorage, &Other.DebugPtrStorage, sizeof(DebugPtrStorage));
+				DebugPtrStorage.Ptr = Functor;
+			#endif
+		}
+
+		void Unset()
+		{
+			Callable = &UE4Function_Private::TFunctionRefAsserter<FuncType>::Call;
+		}
+
+		CallableType* GetCallable() const
+		{
+			return Callable;
+		}
+
+	private:
+		// A pointer to a function which invokes the call operator on the callable object
+		CallableType* Callable;
+
+		#if ENABLE_TFUNCTIONREF_VISUALIZATION
+			// To help debug visualizers
+			UE4Function_Private::TDebugHelper<void> DebugPtrStorage;
+		#endif
+	};
 
 	/**
 	 * Switch on the existence of variadics.  Once all our supported compilers support variadics, a lot of this code
@@ -198,30 +313,40 @@ namespace UE4Function_Private
 		{
 			static Ret Call(void* Obj, ParamTypes&...)
 			{
-				// Attempting to call a null TFunction!
-				check(false);
+				checkf(false, TEXT("Attempting to call a null TFunction!"));
 
 				// This doesn't need to be valid, because it'll never be reached, but it does at least need to compile.
 				return FakeCall((Ret*)Obj);
 			}
 		};
 
-		template <typename Ret, typename... ParamTypes>
-		struct TFunctionRefBase<Ret (ParamTypes...)>
+		template <typename DerivedType, typename Ret, typename... ParamTypes>
+		struct TFunctionRefBase<DerivedType, Ret (ParamTypes...)> : TFunctionRefBaseCommon<Ret (ParamTypes...), Ret (void*, ParamTypes&...)>
 		{
-			typedef Ret (*FuncPtr)(void*, ParamTypes&...);
+			typedef TFunctionRefBaseCommon<Ret (ParamTypes...), Ret (void*, ParamTypes&...)> Super;
+
+			explicit TFunctionRefBase(ENoInit)
+				: Super(NoInit)
+			{
+			}
+
+			template <typename FunctorType>
+			explicit TFunctionRefBase(FunctorType* Functor)
+				: Super(Functor)
+			{
+			}
 
 			Ret operator()(ParamTypes... Params) const
 			{
-				const auto* Derived = static_cast<const TFunctionRef<Ret (ParamTypes...)>*>(this);
-				return Derived->Func(Derived->Ptr, Params...);
+				const DerivedType* Derived = static_cast<const DerivedType*>(this);
+				return this->GetCallable()(Derived->GetPtr(), Params...);
 			}
 		};
 
 	#else
 
 		/**
-		 * Specialisations of the above classes which don't use variadic templates, up to a maximum arity of 4.
+		 * Specializations of the above classes which don't use variadic templates, up to a maximum arity of 4.
 		 */
 
 		template <typename Functor, typename Ret                                                    > struct TFunctionRefCaller<Functor, Ret (              )> { static Ret Call(void* Obj                                ) { return (*(Functor*)Obj)(                                                                  ); } };
@@ -236,17 +361,17 @@ namespace UE4Function_Private
 		template <typename Functor, typename T0, typename T1, typename T2             > struct TFunctionRefCaller<Functor, void (T0, T1, T2    )> { static void Call(void* Obj, T0& P0, T1& P1, T2& P2        ) { (*(Functor*)Obj)(Forward<T0>(P0), Forward<T1>(P1), Forward<T2>(P2)                 ); } };
 		template <typename Functor, typename T0, typename T1, typename T2, typename T3> struct TFunctionRefCaller<Functor, void (T0, T1, T2, T3)> { static void Call(void* Obj, T0& P0, T1& P1, T2& P2, T3& P3) { (*(Functor*)Obj)(Forward<T0>(P0), Forward<T1>(P1), Forward<T2>(P2), Forward<T3>(P3)); } };
 
-		template <typename Ret                                                    > struct TFunctionRefAsserter<Ret (              )> { static Ret Call(void* Obj                    ) { /* Attempting to call a null TFunction! */ check(false); return FakeCall((Ret*)Obj); } };
-		template <typename Ret, typename T0                                       > struct TFunctionRefAsserter<Ret (T0            )> { static Ret Call(void* Obj, T0&               ) { /* Attempting to call a null TFunction! */ check(false); return FakeCall((Ret*)Obj); } };
-		template <typename Ret, typename T0, typename T1                          > struct TFunctionRefAsserter<Ret (T0, T1        )> { static Ret Call(void* Obj, T0&, T1&          ) { /* Attempting to call a null TFunction! */ check(false); return FakeCall((Ret*)Obj); } };
-		template <typename Ret, typename T0, typename T1, typename T2             > struct TFunctionRefAsserter<Ret (T0, T1, T2    )> { static Ret Call(void* Obj, T0&, T1&, T2&     ) { /* Attempting to call a null TFunction! */ check(false); return FakeCall((Ret*)Obj); } };
-		template <typename Ret, typename T0, typename T1, typename T2, typename T3> struct TFunctionRefAsserter<Ret (T0, T1, T2, T3)> { static Ret Call(void* Obj, T0&, T1&, T2&, T3&) { /* Attempting to call a null TFunction! */ check(false); return FakeCall((Ret*)Obj); } };
+		template <typename Ret                                                    > struct TFunctionRefAsserter<Ret (              )> { static Ret Call(void* Obj                    ) { checkf(false, TEXT("Attempting to call a null TFunction!")); return FakeCall((Ret*)Obj); } };
+		template <typename Ret, typename T0                                       > struct TFunctionRefAsserter<Ret (T0            )> { static Ret Call(void* Obj, T0&               ) { checkf(false, TEXT("Attempting to call a null TFunction!")); return FakeCall((Ret*)Obj); } };
+		template <typename Ret, typename T0, typename T1                          > struct TFunctionRefAsserter<Ret (T0, T1        )> { static Ret Call(void* Obj, T0&, T1&          ) { checkf(false, TEXT("Attempting to call a null TFunction!")); return FakeCall((Ret*)Obj); } };
+		template <typename Ret, typename T0, typename T1, typename T2             > struct TFunctionRefAsserter<Ret (T0, T1, T2    )> { static Ret Call(void* Obj, T0&, T1&, T2&     ) { checkf(false, TEXT("Attempting to call a null TFunction!")); return FakeCall((Ret*)Obj); } };
+		template <typename Ret, typename T0, typename T1, typename T2, typename T3> struct TFunctionRefAsserter<Ret (T0, T1, T2, T3)> { static Ret Call(void* Obj, T0&, T1&, T2&, T3&) { checkf(false, TEXT("Attempting to call a null TFunction!")); return FakeCall((Ret*)Obj); } };
 
-		template <typename Ret                                                    > struct TFunctionRefBase<Ret (              )> { typedef Ret (*FuncPtr)(void*                    ); Ret operator()(                          ) const { const auto* Derived = static_cast<const TFunctionRef<Ret (              )>*>(this); return Derived->Func(Derived->Ptr                ); } };
-		template <typename Ret, typename T0                                       > struct TFunctionRefBase<Ret (T0            )> { typedef Ret (*FuncPtr)(void*, T0&               ); Ret operator()(T0 P0                     ) const { const auto* Derived = static_cast<const TFunctionRef<Ret (T0            )>*>(this); return Derived->Func(Derived->Ptr, P0            ); } };
-		template <typename Ret, typename T0, typename T1                          > struct TFunctionRefBase<Ret (T0, T1        )> { typedef Ret (*FuncPtr)(void*, T0&, T1&          ); Ret operator()(T0 P0, T1 P1              ) const { const auto* Derived = static_cast<const TFunctionRef<Ret (T0, T1        )>*>(this); return Derived->Func(Derived->Ptr, P0, P1        ); } };
-		template <typename Ret, typename T0, typename T1, typename T2             > struct TFunctionRefBase<Ret (T0, T1, T2    )> { typedef Ret (*FuncPtr)(void*, T0&, T1&, T2&     ); Ret operator()(T0 P0, T1 P1, T2 P2       ) const { const auto* Derived = static_cast<const TFunctionRef<Ret (T0, T1, T2    )>*>(this); return Derived->Func(Derived->Ptr, P0, P1, P2    ); } };
-		template <typename Ret, typename T0, typename T1, typename T2, typename T3> struct TFunctionRefBase<Ret (T0, T1, T2, T3)> { typedef Ret (*FuncPtr)(void*, T0&, T1&, T2&, T3&); Ret operator()(T0 P0, T1 P1, T2 P2, T3 P3) const { const auto* Derived = static_cast<const TFunctionRef<Ret (T0, T1, T2, T3)>*>(this); return Derived->Func(Derived->Ptr, P0, P1, P2, P3); } };
+		template <typename DerivedType, typename Ret                                                    > struct TFunctionRefBase<DerivedType, Ret (              )> : TFunctionRefBaseCommon<Ret (              ), Ret (void*                    )> { typedef TFunctionRefBaseCommon<Ret (              ), Ret (void*                    )> Super; explicit TFunctionRefBase(ENoInit) : Super(NoInit) {} template <typename FunctorType> explicit TFunctionRefBase(FunctorType* Functor) : Super(Functor) {} Ret operator()(                          ) const { const DerivedType* Derived = static_cast<const DerivedType*>(this); return this->GetCallable()(Derived->GetPtr()                ); } };
+		template <typename DerivedType, typename Ret, typename T0                                       > struct TFunctionRefBase<DerivedType, Ret (T0            )> : TFunctionRefBaseCommon<Ret (T0            ), Ret (void*, T0&               )> { typedef TFunctionRefBaseCommon<Ret (T0            ), Ret (void*, T0&               )> Super; explicit TFunctionRefBase(ENoInit) : Super(NoInit) {} template <typename FunctorType> explicit TFunctionRefBase(FunctorType* Functor) : Super(Functor) {} Ret operator()(T0 P0                     ) const { const DerivedType* Derived = static_cast<const DerivedType*>(this); return this->GetCallable()(Derived->GetPtr(), P0            ); } };
+		template <typename DerivedType, typename Ret, typename T0, typename T1                          > struct TFunctionRefBase<DerivedType, Ret (T0, T1        )> : TFunctionRefBaseCommon<Ret (T0, T1        ), Ret (void*, T0&, T1&          )> { typedef TFunctionRefBaseCommon<Ret (T0, T1        ), Ret (void*, T0&, T1&          )> Super; explicit TFunctionRefBase(ENoInit) : Super(NoInit) {} template <typename FunctorType> explicit TFunctionRefBase(FunctorType* Functor) : Super(Functor) {} Ret operator()(T0 P0, T1 P1              ) const { const DerivedType* Derived = static_cast<const DerivedType*>(this); return this->GetCallable()(Derived->GetPtr(), P0, P1        ); } };
+		template <typename DerivedType, typename Ret, typename T0, typename T1, typename T2             > struct TFunctionRefBase<DerivedType, Ret (T0, T1, T2    )> : TFunctionRefBaseCommon<Ret (T0, T1, T2    ), Ret (void*, T0&, T1&, T2&     )> { typedef TFunctionRefBaseCommon<Ret (T0, T1, T2    ), Ret (void*, T0&, T1&, T2&     )> Super; explicit TFunctionRefBase(ENoInit) : Super(NoInit) {} template <typename FunctorType> explicit TFunctionRefBase(FunctorType* Functor) : Super(Functor) {} Ret operator()(T0 P0, T1 P1, T2 P2       ) const { const DerivedType* Derived = static_cast<const DerivedType*>(this); return this->GetCallable()(Derived->GetPtr(), P0, P1, P2    ); } };
+		template <typename DerivedType, typename Ret, typename T0, typename T1, typename T2, typename T3> struct TFunctionRefBase<DerivedType, Ret (T0, T1, T2, T3)> : TFunctionRefBaseCommon<Ret (T0, T1, T2, T3), Ret (void*, T0&, T1&, T2&, T3&)> { typedef TFunctionRefBaseCommon<Ret (T0, T1, T2, T3), Ret (void*, T0&, T1&, T2&, T3&)> Super; explicit TFunctionRefBase(ENoInit) : Super(NoInit) {} template <typename FunctorType> explicit TFunctionRefBase(FunctorType* Functor) : Super(Functor) {} Ret operator()(T0 P0, T1 P1, T2 P2, T3 P3) const { const DerivedType* Derived = static_cast<const DerivedType*>(this); return this->GetCallable()(Derived->GetPtr(), P0, P1, P2, P3); } };
 
 	#endif
 }
@@ -303,14 +428,11 @@ namespace UE4Function_Private
  * }
  */
 template <typename FuncType>
-class TFunctionRef : public UE4Function_Private::TFunctionRefBase<FuncType>
+class TFunctionRef : public UE4Function_Private::TFunctionRefBase<TFunctionRef<FuncType>, FuncType>
 {
-	template <typename T>
-	friend class TFunction;
+	friend struct UE4Function_Private::TFunctionRefBase<TFunctionRef<FuncType>, FuncType>;
 
-	friend struct UE4Function_Private::TFunctionRefBase<FuncType>;
-
-	typedef UE4Function_Private::TFunctionRefBase<FuncType> Super;
+	typedef UE4Function_Private::TFunctionRefBase<TFunctionRef<FuncType>, FuncType> Super;
 
 public:
 	/**
@@ -323,6 +445,7 @@ public:
 	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type>
 	TFunctionRef(FunctorType& Functor)
 #endif
+		: Super(NoInit)
 	{
 		// This constructor is disabled for function types because we want it to call the function pointer overload.
 		// It is also disabled for TFunctionRef types because VC is incorrectly treating it as a copy constructor.
@@ -340,6 +463,7 @@ public:
 	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type>
 	TFunctionRef(const FunctorType& Functor)
 #endif
+		: Super(NoInit)
 	{
 		// This constructor is disabled for function types because we want it to call the function pointer overload.
 		// It is also disabled for TFunctionRef types because VC is incorrectly treating it as a copy constructor.
@@ -357,6 +481,7 @@ public:
 	template <typename FunctionType, typename = typename TEnableIf<TIsFunction<FunctionType>::Value>::Type>
 	TFunctionRef(FunctionType* Function)
 #endif
+		: Super(NoInit)
 	{
 		// This constructor is enabled only for function types because we don't want weird errors from it being called with arbitrary pointers.
 
@@ -369,6 +494,7 @@ public:
 		 * Copy constructor.
 		 */
 		TFunctionRef(const TFunctionRef& Other)
+			: Super(NoInit)
 		{
 			// If visualization is enabled, then we need to do an explicit copy
 			// to ensure that our hacky DebugPtrStorage's vptr is copied.
@@ -401,14 +527,6 @@ public:
 
 private:
 	/**
-	 * Constructor which leaves the TFunctionRef uninitialized.  This is only for use with
-	 * TFunction.
-	 */
-	explicit TFunctionRef(ENoInit)
-	{
-	}
-
-	/**
 	 * Sets the state of the TFunctionRef given a pointer to a callable thing.
 	 */
 	template <typename FunctorType>
@@ -418,16 +536,7 @@ private:
 		// this won't compile.  We convert it back again before we use it anyway.
 
 		Ptr  = (void*)Functor;
-		Func = &UE4Function_Private::TFunctionRefCaller<FunctorType, FuncType>::Call;
-
-		#if ENABLE_TFUNCTIONREF_VISUALIZATION
-			// We placement new over the top of the same object each time.  This is illegal,
-			// but it ensures that the vptr is set correctly for the bound type, and so is
-			// visualizable.  We never depend on the state of this object at runtime, so it's
-			// ok.
-			new ((void*)&DebugPtrStorage) UE4Function_Private::TDebugHelper<FunctorType>;
-			DebugPtrStorage.Ptr = Ptr;
-		#endif
+		Super::Set(Functor);
 	}
 
 	/**
@@ -435,8 +544,8 @@ private:
 	 */
 	void Unset()
 	{
-		Ptr  = nullptr;
-		Func = &UE4Function_Private::TFunctionRefAsserter<FuncType>::Call;
+		Ptr = nullptr;
+		Super::Unset();
 	}
 
 	/**
@@ -445,35 +554,20 @@ private:
 	 */
 	void CopyAndReseat(const TFunctionRef& Other, void* Functor)
 	{
-		Ptr  = Functor;
-		Func = Other.Func;
-
-		#if ENABLE_TFUNCTIONREF_VISUALIZATION
-			// Use Memcpy to copy the other DebugPtrStorage, including vptr (because we don't know the bound type
-			// here), and then reseat the underlying pointer.  Possibly even more evil than the Set code.
-			FMemory::Memcpy(&DebugPtrStorage, &Other.DebugPtrStorage, sizeof(DebugPtrStorage));
-			DebugPtrStorage.Ptr = Ptr;
-		#endif
+		Ptr = Functor;
+		Super::CopyAndReseat(Other, Functor);
 	}
 
 	/**
-	 * Tests if the TFunctionRef is unset.
+	 * Returns a pointer to the callable object - needed by TFunctionRefBase.
 	 */
-	bool IsUnset() const
+	void* GetPtr() const
 	{
-		return Ptr == nullptr;
+		return Ptr;
 	}
 
 	// A pointer to the callable object
 	void* Ptr;
-
-	// A pointer to a function which invokes the call operator on the callable object
-	typename Super::FuncPtr Func;
-
-	#if ENABLE_TFUNCTIONREF_VISUALIZATION
-		// To help debug visualizers
-		UE4Function_Private::TDebugHelper<void> DebugPtrStorage;
-	#endif
 };
 
 /**
@@ -514,9 +608,11 @@ private:
  * }
  */
 template <typename FuncType>
-class TFunction : public TFunctionRef<FuncType>
+class TFunction : public UE4Function_Private::TFunctionRefBase<TFunction<FuncType>, FuncType>
 {
-	typedef TFunctionRef<FuncType> Super;
+	friend struct UE4Function_Private::TFunctionRefBase<TFunction<FuncType>, FuncType>;
+
+	typedef UE4Function_Private::TFunctionRefBase<TFunction<FuncType>, FuncType> Super;
 
 public:
 	/**
@@ -525,7 +621,6 @@ public:
 	TFunction(TYPE_OF_NULLPTR = nullptr)
 		: Super(NoInit)
 	{
-		Func = nullptr;
 		Super::Unset();
 	}
 
@@ -556,9 +651,7 @@ public:
 		// TFunction<int32(float)> MyFunction = [=](float F) -> int32 { return MyFunctionRef(F); };
 		static_assert(!TIsATFunctionRef<DecayedFunctorType>::Value, "Cannot construct a TFunction from a TFunctionRef");
 
-		auto NewObj = new OwnedType(Forward<FunctorType>(InFunc));
-
-		Func = NewObj;
+		OwnedType* NewObj = new (Storage) OwnedType(Forward<FunctorType>(InFunc));
 		Super::Set(&NewObj->Obj);
 	}
 
@@ -568,14 +661,13 @@ public:
 	TFunction(const TFunction& Other)
 		: Super(NoInit)
 	{
-		if (Other)
+		if (UE4Function_Private::IFunction_OwnedObject* OtherFunc = Other.Storage.GetBoundObject())
 		{
-			Func = Other.Func->CloneByCopy();
-			Super::CopyAndReseat(Other, Func->GetAddress());
+			UE4Function_Private::IFunction_OwnedObject* ThisFunc = OtherFunc->CopyToEmptyStorage(Storage);
+			Super::CopyAndReseat(Other, ThisFunc->GetAddress());
 		}
 		else
 		{
-			Func = nullptr;
 			Super::Unset();
 		}
 	}
@@ -584,12 +676,11 @@ public:
 	 * Move constructor.
 	 */
 	TFunction(TFunction&& Other)
-		: Super(NoInit)
+		: Super  (NoInit)
+		, Storage(MoveTemp(Other.Storage))
 	{
-		Func = Other.Func;
-		Super::CopyAndReseat(Other, Func->GetAddress());
+		Super::CopyAndReseat(Other, Storage.GetBoundObject()->GetAddress());
 
-		Other.Func = nullptr;
 		Other.Unset();
 	}
 
@@ -607,8 +698,11 @@ public:
 	 */
 	TFunction& operator=(TYPE_OF_NULLPTR)
 	{
-		delete Func;
-		Func = nullptr;
+		if (UE4Function_Private::IFunction_OwnedObject* Obj = Storage.GetBoundObject())
+		{
+			Obj->~IFunction_OwnedObject();
+		}
+		Storage.Empty();
 		Super::Unset();
 
 		return *this;
@@ -619,7 +713,10 @@ public:
 	 */
 	~TFunction()
 	{
-		delete Func;
+		if (UE4Function_Private::IFunction_OwnedObject* Obj = Storage.GetBoundObject())
+		{
+			Obj->~IFunction_OwnedObject();
+		}
 	}
 
 	/**
@@ -627,7 +724,7 @@ public:
 	 */
 	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
 	{
-		return !Super::IsUnset();
+		return !!Storage.GetBoundObject();
 	}
 
 	/**
@@ -637,14 +734,23 @@ public:
 	SAFE_BOOL_OPERATORS(TFunction)
 
 private:
-	UE4Function_Private::IFunction_OwnedObject* Func;
+	/**
+	 * Returns a pointer to the callable object - needed by TFunctionRefBase.
+	 */
+	void* GetPtr() const
+	{
+		UE4Function_Private::IFunction_OwnedObject* Ptr = Storage.GetBoundObject();
+		return Ptr ? Ptr->GetAddress() : nullptr;
+	}
+
+	UE4Function_Private::FFunctionStorage Storage;
 };
 
 /**
  * Nullptr equality operator.
  */
 template <typename FuncType>
-bool operator==(TYPE_OF_NULLPTR, const TFunction<FuncType>& Func)
+FORCEINLINE bool operator==(TYPE_OF_NULLPTR, const TFunction<FuncType>& Func)
 {
 	return !Func;
 }
@@ -653,7 +759,7 @@ bool operator==(TYPE_OF_NULLPTR, const TFunction<FuncType>& Func)
  * Nullptr equality operator.
  */
 template <typename FuncType>
-bool operator==(const TFunction<FuncType>& Func, TYPE_OF_NULLPTR)
+FORCEINLINE bool operator==(const TFunction<FuncType>& Func, TYPE_OF_NULLPTR)
 {
 	return !Func;
 }
@@ -662,7 +768,7 @@ bool operator==(const TFunction<FuncType>& Func, TYPE_OF_NULLPTR)
  * Nullptr inequality operator.
  */
 template <typename FuncType>
-bool operator!=(TYPE_OF_NULLPTR, const TFunction<FuncType>& Func)
+FORCEINLINE bool operator!=(TYPE_OF_NULLPTR, const TFunction<FuncType>& Func)
 {
 	return (bool)Func;
 }
@@ -671,7 +777,7 @@ bool operator!=(TYPE_OF_NULLPTR, const TFunction<FuncType>& Func)
  * Nullptr inequality operator.
  */
 template <typename FuncType>
-bool operator!=(const TFunction<FuncType>& Func, TYPE_OF_NULLPTR)
+FORCEINLINE bool operator!=(const TFunction<FuncType>& Func, TYPE_OF_NULLPTR)
 {
 	return (bool)Func;
 }

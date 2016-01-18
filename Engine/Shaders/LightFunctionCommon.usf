@@ -12,7 +12,7 @@ float4x4 LightFunctionWorldToLight;
  * Calculates the light function color with the given light vector. 
  * LightVector is the vector from the light to the position being shaded, in the light's coordinate space.
  */
-float3 GetLightFunctionColor(float3 LightVector, float3 WorldPosition)
+float3 GetLightFunctionColor(float3 LightVector, float3 AbsoluteWorldPosition)
 {
 	// Swizzle so that LightVector.xy are perpendicular to the light direction and LightVector.z is distance along the light direction
 	LightVector.xyz = LightVector.zyx;
@@ -45,7 +45,7 @@ float3 GetLightFunctionColor(float3 LightVector, float3 WorldPosition)
 	MaterialParameters.CameraVector = LightVector.xyz;
 	MaterialParameters.ReflectionVector = LightVector.xyz;
 	MaterialParameters.LightVector = LightVector.xyz;
-	MaterialParameters.WorldPosition = WorldPosition;
+	MaterialParameters.AbsoluteWorldPosition = AbsoluteWorldPosition;
 
 #if COMPUTESHADER
 	return GetMaterialEmissiveForCS(MaterialParameters);

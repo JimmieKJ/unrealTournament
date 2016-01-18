@@ -3,6 +3,7 @@
 
 #include "EnginePrivate.h"
 #include "SoundDefinitions.h"
+#include "Sound/SoundBase.h"
 #include "Sound/SoundNodeLooping.h"
 #include "Sound/SoundNodeWavePlayer.h"
 
@@ -28,6 +29,14 @@ void USoundNodeLooping::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT Nod
 		*RequiresInitialization = false;
 	}
 
+#if !(NO_LOGGING || UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (bLoopIndefinitely && !ActiveSound.bWarnedAboutOrphanedLooping && ActiveSound.GetAudioComponent() == nullptr)
+	{
+		UE_LOG(LogAudio, Warning, TEXT("Detected orphaned looping sound '%s'."), *ActiveSound.Sound->GetName());
+		ActiveSound.bWarnedAboutOrphanedLooping = true;
+	}
+#endif
+
 	FSoundParseParameters UpdatedParams = ParseParams;
 	UpdatedParams.NotifyBufferFinishedHooks.AddNotify(this, NodeWaveInstanceHash);
 
@@ -42,7 +51,7 @@ bool USoundNodeLooping::NotifyWaveInstanceFinished( FWaveInstance* InWaveInstanc
 	DECLARE_SOUNDNODE_ELEMENT(int32, CurrentLoopCount);
 	check(*RequiresInitialization == 0);
 
-	if (bLoopIndefinitely == 1 || CurrentLoopCount < LoopCount)
+	if (bLoopIndefinitely || ++CurrentLoopCount < LoopCount)
 	{
 		struct FNodeHashPairs
 		{
@@ -107,10 +116,10 @@ bool USoundNodeLooping::NotifyWaveInstanceFinished( FWaveInstance* InWaveInstanc
 		InWaveInstance->bIsStarted = false;
 		InWaveInstance->bIsFinished = false;
 
-		CurrentLoopCount++;
+		return true;
 	}
 
-	return true;
+	return false;
 }
 
 float USoundNodeLooping::GetDuration()

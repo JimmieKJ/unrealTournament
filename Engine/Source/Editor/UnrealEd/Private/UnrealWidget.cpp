@@ -67,6 +67,12 @@ FWidget::FWidget()
 	bSnapEnabled = false;
 	bDefaultVisibility = true;
 	bIsOrthoDrawingFullRing = false;
+
+	Origin = FVector2D::ZeroVector;
+	XAxisDir = FVector2D::ZeroVector;
+	YAxisDir = FVector2D::ZeroVector;
+	ZAxisDir = FVector2D::ZeroVector;
+	DragStartPos = FVector2D::ZeroVector;
 }
 
 extern ENGINE_API void StringSize(UFont* Font,int32& XL,int32& YL,const TCHAR* Text, FCanvas* Canvas);
@@ -163,32 +169,34 @@ void FWidget::Render( const FSceneView* View,FPrimitiveDrawInterface* PDI, FEdit
 		return;
 	}
 
-	FVector Loc = ViewportClient->GetWidgetLocation();
-	if(!View->ScreenToPixel(View->WorldToScreen(Loc),Origin))
+	FVector WidgetLocation = ViewportClient->GetWidgetLocation();
+	FVector2D NewOrigin;
+	if (View->ScreenToPixel(View->WorldToScreen(WidgetLocation), NewOrigin))
 	{
-		Origin.X = Origin.Y = 0;
+		// Only update the viewport-space origin if the position was in front of the camera
+		Origin = NewOrigin;
 	}
 
 	switch( ViewportClient->GetWidgetMode() )
 	{
 		case WM_Translate:
-			Render_Translate( View, PDI, ViewportClient, Loc, bDrawWidget );
+			Render_Translate(View, PDI, ViewportClient, WidgetLocation, bDrawWidget);
 			break;
 
 		case WM_Rotate:
-			Render_Rotate( View, PDI, ViewportClient, Loc, bDrawWidget );
+			Render_Rotate(View, PDI, ViewportClient, WidgetLocation, bDrawWidget);
 			break;
 
 		case WM_Scale:
-			Render_Scale( View, PDI, ViewportClient, Loc, bDrawWidget );
+			Render_Scale(View, PDI, ViewportClient, WidgetLocation, bDrawWidget);
 			break;
 
 		case WM_TranslateRotateZ:
-			Render_TranslateRotateZ( View, PDI, ViewportClient, Loc, bDrawWidget );
+			Render_TranslateRotateZ(View, PDI, ViewportClient, WidgetLocation, bDrawWidget);
 			break;
 
 		case WM_2D:
-			Render_2D( View, PDI, ViewportClient, Loc, bDrawWidget );
+			Render_2D(View, PDI, ViewportClient, WidgetLocation, bDrawWidget);
 			break;
 
 		default:
@@ -272,13 +280,34 @@ void FWidget::Render_Axis( const FSceneView* View, FPrimitiveDrawInterface* PDI,
 		PDI->SetHitProxy( NULL );
 	}
 
+	FVector2D NewOrigin;
 	FVector2D AxisEnd;
-	if(!View->ScreenToPixel(View->WorldToScreen(ArrowToWorld.TransformPosition(FVector(64,0,0))),AxisEnd))
-	{
-		AxisEnd.X = AxisEnd.Y = 0;
-	}
+	const FVector AxisEndWorld = ArrowToWorld.TransformPosition(FVector(64, 0, 0));
+	const FVector WidgetOrigin = InMatrix.GetOrigin();
 
-	OutAxisDir = (AxisEnd - Origin).GetSafeNormal();
+	if (View->ScreenToPixel(View->WorldToScreen(WidgetOrigin), NewOrigin) &&
+		View->ScreenToPixel(View->WorldToScreen(AxisEndWorld), AxisEnd))
+	{
+		// If both the origin and the axis endpoint are in front of the camera, trivially calculate the viewport space axis direction
+		OutAxisDir = (AxisEnd - NewOrigin).GetSafeNormal();
+	}
+	else
+	{
+		// If either the origin or axis endpoint are behind the camera, translate the entire widget in front of the camera in the view direction before performing the
+		// viewport space calculation
+		const FMatrix InvViewMatrix = View->ViewMatrices.GetInvViewMatrix();
+		const FVector ViewLocation = InvViewMatrix.GetOrigin();
+		const FVector ViewDirection = InvViewMatrix.GetUnitAxis(EAxis::Z);
+		const FVector Offset = ViewDirection * (FVector::DotProduct(ViewLocation - WidgetOrigin, ViewDirection) + 100.0f);
+		const FVector AdjustedWidgetOrigin = WidgetOrigin + Offset;
+		const FVector AdjustedWidgetAxisEnd = AxisEndWorld + Offset;
+
+		if (View->ScreenToPixel(View->WorldToScreen(AdjustedWidgetOrigin), NewOrigin) &&
+			View->ScreenToPixel(View->WorldToScreen(AdjustedWidgetAxisEnd), AxisEnd))
+		{
+			OutAxisDir = -(AxisEnd - NewOrigin).GetSafeNormal();
+		}
+	}
 }
 
 void FWidget::Render_Cube( FPrimitiveDrawInterface* PDI, const FMatrix& InMatrix, const UMaterialInterface* InMaterial, const FVector& InScale )
@@ -396,7 +425,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 	const bool bDisabled = IsWidgetDisabled();
 
 	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
 
 	if ( bIsOrthoXY )
 	{
@@ -512,7 +541,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
  */
 void FWidget::Render_Rotate( const FSceneView* View,FPrimitiveDrawInterface* PDI, FEditorViewportClient* ViewportClient, const FVector& InLocation, bool bDrawWidget )
 {
-	float Scale = View->WorldToScreen( InLocation ).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+	float Scale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
 
 	//get the axes 
 	FVector XAxis = CustomCoordSystem.TransformVector(FVector(1, 0, 0));
@@ -532,17 +561,17 @@ void FWidget::Render_Rotate( const FSceneView* View,FPrimitiveDrawInterface* PDI
 		//no draw the arc segments
 		if( DrawAxis&EAxisList::X )
 		{
-			DrawRotationArc(View, PDI, EAxisList::X, InLocation, ZAxis, YAxis, DirectionToWidget, AxisColorX, Scale, XAxisDir);
+			DrawRotationArc(View, PDI, EAxisList::X, InLocation, ZAxis, YAxis, DirectionToWidget, AxisColorX.ToFColor(true), Scale, XAxisDir);
 		}
 
 		if( DrawAxis&EAxisList::Y )
 		{
-			DrawRotationArc(View, PDI, EAxisList::Y, InLocation, XAxis, ZAxis, DirectionToWidget, AxisColorY, Scale, YAxisDir);
+			DrawRotationArc(View, PDI, EAxisList::Y, InLocation, XAxis, ZAxis, DirectionToWidget, AxisColorY.ToFColor(true), Scale, YAxisDir);
 		}
 
 		if( DrawAxis&EAxisList::Z )
 		{
-			DrawRotationArc(View, PDI, EAxisList::Z, InLocation, XAxis, YAxis, DirectionToWidget, AxisColorZ, Scale, ZAxisDir);
+			DrawRotationArc(View, PDI, EAxisList::Z, InLocation, XAxis, YAxis, DirectionToWidget, AxisColorZ.ToFColor(true), Scale, ZAxisDir);
 		}
 	}
 }
@@ -577,7 +606,7 @@ void FWidget::Render_Scale( const FSceneView* View,FPrimitiveDrawInterface* PDI,
 	const bool bIsOrthoYZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f;
 
 	FVector Scale;
-	const float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+	const float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
 
 	if ( bIsOrthoXY )
 	{
@@ -669,10 +698,10 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 	// Figure out axis colors
 
 	FColor XYPlaneColor  = ( (CurrentAxis&EAxisList::XY) ==  EAxisList::XY) ? CurrentColor : PlaneColorXY;
-	FColor ZRotateColor  = ( (CurrentAxis&EAxisList::ZRotation) == EAxisList::ZRotation ) ? CurrentColor : (FColor)AxisColorZ ;
-	FColor XColor        = ( (CurrentAxis&EAxisList::X ) == EAxisList::X )? CurrentColor : (FColor)AxisColorX;
-	FColor YColor        = ( (CurrentAxis&EAxisList::Y) == EAxisList::Y && CurrentAxis != EAxisList::ZRotation ) ? CurrentColor : (FColor)AxisColorY;
-	FColor ZColor        = ( (CurrentAxis&EAxisList::Z) == EAxisList::Z) ? CurrentColor : (FColor)AxisColorZ;
+	FColor ZRotateColor  = ( ( CurrentAxis&EAxisList::ZRotation ) == EAxisList::ZRotation ) ? CurrentColor : AxisColorZ.ToFColor(true);
+	FColor XColor        = ( ( CurrentAxis&EAxisList::X ) == EAxisList::X ) ? CurrentColor : AxisColorX.ToFColor(true);
+	FColor YColor        = ( ( CurrentAxis&EAxisList::Y ) == EAxisList::Y && CurrentAxis != EAxisList::ZRotation ) ? CurrentColor : AxisColorY.ToFColor(true);
+	FColor ZColor        = ( ( CurrentAxis&EAxisList::Z ) == EAxisList::Z ) ? CurrentColor : AxisColorZ.ToFColor(true);
 
 	// Figure out axis materials
 	UMaterialInterface* ZRotateMaterial = (CurrentAxis&EAxisList::ZRotation) == EAxisList::ZRotation? CurrentAxisMaterial : AxisMaterialZ;
@@ -695,7 +724,7 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 	EAxisList::Type DrawAxis = GetAxisToDraw( ViewportClient->GetWidgetMode() );
 
 	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
 
 	if ( bIsOrthoXY )
 	{
@@ -846,7 +875,7 @@ void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FE
 	const bool bDisabled = IsWidgetDisabled();
 
 	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
+	float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
 
 	if (bIsOrthoXY)
 	{
@@ -912,7 +941,7 @@ void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FE
 			uint8 Alpha = ((CurrentAxis&EAxisList::XZ) == EAxisList::XZ ? HoverAlpha : NormalAlpha);
 			PDI->SetHitProxy(new HWidgetAxis(EAxisList::XZ, bDisabled));
 			{
-				FColor Color = YColor;
+				FColor Color = YColor.ToFColor(true);
 				DrawCircle(PDI, InLocation, CustomCoordSystem.TransformPosition(FVector(1, 0, 0)), CustomCoordSystem.TransformPosition(FVector(0, 0, 1)), Color, ScaledRadius, CircleSides, SDPG_Foreground);
 				Color.A = Alpha;
 				DrawDisc(PDI, InLocation, CustomCoordSystem.TransformPosition(FVector(1, 0, 0)), CustomCoordSystem.TransformPosition(FVector(0, 0, 1)), Color, ScaledRadius, CircleSides, TransparentPlaneMaterialXY->GetRenderProxy(false), SDPG_Foreground);
@@ -921,7 +950,7 @@ void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FE
 
 			PDI->SetHitProxy(new HWidgetAxis(EAxisList::Rotate2D, bDisabled));
 			{
-				FColor Color = YColor;
+				FColor Color = YColor.ToFColor(true);
 				Color.A = ((CurrentAxis&EAxisList::Rotate2D) == EAxisList::Rotate2D ? HoverAlpha : NormalAlpha);
 
 				FVector XAxis = CustomCoordSystem.TransformPosition(FVector(1, 0, 0).RotateAngleAxis((EditorModeTools ? EditorModeTools->TranslateRotate2DAngle : 0), FVector(0, -1, 0)));

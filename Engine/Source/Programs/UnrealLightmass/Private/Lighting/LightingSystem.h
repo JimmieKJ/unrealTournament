@@ -41,12 +41,15 @@ public:
 	/** Sky bent normal, points toward the most unoccluded direction, and the length is the visibility amount (0 = occluded, 1 = visible). */
 	FVector SkyOcclusion;
 
+	float AOMaterialMask;
+
 	/** Initialization constructor. */
 	FGatheredLightSample()
 	{
 		SHCorrection = 0.0f;
 		IncidentLighting = FLinearColor(0, 0, 0, 0);
 		SkyOcclusion = FVector(0);
+		AOMaterialMask = 0;
 	}
 
 	FGatheredLightSample(EForceInit)
@@ -54,6 +57,7 @@ public:
 		SHCorrection = 0.0f;
 		IncidentLighting = FLinearColor(0, 0, 0, 0);
 		SkyOcclusion = FVector(0);
+		AOMaterialMask = 0;
 	}
 
 	/**
@@ -93,6 +97,7 @@ public:
 		Result.SHCorrection = SHCorrection * Scalar;
 		Result.IncidentLighting = IncidentLighting * Scalar;
 		Result.SkyOcclusion = SkyOcclusion * Scalar;
+		Result.AOMaterialMask = AOMaterialMask * Scalar;
 		return Result;
 	}
 
@@ -103,6 +108,7 @@ public:
 		Result.SHCorrection = SHCorrection + SampleB.SHCorrection;
 		Result.IncidentLighting = IncidentLighting + SampleB.IncidentLighting;
 		Result.SkyOcclusion = SkyOcclusion + SampleB.SkyOcclusion;
+		Result.AOMaterialMask = AOMaterialMask + SampleB.AOMaterialMask;
 		return Result;
 	}
 };
@@ -1175,7 +1181,7 @@ public:
 	float BooleanRayTraceThreadTime;
 
 	/** Thread seconds spent placing volume lighting samples and then calculating their lighting. */
-	float VolumeSampleThreadTime;
+	float VolumeSamplePlacementThreadTime;
 
 	/** Irradiance cache stats */
 	FIrradianceCacheStats Cache[NumTrackedBounces];
@@ -1238,7 +1244,7 @@ public:
 		NumBooleanRaysTraced(0),
 		FirstHitRayTraceThreadTime(0),
 		BooleanRayTraceThreadTime(0),
-		VolumeSampleThreadTime(0)
+		VolumeSamplePlacementThreadTime(0)
 	{
 		for (int32 i = 0; i < NumTrackedBounces; i++)
 		{
@@ -1336,27 +1342,30 @@ public:
 	FLinearColor Lighting;
 	FVector UnoccludedSkyVector;
 	FLinearColor StationarySkyLighting;
+	float NumSamplesOccluded;
 
 	FLightingAndOcclusion() :
 		Lighting(ForceInit),
 		UnoccludedSkyVector(FVector(0)),
-		StationarySkyLighting(FLinearColor::Black)
+		StationarySkyLighting(FLinearColor::Black),
+		NumSamplesOccluded(0)
 	{}
 
-	FLightingAndOcclusion(const FLinearColor& InLighting, FVector InUnoccludedSkyVector, const FLinearColor& InStationarySkyLighting) : 
+	FLightingAndOcclusion(const FLinearColor& InLighting, FVector InUnoccludedSkyVector, const FLinearColor& InStationarySkyLighting, float InNumSamplesOccluded) : 
 		Lighting(InLighting),
 		UnoccludedSkyVector(InUnoccludedSkyVector),
-		StationarySkyLighting(InStationarySkyLighting)
+		StationarySkyLighting(InStationarySkyLighting),
+		NumSamplesOccluded(InNumSamplesOccluded)
 	{}
 
 	friend inline FLightingAndOcclusion operator+ (const FLightingAndOcclusion& A, const FLightingAndOcclusion& B)
 	{
-		return FLightingAndOcclusion(A.Lighting + B.Lighting, A.UnoccludedSkyVector + B.UnoccludedSkyVector, A.StationarySkyLighting + B.StationarySkyLighting);
+		return FLightingAndOcclusion(A.Lighting + B.Lighting, A.UnoccludedSkyVector + B.UnoccludedSkyVector, A.StationarySkyLighting + B.StationarySkyLighting, A.NumSamplesOccluded + B.NumSamplesOccluded);
 	}
 
 	friend inline FLightingAndOcclusion operator/ (const FLightingAndOcclusion& A, float Divisor)
 	{
-		return FLightingAndOcclusion(A.Lighting / Divisor, A.UnoccludedSkyVector / Divisor, A.StationarySkyLighting / Divisor);
+		return FLightingAndOcclusion(A.Lighting / Divisor, A.UnoccludedSkyVector / Divisor, A.StationarySkyLighting / Divisor, A.NumSamplesOccluded / Divisor);
 	}
 };
 
@@ -1882,6 +1891,21 @@ public:
 	{}
 };
 
+/**  */
+class FVolumeSamplesTaskDescription
+{
+public:
+	FGuid LevelId;
+	int32 StartIndex;
+	int32 NumSamples;
+	
+	FVolumeSamplesTaskDescription(FGuid InLevelId, int32 InStartIndex, int32 InNumSamples) :
+		LevelId(InLevelId),
+		StartIndex(InStartIndex),
+		NumSamples(InNumSamples)
+	{}
+};
+
 class FVisibilityMeshGroup
 {
 public:
@@ -1920,6 +1944,8 @@ public:
 	 */
 	FStaticLightingSystem( const FLightingBuildOptions& InOptions, class FScene& InScene, class FLightmassSolverExporter& InExporter, int32 InNumThreads );
 
+	~FStaticLightingSystem();
+
 	/**
 	 * Returns the Lightmass exporter (back to Unreal)
 	 * @return	Lightmass exporter
@@ -1943,10 +1969,18 @@ public:
 
 	bool HasSkyShadowing() const
 	{
-		// Indicating sky shadowing is needed even if the sky lights do not have shadow casting enabled,
-		// So that shadow casting can be toggled without rebuilding lighting
-		// This does mean that skylights with shadow casting disabled will generate unused sky occlusion textures
-		return SkyLights.Num() > 0;
+		for (int32 SkylightIndex = 0; SkylightIndex < SkyLights.Num(); SkylightIndex++)
+		{
+			// Indicating sky shadowing is needed even if the sky lights do not have shadow casting enabled,
+			// So that shadow casting can be toggled without rebuilding lighting
+			// This does mean that skylights with shadow casting disabled will generate unused sky occlusion textures
+			if (!(SkyLights[SkylightIndex]->LightFlags & GI_LIGHT_HASSTATICLIGHTING))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** Rasterizes Mesh into TexelToCornersMap */
@@ -1963,6 +1997,11 @@ public:
 		bool bDebugThisMapping, 
 		FVector2D UVBias, 
 		FVector2D UVScale) const;
+
+	FStaticLightingAggregateMeshType& GetAggregateMesh()
+	{
+		return *AggregateMesh;
+	}
 
 private:
 
@@ -2147,7 +2186,7 @@ private:
 		bool bDebugThisDensityEstimation) const;
 
 	/** Places volume lighting samples and calculates lighting for them. */
-	void CalculateVolumeSamples();
+	void BeginCalculateVolumeSamples();
 
 	/** 
 	 * Interpolates lighting from the volume lighting samples to a vertex. 
@@ -2294,6 +2333,7 @@ private:
 		const FVector4& TriangleTangentPathDirection,
 		float SampleRadius,
 		int32 BounceNumber,
+		bool bSkyLightingOnly,
 		bool bDebugThisTexel,
 		FStaticLightingMappingContext& MappingContext,
 		FLMRandomStream& RandomStream,
@@ -2314,6 +2354,7 @@ private:
 		bool bIntersectingSurface,
 		int32 ElementIndex,
 		int32 BounceNumber,
+		int32 NumAdaptiveRefinementLevels,
 		const TArray<FVector4>& UniformHemisphereSamples,
 		const TArray<FVector2D>& UniformHemisphereSampleUniforms,
 		float MaxUnoccludedLength,
@@ -2321,6 +2362,7 @@ private:
 		FStaticLightingMappingContext& MappingContext,
 		FLMRandomStream& RandomStream,
 		FLightingCacheGatherInfo& GatherInfo,
+		bool bSkyLightingOnly,
 		bool bDebugThisTexel) const;
 
 	/** Final gather using uniform sampling to estimate the incident radiance function. */
@@ -2460,6 +2502,8 @@ private:
 	 */
 	void ProcessInterpolateTask(FInterpolateIndirectTaskDescription* Task, bool bProcessedByMappingThread);
 
+	void ProcessVolumeSamplesTask(const FVolumeSamplesTaskDescription& Task);
+
 	/** Handles indirect lighting calculations for a single texture mapping. */
 	void CalculateIndirectLightingTextureMapping(
 		FStaticLightingTextureMapping* TextureMapping,
@@ -2558,13 +2602,19 @@ private:
 	volatile int32 MappingTasksInProgressThatWillNeedHelp;
 
 	/** List of tasks to cache indirect lighting, used by all mapping threads. */
-	TLockFreePointerList<FCacheIndirectTaskDescription> CacheIndirectLightingTasks;
+	// consider changing this from FIFO to Unordered, which may be faster
+	TLockFreePointerListLIFO<FCacheIndirectTaskDescription> CacheIndirectLightingTasks;
 
 	/** List of tasks to interpolate indirect lighting, used by all mapping threads. */
-	TLockFreePointerList<FInterpolateIndirectTaskDescription> InterpolateIndirectLightingTasks;
+	// consider changing this from FIFO to Unordered, which may be faster
+	TLockFreePointerListLIFO<FInterpolateIndirectTaskDescription> InterpolateIndirectLightingTasks;
 
-	/* Positive if the lighting threads are done writing to VolumeLightingSamples, and the samples can be exported. */
-	volatile int32 bVolumeLightingSamplesComplete;
+	TArray<FVolumeSamplesTaskDescription> VolumeSampleTasks;
+
+	volatile int32 bHasVolumeSampleTasks;
+	volatile int32 NextVolumeSampleTaskIndex;
+	volatile int32 NumVolumeSampleTasksOutstanding;
+	volatile int32 bShouldExportVolumeSampleData;
 	/** Bounds that VolumeLightingSamples were generated in. */
 	FBoxSphereBounds VolumeBounds;
 	/** Octree used for interpolating the volume lighting samples if DynamicObjectSettings.bVisualizeVolumeLightInterpolation is true. */
@@ -2638,8 +2688,10 @@ private:
 
 	TArray<FVector4> CachedHemisphereSamplesForApproximateSkyLighting;
 
+	TArray<FVector2D> CachedHemisphereSamplesForApproximateSkyLightingUniforms;
+
 	/** The aggregate mesh used for raytracing. */
-	FStaticLightingAggregateMesh AggregateMesh;
+	FStaticLightingAggregateMeshType* AggregateMesh;
 	
 	/** The input scene describing geometry, materials and lights. */
 	const FScene& Scene; 

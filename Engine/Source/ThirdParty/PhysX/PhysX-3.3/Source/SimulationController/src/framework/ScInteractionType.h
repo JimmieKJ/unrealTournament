@@ -14,6 +14,8 @@
 #ifndef PX_FRAMEWORK_PX_H
 #define PX_FRAMEWORK_PX_H
 
+#include "PxPhysXConfig.h"
+
 namespace physx
 {
 namespace Sc
@@ -27,7 +29,9 @@ namespace Sc
 		// PT: interactions above this limit are counted, interactions below are not
 		PX_INTERACTION_TYPE_TRIGGER,
 		PX_INTERACTION_TYPE_MARKER,
+#if PX_USE_PARTICLE_SYSTEM_API
 		PX_INTERACTION_TYPE_PARTICLE_BODY,
+#endif
 		PX_INTERACTION_TYPE_ARTICULATION,
 
 		PX_INTERACTION_TYPE_COUNT

@@ -26,8 +26,16 @@ namespace UnrealBuildTool.Rules
                     "Engine",
 					"KismetCompiler",
                     "UnrealEd",
+                    "BlueprintGraph",
 				}
 				);
+            PrivateDependencyModuleNames.AddRange(
+                new string[]
+				{
+					"UMG",
+                    "SlateCore",
+				}
+                );
 		}
 	}
 }

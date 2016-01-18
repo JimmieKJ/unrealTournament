@@ -34,7 +34,8 @@ public:
 
 	/** Default constructor, use one of the factory functions below to make a valid description */
 	FPooledRenderTargetDesc()
-		: Extent(0, 0)
+		: ClearValue(FClearValueBinding())
+		, Extent(0, 0)
 		, Depth(0)
 		, ArraySize(1)
 		, bIsArray(false)
@@ -45,6 +46,7 @@ public:
 		, TargetableFlags(TexCreate_None)
 		, bForceSeparateTargetAndShaderResource(false)
 		, DebugName(TEXT("UnknownTexture"))
+		, AutoWritable(true)
 	{
 		check(!IsValid());
 	}
@@ -56,15 +58,18 @@ public:
 	static FPooledRenderTargetDesc Create2DDesc(
 		FIntPoint InExtent,
 		EPixelFormat InFormat,
+		const FClearValueBinding& InClearValue,
 		uint32 InFlags,
 		uint32 InTargetableFlags,
 		bool bInForceSeparateTargetAndShaderResource,
-		uint16 InNumMips = 1)
+		uint16 InNumMips = 1,
+		bool InAutowritable = true)
 	{
 		check(InExtent.X);
 		check(InExtent.Y);
 
 		FPooledRenderTargetDesc NewDesc;
+		NewDesc.ClearValue = InClearValue;
 		NewDesc.Extent = InExtent;
 		NewDesc.Depth = 0;
 		NewDesc.ArraySize = 1;
@@ -76,6 +81,7 @@ public:
 		NewDesc.TargetableFlags = InTargetableFlags;
 		NewDesc.bForceSeparateTargetAndShaderResource = bInForceSeparateTargetAndShaderResource;
 		NewDesc.DebugName = TEXT("UnknownTexture2D");
+		NewDesc.AutoWritable = InAutowritable;
 		check(NewDesc.Is2DTexture());
 		return NewDesc;
 	}
@@ -89,15 +95,18 @@ public:
 		uint32 InSizeY,
 		uint32 InSizeZ,
 		EPixelFormat InFormat,
+		const FClearValueBinding& InClearValue,
 		uint32 InFlags,
 		uint32 InTargetableFlags,
 		bool bInForceSeparateTargetAndShaderResource,
-		uint16 InNumMips = 1)
+		uint16 InNumMips = 1,
+		bool InAutowritable = true)
 	{
 		check(InSizeX);
 		check(InSizeY);
 
 		FPooledRenderTargetDesc NewDesc;
+		NewDesc.ClearValue = InClearValue;
 		NewDesc.Extent = FIntPoint(InSizeX,InSizeY);
 		NewDesc.Depth = InSizeZ;
 		NewDesc.ArraySize = 1;
@@ -109,6 +118,7 @@ public:
 		NewDesc.TargetableFlags = InTargetableFlags;
 		NewDesc.bForceSeparateTargetAndShaderResource = bInForceSeparateTargetAndShaderResource;
 		NewDesc.DebugName = TEXT("UnknownTextureVolume");
+		NewDesc.AutoWritable = InAutowritable;
 		check(NewDesc.Is3DTexture());
 		return NewDesc;
 	}
@@ -120,15 +130,18 @@ public:
 	static FPooledRenderTargetDesc CreateCubemapDesc(
 		uint32 InExtent,
 		EPixelFormat InFormat,
+		const FClearValueBinding& InClearValue,
 		uint32 InFlags,
 		uint32 InTargetableFlags,
 		bool bInForceSeparateTargetAndShaderResource,
 		uint32 InArraySize = 1,
-		uint16 InNumMips = 1)
+		uint16 InNumMips = 1,
+		bool InAutowritable = true)
 	{
 		check(InExtent);
 
 		FPooledRenderTargetDesc NewDesc;
+		NewDesc.ClearValue = InClearValue;
 		NewDesc.Extent = FIntPoint(InExtent, 0);
 		NewDesc.Depth = 0;
 		NewDesc.ArraySize = InArraySize;
@@ -141,6 +154,7 @@ public:
 		NewDesc.TargetableFlags = InTargetableFlags;
 		NewDesc.bForceSeparateTargetAndShaderResource = bInForceSeparateTargetAndShaderResource;
 		NewDesc.DebugName = TEXT("UnknownTextureCube");
+		NewDesc.AutoWritable = InAutowritable;
 		check(NewDesc.IsCubemap());
 
 		return NewDesc;
@@ -152,7 +166,7 @@ public:
 		auto LhsFlags = Flags;
 		auto RhsFlags = rhs.Flags;
 
-		if(!bExact)
+		if (!bExact || !FPlatformProperties::SupportsFastVRAMMemory())
 		{
 			LhsFlags &= (~TexCreate_FastVRAM);
 			RhsFlags &= (~TexCreate_FastVRAM);
@@ -167,7 +181,9 @@ public:
 			&& Format == rhs.Format
 			&& LhsFlags == RhsFlags
 			&& TargetableFlags == rhs.TargetableFlags
-			&& bForceSeparateTargetAndShaderResource == rhs.bForceSeparateTargetAndShaderResource;
+			&& bForceSeparateTargetAndShaderResource == rhs.bForceSeparateTargetAndShaderResource
+			&& ClearValue == rhs.ClearValue
+			&& AutoWritable == rhs.AutoWritable;
 	}
 
 	bool IsCubemap() const
@@ -277,10 +293,14 @@ public:
 		NumSamples = 1;
 
 		bForceSeparateTargetAndShaderResource = false;
+		AutoWritable = true;
 
 		// Remove UAV flag for rendertargets that don't need it (some formats are incompatible)
 		TargetableFlags &= (~TexCreate_UAV);
 	}
+
+	/** Value allowed for fast clears for this target. */
+	FClearValueBinding ClearValue;
 
 	/** In pixels, (0,0) if not set, (x,0) for cube maps, todo: make 3d int vector for volume textures */
 	FIntPoint Extent;
@@ -306,6 +326,8 @@ public:
 	bool bForceSeparateTargetAndShaderResource;
 	/** only set a pointer to memory that never gets released */
 	const TCHAR *DebugName;
+	/** automatically set to writable via barrier during */
+	bool AutoWritable;
 };
 
 
@@ -450,6 +472,19 @@ enum EDrawRectangleFlags
 	EDRF_UseTesselatedIndexBuffer
 };
 
+class FPostOpaqueRenderParameters
+{
+	public:
+		FIntRect ViewportRect;
+		FMatrix ViewMatrix;
+		FMatrix ProjMatrix;
+		FRHITexture2D* DepthTexture;
+		FRHITexture2D* SmallDepthTexture;
+		FRHICommandListImmediate* RHICmdList;
+		void* Uid; // A unique identifier for the view.
+};
+DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderParameters&);
+
 class ICustomVisibilityQuery: public IRefCountedObject
 {
 public:
@@ -458,6 +493,12 @@ public:
 
 	/** test primitive visiblity */
 	virtual bool IsVisible(int32 VisibilityId, const FBoxSphereBounds& Bounds) = 0;
+
+	/** return true if we can call IsVisible from a ParallelFor */
+	virtual bool IsThreadsafe()
+	{
+		return false;
+	}
 };
 
 class ICustomCulling
@@ -507,11 +548,13 @@ public:
 	/** Sets the buffer size of the render targets. */
 	virtual void SceneRenderTargetsSetBufferSize(uint32 SizeX, uint32 SizeY) = 0;
 
+	virtual void InitializeSystemTextures(FRHICommandListImmediate& RHICmdList) = 0;
+
 	/** Draws a tile mesh element with the specified view. */
 	virtual void DrawTileMesh(FRHICommandListImmediate& RHICmdList, const FSceneView& View, const FMeshBatch& Mesh, bool bIsHitTesting, const class FHitProxyId& HitProxyId) = 0;
 
 	/** Render thread side, use TRefCountPtr<IPooledRenderTarget>, allows to use sharing and VisualizeTexture */
-	virtual void RenderTargetPoolFindFreeElement(const FPooledRenderTargetDesc& Desc, TRefCountPtr<IPooledRenderTarget> &Out, const TCHAR* InDebugName) = 0;
+	virtual void RenderTargetPoolFindFreeElement(FRHICommandListImmediate& RHICmdList, const FPooledRenderTargetDesc& Desc, TRefCountPtr<IPooledRenderTarget> &Out, const TCHAR* InDebugName) = 0;
 	
 	/** Render thread side, to age the pool elements so they get released at some point */
 	virtual void TickRenderTargetPool() = 0;
@@ -566,6 +609,12 @@ public:
 	/** Register/unregister a custom occlusion culling implementation */
 	virtual void RegisterCustomCullingImpl(ICustomCulling* impl) = 0;
 	virtual void UnregisterCustomCullingImpl(ICustomCulling* impl) = 0;
+
+	virtual void RegisterPostOpaqueRenderDelegate(const FPostOpaqueRenderDelegate& PostOpaqueRenderDelegate) = 0;
+	virtual void RegisterOverlayRenderDelegate(const FPostOpaqueRenderDelegate& OverlayRenderDelegate) = 0;
+	virtual void RenderPostOpaqueExtensions(const FSceneView& View, FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) = 0;
+	virtual void RenderOverlayExtensions(const FSceneView& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) = 0;
+	virtual bool HasPostOpaqueExtentions() const = 0;
 };
 
 

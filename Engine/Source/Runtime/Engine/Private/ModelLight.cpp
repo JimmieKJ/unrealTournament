@@ -498,6 +498,201 @@ void UModelComponent::GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsag
 }
 
 
+typedef	TArray<int32, TInlineAllocator<16>> FPlaneMapItem;
+
+struct FPlaneKey
+{
+	int32 X;
+	int32 Y;
+	int32 Z;
+	int32 W;
+
+	FPlaneKey(int32 InX, int32 InY, int32 InZ, int32 InW)
+		: X(InX)
+		, Y(InY)
+		, Z(InZ)
+		, W(InW)
+	{}
+
+	friend FORCEINLINE bool operator == (const FPlaneKey& A, const FPlaneKey& B)
+	{
+		return A.X == B.X && A.Y == B.Y && A.Z == B.Z && A.W == B.W;
+	}
+
+	friend FORCEINLINE uint32 GetTypeHash(const FPlaneKey& Key)
+	{
+		return HashCombine(static_cast<uint32>(Key.X), HashCombine(static_cast<uint32>(Key.Y), HashCombine(static_cast<uint32>(Key.Z), static_cast<uint32>(Key.W))));
+	}
+};
+
+class FPlaneMap
+{
+public:
+	FPlaneMap(float InGranularityXYZ, float InGranularityW, float InThreshold, int32 InitialSize = 0)
+		: OneOverGranularityXYZ(1.0f / InGranularityXYZ)
+		, OneOverGranularityW(1.0f / InGranularityW)
+		, Threshold(InThreshold)
+	{
+		Clear(InitialSize);
+	}
+
+	void Clear(int32 InitialSize = 0);
+
+	void AddPlane(const FPlane& Plane, int32 Index);
+
+	const TMap<FPlaneKey, FPlaneMapItem>& GetMap() const { return PlaneMap; }
+
+private:
+	float OneOverGranularityXYZ;
+	float OneOverGranularityW;
+	float Threshold;
+
+	TMap<FPlaneKey, FPlaneMapItem> PlaneMap;
+};
+
+
+void FPlaneMap::Clear(int32 InitialSize)
+{
+	PlaneMap.Empty(InitialSize);
+}
+
+
+// Given a grid index in one axis, a real position on the grid and a threshold radius,
+// return either:
+// - the additional grid index it can overlap in that axis, or
+// - the original grid index if there is no overlap.
+static FORCEINLINE int32 GetAdjacentIndexIfOverlapping(int32 GridIndex, float GridPos, float GridThreshold)
+{
+	if (GridPos - GridIndex < GridThreshold)
+	{
+		return GridIndex - 1;
+	}
+	else if (1.0f - (GridPos - GridIndex) < GridThreshold)
+	{
+		return GridIndex + 1;
+	}
+	else
+	{
+		return GridIndex;
+	}
+}
+
+void FPlaneMap::AddPlane(const FPlane& Plane, int32 Index)
+{
+	// Offset applied to the grid coordinates so aligned vertices (the normal case) don't overlap several grid items (taking into account the threshold)
+	const float GridOffset = 0.12345f;
+
+	const float AdjustedPlaneX = Plane.X - GridOffset;
+	const float AdjustedPlaneY = Plane.Y - GridOffset;
+	const float AdjustedPlaneZ = Plane.Z - GridOffset;
+	const float AdjustedPlaneW = Plane.W - GridOffset;
+
+	const float GridX = AdjustedPlaneX * OneOverGranularityXYZ;
+	const float GridY = AdjustedPlaneY * OneOverGranularityXYZ;
+	const float GridZ = AdjustedPlaneZ * OneOverGranularityXYZ;
+	const float GridW = AdjustedPlaneW * OneOverGranularityW;
+
+	// Get the grid indices corresponding to the plane components
+	const int32 GridIndexX = FMath::FloorToInt(GridX);
+	const int32 GridIndexY = FMath::FloorToInt(GridY);
+	const int32 GridIndexZ = FMath::FloorToInt(GridZ);
+	const int32 GridIndexW = FMath::FloorToInt(GridW);
+
+	PlaneMap.FindOrAdd(FPlaneKey(GridIndexX, GridIndexY, GridIndexZ, GridIndexW)).Add(Index);
+
+	// The grid has a maximum threshold of a certain radius. If the plane is near the edge of a grid item, it may overlap into other items.
+	// Add it to all grid items it can be seen from.
+	const float GridThresholdXYZ = Threshold * OneOverGranularityXYZ;
+	const float GridThresholdW = Threshold * OneOverGranularityW;
+	const int32 NeighbourX = GetAdjacentIndexIfOverlapping(GridIndexX, GridX, GridThresholdXYZ);
+	const int32 NeighbourY = GetAdjacentIndexIfOverlapping(GridIndexY, GridY, GridThresholdXYZ);
+	const int32 NeighbourZ = GetAdjacentIndexIfOverlapping(GridIndexZ, GridZ, GridThresholdXYZ);
+	const int32 NeighbourW = GetAdjacentIndexIfOverlapping(GridIndexW, GridW, GridThresholdW);
+
+	const bool bOverlapsInX = (NeighbourX != GridIndexX);
+	const bool bOverlapsInY = (NeighbourY != GridIndexY);
+	const bool bOverlapsInZ = (NeighbourZ != GridIndexZ);
+	const bool bOverlapsInW = (NeighbourW != GridIndexW);
+
+	if (bOverlapsInX)
+	{
+		PlaneMap.FindOrAdd(FPlaneKey(NeighbourX, GridIndexY, GridIndexZ, GridIndexW)).Add(Index);
+
+		if (bOverlapsInY)
+		{
+			PlaneMap.FindOrAdd(FPlaneKey(NeighbourX, NeighbourY, GridIndexZ, GridIndexW)).Add(Index);
+
+			if (bOverlapsInZ)
+			{
+				PlaneMap.FindOrAdd(FPlaneKey(NeighbourX, NeighbourY, NeighbourZ, GridIndexW)).Add(Index);
+
+				if (bOverlapsInW)
+				{
+					PlaneMap.FindOrAdd(FPlaneKey(NeighbourX, NeighbourY, NeighbourZ, NeighbourW)).Add(Index);
+				}
+			}
+			else if (bOverlapsInW)
+			{
+				PlaneMap.FindOrAdd(FPlaneKey(NeighbourX, NeighbourY, GridIndexZ, NeighbourW)).Add(Index);
+			}
+		}
+		else
+		{
+			if (bOverlapsInZ)
+			{
+				PlaneMap.FindOrAdd(FPlaneKey(NeighbourX, GridIndexY, NeighbourZ, GridIndexW)).Add(Index);
+
+				if (bOverlapsInW)
+				{
+					PlaneMap.FindOrAdd(FPlaneKey(NeighbourX, GridIndexY, NeighbourZ, NeighbourW)).Add(Index);
+				}
+			}
+			else if (bOverlapsInW)
+			{
+				PlaneMap.FindOrAdd(FPlaneKey(NeighbourX, GridIndexY, GridIndexZ, NeighbourW)).Add(Index);
+			}
+		}
+	}
+	else
+	{
+		if (bOverlapsInY)
+		{
+			PlaneMap.FindOrAdd(FPlaneKey(GridIndexX, NeighbourY, GridIndexZ, GridIndexW)).Add(Index);
+
+			if (bOverlapsInZ)
+			{
+				PlaneMap.FindOrAdd(FPlaneKey(GridIndexX, NeighbourY, NeighbourZ, GridIndexW)).Add(Index);
+
+				if (bOverlapsInW)
+				{
+					PlaneMap.FindOrAdd(FPlaneKey(GridIndexX, NeighbourY, NeighbourZ, NeighbourW)).Add(Index);
+				}
+			}
+			else if (bOverlapsInW)
+			{
+				PlaneMap.FindOrAdd(FPlaneKey(GridIndexX, NeighbourY, GridIndexZ, NeighbourW)).Add(Index);
+			}
+		}
+		else
+		{
+			if (bOverlapsInZ)
+			{
+				PlaneMap.FindOrAdd(FPlaneKey(GridIndexX, GridIndexY, NeighbourZ, GridIndexW)).Add(Index);
+
+				if (bOverlapsInW)
+				{
+					PlaneMap.FindOrAdd(FPlaneKey(GridIndexX, GridIndexY, NeighbourZ, NeighbourW)).Add(Index);
+				}
+			}
+			else if (bOverlapsInW)
+			{
+				PlaneMap.FindOrAdd(FPlaneKey(GridIndexX, GridIndexY, GridIndexZ, NeighbourW)).Add(Index);
+			}
+		}
+	}
+}
+
+
 
 /**
  * Groups all nodes in the model into NodeGroups (cached in the NodeGroups object)
@@ -508,8 +703,13 @@ void UModelComponent::GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsag
 void UModel::GroupAllNodes(const ULevel* Level, const TArray<ULightComponentBase*>& Lights)
 {
 #if WITH_EDITOR
+	FScopedSlowTask SlowTask(10);
+	SlowTask.MakeDialogDelayed(3.0f);
+
 	// cache the level
 	LightingLevel = Level;
+
+	SlowTask.EnterProgressFrame(1);
 
 	// gather all the lights for each component
 	TMap<int32, TArray<ULightComponent*> > ComponentRelevantLights;
@@ -554,172 +754,190 @@ void UModel::GroupAllNodes(const ULevel* Level, const TArray<ULightComponentBase
 		HasStaticLightingCache[ComponentIndex] = Level->ModelComponents[ComponentIndex]->HasStaticLighting();
 	}
 
-	// N^2 node loop to find nodes that are coplanar and same lightmap resolution, then 
-	// for each matching one, an N^2 vertex loop looking for shared vertices
-	for (int32 NodeIndex1 = 0; NodeIndex1 < Nodes.Num(); NodeIndex1++)
+	// Prebuild results of comparing two LightmassSettings
+	const int32 NumLightmassSettings = LightmassSettings.Num();
+	TArray<bool> LightmassSettingsEquality;
+	for (int Index1 = 0; Index1 < NumLightmassSettings; Index1++)
 	{
-		FBspNode& Node1 = Nodes[NodeIndex1];
-		if (Node1.NumVertices == 0)
+		for (int Index2 = 0; Index2 < NumLightmassSettings; Index2++)
 		{
-			continue;
+			LightmassSettingsEquality.Add(LightmassSettings[Index1] == LightmassSettings[Index2]);
 		}
-		FBspSurf& Surf1 = Surfs[Node1.iSurf];
-		UModelComponent* Comp1 = Level->ModelComponents[Node1.ComponentIndex];
+	}
 
-		// if this node's component has no shadowing, never use this node (as seen in UModelComponent::GetStaticLightingInfo)
-		if (!HasStaticLightingCache[Node1.ComponentIndex])
+	// We need to form groups of nodes which are nearly coplanar.
+	// First, identify nodes whose planes are similar in order to vastly reduce the search space.
+	// The FPlaneMap buckets together planes with components within a specified granular range.
+	FPlaneMap PlaneMap(1/16.0f, 50.0f, GLightmassDebugOptions.CoplanarTolerance);
+
+	SlowTask.EnterProgressFrame(1);
+
+	for (int32 NodeIndex = 0; NodeIndex < Nodes.Num(); NodeIndex++)
+	{
+		const FBspNode& Node = Nodes[NodeIndex];
+
+		if (Node.NumVertices > 0 && HasStaticLightingCache[Node.ComponentIndex])
 		{
-			continue;
+			const FBspSurf& Surf = Surfs[Node.iSurf];
+			PlaneMap.AddPlane(Surf.Plane, NodeIndex);
 		}
+	}
 
-		FLightmassPrimitiveSettings Surf1LightmassSettings = LightmassSettings[Surf1.iLightmassIndex];
+	SlowTask.EnterProgressFrame(8);
 
-		// look through rest of nodes looking for "child" nodes
-		for (int32 NodeIndex2 = NodeIndex1 + 1; NodeIndex2 < Nodes.Num(); NodeIndex2++)
+	// Every item in the PlaneMap now contains a list of indices of nodes with similar planes.
+	// Now we can do a O(n^2) check to see if any pairs of nodes have planes within the allowed threshold, to be added to the same group.
+	{
+		FScopedSlowTask InnerTask(PlaneMap.GetMap().Num());
+		InnerTask.MakeDialogDelayed(3.0f);
+
+		for (const auto& Pair : PlaneMap.GetMap())
 		{
-			// if I've already been parented, I don't need to reparent
-			if (ParentNodes[NodeIndex1] != NULL && ParentNodes[NodeIndex2] != NULL && ParentNodes[NodeIndex1] == ParentNodes[NodeIndex2])
+			InnerTask.EnterProgressFrame(1);
+
+			const auto& PlaneMapItem = Pair.Value;
+
+			const int32 NumMapNodes = PlaneMapItem.Num();
+			if (NumMapNodes > 1)
 			{
-				continue;
-			}
-
-			FBspNode& Node2 = Nodes[NodeIndex2];
-			if (Node2.NumVertices == 0)
-			{
-				continue;
-			}
-			FBspSurf& Surf2 = Surfs[Node2.iSurf];
-			UModelComponent* Comp2 = Level->ModelComponents[Node2.ComponentIndex];
-
-			// if this node's component has no shadowing, never use this node (as seen in UModelComponent::GetStaticLightingInfo)
-			if (!HasStaticLightingCache[Node2.ComponentIndex])
-			{
-				continue;
-			}
-
-			FLightmassPrimitiveSettings Surf2LightmassSettings = LightmassSettings[Surf2.iLightmassIndex];
-
-			// variable to see check if the 2 nodes are conodes
-			bool bNodesAreConodes = false;
-
-			// if we have a tolerance, then join based on coplanar adjacency
-			if (GLightmassDebugOptions.bGatherBSPSurfacesAcrossComponents)
-			{
-				// are these two nodes conodes?
-				if (Surf1.LightMapScale == Surf2.LightMapScale)
+				for (int32 MapIndex1 = 0; MapIndex1 < NumMapNodes - 1; MapIndex1++)
 				{
-					if (Surf1LightmassSettings == Surf2LightmassSettings)	// Do they have the same Lightmass settings?
+					for (int32 MapIndex2 = MapIndex1 + 1; MapIndex2 < NumMapNodes; MapIndex2++)
 					{
-						if (/*(Node1.iSurf == Node2.iSurf) ||*/ 
-							Surf1.Plane.Equals(Surf2.Plane, GLightmassDebugOptions.CoplanarTolerance)
-							)
-						{
-							// they are coplanar, have the same lightmap res and Lightmass settings, 
-							// now we need to check for adjacency which we check for by looking for a shared vertex
+						const int32 NodeIndex1 = PlaneMapItem[MapIndex1];
+						const int32 NodeIndex2 = PlaneMapItem[MapIndex2];
+						const FBspNode& Node1 = Nodes[NodeIndex1];
+						const FBspNode& Node2 = Nodes[NodeIndex2];
+						const FBspSurf& Surf1 = Surfs[Node1.iSurf];
+						const FBspSurf& Surf2 = Surfs[Node2.iSurf];
 
-							bool bFoundMatchingVert = false;
-							FVert* VertPool1 = &Verts[Node1.iVertPool];
-							for (int32 A=0; A < Node1.NumVertices && !bNodesAreConodes; A++)
+						// if I've already been parented, I don't need to reparent
+						if (ParentNodes[NodeIndex1] != nullptr && ParentNodes[NodeIndex2] != nullptr && ParentNodes[NodeIndex1] == ParentNodes[NodeIndex2])
+						{
+							continue;
+						}
+
+						// variable to see check if the 2 nodes are conodes
+						bool bNodesAreConodes = false;
+
+						// if we have a tolerance, then join based on coplanar adjacency
+						if (GLightmassDebugOptions.bGatherBSPSurfacesAcrossComponents)
+						{
+							// are these two nodes conodes?
+							if (Surf1.LightMapScale == Surf2.LightMapScale)
 							{
-								FVert* VertPool2 = &Verts[Node2.iVertPool];
-								for (int32 B=0; B < Node2.NumVertices && !bNodesAreConodes; B++)
+								if (LightmassSettingsEquality[Surf1.iLightmassIndex * NumLightmassSettings + Surf2.iLightmassIndex])
 								{
-									// if they share a vertex location, they are adjacent (this won't detect adjacency via T-joints)
-									if (VertPool1->pVertex == VertPool2->pVertex)
+									if (Surf1.Plane.Equals(Surf2.Plane, GLightmassDebugOptions.CoplanarTolerance))
 									{
-										bNodesAreConodes = true;
+										// they are coplanar, have the same lightmap res and Lightmass settings, 
+										// now we need to check for adjacency which we check for by looking for a shared vertex
+										// This is O(n^2) but since there are often only 3 or 4 verts in a poly, this will iterate on average only about 16 times.
+										// I doubt it would be any more efficient to use a TSet to check for duplicated indices in this case.
+										FVert* VertPool1 = &Verts[Node1.iVertPool];
+										for (int32 A = 0; A < Node1.NumVertices && !bNodesAreConodes; A++)
+										{
+											FVert* VertPool2 = &Verts[Node2.iVertPool];
+											for (int32 B = 0; B < Node2.NumVertices && !bNodesAreConodes; B++)
+											{
+												// if they share a vertex location, they are adjacent (this won't detect adjacency via T-joints)
+												if (VertPool1->pVertex == VertPool2->pVertex)
+												{
+													bNodesAreConodes = true;
+												}
+												VertPool2++;
+											}
+											VertPool1++;
+										}
 									}
-									VertPool2++;
 								}
-								VertPool1++;
 							}
 						}
-					}
-				}
-			}
-			// if coplanar tolerance is < 0, then we join nodes together based on being in the same ModelComponent
-			// and from the same surface
-			else
-			{
-				if (Node1.iSurf == Node2.iSurf && Node1.ComponentIndex == Node2.ComponentIndex)
-				{
-					bNodesAreConodes = true;
-				}
-			}
-
-
-			// are Node1 and Node2 conodes - if so, join into a group
-			if (bNodesAreConodes)
-			{
-				// okay, these two nodes are conodes, so we need to stick them together into some pot of nodes
-				// look to see if either one are already in a group
-				FNodeGroup* NodeGroup = NULL;
-				// if both are already in different groups, we need to combine the groups
-				if (ParentNodes[NodeIndex1] != NULL && ParentNodes[NodeIndex2] != NULL)
-				{
-					NodeGroup = ParentNodes[NodeIndex1];
-
-					// merge 2 into 1
-					FNodeGroup* NodeGroup2 = ParentNodes[NodeIndex2];
-					for (int32 NodeIndex = 0; NodeIndex < NodeGroup2->Nodes.Num(); NodeIndex++)
-					{
-						NodeGroup->Nodes.Add(NodeGroup2->Nodes[NodeIndex]);
-					}
-					for (int32 LightIndex = 0; LightIndex < NodeGroup2->RelevantLights.Num(); LightIndex++)
-					{
-						NodeGroup->RelevantLights.AddUnique(NodeGroup2->RelevantLights[LightIndex]);
-					}
-
-					// replace all the users of NodeGroup2 with NodeGroup
-					for (int32 GroupIndex = 0; GroupIndex < ParentNodes.Num(); GroupIndex++)
-					{
-						if (ParentNodes[GroupIndex] == NodeGroup2)
+						// if coplanar tolerance is < 0, then we join nodes together based on being in the same ModelComponent
+						// and from the same surface
+						else
 						{
-							ParentNodes[GroupIndex] = NodeGroup;
+							if (Node1.iSurf == Node2.iSurf && Node1.ComponentIndex == Node2.ComponentIndex)
+							{
+								bNodesAreConodes = true;
+							}
 						}
-					}
 
-					// the key for the nodegroup is the 0th node (could just be a set now)
-					NodeGroups.Remove(NodeGroup2->Nodes[0]);
-
-					// free the now useless nodegroup
-					delete NodeGroup2;
-				}
-				else if (ParentNodes[NodeIndex1] != NULL)
-				{
-					NodeGroup = ParentNodes[NodeIndex1];
-				}
-				else if (ParentNodes[NodeIndex2] != NULL)
-				{
-					NodeGroup = ParentNodes[NodeIndex2];
-				}
-				// otherwise, make a new group and put them both in it
-				else
-				{
-					NodeGroup = NodeGroups.Add(NodeIndex1, new FNodeGroup());
-				}
-
-				// apply both these nodes to the NodeGroup
-				for (int32 WhichNode = 0; WhichNode < 2; WhichNode++)
-				{
-					// operator on each node in this loop
-					int32 NodeIndex = WhichNode ? NodeIndex2 : NodeIndex1;
-
-					// track what group the node went into
-					ParentNodes[NodeIndex] = NodeGroup;
-
-					// is this node already not yet in the group
-					if (NodeGroup->Nodes.Find(NodeIndex) == INDEX_NONE)
-					{
-						// add it to the group
-						NodeGroup->Nodes.Add(NodeIndex);
-
-						// add the relevant lights to the nodegroup
-						TArray<ULightComponent*>* RelevantLights = ComponentRelevantLights.Find(Nodes[NodeIndex].ComponentIndex);
-						check(RelevantLights);
-						for (int32 LightIndex = 0; LightIndex < RelevantLights->Num(); LightIndex++)
+						// are Node1 and Node2 conodes - if so, join into a group
+						if (bNodesAreConodes)
 						{
-							NodeGroup->RelevantLights.AddUnique((*RelevantLights)[LightIndex]);
+							// okay, these two nodes are conodes, so we need to stick them together into some pot of nodes
+							// look to see if either one are already in a group
+							FNodeGroup* NodeGroup = NULL;
+							// if both are already in different groups, we need to combine the groups
+							if (ParentNodes[NodeIndex1] != NULL && ParentNodes[NodeIndex2] != NULL)
+							{
+								NodeGroup = ParentNodes[NodeIndex1];
+
+								// merge 2 into 1
+								FNodeGroup* NodeGroup2 = ParentNodes[NodeIndex2];
+								for (int32 NodeIndex = 0; NodeIndex < NodeGroup2->Nodes.Num(); NodeIndex++)
+								{
+									NodeGroup->Nodes.Add(NodeGroup2->Nodes[NodeIndex]);
+								}
+								for (int32 LightIndex = 0; LightIndex < NodeGroup2->RelevantLights.Num(); LightIndex++)
+								{
+									NodeGroup->RelevantLights.AddUnique(NodeGroup2->RelevantLights[LightIndex]);
+								}
+
+								// replace all the users of NodeGroup2 with NodeGroup
+								for (int32 GroupIndex = 0; GroupIndex < ParentNodes.Num(); GroupIndex++)
+								{
+									if (ParentNodes[GroupIndex] == NodeGroup2)
+									{
+										ParentNodes[GroupIndex] = NodeGroup;
+									}
+								}
+
+								// the key for the nodegroup is the 0th node (could just be a set now)
+								NodeGroups.Remove(NodeGroup2->Nodes[0]);
+
+								// free the now useless nodegroup
+								delete NodeGroup2;
+							}
+							else if (ParentNodes[NodeIndex1] != NULL)
+							{
+								NodeGroup = ParentNodes[NodeIndex1];
+							}
+							else if (ParentNodes[NodeIndex2] != NULL)
+							{
+								NodeGroup = ParentNodes[NodeIndex2];
+							}
+							// otherwise, make a new group and put them both in it
+							else
+							{
+								NodeGroup = NodeGroups.Add(NodeIndex1, new FNodeGroup());
+							}
+
+							// apply both these nodes to the NodeGroup
+							for (int32 WhichNode = 0; WhichNode < 2; WhichNode++)
+							{
+								// operator on each node in this loop
+								int32 NodeIndex = WhichNode ? NodeIndex2 : NodeIndex1;
+
+								// track what group the node went into
+								ParentNodes[NodeIndex] = NodeGroup;
+
+								// is this node already not yet in the group
+								if (NodeGroup->Nodes.Find(NodeIndex) == INDEX_NONE)
+								{
+									// add it to the group
+									NodeGroup->Nodes.Add(NodeIndex);
+
+									// add the relevant lights to the nodegroup
+									TArray<ULightComponent*>* RelevantLights = ComponentRelevantLights.Find(Nodes[NodeIndex].ComponentIndex);
+									check(RelevantLights);
+									for (int32 LightIndex = 0; LightIndex < RelevantLights->Num(); LightIndex++)
+									{
+										NodeGroup->RelevantLights.AddUnique((*RelevantLights)[LightIndex]);
+									}
+								}
+							}
 						}
 					}
 				}
@@ -947,6 +1165,8 @@ void UModel::ApplyStaticLighting()
 					{
 						DestSample.SkyOcclusion[ColorIndex] = SourceSample.SkyOcclusion[ColorIndex];
 					}
+
+					DestSample.AOMaterialMask = SourceSample.AOMaterialMask;
 				}
 			}
 
@@ -973,7 +1193,8 @@ void UModel::ApplyStaticLighting()
 		// We always create a light map if the surface either has any non-zero lighting data, or if the surface has a shadow map.  The runtime
 		// shaders are always expecting a light map in the case of a shadow map, even if the lighting is entirely zero.  This is simply to reduce
 		// the number of shader permutations to support in the very unlikely case of a unshadowed surfaces that has lighting values of zero.
-		const bool bNeedsLightMap = bHasNonZeroData || SurfaceGroup.ShadowMappedLights.Num() > 0 || GroupQuantizedData->bHasSkyShadowing;
+		const bool bHasRelevantLights = SurfaceGroup.Surfaces.ContainsByPredicate([](const FSurfaceStaticLightingGroup::FSurfaceInfo& SurfaceInfo) { return SurfaceInfo.SurfaceStaticLighting->RelevantLights.Num() > 0; });
+		const bool bNeedsLightMap = bHasNonZeroData || SurfaceGroup.ShadowMappedLights.Num() > 0 || bHasRelevantLights || GroupQuantizedData->bHasSkyShadowing;
 		if (bNeedsLightMap)
 		{
 			LightMap = FLightMap2D::AllocateLightMap(this, GroupQuantizedData, GroupLightmapBounds, PaddingType, LMF_None);

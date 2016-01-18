@@ -26,6 +26,7 @@ ATriggerCapsule::ATriggerCapsule(const FObjectInitializer& ObjectInitializer)
 	CapsuleCollisionComponent->SetCollisionProfileName(CollisionProfileName);
 
 	bCollideWhenPlacing = true;
+	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 
 	if (GetSpriteComponent())
 	{

@@ -418,7 +418,7 @@ void UBlueprint::PostDuplicate(bool bDuplicateForPIE)
 	Super::PostDuplicate(bDuplicateForPIE);
 	if( !bDuplicatingReadOnly )
 	{
-		FBlueprintEditorUtils::PostDuplicateBlueprint(this);
+		FBlueprintEditorUtils::PostDuplicateBlueprint(this, bDuplicateForPIE);
 	}
 }
 
@@ -663,7 +663,7 @@ UObject* UBlueprint::GetObjectBeingDebugged()
 	if(DebugObj)
 	{
 		//Check whether the object has been deleted.
-		if(DebugObj->HasAnyFlags(RF_PendingKill))
+		if(DebugObj->IsPendingKill())
 		{
 			SetObjectBeingDebugged(NULL);
 			DebugObj = NULL;
@@ -677,7 +677,7 @@ UWorld* UBlueprint::GetWorldBeingDebugged()
 	UWorld* DebugWorld = CurrentWorldBeingDebugged.Get();
 	if (DebugWorld)
 	{
-		if(DebugWorld->HasAnyFlags(RF_PendingKill))
+		if(DebugWorld->IsPendingKill())
 		{
 			SetWorldBeingDebugged(NULL);
 			DebugWorld = NULL;
@@ -747,7 +747,41 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 			FBlueprintEditorUtils::IsDataOnlyBlueprint(this) ? TEXT("True") : TEXT("False"),
 			FAssetRegistryTag::TT_Alphabetical ) );
 
-		OutTags.Add( FAssetRegistryTag("FiB", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
+		OutTags.Add( FAssetRegistryTag("FiBData", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
+	}
+
+	// Only show for strict blueprints (not animation or widget blueprints)
+	// Note: Can't be an Actor specific check on the gen class, as CB only queries the CDO for the majority type to determine which columns are shown in the view
+	if (ExactCast<UBlueprint>(this) != nullptr)
+	{
+		// Determine how many inherited native components exist
+		int32 NumNativeComponents = 0;
+		if (BlueprintClass != nullptr)
+		{
+			TArray<UObject*> PotentialComponents;
+			BlueprintClass->GetDefaultObjectSubobjects(/*out*/ PotentialComponents);
+
+			for (UObject* TestSubObject : PotentialComponents)
+			{
+				if (Cast<UActorComponent>(TestSubObject) != nullptr)
+				{
+					++NumNativeComponents;
+				}
+			}
+		}
+		OutTags.Add(FAssetRegistryTag("NativeComponents", FString::FromInt(NumNativeComponents), UObject::FAssetRegistryTag::TT_Numerical));
+
+		// Determine how many components are added via a SimpleConstructionScript (both newly introduced and inherited from parent BPs)
+		int32 NumAddedComponents = 0;
+		for (UBlueprintGeneratedClass* TestBPClass = BlueprintClass; TestBPClass != nullptr; TestBPClass = Cast<UBlueprintGeneratedClass>(TestBPClass->GetSuperClass()))
+		{
+			const UBlueprint* AssociatedBP = Cast<const UBlueprint>(TestBPClass->ClassGeneratedBy);
+			if (AssociatedBP->SimpleConstructionScript != nullptr)
+			{
+				NumAddedComponents += AssociatedBP->SimpleConstructionScript->GetAllNodesConst().Num();
+			}
+		}
+		OutTags.Add(FAssetRegistryTag("BlueprintComponents", FString::FromInt(NumAddedComponents), UObject::FAssetRegistryTag::TT_Numerical));
 	}
 }
 
@@ -834,16 +868,6 @@ UTimelineTemplate* UBlueprint::FindTimelineTemplateByVariableName(const FName& T
 	return Timeline;
 }
 
-UBlueprint* UBlueprint::GetBlueprintFromClass(const UClass* InClass)
-{
-	UBlueprint* BP = NULL;
-	if(InClass != NULL)
-	{
-		BP = Cast<UBlueprint>(InClass->ClassGeneratedBy);
-	}
-	return BP;
-}
-
 bool UBlueprint::ValidateGeneratedClass(const UClass* InClass)
 {
 	const UBlueprintGeneratedClass* GeneratedClass = Cast<const UBlueprintGeneratedClass>(InClass);
@@ -925,23 +949,45 @@ bool UBlueprint::ValidateGeneratedClass(const UClass* InClass)
 	return true;
 }
 
+#endif // WITH_EDITOR
+
+UBlueprint* UBlueprint::GetBlueprintFromClass(const UClass* InClass)
+{
+	UBlueprint* BP = NULL;
+	if (InClass != NULL)
+	{
+		BP = Cast<UBlueprint>(InClass->ClassGeneratedBy);
+	}
+	return BP;
+}
+
 bool UBlueprint::GetBlueprintHierarchyFromClass(const UClass* InClass, TArray<UBlueprint*>& OutBlueprintParents)
 {
 	OutBlueprintParents.Empty();
 
 	bool bNoErrors = true;
 	const UClass* CurrentClass = InClass;
-	while( UBlueprint* BP = UBlueprint::GetBlueprintFromClass(CurrentClass) )
+	while (UBlueprint* BP = UBlueprint::GetBlueprintFromClass(CurrentClass))
 	{
 		OutBlueprintParents.Add(BP);
+
+#if WITH_EDITORONLY_DATA
 		bNoErrors &= (BP->Status != BS_Error);
-		CurrentClass = CurrentClass->GetSuperClass();
+#endif // #if WITH_EDITORONLY_DATA
+
+		// If valid, use stored ParentClass rather than the actual UClass::GetSuperClass(); handles the case when the class has not been recompiled yet after a reparent operation.
+		if(const UClass* ParentClass = BP->ParentClass)
+		{
+			CurrentClass = ParentClass;
+		}
+		else
+		{
+			CurrentClass = CurrentClass->GetSuperClass();
+		}
 	}
 
 	return bNoErrors;
 }
-
-#endif // WITH_EDITOR
 
 ETimelineSigType UBlueprint::GetTimelineSignatureForFunctionByName(const FName& FunctionName, const FName& ObjectPropertyName)
 {
@@ -1031,13 +1077,13 @@ void UBlueprint::TagSubobjects(EObjectFlags NewFlags)
 {
 	Super::TagSubobjects(NewFlags);
 
-	if (GeneratedClass && !GeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS | RF_RootSet))
+	if (GeneratedClass && !GeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) && !GeneratedClass->IsRooted())
 	{
 		GeneratedClass->SetFlags(NewFlags);
 		GeneratedClass->TagSubobjects(NewFlags);
 	}
 
-	if (SkeletonGeneratedClass && SkeletonGeneratedClass != GeneratedClass && !SkeletonGeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS | RF_RootSet))
+	if (SkeletonGeneratedClass && SkeletonGeneratedClass != GeneratedClass && !SkeletonGeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) && !SkeletonGeneratedClass->IsRooted())
 	{
 		SkeletonGeneratedClass->SetFlags(NewFlags);
 		SkeletonGeneratedClass->TagSubobjects(NewFlags);
@@ -1216,8 +1262,7 @@ bool UBlueprint::ChangeOwnerOfTemplates()
 				bMigratedOwner = true;
 			}
 
-			TArray<USCS_Node*> SCSNodes = SCS->GetAllNodes();
-			for (auto SCSNode : SCSNodes)
+			for (USCS_Node* SCSNode : SCS->GetAllNodes())
 			{
 				UActorComponent* Component = SCSNode ? SCSNode->ComponentTemplate : NULL;
 				if (Component && Component->GetOuter() == this)
@@ -1275,6 +1320,11 @@ bool UBlueprint::Modify(bool bAlwaysMarkDirty)
 	return Super::Modify(bAlwaysMarkDirty);
 }
 
+void UBlueprint::GatherDependencies(TSet<TWeakObjectPtr<UBlueprint>>& InDependencies) const
+{
+
+}
+
 UInheritableComponentHandler* UBlueprint::GetInheritableComponentHandler(bool bCreateIfNecessary)
 {
 	static const FBoolConfigValueHelper EnableInheritableComponents(TEXT("Kismet"), TEXT("bEnableInheritableComponents"), GEngineIni);
@@ -1304,6 +1354,33 @@ FName UBlueprint::GetFunctionNameFromClassByGuid(const UClass* InClass, const FG
 bool UBlueprint::GetFunctionGuidFromClassByFieldName(const UClass* InClass, const FName FunctionName, FGuid& FunctionGuid)
 {
 	return FBlueprintEditorUtils::GetFunctionGuidFromClassByFieldName(InClass, FunctionName, FunctionGuid);
+}
+
+UEdGraph* UBlueprint::GetLastEditedUberGraph() const
+{
+	for ( int32 LastEditedIndex = LastEditedDocuments.Num() - 1; LastEditedIndex >= 0; LastEditedIndex-- )
+	{
+		if ( UObject* Obj = LastEditedDocuments[LastEditedIndex].EditedObject )
+		{
+			if ( UEdGraph* Graph = Cast<UEdGraph>(Obj) )
+			{
+				for ( int32 GraphIndex = 0; GraphIndex < UbergraphPages.Num(); GraphIndex++ )
+				{
+					if ( Graph == UbergraphPages[GraphIndex] )
+					{
+						return UbergraphPages[GraphIndex];
+					}
+				}
+			}
+		}
+	}
+
+	if ( UbergraphPages.Num() > 0 )
+	{
+		return UbergraphPages[0];
+	}
+
+	return nullptr;
 }
 
 #endif //WITH_EDITOR

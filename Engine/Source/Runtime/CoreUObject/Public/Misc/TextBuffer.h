@@ -14,7 +14,7 @@ class UTextBuffer
 	: public UObject
 	, public FOutputDevice
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UTextBuffer,UObject,0,CoreUObject,CASTCLASS_None,COREUOBJECT_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UTextBuffer, UObject, 0, TEXT("/Script/CoreUObject"), CASTCLASS_None, COREUOBJECT_API)
 
 public:
 
@@ -49,6 +49,7 @@ public:
 
 	virtual void Serialize (FArchive& Ar) override;
 	virtual void Serialize (const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
+	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time ) override;
 
 private:
 

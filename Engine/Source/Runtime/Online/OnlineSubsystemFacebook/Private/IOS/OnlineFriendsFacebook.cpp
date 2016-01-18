@@ -10,7 +10,7 @@
 
 // FOnlineFriendFacebook
 
-TSharedRef<FUniqueNetId> FOnlineFriendFacebook::GetUserId() const
+TSharedRef<const FUniqueNetId> FOnlineFriendFacebook::GetUserId() const
 {
 	return UserId;
 }
@@ -81,8 +81,8 @@ bool FOnlineFriendsFacebook::ReadFriendsList(int32 LocalUserNum, const FString& 
 	{
 		bRequestTriggered = true;
 
-		RequestFriendsReadPermissionsDelegate = FOnRequestNewReadPermissionsCompleteDelegate::CreateRaw(this, &FOnlineFriendsFacebook::OnReadFriendsPermissionsUpdated);
-		SharingInterface->AddOnRequestNewReadPermissionsCompleteDelegate(LocalUserNum, RequestFriendsReadPermissionsDelegate);
+		auto RequestFriendsReadPermissionsDelegate = FOnRequestNewReadPermissionsCompleteDelegate::CreateRaw(this, &FOnlineFriendsFacebook::OnReadFriendsPermissionsUpdated);
+		RequestFriendsReadPermissionsDelegateHandle = SharingInterface->AddOnRequestNewReadPermissionsCompleteDelegate_Handle(LocalUserNum, RequestFriendsReadPermissionsDelegate);
 		SharingInterface->RequestNewReadPermissions(LocalUserNum, EOnlineSharingReadCategory::Friends);
 		OnReadFriendsListCompleteDelegate = Delegate;
 	}
@@ -170,16 +170,36 @@ bool FOnlineFriendsFacebook::IsFriend(int32 LocalUserNum, const FUniqueNetId& Fr
 	return false;
 }
 
-bool FOnlineFriendsFacebook::QueryRecentPlayers(const FUniqueNetId& UserId)
+bool FOnlineFriendsFacebook::QueryRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsFacebook::QueryRecentPlayers()"));
 
-	TriggerOnQueryRecentPlayersCompleteDelegates(UserId, false, TEXT("not implemented"));
+	TriggerOnQueryRecentPlayersCompleteDelegates(UserId, Namespace, false, TEXT("not implemented"));
 
 	return false;
 }
 
-bool FOnlineFriendsFacebook::GetRecentPlayers(const FUniqueNetId& UserId, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers)
+bool FOnlineFriendsFacebook::GetRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers)
+{
+	return false;
+}
+
+bool FOnlineFriendsFacebook::BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
+{
+	return false;
+}
+
+bool FOnlineFriendsFacebook::UnblockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
+{
+	return false;
+}
+
+bool FOnlineFriendsFacebook::QueryBlockedPlayers(const FUniqueNetId& UserId)
+{
+	return false;
+}
+
+bool FOnlineFriendsFacebook::GetBlockedPlayers(const FUniqueNetId& UserId, TArray< TSharedRef<FOnlineBlockedPlayer> >& OutBlockedPlayers)
 {
 	return false;
 }
@@ -187,7 +207,7 @@ bool FOnlineFriendsFacebook::GetRecentPlayers(const FUniqueNetId& UserId, TArray
 void FOnlineFriendsFacebook::OnReadFriendsPermissionsUpdated(int32 LocalUserNum, bool bWasSuccessful)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsFacebook::OnReadPermissionsUpdated() - %d"), bWasSuccessful);
-	SharingInterface->ClearOnRequestNewReadPermissionsCompleteDelegate(LocalUserNum, RequestFriendsReadPermissionsDelegate);
+	SharingInterface->ClearOnRequestNewReadPermissionsCompleteDelegate_Handle(LocalUserNum, RequestFriendsReadPermissionsDelegateHandle);
 
 	if( bWasSuccessful )
 	{

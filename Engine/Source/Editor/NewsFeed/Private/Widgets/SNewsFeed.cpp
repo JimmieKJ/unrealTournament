@@ -304,7 +304,7 @@ void SNewsFeed::HandleNewsListViewSelectionChanged( FNewsFeedItemPtr Selection, 
 			}
 			else if (Selection->Url.StartsWith(TEXT("ue4://market/")))
 			{
-				Succeeded = DesktopPlatform->OpenLauncher(false, FString::Printf(TEXT("-OpenMarketItem=%s"), *Selection->Url.RightChop(13)));
+				Succeeded = DesktopPlatform->OpenLauncher(false, FString::Printf(TEXT("ue/marketplace/%s"), *Selection->Url.RightChop(13)), FString());
 			}
 //			else if (Selection->Url.StartsWith(TEXT("ue4://")))
 //			{

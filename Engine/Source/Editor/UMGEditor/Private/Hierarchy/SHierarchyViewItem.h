@@ -14,7 +14,7 @@ class FWidgetBlueprintEditor;
 class FHierarchyModel : public TSharedFromThis < FHierarchyModel >
 {
 public:
-	FHierarchyModel();
+	FHierarchyModel(TSharedPtr<FWidgetBlueprintEditor> InBlueprintEditor);
 
 	/** Gets the unique name of the item used to restore item expansion. */
 	virtual FName GetUniqueName() const = 0;
@@ -32,7 +32,7 @@ public:
 
 	virtual FSlateFontInfo GetFont() const = 0;
 
-	virtual FReply HandleDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
+	FReply HandleDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 	virtual void HandleDragEnter(const FDragDropEvent& DragDropEvent);
 	virtual void HandleDragLeave(const FDragDropEvent& DragDropEvent);
 
@@ -65,12 +65,15 @@ public:
 	virtual bool CanRename() const { return false; }
 	virtual void BeginRename() { }
 
+	virtual bool IsRoot() const { return false; }
+
 public:
 	FSimpleDelegate RenameEvent;
 
 protected:
 	virtual void GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Children) = 0;
 	virtual void UpdateSelection() = 0;
+	virtual FWidgetReference AsDraggedWidgetReference() const { return FWidgetReference(); }
 
 private:
 	void InitializeChildren();
@@ -79,6 +82,7 @@ protected:
 
 	bool bInitialized;
 	bool bIsSelected;
+	TWeakPtr<FWidgetBlueprintEditor> BlueprintEditor;
 	TArray< TSharedPtr<FHierarchyModel> > Models;
 };
 
@@ -103,14 +107,13 @@ public:
 	virtual TOptional<EItemDropZone> HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone) override;
 	virtual FReply HandleAcceptDrop(FDragDropEvent const& DragDropEvent, EItemDropZone DropZone) override;
 
+	virtual bool IsRoot() const override { return true; }
+
 protected:
 	virtual void GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Children) override;
 	virtual void UpdateSelection() override;
 
 private:
-
-	TWeakPtr<FWidgetBlueprintEditor> BlueprintEditor;
-
 	FText RootText;
 };
 
@@ -134,18 +137,18 @@ public:
 	
 	virtual TOptional<EItemDropZone> HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone) override;
 	virtual FReply HandleAcceptDrop(FDragDropEvent const& DragDropEvent, EItemDropZone DropZone) override;
-	virtual FReply HandleDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
 protected:
 	virtual void GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Children) override;
 	virtual void UpdateSelection() override;
+	virtual FWidgetReference AsDraggedWidgetReference() const;
+
+	void DoDrop(UWidget* NamedSlotHostWidget, UWidget* DroppingWidget);
 
 private:
 
 	FWidgetReference Item;
 	FName SlotName;
-
-	TWeakPtr<FWidgetBlueprintEditor> BlueprintEditor;
 };
 
 class FHierarchyWidget : public FHierarchyModel
@@ -168,7 +171,6 @@ public:
 
 	virtual TOptional<EItemDropZone> HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone) override;
 
-	virtual FReply HandleDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual void HandleDragLeave(const FDragDropEvent& DragDropEvent) override;
 	virtual FReply HandleAcceptDrop(FDragDropEvent const& DragDropEvent, EItemDropZone DropZone) override;
 
@@ -224,11 +226,10 @@ public:
 protected:
 	virtual void GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Children) override;
 	virtual void UpdateSelection() override;
+	virtual FWidgetReference AsDraggedWidgetReference() const { return Item; }
 
 private:
 	FWidgetReference Item;
-
-	TWeakPtr<FWidgetBlueprintEditor> BlueprintEditor;
 };
 
 /**

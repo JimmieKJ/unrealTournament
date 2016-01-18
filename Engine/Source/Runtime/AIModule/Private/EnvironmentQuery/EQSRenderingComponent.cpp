@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
+#include "Engine/Canvas.h"
 #include "DebugRenderSceneProxy.h"
 #include "EnvironmentQuery/EQSRenderingComponent.h"
 #include "EnvironmentQuery/EQSQueryResultSourceInterface.h"
@@ -15,7 +16,7 @@ namespace FEQSRenderingHelper
 		if (Items.IsValidIndex(Index) &&
 			ItemType->IsChildOf(UEnvQueryItemType_VectorBase::StaticClass()))
 		{
-			UEnvQueryItemType_VectorBase* DefTypeOb = (UEnvQueryItemType_VectorBase*)ItemType->GetDefaultObject();
+			UEnvQueryItemType_VectorBase* DefTypeOb = ItemType->GetDefaultObject<UEnvQueryItemType_VectorBase>();
 			return DefTypeOb->GetItemLocation(RawData.GetData() + Items[Index].DataOffset);
 		}
 		return FVector::ZeroVector;
@@ -36,6 +37,7 @@ FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FSt
 	TextWithoutShadowDistance = 1500;
 	ViewFlagIndex = uint32(FEngineShowFlags::FindIndexByName(*InViewFlagName));
 	ViewFlagName = InViewFlagName;
+	bWantsSelectionOutline = false;
 
 	if (InComponent == NULL)
 	{
@@ -72,6 +74,7 @@ FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FSt
 	TextWithoutShadowDistance = 1500;
 	ViewFlagIndex = uint32(FEngineShowFlags::FindIndexByName(*InViewFlagName));
 	ViewFlagName = InViewFlagName;
+	bWantsSelectionOutline = false;
 
 	Spheres = InSpheres;
 	Texts = InTexts;
@@ -272,6 +275,12 @@ void FEQSSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController* PC)
 		return;
 	}
 
+	// little hacky test but it's the only way to remove text rendering from bad worlds, when using UDebugDrawService for it
+	if (Canvas && Canvas->SceneView && Canvas->SceneView->Family && Canvas->SceneView->Family->Scene && Canvas->SceneView->Family->Scene->GetWorld() != ActorOwner->GetWorld())
+	{
+		return;
+	}
+
 	FDebugRenderSceneProxy::DrawDebugLabels(Canvas, PC);
 }
 
@@ -285,13 +294,14 @@ bool FEQSSceneProxy::SafeIsActorSelected() const
 	return false;
 }
 
-FPrimitiveViewRelevance FEQSSceneProxy::GetViewRelevance(const FSceneView* View)
+FPrimitiveViewRelevance FEQSSceneProxy::GetViewRelevance(const FSceneView* View) const
 {
 	FPrimitiveViewRelevance Result;
 	Result.bDrawRelevance = View->Family->EngineShowFlags.GetSingleFlag(ViewFlagIndex) && IsShown(View) 
 		&& (!bDrawOnlyWhenSelected || SafeIsActorSelected());
 	Result.bDynamicRelevance = true;
-	Result.bNormalTranslucencyRelevance = IsShown(View);
+	// ideally the TranslucencyRelevance should be filled out by the material, here we do it conservative
+	Result.bSeparateTranslucencyRelevance = Result.bNormalTranslucencyRelevance = IsShown(View);
 	return Result;
 }
 

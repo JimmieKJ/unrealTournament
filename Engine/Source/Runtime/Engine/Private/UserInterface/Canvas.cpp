@@ -438,8 +438,8 @@ bool FCanvasBatchedElementRenderItem::Render_GameThread(const FCanvas* Canvas)
 		FBatchedDrawParameters DrawParameters =
 		{
 			Data,
-			Canvas->IsHitTesting(),
-			bNeedsToSwitchVerticalAxis,
+			(uint32)(Canvas->IsHitTesting() ? 1 : 0),
+			(uint32)(bNeedsToSwitchVerticalAxis ? 1 : 0),
 			(uint32)CanvasRenderTarget->GetSizeXY().X,
 			(uint32)CanvasRenderTarget->GetSizeXY().Y,
 			Gamma,
@@ -654,9 +654,9 @@ void FCanvas::Flush_RenderThread(FRHICommandListImmediate& RHICmdList, bool bFor
 	const FTexture2DRHIRef& RenderTargetTexture = RenderTarget->GetRenderTargetTexture();
 
 	check(IsValidRef(RenderTargetTexture));
-
+	
 	// Set the RHI render target.
-	::SetRenderTarget(RHICmdList, RenderTargetTexture, FTextureRHIRef());
+	::SetRenderTarget(RHICmdList, RenderTargetTexture, FTexture2DRHIRef());
 	// disable depth test & writes
 	RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
@@ -760,7 +760,7 @@ void FCanvas::Flush_GameThread(bool bForce)
 		SCOPED_DRAW_EVENT(RHICmdList, CanvasFlush);
 
 		// Set the RHI render target.
-		::SetRenderTarget(RHICmdList, Parameters.CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef());
+		::SetRenderTarget(RHICmdList, Parameters.CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), true);
 		// disable depth test & writes
 		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_Always>::GetRHI());
 
@@ -887,35 +887,20 @@ void FCanvas::SetRenderTargetRect( const FIntRect& InViewRect )
 	ViewRect = InViewRect;
 }
 
-void FCanvas::Clear(const FLinearColor& Color)
+void FCanvas::Clear(const FLinearColor& LinearColor)
 {
-	// desired display gamma space
-	const float DisplayGamma =  GEngine ? GEngine->GetDisplayGamma() : 2.2f;
-	// render target gamma space expected
-	float RenderTargetGamma = DisplayGamma;
-	if( GetRenderTarget() )
-	{
-		RenderTargetGamma = GetRenderTarget()->GetDisplayGamma();
-	}
-	// assume that the clear color specified is in 2.2 gamma space
-	// so convert to the render target's color space 
-	FLinearColor GammaCorrectedColor(Color);
-	GammaCorrectedColor.R = FMath::Pow(FMath::Clamp<float>(GammaCorrectedColor.R,0.0f,1.0f), DisplayGamma / RenderTargetGamma);
-	GammaCorrectedColor.G = FMath::Pow(FMath::Clamp<float>(GammaCorrectedColor.G,0.0f,1.0f), DisplayGamma / RenderTargetGamma);
-	GammaCorrectedColor.B = FMath::Pow(FMath::Clamp<float>(GammaCorrectedColor.B,0.0f,1.0f), DisplayGamma / RenderTargetGamma);
-
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 		ClearCommand,
-		FColor,Color,GammaCorrectedColor,
-		FRenderTarget*,CanvasRenderTarget,GetRenderTarget(),
+		FLinearColor, ClearColor, LinearColor,
+		FRenderTarget*, CanvasRenderTarget, GetRenderTarget(),
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, CanvasClear);
 		if( CanvasRenderTarget )
 		{
-			::SetRenderTarget(RHICmdList, CanvasRenderTarget->GetRenderTargetTexture(),FTextureRHIRef());
-			RHICmdList.SetViewport(0,0,0.0f,CanvasRenderTarget->GetSizeXY().X,CanvasRenderTarget->GetSizeXY().Y,1.0f);
+			::SetRenderTarget(RHICmdList, CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), true);
+			RHICmdList.SetViewport(0, 0, 0.0f, CanvasRenderTarget->GetSizeXY().X, CanvasRenderTarget->GetSizeXY().Y, 1.0f);
 		}
-		RHICmdList.Clear(true,Color,false,0.0f,false,0, FIntRect());
+		RHICmdList.Clear(true, ClearColor, false, 0.0f, false, 0, FIntRect());
 	});
 }
 
@@ -940,9 +925,9 @@ void FCanvas::DrawTile( float X, float Y, float SizeX,	float SizeY, float U, flo
 	Right = (X + SizeX) * Z;
 	Bottom = (Y + SizeY) * Z;
 
-	int32 V00 = BatchedElements->AddVertex(FVector4(Left,	    Top,	0,Z),FVector2D(U,			V),			ActualColor,HitProxyId);
+	int32 V00 = BatchedElements->AddVertex(FVector4(Left,	  Top,	0,Z),FVector2D(U,			V),			ActualColor,HitProxyId);
 	int32 V10 = BatchedElements->AddVertex(FVector4(Right,    Top,	0,Z),FVector2D(U + SizeU,	V),			ActualColor,HitProxyId);
-	int32 V01 = BatchedElements->AddVertex(FVector4(Left,	    Bottom,	0,Z),FVector2D(U,			V + SizeV),	ActualColor,HitProxyId);
+	int32 V01 = BatchedElements->AddVertex(FVector4(Left,	  Bottom,	0,Z),FVector2D(U,			V + SizeV),	ActualColor,HitProxyId);
 	int32 V11 = BatchedElements->AddVertex(FVector4(Right,    Bottom,	0,Z),FVector2D(U + SizeU,	V + SizeV),	ActualColor,HitProxyId);
 
 	BatchedElements->AddTriangle(V00,V10,V11,FinalTexture,BlendMode);
@@ -1296,7 +1281,7 @@ void UCanvas::UpdateSafeZoneData()
 		CachedDisplayHeight = UnsafeSizeY;
 
 		SafeZonePadX = (CachedDisplayWidth - (CachedDisplayWidth * SafeRegionPercentage.X))/2.f;
-		SafeZonePadY = CachedDisplayHeight - (CachedDisplayHeight * SafeRegionPercentage.Y)/2.f;
+		SafeZonePadY = (CachedDisplayHeight - (CachedDisplayHeight * SafeRegionPercentage.Y))/2.f;
 	}
 	else if(FSlateApplication::IsInitialized())
 	{
@@ -1344,7 +1329,7 @@ void UCanvas::Update()
 /** Set DrawColor with a FLinearColor and optional opacity override */
 void UCanvas::SetLinearDrawColor(FLinearColor InColor, float OpacityOverride)
 {
-	DrawColor = FColor(InColor);
+	DrawColor = InColor.ToFColor(true);
 
 	if( OpacityOverride != -1 )
 	{
@@ -2022,3 +2007,30 @@ FVector2D UCanvas::K2_TextSize(UFont* RenderFont, const FString& RenderText, FVe
 	return FVector2D::ZeroVector;
 }
 
+void FDisplayDebugManager::DrawString(const FString& InDebugString, const float& OptionalXOffset)
+{
+	if (Canvas)
+	{
+		DebugTextItem.Text = FText::FromString(InDebugString);
+		Canvas->DrawItem(DebugTextItem, FVector2D(CurrentPos.X + OptionalXOffset, CurrentPos.Y));
+
+		NextColumXPos = FMath::Max(NextColumXPos, CurrentPos.X + OptionalXOffset + DebugTextItem.DrawnSize.X);
+		MaxCharHeight = FMath::Max(MaxCharHeight, DebugTextItem.DrawnSize.Y);
+
+		CurrentPos.Y += GetYStep();
+		AddColumnIfNeeded();
+	}
+}
+
+void FDisplayDebugManager::AddColumnIfNeeded()
+{
+	if (Canvas)
+	{
+		const float YStep = GetYStep();
+		if ((CurrentPos.Y + YStep) > Canvas->SizeY)
+		{
+			CurrentPos.Y = InitialPos.Y;
+			CurrentPos.X = NextColumXPos + YStep * 2.f;
+		}
+	}
+}

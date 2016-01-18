@@ -13,6 +13,7 @@
 #include "EnvironmentQueryColors.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 #include "SInlineEditableTextBlock.h"
+#include "SLevelOfDetailBranchNode.h"
 
 #define LOCTEXT_NAMESPACE "EnvironmentQueryEditor"
 
@@ -111,7 +112,9 @@ void SGraphNode_EnvironmentQuery::UpdateGraphNode()
 	LeftNodeBox.Reset();
 	SubNodes.Reset();
 
-	const float NodePadding = (Cast<UEnvironmentQueryGraphNode_Test>(GraphNode) != NULL) ? 2.0f : 10.0f;
+	const FMargin NodePadding = (Cast<UEnvironmentQueryGraphNode_Test>(GraphNode) != NULL) 
+		? FMargin(2.0f) 
+		: FMargin(8.0f);
 	float TestPadding = 0.0f;
 
 	UEnvironmentQueryGraphNode_Option* OptionNode = Cast<UEnvironmentQueryGraphNode_Option>(GraphNode);
@@ -150,6 +153,20 @@ void SGraphNode_EnvironmentQuery::UpdateGraphNode()
 	TSharedPtr<STextBlock> DescriptionText; 
 	TSharedPtr<SNodeTitle> NodeTitle = SNew(SNodeTitle, GraphNode);
 
+	TWeakPtr<SNodeTitle> WeakNodeTitle = NodeTitle;
+	auto GetNodeTitlePlaceholderWidth = [WeakNodeTitle]() -> FOptionalSize
+	{
+		TSharedPtr<SNodeTitle> NodeTitlePin = WeakNodeTitle.Pin();
+		const float DesiredWidth = (NodeTitlePin.IsValid()) ? NodeTitlePin->GetTitleSize().X : 0.0f;
+		return FMath::Max(75.0f, DesiredWidth);
+	};
+	auto GetNodeTitlePlaceholderHeight = [WeakNodeTitle]() -> FOptionalSize
+	{
+		TSharedPtr<SNodeTitle> NodeTitlePin = WeakNodeTitle.Pin();
+		const float DesiredHeight = (NodeTitlePin.IsValid()) ? NodeTitlePin->GetTitleSize().Y : 0.0f;
+		return FMath::Max(22.0f, DesiredHeight);
+	};
+
 	this->ContentScale.Bind( this, &SGraphNode::GetContentScale );
 	this->GetOrAddSlot( ENodeZone::Center )
 		.HAlign(HAlign_Fill)
@@ -163,27 +180,27 @@ void SGraphNode_EnvironmentQuery::UpdateGraphNode()
 			[
 				SNew(SOverlay)
 
-				// INPUT PIN AREA
+				// Pins and node details
 				+SOverlay::Slot()
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Top)
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Fill)
+				[
+					SNew(SVerticalBox)
+
+					// INPUT PIN AREA
+					+SVerticalBox::Slot()
+					.AutoHeight()
 					[
-						SAssignNew(LeftNodeBox, SVerticalBox)
+						SNew(SBox)
+						.MinDesiredHeight(NodePadding.Top)
+						[
+							SAssignNew(LeftNodeBox, SVerticalBox)
+						]
 					]
 
-				// OUTPUT PIN AREA
-				+SOverlay::Slot()
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Bottom)
-					[
-						SAssignNew(RightNodeBox, SVerticalBox)
-					]
-
-				// STATE NAME AREA
-				+SOverlay::Slot()
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Center)
-					.Padding(NodePadding)
+					// STATE NAME AREA
+					+SVerticalBox::Slot()
+					.Padding(FMargin(NodePadding.Left, 0.0f, NodePadding.Right, 0.0f))
 					[
 						SNew(SHorizontalBox)
 						+SHorizontalBox::Slot()
@@ -211,60 +228,72 @@ void SGraphNode_EnvironmentQuery::UpdateGraphNode()
 								.Visibility(EVisibility::SelfHitTestInvisible)
 								[
 									SNew(SVerticalBox)
-										+SVerticalBox::Slot()
-										.AutoHeight()
-										.Padding(0,0,0,2)
+									+SVerticalBox::Slot()
+									.AutoHeight()
+									.Padding(0,0,0,2)
+									[
+										SNew(SBox).HeightOverride(4)
 										[
-											SNew(SBox).HeightOverride(4)
+											// weight bar
+											SNew(SProgressBar)
+											.FillColorAndOpacity(this, &SGraphNode_EnvironmentQuery::GetWeightProgressBarColor)
+											.Visibility(this, &SGraphNode_EnvironmentQuery::GetWeightMarkerVisibility)
+											.Percent(this, &SGraphNode_EnvironmentQuery::GetWeightProgressBarPercent)
+										]
+									]
+									+SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SHorizontalBox)
+										+SHorizontalBox::Slot()
+										.AutoWidth()
+										[
+											// POPUP ERROR MESSAGE
+											SAssignNew(ErrorText, SErrorText )
+											.BackgroundColor( this, &SGraphNode_EnvironmentQuery::GetErrorColor )
+											.ToolTipText( this, &SGraphNode_EnvironmentQuery::GetErrorMsgToolTip )
+										]
+										+SHorizontalBox::Slot()
+										.Padding(FMargin(4.0f, 0.0f, 4.0f, 0.0f))
+										[
+											SNew(SLevelOfDetailBranchNode)
+											.UseLowDetailSlot(this, &SGraphNode_EnvironmentQuery::UseLowDetailNodeTitles)
+											.LowDetail()
 											[
-												// weight bar
-												SNew(SProgressBar)
-												.FillColorAndOpacity(this, &SGraphNode_EnvironmentQuery::GetWeightProgressBarColor)
-												.Visibility(this, &SGraphNode_EnvironmentQuery::GetWeightMarkerVisibility)
-												.Percent(this, &SGraphNode_EnvironmentQuery::GetWeightProgressBarPercent)
+												SNew(SBox)
+												.WidthOverride_Lambda(GetNodeTitlePlaceholderWidth)
+												.HeightOverride_Lambda(GetNodeTitlePlaceholderHeight)
+											]
+											.HighDetail()
+											[
+												SNew(SVerticalBox)
+												+SVerticalBox::Slot()
+												.AutoHeight()
+												[
+													SAssignNew(InlineEditableText, SInlineEditableTextBlock)
+													.Style( FEditorStyle::Get(), "Graph.StateNode.NodeTitleInlineEditableText" )
+													.Text( NodeTitle.Get(), &SNodeTitle::GetHeadTitle )
+													.OnVerifyTextChanged(this, &SGraphNode_EnvironmentQuery::OnVerifyNameTextChanged)
+													.OnTextCommitted(this, &SGraphNode_EnvironmentQuery::OnNameTextCommited)
+													.IsReadOnly( this, &SGraphNode_EnvironmentQuery::IsNameReadOnly )
+													.IsSelected(this, &SGraphNode_EnvironmentQuery::IsSelectedExclusively)
+												]
+												+SVerticalBox::Slot()
+												.AutoHeight()
+												[
+													NodeTitle.ToSharedRef()
+												]
 											]
 										]
-										+SVerticalBox::Slot()
-										.AutoHeight()
-											[
-												SNew(SHorizontalBox)
-												+SHorizontalBox::Slot()
-													.AutoWidth()
-													[
-														// POPUP ERROR MESSAGE
-														SAssignNew(ErrorText, SErrorText )
-														.BackgroundColor( this, &SGraphNode_EnvironmentQuery::GetErrorColor )
-														.ToolTipText( this, &SGraphNode_EnvironmentQuery::GetErrorMsgToolTip )
-													]
-												+SHorizontalBox::Slot()
-													.Padding(FMargin(4.0f, 0.0f, 4.0f, 0.0f))
-													[
-														SNew(SVerticalBox)
-														+SVerticalBox::Slot()
-														.AutoHeight()
-															[
-																SAssignNew(InlineEditableText, SInlineEditableTextBlock)
-																.Style( FEditorStyle::Get(), "Graph.StateNode.NodeTitleInlineEditableText" )
-																.Text( NodeTitle.Get(), &SNodeTitle::GetHeadTitle )
-																.OnVerifyTextChanged(this, &SGraphNode_EnvironmentQuery::OnVerifyNameTextChanged)
-																.OnTextCommitted(this, &SGraphNode_EnvironmentQuery::OnNameTextCommited)
-																.IsReadOnly( this, &SGraphNode_EnvironmentQuery::IsNameReadOnly )
-																.IsSelected(this, &SGraphNode_EnvironmentQuery::IsSelectedExclusively)
-															]
-														+SVerticalBox::Slot()
-															.AutoHeight()
-															[
-																NodeTitle.ToSharedRef()
-															]
-													]
-											]
-										+SVerticalBox::Slot()
-											.AutoHeight()
-											[
-												// DESCRIPTION MESSAGE
-												SAssignNew(DescriptionText, STextBlock )
-												.Text(this, &SGraphNode_EnvironmentQuery::GetDescription)
-											]
+									]
+									+SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										// DESCRIPTION MESSAGE
+										SAssignNew(DescriptionText, STextBlock )
+										.Visibility(this, &SGraphNode_EnvironmentQuery::GetDescriptionVisibility)
+										.Text(this, &SGraphNode_EnvironmentQuery::GetDescription)
+									]
 								]
 							]
 							+SVerticalBox::Slot()
@@ -275,21 +304,34 @@ void SGraphNode_EnvironmentQuery::UpdateGraphNode()
 							]
 						]
 					]
-				//drag marker overlay
-				+SOverlay::Slot()
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Top)
+
+					// OUTPUT PIN AREA
+					+SVerticalBox::Slot()
+					.AutoHeight()
 					[
-						SNew(SBorder)
-						.BorderBackgroundColor(EnvironmentQueryColors::Action::DragMarker)
-						.ColorAndOpacity(EnvironmentQueryColors::Action::DragMarker)
-						.BorderImage(FEditorStyle::GetBrush("Graph.StateNode.Body"))
-						.Visibility(this, &SGraphNode_EnvironmentQuery::GetDragOverMarkerVisibility)
+						SNew(SBox)
+						.MinDesiredHeight(NodePadding.Bottom)
 						[
-							SNew(SBox)
-							.HeightOverride(4)
+							SAssignNew(RightNodeBox, SVerticalBox)
 						]
 					]
+				]
+
+				// Drag marker overlay
+				+SOverlay::Slot()
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Top)
+				[
+					SNew(SBorder)
+					.BorderBackgroundColor(EnvironmentQueryColors::Action::DragMarker)
+					.ColorAndOpacity(EnvironmentQueryColors::Action::DragMarker)
+					.BorderImage(FEditorStyle::GetBrush("Graph.StateNode.Body"))
+					.Visibility(this, &SGraphNode_EnvironmentQuery::GetDragOverMarkerVisibility)
+					[
+						SNew(SBox)
+						.HeightOverride(4)
+					]
+				]
 			]
 		];
 

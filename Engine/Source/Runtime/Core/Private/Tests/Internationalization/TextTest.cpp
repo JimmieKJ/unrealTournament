@@ -11,7 +11,7 @@ PRAGMA_DISABLE_OPTIMIZATION
 #define LOCTEXT_NAMESPACE "Core.Tests.TextFormatTest"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextTest, "System.Core.Misc.Text", EAutomationTestFlags::ATF_None)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextTest, "System.Core.Misc.Text", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 namespace
 {
@@ -200,25 +200,25 @@ bool FTextTest::RunTest (const FString& Parameters)
 		TArray<FFormatArgumentData> ArgumentList;
 		{
 			FFormatArgumentData Argument;
-			Argument.ArgumentName = FText::FromString( TEXT("Age") );
+			Argument.ArgumentName = TEXT("Age");
 			Argument.ArgumentValue = FText::FromString( TEXT("23") );
 			ArgumentList.Add(Argument);
 		}
 		{
 			FFormatArgumentData Argument;
-			Argument.ArgumentName = FText::FromString( TEXT("Height") );
+			Argument.ArgumentName = TEXT("Height");
 			Argument.ArgumentValue = FText::FromString( TEXT("68") );
 			ArgumentList.Add(Argument);
 		}
 		{
 			FFormatArgumentData Argument;
-			Argument.ArgumentName = FText::FromString( TEXT("Gender") );
+			Argument.ArgumentName = TEXT("Gender");
 			Argument.ArgumentValue = FText::FromString( TEXT("male") );
 			ArgumentList.Add(Argument);
 		}
 		{
 			FFormatArgumentData Argument;
-			Argument.ArgumentName = FText::FromString( TEXT("Name") );
+			Argument.ArgumentName = TEXT("Name");
 			Argument.ArgumentValue = FText::FromString( TEXT("Saul") );
 			ArgumentList.Add(Argument);
 		}
@@ -636,9 +636,243 @@ bool FTextTest::RunTest (const FString& Parameters)
 }
 
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextRoundingTest, "System.Core.Misc.TextRounding", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
+
+bool FTextRoundingTest::RunTest (const FString& Parameters)
+{
+	static const TCHAR* RoundingModeNames[] = {
+		TEXT("HalfToEven"),
+		TEXT("HalfFromZero"),
+		TEXT("HalfToZero"),
+		TEXT("FromZero"),
+		TEXT("ToZero"),
+		TEXT("ToNegativeInfinity"),
+		TEXT("ToPositiveInfinity"),
+	};
+
+	static_assert(ERoundingMode::ToPositiveInfinity == ARRAY_COUNT(RoundingModeNames) - 1, "RoundingModeNames array needs updating");
+
+	static const double InputValues[] = {
+		1000.1224,
+		1000.1225,
+		1000.1226,
+		1000.1234,
+		1000.1235,
+		1000.1236,
+		
+		1000.1244,
+		1000.1245,
+		1000.1246,
+		1000.1254,
+		1000.1255,
+		1000.1256,
+
+		-1000.1224,
+		-1000.1225,
+		-1000.1226,
+		-1000.1234,
+		-1000.1235,
+		-1000.1236,
+		
+		-1000.1244,
+		-1000.1245,
+		-1000.1246,
+		-1000.1254,
+		-1000.1255,
+		-1000.1256,
+	};
+
+	static const TCHAR* OutputValues[][ARRAY_COUNT(RoundingModeNames)] = 
+	{
+		// HalfToEven        | HalfFromZero      | HalfToZero        | FromZero          | ToZero            | ToNegativeInfinity | ToPositiveInfinity
+		{  TEXT("1000.122"),   TEXT("1000.122"),   TEXT("1000.122"),   TEXT("1000.123"),   TEXT("1000.122"),   TEXT("1000.122"),    TEXT("1000.123") },
+		{  TEXT("1000.122"),   TEXT("1000.123"),   TEXT("1000.122"),   TEXT("1000.123"),   TEXT("1000.122"),   TEXT("1000.122"),    TEXT("1000.123") },
+		{  TEXT("1000.123"),   TEXT("1000.123"),   TEXT("1000.123"),   TEXT("1000.123"),   TEXT("1000.122"),   TEXT("1000.122"),    TEXT("1000.123") },
+		{  TEXT("1000.123"),   TEXT("1000.123"),   TEXT("1000.123"),   TEXT("1000.124"),   TEXT("1000.123"),   TEXT("1000.123"),    TEXT("1000.124") },
+		{  TEXT("1000.124"),   TEXT("1000.124"),   TEXT("1000.123"),   TEXT("1000.124"),   TEXT("1000.123"),   TEXT("1000.123"),    TEXT("1000.124") },
+		{  TEXT("1000.124"),   TEXT("1000.124"),   TEXT("1000.124"),   TEXT("1000.124"),   TEXT("1000.123"),   TEXT("1000.123"),    TEXT("1000.124") },
+
+		{  TEXT("1000.124"),   TEXT("1000.124"),   TEXT("1000.124"),   TEXT("1000.125"),   TEXT("1000.124"),   TEXT("1000.124"),    TEXT("1000.125") },
+		{  TEXT("1000.124"),   TEXT("1000.125"),   TEXT("1000.124"),   TEXT("1000.125"),   TEXT("1000.124"),   TEXT("1000.124"),    TEXT("1000.125") },
+		{  TEXT("1000.125"),   TEXT("1000.125"),   TEXT("1000.125"),   TEXT("1000.125"),   TEXT("1000.124"),   TEXT("1000.124"),    TEXT("1000.125") },
+		{  TEXT("1000.125"),   TEXT("1000.125"),   TEXT("1000.125"),   TEXT("1000.126"),   TEXT("1000.125"),   TEXT("1000.125"),    TEXT("1000.126") },
+		{  TEXT("1000.126"),   TEXT("1000.126"),   TEXT("1000.125"),   TEXT("1000.126"),   TEXT("1000.125"),   TEXT("1000.125"),    TEXT("1000.126") },
+		{  TEXT("1000.126"),   TEXT("1000.126"),   TEXT("1000.126"),   TEXT("1000.126"),   TEXT("1000.125"),   TEXT("1000.125"),    TEXT("1000.126") },
+
+		{ TEXT("-1000.122"),  TEXT("-1000.122"),  TEXT("-1000.122"),  TEXT("-1000.123"),  TEXT("-1000.122"),  TEXT("-1000.123"),   TEXT("-1000.122") },
+		{ TEXT("-1000.122"),  TEXT("-1000.123"),  TEXT("-1000.122"),  TEXT("-1000.123"),  TEXT("-1000.122"),  TEXT("-1000.123"),   TEXT("-1000.122") },
+		{ TEXT("-1000.123"),  TEXT("-1000.123"),  TEXT("-1000.123"),  TEXT("-1000.123"),  TEXT("-1000.122"),  TEXT("-1000.123"),   TEXT("-1000.122") },
+		{ TEXT("-1000.123"),  TEXT("-1000.123"),  TEXT("-1000.123"),  TEXT("-1000.124"),  TEXT("-1000.123"),  TEXT("-1000.124"),   TEXT("-1000.123") },
+		{ TEXT("-1000.124"),  TEXT("-1000.124"),  TEXT("-1000.123"),  TEXT("-1000.124"),  TEXT("-1000.123"),  TEXT("-1000.124"),   TEXT("-1000.123") },
+		{ TEXT("-1000.124"),  TEXT("-1000.124"),  TEXT("-1000.124"),  TEXT("-1000.124"),  TEXT("-1000.123"),  TEXT("-1000.124"),   TEXT("-1000.123") },
+
+		{ TEXT("-1000.124"),  TEXT("-1000.124"),  TEXT("-1000.124"),  TEXT("-1000.125"),  TEXT("-1000.124"),  TEXT("-1000.125"),   TEXT("-1000.124") },
+		{ TEXT("-1000.124"),  TEXT("-1000.125"),  TEXT("-1000.124"),  TEXT("-1000.125"),  TEXT("-1000.124"),  TEXT("-1000.125"),   TEXT("-1000.124") },
+		{ TEXT("-1000.125"),  TEXT("-1000.125"),  TEXT("-1000.125"),  TEXT("-1000.125"),  TEXT("-1000.124"),  TEXT("-1000.125"),   TEXT("-1000.124") },
+		{ TEXT("-1000.125"),  TEXT("-1000.125"),  TEXT("-1000.125"),  TEXT("-1000.126"),  TEXT("-1000.125"),  TEXT("-1000.126"),   TEXT("-1000.125") },
+		{ TEXT("-1000.126"),  TEXT("-1000.126"),  TEXT("-1000.125"),  TEXT("-1000.126"),  TEXT("-1000.125"),  TEXT("-1000.126"),   TEXT("-1000.125") },
+		{ TEXT("-1000.126"),  TEXT("-1000.126"),  TEXT("-1000.126"),  TEXT("-1000.126"),  TEXT("-1000.125"),  TEXT("-1000.126"),   TEXT("-1000.125") },
+	};
+
+	static_assert(ARRAY_COUNT(InputValues) == ARRAY_COUNT(OutputValues), "The size of InputValues does not match OutputValues");
+
+	// This test needs to be run using an English culture
+	FInternationalization& I18N = FInternationalization::Get();
+	const FString OriginalCulture = I18N.GetCurrentCulture()->GetName();
+	I18N.SetCurrentCulture(TEXT("en"));
+
+	// Test to make sure that the decimal formatter is rounding fractional numbers correctly (to 3 decimal places)
+	FNumberFormattingOptions FormattingOptions = FNumberFormattingOptions()
+		.SetUseGrouping(false)
+		.SetMaximumFractionalDigits(3);
+
+	auto DoSingleTest = [&](const double InNumber, const FString& InExpectedString, const FString& InDescription)
+	{
+		const FText ResultText = FText::AsNumber(InNumber, &FormattingOptions);
+		if(ResultText.ToString() != InExpectedString)
+		{
+			AddError(FString::Printf(TEXT("Text rounding failure: source '%f' - expected '%s' - result '%s'. %s."), InNumber, *InExpectedString, *ResultText.ToString(), *InDescription));
+		}
+	};
+
+	auto DoAllTests = [&](const ERoundingMode InRoundingMode)
+	{
+		FormattingOptions.SetRoundingMode(InRoundingMode);
+
+		for (int32 TestValueIndex = 0; TestValueIndex < ARRAY_COUNT(InputValues); ++TestValueIndex)
+		{
+			DoSingleTest(InputValues[TestValueIndex], OutputValues[TestValueIndex][InRoundingMode], RoundingModeNames[InRoundingMode]);
+		}
+	};
+
+	DoAllTests(ERoundingMode::HalfToEven);
+	DoAllTests(ERoundingMode::HalfFromZero);
+	DoAllTests(ERoundingMode::HalfToZero);
+	DoAllTests(ERoundingMode::FromZero);
+	DoAllTests(ERoundingMode::ToZero);
+	DoAllTests(ERoundingMode::ToNegativeInfinity);
+	DoAllTests(ERoundingMode::ToPositiveInfinity);
+
+	// HalfToEven - Rounds to the nearest place, equidistant ties go to the value which is closest to an even value: 1.5 becomes 2, 0.5 becomes 0
+	{
+		FormattingOptions.SetRoundingMode(ERoundingMode::HalfToEven);
+
+		DoSingleTest(1000.12459, TEXT("1000.125"), TEXT("HalfToEven"));
+		DoSingleTest(1000.124549, TEXT("1000.125"), TEXT("HalfToEven"));
+		DoSingleTest(1000.124551, TEXT("1000.125"), TEXT("HalfToEven"));
+		DoSingleTest(1000.12451, TEXT("1000.125"), TEXT("HalfToEven"));
+		DoSingleTest(1000.1245000001, TEXT("1000.125"), TEXT("HalfToEven"));
+		DoSingleTest(1000.12450000000001, TEXT("1000.124"), TEXT("HalfToEven"));
+	}
+
+	// Restore original culture
+	I18N.SetCurrentCulture(OriginalCulture);
+
+	return true;
+}
+
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextPaddingTest, "System.Core.Misc.TextPadding", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
+
+bool FTextPaddingTest::RunTest (const FString& Parameters)
+{
+	// This test needs to be run using an English culture
+	FInternationalization& I18N = FInternationalization::Get();
+	const FString OriginalCulture = I18N.GetCurrentCulture()->GetName();
+	I18N.SetCurrentCulture(TEXT("en"));
+
+	// Test to make sure that the decimal formatter is padding integral numbers correctly
+	FNumberFormattingOptions FormattingOptions;
+
+	auto DoSingleIntTest = [&](const int32 InNumber, const FString& InExpectedString, const FString& InDescription)
+	{
+		const FText ResultText = FText::AsNumber(InNumber, &FormattingOptions);
+		if(ResultText.ToString() != InExpectedString)
+		{
+			AddError(FString::Printf(TEXT("Text padding failure: source '%d' - expected '%s' - result '%s'. %s."), InNumber, *InExpectedString, *ResultText.ToString(), *InDescription));
+		}
+	};
+
+	auto DoSingleDoubleTest = [&](const double InNumber, const FString& InExpectedString, const FString& InDescription)
+	{
+		const FText ResultText = FText::AsNumber(InNumber, &FormattingOptions);
+		if(ResultText.ToString() != InExpectedString)
+		{
+			AddError(FString::Printf(TEXT("Text padding failure: source '%f' - expected '%s' - result '%s'. %s."), InNumber, *InExpectedString, *ResultText.ToString(), *InDescription));
+		}
+	};
+
+	// Test with a max limit of 3
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMaximumIntegralDigits(3);
+
+		DoSingleIntTest(123456,  TEXT("456"),  TEXT("Truncating '123456' to a max of 3 integral digits"));
+		DoSingleIntTest(-123456, TEXT("-456"), TEXT("Truncating '-123456' to a max of 3 integral digits"));
+	}
+
+	// Test with a min limit of 6
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMinimumIntegralDigits(6);
+
+		DoSingleIntTest(123,  TEXT("000123"),  TEXT("Padding '123' to a min of 6 integral digits"));
+		DoSingleIntTest(-123, TEXT("-000123"), TEXT("Padding '-123' to a min of 6 integral digits"));
+	}
+
+	// Test with forced fractional digits
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMinimumFractionalDigits(3);
+
+		DoSingleIntTest(123,  TEXT("123.000"),  TEXT("Padding '123' to a min of 3 fractional digits"));
+		DoSingleIntTest(-123, TEXT("-123.000"), TEXT("Padding '-123' to a min of 3 fractional digits"));
+	}
+
+	// Testing with leading zeros on a real number
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMaximumFractionalDigits(4);
+
+		DoSingleDoubleTest(0.00123,  TEXT("0.0012"),  TEXT("Padding '0.00123' to a max of 4 fractional digits"));
+		DoSingleDoubleTest(-0.00123, TEXT("-0.0012"), TEXT("Padding '-0.00123' to a max of 4 fractional digits"));
+	}
+
+	// Testing with leading zeros on a real number
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMaximumFractionalDigits(8);
+
+		DoSingleDoubleTest(0.00123,  TEXT("0.00123"),  TEXT("Padding '0.00123' to a max of 8 fractional digits"));
+		DoSingleDoubleTest(-0.00123, TEXT("-0.00123"), TEXT("Padding '-0.00123' to a max of 8 fractional digits"));
+	}
+
+	// Test with forced fractional digits on a real number
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMinimumFractionalDigits(8)
+			.SetMaximumFractionalDigits(8);
+
+		DoSingleDoubleTest(0.00123,  TEXT("0.00123000"),  TEXT("Padding '0.00123' to a min of 8 fractional digits"));
+		DoSingleDoubleTest(-0.00123, TEXT("-0.00123000"), TEXT("Padding '-0.00123' to a min of 8 fractional digits"));
+	}
+
+	// Restore original culture
+	I18N.SetCurrentCulture(OriginalCulture);
+
+	return true;
+}
+
+
 #if UE_ENABLE_ICU
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FICUTextTest, "System.Core.Misc.ICUText", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FICUTextTest, "System.Core.Misc.ICUText", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
 
 bool FICUTextTest::RunTest (const FString& Parameters)
 {

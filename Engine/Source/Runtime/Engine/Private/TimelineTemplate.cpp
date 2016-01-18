@@ -219,17 +219,6 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 
 	UObject* NewCurveOuter = GetOuter();
 
-#if WITH_EDITOR
-	// The outer should always be a BlueprintGeneratedClass, however the Curves get put into the Blueprint, however if they belong to the Transient package, that's where the duplicated Blueprint should be.
-	if(GetOutermost() != GetTransientPackage())
-	{
-		if(UBlueprintGeneratedClass* BPClass = Cast<UBlueprintGeneratedClass>(GetOuter()))
-		{
-			NewCurveOuter = BPClass->ClassGeneratedBy;
-		}
-	}
-#endif // WITH_EDITOR
-
 	const bool bTransientPackage = GetOutermost() == GetTransientPackage();
 	// Prevent curves being duplicated during blueprint reinstancing
 	const bool bDuplicateCurves = !( bTransientPackage || GIsDuplicatingClassForReinstancing );

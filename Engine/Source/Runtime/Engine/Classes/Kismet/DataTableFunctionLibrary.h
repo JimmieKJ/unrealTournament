@@ -7,15 +7,15 @@
 
 class UCurveTable;
 
-/** Enum used to indicate success or failure of EvaluateCurveTableRow */
+/** Enum used to indicate success or failure of EvaluateCurveTableRow. */
 UENUM()
 namespace EEvaluateCurveTableResult
 {
     enum Type
     {
-        /** Found the row successfully */
+        /** Found the row successfully. */
         RowFound,
-        /** Failed to find row */
+        /** Failed to find the row. */
         RowNotFound,
     };
 }

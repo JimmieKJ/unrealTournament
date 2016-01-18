@@ -57,9 +57,9 @@ public:
 
 public:
 #if WITH_EDITOR
-	// Begin AActor interface.
+	//~ Begin AActor Interface.
 	virtual void CheckForErrors() override;
-	// End AActor interface.
+	//~ End AActor Interface.
 #endif
 
 	/**
@@ -67,10 +67,10 @@ public:
 	 */
 	bool IsToggleable() const;
 
-	// Begin AActor interface.
+	//~ Begin AActor Interface.
 	void Destroyed() override;
 	virtual bool IsLevelBoundsRelevant() const override { return false; }
-	// End AActor interface.
+	//~ End AActor Interface.
 
 	/** Returns LightComponent subobject **/
 	class ULightComponent* GetLightComponent() const;

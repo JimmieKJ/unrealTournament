@@ -181,11 +181,14 @@ private:
 
 		TStaticMeshDrawList* DrawList;
 
+		uint32 VisibleCount;
+
 		/** Initialization constructor. */
 		FDrawingPolicyLink(TStaticMeshDrawList* InDrawList, const DrawingPolicyType& InDrawingPolicy, ERHIFeatureLevel::Type InFeatureLevel) :
 			DrawingPolicy(InDrawingPolicy),
 			FeatureLevel(InFeatureLevel),
-			DrawList(InDrawList)
+			DrawList(InDrawList),
+			VisibleCount(0)
 		{
 			CreateBoundShaderState();
 		}
@@ -276,7 +279,7 @@ public:
 	* @param LastPolicy - Last policy to render
 	* @return True if any static meshes were drawn.
 	*/
-	bool DrawVisibleInner(FRHICommandList& RHICmdList, const FViewInfo& View, const typename DrawingPolicyType::ContextDataType PolicyContext, const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap, const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray, int32 FirstPolicy, int32 LastPolicy);
+	bool DrawVisibleInner(FRHICommandList& RHICmdList, const FViewInfo& View, const typename DrawingPolicyType::ContextDataType PolicyContext, const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap, const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray, int32 FirstPolicy, int32 LastPolicy, bool bUpdateCounts);
 
 	/**
 	 * Draws only the static meshes which are in the visibility map.
@@ -333,7 +336,7 @@ public:
 	void SortFrontToBack(FVector ViewPosition);
 
 	/** Builds a list of primitives that use the given materials in this static draw list. */
-	void GetUsedPrimitivesBasedOnMaterials(ERHIFeatureLevel::Type FeatureLevel, const TArray<const FMaterial*>& Materials, TArray<FPrimitiveSceneInfo*>& PrimitivesToUpdate);
+	void GetUsedPrimitivesBasedOnMaterials(ERHIFeatureLevel::Type InFeatureLevel, const TArray<const FMaterial*>& Materials, TArray<FPrimitiveSceneInfo*>& PrimitivesToUpdate);
 
 	/**
 	 * Shifts all meshes bounds by an arbitrary delta.
@@ -353,8 +356,9 @@ public:
 	// FRenderResource interface.
 	virtual void ReleaseRHI();
 
+	typedef TSet<FDrawingPolicyLink, FDrawingPolicyKeyFuncs> TDrawingPolicySet;
 	/** Sorts OrderedDrawingPolicies front to back.  Relies on static variables SortDrawingPolicySet and SortViewPosition being set. */
-	static int32 Compare(FSetElementId A, FSetElementId B);
+	static int32 Compare(FSetElementId A, FSetElementId B, const TDrawingPolicySet * const InSortDrawingPolicySet, const FVector InSortViewPosition);
 
 	/** Computes statistics for this draw list. */
 	FDrawListStats GetStats() const;
@@ -363,26 +367,32 @@ private:
 	/** All drawing policies in the draw list, in rendering order. */
 	TArray<FSetElementId> OrderedDrawingPolicies;
 	
-	typedef TSet<FDrawingPolicyLink,FDrawingPolicyKeyFuncs> TDrawingPolicySet;
 	/** All drawing policy element sets in the draw list, hashed by drawing policy. */
 	TDrawingPolicySet DrawingPolicySet;
 
-	/** 
-	 * Static variables for getting data into the Compare function.
-	 * Ideally Sort would accept a non-static member function which would avoid having to go through globals.
-	 */ 
-	static TDrawingPolicySet* SortDrawingPolicySet;
-	static FVector SortViewPosition;
+	uint32 FrameNumberForVisibleCount;
+	uint32 ViewStateUniqueId;
 };
 
-/** Helper stuct for sorting */
+/** Helper struct for sorting */
 template<typename DrawingPolicyType>
 struct TCompareStaticMeshDrawList
 {
-	FORCEINLINE bool operator()( const FSetElementId& A, const FSetElementId& B ) const
+private:
+	const typename TStaticMeshDrawList<DrawingPolicyType>::TDrawingPolicySet * const SortDrawingPolicySet;
+	const FVector SortViewPosition;
+
+public:
+	TCompareStaticMeshDrawList(const typename TStaticMeshDrawList<DrawingPolicyType>::TDrawingPolicySet * const InSortDrawingPolicySet, const FVector InSortViewPosition)
+		: SortDrawingPolicySet(InSortDrawingPolicySet)
+		, SortViewPosition(InSortViewPosition)
+	{
+	}
+
+	FORCEINLINE bool operator()(const FSetElementId& A, const FSetElementId& B) const
 	{
 		// Use static Compare from TStaticMeshDrawList
-		return TStaticMeshDrawList<DrawingPolicyType>::Compare( A, B ) < 0;
+		return TStaticMeshDrawList<DrawingPolicyType>::Compare(A, B, SortDrawingPolicySet, SortViewPosition) < 0;
 	}
 };
 

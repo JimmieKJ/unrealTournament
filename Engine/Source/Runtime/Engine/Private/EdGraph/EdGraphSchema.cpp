@@ -15,6 +15,74 @@
 
 #define LOCTEXT_NAMESPACE "EdGraph"
 
+void FEdGraphSchemaAction::UpdateCategory(const FText& NewCategory)
+{
+	Category = NewCategory;
+
+	TArray<FString> Scratch;
+	Category.ToString().ParseIntoArray(FullSearchCategoryArray, TEXT(" "), true);
+	Category.BuildSourceString().ParseIntoArray(Scratch, TEXT(" "), true);
+	FullSearchCategoryArray.Append(Scratch);
+
+	SearchText.Empty();
+	for (const auto& Entry : FullSearchTitlesArray)
+	{
+		SearchText += Entry;
+	}
+	SearchText.Append(LINE_TERMINATOR);
+	for (const auto& Entry : FullSearchKeywordsArray)
+	{
+		SearchText += Entry;
+	}
+	SearchText.Append(LINE_TERMINATOR);
+	for (const auto& Entry : FullSearchCategoryArray)
+	{
+		SearchText += Entry;
+	}
+}
+
+void FEdGraphSchemaAction::UpdateSearchData(const FText& NewMenuDescription, const FString& NewToolTipDescription, const FText& NewCategory, const FText& NewKeywords)
+{
+	MenuDescription = NewMenuDescription;
+	TooltipDescription = NewToolTipDescription;
+	Category = NewCategory;
+	Keywords = NewKeywords;
+
+	MenuDescription.ToString().ParseIntoArray(MenuDescriptionArray, TEXT(" "), true);
+
+	FullSearchTitlesArray = MenuDescriptionArray;
+	TArray<FString> Scratch;
+	MenuDescription.BuildSourceString().ParseIntoArray(Scratch, TEXT(" "), true);
+	FullSearchTitlesArray.Append(Scratch);
+
+	Keywords.ToString().ParseIntoArray(FullSearchKeywordsArray, TEXT(" "), true);
+	Keywords.BuildSourceString().ParseIntoArray(Scratch, TEXT(" "), true);
+	FullSearchKeywordsArray.Append(Scratch);
+
+	Category.ToString().ParseIntoArray(FullSearchCategoryArray, TEXT(" "), true);
+	Category.BuildSourceString().ParseIntoArray(Scratch, TEXT(" "), true);
+	FullSearchCategoryArray.Append(Scratch);
+
+	// Glob search text together, we use the SearchText string for basic filtering:
+	for (auto& Entry : FullSearchTitlesArray)
+	{
+		Entry.ToLowerInline();
+		SearchText += Entry;
+	}
+	SearchText.Append(LINE_TERMINATOR);
+	for (auto& Entry : FullSearchKeywordsArray)
+	{
+		Entry.ToLowerInline();
+		SearchText += Entry;
+	}
+	SearchText.Append(LINE_TERMINATOR);
+	for (auto& Entry : FullSearchCategoryArray)
+	{
+		Entry.ToLowerInline();
+		SearchText += Entry;
+	}
+}
+
 /////////////////////////////////////////////////////
 // FGraphActionListBuilderBase
 
@@ -30,7 +98,7 @@ void FGraphActionListBuilderBase::AddActionList( const TArray<TSharedPtr<FEdGrap
 
 void FGraphActionListBuilderBase::Append( FGraphActionListBuilderBase& Other )
 {
-	Entries.Append( Other.Entries );
+	Entries.Append( MoveTemp(Other.Entries) );
 }
 
 int32 FGraphActionListBuilderBase::GetNumActions() const
@@ -55,34 +123,55 @@ FGraphActionListBuilderBase::ActionGroup::ActionGroup( TSharedPtr<FEdGraphSchema
 	: RootCategory(CategoryPrefix)
 {
 	Actions.Add( InAction );
+	InitCategoryChain();
 }
 
 FGraphActionListBuilderBase::ActionGroup::ActionGroup( const TArray< TSharedPtr<FEdGraphSchemaAction> >& InActions, FString const& CategoryPrefix/* = TEXT("") */ )
 	: RootCategory(CategoryPrefix)
 {
 	Actions = InActions;
+	InitCategoryChain();
 }
 
-void FGraphActionListBuilderBase::ActionGroup::GetCategoryChain(TArray<FString>& HierarchyOut) const
+FGraphActionListBuilderBase::ActionGroup::ActionGroup(FGraphActionListBuilderBase::ActionGroup && Other)
+{
+	Move(Other);
+}
+
+FGraphActionListBuilderBase::ActionGroup& FGraphActionListBuilderBase::ActionGroup::operator=(FGraphActionListBuilderBase::ActionGroup && Other)
+{
+	if (&Other != this)
+	{
+		Move(Other);
+	}
+	return *this;
+}
+
+FGraphActionListBuilderBase::ActionGroup::ActionGroup(const FGraphActionListBuilderBase::ActionGroup& Other)
+{
+	Copy(Other);
+}
+
+FGraphActionListBuilderBase::ActionGroup& FGraphActionListBuilderBase::ActionGroup::operator=(const FGraphActionListBuilderBase::ActionGroup& Other)
+{
+	if (&Other != this)
+	{
+		Copy(Other);
+	}
+	return *this;
+}
+
+FGraphActionListBuilderBase::ActionGroup::~ActionGroup()
+{
+}
+
+const TArray<FString>& FGraphActionListBuilderBase::ActionGroup::GetCategoryChain() const
 {
 #if WITH_EDITOR
-	static FString const CategoryDelim("|");
-	FEditorCategoryUtils::GetCategoryDisplayString(RootCategory).ParseIntoArray(HierarchyOut, *CategoryDelim, true);
-
-	if (Actions.Num() > 0)
-	{
-		TArray<FString> SubCategoryChain;
-
-		FString SubCategory = FEditorCategoryUtils::GetCategoryDisplayString(Actions[0]->Category);
-		SubCategory.ParseIntoArray(SubCategoryChain, *CategoryDelim, true);
-
-		HierarchyOut.Append(SubCategoryChain);
-	}
-
-	for (FString& Category : HierarchyOut)
-	{
-		Category.Trim();
-	}
+	return CategoryChain;
+#else
+	static TArray<FString> Dummy;
+	return Dummy;
 #endif
 }
 
@@ -96,6 +185,43 @@ void FGraphActionListBuilderBase::ActionGroup::PerformAction( class UEdGraph* Pa
 			CurrentAction->PerformAction( ParentGraph, FromPins, Location );
 		}
 	}
+}
+
+void FGraphActionListBuilderBase::ActionGroup::Move(FGraphActionListBuilderBase::ActionGroup& Other)
+{
+	Actions = MoveTemp(Other.Actions);
+	RootCategory = MoveTemp(Other.RootCategory);
+	CategoryChain = MoveTemp(Other.CategoryChain);
+}
+
+void FGraphActionListBuilderBase::ActionGroup::Copy(const ActionGroup& Other)
+{
+	Actions = Other.Actions;
+	RootCategory = Other.RootCategory;
+	CategoryChain = Other.CategoryChain;
+}
+
+void FGraphActionListBuilderBase::ActionGroup::InitCategoryChain()
+{
+#if WITH_EDITOR
+	static FString const CategoryDelim("|");
+	FEditorCategoryUtils::GetCategoryDisplayString(RootCategory).ParseIntoArray(CategoryChain, *CategoryDelim, true);
+
+	if (Actions.Num() > 0)
+	{
+		TArray<FString> SubCategoryChain;
+
+		FString SubCategory = FEditorCategoryUtils::GetCategoryDisplayString(Actions[0]->GetCategory().ToString());
+		SubCategory.ParseIntoArray(SubCategoryChain, *CategoryDelim, true);
+
+		CategoryChain.Append(SubCategoryChain);
+	}
+
+	for (FString& Category : CategoryChain)
+	{
+		Category.Trim();
+	}
+#endif
 }
 
 /////////////////////////////////////////////////////
@@ -367,11 +493,38 @@ void UEdGraphSchema::TrySetDefaultText(UEdGraphPin& InPin, const FText& InNewDef
 void UEdGraphSchema::BreakNodeLinks(UEdGraphNode& TargetNode) const
 {
 #if WITH_EDITOR
+	TSet<UEdGraphNode*> NodeList;
+	NodeList.Add(&TargetNode);
+	
+	// Iterate over each pin and break all links
 	for (TArray<UEdGraphPin*>::TIterator PinIt(TargetNode.Pins); PinIt; ++PinIt)
 	{
-		BreakPinLinks(*(*PinIt), false);
+		UEdGraphPin* TargetPin = *PinIt;
+		if (TargetPin)
+		{
+			// Keep track of which node(s) the pin's connected to
+			for (auto OtherPin : TargetPin->LinkedTo)
+			{
+				if (OtherPin)
+				{
+					UEdGraphNode* OtherNode = OtherPin->GetOwningNode();
+					if (OtherNode)
+					{
+						NodeList.Add(OtherNode);
+					}
+				}
+			}
+
+			BreakPinLinks(*TargetPin, false);
+		}
 	}
-	TargetNode.NodeConnectionListChanged();
+	
+	// Send all nodes that lost connections a notification
+	for (auto It = NodeList.CreateConstIterator(); It; ++It)
+	{
+		UEdGraphNode* Node = (*It);
+		Node->NodeConnectionListChanged();
+	}
 #endif	//#if WITH_EDITOR
 }
 
@@ -440,7 +593,7 @@ void UEdGraphSchema::BreakSinglePinLink(UEdGraphPin* SourcePin, UEdGraphPin* Tar
 FPinConnectionResponse UEdGraphSchema::MovePinLinks(UEdGraphPin& MoveFromPin, UEdGraphPin& MoveToPin, bool bIsIntermediateMove) const
 {
 #if WITH_EDITOR
-	ensureMsg(bIsIntermediateMove || !MoveToPin.GetOwningNode()->GetGraph()->HasAnyFlags(RF_Transient),
+	ensureMsgf(bIsIntermediateMove || !MoveToPin.GetOwningNode()->GetGraph()->HasAnyFlags(RF_Transient),
 		TEXT("When moving to an Intermediate pin, use FKismetCompilerContext::MovePinLinksToIntermediate() instead of UEdGraphSchema::MovePinLinks()"));
 #endif // #if WITH_EDITOR
 
@@ -473,7 +626,7 @@ FPinConnectionResponse UEdGraphSchema::MovePinLinks(UEdGraphPin& MoveFromPin, UE
 FPinConnectionResponse UEdGraphSchema::CopyPinLinks(UEdGraphPin& CopyFromPin, UEdGraphPin& CopyToPin, bool bIsIntermediateCopy) const
 {
 #if WITH_EDITOR
-	ensureMsg(bIsIntermediateCopy || !CopyToPin.GetOwningNode()->GetGraph()->HasAnyFlags(RF_Transient),
+	ensureMsgf(bIsIntermediateCopy || !CopyToPin.GetOwningNode()->GetGraph()->HasAnyFlags(RF_Transient),
 		TEXT("When copying to an Intermediate pin, use FKismetCompilerContext::CopyPinLinksToIntermediate() instead of UEdGraphSchema::CopyPinLinks()"));
 #endif // #if WITH_EDITOR
 
@@ -498,6 +651,7 @@ FPinConnectionResponse UEdGraphSchema::CopyPinLinks(UEdGraphPin& CopyFromPin, UE
 	return FinalResponse;
 }
 
+#if WITH_EDITORONLY_DATA
 FText UEdGraphSchema::GetPinDisplayName(const UEdGraphPin* Pin) const
 {
 	FText ResultPinName;
@@ -509,8 +663,13 @@ FText UEdGraphSchema::GetPinDisplayName(const UEdGraphPin* Pin) const
 	else
 	{
 		ResultPinName = Pin->PinFriendlyName;
-		bool bShowNodesAndPinsUnlocalized;
-		GConfig->GetBool( TEXT("Internationalization"), TEXT("ShowNodesAndPinsUnlocalized"), bShowNodesAndPinsUnlocalized, GEditorSettingsIni );
+		static bool bInitializedShowNodesAndPinsUnlocalized = false;
+		static bool bShowNodesAndPinsUnlocalized = false;
+		if (!bInitializedShowNodesAndPinsUnlocalized)
+		{
+			GConfig->GetBool( TEXT("Internationalization"), TEXT("ShowNodesAndPinsUnlocalized"), bShowNodesAndPinsUnlocalized, GEditorSettingsIni );
+			bInitializedShowNodesAndPinsUnlocalized =  true;
+		}
 		if (bShowNodesAndPinsUnlocalized)
 		{
 			ResultPinName = FText::FromString(ResultPinName.BuildSourceString());
@@ -518,6 +677,7 @@ FText UEdGraphSchema::GetPinDisplayName(const UEdGraphPin* Pin) const
 	}
 	return ResultPinName;
 }
+#endif // WITH_EDITORONLY_DATA
 
 void UEdGraphSchema::ConstructBasicPinTooltip(UEdGraphPin const& Pin, FText const& PinDescription, FString& TooltipOut) const
 {

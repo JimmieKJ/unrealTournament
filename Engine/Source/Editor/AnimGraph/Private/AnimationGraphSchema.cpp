@@ -169,7 +169,7 @@ bool UAnimationGraphSchema::DoesSupportAnimNotifyActions() const
 	return false;
 }
 
-bool UAnimationGraphSchema::SearchForAutocastFunction(const UEdGraphPin* OutputPin, const UEdGraphPin* InputPin, FName& TargetFunction) const
+bool UAnimationGraphSchema::SearchForAutocastFunction(const UEdGraphPin* OutputPin, const UEdGraphPin* InputPin, FName& TargetFunction, /*out*/ UClass*& FunctionOwner) const
 {
 	if (IsComponentSpacePosePin(OutputPin->PinType) && IsLocalSpacePosePin(InputPin->PinType))
 	{
@@ -183,7 +183,7 @@ bool UAnimationGraphSchema::SearchForAutocastFunction(const UEdGraphPin* OutputP
 	}
 	else
 	{
-		return Super::SearchForAutocastFunction(OutputPin, InputPin, TargetFunction);
+		return Super::SearchForAutocastFunction(OutputPin, InputPin, TargetFunction, FunctionOwner);
 	}
 }
 

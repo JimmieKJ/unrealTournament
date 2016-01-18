@@ -41,7 +41,6 @@ public class DeviceProfileEditor : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"MainFrame",
-				"PropertyEditor",
 			}
 		);
 	}

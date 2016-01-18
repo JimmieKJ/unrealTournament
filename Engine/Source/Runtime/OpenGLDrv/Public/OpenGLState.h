@@ -210,8 +210,8 @@ struct FUAVStage
 	{
 	}
 };
-#define FOpenGLCachedAttr_Invalid (void*)0xFFFFFFFF
-#define FOpenGLCachedAttr_SingleVertex (void*)0xFFFFFFFE
+#define FOpenGLCachedAttr_Invalid (void*)(UPTRINT)0xFFFFFFFF
+#define FOpenGLCachedAttr_SingleVertex (void*)(UPTRINT)0xFFFFFFFE
 
 struct FOpenGLCachedAttr
 {
@@ -465,31 +465,7 @@ struct FOpenGLRHIState : public FOpenGLCommonState
 		CleanupResources();
 	}
 
-	virtual void InitializeResources(int32 NumCombinedTextures, int32 NumComputeUAVUnits) override
-	{
-		check(!ShaderParameters);
-		FOpenGLCommonState::InitializeResources(NumCombinedTextures, NumComputeUAVUnits);
-		ShaderParameters = new FOpenGLShaderParameterCache[CrossCompiler::NUM_SHADER_STAGES];
-		ShaderParameters[CrossCompiler::SHADER_STAGE_VERTEX].InitializeResources(FOpenGL::GetMaxVertexUniformComponents() * 4 * sizeof(float));
-		ShaderParameters[CrossCompiler::SHADER_STAGE_PIXEL].InitializeResources(FOpenGL::GetMaxPixelUniformComponents() * 4 * sizeof(float));
-		ShaderParameters[CrossCompiler::SHADER_STAGE_GEOMETRY].InitializeResources(FOpenGL::GetMaxGeometryUniformComponents() * 4 * sizeof(float));
-		
-		if ( FOpenGL::SupportsTessellation() )
-		{
-			ShaderParameters[CrossCompiler::SHADER_STAGE_HULL].InitializeResources(FOpenGL::GetMaxHullUniformComponents() * 4 * sizeof(float));
-			ShaderParameters[CrossCompiler::SHADER_STAGE_DOMAIN].InitializeResources(FOpenGL::GetMaxDomainUniformComponents() * 4 * sizeof(float));
-		}
-
-		if ( FOpenGL::SupportsComputeShaders() )
-		{
-			ShaderParameters[CrossCompiler::SHADER_STAGE_COMPUTE].InitializeResources(FOpenGL::GetMaxComputeUniformComponents() * 4 * sizeof(float));
-		}
-
-		for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
-		{
-			DirtyUniformBuffers[Frequency] = MAX_uint16;
-		}
-	}
+	virtual void InitializeResources(int32 NumCombinedTextures, int32 NumComputeUAVUnits) override;
 
 	virtual void CleanupResources() override
 	{

@@ -17,7 +17,7 @@ class USoundNodeSwitch : public USoundNode
 	FName IntParameterName;
 
 public:
-	// Begin USoundNode interface.
+	//~ Begin USoundNode Interface.
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual int32 GetMaxChildNodes( void ) const override 
 	{ 
@@ -46,10 +46,10 @@ public:
 		RenamePins();
 	}
 
-	virtual FString GetInputPinName(int32 PinIndex) const override;
-	virtual FString GetTitle() const override;
+	virtual FText GetInputPinName(int32 PinIndex) const override;
+	virtual FText GetTitle() const override;
 #endif //WITH_EDITOR
-	// End USoundNode interface.
+	//~ End USoundNode Interface.
 };
 
 

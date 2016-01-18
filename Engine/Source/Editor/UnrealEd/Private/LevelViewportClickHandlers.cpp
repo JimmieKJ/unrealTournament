@@ -19,6 +19,7 @@
 #include "Engine/TargetPoint.h"
 #include "EngineUtils.h"
 #include "StaticLightingSystem/StaticLightingPrivate.h"
+#include "LightMap.h"
 
 #define LOCTEXT_NAMESPACE "ClickHandlers"
 
@@ -782,7 +783,9 @@ namespace ClickHandlers
 				{
 					Model->ModifySurf( i, 1 );
 					Model->Surfs[i].Material = SelectedMaterialInstance;
-					GEditor->polyUpdateMaster( Model, i, 0 );
+					const bool bUpdateTexCoords = false;
+					const bool bOnlyRefreshSurfaceMaterials = true;
+					GEditor->polyUpdateMaster(Model, i, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 				}
 			}
 		}
@@ -808,12 +811,11 @@ namespace ClickHandlers
 				PrivateAddActor( APointLight::StaticClass() );
 			}
 		}
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) )
+		else if( IsTexelDebuggingEnabled() && Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) )
 		{
 			SetDebugLightmapSample(NULL, Model, iSurf, GEditor->ClickLocation);
 		}
-#endif
+
 		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::S) )
 		{
 			// Create a static mesh.
@@ -851,11 +853,15 @@ namespace ClickHandlers
 					UE_LOG(LogEditorViewport, Log, TEXT("WARNING: the texture coordinates were not parallel to the surface.") );
 				}
 				Surf.PolyFlags	= GSaveSurf.PolyFlags;
-				GEditor->polyUpdateMaster( Model, iSurf, 1 );
+				const bool bUpdateTexCoords = true;
+				const bool bOnlyRefreshSurfaceMaterials = true;
+				GEditor->polyUpdateMaster(Model, iSurf, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 			}
 			else
 			{
-				GEditor->polyUpdateMaster( Model, iSurf, 0 );
+				const bool bUpdateTexCoords = false;
+				const bool bOnlyRefreshSurfaceMaterials = true;
+				GEditor->polyUpdateMaster(Model, iSurf, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 			}
 		}
 		else if( Click.GetKey() == EKeys::RightMouseButton && !Click.IsControlDown() )
@@ -864,8 +870,12 @@ namespace ClickHandlers
 			check( Model );
 
 			bool bNeedViewportRefresh = false;
+			bool bIsActorAlreadySelected = Surf.Actor && Surf.Actor->IsSelected();
 			{
 				const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectSurfaces", "Select Surfaces") );
+
+				USelection* SelectedActors = GEditor->GetSelectedActors();
+				SelectedActors->BeginBatchSelectOperation();
 
 				// We only need to unselect surfaces if the surface the user clicked on was not already selected
 				if( !( Surf.PolyFlags & PF_Selected ) )
@@ -878,7 +888,13 @@ namespace ClickHandlers
 				Model->ModifySurf( iSurf, false );
 				Surf.PolyFlags |= PF_Selected;
 
-				GEditor->NoteSelectionChange();
+				GEditor->SelectActor(Surf.Actor, true, false);
+				SelectedActors->EndBatchSelectOperation(false);
+
+				if (!bIsActorAlreadySelected)
+				{
+					GEditor->NoteSelectionChange();
+				}
 			}
 
 			if( bNeedViewportRefresh )
@@ -912,7 +928,11 @@ namespace ClickHandlers
 		{	
 			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectBrushSurface", "Select Brush Surface") );
 			bool bDeselectAlreadyHandled = false;
-			
+			bool bIsActorAlreadySelected = Surf.Actor && Surf.Actor->IsSelected();
+
+			USelection* SelectedActors = GEditor->GetSelectedActors();
+			SelectedActors->BeginBatchSelectOperation();
+
 			// We are going to handle the notification ourselves
 			const bool bNotify = false;
 			if(GetDefault<ULevelEditorViewportSettings>()->bClickBSPSelectsBrush)
@@ -927,7 +947,6 @@ namespace ClickHandlers
 						bDeselectAlreadyHandled = true;
 					}
 					// If the builder brush is selected, first deselect it.
-					USelection* SelectedActors = GEditor->GetSelectedActors();
 					for(FSelectionIterator It(*SelectedActors); It; ++It)
 					{
 						ABrush* Brush = Cast<ABrush>(*It);
@@ -955,12 +974,16 @@ namespace ClickHandlers
 				if (!Model->HasSelectedSurfaces())
 				{
 					GEditor->SelectActor(Surf.Actor, false, bNotify);
+					bIsActorAlreadySelected = false;
 				}
 			}
 
+			SelectedActors->EndBatchSelectOperation(false);
 
-
-			GEditor->NoteSelectionChange();
+			if (!bIsActorAlreadySelected)
+			{
+				GEditor->NoteSelectionChange();
+			}
 		}
 	}
 
@@ -980,12 +1003,11 @@ namespace ClickHandlers
 				PrivateAddActor( SelectedClass );
 			}
 		}
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) )
+		else if( IsTexelDebuggingEnabled() && Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) )
 		{
 			SetDebugLightmapSample(NULL, NULL, 0, GEditor->ClickLocation);
 		}
-#endif
+
 		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::L) )
 		{
 			// If shift is down, we pick a color from under the mouse in the viewport and create a light with that color.

@@ -48,6 +48,19 @@ public:
 	}
 
 	/**
+	* Quick test for seeing if the lock is already being used.
+	*/
+	FORCEINLINE bool TryLock()
+	{
+		if (TryEnterCriticalSection(&CriticalSection))
+		{
+			LeaveCriticalSection(&CriticalSection);
+			return true;
+		};
+		return false;
+	}
+
+	/**
 	 * Releases the lock on the critical seciton
 	 */
 	FORCEINLINE void Unlock()

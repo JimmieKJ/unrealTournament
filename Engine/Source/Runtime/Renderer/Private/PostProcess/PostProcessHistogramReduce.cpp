@@ -58,10 +58,9 @@ public:
 
 		if(EyeAdaptationTexture.IsBound())
 		{
-			IPooledRenderTarget* EyeAdaptationRT = Context.View.GetEyeAdaptation();
-
-			if(EyeAdaptationRT)
+			if (Context.View.HasValidEyeAdaptation())
 			{
+				IPooledRenderTarget* EyeAdaptationRT = Context.View.GetEyeAdaptation(Context.RHICmdList);
 				SetTextureParameter(Context.RHICmdList, ShaderRHI, EyeAdaptationTexture, EyeAdaptationRT->GetRenderTargetItem().TargetableTexture);
 			}
 			else
@@ -129,7 +128,6 @@ void FRCPassPostProcessHistogramReduce::Process(FRenderingCompositePassContext& 
 
 	PixelShader->SetPS(Context, LoopSizeValue);
 
-	// Draw a quad mapping scene color to the view's render target
 	DrawRectangle(
 		Context.RHICmdList,
 		0, 0,
@@ -152,7 +150,7 @@ uint32 FRCPassPostProcessHistogramReduce::ComputeLoopSize(FIntPoint PixelExtent)
 
 FPooledRenderTargetDesc FRCPassPostProcessHistogramReduce::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc UnmodifiedRet = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc UnmodifiedRet = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 	
 	UnmodifiedRet.Reset();
 
@@ -162,7 +160,7 @@ FPooledRenderTargetDesc FRCPassPostProcessHistogramReduce::ComputeOutputDesc(EPa
 	FIntPoint NewSize = FIntPoint(FRCPassPostProcessHistogram::HistogramTexelCount, 2);
 
 	// for quality float4 to get best quality for smooth eye adaptation transitions
-	FPooledRenderTargetDesc Ret(FPooledRenderTargetDesc::Create2DDesc(NewSize, PF_A32B32G32R32F, TexCreate_None, TexCreate_RenderTargetable, false));
+	FPooledRenderTargetDesc Ret(FPooledRenderTargetDesc::Create2DDesc(NewSize, PF_A32B32G32R32F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
 	
 	Ret.DebugName = TEXT("HistogramReduce");
 	

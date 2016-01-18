@@ -13,7 +13,6 @@
 #include "MacCursor.h"
 #include "CocoaMenu.h"
 #include "CocoaThread.h"
-#include "Runtime/Launch/Resources/Version.h"
 #include "EngineVersion.h"
 #include "MacMallocZone.h"
 #include "ApplePlatformSymbolication.h"
@@ -44,6 +43,17 @@ struct FMacApplicationInfo
 	{
 		SCOPED_AUTORELEASE_POOL;
 		
+		// Prevent clang/ld from dead-code-eliminating the nothrow_t variants of global new.
+		// This ensures that all OS calls to operator new go through our allocators and delete cleanly.
+		{
+			std::nothrow_t t;
+			char* d = (char*)(operator new(8, t));
+			delete d;
+			
+			d = (char*)operator new[]( 8, t );
+			delete [] d;
+		}
+		
 		AppName = FApp::GetGameName();
 		FCStringAnsi::Strcpy(AppNameUTF8, PATH_MAX+1, TCHAR_TO_UTF8(*AppName));
 		
@@ -52,6 +62,8 @@ struct FMacApplicationInfo
 		AppPath = FString([[NSBundle mainBundle] executablePath]);
 
 		AppBundleID = FString([[NSBundle mainBundle] bundleIdentifier]);
+		
+		bIsUnattended = FApp::IsUnattended();
 
 		bIsSandboxed = FPlatformProcess::IsSandboxedApplication();
 		
@@ -73,9 +85,15 @@ struct FMacApplicationInfo
 			NSDictionary* SystemVersion = [NSDictionary dictionaryWithContentsOfFile: @"/System/Library/CoreServices/SystemVersion.plist"];
 			OSBuild = FString((NSString*)[SystemVersion objectForKey: @"ProductBuildVersion"]);
 		}
-		
+
 		RunningOnMavericks = OSXVersion.majorVersion == 10 && OSXVersion.minorVersion == 9;
-		
+
+		FPlatformProcess::ExecProcess(TEXT("/usr/bin/xcode-select"), TEXT("--print-path"), nullptr, &XcodePath, nullptr);
+		if (XcodePath.Len() > 0)
+		{
+			XcodePath.RemoveAt(XcodePath.Len() - 1); // Remove \n at the end of the string
+		}
+
 		char TempSysCtlBuffer[PATH_MAX] = {};
 		size_t TempSysCtlBufferSize = PATH_MAX;
 		
@@ -115,7 +133,7 @@ struct FMacApplicationInfo
 		
 		FString CrashVideoPath = FPaths::GameLogDir() + TEXT("CrashVideo.avi");
 		
-		BranchBaseDir = FString::Printf( TEXT( "%s!%s!%s!%d" ), TEXT( BRANCH_NAME ), FPlatformProcess::BaseDir(), FPlatformMisc::GetEngineMode(), BUILT_FROM_CHANGELIST );
+		BranchBaseDir = FString::Printf( TEXT( "%s!%s!%s!%d" ), *FApp::GetBranchName(), FPlatformProcess::BaseDir(), FPlatformMisc::GetEngineMode(), FEngineVersion::Current().GetChangelist() );
 		
 		// Get the paths that the files will actually have been saved to
 		FString LogDirectory = FPaths::GameLogDir();
@@ -241,6 +259,7 @@ struct FMacApplicationInfo
 		return PLCrashReportFileName;
 	}
 	
+	bool bIsUnattended;
 	bool bIsSandboxed;
 	bool RunningOnBattery;
 	bool RunningOnMavericks;
@@ -273,6 +292,7 @@ struct FMacApplicationInfo
 	FString ExecutableName;
 	NSOperatingSystemVersion OSXVersion;
 	FGuid RunUUID;
+	FString XcodePath;
 	static PLCrashReporter* CrashReporter;
 	static FMacMallocCrashHandler* CrashMalloc;
 };
@@ -290,6 +310,9 @@ void FMacPlatformMisc::PlatformPreInit()
 	
 	GMacAppInfo.Init();
 
+	// No SIGPIPE crashes please - they are a pain to debug!
+	signal(SIGPIPE, SIG_IGN);
+	
 	// Increase the maximum number of simultaneously open files
 	uint32 MaxFilesPerProc = OPEN_MAX;
 	size_t UInt32Size = sizeof(uint32);
@@ -478,7 +501,7 @@ bool FMacPlatformMisc::ControlScreensaver(EScreenSaverAction Action)
 			}
 			break;
 		}
-    }
+	}
 	
 	return true;
 }
@@ -567,9 +590,9 @@ TArray<uint8> FMacPlatformMisc::GetMacAddress()
 				CFDataGetBytes((CFDataRef)MACAddressAsCFData, CFRangeMake(0, kIOEthernetAddressSize), Result.GetData());
 				break;
 				CFRelease(MACAddressAsCFData);
-            }
+			}
 			IOObjectRelease(ControllerService);
-        }
+		}
 		IOObjectRelease(InterfaceService);
 	}
 	IOObjectRelease(InterfaceIterator);
@@ -594,12 +617,12 @@ void FMacPlatformMisc::PumpMessages( bool bFromMainLoop )
 	}
 }
 
-uint32 FMacPlatformMisc::GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings)
+uint32 FMacPlatformMisc::GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
 {
 	return FGenericPlatformMisc::GetStandardPrintableKeyMap(KeyCodes, KeyNames, MaxMappings, false, true);
 }
 
-uint32 FMacPlatformMisc::GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings )
+uint32 FMacPlatformMisc::GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings )
 {
 #define ADDKEYMAP(KeyCode, KeyName)		if (NumMappings<MaxMappings) { KeyCodes[NumMappings]=KeyCode; KeyNames[NumMappings]=KeyName; ++NumMappings; };
 
@@ -743,14 +766,14 @@ void FMacPlatformMisc::ClipboardPaste(class FString& Result)
 
 void FMacPlatformMisc::CreateGuid(FGuid& Result)
 {
-    uuid_t UUID;
+	uuid_t UUID;
 	uuid_generate(UUID);
-    
-    uint32* Values = (uint32*)(&UUID[0]);
-    Result[0] = Values[0];
-    Result[1] = Values[1];
-    Result[2] = Values[2];
-    Result[3] = Values[3];
+	
+	uint32* Values = (uint32*)(&UUID[0]);
+	Result[0] = Values[0];
+	Result[1] = Values[1];
+	Result[2] = Values[2];
+	Result[3] = Values[3];
 }
 
 EAppReturnType::Type FMacPlatformMisc::MessageBoxExt(EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption)
@@ -984,12 +1007,26 @@ void FMacPlatformMisc::NormalizePath(FString& InPath)
 	SCOPED_AUTORELEASE_POOL;
 	if (InPath.Len() > 1)
 	{
+#if WITH_EDITOR
 		const bool bAppendSlash = InPath[InPath.Len() - 1] == '/'; // NSString will remove the trailing slash, if present, so we need to restore it after conversion
 		InPath = [[InPath.GetNSString() stringByStandardizingPath] stringByResolvingSymlinksInPath];
 		if (bAppendSlash)
 		{
 			InPath += TEXT("/");
 		}
+#else
+		InPath.ReplaceInline(TEXT("\\"), TEXT("/"));
+		// This replacement addresses a "bug" where some callers
+		// pass in paths that are badly composed with multiple
+		// subdir separators.
+		InPath.ReplaceInline(TEXT("//"), TEXT("/"));
+		if (!InPath.IsEmpty() && InPath[InPath.Len() - 1] == TEXT('/'))
+		{
+			InPath.LeftChop(1);
+		}
+		// Remove redundant current-dir references.
+		InPath.ReplaceInline(TEXT("/./"), TEXT("/"));
+#endif
 	}
 }
 
@@ -1060,6 +1097,19 @@ void FMacPlatformMisc::GetOSVersions( FString& out_OSVersionLabel, FString& out_
 	out_OSSubVersionLabel = GMacAppInfo.OSBuild;
 }
 
+bool FMacPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes)
+{
+	struct statfs FSStat = { 0 };
+	FTCHARToUTF8 Converter(*InPath);
+	int Err = statfs((ANSICHAR*)Converter.Get(), &FSStat);
+	if (Err == 0)
+	{
+		TotalNumberOfBytes = FSStat.f_blocks * FSStat.f_bsize;
+		NumberOfFreeBytes = FSStat.f_bavail * FSStat.f_bsize;
+	}
+	return (Err == 0);
+}
+
 #include "ModuleManager.h"
 
 void FMacPlatformMisc::LoadPreInitModules()
@@ -1068,30 +1118,23 @@ void FMacPlatformMisc::LoadPreInitModules()
 	FModuleManager::Get().LoadModule(TEXT("CoreAudio"));
 }
 
-FLinearColor FMacPlatformMisc::GetScreenPixelColor(const FVector2D& InScreenPos, float InGamma)
+FLinearColor FMacPlatformMisc::GetScreenPixelColor(const FVector2D& InScreenPos, float /*InGamma*/)
 {
 	SCOPED_AUTORELEASE_POOL;
 
 	CGImageRef ScreenImage = CGWindowListCreateImage(CGRectMake(InScreenPos.X, InScreenPos.Y, 1, 1), kCGWindowListOptionOnScreenBelowWindow, kCGNullWindowID, kCGWindowImageDefault);
-    NSBitmapImageRep *BitmapRep = [[[NSBitmapImageRep alloc] initWithCGImage: ScreenImage] autorelease];
-    NSImage *Image = [[[NSImage alloc] init] autorelease];
-    [Image addRepresentation: BitmapRep];
-	[Image lockFocus];
-	NSColor* PixelColor = NSReadPixel(NSMakePoint(0.0f, 0.0f));
-	[Image unlockFocus];
+	
+	CGDataProviderRef provider = CGImageGetDataProvider(ScreenImage);
+	NSData* data = (id)CGDataProviderCopyData(provider);
+	[data autorelease];
+	const uint8* bytes = (const uint8*)[data bytes];
+	
+	// Mac colors are gamma corrected in Pow(2.2) space, so do the conversion using the 2.2 to linear conversion.
+	FColor ScreenColor(bytes[2], bytes[1], bytes[0]);
+	FLinearColor ScreenLinearColor = FLinearColor::FromPow22Color(ScreenColor);
 	CGImageRelease(ScreenImage);
 
-	FLinearColor ScreenColor([PixelColor redComponent], [PixelColor greenComponent], [PixelColor blueComponent], 1.0f);
-
-	if (InGamma > 1.0f)
-	{
-		// Correct for render gamma
-		ScreenColor.R = FMath::Pow(ScreenColor.R, InGamma);
-		ScreenColor.G = FMath::Pow(ScreenColor.G, InGamma);
-		ScreenColor.B = FMath::Pow(ScreenColor.B, InGamma);
-	}
-	
-	return ScreenColor;
+	return ScreenLinearColor;
 }
 
 FString FMacPlatformMisc::GetCPUVendor()
@@ -1148,21 +1191,21 @@ int32 FMacPlatformMisc::ConvertSlateYPositionToCocoa(int32 YPosition)
 
 int32 FMacPlatformMisc::ConvertCocoaYPositionToSlate(int32 YPosition)
 {
-    NSArray* AllScreens = [NSScreen screens];
-    NSScreen* PrimaryScreen = (NSScreen*)[AllScreens objectAtIndex: 0];
-    NSRect ScreenFrame = [PrimaryScreen frame];
-    NSRect WholeWorkspace = {{0,0},{0,0}};
-    for(NSScreen* Screen in AllScreens)
-    {
-        if(Screen)
-        {
-            WholeWorkspace = NSUnionRect(WholeWorkspace, [Screen frame]);
-        }
-    }
-    
-    CGFloat const OffsetToPrimary = ((ScreenFrame.origin.y + ScreenFrame.size.height) - (WholeWorkspace.origin.y + WholeWorkspace.size.height));
-    CGFloat const OffsetToWorkspace = (WholeWorkspace.size.height - (YPosition)) + WholeWorkspace.origin.y;
-    return OffsetToWorkspace + OffsetToPrimary;
+	NSArray* AllScreens = [NSScreen screens];
+	NSScreen* PrimaryScreen = (NSScreen*)[AllScreens objectAtIndex: 0];
+	NSRect ScreenFrame = [PrimaryScreen frame];
+	NSRect WholeWorkspace = {{0,0},{0,0}};
+	for(NSScreen* Screen in AllScreens)
+	{
+		if(Screen)
+		{
+			WholeWorkspace = NSUnionRect(WholeWorkspace, [Screen frame]);
+		}
+	}
+	
+	CGFloat const OffsetToPrimary = ((ScreenFrame.origin.y + ScreenFrame.size.height) - (WholeWorkspace.origin.y + WholeWorkspace.size.height));
+	CGFloat const OffsetToWorkspace = (WholeWorkspace.size.height - (YPosition)) + WholeWorkspace.origin.y;
+	return OffsetToWorkspace + OffsetToPrimary;
 }
 
 
@@ -1235,6 +1278,11 @@ FString FMacPlatformMisc::GetOperatingSystemId()
 	return Result;
 }
 
+FString FMacPlatformMisc::GetXcodePath()
+{
+	return GMacAppInfo.XcodePath;
+}
+
 /** Global pointer to crash handler */
 void (* GCrashHandlerPointer)(const FGenericCrashContext& Context) = NULL;
 
@@ -1262,14 +1310,18 @@ static void DefaultCrashHandler(FMacCrashContext const& Context)
 	return Context.GenerateCrashInfoAndLaunchReporter();
 }
 
+/** Number of stack entries to ignore in backtrace */
+static uint32 GMacStackIgnoreDepth = 6;
+
 /** True system-specific crash handler that gets called first */
-static void PlatformCrashHandler(siginfo_t* Info, ucontext_t* Uap, void* Context)
+static void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
 {
 	// Disable CoreSymbolication
 	FApplePlatformSymbolication::EnableCoreSymbolication( false );
 	
 	FMacCrashContext CrashContext;
-	CrashContext.InitFromSignal((int32)Info->si_signo, Info, Context);
+	CrashContext.IgnoreDepth = GMacStackIgnoreDepth;
+	CrashContext.InitFromSignal(Signal, Info, Context);
 	
 	// Switch to crash handler malloc to avoid malloc reentrancy
 	check(FMacApplicationInfo::CrashMalloc);
@@ -1284,6 +1336,11 @@ static void PlatformCrashHandler(siginfo_t* Info, ucontext_t* Uap, void* Context
 		// call default one
 		DefaultCrashHandler(CrashContext);
 	}
+}
+
+static void PLCrashReporterHandler(siginfo_t* Info, ucontext_t* Uap, void* Context)
+{
+	PlatformCrashHandler((int32)Info->si_signo, Info, Uap);
 }
 
 /**
@@ -1347,15 +1404,35 @@ void FMacPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
 		PLCrashReporterCallbacks CrashReportCallback = {
 			.version = 0,
 			.context = nullptr,
-			.handleSignal = PlatformCrashHandler
+			.handleSignal = PLCrashReporterHandler
 		};
 		
 		[FMacApplicationInfo::CrashReporter setCrashCallbacks: &CrashReportCallback];
 
 		NSError* Error = nil;
-		if (![FMacApplicationInfo::CrashReporter enableCrashReporterAndReturnError: &Error])
+		if ([FMacApplicationInfo::CrashReporter enableCrashReporterAndReturnError: &Error])
+		{
+			GMacStackIgnoreDepth = 0;
+		}
+		else
 		{
 			UE_LOG(LogMac, Log,  TEXT("Failed to enable PLCrashReporter: %s"), *FString([Error localizedDescription]) );
+			
+			UE_LOG(LogMac, Log,  TEXT("Falling back to native signal handlers."));
+			
+			struct sigaction Action;
+			FMemory::Memzero(&Action, sizeof(struct sigaction));
+			Action.sa_sigaction = PlatformCrashHandler;
+			sigemptyset(&Action.sa_mask);
+			Action.sa_flags = SA_SIGINFO | SA_RESTART | SA_ONSTACK;
+			sigaction(SIGQUIT, &Action, NULL);	// SIGQUIT is a user-initiated "crash".
+			sigaction(SIGILL, &Action, NULL);
+			sigaction(SIGEMT, &Action, NULL);
+			sigaction(SIGFPE, &Action, NULL);
+			sigaction(SIGBUS, &Action, NULL);
+			sigaction(SIGSEGV, &Action, NULL);
+			sigaction(SIGSYS, &Action, NULL);
+			sigaction(SIGABRT, &Action, NULL);
 		}
 	}
 }
@@ -1429,11 +1506,11 @@ void FMacCrashContext::GenerateWindowsErrorReport(char const* WERPath) const
 		WriteLine(ReportFile, TEXT("</Parameter0>"));
 		
 		WriteUTF16String(ReportFile, TEXT("\t\t<Parameter1>"));
-		WriteUTF16String(ReportFile, ItoTCHAR(ENGINE_MAJOR_VERSION, 10));
+		WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetMajor(), 10));
 		WriteUTF16String(ReportFile, TEXT("."));
-		WriteUTF16String(ReportFile, ItoTCHAR(ENGINE_MINOR_VERSION, 10));
+		WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetMinor(), 10));
 		WriteUTF16String(ReportFile, TEXT("."));
-		WriteUTF16String(ReportFile, ItoTCHAR(ENGINE_PATCH_VERSION, 10));
+		WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetPatch(), 10));
 		WriteLine(ReportFile, TEXT("</Parameter1>"));
 
 		// App time stamp
@@ -1570,25 +1647,13 @@ void FMacCrashContext::CopyMinidump(char const* OutputPath, char const* InputPat
 	}
 }
 
-void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
+void FMacCrashContext::GenerateInfoInFolder(char const* const InfoFolder) const
 {
 	// create a crash-specific directory
 	char CrashInfoFolder[PATH_MAX] = {};
-	FCStringAnsi::Strncpy(CrashInfoFolder, GMacAppInfo.CrashReportPath, PATH_MAX);
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, "/CrashReport-UE4-");
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, GMacAppInfo.AppNameUTF8);
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, "-pid-");
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(getpid(), 10));
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, "-");
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.A, 16));
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.B, 16));
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.C, 16));
-	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.D, 16));
-
-	// Prevent CrashReportClient from spawning another CrashReportClient.
-	const bool bCanRunCrashReportClient = FCString::Stristr( *(GMacAppInfo.ExecutableName), TEXT( "CrashReportClient" ) ) == nullptr;
-
-	if(!mkdir(CrashInfoFolder, 0766) && bCanRunCrashReportClient)
+	FCStringAnsi::Strncpy(CrashInfoFolder, InfoFolder, PATH_MAX);
+	
+	if(!mkdir(CrashInfoFolder, 0766))
 	{
 		char FilePath[PATH_MAX] = {};
 		FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
@@ -1627,9 +1692,9 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 			WriteLine(ReportFile, *GMacAppInfo.AppName);
 			
 			WriteUTF16String(ReportFile, TEXT("BuildVersion 1.0."));
-			WriteUTF16String(ReportFile, ItoTCHAR(ENGINE_VERSION >> 16, 10));
+			WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetChangelist() >> 16, 10));
 			WriteUTF16String(ReportFile, TEXT("."));
-			WriteLine(ReportFile, ItoTCHAR(ENGINE_VERSION & 0xffff, 10));
+			WriteLine(ReportFile, ItoTCHAR(FEngineVersion::Current().GetChangelist() & 0xffff, 10));
 			
 			WriteUTF16String(ReportFile, TEXT("CommandLine "));
 			WriteLine(ReportFile, *GMacAppInfo.CommandLine);
@@ -1683,17 +1748,47 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 			close(VideoDst);
 			close(VideoSrc);
 		}
+	}
+}
+
+void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
+{
+	// Prevent CrashReportClient from spawning another CrashReportClient.
+	const bool bCanRunCrashReportClient = FCString::Stristr( *(GMacAppInfo.ExecutableName), TEXT( "CrashReportClient" ) ) == nullptr;
+
+	if(bCanRunCrashReportClient)
+	{
+		// create a crash-specific directory
+		char CrashInfoFolder[PATH_MAX] = {};
+		FCStringAnsi::Strncpy(CrashInfoFolder, GMacAppInfo.CrashReportPath, PATH_MAX);
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, "/CrashReport-UE4-");
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, GMacAppInfo.AppNameUTF8);
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, "-pid-");
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(getpid(), 10));
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, "-");
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.A, 16));
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.B, 16));
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.C, 16));
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.D, 16));
 		
+		GenerateInfoInFolder(CrashInfoFolder);
+
 		// try launching the tool and wait for its exit, if at all
-		// Use fork() & execl() as they are async-signal safe, CreateProc can fail in Cocoa
+		// Use vfork() & execl() as they are async-signal safe, CreateProc can fail in Cocoa
 		int32 ReturnCode = 0;
-		pid_t ForkPID = fork();
+		FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, "/");
+		pid_t ForkPID = vfork();
 		if(ForkPID == 0)
 		{
 			// Child
-			FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
-			FCStringAnsi::Strcat(FilePath, PATH_MAX, "/");
-			execl(GMacAppInfo.CrashReportClient, "CrashReportClient", FilePath, NULL);
+			if(GMacAppInfo.bIsUnattended)
+			{
+				execl(GMacAppInfo.CrashReportClient, "CrashReportClient", CrashInfoFolder, "-Unattended", NULL);
+			}
+			else
+			{
+				execl(GMacAppInfo.CrashReportClient, "CrashReportClient", CrashInfoFolder, NULL);
+			}
 		}
 		// We no longer wait here because on return the OS will scribble & crash again due to the behaviour of the XPC function
 		// OS X uses internally to launch/wait on the CrashReportClient. It is simpler, easier & safer to just die here like a good little Mac.app.
@@ -1721,3 +1816,87 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 	
 	_Exit(0);
 }
+
+void FMacCrashContext::GenerateEnsureInfoAndLaunchReporter() const
+{
+	// Prevent CrashReportClient from spawning another CrashReportClient.
+	const bool bCanRunCrashReportClient = FCString::Stristr( *(GMacAppInfo.ExecutableName), TEXT( "CrashReportClient" ) ) == nullptr;
+	
+	if(bCanRunCrashReportClient)
+	{
+		SCOPED_AUTORELEASE_POOL;
+		
+		// Write the PLCrashReporter report to the expected location
+		NSData* CrashReport = [FMacApplicationInfo::CrashReporter generateLiveReport];
+		[CrashReport writeToFile:[NSString stringWithUTF8String:GMacAppInfo.PLCrashReportPath] atomically:YES];
+
+		// Use a slightly different output folder name to not conflict with a subequent crash
+		const FGuid Guid = FGuid::NewGuid();
+		FString GameName = FApp::GetGameName();
+		FString EnsureLogFolder = FString(GMacAppInfo.CrashReportPath) / FString::Printf(TEXT("EnsureReport-%s-%s"), *GameName, *Guid.ToString(EGuidFormats::Digits));
+		
+		GenerateInfoInFolder(TCHAR_TO_UTF8(*EnsureLogFolder));
+		
+		FString Arguments = EnsureLogFolder + TEXT("/ -Unattended");
+		FString ReportClient = FPaths::ConvertRelativePathToFull(FPlatformProcess::GenerateApplicationPath(TEXT("CrashReportClient"), EBuildConfigurations::Development));
+		FPlatformProcess::ExecProcess(*ReportClient, *Arguments, nullptr, nullptr, nullptr);
+	}
+}
+
+static FCriticalSection EnsureLock;
+static bool bReentranceGuard = false;
+
+void NewReportEnsure( const TCHAR* ErrorMessage )
+{
+	// Simple re-entrance guard.
+	EnsureLock.Lock();
+	
+	if( bReentranceGuard )
+	{
+		EnsureLock.Unlock();
+		return;
+	}
+	
+	bReentranceGuard = true;
+	
+	if(FMacApplicationInfo::CrashReporter != nil)
+	{
+		siginfo_t Signal;
+		Signal.si_signo = SIGTRAP;
+		Signal.si_code = TRAP_TRACE;
+		Signal.si_addr = __builtin_return_address(0);
+		
+		FMacCrashContext EnsureContext;
+		EnsureContext.InitFromSignal(SIGTRAP, &Signal, nullptr);
+		EnsureContext.GenerateEnsureInfoAndLaunchReporter();
+	}
+	
+	bReentranceGuard = false;
+	EnsureLock.Unlock();
+}
+typedef NSArray* (*MTLCopyAllDevices)(void);
+
+bool FMacPlatformMisc::HasPlatformFeature(const TCHAR* FeatureName)
+{
+	if (FCString::Stricmp(FeatureName, TEXT("Metal")) == 0 && !FParse::Param(FCommandLine::Get(),TEXT("opengl")) && FModuleManager::Get().ModuleExists(TEXT("MetalRHI")))
+	{
+		// Find out if there are any Metal devices on the system - some Mac's have none
+		void* DLLHandle = FPlatformProcess::GetDllHandle(TEXT("/System/Library/Frameworks/Metal.framework/Metal"));
+		if (DLLHandle)
+		{
+			// Use the copy all function because we don't want to invoke a GPU switch at this point on dual-GPU Macbooks
+			MTLCopyAllDevices CopyDevicesPtr = (MTLCopyAllDevices)FPlatformProcess::GetDllExport(DLLHandle, TEXT("MTLCopyAllDevices"));
+			if (CopyDevicesPtr)
+			{
+				SCOPED_AUTORELEASE_POOL;
+				NSArray* MetalDevices = CopyDevicesPtr();
+				[MetalDevices autorelease];
+				FPlatformProcess::FreeDllHandle(DLLHandle);
+				return MetalDevices && [MetalDevices count] > 0;
+			}
+		}
+	}
+
+	return FGenericPlatformMisc::HasPlatformFeature(FeatureName);
+}
+

@@ -3,6 +3,7 @@
 #include "AppFrameworkPrivatePCH.h"
 #include "TestStyle.h"
 
+#if !UE_BUILD_SHIPPING
 
 TSharedPtr< ISlateStyle > FTestStyle::Instance = nullptr;
 
@@ -322,7 +323,6 @@ TSharedRef< ISlateStyle > FTestStyle::Create()
 					.SetNormal( BOX_BRUSH("Testing/FlatColorSquare", FVector2D(1.0f, 1.0f), FMargin(1), NormalColor ) )
 					.SetHovered( BOX_BRUSH("Testing/FlatColorSquare", FVector2D(1.0f, 1.0f), FMargin(1), HoverColor ) )
 					.SetPressed( BOX_BRUSH("Testing/FlatColorSquare",  FVector2D(1.0f, 1.0f), FMargin(1), SelectedColor ) )
-					.SetDisabled( BOX_BRUSH("Testing/FlatColorSquare",  FVector2D(1.0f, 1.0f), FMargin(1), DisabledColor ) )
 					.SetNormalPadding( FMargin( 2,2,2,2 ) )
 					.SetPressedPadding( FMargin( 2,3,2,1 ) );
 				Style->Set( "RichText.Toolbar.Button", Button );
@@ -339,7 +339,6 @@ TSharedRef< ISlateStyle > FTestStyle::Create()
 						.SetNormal( BOX_BRUSH("Testing/FlatColorSquare", FVector2D(1.0f, 1.0f), FMargin(1), FLinearColor::White ) )
 						.SetHovered( BOX_BRUSH("Testing/FlatColorSquare", FVector2D(1.0f, 1.0f), FMargin(1), FLinearColor::White ) )
 						.SetPressed( BOX_BRUSH("Testing/FlatColorSquare",  FVector2D(1.0f, 1.0f), FMargin(1), FLinearColor::White ) )
-						.SetDisabled( BOX_BRUSH("Testing/FlatColorSquare",  FVector2D(1.0f, 1.0f), FMargin(1), DisabledColor ) )
 						.SetNormalPadding( FMargin( 2,2,2,2 ) )
 						.SetPressedPadding( FMargin( 2,3,2,1 ) );
 
@@ -398,3 +397,5 @@ TSharedRef< ISlateStyle > FTestStyle::Create()
 
 	return Style;
 }
+
+#endif // #if !UE_BUILD_SHIPPING

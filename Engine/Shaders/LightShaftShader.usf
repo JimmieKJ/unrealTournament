@@ -126,7 +126,7 @@ void DownsampleLightShaftsPixelMain(
 
 	#if POINT_LIGHT_SHAFTS
 		float3 CameraVector = ScreenVector * SceneDepth;
-		float3 WorldLightVector = CameraVector + View.ViewOrigin.xyz - WorldSpaceBlurOriginAndRadius.xyz;
+		float3 WorldLightVector = CameraVector + View.WorldCameraOrigin - WorldSpaceBlurOriginAndRadius.xyz;
 
 		// 1 at the radius of the light, 0 at the center of the light
 		float Distance = length(WorldLightVector);

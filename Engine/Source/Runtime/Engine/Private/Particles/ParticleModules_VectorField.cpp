@@ -43,16 +43,31 @@ UParticleModuleVectorFieldScale::UParticleModuleVectorFieldScale(const FObjectIn
 {
 }
 
-void UParticleModuleVectorFieldScale::PostInitProperties()
+void UParticleModuleVectorFieldScale::InitializeDefaults()
 {
-	Super::PostInitProperties();
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	if (!VectorFieldScale)
 	{
 		UDistributionFloatConstant* DistributionVectorFieldScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionVectorFieldScale"));
 		DistributionVectorFieldScale->Constant = 1.0f;
 		VectorFieldScale = DistributionVectorFieldScale;
 	}
 }
+void UParticleModuleVectorFieldScale::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		InitializeDefaults();
+	}
+}
+
+#if WITH_EDITOR
+void UParticleModuleVectorFieldScale::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleVectorFieldScale::CompileModule(FParticleEmitterBuildInfo& EmitterInfo)
 {
@@ -84,16 +99,32 @@ UParticleModuleVectorFieldScaleOverLife::UParticleModuleVectorFieldScaleOverLife
 {
 }
 
-void UParticleModuleVectorFieldScaleOverLife::PostInitProperties()
+void UParticleModuleVectorFieldScaleOverLife::InitializeDefaults()
 {
-	Super::PostInitProperties();
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	if (!VectorFieldScaleOverLife)
 	{
 		UDistributionFloatConstant* DistributionVectorFieldScaleOverLife = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionVectorFieldScaleOverLife"));
 		DistributionVectorFieldScaleOverLife->Constant = 1.0f;
 		VectorFieldScaleOverLife = DistributionVectorFieldScaleOverLife;
 	}
 }
+
+void UParticleModuleVectorFieldScaleOverLife::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		InitializeDefaults();
+	}
+}
+
+#if WITH_EDITOR
+void UParticleModuleVectorFieldScaleOverLife::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleVectorFieldScaleOverLife::CompileModule(FParticleEmitterBuildInfo& EmitterInfo)
 {

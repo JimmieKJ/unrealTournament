@@ -40,6 +40,10 @@ protected:
 	/** If true all newly spawned pawns will get auto registered as source for this sense. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI Perception", config)
 	uint32 bAutoRegisterAllPawnsAsSources : 1;
+
+	/** this sense has some internal logic that requires it to be notified when 
+	 *	a listener wants to forget an actor*/
+	uint32 bNeedsForgettingNotification : 1;
 	
 private:
 	UPROPERTY()
@@ -104,6 +108,10 @@ public:
 	virtual void CleanseInvalidSources() {}
 	virtual void RegisterWrappedEvent(UAISenseEvent& PerceptionEvent);
 	virtual FAISenseID UpdateSenseID();
+
+	bool NeedsNotificationOnForgetting() const { return bNeedsForgettingNotification; }
+	virtual void OnListenerForgetsActor(const FPerceptionListener& Listener, AActor& ActorToForget) {}
+	virtual void OnListenerForgetsAll(const FPerceptionListener& Listener) {}
 
 	FORCEINLINE void OnNewListener(const FPerceptionListener& NewListener) { OnNewListenerDelegate.ExecuteIfBound(NewListener); }
 	FORCEINLINE void OnListenerUpdate(const FPerceptionListener& NewListener) { OnListenerUpdateDelegate.ExecuteIfBound(NewListener); }

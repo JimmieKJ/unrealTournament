@@ -30,6 +30,7 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "Engine/Selection.h"
+#include "PhysicsEngine/BodySetup.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshEditor"
 
@@ -1429,6 +1430,7 @@ void FStaticMeshEditor::OnConvertBoxToConvexCollision()
 					AddSelectedPrim(FPrimData(KPT_Convex, (AggGeom->ConvexElems.Num() - (i+1))), false);
 				}
 
+				RefreshCollisionChange(StaticMesh);
 				// Mark static mesh as dirty, to help make sure it gets saved.
 				StaticMesh->MarkPackageDirty();
 
@@ -1471,6 +1473,7 @@ void FStaticMeshEditor::OnCopyCollisionFromSelectedStaticMesh()
 
 	GEditor->EndTransaction();
 
+	RefreshCollisionChange(StaticMesh);
 	// Mark static mesh as dirty, to help make sure it gets saved.
 	StaticMesh->MarkPackageDirty();
 
@@ -1525,6 +1528,8 @@ UStaticMesh* FStaticMeshEditor::GetFirstSelectedStaticMeshInContentBrowser() con
 
 void FStaticMeshEditor::SetEditorMesh(UStaticMesh* InStaticMesh)
 {
+	ClearSelectedPrims();
+
 	StaticMesh = InStaticMesh;
 
 	//Init stat arrays.
@@ -1661,9 +1666,22 @@ void FStaticMeshEditor::DoDecomp(float InAccuracy, int32 InMaxHullVerts)
 			Verts.Add(Vert);
 		}
 
-		// Make index buffer
-		TArray<uint32> Indices;
-		LODModel.IndexBuffer.GetCopy(Indices);
+		// Grab all indices
+		TArray<uint32> AllIndices;
+		LODModel.IndexBuffer.GetCopy(AllIndices);
+
+		// Only copy indices that have collision enabled
+		TArray<uint32> CollidingIndices;
+		for(const FStaticMeshSection& Section : LODModel.Sections)
+		{
+			if(Section.bEnableCollision)
+			{
+				for (uint32 IndexIdx = Section.FirstIndex; IndexIdx < Section.FirstIndex + (Section.NumTriangles * 3); IndexIdx++)
+				{
+					CollidingIndices.Add(AllIndices[IndexIdx]);
+				}
+			}
+		}
 
 		ClearSelectedPrims();
 
@@ -1683,8 +1701,11 @@ void FStaticMeshEditor::DoDecomp(float InAccuracy, int32 InMaxHullVerts)
 			bs = StaticMesh->BodySetup;
 		}
 
-		// Run actual util to do the work
-		DecomposeMeshToHulls(bs, Verts, Indices, InAccuracy, InMaxHullVerts);		
+		// Run actual util to do the work (if we have some valid input)
+		if(Verts.Num() >= 3 && CollidingIndices.Num() >= 3)
+		{
+			DecomposeMeshToHulls(bs, Verts, CollidingIndices, InAccuracy, InMaxHullVerts);		
+		}
 
 		// Enable collision, if not already
 		if( !Viewport->GetViewportClient().IsSetShowWireframeCollisionChecked() )
@@ -1838,7 +1859,7 @@ void FStaticMeshEditor::ExecuteFindInExplorer()
 {
 	if ( ensure(StaticMesh->AssetImportData) )
 	{
-		const FString SourceFilePath = FReimportManager::ResolveImportFilename(StaticMesh->AssetImportData->SourceFilePath, StaticMesh);
+		const FString SourceFilePath = StaticMesh->AssetImportData->GetFirstFilename();
 		if ( SourceFilePath.Len() && IFileManager::Get().FileSize( *SourceFilePath ) != INDEX_NONE )
 		{
 			FPlatformProcess::ExploreFolder( *FPaths::GetPath(SourceFilePath) );
@@ -1853,7 +1874,7 @@ bool FStaticMeshEditor::CanExecuteSourceCommands() const
 		return false;
 	}
 
-	const FString& SourceFilePath = FReimportManager::ResolveImportFilename(StaticMesh->AssetImportData->SourceFilePath, StaticMesh);
+	const FString& SourceFilePath = StaticMesh->AssetImportData->GetFirstFilename();
 
 	return SourceFilePath.Len() && IFileManager::Get().FileSize(*SourceFilePath) != INDEX_NONE;
 }

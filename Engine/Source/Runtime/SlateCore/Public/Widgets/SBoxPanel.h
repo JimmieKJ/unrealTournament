@@ -197,6 +197,9 @@ public:
 	{
 		SHorizontalBox::FSlot& NewSlot = *new SHorizontalBox::FSlot();
 		this->Children.Add( &NewSlot );
+
+		Invalidate(EInvalidateWidget::Layout);
+
 		return NewSlot;
 	}
 
@@ -208,6 +211,9 @@ public:
 		}
 		SHorizontalBox::FSlot& NewSlot = *new SHorizontalBox::FSlot();
 		this->Children.Insert(&NewSlot, Index);
+
+		Invalidate(EInvalidateWidget::Layout);
+
 		return NewSlot;
 	}
 
@@ -219,6 +225,8 @@ public:
 	FORCENOINLINE SHorizontalBox()
 	: SBoxPanel( Orient_Horizontal )
 	{
+		bCanTick = false;
+		bCanSupportFocus = false;
 	}
 
 	/**
@@ -340,6 +348,9 @@ public:
 	{
 		SVerticalBox::FSlot& NewSlot = *new SVerticalBox::FSlot();
 		this->Children.Add( &NewSlot );
+
+		Invalidate(EInvalidateWidget::Layout);
+
 		return NewSlot;
 	}
 
@@ -351,6 +362,9 @@ public:
 		}
 		SVerticalBox::FSlot& NewSlot = *new SVerticalBox::FSlot();
 		this->Children.Insert(&NewSlot, Index);
+
+		Invalidate(EInvalidateWidget::Layout);
+
 		return NewSlot;
 	}
 
@@ -362,6 +376,8 @@ public:
 	FORCENOINLINE SVerticalBox()
 	: SBoxPanel( Orient_Vertical )
 	{
+		bCanTick = false;
+		bCanSupportFocus = false;
 	}
 
 	/**

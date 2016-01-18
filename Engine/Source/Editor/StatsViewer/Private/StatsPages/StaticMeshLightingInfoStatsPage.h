@@ -124,6 +124,6 @@ private:
 	TSharedPtr<SWidget> CustomWidget;
 
 	/** Reference to owner of the current popup */
-	mutable TSharedPtr<class SWindow> ResolutionEntryPopupWindow;
+	mutable TWeakPtr<class IMenu> ResolutionEntryMenu;
 };
 

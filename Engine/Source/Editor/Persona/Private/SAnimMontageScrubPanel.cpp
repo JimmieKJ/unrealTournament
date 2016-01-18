@@ -26,7 +26,7 @@ FReply SAnimMontageScrubPanel::OnClick_ToggleLoop()
 {
 	if (UAnimPreviewInstance* AnimPreviewInstance = Cast<UAnimPreviewInstance>(GetPreviewInstance()))
 	{
-		bool bIsLooping = AnimPreviewInstance->bLooping;
+		bool bIsLooping = AnimPreviewInstance->IsLooping();
 		AnimPreviewInstance->MontagePreview_SetLooping(!bIsLooping);
 	}
 	return FReply::Handled();
@@ -36,7 +36,7 @@ FReply SAnimMontageScrubPanel::OnClick_Backward()
 {
 	if (UAnimPreviewInstance* AnimPreviewInstance = Cast<UAnimPreviewInstance>(GetPreviewInstance()))
 	{
-		if (! AnimPreviewInstance->bPlaying || ! AnimPreviewInstance->bReverse)
+		if (! AnimPreviewInstance->IsPlaying() || ! AnimPreviewInstance->IsReverse())
 		{
 			// check if there is montage being played, if not, start it, if there is, just unpause
 			if (! AnimPreviewInstance->IsPlayingMontage())
@@ -64,7 +64,7 @@ FReply SAnimMontageScrubPanel::OnClick_Forward()
 {
 	if (UAnimPreviewInstance* AnimPreviewInstance = Cast<UAnimPreviewInstance>(GetPreviewInstance()))
 	{
-		if (! AnimPreviewInstance->bPlaying || AnimPreviewInstance->bReverse)
+		if (! AnimPreviewInstance->IsPlaying() || AnimPreviewInstance->IsReverse())
 		{
 			// check if there is montage being played, if not, start it, if there is, just unpause
 			if (! AnimPreviewInstance->IsPlayingMontage())

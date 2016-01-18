@@ -5,6 +5,7 @@
 #include "Engine/LatentActionManager.h"
 #include "BlueprintFunctionLibrary.h"
 #include "Engine/CollisionProfile.h"
+#include "AssetPtr.h"
 #include "KismetSystemLibrary.generated.h"
 
 UENUM(BlueprintType)
@@ -19,7 +20,7 @@ namespace EDrawDebugTrace
 	};
 }
 
-/** Enum used to indicate desired behavior for MoveComponentTo latent function */
+/** Enum used to indicate desired behavior for MoveComponentTo latent function. */
 UENUM()
 namespace EMoveComponentAction
 {
@@ -39,9 +40,9 @@ namespace EQuitPreference
 {
 	enum Type
 	{
-		/** Exit the game completely */
+		/** Exit the game completely. */
 		Quit,
-		/** Move the application to the background */
+		/** Move the application to the background. */
 		Background,
 	};
 }
@@ -82,6 +83,10 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	// Returns the actual object name.
 	UFUNCTION(BlueprintPure, Category = "Utilities")
 	static FString GetObjectName(const UObject* Object);
+
+	// Returns the full path to the specified object.
+	UFUNCTION(BlueprintPure, Category="Utilities")
+	static FString GetPathName(const UObject* Object);
 
 	// Returns the display name (or actor label), for displaying as a debugging aid.
 	// Note: In editor builds, this is the actor label.  In non-editor builds, this is the actual object name.  This function should not be used to uniquely identify actors!
@@ -134,6 +139,23 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToObject (interface)", CompactNodeTitle = "->"), Category="Utilities")
 	static UObject* Conv_InterfaceToObject(const FScriptInterface& Interface); 
+
+	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "true"), Category = "Utilities")
+	static UObject* Conv_AssetToObject(const TAssetPtr<UObject>& Asset);
+
+	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "true"), Category = "Utilities")
+	static TSubclassOf<UObject> Conv_AssetClassToClass(const TAssetSubclassOf<UObject>& AssetClass);
+
+	DECLARE_DYNAMIC_DELEGATE_OneParam(FOnAssetLoaded, class UObject*, Loaded);
+
+	UFUNCTION(BlueprintCallable, meta = (Latent, LatentInfo = "LatentInfo", WorldContext = "WorldContextObject", BlueprintInternalUseOnly = "true"), Category = "Utilities")
+	static void LoadAsset(UObject* WorldContextObject, const TAssetPtr<UObject>& Asset, FOnAssetLoaded OnLoaded, FLatentActionInfo LatentInfo);
+
+	DECLARE_DYNAMIC_DELEGATE_OneParam(FOnAssetClassLoaded, TSubclassOf<UObject>, Loaded);
+
+	UFUNCTION(BlueprintCallable, meta = (Latent, LatentInfo = "LatentInfo", WorldContext = "WorldContextObject", BlueprintInternalUseOnly = "true"), Category = "Utilities")
+	static void LoadAssetClass(UObject* WorldContextObject, const TAssetSubclassOf<UObject>& AssetClass, FOnAssetClassLoaded OnLoaded, FLatentActionInfo LatentInfo);
+
 
 	/**
 	 * Creates a literal integer
@@ -200,9 +222,10 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param	bPrintToLog		Whether or not to print the output to the log
 	 * @param	bPrintToConsole	Whether or not to print the output to the console
 	 * @param	TextColor		Whether or not to print the output to the console
+	 * @param	Duration		The display duration (if Print to Screen is True). Using negative number will result in loading the duration time from the config.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(WorldContext="WorldContextObject", CallableWithoutWorldContext, Keywords = "log print", AdvancedDisplay = "2"), Category="Utilities|String")
-	static void PrintString(UObject* WorldContextObject, const FString& InString = FString(TEXT("Hello")), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0,0.66,1.0));
+	UFUNCTION(BlueprintCallable, meta=(WorldContext="WorldContextObject", CallableWithoutWorldContext, Keywords = "log print", AdvancedDisplay = "2", DevelopmentOnly), Category="Utilities|String")
+	static void PrintString(UObject* WorldContextObject, const FString& InString = FString(TEXT("Hello")), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0, 0.66, 1.0), float Duration = 2.f);
 
 	/**
 	 * Prints text to the log, and optionally, to the screen
@@ -213,9 +236,10 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param	bPrintToLog		Whether or not to print the output to the log
 	 * @param	bPrintToConsole	Whether or not to print the output to the console
 	 * @param	TextColor		Whether or not to print the output to the console
+	 * @param	Duration		The display duration (if Print to Screen is True). Using negative number will result in loading the duration time from the config.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(WorldContext="WorldContextObject", CallableWithoutWorldContext, Keywords = "log", AdvancedDisplay = "2"), Category="Utilities|Text")
-	static void PrintText(UObject* WorldContextObject, const FText InText = FText::FromString(TEXT("Hello")), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0,0.66,1.0));
+	UFUNCTION(BlueprintCallable, meta=(WorldContext="WorldContextObject", CallableWithoutWorldContext, Keywords = "log", AdvancedDisplay = "2", DevelopmentOnly), Category="Utilities|Text")
+	static void PrintText(UObject* WorldContextObject, const FText InText = FText::FromString(TEXT("Hello")), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0, 0.66, 1.0), float Duration = 2.f);
 
 	/**
 	 * Prints a warning string to the log and the screen. Meant to be used as a way to inform the user that they misused the node.
@@ -257,7 +281,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param Duration 		length of delay (in seconds).
 	 * @param LatentInfo 	The latent action.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Utilities|FlowControl", meta=(Latent, WorldContext="WorldContextObject", LatentInfo="LatentInfo", Duration="0.2"))
+	UFUNCTION(BlueprintCallable, Category="Utilities|FlowControl", meta=(Latent, WorldContext="WorldContextObject", LatentInfo="LatentInfo", Duration="0.2", Keywords="sleep"))
 	static void	Delay(UObject* WorldContextObject, float Duration, struct FLatentActionInfo LatentInfo );
 
 	/** 
@@ -267,7 +291,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param Duration 		length of delay (in seconds).
 	 * @param LatentInfo 	The latent action.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(Latent, LatentInfo="LatentInfo", WorldContext="WorldContextObject", Duration="0.2"), Category="Utilities|FlowControl")
+	UFUNCTION(BlueprintCallable, meta=(Latent, LatentInfo="LatentInfo", WorldContext="WorldContextObject", Duration="0.2", Keywords="sleep"), Category="Utilities|FlowControl")
 	static void RetriggerableDelay(UObject* WorldContextObject, float Duration, FLatentActionInfo LatentInfo);
 
 	/** Interpolate a component to the specified relative location and rotation over the course of OverTime seconds. */
@@ -278,68 +302,153 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 
 	/**
 	 * Set a timer to execute delegate. Setting an existing timer will reset that timer with updated parameters.
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * @param Event			Event. Can be a K2 function or a Custom Event.
 	 * @param Time			How long to wait before executing the delegate, in seconds. Setting a timer to <= 0 seconds will clear it if it is set.
-	 * @param bLooping		true to keep executing the delegate every Time seconds, false to execute delegate only once.
+	 * @param bLooping		True to keep executing the delegate every Time seconds, false to execute delegate only once.
+	 * @return				The timer handle to pass to other timer functions to manipulate this timer.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "SetTimer_Delegate"), Category="Utilities|Time")
-	static void K2_SetTimerDelegate(FTimerDynamicDelegate Delegate, float Time, bool bLooping);
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Set Timer by Event"), Category="Utilities|Time")
+	static FTimerHandle K2_SetTimerDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate, float Time, bool bLooping);
 
 	/**
 	 * Clears a set timer.
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * @param Event  Can be a K2 function or a Custom Event.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "ClearTimer_Delegate", DefaultToSelf = "Object"), Category="Utilities|Time")
-	static void K2_ClearTimerDelegate(FTimerDynamicDelegate Delegate);
+	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage = "Use Clear Timer by Handle", DisplayName = "Clear Timer by Event"), Category="Utilities|Time")
+	static void K2_ClearTimerDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate);
 
 	/**
 	 * Pauses a set timer at its current elapsed time.
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * @param Event  Can be a K2 function or a Custom Event.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "PauseTimer_Delegate", DefaultToSelf = "Object"), Category="Utilities|Time")
-	static void K2_PauseTimerDelegate(FTimerDynamicDelegate Delegate);
+	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage = "Use Pause Timer by Handle", DisplayName = "Pause Timer by Event"), Category="Utilities|Time")
+	static void K2_PauseTimerDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate);
 
 	/**
 	 * Resumes a paused timer from its current elapsed time.
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * @param Event  Can be a K2 function or a Custom Event.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "UnPauseTimer_Delegate", DefaultToSelf = "Object"), Category="Utilities|Time")
-	static void K2_UnPauseTimerDelegate(FTimerDynamicDelegate Delegate);
+	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage = "Use Unpause Timer by Handle", DisplayName = "Unpause Timer by Event"), Category="Utilities|Time")
+	static void K2_UnPauseTimerDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate);
 
 	/**
-	 * Returns true is a timer exists and is active for the given delegate, false otherwise.
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * Returns true if a timer exists and is active for the given delegate, false otherwise.
+	 * @param Event  Can be a K2 function or a Custom Event.
+	 * @return				True if the timer exists and is active.
 	 */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "IsTimerActive_Delegate", DefaultToSelf = "Object"), Category="Utilities|Time")
-	static bool K2_IsTimerActiveDelegate(FTimerDynamicDelegate Delegate);
+	UFUNCTION(BlueprintPure, meta=(DeprecatedFunction, DeprecationMessage = "Use Is Timer Active by Handle", DisplayName = "Is Timer Active by Event"), Category="Utilities|Time")
+	static bool K2_IsTimerActiveDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate);
 
 	/**
-	 * Returns true is a timer exists and is paused for the given delegate, false otherwise.
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * Returns true if a timer exists and is paused for the given delegate, false otherwise.
+	 * @param Event  Can be a K2 function or a Custom Event.
+	 * @return				True if the timer exists and is paused.
 	 */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "IsTimerPaused_Delegate", DefaultToSelf = "Object"), Category = "Utilities|Time")
-	static bool K2_IsTimerPausedDelegate(FTimerDynamicDelegate Delegate);
+	UFUNCTION(BlueprintPure, meta=(DeprecatedFunction, DeprecationMessage = "Use Is Timer Paused by Handle", DisplayName = "Is Timer Paused by Event"), Category = "Utilities|Time")
+	static bool K2_IsTimerPausedDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate);
 
 	/**
 	 * Returns true is a timer for the given delegate exists, false otherwise.
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * @param Event  Can be a K2 function or a Custom Event.
+	 * @return				True if the timer exists.
 	 */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "TimerExists_Delegate", DefaultToSelf = "Object"), Category = "Utilities|Time")
-	static bool K2_TimerExistsDelegate(FTimerDynamicDelegate Delegate);
+	UFUNCTION(BlueprintPure, meta=(DeprecatedFunction, DeprecationMessage = "Use Does Timer Exist by Handle", DisplayName = "Does Timer Exist by Event"), Category = "Utilities|Time")
+	static bool K2_TimerExistsDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate);
 	
 	/**
 	 * Returns elapsed time for the given delegate (time since current countdown iteration began).
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * @param Event  Can be a K2 function or a Custom Event.
+	 * @return				How long has elapsed since the current iteration of the timer began.
 	 */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "GetTimerElapsedTime_Delegate", DefaultToSelf = "Object"), Category="Utilities|Time")
-	static float K2_GetTimerElapsedTimeDelegate(FTimerDynamicDelegate Delegate);
+	UFUNCTION(BlueprintPure, meta=(DeprecatedFunction, DeprecationMessage = "Use Get Timer Elapsed Time by Handle", DisplayName = "Get Timer Elapsed Time by Event"), Category="Utilities|Time")
+	static float K2_GetTimerElapsedTimeDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate);
 
 	/**
 	 * Returns time until the timer will next execute its delegate.
-	 * @param Delegate		Delegate. Can be a K2 function or a Custom Event.
+	 * @param Event  Can be a K2 function or a Custom Event.
+	 * @return				How long is remaining in the current iteration of the timer.
 	 */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "GetTimerRemainingTime_Delegate", DefaultToSelf = "Object"), Category="Utilities|Time")
-	static float K2_GetTimerRemainingTimeDelegate(FTimerDynamicDelegate Delegate);
+	UFUNCTION(BlueprintPure, meta=(DeprecatedFunction, DeprecationMessage = "Use Get Timer Remaining Time by Handle", DisplayName = "Get Timer Remaining Time by Event"), Category="Utilities|Time")
+	static float K2_GetTimerRemainingTimeDelegate(UPARAM(DisplayName="Event") FTimerDynamicDelegate Delegate);
+
+	// --- Timer functions with handle input ----------
+
+	/**
+	 * Returns whether the timer handle is valid. This does not indicate that there is an active timer that this handle references, but rather that it once referenced a valid timer.
+	 * @param Handle		The handle of the timer to check validity of.
+	 * @return				Whether the timer handle is valid.
+	 */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Is Valid"), Category="Utilities|Time")
+	static bool K2_IsValidTimerHandle(FTimerHandle Handle);
+
+	/**
+	 * Returns whether the timer handle is valid. This does not indicate that there is an active timer that this handle references, but rather that it once referenced a valid timer.
+	 * @param Handle		The handle of the timer to check validity of.
+	 * @return				Return the invalidated timer handle for convenience.
+	 */
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Invalidate"), Category="Utilities|Time")
+	static FTimerHandle K2_InvalidateTimerHandle(UPARAM(ref) FTimerHandle& Handle);
+
+	/**
+	 * Clears a set timer.
+	 * @param Handle		The handle of the timer to clear.
+	 */
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Clear Timer by Handle", WorldContext="WorldContextObject"), Category="Utilities|Time")
+	static void K2_ClearTimerHandle(UObject* WorldContextObject, FTimerHandle Handle);
+
+	/**
+	 * Pauses a set timer at its current elapsed time.
+	 * @param Handle		The handle of the timer to pause.
+	 */
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Pause Timer by Handle", WorldContext="WorldContextObject"), Category="Utilities|Time")
+	static void K2_PauseTimerHandle(UObject* WorldContextObject, FTimerHandle Handle);
+
+	/**
+	 * Resumes a paused timer from its current elapsed time.
+	 * @param Handle		The handle of the timer to unpause.
+	 */
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Unpause Timer by Handle", WorldContext="WorldContextObject"), Category="Utilities|Time")
+	static void K2_UnPauseTimerHandle(UObject* WorldContextObject, FTimerHandle Handle);
+
+	/**
+	 * Returns true if a timer exists and is active for the given handle, false otherwise.
+	 * @param Handle		The handle of the timer to check whether it is active.
+	 * @return				True if the timer exists and is active.
+	 */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Is Timer Active by Handle", WorldContext="WorldContextObject"), Category="Utilities|Time")
+	static bool K2_IsTimerActiveHandle(UObject* WorldContextObject, FTimerHandle Handle);
+
+	/**
+	 * Returns true if a timer exists and is paused for the given handle, false otherwise.
+	 * @param Handle		The handle of the timer to check whether it is paused.
+	 * @return				True if the timer exists and is paused.
+	 */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Is Timer Paused by Handle", WorldContext="WorldContextObject"), Category = "Utilities|Time")
+	static bool K2_IsTimerPausedHandle(UObject* WorldContextObject, FTimerHandle Handle);
+
+	/**
+	 * Returns true is a timer for the given handle exists, false otherwise.
+	 * @param Handle		The handle to check whether it exists.
+ 	 * @return				True if the timer exists.
+	 */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Does Timer Exist by Handle", WorldContext="WorldContextObject"), Category = "Utilities|Time")
+	static bool K2_TimerExistsHandle(UObject* WorldContextObject, FTimerHandle Handle);
+	
+	/**
+	 * Returns elapsed time for the given handle (time since current countdown iteration began).
+	 * @param Handle		The handle of the timer to get the elapsed time of.
+	 * @return				How long has elapsed since the current iteration of the timer began.
+	 */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Get Timer Elapsed Time by Handle", WorldContext="WorldContextObject"), Category="Utilities|Time")
+	static float K2_GetTimerElapsedTimeHandle(UObject* WorldContextObject, FTimerHandle Handle);
+
+	/**
+	 * Returns time until the timer will next execute its handle.
+	 * @param Handle		The handle of the timer to time remaining of.
+	 * @return				How long is remaining in the current iteration of the timer.
+	 */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Get Timer Remaining Time by Handle", WorldContext="WorldContextObject"), Category="Utilities|Time")
+	static float K2_GetTimerRemainingTimeHandle(UObject* WorldContextObject, FTimerHandle Handle);
 
 	// --- Timer functions ------------------------------
 
@@ -349,16 +458,17 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
 	 * @param Time			How long to wait before executing the delegate, in seconds. Setting a timer to <= 0 seconds will clear it if it is set.
 	 * @param bLooping		true to keep executing the delegate every Time seconds, false to execute delegate only once.
+	 * @return				The timer handle to pass to other timer functions to manipulate this timer.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "SetTimer", DefaultToSelf = "Object"), Category="Utilities|Time")
-	static void K2_SetTimer(UObject* Object, FString FunctionName, float Time, bool bLooping);
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Set Timer by Function Name", DefaultToSelf = "Object"), Category="Utilities|Time")
+	static FTimerHandle K2_SetTimer(UObject* Object, FString FunctionName, float Time, bool bLooping);
 
 	/**
 	 * Clears a set timer.
 	 * @param Object		Object that implements the delegate function. Defaults to self (this blueprint)
 	 * @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "ClearTimer", DefaultToSelf = "Object"), Category="Utilities|Time")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Clear Timer by Function Name", DefaultToSelf = "Object"), Category="Utilities|Time")
 	static void K2_ClearTimer(UObject* Object, FString FunctionName);
 
 	/**
@@ -366,7 +476,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param Object		Object that implements the delegate function. Defaults to self (this blueprint)
 	 * @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "PauseTimer", DefaultToSelf = "Object"), Category="Utilities|Time")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Pause Timer by Function Name", DefaultToSelf = "Object"), Category="Utilities|Time")
 	static void K2_PauseTimer(UObject* Object, FString FunctionName);
 
 	/**
@@ -374,47 +484,52 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param Object		Object that implements the delegate function. Defaults to self (this blueprint)
 	 * @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "UnPauseTimer", DefaultToSelf = "Object"), Category="Utilities|Time")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "Unpause Timer by Function Name", DefaultToSelf = "Object"), Category="Utilities|Time")
 	static void K2_UnPauseTimer(UObject* Object, FString FunctionName);
 
 	/**
-	 * Returns true is a timer exists and is active for the given delegate, false otherwise.
+	 * Returns true if a timer exists and is active for the given delegate, false otherwise.
 	 * @param Object		Object that implements the delegate function. Defaults to self (this blueprint)
 	 * @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
+	 * @return				True if the timer exists and is active.
 	 */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "IsTimerActive", DefaultToSelf = "Object"), Category="Utilities|Time")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Is Timer Active by Function Name", DefaultToSelf = "Object"), Category="Utilities|Time")
 	static bool K2_IsTimerActive(UObject* Object, FString FunctionName);
 
 	/**
-	* Returns true is a timer exists and is paused for the given delegate, false otherwise.
+	* Returns true if a timer exists and is paused for the given delegate, false otherwise.
 	* @param Object		Object that implements the delegate function. Defaults to self (this blueprint)
 	* @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
+	* @return				True if the timer exists and is paused.
 	*/
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "IsTimerPaused", DefaultToSelf = "Object"), Category = "Utilities|Time")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Is Timer Paused by Function Name", DefaultToSelf = "Object"), Category = "Utilities|Time")
 	static bool K2_IsTimerPaused(UObject* Object, FString FunctionName);
 
 	/**
 	* Returns true is a timer for the given delegate exists, false otherwise.
 	* @param Object		Object that implements the delegate function. Defaults to self (this blueprint)
 	* @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
+	* @return				True if the timer exists.
 	*/
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "TimerExists", DefaultToSelf = "Object"), Category = "Utilities|Time")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Does Timer Exist by Function Name", DefaultToSelf = "Object"), Category = "Utilities|Time")
 	static bool K2_TimerExists(UObject* Object, FString FunctionName);
 	
 	/**
 	 * Returns elapsed time for the given delegate (time since current countdown iteration began).
 	 * @param Object		Object that implements the delegate function. Defaults to self (this blueprint)
 	 * @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
+	 * @return				How long has elapsed since the current iteration of the timer began.
 	 */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "GetTimerElapsedTime", DefaultToSelf = "Object"), Category="Utilities|Time")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Get Timer Elapsed Time by Function Name", DefaultToSelf = "Object"), Category="Utilities|Time")
 	static float K2_GetTimerElapsedTime(UObject* Object, FString FunctionName);
 
 	/**
 	 * Returns time until the timer will next execute its delegate.
 	 * @param Object		Object that implements the delegate function. Defaults to self (this blueprint)
 	 * @param FunctionName	Delegate function name. Can be a K2 function or a Custom Event.
+	 * @return				How long is remaining in the current iteration of the timer.
 	 */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "GetTimerRemainingTime", DefaultToSelf = "Object"), Category="Utilities|Time")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Get Timer Remaining Time by Function Name", DefaultToSelf = "Object"), Category="Utilities|Time")
 	static float K2_GetTimerRemainingTime(UObject* Object, FString FunctionName);
 
 
@@ -447,6 +562,14 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	/** Set a NAME property by name */
 	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true", AutoCreateRefTerm = "Value" ))
 	static void SetNamePropertyByName(UObject* Object, FName PropertyName, const FName& Value);
+
+	/** Set a ASSET property by name */
+	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", AutoCreateRefTerm = "Value"))
+	static void SetAssetPropertyByName(UObject* Object, FName PropertyName, const TAssetPtr<UObject>& Value);
+
+	/** Set a ASSETCLASS property by name */
+	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", AutoCreateRefTerm = "Value"))
+	static void SetAssetClassPropertyByName(UObject* Object, FName PropertyName, const TAssetSubclassOf<UObject>& Value);
 
 	/** Set a STRING property by name */
 	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true", AutoCreateRefTerm = "Value" ))
@@ -725,7 +848,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	* @param OutHit			Properties of the trace hit.
 	* @return				True if there was a hit, false otherwise.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", DisplayName = "BoxTraceByChannel", Keywords="sweep"))
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", WorldContext="WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", DisplayName = "BoxTraceByChannel", Keywords="sweep"))
 	static bool BoxTraceSingle(UObject* WorldContextObject, const FVector Start, const FVector End, const FVector HalfSize, const FRotator Orientation, ETraceTypeQuery TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf);
 
 	/**
@@ -741,7 +864,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	* @param OutHits		A list of hits, sorted along the trace from start to finish. The blocking hit will be the last hit, if there was one.
 	* @return				True if there was a blocking hit, false otherwise.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", DisplayName = "MultiBoxTraceByChannel", Keywords="sweep"))
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", WorldContext="WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", DisplayName = "MultiBoxTraceByChannel", Keywords="sweep"))
 	static bool BoxTraceMulti(UObject* WorldContextObject, const FVector Start, const FVector End, FVector HalfSize, const FRotator Orientation, ETraceTypeQuery TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf);
 
 	
@@ -854,7 +977,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	* @param OutHit			Properties of the trace hit.
 	* @return				True if there was a hit, false otherwise.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", DisplayName = "BoxTraceForObjects", Keywords="sweep"))
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", WorldContext="WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", DisplayName = "BoxTraceForObjects", Keywords="sweep"))
 	static bool BoxTraceSingleForObjects(UObject* WorldContextObject, const FVector Start, const FVector End, const FVector HalfSize, const FRotator Orientation, const TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf);
 
 
@@ -871,7 +994,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	* @param OutHits		A list of hits, sorted along the trace from start to finish.  The blocking hit will be the last hit, if there was one.
 	* @return				True if there was a hit, false otherwise.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", DisplayName = "MultiBoxTraceForObjects", Keywords="sweep"))
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", WorldContext="WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", DisplayName = "MultiBoxTraceForObjects", Keywords="sweep"))
 	static bool BoxTraceMultiForObjects(UObject* WorldContextObject, const FVector Start, const FVector End, const FVector HalfSize, const FRotator Orientation, const TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf);
 
 	/**
@@ -1114,6 +1237,10 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category="Rendering|Debug", meta=(WorldContext="WorldContextObject"))
 	static void DrawDebugLine(UObject* WorldContextObject, const FVector LineStart, const FVector LineEnd, FLinearColor LineColor, float Duration=0.f, float Thickness = 0.f);
 
+	/** Draw a debug circle! */
+	UFUNCTION(BlueprintCallable, Category="Rendering|Debug", meta=(WorldContext="WorldContextObject"))
+	static void DrawDebugCircle(UObject* WorldContextObject, FVector Center, float Radius, int32 NumSegments=12, FLinearColor LineColor = FLinearColor::White, float Duration=0.f, float Thickness=0.f, FVector YAxis=FVector(0.f,1.f,0.f),FVector ZAxis=FVector(0.f,0.f,1.f), bool bDrawAxis=false);
+	
 	/** Draw a debug point */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Debug", meta=(WorldContext="WorldContextObject"))
 	static void DrawDebugPoint(UObject* WorldContextObject, const FVector Position, float Size, FLinearColor PointColor, float Duration=0.f);
@@ -1185,11 +1312,11 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static void DrawDebugCamera(const ACameraActor* CameraActor, FLinearColor CameraColor = FLinearColor::White, float Duration=0.f);
 
 	/* Draws a 2D Histogram of size 'DrawSize' based FDebugFloatHistory struct, using DrawTransform for the position in the world. */
-	UFUNCTION(BlueprintCallable, Category = "Rendering|Debug")
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Debug", meta=(WorldContext="WorldContextObject"))
 	static void DrawDebugFloatHistoryTransform(UObject* WorldContextObject, const FDebugFloatHistory& FloatHistory, const FTransform& DrawTransform, FVector2D DrawSize, FLinearColor DrawColor = FLinearColor::White, float Duration = 0.f);
 
 	/* Draws a 2D Histogram of size 'DrawSize' based FDebugFloatHistory struct, using DrawLocation for the location in the world, rotation will face camera of first player. */
-	UFUNCTION(BlueprintCallable, Category = "Rendering|Debug")
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Debug", meta=(WorldContext="WorldContextObject"))
 	static void DrawDebugFloatHistoryLocation(UObject* WorldContextObject, const FDebugFloatHistory& FloatHistory, FVector DrawLocation, FVector2D DrawSize, FLinearColor DrawColor = FLinearColor::White, float Duration = 0.f);
 
 	UFUNCTION(BlueprintPure, Category = "Rendering|Debug")
@@ -1219,13 +1346,24 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * Get the clamped state of r.MaterialQualityLevel, see console variable help (allows for scalability, cannot be used in construction scripts)
 	 * 0: low
 	 * 1: high
+	 * 2: medium
 	 */
 	UFUNCTION(BlueprintPure, Category="Rendering|Material", meta=(UnsafeDuringActorConstruction = "true"))
 	static int32 GetRenderingMaterialQualityLevel();
 
+	/**
+	 * Gets the list of support fullscreen resolutions.
+	 * @return true if successfully queried the device for available resolutions.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Rendering")
+	static bool GetSupportedFullscreenResolutions(TArray<FIntPoint>& Resolutions);
+
 	// Opens the specified URL in the platform's web browser of choice
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
 	static void LaunchURL(const FString& URL);
+
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static bool CanLaunchURL(const FString& URL);
 
 	// Deletes all unreferenced objects, keeping only referenced objects (this command will be queued and happen at the end of the frame)
 	// Note: This can be a slow operation, and should only be performed where a hitch would be acceptable
@@ -1236,10 +1374,17 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * Will show an ad banner (iAd on iOS, or AdMob on Android) on the top or bottom of screen, on top of the GL view (doesn't resize the view)
 	 * (iOS and Android only)
 	 *
+	 * @param AdIdIndex The index of the ID to select for the add to show
 	 * @param bShowOnBottomOfScreen If true, the iAd will be shown at the bottom of the screen, top otherwise
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
-	static void ShowAdBanner(bool bShowOnBottomOfScreen);
+	static void ShowAdBanner(int32 AdIdIndex, bool bShowOnBottomOfScreen);
+
+	/**
+	* Retrieves the total number of Ad IDs that can be selected between
+	*/
+	UFUNCTION(BlueprintPure, Category = "Utilities|Platform", meta = (DisplayName = "Get Ad ID Count"))
+	static int32 GetAdIDCount();
 
 	/**
 	 * Hides the ad banner (iAd on iOS, or AdMob on Android). Will force close the ad if it's open
@@ -1270,6 +1415,14 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static void ShowPlatformSpecificAchievementsScreen(class APlayerController* SpecificPlayer);
 
 	/**
+	 * Returns whether the player is logged in to the currently active online subsystem.
+	 *
+	 * @param Player Specific player's login status to get. May not be supported on all platforms. If null, defaults to the player with ControllerId 0.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Online")
+	static bool IsLoggedIn(APlayerController* SpecificPlayer);
+
+	/**
 	 * Allows or inhibits screensaver
 	 * @param	bAllowScreenSaver		If false, don't allow screensaver if possible, otherwise allow default behavior
 	 */
@@ -1290,11 +1443,57 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static bool GetVolumeButtonsHandledBySystem();
 
 	/**
+	 * Resets the gamepad to player controller id assignments (Android only)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static void ResetGamepadAssignments();
+
+	/*
+	 * Resets the gamepad assignment to player controller id (Android only)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static void ResetGamepadAssignmentToController(int32 ControllerId);
+
+	/**
+	 * Returns true if controller id assigned to a gamepad (Android only)
+	 */
+	UFUNCTION(BlueprintPure, Category = "Utilities|Platform")
+	static bool IsControllerAssignedToGamepad(int32 ControllerId);
+
+	/**
 	 * Sets the state of the transition message rendered by the viewport. (The blue text displayed when the game is paused and so forth.)
 	 *
 	 * @param WorldContextObject	World context
 	 * @param State					set true to supress transition message
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Utilities", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "Utilities", meta = (WorldContext="WorldContextObject"))
 	static void SetSupressViewportTransitionMessage(UObject* WorldContextObject, bool bState);
+
+	/**
+	 * Returns an array of the user's preferred languages in order of preference
+	 * @return An array of language IDs ordered from most preferred to least
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static TArray<FString> GetPreferredLanguages();
+
+	/**
+	* Returns the currency code associated with the device's locale
+	* @return the currency code associated with the device's locale
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static FString GetLocalCurrencyCode();
+
+	/**
+	* Returns the currency symbol associated with the device's locale
+	* @return the currency symbol associated with the device's locale
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static FString GetLocalCurrencySymbol();
+
+	/**
+	 * Requests permission to send remote notifications to the user's device.
+	 * (iOS only)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static void RegisterForRemoteNotifications();
 };

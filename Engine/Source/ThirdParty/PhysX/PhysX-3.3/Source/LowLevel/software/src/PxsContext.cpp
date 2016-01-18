@@ -787,11 +787,6 @@ namespace
 	}
 }
 
-
-const PxShape* ScGetPxShapeFromPxsShapeCore(const PxsShapeCore* bodyShape);
-const PxRigidActor* ScGetPxRigidBodyFromPxsRigidCore(const PxsRigidCore* core);
-const PxRigidActor* ScGetPxRigidStaticFromPxsRigidCore(const PxsRigidCore* core);
-
 void PxsContext::runModifiableContactManagers()
 {
 	if(!mContactModifyCallback)
@@ -839,14 +834,14 @@ void PxsContext::runModifiableContactManagers()
 			PxContactModifyPair& p = mModifiablePairArray.insert();
 			PxcNpWorkUnit &unit = cm.getWorkUnit();
 
-			p.shape[0] = ScGetPxShapeFromPxsShapeCore(unit.shapeCore0);
-			p.shape[1] = ScGetPxShapeFromPxsShapeCore(unit.shapeCore1);
+			p.shape[0] = gPxvOffsetTable.convertPxsShape2Px(unit.shapeCore0);
+			p.shape[1] = gPxvOffsetTable.convertPxsShape2Px(unit.shapeCore1);
 
-			p.actor[0] = unit.flags & PxcNpWorkUnitFlag::eDYNAMIC_BODY0 ? ScGetPxRigidBodyFromPxsRigidCore(unit.rigidCore0) 
-																		: ScGetPxRigidStaticFromPxsRigidCore(unit.rigidCore0);
+			p.actor[0] = unit.flags & PxcNpWorkUnitFlag::eDYNAMIC_BODY0 ? gPxvOffsetTable.convertPxsRigidCore2PxRigidBody(unit.rigidCore0) 
+																		: gPxvOffsetTable.convertPxsRigidCore2PxRigidStatic(unit.rigidCore0);
 
-			p.actor[1] = unit.flags & PxcNpWorkUnitFlag::eDYNAMIC_BODY1 ? ScGetPxRigidBodyFromPxsRigidCore(unit.rigidCore1) 
-																		: ScGetPxRigidStaticFromPxsRigidCore(unit.rigidCore1);
+			p.actor[1] = unit.flags & PxcNpWorkUnitFlag::eDYNAMIC_BODY1 ? gPxvOffsetTable.convertPxsRigidCore2PxRigidBody(unit.rigidCore1) 
+																		: gPxvOffsetTable.convertPxsRigidCore2PxRigidStatic(unit.rigidCore1);
 
 			p.transform[0] = getShapeAbsPose(unit.shapeCore0, unit.rigidCore0, PxU32(unit.flags & PxcNpWorkUnitFlag::eDYNAMIC_BODY0));
 			p.transform[1] = getShapeAbsPose(unit.shapeCore1, unit.rigidCore1, PxU32(unit.flags & PxcNpWorkUnitFlag::eDYNAMIC_BODY1));

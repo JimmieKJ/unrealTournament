@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
 #include "UTHUDWidget.h"
@@ -87,6 +87,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float FlagX;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scoreboard")
+		USoundBase* ScoreUpdateSound;
+
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
@@ -166,7 +169,7 @@ protected:
 
 public:
 	virtual bool IsInteractive() { return bIsInteractive; };
-
+	virtual TWeakObjectPtr<AUTPlayerState> GetSelectedPlayer();
 protected:
 
 	// Will be true when the scoreboard is interactive.  This will cause the
@@ -216,8 +219,11 @@ protected:
 	/** Draw one line of scoring breakdown. */
 	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth);
 
-	/** Draw one line of scoring breakdown where values are string instead of int32. */
+	/** Draw one line of scoring breakdown where values are string instead of int32 */
 	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex);
+
+	/** Draw one line of scoring breakdown where values are PlayerStates instead of int32 */
+	virtual void DrawPlayerStatsLine(FText StatsName, AUTPlayerState* FirstPlayer, AUTPlayerState* SecondPlayer, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex);
 
 	virtual void DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon = false);
 

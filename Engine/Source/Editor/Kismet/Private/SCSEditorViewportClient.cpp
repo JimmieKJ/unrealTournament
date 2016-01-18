@@ -121,8 +121,7 @@ FSCSEditorViewportClient::FSCSEditorViewportClient(TWeakPtr<FBlueprintEditor>& I
 	Widget->SetSnapEnabled(true);
 
 	// Selectively set particular show flags that we need
-	EngineShowFlags.TextRender = 1;
-	EngineShowFlags.SelectionOutline = GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline;
+	EngineShowFlags.SetSelectionOutline(GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline);
 
 	// Set if the grid will be drawn
 	DrawHelper.bDrawGrid = GetDefault<UEditorPerProjectUserSettings>()->bSCSEditorShowGrid;
@@ -633,6 +632,16 @@ FMatrix FSCSEditorViewportClient::GetWidgetCoordSystem() const
 	return Matrix;
 }
 
+int32 FSCSEditorViewportClient::GetCameraSpeedSetting() const
+{
+	return GetDefault<UEditorPerProjectUserSettings>()->SCSViewportCameraSpeed;
+}
+
+void FSCSEditorViewportClient::SetCameraSpeedSetting(int32 SpeedSetting)
+{
+	GetMutableDefault<UEditorPerProjectUserSettings>()->SCSViewportCameraSpeed = SpeedSetting;
+}
+
 void FSCSEditorViewportClient::InvalidatePreview(bool bResetCamera)
 {
 	// Ensure that the editor is valid before continuing
@@ -772,7 +781,6 @@ void FSCSEditorViewportClient::ToggleShowFloor()
 	
 	EditorFloorComp->SetVisibility(bShowFloor);
 	EditorFloorComp->SetCollisionEnabled(bShowFloor? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
-	GetWorld()->SendAllEndOfFrameUpdates();
 
 	Settings->bSCSEditorShowFloor = bShowFloor;
 	Settings->PostEditChange();

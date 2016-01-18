@@ -10,6 +10,7 @@
 #include "AtmosphereTextureParameters.h"
 #include "SceneRenderTargetParameters.h"
 #include "PostProcessParameters.h"
+#include "GlobalDistanceFieldParameters.h"
 
 template<typename ParameterType> 
 struct TUniformParameter
@@ -92,7 +93,11 @@ inline FArchive& operator<<(FArchive& Ar, FDebugUniformExpressionSet& DebugExpre
 class RENDERER_API FMaterialShader : public FShader
 {
 public:
-	FMaterialShader() {}
+	static FName UniformBufferLayoutName;
+
+	FMaterialShader() : DebugUniformExpressionUBLayout(FRHIUniformBufferLayout::Zero)
+	{
+	}
 
 	FMaterialShader(const FMaterialShaderType::CompiledShaderInitializerType& Initializer);
 
@@ -107,9 +112,12 @@ public:
 	template<typename ShaderRHIParamRef>
 	void SetParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI,const FSceneView& View)
 	{
-		check(GetUniformBufferParameter<FViewUniformShaderParameters>().IsInitialized());
 		CheckShaderIsValid();
-		SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FViewUniformShaderParameters>(),View.UniformBuffer);
+		const auto& ViewUBParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUBParameter, View.UniformBuffer);
+
+		const auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
@@ -128,7 +136,7 @@ public:
 		bool bDeferredPass, 
 		ESceneRenderTargetsMode::Type TextureMode );
 
-	FTextureRHIRef& GetEyeAdaptation(const FSceneView& View);
+	FTextureRHIRef& GetEyeAdaptation(FRHICommandList& RHICmdList, const FSceneView& View);
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override;
@@ -159,8 +167,11 @@ private:
 	FShaderResourceParameter PerlinNoise3DTexture;
 	FShaderResourceParameter PerlinNoise3DTextureSampler;
 
-	FDebugUniformExpressionSet DebugUniformExpressionSet;
-	FString DebugDescription;
+	FGlobalDistanceFieldParameters GlobalDistanceFieldParameters;
+
+	FDebugUniformExpressionSet	DebugUniformExpressionSet;
+	FRHIUniformBufferLayout		DebugUniformExpressionUBLayout;
+	FString						DebugDescription;
 
 	/** If true, cached uniform expressions are allowed. */
 	static int32 bAllowCachedUniformExpressions;

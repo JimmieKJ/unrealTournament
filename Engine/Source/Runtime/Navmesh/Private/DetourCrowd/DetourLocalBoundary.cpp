@@ -25,6 +25,7 @@
 #include "DetourLocalBoundary.h"
 #include "DetourNavMeshQuery.h"
 #include "DetourCommon.h"
+#include "DetourCrowd.h"
 #include "DetourAssert.h"
 
 
@@ -46,7 +47,7 @@ void dtLocalBoundary::reset()
 	m_nsegs = 0;
 }
 
-void dtLocalBoundary::addSegment(const float dist, const float* s)
+void dtLocalBoundary::addSegment(const float dist, const float* s, int flags)
 {
 	// Insert neighbour based on the distance.
 	Segment* seg = 0;
@@ -79,6 +80,7 @@ void dtLocalBoundary::addSegment(const float dist, const float* s)
 	}
 	
 	seg->d = dist;
+	seg->flags = flags;
 	memcpy(seg->s, s, sizeof(float)*6);
 	
 	if (m_nsegs + 1 < MAX_LOCAL_SEGS)
@@ -87,8 +89,30 @@ void dtLocalBoundary::addSegment(const float dist, const float* s)
 	}
 }
 
+namespace LocalBoundaryHelpers
+{
+	inline bool IsOutsideHeightLimit(const float* pos, const float* p, const float* q, float tseg)
+	{
+		const float closestPtHeight = p[1] + (q[1] - p[1]) * tseg;
+		const float segHeightDiff = dtAbs(closestPtHeight - pos[1]);
+		const float maxHeightDiff = 50.0f;
+
+		return segHeightDiff > maxHeightDiff;
+	}
+
+	inline int GetSegmentFlags(const float* endPos, const float* p, const float* q, float QueryRange)
+	{
+		const float ignoreDistancePct = 0.25f;
+		const float maxDistSq = dtSqr(QueryRange * ignoreDistancePct);
+
+		float tsegEnd = 0.0f;
+		const float distEndSqr = dtDistancePtSegSqr2D(endPos, p, q, tsegEnd);
+		return (distEndSqr < maxDistSq) ? DT_CROWD_BOUNDARY_IGNORE : 0;
+	}
+}
+
 void dtLocalBoundary::update(dtPolyRef ref, const float* pos, const float collisionQueryRange,
-	const bool bRemoveNearLink, const float* linkV0, const float* linkV1,
+	const bool bIgnoreAtEnd, const float* endPos,
 	const dtPolyRef* path, const int npath,
 	const float* moveDir,
 	dtNavMeshQuery* navquery, const dtQueryFilter* filter)
@@ -129,33 +153,31 @@ void dtLocalBoundary::update(dtPolyRef ref, const float* pos, const float collis
 			if (distSqr > dtSqr(collisionQueryRange))
 				continue;
 
-			// [UE4] remove segments too close to requested position
-			if (bRemoveNearLink)
+			// [UE4] handle segments too far in Y (height diff)
+			const bool bOutsideHeightLimit = LocalBoundaryHelpers::IsOutsideHeightLimit(pos, s, s + 3, tseg);
+			if (bOutsideHeightLimit)
 			{
-				float dummyS = 0.0f;
-				float dummyT = 0.0f;
-				const bool bIntersect = dtIntersectSegSeg2D(s, s+3, linkV0, linkV1, dummyS, dummyT);
-				if (bIntersect)
-				{
-					continue;
-				}
+				continue;
 			}
 
+			// [UE4] handle segments too close to requested position
+			const int segFlags = bIgnoreAtEnd ? LocalBoundaryHelpers::GetSegmentFlags(endPos, s, s + 3, collisionQueryRange) : 0;
+
 			// [UE4] include direction to segment in score
-			dtVmad(closestPt, s, s + 3, tseg);
+			dtVlerp(closestPt, s, s + 3, tseg);
 			dtVsub(dirToSeg, closestPt, pos);
 			dtVnormalize(dirToSeg);
 			const float dseg = dtVdot2D(dirToSeg, moveDir);
 			const float score = distSqr * ((1.0f - dseg) * 0.5f);
 
-			addSegment(score, s);
+			addSegment(score, s, segFlags);
 		}
 	}
 }
 
 void dtLocalBoundary::update(const dtSharedBoundary* sharedData, const int sharedIdx,
 	const float* pos, const float collisionQueryRange,
-	const bool bRemoveNearLink, const float* linkV0, const float* linkV1,
+	const bool bIgnoreAtEnd, const float* endPos,
 	const dtPolyRef* path, const int npath, const float* moveDir,
 	dtNavMeshQuery* navquery, const dtQueryFilter* filter)
 {
@@ -196,17 +218,15 @@ void dtLocalBoundary::update(const dtSharedBoundary* sharedData, const int share
 		if (distSqr > dtSqr(collisionQueryRange))
 			continue;
 
-		// remove segments too close to requested position
-		if (bRemoveNearLink)
+		// handle segments too far in Y (height diff)
+		const bool bOutsideHeightLimit = LocalBoundaryHelpers::IsOutsideHeightLimit(pos, Data.Edges[Idx].v0, Data.Edges[Idx].v1, tseg);
+		if (bOutsideHeightLimit)
 		{
-			float dummyS = 0.0f;
-			float dummyT = 0.0f;
-			const bool bIntersect = dtIntersectSegSeg2D(Data.Edges[Idx].v0, Data.Edges[Idx].v1, linkV0, linkV1, dummyS, dummyT);
-			if (bIntersect)
-			{
-				continue;
-			}
+			continue;
 		}
+
+		// handle segments too close to requested position
+		const int segFlags = bIgnoreAtEnd ? LocalBoundaryHelpers::GetSegmentFlags(endPos, Data.Edges[Idx].v0, Data.Edges[Idx].v1, collisionQueryRange) : 0;
 
 		// remove segments when both sides are on path (single area trace)
 		if (PathLookup.Contains(Data.Edges[Idx].p0) && PathLookup.Contains(Data.Edges[Idx].p1))
@@ -215,7 +235,7 @@ void dtLocalBoundary::update(const dtSharedBoundary* sharedData, const int share
 		}
 
 		// include direction to segment in score
-		dtVmad(closestPt, Data.Edges[Idx].v0, Data.Edges[Idx].v1, tseg);
+		dtVlerp(closestPt, Data.Edges[Idx].v0, Data.Edges[Idx].v1, tseg);
 		dtVsub(dirToSeg, closestPt, pos);
 		dtVnormalize(dirToSeg);
 		const float dseg = dtVdot2D(dirToSeg, moveDir);
@@ -223,7 +243,7 @@ void dtLocalBoundary::update(const dtSharedBoundary* sharedData, const int share
 
 		dtVcopy(s, Data.Edges[Idx].v0);
 		dtVcopy(s + 3, Data.Edges[Idx].v1);
-		addSegment(score, s);
+		addSegment(score, s, segFlags);
 	}
 }
 

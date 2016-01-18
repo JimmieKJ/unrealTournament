@@ -2,6 +2,8 @@
 
 #include "SlateCorePrivatePCH.h"
 
+DECLARE_CYCLE_STAT(TEXT("ToWidgetPath"), STAT_ToWidgetPath, STATGROUP_Slate);
+
 
 FWidgetPath::FWidgetPath()
 : Widgets( EVisibility::Visible )
@@ -242,6 +244,8 @@ FWidgetPath FWeakWidgetPath::ToWidgetPath(EInterruptedPathHandling::Type Interru
 
 FWeakWidgetPath::EPathResolutionResult::Result FWeakWidgetPath::ToWidgetPath( FWidgetPath& WidgetPath, EInterruptedPathHandling::Type InterruptedPathHandling, const FPointerEvent* PointerEvent ) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_ToWidgetPath);
+
 	TArray<FWidgetAndPointer> PathWithGeometries;
 	TArray< TSharedPtr<SWidget> > WidgetPtrs;
 		

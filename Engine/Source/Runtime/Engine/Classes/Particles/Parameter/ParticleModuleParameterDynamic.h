@@ -108,9 +108,9 @@ class UParticleModuleParameterDynamic : public UParticleModuleParameterBase
 	virtual void	PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void	PostInitProperties() override;
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void	Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
 	virtual uint32	RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
@@ -125,7 +125,7 @@ class UParticleModuleParameterDynamic : public UParticleModuleParameterBase
 	virtual void GetParticleSysParamsUtilized(TArray<FString>& ParticleSysParamList) override;
 	virtual void GetParticleParametersUtilized(TArray<FString>& ParticleParameterList) override;
 	virtual void RefreshModule(UInterpCurveEdSetup* EdSetup, UParticleEmitter* InEmitter, int32 InLODLevel) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
 	/**
 	 *	Extended version of spawn, allows for using a random stream for distribution value retrieval
@@ -144,7 +144,7 @@ class UParticleModuleParameterDynamic : public UParticleModuleParameterBase
 	 *	@param	bIsMeshEmitter		true if the emitter is a mesh emitter...
 	 *
 	 */
-	virtual void UpdateParameterNames(UMaterialInterface* InMaterialInterface, bool bIsMeshEmitter);
+	virtual void UpdateParameterNames(UMaterialInterface* InMaterialInterface);
 
 	
 	/**
@@ -161,7 +161,6 @@ class UParticleModuleParameterDynamic : public UParticleModuleParameterBase
 	{
 		float ScaleValue = 1.0f;
 		float DistributionValue = 1.0f;
-		float TimeValue = InDynParams.bUseEmitterTime ? Owner->EmitterTime : Particle.RelativeTime;
 		switch (InDynParams.ValueMethod)
 		{
 		case EDPV_VelocityX:
@@ -179,6 +178,7 @@ class UParticleModuleParameterDynamic : public UParticleModuleParameterBase
 
 		if ((InDynParams.bScaleVelocityByParamValue == true) || (InDynParams.ValueMethod == EDPV_UserSet))
 		{
+			float TimeValue = InDynParams.bUseEmitterTime ? Owner->EmitterTime : Particle.RelativeTime;
 			DistributionValue = InDynParams.ParamValue.GetValue(TimeValue, Owner->Component, InRandomStream);
 		}
 
@@ -204,6 +204,8 @@ class UParticleModuleParameterDynamic : public UParticleModuleParameterBase
 	 *	Set the UpdatesFlags and bUsesVelocity
 	 */
 	virtual	void UpdateUsageFlags();
+
+	virtual bool CanTickInAnyThread() override;
 };
 
 

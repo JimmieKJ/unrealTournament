@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "BlutilityPrivatePCH.h"
-#include "BlutilityClasses.h"
 #include "AssetTypeActions_EditorUtilityBlueprint.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "BlueprintEditorModule.h"

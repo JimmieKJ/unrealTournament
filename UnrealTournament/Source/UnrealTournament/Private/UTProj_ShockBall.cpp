@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTProj_ShockBall.h"
 #include "UTWeap_ShockRifle.h"
@@ -60,7 +60,9 @@ float AUTProj_ShockBall::TakeDamage(float Damage, const FDamageEvent& DamageEven
 					if (GetWorld()->GetTimeSeconds() - ImpliedSpawnTime < FireInterval - 0.1f)
 					{
 						// no combo - this shockball was spawned on the server de-synched from client firing beam
+						SetActorEnableCollision(false);
 						Destroy();
+
 						// let weapon fire again, so this hit doesn't block shot
 						if (FiringWeapon)
 						{
@@ -167,7 +169,7 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 			}
 		}
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
-		AUTPlayerState* PS = PC ? Cast<AUTPlayerState>(PC->PlayerState) : NULL;
+		AUTPlayerState* PS = PC ? PC->UTPlayerState : NULL;
 		int32 ComboKillCount = PS ? PS->GetStatsValue(NAME_ShockComboKills) : 0;
 		bPendingSpecialReward = bComboExplosion && PC && PS && ComboRewardMessageClass && (PC == InstigatorController);
 		float ComboMovementScore = 0.f;
@@ -191,7 +193,7 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 
 		// if bot is low skill, delay clearing bot monitoring so that it will occasionally fire for the combo slightly too late - a realistic player mistake
 		AUTBot* B = Cast<AUTBot>(InstigatorController);
-		if (bPendingKillPending || B == NULL || B->WeaponProficiencyCheck())
+		if (IsPendingKillPending() || B == NULL || B->WeaponProficiencyCheck())
 		{
 			ClearBotCombo();
 		}

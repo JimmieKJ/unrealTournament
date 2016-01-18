@@ -9,6 +9,7 @@
 
 #include "Engine.h"
 #include "SoundDefinitions.h"
+#include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
 #include "OnlineSubsystemUtils.h"
 
 /** Largest size Steam says it will need to compress data */
@@ -324,7 +325,7 @@ uint32 FVoiceEngineSteam::SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalker
 
 	if (QueuedData->AudioComponent != NULL)
 	{
-		USoundWaveStreaming* SoundStreaming = CastChecked<USoundWaveStreaming>(QueuedData->AudioComponent->Sound);
+		USoundWaveProcedural* SoundStreaming = CastChecked<USoundWaveProcedural>(QueuedData->AudioComponent->Sound);
 		if (SoundStreaming->GetAvailableAudioByteCount() == 0)
 		{
 			UE_LOG(LogVoiceDecode, Log, TEXT("VOIP audio component was starved!"));

@@ -134,6 +134,8 @@ struct FParticleSysParam
 
 };
 
+template <> struct TIsPODType<FParticleSysParam> { enum { Value = true }; };
+
 /**
  *	The base class for all particle event data.
  */
@@ -295,6 +297,33 @@ public:
 	uint32 bHasBeenActivated:1;
 
 	/**
+	 * If true, this Particle System will be available for recycling after it has completed. Auto-destroyed systems cannot be recycled.
+	 * Some systems (currently particle trail effects) can recycle components to avoid respawning them to play new effects.
+	 * This is only an optimization and does not change particle system behavior, aside from not triggering normal component initialization events more than once.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category=Particles)
+	uint32 bAllowRecycling:1;
+
+	/**
+	 * True if we should automatically attach to AutoAttachParent when activated, and detach from our parent when completed.
+	 * This overrides any current attachment that may be present at the time of activation (deferring initial attachment until activation, if AutoAttachParent is null).
+	 * When enabled, detachment occurs regardless of whether AutoAttachParent is assigned, and the relative transform from the time of activation is restored.
+	 * This also disables attachment on dedicated servers, where we don't actually activate even if bAutoActivate is true.
+	 * @see AutoAttachParent, AutoAttachSocketName, AutoAttachLocationType
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Attachment)
+	uint32 bAutoManageAttachment:1;
+
+private:
+	/** Did we auto attach during activation? Used to determine if we should restore the relative transform during detachment. */
+	uint32 bDidAutoAttach:1;
+
+	/** Restore relative transform from auto attachment and optionally detach from parent (regardless of whether it was an auto attachment). */
+	void CancelAutoAttachment(bool bDetachFromParent);
+
+public:
+
+	/**
 	 *	Array holding name instance parameters for this ParticleSystemComponent.
 	 *	Parameters can be used in Cascade using DistributionFloat/VectorParticleParameters.
 	 */
@@ -444,6 +473,76 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnSystemFinished OnSystemFinished;
 
+public:
+	/**
+	 * Component we automatically attach to when activated, if bAutoManageAttachment is true.
+	 * If null during registration, we assign the existing AttachParent and defer attachment until we activate.
+	 * @see bAutoManageAttachment
+	 */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category=Attachment, meta=(EditCondition="bAutoManageAttachment"))
+	TWeakObjectPtr<USceneComponent> AutoAttachParent;
+
+	/**
+	 * Socket we automatically attach to on the AutoAttachParent, if bAutoManageAttachment is true.
+	 * @see bAutoManageAttachment
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attachment, meta=(EditCondition="bAutoManageAttachment"))
+	FName AutoAttachSocketName;
+
+	/**
+	 * Options for how we handle our location when we attach to the AutoAttachParent, if bAutoManageAttachment is true.
+	 * @see bAutoManageAttachment, EAttachLocation::Type
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attachment, meta=(EditCondition="bAutoManageAttachment"))
+	TEnumAsByte<EAttachLocation::Type> AutoAttachLocationType;
+
+	/**
+	 * Set AutoAttachParent, AutoAttachSocketName, AutoAttachLocationType to the specified parameters. Does not change bAutoManageAttachment; that must be set separately.
+	 * @param  Parent			Component to attach to. 
+	 * @param  SocketName		Socket on Parent to attach to.
+	 * @param  LocationType		Option for how we handle our location when we attach to Parent.
+	 * @see bAutoManageAttachment, AutoAttachParent, AutoAttachSocketName, AutoAttachLocationType
+	 */
+	UFUNCTION(BlueprintCallable, Category="Effects|Components|ParticleSystem")
+	void SetAutoAttachParams(USceneComponent* Parent, FName SocketName = NAME_None, EAttachLocation::Type LocationType = EAttachLocation::KeepRelativeOffset);
+
+private:
+
+	/** Saved relative transform before auto attachement. Used during detachment to restore the transform if we had automatically attached. */
+	FVector SavedAutoAttachRelativeLocation;
+	FRotator SavedAutoAttachRelativeRotation;
+	FVector SavedAutoAttachRelativeScale3D;
+
+private:
+	/** Cached copy of the transform for async work */
+	FTransform AsyncComponentToWorld;
+	/** Cached copy of the instance params */
+	TArray<struct FParticleSysParam> AsyncInstanceParameters;
+	/** Is AsyncComponentToWorld etc valid? */
+	bool bAsyncDataCopyIsValid;
+	bool bParallelRenderThreadUpdate;
+public:
+
+	FORCEINLINE const FTransform& GetAsyncComponentToWorld()
+	{
+		if (!bParallelRenderThreadUpdate && !IsInGameThread())
+		{
+			check(bAsyncDataCopyIsValid); 
+			return AsyncComponentToWorld;
+		}
+		return ComponentToWorld;
+	}
+
+	FORCEINLINE const TArray<struct FParticleSysParam>& GetAsyncInstanceParameters()
+	{
+		if (!bParallelRenderThreadUpdate && !IsInGameThread())
+		{
+			check(bAsyncDataCopyIsValid); 
+			return AsyncInstanceParameters;
+		}
+		return InstanceParameters;
+	}
+
 	//
 	//	Beam-related script functions.
 	//
@@ -581,6 +680,17 @@ public:
 	virtual bool GetVectorParameter(const FName InName, FVector& OutVector);
 
 	/**
+	 *	Retrieve the Vector parameter value for the given name...also looks for colors and floats and returns those
+	 *
+	 *	@param	InName		Name of the parameter
+	 *	@param	OutVector	The value of the parameter found
+	 *
+	 *	@return	true		Parameter was found - OutVector is valid
+	 *			false		Parameter was not found - OutVector is invalid
+	 */
+	virtual bool GetAnyVectorParameter(const FName InName, FVector& OutVector);
+
+	/**
 	 *	Retrieve the Color parameter value for the given name.
 	 *
 	 *	@param	InName		Name of the parameter
@@ -627,13 +737,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Effects|Components|ParticleSystem")
 	int32 GetNumActiveParticles() const;
 
+
+	/** Array of trail emitters. */
+	typedef TArray< struct FParticleAnimTrailEmitterInstance*, TInlineAllocator<8> > TrailEmitterArray;
+
 	/**
 	* Fills the passed array with all trail emitters associated with a particular object.
 	* @param OutTrailEmitters	The array to fill with pointers to the trail emitters.
 	* @param InOwner			The object that triggered this trail. Can be NULL if no assosiation was set by the owner. Not to be confused with the result of GetOwner().
 	* @param bSetOwner			If true, all trail emitters will be set as owned by InOwner.
 	*/
-	virtual void GetOwnedTrailEmitters(TArray< struct FParticleAnimTrailEmitterInstance* >& OutTrailEmitters, const void* InOwner, bool bSetOwner = false);
+	virtual void GetOwnedTrailEmitters(TrailEmitterArray& OutTrailEmitters, const void* InOwner, bool bSetOwner = false);
 	
 	/**
 	* Begins all trail emitters in this component.
@@ -680,9 +794,16 @@ private:
 	int32 TotalActiveParticles;
 	/** If true, it means the ASync work is done and the finalize is not */
 	bool bNeedsFinalize;
+	/** If true, it means the Async work is in process and not yet completed */
+	bool bAsyncWorkOutstanding;
+	/** This flag is only valid during finalize. It is sent back from the potentially async task to indicate that all emitters are finished */
+	bool bAllEmittersFinished;
+	/** Time in ms since a tick was last performed; used with MinTimeBetweenTicks (on UParticleSystem) to control tick rate */
+	uint32 TimeSinceLastTick;
+
 public:
 
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 #endif
@@ -699,7 +820,7 @@ protected:
 	virtual void OnUnregister()  override;
 	virtual void SendRenderDynamicData_Concurrent() override;
 public:
-	// End UActorComponent interface.
+	//~ End UActorComponent Interface.
 
 	enum EForceAsyncWorkCompletion
 	{
@@ -722,12 +843,13 @@ public:
 	  */
 	int32 GetCurrentDetailMode() const;
 
-private:
 	/** Possibly parallel phase of TickComponent **/
 	void ComputeTickComponent_Concurrent();
 
 	/** After the possibly parallel phase of TickComponent, we fire events, etc **/
 	void FinalizeTickComponent();
+
+private:
 	/** Wait on the async task and call finalize on the tick **/
 	void WaitForAsyncAndFinalize(EForceAsyncWorkCompletion Behavior) const;
 
@@ -736,7 +858,7 @@ private:
 
 public:
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
 	virtual void FinishDestroy() override;
@@ -747,7 +869,7 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	virtual FString GetDetailedInfoInternal() const override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	//Begin UPrimitiveComponent Interface
 	virtual int32 GetNumMaterials() const override; 
@@ -758,7 +880,7 @@ public:
 	virtual void GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const override;
 	//End UPrimitiveComponent Interface
 
-	// Begin USceneComonent Interface
+	//~ Begin USceneComonent Interface
 protected:
 	virtual bool ShouldActivate() const override;
 
@@ -766,7 +888,7 @@ public:
 	virtual void Activate(bool bReset=false) override;
 	virtual void Deactivate() override;
 	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
-	// End USceneComponent Interface
+	//~ End USceneComponent Interface
 
 	/** Activate the system */
 	void ActivateSystem(bool bFlagAsJustAttached = false);
@@ -792,14 +914,14 @@ public:
 	* @param Name - The slot name of the material to replace.  If invalid, the material is unchanged and NULL is returned.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Material")
-	virtual class UMaterialInstanceDynamic* CreateNamedDynamicMaterialInstance(FName Name, class UMaterialInterface* SourceMaterial = NULL);
+	virtual class UMaterialInstanceDynamic* CreateNamedDynamicMaterialInstance(FName InName, class UMaterialInterface* SourceMaterial = NULL);
 
 	/** Returns a named material. If this named material is not found, returns NULL. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Material")
-	virtual class UMaterialInterface* GetNamedMaterial(FName Name) const;
+	virtual class UMaterialInterface* GetNamedMaterial(FName InName) const;
 
 	/** Returns the index into the EmitterMaterials array for this named. If there are no named material slots or this material is not found, INDEX_NONE is returned. */
-	virtual int32 GetNamedMaterialIndex(FName Name) const;
+	virtual int32 GetNamedMaterialIndex(FName InName) const;
 
 protected:
 
@@ -1003,4 +1125,13 @@ private:
 };
 
 
+//////////////////////////////////////////////////////////////////////////
+// ParticleSystemComponent inlines
+
+FORCEINLINE_DEBUGGABLE void UParticleSystemComponent::SetAutoAttachParams(USceneComponent* Parent, FName SocketName, EAttachLocation::Type LocationType)
+{
+	AutoAttachParent = Parent;
+	AutoAttachSocketName = SocketName;
+	AutoAttachLocationType = LocationType;
+}
 

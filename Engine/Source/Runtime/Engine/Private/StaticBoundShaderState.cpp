@@ -25,14 +25,14 @@ FGlobalBoundShaderStateResource::FGlobalBoundShaderStateResource()
 	// Add this resource to the global list in the rendering thread.
 	if(IsInRenderingThread())
 	{
-		GlobalListLink.Link(GetGlobalBoundShaderStateList());
+		GlobalListLink.LinkHead(GetGlobalBoundShaderStateList());
 	}
 	else
 	{
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 			LinkGlobalBoundShaderStateResource,FGlobalBoundShaderStateResource*,Resource,this,
 			{
-				Resource->GlobalListLink.Link(GetGlobalBoundShaderStateList());
+				Resource->GlobalListLink.LinkHead(GetGlobalBoundShaderStateList());
 			});
 	}
 }
@@ -108,12 +108,6 @@ static FBoundShaderStateRHIParamRef GetGlobalBoundShaderState_Internal(FGlobalBo
 {
 	auto WorkArea = GlobalBoundShaderState.Get(InFeatureLevel);
 
-	// Check for unset uniform buffer parameters
-	// Technically you can set uniform buffer parameters after calling RHISetBoundShaderState, but this is the most global place to check for unset parameters
-	WorkArea->Args.VertexShader->VerifyBoundUniformBufferParameters();
-	WorkArea->Args.PixelShader->VerifyBoundUniformBufferParameters();
-	WorkArea->Args.GeometryShader->VerifyBoundUniformBufferParameters();
-
 	FGlobalBoundShaderState_Internal* BSS = WorkArea->BSS;
 	bool bNewBSS = false;
 	if (!BSS)
@@ -125,7 +119,7 @@ static FBoundShaderStateRHIParamRef GetGlobalBoundShaderState_Internal(FGlobalBo
 		WorkArea->Args.VertexDeclarationRHI,
 		GETSAFERHISHADER_VERTEX(WorkArea->Args.VertexShader),
 		GETSAFERHISHADER_PIXEL(WorkArea->Args.PixelShader),
-		(FGeometryShaderRHIParamRef)GETSAFERHISHADER_GEOMETRY(WorkArea->Args.GeometryShader));
+		GETSAFERHISHADER_GEOMETRY(WorkArea->Args.GeometryShader));
 	if (bNewBSS)
 	{
 		FPlatformMisc::MemoryBarrier();
@@ -235,6 +229,7 @@ void SetGlobalBoundShaderState(
 	// We need to do this on the render thread
 
 	FRHICommandList* CmdList = new FRHICommandList;
+	CmdList->CopyRenderThreadContexts(RHICmdList);
 	FGraphEventRef RenderThreadCompletionEvent = TGraphTask<FSetGlobalBoundShaderStateRenderThreadTask>::CreateTask().ConstructAndDispatchWhenReady(*CmdList, GlobalBoundShaderState, FeatureLevel);
 	RHICmdList.QueueRenderThreadCommandListSubmit(RenderThreadCompletionEvent, CmdList);
 }

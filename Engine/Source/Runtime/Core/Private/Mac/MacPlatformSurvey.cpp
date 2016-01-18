@@ -185,7 +185,7 @@ void FMacPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResults 
 		OutResults.CPUCount = 0;
 	}
 
-	ISynthBenchmark::Get().Run(OutResults.SynthBenchmark);
+	ISynthBenchmark::Get().Run(OutResults.SynthBenchmark, true, 5.f);
 
 	// Get CPU speed
 	if (OutResults.CPUCount > 0)

@@ -10,13 +10,13 @@ class ULandscapeGizmoRenderComponent : public UPrimitiveComponent
 	GENERATED_UCLASS_BODY()
 
 
-	// Begin UPrimitiveComponent Interface
+	//~ Begin UPrimitiveComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-	// End UPrimitiveComponent Interface
+	//~ End UPrimitiveComponent Interface
 
-	// Begin USceneComponent interface.
+	//~ Begin USceneComponent Interface.
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	// End USceneComponent interface.
+	//~ End USceneComponent Interface.
 };
 
 

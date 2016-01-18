@@ -10,7 +10,7 @@
  *****************************************************************************/
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SSessionConsoleFilterBar::Construct( const FArguments& InArgs )
+void SSessionConsoleFilterBar::Construct(const FArguments& InArgs)
 {
 	OnFilterChanged = InArgs._OnFilterChanged;
 
@@ -100,7 +100,7 @@ void SSessionConsoleFilterBar::Construct( const FArguments& InArgs )
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
-bool SSessionConsoleFilterBar::FilterLogMessage( const FSessionLogMessageRef& LogMessage )
+bool SSessionConsoleFilterBar::FilterLogMessage(const FSessionLogMessageRef& LogMessage)
 {
 	// create or update category counter
 	int32& CategoryCounter = CategoryCounters.FindOrAdd(LogMessage->Category);
@@ -144,7 +144,7 @@ void SSessionConsoleFilterBar::ResetFilter()
 /* SSessionConsoleFilterBar implementation
  *****************************************************************************/
 
-void SSessionConsoleFilterBar::AddCategoryFilter( const FName& Category )
+void SSessionConsoleFilterBar::AddCategoryFilter(const FName& Category)
 {
 	CategoriesList.Add(MakeShareable(
 		new FSessionConsoleCategoryFilter(Category,
@@ -157,7 +157,7 @@ void SSessionConsoleFilterBar::AddCategoryFilter( const FName& Category )
 }
 
 
-void SSessionConsoleFilterBar::AddVerbosityFilter( ELogVerbosity::Type Verbosity, const FString& Name, const FName& Icon )
+void SSessionConsoleFilterBar::AddVerbosityFilter(ELogVerbosity::Type Verbosity, const FString& Name, const FName& Icon)
 {
 	VerbositiesList.Add(MakeShareable(
 		new FSessionConsoleVerbosityFilter(Verbosity, FEditorStyle::GetBrush(Icon), true, Name,
@@ -170,7 +170,7 @@ void SSessionConsoleFilterBar::AddVerbosityFilter( ELogVerbosity::Type Verbosity
 /* SSessionConsoleFilterBar callbacks
  *****************************************************************************/
 
-TSharedRef<ITableRow> SSessionConsoleFilterBar::HandleCategoryFilterGenerateRow( FSessionConsoleCategoryFilterPtr Filter, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SSessionConsoleFilterBar::HandleCategoryFilterGenerateRow(FSessionConsoleCategoryFilterPtr Filter, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(STableRow<FSessionConsoleCategoryFilterPtr>, OwnerTable)
 		[
@@ -186,13 +186,13 @@ TSharedRef<ITableRow> SSessionConsoleFilterBar::HandleCategoryFilterGenerateRow(
 }
 
 
-FText SSessionConsoleFilterBar::HandleCategoryFilterGetRowText( FSessionConsoleCategoryFilterPtr Filter ) const
+FText SSessionConsoleFilterBar::HandleCategoryFilterGetRowText(FSessionConsoleCategoryFilterPtr Filter) const
 {
 	return FText::Format(LOCTEXT("CategoryFilterRowFmt", "{0} ({1})"), FText::FromName(Filter->GetCategory()), FText::AsNumber(CategoryCounters.FindRef(Filter->GetCategory())));
 }
 
 
-void SSessionConsoleFilterBar::HandleCategoryFilterStateChanged( const FName& Category, bool Enabled )
+void SSessionConsoleFilterBar::HandleCategoryFilterStateChanged(const FName& Category, bool Enabled)
 {
 	if (Enabled)
 	{
@@ -207,25 +207,25 @@ void SSessionConsoleFilterBar::HandleCategoryFilterStateChanged( const FName& Ca
 }
 
 
-void SSessionConsoleFilterBar::HandleFilterStringTextChanged( const FText& NewText )
+void SSessionConsoleFilterBar::HandleFilterStringTextChanged(const FText& NewText)
 {
 	OnFilterChanged.ExecuteIfBound();
 }
 
 
-void SSessionConsoleFilterBar::HandleHighlightOnlyCheckBoxCheckStateChanged( ECheckBoxState CheckedState )
+void SSessionConsoleFilterBar::HandleHighlightOnlyCheckBoxCheckStateChanged(ECheckBoxState CheckedState)
 {
 	OnFilterChanged.ExecuteIfBound();
 }
 
 
-FText SSessionConsoleFilterBar::HandleVerbosityFilterGetRowText( FSessionConsoleVerbosityFilterPtr Filter ) const
+FText SSessionConsoleFilterBar::HandleVerbosityFilterGetRowText(FSessionConsoleVerbosityFilterPtr Filter) const
 {
 	return FText::Format(LOCTEXT("VerbosityFilterRowFmt", "{0} ({1})"), FText::FromString(Filter->GetName()), FText::AsNumber(VerbosityCounters.FindRef(Filter->GetVerbosity())));
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-TSharedRef<ITableRow> SSessionConsoleFilterBar::HandleVerbosityFilterGenerateRow( FSessionConsoleVerbosityFilterPtr Filter, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SSessionConsoleFilterBar::HandleVerbosityFilterGenerateRow(FSessionConsoleVerbosityFilterPtr Filter, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(STableRow<FSessionConsoleVerbosityFilterPtr>, OwnerTable)
 		[
@@ -259,7 +259,7 @@ TSharedRef<ITableRow> SSessionConsoleFilterBar::HandleVerbosityFilterGenerateRow
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-void SSessionConsoleFilterBar::HandleVerbosityFilterStateChanged( ELogVerbosity::Type Verbosity, bool Enabled )
+void SSessionConsoleFilterBar::HandleVerbosityFilterStateChanged(ELogVerbosity::Type Verbosity, bool Enabled)
 {
 	if (Enabled)
 	{

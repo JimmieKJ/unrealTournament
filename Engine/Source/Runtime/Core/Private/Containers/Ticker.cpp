@@ -42,34 +42,6 @@ void FTicker::RemoveTicker(FDelegateHandle Handle)
 	}
 }
 
-void FTicker::RemoveTicker(const FTickerDelegate& Delegate)
-{
-	// deprecated version also has to check both arrays (see overload for rationale)
-	for (int32 Index = Elements.Num() - 1; Index >= 0; --Index)
-	{
-		if (Elements[Index].Delegate.DEPRECATED_Compare(Delegate))
-		{
-			Elements.RemoveAtSwap(Index);
-		}
-	}
-	for (int32 Index = TickedElements.Num() - 1; Index >= 0; --Index)
-	{
-		if (TickedElements[Index].Delegate.DEPRECATED_Compare(Delegate))
-		{
-			TickedElements.RemoveAtSwap(Index);
-		}
-	}
-	// if we are ticking, we must check for the edge case of the CurrentElement removing itself.
-	if (bInTick)
-	{
-		if (CurrentElement.Delegate.DEPRECATED_Compare(Delegate))
-		{
-			// Technically it's possible for someone to try to remove CurrentDelegate multiple times, so make sure we never set this value to false in here.
-			bCurrentElementRemoved = true;
-		}
-	}
-}
-
 void FTicker::Tick(float DeltaTime)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FTicker_Tick);

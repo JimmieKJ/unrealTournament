@@ -35,22 +35,16 @@ protected:
 	TSharedRef<SWidget> GetToolSelector();
 	bool GetToolSelectorIsVisible() const;
 	EVisibility GetToolSelectorVisibility() const;
-	void OnChangeTool(FName ToolName);
-	bool IsToolEnabled(FName ToolName) const;
 
 	FText GetCurrentBrushName() const;
 	FSlateIcon GetCurrentBrushIcon() const;
 	TSharedRef<SWidget> GetBrushSelector();
 	bool GetBrushSelectorIsVisible() const;
-	void OnChangeBrushSet(FName BrushSetName);
-	bool IsBrushSetEnabled(FName BrushSetName) const;
 
 	FText GetCurrentBrushFalloffName() const;
 	FSlateIcon GetCurrentBrushFalloffIcon() const;
 	TSharedRef<SWidget> GetBrushFalloffSelector();
 	bool GetBrushFalloffSelectorIsVisible() const;
-	void OnChangeBrush(FName BrushName);
-	bool IsBrushActive(FName BrushName) const;
 
 	TSharedPtr<FUICommandList> CommandList;
 

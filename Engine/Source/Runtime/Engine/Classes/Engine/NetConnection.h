@@ -10,23 +10,22 @@
 #include "Engine/Channel.h"
 #include "Engine/Player.h"
 #include "Engine/NetDriver.h"
+#include "Runtime/PacketHandlers/PacketHandler/Public/PacketHandler.h"
 
 #include "NetConnection.generated.h"
 
 class FObjectReplicator;
+class FUniqueNetId;
 
 /*-----------------------------------------------------------------------------
 	Types.
 -----------------------------------------------------------------------------*/
-
-// Up to this many reliable channel bunches may be buffered.
-enum {RELIABLE_BUFFER         = 256   }; // Power of 2 >= 1.
-enum {MAX_PACKETID            = 16384 }; // Power of 2 >= 1, covering guaranteed loss/misorder time.
-enum {MAX_CHSEQUENCE          = 1024  }; // Power of 2 >RELIABLE_BUFFER, covering loss/misorder time.
-enum {MAX_BUNCH_HEADER_BITS   = 64    };
-enum {MAX_PACKET_HEADER_BITS  = 16    };
-enum {MAX_PACKET_TRAILER_BITS = 1     };
-
+enum { RELIABLE_BUFFER = 256 }; // Power of 2 >= 1.
+enum { MAX_PACKETID = 16384 };  // Power of 2 >= 1, covering guaranteed loss/misorder time.
+enum { MAX_CHSEQUENCE = 1024 }; // Power of 2 >RELIABLE_BUFFER, covering loss/misorder time.
+enum { MAX_BUNCH_HEADER_BITS = 64 };
+enum { MAX_PACKET_HEADER_BITS = 16 };
+enum { MAX_PACKET_TRAILER_BITS = 1 };
 
 class UNetDriver;
 
@@ -45,6 +44,40 @@ enum EConnectionState
 	USOCK_Pending	= 2, // Connection is awaiting connection.
 	USOCK_Open      = 3, // Connection is open.
 };
+
+// 
+// Security event types used for UE_SECURITY_LOG
+//
+namespace ESecurityEvent
+{ 
+	enum Type
+	{
+		Malformed_Packet = 0, // The packet didn't follow protocol
+		Invalid_Data = 1,     // The packet contained invalid data
+		Closed = 2            // The connection had issues (potentially malicious) and was closed
+	};
+	
+	/** @return the stringified version of the enum passed in */
+	inline const TCHAR* ToString(const ESecurityEvent::Type EnumVal)
+	{
+		switch (EnumVal)
+		{
+			case Malformed_Packet:
+			{
+				return TEXT("Malformed_Packet");
+			}
+			case Invalid_Data:
+			{
+				return TEXT("Invalid_Data");
+			}
+			case Closed:
+			{
+				return TEXT("Closed");
+			}
+		}
+		return TEXT("");
+	}
+}
 
 /** If this connection is from a client, this is the current login state of this connection/login attempt */
 namespace EClientLoginState
@@ -89,13 +122,6 @@ struct DelayedPacket
 };
 #endif
 
-// The interval between ack packets, which is used to decide which acks are used for ping validation checks (must be power of two)
-#define PING_ACK_PACKET_INTERVAL 16
-
-// Used by the client, for setting a minimum delay between PingAck's
-//	(optionally, 'PING_ACK_PACKET_INTERVAL' can be tweaked, so that the interval checks take a similar amount of time as this delay)
-#define PING_ACK_DELAY 0.5
-
 
 UCLASS(customConstructor, Abstract, MinimalAPI, transient, config=Engine)
 class UNetConnection : public UPlayer
@@ -108,7 +134,7 @@ class UNetConnection : public UPlayer
 
 	/** Owning net driver */
 	UPROPERTY()
-	class UNetDriver* Driver;					
+	class UNetDriver* Driver;	
 
 	UPROPERTY()
 	/** Package map between local and remote. (negotiates net serialization) */
@@ -171,12 +197,15 @@ public:
 
 	EConnectionState	State;					// State this connection is in.
 	
-	uint32 bPendingDestroy:1;    // when true, playercontroller is being destroyed
+	uint32 bPendingDestroy:1;    // when true, playercontroller or beaconclient is being destroyed
+
+	// Packet Handler
+	TUniquePtr<PacketHandler> Handler;
 
 	/** Whether this channel needs to byte swap all data or not */
 	bool			bNeedsByteSwapping;
 	/** Net id of remote player on this connection. Only valid on client connections. */
-	TSharedPtr<class FUniqueNetId> PlayerId;
+	TSharedPtr<const FUniqueNetId> PlayerId;
 
 	// Negotiated parameters.
 	int32			PacketOverhead;			// Bytes overhead per packet sent.
@@ -196,6 +225,8 @@ public:
 	// Internal.
 	UPROPERTY()
 	double			LastReceiveTime;		// Last time a packet was received, for timeout checking.
+	double			LastReceiveRealtime;	// Last time a packet was received, using real time seconds (FPlatformTime::Seconds)
+	double			LastGoodPacketRealtime;	// Last real time a packet was considered valid
 	double			LastSendTime;			// Last time a packet was sent, for keepalives.
 	double			LastTickTime;			// Last time of polling.
 	int32			QueuedBytes;			// Bytes assumed to be queued up.
@@ -228,8 +259,10 @@ public:
 	double			CumulativeTime, AverageFrameTime; 
 	/** @todo document */
 	int32			CountedFrames;
-	/** bytes sent/received on this connection */
+	/** bytes sent/received on this connection (accumulated during a StatPeriod) */
 	int32 InBytes, OutBytes;
+	/** bytes sent/received on this connection (per second) - these are from previous StatPeriod interval */
+	int32 InBytesPerSecond, OutBytesPerSecond;
 	/** packets lost on this connection */
 	int32 InPacketsLost, OutPacketsLost;
 
@@ -241,9 +274,7 @@ public:
 	int32			OutPacketId;			// Most recently sent packet.
 	int32 			OutAckPacketId;			// Most recently acked outgoing packet.
 
-	uint32			PingAckDataCache[MAX_PACKETID/PING_ACK_PACKET_INTERVAL];	// Caches packet data on the server, for verifying pings
-	float			LastPingAck;												// The time of the most recent PingAck on the client
-	int32			LastPingAckPacketId;										// The PacketId of the last PingAck, on the server
+	bool			bLastHasServerFrameTime;
 
 	// Channel table.
 	class UChannel*		Channels		[ MAX_CHANNELS ];
@@ -321,7 +352,7 @@ public:
 	 *
 	 * @return true if it should be sent on this connection, false otherwise
 	 */
-	bool ShouldReplicateVoicePacketFrom(const FUniqueNetId& Sender);
+	ENGINE_API bool ShouldReplicateVoicePacketFrom(const FUniqueNetId& Sender);
 	
 	/**
 	 * @hack: set to net connection currently inside CleanUp(), for HasClientLoadedCurrentWorld() to be able to find it during PlayerController
@@ -332,7 +363,7 @@ public:
 	// Constructors and destructors.
 	ENGINE_API UNetConnection(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 
 	ENGINE_API virtual void Serialize( FArchive& Ar ) override;
 
@@ -340,14 +371,21 @@ public:
 
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
-	// End UObject interface.
+	/**
+	 * Get the world the connection belongs to
+	 *
+	 * @return  Returns the world of the net driver, or the owning actor on this connection
+	 */
+	ENGINE_API virtual UWorld* GetWorld() const override;
+
+	//~ End UObject Interface.
 
 
-	// Begin FExec interface.
+	//~ Begin FExec Interface.
 
 	ENGINE_API virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar=*GLog ) override;
 
-	// End FExec interface.
+	//~ End FExec Interface.
 
 	/** read input */
 	void ReadInput( float DeltaSeconds );
@@ -369,6 +407,9 @@ public:
 	/** @return the description of connection */
 	virtual FString LowLevelDescribe() PURE_VIRTUAL(UNetConnection::LowLevelDescribe,return TEXT(""););
 
+	/** Describe the connection. */
+	ENGINE_API virtual FString Describe();
+
 	/**
 	 * Sends a byte stream to the remote endpoint using the underlying socket
 	 *
@@ -387,7 +428,7 @@ public:
 	ENGINE_API virtual void AssertValid();
 
 	/** Send an acknowledgment. */
-	ENGINE_API virtual void SendAck( int32 PacketId, bool FirstTime=1, bool bHavePingAckData=0, uint32 PingAckData=0 );
+	ENGINE_API virtual void SendAck( int32 PacketId, bool FirstTime=1);
 
 	/**
 	 * flushes any pending data, bundling it into a packet and sending it via LowLevelSend()
@@ -473,8 +514,16 @@ public:
 	 * @param InURL the URL to init with
 	 * @param InConnectionSpeed Optional connection speed override
 	 */
-	ENGINE_API virtual void InitConnection(UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed=0);
+	ENGINE_API virtual void InitConnection(UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed=0, int32 InMaxPacket=0);
 
+
+	/** 
+	* Gets a unique ID for the connection, this ID depends on the underlying connection
+	* For IP connections this is an IP Address and port, for steam this is a SteamID
+	*/
+	ENGINE_API virtual FString RemoteAddressToString() PURE_VIRTUAL(UNetConnection::RemoteAddressToString, return TEXT("Error"););
+	
+	
 	// Functions.
 
 	/** Resend any pending acks. */
@@ -550,7 +599,7 @@ public:
 	/**
 	 * @return Finds the voice channel for this connection or NULL if none
 	 */
-	class UVoiceChannel* GetVoiceChannel();
+	ENGINE_API class UVoiceChannel* GetVoiceChannel();
 
 	void FlushDormancy(class AActor* Actor);
 
@@ -572,9 +621,30 @@ public:
 	 */
 	ENGINE_API bool TrackLogsPerSecond();
 
+	/**
+	* Return current timeout value that should be used
+	*/
+	float GetTimeoutValue();
+
+	/** Adds the channel to the ticking channels list. USed to selectively tick channels that have queued bunches or are pending dormancy. */
+	void StartTickingChannel(UChannel* Channel) { ChannelsToTick.AddUnique(Channel); }
+
+	/** Removes a channel from the ticking list directly */
+	void StopTickingChannel(UChannel* Channel) { ChannelsToTick.Remove(Channel); }
+
 protected:
 
 	void CleanupDormantActorState();
+
+private:
+	/**
+	 * The channels that need ticking. This will be a subset of OpenChannels, only including
+	 * channels that need to process either dormancy or queued bunches. Should be a significant
+	 * optimization over ticking and calling virtual functions on the potentially hundreds of
+	 * OpenChannels every frame.
+	 */
+	UPROPERTY()
+	TArray<UChannel*> ChannelsToTick;
 };
 
 

@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>AutomationScripts.Automation</RootNamespace>
     <AssemblyName>AutomationScripts.Automation</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -73,7 +73,7 @@
     <Compile Include="DeployCommand.Automation.cs" />
     <Compile Include="FixupRedirects.Automation.cs" />
     <Compile Include="GenerateDSYM.Automation.cs" />
-    <Compile Include="GUBP.Automation.cs" />
+    <Compile Include="RebuildLightMapsCommand.Automation.cs" />
     <Compile Include="RocketBuild.Automation.cs" />
     <Compile Include="IPhonePackager.Automation.cs" />
     <Compile Include="LauncherLocalization.Automation.cs" />
@@ -92,14 +92,19 @@
     <Compile Include="UpdateLocalVersion.Automation.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\AutomationTool.csproj">
-      <Project>{a35b0261-d868-475e-a098-eb14ce6dc89f}</Project>
-      <Name>AutomationTool</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\UnrealBuildTool\UnrealBuildTool.csproj">
       <Project>{fd7c5e1a-cfe4-4fd5-a525-1eb1599a39ac}</Project>
       <Name>UnrealBuildTool</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\AutomationUtils\AutomationUtils.Automation.csproj">
+      <Project>{2c96a7f2-b1a3-4258-8e0a-e588ff41a53e}</Project>
+      <Name>AutomationUtils.Automation</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\GUBP\GUBP.Automation.csproj">
+      <Project>{9a1a118b-37fc-4f33-bbf4-b431b6e3b3ac}</Project>
+      <Name>GUBP.Automation</Name>
       <Private>False</Private>
     </ProjectReference>
   </ItemGroup>

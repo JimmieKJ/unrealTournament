@@ -32,7 +32,7 @@ public:
 			, HAlignment(HAlign_Fill)
 			, VAlignment(VAlign_Fill)
 			, SlotPadding(0.0f)
- 			, ZOrder(0)
+			, ZOrder(0)
 		{ }
 
 		FOverlaySlot& HAlign( EHorizontalAlignment InHAlignment )
@@ -78,7 +78,7 @@ public:
 		TAttribute< FMargin > SlotPadding;
 
 		/** Slots with larger ZOrder values will draw above slots with smaller ZOrder values.  Slots
-		    with the same ZOrder will simply draw in the order they were added.  Currently this only
+			with the same ZOrder will simply draw in the order they were added.  Currently this only
 			works for overlay slots that are added dynamically with AddWidget() and RemoveWidget() */
 		int32 ZOrder;
 	};
@@ -94,10 +94,6 @@ public:
 	SLATE_END_ARGS()
 
 	SOverlay();
-
-	virtual ~SOverlay()
-	{
-	}
 
 	/**
 	 * Construct this widget.

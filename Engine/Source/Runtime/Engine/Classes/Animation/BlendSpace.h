@@ -44,12 +44,12 @@ public:
 	ENGINE_API void GetGridSamplesFromBlendInput(const FVector &BlendInput, FGridBlendSample & LeftBottom, FGridBlendSample & RightBottom, FGridBlendSample & LeftTop, FGridBlendSample& RightTop) const;
 
 protected:
-	// Begin UBlendSpaceBase interface
+	//~ Begin UBlendSpaceBase Interface
 	virtual void SnapToBorder(FBlendSample& Sample) const override;
 	virtual EBlendSpaceAxis GetAxisToScale() const override;
 	virtual bool IsSameSamplePoint(const FVector& SamplePointA, const FVector& SamplePointB) const override;
-	virtual void GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample> & OutBlendSamples) const override;
-	// End UBlendSpaceBase interface
+	virtual void GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample, TInlineAllocator<4> > & OutBlendSamples) const override;
+	//~ End UBlendSpaceBase Interface
 
 private:
 	/** 

@@ -19,7 +19,6 @@
 #include "SNumericEntryBox.h"
 #include "Curves/CurveVector.h"
 
-
 #define NGED_SECTION_BORDER SNew(SBorder).BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder")).Padding(2.0f).HAlign(HAlign_Left)
 #define NGED_SECTION_LIGHTBORDER SNew(SBorder).BorderImage(FEditorStyle::GetBrush("ToolPanel.LightGroupBorder")).Padding(2.0f).HAlign(HAlign_Left)
 #define NGED_SECTION_DARKBORDER SNew(SBorder).BorderImage(FEditorStyle::GetBrush("ToolPanel.DarkGroupBorder")).Padding(2.0f).HAlign(HAlign_Left)
@@ -33,23 +32,21 @@ class SVectorConstantWidget : public SCompoundWidget, public FNotifyHook
 {
 private:	
 	FName ConstantName;
-	TSharedPtr<FNiagaraSimulation> Emitter;
-
-	//SNumericEntryBox<float> XText, YText, ZText, WText;
+	FNiagaraEmitterScriptProperties* ScriptProps;
 
 public:
 	SLATE_BEGIN_ARGS(SVectorConstantWidget) :
-	_Emitter(nullptr),
+	_ScriptProps(nullptr),
 	_ConstantName("Undefined")
 	{
 	}
-	SLATE_ARGUMENT(TSharedPtr<FNiagaraSimulation>, Emitter)
+	SLATE_ARGUMENT(FNiagaraEmitterScriptProperties*, ScriptProps)
 	SLATE_ARGUMENT(FName, ConstantName)
 	SLATE_END_ARGS()
 
 	TOptional<float> GetConstX() const	
 	{
-		const FVector4 *ConstPtr = Emitter->GetProperties()->ExternalConstants.FindVector(ConstantName);
+		const FVector4 *ConstPtr = ScriptProps->ExternalConstants.FindVector(ConstantName);
 		if (ConstPtr)
 		{
 			return ConstPtr->X;
@@ -59,7 +56,7 @@ public:
 
 	TOptional<float> GetConstY() const
 	{
-		const FVector4 *ConstPtr = Emitter->GetProperties()->ExternalConstants.FindVector(ConstantName);
+		const FVector4 *ConstPtr = ScriptProps->ExternalConstants.FindVector(ConstantName);
 		if (ConstPtr)
 		{
 			return ConstPtr->Y;
@@ -69,7 +66,7 @@ public:
 
 	TOptional<float> GetConstZ() const
 	{
-		const FVector4 *ConstPtr = Emitter->GetProperties()->ExternalConstants.FindVector(ConstantName);
+		const FVector4 *ConstPtr = ScriptProps->ExternalConstants.FindVector(ConstantName);
 		if (ConstPtr)
 		{
 			return ConstPtr->Z;
@@ -79,7 +76,7 @@ public:
 
 	TOptional<float> GetConstW() const
 	{
-		const FVector4 *ConstPtr = Emitter->GetProperties()->ExternalConstants.FindVector(ConstantName);
+		const FVector4 *ConstPtr = ScriptProps->ExternalConstants.FindVector(ConstantName);
 		if (ConstPtr)
 		{
 			return ConstPtr->W;
@@ -95,33 +92,33 @@ public:
 	void OnConstantChangedX(float InVal, ETextCommit::Type Type)
 	{
 		FVector4 Constant(InVal, GetConstY().GetValue(), GetConstZ().GetValue(), GetConstW().GetValue());
-		Emitter->GetProperties()->ExternalConstants.SetOrAdd(ConstantName, Constant);
+		ScriptProps->ExternalConstants.SetOrAdd(ConstantName, Constant);
 	}
 
 	void OnConstantChangedY(float InVal, ETextCommit::Type Type)
 	{
 		FVector4 Constant(GetConstX().GetValue(), InVal, GetConstZ().GetValue(), GetConstW().GetValue());
-		Emitter->GetProperties()->ExternalConstants.SetOrAdd(ConstantName, Constant);
+		ScriptProps->ExternalConstants.SetOrAdd(ConstantName, Constant);
 	}
 
 	void OnConstantChangedZ(float InVal, ETextCommit::Type Type)
 	{
 		FVector4 Constant(GetConstX().GetValue(), GetConstY().GetValue(), InVal, GetConstW().GetValue());
-		Emitter->GetProperties()->ExternalConstants.SetOrAdd(ConstantName, Constant);
+		ScriptProps->ExternalConstants.SetOrAdd(ConstantName, Constant);
 	}
 
 	void OnConstantChangedW(float InVal, ETextCommit::Type Type)
 	{
 		FVector4 Constant(GetConstX().GetValue(), GetConstY().GetValue(), GetConstZ().GetValue(), InVal);
-		Emitter->GetProperties()->ExternalConstants.SetOrAdd(ConstantName, Constant);
+		ScriptProps->ExternalConstants.SetOrAdd(ConstantName, Constant);
 	}
 
 	void Construct(const FArguments& InArgs)
 	{
-		Emitter = InArgs._Emitter;
+		ScriptProps = InArgs._ScriptProps;
 		ConstantName = InArgs._ConstantName;
 
-		const FVector4 *ConstPtr = Emitter->GetProperties()->ExternalConstants.FindVector(ConstantName);
+		const FVector4 *ConstPtr = ScriptProps->ExternalConstants.FindVector(ConstantName);
 		FVector4 ConstVal;
 
 		if (ConstPtr)
@@ -176,38 +173,47 @@ class SCurveConstantWidget : public SCompoundWidget, public FNotifyHook
 {
 private:
 	FName ConstantName;
-	TSharedPtr<FNiagaraSimulation> Emitter;
+	FNiagaraEmitterScriptProperties* ScriptProps;
+	TWeakObjectPtr<UNiagaraEmitterProperties> EmitterProps;
 
 	UCurveVector *CurCurve;
 
 public:
 	SLATE_BEGIN_ARGS(SCurveConstantWidget) :
-		_Emitter(nullptr),
+		_ScriptProps(nullptr),
+		_EmitterProps(nullptr),
 		_ConstantName("Undefined")
 	{
 	}
-	SLATE_ARGUMENT(TSharedPtr<FNiagaraSimulation>, Emitter)
+	SLATE_ARGUMENT(FNiagaraEmitterScriptProperties*, ScriptProps)
+		SLATE_ARGUMENT(TWeakObjectPtr<UNiagaraEmitterProperties>, EmitterProps)
 		SLATE_ARGUMENT(FName, ConstantName)
 		SLATE_END_ARGS()
 
 	void OnCurveSelected(UObject *Asset)
 	{
+		check(ScriptProps);
 		CurCurve = Cast<UCurveVector>(Asset);
-		FNiagaraDataObject *DataObj = Emitter->GetProperties()->ExternalConstants.FindDataObj(ConstantName);
-		if (!DataObj)
+		UNiagaraEmitterProperties* PinnedProps = EmitterProps.Get();
+		if (PinnedProps)
 		{
-			DataObj = new FNiagaraCurveDataObject(nullptr);
-			Emitter->GetProperties()->ExternalConstants.SetOrAdd(ConstantName, DataObj);
-		}
+			UNiagaraDataObject *DataObj = ScriptProps->ExternalConstants.FindDataObj(ConstantName);
+			if (!DataObj)
+			{
+				//In the details UI this is created via a combo box. Not sure which is the best way.
+				DataObj = NewObject<UNiagaraCurveDataObject>(PinnedProps);
+				ScriptProps->ExternalConstants.SetOrAdd(ConstantName, DataObj);
+			}
 
-		FNiagaraCurveDataObject *CurveData = static_cast<FNiagaraCurveDataObject*>(DataObj);
-		CurveData->SetCurveObject(CurCurve);
+			UNiagaraCurveDataObject *CurveData = Cast<UNiagaraCurveDataObject>(DataObj);
+			CurveData->SetCurveObject(CurCurve);
+		}
 	}
 
 	UObject * GetCurve() const
 	{
-		FNiagaraDataObject *DataObj = Emitter->GetProperties()->ExternalConstants.FindDataObj(ConstantName);
-		FNiagaraCurveDataObject *CurveData = static_cast<FNiagaraCurveDataObject*>(DataObj);
+		UNiagaraDataObject *DataObj = ScriptProps->ExternalConstants.FindDataObj(ConstantName);
+		UNiagaraCurveDataObject *CurveData = Cast<UNiagaraCurveDataObject>(DataObj);
 		if (CurveData)
 		{
 			return CurveData->GetCurveObject();
@@ -217,7 +223,8 @@ public:
 
 	void Construct(const FArguments& InArgs)
 	{
-		Emitter = InArgs._Emitter;
+		ScriptProps = InArgs._ScriptProps;
+		EmitterProps = InArgs._EmitterProps;
 		ConstantName = InArgs._ConstantName;
 
 		this->ChildSlot
@@ -238,18 +245,67 @@ public:
 	}
 };
 
-class SEmitterWidget : public SCompoundWidget, public FNotifyHook
+class SEmitterWidgetBase : public SCompoundWidget, public FNotifyHook
 {
-private:
+protected:
 	TSharedPtr<FNiagaraSimulation> Emitter;
 	FNiagaraEffectInstance *EffectInstance;
+	class FNiagaraEffectEditor *EffectEditor;
+
+public:
+	SLATE_BEGIN_ARGS(SEmitterWidgetBase) :
+		_Emitter(nullptr),
+		_Effect(nullptr),
+		_EffectEditor(nullptr)
+	{
+	}
+	SLATE_ARGUMENT(TSharedPtr<FNiagaraSimulation>, Emitter)
+	SLATE_ARGUMENT(FNiagaraEffectInstance*, Effect)
+	SLATE_ARGUMENT(FNiagaraEffectEditor*, EffectEditor)
+	SLATE_END_ARGS()
+
+
+	void OnEmitterNameChanged(const FText &InText)
+	{
+		Emitter->GetProperties()->EmitterName = InText.ToString();
+	}
+
+	FText GetEmitterName() const
+	{
+		UNiagaraEmitterProperties* PinnedProps = Emitter.IsValid() ? Emitter->GetProperties().Get() : NULL;
+		return PinnedProps ? FText::FromString(PinnedProps->EmitterName) : FText();
+	}
+
+	void OnEmitterEnabledChanged(ECheckBoxState NewCheckedState)
+	{
+		const bool bNewEnabledState = (NewCheckedState == ESlateCheckBoxState::Checked);
+		Emitter->SetEnabled(bNewEnabledState);
+	}
+
+	ECheckBoxState IsEmitterEnabled() const
+	{
+		return Emitter->IsEnabled() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	FText GetStatsText() const
+	{
+		TCHAR Txt[128];
+		FCString::Snprintf(Txt, 128, TEXT("%i Particles  |  %.2f ms  |  %.1f MB"), Emitter->GetNumParticles(), Emitter->GetTotalCPUTime(), Emitter->GetTotalBytesUsed()/(1024.0*1024.0));
+		return FText::FromString(Txt);
+	}
+
+	void Construct(const FArguments& InArgs);
+};
+
+class SEmitterWidget : public SEmitterWidgetBase
+{
+protected:
 	TSharedPtr<STextBlock> UpdateComboText, SpawnComboText;
 	TSharedPtr<SComboButton> UpdateCombo, SpawnCombo;
 	TSharedPtr<SContentReference> UpdateScriptSelector, SpawnScriptSelector;
 	TSharedPtr<SWidget> ThumbnailWidget;
 	TSharedPtr<FAssetThumbnailPool> ThumbnailPool;
 	TSharedPtr<FAssetThumbnail> MaterialThumbnail;
-	UNiagaraScript *CurUpdateScript, *CurSpawnScript;
 	UMaterial *CurMaterial;
 
 	TSharedPtr<IDetailsView> RendererPropertiesView;
@@ -262,42 +318,58 @@ private:
 	SVerticalBox::FSlot *SpawnScriptConstantListSlot;
 
 public:
-	SLATE_BEGIN_ARGS(SEmitterWidget) :
-		_Emitter(nullptr)
-	{
-	}
-	SLATE_ARGUMENT(TSharedPtr<FNiagaraSimulation>, Emitter)
-	SLATE_ARGUMENT(FNiagaraEffectInstance*, Effect)
-	SLATE_END_ARGS()
 
-	TSharedRef<ITableRow> OnGenerateConstantListRow(TSharedPtr<EditorExposedVectorConstant> InItem, const TSharedRef< STableViewBase >& OwnerTable)
+
+	TSharedRef<ITableRow> OnGenerateUpdateConstantListRow(TSharedPtr<EditorExposedVectorConstant> InItem, const TSharedRef< STableViewBase >& OwnerTable)
 	{
 		return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
 		.Content()
 		[
-			SNew(SVectorConstantWidget).ConstantName(InItem->ConstName).Emitter(Emitter)
+			SNew(SVectorConstantWidget).ConstantName(InItem->ConstName).ScriptProps(&Emitter->GetProperties()->UpdateScriptProps)
 		];
 	}
 
 
-	TSharedRef<ITableRow> OnGenerateCurveConstantListRow(TSharedPtr<EditorExposedVectorCurveConstant> InItem, const TSharedRef< STableViewBase >& OwnerTable)
+	TSharedRef<ITableRow> OnGenerateUpdateCurveConstantListRow(TSharedPtr<EditorExposedVectorCurveConstant> InItem, const TSharedRef< STableViewBase >& OwnerTable)
 	{
 		return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
 			.Content()
 			[
-				SNew(SCurveConstantWidget).ConstantName(InItem->ConstName).Emitter(Emitter)
+				SNew(SCurveConstantWidget).ConstantName(InItem->ConstName).ScriptProps(&Emitter->GetProperties()->UpdateScriptProps).EmitterProps(Emitter->GetProperties())
 			];
 	}
 
 
+	TSharedRef<ITableRow> OnGenerateSpawnConstantListRow(TSharedPtr<EditorExposedVectorConstant> InItem, const TSharedRef< STableViewBase >& OwnerTable)
+	{
+		return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
+			.Content()
+			[
+				SNew(SVectorConstantWidget).ConstantName(InItem->ConstName).ScriptProps(&Emitter->GetProperties()->SpawnScriptProps)
+			];
+	}
+
+
+	TSharedRef<ITableRow> OnGenerateSpawnCurveConstantListRow(TSharedPtr<EditorExposedVectorCurveConstant> InItem, const TSharedRef< STableViewBase >& OwnerTable)
+	{
+		return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
+			.Content()
+			[
+				SNew(SCurveConstantWidget).ConstantName(InItem->ConstName).ScriptProps(&Emitter->GetProperties()->SpawnScriptProps).EmitterProps(Emitter->GetProperties())
+			];
+	}
+
+
+
+
 	void OnEmitterNameChanged(const FText &InText)
 	{
-		Emitter->GetProperties()->Name = InText.ToString();
+		Emitter->GetProperties()->EmitterName = InText.ToString();
 	}
 
 	FText GetEmitterName() const
 	{
-		return FText::FromString(Emitter->GetProperties()->Name);
+		return FText::FromString(Emitter->GetProperties()->EmitterName);
 	}
 
 	void OnUpdateScriptSelectedFromPicker(UObject *Asset);
@@ -305,6 +377,7 @@ public:
 
 	void OnMaterialSelected(UObject *Asset)
 	{
+		TComponentReregisterContext<UNiagaraComponent> ComponentReregisterContext;
 		MaterialThumbnail->SetAsset(Asset);
 		MaterialThumbnail->RefreshThumbnail();
 		MaterialThumbnail->GetViewportRenderTargetTexture(); // Access the texture once to trigger it to render
@@ -312,7 +385,6 @@ public:
 		CurMaterial = Cast<UMaterial>(Asset);
 		Emitter->GetEffectRenderer()->SetMaterial(CurMaterial, ERHIFeatureLevel::SM5);
 		Emitter->GetProperties()->Material = CurMaterial;
-		TComponentReregisterContext<UNiagaraComponent> ComponentReregisterContext;
 	}
 
 	UObject *GetMaterial() const
@@ -322,12 +394,12 @@ public:
 
 	UObject *GetUpdateScript() const
 	{
-		return Emitter->GetProperties()->UpdateScript;
+		return Emitter->GetProperties()->UpdateScriptProps.Script;
 	}
 
 	UObject *GetSpawnScript() const
 	{
-		return Emitter->GetProperties()->SpawnScript;
+		return Emitter->GetProperties()->SpawnScriptProps.Script;
 	}
 
 	void OnEmitterEnabledChanged(ECheckBoxState NewCheckedState)
@@ -353,11 +425,23 @@ public:
 	FText GetSpawnRateText() const
 	{
 		TCHAR Txt[32];
-		//FCString::Snprintf(Txt, 32, TEXT("%f"), Emitter->GetSpawnRate() );
-		FCString::Snprintf(Txt, 32, TEXT("%f"), Emitter->GetProperties()->SpawnRate );
-
+		FCString::Snprintf(Txt, 32, TEXT("%f"), Emitter->GetProperties()->SpawnRate);
 		return FText::FromString(Txt);
 	}
+
+	void OnNumLoopsChanged(const FText &InText)
+	{
+		int Loops = FCString::Atoi(*InText.ToString());
+		Emitter->GetProperties()->NumLoops = Loops;
+	}
+
+	FText GetLoopsText() const
+	{
+		TCHAR Txt[32];
+		FCString::Snprintf(Txt, 32, TEXT("%i"), Emitter->GetProperties()->NumLoops);
+		return FText::FromString(Txt);
+	}
+
 
 	FText GetRenderModuleText() const
 	{
@@ -366,27 +450,31 @@ public:
 			return NSLOCTEXT("NiagaraEffectEditor", "None", "None");
 		}
 
-		return FText::FromString(*RenderModuleList[Emitter->GetProperties()->RenderModuleType-1]);
+		return FText::FromString(*RenderModuleList[Emitter->GetProperties()->RenderModuleType - 1]);
 	}
 
-	TSharedRef<SWidget>GenerateRenderModuleComboWidget(TSharedPtr<FString> WidgetString )
+	TSharedRef<SWidget>GenerateRenderModuleComboWidget(TSharedPtr<FString> WidgetString)
 	{
 		return SNew(STextBlock)
 			.Text(FText::FromString(*WidgetString));
 	}
 
-	FText GetStatsText() const
-	{
-		TCHAR Txt[128];
-		FCString::Snprintf(Txt, 128, TEXT("%i Particles  |  %.2f ms  |  %.1f MB"), Emitter->GetNumParticles(), Emitter->GetTotalCPUTime(), Emitter->GetTotalBytesUsed()/(1024.0*1024.0));
-		return FText::FromString(Txt);
-	}
+	void Construct(const FArguments& InArgs);
+
+};
+
+class SEmitterWidgetDev : public SEmitterWidgetBase
+{
+protected:
+	/** Details view used for the dev view. */
+	TSharedPtr<IDetailsView> Details;
+
+	void BuildContents();
+public:
 
 	void Construct(const FArguments& InArgs);
 
-
-
-
+	virtual void NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged)override;
 };
 
 
@@ -430,19 +518,27 @@ private:
 	/** Notification list to pass messages to editor users  */
 	TSharedPtr<SNotificationList> NotificationListPtr;
 	SOverlay::FOverlaySlot* DetailsViewSlot;
-	TSharedPtr<SNiagaraEffectEditorViewport>	Viewport;
 	
 	TSharedPtr< SListView<TSharedPtr<FNiagaraSimulation> > > ListView;
 
-	TSharedPtr< SNiagaraTimeline > TimeLine;
+	class FNiagaraEffectEditor *EffectEditor;
+
+	/**Scroll Box for dev emitters view.*/
+	TSharedPtr<SScrollBox> EmitterBox;
+
+	/** True if this is the development emitters view.*/
+	bool bForDev;
 public:
 	SLATE_BEGIN_ARGS(SNiagaraEffectEditorWidget)
 		: _EffectObj(nullptr)
+		, _bForDev(false)
 	{
 	}
 	SLATE_ARGUMENT(UNiagaraEffect*, EffectObj)
 	SLATE_ARGUMENT(TSharedPtr<SWidget>, TitleBar)
 	SLATE_ARGUMENT(FNiagaraEffectInstance*, EffectInstance)
+	SLATE_ARGUMENT(class FNiagaraEffectEditor*, EffectEditor)
+	SLATE_ARGUMENT(bool, bForDev)
 	SLATE_END_ARGS()
 
 
@@ -454,10 +550,11 @@ public:
 
 	void UpdateList()
 	{
-		ListView->RequestListRefresh();
+		if (bForDev)
+			ConstructDevEmittersView();
+		else
+			ListView->RequestListRefresh();
 	}
-
-	TSharedPtr<SNiagaraEffectEditorViewport> GetViewport()	{ return Viewport; }
 
 	TSharedRef<ITableRow> OnGenerateWidgetForList(TSharedPtr<FNiagaraSimulation> InItem, const TSharedRef< STableViewBase >& OwnerTable)
 	{
@@ -468,24 +565,15 @@ public:
 				//.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 				.Padding(2.0f)
 				[
-					SNew(SEmitterWidget).Emitter(InItem).Effect(EffectInstance)
+					SNew(SEmitterWidget).Emitter(InItem).Effect(EffectInstance).EffectEditor(EffectEditor)
 				]
 			];
 	}
 
-	void OnSelectionChanged( TSharedPtr<FNiagaraSimulation> SelectedItem, ESelectInfo::Type SelType)
-	{
-		if ( SelectedItem.Get() != nullptr )
-		{
-			if (SelectedItem->GetProperties()->ExternalConstants.GetDataConstants().Num())
-			{
-				FNiagaraDataObject *DataObj = SelectedItem->GetProperties()->ExternalConstants.GetDataConstants().CreateConstIterator().Value();
-				TimeLine->SetCurve(static_cast<FNiagaraCurveDataObject*>(DataObj)->GetCurveObject());
-			}
-		}
-	}
+	void OnSelectionChanged(TSharedPtr<FNiagaraSimulation> SelectedItem, ESelectInfo::Type SelType); 
 
 	void Construct(const FArguments& InArgs);
 
-};
+	void ConstructDevEmittersView();
 
+};

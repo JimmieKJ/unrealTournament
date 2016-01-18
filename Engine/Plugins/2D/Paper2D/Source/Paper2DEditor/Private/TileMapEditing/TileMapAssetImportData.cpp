@@ -25,8 +25,7 @@ UTileMapAssetImportData* UTileMapAssetImportData::GetImportDataForTileMap(UPaper
 		// Try to preserve the source file path if possible
 		if (TileMap->AssetImportData != nullptr)
 		{
-			ImportData->SourceFilePath = TileMap->AssetImportData->SourceFilePath;
-			ImportData->SourceFileTimestamp = TileMap->AssetImportData->SourceFileTimestamp;
+			ImportData->SourceData = TileMap->AssetImportData->SourceData;
 		}
 
 		TileMap->AssetImportData = ImportData;

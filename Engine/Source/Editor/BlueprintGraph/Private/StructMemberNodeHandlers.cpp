@@ -22,7 +22,7 @@ static FBPTerminal* RegisterStructVar(FCompilerResultsLog& MessageLog, FKismetFu
 		Schema->ConvertPropertyToPinType(BoundProperty, /*out*/ Term->Type);
 		Term->Source = MemberSetNode;
 		Term->Name = MemberSetNode->GetVarNameString();
-		Term->bIsStructContext = true;
+		Term->SetContextTypeStruct();
 
 		Term->AssociatedVarProperty = BoundProperty;
 		//@TODO: Needed? Context.NetMap.Add(Net, Term);

@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
-//=============================================================================
+//~=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "Engine/StaticMeshActor.h"
@@ -87,15 +87,15 @@ protected:
 	UFUNCTION()
 	void CapsuleTouched(AActor* Other, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& OverlapInfo);
 public:
-	// Begin AActor interface
+	//~ Begin AActor Interface
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void PostActorCreated() override;
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) override;
-	// End AActor interface
+	//~ End AActor Interface
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End UObject interface
+	//~ End UObject Interface
 
 };
 

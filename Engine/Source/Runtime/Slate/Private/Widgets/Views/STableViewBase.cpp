@@ -377,7 +377,7 @@ FReply STableViewBase::OnMouseButtonUp( const FGeometry& MyGeometry, const FPoin
 	if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
 	{
 
-		OnRightMouseButtonUp( MouseEvent.GetScreenSpacePosition() );
+		OnRightMouseButtonUp( MouseEvent );
 
 		FReply Reply = FReply::Handled().ReleaseMouseCapture();
 		bShowSoftwareCursor = false;
@@ -453,6 +453,8 @@ FReply STableViewBase::OnMouseMove( const FGeometry& MyGeometry, const FPointerE
 
 void STableViewBase::OnMouseLeave( const FPointerEvent& MouseEvent )
 {
+	SCompoundWidget::OnMouseLeave(MouseEvent);
+
 	bStartedTouchInteraction = false;
 	if(this->HasMouseCapture() == false)
 	{
@@ -531,6 +533,13 @@ FReply STableViewBase::OnTouchMoved( const FGeometry& MyGeometry, const FPointer
 
 		if (AmountScrolledWhileRightMouseDown > FSlateApplication::Get().GetDragTriggerDistance())
 		{
+			// Make sure the active timer is registered to update the inertial scroll
+			if ( !bIsScrollingActiveTimerRegistered )
+			{
+				bIsScrollingActiveTimerRegistered = true;
+				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &STableViewBase::UpdateInertialScroll));
+			}
+
 			const float AmountScrolled = this->ScrollBy( MyGeometry, -ScrollByAmount, EAllowOverscroll::Yes );
 
 			// The user has moved the list some amount; they are probably
@@ -744,8 +753,9 @@ int32 STableViewBase::GetNumItemsWide() const
 	return 1;
 }
 
-void STableViewBase::OnRightMouseButtonUp(const FVector2D& SummonLocation)
+void STableViewBase::OnRightMouseButtonUp(const FPointerEvent& MouseEvent)
 {
+	const FVector2D& SummonLocation = MouseEvent.GetScreenSpacePosition();
 	const bool bShouldOpenContextMenu = !IsRightClickScrolling();
 	const bool bContextMenuOpeningBound = OnContextMenuOpening.IsBound();
 
@@ -757,7 +767,9 @@ void STableViewBase::OnRightMouseButtonUp(const FVector2D& SummonLocation)
 		if( MenuContent.IsValid() )
 		{
 			bShowSoftwareCursor = false;
-			FSlateApplication::Get().PushMenu( AsShared(), MenuContent.ToSharedRef(), SummonLocation, FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ) );
+
+			FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+			FSlateApplication::Get().PushMenu(AsShared(), WidgetPath, MenuContent.ToSharedRef(), SummonLocation, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 
 
 		}
@@ -811,12 +823,12 @@ bool STableViewBase::CanUseInertialScroll( float ScrollAmount ) const
 	return CurrentOverscroll == 0.f || FMath::Sign(CurrentOverscroll) != FMath::Sign(ScrollAmount);
 }
 
-STableViewBase::FOverscroll::FOverscroll()
+STableViewBase::FListOverscroll::FListOverscroll()
 : OverscrollAmount( 0.0f )
 {
 }
 
-float STableViewBase::FOverscroll::ScrollBy( float Delta )
+float STableViewBase::FListOverscroll::ScrollBy(float Delta)
 {
 	const float ValueBeforeDeltaApplied = OverscrollAmount;
 	const float EasedDelta = Delta / (FMath::Abs(OverscrollAmount/ListConstants::OvershootMax)+1.0f);
@@ -832,12 +844,12 @@ float STableViewBase::FOverscroll::ScrollBy( float Delta )
 	return ValueBeforeDeltaApplied - OverscrollAmount;
 }
 
-float STableViewBase::FOverscroll::GetOverscroll() const
+float STableViewBase::FListOverscroll::GetOverscroll() const
 {
 	return OverscrollAmount;
 }
 
-void STableViewBase::FOverscroll::UpdateOverscroll( float InDeltaTime )
+void STableViewBase::FListOverscroll::UpdateOverscroll(float InDeltaTime)
 {
 	const float PullForce = FMath::Abs(OverscrollAmount) + 1.0f;
 	const float EasedDelta = ListConstants::OvershootBounceRate * InDeltaTime * PullForce;
@@ -852,7 +864,7 @@ void STableViewBase::FOverscroll::UpdateOverscroll( float InDeltaTime )
 	}
 }
 
-bool STableViewBase::FOverscroll::ShouldApplyOverscroll( const bool bIsAtStartOfList, const bool bIsAtEndOfList, const float ScrollDelta ) const
+bool STableViewBase::FListOverscroll::ShouldApplyOverscroll(const bool bIsAtStartOfList, const bool bIsAtEndOfList, const float ScrollDelta) const
 {
 	const bool bShouldApplyOverscroll =
 		// We can scroll past the edge of the list only if we are at the edge

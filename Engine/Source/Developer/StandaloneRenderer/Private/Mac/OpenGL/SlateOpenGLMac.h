@@ -10,6 +10,9 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 
+void LockGLContext(NSOpenGLContext* Context);
+void UnlockGLContext(NSOpenGLContext* Context);
+
 @interface FSlateOpenGLLayer : NSOpenGLLayer
 @property (assign) NSOpenGLContext* Context;
 @property (assign) NSOpenGLPixelFormat* PixelFormat;

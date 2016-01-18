@@ -100,6 +100,11 @@ void UProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTic
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (!IsValid(UpdatedComponent))
+	{
+		return;
+	}
+
 	AActor* ActorOwner = UpdatedComponent->GetOwner();
 	if ( !ActorOwner || !CheckStillInWorld() )
 	{
@@ -128,7 +133,7 @@ void UProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTic
 		const FVector OldVelocity = Velocity;
 		const FVector MoveDelta = ComputeMoveDelta(OldVelocity, TimeTick);
 
-		const FRotator NewRotation = (bRotationFollowsVelocity && !OldVelocity.IsNearlyZero(0.01f)) ? OldVelocity.Rotation() : ActorOwner->GetActorRotation();
+		const FQuat NewRotation = (bRotationFollowsVelocity && !OldVelocity.IsNearlyZero(0.01f)) ? OldVelocity.ToOrientationQuat() : UpdatedComponent->GetComponentQuat();
 
 		// Move the component
 		if (bShouldBounce)
@@ -378,7 +383,7 @@ FVector UProjectileMovementComponent::ComputeAcceleration(const FVector& InVeloc
 {
 	FVector Acceleration(FVector::ZeroVector);
 
-	Acceleration.Z += GetEffectiveGravityZ();
+	Acceleration.Z += GetGravityZ();
 
 	if (bIsHomingProjectile && HomingTargetComponent.IsValid())
 	{
@@ -395,10 +400,16 @@ FVector UProjectileMovementComponent::ComputeHomingAcceleration(const FVector& I
 	return HomingAcceleration;
 }
 
+// Deprecated
 float UProjectileMovementComponent::GetEffectiveGravityZ() const
 {
+	return GetGravityZ();
+}
+
+float UProjectileMovementComponent::GetGravityZ() const
+{
 	// TODO: apply buoyancy if in water
-	return ShouldApplyGravity() ? GetGravityZ() * ProjectileGravityScale : 0.f;
+	return ShouldApplyGravity() ? Super::GetGravityZ() * ProjectileGravityScale : 0.f;
 }
 
 
@@ -495,14 +506,21 @@ bool UProjectileMovementComponent::CheckStillInWorld()
 	{
 		return false;
 	}
+
+	const UWorld* MyWorld = GetWorld();
+	if (!MyWorld)
+	{
+		return false;
+	}
+
 	// check the variations of KillZ
-	AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings( true );
+	AWorldSettings* WorldSettings = MyWorld->GetWorldSettings( true );
 	if (!WorldSettings->bEnableWorldBoundsChecks)
 	{
 		return true;
 	}
 	AActor* ActorOwner = UpdatedComponent->GetOwner();
-	if ( !ActorOwner )
+	if (!IsValid(ActorOwner))
 	{
 		return false;
 	}
@@ -535,7 +553,7 @@ bool UProjectileMovementComponent::CheckStillInWorld()
 
 bool UProjectileMovementComponent::ShouldUseSubStepping() const
 {
-	return bForceSubStepping || (GetEffectiveGravityZ() != 0.f) || (bIsHomingProjectile && HomingTargetComponent.IsValid());
+	return bForceSubStepping || (GetGravityZ() != 0.f) || (bIsHomingProjectile && HomingTargetComponent.IsValid());
 }
 
 

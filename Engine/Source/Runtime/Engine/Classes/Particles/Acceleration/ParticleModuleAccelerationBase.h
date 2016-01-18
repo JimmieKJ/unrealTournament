@@ -17,8 +17,8 @@ class UParticleModuleAccelerationBase : public UParticleModule
 	uint32 bAlwaysInWorldSpace:1;
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void SetToSensibleDefaults(UParticleEmitter* Owner) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 };
 

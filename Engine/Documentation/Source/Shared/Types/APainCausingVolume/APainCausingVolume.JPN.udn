@@ -1,11 +1,12 @@
-﻿Availability:NoPublish
+﻿INTSourceChangelist:2572489
+Availability:NoPublish
 Title:APainCausingVolume
 Crumbs:
 Description: PainCausingVolume クラスの概要
 
 [EXCERPT:APainCausingVolume]
 
-Pain Causing Volume は実際は Physics Volume にプレーヤーにダメージを与える能力を追加したものです。
+PainCausingVolumes は実際は Physics Volume にプレーヤーにダメージを与える能力を追加したものです。
 
 [VAR:ToolTipFullLink]
 Engine/Actors/Volumes#Volume Types

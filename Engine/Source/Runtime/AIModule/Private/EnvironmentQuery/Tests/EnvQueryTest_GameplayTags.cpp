@@ -52,7 +52,13 @@ bool UEnvQueryTest_GameplayTags::SatisfiesTest(IGameplayTagAssetInterface* ItemG
 
 void UEnvQueryTest_GameplayTags::RunTest(FEnvQueryInstance& QueryInstance) const
 {
-	BoolValue.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+	UObject* QueryOwner = QueryInstance.Owner.Get();
+	if (QueryOwner == nullptr)
+	{
+		return;
+	}
+
+	BoolValue.BindData(QueryOwner, QueryInstance.QueryID);
 	bool bWantsValid = BoolValue.GetValue();
 
 	// loop through all items
@@ -70,7 +76,7 @@ void UEnvQueryTest_GameplayTags::RunTest(FEnvQueryInstance& QueryInstance) const
 		}
 		else // If no GameplayTagAssetInterface is found, this test doesn't apply at all, so just skip the item.
 		{	 // Currently 
-			It.SkipItem();
+			It.ForceItemState(EEnvItemStatus::Passed);
 		}
 	}
 }

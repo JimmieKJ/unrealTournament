@@ -206,7 +206,7 @@ void ClothingScene::submitTasks(PxF32 elapsedTime, PxF32 substepSize, PxU32 numS
 	for (PxU32 i = 0; i < mActorArray.size(); i++)
 	{
 		ClothingActor* clothingActor = static_cast<ClothingActor*>(mActorArray[i]);
-		clothingActor->initBeforeTickTasks(elapsedTime, substepSize, numSubSteps);
+		clothingActor->initBeforeTickTasks(elapsedTime, substepSize, numSubSteps, taskManager, 0, 0);
 
 		if (isFinalStep)
 		{
@@ -240,7 +240,17 @@ void ClothingScene::setTaskDependencies()
 #endif
 
 	bool startSimulateTask = mSimulationTask->getDeltaTime() > 0;
-	PxTaskID duringStartId = startSimulateTask ? mSimulationTask->getTaskID() : physxTick;
+
+
+	PxTask* dependentTask = physxTickTask;
+	PxTaskID duringStartId = physxTick;
+
+	if (startSimulateTask)
+	{
+		dependentTask = mSimulationTask;
+		duringStartId = mSimulationTask->getTaskID();
+		mSimulationTask->startAfter(mClothingBeforeTickStartTask.getTaskID());
+	}
 
 	const bool isFinalStep = mApexScene->isFinalStep();
 
@@ -248,13 +258,6 @@ void ClothingScene::setTaskDependencies()
 	{
 		ApexActor* actor = mActorArray[i];
 		ClothingActor* clothingActor = static_cast<ClothingActor*>(actor);
-
-		PxTask* dependentTask = physxTickTask;
-		if (startSimulateTask)
-		{
-			dependentTask = mSimulationTask;
-			mSimulationTask->startAfter(mClothingBeforeTickStartTask.getTaskID());
-		}
 
 		clothingActor->setTaskDependenciesBefore(dependentTask);
 
@@ -266,8 +269,11 @@ void ClothingScene::setTaskDependencies()
 			/*duringStartId = */clothingActor->setTaskDependenciesDuring(duringStartId, duringFinishedId);
 		}
 	}
+	mSimulationTask->startAfter(lodTick);
 
 	mClothingBeforeTickStartTask.startAfter(lodTick);
+	mSimulationTask->startAfter(mClothingBeforeTickStartTask.getTaskID());
+
 	mClothingBeforeTickStartTask.finishBefore(physxTick);
 
 	if(startSimulateTask)
@@ -290,7 +296,7 @@ void ClothingScene::fetchResults()
 
 	PX_PROFILER_PERF_SCOPE("ClothingScene::fetchResults");
 
-	for (PxI32 i = (physx::PxI32)mActorArray.size()-1; i >= 0 ; --i)
+	for (PxI32 i = (physx::PxI32)mActorArray.size() - 1; i >= 0; --i)
 	{
 		ClothingActor* actor = static_cast<ClothingActor*>(mActorArray[(physx::PxU32)i]);
 		if (actor->getClothSolverMode() != ClothSolverMode::v3)
@@ -668,17 +674,26 @@ void ClothingScene::unregisterCompartment(NxCompartment* compartment)
 }
 #endif
 
-
+#define CLOTH_DIRECT_SIM 1
 
 PxU32 ClothingScene::submitCookingTask(ClothingCookingTask* newTask)
 {
 	mCookingTaskMutex.lock();
+	PxU32 numReleased = 0;
 
+#if CLOTH_DIRECT_SIM == 1
+	if(newTask)
+	{
+		PX_ASSERT(mApexScene->getTaskManager() != NULL);
+		newTask->initCooking(*mApexScene->getTaskManager(), NULL);
+		newTask->run();
+	}
+#else
 	ClothingCookingTask** currPointer = &mCurrentCookingTask;
 	ClothingCookingTask* lastTask = NULL;
 
 	PxU32 numRunning = 0;
-	PxU32 numReleased = 0;
+	
 
 	while (*currPointer != NULL)
 	{
@@ -711,6 +726,8 @@ PxU32 ClothingScene::submitCookingTask(ClothingCookingTask* newTask)
 		PX_ASSERT(mCurrentCookingTask->waitsForBeingScheduled());
 		mCurrentCookingTask->removeReference();
 	}
+
+#endif
 
 	mCookingTaskMutex.unlock();
 
@@ -829,7 +846,7 @@ void ClothingScene::ClothingBeforeTickStartTask::run()
 
 const char* ClothingScene::ClothingBeforeTickStartTask::getName() const
 {
-	return "ClothingScene::ClothingBeforeTickStartTask";
+	return CLOTHING_BEFORE_TICK_START_TASK_NAME;
 }
 
 

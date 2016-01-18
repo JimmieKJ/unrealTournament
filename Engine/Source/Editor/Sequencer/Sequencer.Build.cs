@@ -6,7 +6,12 @@ public class Sequencer : ModuleRules
 {
 	public Sequencer(TargetInfo Target)
 	{
-		PrivateIncludePaths.Add("Editor/Sequencer/Private");
+		PrivateIncludePaths.AddRange(
+            new string[] {
+                "Editor/Sequencer/Private",
+                "Editor/Sequencer/Private/DisplayNodes",
+            }
+        );
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
@@ -18,27 +23,35 @@ public class Sequencer : ModuleRules
 				"SlateCore",
                 "EditorStyle",
 				"UnrealEd", 
-				"MovieSceneCore", 
-				"MovieSceneCoreTypes", 
+				"MovieScene", 
+				"MovieSceneTracks", 
 				"MovieSceneTools", 
+				"MovieSceneCapture", 
+                "MovieSceneCaptureDialog", 
 				"EditorWidgets", 
 				"SequencerWidgets",
-				"BlueprintGraph"
+				"BlueprintGraph",
+				"LevelSequence"
 			}
 		);
 
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"PropertyEditor",
-				"Kismet"
+				"Kismet",
+				"SceneOutliner"
 			}
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"PropertyEditor",
+				"LevelEditor",
+				"SceneOutliner",
 				"WorkspaceMenuStructure"
 			}
 		);
+
+		CircularlyReferencedDependentModules.Add("MovieSceneTools");
 	}
 }

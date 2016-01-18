@@ -65,7 +65,7 @@ namespace EHostType
 		Editor,
 		EditorNoCommandlet,
 		Program,		//!< Program-only plugin type
-
+		ServerOnly,
 		// NOTE: If you add a new value, make sure to update the ToString() method below!
 
 		Max
@@ -136,5 +136,5 @@ struct PROJECTS_API FModuleDescriptor
 	static void LoadModulesForPhase(ELoadingPhase::Type LoadingPhase, const TArray<FModuleDescriptor>& Modules, TMap<FName, EModuleLoadResult>& ModuleLoadErrors);
 
 	/** Checks that all modules are compatible with the current engine version. Returns false and appends a list of names to OutIncompatibleFiles if not. */
-	static bool CheckModuleCompatbility(const TArray<FModuleDescriptor>& Modules, bool bGameModules, TArray<FString>& OutIncompatibleFiles);
+	static bool CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, bool bGameModules, TArray<FString>& OutIncompatibleFiles);
 };

@@ -59,7 +59,7 @@ public class UEOgg : ModuleRules
         }
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{
-			// filtered in the toolchain
+			// Filtered in the toolchain.
 			PublicLibraryPaths.Add(OggLibPath + "Android/ARMv7");
 			PublicLibraryPaths.Add(OggLibPath + "Android/ARM64");
 			PublicLibraryPaths.Add(OggLibPath + "Android/x86");

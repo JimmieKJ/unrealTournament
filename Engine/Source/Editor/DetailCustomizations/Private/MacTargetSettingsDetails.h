@@ -2,6 +2,46 @@
 
 #pragma once
 
+/* FMacTargetShaderFormatsPropertyDetails
+ *****************************************************************************/
+
+/**
+ * Helper which implements details panel customizations for a device profiles parent property
+ */
+class FMacTargetShaderFormatsPropertyDetails
+: public TSharedFromThis<FMacTargetShaderFormatsPropertyDetails>
+{
+	
+public:
+	
+	/**
+	 * Constructor for the parent property details view
+	 *
+	 * @param InDetailsBuilder - Where we are adding our property view to
+	 */
+	FMacTargetShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder);
+	
+	
+	/**
+	 * Create the UI to select which windows shader formats we are targetting
+	 */
+	void CreateTargetShaderFormatsPropertyView();
+	
+private:
+	
+	// Supported/Targeted RHI check boxes
+	void OnTargetedRHIChanged(ECheckBoxState InNewValue, FName InRHIName);
+	ECheckBoxState IsTargetedRHIChecked(FName InRHIName) const;
+	
+private:
+	
+	/** A handle to the detail view builder */
+	IDetailLayoutBuilder* DetailBuilder;
+	
+	/** Access to the Parent Property */
+	TSharedPtr<IPropertyHandle> TargetShaderFormatsPropertyHandle;
+};
+
 /**
  * Manages the Transform section of a details view                    
  */
@@ -23,4 +63,8 @@ private:
 
 	/** Delegate handler to set the path to start picking from */
 	bool HandlePostExternalIconCopy(const FString& InChosenImage);
+	
+private:
+	/** Reference to the target shader formats property view */
+	TSharedPtr<FMacTargetShaderFormatsPropertyDetails> TargetShaderFormatsDetails;
 };

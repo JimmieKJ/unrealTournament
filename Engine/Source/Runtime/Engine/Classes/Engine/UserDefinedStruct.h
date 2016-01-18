@@ -7,13 +7,13 @@
 UENUM()
 enum EUserDefinedStructureStatus
 {
-	// Struct is in an unknown state
+	/** Struct is in an unknown state. */
 	UDSS_UpToDate,
-	// Struct has been modified but not recompiled
+	/** Struct has been modified but not recompiled. */
 	UDSS_Dirty,
-	// Struct tried but failed to be compiled
+	/** Struct tried but failed to be compiled. */
 	UDSS_Error,
-	// Struct is a duplicate, the original one was changed
+	/** Struct is a duplicate, the original one was changed. */
 	UDSS_Duplicate,
 
 	UDSS_MAX,
@@ -57,7 +57,7 @@ public:
 #endif	// WITH_EDITOR
 
 	virtual void SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad=NULL) const override;
-	virtual FString PropertyNameToDisplayName(FName Name) const override;
+	virtual FString PropertyNameToDisplayName(FName InName) const override;
 
 	// UScriptStruct interface.
 	virtual void RecursivelyPreload() override;

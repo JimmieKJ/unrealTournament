@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Components/PanelWidget.h"
 #include "ContentWidget.generated.h"
 
 /**  */

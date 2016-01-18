@@ -4,7 +4,6 @@
 
 #include "LandscapeEditorDetailCustomization_Base.h"
 
-
 /**
  * Slate widgets customizer for the "Change Landscape Component Size" tool
  */
@@ -23,15 +22,15 @@ public:
 	static TSharedRef<SWidget> GetSectionSizeMenu(TSharedRef<IPropertyHandle> PropertyHandle);
 	static void OnChangeSectionSize(TSharedRef<IPropertyHandle> PropertyHandle, int32 NewSize);
 	static FText GetSectionSize(TSharedRef<IPropertyHandle> PropertyHandle);
-	static bool IsSectionSizeResetToDefaultVisible();
-	static void OnSectionSizeResetToDefault();
+	static bool IsSectionSizeResetToDefaultVisible(TSharedRef<IPropertyHandle> PropertyHandle);
+	static void OnSectionSizeResetToDefault(TSharedRef<IPropertyHandle> PropertyHandle);
 
 	static FText GetOriginalSectionsPerComponent();
 	static TSharedRef<SWidget> GetSectionsPerComponentMenu(TSharedRef<IPropertyHandle> PropertyHandle);
 	static void OnChangeSectionsPerComponent(TSharedRef<IPropertyHandle> PropertyHandle, int32 NewSize);
 	static FText GetSectionsPerComponent(TSharedRef<IPropertyHandle> PropertyHandle);
-	static bool IsSectionsPerComponentResetToDefaultVisible();
-	static void OnSectionsPerComponentResetToDefault();
+	static bool IsSectionsPerComponentResetToDefaultVisible(TSharedRef<IPropertyHandle> PropertyHandle);
+	static void OnSectionsPerComponentResetToDefault(TSharedRef<IPropertyHandle> PropertyHandle);
 
 	static FText GetOriginalComponentCount();
 	static FText GetComponentCount(TSharedRef<IPropertyHandle> PropertyHandle_ComponentCount_X, TSharedRef<IPropertyHandle> PropertyHandle_ComponentCount_Y);

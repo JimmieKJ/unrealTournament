@@ -9,9 +9,14 @@ struct FTestLogger
 	TArray<ValueType> LoggedValues;
 	FAutomationTestBase* TestRunner;
 
-	FTestLogger() : TestRunner(nullptr)
+	FTestLogger(FAutomationTestBase* InTestRunner = nullptr) : TestRunner(InTestRunner)
 	{
 
+	}
+
+	~FTestLogger()
+	{
+		TestRunner->TestTrue("Not all values expected values have been logged!", ExpectedValues.Num() == 0 || LoggedValues.Num() == ExpectedValues.Num());
 	}
 
 	void Log(const ValueType& Value)

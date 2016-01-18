@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTProjectileMovementComponent.h"
@@ -10,8 +10,8 @@ AUTProj_FlakShardMain::AUTProj_FlakShardMain(const class FObjectInitializer& Obj
 	: Super(ObjectInitializer)
 {
 	CenteredMomentumBonus = 0.f;
-	CenteredDamageBonus = 30.0f;
-	MaxBonusTime = 0.1f;
+	CenteredDamageBonus = 20.0f;
+	MaxBonusTime = 0.15f;
 	NumSatelliteShards = 3;
 }
 
@@ -66,12 +66,12 @@ FRadialDamageParams AUTProj_FlakShardMain::GetDamageParams_Implementation(AActor
 	AUTCharacter* OtherCharacter = Cast<AUTCharacter>(OtherActor);
 	if (OtherCharacter && (MaxBonusTime > 0.f))
 	{
-		const float BonusTime = (GetLifeSpan() - InitialLifeSpan + MaxBonusTime)/MaxBonusTime;
-		if (BonusTime > 0.0f)
+		const float BonusPct = FMath::Min(1.f, 3.f * (CreationTime - GetWorld()->GetTimeSeconds() + MaxBonusTime) / MaxBonusTime);
+		if (BonusPct > 0.0f)
 		{
 			// Apply bonus damage
-			CalculatedParams.BaseDamage += CenteredDamageBonus * BonusTime;
-			OutMomentum += CenteredMomentumBonus * BonusTime;
+			CalculatedParams.BaseDamage += CenteredDamageBonus * BonusPct;
+			OutMomentum += CenteredMomentumBonus * BonusPct;
 		}
 	}
 

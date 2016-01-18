@@ -186,6 +186,12 @@ TSharedRef<SDockTab> FPhAT::SpawnTab( const FSpawnTabArgs& TabSpawnArgs, FName T
 
 FPhAT::~FPhAT()
 {
+	if( SharedData->bRunningSimulation )
+	{
+		// Disable simulation when shutting down
+		ImpToggleSimulation();
+	}
+
 	GEditor->UnregisterForUndo(this);
 }
 
@@ -196,6 +202,7 @@ void FPhAT::InitPhAT(const EToolkitMode::Type Mode, const TSharedPtr< class IToo
 	SelectedAnimation = NULL;
 	SelectedSimulation = false;
 	BeforeSimulationWidgetMode = FWidget::EWidgetMode::WM_None;
+	TickCountUntilViewportRefresh = 0;
 
 	SharedData = MakeShareable(new FPhATSharedData);
 
@@ -774,7 +781,9 @@ void FPhAT::ExtendToolbar()
 			//phat edit mode combo
 			FUIAction PhatMode;
 			PhatMode.CanExecuteAction = FCanExecuteAction::CreateSP(Phat, &FPhAT::IsNotSimulation);
-			ToolbarBuilder.BeginSection("PhATMode");
+			ToolbarBuilder.AddToolBarButton(Commands.EditingMode_Body);
+			ToolbarBuilder.AddToolBarButton(Commands.EditingMode_Constraint);
+			/*ToolbarBuilder.BeginSection("PhATMode");
 			{
 				ToolbarBuilder.AddComboButton(
 					PhatMode,
@@ -783,7 +792,7 @@ void FPhAT::ExtendToolbar()
 					TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateSP( Phat, &FPhAT::GetEditModeToolTip) ),
 					TAttribute< FSlateIcon >::Create( TAttribute< FSlateIcon >::FGetter::CreateSP( Phat, &FPhAT::GetEditModeIcon) )
 					);
-			}
+			}*/
 			ToolbarBuilder.EndSection();
 	
 	
@@ -940,7 +949,7 @@ void FPhAT::BindCommands()
 		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation));
 
 	ToolkitCommands->MapAction(
-		Commands.RestetBoneCollision,
+		Commands.ResetBoneCollision,
 		FExecuteAction::CreateSP(this, &FPhAT::OnResetBoneCollision),
 		FCanExecuteAction::CreateSP(this, &FPhAT::IsSelectedEditBodyMode));
 
@@ -1305,10 +1314,7 @@ void FPhAT::BindCommands()
 		FExecuteAction::CreateSP(this, &FPhAT::OnToggleTwist),
 		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation));
 
-	ToolkitCommands->MapAction(
-		Commands.FocusOnSelection,
-		FExecuteAction::CreateSP(this, &FPhAT::OnFocusSelection),
-		FCanExecuteAction());
+
 	
 	ToolkitCommands->MapAction(
 		Commands.SelectAllObjects,
@@ -1646,7 +1652,7 @@ TSharedPtr<SWidget> FPhAT::BuildMenuWidgetBody(bool bHierarchy /*= false*/)
 		MenuBuilder.AddMenuEntry( Commands.AddBox );
 		MenuBuilder.AddMenuEntry( Commands.AddSphere );
 		MenuBuilder.AddMenuEntry( Commands.AddSphyl );
-		MenuBuilder.AddMenuEntry( Commands.RestetBoneCollision );
+		MenuBuilder.AddMenuEntry( Commands.ResetBoneCollision );
 		MenuBuilder.EndSection();
 
 		MenuBuilder.BeginSection( "BodyActions", LOCTEXT( "BodyHeader", "Body" ) );
@@ -2180,8 +2186,13 @@ void FPhAT::OnResetBoneCollision()
 			int32 BoneIndex = SharedData->EditorSkelMesh->RefSkeleton.FindBoneIndex(BodySetup->BoneName);
 			check(BoneIndex != INDEX_NONE);
 
-			FPhysicsAssetUtils::CreateCollisionFromBone(BodySetup, SharedData->EditorSkelMesh, BoneIndex, SharedData->NewBodyData, (SharedData->NewBodyData.VertWeight == EVW_DominantWeight)? SharedData->DominantWeightBoneInfos: SharedData->AnyWeightBoneInfos);
-			BodyIndices.AddUnique(SharedData->SelectedBodies[i].Index);
+			if(FPhysicsAssetUtils::CreateCollisionFromBone(BodySetup, SharedData->EditorSkelMesh, BoneIndex, SharedData->NewBodyData, (SharedData->NewBodyData.VertWeight == EVW_DominantWeight)? SharedData->DominantWeightBoneInfos: SharedData->AnyWeightBoneInfos))
+			{
+				BodyIndices.AddUnique(SharedData->SelectedBodies[i].Index);
+			}else
+			{
+				FPhysicsAssetUtils::DestroyBody(SharedData->PhysicsAsset, SharedData->SelectedBodies[i].Index);
+			}
 		}
 
 		//deselect first
@@ -2194,6 +2205,7 @@ void FPhAT::OnResetBoneCollision()
 
 	SharedData->RefreshPhysicsAssetChange(SharedData->PhysicsAsset);	
 	RefreshPreviewViewport();
+	RefreshHierachyTree();
 }
 
 void FPhAT::OnApplyPhysicalMaterial()
@@ -2217,12 +2229,14 @@ void FPhAT::OnEditingMode(int32 Mode)
 	if (Mode == FPhATSharedData::PEM_BodyEdit)
 	{
 		SharedData->EditingMode = FPhATSharedData::PEM_BodyEdit;
+		SharedData->SetSelectedBodiesFromConstraints();
 		RefreshHierachyTree();
 		SharedData->SetSelectedBody(NULL, true); // Forces properties panel to update...
 	}
 	else
 	{
 		SharedData->EditingMode = FPhATSharedData::PEM_ConstraintEdit;
+		SharedData->SetSelectedConstraintsFromBodies();
 		RefreshHierachyTree();
 		SharedData->SetSelectedConstraint(INDEX_NONE, true);
 	}
@@ -2326,14 +2340,19 @@ void FPhAT::FixPhysicsState()
 
 void FPhAT::ImpToggleSimulation()
 {
+	static const int32 PrevMaxFPS = GEngine->GetMaxFPS();
+
 	TSharedPtr<FPhATEdPreviewViewportClient> PreviewClient = PreviewViewport->GetViewportClient();
 	if(!SharedData->bRunningSimulation)
 	{
 		BeforeSimulationWidgetMode = PreviewClient->GetWidgetMode();
-		PreviewClient->SetWidgetMode(FWidget::EWidgetMode::WM_None);
-	}else
+		PreviewClient->SetWidgetMode(FWidget::EWidgetMode::WM_None);	
+		GEngine->SetMaxFPS(SharedData->EditorSimOptions->MaxFPS);
+	}
+	else
 	{
 		PreviewClient->SetWidgetMode(BeforeSimulationWidgetMode);
+		GEngine->SetMaxFPS(PrevMaxFPS);
 	}
 	
 
@@ -2450,6 +2469,9 @@ void FPhAT::OnMeshRenderingMode(FPhATSharedData::EPhATRenderMode Mode)
 		SharedData->ConstraintEdit_MeshViewMode = Mode;
 	}
 
+	// Changing the mesh rendering mode requires the skeletal mesh component to change its render state, which is an operation
+	// which is deferred until after render. Hence we need to trigger another viewport refresh on the following frame.
+	TickCountUntilViewportRefresh = 2;
 	RefreshPreviewViewport();
 }
 
@@ -3250,6 +3272,14 @@ void FPhAT::RecordAnimation()
 
 void FPhAT::Tick(float DeltaTime)
 {
+	if (TickCountUntilViewportRefresh > 0)
+	{
+		TickCountUntilViewportRefresh--;
+		if (TickCountUntilViewportRefresh == 0)
+		{
+			RefreshPreviewViewport();
+		}
+	}
 }
 
 TStatId FPhAT::GetStatId() const

@@ -9,7 +9,7 @@ namespace EStretchDirection
 {
 	enum Type
 	{
-		/** Will scale the content up or down */
+		/** Will scale the content up or down. */
 		Both,
 		/** Will only make the content smaller, will never scale it larger than the content's desired size. */
 		DownOnly,
@@ -25,13 +25,31 @@ namespace EStretch
 	{
 		/** Does not scale the content. */
 		None,
-		/** Scales the content non-uniformly filling the entire space of the area */
+		/** Scales the content non-uniformly filling the entire space of the area. */
 		Fill,
-		/** Scales the content uniformly (preserving aspect ratio) until it can no longer scale the content without clipping it. */
+		/**
+		 * Scales the content uniformly (preserving aspect ratio) 
+		 * until it can no longer scale the content without clipping it.
+		 */
 		ScaleToFit,
-		/** Scales the content uniformly (preserving aspect ratio), until all sides meet or exceed the size of the area.  Will result in clipping longer sides. */
+		/**
+		 * Scales the content uniformly (preserving aspect ratio) 
+		 * until it can no longer scale the content without clipping it along the x-axis, 
+		 * the y-axis can/will be clipped.
+		 */
+		ScaleToFitX,
+		/**
+		 * Scales the content uniformly (preserving aspect ratio) 
+		 * until it can no longer scale the content without clipping it along the y-axis, 
+		 * the x-axis can/will be clipped.
+		 */
+		ScaleToFitY,
+		/**
+		 * Scales the content uniformly (preserving aspect ratio), until all sides meet 
+		 * or exceed the size of the area.  Will result in clipping the longer side.
+		 */
 		ScaleToFill,
-		/** Scales the content by the scale specified by the user */
+		/** Scales the content by the scale specified by the user. */
 		UserSpecified
 	};
 }
@@ -51,6 +69,7 @@ public:
 	, _StretchDirection(EStretchDirection::Both)
 	, _Stretch(EStretch::None)
 	, _UserSpecifiedScale(1.0f)
+	, _IgnoreInheritedScale(false)
 	{}
 		/** Slot for this designers content (optional) */
 		SLATE_DEFAULT_SLOT(FArguments, Content)
@@ -70,7 +89,17 @@ public:
 		/** Optional scale that can be specified by the User */
 		SLATE_ATTRIBUTE(float, UserSpecifiedScale)
 
+		/** Undo any inherited scale factor before applying this scale box's scale */
+		SLATE_ATTRIBUTE(bool, IgnoreInheritedScale)
+
 	SLATE_END_ARGS()
+
+	/** Constructor */
+	SScaleBox()
+	{
+		bCanTick = false;
+		bCanSupportFocus = false;
+	}
 
 	void Construct(const FArguments& InArgs);
 	
@@ -96,7 +125,13 @@ public:
 
 	/** See UserSpecifiedScale argument */
 	void SetUserSpecifiedScale(float InUserSpecifiedScale);
+
+	/** Set IgnoreInheritedScale argument */
+	void SetIgnoreInheritedScale(bool InIgnoreInheritedScale);
 	
+protected:
+	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override;
+
 private:
 	/** The allowed direction of stretching of the content */
 	TAttribute<EStretchDirection::Type> StretchDirection;
@@ -106,4 +141,7 @@ private:
 
 	/** Optional scale that can be specified by the User */
 	TAttribute<float> UserSpecifiedScale;
+
+	/** Optional bool to ignore the inherited scale */
+	TAttribute<bool> IgnoreInheritedScale;
 };

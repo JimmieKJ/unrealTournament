@@ -95,14 +95,14 @@ public:
 		Obj->Serialize(*this);
 	}
 
-	// FArchive interface
+	//~ Begin FArchive Interface
 	COREUOBJECT_API virtual FArchive& operator<<( class FName& N ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( class UObject*& Res ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( FAssetPtr& AssetPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<(FStringAssetReference& AssetPtr) override;
 	COREUOBJECT_API virtual FString GetArchiveName() const override;
-	// End of FArchive interface
+	//~ End FArchive Interface
 
 protected:
 	FObjectWriter(TArray<uint8>& InBytes)
@@ -128,14 +128,14 @@ public:
 		Obj->Serialize(*this);
 	}
 
-	// FArchive interface
+	//~ Begin FArchive Interface
 	COREUOBJECT_API virtual FArchive& operator<<( class FName& N ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( class UObject*& Res ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( FAssetPtr& AssetPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<(FStringAssetReference& AssetPtr) override;
 	COREUOBJECT_API virtual FString GetArchiveName() const override;
-	// End of FArchive interface
+	//~ End FArchive Interface
 
 protected:
 	FObjectReader(TArray<uint8>& InBytes)
@@ -407,8 +407,9 @@ public:
 	 *
 	 * @param	PotentialReferencer		the object to serialize which may contain references to our target objects
 	 * @param	InTargetObjects			array of objects to search for references to
+	 * @param	bFindAlsoWeakReferences should we also look into weak references?
 	 */
-	COREUOBJECT_API FFindReferencersArchive( class UObject* PotentialReferencer, TArray<class UObject*> InTargetObjects );
+	COREUOBJECT_API FFindReferencersArchive(class UObject* PotentialReferencer, const TArray<class UObject*>& InTargetObjects, bool bFindAlsoWeakReferences = false);
 
 	/**
 	 * Retrieves the number of references from PotentialReferencer to the object specified.
@@ -491,14 +492,15 @@ public:
 	 * @param	PackageToCheck	if specified, only objects contained in this package will be searched
 	 *							for references to 
 	 * @param	bIgnoreTemplates If true, do not record template objects
+	 * @param	bFindAlsoWeakReferences If true, also look into weak references
 	 */
-	TFindObjectReferencers( TArray< T* > TargetObjects, UPackage* PackageToCheck=NULL, bool bIgnoreTemplates = true )
+	TFindObjectReferencers( TArray< T* > TargetObjects, UPackage* PackageToCheck=NULL, bool bIgnoreTemplates = true, bool bFindAlsoWeakReferences = false)
 	: TMultiMap< T*, UObject* >()
 	{
 		TArray<UObject*> ReferencedObjects;
 		TMap<UObject*, int32> ReferenceCounts;
 
-		FFindReferencersArchive FindReferencerAr(nullptr, ( TArray<UObject*>& )TargetObjects);
+		FFindReferencersArchive FindReferencerAr(nullptr, (TArray<UObject*>&)TargetObjects, bFindAlsoWeakReferences);
 
 		// Loop over every object to find any reference that may exist for the target objects
 		for (FObjectIterator It; It; ++It)
@@ -856,7 +858,7 @@ private:
 	const TArray<uint8>&					ObjectData;
 	int32									Offset;
 
-	// FArchive interface.
+	//~ Begin FArchive Interface.
 
 	virtual FArchive& operator<<(FName& N);
 	virtual FArchive& operator<<(UObject*& Object);
@@ -925,6 +927,8 @@ private:
 	int64										Offset;
 	EObjectFlags							FlagMask;
 	EObjectFlags							ApplyFlags;
+	EInternalObjectFlags InternalFlagMask;
+	EInternalObjectFlags ApplyInternalFlags;
 
 	/**
 	 * This is used to prevent object & component instancing resulting from the calls to StaticConstructObject(); instancing subobjects and components is pointless,
@@ -932,7 +936,7 @@ private:
 	 */
 	struct FObjectInstancingGraph*			InstanceGraph;
 
-	// FArchive interface.
+	//~ Begin FArchive Interface.
 
 	virtual FArchive& operator<<(FName& N);
 	virtual FArchive& operator<<(UObject*& Object);
@@ -1016,6 +1020,8 @@ public:
 		UObject* DestObject,
 		EObjectFlags InFlagMask,
 		EObjectFlags InApplyMask,
+		EInternalObjectFlags InInternalFlagMask,
+		EInternalObjectFlags InApplyInternalFlags,
 		FObjectInstancingGraph* InInstanceGraph,
 		uint32 InPortFlags);
 };
@@ -1053,7 +1059,8 @@ public:
 		bool bNullPrivateRefs,
 		bool bIgnoreOuterRef,
 		bool bIgnoreArchetypeRef,
-		bool bDelayStart=false
+		bool bDelayStart = false,
+		bool bIgnoreClassGeneratedByRef = true
 	)
 	: SearchObject(InSearchObject), ReplacementMap(inReplacementMap)
 	, Count(0), bNullPrivateReferences(bNullPrivateRefs)
@@ -1062,6 +1069,7 @@ public:
 		ArIsModifyingWeakAndStrongReferences = true;		// Also replace weak references too!
 		ArIgnoreArchetypeRef = bIgnoreArchetypeRef;
 		ArIgnoreOuterRef = bIgnoreOuterRef;
+		ArIgnoreClassGeneratedByRef = bIgnoreClassGeneratedByRef;
 
 		if ( !bDelayStart )
 		{
@@ -1074,6 +1082,8 @@ public:
 	 */
 	void SerializeSearchObject()
 	{
+		ReplacedReferences.Empty();
+
 		if (SearchObject != NULL && !SerializedObjects.Find(SearchObject)
 		&&	(ReplacementMap.Num() > 0 || bNullPrivateReferences))
 		{
@@ -1108,7 +1118,7 @@ public:
 	/**
 	 * Returns the number of times the object was referenced
 	 */
-	int64 GetCount()
+	int64 GetCount() const
 	{
 		return Count;
 	}
@@ -1117,6 +1127,11 @@ public:
 	 * Returns a reference to the object this archive is operating on
 	 */
 	const UObject* GetSearchObject() const { return SearchObject; }
+
+	/**
+	 * Returns a reference to the replaced references map
+	 */
+	const TMap<UObject*, TArray<UProperty*>>& GetReplacedReferences() const { return ReplacedReferences; }
 
 	/**
 	 * Serializes the reference to the object
@@ -1130,8 +1145,9 @@ public:
 			if ( ReplaceWith != NULL )
 			{
 				Obj = *ReplaceWith;
+				ReplacedReferences.FindOrAdd(Obj).AddUnique(GetSerializedProperty());
 				Count++;
-			} 
+			}
 			// A->IsIn(A) returns false, but we don't want to NULL that reference out, so extra check here.
 			else if ( Obj == SearchObject || Obj->IsIn(SearchObject) )
 			{
@@ -1198,6 +1214,9 @@ protected:
 
 	/** List of objects that have already been serialized */
 	TSet<UObject*> SerializedObjects;
+
+	/** Map of referencing objects to referencing properties */
+	TMap<UObject*, TArray<UProperty*>> ReplacedReferences;
 
 	/**
 	 * Whether references to non-public objects not contained within the SearchObject
@@ -1378,7 +1397,7 @@ public:
 	*/
 	FArchive& operator<<( UObject*& Object )
 	{
-		if ( Object != NULL && !(Object->HasAnyMarks(OBJECTMARK_TagExp) || Object->HasAnyFlags(RF_PendingKill|RF_Unreachable)) )
+		if (Object != NULL && !(Object->HasAnyMarks(OBJECTMARK_TagExp) || Object->IsPendingKillOrUnreachable()) )
 		{
 			Object->Mark(OBJECTMARK_TagExp);
 
@@ -1576,12 +1595,12 @@ public:
 	*/
 	FArchiveObjectCrc32();
 
-	// Begin FArchive Interface
+	//~ Begin FArchive Interface
 	virtual void Serialize(void* Data, int64 Length);
 	virtual FArchive& operator<<(class FName& Name);
 	virtual FArchive& operator<<(class UObject*& Object);
 	virtual FString GetArchiveName() const { return TEXT("FArchiveObjectCrc32"); }
-	// End FArchive Interface
+	//~ End FArchive Interface
 
 	/**
 	* Serialize the given object, calculate and return its checksum.

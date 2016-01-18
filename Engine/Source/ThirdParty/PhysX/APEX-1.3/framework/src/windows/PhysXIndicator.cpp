@@ -77,16 +77,16 @@ void* PhysXCpuIndicator::createIndicatorBlock(AgMMFile &mmfile, bool &alreadyExi
 	OSVERSIONINFOEX windowsVersionInfo;
 
 	/**
-	Operating system		Version number
-	----------------		--------------
-	Windows 7				6.1
-	Windows Server 2008 R2	6.1
-	Windows Server 2008		6.0
-	Windows Vista			6.0
-	Windows Server 2003 R2	5.2
-	Windows Server 2003		5.2
-	Windows XP				5.1
-	Windows 2000			5.0
+		Operating system		Version number
+		----------------		--------------
+		Windows 7				6.1
+		Windows Server 2008 R2	6.1
+		Windows Server 2008		6.0
+		Windows Vista			6.0
+		Windows Server 2003 R2	5.2
+		Windows Server 2003		5.2
+		Windows XP				5.1
+		Windows 2000			5.0
 	**/
 	windowsVersionInfo.dwOSVersionInfoSize = sizeof(windowsVersionInfo);
 	GetVersionEx((LPOSVERSIONINFO)&windowsVersionInfo);

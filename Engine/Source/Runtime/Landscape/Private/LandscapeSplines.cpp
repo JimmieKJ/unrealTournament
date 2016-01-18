@@ -18,11 +18,13 @@
 #include "EngineGlobals.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshSocket.h"
+#include "PhysicsEngine/BodySetup.h"
 #if WITH_EDITOR
 #include "LandscapeSplineRaster.h"
 #include "MessageLog.h"
 #include "UObjectToken.h"
 #endif
+#include "LandscapeVersion.h"
 
 IMPLEMENT_HIT_PROXY(HLandscapeSplineProxy, HHitProxy);
 IMPLEMENT_HIT_PROXY(HLandscapeSplineProxy_Segment, HLandscapeSplineProxy);
@@ -282,7 +284,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View) && View->Family->EngineShowFlags.Splines;
@@ -451,48 +453,67 @@ bool ULandscapeSplinesComponent::ModifySplines(bool bAlwaysMarkDirty /*= true*/)
 	return bSavedToTransactionBuffer;
 }
 
-FArchive& operator<<(FArchive& Ar, FForeignControlPointData& Value)
-{
 #if WITH_EDITORONLY_DATA
-	if (!Ar.IsFilterEditorOnly())
-	{
-		Ar << Value.ModificationKey << Value.MeshComponent;
-	}
-#endif
-	return Ar;
-}
-
+// legacy ForeignWorldSplineDataMap serialization
 FArchive& operator<<(FArchive& Ar, FForeignSplineSegmentData& Value)
 {
-#if WITH_EDITORONLY_DATA
 	if (!Ar.IsFilterEditorOnly())
 	{
 		Ar << Value.ModificationKey << Value.MeshComponents;
 	}
-#endif
 	return Ar;
 }
 
 FArchive& operator<<(FArchive& Ar, FForeignWorldSplineData& Value)
 {
-#if WITH_EDITORONLY_DATA
 	if (!Ar.IsFilterEditorOnly())
 	{
+		// note: ForeignControlPointDataMap is missing in legacy serialization
 		Ar << Value.ForeignSplineSegmentDataMap;
 	}
-#endif
 	return Ar;
 }
+#endif
 
 void ULandscapeSplinesComponent::Serialize(FArchive& Ar)
 {
+#if WITH_EDITORONLY_DATA
+	// Cooking is a save-time operation, so has to be done before Super::Serialize
+	if (Ar.IsCooking())
+	{
+		CookedForeignMeshComponents.Reset();
+
+		for (const auto& ForeignWorldSplineDataPair : ForeignWorldSplineDataMap)
+		{
+			const auto& ForeignWorldSplineData = ForeignWorldSplineDataPair.Value;
+
+			for (const auto& ForeignControlPointDataPair : ForeignWorldSplineData.ForeignControlPointDataMap)
+			{
+				const auto& ForeignControlPointData = ForeignControlPointDataPair.Value;
+				CookedForeignMeshComponents.Add(ForeignControlPointData.MeshComponent);
+			}
+
+			for (const auto& ForeignSplineSegmentDataPair : ForeignWorldSplineData.ForeignSplineSegmentDataMap)
+			{
+				const auto& ForeignSplineSegmentData = ForeignSplineSegmentDataPair.Value;
+				CookedForeignMeshComponents.Append(ForeignSplineSegmentData.MeshComponents);
+			}
+		}
+	}
+#endif
+
 	Super::Serialize(Ar);
 
 #if WITH_EDITORONLY_DATA
 	if (Ar.UE4Ver() >= VER_UE4_LANDSCAPE_SPLINE_CROSS_LEVEL_MESHES &&
 		!Ar.IsFilterEditorOnly())
 	{
-		Ar << ForeignWorldSplineDataMap;
+		Ar.UsingCustomVersion(FLandscapeCustomVersion::GUID);
+
+		if (Ar.CustomVer(FLandscapeCustomVersion::GUID) < FLandscapeCustomVersion::NewSplineCrossLevelMeshSerialization)
+		{
+			Ar << ForeignWorldSplineDataMap;
+		}
 	}
 
 	if (!Ar.IsPersistent())
@@ -1432,6 +1453,8 @@ void ULandscapeSplineControlPoint::UpdateSplinePoints(bool bUpdateCollision, boo
 		if (MeshComponent->StaticMesh != Mesh)
 		{
 			MeshComponent->Modify();
+			MeshComponent->UnregisterComponent();
+			bComponentNeedsRegistering = true;
 			MeshComponent->SetStaticMesh(Mesh);
 
 			AutoSetConnections(false);
@@ -1591,6 +1614,7 @@ void ULandscapeSplineControlPoint::DeleteSplinePoints()
 	if (LocalMeshComponent != nullptr)
 	{
 		OuterSplines->Modify();
+		LocalMeshComponent->Modify();
 		checkSlow(OuterSplines->MeshComponentLocalOwnersMap.FindRef(LocalMeshComponent) == this);
 		verifySlow(OuterSplines->MeshComponentLocalOwnersMap.Remove(LocalMeshComponent) == 1);
 		LocalMeshComponent->DestroyComponent();
@@ -1699,7 +1723,8 @@ void ULandscapeSplineSegment::PostInitProperties()
 	Super::PostInitProperties();
 
 #if WITH_EDITORONLY_DATA
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad | RF_AsyncLoading))
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad) &&
+		!HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading))
 	{
 		// create a new random seed for all new objects
 		RandomSeed = FMath::Rand();
@@ -1755,38 +1780,38 @@ void ULandscapeSplineSegment::PostLoad()
 		ULandscapeSplinesComponent* OuterSplines = GetOuterULandscapeSplinesComponent();
 		if (OuterSplines->SplineEditorMesh != nullptr)
 		{
-			for (auto* MeshComponent : LocalMeshComponents)
+			for (auto* LocalMeshComponent : LocalMeshComponents)
 			{
-				if (MeshComponent->StaticMesh == nullptr)
+				if (LocalMeshComponent->StaticMesh == nullptr)
 				{
-					MeshComponent->ConditionalPostLoad();
-					MeshComponent->SetStaticMesh(OuterSplines->SplineEditorMesh);
-					MeshComponent->SetHiddenInGame(true);
-					MeshComponent->SetVisibility(OuterSplines->bShowSplineEditorMesh);
-					MeshComponent->BodyInstance.SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+					LocalMeshComponent->ConditionalPostLoad();
+					LocalMeshComponent->SetStaticMesh(OuterSplines->SplineEditorMesh);
+					LocalMeshComponent->SetHiddenInGame(true);
+					LocalMeshComponent->SetVisibility(OuterSplines->bShowSplineEditorMesh);
+					LocalMeshComponent->BodyInstance.SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 				}
 			}
 		}
 
-		for (auto* MeshComponent : LocalMeshComponents)
+		for (auto* LocalMeshComponent : LocalMeshComponents)
 		{
-			OuterSplines->MeshComponentLocalOwnersMap.Add(MeshComponent, this);
+			OuterSplines->MeshComponentLocalOwnersMap.Add(LocalMeshComponent, this);
 		}
 	}
 
 	if (GetLinkerUE4Version() < VER_UE4_LANDSCAPE_SPLINE_CROSS_LEVEL_MESHES)
 	{
 		// Fix collision profile
-		for (auto* MeshComponent : LocalMeshComponents) // ForeignMeshComponents didn't exist yet
+		for (auto* LocalMeshComponent : LocalMeshComponents) // ForeignMeshComponents didn't exist yet
 		{
-			const bool bUsingEditorMesh = MeshComponent->bHiddenInGame;
+			const bool bUsingEditorMesh = LocalMeshComponent->bHiddenInGame;
 			const FName CollisionProfile = (bEnableCollision && !bUsingEditorMesh) ? UCollisionProfile::BlockAll_ProfileName : UCollisionProfile::NoCollision_ProfileName;
-			if (MeshComponent->GetCollisionProfileName() != CollisionProfile)
+			if (LocalMeshComponent->GetCollisionProfileName() != CollisionProfile)
 			{
-				MeshComponent->SetCollisionProfileName(CollisionProfile);
+				LocalMeshComponent->SetCollisionProfileName(CollisionProfile);
 			}
 
-			MeshComponent->SetFlags(RF_TextExportTransient);
+			LocalMeshComponent->SetFlags(RF_TextExportTransient);
 		}
 	}
 #endif
@@ -1799,20 +1824,20 @@ void ULandscapeSplineSegment::SetSplineSelected(bool bInSelected)
 	bSelected = bInSelected;
 	GetOuterULandscapeSplinesComponent()->MarkRenderStateDirty();
 
-	for (auto* MeshComponent : LocalMeshComponents)
+	for (auto* LocalMeshComponent : LocalMeshComponents)
 	{
-		MeshComponent->bSelected = bInSelected;
-		MeshComponent->PushSelectionToProxy();
+		LocalMeshComponent->bSelected = bInSelected;
+		LocalMeshComponent->PushSelectionToProxy();
 	}
 
 	auto ForeignMeshComponentsMap = GetForeignMeshComponents();
 	for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
 	{
 		ULandscapeSplinesComponent* MeshComponentOuterSplines = ForeignMeshComponentsPair.Key;
-		for (auto* MeshComponent : ForeignMeshComponentsPair.Value)
+		for (auto* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
 		{
-			MeshComponent->bSelected = bInSelected;
-			MeshComponent->PushSelectionToProxy();
+			ForeignMeshComponent->bSelected = bInSelected;
+			ForeignMeshComponent->PushSelectionToProxy();
 		}
 	}
 }
@@ -1926,6 +1951,8 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 	const float EndRollDegrees = EndRotation.Roll * (Connections[1].TangentLen > 0 ? -1 : 1);
 	const float StartRoll = FMath::DegreesToRadians(StartRollDegrees);
 	const float EndRoll = FMath::DegreesToRadians(EndRollDegrees);
+	const float StartMeshOffset = Connections[0].ControlPoint->SegmentMeshOffset;
+	const float EndMeshOffset = Connections[1].ControlPoint->SegmentMeshOffset;
 
 	int32 NumPoints = FMath::CeilToInt(SplineLength / OuterSplines->SplineResolution);
 	NumPoints = FMath::Clamp(NumPoints, 1, 1000);
@@ -1961,7 +1988,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 		SplineEditorMeshEntry.Mesh = OuterSplines->SplineEditorMesh;
 		SplineEditorMeshEntry.MaterialOverrides = {};
 		SplineEditorMeshEntry.bCenterH = true;
-		SplineEditorMeshEntry.Offset = {0.0f, 0.5f};
+		SplineEditorMeshEntry.CenterAdjust = {0.0f, 0.5f};
 		SplineEditorMeshEntry.bScaleToWidth = true;
 		SplineEditorMeshEntry.Scale = {3, 1, 1};
 		SplineEditorMeshEntry.ForwardAxis = ESplineMeshAxis::X;
@@ -1980,19 +2007,19 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 	auto ForeignMeshComponentsMap = GetForeignMeshComponents();
 
 	// Unregister components
-	for (auto* MeshComponent : OldLocalMeshComponents)
+	for (auto* LocalMeshComponent : OldLocalMeshComponents)
 	{
-		MeshComponent->Modify();
-		MeshComponent->UnregisterComponent();
+		LocalMeshComponent->Modify();
+		LocalMeshComponent->UnregisterComponent();
 	}
 	for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
 	{
 		ForeignMeshComponentsPair.Key->Modify();
 		ForeignMeshComponentsPair.Key->GetOwner()->Modify();
-		for (auto* MeshComponent : ForeignMeshComponentsPair.Value)
+		for (auto* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
 		{
-			MeshComponent->Modify();
-			MeshComponent->UnregisterComponent();
+			ForeignMeshComponent->Modify();
+			ForeignMeshComponent->UnregisterComponent();
 		}
 	}
 
@@ -2122,20 +2149,21 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 		MeshSettings.Add(FMeshSettings(T, nullptr));
 
 		// Destroy old unwanted components now
-		for (UMeshComponent* MeshComponent : OldLocalMeshComponents)
+		for (UMeshComponent* LocalMeshComponent : OldLocalMeshComponents)
 		{
-			verifySlow(OuterSplines->MeshComponentLocalOwnersMap.Remove(MeshComponent) == 1);
-			MeshComponent->DestroyComponent();
+			checkSlow(OuterSplines->MeshComponentLocalOwnersMap.FindRef(LocalMeshComponent) == this);
+			verifySlow(OuterSplines->MeshComponentLocalOwnersMap.Remove(LocalMeshComponent) == 1);
+			LocalMeshComponent->DestroyComponent();
 		}
 		OldLocalMeshComponents.Empty();
 
 		for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
 		{
 			ULandscapeSplinesComponent* MeshComponentOuterSplines = ForeignMeshComponentsPair.Key;
-			for (auto* MeshComponent : ForeignMeshComponentsPair.Value)
+			for (auto* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
 			{
-				MeshComponentOuterSplines->RemoveForeignMeshComponent(this, MeshComponent);
-				MeshComponent->DestroyComponent();
+				MeshComponentOuterSplines->RemoveForeignMeshComponent(this, ForeignMeshComponent);
+				ForeignMeshComponent->DestroyComponent();
 			}
 		}
 		ForeignMeshComponentsMap.Empty();
@@ -2161,6 +2189,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 			                                (MeshEntry->ForwardAxis == ESplineMeshAxis::Y && MeshEntry->UpAxis == ESplineMeshAxis::Z) ||
 			                                (MeshEntry->ForwardAxis == ESplineMeshAxis::Z && MeshEntry->UpAxis == ESplineMeshAxis::X);
 			const float Roll = FMath::Lerp(StartRoll, EndRoll, CosInterp) + (bDoOrientationRoll ? -HALF_PI : 0);
+			const float MeshOffset = FMath::Lerp(StartMeshOffset, EndMeshOffset, CosInterp);
 
 			FVector Scale = MeshEntry->Scale;
 			if (MeshEntry->bScaleToWidth)
@@ -2168,7 +2197,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 				Scale *= Width / USplineMeshComponent::GetAxisValue(MeshBounds.BoxExtent, SideAxis);
 			}
 
-			FVector2D Offset = MeshEntry->Offset;
+			FVector2D Offset = MeshEntry->CenterAdjust;
 			if (MeshEntry->bCenterH)
 			{
 				if (bDoOrientationRoll)
@@ -2198,6 +2227,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 				break;
 			}
 			Offset *= Scale2D;
+			Offset.Y += MeshOffset;
 			Offset = Offset.GetRotated(-Roll);
 
 			MeshComponent->SplineParams.StartPos = SplineInfo.Eval(RescaledT, FVector::ZeroVector);
@@ -2209,6 +2239,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 			const float CosInterpEnd = 0.5f - 0.5f * FMath::Cos(TEnd * PI);
 			const float WidthEnd = FMath::Lerp(StartWidth, EndWidth, CosInterpEnd);
 			const float RollEnd = FMath::Lerp(StartRoll, EndRoll, CosInterpEnd) + (bDoOrientationRoll ? -HALF_PI : 0);
+			const float MeshOffsetEnd = FMath::Lerp(StartMeshOffset, EndMeshOffset, CosInterpEnd);
 
 			FVector ScaleEnd = MeshEntry->Scale;
 			if (MeshEntry->bScaleToWidth)
@@ -2216,7 +2247,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 				ScaleEnd *= WidthEnd / USplineMeshComponent::GetAxisValue(MeshBounds.BoxExtent, SideAxis);
 			}
 
-			FVector2D OffsetEnd = MeshEntry->Offset;
+			FVector2D OffsetEnd = MeshEntry->CenterAdjust;
 			if (MeshEntry->bCenterH)
 			{
 				if (bDoOrientationRoll)
@@ -2246,6 +2277,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 				break;
 			}
 			OffsetEnd *= Scale2DEnd;
+			OffsetEnd.Y += MeshOffsetEnd;
 			OffsetEnd = OffsetEnd.GetRotated(-RollEnd);
 
 			MeshComponent->SplineParams.EndPos = SplineInfo.Eval(TEnd, FVector::ZeroVector);
@@ -2324,10 +2356,11 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 	else
 	{
 		// Spline needs no mesh components (0 length or no meshes to use) so destroy any we have
-		for (auto* MeshComponent : OldLocalMeshComponents)
+		for (auto* LocalMeshComponent : OldLocalMeshComponents)
 		{
-			verifySlow(OuterSplines->MeshComponentLocalOwnersMap.Remove(MeshComponent) == 1);
-			MeshComponent->DestroyComponent();
+			checkSlow(OuterSplines->MeshComponentLocalOwnersMap.FindRef(LocalMeshComponent) == this);
+			verifySlow(OuterSplines->MeshComponentLocalOwnersMap.Remove(LocalMeshComponent) == 1);
+			LocalMeshComponent->DestroyComponent();
 		}
 		OldLocalMeshComponents.Empty();
 		for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
@@ -2350,22 +2383,22 @@ void ULandscapeSplineSegment::UpdateSplineEditorMesh()
 {
 	ULandscapeSplinesComponent* OuterSplines = CastChecked<ULandscapeSplinesComponent>(GetOuter());
 
-	for (auto* MeshComponent : LocalMeshComponents)
+	for (auto* LocalMeshComponent : LocalMeshComponents)
 	{
-		if (MeshComponent->bHiddenInGame)
+		if (LocalMeshComponent->bHiddenInGame)
 		{
-			MeshComponent->SetVisibility(OuterSplines->bShowSplineEditorMesh);
+			LocalMeshComponent->SetVisibility(OuterSplines->bShowSplineEditorMesh);
 		}
 	}
 
 	auto ForeignMeshComponentsMap = GetForeignMeshComponents();
 	for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
 	{
-		for (auto* MeshComponent : ForeignMeshComponentsPair.Value)
+		for (auto* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
 		{
-			if (MeshComponent->bHiddenInGame)
+			if (ForeignMeshComponent->bHiddenInGame)
 			{
-				MeshComponent->SetVisibility(OuterSplines->bShowSplineEditorMesh);
+				ForeignMeshComponent->SetVisibility(OuterSplines->bShowSplineEditorMesh);
 			}
 		}
 	}
@@ -2384,13 +2417,18 @@ void ULandscapeSplineSegment::DeleteSplinePoints()
 	OuterSplines->MarkRenderStateDirty();
 
 	// Destroy mesh components
-	OuterSplines->GetOwner()->Modify();
-	for (auto* MeshComponent : LocalMeshComponents)
+	if (LocalMeshComponents.Num() > 0)
 	{
-		MeshComponent->Modify();
-		MeshComponent->DestroyComponent();
+		OuterSplines->Modify();
+		for (auto* LocalMeshComponent : LocalMeshComponents)
+		{
+			checkSlow(OuterSplines->MeshComponentLocalOwnersMap.FindRef(LocalMeshComponent) == this);
+			verifySlow(OuterSplines->MeshComponentLocalOwnersMap.Remove(LocalMeshComponent) == 1);
+			LocalMeshComponent->Modify();
+			LocalMeshComponent->DestroyComponent();
+		}
+		LocalMeshComponents.Empty();
 	}
-	LocalMeshComponents.Empty();
 
 	auto ForeignMeshComponentsMap = GetForeignMeshComponents();
 	for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
@@ -2398,11 +2436,11 @@ void ULandscapeSplineSegment::DeleteSplinePoints()
 		ULandscapeSplinesComponent* MeshComponentOuterSplines = ForeignMeshComponentsPair.Key;
 		MeshComponentOuterSplines->Modify();
 		MeshComponentOuterSplines->GetOwner()->Modify();
-		for (auto* MeshComponent : ForeignMeshComponentsPair.Value)
+		for (auto* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
 		{
-			MeshComponent->Modify();
-			MeshComponentOuterSplines->RemoveForeignMeshComponent(this, MeshComponent);
-			MeshComponent->DestroyComponent();
+			ForeignMeshComponent->Modify();
+			MeshComponentOuterSplines->RemoveForeignMeshComponent(this, ForeignMeshComponent);
+			ForeignMeshComponent->DestroyComponent();
 		}
 	}
 

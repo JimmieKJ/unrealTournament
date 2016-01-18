@@ -59,7 +59,7 @@ public:
 	void SetUpdateNavAgentWithOwnersCollisions(bool bUpdateWithOwner);
 	FORCEINLINE bool ShouldUpdateNavAgentWithOwnersCollision() const { return bUpdateNavAgentWithOwnersCollision != 0; }
 	
-	void UpdateNavAgent(const AActor& Owner);
+	void UpdateNavAgent(const AActor& InOwner);
 	void UpdateNavAgent(const UCapsuleComponent& CapsuleComponent);
 
 	/** @returns location of controlled actor - meaning center of collision bounding box */
@@ -141,7 +141,7 @@ public:
 	FNavAgentProperties* GetNavAgentProperties();
 
 	DEPRECATED(4.8, "This function is deprecated. Please use UpdateNavAgent version that's accepring a reference instead.")
-	void UpdateNavAgent(AActor* Owner);
+	void UpdateNavAgent(AActor* InOwner);
 	DEPRECATED(4.8, "This function is deprecated. Please use UpdateNavAgent version that's accepring a reference instead.")
 	void UpdateNavAgent(UCapsuleComponent* CapsuleComponent);
 };

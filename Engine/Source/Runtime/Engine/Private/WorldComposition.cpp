@@ -28,7 +28,7 @@ void UWorldComposition::PostInitProperties()
 {
 	Super::PostInitProperties();
 
-	if (!IsTemplate() && (GetOutermost()->PackageFlags & PKG_PlayInEditor) == 0)
+	if (!IsTemplate() && !GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 	{
 		// Tiles information is not serialized to disk, and should be regenerated on world composition object construction
 		Rescan();
@@ -768,7 +768,7 @@ void UWorldComposition::EvaluateWorldOriginLocation(const FVector& ViewLocation)
 	}
 		
 	// Request to shift world in case current view is quite far from current origin
-	if (Location.Size() > RebaseOriginDistance)
+	if (Location.SizeSquared() > FMath::Square(RebaseOriginDistance))
 	{
 		OwningWorld->RequestNewWorldOrigin(FIntVector(Location.X, Location.Y, Location.Z) + OwningWorld->OriginLocation);
 	}

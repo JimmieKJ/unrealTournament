@@ -1,13 +1,13 @@
 # update with correct ndk location
-TOOLCHAIN=/cygdrive/c/android/android-ndk-r9c/toolchains
+TOOLCHAIN=/cygdrive/c/android/android-ndk64-r10-windows-x86_64/toolchains
 CC=$(TOOLCHAIN)/llvm-3.4/prebuilt/windows-x86_64/bin/clang.exe
-AR_RC=$(TOOLCHAIN)/x86_64-4.8/prebuilt/windows-x86_64/bin/x86_64-linux-android-ar.exe rc
-RANLIB=$(TOOLCHAIN)/x86_64-4.8/prebuilt/windows-x86_64/bin/x86_64-linux-android-ranlib.exe
+AR_RC=$(TOOLCHAIN)/x86_64-4.9/prebuilt/windows-x86_64/bin/x86_64-linux-android-ar.exe rc
+RANLIB=$(TOOLCHAIN)/x86_64-4.9/prebuilt/windows-x86_64/bin/x86_64-linux-android-ranlib.exe
 
 RM_F=rm -f
 CPP = $(TOOLCHAIN)/llvm-3.4/prebuilt/windows-x86_64/bin/clang.exe
 
-STDLIBDIR="C:\\Android\\android-ndk-r9c\\platforms\\android-20\\arch-x86_64\\usr\\include"
+STDLIBDIR="C:\\Android\\android-ndk64-r10-windows-x86_64\\platforms\\android-20\\arch-x86_64\\usr\\include"
 
 CFLAGS= -g -O3 -ffunction-sections -funwind-tables -fstack-protector -fno-strict-aliasing -fno-exceptions -fno-rtti -fno-short-enums -fpic -march=atom #-std=c++11
 CPPFLAGS= -v -target x86_64-linux-android -I$(STDLIBDIR) -I../Include -DFT2_BUILD_LIBRARY -DNDEBUG 

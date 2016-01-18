@@ -1,5 +1,5 @@
 // Bots avoid these spots when moving - used for very short term stationary hazards like bio goo or sticky grenades
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 

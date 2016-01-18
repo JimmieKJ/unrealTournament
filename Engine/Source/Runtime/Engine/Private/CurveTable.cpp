@@ -5,6 +5,8 @@
 #include "Json.h"
 #include "CsvParser.h"
 
+#include "EditorFramework/AssetImportData.h"
+
 DEFINE_LOG_CATEGORY(LogCurveTable);
 
 ENGINE_API const FString FCurveTableRowHandle::Unknown(TEXT("UNKNOWN"));
@@ -94,9 +96,33 @@ void UCurveTable::FinishDestroy()
 #if WITH_EDITORONLY_DATA
 void UCurveTable::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
-	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), ImportPath, FAssetRegistryTag::TT_Hidden) );
+	if (AssetImportData)
+	{
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
+	}
 
 	Super::GetAssetRegistryTags(OutTags);
+}
+
+void UCurveTable::PostInitProperties()
+{
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
+	}
+
+	Super::PostInitProperties();
+}
+
+void UCurveTable::PostLoad()
+{
+	Super::PostLoad();
+	if (!ImportPath_DEPRECATED.IsEmpty() && AssetImportData)
+	{
+		FAssetImportInfo Info;
+		Info.Insert(FAssetImportInfo::FSourceFile(ImportPath_DEPRECATED));
+		AssetImportData->SourceData = MoveTemp(Info);
+	}
 }
 #endif
 

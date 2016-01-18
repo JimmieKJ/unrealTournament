@@ -39,96 +39,102 @@ FName FExternalProfiler::GetFeatureName()
 }
 
 
-bool FScopedExternalProfilerBase::bDidInitialize = false;
+bool FActiveExternalProfilerBase::bDidInitialize = false;
 
-FExternalProfiler* FScopedExternalProfilerBase::ActiveProfiler = NULL;
+FExternalProfiler* FActiveExternalProfilerBase::ActiveProfiler = NULL;
 
-
-
-void FScopedExternalProfilerBase::StartScopedTimer( const bool bWantPause )
+FExternalProfiler* FActiveExternalProfilerBase::GetActiveProfiler()
 {
 	// Create profiler on demand.
-	if( ActiveProfiler == NULL && !bDidInitialize )
+	if (ActiveProfiler == NULL && !bDidInitialize)
 	{
-		const int32 AvailableProfilerCount = IModularFeatures::Get().GetModularFeatureImplementationCount( FExternalProfiler::GetFeatureName() );
-		for( int32 CurProfilerIndex = 0; CurProfilerIndex < AvailableProfilerCount; ++CurProfilerIndex )
+		const int32 AvailableProfilerCount = IModularFeatures::Get().GetModularFeatureImplementationCount(FExternalProfiler::GetFeatureName());
+		for (int32 CurProfilerIndex = 0; CurProfilerIndex < AvailableProfilerCount; ++CurProfilerIndex)
 		{
-			FExternalProfiler& CurProfiler = IModularFeatures::Get().GetModularFeature<FExternalProfiler&>( FExternalProfiler::GetFeatureName() );
+			FExternalProfiler& CurProfiler = IModularFeatures::Get().GetModularFeature<FExternalProfiler&>(FExternalProfiler::GetFeatureName());
 
-			UE_LOG( LogExternalProfiler, Log, TEXT( "Found external profiler: %s" ), CurProfiler.GetProfilerName() );
+			UE_LOG(LogExternalProfiler, Log, TEXT("Found external profiler: %s"), CurProfiler.GetProfilerName());
 
 			// Default to the first profiler we have if none were specified on the command-line
-			if( ActiveProfiler == NULL )
+			if (ActiveProfiler == NULL)
 			{
 				ActiveProfiler = &CurProfiler;
 			}
 
 			// Check to see if the profiler was specified on the command-line (e.g., "-VTune")
-			if( FParse::Param( FCommandLine::Get(), CurProfiler.GetProfilerName() ) )
+			if (FParse::Param(FCommandLine::Get(), CurProfiler.GetProfilerName()))
 			{
 				ActiveProfiler = &CurProfiler;
 			}
 		}
 
-		if( ActiveProfiler != NULL )
+		if (ActiveProfiler != NULL)
 		{
-			UE_LOG( LogExternalProfiler, Log, TEXT( "Using external profiler: %s" ), ActiveProfiler->GetProfilerName() );
+			UE_LOG(LogExternalProfiler, Log, TEXT("Using external profiler: %s"), ActiveProfiler->GetProfilerName());
 		}
 		else
 		{
-			UE_LOG( LogExternalProfiler, Warning, TEXT( "No registered external profiler was matched with a command-line switch (or the DLL could not be loaded).  External profiling features will not be available." ) );
+			UE_LOG(LogExternalProfiler, Warning, TEXT("No registered external profiler was matched with a command-line switch (or the DLL could not be loaded).  External profiling features will not be available."));
 		}
 
 		// Don't try to initialize again this session
 		bDidInitialize = true;
 	}
+	return ActiveProfiler;
+}
 
 
-	if( ActiveProfiler != NULL )
+void FScopedExternalProfilerBase::StartScopedTimer( const bool bWantPause )
+{
+	FExternalProfiler* Profiler = GetActiveProfiler();	
+
+	if (Profiler != nullptr)
 	{
 		// Store the current state of profiler
-		bWasPaused = ActiveProfiler->bIsPaused;
+		bWasPaused = Profiler->bIsPaused;
 
 		// If the current profiler state isn't set to what we need, or if the global profiler sampler isn't currently
 		// running, then start it now
-		if( ActiveProfiler->TimerCount == 0 || bWantPause != ActiveProfiler->bIsPaused )
+		if (Profiler->TimerCount == 0 || bWantPause != Profiler->bIsPaused)
 		{
 			if( bWantPause )
 			{
-				ActiveProfiler->PauseProfiler();
+				Profiler->PauseProfiler();
 			}
 			else
 			{
-				ActiveProfiler->ResumeProfiler();
+				Profiler->ResumeProfiler();
 			}
 		}
 
 		// Increment number of overlapping timers
-		ActiveProfiler->TimerCount++;
+		Profiler->TimerCount++;
 	}
 }
 
 
 void FScopedExternalProfilerBase::StopScopedTimer()
 {
-	if( ActiveProfiler != NULL )
+	FExternalProfiler* Profiler = GetActiveProfiler();
+
+	if (Profiler != nullptr)
 	{
 		// Make sure a timer was already started
-		check( ActiveProfiler->TimerCount > 0 );
+		check(Profiler->TimerCount > 0);
 
 		// Decrement timer count
-		ActiveProfiler->TimerCount--;
+		Profiler->TimerCount--;
 
 		// Restore the previous state of VTune
-		if( bWasPaused != ActiveProfiler->bIsPaused )
+		if (bWasPaused != Profiler->bIsPaused)
 		{
 			if( bWasPaused )
 			{
-				ActiveProfiler->PauseProfiler();
+				Profiler->PauseProfiler();
 			}
 			else
 			{
-				ActiveProfiler->ResumeProfiler();
+				Profiler->ResumeProfiler();
 			}
 		}
 	}

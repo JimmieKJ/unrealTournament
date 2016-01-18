@@ -12,6 +12,11 @@ void UEnvQueryDebugHelpers::QueryToBlobArray(FEnvQueryInstance& Query, TArray<ui
 	EQSDebug::FQueryData EQSLocalData;
 	UEnvQueryDebugHelpers::QueryToDebugData(Query, EQSLocalData);
 
+	DebugDataToBlobArray(EQSLocalData, BlobArray, bUseCompression);
+}
+
+void UEnvQueryDebugHelpers::DebugDataToBlobArray(EQSDebug::FQueryData& EQSLocalData, TArray<uint8>& BlobArray, bool bUseCompression)
+{
 	if (!bUseCompression)
 	{
 		FMemoryWriter ArWriter(BlobArray);
@@ -132,17 +137,94 @@ void  UEnvQueryDebugHelpers::BlobArrayToDebugData(const TArray<uint8>& BlobArray
 #endif //ENABLE_VISUAL_LOG
 
 #if ENABLE_VISUAL_LOG && USE_EQS_DEBUGGER
+
+#define PRINT_TABLE_ROW(__src__, __dst__, __len__) \
+	{ \
+		const FString DataToPrint = __src__; \
+		__dst__ += DataToPrint; \
+		for (int32 i = DataToPrint.Len(); i < __len__; i++) __dst__ += FString::Printf(TEXT(" ")); \
+	}
+
+namespace
+{
+	static void DrawEQSItemDetails(const EQSDebug::FQueryData& EQSLocalData, int32 ItemIdx, FVisualLogLine& LogLine)
+	{
+		const EQSDebug::FItemData& ItemData = EQSLocalData.Items[ItemIdx];
+
+		PRINT_TABLE_ROW(ItemData.Desc, LogLine.Line, 27);
+
+		PRINT_TABLE_ROW(FString::Printf(TEXT(" | %.2f"), ItemData.TotalScore), LogLine.Line, 8);
+
+		const int32 NumTests = ItemData.TestScores.Num();
+		float TotalWeightedScore = 0.0f;
+		for (int32 Idx = 0; Idx < NumTests; Idx++)
+		{
+			TotalWeightedScore += ItemData.TestScores[Idx];
+		}
+
+		for (int32 Idx = 0; Idx < NumTests; Idx++)
+		{
+			const float ScoreW = ItemData.TestScores[Idx];
+			const float ScoreN = ItemData.TestValues[Idx];
+			FString DescScoreW = FString::Printf(TEXT("%.2f"), ScoreW);
+			FString DescScoreN = (ScoreN == UEnvQueryTypes::SkippedItemValue) ? TEXT("SKIP") : FString::Printf(TEXT("%.2f"), ScoreN);
+
+			PRINT_TABLE_ROW(FString(TEXT(" | ")) + DescScoreW + FString(" ") + DescScoreN, LogLine.Line, 15);
+		}
+	}
+}
+
 void UEnvQueryDebugHelpers::LogQueryInternal(FEnvQueryInstance& Query, const FLogCategoryBase& Category, ELogVerbosity::Type Verbosity, float TimeSeconds, FVisualLogEntry *CurrentEntry)
 {
 	const int32 UniqueId = FVisualLogger::Get().GetUniqueId(TimeSeconds);
+
+	EQSDebug::FQueryData EQSLocalData;
+	UEnvQueryDebugHelpers::QueryToDebugData(Query, EQSLocalData);
+
 	TArray<uint8> BlobArray;
-	UEnvQueryDebugHelpers::QueryToBlobArray(Query, BlobArray);
+	DebugDataToBlobArray(EQSLocalData, BlobArray);
+
 	const FString AdditionalLogInfo = FString::Printf(TEXT("Executed EQS: \n - Name: '%s' (id=%d, option=%d),\n - All Items: %d,\n - ValidItems: %d"), *Query.QueryName, Query.QueryID, Query.OptionIndex, Query.ItemDetails.Num(), Query.NumValidItems);
 	FVisualLogLine Line(Category.GetCategoryName(), Verbosity, AdditionalLogInfo, Query.QueryID);
 	Line.TagName = *EVisLogTags::TAG_EQS;
 	Line.UniqueId = UniqueId;
 
-	CurrentEntry->LogLines.Add(Line);
 	CurrentEntry->AddDataBlock(EVisLogTags::TAG_EQS, BlobArray, Category.GetCategoryName(), Verbosity).UniqueId = UniqueId;
+
+
+	if (EQSLocalData.NumValidItems > 0)
+	{
+		const int32 NumTests = EQSLocalData.Tests.Num();
+		Line.Line += FString(TEXT("\n"));
+
+		// draw test weights for best X items
+		const int32 NumItems = EQSLocalData.Items.Num();
+
+		// table header		
+		{
+			FString HeaderString;
+			PRINT_TABLE_ROW(FString::Printf(TEXT("Item "), EQSLocalData.NumValidItems), HeaderString, 27);
+
+			PRINT_TABLE_ROW(FString::Printf(TEXT(" | Score"), EQSLocalData.NumValidItems), HeaderString, 8);
+
+			for (int32 TestIdx = 0; TestIdx < NumTests; TestIdx++)
+			{
+				PRINT_TABLE_ROW(FString::Printf(TEXT(" | Test %d  "), TestIdx), HeaderString, 15);
+			}
+
+			Line.Line += HeaderString;
+		}
+		Line.Line += FString(TEXT("\n"));
+
+		// valid items
+		for (int32 Idx = 0; Idx < NumItems; Idx++)
+		{
+			DrawEQSItemDetails(EQSLocalData, Idx, Line);
+			Line.Line += FString(TEXT("\n"));
+		}
+	}
+	CurrentEntry->LogLines.Add(Line);
 }
+
+#undef PRINT_TABLE_ROW
 #endif //ENABLE_VISUAL_LOG && USE_EQS_DEBUGGER

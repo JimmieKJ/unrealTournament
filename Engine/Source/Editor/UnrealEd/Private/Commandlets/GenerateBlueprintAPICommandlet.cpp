@@ -300,10 +300,6 @@ GenerateBlueprintAPIUtils::CommandletOptions::CommandletOptions(TArray<FString> 
 			FString PathSwitch;
 			Switch.Split(TEXT("="), &PathSwitch, &SaveDir);
 		}
-		else
-		{
-			UE_LOG(LogBlueprintAPIGenerate, Warning, TEXT("Unrecognized command switch '%s', use -help for a listing of all accepted params"), *Switch);
-		}
 	}
 
 	if (NewDumpFlags != 0)
@@ -446,7 +442,7 @@ static UBlueprint* GenerateBlueprintAPIUtils::MakeTempBlueprint(UClass* ParentCl
 		}
 
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(MadeBlueprint);
-		MadeBlueprint->SetFlags(RF_RootSet); // to keep the BP from being garbage collected
+		MadeBlueprint->AddToRoot(); // to keep the BP from being garbage collected
 		FKismetEditorUtilities::CompileBlueprint(MadeBlueprint);
 		ClassBlueprints.Add(ParentClass, MadeBlueprint);
 	}
@@ -523,8 +519,7 @@ static FString GenerateBlueprintAPIUtils::BuildIndentString(uint32 IndentCount, 
 //------------------------------------------------------------------------------
 static FString GenerateBlueprintAPIUtils::GetActionKey(FGraphActionListBuilderBase::ActionGroup const& Action)
 {
-	TArray<FString> MenuHierarchy;
-	Action.GetCategoryChain(MenuHierarchy);
+	TArray<FString> MenuHierarchy = Action.GetCategoryChain();
 
 	FString ActionKey;
 	for (FString const& SubCategory : MenuHierarchy)
@@ -537,7 +532,7 @@ static FString GenerateBlueprintAPIUtils::GetActionKey(FGraphActionListBuilderBa
 	}
 
 	TSharedPtr<FEdGraphSchemaAction> MainAction = Action.Actions[0];
-	ActionKey += MainAction->MenuDescription.ToString();
+	ActionKey += MainAction->GetMenuDescription().ToString();
 
 	return ActionKey;
 }
@@ -738,9 +733,9 @@ static void GenerateBlueprintAPIUtils::DumpActionList(uint32 Indent, FGraphActio
 			TSharedPtr<FEdGraphSchemaAction> LHSAction = LHS.Actions[0];
 			TSharedPtr<FEdGraphSchemaAction> RHSAction = RHS.Actions[0];
 			
-			if (LHSAction->Grouping != RHSAction->Grouping)
+			if (LHSAction->GetGrouping() != RHSAction->GetGrouping())
 			{
-				return LHSAction->Grouping > RHSAction->Grouping;
+				return LHSAction->GetGrouping() > RHSAction->GetGrouping();
 			}
 			
 			FString LhKey = GetActionKey(LHS);
@@ -771,8 +766,7 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 	check(Action.Actions.Num() > 0);
 
 	// Get action category info
-	TArray<FString> MenuHierarchy;
-	Action.GetCategoryChain(MenuHierarchy);
+	const TArray<FString>& MenuHierarchy = Action.GetCategoryChain();
 
 	FString ActionCategory = TEXT("");
 
@@ -802,7 +796,7 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 	}
 
 	TSharedPtr<FEdGraphSchemaAction> PrimeAction = Action.Actions[0];
-	const FString ActionName = PrimeAction->MenuDescription.ToString();
+	const FString ActionName = PrimeAction->GetMenuDescription().ToString();
 
 	const FString ActionEntryIndent = BuildIndentString(Indent);
 	FString ActionEntry = ActionEntryIndent + "\"" + MakeJsonString(ActionCategory + ActionName) + "\"";
@@ -813,7 +807,7 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 	ActionEntry += " : {";
 
 	const FString TooltipFieldLabel("\"Tooltip\"      : \"");
-	const FString TooltipStr = PrimeAction->TooltipDescription.Replace(TEXT("\n"), *(IndentedNewline + BuildIndentString(TooltipFieldLabel.Len(), /*bUseSpaces =*/true)));
+	const FString TooltipStr = PrimeAction->GetTooltipDescription().Replace(TEXT("\n"), *(IndentedNewline + BuildIndentString(TooltipFieldLabel.Len(), /*bUseSpaces =*/true)));
 
 	ActionEntry += IndentedNewline + TooltipFieldLabel + MakeJsonString(TooltipStr) + "\"";
 		
@@ -867,6 +861,10 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 			{
 				if (!Pin->bHidden)
 				{
+					// @hack: Some pin data will not be available until requested for display, specifically tooltip strings for call function nodes:
+					FString Scratch;
+					Node->GetPinHoverText(*Pin, Scratch);
+
 					if (!bFirst)
 					{
 						ActionEntry += ",";

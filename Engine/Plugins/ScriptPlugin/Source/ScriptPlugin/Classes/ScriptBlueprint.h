@@ -13,16 +13,17 @@ UCLASS(BlueprintType, EarlyAccessPreview)
 class SCRIPTPLUGIN_API UScriptBlueprint : public UBlueprint
 {
 	GENERATED_UCLASS_BODY()
+public:
+	
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	FString SourceFilePath_DEPRECATED;
+
+	UPROPERTY()
+	class UAssetImportData* AssetImportData;
+#endif
 
 public:
-
-	/** Path to the script text used to construct this asset. Relative to the object's package, BaseDir() or absolute */
-	UPROPERTY(Category = Script, VisibleAnywhere, BlueprintReadWrite)
-	FString SourceFilePath;
-
-	/** Date/Time-stamp of the file from the last import. */
-	UPROPERTY(Category = Script, VisibleAnywhere)
-	FString SourceFileTimestamp;
 
 	/** Generated script bytecode */
 	UPROPERTY()
@@ -35,6 +36,7 @@ public:
 #if WITH_EDITORONLY_DATA
 	/** Override to ensure we write out the asset import data */
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
+	virtual void PostLoad() override;
 #endif
 
 #if WITH_EDITOR
@@ -47,6 +49,8 @@ public:
 	// End of UBlueprint interface
 
 	static bool ValidateGeneratedClass(const UClass* InClass);
+	
+	bool IsCodeDirty() const;
 	void UpdateScriptStatus();
 
 	/**

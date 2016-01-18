@@ -15,8 +15,11 @@ UMultiLineEditableText::UMultiLineEditableText(const FObjectInitializer& ObjectI
 
 	bAutoWrapText = true;
 	
-	static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
-	Font = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	if (!IsRunningDedicatedServer())
+	{
+		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
+		Font_DEPRECATED = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	}
 }
 
 void UMultiLineEditableText::ReleaseSlateResources(bool bReleaseChildren)
@@ -30,7 +33,6 @@ TSharedRef<SWidget> UMultiLineEditableText::RebuildWidget()
 {
 	MyMultiLineEditableText = SNew(SMultiLineEditableText)
 	.TextStyle(&WidgetStyle)
-	.Font(Font)
 	.Justification(Justification)
 	.WrapTextAt( WrapTextAt )
 	.AutoWrapText( bAutoWrapText )
@@ -44,8 +46,8 @@ TSharedRef<SWidget> UMultiLineEditableText::RebuildWidget()
 //	.BackgroundImageSelectionTarget(BackgroundImageSelectionTarget ? TAttribute<const FSlateBrush*>(&BackgroundImageSelectionTarget->Brush) : TAttribute<const FSlateBrush*>())
 //	.BackgroundImageComposing(BackgroundImageComposing ? TAttribute<const FSlateBrush*>(&BackgroundImageComposing->Brush) : TAttribute<const FSlateBrush*>())
 //	.CaretImage(CaretImage ? TAttribute<const FSlateBrush*>(&CaretImage->Brush) : TAttribute<const FSlateBrush*>())
-//	.OnTextChanged(BIND_UOBJECT_DELEGATE(FOnTextChanged, HandleOnTextChanged))
-//	.OnTextCommitted(BIND_UOBJECT_DELEGATE(FOnTextCommitted, HandleOnTextCommitted))
+	.OnTextChanged(BIND_UOBJECT_DELEGATE(FOnTextChanged, HandleOnTextChanged))
+	.OnTextCommitted(BIND_UOBJECT_DELEGATE(FOnTextCommitted, HandleOnTextCommitted))
 	;
 	
 	return BuildDesignTimeWidget( MyMultiLineEditableText.ToSharedRef() );
@@ -55,8 +57,10 @@ void UMultiLineEditableText::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
 
+	TAttribute<FText> HintTextBinding = OPTIONAL_BINDING(FText, HintText);
+
 	MyMultiLineEditableText->SetText(Text);
-//	MyMultiLineEditableText->SetHintText(HintText);
+	MyMultiLineEditableText->SetHintText(HintTextBinding);
 //	MyMultiLineEditableText->SetIsReadOnly(IsReadOnly);
 //	MyMultiLineEditableText->SetIsPassword(IsPassword);
 //	MyMultiLineEditableText->SetColorAndOpacity(ColorAndOpacity);
@@ -91,6 +95,20 @@ void UMultiLineEditableText::HandleOnTextChanged(const FText& InText)
 void UMultiLineEditableText::HandleOnTextCommitted(const FText& InText, ETextCommit::Type CommitMethod)
 {
 	OnTextCommitted.Broadcast(InText, CommitMethod);
+}
+
+void UMultiLineEditableText::PostLoad()
+{
+	Super::PostLoad();
+
+	if (GetLinkerUE4Version() < VER_UE4_DEPRECATE_UMG_STYLE_OVERRIDES)
+	{
+		if (Font_DEPRECATED.HasValidFont())
+		{
+			WidgetStyle.Font = Font_DEPRECATED;
+			Font_DEPRECATED = FSlateFontInfo();
+		}
+	}
 }
 
 #if WITH_EDITOR

@@ -1,0 +1,21 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "ArchVis Character",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.9.0",
+	"Description" : "A controllable character tuned for architectural applications",
+	"Category" : "Gameplay",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "ArchVisCharacter",
+			"Type" : "Runtime"
+		}
+	]
+}

@@ -6,23 +6,40 @@
 
 #include "IWebBrowserWindow.h"
 #include "WebBrowserHandler.h"
+#include "WebJSScripting.h"
+#include "SlateCore.h"
+#include "SlateBasics.h"
+#include "CoreUObject.h"
 
 #if PLATFORM_WINDOWS
 	#include "AllowWindowsPlatformTypes.h"
 #endif
 
+#pragma push_macro("OVERRIDE")
+#undef OVERRIDE // cef headers provide their own OVERRIDE macro
 #include "include/internal/cef_ptr.h"
 #include "include/cef_render_handler.h"
+#include "include/cef_jsdialog_handler.h"
+#pragma pop_macro("OVERRIDE")
 
 #if PLATFORM_WINDOWS
 	#include "HideWindowsPlatformTypes.h"
 #endif
 
+class FWebBrowserViewport;
 
-struct FInputEvent;
-class FSlateRenderer;
-class FSlateUpdatableTexture;
-
+/**
+ * Helper for containing items required for CEF browser window creation.
+ */
+struct FWebBrowserWindowInfo
+{
+	FWebBrowserWindowInfo(CefRefPtr<CefBrowser> InBrowser, CefRefPtr<FWebBrowserHandler> InHandler) 
+		: Browser(InBrowser)
+		, Handler(InHandler)
+	{}
+	CefRefPtr<CefBrowser> Browser;
+	CefRefPtr<FWebBrowserHandler> Handler;
+};
 
 /**
  * Implementation of interface for dealing with a Web Browser window.
@@ -34,31 +51,27 @@ class FWebBrowserWindow
 	// Allow the Handler to access functions only it needs
 	friend class FWebBrowserHandler;
 
-public:
+	// The WebBrowserSingleton should be the only one creating instances of this class
+	friend class FWebBrowserSingleton;
+
+private:
 	/**
 	 * Creates and initializes a new instance.
 	 * 
-	 * @param InViewportSize Initial size of the browser window.
-	 * @param InInitialURL The Initial URL that will be loaded.
+	 * @param InBrowser The CefBrowser object representing this browser window.
+	 * @param InUrl The Initial URL that will be loaded.
 	 * @param InContentsToLoad Optional string to load as a web page.
 	 * @param InShowErrorMessage Whether to show an error message in case of loading errors.
 	 */
-	FWebBrowserWindow(FIntPoint ViewportSize, FString URL, TOptional<FString> ContentsToLoad, bool ShowErrorMessage);
+	FWebBrowserWindow(CefRefPtr<CefBrowser> InBrowser, FString InUrl, TOptional<FString> InContentsToLoad, bool ShowErrorMessage, bool bThumbMouseButtonNavigation, bool bUseTransparency);
 
+public:
 	/** Virtual Destructor. */
 	virtual ~FWebBrowserWindow();
 
-public:
-
-	/**
-	* Set the CEF Handler receiving browser callbacks for this window.
-	*
-	* @param InHandler Pointer to the handler for this window.
-	*/
-	void SetHandler(CefRefPtr<FWebBrowserHandler> InHandler);
-
-	/** Close this window so that it can no longer be used. */
-	void CloseBrowser();
+	bool IsShowingErrorMessages() { return ShowErrorMessage; }
+	bool IsThumbMouseButtonNavigationEnabled() { return bThumbMouseButtonNavigation; }
+	bool UseTransparency() { return bUseTransparency; }
 
 public:
 
@@ -67,22 +80,23 @@ public:
 	virtual void LoadURL(FString NewURL) override;
 	virtual void LoadString(FString Contents, FString DummyURL) override;
 	virtual void SetViewportSize(FIntPoint WindowSize) override;
-	virtual FSlateShaderResource* GetTexture() override;
+	virtual TSharedRef<SWidget> CreateWidget(TAttribute<FVector2D> ViewportSize) override;
+	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) override;
 	virtual bool IsValid() const override;
-	virtual bool HasBeenPainted() const override;
+	virtual bool IsInitialized() const override;
 	virtual bool IsClosing() const override;
 	virtual EWebBrowserDocumentState GetDocumentLoadingState() const override;
 	virtual FString GetTitle() const override;
 	virtual FString GetUrl() const override;
-	virtual void OnKeyDown(const FKeyEvent& InKeyEvent) override;
-	virtual void OnKeyUp(const FKeyEvent& InKeyEvent) override;
-	virtual void OnKeyChar(const FCharacterEvent& InCharacterEvent) override;
-	virtual void OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void OnFocus(bool SetFocus) override;
+	virtual bool OnKeyDown(const FKeyEvent& InKeyEvent) override;
+	virtual bool OnKeyUp(const FKeyEvent& InKeyEvent) override;
+	virtual bool OnKeyChar(const FCharacterEvent& InCharacterEvent) override;
+	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
+	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
+	virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
+	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
+	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
+	virtual void OnFocus(bool SetFocus, bool bIsPopup) override;
 	virtual void OnCaptureLost() override;
 	virtual bool CanGoBack() const override;
 	virtual void GoBack() override;
@@ -92,6 +106,9 @@ public:
 	virtual void Reload() override;
 	virtual void StopLoad() override;
 	virtual void ExecuteJavascript(const FString& Script) override;
+	virtual void CloseBrowser(bool bForce) override;
+	virtual void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) override;
+	virtual void UnbindUObject(const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true) override;
 
 	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnDocumentStateChanged, FOnDocumentStateChanged);
 	virtual FOnDocumentStateChanged& OnDocumentStateChanged() override
@@ -117,35 +134,66 @@ public:
 		return NeedsRedrawEvent;
 	}
 
-	virtual FONJSQueryReceived& OnJSQueryReceived() override
-	{
-		return JSQueryReceivedDelegate;
-	}
-
-	virtual FONJSQueryCanceled& OnJSQueryCanceled() override
-	{
-		return JSQueryCanceledDelegate;
-	}
-
 	virtual FOnBeforeBrowse& OnBeforeBrowse() override
 	{
-		return OnBeforeBrowseDelegate;
+		return BeforeBrowseDelegate;
+	}
+	
+	virtual FOnLoadUrl& OnLoadUrl() override
+	{
+		return LoadUrlDelegate;
 	}
 
-	virtual FOnBeforePopup& OnBeforePopup() override
+	virtual FOnCreateWindow& OnCreateWindow() override
 	{
-		return OnBeforePopupDelegate;
+		return CreateWindowDelegate;
+	}
+
+	virtual FOnCloseWindow& OnCloseWindow() override
+	{
+		return CloseWindowDelegate;
+	}
+
+	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) override
+	{
+		return Cursor == EMouseCursor::Default ? FCursorReply::Unhandled() : FCursorReply::Cursor(Cursor);
+	}
+
+	virtual FOnBeforePopupDelegate& OnBeforePopup() override
+	{
+		return BeforePopupDelegate;
+	}
+
+	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnShowPopup, FOnShowPopup);
+	virtual FOnShowPopup& OnShowPopup() override
+	{
+		return ShowPopupEvent;
+	}
+
+	DECLARE_DERIVED_EVENT(FWebBrowserWindow, IWebBrowserWindow::FOnDismissPopup, FOnDismissPopup);
+	virtual FOnDismissPopup& OnDismissPopup() override
+	{
+		return DismissPopupEvent;
+	}
+
+	virtual FOnShowDialog& OnShowDialog() override
+	{
+		return ShowDialogDelegate;
+	}
+
+	virtual FOnDismissAllDialogs& OnDismissAllDialogs() override
+	{
+		return DismissAllDialogsDelegate;
 	}
 
 private:
 
 	/**
-	 * Called to pass reference to the underlying CefBrowser as this is not created at the same time
-	 * as the FWebBrowserWindow.
+	 * Used to obtain the internal CEF browser.
 	 *
-	 * @param Browser The CefBrowser for this window.
+	 * @return The bound CEF browser.
 	 */
-	void BindCefBrowser(CefRefPtr<CefBrowser> Browser);
+	CefRefPtr<CefBrowser> GetCefBrowser();
 
 	/**
 	 * Sets the Title of this window.
@@ -159,7 +207,14 @@ private:
 	 * 
 	 * @param InUrl The new url of this window.
 	 */
-	void SetUrl(const CefString& Url);
+	void SetUrl(const CefString& InUrl);
+
+	/**
+	 * Sets the tool tip for this window.
+	 * 
+	 * @param InToolTip The text to show in the ToolTip. Empty string for no tool tip.
+	 */
+	void SetToolTip(const CefString& InToolTip);
 
 	/**
 	 * Get the current proportions of this window.
@@ -190,46 +245,112 @@ private:
 	 */
 	void OnPaint(CefRenderHandler::PaintElementType Type, const CefRenderHandler::RectList& DirtyRects, const void* Buffer, int Width, int Height);
 	
-#if PLATFORM_MAC
 	/**
 	 * Called when cursor would change due to web browser interaction.
 	 * 
 	 * @param Cursor Handle to CEF mouse cursor.
 	 */
-    void OnCursorChange(CefCursorHandle Cursor, CefRenderHandler::CursorType Type, const CefCursorInfo& CustomCursorInfo);
-#else
-	void OnCursorChange(CefCursorHandle Cursor);
-#endif
+	void OnCursorChange(CefCursorHandle Cursor, CefRenderHandler::CursorType Type, const CefCursorInfo& CustomCursorInfo);
 
 	/**
-     * Called when JavaScript code sends a message to the UE process.
-     * Needs to return true or false to tell CEF wether the query is being handled by user code or not.
-     *
-     * @param QueryId A unique id for the query. Used to refer to it in OnQueryCanceled.
-     * @param Request The query string itself as passed in from the JS code.
-     * @param Persistent Os this a persistent query or not. If not, client code expects the callback to be invoked only once, wheras persistent queries are terminated by invoking Failure, Success can be invoked multiple times until then.
-     * @param Callback A handle to pass data back to the JS code. 
-     */
-    bool OnQuery(int64 QueryId,
-        const CefString& Request,
-        bool Persistent,
-        CefRefPtr<CefMessageRouterBrowserSide::Callback> Callback);
+	 * Called when a message was received from the renderer process.
+	 *
+	 * @param Browser The CefBrowser for this window.
+	 * @param SourceProcess The process id of the sender of the message. Currently always PID_RENDERER.
+	 * @param Message The actual message.
+	 * @return true if the message was handled, else false.
+	 */
+	bool OnProcessMessageReceived(CefRefPtr<CefBrowser> Browser, CefProcessId SourceProcess, CefRefPtr<CefProcessMessage> Message);
 
-    /**
-     * Called when an outstanding query has been canceled eother explicitly from JS code or implicitly by navigating away from the page containing the code.
-     * Will only be called if OnQuery has previously returned true for the same QueryId.
-     *
-     * @param QueryId A unique id for the query. A handler should use it to locate and remove any handlers that might be in flight.
-     */
-    void OnQueryCanceled(int64 QueryId);
+	/**
+	 * Called before browser navigation.
+	 *
+	 * @param Browser The CefBrowser for this window.
+	 * @param Frame The CefFrame the request came from.
+	 * @param Request The CefRequest containing web request info.
+	 * @param bIsRedirect true if the navigation was a result of redirection, false otherwise.
+	 * @return true if the navigation was handled and no further processing of the navigation request should be disabled, false if the navigation should be handled by the default CEF implementation.
+	 */
+	bool OnBeforeBrowse(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefRequest> Request, bool bIsRedirect);
+	
+	/**
+	 * Called before loading a resource.
+	 */
+	CefRefPtr<CefResourceHandler> GetResourceHandler( CefRefPtr< CefFrame > Frame, CefRefPtr< CefRequest > Request );
 
-	// Trigger an OnBeforeBrowse event chain
-	bool OnCefBeforeBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect);
+	/** 
+	 * Called when browser reports a key event that was not handled by it
+	 */
+	bool OnUnhandledKeyEvent(const CefKeyEvent& CefEvent);
+
+	/**
+	 * Handle showing javascript dialogs
+	 */
+	bool OnJSDialog(CefJSDialogHandler::JSDialogType DialogType, const CefString& MessageText, const CefString& DefaultPromptText, CefRefPtr<CefJSDialogCallback> Callback, bool& OutSuppressMessage);
+
+	/**
+	 * Handle showing unload confirmation dialogs
+	 */
+	bool OnBeforeUnloadDialog(const CefString& MessageText, bool IsReload, CefRefPtr<CefJSDialogCallback> Callback);
+
+	/**
+	 * Notify when any and all pending dialogs should be canceled
+	 */
+	void OnResetDialogState();
+
+	/**
+	 * Called when render process was terminated abnormally.
+	 */
+	void OnRenderProcessTerminated(CefRequestHandler::TerminationStatus Status);
+
+
+	/** Specifies if window creation functionality is available. 
+	 *
+	 * @return true if window creation functionality was provided, false otherwise.  If false, RequestCreateWindow() will always return false.
+	 */
+	bool SupportsNewWindows();
+
+	/** Called when the browser requests a new UI window
+	 *
+	 * @param NewBrowserWindow The web browser window to display in the new UI window.
+	 * @param BrowserPopupFeatures The popup features and settings for the browser window.
+	 * @return true if the UI window was created, false otherwise.
+	 */
+	bool RequestCreateWindow(const TSharedRef<IWebBrowserWindow>& NewBrowserWindow, const TSharedPtr<IWebBrowserPopupFeatures>& BrowserPopupFeatures);
+	
+	//bool SupportsCloseWindows();
+	//bool RequestCloseWindow(const TSharedRef<IWebBrowserWindow>& BrowserWindow);
+
+
+	/**
+	 * Called once the browser begins closing procedures.
+	 */
+	void OnBrowserClosing();
+	
+	/**
+	 * Called once the browser is closed.
+	 */
+	void OnBrowserClosed();
+
+	/**
+	 * Called to set the popup menu location. Note that CEF also passes a size to this method, 
+	 * which is ignored as the correct size is usually not known until inside OnPaint.
+	 *
+ 	 * @param PopupSize The location of the popup widget.
+	 */
+	void SetPopupMenuPosition(CefRect PopupSize);
+
+	/**
+	 * Called to request that the popup widget is shown or hidden.
+	 *
+ 	 * @param bShow true for showing the popup, false for hiding it.
+	 */
+	void ShowPopupMenu(bool bShow);
+
+public:
 
 	// Trigger an OnBeforePopup event chain
 	bool OnCefBeforePopup(const CefString& Target_Url, const CefString& Target_Frame_Name);
-
-public:
 
 	/**
 	 * Gets the Cef Keyboard Modifiers based on a Key Event.
@@ -255,22 +376,41 @@ public:
 	 */
 	static int32 GetCefInputModifiers(const FInputEvent& InputEvent);
 
+public:
+
+	/**
+	 * Called from the WebBrowserSingleton tick event. Should test wether the widget got a tick from Slate last frame and set the state to hidden if not.
+	 */
+	void CheckTickActivity();
+
+	/**
+	 * Called on every browser window when CEF launches a new render process.
+	 * Used to ensure global JS objects are registered as soon as possible.
+	 */
+	CefRefPtr<CefDictionaryValue> GetProcessInfo();
+
 private:
+	/** Helper that calls WasHidden on the CEF host object when the value changes */
+	void SetIsHidden(bool bValue);
+
+	/** Used by the key down and up handlers to convert Slate key events to the CEF equivalent. */
+	void PopulateCefKeyEvent(const FKeyEvent& InKeyEvent, CefKeyEvent& OutKeyEvent);
+
+	/** Used to convert a FPointerEvent to a CefMouseEvent */
+	CefMouseEvent GetCefMouseEvent(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup);
+
+private:
+
+	/** Viewport interface for rendering the web page. */
+	TSharedPtr<FWebBrowserViewport> BrowserViewport;
+	/** The actual viewport widget. Required to update its tool tip property. */
+	TSharedPtr<SViewport> ViewportWidget;
 
 	/** Current state of the document being loaded. */
 	EWebBrowserDocumentState DocumentState;
 
 	/** Interface to the texture we are rendering to. */
-	FSlateUpdatableTexture* UpdatableTexture;
-
-	/** Temporary storage for the raw texture data. */
-	TArray<uint8> TextureData;
-
-    /** Wether the texture data contain updates that have not been copied to the UpdatableTexture yet. */
-    bool bTextureDataDirty;
-
-	/** Pointer to the CEF Handler for this window. */
-	CefRefPtr<FWebBrowserHandler> Handler;
+	FSlateUpdatableTexture* UpdatableTextures[2];
 
 	/** Pointer to the CEF Browser for this window. */
 	CefRefPtr<CefBrowser> InternalCefBrowser;
@@ -281,6 +421,9 @@ private:
 	/** Current Url of this window. */
 	FString CurrentUrl;
 
+	/** Current tool tip. */
+	FString ToolTipText;
+
 	/** Current size of this window. */
 	FIntPoint ViewportSize;
 
@@ -288,12 +431,7 @@ private:
 	bool bIsClosing;
 
 	/** Whether this window has been painted at least once. */
-	bool bHasBeenPainted;
-	
-	FONJSQueryReceived JSQueryReceivedDelegate;
-	FONJSQueryCanceled JSQueryCanceledDelegate;
-	FOnBeforeBrowse OnBeforeBrowseDelegate;
-	FOnBeforePopup OnBeforePopupDelegate;
+	bool bIsInitialized;
 
 	/** Optional text to load as a web page. */
 	TOptional<FString> ContentsToLoad;
@@ -304,6 +442,12 @@ private:
 	/** Whether to show an error message in case of loading errors. */
 	bool ShowErrorMessage;
 
+	/** Whether to allow forward and back navigation via the mouse thumb buttons. */
+	bool bThumbMouseButtonNavigation;
+
+	/** Whether transparency is enabled. */
+	bool bUseTransparency;
+
 	/** Delegate for broadcasting title changes. */
 	FOnTitleChanged TitleChangedEvent;
 
@@ -312,7 +456,63 @@ private:
 
 	/** Delegate for notifying that the window needs refreshing. */
 	FOnNeedsRedraw NeedsRedrawEvent;
-};
+	
+	/** Delegate that is executed prior to browser navigation. */
+	FOnBeforeBrowse BeforeBrowseDelegate;
 
+	/** Delegate for overriding Url contents. */
+	FOnLoadUrl LoadUrlDelegate;
+
+	/** Delegate for notifying that a popup window is attempting to open. */
+	FOnBeforePopupDelegate BeforePopupDelegate;
+	
+	/** Delegate for handling requests to create new windows. */
+	FOnCreateWindow CreateWindowDelegate;
+
+	/** Delegate for handling requests to close new windows that were created. */
+	FOnCloseWindow CloseWindowDelegate;
+
+	/** Delegate for handling requests to show the popup menu. */
+	FOnShowPopup ShowPopupEvent;
+
+	/** Delegate for handling requests to dismiss the current popup menu. */
+	FOnDismissPopup DismissPopupEvent;
+
+	/** Delegate for showing dialogs. */
+	FOnShowDialog ShowDialogDelegate;
+
+	/** Delegate for dismissing all dialogs. */
+	FOnDismissAllDialogs DismissAllDialogsDelegate;
+
+	/** Tracks the current mouse cursor */
+	EMouseCursor::Type Cursor;
+
+	/** Tracks wether the widget is currently hidden or not*/
+	bool bIsHidden;
+
+	/** Used to detect when the widget is hidden*/
+	bool bTickedLastFrame;
+
+	/** Used for unhandled key events forwarding*/
+	TOptional<FKeyEvent> PreviousKeyDownEvent;
+	TOptional<FKeyEvent> PreviousKeyUpEvent;
+	TOptional<FCharacterEvent> PreviousCharacterEvent;
+	bool bIgnoreKeyDownEvent;
+	bool bIgnoreKeyUpEvent;
+	bool bIgnoreCharacterEvent;
+
+	/** Used to ignore any popup menus when forwarding focus gained/lost events*/
+	bool bMainHasFocus;
+	bool bPopupHasFocus;
+
+	FIntPoint PopupPosition;
+	bool bShowPopupRequested;
+
+	/** This is set to true when reloading after render process crash. */
+	bool bRecoverFromRenderProcessCrash;
+
+	/** Handling of passing and marshalling messages for JS integration is delegated to a helper class*/
+	TSharedPtr<FWebJSScripting> Scripting;
+};
 
 #endif

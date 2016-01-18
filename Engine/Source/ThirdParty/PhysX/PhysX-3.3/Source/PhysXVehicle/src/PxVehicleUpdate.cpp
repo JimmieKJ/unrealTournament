@@ -330,18 +330,10 @@ void computeSprungMasses(const PxU32 numSprungMasses, const PxVec3* sprungMassCo
 		b[1]=totalMass*centreOfMass[d1];
 		b[2]=totalMass;
 
-#if defined(PX_PS3)
-#if !defined(PX_DEBUG)
-		//Limited stack settings.
-		PX_CHECK_AND_RETURN(PxAbs(MatrixNNDeterminant::compute(A)) > DETERMINANT_THRESHOLD, "PxVehicleComputeSprungMasses: Unable to determine sprung masses.  Please check the values in sprungMassCoordinates.");
-#endif
-#else
-		PX_CHECK_AND_RETURN(PxAbs(MatrixNNDeterminant::compute(A)) > DETERMINANT_THRESHOLD, "PxVehicleComputeSprungMasses: Unable to determine sprung masses.  Please check the values in sprungMassCoordinates.");
-#endif
-
 		VectorN result(3);
 		MatrixNNLUSolver solver;
 		solver.decomposeLU(A);
+		PX_CHECK_AND_RETURN(PxAbs(solver.getDet()) > DETERMINANT_THRESHOLD, "PxVehicleComputeSprungMasses: Unable to determine sprung masses.  Please check the values in sprungMassCoordinates.");
 		solver.solve(b,result);
 
 		sprungMasses[0]=result[0];
@@ -407,22 +399,12 @@ void computeSprungMasses(const PxU32 numSprungMasses, const PxVec3* sprungMassCo
 			b[i+3] = 2*mbar;
 		}
 
-#ifdef PX_PS3 
-#if !defined(PX_DEBUG)
-		//Limited stack settings in debug.
-		//Too expensive without really working on optimizing this.
-		//PX_CHECK_AND_RETURN(PxAbs(MatrixNNDeterminant::compute(A)) > DETERMINANT_THRESHOLD, "PxVehicleComputeSprungMasses: Unable to determine sprung masses.  Please check the values in sprungMassCoordinates.");
-#endif
-#else
-		//Too expensive without really working on optimizing this.
-		//PX_CHECK_AND_RETURN(PxAbs(MatrixNNDeterminant::compute(A)) > DETERMINANT_THRESHOLD, "PxVehicleComputeSprungMasses: Unable to determine sprung masses.  Please check the values in sprungMassCoordinates.");
-#endif
-
 		//Solve Ax=b
 		VectorN result(numSprungMasses+3);
 		MatrixNNLUSolver solver;
 		solver.decomposeLU(A);
 		solver.solve(b,result);
+		PX_CHECK_AND_RETURN(PxAbs(solver.getDet()) > DETERMINANT_THRESHOLD, "PxVehicleComputeSprungMasses: Unable to determine sprung masses.  Please check the values in sprungMassCoordinates.");
 
 		for(PxU32 i=0;i<numSprungMasses;i++)
 		{

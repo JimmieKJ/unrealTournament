@@ -390,7 +390,7 @@
 	ENUM_GL_ENTRYPOINTS_OPTIONAL(EnumMacro)
 
 /** Declare all GL functions. */
-#define DECLARE_GL_ENTRYPOINTS(Type,Func) extern Type Func;
+#define DECLARE_GL_ENTRYPOINTS(Type,Func) extern Type OPENGLDRV_API Func;
 ENUM_GL_ENTRYPOINTS_ALL(DECLARE_GL_ENTRYPOINTS);
 
 /** This function is handled separately because it is used to get a real context. */
@@ -577,6 +577,11 @@ struct FWindowsOpenGL : public FOpenGL4
 
 struct FWindowsOpenGL : public FOpenGLES31
 {
+	static FORCEINLINE EShaderPlatform GetShaderPlatform()
+	{
+		return bES2Fallback ? SP_OPENGL_PCES2 : SP_OPENGL_PCES3_1;
+	}
+
 	static FORCEINLINE void InitDebugContext()
 	{
 		bDebugContext = glIsEnabled( GL_DEBUG_OUTPUT) != GL_FALSE;

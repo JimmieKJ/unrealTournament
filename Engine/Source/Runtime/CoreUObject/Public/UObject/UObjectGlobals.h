@@ -78,11 +78,23 @@ struct FObjectDuplicationParameters
 	EObjectFlags	FlagMask;
 
 	/**
+	* a bitmask of EInternalObjectFlags to propagate to the duplicate of SourceObject (and its subobjects).
+	*/
+	EInternalObjectFlags InternalFlagMask;
+
+	/**
 	 * a bitmask of EObjectFlags to set on each duplicate object created.  Different from FlagMask in that only the bits
 	 * from FlagMask which are also set on the source object will be set on the duplicate, while the flags in this value
 	 * will always be set.
 	 */
 	EObjectFlags	ApplyFlags;
+
+	/**
+	* a bitmask of EInternalObjectFlags to set on each duplicate object created.  Different from FlagMask in that only the bits
+	* from FlagMask which are also set on the source object will be set on the duplicate, while the flags in this value
+	* will always be set.
+	*/
+	EInternalObjectFlags	ApplyInternalFlags;
 
 	/**
 	 * Any PortFlags to be applied when serializing.
@@ -121,7 +133,26 @@ COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags);
 
 COREUOBJECT_API UPackage* GetTransientPackage();
 
-COREUOBJECT_API bool ResolveName( UObject*& Outer, FString& Name, bool Create, bool Throw );
+/**
+ * Gets INI file name from object's reference if it contains one.
+ *
+ * @returns If object reference doesn't contain any INI reference the function
+ *		returns nullptr. Otherwise a ptr to INI's file name.
+ */
+COREUOBJECT_API const FString* GetIniFilenameFromObjectsReference(const FString& ObjectsReferenceString);
+
+/**
+ * Resolves ini object path to string object path.
+ *
+ * @param ObjectReference Ini reference.
+ * @param IniFilename Ini filename.
+ * @param bThrow Can this function throw?
+ *
+ * @returns Resolved object path.
+ */
+COREUOBJECT_API FString ResolveIniObjectsReference(const FString& ObjectReference, const FString* IniFilename, bool bThrow = false);
+
+COREUOBJECT_API bool ResolveName( UObject*& Outer, FString& ObjectsReferenceString, bool Create, bool Throw );
 COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* ErrorMessage);
 
 /**
@@ -134,9 +165,10 @@ COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHA
  * @param	ExactClass		Whether to require an exact match with the passed in class
  * @param	AnyPackage		Whether to look in any package
  * @param	ExclusiveFlags	Ignores objects that contain any of the specified exclusive flags
+ * @param ExclusiveInternalFlags  Ignores objects that contain any of the specified internal exclusive flags
  * @return	Returns a pointer to the found object or NULL if none could be found
  */
-COREUOBJECT_API UObject* StaticFindObjectFast( UClass* Class, UObject* InOuter, FName InName, bool ExactClass=false, bool AnyPackage=false, EObjectFlags ExclusiveFlags=RF_NoFlags );
+COREUOBJECT_API UObject* StaticFindObjectFast(UClass* Class, UObject* InOuter, FName InName, bool ExactClass = false, bool AnyPackage = false, EObjectFlags ExclusiveFlags = RF_NoFlags, EInternalObjectFlags ExclusiveInternalFlags = EInternalObjectFlags::None);
 COREUOBJECT_API UObject* StaticFindObject( UClass* Class, UObject* InOuter, const TCHAR* Name, bool ExactClass=false );
 COREUOBJECT_API UObject* StaticFindObjectChecked( UClass* Class, UObject* InOuter, const TCHAR* Name, bool ExactClass=false );
 COREUOBJECT_API UObject* StaticFindObjectSafe( UClass* Class, UObject* InOuter, const TCHAR* Name, bool ExactClass=false );
@@ -181,6 +213,7 @@ COREUOBJECT_API UClass* StaticLoadClass(UClass* BaseClass, UObject* InOuter, con
 * @param	InOuter		the object to create this object within (the Outer property for the new object will be set to the value specified here).
 * @param	Name		the name to give the new object. If no value (NAME_None) is specified, the object will be given a unique name in the form of ClassName_#.
 * @param	SetFlags	the ObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
+* @param	InternalSetFlags	the InternalObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
 * @param	Template	if specified, the property values from this object will be copied to the new object, and the new object's ObjectArchetype value will be set to this object.
 *						If NULL, the class default object is used instead.
 * @param	bInCopyTransientsFromClassDefaults - if true, copy transient from the class defaults instead of the pass in archetype ptr (often these are the same)
@@ -189,7 +222,7 @@ COREUOBJECT_API UClass* StaticLoadClass(UClass* BaseClass, UObject* InOuter, con
 *
 * @return	a pointer to a fully initialized object of the specified class.
 */
-COREUOBJECT_API UObject* StaticConstructObject_Internal(UClass* Class, UObject* InOuter = (UObject*)GetTransientPackage(), FName Name = NAME_None, EObjectFlags SetFlags = RF_NoFlags, UObject* Template = NULL, bool bCopyTransientsFromClassDefaults = false, struct FObjectInstancingGraph* InstanceGraph = NULL);
+COREUOBJECT_API UObject* StaticConstructObject_Internal(UClass* Class, UObject* InOuter = (UObject*)GetTransientPackage(), FName Name = NAME_None, EObjectFlags SetFlags = RF_NoFlags, EInternalObjectFlags InternalSetFlags = EInternalObjectFlags::None, UObject* Template = NULL, bool bCopyTransientsFromClassDefaults = false, struct FObjectInstancingGraph* InstanceGraph = NULL);
 
 /**
  * Create a new instance of an object.  The returned object will be fully initialized.  If InFlags contains RF_NeedsLoad (indicating that the object still needs to load its object data from disk), components
@@ -223,7 +256,7 @@ COREUOBJECT_API UObject* StaticConstructObject( UClass* Class, UObject* InOuter=
  * @param	FlagMask		a bitmask of EObjectFlags that should be propagated to the object copies.  The resulting object copies will only have the object flags
  *							specified copied from their source object.
  * @param	DestClass		optional class to specify for the destination object. MUST BE SERIALIZATION COMPATIBLE WITH SOURCE OBJECT!!!
- * @param	bMigrateArchetypes unused
+ * @param	InternalFlagsMask  bitmask of EInternalObjectFlags that should be propagated to the object copies.
  *
  * @return	the duplicate of SourceObject.
  *
@@ -234,11 +267,11 @@ enum EDuplicateForPie
 	SDO_No_DuplicateForPie,
 	SDO_DuplicateForPie,
 };
-COREUOBJECT_API UObject* StaticDuplicateObject(UObject const* SourceObject,UObject* DestOuter,const TCHAR* DestName,EObjectFlags FlagMask = RF_AllFlags,UClass* DestClass=NULL, EDuplicateForPie DuplicateForPIE = SDO_No_DuplicateForPie);
+COREUOBJECT_API UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, const FName DestName = NAME_None, EObjectFlags FlagMask = RF_AllFlags, UClass* DestClass = nullptr, EDuplicateForPie DuplicateForPIE = SDO_No_DuplicateForPie, EInternalObjectFlags InternalFlagsMask = EInternalObjectFlags::AllFlags);
 COREUOBJECT_API UObject* StaticDuplicateObjectEx( struct FObjectDuplicationParameters& Parameters );
 
 /**
- * Performs UObject system pre-initialization. Depracated, do not use.
+ * Performs UObject system pre-initialization. Deprecated, do not use.
  */
 COREUOBJECT_API void PreInitUObject();
 /** 
@@ -272,6 +305,9 @@ namespace EAsyncLoadingResult
 	};
 }
 
+/** The type that represents an async loading priority */
+typedef int32 TAsyncLoadPriority;
+
 /**
  * Delegate called on completion of async package loading
  * @param	PackageName			Package name we were trying to load
@@ -281,7 +317,7 @@ namespace EAsyncLoadingResult
 DECLARE_DELEGATE_ThreeParams(FLoadPackageAsyncDelegate, const FName& /*PackageName*/, UPackage* /*LoadedPackage*/, EAsyncLoadingResult::Type /*Result*/)
 
 /**
- * Asynchronously load a package and all contained objects that match context flags. Non- blocking.
+ * [Deprecated] Asynchronously load a package and all contained objects that match context flags. Non- blocking.
  *
  * @param	InName					Name of package to load
  * @param	InGuid					GUID of the package to load, or NULL for "don't care"
@@ -291,8 +327,24 @@ DECLARE_DELEGATE_ThreeParams(FLoadPackageAsyncDelegate, const FName& /*PackageNa
  * @param	InFlags					Package flags
  * @param	InPIEInstanceID			PIE instance ID
  * @param	InPackagePriority		Loading priority
+ * @return Unique ID associated with this load request (the same package can be associated with multiple IDs).
  */
-COREUOBJECT_API void LoadPackageAsync(const FString& InName, const FGuid* InGuid = nullptr, FName InType = NAME_None, const TCHAR* InPackageToLoadFrom = nullptr, FLoadPackageAsyncDelegate InCompletionDelegate = FLoadPackageAsyncDelegate(), EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE, uint32 InPackagePriority = 0);
+DEPRECATED(4.9, "LoadPackageAsync override that takes package type parameter FName InType is deprecated.")
+COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, const FGuid* InGuid, FName InType, const TCHAR* InPackageToLoadFrom = nullptr, FLoadPackageAsyncDelegate InCompletionDelegate = FLoadPackageAsyncDelegate(), EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE, TAsyncLoadPriority InPackagePriority = 0);
+
+/**
+* Asynchronously load a package and all contained objects that match context flags. Non- blocking.
+*
+* @param	InName					Name of package to load
+* @param	InGuid					GUID of the package to load, or NULL for "don't care"
+* @param	InPackageToLoadFrom		If non-null, this is another package name. We load from this package name, into a (probably new) package named PackageName
+* @param	InCompletionDelegate	Delegate to be invoked when the packages has finished streaming
+* @param	InFlags					Package flags
+* @param	InPIEInstanceID			PIE instance ID
+* @param	InPackagePriority		Loading priority
+* @return Unique ID associated with this load request (the same package can be associated with multiple IDs).
+*/
+COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, const FGuid* InGuid = nullptr, const TCHAR* InPackageToLoadFrom = nullptr, FLoadPackageAsyncDelegate InCompletionDelegate = FLoadPackageAsyncDelegate(), EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE, TAsyncLoadPriority InPackagePriority = 0);
 
 /**
 * Asynchronously load a package and all contained objects that match context flags. Non- blocking.
@@ -300,8 +352,9 @@ COREUOBJECT_API void LoadPackageAsync(const FString& InName, const FGuid* InGuid
 * @param	InName					Name of package to load
 * @param	InCompletionDelegate	Delegate to be invoked when the packages has finished streaming
 * @param	InPackagePriority		Loading priority
+* @return Unique ID associated with this load request (the same package can be associated with multiple IDs).
 */
-COREUOBJECT_API void LoadPackageAsync(const FString& InName, FLoadPackageAsyncDelegate InCompletionDelegate, uint32 InPackagePriority = 0, EPackageFlags InPackageFlags = PKG_None);
+COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, FLoadPackageAsyncDelegate InCompletionDelegate, TAsyncLoadPriority InPackagePriority = 0, EPackageFlags InPackageFlags = PKG_None);
 
 /**
 * Cancels all async package loading requests.
@@ -336,7 +389,6 @@ COREUOBJECT_API void CollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPur
 * @param	bPerformFullPurge	if true, perform a full purge after the mark pass
 */
 COREUOBJECT_API bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge = true);
-COREUOBJECT_API void SerializeRootSet(FArchive& Ar, EObjectFlags KeepFlags);
 
 /**
  * Returns whether an incremental purge is still pending/ in progress.
@@ -370,16 +422,18 @@ COREUOBJECT_API void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimi
 COREUOBJECT_API FName MakeUniqueObjectName( UObject* Outer, UClass* Class, FName BaseName=NAME_None );
 
 /**
- * Given an actor label string, generates an FName that can be used as an object name for that label.
- * The generated name isn't guaranteed to be unique.  If the object's current name is already satisfactory, then
- * that name will be returned.
+ * Given a display label string, generates an FName slug that is a valid FName for that label.
+ * If the object's current name is already satisfactory, then that name will be returned.
+ * For example, "[MyObject]: Object Label" becomes "MyObjectObjectLabel" FName slug.
+ * 
+ * Note: The generated name isn't guaranteed to be unique.
  *
- * @param	ActorLabel	The label string to convert to an FName
- * @param	CurrentObjectName	The object's current name, or NAME_None if it has no name yet
+ * @param DisplayLabel The label string to convert to an FName
+ * @param CurrentObjectName The object's current name, or NAME_None if it has no name yet
  *
- * @return	The generated actor object name
+ * @return	The generated object name
  */
-COREUOBJECT_API FName MakeObjectNameFromActorLabel( const FString& InActorLabel, const FName CurrentObjectName );
+COREUOBJECT_API FName MakeObjectNameFromDisplayLabel(const FString& DisplayLabel, const FName CurrentObjectName);
 
 /**
  * Returns whether an object is referenced, not counting the one
@@ -387,17 +441,28 @@ COREUOBJECT_API FName MakeObjectNameFromActorLabel( const FString& InActorLabel,
  *
  * @param	Obj			Object to check
  * @param	KeepFlags	Objects with these flags will be considered as being referenced
+* @param	InternalKeepFlags	Objects with these internal flags will be considered as being referenced
  * @param	bCheckSubObjects	Treat subobjects as if they are the same as passed in object
  * @param	FoundReferences		If non-NULL fill in with list of objects that hold references
  * @return true if object is referenced, false otherwise
  */
-COREUOBJECT_API bool IsReferenced( UObject*& Res, EObjectFlags KeepFlags, bool bCheckSubObjects = false, FReferencerInformationList* FoundReferences = NULL );
+COREUOBJECT_API bool IsReferenced( UObject*& Res, EObjectFlags KeepFlags, EInternalObjectFlags InternalKeepFlags, bool bCheckSubObjects = false, FReferencerInformationList* FoundReferences = NULL );
+
 /**
  * Blocks till all pending package/ linker requests are fulfilled.
  *
- * @param	ExcludeType		Do not flush packages associated with this specific type name
+ * @param PackageID if the package associated with this request ID gets loaded, FlushAsyncLoading returns 
+ *        immediately without waiting for the remaining packages to finish loading.
  */
-COREUOBJECT_API void FlushAsyncLoading( FName ExcludeType = NAME_None );
+COREUOBJECT_API void FlushAsyncLoading(int32 PackageID = INDEX_NONE);
+
+/**
+* [Deprecated] Blocks till all pending package/ linker requests are fulfilled.
+*
+* @param	ExcludeType		Do not flush packages associated with this specific type name
+*/
+DEPRECATED(4.9, "FlushAsyncLoading override that takes package type parameter FName ExcludeType is deprecated.")
+COREUOBJECT_API void FlushAsyncLoading(FName ExcludeType);
 
 /**
  * @return number of active async load package requests
@@ -410,6 +475,13 @@ COREUOBJECT_API int32 GetNumAsyncPackages();
  * @return true if we are loading a package, false otherwise
  */
 COREUOBJECT_API bool IsLoading();
+
+/**
+* Determines whether the current platform file is compatible with dependency preloading
+*
+* @return true if we can use dependency preloading
+*/
+COREUOBJECT_API bool IsPlatformFileCompatibleWithDependencyPreloading();
 
 /**
  * State of the async package after the last tick.
@@ -433,10 +505,9 @@ namespace EAsyncPackageState
  * @param	bUseTimeLimit	Whether to use a time limit
  * @param	bUseFullTimeLimit	If true, use the entire time limit even if blocked on I/O
  * @param	TimeLimit		Soft limit of time this function is allowed to consume
- * @param	ExcludeType		Do not process packages associated with this specific type name
  * @return The minimum state of any of the queued packages.
  */
-COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoading( bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, FName ExcludeType = NAME_None );
+COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoading( bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit);
 COREUOBJECT_API void BeginLoad();
 COREUOBJECT_API void EndLoad();
 
@@ -493,11 +564,12 @@ bool StaticAllocateObjectErrorTests( UClass* Class, UObject* InOuter, FName Name
  * @param	InOuter		the object to create this object within (the Outer property for the new object will be set to the value specified here).
  * @param	Name		the name to give the new object. If no value (NAME_None) is specified, the object will be given a unique name in the form of ClassName_#.
  * @param	SetFlags	the ObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
+ * @param InternalSetFlags	the InternalObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
  * @param bCanReuseSubobjects	if set to true, SAO will not attempt to destroy a subobject if it already exists in memory.
  * @param bOutReusedSubobject	flag indicating if the object is a subobject that has already been created (in which case further initialization is not necessary).
  * @return	a pointer to a fully initialized object of the specified class.
  */
-COREUOBJECT_API UObject* StaticAllocateObject( UClass* Class, UObject* InOuter, FName Name, EObjectFlags SetFlags, bool bCanReuseSubobjects = false, bool* bOutReusedSubobject = NULL);
+COREUOBJECT_API UObject* StaticAllocateObject(UClass* Class, UObject* InOuter, FName Name, EObjectFlags SetFlags, EInternalObjectFlags InternalSetFlags = EInternalObjectFlags::None, bool bCanReuseSubobjects = false, bool* bOutReusedSubobject = NULL);
 
 /** Base class for TSubobjectPtr template. Holds the actual pointer and utility methods. */
 class COREUOBJECT_API FSubobjectPtr
@@ -750,7 +822,7 @@ public:
 	/**
 	 * Create a component or subobject
 	 * @param	TReturnType					class of return type, all overrides must be of this type
-	 * @param	TClassToConstructByDefault	if the derived class has not overriden, create a component of this type (default is TReturnType)
+	 * @param	TClassToConstructByDefault	if the derived class has not overridden, create a component of this type (default is TReturnType)
 	 * @param	Outer						outer to construct the subobject in
 	 * @param	SubobjectName				name of the new component
 	 * @param bIsRequired			true if the component is required and will always be created even if DoNotCreateDefaultSubobject was sepcified.
@@ -981,6 +1053,10 @@ private:
 	mutable FOverrides ComponentOverrides;
 	/**  List of component classes to intialize after the C++ constructors **/
 	mutable FSubobjectsToInit ComponentInits;
+#if !UE_BUILD_SHIPPING
+	/** List of all subobject names constructed for this object */
+	mutable TArray<FName, TInlineAllocator<8>> ConstructedSubobjects;
+#endif
 	/**  Previously constructed object in the callstack */
 	UObject* LastConstructedObject;
 
@@ -1097,7 +1173,7 @@ T* NewObject(UObject* Outer = (UObject*)GetTransientPackage(), UClass* Class = T
 	}
 	checkf(Class, TEXT("NewObject called with a nullptr class object"));
 	checkSlow(DebugIsClassChildOf_Internal(T::StaticClass(), Class));
-	return static_cast<T*>(StaticConstructObject_Internal(Class, Outer, Name, Flags, Template, bCopyTransientsFromClassDefaults, InInstanceGraph));
+	return static_cast<T*>(StaticConstructObject_Internal(Class, Outer, Name, Flags, EInternalObjectFlags::None, Template, bCopyTransientsFromClassDefaults, InInstanceGraph));
 }
 
 template< class T >
@@ -1131,7 +1207,7 @@ TClass* NewNamedObject(UObject* Outer, FName Name, EObjectFlags Flags = RF_NoFla
  * @return the copied object or null if it failed for some reason
  */
 template< class T >
-T* DuplicateObject(T const* SourceObject,UObject* Outer,const TCHAR* Name = TEXT("None"))
+T* DuplicateObject(T const* SourceObject,UObject* Outer, const FName Name = NAME_None)
 {
 	if (SourceObject != NULL)
 	{
@@ -1196,14 +1272,14 @@ inline T* FindObjectSafe( UObject* Outer, const TCHAR* Name, bool ExactClass=fal
 
 // Load an object.
 template< class T > 
-inline T* LoadObject( UObject* Outer, const TCHAR* Name, const TCHAR* Filename=NULL, uint32 LoadFlags=LOAD_None, UPackageMap* Sandbox=NULL )
+inline T* LoadObject( UObject* Outer, const TCHAR* Name, const TCHAR* Filename=nullptr, uint32 LoadFlags=LOAD_None, UPackageMap* Sandbox=nullptr )
 {
 	return (T*)StaticLoadObject( T::StaticClass(), Outer, Name, Filename, LoadFlags, Sandbox );
 }
 
 // Load a class object.
 template< class T > 
-inline UClass* LoadClass( UObject* Outer, const TCHAR* Name, const TCHAR* Filename, uint32 LoadFlags, UPackageMap* Sandbox )
+inline UClass* LoadClass( UObject* Outer, const TCHAR* Name, const TCHAR* Filename=nullptr, uint32 LoadFlags=LOAD_None, UPackageMap* Sandbox=nullptr )
 {
 	return StaticLoadClass( T::StaticClass(), Outer, Name, Filename, LoadFlags, Sandbox );
 }
@@ -1280,11 +1356,24 @@ bool ContainsObjectOfClass( const TArray<T*>& ObjectArray, UClass* ClassToCheck,
  */
 class FScopedObjectFlagMarker
 {
+	struct FStoredObjectFlags
+	{
+		FStoredObjectFlags()
+		: Flags(RF_NoFlags)
+		, InternalFlags(EInternalObjectFlags::None)
+		{}
+		FStoredObjectFlags(EObjectFlags InFlags, EInternalObjectFlags InInternalFlags)
+			: Flags(InFlags)
+			, InternalFlags(InInternalFlags)
+		{}
+		EObjectFlags Flags;
+		EInternalObjectFlags InternalFlags;
+	};
 	/**
 	 * Map that tracks the ObjectFlags set on all objects; we use a map rather than iterating over all objects twice because FObjectIterator
 	 * won't return objects that have RF_Unreachable set, and we may want to actually unset that flag.
 	 */
-	TMap<UObject*,EObjectFlags> StoredObjectFlags;
+	TMap<UObject*, FStoredObjectFlags> StoredObjectFlags;
 	
 	/**
 	 * Stores the object flags for all objects in the tracking array.
@@ -1526,8 +1615,8 @@ public:
 	* @param ReferencingObject Referencing object (if available).
 	* @param ReferencingProperty Referencing property (if available).
 	*/
-	template <typename TKeyType, typename TValueType>
-	void AddReferencedObjects(TMap<TKeyType, TValueType>& Map, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
+	template <typename TKeyType, typename TValueType, typename TAllocator, typename TKeyFuncs >
+	void AddReferencedObjects(TMapBase<TKeyType, TValueType, TAllocator, TKeyFuncs>& Map, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
 	{
 		static_assert(CanConverFromTo<TKeyType, UObjectBase*>::Result || CanConverFromTo<TValueType, UObjectBase*>::Result, "At least one of TMap template types must be derived from UObject");
 		for (auto& It : Map)
@@ -1563,6 +1652,8 @@ public:
 	* Gets the property that is currently being serialized
 	*/
 	virtual class UProperty* GetSerializedProperty() const { return nullptr; }
+
+	virtual void SetShouldHandleAsWeakRef(bool bWeakRef) {}
 protected:
 	/**
 	 * Handle object reference. Called by AddReferencedObject.
@@ -1711,9 +1802,13 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	/** Delegate used by SavePackage() to check whether a package should be saved */
 	static FIsPackageOKToSaveDelegate IsPackageOKToSaveDelegate;
 
-	/** Delegate for replacing hot-reloaded classes that changed after hot-reload */
-	DECLARE_DELEGATE_TwoParams(FReplaceHotReloadClassDelegate, UClass*, UClass*);
-	static FReplaceHotReloadClassDelegate ReplaceHotReloadClassDelegate;
+	/** Delegate for registering hot-reloaded classes that changed after hot-reload for reinstancing */
+	DECLARE_DELEGATE_TwoParams(FRegisterClassForHotReloadReinstancingDelegate, UClass*, UClass*);
+	static FRegisterClassForHotReloadReinstancingDelegate RegisterClassForHotReloadReinstancingDelegate;
+
+	/** Delegate for reinstancing hot-reloaded classes */
+	DECLARE_DELEGATE(FReinstanceHotReloadedClassesDelegate);
+	static FReinstanceHotReloadedClassesDelegate ReinstanceHotReloadedClassesDelegate;
 
 	// Sent at the very beginning of LoadMap
 	static FSimpleMulticastDelegate PreLoadMap;
@@ -1754,5 +1849,17 @@ extern COREUOBJECT_API bool GShouldVerifyGCAssumptions;
 
 /** A struct used as stub for deleted ones. */
 COREUOBJECT_API UScriptStruct* GetFallbackStruct();
+
+/** Constructs dynamic type of a given class. */
+COREUOBJECT_API UObject* ConstructDynamicType(FName TypePathName);
+
+/** Given a dynamic type path name, returns that type's class name (can be either DynamicClass, ScriptStruct or Enum). */
+COREUOBJECT_API FName GetDynamicTypeClassName(FName TypePathName);
+
+/** Finds or constructs a package for dynamic type. */
+COREUOBJECT_API UPackage* FindOrConstructDynamicTypePackage(const TCHAR* PackageName);
+
+/** Get names of "virtual" packages, that contain Dynamic types  */
+COREUOBJECT_API TMap<FName, FName>& GetConvertedDynamicPackageNameToTypeName();
 
 #endif	// __UNOBJGLOBALS_H__

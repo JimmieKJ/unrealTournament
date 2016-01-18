@@ -106,7 +106,7 @@ ELoginStatus::Type FOnlineIdentitySteam::GetLoginStatus(const FUniqueNetId& User
 	return GetLoginStatus(0);
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentitySteam::GetUniquePlayerId(int32 LocalUserNum) const
+TSharedPtr<const FUniqueNetId> FOnlineIdentitySteam::GetUniquePlayerId(int32 LocalUserNum) const
 {
 	if (LocalUserNum < MAX_LOCAL_PLAYERS &&
 		SteamUserPtr != NULL)
@@ -116,7 +116,7 @@ TSharedPtr<FUniqueNetId> FOnlineIdentitySteam::GetUniquePlayerId(int32 LocalUser
 	return NULL;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentitySteam::CreateUniquePlayerId(uint8* Bytes, int32 Size)
+TSharedPtr<const FUniqueNetId> FOnlineIdentitySteam::CreateUniquePlayerId(uint8* Bytes, int32 Size)
 {
 	if (Bytes && Size == sizeof(uint64))
 	{
@@ -131,7 +131,7 @@ TSharedPtr<FUniqueNetId> FOnlineIdentitySteam::CreateUniquePlayerId(uint8* Bytes
 	return NULL;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentitySteam::CreateUniquePlayerId(const FString& Str)
+TSharedPtr<const FUniqueNetId> FOnlineIdentitySteam::CreateUniquePlayerId(const FString& Str)
 {
 	return MakeShareable(new FUniqueNetIdSteam(Str));
 }
@@ -220,3 +220,7 @@ FPlatformUserId FOnlineIdentitySteam::GetPlatformUserIdFromUniqueNetId(const FUn
 	return PLATFORMUSERID_NONE;
 }
 
+FString FOnlineIdentitySteam::GetAuthType() const
+{
+	return TEXT("");
+}

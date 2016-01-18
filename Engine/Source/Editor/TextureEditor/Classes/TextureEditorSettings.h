@@ -46,7 +46,7 @@ public:
 	FColor CheckerColorTwo;
 
 	/** The size of the checkered background tiles. */
-	UPROPERTY(config, EditAnywhere, Category=Background)
+	UPROPERTY(config, EditAnywhere, Category=Background, meta=(ClampMin="2", ClampMax="4096"))
 	int32 CheckerSize;
 
 public:

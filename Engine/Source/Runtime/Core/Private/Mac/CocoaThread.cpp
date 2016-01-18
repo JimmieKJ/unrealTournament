@@ -230,7 +230,7 @@ private:
 	}
 	
 private:
-	TLockFreePointerList<FCocoaRunLoopTask> Tasks;
+	TLockFreePointerListLIFO<FCocoaRunLoopTask> Tasks;
 	TArray<FCocoaRunLoopTask*> OutstandingTasks;
 	CFRunLoopRef TargetRunLoop;
 	CFMutableDictionaryRef SourceDictionary;
@@ -356,6 +356,11 @@ FCocoaRunLoopSource* FCocoaRunLoopSource::GameRunLoopSource = nullptr;
 	// Register game run loop source
 	FCocoaRunLoopSource::RegisterGameRunLoop([GameRunLoop getCFRunLoop]);
 	
+	if (GLog)
+	{
+		GLog->SetCurrentThreadAsMasterThread();
+	}
+
 	[super main];
 	
 	// We have exited the game thread, so any UE4 code running now should treat the Main thread
@@ -393,13 +398,11 @@ static void PerformBlockOnThread(FCocoaRunLoopSource& ThreadSource, dispatch_blo
 		dispatch_block_t ExecuteBlock = Block_copy(^{ CopiedBlock(); dispatch_semaphore_signal(Semaphore); });
 		
 		ThreadSource.Schedule(ExecuteBlock, SendModes);
-		ThreadSource.Wake();
 		
-		while (dispatch_semaphore_wait(Semaphore, DISPATCH_TIME_NOW))
-		{
-			ThreadSource.RunInMode( (CFStringRef)WaitMode );
+		do {
 			ThreadSource.Wake();
-		}
+			ThreadSource.RunInMode( (CFStringRef)WaitMode );
+		} while (dispatch_semaphore_wait(Semaphore, dispatch_time(0, 100000ull)));
 		
 		Block_release(ExecuteBlock);
 		dispatch_release(Semaphore);

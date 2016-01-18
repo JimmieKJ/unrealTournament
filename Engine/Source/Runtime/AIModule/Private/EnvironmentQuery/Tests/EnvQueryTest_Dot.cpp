@@ -22,10 +22,16 @@ UEnvQueryTest_Dot::UEnvQueryTest_Dot(const FObjectInitializer& ObjectInitializer
 
 void UEnvQueryTest_Dot::RunTest(FEnvQueryInstance& QueryInstance) const
 {
-	FloatValueMin.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+	UObject* QueryOwner = QueryInstance.Owner.Get();
+	if (QueryOwner == nullptr)
+	{
+		return;
+	}
+
+	FloatValueMin.BindData(QueryOwner, QueryInstance.QueryID);
 	float MinThresholdValue = FloatValueMin.GetValue();
 
-	FloatValueMax.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+	FloatValueMax.BindData(QueryOwner, QueryInstance.QueryID);
 	float MaxThresholdValue = FloatValueMax.GetValue();
 
 	// gather all possible directions: for contexts different than Item

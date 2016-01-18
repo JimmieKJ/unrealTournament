@@ -73,11 +73,13 @@ extern PFNGLISVERTEXARRAYPROC 				glIsVertexArray;
 	EnumMacro(PFNGLENABLEPROC,glEnable) \
 	EnumMacro(PFNGLGENTEXTURESPROC,glGenTextures) \
 	EnumMacro(PFNGLGETERRORPROC,glGetError) \
+	EnumMacro(PFNGLPIXELSTOREIPROC,glPixelStorei) \
 	EnumMacro(PFNGLPOLYGONMODEPROC,glPolygonMode) \
 	EnumMacro(PFNGLSTENCILFUNCPROC,glStencilFunc) \
 	EnumMacro(PFNGLSTENCILMASKPROC,glStencilMask) \
 	EnumMacro(PFNGLSTENCILOPPROC,glStencilOp) \
 	EnumMacro(PFNGLTEXIMAGE2DPROC,glTexImage2D) \
+	EnumMacro(PFNGLTEXSUBIMAGE2DPROC,glTexSubImage2D) \
 	EnumMacro(PFNGLTEXPARAMETERIPROC,glTexParameteri) \
 	EnumMacro(PFNGLVIEWPORTPROC,glViewport) \
 	EnumMacro(PFNGLBLENDEQUATIONPROC,glBlendEquation) \
@@ -110,7 +112,8 @@ extern PFNGLISVERTEXARRAYPROC 				glIsVertexArray;
 	EnumMacro(PFNGLUNIFORM4FVPROC,glUniform4fv) \
 	EnumMacro(PFNGLUNIFORMMATRIX4FVPROC,glUniformMatrix4fv) \
 	EnumMacro(PFNGLVERTEXATTRIBPOINTERPROC,glVertexAttribPointer) \
-	EnumMacro(PFNGLDEBUGMESSAGECALLBACKARBPROC,glDebugMessageCallback) \
+	EnumMacro(PFNGLDEBUGMESSAGECALLBACKARBPROC,glDebugMessageCallbackARB) \
+	EnumMacro(PFNGLDEBUGMESSAGECONTROLARBPROC,glDebugMessageControlARB) \
 	EnumMacro(PFNGLBINDVERTEXARRAYPROC,glBindVertexArray) \
 	EnumMacro(PFNGLDELETEVERTEXARRAYSPROC,glDeleteVertexArrays) \
 	EnumMacro(PFNGLGENVERTEXARRAYSPROC,glGenVertexArrays) \

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Containers/BitArray.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "NavigationTypes.generated.h"
 
 #define INVALID_NAVNODEREF (0)
@@ -16,7 +17,6 @@
 /** uniform identifier type for navigation data elements may it be a polygon or graph node */
 typedef uint64 NavNodeRef;
 
-struct FNavigationQueryFilter;
 class AActor;
 class ANavigationData;
 class INavAgentInterface;
@@ -54,6 +54,7 @@ namespace ENavigationOptionFlag
 	{
 		Default,
 		Enable UMETA(DisplayName = "Yes"),	// UHT was complaining when tried to use True as value instead of Enable
+
 		Disable UMETA(DisplayName = "No"),
 
 		MAX UMETA(Hidden)
@@ -86,11 +87,90 @@ struct FNavigationDirtyArea
 	FORCEINLINE bool HasFlag(ENavigationDirtyFlag::Type Flag) const { return (Flags & Flag) != 0; }
 };
 
+USTRUCT()
+struct ENGINE_API FNavAgentSelector
+{
+	GENERATED_USTRUCT_BODY()
+
+#if CPP
+	union
+	{
+		struct
+		{
+#endif
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent0 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent1 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent2 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent3 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent4 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent5 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent6 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent7 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent8 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent9 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent10 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent11 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent12 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent13 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent14 : 1;
+			UPROPERTY(EditAnywhere, Category = Default)
+			uint32 bSupportsAgent15 : 1;
+#if CPP
+		};
+		uint32 PackedBits;
+	};
+#endif
+
+	FNavAgentSelector();
+
+	FORCEINLINE bool Contains(int32 AgentIndex) const
+	{
+		return (AgentIndex >= 0 && AgentIndex < 16) ? !!(PackedBits & (1 << AgentIndex)) : false;
+	}
+
+	FORCEINLINE bool IsInitialized() const
+	{
+		return (PackedBits & 0x80000000) != 0;
+	}
+
+	FORCEINLINE void MarkInitialized()
+	{
+		PackedBits |= 0x80000000;
+	}
+
+	bool Serialize(FArchive& Ar);
+};
+
+template<>
+struct TStructOpsTypeTraits< FNavAgentSelector > : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithSerializer = true,
+	};
+};
+
 struct FNavigationBounds
 {
-	uint32						UniqueID;
-	FBox						AreaBox;	 
-	TWeakObjectPtr<ULevel>		Level;		// The level this bounds belongs to
+	uint32 UniqueID;
+	FBox AreaBox;
+	FNavAgentSelector SupportedAgents;
+	TWeakObjectPtr<ULevel> Level;		// The level this bounds belongs to
 
 	bool operator==(const FNavigationBounds& Other) const 
 	{ 
@@ -261,6 +341,11 @@ struct ENGINE_API FNavPathType
 		return Id == Other.Id || (ParentType != nullptr && *ParentType == Other);
 	}
 
+	bool IsA(const FNavPathType& Other) const
+	{
+		return (Id == Other.Id) || (ParentType && ParentType->IsA(Other));
+	}
+
 private:
 	static uint32 NextUniqueId;
 	uint32 Id;
@@ -373,6 +458,10 @@ struct ENGINE_API FNavAgentProperties : public FMovementProperties
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementProperties)
 	float NavWalkingSearchHeightScale;
 
+	/** Type of navigation data used by agent, null means "any" */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MovementProperties)
+	TSubclassOf<ANavigationData> PreferredNavData;
+
 	FNavAgentProperties(float Radius = -1.f, float Height = -1.f)
 		: AgentRadius(Radius), AgentHeight(Height), AgentStepHeight(-1), NavWalkingSearchHeightScale(0.5f)
 	{
@@ -383,13 +472,16 @@ struct ENGINE_API FNavAgentProperties : public FMovementProperties
 	FORCEINLINE bool IsValid() const { return AgentRadius >= 0.f && AgentHeight >= 0.f; }
 	FORCEINLINE bool HasStepHeightOverride() const { return AgentStepHeight >= 0.0f; }
 
+	bool IsNavDataMatching(const FNavAgentProperties& Other) const;
+
 	FORCEINLINE bool IsEquivalent(const FNavAgentProperties& Other, float Precision = 5.f) const
 	{
-		return FGenericPlatformMath::Abs(AgentRadius - Other.AgentRadius) < Precision &&
-			FGenericPlatformMath::Abs(AgentHeight - Other.AgentHeight) < Precision &&
-			FGenericPlatformMath::Abs(AgentStepHeight - Other.AgentStepHeight) < Precision;
+		return FGenericPlatformMath::Abs(AgentRadius - Other.AgentRadius) < Precision
+			&& FGenericPlatformMath::Abs(AgentHeight - Other.AgentHeight) < Precision
+			&& (HasStepHeightOverride() == false || FGenericPlatformMath::Abs(AgentStepHeight - Other.AgentStepHeight) < Precision)
+			&& IsNavDataMatching(Other);
 	}
-
+	
 	bool operator==(const FNavAgentProperties& Other) const
 	{
 		return IsEquivalent(Other);
@@ -436,9 +528,14 @@ struct FNavigationProjectionWork
 	const FVector Point;
 	FNavLocation OutLocation;
 	bool bResult;
+	bool bIsValid;
 
 	explicit FNavigationProjectionWork(const FVector& StartPoint)
-		: Point(StartPoint), bResult(false)
+		: Point(StartPoint), bResult(false), bIsValid(true)
+	{}
+
+	FNavigationProjectionWork()
+		: Point(FNavigationSystem::InvalidLocation), bResult(false), bIsValid(false)
 	{}
 };
 
@@ -473,7 +570,7 @@ struct ENGINE_API FPathFindingQuery
 	TWeakObjectPtr<const UObject> Owner;
 	FVector StartLocation;
 	FVector EndLocation;
-	TSharedPtr<const FNavigationQueryFilter> QueryFilter;
+	FSharedConstNavQueryFilter QueryFilter;
 	FNavPathSharedPtr PathInstanceToFill;
 
 	/** additional flags passed to navigation data handling request */
@@ -487,9 +584,9 @@ struct ENGINE_API FPathFindingQuery
 	FPathFindingQuery(const FPathFindingQuery& Source);
 
 	DEPRECATED(4.8, "This version of FPathFindingQuery's constructor is deprecated. Please use ANavigationData reference rather than a pointer")
-	FPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
+	FPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
 
-	FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
+	FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter = NULL, FNavPathSharedPtr InPathInstanceToFill = NULL);
 
 	explicit FPathFindingQuery(FNavPathSharedRef PathToRecalculate, const ANavigationData* NavDataOverride = NULL);
 

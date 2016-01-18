@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,8 +36,6 @@ class UNREALTOURNAMENT_API UUTProjectileMovementComponent : public UProjectileMo
 
 	virtual void InitializeComponent() override;
 
-	virtual bool MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit);
-
 	virtual FVector ComputeVelocity(FVector InitialVelocity, float DeltaTime) const override
 	{
 		InitialVelocity += InitialVelocity.GetSafeNormal() * AccelRate * DeltaTime + Acceleration * DeltaTime;
@@ -59,4 +57,6 @@ class UNREALTOURNAMENT_API UUTProjectileMovementComponent : public UProjectileMo
 
 protected:
 	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta) override;
+
+	virtual bool MoveUpdatedComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit, ETeleportType Teleport = ETeleportType::None) override;
 };

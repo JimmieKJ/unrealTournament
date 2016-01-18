@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTTeleporter.h"
 #include "UTRecastNavMesh.h"
@@ -16,14 +16,14 @@ AUTTeleporter::AUTTeleporter(const FObjectInitializer& ObjectInitializer)
 	if (ExitArrow != NULL)
 	{
 		ExitArrow->AttachParent = RootComponent;
-		ExitArrow->ArrowColor = FLinearColor(0.0f, 0.0f, 1.0f, 1.0f);
+		ExitArrow->ArrowColor = FLinearColor(0.0f, 0.0f, 1.0f, 1.0f).ToFColor(false);
 	}
 
 	EntryArrow = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("EntryArrow"));
 	if (EntryArrow != NULL)
 	{
 		EntryArrow->AttachParent = RootComponent;
-		EntryArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
+		EntryArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f).ToFColor(false);
 	}
 
 	bLockTeleportTarget = true;

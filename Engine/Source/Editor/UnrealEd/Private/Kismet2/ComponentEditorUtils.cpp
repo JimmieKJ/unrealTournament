@@ -319,7 +319,7 @@ void FComponentEditorUtils::CopyComponents(const TArray<UActorComponent*>& Compo
 	for (UActorComponent* Component : ComponentsToCopy)
 	{
 		// Duplicate the component into a temporary object
-		UObject* DuplicatedComponent = StaticDuplicateObject(Component, GetTransientPackage(), *Component->GetName(), RF_AllFlags & ~RF_ArchetypeObject);
+		UObject* DuplicatedComponent = StaticDuplicateObject(Component, GetTransientPackage(), Component->GetFName(), RF_AllFlags & ~RF_ArchetypeObject);
 		if (DuplicatedComponent)
 		{
 			// If the duplicated component is a scene component, wipe its attach parent (to prevent log warnings for referencing a private object in an external package)
@@ -581,7 +581,7 @@ UActorComponent* FComponentEditorUtils::DuplicateComponent(UActorComponent* Temp
 		const bool bTemplateTransactional = TemplateComponent->HasAllFlags(RF_Transactional);
 		TemplateComponent->SetFlags(RF_Transactional);
 
-		NewCloneComponent = DuplicateObject<UActorComponent>(TemplateComponent, Actor, *NewComponentName.ToString() );
+		NewCloneComponent = DuplicateObject<UActorComponent>(TemplateComponent, Actor, NewComponentName );
 		
 		if (!bTemplateTransactional)
 		{
@@ -687,8 +687,11 @@ bool FComponentEditorUtils::AttemptApplyMaterialToComponent(USceneComponent* Sce
 	auto MeshComponent = Cast<UMeshComponent>(SceneComponent);
 	auto DecalComponent = Cast<UDecalComponent>(SceneComponent);
 
+	UMaterial* BaseMaterial = MaterialToApply->GetBaseMaterial();
+
+	bool bCanApplyToComponent = DecalComponent || ( MeshComponent && BaseMaterial &&  BaseMaterial->MaterialDomain != MD_DeferredDecal && BaseMaterial->MaterialDomain != MD_UI );
 	// We can only apply a material to a mesh or a decal
-	if (MeshComponent || DecalComponent)
+	if (bCanApplyToComponent && (MeshComponent || DecalComponent) )
 	{
 		bResult = true;
 		const FScopedTransaction Transaction(LOCTEXT("DropTarget_UndoSetComponentMaterial", "Assign Material to Component (Drag and Drop)"));

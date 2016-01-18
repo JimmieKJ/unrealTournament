@@ -4,13 +4,6 @@
 
 #include "ISourceControlProvider.h"
 
-// We disable the deprecation warnings here because otherwise it'll complain about us
-// implementing RegisterSourceControlStateChanged and UnregisterSourceControlStateChanged.  We know
-// that, but we only want it to complain if *others* implement or call these functions.
-//
-// These macros should be removed when those functions are removed.
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-
 /**
  * Default source control provider implementation - "None"
  */
@@ -25,9 +18,7 @@ public:
 	virtual bool IsEnabled() const override;
 	virtual const FName& GetName(void) const override;
 	virtual ECommandResult::Type GetState( const TArray<FString>& InFiles, TArray< TSharedRef<ISourceControlState, ESPMode::ThreadSafe> >& OutState, EStateCacheUsage::Type InStateCacheUsage ) override;
-	virtual TArray<FSourceControlStateRef> GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const override;
-	virtual void RegisterSourceControlStateChanged(const FSourceControlStateChanged::FDelegate& SourceControlStateChanged) override;
-	virtual void UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) override;
+	virtual TArray<FSourceControlStateRef> GetCachedStateByPredicate(TFunctionRef<bool(const FSourceControlStateRef&)> Predicate) const override;
 	virtual FDelegateHandle RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) override;
 	virtual void UnregisterSourceControlStateChanged_Handle( FDelegateHandle Handle ) override;
 	virtual ECommandResult::Type Execute( const TSharedRef<ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TArray<FString>& InFiles, EConcurrency::Type InConcurrency = EConcurrency::Synchronous, const FSourceControlOperationComplete& InOperationCompleteDelegate = FSourceControlOperationComplete() ) override;
@@ -41,5 +32,3 @@ public:
 	virtual TSharedRef<class SWidget> MakeSettingsWidget() const override;
 #endif // SOURCE_CONTROL_WITH_SLATE
 };
-
-PRAGMA_ENABLE_DEPRECATION_WARNINGS

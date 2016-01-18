@@ -18,9 +18,9 @@ public:
 	 * @param InMulticastEndpoint The multicast group endpoint to transport messages to.
 	 * @param InMulticastTtl The multicast time-to-live.
 	 */
-	FUdpMessageTransport( const FIPv4Endpoint& InLocalEndpoint, const FIPv4Endpoint& InMulticastEndpoint, uint8 InMulticastTtl );
+	FUdpMessageTransport(const FIPv4Endpoint& InLocalEndpoint, const FIPv4Endpoint& InMulticastEndpoint, uint8 InMulticastTtl);
 
-	/** Destructor. */
+	/** Virtual destructor. */
 	virtual ~FUdpMessageTransport();
 
 public:
@@ -49,21 +49,21 @@ public:
 
 	virtual bool StartTransport() override;
 	virtual void StopTransport() override;
-	virtual bool TransportMessage( const IMessageContextRef& Context, const TArray<FGuid>& Recipients ) override;
+	virtual bool TransportMessage(const IMessageContextRef& Context, const TArray<FGuid>& Recipients) override;
 
 private:
 
 	/** Handles received transport messages. */
-	void HandleProcessorMessageReassembled( const FUdpReassembledMessageRef& ReassembledMessage, const IMessageAttachmentPtr& Attachment, const FGuid& NodeId );
+	void HandleProcessorMessageReassembled(const FUdpReassembledMessageRef& ReassembledMessage, const IMessageAttachmentPtr& Attachment, const FGuid& NodeId);
 
 	/** Handles discovered transport endpoints. */
-	void HandleProcessorNodeDiscovered( const FGuid& DiscoveredNodeId )
+	void HandleProcessorNodeDiscovered(const FGuid& DiscoveredNodeId)
 	{
 		NodeDiscoveredDelegate.ExecuteIfBound(DiscoveredNodeId);
 	}
 
 	/** Handles lost transport endpoints. */
-	void HandleProcessorNodeLost( const FGuid& LostNodeId )
+	void HandleProcessorNodeLost(const FGuid& LostNodeId)
 	{
 		NodeLostDelegate.ExecuteIfBound(LostNodeId);
 	}

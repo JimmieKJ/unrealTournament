@@ -31,20 +31,20 @@ void UMaterialGraph::RebuildGraph()
 	if (!MaterialFunction)
 	{
 		// Initialize the material input list.
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("BaseColor", "Base Color"), MP_BaseColor ) );	
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Metallic", "Metallic"), MP_Metallic ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetBaseColorPinName(), MP_BaseColor ) );	
+		MaterialInputs.Add( FMaterialInputInfo( GetMetallicPinName(), MP_Metallic ) );
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Specular", "Specular"), MP_Specular ) );
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Roughness", "Roughness"), MP_Roughness ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("EmissiveColor", "Emissive Color"), MP_EmissiveColor ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetEmissivePinName(), MP_EmissiveColor ) );
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Opacity", "Opacity"), MP_Opacity ) );
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("OpacityMask", "Opacity Mask"), MP_OpacityMask ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Normal", "Normal"), MP_Normal ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("WorldPositionOffset", "World Position Offset"), MP_WorldPositionOffset ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetNormalPinName(), MP_Normal ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetWorldPositionOffsetPinName(), MP_WorldPositionOffset ) );
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("WorldDisplacement", "World Displacement"), MP_WorldDisplacement ) );
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("TessellationMultiplier", "Tessellation Multiplier"), MP_TessellationMultiplier ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("SubsurfaceColor", "Subsurface Color"), MP_SubsurfaceColor ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("ClearCoat", "Clear Coat"), MP_ClearCoat ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("ClearCoatRoughness", "Clear Coat Roughness"), MP_ClearCoatRoughness ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetSubsurfacePinName(), MP_SubsurfaceColor ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetCustomDataPinName(0), MP_CustomData0 ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetCustomDataPinName(1), MP_CustomData1 ) );
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("AmbientOcclusion", "Ambient Occlusion"), MP_AmbientOcclusion ) );
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Refraction", "Refraction"), MP_Refraction) );
 
@@ -54,8 +54,10 @@ void UMaterialGraph::RebuildGraph()
 			MaterialInputs.Add( FMaterialInputInfo( FText::FromString(FString::Printf(TEXT("Customized UV%u"), UVIndex)), (EMaterialProperty)(MP_CustomizedUVs0 + UVIndex)) );
 		}
 
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("MaterialAttributes", "Material Attributes"), MP_MaterialAttributes) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("PixelDepthOffset", "Pixel Depth Offset"), MP_PixelDepthOffset ) );
+		MaterialInputs.Add(FMaterialInputInfo(LOCTEXT("PixelDepthOffset", "Pixel Depth Offset"), MP_PixelDepthOffset));
+
+		//^^^ New material properties go above here. ^^^^
+		MaterialInputs.Add(FMaterialInputInfo(LOCTEXT("MaterialAttributes", "Material Attributes"), MP_MaterialAttributes));
 
 		// Add Root Node
 		FGraphNodeCreator<UMaterialGraphNode_Root> NodeCreator(*this);
@@ -95,14 +97,21 @@ UMaterialGraphNode* UMaterialGraph::AddExpression(UMaterialExpression* Expressio
 	return NewNode;
 }
 
-UMaterialGraphNode_Comment* UMaterialGraph::AddComment(UMaterialExpressionComment* Comment)
+UMaterialGraphNode_Comment* UMaterialGraph::AddComment(UMaterialExpressionComment* Comment, bool bIsUserInvoked)
 {
 	UMaterialGraphNode_Comment* NewComment = NULL;
 	if (Comment)
 	{
 		Modify();
 		FGraphNodeCreator<UMaterialGraphNode_Comment> NodeCreator(*this);
-		NewComment = NodeCreator.CreateNode(false);
+		if (bIsUserInvoked)
+		{
+			NewComment = NodeCreator.CreateUserInvokedNode(true);
+		}
+		else
+		{
+			NewComment = NodeCreator.CreateNode(false);
+		}
 		NewComment->MaterialExpressionComment = Comment;
 		NewComment->MaterialDirtyDelegate = MaterialDirtyDelegate;
 		Comment->GraphNode = NewComment;
@@ -301,7 +310,7 @@ bool UMaterialGraph::IsInputActive(UEdGraphPin* GraphPin) const
 		{
 			if (RootNode->Pins[Index] == GraphPin)
 			{
-				return Material->IsPropertyActive(MaterialInputs[Index].Property);
+				return Material->IsPropertyActive(MaterialInputs[Index].GetProperty());
 			}
 		}
 	}
@@ -451,6 +460,76 @@ int32 UMaterialGraph::GetValidOutputIndex(FExpressionInput* Input) const
 	}
 
 	return OutputIndex;
+}
+
+FText UMaterialGraph::GetEmissivePinName() const
+{
+	return Material->IsUIMaterial() ? LOCTEXT("UIOutputColor", "Final Color") : LOCTEXT("EmissiveColor", "Emissive Color");
+}
+
+FText UMaterialGraph::GetBaseColorPinName() const
+{
+	return LOCTEXT("BaseColor", "Base Color");
+}
+
+FText UMaterialGraph::GetMetallicPinName() const
+{
+	return Material->GetShadingModel() == MSM_Hair ? LOCTEXT("Scatter", "Scatter") : LOCTEXT("Metallic", "Metallic");
+}
+
+FText UMaterialGraph::GetNormalPinName() const
+{
+	return Material->GetShadingModel() == MSM_Hair ? LOCTEXT("Tangent", "Tangent") : LOCTEXT("Normal", "Normal");
+}
+
+FText UMaterialGraph::GetWorldPositionOffsetPinName() const
+{
+	return Material->IsUIMaterial() ? LOCTEXT("ScreenPosition", "Screen Position") : LOCTEXT("WorldPositionOffset", "World Position Offset");
+}
+
+FText UMaterialGraph::GetSubsurfacePinName() const
+{
+	switch (Material->GetShadingModel())
+	{
+	case MSM_Cloth:
+		return LOCTEXT("FuzzColor", "Fuzz Color");
+	default:
+		return LOCTEXT("SubsurfaceColor", "Subsurface Color");
+	}
+}
+
+FText UMaterialGraph::GetCustomDataPinName( uint32 Index ) const
+{
+	if( Index == 0 )
+	{
+		switch( Material->GetShadingModel() )
+		{
+		case MSM_ClearCoat:
+			return LOCTEXT("ClearCoat", "Clear Coat");
+		case MSM_Hair:
+			return LOCTEXT("Backlit", "Backlit");
+		case MSM_Cloth:
+			return LOCTEXT("Cloth", "Cloth");
+		case MSM_Eye:
+			return LOCTEXT("IrisMask", "Iris Mask");
+		default:
+			return LOCTEXT("CustomData0", "Custom Data 0");
+		}
+	}
+	else if( Index == 1 )
+	{
+		switch( Material->GetShadingModel() )
+		{
+		case MSM_ClearCoat:
+			return LOCTEXT("ClearCoatRoughness", "Clear Coat Roughness");
+		case MSM_Eye:
+			return LOCTEXT("IrisDistance", "Iris Distance");
+		default:
+			return LOCTEXT("CustomData1", "Custom Data 1");
+		}
+	}
+
+	return LOCTEXT("CustomData", "Custom Data");	
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -154,35 +154,15 @@ static PX_FORCE_INLINE Sc::ElementInteraction* findInteraction(Element* _element
 	return result;
 }
 
-// PT: function used only once, so safe to force inline
-#if PX_USE_PARTICLE_SYSTEM_API
-static PX_FORCE_INLINE Sc::ElementActorInteraction* findParticlePacketBodyInteraction(ParticlePacketShape* ps, Actor* actor)
-{
-	Cm::Range<ParticleElementRbElementInteraction*const> interactions = ps->getPacketShapeInteractions();
-	for (; !interactions.empty(); interactions.popFront())
-	{
-		ParticleElementRbElementInteraction*const interaction = interactions.front();
-
-		PX_ASSERT(	(interaction->getActor0().getActorType() == PxActorType::ePARTICLE_SYSTEM) ||
-					(interaction->getActor0().getActorType() == PxActorType::ePARTICLE_FLUID) );
-
-		if ((&interaction->getActor1() == actor) && (&interaction->getParticleShape() == ps))
-		{
-			PX_ASSERT(interaction->getInteractionFlags() & PX_INTERACTION_FLAG_ELEMENT_ACTOR);
-			return static_cast<ElementActorInteraction*>(interaction);
-		}
-	}
-
-	return NULL;
-}
-#endif
-
 void Sc::NPhaseCore::onOverlapCreated(Element* volume0, Element* volume1, const PxU32 ccdPass)
 {
+#if PX_USE_PARTICLE_SYSTEM_API
 	PX_COMPILE_TIME_ASSERT(PX_ELEMENT_TYPE_SHAPE < PX_ELEMENT_TYPE_PARTICLE_PACKET);
+#else
+	PX_UNUSED(ccdPass);
+#endif
 
 	PX_ASSERT(!findInteraction(volume0, volume1));
-
 
 	Element* volumeLo = volume0;
 	Element* volumeHi = volume1;
@@ -212,10 +192,9 @@ void Sc::NPhaseCore::onOverlapCreated(Element* volume0, Element* volume1, const 
 					&& !(shapeHi->getParticleSystem().getCore().getFlags() & PxParticleBaseFlag::eCOLLISION_WITH_DYNAMIC_ACTORS))
 					break;	// Skip dynamic rigids if corresponding flag is set on the particle system
 
-				if (shapeHi->interactionLimitNotReached())
 				{
 #ifndef PX_PS3	
-					PxGeometryType::Enum geoType = shapeLo->getGeometryType();
+					const PxGeometryType::Enum geoType = shapeLo->getGeometryType();
 					if (geoType == PxGeometryType::eTRIANGLEMESH || geoType == PxGeometryType::eHEIGHTFIELD)
 					{
 						PxBounds3 particleShapeBounds;
@@ -255,11 +234,6 @@ void Sc::NPhaseCore::onOverlapCreated(Element* volume0, Element* volume1, const 
 					}
 #endif
 					createParticlePacketBodyInteraction(*shapeHi, *shapeLo, ccdPass);
-				}
-				else
-				{
-					Ps::getFoundation().error(PxErrorCode::eDEBUG_WARNING, __FILE__, __LINE__, "Particles: Grid cell has more than 65536 interactions, potential loss of collision.");
-					break;
 				}
 			}
 			break;
@@ -384,7 +358,9 @@ static PX_FORCE_INLINE void processElementPair(Sc::NPhaseCore& nPhaseCore, const
 
 void Sc::NPhaseCore::onOverlapCreated(const PxvBroadPhaseOverlap* PX_RESTRICT pairs, PxU32 pairCount, const PxU32 ccdPass)
 {
+#if PX_USE_PARTICLE_SYSTEM_API
 	PX_COMPILE_TIME_ASSERT(PX_ELEMENT_TYPE_SHAPE < PX_ELEMENT_TYPE_PARTICLE_PACKET);
+#endif
 
 	const PxU32 prefetchLookAhead = 4;
 	const Element* batchedElements[prefetchLookAhead * 2];
@@ -549,11 +525,17 @@ void Sc::NPhaseCore::onVolumeRemoved(Element* volume, PxU32 flags)
 				ElementInteraction* interaction = iter.getNext();
 				while(interaction)
 				{
-					PX_ASSERT(	(interaction->getType() == PX_INTERACTION_TYPE_MARKER) ||
-								(interaction->getType() == PX_INTERACTION_TYPE_OVERLAP) ||
-								(interaction->getType() == PX_INTERACTION_TYPE_TRIGGER) ||
-								(interaction->getType() == PX_INTERACTION_TYPE_PARTICLE_BODY) );
-
+#if PX_USE_PARTICLE_SYSTEM_API
+                    PX_ASSERT(	(interaction->getType() == PX_INTERACTION_TYPE_MARKER) ||
+						        (interaction->getType() == PX_INTERACTION_TYPE_OVERLAP) ||
+						        (interaction->getType() == PX_INTERACTION_TYPE_TRIGGER) ||
+						        (interaction->getType() == PX_INTERACTION_TYPE_PARTICLE_BODY) );
+#else
+			        PX_ASSERT(	(interaction->getType() == PX_INTERACTION_TYPE_MARKER) ||
+						        (interaction->getType() == PX_INTERACTION_TYPE_OVERLAP) ||
+						        (interaction->getType() == PX_INTERACTION_TYPE_TRIGGER) );
+#endif
+					
 					releaseElementPair((ElementSimInteraction*)interaction, flags, ccdPass, true);
 
 					interaction = iter.getNext();
@@ -638,6 +620,9 @@ Sc::ElementSimInteraction* Sc::NPhaseCore::createRbElementInteraction(ShapeSim& 
 		return NULL;
 	}
 
+	if(!testInteractionCounts(s0.getScActor(), s1.getScActor()))
+		return NULL;
+
 	ElementSimInteraction* pair = NULL;
 
 	if ((finfo.filterFlags & PxFilterFlag::eSUPPRESS) == false)
@@ -671,14 +656,43 @@ Sc::ElementSimInteraction* Sc::NPhaseCore::createRbElementInteraction(ShapeSim& 
 
 
 #if PX_USE_PARTICLE_SYSTEM_API
+
+// PT: function used only once, so safe to force inline
+static PX_FORCE_INLINE Sc::ElementActorInteraction* findParticlePacketBodyInteraction(ParticlePacketShape* ps, Actor* actor)
+{
+	ParticleElementRbElementInteraction** interactions = ps->getInteractions();
+	PxU32 count = ps->getInteractionsCount();
+
+	while(count--)
+	{
+		ParticleElementRbElementInteraction*const interaction = *interactions++;
+
+		PX_ASSERT(	(interaction->getActor0().getActorType() == PxActorType::ePARTICLE_SYSTEM) ||
+					(interaction->getActor0().getActorType() == PxActorType::ePARTICLE_FLUID) );
+
+		if ((&interaction->getActor1() == actor) && (&interaction->getParticleShape() == ps))
+		{
+			PX_ASSERT(interaction->getInteractionFlags() & PX_INTERACTION_FLAG_ELEMENT_ACTOR);
+			return static_cast<ElementActorInteraction*>(interaction);
+		}
+	}
+	return NULL;
+}
+
 Sc::ElementSimInteraction* Sc::NPhaseCore::createParticlePacketBodyInteraction(ParticlePacketShape& ps, ShapeSim& s, const PxU32 ccdPass)
 {
-	ElementSimInteraction* pair = NULL;
 	ActorElementPair* actorElementPair = NULL;
 
-	ElementActorInteraction* eai = findParticlePacketBodyInteraction(&ps, &s.getScActor());
+	Sc::Actor& scActor = s.getScActor();
+	Sc::ActorSim& scActorSim = ps.getActorSim();
+
+	ElementActorInteraction* eai = findParticlePacketBodyInteraction(&ps, &scActor);
 	if (eai)
 	{
+		// PT: this test is for the 'insertParticleElementRbElementPair' below
+		if(!testInteractionCounts(scActorSim, scActor))
+			return NULL;
+
 		// There already is an interaction between the shape and the particleSystem/...
 		// In that case, fetch the filter information from the existing interaction.
 
@@ -697,21 +711,23 @@ Sc::ElementSimInteraction* Sc::NPhaseCore::createParticlePacketBodyInteraction(P
 			return NULL;
 		}
 
-		const bool isSuppressed = finfo.filterFlags & PxFilterFlag::eSUPPRESS;
-		actorElementPair = mActorElementPairPool.construct(ps.getActorSim(), s, finfo.pairFlags);
-		actorElementPair->markAsSuppressed(isSuppressed);
+		// PT: this test is for the 'insertParticleElementRbElementPair' below
+		// We do it after the filtering in this branch
+		if(!testInteractionCounts(scActorSim, scActor))
+			return NULL;
 
+		const bool isSuppressed = finfo.filterFlags & PxFilterFlag::eSUPPRESS;
+		actorElementPair = mActorElementPairPool.construct(scActorSim, s, finfo.pairFlags);
+
+		actorElementPair->markAsSuppressed(isSuppressed);
 		actorElementPair->markAsFilterPair(finfo.filterPair != NULL);
 
 		if (finfo.filterPair)
-		{
 			finfo.filterPair->setElementActorRef(actorElementPair);  // New filter callback pair: Set the link to the interaction
-		}
 	}
 	
-	pair = insertParticleElementRbElementPair(&ps, &s, actorElementPair, ccdPass);
-
-	if (actorElementPair->isFilterPair())
+	ElementSimInteraction* pair = insertParticleElementRbElementPair(ps, s, actorElementPair, ccdPass);
+	if(actorElementPair->isFilterPair())
 		pair->raiseCoreFlag(CoreInteraction::IS_FILTER_PAIR);  // Mark the pair as a filter callback pair
 
 	return pair;
@@ -723,16 +739,21 @@ Sc::ShapeInstancePairLL* Sc::NPhaseCore::createShapeInstancePairLL(ShapeSim& s0,
 {
 	ShapeSim* _s0 = &s0;
 	ShapeSim* _s1 = &s1;
-	
-	/*
-	This guarantees that if one of the bodies is static or kinematic, it will be body B
-	There is a further optimization to force all pairs that share the same bodies to have 
-	the same body ordering.  This reduces the number of required partitions in the parallel solver.
-	*/
-	if((uintptr_t)s0.getRbSim().getBroadphaseGroupId() < s1.getRbSim().getBroadphaseGroupId() 
-		|| s0.getRbSim().getActorType() == PxActorType::eRIGID_STATIC)
-		Ps::swap(_s0, _s1);
 
+	{
+		// PT: 'getRbSim()' is not inlined so call it only once here.
+		Sc::RigidSim& rs0 = s0.getRbSim();
+		Sc::RigidSim& rs1 = s1.getRbSim();
+
+		/*
+		This guarantees that if one of the bodies is static or kinematic, it will be body B
+		There is a further optimization to force all pairs that share the same bodies to have 
+		the same body ordering.  This reduces the number of required partitions in the parallel solver.
+		*/
+		if(rs0.getBroadphaseGroupId() < rs1.getBroadphaseGroupId() 
+			|| rs0.getActorType() == PxActorType::eRIGID_STATIC)
+			Ps::swap(_s0, _s1);
+	}
 
 	ActorPair* aPair = findActorPair(_s0, _s1);
 	PX_ASSERT(aPair != NULL);
@@ -859,8 +880,12 @@ static PX_INLINE PxPairFlags checkRbPairFlags(const ShapeSim& s0, const ShapeSim
 	if(filterFlags & (PxFilterFlag::eSUPPRESS | PxFilterFlag::eKILL))
 		return pairFlags;
 
-	if (s0.getBodySim() && s0.getBodySim()->isKinematic() && 
-		s1.getBodySim() && s1.getBodySim()->isKinematic() && 
+	// PT: 'getBodySim()' not inlined, so call it only once here
+	Sc::BodySim* bs0 = s0.getBodySim();
+	Sc::BodySim* bs1 = s1.getBodySim();
+
+	if (bs0 && bs0->isKinematic() && 
+		bs1 && bs1->isKinematic() && 
 		(pairFlags & PxPairFlag::eSOLVE_CONTACT))
 	{
 #ifdef PX_CHECKED
@@ -1358,15 +1383,19 @@ Sc::ActorPair* Sc::NPhaseCore::findActorPair(ShapeSim* s0, ShapeSim* s1)
 	RigidSim* aLess;
 	RigidSim* aMore;
 
+	// PT: 'getRbSim()' is not inlined so call it only once here.
+	Sc::RigidSim& rs0 = s0->getRbSim();
+	Sc::RigidSim& rs1 = s1->getRbSim();
+
 	if(s0->getActorSim().getActorInteractionCount() < s1->getActorSim().getActorInteractionCount())
 	{
-		aLess = &s0->getRbSim();
-		aMore = &s1->getRbSim();
+		aLess = &rs0;
+		aMore = &rs1;
 	}
 	else
 	{
-		aLess = &s1->getRbSim();
-		aMore = &s0->getRbSim();
+		aLess = &rs1;
+		aMore = &rs0;
 	}
 
 	ActorPair* ap = NULL;
@@ -1388,7 +1417,7 @@ Sc::ActorPair* Sc::NPhaseCore::findActorPair(ShapeSim* s0, ShapeSim* s1)
 
 	if(!ap)
 	{
-		return mActorPairPool.construct(s0->getRbSim(), s1->getRbSim());
+		return mActorPairPool.construct(rs0, rs1);
 	}
 	else
 	{
@@ -1435,7 +1464,9 @@ Sc::ElementSimInteraction* Sc::NPhaseCore::convert(ElementSimInteraction* pair, 
 			break;
 			}
 		case PX_INTERACTION_TYPE_CONSTRAINTSHADER:
+#if PX_USE_PARTICLE_SYSTEM_API
 		case PX_INTERACTION_TYPE_PARTICLE_BODY:
+#endif
 		case PX_INTERACTION_TYPE_ARTICULATION:
 		default:
 			PX_ASSERT(0);
@@ -1905,11 +1936,11 @@ void Sc::NPhaseCore::releaseShapeInstancePair(ShapeInstancePairLL* npp, PxU32 fl
 		BodySim* b1 = npp->getShape1().getBodySim();
 		if (flags & PairReleaseFlag::eWAKE_ON_LOST_TOUCH)
 		{
-			if (b0 == 0 || b1 == 0)
+			if (!b0 || !b1)
 			{
-				if (b0 != 0)
+				if (b0)
 					b0->internalWakeUp();
-				if (b1 != 0)
+				if (b1)
 					b1->internalWakeUp();
 			}
 			else if(!npp->readIntFlag(ShapeInstancePairLL::CONTACTS_RESPONSE_DISABLED))			
@@ -1953,9 +1984,9 @@ void Sc::NPhaseCore::clearContactReportActorPairs(bool shrinkToZero)
 
 
 #if PX_USE_PARTICLE_SYSTEM_API
-Sc::ParticleElementRbElementInteraction* Sc::NPhaseCore::insertParticleElementRbElementPair(ParticlePacketShape* particleShape, ShapeSim* rbShape, ActorElementPair* actorElementPair, const PxU32 ccdPass)
+Sc::ParticleElementRbElementInteraction* Sc::NPhaseCore::insertParticleElementRbElementPair(ParticlePacketShape& particleShape, ShapeSim& rbShape, ActorElementPair* actorElementPair, const PxU32 ccdPass)
 {
-	ParticleElementRbElementInteraction* pbi = mParticleBodyPool.construct(*particleShape, *rbShape, *actorElementPair);
+	ParticleElementRbElementInteraction* pbi = mParticleBodyPool.construct(particleShape, rbShape, *actorElementPair);
 	if (pbi)
 	{
 		actorElementPair->incRefCount();

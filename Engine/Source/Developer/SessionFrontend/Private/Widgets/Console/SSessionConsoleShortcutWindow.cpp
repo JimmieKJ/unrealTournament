@@ -2,7 +2,7 @@
 
 #include "SessionFrontendPrivatePCH.h"
 #include "STextEntryPopup.h"
-
+#include "IMenu.h"
 
 #define LOCTEXT_NAMESPACE "SSessionConsoleShortcutWindow"
 
@@ -10,14 +10,15 @@
 /* SSessionConsoleShortcutWindow interface
  *****************************************************************************/
 
-void SSessionConsoleShortcutWindow::AddShortcut( const FString& InName, const FString& InCommandString )
+void SSessionConsoleShortcutWindow::AddShortcut(const FString& InName, const FString& InCommandString)
 {
 	AddShortcutInternal(InName, InCommandString);
 	SaveShortcuts();
 }
 
 
-void SSessionConsoleShortcutWindow::Construct( const FArguments& InArgs )
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+void SSessionConsoleShortcutWindow::Construct(const FArguments& InArgs)
 {
 	OnCommandSubmitted = InArgs._OnCommandSubmitted;
 
@@ -47,23 +48,24 @@ void SSessionConsoleShortcutWindow::Construct( const FArguments& InArgs )
 	LoadShortcuts();
 	RebuildUI();
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
 /* SSessionConsoleShortcutWindow implementation
  *****************************************************************************/
 
-void SSessionConsoleShortcutWindow::AddShortcutInternal( const FString& InName, const FString& InCommandString )
+void SSessionConsoleShortcutWindow::AddShortcutInternal(const FString& InName, const FString& InCommandString)
 {
 	TSharedPtr<FConsoleShortcutData> NewCommand = MakeShareable(new FConsoleShortcutData());
 	NewCommand->Name = InName;
 	NewCommand->Command = InCommandString;
 
-	Shortcuts.Add( NewCommand );
+	Shortcuts.Add(NewCommand);
 	RebuildUI();
 }
 
 
-void SSessionConsoleShortcutWindow::HandleEditCommandActionExecute( TSharedPtr<FConsoleShortcutData> InShortcut, bool bInEditCommand, FText InPromptTitle )
+void SSessionConsoleShortcutWindow::HandleEditCommandActionExecute(TSharedPtr<FConsoleShortcutData> InShortcut, bool bInEditCommand, FText InPromptTitle)
 {
 	FString DefaultString = bInEditCommand ? InShortcut->Command : InShortcut->Name;
 
@@ -77,8 +79,9 @@ void SSessionConsoleShortcutWindow::HandleEditCommandActionExecute( TSharedPtr<F
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	NameEntryPopupWindow = FSlateApplication::Get().PushMenu(
+	NameEntryMenu = FSlateApplication::Get().PushMenu(
 		SharedThis(this),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -103,8 +106,8 @@ void SSessionConsoleShortcutWindow::LoadShortcuts()
 	FFileHelper::LoadFileToString(Content, *GetShortcutFilename());
 
 	TSharedPtr<FJsonObject> ShortcutStream;
-	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create( Content );
-	bool bResult = FJsonSerializer::Deserialize( Reader, ShortcutStream );
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Content);
+	bool bResult = FJsonSerializer::Deserialize(Reader, ShortcutStream);
 
 	if (ShortcutStream.IsValid())
 	{
@@ -127,7 +130,7 @@ void SSessionConsoleShortcutWindow::RebuildUI()
 }
 
 
-void SSessionConsoleShortcutWindow::HandleDeleteCommandActionExecute( TSharedPtr<FConsoleShortcutData> InShortcut )
+void SSessionConsoleShortcutWindow::HandleDeleteCommandActionExecute(TSharedPtr<FConsoleShortcutData> InShortcut)
 {
 	Shortcuts.Remove(InShortcut);
 	RebuildUI();
@@ -136,7 +139,7 @@ void SSessionConsoleShortcutWindow::HandleDeleteCommandActionExecute( TSharedPtr
 
 void SSessionConsoleShortcutWindow::SaveShortcuts() const
 {
-	TSharedPtr<FJsonObject> ShortcutStream = MakeShareable( new FJsonObject );
+	TSharedPtr<FJsonObject> ShortcutStream = MakeShareable(new FJsonObject);
 
 	ShortcutStream->SetNumberField(TEXT("Count"), Shortcuts.Num());
 	for (int32 i = 0; i < Shortcuts.Num(); ++i)
@@ -156,7 +159,7 @@ void SSessionConsoleShortcutWindow::SaveShortcuts() const
 /* SSessionConsoleShortcutWindow callbacks
  *****************************************************************************/
 
-FReply SSessionConsoleShortcutWindow::HandleExecuteButtonClicked( TSharedPtr<FConsoleShortcutData> InShortcut )
+FReply SSessionConsoleShortcutWindow::HandleExecuteButtonClicked(TSharedPtr<FConsoleShortcutData> InShortcut)
 {
 	if (OnCommandSubmitted.IsBound())
 	{
@@ -239,16 +242,17 @@ TSharedRef<ITableRow> SSessionConsoleShortcutWindow::HandleShortcutListViewGener
 }
 
 
-void SSessionConsoleShortcutWindow::HandleShortcutTextEntryCommitted( const FText& CommandText, ETextCommit::Type CommitInfo )
+void SSessionConsoleShortcutWindow::HandleShortcutTextEntryCommitted(const FText& CommandText, ETextCommit::Type CommitInfo)
 {
-	if (NameEntryPopupWindow.IsValid())
+	if (NameEntryMenu.IsValid())
 	{
-		NameEntryPopupWindow->RequestDestroyWindow();
+		NameEntryMenu.Pin()->Dismiss();
 
 		int32 IndexOfShortcut = Shortcuts.IndexOfByKey(EditedShortcut);
+
 		if (EditedShortcut.IsValid() && (IndexOfShortcut != INDEX_NONE))
 		{
-			//make a new version of the command so the list view knows to refresh
+			// make a new version of the command so the list view knows to refresh
 			TSharedPtr<FConsoleShortcutData> NewCommand = MakeShareable(new FConsoleShortcutData());
 			*NewCommand = *EditedShortcut;
 			Shortcuts[IndexOfShortcut] = NewCommand;

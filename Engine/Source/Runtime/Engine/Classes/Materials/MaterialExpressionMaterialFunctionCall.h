@@ -84,15 +84,15 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 	TArray<struct FFunctionExpressionOutput> FunctionOutputs;
 
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostLoad() override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual const TArray<FExpressionInput*> GetInputs() override;
@@ -109,7 +109,7 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 #if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override;
 #endif // WITH_EDITOR
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 
 	/** 

@@ -32,7 +32,7 @@ IMPLEMENT_SHADER_TYPE(template<>,TDeferredLightVS<false>,TEXT("DeferredLightVert
 IMPLEMENT_SHADER_TYPE(template<>,TDeferredLightVS<true>,TEXT("DeferredLightVertexShaders"),TEXT("RadialVertexMain"),SF_Vertex);
 
 /** A pixel shader for rendering the light in a deferred pass. */
-template<bool bUseIESProfile, bool bRadialAttenuation, bool bInverseSquaredFalloff, bool bVisualizeLightCulling, bool bUseClearCoat>
+template<bool bUseIESProfile, bool bRadialAttenuation, bool bInverseSquaredFalloff, bool bVisualizeLightCulling, bool bUseClearCoat, bool bUseLightingChannels>
 class TDeferredLightPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(TDeferredLightPS,Global)
@@ -52,6 +52,7 @@ public:
 		OutEnvironment.SetDefine(TEXT("LIGHT_SOURCE_SHAPE"), 1);
 		OutEnvironment.SetDefine(TEXT("VISUALIZE_LIGHT_CULLING"), (uint32)bVisualizeLightCulling);
 		OutEnvironment.SetDefine(TEXT("USE_CLEARCOAT"), (uint32)bUseClearCoat);
+		OutEnvironment.SetDefine(TEXT("USE_LIGHTING_CHANNELS"), (uint32)bUseLightingChannels);
 	}
 
 	TDeferredLightPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -64,6 +65,8 @@ public:
 		PreIntegratedBRDFSampler.Bind(Initializer.ParameterMap, TEXT("PreIntegratedBRDFSampler"));
 		IESTexture.Bind(Initializer.ParameterMap, TEXT("IESTexture"));
 		IESTextureSampler.Bind(Initializer.ParameterMap, TEXT("IESTextureSampler"));
+		LightingChannelsTexture.Bind(Initializer.ParameterMap, TEXT("LightingChannelsTexture"));
+		LightingChannelsSampler.Bind(Initializer.ParameterMap, TEXT("LightingChannelsSampler"));
 	}
 
 	TDeferredLightPS()
@@ -94,6 +97,8 @@ public:
 		Ar << PreIntegratedBRDFSampler;
 		Ar << IESTexture;
 		Ar << IESTextureSampler;
+		Ar << LightingChannelsTexture;
+		Ar << LightingChannelsSampler;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -111,6 +116,8 @@ private:
 		FGlobalShader::SetParameters(RHICmdList, ShaderRHI,View);
 		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
 
+		FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
+
 		if(LightAttenuationTexture.IsBound())
 		{
 			SetTextureParameter(
@@ -119,7 +126,7 @@ private:
 				LightAttenuationTexture,
 				LightAttenuationTextureSampler,
 				TStaticSamplerState<SF_Point,AM_Wrap,AM_Wrap,AM_Wrap>::GetRHI(),
-				GSceneRenderTargets.GetEffectiveLightAttenuationTexture(true)
+				SceneRenderTargets.GetEffectiveLightAttenuationTexture(true)
 				);
 		}
 
@@ -144,6 +151,20 @@ private:
 				TextureRHI
 				);
 		}
+
+		if (bUseLightingChannels)
+		{
+			FTextureRHIParamRef LightingChannelsTextureRHI = SceneRenderTargets.LightingChannels ? SceneRenderTargets.LightingChannels->GetRenderTargetItem().ShaderResourceTexture : GSystemTextures.WhiteDummy->GetRenderTargetItem().TargetableTexture;
+
+			SetTextureParameter(
+				RHICmdList, 
+				ShaderRHI,
+				LightingChannelsTexture,
+				LightingChannelsSampler,
+				TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
+				LightingChannelsTextureRHI
+				);
+		}
 	}
 
 	FDeferredPixelShaderParameters DeferredParameters;
@@ -153,31 +174,51 @@ private:
 	FShaderResourceParameter PreIntegratedBRDFSampler;
 	FShaderResourceParameter IESTexture;
 	FShaderResourceParameter IESTextureSampler;
+	FShaderResourceParameter LightingChannelsTexture;
+	FShaderResourceParameter LightingChannelsSampler;
 };
 
 // Typedef is necessary because the C preprocessor thinks the comma in the template parameter list is a comma in the macro parameter list.
-#define IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(A, B, C, D, E, EntryName) \
-	typedef TDeferredLightPS<A,B,C,D,E> TDeferredLightPS##A##B##C##D##E; \
-	IMPLEMENT_SHADER_TYPE(template<>,TDeferredLightPS##A##B##C##D##E,TEXT("DeferredLightPixelShaders"),EntryName,SF_Pixel);
+#define IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(A, B, C, D, E, F, EntryName) \
+	typedef TDeferredLightPS<A,B,C,D,E, F> TDeferredLightPS##A##B##C##D##E##F; \
+	IMPLEMENT_SHADER_TYPE(template<>,TDeferredLightPS##A##B##C##D##E##F,TEXT("DeferredLightPixelShaders"),EntryName,SF_Pixel);
 
 // Implement a version for each light type, and it's shader permutations
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, true, false, false, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, false, false, false, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, false, false, false, false, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, true, false, false, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, false, false, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, false, false, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, true, false, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, true, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, true, false, false, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, false, false, false, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, false, false, false, false, false, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, true, false, false, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, false, false, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, false, false, false, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, true, false, false, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, true, false, false, TEXT("RadialPixelMain"));
 
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, true, false, true, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, false, false, true, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, false, false, false, true, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, true, false, true, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, false, true, TEXT("RadialPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, false, true, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, true, true, TEXT("DirectionalPixelMain"));
-IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, true, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, true, false, true, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, false, false, true, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, false, false, false, true, false, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, true, false, true, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, false, true, false, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, false, true, false, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, true, true, false, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, true, true, false, TEXT("RadialPixelMain"));
+
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, true, false, false, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, false, false, false, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, false, false, false, false, true, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, true, false, false, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, false, false, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, false, false, true, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, true, false, true, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, true, false, true, TEXT("RadialPixelMain"));
+
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, true, false, true, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, true, false, false, true, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(true, false, false, false, true, true, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, true, false, true, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, false, true, true, TEXT("RadialPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, false, true, true, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, false, false, true, true, true, TEXT("DirectionalPixelMain"));
+IMPLEMENT_DEFERREDLIGHT_PIXELSHADER_TYPE(false, true, false, true, true, true, TEXT("RadialPixelMain"));
 
 /** Shader used to visualize stationary light overlap. */
 template<bool bRadialAttenuation>
@@ -359,6 +400,8 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, DirectLighting);
 
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+
 		int32 AttenuationLightStart = SortedLights.Num();
 		int32 SupportedByTiledDeferredLightEnd = SortedLights.Num();
 		bool bAnyUnsupportedByTiledDeferred = false;
@@ -401,7 +444,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, NonShadowedLights);
 			INC_DWORD_STAT_BY(STAT_NumUnshadowedLights, AttenuationLightStart);
-			GSceneRenderTargets.SetLightAttenuationMode(false);
+			SceneContext.SetLightAttenuationMode(false);
 
 			int32 StandardDeferredStart = 0;
 
@@ -434,7 +477,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			}
 			else if (SimpleLights.InstanceData.Num() > 0)
 			{
-				GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 				RenderSimpleLightsStandardDeferred(RHICmdList, SimpleLights);
 			}
 
@@ -442,7 +485,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				SCOPED_DRAW_EVENT(RHICmdList, StandardDeferredLighting);
 
 				// make sure we don't clear the depth
-				GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
 
 				// Draw non-shadowed non-light function lights without changing render targets between them
 				for (int32 LightIndex = StandardDeferredStart; LightIndex < AttenuationLightStart; LightIndex++)
@@ -473,144 +516,168 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			}
 		}
 
-		bool bDirectLighting = ViewFamily.EngineShowFlags.DirectLighting;
+		EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel]; 
 
-		// Draw shadowed and light function lights
-		for (int32 LightIndex = AttenuationLightStart; LightIndex < SortedLights.Num(); LightIndex++)
+		if ( IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM5) )
 		{
-			const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
-			const FLightSceneInfoCompact& LightSceneInfoCompact = SortedLightInfo.SceneInfo;
-			const FLightSceneInfo& LightSceneInfo = *LightSceneInfoCompact.LightSceneInfo;
-			bool bDrawShadows = SortedLightInfo.SortKey.Fields.bShadowed;
-			bool bDrawLightFunction = SortedLightInfo.SortKey.Fields.bLightFunction;
-			bool bInjectedTranslucentVolume = false;
-			bool bUsedLightAttenuation = false;
-			FScopeCycleCounter Context(LightSceneInfo.Proxy->GetStatId());
-
-			FString LightNameWithLevel;
-			GetLightNameForDrawEvent(LightSceneInfo.Proxy, LightNameWithLevel);
-			SCOPED_DRAW_EVENTF(RHICmdList, EventLightPass, *LightNameWithLevel);
-
-			// Do not resolve to scene color texture, this is done lazily
-			GSceneRenderTargets.FinishRenderingSceneColor(RHICmdList, false);
-
-			if (bDrawShadows)
+			SCOPED_DRAW_EVENT(RHICmdList, IndirectLighting);
+			bool bRenderedRSM = false;
+			// Render Reflective shadow maps
+			// Draw shadowed and light function lights
+			for (int32 LightIndex = AttenuationLightStart; LightIndex < SortedLights.Num(); LightIndex++)
 			{
-				INC_DWORD_STAT(STAT_NumShadowedLights);
+				const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
+				const FLightSceneInfoCompact& LightSceneInfoCompact = SortedLightInfo.SceneInfo;
+				const FLightSceneInfo& LightSceneInfo = *LightSceneInfoCompact.LightSceneInfo;
+				// Render any reflective shadow maps (if necessary)
+				if ( LightSceneInfo.Proxy && LightSceneInfo.Proxy->NeedsLPVInjection() )
+				{
+					if ( LightSceneInfo.Proxy->HasReflectiveShadowMap() )
+					{
+						INC_DWORD_STAT(STAT_NumReflectiveShadowMapLights);
+						RenderReflectiveShadowMaps( RHICmdList, &LightSceneInfo );
+						bRenderedRSM = true;
+					}
+				}
+			}
+
+			// LPV Direct Light Injection
+			if ( bRenderedRSM )
+			{
+				for (int32 LightIndex = 0; LightIndex < SortedLights.Num(); LightIndex++)
+				{
+					const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
+					const FLightSceneInfoCompact& LightSceneInfoCompact = SortedLightInfo.SceneInfo;
+					const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
+
+					// Render any reflective shadow maps (if necessary)
+					if ( LightSceneInfo && LightSceneInfo->Proxy && LightSceneInfo->Proxy->NeedsLPVInjection() )
+					{
+						if ( !LightSceneInfo->Proxy->HasReflectiveShadowMap() )
+						{
+							// Inject the light directly into all relevant LPVs
+							for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+							{
+								FViewInfo& View = Views[ViewIndex];
+
+								if (LightSceneInfo->ShouldRenderLight(View))
+								{
+									FSceneViewState* ViewState = (FSceneViewState*)View.State;
+									FLightPropagationVolume* Lpv = ViewState->GetLightPropagationVolume(View.GetFeatureLevel());
+									if ( Lpv && LightSceneInfo->Proxy )
+									{
+										Lpv->InjectLightDirect( RHICmdList, *LightSceneInfo->Proxy, View );
+									}
+								}
+							}					
+						}
+					}
+				}
+			}
+
+			// Kickoff the LPV update (asynchronously if possible)
+			UpdateLPVs(RHICmdList);
+		}
+
+		{
+			SCOPED_DRAW_EVENT(RHICmdList, ShadowedLights);
+
+			bool bDirectLighting = ViewFamily.EngineShowFlags.DirectLighting;
+
+			// Draw shadowed and light function lights
+			for (int32 LightIndex = AttenuationLightStart; LightIndex < SortedLights.Num(); LightIndex++)
+			{
+				const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
+				const FLightSceneInfoCompact& LightSceneInfoCompact = SortedLightInfo.SceneInfo;
+				const FLightSceneInfo& LightSceneInfo = *LightSceneInfoCompact.LightSceneInfo;
+				bool bDrawShadows = SortedLightInfo.SortKey.Fields.bShadowed;
+				bool bDrawLightFunction = SortedLightInfo.SortKey.Fields.bLightFunction;
+				bool bInjectedTranslucentVolume = false;
+				bool bUsedLightAttenuation = false;
+				FScopeCycleCounter Context(LightSceneInfo.Proxy->GetStatId());
+
+				FString LightNameWithLevel;
+				GetLightNameForDrawEvent(LightSceneInfo.Proxy, LightNameWithLevel);
+				SCOPED_DRAW_EVENTF(RHICmdList, EventLightPass, *LightNameWithLevel);
+
+				// Do not resolve to scene color texture, this is done lazily
+				SceneContext.FinishRenderingSceneColor(RHICmdList, false);
+
+				if (bDrawShadows)
+				{
+					INC_DWORD_STAT(STAT_NumShadowedLights);
+
+					for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+					{
+						const FViewInfo& View = Views[ViewIndex];
+						View.HeightfieldLightingViewInfo.ClearShadowing(View, RHICmdList, LightSceneInfo);
+					}
+
+					// All shadows render with min blending
+					bool bClearToWhite = true;
+					SceneContext.BeginRenderingLightAttenuation(RHICmdList, bClearToWhite);
+
+					bool bRenderedTranslucentObjectShadows = RenderTranslucentProjectedShadows(RHICmdList, &LightSceneInfo );
+					// Render non-modulated projected shadows to the attenuation buffer.
+					RenderProjectedShadows(RHICmdList, &LightSceneInfo, bRenderedTranslucentObjectShadows, bInjectedTranslucentVolume );
+				
+					bUsedLightAttenuation = true;
+				}
 
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 				{
 					const FViewInfo& View = Views[ViewIndex];
-					View.HeightfieldLightingViewInfo.ClearShadowing(View, RHICmdList, LightSceneInfo);
+					View.HeightfieldLightingViewInfo.ComputeLighting(View, RHICmdList, LightSceneInfo);
 				}
-
-				// All shadows render with min blending
-				bool bClearToWhite = true;
-				GSceneRenderTargets.BeginRenderingLightAttenuation(RHICmdList, bClearToWhite);
-
-				bool bRenderedTranslucentObjectShadows = RenderTranslucentProjectedShadows(RHICmdList, &LightSceneInfo );
-				// Render non-modulated projected shadows to the attenuation buffer.
-				RenderProjectedShadows(RHICmdList, &LightSceneInfo, bRenderedTranslucentObjectShadows, bInjectedTranslucentVolume );
-				
-				bUsedLightAttenuation = true;
-			}
-
-			// Render any reflective shadow maps (if necessary)
-			if(ViewFamily.EngineShowFlags.GlobalIllumination && LightSceneInfo.Proxy->NeedsLPVInjection())
-			{
-				if ( LightSceneInfo.Proxy->HasReflectiveShadowMap() )
-				{
-					INC_DWORD_STAT(STAT_NumReflectiveShadowMapLights);
-					RenderReflectiveShadowMaps(RHICmdList, &LightSceneInfo );
-				}
-			}
-
-			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-			{
-				const FViewInfo& View = Views[ViewIndex];
-				View.HeightfieldLightingViewInfo.ComputeLighting(View, RHICmdList, LightSceneInfo);
-			}
 			
-			// Render light function to the attenuation buffer.
-			if (bDirectLighting)
-			{
-				const bool bLightFunctionRendered = RenderLightFunction(RHICmdList, &LightSceneInfo, bDrawShadows);
-				bUsedLightAttenuation |= bLightFunctionRendered;
-
-				if (ViewFamily.EngineShowFlags.PreviewShadowsIndicator
-					&& !LightSceneInfo.IsPrecomputedLightingValid() 
-					&& LightSceneInfo.Proxy->HasStaticShadowing())
+				// Render light function to the attenuation buffer.
+				if (bDirectLighting)
 				{
-					RenderPreviewShadowsIndicator(RHICmdList, &LightSceneInfo, bUsedLightAttenuation);
-				}
+					const bool bLightFunctionRendered = RenderLightFunction(RHICmdList, &LightSceneInfo, bDrawShadows);
+					bUsedLightAttenuation |= bLightFunctionRendered;
 
-				if (!bDrawShadows)
-				{
-					INC_DWORD_STAT(STAT_NumLightFunctionOnlyLights);
-				}
-			}
-			
-			if( bUsedLightAttenuation )
-			{
-				// Resolve light attenuation buffer
-				GSceneRenderTargets.FinishRenderingLightAttenuation(RHICmdList);
-			}
-			
-			if(bDirectLighting && !bInjectedTranslucentVolume)
-			{
-				SCOPED_DRAW_EVENT(RHICmdList, InjectTranslucentVolume);
-				// Accumulate this light's unshadowed contribution to the translucency lighting volume
-				InjectTranslucentVolumeLighting(RHICmdList, LightSceneInfo, NULL);
-			}
-
-			GSceneRenderTargets.SetLightAttenuationMode(bUsedLightAttenuation);
-			GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
-
-			// Render the light to the scene color buffer, conditionally using the attenuation buffer or a 1x1 white texture as input 
-			if(bDirectLighting)
-			{
-				RenderLight(RHICmdList, &LightSceneInfo, false, true);
-			}
-		}
-
-		// Do not resolve to scene color texture, this is done lazily
-		GSceneRenderTargets.FinishRenderingSceneColor(RHICmdList, false);
-
-		// Restore the default mode
-		GSceneRenderTargets.SetLightAttenuationMode(true);
-
-		// LPV Direct Light Injection
-		for (int32 LightIndex = 0; LightIndex < SortedLights.Num(); LightIndex++)
-		{
-			const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
-			const FLightSceneInfoCompact& LightSceneInfoCompact = SortedLightInfo.SceneInfo;
-			const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
-
-			// Render any reflective shadow maps (if necessary)
-			if ( LightSceneInfo && LightSceneInfo->Proxy && LightSceneInfo->Proxy->NeedsLPVInjection() )
-			{
-				if ( !LightSceneInfo->Proxy->HasReflectiveShadowMap() )
-				{
-					// Inject the light directly into all relevant LPVs
-					for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+					if (ViewFamily.EngineShowFlags.PreviewShadowsIndicator
+						&& !LightSceneInfo.IsPrecomputedLightingValid() 
+						&& LightSceneInfo.Proxy->HasStaticShadowing())
 					{
-						FViewInfo& View = Views[ViewIndex];
-						FSceneViewState* ViewState = (FSceneViewState*)View.State;
+						RenderPreviewShadowsIndicator(RHICmdList, &LightSceneInfo, bUsedLightAttenuation);
+					}
 
-						if (ViewState)
-						{
-							if (LightSceneInfo->ShouldRenderLight(View))
-							{
-								FLightPropagationVolume* Lpv = ViewState->GetLightPropagationVolume();
-								if (Lpv && LightSceneInfo->Proxy)
-								{
-									Lpv->InjectLightDirect(RHICmdList, *LightSceneInfo->Proxy, View);
-								}
-							}
-						}
-					}					
+					if (!bDrawShadows)
+					{
+						INC_DWORD_STAT(STAT_NumLightFunctionOnlyLights);
+					}
+				}
+			
+				if( bUsedLightAttenuation )
+				{
+					// Resolve light attenuation buffer
+					SceneContext.FinishRenderingLightAttenuation(RHICmdList);
+				}
+			
+				if(bDirectLighting && !bInjectedTranslucentVolume)
+				{
+					SCOPED_DRAW_EVENT(RHICmdList, InjectTranslucentVolume);
+					// Accumulate this light's unshadowed contribution to the translucency lighting volume
+					InjectTranslucentVolumeLighting(RHICmdList, LightSceneInfo, NULL);
+				}
+
+				SceneContext.SetLightAttenuationMode(bUsedLightAttenuation);
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+
+				// Render the light to the scene color buffer, conditionally using the attenuation buffer or a 1x1 white texture as input 
+				if(bDirectLighting)
+				{
+					RenderLight(RHICmdList, &LightSceneInfo, false, true);
 				}
 			}
+
+			// Do not resolve to scene color texture, this is done lazily
+			SceneContext.FinishRenderingSceneColor(RHICmdList, false);
+
+			// Restore the default mode
+			SceneContext.SetLightAttenuationMode(true);
+
 		}
 	}
 }
@@ -651,7 +718,7 @@ void FDeferredShadingSceneRenderer::RenderStationaryLightOverlap(FRHICommandList
 {
 	if (Scene->bIsEditorScene)
 	{
-		GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+		FSceneRenderTargets::Get(RHICmdList).BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
 		// Clear to discard base pass values in scene color since we didn't skip that, to have valid scene depths
 		RHICmdList.Clear(true, FLinearColor::Black, false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
@@ -701,15 +768,24 @@ static void SetShaderTemplLighting(
 {
 	if(View.Family->EngineShowFlags.VisualizeLightCulling)
 	{
-		TShaderMapRef<TDeferredLightPS<false, bRadialAttenuation, false, true, bHandleClearCoat> > PixelShader(View.ShaderMap);
+		TShaderMapRef<TDeferredLightPS<false, bRadialAttenuation, false, true, bHandleClearCoat, false> > PixelShader(View.ShaderMap);
 		SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), PixelShader->GetBoundShaderState(), GetDeferredLightingVertexDeclaration<bRadialAttenuation>(), VertexShader, *PixelShader);
 		PixelShader->SetParameters(RHICmdList, View, LightSceneInfo);
 	}
 	else
 	{
-		TShaderMapRef<TDeferredLightPS<bUseIESProfile, bRadialAttenuation, bInverseSquaredFalloff, false, bHandleClearCoat> > PixelShader(View.ShaderMap);
-		SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), PixelShader->GetBoundShaderState(), GetDeferredLightingVertexDeclaration<bRadialAttenuation>(), VertexShader, *PixelShader);
-		PixelShader->SetParameters(RHICmdList, View, LightSceneInfo);
+		if (View.bUsesLightingChannels)
+		{
+			TShaderMapRef<TDeferredLightPS<bUseIESProfile, bRadialAttenuation, bInverseSquaredFalloff, false, bHandleClearCoat, true> > PixelShader(View.ShaderMap);
+			SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), PixelShader->GetBoundShaderState(), GetDeferredLightingVertexDeclaration<bRadialAttenuation>(), VertexShader, *PixelShader);
+			PixelShader->SetParameters(RHICmdList, View, LightSceneInfo);
+		}
+		else
+		{
+			TShaderMapRef<TDeferredLightPS<bUseIESProfile, bRadialAttenuation, bInverseSquaredFalloff, false, bHandleClearCoat, false> > PixelShader(View.ShaderMap);
+			SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), PixelShader->GetBoundShaderState(), GetDeferredLightingVertexDeclaration<bRadialAttenuation>(), VertexShader, *PixelShader);
+			PixelShader->SetParameters(RHICmdList, View, LightSceneInfo);
+		}
 	}
 }
 
@@ -723,13 +799,13 @@ static void SetShaderTemplLightingSimple(
 {
 	if(View.Family->EngineShowFlags.VisualizeLightCulling)
 	{
-		TShaderMapRef<TDeferredLightPS<false, bRadialAttenuation, false, true, bHandleClearCoat> > PixelShader(View.ShaderMap);
+		TShaderMapRef<TDeferredLightPS<false, bRadialAttenuation, false, true, bHandleClearCoat, false> > PixelShader(View.ShaderMap);
 		SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), PixelShader->GetBoundShaderState(), GetDeferredLightingVertexDeclaration<bRadialAttenuation>(), VertexShader, *PixelShader);
 		PixelShader->SetParametersSimpleLight(RHICmdList, View, SimpleLight, SimpleLightPerViewData);
 	}
 	else
 	{
-		TShaderMapRef<TDeferredLightPS<bUseIESProfile, bRadialAttenuation, bInverseSquaredFalloff, false, bHandleClearCoat> > PixelShader(View.ShaderMap);
+		TShaderMapRef<TDeferredLightPS<bUseIESProfile, bRadialAttenuation, bInverseSquaredFalloff, false, bHandleClearCoat, false> > PixelShader(View.ShaderMap);
 		SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), PixelShader->GetBoundShaderState(), GetDeferredLightingVertexDeclaration<bRadialAttenuation>(), VertexShader, *PixelShader);
 		PixelShader->SetParametersSimpleLight(RHICmdList, View, SimpleLight, SimpleLightPerViewData);
 	}
@@ -834,7 +910,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 					}
 					else
 					{
-						SetShaderTemplLighting<false, false, false, true>(RHICmdList, View, *VertexShader, LightSceneInfo);
+						SetShaderTemplLighting<false, false, false, false>(RHICmdList, View, *VertexShader, LightSceneInfo);
 					}
 				}
 			}
@@ -849,7 +925,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 				View.ViewRect.Min.X, View.ViewRect.Min.Y, 
 				View.ViewRect.Width(), View.ViewRect.Height(),
 				View.ViewRect.Size(),
-				GSceneRenderTargets.GetBufferSizeXY(),
+				FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY(),
 				*VertexShader,
 				EDRF_UseTriangleOptimization);
 		}
@@ -922,7 +998,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			VertexShader->SetParameters(RHICmdList, View, LightSceneInfo);
 
 			// NUse DBT to allow work culling on shadow lights
-			if (bAllowDepthBoundsTest != 0)
+			if (GSupportsDepthBoundsTest && bAllowDepthBoundsTest != 0)
 			{
 				// Can use the depth bounds test to skip work for pixels which won't be touched by the light (i.e outside the depth range)
 				float NearDepth = 1.f;
@@ -951,7 +1027,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			}
 
 			// Use DBT to allow work culling on shadow lights
-			if (bAllowDepthBoundsTest != 0)
+			if (GSupportsDepthBoundsTest && bAllowDepthBoundsTest != 0)
 			{
 				// Turn DBT back off
 				RHICmdList.EnableDepthBoundsTest(false, 0, 1);
@@ -974,8 +1050,6 @@ void FDeferredShadingSceneRenderer::RenderSimpleLightsStandardDeferred(FRHIComma
 	
 	// Use additive blending for color
 	RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
-
-	
 
 	const int32 NumViews = Views.Num();
 	for (int32 LightIndex = 0; LightIndex < SimpleLights.InstanceData.Num(); LightIndex++)

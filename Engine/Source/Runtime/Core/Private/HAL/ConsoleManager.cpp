@@ -121,24 +121,23 @@ public:
 		{
 			FConsoleManager& ConsoleManager = (FConsoleManager&)IConsoleManager::Get();
 			FString CVarName = ConsoleManager.FindConsoleObjectName(this);
-			// if it's an "expected" failure because the user manually overrode the setting, then don't print the warning by default
-			if (NewPri & (ECVF_SetByConsoleVariablesIni | ECVF_SetByCommandline))
+
+			const FString Message = FString::Printf(TEXT("Setting the console variable '%s' with 'SetBy%s' was ignored as it is lower priority than the previous 'SetBy%s'"),
+				CVarName.IsEmpty() ? TEXT("unknown?") : *CVarName,
+				GetSetByTCHAR((EConsoleVariableFlags)NewPri),
+				GetSetByTCHAR((EConsoleVariableFlags)OldPri)
+				);
+
+			// If it was set by an ini that has to be hand edited, it is not an issue if a lower priority system tried and failed to set it afterwards
+			const bool bIntentionallyIgnored = (OldPri & (ECVF_SetByConsoleVariablesIni | ECVF_SetByCommandline | ECVF_SetBySystemSettingsIni)) != 0;
+
+			if (bIntentionallyIgnored)
 			{
-				UE_LOG(LogConsoleManager, Verbose,
-					TEXT("Console variable '%s' wasn't set ('%s' has a lower priority than '%s')"),
-					CVarName.IsEmpty() ? TEXT("unknown?") : *CVarName,
-					GetSetByTCHAR((EConsoleVariableFlags)NewPri),
-					GetSetByTCHAR((EConsoleVariableFlags)OldPri)
-					);
+				UE_LOG(LogConsoleManager, Verbose, TEXT("%s"), *Message);
 			}
 			else
 			{
-				UE_LOG(LogConsoleManager, Warning,
-					TEXT("Console variable '%s' wasn't set ('%s' has a lower priority than '%s')"),
-					CVarName.IsEmpty() ? TEXT("unknown?") : *CVarName,
-					GetSetByTCHAR((EConsoleVariableFlags)NewPri),
-					GetSetByTCHAR((EConsoleVariableFlags)OldPri)
-					);
+				UE_LOG(LogConsoleManager, Warning, TEXT("%s"), *Message);
 			}
 		}
 
@@ -547,16 +546,6 @@ void FConsoleManager::CallAllConsoleVariableSinks()
 
 		bCallAllConsoleVariableSinks = false;
 	}
-}
-
-void FConsoleManager::RegisterConsoleVariableSink(const FConsoleCommandDelegate& Command)
-{
-	ConsoleVariableChangeSinks.Add(Command);
-}
-
-void FConsoleManager::UnregisterConsoleVariableSink(const FConsoleCommandDelegate& Command)
-{
-	ConsoleVariableChangeSinks.RemoveAll([&](const FConsoleCommandDelegate& Element){ return Command.DEPRECATED_Compare(Element); });
 }
 
 FConsoleVariableSinkHandle FConsoleManager::RegisterConsoleVariableSink_Handle(const FConsoleCommandDelegate& Command)
@@ -1614,11 +1603,25 @@ static TAutoConsoleVariable<int32> CVarMobileHDR(
 	TEXT("1: Mobile renders in HDR linear space. (default)"),
 	ECVF_RenderThreadSafe | ECVF_ReadOnly);
 
-static TAutoConsoleVariable<int32> CVarMobileHDR32bpp(
-	TEXT("r.MobileHDR32bpp"),
+static TAutoConsoleVariable<int32> CVarMobileNumDynamicPointLights(
+	TEXT("r.MobileNumDynamicPointLights"),
+	4,
+	TEXT("The number of dynamic point lights to support on mobile devices. Setting this to 0 for games which do not require dynamic point lights will reduce the number of shaders generated."), 
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarMobileDynamicPointLightsUseStaticBranch(
+	TEXT("r.MobileDynamicPointLightsUseStaticBranch"),
+	1,
+	TEXT("0: Generate unique forward rendering base pass shaders for 0, 1, ... N mobile dynamic point lights. (faster but generates many more shaders)\n")
+	TEXT("1: Use a shared shader with static branching for rendering 1 or more dynamic point lights (slightly slower but reduces shaders generated, recommended for most games)."),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarMobileHDR32bppMode(
+	TEXT("r.MobileHDR32bppMode"),
 	0,
-	TEXT("0: Mobile HDR renders to an FP16 render target.\n")
-	TEXT("1: Mobile HDR renders to an RGBA8 target."),
+	TEXT("0: If 32bpp is required mobile HDR will use best suited 32 bpp mode. (default)")
+	TEXT("1: Force Mobile 32bpp HDR to use mosaic encoding.\n")
+	TEXT("2: Force Mobile 32bpp HDR to use RGBA encoding mode."),
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarMobileReduceLoadedMips(
@@ -1666,13 +1669,6 @@ static TAutoConsoleVariable<int32> CVarSceneColorFringeQuality(
 
 
 // ---------------------------------------
-
-static TAutoConsoleVariable<int32> CVarAmbientOcclusionLevels(
-	TEXT("r.AmbientOcclusionLevels"),
-	3,
-	TEXT("Defines how many mip levels are using during the ambient occlusion calculation. This is useful when tweaking the algorithm.\n")
-	TEXT(" 0:none, 1:one, 2:two, 3:three(default), 4:four(larger at little cost but can flicker)"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<float> CVarAmbientOcclusionRadiusScale(
 	TEXT("r.AmbientOcclusionRadiusScale"),
@@ -1738,7 +1734,8 @@ static TAutoConsoleVariable<int32> CVarDepthOfFieldQuality(
 	TEXT("Allows to adjust the depth of field quality. Currently only fully affects BokehDOF. GaussianDOF is either 0 for off, otherwise on.\n")
 	TEXT(" 0: Off\n")
 	TEXT(" 1: Low\n")
-	TEXT(" 2: high quality (default, adaptive, can be 4x slower)"),
+	TEXT(" 2: high quality (default, adaptive, can be 4x slower)\n")
+	TEXT(" 3: Special mode only affecting CircleDOF for very high quality but slow rendering"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<float> CVarScreenPercentage(
@@ -1750,10 +1747,25 @@ static TAutoConsoleVariable<float> CVarScreenPercentage(
 	TEXT("<0 is treated like 100."),
 	ECVF_Scalability | ECVF_Default);
 
+static TAutoConsoleVariable<float> CVarSeparateTranslucencyScreenPercentage(
+	TEXT("r.SeparateTranslucencyScreenPercentage"),
+	100.0f,
+	TEXT("Render separate translucency at this percentage of the full resolution.\n")
+	TEXT("in percent, >0 and <=100, larger numbers are possible (supersampling).")
+	TEXT("<0 is treated like 100."),
+	ECVF_Scalability | ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarHighResScreenshotDelay(
+	TEXT("r.HighResScreenshotDelay"),
+	4,
+	TEXT("When high-res screenshots are requested there is a small delay to allow temporal effects to converge.\n")
+	TEXT("Default: 4."),
+	ECVF_Default);
+
 static TAutoConsoleVariable<int32> CVarMaterialQualityLevel(
 	TEXT("r.MaterialQualityLevel"),
 	1,
-	TEXT("0 corresponds to low quality materials, as defined by quality switches in materials, 1 corresponds to high."),
+	TEXT("0 corresponds to low quality materials, as defined by quality switches in materials, 1 corresponds to high and 2 for medium."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarUseDXT5NormalMaps(
@@ -1795,7 +1807,7 @@ static TAutoConsoleVariable<int32> CVarNumBufferedOcclusionQueries(
 	1,
 	TEXT("Number of frames to buffer occlusion queries (including the current renderthread frame).\n")
 	TEXT("More frames reduces the chance of stalling the CPU waiting for results, but increases out of date query artifacts."),
-	ECVF_ReadOnly);
+	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarDistField(
 	TEXT("r.GenerateMeshDistanceFields"),
@@ -1834,6 +1846,19 @@ static TAutoConsoleVariable<int32> CVarMSAACompositingSampleCount(
 	TEXT(" 4: 4x MSAA, high quality (high GPU memory consumption)\n")
 	TEXT(" 8: 8x MSAA, very high quality (insane GPU memory consumption)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+
+static TAutoConsoleVariable<float> CVarNetPackageMapLongLoadThreshhold(
+	TEXT("net.PackageMap.LongLoadThreshhold"),
+	0.02f,
+	TEXT("Threshhold time in seconds for printing long load warnings in object serialization"),
+	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarNetPackageMapDebugAllObjects(
+	TEXT("net.PackageMap.DebugAll"),
+	0,
+	TEXT("Debugs PackageMap serialization of all objects"),	
+	ECVF_Default);
 
 static TAutoConsoleVariable<FString> CVarNetPackageMapDebugObject(
 	TEXT("net.PackageMap.DebugObject"),
@@ -1893,7 +1918,7 @@ static TAutoConsoleVariable<int32> CVarFinishCurrentFrame(
 static TAutoConsoleVariable<int32> CVarMaxAnistropy(
 	TEXT("r.MaxAnisotropy"),
 	4,
-	TEXT("MaxAnisotropy should range from 1 to 16. Higher values mean better texure quality when using anisotropic filtering but at a cost to performance."),
+	TEXT("MaxAnisotropy should range from 1 to 16. Higher values mean better texure quality when using anisotropic filtering but at a cost to performance. Default is 4."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarShadowMaxResolution(
@@ -1915,6 +1940,14 @@ static TAutoConsoleVariable<float> CVarMobileContentScaleFactor(
 	TEXT("r.MobileContentScaleFactor"),
 	1.0f,
 	TEXT("Content scale multiplier (equates to iOS's contentScaleFactor to support Retina displays"),
+	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarMobileOnChipMSAA(
+	TEXT("r.MobileOnChipMSAA"),
+	0,
+	TEXT("Whether to enable on-chip MSAA for tile based mobile GPUs")
+	TEXT("0: disabed (default)\n")
+	TEXT("1: enabled\n"),
 	ECVF_Default);
 
 // this cvar can be removed in shipping to not compile shaders for development (faster)
@@ -1998,8 +2031,8 @@ static TAutoConsoleVariable<int32> CVarFreeSkeletalMeshBuffers(
 	TEXT("1: Free buffers"),
 	ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<int32> CVarTonemapperQuality(
-	TEXT("r.TonemapperQuality"),
+static TAutoConsoleVariable<int32> CVarTonemapperGrainQuantization(
+	TEXT("r.Tonemapper.GrainQuantization"),
 	1,
 	TEXT("0: low (minor performance benefit)\n")
 	TEXT("1: high (default, with high frequency pixel pattern to fight 8 bit color quantization)"),
@@ -2038,16 +2071,6 @@ static TAutoConsoleVariable<int32> CVarDetailMode(
 	TEXT(" 2: high, show all objects (default)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<int32> CVarRefractionQuality(
-	TEXT("r.RefractionQuality"),
-	2,
-	TEXT("Defines the distorion/refraction quality which allows to adjust for quality or performance.\n")
-	TEXT("<=0: off (fastest)\n")
-	TEXT("  1: low quality (not yet implemented)\n")
-	TEXT("  2: normal quality (default)\n")
-	TEXT("  3: high quality (e.g. color fringe, not yet implemented)"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
 static TAutoConsoleVariable<int32> CVarDBuffer(
 	TEXT("r.DBuffer"),
 	0,
@@ -2056,7 +2079,7 @@ static TAutoConsoleVariable<int32> CVarDBuffer(
 	TEXT("At the moment only can be ensures by full enablng this pass: r.EarlyZPassMovable=1 r.EarlyZPass=2\n")
 	TEXT(" 0: off\n")
 	TEXT(" 1: on (needs early pass rendering on all decal receivers and base pass lookups into the DBuffer, costs GPU memory, allows GBuffer compression)"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
+	ECVF_RenderThreadSafe | ECVF_ReadOnly);
 
 static TAutoConsoleVariable<float> CVarSkeletalMeshLODRadiusScale(
 	TEXT("r.SkeletalMeshLODRadiusScale"),
@@ -2122,3 +2145,9 @@ static TAutoConsoleVariable<int32> CVarCheckSRVTransitions(
 	0,
 	TEXT("Tests that render targets are properly transitioned to SRV when SRVs are set."),
 	ECVF_RenderThreadSafe);  
+
+static TAutoConsoleVariable<int32> CVarHLODSystemEnabled(
+	TEXT("r.HLODEnabled"), 
+	1,
+	TEXT("Toggles whether or not the Hierarchical LOD system is enabled."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);

@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
+#include "Classes/AchievementQueryCallbackProxy.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UAchievementQueryCallbackProxy
@@ -25,6 +26,7 @@ UAchievementQueryCallbackProxy* UAchievementQueryCallbackProxy::CacheAchievement
 	UAchievementQueryCallbackProxy* Proxy = NewObject<UAchievementQueryCallbackProxy>();
 	Proxy->PlayerControllerWeakPtr = PlayerController;
 	Proxy->bFetchDescriptions = true;
+	Proxy->WorldContextObject = WorldContextObject;
 	return Proxy;
 }
 

@@ -37,6 +37,7 @@
 class ALandscapeProxy;
 struct FAnimControlTrackKey;
 class USplineMeshComponent;
+class UInstancedStaticMeshComponent;
 class ALight;
 class UInterpTrackInstMove;
 class AMatineeActor;
@@ -178,10 +179,11 @@ private:
 	FFbxDataConverter Converter;
 	
 	TMap<FString,int32> FbxNodeNameToIndexMap;
-	TMap<AActor*, FbxNode*> FbxActors;
-	TMap<USkeletalMeshComponent*, FbxNode*> FbxSkeletonRoots;
-	TMap<UMaterial*, FbxSurfaceMaterial*> FbxMaterials;
-	
+	TMap<const AActor*, FbxNode*> FbxActors;
+	TMap<const USkeletalMeshComponent*, FbxNode*> FbxSkeletonRoots;
+	TMap<const UMaterial*, FbxSurfaceMaterial*> FbxMaterials;
+	TMap<const UStaticMesh*, FbxMesh*> FbxMeshes;
+
 	/** The frames-per-second (FPS) used when baking transforms */
 	static const float BakeTransformsFPS;
 	
@@ -199,23 +201,30 @@ private:
 	/**
 	 * Exports a static mesh
 	 * @param StaticMesh	The static mesh to export
-	 * @param RenderMesh	The static mesh render data to export
 	 * @param MeshName		The name of the mesh for the FBX file
 	 * @param FbxActor		The fbx node representing the mesh
+	 * @param ExportLOD		The LOD of the mesh to export
 	 * @param LightmapUVChannel Optional UV channel to export
 	 * @param ColorBuffer	Vertex color overrides to export
 	 * @param MaterialOrderOverride	Optional ordering of materials to set up correct material ID's across multiple meshes being export such as BSP surfaces which share common materials. Should be used sparingly
 	 */
-	FbxNode* ExportStaticMeshToFbx(UStaticMesh* StaticMesh, FStaticMeshLODResources& RenderMesh, const TCHAR* MeshName, FbxNode* FbxActor, int32 LightmapUVChannel = -1, FColorVertexBuffer* ColorBuffer = NULL, const TArray<UMaterialInterface*>* MaterialOrderOverride = NULL );
+	FbxNode* ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int32 ExportLOD, const TCHAR* MeshName, FbxNode* FbxActor, int32 LightmapUVChannel = -1, const FColorVertexBuffer* ColorBuffer = NULL, const TArray<UMaterialInterface*>* MaterialOrderOverride = NULL);
 
 	/**
-	* Exports a spline mesh
-	* @param SplineMeshComp	The spline mesh component to export
-	* @param RenderMesh		The mesh render data to export
-	* @param MeshName		The name of the mesh for the FBX file
-	* @param FbxActor		The fbx node representing the mesh
-	*/
-	FbxNode* ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshComp, FStaticMeshLODResources& RenderMesh, const TCHAR* MeshName, FbxNode* FbxActor);
+	 * Exports a spline mesh
+	 * @param SplineMeshComp	The spline mesh component to export
+	 * @param MeshName		The name of the mesh for the FBX file
+	 * @param FbxActor		The fbx node representing the mesh
+	 */
+	void ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshComp, const TCHAR* MeshName, FbxNode* FbxActor);
+
+	/**
+	 * Exports an instanced mesh
+	 * @param InstancedMeshComp	The instanced mesh component to export
+	 * @param MeshName		The name of the mesh for the FBX file
+	 * @param FbxActor		The fbx node representing the mesh
+	 */
+	void ExportInstancedMeshToFbx(const UInstancedStaticMeshComponent* InstancedMeshComp, const TCHAR* MeshName, FbxNode* FbxActor);
 
 	/**
 	* Exports a landscape
@@ -223,7 +232,7 @@ private:
 	* @param MeshName		The name of the mesh for the FBX file
 	* @param FbxActor		The fbx node representing the mesh
 	*/
-	FbxNode* ExportLandscapeToFbx(ALandscapeProxy* Landscape, const TCHAR* MeshName, FbxNode* FbxActor, bool bSelectedOnly);
+	void ExportLandscapeToFbx(ALandscapeProxy* Landscape, const TCHAR* MeshName, FbxNode* FbxActor, bool bSelectedOnly);
 
 	/**
 	 * Adds FBX skeleton nodes to the FbxScene based on the skeleton in the given USkeletalMesh, and fills

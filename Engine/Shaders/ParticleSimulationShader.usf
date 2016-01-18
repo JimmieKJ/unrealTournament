@@ -6,6 +6,10 @@
 
 #include "Common.usf"
 
+#if DISTANCE_FIELD_COLLISION
+	#include "GlobalDistanceFieldShared.usf"
+#endif
+
 /*------------------------------------------------------------------------------
 	Shared declarations and functions.
 ------------------------------------------------------------------------------*/
@@ -69,6 +73,8 @@ float2 TileCoord = Input.TexCoord.xy * float2(TILE_SIZE_X,TILE_SIZE_Y) + TileOff
 #if FORCE_NO_COLLISION
 	#undef DEPTH_BUFFER_COLLISION
 	#define DEPTH_BUFFER_COLLISION 0
+	#undef DISTANCE_FIELD_COLLISION
+	#define DISTANCE_FIELD_COLLISION 0
 #endif
 
 /** Position (XYZ) and squared radius (W) of the point attractor. */
@@ -216,14 +222,14 @@ float3 ComputeAttractionForce(float3 Position)
 	return Attraction * normalize(DirectionToPoint);
 }
 
+/** For retrieving the size of a particle. */
+Texture2D RenderAttributesTexture;
+SamplerState RenderAttributesTextureSampler;
+
 #if DEPTH_BUFFER_COLLISION
 /** For retrieving the world-space normal. */
 Texture2D GBufferATexture;
 SamplerState GBufferATextureSampler;
-
-/** For retrieving the size of a particle. */
-Texture2D RenderAttributesTexture;
-SamplerState RenderAttributesTextureSampler;
 
 /** Limits the depth bounds for which to search for a collision plane. */
 float CollisionDepthBounds;
@@ -316,6 +322,82 @@ void CollideWithDepthBuffer(
 }
 #endif // #if DEPTH_BUFFER_COLLISION
 
+#if DISTANCE_FIELD_COLLISION
+
+/**
+ * Compute collision with the global signed distance field
+ */
+void CollideWithDistanceField(
+	out float3 NewPosition,
+	out float3 NewVelocity,
+	inout float RelativeTime,
+	in float3 InPosition,
+	in float3 InVelocity,
+	in float3 Acceleration,
+	in float CollisionRadius,
+	in float Resilience
+	)
+{
+	// Integration assuming no collision.
+	float3 MidVelocity = InVelocity.xyz + 0.5f * Acceleration;
+	float3 DeltaPosition = DeltaSeconds * MidVelocity;
+	NewPosition = InPosition.xyz + DeltaPosition;
+	NewVelocity = InVelocity.xyz + Acceleration;
+
+	float DistanceToNearestSurface = GetDistanceToNearestSurfaceGlobal(InPosition);
+	float MaxCollisionDistance = CollisionRadius + length(DeltaPosition.xyz);
+
+	if (DistanceToNearestSurface < MaxCollisionDistance)
+	{
+		float3 CollisionWorldNormal = normalize(GetDistanceFieldGradientGlobal(InPosition));
+		float3 CollisionWorldPosition = InPosition - CollisionWorldNormal * DistanceToNearestSurface;
+
+		float4 CollisionPlane = float4(CollisionWorldNormal.xyz, dot(CollisionWorldPosition.xyz, CollisionWorldNormal.xyz));
+
+		// Compute the portion of velocity normal to the collision plane.
+		float VelocityDot = dot(CollisionPlane.xyz, DeltaPosition.xyz);
+		float InvVelocityDot = rcp(VelocityDot + 0.0001f); // Add a small amount to avoid division by zero.
+
+		// Distance to the plane from the center of the particle.
+		float DistanceToPlane = dot(CollisionPlane.xyz, InPosition.xyz) - CollisionPlane.w;
+
+		// Find out the time of intersection for both the front and back of the sphere.
+		float t_back = -(DistanceToPlane + CollisionRadius) * InvVelocityDot;
+		float t_front = -(DistanceToPlane - CollisionRadius) * InvVelocityDot;
+
+		//if (t_back >= 0 && t_front <= 1 && DistanceToPlane >= 0)
+		if (step(0, t_back) * step(t_front, 1) * step(0, DistanceToPlane))
+		{
+			// Separate velocity in to the components perpendicular and tangent to the collision plane.
+			float3 PerpVelocity = dot(MidVelocity,CollisionPlane.xyz) * CollisionPlane.xyz;
+			float3 TanVelocity = MidVelocity - PerpVelocity;
+
+			// Compute the new velocity accounting for resilience and friction.
+			NewVelocity = Simulation.OneMinusFriction * TanVelocity - Resilience * PerpVelocity;
+
+			// If the particle lies approximately on the collision plane, don't jump to the point of collision.
+			t_front *= step(VelocityDot,-1);
+
+			// Integrate position taking the collision in to account.
+			NewPosition = InPosition + DeltaPosition * t_front + NewVelocity * (1.0f - t_front) * DeltaSeconds;
+
+			// Update the relative time. Usually this does nothing, but if the
+			// user has elected to kill the particle upon collision this will do
+			// so.
+			RelativeTime += Simulation.CollisionTimeBias;
+		}
+		//else if (t_front > 0 && t_back < 1 && DistanceToPlane < 0)
+		else if (step(0, t_front) * step(t_back, 1) * step(DistanceToPlane,0))
+		{
+			// The particle has collided against a backface, kill it by setting
+			// relative time to a value > 1.0.
+			RelativeTime = 1.1f;
+		}
+	}
+}
+
+#endif
+
 void PixelMain(
 	in FShaderInterpolants Interpolants,
 	out float4 OutPosition : SV_Target0,
@@ -373,7 +455,7 @@ void PixelMain(
 	// Compute the acceleration to apply to the particle this frame.
 	float3 Acceleration = Force * DeltaSeconds;
 
-#if DEPTH_BUFFER_COLLISION
+#if DEPTH_BUFFER_COLLISION || DISTANCE_FIELD_COLLISION
 	// We need to look up render attributes for this particle to figure out how big it is.
 	float4 RenderAttributeSample = Texture2DSampleLevel(RenderAttributesTexture, RenderAttributesTextureSampler, Interpolants.TexCoord.xy, 0);
 	
@@ -389,10 +471,13 @@ void PixelMain(
 
 	// Compute the radius with which to perform collision checks.
 	float CollisionRadius = min(Size.x,Size.y) * Simulation.CollisionRadiusScale + Simulation.CollisionRadiusBias;
+#endif
 
+#if DEPTH_BUFFER_COLLISION
+	
 	// Compute the new position and velocity of the particle by colliding against
 	// the scene's depth buffer.
-	float3 NewPosition,NewVelocity;
+	float3 NewPosition, NewVelocity;
 	CollideWithDepthBuffer(
 		NewPosition.xyz,
 		NewVelocity.xyz,
@@ -403,12 +488,27 @@ void PixelMain(
 		CollisionRadius,
 		Resilience
 		);
-#else // #if DEPTH_BUFFER_COLLISION
+#elif DISTANCE_FIELD_COLLISION
+
+	float3 NewPosition, NewVelocity;
+
+	CollideWithDistanceField(
+		NewPosition.xyz,
+		NewVelocity.xyz,
+		RelativeTime,
+		Position.xyz,
+		Velocity.xyz,
+		Acceleration,
+		CollisionRadius,
+		Resilience
+		);
+
+#else 
 	// Integrate position and velocity forward.
 	float3 DeltaPosition = DeltaSeconds * (Velocity.xyz + 0.5f * Acceleration);
 	float3 NewPosition = Position.xyz + DeltaPosition;
 	float3 NewVelocity = Velocity.xyz + Acceleration;
-#endif // #if DEPTH_BUFFER_COLLISION
+#endif
 
 	
 	// Apply orbit.

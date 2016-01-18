@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWeap_Minigun.h"
 #include "UTWeaponState.h"
@@ -25,8 +25,8 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	AmmoCost[0] = 1;
 	AmmoCost[1] = 2;
 	FireEffectInterval = 2;
-	Ammo = 100;
-	MaxAmmo = 300;
+	Ammo = 80;
+	MaxAmmo = 240;
 	FOVOffset = FVector(0.01f, 1.f, 1.6f);
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 509.0f, 148.0f, 53.0f);

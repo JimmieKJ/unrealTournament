@@ -110,7 +110,6 @@ public: // the tests
 
 		// just try and reduce the health attribute
 		{
-			ABILITY_LOG_SCOPE(TEXT("Apply InstantDamage"));
 			
 			CONSTRUCT_CLASS(UGameplayEffect, BaseDmgEffect);
 			AddModifier(BaseDmgEffect, GET_FIELD_CHECKED(UAbilitySystemTestAttributeSet, Health), EGameplayModOp::Additive, FScalableFloat(-DamageValue));
@@ -130,8 +129,6 @@ public: // the tests
 
 		// This is the same as GameplayEffectsTest_InstantDamage but modifies the Damage attribute and confirms it is remapped to -Health by UAbilitySystemTestAttributeSet::PostAttributeModify
 		{
-			ABILITY_LOG_SCOPE(TEXT("Apply InstantDamage"));
-
 			CONSTRUCT_CLASS(UGameplayEffect, BaseDmgEffect);
 			AddModifier(BaseDmgEffect, GET_FIELD_CHECKED(UAbilitySystemTestAttributeSet, Damage), EGameplayModOp::Additive, FScalableFloat(DamageValue));
 			BaseDmgEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
@@ -155,8 +152,6 @@ public: // the tests
 
 		// apply the buff
 		{
-			ABILITY_LOG_SCOPE(TEXT("Apply Buff"));
-
 			CONSTRUCT_CLASS(UGameplayEffect, DamageBuffEffect);
 			AddModifier(DamageBuffEffect, GET_FIELD_CHECKED(UAbilitySystemTestAttributeSet, Mana), EGameplayModOp::Additive, FScalableFloat(BuffValue));
 			DamageBuffEffect->DurationPolicy = EGameplayEffectDurationType::Infinite;
@@ -169,8 +164,6 @@ public: // the tests
 
 		// remove the effect
 		{
-			ABILITY_LOG_SCOPE(TEXT("Remove Buff"));
-
 			DestComponent->RemoveActiveGameplayEffect(BuffHandle);
 		}
 
@@ -290,7 +283,7 @@ public:
 		ADD_TEST(Test_PeriodicDamage);
 	}
 
-	virtual uint32 GetTestFlags() const override { return EAutomationTestFlags::ATF_Editor; }
+	virtual uint32 GetTestFlags() const override { return EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter; }
 	virtual bool IsStressTest() const { return false; }
 	virtual uint32 GetRequiredDeviceNum() const override { return 1; }
 

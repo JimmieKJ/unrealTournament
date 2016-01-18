@@ -34,26 +34,17 @@ TOptional<NumericType> TNumericUnitTypeInterface<NumericType>::FromString(const 
 	using namespace LexicalConversion;
 
 	// Always parse in as a double, to allow for input of higher-order units with decimal numerals into integral types (eg, inputting 0.5km as 500m)
-	FNumericUnit<double> NewValue;
-	bool bEvalResult = TryParseString( NewValue, *InString ) && FUnitConversion::AreUnitsCompatible( NewValue.Units, UnderlyingUnits );
-	if (bEvalResult)
+	auto NewValue = FNumericUnit<double>::TryParseExpression(*InString, FixedDisplayUnits.IsSet() ? FixedDisplayUnits.GetValue() : UnderlyingUnits);
+	if (NewValue.IsValid())
 	{
 		// Convert the number into the correct units
-		EUnit SourceUnits = NewValue.Units;
+		EUnit SourceUnits = NewValue.GetValue().Units;
 		if (SourceUnits == EUnit::Unspecified && FixedDisplayUnits.IsSet())
 		{
 			// Use the default supplied input units
 			SourceUnits = FixedDisplayUnits.GetValue();
 		}
-		return FUnitConversion::Convert(NewValue.Value, SourceUnits, UnderlyingUnits);
-	}
-	else
-	{
-		float FloatValue = 0.f;
-		if (FMath::Eval( *InString, FloatValue  ))
-		{
-			return FloatValue;
-		}
+		return FUnitConversion::Convert(NewValue.GetValue().Value, SourceUnits, UnderlyingUnits);
 	}
 
 	return TOptional<NumericType>();

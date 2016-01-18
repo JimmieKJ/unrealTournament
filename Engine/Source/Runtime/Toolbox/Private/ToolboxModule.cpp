@@ -11,7 +11,10 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "STestSuite.h"
+
+#if !UE_BUILD_SHIPPING
 #include "ISlateReflectorModule.h"
+#endif // #if !UE_BUILD_SHIPPING
 
 
 static bool bTabsRegistered = false;
@@ -94,15 +97,19 @@ public:
 
 	FReply OnDisplayTextureAtlases()
 	{
+#if !UE_BUILD_SHIPPING
 		static const FName SlateReflectorModuleName("SlateReflector");
 		FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayTextureAtlasVisualizer();
+#endif // #if !UE_BUILD_SHIPPING
 		return FReply::Handled();
 	}
 
 	FReply OnDisplayFontAtlases()
 	{
+#if !UE_BUILD_SHIPPING
 		static const FName SlateReflectorModuleName("SlateReflector");
 		FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayFontAtlasVisualizer();
+#endif // #if !UE_BUILD_SHIPPING
 		return FReply::Handled();
 	}
 
@@ -114,7 +121,9 @@ public:
 
 	FReply OnTestSuiteClicked()
 	{
+#if !UE_BUILD_SHIPPING
 		RestoreSlateTestSuite();
+#endif
 		return FReply::Handled();
 	}
 };

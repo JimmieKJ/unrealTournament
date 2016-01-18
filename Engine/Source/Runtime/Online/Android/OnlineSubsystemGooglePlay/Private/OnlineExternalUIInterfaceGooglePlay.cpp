@@ -15,7 +15,8 @@ FOnlineExternalUIGooglePlay::FOnlineExternalUIGooglePlay(FOnlineSubsystemGoogleP
 
 bool FOnlineExternalUIGooglePlay::ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, const FOnLoginUIClosedDelegate& Delegate)
 {
-	return false;
+	Subsystem->StartShowLoginUITask(ControllerIndex, Delegate);	
+	return true;
 }
 
 bool FOnlineExternalUIGooglePlay::ShowFriendsUI(int32 LocalUserNum)
@@ -23,7 +24,7 @@ bool FOnlineExternalUIGooglePlay::ShowFriendsUI(int32 LocalUserNum)
 	return false;
 }
 
-bool FOnlineExternalUIGooglePlay::ShowInviteUI(int32 LocalUserNum) 
+bool FOnlineExternalUIGooglePlay::ShowInviteUI(int32 LocalUserNum, FName SessionMame)
 {
 	return false;
 }
@@ -35,6 +36,11 @@ bool FOnlineExternalUIGooglePlay::ShowAchievementsUI(int32 LocalUserNum)
 		return false;
 	}
 
+	if (!Subsystem->GetGameServices()->IsAuthorized())
+	{
+		return false;
+	}
+
 	Subsystem->GetGameServices()->Achievements().ShowAllUI();
 	return true;
 }
@@ -42,6 +48,11 @@ bool FOnlineExternalUIGooglePlay::ShowAchievementsUI(int32 LocalUserNum)
 bool FOnlineExternalUIGooglePlay::ShowLeaderboardUI(const FString& LeaderboardName)
 {
 	if (Subsystem->GetGameServices() == nullptr)
+	{
+		return false;
+	}
+
+	if (!Subsystem->GetGameServices()->IsAuthorized())
 	{
 		return false;
 	}
@@ -62,7 +73,12 @@ bool FOnlineExternalUIGooglePlay::ShowLeaderboardUI(const FString& LeaderboardNa
 	return false;
 }
 
-bool FOnlineExternalUIGooglePlay::ShowWebURL(const FString& WebURL) 
+bool FOnlineExternalUIGooglePlay::ShowWebURL(const FString& Url, const FShowWebUrlParams& ShowParams, const FOnShowWebUrlClosedDelegate& Delegate)
+{
+	return false;
+}
+
+bool FOnlineExternalUIGooglePlay::CloseWebURL()
 {
 	return false;
 }

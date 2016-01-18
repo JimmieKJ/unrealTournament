@@ -24,6 +24,28 @@ struct FAutoCompleteCommand
 		// sort them in opposite order for game console UI rendering (bottom up)
 		return Command >= rhs.Command;
 	}
+
+	// for game console 
+	const FString& GetLeft() const
+	{
+		return IsHistory() ? Desc : Command;
+	}
+
+	// for game console 
+	const FString& GetRight() const
+	{
+		return IsHistory() ? Command : Desc;
+	}
+
+	// @return true:history, false: autocompletion
+	bool IsHistory() const
+	{
+		return Desc == TEXT(">");
+	}
+	void SetHistory()
+	{
+		Desc = TEXT(">");
+	}
 };
 
 

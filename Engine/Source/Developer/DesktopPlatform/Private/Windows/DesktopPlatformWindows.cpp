@@ -146,27 +146,42 @@ bool FDesktopPlatformWindows::OpenFontDialog(const void* ParentWindowHandle, FSt
 
 bool FDesktopPlatformWindows::CanOpenLauncher(bool Install)
 {
+	FRegistryRootedKey UriProtocolKey(HKEY_CLASSES_ROOT, TEXT("com.epicgames.launcher"));
+
 	// Check if the launcher exists, or (optionally) if the installer exists
 	FString Path;
-	return GetLauncherPath(Path) || (Install && GetLauncherInstallerPath(Path));
+	return UriProtocolKey.Exists() || (Install && GetLauncherInstallerPath(Path));
 }
 
-bool FDesktopPlatformWindows::OpenLauncher(bool Install, FString CommandLineParams )
+bool FDesktopPlatformWindows::OpenLauncher(bool Install, FString LauncherRelativeUrl, FString CommandLineParams)
 {
+	FRegistryRootedKey UriProtocolKey(HKEY_CLASSES_ROOT, TEXT("com.epicgames.launcher"));
+	FString InstallerPath;
+
 	// Try to launch it directly
-	FString LauncherPath;
-	if(GetLauncherPath(LauncherPath))
+	if (UriProtocolKey.Exists())
 	{
+		FString LauncherUriRequest;
+		if (LauncherRelativeUrl.IsEmpty())
+		{
+			LauncherUriRequest = TEXT("com.epicgames.launcher:");
+		}
+		else
+		{
+			LauncherUriRequest = FString::Printf(TEXT("com.epicgames.launcher://%s"), *LauncherRelativeUrl);
+		}
+
 		if (FParse::Param(FCommandLine::Get(), TEXT("Dev")))
 		{
 			CommandLineParams += TEXT(" -noselfupdate");
 		}
-		return FPlatformProcess::CreateProc(*LauncherPath, *CommandLineParams, true, false, false, NULL, 0, *FPaths::GetPath(LauncherPath), NULL).IsValid();
-	}
 
+		FString Error;
+		FPlatformProcess::LaunchURL(*LauncherUriRequest, *CommandLineParams, &Error);
+		return true;
+	}
 	// Otherwise see if we can install it
-	FString InstallerPath;
-	if(Install && GetLauncherInstallerPath(InstallerPath))
+	else if(Install && GetLauncherInstallerPath(InstallerPath))
 	{
 		FPlatformProcess::LaunchFileInDefaultExternalApplication(*InstallerPath);
 		return true;
@@ -175,52 +190,15 @@ bool FDesktopPlatformWindows::OpenLauncher(bool Install, FString CommandLinePara
 	return false;
 }
 
-bool FDesktopPlatformWindows::GetLauncherPath(FString& OutLauncherPath)
-{
-	// Try the default executable in the binaries directory
-	if (FParse::Param(FCommandLine::Get(), TEXT("Dev")))
-	{
-		FString LauncherPath = FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries"), TEXT("Win64"), TEXT("UnrealEngineLauncher-Win64-Debug.exe"));
-		if(FPaths::FileExists(LauncherPath))
-		{
-			OutLauncherPath = LauncherPath;
-			return true;
-		}
-	}
-	else
-	{
-		FString LauncherPath = FPaths::Combine(*FPaths::EngineDir(), TEXT("../../Launcher/Engine/Binaries/Win64/UnrealEngineLauncher.exe"));
-		if(FPaths::FileExists(LauncherPath))
-		{
-			OutLauncherPath = LauncherPath;
-			return true;
-		}
-	}
-
-	// Otherwise locate it in the Registry...
-	FString InstallDir;
-	if (FWindowsPlatformMisc::QueryRegKey(HKEY_LOCAL_MACHINE, TEXT("Software\\EpicGames\\Unreal Engine"), TEXT("InstallDir"), InstallDir) && (InstallDir.Len() > 0))
-	{
-		FString LauncherPath = FPaths::Combine(*InstallDir, TEXT("Launcher/Engine/Binaries/Win64/UnrealEngineLauncher.exe"));
-		if(FPaths::FileExists(LauncherPath))
-		{
-			OutLauncherPath = LauncherPath;
-			return true;
-		}
-	}
-
-	// Otherwise fail
-	return false;
-}
-
 bool FDesktopPlatformWindows::GetLauncherInstallerPath(FString& OutInstallerPath)
 {
-	FString InstallerPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::EngineDir(), TEXT("Extras/UnrealEngineLauncher/UnrealEngineInstaller.msi")));
-	if(FPaths::FileExists(InstallerPath))
+	FString InstallerPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::EngineDir(), TEXT("Extras/UnrealEngineLauncher/EpicGamesLauncherInstaller.msi")));
+	if (FPaths::FileExists(InstallerPath))
 	{
 		OutInstallerPath = InstallerPath;
 		return true;
 	}
+
 	return false;
 }
 
@@ -366,19 +344,19 @@ bool FDesktopPlatformWindows::FileDialogShared(bool bSave, const void* ParentWin
 		FString Extension = CleanExtensionList.IsValidIndex( OutFilterIndex ) ? CleanExtensionList[OutFilterIndex] : TEXT("");
 
 		// Make sure all filenames gathered have their paths normalized and proper extensions added
-		for ( auto FilenameIt = OutFilenames.CreateIterator(); FilenameIt; ++FilenameIt )
+		for ( auto OutFilenameIt = OutFilenames.CreateIterator(); OutFilenameIt; ++OutFilenameIt )
 		{
-			FString& Filename = *FilenameIt;
+			FString& OutFilename = *OutFilenameIt;
 			
-			Filename = IFileManager::Get().ConvertToRelativePath(*Filename);
+			OutFilename = IFileManager::Get().ConvertToRelativePath(*OutFilename);
 
-			if( FPaths::GetExtension(Filename).IsEmpty() && !Extension.IsEmpty() )
+			if( FPaths::GetExtension(OutFilename).IsEmpty() && !Extension.IsEmpty() )
 			{
 				// filename does not have an extension. Add an extension based on the filter that the user chose in the dialog
-				Filename += Extension;
+				OutFilename += Extension;
 			}
 
-			FPaths::NormalizeFilename(Filename);
+			FPaths::NormalizeFilename(OutFilename);
 		}
 	}
 	else
@@ -547,12 +525,19 @@ bool FDesktopPlatformWindows::RunUnrealBuildTool(const FText& Description, const
 		return false;
 	}
 
+	// Pass through VS015 support
+	FString FinalArguments = Arguments;
+	if(_MSC_VER >= 1900)
+	{
+		FinalArguments.Append(TEXT(" -2015"));
+	}
+
 	// Write the output
-	Warn->Logf(TEXT("Running %s %s"), *UnrealBuildToolPath, *Arguments);
+	Warn->Logf(TEXT("Running %s %s"), *UnrealBuildToolPath, *FinalArguments);
 
 	// Spawn UBT
 	int32 ExitCode = 0;
-	return FFeedbackContextMarkup::PipeProcessOutput(Description, UnrealBuildToolPath, Arguments, Warn, &ExitCode) && ExitCode == 0;
+	return FFeedbackContextMarkup::PipeProcessOutput(Description, UnrealBuildToolPath, FinalArguments, Warn, &ExitCode) && ExitCode == 0;
 }
 
 bool FDesktopPlatformWindows::IsUnrealBuildToolRunning()
@@ -602,7 +587,7 @@ void FDesktopPlatformWindows::GetRequiredRegistrySettings(TIndirectArray<FRegist
 	{
 		DefaultVersionSelectorName = TEXT("UnrealVersionSelector.exe");
 	}
-	FString ExecutableFileName = FString(FPlatformProcess::BaseDir()) / DefaultVersionSelectorName;
+	FString ExecutableFileName = FPaths::ConvertRelativePathToFull(FPaths::EngineDir()) / TEXT("Binaries/Win64") / DefaultVersionSelectorName;
 
 	// Defer to UnrealVersionSelector.exe in a launcher installation if it's got the same version number or greater.
 	FString InstallDir;

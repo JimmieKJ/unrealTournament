@@ -23,6 +23,7 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector2D,DistanceFadeMAD)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,ShadowMapChannelMask)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,bShadowed)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,LightingChannelMask)
 END_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct)
 
 extern float GMinScreenRadiusForLights;
@@ -100,6 +101,8 @@ void SetDeferredLightParameters(
 		Fade = FMath::Clamp( 6.0f - 6.0f * Fade, 0.0f, 1.0f );
 		DeferredLightUniformsValue.LightColor *= Fade;
 	}
+
+	DeferredLightUniformsValue.LightingChannelMask = LightSceneInfo->Proxy->GetLightingChannelMask();
 
 	SetUniformBufferParameterImmediate(RHICmdList, ShaderRHI,DeferredLightUniformBufferParameter,DeferredLightUniformsValue);
 }
@@ -199,14 +202,14 @@ public:
 		StencilingGeometryParameters.Set(RHICmdList, this, StencilingSpherePosAndScale);
 	}
 
-	// Begin FShader Interface
+	//~ Begin FShader Interface
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << StencilingGeometryParameters;
 		return bShaderHasOutdatedParameters;
 	}
-	// End FShader Interface
+	//~ End FShader Interface
 private:
 	FStencilingGeometryShaderParameters StencilingGeometryParameters;
 };

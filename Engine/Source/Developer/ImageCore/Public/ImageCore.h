@@ -49,9 +49,8 @@ struct FImage
 	/** Format in which the image is stored. */
 	ERawImageFormat::Type Format;
 	
-	/** true if the image is stored in sRGB space. */
-	bool bSRGB;
-
+	/** The gamma space the image is stored in. */
+	EGammaSpace GammaSpace;
 
 public:
 
@@ -69,7 +68,7 @@ public:
 	 * @param InFormat - The image format.
 	 * @param bInSRGB - Whether the color values are in SRGB format.
 	 */
-	IMAGECORE_API FImage(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, bool bInSRGB = false);
+	IMAGECORE_API FImage(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace = EGammaSpace::Linear);
 
 	/**
 	 * Creates and initializes a new image with a single slice.
@@ -79,7 +78,7 @@ public:
 	 * @param InFormat - The image format.
 	 * @param bInSRGB - Whether the color values are in SRGB format.
 	 */
-	IMAGECORE_API FImage(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, bool bInSRGB = false);
+	IMAGECORE_API FImage(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace = EGammaSpace::Linear);
 
 
 public:
@@ -91,7 +90,7 @@ public:
 	 * @param DestFormat - The destination image format.
 	 * @param DestSRGB - Whether the destination image is in SRGB format.
 	 */
-	IMAGECORE_API void CopyTo(FImage& DestImage, ERawImageFormat::Type DestFormat, bool DestSRGB) const;
+	IMAGECORE_API void CopyTo(FImage& DestImage, ERawImageFormat::Type DestFormat, EGammaSpace DestGammaSpace) const;
 
 	/**
 	 * Gets the number of bytes per pixel.
@@ -109,7 +108,7 @@ public:
 	 * @param InFormat - The image format.
 	 * @param bInSRGB - Whether the color values are in SRGB format.
 	 */
-	IMAGECORE_API void Init(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, bool bInSRGB = false);
+	IMAGECORE_API void Init(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace = EGammaSpace::Linear);
 
 	/**
 	 * Initializes this image with a single slice.
@@ -119,7 +118,7 @@ public:
 	 * @param InFormat - The image format.
 	 * @param bInSRGB - Whether the color values are in SRGB format.
 	 */
-	IMAGECORE_API void Init(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, bool bInSRGB = false);
+	IMAGECORE_API void Init(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace = EGammaSpace::Linear);
 
 
 public:
@@ -198,5 +197,10 @@ public:
 	{
 		check(Format == ERawImageFormat::RGBA32F);
 		return (struct FLinearColor*)RawData.GetData();
+	}
+
+	FORCEINLINE bool IsGammaCorrected() const
+	{
+		return GammaSpace != EGammaSpace::Linear;
 	}
 };

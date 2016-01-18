@@ -4,12 +4,7 @@
 
 #include "OnlineSessionSettings.h"
 #include "OnlineDelegateMacros.h"
-
-const FName GameSessionName(TEXT("Game"));
-const FName PartySessionName(TEXT("Party"));
-
-const FName GamePort(TEXT("GamePort"));
-const FName BeaconPort(TEXT("BeaconPort"));
+#include "OnlineSubsystemTypes.h"
 
 /**
  * Delegate fired when a session create request has completed
@@ -158,7 +153,7 @@ typedef FOnPingSearchResultsComplete::FDelegate FOnPingSearchResultsCompleteDele
  * @param UserId the user being invited
  * @param InviteResult the search/settings for the session we're joining via invite
  */
-DECLARE_MULTICAST_DELEGATE_FourParams(FOnSessionUserInviteAccepted, const bool, const int32, TSharedPtr< FUniqueNetId >, const FOnlineSessionSearchResult&);
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnSessionUserInviteAccepted, const bool, const int32, TSharedPtr<const FUniqueNetId>, const FOnlineSessionSearchResult&);
 typedef FOnSessionUserInviteAccepted::FDelegate FOnSessionUserInviteAcceptedDelegate;
 
 /**
@@ -180,7 +175,7 @@ typedef FOnSessionInviteReceived::FDelegate FOnSessionInviteReceivedDelegate;
  * @param Players the players that were registered from the online service
  * @param bWasSuccessful true if the async action completed without error, false if there was an error
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnRegisterPlayersComplete, FName, const TArray< TSharedRef<class FUniqueNetId> >&, bool);
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnRegisterPlayersComplete, FName, const TArray< TSharedRef<const FUniqueNetId> >&, bool);
 typedef FOnRegisterPlayersComplete::FDelegate FOnRegisterPlayersCompleteDelegate;
 
 /**
@@ -190,7 +185,7 @@ typedef FOnRegisterPlayersComplete::FDelegate FOnRegisterPlayersCompleteDelegate
  * @param PlayerId the players that were unregistered from the online service
  * @param bWasSuccessful true if the async action completed without error, false if there was an error
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnUnregisterPlayersComplete, FName, const TArray< TSharedRef<class FUniqueNetId> >&, bool);
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnUnregisterPlayersComplete, FName, const TArray< TSharedRef<const FUniqueNetId> >&, bool);
 typedef FOnUnregisterPlayersComplete::FDelegate FOnUnregisterPlayersCompleteDelegate;
 
 /**
@@ -383,7 +378,7 @@ public:
 	 *
 	 * @return true if successful destroying the session, false otherwise
 	 */
-	virtual bool DestroySession(FName SessionName) = 0;
+	virtual bool DestroySession(FName SessionName, const FOnDestroySessionCompleteDelegate& CompletionDelegate = FOnDestroySessionCompleteDelegate()) = 0;
 
 	/**
 	 * Delegate fired when a destroying an online session has completed
@@ -411,7 +406,7 @@ public:
 	 *
 	 * @return true if successful searching for sessions, false otherwise
 	 */
-	virtual bool StartMatchmaking(const TArray< TSharedRef<FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings) = 0;
+	virtual bool StartMatchmaking(const TArray< TSharedRef<const FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings) = 0;
 	
 	/**
 	 * Delegate fired when the cloud matchmaking has completed
@@ -607,7 +602,7 @@ public:
 	 *
 	 * @return true if successful, false otherwise
 	 */
-	virtual bool SendSessionInviteToFriends(int32 LocalUserNum, FName SessionName, const TArray< TSharedRef<FUniqueNetId> >& Friends) = 0;
+	virtual bool SendSessionInviteToFriends(int32 LocalUserNum, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends) = 0;
 
 	/**
 	 * Sends invitations to play in the player's current session
@@ -618,7 +613,7 @@ public:
 	 *
 	 * @return true if successful, false otherwise
 	 */
-	virtual bool SendSessionInviteToFriends(const FUniqueNetId& LocalUserId, FName SessionName, const TArray< TSharedRef<FUniqueNetId> >& Friends) = 0;
+	virtual bool SendSessionInviteToFriends(const FUniqueNetId& LocalUserId, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends) = 0;
 
 	/**
 	 * Called when a user accepts a session invitation. Allows the game code a chance
@@ -630,7 +625,7 @@ public:
 	 * @param UserId the user being invited
 	 * @param InviteResult the search/settings for the session we're joining via invite
 	 */
-	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnSessionUserInviteAccepted, const bool, const int32, TSharedPtr< FUniqueNetId >, const FOnlineSessionSearchResult&);
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnSessionUserInviteAccepted, const bool, const int32, TSharedPtr<const FUniqueNetId>, const FOnlineSessionSearchResult&);
 
 	/**
 	 * Called when a user receives a session invitation. Allows the game code to decide
@@ -694,7 +689,7 @@ public:
 	 *
 	 * @return true if the call succeeds, false otherwise
 	 */
-	virtual bool RegisterPlayers(FName SessionName, const TArray< TSharedRef<class FUniqueNetId> >& Players, bool bWasInvited = false) = 0;
+	virtual bool RegisterPlayers(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasInvited = false) = 0;
 
 	/**
 	 * Delegate fired when the session registration process has completed
@@ -703,7 +698,7 @@ public:
 	 * @param PlayerId the player that was registered in the online service
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 */
-	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnRegisterPlayersComplete, FName, const TArray< TSharedRef<class FUniqueNetId> >&, bool);
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnRegisterPlayersComplete, FName, const TArray< TSharedRef<const FUniqueNetId> >&, bool);
 
 	/**
 	 * Unregisters a player with the online service as being part of the online session
@@ -723,7 +718,7 @@ public:
 	 *
 	 * @return true if the call succeeds, false otherwise
 	 */
-	virtual bool UnregisterPlayers(FName SessionName, const TArray< TSharedRef<class FUniqueNetId> >& Players) = 0;
+	virtual bool UnregisterPlayers(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players) = 0;
 
 	/**
 	 * Delegate fired when the un-registration process has completed
@@ -732,7 +727,7 @@ public:
 	 * @param PlayerId the player that was unregistered from the online service
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 */
-	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnUnregisterPlayersComplete, FName, const TArray< TSharedRef<class FUniqueNetId> >&, bool);
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnUnregisterPlayersComplete, FName, const TArray< TSharedRef<const FUniqueNetId> >&, bool);
 
 	/**
 	 * Registers a local player with a session.

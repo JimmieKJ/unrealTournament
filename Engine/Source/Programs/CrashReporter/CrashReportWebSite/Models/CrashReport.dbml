@@ -3,7 +3,7 @@
   <Table Name="dbo.Buggs" Member="Buggs">
     <Type Name="Bugg">
       <Column Name="Id" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
-      <Column Name="TTPID" Type="System.String" DbType="VarChar(50)" CanBeNull="true" />
+      <Column Name="TTPID" Member="Jira" Storage="_TTPID" Type="System.String" DbType="VarChar(50)" CanBeNull="true" />
       <Column Name="Pattern" Type="System.String" DbType="VarChar(800) NOT NULL" CanBeNull="false" />
       <Column Name="NumberOfCrashes" Type="System.Int32" DbType="Int" CanBeNull="true" />
       <Column Name="NumberOfUsers" Type="System.Int32" DbType="Int" CanBeNull="true" />
@@ -56,30 +56,25 @@
       <Column Name="GameName" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="Status" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="TimeOfCrash" Type="System.DateTime" DbType="DateTime" CanBeNull="true" />
-      <Column Name="ChangeListVersion" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
+      <Column Name="ChangeListVersion" Member="BuiltFromCL" Storage="_ChangeListVersion" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="PlatformName" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="EngineMode" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="Description" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
       <Column Name="RawCallStack" Type="System.String" DbType="VarChar(MAX)" CanBeNull="true" />
       <Column Name="Pattern" Type="System.String" DbType="VarChar(800)" CanBeNull="true" />
       <Column Name="CommandLine" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
-      <Column Name="ComputerName" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
+      <Column Name="ComputerName" Member="MachineId" Storage="_ComputerName" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="FixedChangeList" Type="System.String" DbType="VarChar(256)" CanBeNull="true" />
       <Column Name="LanguageExt" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="Module" Type="System.String" DbType="VarChar(128)" CanBeNull="true" />
       <Column Name="BuildVersion" Type="System.String" DbType="VarChar(128)" CanBeNull="true" />
       <Column Name="BaseDir" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
       <Column Name="UserName" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
-      <Column Name="TTPID" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
+      <Column Name="TTPID" Member="Jira" Storage="_TTPID" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="Processed" Member="bAllowToBeContacted" Storage="_Processed" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
-      <Column Name="HasLogFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
-      <Column Name="HasMiniDumpFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
-      <Column Name="HasVideoFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
-      <Column Name="HasDiagnosticsFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
       <Column Name="Branch" Type="System.String" DbType="VarChar(32)" CanBeNull="true" />
       <Column Name="UserNameId" Type="System.Int32" DbType="Int" CanBeNull="true" />
       <Column Name="CrashType" Type="System.Int16" DbType="SmallInt" CanBeNull="true" />
-      <Column Name="HasMetaData" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
       <Column Name="SourceContext" Type="System.String" DbType="VarChar(MAX)" CanBeNull="true" />
       <Column Name="EpicAccountId" Type="System.String" DbType="varchar(64)" CanBeNull="true" />
       <Column Name="EngineVersion" Type="System.String" DbType="varchar(64)" CanBeNull="true" />

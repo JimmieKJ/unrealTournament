@@ -29,10 +29,16 @@ Sc::ElementInteraction* Sc::Element::ElementInteractionIterator::getNext()
 
 		if (it->getInteractionFlags() & (PX_INTERACTION_FLAG_RB_ELEMENT | PX_INTERACTION_FLAG_ELEMENT_ACTOR))
 		{
+#if PX_USE_PARTICLE_SYSTEM_API
 			PX_ASSERT(	(it->getType() == PX_INTERACTION_TYPE_MARKER) ||
 						(it->getType() == PX_INTERACTION_TYPE_OVERLAP) ||
 						(it->getType() == PX_INTERACTION_TYPE_TRIGGER) ||
 						(it->getType() == PX_INTERACTION_TYPE_PARTICLE_BODY) );
+#else
+			PX_ASSERT(	(it->getType() == PX_INTERACTION_TYPE_MARKER) ||
+						(it->getType() == PX_INTERACTION_TYPE_OVERLAP) ||
+						(it->getType() == PX_INTERACTION_TYPE_TRIGGER) );
+#endif
 
 			ElementInteraction* ei = static_cast<ElementInteraction*>(it);
 			if ((&ei->getElement0() == mElement) || (&ei->getElement1() == mElement))
@@ -55,10 +61,16 @@ Sc::ElementInteraction* Sc::Element::ElementInteractionReverseIterator::getNext(
 
 		if (it->getInteractionFlags() & (PX_INTERACTION_FLAG_RB_ELEMENT | PX_INTERACTION_FLAG_ELEMENT_ACTOR))
 		{
+#if PX_USE_PARTICLE_SYSTEM_API
 			PX_ASSERT(	(it->getType() == PX_INTERACTION_TYPE_MARKER) ||
 						(it->getType() == PX_INTERACTION_TYPE_OVERLAP) ||
 						(it->getType() == PX_INTERACTION_TYPE_TRIGGER) ||
 						(it->getType() == PX_INTERACTION_TYPE_PARTICLE_BODY) );
+#else
+			PX_ASSERT(	(it->getType() == PX_INTERACTION_TYPE_MARKER) ||
+						(it->getType() == PX_INTERACTION_TYPE_OVERLAP) ||
+						(it->getType() == PX_INTERACTION_TYPE_TRIGGER) );
+#endif
 
 			ElementInteraction* ei = static_cast<ElementInteraction*>(it);
 			if ((&ei->getElement0() == mElement) || (&ei->getElement1() == mElement))

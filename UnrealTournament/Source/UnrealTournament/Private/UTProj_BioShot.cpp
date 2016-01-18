@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTProj_BioShot.h"
@@ -186,7 +186,7 @@ void AUTProj_BioShot::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVec
 void AUTProj_BioShot::ShutDown()
 {
 	Super::ShutDown();
-	if (!bPendingKillPending)
+	if (!IsPendingKillPending())
 	{
 		while (WebLinks.Num() > 0)
 		{
@@ -612,7 +612,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		{
 			BioStabilityTimer();
 		}
-		else if (!bPendingKillPending)
+		else if (!IsPendingKillPending())
 		{
 			//Stop the projectile
 			ProjectileMovement->ProjectileGravityScale = 0.0f;
@@ -699,7 +699,7 @@ bool AUTProj_BioShot::CanInteractWithBio()
 
 void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 {
-	if (OtherBio == NULL || bPendingKillPending || OtherBio->bPendingKillPending || !CanInteractWithBio() || !OtherBio->CanInteractWithBio() || (GlobStrength < 1.f))
+	if (OtherBio == NULL || IsPendingKillPending() || OtherBio->IsPendingKillPending() || !CanInteractWithBio() || !OtherBio->CanInteractWithBio() || (GlobStrength < 1.f))
 	{
 		//Let the globlings pass through so they dont explode the glob, ignore exploded bio
 		return;
@@ -718,7 +718,7 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 	}
 
 	SetGlobStrength(GlobStrength + OtherBio->GlobStrength);
-	if (TrackedPawn != NULL && !TrackedPawn->bPendingKillPending && !TrackedPawn->GetCapsuleComponent()->IsPendingKill()) // we check in tick but it's still possible they get gibbed first
+	if (TrackedPawn != NULL && !TrackedPawn->IsPendingKillPending() && !TrackedPawn->GetCapsuleComponent()->IsPendingKill()) // we check in tick but it's still possible they get gibbed first
 	{
 		ProjectileMovement->bIsHomingProjectile = true;
 		ProjectileMovement->SetUpdatedComponent(CollisionComp);
@@ -741,7 +741,7 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 
 void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 {
-	if (IsPendingKillPending() || !bCanTrack || !NewTrackedPawn || NewTrackedPawn->bPendingKillPending || ((NewTrackedPawn->GetActorLocation() - GetActorLocation()).SizeSquared() > FMath::Square(TrackingRange)) || (NewTrackedPawn == Instigator) || !ProjectileMovement)
+	if (IsPendingKillPending() || !bCanTrack || !NewTrackedPawn || NewTrackedPawn->IsPendingKillPending() || ((NewTrackedPawn->GetActorLocation() - GetActorLocation()).SizeSquared() > FMath::Square(TrackingRange)) || (NewTrackedPawn == Instigator) || !ProjectileMovement)
 	{
 		return;
 	}
@@ -787,6 +787,13 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 
 void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
+	// Don't constantly explode in blueprint preview
+	if (GetWorld()->WorldType == EWorldType::Preview)
+	{
+		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
+		return;
+	}
+
 	if (Role == ROLE_Authority)
 	{
 		RemainingLife -= DeltaTime;

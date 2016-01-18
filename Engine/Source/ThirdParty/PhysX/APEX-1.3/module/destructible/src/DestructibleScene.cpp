@@ -357,11 +357,7 @@ DestructibleScene::DestructibleScene(ModuleDestructible& module, NiApexScene& sc
 	mCurrentCostOfAllChunks(0.0f),
 	mCurrentBudget(0.0f),
 	mLodTotalValidChunks(0),
-#if NX_SDK_VERSION_MAJOR == 2
-	mUserNotify(module),
-#elif NX_SDK_VERSION_MAJOR == 3
 	mUserNotify(module, this),
-#endif
 	mElapsedTime(0.0f),
 	mMassScale(1.0f),
 	mMassScaleInv(1.0f),
@@ -458,7 +454,7 @@ void DestructibleScene::destroy()
 {
 	removeAllActors();
 	reset();
-	PX_ASSERT(mAwakeActors.size() == 0); // if there are actors left in here... thats very bad indeed.
+	PX_ASSERT(mAwakeActors.usedCount() == 0); // if there are actors left in here... thats very bad indeed.
 	mApexScene->removeModuleUserNotifier(mUserNotify);
 #if NX_SDK_VERSION_MAJOR == 2
 	mApexScene->removeModuleUserContactReport(mContactReport);
@@ -1420,7 +1416,7 @@ void DestructibleScene::fetchResults()
 	if (nbSubSteps)
 #endif
 	{
-		PX_PROFILER_PERF_DSCOPE("DestructibleUpdateRenderMeshBonePoses", mAwakeActors.size());
+		PX_PROFILER_PERF_DSCOPE("DestructibleUpdateRenderMeshBonePoses", mAwakeActors.usedCount());
 
 		// Reset instanced mesh buffers
 		for (physx::PxU32 i = 0; i < mInstancedActors.size(); ++i)
@@ -1448,6 +1444,11 @@ void DestructibleScene::fetchResults()
 
 		if (mUsingActiveTransforms)
 		{
+			// in AT mode, mAwakeActors is only used for temporarily storing actors that need update
+			// a frame history is kept to prevent wake/sleep event chatter
+			// TODO: update only the actually moving chunks. [APEX-670]
+			// with the current mechanism, all actor's chunks are updated regardless of active transforms
+
 #if NX_SDK_VERSION_MAJOR == 2
 			{
 			physx::PxU32 transformCount = 0;
@@ -1469,7 +1470,12 @@ void DestructibleScene::fetchResults()
 							DestructibleActorProxy* dActor = (DestructibleActorProxy*)actorObjDesc->mApexActors[j];
 							if (dActor != NULL)
 							{
-								dActor->impl.wakeForEvent();
+								// ignore duplicate entries on purpose
+								if (dActor->impl.mActiveFrames == 0)	// Hasn't been recorded as active yet
+								{
+									dActor->impl.incrementWakeCount();
+								}
+								dActor->impl.mActiveFrames |= 1;	// Record as active this frame
 							}
 						}
 					}
@@ -1495,7 +1501,12 @@ void DestructibleScene::fetchResults()
 											if (simScene->owns(*firstShape))
 											{
 												physx::fracture::Compound* compound = (physx::fracture::Compound*)convex->getParent();
-												compound->getDestructibleActor()->wakeForEvent();
+												// ignore duplicate entries on purpose
+												if (compound->getDestructibleActor()->mActiveFrames == 0)	// Hasn't been recorded as active yet
+												{
+													compound->getDestructibleActor()->incrementWakeCount();
+												}
+												compound->getDestructibleActor()->mActiveFrames |= 1;	// Record as active this frame
 											}
 										}
 									}
@@ -1509,21 +1520,27 @@ void DestructibleScene::fetchResults()
 			}
 		}
 
-		//update actors' pose
-		for (physx::PxU32 i = 0; i < mAwakeActors.size(); ++i)
+		// Iterate backwards through mAwakeActors, since an NxIndexBank used-list may have entries freed during iteration (as a result of actor->decrementWakeCount() or actor->resetWakeForEvent())
+		for (physx::PxU32 awakeActorNum = mAwakeActors.usedCount(); awakeActorNum--;)
 		{
-			DestructibleActor* actor = DYNAMIC_CAST(DestructibleActor*)(mAwakeActors[ i ]);
-			updateActorPose(actor, callback);
-			const physx::PxU32 oldSize = mAwakeActors.size();
-			actor->resetWakeForEvent();
-			if (oldSize > mAwakeActors.size())
-			{
-				i -= 1;
-			}
+			DestructibleActor* actor = mDestructibles.direct(mAwakeActors.usedIndices()[awakeActorNum]);
 			if (mUsingActiveTransforms)
 			{
-				actor->mAwakeActorCount = 0;
+				if (actor->mActiveFrames == 2)	// Active last frame, not active this frame
+				{
+					actor->decrementWakeCount();
+					if (actor->mAwakeActorCount == 0)
+					{
+						actor->mActiveFrames = 0;	// The result of the skipped shift & mask, below
+						continue;
+					}
+				}
+				actor->mActiveFrames = (actor->mActiveFrames << 1) & 3;	// Shift up and erase history past last frame
 			}
+
+			updateActorPose(actor, callback);
+			actor->resetWakeForEvent();
+
 			if (actor->getNumVisibleChunks() == 0)
 			{
 				if (getModule()->m_chunkReport != NULL)
@@ -1534,11 +1551,6 @@ void DestructibleScene::fetchResults()
 					}
 				}
 			}
-		}
-
-		if (mUsingActiveTransforms)
-		{
-			mAwakeActors.clear();
 		}
 
 		//===SyncParams=== give the user the chunk motion buffer. chunk motion buffer must be fully populated and locked during this call
@@ -1576,6 +1588,8 @@ void DestructibleScene::fetchResults()
 		if (mModule->m_chunkReport)
 		{
 			PX_PROFILER_PERF_SCOPE("DestructibleChunkReport");
+
+			// Chunk damage reports
 			for (physx::PxU32 reportNum = 0; reportNum < mDamageEventReportData.size(); ++reportNum)
 			{
 				ApexDamageEventReportData& data = mDamageEventReportData[reportNum];
@@ -1587,6 +1601,7 @@ void DestructibleScene::fetchResults()
 				((DestructibleActorProxy*)data.destructible)->impl.mDamageEventReportIndex = 0xFFFFFFFF;
 			}
 
+			// Chunk state notifies
 			if (mModule->m_chunkStateEventCallbackSchedule == NxDestructibleCallbackSchedule::FetchResults)
 			{
 				for (PxU32 actorWithChunkStateEventIndex = 0; actorWithChunkStateEventIndex < mActorsWithChunkStateEvents.size(); ++actorWithChunkStateEventIndex)
@@ -1602,9 +1617,21 @@ void DestructibleScene::fetchResults()
 				}
 				//mActorsWithChunkStateEvents.clear();
 			}
+
+			// Destructible actor wake/sleep reports
+			if (mOnWakeActors.size())
+			{
+				mModule->m_chunkReport->onDestructibleWake(&mOnWakeActors[0], mOnWakeActors.size());
+			}
+			if (mOnSleepActors.size())
+			{
+				mModule->m_chunkReport->onDestructibleSleep(&mOnSleepActors[0], mOnSleepActors.size());
+			}
 		}
 		mDamageEventReportData.clear();
 		mChunkReportHandles.clear();
+		mOnWakeActors.clear();
+		mOnSleepActors.clear();
 
 		// Kill destructibles on death row
 		for (physx::PxU32 i = 0; i < destructibleActorKillList.size(); ++i)
@@ -2220,7 +2247,7 @@ void DestructibleScene::removeReferencesToActor(DestructibleActor& destructible)
 	}
 
 	// Remove from scene awake list
-	mAwakeActors.findAndReplaceWithLast(&destructible);
+	mAwakeActors.free(destructible.getID());
 
 	// Remove from instanced actors list, if it's in one
 	if (destructible.getAsset()->mParams->chunkInstanceInfo.arraySizes[0] || destructible.getAsset()->mParams->scatterMeshAssets.arraySizes[0])
@@ -2630,29 +2657,31 @@ bool DestructibleScene::isFractureBufferProcessRateExceeded()
 
 void DestructibleScene::addToAwakeList(DestructibleActor& actor)
 {
-	mAwakeActors.pushBack(&actor);
+	if (mAwakeActors.use(actor.getID()))
+	{
+		if (getModule()->m_chunkReport != NULL)	// Only use the list if there's a report
+		{
+			mOnWakeActors.pushBack(actor.getAPI());
+		}
+		return;
+	}
+
+	APEX_INTERNAL_ERROR("Destructible actor already present in awake actors list");
 }
 
 void DestructibleScene::removeFromAwakeList(DestructibleActor& actor)
 {
-	const physx::PxU32 numAwakeActors = mAwakeActors.size();
-	physx::PxU32       found          = numAwakeActors;
-	for (physx::PxU32 i = 0; i < numAwakeActors; i++)
+
+	if (mAwakeActors.free(actor.getID()))
 	{
-		if (&actor == mAwakeActors[i])
+		if (getModule()->m_chunkReport != NULL)	// Only use the list if there's a report
 		{
-			found = i;
-			break;
+			mOnSleepActors.pushBack(actor.getAPI());
 		}
+		return;
 	}
-	if (found < numAwakeActors)
-	{
-		mAwakeActors.replaceWithLast(found);
-	}
-	else
-	{
-		APEX_INTERNAL_ERROR("Destructible actor not found in awake actors list, size %d", numAwakeActors);
-	}
+
+	APEX_INTERNAL_ERROR("Destructible actor not found in awake actors list, size %d", mAwakeActors.usedCount());
 }
 
 bool DestructibleScene::setMassScaling(physx::PxF32 massScale, physx::PxF32 scaledMassExponent)
@@ -3265,7 +3294,7 @@ void DestructibleScene::generateFractureProfilesInDamageBuffer(physx::NxRingBuff
 	
 #define LOCAL_CONDITION (eventN < getDamageReadBuffer().size())
 	bool processingLocal = true;
-	for (physx::PxU32 eventN = 0 , userEventN = 0, userEventCount = (NULL != userSource && NULL != &userDamageBuffer) ? userSource->size() : 0;
+	for (physx::PxU32 eventN = 0 , userEventN = 0, userEventCount = (NULL != userSource) ? userSource->size() : 0;
 		 LOCAL_CONDITION || (userEventN < userEventCount);
 		 processingLocal ? ++eventN : ++userEventN)
 	{
@@ -3370,8 +3399,8 @@ void DestructibleScene::generateFractureProfilesInDamageBuffer(physx::NxRingBuff
 						if (overlapDestructible->getStructure() != NULL)
 						{
 							// Expand damage buffer
-							DamageEvent& newEvent 	= processingLocal ? getDamageReadBuffer().pushBack()	: userDamageBuffer.pushBack();
-							newEvent 				= processingLocal ? getDamageReadBuffer()[eventN]		: userDamageBuffer[userEventN];	// Need to use indexed access again; damageEvent may now be invalid if the buffer resized
+							DamageEvent& newEvent = processingLocal ? getDamageReadBuffer().pushBack() : userDamageBuffer.pushBack();
+							newEvent = processingLocal ? getDamageReadBuffer()[eventN] : userDamageBuffer[userEventN];	// Need to use indexed access again; damageEvent may now be invalid if the buffer resized
 							newEvent.destructibleID = overlapDestructible->getID();
 							const physx::PxU32 maxLOD = overlapDestructible->getAsset()->getDepthCount() > 0 ? overlapDestructible->getAsset()->getDepthCount() - 1 : 0;
 							newEvent.minDepth = physx::PxMin(overlapDestructible->getLOD(), maxLOD);

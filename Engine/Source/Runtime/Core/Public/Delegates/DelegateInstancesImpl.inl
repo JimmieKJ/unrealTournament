@@ -139,9 +139,9 @@ public:
 
 	// DELEGATE_INSTANCE_INTERFACE_CLASS interface
 
-	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy() override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new SP_METHOD_DELEGATE_INSTANCE_CLASS(*this);
+		new (Base) SP_METHOD_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -207,9 +207,9 @@ public:
 	 * @param InFunc Member function pointer to your class method.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* Create( const TSharedPtr<UserClass, SPMode>& InUserObjectRef, FMethodPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
+	FORCEINLINE static void Create( FDelegateBase& Base, const TSharedPtr<UserClass, SPMode>& InUserObjectRef, FMethodPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
 	{
-		return new SP_METHOD_DELEGATE_INSTANCE_CLASS(InUserObjectRef, InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
+		new (Base) SP_METHOD_DELEGATE_INSTANCE_CLASS(InUserObjectRef, InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
 	}
 
 	/**
@@ -221,11 +221,11 @@ public:
 	 * @param InFunc  Member function pointer to your class method.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* Create( UserClass* InUserObject, FMethodPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
+	FORCEINLINE static void Create( FDelegateBase& Base, UserClass* InUserObject, FMethodPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
 	{
 		// We expect the incoming InUserObject to derived from TSharedFromThis.
 		TSharedRef<UserClass> UserObjectRef(StaticCastSharedRef<UserClass>(InUserObject->AsShared()));
-		return Create(UserObjectRef, InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
+		Create(Base, UserObjectRef, InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
 	}
 
 protected:
@@ -339,9 +339,9 @@ public:
 
 	// DELEGATE_INSTANCE_INTERFACE_CLASS interface
 
-	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy( ) override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new RAW_METHOD_DELEGATE_INSTANCE_CLASS(*this);
+		new (Base) RAW_METHOD_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -399,9 +399,9 @@ public:
 	 * @param InFunc Member function pointer to your class method.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* Create( UserClass* InUserObject, FMethodPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
+	FORCEINLINE static void Create( FDelegateBase& Base, UserClass* InUserObject, FMethodPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
 	{
-		return new RAW_METHOD_DELEGATE_INSTANCE_CLASS(InUserObject, InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
+		new (Base) RAW_METHOD_DELEGATE_INSTANCE_CLASS(InUserObject, InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
 	}
 
 protected:
@@ -516,9 +516,9 @@ public:
 
 	// DELEGATE_INSTANCE_INTERFACE_CLASS interface
 
-	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy( ) override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new UOBJECT_METHOD_DELEGATE_INSTANCE_CLASS(*this);
+		new (Base) UOBJECT_METHOD_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -581,9 +581,9 @@ public:
 	 * @param InFunc Member function pointer to your class method.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* Create( UserClass* InUserObject, FMethodPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
+	FORCEINLINE static void Create( FDelegateBase& Base, UserClass* InUserObject, FMethodPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
 	{
-		return new UOBJECT_METHOD_DELEGATE_INSTANCE_CLASS(InUserObject, InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
+		new (Base) UOBJECT_METHOD_DELEGATE_INSTANCE_CLASS(InUserObject, InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
 	}
 
 protected:
@@ -695,9 +695,9 @@ public:
 
 	// DELEGATE_INSTANCE_INTERFACE_CLASS interface
 
-	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy( ) override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new STATIC_DELEGATE_INSTANCE_CLASS(*this);
+		new (Base) STATIC_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -746,9 +746,9 @@ public:
 	 * @param InFunc Static function pointer.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* Create( FFuncPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
+	FORCEINLINE static void Create( FDelegateBase& Base, FFuncPtr InFunc DELEGATE_COMMA_PAYLOAD_LIST )
 	{
-		return new STATIC_DELEGATE_INSTANCE_CLASS(InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
+		new (Base) STATIC_DELEGATE_INSTANCE_CLASS(InFunc DELEGATE_COMMA_PAYLOAD_PASSTHRU);
 	}
 
 private:
@@ -838,9 +838,9 @@ public:
 
 	// DELEGATE_INSTANCE_INTERFACE_CLASS interface
 
-	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy() override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new FUNCTOR_DELEGATE_INSTANCE_CLASS(*this);
+		new (Base) FUNCTOR_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute(FUNC_PARAM_LIST) const override
@@ -876,13 +876,13 @@ public:
 	* @param InFunctor C++ functor
 	* @return The new delegate.
 	*/
-	FORCEINLINE static DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* Create(const FunctorType& InFunctor DELEGATE_COMMA_PAYLOAD_LIST)
+	FORCEINLINE static void Create(FDelegateBase& Base, const FunctorType& InFunctor DELEGATE_COMMA_PAYLOAD_LIST)
 	{
-		return new FUNCTOR_DELEGATE_INSTANCE_CLASS<FunctorType, FUNC_PAYLOAD_TEMPLATE_ARGS>(InFunctor DELEGATE_COMMA_PAYLOAD_PASSTHRU);
+		new (Base) FUNCTOR_DELEGATE_INSTANCE_CLASS<FunctorType, FUNC_PAYLOAD_TEMPLATE_ARGS>(InFunctor DELEGATE_COMMA_PAYLOAD_PASSTHRU);
 	}
-	FORCEINLINE static DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* Create(FunctorType&& InFunctor DELEGATE_COMMA_PAYLOAD_LIST)
+	FORCEINLINE static void Create(FDelegateBase& Base, FunctorType&& InFunctor DELEGATE_COMMA_PAYLOAD_LIST)
 	{
-		return new FUNCTOR_DELEGATE_INSTANCE_CLASS<FunctorType, FUNC_PAYLOAD_TEMPLATE_ARGS>(MoveTemp(InFunctor) DELEGATE_COMMA_PAYLOAD_PASSTHRU);
+		new (Base) FUNCTOR_DELEGATE_INSTANCE_CLASS<FunctorType, FUNC_PAYLOAD_TEMPLATE_ARGS>(MoveTemp(InFunctor) DELEGATE_COMMA_PAYLOAD_PASSTHRU);
 	}
 
 private:
@@ -982,9 +982,9 @@ public:
 
 	// DELEGATE_INSTANCE_INTERFACE_CLASS interface
 
-	virtual DELEGATE_INSTANCE_INTERFACE_CLASS* CreateCopy( ) override
+	virtual void CreateCopy(FDelegateBase& Base) override
 	{
-		return new UFUNCTION_DELEGATE_INSTANCE_CLASS(*this);
+		new (Base) UFUNCTION_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -1038,9 +1038,9 @@ public:
 	 * @param InFunctionName The name of the function call.
 	 * @return The new delegate.
 	 */
-	FORCEINLINE static DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* Create( UserClass* InUserObject, const FName& InFunctionName DELEGATE_COMMA_PAYLOAD_LIST )
+	FORCEINLINE static void Create( FDelegateBase& Base, UserClass* InUserObject, const FName& InFunctionName DELEGATE_COMMA_PAYLOAD_LIST )
 	{
-		return new UFUNCTION_DELEGATE_INSTANCE_CLASS(InUserObject, InFunctionName DELEGATE_COMMA_PAYLOAD_PASSTHRU);
+		new (Base) UFUNCTION_DELEGATE_INSTANCE_CLASS(InUserObject, InFunctionName DELEGATE_COMMA_PAYLOAD_PASSTHRU);
 	}
 
 public:

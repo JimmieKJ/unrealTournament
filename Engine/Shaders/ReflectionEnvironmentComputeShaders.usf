@@ -554,7 +554,7 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 	{
 		// Normalize for static skylight types which mix with lightmaps
 		bool bNormalize = SkyLightParameters.z < 1 && USE_LIGHTMAPS;
-		float3 SkyLighting = GetSkyLightReflection( RayDirection, Roughness, bNormalize );
+		float3 SkyLighting = GetSkyLightReflectionSupportingBlend( RayDirection, Roughness, bNormalize );
 
 		FLATTEN
 		if (bNormalize)
@@ -587,8 +587,8 @@ void ReflectionEnvironmentTiledDeferredMain(
 	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
 	
 	uint2 PixelPos = DispatchThreadId.xy + ViewDimensions.xy;
-	float2 UV = (float2(DispatchThreadId.xy) + .5f) / (ViewDimensions.zw - ViewDimensions.xy);
-	float2 ScreenPosition = float2(2.0f, -2.0f) * UV + float2(-1.0f, 1.0f);
+	float2 ViewportUV = (float2(DispatchThreadId.xy) + .5f) / (ViewDimensions.zw - ViewDimensions.xy);
+	float2 ScreenPosition = float2(2.0f, -2.0f) * ViewportUV + float2(-1.0f, 1.0f);
 	float SceneDepth = CalcSceneDepth(PixelPos);
 
 	float MinTileZ;
@@ -607,7 +607,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 	
 	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
 	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
-	float3 CameraToPixel = normalize(WorldPosition - View.ViewOrigin.xyz);
+	float3 CameraToPixel = normalize(WorldPosition - View.WorldCameraOrigin);
 	float3 ReflectionVector = reflect(CameraToPixel, GBuffer.WorldNormal);
 	float IndirectIrradiance = GBuffer.IndirectIrradiance;
 	
@@ -626,7 +626,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 #endif
 
 	BRANCH
-	if( GBuffer.ShadingModelID != SHADINGMODELID_UNLIT )
+	if( GBuffer.ShadingModelID != SHADINGMODELID_UNLIT && GBuffer.ShadingModelID != SHADINGMODELID_HAIR )
 	{
 		float3 N = GBuffer.WorldNormal;
 		float3 V = -CameraToPixel;
@@ -673,7 +673,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 		
 			// F_Schlick
 			float F0 = 0.04;
-			float Fc = pow( 1 - NoV, 5 );
+			float Fc = Pow5( 1 - NoV );
 			float F = Fc + (1 - Fc) * F0;
 			F *= ClearCoat;
 			
@@ -682,14 +682,57 @@ void ReflectionEnvironmentTiledDeferredMain(
 			Color.rgb *= LayerAttenuation;
 			Color.a = F;
 		
-			Color.rgb += SSR.rgb * F;
-			Color.a *= 1 - SSR.a;
+			#if 1//APPLY_SSR
+				Color.rgb += SSR.rgb * F;
+				Color.a *= 1 - SSR.a;
+			#endif
 			Color.a *= SpecularOcclusion;
 
+			R = 2 * dot( V, N ) * N - V;
 			GatherRadiance(Color, WorldPosition, R, ClearCoatRoughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);			
 		}
 		else
 #endif
+
+// Support for USE_CLOTH to be added later
+//#if USE_CLOTH
+
+// Experimental - Disable in preparation for commit
+#if 0
+		BRANCH
+		if( GBuffer.ShadingModelID == SHADINGMODELID_CLOTH )
+		{
+			const float SpecularOffset	= GBuffer.CustomData.a;
+			//const float Custom1			= GBuffer.CustomData.y;
+
+			Color.a *= SpecularOcclusion;
+
+			// Reflection direction
+			R = 2 * dot( V, N ) * N - V;
+
+			// Need to look at how these two values are computed
+			float  RoughnessNarrow =  lerp( 0.3, 0.7, GBuffer.Roughness );
+			float  RoughnessWide = 1.f;
+
+			// Narrow sample
+			float4 ColorNarrow = float4(0, 0, 0, 1);
+			GatherRadiance(ColorNarrow, WorldPosition, R, RoughnessNarrow, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);			
+
+			// Wide sample
+			float4 ColorWide = float4(0, 0, 0, 1);
+			GatherRadiance(ColorWide, WorldPosition, R, RoughnessWide, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);			
+
+			// Any value other than 1 breaks energy conservation. Will have to deal with this later.
+			//float EnvironmentScale = Custom1;
+			float EnvironmentScale = 1.f;
+			Color.rgb = max(float4(0.f, 0.f, 0.f, 0.f), (2*ColorWide - ColorNarrow)) * EnvironmentScale;
+			}
+		else
+#endif
+// Experimental - Disable in preparation for commit
+
+//#endif // USE_CLOTH
+
 		{
 			Color.rgb *= EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, NoV );
 		}

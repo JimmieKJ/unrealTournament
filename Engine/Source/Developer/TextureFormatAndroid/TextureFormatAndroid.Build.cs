@@ -22,6 +22,14 @@ public class TextureFormatAndroid : ModuleRules
 			}
 			);
 
-		AddThirdPartyPrivateStaticDependencies(Target, "QualcommTextureConverter");
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			AddThirdPartyPrivateStaticDependencies(Target, "QualcommTextureConverter");
+		}
+		else
+		{
+			AddThirdPartyPrivateStaticDependencies(Target, "QualcommTextureConverter");
+		}
+
 	}
 }

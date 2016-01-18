@@ -5,18 +5,18 @@
 //
 // Created:		2013-03-01
 //
-// Author:		mailto:benwood@microsoft.com
+// Author:		Ben Woodhouse - mailto:benwood@microsoft.com
 //
 //				Copyright (C) Microsoft. All rights reserved.
 //-----------------------------------------------------------------------------
-
 #pragma once
 
 #include "UniformBuffer.h"
 
 #define LPV_MULTIPLE_BOUNCES  1
-#define LPV_VOLUME_TEXTURE    1
-#define LPV_GV_VOLUME_TEXTURE 1
+#define LPV_GV_SH_ORDER		  1
+
+static const int32 NUM_GV_TEXTURES = LPV_GV_SH_ORDER + 1;
 
 class FLpvWriteUniformBufferParameters;
 struct FLpvBaseWriteShaderParams;
@@ -24,8 +24,7 @@ typedef TUniformBufferRef<FLpvWriteUniformBufferParameters> FLpvWriteUniformBuff
 typedef TUniformBuffer<FLpvWriteUniformBufferParameters> FLpvWriteUniformBuffer;
 struct FRsmInfo;
 
-#if LPV_VOLUME_TEXTURE
-static const TCHAR* LpvVolumeTextureSRVNames[7] = { 
+static const TCHAR * LpvVolumeTextureSRVNames[7] = { 
 	TEXT("gLpv3DTexture0"),
 	TEXT("gLpv3DTexture1"),
 	TEXT("gLpv3DTexture2"),
@@ -34,7 +33,7 @@ static const TCHAR* LpvVolumeTextureSRVNames[7] = {
 	TEXT("gLpv3DTexture5"),
 	TEXT("gLpv3DTexture6") };
 
-static const TCHAR* LpvVolumeTextureUAVNames[7] = { 
+static const TCHAR * LpvVolumeTextureUAVNames[7] = { 
 	TEXT("gLpv3DTextureRW0"),
 	TEXT("gLpv3DTextureRW1"),
 	TEXT("gLpv3DTextureRW2"),
@@ -42,19 +41,26 @@ static const TCHAR* LpvVolumeTextureUAVNames[7] = {
 	TEXT("gLpv3DTextureRW4"),
 	TEXT("gLpv3DTextureRW5"),
 	TEXT("gLpv3DTextureRW6") };
-#endif
 
-#if LPV_GV_VOLUME_TEXTURE
-static const TCHAR* LpvGvVolumeTextureSRVNames[3] = { 
+static const TCHAR * LpvGvVolumeTextureSRVNames[NUM_GV_TEXTURES] = { 
 	TEXT("gGv3DTexture0"),
+#if ( LPV_GV_SH_ORDER >= 1 )
 	TEXT("gGv3DTexture1"),
-	TEXT("gGv3DTexture2") };
-
-static const TCHAR* LpvGvVolumeTextureUAVNames[3] = { 
-	TEXT("gGv3DTextureRW0"),
-	TEXT("gGv3DTextureRW1"),
-	TEXT("gGv3DTextureRW2") };
 #endif
+#if ( LPV_GV_SH_ORDER >= 2 )
+	TEXT("gGv3DTexture2") 
+#endif
+};
+
+static const TCHAR * LpvGvVolumeTextureUAVNames[NUM_GV_TEXTURES] = { 
+	TEXT("gGv3DTextureRW0"),
+#if ( LPV_GV_SH_ORDER >= 1 )
+	TEXT("gGv3DTextureRW1"),
+#endif
+#if ( LPV_GV_SH_ORDER >= 2 )
+	TEXT("gGv3DTextureRW2") 
+#endif
+};
 
 //
 // LPV Read constant buffer
@@ -63,6 +69,14 @@ BEGIN_UNIFORM_BUFFER_STRUCT( FLpvReadUniformBufferParameters, )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FIntVector, mLpvGridOffset )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, LpvScale )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, OneOverLpvScale )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SpecularIntensity )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DiffuseIntensity )
+
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DirectionalOcclusionIntensity )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DiffuseOcclusionExponent )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SpecularOcclusionExponent )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SpecularOcclusionIntensity )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DiffuseOcclusionIntensity )
 END_UNIFORM_BUFFER_STRUCT( FLpvReadUniformBufferParameters )
 
 
@@ -79,7 +93,10 @@ BEGIN_UNIFORM_BUFFER_STRUCT( FLpvWriteUniformBufferParameters, )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, ClearMultiplier )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, LpvScale )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, OneOverLpvScale )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, WarpStrength )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DirectionalOcclusionIntensity )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, DirectionalOcclusionRadius )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, RsmAreaIntensityMultiplier )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, RsmPixelToTexcoordMultiplier )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SecondaryOcclusionStrength )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, SecondaryBounceStrength )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, VplInjectionBias )
@@ -94,39 +111,33 @@ END_UNIFORM_BUFFER_STRUCT( FLpvWriteUniformBufferParameters )
 struct FLpvBaseWriteShaderParams
 {
 	FLpvWriteUniformBufferRef		UniformBuffer;
-#if LPV_VOLUME_TEXTURE
 	FTextureRHIParamRef				LpvBufferSRVs[7];
 	FUnorderedAccessViewRHIParamRef LpvBufferUAVs[7];
-#else
-	FShaderResourceViewRHIParamRef	LpvBufferSRV;
-	FUnorderedAccessViewRHIParamRef LpvBufferUAV;
-#endif
 
 	FShaderResourceViewRHIParamRef	VplListHeadBufferSRV;
 	FUnorderedAccessViewRHIParamRef VplListHeadBufferUAV;
 	FShaderResourceViewRHIParamRef	VplListBufferSRV;
 	FUnorderedAccessViewRHIParamRef VplListBufferUAV;
 
-#if LPV_GV_VOLUME_TEXTURE
 	FTextureRHIParamRef				GvBufferSRVs[3];
 	FUnorderedAccessViewRHIParamRef GvBufferUAVs[3];
-#else
-	FShaderResourceViewRHIParamRef	GvBufferSRV;
-	FUnorderedAccessViewRHIParamRef GvBufferUAV;
-#endif
+
 	FShaderResourceViewRHIParamRef	GvListHeadBufferSRV;
 	FUnorderedAccessViewRHIParamRef GvListHeadBufferUAV;
 	FShaderResourceViewRHIParamRef	GvListBufferSRV;
 	FUnorderedAccessViewRHIParamRef GvListBufferUAV;
+
+	FUnorderedAccessViewRHIParamRef AOVolumeTextureUAV;
+	FTextureRHIParamRef				AOVolumeTextureSRV;
 };
 
-class FLightPropagationVolume // @TODO: this should probably be derived from FRenderResource (with InitDynamicRHI etc)
+class FLightPropagationVolume : public FRefCountedObject
 {
 public:
 	FLightPropagationVolume();
 	virtual ~FLightPropagationVolume();
 
-	void InitSettings(FRHICommandList& RHICmdList, const FSceneView& View);
+	void InitSettings(FRHICommandListImmediate& RHICmdList, const FSceneView& View);
 
 	void Clear(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
 
@@ -145,7 +156,7 @@ public:
 
 	void InjectLightDirect(FRHICommandListImmediate& RHICmdList, const FLightSceneProxy& Light, const FViewInfo& View);
 
-	void Propagate(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
+	void Update(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
 
 	void Visualise(FRHICommandList& RHICmdList, const FViewInfo& View) const;
 
@@ -156,11 +167,7 @@ public:
 
 	FLpvWriteUniformBufferRef GetWriteUniformBuffer() const				{ return (FLpvWriteUniformBufferRef)LpvWriteUniformBuffer; }
 
-#if LPV_VOLUME_TEXTURE
 	FTextureRHIParamRef GetLpvBufferSrv( int i )						{ return LpvVolumeTextures[ 1-mWriteBufferIndex ][i]->GetRenderTargetItem().ShaderResourceTexture; }
-#else
-	FShaderResourceViewRHIParamRef GetLpvBufferSrv()					{ return mLpvBuffers[ 1-mWriteBufferIndex ]->SRV; }
-#endif
 
 	FUnorderedAccessViewRHIParamRef GetVplListBufferUav()				{ return mVplListBuffer->UAV; }
 	FUnorderedAccessViewRHIParamRef GetVplListHeadBufferUav()			{ return mVplListHeadBuffer->UAV; }
@@ -171,17 +178,17 @@ public:
 
 	const FBox&	GetBoundingBox()										{ return BoundingBox; }
 
-//private:	// MM
+	void InsertGPUWaitForAsyncUpdate(FRHICommandListImmediate& RHICmdList);							
+
 	void GetShaderParams( FLpvBaseWriteShaderParams& OutParams) const;
 public:
 
 	void GetShadowInfo( const FProjectedShadowInfo& ProjectedShadowInfo, FRsmInfo& RsmInfoOut );
 
-#if LPV_VOLUME_TEXTURE
+	void ComputeDirectionalOcclusion(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
+	FTextureRHIParamRef GetAOVolumeTextureSRV() { return AOVolumeTexture->GetRenderTargetItem().ShaderResourceTexture; }
+
 	TRefCountPtr<IPooledRenderTarget>	LpvVolumeTextures[2][7];		// double buffered
-#else
-	FRWBufferStructured*				mLpvBuffers[2];					// Double buffered for propagation
-#endif
 	FRWBufferByteAddress*				mVplListHeadBuffer;
 	FRWBufferStructured*				mVplListBuffer;
 
@@ -197,21 +204,18 @@ public:
 	FRWBufferByteAddress*				GvListHeadBuffer;
 	FRWBufferStructured*				GvListBuffer;
 
-#if LPV_VOLUME_TEXTURE || LPV_GV_VOLUME_TEXTURE
 	FShaderResourceParameter			LpvVolumeTextureSampler;
-#endif
 
-#if LPV_GV_VOLUME_TEXTURE
-	TRefCountPtr<IPooledRenderTarget>	GvVolumeTextures[3];		// 9 coeffs + RGB
-#else
-	FRWBuffer*							GvBuffer;			
-#endif
+	TRefCountPtr<IPooledRenderTarget>	GvVolumeTextures[NUM_GV_TEXTURES];		// SH coeffs + RGB
+	TRefCountPtr<IPooledRenderTarget>	AOVolumeTexture;
+
 	float								SecondaryOcclusionStrength;
 	float								SecondaryBounceStrength;
 
 	float								CubeSize;
 	float								Strength;
 	bool								bEnabled;
+	bool								bGeometryVolumeNeeded;
 
 	uint32								mWriteBufferIndex;
 	bool								bNeedsBufferClear;
@@ -222,6 +226,9 @@ public:
 	FLpvWriteUniformBuffer				LpvWriteUniformBuffer;
 
 	bool								bInitialized;
+
+	// only needed for Async Compute
+	uint32								AsyncJobFenceID;
 
 	friend class FLpvVisualisePS;
 };

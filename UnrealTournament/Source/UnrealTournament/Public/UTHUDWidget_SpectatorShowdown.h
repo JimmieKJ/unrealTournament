@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
 #include "UTHUDWidget_Spectator.h"
@@ -14,9 +14,9 @@ public:
 	UUTHUDWidget_SpectatorShowdown(const FObjectInitializer& OI)
 		: Super(OI)
 	{
-		SelectingSpawnText = NSLOCTEXT("UTHUD_Showdown", "SelectingSpawn", "{0} is picking... {1}");
 		RoundBeginsText = NSLOCTEXT("UTHUD_Showdown", "RoundBegins", "Round begins in... {0}");
 		PickingStartsText = NSLOCTEXT("UTHUD_Showdown", "PickingStarts", "Spawn selection begins in... {0}");
+		SelectingSpawnText = NSLOCTEXT("UTHUD_Showdown", "SelectingSpawn", "Click on the spawn point you want to use.");
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -28,15 +28,7 @@ public:
 
 	virtual FLinearColor GetMessageColor() const override
 	{
-		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(UTGameState);
-		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->SpawnSelector != NULL && GS->SpawnSelector->Team != NULL && (UTPlayerOwner == NULL || GS->SpawnSelector != UTPlayerOwner->PlayerState))
-		{
-			return GS->SpawnSelector->Team->TeamColor;
-		}
-		else
-		{
-			return FLinearColor::White;
-		}
+		return FLinearColor::White;
 	}
 
 	virtual FText GetSpectatorMessageText(bool &bShortMessage) override
@@ -44,16 +36,15 @@ public:
 		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(UTGameState);
 		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission)
 		{
-			// draw whose turn it is
-			if (GS->SpawnSelector != NULL)
-			{
-				return FText::Format(SelectingSpawnText, FText::FromString(GS->SpawnSelector->PlayerName), FText::AsNumber(GS->IntermissionStageTime));
-			}
-			else if (GS->bStartedSpawnSelection && !GS->bFinalIntermissionDelay)
+			if ((GS->SpawnSelector == NULL) && !GS->bFinalIntermissionDelay)
 			{
 				return FText::Format(PickingStartsText, FText::AsNumber(GS->IntermissionStageTime));
 			}
-			else
+			else if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && GS->SpawnSelector == UTHUDOwner->UTPlayerOwner->UTPlayerState)
+			{
+				return SelectingSpawnText;
+			}
+			else if (GS->bStartedSpawnSelection && GS->bFinalIntermissionDelay)
 			{
 				return FText::Format(RoundBeginsText, FText::AsNumber(GS->IntermissionStageTime));
 			}
@@ -62,5 +53,6 @@ public:
 		{
 			return Super::GetSpectatorMessageText(bShortMessage);
 		}
+		return FText::GetEmpty();
 	}
 };

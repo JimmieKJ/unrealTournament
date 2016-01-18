@@ -14,18 +14,9 @@ TSharedRef< FTutorialHyperlinkRun > FTutorialHyperlinkRun::Create( const FRunInf
 	return MakeShareable( new FTutorialHyperlinkRun( InRunInfo, InText, InStyle, NavigateDelegate, InTooltipDelegate, InTooltipTextDelegate, InRange ) );
 }
 
-FVector2D FTutorialHyperlinkRun::Measure( int32 StartIndex, int32 EndIndex, float Scale ) const 
+FVector2D FTutorialHyperlinkRun::Measure( int32 StartIndex, int32 EndIndex, float Scale, const FRunTextContext& TextContext ) const 
 {
-	FVector2D Measurement(0.0f, 0.0f);
-	if ( EndIndex - StartIndex == 0 )
-	{
-		Measurement = FVector2D( 0, GetMaxHeight( Scale ) );
-	}
-	else
-	{
-		const TSharedRef< FSlateFontMeasure > FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-		Measurement = FontMeasure->Measure( **Text, StartIndex, EndIndex, Style.TextStyle.Font, true, Scale );	
-	}
+	FVector2D Measurement = FSlateHyperlinkRun::Measure(StartIndex, EndIndex, Scale, TextContext);
 
 	if(bIsBrowserLink && EndIndex == Range.EndIndex)
 	{
@@ -35,7 +26,7 @@ FVector2D FTutorialHyperlinkRun::Measure( int32 StartIndex, int32 EndIndex, floa
 	return Measurement;
 }
 
-TSharedRef< ILayoutBlock > FTutorialHyperlinkRun::CreateBlock( int32 StartIndex, int32 EndIndex, FVector2D Size, const TSharedPtr< IRunRenderer >& Renderer )
+TSharedRef< ILayoutBlock > FTutorialHyperlinkRun::CreateBlock( int32 StartIndex, int32 EndIndex, FVector2D Size, const FLayoutBlockTextContext& TextContext, const TSharedPtr< IRunRenderer >& Renderer )
 {
 	FText ToolTipText;
 	TSharedPtr<IToolTip> ToolTip;
@@ -70,6 +61,7 @@ TSharedRef< ILayoutBlock > FTutorialHyperlinkRun::CreateBlock( int32 StartIndex,
 			.ToolTip( ToolTip )
 			.ToolTipText( ToolTipText )
 			.OnNavigate( this, &FTutorialHyperlinkRun::OnNavigate )
+			.TextShapingMethod( TextContext.TextShapingMethod )
 		];
 
 	if(bIsBrowserLink && EndIndex == Range.EndIndex)
@@ -88,7 +80,7 @@ TSharedRef< ILayoutBlock > FTutorialHyperlinkRun::CreateBlock( int32 StartIndex,
 
 	Children.Add( Widget );
 
-	return FWidgetLayoutBlock::Create( SharedThis( this ), Widget, FTextRange( StartIndex, EndIndex ), Size, Renderer );
+	return FWidgetLayoutBlock::Create( SharedThis( this ), Widget, FTextRange( StartIndex, EndIndex ), Size, TextContext, Renderer );
 }
 
 FTutorialHyperlinkRun::FTutorialHyperlinkRun( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FHyperlinkStyle& InStyle, FOnClick InNavigateDelegate, FOnGenerateTooltip InTooltipDelegate, FOnGetTooltipText InTooltipTextDelegate ) 

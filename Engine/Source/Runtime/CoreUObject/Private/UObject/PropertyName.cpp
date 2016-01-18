@@ -9,7 +9,13 @@
 void UNameProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
 	FName Temp = *(FName*)PropertyValue;
-	if( !(PortFlags & PPF_Delimited) )
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		ValueStr += (Temp == NAME_None) 
+			? TEXT("FName()") 
+			: FString::Printf(TEXT("FName(TEXT(\"%s\"))"), *(Temp.ToString().ReplaceCharWithEscapedChar()));
+	}
+	else if( !(PortFlags & PPF_Delimited) )
 	{
 		ValueStr += Temp.ToString();
 	}
@@ -20,12 +26,22 @@ void UNameProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue
 }
 const TCHAR* UNameProperty::ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const
 {
-	FString Temp;
-	Buffer = UPropertyHelpers::ReadToken( Buffer, Temp, true );
-	if( !Buffer )
-		return NULL;
+	if (!(PortFlags & PPF_Delimited))
+	{
+		*(FName*)Data = FName(Buffer, FNAME_Add, true);
 
-	*(FName*)Data = FName(*Temp, FNAME_Add, true);
+		// in order to indicate that the value was successfully imported, advance the buffer past the last character that was imported
+		Buffer += FCString::Strlen(Buffer);
+	}
+	else
+	{
+		FString Temp;
+		Buffer = UPropertyHelpers::ReadToken(Buffer, Temp, true);
+		if (!Buffer)
+			return NULL;
+
+		*(FName*)Data = FName(*Temp, FNAME_Add, true);
+	}
 	return Buffer;
 }
 

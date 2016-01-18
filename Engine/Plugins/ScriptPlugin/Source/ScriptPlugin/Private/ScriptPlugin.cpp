@@ -16,10 +16,6 @@ UProperty* FindScriptPropertyHelper(UClass* Class, FName PropertyName)
 	return NULL;
 }
 
-#if 0
-#include "GeneratedScriptLibraries.inl"
-#endif 
-
 DEFINE_LOG_CATEGORY(LogScriptPlugin);
 
 class FScriptPlugin : public IScriptPlugin

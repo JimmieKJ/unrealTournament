@@ -3,7 +3,7 @@
 #pragma once
 
 /** A delegate type invoked when a selection changes somewhere. */
-DECLARE_DELEGATE_RetVal_OneParam(FString, FGetComboItemDisplayString, int32);
+DECLARE_DELEGATE_RetVal_OneParam(FText, FGetComboItemDisplayString, int32);
 
 //Class implementation to create combo box
 class GRAPHEDITOR_API SPinComboBox : public SCompoundWidget
@@ -17,6 +17,7 @@ public:
 		SLATE_ATTRIBUTE( FString, VisibleText )
 		SLATE_EVENT( FOnSelectionChanged, OnSelectionChanged )
 		SLATE_EVENT( FGetComboItemDisplayString, OnGetDisplayName )
+		SLATE_EVENT( FGetComboItemDisplayString, OnGetTooltip )
 	SLATE_END_ARGS()
 
 	//Construct combo box using combo button and combo list
@@ -43,7 +44,13 @@ private:
 
 	FText GetRowString(int32 RowIndex) const
 	{
-		return FText::FromString(OnGetDisplayName.Execute(RowIndex));
+		return OnGetDisplayName.Execute(RowIndex);
+	}
+
+	/** Callback for Slate to retrieve the tooltip */
+	FText GetRowTooltip(int32 RowIndex) const
+	{
+		return OnGetTooltip.Execute(RowIndex);
 	}
 
 private:
@@ -57,4 +64,7 @@ private:
 	TWeakPtr<int32> CurrentSelection;
 
 	FGetComboItemDisplayString OnGetDisplayName;
+
+	/** Delegate for finding the tooltip */
+	FGetComboItemDisplayString OnGetTooltip;
 };

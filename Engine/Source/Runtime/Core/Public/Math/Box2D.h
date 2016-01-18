@@ -6,7 +6,7 @@
 /**
  * Implements a rectangular 2D Box.
  */
-class FBox2D
+struct FBox2D
 {
 public:
 	/** Holds the box's minimum point. */

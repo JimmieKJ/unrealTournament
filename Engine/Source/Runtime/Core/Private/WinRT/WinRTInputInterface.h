@@ -98,7 +98,7 @@ private:
 	uint8 X360ToXboxControllerMapping[MAX_NUM_CONTROLLER_BUTTONS];
 
 	/** Names of all the buttons */
-	EControllerButtons::Type Buttons[MAX_NUM_CONTROLLER_BUTTONS];
+	FGamepadKeyNames::Type Buttons[MAX_NUM_CONTROLLER_BUTTONS];
 
 	/** Controller states */
 	FControllerState ControllerStates[MAX_NUM_XINPUT_CONTROLLERS];

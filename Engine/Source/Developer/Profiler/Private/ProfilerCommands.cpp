@@ -47,7 +47,7 @@ void FProfilerCommands::RegisterCommands()
 
 	UI_COMMAND( OpenSettings, "Settings", "Opens the settings for the profiler", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::O ) );
 
-	UI_COMMAND( ProfilerManager_Load, "Load", "", EUserInterfaceActionType::Button, FInputChord(/* EModifierKey::Control, EKeys::L */) );
+	UI_COMMAND( ProfilerManager_Load, "Load", "Loads profiler data", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::L ) );
 	UI_COMMAND( ProfilerManager_ToggleLivePreview, "Live preview", "Toggles the real time live preview", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
 	UI_COMMAND( DataGraph_ToggleViewMode, "Toggle graph view mode", "Toggles the data graph view mode between time based and index based", EUserInterfaceActionType::Button, FInputChord() );
@@ -109,8 +109,7 @@ const FUIAction FProfilerActionManager::ToggleDataPreview_Custom( const FGuid Se
 	FUIAction UIAction;
 	UIAction.ExecuteAction = FExecuteAction::CreateRaw( this, &FProfilerActionManager::ToggleDataPreview_Execute, SessionInstanceID );
 	UIAction.CanExecuteAction = FCanExecuteAction::CreateRaw( this, &FProfilerActionManager::ToggleDataPreview_CanExecute, SessionInstanceID );
-	UIAction.IsCheckedDelegate = FIsActionChecked::CreateRaw( this, &FProfilerActionManager::ToggleDataPreview_IsChecked, SessionInstanceID );
-	UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
+	UIAction.GetActionCheckState = FGetActionCheckState::CreateRaw( this, &FProfilerActionManager::ToggleDataPreview_GetCheckState, SessionInstanceID );
 	return UIAction;
 }
 
@@ -162,7 +161,7 @@ bool FProfilerActionManager::ToggleDataPreview_CanExecute( const FGuid SessionIn
 	}
 }
 
-bool FProfilerActionManager::ToggleDataPreview_IsChecked( const FGuid SessionInstanceID ) const
+ECheckBoxState FProfilerActionManager::ToggleDataPreview_GetCheckState( const FGuid SessionInstanceID ) const
 {
 	// One session instance
 	if( SessionInstanceID.IsValid() )
@@ -170,18 +169,18 @@ bool FProfilerActionManager::ToggleDataPreview_IsChecked( const FGuid SessionIns
 		const FProfilerSessionRef* ProfilerSessionPtr = This->FindSessionInstance( SessionInstanceID );
 		if( ProfilerSessionPtr )
 		{
-			return (*ProfilerSessionPtr)->bDataPreviewing;
+			return (*ProfilerSessionPtr)->bDataPreviewing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 		}
 		else
 		{
-			return false;
+			return ECheckBoxState::Unchecked;
 		}
 	}
 	// All session instances
 	else
 	{
 		const bool bDataPreview = This->IsDataPreviewing();
-		return bDataPreview;
+		return bDataPreview ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 }
 
@@ -194,8 +193,7 @@ void FProfilerActionManager::Map_ProfilerManager_ToggleLivePreview_Global()
 	FUIAction UIAction;
 	UIAction.ExecuteAction = FExecuteAction::CreateRaw( this, &FProfilerActionManager::ProfilerManager_ToggleLivePreview_Execute );
 	UIAction.CanExecuteAction = FCanExecuteAction::CreateRaw( this, &FProfilerActionManager::ProfilerManager_ToggleLivePreview_CanExecute );
-	UIAction.IsCheckedDelegate = FIsActionChecked::CreateRaw( this, &FProfilerActionManager::ProfilerManager_ToggleLivePreview_IsChecked );
-	UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
+	UIAction.GetActionCheckState = FGetActionCheckState::CreateRaw( this, &FProfilerActionManager::ProfilerManager_ToggleLivePreview_GetCheckState );
 
 	This->CommandList->MapAction( This->GetCommands().ProfilerManager_ToggleLivePreview, UIAction );
 }
@@ -211,9 +209,9 @@ bool FProfilerActionManager::ProfilerManager_ToggleLivePreview_CanExecute() cons
 	return bCanExecute;
 }
 
-bool FProfilerActionManager::ProfilerManager_ToggleLivePreview_IsChecked() const
+ECheckBoxState FProfilerActionManager::ProfilerManager_ToggleLivePreview_GetCheckState() const
 {
-	return This->bLivePreview;
+	return This->bLivePreview ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
 /*-----------------------------------------------------------------------------
@@ -225,7 +223,7 @@ const FUIAction FProfilerActionManager::ToggleShowDataGraph_Custom( const FGuid 
 	FUIAction UIAction;
 	UIAction.ExecuteAction = FExecuteAction::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_Execute, SessionInstanceID );
 	UIAction.CanExecuteAction = FCanExecuteAction::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_CanExecute, SessionInstanceID );
-	UIAction.IsCheckedDelegate = FIsActionChecked::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_IsChecked, SessionInstanceID );
+	UIAction.GetActionCheckState = FGetActionCheckState::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_GetCheckState, SessionInstanceID );
 	UIAction.IsActionVisibleDelegate = FIsActionButtonVisible::CreateRaw( this, &FProfilerActionManager::ToggleShowDataGraph_IsActionButtonVisible, SessionInstanceID );
 	return UIAction;
 }
@@ -263,18 +261,18 @@ bool FProfilerActionManager::ToggleShowDataGraph_CanExecute( const FGuid Session
 	}
 }
 
-bool FProfilerActionManager::ToggleShowDataGraph_IsChecked( const FGuid SessionInstanceID ) const
+ECheckBoxState FProfilerActionManager::ToggleShowDataGraph_GetCheckState( const FGuid SessionInstanceID ) const
 {
 	// One session instance
 	if( SessionInstanceID.IsValid() )
 	{
 		const bool bIsSessionInstanceTracked = This->IsSessionInstanceTracked( SessionInstanceID );
-		return bIsSessionInstanceTracked;
+		return bIsSessionInstanceTracked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 	// All session instances
 	else
 	{
-		return false;
+		return ECheckBoxState::Unchecked;
 	}
 }
 
@@ -302,8 +300,6 @@ void FProfilerActionManager::Map_ProfilerManager_Load()
 	FUIAction UIAction;
 	UIAction.ExecuteAction = FExecuteAction::CreateRaw( this, &FProfilerActionManager::ProfilerManager_Load_Execute );
 	UIAction.CanExecuteAction = FCanExecuteAction::CreateRaw( this, &FProfilerActionManager::ProfilerManager_Load_CanExecute );
-	UIAction.IsCheckedDelegate = FIsActionChecked();
-	UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
 
 	This->CommandList->MapAction( This->GetCommands().ProfilerManager_Load, UIAction );
 }
@@ -369,8 +365,7 @@ const FUIAction FProfilerActionManager::ToggleDataCapture_Custom( const FGuid Se
 	FUIAction UIAction;
 	UIAction.ExecuteAction = FExecuteAction::CreateRaw( this, &FProfilerActionManager::ToggleDataCapture_Execute, SessionInstanceID );
 	UIAction.CanExecuteAction = FCanExecuteAction::CreateRaw( this, &FProfilerActionManager::ToggleDataCapture_CanExecute, SessionInstanceID );
-	UIAction.IsCheckedDelegate = FIsActionChecked::CreateRaw( this, &FProfilerActionManager::ToggleDataCapture_IsChecked, SessionInstanceID );
-	UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
+	UIAction.GetActionCheckState = FGetActionCheckState::CreateRaw( this, &FProfilerActionManager::ToggleDataCapture_GetCheckState, SessionInstanceID );
 	return UIAction;
 }
 
@@ -429,7 +424,7 @@ bool FProfilerActionManager::ToggleDataCapture_CanExecute( const FGuid SessionIn
 	return false;
 }
 
-bool FProfilerActionManager::ToggleDataCapture_IsChecked( const FGuid SessionInstanceID ) const
+ECheckBoxState FProfilerActionManager::ToggleDataCapture_GetCheckState( const FGuid SessionInstanceID ) const
 {
 	// One session instance
 	if( SessionInstanceID.IsValid() )
@@ -437,21 +432,21 @@ bool FProfilerActionManager::ToggleDataCapture_IsChecked( const FGuid SessionIns
 		const FProfilerSessionRef* ProfilerSessionPtr = This->FindSessionInstance( SessionInstanceID );
 		if( ProfilerSessionPtr )
 		{
-			return (*ProfilerSessionPtr)->bDataCapturing;
+			return (*ProfilerSessionPtr)->bDataCapturing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 		}
 		else
 		{
-			return false;
+			return ECheckBoxState::Unchecked;
 		}
 	}
 	// All session instances
 	else
 	{
 		const bool bDataCapturing = This->IsDataCapturing();
-		return bDataCapturing;
+		return bDataCapturing ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 
-	return false;
+	return ECheckBoxState::Unchecked;
 }
 
 /*-----------------------------------------------------------------------------
@@ -468,8 +463,6 @@ const FUIAction FProfilerActionManager::OpenSettings_Custom() const
 	FUIAction UIAction;
 	UIAction.ExecuteAction = FExecuteAction::CreateRaw( this, &FProfilerActionManager::OpenSettings_Execute );
 	UIAction.CanExecuteAction = FCanExecuteAction::CreateRaw( this, &FProfilerActionManager::OpenSettings_CanExecute );
-	UIAction.IsCheckedDelegate = FIsActionChecked();
-	UIAction.IsActionVisibleDelegate = FIsActionButtonVisible();
 	return UIAction;
 }
 

@@ -7,7 +7,7 @@
 #define IS_FORWARD_BASEPASS_VERTEX_SHADER 1
 
 // @todo urban: branch was: #define FORCE_FLOATS 1
-#define FORCE_FLOATS METAL_PROFILE
+#define FORCE_FLOATS (COMPILER_METAL)
 
 #include "Common.usf"
 #include "BasePassForForwardShadingCommon.usf"
@@ -55,14 +55,14 @@ void Main(
 	Output.BasePassInterpolants.PixelPosition = WorldPosition;
 
 #if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
-	Output.BasePassInterpolants.PixelPositionExcludingWPO = WorldPositionExcludingWPO;
+	Output.BasePassInterpolants.PixelPositionExcludingWPO = WorldPositionExcludingWPO.xyz;
 #endif
 
 #if USE_VERTEX_FOG
 #if PACK_INTERPOLANTS
-	PackedInterps[0] = CalculateVertexHeightFog(WorldPosition.xyz, View.TranslatedViewOrigin);
+	PackedInterps[0] = CalculateVertexHeightFog(WorldPosition.xyz - float4(View.TranslatedWorldCameraOrigin, 1));
 #else
-	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz, View.TranslatedViewOrigin);
+	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz - float4(View.TranslatedWorldCameraOrigin, 1));
 #endif // PACK_INTERPOLANTS
 #endif
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTDuelGame.h"
@@ -19,6 +19,8 @@ protected:
 
 	virtual void HandleMatchHasStarted() override;
 	virtual void StartNewRound();
+	virtual void HandleCountdownToBegin() override;
+	virtual void UpdateSkillRating() override;
 
 	// experimental tiebreaker options
 	// will be removed once we decide on a path
@@ -26,8 +28,6 @@ protected:
 	bool bXRayBreaker; // both players see others through walls after 60 seconds
 	UPROPERTY(config)
 	bool bPowerupBreaker; // spawn super powerup at 60 seconds
-	UPROPERTY(config)
-	bool bBroadcastPlayerHealth; // show both players' health on HUD at all times
 
 	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTPickupInventory"))
 	FStringClassReference PowerupBreakerPickupClass;
@@ -69,15 +69,27 @@ public:
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual void ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker) override;
+	virtual void ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override
+	{
+		// we need to treat this the same way we treat normal kills
+		ScoreKill(Killer, Other, KilledPawn, DamageType);
+	}
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 
 	virtual void CheckGameTime() override;
+	/** return player/team that wins if the game time expires
+	 * this function is safe to call prior to the game actually ending (to show who 'would' win)
+	 */
+	virtual AInfo* GetTiebreakWinner(FName* WinReason = NULL) const;
 	/** score round that ended by timelimit instead of by kill */
 	virtual void ScoreExpiredRoundTime();
 	virtual void CallMatchStateChangeNotify() override;
 	virtual void DefaultTimer() override;
+
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
 
 	// Creates the URL options for custom games
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);

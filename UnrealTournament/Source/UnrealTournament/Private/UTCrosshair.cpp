@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTCrosshair.h"
@@ -15,7 +15,7 @@ void UUTCrosshair::DrawCrosshair_Implementation(UCanvas* Canvas, AUTWeapon* Weap
 	float X = FMath::RoundToFloat((Canvas->SizeX * 0.5f) - (CrosshairIcon.UL * Scale * 0.5f));
 	float Y = FMath::RoundToFloat((Canvas->SizeY * 0.5f) - (CrosshairIcon.VL * Scale * 0.5f));
 
-	Canvas->DrawColor = Color;
+	Canvas->DrawColor = Color.ToFColor(false);
 	Canvas->DrawIcon(CrosshairIcon, X, Y, Scale);
 }
 

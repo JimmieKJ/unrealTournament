@@ -198,6 +198,11 @@ namespace AssetSelectionUtils
 	UNREALED_API int32 GetNumSelectedSurfaces( UWorld* InWorld );
 
 	/**
+	 * @return whether any surface is selected
+	 */
+	UNREALED_API bool IsAnySurfaceSelected( UWorld* InWorld );
+
+	/**
 	 * @return true if the builder brush is in the list of selected actors; false, otherwise. 
 	 */
 	UNREALED_API bool IsBuilderBrushSelected();

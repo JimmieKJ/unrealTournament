@@ -13,7 +13,7 @@ using System.Reflection;
 namespace UnrealControls
 {
 	/// <summary>
-	/// This class represents an about box for an unreal application.
+	/// This class represents an about box for an Unreal application.
 	/// </summary>
 	public partial class UnrealAboutBox : Form
 	{

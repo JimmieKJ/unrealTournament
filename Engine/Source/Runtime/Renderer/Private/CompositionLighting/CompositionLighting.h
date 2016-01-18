@@ -18,7 +18,10 @@ public:
 
 	void ProcessAfterBasePass(FRHICommandListImmediate& RHICmdList,  FViewInfo& View);
 
-	void ProcessLighting(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
+	// only call if LPV is enabled
+	void ProcessLpvIndirect(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
+
+	void ProcessAfterLighting(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
 };
 
 /** The global used for deferred lighting. */

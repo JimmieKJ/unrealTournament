@@ -251,7 +251,7 @@ void SDockingArea::SetParentWindow( const TSharedRef<SWindow>& NewParentWindow )
 	}
 
 	ParentWindowPtr = NewParentWindow;
-	NewParentWindow->SetOnWindowActivated( FOnWindowActivated::CreateSP( this, &SDockingArea::OnOwningWindowActivated ) );
+	NewParentWindow->GetOnWindowActivatedEvent().AddSP(this, &SDockingArea::OnOwningWindowActivated);
 }
 
 TSharedPtr<FTabManager::FLayoutNode> SDockingArea::GatherPersistentLayout() const

@@ -17,7 +17,7 @@
 	bool bOverallSuccess;
 
 	/** Logged in UserId */
-	TSharedPtr<FUniqueNetId> UserId;
+	TSharedPtr<const FUniqueNetId> UserId;
 
 	/** Convenient access to the leaderboard interfaces */
 	IOnlineLeaderboardsPtr Leaderboards;

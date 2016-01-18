@@ -19,53 +19,50 @@
 #include "ps3/PxPS3Config.h"
 #endif
 
-
 namespace physx
 {
-
-
 	class NpMaterialHandleManager
 	{
 	public:
-		NpMaterialHandleManager() : currentID(0), freeIDs(PX_DEBUG_EXP("NpMaterialHandleManager"))	{}
+		NpMaterialHandleManager() : mCurrentID(0), mFreeIDs(PX_DEBUG_EXP("NpMaterialHandleManager"))	{}
 
-		void	freeID(PxU32 id)
+		void freeID(PxU32 id)
 		{
 			// Allocate on first call
 			// Add released ID to the array of free IDs
-			if(id == (currentID - 1))
-				--currentID;
+			if(id == (mCurrentID - 1))
+				--mCurrentID;
 			else
-				freeIDs.pushBack(id);
+				mFreeIDs.pushBack(id);
 		}
 
-		void	freeAll()
+		void freeAll()
 		{
-			currentID = 0;
-			freeIDs.clear();
+			mCurrentID = 0;
+			mFreeIDs.clear();
 		}
 
-		PxU32	getNewID()
+		PxU32 getNewID()
 		{
 			// If recycled IDs are available, use them
-			const PxU32 size = freeIDs.size();
+			const PxU32 size = mFreeIDs.size();
 			if(size)
 			{
-				const PxU32 id = freeIDs[size-1]; // Recycle last ID
-				freeIDs.popBack();
+				const PxU32 id = mFreeIDs[size-1]; // Recycle last ID
+				mFreeIDs.popBack();
 				return id;
 			}
 			// Else create a new ID
-			return currentID++;
+			return mCurrentID++;
 		}
 
-		PxU32 getNumMaterials()
+		PX_FORCE_INLINE PxU32 getNumMaterials()	const
 		{
-			return currentID - freeIDs.size();
+			return mCurrentID - mFreeIDs.size();
 		}
 	private:
-		PxU32				currentID;
-		Ps::Array<PxU32>	freeIDs;
+		PxU32				mCurrentID;
+		Ps::Array<PxU32>	mFreeIDs;
 	};
 
 	class NpMaterialManager 
@@ -80,148 +77,135 @@ namespace physx
 			128;
 #endif
 			//we allocate +1 for a space for a dummy material for PS3 when we allocate a material > 128 and need to clear it immediately after
-			materials = (NpMaterial**)PX_ALLOC(sizeof(NpMaterial*)* matCount,  PX_DEBUG_EXP("NpMaterialManager::initialise"));
-			maxMaterials = matCount;
-			PxMemZero(materials, sizeof(NpMaterial*)*maxMaterials);
+			mMaterials = (NpMaterial**)PX_ALLOC(sizeof(NpMaterial*) * matCount,  PX_DEBUG_EXP("NpMaterialManager::initialise"));
+			mMaxMaterials = matCount;
+			PxMemZero(mMaterials, sizeof(NpMaterial*)*mMaxMaterials);
 		}
 
 		~NpMaterialManager() {}
 
 		void releaseMaterials()
 		{
-			for(PxU32 i=0; i<maxMaterials; ++i)
+			for(PxU32 i=0; i<mMaxMaterials; ++i)
 			{
-				if(materials[i])
+				if(mMaterials[i])
 				{
-					PxU32 handle = materials[i]->getHandle();
-					handleManager.freeID(handle);
-					materials[i]->release();
-					materials[i] = NULL;
-					
+					const PxU32 handle = mMaterials[i]->getHandle();
+					mHandleManager.freeID(handle);
+					mMaterials[i]->release();
+					mMaterials[i] = NULL;
 				}
-					//PX_DELETE(materials[i]);
 			}
-			PX_FREE(materials);
+			PX_FREE(mMaterials);
 		}
 
-		bool setMaterial(NpMaterial* mat)
+		bool setMaterial(NpMaterial& mat)
 		{
-			PxU32 materialIndex = handleManager.getNewID();
+			const PxU32 materialIndex = mHandleManager.getNewID();
 
-			if(materialIndex >= maxMaterials)
+			if(materialIndex >= mMaxMaterials)
 			{
 #ifdef	PX_PS3
-				handleManager.freeID(materialIndex);
+				mHandleManager.freeID(materialIndex);
 				return false;
 #else
 				resize();
 #endif
 			}
 
-			materials[materialIndex] = mat;
-			materials[materialIndex]->setHandle(materialIndex);
+			mMaterials[materialIndex] = &mat;
+			mat.setHandle(materialIndex);
 			return true;
 		}
 
-		void updateMaterial(NpMaterial* mat)
+		void updateMaterial(NpMaterial& mat)
 		{
-			materials[mat->getHandle()] = mat;
+			mMaterials[mat.getHandle()] = &mat;
 		}
 
-		PxU32 getNumMaterials()
+		PX_FORCE_INLINE PxU32 getNumMaterials()	const
 		{
-			return handleManager.getNumMaterials();
+			return mHandleManager.getNumMaterials();
 		}
 
-		void removeMaterial(NpMaterial* mat)
+		void removeMaterial(NpMaterial& mat)
 		{
-			PxU32 handle = mat->getHandle();
+			const PxU32 handle = mat.getHandle();
 			if(handle != MATERIAL_INVALID_HANDLE)
 			{
-				materials[handle] = NULL;
-				handleManager.freeID(handle);
+				mMaterials[handle] = NULL;
+				mHandleManager.freeID(handle);
 			}
 		}
 
-		NpMaterial* getMaterial(const PxU32 index)const
+		PX_FORCE_INLINE NpMaterial* getMaterial(const PxU32 index)const
 		{
-			PX_ASSERT(index <  maxMaterials);
-			return materials[index];
+			PX_ASSERT(index <  mMaxMaterials);
+			return mMaterials[index];
 		}
 
-		PxU32 getMaxSize()const 
+		PX_FORCE_INLINE PxU32 getMaxSize()	const 
 		{
-			return maxMaterials;
+			return mMaxMaterials;
 		}
 
-		NpMaterial** getMaterials() const
+		PX_FORCE_INLINE NpMaterial** getMaterials() const
 		{
-			return materials;
+			return mMaterials;
 		}
 
 	private:
 		void resize()
 		{
-			const PxU32 numMaterials = maxMaterials;
-			maxMaterials = maxMaterials*2;
+			const PxU32 numMaterials = mMaxMaterials;
+			mMaxMaterials = mMaxMaterials*2;
 
-			NpMaterial** mat = (NpMaterial**)PX_ALLOC(sizeof(NpMaterial*)*maxMaterials,  PX_DEBUG_EXP("NpMaterialManager::resize"));
-			PxMemZero(mat, sizeof(NpMaterial*)*maxMaterials);
+			NpMaterial** mat = (NpMaterial**)PX_ALLOC(sizeof(NpMaterial*)*mMaxMaterials,  PX_DEBUG_EXP("NpMaterialManager::resize"));
+			PxMemZero(mat, sizeof(NpMaterial*)*mMaxMaterials);
 			for(PxU32 i=0; i<numMaterials; ++i)
 			{
-				mat[i] = materials[i];
+				mat[i] = mMaterials[i];
 			}
 
+			PX_FREE(mMaterials);
 
-			PX_FREE(materials);
-
-			materials = mat;
+			mMaterials = mat;
 		}
 
-		NpMaterialHandleManager		handleManager;
-		NpMaterial**				materials;
-		PxU32						maxMaterials;
-		
+		NpMaterialHandleManager	mHandleManager;
+		NpMaterial**			mMaterials;
+		PxU32					mMaxMaterials;
 	};
 
 	class NpMaterialManagerIterator
 	{
-	
 	public:
-		NpMaterialManagerIterator(const NpMaterialManager& manager) : mManager(manager), index(0)
+		NpMaterialManagerIterator(const NpMaterialManager& manager) : mManager(manager), mIndex(0)
 		{
 		}
 
-		bool hasNextMaterial()
+		bool getNextMaterial(NpMaterial*& np)
 		{
-			while(index < mManager.getMaxSize() && mManager.getMaterial(index)==NULL)
+			const PxU32 maxSize = mManager.getMaxSize();
+			PxU32 index = mIndex;
+			while(index < maxSize && mManager.getMaterial(index)==NULL)
 				index++;
-			return index < mManager.getMaxSize();
+			np = NULL;
+			if(index < maxSize)
+				np = mManager.getMaterial(index++);
+			mIndex = index;
+			return np!=NULL;
 		}
 
-		NpMaterial* getNextMaterial()
+		PxU32 getNumMaterials()	const
 		{
-			PX_ASSERT(index < mManager.getMaxSize());
-			return mManager.getMaterial(index++);
-		}
-
-		PxU32 getNumMaterial()
-		{
-			PxU32 numMaterials = 0;
-			PxU32 i = 0;
-			while(i < mManager.getMaxSize())
-			{
-				if(mManager.getMaterial(i++)!=NULL)//mManager.getMaterial(i++)->getHandle() != MATERIAL_INVALID_HANDLE)
-					numMaterials++;
-			}
-			return numMaterials;
+			return mManager.getNumMaterials();
 		}
 
 	private:
 		NpMaterialManagerIterator& operator=(const NpMaterialManagerIterator&);
-		const NpMaterialManager& mManager;
-		PxU32 index;
-
+		const NpMaterialManager&	mManager;
+		PxU32						mIndex;
 	};
 
 }

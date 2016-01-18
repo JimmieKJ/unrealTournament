@@ -2,11 +2,17 @@
 
 #pragma once
 
+#include "SlateIcon.h"
+#include "WorkspaceItem.h"
+
+class FMenuBuilder;
+class FMultiBox;
+class FTabManager;
 class SDockingArea;
 class SDockTab;
 class SDockingTabStack;
+class SWindow;
 struct FTabMatcher;
-class FTabManager;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(
 	FOnActiveTabChanged,
@@ -760,10 +766,6 @@ public:
 
 	/** Subscribe to notifications about the active tab changing */
 	FDelegateHandle OnActiveTabChanged_Subscribe( const FOnActiveTabChanged::FDelegate& InDelegate );
-
-	/** Unsubscribe to notifications about the active tab changing */
-	DELEGATE_DEPRECATED("This overload of OnActiveTabChanged_Unsubscribe is deprecated, instead pass the result of OnActiveTabChanged_Subscribe.")
-	void OnActiveTabChanged_Unsubscribe( const FOnActiveTabChanged::FDelegate& InDelegate );
 
 	/** Unsubscribe to notifications about the active tab changing */
 	void OnActiveTabChanged_Unsubscribe( FDelegateHandle Handle );

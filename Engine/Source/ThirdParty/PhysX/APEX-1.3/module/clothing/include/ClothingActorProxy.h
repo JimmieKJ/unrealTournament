@@ -377,6 +377,12 @@ public:
 		NX_READ_ZONE();
 		return impl.acquireRenderProxy();
 	}
+
+	virtual void simulate(PxF32 dt)
+	{
+		NX_WRITE_ZONE();
+		impl.simulate(dt);
+	}
 };
 
 

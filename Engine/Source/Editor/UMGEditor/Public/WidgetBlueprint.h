@@ -175,13 +175,14 @@ class UMGEDITOR_API UWidgetBlueprint : public UBlueprint
 
 public:
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForServer() const override;
-	// End UObject interface
+	//~ End UObject Interface
 
 public:
 
+#if WITH_EDITORONLY_DATA
 	/** A tree of the widget templates to be created */
 	UPROPERTY()
 	class UWidgetTree* WidgetTree;
@@ -202,6 +203,7 @@ public:
 	 */
 	UPROPERTY(AssetRegistrySearchable)
 	FString PaletteCategory;
+#endif
 
 public:
 
@@ -209,7 +211,7 @@ public:
 	virtual void PostLoad() override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	
-	// UBlueprint interface
+	//~ Begin UBlueprint Interface
 	virtual UClass* GetBlueprintClass() const override;
 
 	virtual bool AllowsDynamicBinding() const override;
@@ -223,7 +225,9 @@ public:
 
 	/** UWidget blueprints are never data only, should always compile on load (data only blueprints cannot declare new variables) */
 	virtual bool AlwaysCompileOnLoad() const override { return true; }
-	// End of UBlueprint interface
+	//~ End UBlueprint Interface
+
+	virtual void GatherDependencies(TSet<TWeakObjectPtr<UBlueprint>>& InDependencies) const override;
 
 	static bool ValidateGeneratedClass(const UClass* InClass);
 };

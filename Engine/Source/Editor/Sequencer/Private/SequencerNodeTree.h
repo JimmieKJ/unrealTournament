@@ -2,10 +2,14 @@
 
 #pragma once
 
+
+class ISequencerTrackEditor;
 class UMovieSceneSection;
 class FSequencerDisplayNode;
-class FObjectBindingNode;
+class FSequencerObjectBindingNode;
 class UMovieSceneTrack;
+struct FMovieSceneBinding;
+
 
 /**
  * Represents a tree of sequencer display nodes, used to populate the Sequencer UI with MovieScene data
@@ -67,9 +71,13 @@ public:
 	 * @return true if the node should be expanded, false otherwise	
 	 */
 	bool GetSavedExpansionState( const FSequencerDisplayNode& Node ) const;
-	
-	/** Updates nodes visibility for use when shot filters change at all */
-	void UpdateCachedVisibilityBasedOnShotFiltersChanged();
+
+	/**
+	 * Get the default expansion state for the specified node, where its state has not yet been saved
+	 *
+	 * @return true if the node is to be expanded, false otherwise
+	 */
+	bool GetDefaultExpansionState( const FSequencerDisplayNode& Node ) const;
 
 private:
 	/**
@@ -78,7 +86,7 @@ private:
 	 * @param Track	The type to find an editor for
 	 * @rerturn The editor for the type
 	 */
-	TSharedRef<FMovieSceneTrackEditor> FindOrAddTypeEditor( UMovieSceneTrack& Track );
+	TSharedRef<ISequencerTrackEditor> FindOrAddTypeEditor( UMovieSceneTrack& Track );
 
 	/**
 	 * Makes section interfaces for all sections in a track
@@ -86,21 +94,19 @@ private:
 	 * @param Track	The type to get sections from
 	 * @param SectionAreaNode	The section area which section interfaces belong to
 	 */
-	void MakeSectionInterfaces( UMovieSceneTrack& Track, TSharedRef<class FTrackNode>& SectionAreaNode );
+	void MakeSectionInterfaces( UMovieSceneTrack& Track, TSharedRef<class FSequencerTrackNode>& SectionAreaNode );
 
 	/**
-	 * Creates a new root object binding node
-	 * 
-	 * @param ObjectBinding	The object binding guid
+	 * Creates a new object binding node and any parent binding nodes.
 	 */
-	TSharedRef<FObjectBindingNode> AddObjectBinding( const FString& ObjectName, const FGuid& ObjectBinding );
+	TSharedRef<FSequencerObjectBindingNode> AddObjectBinding( const FString& ObjectName, const FGuid& ObjectBinding, TMap<FGuid, const FMovieSceneBinding*>& GuidToBindingMap, TArray< TSharedRef<FSequencerDisplayNode> >& OutNodeList );
 private:
 	/** Tools for building movie scene section layouts.  One tool for each track */
-	TMap< class UMovieSceneTrack*, TSharedPtr<FMovieSceneTrackEditor> > EditorMap;
+	TMap< UMovieSceneTrack*, TSharedPtr<ISequencerTrackEditor> > EditorMap;
 	/** Root nodes */
 	TArray< TSharedRef<FSequencerDisplayNode> > RootNodes;
 	/** Mapping of object binding guids to their node (for fast lookup) */
-	TMap< FGuid, TSharedPtr<FObjectBindingNode> > ObjectBindingMap;
+	TMap< FGuid, TSharedPtr<FSequencerObjectBindingNode> > ObjectBindingMap;
 	/** Set of all filtered nodes */
 	TSet< TSharedRef<const FSequencerDisplayNode> > FilteredNodes;
 	/** Active filter string if any */

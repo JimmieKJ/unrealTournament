@@ -86,6 +86,10 @@ private:
 	/** Removes this filter from the filter list */
 	void SetVerbosityFilter(int32 SelectedVerbosityIndex);
 
+	void DisableAllButThis();
+
+	void EnableAllCategories();
+
 	void RemoveFilter()
 	{
 		TSharedRef<SFilterWidget> Self = SharedThis(this);
@@ -154,4 +158,11 @@ private:
 
 	/** Default color for border background */
 	FLinearColor BorderBackgroundColor;
+
+	/** hacky to cache data */
+	mutable bool bWasEnabledLastTime;
+	mutable ELogVerbosity::Type LastVerbosity;
+
+	mutable FText CachedCaptionString;
+	mutable FText CachedTooltipString;
 };

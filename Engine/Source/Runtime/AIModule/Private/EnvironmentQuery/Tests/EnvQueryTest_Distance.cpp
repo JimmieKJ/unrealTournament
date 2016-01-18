@@ -21,6 +21,11 @@ namespace
 	{
 		return PosB.Z - PosA.Z;
 	}
+
+	FORCEINLINE float CalcDistanceAbsoluteZ(const FVector& PosA, const FVector& PosB)
+	{
+		return FMath::Abs(PosB.Z - PosA.Z);
+	}
 }
 
 UEnvQueryTest_Distance::UEnvQueryTest_Distance(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -32,10 +37,16 @@ UEnvQueryTest_Distance::UEnvQueryTest_Distance(const FObjectInitializer& ObjectI
 
 void UEnvQueryTest_Distance::RunTest(FEnvQueryInstance& QueryInstance) const
 {
-	FloatValueMin.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+	UObject* QueryOwner = QueryInstance.Owner.Get();
+	if (QueryOwner == nullptr)
+	{
+		return;
+	}
+
+	FloatValueMin.BindData(QueryOwner, QueryInstance.QueryID);
 	float MinThresholdValue = FloatValueMin.GetValue();
 
-	FloatValueMax.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+	FloatValueMax.BindData(QueryOwner, QueryInstance.QueryID);
 	float MaxThresholdValue = FloatValueMax.GetValue();
 
 	// don't support context Item here, it doesn't make any sense
@@ -83,7 +94,20 @@ void UEnvQueryTest_Distance::RunTest(FEnvQueryInstance& QueryInstance) const
 			}
 			break;
 
+		case EEnvTestDistance::DistanceAbsoluteZ:
+			for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
+			{
+				const FVector ItemLocation = GetItemLocation(QueryInstance, It.GetIndex());
+				for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
+				{
+					const float Distance = CalcDistanceAbsoluteZ(ItemLocation, ContextLocations[ContextIndex]);
+					It.SetScore(TestPurpose, FilterType, Distance, MinThresholdValue, MaxThresholdValue);
+				}
+			}
+			break;
+
 		default:
+			checkNoEntry();
 			return;
 	}
 }

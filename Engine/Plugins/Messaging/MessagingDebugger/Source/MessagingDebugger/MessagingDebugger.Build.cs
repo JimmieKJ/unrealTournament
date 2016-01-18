@@ -42,5 +42,10 @@ public class MessagingDebugger : ModuleRules
 				"MessagingDebugger/Private/Widgets/Toolbar",
 			}
 		);
+
+        if (UEBuildConfiguration.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.Add("PropertyEditor");
+        }
 	}
 }

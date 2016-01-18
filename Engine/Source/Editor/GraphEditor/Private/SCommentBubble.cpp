@@ -45,6 +45,7 @@ void SCommentBubble::Construct( const FArguments& InArgs )
 	GraphNode				= InArgs._GraphNode;
 	CommentAttribute		= InArgs._Text;
 	OnTextCommittedDelegate	= InArgs._OnTextCommitted;
+	OnToggledDelegate		= InArgs._OnToggled;
 	ColorAndOpacity			= InArgs._ColorAndOpacity;
 	bAllowPinning			= InArgs._AllowPinning;
 	bEnableTitleBarBubble	= InArgs._EnableTitleBarBubble;
@@ -55,8 +56,8 @@ void SCommentBubble::Construct( const FArguments& InArgs )
 	HintText				= InArgs._HintText.IsSet() ? InArgs._HintText : NSLOCTEXT( "CommentBubble", "EditCommentHint", "Click to edit" );
 	OpacityValue			= SCommentBubbleDefs::FadeDelay;
 	// Create default delegate/attribute handlers if required
-	ToggleButtonCheck			= InArgs._ToggleButtonCheck.IsBound() ?		InArgs._ToggleButtonCheck : 
-																			TAttribute<ECheckBoxState>( this, &SCommentBubble::GetToggleButtonCheck );
+	ToggleButtonCheck		= InArgs._ToggleButtonCheck.IsBound() ?	InArgs._ToggleButtonCheck : 
+																	TAttribute<ECheckBoxState>( this, &SCommentBubble::GetToggleButtonCheck );
 	// Ensue this value is set to something sensible
 	ForegroundColor = SCommentBubbleDefs::LightForegroundClr;
 
@@ -308,20 +309,16 @@ void SCommentBubble::UpdateBubble()
 
 FVector2D SCommentBubble::GetOffset() const
 {
-	if( GraphNode->bCommentBubbleVisible || OpacityValue > 0.f )
-	{
-		return FVector2D( 0.f, -GetDesiredSize().Y );
-	}
-	return FVector2D::ZeroVector;
+	return FVector2D( 0.f, -GetDesiredSize().Y );
 }
 
 float SCommentBubble::GetArrowCenterOffset() const
 {
 	float CentreOffset = GraphNode->bCommentBubbleVisible ? SCommentBubbleDefs::ArrowCentreOffset : SCommentBubbleDefs::ToggleButtonCentreOffset;
 	const bool bVisibleAndUnpinned = !GraphNode->bCommentBubblePinned && GraphNode->bCommentBubbleVisible;
-	if( bVisibleAndUnpinned && GraphNode->NodeWidget.IsValid() )
+	if (bVisibleAndUnpinned && GraphNode->DEPRECATED_NodeWidget.IsValid())
 	{
-		TSharedPtr<SGraphPanel> GraphPanel = GraphNode->NodeWidget.Pin()->GetOwnerPanel();
+		TSharedPtr<SGraphPanel> GraphPanel = GraphNode->DEPRECATED_NodeWidget.Pin()->GetOwnerPanel();
 		CentreOffset *= GraphPanel.IsValid() ? GraphPanel->GetZoomAmount() : 1.f;
 	}
 	return CentreOffset;
@@ -372,7 +369,7 @@ FSlateColor SCommentBubble::GetBubbleColor() const
 {
 	FLinearColor ReturnColor = ColorAndOpacity.Get().GetSpecifiedColor();
 
-	if(!GraphNode->bIsNodeEnabled)
+	if(!GraphNode->IsNodeEnabled())
 	{
 		ReturnColor.A *= 0.6f;
 	}
@@ -391,9 +388,13 @@ FSlateColor SCommentBubble::GetTextForegroundColor() const
 
 void SCommentBubble::OnCommentTextCommitted( const FText& NewText, ETextCommit::Type CommitInfo )
 {
-	CachedComment = NewText.ToString();
-	CachedCommentText = NewText;
-	OnTextCommittedDelegate.ExecuteIfBound( CachedCommentText, CommitInfo );
+	if (CommitInfo == ETextCommit::OnCleared)
+	{
+		// Don't respond to OnEnter, as it will be immediately followed by OnCleared anyway (due to loss of keyboard focus) and generate a second transaction
+		CachedComment = NewText.ToString();
+		CachedCommentText = NewText;
+		OnTextCommittedDelegate.ExecuteIfBound(CachedCommentText, CommitInfo);
+	}
 }
 
 EVisibility SCommentBubble::GetToggleButtonVisibility() const
@@ -426,11 +427,12 @@ void SCommentBubble::OnCommentBubbleToggle( ECheckBoxState State )
 {
 	if( !IsReadOnly() )
 	{
-		const FScopedTransaction Transaction( NSLOCTEXT( "CommentBubble", "BubbleVisibility", "Comment Bubble Visibilty" ) );
+		const FScopedTransaction Transaction( NSLOCTEXT( "CommentBubble", "BubbleVisibility", "Comment Bubble Visibility" ) );
 		GraphNode->Modify();
 		GraphNode->bCommentBubbleVisible = State == ECheckBoxState::Checked;
 		OpacityValue = 0.f;
 		UpdateBubble();
+		OnToggledDelegate.ExecuteIfBound(GraphNode->bCommentBubbleVisible);
 	}
 }
 
@@ -457,9 +459,9 @@ void SCommentBubble::OnPinStateToggle( ECheckBoxState State ) const
 bool SCommentBubble::IsReadOnly() const
 {
 	bool bReadOnly = true;
-	if( GraphNode && GraphNode->NodeWidget.IsValid() )
+	if (GraphNode && GraphNode->DEPRECATED_NodeWidget.IsValid())
 	{
-		bReadOnly = !GraphNode->NodeWidget.Pin()->IsNodeEditable();
+		bReadOnly = !GraphNode->DEPRECATED_NodeWidget.Pin()->IsNodeEditable();
 	}
 	return bReadOnly;
 }

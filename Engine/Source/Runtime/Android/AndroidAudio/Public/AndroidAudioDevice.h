@@ -8,8 +8,10 @@
 
 class FSLESAudioDevice;
 
+#include "Core.h"
 #include "Engine.h"
 #include "SoundDefinitions.h"
+#include "AudioDecompress.h"
 #include "AudioEffect.h"
 
 #include <SLES/OpenSLES.h>
@@ -129,6 +131,8 @@ public:
 	
 };
 
+typedef FAsyncTask<FAsyncRealtimeAudioTaskWorker<FSLESSoundBuffer>> FAsyncRealtimeAudioTask;
+
 /**
  * OpenSLES implementation of FSoundSource, the interface used to play, stop and update sources
  */
@@ -198,6 +202,13 @@ public:
 
 protected:
 
+	enum class EDataReadMode : uint8
+	{
+		Synchronous,
+		Asynchronous,
+		AsynchronousSkipFirstFrame
+	};
+
 	friend class FSLESAudioDevice;
 	FSLESSoundBuffer*		Buffer;
 	FSLESAudioDevice*		Device;
@@ -207,6 +218,8 @@ protected:
 	SLPlayItf						SL_PlayerPlayInterface;
 	SLAndroidSimpleBufferQueueItf	SL_PlayerBufferQueue;
 	SLVolumeItf						SL_VolumeInterface;
+
+	FAsyncRealtimeAudioTask* RealtimeAsyncTask;
 
 	/** Which sound buffer should be written to next - used for double buffering. */
 	bool						bStreamedSound;
@@ -228,10 +241,7 @@ protected:
 	bool EnqueuePCMRTBuffer( bool bLoop);
 
 	/** Decompress through FSLESSoundBuffer, or call USoundWave procedure to generate more PCM data. Returns true/false: did audio loop? */
-	bool ReadMorePCMData(const int32 BufferIndex);
-
-	/** Handle obtaining more data for procedural USoundWaves. Always returns false for convenience. */
-	bool ReadProceduralData(const int32 BufferIndex);
+	bool ReadMorePCMData( const int32 BufferIndex, EDataReadMode DataReadMode );
 };
 
 /**

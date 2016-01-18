@@ -77,6 +77,7 @@ public class UnrealCEFSubProcessTarget : TargetRules
         CrossCompile = false;
         return true;
     }
+
     public override List<UnrealTargetPlatform> GUBP_ToolPlatforms(UnrealTargetPlatform InHostPlatform)
     {
 		if(InHostPlatform == UnrealTargetPlatform.Win64)

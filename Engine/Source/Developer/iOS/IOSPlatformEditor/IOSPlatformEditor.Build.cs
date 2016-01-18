@@ -24,6 +24,8 @@ public class IOSPlatformEditor : ModuleRules
 				"SourceControl",
 				"IOSRuntimeSettings",
 				"TargetPlatform",
+				"MaterialShaderQualitySettings",
+				"RenderCore",
 			}
 		);
 

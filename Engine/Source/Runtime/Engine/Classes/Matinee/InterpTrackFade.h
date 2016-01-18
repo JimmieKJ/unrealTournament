@@ -27,7 +27,7 @@ class UInterpTrackFade : public UInterpTrackFloatBase
 	UPROPERTY(EditAnywhere, Category = InterpTrackFade)
 	FLinearColor FadeColor;
 
-	// Begin UInterpTrack interface.
+	//~ Begin UInterpTrack Interface.
 	virtual int32 AddKeyframe(float Time, UInterpTrackInst* TrInst, EInterpCurveMode InitInterpMode) override;
 	virtual void UpdateKeyframe(int32 KeyIndex, UInterpTrackInst* TrInst) override;
 	virtual void PreviewUpdateTrack(float NewPosition, UInterpTrackInst* TrInst) override;
@@ -35,7 +35,7 @@ class UInterpTrackFade : public UInterpTrackFloatBase
 #if WITH_EDITORONLY_DATA
 	virtual class UTexture2D* GetTrackIcon() const override;
 #endif // WITH_EDITORONLY_DATA
-	// End UInterpTrack interface.
+	//~ End UInterpTrack Interface.
 
 	/** @return the amount of fading we want at the given time. */
 	ENGINE_API float GetFadeAmountAtTime(float Time);

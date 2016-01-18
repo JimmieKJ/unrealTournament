@@ -188,6 +188,8 @@ void SGameProjectDialog::Construct( const FArguments& InArgs )
 		check(false);
 	}
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 
 EActiveTimerReturnType SGameProjectDialog::TriggerFadeInPostConstruct(double InCurrentTime, float InDeltaTime)
 {

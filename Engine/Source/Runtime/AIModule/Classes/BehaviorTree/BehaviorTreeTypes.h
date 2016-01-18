@@ -113,6 +113,7 @@ UENUM()
 namespace EBTFlowAbortMode
 {
 	// keep in sync with DescribeFlowAbortMode()
+
 	enum Type
 	{
 		None				UMETA(DisplayName="Nothing"),
@@ -162,7 +163,7 @@ struct FBehaviorTreeParallelTask
 	const UBTTaskNode* TaskNode;
 
 	/** additional mode data used for context switching */
-	TEnumAsByte<EBTTaskStatus::Type> Status;
+	EBTTaskStatus::Type Status;
 
 	FBehaviorTreeParallelTask() : TaskNode(NULL) {}
 	FBehaviorTreeParallelTask(const UBTTaskNode* InTaskNode, EBTTaskStatus::Type InStatus) : TaskNode(InTaskNode), Status(InStatus) {}
@@ -327,6 +328,9 @@ struct FBehaviorTreeInstance
 	/** cleanup node instances */
 	void Cleanup(UBehaviorTreeComponent& OwnerComp, EBTMemoryClear::Type CleanupType);
 
+	/** check if instance has active node with given execution index */
+	bool HasActiveNode(uint16 TestExecutionIndex) const;
+
 protected:
 
 	/** worker for updating all nodes */
@@ -458,17 +462,17 @@ protected:
 	static_assert(sizeof(uint8) == sizeof(FBlackboard::FKey), "FBlackboardKeySelector::SelectedKeyId should be of FBlackboard::FKey-compatible type.");
 
 	// Requires BlueprintReadWrite so that blueprint creators (using MakeBlackboardKeySelector) can specify whether or not None is Allowed.
-	UPROPERTY(transient, EditAnywhere, BlueprintReadWrite, Category = Blackboard, Meta = (Tooltip = ""))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Blackboard, Meta = (Tooltip = ""))
 	uint32 bNoneIsAllowedValue:1;
 
+	/** find initial selection. Called when None is not a valid option for this key selector */
+	void InitSelection(const UBlackboardData& BlackboardAsset);
+
 public:
-	/** cache ID and class of selected key */
-	void CacheSelectedKey(UBlackboardData* BlackboardAsset);
-
-	/** find initial selection */
-	void InitSelectedKey(UBlackboardData* BlackboardAsset);
-
-	void AllowNoneAsValue(bool bNewVal ) { bNoneIsAllowedValue = bNewVal; }
+	/** find ID and class of selected key */
+	void ResolveSelectedKey(const UBlackboardData& BlackboardAsset);
+		
+	void AllowNoneAsValue(bool bAllow) { bNoneIsAllowedValue = bAllow; }
 
 	FORCEINLINE FBlackboard::FKey GetSelectedKeyID() const { return SelectedKeyID; }
 
@@ -507,8 +511,14 @@ public:
 	void AddStringFilter(UObject* Owner);
 	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddNameFilter(UObject* Owner);
+	DEPRECATED(4.10, "CacheSelectedKey is deprecated. Please use ResolveSelectedKey instead.")
+	void CacheSelectedKey(UBlackboardData* BlackboardAsset);
+	DEPRECATED(4.10, "InitSelectedKey is deprecated. Please use InitSelection instead.")
+	void InitSelectedKey(UBlackboardData* BlackboardAsset);
 
 	FORCEINLINE bool IsNone() const { return bNoneIsAllowedValue && SelectedKeyID == FBlackboard::InvalidKey; }
+	FORCEINLINE bool IsSet() const { return SelectedKeyID != FBlackboard::InvalidKey; }
+	FORCEINLINE bool NeedsResolving() const { return SelectedKeyID == FBlackboard::InvalidKey && SelectedKeyName.IsNone() == false; }
 
 	friend FBlackboardDecoratorDetails;
 };

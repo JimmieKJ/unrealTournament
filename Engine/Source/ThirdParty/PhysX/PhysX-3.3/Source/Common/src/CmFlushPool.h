@@ -60,7 +60,7 @@ namespace Cm
 			
 			// padding for alignment
 			size_t unalignedStart = reinterpret_cast<size_t>(mChunks[mChunkIndex]+mOffset);
-			PxU32 pad = PxU32(((unalignedStart+alignment-1)&~(alignment-1)) - unalignedStart);
+			PxU32 pad = PxU32(((unalignedStart+alignment-1)&~(size_t(alignment)-1)) - unalignedStart);
 
 			if (mOffset + size + pad > mChunkSize)
 			{
@@ -71,11 +71,11 @@ namespace Cm
 
 				// update padding to ensure new alloc is aligned
 				unalignedStart = reinterpret_cast<size_t>(mChunks[mChunkIndex]);
-				pad = PxU32(((unalignedStart+alignment-1)&~(alignment-1)) - unalignedStart);
+				pad = PxU32(((unalignedStart+alignment-1)&~(size_t(alignment)-1)) - unalignedStart);
 			}
 
 			void* ptr = mChunks[mChunkIndex] + mOffset + pad;
-			PX_ASSERT((reinterpret_cast<size_t>(ptr)&(alignment-1)) == 0);
+			PX_ASSERT((reinterpret_cast<size_t>(ptr)&(size_t(alignment)-1)) == 0);
 			mOffset += size + pad;
 			return ptr;
 		}

@@ -5,12 +5,14 @@
 =============================================================================*/
 
 #include "CorePrivatePCH.h"
-#include "MallocBinned.h"
+#include "MallocBinned2.h"
 #include "MallocAnsi.h"
 
 
 void FIOSPlatformMemory::Init()
 {
+	FGenericPlatformMemory::Init();
+
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	UE_LOG(LogInit, Log, TEXT("Memory total: Physical=%.1fGB (%dGB approx) Pagefile=%.1fGB Virtual=%.1fGB"), 
 		float(MemoryConstants.TotalPhysical/1024.0/1024.0/1024.0),
@@ -97,7 +99,7 @@ FMalloc* FIOSPlatformMemory::BaseAllocator()
 	uint64 MemoryLimit = FMath::Min<uint64>( uint64(1) << FMath::CeilLogTwo(Stats.free_count * PageSize), 0x100000000);
 
 	//return new FMallocAnsi();
-	return new FMallocBinned(PageSize, MemoryLimit);
+	return new FMallocBinned2(PageSize, MemoryLimit);
 }
 
 void* FIOSPlatformMemory::BinnedAllocFromOS( SIZE_T Size )

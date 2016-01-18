@@ -62,6 +62,11 @@ void DestructibleUserNotify::onConstraintBreak(PxConstraintInfo* constraints, Px
 
 void DestructibleUserNotify::onWake(PxActor** actors, physx::PxU32 count)
 {
+	if (mDestructibleScene->mUsingActiveTransforms)	// The remaining code in this function only updates the destructible actor awake list when not using active transforms
+	{
+		return;
+	}
+
 	for (physx::PxU32 i = 0; i < count; i++)
 	{
 		PxActor* actor = actors[i];
@@ -102,6 +107,11 @@ void DestructibleUserNotify::onWake(PxActor** actors, physx::PxU32 count)
 
 void DestructibleUserNotify::onSleep(PxActor** actors, physx::PxU32 count)
 {
+	if (mDestructibleScene->mUsingActiveTransforms)	// The remaining code in this function only updates the destructible actor awake list when not using active transforms
+	{
+		return;
+	}
+
 	for (physx::PxU32 i = 0; i < count; i++)
 	{
 		PxActor* actor = actors[i];
@@ -702,7 +712,18 @@ void DestructibleScene::addActorsToScene()
 					{
 						if (!forceToAdd.force.isZero())
 						{
-							PxRigidBodyExt::addForceAtPos(*actor->isRigidBody(), forceToAdd.force, forceToAdd.pos, forceToAdd.mode, forceToAdd.wakeup);
+							PxRigidBody* rigidBody = actor->isRigidBody();
+							if (rigidBody)
+							{
+								if (forceToAdd.usePosition)
+								{
+									PxRigidBodyExt::addForceAtPos(*rigidBody, forceToAdd.force, forceToAdd.pos, forceToAdd.mode, forceToAdd.wakeup);
+								}
+								else
+								{
+									rigidBody->addForce(forceToAdd.force, forceToAdd.mode, forceToAdd.wakeup);
+								}
+							}
 						}
 						else
 						{

@@ -344,7 +344,7 @@ enum {MAX_POINTS = 128000};
 class UModel : public UObject
 {
 #if WITH_HOT_RELOAD_CTORS
-	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR_NO_VTABLE_CTOR(UModel, UObject, 0, Engine, 0, ENGINE_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR_NO_VTABLE_CTOR(UModel, UObject, 0, TEXT("/Script/Engine"), 0, ENGINE_API)
 
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	UModel(FVTableHelper& Helper);
@@ -357,11 +357,11 @@ class UModel : public UObject
 	UPolys*						Polys;
 #endif // WITH_EDITOR
 
-	TTransArray<FBspNode>		Nodes;
-	TTransArray<FVert>			Verts;
-	TTransArray<FVector>		Vectors;
-	TTransArray<FVector>		Points;
-	TTransArray<FBspSurf>		Surfs;
+	TArray<FBspNode>		Nodes;
+	TArray<FVert>			Verts;
+	TArray<FVector>			Vectors;
+	TArray<FVector>			Points;
+	TArray<FBspSurf>		Surfs;
 
 #if WITH_EDITOR
 	TArray<int32>				LeafHulls;
@@ -384,6 +384,9 @@ class UModel : public UObject
 
 	/** True if surfaces in the model have been changed without calling ULevel::CommitModelSurfaces. */
 	bool InvalidSurfaces;
+
+	/** True if only the material index buffers should be rebuilt when committing model surfaces */
+	bool bOnlyRebuildMaterialIndexBuffers;
 
 	/** True if static lighting now can not be validly built for this model */
 	bool bInvalidForStaticLighting;
@@ -411,7 +414,6 @@ class UModel : public UObject
 	FVector OwnerLocationWhenLastBuilt;
 	FRotator OwnerRotationWhenLastBuilt;
 	FVector OwnerScaleWhenLastBuilt;
-	FVector OwnerPrepivotWhenLastBuilt;
 
 	/** Specifies whether the above cached transform is valid */
 	bool bCachedOwnerTransformValid;

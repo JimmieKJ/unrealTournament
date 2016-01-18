@@ -35,6 +35,7 @@
 #include "ir_optimization.h"
 #include "ir_function_inlining.h"
 #include "macros.h"
+#include "LanguageSpec.h"
 
 ir_rvalue* process_mul(
 	exec_list* instructions, _mesa_glsl_parse_state* state,
@@ -64,7 +65,13 @@ ir_rvalue* process_mul(
 		return NULL;
 	}
 
-	if (!type0->is_float())
+	// Promote float * half as some languages can't deal with it; do not promote half * half
+	bool bType0IsHalf = (type0->base_type == GLSL_TYPE_HALF);
+	bool bType1IsHalf = (type1->base_type == GLSL_TYPE_HALF);
+	bool bBothTypesAreHalf = (bType0IsHalf && bType1IsHalf);
+	bool bPromoteHalf = state->LanguageSpec->CanConvertBetweenHalfAndFloat() ? false : !bBothTypesAreHalf;
+
+	if (!type0->is_float() || (bType0IsHalf && bPromoteHalf))
 	{
 		op[0] = convert_component(op[0],
 			glsl_type::get_instance(GLSL_TYPE_FLOAT,
@@ -72,7 +79,7 @@ ir_rvalue* process_mul(
 		type0 = op[0]->type;
 	}
 
-	if (!type1->is_float())
+	if (!type1->is_float() || (bType1IsHalf && bPromoteHalf))
 	{
 		op[1] = convert_component(op[1], glsl_type::get_instance(GLSL_TYPE_FLOAT,
 			type1->vector_elements, type1->matrix_columns));

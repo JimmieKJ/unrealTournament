@@ -76,23 +76,29 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ScrollToEnd();
 
-	// UWidget interface
+	/** Scrolls the ScrollBox to the widget during the next layout pass. */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	void ScrollWidgetIntoView(UWidget* WidgetToFind, bool AnimateScroll = true);
+
+	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
-	// UVisual interface
+	//~ Begin UVisual Interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
+	//~ End UVisual Interface
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End of UObject interface
+	//~ End UObject Interface
 
 #if WITH_EDITOR
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
-	// End UWidget interface
+	virtual void OnDescendantSelected( UWidget* DescendantWidget ) override;
+	virtual void OnDescendantDeselected( UWidget* DescendantWidget ) override;
+	//~ End UWidget Interface
 #endif
 
 protected:
@@ -110,7 +116,11 @@ protected:
 	TSharedPtr<class SScrollBox> MyScrollBox;
 
 protected:
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
+
+#if WITH_EDITOR
+	FDelegateHandle TickHandle;
+#endif //WITH_EDITOR
 };

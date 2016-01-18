@@ -207,7 +207,7 @@ FReply SMatineeKeyReduction::OnOK()
 
 	Matinee->InterpEdTrans->EndSpecial();
 
-	Matinee->CloseEntryPopupWindow();
+	Matinee->CloseEntryPopupMenu();
 
 	return FReply::Handled();
 }
@@ -260,8 +260,9 @@ void FMatinee::ReduceKeys()
 			TSharedRef<SMatineeKeyReduction> ParameterDialog = 
 				SNew(SMatineeKeyReduction, this, Track, TrackInst, IntervalStart, IntervalEnd);
 
-			EntryPopupWindow = FSlateApplication::Get().PushMenu(
+			EntryPopupMenu = FSlateApplication::Get().PushMenu(
 				ToolkitHost.Pin()->GetParentWidget(),
+				FWidgetPath(),
 				ParameterDialog,
 				FSlateApplication::Get().GetCursorPos(),
 				FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)

@@ -18,14 +18,14 @@ float4 DistortionParams;
 void Main(
 	FVertexFactoryInterpolantsVSToPS Interpolants,
 	float4	PixelPosition	: TEXCOORD6,
-	in float4 SvPosition	: SV_Position,
+	in float4 SvPosition	: SV_Position
 	OPTIONAL_IsFrontFace,
 	out float4 OutColor		: SV_Target0
 	)
 {
 	// material parameter inputs
-	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants,PixelPosition);
-	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, PixelPosition);
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
+	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace);
 	
 	// material distortion offset
 	half3 Normal = GetMaterialNormal(MaterialParameters);
@@ -60,12 +60,13 @@ void Main(
 
 	// Sample depth at distortion offset
 	float2 DistortScreenUV = ScreenUV + Distortion;
-#if COMPILER_GLSL_ES2
-	float DistortSceneDepth = Texture2DSample(SceneColorTexture, SceneColorTextureSampler, DistortScreenUV).w;
+
+#if (ES2_PROFILE || ES3_1_PROFILE) 
+	float DistortSceneDepth = ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, DistortScreenUV, 0).r);
 #else
 	float DistortSceneDepth = CalcSceneDepth(DistortScreenUV);
-#endif
-
+#endif // (ES2_PROFILE || ES3_1_PROFILE) 
+	
 	// Soft thresholding 
 	float Bias = -Refraction.y;
 	float Range = clamp(abs(Bias * 0.5f), 0, 50);
@@ -74,6 +75,11 @@ void Main(
 	float InvWidth = 1.0f / max(1.0f, Range );
 	Distortion *= saturate((Z - ZCompare) * InvWidth + Bias);
 
+#if (ES2_PROFILE || ES3_1_PROFILE) 
+	// mobile path direclty outputs distorted colors
+	DistortScreenUV = ScreenUV + Distortion;
+	OutColor = CalcFullSceneColor(DistortScreenUV);
+#else
 	//Scale up for better precision in low/subtle refractions at the expense of artefacts at higher refraction.
 	Distortion*= DistortionScaleBias;
 
@@ -83,6 +89,7 @@ void Main(
 
 	// output positives in R|G channels and negatives in B|A channels
 	OutColor = float4(PosOffset.x,PosOffset.y,NegOffset.x,NegOffset.y);
+#endif // (ES2_PROFILE || ES3_1_PROFILE) 
 }
 
 

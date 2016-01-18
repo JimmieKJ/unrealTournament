@@ -405,6 +405,14 @@ public:
 	bool IsNearlyZero( float Tolerance=KINDA_SMALL_NUMBER ) const;
 
 	/**
+	 * Util to convert this vector into a unit direction vector and its original length.
+	 *
+	 * @param OutDir Reference passed in to store unit direction vector.
+	 * @param OutLength Reference passed in to store length of the vector.
+	 */
+	void ToDirectionAndLength(FVector2D &OutDir, float &OutLength) const;
+
+	/**
 	 * Checks whether all components of the vector are exactly zero.
 	 *
 	 * @return true if vector is exactly zero, otherwise false.
@@ -462,13 +470,23 @@ public:
 		return Ar << V.X << V.Y;
 	}
 
-#if ENABLE_NAN_DIAGNOSTIC
-	FORCEINLINE void DiagnosticCheckNaN() const
+	bool Serialize( FArchive& Ar )
 	{
-		checkf(!ContainsNaN(), TEXT("FVector contains NaN: %s"), *ToString());
+		Ar << *this;
+		return true;
+	}
+
+#if ENABLE_NAN_DIAGNOSTIC
+	FORCEINLINE void DiagnosticCheckNaN()
+	{
+		if (ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("FVector contains NaN: %s"), *ToString());
+			*this = FVector2D::ZeroVector;
+		}
 	}
 #else
-	FORCEINLINE void DiagnosticCheckNaN() const {}
+	FORCEINLINE void DiagnosticCheckNaN() {}
 #endif
 
 	/**
@@ -645,7 +663,7 @@ FORCEINLINE bool FVector2D::operator>=( const FVector2D& Other ) const
 
 FORCEINLINE bool FVector2D::Equals(const FVector2D& V, float Tolerance) const
 {
-	return FMath::Abs(X-V.X) < Tolerance && FMath::Abs(Y-V.Y) < Tolerance;
+	return FMath::Abs(X-V.X) <= Tolerance && FMath::Abs(Y-V.Y) <= Tolerance;
 }
 
 
@@ -795,10 +813,25 @@ FORCEINLINE void FVector2D::Normalize(float Tolerance)
 }
 
 
+FORCEINLINE void FVector2D::ToDirectionAndLength(FVector2D &OutDir, float &OutLength) const
+{
+	OutLength = Size();
+	if (OutLength > SMALL_NUMBER)
+	{
+		float OneOverLength = 1.0f / OutLength;
+		OutDir = FVector2D(X*OneOverLength, Y*OneOverLength);
+	}
+	else
+	{
+		OutDir = FVector2D::ZeroVector;
+	}
+}
+
+
 FORCEINLINE bool FVector2D::IsNearlyZero(float Tolerance) const
 {
-	return	FMath::Abs(X)<Tolerance
-		&&	FMath::Abs(Y)<Tolerance;
+	return	FMath::Abs(X)<=Tolerance
+		&&	FMath::Abs(Y)<=Tolerance;
 }
 
 

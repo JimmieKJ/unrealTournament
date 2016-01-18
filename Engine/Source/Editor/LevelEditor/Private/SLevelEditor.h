@@ -69,10 +69,10 @@ public:
 	virtual void AppendCommands( const TSharedRef<FUICommandList>& InCommandsToAppend ) override;
 
 	/**
-	 * Given a tab ID, summons a new tab in the tab stack specified.
-	 * If SummonInStack is null, use the default location
+	 * Given a tab ID, summons a new tab in the position saved in the current layout, or in a default position.
+	 * @return the invoked tab
 	 */
-	void InvokeTab( FName TabID );
+	TSharedRef<SDockTab> InvokeTab( FName TabID );
 
 	/**
 	 * Sync the details panel to the current selection
@@ -121,9 +121,8 @@ public:
 	// Tab Management
 	TSharedRef<FTabManager> GetTabManager() const;
 	
-	// @todo remove when world-centric mode is added
-	TSharedPtr<SDockTab> SequencerTab;
-
+	/** Attaches a sequencer asset editor used to animate objects in the level to this level editor */
+	void AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TSharedPtr<IAssetEditorInstance> NewSequencerAssetEditor );
 private:
 	
 	TSharedRef<SDockTab> SpawnLevelEditorTab(const FSpawnTabArgs& Args, FName TabIdentifier, FString InitializationPayload);
@@ -229,6 +228,9 @@ private:
 
 	/** List of all actor details panels to update when selection changes */
 	TArray< TWeakPtr<class SActorDetails> > AllActorDetailPanels;
+
+	/** Attached sequencer asset editor */
+	TWeakPtr<IAssetEditorInstance> SequencerAssetEditor;
 };
 
 

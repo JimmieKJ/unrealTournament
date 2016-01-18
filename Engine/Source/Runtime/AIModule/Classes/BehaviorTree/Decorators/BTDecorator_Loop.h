@@ -7,6 +7,7 @@ struct FBTLoopDecoratorMemory
 {
 	int32 SearchId;
 	uint8 RemainingExecutions;
+	float TimeStarted;
 };
 
 /**
@@ -19,12 +20,16 @@ class AIMODULE_API UBTDecorator_Loop : public UBTDecorator
 	GENERATED_UCLASS_BODY()
 
 	/** number of executions */
-	UPROPERTY(Category=Decorator, EditAnywhere)
+	UPROPERTY(Category=Decorator, EditAnywhere, meta=(EditCondition="!bInfiniteLoop"))
 	int32 NumLoops;
 
 	/** infinite loop */
-	UPROPERTY(Category=Decorator, EditAnywhere)
+	UPROPERTY(Category = Decorator, EditAnywhere)
 	bool bInfiniteLoop;
+
+	/** timeout (when looping infinitely, when we finish a loop we will check whether we have spent this time looping, if we have we will stop looping). A negative value means loop forever. */
+	UPROPERTY(Category = Decorator, EditAnywhere, meta = (EditCondition = "bInfiniteLoop"))
+	float InfiniteLoopTimeoutTime;
 
 	virtual uint16 GetInstanceMemorySize() const override;
 	virtual void DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const override;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWeap_ImpactHammer.h"
 #include "UTWeaponStateFiringCharged.h"
@@ -24,7 +24,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectIniti
 	FullChargeTime = 2.5f;
 	FullImpactChargePct = 0.2f;
 	MinAutoChargePct = 1.f;
-	ImpactJumpTraceDist = 220.f;
+	ImpactJumpTraceDist = 253.f;
 	FOVOffset = FVector(0.1f, 1.f, 2.f);
 
 	DroppedPickupClass = NULL; // doesn't drop

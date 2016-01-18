@@ -20,18 +20,18 @@ float4 NoiseParams;
 	error
 #endif
 
-void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 
-	float2 ScreenPos = UVAndScreenPos.zw;
-
-	float2 PixelPos = ScreenPos * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f;
+	float2 PixelPos = SvPosition;
 	float Rnd = PseudoRandom(PixelPos); 
 
 	float2 Offset = PostprocessInput0Size.zw;
 
 	const int Count = 16;
+
+	OutColor = 0;
 
 	for(int i = 0; i < Count; ++i)
 	{

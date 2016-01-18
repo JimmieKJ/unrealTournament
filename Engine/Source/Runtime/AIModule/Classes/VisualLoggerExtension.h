@@ -22,18 +22,20 @@ class FVisualLoggerExtension : public FVisualLogExtensionInterface
 {
 public:
 	FVisualLoggerExtension();
-	virtual void OnTimestampChange(float Timestamp, UWorld* InWorld, AActor* HelperActor) override;
-	virtual void DrawData(UWorld* InWorld, UCanvas* Canvas, AActor* HelperActor, const FName& TagName, const FVisualLogDataBlock& DataBlock, float Timestamp) override;
-	virtual void DisableDrawingForData(UWorld* InWorld, UCanvas* Canvas, AActor* HelperActor, const FName& TagName, const FVisualLogDataBlock& DataBlock, float Timestamp) override;
-	virtual void LogEntryLineSelectionChanged(TSharedPtr<FLogEntryItem> SelectedItem, int64 UserData, FName TagName) override;
+
+	virtual void ResetData(IVisualLoggerEditorInterface* EdInterface) override;
+	virtual void DrawData(IVisualLoggerEditorInterface* EdInterface, UCanvas* Canvas) override;
+	virtual void OnItemsSelectionChanged(IVisualLoggerEditorInterface* EdInterface) override;
+	virtual void OnLogLineSelectionChanged(IVisualLoggerEditorInterface* EdInterface, TSharedPtr<struct FLogEntryItem> SelectedItem, int64 UserData) override;
 
 private:
+	void DrawData(UWorld* InWorld, class UEQSRenderingComponent* EQSRenderingComponent, UCanvas* Canvas, AActor* HelperActor, const FName& TagName, const FVisualLogDataBlock& DataBlock, float Timestamp);
 	void DisableEQSRendering(AActor* HelperActor);
 
 protected:
-	uint32 CachedEQSId;
 	uint32 SelectedEQSId;
 	float CurrentTimestamp;
+	TArray<TWeakObjectPtr<class UEQSRenderingComponent> >	EQSRenderingComponents;
 };
 #endif //ENABLE_VISUAL_LOG
 

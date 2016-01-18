@@ -123,7 +123,7 @@ EMessageSeverity::Type FMessageLogListingViewModel::HighestSeverityPresent( uint
 	return Severity;
 }
 
-void FMessageLogListingViewModel::AddMessage( const TSharedRef< class FTokenizedMessage >& NewMessage )
+void FMessageLogListingViewModel::AddMessage( const TSharedRef< class FTokenizedMessage >& NewMessage, bool bMirrorToOutputLog )
 {
 	if(bDiscardDuplicates)
 	{
@@ -137,22 +137,22 @@ void FMessageLogListingViewModel::AddMessage( const TSharedRef< class FTokenized
 		}
 	}
 
-	MessageLogListingModel->AddMessage(NewMessage);
+	MessageLogListingModel->AddMessage(NewMessage, bMirrorToOutputLog);
 }
 
-void FMessageLogListingViewModel::AddMessages( const TArray< TSharedRef< class FTokenizedMessage > >& NewMessages )
+void FMessageLogListingViewModel::AddMessages( const TArray< TSharedRef< class FTokenizedMessage > >& NewMessages, bool bMirrorToOutputLog )
 {
 	if(bDiscardDuplicates)
 	{
-		// add each message individually - AddMessage() will decide if tis a duplicate
+		// add each message individually - AddMessage() will decide if it is a duplicate
 		for(auto It(NewMessages.CreateConstIterator()); It; It++)
 		{
-			AddMessage(*It);
+			AddMessage(*It, bMirrorToOutputLog);
 		}
 	}
 	else
 	{
-		MessageLogListingModel->AddMessages(NewMessages);
+		MessageLogListingModel->AddMessages(NewMessages, bMirrorToOutputLog);
 	}
 }
 

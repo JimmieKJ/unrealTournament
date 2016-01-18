@@ -29,8 +29,9 @@ void CSClearLists(uint3 DTid : SV_DispatchThreadID)
 {
 	uint i = GetGridAddress( DTid );
 
-	RWVplListHeadBuffer.Store( i*4, -1 );
-	RWGvListHeadBuffer.Store( i*4, -1 );
+	// 0 - terminated lists (index+1) - prevents infinite loop when reading off the end of the list
+	RWVplListHeadBuffer.Store( i*4, 0 ); 
+	RWGvListHeadBuffer.Store( i*4, 0 );
 }
 
 //------------------------------------------------------------------------------

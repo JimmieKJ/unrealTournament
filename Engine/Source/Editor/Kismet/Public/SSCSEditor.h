@@ -1079,4 +1079,7 @@ private:
 
 	/** true if we've added the separator between the scene and behavior components to the root nodes */
 	bool bHasAddedSceneAndBehaviorComponentSeparator;
+
+	/** Controls whether or not to allow calls to UpdateTree() */
+	bool bAllowTreeUpdates;
 };

@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTChallengeManager.h"
 #include "UTBotCharacter.h"
-#include "UTProfileSettings.h"
+#include "UTProgressionStorage.h"
 /*
 rename Kryss (too close to Cryss) - new Solace
 remove Lauren
@@ -120,7 +120,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	Challenges.Add(NAME_ChallengeDuel,
 		FUTChallengeInfo(NAME_ChallengeDuel,TEXT("Duel in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
 		TEXT("?Game=Duel"),
-		TEXT("1v1 Duel in Lea. Be sure to visit the UT Marketplace to gain access to this map."),
+		TEXT("1v1 Duel in Lea. Be sure to visit the UT Marketplace in the Launcher to gain access to this map (it's free!)."),
 		0, 1, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_DM_Lea, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDM,
@@ -144,7 +144,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	Challenges.Add(NAME_ChallengeCTFFour,
 		FUTChallengeInfo(NAME_ChallengeCTFFour,TEXT("Capture the Flag in Pistola"), TEXT("/Game/EpicInternal/Pistola/CTF-Pistola"),
 		TEXT("?Game=CTF"),
-		TEXT("CTF in the challenging Pistola arena.  Be sure to visit the UT Marketplace to gain access to this map."),
+		TEXT("CTF in the challenging Pistola arena.  Be sure to visit the UT Marketplace in the Launcher to gain access to this map (it's free!)."),
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF_Pistola, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDMTwo,
@@ -174,7 +174,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	Challenges.Add(NAME_ChallengeTDMFour,
 		FUTChallengeInfo(NAME_ChallengeTDMFour,TEXT("2v2 Team Deathmatch in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
 		TEXT("?Game=TDM"),
-		TEXT("2v2 Team Deathmatch in Lea.  Be sure to visit the UT Marketplace to gain access to this map."),
+		TEXT("2v2 Team Deathmatch in Lea.  Be sure to visit the UT Marketplace in the Launcher to gain access to this map (it's free!)."),
 		1, 2, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_DM_Lea, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeCTFFive,
@@ -277,7 +277,7 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
 
-		FString GameMode = CurrentGame->ParseOption(Challenge->GameURL, TEXT("Game"));
+		FString GameMode = UGameplayStatics::ParseOption(Challenge->GameURL, TEXT("Game"));
 
 		if (MapName != Challenge->Map.Right(MapName.Len()))
 		{
@@ -325,23 +325,23 @@ void UUTChallengeManager::UpdateChallengeFromMCP(const FMCPPulledData& MCPData)
 }
 
 // Returns true if we have unlocked a new Daily Challenge.
-bool UUTChallengeManager::CheckDailyChallenge(UUTProfileSettings* ProfileSettings)
+bool UUTChallengeManager::CheckDailyChallenge(UUTProgressionStorage* Storage)
 {
-	if (ProfileSettings == nullptr) return false;
+	if (Storage == nullptr) return false;
 
 	TArray<const FUTChallengeInfo*> ActiveDailyChallenges;
-	GetChallenges(ActiveDailyChallenges, EChallengeFilterType::DailyUnlocked, ProfileSettings);
+	GetChallenges(ActiveDailyChallenges, EChallengeFilterType::DailyUnlocked, Storage);
 
 	if (ActiveDailyChallenges.Num() < MAX_ACTIVE_DAILY_CHALLENGES) 
 	{
 		// Active the next challenge.
 		TArray<const FUTChallengeInfo*> LockedDailyChallenges;
-		GetChallenges(LockedDailyChallenges, EChallengeFilterType::DailyLocked, ProfileSettings);
+		GetChallenges(LockedDailyChallenges, EChallengeFilterType::DailyLocked, Storage);
 
 		if (LockedDailyChallenges.Num() > 0)
 		{
 			// Unlock the first challenge.
-			ProfileSettings->UnlockedDailyChallenges.Add( FUTDailyChallengeUnlock(LockedDailyChallenges[0]->Tag));
+			Storage->UnlockedDailyChallenges.Add( FUTDailyChallengeUnlock(LockedDailyChallenges[0]->Tag));
 			return true;
 		}
 	}
@@ -349,7 +349,7 @@ bool UUTChallengeManager::CheckDailyChallenge(UUTProfileSettings* ProfileSetting
 	return false;
 }
 
-void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChallengeList, EChallengeFilterType::Type Filter, UUTProfileSettings* ProfileSettings)
+void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChallengeList, EChallengeFilterType::Type Filter, UUTProgressionStorage* Storage)
 {
 	// Iterate over all of the challenges and filter out those we do not want
 	for (auto It = Challenges.CreateConstIterator(); It; ++It)
@@ -367,10 +367,10 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 #endif
 			if (bLimitDailyChallenges)
 			{
-				if (ProfileSettings)
+				if (Storage)
 				{
 					// Look to see if this challenge is unlocked.  
-					UnlockFound = ProfileSettings->UnlockedDailyChallenges.FindByPredicate([ChallengeTag](const FUTDailyChallengeUnlock& Unlock)
+					UnlockFound = Storage->UnlockedDailyChallenges.FindByPredicate([ChallengeTag](const FUTDailyChallengeUnlock& Unlock)
 					{
 						return Unlock.Tag == ChallengeTag;
 					});
@@ -412,10 +412,10 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 					}
 				}
 
-				if (ProfileSettings)
+				if (Storage)
 				{
 					// If this challenge has a result, reject it.
-					const FUTChallengeResult* ChallengeResult = ProfileSettings->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) {return Result.Tag == ChallengeTag;});
+					const FUTChallengeResult* ChallengeResult = Storage->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) {return Result.Tag == ChallengeTag;});
 					if (ChallengeResult != nullptr)
 					{
 						continue;
@@ -424,10 +424,10 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 			}
 			else if (Filter == EChallengeFilterType::Completed)
 			{
-				if (ProfileSettings)
+				if (Storage)
 				{
 					// If this challenge has a result, reject it.
-					const FUTChallengeResult* ChallengeResult = ProfileSettings->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) { return Result.Tag == ChallengeTag; });
+					const FUTChallengeResult* ChallengeResult = Storage->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) { return Result.Tag == ChallengeTag; });
 					if (ChallengeResult == nullptr)
 					{
 						continue;
@@ -459,7 +459,7 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 		}
 
 		// It's possible to get here before gotten the profile or the MCP data.. so we have to manage it
-		if (ProfileSettings)
+		if (Storage)
 		{
 			// Insert Sort the challenge in to the list.
 
@@ -486,14 +486,14 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 	}
 }
 
-int32 UUTChallengeManager::TimeUntilExpiration(FName DailyChallengeName, UUTProfileSettings* ProfileSettings )
+int32 UUTChallengeManager::TimeUntilExpiration(FName DailyChallengeName, UUTProgressionStorage* Storage )
 {
-	if (ProfileSettings)
+	if (Storage)
 	{
 		const FUTChallengeInfo Challenge = Challenges[DailyChallengeName];
 		if (Challenge.bDailyChallenge)
 		{
-			FUTDailyChallengeUnlock* UnlockFound = ProfileSettings->UnlockedDailyChallenges.FindByPredicate([DailyChallengeName](const FUTDailyChallengeUnlock& Unlock)
+			FUTDailyChallengeUnlock* UnlockFound = Storage->UnlockedDailyChallenges.FindByPredicate([DailyChallengeName](const FUTDailyChallengeUnlock& Unlock)
 			{
 				return Unlock.Tag == DailyChallengeName;
 			});

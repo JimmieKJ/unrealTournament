@@ -16,19 +16,19 @@ class UDistributionFloatUniformCurve : public UDistributionFloat
 	FInterpCurveVector2D ConstantCurve;
 
 
-	// Begin UDistributionFloat Interface
+	//~ Begin UDistributionFloat Interface
 	virtual float GetValue( float F = 0.f, UObject* Data = NULL, struct FRandomStream* InRandomStream = NULL ) const override;
 	//@todo.CONSOLE: Currently, consoles need this? At least until we have some sort of cooking/packaging step!
 	virtual ERawDistributionOperation GetOperation() const override;
 	virtual uint32 InitializeRawEntry(float Time, float* Values) const override;
-	// End UDistributionFloat Interface
+	//~ End UDistributionFloat Interface
 
 	/**
 	 *	This function will retrieve the max and min values at the given time.
 	 */
 	virtual FVector2D GetMinMaxValue(float F = 0.f, UObject* Data = NULL) const;
 
-	// Begin FCurveEdInterface interface
+	//~ Begin FCurveEdInterface Interface
 	virtual int32		GetNumKeys() const override;
 	virtual int32		GetNumSubCurves() const override;
 	virtual FColor	GetSubCurveButtonColor(int32 SubCurveIndex, bool bIsSubCurveHidden) const override;
@@ -46,6 +46,6 @@ class UDistributionFloatUniformCurve : public UDistributionFloat
 	virtual void	SetKeyOut(int32 SubIndex, int32 KeyIndex, float NewOutVal) override;
 	virtual void	SetKeyInterpMode(int32 KeyIndex, EInterpCurveMode NewMode) override;
 	virtual void	SetTangents(int32 SubIndex, int32 KeyIndex, float ArriveTangent, float LeaveTangent) override;
-	// End FCurveEdInterface interface
+	//~ End FCurveEdInterface Interface
 };
 

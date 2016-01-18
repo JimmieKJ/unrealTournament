@@ -205,7 +205,12 @@ ECommandResult::Type FPerforceSourceControlProvider::GetState( const TArray<FStr
 	return ECommandResult::Succeeded;
 }
 
-TArray<FSourceControlStateRef> FPerforceSourceControlProvider::GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const
+bool FPerforceSourceControlProvider::RemoveFileFromCache(const FString& Filename)
+{
+	return StateCache.Remove(Filename) > 0;
+}
+
+TArray<FSourceControlStateRef> FPerforceSourceControlProvider::GetCachedStateByPredicate(TFunctionRef<bool(const FSourceControlStateRef&)> Predicate) const
 {
 	TArray<FSourceControlStateRef> Result;
 	for (const auto& CacheItem : StateCache)
@@ -217,16 +222,6 @@ TArray<FSourceControlStateRef> FPerforceSourceControlProvider::GetCachedStateByP
 		}
 	}
 	return Result;
-}
-
-void FPerforceSourceControlProvider::RegisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
-{
-	OnSourceControlStateChanged.Add( SourceControlStateChanged );
-}
-
-void FPerforceSourceControlProvider::UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
-{
-	OnSourceControlStateChanged.DEPRECATED_Remove( SourceControlStateChanged );
 }
 
 FDelegateHandle FPerforceSourceControlProvider::RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )

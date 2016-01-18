@@ -174,6 +174,7 @@ void UK2Node_MatineeController::GetMenuActions(FBlueprintActionDatabaseRegistrar
 	{
 		UK2Node_MatineeController* MatineeNode = CastChecked<UK2Node_MatineeController>(NewNode);
 		MatineeNode->MatineeActor = CastChecked<AMatineeActor>(BindObject);
+		MatineeNode->MatineeActor->MatineeControllerName = MatineeNode->GetFName();
 		return true;
 	};
 

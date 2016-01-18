@@ -1,7 +1,7 @@
 // a discrete action performed by AI, such as "hunt player" or "grab flag"
 // replacement for what were AI states in UT3 AI code
 // only one action may be in use at a time and an action is generally active until it returns true from Update() or is explicitly aborted/replaced by outside code
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTBot.h"

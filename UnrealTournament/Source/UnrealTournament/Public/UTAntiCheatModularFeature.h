@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,7 +17,7 @@ public:
 	 *
 	 * @return	The function does not return value.
 	 */
-	virtual void OnPlayerLogin(APlayerController *Player, const FString& Options, const TSharedPtr<FUniqueNetId>& UniqueId) = 0;
+	virtual void OnPlayerLogin(APlayerController *Player, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId) = 0;
 
 	/**
 	 * Called when a player disconnects from the game server.

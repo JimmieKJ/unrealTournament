@@ -11,10 +11,10 @@
 #include "IMediaInfo.h"
 #include "IMediaPlayer.h"
 #include "IMediaSink.h"
-#include "IMediaTrack.h"
-#include "IMediaTrackAudioDetails.h"
-#include "IMediaTrackCaptionDetails.h"
-#include "IMediaTrackVideoDetails.h"
+#include "IMediaStream.h"
+#include "IMediaAudioTrack.h"
+#include "IMediaCaptionTrack.h"
+#include "IMediaVideoTrack.h"
 
 #include "AllowWindowsPlatformTypes.h"
 #include <windows.h>
@@ -42,4 +42,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogWmfMedia, Log, All);
 #include "WmfMediaReadState.h"
 #include "WmfMediaByteStream.h"
 #include "WmfMediaSession.h"
+#include "WmfMediaResolveState.h"
+#include "WmfMediaResolver.h"
 #include "WmfMediaPlayer.h"

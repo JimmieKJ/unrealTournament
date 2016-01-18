@@ -34,17 +34,13 @@ ByteAddressBuffer						gVplListHeadBuffer;
 void CSAccumulateVplLists(uint3 DTid : SV_DispatchThreadID) 
 {
 	int index = GetGridAddress( DTid );
-	uint listIndex = gVplListHeadBuffer.Load( index*4 );
+	uint listIndex = gVplListHeadBuffer.Load( index * 4 ) - 1;
 
 #if !LIGHT_INJECTION_ENABLED
 	return;
 #endif
 
-#if LPV_VOLUME_TEXTURE
 	LPVCell cell = ReadLpvCell( index );
-#else
-	LPVCell cell = ReadLpvCell( index, true );
-#endif
 
 #if LIGHT_INJECTION_DEBUG_TEST
 	float3 testPos = float3(989,-684,565);
@@ -52,7 +48,7 @@ void CSAccumulateVplLists(uint3 DTid : SV_DispatchThreadID)
 	if ( testIndex == index )
 	{
 		float3 col = float3(0.0f, 10000.0f, 0.0f);
-		float solidAngle = 3.14; // TODO: adjust for splat size
+		float solidAngle = 3.14; // TODO: adjust for splat size 
 		AccumulateLighting( col, float3(-1, 0, 0 ), solidAngle, cell );
 		AccumulateLighting( col, float3( 1, 0, 0 ), solidAngle, cell );
 		AccumulateLighting( col, float3( 0,-1, 0 ), solidAngle, cell );
@@ -69,9 +65,9 @@ void CSAccumulateVplLists(uint3 DTid : SV_DispatchThreadID)
 	{
 		VplListEntry listEntry = gVplListBuffer[ listIndex ];
 		Vpl vpl = UnpackVpl( listEntry );
-		float solidAngle = 3.14; // TODO: adjust for splat size
+		float solidAngle = 3.14; 
 		AccumulateLighting( vpl.flux, -vpl.normal, solidAngle, cell );
-		listIndex = listEntry.nextIndex;
+		listIndex = listEntry.nextIndex - 1; // 0-terminated lists to prevent infinite recursion
 		count++;
 	}
 	WriteLpvCell( cell, index );

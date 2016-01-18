@@ -51,13 +51,6 @@ public:
  	UPROPERTY(GlobalConfig, EditAnywhere, Category=Memory, Meta = (DisplayName = "Port to use when deploying game from the editor", ClampMin="49152", ClampMax="65535"))
  	int32 DeployServerPort;
 
-
-	/**
-	* Setting to control which template to use
-	*/
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = Packaging, Meta = (DisplayName = "Use new template [experimental]"))
-	bool UseExperimentalTemplate;
-
 	/**
 	 * Use a loading level and download maps during transitions.                                                                     
 	 */
@@ -69,5 +62,30 @@ public:
 	 */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Packaging, Meta = (DisplayName = "Level transitions for delta paks [experimental,depends on download maps]"))
 	TArray<FHTML5LevelTransitions> LevelTransitions;
+
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Amazon_S3, Meta = (DisplayName = "Upload builds to Amazon S3 when packaging"))
+	bool UploadToS3;
+
+	/**
+	* Required
+	*/
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Amazon_S3, Meta = (DisplayName = "Amazon S3 Key ID"))
+	FString S3KeyID;
+	/**
+	* Required
+	*/
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Amazon_S3, Meta = (DisplayName = "Amazon S3 Secret Access Key"))
+	FString S3SecretAccessKey;
+	/**
+	* Required
+	*/
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Amazon_S3, Meta = (DisplayName = "Amazon S3 Bucket Name"))
+	FString S3BucketName;
+	/**
+	* Provide another level of nesting beyond the bucket. Can be left empty, defaults to game name. 
+	*/
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Amazon_S3, Meta = (DisplayName = "Nested Folder Name"))
+	FString S3FolderName;
+
 
 };

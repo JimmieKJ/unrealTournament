@@ -29,6 +29,7 @@
 
 	/** Whether to allow lighting builds to generate streaming lightmaps. */
 	extern ENGINE_API bool GAllowStreamingLightmaps;
+	extern ENGINE_API float GMaxLightmapRadius;
 #endif
 
 UShadowMapTexture2D::UShadowMapTexture2D(const FObjectInitializer& ObjectInitializer)
@@ -158,9 +159,6 @@ public:
 	int32				TotalTexels;
 };
 
-/** Largest boundingsphere radius to use when packing shadowmaps into a texture atlas. */
-float GMaxShadowmapRadius = 2000.0f;
-
 /** Whether to try to pack procbuilding lightmaps/shadowmaps into the same texture. */
 extern bool GGroupComponentLightmaps;
 
@@ -235,7 +233,7 @@ bool FShadowMapPendingTexture::AddElement(FShadowMapAllocationGroup& AllocationG
 			bool bPerformDistanceCheck = true;
 
 			// Don't pack together shadowmaps that are too far apart
-			if (bPerformDistanceCheck && NewBounds.SphereRadius > GMaxShadowmapRadius && NewBounds.SphereRadius > (Bounds.SphereRadius + SMALL_NUMBER))
+			if (bPerformDistanceCheck && NewBounds.SphereRadius > GMaxLightmapRadius && NewBounds.SphereRadius > (Bounds.SphereRadius + SMALL_NUMBER))
 			{
 				return false;
 			}
@@ -516,7 +514,8 @@ void FShadowMap2D::Serialize(FArchive& Ar)
 		Ar << bChannelValid[Channel];
 	}
 
-	if (Ar.UE4Ver() >= VER_UE4_STATIC_SHADOWMAP_PENUMBRA_SIZE)
+	// PLK merge of shadow map penumbra in CL 2606048 did not properly order ObjectVersion.h and broke serialization
+	if (Ar.UE4Ver() >= 452) //VER_UE4_STATIC_SHADOWMAP_PENUMBRA_SIZE)
 	{
 		Ar << InvUniformPenumbraSize;
 	}

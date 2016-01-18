@@ -33,9 +33,14 @@ sometimes they are stored in a byte.
 #ifndef PX_FOUNDATION_PX_VERSION_NUMBER_H
 #define PX_FOUNDATION_PX_VERSION_NUMBER_H
 
+//
+// Important: if you adjust the versions below, don't forget to adjust the compatibility list in
+// sBinaryCompatibleVersions as well.
+//
+
 #define PX_PHYSICS_VERSION_MAJOR 3
 #define PX_PHYSICS_VERSION_MINOR 3
-#define PX_PHYSICS_VERSION_BUGFIX 3
+#define PX_PHYSICS_VERSION_BUGFIX 4
 
 /**
 The constant PX_PHYSICS_VERSION is used when creating certain PhysX module objects.

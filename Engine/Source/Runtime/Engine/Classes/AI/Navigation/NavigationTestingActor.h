@@ -160,15 +160,15 @@ public:
 	void TickMe();
 #endif // WITH_EDITOR
 
-	// Begin INavAgentInterface Interface
+	//~ Begin INavAgentInterface Interface
 	virtual const FNavAgentProperties& GetNavAgentPropertiesRef() const override { return NavAgentProps; }
 	virtual FVector GetNavAgentLocation() const override;
 	virtual void GetMoveGoalReachTest(class AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override {}
-	// End INavAgentInterface Interface
+	//~ End INavAgentInterface Interface
 
-	// Begin INavPathObserverInterface Interface
+	//~ Begin INavPathObserverInterface Interface
 	virtual void OnPathUpdated(class INavigationPathGenerator* PathGenerator) override;
-	// End INavPathObserverInterface Interface	
+	//~ End INavPathObserverInterface Interface	
 
 	void UpdateNavData();
 	void UpdatePathfinding();

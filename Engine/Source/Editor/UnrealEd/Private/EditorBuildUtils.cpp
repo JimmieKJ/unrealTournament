@@ -20,6 +20,8 @@
 #include "Engine/LevelStreaming.h"
 #include "GameFramework/WorldSettings.h"
 #include "AI/Navigation/NavigationSystem.h"
+#include "HierarchicalLOD.h"
+#include "ActorEditorUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorBuildUtils, Log, All);
 
@@ -29,13 +31,59 @@ extern UNREALED_API bool GLightmassDebugMode;
 extern UNREALED_API bool GLightmassStatsMode;
 extern FSwarmDebugOptions GSwarmDebugOptions;
 
+const FName FBuildOptions::BuildGeometry(TEXT("BuildGeometry"));
+const FName FBuildOptions::BuildVisibleGeometry(TEXT("BuildVisibleGeometry"));
+const FName FBuildOptions::BuildLighting(TEXT("BuildLighting"));
+const FName FBuildOptions::BuildAIPaths(TEXT("BuildAIPaths"));
+const FName FBuildOptions::BuildSelectedAIPaths(TEXT("BuildSelectedAIPaths"));
+const FName FBuildOptions::BuildAll(TEXT("BuildAll"));
+const FName FBuildOptions::BuildAllSubmit(TEXT("BuildAllSubmit"));
+const FName FBuildOptions::BuildAllOnlySelectedPaths(TEXT("BuildAllOnlySelectedPaths"));
+const FName FBuildOptions::BuildHierarchicalLOD(TEXT("BuildHierarchicalLOD"));
+
+
 bool FEditorBuildUtils::bBuildingNavigationFromUserRequest = false;
+TMap<FName, FEditorBuildUtils::FCustomBuildType> FEditorBuildUtils::CustomBuildTypes;
+FName FEditorBuildUtils::InProgressBuildId;
+
+/**
+ * Class that handles potentially-async Build All requests.
+ */
+class FBuildAllHandler
+{
+public:
+	void StartBuild(UWorld* World, FName BuildId, const TWeakPtr<SBuildProgressWidget>& BuildProgressWidget);
+	void ResumeBuild();
+	void AddCustomBuildStep(FName Id, FName InsertBefore);
+	void RemoveCustomBuildStep(FName Id);
+
+	static FBuildAllHandler& Get()
+	{
+		static FBuildAllHandler Instance;
+		return Instance;
+	}
+
+private:
+	FBuildAllHandler();
+	FBuildAllHandler(const FBuildAllHandler&);
+
+	void ProcessBuild(const TWeakPtr<SBuildProgressWidget>& BuildProgressWidget);
+	void BuildFinished();
+
+	TArray<FName> BuildSteps;
+	int32 CurrentStep;
+
+	UWorld* CurrentWorld;
+	FName CurrentBuildId;
+};
+
 /** Constructor */
 FEditorBuildUtils::FEditorAutomatedBuildSettings::FEditorAutomatedBuildSettings()
 :	BuildErrorBehavior( ABB_PromptOnError ),
 	UnableToCheckoutFilesBehavior( ABB_PromptOnError ),
 	NewMapBehavior( ABB_PromptOnError ),
 	FailedToSaveBehavior( ABB_PromptOnError ),
+	bUseSCC( true ),
 	bAutoAddNewFiles( true ),
 	bShutdownEditorOnCompletion( false )
 {}
@@ -65,7 +113,7 @@ bool FEditorBuildUtils::EditorAutomatedBuildAndSubmit( const FEditorAutomatedBui
 	// If the preparation went smoothly, attempt the actual map building process
 	if ( bBuildSuccessful )
 	{
-		bBuildSuccessful = EditorBuild( GWorld, EBuildOptions::BuildAllSubmit );
+		bBuildSuccessful = EditorBuild( GWorld, FBuildOptions::BuildAllSubmit );
 
 		// If the map build failed, log the error
 		if ( !bBuildSuccessful )
@@ -134,7 +182,7 @@ bool FEditorBuildUtils::EditorAutomatedBuildAndSubmit( const FEditorAutomatedBui
 	}
 
 	// Finally, if everything has gone smoothly, submit the requested packages to source control
-	if ( bBuildSuccessful )
+	if ( bBuildSuccessful && BuildSettings.bUseSCC )
 	{
 		SubmitPackagesForAutomatedBuild( PackagesToSubmit, BuildSettings );
 	}
@@ -160,7 +208,7 @@ static bool IsBuildCancelled()
  *
  * @return	true if the build completed successfully; false if it did not (or was manually canceled)
  */
-bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, const bool bAllowLightingDialog )
+bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, FName Id, const bool bAllowLightingDialog )
 {
 	FMessageLog("MapCheck").NewPage(LOCTEXT("MapCheckNewPage", "Map Check"));
 
@@ -181,7 +229,7 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 
 	// Show option dialog first, before showing the DlgBuildProgress window.
 	FLightingBuildOptions LightingBuildOptions;
-	if ( Id == EBuildOptions::BuildLighting )
+	if ( Id == FBuildOptions::BuildLighting )
 	{
 		// Retrieve settings from ini.
 		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"),		LightingBuildOptions.bOnlyBuildSelected,			GEditorPerProjectIni );
@@ -199,181 +247,156 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 	// Show the build progress dialog.
 	SBuildProgressWidget::EBuildType BuildType = SBuildProgressWidget::BUILDTYPE_Geometry;
 
-	switch (Id)
+	if (Id == FBuildOptions::BuildGeometry ||
+		Id == FBuildOptions::BuildVisibleGeometry ||
+		Id == FBuildOptions::BuildAll ||
+		Id == FBuildOptions::BuildAllOnlySelectedPaths)
 	{
-	case EBuildOptions::BuildGeometry:
-	case EBuildOptions::BuildVisibleGeometry:
-	case EBuildOptions::BuildAll:
-	case EBuildOptions::BuildAllOnlySelectedPaths:
 		BuildType = SBuildProgressWidget::BUILDTYPE_Geometry;
-		break;
-	case EBuildOptions::BuildLighting:
+	}
+	else if (Id == FBuildOptions::BuildLighting)
+	{
 		BuildType = SBuildProgressWidget::BUILDTYPE_Lighting;
-		break;
-	case EBuildOptions::BuildAIPaths:
-	case EBuildOptions::BuildSelectedAIPaths:
+	}
+	else if (Id == FBuildOptions::BuildAIPaths ||
+		Id == FBuildOptions::BuildSelectedAIPaths)
+	{
 		BuildType = SBuildProgressWidget::BUILDTYPE_Paths;
-		break;
-	case EBuildOptions::BuildHierarchicalLOD:
+	}
+	else if (Id == FBuildOptions::BuildHierarchicalLOD)
+	{
 		BuildType = SBuildProgressWidget::BUILDTYPE_LODs;
-		break;
-	default:
+	}
+	else
+	{
 		BuildType = SBuildProgressWidget::BUILDTYPE_Unknown;	
-		break;
 	}
 
 	TWeakPtr<class SBuildProgressWidget> BuildProgressWidget = GWarn->ShowBuildProgressWindow();
 	BuildProgressWidget.Pin()->SetBuildType(BuildType);
 
 	bool bShouldMapCheck = true;
-	switch( Id )
+	if (Id == FBuildOptions::BuildGeometry)
 	{
-	case EBuildOptions::BuildGeometry:
+		// We can't set the busy cursor for all windows, because lighting
+		// needs a cursor for the lighting options dialog.
+		const FScopedBusyCursor BusyCursor;
+
+		GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD") );
+
+		if (GetDefault<ULevelEditorMiscSettings>()->bNavigationAutoUpdate)
+		{
+			TriggerNavigationBuilder(InWorld, Id);
+		}
+
+		// No need to dirty the persient level if we're building BSP for a sub-level.
+		bDirtyPersistentLevel = false;
+	}
+	else if (Id == FBuildOptions::BuildVisibleGeometry)
+	{
+		// If any levels are hidden, prompt the user about how to proceed
+		bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, true );
+		if ( bDoBuild )
 		{
 			// We can't set the busy cursor for all windows, because lighting
 			// needs a cursor for the lighting options dialog.
 			const FScopedBusyCursor BusyCursor;
 
-			GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD") );
+			GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD ALLVISIBLE") );
 
 			if (GetDefault<ULevelEditorMiscSettings>()->bNavigationAutoUpdate)
 			{
 				TriggerNavigationBuilder(InWorld, Id);
 			}
-
-			// No need to dirty the persient level if we're building BSP for a sub-level.
-			bDirtyPersistentLevel = false;
-			break;
 		}
-	case EBuildOptions::BuildVisibleGeometry:
+	}
+	else if (Id == FBuildOptions::BuildLighting)
+	{
+		if( bDoBuild )
 		{
-			// If any levels are hidden, prompt the user about how to proceed
-			bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, true );
-			if ( bDoBuild )
+			bool bBSPRebuildNeeded = false;
+			// Only BSP brushes affect lighting.  Check if there is any BSP in the level and skip the geometry rebuild if there isn't any.
+			for( TActorIterator<ABrush> ActorIt( InWorld ); ActorIt; ++ActorIt )
 			{
-				// We can't set the busy cursor for all windows, because lighting
-				// needs a cursor for the lighting options dialog.
-				const FScopedBusyCursor BusyCursor;
-
-				GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD ALLVISIBLE") );
-
-				if (GetDefault<ULevelEditorMiscSettings>()->bNavigationAutoUpdate)
+				ABrush* Brush = *ActorIt;
+				
+				if( !Brush->IsVolumeBrush() && !Brush->IsBrushShape() && !FActorEditorUtils::IsABuilderBrush( Brush ) )
 				{
-					TriggerNavigationBuilder(InWorld, Id);
-				}
-			}
-			break;
-		}
-
-	case EBuildOptions::BuildLighting:
-		{
-			if( bDoBuild )
-			{
-				// We can't set the busy cursor for all windows, because lighting
-				// needs a cursor for the lighting options dialog.
-				const FScopedBusyCursor BusyCursor;
-
-				// BSP export to lightmass relies on current BSP state
-				GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD ALLVISIBLE") );
-
-				GUnrealEd->BuildLighting( LightingBuildOptions );
-				bShouldMapCheck = false;
-			}
-			break;
-		}
-
-	case EBuildOptions::BuildAIPaths:
-		{
-			bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, false );
-			if ( bDoBuild )
-			{
-				GEditor->ResetTransaction( NSLOCTEXT("UnrealEd", "RebuildNavigation", "Rebuilding Navigation") );
-
-				// We can't set the busy cursor for all windows, because lighting
-				// needs a cursor for the lighting options dialog.
-				const FScopedBusyCursor BusyCursor;
-
-				TriggerNavigationBuilder(InWorld, Id);
-			}
-
-			break;
-		}
-
-	case EBuildOptions::BuildHierarchicalLOD:
-		{
-			bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, false );
-			if ( bDoBuild )
-			{
-				GEditor->ResetTransaction( NSLOCTEXT("UnrealEd", "RebuildLOD", "Rebuilding HierarchicalLOD") );
-
-				// We can't set the busy cursor for all windows, because lighting
-				// needs a cursor for the lighting options dialog.
-				const FScopedBusyCursor BusyCursor;
-
-				TriggerHierarchicalLODBuilder(InWorld, Id);
-			}
-
-			break;
-		}
-
-	case EBuildOptions::BuildAll:
-	case EBuildOptions::BuildAllSubmit:
-		{
-			bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, true );
-			bool bLightingAlreadyRunning = GUnrealEd->WarnIfLightingBuildIsCurrentlyRunning();
-			if ( bDoBuild && !bLightingAlreadyRunning )
-			{
-				// We can't set the busy cursor for all windows, because lighting
-				// needs a cursor for the lighting options dialog.
-				const FScopedBusyCursor BusyCursor;
-
-				GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD ALLVISIBLE") );
-
- 				{
- 					BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_LODs);
-					TriggerHierarchicalLODBuilder(InWorld, Id);
- 				}
-
-				{
-					BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_Paths);
-					TriggerNavigationBuilder(InWorld, Id);
-				}
-
-				//Do a canceled check before moving on to the next step of the build.
-				if( GEditor->GetMapBuildCancelled() )
-				{
+					// brushes that aren't volumes are considered bsp
+					bBSPRebuildNeeded = true;
 					break;
 				}
-				else
-				{
-					BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_Lighting);
-
-					FLightingBuildOptions LightingOptions;
-
-					int32 QualityLevel;
-
-					// Force automated builds to always use production lighting
-					if ( Id == EBuildOptions::BuildAllSubmit )
-					{
-						QualityLevel = Quality_Production;
-					}
-					else
-					{
-						GConfig->GetInt( TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorPerProjectIni);
-						QualityLevel = FMath::Clamp<int32>(QualityLevel, Quality_Preview, Quality_Production);
-					}
-					LightingOptions.QualityLevel = (ELightingBuildQuality)QualityLevel;
-
-					GUnrealEd->BuildLighting(LightingOptions);
-					bShouldMapCheck = false;
-				}
 			}
-			break;
-		}
 
-	default:
-		UE_LOG(LogEditorBuildUtils, Warning, TEXT("Invalid build Id"));
-		break;
+			if( bBSPRebuildNeeded )
+			{
+				// BSP export to lightmass relies on current BSP state
+				GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD ALLVISIBLE") );
+			}
+
+			GUnrealEd->BuildLighting( LightingBuildOptions );
+			bShouldMapCheck = false;
+		}
+	}
+	else if (Id == FBuildOptions::BuildAIPaths)
+	{
+		bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, false );
+		if ( bDoBuild )
+		{
+			GEditor->ResetTransaction( NSLOCTEXT("UnrealEd", "RebuildNavigation", "Rebuilding Navigation") );
+
+			// We can't set the busy cursor for all windows, because lighting
+			// needs a cursor for the lighting options dialog.
+			const FScopedBusyCursor BusyCursor;
+
+			TriggerNavigationBuilder(InWorld, Id);
+		}
+	}
+	else if (CustomBuildTypes.Contains(Id))
+	{
+		const auto& CustomBuild = CustomBuildTypes.FindChecked(Id);
+		check(CustomBuild.DoBuild.IsBound());
+
+		// Invoke custom build.
+		auto Result = CustomBuild.DoBuild.Execute(InWorld, Id);
+
+		bDoBuild = Result != EEditorBuildResult::Skipped;
+		bShouldMapCheck = Result == EEditorBuildResult::Success;
+		bDirtyPersistentLevel = Result == EEditorBuildResult::Success;
+
+		if (Result == EEditorBuildResult::InProgress)
+		{
+			InProgressBuildId = Id;
+		}
+	}
+	else if (Id == FBuildOptions::BuildHierarchicalLOD)
+	{
+		bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, false );
+		if ( bDoBuild )
+		{
+				GEditor->ResetTransaction( NSLOCTEXT("UnrealEd", "BuildHLODMeshes", "Building Hierarchical LOD Meshes") );
+
+			// We can't set the busy cursor for all windows, because lighting
+			// needs a cursor for the lighting options dialog.
+			const FScopedBusyCursor BusyCursor;
+
+			TriggerHierarchicalLODBuilder(InWorld, Id);
+		}
+	}
+	else if (Id == FBuildOptions::BuildAll || Id == FBuildOptions::BuildAllSubmit)
+	{
+		// TODO: WarnIfLightingBuildIsCurrentlyRunning should check with FBuildAllHandler
+		bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, true );
+		bool bLightingAlreadyRunning = GUnrealEd->WarnIfLightingBuildIsCurrentlyRunning();
+		if ( bDoBuild && !bLightingAlreadyRunning )
+		{
+			FBuildAllHandler::Get().StartBuild(InWorld, Id, BuildProgressWidget);
+		}
+	}
+	else
+	{
+		UE_LOG(LogEditorBuildUtils, Warning, TEXT("Invalid build Id: %s"), *Id.ToString());
+		bDoBuild = false;
 	}
 
 	// Check map for errors (only if build operation happened)
@@ -386,14 +409,7 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 	if (GUseThreadedRendering)
 	{
 		StartRenderingThread();
-	}
-
-	if ( bDoBuild && InWorld->Scene )
-	{
-		// Invalidating lighting marked various components as needing a re-register
-		// Propagate the re-registers before rendering the scene to get the latest state
-		InWorld->SendAllEndOfFrameUpdates();
-	}
+	}	
 
 	if ( bDoBuild )
 	{
@@ -492,7 +508,6 @@ bool FEditorBuildUtils::ProcessAutomatedBuildBehavior( EAutomatedBuildBehavior I
 }
 
 
-
 /**
  * Helper method designed to perform the necessary preparations required to complete an automated editor build
  *
@@ -513,17 +528,10 @@ bool FEditorBuildUtils::PrepForAutomatedBuild( const FEditorAutomatedBuildSettin
 
 	// Source control is required for the automated build, so ensure that SCC support is compiled in and
 	// that the server is enabled and available for use
-	if ( !ISourceControlModule::Get().IsEnabled() || !SourceControlProvider.IsAvailable() )
+	if ( BuildSettings.bUseSCC && !(ISourceControlModule::Get().IsEnabled() && SourceControlProvider.IsAvailable() ) )
 	{
 		bBuildSuccessful = false;
 		LogErrorMessage( NSLOCTEXT("UnrealEd", "AutomatedBuild_Error_SCCError", "Cannot connect to source control; automated build aborted."), OutErrorMessages );
-	}
-
-	// Empty changelists aren't allowed; abort the build if one wasn't provided
-	if ( bBuildSuccessful && BuildSettings.ChangeDescription.Len() == 0 )
-	{
-		bBuildSuccessful = false;
-		LogErrorMessage( NSLOCTEXT("UnrealEd", "AutomatedBuild_Error_NoCLDesc", "A changelist description must be provided; automated build aborted."), OutErrorMessages );
 	}
 
 	TArray<UPackage*> PreviouslySavedWorldPackages;
@@ -574,7 +582,7 @@ bool FEditorBuildUtils::PrepForAutomatedBuild( const FEditorAutomatedBuildSettin
 	// Load the asset tools module
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 
-	if ( bBuildSuccessful )
+	if ( bBuildSuccessful && BuildSettings.bUseSCC )
 	{
 		// Update the source control status of any relevant world packages in order to determine which need to be
 		// checked out, added to the depot, etc.
@@ -601,6 +609,9 @@ bool FEditorBuildUtils::PrepForAutomatedBuild( const FEditorAutomatedBuildSettin
 						OutPkgsToSubmit.Remove( CurPackage );
 					}
 				}
+			}
+			else if(SourceControlState->IsCheckedOut())
+			{
 			}
 			else if(SourceControlState->CanCheckout())
 			{
@@ -767,31 +778,33 @@ void FEditorBuildUtils::SubmitPackagesForAutomatedBuild( const TSet<UPackage*>& 
 
 	// Now check in all the changes, including the files we added above
 	TSharedRef<FCheckIn, ESPMode::ThreadSafe> CheckInOperation = StaticCastSharedRef<FCheckIn>(ISourceControlOperation::Create<FCheckIn>());
-	CheckInOperation->SetDescription(NSLOCTEXT("UnrealEd", "AutomatedBuild_AutomaticSubmission", "[Automatic Submission]"));
+	if (BuildSettings.ChangeDescription.IsEmpty())
+	{
+		CheckInOperation->SetDescription(NSLOCTEXT("UnrealEd", "AutomatedBuild_AutomaticSubmission", "[Automatic Submission]"));
+	}
+	else
+	{
+		CheckInOperation->SetDescription(FText::FromString(BuildSettings.ChangeDescription));
+	}
 	SourceControlProvider.Execute( CheckInOperation, LevelsToSubmit, EConcurrency::Synchronous );
 }
 
-void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, EBuildOptions::Type Id)
+void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, FName Id)
 {
 	if( InWorld->GetWorldSettings()->bEnableNavigationSystem &&
 		InWorld->GetNavigationSystem() )
 	{
-		switch( Id )
+		if (Id == FBuildOptions::BuildAIPaths ||
+			Id == FBuildOptions::BuildSelectedAIPaths ||
+			Id == FBuildOptions::BuildAllOnlySelectedPaths ||
+			Id == FBuildOptions::BuildAll ||
+			Id == FBuildOptions::BuildAllSubmit)
 		{
-		case EBuildOptions::BuildAIPaths:
-		case EBuildOptions::BuildSelectedAIPaths:
-		case EBuildOptions::BuildAllOnlySelectedPaths:
-		case EBuildOptions::BuildAll:
-		case EBuildOptions::BuildAllSubmit:
-			{
-				bBuildingNavigationFromUserRequest = true;
-				break;
-			}
-		default:
-			{
-				bBuildingNavigationFromUserRequest = false;
-				break;
-			}
+			bBuildingNavigationFromUserRequest = true;
+		}
+		else
+		{
+			bBuildingNavigationFromUserRequest = false;
 		}
 
 		// Invoke navmesh generator
@@ -799,9 +812,220 @@ void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, EBuildOptions:
 	}
 }
 
-void FEditorBuildUtils::TriggerHierarchicalLODBuilder(UWorld* InWorld, EBuildOptions::Type Id)
+/**
+ * Call this when an async custom build step has completed (successfully or not).
+ */
+void FEditorBuildUtils::AsyncBuildCompleted()
 {
-	// Invoke HLOD generator
-	InWorld->HierarchicalLODBuilder.Build();
+	check(InProgressBuildId != NAME_None);
+
+	// Reset in-progress id before resuming build all do we don't overwrite something that's just been set.
+	auto BuildId = InProgressBuildId;
+	InProgressBuildId = NAME_None;
+
+	if (BuildId == FBuildOptions::BuildAll || BuildId == FBuildOptions::BuildAllSubmit)
+	{
+		FBuildAllHandler::Get().ResumeBuild();
+	}
 }
+
+/**
+ * Is there currently an (async) build in progress?
+ */
+bool FEditorBuildUtils::IsBuildCurrentlyRunning()
+{
+	return InProgressBuildId != NAME_None;
+}
+
+/**
+ * Register a custom build type.
+ * @param Id The identifier to use for this build type.
+ * @param DoBuild The delegate to execute to run this build.
+ * @param BuildAllExtensionPoint If a valid name, run this build *before* running the build with this id when performing a Build All.
+ */
+void FEditorBuildUtils::RegisterCustomBuildType(FName Id, const FDoEditorBuildDelegate& DoBuild, FName BuildAllExtensionPoint)
+{
+	check(!CustomBuildTypes.Contains(Id));
+	CustomBuildTypes.Add(Id, FCustomBuildType(DoBuild, BuildAllExtensionPoint));
+
+	if (BuildAllExtensionPoint != NAME_None)
+	{
+		FBuildAllHandler::Get().AddCustomBuildStep(Id, BuildAllExtensionPoint);
+	}
+}
+
+/**
+ * Unregister a custom build type.
+ * @param Id The identifier of the build type to unregister.
+ */
+void FEditorBuildUtils::UnregisterCustomBuildType(FName Id)
+{
+	CustomBuildTypes.Remove(Id);
+	FBuildAllHandler::Get().RemoveCustomBuildStep(Id);
+}
+
+/**
+ * Initialise Build All handler.
+ */
+FBuildAllHandler::FBuildAllHandler()
+	: CurrentStep(0)
+{
+	// Add built in build steps.
+	BuildSteps.Add(FBuildOptions::BuildGeometry);
+	BuildSteps.Add(FBuildOptions::BuildHierarchicalLOD);
+	BuildSteps.Add(FBuildOptions::BuildAIPaths);
+	
+	//Lighting must always be the last one when doing a build all
+	BuildSteps.Add(FBuildOptions::BuildLighting);
+}
+
+/**
+ * Add a custom Build All step.
+ */
+void FBuildAllHandler::AddCustomBuildStep(FName Id, FName InsertBefore)
+{
+	const int32 InsertionPoint = BuildSteps.Find(InsertBefore);
+	if (InsertionPoint != INDEX_NONE)
+	{
+		BuildSteps.Insert(Id, InsertionPoint);
+	}
+}
+
+/**
+ * Remove a custom Build All step.
+ */
+void FBuildAllHandler::RemoveCustomBuildStep(FName Id)
+{
+	BuildSteps.Remove(Id);
+}
+
+/**
+ * Commence a new Build All operation.
+ */
+void FBuildAllHandler::StartBuild(UWorld* World, FName BuildId, const TWeakPtr<SBuildProgressWidget>& BuildProgressWidget)
+{
+	check(CurrentStep == 0);
+	check(CurrentWorld == nullptr);
+	check(CurrentBuildId == NAME_None);
+
+	CurrentWorld = World;
+	CurrentBuildId = BuildId;
+	ProcessBuild(BuildProgressWidget);
+}
+
+/**
+ * Resume a Build All build from where it was left off.
+ */
+void FBuildAllHandler::ResumeBuild()
+{
+	// Resuming from async operation, may be about to do slow stuff again so show the progress window again.
+	TWeakPtr<SBuildProgressWidget> BuildProgressWidget = GWarn->ShowBuildProgressWindow();
+
+	ProcessBuild(BuildProgressWidget);
+
+	// Synchronous part completed, hide the build progress dialog.
+	GWarn->CloseBuildProgressWindow();
+}
+
+/**
+ * Internal method that actual does the build.
+ */
+void FBuildAllHandler::ProcessBuild(const TWeakPtr<SBuildProgressWidget>& BuildProgressWidget)
+{
+	const FScopedBusyCursor BusyCursor;
+
+	// Loop until we finish, or we start an async step.
+	while (true)
+	{
+		if (GEditor->GetMapBuildCancelled())
+		{
+			// Build cancelled, so bail.
+			BuildFinished();
+			break;
+		}
+
+		check(BuildSteps.IsValidIndex(CurrentStep));
+		FName StepId = BuildSteps[CurrentStep];
+
+		if (StepId == FBuildOptions::BuildGeometry)
+		{
+			BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_Geometry);
+			GUnrealEd->Exec(CurrentWorld, TEXT("MAP REBUILD ALLVISIBLE") );
+		}
+		else if (StepId == FBuildOptions::BuildHierarchicalLOD)
+		{
+			BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_LODs);
+			FEditorBuildUtils::TriggerHierarchicalLODBuilder(CurrentWorld, CurrentBuildId);
+		}
+		else if (StepId == FBuildOptions::BuildAIPaths)
+		{
+			BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_Paths);
+			FEditorBuildUtils::TriggerNavigationBuilder(CurrentWorld, CurrentBuildId);
+		}
+		else if (StepId == FBuildOptions::BuildLighting)
+		{
+			BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_Lighting);
+
+			FLightingBuildOptions LightingOptions;
+
+			int32 QualityLevel;
+
+			// Force automated builds to always use production lighting
+			if ( CurrentBuildId == FBuildOptions::BuildAllSubmit )
+			{
+				QualityLevel = Quality_Production;
+			}
+			else
+			{
+				GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorPerProjectIni);
+				QualityLevel = FMath::Clamp<int32>(QualityLevel, Quality_Preview, Quality_Production);
+			}
+			LightingOptions.QualityLevel = (ELightingBuildQuality)QualityLevel;
+
+			GUnrealEd->BuildLighting(LightingOptions);
+
+			// TODO!
+			//bShouldMapCheck = false;
+
+			// Lighting is always the last step (Lightmass isn't set up to resume builds).
+			BuildFinished();
+			break;
+		}
+		else
+		{
+			auto& CustomBuildType = FEditorBuildUtils::CustomBuildTypes[StepId];
+			auto Result = CustomBuildType.DoBuild.Execute(CurrentWorld, CurrentBuildId);
+
+			if (Result == EEditorBuildResult::InProgress)
+			{
+				// Build & Submit builds must be synchronous.
+				check(CurrentBuildId != FBuildOptions::BuildAllSubmit);
+
+				// Build step is running asynchronously, so let it run.
+				FEditorBuildUtils::InProgressBuildId = CurrentBuildId;
+				break;
+			}
+		}
+
+		// Next go around we want to do the next step.
+		CurrentStep++;
+	}
+}
+
+/**
+ * Called when a build is finished (successfully or not).
+ */
+void FBuildAllHandler::BuildFinished()
+{
+	CurrentStep = 0;
+	CurrentWorld = nullptr;
+	CurrentBuildId = NAME_None;
+}
+
+void FEditorBuildUtils::TriggerHierarchicalLODBuilder(UWorld* InWorld, FName Id)
+{
+	// Invoke HLOD generator, with either preview or full build
+	InWorld->HierarchicalLODBuilder->BuildMeshesForLODActors();
+}
+
 #undef LOCTEXT_NAMESPACE

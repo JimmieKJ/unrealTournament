@@ -5,7 +5,7 @@
 #include "ModuleManager.h"
 #include "IHeadMountedDisplayModule.h"
 
-#define GEARVR_SUPPORTED_PLATFORMS PLATFORM_ANDROID
+#define GEARVR_SUPPORTED_PLATFORMS (PLATFORM_ANDROID && PLATFORM_ANDROID_ARM)
 
 /**
  * The public interface to this module.  In most cases, this interface is only public to sibling modules 
@@ -36,4 +36,45 @@ public:
 	{
 		return FModuleManager::Get().IsModuleLoaded( "GearVR" );
 	}
+
+	/**
+	 * Executes Oculus global menu
+	 */
+	virtual void StartOVRGlobalMenu() const = 0;
+
+	/**
+	 * Executes Oculus quit menu
+	 */
+	virtual void StartOVRQuitMenu() const = 0;
+
+	/**
+	 * Sets CPU/GPU levels. Both change in the range [0..3].
+	 */
+	virtual void SetCPUAndGPULevels(int32 CPULevel, int32 GPULevel) const = 0;
+
+	/**
+	 * Returns true if power level state is on minimum
+	 */
+	virtual bool IsPowerLevelStateMinimum() const = 0;
+
+	/**
+	 * Returns true if power level is throttled.
+	 */
+	virtual bool IsPowerLevelStateThrottled() const = 0;
+	
+	/**
+	 * Returns device temperature, in degrees of Celsius. 
+	 */
+	virtual float GetTemperatureInCelsius() const = 0;
+
+	/**
+	 * Returns battery level, in the range [0..1]
+	 */
+	virtual float GetBatteryLevel() const = 0;
+
+	/**
+	 * Returns true, if head phones are plugged in
+	 */
+	virtual bool AreHeadPhonesPluggedIn() const = 0;
 };
+

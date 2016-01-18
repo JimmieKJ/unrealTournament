@@ -321,7 +321,7 @@ public:
 	{
 		Serialize(V, (LengthBits + 7) / 8);
 
-		if (IsLoading())
+		if (IsLoading() && (LengthBits % 8) != 0)
 		{
 			((uint8*)V)[LengthBits / 8] &= ((1 << (LengthBits & 7)) - 1);
 		}
@@ -660,6 +660,11 @@ public:
 		return ArIgnoreOuterRef;
 	}
 
+	FORCEINLINE bool IsIgnoringClassGeneratedByRef() const
+	{
+		return ArIgnoreClassGeneratedByRef;
+	}
+
 	FORCEINLINE bool IsIgnoringClassRef() const
 	{
 		return ArIgnoreClassRef;
@@ -698,6 +703,15 @@ public:
 	FORCEINLINE bool HasAllPortFlags(uint32 Flags) const
 	{
 		return ((ArPortFlags & Flags) == Flags);
+	}
+
+	FORCEINLINE uint32 GetDebugSerializationFlags() const
+	{
+#if WITH_EDITOR
+		return ArDebugSerializationFlags;
+#else
+		return 0;
+#endif
 	}
 
 	FORCEINLINE bool ShouldSkipBulkData() const
@@ -767,7 +781,7 @@ public:
 	 * @param Version - The version number to set key to
 	 * @param FriendlyName - Friendly name corresponding to the key
 	 */
-	void SetCustomVersion(const struct FGuid& Key, int32 Version, FString FriendlyName);
+	void SetCustomVersion(const struct FGuid& Key, int32 Version, FName FriendlyName);
 
 	/**
 	 * Toggle saving as Unicode. This is needed when we need to make sure ANSI strings are saved as Unicode
@@ -798,6 +812,18 @@ public:
 	void SetPortFlags(uint32 InPortFlags)
 	{
 		ArPortFlags = InPortFlags;
+	}
+
+	/**
+	 * Sets the archives custom serialization modifier flags (nothing to do with PortFlags or Custom versions)
+	 * 
+	 * @param InCustomFlags the new flags to use for custom serialization
+	 */
+	void SetDebugSerializationFlags(uint32 InCustomFlags)
+	{
+#if WITH_EDITOR
+		ArDebugSerializationFlags = InCustomFlags;
+#endif
 	}
 
 	/**
@@ -904,6 +930,25 @@ public:
 		SerializedProperty = InProperty;
 	}
 
+#if WITH_EDITORONLY_DATA
+	/** Pushes editor-only marker to the stack of currently serialized properties */
+	FORCEINLINE void PushEditorOnlyProperty()
+	{
+		EditorOnlyPropertyStack++;
+	}
+	/** Pops editor-only marker from the stack of currently serialized properties */
+	FORCEINLINE void PopEditorOnlyProperty()
+	{
+		EditorOnlyPropertyStack--;
+		check(EditorOnlyPropertyStack >= 0);
+	}
+	/** Returns true if the stack of currently serialized properties contains an editor-only property */
+	FORCEINLINE bool IsEditorOnlyPropertyOnTheStack() const
+	{
+		return EditorOnlyPropertyStack > 0;
+	}
+#endif
+
 	/**
 	 * Gets the property that is currently being serialized
 	 *
@@ -992,7 +1037,10 @@ public:
 
 	/** If true, we will not serialize the Outer reference in UObject. */
 	bool ArIgnoreOuterRef;
-	
+
+	/** If true, we will not serialize ClassGeneratedBy reference in UClass. */
+	bool ArIgnoreClassGeneratedByRef;
+
 	/** If true, UObject::Serialize will skip serialization of the Class property. */
 	bool ArIgnoreClassRef;
 	
@@ -1025,14 +1073,82 @@ public:
 			
 	/** Max size of data that this archive is allowed to serialize. */
 	int64 ArMaxSerializeSize;
-	
-private:
 
+	class FScopeSetDebugSerializationFlags
+	{
+	private:
+#if WITH_EDITOR
+		uint32 PreviousFlags;
+		FArchive& Ar;
+#endif
+	public:
+		/**
+		 * Initializes an object which will set flags for the scope of this code
+		 * 
+		 * @param NewFlags new flags to set 
+		 * @param Remove should we add these flags or remove them default is to add
+		 */
+#if WITH_EDITOR
+		FScopeSetDebugSerializationFlags(FArchive& InAr, uint32 NewFlags, bool Remove = false)
+			: Ar(InAr)
+		{
+
+			PreviousFlags = Ar.GetDebugSerializationFlags();
+			if (Remove)
+			{
+				Ar.SetDebugSerializationFlags( PreviousFlags & ~NewFlags);
+			}
+			else
+			{
+				Ar.SetDebugSerializationFlags( PreviousFlags | NewFlags);
+			}
+
+		}
+		~FScopeSetDebugSerializationFlags()
+		{
+
+			Ar.SetDebugSerializationFlags( PreviousFlags);
+		}
+#else
+		FScopeSetDebugSerializationFlags(FArchive& InAr, uint32 NewFlags, bool Remove = false)
+		{}
+		~FScopeSetDebugSerializationFlags()
+		{}
+#endif
+	};
+
+#if WITH_EDITOR
+	/** Custom serialization modifier flags can be used for anything */
+	uint32 ArDebugSerializationFlags;
+	/** Debug stack storage if you want to add data to the archive for usage further down the serialization stack this should be used in conjunction with the FScopeAddDebugData struct */
+	
+	virtual void PushDebugDataString(const FName& DebugData);
+	virtual void PopDebugDataString() { }
+
+	class FScopeAddDebugData
+	{
+	private:
+		FArchive& Ar;
+	public:
+		CORE_API FScopeAddDebugData(FArchive& InAr, const FName& DebugData);
+
+		~FScopeAddDebugData()
+		{
+			Ar.PopDebugDataString();
+		}
+	};
+#endif	
+private:
 	/** Holds the cooking target platform. */
 	const ITargetPlatform* CookingTargetPlatform;
 
 	/** Holds the pointer to the property that is currently being serialized */
 	class UProperty* SerializedProperty;
+
+#if WITH_EDITORONLY_DATA
+	/** Non-zero if on the current stack of serialized properties there's an editor-only property. Needs to live in FArchive becasuse of SerializedProperty. */
+	int32 EditorOnlyPropertyStack;
+#endif
 
 	/**
 	 * Indicates if the custom versions container is in a 'reset' state.  This will be used to defer the choice about how to
@@ -1185,7 +1301,16 @@ public:
 	{
 		return InnerArchive.IsCloseComplete(bHasError);
 	}
-
+#if WITH_EDITOR
+	virtual void PushDebugDataString(const FName& DebugData) override
+	{
+		InnerArchive.PushDebugDataString(DebugData);
+	}
+	virtual void PopDebugDataString() override
+	{
+		InnerArchive.PopDebugDataString();
+	}
+#endif
 protected:
 
 	/** Holds the archive that this archive is a proxy to. */

@@ -27,7 +27,7 @@ private:
 	FDelegateHandle OnQueryUserInfoCompleteDelegateHandle;
 
 	/** List of User ids to query */
-	TArray< TSharedRef<FUniqueNetId> > QueryUserIds;
+	TArray< TSharedRef<const FUniqueNetId> > QueryUserIds;
 
 	/** true to enable user info query */
 	bool bQueryUserInfo;
@@ -44,7 +44,7 @@ private:
 	/**
 	 * See OnlineUserInterface.h
 	 */
-	void OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuccessful, const TArray< TSharedRef<class FUniqueNetId> >& UserIds, const FString& ErrorStr);
+	void OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& UserIds, const FString& ErrorStr);
 
 public:
 

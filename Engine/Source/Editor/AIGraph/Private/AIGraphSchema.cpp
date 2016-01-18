@@ -39,8 +39,6 @@ UEdGraphNode* FAISchemaAction_NewNode::PerformAction(class UEdGraph* ParentGraph
 
 		NodeTemplate->CreateNewGuid();
 		NodeTemplate->PostPlacedNewNode();
-		NodeTemplate->AllocateDefaultPins();
-		NodeTemplate->AutowireNewNode(FromPin);
 
 		// For input pins, new node will generally overlap node being dragged off
 		// Work out if we want to visually push away from connected node
@@ -61,6 +59,10 @@ UEdGraphNode* FAISchemaAction_NewNode::PerformAction(class UEdGraph* ParentGraph
 		NodeTemplate->NodePosX = XLocation;
 		NodeTemplate->NodePosY = Location.Y;
 		NodeTemplate->SnapToGrid(SNAP_GRID);
+
+		// setup pins after placing node in correct spot, since pin sorting will happen as soon as link connection change occurs
+		NodeTemplate->AllocateDefaultPins();
+		NodeTemplate->AutowireNewNode(FromPin);
 
 		ResultNode = NodeTemplate;
 	}
@@ -121,7 +123,7 @@ UAIGraphSchema::UAIGraphSchema(const FObjectInitializer& ObjectInitializer) : Su
 {
 }
 
-TSharedPtr<FAISchemaAction_NewNode> UAIGraphSchema::AddNewNodeAction(FGraphActionListBuilderBase& ContextMenuBuilder, const FString& Category, const FText& MenuDesc, const FString& Tooltip)
+TSharedPtr<FAISchemaAction_NewNode> UAIGraphSchema::AddNewNodeAction(FGraphActionListBuilderBase& ContextMenuBuilder, const FText& Category, const FText& MenuDesc, const FString& Tooltip)
 {
 	TSharedPtr<FAISchemaAction_NewNode> NewAction = TSharedPtr<FAISchemaAction_NewNode>(new FAISchemaAction_NewNode(Category, MenuDesc, Tooltip, 0));
 	ContextMenuBuilder.AddAction(NewAction);
@@ -129,7 +131,7 @@ TSharedPtr<FAISchemaAction_NewNode> UAIGraphSchema::AddNewNodeAction(FGraphActio
 	return NewAction;
 }
 
-TSharedPtr<FAISchemaAction_NewSubNode> UAIGraphSchema::AddNewSubNodeAction(FGraphActionListBuilderBase& ContextMenuBuilder, const FString& Category, const FText& MenuDesc, const FString& Tooltip)
+TSharedPtr<FAISchemaAction_NewSubNode> UAIGraphSchema::AddNewSubNodeAction(FGraphActionListBuilderBase& ContextMenuBuilder, const FText& Category, const FText& MenuDesc, const FString& Tooltip)
 {
 	TSharedPtr<FAISchemaAction_NewSubNode> NewAction = TSharedPtr<FAISchemaAction_NewSubNode>(new FAISchemaAction_NewSubNode(Category, MenuDesc, Tooltip, 0));
 	ContextMenuBuilder.AddAction(NewAction);

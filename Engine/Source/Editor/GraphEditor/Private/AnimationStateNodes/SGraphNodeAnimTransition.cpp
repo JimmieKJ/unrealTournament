@@ -305,13 +305,6 @@ FString SGraphNodeAnimTransition::GetCurrentDuration() const
 	return FString::Printf(TEXT("%.2f seconds"), TransNode->CrossfadeDuration);
 }
 
-FString SGraphNodeAnimTransition::GetCurrentAlphaCurveMode() const
-{
-	UAnimStateTransitionNode* TransNode = CastChecked<UAnimStateTransitionNode>(GraphNode);
-
-	return (TransNode->CrossfadeMode == ETransitionBlendMode::TBM_Linear) ? TEXT("Linear") : TEXT("Cubic");
-}
-
 void SGraphNodeAnimTransition::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	UAnimStateTransitionNode* TransNode = CastChecked<UAnimStateTransitionNode>(GraphNode);

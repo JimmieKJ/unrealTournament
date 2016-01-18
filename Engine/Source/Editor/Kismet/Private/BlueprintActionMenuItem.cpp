@@ -199,18 +199,15 @@ static UEdGraphNode* FBlueprintMenuActionItemImpl::AutowireSpawnedNodes(UEdGraph
  ******************************************************************************/
 
 //------------------------------------------------------------------------------
-FBlueprintActionMenuItem::FBlueprintActionMenuItem(UBlueprintNodeSpawner const* NodeSpawner, FBlueprintActionUiSpec const& UiSpec, IBlueprintNodeBinder::FBindingSet const& InBindings)
-	: Action(NodeSpawner)
+FBlueprintActionMenuItem::FBlueprintActionMenuItem(UBlueprintNodeSpawner const* NodeSpawner, FBlueprintActionUiSpec const& UiSpec, IBlueprintNodeBinder::FBindingSet const& InBindings, const FText& InNodeCategory, int32 InGrouping)
+	: FEdGraphSchemaAction(InNodeCategory, UiSpec.MenuName, UiSpec.Tooltip.ToString(), InGrouping, UiSpec.Keywords)
+	, Action(NodeSpawner)
 	, IconTint(UiSpec.IconTint)
 	, IconBrush(FEditorStyle::GetBrush(UiSpec.IconName))
 	, Bindings(InBindings)
 {
 	check(Action != nullptr);
 
-	MenuDescription = UiSpec.MenuName;
-	Category = UiSpec.Category.ToString();
-	TooltipDescription = UiSpec.Tooltip.ToString();
-	Keywords = UiSpec.Keywords;
 	DocExcerptRef.DocLink = UiSpec.DocLink;
 	DocExcerptRef.DocExcerptName = UiSpec.DocExcerptTag;
 	// we may fill out the UiSpec's DocLink with whitespace (so we can tell the
@@ -339,13 +336,14 @@ void FBlueprintActionMenuItem::AppendBindings(const FBlueprintActionContext& Con
 	Bindings.Append(BindingSet);
 
 	FBlueprintActionUiSpec UiSpec = Action->GetUiSpec(Context, Bindings);
+
 	// ui signature could be dynamic, and change as bindings change
-	MenuDescription = UiSpec.MenuName;
 	// @TODO: would invalidate any category pre-pending that was done at the 
 	//        MenuBuilder level
 	//Category  = UiSpec.Category.ToString();
-	TooltipDescription = UiSpec.Tooltip.ToString();
-	Keywords  = UiSpec.Keywords;	
+	
+	UpdateSearchData(UiSpec.MenuName, UiSpec.Tooltip.ToString(), FText(), UiSpec.Keywords);
+
 	IconBrush = FEditorStyle::GetBrush(UiSpec.IconName);
 	IconTint  = UiSpec.IconTint;
 	DocExcerptRef.DocLink = UiSpec.DocLink;

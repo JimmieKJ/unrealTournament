@@ -21,6 +21,36 @@ struct FBlueprintActionUiSpec
 		: IconTint(FLinearColor::White)
 	{}
 
+	FBlueprintActionUiSpec(FBlueprintActionUiSpec&& Other)
+	{
+		Move(Other);
+	}
+
+	FBlueprintActionUiSpec& operator=(FBlueprintActionUiSpec&& Other)
+	{
+		if (this != &Other)
+		{
+			Move(Other);
+		}
+		return *this;
+	}
+
+	FBlueprintActionUiSpec(const FBlueprintActionUiSpec& Other)
+	{
+		Copy(Other);
+	}
+
+	FBlueprintActionUiSpec& operator=(const FBlueprintActionUiSpec& Other)
+	{
+		if (this != &Other)
+		{
+			Copy(Other);
+		}
+		return *this;
+	}
+
+	~FBlueprintActionUiSpec() {}
+
 	FText   MenuName;
 	FText   Category;
 	FText   Tooltip;
@@ -29,6 +59,31 @@ struct FBlueprintActionUiSpec
 	FLinearColor IconTint;
 	FString DocLink;
 	FString DocExcerptTag;
+
+private:
+	void Move(FBlueprintActionUiSpec& Other)
+	{
+		MenuName = MoveTemp(Other.MenuName);
+		Category = MoveTemp(Other.Category);
+		Tooltip = MoveTemp(Other.Tooltip);
+		Keywords = MoveTemp(Other.Keywords);
+		IconName = MoveTemp(Other.IconName);
+		IconTint = MoveTemp(Other.IconTint);
+		DocLink = MoveTemp(Other.DocLink);
+		DocExcerptTag = MoveTemp(Other.DocExcerptTag);
+	}
+
+	void Copy(const FBlueprintActionUiSpec& Other)
+	{
+		MenuName = Other.MenuName;
+		Category = Other.Category;
+		Tooltip = Other.Tooltip;
+		Keywords = Other.Keywords;
+		IconName = Other.IconName;
+		IconTint = Other.IconTint;
+		DocLink = Other.DocLink;
+		DocExcerptTag = Other.DocExcerptTag;
+	}
 };
 
 /*******************************************************************************

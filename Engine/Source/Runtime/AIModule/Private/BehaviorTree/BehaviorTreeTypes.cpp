@@ -124,6 +124,34 @@ void FBehaviorTreeInstance::CleanupNodes(UBehaviorTreeComponent& OwnerComp, UBTC
 	}
 }
 
+bool FBehaviorTreeInstance::HasActiveNode(uint16 TestExecutionIndex) const
+{
+	if (ActiveNode && ActiveNode->GetExecutionIndex() == TestExecutionIndex)
+	{
+		return true;
+	}
+
+	for (int32 Idx = 0; Idx < ParallelTasks.Num(); Idx++)
+	{
+		const FBehaviorTreeParallelTask& ParallelTask = ParallelTasks[Idx];
+		if (ParallelTask.TaskNode && ParallelTask.TaskNode->GetExecutionIndex() == TestExecutionIndex)
+		{
+			return (ParallelTask.Status == EBTTaskStatus::Active);
+		}
+	}
+
+	for (int32 Idx = 0; Idx < ActiveAuxNodes.Num(); Idx++)
+	{
+		if (ActiveAuxNodes[Idx] && ActiveAuxNodes[Idx]->GetExecutionIndex() == TestExecutionIndex)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 
 //----------------------------------------------------------------------//
 // FBTNodeIndex
@@ -172,11 +200,23 @@ void FBehaviorTreeSearchData::AddUniqueUpdate(const FBehaviorTreeSearchUpdate& U
 			PendingUpdates.RemoveAt(UpdateIndex, 1, false);
 		}
 	}
+	
+	// don't add Remove updates for inactive aux nodes, as they will block valid Add update coming later from the same search
+	// check only aux nodes, it happens due to UBTCompositeNode::NotifyDecoratorsOnActivation
+	if (!bSkipAdding && UpdateInfo.Mode == EBTNodeUpdateMode::Remove && UpdateInfo.AuxNode)
+	{
+		const bool bIsActive = OwnerComp.IsAuxNodeActive(UpdateInfo.AuxNode, UpdateInfo.InstanceIndex);
+		bSkipAdding = !bIsActive;
+	}
 
 	if (!bSkipAdding)
 	{
 		const int32 Idx = PendingUpdates.Add(UpdateInfo);
 		PendingUpdates[Idx].bPostUpdate = (UpdateInfo.Mode == EBTNodeUpdateMode::Add) && (Cast<UBTService>(UpdateInfo.AuxNode) != NULL);
+	}
+	else
+	{
+		UE_VLOG(OwnerComp.GetOwner(), LogBehaviorTree, Verbose, TEXT(">> or not, update skipped"));
 	}
 }
 
@@ -189,24 +229,23 @@ void FBehaviorTreeSearchData::AssignSearchId()
 //----------------------------------------------------------------------//
 // FBlackboardKeySelector
 //----------------------------------------------------------------------//
-void FBlackboardKeySelector::CacheSelectedKey(UBlackboardData* BlackboardAsset)
+void FBlackboardKeySelector::ResolveSelectedKey(const UBlackboardData& BlackboardAsset)
 {
-	if (BlackboardAsset && !(bNoneIsAllowedValue && SelectedKeyName == NAME_None))
+	if (SelectedKeyName.IsNone() == false || !bNoneIsAllowedValue)
 	{
-		if (SelectedKeyName == NAME_None)
+		if (SelectedKeyName.IsNone())
 		{
-			InitSelectedKey(BlackboardAsset);
+			InitSelection(BlackboardAsset);
 		}
 
-		SelectedKeyID = BlackboardAsset->GetKeyID(SelectedKeyName);
-		SelectedKeyType = BlackboardAsset->GetKeyType(SelectedKeyID);
+		SelectedKeyID = BlackboardAsset.GetKeyID(SelectedKeyName);
+		SelectedKeyType = BlackboardAsset.GetKeyType(SelectedKeyID);
 	}
 }
 
-void FBlackboardKeySelector::InitSelectedKey(UBlackboardData* BlackboardAsset)
+void FBlackboardKeySelector::InitSelection(const UBlackboardData& BlackboardAsset)
 {
-	check(BlackboardAsset);
-	for (UBlackboardData* It = BlackboardAsset; It; It = It->Parent)
+	for (const UBlackboardData* It = &BlackboardAsset; It; It = It->Parent)
 	{
 		for (int32 KeyIndex = 0; KeyIndex < It->Keys.Num(); KeyIndex++)
 		{
@@ -295,7 +334,7 @@ void FBlackboardKeySelector::AddNameFilter(UObject* Owner)
 void FBlackboardKeySelector::AddObjectFilter(UObject* Owner, FName PropertyName, TSubclassOf<UObject> AllowedClass)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Object");
-	UBlackboardKeyType_Object* FilterOb = Owner->CreateDefaultSubobject<UBlackboardKeyType_Object>(*FilterName);
+	UBlackboardKeyType_Object* FilterOb = NewObject<UBlackboardKeyType_Object>(Owner, *FilterName);
 	FilterOb->BaseClass = AllowedClass;
 	AllowedTypes.Add(FilterOb);
 }
@@ -303,7 +342,7 @@ void FBlackboardKeySelector::AddObjectFilter(UObject* Owner, FName PropertyName,
 void FBlackboardKeySelector::AddClassFilter(UObject* Owner, FName PropertyName, TSubclassOf<UClass> AllowedClass)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Class");
-	UBlackboardKeyType_Class* FilterOb = Owner->CreateDefaultSubobject<UBlackboardKeyType_Class>(*FilterName);
+	UBlackboardKeyType_Class* FilterOb = NewObject<UBlackboardKeyType_Class>(Owner, *FilterName);
 	FilterOb->BaseClass = AllowedClass;
 	AllowedTypes.Add(FilterOb);
 }
@@ -311,7 +350,7 @@ void FBlackboardKeySelector::AddClassFilter(UObject* Owner, FName PropertyName, 
 void FBlackboardKeySelector::AddEnumFilter(UObject* Owner, FName PropertyName, UEnum* AllowedEnum)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Enum");
-	UBlackboardKeyType_Enum* FilterOb = Owner->CreateDefaultSubobject<UBlackboardKeyType_Enum>(*FilterName);
+	UBlackboardKeyType_Enum* FilterOb = NewObject<UBlackboardKeyType_Enum>(Owner, *FilterName);
 	FilterOb->EnumType = AllowedEnum;
 	AllowedTypes.Add(FilterOb);
 }
@@ -319,7 +358,7 @@ void FBlackboardKeySelector::AddEnumFilter(UObject* Owner, FName PropertyName, U
 void FBlackboardKeySelector::AddNativeEnumFilter(UObject* Owner, FName PropertyName, const FString& AllowedEnumName)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_NativeEnum");
-	UBlackboardKeyType_NativeEnum* FilterOb = Owner->CreateDefaultSubobject<UBlackboardKeyType_NativeEnum>(*FilterName);
+	UBlackboardKeyType_NativeEnum* FilterOb = NewObject<UBlackboardKeyType_NativeEnum>(Owner, *FilterName);
 	FilterOb->EnumName = AllowedEnumName;
 	AllowedTypes.Add(FilterOb);
 }
@@ -327,43 +366,43 @@ void FBlackboardKeySelector::AddNativeEnumFilter(UObject* Owner, FName PropertyN
 void FBlackboardKeySelector::AddIntFilter(UObject* Owner, FName PropertyName)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Int");
-	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Int>(*FilterName));
+	AllowedTypes.Add(NewObject<UBlackboardKeyType_Int>(Owner, *FilterName));
 }
 
 void FBlackboardKeySelector::AddFloatFilter(UObject* Owner, FName PropertyName)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Float");
-	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Float>(*FilterName));
+	AllowedTypes.Add(NewObject<UBlackboardKeyType_Float>(Owner, *FilterName));
 }
 
 void FBlackboardKeySelector::AddBoolFilter(UObject* Owner, FName PropertyName)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Bool");
-	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Bool>(*FilterName));
+	AllowedTypes.Add(NewObject<UBlackboardKeyType_Bool>(Owner, *FilterName));
 }
 
 void FBlackboardKeySelector::AddVectorFilter(UObject* Owner, FName PropertyName)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Vector");
-	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Vector>(*FilterName));
+	AllowedTypes.Add(NewObject<UBlackboardKeyType_Vector>(Owner, *FilterName));
 }
 
 void FBlackboardKeySelector::AddRotatorFilter(UObject* Owner, FName PropertyName)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Rotator");
-	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Rotator>(*FilterName));
+	AllowedTypes.Add(NewObject<UBlackboardKeyType_Rotator>(Owner, *FilterName));
 }
 
 void FBlackboardKeySelector::AddStringFilter(UObject* Owner, FName PropertyName)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_String");
-	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_String>(*FilterName));
+	AllowedTypes.Add(NewObject<UBlackboardKeyType_String>(Owner, *FilterName));
 }
 
 void FBlackboardKeySelector::AddNameFilter(UObject* Owner, FName PropertyName)
 {
 	const FString FilterName = PropertyName.ToString() + TEXT("_Name");
-	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Name>(*FilterName));
+	AllowedTypes.Add(NewObject<UBlackboardKeyType_Name>(Owner, *FilterName));
 }
 
 //----------------------------------------------------------------------//
@@ -423,4 +462,23 @@ FString UBehaviorTreeTypes::GetShortTypeName(const UObject* Ob)
 	}
 
 	return TypeDesc;
+}
+
+//----------------------------------------------------------------------//
+// DEPRECATED
+//----------------------------------------------------------------------//
+void FBlackboardKeySelector::CacheSelectedKey(UBlackboardData* BlackboardAsset)
+{
+	if (BlackboardAsset)
+	{
+		ResolveSelectedKey(*BlackboardAsset);
+	}
+}
+
+void FBlackboardKeySelector::InitSelectedKey(UBlackboardData* BlackboardAsset)
+{
+	if (BlackboardAsset)
+	{
+		InitSelection(*BlackboardAsset);
+	}
 }

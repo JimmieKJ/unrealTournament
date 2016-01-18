@@ -5,12 +5,16 @@
 #include "AssetToolsModule.h"
 #include "Toolkits/SimpleAssetEditor.h"
 #include "EditorReimportHandler.h"
+#include "Editor/UnrealEd/Classes/Settings/EditorLoadingSavingSettings.h"
+
 
 /** A base class for all AssetTypeActions. Provides helper functions useful for many types. Deriving from this class is optional. */
 class FAssetTypeActions_Base : public IAssetTypeActions
 {
 public:
-	// Begin IAssetTypeActions implementation
+
+	// IAssetTypeActions interface
+
 	virtual bool HasActions( const TArray<UObject*>& InObjects ) const override
 	{
 		return false;
@@ -68,8 +72,8 @@ public:
 
 	virtual void PerformAssetDiff(UObject* OldAsset, UObject* NewAsset, const struct FRevisionInfo& OldRevision, const struct FRevisionInfo& NewRevision) const override
 	{
-		check(OldAsset != NULL);
-		check(NewAsset != NULL);
+		check(OldAsset != nullptr);
+		check(NewAsset != nullptr);
 
 		// Dump assets to temp text files
 		FString OldTextFilename = DumpAssetToTempFile(OldAsset);
@@ -98,8 +102,6 @@ public:
 	virtual void GetResolvedSourceFilePaths(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFilePaths) const override
 	{
 	}
-
-	// End IAssetTypeActions implementation
 
 protected:
 

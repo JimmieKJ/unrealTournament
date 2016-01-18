@@ -129,8 +129,8 @@ namespace Sc
 	public:
 						void					internalWakeUp(PxReal wakeCounterValue=ScInternalWakeCounterResetValue);
 						void					internalWakeUpArticulationLink(PxReal wakeCounterValue);	// called by ArticulationSim to wake up this link
-						void					sleepCheck(PxReal dt, PxReal invDt, bool enableStabilization);
-						PxReal					updateWakeCounter(PxReal dt, PxReal energyThreshold, PxReal freezeThreshold, PxReal invDt, bool enableStabilization);
+						void					sleepCheck(PxReal dt, PxReal invDt, bool enableStabilization,bool& readyForSleeping, bool& notReadyForSleeping);
+						PxReal					updateWakeCounter(PxReal dt, PxReal energyThreshold, PxReal freezeThreshold, PxReal invDt, bool enableStabilization, bool& notReadyForSleeping);
 						void					resetSleepFilter();
 						void					notifyReadyForSleeping();			// inform the sleep island generation system that the body is ready for sleeping
 						void					notifyNotReadyForSleeping();		// inform the sleep island generation system that the body is not ready for sleeping

@@ -17,10 +17,13 @@ public class OnlineSubsystemUtils : ModuleRules
 				"Engine", 
 				"EngineSettings",
                 "ImageCore",
-				"OnlineSubsystem",
 				"Sockets",
-				"Voice"
+				"Voice",
+                "PacketHandler",
+				"Json"
 			}
 		);
+
+        PublicDependencyModuleNames.Add("OnlineSubsystem");
 	}
 }

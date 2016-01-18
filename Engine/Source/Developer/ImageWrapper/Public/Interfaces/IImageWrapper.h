@@ -10,8 +10,11 @@ namespace EImageFormat
 	 */
 	enum Type
 	{
+		/** Invalid or unrecognized format */
+		Invalid = -1,
+
 		/** Portable Network Graphics */
-		PNG,
+		PNG = 0,
 
 		/** Joint Photographic Experts Group */
 		JPEG,

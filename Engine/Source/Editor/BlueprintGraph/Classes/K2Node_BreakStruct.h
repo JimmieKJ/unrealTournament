@@ -24,18 +24,18 @@ class UK2Node_BreakStruct : public UK2Node_StructMemberGet
 	 * a creation of a break node, although we could do so in the future. There are legacy break nodes that
 	 * rely on expansion of structs that neither have BlueprintVisible properties nor are tagged as BlueprintType
 	 */
-	static bool CanBeBroken(const UScriptStruct* Struct, bool bIncludeEditAnywhere = true);
+	static bool CanBeBroken(const UScriptStruct* Struct, bool bIncludeEditAnywhere = true, bool bMustHaveValidProperties = false);
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FText GetTooltipText() const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.BreakStruct_16x"); }
-	// End  UEdGraphNode interface
+	//~ End  UEdGraphNode Interface
 
-	// Begin K2Node interface
+	//~ Begin K2Node Interface
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return false; }
 	virtual bool IsNodePure() const override { return true; }
 	virtual bool DrawNodeAsVariable() const override { return false; }
@@ -43,7 +43,7 @@ class UK2Node_BreakStruct : public UK2Node_StructMemberGet
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
-	// End K2Node interface
+	//~ End K2Node Interface
 
 private:
 	/** Constructing FText strings can be costly, so we cache the node's title/tooltip */

@@ -15,6 +15,7 @@ FWindowsCursor::FWindowsCursor()
 		switch( CurCursorIndex )
 		{
 		case EMouseCursor::None:
+		case EMouseCursor::Custom:
 			// The mouse cursor will not be visible when None is used
 			break;
 
@@ -119,6 +120,7 @@ FWindowsCursor::~FWindowsCursor()
 		case EMouseCursor::GrabHandClosed:
 		case EMouseCursor::SlashedCircle:
 		case EMouseCursor::EyeDropper:
+		case EMouseCursor::Custom:
 			// Standard shared cursors don't need to be destroyed
 			break;
 
@@ -128,6 +130,11 @@ FWindowsCursor::~FWindowsCursor()
 			break;
 		}
 	}
+}
+
+void FWindowsCursor::SetCustomShape( HCURSOR CursorHandle )
+{
+	CursorHandles[EMouseCursor::Custom] = CursorHandle;
 }
 
 FVector2D FWindowsCursor::GetPosition() const

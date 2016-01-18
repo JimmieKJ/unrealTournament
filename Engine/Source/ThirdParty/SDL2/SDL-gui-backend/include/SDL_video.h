@@ -873,6 +873,21 @@ extern DECLSPEC int SDLCALL SDL_SetWindowModalFor(SDL_Window * modal_window, SDL
  */
 extern DECLSPEC int SDLCALL SDL_SetWindowInputFocus(SDL_Window * window);
 
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+/**
+ *  \brief Grabs the keyboard input for a particular window.
+ *
+ *  \param window The window that should grab the keyboard
+ *
+ *  \return 0 on success, or -1 otherwise.
+ *  \sa SDL_RaiseWindow()
+ */
+extern DECLSPEC int SDLCALL SDL_SetKeyboardGrab(SDL_Window * window, SDL_bool enable);
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
 /**
  *  \brief Set the gamma ramp for a window.
  *

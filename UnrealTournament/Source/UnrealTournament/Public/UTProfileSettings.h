@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 // These are settings that are stored in a remote MCP managed profile.  A copy of them are also stored in the user folder on the local machine
 // in case of MCP failure or downtime.
@@ -8,6 +8,7 @@
 #include "GameFramework/InputSettings.h"
 #include "UTPlayerInput.h"
 #include "UTPlayerController.h"
+#include "UTWeaponSkin.h"
 #include "UTProfileSettings.generated.h"
 
 static const uint32 VALID_PROFILESETTINGS_VERSION = 6;
@@ -20,22 +21,6 @@ static const uint32 PAUSEKEY_FIXUP_PROFILESETTINGS_VERSION = 11;
 static const uint32 CURRENT_PROFILESETTINGS_VERSION = 13;
 static const uint32 CHALLENGE_FIXUP_VERSION = 12;
 
-namespace AchievementIDs
-{
-	extern const FName TutorialComplete;
-	extern const FName ChallengeStars5;
-	extern const FName ChallengeStars15;
-	extern const FName ChallengeStars25;
-	extern const FName ChallengeStars35;
-	extern const FName ChallengeStars45;
-	extern const FName PumpkinHead2015Level1;
-	extern const FName PumpkinHead2015Level2;
-	extern const FName PumpkinHead2015Level3;
-	extern const FName ChallengePumpkins5;
-	extern const FName ChallengePumpkins10;
-	extern const FName ChallengePumpkins15;
-	extern const FName FacePumpkins;
-};
 
 class UUTLocalPlayer;
 
@@ -221,6 +206,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	// quick lookup.
 	TMap<FString, FStoredWeaponGroupInfo> WeaponGroupLookup;
 
+	UPROPERTY()
+	TArray<UUTWeaponSkin*> WeaponSkins;
+
 protected:
 
 	/**
@@ -329,4 +317,18 @@ protected:
 	// If true, then the player will not show toasts in game.
 	UPROPERTY()
 	uint32 bSuppressToastsInGame : 1;
+
+public:
+	void UpdateCrosshairs(AUTHUD* HUD);
+
+	// If true, we have forced and epic Employee to use the Epic Logo at least once before they changed it.
+	UPROPERTY()
+	uint32 bForcedToEpicAtLeastOnce : 1;
+
+	void CopyTokens(TArray<FName>& Destination)
+	{
+		Destination = FoundTokenUniqueIDs;
+	}
+
+
 };

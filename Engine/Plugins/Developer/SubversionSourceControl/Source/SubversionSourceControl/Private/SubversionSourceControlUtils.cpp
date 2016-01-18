@@ -50,6 +50,93 @@ const FString& FScopedTempFile::GetFilename() const
 namespace SubversionSourceControlUtils
 {
 
+static FString DetectSubversionPath()
+{
+	auto& Settings = FModuleManager::GetModulePtr<FSubversionSourceControlModule>("SubversionSourceControl")->AccessSettings();
+
+	FString SVNPath = Settings.GetExecutableOverride();
+	if (!SVNPath.IsEmpty())
+	{
+		if (FPaths::FileExists(SVNPath))
+		{
+			UE_LOG(LogSourceControl, Log, TEXT("Using user-supplied path %s for svn operations"), *FPaths::ConvertRelativePathToFull(SVNPath));
+			return SVNPath;
+		}
+		
+		UE_LOG(LogSourceControl, Log, TEXT("Specified svn executable (%s) does not exist. Falling back to default behaviour."), *SVNPath);
+	}
+
+	const bool bLaunchDetached = false;
+	const bool bLaunchHidden = true;
+
+#if PLATFORM_WINDOWS
+	const TCHAR* Command[] = { TEXT("where"), TEXT("svn.exe") };
+	const FString DefaultPath = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/svn") / FPlatformProcess::GetBinariesSubdirectory() / TEXT("svn.exe");
+#elif PLATFORM_MAC
+	const TCHAR* Command[] = { TEXT("/usr/bin/which"), TEXT("svn") };
+	const FString DefaultPath = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/svn") / FPlatformProcess::GetBinariesSubdirectory() / TEXT("bin/svn");
+#else
+	const TCHAR* Command[] = { TEXT("/usr/bin/which"), TEXT("svn") };
+	const FString DefaultPath = TEXT("/usr/bin/svn");
+#endif
+
+	{
+		// Attmpt to detect a system wide version of the svn command line tools
+		void* ReadPipe = nullptr, *WritePipe = nullptr;
+		FPlatformProcess::CreatePipe(ReadPipe, WritePipe);
+
+		FProcHandle ProcHandle = FPlatformProcess::CreateProc(Command[0], Command[1], bLaunchDetached, bLaunchHidden, bLaunchHidden, NULL, 0, NULL, WritePipe);
+		if (ProcHandle.IsValid())
+		{
+			FPlatformProcess::WaitForProc(ProcHandle);
+			SVNPath = FPlatformProcess::ReadPipe(ReadPipe);
+
+			// Trim at the first \n
+			int32 NewLine = INDEX_NONE;
+			if (SVNPath.FindChar('\n', NewLine))
+			{
+				SVNPath = SVNPath.Left(NewLine);
+			}
+		}
+		FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
+		FPlatformProcess::CloseProc(ProcHandle);
+	}
+
+	bool bPathIsValid = !SVNPath.IsEmpty() && FPaths::FileExists(SVNPath);
+
+#if PLATFORM_MAC
+	// On mac we need to check that the developer tools are installed if the svn path is /usr/bin/svn
+	if (SVNPath == TEXT("/usr/bin/svn"))
+	{
+		void* ReadPipe = nullptr, *WritePipe = nullptr;
+		FPlatformProcess::CreatePipe(ReadPipe, WritePipe);
+
+		FProcHandle DevToolsProc = FPlatformProcess::CreateProc(TEXT("/usr/bin/xcode-select"), TEXT("-p"), bLaunchDetached, bLaunchHidden, bLaunchHidden, NULL, 0, NULL, WritePipe);
+		if (DevToolsProc.IsValid())
+		{
+			FPlatformProcess::WaitForProc(DevToolsProc);
+
+			int32 ReturnCode = 0;
+			if (!FPlatformProcess::GetProcReturnCode(DevToolsProc, &ReturnCode) || ReturnCode != 0)
+			{
+				bPathIsValid = false;
+			}
+		}
+		FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
+		FPlatformProcess::CloseProc(DevToolsProc);
+	}
+#endif
+
+	if (!bPathIsValid)
+	{
+		UE_LOG(LogSourceControl, Log, TEXT("Unable to detect system-level svn binary."));
+		SVNPath = DefaultPath;
+	}
+
+	UE_LOG(LogSourceControl, Log, TEXT("Using path %s for svn operations"), *FPaths::ConvertRelativePathToFull(SVNPath));
+	return SVNPath;
+}
+
 static bool RunCommandInternal(const FString& InCommand, const TArray<FString>& InFiles, const TArray<FString>& InParameters, FString& OutResults, TArray<FString>& OutErrorMessages, const FString& UserName, const FString& Password)
 {
 	int32 ReturnCode = 0;
@@ -86,18 +173,12 @@ static bool RunCommandInternal(const FString& InCommand, const TArray<FString>& 
 		FullCommand += FString::Printf(TEXT(" --password \"%s\""), *Password);
 	}
 	
-#if PLATFORM_WINDOWS
-	const FString SVNBinaryPath = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/svn") / FPlatformProcess::GetBinariesSubdirectory() / TEXT("svn.exe");
-#elif PLATFORM_MAC
-	const FString SVNBinaryPath = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/svn") / FPlatformProcess::GetBinariesSubdirectory() / TEXT("bin/svn");
-#else
-	const FString SVNBinaryPath = TEXT("/usr/bin/svn");
-#endif
+	static const FString SVNBinaryPath = DetectSubversionPath();
 	FPlatformProcess::ExecProcess(*SVNBinaryPath, *FullCommand, &ReturnCode, &OutResults, &StdError);
 
 	// parse output & errors
 	TArray<FString> Errors;
-	StdError.ParseIntoArray(Errors, TEXT("\r\n"), true);
+	StdError.ParseIntoArray(Errors, LINE_TERMINATOR, true);
 	OutErrorMessages.Append(MoveTemp(Errors));
 
 	return ReturnCode == 0;
@@ -154,7 +235,7 @@ bool RunAtomicCommand(const FString& InCommand, const TArray<FString>& InFiles, 
 	FString Results;
 	if( RunCommandInternal(InCommand, InFiles, InParameters, Results, OutErrorMessages, UserName, Password) )
 	{
-		Results.ParseIntoArray(OutResults, TEXT("\r\n"), true);
+		Results.ParseIntoArray(OutResults, LINE_TERMINATOR, true);
 		return true;
 	}
 	return false;
@@ -178,14 +259,14 @@ bool RunCommand(const FString& InCommand, const TArray<FString>& InFiles, const 
 
 			FString Results;
 			bResult &= RunCommandInternal(InCommand, FilesInBatch, InParameters, Results, OutErrorMessages, UserName, Password);
-			Results.ParseIntoArray(OutResults, TEXT("\r\n"), true);
+			Results.ParseIntoArray(OutResults, LINE_TERMINATOR, true);
 		}
 	}
 	else
 	{
 		FString Results;
 		bResult &= RunCommandInternal(InCommand, InFiles, InParameters, Results, OutErrorMessages, UserName, Password);
-		Results.ParseIntoArray(OutResults, TEXT("\r\n"), true);
+		Results.ParseIntoArray(OutResults, LINE_TERMINATOR, true);
 	}
 
 	return bResult;

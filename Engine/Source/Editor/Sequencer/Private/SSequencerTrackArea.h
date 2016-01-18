@@ -2,65 +2,114 @@
 
 #pragma once
 
+class SSequencerTreeViewRow;
+class SSequencerTreeView;
+class SSequencerTrackLane;
+class FSequencerTimeSliderController;
+class FSequencer;
+
+#include "SequencerInputHandlerStack.h"
+
 /**
- * The area where tracks( rows of sections ) are displayed
+ * Structure representing a slot in the track area.
  */
-class SSequencerTrackArea : public SCompoundWidget
+class FTrackAreaSlot
+	: public TSlotBase<FTrackAreaSlot>
 {
 public:
+
+	/** Construction from a track lane */
+	FTrackAreaSlot(const TSharedPtr<SSequencerTrackLane>& InSlotContent);
+
+	/** Get the vertical position of this slot inside its parent. */
+	float GetVerticalOffset() const;
+
+	/** Horizontal/Vertical alignment for the slot. */
+	EHorizontalAlignment HAlignment;
+	EVerticalAlignment VAlignment;
+
+	/** The track lane that we represent. */
+	TWeakPtr<SSequencerTrackLane> TrackLane;
+};
+
+
+/**
+ * The area where tracks( rows of sections ) are displayed.
+ */
+class SSequencerTrackArea
+	: public SPanel
+{
+public:
+
 	SLATE_BEGIN_ARGS( SSequencerTrackArea )
-	{}
-		/** The range of time being viewed */
-		SLATE_ATTRIBUTE( TRange<float>, ViewRange )
-		/** Percentage of horizontal space that the animation outliner takes up */
-		SLATE_ATTRIBUTE( float, OutlinerFillPercent )
+	{ }
 	SLATE_END_ARGS()
 
-	void Construct( const FArguments& InArgs, TSharedRef<FSequencer> InSequencer );
+	/** Construct this widget */
+	void Construct(const FArguments& InArgs, TSharedRef<FSequencerTimeSliderController> InTimeSliderController, TSharedRef<FSequencer> InSequencer);
 
-	/**
-	 * Updates the track area with new nodes
-	 */
-	virtual void Update( TSharedPtr<FSequencerNodeTree> InSequencerNodeTree );
+public:
 
-	TSharedPtr<SSequencerCurveEditor> GetCurveEditor() { return CurveEditor; }
+	/** Add a new track slot to this area for the given node. The slot will be automatically cleaned up when all external references to the supplied slot are removed. */
+	void AddTrackSlot(const TSharedRef<FSequencerDisplayNode>& InNode, const TSharedPtr<SSequencerTrackLane>& InSlot);
+
+	/** Attempt to find an existing slot relating to the given node */
+	TSharedPtr<SSequencerTrackLane> FindTrackSlot(const TSharedRef<FSequencerDisplayNode>& InNode);
+
+	/** Access the cached geometry for this track area */
+	const FGeometry& GetCachedGeometry() const
+	{
+		return CachedGeometry;
+	}
+
+	/** Assign a tree view to this track area. */
+	void SetTreeView(const TSharedPtr<SSequencerTreeView>& InTreeView);
+
+public:
+
+	// SWidget interface
+
+	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual FReply OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual void OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override;
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
+	virtual void OnMouseCaptureLost() override;
+	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
+	virtual FChildren* GetChildren() override;
 
 private:
-	/**
-	 * Generates a widget for the specified node and puts it into the scroll box
-	 *
-	 * @param Node	The node to generate a widget for
-	 */
-	void GenerateWidgetForNode( TSharedRef<FSequencerDisplayNode>& Node );
-	
-	/**
-	 * Recursively generates widgets for each layout node
-	 *
-	 * @param Nodes to generate widgets for.  Will recurse into each node's children
-	 */
-	void GenerateLayoutNodeWidgetsRecursive( const TArray< TSharedRef<FSequencerDisplayNode> >& Nodes );
 
-	/** Gets the visibility of the curve editor based on the the current settings. */
-	EVisibility GetCurveEditorVisibility() const;
-	/** Gets the visibility of the default section controls based on the current settings. */
-	EVisibility GetSectionControlVisibility() const;
-
-	/** Gets the fill value for the slot which contains the scrollbar.  This allows the scroll bar to move depending
-	  * whether or not the curve editor is visible. */
-	float GetScrollBarSlotFill() const;
-	/** Gets the fill value for the spacer slot which is to the right of the scrollbar.  This allows the scroll bar 
-	  * to move depending whether or not the curve editor is visible. */
-	float GetScrollBarSpacerSlotFill() const;
+	/** The track area's children. */
+	TPanelChildren<FTrackAreaSlot> Children;
 
 private:
-	/** Scrollable area to display widgets */
-	TSharedPtr<SScrollBox> ScrollBox;
-	/** The current view range */
-	TAttribute< TRange<float> > ViewRange;
-	/** The fill percentage of the animation outliner */
-	TAttribute<float> OutlinerFillPercent;
-	/** The main sequencer interface */
-	TWeakPtr<FSequencer> Sequencer;
-	/** The curve editor. */
-	TSharedPtr<SSequencerCurveEditor> CurveEditor;
+
+	/** Cached geometry. */
+	FGeometry CachedGeometry;
+
+	/** A map of child slot content that exist in our view. */
+	TMap<TSharedPtr<FSequencerDisplayNode>, TWeakPtr<SSequencerTrackLane>> TrackSlots;
+
+	/** Weak pointer to the sequencer widget. */
+	TSharedPtr<FSequencer> Sequencer;
+
+	/** Weak pointer to the tree view (used for scrolling interactions). */
+	TWeakPtr<SSequencerTreeView> TreeView;
+
+	/** Time slider controller for controlling zoom/pan etc. */
+	TSharedPtr<FSequencerTimeSliderController> TimeSliderController;
+
+	/** Keep a hold of the size of the area so we can maintain zoom levels. */
+	TOptional<FVector2D> SizeLastFrame;
+
+private:
+
+	/** Input handler stack responsible for routing input to the different handlers */
+	FSequencerInputHandlerStack InputStack;
 };

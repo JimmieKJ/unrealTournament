@@ -49,8 +49,8 @@ TSharedPtr< FSurvey > FSurvey::Create( const TSharedRef< class FEpicSurvey >& In
 		FEngineVersion::Parse( JsonConfig->GetStringField( TEXT("max_engine_version") ), NewSurvey->MaxEngineVersion );
 	}
 	if( (NewSurvey->SurveyVersion != CurrentSurveyVersion) 
-		|| (!NewSurvey->MinEngineVersion.IsEmpty() && GEngineVersion.IsCompatibleWith(NewSurvey->MinEngineVersion))
-		|| (!NewSurvey->MaxEngineVersion.IsEmpty() && NewSurvey->MaxEngineVersion.IsCompatibleWith(GEngineVersion)) )
+		|| (!NewSurvey->MinEngineVersion.IsEmpty() && FEngineVersion::Current().IsCompatibleWith(NewSurvey->MinEngineVersion))
+		|| (!NewSurvey->MaxEngineVersion.IsEmpty() && NewSurvey->MaxEngineVersion.IsCompatibleWith(FEngineVersion::Current())) )
 	{
 		return NULL;
 	}

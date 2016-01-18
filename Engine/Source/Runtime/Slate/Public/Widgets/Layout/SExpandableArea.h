@@ -17,6 +17,7 @@ public:
 		, _AreaTitle( )
 		, _InitiallyCollapsed( false )
 		, _MaxHeight( 0.0f )
+		, _HeaderPadding(FMargin(4.0, 2.0))
 		, _Padding( 1.0f )
 		, _AreaTitleFont( FCoreStyle::Get().GetFontStyle("ExpandableArea.TitleFont") )
 		{}
@@ -32,11 +33,13 @@ public:
 		/** Content displayed inside the area that is expanded */
 		SLATE_NAMED_SLOT( FArguments, BodyContent )
 		/** The title to display.  Not used if header content is supplied */
-		SLATE_TEXT_ATTRIBUTE( AreaTitle )
+		SLATE_ATTRIBUTE( FText, AreaTitle )
 		/** Whether or not the area is initially collapsed */
 		SLATE_ARGUMENT( bool, InitiallyCollapsed )
 		/** The maximum height of the area */
 		SLATE_ARGUMENT( float, MaxHeight )
+		/** The header padding */
+		SLATE_ATTRIBUTE( FMargin, HeaderPadding )
 		/** The content padding */
 		SLATE_ATTRIBUTE( FMargin, Padding )
 		/** Called when the area is expanded or collapsed */

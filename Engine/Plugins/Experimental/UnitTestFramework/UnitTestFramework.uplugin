@@ -1,0 +1,31 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName"     : "Unit Test Framework",
+	"Version"          : 1,
+	"VersionName"      : "1.0",
+	"CreatedBy"        : "Epic Games, Inc.",
+	"CreatedByURL"     : "http://epicgames.com",
+	"EngineVersion"    : "4.9",
+	"Description"      : "",
+	"Category"         : "Experimental",
+	"EnabledByDefault" : false,
+
+	"Modules" :
+	[
+		{
+			"Name"               : "UnitTestFramework",
+			"Type"               : "Runtime",
+			"LoadingPhase"       : "Default",
+			"BlacklistPlatforms" : []
+		},
+		{
+			"Name"               : "UnitTestFrameworkEditor",
+			"Type"               : "Editor",
+			"LoadingPhase"       : "Default",
+			"BlacklistPlatforms" : []
+		},
+	],
+
+	"CanContainContent" : true
+}

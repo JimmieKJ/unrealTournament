@@ -185,8 +185,7 @@ TSharedPtr<FExtender> FCurveAssetEditor::GetToolbarExtender()
 			{
 				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ZoomToFitHorizontal);
 				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ZoomToFitVertical);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ZoomToFitAll);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ZoomToFitSelected);
+				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ZoomToFit);
 			}
 			ToolbarBuilder.EndSection();
 

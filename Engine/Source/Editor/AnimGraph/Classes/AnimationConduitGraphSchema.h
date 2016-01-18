@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "EdGraphSchema_K2.h"
 #include "AnimationConduitGraphSchema.generated.h"
 
 //@TODO: Should this derive from AnimationTransitionSchema (with appropriate suppression of state-based queries)

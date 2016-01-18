@@ -23,6 +23,8 @@ class SLATE_API SInlineEditableTextBlock: public SCompoundWidget
 		, _Justification(ETextJustify::Left)
 		, _LineBreakPolicy()
 		, _IsReadOnly(false)
+		, _MultiLine(false)
+		, _ModiferKeyForNewLine(EModifierKey::None)
 	{}
 
 		/** The text displayed in this text block */
@@ -57,6 +59,12 @@ class SLATE_API SInlineEditableTextBlock: public SCompoundWidget
 
 		/** True if the editable text block is read-only. It will not be able to enter edit mode if read-only */
 		SLATE_ATTRIBUTE( bool, IsReadOnly )
+
+		/** True if the editable text block is multi-line */
+		SLATE_ARGUMENT( bool, MultiLine )
+
+		/** The optional modifier key necessary to create a newline when typing into the editor. */
+		SLATE_ARGUMENT(EModifierKey::Type, ModiferKeyForNewLine)
 
 		/** Callback when the text starts to be edited */
 		SLATE_EVENT( FOnBeginTextEdit, OnBeginTextEdit )
@@ -130,6 +138,9 @@ protected:
 	/** The widget used when in editing mode */ 
 	TSharedPtr< SEditableTextBox > TextBox;
 
+	/** The widget used when in editing mode */ 
+	TSharedPtr< SMultiLineEditableTextBox > MultiLineTextBox;
+
 	/** Delegate to execute when the text starts to be edited */
 	FOnBeginTextEdit OnBeginTextEditDelegate;
 
@@ -156,11 +167,24 @@ protected:
 
 	/** Attribute to look up if the widget is read-only */
 	TAttribute< bool > bIsReadOnly;
-	
+
+	/** Attribute to look up if the widget is multiline */
+	bool bIsMultiLine;
+
 	/** Widget to focus when we finish editing */
 	TWeakPtr<SWidget> WidgetToFocus;
 
 private:
+
+	/** Get editable text widget */
+	TSharedPtr<SWidget> GetEditableTextWidget() const;
+
+	/** Set editable text */
+	void SetEditableText( const TAttribute< FText >& InNewText );
+
+	/** Set textbox error */
+	void SetTextBoxError( const FText& ErrorText );
+
 	/** Active timer to trigger entry into edit mode after a delay */
 	EActiveTimerReturnType TriggerEditMode(double InCurrentTime, float InDeltaTime);
 

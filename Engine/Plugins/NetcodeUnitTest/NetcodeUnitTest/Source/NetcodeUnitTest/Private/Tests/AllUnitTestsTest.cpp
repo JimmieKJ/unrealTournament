@@ -9,7 +9,7 @@
 #include "NUTUtil.h"
 
 
-// @todo JohnB: Some unit tests may require special automation flags, and you should automatically parse these from the unit test
+// @todo #JohnBAutomation: Some unit tests may require special automation flags, and you should automatically parse these from the unit test
 //				class itself, if possible (and since this runs all unit tests, you should probably iterate all unit tests that will
 //				be run, to check their requirements)
 
@@ -31,7 +31,7 @@ bool FNUTWaitForUnitTests::Update()
 /**
  * FAutomationConsoleCommand
  *
- * @todo JohnB: AutomationTestCommon.h already implements this, but is private
+ * @todo #JohnBRefactor: AutomationTestCommon.h already implements this, but is private
  */
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FAutomationConsoleCommand, FString, Command);
 
@@ -50,7 +50,7 @@ bool FAutomationConsoleCommand::Update()
  * FAllUnitTestsTest
  */
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FAllUnitTestsTest, "System.Netcode Unit Test", EAutomationTestFlags::ATF_Game);
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FAllUnitTestsTest, "System.Netcode Unit Test", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter);
 
 void FAllUnitTestsTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {

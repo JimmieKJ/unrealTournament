@@ -1,7 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconClient.h"
+#include "Runtime/Online/OnlineSubsystemUtils/Public/OnlineBeaconClient.h"
 #include "UTServerBeaconClient.h"
 #include "UTReplicatedMapInfo.h"
 #include "UTServerBeaconLobbyClient.generated.h"
@@ -15,7 +15,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual FString GetBeaconType() override { return TEXT("UTLobbyBeacon"); }
+//	virtual FString GetBeaconType() override { return TEXT("UTLobbyBeacon"); }
 
 	virtual void InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID, FString AccessKey);
 	virtual void OnConnected();

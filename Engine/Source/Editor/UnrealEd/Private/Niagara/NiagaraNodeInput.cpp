@@ -10,6 +10,7 @@ UNiagaraNodeInput::UNiagaraNodeInput(const FObjectInitializer& ObjectInitializer
 , FloatDefault(1.0f)
 , VectorDefault(1.0f, 1.0f, 1.0f, 1.0f)
 , MatrixDefault(FMatrix::Identity)
+, DataObjectDefault(nullptr)
 , bCanBeExposed(true)
 , bExposeWhenConstant(true)
 {
@@ -17,118 +18,45 @@ UNiagaraNodeInput::UNiagaraNodeInput(const FObjectInitializer& ObjectInitializer
 
 void UNiagaraNodeInput::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
-	ReallocatePins();
-}
-
-void UNiagaraNodeInput::ReallocatePins()
-{
-	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
-	Modify();
-
-	// Break any links to 'orphan' pins
-	for (int32 PinIndex = 0; PinIndex < Pins.Num(); ++PinIndex)
+	if (PropertyChangedEvent.Property != nullptr)
 	{
-		UEdGraphPin* Pin = Pins[PinIndex];
-		TArray<class UEdGraphPin*>& LinkedToRef = Pin->LinkedTo;
-		for (int32 LinkIdx = 0; LinkIdx < LinkedToRef.Num(); LinkIdx++)
-		{
-			UEdGraphPin* OtherPin = LinkedToRef[LinkIdx];
-			// If we are linked to a pin that its owner doesn't know about, break that link
-			if (!OtherPin->GetOwningNode()->Pins.Contains(OtherPin))
-			{
-				Pin->LinkedTo.Remove(OtherPin);
-			}
-		}
+		ReallocatePins();
 	}
 
-	// Store the old Input and Output pins
-	TArray<UEdGraphPin*> OldInputPins;
-	TArray<UEdGraphPin*> OldOutputPins;
-	GetInputPins(OldInputPins);
-	GetOutputPins(OldOutputPins);
-
-	// Move the existing pins to a saved array
-	TArray<UEdGraphPin*> OldPins(Pins);
-	Pins.Empty();
-
-
-	switch (Input.Type)
-	{
-	case ENiagaraDataType::Scalar:
-	{
-		CreatePin(EGPD_Output, Schema->PC_Float, TEXT(""), NULL, false, false, Input.Name.ToString());
-	}
-		break;
-	case ENiagaraDataType::Vector:
-	{
-		CreatePin(EGPD_Output, Schema->PC_Vector, TEXT(""), NULL, false, false, Input.Name.ToString());
-	}
-		break;
-	case ENiagaraDataType::Matrix:
-	{
-		CreatePin(EGPD_Output, Schema->PC_Matrix, TEXT(""), NULL, false, false, Input.Name.ToString());
-	}
-		break;
-	case ENiagaraDataType::Curve:
-	{
-		CreatePin(EGPD_Output, Schema->PC_Curve, TEXT(""), NULL, false, false, Input.Name.ToString());
-	}
-		break;
-	};
-
-	// Get new Input and Output pins
-	TArray<UEdGraphPin*> NewInputPins;
-	TArray<UEdGraphPin*> NewOutputPins;
-	GetInputPins(NewInputPins);
-	GetOutputPins(NewOutputPins);
-
-	for (int32 PinIndex = 0; PinIndex < OldInputPins.Num(); PinIndex++)
-	{
-		if (PinIndex < NewInputPins.Num())
-		{
-			NewInputPins[PinIndex]->CopyPersistentDataFromOldPin(*OldInputPins[PinIndex]);
-		}
-	}
-
-	for (int32 PinIndex = 0; PinIndex < OldOutputPins.Num(); PinIndex++)
-	{
-		if (PinIndex < NewOutputPins.Num())
-		{
-			NewOutputPins[PinIndex]->CopyPersistentDataFromOldPin(*OldOutputPins[PinIndex]);
-		}
-	}
-
-	OldInputPins.Empty();
-	OldOutputPins.Empty();
-
-	// Throw away the original pins
-	for (int32 OldPinIndex = 0; OldPinIndex < OldPins.Num(); ++OldPinIndex)
-	{
-		UEdGraphPin* OldPin = OldPins[OldPinIndex];
-		OldPin->Modify();
-		OldPin->BreakAllPinLinks();
-
-#if 0
-		UEdGraphNode::ReturnPinToPool(OldPin);
-#else
-		OldPin->Rename(NULL, GetTransientPackage(), REN_None);
-		OldPin->RemoveFromRoot();
-		OldPin->MarkPendingKill();
-#endif
-	}
-	OldPins.Empty();
-
-	GetGraph()->NotifyGraphChanged();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 void UNiagaraNodeInput::AllocateDefaultPins()
 {
-	ReallocatePins();
+	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
+	switch (Input.Type)
+	{
+		case ENiagaraDataType::Scalar:
+		{
+			CreatePin(EGPD_Output, Schema->PC_Float, TEXT(""), NULL, false, false, TEXT("Input"));
+		}
+			break;
+		case ENiagaraDataType::Vector:
+		{
+			CreatePin(EGPD_Output, Schema->PC_Vector, TEXT(""), NULL, false, false, TEXT("Input"));
+		}
+			break;
+		case ENiagaraDataType::Matrix:
+		{
+			CreatePin(EGPD_Output, Schema->PC_Matrix, TEXT(""), NULL, false, false, TEXT("Input"));
+		}
+			break;
+		case ENiagaraDataType::Curve:
+		{
+			CreatePin(EGPD_Output, Schema->PC_Curve, TEXT(""), NULL, false, false, TEXT("Input"));
+		}
+		break;
+	};
 }
 
 FText UNiagaraNodeInput::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return Input.Name == NAME_None ? NSLOCTEXT("NiagaraNodeInput", "Input", "Input") : FText::FromName(Input.Name);
+	return FText::FromName(Input.Name);
 }
 
 FLinearColor UNiagaraNodeInput::GetNodeTitleColor() const
@@ -143,6 +71,27 @@ FLinearColor UNiagaraNodeInput::GetNodeTitleColor() const
 	else
 	{
 		return CastChecked<UEdGraphSchema_Niagara>(GetSchema())->NodeTitleColor_Attribute;
+	}
+}
+
+void UNiagaraNodeInput::AutowireNewNode(UEdGraphPin* FromPin)
+{
+	if (FromPin != nullptr)
+	{
+		const UEdGraphSchema_Niagara* Schema = CastChecked<UEdGraphSchema_Niagara>(GetSchema());
+		check(Schema);
+		if (Input.Name == NAME_None)
+		{
+			Input.Name = FName(*FromPin->PinName);
+			Input.Type = Schema->GetPinType(FromPin);
+			ReallocatePins();
+		}
+		check(Pins.Num() == 1 && Pins[0] != NULL);
+		
+		if (GetSchema()->TryCreateConnection(FromPin, Pins[0]))
+		{
+			FromPin->GetOwningNode()->NodeConnectionListChanged();
+		}
 	}
 }
 
@@ -162,18 +111,18 @@ void UNiagaraNodeInput::Compile(class INiagaraCompiler* Compiler, TArray<FNiagar
 			case ENiagaraDataType::Scalar:	Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(Input, FloatDefault), Pins[0]));	break;
 			case ENiagaraDataType::Vector:	Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(Input, VectorDefault), Pins[0]));	break;
 			case ENiagaraDataType::Matrix:	Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(Input, MatrixDefault), Pins[0]));	break;
-			case ENiagaraDataType::Curve:	Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalCurveConstant(Input), Pins[0]));	break;
+			case ENiagaraDataType::Curve:	Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(Input, DataObjectDefault), Pins[0]));	break;
 			}
 		}
 		else
 		{
-			//treat this input as an external constant.
+			//treat this input as an internal constant.
 			switch (Input.Type)
 			{
 			case ENiagaraDataType::Scalar:	Outputs.Add(FNiagaraNodeResult(Compiler->GetInternalConstant(Input, FloatDefault), Pins[0]));	break;
 			case ENiagaraDataType::Vector:	Outputs.Add(FNiagaraNodeResult(Compiler->GetInternalConstant(Input, VectorDefault), Pins[0]));	break;
 			case ENiagaraDataType::Matrix:	Outputs.Add(FNiagaraNodeResult(Compiler->GetInternalConstant(Input, MatrixDefault), Pins[0]));	break;
-			case ENiagaraDataType::Curve:	Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalCurveConstant(Input), Pins[0]));	break;//Internal curve Constant?
+			case ENiagaraDataType::Curve:	Outputs.Add(FNiagaraNodeResult(Compiler->GetInternalConstant(Input, DataObjectDefault), Pins[0]));	break;//Internal curve Constant?
 			}
 		}
 	}

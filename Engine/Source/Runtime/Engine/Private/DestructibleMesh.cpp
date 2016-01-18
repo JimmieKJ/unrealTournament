@@ -47,6 +47,13 @@ void UDestructibleMesh::PostLoad()
 		FSkeletalMeshLODInfo& ThisLODInfo = LODInfo[LodIndex];
 		FStaticLODModel& ThisLODModel = ImportedResource->LODModels[LodIndex];
 
+		// Check that we list the root bone as an active bone.
+		if(!ThisLODModel.ActiveBoneIndices.Contains(0))
+		{
+			ThisLODModel.ActiveBoneIndices.Add(0);
+			ThisLODModel.ActiveBoneIndices.Sort();
+		}
+
 		for (int32 ChunkIndex = 0; ChunkIndex < ThisLODModel.Chunks.Num(); ++ChunkIndex)
 		{
 			if (ThisLODModel.Chunks[ChunkIndex].BoneMap.Num() > MaxGPUSkinBones)
@@ -487,7 +494,7 @@ void UDestructibleMesh::CreateFractureSettings()
 
 #if WITH_APEX && WITH_EDITORONLY_DATA
 
-bool CreateSubmeshFromSMSection(FStaticMeshLODResources& RenderMesh, int32 SubmeshIdx, FStaticMeshSection& Section, physx::NxExplicitSubmeshData& SubmeshData, TArray<physx::NxExplicitRenderTriangle>& Triangles)
+bool CreateSubmeshFromSMSection(const FStaticMeshLODResources& RenderMesh, int32 SubmeshIdx, const FStaticMeshSection& Section, physx::NxExplicitSubmeshData& SubmeshData, TArray<physx::NxExplicitRenderTriangle>& Triangles)
 {
 	// Create submesh descriptor, just a material name and a vertex format
 	FCStringAnsi::Strncpy(SubmeshData.mMaterialName, TCHAR_TO_ANSI(*FString::Printf(TEXT("Material%d"),Section.MaterialIndex)), physx::NxExplicitSubmeshData::MaterialNameBufferSize);
@@ -547,12 +554,12 @@ bool UDestructibleMesh::BuildFractureSettingsFromStaticMesh(UStaticMesh* StaticM
 
 	// Array of render meshes to create the fracture settings from. The first RenderMesh is the root mesh, while the other ones are 
 	// imported to form the chunk meshes ( if no FBX was imported as level 1 chunks, this will just contain the root mesh )
-	TArray<FStaticMeshLODResources*> RenderMeshes;
+	TArray<const FStaticMeshLODResources*> RenderMeshes;
 	TArray<UStaticMesh*> StaticMeshes;
 	TArray<uint32> MeshPartitions;
 
 	// Do we have a main static mesh?
-	FStaticMeshLODResources& MainRenderMesh = StaticMesh->GetLODForExport(0);
+	const FStaticMeshLODResources& MainRenderMesh = StaticMesh->GetLODForExport(0);
 
 	// Keep track of overall triangle and submesh count
 	int32 OverallTriangleCount = MainRenderMesh.GetNumTriangles();
@@ -568,7 +575,7 @@ bool UDestructibleMesh::BuildFractureSettingsFromStaticMesh(UStaticMesh* StaticM
 	// Get the rendermeshes for the chunks ( if any )
 	for (int32 ChunkMeshIdx=0; ChunkMeshIdx < FractureChunkMeshes.Num(); ++ChunkMeshIdx)
 	{
-		FStaticMeshLODResources& ChunkRM = FractureChunkMeshes[ChunkMeshIdx]->GetLODForExport(0);
+		const FStaticMeshLODResources& ChunkRM = FractureChunkMeshes[ChunkMeshIdx]->GetLODForExport(0);
 		
 		RenderMeshes.Add(&ChunkRM);
 		StaticMeshes.Add(FractureChunkMeshes[ChunkMeshIdx]);
@@ -596,7 +603,7 @@ bool UDestructibleMesh::BuildFractureSettingsFromStaticMesh(UStaticMesh* StaticM
 	// Start creating apex data
 	for (int32 MeshIdx=0; MeshIdx < RenderMeshes.Num(); ++MeshIdx)
 	{
-		FStaticMeshLODResources& RenderMesh = *RenderMeshes[MeshIdx];
+		const FStaticMeshLODResources& RenderMesh = *RenderMeshes[MeshIdx];
 
 		// Get the current static mesh to retrieve the material from
 		UStaticMesh* CurrentStaticMesh = StaticMeshes[MeshIdx];
@@ -604,7 +611,7 @@ bool UDestructibleMesh::BuildFractureSettingsFromStaticMesh(UStaticMesh* StaticM
 		// Loop through elements
 		for (int32 SectionIndex = 0; SectionIndex < RenderMesh.Sections.Num(); ++SectionIndex, ++SubmeshIndexCounter)
 		{
-			FStaticMeshSection& Section = RenderMesh.Sections[SectionIndex];
+			const FStaticMeshSection& Section = RenderMesh.Sections[SectionIndex];
 			physx::NxExplicitSubmeshData& SubmeshData = Submeshes[SubmeshIndexCounter];
 
 			// Parallel materials array
@@ -638,9 +645,11 @@ ENGINE_API bool UDestructibleMesh::BuildFromStaticMesh( UStaticMesh& StaticMesh 
 	}
 
 	SourceStaticMesh = &StaticMesh;
-	if ( StaticMesh.AssetImportData == NULL || !FDateTime::Parse(StaticMesh.AssetImportData->SourceFileTimestamp, SourceSMImportTimestamp) )
+
+	SourceSMImportTimestamp = FDateTime::MinValue();
+	if ( StaticMesh.AssetImportData && StaticMesh.AssetImportData->SourceData.SourceFiles.Num() == 1 )
 	{
-		SourceSMImportTimestamp = FDateTime::MinValue();
+		SourceSMImportTimestamp = StaticMesh.AssetImportData->SourceData.SourceFiles[0].Timestamp;
 	}
 
 #if WITH_APEX

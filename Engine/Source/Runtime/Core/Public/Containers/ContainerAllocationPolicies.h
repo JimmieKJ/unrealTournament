@@ -4,6 +4,7 @@
 
 #include "MemoryBase.h"
 #include "Misc/OutputDevice.h"
+#include "Templates/MemoryOps.h"
 
 
 /** Used to determine the alignment of an element type. */
@@ -590,9 +591,9 @@ struct TAllocatorTraits<TFixedAllocator<NumInlineElements>> : TAllocatorTraitsBa
 	enum { SupportsMove = true };
 };
 
-
-enum { NumBitsPerDWORD = 32 };
-enum { NumBitsPerDWORDLogTwo = 5 };
+// We want these to be correctly typed as int32, but we don't want them to have linkage, so we make them macros
+#define NumBitsPerDWORD ((int32)32)
+#define NumBitsPerDWORDLogTwo ((int32)5)
 
 //
 // Sparse array allocation definitions

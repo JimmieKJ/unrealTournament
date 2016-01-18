@@ -104,10 +104,8 @@ FTransform FTransform::GetRelativeTransformReverse(const FTransform& Other) cons
 	VectorRegister VInverseRot = VectorQuaternionInverse(Rotation);
 	VectorRegister VRotation = VectorQuaternionMultiply2(Other.Rotation, VInverseRot );
 	
-	// [Q(B)*Q(A)(-1)*T(A)*Q(A)*Q(B)(-1)]	
-	VInverseRot = VectorQuaternionInverse(VRotation);
-	VectorRegister VQT = VectorQuaternionMultiply2(VRotation, Translation);	
-	VectorRegister VR = VectorQuaternionMultiply2(VQT, VInverseRot);
+	// RotatedTranslation
+	VectorRegister VR = VectorQuaternionRotateVector(VRotation, Translation);
 
 	// Translation = T(B)-S(B)/S(A) *[Q(B)*Q(A)(-1)*T(A)*Q(A)*Q(B)(-1)]	
 	VectorRegister VTranslation = VectorSet_W0(VectorSubtract(Other.Translation, VectorMultiply(VScale3D, VR)));
@@ -154,10 +152,11 @@ void FTransform::SetToRelativeTransform(const FTransform& ParentTransform)
 	//VQTranslation = (  ( T(A).X - T(B).X ),  ( T(A).Y - T(B).Y ), ( T(A).Z - T(B).Z), 0.f );
 	VectorRegister VQTranslation = VectorSet_W0(VectorSubtract(Translation, ParentTransform.Translation));
 
-	// Translation = 1/S(B) *[Q(B)(-1)*(T(A)-T(B))*Q(B)]
+	// Inverse RotatedTranslation
 	VectorRegister VInverseParentRot = VectorQuaternionInverse(ParentTransform.Rotation);
-	VectorRegister VQT = VectorQuaternionMultiply2(VInverseParentRot, VQTranslation);
-	VectorRegister VR = VectorQuaternionMultiply2(VQT, ParentTransform.Rotation);
+	VectorRegister VR = VectorQuaternionRotateVector(VInverseParentRot, VQTranslation);
+
+	// Translation = 1/S(B)
 	Translation = VectorMultiply(VR, VSafeScale3D);
 
 	// Rotation = Q(B)(-1) * Q(A)	
@@ -194,10 +193,11 @@ FTransform FTransform::GetRelativeTransform(const FTransform& Other) const
 	//VQTranslation = (  ( T(A).X - T(B).X ),  ( T(A).Y - T(B).Y ), ( T(A).Z - T(B).Z), 0.f );
 	VectorRegister VQTranslation =  VectorSet_W0(VectorSubtract(Translation, Other.Translation));
 
-	// Translation = 1/S(B) *[Q(B)(-1)*(T(A)-T(B))*Q(B)]
+	// Inverse RotatedTranslation
 	VectorRegister VInverseRot = VectorQuaternionInverse(Other.Rotation);
-	VectorRegister VQT = VectorQuaternionMultiply2(VInverseRot, VQTranslation);
-	VectorRegister VR = VectorQuaternionMultiply2(VQT, Other.Rotation);
+	VectorRegister VR = VectorQuaternionRotateVector(VInverseRot, VQTranslation);
+
+	//Translation = 1/S(B)
 	VectorRegister VTranslation = VectorMultiply(VR, VSafeScale3D);
 
 	// Rotation = Q(B)(-1) * Q(A)	
@@ -224,21 +224,21 @@ bool FTransform::DebugEqualMatrix(const FMatrix& Matrix) const
 	if (!Equals(TestResult))
 	{
 		// see now which one isn't equal		
-		if (!Scale3DEquals(TestResult.Scale3D, ScalarRegister(0.01f)))
+		if (!Scale3DEquals(TestResult, 0.01f))
 		{
 			UE_LOG(LogTransform, Log, TEXT("Matrix(S)\t%s"), *TestResult.GetScale3D().ToString());
 			UE_LOG(LogTransform, Log, TEXT("VQS(S)\t%s"), *GetScale3D().ToString());
 		}
 
 		// see now which one isn't equal
-		if (!RotationEquals(TestResult.Rotation))
+		if (!RotationEquals(TestResult))
 		{
 			UE_LOG(LogTransform, Log, TEXT("Matrix(R)\t%s"), *TestResult.GetRotation().ToString());
 			UE_LOG(LogTransform, Log, TEXT("VQS(R)\t%s"), *GetRotation().ToString());
 		}
 
 		// see now which one isn't equal
-		if (!TranslationEquals(TestResult.Translation, ScalarRegister(0.01f)))
+		if (!TranslationEquals(TestResult, 0.01f))
 		{
 			UE_LOG(LogTransform, Log, TEXT("Matrix(T)\t%s"), *TestResult.GetTranslation().ToString());
 			UE_LOG(LogTransform, Log, TEXT("VQS(T)\t%s"), *GetTranslation().ToString());

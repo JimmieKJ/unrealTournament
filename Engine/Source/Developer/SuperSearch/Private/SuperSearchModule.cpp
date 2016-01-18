@@ -28,9 +28,28 @@ void FSuperSearchModule::ShutdownModule()
 {
 }
 
-TSharedRef< SWidget > FSuperSearchModule::MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const TOptional<const FSearchBoxStyle*> InStyle) const
+TSharedRef< SWidget > FSuperSearchModule::MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const FString& ConfigFilename, const TOptional<const FSearchBoxStyle*> InStyle, const TOptional<const FComboBoxStyle*> InSearchEngineStyle) const
 {
-	TSharedRef< SSuperSearchBox > NewSearchBox = SNew(SSuperSearchBox).Style(InStyle);
+	ESearchEngine CurrentSearchEngine = ESearchEngine::Google;
+
+	int32 SearchEngineInt;
+	if ( GConfig->GetInt(TEXT("SuperSearch"), TEXT("SearchEngine"), SearchEngineInt, ConfigFilename) )
+	{
+		CurrentSearchEngine = (ESearchEngine)SearchEngineInt;
+	}
+
+	TSharedRef< SSuperSearchBox > NewSearchBox =
+		SNew(SSuperSearchBox)
+		.Style(InStyle)
+		.SearchEngineComboBoxStyle(InSearchEngineStyle)
+		.SearchEngine(CurrentSearchEngine)
+		.OnSearchEngineChanged_Lambda(
+			[=] (ESearchEngine NewSearchEngine)
+			{
+				GConfig->SetInt(TEXT("SuperSearch"), TEXT("SearchEngine"), (int32)NewSearchEngine, ConfigFilename);
+				GConfig->Flush(false, ConfigFilename);
+			});
+
 	OutExposedEditableTextBox = NewSearchBox->GetEditableTextBox();
 	return NewSearchBox;
 }

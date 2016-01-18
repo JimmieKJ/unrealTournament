@@ -49,7 +49,8 @@ public:
 		Bounds = 0x020,
 		WireSphere = 0x040,
 		OriginAxis = 0x080,
-		Orbit = 0x100
+		Orbit = 0x100,
+		ParticleSystemCompleted = 0x200
 	};
 
 	/** Accessors */

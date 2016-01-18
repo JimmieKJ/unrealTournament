@@ -5,7 +5,6 @@
 
 class UNavArea;
 class ANavigationData;
-struct FNavigationQueryFilter;
 
 USTRUCT()
 struct ENGINE_API FNavigationFilterArea
@@ -17,7 +16,7 @@ struct ENGINE_API FNavigationFilterArea
 	TSubclassOf<UNavArea> AreaClass;
 
 	/** override for travel cost */
-	UPROPERTY(EditAnywhere, Category=Area, meta=(EditCondition="bOverrideTravelCost",ClampMin=1))
+	UPROPERTY(EditAnywhere, Category=Area, meta=(EditCondition="bOverrideTravelCost",ClampMin=0.001))
 	float TravelCostOverride;
 
 	/** override for entering cost */
@@ -113,13 +112,17 @@ public:
 	virtual INavigationQueryFilterInterface* CreateCopy() const = 0;
 };
 
-struct ENGINE_API FNavigationQueryFilter : public TSharedFromThis<FNavigationQueryFilter>
+struct FNavigationQueryFilter;
+typedef TSharedPtr<FNavigationQueryFilter, ESPMode::ThreadSafe> FSharedNavQueryFilter;
+typedef TSharedPtr<const FNavigationQueryFilter, ESPMode::ThreadSafe> FSharedConstNavQueryFilter;
+
+struct ENGINE_API FNavigationQueryFilter : public TSharedFromThis<FNavigationQueryFilter, ESPMode::ThreadSafe>
 {
 	FNavigationQueryFilter() : QueryFilterImpl(NULL), MaxSearchNodes(DefaultMaxSearchNodes) {}
 private:
 	FNavigationQueryFilter(const FNavigationQueryFilter& Source);
 	FNavigationQueryFilter(const FNavigationQueryFilter* Source);
-	FNavigationQueryFilter(const TSharedPtr<FNavigationQueryFilter> Source);
+	FNavigationQueryFilter(const FSharedNavQueryFilter Source);
 	FNavigationQueryFilter& operator=(const FNavigationQueryFilter& Source);
 public:
 
@@ -179,7 +182,7 @@ public:
 	FORCEINLINE INavigationQueryFilterInterface* GetImplementation() { return QueryFilterImpl.Get(); }
 	void Reset() { GetImplementation()->Reset(); }
 
-	TSharedPtr<FNavigationQueryFilter> GetCopy() const;
+	FSharedNavQueryFilter GetCopy() const;
 
 	FORCEINLINE bool operator==(const FNavigationQueryFilter& Other) const
 	{
@@ -216,13 +219,13 @@ class ENGINE_API UNavigationQueryFilter : public UObject
 	FNavigationFilterFlags ExcludeFlags;
 
 	/** get filter for given navigation data and initialize on first access */
-	TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData& NavData) const;
+	FSharedConstNavQueryFilter GetQueryFilter(const ANavigationData& NavData) const;
 	
 	/** helper functions for accessing filter */
-	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass);
+	static FSharedConstNavQueryFilter GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass);
 
 	template<class T>
-	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass = T::StaticClass())
+	static FSharedConstNavQueryFilter GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass = T::StaticClass())
 	{
 		return GetQueryFilter(NavData, FilterClass);
 	}
@@ -259,20 +262,20 @@ public:
 	}
 
 	DEPRECATED(4.8, "This version of GetQueryFilter is deprecated. Please use ANavigationData reference rather than a pointer version")
-	TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData) const 
+	FSharedConstNavQueryFilter GetQueryFilter(const ANavigationData* NavData) const 
 	{ 
 		return NavData ? GetQueryFilter(*NavData) : nullptr; 
 	}
 
 	DEPRECATED(4.8, "This version of GetQueryFilter is deprecated. Please use ANavigationData reference rather than a pointer version")
-	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData, TSubclassOf<UNavigationQueryFilter> FilterClass)
+	static FSharedConstNavQueryFilter GetQueryFilter(const ANavigationData* NavData, TSubclassOf<UNavigationQueryFilter> FilterClass)
 	{
 		return NavData ? GetQueryFilter(*NavData, FilterClass) : nullptr;
 	}
 
 	// will "auto-deprecate" due to the function called inside
 	template<class T>
-	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData, TSubclassOf<UNavigationQueryFilter> FilterClass = T::StaticClass())
+	static FSharedConstNavQueryFilter GetQueryFilter(const ANavigationData* NavData, TSubclassOf<UNavigationQueryFilter> FilterClass = T::StaticClass())
 	{
 		return NavData ? GetQueryFilter(*NavData, FilterClass) : nullptr;
 	}

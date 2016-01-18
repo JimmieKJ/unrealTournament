@@ -11,6 +11,7 @@
 #include "BoneContainer.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #include "Interfaces/Interface_AssetUserData.h"
+#include "BoneIndices.h"
 #include "SkeletalMesh.generated.h"
 
 /** The maximum number of skeletal mesh LODs allowed. */
@@ -152,6 +153,9 @@ struct FBoneReference
 
 	/** return true if valid. Otherwise return false **/
 	ENGINE_API bool IsValid(const FBoneContainer& RequiredBones) const;
+
+	FMeshPoseBoneIndex GetMeshPoseIndex() const { return FMeshPoseBoneIndex(BoneIndex); }
+	FCompactPoseBoneIndex GetCompactPoseIndex(const FBoneContainer& RequiredBones) const { return RequiredBones.MakeCompactPoseIndex(GetMeshPoseIndex()); }
 };
 
 /**
@@ -162,58 +166,61 @@ struct FSkeletalMeshOptimizationSettings
 {
 	GENERATED_USTRUCT_BODY()
 
-		/** The method to use when optimizing the skeletal mesh LOD */
-		UPROPERTY()
-		TEnumAsByte<enum SkeletalMeshOptimizationType> ReductionMethod;
+	/** The method to use when optimizing the skeletal mesh LOD */
+	UPROPERTY()
+	TEnumAsByte<enum SkeletalMeshOptimizationType> ReductionMethod;
 
 	/** If ReductionMethod equals SMOT_NumOfTriangles this value is the ratio of triangles [0-1] to remove from the mesh */
 	UPROPERTY()
-		float NumOfTrianglesPercentage;
+	float NumOfTrianglesPercentage;
 
 	/**If ReductionMethod equals SMOT_MaxDeviation this value is the maximum deviation from the base mesh as a percentage of the bounding sphere. */
 	UPROPERTY()
-		float MaxDeviationPercentage;
+	float MaxDeviationPercentage;
 
 	/** The welding threshold distance. Vertices under this distance will be welded. */
 	UPROPERTY()
-		float WeldingThreshold;
+	float WeldingThreshold;
 
 	/** Whether Normal smoothing groups should be preserved. If false then NormalsThreshold is used **/
 	UPROPERTY()
-		bool bRecalcNormals;
+	bool bRecalcNormals;
 
 	/** If the angle between two triangles are above this value, the normals will not be
 	smooth over the edge between those two triangles. Set in degrees. This is only used when PreserveNormals is set to false*/
 	UPROPERTY()
-		float NormalsThreshold;
+	float NormalsThreshold;
 
 	/** How important the shape of the geometry is. */
 	UPROPERTY()
-		TEnumAsByte<enum SkeletalMeshOptimizationImportance> SilhouetteImportance;
+	TEnumAsByte<enum SkeletalMeshOptimizationImportance> SilhouetteImportance;
 
 	/** How important texture density is. */
 	UPROPERTY()
-		TEnumAsByte<enum SkeletalMeshOptimizationImportance> TextureImportance;
+	TEnumAsByte<enum SkeletalMeshOptimizationImportance> TextureImportance;
 
 	/** How important shading quality is. */
 	UPROPERTY()
-		TEnumAsByte<enum SkeletalMeshOptimizationImportance> ShadingImportance;
+	TEnumAsByte<enum SkeletalMeshOptimizationImportance> ShadingImportance;
 
 	/** How important skinning quality is. */
 	UPROPERTY()
-		TEnumAsByte<enum SkeletalMeshOptimizationImportance> SkinningImportance;
+	TEnumAsByte<enum SkeletalMeshOptimizationImportance> SkinningImportance;
 
 	/** The ratio of bones that will be removed from the mesh */
 	UPROPERTY()
-		float BoneReductionRatio;
+	float BoneReductionRatio;
 
 	/** Maximum number of bones that can be assigned to each vertex. */
 	UPROPERTY()
-		int32 MaxBonesPerVertex;
+	int32 MaxBonesPerVertex;
 
-	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TArray<FBoneReference> BonesToRemove;
+	UPROPERTY()
+	TArray<FBoneReference> BonesToRemove_DEPRECATED;
 
+	/** Maximum number of bones that can be assigned to each vertex. */
+	UPROPERTY()
+	int32 BaseLOD;
 
 	FSkeletalMeshOptimizationSettings()
 		: ReductionMethod(SMOT_MaxDeviation)
@@ -228,34 +235,13 @@ struct FSkeletalMeshOptimizationSettings
 		, SkinningImportance(SMOI_Normal)
 		, BoneReductionRatio(100.0f)
 		, MaxBonesPerVertex(4)
+		, BaseLOD(0)
 	{
 	}
 
 	/** Equality operator. */
 	bool operator==(const FSkeletalMeshOptimizationSettings& Other) const
 	{
-		// first, check whether bones to remove are same or not
-		const TArray<FBoneReference>& TempBones1 = BonesToRemove.Num() > Other.BonesToRemove.Num() ? BonesToRemove : Other.BonesToRemove;
-		const TArray<FBoneReference>& TempBones2 = BonesToRemove.Num() > Other.BonesToRemove.Num() ? Other.BonesToRemove : BonesToRemove;
-
-		for (int32 Index = 0; Index < TempBones2.Num(); Index++)
-		{
-			if (TempBones1[Index].BoneName != TempBones2[Index].BoneName)
-			{
-				return false;
-			}
-		}
-
-		// check remained bones 
-		for (int32 Index = TempBones2.Num(); Index < TempBones1.Num(); Index++)
-		{
-			// if it has an actual bone name, these are not the same
-			if (TempBones1[Index].BoneName != FName("None"))
-			{
-				return false;
-			}
-		}
-
 		return ReductionMethod == Other.ReductionMethod
 			&& NumOfTrianglesPercentage == Other.NumOfTrianglesPercentage
 			&& MaxDeviationPercentage == Other.MaxDeviationPercentage
@@ -267,7 +253,8 @@ struct FSkeletalMeshOptimizationSettings
 			&& SkinningImportance == Other.SkinningImportance
 			&& bRecalcNormals == Other.bRecalcNormals
 			&& BoneReductionRatio == Other.BoneReductionRatio
-			&& MaxBonesPerVertex == Other.MaxBonesPerVertex;
+			&& MaxBonesPerVertex == Other.MaxBonesPerVertex
+			&& BaseLOD == Other.BaseLOD;
 	}
 
 	/** Inequality. */
@@ -309,6 +296,10 @@ struct FSkeletalMeshLODInfo
 	/** Reduction settings to apply when building render data. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	FSkeletalMeshOptimizationSettings ReductionSettings;
+
+	/** This has been removed in editor. We could re-apply this in import time or by mesh reduction utilities*/
+	UPROPERTY(EditAnywhere, Category = ReductionSettings)
+	TArray<FName> RemovedBones;
 
 	FSkeletalMeshLODInfo()
 		: ScreenSize(0)
@@ -405,6 +396,14 @@ struct FClothPhysicsProperties
 {
 	GENERATED_USTRUCT_BODY()
 
+	// vertical stiffness of the cloth in the range [0, 1].   usually set to 1.0
+	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float VerticalResistance;
+
+	// Horizontal stiffness of the cloth in the range [0, 1].  usually set to 1.0
+	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float HorizontalResistance;
+
 	// Bending stiffness of the cloth in the range [0, 1]. 
 	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float BendResistance;
@@ -413,9 +412,10 @@ struct FClothPhysicsProperties
 	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float ShearResistance;
 
-	// Make cloth simulation less stretchy. A value smaller than 1 will turn it off. 
-	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "4.0"))
-	float StretchLimit;
+	//  latest email from nvidia suggested this is not in use, my code search revealed the same.   will wait for nv engineering confirmation before deleting
+	// Make cloth simulation less stretchy. A value smaller than 1 will turn it off.  Apex parameter hardStretchLimitation.
+	//UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "4.0"))
+	//float HardStretchLimitation;
 
 	// Friction coefficient in the range[0, 1]
 	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
@@ -424,20 +424,64 @@ struct FClothPhysicsProperties
 	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float Damping;
 
+	// Tether stiffness of the cloth in the range[0, 1].  Equivalent to 1.0-Relax in autodesk plugin.
+	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float TetherStiffness;
+	// Tether Limit, corresponds to 1.0+StretchLimit parameter on Autodesk plugin.  
+	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", UIMin = "1.0", UIMax = "2.0"))
+	float TetherLimit;
+
+
+
 	// Drag coefficient n the range [0, 1] 
 	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float Drag;
 
-	// Amount of gravity that is applied to the cloth. 
-	UPROPERTY(EditAnywhere, Category = Scale, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "5.0"))
+	// Frequency for stiffness 
+	UPROPERTY(EditAnywhere, Category = Stiffness, meta = (ClampMin = "1.0", UIMin = "1.0", UIMax = "1000"))
+	float StiffnessFrequency;
+
+	// Gravity multiplier for this cloth.  Also called Density in Autodesk plugin.
+	UPROPERTY(EditAnywhere, Category = Scale, meta = ( UIMin = "0.0", UIMax = "100.0"))
 	float GravityScale;
+
+	// A mass scaling that is applied to the cloth.   Corresponds to 100X the MotionAdaptation parameter in autodesk plugin.
+	UPROPERTY(EditAnywhere, Category = Scale, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "100.0"))
+	float MassScale;
+
 	// Amount of inertia that is kept when using local space simulation. Internal name is inertia scale
-	UPROPERTY(EditAnywhere, Category = Scale, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "5.0"))
+	UPROPERTY(EditAnywhere, Category = Scale, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "1.0"))
 	float InertiaBlend;
 
 	// Minimal amount of distance particles will keep of each other.
-	UPROPERTY(EditAnywhere, Category = SelfCollision, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "5.0"))
+	UPROPERTY(EditAnywhere, Category = SelfCollision, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "10000.0"))
 	float SelfCollisionThickness;
+
+	// unclear what this actually does.
+	UPROPERTY(EditAnywhere, Category = SelfCollision, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "5.0"))
+	float SelfCollisionSquashScale;
+
+	// Self collision stiffness.  0 off, 1 for on.
+	UPROPERTY(EditAnywhere, Category = SelfCollision, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "1.0"))
+	float SelfCollisionStiffness;
+
+	// A computation parameter for the Solver.   Along with frame rate this probably specifies the number of solver iterations
+	UPROPERTY(EditAnywhere, Category = Solver, meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "1000.0"))
+	float SolverFrequency;
+
+
+	// Lower (compression) Limit of SoftZone (relative to rest length).  Applied for all fiber types.  If both compression and expansion are 1.0 then there is no deadzone.
+	UPROPERTY(EditAnywhere, Category = FiberSoftZone, meta = (UIMin = "0.0", UIMax = "1.0"))
+	float FiberCompression;
+
+	// Upper (expansion) Limit of SoftZone (relative to rest length).  Applied to all fiber types.   Also referred to as "stretch" range by apex internally.
+	UPROPERTY(EditAnywhere, Category = FiberSoftZone, meta = (UIMin = "1.0", UIMax = "2.0"))
+	float FiberExpansion;
+
+	// Resistance Multiplier that's applied to within SoftZone amount for all fiber types.  0.0 for a complete deadzone (no force).  At 1.0 the spring response within the softzone is as stiff it is elsewhere.  This parameter also known as scale by Apex internally.
+	UPROPERTY(EditAnywhere, Category = FiberSoftZone, meta = (UIMin = "0.0", UIMax = "1.0"))
+	float FiberResistance;
+
 };
 
 USTRUCT()
@@ -474,6 +518,10 @@ struct FClothingAssetData
 	 * Num of this array means LOD number of clothing physical meshes 
 	 */
 	TArray<FClothVisualizationInfo> ClothVisualizationInfos;
+
+	/** Apex stores only the bones that cloth needs. We need a mapping from apex bone index to UE bone index. */
+	TArray<int32> ApexToUnrealBoneMapping;
+
 	/** currently mapped morph target name */
 	FName PreparedMorphTargetName;
 
@@ -485,9 +533,12 @@ struct FClothingAssetData
 
 	// serialization
 	friend FArchive& operator<<(FArchive& Ar, FClothingAssetData& A);
+
+	// get resource size
+	SIZE_T GetResourceSize() const;
 };
 
-// Material interface for USkeletalMesh - contains a material and a shadow casting flag
+//~ Begin Material Interface for USkeletalMesh - contains a material and a shadow casting flag
 USTRUCT()
 struct FSkeletalMaterial
 {
@@ -597,10 +648,17 @@ public:
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable, BlueprintReadOnly, Category=Physics)
 	class UPhysicsAsset* PhysicsAsset;
 
+	/**
+	 * Physics asset whose shapes will be used for shadowing when components have bCastCharacterCapsuleDirectShadow or bCastCharacterCapsuleIndirectShadow enabled.
+	 * Only spheres and sphyl shapes in the physics asset can be supported.  The more shapes used, the higher the cost of the capsule shadows will be.
+	 */
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable, BlueprintReadOnly, Category=Lighting)
+	class UPhysicsAsset* ShadowPhysicsAsset;
+
 #if WITH_EDITORONLY_DATA
 
 	/** Importing data and options used for this mesh */
-	UPROPERTY(EditAnywhere, Instanced, Category = Reimport)
+	UPROPERTY(VisibleAnywhere, Instanced, Category = ImportSettings)
 	class UAssetImportData* AssetImportData;
 
 	/** Path to the resource used to construct this skeletal mesh */
@@ -645,12 +703,13 @@ public:
 	TMap<FName, UMorphTarget*> MorphTargetIndexMap;
 
 	/** Reference skeleton precomputed bases. */
-	TArray<FMatrix> RefBasesInvMatrix;    // @todo: wasteful ?!
+	TArray<FMatrix> RefBasesInvMatrix;    
 
 #if WITH_EDITORONLY_DATA
-	/** The section currently selected in the Editor. */
+	/** The section currently selected in the Editor. Used for highlighting */
 	UPROPERTY(transient)
 	int32 SelectedEditorSection;
+
 	/** The section currently selected for clothing. need to remember this index for reimporting cloth */
 	UPROPERTY(transient)
 	int32 SelectedClothingSection;
@@ -722,7 +781,7 @@ public:
 	 */
 	ENGINE_API uint32 GetVertexBufferFlags() const;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -733,13 +792,14 @@ public:
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual void PreSave() override;
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void PostLoad() override;	
+	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual FString GetDesc() override;
 	virtual FString GetDetailedInfoInternal() const override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	/** Setup-only routines - not concerned with the instance. */
 
@@ -843,7 +903,19 @@ public:
 	ENGINE_API void  LoadClothCollisionVolumes(int32 AssetIndex, physx::apex::NxClothingAsset* ClothingAsset);
 	ENGINE_API bool IsMappedClothingLOD(int32 LODIndex, int32 AssetIndex);
 	ENGINE_API int32 GetClothAssetIndex(int32 LODIndex, int32 SectionIndex);
-#endif// #if WITH_APEX_CLOTHING
+	ENGINE_API void BuildApexToUnrealBoneMapping();
+#endif
+
+	/** 
+	 * Checks whether the provided section is using APEX cloth. if bCheckCorrespondingSections is true
+	 * disabled sections will defer to correspond sections to see if they use cloth (non-cloth sections
+	 * are disabled and another section added when cloth is enabled, using this flag allows for a check
+	 * on the original section to succeed)
+	 * @param InSectionIndex Index to check
+	 * @param bCheckCorrespondingSections Whether to check corresponding sections for disabled sections
+	 */
+	UFUNCTION(BlueprintCallable, Category="Cloth")
+	ENGINE_API bool IsSectionUsingCloth(int32 InSectionIndex, bool bCheckCorrespondingSections = true) const;
 
 	ENGINE_API void CreateBodySetup();
 	ENGINE_API UBodySetup* GetBodySetup();
@@ -851,24 +923,26 @@ public:
 #if WITH_EDITOR
 	/** Trigger a physics build to ensure per poly collision is created */
 	ENGINE_API void BuildPhysicsData();
+	ENGINE_API void AddBoneToReductionSetting(int32 LODIndex, const TArray<FName>& BoneNames);
+	ENGINE_API void AddBoneToReductionSetting(int32 LODIndex, FName BoneName);
 #endif
 	
 
-	// Begin Interface_CollisionDataProvider Interface
+	//~ Begin Interface_CollisionDataProvider Interface
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override
 	{
 		return true;
 	}
-	// End Interface_CollisionDataProvider Interface
+	//~ End Interface_CollisionDataProvider Interface
 
-	// Begin IInterface_AssetUserData Interface
+	//~ Begin IInterface_AssetUserData Interface
 	virtual void AddAssetUserData(UAssetUserData* InUserData) override;
 	virtual void RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
 	virtual UAssetUserData* GetAssetUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
 	virtual const TArray<UAssetUserData*>* GetAssetUserDataArray() const override;
-	// End IInterface_AssetUserData Interface
+	//~ End IInterface_AssetUserData Interface
 
 private:
 

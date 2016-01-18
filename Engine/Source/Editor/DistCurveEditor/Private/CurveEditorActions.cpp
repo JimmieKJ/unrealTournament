@@ -20,8 +20,7 @@ void FCurveEditorCommands::RegisterCommands()
 	UI_COMMAND(ScaleSingleSubCurveValues, "Scale Sub-Curve Values", "Scales the values of all points of this curve", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(FitHorizontally, "Horizontal", "Fit Horizontally", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(FitVertically, "Vertical", "Fit Vertically", EUserInterfaceActionType::Button, FInputChord());
-	UI_COMMAND(FitToAll, "All", "Fit to All", EUserInterfaceActionType::Button, FInputChord());
-	UI_COMMAND(FitToSelected, "Selected", "Fit to Selected", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(Fit, "Fit", "Fit to Selected", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(PanMode, "Pan", "Pan Mode", EUserInterfaceActionType::ToggleButton, FInputChord());
 	UI_COMMAND(ZoomMode, "Zoom", "Zoom Mode", EUserInterfaceActionType::ToggleButton, FInputChord());
 	UI_COMMAND(CurveAuto, "Auto", "Curve Auto", EUserInterfaceActionType::ToggleButton, FInputChord());

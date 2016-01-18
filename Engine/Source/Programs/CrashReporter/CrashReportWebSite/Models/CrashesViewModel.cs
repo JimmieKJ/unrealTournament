@@ -15,7 +15,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 	public class CrashesViewModel
 	{
 		/// <summary>Dates are in milliseconds relative to this base (for ease of Javascript usage)</summary>
-		public static readonly DateTime Epoch = new DateTime(1970, 1, 1);
+		public static readonly DateTime Epoch = new DateTime( 1970, 1, 1 );
 
 		/// <summary>A container for all the crashes that pass the current filters.</summary>
 		public IEnumerable<Crash> Results { get; set; }
@@ -35,20 +35,26 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>The type of report to filter by. e.g. Asserts.</summary>
 		public string CrashType { get; set; }
 
-		/// <summary>The query for advanced crash filtering.</summary>
+		/// <summary>Callstack line as query for filtering.</summary>
 		public string SearchQuery { get; set; }
 
+		/// <summary>User name as query for filtering.</summary>
 		public string UsernameQuery { get; set; }
 
-		public string EpicIdQuery { get; set; }
+		/// <summary>Epic ID or Machine ID as query for filtering.</summary>
+		public string EpicIdOrMachineQuery { get; set; }
 
-		public string MachineIdQuery { get; set; }
-
+		/// <summary>Jira as query for crash filtering.</summary>
 		public string JiraQuery { get; set; }
 
-        public string MessageQuery { get; set; }
+		/// <summary>Message/Summary or Description as query for filtering.</summary>
+		public string MessageQuery { get; set; }
 
-        public string DescriptionQuery { get; set; }
+		/// <summary>Bugg Id as query for filtering.</summary>
+		public string BuggId { get; set; }
+
+		/// <summary>BuiltFromCL as query for filtering.</summary>
+		public string BuiltFromCL { get; set; }
 
 		/// <summary>The date of the earliest crash to display.</summary>
 		public long DateFrom { get; set; }
@@ -59,6 +65,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>The name of the branch to filter by.</summary>
 		public string BranchName { get; set; }
 
+		/// <summary>The version to filter by.</summary>
+		public string VersionName { get; set; }
+
+		/// <summary>The platform to filter by.</summary>
+		public string PlatformName { get; set; }
+
 		/// <summary>The name of the game to filter by.</summary>
 		public string GameName { get; set; }
 
@@ -68,8 +80,14 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>The user supplied parameters.</summary>
 		public FormCollection FormCollection { get; set; }
 
-		/// <summary>A collection of Branch Names used in the drop down on the main search form</summary>
+		/// <summary>A collection of Branch names used in the drop down on the main search form</summary>
 		public List<SelectListItem> BranchNames { get; set; }
+
+		/// <summary>A collection of Version names used in the drop down on the main search form</summary>
+		public List<SelectListItem> VersionNames { get; set; }
+
+		/// <summary>A collection of Platform names used in the drop down on the main search form</summary>
+		public List<SelectListItem> PlatformNames { get; set; }
 
 		/// <summary>The set of statuses a crash could have its status set to.</summary>
 		public IEnumerable<string> SetStatus { get { return new List<string>( new string[] { "Unset", "Reviewed", "New", "Coder", "EngineQA", "GameQA" } ); } }
@@ -77,16 +95,22 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary> The real user name, displayed only for searches. </summary>
 		public string RealUserName { get; set; }
 
-		/// <summary></summary>
+		/// <summary>Time spent in generating this site, formatted as a string.</summary>
 		public string GenerationTime { get; set; }
 
+		/// <summary>
+		/// Default constructor, used by HomeController
+		/// </summary>
 		public CrashesViewModel()
 		{
-			DateTime FromDate = DateTime.Today.AddDays(-7);
-			DateTime ToDate = DateTime.Today;
-			BranchNames = CrashRepository.GetBranches();
-			DateTo = (long)(ToDate - Epoch).TotalMilliseconds;
-			DateFrom = (long)(FromDate - Epoch).TotalMilliseconds;
+			DateTime FromDate = DateTime.Today.AddDays( -7 ).ToUniversalTime();
+			DateTime ToDate = DateTime.Today.ToUniversalTime();
+			BranchNames = CrashRepository.GetBranchesAsListItems();
+			VersionNames = CrashRepository.GetVersionsAsListItems();
+			PlatformNames = CrashRepository.GetPlatformsAsListItems();
+			DateFrom = (long)( FromDate - Epoch ).TotalMilliseconds;
+			DateTo = (long)( ToDate - Epoch ).TotalMilliseconds;
+			CrashType = "CrashesAsserts";
 		}
 	}
 }

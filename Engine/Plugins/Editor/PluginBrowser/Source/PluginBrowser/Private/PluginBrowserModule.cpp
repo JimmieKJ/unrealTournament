@@ -9,12 +9,15 @@
 #include "PropertyEditorModule.h"
 #include "PluginBrowserModule.h"
 #include "SDockTab.h"
+#include "SNewPluginWizard.h"
+
 
 #define LOCTEXT_NAMESPACE "PluginsEditor"
 
 IMPLEMENT_MODULE( FPluginBrowserModule, PluginBrowserModule )
 
 const FName FPluginBrowserModule::PluginsEditorTabName( TEXT( "PluginsEditor" ) );
+const FName FPluginBrowserModule::PluginCreatorTabName( TEXT( "PluginCreator" ) );
 
 void FPluginBrowserModule::StartupModule()
 {
@@ -49,6 +52,12 @@ void FPluginBrowserModule::StartupModule()
 			.SetDisplayName( LOCTEXT( "PluginsEditorTabTitle", "Plugins" ) )
 			.SetTooltipText( LOCTEXT( "PluginsEditorTooltipText", "Open the Plugins Browser tab." ) )
 			.SetIcon(FSlateIcon(FPluginStyle::Get()->GetStyleSetName(), "Plugins.TabIcon"));
+
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
+		PluginCreatorTabName,
+		FOnSpawnTab::CreateRaw(this, &FPluginBrowserModule::HandleSpawnPluginCreatorTab))
+		.SetDisplayName(LOCTEXT("NewPluginTabHeader", "New Plugin"))
+		.SetMenuType(ETabSpawnerMenuType::Hidden);
 }
 
 void FPluginBrowserModule::ShutdownModule()
@@ -57,9 +66,45 @@ void FPluginBrowserModule::ShutdownModule()
 
 	// Unregister the tab spawner
 	FGlobalTabmanager::Get()->UnregisterTabSpawner( PluginsEditorTabName );
+	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner( PluginCreatorTabName );
 
 	// Unregister our feature
 	IModularFeatures::Get().UnregisterModularFeature( EditorFeatures::PluginsEditor, this );
+}
+
+void FPluginBrowserModule::SetPluginPendingEnableState(const FString& PluginName, bool bCurrentlyEnabled, bool bPendingEnabled)
+{
+	if (bCurrentlyEnabled == bPendingEnabled)
+	{
+		PendingEnablePlugins.Remove(PluginName);
+	}
+	else
+	{
+		PendingEnablePlugins.FindOrAdd(PluginName) = bPendingEnabled;
+	}
+}
+
+bool FPluginBrowserModule::GetPluginPendingEnableState(const FString& PluginName) const
+{
+	check(PendingEnablePlugins.Contains(PluginName));
+
+	return PendingEnablePlugins[PluginName];
+}
+
+bool FPluginBrowserModule::HasPluginPendingEnable(const FString& PluginName) const
+{
+	return PendingEnablePlugins.Contains(PluginName);
+}
+
+TSharedRef<SDockTab> FPluginBrowserModule::HandleSpawnPluginCreatorTab(const FSpawnTabArgs& SpawnTabArgs)
+{
+	TSharedRef<SDockTab> ResultTab = SNew(SDockTab)
+		.TabRole(ETabRole::NomadTab);
+
+	TSharedRef<SWidget> TabContentWidget = SNew(SNewPluginWizard, ResultTab);
+	ResultTab->SetContent(TabContentWidget);
+
+	return ResultTab;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -16,17 +16,17 @@ namespace physx
 UENUM()
 enum ELinearConstraintMotion
 {
-	/** No constraint against this axis */ 
+	/** No constraint against this axis. */ 
 	LCM_Free	UMETA(DisplayName="Free"),
-	/** Limited freedom along this axis */ 
+	/** Limited freedom along this axis. */ 
 	LCM_Limited UMETA(DisplayName="Limited"),
-	/** Fully constraint against this axis */
+	/** Fully constraint against this axis. */
 	LCM_Locked UMETA(DisplayName="Locked"),
 
 	LCM_MAX,
 };
 
-/** Enum to indicate which frame we want */
+/** Enum to indicate which frame we want. */
 UENUM()
 namespace EConstraintFrame
 {
@@ -42,14 +42,14 @@ namespace EAngularDriveMode
 {
 	enum Type
 	{
-		//Follows the shortest arc between a pair of anuglar configurations (Ignored if any angular limits/locks are used)
+		/** Follows the shortest arc between a pair of anuglar configurations (Ignored if any angular limits/locks are used). */
 		SLERP,
-		//Path is decomposed into twist and swing. Doesn't follow shortest arc and may have gimbal lock. (Works with angular limits/locks)
+		/** Path is decomposed into twist and swing. Doesn't follow shortest arc and may have gimbal lock. (Works with angular limits/locks.) */
 		TwistAndSwing
 	};
 }
 
-/** Container for a physics representation of an object */
+/** Container for a physics representation of an object. */
 USTRUCT()
 struct ENGINE_API FConstraintInstance
 {
@@ -62,7 +62,7 @@ struct ENGINE_API FConstraintInstance
 	 */
 	int32 ConstraintIndex;
 
-	/** The component that created this instance */
+	/** The component that created this instance. */
 	UPROPERTY()
 	USceneComponent* OwnerComponent;
 
@@ -156,7 +156,7 @@ struct ENGINE_API FConstraintInstance
 	UPROPERTY(EditAnywhere, Category=Linear)
 	TEnumAsByte<enum ELinearConstraintMotion> LinearZMotion;
 
-	/** The limiting extent in world untis of the linear motion for limitied motion axes. */
+	/** The limiting extent in world units of the linear motion for limited motion axes. */
 	UPROPERTY(EditAnywhere, Category=Linear, meta=(ClampMin = "0.0"))
 	float LinearLimitSize;
 
@@ -251,53 +251,59 @@ struct ENGINE_API FConstraintInstance
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Angular, meta=(editcondition = "bAngularBreakable", ClampMin = "0.0"))
 	float AngularBreakThreshold;
 
-	/** Enables/Disables linear drive along the x axis. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
+private:
+	/** Enables/Disables linear position drive along the x axis. */
+	UPROPERTY(EditAnywhere, Category=LinearMotor)
 	uint32 bLinearXPositionDrive:1;
 
-	UPROPERTY()
-	uint32 bLinearXVelocityDrive_DEPRECATED:1;
+	/** Enables/Disables linear velocity drive along the x axis. */
+	UPROPERTY(EditAnywhere, Category=LinearMotor)
+	uint32 bLinearXVelocityDrive:1;
 
-	/** Enables/Disables linear drive along the y axis. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
+	/** Enables/Disables linear position drive along the y axis. */
+	UPROPERTY(EditAnywhere, Category=LinearMotor)
 	uint32 bLinearYPositionDrive:1;
 
-	UPROPERTY()
-	uint32 bLinearYVelocityDrive_DEPRECATED:1;
+	/** Enables/Disables linear velocity drive along the y axis. */
+	UPROPERTY(EditAnywhere, Category=LinearMotor)
+	uint32 bLinearYVelocityDrive:1;
 
-	/** Enables/Disables linear drive along the z axis. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
+	/** Enables/Disables linear position drive along the z axis. */
+	UPROPERTY(EditAnywhere, Category=LinearMotor)
 	uint32 bLinearZPositionDrive:1;
 
-	UPROPERTY()
-	uint32 bLinearZVelocityDrive_DEPRECATED:1;
+	/** Enables/Disables linear velocity drive along the z axis. */
+	UPROPERTY(EditAnywhere, Category=LinearMotor)
+	uint32 bLinearZVelocityDrive:1;
 
-	/** Enables/Disables the linear position drive. */
+public:
+
+	/** Enables/Disables linear position drive. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
 	uint32 bLinearPositionDrive:1;
 	
-	/** Enables/Disables the linear velocity drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
+	/** Enables/Disables linear velocity drive. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor)
 	uint32 bLinearVelocityDrive:1;
 
 	/** Target position the linear drive. Only the components that are enabled are used. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor, meta=(editcondition="bLinearPositionDrive"))
 	FVector LinearPositionTarget;
 
 	/** Target velocity the linear drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor, meta = (editcondition = "bLinearVelocityDrive"))
 	FVector LinearVelocityTarget;
 
 	/** Spring to apply to the for linear drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor, meta = (DisplayName = "Linear Position Strength", editcondition = "bLinearPositionDrive"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor, meta = (DisplayName = "Linear Position Strength"))
 	float LinearDriveSpring;
 
 	/** Damping to apply to the for linear drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor, meta = (DisplayName = "Linear Velocity Strength", editcondition = "bLinearVelocityDrive"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LinearMotor, meta = (DisplayName = "Linear Velocity Strength"))
 	float LinearDriveDamping;
 
 	/** Limit to the force the linear drive can apply. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LinearMotor, meta = (DisplayName = "Max Linear Force"))
 	float LinearDriveForceLimit;
 
 	UPROPERTY()
@@ -318,6 +324,17 @@ struct ENGINE_API FConstraintInstance
 	/** Enables the angular drive towards a target orientation. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AngularMotor)
 	uint32 bAngularOrientationDrive:1;
+
+private:
+	/** Enables the swing drive. Only relevant when in twist and swing mode */
+	UPROPERTY()
+	uint32 bEnableSwingDrive: 1;
+
+	/** Enables the swing drive. Only relevant when in twist and swing mode */
+	UPROPERTY()
+	uint32 bEnableTwistDrive : 1;
+
+public:
 	
 	/** Enables the angular drive towards a target velocity. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AngularMotor)
@@ -343,11 +360,11 @@ struct ENGINE_API FConstraintInstance
 	float AngularDriveSpring;
 
 	/** Damping value to apply to the for angular drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (DisplayName = "Angular Velocity Strength"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (DisplayName = "Angular Velocity Strength", editcondition = "bAngularVelocityDrive"))
 	float AngularDriveDamping;
 
 	/** Limit to the force the angular drive can apply. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AngularMotor)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (DisplayName = "Max Angular Force"))
 	float AngularDriveForceLimit;
 
 	float AverageMass;
@@ -356,32 +373,32 @@ struct ENGINE_API FConstraintInstance
 	/** Sets the LinearX Motion Type
 	*	@param MotionType	New Motion Type
 	*/
-	void SetLinearXLimit(ELinearConstraintMotion ConstraintType, float LinearLimitSize);
+	void SetLinearXLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize);
 
 	/** Sets the LinearY Motion Type
 	*	@param MotionType	New Motion Type
 	*/
-	void SetLinearYLimit(ELinearConstraintMotion ConstraintType, float LinearLimitSize);
+	void SetLinearYLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize);
 
 	/** Sets the LinearZ Motion Type
 	*	@param MotionType	New Motion Type
 	*/
-	void SetLinearZLimit(ELinearConstraintMotion ConstraintType, float LinearLimitSize);
+	void SetLinearZLimit(ELinearConstraintMotion ConstraintType, float InLinearLimitSize);
 
 	/** Sets the Angular Swing1 Motion Type
 	*	@param MotionType	New Motion Type
 	*/
-	void SetAngularSwing1Limit(EAngularConstraintMotion MotionType, float Swing1LimitAngle);
+	void SetAngularSwing1Limit(EAngularConstraintMotion MotionType, float InSwing1LimitAngle);
 
 	/** Sets the Angular Swing2 Motion Type
 	*	@param MotionType	New Motion Type
 	*/
-	void SetAngularSwing2Limit(EAngularConstraintMotion MotionType, float Swing2LimitAngle);
+	void SetAngularSwing2Limit(EAngularConstraintMotion MotionType, float InSwing2LimitAngle);
 
 	/** Sets the Angular Twist Motion Type
 	*	@param MotionType	New Motion Type
 	*/
-	void SetAngularTwistLimit(EAngularConstraintMotion MotionType, float TwistLimitAngle);
+	void SetAngularTwistLimit(EAngularConstraintMotion MotionType, float InTwistLimitAngle);
 
 #if WITH_PHYSX
 	FPhysxUserData PhysxUserData;
@@ -440,8 +457,8 @@ public:
 
 	void SetLinearPositionDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive);
 	void SetLinearVelocityDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive);
-	void SetAngularPositionDrive(bool bEnableSwingDrive, bool bEnableTwistDrive);
-	void SetAngularVelocityDrive(bool bEnableSwingDrive, bool bEnableTwistDrive);
+	void SetAngularPositionDrive(bool bInEnableSwingDrive, bool bInEnableTwistDrive);
+	void SetAngularVelocityDrive(bool bInEnableSwingDrive, bool bInEnableTwistDrive);
 
 	void SetLinearPositionTarget(const FVector& InPosTarget);
 	void SetLinearVelocityTarget(const FVector& InVelTarget);

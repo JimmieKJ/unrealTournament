@@ -17,14 +17,14 @@ void UBoxComponent::SetBoxExtent(FVector NewBoxExtent, bool bUpdateOverlaps)
 {
 	BoxExtent = NewBoxExtent;
 	MarkRenderStateDirty();
+	UpdateBodySetup();
 
 	// do this if already created
 	// otherwise, it hasn't been really created yet
 	if (bPhysicsStateCreated)
 	{
-		DestroyPhysicsState();
-		UpdateBodySetup();
-		CreatePhysicsState();
+		// Update physics engine collision shapes
+		BodyInstance.UpdateBodyScale(ComponentToWorld.GetScale3D(), true);
 
 		if ( bUpdateOverlaps && IsCollisionEnabled() && GetOwner() )
 		{
@@ -40,6 +40,7 @@ void UBoxComponent::UpdateBodySetup()
 		ShapeBodySetup = NewObject<UBodySetup>(this);
 		ShapeBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
 		ShapeBodySetup->AggGeom.BoxElems.Add(FKBoxElem());
+		ShapeBodySetup->bNeverNeedsCookedCollisionData = true;
 	}
 
 	check(ShapeBodySetup->AggGeom.BoxElems.Num() == 1);
@@ -83,7 +84,7 @@ FBoxSphereBounds UBoxComponent::CalcBounds(const FTransform& LocalToWorld) const
 
 FPrimitiveSceneProxy* UBoxComponent::CreateSceneProxy()
 {
-	/** Represents a UCapsuleComponent to the scene manager. */
+	/** Represents a UBoxComponent to the scene manager. */
 	class FBoxSceneProxy : public FPrimitiveSceneProxy
 	{
 	public:
@@ -116,7 +117,7 @@ FPrimitiveSceneProxy* UBoxComponent::CreateSceneProxy()
 			}
 		}
 
-		virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+		virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 		{
 			const bool bVisible = !bDrawOnlyIfSelected || IsSelected();
 

@@ -12,7 +12,7 @@
 UENUM()
 enum EInitialOscillatorOffset
 {
-	/** Start with random offset (default) */
+	/** Start with random offset (default). */
 	EOO_OffsetRandom,
 	/** Start with zero offset. */
 	EOO_OffsetZero,
@@ -182,10 +182,13 @@ protected:
 	// INSTANCE DATA
 	
 	/** True if this shake is currently blending in. */
-	uint32 bBlendingIn:1;
+	uint16 bBlendingIn:1;
 
 	/** True if this shake is currently blending out. */
-	uint32 bBlendingOut:1;
+	uint16 bBlendingOut:1;
+
+	/** What space to play the shake in before applying to the camera.  Affects both Anim and Oscillation shakes. */
+	ECameraAnimPlaySpace::Type PlaySpace;
 
 	/** How long this instance has been blending in. */
 	float CurrentBlendInTime;
@@ -196,9 +199,6 @@ protected:
 	UPROPERTY(transient, BlueprintReadOnly, Category = CameraShake)
 	class APlayerCameraManager* CameraOwner;
 
-	/** Time remaining for oscillation shakes. Less than 0.f means shake infinitely. */
-	float OscillatorTimeRemaining;
-
 	/** Current location sinusoidal offset. */
 	FVector LocSinOffset;
 
@@ -208,21 +208,23 @@ protected:
 	/** Current FOV sinusoidal offset. */
 	float FOVSinOffset;
 
-	/** Overall intensity scale for this shake instance. */
-	float ShakeScale;
-
-	/** What space to play the shake in before applying to the camera.  Affects both Anim and Oscillation shakes. */
-	ECameraAnimPlaySpace::Type PlaySpace;
-
-	/** The playing instance of the CameraAnim-based shake, if any. */
-	UPROPERTY()
-	class UCameraAnimInst* AnimInst;
-
 	/** Matrix defining the playspace, used when PlaySpace == CAPS_UserDefined */
 	FMatrix UserPlaySpaceMatrix;
 
 public:
+	/** Overall intensity scale for this shake instance. */
+	UPROPERTY(transient, BlueprintReadOnly, Category = CameraShake)
+	float ShakeScale;
 
+	/** Time remaining for oscillation shakes. Less than 0.f means shake infinitely. */
+	UPROPERTY(transient, BlueprintReadOnly, Category = CameraShake)
+	float OscillatorTimeRemaining;
+
+	/** The playing instance of the CameraAnim-based shake, if any. */
+	UPROPERTY(transient, BlueprintReadOnly, Category = CameraShake)
+	class UCameraAnimInst* AnimInst;
+
+public:
 	// Blueprint API
 
 	/** Called every tick to let the shake modify the point of view */
@@ -244,10 +246,12 @@ public:
 	// Native API
 
 	virtual void UpdateAndApplyCameraShake(float DeltaTime, float Alpha, FMinimalViewInfo& InOutPOV);
-	virtual void PlayShake(class APlayerCameraManager* Camera, float Scale, ECameraAnimPlaySpace::Type PlaySpace, FRotator UserPlaySpaceRot = FRotator::ZeroRotator);
+	virtual void PlayShake(class APlayerCameraManager* Camera, float Scale, ECameraAnimPlaySpace::Type InPlaySpace, FRotator UserPlaySpaceRot = FRotator::ZeroRotator);
 	virtual bool IsFinished() const;
 	virtual void StopShake();
 
+	// Returns true if this camera shake will loop forever
+	bool IsLooping() const;
 };
 
 

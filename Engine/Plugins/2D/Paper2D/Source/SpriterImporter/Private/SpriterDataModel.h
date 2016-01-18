@@ -13,7 +13,8 @@ UENUM()
 enum class ESpriterObjectType : uint8
 {
 	INVALID,
-	Sprite, // Default when not specified
+	/** Default when not specified */
+	Sprite,
 	Bone,
 	Box,
 	Point,
@@ -28,7 +29,8 @@ enum class ESpriterCurveType : uint8
 {
 	INVALID,
 	Instant,
-	Linear, // Default when not specified
+	/** Default when not specified */
+	Linear,
 	Quadratic,
 	Cubic
 };

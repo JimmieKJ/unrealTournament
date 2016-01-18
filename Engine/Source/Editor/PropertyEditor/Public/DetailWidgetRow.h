@@ -6,14 +6,16 @@
 class FDetailWidgetDecl
 {
 public:
+	
 	FDetailWidgetDecl( class FDetailWidgetRow& InParentDecl, float InMinWidth, float InMaxWidth, EHorizontalAlignment InHAlign, EVerticalAlignment InVAlign )
-		: Widget( SNullWidget::NullWidget )
+		: Widget( SNew( SInvalidDetailWidget ) )
 		, HorizontalAlignment( InHAlign )
 		, VerticalAlignment( InVAlign )
 		, MinWidth( InMinWidth )
 		, MaxWidth( InMaxWidth )
 		, ParentDecl( InParentDecl )
 	{
+
 	}
 
 	FDetailWidgetRow& operator[]( TSharedRef<SWidget> InWidget )
@@ -45,6 +47,19 @@ public:
 		MaxWidth = InMaxWidth;
 		return *this;
 	}
+private:
+	class SInvalidDetailWidget : public SSpacer
+	{
+		SLATE_BEGIN_ARGS( SInvalidDetailWidget )
+		{}
+		SLATE_END_ARGS()
+
+		void Construct( const FArguments& InArgs )
+		{
+			Visibility = EVisibility::Collapsed;
+		}
+
+	};
 public:
 	TSharedRef<SWidget> Widget;
 	EHorizontalAlignment HorizontalAlignment;
@@ -54,6 +69,9 @@ public:
 private:
 	class FDetailWidgetRow& ParentDecl;
 };
+
+
+static FName InvalidDetailWidgetName = TEXT("SInvalidDetailWidget");
 
 /**
  * Represents a single row of custom widgets in a details panel 
@@ -157,7 +175,7 @@ public:
 	 */
 	bool HasColumns() const
 	{
-		return NameWidget.Widget != SNullWidget::NullWidget || ValueWidget.Widget != SNullWidget::NullWidget;
+		return NameWidget.Widget->GetType() != InvalidDetailWidgetName || ValueWidget.Widget->GetType() != InvalidDetailWidgetName;
 	}
 
 	/**
@@ -165,7 +183,7 @@ public:
 	 */
 	bool HasAnyContent() const
 	{
-		return WholeRowWidget.Widget != SNullWidget::NullWidget || HasColumns();
+		return WholeRowWidget.Widget->GetType() != InvalidDetailWidgetName || HasColumns();
 	}
 
 	/** @return true if a custom copy/paste is bound on this row */

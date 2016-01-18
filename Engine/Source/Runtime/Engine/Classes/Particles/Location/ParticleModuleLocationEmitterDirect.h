@@ -1,12 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // ParticleModuleLocationEmitterDirect
 //
 // A location module that uses particles from another emitters particles as
 // position for its particles.
 //
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "Particles/Location/ParticleModuleLocationBase.h"
@@ -22,10 +22,10 @@ class UParticleModuleLocationEmitterDirect : public UParticleModuleLocationBase
 	FName EmitterName;
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void	Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
 };
 

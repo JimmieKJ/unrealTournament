@@ -30,7 +30,6 @@ public class PaperSpriteSheetImporter : ModuleRules
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
-				"AssetTools",
 				"AssetRegistry"
 			});
 	}

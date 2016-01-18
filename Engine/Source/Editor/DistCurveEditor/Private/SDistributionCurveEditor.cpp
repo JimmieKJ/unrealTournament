@@ -13,6 +13,7 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "Engine/InterpCurveEdSetup.h"
+#include "IMenu.h"
 
 #define LOCTEXT_NAMESPACE "CurveEditor"
 
@@ -273,8 +274,7 @@ TSharedRef<SHorizontalBox> SDistributionCurveEditor::BuildToolBar()
 	{
 		ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().FitHorizontally);
 		ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().FitVertically);
-		ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().FitToAll);
-		ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().FitToSelected);
+		ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().Fit);
 	}
 	ToolbarBuilder.EndSection();
 
@@ -406,12 +406,8 @@ void SDistributionCurveEditor::BindCommands()
 		FExecuteAction::CreateSP(this, &SDistributionCurveEditor::OnFitVertically));
 
 	UICommandList->MapAction(
-		Commands.FitToAll,
-		FExecuteAction::CreateSP(this, &SDistributionCurveEditor::OnFitToAll));
-
-	UICommandList->MapAction(
-		Commands.FitToSelected,
-		FExecuteAction::CreateSP(this, &SDistributionCurveEditor::OnFitToSelected));
+		Commands.Fit,
+		FExecuteAction::CreateSP(this, &SDistributionCurveEditor::OnFit));
 
 	UICommandList->MapAction(
 		Commands.PanMode,
@@ -531,8 +527,9 @@ void SDistributionCurveEditor::OnSetTime()
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		SharedThis(this),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -555,8 +552,9 @@ void SDistributionCurveEditor::OnSetValue()
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		SharedThis(this),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -775,8 +773,9 @@ void SDistributionCurveEditor::OnScaleTimes(ECurveScaleScope::Type Scope)
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		SharedThis(this),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -811,8 +810,9 @@ void SDistributionCurveEditor::OnScaleValues(ECurveScaleScope::Type Scope)
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		SharedThis(this),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -829,7 +829,7 @@ void SDistributionCurveEditor::OnFitVertically()
 	FitViewVertically();
 }
 
-void SDistributionCurveEditor::OnFitToAll()
+void SDistributionCurveEditor::OnFit()
 {
 	FitViewHorizontally();
 	FitViewVertically();
@@ -966,8 +966,9 @@ void SDistributionCurveEditor::OnCreateTab()
 		.OnTextCommitted(this, &SDistributionCurveEditor::TabNameCommitted)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		SharedThis(this),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -1003,6 +1004,7 @@ void SDistributionCurveEditor::OpenLabelMenu()
 
 	FSlateApplication::Get().PushMenu(
 		SharedThis( this ),
+		FWidgetPath(),
 		BuildMenuWidgetLabel(),
 		MouseCursorLocation,
 		FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
@@ -1015,6 +1017,7 @@ void SDistributionCurveEditor::OpenKeyMenu()
 
 	FSlateApplication::Get().PushMenu(
 		SharedThis( this ),
+		FWidgetPath(),
 		BuildMenuWidgetKey(),
 		MouseCursorLocation,
 		FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
@@ -1027,6 +1030,7 @@ void SDistributionCurveEditor::OpenGeneralMenu()
 
 	FSlateApplication::Get().PushMenu(
 		SharedThis( this ),
+		FWidgetPath(),
 		BuildMenuWidgetGeneral(),
 		MouseCursorLocation,
 		FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
@@ -1039,6 +1043,7 @@ void SDistributionCurveEditor::OpenCurveMenu()
 
 	FSlateApplication::Get().PushMenu(
 		SharedThis( this ),
+		FWidgetPath(),
 		BuildMenuWidgetCurve(),
 		MouseCursorLocation,
 		FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
@@ -1047,9 +1052,9 @@ void SDistributionCurveEditor::OpenCurveMenu()
 
 void SDistributionCurveEditor::CloseEntryPopup()
 {
-	if( EntryPopupWindow.IsValid() )
+	if (EntryMenu.IsValid())
 	{
-		EntryPopupWindow.Pin()->RequestDestroyWindow();
+		EntryMenu.Pin()->Dismiss();
 	}
 }
 
@@ -1452,23 +1457,15 @@ void SDistributionCurveEditor::FitViewHorizontally()
 	float MinIn = BIG_NUMBER;
 	float MaxIn = -BIG_NUMBER;
 
-	// Iterate over all curves to find the max/min Input values.
-	for(int32 i=0; i<SharedData->EdSetup->Tabs[SharedData->EdSetup->ActiveTab].Curves.Num(); i++)
-	{
-		FCurveEdEntry& Entry = SharedData->EdSetup->Tabs[SharedData->EdSetup->ActiveTab].Curves[i];
-		if(!CURVEEDENTRY_HIDECURVE(Entry.bHideCurve))
-		{
-			FCurveEdInterface* EdInterface = UInterpCurveEdSetup::GetCurveEdInterfacePointer(Entry);
-			if(EdInterface)
-			{
-				float EntryMinIn, EntryMaxIn;
-				EdInterface->GetInRange(EntryMinIn, EntryMaxIn);
+	IterateKeys([&](int32 KeyIndex, int32 SubCurveIndex, FCurveEdEntry& CurveEntry, FCurveEdInterface& EdInterface){
 
-				MinIn = FMath::Min<float>(EntryMinIn, MinIn);
-				MaxIn = FMath::Max<float>(EntryMaxIn, MaxIn);
-			}
-		}
-	}
+		const float KeyIn = EdInterface.GetKeyIn(KeyIndex);
+
+		// Update overall min and max
+		MinIn = FMath::Min<float>(KeyIn, MinIn);
+		MaxIn = FMath::Max<float>(KeyIn, MaxIn);
+		
+	});
 
 	float Size = MaxIn - MinIn;
 
@@ -1485,44 +1482,65 @@ void SDistributionCurveEditor::FitViewHorizontally()
 	Viewport->RefreshViewport();
 }
 
+void SDistributionCurveEditor::IterateKeys(TFunctionRef<void(int32, int32, FCurveEdEntry&, FCurveEdInterface&)> IteratorCallback)
+{
+	if (SharedData->SelectedKeys.Num() == 0)
+	{
+		for (FCurveEdEntry& Entry : SharedData->EdSetup->Tabs[SharedData->EdSetup->ActiveTab].Curves)
+		{
+			if (CURVEEDENTRY_HIDECURVE(Entry.bHideCurve))
+			{
+				continue;
+			}
+			
+			if (FCurveEdInterface* CurveInterface = UInterpCurveEdSetup::GetCurveEdInterfacePointer(Entry))
+			{
+				// Iterate over each subcurve - only looking at points which are shown
+				for(int32 SubIndex = 0; SubIndex < CurveInterface->GetNumSubCurves(); SubIndex++)
+				{
+					if (CURVEEDENTRY_HIDESUBCURVE(Entry.bHideCurve, SubIndex))
+					{
+						continue;
+					}
+
+					// If we can see this curve - iterate over keys to find min and max 'out' value
+					for(int32 KeyIndex = 0; KeyIndex < CurveInterface->GetNumKeys(); KeyIndex++)
+					{
+						IteratorCallback(KeyIndex, SubIndex, Entry, *CurveInterface);
+					}
+				}
+			}
+		}
+	}
+	else for (FCurveEditorSelectedKey& SelKey : SharedData->SelectedKeys)
+	{
+		FCurveEdEntry& CurveEntry = SharedData->EdSetup->Tabs[ SharedData->EdSetup->ActiveTab ].Curves[ SelKey.CurveIndex ];
+		
+		if (CURVEEDENTRY_HIDESUBCURVE(CurveEntry.bHideCurve, SelKey.SubIndex))
+		{
+			continue;
+		}
+		else if (FCurveEdInterface* CurveInterface = UInterpCurveEdSetup::GetCurveEdInterfacePointer(CurveEntry))
+		{
+			IteratorCallback(SelKey.KeyIndex, SelKey.SubIndex, CurveEntry, *CurveInterface);
+		}
+	}
+}
+
 void SDistributionCurveEditor::FitViewVertically()
 {
 	float MinOut = BIG_NUMBER;
 	float MaxOut = -BIG_NUMBER;
 
-	for(int32 i=0; i<SharedData->EdSetup->Tabs[SharedData->EdSetup->ActiveTab].Curves.Num(); i++)
-	{
-		FCurveEdEntry& Entry = SharedData->EdSetup->Tabs[SharedData->EdSetup->ActiveTab].Curves[i];
-		if(!CURVEEDENTRY_HIDECURVE(Entry.bHideCurve))
-		{
-			FCurveEdInterface* EdInterface = UInterpCurveEdSetup::GetCurveEdInterfacePointer(Entry);
-			if(EdInterface)
-			{
-				float EntryMinOut = BIG_NUMBER;
-				float EntryMaxOut = -BIG_NUMBER;
+	IterateKeys([&](int32 KeyIndex, int32 SubCurveIndex, FCurveEdEntry& CurveEntry, FCurveEdInterface& EdInterface){
 
-				// Iterate over each subcurve - only looking at points which are shown
-				int32 NumSubCurves = EdInterface->GetNumSubCurves();
-				for(int32 SubIndex = 0; SubIndex < EdInterface->GetNumSubCurves(); SubIndex++)
-				{
-					if(!CURVEEDENTRY_HIDESUBCURVE(Entry.bHideCurve, SubIndex))
-					{
-						// If we can see this curve - iterate over keys to find min and max 'out' value
-						for(int32 KeyIndex = 0; KeyIndex < EdInterface->GetNumKeys(); KeyIndex++)
-						{
-							float OutVal = EdInterface->GetKeyOut(SubIndex, KeyIndex);
-							EntryMinOut = FMath::Min<float>(EntryMinOut, OutVal);
-							EntryMaxOut = FMath::Max<float>(EntryMaxOut, OutVal);
-						}
-					}
-				}
+		const float KeyOut = EdInterface.GetKeyOut(SubCurveIndex, KeyIndex);
 
-				// Update overall min and max
-				MinOut = FMath::Min<float>(EntryMinOut, MinOut);
-				MaxOut = FMath::Max<float>(EntryMaxOut, MaxOut);
-			}
-		}
-	}
+		// Update overall min and max
+		MinOut = FMath::Min<float>(KeyOut, MinOut);
+		MaxOut = FMath::Max<float>(KeyOut, MaxOut);
+
+	});
 
 	float Size = MaxOut - MinOut;
 

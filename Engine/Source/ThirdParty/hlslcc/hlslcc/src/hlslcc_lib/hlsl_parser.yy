@@ -1200,6 +1200,11 @@ parameter_type_qualifier:
 	   memset(& $$, 0, sizeof($$));
 	   $$.flags.q.constant = 1;
 	}
+	| UNIFORM
+	{
+	   memset(& $$, 0, sizeof($$));
+	   $$.flags.q.uniform = 1;
+	}
 	;
 
 type_qualifier:

@@ -11,11 +11,13 @@
 #include "TutorialMetaData.h"
 #include "SDockTab.h"
 #include "NativeClassHierarchy.h"
+#include "CollectionAssetRegistryBridge.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
 FContentBrowserSingleton::FContentBrowserSingleton()
-	: SettingsStringID(0)
+	: CollectionAssetRegistryBridge(MakeShareable(new FCollectionAssetRegistryBridge()))
+	, SettingsStringID(0)
 {
 	// Register the tab spawners for all content browsers
 	const FSlateIcon ContentBrowserIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.TabIcon");

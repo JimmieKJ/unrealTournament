@@ -1,190 +1,143 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Culture.h"
 #include "JsonInternationalizationManifestSerializer.h"
 #include "JsonInternationalizationArchiveSerializer.h"
+#include "PortableObjectFormatDOM.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationExportCommandlet, Log, All);
 
 static const TCHAR* NewLineDelimiter = TEXT("\n");
 
-/* Default culture plural rules.  Culture names are in the following format: Language_Country@Variant
-  See references:	http://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html  
-					http://docs.translatehouse.org/projects/localization-guide/en/latest/l10n/pluralforms.html
-*/
-static const TMap< FString, FString > POCulturePluralForms = TMapBuilder< FString, FString >()
-	.Add( TEXT( "ach" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "af" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ak" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "aln" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "am" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "am_ET"), TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "an" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ar" )	, TEXT( "nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);" )  )
-	.Add( TEXT( "ar_SA"), TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "arn" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "as" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ast" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ay" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "az" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "bal" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "be" )	, TEXT( "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);" )  )
-	.Add( TEXT( "bg" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "bn" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "bo" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "br" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "brx" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "bs" )	, TEXT( "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);" )  )
-	.Add( TEXT( "ca" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "cgg" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "crh" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "cs" )	, TEXT( "nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;" )  )
-	.Add( TEXT( "csb" )	, TEXT( "nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;" )  )
-	.Add( TEXT( "cy" )	, TEXT( "nplurals=4; plural=(n==1) ? 0 : (n==2) ? 1 : (n != 8 && n != 11) ? 2 : 3;" )  )
-	.Add( TEXT( "da" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "de" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "doi" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "dz" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "el" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "en" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "eo" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "es" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "es_ar"), TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "et" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "eu" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "fa" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "fi" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "fil" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "fo" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "fr" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "frp" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "fur" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "fy" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ga" )	, TEXT( "nplurals=5; plural=(n==1 ? 0 : n==2 ? 1 : n<7 ? 2 : n<11 ? 3 : 4);" )  )
-	.Add( TEXT( "gd" )	, TEXT( "nplurals=3; plural=(n < 2 ? 0 : n == 2 ? 1 : 2);" )  )
-	.Add( TEXT( "gl" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "gu" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "gun" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "ha" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "he" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "hi" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "hne" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "hr" )	, TEXT( "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);" )  )
-	.Add( TEXT( "hsb" )	, TEXT( "nplurals=4; plural=(n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || n%100==4 ? 2 : 3);" )  )
-	.Add( TEXT( "ht" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "hu" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "hy" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ia" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "id" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "ig" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ilo" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "is" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "it" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ja" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "jv" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ka" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "kk" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "km" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "kn" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "ko" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "ks" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ku" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "kw" )	, TEXT( "nplurals=4; plural=(n==1) ? 0 : (n==2) ? 1 : (n == 3) ? 2 : 3;" )  )
-	.Add( TEXT( "ky" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "la" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "lb" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "li" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ln" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "lo" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "lt" )	, TEXT( "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && (n%100<10 || n%100>=20) ? 1 : 2);" )  )
-	.Add( TEXT( "lv" )	, TEXT( "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : 2);" )  )
-	.Add( TEXT( "mai" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "mg" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "mi" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "mk" )	, TEXT( "nplurals=2; plural=(n % 10 == 1 && n % 100 != 11) ? 0 : 1;" )  )
-	.Add( TEXT( "ml" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "mn" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "mr" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ms" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "mt" )	, TEXT( "nplurals=4; plural=(n==1 ? 0 : n==0 || ( n%100>1 && n%100<11) ? 1 : (n%100>10 && n%100<20 ) ? 2 : 3);" )  )
-	.Add( TEXT( "my" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "nah" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "nap" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "nb" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "nds" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ne" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "nl" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "nn" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "no" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "nr" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "nso" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "oc" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "or" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "pa" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "pap" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "pl" )	, TEXT( "nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);" )  )
-	.Add( TEXT( "pms" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ps" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "pt" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "pt_BR"), TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "rm" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ro" )	, TEXT( "nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));" )  )
-	.Add( TEXT( "ru" )	, TEXT( "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);" )  )
-	.Add( TEXT( "rw" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "sc" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "sco" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "se" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "si" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "sk" )	, TEXT( "nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;" )  )
-	.Add( TEXT( "sl" )	, TEXT( "nplurals=4; plural=(n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || n%100==4 ? 2 : 3);" )  )
-	.Add( TEXT( "sm" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "sn" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "so" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "son" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "sq" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "sr" )	, TEXT( "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);" )  )
-	.Add( TEXT( "st" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "su" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "sv" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "sw" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "ta" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "te" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "tg" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "th" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "ti" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "tk" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "tl" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "tlh" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "to" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "tr" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "tt" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "udm" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "ug" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "uk" )	, TEXT( "nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);" )  )
-	.Add( TEXT( "ur" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "uz" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "ve" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "vi" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "vls" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "wa" )	, TEXT( "nplurals=2; plural=(n > 1);" )  )
-	.Add( TEXT( "wo" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "xh" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "yi" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "yo" )	, TEXT( "nplurals=2; plural=(n != 1);" )  )
-	.Add( TEXT( "zh" )	, TEXT( "nplurals=1; plural=0;" )  )
-	.Add( TEXT( "zu" )	, TEXT( "nplurals=2; plural=(n != 1);" )  );
-
 
 /**
 *	Helper Functions
 */
-FString ConditionArchiveStrForPo( const FString& InStr )
+bool operator==(const FPortableObjectEntryIdentity& LHS, const FPortableObjectEntryIdentity& RHS)
 {
+	return LHS.MsgCtxt == RHS.MsgCtxt && LHS.MsgId == RHS.MsgId && LHS.MsgIdPlural == RHS.MsgIdPlural;
+}
+
+uint32 GetTypeHash(const FPortableObjectEntryIdentity& ID)
+{
+	const uint32 HashA = HashCombine(GetTypeHash(ID.MsgCtxt), GetTypeHash(ID.MsgId));
+	const uint32 HashB = GetTypeHash(ID.MsgIdPlural);
+	return HashCombine(HashA, HashB);
+}
+
+namespace
+{
+	FString ConditionIdentityForPOMsgCtxt(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject>& KeyMetaData)
+	{
+		const auto& EscapeMsgCtxtParticle = [](const FString& InStr) -> FString
+		{
+			FString Result;
+			for (const TCHAR C : InStr)
+			{
+				switch (C)
+				{
+				case TEXT(','):		Result += TEXT("\\,");	break;
+				default:			Result += C;			break;
+				}
+			}
+			return Result;
+		};
+
+		FString EscapedNamespace = EscapeMsgCtxtParticle(Namespace);
+		FString EscapedKey = EscapeMsgCtxtParticle(Key);
+
+		return KeyMetaData.IsValid() ? FString::Printf(TEXT("%s,%s"), *EscapedNamespace, *EscapedKey) : EscapedNamespace;
+	}
+
+	void ParsePOMsgCtxtForIdentity(const FString& MsgCtxt, FString& OutNamespace, FString& OutKey)
+	{
+		static const int32 OutputBufferCount = 2;
+		FString* OutputBuffers[OutputBufferCount] = { &OutNamespace, &OutKey };
+		int32 OutputBufferIndex = 0;
+
+		FString EscapeSequenceBuffer;
+
+		auto HandleEscapeSequenceBuffer = [&]()
+		{
+			// Insert unescaped sequence if needed.
+			if (!EscapeSequenceBuffer.IsEmpty())
+			{
+				bool EscapeSequenceIdentified = true;
+
+				// Identify escape sequence
+				TCHAR UnescapedCharacter = 0;
+				if (EscapeSequenceBuffer == TEXT("\\,"))
+				{
+					UnescapedCharacter = ',';
+				}
+				else
+				{
+					EscapeSequenceIdentified = false;
+				}
+
+				// If identified, append the processed sequence as the unescaped character.
+				if (EscapeSequenceIdentified)
+				{
+					*OutputBuffers[OutputBufferIndex] += UnescapedCharacter;
+				}
+				// If it was not identified, preserve the escape sequence and append it.
+				else
+				{
+					*OutputBuffers[OutputBufferIndex] += EscapeSequenceBuffer;
+				}
+				// Either way, we've appended something based on the buffer and it should be reset.
+				EscapeSequenceBuffer.Empty();
+			}
+		};
+
+		for (const TCHAR C : MsgCtxt)
+		{
+			// If we're out of buffers, break out. The particle list is longer than expected.
+			if (OutputBufferIndex >= OutputBufferCount)
+			{
+				UE_LOG( LogInternationalizationExportCommandlet, Warning, TEXT("msgctxt found in PO has too many parts: %s"), *MsgCtxt );
+				break;
+			}
+
+			// Not in an escape sequence.
+			if (EscapeSequenceBuffer.IsEmpty())
+			{
+				// Comma marks the delimiter between namespace and key, if present.
+				if(C == TEXT(','))
+				{
+					++OutputBufferIndex;
+				}
+				// Regular character, just copy over.
+				else if (C != TEXT('\\'))
+				{
+					*OutputBuffers[OutputBufferIndex] += C;
+				}
+				// Start of an escape sequence, put in escape sequence buffer.
+				else
+				{
+					EscapeSequenceBuffer += C;
+				}
+			}
+			// If already in an escape sequence.
+			else
+			{
+				// Append to escape sequence buffer.
+				EscapeSequenceBuffer += C;
+
+				HandleEscapeSequenceBuffer();
+			}
+		}
+		// Catch any trailing backslashes.
+		HandleEscapeSequenceBuffer();
+	}
+
+	FString ConditionArchiveStrForPo(const FString& InStr)
+	{
 	FString Result;
 	for (const TCHAR C : InStr)
 	{
-		switch(C)
+		switch (C)
 		{
 		case TEXT('\\'):	Result += TEXT("\\\\");	break;
 		case TEXT('"'):		Result += TEXT("\\\"");	break;
@@ -195,39 +148,39 @@ FString ConditionArchiveStrForPo( const FString& InStr )
 		}
 	}
 	return Result;
-}
+	}
 
-FString ConditionPoStringForArchive( const FString& InStr )
-{
+	FString ConditionPoStringForArchive(const FString& InStr)
+	{
 	FString Result;
 	FString EscapeSequenceBuffer;
 
 	auto HandleEscapeSequenceBuffer = [&]()
 	{
 		// Insert unescaped sequence if needed.
-		if(!EscapeSequenceBuffer.IsEmpty())
+		if (!EscapeSequenceBuffer.IsEmpty())
 		{
 			bool EscapeSequenceIdentified = true;
 
 			// Identify escape sequence
 			TCHAR UnescapedCharacter = 0;
-			if(EscapeSequenceBuffer == TEXT("\\\\"))
+			if (EscapeSequenceBuffer == TEXT("\\\\"))
 			{
 				UnescapedCharacter = '\\';
 			}
-			else if(EscapeSequenceBuffer == TEXT("\\\""))
+			else if (EscapeSequenceBuffer == TEXT("\\\""))
 			{
 				UnescapedCharacter = '"';
 			}
-			else if(EscapeSequenceBuffer == TEXT("\\r"))
+			else if (EscapeSequenceBuffer == TEXT("\\r"))
 			{
 				UnescapedCharacter = '\r';
 			}
-			else if(EscapeSequenceBuffer == TEXT("\\n"))
+			else if (EscapeSequenceBuffer == TEXT("\\n"))
 			{
 				UnescapedCharacter = '\n';
 			}
-			else if(EscapeSequenceBuffer == TEXT("\\t"))
+			else if (EscapeSequenceBuffer == TEXT("\\t"))
 			{
 				UnescapedCharacter = '\t';
 			}
@@ -237,7 +190,7 @@ FString ConditionPoStringForArchive( const FString& InStr )
 			}
 
 			// If identified, append the processed sequence as the unescaped character.
-			if(EscapeSequenceIdentified)
+			if (EscapeSequenceIdentified)
 			{
 				Result += UnescapedCharacter;
 			}
@@ -254,10 +207,10 @@ FString ConditionPoStringForArchive( const FString& InStr )
 	for (const TCHAR C : InStr)
 	{
 		// Not in an escape sequence.
-		if(EscapeSequenceBuffer.IsEmpty())
+		if (EscapeSequenceBuffer.IsEmpty())
 		{
 			// Regular character, just copy over.
-			if(C != TEXT('\\'))
+			if (C != TEXT('\\'))
 			{
 				Result += C;
 			}
@@ -279,767 +232,45 @@ FString ConditionPoStringForArchive( const FString& InStr )
 	// Catch any trailing backslashes.
 	HandleEscapeSequenceBuffer();
 	return Result;
-}
+	}
 
-
-FString ConvertSrcLocationToPORef( const FString& InSrcLocation )
-{
+	FString ConvertSrcLocationToPORef(const FString& InSrcLocation)
+	{
 	// Source location format: /Path1/Path2/file.cpp - line 123
 	// PO Reference format: /Path1/Path2/file.cpp:123
 	// @TODO: Note, we assume the source location format here but it could be arbitrary.
-	return InSrcLocation.Replace( TEXT(" - line "), TEXT(":") );
-}
-
-bool FindDelimitedString( const FString& InStr, const FString& LeftDelim, const FString& RightDelim, FString& Result  )
-{
-	int32 Start = InStr.Find( LeftDelim, ESearchCase::CaseSensitive );
-	int32 End = InStr.Find( RightDelim, ESearchCase::CaseSensitive, ESearchDir::FromEnd );
-	if( Start == INDEX_NONE || !(End>Start))
-	{
-		return false;
-	}
-	Start += LeftDelim.Len();
-	if( Start >= End )
-	{
-		Result = TEXT("");
-	}
-	else
-	{
-		Result = InStr.Mid( Start, End - Start );
+	return InSrcLocation.Replace(TEXT(" - line "), TEXT(":"));
 	}
 
-	return true;
-}
-
-
-FPortableObjectCulture::FPortableObjectCulture( const FString& LangCode, const FString& PluralForms )
-	: LanguageCode( LangCode )
-	, LanguagePluralForms( PluralForms )
-	, Culture( FCulture::Create( LangCode ) )
-{
-
-}
-
-FPortableObjectCulture::FPortableObjectCulture( const FPortableObjectCulture& Other )
-	: LanguageCode( Other.LanguageCode )
-	, LanguagePluralForms( Other.LanguagePluralForms )
-	, Culture( FCulture::Create( Other.LanguageCode ) )
-{
-
-}
-
-void FPortableObjectCulture::SetLanguageCode( const FString& LangCode )
-{
-	LanguageCode = LangCode;
-	Culture = FCulture::Create( LangCode );
-}
-
-
-FString FPortableObjectCulture::Language() const
-{
-	FString Result;
-	if( Culture.IsValid() )
+	FString GetConditionedKeyForExtractedComment(const FString& Key)
 	{
-		// NOTE: The below function name may be a bit misleading because it will return three letter language codes if needed.
-		Result = Culture->GetTwoLetterISOLanguageName();
-	}
-	return Result;
-
-}
-
-FString FPortableObjectCulture::Country() const
-{
-	FString Result;
-	if( Culture.IsValid() )
-	{
-		Result = Culture->GetRegion();
-	}
-	return Result;
-}
-
-FString FPortableObjectCulture::Variant() const
-{
-	FString Result;
-	if( Culture.IsValid() )
-	{
-		Result = Culture->GetVariant();
-	}
-	return Result;
-}
-
-FString FPortableObjectCulture::DisplayName() const
-{
-	FString Result;
-	if( Culture.IsValid() )
-	{
-		Result = Culture->GetDisplayName();
-	}
-	return Result;
-}
-
-FString FPortableObjectCulture::EnglishName() const
-{
-	FString Result;
-	if( Culture.IsValid() )
-	{
-		Result = Culture->GetEnglishName();
-	}
-	return Result;
-}
-
-FString FPortableObjectCulture::GetPluralForms() const
-{
-	if( !LanguagePluralForms.IsEmpty() )
-	{
-		return LanguagePluralForms;
-	}
-	return GetDefaultPluralForms();
-}
-
-FString FPortableObjectCulture::GetDefaultPluralForms() const
-{
-	FString Result;
-	if( LanguageCode.IsEmpty() )
-	{
-		return Result;
+		return FString::Printf(TEXT("Key:\t%s"), *Key);
 	}
 
-	if( auto* LanguageCodePair = POCulturePluralForms.Find( GetLanguageCode() ) )
+	FString GetConditionedReferenceForExtractedComment(const FString& PORefString)
 	{
-		Result = *LanguageCodePair;
-	}
-	else if( auto* LangCountryVariantPair = POCulturePluralForms.Find( Language() + TEXT("_") + Country() + TEXT("@") + Variant() ))
-	{
-		Result = *LangCountryVariantPair;
-	}
-	else if( auto* LangCountryPair = POCulturePluralForms.Find( Language() + TEXT("_") + Country() ) )
-	{
-		Result  = *LangCountryPair;
-	} 
-	else if( auto* LangPair = POCulturePluralForms.Find( Language() ) )
-	{
-		Result = *LangPair;
-	}
-	else
-	{
-		auto* Fallback = POCulturePluralForms.Find( TEXT("en") );
-		if( Fallback )
-		{
-			Result = *Fallback;
-		}
-		else
-		{
-			Result = TEXT("nplurals=2; plural=(n != 1);");
-		}
+		return FString::Printf(TEXT("SourceLocation:\t%s"), *PORefString);
 	}
 
-	return Result;
-}
-
-
-FString FPortableObjectHeader::ToString() const
-{
-	FString Result;
-	for( const FString& Comment : Comments )
+	FString GetConditionedInfoMetaDataForExtractedComment(const FString& KeyName, const FString& ValueString)
 	{
-		Result += FString::Printf(TEXT("# %s%s"), *Comment, NewLineDelimiter);
-	}
-
-	Result += FString::Printf(TEXT("msgid \"\"%s"), NewLineDelimiter);
-	Result += FString::Printf(TEXT("msgstr \"\"%s"), NewLineDelimiter);
-
-	for( auto Entry : HeaderEntries )
-	{
-		const FString& Key = Entry.Key;
-		const FString& Value = Entry.Value;
-		Result += FString::Printf( TEXT("\"%s: %s\\n\"%s"), *Key, *Value, NewLineDelimiter );
-	}
-
-	return Result;
-}
-
-bool FPortableObjectHeader::FromLocPOEntry( const TSharedRef<const FPortableObjectEntry> LocEntry )
-{
-	if( !LocEntry->MsgId.IsEmpty() || LocEntry->MsgStr.Num() != 1 )
-	{
-		return false;
-	}
-	Clear();
-
-	Comments = LocEntry->TranslatorComments;
-
-	// The POEntry would store header info inside the MsgStr[0]
-	TArray<FString> HeaderLinesToProcess;
-	LocEntry->MsgStr[0].ReplaceEscapedCharWithChar().ParseIntoArray( HeaderLinesToProcess, NewLineDelimiter, true );
-
-	for( const FString& PotentialHeaderEntry : HeaderLinesToProcess )
-	{
-		int32 SplitIndex;
-		if( PotentialHeaderEntry.FindChar( TCHAR(':'), SplitIndex ) )
-		{
-			// Looks like a header entry so we add it
-			const FString& Key = PotentialHeaderEntry.LeftChop( PotentialHeaderEntry.Len() - SplitIndex ).Trim().TrimTrailing();
-			FString Value = PotentialHeaderEntry.RightChop( SplitIndex+1 ).Trim().TrimTrailing();
-
-			HeaderEntries.Add( TPairInitializer<FString, FString>( Key, Value ) );
-		}
-	}
-	return true;
-}
-
-FPortableObjectHeader::FPOHeaderEntry* FPortableObjectHeader::FindEntry( const FString& EntryKey )
-{
-	for( auto& Entry : HeaderEntries )
-	{
-		if( Entry.Key == EntryKey )
-		{
-			return &Entry;
-		}
-	}
-	return NULL;
-}
-
-FString FPortableObjectHeader::GetEntryValue( const FString& EntryKey )
-{
-	FString Result;
-	const FPOHeaderEntry* Entry = FindEntry( EntryKey );
-	if( Entry )
-	{
-		Result = Entry->Value;
-	}
-	return Result;
-}
-
-bool FPortableObjectHeader::HasEntry( const FString& EntryKey )
-{
-	return ( FindEntry( EntryKey ) != NULL);
-}
-
-void FPortableObjectHeader::SetEntryValue( const FString& EntryKey, const FString& EntryValue )
-{
-	FPOHeaderEntry* Entry = FindEntry( EntryKey );
-	if( Entry )
-	{
-		Entry->Value = EntryValue;
-	}
-	else
-	{
-		HeaderEntries.Add( TPairInitializer<FString, FString>( EntryKey, EntryValue ) );
+		return FString::Printf(TEXT("InfoMetaData:\t\"%s\" : \"%s\""), *KeyName, *ValueString);
 	}
 }
-
-void FPortableObjectHeader::TimeStamp()
-{
-	// @TODO: Time format not exactly correct.  We have something like this: 2014-02-07 20:06  This is what it should be: 2014-02-07 14:12-0600
-	FString Time = *FDateTime::UtcNow().ToString(TEXT("%Y-%m-%d %H:%M"));
-
-	SetEntryValue( TEXT("POT-Creation-Date"), Time );
-	SetEntryValue( TEXT("PO-Revision-Date"), Time );
-}
-
-FString FPortableObjectFormatDOM::ToString()
-{
-	FString Result;
-
-	Header.TimeStamp();
-
-	Result += Header.ToString();
-	Result += NewLineDelimiter;
-
-	for( auto Entry : Entries )
-	{
-		Result += Entry->ToString();
-		Result += NewLineDelimiter;
-	}
-
-	return Result;
-}
-
-
-
-bool FPortableObjectFormatDOM::FromString( const FString& InStr )
-{
-	if( InStr.IsEmpty() )
-	{
-		return false;
-	}
-
-	bool bSuccess = true;
-
-	FString ParseString = InStr.Replace(TEXT("\r\n"), NewLineDelimiter);
-
-	TArray<FString> LinesToProcess;
-	ParseString.ParseIntoArray( LinesToProcess, NewLineDelimiter, false );
-
-	TSharedRef<FPortableObjectEntry> ProcessedEntry = MakeShareable( new FPortableObjectEntry );
-	bool bHasMsgId = false;
-
-	uint32 NumFileLines = LinesToProcess.Num();
-	for( uint32 LineIdx = 0; LineIdx < NumFileLines; ++LineIdx )
-	{
-		const FString& Line = LinesToProcess[LineIdx];
-
-		if( Line.IsEmpty() )
-		{
-			// When we encounter a blank line, we will either ignore it, or consider it the boundary of 
-			// a LocPOEntry or FPortableObjectHeader if we processed any valid data before encountering the blank.
-
-			// If this entry is valid we'll check it and process it further.
-			if( bHasMsgId && ProcessedEntry->MsgStr.Num() > 0 )
-			{
-				// Check if we are dealing with a header entry
-				if( ProcessedEntry->MsgId.IsEmpty() && ProcessedEntry->MsgStr.Num() == 1 )
-				{
-					// This is a header
-					bool bAddedHeader = Header.FromLocPOEntry( ProcessedEntry );
-					if( !bAddedHeader )
-					{
-						return false;
-					}
-					ProjectName = Header.GetEntryValue(TEXT("Project-Id-Version"));
-				}
-				else
-				{
-					bool bAddEntry = AddEntry( ProcessedEntry );
-					if( !bAddEntry )
-					{
-						return false;
-					}
-				}
-			}
-
-			// Now starting a new entry and reset any flags we have been tracking
-			ProcessedEntry = MakeShareable( new FPortableObjectEntry );
-			bHasMsgId = false;
-		}
-		else if( Line.StartsWith( TEXT("#,") ) )
-		{
-			// Flags
-			FString Flag;
-			if( FindDelimitedString(Line, TEXT("#,"), NewLineDelimiter, Flag ) )
-			{
-				if( !Flag.IsEmpty() )
-				{
-					ProcessedEntry->Flags.Add( Flag );
-				}
-			}
-		}
-		else if( Line.StartsWith( TEXT("#.") ) )
-		{
-			// Extracted comments
-			FString Comment;
-			ProcessedEntry->ExtractedComments.Add( Line.RightChop( FString(TEXT("#. ")).Len() ) );
-		}
-		else if( Line.StartsWith( TEXT("#:") ) )
-		{
-			// Reference
-			FString Reference;
-			ProcessedEntry->AddReference( Line.RightChop( FString(TEXT("#: ")).Len() ) );
-		}
-		else if( Line.StartsWith( TEXT(":|") ) )
-		{
-			// This represents previous messages. We just drop this in unknown since we don't handle it
-			ProcessedEntry->UnknownElements.Add( Line );
-		}
-		else if( Line.StartsWith( TEXT("# ") ) || Line.StartsWith( TEXT("#\t") ) )
-		{
-			FString Comment;
-			ProcessedEntry->TranslatorComments.Add( Line.RightChop( FString(TEXT("# ")).Len() ) );
-		}
-		else if( Line == TEXT("#") )
-		{
-			ProcessedEntry->TranslatorComments.Add( TEXT("") );		
-		}
-		else if( Line.StartsWith( TEXT("msgctxt") ) )
-		{
-			FString RawMsgCtxt;
-			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgCtxt ) )
-			{
-				bSuccess = false;
-				break;
-			}
-			for( uint32 NextLineIdx = LineIdx + 1; NextLineIdx < NumFileLines && LinesToProcess[NextLineIdx].Trim().TrimTrailing().StartsWith(TEXT("\"")); ++NextLineIdx)
-			{
-				FString Tmp;
-				if (FindDelimitedString(Line, TEXT("\""), TEXT("\""), Tmp))
-				{
-					RawMsgCtxt += Tmp;
-				}
-			}
-
-			// If the following line contains more info for this element we continue to parse it out
-			uint32 NextLineIdx = LineIdx + 1;
-			while( NextLineIdx < NumFileLines )
-			{
-				const FString& NextLine = LinesToProcess[NextLineIdx].TrimTrailing().Trim();
-				if( NextLine.StartsWith("\"") && NextLine.EndsWith("\"") )
-				{
-					RawMsgCtxt += NextLine.Mid( 1, NextLine.Len()-2 );
-				}
-				else
-				{
-					break;
-				}
-				LineIdx = NextLineIdx;	
-				NextLineIdx++;
-			}
-
-			ProcessedEntry->MsgCtxt = RawMsgCtxt;
-		}
-		else if( Line.StartsWith( TEXT("msgid") ) )
-		{
-			FString RawMsgId;
-			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgId ) )
-			{
-				bSuccess = false;
-				break;
-			}
-			// If the following line contains more info for this element we continue to parse it out
-			uint32 NextLineIdx = LineIdx + 1;
-			while( NextLineIdx < NumFileLines )
-			{
-				const FString& NextLine = LinesToProcess[NextLineIdx].TrimTrailing().Trim();
-				if( NextLine.StartsWith("\"") && NextLine.EndsWith("\"") )
-				{
-					RawMsgId += NextLine.Mid( 1, NextLine.Len()-2 );
-				}
-				else
-				{
-					break;
-				}
-				LineIdx = NextLineIdx;	
-				NextLineIdx++;
-			}
-			ProcessedEntry->MsgId = RawMsgId;
-			bHasMsgId = true;
-		}
-		else if( Line.StartsWith( TEXT("msgid_plural") ) )
-		{
-			FString RawMsgIdPlural;
-			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgIdPlural ) )
-			{
-				bSuccess = false;
-				break;
-			}
-			// If the following line contains more info for this element we continue to parse it out
-			uint32 NextLineIdx = LineIdx + 1;
-			while( NextLineIdx < NumFileLines )
-			{
-				const FString& NextLine = LinesToProcess[NextLineIdx].TrimTrailing().Trim();
-				if( NextLine.StartsWith("\"") && NextLine.EndsWith("\"") )
-				{
-					RawMsgIdPlural += NextLine.Mid( 1, NextLine.Len()-2 );
-				}
-				else
-				{
-					break;
-				}
-				LineIdx = NextLineIdx;	
-				NextLineIdx++;
-			}
-			ProcessedEntry->MsgIdPlural = RawMsgIdPlural;
-		}
-		else if( Line.StartsWith( TEXT("msgstr[") ) )
-		{
-			FString IndexStr;
-			if( !FindDelimitedString(Line, TEXT("["), TEXT("]"), IndexStr ) )
-			{
-				bSuccess = false;
-				break;
-			}
-			int32 Index = -1;
-			TTypeFromString<int32>::FromString(Index, *IndexStr );
-
-			check(Index >= 0);
-
-			FString RawMsgStr;
-			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgStr ) )
-			{
-				bSuccess = false;
-				break;
-			}
-			// If the following line contains more info for this element we continue to parse it out
-			uint32 NextLineIdx = LineIdx + 1;
-			while( NextLineIdx < NumFileLines )
-			{
-				const FString& NextLine = LinesToProcess[NextLineIdx].TrimTrailing().Trim();
-				if( NextLine.StartsWith("\"") && NextLine.EndsWith("\"") )
-				{
-					RawMsgStr += NextLine.Mid( 1, NextLine.Len()-2 );
-				}
-				else
-				{
-					break;
-				}
-				LineIdx = NextLineIdx;	
-				NextLineIdx++;
-			}
-
-			if( ProcessedEntry->MsgStr.Num() > Index )
-			{
-				ProcessedEntry->MsgStr[Index] = RawMsgStr;
-			}
-			else
-			{
-				ProcessedEntry->MsgStr.Insert( RawMsgStr, Index );
-			}
-		}
-		else if( Line.StartsWith( TEXT("msgstr") ) )
-		{
-			FString RawMsgStr;
-			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgStr ) )
-			{
-				bSuccess = false;
-				break;
-			}
-			// If the following line contains more info for this element we continue to parse it out
-			uint32 NextLineIdx = LineIdx + 1;
-			while( NextLineIdx < NumFileLines )
-			{
-				const FString& NextLine = LinesToProcess[NextLineIdx].TrimTrailing().Trim();
-				if( NextLine.StartsWith("\"") && NextLine.EndsWith("\"") )
-				{
-					RawMsgStr += NextLine.Mid( 1, NextLine.Len()-2 );
-				}
-				else
-				{
-					break;
-				}
-				LineIdx = NextLineIdx;	
-				NextLineIdx++;
-			}
-
-			FString MsgStr = RawMsgStr;
-			if( ProcessedEntry->MsgStr.Num() > 0 )
-			{
-				ProcessedEntry->MsgStr[0] = MsgStr;
-			}
-			else
-			{
-				ProcessedEntry->MsgStr.Add( MsgStr );
-			}
-		}
-		else
-		{
-			ProcessedEntry->UnknownElements.Add( Line );
-		}
-	}
-
-
-
-	return bSuccess;
-}
-
-void FPortableObjectFormatDOM::CreateNewHeader()
-{
-	// Reference: http://www.gnu.org/software/gettext/manual/gettext.html#Header-Entry
-	// Reference: http://www.gnu.org/software/gettext/manual/html_node/Header-Entry.html
-
-	//Hard code some header entries for now in the following format
-	/*
-	# Engine English translation
-	# Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-	#
-	msgid ""
-	msgstr ""
-	"Project-Id-Version: Engine\n"
-	"POT-Creation-Date: 2014-1-31 04:16+0000\n"
-	"PO-Revision-Date: 2014-1-31 04:16+0000\n"
-	"Language-Team: \n"
-	"Language: en-us\n"
-	"MIME-Version: 1.0\n"
-	"Content-Type: text/plain; charset=UTF-8\n"
-	"Content-Transfer-Encoding: 8bit\n"
-	"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-	*/
-
-	Header.Clear();
-
-	Header.SetEntryValue( TEXT("Project-Id-Version"), *GetProjectName() );
-
-	// Setup header entries
-	Header.TimeStamp();
-	Header.SetEntryValue( TEXT("Language-Team"), TEXT("") );
-	Header.SetEntryValue( TEXT("Language"), Language.GetLanguageCode() );
-	Header.SetEntryValue( TEXT("MIME-Version"), TEXT("1.0") );
-	Header.SetEntryValue( TEXT("Content-Type"), TEXT("text/plain; charset=UTF-8") );
-	Header.SetEntryValue( TEXT("Content-Transfer-Encoding"), TEXT("8bit") );
-	Header.SetEntryValue( TEXT("Plural-Forms"), Language.GetPluralForms() );
-
-	Header.Comments.Add( FString::Printf(TEXT("%s %s translation."), *GetProjectName(), *Language.EnglishName() ) );
-	Header.Comments.Add( TEXT("Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.") );
-	Header.Comments.Add( FString(TEXT("")) );
-
-}
-
-bool FPortableObjectFormatDOM::SetLanguage( const FString& LanguageCode, const FString& LangPluralForms )
-{
-	FPortableObjectCulture NewLang(	LanguageCode, LangPluralForms );
-	if( NewLang.IsValid() )
-	{
-		Language = NewLang;
-		return true;
-	}
-	return false;
-}
-
-bool FPortableObjectFormatDOM::AddEntry( const TSharedRef< FPortableObjectEntry> LocEntry )
-{
-	TSharedPtr<FPortableObjectEntry> ExistingEntry = FindEntry( LocEntry );
-	if( ExistingEntry.IsValid()  )
-	{
-		ExistingEntry->AddReferences( LocEntry->ReferenceComments );
-		ExistingEntry->AddExtractedComments( LocEntry->ExtractedComments );
-
-		// Checks for a situation that we don't know how to handle yet.  ex. What happens when we match all the IDs for an entry but another param differs?
-		check( LocEntry->TranslatorComments == ExistingEntry->TranslatorComments );
-	}
-	else
-	{
-		Entries.Add( LocEntry );
-	}
-
-	return true;
-
-}
-
-
-TSharedPtr<FPortableObjectEntry> FPortableObjectFormatDOM::FindEntry( const TSharedRef<const FPortableObjectEntry> LocEntry )
-{
-	for( auto Entry : Entries )
-	{
-		if( *Entry == *LocEntry )
-		{
-			return Entry;
-		}
-	}
-	return NULL;
-}
-
-
-TSharedPtr<FPortableObjectEntry> FPortableObjectFormatDOM::FindEntry( const FString& MsgId, const FString& MsgIdPlural, const FString& MsgCtxt )
-{
-	TSharedRef<FPortableObjectEntry> TempEntry = MakeShareable( new FPortableObjectEntry );
-	TempEntry->MsgId = MsgId;
-	TempEntry->MsgIdPlural = MsgIdPlural;
-	TempEntry->MsgCtxt = MsgCtxt;
-	return FindEntry( TempEntry );
-}
-
-void FPortableObjectEntry::AddExtractedComment( const FString& InComment )
-{
-	if(!InComment.IsEmpty())
-	{
-		ExtractedComments.AddUnique(InComment);
-	}
-
-	//// Extracted comments can contain multiple references in a single line so we parse those out.
-	//TArray<FString> CommentsToProcess;
-	//InComment.ParseIntoArray( CommentsToProcess, TEXT(" "), true );
-	//for( const FString& ExtractedComment : CommentsToProcess )
-	//{
-	//	ExtractedComments.AddUnique( ExtractedComment );
-	//}
-}
-
-void FPortableObjectEntry::AddReference( const FString& InReference )
-{
-	if(!InReference.IsEmpty())
-	{
-		ReferenceComments.AddUnique(InReference);
-	}
-	
-	//// Reference comments can contain multiple references in a single line so we parse those out.
-	//TArray<FString> ReferencesToProcess;
-	//InReference.ParseIntoArray( ReferencesToProcess, TEXT(" "), true );
-	//for( const FString& Reference : ReferencesToProcess )
-	//{
-	//	ReferenceComments.AddUnique( Reference );
-	//}
-}
-
-void FPortableObjectEntry::AddExtractedComments( const TArray<FString>& InComments )
-{
-	for( const FString& ExtractedComment : InComments )
-	{
-		AddExtractedComment( ExtractedComment );
-	}
-}
-
-void FPortableObjectEntry::AddReferences( const TArray<FString>& InReferences )
-{
-	for( const FString& Reference : InReferences )
-	{
-		AddReference( Reference );
-	}
-}
-
-FString FPortableObjectEntry::ToString() const
-{
-	check( !MsgId.IsEmpty() );
-
-	FString Result;
-
-	for( const FString& TranslatorComment : TranslatorComments )
-	{
-		Result += FString::Printf( TEXT("# %s%s"), *TranslatorComment, NewLineDelimiter );
-	}
-
-	for( const FString& Comment : ExtractedComments )
-	{
-		if( !Comment.IsEmpty() )
-		{
-			Result += FString::Printf( TEXT("#. %s%s"), *Comment, NewLineDelimiter );
-		}
-		else
-		{
-			Result += FString::Printf( TEXT("#.%s"), NewLineDelimiter );
-		}
-	}
-
-	for( const FString& ReferenceComment : ReferenceComments )
-	{
-		Result += FString::Printf( TEXT("#: %s%s"), *ReferenceComment, NewLineDelimiter );
-	}
-
-	if( !MsgCtxt.IsEmpty() )
-	{
-		Result += FString::Printf(TEXT("msgctxt \"%s\"%s"), *MsgCtxt, NewLineDelimiter);
-	}
-
-	Result += FString::Printf(TEXT("msgid \"%s\"%s"), *MsgId, NewLineDelimiter);
-
-	if( MsgStr.Num() == 0)
-	{
-		Result += FString::Printf(TEXT("msgstr \"\"%s"), NewLineDelimiter);
-	}
-	else if( MsgStr.Num() == 1 )
-	{
-		Result += FString::Printf(TEXT("msgstr \"%s\"%s"), *MsgStr[0], NewLineDelimiter);
-	}
-	else
-	{
-		for( int32 Idx = 0; Idx < MsgStr.Num(); ++Idx )
-		{
-			Result += FString::Printf(TEXT("msgstr[%d] \"%s\"%s"), Idx, *MsgStr[Idx], NewLineDelimiter);
-		}
-	}
-	return Result;
-}
-
-
 
 /**
- *	UInternationalizationExportCommandlet
- */
-UInternationalizationExportCommandlet::UInternationalizationExportCommandlet(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
-
-
+*	UInternationalizationExportCommandlet
+*/
 bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath, const FString& DestinationPath, const FString& Filename )
 {
+	// Get native culture.
+	FString NativeCultureName;
+	if( !GetStringFromConfig( *SectionName, TEXT("NativeCulture"), NativeCultureName, ConfigPath ) )
+	{
+		UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("No native culture specified.") );
+		return false;
+	}
+
 	// Get manifest name.
 	FString ManifestName;
 	if( !GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, ConfigPath ) )
@@ -1063,6 +294,8 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 		bUseCultureDirectory = true;
 	}
 
+	bool ShouldAddSourceLocationsAsComments = true;
+	GetBoolFromConfig(*SectionName, TEXT("ShouldAddSourceLocationsAsComments"), ShouldAddSourceLocationsAsComments, ConfigPath);
 
 	TSharedRef< FInternationalizationManifest > InternationalizationManifest = MakeShareable( new FInternationalizationManifest );
 	// Load the manifest info
@@ -1086,6 +319,25 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 		ManifestSerializer.DeserializeManifest( ManifestJsonObject.ToSharedRef(), InternationalizationManifest );
 	}
 
+	TArray< TSharedPtr<FInternationalizationArchive> > NativeArchives;
+	{
+		const FString NativeCulturePath = DestinationPath / *(NativeCultureName);
+		TArray<FString> NativeArchiveFileNames;
+		IFileManager::Get().FindFiles(NativeArchiveFileNames, *(NativeCulturePath / TEXT("*.archive")), true, false);
+
+		for (const FString& NativeArchiveFileName : NativeArchiveFileNames)
+		{
+			// Read each archive file from the culture-named directory in the source path.
+			FString ArchiveFilePath = NativeCulturePath / NativeArchiveFileName;
+			ArchiveFilePath = FPaths::ConvertRelativePathToFull(ArchiveFilePath);
+			TSharedRef<FInternationalizationArchive> InternationalizationArchive = MakeShareable(new FInternationalizationArchive);
+			TSharedPtr< FJsonObject > ArchiveJsonObject = ReadJSONTextFile( ArchiveFilePath );
+			FJsonInternationalizationArchiveSerializer ArchiveSerializer;
+			ArchiveSerializer.DeserializeArchive( ArchiveJsonObject.ToSharedRef(), InternationalizationArchive );
+
+			NativeArchives.Add(InternationalizationArchive);
+		}
+	}
 
 	// Process the desired cultures
 	for(int32 Culture = 0; Culture < CulturesToGenerate.Num(); Culture++)
@@ -1104,19 +356,18 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 			TSharedRef< FInternationalizationArchive > InternationalizationArchive = MakeShareable( new FInternationalizationArchive );
 			ArchiveSerializer.DeserializeArchive( ArchiveJsonObject.ToSharedRef(), InternationalizationArchive );
 
-
 			{
-				FPortableObjectFormatDOM PortableObj;
+				FPortableObjectFormatDOM NewPortableObject;
 
 				FString LocLang;
-				if( !PortableObj.SetLanguage( CultureName ) )
+				if( !NewPortableObject.SetLanguage( CultureName ) )
 				{
 					UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("Skipping export of loc language %s because it is not recognized."), *LocLang );
 					continue;
 				}
 
-				PortableObj.SetProjectName( FPaths::GetBaseFilename( ManifestName ) );
-				PortableObj.CreateNewHeader();
+				NewPortableObject.SetProjectName( FPaths::GetBaseFilename( ManifestName ) );
+				NewPortableObject.CreateNewHeader();
 
 				{
 					for(TManifestEntryBySourceTextContainer::TConstIterator ManifestIter = InternationalizationManifest->GetEntriesBySourceTextIterator(); ManifestIter; ++ManifestIter)
@@ -1126,25 +377,110 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 						const FString& Namespace = ManifestEntry->Namespace;
 						const FLocItem& Source = ManifestEntry->Source;
 
+						// For each context, we may need to create a different or even multiple PO entries.
 						for( auto ContextIter = ManifestEntry->Contexts.CreateConstIterator(); ContextIter; ++ContextIter )
 						{
-							TSharedPtr<FArchiveEntry> ArchiveEntry = InternationalizationArchive->FindEntryBySource( Namespace, Source, ContextIter->KeyMetadataObj );
-							if( ArchiveEntry.IsValid() )
+							const FContext& Context = *ContextIter;
+
+							// Create the typical PO entry from the archive entry which matches the exact same namespace, source, and key metadata, if it exists.
 							{
-								const FString ConditionedArchiveSource = ConditionArchiveStrForPo(ArchiveEntry->Source.Text);
-								const FString ConditionedArchiveTranslation = ConditionArchiveStrForPo(ArchiveEntry->Translation.Text);
+								const TSharedPtr<FArchiveEntry> ArchiveEntry = InternationalizationArchive->FindEntryBySource( Namespace, Source, Context.KeyMetadataObj );
+								if( ArchiveEntry.IsValid() )
+								{
+									const FString ConditionedArchiveSource = ConditionArchiveStrForPo(ArchiveEntry->Source.Text);
+									const FString ConditionedArchiveTranslation = ConditionArchiveStrForPo(ArchiveEntry->Translation.Text);
 
-								TSharedRef<FPortableObjectEntry> PoEntry = MakeShareable( new FPortableObjectEntry );
-								//@TODO: We support additional metadata entries that can be translated.  How do those fit in the PO file format?  Ex: isMature
-								PoEntry->MsgId = ConditionedArchiveSource;
-								//@TODO: Take into account optional entries and entries that differ by keymetadata.  Ex. Each optional entry needs a unique msgCtxt
-								PoEntry->MsgCtxt = Namespace;
-								PoEntry->MsgStr.Add( ConditionedArchiveTranslation );
+									TSharedRef<FPortableObjectEntry> PoEntry = MakeShareable( new FPortableObjectEntry );
+									//@TODO: We support additional metadata entries that can be translated.  How do those fit in the PO file format?  Ex: isMature
+									PoEntry->MsgId = ConditionedArchiveSource;
+									PoEntry->MsgCtxt = ConditionIdentityForPOMsgCtxt(Namespace, Context.Key, Context.KeyMetadataObj);
+									PoEntry->MsgStr.Add( ConditionedArchiveTranslation );
 
-								FString PORefString = ConvertSrcLocationToPORef( ContextIter->SourceLocation );
-								PoEntry->AddReference( PORefString ); // Source location.
-								PoEntry->AddExtractedComment( ContextIter->Key ); // "Notes from Programmer" in the form of the Key.
-								PortableObj.AddEntry( PoEntry );
+									const FString PORefString = ConvertSrcLocationToPORef( Context.SourceLocation );
+									PoEntry->AddReference(PORefString); // Source location.
+
+									PoEntry->AddExtractedComment( GetConditionedKeyForExtractedComment(Context.Key) ); // "Notes from Programmer" in the form of the Key.
+
+									if (ShouldAddSourceLocationsAsComments)
+									{
+										PoEntry->AddExtractedComment(GetConditionedReferenceForExtractedComment(PORefString)); // "Notes from Programmer" in the form of the Source Location, since this comes in handy too and OneSky doesn't properly show references, only comments.
+									}
+
+									TArray<FString> InfoMetaDataStrings;
+									if (Context.InfoMetadataObj.IsValid())
+									{
+										for (auto InfoMetaDataPair : Context.InfoMetadataObj->Values)
+										{
+											const FString KeyName = InfoMetaDataPair.Key;
+											const TSharedPtr<FLocMetadataValue> Value = InfoMetaDataPair.Value;
+											InfoMetaDataStrings.Add(GetConditionedInfoMetaDataForExtractedComment(KeyName, Value->AsString()));
+										}
+									}
+									if (InfoMetaDataStrings.Num())
+									{
+										PoEntry->AddExtractedComments(InfoMetaDataStrings);
+									}
+
+									NewPortableObject.AddEntry( PoEntry );
+								}
+							}
+
+							// If we're exporting for something other than the native culture, we'll need to create PO entries for archive entries based on the native archive's translation.
+							if (CultureName != NativeCultureName)
+							{
+								TSharedPtr<FArchiveEntry> NativeArchiveEntry;
+								// Find the native archive entry which matches the exact same namespace, source, and key metadata, if it exists.
+								for (const auto& NativeArchive : NativeArchives)
+								{
+									const TSharedPtr<FArchiveEntry> PotentialNativeArchiveEntry = NativeArchive->FindEntryBySource( Namespace, Source, Context.KeyMetadataObj );
+									if (PotentialNativeArchiveEntry.IsValid())
+									{
+										NativeArchiveEntry = PotentialNativeArchiveEntry;
+										break;
+									}
+								}
+
+								if (NativeArchiveEntry.IsValid())
+								{
+									// Only need to create this PO entry if the native archive entry's translation differs from its source, in which case we need to find the our translation of the native translation.
+									if (!NativeArchiveEntry->Source.IsExactMatch(NativeArchiveEntry->Translation))
+									{
+										const TSharedPtr<FArchiveEntry> ArchiveEntry = InternationalizationArchive->FindEntryBySource( Namespace, NativeArchiveEntry->Translation, NativeArchiveEntry->KeyMetadataObj );
+										if (ArchiveEntry.IsValid())
+										{
+											const FString ConditionedArchiveSource = ConditionArchiveStrForPo(ArchiveEntry->Source.Text);
+											const FString ConditionedArchiveTranslation = ConditionArchiveStrForPo(ArchiveEntry->Translation.Text);
+
+											TSharedRef<FPortableObjectEntry> PoEntry = MakeShareable( new FPortableObjectEntry );
+											//@TODO: We support additional metadata entries that can be translated.  How do those fit in the PO file format?  Ex: isMature
+											PoEntry->MsgId = ConditionedArchiveSource;
+											PoEntry->MsgCtxt = ConditionIdentityForPOMsgCtxt(Namespace, Context.Key, Context.KeyMetadataObj);
+											PoEntry->MsgStr.Add( ConditionedArchiveTranslation );
+
+											const FString PORefString = ConvertSrcLocationToPORef( Context.SourceLocation );
+											PoEntry->AddReference( PORefString ); // Source location.
+
+											PoEntry->AddExtractedComment( FString::Printf(TEXT("Key:\t%s"), *Context.Key) ); // "Notes from Programmer" in the form of the Key.
+											PoEntry->AddExtractedComment( FString::Printf(TEXT("SourceLocation:\t%s"), *PORefString) ); // "Notes from Programmer" in the form of the Source Location, since this comes in handy too and OneSky doesn't properly show references, only comments.
+											TArray<FString> InfoMetaDataStrings;
+											if (Context.InfoMetadataObj.IsValid())
+											{
+												for (auto InfoMetaDataPair : Context.InfoMetadataObj->Values)
+												{
+													const FString KeyName = InfoMetaDataPair.Key;
+													const TSharedPtr<FLocMetadataValue> Value = InfoMetaDataPair.Value;
+													InfoMetaDataStrings.Add(FString::Printf(TEXT("InfoMetaData:\t\"%s\" : \"%s\""), *KeyName, *Value->AsString()));
+												}
+											}
+											if (InfoMetaDataStrings.Num())
+											{
+												PoEntry->AddExtractedComments(InfoMetaDataStrings);
+											}
+
+											NewPortableObject.AddEntry( PoEntry );
+										}
+									}
+								}
 							}
 						}
 					}
@@ -1152,8 +488,7 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 
 				// Write out the Portable Object to .po file.
 				{
-					FString OutputString = PortableObj.ToString();
-					FString OutputFileName = "";
+					FString OutputFileName;
 					if (bUseCultureDirectory)
 					{
 						OutputFileName = DestinationPath / CultureName / Filename;
@@ -1162,6 +497,35 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 					{
 						OutputFileName = DestinationPath / Filename;
 					}
+
+					// Persist comments if requested.
+					if (ShouldPersistComments)
+					{
+						// Preserve comments from the specified file now, if they haven't already been.
+						if (!HasPreservedComments)
+						{
+							FPortableObjectFormatDOM ExistingPortableObject;
+							const bool HasLoadedPOFile = LoadPOFile(OutputFileName, ExistingPortableObject);
+							if (!HasLoadedPOFile)
+							{
+								return false;
+							}
+
+							PreserveExtractedCommentsForPersistence(ExistingPortableObject);
+						}
+
+						// Persist the comments into the new portable object we're going to be saving.
+						for (const auto& Pair : POEntryToCommentMap)
+						{
+							const TSharedPtr<FPortableObjectEntry> FoundEntry = NewPortableObject.FindEntry(Pair.Key.MsgId, Pair.Key.MsgIdPlural, Pair.Key.MsgCtxt);
+							if (FoundEntry.IsValid())
+							{
+								FoundEntry->AddExtractedComments(Pair.Value);
+							}
+						}
+					}
+
+					NewPortableObject.SortEntries();
 
 					if( SourceControlInfo.IsValid() )
 					{
@@ -1174,7 +538,8 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 					}
 
 					//@TODO We force UTF8 at the moment but we want this to be based on the format found in the header info.
-					if( !FFileHelper::SaveStringToFile(OutputString, *OutputFileName, FFileHelper::EEncodingOptions::ForceUTF8) )
+					const FString OutputString = NewPortableObject.ToString();
+					if (!FFileHelper::SaveStringToFile(OutputString, *OutputFileName, FFileHelper::EEncodingOptions::ForceUTF8))
 					{
 						UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("Could not write file %s"), *OutputFileName );
 						return false;
@@ -1226,35 +591,41 @@ bool UInternationalizationExportCommandlet::DoImport(const FString& SourcePath, 
 			POFilePath = SourcePath / Filename;
 		}
 
-		if( !FPaths::FileExists(POFilePath) )
-		{
-			UE_LOG( LogInternationalizationExportCommandlet, Warning, TEXT("Could not find file %s"), *POFilePath );
-			continue;
-		}
-
-		FString POFileContents;
-		if ( !FFileHelper::LoadFileToString( POFileContents, *POFilePath ) )
-		{
-			UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("Failed to load file %s."), *POFilePath);
-			continue;
-		}
-
 		FPortableObjectFormatDOM PortableObject;
-		if( !PortableObject.FromString( POFileContents ) )
+		const bool HasLoadedPOFile = LoadPOFile(POFilePath, PortableObject);
+		if (!HasLoadedPOFile)
 		{
-			UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("Failed to parse Portable Object file %s."), *POFilePath);
 			continue;
 		}
 
-		if( PortableObject.GetProjectName() != ManifestName.Replace(TEXT(".manifest"), TEXT("")) )
+		if (ShouldPersistComments)
 		{
-			UE_LOG( LogInternationalizationExportCommandlet, Warning, TEXT("The project name (%s) in the file (%s) did not match the target manifest project (%s)."), *POFilePath, *PortableObject.GetProjectName(), *ManifestName.Replace(TEXT(".manifest"), TEXT("")));
+			PreserveExtractedCommentsForPersistence(PortableObject);
 		}
 
+		if (PortableObject.GetProjectName() != ManifestName.Replace(TEXT(".manifest"), TEXT("")))
+		{
+			UE_LOG(LogInternationalizationExportCommandlet, Warning, TEXT("The project name (%s) in the file (%s) did not match the target manifest project (%s)."), *POFilePath, *PortableObject.GetProjectName(), *ManifestName.Replace(TEXT(".manifest"), TEXT("")));
+		}
+
+		const FString ManifestFileName = DestinationPath / ManifestName;
+
+		TSharedPtr< FJsonObject > ManifestJsonObject = NULL;
+		ManifestJsonObject = ReadJSONTextFile( ManifestFileName );
+
+		FJsonInternationalizationManifestSerializer ManifestSerializer;
+		TSharedRef< FInternationalizationManifest > InternationalizationManifest = MakeShareable( new FInternationalizationManifest );
+		ManifestSerializer.DeserializeManifest( ManifestJsonObject.ToSharedRef(), InternationalizationManifest );
+
+		if( !FPaths::FileExists(ManifestFileName) )
+		{
+			UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("Failed to find manifest %s."), *ManifestFileName);
+			continue;
+		}
 
 		const FString DestinationCulturePath = DestinationPath / CultureName;
-		FString ArchiveFileName = DestinationCulturePath / ArchiveName;
-		
+		const FString ArchiveFileName = DestinationCulturePath / ArchiveName;
+
 		if( !FPaths::FileExists(ArchiveFileName) )
 		{
 			UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("Failed to find destination archive %s."), *ArchiveFileName);
@@ -1284,19 +655,44 @@ bool UInternationalizationExportCommandlet::DoImport(const FString& SourcePath, 
 				{
 					UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("Portable Object entry has plural form we did not process.  File: %s  MsgCtxt: %s  MsgId: %s"), *POFilePath, *POEntry->MsgCtxt, *POEntry->MsgId );
 				}
-				
-				const FString& Namespace = POEntry->MsgCtxt;
+
+				FString Key;
+				FString Namespace;
+				ParsePOMsgCtxtForIdentity(POEntry->MsgCtxt, Namespace, Key);
 				const FString& SourceText = ConditionPoStringForArchive(POEntry->MsgId);
 				const FString& Translation = ConditionPoStringForArchive(POEntry->MsgStr[0]);
 
+				TSharedPtr<FLocMetadataObject> KeyMetaDataObject;
+				// Get key metadata from the manifest, using the namespace and key.
+				if (!Key.IsEmpty())
+				{
+					// Find manifest entry by namespace
+					for (auto ManifestEntryIterator = InternationalizationManifest->GetEntriesByContextIdIterator(); ManifestEntryIterator; ++ManifestEntryIterator)
+					{
+						const FString& ManifestEntryNamespace = ManifestEntryIterator->Key;
+						const TSharedRef<FManifestEntry>& ManifestEntry = ManifestEntryIterator->Value;
+						if (ManifestEntry->Namespace == Namespace)
+						{
+							FContext* const MatchingContext = ManifestEntry->Contexts.FindByPredicate([&](FContext& Context) -> bool
+								{
+									return Context.Key == Key;
+								});
+							if (MatchingContext)
+							{
+								KeyMetaDataObject = MatchingContext->KeyMetadataObj;
+							}
+						}
+					}
+				}
+
 				//@TODO: Take into account optional entries and entries that differ by keymetadata.  Ex. Each optional entry needs a unique msgCtxt
-				TSharedPtr< FArchiveEntry > FoundEntry = InternationalizationArchive->FindEntryBySource( Namespace, SourceText, NULL );
+				const TSharedPtr< FArchiveEntry > FoundEntry = InternationalizationArchive->FindEntryBySource( Namespace, SourceText, KeyMetaDataObject );
 				if( !FoundEntry.IsValid() )
 				{
 					UE_LOG(LogInternationalizationExportCommandlet, Warning, TEXT("Could not find corresponding archive entry for PO entry.  File: %s  MsgCtxt: %s  MsgId: %s"), *POFilePath, *POEntry->MsgCtxt, *POEntry->MsgId );
 					continue;
 				}
-				
+
 				if( FoundEntry->Translation != Translation )
 				{
 					FoundEntry->Translation = Translation;
@@ -1329,7 +725,7 @@ int32 UInternationalizationExportCommandlet::Main( const FString& Params )
 
 
 	UCommandlet::ParseCommandLine(*Params, Tokens, Switches, ParamVals);
-	
+
 	const FString* ParamVal = ParamVals.Find(FString(TEXT("Config")));
 
 	if ( ParamVal )
@@ -1344,7 +740,7 @@ int32 UInternationalizationExportCommandlet::Main( const FString& Params )
 
 	//Set config section
 	ParamVal = ParamVals.Find(FString(TEXT("Section")));
-	
+
 
 	if ( ParamVal )
 	{
@@ -1388,10 +784,19 @@ int32 UInternationalizationExportCommandlet::Main( const FString& Params )
 
 	bool bDoExport = false;
 	bool bDoImport = false;
+	ShouldPersistComments = false;
 
 	GetBoolFromConfig( *SectionName, TEXT("bImportLoc"), bDoImport, ConfigPath );
 	GetBoolFromConfig( *SectionName, TEXT("bExportLoc"), bDoExport, ConfigPath );
-	
+	GetBoolFromConfig(*SectionName, TEXT("ShouldPersistComments"), ShouldPersistComments, ConfigPath);
+
+	// Reject the ShouldPersistComments flag and warn if not exporting - we're not writing to anything, so we can't persist.
+	if (ShouldPersistComments && !bDoExport)
+	{
+		UE_LOG(LogInternationalizationExportCommandlet, Warning, TEXT("ShouldPersistComments is true, but bExportLoc is false - can't persist comments if not writing PO files."));
+		ShouldPersistComments = false;
+	}
+
 	if( !bDoImport && !bDoExport )
 	{
 		UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Import/Export operation not detected.  Use bExportLoc or bImportLoc in config section."));
@@ -1419,3 +824,47 @@ int32 UInternationalizationExportCommandlet::Main( const FString& Params )
 	return 0;
 }
 
+bool UInternationalizationExportCommandlet::LoadPOFile(const FString& POFilePath, FPortableObjectFormatDOM& OutPortableObject)
+{
+	if (!FPaths::FileExists(POFilePath))
+	{
+		UE_LOG(LogInternationalizationExportCommandlet, Warning, TEXT("Could not find file %s"), *POFilePath);
+		return false;
+	}
+
+	FString POFileContents;
+	if (!FFileHelper::LoadFileToString(POFileContents, *POFilePath))
+	{
+		UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Failed to load file %s."), *POFilePath);
+		return false;
+	}
+
+	if (!OutPortableObject.FromString(POFileContents))
+	{
+		UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Failed to parse Portable Object file %s."), *POFilePath);
+		return false;
+	}
+
+	return true;
+}
+
+void UInternationalizationExportCommandlet::PreserveExtractedCommentsForPersistence(FPortableObjectFormatDOM& PortableObject)
+{
+	// Preserve comments for later.
+	for (auto EntriesIterator = PortableObject.GetEntriesIterator(); EntriesIterator; ++EntriesIterator)
+	{
+		const TSharedPtr< FPortableObjectEntry >& Entry = *EntriesIterator;
+
+		// Preserve only non-procedurally generated extracted comments.
+		const TArray<FString> CommentsToPreserve = Entry->ExtractedComments.FilterByPredicate([=](const FString& ExtractedComment) -> bool
+		{
+			return !ExtractedComment.StartsWith("Key:") && !ExtractedComment.StartsWith("SourceLocation:") && !ExtractedComment.StartsWith("InfoMetaData:");
+		});
+
+		if (CommentsToPreserve.Num())
+		{
+			POEntryToCommentMap.Add(FPortableObjectEntryIdentity{ Entry->MsgCtxt, Entry->MsgId, Entry->MsgIdPlural }, CommentsToPreserve);
+		}
+	}
+	HasPreservedComments = true;
+}

@@ -24,17 +24,17 @@ class ENGINE_API UMaterialExpressionTextureBase : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionTextureBase)
 	uint32 IsDefaultMeshpaintTexture:1;
 	
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 #if WITH_EDITOR
 	virtual FString GetDescription() const override;
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 	/** 
 	 * Callback to get any texture reference this expression emits.

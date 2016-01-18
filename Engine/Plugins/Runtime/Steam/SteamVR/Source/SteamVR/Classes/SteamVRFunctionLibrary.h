@@ -1,49 +1,46 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "IMotionController.h"
 #include "SteamVRFunctionLibrary.generated.h"
 
-/** Describes the type of device tracked in the SteamVR volume (e.g. controller, Lighthouse, etc) */
+/** Defines the class of tracked devices in SteamVR*/
 UENUM(BlueprintType)
-namespace ESteamVRTrackedDeviceType
+enum class ESteamVRTrackedDeviceType
 {
-	enum Type
-	{
-		/** Represents a Steam VR Controller */
-		Controller,
+	/** Represents a Steam VR Controller */
+	Controller,
 
-		/** Represents a static tracking reference device, such as a Lighthouse or tracking camera */
-		TrackingReference,
+	/** Represents a static tracking reference device, such as a Lighthouse or tracking camera */
+	TrackingReference,
 
-		/** Misc. device types, for future expansion */
-		Other,
+	/** Misc. device types, for future expansion */
+	Other,
 
-		/** DeviceId is invalid */
-		Invalid
-	};
-}
+	/** DeviceId is invalid */
+	Invalid
+};
 
 /** Defines which calibration point to use (e.g. center of the room for standing, calibrated head position for seated) */
 UENUM(BlueprintType)
-namespace ESteamVRTrackingSpace
+enum class ESteamVRTrackingSpace
 {
-	enum Type
-	{
-		/** Standing origin, where poses are relative to the safe room bounds provided by the user's calibration */
-		Standing,
+	/** Standing origin, where poses are relative to the safe room bounds provided by the user's calibration */
+	Standing,
 
-		/** Seated origin, where poses are relative to the user's calibrated seated head position */
-		Seated
-	};
-}
+	/** Seated origin, where poses are relative to the user's calibrated seated head position */
+	Seated
+};
 
 /**
  * SteamVR Extensions Function Library
  */
-UCLASS(MinimalAPI)
-class USteamVRFunctionLibrary : public UBlueprintFunctionLibrary
+UCLASS()
+class STEAMVR_API USteamVRFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
+
+public:
 	
 	/**
 	 * Returns an array of the currently tracked device IDs
@@ -52,7 +49,7 @@ class USteamVRFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param	OutTrackedDeviceIds	(out) Array containing the ID of each device that's currently tracked
 	 */
 	UFUNCTION(BlueprintPure, Category="SteamVR")
-	static void GetValidTrackedDeviceIds(TEnumAsByte<ESteamVRTrackedDeviceType::Type> DeviceType, TArray<int32>& OutTrackedDeviceIds);
+	static void GetValidTrackedDeviceIds(TEnumAsByte<ESteamVRTrackedDeviceType> DeviceType, TArray<int32>& OutTrackedDeviceIds);
 
 	/**
 	 * Gets the orientation and position (in device space) of the device with the specified ID
@@ -66,14 +63,16 @@ class USteamVRFunctionLibrary : public UBlueprintFunctionLibrary
 	static bool GetTrackedDevicePositionAndOrientation(int32 DeviceId, FVector& OutPosition, FRotator& OutOrientation);
 
 	/**
-	 * Given a controller index, returns the attached tracked device ID
+	 * Given a controller index and a hand, returns the position and orientation of the controller
 	 *
 	 * @param	ControllerIndex	Index of the controller to get the tracked device ID for
-	 * @param	OutDeviceId		(out) Tracked device ID for the controller
+	 * @param	Hand			Which hand's controller to get the position and orientation for
+	 * @param	OutPosition		(out) Current position of the device
+	 * @param	OutRotation		(out) Current rotation of the device
 	 * @return	True if the specified controller index has a valid tracked device ID
 	 */
 	UFUNCTION(BlueprintPure, Category = "SteamVR")
-	static bool GetTrackedDeviceIdFromControllerIndex(int32 ControllerIndex, int32& OutDeviceId);
+	static bool GetHandPositionAndOrientation(int32 ControllerIndex, EControllerHand Hand, FVector& OutPosition, FRotator& OutOrientation);
 
 	/**
 	 * Sets the tracking space (e.g. sitting or standing), which changes which space tracked positions are returned to
@@ -81,11 +80,11 @@ class USteamVRFunctionLibrary : public UBlueprintFunctionLibrary
 	 * NewSpace		The new space to consider all tracked positions in.  For instance, standing assumes the center of the safe zone as the origin.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SteamVR")
-	static void SetTrackingSpace(TEnumAsByte<ESteamVRTrackingSpace::Type> NewSpace);
+	static void SetTrackingSpace(TEnumAsByte<ESteamVRTrackingSpace> NewSpace);
 
 	/**
 	 * Gets the tracking space (e.g. sitting or standing), which determines the location of the origin.
 	 */
 	UFUNCTION(BlueprintPure, Category = "SteamVR")
-	static TEnumAsByte<ESteamVRTrackingSpace::Type> GetTrackingSpace();
+	static TEnumAsByte<ESteamVRTrackingSpace> GetTrackingSpace();
 };

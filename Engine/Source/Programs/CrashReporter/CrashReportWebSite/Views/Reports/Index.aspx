@@ -8,7 +8,7 @@
 </asp:Content>
 
 <asp:Content ID="TitleContent" ContentPlaceHolderID="TitleContent" runat="server">
-	Crash Reports
+[CR] Reports
 </asp:Content>
 
 <asp:Content ID="ScriptContent" ContentPlaceHolderID="ScriptContent" runat="server" >
@@ -31,7 +31,6 @@
 			{
 				$("#dateFrom").val($("#dateFromVisible").datepicker('getDate').getTime());
 				$("#dateTo").val($("#dateToVisible").datepicker('getDate').getTime());
-				$("#ReporsForm").submit();
 			}
 		});
 
@@ -42,20 +41,25 @@
 <div style="clear:both;"><small style="color: lightgray;">Generated in <%=Model.GenerationTime%> second(s)</small><br /></div>
 
 <div id='SearchForm' style="clear:both;">
-<%using( Html.BeginForm( "", "Reports", FormMethod.Get, new { id = "ReporsForm" } ) )
+<%using( Html.BeginForm( "", "Reports", FormMethod.Get, new { id = "ReportsForm" } ) )
 { %>
 	<script>$.datepicker.setDefaults($.datepicker.regional['']);</script>
 
-	<span style="margin-left: 10px; font-weight: bold;">Filter by Date </span>
+	<p class="SearchTextTitle">Filter by Date</p>
 
-	<span>From: 
-	<input id="dateFromVisible" type="text" class="date" autocomplete="OFF" /></span>
-	<input id="dateFrom" name="dateFrom" type="hidden" value="<%=Model.DateFrom %>" autocomplete="OFF" />
+	<p>
+		<span class="SearchTextTitle">From:</span>
+		<input id="dateFromVisible" type="text" class="date" autocomplete="OFF" style="width:80px" />
+		<input id="dateFrom" name="dateFrom" type="hidden" value="<%=Model.DateFrom %>" autocomplete="OFF" />
+		<span class="SearchTextTitle">To:</span>
+		<input id="dateToVisible" type="text" class="date" autocomplete="OFF" style="width:80px" />
+		<input id="dateTo" name="dateTo" type="hidden" value="<%=Model.DateTo %>"autocomplete="OFF"  />
+	</p>
 
-	<span>To: 
-	<input id="dateToVisible" type="text" class="date" autocomplete="OFF" /></span>
-	<input id="dateTo" name="dateTo" type="hidden" value="<%=Model.DateTo %>" autocomplete="OFF" />
-
+	 <p>
+		 <input type="submit" value="Search" class='SearchButton' />
+	 </p>
+	
 	<%} %>
 
 </div>

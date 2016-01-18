@@ -10,20 +10,34 @@ public class FreeType2 : ModuleRules
 
         Definitions.Add("WITH_FREETYPE=1");
       
-        string FreeType2Path = UEBuildConfiguration.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.4.12/";
+		string FreeType2Path;
+		string FreeType2LibPath;
 
-        PublicSystemIncludePaths.Add(FreeType2Path + "include");
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 ||
+		  (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32"))
+		{
+			FreeType2Path = UEBuildConfiguration.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.6/";
+		}
+		else
+		{
+			FreeType2Path = UEBuildConfiguration.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.4.12/";
+		}
 
-        string FreeType2LibPath = FreeType2Path + "Lib/";
+		FreeType2LibPath = FreeType2Path + "Lib/";
+
+		PublicSystemIncludePaths.Add(FreeType2Path + "include");
 
         if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 ||
 			(Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32"))
 		{
+	
             FreeType2LibPath += (Target.Platform == UnrealTargetPlatform.Win64) ? "Win64/" : "Win32/";
             FreeType2LibPath += "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName();
 
+			PublicSystemIncludePaths.Add(FreeType2Path + "include");
+
             PublicLibraryPaths.Add(FreeType2LibPath);
-			PublicAdditionalLibraries.Add("freetype2412MT.lib");
+			PublicAdditionalLibraries.Add("freetype26MT.lib");
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{

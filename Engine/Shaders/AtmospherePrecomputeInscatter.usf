@@ -36,12 +36,13 @@ void MainVS(
 {
 	Out.OutPosition = InPosition;
 	Out.OutTexCoord = InTexCoord;
+    Out.LayerIndex = AtmosphereLayer;
 }
 
 struct FAtmosphereGSOut
 {
-	FAtmosphereVSOutput Vertex;
-	uint LayerIndex : SV_RenderTargetArrayIndex;
+    FAtmosphereVSOutput Vertex;
+    uint LayerIndex : SV_RenderTargetArrayIndex;
 };
 
 [maxvertexcount(3)]

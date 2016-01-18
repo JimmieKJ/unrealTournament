@@ -10,8 +10,10 @@ struct FWindowsPlatformTypes : public FGenericPlatformTypes
 {
 #ifdef _WIN64
 	typedef unsigned __int64	SIZE_T;
+	typedef __int64				SSIZE_T;
 #else
 	typedef unsigned long		SIZE_T;
+	typedef long				SSIZE_T;
 #endif
 };
 
@@ -56,7 +58,11 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #define PLATFORM_USES_MICROSOFT_LIBC_FUNCTIONS				1
 #define PLATFORM_SUPPORTS_TBB								1
 #define PLATFORM_SUPPORTS_NAMED_PIPES						1
-#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS			0
+#if 0 //@todo: VS2015 supports defaulted functions but we have errors in some of our classes we need to fix up before we can enable it
+	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS		1
+#else
+	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS		0
+#endif
 #if _MSC_VER >= 1800 || __clang__
 	#define PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES		1
 	#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS		1
@@ -67,6 +73,11 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 	#define PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS	0
 #endif
 #define PLATFORM_COMPILER_HAS_TCHAR_WMAIN					1
+
+#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					1
+#define PLATFORM_CAN_TOGGLE_RHITHREAD_IN_SHIPPING			1
+
+#define PLATFORM_SUPPORTS_STACK_SYMBOLS						1
 
 // Intrinsics for 128-bit atomics on Windows platform requires Windows 8 or higher (WINVER>0x0602)
 // http://msdn.microsoft.com/en-us/library/windows/desktop/hh972640.aspx

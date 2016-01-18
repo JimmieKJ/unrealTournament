@@ -1,5 +1,5 @@
 // Nodes overlaying the navmesh to provide richer information about points of interest and advanced reachability (e.g. superjump links)
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -239,7 +239,7 @@ class UNREALTOURNAMENT_API UUTPathNode : public UObject
 	TArray<FUTPathLink> Paths;
 	/** game objects and other Actor points of interest that are within the Tiles */
 	UPROPERTY(BlueprintReadOnly, Category = PathNode)
-	TArray< TWeakObjectPtr<AActor> > POIs;
+	TArray< AActor* > POIs;
 	/** used by path building - means no automatically generated paths are sourced from this node */
 	UPROPERTY(BlueprintReadOnly, Category = PathNode)
 	bool bDestinationOnly;

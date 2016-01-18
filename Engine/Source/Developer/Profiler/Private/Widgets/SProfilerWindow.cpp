@@ -1,9 +1,5 @@
 ﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	SProfilerWindow.cpp: Implements the SProfilerWindow class.
-=============================================================================*/
-
 #include "ProfilerPrivatePCH.h"
 #include "SProfilerSettings.h"
 #include "DesktopPlatformModule.h"
@@ -14,7 +10,9 @@
 #endif // WITH_EDITOR
 #include "SNotificationList.h"
 
+
 #define LOCTEXT_NAMESPACE "SProfilerWindow"
+
 
 static FText GetTextForNotification( const EProfilerNotificationTypes::Type NotificatonType, const ELoadingProgressStates::Type ProgressState, const FString& Filename, const float ProgressPercent = 0.0f )
 {
@@ -109,209 +107,183 @@ void SProfilerWindow::Construct( const FArguments& InArgs )
 			SNew(SOverlay)
 
 			// Overlay slot for the main profiler window area, the first
-			+SOverlay::Slot()
-			[
-				SAssignNew(MainContentPanel,SVerticalBox)
-
-				+SVerticalBox::Slot()
-				.AutoHeight()
+			+ SOverlay::Slot()
 				[
-					SNew( SHorizontalBox )
+					SAssignNew(MainContentPanel, SVerticalBox)
 
-					+SHorizontalBox::Slot()
-					.FillWidth( 1.0f )
-					.Padding( 0.0f )
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Fill)
-					[
-						SNew(SProfilerToolbar)
-					]
-				]
-
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew( SSpacer )
-					.Size( FVector2D( 2.0f, 2.0f ) )
-				]
-
-				/** Profiler Mini-view. */
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(SBox)
-					.HeightOverride( 48.0f )
-					[
-						SNew( SHorizontalBox )
-						.IsEnabled( this, &SProfilerWindow::IsProfilerEnabled )
-
-						+ SHorizontalBox::Slot()
-						.FillWidth( 1.0f )
-						.Padding( 0.0f )
-						.HAlign( HAlign_Fill )
-						.VAlign( VAlign_Fill )
+					+ SVerticalBox::Slot()
+						.AutoHeight()
 						[
-							SAssignNew( ProfilerMiniView, SProfilerMiniView )
+							SNew(SHorizontalBox)
+
+							+ SHorizontalBox::Slot()
+								.FillWidth(1.0f)
+								.Padding(0.0f)
+								.HAlign(HAlign_Fill)
+								.VAlign(VAlign_Fill)
+								[
+									SNew(SProfilerToolbar)
+								]
 						]
-					]
-				]
 
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew( SSpacer )
-					.Size( FVector2D( 2.0f, 2.0f ) )
-				]
-
-				+SVerticalBox::Slot()
-				.FillHeight( 1.0f )
-				.Padding(0.0f, 8.0f, 0.0f, 0.0f)
-				[
-					SNew( SHorizontalBox )
-					.IsEnabled( this, &SProfilerWindow::IsProfilerEnabled )
-
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Expose( FiltersAndPresetsSlot )
-					[
-						SNew(SBox)
-						.WidthOverride( 256.0f )
+					/** Profiler Mini-view. */
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 6.0f, 0.0f, 0.0f)
 						[
-							SNew(SVerticalBox)
-
-							// Header
-							+SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew(SHorizontalBox)
-
-								+SHorizontalBox::Slot()
-								.AutoWidth()
+							SNew(SBox)
+								.HeightOverride(48.0f)
+								.IsEnabled(this, &SProfilerWindow::IsProfilerEnabled)
 								[
-									SNew(SImage)
-									.Image( FEditorStyle::GetBrush( TEXT("Profiler.Tab.FiltersAndPresets") ) )
+									SNew(SHorizontalBox)
+
+									+ SHorizontalBox::Slot()
+										.FillWidth(1.0f)
+										.Padding(0.0f)
+										.HAlign(HAlign_Fill)
+										.VAlign(VAlign_Fill)
+										[
+											SAssignNew(ProfilerMiniView, SProfilerMiniView)
+										]
 								]
-
-								+SHorizontalBox::Slot()
-								.AutoWidth()
-								[
-									SNew(STextBlock)
-									.Text( LOCTEXT("FiltersAndPresetsLabel", "Filters And Presets") )
-								]
-							]
-
-							// Spacer
-							+SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew( SSpacer )
-								.Size( FVector2D( 2.0f, 2.0f ) )
-							]
-
-							// Filters And Presets
-							+SVerticalBox::Slot()
-							.FillHeight( 1.0f )
-							[
-								SAssignNew( FiltersAndPresets, SFiltersAndPresets )
-							]
 						]
-					]
 
-					+SHorizontalBox::Slot()
-					.FillWidth( 1.0f )
-					.Padding(6.0f, 0.0f, 0.0f, 0.0f)
-					[
-						SNew( SSplitter )
-						.Orientation( Orient_Vertical )
-						//.PhysicalSplitterHandleSize( 2.0f )
-						//.HitDetectionSplitterHandleSize( 4.0f )
-
-						+SSplitter::Slot()
-						.Value( 1.0f )
+					+ SVerticalBox::Slot()
+						.FillHeight(1.0f)
+						.Padding(0.0f, 4.0f, 0.0f, 0.0f)
 						[
-							SNew(SVerticalBox)
+							SNew(SSplitter)
+								.IsEnabled( this, &SProfilerWindow::IsProfilerEnabled )
+								.Orientation(Orient_Horizontal)
 
-							// Header
-							+SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew(SHorizontalBox)
-
-								+SHorizontalBox::Slot()
-								.AutoWidth()
+							+ SSplitter::Slot()
+								.Expose(FiltersAndPresetsSlot)
+								.Value(0.25f)
 								[
-									SNew(SImage)
-									.Image( FEditorStyle::GetBrush( TEXT("Profiler.Tab.GraphView") ) )
+									SNew(SBox)
+										.WidthOverride(256.0f)
+										[
+											SNew(SVerticalBox)
+
+											// Header
+											+ SVerticalBox::Slot()
+												.AutoHeight()
+												[
+													SNew(SHorizontalBox)
+
+													+ SHorizontalBox::Slot()
+														.AutoWidth()
+														[
+															SNew(SImage)
+																.Image(FEditorStyle::GetBrush(TEXT("Profiler.Tab.FiltersAndPresets")))
+														]
+
+													+ SHorizontalBox::Slot()
+														.AutoWidth()
+														[
+															SNew(STextBlock)
+																.Text( LOCTEXT("FiltersAndPresetsLabel", "Filters And Presets") )
+														]
+												]
+
+											// Filters And Presets
+											+ SVerticalBox::Slot()
+												.FillHeight(1.0f)
+												.Padding(0.0f, 2.0f, 0.0f, 0.0f)
+												[
+													SAssignNew(FiltersAndPresets, SFiltersAndPresets)
+												]
+										]
 								]
 
-								+SHorizontalBox::Slot()
-								.AutoWidth()
+							+ SSplitter::Slot()
+								.Value(0.75f)
 								[
-									SNew(STextBlock)
-									.Text( LOCTEXT("GraphViewLabel", "Graph View") )
-								]
-							]
+									SNew(SSplitter)
+										.Orientation(Orient_Vertical)
+										//.PhysicalSplitterHandleSize( 2.0f )
+										//.HitDetectionSplitterHandleSize( 4.0f )
+
+										+ SSplitter::Slot()
+											.Value(0.25f)
+											[
+												SNew(SVerticalBox)
+
+												// Header
+												+SVerticalBox::Slot()
+													.AutoHeight()
+														[
+															SNew(SHorizontalBox)
+
+															+ SHorizontalBox::Slot()
+																.AutoWidth()
+																[
+																	SNew(SImage)
+																		.Image(FEditorStyle::GetBrush(TEXT("Profiler.Tab.GraphView")))
+																]
+
+															+ SHorizontalBox::Slot()
+																.AutoWidth()
+																[
+																	SNew(STextBlock)
+																		.Text(LOCTEXT("GraphViewLabel", "Graph View"))
+																]
+														]
 							
-							// Spacer
-							+SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew( SSpacer )
-								.Size( FVector2D( 2.0f, 2.0f ) )
-							]
+												// Graph View
+												+ SVerticalBox::Slot()
+													.FillHeight( 1.0f )
+													.Padding(0.0f, 2.0f, 0.0f, 0.0f)
+													[
+														SAssignNew(GraphPanel, SProfilerGraphPanel)
+													]
+											]
 
-							// Graph View
-							+SVerticalBox::Slot()
-							.FillHeight( 1.0f )
-							[
-								SAssignNew(GraphPanel,SProfilerGraphPanel)
+										+ SSplitter::Slot()
+											.Value(0.75f)
+											[
+												SAssignNew(EventGraphPanel, SVerticalBox)
+											]
+									]
 							]
-						]
-
-						+SSplitter::Slot()
-						.Value( 2.0f )
-						[
-							SAssignNew(EventGraphPanel,SVerticalBox)
-						]
 					]
-				]
-			]
 
-			// Overlay slot for the notification area.
-			+SOverlay::Slot()
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SBorder)
-				.BorderImage( FEditorStyle::GetBrush("NotificationList.ItemBackground") )
-				.Padding( 8.0f )
-				.Visibility( this, &SProfilerWindow::IsSessionOverlayVissible )
+			// session hint overlay
+			+ SOverlay::Slot()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
 				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("SelectSessionOverlayText", "Please select a session from the Session Browser or load a saved capture."))
+					SNew(SBorder)
+						.BorderImage(FEditorStyle::GetBrush("NotificationList.ItemBackground"))
+						.Padding(8.0f)
+						.Visibility(this, &SProfilerWindow::IsSessionOverlayVissible)
+						[
+							SNew(STextBlock)
+								.Text(LOCTEXT("SelectSessionOverlayText", "Please select a session from the Session Browser or load a saved capture."))
+						]
 				]
-			]
 
-			// Overlay slot for the notification area, the second
-			+SOverlay::Slot()
-			.HAlign(HAlign_Right)
-			.VAlign(VAlign_Bottom)
-			.Padding( 16.0f )
-			[
-				SAssignNew(NotificationList, SNotificationList)
-			]
+			// notification area overlay
+			+ SOverlay::Slot()
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Bottom)
+				.Padding(16.0f)
+				[
+					SAssignNew(NotificationList, SNotificationList)
+				]
 
-			// Overlay slot for the profiler settings, the third
-			+SOverlay::Slot()
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			.Expose( OverlaySettingsSlot )
+			// profiler settings overlay
+			+ SOverlay::Slot()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Expose(OverlaySettingsSlot)
 		];
 
 	ProfilerMiniView->OnSelectionBoxChanged().AddSP( GraphPanel.ToSharedRef(), &SProfilerGraphPanel::MiniView_OnSelectionBoxChanged );
 	FProfilerManager::Get()->OnViewModeChanged().AddSP( this, &SProfilerWindow::ProfilerManager_OnViewModeChanged );
 	GraphPanel->ProfilerMiniView = ProfilerMiniView;
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SProfilerWindow::ManageEventGraphTab( const FGuid ProfilerInstanceID, const bool bCreateFakeTab, const FString TabName )
 {
@@ -497,6 +469,7 @@ EActiveTimerReturnType SProfilerWindow::UpdateActiveDuration( double InCurrentTi
 	// The profiler window will explicitly unregister this active timer when the mouse leaves
 	return EActiveTimerReturnType::Continue;
 }
+
 
 void SProfilerWindow::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {

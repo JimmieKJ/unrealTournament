@@ -338,7 +338,7 @@ ClothingActor::ClothingActor(const NxParameterized::Interface& descriptor, Cloth
 
 		// PH: So if backend name is 'embedded', i won't get an asset cooked data ever, so it also won't complain about the cooked version, good
 		// if backend is native, it might, but that's only when you force native with the 2.8.x sdk on a 3.2 asset
-		//const char* cookingDataType = mAsset->getModule()->getBackendFactory(mBackendName)->getCookingJobType();
+		// const char* cookingDataType = mAsset->getModule()->getBackendFactory(mBackendName)->getCookingJobType();
 		NxParameterized::Interface* assetCookedData = mAsset->getCookedData(mActorDesc->actorScale);
 		NxParameterized::Interface* actorCookedData = mActorDesc->runtimeCooked;
 
@@ -629,7 +629,12 @@ void ClothingActor::updateState(const PxMat44& globalPose, const PxMat44* newBon
 	}
 
 	mActorDesc->globalPose = globalPose;
-
+	if (!physx::PxEquals(globalPose.column0.magnitude(), mActorDesc->actorScale, 1e-6))
+	{
+		APEX_DEBUG_WARNING("Actor Scale wasn't set properly, it doesn't equal to the Global Pose scale: %f != %f",
+			mActorDesc->actorScale,
+			globalPose.column0.magnitude());
+	}
 
 	PX_ASSERT(newBoneMatrices == NULL || boneMatricesByteStride >= sizeof(PxMat44));
 	if (boneMatricesByteStride >= sizeof(PxMat44) && newBoneMatrices != NULL)
@@ -2733,8 +2738,11 @@ void ClothingActor::destroy()
 
 
 
-void ClothingActor::initBeforeTickTasks(PxF32 deltaTime, PxF32 substepSize, PxU32 numSubSteps)
+void ClothingActor::initBeforeTickTasks(PxF32 deltaTime, PxF32 substepSize, PxU32 numSubSteps, PxTaskManager* taskManager, PxTaskID before, PxTaskID after)
 {
+	PX_UNUSED(before);
+	PX_UNUSED(after);
+	PX_UNUSED(taskManager);
 	mBeforeTickTask.setDeltaTime(deltaTime, substepSize, numSubSteps);
 }
 
@@ -2768,47 +2776,15 @@ PxTaskID ClothingActor::setTaskDependenciesDuring(PxTaskID before, PxTaskID afte
 	return mDuringTickTask.getTaskID();
 }
 
-
-
-void ClothingActor::setFetchContinuation()
-{
-	PxTaskManager* taskManager = mClothingScene->getApexScene()->getTaskManager();
-	taskManager->submitUnnamedTask(mWaitForFetchTask);
-
-#ifdef PX_PS3
-	if (mActorDesc->useHardwareCloth && !mData.bMeshMeshSkinningOnPPU)
-	{
-		if (mData.bAllGraphicalSubmeshesFitOnSpu)
-		{
-			mFetchResultsTaskSimpleSpu.setContinuation(&mWaitForFetchTask);
-			mFetchResultsTaskSimpleSpu.setArgs(0, (uint32_t)&mData, 0);
-		}
-		else
-		{
-			mFetchResultsTaskSpu.setContinuation(&mWaitForFetchTask);
-			mFetchResultsTaskSpu.setArgs(0, (uint32_t)&mData, 0);
-		}
-	}
-	else
-#endif
-	{
-		mFetchResultsTask.setContinuation(&mWaitForFetchTask);
-	}
-
-	// reduce refcount to 1
-	mWaitForFetchTask.removeReference();
-}
-
-
-
 void ClothingActor::startFetchTasks()
 {
 	mFetchResultsRunningMutex.lock();
 	mFetchResultsRunning = true;
-	mWaitForFetchTask.mWaiting.reset();
+	mFetchResultsSync.reset();
 	mFetchResultsRunningMutex.unlock();
 
-	setFetchContinuation();
+	PxTaskManager* taskManager = mClothingScene->getApexScene()->getTaskManager();
+	taskManager->submitUnnamedTask(mFetchResultsTask);
 
 #ifdef PX_PS3
 	if (mActorDesc->useHardwareCloth && !mData.bMeshMeshSkinningOnPPU)
@@ -2842,7 +2818,7 @@ void ClothingActor::waitForFetchResults()
 	{
 		PX_PROFILER_PERF_SCOPE("ClothingActor::waitForFetchResults");
 
-		mWaitForFetchTask.mWaiting.wait();
+		mFetchResultsSync.wait();
 		syncActorData();
 		mFetchResultsRunning = false;
 
@@ -2852,31 +2828,6 @@ void ClothingActor::waitForFetchResults()
 	}
 	mFetchResultsRunningMutex.unlock();
 }
-
-
-
-void ClothingWaitForFetchTask::run()
-{
-}
-
-
-
-void ClothingWaitForFetchTask::release()
-{
-	PxTask::release();
-
-	mWaiting.set();
-}
-
-
-
-const char* ClothingWaitForFetchTask::getName() const
-{
-	return "ClothingWaitForFetchTask";
-}
-
-
-
 
 void ClothingActor::applyTeleport(bool skinningReady, PxU32 substepNumber)
 {
@@ -4102,7 +4053,9 @@ void ClothingActor::updateRenderProxy()
 
 	// get a new render proxy from the pool
 	NiApexRenderMeshAsset* renderMeshAsset = mAsset->getGraphicalMesh(mCurrentGraphicalLodId);
-	ClothingRenderProxy* renderProxy = mClothingScene->getRenderProxy(renderMeshAsset, mActorDesc->fallbackSkinning, mClothingSimulation != NULL, mOverrideMaterials, mActorDesc->morphGraphicalMeshNewPositions.buf, &mGraphicalMeshes[mCurrentGraphicalLodId].morphTargetVertexOffsets[0]);
+	ClothingRenderProxy* renderProxy = mClothingScene->getRenderProxy(renderMeshAsset, mActorDesc->fallbackSkinning, mClothingSimulation != NULL, 
+																	mOverrideMaterials, mActorDesc->morphGraphicalMeshNewPositions.buf, 
+																	&mGraphicalMeshes[mCurrentGraphicalLodId].morphTargetVertexOffsets[0]);
 
 	mGraphicalMeshes[mCurrentGraphicalLodId].renderProxy = renderProxy;
 }
@@ -5145,13 +5098,14 @@ NxClothingPlane* ClothingActor::createCollisionPlane(const PxPlane& plane)
 
 NxClothingConvex* ClothingActor::createCollisionConvex(NxClothingPlane** planes, PxU32 numPlanes)
 {
-	if (numPlanes == 0)
+	if (numPlanes < 3)
 		return NULL;
 
 	ClothingConvex* convex = NULL;
 	convex = PX_NEW(ClothingConvex)(mCollisionConvexes, *this, planes, numPlanes);
 	PX_ASSERT(convex != NULL);
 	bActorCollisionChanged = true;
+
 	return convex;
 }
 
@@ -5194,6 +5148,28 @@ void ClothingActor::releaseCollision(ClothingCollision& collision)
 	collision.destroy();
 }
 
+void ClothingActor::simulate(PxF32 dt)
+{
+	// before tick task
+	tickSynchBeforeSimulate_LocksPhysX(dt, dt, 0, 1);
+
+	if(mClothingSimulation != NULL)
+		mClothingSimulation->simulate(dt);
+
+	// during tick task
+	tickAsynch_NoPhysX(); // this is a no-op
+
+	// start fetch result task
+	mFetchResultsRunningMutex.lock();
+	mFetchResultsRunning = true;
+	mFetchResultsSync.reset();
+	mFetchResultsRunningMutex.unlock();
+
+	// fetch result task
+	fetchResults();
+	getActorData().tickSynchAfterFetchResults_LocksPhysXSimple(); // this is a no-op
+	setFetchResultsSync();
+}
 
 }
 } // namespace apex

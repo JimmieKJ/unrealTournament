@@ -35,6 +35,9 @@ void FPersonaCommands::RegisterCommands()
 	UI_COMMAND( ApplyAnimation, "Apply Animation", "Apply Additive Layer Tracks to Runtime Animation Data", EUserInterfaceActionType::Button, FInputChord() );
 
 	UI_COMMAND( UpdateSkeletonRefPose, "Update Skeleton RefPose", "Update Skeleton ref pose based on current preview mesh", EUserInterfaceActionType::Button, FInputChord() );
+
+	UI_COMMAND( ToggleReferencePose, "Toggle Reference Pose", "Toggle Reference Pose", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( TogglePreviewAsset, "Toggle Preview ASset", "Toggle Preview Asset", EUserInterfaceActionType::ToggleButton, FInputChord() );
 }
 
 #undef LOCTEXT_NAMESPACE

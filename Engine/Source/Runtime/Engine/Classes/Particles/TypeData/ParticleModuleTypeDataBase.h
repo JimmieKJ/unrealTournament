@@ -13,9 +13,9 @@ class UParticleModuleTypeDataBase : public UParticleModule
 	GENERATED_UCLASS_BODY()
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual EModuleType	GetModuleType() const override {	return EPMT_TypeData;	}
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
 	/**
 	 * Build any resources required for simulating the emitter.

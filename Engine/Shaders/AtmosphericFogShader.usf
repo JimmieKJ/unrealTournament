@@ -57,7 +57,7 @@ void AtmosphericPixelMain(
 	float4 ScreenVector : TEXCOORD1,
 	out float4 OutColor : SV_Target0)
 {
-	OutColor = GetAtmosphericFog(View.ViewOrigin.xyz, ScreenVector.xyz, CalcSceneDepth(TexCoord), float3(0, 0, 0));
+	OutColor = GetAtmosphericFog(View.WorldCameraOrigin, ScreenVector.xyz, CalcSceneDepth(TexCoord), float3(0, 0, 0));
 #if !ATMOSPHERIC_NO_LIGHT_SHAFT
 	float LightShaftMask = Texture2DSample(OcclusionTexture, OcclusionTextureSampler, TexCoord).x;
 	OutColor.rgb = OutColor.rgb * LightShaftMask;

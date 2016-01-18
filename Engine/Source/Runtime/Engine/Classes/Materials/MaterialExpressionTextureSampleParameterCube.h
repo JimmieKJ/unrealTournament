@@ -13,16 +13,16 @@ class UMaterialExpressionTextureSampleParameterCube : public UMaterialExpression
 
 
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
-	// Begin UMaterialExpressionTextureSampleParameter Interface
+	//~ Begin UMaterialExpressionTextureSampleParameter Interface
 	virtual bool TextureIsValid( UTexture* InTexture ) override;
 	virtual const TCHAR* GetRequirements() override;
 	virtual void SetDefaultTexture() override;
-	// End UMaterialExpressionTextureSampleParameter Interface
+	//~ End UMaterialExpressionTextureSampleParameter Interface
 };
 
 

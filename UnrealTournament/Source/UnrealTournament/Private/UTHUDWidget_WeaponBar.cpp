@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_WeaponBar.h"
@@ -7,10 +7,10 @@
 
 UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	Position=FVector2D(0.0f, -90.0f);
+	Position=FVector2D(-8.0f, -500.0f);
 	Size=FVector2D(0,0);
 	ScreenPosition=FVector2D(1.0f, 1.0f);
-	Origin=FVector2D(1.0f,1.0f);
+	Origin=FVector2D(1.f,1.f);
 
 	SelectedCellScale=1.1;
 	SelectedAnimRate=0.3;
@@ -64,27 +64,28 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	{
 		if (InactiveOpacity != UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity)
 		{
-			float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) * DeltaTime;	// 1 second fade
+			float Delta = (1.f - UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) * DeltaTime;	// 1 second fade
 			if (InactiveOpacity < UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) 
 			{
-				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity);
+				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity + Delta, 0.f, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity);
 			}
 			else
 			{
-				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity - Delta, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity, 1.0);
+				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity - Delta, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity, 1.f);
 			}
 		}
 
 		if (InactiveIconOpacity != UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity)
 		{
-			float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) * DeltaTime;	// 1 second fade
+			float MaxIconOpacity = FMath::Max(0.6f, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
+			float Delta = (MaxIconOpacity - UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) * DeltaTime;	// 1 second fade
 			if (InactiveIconOpacity < UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) 
 			{
-				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
+				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity + Delta, 0.f, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
 			}
 			else
 			{
-				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity - Delta, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity, 1.0);
+				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity - Delta, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity, MaxIconOpacity);
 			}
 		}
 	}
@@ -123,7 +124,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		{
 			// Weapon has changed.. set everything up.
 			InactiveOpacity = 1.f;
-			InactiveIconOpacity = 1.f;
+			InactiveIconOpacity = FMath::Max(0.6f, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
 			FadeTimer = 1.f;
 
 			LastGroup = SelectedGroup;
@@ -167,12 +168,12 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					{
 						bSelectedGroup = true;
 					}
-					Opacity = bSelected ? 1.0 : InactiveOpacity;
+					Opacity = bSelected ? 1.f : InactiveOpacity;
 
 					// Draw the background and the background's border.
 					int32 Idx = (WeapIdx == 0) ? 0 : 1;
 					float FullIconCellWidth = (CurrentGroup == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
-					float FullCellWidth = FullIconCellWidth + HeaderTab[Idx].GetWidth() + 3 + GroupHeaderCap[Idx].GetWidth();
+					float FullCellWidth = FullIconCellWidth + HeaderTab[Idx].GetWidth() + 3.f + GroupHeaderCap[Idx].GetWidth();
 					float CellScale = bSelected ? SelectedCellScale : 1.f;
 					float CellHeight =CellBackground[Idx].GetHeight() * CellScale;
 					float IconCellWidth = CellWidth * CellScale;
@@ -199,30 +200,31 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					RenderObj_TextureAt(CellBackground[Idx], XPosition, YPosition, IconCellWidth, CellHeight);
 					RenderObj_TextureAt(CellBorders[Idx], XPosition, YPosition, IconCellWidth, CellHeight);
 
-					Opacity = bSelected ? 1.0 : InactiveIconOpacity;
+					Opacity = bSelected ? 1.f : InactiveIconOpacity;
 
 					// Draw the Weapon Icon
 					if (CurrentWeapon)
 					{
-						WeaponIcon.UVs = bSelected ? CurrentWeapon->WeaponBarSelectedUVs : CurrentWeapon->WeaponBarInactiveUVs;
-						WeaponIcon.RenderColor = UTHUDOwner->bUseWeaponColors ? CurrentWeapon->IconColor : FLinearColor::White;
+						WeaponIcon.UVs = CurrentWeapon->WeaponBarSelectedUVs;
+						WeaponIcon.RenderColor = bSelected ? CurrentWeapon->IconColor : FLinearColor::White;
 					}
 
-					float WeaponY = (CellHeight * 0.5) - (WeaponIcon.UVs.VL * CellScale * 0.5);
+					float WeaponY = (CellHeight * 0.5f) - (WeaponIcon.UVs.VL * CellScale * 0.5f);
 					RenderObj_TextureAt(WeaponIcon, -15, YPosition + WeaponY, WeaponIcon.UVs.UL * CellScale, WeaponIcon.UVs.VL * CellScale);
 
 					// Draw the ammo bars
 					if (BarTexture)
 					{
-						float AmmoPerc = CurrentWeapon->MaxAmmo > 0 ? float(CurrentWeapon->Ammo) / float(CurrentWeapon->MaxAmmo) : 0.0;
+						Opacity = (UTHUDOwner->HUDWidgetOpacity > 0.f) ? 1.f : 0.f;
+						float AmmoPerc = CurrentWeapon->MaxAmmo > 0 ? float(CurrentWeapon->Ammo) / float(CurrentWeapon->MaxAmmo) : 0.f;
 						float BarHeight = CellHeight - 16.f;
 						float Width = bSelected ? 9.f : 7.f;
 						float X = (Width * -1.f) - 2.f;
 						float Y = YPosition + 4.f;
-						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, UTHUDOwner->HUDWidgetOpacity, FLinearColor::Black);
+						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.f, FLinearColor::Black);
 
-						Y = Y + BarHeight - 1 - ((BarHeight-2) * AmmoPerc);
-						BarHeight = (BarHeight -2) * AmmoPerc;
+						Y = Y + BarHeight - 1.f - ((BarHeight-2.f) * AmmoPerc);
+						BarHeight = (BarHeight -2.f) * AmmoPerc;
 						FLinearColor BarColor = FLinearColor(0.5f, 0.5f, 1.f ,1.f);
 						if (AmmoPerc <= 0.33f)
 						{
@@ -232,7 +234,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 						{
 							BarColor = FLinearColor(1.f, 1.f, 0.5f, 1.f);
 						}
-						DrawTexture(BarTexture, X + 1, Y, Width - 2, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, UTHUDOwner->HUDWidgetOpacity, BarColor);
+						DrawTexture(BarTexture, X + 1.f, Y, Width - 2.f, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, Opacity, BarColor);
 					}
 				}
 
@@ -292,11 +294,11 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 	if (WeaponNameText.RenderOpacity > 0.f)
 	{
+		bool bRealScaling = bScaleByDesignedResolution;
+		bScaleByDesignedResolution = false;
 		Opacity = 1.f;
-
-		// Recalc this to handle aspect ratio
-		WeaponNameText.Position.X = (Canvas->ClipX * 0.5f) / RenderScale * -1.f;
-		RenderObj_TextAt(WeaponNameText, WeaponNameText.Position.X, WeaponNameText.Position.Y);
+		DrawText(WeaponNameText.Text, Canvas->ClipX * 0.5f - RenderPosition.X, Canvas->ClipY * 0.8f - RenderPosition.Y, WeaponNameText.Font, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.f, WeaponNameText.RenderOpacity, WeaponNameText.RenderColor, ETextHorzPos::Center, ETextVertPos::Top);
+		bScaleByDesignedResolution = bRealScaling;
 	}
 
 	if (WeaponNameDisplayTimer > 0.f)

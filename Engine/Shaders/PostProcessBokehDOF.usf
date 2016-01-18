@@ -16,13 +16,13 @@ float4 DepthOfFieldThresholds;
 uint4 TileCountAndSize;
 // .xy:size in pixels, .zw:LeftTop of the original viewport in rendertaregt scaled coordiantes
 float4 KernelSize;
+
 // small Bokeh like texture
 Texture2D LensTexture;
 SamplerState LensTextureSampler;
 
-// for VisualizeDOF [0]:near, [1]:far
-float4 VisualizeColors[2];
-
+// Multiplier for separate translucency render target resolution
+float4 SeparateTranslucencyResMult;
 
 // @return x:layer in front of focal plane, y: layer behind focal plane  1-x-y:layer in focus
 float2 ComputeLayerContributions(float Depth)
@@ -47,7 +47,7 @@ float2 PixelToScreenPos(float2 PixelPos)
 void MainVS(
 	uint VId : SV_VertexID,
 	uint IId : SV_InstanceID,
-	out float2 OutTexCoord : TEXCOORD0,
+	out noperspective float2 OutTexCoord : TEXCOORD0,
 	out nointerpolation float4 OutColor : TEXCOORD1,
 	out float4 OutPosition : SV_POSITION
 	)
@@ -57,15 +57,6 @@ void MainVS(
 
 	// needs to be the same on C++ side (faster on NVIDIA and AMD)
 	uint QuadsPerInstance = 8;
-#if DOF_INDEX_STYLE == 1
-	// remap the indices to get vertexid to VId and quadid into IId
-	IId = IId * QuadsPerInstance + (VId / 6);
-	VId = VId % 6;
-
-	// triangle A: 0:left top, 1:right top, 2: left bottom
-	// triangle B: 3:right bottom, 4:left bottom, 5: right top
-	float2 LocalPos = float2(VId % 2, VId > 1 && VId < 5);
-#else // DOF_INDEX_STYLE == 1
 	// remap the indices to get vertexid to VId and quadid into IId
 	IId = IId * QuadsPerInstance + (VId / 4);
 	VId = VId % 4;
@@ -73,7 +64,6 @@ void MainVS(
 	// triangle A: 0:left top, 1:right top, 2: left bottom
 	// triangle B: 3:right bottom, 4:left bottom, 5: right top
 	float2 LocalPos = float2(VId % 2, VId / 2);
-#endif // DOF_INDEX_STYLE == 1
 	float2 TilePos = float2(IId % TileCount.x, IId / TileCount.x);
 	
 	OutPosition =  float4(0, 0, 0, 1);
@@ -159,17 +149,6 @@ void MainVS(
 
 	// needs to be the same on C++ side (faster on NVIDIA and AMD)
 	uint QuadsPerInstance = 8;
-#if DOF_INDEX_STYLE == 1
-	// remap the indices to get vertexid to VId and quadid into IId
-	uint QuadId = VId / 6;
-
-	// triangle A: 0:left top, 1:right top, 2: left bottom
-	// triangle B: 3:right bottom, 4:left bottom, 5: right top
-	uint VertexId = VId % 6;
-	uint HalfTileCountX = TileCount.x / 2;
-	uint QuarterTileCountX = TileCount.x / 4;
-	float2 LocalPos = float2(VertexId % 2, VertexId > 1 && VertexId < 5);
-#else // DOF_INDEX_STYLE == 1
 	// remap the indices to get vertexid to VId and quadid into IId
 	uint QuadId = VId / 4;
 
@@ -179,7 +158,6 @@ void MainVS(
 	uint HalfTileCountX = TileCount.x / 2;
 	uint QuarterTileCountX = TileCount.x / 4;
 	float2 LocalPos = float2(VertexId % 2, VertexId / 2);
-#endif // DOF_INDEX_STYLE == 1
 	uint QuadIdIndex = QuadId%4;
 	float2 TilePos = float2(IId % QuarterTileCountX, IId / QuarterTileCountX) * uint2(4,2) + uint2(QuadId/4,0)*2;
 
@@ -371,7 +349,7 @@ float4 CommonDOFSetup(in float2 CenterUV, out bool bFrontLayer, out float4 Mask 
 }
 
 // downsample to half res, put depth in alpha
-void MainSetupPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainSetupPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	// unused for this pass
 	bool bFrontLayer;
@@ -383,22 +361,9 @@ void MainSetupPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_
 	OutColor.rgb = min(float3(256 * 256, 256 * 256, 256 * 256), OutColor.rgb);
 }
 
-
-// render in fullres to visualize the half res DOF input from the setup pass
-void VisualizeDOFPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
-{
-	bool bFrontLayer;
-	float4 Mask;
-	
-	CommonDOFSetup(UVAndScreenPos.xy, bFrontLayer, Mask);
-
-	OutColor = (bFrontLayer ? VisualizeColors[0] : VisualizeColors[1]) * dot(Mask, 1);
-}
-
-
 // pixel shader to accumulate the Bokeh shaped elements
 void MainPS(
-	float2 TexCoord : TEXCOORD0,
+	noperspective float2 TexCoord : TEXCOORD0,
 	nointerpolation float4 InColor : TEXCOORD1,
 	out float4 OutColor : SV_Target0
 	)
@@ -415,12 +380,13 @@ void MainPS(
 
 // pixel shader to combine the full res scene and the blurred images behind and in front of the the focal plane
 void MainRecombinePS(
-	in float4 UVAndScreenPos : TEXCOORD0,
+	noperspective in float4 UVAndScreenPos : TEXCOORD0,
+	float4 SvPosition : SV_POSITION,
 	out float4 OutColor : SV_Target0
 	)
 {
 	// SceneColor in full res
-	float2 PixelPosCenter = UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f;
+	float2 PixelPosCenter = SvPosition.xy;
 
 	float2 FullResUV = PixelPosCenter * PostprocessInput0Size.zw;
 
@@ -475,7 +441,10 @@ void MainRecombinePS(
 #endif
 
 #if RECOMBINE_METHOD == 2 || RECOMBINE_METHOD == 3
-	float4 SeparateTranslucency = Texture2DSample(PostprocessInput2, PostprocessInput2Sampler, PixelPosCenter * PostprocessInput2Size.zw);
+	// sampling from pixel centers, so we need to offset if we're using lower resolution separate translucency
+	float Offset = 1.0-(1.0/SeparateTranslucencyResMult.xxxx);
+	float4 SeparateTranslucency = Texture2DSample(PostprocessInput2, PostprocessInput2Sampler, (PixelPosCenter+Offset) * PostprocessInput2Size.zw * SeparateTranslucencyResMult.xxxx );
+
 	// add RGB, darken by A (this allows to represent translucent and additive blending)
 	OutColor.rgb = OutColor.rgb * SeparateTranslucency.a + SeparateTranslucency.rgb;
 #endif

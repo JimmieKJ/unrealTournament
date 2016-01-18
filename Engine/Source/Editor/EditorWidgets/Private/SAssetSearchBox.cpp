@@ -53,6 +53,16 @@ void SAssetSearchBox::SetText(const TAttribute< FText >& InNewText)
 	PreCommittedText = InNewText.Get();
 }
 
+void SAssetSearchBox::SetError( const FText& InError )
+{
+	InputText->SetError(InError);
+}
+
+void SAssetSearchBox::SetError( const FString& InError )
+{
+	InputText->SetError(InError);
+}
+
 FReply SAssetSearchBox::OnPreviewKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
 {
 	if ( SuggestionBox->IsOpen() && InKeyEvent.GetKey() == EKeys::Escape )

@@ -14,12 +14,12 @@ class UNREALED_API UCSVImportFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	virtual FText GetDisplayName() const override;
 	virtual UObject* FactoryCreateText( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn ) override;
 	virtual bool DoesSupportClass(UClass * Class) override;
 	
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 
 	/* Reimport an object that was created based on a CSV */
 	bool ReimportCSV(UObject* Obj);

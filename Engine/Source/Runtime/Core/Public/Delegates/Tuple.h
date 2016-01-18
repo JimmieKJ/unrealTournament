@@ -4,6 +4,21 @@
 
 #include "IntegerSequence.h"
 
+template <int32 N, typename... Types>
+struct TNthTypeFromParameterPack;
+
+template <int32 N, typename T, typename... OtherTypes>
+struct TNthTypeFromParameterPack<N, T, OtherTypes...>
+{
+	typedef typename TNthTypeFromParameterPack<N - 1, OtherTypes...>::Type Type;
+};
+
+template <typename T, typename... OtherTypes>
+struct TNthTypeFromParameterPack<0, T, OtherTypes...>
+{
+	typedef T Type;
+};
+
 template <typename T, uint32 Index>
 struct TTupleElement
 {
@@ -54,7 +69,7 @@ template <typename Indices, typename... Types>
 struct TTupleImpl;
 
 template <uint32... Indices, typename... Types>
-struct TTupleImpl<TIntegerSequence<Indices...>, Types...> : TTupleElement<Types, Indices>...
+struct TTupleImpl<TIntegerSequence<uint32, Indices...>, Types...> : TTupleElement<Types, Indices>...
 {
 	template <typename... ArgTypes>
 	explicit TTupleImpl(ArgTypes&&... Args)
@@ -90,7 +105,7 @@ struct TTupleImpl<TIntegerSequence<Indices...>, Types...> : TTupleElement<Types,
 	// Not strictly necessary, but some VC versions give a 'syntax error: <fake-expression>' error
 	// for empty tuples.
 	template <>
-	struct TTupleImpl<TIntegerSequence<>>
+	struct TTupleImpl<TIntegerSequence<uint32>>
 	{
 		explicit TTupleImpl()
 		{
@@ -122,12 +137,19 @@ struct TTupleImpl<TIntegerSequence<Indices...>, Types...> : TTupleElement<Types,
 
 #endif
 
-template <typename... Types>
-struct TTuple : TTupleImpl<TMakeIntegerSequence<sizeof...(Types)>, Types...>
+template <typename T, typename... Types>
+struct TDecayedFrontOfParameterPackIsSameType
 {
-	template <typename... ArgTypes>
+	enum { Value = TAreTypesEqual<T, typename TDecay<typename TNthTypeFromParameterPack<0, Types...>::Type>::Type>::Value };
+};
+
+template <typename... Types>
+struct TTuple : TTupleImpl<TMakeIntegerSequence<uint32, sizeof...(Types)>, Types...>
+{
+	template <typename... ArgTypes, typename = typename TEnableIf<!TAnd<TBoolConstant<sizeof...(ArgTypes) == 1>, TDecayedFrontOfParameterPackIsSameType<TTuple, ArgTypes...>>::Value>::Type>
 	explicit TTuple(ArgTypes&&... Args)
-		: TTupleImpl<TMakeIntegerSequence<sizeof...(Types)>, Types...>(Forward<ArgTypes>(Args)...)
+		: TTupleImpl<TMakeIntegerSequence<uint32, sizeof...(Types)>, Types...>(Forward<ArgTypes>(Args)...)
 	{
+		// This constructor is disabled for TTuple because VC is incorrectly instantiating it as a move/copy constructor.
 	}
 };

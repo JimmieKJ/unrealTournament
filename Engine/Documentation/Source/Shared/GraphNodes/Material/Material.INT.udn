@@ -278,6 +278,14 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#vertexnormalws
 [/VAR]
 [/EXCERPT:UMaterialExpressionVertexNormalWS]
 
+[EXCERPT:UMaterialExpressionViewProperty]
+The ViewProperty expression outputs a view dependant constant property. The view property to be accessed can be configured, and the type of the output depends on the configured accessed property.
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/Materials/ExpressionReference/Constant#viewproperty
+[/VAR]
+[/EXCERPT:UMaterialExpressionViewProperty]
+
 [EXCERPT:UMaterialExpressionViewSize]
 The ViewSize expression outputs a 2D vector giving the size of the current view in pixels. This is useful for causing various changes in your materials based on the current resolution of the screen. 
 
@@ -312,8 +320,16 @@ Engine/Rendering/Materials/ExpressionReference/Custom#customtexture
 [/VAR]
 [/EXCERPT:UMaterialExpressionCustomTexture]
 
+[EXCERPT:UMaterialExpressionDecalDerivative]
+The DecalDerivative is used to explicitly compute a decal's texture coordinate's derivative assuming there is no custom uv, to avoid the 2x2 pixel mipmap artefacts on the edges where the decal is project to, but still with support of anisotropic filtering.
+
+[VAR:ToolTipFullLink]
+Engine/Actors/DecalActor/DecalUserGuide
+[/VAR]
+[/EXCERPT:UMaterialExpressionDecalDerivative]
+
 [EXCERPT:UMaterialExpressionDecalMipmapLevel]
-The DecalMipmapLevel is used to explitily compute a decal's texture's mipmap level assuming there is no custom uv, to avoid the 2x2 pixel mipmap artefacts on the edges where the decal is project to.
+Deprecated. Use DecalDerivative instead.
 
 [VAR:ToolTipFullLink]
 Engine/Actors/DecalActor/DecalUserGuide
@@ -572,9 +588,9 @@ Engine/Rendering/Materials/ExpressionReference/Math#if
 [/EXCERPT:UMaterialExpressionIf]
 
 [EXCERPT:UMaterialExpressionLinearInterpolate]
-The LinearInterpolate expression blends between two input value(s) based on a third input value used as a mask. This can be thought of as a mask to define transitions between two textures, like a layer mask in Photoshop. The intensity of the mask Alpha determines the ratio of color to take from the two input values. If Alpha is 1.0/white, the first input is used.
+The LinearInterpolate expression blends between two input value(s) based on a third input value used as a mask. This can be thought of as a mask to define transitions between two textures, like a layer mask in Photoshop. The intensity of the mask Alpha determines the ratio of color to take from the two input values. 
 
-If Alpha is 0.0/black, the second input is used. If Alpha is grey (somewhere between 0.0 and 1.0), the output is a blend between the two inputs. Keep in mind that the blend happens per channel. So, if Alpha is an RGB color, Alpha's red channel value defines the blend between A and B's red channels independently of Alpha's green channel, which defines the blend between A and B's green channels.
+If Alpha is 1.0/black, the first input is used. If Alpha is 0.0/white, the second input is used. If Alpha is grey (somewhere between 0.0 and 1.0), the output is a blend between the two inputs. Keep in mind that the blend happens per channel. So, if Alpha is an RGB color, Alpha's red channel value defines the blend between A and B's red channels independently of Alpha's green channel, which defines the blend between A and B's green channels.
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#linearinterpolate
@@ -616,6 +632,14 @@ The Power expression takes two inputs, raises Base to the Exp power, and outputs
 Engine/Rendering/Materials/ExpressionReference/Math#power
 [/VAR]
 [/EXCERPT:UMaterialExpressionPower]
+
+[EXCERPT:UMaterialExpressionLogarithm2]
+The Logarithm expression takes two inputs, compute X's logarithm base 2, and outputs the result; in other words, the number of time you should get 2 multiply itself to find X. The logarithm computation happens per channel. Both inputs must have the same number of values unless one of the values is a single float value. 
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/Materials/ExpressionReference/Math#Logarithm
+[/VAR]
+[/EXCERPT:UMaterialExpressionLogarithm2]
 
 [EXCERPT:UMaterialExpressionSine]
 The Sine expression outputs the sine of the value input (in radians). Most commonly, this is used to output a continuous oscillating waveform by connecting a Time expression to its input. The output value will cycle back and forth between -1 and 1. The difference between this and the output of the Cosine expression is the output waveform is offset half the period.
@@ -769,6 +793,14 @@ Engine/Rendering/Materials/ExpressionReference/Textures#texturesample
 [/VAR]
 [/EXCERPT:UMaterialExpressionTextureSample]
 
+[EXCERPT:UMaterialExpressionTextureProperty]
+The TextureProperty expression exposes a texture's properties such as the texture's size or the texel size. 
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/Materials/ExpressionReference/Textures#textureproperty
+[/VAR]
+[/EXCERPT:UMaterialExpressionTextureProperty]
+
 [EXCERPT:UMaterialExpressionBlackBody]
 The Black Body expression simulates the effects of black body radiation within your Material. The user inputs a temperature (in Kelvin) and the resulting color and intensity can be used to drive Base Color and Emissive values to get a physically accurate result. 
 
@@ -876,7 +908,7 @@ Engine/Rendering/Materials/ExpressionReference/Utility#rotateaboutaxis
 [/EXCERPT:UMaterialExpressionRotateAboutAxis]
 
 [EXCERPT:UMaterialExpressionAntialiasedTextureMask]
-The AntialiasedTextureMask expression allows you to create a material using a soft (anti-aliased) transition mask. The mask can be used to blend between two complex material properties or to fade out a alpha blended material (works well with SoftMasked). 
+The AntialiasedTextureMask expression allows you to create a material using a soft (anti-aliased) transition mask. The mask can be used to blend between two complex material properties or to fade out an alpha blended material (works well with SoftMasked). 
 
 Simple specify a texture with the mask specified in one channel (red, green, blue, or alpha), set the used channel in the expression and specify the comparison value.
 

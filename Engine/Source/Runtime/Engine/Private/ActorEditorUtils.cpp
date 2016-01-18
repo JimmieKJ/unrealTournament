@@ -61,6 +61,52 @@ namespace FActorEditorUtils
 			}
 		}
 	}
+
+	bool TraverseActorTree_ParentFirst(AActor* InActor, TFunctionRef<bool(AActor*)> InPredicate, bool bIncludeThisActor)
+	{
+		if (!InActor)
+		{
+			return true;
+		}
+
+		if (bIncludeThisActor && !InPredicate(InActor))
+		{
+			return false;
+		}
+
+		if( InActor->GetRootComponent() )
+		{
+			for(auto* ChildComponent : InActor->GetRootComponent()->AttachChildren)
+			{
+				AActor* ChildActor = ChildComponent ? ChildComponent->GetOwner() : nullptr;
+				if(ChildActor && ChildActor != InActor && !TraverseActorTree_ParentFirst(ChildActor, InPredicate))
+				{
+					return false;
+				}
+			}
+		}
+		
+		return true;
+	}
+
+	bool TraverseActorTree_ChildFirst(AActor* InActor, TFunctionRef<bool(AActor*)> InPredicate, bool bIncludeThisActor)
+	{
+		if (!InActor)
+		{
+			return true;
+		}
+
+		for (auto* ChildComponent : InActor->GetRootComponent()->AttachChildren)
+		{
+			AActor* ChildActor = ChildComponent ? ChildComponent->GetOwner() : nullptr;
+			if (ChildActor && ChildActor != InActor && !TraverseActorTree_ChildFirst(ChildActor, InPredicate))
+			{
+				return false;
+			}
+		}
+
+		return !bIncludeThisActor || InPredicate(InActor);
+	}
 }
 
 

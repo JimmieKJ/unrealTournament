@@ -12,7 +12,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogTimeline, Log, All);
 
-DECLARE_CYCLE_STAT(TEXT("TimelineComp Tick"),STAT_TimelineCompTick,STATGROUP_AI);
+DECLARE_CYCLE_STAT(TEXT("TimelineComp Tick"), STAT_TimelineCompTick, STATGROUP_Default);
 
 //////////////////////////////////////////////////////////////////////////
 // FTimeline
@@ -589,16 +589,12 @@ void UTimelineComponent::TickComponent(float DeltaTime, enum ELevelTick TickType
 void UTimelineComponent::Activate(bool bReset)
 {
 	Super::Activate(bReset);
-
-	PrimaryComponentTick.bStartWithTickEnabled = true;
 	PrimaryComponentTick.SetTickFunctionEnable(true);
 }
 
 void UTimelineComponent::Deactivate()
 {
 	Super::Deactivate();
-
-	PrimaryComponentTick.bStartWithTickEnabled = false;
 	PrimaryComponentTick.SetTickFunctionEnable(false);
 }
 

@@ -62,7 +62,7 @@ bool UBlendSpace1D::IsSameSamplePoint(const FVector& SamplePointA, const FVector
 	return (Diff.X < Threshold);
 }
 
-void UBlendSpace1D::GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample> & OutBlendSamples) const
+void UBlendSpace1D::GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample, TInlineAllocator<4> > & OutBlendSamples) const
 {
 
 	FVector NormalizedBlendInput = GetNormalizedBlendInput(BlendInput);

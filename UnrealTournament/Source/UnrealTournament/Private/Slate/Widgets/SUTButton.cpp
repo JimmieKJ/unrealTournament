@@ -1,6 +1,6 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
+#include "UnrealTournament.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUTButton.h"
@@ -22,21 +22,33 @@ void SUTButton::Construct(const FArguments& InArgs)
 	PressedTextColor = InArgs._TextPressedColor.Get();
 	DisabledTextColor = InArgs._TextDisabledColor.Get();
 
-
 	if (InArgs._Text.IsSet())
 	{
 		SButton::Construct( SButton::FArguments()
 			.Content()
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.HAlign(InArgs._CaptionHAlign)
 				[
-					SAssignNew(TextLabel, STextBlock)
-					.TextStyle(InArgs._TextStyle)
-					.Text(InArgs._Text)
-					.ColorAndOpacity(this, &SUTButton::GetLabelColor)
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+				
+					.AutoWidth()
+					[
+						SAssignNew(TextLabel, STextBlock)
+						.TextStyle(InArgs._TextStyle)
+						.Text(InArgs._Text)
+						.ColorAndOpacity(this, &SUTButton::GetLabelColor)
+					]
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.HAlign(InArgs._CaptionHAlign)
+					.AutoWidth()
+					[
+						InArgs._Content.Widget
+					]
 				]
 			]
 			.ButtonStyle(InArgs._ButtonStyle)
@@ -97,8 +109,7 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 {
 	if(IsEnabled())
 	{
-		bIsPressed = true;
-		
+		BePressed();
 		PlayPressedSound();
 		
 		if( ClickMethod == EButtonClickMethod::MouseDown )
@@ -109,7 +120,12 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 			{
 				OnButtonClick.Execute(MouseButtonIndex);
 			}
-			return FReply::Handled();
+			else if ( OnClicked.IsBound() )
+			{
+				return OnClicked.Execute();
+			}
+
+			return FReply::Handled().CaptureMouse( AsShared() );
 		}
 		else
 		{
@@ -123,14 +139,9 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 
 FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 {
-	
 	if ( IsEnabled() )
 	{
-		if (!bIsToggleButton)
-		{
-			bIsPressed = false;
-		}
-
+		// SButton now requires that bIsPressed be true
 		if( ClickMethod != EButtonClickMethod::MouseDown )
 		{
 			if( bIsUnderCusor )
@@ -143,8 +154,13 @@ FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 					return FReply::Handled().ReleaseMouseCapture();
 				}
 			}
+
 		}
 
+		if (!bIsToggleButton)
+		{
+			UnPressed();
+		}
 	}
 
 	return FReply::Unhandled().ReleaseMouseCapture();
@@ -177,8 +193,7 @@ FReply SUTButton::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeybo
 
 FReply SUTButton::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	Pressed(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1);
-	return SButton::OnMouseButtonDown(MyGeometry, MouseEvent);
+	return Pressed(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1);
 }
 
 
@@ -191,8 +206,9 @@ FReply SUTButton::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const
 FReply SUTButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	const bool bIsUnderMouse = MyGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
+	FReply R = SButton::OnMouseButtonUp(MyGeometry, MouseEvent);
 	Released(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1, bIsUnderMouse);
-	return SButton::OnMouseButtonUp(MyGeometry, MouseEvent);
+	return R;
 }
 
 void SUTButton::UnPressed()
@@ -232,5 +248,6 @@ void SUTButton::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& 
 	}
 	SButton::OnMouseEnter(MyGeometry, MouseEvent);
 }
+
 
 #endif

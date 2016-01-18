@@ -17,17 +17,30 @@ USoundNode::USoundNode(const FObjectInitializer& ObjectInitializer)
 {
 }
 
-#if WITH_EDITOR
+
 void USoundNode::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-	if (!Ar.IsCooking())
+	if (Ar.UE4Ver() >= VER_UE4_COOKED_ASSETS_IN_EDITOR_SUPPORT)
+	{
+		FStripDataFlags StripFlags(Ar);
+#if WITH_EDITORONLY_DATA
+		if (!StripFlags.IsEditorDataStripped())
+		{
+			Ar << GraphNode;
+		}
+#endif
+	}
+#if WITH_EDITOR
+	else
 	{
 		Ar << GraphNode;
 	}
+#endif
 }
 
+#if WITH_EDITOR
 void USoundNode::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {
 	USoundNode* This = CastChecked<USoundNode>(InThis);
@@ -82,7 +95,12 @@ void USoundNode::GetAllNodes( TArray<USoundNode*>& SoundNodes )
 
 void USoundNode::CreateStartingConnectors()
 {
-	InsertChildNode( ChildNodes.Num() );
+	int32 ConnectorsToMake = FMath::Max(1, GetMinChildNodes());
+	while (ConnectorsToMake > 0)
+	{
+		InsertChildNode( ChildNodes.Num() );
+		--ConnectorsToMake;
+	}
 }
 
 void USoundNode::InsertChildNode( int32 Index )

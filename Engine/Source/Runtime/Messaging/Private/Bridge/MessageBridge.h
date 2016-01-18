@@ -38,10 +38,10 @@ public:
 	 * @param InBus The message bus that this node is connected to.
 	 * @param InTransport The transport mechanism to use.
 	 */
-	FMessageBridge( const FMessageAddress InAddress, const IMessageBusRef& InBus, const IMessageTransportRef& InTransport );
+	FMessageBridge(const FMessageAddress InAddress, const IMessageBusRef& InBus, const IMessageTransportRef& InTransport);
 
-	/** Destructor. */
-	~FMessageBridge();
+	/** Virtual destructor. */
+	virtual ~FMessageBridge();
 
 public:
 
@@ -79,7 +79,7 @@ public:
 		return false;
 	}
 
-	virtual void ReceiveMessage( const IMessageContextRef& Context ) override;
+	virtual void ReceiveMessage(const IMessageContextRef& Context) override;
 
 public:
 
@@ -90,7 +90,7 @@ public:
 		return Address;
 	}
 
-	virtual void NotifyMessageError( const IMessageContextRef& Context, const FString& Error ) override;
+	virtual void NotifyMessageError(const IMessageContextRef& Context, const FString& Error) override;
 
 protected:
 
@@ -103,10 +103,10 @@ private:
 	void HandleMessageBusShutdown();
 
 	/** Callback for messages received from the transport layer. */
-	void HandleTransportMessageReceived( const IMessageContextRef& Envelope, const FGuid& NodeId );
+	void HandleTransportMessageReceived(const IMessageContextRef& Envelope, const FGuid& NodeId);
 
 	/** Callback for lost remote nodes. */
-	void HandleTransportNodeLost( const FGuid& LostNodeId );
+	void HandleTransportNodeLost(const FGuid& LostNodeId);
 
 private:
 

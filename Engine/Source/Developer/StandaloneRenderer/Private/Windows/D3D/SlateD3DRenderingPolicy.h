@@ -6,14 +6,14 @@
 class FSlateD3D11RenderingPolicy : public FSlateRenderingPolicy
 {
 public:
-	FSlateD3D11RenderingPolicy( TSharedPtr<FSlateFontCache> InFontCache, TSharedRef<FSlateD3DTextureManager> InTextureManager );
+	FSlateD3D11RenderingPolicy( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateD3DTextureManager> InTextureManager );
 	~FSlateD3D11RenderingPolicy();
 
-	void UpdateBuffers( const FSlateWindowElementList& InElementList );
+	void UpdateVertexAndIndexBuffers( FSlateBatchData& InBatchData );
 	void DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches );
 
-	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() override;
-	virtual TSharedRef<FSlateFontCache> GetFontCache() override { return FontCache.ToSharedRef(); }
+	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() const override;
+	virtual bool IsVertexColorInLinearSpace() const override { return false; }
 
 private:
 	void InitResources();
@@ -34,6 +34,5 @@ private:
 	TRefCountPtr<ID3D11SamplerState> PointSamplerState_Clamp;
 	TRefCountPtr<ID3D11SamplerState> BilinearSamplerState_Wrap;
 	TRefCountPtr<ID3D11SamplerState> BilinearSamplerState_Clamp;
-	TSharedPtr<FSlateFontCache> FontCache;
 	TSharedRef<FSlateD3DTextureManager> TextureManager;
 };

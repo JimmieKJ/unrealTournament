@@ -132,13 +132,13 @@ public:
 	/** Name of player in this row */
 	const FString NickName;
 	/** Unique Id for the player in this row */
-    const TSharedPtr<FUniqueNetId> PlayerId;
+    const TSharedPtr<const FUniqueNetId> PlayerId;
 	/** Player's rank in this leaderboard */
     int32 Rank;
 	/** All requested data on the leaderboard for this player */
 	FStatsColumnArray Columns;
 
-	FOnlineStatsRow(const FString& InNickname, const TSharedRef<FUniqueNetId>& InPlayerId) :
+	FOnlineStatsRow(const FString& InNickname, const TSharedRef<const FUniqueNetId>& InPlayerId) :
 		NickName(InNickname),
 		PlayerId(InPlayerId)
 	{

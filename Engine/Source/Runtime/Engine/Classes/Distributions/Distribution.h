@@ -5,6 +5,8 @@
 #include "Math/CurveEdInterface.h"
 #include "Distribution.generated.h"
 
+extern ENGINE_API uint32 GDistributionType;
+
 UENUM()
 enum DistributionParamMode
 {

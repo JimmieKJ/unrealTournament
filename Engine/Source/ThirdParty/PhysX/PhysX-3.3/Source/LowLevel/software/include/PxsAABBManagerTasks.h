@@ -488,6 +488,75 @@ private:
 	PxsAABBManager* mAABBMgr;
 };
 
+class AggregateOverlapWorkTask: public Cm::Task
+{
+	PX_NOCOPY(AggregateOverlapWorkTask)
+
+public:
+
+	friend class AggregateOverlapTask;
+
+	AggregateOverlapWorkTask()
+		: mAABBMgr(NULL),
+		  mAggregateSortedData(NULL),
+		  mAggAggStartId(0),
+		  mAggAggNbWorkItems(0),
+		  mAggSelfStartId(0),
+		  mAggSelfNbWorkItems(0),
+		  mCreatedPairs(NULL),
+		  mCreatedPairsSize(0),
+		  mCreatedPairsCapacity(0),
+		  mDeletedPairs(NULL),
+		  mDeletedPairsSize(0),
+		  mDeletedPairsCapacity(0)
+	{
+	}
+
+	virtual void runInternal();
+
+	virtual const char* getName() const { return "BpAABBManager.aggregateOverlapWork"; }
+
+	void setAABBMgr(PxsAABBManager* AABBMgr);
+
+	void setAggregateSortedData(const AggregateSortedData* aggregateSortedData)
+	{
+		mAggregateSortedData = aggregateSortedData;
+	}
+
+	void setAggAggWorkStartAndCount(const PxU32 startId, const PxU32 nbWorkItems)
+	{
+		mAggAggStartId = startId;
+		mAggAggNbWorkItems = nbWorkItems;
+	}
+
+	void setAggSelfWorkStartAndCount(const PxU32 startId, const PxU32 nbWorkItems)
+	{
+		mAggSelfStartId = startId;
+		mAggSelfNbWorkItems = nbWorkItems;
+	}
+
+	//void complete();
+
+private:
+
+	PxsAABBManager* mAABBMgr;
+
+	const AggregateSortedData* mAggregateSortedData;
+
+	PxU32 mAggAggStartId;
+	PxU32 mAggAggNbWorkItems;
+
+	PxU32 mAggSelfStartId;
+	PxU32 mAggSelfNbWorkItems;
+
+	PxvBroadPhaseOverlap* mCreatedPairs;
+	PxU32 mCreatedPairsSize;
+	PxU32 mCreatedPairsCapacity;
+	PxvBroadPhaseOverlap* mDeletedPairs;
+	PxU32 mDeletedPairsSize;
+	PxU32 mDeletedPairsCapacity;
+};
+
 //Perform all aggregate self-, aggregate-aggregate and aggregate-single overlaps.
 class AggregateOverlapTask: public Cm::Task
 {
@@ -502,7 +571,60 @@ public:
 
 	virtual void runInternal();
 
-	virtual const char* getName() const { return "PxsAABBManager.aggregateOverlap"; }
+	virtual const char* getName() const { return "BpAABBManager.aggregateOverlap"; }
+
+	void setAABBMgr(PxsAABBManager* AABBMgr) 
+	{
+		mAABBMgr = AABBMgr;
+	}
+
+	void set(const PxsComputeAABBParams& params)
+	{ 
+		mParams = params;
+	}
+
+	void complete();
+
+private:
+
+	enum
+	{
+		eMAX_NUM_TASKS=6
+	};
+
+public:
+
+	enum
+	{
+		eTASK_UNIT_WORK_SIZE=16
+	};
+
+	PxsComputeAABBParams mParams;
+
+	PxsAABBManager* mAABBMgr;
+
+	AggregateOverlapWorkTask mAggregateOverlapWorkTasks[eMAX_NUM_TASKS];
+	InlineBuffer<AggregateSortedData, 256> mAggregateSortedData;
+	InlineBuffer<PxcBpHandle, 1024> mRankIds;
+	InlineBuffer<PxcBpHandle, 1024> mElemIds;
+
+	void processSelfCollideAndAggregatePairs();
+};
+
+class FinishTask: public Cm::Task
+{
+	PX_NOCOPY(FinishTask)
+
+public:
+
+	FinishTask()
+		:  mAABBMgr(NULL)
+	{
+	}
+
+	virtual void runInternal();
+
+	virtual const char* getName() const { return "BpAABBManager.finish"; }
 
 	void setAABBMgr(PxsAABBManager* AABBMgr) 
 	{
@@ -520,7 +642,6 @@ private:
 
 	PxsAABBManager* mAABBMgr;
 };
-
 
 } //namespace physx
 

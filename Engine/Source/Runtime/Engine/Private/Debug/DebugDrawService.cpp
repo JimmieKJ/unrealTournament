@@ -33,26 +33,6 @@ FDelegateHandle UDebugDrawService::Register(const TCHAR* Name, const FDebugDrawD
 	return Result;
 }
 
-void UDebugDrawService::Unregister(const FDebugDrawDelegate& DelegateToRemove)
-{
-	check(IsInGameThread());
-
-	TArray<FDebugDrawDelegate>* DelegatesArray = Delegates.GetData();
-	for (int32 Flag = 0; Flag < Delegates.Num(); ++Flag, ++DelegatesArray)
-	{
-		check(DelegatesArray); //it shouldn't happen, but to be sure
-		const uint32 Index = DelegatesArray->IndexOfByPredicate([&](const FDebugDrawDelegate& Delegate){ return Delegate.DEPRECATED_Compare(DelegateToRemove); });
-		if (Index != INDEX_NONE)
-		{
-			DelegatesArray->RemoveAtSwap(Index, 1, false);
-			if (DelegatesArray->Num() == 0)
-			{
-				ObservedFlags.SetSingleFlag(Flag, false);
-			}
-		}
-	}	
-}
-
 void UDebugDrawService::Unregister(FDelegateHandle HandleToRemove)
 {
 	check(IsInGameThread());

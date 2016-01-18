@@ -5,7 +5,7 @@
 
 /** An placeholder implementation of the movie player for the editor */
 class FNullGameMoviePlayer : public IGameMoviePlayer,
-	public TSharedFromThis<FNullGameMoviePlayer, ESPMode::ThreadSafe>
+	public TSharedFromThis<FNullGameMoviePlayer>
 {
 public:
 	static TSharedPtr<FNullGameMoviePlayer> Get()

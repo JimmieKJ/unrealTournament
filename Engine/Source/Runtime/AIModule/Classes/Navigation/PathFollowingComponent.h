@@ -123,9 +123,9 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	/** delegate for move completion notify */
 	FMoveCompletedSignature OnMoveFinished;
 
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-	// End UActorComponent Interface
+	//~ End UActorComponent Interface
 
 	/** initialize component to use */
 	virtual void Initialize();
@@ -191,8 +191,9 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	 *  @param TestGoal - actor to test
 	 *  @param AcceptanceRadius - allowed 2D distance
 	 *  @param bExactSpot - false: increase AcceptanceRadius with agent's radius
+	 *  @param bUseNavAgentGoalLocation - true: if the goal is a nav agent, we will use their nav agent location rather than their actual location
 	 */
-	bool HasReached(const AActor& TestGoal, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false) const;
+	bool HasReached(const AActor& TestGoal, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false, bool bUseNavAgentGoalLocation = true) const;
 
 	/** update state of block detection */
 	void SetBlockDetectionState(bool bEnable);
@@ -298,8 +299,8 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	void OnPathEvent(FNavigationPath* InvalidatedPath, ENavPathEvent::Type Event);
 
 	/** helper function for sending a path for visual log */
-	static void LogPathHelper(const AActor* LogOwner, FNavPathSharedPtr LogPath, const AActor* LogGoalActor);
-	static void LogPathHelper(const AActor* LogOwner, FNavigationPath* LogPath, const AActor* LogGoalActor);
+	static void LogPathHelper(const AActor* LogOwner, FNavPathSharedPtr InLogPath, const AActor* LogGoalActor);
+	static void LogPathHelper(const AActor* LogOwner, FNavigationPath* InLogPath, const AActor* LogGoalActor);
 
 protected:
 
@@ -377,6 +378,9 @@ protected:
 
 	/** if set, movement will be stopped on finishing path */
 	uint32 bStopMovementOnFinish : 1;
+
+	/** timeout for Waiting state, negative value = infinite */
+	float WaitingTimeout;
 
 	/** detect blocked movement when distance between center of location samples and furthest one (centroid radius) is below threshold */
 	float BlockDetectionDistance;
@@ -473,6 +477,9 @@ protected:
 	 *	@param bForce results in looking for owner's movement component even if pointer to one is already cached */
 	virtual bool UpdateMovementComponent(bool bForce = false);
 
+	/** called from timer if component spends too much time in Waiting state */
+	virtual void OnWaitingPathTimeout();
+
 	/** clears Block Detection stored data effectively resetting the mechanism */
 	void ResetBlockDetectionData();
 
@@ -485,6 +492,9 @@ protected:
 	/** debug point reach test values */
 	void DebugReachTest(float& CurrentDot, float& CurrentDistance, float& CurrentHeight, uint8& bDotFailed, uint8& bDistanceFailed, uint8& bHeightFailed) const;
 	
+	/** used to keep track of which subsystem requested this AI resource be locked */
+	FAIResourceLock ResourceLock;
+
 private:
 
 	/** used for debugging purposes to be able to identify which logged information
@@ -497,8 +507,8 @@ private:
 	 *	need to update the cached value, CurrentNavLocation is mutable. */
 	mutable FNavLocation CurrentNavLocation;
 
-	/** used to keep track of which subsystem requested this AI resource be locked */
-	FAIResourceLock ResourceLock;
+	/** timer handle for OnWaitingPathTimeout function */
+	FTimerHandle WaitingForPathTimer;
 
 	/** empty delegate for RequestMove */
 	static FRequestCompletedSignature UnboundRequestDelegate;

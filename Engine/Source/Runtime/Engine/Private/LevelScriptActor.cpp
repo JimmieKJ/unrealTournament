@@ -54,16 +54,14 @@ void ALevelScriptActor::BeginDestroy()
 
 void ALevelScriptActor::PreInitializeComponents()
 {
-	UBlueprintGeneratedClass* BGClass = Cast<UBlueprintGeneratedClass>(GetClass());
-	if(BGClass != NULL)
+	if (UInputDelegateBinding::SupportsInputDelegate(GetClass()))
 	{
 		// create an InputComponent object so that the level script actor can bind key events
 		InputComponent = NewObject<UInputComponent>(this);
 		InputComponent->RegisterComponent();
 
-		UInputDelegateBinding::BindInputDelegates(BGClass, InputComponent);
+		UInputDelegateBinding::BindInputDelegates(GetClass(), InputComponent);
 	}
-
 	Super::PreInitializeComponents();
 }
 
@@ -75,7 +73,7 @@ bool ALevelScriptActor::RemoteEvent(FName EventName)
 	for( TArray<ULevel*>::TConstIterator it = GetWorld()->GetLevels().CreateConstIterator(); it; ++it )
 	{
 		ULevel* CurLevel = *it;
-		if( CurLevel )
+		if( CurLevel && CurLevel->bIsVisible )
 		{
 			ALevelScriptActor* LSA = CurLevel->GetLevelScriptActor();
 			if( LSA )

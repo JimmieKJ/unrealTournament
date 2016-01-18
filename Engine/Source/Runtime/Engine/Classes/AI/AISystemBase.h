@@ -45,10 +45,14 @@ private:
 
 	UPROPERTY(globalconfig, noclear, meta = (MetaClass = "AISystem", DisplayName = "AISystem Module"))
 	FName AISystemModuleName;
+
+	UPROPERTY(globalconfig, noclear)
+	bool bInstantiateAISystemOnClient;
 	
 public:
 	static FStringClassReference GetAISystemClassName();
 	static FName GetAISystemModuleName();
+	static bool ShouldInstantiateInNetMode(ENetMode NetMode);
 };
 
 class IAISystemModule : public IModuleInterface

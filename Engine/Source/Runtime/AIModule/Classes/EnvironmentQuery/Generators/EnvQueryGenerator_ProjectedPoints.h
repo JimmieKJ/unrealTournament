@@ -34,4 +34,6 @@ class AIMODULE_API UEnvQueryGenerator_ProjectedPoints : public UEnvQueryGenerato
 
 	/** store points as generator's result */
 	virtual void StoreNavPoints(const TArray<FNavLocation>& Points, FEnvQueryInstance& QueryInstance) const;
+
+	virtual void PostLoad() override;
 };

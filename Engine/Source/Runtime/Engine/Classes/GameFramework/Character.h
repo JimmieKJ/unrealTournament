@@ -3,6 +3,7 @@
 #pragma once
 #include "GameFramework/Pawn.h"
 #include "Animation/AnimationAsset.h"
+#include "GameFramework/RootMotionSource.h"
 #include "Character.generated.h"
 
 class UPawnMovementComponent;
@@ -12,6 +13,7 @@ class UPrimitiveComponent;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FMovementModeChangedSignature, class ACharacter*, Character, EMovementMode, PrevMovementMode, uint8, PreviousCustomMode);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FCharacterMovementUpdatedSignature, float, DeltaSeconds, FVector, OldLocation, FVector, OldVelocity);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FCharacterReachedApexSignature);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FLandedSignature, const FHitResult&, Hit);
 
 //
 // Forward declarations
@@ -26,6 +28,10 @@ struct FRepRootMotionMontage
 {
 	GENERATED_USTRUCT_BODY()
 
+	/** Whether this has useful/active data. */
+	UPROPERTY()
+	bool bIsActive;
+
 	/** AnimMontage providing Root Motion */
 	UPROPERTY()
 	UAnimMontage* AnimMontage;
@@ -36,7 +42,7 @@ struct FRepRootMotionMontage
 
 	/** Location */
 	UPROPERTY()
-	FVector_NetQuantize10 Location;
+	FVector_NetQuantize100 Location;
 
 	/** Rotation */
 	UPROPERTY()
@@ -58,13 +64,27 @@ struct FRepRootMotionMontage
 	UPROPERTY()
 	bool bRelativeRotation;
 
-	/** Clear the montage */
+	/** State of Root Motion Sources on Authority */
+	UPROPERTY()
+	FRootMotionSourceGroup AuthoritativeRootMotion;
+
+	/** Acceleration */
+	UPROPERTY()
+	FVector_NetQuantize10 Acceleration;
+
+	/** Velocity */
+	UPROPERTY()
+	FVector_NetQuantize10 LinearVelocity;
+
+	/** Clear root motion sources and root motion montage */
 	void Clear()
 	{
+		bIsActive = false;
 		AnimMontage = NULL;
+		AuthoritativeRootMotion.Clear();
 	}
 
-	/** Is Valid */
+	/** Is Valid - animation root motion only */
 	bool HasRootMotion() const
 	{
 		return (AnimMontage != NULL);
@@ -138,9 +158,9 @@ struct FBasedMovementInfo
 
 	/** Location relative to MovementBase. Only valid if HasRelativeLocation() is true. */
 	UPROPERTY()
-	FVector_NetQuantize Location;
+	FVector_NetQuantize100 Location;
 
-	/** Rotation: relative to MovementBase if HasRelativeRotation() is true, absolute otherwise. */ // @TODO FIXMESTEVE also compress
+	/** Rotation: relative to MovementBase if HasRelativeRotation() is true, absolute otherwise. */
 	UPROPERTY()
 	FRotator Rotation;
 
@@ -198,7 +218,7 @@ typedef FBasedMovementInfo FRepRelativeMovement;
  * @see https://docs.unrealengine.com/latest/INT/Gameplay/Framework/Pawn/Character/
  */ 
 
-UCLASS(config=Game, BlueprintType, hideCategories=("Pawn|Character|InternalEvents"), meta=(ShortTooltip="A character is a type of Pawn that includes the ability to walk around."))
+UCLASS(config=Game, BlueprintType, meta=(ShortTooltip="A character is a type of Pawn that includes the ability to walk around."))
 class ENGINE_API ACharacter : public APawn
 {
 	GENERATED_BODY()
@@ -209,27 +229,25 @@ public:
 	ACharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-private_subobject:
+
+private:
 	/** The main skeletal mesh associated with this Character (optional sub-object). */
-	DEPRECATED_FORGAME(4.6, "Mesh should not be accessed directly, please use GetMesh() function instead. Mesh will soon be private and your code will not compile.")
 	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class USkeletalMeshComponent* Mesh;
 
 #if WITH_EDITORONLY_DATA
-	DEPRECATED_FORGAME(4.6, "ArrowComponent should not be accessed directly, please use GetArrowComponent() function instead. ArrowComponent will soon be private and your code will not compile.")
 	UPROPERTY()
 	class UArrowComponent* ArrowComponent;
 #endif
 
 	/** Movement component used for movement logic in various movement modes (walking, falling, etc), containing relevant settings and functions to control movement. */
-	DEPRECATED_FORGAME(4.6, "CharacterMovement should not be accessed directly, please use GetCharacterMovement() function instead. CharacterMovement will soon be private and your code will not compile.")
 	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UCharacterMovementComponent* CharacterMovement;
 
 	/** The CapsuleComponent being used for movement collision (by CharacterMovement). Always treated as being vertically aligned in simple collision check functions. */
-	DEPRECATED_FORGAME(4.6, "CapsuleComponent should not be accessed directly, please use GetCapsuleComponent() function instead. CapsuleComponent will soon be private and your code will not compile.")
 	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UCapsuleComponent* CapsuleComponent;
+
 public:
 
 	/** Name of the MeshComponent. Use this name if you want to prevent creation of the component (with ObjectInitializer.DoNotCreateDefaultSubobject). */
@@ -258,6 +276,10 @@ public:
 	/** Rep notify for ReplicatedBasedMovement */
 	UFUNCTION()
 	virtual void OnRep_ReplicatedBasedMovement();
+
+	/** Set whether this actor's movement replicates to network clients. */
+	UFUNCTION(BlueprintCallable, Category = "Replication")
+	virtual void SetReplicateMovement(bool bInReplicateMovement) override;
 
 protected:
 	/** Saved translation offset of mesh. */
@@ -297,11 +319,11 @@ public:
 	const FVector& GetBaseTranslationOffset() const { return BaseTranslationOffset; }
 
 	/** @return Saved rotation offset of mesh. */
-	const FQuat& GetBaseRotationOffset() const { return BaseRotationOffset; }
+	const virtual FQuat GetBaseRotationOffset() const { return BaseRotationOffset; }
 
-	// Begin INavAgentInterface Interface
+	//~ Begin INavAgentInterface Interface
 	virtual FVector GetNavAgentLocation() const override;
-	// End INavAgentInterface Interface
+	//~ End INavAgentInterface Interface
 
 	/** Default crouched eye height */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
@@ -331,9 +353,20 @@ public:
 	UPROPERTY(Transient)
 	uint32 bClientResimulateRootMotion:1;
 
+	/** If server disagrees with root motion state, client has to resimulate root motion from last AckedMove. */
+	UPROPERTY(Transient)
+	uint32 bClientResimulateRootMotionSources:1;
+
 	/** Disable simulated gravity (set when character encroaches geometry on client, to keep him from falling through floors) */
 	UPROPERTY()
 	uint32 bSimGravityDisabled:1;
+
+	UPROPERTY(Transient)
+	uint32 bClientCheckEncroachmentOnNetUpdate:1;
+
+	/** Disable root motion on the server. When receiving a DualServerMove, where the first move is not root motion and the second is. */
+	UPROPERTY(Transient)
+	uint32 bServerMoveIgnoreRootMotion:1;
 
 	/** 
 	 * Jump key Held Time.
@@ -351,7 +384,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category=Character)
 	float JumpMaxHoldTime;
 
-	// Begin AActor Interface.
+	//~ Begin AActor Interface.
 	virtual void ClearCrossLevelReferences() override;
 	virtual void PreNetReceive() override;
 	virtual void PostNetReceive() override;
@@ -361,7 +394,7 @@ public:
 	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
 	virtual UActorComponent* FindComponentByClass(const TSubclassOf<UActorComponent> ComponentClass) const override;
 	virtual void TornOff() override;
-	// End AActor Interface
+	//~ End AActor Interface
 
 	template<class T>
 	T* FindComponentByClass() const
@@ -369,7 +402,7 @@ public:
 		return AActor::FindComponentByClass<T>();
 	}
 
-	// Begin APawn Interface.
+	//~ Begin APawn Interface.
 	virtual void PostInitializeComponents() override;
 	virtual UPawnMovementComponent* GetMovementComponent() const override;
 	virtual UPrimitiveComponent* GetMovementBase() const override final { return BasedMovement.MovementBase; }
@@ -379,11 +412,11 @@ public:
 	virtual void PawnClientRestart() override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void UnPossessed() override;
-	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* InInputComponent) override;
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual void RecalculateBaseEyeHeight() override;
 	virtual void UpdateNavigationRelevance() override;
-	// End APawn Interface
+	//~ End APawn Interface
 
 	/** Apply momentum caused by damage. */
 	virtual void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser);
@@ -432,7 +465,7 @@ protected:
 	 * @Return Whether the character can jump in the current state. 
 	 */
 
-	UFUNCTION(BlueprintNativeEvent, Category="Pawn|Character|InternalEvents", meta=(DisplayName="CanJump"))
+	UFUNCTION(BlueprintNativeEvent, Category="Pawn|Character", meta=(DisplayName="CanJump"))
 	bool CanJumpInternal() const;
 	virtual bool CanJumpInternal_Implementation() const;
 
@@ -452,7 +485,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Animation)
 	virtual float PlayAnimMontage(class UAnimMontage* AnimMontage, float InPlayRate = 1.f, FName StartSectionName = NAME_None);
 
-	/** Stop Animation Montage. If NULL, it will stop what's currently active **/
+	/** Stop Animation Montage. If NULL, it will stop what's currently active. The Blend Out Time is taken from the montage asset that is being stopped. **/
 	UFUNCTION(BlueprintCallable, Category=Animation)
 	virtual void StopAnimMontage(class UAnimMontage* AnimMontage = NULL);
 
@@ -509,6 +542,16 @@ public:
 	 * @see OnMovementModeChanged()
 	 */
 	virtual void Landed(const FHitResult& Hit);
+
+	/**
+	* Called upon landing when falling, to perform actions based on the Hit result.
+	* Note that movement mode is still "Falling" during this event. Current Velocity value is the velocity at the time of landing.
+	* Consider OnMovementModeChanged() as well, as that can be used once the movement mode changes to the new mode (most likely Walking).
+	*
+	* @param Hit Result describing the landing that resulted in a valid landing spot.
+	* @see OnMovementModeChanged()
+	*/
+	FLandedSignature LandedDelegate;
 
 	/**
 	* Called upon landing when falling, to perform actions based on the Hit result.
@@ -683,6 +726,16 @@ public:
 
 	// Root Motion
 public:
+	/** 
+	 *  For LocallyControlled Autonomous clients. 
+	 *  During a PerformMovement() after root motion is prepared, we save it off into this and
+	 *  then record it into our SavedMoves.
+	 *  During SavedMove playback we use it as our "Previous Move" SavedRootMotion which includes
+	 *  last received root motion from the Server
+	 **/
+	UPROPERTY(Transient)
+	FRootMotionSourceGroup SavedRootMotion;
+
 	/** For LocallyControlled Autonomous clients. Saved root motion data to be used by SavedMoves. */
 	UPROPERTY(Transient)
 	FRootMotionMovementParams ClientRootMotionParams;
@@ -702,8 +755,15 @@ public:
 	/** Restore actor to an old buffered move. */
 	bool RestoreReplicatedMove(const FSimulatedRootMotionReplicatedMove& RootMotionRepMove);
 	
-	/** Called on client after position update is received to actually move the character. */
-	virtual void UpdateSimulatedPosition(const FVector& NewLocation, const FRotator& NewRotation);
+	DEPRECATED(4.11, "UpdateSimulatedPosition() is deprecated and is not used by engine code. Use OnUpdateSimulatedPosition() instead.")
+	virtual void UpdateSimulatedPosition(const FVector& Location, const FRotator& NewRotation);
+
+	/**
+	 * Called on client after position update is received to respond to the new location and rotation.
+	 * Actual change in location is expected to occur in CharacterMovement->SmoothCorrection(), after which this occurs.
+	 * Default behavior is to check for penetration in a blocking object if bClientCheckEncroachmentOnNetUpdate is enabled, and set bSimGravityDisabled=true if so.
+	 */
+	virtual void OnUpdateSimulatedPosition(const FVector& OldLocation, const FQuat& OldRotation);
 
 	/** Replicated Root Motion montage */
 	UPROPERTY(ReplicatedUsing=OnRep_RootMotion)
@@ -743,3 +803,18 @@ public:
 	/** Returns CapsuleComponent subobject **/
 	class UCapsuleComponent* GetCapsuleComponent() const;
 };
+
+
+//////////////////////////////////////////////////////////////////////////
+// Character inlines
+
+/** Returns Mesh subobject **/
+FORCEINLINE USkeletalMeshComponent* ACharacter::GetMesh() const { return Mesh; }
+#if WITH_EDITORONLY_DATA
+/** Returns ArrowComponent subobject **/
+FORCEINLINE UArrowComponent* ACharacter::GetArrowComponent() const { return ArrowComponent; }
+#endif
+/** Returns CharacterMovement subobject **/
+FORCEINLINE UCharacterMovementComponent* ACharacter::GetCharacterMovement() const { return CharacterMovement; }
+/** Returns CapsuleComponent subobject **/
+FORCEINLINE UCapsuleComponent* ACharacter::GetCapsuleComponent() const { return CapsuleComponent; }

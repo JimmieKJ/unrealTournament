@@ -1,10 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTHUD_Duel.h"
 #include "UTTimedPowerup.h"
 #include "UTPickupWeapon.h"
 #include "Slate/SlateGameResources.h"
-#include "Slate/SUWindowsStyle.h"
+#include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 #include "UTDuelGame.h"
 #include "StatNames.h"
@@ -19,8 +19,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("UTGameMode", "Duel", "Duel");
 	PowerupDuration = 10.f;
 	GoalScore = 0;
-	TimeLimit = 10.f;
-	MaxReadyWaitTime = 60;
+	TimeLimit = 10;
 	bForceRespawn = true;
 	bAnnounceTeam = false;
 	bHighScorerPerTeamBasis = false;
@@ -265,4 +264,9 @@ void AUTDuelGame::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 
 		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, PickupClass);
 	}
+}
+
+int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->DuelRank : Super::GetEloFor(PS);
 }

@@ -13,7 +13,7 @@ class ENGINE_API UDeveloperSettings : public UObject
 	GENERATED_BODY()
 
 public:
-	UDeveloperSettings(const FObjectInitializer& ObjectInitializer);
+	UDeveloperSettings(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	/** Gets the settings container name for the settings, either Project or Editor */
 	virtual FName GetContainerName() const;
@@ -42,4 +42,13 @@ protected:
 
 	/** The Section name, is the short name for the settings.  If not filled in, will be the FName of the class. */
 	FName SectionName;
+
+#if WITH_EDITOR
+
+	/** Populates all properties that have 'ConsoleVariable' meta data with the respective console variable values */
+	void ImportConsoleVariableValues();
+	/** If property has 'ConsoleVariable' meta data, exports the property value to the specified console variable */
+	void ExportValuesToConsoleVariables(UProperty* PropertyThatChanged);
+
+#endif
 };

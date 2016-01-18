@@ -1,5 +1,5 @@
 // this object holds information on a level for display in menus without loading the full level package
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 

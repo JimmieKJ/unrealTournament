@@ -2,6 +2,8 @@
 
 #pragma once
 
+struct FPropertySpecifier;
+
 /** Structure that holds class meta data generated from its UCLASS declaration */
 class FClassDeclarationMetaData
 {

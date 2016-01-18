@@ -290,6 +290,11 @@ EVisibility SWidgetDetailsView::GetNameAreaVisibility() const
 
 EVisibility SWidgetDetailsView::GetCategoryAreaVisibility() const
 {
+	if ( SelectedObjects.Num() == 0 )
+	{
+		return EVisibility::Collapsed;
+	}
+
 	return IsWidgetCDOSelected() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
@@ -355,7 +360,7 @@ FText SWidgetDetailsView::GetNameText() const
 		UWidget* Widget = Cast<UWidget>(SelectedObjects[0].Get());
 		if ( Widget )
 		{
-			return FText::FromName(Widget->GetFName());
+			return Widget->IsGeneratedName() ? FText::FromName(Widget->GetFName()) : Widget->GetLabelText();
 		}
 	}
 	
@@ -406,7 +411,7 @@ void SWidgetDetailsView::HandleNameTextCommitted(const FText& Text, ETextCommit:
 			if ( HandleVerifyNameTextChanged(Text, DummyText) )
 			{
 				UWidget* Widget = Cast<UWidget>(SelectedObjects[0].Get());
-				FWidgetBlueprintEditorUtils::RenameWidget(BlueprintEditor.Pin().ToSharedRef(), Widget->GetFName(), FName(*Text.ToString()));
+				FWidgetBlueprintEditorUtils::RenameWidget(BlueprintEditor.Pin().ToSharedRef(), Widget->GetFName(), Text.ToString());
 			}
 		}
 		IsReentrant = false;
@@ -462,7 +467,7 @@ void SWidgetDetailsView::HandleIsVariableChanged(ECheckBoxState CheckState)
 void SWidgetDetailsView::NotifyPreChange(FEditPropertyChain* PropertyAboutToChange)
 {
 	// During auto-key do not migrate values
-	if( !BlueprintEditor.Pin()->GetSequencer()->IsAutoKeyEnabled() )
+	if( !BlueprintEditor.Pin()->GetSequencer()->GetAutoKeyEnabled() )
 	{
 		TSharedPtr<FWidgetBlueprintEditor> Editor = BlueprintEditor.Pin();
 
@@ -475,7 +480,7 @@ void SWidgetDetailsView::NotifyPostChange(const FPropertyChangedEvent& PropertyC
 {
 	const static FName DesignerRebuildName("DesignerRebuild");
 
-	if ( PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive && !BlueprintEditor.Pin()->GetSequencer()->IsAutoKeyEnabled() )
+	if ( PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive && !BlueprintEditor.Pin()->GetSequencer()->GetAutoKeyEnabled() )
 	{
 		TSharedPtr<FWidgetBlueprintEditor> Editor = BlueprintEditor.Pin();
 

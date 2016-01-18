@@ -36,6 +36,8 @@ class UEnvQueryTest_Trace : public UEnvQueryTest
 	virtual FText GetDescriptionTitle() const override;
 	virtual FText GetDescriptionDetails() const override;
 
+	virtual void PostLoad() override;
+
 protected:
 
 	DECLARE_DELEGATE_RetVal_SevenParams(bool, FRunTraceSignature, const FVector&, const FVector&, AActor*, UWorld*, enum ECollisionChannel, const FCollisionQueryParams&, const FVector&);

@@ -9,6 +9,8 @@
 #include "VertexFactory.h"
 #include "RHICommandList.h"
 
+#include "DebugSerializationFlags.h"
+
 uint32 FVertexFactoryType::NextHashIndex = 0;
 bool FVertexFactoryType::bInitializedSerializationHistory = false;
 
@@ -121,7 +123,7 @@ FVertexFactoryType::FVertexFactoryType(
 	checkf(!bInitializedSerializationHistory, TEXT("VF type was loaded after engine init, use ELoadingPhase::PostConfigInit on your module to cause it to load earlier."));
 
 	// Add this vertex factory type to the global list.
-	GlobalListLink.Link(GetTypeList());
+	GlobalListLink.LinkHead(GetTypeList());
 
 	// Assign the vertex factory type the next unassigned hash index.
 	HashIndex = NextHashIndex++;
@@ -173,8 +175,11 @@ void FVertexFactory::Set(FRHICommandList& RHICmdList) const
 	for(int32 StreamIndex = 0;StreamIndex < Streams.Num();StreamIndex++)
 	{
 		const FVertexStream& Stream = Streams[StreamIndex];
-		checkf(Stream.VertexBuffer->IsInitialized(), TEXT("Vertex buffer was not initialized! Stream %u, Stride %u, Name %s"), StreamIndex, Stream.Stride, *Stream.VertexBuffer->GetFriendlyName());
-		RHICmdList.SetStreamSource( StreamIndex, Stream.VertexBuffer->VertexBufferRHI, Stream.Stride, Stream.Offset);
+		if (!Stream.bSetByVertexFactoryInSetMesh)
+		{
+			checkf(Stream.VertexBuffer->IsInitialized(), TEXT("Vertex buffer was not initialized! Stream %u, Stride %u, Name %s"), StreamIndex, Stream.Stride, *Stream.VertexBuffer->GetFriendlyName());
+			RHICmdList.SetStreamSource(StreamIndex, Stream.VertexBuffer->VertexBufferRHI, Stream.Stride, Stream.Offset);
+		}
 	}
 }
 
@@ -269,6 +274,7 @@ FVertexElement FVertexFactory::AccessStreamComponent(const FVertexStreamComponen
 	VertexStream.Stride = Component.Stride;
 	VertexStream.Offset = 0;
 	VertexStream.bUseInstanceIndex = Component.bUseInstanceIndex;
+	VertexStream.bSetByVertexFactoryInSetMesh = Component.bSetByVertexFactoryInSetMesh;
 
 	return FVertexElement(Streams.AddUnique(VertexStream),Component.Offset,Component.Type,AttributeIndex,VertexStream.Stride,Component.bUseInstanceIndex);
 }
@@ -280,6 +286,7 @@ FVertexElement FVertexFactory::AccessPositionStreamComponent(const FVertexStream
 	VertexStream.Stride = Component.Stride;
 	VertexStream.Offset = 0;
 	VertexStream.bUseInstanceIndex = Component.bUseInstanceIndex;
+	VertexStream.bSetByVertexFactoryInSetMesh = Component.bSetByVertexFactoryInSetMesh;
 
 	return FVertexElement(PositionStream.AddUnique(VertexStream),Component.Offset,Component.Type,AttributeIndex,VertexStream.Stride,Component.bUseInstanceIndex);
 }
@@ -347,8 +354,12 @@ bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref)
 
 	// Need to be able to skip over parameters for no longer existing vertex factories.
 	int32 SkipOffset = Ar.Tell();
-	// Write placeholder.
-	Ar << SkipOffset;
+	{
+		FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
+		// Write placeholder.
+		Ar << SkipOffset;
+	}
+
 
 	if(Ref.Parameters)
 	{

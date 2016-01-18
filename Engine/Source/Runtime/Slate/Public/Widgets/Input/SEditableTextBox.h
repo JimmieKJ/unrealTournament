@@ -66,6 +66,9 @@ public:
 		/** Whether to clear keyboard focus when pressing enter to commit changes */
 		SLATE_ATTRIBUTE( bool, ClearKeyboardFocusOnCommit )
 
+		/** Delegate to call before a context menu is opened. User returns the menu content or null to the disable context menu */
+		SLATE_EVENT(FOnContextMenuOpening, OnContextMenuOpening)
+
 		/** Called whenever the text is changed interactively by the user */
 		SLATE_EVENT( FOnTextChanged, OnTextChanged )
 
@@ -78,6 +81,9 @@ public:
 		/** Whether to select all text when pressing enter to commit changes */
 		SLATE_ATTRIBUTE( bool, SelectAllTextOnCommit )
 
+		/** Callback delegate to have first chance handling of the OnKeyDown event */
+		SLATE_EVENT(FOnKeyDown, OnKeyDownHandler)
+
 		/** The color of the background/border around the editable text (overrides Style) */
 		SLATE_ATTRIBUTE( FSlateColor, BackgroundColor )
 
@@ -86,6 +92,9 @@ public:
 
 		/** Provide a alternative mechanism for error reporting. */
 		SLATE_ARGUMENT( TSharedPtr<class IErrorReportingWidget>, ErrorReporting )
+
+		/** The type of virtual keyboard to use on mobile devices */
+		SLATE_ATTRIBUTE(EKeyboardType, VirtualKeyboardType)
 
 	SLATE_END_ARGS()
 	
@@ -126,11 +135,88 @@ public:
 	void SetIsPassword( TAttribute< bool > InIsPassword );
 
 	/**
+	 * Sets the font used to draw the text
+	 *
+	 * @param  InFont	The new font to use
+	 */
+	void SetFont(const TAttribute<FSlateFontInfo>& InFont);
+
+	/**
+	 * Sets the text color and opacity (overrides Style)
+	 *
+	 * @param  InForegroundColor 	The text color and opacity
+	 */
+	void SetTextBoxForegroundColor(const TAttribute<FSlateColor>& InForegroundColor);
+
+	/**
+	 * Sets the color of the background/border around the editable text (overrides Style) 
+	 *
+	 * @param  InBackgroundColor 	The background/border color
+	 */
+	void SetTextBoxBackgroundColor(const TAttribute<FSlateColor>& InBackgroundColor);
+
+	/**
+	 * Sets the text color and opacity when read-only (overrides Style) 
+	 *
+	 * @param  InReadOnlyForegroundColor 	The read-only text color and opacity
+	 */
+	void SetReadOnlyForegroundColor(const TAttribute<FSlateColor>& InReadOnlyForegroundColor);
+
+	/**
+	 * Sets the minimum width that a text box should be.
+	 *
+	 * @param  InMinimumDesiredWidth	The minimum width
+	 */
+	void SetMinimumDesiredWidth(const TAttribute<float>& InMinimumDesiredWidth);
+
+	/**
+	 * Workaround as we loose focus when the auto completion closes.
+	 *
+	 * @param  InIsCaretMovedWhenGainFocus	Workaround
+	 */
+	void SetIsCaretMovedWhenGainFocus(const TAttribute<bool>& InIsCaretMovedWhenGainFocus);
+
+	/**
+	 * Sets whether to select all text when the user clicks to give focus on the widget
+	 *
+	 * @param  InSelectAllTextWhenFocused	Select all text when the user clicks?
+	 */
+	void SetSelectAllTextWhenFocused(const TAttribute<bool>& InSelectAllTextWhenFocused);
+
+	/**
+	 * Sets whether to allow the user to back out of changes when they press the escape key
+	 *
+	 * @param  InRevertTextOnEscape			Allow the user to back out of changes?
+	 */
+	void SetRevertTextOnEscape(const TAttribute<bool>& InRevertTextOnEscape);
+
+	/**
+	 * Sets whether to clear keyboard focus when pressing enter to commit changes
+	 *
+	 * @param  InClearKeyboardFocusOnCommit		Clear keyboard focus when pressing enter?
+	 */
+	void SetClearKeyboardFocusOnCommit(const TAttribute<bool>& InClearKeyboardFocusOnCommit);
+
+	/**
+	 * Sets whether to select all text when pressing enter to commit changes
+	 *
+	 * @param  InSelectAllTextOnCommit		Select all text when pressing enter?
+	 */
+	void SetSelectAllTextOnCommit(const TAttribute<bool>& InSelectAllTextOnCommit);
+
+	/**
 	 * If InError is a non-empty string the TextBox will the ErrorReporting provided during construction
 	 * If no error reporting was provided, the TextBox will create a default error reporter.
 	 */
 	void SetError( const FText& InError );
 	void SetError( const FString& InError );
+
+	/**
+	 * Sets the OnKeyDownHandler to provide first chance handling of the SEditableText's OnKeyDown event
+	 *
+	 * @param InOnKeyDownHandler			Delegate to call during OnKeyDown event
+	 */
+	void SetOnKeyDownHandler(FOnKeyDown InOnKeyDownHandler);
 
 	// SWidget overrides
 	virtual bool SupportsKeyboardFocus() const override;
@@ -141,8 +227,26 @@ public:
 protected:
 	const FEditableTextBoxStyle* Style;
 
+	/** Box widget that adds padding around the editable text */
+	TSharedPtr< SBox > PaddingBox;
+
 	/** Editable text widget */
 	TSharedPtr< SEditableText > EditableText;
+
+	/** Padding (overrides style) */
+	TAttribute<FMargin> PaddingOverride;
+
+	/** Font (overrides style) */
+	TAttribute<FSlateFontInfo> FontOverride;
+
+	/** Foreground color (overrides style) */
+	TAttribute<FSlateColor> ForegroundColorOverride;
+
+	/** Background color (overrides style) */
+	TAttribute<FSlateColor> BackgroundColorOverride;
+
+	/** Read-only foreground color (overrides style) */
+	TAttribute<FSlateColor> ReadOnlyForegroundColorOverride;
 
 	/** Read-only foreground color */
 	TAttribute<FSlateColor> ReadOnlyForegroundColor;

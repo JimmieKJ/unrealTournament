@@ -106,6 +106,8 @@ private:
 
 	/** Owner gameplay tag node, if any */
 	TWeakPtr<FGameplayTagNode> ParentNode;
+
+	FGameplayTagContainer Parents;
 	
 	/** Net Index of this node */
 	FGameplayTagNetIndex NetIndex;
@@ -142,7 +144,7 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	 *
 	 * @return The index that we got the description from
 	 */
-	int32 GetBestTagCategoryDescription(FString Tag, FText& OutDescription);
+	int32 GetBestTagCategoryDescription(FString Tag, FText& OutDescription) const;
 
 	/** 
 	 * Gets all nodes that make up a tag, if any (e.g. weapons.ranged.pistol will return the nodes weapons, weapons.ranged, and weapons.ranged.pistol)
@@ -150,10 +152,10 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	 * @param Tag			The . delimited tag we wish to get nodes for
 	 * @param OutTagArray	The array of tag nodes that were found
 	 */
-	void GetAllNodesForTag( const FString& Tag, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray );
+	void GetAllNodesForTag( const FString& Tag, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray ) const;
 
 	// this is here because the tag tree doesn't start with a node and recursion can't be done until the first node is found
-	void GetAllNodesForTag_Recurse(TArray<FString>& Tags, int32 CurrentTagDepth, TSharedPtr<FGameplayTagNode> CurrentTagNode, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray );
+	void GetAllNodesForTag_Recurse(TArray<FString>& Tags, int32 CurrentTagDepth, TSharedPtr<FGameplayTagNode> CurrentTagNode, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray ) const;
 
 #if WITH_EDITOR
 	/** Gets a Filtered copy of the GameplayRootTags Array based on the comma delimited filter string passed in*/
@@ -166,6 +168,10 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	 * @param InObject		Object that was re-imported
 	 */
 	void OnObjectReimported(class UFactory* ImportFactory, UObject* InObject);
+
+	TSharedPtr<FGameplayTagNode> FindTagNode(FName TagName) const;
+
+	static void AddNewGameplayTagToINI(FString NewTag);
 
 #endif //WITH_EDITOR
 
@@ -244,7 +250,57 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	 * 
 	 * @return true if there is a match
 	 */
-	bool GameplayTagsMatch(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
+	FORCEINLINE_DEBUGGABLE bool GameplayTagsMatch(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const
+	{
+		SCOPE_CYCLE_COUNTER(STAT_UGameplayTagsManager_GameplayTagsMatch);
+		bool bResult;
+		if (MatchTypeOne == EGameplayTagMatchType::Explicit && MatchTypeTwo == EGameplayTagMatchType::Explicit)
+		{
+			bResult = GameplayTagOne == GameplayTagTwo;
+		}
+		else
+		{
+			bResult = ComplexGameplayTagsMatch(GameplayTagOne, MatchTypeOne, GameplayTagTwo, MatchTypeTwo);
+		}
+#if CHECK_TAG_OPTIMIZATIONS
+		check(bResult == GameplayTagsMatchOriginal(GameplayTagOne, MatchTypeOne, GameplayTagTwo, MatchTypeTwo));
+#endif
+		return bResult;
+	}
+
+	/**
+	 * Same as above except MatchTypeOne == EGameplayTagMatchType::Explicit && MatchTypeTwo == EGameplayTagMatchType::Explicit is not tested or handled
+	 */
+	bool ComplexGameplayTagsMatch(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
+#if CHECK_TAG_OPTIMIZATIONS
+	bool GameplayTagsMatchOriginal(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
+#endif
+
+	/**
+	* Check to see how closely two FGameplayTags match. Higher values indicate more matching terms in the tags.
+	*
+	* @param GameplayTagOne	The first tag to compare
+	* @param GameplayTagTwo	The second tag to compare
+	*
+	* @return the length of the longest matching pair
+	*/
+	int32 GameplayTagsMatchDepth(const FGameplayTag& GameplayTagOne, const FGameplayTag& GameplayTagTwo) const;
+
+	/**
+	 * Helper function for GameplayTagsMatch to get a container with all parents.
+	 * @param GameplayTag		tag to get parents of
+	 * @return					pointer to container of parents, if any
+	 */
+	FORCEINLINE_DEBUGGABLE const FGameplayTagContainer* GetAllParentsContainer(const FGameplayTag& GameplayTag)
+	{
+		const TSharedPtr<FGameplayTagNode>* TagNode = GameplayTagNodeMap.Find(GameplayTag);
+		if (TagNode)
+		{
+			return &((*TagNode)->Parents);
+		}
+		return nullptr;
+	}
+
 
 	/** Event for when assets are added to the registry */
 	DECLARE_EVENT(UGameplayTagsManager, FGameplayTagTreeChanged);
@@ -256,7 +312,7 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Should use fast replication */
 	static bool ShouldUseFastReplication();
 
-	void RedirectTagsForContainer(FGameplayTagContainer& Container, TArray<FName>& DeprecatedTagNamesNotFoundInTagMap);
+	void RedirectTagsForContainer(FGameplayTagContainer& Container, TSet<FName>& DeprecatedTagNamesNotFoundInTagMap);
 
 	/** Gets a tag name from net index and vice versa, used for replication efficiency */
 	FName GetTagNameFromNetIndex(FGameplayTagNetIndex Index);
@@ -303,6 +359,12 @@ private:
 	/** Map of Names to tags - Internal use only */
 	TMap<FName, FGameplayTag> GameplayTagMap;
 
+#if WITH_EDITOR
+	// This critical section is to handle and editor-only issue where tag requests come from another thread when async loading from a background thread in FGameplayTagContainer::Serialize.
+	// This class is not generically threadsafe.
+	mutable FCriticalSection GameplayTagMapCritical;
+#endif
+
 	/** Sorted list of nodes, used for network replication */
 	TArray<TSharedPtr<FGameplayTagNode>> NetworkGameplayTagNodeIndex;
 
@@ -313,9 +375,8 @@ private:
 	/** The delegate to execute when the tag tree changes */
 	FGameplayTagTreeChanged GameplayTagTreeChangedEvent;
 
-	// Prevent spamming about bad tag redirectors.  This flag is used to make all warnings only happen once, rather
-	// than once per every TagContainer that loads data!
-	bool bHasHandledRedirectors;
+	/** The map of ini-configured tag redirectors */
+	TMap<FName, FGameplayTag> TagRedirects;
 
 #if WITH_EDITOR
 	/** Flag to say if we have registered the ObjectReimport, this is needed as use of Tags manager can happen before Editor is ready*/

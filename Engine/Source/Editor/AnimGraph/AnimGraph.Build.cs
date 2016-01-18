@@ -15,15 +15,19 @@ public class AnimGraph : ModuleRules
 				"CoreUObject", 
 				"Engine", 
 				"Slate",
+				"AnimGraphRuntime",
 				"BlueprintGraph",
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
+				"InputCore",
 				"SlateCore",
 				"UnrealEd",
                 "GraphEditor",
+				"PropertyEditor",
+				"EditorStyle"
 			}
 		);
 

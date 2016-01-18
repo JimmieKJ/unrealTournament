@@ -17,13 +17,15 @@ public:
 	struct ContextType 
 	{
 		const FProjectedShadowInfo* TranslucentSelfShadow;
-		bool bSeparateTranslucencyPass;
+		ETranslucencyPassType TranslucenyPassType;
 		bool bSceneColorCopyIsUpToDate;
+		bool bPostAA;
 
-		ContextType(const FProjectedShadowInfo* InTranslucentSelfShadow = NULL, bool bSeparateTranslucencyPassIn = false)
-			: TranslucentSelfShadow(InTranslucentSelfShadow),
-			bSeparateTranslucencyPass(bSeparateTranslucencyPassIn),
-			bSceneColorCopyIsUpToDate(false)
+		ContextType(const FProjectedShadowInfo* InTranslucentSelfShadow = NULL, ETranslucencyPassType InTranslucenyPassType = TPT_NonSeparateTransluceny, bool bPostAAIn = false)
+			: TranslucentSelfShadow(InTranslucentSelfShadow)
+			, TranslucenyPassType(InTranslucenyPassType)
+			, bSceneColorCopyIsUpToDate(false)
+			, bPostAA(bPostAAIn)
 		{}
 	};
 
@@ -39,7 +41,8 @@ public:
 		bool bBackFace,
 		bool bPreFog,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
+		FHitProxyId HitProxyId,
+		bool bSeparateTranslucencyEnabled = true
 		);
 
 	/**
@@ -54,7 +57,8 @@ public:
 		const uint64& BatchElementMask,
 		bool bPreFog,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
+		FHitProxyId HitProxyId,
+		bool bSeparateTranslucencyEnabled = true
 		);
 
 	/**
@@ -74,9 +78,11 @@ private:
 		const FMeshBatch& Mesh,
 		const uint64& BatchElementMask,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		bool bPreFog,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
+		FHitProxyId HitProxyId,
+		bool bSeparateTranslucencyEnabled = true
 		);
 
 };
@@ -167,8 +173,9 @@ public:
 
 	FWriteToSliceVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FGlobalShader(Initializer)
-	{
-		UVScaleBias.Bind(Initializer.ParameterMap, TEXT("UVScaleBias"));
+    {
+        UVScaleBias.Bind(Initializer.ParameterMap, TEXT("UVScaleBias"));
+        MinZ.Bind(Initializer.ParameterMap, TEXT("MinZ"));
 	}
 
 	FWriteToSliceVS() {}
@@ -181,17 +188,20 @@ public:
 			(VolumeBounds.MaxY - VolumeBounds.MinY) * InvVolumeResolution,
 			VolumeBounds.MinX * InvVolumeResolution,
 			VolumeBounds.MinY * InvVolumeResolution));
+        SetShaderValue(RHICmdList, GetVertexShader(), MinZ, VolumeBounds.MinZ);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << UVScaleBias;
-		return bShaderHasOutdatedParameters;
+        Ar << MinZ;
+        return bShaderHasOutdatedParameters;
 	}
 
 private:
-	FShaderParameter UVScaleBias;
+    FShaderParameter UVScaleBias;
+    FShaderParameter MinZ;
 };
 
 /** Geometry shader used to write to a range of slices of a 3d volume texture. */

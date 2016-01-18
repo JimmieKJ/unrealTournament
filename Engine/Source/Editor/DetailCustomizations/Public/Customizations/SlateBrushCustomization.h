@@ -3,6 +3,9 @@
 #pragma once
 #include "IPropertyTypeCustomization.h"
 
+class IPropertyHandle;
+
+
 class DETAILCUSTOMIZATIONS_API FSlateBrushStructCustomization : public IPropertyTypeCustomization
 {
 public:
@@ -11,9 +14,9 @@ public:
 	FSlateBrushStructCustomization(bool bIncludePreview);
 
 	/** IPropertyTypeCustomization interface */
-	virtual void CustomizeHeader( TSharedRef<class IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils ) override;
+	virtual void CustomizeHeader( TSharedRef<IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils ) override;
 
-	virtual void CustomizeChildren( TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils ) override;              
+	virtual void CustomizeChildren( TSharedRef<IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils ) override;              
 
 private:
 	/**
@@ -26,8 +29,23 @@ private:
 	 */
 	EVisibility GetMarginPropertyVisibility() const;
 
+	/** Callback for determining image size reset button visibility */
+	bool IsImageSizeResetToDefaultVisible(TSharedRef<IPropertyHandle> PropertyHandle) const;
+
+	/** Callback for clicking the image size reset button */
+	void OnImageSizeResetToDefault(TSharedRef<IPropertyHandle> PropertyHandle) const;
+
+	/** Gets the current default image size based on the current texture resource */
+	FVector2D GetDefaultImageSize() const;
+
 	/** Slate Brush DrawAs property */
 	TSharedPtr<IPropertyHandle> DrawAsProperty;
+
+/** Slate Brush Image Size property */
+	TSharedPtr<IPropertyHandle> ImageSizeProperty;
+
+/** Slate Brush Resource Object property */
+	TSharedPtr<IPropertyHandle> ResourceObjectProperty;
 
 	/** Error text to display if the resource object is not valid*/
 	TSharedPtr<SErrorText> ResourceErrorText;

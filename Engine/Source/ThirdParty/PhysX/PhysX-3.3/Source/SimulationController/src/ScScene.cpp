@@ -28,6 +28,7 @@
 #include "ScArticulationJointSim.h"
 #include "PsTime.h"
 #include "CmEventProfiler.h"
+#include "PxProfileEventId.h"
 #include "ScConstraintInteraction.h"
 #include "ScSimStats.h"
 #include "ScTriggerPairs.h"
@@ -73,12 +74,12 @@
 #include "Fabric.h"
 #include "Solver.h"
 #include "Cloth.h"
+#endif  // PX_USE_CLOTH_API
 
 #if PX_SUPPORT_GPU_PHYSX
 #include "PxGpuDispatcher.h"
 #include "PxSceneGpu.h"
 #endif
-#endif  // PX_USE_CLOTH_API
 
 #include "PxRigidDynamic.h"
 
@@ -724,8 +725,16 @@ void Sc::Scene::removeBody(BodySim& body)	//this also notifies any connected joi
 
 void Sc::Scene::addConstraint(ConstraintCore& constraint, RigidCore* body0, RigidCore* body1)
 {
+	{
+		Sc::RigidSim& rs0 = body0 ? *body0->getSim() : getStaticAnchor();
+		Sc::RigidSim& rs1 = body1 ? *body1->getSim() : getStaticAnchor();
+		if(!testInteractionCounts(rs0, rs1))
+			return;
+	}
+
 	ConstraintSim* sim = mConstraintSimPool->construct(constraint, body0, body1, *this);
 
+	// PT: TODO: getLowLevelConstraint() never returns NULL, code is unreachable
 	if (sim && (sim->getLowLevelConstraint() == NULL))
 	{
 		mConstraintSimPool->destroy(sim);
@@ -738,7 +747,6 @@ void Sc::Scene::addConstraint(ConstraintCore& constraint, RigidCore* body0, Rigi
 
 void Sc::Scene::removeConstraint(ConstraintCore& constraint)
 {
-	
 	ConstraintSim* cSim = constraint.getSim();
 
 	if (cSim)
@@ -843,6 +851,8 @@ void Sc::Scene::deallocateConstraintBlock(void* ptr, PxU32 size)
 
 PxBaseTask& Sc::Scene::scheduleCloth(PxBaseTask& continuation, bool afterBroadPhase)
 {
+	PX_UNUSED(continuation);
+	PX_UNUSED(afterBroadPhase);
 #if PX_USE_CLOTH_API
 	if(*mClothSolvers)
 	{
@@ -1495,7 +1505,12 @@ void Sc::Scene::updateDynamics(PxBaseTask* continuation)
 void Sc::Scene::updateCCDMultiPass(PxBaseTask* parentContinuation)
 {
 	CM_PROFILE_ZONE_WITH_SUBSYSTEM(*this,Sim,updateCCDMultiPass);
-	getInteractionScene().getLLIslandManager().freeBuffers();
+
+	{
+		CM_PROFILE_ZONE_WITH_SUBSYSTEM(*this,IslandGen,freeBuffers);
+		getInteractionScene().getLLIslandManager().freeBuffers();
+	}
+
 	// second run of the broadphase for making sure objects we have integrated did not tunnel.
 	if(mPublicFlags & PxSceneFlag::eENABLE_CCD)
 	{
@@ -1699,7 +1714,10 @@ void Sc::Scene::finalizationPhase(PxBaseTask* /*continuation*/)
 {
 	CM_PROFILE_ZONE_WITH_SUBSYSTEM(*this,Sim,sceneFinalization);
 
-	getInteractionScene().getLLIslandManager().freeBuffers();
+	{
+		CM_PROFILE_ZONE_WITH_SUBSYSTEM(*this,IslandGen,freeBuffers);
+		getInteractionScene().getLLIslandManager().freeBuffers();
+	}
 
 	checkConstraintBreakage(); // Performs breakage tests on breakable constraints
 
@@ -1806,7 +1824,10 @@ void Sc::Scene::stepSetupSimulate()
 	// Update timestamp
 	mGlobalTime += mDt;
 
-	mProjectionManager->buildGroups();
+	{
+		CM_PROFILE_ZONE_WITH_SUBSYSTEM(*this,Sim,projectionTreeUpdates);
+		mProjectionManager->processPendingUpdates(getInteractionScene().getLowLevelContext()->getScratchAllocator());
+	}
 
 	kinematicsSetup();
 	// Update all dirty interactions
@@ -1829,7 +1850,10 @@ void Sc::Scene::stepSetupCollide()
 	// Update timestamp
 	mGlobalTime += mDt;
 
-	mProjectionManager->buildGroups();
+	{
+		CM_PROFILE_ZONE_WITH_SUBSYSTEM(*this,Sim,projectionTreeUpdates);
+		mProjectionManager->processPendingUpdates(getInteractionScene().getLowLevelContext()->getScratchAllocator());
+	}
 
 	kinematicsSetup();
 	// Update all dirty interactions
@@ -2055,6 +2079,7 @@ bool DEBUG_solverlock = false;
 
 class ScAfterIntegrationTask :  public Cm::Task
 {
+
 	const PxsRigidBody* const* mBodies;
 	const PxU32 mNumBodies;
 	const PxReal mDt;
@@ -2065,6 +2090,8 @@ class ScAfterIntegrationTask :  public Cm::Task
 	
 
 public:
+
+	static const PxU32 MaxRBodiesPerTask = 128;
 
 	ScAfterIntegrationTask(PxsRigidBody* const* bodies, PxU32 numBodies, const bool enableStabilization, PxReal dt, PxReal oneOverDt, PxsContext* context,
 		PxsTransformCache& cache) : 
@@ -2081,12 +2108,30 @@ public:
 		Cm::BitMap& localChangedShapes = mThreadContext->getLocalChangedActors();
 		localChangedShapes.clear();
 
+		PxsIslandManagerNodeHook nodesReadyForSleeping[MaxRBodiesPerTask];
+		PxU32 nbReadyForSleeping = 0;
+		PxsIslandManagerNodeHook nodesNotReadyForSleeping[MaxRBodiesPerTask];
+		PxU32 nbNotReadyForSleeping = 0;
+
 		bool hasActiveShape = false;
 
 		for(PxU32 i = 0; i < mNumBodies; i++)
 		{
 			Sc::BodySim* bodySim = (Sc::BodySim*)((PxU8*)mBodies[i] - rigidBodyOffset);
-			bodySim->sleepCheck(mDt, mOneOverDt, mEnableStabilization);
+			bool readyForSleeping;
+			bool notReadyForSleeping;
+			bodySim->sleepCheck(mDt, mOneOverDt, mEnableStabilization, readyForSleeping, notReadyForSleeping);
+			PX_ASSERT(!readyForSleeping || !notReadyForSleeping);
+			if(readyForSleeping)
+			{
+				nodesReadyForSleeping[nbReadyForSleeping] = bodySim->getLLIslandManagerNodeHook();
+				nbReadyForSleeping++;
+			}
+			else if(notReadyForSleeping)
+			{
+				nodesNotReadyForSleeping[nbNotReadyForSleeping] = bodySim->getLLIslandManagerNodeHook();
+				nbNotReadyForSleeping++;
+			}
 			if(!(bodySim->getBodyCore().getCore().mInternalFlags & PxsRigidCore::eFROZEN))
 			{
 				PxcBpHandle handle = bodySim->getLowLevelBody().getAABBMgrId().mActorHandle;
@@ -2099,10 +2144,23 @@ public:
 			bodySim->updateCachedTransforms(mCache);
 		}
 
-		if(hasActiveShape)
+		if(hasActiveShape || nbReadyForSleeping > 0 || nbNotReadyForSleeping > 0)
 		{
 			Ps::Mutex::ScopedLock lock(mContext->getDynamicsContext()->mLock);
+
 			mContext->mergeChangedActorMap(localChangedShapes);
+
+			//Write ready for sleeping.
+			PxsIslandManager& islandManager = mContext->getIslandManager();
+			for(PxU32 i = 0; i < nbReadyForSleeping; i++)
+			{
+				islandManager.notifyReadyForSleeping(nodesReadyForSleeping[i]);
+			}
+			//Write not ready for sleeping.
+			for(PxU32 i = 0; i < nbNotReadyForSleeping; i++)
+			{
+				islandManager.notifyNotReadyForSleeping(nodesNotReadyForSleeping[i]);
+			}
 		}
 
 		mContext->putThreadContext(mThreadContext);
@@ -2138,7 +2196,7 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 	PxsContext* context = getInteractionScene().getLowLevelContext();
 	Cm::FlushPool& flushPool = context->getTaskPool();
 
-	const PxU32 MaxBodiesPerTask = 128;
+	const PxU32 MaxBodiesPerTask = ScAfterIntegrationTask::MaxRBodiesPerTask;
 
 	PxU32 numBodies = islandIndicesSize == 0 ? 0u : (PxU32)islandIndices[islandIndicesSize].bodies;
 
@@ -2167,6 +2225,7 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 			PX_ASSERT(b->isKinematic());
 			PX_ASSERT(b->isActive());
 
+			b->getLowLevelBody().saveLastCCDTransform();
 			b->updateKinematicPose();
 			if(PX_INVALID_BP_HANDLE!=b->getLowLevelBody().getAABBMgrId().mActorHandle)
 				shapeChangedMap.growAndSet(b->getLowLevelBody().getAABBMgrId().mActorHandle);
@@ -2226,6 +2285,8 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 
 	if(mArticulations.size())
 	{
+		Ps::Mutex::ScopedLock lock(context->getDynamicsContext()->mLock);
+
 		PxsThreadContext* threadContext = context->getThreadContext();
 		Cm::BitMap& localShapeChangedMap = threadContext->getLocalChangedActors();
 		for(PxU32 i=0;i<mArticulations.size();i++)
@@ -2234,10 +2295,7 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 			mArticulations[i]->getSim()->updateCachedTransforms(cache, &localShapeChangedMap);
 		}
 
-		{
-			Ps::Mutex::ScopedLock lock(context->getDynamicsContext()->mLock);
-			context->mergeChangedActorMap(localShapeChangedMap);
-		}
+		context->mergeChangedActorMap(localShapeChangedMap);
 		context->putThreadContext(threadContext);
 	}
 }
@@ -2269,6 +2327,7 @@ void Sc::Scene::afterSolver(const PxU32 ccdPass)
 		pairSizes[0] = npc->getForceThresholdContactEventPairCount();
 		pairArrays[1] = npc->getAllPersistentContactEventPairs();  // need to get all because force threshold pairs can be in there too
 		pairSizes[1] = npc->getAllPersistentContactEventPairCount();
+
 		for(PxU32 j=0; j < 2; j++)
 		{
 			ShapeInstancePairLL*const* contactEventPairs = pairArrays[j];

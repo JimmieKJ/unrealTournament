@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTPickup.h"
 #include "UTPickupInventory.h"
@@ -113,7 +113,7 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 }
 
 /** recursively instance anything attached to the pickup mesh template */
-static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes)
+static void CreatePickupMeshAttachments(AActor* Pickup, UClass* PickupInventoryType, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes)
 {
 	for (int32 i = 0; i < NativeCompList.Num(); i++)
 	{
@@ -131,11 +131,12 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 			NewComp->RegisterComponent();
 			NewComp->AttachTo(CurrentAttachment, NewComp->AttachSocketName);
 			// recurse
-			CreatePickupMeshAttachments(Pickup, NewComp, NativeCompList[i]->GetFName(), NativeCompList, BPNodes);
+			CreatePickupMeshAttachments(Pickup, PickupInventoryType, NewComp, NativeCompList[i]->GetFName(), NativeCompList, BPNodes);
 		}
 	}
 	for (int32 i = 0; i < BPNodes.Num(); i++)
 	{
+		USceneComponent* ComponentTemplate = Cast<USceneComponent>(BPNodes[i]->GetActualComponentTemplate(Cast<UBlueprintGeneratedClass>(PickupInventoryType)));
 		if (BPNodes[i]->ComponentTemplate != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName)
 		{
 			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, BPNodes[i]->ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
@@ -150,7 +151,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 			NewComp->RegisterComponent();
 			NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
 			// recurse
-			CreatePickupMeshAttachments(Pickup, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
+			CreatePickupMeshAttachments(Pickup, PickupInventoryType, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
 		}
 	}
 }
@@ -239,7 +240,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 						}
 					}
 				}
-				CreatePickupMeshAttachments(Pickup, PickupMesh, NewMesh->GetFName(), NativeCompList, ConstructionNodes);
+				CreatePickupMeshAttachments(Pickup, PickupInventoryType, PickupMesh, NewMesh->GetFName(), NativeCompList, ConstructionNodes);
 			}
 			else if (PickupMesh->AttachParent != Pickup->GetRootComponent())
 			{
@@ -389,12 +390,12 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 		if (Existing == NULL || !Existing->StackPickup(NULL))
 		{
 			FActorSpawnParameters Params;
-			Params.bNoCollisionFail = true;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			Params.Instigator = P;
 			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
-			P->DeactivateSpawnProtection();
-			AnnouncePickup(P);
 		}
+		P->DeactivateSpawnProtection();
+		AnnouncePickup(P);
 
 		//Add to the stats pickup count
 		const AUTInventory* Inventory = Cast<UClass>(InventoryType) ? Cast<AUTInventory>(Cast<UClass>(InventoryType)->GetDefaultObject()) : nullptr;

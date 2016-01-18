@@ -42,9 +42,9 @@ public:
 	/** Util to get the wheeled vehicle movement component */
 	class UWheeledVehicleMovementComponent* GetVehicleMovementComponent() const;
 
-	// Begin AActor interface
+	//~ Begin AActor Interface
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
-	// End Actor interface
+	//~ End Actor Interface
 
 	/** Returns Mesh subobject **/
 	class USkeletalMeshComponent* GetMesh() const;

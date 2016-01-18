@@ -6,6 +6,18 @@
 #include "EngineBuildSettings.h"
 #include "ModuleVersion.h"
 
+/** Version numbers for networking */
+int32 GEngineNetVersion			= BUILT_FROM_CHANGELIST;
+const int32 GEngineMinNetVersion		= 7038;
+const int32 GEngineNegotiationVersion	= 3077;
+
+// Global instance of the current engine version
+FEngineVersion FEngineVersion::CurrentVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, (BUILT_FROM_CHANGELIST | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);
+
+// Version which this engine maintains strict API and package compatibility with. By default, we always maintain compatibility with the current major/minor version, unless we're built at a different changelist.
+FEngineVersion FEngineVersion::CompatibleWithVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, 0, (MODULE_API_VERSION | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);
+
+
 FEngineVersionBase::FEngineVersionBase()
 : Major(0)
 , Minor(0)
@@ -39,7 +51,7 @@ bool FEngineVersionBase::IsEmpty() const
 	return Major == 0 && Minor == 0 && Patch == 0;
 }
 
-bool FEngineVersionBase::IsPromotedBuild() const
+bool FEngineVersionBase::HasChangelist() const
 {
 	return GetChangelist() != 0;
 }
@@ -71,7 +83,7 @@ EVersionComparison FEngineVersionBase::GetNewest(const FEngineVersionBase &First
 	}
 
 	// Compare changelists (only if they're both from the same vendor, and they're both valid)
-	if (First.IsLicenseeVersion() == Second.IsLicenseeVersion() && First.IsPromotedBuild() && Second.IsPromotedBuild() && First.GetChangelist() != Second.GetChangelist())
+	if (First.IsLicenseeVersion() == Second.IsLicenseeVersion() && First.HasChangelist() && Second.HasChangelist() && First.GetChangelist() != Second.GetChangelist())
 	{
 		Component = EVersionComponent::Changelist;
 		return (First.GetChangelist() > Second.GetChangelist()) ? EVersionComparison::First : EVersionComparison::Second;
@@ -79,6 +91,11 @@ EVersionComparison FEngineVersionBase::GetNewest(const FEngineVersionBase &First
 
 	// Otherwise they're the same
 	return EVersionComparison::Neither;
+}
+
+uint32 FEngineVersionBase::EncodeLicenseeChangelist(uint32 Changelist)
+{
+	return Changelist | 0x80000000;
 }
 
 
@@ -114,7 +131,7 @@ bool FEngineVersion::IsCompatibleWith(const FEngineVersionBase &Other) const
 	}
 
 	// If this or the other is not a promoted build, always assume compatibility. 
-	if(!IsPromotedBuild() || !Other.IsPromotedBuild())
+	if(!HasChangelist() || !Other.HasChangelist())
 	{
 		return true;
 	}
@@ -183,6 +200,29 @@ bool FEngineVersion::Parse(const FString &Text, FEngineVersion &OutVersion)
 	return true;
 }
 
+const FEngineVersion& FEngineVersion::Current()
+{
+	return CurrentVersion;
+}
+
+const FEngineVersion& FEngineVersion::CompatibleWith()
+{
+	return CompatibleWithVersion;
+}
+
+bool FEngineVersion::OverrideCurrentVersionChangelist(int32 NewChangelist)
+{
+	if(CurrentVersion.GetChangelist() != 0 || CompatibleWithVersion.GetChangelist() != 0)
+	{
+		return false;
+	}
+
+	CurrentVersion.Set(CurrentVersion.Major, CurrentVersion.Minor, CurrentVersion.Patch, NewChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CurrentVersion.Branch);
+	CompatibleWithVersion.Set(CompatibleWithVersion.Major, CompatibleWithVersion.Minor, CompatibleWithVersion.Patch, NewChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CompatibleWithVersion.Branch);
+	GEngineNetVersion = NewChangelist;
+	return true;
+}
+
 void operator<<(FArchive &Ar, FEngineVersion &Version)
 {
 	Ar << Version.Major;
@@ -191,17 +231,3 @@ void operator<<(FArchive &Ar, FEngineVersion &Version)
 	Ar << Version.Changelist;
 	Ar << Version.Branch;
 }
-
-// Make sure this is defined
-#ifndef ENGINE_IS_LICENSEE_VERSION
-	#define ENGINE_IS_LICENSEE_VERSION 0
-#endif
-
-// Licensee changelists part of the engine version has the top bit set to 1
-#define ENGINE_VERSION_INTERNAL_OR_LICENSEE (BUILT_FROM_CHANGELIST | (ENGINE_IS_LICENSEE_VERSION << 31))
-
-// Global instance of the current engine version
-const FEngineVersion GEngineVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, ENGINE_VERSION_INTERNAL_OR_LICENSEE, BRANCH_NAME);
-
-// Version which this engine maintains strict API and package compatibility with
-const FEngineVersion GCompatibleWithEngineVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, (MODULE_API_VERSION | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);

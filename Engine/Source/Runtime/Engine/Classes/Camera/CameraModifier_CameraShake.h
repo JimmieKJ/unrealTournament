@@ -9,7 +9,7 @@
 #include "Camera/CameraModifier.h"
 #include "CameraModifier_CameraShake.generated.h"
 
-//=============================================================================
+//~=============================================================================
 /**
  * A UCameraModifier_CameraShake is a camera modifier that can apply a UCameraShake to 
  * the owning camera.
@@ -45,9 +45,9 @@ public:
 	/** Stops and removes all camera shakes from the camera. */
 	virtual void RemoveAllCameraShakes();
 	
-	// Begin UCameraModifer Interface
+	//~ Begin UCameraModifer Interface
 	virtual bool ModifyCamera(float DeltaTime, struct FMinimalViewInfo& InOutPOV) override;
-	// End UCameraModifer Interface
+	//~ End UCameraModifer Interface
 
 protected:
 	/** Scaling factor applied to all camera shakes in when in splitscreen mode. Normally used to reduce shaking, since shakes feel more intense in a smaller viewport. */

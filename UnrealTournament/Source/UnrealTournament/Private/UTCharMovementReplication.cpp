@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTCharacterMovement.h"
@@ -118,74 +118,22 @@ void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, 
 
 void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 {
-	if (!HasValidData() || GetNetMode() != NM_Client)
+	if (!HasValidData() || CharacterOwner->Role == ROLE_Authority || NetworkSmoothingMode == ENetworkSmoothingMode::Disabled)
 	{
 		return;
 	}
 
-	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-	if (ClientData && ClientData->bSmoothNetUpdates && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
+	SmoothClientPosition_Interpolate(DeltaSeconds);
+	if (IsMovingOnGround())
 	{
-		if (ClientData->bUseLinearSmoothing)
-		{
-			ClientData->CurrentSmoothTime += DeltaSeconds;
-
-			if (ClientData->LastCorrectionDelta < SMALL_NUMBER || ClientData->CurrentSmoothTime >= ClientData->LastCorrectionDelta)
-			{
-				// This is either:
-				//	1. The very first update
-				//	2. Time between updates was really small
-				//  3. We've arrived at the target position
-				ClientData->MeshTranslationOffset	= FVector::ZeroVector;
-				ClientData->MeshRotationOffset		= FQuat::Identity;
-			}
-			else
-			{
-				// Linearly interpolate between correction updates
-				const float LerpPercent	= ClientData->CurrentSmoothTime / ClientData->LastCorrectionDelta;
-
-				ClientData->MeshTranslationOffset	= FMath::Lerp(ClientData->OriginalMeshTranslationOffset, FVector::ZeroVector, LerpPercent);
-				ClientData->MeshRotationOffset		= FQuat::Slerp(ClientData->OriginalMeshRotationOffset, FQuat::Identity, LerpPercent);
-			}
-		}
-		else
-		{
-			// faster interpolation if stopped
-			float SmoothTime = Velocity.IsZero() ? 0.5f*ClientData->SmoothNetUpdateTime : ClientData->SmoothNetUpdateTime;
-
-			// smooth interpolation of mesh translation to avoid popping of other client pawns, unless driving or ragdoll or low tick rate
-			if (DeltaSeconds < SmoothTime)
-			{
-				ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / SmoothTime));
-			}
-			else
-			{
-				ClientData->MeshTranslationOffset = FVector::ZeroVector;
-			}
-
-			// Smooth rotation
-			if (DeltaSeconds < ClientData->SmoothNetUpdateRotationTime)
-			{
-				// Slowly decay rotation offset
-				ClientData->MeshRotationOffset = FQuat::Slerp(ClientData->MeshRotationOffset, FQuat::Identity, DeltaSeconds / ClientData->SmoothNetUpdateRotationTime);
-			}
-			else
-			{
-				ClientData->MeshRotationOffset = FQuat::Identity;
-			}
-		}
-
-		if (IsMovingOnGround())
+		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+		if (ClientData)
 		{
 			// don't smooth Z position if walking on ground
 			ClientData->MeshTranslationOffset.Z = 0.f;
 		}
-
-		const FVector NewRelTranslation = UpdatedComponent->GetComponentToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset) + CharacterOwner->GetBaseTranslationOffset();
-		const FQuat NewRelRotation = ClientData->MeshRotationOffset * CharacterOwner->GetBaseRotationOffset();
-		CharacterOwner->GetMesh()->SetRelativeLocationAndRotation(NewRelTranslation, NewRelRotation);
-		//DrawDebugSphere(GetWorld(), CharacterOwner->GetActorLocation(), 30.f, 8, FColor::Yellow);
 	}
+	SmoothClientPosition_UpdateVisuals();
 }
 
 bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
@@ -229,11 +177,10 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 	{
 		return;
 	}
-
 	FVector RealVelocity = Velocity; // Used now to keep our forced clientside decel from affecting animation
 
 	float RemainingTime = DeltaSeconds;
-	while (RemainingTime > 0.001f)
+	while (RemainingTime > 0.001f * CharacterOwner->GetActorTimeDilation())
 	{
 		Velocity = SimulatedVelocity;
 		float DeltaTime = RemainingTime;
@@ -425,11 +372,13 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 		{
 			return;
 		}
+		if (MovementMode == MOVE_Falling)
+		{
+			Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
+		}
 
 		AnalogInputModifier = 1.0f;				// Not currently used for simulated movement
-
 		MaybeUpdateBasedMovement(DeltaSeconds);
-
 		//DrawDebugLine(GetWorld(), CharacterOwner->GetActorLocation(), CharacterOwner->GetActorLocation() + 0.2f*Acceleration, FLinearColor::Green);
 
 		// simulated pawns predict location
@@ -464,7 +413,6 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 				if ((Velocity.Z != 0.f) || (MovementMode == MOVE_Falling))
 				{
 					// No floor, must fall.
-					Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
 					SetMovementMode(MOVE_Falling);
 				}
 			}
@@ -480,13 +428,17 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 				{
 					if (CurrentFloor.FloorDist <= MIN_FLOOR_DIST)
 					{
+						AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+						if (UTCharacterOwner)
+						{
+							UTCharacterOwner->PlayLandedEffect();
+						}
 						// Landed
 						SetMovementMode(MOVE_Walking);
 					}
 					else
 					{
 						// Continue falling.
-						Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
 						CurrentFloor.Clear();
 					}
 				}

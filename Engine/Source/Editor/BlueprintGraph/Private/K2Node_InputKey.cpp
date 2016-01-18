@@ -56,6 +56,7 @@ void UK2Node_InputKey::AllocateDefaultPins()
 
 	CreatePin(EGPD_Output, K2Schema->PC_Exec, TEXT(""), NULL, false, false, TEXT("Pressed"));
 	CreatePin(EGPD_Output, K2Schema->PC_Exec, TEXT(""), NULL, false, false, TEXT("Released"));
+	CreatePin(EGPD_Output, K2Schema->PC_Struct, TEXT(""), FKey::StaticStruct(), false, false, TEXT("Key"));
 
 	Super::AllocateDefaultPins();
 }
@@ -198,12 +199,20 @@ FName UK2Node_InputKey::GetPaletteIcon(FLinearColor& OutColor) const
 
 bool UK2Node_InputKey::IsCompatibleWithGraph(UEdGraph const* Graph) const
 {
-	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(Graph);
+	// This node expands into event nodes and must be placed in a Ubergraph
+	EGraphType const GraphType = Graph->GetSchema()->GetGraphType(Graph);
+	bool bIsCompatible = (GraphType == EGraphType::GT_Ubergraph);
 
-	UEdGraphSchema_K2 const* K2Schema = Cast<UEdGraphSchema_K2>(Graph->GetSchema());
-	bool const bIsConstructionScript = (K2Schema != nullptr) ? K2Schema->IsConstructionScript(Graph) : false;
+	if (bIsCompatible)
+	{
+		UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(Graph);
 
-	return (Blueprint != nullptr) && Blueprint->SupportsInputEvents() && !bIsConstructionScript && Super::IsCompatibleWithGraph(Graph);
+		UEdGraphSchema_K2 const* K2Schema = Cast<UEdGraphSchema_K2>(Graph->GetSchema());
+		bool const bIsConstructionScript = (K2Schema != nullptr) ? K2Schema->IsConstructionScript(Graph) : false;
+
+		bIsCompatible = (Blueprint != nullptr) && Blueprint->SupportsInputEvents() && !bIsConstructionScript && Super::IsCompatibleWithGraph(Graph);
+	}
+	return bIsCompatible;
 }
 
 UEdGraphPin* UK2Node_InputKey::GetPressedPin() const
@@ -234,49 +243,118 @@ void UK2Node_InputKey::ValidateNodeDuringCompilation(class FCompilerResultsLog& 
 	}
 }
 
-void UK2Node_InputKey::CreateInputKeyEvent(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, UEdGraphPin* InputKeyPin, const EInputEvent KeyEvent)
-{
-	if (InputKeyPin->LinkedTo.Num() > 0)
-	{
-		UK2Node_InputKeyEvent* InputKeyEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputKeyEvent>(this, SourceGraph);
-		const FName ModifierName = GetModifierName();
-		if ( ModifierName != NAME_None )
-		{
-			InputKeyEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpActEvt_%s_%s_%s"), *ModifierName.ToString(), *InputKey.ToString(), *InputKeyEvent->GetName()));
-		}
-		else
-		{
-			InputKeyEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpActEvt_%s_%s"), *InputKey.ToString(), *InputKeyEvent->GetName()));
-		}
-		InputKeyEvent->InputChord.Key = InputKey;
-		InputKeyEvent->InputChord.bCtrl = bControl;
-		InputKeyEvent->InputChord.bAlt = bAlt;
-		InputKeyEvent->InputChord.bShift = bShift;
-		InputKeyEvent->InputChord.bCmd = bCommand;
-		InputKeyEvent->bConsumeInput = bConsumeInput;
-		InputKeyEvent->bExecuteWhenPaused = bExecuteWhenPaused;
-		InputKeyEvent->bOverrideParentBinding = bOverrideParentBinding;
-		InputKeyEvent->InputKeyEvent = KeyEvent;
-		InputKeyEvent->EventReference.SetExternalDelegateMember(FName(TEXT("InputActionHandlerDynamicSignature__DelegateSignature")));
-		InputKeyEvent->bInternalEvent = true;
-		InputKeyEvent->AllocateDefaultPins();
-
-		// Move any exec links from the InputActionNode pin to the InputActionEvent node
-		UEdGraphPin* EventOutput = CompilerContext.GetSchema()->FindExecutionPin(*InputKeyEvent, EGPD_Output);
-
-		if(EventOutput != NULL)
-		{
-			CompilerContext.MovePinLinksToIntermediate(*InputKeyPin, *EventOutput);
-		}
-	}
-}
-
 void UK2Node_InputKey::ExpandNode(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)
 {
 	Super::ExpandNode(CompilerContext, SourceGraph);
 
-	CreateInputKeyEvent(CompilerContext, SourceGraph, GetPressedPin(), IE_Pressed);
-	CreateInputKeyEvent(CompilerContext, SourceGraph, GetReleasedPin(), IE_Released);
+	UEdGraphPin* InputKeyPressedPin = GetPressedPin();
+	UEdGraphPin* InputKeyReleasedPin = GetReleasedPin();
+		
+	struct EventPinData
+	{
+		EventPinData(UEdGraphPin* InPin,TEnumAsByte<EInputEvent> InEvent ){	Pin=InPin;EventType=InEvent;};
+		UEdGraphPin* Pin;
+		TEnumAsByte<EInputEvent> EventType;
+	};
+
+	TArray<EventPinData> ActivePins;
+	if(( InputKeyPressedPin != nullptr ) && (InputKeyPressedPin->LinkedTo.Num() > 0 ))
+	{
+		ActivePins.Add(EventPinData(InputKeyPressedPin,IE_Pressed));
+	}
+	if((InputKeyReleasedPin != nullptr) && (InputKeyReleasedPin->LinkedTo.Num() > 0 ))
+	{
+		ActivePins.Add(EventPinData(InputKeyReleasedPin,IE_Released));
+	}
+	
+	const UEdGraphSchema_K2* Schema = CompilerContext.GetSchema();
+
+	// If more than one is linked we have to do more complicated behaviors
+	if( ActivePins.Num() > 1 )
+	{
+		// Create a temporary variable to copy Key in to
+		static UScriptStruct* KeyStruct = FKey::StaticStruct();
+		UK2Node_TemporaryVariable* KeyVar = CompilerContext.SpawnIntermediateNode<UK2Node_TemporaryVariable>(this, SourceGraph);
+		KeyVar->VariableType.PinCategory = Schema->PC_Struct;
+		KeyVar->VariableType.PinSubCategoryObject = KeyStruct;
+		KeyVar->AllocateDefaultPins();
+
+		for (auto PinIt = ActivePins.CreateIterator(); PinIt; ++PinIt)
+		{			
+			UEdGraphPin *EachPin = (*PinIt).Pin;
+			// Create the input touch event
+			UK2Node_InputKeyEvent* InputKeyEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputKeyEvent>(this, SourceGraph);
+			const FName ModifierName = GetModifierName();
+			if ( ModifierName != NAME_None )
+			{
+				InputKeyEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpActEvt_%s_%s_%s"), *ModifierName.ToString(), *InputKey.ToString(), *InputKeyEvent->GetName()));
+			}
+			else
+			{
+				InputKeyEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpActEvt_%s_%s"), *InputKey.ToString(), *InputKeyEvent->GetName()));
+			}
+			InputKeyEvent->InputChord.Key = InputKey;
+			InputKeyEvent->InputChord.bCtrl = bControl;
+			InputKeyEvent->InputChord.bAlt = bAlt;
+			InputKeyEvent->InputChord.bShift = bShift;
+			InputKeyEvent->InputChord.bCmd = bCommand;
+			InputKeyEvent->bConsumeInput = bConsumeInput;
+			InputKeyEvent->bExecuteWhenPaused = bExecuteWhenPaused;
+			InputKeyEvent->bOverrideParentBinding = bOverrideParentBinding;
+			InputKeyEvent->InputKeyEvent = (*PinIt).EventType;
+			InputKeyEvent->EventReference.SetExternalDelegateMember(FName(TEXT("InputActionHandlerDynamicSignature__DelegateSignature")));
+			InputKeyEvent->bInternalEvent = true;
+			InputKeyEvent->AllocateDefaultPins();
+
+			// Create assignment nodes to assign the key
+			UK2Node_AssignmentStatement* KeyInitialize = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(this, SourceGraph);
+			KeyInitialize->AllocateDefaultPins();
+			Schema->TryCreateConnection(KeyVar->GetVariablePin(), KeyInitialize->GetVariablePin());
+			Schema->TryCreateConnection(KeyInitialize->GetValuePin(), InputKeyEvent->FindPinChecked(TEXT("Key")));
+			// Connect the events to the assign key nodes
+			Schema->TryCreateConnection(Schema->FindExecutionPin(*InputKeyEvent, EGPD_Output), KeyInitialize->GetExecPin());
+
+			// Move the original event connections to the then pin of the key assign
+			CompilerContext.MovePinLinksToIntermediate(*EachPin, *KeyInitialize->GetThenPin());
+			
+			// Move the original event variable connections to the intermediate nodes
+			CompilerContext.MovePinLinksToIntermediate(*FindPin(TEXT("Key")), *KeyVar->GetVariablePin());
+		}	
+	}
+	else if( ActivePins.Num() == 1 )
+	{
+		UEdGraphPin* InputKeyPin = ActivePins[0].Pin;
+		EInputEvent InputEvent = ActivePins[0].EventType;
+	
+		if (InputKeyPin->LinkedTo.Num() > 0)
+		{
+			UK2Node_InputKeyEvent* InputKeyEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputKeyEvent>(this, SourceGraph);
+			const FName ModifierName = GetModifierName();
+			if ( ModifierName != NAME_None )
+			{
+				InputKeyEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpActEvt_%s_%s_%s"), *ModifierName.ToString(), *InputKey.ToString(), *InputKeyEvent->GetName()));
+			}
+			else
+			{
+				InputKeyEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpActEvt_%s_%s"), *InputKey.ToString(), *InputKeyEvent->GetName()));
+			}
+			InputKeyEvent->InputChord.Key = InputKey;
+			InputKeyEvent->InputChord.bCtrl = bControl;
+			InputKeyEvent->InputChord.bAlt = bAlt;
+			InputKeyEvent->InputChord.bShift = bShift;
+			InputKeyEvent->InputChord.bCmd = bCommand;
+			InputKeyEvent->bConsumeInput = bConsumeInput;
+			InputKeyEvent->bExecuteWhenPaused = bExecuteWhenPaused;
+			InputKeyEvent->bOverrideParentBinding = bOverrideParentBinding;
+			InputKeyEvent->InputKeyEvent = InputEvent;
+			InputKeyEvent->EventReference.SetExternalDelegateMember(FName(TEXT("InputActionHandlerDynamicSignature__DelegateSignature")));
+			InputKeyEvent->bInternalEvent = true;
+			InputKeyEvent->AllocateDefaultPins();
+
+			CompilerContext.MovePinLinksToIntermediate(*InputKeyPin, *Schema->FindExecutionPin(*InputKeyEvent, EGPD_Output));
+			CompilerContext.MovePinLinksToIntermediate(*FindPin(TEXT("Key")), *InputKeyEvent->FindPin(TEXT("Key")));
+		}
+	}
 }
 
 void UK2Node_InputKey::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
@@ -296,28 +374,27 @@ void UK2Node_InputKey::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionR
 	// type disappears, then the action should go with it)
 	UClass* ActionKey = GetClass();
 
-	for (FKey const Key : AllKeys)
+	// to keep from needlessly instantiating a UBlueprintNodeSpawner (and 
+	// iterating over keys), first check to make sure that the registrar is 
+	// looking for actions of this type (could be regenerating actions for a 
+	// specific asset, and therefore the registrar would only accept actions 
+	// corresponding to that asset)
+	if (ActionRegistrar.IsOpenForRegistration(ActionKey))
 	{
-		// these will be handled by UK2Node_GetInputAxisKeyValue and UK2Node_GetInputVectorAxisValue respectively
-		if (!Key.IsBindableInBlueprints() || Key.IsFloatAxis() || Key.IsVectorAxis())
+		for (FKey const Key : AllKeys)
 		{
-			continue;
+			// these will be handled by UK2Node_GetInputAxisKeyValue and UK2Node_GetInputVectorAxisValue respectively
+			if (!Key.IsBindableInBlueprints() || Key.IsFloatAxis() || Key.IsVectorAxis())
+			{
+				continue;
+			}
+
+			UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(GetClass());
+			check(NodeSpawner != nullptr);
+
+			NodeSpawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeInputNodeLambda, Key);
+			ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
 		}
-
-		// to keep from needlessly instantiating a UBlueprintNodeSpawner, first   
-		// check to make sure that the registrar is looking for actions of this type
-		// (could be regenerating actions for a specific asset, and therefore the 
-		// registrar would only accept actions corresponding to that asset)
-		if (!ActionRegistrar.IsOpenForRegistration(ActionKey))
-		{
-			continue;
-		}
-
-		UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(GetClass());
-		check(NodeSpawner != nullptr);
-
-		NodeSpawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeInputNodeLambda, Key);
-		ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
 	}
 }
 

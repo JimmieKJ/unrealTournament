@@ -16,9 +16,15 @@
 #endif // DO_SIGHT_VLOGGING
 
 DECLARE_CYCLE_STAT(TEXT("Perception Sense: Sight"),STAT_AI_Sense_Sight,STATGROUP_AI);
+DECLARE_CYCLE_STAT(TEXT("Perception Sense: Sight, Update Sort"),STAT_AI_Sense_Sight_UpdateSort,STATGROUP_AI);
 DECLARE_CYCLE_STAT(TEXT("Perception Sense: Sight, Listener Update"), STAT_AI_Sense_Sight_ListenerUpdate, STATGROUP_AI);
+DECLARE_CYCLE_STAT(TEXT("Perception Sense: Sight, Register Target"), STAT_AI_Sense_Sight_RegisterTarget, STATGROUP_AI);
+DECLARE_CYCLE_STAT(TEXT("Perception Sense: Sight, Remove By Listener"), STAT_AI_Sense_Sight_RemoveByListener, STATGROUP_AI);
+DECLARE_CYCLE_STAT(TEXT("Perception Sense: Sight, Remove To Target"), STAT_AI_Sense_Sight_RemoveToTarget, STATGROUP_AI);
+
 
 static const int32 DefaultMaxTracesPerTick = 6;
+static const int32 DefaultMinQueriesPerTimeSliceCheck = 40;
 
 //----------------------------------------------------------------------//
 // helpers
@@ -75,12 +81,17 @@ UAISense_Sight::FDigestedSightProperties::FDigestedSightProperties()
 UAISense_Sight::UAISense_Sight(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, MaxTracesPerTick(DefaultMaxTracesPerTick)
+	, MinQueriesPerTimeSliceCheck(DefaultMinQueriesPerTimeSliceCheck)
+	, MaxTimeSlicePerTick(0.005) // 5ms
 	, HighImportanceQueryDistanceThreshold(300.f)
 	, MaxQueryImportance(60.f)
 	, SightLimitQueryImportance(10.f)
 {
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
+		UAISenseConfig_Sight* SightConfigCDO = GetMutableDefault<UAISenseConfig_Sight>();
+		SightConfigCDO->Implementation = UAISense_Sight::StaticClass();
+
 		OnNewListenerDelegate.BindUObject(this, &UAISense_Sight::OnNewListenerImpl);
 		OnListenerUpdateDelegate.BindUObject(this, &UAISense_Sight::OnListenerUpdateImpl);
 		OnListenerRemovedDelegate.BindUObject(this, &UAISense_Sight::OnListenerRemovedImpl);
@@ -91,6 +102,7 @@ UAISense_Sight::UAISense_Sight(const FObjectInitializer& ObjectInitializer)
 	NotifyType = EAISenseNotifyType::OnPerceptionChange;
 	
 	bAutoRegisterAllPawnsAsSources = true;
+	bNeedsForgettingNotification = true;
 }
 
 FORCEINLINE_DEBUGGABLE float UAISense_Sight::CalcQueryImportance(const FPerceptionListener& Listener, const FVector& TargetLocation, const float SightRadiusSq) const
@@ -133,6 +145,14 @@ float UAISense_Sight::Update()
 	}
 
 	int32 TracesCount = 0;
+	int32 NumQueriesProcessed = 0;
+	double TimeSliceEnd = FPlatformTime::Seconds() + MaxTimeSlicePerTick;
+	bool bHitTimeSliceLimit = false;
+//#define AISENSE_SIGHT_TIMESLICING_DEBUG
+#ifdef AISENSE_SIGHT_TIMESLICING_DEBUG
+	double TimeSpent = 0.0;
+	double LastTime = FPlatformTime::Seconds();
+#endif // AISENSE_SIGHT_TIMESLICING_DEBUG
 	static const int32 InitialInvalidItemsSize = 16;
 	TArray<int32> InvalidQueries;
 	TArray<FAISightTarget::FTargetId> InvalidTargets;
@@ -144,6 +164,18 @@ float UAISense_Sight::Update()
 	FAISightQuery* SightQuery = SightQueryQueue.GetData();
 	for (int32 QueryIndex = 0; QueryIndex < SightQueryQueue.Num(); ++QueryIndex, ++SightQuery)
 	{
+		// Time slice limit check - spread out checks to every N queries so we don't spend more time checking timer than doing work
+		NumQueriesProcessed++;
+#ifdef AISENSE_SIGHT_TIMESLICING_DEBUG
+		TimeSpent += (FPlatformTime::Seconds() - LastTime);
+		LastTime = FPlatformTime::Seconds();
+#endif // AISENSE_SIGHT_TIMESLICING_DEBUG
+		if ((NumQueriesProcessed % MinQueriesPerTimeSliceCheck) == 0 && FPlatformTime::Seconds() > TimeSliceEnd)
+		{
+			bHitTimeSliceLimit = true;
+			break;
+		}
+
 		if (TracesCount < MaxTracesPerTick)
 		{
 			FPerceptionListener& Listener = ListenersMap[SightQuery->ObserverId];
@@ -162,7 +194,8 @@ float UAISense_Sight::Update()
 				const float SightRadiusSq = SightQuery->bLastResult ? PropDigest.LoseSightRadiusSq : PropDigest.SightRadiusSq;
 				
 				float StimulusStrength = 1.f;
-
+				
+				// @Note that automagical "seeing" does not care about sight range nor vision cone
 				if (ShouldAutomaticallySeeTarget(PropDigest, SightQuery, Listener, TargetActor, StimulusStrength))
 				{
 					// Pretend like we've seen this target where we last saw them
@@ -248,6 +281,11 @@ float UAISense_Sight::Update()
 
 		SightQuery->RecalcScore();
 	}
+#ifdef AISENSE_SIGHT_TIMESLICING_DEBUG
+	UE_LOG(LogAIPerception, VeryVerbose, TEXT("UAISense_Sight::Update processed %d sources in %f seconds [time slice limited? %d]"), NumQueriesProcessed, TimeSpent, bHitTimeSliceLimit ? 1 : 0);
+#else
+	UE_LOG(LogAIPerception, VeryVerbose, TEXT("UAISense_Sight::Update processed %d sources [time slice limited? %d]"), NumQueriesProcessed, bHitTimeSliceLimit ? 1 : 0);
+#endif // AISENSE_SIGHT_TIMESLICING_DEBUG
 
 	if (InvalidQueries.Num() > 0)
 	{
@@ -276,7 +314,10 @@ float UAISense_Sight::Update()
 	}
 
 	// sort Sight Queries
-	SortQueries();
+	{
+		SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight_UpdateSort);
+		SortQueries();
+	}
 
 	//return SightQueryQueue.Num() > 0 ? 1.f/6 : FLT_MAX;
 	return 0.f;
@@ -305,6 +346,7 @@ void UAISense_Sight::UnregisterSource(AActor& SourceActor)
 void UAISense_Sight::CleanseInvalidSources()
 {
 	bool bInvalidSourcesFound = false;
+	int32 NumInvalidSourcesFound = 0;
 	for (TMap<FName, FAISightTarget>::TIterator ItTarget(ObservedTargets); ItTarget; ++ItTarget)
 	{
 		if (ItTarget->Value.Target.IsValid() == false)
@@ -315,8 +357,11 @@ void UAISense_Sight::CleanseInvalidSources()
 			ItTarget.RemoveCurrent();
 
 			bInvalidSourcesFound = true;
+			NumInvalidSourcesFound++;
 		}
 	}
+
+	UE_LOG(LogAIPerception, Verbose, TEXT("UAISense_Sight::CleanseInvalidSources called and removed %d invalid sources"), NumInvalidSourcesFound);
 
 	if (bInvalidSourcesFound)
 	{
@@ -332,7 +377,7 @@ void UAISense_Sight::CleanseInvalidSources()
 
 bool UAISense_Sight::RegisterTarget(AActor& TargetActor, FQueriesOperationPostProcess PostProcess)
 {
-	SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight);
+	SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight_RegisterTarget);
 	
 	FAISightTarget* SightTarget = ObservedTargets.Find(TargetActor.GetFName());
 	
@@ -463,7 +508,7 @@ void UAISense_Sight::OnListenerUpdateImpl(const FPerceptionListener& UpdatedList
 	}
 	else
 	{
-		DigestedProperties.FindAndRemoveChecked(ListenerID);
+		DigestedProperties.Remove(ListenerID);
 	}
 }
 
@@ -480,7 +525,7 @@ void UAISense_Sight::OnListenerRemovedImpl(const FPerceptionListener& UpdatedLis
 
 void UAISense_Sight::RemoveAllQueriesByListener(const FPerceptionListener& Listener, FQueriesOperationPostProcess PostProcess)
 {
-	SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight);
+	SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight_RemoveByListener);
 
 	if (SightQueryQueue.Num() == 0)
 	{
@@ -508,7 +553,7 @@ void UAISense_Sight::RemoveAllQueriesByListener(const FPerceptionListener& Liste
 
 void UAISense_Sight::RemoveAllQueriesToTarget(const FAISightTarget::FTargetId& TargetId, FQueriesOperationPostProcess PostProcess)
 {
-	SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight);
+	SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight_RemoveToTarget);
 
 	if (SightQueryQueue.Num() == 0)
 	{
@@ -530,6 +575,34 @@ void UAISense_Sight::RemoveAllQueriesToTarget(const FAISightTarget::FTargetId& T
 	if (PostProcess == Sort && bQueriesRemoved)
 	{
 		SortQueries();
+	}
+}
+
+void UAISense_Sight::OnListenerForgetsActor(const FPerceptionListener& Listener, AActor& ActorToForget)
+{
+	const uint32 ListenerId = Listener.GetListenerID();
+	
+	for (FAISightQuery& SightQuery : SightQueryQueue)
+	{
+		if (SightQuery.ObserverId == ListenerId)
+		{
+			// assuming one query per observer-target pair
+			SightQuery.ForgetPreviousResult();
+			break;
+		}
+	}
+}
+
+void UAISense_Sight::OnListenerForgetsAll(const FPerceptionListener& Listener)
+{
+	const uint32 ListenerId = Listener.GetListenerID();
+
+	for (FAISightQuery& SightQuery : SightQueryQueue)
+	{
+		if (SightQuery.ObserverId == ListenerId)
+		{
+			SightQuery.ForgetPreviousResult();
+		}
 	}
 }
 

@@ -52,13 +52,7 @@ void FMainFrameHandler::ShutDownEditor()
 	if (RootWindow.IsValid())
 	{
 		RootWindow->SetRequestDestroyWindowOverride(FRequestDestroyWindowOverride());
-		
-		// This is a low risk temporary hack for 4.8 to avoid a crash when shutting down the open project window when running
-		// in opengl on windows.  A proper, higher risk fix is coming which will replace this.
-		if (FApp::HasGameName())
-		{
-			RootWindow->RequestDestroyWindow();
-		}
+		RootWindow->RequestDestroyWindow();
 	}
 
 	// Save out any config settings for the editor so they don't get lost

@@ -34,15 +34,17 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														CrashType = Model.CrashType,
 														UserGroup = Model.UserGroup,
 														SearchQuery = Model.SearchQuery,
-                                                        UsernameQuery = Model.UsernameQuery,
-                                                        EpicIdQuery = Model.EpicIdQuery,
-                                                        MachineIdQuery = Model.MachineIdQuery,
-                                                        DescriptionQuery = Model.DescriptionQuery,
-                                                        MessageQuery = Model.MessageQuery,
-                                                        JiraQuery = Model.JiraQuery,
+														UsernameQuery = Model.UsernameQuery,
+														EpicIdOrMachineQuery = Model.EpicIdOrMachineQuery,
+														MessageQuery = Model.MessageQuery,
+														BuggId = Model.BuggId,
+														BuiltFromCL = Model.BuiltFromCL,
+														JiraQuery = Model.JiraQuery,
 														DateFrom = Model.DateFrom,
 														DateTo = Model.DateTo,
 														BranchName = Model.BranchName,
+														VersionName = Model.VersionName,
+														PlatformName = Model.PlatformName,
 														GameName = Model.GameName
 													} );
 
@@ -89,15 +91,17 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														CrashType = Model.CrashType,
 														UserGroup = Model.UserGroup,
 														SearchQuery = CallStack,
-                                                        UsernameQuery = Model.UsernameQuery,
-                                                        EpicIdQuery = Model.EpicIdQuery,
-                                                        MachineIdQuery = Model.MachineIdQuery,
-                                                        DescriptionQuery = Model.DescriptionQuery,
-                                                        MessageQuery = Model.MessageQuery,
-                                                        JiraQuery = Model.JiraQuery,
+														UsernameQuery = Model.UsernameQuery,
+														EpicIdOrMachineQuery = Model.EpicIdOrMachineQuery,
+														MessageQuery = Model.MessageQuery,
+														BuggId = Model.BuggId,
+														BuiltFromCL = Model.BuiltFromCL,
+														JiraQuery = Model.JiraQuery,
 														DateFrom = Model.DateFrom,
 														DateTo = Model.DateTo,
 														BranchName = Model.BranchName,
+														VersionName = Model.VersionName,
+														PlatformName = Model.PlatformName,
 														GameName = Model.GameName
 													} );
 
@@ -127,15 +131,17 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														CrashType = Model.CrashType,
 														UserGroup = UserGroup,
 														SearchQuery = Model.SearchQuery,
-                                                        UsernameQuery = Model.UsernameQuery,
-                                                        EpicIdQuery = Model.EpicIdQuery,
-                                                        MachineIdQuery = Model.MachineIdQuery,
-                                                        DescriptionQuery = Model.DescriptionQuery,
-                                                        MessageQuery = Model.MessageQuery,
-                                                        JiraQuery = Model.JiraQuery,
+														UsernameQuery = Model.UsernameQuery,
+														EpicIdOrMachineQuery = Model.EpicIdOrMachineQuery,
+														MessageQuery = Model.MessageQuery,
+														BuggId = Model.BuggId,
+														BuiltFromCL = Model.BuiltFromCL,
+														JiraQuery = Model.JiraQuery,
 														DateFrom = Model.DateFrom,
 														DateTo = Model.DateTo,
 														BranchName = Model.BranchName,
+														VersionName = Model.VersionName,
+														PlatformName = Model.PlatformName,
 														GameName = Model.GameName
 													} );
 
@@ -169,7 +175,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														SearchQuery = Model.SearchQuery,
 														DateFrom = Model.DateFrom,
 														DateTo = Model.DateTo,
-														BuildVersion = Model.BuildVersion,
+														VersionName = Model.VersionName,
 														CrashType = Model.CrashType,
 													} );
 
@@ -217,7 +223,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														SearchQuery = CallStack,
 														DateFrom = Model.DateFrom,
 														DateTo = Model.DateTo,
-														BuildVersion = Model.BuildVersion,
+														VersionName = Model.VersionName,
 														CrashType = Model.CrashType,
 													} );
 
@@ -248,7 +254,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														SearchQuery = Model.SearchQuery,
 														DateFrom = Model.DateFrom,
 														DateTo = Model.DateTo,
-														BuildVersion = Model.BuildVersion,
+														VersionName = Model.VersionName,
 														CrashType = Model.CrashType,
 													} );
 

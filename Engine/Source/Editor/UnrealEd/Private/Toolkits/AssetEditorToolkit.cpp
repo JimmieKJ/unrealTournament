@@ -9,6 +9,7 @@
 #include "Editor/MainFrame/Public/MainFrame.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "ClassIconFinder.h"
+#include "CollectionManagerModule.h"
 #include "IUserFeedbackModule.h"
 #include "IDocumentation.h"
 #include "ReferenceViewer.h"
@@ -76,6 +77,7 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 
 		// Create the label and the link for the toolkit documentation.
 		TAttribute<FText> Label = TAttribute<FText>( this, &FAssetEditorToolkit::GetToolkitName );
+		TAttribute<FText> ToolTipText = TAttribute<FText>( this, &FAssetEditorToolkit::GetToolkitToolTipText );
 		FString DocLink = GetDocumentationLink();
 		if ( !DocLink.StartsWith( "Shared/" ) )
 		{
@@ -86,7 +88,7 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 		NewMajorTab = SNew(SDockTab) 
 			.ContentPadding(0.0f) 
 			.TabRole(ETabRole::MajorTab)
-			.ToolTip( IDocumentation::Get()->CreateToolTip( Label, nullptr, DocLink, GetToolkitFName().ToString() ) )
+			.ToolTip(IDocumentation::Get()->CreateToolTip(ToolTipText, nullptr, DocLink, GetToolkitFName().ToString()))
 			.Icon( this, &FAssetEditorToolkit::GetDefaultTabIcon )
 			.Label( Label );
 
@@ -111,7 +113,7 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 #if PLATFORM_MAC
 		FSuperSearchModule& SuperSearchModule = FModuleManager::LoadModuleChecked< FSuperSearchModule >(TEXT("SuperSearch"));
 		TSharedPtr< SEditableTextBox > ExposedEditableTextBox;
-		TSharedRef<SWidget> SuperSearchWidget = SuperSearchModule.MakeSearchBox(ExposedEditableTextBox);
+		TSharedRef<SWidget> SuperSearchWidget = SuperSearchModule.MakeSearchBox(ExposedEditableTextBox, GEditorSettingsIni);
 #endif
 
 		IUserFeedbackModule& UserFeedback = FModuleManager::LoadModuleChecked<IUserFeedbackModule>(TEXT("UserFeedback"));
@@ -275,10 +277,19 @@ FText FAssetEditorToolkit::GetToolkitName() const
 
 	check (EditingObject != NULL);
 
-	return GetDescriptionForObject(EditingObject);
+	return GetLabelForObject(EditingObject);
 }
 
-FText FAssetEditorToolkit::GetDescriptionForObject(const UObject* InObject)
+FText FAssetEditorToolkit::GetToolkitToolTipText() const
+{
+	const UObject* EditingObject = GetEditingObject();
+
+	check (EditingObject != NULL);
+
+	return GetToolTipTextForObject(EditingObject);
+}
+
+FText FAssetEditorToolkit::GetLabelForObject(const UObject* InObject)
 {
 	const bool bDirtyState = InObject->GetOutermost()->IsDirty();
 	FString NameString;
@@ -295,6 +306,37 @@ FText FAssetEditorToolkit::GetDescriptionForObject(const UObject* InObject)
 	Args.Add( TEXT("ObjectName"), FText::FromString( NameString ));
 	Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
 	return FText::Format( LOCTEXT("AssetEditorAppLabel", "{ObjectName}{DirtyState}"), Args );
+}
+
+FText FAssetEditorToolkit::GetToolTipTextForObject(const UObject* InObject)
+{
+	FString ToolTipString;
+	if(const AActor* ObjectAsActor = Cast<AActor>(InObject))
+	{
+		ToolTipString += LOCTEXT("ToolTipActorLabel", "Actor").ToString();
+		ToolTipString += TEXT(": ");
+		ToolTipString += ObjectAsActor->GetActorLabel();
+	}
+	else
+	{
+		ToolTipString += LOCTEXT("ToolTipAssetLabel", "Asset").ToString();
+		ToolTipString += TEXT(": ");
+		ToolTipString += InObject->GetName();
+
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+
+		const FString CollectionNames = CollectionManagerModule.Get().GetCollectionsStringForObject(*InObject->GetPathName(), ECollectionShareType::CST_All);
+		if (!CollectionNames.IsEmpty())
+		{
+			ToolTipString += TEXT("\n");
+
+			ToolTipString += LOCTEXT("ToolTipCollectionsLabel", "Collections").ToString();
+			ToolTipString += TEXT(": ");
+			ToolTipString += CollectionNames;
+		}
+	}
+
+	return FText::FromString(ToolTipString);
 }
 
 class FEdMode* FAssetEditorToolkit::GetEditorMode() const

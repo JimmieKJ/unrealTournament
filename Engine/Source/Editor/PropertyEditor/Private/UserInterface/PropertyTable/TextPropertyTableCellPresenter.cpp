@@ -109,15 +109,45 @@ TSharedRef<SWidget> FTextPropertyTableCellPresenter::ConstructEditModeCellWidget
 			PropertyWidget = SNew( SPropertyEditorNumeric<float>, PropertyEditor )
 				.Font( Font );
 		}
-		if ( SPropertyEditorNumeric<int32>::Supports(PropertyEditor) )
+		else if (SPropertyEditorNumeric<int8>::Supports(PropertyEditor))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<int8>, PropertyEditor)
+				.Font(Font);
+		}
+		else if (SPropertyEditorNumeric<int16>::Supports(PropertyEditor))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<int16>, PropertyEditor)
+				.Font(Font);
+		}
+		else if ( SPropertyEditorNumeric<int32>::Supports(PropertyEditor) )
 		{
 			PropertyWidget = SNew( SPropertyEditorNumeric<int32>, PropertyEditor )
 				.Font( Font );
 		}
-		if ( SPropertyEditorNumeric<uint8>::Supports(PropertyEditor) )
+		else if (SPropertyEditorNumeric<int64>::Supports(PropertyEditor))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<int64>, PropertyEditor)
+				.Font(Font);
+		}
+		else if ( SPropertyEditorNumeric<uint8>::Supports(PropertyEditor) )
 		{
 			PropertyWidget = SNew( SPropertyEditorNumeric<uint8>, PropertyEditor )
 				.Font( Font );
+		}
+		else if (SPropertyEditorNumeric<uint16>::Supports(PropertyEditor))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<uint16>, PropertyEditor)
+				.Font(Font);
+		}
+		else if (SPropertyEditorNumeric<uint32>::Supports(PropertyEditor))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<uint32>, PropertyEditor)
+				.Font(Font);
+		}
+		else if (SPropertyEditorNumeric<uint64>::Supports(PropertyEditor))
+		{
+			PropertyWidget = SNew(SPropertyEditorNumeric<uint64>, PropertyEditor)
+				.Font(Font);
 		}
 		else if ( SPropertyEditorCombo::Supports(PropertyEditor) )
 		{

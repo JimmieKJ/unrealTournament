@@ -5,6 +5,8 @@
 =============================================================================*/
 #pragma once
 
+#include "AndroidApplication.h"
+
 bool GAndroidGPUInfoReady = false;
 
 class FAndroidGPUInfo
@@ -19,6 +21,7 @@ public:
 	FString GPUFamily;
 	FString GLVersion;
 	bool bSupportsFloatingPointRenderTargets;
+	bool bSupportsFrameBufferFetch;
 	TArray<FString> TargetPlatformNames;
 
 private:
@@ -100,7 +103,7 @@ private:
 #endif
 
 		bSupportsFloatingPointRenderTargets = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
-
+		bSupportsFrameBufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch"));
 #endif
 		GAndroidGPUInfoReady = true;
 	}

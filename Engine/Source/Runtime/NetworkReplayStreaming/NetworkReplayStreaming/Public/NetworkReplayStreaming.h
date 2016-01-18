@@ -47,7 +47,7 @@ public:
 /** Struct to store information about a stream, returned from search results. */
 struct FNetworkReplayStreamInfo
 {
-	FNetworkReplayStreamInfo() : SizeInBytes( 0 ), LengthInMS( 0 ), NumViewers( 0 ), bIsLive( false ), Changelist( 0 ) {}
+	FNetworkReplayStreamInfo() : SizeInBytes( 0 ), LengthInMS( 0 ), NumViewers( 0 ), bIsLive( false ), Changelist( 0 ), bShouldKeep( false ) {}
 
 	/** The name of the stream (generally this is auto generated, refer to friendly name for UI) */
 	FString Name;
@@ -72,6 +72,9 @@ struct FNetworkReplayStreamInfo
 
 	/** The changelist of the replay */
 	int32 Changelist;
+
+	/** Debug feature that allows us to mark replays to not be deleted. True if this replay has been marked as such */
+	bool bShouldKeep;
 };
 
 namespace ENetworkReplayError
@@ -176,9 +179,12 @@ public:
 	virtual bool IsDataAvailableForTimeRange( const uint32 StartTimeInMS, const uint32 EndTimeInMS ) = 0;
 	virtual bool IsLoadingCheckpoint() const = 0;
 	virtual void AddEvent( const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) = 0;
+	virtual void AddOrUpdateEvent( const FString& Name, const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) = 0;
 	virtual void EnumerateEvents( const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate ) = 0;
-	virtual void RequestEventData(const FString& EventID, const FOnRequestEventDataComplete& RequestEventDataComplete) = 0;
+	virtual void EnumerateEvents( const FString& ReplayName, const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate ) = 0;
+	virtual void RequestEventData( const FString& EventID, const FOnRequestEventDataComplete& RequestEventDataComplete ) = 0;
 	virtual void SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) = 0;
+	virtual void KeepReplay( const FString& ReplayName, const bool bKeep ) = 0;
 	/** Returns true if the playing stream is currently in progress */
 	virtual bool IsLive() const = 0;
 
@@ -196,6 +202,12 @@ public:
 	 * @param Delegate A delegate that will be executed if bound when the list of streams is available
 	 */
 	virtual void EnumerateStreams( const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const FOnEnumerateStreamsComplete& Delegate ) = 0;
+
+	/**
+	* Retrieves the streams that are available for viewing. May execute asynchronously.
+	* Allows the caller to pass in a custom list of query parameters
+	*/
+	virtual void EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const FString& UserString, const FString& MetaString, const TArray< FString >& ExtraParms, const FOnEnumerateStreamsComplete& Delegate ) = 0;
 
 	/**
 	 * Retrieves the streams that have been recently viewed. May execute asynchronously.
@@ -219,7 +231,7 @@ public:
 class INetworkReplayStreamingFactory : public IModuleInterface
 {
 public:
-	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer(const struct FURL& URL) = 0;
+	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer() = 0;
 };
 
 /** Replay streaming factory manager */
@@ -231,5 +243,5 @@ public:
 		return FModuleManager::LoadModuleChecked< FNetworkReplayStreaming >( "NetworkReplayStreaming" );
 	}
 
-	virtual INetworkReplayStreamingFactory& GetFactory();
+	virtual INetworkReplayStreamingFactory& GetFactory(const TCHAR* FactoryNameOverride = nullptr);
 };

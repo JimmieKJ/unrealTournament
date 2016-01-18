@@ -177,7 +177,7 @@ completion:^(BOOL finished)
 }
 @end
 
-void FIOSAdvertisingProvider::ShowAdBanner( bool bShowOnBottomOfScreen ) 
+void FIOSAdvertisingProvider::ShowAdBanner( bool bShowOnBottomOfScreen, int32 /*AdID*/ ) 
 {
 	[[IOSAdvertising GetDelegate] performSelectorOnMainThread:@selector(ShowAdBanner:) withObject:[NSNumber numberWithBool : bShowOnBottomOfScreen] waitUntilDone : NO];
 }
@@ -190,4 +190,9 @@ void FIOSAdvertisingProvider::HideAdBanner()
 void FIOSAdvertisingProvider::CloseAdBanner() 
 {
 	[[IOSAdvertising GetDelegate] performSelectorOnMainThread:@selector(CloseAd) withObject:nil waitUntilDone : NO];
+}
+
+int32 FIOSAdvertisingProvider::GetAdIDCount()
+{
+	return 1;
 }

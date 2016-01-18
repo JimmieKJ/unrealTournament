@@ -90,75 +90,76 @@ void STrackNode::Construct(const FArguments& InArgs)
 	AllowDrag = InArgs._AllowDrag;
 
 	Font = FSlateFontInfo( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 10 );
-}
-
-int32 STrackNode::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
-{
-	// We draw ourselves on all of the AllottedGeometry. The parent STrack should have arranged us
-	FPaintGeometry MyGeometry =	AllottedGeometry.ToPaintGeometry();
-	FVector2D DrawPos(0.f, 0.f);
-	FVector2D DrawSize = AllottedGeometry.Size;
-
-	LastSize = DrawSize; // HACK: Fixme. Need to save this off in case we are drag/dropped
-	
-	// Background
-	FLinearColor DrawColor = (IsSelected() ? SelectedNodeColor.Get() : NodeColor.Get());
 
 	const FSlateBrush* StyleInfo = FEditorStyle::GetBrush("ProgressBar.Background"); // FIXME: make slate argument for STrackNode
-	FSlateDrawElement::MakeBox( 
-		OutDrawElements,
-		LayerId++, 
-		MyGeometry, 
-		StyleInfo, 
-		MyClippingRect, 
-		ESlateDrawEffect::None,
-		DrawColor);
 
-	// Text
-	if (!NodeName.Get().IsEmpty())
+	if(InArgs._OverrideContent.Widget != SNullWidget::NullWidget)
 	{
-		MyGeometry = AllottedGeometry.ToPaintGeometry( DrawPos + FVector2D(2, 2), DrawSize );
-		FSlateDrawElement::MakeText( 
-			OutDrawElements,
-			LayerId++,
-			MyGeometry,
-			NodeName.Get(),
-			Font,
-			MyClippingRect,
-			ESlateDrawEffect::None,
-			FLinearColor::Black//FLinearColor::White//
-			);
+		bContentOverriden = true;
+		// Content was overridden by caller
+		this->ChildSlot
+		[
+			InArgs._OverrideContent.Widget
+		];
 	}
-
-	return LayerId;
+	else
+	{
+		bContentOverriden = false;
+		// Content not overriden, use default node appearance
+		this->ChildSlot
+		[
+			SNew(SBorder)
+			.BorderImage(StyleInfo)
+			.ForegroundColor(FLinearColor::Black)
+			.BorderBackgroundColor(this, &STrackNode::GetNodeColor)
+			.Content()
+			[
+				SNew(STextBlock)
+				.Font(Font)
+				.Text(this, &STrackNode::GetNodeText)
+			]
+		];
+	}
 }
 
 FVector2D STrackNode::GetOffsetRelativeToParent(const FGeometry& AllottedGeometry) const
 {
+	FVector2D Result(0.0f, 0.0f);
+	FVector2D Size = GetSizeRelativeToParent(AllottedGeometry);
 	FTrackScaleInfo ScaleInfo(ViewInputMin.Get(), ViewInputMax.Get(), 0, 0, AllottedGeometry.Size);
 
 	if(bCenterOnPosition)
 	{
-		FVector2D Size = GetSizeRelativeToParent(AllottedGeometry);
-
-		return FVector2D( ScaleInfo.InputToLocalX(DataStartPos.Get()) - (Size.X/2.f) , 0);
+		Result = FVector2D( ScaleInfo.InputToLocalX(DataStartPos.Get()) - (Size.X/2.f) , 0);
 
 	}	
-	return FVector2D( ScaleInfo.InputToLocalX(DataStartPos.Get()) , 0);
+	else
+	{
+		Result = FVector2D( ScaleInfo.InputToLocalX(DataStartPos.Get()) , 0);
+	}
+
+	return Result;
 }
 
 FVector2D STrackNode::GetSizeRelativeToParent(const FGeometry& AllottedGeometry) const
 {
-	if(DataLength.Get() > 0.f)
+	if(bContentOverriden)
 	{
-		// Scale us by data size
-		FTrackScaleInfo ScaleInfo(ViewInputMin.Get(), ViewInputMax.Get(), 0, 0, AllottedGeometry.Size);
-		return FVector2D( ScaleInfo.InputToLocalX(ViewInputMin.Get() + DataLength.Get()) , STrackDefaultHeight);
+		return ChildSlot.GetWidget()->GetDesiredSize();
 	}
 	else
 	{
-		// Use default hardcoded "knob" size
-		return FVector2D(NodeHandleWidth, NodeHandleHeight);
+		if(DataLength.Get() > 0.f)
+		{
+			// Scale us by data size
+			FTrackScaleInfo ScaleInfo(ViewInputMin.Get(), ViewInputMax.Get(), 0, 0, AllottedGeometry.Size);
+			return FVector2D(ScaleInfo.InputToLocalX(ViewInputMin.Get() + DataLength.Get()), STrackDefaultHeight);
+		}
+		else
+		{
+			// Use default hardcoded "knob" size
+			return FVector2D(NodeHandleWidth, NodeHandleHeight);
+		}
 	}
 }
 
@@ -219,6 +220,7 @@ FReply STrackNode::BeginDrag( const FGeometry& MyGeometry, const FPointerEvent& 
 	FVector2D ScreenNodePosition = MyGeometry.AbsolutePosition;// + GetOffsetRelativeToParent(MyGeometry);
 	
 	bBeingDragged = true;
+	LastSize = MyGeometry.Size;
 
 	//void FTrackNodeDragDropOp(TSharedRef<STrackNode> TrackNode, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfNode)
 	return FReply::Handled().BeginDragDrop(FTrackNodeDragDropOp::New(SharedThis(this), ScreenCursorPos, ScreenNodePosition));
@@ -317,6 +319,16 @@ float STrackNode::GetDataStartPos() const
 	return 0.f;
 }
 
+FSlateColor STrackNode::GetNodeColor() const
+{
+	return IsSelected() ? FSlateColor(SelectedNodeColor.Get()) : FSlateColor(NodeColor.Get());
+}
+
+FText STrackNode::GetNodeText() const
+{
+	return FText::FromString(NodeName.Get());
+}
+
 //////////////////////////////////////////////////////////////////////////
 // STrack
 
@@ -367,7 +379,7 @@ void STrack::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChil
 		TrackNode->CacheTrackGeometry(AllottedGeometry);
 		FVector2D Offset = TrackNode->GetOffsetRelativeToParent(AllottedGeometry);
 		FVector2D Size = TrackNode->GetSizeRelativeToParent(AllottedGeometry);
-
+	
 		ArrangedChildren.AddWidget( AllottedGeometry.MakeChild(TrackNode, Offset, Size) );
 	}
 }
@@ -446,7 +458,7 @@ int32 STrack::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry
 		{
 			//float EndPos = (DraggableBarIndex.Get().IsValidIndex(I+1) ? DraggableBarIndex.Get()(I+1)
 
-			FPaintGeometry TextGeometry = AllottedGeometry.ToPaintGeometry( FVector2D(XPos + 5.f, 5.f), AllottedGeometry.GetDrawSize() );
+			FPaintGeometry TextGeometry = AllottedGeometry.ToPaintGeometry( FVector2D(XPos + 15.f, 5.f), AllottedGeometry.GetDrawSize() );
 			FSlateDrawElement::MakeText( 
 				OutDrawElements,
 				CustomLayerId,
@@ -640,7 +652,7 @@ FReply STrack::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& Mo
 		/** Update what bar is draggable if we arent already dragging */
 		UpdateDraggableBarIndex(MyGeometry, MouseEvent.GetScreenSpacePosition());
 	}
-	
+
 	return FReply::Unhandled();
 }
 
@@ -728,14 +740,16 @@ TSharedPtr<SWidget> STrack::SummonContextMenu(const FGeometry& MyGeometry, const
 	}
 
 	// Build the menu if we actually added anything to it
-	TSharedPtr<SWindow> ContextMenuWindow = NULL;
+	TSharedPtr<SWidget> MenuContent;
 	if(SummonedContextMenu)
 	{
-		ContextMenuWindow =
-			FSlateApplication::Get().PushMenu( SharedThis( this ), MenuBuilder.MakeWidget(), CursorPos, FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ));
+		MenuContent = MenuBuilder.MakeWidget();
+
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+		FSlateApplication::Get().PushMenu(SharedThis(this), WidgetPath, MenuContent.ToSharedRef(), CursorPos, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 	}
 
-	return ContextMenuWindow;
+	return MenuContent;
 }
 
 /** Return true if we should snap and set out position to its position */
@@ -767,6 +781,10 @@ bool STrack::GetDraggableBarSnapPosition(const FGeometry& MyGeometry, float &Out
 
 void STrack::OnMouseLeave( const FPointerEvent& MouseEvent )
 {
+	if(bDraggingBar && OnBarDrop.IsBound())
+	{
+		OnBarDrop.Execute(DraggableBarIndex);
+	}
 	bDraggingBar = false;
 }
 
@@ -832,6 +850,24 @@ float STrack::LocalToDataX( float Input, const FGeometry& MyGeometry ) const
 void STrack::AddTrackNode( TSharedRef<STrackNode> Node )
 {
 	TrackNodes.Add(Node);
+}
+
+void STrack::ClearTrack()
+{
+	TrackNodes.Empty();
+}
+
+void STrack::GetSelectedNodeIndices(TArray<int32>& OutIndices)
+{
+	OutIndices.Empty();
+	for(int32 i = 0 ; i < TrackNodes.Num() ; ++i)
+	{
+		TSharedRef<STrackNode> Node = TrackNodes[i];
+		if(Node->IsSelected())
+		{
+			OutIndices.Add(i);
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

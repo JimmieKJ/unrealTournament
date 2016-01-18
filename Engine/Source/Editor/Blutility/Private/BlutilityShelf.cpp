@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "BlutilityPrivatePCH.h"
-#include "BlutilityClasses.h"
 #include "AssetToolsModule.h"
 #include "BlutilityShelf.h"
 
@@ -56,7 +55,7 @@ void SBlutilityShelf::Construct(const FArguments& InArgs)
 	bInFavoritesMode = false;
 
 	// Check the shelf collection
-	FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 	if (CollectionManagerModule.Get().CollectionExists(BlutilityModule::BlutilityShelfCollectionName, ECollectionShareType::CST_Local))
 	{
 		// Start up in favorites mode if it contains something
@@ -68,7 +67,7 @@ void SBlutilityShelf::Construct(const FArguments& InArgs)
 	else
 	{
 		// Create the collection
-		CollectionManagerModule.Get().CreateCollection(BlutilityModule::BlutilityShelfCollectionName, ECollectionShareType::CST_Local);
+		CollectionManagerModule.Get().CreateCollection(BlutilityModule::BlutilityShelfCollectionName, ECollectionShareType::CST_Local, ECollectionStorageMode::Static);
 	}
 
 	// Build the shelf
@@ -176,7 +175,7 @@ void SBlutilityShelf::ToggleFavoriteStatusOnSelection(TArray<FAssetData> AssetLi
 		bool bAreAllSelected;
 		GetFavoriteStatus(AssetList, /*out*/ bAreAnySelected, /*out*/ bAreAllSelected);
 
-		FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 		if (bAreAllSelected)
 		{
 			// Remove them
@@ -201,7 +200,7 @@ bool SBlutilityShelf::GetFavoriteStatusOnSelection(TArray<FAssetData> AssetList)
 void SBlutilityShelf::GetFavoriteStatus(const TArray<FAssetData>& AssetList, /*out*/ bool& bAreAnySelected, /*out*/ bool& bAreAllSelected)
 {
 	TArray<FName> AssetPaths;
-	FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 	CollectionManagerModule.Get().GetAssetsInCollection(BlutilityModule::BlutilityShelfCollectionName, ECollectionShareType::CST_Local, /*out*/ AssetPaths);
 
 	bAreAnySelected = false;

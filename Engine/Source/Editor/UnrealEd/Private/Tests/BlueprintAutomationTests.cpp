@@ -18,12 +18,12 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintAutomationTests, Log, All);
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintCompileOnLoadTest, "Project.Blueprints.Compile-On-Load", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintInstancesTest, "Project.Blueprints.Instance Test", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintReparentTest, "System.Blueprints.Reparent", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintRenameAndCloneTest, "Project.Blueprints.Rename And Clone", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser) )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FCompileBlueprintsTest, "Project.Blueprints.Compile Blueprints", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FCompileAnimBlueprintsTest, "Project.Blueprints.Compile Anims", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FBlueprintCompileOnLoadTest, "Project.Blueprints.Compile-On-Load", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FBlueprintInstancesTest, "Project.Blueprints.Instance Test", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FBlueprintReparentTest, "System.Blueprints.Reparent", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FBlueprintRenameAndCloneTest, "Project.Blueprints.Rename And Clone", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::RequiresUser | EAutomationTestFlags::StressFilter))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCompileBlueprintsTest, "Project.Blueprints.Compile Blueprints", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCompileAnimBlueprintsTest, "Project.Blueprints.Compile Anims", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
 
 class FBlueprintAutomationTestUtilities
 {
@@ -321,7 +321,7 @@ public:
 		{
 			UE_LOG(LogBlueprintAutomationTests, Log, TEXT("No need to unload '%s' from the transient package."), *BlueprintObj->GetName());
 		}
-		else if (OldPackage->HasAnyFlags(RF_RootSet) || BlueprintObj->HasAnyFlags(RF_RootSet))
+		else if (OldPackage->IsRooted() || BlueprintObj->IsRooted())
 		{
 			UE_LOG(LogBlueprintAutomationTests, Error, TEXT("Cannot unload '%s' when its root is set (it will not be garbage collected, leaving it in an erroneous state)."), *OldPackage->GetName());
 		}
@@ -346,7 +346,7 @@ public:
 
 			// make sure the blueprint is properly trashed so we can rerun tests on it
 			BlueprintObj->SetFlags(RF_Transient);
-			BlueprintObj->ClearFlags(RF_Standalone | RF_RootSet | RF_Transactional);
+			BlueprintObj->ClearFlags(RF_Standalone | RF_Transactional);
 			BlueprintObj->RemoveFromRoot();
 			BlueprintObj->MarkPendingKill();
 
@@ -362,7 +362,7 @@ public:
 			// holding onto any references to the blueprints we want unloaded
 			GEditor->Trans->Reset(NSLOCTEXT("BpAutomation", "BpAutomationTest", "Blueprint Automation Test"));
 #endif // #if WITH_EDITOR
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 		}
 	}
 
@@ -430,7 +430,7 @@ public:
 		bool bHasReferences = false;
 
 		FReferencerInformationList Refs;
-		if (IsReferenced(Obj, RF_Native | RF_Public, true, &Refs))
+		if (IsReferenced(Obj, RF_Public, EInternalObjectFlags::None, true, &Refs))
 		{
 			ExternalRefsOut = Refs.ExternalReferences;
 			bHasReferences = true;
@@ -478,7 +478,6 @@ public:
 
 		bool bIsRegeneratingOnLoad = false;
 		bool bSkipGarbageCollection = true;
-		FBlueprintEditorUtils::RefreshAllNodes(BlueprintObj);
 		FKismetEditorUtilities::CompileBlueprint(BlueprintObj, bIsRegeneratingOnLoad, bSkipGarbageCollection);
 
 		if (BlueprintPackage != nullptr)
@@ -596,8 +595,8 @@ public:
 	{
 		UPackage* TempPackage = CreateTempPackage(BlueprintToClone->GetName());
 
-		FString TempBlueprintName = MakeUniqueObjectName(TempPackage, UBlueprint::StaticClass(), BlueprintToClone->GetFName()).ToString();
-		return Cast<UBlueprint>(StaticDuplicateObject(BlueprintToClone, TempPackage, *TempBlueprintName));
+		const FName TempBlueprintName = MakeUniqueObjectName(TempPackage, UBlueprint::StaticClass(), BlueprintToClone->GetFName());
+		return Cast<UBlueprint>(StaticDuplicateObject(BlueprintToClone, TempPackage, TempBlueprintName));
 	}
 
 	/**
@@ -784,7 +783,7 @@ public:
 			// holding onto any references to the blueprints we want unloaded
 			GEditor->Trans->Reset(NSLOCTEXT("BpAutomation", "BpAutomationTest", "Blueprint Automation Test"));
 #endif // #if WITH_EDITOR
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 		}
 	}
 
@@ -963,11 +962,6 @@ bool FBlueprintCompileOnLoadTest::RunTest(const FString& BlueprintAssetPath)
 				FArchiveReplaceObjectRef<UObject>(Subobj, ClassRedirects, /*bNullPrivateRefs=*/false, /*bIgnoreOuterRef=*/true, /*bIgnoreArchetypeRef=*/false);
 			}
 		}
-
-		UPackage* AssetPackage = ReloadedBlueprint->GetOutermost();
-		bool bHasUnsavedChanges = AssetPackage->IsDirty();
-		FBlueprintEditorUtils::RefreshAllNodes(ReloadedBlueprint);
-		AssetPackage->SetDirtyFlag(bHasUnsavedChanges);
 	}
 
 	// look for diffs between subsequent loads and log them as errors
@@ -1226,7 +1220,7 @@ bool FBlueprintReparentTest::RunTest(const FString& BlueprintAssetPath)
 		GEditor->Trans->Reset(NSLOCTEXT("BpAutomation", "ReparentTest", "Reparent Blueprint Test"));
 #endif // #if WITH_EDITOR
 		// make sure the unloaded blueprints are properly flushed (for future tests)
-		CollectGarbage(RF_Native);
+		CollectGarbage(RF_NoFlags);
 	}
 
 	return !bTestFailed;
@@ -1258,7 +1252,7 @@ void FBlueprintRenameAndCloneTest::GetTests(TArray<FString>& OutBeautifiedNames,
 
 		if (UPackage* ExistingPackage = FindPackage(NULL, *PackageName))
 		{
-			if (ExistingPackage->HasAnyFlags(RF_RootSet))
+			if (ExistingPackage->IsRooted())
 			{
 				continue;
 			}
@@ -1355,7 +1349,7 @@ bool FBlueprintRenameAndCloneTest::RunTest(const FString& BlueprintAssetPath)
 		GEditor->Trans->Reset(NSLOCTEXT("BpAutomation", "RenameCloneTest", "Rename and Clone Test"));
 #endif // #if WITH_EDITOR
 		// make sure the unloaded blueprints are properly flushed (for future tests)
-		CollectGarbage(RF_Native);		
+		CollectGarbage(RF_NoFlags);
 	}
 
 	return !bTestFailed;

@@ -3,6 +3,82 @@
 #include "EnginePrivate.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 
+
+void FMeshProxySettings::PostLoadDeprecated()
+{
+	FMeshProxySettings DefaultObject;
+
+	if (TextureWidth_DEPRECATED != DefaultObject.TextureWidth_DEPRECATED)
+	{
+		MaterialSettings.TextureSize.X = TextureWidth_DEPRECATED;
+	}
+	if (TextureHeight_DEPRECATED != DefaultObject.TextureHeight_DEPRECATED)
+	{
+		MaterialSettings.TextureSize.Y = TextureHeight_DEPRECATED;
+	}
+	if (bExportNormalMap_DEPRECATED != DefaultObject.bExportNormalMap_DEPRECATED)
+	{
+		MaterialSettings.bNormalMap = bExportNormalMap_DEPRECATED;
+	}
+	if (bExportMetallicMap_DEPRECATED != DefaultObject.bExportMetallicMap_DEPRECATED)
+	{
+		MaterialSettings.bMetallicMap = bExportMetallicMap_DEPRECATED;
+	}
+	if (bExportRoughnessMap_DEPRECATED != DefaultObject.bExportRoughnessMap_DEPRECATED)
+	{
+		MaterialSettings.bRoughnessMap = bExportRoughnessMap_DEPRECATED;
+	}
+	if (bExportSpecularMap_DEPRECATED != DefaultObject.bExportSpecularMap_DEPRECATED)
+	{
+		MaterialSettings.bSpecularMap = bExportSpecularMap_DEPRECATED;
+	}
+
+	if (!(Material_DEPRECATED == DefaultObject.Material_DEPRECATED))
+	{
+		MaterialSettings.TextureSize = Material_DEPRECATED.BaseColorMapSize;
+		MaterialSettings.bNormalMap = Material_DEPRECATED.bNormalMap;
+		MaterialSettings.bMetallicMap = Material_DEPRECATED.bMetallicMap;
+		MaterialSettings.bRoughnessMap = Material_DEPRECATED.bRoughnessMap;
+		MaterialSettings.bSpecularMap = Material_DEPRECATED.bSpecularMap;
+		MaterialSettings.RoughnessConstant = Material_DEPRECATED.RoughnessConstant;
+		MaterialSettings.MetallicConstant = Material_DEPRECATED.MetallicConstant;
+		MaterialSettings.SpecularConstant = Material_DEPRECATED.SpecularConstant;
+	}
+}
+
+
+void FMeshMergingSettings::PostLoadDeprecated()
+{
+	FMeshMergingSettings DefaultObject;
+	if (bImportVertexColors_DEPRECATED != DefaultObject.bImportVertexColors_DEPRECATED)
+	{
+		bBakeVertexData = bImportVertexColors_DEPRECATED;
+	}
+
+	if (bExportNormalMap_DEPRECATED != DefaultObject.bExportNormalMap_DEPRECATED)
+	{
+		MaterialSettings.bNormalMap = bExportNormalMap_DEPRECATED;
+	}
+
+	if (bExportMetallicMap_DEPRECATED != DefaultObject.bExportMetallicMap_DEPRECATED)
+	{
+		MaterialSettings.bMetallicMap = bExportMetallicMap_DEPRECATED;
+	}
+	if (bExportRoughnessMap_DEPRECATED != DefaultObject.bExportRoughnessMap_DEPRECATED)
+	{
+		MaterialSettings.bRoughnessMap = bExportRoughnessMap_DEPRECATED;
+	}
+	if (bExportSpecularMap_DEPRECATED != DefaultObject.bExportSpecularMap_DEPRECATED)
+	{
+		MaterialSettings.bSpecularMap = bExportSpecularMap_DEPRECATED;
+	}
+	if (MergedMaterialAtlasResolution_DEPRECATED != DefaultObject.MergedMaterialAtlasResolution_DEPRECATED)
+	{
+		MaterialSettings.TextureSize.X = MergedMaterialAtlasResolution_DEPRECATED;
+		MaterialSettings.TextureSize.Y = MergedMaterialAtlasResolution_DEPRECATED;
+	}
+}
+
 UEngineBaseTypes::UEngineBaseTypes(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -175,3 +251,15 @@ FString FHitResult::ToString() const
 		FaceIndex);
 }
 
+FRepMovement::FRepMovement()
+	: LinearVelocity(ForceInit)
+	, AngularVelocity(ForceInit)
+	, Location(ForceInit)
+	, Rotation(ForceInit)
+	, bSimulatedPhysicSleep(false)
+	, bRepPhysics(false)
+	, LocationQuantizationLevel(EVectorQuantization::RoundWholeNumber)
+	, VelocityQuantizationLevel(EVectorQuantization::RoundWholeNumber)
+	, RotationQuantizationLevel(ERotatorQuantization::ByteComponents)
+{
+}

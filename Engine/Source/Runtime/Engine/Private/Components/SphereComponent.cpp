@@ -31,6 +31,7 @@ void USphereComponent::UpdateBodySetup()
 		ShapeBodySetup = NewObject<UBodySetup>(this);
 		ShapeBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
 		ShapeBodySetup->AggGeom.SphereElems.Add(FKSphereElem());
+		ShapeBodySetup->bNeverNeedsCookedCollisionData = true;
 	}
 
 	check (ShapeBodySetup->AggGeom.SphereElems.Num() == 1);
@@ -51,13 +52,13 @@ void USphereComponent::UpdateBodySetup()
 void USphereComponent::SetSphereRadius( float InSphereRadius, bool bUpdateOverlaps )
 {
 	SphereRadius = InSphereRadius;
+	UpdateBodySetup();
 	MarkRenderStateDirty();
 
 	if (bPhysicsStateCreated)
 	{
-		DestroyPhysicsState();
-		UpdateBodySetup();
-		CreatePhysicsState();
+		// Update physics engine collision shapes
+		BodyInstance.UpdateBodyScale(ComponentToWorld.GetScale3D(), true);
 
 		if ( bUpdateOverlaps && IsCollisionEnabled() && GetOwner() )
 		{
@@ -84,7 +85,6 @@ FPrimitiveSceneProxy* USphereComponent::CreateSceneProxy()
 			:	FPrimitiveSceneProxy(InComponent)
 			,	bDrawOnlyIfSelected( InComponent->bDrawOnlyIfSelected )
 			,	SphereColor(InComponent->ShapeColor)
-			,	ShapeMaterial(InComponent->ShapeMaterial)
 			,	SphereRadius(InComponent->SphereRadius)
 		{
 			bWillEverBeLit = false;
@@ -104,33 +104,33 @@ FPrimitiveSceneProxy* USphereComponent::CreateSceneProxy()
 					FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);
 
 					const FMatrix& LocalToWorld = GetLocalToWorld();
-					int32 SphereSides =  FMath::Clamp<int32>(SphereRadius/4.f, 16, 64);
-					if(ShapeMaterial && !View->Family->EngineShowFlags.Wireframe)
+					const FLinearColor DrawSphereColor = GetViewSelectionColor(SphereColor, *View, IsSelected(), IsHovered(), false, IsIndividuallySelected() );
+
+					// Taking into account the min and maximum drawing distance
+					const float DistanceSqr = (View->ViewMatrices.ViewOrigin - LocalToWorld.GetOrigin()).SizeSquared();
+					if (DistanceSqr < FMath::Square(GetMinDrawDistance()) || DistanceSqr > FMath::Square(GetMaxDrawDistance()) )
 					{
-						GetSphereMesh(LocalToWorld.GetOrigin(), FVector(SphereRadius), SphereSides, SphereSides/2, ShapeMaterial->GetRenderProxy(false), SDPG_World, false, ViewIndex, Collector);
+						continue;
 					}
-					else
-					{
-						const FLinearColor DrawSphereColor = GetViewSelectionColor(SphereColor, *View, IsSelected(), IsHovered(), false, IsIndividuallySelected() );
+					
+					float AbsScaleX = LocalToWorld.GetScaledAxis(EAxis::X).Size();
+					float AbsScaleY = LocalToWorld.GetScaledAxis(EAxis::Y).Size();
+					float AbsScaleZ = LocalToWorld.GetScaledAxis(EAxis::Z).Size();
+					float MinAbsScale = FMath::Min3(AbsScaleX, AbsScaleY, AbsScaleZ);
 
-						float AbsScaleX = LocalToWorld.GetScaledAxis(EAxis::X).Size();
-						float AbsScaleY = LocalToWorld.GetScaledAxis(EAxis::Y).Size();
-						float AbsScaleZ = LocalToWorld.GetScaledAxis(EAxis::Z).Size();
-						float MinAbsScale = FMath::Min3(AbsScaleX, AbsScaleY, AbsScaleZ);
+					FVector ScaledX = LocalToWorld.GetUnitAxis(EAxis::X) * MinAbsScale;
+					FVector ScaledY = LocalToWorld.GetUnitAxis(EAxis::Y) * MinAbsScale;
+					FVector ScaledZ = LocalToWorld.GetUnitAxis(EAxis::Z) * MinAbsScale;
 
-						FVector ScaledX = LocalToWorld.GetUnitAxis(EAxis::X) * MinAbsScale;
-						FVector ScaledY = LocalToWorld.GetUnitAxis(EAxis::Y) * MinAbsScale;
-						FVector ScaledZ = LocalToWorld.GetUnitAxis(EAxis::Z) * MinAbsScale;
-
-						DrawCircle(PDI, LocalToWorld.GetOrigin(), ScaledX, ScaledY, DrawSphereColor, SphereRadius, SphereSides, SDPG_World);
-						DrawCircle(PDI, LocalToWorld.GetOrigin(), ScaledX, ScaledZ, DrawSphereColor, SphereRadius, SphereSides, SDPG_World);
-						DrawCircle(PDI, LocalToWorld.GetOrigin(), ScaledY, ScaledZ, DrawSphereColor, SphereRadius, SphereSides, SDPG_World);
-					}
+					const int32 SphereSides = FMath::Clamp<int32>(SphereRadius / 4.f, 16, 64);
+					DrawCircle(PDI, LocalToWorld.GetOrigin(), ScaledX, ScaledY, DrawSphereColor, SphereRadius, SphereSides, SDPG_World);
+					DrawCircle(PDI, LocalToWorld.GetOrigin(), ScaledX, ScaledZ, DrawSphereColor, SphereRadius, SphereSides, SDPG_World);
+					DrawCircle(PDI, LocalToWorld.GetOrigin(), ScaledY, ScaledZ, DrawSphereColor, SphereRadius, SphereSides, SDPG_World);
 				}
 			}
 		}
 
-		virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)  override
+		virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 		{
 			const bool bVisibleForSelection = !bDrawOnlyIfSelected || IsSelected();
 			const bool bVisibleForShowFlags = true; // @TODO
@@ -149,7 +149,6 @@ FPrimitiveSceneProxy* USphereComponent::CreateSceneProxy()
 	private:
 		const uint32				bDrawOnlyIfSelected:1;
 		const FColor				SphereColor;
-		const UMaterialInterface*	ShapeMaterial;
 		const float					SphereRadius;
 	};
 

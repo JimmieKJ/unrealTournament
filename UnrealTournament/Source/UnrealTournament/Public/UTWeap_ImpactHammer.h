@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTWeap_ImpactHammer.generated.h"
@@ -33,7 +33,7 @@ class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 	AActor* AutoHitTarget;
 
 	/** Trace dist for impact jumping against world geometry */
-	UPROPERTY(BlueprintReadWrite, Category = ImpactHammer)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
 	float ImpactJumpTraceDist;
 
 	/** return whether the automatic charged fire release should happen against the specified target */

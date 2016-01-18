@@ -157,6 +157,12 @@ void UCameraAnimInst::SetDuration(float NewDuration)
 	bFinished = false;
 }
 
+void UCameraAnimInst::SetScale(float NewScale)
+{
+	BasePlayScale = NewScale;
+}
+
+static const FName NAME_CameraComponentFieldOfViewPropertyName(TEXT("CameraComponent.FieldOfView"));
 
 void UCameraAnimInst::Play(UCameraAnim* Anim, class AActor* CamActor, float InRate, float InScale, float InBlendInTime, float InBlendOutTime, bool bInLooping, bool bRandomStartTime, float Duration)
 {
@@ -215,12 +221,17 @@ void UCameraAnimInst::Play(UCameraAnim* Anim, class AActor* CamActor, float InRa
 			for (int32 Idx = 0; Idx < InterpGroupInst->TrackInst.Num(); ++Idx)
 			{
 				UInterpTrackFloatProp* const FloatTrack = Cast<UInterpTrackFloatProp>(CamAnim->CameraInterpGroup->InterpTracks[Idx]);
-				if ( FloatTrack && (FloatTrack->PropertyName == TEXT("CameraComponent.FieldOfView")) )
+				if (FloatTrack && (FloatTrack->PropertyName == NAME_CameraComponentFieldOfViewPropertyName))
 				{
 					InitialFOV = FloatTrack->EvalSub(0, 0.f);
 				}
 			}
-
+		}
+		else
+		{
+			// make sure these are set in cases where there is no move track
+			InitialCamToWorld = FTransform::Identity;
+			InitialFOV = Anim->BaseFOV;
 		}
 	}
 }

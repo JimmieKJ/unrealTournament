@@ -6,7 +6,7 @@
 #define LOCTEXT_NAMESPACE "FAvfMediaTrack"
 
 
-/* IMediaTrack interface
+/* IMediaStream interface
  *****************************************************************************/
 
 bool FAvfMediaTrack::Disable()
@@ -27,7 +27,7 @@ FText FAvfMediaTrack::GetDisplayName() const
 
 	if (Name.IsEmpty())
 	{
-		DisplayName = FText::Format(LOCTEXT("UnnamedTrackFormat", "Unnamed Track {0}"), FText::AsNumber((uint32)StreamIndex));
+		DisplayName = FText::Format(LOCTEXT("UnnamedTrackFormat", "Unnamed Stream {0}"), FText::AsNumber((uint32)StreamIndex));
 	}
 	else
 	{
@@ -40,12 +40,6 @@ FText FAvfMediaTrack::GetDisplayName() const
 	}
 
 	return FText::Format(LOCTEXT("LocalizedTrackFormat", "{0} ({1})"), DisplayName, FText::FromString(Language));
-}
-
-
-uint32 FAvfMediaTrack::GetIndex() const
-{
-	return StreamIndex;
 }
 
 
@@ -68,7 +62,7 @@ bool FAvfMediaTrack::IsEnabled() const
 }
 
 
-bool FAvfMediaTrack::IsMutuallyExclusive( const IMediaTrackRef& Other ) const
+bool FAvfMediaTrack::IsMutuallyExclusive( const IMediaStreamRef& Other ) const
 {
 	return false;
 }

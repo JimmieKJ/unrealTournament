@@ -57,7 +57,7 @@ public:
 
 public:
 
-	// Begin ITargetPlatform interface
+	//~ Begin ITargetPlatform Interface
 
 	virtual void EnableDeviceCheck(bool OnOff) override {}
 
@@ -227,7 +227,7 @@ public:
 		return DeviceLostEvent;
 	}
 
-	// End ITargetPlatform interface
+	//~ End ITargetPlatform Interface
 
 protected:
 

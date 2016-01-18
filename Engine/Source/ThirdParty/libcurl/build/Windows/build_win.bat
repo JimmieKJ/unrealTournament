@@ -17,9 +17,9 @@ if "%COMPILER_VER%" == "2013" (
 	set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 12.0"
 	set VCVERSION=12
 )
-if "%COMPILER_VER%" == "2012" (
-	set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 11.0"
-	set VCVERSION=11
+if "%COMPILER_VER%" == "2015" (
+	set MSVCDIR="%PROGFILES%\Microsoft Visual Studio 14.0"
+	set VCVERSION=14
 )
 
 REM select architecture (default to 64 bit)

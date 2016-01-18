@@ -4,13 +4,16 @@
 
 class USkeleton;
 
+#include "BoneIndices.h"
+#include "CustomBoneIndexArray.h"
+
 /**
 * This is a native transient structure.
 * Contains:
 * - BoneIndicesArray: Array of RequiredBoneIndices for Current Asset. In increasing order. Mapping to current Array of Transforms (Pose).
 * - BoneSwitchArray: Size of current Skeleton. true if Bone is contained in RequiredBones array, false otherwise.
 **/
-struct FBoneContainer
+struct ENGINE_API FBoneContainer
 {
 private:
 	/** Array of RequiredBonesIndices. In increasing order. */
@@ -33,6 +36,18 @@ private:
 
 	/** Mapping table between Pose Bone Indices and Skeleton Bone Indices. */
 	TArray<int32> PoseToSkeletonBoneIndexArray;
+
+	// Look up from skeleton to compact pose format
+	TArray<int32> CompactPoseToSkeletonIndex;
+
+	// Look up from compact pose format to skeleton
+	TArray<FCompactPoseBoneIndex> SkeletonToCompactPose;
+
+	// Compact pose format of Parent Bones (to save us converting to mesh space and back)
+	TArray<FCompactPoseBoneIndex> CompactPoseParentBones;
+
+	// Compact pose format of Ref Pose Bones (to save us converting to mesh space and back)
+	TArray<FTransform>    CompactPoseRefPoseBones;
 
 	/** For debugging. */
 	/** Disable Retargeting. Extract animation, but do not retarget it. */
@@ -133,6 +148,16 @@ public:
 		return RefSkeleton->GetRefBonePose();
 	}
 
+	const FTransform& GetRefPoseTransform(const FCompactPoseBoneIndex& BoneIndex) const
+	{
+		return CompactPoseRefPoseBones[BoneIndex.GetInt()];
+	}
+
+	const TArray<FTransform>& GetRefPoseCompactArray() const
+	{
+		return CompactPoseRefPoseBones;
+	}
+
 	/** Access to Asset's RefSkeleton. */
 	const FReferenceSkeleton& GetReferenceSkeleton() const
 	{
@@ -145,11 +170,19 @@ public:
 		return RefSkeleton->GetNum();
 	}
 
+	const int32 GetCompactPoseNumBones() const
+	{
+		return BoneIndicesArray.Num();
+	}
+
 	/** Get BoneIndex for BoneName for current Asset. */
-	ENGINE_API int32 GetPoseBoneIndexForBoneName(const FName& BoneName) const;
+	int32 GetPoseBoneIndexForBoneName(const FName& BoneName) const;
 
 	/** Get ParentBoneIndex for current Asset. */
-	ENGINE_API int32 GetParentBoneIndex(const int32& BoneIndex) const;
+	int32 GetParentBoneIndex(const int32& BoneIndex) const;
+
+	/** Get ParentBoneIndex for current Asset. */
+	FCompactPoseBoneIndex GetParentBoneIndex(const FCompactPoseBoneIndex& BoneIndex) const;
 
 	/** Get Depth between bones for current asset. */
 	int32 GetDepthBetweenBones(const int32& BoneIndex, const int32& ParentBoneIndex) const;
@@ -177,6 +210,7 @@ public:
 			<< B.PoseToSkeletonBoneIndexArray
 			<< B.bDisableRetargeting
 			<< B.bUseRAWData
+			<< B.bUseSourceData
 			;
 		return Ar;
 	}
@@ -201,9 +235,29 @@ public:
 		return PoseToSkeletonBoneIndexArray;
 	}
 
+	int32 GetSkeletonIndex(const FCompactPoseBoneIndex& BoneIndex) const
+	{
+		return CompactPoseToSkeletonIndex[BoneIndex.GetInt()];
+	}
+
+	FCompactPoseBoneIndex GetCompactPoseIndexFromSkeletonIndex(const int32 SkeletonIndex) const
+	{
+		return SkeletonToCompactPose[SkeletonIndex];
+	}
+
+	FMeshPoseBoneIndex MakeMeshPoseIndex(const FCompactPoseBoneIndex& BoneIndex) const
+	{
+		return FMeshPoseBoneIndex(GetBoneIndicesArray()[BoneIndex.GetInt()]);
+	}
+
+	FCompactPoseBoneIndex MakeCompactPoseIndex(const FMeshPoseBoneIndex& BoneIndex) const
+	{
+		return FCompactPoseBoneIndex(GetBoneIndicesArray().IndexOfByKey(BoneIndex.GetInt()));
+	}
+
 private:
 	/** Initialize FBoneContainer. */
-	ENGINE_API void Initialize();
+	void Initialize();
 
 	/** Cache remapping data if current Asset is a SkeletalMesh, with all compatible Skeletons. */
 	void RemapFromSkelMesh(USkeletalMesh const & SourceSkeletalMesh, USkeleton& TargetSkeleton);

@@ -45,9 +45,9 @@ public abstract class BaseLinuxPlatform : Platform
 		}
 
         // Stage all the build products
-        foreach (BuildReceipt Receipt in SC.StageTargetReceipts)
+        foreach (StageTarget Target in SC.StageTargets)
         {
-            SC.StageBuildProductsFromReceipt(Receipt);
+            SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
         }
         
 		// assume that we always have to deploy Steam (FIXME: should be automatic - UEPLAT-807)
@@ -76,7 +76,7 @@ public abstract class BaseLinuxPlatform : Platform
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/OpenAL/", SC.PlatformDir), "libopenal.so.1", false, null, CombinePaths("Engine/Binaries", SC.PlatformDir));
 		}
 
-		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
+		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);		
 	}
 
 	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly, string CookFlavor)

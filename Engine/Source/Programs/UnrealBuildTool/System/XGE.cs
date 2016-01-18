@@ -8,6 +8,7 @@ using System.Xml;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Win32;
 
 namespace UnrealBuildTool
 {
@@ -54,61 +55,88 @@ namespace UnrealBuildTool
 					// Try to execute the XGE tasks, and if XGE is available, skip the local execution fallback.
 					if (Telemetry.IsAvailable())
 					{
+			            try
+			            {
+				            const string BuilderKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Xoreax\\IncrediBuild\\Builder";
+            
+				            string CPUUtilization = Registry.GetValue(BuilderKey, "ForceCPUCount", "").ToString();
+				            string AvoidTaskExecutionOnLocalMachine = Registry.GetValue(BuilderKey, "AvoidLocalExec", "").ToString();
+				            string RestartRemoteProcessesOnLocalMachine = Registry.GetValue(BuilderKey, "AllowDoubleTargets", "").ToString();
+				            string LimitMaxNumberOfCores = Registry.GetValue(BuilderKey, "MaxHelpers", "").ToString();
+				            string WriteOutputToDiskInBackground = Registry.GetValue(BuilderKey, "LazyOutputWriter_Beta", "").ToString();
+				            string MaxConcurrentPDBs = Registry.GetValue(BuilderKey, "MaxConcurrentPDBs", "").ToString();
+							string EnabledAsHelper = Registry.GetValue(BuilderKey, "LastEnabled", "").ToString();
+            
+				            Telemetry.SendEvent("XGESettings.2",
+					            "CPUUtilization", CPUUtilization,
+					            "AvoidTaskExecutionOnLocalMachine", AvoidTaskExecutionOnLocalMachine,
+					            "RestartRemoteProcessesOnLocalMachine", RestartRemoteProcessesOnLocalMachine,
+					            "LimitMaxNumberOfCores", LimitMaxNumberOfCores,
+					            "WriteOutputToDiskInBackground", WriteOutputToDiskInBackground,
+					            "MaxConcurrentPDBs", MaxConcurrentPDBs,
+								"EnabledAsHelper", EnabledAsHelper);
+			            }
+			            catch
+			            {
+			            }
+
 						// Add a custom output handler to determine the build duration for each task and map it back to the action that generated it.
 						XGEResult = XGE.ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, (sender, args) =>
 							{
 								// sometimes the args comes in as null
 								var match = XGEDurationRegex.Match(args.Data ?? "");
 
-								// This is considered fragile and risky parsing of undocumented XGE output, so protect this code from taking down UBT
-								try
-								{
-									// Use LINQ to evaluate the terms so we don't end up with a 
-									// huge nested conditional expression just to verify the input.
-									foreach (var PCHEvent in
-										// first, convert the input line into an enumerable
-										from RegexMatch in new[] { match }
-										where RegexMatch.Success
-										let Filename = RegexMatch.Groups["Filename"].Value
-										// find the mapped action. (On PS4 at least, XGE appears to use the full filenane, so we need to strip it back down.
-										let Action = Actions.Find(a => a.StatusDescription == Path.GetFileName(Filename) && a.ActionType == ActionType.Compile)
-										// We should ALWAYS find the action, so maybe this should throw if we can't
-										where Action != null
-										// see if the mapped action produces a PCH file
-										// (there is currently no compile environment left around by which to tell absolutely, so we infer by the extension. Ugh).
-										let ActionProducedPCH = Action.ProducedItems.Find(fileItem => new[] { ".PCH", ".GCH" }.Contains(Path.GetExtension(fileItem.AbsolutePath).ToUpperInvariant()))
-										where ActionProducedPCH != null
-										// we found a valid PCH action and output file, so parse the duration and send an event.
-										let durationMatchStr = RegexMatch.Groups["Duration"].Value
-										// if there's no hour designator, add one so .NET can parse the time.
-										let durationStr = durationMatchStr.Count(c => c == ':') == 1 ? "0:" + durationMatchStr : durationMatchStr
-										let duration = TimeSpan.Parse(durationStr)
-										select new
-										{
-											// actually use the filename here because it is coerced to be PCH.MODULE.HEADER.cpp.
-											// This allows us an easy way to determine shared status (or source module) and the real header source.
-											FileName = Filename,//Path.GetFileName(ActionProducedPCH.AbsolutePath),
-											// Get the length from the OS as the FileItem.Length is really for when the file is used as an input,
-											// so the stored length is absent for a new for or out of date at best.
-											GeneratedFileLength = new FileInfo(ActionProducedPCH.AbsolutePath).Length,
-											GeneratedFileDuration = duration,
-										})
-									{
-										// If we had a valid match for a PCH item, send an event.
-										Telemetry.SendEvent("PCHTime.2",
-											"ExecutorType", "XGE",
-											"Filename", PCHEvent.FileName,
-											"FileSize", PCHEvent.GeneratedFileLength.ToString(),
-											"Duration", PCHEvent.GeneratedFileDuration.TotalSeconds.ToString("0.00"));
-									}
-								}
-								catch (Exception ex)
-								{
-									// report that something went wrong so we can diagnose.
-									Telemetry.SendEvent("PCHTimeError.2",
-										"OutputLine", args.Data,
-										"Exception", ex.ToString());
-								}
+								/*
+																// This is considered fragile and risky parsing of undocumented XGE output, so protect this code from taking down UBT
+																try
+																{
+																	// Use LINQ to evaluate the terms so we don't end up with a 
+																	// huge nested conditional expression just to verify the input.
+																	foreach (var PCHEvent in
+																		// first, convert the input line into an enumerable
+																		from RegexMatch in new[] { match }
+																		where RegexMatch.Success
+																		let Filename = RegexMatch.Groups["Filename"].Value
+																		// find the mapped action. (On PS4 at least, XGE appears to use the full filenane, so we need to strip it back down.
+																		let Action = Actions.Find(a => a.StatusDescription == Path.GetFileName(Filename) && a.ActionType == ActionType.Compile)
+																		// We should ALWAYS find the action, so maybe this should throw if we can't
+																		where Action != null
+																		// see if the mapped action produces a PCH file
+																		// (there is currently no compile environment left around by which to tell absolutely, so we infer by the extension. Ugh).
+																		let ActionProducedPCH = Action.ProducedItems.Find(fileItem => new[] { ".PCH", ".GCH" }.Contains(Path.GetExtension(fileItem.AbsolutePath).ToUpperInvariant()))
+																		where ActionProducedPCH != null
+																		// we found a valid PCH action and output file, so parse the duration and send an event.
+																		let durationMatchStr = RegexMatch.Groups["Duration"].Value
+																		// if there's no hour designator, add one so .NET can parse the time.
+																		let durationStr = durationMatchStr.Count(c => c == ':') == 1 ? "0:" + durationMatchStr : durationMatchStr
+																		let duration = TimeSpan.Parse(durationStr)
+																		select new
+																		{
+																			// actually use the filename here because it is coerced to be PCH.MODULE.HEADER.cpp.
+																			// This allows us an easy way to determine shared status (or source module) and the real header source.
+																			FileName = Filename,//Path.GetFileName(ActionProducedPCH.AbsolutePath),
+																			// Get the length from the OS as the FileItem.Length is really for when the file is used as an input,
+																			// so the stored length is absent for a new for or out of date at best.
+																			GeneratedFileLength = new FileInfo(ActionProducedPCH.AbsolutePath).Length,
+																			GeneratedFileDuration = duration,
+																		})
+																	{
+																		// If we had a valid match for a PCH item, send an event.
+																		Telemetry.SendEvent("PCHTime.2",
+																			"ExecutorType", "XGE",
+																			"Filename", PCHEvent.FileName,
+																			"FileSize", PCHEvent.GeneratedFileLength.ToString(),
+																			"Duration", PCHEvent.GeneratedFileDuration.TotalSeconds.ToString("0.00"));
+																	}
+																}
+																catch (Exception ex)
+																{
+																	// report that something went wrong so we can diagnose.
+																	Telemetry.SendEvent("PCHTimeError.2",
+																		"OutputLine", args.Data,
+																		"Exception", ex.ToString());
+																}
+								*/
 
 								// XGE outputs the duration info in a format that makes VC think it's an error file/line notation if the full filename is used.
 								// So munge it a bit so we don't confuse VC.
@@ -128,9 +156,9 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						XGEResult = XGE.ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, (Sender, Args) => 
+						XGEResult = XGE.ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, (Sender, Args) =>
 							{
-								if(Actions[0].OutputEventHandler != null)
+								if (Actions[0].OutputEventHandler != null)
 								{
 									Actions[0].OutputEventHandler(Sender, Args);
 								}
@@ -160,93 +188,95 @@ namespace UnrealBuildTool
 			return EventArgs;
 		}
 
-		/** Writes a XGE task file containing the specified actions to the specified file path. */
+		/// <summary>
+		/// Writes a XGE task file containing the specified actions to the specified file path.
+		/// </summary>
 		public static void WriteTaskFile(List<Action> InActions, string TaskFilePath, bool bProgressMarkup)
 		{
-            Dictionary<string, string> ExportEnv = new Dictionary<string, string>();
+			Dictionary<string, string> ExportEnv = new Dictionary<string, string>();
 
-            List<Action> Actions = InActions;
-            if (BuildConfiguration.bXGEExport)
-            {
-                var CurrentEnvironment = Environment.GetEnvironmentVariables();
-                foreach (System.Collections.DictionaryEntry Pair in CurrentEnvironment)
-                {
-                    if (!UnrealBuildTool.InitialEnvironment.Contains(Pair.Key) || (string)(UnrealBuildTool.InitialEnvironment[Pair.Key]) != (string)(Pair.Value))
-                    {
-                        ExportEnv.Add((string)(Pair.Key), (string)(Pair.Value));
-                    }
-                }
+			List<Action> Actions = InActions;
+			if (BuildConfiguration.bXGEExport)
+			{
+				var CurrentEnvironment = Environment.GetEnvironmentVariables();
+				foreach (System.Collections.DictionaryEntry Pair in CurrentEnvironment)
+				{
+					if (!UnrealBuildTool.InitialEnvironment.Contains(Pair.Key) || (string)(UnrealBuildTool.InitialEnvironment[Pair.Key]) != (string)(Pair.Value))
+					{
+						ExportEnv.Add((string)(Pair.Key), (string)(Pair.Value));
+					}
+				}
 
-                int NumSortErrors = 0;
-                for (int ActionIndex = 0; ActionIndex < InActions.Count; ActionIndex++)
-                {
-                    Action Action = InActions[ActionIndex];
-                    foreach (FileItem Item in Action.PrerequisiteItems)
-                    {
-                        if (Item.ProducingAction != null && InActions.Contains(Item.ProducingAction))
-                        {
-                            int DepIndex = InActions.IndexOf(Item.ProducingAction);
-                            if (DepIndex > ActionIndex)
-                            {
-                                //Console.WriteLine("Action is not topologically sorted.");
-                                //Console.WriteLine("  {0} {1}", Action.CommandPath, Action.CommandArguments);
-                                //Console.WriteLine("Dependency");
-                                //Console.WriteLine("  {0} {1}", Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
-                                NumSortErrors++;
-                            }
-                        }
-                    }
-                }
-                if (NumSortErrors > 0)
-                {
-                    //Console.WriteLine("The UBT action graph was not sorted. Sorting actions....");
-                    Actions = new List<Action>();
-                    var UsedActions = new HashSet<int>();
-                    for (int ActionIndex = 0; ActionIndex < InActions.Count; ActionIndex++)
-                    {
-                        if (UsedActions.Contains(ActionIndex))
-                        {
-                            continue;
-                        }
-                        Action Action = InActions[ActionIndex];
-                        foreach (FileItem Item in Action.PrerequisiteItems)
-                        {
-                            if (Item.ProducingAction != null && InActions.Contains(Item.ProducingAction))
-                            {
-                                int DepIndex = InActions.IndexOf(Item.ProducingAction);
-                                if (UsedActions.Contains(DepIndex))
-                                {
-                                    continue;
-                                }
-                                Actions.Add(Item.ProducingAction);
-                                UsedActions.Add(DepIndex);
-                            }
-                        }
-                        Actions.Add(Action);
-                        UsedActions.Add(ActionIndex);
-                    }
-                    for (int ActionIndex = 0; ActionIndex < Actions.Count; ActionIndex++)
-                    {
-                        Action Action = Actions[ActionIndex];
-                        foreach (FileItem Item in Action.PrerequisiteItems)
-                        {
-                            if (Item.ProducingAction != null && Actions.Contains(Item.ProducingAction))
-                            {
-                                int DepIndex = Actions.IndexOf(Item.ProducingAction);
-                                if (DepIndex > ActionIndex)
-                                {
-                                    Console.WriteLine("Action is not topologically sorted.");
-                                    Console.WriteLine("  {0} {1}", Action.CommandPath, Action.CommandArguments);
-                                    Console.WriteLine("Dependency");
-                                    Console.WriteLine("  {0} {1}", Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
-                                    throw new BuildException("Cyclical Dependency in action graph.");
-                                }
-                            }
-                        }
-                    }
-                }
+				int NumSortErrors = 0;
+				for (int ActionIndex = 0; ActionIndex < InActions.Count; ActionIndex++)
+				{
+					Action Action = InActions[ActionIndex];
+					foreach (FileItem Item in Action.PrerequisiteItems)
+					{
+						if (Item.ProducingAction != null && InActions.Contains(Item.ProducingAction))
+						{
+							int DepIndex = InActions.IndexOf(Item.ProducingAction);
+							if (DepIndex > ActionIndex)
+							{
+								//Console.WriteLine("Action is not topologically sorted.");
+								//Console.WriteLine("  {0} {1}", Action.CommandPath, Action.CommandArguments);
+								//Console.WriteLine("Dependency");
+								//Console.WriteLine("  {0} {1}", Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
+								NumSortErrors++;
+							}
+						}
+					}
+				}
+				if (NumSortErrors > 0)
+				{
+					//Console.WriteLine("The UBT action graph was not sorted. Sorting actions....");
+					Actions = new List<Action>();
+					var UsedActions = new HashSet<int>();
+					for (int ActionIndex = 0; ActionIndex < InActions.Count; ActionIndex++)
+					{
+						if (UsedActions.Contains(ActionIndex))
+						{
+							continue;
+						}
+						Action Action = InActions[ActionIndex];
+						foreach (FileItem Item in Action.PrerequisiteItems)
+						{
+							if (Item.ProducingAction != null && InActions.Contains(Item.ProducingAction))
+							{
+								int DepIndex = InActions.IndexOf(Item.ProducingAction);
+								if (UsedActions.Contains(DepIndex))
+								{
+									continue;
+								}
+								Actions.Add(Item.ProducingAction);
+								UsedActions.Add(DepIndex);
+							}
+						}
+						Actions.Add(Action);
+						UsedActions.Add(ActionIndex);
+					}
+					for (int ActionIndex = 0; ActionIndex < Actions.Count; ActionIndex++)
+					{
+						Action Action = Actions[ActionIndex];
+						foreach (FileItem Item in Action.PrerequisiteItems)
+						{
+							if (Item.ProducingAction != null && Actions.Contains(Item.ProducingAction))
+							{
+								int DepIndex = Actions.IndexOf(Item.ProducingAction);
+								if (DepIndex > ActionIndex)
+								{
+									Console.WriteLine("Action is not topologically sorted.");
+									Console.WriteLine("  {0} {1}", Action.CommandPath, Action.CommandArguments);
+									Console.WriteLine("Dependency");
+									Console.WriteLine("  {0} {1}", Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
+									throw new BuildException("Cyclical Dependency in action graph.");
+								}
+							}
+						}
+					}
+				}
 
-            }
+			}
 
 
 			XmlDocument XGETaskDocument = new XmlDocument();
@@ -264,28 +294,28 @@ namespace UnrealBuildTool
 			XmlElement EnvironmentElement = XGETaskDocument.CreateElement("Environment");
 			EnvironmentsElement.AppendChild(EnvironmentElement);
 			EnvironmentElement.SetAttribute("Name", "Default");
-			
+
 			// <Tools>...</Tools>
 			XmlElement ToolsElement = XGETaskDocument.CreateElement("Tools");
 			EnvironmentElement.AppendChild(ToolsElement);
 
-            if (ExportEnv.Count > 0)
-            {
-                // <Variables>...</Variables>
-                XmlElement VariablesElement = XGETaskDocument.CreateElement("Variables");
-                EnvironmentElement.AppendChild(VariablesElement);
+			if (ExportEnv.Count > 0)
+			{
+				// <Variables>...</Variables>
+				XmlElement VariablesElement = XGETaskDocument.CreateElement("Variables");
+				EnvironmentElement.AppendChild(VariablesElement);
 
-                foreach (var Pair in ExportEnv)
-                {
-                    // <Variable>...</Variable>
-                    XmlElement VariableElement = XGETaskDocument.CreateElement("Variable");
-                    VariablesElement.AppendChild(VariableElement);
-                    VariableElement.SetAttribute("Name", Pair.Key);
-                    VariableElement.SetAttribute("Value", Pair.Value);
-                }
-            }
+				foreach (var Pair in ExportEnv)
+				{
+					// <Variable>...</Variable>
+					XmlElement VariableElement = XGETaskDocument.CreateElement("Variable");
+					VariablesElement.AppendChild(VariableElement);
+					VariableElement.SetAttribute("Name", Pair.Key);
+					VariableElement.SetAttribute("Value", Pair.Value);
+				}
+			}
 
-            for (int ActionIndex = 0; ActionIndex < Actions.Count; ActionIndex++)
+			for (int ActionIndex = 0; ActionIndex < Actions.Count; ActionIndex++)
 			{
 				Action Action = Actions[ActionIndex];
 
@@ -303,11 +333,11 @@ namespace UnrealBuildTool
 				{
 					OutputPrefix += ProgressMarkupPrefix;
 				}
-				if( Action.bShouldOutputStatusDescription )
+				if (Action.bShouldOutputStatusDescription)
 				{
 					OutputPrefix += Action.StatusDescription;
 				}
-				if(OutputPrefix.Length > 0)
+				if (OutputPrefix.Length > 0)
 				{
 					ToolElement.SetAttribute("OutputPrefix", OutputPrefix);
 				}
@@ -341,10 +371,10 @@ namespace UnrealBuildTool
 				ToolElement.SetAttribute("SkipIfProjectFailed", "true");
 				if (Action.bIsGCCCompiler)
 				{
-					ToolElement.SetAttribute( "AutoReserveMemory", "*.gch" );
+					ToolElement.SetAttribute("AutoReserveMemory", "*.gch");
 				}
 				ToolElement.SetAttribute(
-					"OutputFileMasks", 
+					"OutputFileMasks",
 					string.Join(
 						",",
 						Action.ProducedItems.ConvertAll<string>(
@@ -368,25 +398,25 @@ namespace UnrealBuildTool
 				XmlElement TaskElement = XGETaskDocument.CreateElement("Task");
 				ProjectElement.AppendChild(TaskElement);
 				TaskElement.SetAttribute("SourceFile", "");
-				if( !Action.bShouldOutputStatusDescription )
+				if (!Action.bShouldOutputStatusDescription)
 				{
 					// If we were configured to not output a status description, then we'll instead
 					// set 'caption' text for this task, so that the XGE coordinator has something
 					// to display within the progress bars.  For tasks that are outputting a
 					// description, XGE automatically displays that text in the progress bar, so we
 					// only need to do this for tasks that output their own progress.
-					TaskElement.SetAttribute( "Caption", Action.StatusDescription );
+					TaskElement.SetAttribute("Caption", Action.StatusDescription);
 				}
-				TaskElement.SetAttribute("Name", string.Format("Action{0}",ActionIndex));
+				TaskElement.SetAttribute("Name", string.Format("Action{0}", ActionIndex));
 				TaskElement.SetAttribute("Tool", string.Format("Tool{0}", ActionIndex));
 				TaskElement.SetAttribute("WorkingDir", Action.WorkingDirectory);
 				TaskElement.SetAttribute("SkipIfProjectFailed", "true");
 
 				// Create a semi-colon separated list of the other tasks this task depends on the results of.
 				List<string> DependencyNames = new List<string>();
-				foreach(FileItem Item in Action.PrerequisiteItems)
+				foreach (FileItem Item in Action.PrerequisiteItems)
 				{
-					if(Item.ProducingAction != null && Actions.Contains(Item.ProducingAction))
+					if (Item.ProducingAction != null && Actions.Contains(Item.ProducingAction))
 					{
 						DependencyNames.Add(string.Format("Action{0}", Actions.IndexOf(Item.ProducingAction)));
 					}
@@ -395,7 +425,7 @@ namespace UnrealBuildTool
 				if (DependencyNames.Count > 0)
 				{
 					TaskElement.SetAttribute("DependsOn", string.Join(";", DependencyNames.ToArray()));
-                }
+				}
 			}
 
 			// Write the XGE task XML to a temporary file.
@@ -405,7 +435,9 @@ namespace UnrealBuildTool
 			}
 		}
 
-		/** The possible result of executing tasks with XGE. */
+		/// <summary>
+		/// The possible result of executing tasks with XGE.
+		/// </summary>
 		public enum ExecutionResult
 		{
 			Unavailable,
@@ -413,17 +445,17 @@ namespace UnrealBuildTool
 			TasksSucceeded,
 		}
 
-		/**
-		 * Executes the tasks in the specified file.
-		 * @param TaskFilePath - The path to the file containing the tasks to execute in XGE XML format.
-		 * @return Indicates whether the tasks were successfully executed.
-		 */
-		public static ExecutionResult ExecuteTaskFile(string TaskFilePath, DataReceivedEventHandler OutputEventHandler )
+		/// <summary>
+		/// Executes the tasks in the specified file.
+		/// </summary>
+		/// <param name="TaskFilePath">- The path to the file containing the tasks to execute in XGE XML format.</param>
+		/// <returns>Indicates whether the tasks were successfully executed.</returns>
+		public static ExecutionResult ExecuteTaskFile(string TaskFilePath, DataReceivedEventHandler OutputEventHandler)
 		{
 			bool bSilentCompileOutput = false;
 			string SilentOption = bSilentCompileOutput ? "/Silent" : "";
 
-            ProcessStartInfo XGEStartInfo = new ProcessStartInfo(
+			ProcessStartInfo XGEStartInfo = new ProcessStartInfo(
 				"xgConsole",
 				string.Format(@"{0} /Rebuild /NoWait {1} /NoLogo {2} /ShowTime",
 					TaskFilePath,
@@ -464,7 +496,7 @@ namespace UnrealBuildTool
 
 				// Wait until the process is finished and return whether it all the tasks successfully executed.
 				XGEProcess.WaitForExit();
-				return XGEProcess.ExitCode == 0 ? 
+				return XGEProcess.ExitCode == 0 ?
 					ExecutionResult.TasksSucceeded :
 					ExecutionResult.TasksFailed;
 			}
@@ -475,9 +507,9 @@ namespace UnrealBuildTool
 			}
 		}
 
-		/**
-		 * Executes the tasks in the specified file, parsing progress markup as part of the output.
-		 */
+		/// <summary>
+		/// Executes the tasks in the specified file, parsing progress markup as part of the output.
+		/// </summary>
 		public static ExecutionResult ExecuteTaskFileWithProgressMarkup(string TaskFilePath, int NumActions, DataReceivedEventHandler OutputEventHandler)
 		{
 			using (ProgressWriter Writer = new ProgressWriter("Compiling C++ source files...", false))
@@ -492,7 +524,7 @@ namespace UnrealBuildTool
 						Writer.Write(++NumCompletedActions, NumActions);
 						Args = ConstructDataReceivedEventArgs(Args.Data.Substring(ProgressMarkupPrefix.Length));
 					}
-					if(OutputEventHandler != null)
+					if (OutputEventHandler != null)
 					{
 						OutputEventHandler(Sender, Args);
 					}

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTCarriedObject.h"
@@ -361,11 +361,17 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
 		
 	UPROPERTY()
-	UAnimMontage* CurrentEmote;
+	UAnimMontage* CurrentTaunt;
+
+	UPROPERTY()
+	UAnimMontage* CurrentFirstPersonTaunt;
 
 	// Keep track of emote count so we can clear CurrentEmote
 	UPROPERTY()
-	int32 EmoteCount;
+	int32 TauntCount;
+
+	UFUNCTION()
+	bool IsThirdPersonTaunting() const;
 
 	/** Stored past positions of this player.  Used for bot aim error model, and for server side hit resolution. */
 	UPROPERTY()
@@ -558,6 +564,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	{
 		return PendingWeapon;
 	}
+	virtual void SetPendingWeapon(AUTWeapon* NewPendingWeapon);
 
 	bool IsInInventory(const AUTInventory* TestInv) const;
 
@@ -574,9 +581,14 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(Client, Reliable)
 	void ClientWeaponLost(AUTWeapon* LostWeapon);
 
+	/** replicated weapon switch status (for animation). */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
+		bool bIsSwitchingWeapon;
+
 	/** replicated weapon firing info */
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoReplicated, Category = "Weapon")
 	uint8 FlashCount;
+
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
 	uint8 FireMode;
 	/** weapon/attachment type specific extra data (for example, can be used to replicate charging without complicated FlashCount/FlashLocation gymnastics)
@@ -859,8 +871,9 @@ public:
 	UFUNCTION()
 	virtual void HeadScaleUpdated();
 
-	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit */
-	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
+	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit 
+	AppliedDamage is the damage inflicted, Damage is the net damage taken after armor, etc. reductions. */
+	virtual void NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
 
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
 	virtual void SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
@@ -1023,23 +1036,29 @@ public:
 	 * called on all clients
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-		void OnDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
+	void OnDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
 
 	/** Wall Dodge just occurred in dodge dir, play any sounds/effects desired.
 	* called on all clients
 	*/
 	UFUNCTION(BlueprintNativeEvent)
-		void OnWallDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
+	void OnWallDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
 
 	/** Slide just occurred, play any sounds/effects desired.
 	* called on server and owning client
 	*/
 	UFUNCTION(BlueprintNativeEvent)
-		void OnSlide(const FVector& SlideLocation, const FVector &SlideDir);
+	void OnSlide(const FVector& SlideLocation, const FVector &SlideDir);
+
+	/** Landing just occurred, play any effects desired. Landing sound will be played server-side elsewhere.
+	* called on server and owning client
+	*/
+	UFUNCTION(BlueprintNativeEvent)
+		void PlayLandedEffect();
 
 	/** Landing assist just occurred */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void OnLandingAssist();
+	void OnLandingAssist();
 
 	/** Blueprint override for dodge handling. Return true to skip default dodge in C++. */
 	UFUNCTION(BlueprintImplementableEvent)
@@ -1156,6 +1175,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;
 	
+	// @TODO FIXMESTEVE temp
+	float DefaultMeshTranslationZ;
 
 	//================================
 	// Swimming
@@ -1589,6 +1610,17 @@ public:
 	UFUNCTION()
 	virtual void UpdateWeaponAttachment();
 
+	UFUNCTION()
+	virtual void UpdateWeaponSkinPrefFromProfile();
+
+	UPROPERTY(replicatedUsing = OnRepWeaponSkin)
+	TArray<UUTWeaponSkin*> WeaponSkins;
+
+	UFUNCTION()
+	virtual void OnRepWeaponSkin();
+
+	virtual void SetSkinForWeapon(UUTWeaponSkin* WeaponSkin);
+
 	/** spawn/destroy/replace the current holstered weapon attachment to represent the equipped weapon (through WeaponClass) */
 	UFUNCTION()
 	virtual void UpdateHolsteredWeaponAttachment();
@@ -1618,6 +1650,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Movement)
 	virtual void SetWalkMovementReduction(float InPct, float InDuration);
 
+	virtual void UpdateWeaponSkin();
+
 protected:
 
 	/** destroys dead character if no longer onscreen */
@@ -1635,12 +1669,12 @@ protected:
 	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	bool ModifyDamageTaken(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, const FHitResult& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+		bool ModifyDamageTaken(UPARAM(ref) int32& AppliedDamage, UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, const FHitResult& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc
 	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	bool ModifyDamageCaused(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+		bool ModifyDamageCaused(UPARAM(ref) int32& AppliedDamage, UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);
@@ -1842,7 +1876,7 @@ public:
 
 inline bool AUTCharacter::IsDead()
 {
-	return bTearOff || bPendingKillPending;
+	return bTearOff || IsPendingKillPending();
 }
 
 

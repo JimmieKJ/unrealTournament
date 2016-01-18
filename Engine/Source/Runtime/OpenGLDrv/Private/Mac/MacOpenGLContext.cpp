@@ -305,6 +305,10 @@ void FPlatformOpenGLContext::Initialise( NSOpenGLContext* const SharedContext )
 	
 	InitDefaultGLContextState();
 	
+	// As someone has made enabling this rely on the extension being exported set it directly here as it is always available on OS X.
+	// Conformant desktop GL 3.2 or above do not have to export this extension as it was promoted to core!
+	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+	
 	if ( !VertexArrayObject )
 	{
 		glGenVertexArrays(1,&VertexArrayObject);
@@ -317,6 +321,7 @@ void FPlatformOpenGLContext::Initialise( NSOpenGLContext* const SharedContext )
 	
 	CGLGetVirtualScreen((CGLContextObj)[OpenGLContext CGLContextObj], &VirtualScreen);
 	
+	// Update the context dependent state.
 	VerifyCurrentContext();
 	
 	EmulatedQueries = new FMacOpenGLQueryEmu(this);
@@ -434,7 +439,7 @@ void FPlatformOpenGLContext::VerifyCurrentContext()
 		CGLGetVirtualScreen(Current, &VirtualScreen);
 		
 		// Verify that the renderer ID hasn't changed, as if it has our capabilities may also be different
-		if(RendererID != PlatformContext->RendererID || VirtualScreen != PlatformContext->VirtualScreen)
+		if(!GRHIVendorId || RendererID != PlatformContext->RendererID || VirtualScreen != PlatformContext->VirtualScreen)
 		{
 			PlatformContext->RendererID = RendererID;
 			PlatformContext->VirtualScreen = VirtualScreen;

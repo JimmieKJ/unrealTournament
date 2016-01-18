@@ -15,16 +15,54 @@ class UAIHotSpotManager;
 class UBlackboardData;
 class UBlackboardComponent;
 
+#define GET_AI_CONFIG_VAR(a) (GetDefault<UAISystem>()->a)
+
 UCLASS(config=Engine, defaultconfig)
 class AIMODULE_API UAISystem : public UAISystemBase
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
+protected:
 	UPROPERTY(globalconfig, EditAnywhere, Category = "AISystem", meta = (MetaClass = "AIPerceptionSystem", DisplayName = "Perception System Class"))
 	FStringClassReference PerceptionSystemClassName;
 
 	UPROPERTY(globalconfig, EditAnywhere, Category = "AISystem", meta = (MetaClass = "AIHotSpotManager", DisplayName = "AIHotSpotManager Class"))
 	FStringClassReference HotSpotManagerClassName;
+
+public:
+	/** Default AI movement's acceptance radius used to determine whether 
+ 	 * AI reached path's end */
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "Movement")
+	float AcceptanceRadius; 
+
+	/** Value used for pathfollowing's internal code to determine whether AI reached path's point. 
+	 *	@note this value is not used for path's last point. @see AcceptanceRadius*/
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "Movement")
+	float PathfollowingRegularPathPointAcceptanceRadius;
+	
+	/** Similarly to PathfollowingRegularPathPointAcceptanceRadius used by pathfollowing's internals
+	 *	but gets applied only when next point on a path represents a begining of navigation link */
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "Movement")
+	float PathfollowingNavLinkAcceptanceRadius;
+	
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "Movement")
+	bool bFinishMoveOnGoalOverlap;
+
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "Movement")
+	bool bAcceptPartialPaths;
+
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "Movement")
+	bool bAllowStrafing;
+
+	/** this property is just a transition-time flag - in the end we're going to switch over to Gameplay Tasks anyway, that's the goal. */
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "Gameplay Tasks")
+	bool bEnableBTAITasks;
+
+	/** if enable will make EQS not complaint about using Controllers as queriers. Default behavior (false) will 
+	 *	in places automatically convert controllers to pawns, and complain if code user bypasses the conversion or uses
+	 *	pawn-less controller */
+	UPROPERTY(globalconfig, EditDefaultsOnly, Category = "EQS")
+	bool bAllowControllersAsEQSQuerier;
 
 protected:
 	/** Behavior tree manager used by game */
@@ -44,7 +82,7 @@ protected:
 	UPROPERTY(Transient)
 	UAIHotSpotManager* HotSpotManager;
 
-	typedef TMultiMap<TWeakObjectPtr<UBlackboardData>, TWeakObjectPtr<UBlackboardComponent>> FBlackboardDataToComponentsMap;
+	typedef TMultiMap<TWeakObjectPtr<UBlackboardData>, TWeakObjectPtr<UBlackboardComponent> > FBlackboardDataToComponentsMap;
 
 	/** UBlackboardComponent instances that reference the blackboard data definition */
 	FBlackboardDataToComponentsMap BlackboardDataToComponentsMap;
@@ -52,6 +90,8 @@ protected:
 	FDelegateHandle ActorSpawnedDelegateHandle;
 	
 public:
+	UAISystem(const FObjectInitializer& ObjectInitializer);
+
 	virtual void BeginDestroy() override;
 	
 	virtual void PostInitProperties() override;
@@ -68,9 +108,9 @@ public:
 	/** Behavior tree manager const getter */
 	FORCEINLINE const UBehaviorTreeManager* GetBehaviorTreeManager() const { return BehaviorTreeManager; }
 
-	/** Behavior tree manager getter */
+	/** Environment Query manager getter */
 	FORCEINLINE UEnvQueryManager* GetEnvironmentQueryManager() { return EnvironmentQueryManager; }
-	/** Behavior tree manager const getter */
+	/** Environment Query manager const getter */
 	FORCEINLINE const UEnvQueryManager* GetEnvironmentQueryManager() const { return EnvironmentQueryManager; }
 
 	FORCEINLINE UAIPerceptionSystem* GetPerceptionSystem() { return PerceptionSystem; }

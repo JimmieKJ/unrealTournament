@@ -103,8 +103,8 @@ struct FParticleEmitterBuildInfo
 	/** Enable collision? */
 	bool bEnableCollision;
 	/** How particles respond to collision. */
-	//EParticleCollisionResponse::Type CollisionResponse;
 	uint8 CollisionResponse;
+	uint8 CollisionMode;
 	/** Radius scale applied to friction. */
 	float CollisionRadiusScale;
 	/** Bias applied to the collision radius. */
@@ -284,7 +284,8 @@ public:
 	TArray<float> EmitterDurations;
 	/** The emitter's delay for the current loop		*/
 	float CurrentDelay;
-
+	/** true if the emitter has no active particles and will no longer spawn any in the future */
+	bool bEmitterIsDone;
 
 	/** The number of triangles to render								*/
 	int32	TrianglesToRender;
@@ -303,6 +304,8 @@ public:
 	
 	/** The PivotOffset applied to the vertex positions 			*/
 	FVector2D PivotOffset;
+
+	TArray<class UPointLightComponent*> HighQualityLights;
 
 	/** Constructor	*/
 	FParticleEmitterInstance();
@@ -331,6 +334,8 @@ public:
 	virtual bool Resize(int32 NewMaxActiveParticles, bool bSetMaxActiveCount = true);
 
 	virtual void Tick(float DeltaTime, bool bSuppressSpawning);
+	void CheckEmitterFinished();
+
 	/**
 	 *	Tick sub-function that handles EmitterTime setup, looping, etc.
 	 *
@@ -667,6 +672,17 @@ public:
 	@return True if there were material overrides. Otherwise revert to default behaviour.
 	*/
 	virtual bool Tick_MaterialOverrides();
+
+	/**
+	* True if this emitter emits in local space
+	*/
+	bool UseLocalSpace();
+
+	/**
+	* returns the screen alignment and scale of the component.
+	*/
+	void GetScreenAlignmentAndScale(int32& OutScreenAlign, FVector& OutScale);
+
 protected:
 
 	/**
@@ -684,8 +700,8 @@ protected:
 	void UpdateTransforms();
 
 	/**
-	 * Retrieves the current LOD level and asserts that it is valid.
-	 */
+	* Retrieves the current LOD level and asserts that it is valid.
+	*/
 	class UParticleLODLevel* GetCurrentLODLevelChecked();
 
 	/**

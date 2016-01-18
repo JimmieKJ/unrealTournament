@@ -1029,7 +1029,11 @@ void FOnlineAsyncTaskSteamFindLobbies::Finalize()
 			}
 		}
 
-		SearchSettings->SortSearchResults();
+		if (SearchSettings->SearchResults.Num() > 0)
+		{
+			// Allow game code to sort the servers
+			SearchSettings->SortSearchResults();
+		}
 	}
 
 	SearchSettings->SearchState = bWasSuccessful ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed;
@@ -1120,7 +1124,11 @@ void FOnlineAsyncTaskSteamFindLobby::Finalize()
 				}
 			}
 
-			SearchSettings->SortSearchResults();
+			if (SearchSettings->SearchResults.Num() > 0)
+			{
+				// Allow game code to sort the servers
+				SearchSettings->SortSearchResults();
+			}
 		}
 
 		SearchSettings->SearchState = bWasSuccessful ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed;

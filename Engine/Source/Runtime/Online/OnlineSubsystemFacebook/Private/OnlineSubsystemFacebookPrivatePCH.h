@@ -14,9 +14,6 @@
 #include "OnlineIdentityFacebook.h"
 #include "OnlineFriendsFacebook.h"
 
-/** FName declaration of Facebook subsystem */
-#define FACEBOOK_SUBSYSTEM FName(TEXT("Facebook"))
-
 /** pre-pended to all Facebook logging */
 #undef ONLINE_LOG_PREFIX
 #define ONLINE_LOG_PREFIX TEXT("Facebook: ")

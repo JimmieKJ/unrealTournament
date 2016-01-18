@@ -5,9 +5,9 @@
  */
 
 
-//=============================================================================
+//~=============================================================================
 // CylinderBuilder: Builds a 3D cylinder brush.
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "CylinderBuilder.generated.h"
@@ -48,10 +48,13 @@ public:
 	UPROPERTY(EditAnywhere, Category=BrushSettings)
 	uint32 Hollow:1;
 
+	//~ Begin UObject Interface
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	//~ End UObject Interface
 
-	// Begin UBrushBuilder Interface
+	//~ Begin UBrushBuilder Interface
 	virtual bool Build( UWorld* InWorld, ABrush* InBrush = NULL ) override;
-	// End UBrushBuilder Interface
+	//~ End UBrushBuilder Interface
 
 	// @todo document
 	virtual void BuildCylinder( int32 Direction, bool InAlignToSide, int32 InSides, float InZ, float Radius );

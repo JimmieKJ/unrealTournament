@@ -36,32 +36,27 @@ public abstract class BaseWinPlatform : Platform
 		}
 
 		// Stage all the build products
-		foreach(BuildReceipt Receipt in SC.StageTargetReceipts)
+		foreach(StageTarget Target in SC.StageTargets)
 		{
-			SC.StageBuildProductsFromReceipt(Receipt);
+            if (Target.Receipt.Configuration == SC.StageTargetConfigurations[0])
+            {
+                SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
+            }
+            else
+            {
+                SC.StageBuildProductsFromReceiptAllDebug(Target.Receipt, Target.RequireFilesExist);
+            }
 		}
 
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
-        if (Params.bUsesCEF3)
-        {
-            // CEF3 files
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3", SC.PlatformDir), "*", true, null, null, true);
-        }
-
-        // Only staging Oculus Audio for win 64
-        if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
-        {
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Oculus/Audio", SC.PlatformDir), "*", true, null, null, true);
-        }
-
 		// Stage the bootstrap executable
 		if(!Params.NoBootstrapExe)
 		{
-			foreach(BuildReceipt Receipt in SC.StageTargetReceipts)
+			foreach(StageTarget Target in SC.StageTargets)
 			{
-				BuildProduct Executable = Receipt.BuildProducts.FirstOrDefault(x => x.Type == BuildProductType.Executable);
+				BuildProduct Executable = Target.Receipt.BuildProducts.FirstOrDefault(x => x.Type == BuildProductType.Executable);
 				if(Executable != null)
 				{
 					// only create bootstraps for executables
@@ -80,14 +75,17 @@ public abstract class BaseWinPlatform : Platform
 						}
 						else if(Params.IsCodeBasedProject)
 						{
-							BootstrapExeName = Receipt.GetProperty("TargetName", SC.ShortProjectName) + ".exe";
+							BootstrapExeName = Target.Receipt.TargetName + ".exe";
 						}
 						else
 						{
 							BootstrapExeName = SC.ShortProjectName + ".exe";
 						}
 
-						StageBootstrapExecutable(SC, BootstrapExeName, Executable.Path, SC.NonUFSStagingFiles[Executable.Path], BootstrapArguments);
+						foreach (string StagePath in SC.NonUFSStagingFiles[Executable.Path])
+						{
+							StageBootstrapExecutable(SC, BootstrapExeName, Executable.Path, StagePath, BootstrapArguments);
+						}
 					}
 				}
 			}
@@ -104,7 +102,8 @@ public abstract class BaseWinPlatform : Platform
 			InternalUtils.SafeCreateDirectory(IntermediateDir);
 
 			string IntermediateFile = CombinePaths(IntermediateDir, ExeName);
-			File.Copy(InputFile, IntermediateFile, true);
+			CommandUtils.CopyFile(InputFile, IntermediateFile);
+			CommandUtils.SetFileAttributes(IntermediateFile, ReadOnly: false);
 	
 			// currently the icon updating doesn't run under mono
 			if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 ||
@@ -248,12 +247,21 @@ public abstract class BaseWinPlatform : Platform
 
 	public override bool ShouldStageCommandLine(ProjectParams Params, DeploymentContext SC)
 	{
-		return !String.IsNullOrEmpty(Params.StageCommandline) || !String.IsNullOrEmpty(Params.RunCommandline) || (!Params.IsCodeBasedProject && Params.NoBootstrapExe);
+		return false; // !String.IsNullOrEmpty(Params.StageCommandline) || !String.IsNullOrEmpty(Params.RunCommandline) || (!Params.IsCodeBasedProject && Params.NoBootstrapExe);
 	}
 
 	public override List<string> GetDebugFileExtentions()
 	{
 		return new List<string> { ".pdb", ".map" };
+	}
+
+	public override bool SignExecutables(DeploymentContext SC, ProjectParams Params)
+	{
+		// Sign everything we built
+		List<string> FilesToSign = GetExecutableNames(SC);
+		CodeSign.SignMultipleFilesIfEXEOrDLL(FilesToSign);
+
+		return true;
 	}
 }
 
@@ -275,6 +283,13 @@ public class Win64Platform : BaseWinPlatform
 			string InstallerRelativePath = CombinePaths("Engine", "Extras", "Redist", "en-us");
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, InstallerRelativePath), "UE4PrereqSetup_x64.exe", false, null, InstallerRelativePath);
 		}
+
+        if (!SC.DedicatedServer)
+        {
+            // Very UT specific because of non-monolithic build
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
+        }
 	}
 }
 
@@ -296,5 +311,12 @@ public class Win32Platform : BaseWinPlatform
 			string InstallerRelativePath = CombinePaths("Engine", "Extras", "Redist", "en-us");
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, InstallerRelativePath), "UE4PrereqSetup_x86.exe", false, null, InstallerRelativePath);
 		}
+
+        if (!SC.DedicatedServer)
+        {
+            // Very UT specific because of non-monolithic build
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
+        }
 	}
 }

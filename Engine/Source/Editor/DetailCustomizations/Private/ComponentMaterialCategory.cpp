@@ -145,6 +145,7 @@ private:
 FComponentMaterialCategory::FComponentMaterialCategory( TArray< TWeakObjectPtr<USceneComponent> >& InSelectedComponents )
 	: SelectedComponents( InSelectedComponents )
 	, NotifyHook( nullptr )
+	, MaterialCategory( nullptr )
 {
 }
 
@@ -172,19 +173,18 @@ void FComponentMaterialCategory::Create( IDetailLayoutBuilder& DetailBuilder )
 	}
 
 
-	// only show the category if there are materials to display
-	if( bAnyMaterialsToDisplay )
-	{
-		// Make a category for the materials.
-		IDetailCategoryBuilder& MaterialCategory = DetailBuilder.EditCategory("Materials", FText::GetEmpty(), ECategoryPriority::TypeSpecific );
+	// Make a category for the materials.
+	MaterialCategory = &DetailBuilder.EditCategory("Materials", FText::GetEmpty(), ECategoryPriority::TypeSpecific );
 
-		MaterialCategory.AddCustomBuilder( MaterialList );
-	}
+	MaterialCategory->AddCustomBuilder( MaterialList );
+	MaterialCategory->SetCategoryVisibility( bAnyMaterialsToDisplay );
+	
 }
 
 void FComponentMaterialCategory::OnGetMaterialsForView( IMaterialListBuilder& MaterialList )
 {
 	const bool bAllowNullEntries = true;
+	bool bAnyMaterialsToDisplay = false;
 
 	// Iterate over every material on the actors
 	for( FMaterialIterator It( SelectedComponents ); It; ++It )
@@ -209,9 +209,12 @@ void FComponentMaterialCategory::OnGetMaterialsForView( IMaterialListBuilder& Ma
 			if( bAllowNullEntries || Material )
 			{
 				MaterialList.AddMaterial( MaterialIndex, Material, bCanBeReplaced );
+				bAnyMaterialsToDisplay = true;
 			}
 		}
 	}
+
+	MaterialCategory->SetCategoryVisibility(bAnyMaterialsToDisplay);
 }
 
 void FComponentMaterialCategory::OnMaterialChanged( UMaterialInterface* NewMaterial, UMaterialInterface* PrevMaterial, int32 SlotIndex, bool bReplaceAll )
@@ -313,19 +316,35 @@ void FComponentMaterialCategory::OnMaterialChanged( UMaterialInterface* NewMater
 					NotifyHook->NotifyPostChange( PropertyChangedEvent, MaterialProperty );
 				}
 
-				TArray<UObject*> ArchetypeInstances;
-				if( CurrentComponent->IsTemplate() && !FApp::IsGame() )
+				// Propagate material change to instances of the edited component template
+				if( !FApp::IsGame() )
 				{
-					// Propagate material change to instances of the edited component template
-					CurrentComponent->GetArchetypeInstances(ArchetypeInstances);
-					for( auto ArchetypeInstance : ArchetypeInstances )
+					TArray<UObject*> ComponentArchetypeInstances;
+					if( CurrentComponent->HasAnyFlags(RF_ArchetypeObject) )
 					{
-						CurrentComponent = CastChecked<UActorComponent>( ArchetypeInstance );
+						CurrentComponent->GetArchetypeInstances(ComponentArchetypeInstances);
+					}
+					else if( UObject* Outer = CurrentComponent->GetOuter() )
+					{
+						TArray<UObject*> OuterArchetypeInstances;
+						Outer->GetArchetypeInstances(OuterArchetypeInstances);
+						for( auto OuterArchetypeInstance : OuterArchetypeInstances )
+						{
+							if( UObject* ArchetypeInstance = static_cast<UObject*>(FindObjectWithOuter(OuterArchetypeInstance, CurrentComponent->GetClass(), CurrentComponent->GetFName())) )
+							{
+								ComponentArchetypeInstances.Add(ArchetypeInstance);
+							}
+						}
+					}
+
+					for( auto ComponentArchetypeInstance : ComponentArchetypeInstances )
+					{
+						CurrentComponent = CastChecked<UActorComponent>( ComponentArchetypeInstance );
 						if( CurrentComponent->IsA<ULandscapeComponent>() )
 						{
-							ArchetypeInstance = CastChecked<ULandscapeComponent>(CurrentComponent)->GetLandscapeProxy();
+							ComponentArchetypeInstance = CastChecked<ULandscapeComponent>(CurrentComponent)->GetLandscapeProxy();
 						}
-						
+
 						// Reset the navigation update lock if necessary
 						UWorld* PreviousWorld = World;
 						World = CurrentComponent->GetWorld();
@@ -334,11 +353,11 @@ void FComponentMaterialCategory::OnMaterialChanged( UMaterialInterface* NewMater
 							NavUpdateLock = MakeShareable( new FNavigationLockContext(World, ENavigationLockReason::MaterialUpdate) );
 						}
 
-						ArchetypeInstance->PreEditChange( MaterialProperty );
+						ComponentArchetypeInstance->PreEditChange( MaterialProperty );
 
 						SwapMaterialLambda( CurrentComponent, It.GetMaterialIndex(), NewMaterial );
 
-						ArchetypeInstance->PostEditChangeProperty( PropertyChangedEvent );
+						ComponentArchetypeInstance->PostEditChangeProperty( PropertyChangedEvent );
 					}
 				}
 			}

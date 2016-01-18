@@ -8,4 +8,5 @@ UWidgetDesignerSettings::UWidgetDesignerSettings(const FObjectInitializer& Objec
 {
 	GridSnapEnabled = true;
 	GridSnapSize = 4;
+	bShowOutlines = true;
 }

@@ -1,13 +1,16 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "GameFramework/GameMode.h"
 #include "UTPlayerState.h"
+#if WITH_PROFILE
+#include "UtMcpProfileManager.h"
+#endif
 #include "UTBaseGameMode.generated.h"
 
 #if !UE_SERVER
-	class SUWindowsDesktop;
+	class SUTMenuBase;
 #endif
 
 class UUTLocalPlayer;
@@ -41,7 +44,7 @@ public:
 	/**
 	 *	Returns the Menu to popup when the user requests a menu
 	 **/
-	virtual TSharedRef<SUWindowsDesktop> GetGameMenu(UUTLocalPlayer* PlayerOwner) const;
+	virtual TSharedRef<SUTMenuBase> GetGameMenu(UUTLocalPlayer* PlayerOwner) const;
 
 #endif
 
@@ -72,11 +75,12 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, AssetRegistrySearchable, Category = Game)
 	FText DisplayName;
 
-	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
-	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void GenericPlayerInitialization(AController* C);
 	
+	virtual void PostInitProperties();
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 
 	// Holds the server instance guid.  This is created when 
@@ -163,4 +167,16 @@ public:
 	virtual void RconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason);
 	virtual void RconAuth(AUTBasePlayerController* Admin, const FString& Password);
 	virtual void RconNormal(AUTBasePlayerController* Admin);
+
+private:
+	UPROPERTY()
+	UObject* McpProfileManager;
+public:
+#if WITH_PROFILE
+	inline UUtMcpProfileManager* GetMcpProfileManager() const
+	{
+		checkSlow(Cast<UUtMcpProfileManager>(McpProfileManager) != NULL);
+		return Cast<UUtMcpProfileManager>(McpProfileManager);
+	}
+#endif
 };

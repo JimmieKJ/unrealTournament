@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTShowdownGame.h"
 #include "UTTimerMessage.h"
@@ -6,10 +6,15 @@
 #include "UTHUD_Showdown.h"
 #include "UTShowdownGameState.h"
 #include "UTTimedPowerup.h"
-#include "Slate/SlateGameResources.h"
-#include "Slate/SUWindowsStyle.h"
+#include "SlateGameResources.h"
+#include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 #include "UTShowdownSquadAI.h"
+#include "UTGenericObjectivePoint.h"
+#include "UTShowdownRewardMessage.h"
+#include "UTFirstBloodMessage.h"
+#include "UTMutator.h"
+#include "StatNames.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -26,11 +31,11 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	HUDClass = AUTHUD_Showdown::StaticClass();
 	GameStateClass = AUTShowdownGameState::StaticClass();
 
-	PowerupBreakerPickupClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/SuperchargeBase.SuperchargeBase_C");
-	PowerupBreakerItemClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Supercharge.BP_Supercharge_C");
+	PowerupBreakerPickupClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/SuperchargeBase.SuperchargeBase_C"));
+	PowerupBreakerItemClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Supercharge.BP_Supercharge_C"));
 
-	SuperweaponReplacementPickupClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/PowerupBase.PowerupBase_C");
-	SuperweaponReplacementItemClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Invis.BP_Invis_C");
+	SuperweaponReplacementPickupClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/PowerupBase.PowerupBase_C"));
+	SuperweaponReplacementItemClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Invis.BP_Invis_C"));
 
 	bPowerupBreaker = true;
 }
@@ -39,9 +44,8 @@ void AUTShowdownGame::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bXRayBreaker = EvalBoolOptions(ParseOption(Options, TEXT("XRayBreaker")), bXRayBreaker);
-	bPowerupBreaker = EvalBoolOptions(ParseOption(Options, TEXT("PowerupBreaker")), bPowerupBreaker);
-	bBroadcastPlayerHealth = EvalBoolOptions(ParseOption(Options, TEXT("BroadcastPlayerHealth")), bBroadcastPlayerHealth);
+	bXRayBreaker = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("XRayBreaker")), bXRayBreaker);
+	bPowerupBreaker = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("PowerupBreaker")), bPowerupBreaker);
 
 	// this game mode requires a goal score
 	if (GoalScore <= 0)
@@ -54,8 +58,6 @@ void AUTShowdownGame::InitGameState()
 {
 	Super::InitGameState();
 
-	Cast<AUTShowdownGameState>(GameState)->bBroadcastPlayerHealth = bBroadcastPlayerHealth;
-
 	if (bPowerupBreaker)
 	{
 		TSubclassOf<AUTTimedPowerup> PowerupClass = Cast<UClass>(PowerupBreakerItemClass.TryLoad());
@@ -63,6 +65,20 @@ void AUTShowdownGame::InitGameState()
 		{
 			PowerupClass.GetDefaultObject()->AddOverlayMaterials(UTGameState);
 		}
+	}
+}
+
+void AUTShowdownGame::HandleCountdownToBegin()
+{
+	BeginGame();
+}
+
+void AUTShowdownGame::ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker)
+{
+	Super::ScoreDamage_Implementation(DamageAmount, Victim, Attacker);
+	if (Victim && Attacker && UTGameState && !UTGameState->OnSameTeam(Victim, Attacker))
+	{
+		Attacker->AdjustScore(DamageAmount);
 	}
 }
 
@@ -101,10 +117,16 @@ void AUTShowdownGame::StartNewRound()
 		}
 	}
 	bAllowPlayerRespawns = false;
-
 	UTGameState->SetTimeLimit(TimeLimit);
-
 	AnnounceMatchStart();
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && !PS->bIsInactive && !PS->bOnlySpectator)
+		{
+			PS->AdjustScore(100);
+		}
+	}
 }
 
 bool AUTShowdownGame::CheckRelevance_Implementation(AActor* Other)
@@ -125,7 +147,7 @@ bool AUTShowdownGame::CheckRelevance_Implementation(AActor* Other)
 			if (ReplacementPickupClass != NULL && ReplacementItemClass != NULL)
 			{
 				FActorSpawnParameters Params;
-				Params.bNoCollisionFail = true;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				AUTPickupInventory* Pickup = GetWorld()->SpawnActor<AUTPickupInventory>(ReplacementPickupClass, PickupWeapon->GetActorLocation(), PickupWeapon->GetActorRotation(), Params);
 				if (Pickup != NULL)
 				{
@@ -161,7 +183,7 @@ void AUTShowdownGame::HandleMatchHasStarted()
 	// Then fire off match started
 	GetWorldSettings()->NotifyMatchStarted();
 
-	if (IsHandlingReplays() && GetGameInstance() != nullptr)
+	if (UTIsHandlingReplays() && GetGameInstance() != nullptr)
 	{
 		GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
 	}
@@ -190,6 +212,7 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
 			if (OtherPS != NULL && OtherPS->Team != NULL)
 			{
+				OtherPS->SetOutOfLives(true);
 				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 				AUTTeamInfo* KillerTeam = (KillerPS != NULL) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
 				KillerTeam->Score += 1;
@@ -207,11 +230,59 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 				SetTimerUFunc(this, FName(TEXT("StartIntermission")), 1.0f, false);
 			}
 		}
-		AUTTeamGameMode::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+		if (Killer != Other && Killer != NULL && UTGameState->OnSameTeam(Killer, Other))
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(Killer);
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+			}
+			// AUTGameMode doesn't handle team kills and AUTTeamDMGameMode would change the team score so we need to do it ourselves
+			AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
+			if (KillerPS != NULL)
+			{
+				KillerPS->AdjustScore(-100);
+			}
+		}
+		else
+		{
+			AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
+			if ((Killer == Other) || (Killer == NULL))
+			{
+				// If it's a suicide, subtract a kill from the player...
+				if (OtherPlayerState)
+				{
+					OtherPlayerState->AdjustScore(-100);
+				}
+			}
+			else
+			{
+				OtherPlayerState->AdjustScore(-100);
+				AUTPlayerState * KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+				if (KillerPlayerState != NULL)
+				{
+					KillerPlayerState->AdjustScore(+100);
+					KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
+					CheckScore(KillerPlayerState);
+				}
+
+				if (!bFirstBloodOccurred)
+				{
+					BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
+					bFirstBloodOccurred = true;
+				}
+			}
+		}
+		AddKillEventToReplay(Killer, Other, DamageType);
+		if (BaseMutator != NULL)
+		{
+			BaseMutator->ScoreKill(Killer, Other, DamageType);
+		}
+		FindAndMarkHighScorer();
 	}
 }
 
-void AUTShowdownGame::ScoreExpiredRoundTime()
+AInfo* AUTShowdownGame::GetTiebreakWinner(FName* WinReason) const
 {
 	// end round; player with highest health
 	TArray< AUTPlayerState*, TInlineAllocator<2> > AlivePlayers;
@@ -239,17 +310,33 @@ void AUTShowdownGame::ScoreExpiredRoundTime()
 			}
 		}
 	}
-	if (bTied || RoundWinner == NULL)
+
+	if (WinReason != NULL)
+	{
+		*WinReason = FName(TEXT("Health"));
+	}
+	return (bTied ? NULL : RoundWinner);
+}
+
+void AUTShowdownGame::ScoreExpiredRoundTime()
+{
+	AUTPlayerState* RoundWinner = Cast<AUTPlayerState>(GetTiebreakWinner());
+	if (RoundWinner == NULL)
 	{
 		// both players score a point
-		for (AUTPlayerState* PS : AlivePlayers)
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
-			if (PS != NULL)
+			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+			if (UTC != NULL && !UTC->IsDead())
 			{
-				PS->Score += 1.0f;
-				if (PS->Team != NULL)
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+				if (PS != NULL)
 				{
-					PS->Team->Score += 1.0f;
+					PS->Score += 1.0f;
+					if (PS->Team != NULL)
+					{
+						PS->Team->Score += 1.0f;
+					}
 				}
 			}
 		}
@@ -293,14 +380,31 @@ void AUTShowdownGame::StartIntermission()
 		}
 		else
 		{
+			if (LastRoundWinner != nullptr)
+			{
+				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + LastRoundWinner->TeamIndex);
+			}
 			SetMatchState(MatchState::MatchIntermission);
 			GameState->ForceNetUpdate();
+		}
+	}
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC && PC->UTPlayerState)
+		{
+			PC->ClientUpdateDamageDone(PC->UTPlayerState->DamageDone, PC->UTPlayerState->RoundDamageDone);
 		}
 	}
 }
 
 void AUTShowdownGame::RestartPlayer(AController* aPlayer)
 {
+	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+	if (PS)
+	{
+		PS->SetOutOfLives(!bAllowPlayerRespawns);
+	}
 	if (bAllowPlayerRespawns)
 	{
 		Super::RestartPlayer(aPlayer);
@@ -347,38 +451,50 @@ void AUTShowdownGame::HandleMatchIntermission()
 		TSubclassOf<AUTTimedPowerup> PowerupClass = Cast<UClass>(PowerupBreakerItemClass.TryLoad());
 		if (PickupClass != NULL && PowerupClass != NULL)
 		{
-			// TODO: use game objective points or something
-			AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
-			if (NavData != NULL)
+			FVector SpawnLoc;
+			TArray<AUTGenericObjectivePoint*> PlacedSpawnPoints;
+			for (TActorIterator<AUTGenericObjectivePoint> It(GetWorld()); It; ++It)
+			{
+				PlacedSpawnPoints.Add(*It);
+			}
+			if (PlacedSpawnPoints.Num() > 0)
+			{
+				SpawnLoc = PlacedSpawnPoints[FMath::RandHelper(PlacedSpawnPoints.Num())]->GetActorLocation();
+			}
+			else
 			{
 				AActor* StartSpot = FindPlayerStart(NULL);
-				FVector Extent = NavData->GetPOIExtent(StartSpot);
-				FRandomDestEval NodeEval;
-				float Weight = 0.0f;
-				TArray<FRouteCacheItem> Route;
-				FVector SpawnLoc = StartSpot->GetActorLocation();
-				if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
+				SpawnLoc = StartSpot->GetActorLocation();
+				AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+				if (NavData != NULL)
 				{
-					SpawnLoc = Route.Last().GetLocation(NULL);
-					// try to pick a better poly for spawning (we'd like to stay away from walls)
-					for (int32 i = Route.Num() - 1; i >= 0; i--)
+					FVector Extent = NavData->GetPOIExtent(StartSpot);
+					FRandomDestEval NodeEval;
+					float Weight = 0.0f;
+					TArray<FRouteCacheItem> Route;					
+					if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
 					{
-						if (NavData->GetPolySurfaceArea2D(Route[i].TargetPoly) > 10000.0f || NavData->GetPolyWalls(Route[i].TargetPoly).Num() == 0)
+						SpawnLoc = Route.Last().GetLocation(NULL);
+						// try to pick a better poly for spawning (we'd like to stay away from walls)
+						for (int32 i = Route.Num() - 1; i >= 0; i--)
 						{
-							SpawnLoc = Route[i].GetLocation(NULL);
-							break;
+							if (NavData->GetPolySurfaceArea2D(Route[i].TargetPoly) > 10000.0f || NavData->GetPolyWalls(Route[i].TargetPoly).Num() == 0)
+							{
+								SpawnLoc = Route[i].GetLocation(NULL) + FVector(0.0f, 0.0f, Extent.Z);
+								break;
+							}
 						}
 					}
 				}
-				FActorSpawnParameters Params;
-				Params.bNoCollisionFail = true;
-				BreakerPickup = GetWorld()->SpawnActor<AUTPickupInventory>(PickupClass, SpawnLoc + Extent.Z, FRotator(0.0f, 360.0f * FMath::FRand(), 0.0f), Params);
-				if (BreakerPickup != NULL)
-				{
-					BreakerPickup->SetInventoryType(PowerupClass);
-					BreakerPickup->bDelayedSpawn = true;
-					BreakerPickup->RespawnTime = 70.0f;
-				}
+			}
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			BreakerPickup = GetWorld()->SpawnActor<AUTPickupInventory>(PickupClass, SpawnLoc, FRotator(0.0f, 360.0f * FMath::FRand(), 0.0f), Params);
+			if (BreakerPickup != NULL)
+			{
+				BreakerPickup->SetInventoryType(PowerupClass);
+				BreakerPickup->bDelayedSpawn = true;
+				BreakerPickup->RespawnTime = 70.0f;
 			}
 		}
 	}
@@ -386,7 +502,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
 
 	GS->bActivateXRayVision = false;
-	GS->IntermissionStageTime = 3;
+	GS->IntermissionStageTime = 5;
 	GS->bStartedSpawnSelection = false;
 	GS->bFinalIntermissionDelay = false;
 	RemainingPicks.Empty();
@@ -408,10 +524,10 @@ void AUTShowdownGame::HandleMatchIntermission()
 	}
 
 	// give players spawn point selection
-	TArray<AUTPlayerState*> UnsortedPicks;
-	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+	TMultiMap<AUTTeamInfo*, AUTPlayerState*> TeamPlayers;
+	for (FConstControllerIterator ControllerIt = GetWorld()->GetControllerIterator(); ControllerIt; ++ControllerIt)
 	{
-		AController* C = It->Get();
+		AController* C = ControllerIt->Get();
 		if (C != NULL)
 		{
 			APawn* P = C->GetPawn();
@@ -423,25 +539,55 @@ void AUTShowdownGame::HandleMatchIntermission()
 				P->PlayerState = SavedPlayerState;
 				// we want the character around for the HUD displays of status but we don't need to actually see it and this prevents potential camera clipping
 				P->GetRootComponent()->SetHiddenInGame(true, true);
+				AUTCharacter* UTC = Cast<AUTCharacter>(P);
+				if (UTC != NULL)
+				{
+					// weapon doesn't want to seem to stop firing consistently on clients, just destroy it since the round is over
+					if (UTC->GetWeapon() != NULL)
+					{
+						UTC->GetWeapon()->Destroy();
+					}
+					for (TInventoryIterator<AUTInventory> It((AUTCharacter*)P); It; ++It)
+					{
+						// prevent tick so powerups don't count down and so forth
+						// don't want to destroy all of these because they might affect the status display (armor, etc)
+						It->SetActorTickEnabled(false);
+						GetWorldTimerManager().ClearAllTimersForObject(*It);
+					}
+				}
 			}
 			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
 			if (PS != NULL && !PS->bOnlySpectator && PS->Team != NULL)
 			{
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
-				UnsortedPicks.Add(PS);
-				// make sure players that were spectating while dead go back to dead state
+				PS->SetOutOfLives(false);
+				TeamPlayers.Add(PS->Team, PS);
+				// use spectating state so camera can be placed on spawn selection
 				AUTPlayerController* PC = Cast<AUTPlayerController>(C);
-				if (PC != NULL && PC->IsInState(NAME_Spectating))
+				if (PC != NULL && !PC->IsInState(NAME_Spectating))
 				{
-					PC->ChangeState(NAME_Inactive);
-					PC->ClientGotoState(NAME_Inactive);
+					PC->ChangeState(NAME_Spectating);
+					PC->ClientGotoState(NAME_Spectating);
 				}
 			}
 		}
 	}
-	// sort players by score (highest first)
-	UnsortedPicks.Sort([&](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Score > B.Score; });
+	// sort players by previous selection
+	TeamPlayers.ValueSort([&](const AUTPlayerState& A, const AUTPlayerState& B){ return A.SelectionOrder > B.SelectionOrder; });
+	// rotate players
+	for (AUTTeamInfo* Team : Teams)
+	{
+		TArray<AUTPlayerState*> Players;
+		TeamPlayers.MultiFind(Team, Players);
+		if (Players.Num() > 1)
+		{
+			// remove and re-add the last player, which puts it at the front of the list
+			AUTPlayerState* LastPlayer = Players.Last();
+			TeamPlayers.Remove(Team, LastPlayer);
+			TeamPlayers.Add(Team, LastPlayer);
+		}
+	}
 	// sort team pick order by: winner of previous round last, others sorted by lowest score to highest score
 	TArray<AUTTeamInfo*> SortedTeams = Teams;
 	SortedTeams.Sort([&](const AUTTeamInfo& A, const AUTTeamInfo& B)
@@ -460,28 +606,29 @@ void AUTShowdownGame::HandleMatchIntermission()
 		}
 	});
 
-	while (UnsortedPicks.Num() > 0)
+	while (TeamPlayers.Num() > 0)
 	{
 		bool bFoundAny = false;
 		for (int32 i = 0; i < SortedTeams.Num(); i++)
 		{
-			for (AUTPlayerState* Pick : UnsortedPicks)
+			AUTPlayerState* NextPlayer = TeamPlayers.FindRef(SortedTeams[i]);
+			if (NextPlayer != NULL)
 			{
-				if (Pick->Team == SortedTeams[i])
-				{
-					RemainingPicks.Add(Pick);
-					UnsortedPicks.Remove(Pick);
-					bFoundAny = true;
-					break;
-				}
+				RemainingPicks.Add(NextPlayer);
+				TeamPlayers.Remove(SortedTeams[i], NextPlayer);
+				bFoundAny = true;
 			}
 		}
 		if (!bFoundAny)
 		{
 			// sanity check so we don't infinitely recurse
-			UE_LOG(UT, Warning, TEXT("Showdown spawn selection sorting error with %s on team %s"), *UnsortedPicks[0]->PlayerName, *UnsortedPicks[0]->Team->TeamName.ToString());
-			RemainingPicks.Add(UnsortedPicks[0]);
-			UnsortedPicks.RemoveAt(0);
+			for (TMultiMap<AUTTeamInfo*, AUTPlayerState*>::TIterator It(TeamPlayers); It; ++It)
+			{
+				UE_LOG(UT, Warning, TEXT("Showdown spawn selection sorting error with %s on team %s"), *It.Value()->PlayerName, *It.Value()->Team->TeamName.ToString());
+				RemainingPicks.Add(It.Value());
+				It.RemoveCurrent();
+				break;
+			}
 		}
 	}
 	for (int32 i = 0; i < RemainingPicks.Num(); i++)
@@ -512,7 +659,7 @@ void AUTShowdownGame::DefaultTimer()
 	if (GetMatchState() == MatchState::MatchIntermission)
 	{
 		// process bot spawn selection
-		if (GS->SpawnSelector != NULL && (GS->IntermissionStageTime == 1 || FMath::FRand() < 0.3f))
+		if (GS->SpawnSelector != NULL && ((GS->IntermissionStageTime < FMath::Max(2,SpawnSelectionTime - 2)) || (FMath::FRand() < 0.3f)))
 		{
 			AUTBot* B = Cast<AUTBot>(GS->SpawnSelector->GetOwner());
 			if (B != NULL)
@@ -559,7 +706,7 @@ void AUTShowdownGame::DefaultTimer()
 				// make sure we don't have any stale entries from quitters
 				for (int32 i = RemainingPicks.Num() - 1; i >= 0; i--)
 				{
-					if (RemainingPicks[i] == NULL || RemainingPicks[i]->bPendingKillPending)
+					if (RemainingPicks[i] == NULL || RemainingPicks[i]->IsPendingKillPending())
 					{
 						RemainingPicks.RemoveAt(i);
 					}
@@ -571,8 +718,10 @@ void AUTShowdownGame::DefaultTimer()
 				}
 				else if (!GS->bFinalIntermissionDelay)
 				{
+					int32 MessageIndex = ((Teams.Num() >= 2) && Teams[0] && Teams[1] && (Teams[0]->Score == GoalScore - 1) && (Teams[1]->Score == GoalScore - 1)) ? 6 : 5;
 					GS->bFinalIntermissionDelay = true;
-					GS->IntermissionStageTime = 3;
+					GS->IntermissionStageTime = 5;
+					BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), MessageIndex);
 				}
 				else
 				{
@@ -581,7 +730,7 @@ void AUTShowdownGame::DefaultTimer()
 				}
 			}
 		}
-		if (GS->bFinalIntermissionDelay)
+		if (GS->bFinalIntermissionDelay && (GS->IntermissionStageTime < 4))
 		{
 			BroadcastLocalized(NULL, UUTTimerMessage::StaticClass(), int32(GS->IntermissionStageTime) - 1);
 		}
@@ -605,8 +754,33 @@ void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bPowerupBreaker, TEXT("PowerupBreaker"))));
-	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBroadcastPlayerHealth, TEXT("BroadcastPlayerHealth"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bXRayBreaker, TEXT("XRayBreaker"))));
+}
+
+void AUTShowdownGame::UpdateSkillRating()
+{
+	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(NAME_ShowdownSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
+
+	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(NAME_ShowdownSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
+}
+
+int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->ShowdownRank : Super::GetEloFor(PS);
 }
 
 #if !UE_SERVER
@@ -617,7 +791,6 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("TimeLimit")));
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("GoalScore")));
 	TSharedPtr< TAttributePropertyBool > PowerupBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("PowerupBreaker")));
-	TSharedPtr< TAttributePropertyBool > BroadcastHealthAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("BroadcastPlayerHealth")));
 	TSharedPtr< TAttributePropertyBool > XRayBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("XRayBreaker")));
 
 	if (GoalScoreAttr.IsValid())
@@ -764,50 +937,6 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 				SNew(SCheckBox)
 				.IsChecked(PowerupBreakerAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
 				.OnCheckStateChanged(PowerupBreakerAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				)
-			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "BroadcastPlayerHealth", "Show All Players' Status"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 10.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(BroadcastHealthAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(BroadcastHealthAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.OnCheckStateChanged(BroadcastHealthAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
 				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 				.ForegroundColor(FLinearColor::White)
 				.Type(ESlateCheckBoxType::CheckBox)

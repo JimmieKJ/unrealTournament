@@ -559,6 +559,7 @@ void FLightmassExporter::WriteToChannel( FLightmassStatistics& Stats, FGuid& Deb
 
 			Scene.NumImportanceVolumes = ImportanceVolumes.Num();
 			Scene.NumCharacterIndirectDetailVolumes = CharacterIndirectDetailVolumes.Num();
+			Scene.NumPortals = Portals.Num();
 			Scene.NumDirectionalLights = DirectionalLights.Num();
 			Scene.NumPointLights = PointLights.Num();
 			Scene.NumSpotLights = SpotLights.Num();
@@ -593,6 +594,12 @@ void FLightmassExporter::WriteToChannel( FLightmassStatistics& Stats, FGuid& Deb
 			{
 				FBox LMBox = CharacterIndirectDetailVolumes[VolumeIndex];
 				Swarm.WriteChannel(Channel, &LMBox, sizeof(LMBox));
+			}
+
+			for (int32 PortalIndex = 0; PortalIndex < Portals.Num(); PortalIndex++)
+			{
+				FMatrix Matrix = Portals[PortalIndex];
+				Swarm.WriteChannel(Channel, &Matrix, sizeof(Matrix));
 			}
 
 			{
@@ -1400,8 +1407,15 @@ void FLightmassExporter::WriteMeshInstances( int32 Channel )
 			if (Primitive)
 			{
 				// All FStaticMeshStaticLightingMesh's in the OtherMeshLODs array need to get the same MeshIndex but different LODIndex
-				// So that they won't shadow each other in Lightmass
-				if (SMLightingMesh->OtherMeshLODs.Num() > 0)
+				// So that they won't shadow each other in Lightmass. HLODs are forced as new meshes and rely on custom handling
+				if (SMLightingMesh->HLODTreeIndex)
+				{
+					FMeshAndLODId NewId;
+					NewId.MeshIndex = NextId++;
+					NewId.LODIndex = 0;
+					ComponentToIDMap.Add(Primitive, NewId);
+				}
+				else if (SMLightingMesh->OtherMeshLODs.Num() > 0)
 				{
 					FMeshAndLODId* ExistingLODId = NULL;
 					int32 LargestLODIndex = INDEX_NONE;
@@ -1481,7 +1495,8 @@ void FLightmassExporter::WriteMeshInstances( int32 Channel )
 						NewElementData.MaterialId = Material->GetLightingGuid();
 						NewElementData.bUseTwoSidedLighting = Primitive->LightmassSettings.bUseTwoSidedLighting;
 						NewElementData.bShadowIndirectOnly = Primitive->LightmassSettings.bShadowIndirectOnly;
-						NewElementData.bUseEmissiveForStaticLighting = Primitive->LightmassSettings.bUseEmissiveForStaticLighting;;
+						NewElementData.bUseEmissiveForStaticLighting = Primitive->LightmassSettings.bUseEmissiveForStaticLighting;
+						NewElementData.bUseVertexNormalForHemisphereGather = Primitive->LightmassSettings.bUseVertexNormalForHemisphereGather;
 						// Combine primitive and level boost settings so we don't have to send the level settings over to Lightmass  
 						NewElementData.EmissiveLightFalloffExponent = Primitive->LightmassSettings.EmissiveLightFalloffExponent;
 						NewElementData.EmissiveLightExplicitInfluenceRadius = Primitive->LightmassSettings.EmissiveLightExplicitInfluenceRadius;
@@ -1498,8 +1513,13 @@ void FLightmassExporter::WriteMeshInstances( int32 Channel )
 
 		Lightmass::FStaticMeshStaticLightingMeshData SMInstanceMeshData;
 		FMemory::Memzero(&SMInstanceMeshData,sizeof(SMInstanceMeshData));
-		// store the mesh LOD in with the MassiveLOD, by shifting the MassiveLOD by 16
-		SMInstanceMeshData.EncodedLODIndex = SMLightingMesh->LODIndex + (MeshId ? (MeshId->LODIndex << 16) : 0);
+
+		// Store HLOD data in upper 16 bits
+		SMInstanceMeshData.EncodedLODIndices = SMLightingMesh->LODIndex & 0xFFFF;
+		SMInstanceMeshData.EncodedLODIndices |= (SMLightingMesh->HLODTreeIndex & 0xFFFF) << 16;
+		SMInstanceMeshData.EncodedHLODRange = SMLightingMesh->HLODChildStartIndex & 0xFFFF;
+		SMInstanceMeshData.EncodedHLODRange |= (SMLightingMesh->HLODChildEndIndex & 0xFFFF) << 16;
+
 		SMInstanceMeshData.LocalToWorld = SMLightingMesh->LocalToWorld;
 		SMInstanceMeshData.bReverseWinding = SMLightingMesh->bReverseWinding;
 		SMInstanceMeshData.bShouldSelfShadow = true;
@@ -1564,6 +1584,7 @@ void FLightmassExporter::WriteLandscapeInstances( int32 Channel )
 			NewElementData.bUseTwoSidedLighting = LMSetting.bUseTwoSidedLighting;
 			NewElementData.bShadowIndirectOnly = LMSetting.bShadowIndirectOnly;
 			NewElementData.bUseEmissiveForStaticLighting = LMSetting.bUseEmissiveForStaticLighting;
+			NewElementData.bUseVertexNormalForHemisphereGather = LMSetting.bUseVertexNormalForHemisphereGather;
 			// Combine primitive and level boost settings so we don't have to send the level settings over to Lightmass  
 			NewElementData.EmissiveLightFalloffExponent = LMSetting.EmissiveLightFalloffExponent;
 			NewElementData.EmissiveLightExplicitInfluenceRadius = LMSetting.EmissiveLightExplicitInfluenceRadius;
@@ -1668,6 +1689,7 @@ void FLightmassExporter::WriteMappings( int32 Channel )
 			TempData.bUseTwoSidedLighting = PrimitiveSettings.bUseTwoSidedLighting;
 			TempData.bShadowIndirectOnly = PrimitiveSettings.bShadowIndirectOnly;
 			TempData.bUseEmissiveForStaticLighting = PrimitiveSettings.bUseEmissiveForStaticLighting;
+			TempData.bUseVertexNormalForHemisphereGather = PrimitiveSettings.bUseVertexNormalForHemisphereGather;
 			TempData.EmissiveLightFalloffExponent = PrimitiveSettings.EmissiveLightFalloffExponent;
 			TempData.EmissiveLightExplicitInfluenceRadius = PrimitiveSettings.EmissiveLightExplicitInfluenceRadius;
 			TempData.EmissiveBoost = PrimitiveSettings.EmissiveBoost * LevelSettings.EmissiveBoost;
@@ -1794,6 +1816,10 @@ void FLightmassExporter::WriteSceneSettings( Lightmass::FSceneFileHeader& Scene 
 		Scene.GeneralSettings.bUseMaxWeight = bConfigBool;
 		verify(GConfig->GetInt(TEXT("DevOptions.StaticLighting"), TEXT("MaxTriangleLightingSamples"), Scene.GeneralSettings.MaxTriangleLightingSamples, GLightmassIni));
 		verify(GConfig->GetInt(TEXT("DevOptions.StaticLighting"), TEXT("MaxTriangleIrradiancePhotonCacheSamples"), Scene.GeneralSettings.MaxTriangleIrradiancePhotonCacheSamples, GLightmassIni));
+		verify(GConfig->GetBool(TEXT("DevOptions.StaticLighting"), TEXT("bUseEmbree"), bConfigBool, GLightmassIni));
+		Scene.GeneralSettings.bUseEmbree = bConfigBool;
+		verify(GConfig->GetBool(TEXT("DevOptions.StaticLighting"), TEXT("bVerifyEmbree"), bConfigBool, GLightmassIni));
+		Scene.GeneralSettings.bVerifyEmbree = Scene.GeneralSettings.bUseEmbree && bConfigBool;
 
 		int32 CheckQualityLevel;
 		GConfig->GetInt( TEXT("LightingBuildOptions"), TEXT("QualityLevel"), CheckQualityLevel, GEditorPerProjectIni);
@@ -1893,6 +1919,7 @@ void FLightmassExporter::WriteSceneSettings( Lightmass::FSceneFileHeader& Scene 
 	}
 	{
 		Scene.AmbientOcclusionSettings.bUseAmbientOcclusion = LevelSettings.bUseAmbientOcclusion;
+		Scene.AmbientOcclusionSettings.bGenerateAmbientOcclusionMaterialMask = LevelSettings.bGenerateAmbientOcclusionMaterialMask;
 		Scene.AmbientOcclusionSettings.bVisualizeAmbientOcclusion = LevelSettings.bVisualizeAmbientOcclusion;
 		Scene.AmbientOcclusionSettings.DirectIlluminationOcclusionFraction = LevelSettings.DirectIlluminationOcclusionFraction;
 		Scene.AmbientOcclusionSettings.IndirectIlluminationOcclusionFraction = LevelSettings.IndirectIlluminationOcclusionFraction;
@@ -2141,9 +2168,12 @@ void FLightmassExporter::WriteSceneSettings( Lightmass::FSceneFileHeader& Scene 
 void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& InputData, FGuid& DebugMappingGuid )
 {
 	InputData.bRelaySolverStats = UE_LOG_ACTIVE(LogLightmassSolver, Log);
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-	FindDebugMapping(DebugMappingGuid);
-#endif
+
+	if (IsTexelDebuggingEnabled())
+	{
+		FindDebugMapping(DebugMappingGuid);
+	}
+	
 	InputData.MappingGuid = DebugMappingGuid;
 	InputData.NodeIndex = GCurrentSelectedLightmapSample.NodeIndex;
 	InputData.Position = FVector4(GCurrentSelectedLightmapSample.Position, 0);
@@ -2151,9 +2181,6 @@ void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& In
 	InputData.LocalY = GCurrentSelectedLightmapSample.LocalY;
 	InputData.MappingSizeX = GCurrentSelectedLightmapSample.MappingSizeX;
 	InputData.MappingSizeY = GCurrentSelectedLightmapSample.MappingSizeY;
-	InputData.LightmapX = GCurrentSelectedLightmapSample.LightmapX;
-	InputData.LightmapY = GCurrentSelectedLightmapSample.LightmapY;
-	InputData.OriginalColor = GCurrentSelectedLightmapSample.OriginalColor;
 	FVector4 ViewPosition(0, 0, 0, 0);
 	for (int32 ViewIndex = 0; ViewIndex < GEditor->LevelViewportClients.Num(); ViewIndex++)
 	{
@@ -2317,10 +2344,11 @@ FLightmassProcessor::FLightmassProcessor(const FStaticLightingSystem& InSystem, 
 
 FLightmassProcessor::~FLightmassProcessor()
 {
+	// Note: the connection must be closed before deleting anything that SwarmCallback accesses
+	Swarm.CloseConnection();
+
 	delete Exporter;
 	delete Importer;
-
-	Swarm.CloseConnection();
 
 	for ( TMap<FGuid, FMappingImportHelper*>::TIterator It(ImportedMappings); It; ++It )
 	{
@@ -2496,7 +2524,10 @@ bool FLightmassProcessor::BeginRun()
 		TEXT("../Win64/UnrealLightmass-Core.dll"),
 		TEXT("../Win64/UnrealLightmass-CoreUObject.dll"),
 		TEXT("../Win64/UnrealLightmass-Projects.dll"),
-		TEXT("../Win64/UnrealLightmass-Json.dll")
+		TEXT("../Win64/UnrealLightmass-Json.dll"),
+		TEXT("../Win64/embree.dll"),
+		TEXT("../Win64/tbb.dll"),
+		TEXT("../Win64/tbbmalloc.dll")
 	};
 #elif PLATFORM_MAC
 	const TCHAR* LightmassExecutable64 = TEXT("../Mac/UnrealLightmass");
@@ -2508,6 +2539,9 @@ bool FLightmassProcessor::BeginRun()
 		TEXT("../Mac/UnrealLightmass-Json.dylib"),
 		TEXT("../Mac/UnrealLightmass-Projects.dylib"),
 		TEXT("../Mac/UnrealLightmass-SwarmInterface.dylib")
+		TEXT("../Mac/libembree.2.dylib"),
+		TEXT("../Mac/libtbb.dylib"),
+		TEXT("../Mac/libtbbmalloc.dylib")
 	};
 #elif PLATFORM_LINUX
 	const TCHAR* LightmassExecutable64 = TEXT("../Linux/UnrealLightmass");
@@ -3003,6 +3037,7 @@ void FLightmassProcessor::ImportVolumeSamples()
 							NewHighQualitySample.Position = CurrentSample.PositionAndRadius;
 							NewHighQualitySample.Radius = CurrentSample.PositionAndRadius.W;
 							NewHighQualitySample.SetPackedSkyBentNormal(CurrentSample.SkyBentNormal); 
+							NewHighQualitySample.DirectionalLightShadowing = CurrentSample.DirectionalLightShadowing;
 
 							for (int32 CoefficientIndex = 0; CoefficientIndex < 4; CoefficientIndex++)
 							{
@@ -3594,11 +3629,11 @@ void FLightmassProcessor::ImportStaticShadowDepthMap(ULightComponent* Light)
 		BeginReleaseResource(&DepthMap);
 		DepthMap.Empty();
 
-		DepthMap.WorldToLight = ShadowMapData.WorldToLight;
-		DepthMap.ShadowMapSizeX = ShadowMapData.ShadowMapSizeX;
-		DepthMap.ShadowMapSizeY = ShadowMapData.ShadowMapSizeY;
+		DepthMap.Data.WorldToLight = ShadowMapData.WorldToLight;
+		DepthMap.Data.ShadowMapSizeX = ShadowMapData.ShadowMapSizeX;
+		DepthMap.Data.ShadowMapSizeY = ShadowMapData.ShadowMapSizeY;
 
-		ReadArray(Channel, DepthMap.DepthSamples);
+		ReadArray(Channel, DepthMap.Data.DepthSamples);
 		Swarm.CloseChannel(Channel);
 
 		DepthMap.InitializeAfterImport();

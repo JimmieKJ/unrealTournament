@@ -13,10 +13,11 @@ void DirectoryWatchMacCallback( ConstFSEventStreamRef StreamRef, void* WatchRequ
 
 // ============================================================================================================================
 
-FDirectoryWatchRequestMac::FDirectoryWatchRequestMac(bool bInIncludeDirectoryEvents)
+FDirectoryWatchRequestMac::FDirectoryWatchRequestMac(uint32 Flags)
 :	bRunning(false)
 ,	bEndWatchRequestInvoked(false)
-,	bIncludeDirectoryEvents(bInIncludeDirectoryEvents)
+,	bIncludeDirectoryEvents((Flags & IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges) != 0)
+,	bIgnoreChangesInSubtree((Flags & IDirectoryWatcher::WatchOptions::IgnoreChangesInSubtree) != 0)
 {
 }
 
@@ -100,18 +101,6 @@ FDelegateHandle FDirectoryWatchRequestMac::AddDelegate( const IDirectoryWatcher:
 {
 	Delegates.Add(InDelegate);
 	return Delegates.Last().GetHandle();
-}
-
-bool FDirectoryWatchRequestMac::RemoveDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
-{
-	return DEPRECATED_RemoveDelegate(InDelegate);
-}
-
-bool FDirectoryWatchRequestMac::DEPRECATED_RemoveDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
-{
-	return Delegates.RemoveAll([&](const IDirectoryWatcher::FDirectoryChanged& Delegate) {
-		return Delegate.DEPRECATED_Compare(InDelegate);
-	}) != 0;
 }
 
 bool FDirectoryWatchRequestMac::RemoveDelegate( FDelegateHandle InHandle )

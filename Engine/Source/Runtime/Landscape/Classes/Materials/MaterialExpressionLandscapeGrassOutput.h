@@ -41,10 +41,10 @@ class UMaterialExpressionLandscapeGrassOutput : public UMaterialExpressionCustom
 	virtual FExpressionInput* GetInput(int32 InputIndex) override;
 	virtual FString GetInputName(int32 InputIndex) const override;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	virtual uint32 GetInputType(int32 InputIndex) override { return MCT_Float; }
 #endif

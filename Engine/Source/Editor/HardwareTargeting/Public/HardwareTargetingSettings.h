@@ -10,13 +10,13 @@ namespace EHardwareClass
 {
 	enum Type
 	{
-		// Unspecified, meaning no choice has been made yet
+		/** Unspecified, meaning no choice has been made yet */
 		Unspecified,
 
-		// Desktop or console
+		/** Desktop or console */
 		Desktop,
 		
-		// Mobile or tablet
+		/** Mobile or tablet */
 		Mobile
 	};
 }
@@ -27,13 +27,13 @@ namespace EGraphicsPreset
 {
 	enum Type
 	{
-		// Unspecified, meaning no choice has been made yet
+		/** Unspecified, meaning no choice has been made yet */
 		Unspecified,
 
-		// Maximum quality - High-end features default to enabled
+		/** Maximum quality - High-end features default to enabled */
 		Maximum,
 		
-		// Scalable quality - Some features are disabled by default but can be enabled based on the actual hardware
+		/** Scalable quality - Some features are disabled by default but can be enabled based on the actual hardware */
 		Scalable
 	};
 }

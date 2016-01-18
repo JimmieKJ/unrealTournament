@@ -124,6 +124,7 @@ public:
 	 */
 	FReply& ReleaseMouseCapture()
 	{
+		this->MouseCaptor.Reset();
 		this->bReleaseMouseCapture = true;
 		this->bUseHighPrecisionMouse = false;
 		return Me();

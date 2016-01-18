@@ -39,6 +39,8 @@ namespace physx
 namespace physx
 {
 
+PxvOffsetTable gPxvOffsetTable;
+
 void PxvRegisterArticulations()
 {
 	PxcArticulationPImpl::sComputeUnconstrainedVelocities = &PxcArticulationHelper::computeUnconstrainedVelocities;
@@ -108,13 +110,14 @@ void PxvRegisterParticles()
 
 
 #ifndef PX_PS3
-void PxvInit()
+void PxvInit(const PxvOffsetTable& offsetTable)
 {
 	PxcPoolMallocInit();
 
 #if PX_SUPPORT_GPU_PHYSX
 	gPxPhysXGpu = NULL;
 #endif
+	PxMemCopy(&gPxvOffsetTable, &offsetTable, sizeof(PxvOffsetTable));
 }
 
 void PxvTerm()

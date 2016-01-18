@@ -8,7 +8,6 @@
 #include "AudioDecompress.h"
 #include "Engine.h"
 
-
 // Callback that is registered if the source needs to loop
 void OpenSLBufferQueueCallback( SLAndroidSimpleBufferQueueItf InQueueInterface, void* pContext ) 
 {
@@ -44,15 +43,40 @@ void FSLESSoundSource::OnRequeueBufferCallback( SLAndroidSimpleBufferQueueItf In
 		}
 
 		// Enqueue the previously decoded buffer
+		if (RealtimeAsyncTask)
+		{
+			RealtimeAsyncTask->EnsureCompletion();
+			switch(RealtimeAsyncTask->GetTask().GetTaskType())
+			{
+			case ERealtimeAudioTaskType::Decompress:
+				bHasLooped = RealtimeAsyncTask->GetTask().GetBufferLooped();
+				break;
+
+			case ERealtimeAudioTaskType::Procedural:
+				AudioBuffers[BufferInUse].AudioDataSize = RealtimeAsyncTask->GetTask().GetBytesWritten();
+				break;
+			}
+
+			delete RealtimeAsyncTask;
+			RealtimeAsyncTask = nullptr;
+		}
+
 		SLresult result = (*SL_PlayerBufferQueue)->Enqueue(SL_PlayerBufferQueue, AudioBuffers[BufferInUse].AudioData, AudioBuffers[BufferInUse].AudioDataSize );
 		if(result != SL_RESULT_SUCCESS) 
 		{ 
 			UE_LOG( LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER Enqueue SL_PlayerBufferQueue (Requeing)"));  
 		}
 
-		// Switch to the next buffer and decode for the next time the callback fires
+		// Switch to the next buffer and decode for the next time the callback fires if we didn't just get the last buffer
 		BufferInUse = !BufferInUse;
-		bHasLooped = ReadMorePCMData(BufferInUse);
+		if (bHasLooped == false || WaveInstance->LoopingMode != LOOP_Never)
+		{
+			if (ReadMorePCMData(BufferInUse, EDataReadMode::Asynchronous))
+			{
+				// If this is a synchronous source we may get notified immediately that we have looped
+				bHasLooped = true;
+			}
+		}
 	}
 }
 
@@ -136,28 +160,38 @@ bool FSLESSoundSource::EnqueuePCMBuffer( bool bLoop)
 	return true;
 }
 
-bool FSLESSoundSource::ReadProceduralData(const int32 BufferIndex)
+bool FSLESSoundSource::ReadMorePCMData(const int32 BufferIndex, EDataReadMode DataReadMode)
 {
-	ensure(WaveInstance);
-	const int32 MaxSamples = BufferSize / sizeof(int16);
-	const int32 BytesWritten = WaveInstance->WaveData->GeneratePCMData(AudioBuffers[BufferIndex].AudioData, MaxSamples);
-	
-	AudioBuffers[BufferIndex].AudioDataSize = BytesWritten;
-
-	// convenience return value: we're never actually "looping" here.
-	return false;
-}
-
-bool FSLESSoundSource::ReadMorePCMData(const int32 BufferIndex)
-{
-	USoundWave *WaveData = WaveInstance->WaveData;
+	USoundWave* WaveData = WaveInstance->WaveData;
 	if (WaveData && WaveData->bProcedural)
 	{
-		return ReadProceduralData(BufferIndex);
+		const int32 MaxSamples = BufferSize / sizeof(int16);
+		if (DataReadMode == EDataReadMode::Synchronous || WaveData->bCanProcessAsync == false)
+		{
+			const int32 BytesWritten = WaveData->GeneratePCMData(AudioBuffers[BufferIndex].AudioData, MaxSamples);
+			AudioBuffers[BufferIndex].AudioDataSize = BytesWritten;
+		}
+		else
+		{
+			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(WaveData, AudioBuffers[BufferIndex].AudioData, MaxSamples);
+			RealtimeAsyncTask->StartBackgroundTask();
+		}
+
+		// we're never actually "looping" here.
+		return false;
 	}
 	else
 	{
-		return Buffer->ReadCompressedData(AudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never);
+		if (DataReadMode == EDataReadMode::Synchronous)
+		{
+			return Buffer->ReadCompressedData(AudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never);
+		}
+		else
+		{
+			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(Buffer, AudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never, DataReadMode == EDataReadMode::AsynchronousSkipFirstFrame);
+			RealtimeAsyncTask->StartBackgroundTask();
+			return false;
+		}
 	}
 }
 
@@ -179,9 +213,17 @@ bool FSLESSoundSource::EnqueuePCMRTBuffer( bool bLoop )
 	AudioBuffers[1].AudioData = (uint8*)FMemory::Malloc(BufferSize);
 	AudioBuffers[1].AudioDataSize = BufferSize;
 
-	// Decompress two buffers worth of data to fill up the queue
-	ReadMorePCMData(0);
-	ReadMorePCMData(1);
+	// Only use the cached data if we're starting from the beginning, otherwise we'll have to take a synchronous hit
+	if (WaveInstance->WaveData && WaveInstance->WaveData->CachedRealtimeFirstBuffer && WaveInstance->StartTime == 0.f)
+	{
+		FMemory::Memcpy((uint8*)AudioBuffers[0].AudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer, BufferSize);
+		FMemory::Memcpy((uint8*)AudioBuffers[1].AudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer, BufferSize);
+	}
+	else
+	{
+		ReadMorePCMData(0, EDataReadMode::Synchronous);
+		ReadMorePCMData(1, EDataReadMode::Asynchronous);
+	}
 
 	SLresult result;
 
@@ -301,11 +343,13 @@ FSLESSoundSource::FSLESSoundSource( class FAudioDevice* InAudioDevice )
 		bBuffersToFlush(false),
 		BufferSize(0),
 		BufferInUse(0),
+		VolumePreviousUpdate(-1.0f),
 		bHasLooped(false),
 		SL_PlayerObject(NULL),
 		SL_PlayerPlayInterface(NULL),
 		SL_PlayerBufferQueue(NULL),
-		SL_VolumeInterface(NULL)
+		SL_VolumeInterface(NULL),
+		RealtimeAsyncTask(NULL)
 {
 	FMemory::Memzero( AudioBuffers, sizeof( AudioBuffers ) );
 }
@@ -315,7 +359,6 @@ FSLESSoundSource::FSLESSoundSource( class FAudioDevice* InAudioDevice )
  */
 FSLESSoundSource::~FSLESSoundSource( void )
 {
-
 	DestroyPlayer();
 
 	ReleaseResources();
@@ -323,6 +366,13 @@ FSLESSoundSource::~FSLESSoundSource( void )
 
 void FSLESSoundSource::ReleaseResources()
 {
+	if (RealtimeAsyncTask)
+	{
+		RealtimeAsyncTask->EnsureCompletion();
+		delete RealtimeAsyncTask;
+		RealtimeAsyncTask = nullptr;
+	}
+
 	FMemory::Free( AudioBuffers[0].AudioData);
 	FMemory::Free( AudioBuffers[1].AudioData);
 
@@ -355,6 +405,7 @@ void FSLESSoundSource::Update( void )
 		Volume *= 1.25f;
 	}
 	Volume *= FApp::GetVolumeMultiplier();
+	Volume *= AudioDevice->PlatformAudioHeadroom;
 	Volume = FMath::Clamp(Volume, 0.0f, MAX_VOLUME);
 	
 	const float Pitch = FMath::Clamp<float>(WaveInstance->Pitch, MIN_PITCH, MAX_PITCH);
@@ -362,8 +413,7 @@ void FSLESSoundSource::Update( void )
 	// Set whether to apply reverb
 	SetReverbApplied(true);
 
-	// Set the HighFrequencyGain value
-	SetHighFrequencyGain();
+	SetFilterFrequency();
 	
 	FVector Location;
 	FVector	Velocity;
@@ -386,15 +436,26 @@ void FSLESSoundSource::Update( void )
 	// Set volume (Pitch changes are not supported on current Android platforms!)
 	// also Location & Velocity
 	
-	// Convert volume to millibels.
-	SLmillibel MaxMillibel = 0;
-	SLmillibel MinMillibel = -3000;
-	(*SL_VolumeInterface)->GetMaxVolumeLevel( SL_VolumeInterface, &MaxMillibel );
-	SLmillibel VolumeMillibel = (Volume * (MaxMillibel - MinMillibel)) + MinMillibel;
-	VolumeMillibel = FMath::Clamp(VolumeMillibel, MinMillibel, MaxMillibel);
-	
-	SLresult result = (*SL_VolumeInterface)->SetVolumeLevel(SL_VolumeInterface, VolumeMillibel);
-	check(SL_RESULT_SUCCESS == result);
+	// Avoid doing the log calculation each update by only doing it if the volume changed
+	if (Volume != VolumePreviousUpdate)
+	{
+		VolumePreviousUpdate = Volume;
+		static const int64 MinVolumeMillibel = -12000;
+		if (Volume > 0.0f)
+		{
+			// Convert volume to millibels.
+			SLmillibel MaxMillibel = 0;
+			(*SL_VolumeInterface)->GetMaxVolumeLevel(SL_VolumeInterface, &MaxMillibel);
+			SLmillibel VolumeMillibel = (SLmillibel)FMath::Clamp<int64>((int64)(2000.0f * log10f(Volume)), MinVolumeMillibel, (int64)MaxMillibel);
+			SLresult result = (*SL_VolumeInterface)->SetVolumeLevel(SL_VolumeInterface, VolumeMillibel);
+			check(SL_RESULT_SUCCESS == result);
+		}
+		else
+		{
+			SLresult result = (*SL_VolumeInterface)->SetVolumeLevel(SL_VolumeInterface, MinVolumeMillibel);
+			check(SL_RESULT_SUCCESS == result);
+		}
+	}
 
 }
 
@@ -405,7 +466,9 @@ void FSLESSoundSource::Play( void )
 {
 	if( WaveInstance )
 	{
-		
+		// Reset the previous volume on play so it can be set at least once in the update function
+		VolumePreviousUpdate = -1.0f;
+
 		// set the player's state to playing
 		SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_PLAYING);
 		check(SL_RESULT_SUCCESS == result);

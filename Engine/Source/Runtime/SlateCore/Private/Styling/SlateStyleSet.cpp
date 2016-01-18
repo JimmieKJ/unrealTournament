@@ -427,6 +427,15 @@ bool FSlateStyleSet::IsBrushFromFile(const FString& FilePath, const FSlateBrush*
 	{
 		return true;
 	}
+	else
+	{
+		const FString FullFilePath = FPaths::ConvertRelativePathToFull(FilePath);
+		const FString FullPath = FPaths::ConvertRelativePathToFull(Path);
+		if (FullPath.Compare(FullFilePath, ESearchCase::IgnoreCase) == 0)
+		{
+			return true;
+		}
+	}
 
 	return false;
 }

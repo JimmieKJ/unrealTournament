@@ -11,7 +11,6 @@
 UMediaPlayer::UMediaPlayer( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
 	, Looping(true)
-	, StreamMode(MASM_FromUrl)
 	, Player(nullptr)
 { }
 
@@ -28,6 +27,15 @@ bool UMediaPlayer::CanPause() const
 bool UMediaPlayer::CanPlay() const
 {
 	return Player.IsValid() && Player->IsReady();
+}
+
+
+void UMediaPlayer::Close()
+{
+	if (Player.IsValid())
+	{
+		Player->Close();
+	}
 }
 
 
@@ -211,6 +219,11 @@ void UMediaPlayer::PostEditChangeProperty( FPropertyChangedEvent& PropertyChange
 
 void UMediaPlayer::InitializePlayer()
 {
+	if (IsRunningDedicatedServer())
+	{
+		return;
+	}
+
 	if (URL != CurrentUrl)
 	{
 		// close previous player
@@ -221,6 +234,8 @@ void UMediaPlayer::InitializePlayer()
 			Player->Close();
 			Player->OnClosed().RemoveAll(this);
 			Player->OnOpened().RemoveAll(this);
+			Player->OnOpenFailed().RemoveAll(this);
+			Player->OnTracksChanged().RemoveAll(this);
 			Player.Reset();
 		}
 
@@ -244,8 +259,10 @@ void UMediaPlayer::InitializePlayer()
 			return;
 		}
 
-		Player->OnClosed().AddUObject(this, &UMediaPlayer::HandleMediaPlayerMediaClosed);
-		Player->OnOpened().AddUObject(this, &UMediaPlayer::HandleMediaPlayerMediaOpened);
+		Player->OnClosed().AddUObject(this, &UMediaPlayer::HandlePlayerMediaClosed);
+		Player->OnOpened().AddUObject(this, &UMediaPlayer::HandlePlayerMediaOpened);
+		Player->OnOpenFailed().AddUObject(this, &UMediaPlayer::HandlePlayerMediaOpenFailed);
+		Player->OnTracksChanged().AddUObject(this, &UMediaPlayer::HandlePlayerTracksChanged);
 
 		// open the new media file
 		bool OpenedSuccessfully = false;
@@ -256,33 +273,13 @@ void UMediaPlayer::InitializePlayer()
 		}
 		else
 		{
-			const FString FullUrl = FPaths::ConvertRelativePathToFull(FPaths::IsRelative(URL) ? FPaths::GameContentDir() / URL : URL);
+			const FString FullUrl = FPaths::ConvertRelativePathToFull(
+				FPaths::IsRelative(URL)
+					? FPaths::GameContentDir() / URL
+					: URL
+			);
 
-			if (StreamMode == EMediaPlayerStreamModes::MASM_FromUrl)
-			{
-				OpenedSuccessfully = Player->Open(FullUrl);
-			}
-			else if (FPaths::FileExists(FullUrl))
-			{
-				FArchive* FileReader = IFileManager::Get().CreateFileReader(*FullUrl);
-		
-				if (FileReader == nullptr)
-				{
-					return;
-				}
-
-				if (FileReader->TotalSize() > 0)
-				{
-					TArray<uint8>* FileData = new TArray<uint8>();
-
-					FileData->AddUninitialized(FileReader->TotalSize());
-					FileReader->Serialize(FileData->GetData(), FileReader->TotalSize());
-
-					OpenedSuccessfully = Player->Open(MakeShareable(FileData), FullUrl);
-				}
-
-				delete FileReader;
-			}
+			OpenedSuccessfully = Player->Open(FullUrl);
 		}
 
 		// finish initialization
@@ -302,15 +299,27 @@ void UMediaPlayer::InitializePlayer()
 /* UMediaPlayer callbacks
  *****************************************************************************/
 
-void UMediaPlayer::HandleMediaPlayerMediaClosed()
+void UMediaPlayer::HandlePlayerMediaClosed()
 {
 	MediaChangedEvent.Broadcast();
 	OnMediaClosed.Broadcast();
 }
 
 
-void UMediaPlayer::HandleMediaPlayerMediaOpened( FString OpenedUrl )
+void UMediaPlayer::HandlePlayerMediaOpened(FString OpenedUrl)
 {
 	MediaChangedEvent.Broadcast();
 	OnMediaOpened.Broadcast(OpenedUrl);
+}
+
+
+void UMediaPlayer::HandlePlayerMediaOpenFailed(FString FailedUrl)
+{
+	OnMediaOpenFailed.Broadcast(FailedUrl);
+}
+
+
+void UMediaPlayer::HandlePlayerTracksChanged()
+{
+	TracksChangedEvent.Broadcast();
 }

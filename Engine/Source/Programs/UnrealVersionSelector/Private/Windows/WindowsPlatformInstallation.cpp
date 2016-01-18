@@ -4,6 +4,7 @@
 #include "WindowsPlatformInstallation.h"
 #include "Runtime/Core/Public/Misc/EngineVersion.h"
 #include "AllowWindowsPlatformTypes.h"
+#include "DesktopPlatformModule.h"
 #include "Resources/Resource.h"
 #include <CommCtrl.h>
 #include <Shlwapi.h>
@@ -138,7 +139,7 @@ private:
 		}
 
 		// Check it's a valid directory
-		if (!FPlatformInstallation::NormalizeEngineRootDir(NewEngineRootDir))
+		if (!FWindowsPlatformInstallation::NormalizeEngineRootDir(NewEngineRootDir))
 		{
 			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("The selected directory is not a valid engine installation."), TEXT("Error"));
 			return false;

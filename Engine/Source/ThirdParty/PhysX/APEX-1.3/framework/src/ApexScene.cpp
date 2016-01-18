@@ -1331,6 +1331,9 @@ void ApexScene::simulate(physx::PxF32 elapsedTime,
 						 PxU32 scratchMemBlockSize)
 #endif
 {
+	PX_UNUSED(scratchMemBlock);
+	PX_UNUSED(scratchMemBlockSize);
+
 	NX_WRITE_ZONE();
 	if (mApexSDK->getPvdBinding())
 	{
@@ -1349,7 +1352,7 @@ void ApexScene::simulate(physx::PxF32 elapsedTime,
 
 	mFinalStep = finalStep;
 
-	if (mSimulating || !mPhysXScene)
+	if (mSimulating /*|| !mPhysXScene*/)
 	{
 		return;
 	}
@@ -1465,6 +1468,7 @@ void ApexScene::simulate(physx::PxF32 elapsedTime,
 	// make sure we use the apex user notify... if the application
 	// changes their custom one make sure we map to it.
 	mUserNotify.setBatchAppNotify(manualSubsteps > 1);
+	if (getPhysXScene())
 	{
 		SCOPED_PHYSX_LOCK_WRITE(*this);
 		PxSimulationEventCallback* userNotify = getPhysXScene()->getSimulationEventCallback();

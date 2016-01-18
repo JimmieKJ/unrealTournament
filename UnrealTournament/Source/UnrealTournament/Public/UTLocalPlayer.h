@@ -1,37 +1,42 @@
-	// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
-#include "../Private/Slate/SUWToast.h"
-#include "../Private/Slate/SUWDialog.h"
+#include "../Private/Slate/Base/SUTToastBase.h"
+#include "../Private/Slate/Base/SUTDialogBase.h"
 #include "UTProfileSettings.h"
+#include "UTProgressionStorage.h"
 #include "OnlinePresenceInterface.h"
 #include "Http.h"
 #include "UTProfileItem.h"
 
 #include "UTLocalPlayer.generated.h"
 
-class SUWServerBrowser;
-class SUWFriendsPopup;
-class SUTQuickMatch;
-class SUWLoginDialog;
-class SUWRedirectDialog;
-class SUWMapVoteDialog;
+class SUTMenuBase;
+class SUTWindowBase;
+class SUTServerBrowserPanel;
+class SUTFriendsPopupWindow;
+class SUTQuickMatchWindow;
+class SUTLoginDialog;
+class SUTRedirectDialog;
+class SUTMapVoteDialog;
 class SUTAdminDialog;
 class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
-class SUWMatchSummary;
-class SUTJoinInstance;
+class SUTJoinInstanceWindow;
 class FServerData;
 class AUTRconAdminInfo;
 class SUTDownloadAllDialog;
 class SUTSpectatorWindow;
+class SUTMatchSummaryPanel;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
+
+DECLARE_DELEGATE_TwoParams(FUTProfilesLoaded, bool, const FText&);
 
 // This delegate will be triggered whenever a chat message is updated.
 
@@ -72,7 +77,6 @@ public:
 	{
 		return MakeShareable( new FStoredChatMessage( inType, inSender, inMessage, inColor, inTimestamp, inbMyChat, inTeamNum ) );
 	}
-
 };
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FChatArchiveChanged, class UUTLocalPlayer*, TSharedPtr<FStoredChatMessage>);
@@ -98,6 +102,32 @@ public:
 
 	UPROPERTY()
 	bool bActualFriend;
+};
+
+/** profile notification data from the backend */
+USTRUCT()
+struct FXPProgressNotifyPayload
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	int64 PrevXP;
+	UPROPERTY()
+	int64 XP;
+	UPROPERTY()
+	int32 PrevLevel;
+	UPROPERTY()
+	int32 Level;
+};
+USTRUCT()
+struct FLevelUpRewardNotifyPayload
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	int32 Level;
+	UPROPERTY()
+	FString RewardID;
 };
 
 UCLASS(config=Engine)
@@ -128,21 +158,30 @@ public:
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 
 #if !UE_SERVER
-	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0,0.0f));
-	virtual TSharedPtr<class SUWDialog> ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback = FDialogResultDelegate());
+
+	TArray<TSharedPtr<SUTWindowBase>> WindowStack;
+	virtual void OpenWindow(TSharedPtr<SUTWindowBase> WindowToOpen);
+	virtual bool CloseWindow(TSharedPtr<SUTWindowBase> WindowToClose);
+	virtual void WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed);
+
+	virtual TSharedPtr<class SUTDialogBase> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0,0.0f));
+	virtual TSharedPtr<class SUTDialogBase> ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback = FDialogResultDelegate());
 
 	/** utilities for opening and closing dialogs */
-	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog, int32 ZOrder = 255);
-	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
-	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
-	TSharedPtr<class SUWReplayBrowser> GetReplayBrowser();
-	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
-	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
+	virtual void OpenDialog(TSharedRef<class SUTDialogBase> Dialog, int32 ZOrder = 255);
+	virtual void CloseDialog(TSharedRef<class SUTDialogBase> Dialog);
+	TSharedPtr<class SUTServerBrowserPanel> GetServerBrowser();
+	TSharedPtr<class SUTReplayBrowserPanel> GetReplayBrowser();
+	TSharedPtr<class SUTStatsViewerPanel> GetStatsViewer();
+	TSharedPtr<class SUTCreditsPanel> GetCreditsPanel();
+
+	UFUNCTION()
+	virtual void ChangeStatsViewerTarget(FString InStatsID);
 
 	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
 
-	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
+	TSharedPtr<class SUTMenuBase> GetCurrentMenu()
 	{
 		return DesktopSlateWidget;
 	}
@@ -172,35 +211,32 @@ public:
 protected:
 
 #if !UE_SERVER
-	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;
+	TSharedPtr<class SUTMenuBase> DesktopSlateWidget;
 	TSharedPtr<class SUTSpectatorWindow> SpectatorWidget;
 	
 	// Holds a persistent reference to the server browser.
-	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
+	TSharedPtr<class SUTServerBrowserPanel> ServerBrowserWidget;
 
-	TSharedPtr<class SUWReplayBrowser> ReplayBrowserWidget;
-	TSharedPtr<class SUWStatsViewer> StatsViewerWidget;
-	TSharedPtr<class SUWCreditsPanel> CreditsPanelWidget;
+	TSharedPtr<class SUTReplayBrowserPanel> ReplayBrowserWidget;
+	TSharedPtr<class SUTStatsViewerPanel> StatsViewerWidget;
+	TSharedPtr<class SUTCreditsPanel> CreditsPanelWidget;
 
 	/** stores a reference to open dialogs so they don't get destroyed */
-	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;
-	TArray<TSharedPtr<class SUWToast>> ToastList;
+	TArray< TSharedPtr<class SUTDialogBase> > OpenDialogs;
+	TArray<TSharedPtr<class SUTToastBase>> ToastList;
 
-	virtual void AddToastToViewport(TSharedPtr<SUWToast> ToastToDisplay);
+	virtual void AddToastToViewport(TSharedPtr<SUTToastBase> ToastToDisplay);
 	void WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	void OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-	TSharedPtr<class SUTQuickMatch> QuickMatchDialog;
-	TSharedPtr<class SUWLoginDialog> LoginDialog;
+	TSharedPtr<class SUTQuickMatchWindow> QuickMatchDialog;
+	TSharedPtr<class SUTLoginDialog> LoginDialog;
 
 	TSharedPtr<class SUTAdminDialog> AdminDialog;
 
 #endif
 
 	bool bWantsToConnectAsSpectator;
-	bool bWantsToFindMatch;
-
 	int32 ConnectDesiredTeam;
-
 	int32 CurrentSessionTrustLevel;
 
 public:
@@ -320,6 +356,12 @@ protected:
 	double LastProfileCloudWriteTime;
 	double ProfileCloudWriteCooldownTime;
 	FTimerHandle ProfileWriteTimerHandle;
+	
+	// Hopefully the only magic number needed for profile versions, but being safe
+	uint32 CloudProfileMagicNumberVersion1;
+
+	// The last released serialization version
+	int32 CloudProfileUE4VerForUnversionedProfile;
 
 #if !UE_SERVER
 	virtual void AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
@@ -374,24 +416,32 @@ public:
 
 	FName TeamStyleRef(FName InName);
 
+	virtual void LoadProgression();
+	UFUNCTION()
+	virtual void SaveProgression();
+	virtual UUTProgressionStorage* GetProgressionStorage() { return CurrentProgression; }
+
 protected:
 
 	// Holds the current profile settings.  
 	UPROPERTY()
 	UUTProfileSettings* CurrentProfileSettings;
 
+	UPROPERTY()
+	UUTProgressionStorage* CurrentProgression;
+
 	virtual FString GetProfileFilename();	
+	virtual FString GetProgressionFilename();
 	virtual void ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
-	virtual void OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
 	virtual void OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
 
 #if !UE_SERVER
-	TSharedPtr<class SUWDialog> HUDSettings;
+	TSharedPtr<class SUTDialogBase> HUDSettings;
 #endif
 
 public:
@@ -406,11 +456,13 @@ private:
 	int32 DUEL_ELO;	// The Player's current Duel ELO rank
 	int32 FFA_ELO;	// The Player's current FFA ELO rank
 	int32 CTF_ELO;	// The Player's current CTF ELO rank
+	int32 Showdown_ELO;
 	int32 MatchesPlayed;	// The # of matches this player has played.
 	int32 DuelMatchesPlayed;	// The # of matches this player has played.
 	int32 TDMMatchesPlayed;	// The # of matches this player has played.
 	int32 FFAMatchesPlayed;	// The # of matches this player has played.
 	int32 CTFMatchesPlayed;	// The # of matches this player has played.
+	int32 ShowdownMatchesPlayed;	// The # of matches this player has played.
 
 	void ReadELOFromCloud();
 	void UpdateBaseELOFromCloudData();
@@ -428,13 +480,15 @@ public:
 	inline virtual int32 GetRankDuel() { return DUEL_ELO; }
 	inline virtual int32 GetRankDM() { return FFA_ELO; }
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
+	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
 
 	// Returns what badge should represent player's skill level.
 	UFUNCTION(BlueprintCallable, Category = Badge)
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam = -1, FString InstanceId=TEXT(""));
+	virtual void CancelJoinSession();
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
@@ -443,6 +497,7 @@ public:
 
 	// Does the player have pending social notifications - should the social bang be shown?
 	bool IsPlayerShowingSocialNotification() const;
+	
 protected:
 	virtual void JoinPendingSession();
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
@@ -452,8 +507,15 @@ protected:
 	virtual void OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful);
 	virtual void OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence);
 
-	bool bPendingSession;
+	FString PendingInstanceID;
+
+	// Set to true if we have delayed joining a session (due to already being in a session or some other reason.  PendingSession will contain the session data.
+	bool bDelayedJoinSession;
 	FOnlineSessionSearchResult PendingSession;
+
+	// Holds the session info of the last session this player tried to join.  If there is a join failure, or the reconnect command is used, this session info
+	// will be used to attempt the reconnection.
+	FOnlineSessionSearchResult LastSession;
 
 	// friend join functionality
 	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);
@@ -475,11 +537,13 @@ public:
 	virtual void ShowContentLoadingMessage();
 	virtual void HideContentLoadingMessage();
 
-	virtual TSharedPtr<SUWFriendsPopup> GetFriendsPopup();
+	virtual TSharedPtr<SUTFriendsPopupWindow> GetFriendsPopup();
+	virtual void SetShowingFriendsPopup(bool bShowing);
 protected:
-	TSharedPtr<SUWFriendsPopup> FriendsMenu;
-
+	TSharedPtr<SUTFriendsPopupWindow> FriendsMenu;
 #endif
+	bool bShowingFriendsMenu;
+
 	// If the player is not logged in, then this string will hold the last attempted presence update
 	FString LastPresenceUpdate;
 	bool bLastAllowInvites;
@@ -511,8 +575,8 @@ public:
 
 protected:
 #if !UE_SERVER
-	TWeakPtr<SUWDialog> ConnectingDialog;
-	TSharedPtr<SUWRedirectDialog> RedirectDialog;
+	TWeakPtr<SUTDialogBase> ConnectingDialog;
+	TSharedPtr<SUTRedirectDialog> RedirectDialog;
 
 #endif
 
@@ -546,7 +610,7 @@ public:
 	virtual void OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed);
 
 	// Request someone be my friend...
-	virtual void RequestFriendship(TSharedPtr<FUniqueNetId> FriendID);
+	virtual void RequestFriendship(TSharedPtr<const FUniqueNetId> FriendID);
 
 	// Holds a list of maps to play in Single player
 	TArray<FString> SinglePlayerMapList;
@@ -564,9 +628,8 @@ public:
 
 protected:
 #if !UE_SERVER
-	TSharedPtr<SUWindowsDesktop> LoadoutMenu;
-	TSharedPtr<SUWMapVoteDialog> MapVoteMenu;
-	TSharedPtr<SUWMatchSummary> MatchSummaryWindow;
+	TSharedPtr<SUTMenuBase> LoadoutMenu;
+	TSharedPtr<SUTMapVoteDialog> MapVoteMenu;
 #endif
 
 public:
@@ -608,11 +671,9 @@ public:
 	bool bRecordingReplay;
 	FString RecordedReplayFilename;
 	FString RecordedReplayTitle;
-	TSharedPtr<SUWDialog> YoutubeDialog;
-	TSharedPtr<class SUWYoutubeConsent> YoutubeConsentDialog;
+	TSharedPtr<SUTDialogBase> YoutubeDialog;
+	TSharedPtr<class SUTYoutubeConsentDialog> YoutubeConsentDialog;
 
-	void TestYoutubeConsentForUpload(const FString& RequestURL);
-	void TestYoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);
@@ -629,27 +690,13 @@ protected:
 	// Will be true if we are attempting to force the player in to an existing session.
 	bool bAttemptingForceJoin;
 
-	/** Profile items this player owns, downloaded from the server */
-	UPROPERTY()
-	TArray<FProfileItemEntry> ProfileItems;
-
-	/** XP gained in trusted online servers - read from backend */
-	UPROPERTY()
-	int32 OnlineXP;
-
 	/** Used to avoid reading too often */
 	double LastItemReadTime;
-	
-	// When connecting to a hub, if this is set it will be passed in.
-	FString PendingJoinMatchId;
+
 
 public:
-	/** Read profile items from the backend */
-	virtual void ReadProfileItems();
-	inline const TArray<FProfileItemEntry>& GetProfileItems() const
-	{
-		return ProfileItems;
-	}
+	virtual void HandleProfileNotification(const FOnlineNotification& Notification);
+
 	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
 	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
 
@@ -657,16 +704,20 @@ public:
 
 	inline int32 GetOnlineXP() const
 	{
-		return OnlineXP;
-	}
-	inline void AddOnlineXP(int32 NewXP)
-	{
-		OnlineXP += FMath::Max<int32>(0, NewXP);
-		LastItemReadTime = 0.0; // so next time we query we'll get real updated value
+#if WITH_PROFILE
+		if (GetMcpProfileManager() && GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile))
+		{
+			return GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->GetXP();
+		}
+
+		return 0;
+#else
+		return 0;
+#endif
 	}
 	inline void AddProfileItem(const UUTProfileItem* NewItem)
 	{
-		LastItemReadTime = 0.0;
+		/*LastItemReadTime = 0.0;
 		for (FProfileItemEntry& Entry : ProfileItems)
 		{
 			if (Entry.Item == NewItem)
@@ -675,7 +726,7 @@ public:
 				return;
 			}
 		}
-		new(ProfileItems) FProfileItemEntry(NewItem, 1);
+		new(ProfileItems) FProfileItemEntry(NewItem, 1);*/
 	}
 
 	bool IsOnTrustedServer() const
@@ -690,7 +741,7 @@ public:
 
 protected:
 #if !UE_SERVER
-	TSharedPtr<SUTJoinInstance> JoinInstanceDialog;
+	TSharedPtr<SUTJoinInstanceWindow> JoinInstanceDialog;
 #endif
 
 public:
@@ -755,12 +806,12 @@ public:
 	void CloseDownloadAll();
 
 protected:
+
 #if !UE_SERVER
 	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
-
-	
-
 #endif
+	
+	void PostInitProperties() override;
 
 public:
 	virtual void OpenSpectatorWindow();
@@ -769,9 +820,51 @@ public:
 	bool IsFragCenterNew();
 	void UpdateFragCenter();
 
+#if WITH_PROFILE
+	/** Get manager for the McpProfiles for this user */
+	UUtMcpProfileManager* GetMcpProfileManager() const { return Cast<UUtMcpProfileManager>(McpProfileManager); }
+
+	/** Get profile manager for a specific account (can be this user).  "" will return users.  Use non-param version if it is known to have to be users (non-shared) */
+	UUtMcpProfileManager* GetMcpProfileManager(const FString& AccountId);
+	UUtMcpProfileManager* GetActiveMcpProfileManager() const { return Cast<UUtMcpProfileManager>(ActiveMcpProfileManager); }
+
+#endif
+
+	void InvalidateLastSession();
+	void Reconnect(bool bAsSpectator);
+
+	void CachePassword(FString HostAddress, FString Password, bool bSpectator);		
+	FString RetrievePassword(FString HostAddress, bool bSpectator);
+
+protected:
+	TMap<FString /*HostIP:Port*/, FString /*Password*/> CachedPasswords;
+	TMap<FString /*HostIP:Port*/, FString /*Password*/> CachedSpecPasswords;
+
 protected:
 	UPROPERTY(Config)
 	int32 FragCenterCounter;
-	
 
+	bool bCancelJoinSession;
+
+	void OnProfileManagerInitComplete(bool bSuccess, const FText& ErrorText);
+	void UpdateSharedProfiles();
+	void UpdateSharedProfiles(const FUTProfilesLoaded& Callback);
+	FUTProfilesLoaded UpdateSharedProfilesComplete;
+
+	/** Our main account with associated profiles. */
+	UPROPERTY()
+	UObject* McpProfileManager;
+
+	/** Current active one - it may be shared profile or main profile. */
+	UPROPERTY()
+	UObject* ActiveMcpProfileManager;
+
+	/** Any shared accounts with associated profiles. */
+	UPROPERTY()
+	TArray<UObject*> SharedMcpProfileManager;
+
+	TSharedPtr<SUTMatchSummaryPanel> GetSummaryPanel();
+
+	// Check to see if this user should be using the Epic branded flag
+	void EpicFlagCheck();
 };

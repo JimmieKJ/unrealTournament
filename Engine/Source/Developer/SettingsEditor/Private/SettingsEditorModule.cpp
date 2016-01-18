@@ -222,8 +222,8 @@ private:
 				// Only Add the CDO of any UDeveloperSettings objects.
 				if ( Settings->HasAnyFlags(RF_ClassDefaultObject) && !Settings->GetClass()->HasAnyCastFlag(CLASS_Deprecated) )
 				{
-					// Ignore the setting if it's specifically the UDeveloperSettings
-					if ( Settings->GetClass() == UDeveloperSettings::StaticClass() )
+					// Ignore the setting if it's specifically the UDeveloperSettings or other abstract settings classes
+					if ( Settings->GetClass()->HasAnyClassFlags(CLASS_Abstract) )
 					{
 						continue;
 					}

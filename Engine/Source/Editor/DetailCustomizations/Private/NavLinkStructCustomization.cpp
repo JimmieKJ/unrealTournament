@@ -3,9 +3,6 @@
 #include "DetailCustomizationsPrivatePCH.h"
 #include "NavLinkStructCustomization.h"
 #include "AI/Navigation/NavLinkDefinition.h"
-#include "AI/Navigation/NavigationSystem.h"
-
-#define LOCTEXT_NAMESPACE "FNavLinkStructCustomization"
 
 TSharedRef<IPropertyTypeCustomization> FNavLinkStructCustomization::MakeInstance( )
 {
@@ -35,44 +32,14 @@ void FNavLinkStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> S
 	];
 }
 
-void FNavLinkStructCustomization::CustomizeChildren( TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
-{
-	uint32 NumChildren = 0;
-	StructPropertyHandle->GetNumChildren(NumChildren);
+void FNavLinkStructCustomization::CustomizeChildren(TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
+{ 
+	uint32 NumChildProps = 0;
+	StructPropertyHandle->GetNumChildren(NumChildProps);
 
-	FString AgentPrefix("bSupportsAgent");
-	const UNavigationSystem* DefNavSys = (UNavigationSystem*)(UNavigationSystem::StaticClass()->GetDefaultObject());
-	const int32 NumAgents = FMath::Min(DefNavSys->GetSupportedAgents().Num(), 16);
-
-	for (uint32 i = 0; i < NumChildren; i++)
+	for (uint32 Idx = 0; Idx < NumChildProps; Idx++)
 	{
-		TSharedPtr<IPropertyHandle> PropHandle = StructPropertyHandle->GetChildHandle(i);
-		if (PropHandle->GetProperty() && PropHandle->GetProperty()->GetName().StartsWith(AgentPrefix))
-		{
-			int32 AgentIdx = -1;
-			TTypeFromString<int32>::FromString(AgentIdx, *(PropHandle->GetProperty()->GetName().Mid(AgentPrefix.Len()) ));
-
-			if (AgentIdx >= 0 && AgentIdx < NumAgents)
-			{
-				FText PropName = FText::Format(LOCTEXT("SupportedAgentFmt", "Supports Agent: {0}"), FText::FromName(DefNavSys->GetSupportedAgents()[AgentIdx].Name));
-				StructBuilder.AddChildContent(PropName)
-					.NameContent()
-					[
-						SNew(STextBlock)
-						.Text(PropName)
-						.Font(StructCustomizationUtils.GetRegularFont())
-					]
-					.ValueContent()
-					[
-						PropHandle->CreatePropertyValueWidget()
-					];
-			}
-
-			continue;
-		}
-
+		TSharedPtr<IPropertyHandle> PropHandle = StructPropertyHandle->GetChildHandle(Idx);
 		StructBuilder.AddChildProperty(PropHandle.ToSharedRef());
 	}
 }
-
-#undef LOCTEXT_NAMESPACE

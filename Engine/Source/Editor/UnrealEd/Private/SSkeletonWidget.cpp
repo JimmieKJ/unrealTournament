@@ -12,6 +12,7 @@
 #include "SceneViewport.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h"
+#include "AssetRegistryModule.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonWidget"
 
@@ -25,6 +26,8 @@ void SSkeletonListWidget::Construct(const FArguments& InArgs)
 	AssetPickerConfig.Filter.ClassNames.Add(USkeleton::StaticClass()->GetFName());
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SSkeletonListWidget::SkeletonSelectionChanged);
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::Column;
+	AssetPickerConfig.bShowPathInColumnView = true;
+	AssetPickerConfig.bShowTypeInColumnView = false;
 
 	this->ChildSlot
 		[
@@ -113,6 +116,8 @@ void SSkeletonCompareWidget::Construct(const FArguments& InArgs)
 	AssetPickerConfig.Filter.ClassNames.Add(USkeleton::StaticClass()->GetFName());
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SSkeletonCompareWidget::SkeletonSelectionChanged);
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::Column;
+	AssetPickerConfig.bShowPathInColumnView = true;
+	AssetPickerConfig.bShowTypeInColumnView = false;
 
 	TSharedPtr<SToolTip> SkeletonTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Pick a skeleton for this mesh"), NULL, FString("Shared/Editors/Persona"), FString("Skeleton"));
 
@@ -384,6 +389,8 @@ void SAnimationRemapSkeleton::UpdateAssetPicker()
 	AssetPickerConfig.bAllowNullSelection = false;
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::Column;
 	AssetPickerConfig.OnShouldFilterAsset = FOnShouldFilterAsset::CreateSP(this, &SAnimationRemapSkeleton::OnShouldFilterAsset);
+	AssetPickerConfig.bShowPathInColumnView = true;
+	AssetPickerConfig.bShowTypeInColumnView = false;
 
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 
@@ -404,11 +411,21 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 	bConvertSpaces = false;
 	bShowOnlyCompatibleSkeletons = false;
 	OnRetargetAnimationDelegate = InArgs._OnRetargetDelegate;
+	bShowDuplicateAssetOption = InArgs._ShowDuplicateAssetOption;
 
-	TSharedRef<SVerticalBox> Widget = SNew(SVerticalBox);
+	TSharedRef<SVerticalBox> RetargetWidget = SNew(SVerticalBox);
+
+	RetargetWidget->AddSlot()
+	[
+		SNew(STextBlock)
+		.AutoWrapText(true)
+		.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.SmallBoldFont"))
+		.Text(LOCTEXT("RetargetBasePose_OptionLabel", "Retarget Options"))
+	];
+
 	if(InArgs._ShowRemapOption)
 	{
-		Widget->AddSlot()
+		RetargetWidget->AddSlot()
 		[
 			SNew(SCheckBox)
 			.IsChecked(this, &SAnimationRemapSkeleton::IsRemappingReferencedAssets)
@@ -419,13 +436,31 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 		];
 
 		bRemapReferencedAssets = true;
+
+		if(InArgs._ShowExistingRemapOption)
+		{
+			RetargetWidget->AddSlot()
+				[
+					SNew(SCheckBox)
+					.IsChecked(this, &SAnimationRemapSkeleton::IsRemappingToExistingAssetsChecked)
+					.IsEnabled(this, &SAnimationRemapSkeleton::IsRemappingToExistingAssetsEnabled)
+					.OnCheckStateChanged(this, &SAnimationRemapSkeleton::OnRemappingToExistingAssetsChanged)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("RemapSkeleton_RemapToExisting", "Allow remapping to existing assets"))
+					]
+				];
+
+			// Not by default, user must specify
+			bAllowRemappingToExistingAssets = false;
+		}
 	}
 
 	if (InArgs._ShowConvertSpacesOption)
 	{
 		TSharedPtr<SToolTip> ConvertSpaceTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Check if you'd like to convert animation data to new skeleton space. If this is false, it won't convert any animation data to new space."),
 			NULL, FString("Shared/Editors/Persona"), FString("AnimRemapSkeleton_ConvertSpace"));
-		Widget->AddSlot()
+		RetargetWidget->AddSlot()
 			[
 				SNew(SCheckBox)
 				.IsChecked(this, &SAnimationRemapSkeleton::IsConvertSpacesChecked)
@@ -443,7 +478,7 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 	{
 		TSharedPtr<SToolTip> ConvertSpaceTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Check if you'd like to show only the skeleton that uses the same rig."),
 			NULL, FString("Shared/Editors/Persona"), FString("AnimRemapSkeleton_ShowCompatbielSkeletons")); // @todo add tooltip
-		Widget->AddSlot()
+		RetargetWidget->AddSlot()
 			[
 				SNew(SCheckBox)
 				.IsChecked(this, &SAnimationRemapSkeleton::IsShowOnlyCompatibleSkeletonsChecked)
@@ -456,6 +491,162 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 			];
 
 		bShowOnlyCompatibleSkeletons = true;
+	}
+
+	TSharedRef<SHorizontalBox> OptionWidget = SNew(SHorizontalBox);
+	OptionWidget->AddSlot()
+		[
+			RetargetWidget
+		];
+
+	if (bShowDuplicateAssetOption)
+	{
+		TSharedRef<SVerticalBox> NameOptionWidget = SNew(SVerticalBox);
+
+		NameOptionWidget->AddSlot()
+		[	
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2, 3)
+			[
+				SNew(STextBlock)
+				.AutoWrapText(true)
+				.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.SmallBoldFont"))
+				.Text(LOCTEXT("RetargetBasePose_RenameLable", "New Asset Name"))
+			]
+
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2, 1)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				[
+					SNew(STextBlock).Text(LOCTEXT("RemapSkeleton_DupeName_Prefix", "Prefix"))
+				]
+
+				+SHorizontalBox::Slot()
+				[
+					SNew(SEditableTextBox)
+						.Text(this, &SAnimationRemapSkeleton::GetPrefixName)
+						.MinDesiredWidth(100)
+						.OnTextChanged(this, &SAnimationRemapSkeleton::SetPrefixName)
+						.IsReadOnly(false)
+						.RevertTextOnEscape(true)
+				]
+
+			]
+
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2, 1)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				[
+					SNew(STextBlock).Text(LOCTEXT("RemapSkeleton_DupeName_Suffix", "Suffix"))
+				]
+
+				+SHorizontalBox::Slot()
+				[
+					SNew(SEditableTextBox)
+						.Text(this, &SAnimationRemapSkeleton::GetSuffixName)
+						.MinDesiredWidth(100)
+						.OnTextChanged(this, &SAnimationRemapSkeleton::SetSuffixName)
+						.IsReadOnly(false)
+						.RevertTextOnEscape(true)
+				]
+
+			]
+
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2, 1)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				[
+					SNew(STextBlock).Text(LOCTEXT("RemapSkeleton_DupeName_ReplaceFrom", "Replace "))
+				]
+
+				+SHorizontalBox::Slot()
+				[
+					SNew(SEditableTextBox)
+						.Text(this, &SAnimationRemapSkeleton::GetReplaceFrom)
+						.MinDesiredWidth(50)
+						.OnTextChanged(this, &SAnimationRemapSkeleton::SetReplaceFrom)
+						.IsReadOnly(false)
+						.RevertTextOnEscape(true)
+				]
+
+				+SHorizontalBox::Slot()
+				.Padding(5, 0)
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock).Text(LOCTEXT("RemapSkeleton_DupeName_ReplaceTo", "with "))
+				]
+
+				+SHorizontalBox::Slot()
+				[
+					SNew(SEditableTextBox)
+						.Text(this, &SAnimationRemapSkeleton::GetReplaceTo)
+						.MinDesiredWidth(50)
+						.OnTextChanged(this, &SAnimationRemapSkeleton::SetReplaceTo)
+						.IsReadOnly(false)
+						.RevertTextOnEscape(true)
+				]
+			]
+
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2, 3)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.Padding(5, 5)
+				[
+					SNew(STextBlock).Text(this,  &SAnimationRemapSkeleton::GetExampleText)
+						.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.ItalicFont"))
+				]
+			]
+
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2, 3)
+			[
+				SNew(SHorizontalBox)
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("RemapSkeleton_DupeName_Folder", "Folder "))
+						.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.SmallBoldFont"))
+				]
+
+				+SHorizontalBox::Slot()
+				.FillWidth(1)
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock).Text(this, &SAnimationRemapSkeleton::GetFolderPath)
+				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.Text(LOCTEXT("RemapSkeleton_DupeName_ShowFolderOption", "Change..."))
+					.OnClicked(this, &SAnimationRemapSkeleton::ShowFolderOption)
+				]
+			]
+		];
+
+		OptionWidget->AddSlot()
+		[
+			NameOptionWidget
+		];
 	}
 
 	TSharedPtr<SToolTip> SkeletonTooltip = IDocumentation::Get()->CreateToolTip(FText::FromString("Pick a skeleton for this mesh"), NULL, FString("Shared/Editors/Persona"), FString("Skeleton"));
@@ -496,31 +687,10 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 
 				+SVerticalBox::Slot()
 				.AutoHeight()
-				.Padding(2, 10)
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SSeparator)
-					.Orientation(Orient_Horizontal)
-				]
-
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.HAlign(HAlign_Center)
 				.Padding(5)
 				[
 					SNew(STextBlock)
-					.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 10))
-					.ColorAndOpacity(FLinearColor::Red)
-					.Text(LOCTEXT("RemapSkeleton_Warning_Title", "[WARNING]"))
-				]
-
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(5)
-				[
-					SNew(STextBlock)
-					.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 10))
-					.ColorAndOpacity(FLinearColor::Red)
+					.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.FilterFont"))
 					.Text(InArgs._WarningMessage)
 				]
 
@@ -536,12 +706,7 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 				[
 					SAssignNew(AssetPickerBox, SBox)
 					.WidthOverride(400)
-				]
-
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					Widget
+					.HeightOverride(300)
 				]
 
 				+SVerticalBox::Slot()
@@ -563,7 +728,7 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 					+SUniformGridPanel::Slot(0, 0)
 					[
 						SNew(SButton).HAlign(HAlign_Center)
-						.Text(LOCTEXT("RemapSkeleton_Apply", "Select"))
+						.Text(LOCTEXT("RemapSkeleton_Apply", "Retarget"))
 						.IsEnabled(this, &SAnimationRemapSkeleton::CanApply)
 						.OnClicked(this, &SAnimationRemapSkeleton::OnApply)
 						.HAlign(HAlign_Center)
@@ -600,8 +765,9 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 					// put nice message here
 					SNew(STextBlock)
 					.AutoWrapText(true)
-					.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.BoldFont"))
-					.Text(LOCTEXT("RetargetBasePose_WarningMessage", "Make sure you have the similar retarget base pose. If they don't look alike here, you can edit your base pose in the Retarget Manager window to look alike."))
+					.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.FilterFont"))
+					.ColorAndOpacity(FLinearColor::Red)
+					.Text(LOCTEXT("RetargetBasePose_WarningMessage", "*Make sure you have the similar retarget base pose. \nIf they don't look alike here, you can edit your base pose in the Retarget Manager window."))
 				]
 
 				+SVerticalBox::Slot()
@@ -609,7 +775,6 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 				.Padding(0, 5)
 				[
 					SNew(SHorizontalBox)
-
 					+SHorizontalBox::Slot()
 					[
 						SNew(SVerticalBox)
@@ -618,19 +783,17 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 						[
 							SNew(STextBlock)
 							.Text(LOCTEXT("SourceSkeleteonTitle", "[Source]"))
-							.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.FilterFont"))
+							.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.BoldFont"))
 							.AutoWrapText(true)
 						]
 
 						+ SVerticalBox::Slot()
 						.AutoHeight()
+						.Padding(5, 5)
 						[
 							SAssignNew(SourceViewport, SBasePoseViewport)
 							.Skeleton(OldSkeleton)
 						]
-						/*SAssignNew(SourceViewport, SBasePoseViewport)
-						.Title(TEXT("[Source]"))
-						.Skeleton(OldSkeleton)*/
 					]
 
 					+SHorizontalBox::Slot()
@@ -641,25 +804,63 @@ void SAnimationRemapSkeleton::Construct( const FArguments& InArgs )
 						[
 							SNew(STextBlock)
 							.Text(LOCTEXT("TargetSkeleteonTitle", "[Target]"))
-							.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.FilterFont"))
+							.Font(FEditorStyle::GetFontStyle("Persona.RetargetManager.BoldFont"))
 							.AutoWrapText(true)
 						]
 
-						+ SVerticalBox::Slot()
+						+SVerticalBox::Slot()
 						.AutoHeight()
+						.Padding(5, 5)
 						[
 							SAssignNew(TargetViewport, SBasePoseViewport)
 							.Skeleton(nullptr)
 						]
-						/*SAssignNew(TargetViewport, SBasePoseViewport)
-						.Title(TEXT("[Target]"))
-						.Skeleton(NULL)*/
+					]
+				]
+
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0, 5)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(5, 5)
+					[
+						OptionWidget
 					]
 				]
 			]
 		];
 
 	UpdateAssetPicker();
+	UpdateExampleText();
+}
+
+FReply SAnimationRemapSkeleton::ShowFolderOption()
+{
+	TSharedRef<SSelectFolderDlg> NewAnimDlg =
+	SNew(SSelectFolderDlg);
+
+	if(NewAnimDlg->ShowModal() != EAppReturnType::Cancel)
+	{
+		NameDuplicateRule.FolderPath = NewAnimDlg->GetAssetPath();
+	}
+
+	if (WidgetWindow.IsValid())
+	{
+		WidgetWindow.Pin()->BringToFront(true);
+	}
+
+	return FReply::Handled();
+}
+
+void SAnimationRemapSkeleton::UpdateExampleText()
+{
+	FString ReplaceFrom = FString::Printf(TEXT("Old Name : ###%s###"), *NameDuplicateRule.ReplaceFrom);
+	FString ReplaceTo = FString::Printf(TEXT("New Name : %s###%s###%s"), *NameDuplicateRule.Prefix, *NameDuplicateRule.ReplaceTo, *NameDuplicateRule.Suffix);
+
+	ExampleText = FText::FromString(FString::Printf(TEXT("%s\n%s"), *ReplaceFrom, *ReplaceTo));
 }
 
 ECheckBoxState SAnimationRemapSkeleton::IsRemappingReferencedAssets() const
@@ -670,6 +871,21 @@ ECheckBoxState SAnimationRemapSkeleton::IsRemappingReferencedAssets() const
 void SAnimationRemapSkeleton::OnRemappingReferencedAssetsChanged(ECheckBoxState InNewRadioState)
 {
 	bRemapReferencedAssets = (InNewRadioState == ECheckBoxState::Checked);
+}
+
+ECheckBoxState SAnimationRemapSkeleton::IsRemappingToExistingAssetsChecked() const
+{
+	return bAllowRemappingToExistingAssets ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+bool SAnimationRemapSkeleton::IsRemappingToExistingAssetsEnabled() const
+{
+	return bRemapReferencedAssets;
+}
+
+void SAnimationRemapSkeleton::OnRemappingToExistingAssetsChanged(ECheckBoxState InNewRadioState)
+{
+	bAllowRemappingToExistingAssets = (InNewRadioState == ECheckBoxState::Checked);
 }
 
 ECheckBoxState SAnimationRemapSkeleton::IsConvertSpacesChecked() const
@@ -719,25 +935,7 @@ FReply SAnimationRemapSkeleton::OnApply()
 {
 	if (OnRetargetAnimationDelegate.IsBound())
 	{
-		// verify if old skeleton and new skeleton has preview mesh, otherwise, it won't work. 
-		if ( (!OldSkeleton || OldSkeleton->GetPreviewMesh(true)) && (!NewSkeleton || NewSkeleton->GetPreviewMesh(true)))
-		{
-			OnRetargetAnimationDelegate.Execute(OldSkeleton, NewSkeleton, bRemapReferencedAssets, bConvertSpaces);
-		}
-		else
-		{
-			FFormatNamedArguments Args;
-			Args.Add(TEXT("OldSkeletonName"), FText::FromString(GetNameSafe(OldSkeleton)));
-			Args.Add(TEXT("NewSkeletonName"), FText::FromString(GetNameSafe(NewSkeleton)));
-			FNotificationInfo Info(FText::Format(LOCTEXT("Retarget Failed", "Old Skeleton {OldSkeletonName} and New Skeleton {NewSkeletonName} need to have Preview Mesh set up to convert animation"), Args));
-			Info.ExpireDuration = 5.0f;
-			Info.bUseLargeFont = false;
-			TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
-			if(Notification.IsValid())
-			{
-				Notification->SetCompletionState(SNotificationItem::CS_Fail);
-			}
-		}
+		OnRetargetAnimationDelegate.Execute(OldSkeleton, NewSkeleton, bRemapReferencedAssets, bAllowRemappingToExistingAssets, bConvertSpaces, bShowDuplicateAssetOption ? &NameDuplicateRule : nullptr);
 	}
 
 	CloseWindow();
@@ -765,7 +963,7 @@ void SAnimationRemapSkeleton::CloseWindow()
 	}
 }
 
-void SAnimationRemapSkeleton::ShowWindow(USkeleton* OldSkeleton, const FText& WarningMessage, FOnRetargetAnimation RetargetDelegate)
+void SAnimationRemapSkeleton::ShowWindow(USkeleton* OldSkeleton, const FText& WarningMessage, bool bDuplicateAssets, FOnRetargetAnimation RetargetDelegate)
 {
 	if(DialogWindow.IsValid())
 	{
@@ -789,8 +987,10 @@ void SAnimationRemapSkeleton::ShowWindow(USkeleton* OldSkeleton, const FText& Wa
 			.WidgetWindow(DialogWindow)
 			.WarningMessage(WarningMessage)
 			.ShowRemapOption(true)
+			.ShowExistingRemapOption(true)
 			.ShowConvertSpacesOption(OldSkeleton != NULL)
 			.ShowCompatibleDisplayOption(OldSkeleton != NULL)
+			.ShowDuplicateAssetOption(bDuplicateAssets)
 			.OnRetargetDelegate(RetargetDelegate)
 		];
 
@@ -1105,7 +1305,7 @@ public:
 		SetViewMode(VMI_Lit);
 
 		// Always composite editor objects after post processing in the editor
-		EngineShowFlags.CompositeEditorPrimitives = true;
+		EngineShowFlags.SetCompositeEditorPrimitives(true);
 		EngineShowFlags.DisableAdvancedFeatures();
 
 		UpdateLighting();
@@ -1183,7 +1383,7 @@ void SBasePoseViewport::SetSkeleton(USkeleton* Skeleton)
 				PreviewComponent->SetSkeletalMesh(PreviewSkeletalMesh);
 				PreviewComponent->EnablePreview(true, NULL, NULL);
 //				PreviewComponent->AnimScriptInstance = PreviewComponent->PreviewInstance;
-				PreviewComponent->PreviewInstance->bForceRetargetBasePose = true;
+				PreviewComponent->PreviewInstance->SetForceRetargetBasePose(true);
 				PreviewComponent->RefreshBoneTransforms(NULL);
 
 				//Place the camera at a good viewer position
@@ -1239,5 +1439,507 @@ TSharedPtr<SWidget> SBasePoseViewport::MakeViewportToolbar()
 {
 	return nullptr;
 }
-#undef LOCTEXT_NAMESPACE 
 
+
+/////////////////////////////////////////////////
+// select folder dialog
+//////////////////////////////////////////////////
+void SSelectFolderDlg::Construct(const FArguments& InArgs)
+{
+	AssetPath = FText::FromString(FPackageName::GetLongPackagePath(InArgs._DefaultAssetPath.ToString()));
+
+	if(AssetPath.IsEmpty())
+	{
+		AssetPath = FText::FromString(TEXT("/Game"));
+	}
+
+	FPathPickerConfig PathPickerConfig;
+	PathPickerConfig.DefaultPath = AssetPath.ToString();
+	PathPickerConfig.OnPathSelected = FOnPathSelected::CreateSP(this, &SSelectFolderDlg::OnPathChange);
+	PathPickerConfig.bAddDefaultPath = true;
+
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+
+	SWindow::Construct(SWindow::FArguments()
+		.Title(LOCTEXT("SSelectFolderDlg_Title", "Create New Animation Object"))
+		.SupportsMinimize(false)
+		.SupportsMaximize(false)
+		//.SizingRule( ESizingRule::Autosized )
+		.ClientSize(FVector2D(450, 450))
+		[
+			SNew(SVerticalBox)
+
+			+ SVerticalBox::Slot() // Add user input block
+			.Padding(2)
+			[
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+				[
+					SNew(SVerticalBox)
+
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("SelectPath", "Select Path"))
+						.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 14))
+					]
+
+					+SVerticalBox::Slot()
+					.FillHeight(1)
+					.Padding(3)
+					[
+						ContentBrowserModule.Get().CreatePathPicker(PathPickerConfig)
+					]
+				]
+			]
+
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign(HAlign_Right)
+			.Padding(5)
+			[
+				SNew(SUniformGridPanel)
+				.SlotPadding(FEditorStyle::GetMargin("StandardDialog.SlotPadding"))
+				.MinDesiredSlotWidth(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotWidth"))
+				.MinDesiredSlotHeight(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotHeight"))
+				+SUniformGridPanel::Slot(0, 0)
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+					.Text(LOCTEXT("OK", "OK"))
+					.OnClicked(this, &SSelectFolderDlg::OnButtonClick, EAppReturnType::Ok)
+				]
+				+SUniformGridPanel::Slot(1, 0)
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+					.Text(LOCTEXT("Cancel", "Cancel"))
+					.OnClicked(this, &SSelectFolderDlg::OnButtonClick, EAppReturnType::Cancel)
+				]
+			]
+		]);
+}
+
+void SSelectFolderDlg::OnPathChange(const FString& NewPath)
+{
+	AssetPath = FText::FromString(NewPath);
+}
+
+FReply SSelectFolderDlg::OnButtonClick(EAppReturnType::Type ButtonID)
+{
+	UserResponse = ButtonID;
+
+	RequestDestroyWindow();
+
+	return FReply::Handled();
+}
+
+EAppReturnType::Type SSelectFolderDlg::ShowModal()
+{
+	GEditor->EditorAddModalWindow(SharedThis(this));
+	return UserResponse;
+}
+
+FString SSelectFolderDlg::GetAssetPath()
+{
+	return AssetPath.ToString();
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Window for remapping assets when retargetting
+TSharedPtr<SWindow> SAnimationRemapAssets::DialogWindow;
+
+void SAnimationRemapAssets::Construct(const FArguments& InArgs)
+{
+	NewSkeleton = InArgs._NewSkeleton;
+	RetargetContext = InArgs._RetargetContext;
+	
+	TSharedPtr<SVerticalBox> ListBox;
+
+	TArray<UObject*> Duplicates = RetargetContext->GetAllDuplicates();
+
+	for(UObject* Asset : Duplicates)
+	{
+		// We don't want to add anim blueprints here, just animation assets
+		if(Asset->GetClass() != UAnimBlueprint::StaticClass())
+		{
+			AssetListInfo.Add(FDisplayedAssetEntryInfo::Make(Asset, NewSkeleton));
+		}
+	}
+
+	this->ChildSlot
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.Padding(5.0f)
+		.AutoHeight()
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("RemapAssetsDescription", "The assets shown below need to be duplicated or remapped for the new blueprint. Select a new animation to use in the new animation blueprint for each asset or leave blank to duplicate the existing asset."))
+			.AutoWrapText(true)
+		]
+		+ SVerticalBox::Slot()
+		.Padding(5.0f)
+		.AutoHeight()
+		.MaxHeight(500.0f)
+		[
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+			[
+				SAssignNew(ListWidget, SRemapAssetEntryList)
+				.ItemHeight(20.0f)
+				.ListItemsSource(&AssetListInfo)
+				.OnGenerateRow(this, &SAnimationRemapAssets::OnGenerateMontageReferenceRow)
+				.SelectionMode(ESelectionMode::None)
+				.HeaderRow
+				(
+					SNew(SHeaderRow)
+					+ SHeaderRow::Column("AssetName")
+					.DefaultLabel(LOCTEXT("ColumnLabel_RemapAssetName", "Asset Name"))
+					+ SHeaderRow::Column("AssetType")
+					.DefaultLabel(LOCTEXT("ColumnLabel_RemapAssetType", "Asset Type"))
+					+ SHeaderRow::Column("AssetRemap")
+					.DefaultLabel(LOCTEXT("ColumnLabel_RemapAssetRemap", "Remapped Asset"))
+				)
+			]
+		]
+		+ SVerticalBox::Slot()
+		.Padding(5.0f)
+		.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			.FillWidth(0.2f)
+			[
+				SNew(SButton)
+				.ContentPadding(2.0f)
+				.OnClicked(this, &SAnimationRemapAssets::OnBestGuessClicked)
+				.Content()
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("BestGuessButton", "Auto-Fill Using Best Guess"))
+				]
+			]
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			.Padding(FMargin(5.0f, 0.0f, 0.0f, 0.0f))
+			[
+				SNew(STextBlock)
+				.AutoWrapText(true)
+				.Text(LOCTEXT("BestGuessDescription", "Auto-Fill will look at the names of all compatible assets for the new skeleton and look for something similar to use for the remapped asset."))
+			]
+		]
+
+		+ SVerticalBox::Slot()
+		.Padding(5.0f)
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Center)
+		.AutoHeight()
+		[
+			SNew(SBox)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			.Content()
+			[
+				SNew(SButton)
+				.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+				.OnClicked(this, &SAnimationRemapAssets::OnOkClicked)
+				.Content()
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("OkButton", "OK"))
+				]
+			]
+		]
+	];
+}
+
+void SAnimationRemapAssets::ShowWindow(FAnimationRetargetContext& RetargetContext, USkeleton* RetargetToSkeleton)
+{
+	if(DialogWindow.IsValid())
+	{
+		FSlateApplication::Get().DestroyWindowImmediately(DialogWindow.ToSharedRef());
+	}
+	
+	DialogWindow = SNew(SWindow)
+		.Title(LOCTEXT("RemapAssets", "Choose Assets to Remap"))
+		.SupportsMinimize(false)
+		.SupportsMaximize(false)
+		.HasCloseButton(false)
+		.MaxWidth(1024.0f)
+		.SizingRule(ESizingRule::Autosized);
+	
+	TSharedPtr<class SAnimationRemapAssets> DialogWidget;
+	
+	TSharedPtr<SBorder> DialogWrapper =
+		SNew(SBorder)
+		.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+		.Padding(4.0f)
+		[
+			SAssignNew(DialogWidget, SAnimationRemapAssets)
+				.NewSkeleton(RetargetToSkeleton)
+				.RetargetContext(&RetargetContext)
+		];
+	
+	DialogWindow->SetOnWindowClosed(FRequestDestroyWindowOverride::CreateSP(DialogWidget.Get(), &SAnimationRemapAssets::OnDialogClosed));
+	DialogWindow->SetContent(DialogWrapper.ToSharedRef());
+	
+	FSlateApplication::Get().AddModalWindow(DialogWindow.ToSharedRef(), nullptr);
+}
+
+TSharedRef<ITableRow> SAnimationRemapAssets::OnGenerateMontageReferenceRow(TSharedPtr<FDisplayedAssetEntryInfo> Item, const TSharedRef<STableViewBase>& OwnerTable)
+{
+	return SNew(SAssetEntryRow, OwnerTable)
+		.DisplayedInfo(Item);
+}
+
+void SAnimationRemapAssets::OnDialogClosed(const TSharedRef<SWindow>& Window)
+{
+	DialogWindow = nullptr;
+}
+
+FReply SAnimationRemapAssets::OnOkClicked()
+{
+	for(TSharedPtr<FDisplayedAssetEntryInfo> AssetInfo : AssetListInfo)
+	{
+		if(AssetInfo->RemapAsset)
+		{
+			RetargetContext->AddRemappedAsset(Cast<UAnimationAsset>(AssetInfo->AnimAsset), Cast<UAnimationAsset>(AssetInfo->RemapAsset));
+		}
+	}
+
+	DialogWindow->RequestDestroyWindow();
+
+	return FReply::Handled();
+}
+
+FReply SAnimationRemapAssets::OnBestGuessClicked()
+{
+	// collect all compatible assets
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	FString SkeletonName = FAssetData(NewSkeleton).GetExportTextName();
+
+	TArray<FAssetData> CompatibleAssets;
+	TArray<FAssetData> AssetDataList;
+
+	AssetRegistryModule.Get().GetAssetsByClass(UAnimationAsset::StaticClass()->GetFName(), AssetDataList, true);
+
+	for(const FAssetData& Data : AssetDataList)
+	{
+		if(Data.TagsAndValues.FindRef("Skeleton") == SkeletonName)
+		{
+			CompatibleAssets.Add(Data);
+		}
+	}
+
+	if(CompatibleAssets.Num() > 0)
+	{
+		// Do best guess analysis for the assets based on name.
+		for(TSharedPtr<FDisplayedAssetEntryInfo>& Info : AssetListInfo)
+		{
+			const FAssetData* BestMatchData = FindBestGuessMatch(FAssetData(Info->AnimAsset), CompatibleAssets);
+			Info->RemapAsset = BestMatchData ? BestMatchData->GetAsset() : nullptr;
+		}
+	}
+
+	ListWidget->RequestListRefresh();
+
+	return FReply::Handled();
+}
+
+const FAssetData* SAnimationRemapAssets::FindBestGuessMatch(const FAssetData& AssetData, const TArray<FAssetData>& PossibleAssets) const
+{
+	int32 LowestScore = MAX_int32;
+	int32 FoundIndex = INDEX_NONE;
+
+	for(int32 Idx = 0 ; Idx < PossibleAssets.Num() ; ++Idx)
+	{
+		const FAssetData& Data = PossibleAssets[Idx];
+
+		if(Data.AssetClass == AssetData.AssetClass)
+		{
+			int32 Distance = GetStringDistance(AssetData.AssetName.ToString(), Data.AssetName.ToString());
+
+			if(Distance < LowestScore)
+			{
+				LowestScore = Distance;
+				FoundIndex = Idx;
+			}
+		}
+	}
+
+	if(FoundIndex != INDEX_NONE)
+	{
+		return &PossibleAssets[FoundIndex];
+	}
+
+	return nullptr;
+}
+
+int32 SAnimationRemapAssets::GetStringDistance(const FString& First, const FString& Second) const
+{
+	// Finds the distance between strings, where the distance is the number of operations we would need
+	// to perform on First to match Second.
+	// Operations are: Adding a character, Removing a character, changing a character.
+
+	const int32 FirstLength = First.Len();
+	const int32 SecondLength = Second.Len();
+
+	// Already matching
+	if(First == Second)
+	{
+		return 0;
+	}
+
+	// No first string, so we need to add SecondLength characters to match
+	if(FirstLength == 0)
+	{
+		return SecondLength;
+	}
+
+	// No Second string, so we need to add FirstLength characters to match
+	if(SecondLength == 0)
+	{
+		return FirstLength;
+	}
+
+	TArray<int32> PrevRow;
+	TArray<int32> NextRow;
+	PrevRow.AddZeroed(SecondLength + 1);
+	NextRow.AddZeroed(SecondLength + 1);
+
+	// Initialise prev row to num characters we need to remove from Second
+	for(int32 I = 0 ; I < PrevRow.Num() ; ++I)
+	{
+		PrevRow[I] = I;
+	}
+
+	for(int32 I = 0 ; I < FirstLength ; ++I)
+	{
+		// Calculate current row
+		NextRow[0] = I + 1;
+
+		for(int32 J = 0 ; J < SecondLength ; ++J)
+		{
+			int32 Indicator = (First[I] == Second[J]) ? 0 : 1;
+			NextRow[J + 1] = FMath::Min3(NextRow[J] + 1, PrevRow[J + 1] + 1, PrevRow[J] + Indicator);
+		}
+
+		// Copy back
+		PrevRow = NextRow;
+	}
+
+	return NextRow[SecondLength];
+}
+
+void SAssetEntryRow::Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
+{
+	check(InArgs._DisplayedInfo.IsValid());
+	DisplayedInfo = InArgs._DisplayedInfo;
+
+	SkeletonExportName = FAssetData(DisplayedInfo->NewSkeleton).GetExportTextName();
+
+	SMultiColumnTableRow<TSharedPtr<FDisplayedAssetEntryInfo>>::Construct(FSuperRowType::FArguments(), InOwnerTableView);
+}
+
+TSharedRef<SWidget> SAssetEntryRow::GenerateWidgetForColumn(const FName& ColumnName)
+{
+	if(ColumnName == TEXT("AssetName"))
+	{
+		return SNew(STextBlock)
+			.Text(FText::Format(LOCTEXT("AssetNameEntry", "{0}"), FText::FromString(DisplayedInfo->AnimAsset->GetName())));
+	}
+	else if(ColumnName == TEXT("AssetType"))
+	{
+		return SNew(STextBlock)
+			.Text(FText::Format(LOCTEXT("AssetTypeEntry", "{0}"), FText::FromString(DisplayedInfo->AnimAsset->GetClass()->GetName())));
+	}
+	else if(ColumnName == TEXT("AssetRemap"))
+	{
+		return SNew(SBox)
+			.Padding(2.0f)
+			[
+				SNew(SComboButton)
+				.ToolTipText(LOCTEXT("AssetRemapTooltip", "Select compatible asset to remap to."))
+				.ButtonStyle(FEditorStyle::Get(), "PropertyEditor.AssetComboStyle")
+				.ForegroundColor(FEditorStyle::GetColor("PropertyEditor.AssetName.ColorAndOpacity"))
+				.OnGetMenuContent(this, &SAssetEntryRow::GetRemapMenuContent)
+				.ContentPadding(2.0f)
+				.ButtonContent()
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "PropertyEditor.AssetClass")
+					.Font(FEditorStyle::GetFontStyle("PropertyWindow.NormalFont"))
+					.Text(this, &SAssetEntryRow::GetRemapMenuButtonText)
+				]
+			];
+	}
+
+	return SNullWidget::NullWidget;
+}
+
+TSharedRef<SWidget> SAssetEntryRow::GetRemapMenuContent()
+{
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+	
+	FAssetPickerConfig PickerConfig;
+	PickerConfig.SelectionMode = ESelectionMode::Single;
+	PickerConfig.Filter.ClassNames.Add(DisplayedInfo->AnimAsset->GetClass()->GetFName());
+	PickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SAssetEntryRow::OnAssetSelected);
+	PickerConfig.OnShouldFilterAsset = FOnShouldFilterAsset::CreateSP(this, &SAssetEntryRow::OnShouldFilterAsset);
+	PickerConfig.bAllowNullSelection = true;
+	
+	return SNew(SBox)
+		.WidthOverride(384)
+		.HeightOverride(768)
+		[
+			ContentBrowserModule.Get().CreateAssetPicker(PickerConfig)
+		];
+}
+
+FText SAssetEntryRow::GetRemapMenuButtonText() const
+{
+	FText NameText = (DisplayedInfo->RemapAsset) ? FText::FromString(*DisplayedInfo->RemapAsset->GetName()) : LOCTEXT("AssetRemapNone", "None");
+
+	return FText::Format(LOCTEXT("RemapButtonText", "{0}"), NameText);
+}
+
+void SAssetEntryRow::OnAssetSelected(const FAssetData& AssetData)
+{
+	// Close the asset picker menu
+	FSlateApplication::Get().DismissAllMenus();
+
+	RemapAsset = AssetData.GetAsset();
+	DisplayedInfo->RemapAsset = RemapAsset.Get();
+}
+
+bool SAssetEntryRow::OnShouldFilterAsset(const FAssetData& AssetData) const
+{
+	if(AssetData.TagsAndValues.FindRef("Skeleton") == SkeletonExportName)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+TSharedRef<FDisplayedAssetEntryInfo> FDisplayedAssetEntryInfo::Make(UObject* InAsset, USkeleton* InNewSkeleton)
+{
+	return MakeShareable(new FDisplayedAssetEntryInfo(InAsset, InNewSkeleton));
+}
+
+FDisplayedAssetEntryInfo::FDisplayedAssetEntryInfo(UObject* InAsset, USkeleton* InNewSkeleton)
+	: NewSkeleton(InNewSkeleton)
+	, AnimAsset(InAsset)
+	, RemapAsset(nullptr)
+{
+
+}
+
+#undef LOCTEXT_NAMESPACE 

@@ -9,8 +9,8 @@
 #include "SceneCapture.h"
 #include "SceneCaptureCube.generated.h"
 
-UCLASS(hidecategories = (Collision, Material, Attachment, Actor), MinimalAPI)
-class ASceneCaptureCube : public ASceneCapture
+UCLASS(hidecategories = (Collision, Material, Attachment, Actor))
+class ENGINE_API ASceneCaptureCube : public ASceneCapture
 {
 	GENERATED_UCLASS_BODY()
 
@@ -27,12 +27,12 @@ private_subobject:
 
 public:
 
-	// Begin AActor interface
+	//~ Begin AActor Interface
 	virtual void PostActorCreated() override;
 #if WITH_EDITOR
-	ENGINE_API virtual void PostEditMove(bool bFinished) override;
+	virtual void PostEditMove(bool bFinished) override;
 #endif
-	// End AActor interface.
+	//~ End AActor Interface.
 
 	/** Used to synchronize the DrawFrustumComponent with the SceneCaptureComponentCube settings. */
 	void UpdateDrawFrustum();
@@ -41,9 +41,9 @@ public:
 	void OnInterpToggle(bool bEnable);
 
 	/** Returns CaptureComponentCube subobject **/
-	ENGINE_API class USceneCaptureComponentCube* GetCaptureComponentCube() const;
+	class USceneCaptureComponentCube* GetCaptureComponentCube() const;
 	/** Returns DrawFrustum subobject **/
-	ENGINE_API class UDrawFrustumComponent* GetDrawFrustum() const;
+	class UDrawFrustumComponent* GetDrawFrustum() const;
 };
 
 

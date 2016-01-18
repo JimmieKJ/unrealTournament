@@ -227,12 +227,6 @@ void FCollisionResponseContainer::ReplaceChannels(ECollisionResponse OldResponse
 	}
 }
 
-/** Returns if the specified channel is set */
-ECollisionResponse FCollisionResponseContainer::GetResponse(ECollisionChannel Channel) const
-{
-	return (ECollisionResponse)EnumArray[Channel];
-}
-
 FCollisionResponseContainer FCollisionResponseContainer::CreateMinContainer(const FCollisionResponseContainer& A, const FCollisionResponseContainer& B)
 {
 	FCollisionResponseContainer Result;
@@ -451,6 +445,27 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 	return true;
 }
 
+#if WITH_PHYSX
+void PvdConnect(FString Host, bool bVisualization)
+{
+	int32		Port = 5425;         // TCP port to connect to, where PVD is listening
+	uint32	Timeout = 100;          // timeout in milliseconds to wait for PVD to respond, consoles and remote PCs need a higher timeout.
+	
+	PxVisualDebuggerConnectionFlags ConnectionFlags = PxVisualDebuggerExt::getAllConnectionFlags();
+	if (!bVisualization)
+	{
+		ConnectionFlags &= ~PxVisualDebuggerConnectionFlag::eDEBUG;
+	}
+
+	// and now try to connect
+	PxVisualDebuggerExt::createConnection(GPhysXSDK->getPvdConnectionManager(), TCHAR_TO_ANSI(*Host), Port, Timeout, ConnectionFlags);
+
+	GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_CONTACTS, bVisualization);
+	GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_SCENEQUERIES, bVisualization);
+	GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_CONSTRAINTS, bVisualization);
+}
+#endif
+
 //// EXEC
 bool ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 {
@@ -540,23 +555,20 @@ bool ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 		{
 			if(FParse::Command(&Cmd, TEXT("CONNECT")))
 			{
+				
+				
+				const bool bVizualization = !FParse::Command(&Cmd, TEXT("NODEBUG"));
+
 				// setup connection parameters
 				FString Host = TEXT("localhost");
-				if(*Cmd)
+				if (*Cmd)
 				{
 					Host = Cmd;
 				}
 
-				int32		Port	= 5425;         // TCP port to connect to, where PVD is listening
-				uint32	Timeout = 100;          // timeout in milliseconds to wait for PVD to respond, consoles and remote PCs need a higher timeout.
-				PxVisualDebuggerConnectionFlags ConnectionFlags = PxVisualDebuggerExt::getAllConnectionFlags();
+				
 
-				// and now try to connect
-				PxVisualDebuggerExt::createConnection(GPhysXSDK->getPvdConnectionManager(), TCHAR_TO_ANSI(*Host), Port, Timeout, ConnectionFlags);
-
-				GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_CONTACTS, true);
-				GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_SCENEQUERIES, true);
-				GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_CONSTRAINTS, true);
+				PvdConnect(Host, bVizualization);
 
 			}
 			else if(FParse::Command(&Cmd, TEXT("DISCONNECT")))
@@ -577,6 +589,24 @@ bool ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 	else if(FParse::Command(&Cmd, TEXT("PHYSXSHARED")) )
 	{
 		FPhysxSharedData::Get().DumpSharedMemoryUsage(Ar);
+		return 1;
+	}
+	else if(FParse::Command(&Cmd, TEXT("PHYSXINFO")))
+	{
+		Ar->Logf(TEXT("PhysX Info:"));
+		Ar->Logf(TEXT("  Version: %d.%d.%d"), PX_PHYSICS_VERSION_MAJOR, PX_PHYSICS_VERSION_MINOR, PX_PHYSICS_VERSION_BUGFIX);
+#if UE_BUILD_DEBUG && !defined(NDEBUG)
+		Ar->Logf(TEXT("  Configuration: DEBUG"));
+#elif WITH_PHYSX_RELEASE
+		Ar->Logf(TEXT("  Configuration: RELEASE"));
+#else
+		Ar->Logf(TEXT("  Configuration: PROFILE"));
+#endif
+#if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
+		Ar->Logf(TEXT("  Cooking Module: TRUE"));
+#else
+		Ar->Logf(TEXT("  Cooking Module: FALSE"));
+#endif
 		return 1;
 	}
 

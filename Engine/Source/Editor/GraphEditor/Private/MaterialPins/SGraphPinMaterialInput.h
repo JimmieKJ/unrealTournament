@@ -11,8 +11,8 @@ public:
 	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj);
 
 protected:
-	// Begin SGraphPin interface
+	//~ Begin SGraphPin Interface
 	virtual FSlateColor GetPinColor() const override;
-	// End SGraphPin interface
+	//~ End SGraphPin Interface
 
 };

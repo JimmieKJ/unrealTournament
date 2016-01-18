@@ -379,6 +379,9 @@ class GenericApplication
 {
 public:
 
+	DECLARE_MULTICAST_DELEGATE_OneParam( FOnConsoleCommandAdded, const FString& /*Command*/ );
+	typedef FOnConsoleCommandAdded::FDelegate FOnConsoleCommandListener;
+
 	GenericApplication( const TSharedPtr< ICursor >& InCursor )
 		: Cursor( InCursor )
 		, MessageHandler( MakeShareable( new FGenericApplicationMessageHandler() ) )
@@ -420,6 +423,10 @@ public:
 	virtual bool IsUsingTrackpad() const { return false; }
 
 	virtual bool IsMouseAttached() const { return true; }
+
+	virtual void RegisterConsoleCommandListener(const FOnConsoleCommandListener& InListener) {}
+
+	virtual void AddPendingConsoleCommand(const FString& InCommand) {}
 
 	virtual FPlatformRect GetWorkArea( const FPlatformRect& CurrentWindow ) const
 	{

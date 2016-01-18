@@ -44,6 +44,7 @@ class UBehaviorTreeGraph : public UAIGraph
 	class UEdGraphNode* FindInjectedNode(int32 Index);
 	void ReplaceNodeConnections(UEdGraphNode* OldNode, UEdGraphNode* NewNode);
 	void RebuildExecutionOrder();
+	void RebuildChildOrder(UEdGraphNode* ParentNode);
 	void SpawnMissingNodesForParallel();
 	void RemoveUnknownSubNodes();
 

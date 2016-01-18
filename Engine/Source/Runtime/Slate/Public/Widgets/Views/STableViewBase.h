@@ -4,16 +4,11 @@
 
 #include "IScrollableWidget.h"
 #include "InertialScrollManager.h"
+#include "Overscroll.h"
 
 class SListPanel;
 class SHeaderRow;
 
-
-enum class EAllowOverscroll
-{
-	Yes,
-	No
-};
 
 /** If the list panel is arranging items horizontally, this enum dictates how the items should be aligned (basically, where any extra space is placed) */
 enum class EListItemAlignment : uint8
@@ -183,7 +178,7 @@ protected:
 	/**
 	 * Opens a context menu as the result of a right click if OnContextMenuOpening is bound and we are not right click scrolling.
 	 */
-	virtual void OnRightMouseButtonUp(const FVector2D& SummonLocation);
+	virtual void OnRightMouseButtonUp(const FPointerEvent& MouseEvent);
 	
 	/**
 	 * Get the scroll rate in items that best approximates a constant physical scroll rate.
@@ -297,7 +292,7 @@ protected:
 	/**	Whether the software cursor should be drawn in the viewport */
 	bool bShowSoftwareCursor;
 
-private:
+protected:
 
 	/** Check whether the current state of the table warrants inertial scroll by the specified amount */
 	bool CanUseInertialScroll( float ScrollAmount ) const;
@@ -316,11 +311,11 @@ private:
 
 protected:
 
-	struct SLATE_API FOverscroll
+	struct SLATE_API FListOverscroll
 	{
 	public:
 
-		FOverscroll();
+		FListOverscroll();
 
 		/** @return The Amount actually scrolled */
 		float ScrollBy( float Delta );

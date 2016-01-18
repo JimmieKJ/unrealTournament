@@ -75,6 +75,8 @@ void SUndoHistory::Construct( const FArguments& InArgs )
 
 	ReloadUndoList();
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 void SUndoHistory::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	// reload the transaction list if necessary

@@ -14,6 +14,8 @@ DEFINE_LOG_CATEGORY(LogCollisionAnalyzer);
 
 void FCollisionAnalyzerModule::StartupModule() 
 {
+	FCollisionAnalyzerStyle::Initialize();
+
 	CollisionAnalyzer = new FCollisionAnalyzer();
 
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(CollisionAnalyzerModule::CollisionAnalyzerApp, FOnSpawnTab::CreateRaw(this, &FCollisionAnalyzerModule::SpawnCollisionAnalyzerTab))
@@ -30,6 +32,8 @@ void FCollisionAnalyzerModule::ShutdownModule()
 		delete CollisionAnalyzer;
 		CollisionAnalyzer = NULL;
 	}
+
+	FCollisionAnalyzerStyle::Shutdown();
 }
 
 TSharedRef<SDockTab> FCollisionAnalyzerModule::SpawnCollisionAnalyzerTab(const FSpawnTabArgs& Args)

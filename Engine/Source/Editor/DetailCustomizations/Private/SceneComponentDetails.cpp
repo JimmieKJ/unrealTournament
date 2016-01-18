@@ -13,6 +13,7 @@
 #include "Engine/InheritableComponentHandler.h"
 #include "Components/LightComponentBase.h"
 #include "ComponentUtils.h"
+#include "MobilityCustomization.h"
 
 #define LOCTEXT_NAMESPACE "SceneComponentDetails"
 
@@ -141,65 +142,15 @@ TSharedRef<IDetailCustomization> FSceneComponentDetails::MakeInstance()
 	return MakeShareable( new FSceneComponentDetails );
 }
 
-ECheckBoxState FSceneComponentDetails::IsMobilityActive(EComponentMobility::Type InMobility) const
-{
-	if ( MobilityHandle.IsValid() )
-	{
-		uint8 MobilityByte;
-		MobilityHandle->GetValue(MobilityByte);
-
-		return MobilityByte == InMobility ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-	}
-
-	return ECheckBoxState::Unchecked;
-}
-
-FSlateColor FSceneComponentDetails::GetMobilityTextColor(EComponentMobility::Type InMobility) const
-{
-	if ( MobilityHandle.IsValid() )
-	{
-		uint8 MobilityByte;
-		MobilityHandle->GetValue(MobilityByte);
-
-		return MobilityByte == InMobility ? FSlateColor(FLinearColor(0, 0, 0)) : FSlateColor(FLinearColor(0.72f, 0.72f, 0.72f, 1.f));
-	}
-
-	return FSlateColor(FLinearColor(0.72f, 0.72f, 0.72f, 1.f));
-}
-
-void FSceneComponentDetails::OnMobilityChanged(ECheckBoxState InCheckedState, EComponentMobility::Type InMobility)
-{
-	if ( MobilityHandle.IsValid() && InCheckedState == ECheckBoxState::Checked)
-	{
-		MobilityHandle->SetValue((uint8)InMobility);
-	}
-}
-
-FText FSceneComponentDetails::GetMobilityToolTip() const
-{
-	if ( MobilityHandle.IsValid() )
-	{
-		return MobilityHandle->GetToolTipText();
-	}
-
-	return FText::GetEmpty();
-}
-
 void FSceneComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
 	MakeTransformDetails( DetailBuilder );
 
 	// Put mobility property in Transform section
 	IDetailCategoryBuilder& TransformCategory = DetailBuilder.EditCategory( "TransformCommon", LOCTEXT("TransformCommonCategory", "Transform"), ECategoryPriority::Transform );
-	MobilityHandle = DetailBuilder.GetProperty("Mobility");
+	TSharedPtr<IPropertyHandle> MobilityHandle = DetailBuilder.GetProperty("Mobility");
 
 	uint8 RestrictedMobilityBits = 0u;
-	enum 
-	{
-		StaticMobilityBitMask     = (1u << EComponentMobility::Static),
-		StationaryMobilityBitMask = (1u << EComponentMobility::Stationary),
-		MovableMobilityBitMask    = (1u << EComponentMobility::Movable),
-	};
 
 	TArray< TWeakObjectPtr<UObject> > SelectedSceneComponents;
 
@@ -220,7 +171,7 @@ void FSceneComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 		}
 
 		// if we haven't restricted the "Static" option yet
-		if (!(RestrictedMobilityBits & StaticMobilityBitMask))
+		if (!(RestrictedMobilityBits & FMobilityCustomization::StaticMobilityBitMask))
 		{
 			FText RestrictReason;
 			if (IsMobilitySettingProhibited(EComponentMobility::Static, SceneComponent, RestrictReason))
@@ -229,12 +180,12 @@ void FSceneComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 				 StaticRestriction->AddValue(TEXT("Static"));
 				 MobilityHandle->AddRestriction(StaticRestriction.ToSharedRef());
 
-				 RestrictedMobilityBits |= StaticMobilityBitMask;
+				 RestrictedMobilityBits |= FMobilityCustomization::StaticMobilityBitMask;
 			}			
 		}
 
 		// if we haven't restricted the "Stationary" option yet
-		if (!(RestrictedMobilityBits & StationaryMobilityBitMask))
+		if (!(RestrictedMobilityBits & FMobilityCustomization::StationaryMobilityBitMask))
 		{
 			FText RestrictReason;
 			if (IsMobilitySettingProhibited(EComponentMobility::Stationary, SceneComponent, RestrictReason))
@@ -243,150 +194,19 @@ void FSceneComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 				StationaryRestriction->AddValue(TEXT("Stationary"));
 				MobilityHandle->AddRestriction(StationaryRestriction.ToSharedRef());
 
-				RestrictedMobilityBits |= StationaryMobilityBitMask;
+				RestrictedMobilityBits |= FMobilityCustomization::StationaryMobilityBitMask;
 			}
 		}
 
 		// no need to go through all of them if we can't restrict any more
-		if ((RestrictedMobilityBits & StaticMobilityBitMask) && (RestrictedMobilityBits & StationaryMobilityBitMask))
+		if ((RestrictedMobilityBits & FMobilityCustomization::StaticMobilityBitMask) && (RestrictedMobilityBits & FMobilityCustomization::StationaryMobilityBitMask))
 		{
 			break;
 		}
 	}
 
-	TSharedPtr<SUniformGridPanel> ButtonOptionsPanel;
-
-	IDetailPropertyRow& MobilityRow = TransformCategory.AddProperty(MobilityHandle);
-	MobilityRow.CustomWidget()
-	.NameContent()
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("Mobility", "Mobility"))
-		.ToolTipText(this, &FSceneComponentDetails::GetMobilityToolTip)
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-	]
-	.ValueContent()
-	.MaxDesiredWidth(0)
-	[
-		SAssignNew(ButtonOptionsPanel, SUniformGridPanel)
-	];
-
-	bool bShowStatic = !( RestrictedMobilityBits & StaticMobilityBitMask );
-	bool bShowStationary = !( RestrictedMobilityBits & StationaryMobilityBitMask );
-
-	int32 ColumnIndex = 0;
-
-	if ( bShowStatic )
-	{
-		// Static Mobility
-		ButtonOptionsPanel->AddSlot(0, 0)
-		[
-			SNew(SCheckBox)
-			.Style(FEditorStyle::Get(), "Property.ToggleButton.Start")
-			.IsChecked(this, &FSceneComponentDetails::IsMobilityActive, EComponentMobility::Static)
-			.OnCheckStateChanged(this, &FSceneComponentDetails::OnMobilityChanged, EComponentMobility::Static)
-			.ToolTipText(LOCTEXT("Mobility_Static_Tooltip", "A static object can't be changed in game.\n● Allows Baked Lighting\n● Fastest Rendering"))
-			[
-				SNew(SHorizontalBox)
-
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.Padding(3, 2)
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("Mobility.Static"))
-				]
-
-				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				.Padding(6, 2)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("Static", "Static"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-					.ColorAndOpacity(this, &FSceneComponentDetails::GetMobilityTextColor, EComponentMobility::Static)
-				]
-			]
-		];
-
-		ColumnIndex++;
-	}
-
-	// Stationary Mobility
-	if ( bShowStationary )
-	{
-		ButtonOptionsPanel->AddSlot(ColumnIndex, 0)
-		[
-			SNew(SCheckBox)
-			.IsChecked(this, &FSceneComponentDetails::IsMobilityActive, EComponentMobility::Stationary)
-			.Style(FEditorStyle::Get(), ( ColumnIndex == 0 ) ? "Property.ToggleButton.Start" : "Property.ToggleButton.Middle")
-			.OnCheckStateChanged(this, &FSceneComponentDetails::OnMobilityChanged, EComponentMobility::Stationary)
-			.ToolTipText(LOCTEXT("Mobility_Stationary_Tooltip", "A stationary light will only have its shadowing and bounced lighting from static geometry baked by Lightmass, all other lighting will be dynamic.  It can change color and intensity in game.\n● Can't Move\n● Allows Partial Baked Lighting\n● Dynamic Shadows"))
-			[
-				SNew(SHorizontalBox)
-
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.Padding(3, 2)
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("Mobility.Stationary"))
-				]
-
-				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				.Padding(6, 2)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("Stationary", "Stationary"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-					.ColorAndOpacity(this, &FSceneComponentDetails::GetMobilityTextColor, EComponentMobility::Stationary)
-				]
-			]
-		];
-
-		ColumnIndex++;
-	}
-
-	// Movable Mobility
-	ButtonOptionsPanel->AddSlot(ColumnIndex, 0)
-	[
-		SNew(SCheckBox)
-		.IsChecked(this, &FSceneComponentDetails::IsMobilityActive, EComponentMobility::Movable)
-		.Style(FEditorStyle::Get(), ( ColumnIndex == 0 ) ? "Property.ToggleButton" : "Property.ToggleButton.End")
-		.OnCheckStateChanged(this, &FSceneComponentDetails::OnMobilityChanged, EComponentMobility::Movable)
-		.ToolTipText(LOCTEXT("Mobility_Movable_Tooltip", "Movable objects can be moved and changed in game.\n● Totally Dynamic\n● Allows Dynamic Shadows\n● Slowest Rendering"))
-		[
-			SNew(SHorizontalBox)
-
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.Padding(3, 2)
-			[
-				SNew(SImage)
-				.Image(FEditorStyle::GetBrush("Mobility.Movable"))
-			]
-
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0f)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			.Padding(6, 2)
-			[
-				SNew(STextBlock)
-				.Text(LOCTEXT("Movable", "Movable"))
-				.Font(IDetailLayoutBuilder::GetDetailFont())
-				.ColorAndOpacity(this, &FSceneComponentDetails::GetMobilityTextColor, EComponentMobility::Movable)
-			]
-		]
-	];
+	MobilityCustomization = MakeShareable(new FMobilityCustomization);
+	MobilityCustomization->CreateMobilityCustomization(TransformCategory, MobilityHandle, RestrictedMobilityBits);
 }
 
 void FSceneComponentDetails::MakeTransformDetails( IDetailLayoutBuilder& DetailBuilder )

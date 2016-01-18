@@ -99,6 +99,7 @@ void FDateTimeStructCustomization::HandleTextBoxTextCommited( const FText& NewTe
 			*(FDateTime*)RawDataInstance = ParsedDateTime;
 		}
 		PropertyHandle->NotifyPostChange();
+		PropertyHandle->NotifyFinishedChangingProperties();
 	}
 }
 

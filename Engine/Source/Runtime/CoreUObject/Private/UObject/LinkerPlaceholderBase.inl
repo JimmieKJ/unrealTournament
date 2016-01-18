@@ -92,7 +92,7 @@ void TLinkerImportPlaceholder<PlaceholderType>::AddReferencingProperty(UProperty
 			}
 		}
 		check(ThisAsObject->GetOutermost() == PropertyLinker->LinkerRoot);
-		check((PropertyLinker->LoadFlags & LOAD_DeferDependencyLoads) || FBlueprintSupport::IsResolvingDeferredDependenciesDisabled());
+		check(PropertyLinker->LoadFlags & LOAD_DeferDependencyLoads);
 	}
 	// if this check hits, then we're adding dependencies after we've 
 	// already resolved the placeholder (it won't be resolved again)

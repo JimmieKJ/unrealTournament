@@ -15,6 +15,7 @@ enum EFileInteraction
 	FI_Load,
 	FI_Save,
 	FI_Import,
+	FI_ImportScene,
 	FI_Export
 };
 
@@ -251,8 +252,8 @@ public:
 	 * Presents the user with a file dialog for importing.
 	 * If the import is not a merge (bMerging is false), AskSaveChanges() is called first.
 	 */
-	UNREALED_API static void Import();
-	UNREALED_API static void Import(const FString& InFilename);
+	UNREALED_API static void Import(bool bImportScene);
+	UNREALED_API static void Import(const FString& InFilename, bool bImportScene);
 	UNREALED_API static void Export(bool bExportSelectedActorsOnly);			// prompts user for file etc.
 
 	////////////////////////////////////////////////////////////////////////////
@@ -414,6 +415,13 @@ public:
 	UNREALED_API static FString ExtractPackageName(const FString& ObjectPath);
 
 private:
+
+	/** Private method used to build a list of items requiring checkout */
+	static bool AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> PackagesToCheckOut, TArray<UPackage*>* OutPackagesNotNeedingCheckout, bool* bOutHavePackageToCheckOut);
+
+	/** Callback from PackagesDialog used to update the list of items when the source control state changes */
+	static void UpdateCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> PackagesToCheckOut, TArray<UPackage*>* OutPackagesNotNeedingCheckout);
+
 	static bool bIsLoadingDefaultStartupMap;
 
 	/** Flag used to determine if the checkout and save prompt is already open to prevent re-entrance */
@@ -422,4 +430,6 @@ private:
 	// Set of packages to ignore for save/checkout when using SaveAll.
 	static TSet<FString> PackagesNotSavedDuringSaveAll;
 
+	// Set of packages which should no longer prompt for checkouts / to be made writable
+	static TSet<FString> PackagesNotToPromptAnyMore;
 };

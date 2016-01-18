@@ -8,6 +8,12 @@
 class ISlate3DRenderer;
 class ISlateFontAtlasFactory;
 
+namespace SlateRHIConstants
+{
+	// Number of vertex and index buffers we swap between when drawing windows
+	const int32 NumBuffers = 3;
+}
+
 /**
  * Interface for the Slate RHI Renderer module.
  */
@@ -23,7 +29,9 @@ public:
 	 */
 	virtual TSharedRef<FSlateRenderer> CreateSlateRHIRenderer( ) = 0;
 
-	virtual TSharedRef<ISlate3DRenderer> CreateSlate3DRenderer() = 0;
+	virtual TSharedRef<ISlate3DRenderer> CreateSlate3DRenderer(bool bUseGammaCorrection) = 0;
 
 	virtual TSharedRef<ISlateFontAtlasFactory> CreateSlateFontAtlasFactory() = 0;
+
+	virtual TSharedRef<ISlateUpdatableInstanceBuffer> CreateInstanceBuffer( int32 InitialInstanceCount ) = 0;
 };

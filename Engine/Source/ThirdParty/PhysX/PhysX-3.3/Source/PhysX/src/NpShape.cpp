@@ -759,13 +759,6 @@ size_t NpShapeGetScPtrOffset()
 	return offset;
 }
 
-PxShape* NpGetPxShape(Sc::ShapeCore& shape)
-{
-	char* p = reinterpret_cast<char*>(&shape);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpShape*>(0)->getScbShape()));
-	return reinterpret_cast<NpShape*>(p - scbOffset - Scb::Shape::getScOffset());
-}
-
 void NpShapeIncRefCount(Scb::Shape& scb)
 {
 	const size_t offset = size_t(&(reinterpret_cast<NpShape*>(0)->getScbShape()));

@@ -61,6 +61,7 @@ public:
 
 		// misc icons
 		Set("Break", new IMAGE_BRUSH( "icon_break_16x", Icon16x16));
+		Set("BreakColumn", new IMAGE_BRUSH( "BreakpointBorder", Icon16x16));
 		Set("BreakDisabled", new IMAGE_BRUSH( "icon_break_disabled_16x", Icon16x16));
 		Set("BreakIn", new IMAGE_BRUSH( "icon_break_in_16x", Icon16x16));
 		Set("BreakOut", new IMAGE_BRUSH( "icon_break_out_16x", Icon16x16));

@@ -22,7 +22,7 @@ public:
 	SLATE_BEGIN_ARGS( STextComboPopup ) : _AutoFocus(true) {}
 
 		/** Label, placed before combo box */
-		SLATE_TEXT_ARGUMENT( Label )
+		SLATE_ARGUMENT( FText, Label )
 
 		/** Selection of strings to pick from */
 		SLATE_ARGUMENT( TArray<FString>, TextOptions )

@@ -11,8 +11,15 @@ AGameplayCueNotify_Actor::AGameplayCueNotify_Actor(const FObjectInitializer& Obj
 {
 	IsOverride = true;
 	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
 	bAutoDestroyOnRemove = false;
 	AutoDestroyDelay = 0.f;
+	bUniqueInstancePerSourceObject = false;
+	bUniqueInstancePerInstigator = false;
+
+	NumPreallocatedInstances = 0;
+
+	StackCount = 0;
 }
 
 #if WITH_EDITOR
@@ -72,12 +79,40 @@ bool AGameplayCueNotify_Actor::HandlesEvent(EGameplayCueEvent::Type EventType) c
 	return true;
 }
 
+int32 GameplayCueNotifyActorStacking = 0;
+static FAutoConsoleVariableRef CVarGameplayCueNotifyActorStacking(TEXT("AbilitySystem.GameplayCueNotifyActorStacking"), GameplayCueNotifyActorStacking, TEXT("Enable simple stacking rules for gameplaycue actors"), ECVF_Default );
+
 void AGameplayCueNotify_Actor::HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
 {
 	SCOPE_CYCLE_COUNTER(STAT_HandleGameplayCueNotifyActor);
 
 	if (MyTarget && !MyTarget->IsPendingKill())
 	{
+		if (GameplayCueNotifyActorStacking)
+		{
+			if (EventType == EGameplayCueEvent::WhileActive)
+			{
+				StackCount++;
+				if (StackCount > 1)
+				{
+					return;
+				}
+			}
+			else if (EventType == EGameplayCueEvent::Removed)
+			{
+				StackCount--;
+				if (StackCount > 0)
+				{
+					return;
+				}
+				if (!ensureMsgf(StackCount == 0, TEXT("GameplayCue %s has negative StackCount."), *GetName()))
+				{
+					StackCount = 0;
+				}
+			}
+		}
+
+
 		K2_HandleGameplayCue(MyTarget, EventType, Parameters);
 
 		// Clear any pending auto-destroy that may have occurred from a previous OnRemove
@@ -104,11 +139,11 @@ void AGameplayCueNotify_Actor::HandleGameplayCue(AActor* MyTarget, EGameplayCueE
 			{
 				if (AutoDestroyDelay > 0.f)
 				{
-					SetLifeSpan(AutoDestroyDelay);
+					GetWorld()->GetTimerManager().SetTimer(FinishTimerHandle, this, &AGameplayCueNotify_Actor::GameplayCueFinishedCallback, AutoDestroyDelay);
 				}
 				else
 				{
-					Destroy();
+					GameplayCueFinishedCallback();
 				}
 			}
 			break;
@@ -123,7 +158,7 @@ void AGameplayCueNotify_Actor::HandleGameplayCue(AActor* MyTarget, EGameplayCueE
 void AGameplayCueNotify_Actor::OnOwnerDestroyed()
 {
 	// May need to do extra cleanup in child classes
-	Destroy();
+	GameplayCueFinishedCallback();
 }
 
 bool AGameplayCueNotify_Actor::OnExecute_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters)
@@ -143,5 +178,26 @@ bool AGameplayCueNotify_Actor::WhileActive_Implementation(AActor* MyTarget, FGam
 
 bool AGameplayCueNotify_Actor::OnRemove_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters)
 {
+	return false;
+}
+
+void AGameplayCueNotify_Actor::GameplayCueFinishedCallback()
+{
+	if (FinishTimerHandle.IsValid())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(FinishTimerHandle);
+	}
+	
+	UAbilitySystemGlobals::Get().GetGameplayCueManager()->NotifyGameplayCueActorFinished(this);
+}
+
+bool AGameplayCueNotify_Actor::GameplayCuePendingRemove()
+{
+	return GetLifeSpan() > 0.f || FinishTimerHandle.IsValid() || IsPendingKill();
+}
+
+bool AGameplayCueNotify_Actor::Recycle()
+{
+	StackCount = 0;
 	return false;
 }

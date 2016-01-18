@@ -1,8 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "Components/SplineMeshComponent.h"
 #include "LandscapeSplineSegment.generated.h"
+
+//Forward declarations
+class ULandscapeSplineControlPoint;
 
 USTRUCT()
 struct FLandscapeSplineInterpPoint
@@ -55,7 +59,7 @@ struct FLandscapeSplineSegmentConnection
 
 	// Control point connected to this end of the segment
 	UPROPERTY()
-	class ULandscapeSplineControlPoint* ControlPoint;
+	ULandscapeSplineControlPoint* ControlPoint;
 
 	// Tangent length of the connection
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineSegmentConnection)
@@ -66,7 +70,7 @@ struct FLandscapeSplineSegmentConnection
 	FName SocketName;
 
 	FLandscapeSplineSegmentConnection()
-		: ControlPoint(NULL)
+		: ControlPoint(nullptr)
 		, TangentLen(0.0f)
 		, SocketName(NAME_None)
 	{
@@ -89,19 +93,19 @@ struct FLandscapeSplineMeshEntry
 
 	/** Mesh to use on the spline */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry)
-	class UStaticMesh* Mesh;
+	UStaticMesh* Mesh;
 
 	/** Overrides mesh's materials */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry)
-	TArray<class UMaterialInterface*> MaterialOverrides;
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry, AdvancedDisplay)
+	TArray<UMaterialInterface*> MaterialOverrides;
 
-	/** Whether to center the mesh horizontally on the spline */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry)
+	/** Whether to automatically center the mesh horizontally on the spline */
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry, meta=(DisplayName="Center Horizontally"))
 	uint32 bCenterH:1;
 
-	/** X/Y offset of the mesh relative to the spline */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry)
-	FVector2D Offset;
+	/** Tweak to center the mesh correctly on the spline */
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry, AdvancedDisplay, meta=(DisplayName="Center Adjust"))
+	FVector2D CenterAdjust;
 
 	/** Whether to scale the mesh to fit the width of the spline */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry)
@@ -113,7 +117,7 @@ struct FLandscapeSplineMeshEntry
 
 	/** Orientation of the spline mesh, X=Up or Y=Up */
 	UPROPERTY()
-	TEnumAsByte<enum LandscapeSplineMeshOrientation> Orientation_DEPRECATED;
+	TEnumAsByte<LandscapeSplineMeshOrientation> Orientation_DEPRECATED;
 
 	/** Chooses the forward axis for the spline mesh orientation */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshEntry)
@@ -124,10 +128,10 @@ struct FLandscapeSplineMeshEntry
 	TEnumAsByte<ESplineMeshAxis::Type> UpAxis;
 
 	FLandscapeSplineMeshEntry() :
-		Mesh(NULL),
+		Mesh(nullptr),
 		MaterialOverrides(),
 		bCenterH(true),
-		Offset(0, 0),
+		CenterAdjust(0, 0),
 		bScaleToWidth(true),
 		Scale(1,1,1),
 		Orientation_DEPRECATED(LSMO_YUp),
@@ -154,19 +158,35 @@ class ULandscapeSplineSegment : public UObject
 	 * Name of blend layer to paint when applying spline to landscape
 	 * If "none", no layer is painted
 	 */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineSegment)
+	UPROPERTY(EditAnywhere, Category=LandscapeDeformation)
 	FName LayerName;
+
+	/** If the spline is above the terrain, whether to raise the terrain up to the level of the spline when applying it to the landscape. */
+	UPROPERTY(EditAnywhere, Category=LandscapeDeformation)
+	uint32 bRaiseTerrain:1;
+
+	/** If the spline is below the terrain, whether to lower the terrain down to the level of the spline when applying it to the landscape. */
+	UPROPERTY(EditAnywhere, Category=LandscapeDeformation)
+	uint32 bLowerTerrain:1;
 
 	/** Spline meshes from this list are used in random order along the spline. */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
 	TArray<FLandscapeSplineMeshEntry> SplineMeshes;
 
-	/** Random seed used for choosing which spline meshes to use. */
+	/** Whether to generate collision for the Spline Meshes. */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
+	uint32 bEnableCollision:1;
+
+	/** Whether the Spline Meshes should cast a shadow. */
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
+	uint32 bCastShadow:1;
+
+	/** Random seed used for choosing which order to use spline meshes. Ignored if only one mesh is set. */
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay)
 	int32 RandomSeed;
 
 	/**  Max draw distance for all the mesh pieces used in this spline */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = LandscapeSplineMeshes, meta = (DisplayName = "Max Draw Distance"))
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay, meta=(DisplayName="Max Draw Distance"))
 	float LDMaxDrawDistance;
 
 	/**
@@ -176,28 +196,12 @@ class ULandscapeSplineSegment : public UObject
 	 * Ignored if the object is not translucent.  The default priority is zero.
 	 * Warning: This should never be set to a non-default value unless you know what you are doing, as it will prevent the renderer from sorting correctly.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=LandscapeSplineMeshes)
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay)
 	int32 TranslucencySortPriority;
 
-	/** If the spline is above the terrain, whether to raise the terrain up to the level of the spline when applying it to the landscape. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineSegment)
-	uint32 bRaiseTerrain:1;
-
-	/** If the spline is below the terrain, whether to lower the terrain down to the level of the spline when applying it to the landscape. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineSegment)
-	uint32 bLowerTerrain:1;
-
 	/** Whether spline meshes should be placed in landscape proxy streaming levels (true) or the spline's level (false) */
-	UPROPERTY(EditAnywhere, Category = LandscapeSplineMeshes)
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay)
 	uint32 bPlaceSplineMeshesInStreamingLevels : 1;
-
-	/** Whether to generate collision for the Spline Meshes. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
-	uint32 bEnableCollision:1;
-
-	/** Whether the Spline Meshes should cast a shadow. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes)
-	uint32 bCastShadow:1;
 
 protected:
 	UPROPERTY(Transient)
@@ -258,7 +262,7 @@ public:
 
 	virtual void FindNearest(const FVector& InLocation, float& t, FVector& OutLocation, FVector& OutTangent);
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
@@ -271,7 +275,7 @@ public:
 protected:
 	virtual void PostInitProperties() override;
 public:
-	// End UObject Interface
+	//~ End UObject Interface
 
 	friend class FLandscapeToolSplines;
 };

@@ -21,7 +21,7 @@ FNavigationQueryFilter::FNavigationQueryFilter(const FNavigationQueryFilter* Sou
 	}
 }
 
-FNavigationQueryFilter::FNavigationQueryFilter(const TSharedPtr<FNavigationQueryFilter> Source)
+FNavigationQueryFilter::FNavigationQueryFilter(const FSharedNavQueryFilter Source)
 : MaxSearchNodes(DefaultMaxSearchNodes)
 {
 	if (Source.IsValid())
@@ -45,9 +45,9 @@ void FNavigationQueryFilter::Assign(const FNavigationQueryFilter& Source)
 	MaxSearchNodes = Source.GetMaxSearchNodes();
 }
 
-TSharedPtr<FNavigationQueryFilter> FNavigationQueryFilter::GetCopy() const
+FSharedNavQueryFilter FNavigationQueryFilter::GetCopy() const
 {
-	TSharedPtr<FNavigationQueryFilter> Copy = MakeShareable(new FNavigationQueryFilter());
+	FSharedNavQueryFilter Copy = MakeShareable(new FNavigationQueryFilter());
 	Copy->QueryFilterImpl = MakeShareable(QueryFilterImpl->CreateCopy());
 	Copy->MaxSearchNodes = MaxSearchNodes;
 
@@ -115,9 +115,9 @@ UNavigationQueryFilter::UNavigationQueryFilter(const FObjectInitializer& ObjectI
 	ExcludeFlags.Packed = 0;
 }
 
-TSharedPtr<const FNavigationQueryFilter> UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData) const
+FSharedConstNavQueryFilter UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData) const
 {
-	TSharedPtr<const FNavigationQueryFilter> SharedFilter = NavData.GetQueryFilter(GetClass());
+	FSharedConstNavQueryFilter SharedFilter = NavData.GetQueryFilter(GetClass());
 	if (!SharedFilter.IsValid())
 	{
 		FNavigationQueryFilter* NavFilter = new FNavigationQueryFilter();
@@ -168,7 +168,7 @@ void UNavigationQueryFilter::InitializeFilter(const ANavigationData& NavData, FN
 	Filter.SetExcludeFlags(ExcludeFlags.Packed);
 }
 
-TSharedPtr<const FNavigationQueryFilter> UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass)
+FSharedConstNavQueryFilter UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass)
 {
 	if (FilterClass)
 	{

@@ -7,8 +7,6 @@
 
 FLinuxCursor::FLinuxCursor()
 	: 	bHidden(false)
-	,	AccumulatedOffsetX(0)
-	,	AccumulatedOffsetY(0)
 	,	CachedGlobalXPosition(0)
 	,	CachedGlobalYPosition(0)
 	,	bPositionCacheIsValid(false)
@@ -34,6 +32,7 @@ FLinuxCursor::FLinuxCursor()
 		switch( CurCursorIndex )
 		{
 		case EMouseCursor::None:
+		case EMouseCursor::Custom:
 			// The mouse cursor will not be visible when None is used
 			break;
 
@@ -149,6 +148,7 @@ FLinuxCursor::~FLinuxCursor()
 			case EMouseCursor::GrabHand:
 			case EMouseCursor::GrabHandClosed:
 			case EMouseCursor::SlashedCircle:
+			case EMouseCursor::Custom:
 				// Standard shared cursors don't need to be destroyed
 				break;
 			case EMouseCursor::EyeDropper:
@@ -163,6 +163,11 @@ FLinuxCursor::~FLinuxCursor()
 	}
 }
 
+void FLinuxCursor::SetCustomShape( SDL_HCursor CursorHandle )
+{
+	CursorHandles[EMouseCursor::Custom] = CursorHandle;
+}
+
 FVector2D FLinuxCursor::GetPosition() const
 {
 	if (!bPositionCacheIsValid)
@@ -173,9 +178,6 @@ FVector2D FLinuxCursor::GetPosition() const
 
 	int CursorX = CachedGlobalXPosition;
 	int CursorY = CachedGlobalYPosition;
-	
-	CursorX += AccumulatedOffsetX;
-	CursorY += AccumulatedOffsetY;
 
 	return FVector2D( CursorX, CursorY );
 }
@@ -185,36 +187,52 @@ void FLinuxCursor::InvalidateCaches()
 	bPositionCacheIsValid = false;
 }
 
+void FLinuxCursor::SetCachedPosition( const int32 X, const int32 Y )
+{
+	CachedGlobalXPosition = X;
+	CachedGlobalYPosition = Y;
+	bPositionCacheIsValid = true;
+}
+
 void FLinuxCursor::SetPosition( const int32 X, const int32 Y )
 {
-	int WndX, WndY;
-
+	// according to reports on IRC SDL_WarpMouseGlobal() doesn't work on some WMs so use InWindow unless we don't have a window.
 	SDL_HWindow WndFocus = SDL_GetMouseFocus();
 
-	SDL_GetWindowPosition( WndFocus, &WndX, &WndY );	//	get top left
-	SDL_WarpMouseInWindow( NULL, X - WndX, Y - WndY );
+	if (WndFocus)
+	{
+		int WndX, WndY;
 
-	InvalidateCaches();
-}
+		// Get top-left.
+		if(LinuxApplication)
+		{
+			LinuxApplication->GetWindowPositionInEventLoop(WndFocus, &WndX, &WndY);
+		}
+		else
+		{
+			SDL_GetWindowPosition(WndFocus, &WndX, &WndY);
+		}
 
-void FLinuxCursor::AddOffset(const int32 DX, const int32 DY)
-{
-	AccumulatedOffsetX += DX; 
-	AccumulatedOffsetY += DY;
-}
+		SDL_WarpMouseInWindow(WndFocus, X - WndX, Y - WndY);
+	}
+	else
+	{
+		SDL_WarpMouseGlobal(X, Y);
+	}
 
-void FLinuxCursor::ResetOffset()
-{
-	AccumulatedOffsetX = AccumulatedOffsetY = 0;
+	SetCachedPosition(X, Y);
 }
 
 void FLinuxCursor::SetType( const EMouseCursor::Type InNewCursor )
 {	
 	checkf( InNewCursor < EMouseCursor::TotalCursorCount, TEXT("Invalid cursor(%d) supplied"), InNewCursor );
 	CurrentType = InNewCursor;
-	if(InNewCursor == EMouseCursor::None)
+	if(CursorHandles[InNewCursor] == nullptr)
 	{
-		bHidden = true;
+		if (InNewCursor != EMouseCursor::Custom)
+		{
+			bHidden = true;
+		}
 		SDL_ShowCursor(SDL_DISABLE);
 		SDL_SetCursor(CursorHandles[0]);
 	}
@@ -256,11 +274,9 @@ void FLinuxCursor::Lock( const RECT* const Bounds )
 	if ( Bounds == NULL )
 	{
 		CursorClipRect = FIntRect();
-		SDL_SetWindowGrab( NULL, SDL_FALSE );
 	}
 	else
 	{
-		SDL_SetWindowGrab( NULL, SDL_TRUE );
 		CursorClipRect.Min.X = FMath::TruncToInt(Bounds->left);
 		CursorClipRect.Min.Y = FMath::TruncToInt(Bounds->top);
 		CursorClipRect.Max.X = FMath::TruncToInt(Bounds->right) - 1;

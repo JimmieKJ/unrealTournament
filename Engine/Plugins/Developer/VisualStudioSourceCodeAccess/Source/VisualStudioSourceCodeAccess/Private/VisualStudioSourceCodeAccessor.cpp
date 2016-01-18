@@ -79,8 +79,20 @@ void FVisualStudioSourceCodeAccessor::Startup()
 	// Cache this so we don't have to do it on a background thread
 	GetSolutionPath();
 
-	// Preferential order of VS versions
+	RefreshAvailability();
+}
+
+void FVisualStudioSourceCodeAccessor::RefreshAvailability()
+{
+	Locations.Reset();
+
+#if _MSC_VER == 1900
+	AddVisualStudioVersion(14); // Visual Studio 2015
+#elif _MSC_VER == 1800
 	AddVisualStudioVersion(12); // Visual Studio 2013
+#else
+	#error "FVisualStudioSourceCodeAccessor::RefreshAvailability - Unknown _MSC_VER! Please update this code for this version of MSVC."
+#endif //_MSVC_VER
 }
 
 void FVisualStudioSourceCodeAccessor::Shutdown()
@@ -501,27 +513,28 @@ bool GetProcessCommandLine(const ::DWORD InProcessID, FString& OutCommandLine)
 						::ULONG uReturn = 0;
 						if (SUCCEEDED(pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn)))
 						{
-							check(uReturn == 1);
-
-							::VARIANT vtProp;
-
-							::DWORD CurProcessID = 0;
-							if (SUCCEEDED(pclsObj->Get(TEXT("ProcessId"), 0, &vtProp, 0, 0)))
+							if (uReturn == 1)
 							{
-								CurProcessID = vtProp.ulVal;
-								::VariantClear(&vtProp);
+								::VARIANT vtProp;
+
+								::DWORD CurProcessID = 0;
+								if (SUCCEEDED(pclsObj->Get(TEXT("ProcessId"), 0, &vtProp, 0, 0)))
+								{
+									CurProcessID = vtProp.ulVal;
+									::VariantClear(&vtProp);
+								}
+
+								check(CurProcessID == InProcessID);
+								if (SUCCEEDED(pclsObj->Get(TEXT("CommandLine"), 0, &vtProp, 0, 0)))
+								{
+									OutCommandLine = vtProp.bstrVal;
+									::VariantClear(&vtProp);
+
+									bSuccess = true;
+								}
+
+								pclsObj->Release();
 							}
-
-							check(CurProcessID == InProcessID);
-							if (SUCCEEDED(pclsObj->Get(TEXT("CommandLine"), 0, &vtProp, 0, 0)))
-							{
-								OutCommandLine = vtProp.bstrVal;
-								::VariantClear(&vtProp);
-
-								bSuccess = true;
-							}
-
-							pclsObj->Release();
 						}
 					}
 

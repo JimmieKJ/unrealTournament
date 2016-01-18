@@ -225,7 +225,7 @@ namespace Scb
 						}
 #ifndef __SPU__
 		PX_FORCE_INLINE	PxU8*					getStream()								{ return mStreamPtr ? mStreamPtr : mStreamPtr = mScene->getStream(getScbType());	}
-		PX_FORCE_INLINE	const PxU8*				getStream()						const	{ return mStreamPtr ? mStreamPtr : mStreamPtr = mScene->getStream(getScbType());	}
+		PX_FORCE_INLINE	const PxU8*				getStream()						const	{ PX_ASSERT(mStreamPtr); return mStreamPtr;	}
 #else
 		PX_FORCE_INLINE	PxU8*					getStream()								{ PX_ASSERT(mStreamPtr);
 																						  return mStreamPtr;
@@ -233,7 +233,7 @@ namespace Scb
 		PX_FORCE_INLINE	const PxU8*				getStream()						const	{ PX_ASSERT(mStreamPtr);
 																						  return mStreamPtr;	
 																						}
-		PX_FORCE_INLINE void					setStream(PxU8* stream)			const	{ mStreamPtr = stream; }
+		PX_FORCE_INLINE void					setStream(PxU8* stream)					{ mStreamPtr = stream; }
 #endif
 		PX_FORCE_INLINE	bool					fetchDataBuffer()				const	{ return true;																		}
 
@@ -320,7 +320,7 @@ namespace Scb
 
 						@see postSyncState()
 						*/
-		mutable			PxU8*					mStreamPtr;
+						PxU8*					mStreamPtr;
 	};
 
 }  // namespace Scb

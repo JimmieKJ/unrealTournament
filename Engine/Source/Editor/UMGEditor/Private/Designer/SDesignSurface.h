@@ -36,9 +36,7 @@ public:
 protected:
 	void PaintBackgroundAsLines(const FSlateBrush* BackgroundImage, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32& DrawLayerId) const;
 
-	/** Get the grid snap size */
-	float GetSnapGridSize() const;
-
+	/** Gets the current zoom factor. */
 	float GetZoomAmount() const;
 
 	void ChangeZoomLevel(int32 ZoomLevelDelta, const FVector2D& WidgetSpaceZoomOrigin, bool bOverrideZoomLimiting);
@@ -56,18 +54,20 @@ protected:
 
 	FVector2D GetViewOffset() const;
 
-	virtual FSlateRect ComputeAreaBounds() const;
-
 	FSlateRect ComputeSensibleBounds() const;
 
 	FVector2D GraphCoordToPanelCoord(const FVector2D& GraphSpaceCoordinate) const;
 	FVector2D PanelCoordToGraphCoord(const FVector2D& PanelSpaceCoordinate) const;
 
 protected:
+	virtual FSlateRect ComputeAreaBounds() const;
+	virtual float GetGridScaleAmount() const;
+	virtual int32 GetGraphRulePeriod() const;
+	virtual int32 GetSnapGridSize() const = 0;
+
+protected:
 	/** The position within the graph at which the user is looking */
 	FVector2D ViewOffset;
-
-	float SnapGridSize;
 
 	/** Previous Zoom Level */
 	int32 PreviousZoomLevel;

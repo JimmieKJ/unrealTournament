@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2484548
+﻿INTSourceChangelist:2574077
 Availability:NoPublish
 Title:
 Crumbs:
 Description:
 
 [EXCERPT:ManageMode]
-Manage モードには、ランドスケープの新規作成、ランドスケープのインポート / エクスポート、ランドスケープ コンポーネントの追加 / 削除、ランドスケープ ストリーミングの管理を可能にするツールが含まれています。Manage モードでは、レベル エディタの [Details] パネルでコンポーネントを個別に選択して、そのプロパティを修正することも出来ます。
+Manage モードには、ランドスケープの新規作成、ランドスケープのインポート / エクスポート、Landscape コンポーネントの追加 / 削除、ランドスケープ ストリーミングの管理を可能にするツールが含まれています。Manage モードでは、レベル エディタの [Details] パネルでコンポーネントを個別に選択して、そのプロパティを修正することも出来ます。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/ManageMode
 [/VAR]
@@ -33,14 +33,14 @@ Engine/Landscape/Creation
 [/EXCERPT:NewLandscape]
 
 [EXCERPT:SelectComponentTool]
-Selection ツールを使って、個々のランドスケープ コンポーネントを 1 回につき 1 つ、あるいは CTRL キーを押しながら複数個を選択します。 
+Selection ツールによって、CTRL キーを押しながら 1 つもしくは複数の Landscape コンポーネントを選択することができます。 
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/ManageMode
 [/VAR]
 [/EXCERPT:SelectComponentTool]
 
 [EXCERPT:AddComponentTool]
-Add (追加) ツールを使って、現行のランドスケープに新しいコンポーネントを新規作成します。[Add Landscape Component] ツールがアクティブな時は、新しいランドスケープ コンポーネントを追加する位置にカーソルが緑のワイヤーフレームで表示されます。 
+Add (追加) ツールを使って、現行のランドスケープに新しいコンポーネントを新規作成します。[Add Landscape Component] ツールがアクティブな時は、新しい Landscape コンポーネントを追加する位置にカーソルが緑のワイヤーフレームで表示されます。 
 ![](selection_add_cursor.png)
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/ManageMode
@@ -48,35 +48,35 @@ Engine/Landscape/Editing/ManageMode
 [/EXCERPT:AddComponentTool]
 
 [EXCERPT:DeleteComponentTool]
-Delete (削除) ツールを使って、現行のランドスケープからコンポーネントを削除します。ランドスケープ コンポーネントを削除するには、CRTL を押しながら削除したいランドスケープ コンポーネントをクリックするだけです。 
+Delete (削除) ツールを使って、現行のランドスケープからコンポーネントを削除します。Landscape コンポーネントを削除するには、CRTL を押しながら削除したい Landscape コンポーネントをクリックするだけです。 
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/ManageMode
 [/VAR]
 [/EXCERPT:DeleteComponentTool]
 
 [EXCERPT:MoveToLevelTool]
-Move to Level ツールを使って、選択したランドスケープ コンポーネントを現在のストリーミングレベルへ移動します。このツールを使用すると、ランドスケープの一部をストリーミングレベルに移動させて、そのレベルとともにそのセクションをストリームイン / アウトさせることができます。ランドスケープのパフォーマンスを最適化しやすくします。 
+Move to Level ツールを使って、選択した Landscape コンポーネントを現在のストリーミング レベルへ移動します。このツールを使用すると、ランドスケープの一部をストリーミングレベルに移動させて、そのレベルとともにそのセクションをストリームイン / アウトさせることができます。ランドスケープのパフォーマンスを最適化しやすくします。 
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/ManageMode
 [/VAR]
 [/EXCERPT:MoveToLevelTool]
 
 [EXCERPT:ResizeLandscape]
-Change Component Size Landscape ツールを使って、ランドスケープ全体のサイズを変更します。このツールは個別のコンポーネントではなく、ランドスケープ全体に使うことにご注意ください。このツールで、[Change Component Size] セクションで、ランドスケープ コンポーネントのサイズ変更と各コンポーネントのセクション数の修正ができます。
+Change Component Size Landscape ツールを使って、ランドスケープ全体のサイズを変更します。このツールは個別のコンポーネントではなく、ランドスケープ全体に使うことにご注意ください。このツールで、[Change Component Size] セクションで、Landscape コンポーネントのサイズ変更と各コンポーネントのセクション数を修正することができます。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/ManageMode
 [/VAR]
 [/EXCERPT:ResizeLandscape]
 
 [EXCERPT:SplineTool]
-ランドスケープスプライン ツールは、小道や道路といったランドスケープを構成するために必要な線形の地物を作成するための柔軟なシステムです。ランドスケープスプラインは、スプラインがランドスケープにうまく合うように、スプラインの下の地形を押したり引いたりすることができます。  
+Landscape Splines ツールは、小道や道路といったランドスケープを構成するために必要な線形の地物を作成するための柔軟なシステムです。ランドスケープスプラインは、スプラインがランドスケープにうまく合うように、スプラインの下の地形を押したり引いたりすることができます。  
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/Splines
 [/VAR]
 [/EXCERPT:SplineTool]
 
 [EXCERPT:SculptTool]
-Sculpt ツールを使って、ランドスケープの高さマップの高さの上げ下げをします。ランドスケープの高さマップを高くするには、CTRL + 左マウスボタンを使います。ランドスケープの高さマップを低くするには、CTRL + SHIFT + 左マウスボタンを使います。  
+Sculpt ツールを使って、ランドスケープの高さマップの高さの上げ下げをします。ランドスケープの高さマップを高くするには、CTRL + マウスの左ボタンを使います。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/SculptMode
 [/VAR]
@@ -94,7 +94,7 @@ Engine/Landscape/Editing/SculptMode
 [EXCERPT:FlattenTool]
 Flatten ツールは、ツールを最初に起動した時にマウスカーソル下にあったランドスケープのレベルまで、ランドスケープを平坦化します。Flatten ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域を平坦にします。
 ![](Flatten_Before_And_After_00.png)
-左が Flatten ツールの使用前、右が使用後です。左が Flatten ツールの使用前、右が使用後です。
+左が Flatten ツールの使用前、右が使用後です。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/SculptMode
 [/VAR]
@@ -103,7 +103,7 @@ Engine/Landscape/Editing/SculptMode
 [EXCERPT:RampTool]
 Ramp ツールを使って、ランドスケープ上の 2 点間に斜面を作ります。斜面の側面のフォールオフの傾斜を指定することも可能です。Ramp ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ランドスケープ上に 1 つ目の点を置きます。2 つ目の斜面用の点を置くには、CTRL キーを押しながらマウスの左ボタンを使って、ランドスケープ上の別の場所をクリックするだけです。斜面用の点を設定したら、Gizmo を使ってアイコンを選択もしくは移動させることで位置の調整ができます。斜面の位置が決まったら、[Tool Settings] メニューの [Add Ramp] ボタンを使って、傾斜をランドスケープに追加することができます。傾斜をやり直したい場合は、[Reset] ボタンを押して傾斜を削除します。
 ![](Ramp_Before_And_After_00.png)
-左が Ramp ツールの使用前、右が使用後です。左が Ramp ツールの使用前、右が使用後です。
+左が Ramp ツールの使用前、右が使用後です。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/SculptMode
 [/VAR]
@@ -112,7 +112,7 @@ Engine/Landscape/Editing/SculptMode
 [EXCERPT:ErosionTool]
 Erosion ツールは、高さマップの高さを調整するために熱による浸食のシミュレーションを使用します。高度が高いところから低いところまでの土壌の動きをシミュレートします。高度の差異が大きくなると、浸食が大きくなります。より自然でランダムな外観を作成するために、必要に応じて、浸食に加えてノイズ エフェクトをツールへ適用することができます。Erosion ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域に侵食を適用します。
 ![](Erosion_Before_And_After_00.png)
-左が Erosion ツールの使用前、右が使用後です。左が Erosion ツールの使用前、右が使用後です。
+左が Erosion ツールの使用前、右が使用後です。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/SculptMode
 [/VAR]
@@ -121,7 +121,7 @@ Engine/Landscape/Editing/SculptMode
 [EXCERPT:HydroErosionTool]
 Hydro Erosion ツールは、高さマップの高さを調整するために、例えば水の侵食など、水による浸食のシミュレーションを使用します。ノイズ フィルターで、最初に降る雨を分布させる位置を決定します。その後、最初に降る雨、さらには雨の消滅、水の移動から蒸発までの水のフローを決定するためにシミュレーションを計算します。計算結果は、高さマップを下げるために使用する実際の値となります。Hydro Erosion ツールを使うには、CTRL キーを押しながらマウスの左ボタンを使って、ブラシの下の領域に Hydro Erosion を適用します。
 ![](Hydro_Erosion_Before_And_After_00.png)
-左が Hydro Erosion ツールの使用前、右が使用後です。左が Hydro Erosion ツールの使用前、右が使用後です。
+左が Hydro Erosion ツールの使用前、右が使用後です。
 [VAR:ToolTipFullLink]
 Engine/Landscape/Editing/SculptMode
 [/VAR]

@@ -332,6 +332,20 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 
 				if (InCommand.bCommandSuccessful)
 				{
+					// Remove any deleted files from status cache
+					FPerforceSourceControlModule& PerforceSourceControl = FModuleManager::LoadModuleChecked<FPerforceSourceControlModule>("PerforceSourceControl");
+					FPerforceSourceControlProvider& Provider = PerforceSourceControl.GetProvider();
+
+					TArray<TSharedRef<ISourceControlState, ESPMode::ThreadSafe>> States;
+					Provider.GetState(InCommand.Files, States, EStateCacheUsage::Use);
+					for (const auto& State : States)
+					{
+						if (State->IsDeleted())
+						{
+							Provider.RemoveFileFromCache(State->GetFilename());
+						}
+					}
+
 					StaticCastSharedRef<FCheckIn>(InCommand.Operation)->SetSuccessMessage(ParseSubmitResults(Records));
 
 					for(auto Iter(InCommand.Files.CreateIterator()); Iter; Iter++)
@@ -361,53 +375,33 @@ FName FPerforceMarkForAddWorker::GetName() const
 	return "MarkForAdd";
 }
 
-static bool ShouldForceBinaryAdd(const TArray<FString>& FilesToAdd)
-{
-	bool bForceBinary = false;
-
-	if ( FilesToAdd.Num() > 0 )
-	{
-		// Force a binary type when adding if all files are .uasset files and at least one does not exist on disk.
-		// If a .uasset file is marked for add before it exists on disk, it will be added to perforce in text format.
-		// This will corrupt the file and cause a crash at startup when scanning the file with the asset registry.
-		// If the user is adding one or more uasset files and any are missing it will force binary type for all of them.
-		bool bAllFilesUAsset = true;
-		bool bAtLeastOneFileDoesNotExist = false;
-		for ( int32 ParamIdx = 0; ParamIdx < FilesToAdd.Num(); ++ParamIdx )
-		{
-			const FString& Param = FilesToAdd[ParamIdx];
-			if ( FPaths::GetExtension(Param, true).ToLower() == FPackageName::GetAssetPackageExtension().ToLower() )
-			{
-				if ( !ensureMsgf(FPaths::FileExists(Param), TEXT("Attempting to add a uasset file '%s' to Perforce that does not yet exist."), *Param) )
-				{
-					// This is a uasset file that does not yet exist on disk. This is invalid, find out why this is happening.
-					bAtLeastOneFileDoesNotExist = true;
-				}
-			}
-			else
-			{
-				bAllFilesUAsset = false;
-			}
-		}
-
-		bForceBinary = bAllFilesUAsset && bAtLeastOneFileDoesNotExist;
-	}
-
-	return bForceBinary;
-}
-
 bool FPerforceMarkForAddWorker::Execute(FPerforceSourceControlCommand& InCommand)
 {
+	// Perforce will allow you to mark files for add that don't currently exist on disk
+	// This goes against the workflow of our other SCC providers (such as SVN and Git), 
+	// so we manually check that the files exist before allowing this command to continue
+	// This keeps the behavior consistent between SCC providers
+	bool bHasMissingFiles = false;
+	for(const FString& FileToAdd : InCommand.Files)
+	{
+		if(!IFileManager::Get().FileExists(*FileToAdd))
+		{
+			bHasMissingFiles = true;
+			InCommand.ErrorMessages.Add(FText::Format(LOCTEXT("Error_FailedToMarkFileForAdd_FileMissing", "Failed mark the file '%s' for add. The file doesn't exist on disk."), FText::FromString(FileToAdd)));
+		}
+	}
+	if(bHasMissingFiles)
+	{
+		InCommand.bCommandSuccessful = false;
+		return false;
+	}
+
 	FScopedPerforceConnection ScopedConnection(InCommand);
 	if(ScopedConnection.IsValid())
 	{
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 		TArray<FString> Parameters;
 		FP4RecordSet Records;
-		if ( ShouldForceBinaryAdd(InCommand.Files) )
-		{
-			Parameters.Add(TEXT("-t binary+l"));
-		}
 		Parameters.Append(InCommand.Files);
 		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("add"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseRecordSetForState(Records, OutResults);
@@ -880,6 +874,7 @@ FName FPerforceUpdateStatusWorker::GetName() const
 
 bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InCommand)
 {
+#if USE_P4_API
 	FScopedPerforceConnection ScopedConnection(InCommand);
 	if(ScopedConnection.IsValid())
 	{
@@ -964,6 +959,7 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			ParseDiffResults(Records, OutModifiedFiles);
 		}
 	}
+#endif
 
 	return InCommand.bCommandSuccessful;
 }

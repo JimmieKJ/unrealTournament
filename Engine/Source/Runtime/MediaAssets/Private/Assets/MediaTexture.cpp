@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssetsPrivatePCH.h"
-#include "IMediaTrackVideoDetails.h"
+#include "IMediaVideoTrack.h"
 #include "MediaSampleBuffer.h"
 
 
@@ -11,22 +11,14 @@
 UMediaTexture::UMediaTexture( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
 	, ClearColor(FLinearColor::Black)
+	, VideoTrackIndex(INDEX_NONE)
 	, MediaPlayer(nullptr)
 	, CurrentMediaPlayer(nullptr)
 	, VideoBuffer(MakeShareable(new FMediaSampleBuffer))
 {
+	bDelegatesAdded = false;
 	NeverStream = true;
-
 	UpdateResource();
-}
-
-
-UMediaTexture::~UMediaTexture()
-{
-	if (VideoTrack.IsValid())
-	{
-		VideoTrack->RemoveSink(VideoBuffer);
-	}
 }
 
 
@@ -75,6 +67,17 @@ float UMediaTexture::GetSurfaceHeight() const
 	return CachedDimensions.Y;
 }
 
+void UMediaTexture::UpdateResource()
+{
+#if WITH_ENGINE
+	if (VideoTrack.IsValid() && Resource)
+	{		
+		VideoTrack->UnbindTexture(Resource->TextureRHI.GetReference());
+	}
+#endif
+	UTexture::UpdateResource();
+}
+
 
 /* UObject  overrides
  *****************************************************************************/
@@ -97,6 +100,18 @@ void UMediaTexture::FinishDestroy()
 {
 	delete ReleasePlayerFence;
 	ReleasePlayerFence = nullptr;
+
+	if (VideoTrack.IsValid())
+	{
+		VideoTrack->GetStream().RemoveSink(VideoBuffer);
+		VideoTrack.Reset();
+	}
+
+	if (CurrentMediaPlayer.IsValid())
+	{
+		CurrentMediaPlayer->OnTracksChanged().RemoveAll(this);
+		CurrentMediaPlayer.Reset();
+	}
 
 	Super::FinishDestroy();
 }
@@ -167,25 +182,35 @@ void UMediaTexture::PostEditChangeProperty( FPropertyChangedEvent& PropertyChang
 void UMediaTexture::InitializeTrack()
 {
 	// assign new media player asset
-	if (CurrentMediaPlayer != MediaPlayer)
+	if ((CurrentMediaPlayer != MediaPlayer) || !bDelegatesAdded)
 	{
 		if (CurrentMediaPlayer != nullptr)
 		{
-			CurrentMediaPlayer->OnMediaChanged().RemoveAll(this);
+			CurrentMediaPlayer->OnTracksChanged().RemoveAll(this);
 		}
 
 		CurrentMediaPlayer = MediaPlayer;
 
 		if (MediaPlayer != nullptr)
 		{
-			MediaPlayer->OnMediaChanged().AddUObject(this, &UMediaTexture::HandleMediaPlayerMediaChanged);
-		}	
+			MediaPlayer->OnTracksChanged().AddUObject(this, &UMediaTexture::HandleMediaPlayerTracksChanged);
+		}
+
+		bDelegatesAdded = true;
 	}
 
 	// disconnect from current track
 	if (VideoTrack.IsValid())
 	{
-		VideoTrack->RemoveSink(VideoBuffer);
+		VideoTrack->GetStream().RemoveSink(VideoBuffer);
+
+#if WITH_ENGINE
+		if ((Resource != nullptr) && Resource->TextureRHI.IsValid())
+		{
+			VideoTrack->UnbindTexture(Resource->TextureRHI.GetReference());
+		}
+#endif
+
 		VideoTrack.Reset();
 	}
 
@@ -196,23 +221,23 @@ void UMediaTexture::InitializeTrack()
 
 		if (Player.IsValid())
 		{
-			VideoTrack = Player->GetTrack(VideoTrackIndex, EMediaTrackTypes::Video);
+			auto VideoTracks = Player->GetVideoTracks();
 
-			if (!VideoTrack.IsValid())
+			if (VideoTracks.IsValidIndex(VideoTrackIndex))
 			{
-				VideoTrack = Player->GetFirstTrack(EMediaTrackTypes::Video);
-
-				if (VideoTrack.IsValid())
-				{
-					VideoTrackIndex = VideoTrack->GetIndex();
-				}
+				VideoTrack = VideoTracks[VideoTrackIndex];
+			}
+			else if (VideoTracks.Num() > 0)
+			{
+				VideoTrack = VideoTracks[0];
+				VideoTrackIndex = 0;
 			}
 		}
 	}
 
 	if (VideoTrack.IsValid())
 	{
-		CachedDimensions = VideoTrack->GetVideoDetails().GetDimensions();
+		CachedDimensions = VideoTrack->GetDimensions();
 	}
 	else
 	{
@@ -224,7 +249,17 @@ void UMediaTexture::InitializeTrack()
 	// connect to new track
 	if (VideoTrack.IsValid())
 	{
-		VideoTrack->AddSink(VideoBuffer);
+		VideoTrack->GetStream().AddSink(VideoBuffer);
+
+#if WITH_ENGINE
+		FlushRenderingCommands();
+
+		if ((Resource != nullptr) && Resource->TextureRHI.IsValid())
+		{
+			IMediaVideoTrack* VideoTrackPtr = static_cast<IMediaVideoTrack*>(VideoTrack.Get());
+			VideoTrackPtr->BindTexture((Resource->TextureRHI.GetReference()));
+		}
+#endif
 	}
 }
 
@@ -232,7 +267,7 @@ void UMediaTexture::InitializeTrack()
 /* UMediaTexture callbacks
  *****************************************************************************/
 
-void UMediaTexture::HandleMediaPlayerMediaChanged()
+void UMediaTexture::HandleMediaPlayerTracksChanged()
 {
 	InitializeTrack();
 }

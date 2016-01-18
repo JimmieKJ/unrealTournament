@@ -216,6 +216,7 @@ bool PxcContactCapsuleHeightField(CONTACT_METHOD_ARGS)
 						// if any of those share a face with hf_edge for the currently considered capsule_edge/hf_vertex contact
 						bool normalFromFace = false;
 						PxVec3 n;
+						PxReal l = 1.0f;
 						for (PxU32 iVertexContact = 0; iVertexContact < numCapsuleVertexContacts; iVertexContact++)
 						{
 							const Gu::ContactPoint& cp = contactBuffer.contacts[iVertexContact];
@@ -227,11 +228,12 @@ bool PxcContactCapsuleHeightField(CONTACT_METHOD_ARGS)
 								&& (vi == vi0 || vi == vi1 || vi == vi2)) // with one of the face's vertices matching this one
 							{
 								n = cp.normal; // then copy the normal from this contact
+								l = PxAbs(d.dot(n));
 								normalFromFace = true;
 								break;
 							}
 						}
-						PxReal l = 1.0f;
+						
 						if (!normalFromFace)
 							n = hfUtil.computePointNormal(hfGeom.heightFieldFlags, d, transform1, ll, vertex.x, vertex.z, epsSqr, l);
 

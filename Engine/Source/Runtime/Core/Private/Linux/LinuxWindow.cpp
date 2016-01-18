@@ -15,9 +15,6 @@ FLinuxWindow::~FLinuxWindow()
 	//       Use Destroy() instead.
 }
 
-const TCHAR FLinuxWindow::AppWindowClass[] = TEXT("UnrealWindow");
-
-
 TSharedRef< FLinuxWindow > FLinuxWindow::Make()
 {
 	// First, allocate the new native window object.  This doesn't actually create a native window or anything,
@@ -28,7 +25,6 @@ TSharedRef< FLinuxWindow > FLinuxWindow::Make()
 FLinuxWindow::FLinuxWindow()
 	: HWnd(NULL)
 	, WindowMode( EWindowMode::Windowed )
-	, OLEReferenceCount(0)
 	, bIsVisible( false )
 	, bWasFullscreen( false )
 	, bIsPopupWindow(false)
@@ -176,7 +172,7 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
 		!Definition->ActivateWhenFirstShown && !Definition->SizeWillChangeOften)
 	{
-		// TODO Experimental
+		// TODO Experimental (The SDL_WINDOW_DND sets focus)
 		WindowStyle |= SDL_WINDOW_DND;
 		bIsDragAndDropWindow = true;
 		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Drag and Drop Window ***"));
@@ -212,6 +208,52 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 	//	The SDL window doesn't need to be reshaped.
 	//	the size of the window you input is the sizeof the client.
 	HWnd = SDL_CreateWindow( TCHAR_TO_ANSI( *Definition->Title ), X, Y, ClientWidth, ClientHeight, WindowStyle  );
+
+	// Try to find an icon for the window
+	const FText GameName = FText::FromString(FApp::GetGameName());
+	FString Iconpath;
+	static SDL_Surface *IconImage = nullptr;
+
+	if (!GameName.IsEmpty())
+	{
+		if (GIsEditor)
+		{
+			Iconpath = FPaths::GameContentDir() / TEXT("Splash/EdIcon.bmp");
+		}
+		else
+		{
+			Iconpath = FPaths::GameContentDir() / TEXT("Splash/Icon.bmp");
+		}
+
+		if (IFileManager::Get().FileSize(*Iconpath) != -1)
+		{
+			IconImage = SDL_LoadBMP(TCHAR_TO_UTF8(*Iconpath));
+		}
+	}
+
+	if (IconImage == nullptr)
+	{
+		// no game specified or there's no custom icons for the game. use default icons.
+		if (GIsEditor)
+		{
+			Iconpath = FPaths::EngineContentDir() / TEXT("Splash/EdIconDefault.bmp");
+		}
+		else
+		{
+			Iconpath = FPaths::EngineContentDir() / TEXT("Splash/IconDefault.bmp");
+		}
+
+		if (IFileManager::Get().FileSize(*Iconpath) != -1)
+		{
+			IconImage = SDL_LoadBMP(TCHAR_TO_UTF8(*Iconpath));
+		}
+	}
+
+	if (IconImage != nullptr)
+	{
+		SDL_SetWindowIcon(HWnd, IconImage);
+	}
+
 	SDL_SetWindowHitTest( HWnd, FLinuxWindow::HitTest, this );
 
 	/* 
@@ -320,8 +362,8 @@ void FLinuxWindow::BringToFront( bool bForce )
 /** Native windows should implement this function by asking the OS to destroy OS-specific resource associated with the window (e.g. Win32 window handle) */
 void FLinuxWindow::Destroy()
 {
-	OwningApplication->RemoveEventWindow( HWnd );
 	OwningApplication->RemoveRevertFocusWindow( HWnd );
+	OwningApplication->RemoveEventWindow( HWnd );
 	OwningApplication->RemoveNotificationWindow( HWnd );
 
 	SDL_DestroyWindow( HWnd );
@@ -364,7 +406,6 @@ void FLinuxWindow::Hide()
 		SDL_HideWindow( HWnd );
 	}
 }
-
 
 static void _GetBestFullscreenResolution( SDL_HWindow hWnd, int32 *pWidth, int32 *pHeight )
 {
@@ -544,7 +585,6 @@ bool FLinuxWindow::IsMaximized() const
 	{
 		return false;
 	}
-
 }
 
 /** @return true if the native window is visible, false otherwise */
@@ -565,7 +605,11 @@ bool FLinuxWindow::GetRestoredDimensions(int32& X, int32& Y, int32& Width, int32
 /** Sets focus on the native window */
 void FLinuxWindow::SetWindowFocus()
 {
-	SDL_SetWindowInputFocus( HWnd );
+	// Setting focus here is troublesome at least when running on X11, since unlike other platforms
+	// it is asynchronous and SetWindowFocus() may happen at an inappropriate time (e.g. on an unmapped window).
+	// Instead of allowing this silently fail this is abstracted away from Slate, actual focus change will happen later (when handling window messages).
+	// @todo: should we queue the focus change if this function gets called long after the window creation?
+//	SDL_SetWindowInputFocus( HWnd );
 }
 
 /**
@@ -604,12 +648,10 @@ int32 FLinuxWindow::GetWindowBorderSize() const
 	return 0;
 }
 
-
 bool FLinuxWindow::IsForegroundWindow() const
 {
 	return (HWnd == SDL_GetMouseFocus() || HWnd == SDL_GetKeyboardFocus());
 }
-
 
 void FLinuxWindow::SetText( const TCHAR* const Text )
 {
@@ -661,6 +703,11 @@ bool FLinuxWindow::IsActivateWhenFirstShown() const
 	return Definition->ActivateWhenFirstShown;
 }
 
+bool FLinuxWindow::IsFocusWhenFirstShown() const
+{
+	return Definition->FocusWhenFirstShown;
+}
+
 uint32 FLinuxWindow::GetID() const
 {
 	return WindowSDLID;
@@ -668,32 +715,23 @@ uint32 FLinuxWindow::GetID() const
 
 void FLinuxWindow::LogInfo() 
 {
-	UE_LOG(LogLinuxWindowType, Log, TEXT("---------- Windows ID: %d Properties -----------)"), GetID());
-	UE_LOG(LogLinuxWindowType, Log, TEXT("InParent: %d"), ParentWindow.IsValid());
-	UE_LOG(LogLinuxWindowType, Log, TEXT("HasOSWindowBorder: %d"), Definition->HasOSWindowBorder);
-	UE_LOG(LogLinuxWindowType, Log, TEXT("IsTopmostWindow: %d"), Definition->IsTopmostWindow);
-	UE_LOG(LogLinuxWindowType, Log, TEXT("HasSizingFrame: %d"), Definition->HasSizingFrame);
-	UE_LOG(LogLinuxWindowType, Log, TEXT("AppearsInTaskbar: %d"), Definition->AppearsInTaskbar);
-	UE_LOG(LogLinuxWindowType, Log, TEXT("AcceptsInput: %d"), Definition->AcceptsInput);
-	UE_LOG(LogLinuxWindowType, Log, TEXT("IsModalWindow: %d"), Definition->IsModalWindow);
-	UE_LOG(LogLinuxWindowType, Log, TEXT("IsRegularWindow: %d"), Definition->IsRegularWindow);
-	UE_LOG(LogLinuxWindowType, Log, TEXT("ActivateWhenFirstShown: %d"), Definition->ActivateWhenFirstShown);
-	UE_LOG(LogLinuxWindowType, Log, TEXT("SizeWillChangeOften: %d"), Definition->SizeWillChangeOften);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("---------- Windows ID: %d Properties -----------)"), GetID());
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("InParent: %d Parent Window ID: %d"), ParentWindow.IsValid(), ParentWindow.IsValid() ? ParentWindow->GetID() : -1);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("HasOSWindowBorder: %d"), Definition->HasOSWindowBorder);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("IsTopmostWindow: %d"), Definition->IsTopmostWindow);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("HasSizingFrame: %d"), Definition->HasSizingFrame);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("AppearsInTaskbar: %d"), Definition->AppearsInTaskbar);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("AcceptsInput: %d"), Definition->AcceptsInput);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("IsModalWindow: %d"), Definition->IsModalWindow);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("IsRegularWindow: %d"), Definition->IsRegularWindow);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("ActivateWhenFirstShown: %d"), Definition->ActivateWhenFirstShown);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("FocusWhenFirstShown: %d"), Definition->FocusWhenFirstShown);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("SizeWillChangeOften: %d"), Definition->SizeWillChangeOften);
 }
 
 const TSharedPtr< FLinuxWindow >& FLinuxWindow::GetParent() const
 {
 	return ParentWindow;
-}
-
-void FLinuxWindow::OnPointerEnteredWindow(bool PointerEnteredWindow)
-{
-	bIsPointerInsideWindow = PointerEnteredWindow;
-}
-
-bool FLinuxWindow::IsPointerInsideWindow() const
-{
-	return bIsPointerInsideWindow;
 }
 
 void FLinuxWindow::GetNativeBordersSize(int32& OutLeftBorderWidth, int32& OutTopBorderHeight) const

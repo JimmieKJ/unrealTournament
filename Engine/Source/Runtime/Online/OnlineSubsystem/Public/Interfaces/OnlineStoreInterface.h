@@ -17,6 +17,7 @@ namespace EInAppPurchaseState
 		Cancelled UMETA(DisplayName = "Cancelled"),
 		Invalid UMETA(DisplayName = "Invalid"),
 		NotAllowed UMETA(DisplayName = "NotAllowed"),
+		Restored UMETA(DisplayName = "Restored"),
 		Unknown  UMETA(DisplayName = "Unknown")
 	};
 }
@@ -47,6 +48,15 @@ typedef FOnQueryForAvailablePurchasesComplete::FDelegate FOnQueryForAvailablePur
  */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnInAppPurchaseComplete, EInAppPurchaseState::Type);
 typedef FOnInAppPurchaseComplete::FDelegate FOnInAppPurchaseCompleteDelegate;
+
+/**
+* Delegate fired when the online session has transitioned to the started state
+*
+* @param SessionName the name of the session the that has transitioned to started
+* @param bWasSuccessful true if the async action completed without error, false if there was an error
+*/
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnInAppPurchaseRestoreComplete, EInAppPurchaseState::Type);
+typedef FOnInAppPurchaseRestoreComplete::FDelegate FOnInAppPurchaseRestoreCompleteDelegate;
 
 
 /**
@@ -79,6 +89,10 @@ struct FInAppPurchaseProductInfo
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
 	FString Identifier;
 
+	// the unique transaction identifier
+	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
+	FString TransactionIdentifier;
+
 	// The localized display name
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
 	FString DisplayName;
@@ -91,9 +105,43 @@ struct FInAppPurchaseProductInfo
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
 	FString DisplayPrice;
 
+	// The localized currency code of the price
+	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
+	FString CurrencyCode;
+
+	// The localized currency symbol of the price
+	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
+	FString CurrencySymbol;
+
+	// The localized decimal separator used in the price
+	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
+	FString DecimalSeparator;
+
+	// The localized grouping separator of the price
+	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
+	FString GroupingSeparator;
+
 	// The localized display price name
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
 	FString ReceiptData;
+};
+
+
+/**
+* Micro-transaction restored purchase information
+*/
+USTRUCT(BlueprintType)
+struct FInAppPurchaseRestoreInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The unique product identifier
+	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
+	FString Identifier;
+
+	// The localized display price name
+	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
+		FString ReceiptData;
 };
 
 
@@ -138,6 +186,27 @@ public:
 typedef TSharedRef<FOnlineInAppPurchaseTransaction, ESPMode::ThreadSafe> FOnlineInAppPurchaseTransactionRef;
 typedef TSharedPtr<FOnlineInAppPurchaseTransaction, ESPMode::ThreadSafe> FOnlineInAppPurchaseTransactionPtr;
 
+
+/**
+*	Interface for reading data from an In App Purchase service
+*/
+class ONLINESUBSYSTEM_API FOnlineInAppPurchaseRestoreRead
+{
+public:
+	/** Indicates an error reading data occurred while processing */
+	EOnlineAsyncTaskState::Type ReadState;
+
+	FOnlineInAppPurchaseRestoreRead() :
+		ReadState(EOnlineAsyncTaskState::NotStarted)
+	{
+	}
+
+	TArray<FInAppPurchaseRestoreInfo> ProvidedRestoreInformation;
+};
+
+typedef TSharedRef<FOnlineInAppPurchaseRestoreRead, ESPMode::ThreadSafe> FOnlineInAppPurchaseRestoreReadRef;
+typedef TSharedPtr<FOnlineInAppPurchaseRestoreRead, ESPMode::ThreadSafe> FOnlineInAppPurchaseRestoreReadPtr;
+
 /**
  *	IOnlineStore - Interface class for microtransactions
  */
@@ -172,9 +241,19 @@ public:
 	 * @return - whether a purchase request was sent
 	 */
 	virtual bool BeginPurchase(const FInAppPurchaseProductRequest& ProductRequest, FOnlineInAppPurchaseTransactionRef& InReadObject) = 0;
-	
+
 	/**
 	 * Delegate which is executed when a Purchase completes
 	 */
 	DEFINE_ONLINE_DELEGATE_ONE_PARAM(OnInAppPurchaseComplete, EInAppPurchaseState::Type);
+
+	/**
+	* Restore any purchases previously made
+	*/
+	virtual bool RestorePurchases(FOnlineInAppPurchaseRestoreReadRef& InReadObject) = 0;
+
+	/**
+	* Delegate which is executed when a Purchase completes
+	*/
+	DEFINE_ONLINE_DELEGATE_ONE_PARAM(OnInAppPurchaseRestoreComplete, EInAppPurchaseState::Type);
 };

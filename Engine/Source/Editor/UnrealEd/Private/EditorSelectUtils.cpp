@@ -88,15 +88,6 @@ void UUnrealEdEngine::NoteActorMovement()
 					GroupActors.Add(ActorLockedRootGroup);
 				}
 			}
-
-			ABrush* Brush = Cast< ABrush >( Actor );
-			if ( Brush )
-			{
-				if( Brush->Brush )
-				{
-					Brush->Brush->Polys->Element.ModifyAllItems();
-				}
-			}
 		}
 
 		// Modify unique group actors
@@ -158,16 +149,14 @@ void UUnrealEdEngine::SetPivot( FVector NewPivot, bool bSnapPivotToGrid, bool bI
 	if( !bIgnoreAxis )
 	{
 		// Don't stomp on orthonormal axis.
-		if( NewPivot.X==0 ) NewPivot.X=EditorModeTools.PivotLocation.X;
-		if( NewPivot.Y==0 ) NewPivot.Y=EditorModeTools.PivotLocation.Y;
-		if( NewPivot.Z==0 ) NewPivot.Z=EditorModeTools.PivotLocation.Z;
+		// TODO: this breaks if there is genuinely a need to set the pivot to a coordinate containing a zero component
+ 		if( NewPivot.X==0 ) NewPivot.X=EditorModeTools.PivotLocation.X;
+ 		if( NewPivot.Y==0 ) NewPivot.Y=EditorModeTools.PivotLocation.Y;
+ 		if( NewPivot.Z==0 ) NewPivot.Z=EditorModeTools.PivotLocation.Z;
 	}
 
 	// Set the pivot.
-	//EditorModeTools.CachedLocation	= NewPivot;	// Don't set the cached location, this is our pre-move point
-	EditorModeTools.PivotLocation		= NewPivot;
-	EditorModeTools.SnappedLocation		= NewPivot;
-	EditorModeTools.GridBase			= FVector::ZeroVector;
+	EditorModeTools.SetPivotLocation(NewPivot, false);
 
 	if( bSnapPivotToGrid )
 	{
@@ -282,6 +271,18 @@ void UUnrealEdEngine::SetActorSelectionFlags (AActor* InActor)
 }
 
 
+void UUnrealEdEngine::SetPivotMovedIndependently(bool bMovedIndependently)
+{
+	bPivotMovedIndependently = bMovedIndependently;
+}
+
+
+bool UUnrealEdEngine::IsPivotMovedIndependently() const
+{
+	return bPivotMovedIndependently;
+}
+
+
 void UUnrealEdEngine::UpdatePivotLocationForSelection( bool bOnChange )
 {
 	// Pick a new common pivot, or not.
@@ -344,8 +345,8 @@ void UUnrealEdEngine::UpdatePivotLocationForSelection( bool bOnChange )
 		FEditorModeTools& Tools = GLevelEditorModeTools();
 		if( Tools.IsModeActive(FBuiltinEditorModes::EM_Geometry) == false || bOnChange == true )
 		{
-			// Set pivot point to the actor's location
-			FVector PivotPoint = SingleActor->GetActorLocation();
+			// Set pivot point to the actor's location, accounting for any set pivot offset
+			FVector PivotPoint = SingleActor->GetTransform().TransformPosition(SingleActor->GetPivotOffset());
 
 			// If grouping is active, see if this actor is part of a locked group and use that pivot instead
 			if(GEditor->bGroupingActive)
@@ -363,6 +364,8 @@ void UUnrealEdEngine::UpdatePivotLocationForSelection( bool bOnChange )
 	{
 		ResetPivot();
 	}
+
+	SetPivotMovedIndependently(false);
 }
 
 
@@ -466,13 +469,13 @@ bool UUnrealEdEngine::CanSelectActor(AActor* Actor, bool bInSelected, bool bSele
 		}
 
 		// Ensure that neither the level nor the actor is being destroyed or is unreachable
-		EObjectFlags InvalidSelectableFlags = RF_PendingKill|RF_BeginDestroyed|RF_Unreachable;
-		if( Actor->GetLevel()->HasAnyFlags(InvalidSelectableFlags) )
+		const EObjectFlags InvalidSelectableFlags = RF_BeginDestroyed;
+		if (Actor->GetLevel()->HasAnyFlags(InvalidSelectableFlags) || Actor->GetLevel()->IsPendingKillOrUnreachable())
 		{
 			UE_LOG(LogEditorSelectUtils, Warning, TEXT("SelectActor: %s (%s)"), TEXT("The requested operation could not be completed because the level has invalid flags."),*Actor->GetActorLabel());
 			return false;
 		}
-		if( Actor->HasAnyFlags(InvalidSelectableFlags) )
+		if (Actor->HasAnyFlags(InvalidSelectableFlags) || Actor->IsPendingKillOrUnreachable())
 		{
 			UE_LOG(LogEditorSelectUtils, Warning, TEXT("SelectActor: %s (%s)"), TEXT("The requested operation could not be completed because the actor has invalid flags."),*Actor->GetActorLabel());
 			return false;
@@ -577,6 +580,7 @@ void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify,
 					GetSelectedComponents()->Modify();
 				}
 
+				GetSelectedComponents()->BeginBatchSelectOperation();
 				for (UActorComponent* Component : Actor->GetComponents())
 				{
 					GetSelectedComponents()->Deselect( Component );
@@ -585,6 +589,7 @@ void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify,
 					auto SceneComponent = Cast<USceneComponent>(Component);
 					FComponentEditorUtils::BindComponentSelectionOverride(SceneComponent, false);
 				}
+				GetSelectedComponents()->EndBatchSelectOperation(false);
 			}
 			else
 			{
@@ -734,6 +739,27 @@ static uint32 DeselectAllSurfacesForLevel(ULevel* Level)
 }
 
 
+void UUnrealEdEngine::DeselectAllSurfaces()
+{
+	UWorld* World = GWorld;
+	if (World)
+	{
+		DeselectAllSurfacesForLevel(World->PersistentLevel);
+		for (int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex)
+		{
+			ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
+			if (StreamingLevel)
+			{
+				ULevel* Level = StreamingLevel->GetLoadedLevel();
+				if (Level != NULL)
+				{
+					DeselectAllSurfacesForLevel(Level);
+				}
+			}
+		}
+	}
+}
+
 void UUnrealEdEngine::SelectNone(bool bNoteSelectionChange, bool bDeselectBSPSurfs, bool WarnAboutManyActors)
 {
 	if( GEdSelectionLock )
@@ -816,8 +842,6 @@ void UUnrealEdEngine::SelectNone(bool bNoteSelectionChange, bool bDeselectBSPSur
 	//prevents clicking on background multiple times spamming selection changes
 	if (ActorsToDeselect.Num() || NumDeselectSurfaces)
 	{
-		GetSelectedActors()->DeselectAll();
-
 		if( bNoteSelectionChange )
 		{
 			NoteSelectionChange();

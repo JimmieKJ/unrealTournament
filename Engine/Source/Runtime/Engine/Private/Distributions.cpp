@@ -54,6 +54,7 @@ UDistribution::UDistribution(const FObjectInitializer& ObjectInitializer)
  */
 static void BuildConstantLookupTable( FDistributionLookupTable* OutTable, int32 ValuesPerEntry, const float* Values )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( OutTable != NULL );
 	check( Values != NULL );
 
@@ -93,6 +94,7 @@ static void BuildZeroLookupTable( FDistributionLookupTable* OutTable, int32 Valu
 template <typename DistributionType>
 void BuildLookupTable( FDistributionLookupTable* OutTable, const DistributionType* Distribution )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	// Always clear the table.
 	OutTable->Empty();
 
@@ -133,7 +135,7 @@ void BuildLookupTable( FDistributionLookupTable* OutTable, const DistributionTyp
 	// Sample the distribution.
 	for ( uint32 SampleIndex = 0; SampleIndex < EntryCount; SampleIndex++ )
 	{
-		const float Time = FMath::Clamp(MinIn + SampleIndex * TimeScale, 0.0f, 1.0f);
+		const float Time = MinIn + SampleIndex * TimeScale;
 		float Values[8];
 		Distribution->InitializeRawEntry( Time, Values );
 		for ( uint32 ValueIndex = 0; ValueIndex < EntryStride; ValueIndex++ )
@@ -150,6 +152,7 @@ void BuildLookupTable( FDistributionLookupTable* OutTable, const DistributionTyp
  */
 static void AppendLookupTable( FDistributionLookupTable* Table, const FDistributionLookupTable& OtherTable )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( Table != NULL );
 	check( Table->GetValuesPerEntry() >= 1 && Table->GetValuesPerEntry() <= 3 );
 	check( OtherTable.GetValuesPerEntry() == 1 );
@@ -228,6 +231,7 @@ static void AppendLookupTable( FDistributionLookupTable* Table, const FDistribut
  */
 static void SliceLookupTable( FDistributionLookupTable* Table, int32 ChannelsToKeep )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( Table != NULL );
 	check( Table->GetValuesPerEntry() >= ChannelsToKeep );
 
@@ -280,6 +284,7 @@ static void SliceLookupTable( FDistributionLookupTable* Table, int32 ChannelsToK
  */
 static void ScaleLookupTableByConstant( FDistributionLookupTable* Table, float Scale )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( Table != NULL );
 
 	for ( int32 ValueIndex = 0; ValueIndex < Table->Values.Num(); ++ValueIndex )
@@ -296,6 +301,7 @@ static void ScaleLookupTableByConstant( FDistributionLookupTable* Table, float S
  */
 static void ScaleLookupTableByConstants( FDistributionLookupTable* Table, const float* Scale, int32 ValueCount )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( Table != NULL );
 	check( ValueCount == Table->GetValuesPerEntry() );
 
@@ -328,6 +334,7 @@ static void ScaleLookupTableByConstants( FDistributionLookupTable* Table, const 
  */
 static void AddConstantToLookupTable( FDistributionLookupTable* Table, const float* Addend, int32 ValueCount )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( Table != NULL );
 	check( ValueCount == Table->GetValuesPerEntry() );
 
@@ -359,6 +366,7 @@ static void AddConstantToLookupTable( FDistributionLookupTable* Table, const flo
  */
 static void ScaleLookupTableByLookupTable( FDistributionLookupTable* Table, const FDistributionLookupTable& OtherTable )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( Table != NULL );
 	check( OtherTable.GetValuesPerEntry() == 1 || OtherTable.GetValuesPerEntry() == Table->GetValuesPerEntry() );
 
@@ -433,6 +441,7 @@ static void ScaleLookupTableByLookupTable( FDistributionLookupTable* Table, cons
  */
 static void AddLookupTableToLookupTable( FDistributionLookupTable* Table, const FDistributionLookupTable& OtherTable )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( Table != NULL );
 	check( OtherTable.GetValuesPerEntry() == 1 || OtherTable.GetValuesPerEntry() == Table->GetValuesPerEntry() );
 
@@ -587,6 +596,7 @@ static float ComputeLookupTableError( const FDistributionLookupTable& InTable1, 
  */
 static void ResampleLookupTable( FDistributionLookupTable* OutTable, const FDistributionLookupTable& InTable, float MinIn, float MaxIn, int32 SampleCount )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	const int32 Stride = InTable.EntryStride;
 	const float OneOverTimeScale = (InTable.TimeScale == 0.0f) ? 0.0f : 1.0f / InTable.TimeScale;
 	const float TimeScale = (SampleCount > 1) ? ((MaxIn - MinIn) / (float)(SampleCount-1)) : 0.0f;
@@ -624,6 +634,7 @@ static void ResampleLookupTable( FDistributionLookupTable* OutTable, const FDist
  */
 static void OptimizeLookupTable( FDistributionLookupTable* Table, float ErrorThreshold )
 {
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	check( Table != NULL );
 	check( (Table->EntryCount & (Table->EntryCount-1)) == 0 );
 
@@ -861,12 +872,16 @@ void FRawDistributionFloat::Initialize()
 		}
 		bNeedsUpdating = true;
 	}
-
 	// only initialize if we need to
 	if (!bNeedsUpdating)
 	{
 		return;
 	}
+	if (!GIsEditor && !IsInGameThread() && !IsInAsyncLoadingThread())
+	{
+		return;
+	}
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 
 	// always empty out the lookup table
 	LookupTable.Empty();
@@ -896,20 +911,12 @@ void FRawDistributionFloat::Initialize()
 
 float FRawDistributionFloat::GetValue(float F, UObject* Data, struct FRandomStream* InRandomStream)
 {
-#if WITH_EDITOR
-	// make sure it's up to date
-	if( GIsEditor || (Distribution && Distribution->bIsDirty) )
+	if (!HasLookupTable())
 	{
-		Initialize();
-		if (!Distribution && LookupTable.IsEmpty())
+		if (!Distribution)
 		{
 			return 0.0f;
 		}
-	}
-#endif
-	// Use the distribution if the lookup table is empty
-	if ( (LookupTable.IsEmpty() && Distribution) || GDistributionType == 0 )
-	{
 		return Distribution->GetValue(F, Data, InRandomStream);
 	}
 
@@ -923,21 +930,7 @@ float FRawDistributionFloat::GetValue(float F, UObject* Data, struct FRandomStre
 
 const FRawDistribution *FRawDistributionFloat::GetFastRawDistribution()
 {
-#if WITH_EDITOR
-	// make sure it's up to date
-	if( GIsEditor )
-	{
-		Initialize();
-	}
-#endif
-
-	if (!IsSimple())
-	{
-		return 0;
-	}
-
-	// Use the distribution if the lookup table is empty
-	if ( (LookupTable.IsEmpty() && Distribution) || GDistributionType == 0  )
+	if (!IsSimple() || !HasLookupTable())
 	{
 		return 0;
 	}
@@ -950,15 +943,7 @@ const FRawDistribution *FRawDistributionFloat::GetFastRawDistribution()
 
 void FRawDistributionFloat::GetOutRange(float& MinOut, float& MaxOut)
 {
-#if WITH_EDITOR
-	// make sure it's up to date
-	if( GIsEditor )
-	{
-		Initialize();
-	}
-#endif
-
-	if (LookupTable.IsEmpty() || GDistributionType == 0)
+	if (!HasLookupTable() || !Distribution)
 	{
 		check(Distribution);
 		Distribution->GetOutRange(MinOut, MaxOut);
@@ -969,6 +954,19 @@ void FRawDistributionFloat::GetOutRange(float& MinOut, float& MaxOut)
 		MaxOut = MaxValue;
 	}
 }
+
+void FRawDistributionFloat::InitLookupTable()
+{
+#if WITH_EDITOR
+	// make sure it's up to date
+	if( GIsEditor || (Distribution && Distribution->bIsDirty) )
+	{
+		Distribution->ConditionalPostLoad();
+		Initialize();
+	}
+#endif
+}
+
 
 bool UDistributionFloat::NeedsLoadForClient() const
 {
@@ -1043,6 +1041,7 @@ void FRawDistributionVector::Initialize()
 	{
 		return;
 	}
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 
 	// always empty out the lookup table
 	LookupTable.Empty();
@@ -1074,20 +1073,12 @@ void FRawDistributionVector::Initialize()
 
 FVector FRawDistributionVector::GetValue(float F, UObject* Data, int32 Extreme, struct FRandomStream* InRandomStream)
 {
-#if WITH_EDITOR
-	// make sure it's up to date
-	if( GIsEditor || (Distribution && Distribution->bIsDirty) )
+	if (!HasLookupTable())
 	{
-		Initialize();
-		if (!Distribution && LookupTable.IsEmpty())
+		if (!Distribution)
 		{
 			return FVector::ZeroVector;
 		}
-	}
-#endif
-
-	if ( (LookupTable.IsEmpty() && Distribution) || GDistributionType == 0 )
-	{
 		return Distribution->GetValue(F, Data, Extreme, InRandomStream);
 	}
 
@@ -1101,20 +1092,7 @@ FVector FRawDistributionVector::GetValue(float F, UObject* Data, int32 Extreme, 
 
 const FRawDistribution *FRawDistributionVector::GetFastRawDistribution()
 {
-#if WITH_EDITOR
-	// make sure it's up to date
-	if( GIsEditor || (Distribution && Distribution->bIsDirty) )
-	{
-		Initialize();
-	}
-#endif
-
-	if (!IsSimple()) 
-	{
-		return 0;
-	}
-
-	if ( (LookupTable.IsEmpty() && Distribution) || GDistributionType == 0 )
+	if (!IsSimple() || !HasLookupTable()) 
 	{
 		return 0;
 	}
@@ -1127,15 +1105,7 @@ const FRawDistribution *FRawDistributionVector::GetFastRawDistribution()
 
 void FRawDistributionVector::GetOutRange(float& MinOut, float& MaxOut)
 {
-#if WITH_EDITOR
-	// make sure it's up to date
-	if( GIsEditor )
-	{
-		Initialize();
-	}
-#endif
-
-	if (LookupTable.IsEmpty() || GDistributionType == 0)
+	if (!HasLookupTable() && Distribution)
 	{
 		check(Distribution);
 		Distribution->GetOutRange(MinOut, MaxOut);
@@ -1146,6 +1116,18 @@ void FRawDistributionVector::GetOutRange(float& MinOut, float& MaxOut)
 		MaxOut = MaxValue;
 	}
 }
+
+void FRawDistributionVector::InitLookupTable()
+{
+#if WITH_EDITOR
+	// make sure it's up to date
+	if( GIsEditor || (Distribution && Distribution->bIsDirty) )
+	{
+		Initialize();
+	}
+#endif
+}
+
 
 bool UDistributionVector::NeedsLoadForClient() const
 {

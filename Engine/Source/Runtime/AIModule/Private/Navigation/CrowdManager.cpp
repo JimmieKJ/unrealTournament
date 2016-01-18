@@ -53,9 +53,11 @@ namespace CrowdDebugDrawing
 
 	const FColor Corner(128, 0, 0);
 	const FColor CornerLink(192, 0, 0);
+	const FColor CornerFixed(192, 192, 0);
 	const FColor CollisionRange(192, 0, 128);
 	const FColor CollisionSeg0(192, 0, 128);
 	const FColor CollisionSeg1(96, 0, 64);
+	const FColor CollisionSegIgnored(128, 128, 128);
 	const FColor Path(255, 255, 255);
 	const FColor PathSpecial(255, 192, 203);
 	const FColor PathOpt(0, 128, 0);
@@ -138,6 +140,7 @@ UCrowdManager::UCrowdManager(const FObjectInitializer& ObjectInitializer) : Supe
 	PathOptimizationInterval = 0.5f;
 	bSingleAreaVisibilityOptimization = true;
 	bPruneStartedOffmeshConnections = false;
+	bEarlyReachTestOptimization = false;
 	bResolveCollisions = false;
 	
 	FCrowdAvoidanceConfig AvoidanceConfig11;		// 11 samples, ECrowdAvoidanceQuality::Low
@@ -228,6 +231,7 @@ void UCrowdManager::Tick(float DeltaTime)
 			{
 				SCOPE_CYCLE_COUNTER(STAT_AI_Crowd_StepNextPointTime);
 				DetourCrowd->updateStepNextMovePoint(DeltaTime, DetourAgentDebug);
+				PostMovePointUpdate();
 			}
 			{
 				SCOPE_CYCLE_COUNTER(STAT_AI_Crowd_StepSteeringTime);
@@ -377,7 +381,7 @@ void UCrowdManager::OnAgentFinishedCustomLink(const ICrowdAgentInterface* Agent)
 #endif
 }
 
-bool UCrowdManager::SetAgentMoveTarget(const UCrowdFollowingComponent* AgentComponent, const FVector& MoveTarget, TSharedPtr<const FNavigationQueryFilter> Filter) const
+bool UCrowdManager::SetAgentMoveTarget(const UCrowdFollowingComponent* AgentComponent, const FVector& MoveTarget, FSharedConstNavQueryFilter Filter) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_Crowd_AgentUpdateTime);
 
@@ -423,7 +427,8 @@ bool UCrowdManager::SetAgentMoveDirection(const UCrowdFollowingComponent* AgentC
 	return bSuccess;
 }
 
-bool UCrowdManager::SetAgentMovePath(const UCrowdFollowingComponent* AgentComponent, const FNavMeshPath* Path, int32 PathSectionStart, int32 PathSectionEnd) const
+bool UCrowdManager::SetAgentMovePath(const UCrowdFollowingComponent* AgentComponent, const FNavMeshPath* Path,
+	int32 PathSectionStart, int32 PathSectionEnd, const FVector& PathSectionEndLocation) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_Crowd_AgentUpdateTime);
 
@@ -437,7 +442,7 @@ bool UCrowdManager::SetAgentMovePath(const UCrowdFollowingComponent* AgentCompon
 		Path && (Path->GetPathPoints().Num() > 1) &&
 		Path->PathCorridor.IsValidIndex(PathSectionStart) && Path->PathCorridor.IsValidIndex(PathSectionEnd))
 	{
-		FVector TargetPos = Path->GetPathPoints().Last().Location;
+		FVector TargetPos = PathSectionEndLocation;
 		if (PathSectionEnd < (Path->PathCorridor.Num() - 1))
 		{
 			RecastNavData->GetPolyCenter(Path->PathCorridor[PathSectionEnd], TargetPos);
@@ -454,7 +459,7 @@ bool UCrowdManager::SetAgentMovePath(const UCrowdFollowingComponent* AgentCompon
 		DetourCrowd->updateAgentFilter(AgentData->AgentIndex, DetourFilter);
 		DetourCrowd->updateAgentState(AgentData->AgentIndex, false);
 
-		const FVector RcTargetPos = Unreal2RecastPoint(TargetPos);		
+		const FVector RcTargetPos = Unreal2RecastPoint(TargetPos);
 		bSuccess = DetourCrowd->requestMoveTarget(AgentData->AgentIndex, PathRefs.Last(), &RcTargetPos.X);
 		if (bSuccess)
 		{
@@ -864,6 +869,7 @@ void UCrowdManager::CreateCrowdManager()
 		DetourCrowd->setAgentCheckInterval(NavmeshCheckInterval);
 		DetourCrowd->setSingleAreaVisibilityOptimization(bSingleAreaVisibilityOptimization);
 		DetourCrowd->setPruneStartedOffmeshConnections(bPruneStartedOffmeshConnections);
+		DetourCrowd->setEarlyReachTestOptimization(bEarlyReachTestOptimization);
 
 		DetourCrowd->initAvoidance(MaxAvoidedAgents, MaxAvoidedWalls, FMath::Max(SamplingPatterns.Num(), 1));
 
@@ -877,6 +883,9 @@ void UCrowdManager::CreateCrowdManager()
 		}
 
 		UpdateAvoidanceConfig();
+
+		AgentFlags.Reset();
+		AgentFlags.AddZeroed(MaxAgents);
 
 		for (auto It = ActiveAgents.CreateIterator(); It; ++It)
 		{
@@ -919,7 +928,11 @@ void UCrowdManager::DrawDebugCollisionSegments(const dtCrowdAgent* CrowdAgent) c
 	for (int32 Idx = 0; Idx < CrowdAgent->boundary.getSegmentCount(); Idx++)
 	{
 		const float* s = CrowdAgent->boundary.getSegment(Idx);
-		FColor Color = (dtTriArea2D(CrowdAgent->npos, s, s + 3) < 0.0f) ? CrowdDebugDrawing::CollisionSeg1 : CrowdDebugDrawing::CollisionSeg0;
+		const int32 SegFlags = CrowdAgent->boundary.getSegmentFlags(Idx);
+		const FColor Color = (SegFlags & DT_CROWD_BOUNDARY_IGNORE) ? CrowdDebugDrawing::CollisionSegIgnored :
+			(dtTriArea2D(CrowdAgent->npos, s, s + 3) < 0.0f) ? CrowdDebugDrawing::CollisionSeg1 :
+			CrowdDebugDrawing::CollisionSeg0;
+
 		FVector Pt0 = Recast2UnrealPoint(s);
 		FVector Pt1 = Recast2UnrealPoint(s + 3);
 
@@ -1123,13 +1136,33 @@ void UCrowdManager::DebugTick() const
 
 			if (CrowdAgent && LogOwner)
 			{
+				FString LogData = DetourAgentDebug->agentLog.FindRef(AgentData.AgentIndex);
+				if (LogData.Len() > 0)
+				{
+					UE_VLOG(LogOwner, LogCrowdFollowing, Log, *LogData);
+				}
+
 				{
 					FVector P0 = Recast2UnrealPoint(CrowdAgent->npos);
 					for (int32 Idx = 0; Idx < CrowdAgent->ncorners; Idx++)
 					{
 						FVector P1 = Recast2UnrealPoint(&CrowdAgent->cornerVerts[Idx * 3]);
 						UE_VLOG_SEGMENT(LogOwner, LogCrowdFollowing, Log, P0 + CrowdDebugDrawing::Offset, P1 + CrowdDebugDrawing::Offset, CrowdDebugDrawing::Corner, TEXT(""));
+						UE_VLOG_BOX(LogOwner, LogCrowdFollowing, Log, FBox::BuildAABB(P1 + CrowdDebugDrawing::Offset, FVector(2, 2, 2)), CrowdDebugDrawing::Corner, TEXT("%d"), CrowdAgent->cornerFlags[Idx]);
 						P0 = P1;
+					}
+				}
+
+				ARecastNavMesh* RecastNavData = Cast<ARecastNavMesh>(MyNavData);
+				if (RecastNavData)
+				{
+					for (int32 Idx = 0; Idx < CrowdAgent->corridor.getPathCount(); Idx++)
+					{
+						dtPolyRef PolyRef = CrowdAgent->corridor.getPath()[Idx];
+						TArray<FVector> PolyPoints;
+						RecastNavData->GetPolyVerts(PolyRef, PolyPoints);
+
+						UE_VLOG_CONVEXPOLY(LogOwner, LogCrowdFollowing, Verbose, PolyPoints, FColor::Cyan, TEXT(""));
 					}
 				}
 
@@ -1139,18 +1172,36 @@ void UCrowdManager::DebugTick() const
 					UE_VLOG_SEGMENT(LogOwner, LogCrowdFollowing, Log, P0, P0 + CrowdDebugDrawing::Offset * 2.0f, CrowdDebugDrawing::CornerLink, TEXT(""));
 				}
 
+				if (CrowdAgent->corridor.hasNextFixedCorner())
+				{
+					FVector P0 = Recast2UnrealPoint(CrowdAgent->corridor.getNextFixedCorner());
+					UE_VLOG_BOX(LogOwner, LogCrowdFollowing, Log, FBox::BuildAABB(P0 + CrowdDebugDrawing::Offset, FVector(10, 10, 10)), CrowdDebugDrawing::CornerFixed, TEXT(""));
+				}
+
+				if (CrowdAgent->corridor.hasNextFixedCorner2())
+				{
+					FVector P0 = Recast2UnrealPoint(CrowdAgent->corridor.getNextFixedCorner2());
+					UE_VLOG_BOX(LogOwner, LogCrowdFollowing, Log, FBox::BuildAABB(P0 + CrowdDebugDrawing::Offset, FVector(10, 10, 10)), CrowdDebugDrawing::CornerFixed, TEXT(""));
+				}
+
 				for (int32 Idx = 0; Idx < CrowdAgent->boundary.getSegmentCount(); Idx++)
 				{
 					const float* s = CrowdAgent->boundary.getSegment(Idx);
-					FColor Color = (dtTriArea2D(CrowdAgent->npos, s, s + 3) < 0.0f) ? CrowdDebugDrawing::CollisionSeg1 : CrowdDebugDrawing::CollisionSeg0;
+					const int32 SegFlags = CrowdAgent->boundary.getSegmentFlags(Idx);
+					const FColor Color = (SegFlags & DT_CROWD_BOUNDARY_IGNORE) ? CrowdDebugDrawing::CollisionSegIgnored :
+						(dtTriArea2D(CrowdAgent->npos, s, s + 3) < 0.0f) ? CrowdDebugDrawing::CollisionSeg1 :
+						CrowdDebugDrawing::CollisionSeg0;
+
 					FVector Pt0 = Recast2UnrealPoint(s);
 					FVector Pt1 = Recast2UnrealPoint(s + 3);
 
-					UE_VLOG_SEGMENT(LogOwner, LogCrowdFollowing, Log, Pt0 + CrowdDebugDrawing::Offset, Pt1 + CrowdDebugDrawing::Offset, Color, TEXT(""));
+					UE_VLOG_SEGMENT_THICK(LogOwner, LogCrowdFollowing, Log, Pt0 + CrowdDebugDrawing::Offset, Pt1 + CrowdDebugDrawing::Offset, Color, 3.0f, TEXT(""));
 				}
 			}
 		}
 	}
+
+	DetourAgentDebug->agentLog.Reset();
 #endif	// WITH_RECAST
 }
 
@@ -1219,6 +1270,58 @@ void UCrowdManager::UpdateAvoidanceConfig()
 void UCrowdManager::PostProximityUpdate()
 {
 	// empty in base class
+}
+
+void UCrowdManager::PostMovePointUpdate()
+{
+#if WITH_RECAST
+	const uint8 UpdateDestinationFlag = 1;
+
+	// special case when following last segment of full path to actor: replace end point with actor's location
+	for (auto It : ActiveAgents)
+	{
+		UCrowdFollowingComponent* PathComp = Cast<UCrowdFollowingComponent>(It.Key);
+		const FCrowdAgentData& AgentData = It.Value;
+		FVector UpdatedGoalPos;
+
+		const bool bShouldUpdateGoalPos = PathComp ? PathComp->UpdateCachedGoal(UpdatedGoalPos) : false;
+		if (bShouldUpdateGoalPos && AgentFlags.IsValidIndex(AgentData.AgentIndex))
+		{
+			const dtCrowdAgent* Agent = DetourCrowd->getAgent(AgentData.AgentIndex);
+			dtCrowdAgent* MutableAgent = (dtCrowdAgent*)Agent;
+			const FVector RcTargetPos = Unreal2RecastPoint(UpdatedGoalPos);
+		
+			dtVcopy(MutableAgent->targetPos, &RcTargetPos.X);
+			AgentFlags[AgentData.AgentIndex] |= UpdateDestinationFlag;
+		}
+	}
+
+	dtCrowdAgent** ActiveDetourAgents = DetourCrowd->getActiveAgents();
+	for (int32 Idx = 0; Idx < DetourCrowd->getNumActiveAgents(); Idx++)
+	{
+		dtCrowdAgent* Agent = ActiveDetourAgents[Idx];
+		if (Agent->state == DT_CROWDAGENT_STATE_WALKING &&
+			Agent->ncorners == 1 && Agent->corridor.getPathCount() < 5 &&
+			(Agent->cornerFlags[0] & DT_STRAIGHTPATH_OFFMESH_CONNECTION) == 0)
+		{
+			const int32 AgentIndex = DetourCrowd->getAgentIndex(Agent);
+
+			if (AgentFlags.IsValidIndex(AgentIndex) && (AgentFlags[AgentIndex] & UpdateDestinationFlag) != 0)
+			{
+				dtVcopy(Agent->cornerVerts, Agent->targetPos);
+			}
+		}
+	}
+
+	for (auto It : ActiveAgents)
+	{
+		const FCrowdAgentData& AgentData = It.Value;
+		if (AgentFlags.IsValidIndex(AgentData.AgentIndex))
+		{
+			AgentFlags[AgentData.AgentIndex] &= ~UpdateDestinationFlag;
+		}
+	}
+#endif
 }
 
 UWorld* UCrowdManager::GetWorld() const

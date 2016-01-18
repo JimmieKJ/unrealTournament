@@ -1,0 +1,705 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	CapsuleShadowShaders.usf: Tiled deferred culling and shadowing from capsule shapes
+=============================================================================*/
+
+#include "Common.usf"
+#include "DeferredShadingCommon.usf"
+#include "FastMath.usf"
+
+#ifndef THREADGROUP_SIZEX
+#define THREADGROUP_SIZEX 1
+#endif
+
+#ifndef THREADGROUP_SIZEY
+#define THREADGROUP_SIZEY 1
+#endif
+
+#ifndef COHERENT_LIGHT_SOURCE
+#define COHERENT_LIGHT_SOURCE 1
+#endif
+
+#define MAX_INTERSECTING_SHAPES 512
+groupshared uint IntersectingShapeIndices[MAX_INTERSECTING_SHAPES * 2];
+
+uint NumShadowSpheres;
+uint NumShadowCapsules;
+Buffer<float4> ShadowSphereShapes;
+Buffer<float4> ShadowCapsuleShapes;
+Buffer<float4> LightDirectionData;
+
+bool SphereIntersectCone(float4 SphereCenterAndRadius, float3 ConeVertex, float3 ConeAxis, float ConeAngleCos, float ConeAngleSin)
+{
+	float3 U = ConeVertex - (SphereCenterAndRadius.w / ConeAngleSin) * ConeAxis;
+	float3 D = SphereCenterAndRadius.xyz - U;
+	float DSizeSq = dot(D, D);
+	float E = dot(ConeAxis, D);
+
+	if (E > 0 && E * E >= DSizeSq * ConeAngleCos * ConeAngleCos)
+	{
+		D = SphereCenterAndRadius.xyz - ConeVertex;
+		DSizeSq = dot(D, D);
+		E = -dot(ConeAxis, D);
+
+		if (E > 0 && E * E >= DSizeSq * ConeAngleSin * ConeAngleSin)
+		{
+			return DSizeSq <= SphereCenterAndRadius.w * SphereCenterAndRadius.w;
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool SphereIntersectConeWithMaxDistance(float4 SphereCenterAndRadius, float3 ConeVertex, float3 ConeAxis, float ConeAngleCos, float ConeAngleSin, float MaxDistanceAlongAxis)
+{
+	if (SphereIntersectCone(SphereCenterAndRadius, ConeVertex, ConeAxis, ConeAngleCos, ConeAngleSin))
+	{
+		float ConeAxisDistance = dot(SphereCenterAndRadius.xyz - ConeVertex, ConeAxis);
+		float ConeAxisDistanceMax = ConeAxisDistance - SphereCenterAndRadius.w;
+
+		return ConeAxisDistanceMax < MaxDistanceAlongAxis;
+	}
+
+	return false;
+}
+
+bool SphereIntersectSphere(float4 SphereCenterAndRadius, float4 OtherSphereCenterAndRadius)
+{
+	float CombinedRadii = SphereCenterAndRadius.w + OtherSphereCenterAndRadius.w;
+	float3 VectorBetweenCenters = SphereCenterAndRadius.xyz - OtherSphereCenterAndRadius.xyz;
+	return dot(VectorBetweenCenters, VectorBetweenCenters) < CombinedRadii * CombinedRadii;
+}
+
+#if COHERENT_LIGHT_SOURCE
+/** From point being shaded toward light, for directional lights. */
+float3 LightDirection;
+float4 LightPositionAndInvRadius;
+float LightSourceRadius;
+float RayStartOffsetDepthScale;
+float3 LightAngleAndNormalThreshold;
+#endif
+
+int4 ScissorRectMinAndSize;
+float2 NumGroups;
+
+/** Min and Max depth for this tile. */
+groupshared uint IntegerTileMinZ;
+groupshared uint IntegerTileMaxZ;
+
+/** Inner Min and Max depth for this tile. */
+groupshared uint IntegerTileMinZ2;
+groupshared uint IntegerTileMaxZ2;
+
+/** Number of spheres affecting the tile, after culling. */
+groupshared uint TileNumSpheres0;
+groupshared uint TileNumSpheres1;
+
+groupshared uint TileNumCapsules0;
+groupshared uint TileNumCapsules1;
+
+struct FTileCullingData
+{
+	float4 BoundingSphere;
+#if COHERENT_LIGHT_SOURCE
+	float3 ConeAxis;
+	float ConeAngleCos;
+	float ConeAngleSin;
+#endif
+};
+
+void SetupTileCullingData(
+	float SceneDepth, 
+	float MaxDepth,
+	uint ThreadIndex, 
+	uint2 GroupId, 
+	out FTileCullingData TileCullingData0,
+	out FTileCullingData TileCullingData1,
+	out bool bTileShouldComputeShadowing,
+	out uint GroupIndex)
+{
+	// Initialize per-tile variables
+    if (ThreadIndex == 0) 
+	{
+        IntegerTileMinZ = 0x7F7FFFFF;     
+        IntegerTileMaxZ = 0;
+		IntegerTileMinZ2 = 0x7F7FFFFF;  
+		IntegerTileMaxZ2 = 0;
+		TileNumSpheres0 = 0;
+		TileNumSpheres1 = 0;
+		TileNumCapsules0 = 0;
+		TileNumCapsules1 = 0;
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+	// Use shared memory atomics to build the depth bounds for this tile
+	// Each thread is assigned to a pixel at this point
+	//@todo - move depth range computation to a central point where it can be reused by all the frame's tiled deferred passes!
+
+	if (SceneDepth < MaxDepth)
+	{
+		InterlockedMin(IntegerTileMinZ, asuint(SceneDepth));
+		InterlockedMax(IntegerTileMaxZ, asuint(SceneDepth));
+	}
+
+    GroupMemoryBarrierWithGroupSync();
+
+    float MinTileZ = asfloat(IntegerTileMinZ);
+    float MaxTileZ = asfloat(IntegerTileMaxZ);
+
+	float HalfZ = .5f * (MinTileZ + MaxTileZ);
+
+	if (SceneDepth < MaxDepth)
+	{
+		// Compute a second min and max Z, clipped by HalfZ, so that we get two depth bounds per tile
+		// This results in more conservative tile depth bounds and fewer intersections
+		if (SceneDepth >= HalfZ)
+		{
+			InterlockedMin(IntegerTileMinZ2, asuint(SceneDepth));
+		}
+
+		if (SceneDepth <= HalfZ)
+		{
+			InterlockedMax(IntegerTileMaxZ2, asuint(SceneDepth));
+		}
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+	
+	float MinTileZ2 = asfloat(IntegerTileMinZ2);
+	float MaxTileZ2 = asfloat(IntegerTileMaxZ2);
+
+	bTileShouldComputeShadowing = true;
+
+	if (IntegerTileMinZ == 0x7F7FFFFF && IntegerTileMaxZ == 0)
+	{
+		bTileShouldComputeShadowing = false;
+	}
+
+	float3 ViewTileMin;
+	float3 ViewTileMax;
+
+	float3 ViewTileMin2;
+	float3 ViewTileMax2;
+
+	float ExpandRadius = 0;
+
+	float2 TanViewFOV = float2(1 / View.ViewToClip[0][0], 1 / View.ViewToClip[1][1]);
+	// tan(FOV) = HalfUnitPlaneWidth / 1, so TanViewFOV * 2 is the size of the whole unit view plane
+	// We are operating on a subset of that defined by ScissorRectMinAndSize
+	float2 TileSize = TanViewFOV * 2 * ScissorRectMinAndSize.zw / ((float2)View.ViewSizeAndInvSize.xy * NumGroups);
+	float2 UnitPlaneMin = -TanViewFOV + TanViewFOV * 2 * ScissorRectMinAndSize.xy * View.ViewSizeAndInvSize.zw;
+	float2 UnitPlaneTileMin = (GroupId.xy * TileSize + UnitPlaneMin) * float2(1, -1);
+	float2 UnitPlaneTileMax = ((GroupId.xy + 1) * TileSize + UnitPlaneMin) * float2(1, -1);
+
+	ViewTileMin.xy = min(MinTileZ * UnitPlaneTileMin, MaxTileZ2 * UnitPlaneTileMin) - ExpandRadius;
+	ViewTileMax.xy = max(MinTileZ * UnitPlaneTileMax, MaxTileZ2 * UnitPlaneTileMax) + ExpandRadius;
+	ViewTileMin.z = MinTileZ - ExpandRadius;
+	ViewTileMax.z = MaxTileZ2 + ExpandRadius;
+	ViewTileMin2.xy = min(MinTileZ2 * UnitPlaneTileMin, MaxTileZ * UnitPlaneTileMin) - ExpandRadius;
+	ViewTileMax2.xy = max(MinTileZ2 * UnitPlaneTileMax, MaxTileZ * UnitPlaneTileMax) + ExpandRadius;
+	ViewTileMin2.z = MinTileZ2 - ExpandRadius;
+	ViewTileMax2.z = MaxTileZ + ExpandRadius;
+
+	float3 ViewGroup0Center = (ViewTileMax + ViewTileMin) / 2;
+	TileCullingData0.BoundingSphere.xyz = mul(float4(ViewGroup0Center, 1), View.ViewToTranslatedWorld).xyz - View.PreViewTranslation;
+	TileCullingData0.BoundingSphere.w = length(ViewGroup0Center - ViewTileMax);
+
+	float3 ViewGroup1Center = (ViewTileMax2 + ViewTileMin2) / 2;
+	TileCullingData1.BoundingSphere.xyz = mul(float4(ViewGroup1Center, 1), View.ViewToTranslatedWorld).xyz - View.PreViewTranslation;
+	TileCullingData1.BoundingSphere.w = length(ViewGroup1Center - ViewTileMax2);
+
+#if COHERENT_LIGHT_SOURCE
+	#if POINT_LIGHT
+		float3 LightVector0 = LightPositionAndInvRadius.xyz - TileCullingData0.BoundingSphere.xyz;
+		float LightVector0Length = length(LightVector0);
+		float3 LightVector1 = LightPositionAndInvRadius.xyz - TileCullingData1.BoundingSphere.xyz;
+		float LightVector1Length = length(LightVector1);
+		TileCullingData0.ConeAxis = LightVector0 / LightVector0Length;
+		TileCullingData1.ConeAxis = LightVector1 / LightVector1Length;;
+		float TanLightAngle0 = LightSourceRadius / LightVector0Length;
+		float TanLightAngle1 = LightSourceRadius / LightVector1Length;
+
+		TileCullingData0.ConeAngleCos = 1.0f / sqrt(1 + TanLightAngle0 * TanLightAngle0);
+		TileCullingData0.ConeAngleSin = TileCullingData0.ConeAngleCos * TanLightAngle0;
+	
+		TileCullingData1.ConeAngleCos = 1.0f / sqrt(1 + TanLightAngle1 * TanLightAngle1);
+		TileCullingData1.ConeAngleSin = TileCullingData1.ConeAngleCos * TanLightAngle1;
+
+		// Don't operate on tiles completely outside of the light's influence
+		bool bTileInLightInfluenceBounds = LightVector0Length < 1.0f / LightPositionAndInvRadius.w + TileCullingData0.BoundingSphere.w
+			|| LightVector1Length < 1.0f / LightPositionAndInvRadius.w + TileCullingData1.BoundingSphere.w;
+		bTileShouldComputeShadowing = bTileShouldComputeShadowing && bTileInLightInfluenceBounds;
+
+	#else
+		TileCullingData0.ConeAxis = TileCullingData1.ConeAxis = LightDirection;
+		TileCullingData0.ConeAngleCos = TileCullingData1.ConeAngleCos = cos(LightAngleAndNormalThreshold.x);
+		TileCullingData0.ConeAngleSin = TileCullingData1.ConeAngleSin = sin(LightAngleAndNormalThreshold.x);
+	#endif
+#endif
+
+	GroupIndex = SceneDepth > MaxTileZ2 ? 1 : 0;
+}
+
+uint CullSphereShapesToTile(
+	uint ThreadIndex,
+	uint GroupIndex, 
+	float MaxOcclusionDistance,
+	FTileCullingData TileCullingData0,
+	FTileCullingData TileCullingData1)
+{
+#if COHERENT_LIGHT_SOURCE
+
+	float3 ConeAxis = TileCullingData0.ConeAxis;
+	float ConeAngleCos = TileCullingData0.ConeAngleCos;
+	float ConeAngleSin = TileCullingData0.ConeAngleSin;
+
+#endif
+
+	LOOP
+	for (uint ShapeIndex = ThreadIndex; ShapeIndex < NumShadowSpheres; ShapeIndex += THREADGROUP_SIZEX * THREADGROUP_SIZEY)
+	{
+		#if !COHERENT_LIGHT_SOURCE
+
+			float4 LightData = LightDirectionData[ShapeIndex];
+			float3 ConeAxis = LightData.xyz;
+			float LightAngle = LightData.w;
+			float ConeAngleCos = cos(LightAngle);
+			float ConeAngleSin = sin(LightAngle);
+
+		#endif
+
+		float4 SphereCenterAndRadius = ShadowSphereShapes[ShapeIndex];
+
+		BRANCH
+		if (SphereIntersectSphere(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + MaxOcclusionDistance), TileCullingData0.BoundingSphere)
+			&& SphereIntersectConeWithMaxDistance(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + TileCullingData0.BoundingSphere.w), TileCullingData0.BoundingSphere.xyz, ConeAxis, ConeAngleCos, ConeAngleSin, MaxOcclusionDistance))
+		{
+			uint ListIndex;
+			InterlockedAdd(TileNumSpheres0, 1U, ListIndex);
+			// Don't overwrite on overflow
+			ListIndex = min(ListIndex, (uint)(MAX_INTERSECTING_SHAPES - 1));
+			IntersectingShapeIndices[MAX_INTERSECTING_SHAPES * 0 + ListIndex] = ShapeIndex; 
+		}
+
+		BRANCH
+		if (SphereIntersectSphere(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + MaxOcclusionDistance), TileCullingData1.BoundingSphere)
+			&& SphereIntersectConeWithMaxDistance(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + TileCullingData1.BoundingSphere.w), TileCullingData1.BoundingSphere.xyz, ConeAxis, ConeAngleCos, ConeAngleSin, MaxOcclusionDistance))
+		{
+			uint ListIndex;
+			InterlockedAdd(TileNumSpheres1, 1U, ListIndex);
+			// Don't write out of bounds on overflow
+			ListIndex = min(ListIndex, (uint)(MAX_INTERSECTING_SHAPES - 1));
+			IntersectingShapeIndices[MAX_INTERSECTING_SHAPES * 1 + ListIndex] = ShapeIndex; 
+		}
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	return min(GroupIndex == 0 ? TileNumSpheres0 : TileNumSpheres1, (uint)MAX_INTERSECTING_SHAPES);
+}
+
+uint CullCapsuleShapesToTile(
+	uint ThreadIndex,
+	uint GroupIndex, 
+	float MaxOcclusionDistance,
+	FTileCullingData TileCullingData0,
+	FTileCullingData TileCullingData1)
+{
+#if COHERENT_LIGHT_SOURCE
+
+	float3 ConeAxis = TileCullingData0.ConeAxis;
+	float ConeAngleCos = TileCullingData0.ConeAngleCos;
+	float ConeAngleSin = TileCullingData0.ConeAngleSin;
+
+#endif
+
+	LOOP
+	for (uint ShapeIndex = ThreadIndex; ShapeIndex < NumShadowCapsules; ShapeIndex += THREADGROUP_SIZEX * THREADGROUP_SIZEY)
+	{
+		#if !COHERENT_LIGHT_SOURCE
+
+			float4 LightData = LightDirectionData[ShapeIndex + NumShadowSpheres];
+			float3 ConeAxis = LightData.xyz;
+			float LightAngle = LightData.w;
+			float ConeAngleCos = cos(LightAngle);
+			float ConeAngleSin = sin(LightAngle);
+
+		#endif
+
+		float4 SphereCenterAndRadius = ShadowCapsuleShapes[ShapeIndex * 2];
+		// Add half capsule length to bounding sphere
+		SphereCenterAndRadius.w += .5f * ShadowCapsuleShapes[ShapeIndex * 2 + 1].w;
+
+		BRANCH
+		if (SphereIntersectSphere(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + MaxOcclusionDistance), TileCullingData0.BoundingSphere)
+			&& SphereIntersectConeWithMaxDistance(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + TileCullingData0.BoundingSphere.w), TileCullingData0.BoundingSphere.xyz, ConeAxis, ConeAngleCos, ConeAngleSin, MaxOcclusionDistance))
+		{
+			uint ListIndex;
+			InterlockedAdd(TileNumCapsules0, 1U, ListIndex);
+			// Don't overwrite on overflow
+			ListIndex = min(ListIndex, (uint)(MAX_INTERSECTING_SHAPES - 1));
+			IntersectingShapeIndices[MAX_INTERSECTING_SHAPES * 0 + ListIndex] = ShapeIndex; 
+		}
+
+		BRANCH
+		if (SphereIntersectSphere(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + MaxOcclusionDistance), TileCullingData1.BoundingSphere)
+			&& SphereIntersectConeWithMaxDistance(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + TileCullingData1.BoundingSphere.w), TileCullingData1.BoundingSphere.xyz, ConeAxis, ConeAngleCos, ConeAngleSin, MaxOcclusionDistance))
+		{
+			uint ListIndex;
+			InterlockedAdd(TileNumCapsules1, 1U, ListIndex);
+			// Don't write out of bounds on overflow
+			ListIndex = min(ListIndex, (uint)(MAX_INTERSECTING_SHAPES - 1));
+			IntersectingShapeIndices[MAX_INTERSECTING_SHAPES * 1 + ListIndex] = ShapeIndex; 
+		}
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	return min(GroupIndex == 0 ? TileNumCapsules0 : TileNumCapsules1, (uint)MAX_INTERSECTING_SHAPES);
+}
+
+// Approximate the area of intersection of two spherical caps, from 'Ambient Aperture Lighting'
+// fRadius0 : First caps radius (arc length in radians)
+// fRadius1 : Second caps radius (in radians)
+// fDist : Distance between caps (radians between centers of caps)
+float SphericalCapIntersectionAreaFast(float fRadius0, float fRadius1, float fDist)
+{
+	float fArea;
+
+	if ( fDist <= max(fRadius0, fRadius1) - min(fRadius0, fRadius1) )
+	{
+		// One cap is completely inside the other
+		fArea = 6.283185308f - 6.283185308f * cos( min(fRadius0,fRadius1) );
+	}
+	else if ( fDist >= fRadius0 + fRadius1 )
+	{
+		// No intersection exists
+		fArea = 0;
+	}
+	else
+	{
+		float fDiff = abs(fRadius0 - fRadius1);
+		fArea = smoothstep(0.0f,
+			1.0f,
+			1.0f - saturate((fDist-fDiff)/(fRadius0+fRadius1-fDiff)));
+			fArea *= 6.283185308f - 6.283185308f * cos( min(fRadius0,fRadius1) );
+	}
+	return fArea;
+}
+
+float ShadowConeTraceAgainstCulledSphereShapes(
+	float3 WorldRayStart, 
+	float3 UnitRayDirection,
+	float LightAngle,  
+	float InvMaxOcclusionDistance,
+	uint CulledDataParameter, 
+	uint NumIntersectingSpheres,
+	uniform bool bUseCulling)
+{
+	float ConeVisibility = 1;
+	float AreaOfLight = 6.283185308f - 6.283185308f * cos(LightAngle);
+
+	LOOP
+	for (uint ListObjectIndex = 0; ListObjectIndex < NumIntersectingSpheres; ListObjectIndex++)
+	{
+		uint ObjectIndex;
+
+		if (bUseCulling)
+		{
+			uint GroupIndex = CulledDataParameter;
+			ObjectIndex = IntersectingShapeIndices[MAX_INTERSECTING_SHAPES * GroupIndex + ListObjectIndex];
+		}
+		else
+		{
+			ObjectIndex = ListObjectIndex;
+		}
+
+		#if !COHERENT_LIGHT_SOURCE
+			float4 LightData = LightDirectionData[ObjectIndex];
+			UnitRayDirection = LightData.xyz;
+			LightAngle = LightData.w;
+			AreaOfLight = 6.283185308f - 6.283185308f * cos(LightAngle);
+		#endif
+
+		float4 ShadowSphere = ShadowSphereShapes[ObjectIndex];
+		float DistanceToShadowSphere = length(ShadowSphere.xyz - WorldRayStart);
+		float3 UnitVectorToShadowSphere = (ShadowSphere.xyz - WorldRayStart) / DistanceToShadowSphere;
+	
+		float AngleBetween = acosFast(dot(UnitVectorToShadowSphere, UnitRayDirection));
+		float ConeConeIntersection = 1 - saturate(SphericalCapIntersectionAreaFast(LightAngle, atanFastPos(ShadowSphere.w / DistanceToShadowSphere), AngleBetween) / AreaOfLight);
+		float DistanceFadeAlpha = saturate(DistanceToShadowSphere * InvMaxOcclusionDistance * 3 - 2);
+		ConeConeIntersection = lerp(ConeConeIntersection, 1, DistanceFadeAlpha);
+
+		ConeVisibility *= ConeConeIntersection;
+	}
+
+	return ConeVisibility;
+}
+
+float ShadowConeTraceAgainstCulledCapsuleShapes(
+	float3 WorldRayStart, 
+	float3 UnitRayDirection,
+	float LightAngle,  
+	float InvMaxOcclusionDistance,
+	uint CulledDataParameter, 
+	uint NumIntersectingCapsules,
+	uniform bool bUseCulling)
+{
+	float ConeVisibility = 1;
+	float AreaOfLight = 6.283185308f - 6.283185308f * cos(LightAngle);
+
+	LOOP
+	for (uint ListObjectIndex = 0; ListObjectIndex < NumIntersectingCapsules; ListObjectIndex++)
+	{
+		uint ObjectIndex;
+
+		if (bUseCulling)
+		{
+			uint GroupIndex = CulledDataParameter;
+			ObjectIndex = IntersectingShapeIndices[MAX_INTERSECTING_SHAPES * GroupIndex + ListObjectIndex];
+		}
+		else
+		{
+			ObjectIndex = ListObjectIndex;
+		}
+
+		#if !COHERENT_LIGHT_SOURCE
+			float4 LightData = LightDirectionData[ObjectIndex + NumShadowSpheres];
+			UnitRayDirection = LightData.xyz;
+			LightAngle = LightData.w;
+			AreaOfLight = 6.283185308f - 6.283185308f * cos(LightAngle);
+		#endif
+
+		float4 CapsuleCenterAndRadius = ShadowCapsuleShapes[ObjectIndex * 2];
+		float4 CapsuleOrientationAndLength = ShadowCapsuleShapes[ObjectIndex * 2 + 1];
+		float3 VectorToCapsuleCenter = CapsuleCenterAndRadius.xyz - WorldRayStart;
+
+		// Closest point on line segment to ray
+		float3 L01 = CapsuleOrientationAndLength.xyz * CapsuleOrientationAndLength.w;
+		float3 L0 = VectorToCapsuleCenter - 0.5 * L01;
+		float3 L1 = VectorToCapsuleCenter + 0.5 * L01;
+
+		// The below is computing the shortest distance between capsule line segment and ray
+		float CapsuleOrientationProjectedOntoRay = dot(UnitRayDirection, L01);
+		// Vector that spans L01 perpendicular to the ray
+		float3 PerpendicularSpanningVector = CapsuleOrientationProjectedOntoRay * UnitRayDirection - L01;
+		// Length of PerpendicularSpanningVector using the right triangle formed by L01 and UnitRayDirection * CapsuleOrientationProjectedOntoRay
+		float PerpendicularDistance = Square(CapsuleOrientationAndLength.w) - CapsuleOrientationProjectedOntoRay * CapsuleOrientationProjectedOntoRay;
+		// Project the vector to a capsule endpoint onto the perpendicular spanning vector, normalized
+		float t = saturate(dot(L0, PerpendicularSpanningVector) / PerpendicularDistance);
+		// Compute the vector to the shadow sphere which best approximates the capsule's shadowing 
+		float3 VectorToShadowSphere = L0 + t * L01;
+
+		float DistanceToShadowSphere = length(VectorToShadowSphere);
+		float3 UnitVectorToShadowSphere = VectorToShadowSphere / DistanceToShadowSphere;
+		
+		// The above 'best shadow sphere' calculation doesn't take into account the project solid angle of the potential shadow spheres
+		// As a result, there's a discontinuity when the capsule and the ray point in nearly the same direction, where the far end of the capsule gets chosen
+		// Here we mitigate the effect by overriding the distance to shadow sphere if one of the capsule end points was closer
+		DistanceToShadowSphere = min(DistanceToShadowSphere, length(L0));
+		DistanceToShadowSphere = min(DistanceToShadowSphere, length(L1));
+
+		float AngleBetween = acosFast(dot(UnitVectorToShadowSphere, UnitRayDirection));
+		float ConeConeIntersection = 1 - saturate(SphericalCapIntersectionAreaFast(LightAngle, atanFastPos(CapsuleCenterAndRadius.w / DistanceToShadowSphere), AngleBetween) / AreaOfLight);
+		float DistanceFadeAlpha = saturate(DistanceToShadowSphere * InvMaxOcclusionDistance * 3 - 2);
+		ConeConeIntersection = lerp(ConeConeIntersection, 1, DistanceFadeAlpha);
+		
+		ConeVisibility *= ConeConeIntersection;
+	}
+
+	return ConeVisibility;
+}
+
+uint DownsampleFactor;
+RWTexture2D<float2> RWShadowFactors;
+float MaxOcclusionDistance;
+float MinVisibility;
+
+[numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
+void CapsuleShadowingCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
+
+	float2 ScreenUV = float2((DispatchThreadId.xy * DownsampleFactor + ScissorRectMinAndSize.xy + .5f) * View.BufferSizeAndInvSize.zw);
+	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+
+	float SceneDepth = CalcSceneDepth(ScreenUV);
+	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+	float3 OpaqueWorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+	uint CulledDataParameter = 0;
+	bool bTileShouldComputeShadowing = true;
+	FTileCullingData TileCullingData0;
+	FTileCullingData TileCullingData1;
+	uint NumIntersectingShapes = 0;
+
+	// So we can skip skybox pixels / tiles without having to check the GBuffer
+	float MaxDepth = 20000;
+
+#define USE_CULLING 1
+#if USE_CULLING
+
+	SetupTileCullingData(SceneDepth, MaxDepth, ThreadIndex, GroupId.xy, TileCullingData0, TileCullingData1, bTileShouldComputeShadowing, CulledDataParameter);
+
+#endif // USE_CULLING
+
+	float Visibility = 1;
+	
+	BRANCH
+	if (bTileShouldComputeShadowing)
+	{
+		// World space offset along the start of the ray to avoid incorrect self-shadowing
+		float RayStartOffset = 0;
+
+		#if COHERENT_LIGHT_SOURCE
+			#if POINT_LIGHT
+
+				float3 LightVector = LightPositionAndInvRadius.xyz - OpaqueWorldPosition;
+				float LightVectorLength = length(LightVector);
+				float3 WorldRayStart = OpaqueWorldPosition + LightVector / LightVectorLength * RayStartOffset;
+				float3 UnitRayDirection = (LightPositionAndInvRadius.xyz - OpaqueWorldPosition) / LightVectorLength;
+				float LightAngle = atanFastPos(LightSourceRadius / LightVectorLength);
+
+			#else
+
+				float3 WorldRayStart = OpaqueWorldPosition + LightDirection * RayStartOffset;
+				float3 UnitRayDirection = LightDirection;
+				float LightAngle = LightAngleAndNormalThreshold.x;
+
+			#endif
+		#else
+			float3 WorldRayStart = OpaqueWorldPosition;
+			float3 UnitRayDirection = 0;
+			float LightAngle = 0;
+		#endif
+
+		uint NumIntersectingSpheres = NumShadowSpheres;
+
+		#if USE_CULLING
+
+			NumIntersectingSpheres = CullSphereShapesToTile(
+				ThreadIndex,
+				CulledDataParameter, 
+				MaxOcclusionDistance,
+				TileCullingData0,
+				TileCullingData1);
+
+		#endif
+			
+		NumIntersectingShapes += NumIntersectingSpheres;
+			
+		Visibility *= ShadowConeTraceAgainstCulledSphereShapes(
+			WorldRayStart, 
+			UnitRayDirection, 
+			LightAngle, 
+			1.0f / MaxOcclusionDistance,
+			CulledDataParameter, 
+			NumIntersectingSpheres,
+			USE_CULLING ? true : false);
+				
+		uint NumIntersectingCapsules = NumShadowCapsules;
+
+		#if USE_CULLING
+
+			NumIntersectingCapsules = CullCapsuleShapesToTile(
+				ThreadIndex,
+				CulledDataParameter, 
+				MaxOcclusionDistance,
+				TileCullingData0,
+				TileCullingData1);
+
+		#endif
+			
+		NumIntersectingShapes += NumIntersectingCapsules;
+			
+		Visibility *= ShadowConeTraceAgainstCulledCapsuleShapes(
+			WorldRayStart, 
+			UnitRayDirection, 
+			LightAngle, 
+			1.0f / MaxOcclusionDistance,
+			CulledDataParameter, 
+			NumIntersectingCapsules,
+			USE_CULLING ? true : false);
+	}
+
+#if !COHERENT_LIGHT_SOURCE
+	FGBufferData GBufferData = GetGBufferData(ScreenUV);
+	// Reduce self shadowing intensity
+	Visibility = lerp(Visibility, 1, HasDistanceFieldRepresentation(GBufferData) ? .8f : 0);
+	Visibility = lerp(MinVisibility, 1, Visibility);
+#endif
+	//Visibility = NumIntersectingShapes / 20.0f;
+	//Visibility = bTileShouldComputeShadowing ? 1 : 0;
+	RWShadowFactors[DispatchThreadId.xy] = float2(Visibility, SceneDepth);
+}
+
+Texture2D ShadowFactorsTexture;
+SamplerState ShadowFactorsSampler;
+
+float OutputtingToLightAttenuation;
+
+void CapsuleShadowingUpsamplePS(
+	in float4 UVAndScreenPos : TEXCOORD0,
+	in float4 SVPos : SV_POSITION,
+	out float4 OutColor : SV_Target0)
+{
+	// Distance field shadowing was computed at 0,0 regardless of viewrect min
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - ScissorRectMinAndSize.xy * View.BufferSizeAndInvSize.zw;
+	float SceneDepth = CalcSceneDepth(UVAndScreenPos.xy);
+
+#define BILATERAL_UPSAMPLE 1
+#if BILATERAL_UPSAMPLE && UPSAMPLE_REQUIRED
+	float2 LowResBufferSize = floor(View.RenderTargetSize / DOWNSAMPLE_FACTOR);
+	float2 LowResTexelSize = 1.0f / LowResBufferSize;
+	float2 Corner00UV = floor(DistanceFieldUVs * LowResBufferSize - .5f) / LowResBufferSize + .5f * LowResTexelSize;
+	float2 BilinearWeights = (DistanceFieldUVs - Corner00UV) * LowResBufferSize;
+
+	float2 TextureValues00 = Texture2DSampleLevel(ShadowFactorsTexture, ShadowFactorsSampler, Corner00UV, 0).xy;
+	float2 TextureValues10 = Texture2DSampleLevel(ShadowFactorsTexture, ShadowFactorsSampler, Corner00UV + float2(LowResTexelSize.x, 0), 0).xy;
+	float2 TextureValues01 = Texture2DSampleLevel(ShadowFactorsTexture, ShadowFactorsSampler, Corner00UV + float2(0, LowResTexelSize.y), 0).xy;
+	float2 TextureValues11 = Texture2DSampleLevel(ShadowFactorsTexture, ShadowFactorsSampler, Corner00UV + LowResTexelSize, 0).xy;
+
+	float4 CornerWeights = float4(
+		(1 - BilinearWeights.y) * (1 - BilinearWeights.x), 
+		(1 - BilinearWeights.y) * BilinearWeights.x,
+		BilinearWeights.y * (1 - BilinearWeights.x),
+		BilinearWeights.y * BilinearWeights.x);
+
+	float Epsilon = .0001f;
+
+	float4 CornerDepths = abs(float4(TextureValues00.y, TextureValues10.y, TextureValues01.y, TextureValues11.y));
+	float4 DepthWeights = 1.0f / (abs(CornerDepths - SceneDepth.xxxx) + Epsilon);
+	float4 FinalWeights = CornerWeights * DepthWeights;
+
+	float InterpolatedResult = 
+		(FinalWeights.x * TextureValues00.x 
+		+ FinalWeights.y * TextureValues10.x
+		+ FinalWeights.z * TextureValues01.x 
+		+ FinalWeights.w * TextureValues11.x)
+		/ dot(FinalWeights, 1);
+
+	float Output = InterpolatedResult;
+
+#else
+	float Output = Texture2DSampleLevel(ShadowFactorsTexture, ShadowFactorsSampler, DistanceFieldUVs, 0).x;
+#endif
+
+	if (OutputtingToLightAttenuation > 0)
+	{
+		OutColor.xy = 1;
+		OutColor.zw = EncodeLightAttenuation(Output).xx;
+	}
+	else
+	{
+		OutColor = Output;
+	}
+}

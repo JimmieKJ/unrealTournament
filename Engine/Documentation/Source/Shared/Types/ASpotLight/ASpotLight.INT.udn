@@ -5,7 +5,7 @@ Description:Overview of the SpotLight class
 
 [EXCERPT:ASpotLight]
 
-A Spot Light emits light from a single point in a cone shape.
+A SpotLight emits light from a single point in a cone shape.
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/LightingAndShadows/LightTypes/Spot

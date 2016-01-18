@@ -102,8 +102,8 @@ public:
 			, _OnSort()
 			{}
 			SLATE_ARGUMENT( FName, ColumnId )
-			SLATE_TEXT_ATTRIBUTE( DefaultLabel )
-			SLATE_TEXT_ATTRIBUTE( DefaultTooltip )
+			SLATE_ATTRIBUTE( FText, DefaultLabel )
+			SLATE_ATTRIBUTE( FText, DefaultTooltip )
 			SLATE_ATTRIBUTE( float, FillWidth )
 			SLATE_ARGUMENT( TOptional< float >, FixedWidth )
 			SLATE_ATTRIBUTE( float, ManualWidth )

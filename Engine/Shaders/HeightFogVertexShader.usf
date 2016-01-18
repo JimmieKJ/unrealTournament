@@ -9,7 +9,7 @@
 void Main(
 	in float2 InPosition : ATTRIBUTE0,
 	out float2 OutTexCoord : TEXCOORD0,
-	out float4 OutScreenVector : TEXCOORD1,
+	out float3 OutScreenVector : TEXCOORD1,
 	out float4 OutPosition : SV_POSITION
 	)
 {	
@@ -19,5 +19,5 @@ void Main(
 	OutTexCoord = InPosition * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
 
 	// deproject to world space
-	OutScreenVector = mul(float4(InPosition,1,0), View.ScreenToTranslatedWorld);
+	OutScreenVector = mul(float4(InPosition,1,0), View.ScreenToTranslatedWorld).xyz;
 }

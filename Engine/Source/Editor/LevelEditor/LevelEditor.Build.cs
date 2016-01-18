@@ -14,8 +14,10 @@ public class LevelEditor : ModuleRules
                 "PlacementMode",
 				"ReferenceViewer",
 				"SizeMap",
+				"SlateReflector",
                 "IntroTutorials",
-                "AppFramework"
+                "AppFramework",
+                "PortalServices"
 			}
 		);
 
@@ -29,6 +31,7 @@ public class LevelEditor : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
+				"LevelSequence",
 				"Analytics",
 				"Core",
 				"CoreUObject",
@@ -36,7 +39,6 @@ public class LevelEditor : ModuleRules
                 "InputCore",
 				"Slate",
 				"SlateCore",
-				"SlateReflector",
                 "EditorStyle",
 				"Engine",
 				"MessageLog",
@@ -58,19 +60,23 @@ public class LevelEditor : ModuleRules
 				"WebBrowser",
                 "Persona",
                 "Kismet",
-				"KismetWidgets"
+				"KismetWidgets",
+				"Sequencer",
+                "Foliage",
+                "HierarchicalLODOutliner",
+                "HierarchicalLODUtilities",
+				"MaterialShaderQualitySettings",
 			}
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"MainFrame",
-				"PropertyEditor",
-				"SceneOutliner",
 				"ClassViewer",
 				"DeviceManager",
 				"SettingsEditor",
 				"SessionFrontend",
+				"SlateReflector",
 				"AutomationWindow",
 				"Layers",
                 "WorldBrowser",
@@ -79,7 +85,6 @@ public class LevelEditor : ModuleRules
 				"WorkspaceMenuStructure",
 				"NewLevelDialog",
 				"DeviceProfileEditor",
-				"DeviceProfileServices",
                 "PlacementMode",
 				"UserFeedback",
 				"ReferenceViewer",

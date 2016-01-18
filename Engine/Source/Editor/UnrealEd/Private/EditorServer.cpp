@@ -69,7 +69,13 @@
 #include "UnrealEngine.h"
 #include "AI/Navigation/NavLinkRenderingComponent.h"
 
+#include "PhysicsPublic.h"
+
+#include "AnimationRecorder.h"
+
 #include "Settings/EditorSettings.h"
+
+#include "KismetReinstanceUtilities.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
 
@@ -179,7 +185,6 @@ static int32 CleanBSPMaterials(UWorld* InWorld, bool bPreviewOnly, bool bLogBrus
 					}
 					if ( !bPreviewOnly )
 					{
-						Actor->Brush->Polys->Element.ModifyItem(PolyIndex);
 						ReferencedMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
 					}
 				}
@@ -546,8 +551,7 @@ void UEditorEngine::LoadAndSelectAssets( TArray<FAssetData>& Assets, UClass* Typ
 
 bool UEditorEngine::UsePercentageBasedScaling() const
 {
-	// Use percentage based scaling if the user setting is enabled or more than component or actor is selected.  Multiplicative scaling doesn't work when more than one object is selected
-	return GetDefault<ULevelEditorViewportSettings>()->UsePercentageBasedScaling() || GetSelectedActorCount() > 1 || GetSelectedComponentCount() > 1;
+	return GetDefault<ULevelEditorViewportSettings>()->UsePercentageBasedScaling();
 }
 
 bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar )
@@ -572,13 +576,13 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 			{
 				DefaultBrush->Brush->Modify();
 				SnapLocation = DefaultBrush->GetActorLocation();
-				PrePivot = DefaultBrush->GetPrePivot();
+				PrePivot = DefaultBrush->GetPivotOffset();
 			}
 			
 			FSnappingUtils::SnapToBSPVertex( SnapLocation, FVector::ZeroVector, Temp );
 
 			WorldBrush->SetActorLocation(SnapLocation - PrePivot, false);
-			WorldBrush->SetPrePivot( FVector::ZeroVector );
+			WorldBrush->SetPivotOffset( FVector::ZeroVector );
 			WorldBrush->Brush->Polys->Element.Empty();
 			UPolysFactory* It = NewObject<UPolysFactory>();
 			It->FactoryCreateText( UPolys::StaticClass(), WorldBrush->Brush->Polys->GetOuter(), *WorldBrush->Brush->Polys->GetName(), RF_NoFlags, WorldBrush->Brush->Polys, TEXT("t3d"), GStream, GStream+FCString::Strlen(GStream), GWarn );
@@ -629,11 +633,11 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 
 						Poly->TextureU *= InvScale;
 						Poly->TextureV *= InvScale;
-						Poly->Base = ((Poly->Base - Brush->GetPrePivot()) * Scale) + Brush->GetPrePivot();
+						Poly->Base = ((Poly->Base - Brush->GetPivotOffset()) * Scale) + Brush->GetPivotOffset();
 
 						for( int32 vtx = 0 ; vtx < Poly->Vertices.Num() ; vtx++ )
 						{
-							Poly->Vertices[vtx] = ((Poly->Vertices[vtx] - Brush->GetPrePivot()) * Scale) + Brush->GetPrePivot();
+							Poly->Vertices[vtx] = ((Poly->Vertices[vtx] - Brush->GetPivotOffset()) * Scale) + Brush->GetPivotOffset();
 						}
 
 						Poly->CalcNormal();
@@ -697,8 +701,9 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 					LoadAndSelectAssets( SelectedAssets, UMaterial::StaticClass() );
 				}
 
+				InWorld->GetModel()->Modify();
+				NewBrush->Modify();
 				bspBrushCSG( NewBrush, InWorld->GetModel(), DWord1, Brush_Add, CSG_None, true, true, true );
-				NewBrush->MarkPackageDirty();
 			}
 			InWorld->InvalidateModelGeometry( InWorld->GetCurrentLevel() );
 		}
@@ -780,8 +785,9 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 			NewBrush = FBSPOps::csgAddOperation(WorldBrush,0,Brush_Subtract); // Layer
 			if( NewBrush )
 			{
+				NewBrush->Modify();
+				InWorld->GetModel()->Modify();
 				bspBrushCSG( NewBrush, InWorld->GetModel(), 0, Brush_Subtract, CSG_None, true, true, true );
-				NewBrush->MarkPackageDirty();
 			}
 			InWorld->InvalidateModelGeometry( InWorld->GetCurrentLevel() );
 		}
@@ -1139,6 +1145,9 @@ UTransactor* UEditorEngine::CreateTrans()
 
 void UEditorEngine::PostUndo(bool bSuccess)
 {
+	// Cache any Actor that needs to be re-instanced because it still points to a REINST_ class
+	TMap< UClass*, UClass* > OldToNewClassMapToReinstance;
+
 	//Update the actor selection followed by the component selection if needed (note: order is important)
 		
 	//Get the list of all selected actors after the operation
@@ -1154,6 +1163,19 @@ void UEditorEngine::PostUndo(bool bSuccess)
 		else
 		{
 			GetSelectedActors()->Select(Actor, false);
+		}
+
+		// If the Actor's Class is not the AuthoritativeClass, then it needs to be re-instanced
+		UClass* OldClass = Actor->GetClass();
+		if (OldClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+		{
+			UClass* NewClass = OldClass->GetAuthoritativeClass();
+			if (!ensure(NewClass != OldClass))
+			{
+				UE_LOG(LogActor, Warning, TEXT("WARNING: %s is out of date and is the same as its AuthoritativeClass during PostUndo!"), *OldClass->GetName());
+			};
+
+			OldToNewClassMapToReinstance.Add(OldClass, NewClass);
 		}
 	}
 
@@ -1238,6 +1260,9 @@ void UEditorEngine::PostUndo(bool bSuccess)
 		ComponentSelection->MarkBatchDirty();
 		ComponentSelection->EndBatchSelectOperation();
 	}
+
+	// Re-instance any actors that need it
+	FBlueprintCompileReinstancer::BatchReplaceInstancesOfClass(OldToNewClassMapToReinstance);
 }
 
 bool UEditorEngine::UndoTransaction()
@@ -1540,6 +1565,11 @@ void UEditorEngine::RebuildLevel(ULevel& Level)
 		return;
 	}
 
+	FScopedSlowTask SlowTask(2);
+	SlowTask.MakeDialogDelayed(3.0f);
+
+	SlowTask.EnterProgressFrame(1);
+
 	// Note: most of the following code was taken from UEditorEngine::csgRebuild()
 	FinishAllSnaps();
 	FBSPOps::GFastRebuild = 1;
@@ -1559,6 +1589,7 @@ void UEditorEngine::RebuildLevel(ULevel& Level)
 
 	FBSPOps::GFastRebuild = 1;
 
+	SlowTask.EnterProgressFrame(1);
 	Level.UpdateModelComponents();
 
 	RebuildStaticNavigableGeometry(&Level);
@@ -1573,11 +1604,30 @@ void UEditorEngine::RebuildLevel(ULevel& Level)
 	GLevelEditorModeTools().MapChangeNotify();
 }
 
-void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushesOnly)
+void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushesOnly, bool bTreatMovableBrushesAsStatic)
 {
+	TUniquePtr<FBspPointsGrid> BspPoints = MakeUnique<FBspPointsGrid>(50.0f, THRESH_POINTS_ARE_SAME);
+	TUniquePtr<FBspPointsGrid> BspVectors = MakeUnique<FBspPointsGrid>(1/16.0f, FMath::Max(THRESH_NORMALS_ARE_SAME, THRESH_VECTORS_ARE_NEAR));
+	FBspPointsGrid::GBspPoints = BspPoints.Get();
+	FBspPointsGrid::GBspVectors = BspVectors.Get();
+
 	// Empty the model out.
+	const int32 NumPoints = Model->Points.Num();
+	const int32 NumNodes = Model->Nodes.Num();
+	const int32 NumVerts = Model->Verts.Num();
+	const int32 NumVectors = Model->Vectors.Num();
+	const int32 NumSurfs = Model->Surfs.Num();
+
+	Model->Modify();
 	Model->EmptyModel(1, 1);
-		
+
+	// Reserve arrays an eighth bigger than the previous allocation
+	Model->Points.Empty(NumPoints + NumPoints / 8);
+	Model->Nodes.Empty(NumNodes + NumNodes / 8);
+	Model->Verts.Empty(NumVerts + NumVerts / 8);
+	Model->Vectors.Empty(NumVectors + NumVectors / 8);
+	Model->Surfs.Empty(NumSurfs + NumSurfs / 8);
+
 	// Limit the brushes used to the level the model is for
 	ULevel* Level = Model->GetTypedOuter<ULevel>();
 	if ( !Level )
@@ -1589,45 +1639,77 @@ void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushes
 	}
 	check( Level );
 
-	// Compose all structural brushes and portals.
-	for( auto It(Level->Actors.CreateConstIterator()); It; ++It )
-	{	
+	// Build list of all static brushes, first structural brushes and portals
+	TArray<ABrush*> StaticBrushes;
+	for (auto It(Level->Actors.CreateConstIterator()); It; ++It)
+	{
 		ABrush* Brush = Cast<ABrush>(*It);
-		if ((Brush && Brush->IsStaticBrush() && !FActorEditorUtils::IsABuilderBrush(Brush)) &&
+		if ((Brush && (Brush->IsStaticBrush() || bTreatMovableBrushesAsStatic) && !FActorEditorUtils::IsABuilderBrush(Brush)) &&
 			(!bSelectedBrushesOnly || Brush->IsSelected()) &&
 			(!(Brush->PolyFlags & PF_Semisolid) || (Brush->BrushType != Brush_Add) || (Brush->PolyFlags & PF_Portal)))
 		{
+			StaticBrushes.Add(Brush);
+
 			// Treat portals as solids for cutting.
 			if (Brush->PolyFlags & PF_Portal)
 			{
 				Brush->PolyFlags = (Brush->PolyFlags & ~PF_Semisolid) | PF_NotSolid;
 			}
-			bspBrushCSG(Brush, Model, Brush->PolyFlags, (EBrushType)Brush->BrushType, CSG_None, false, true, false, false);
 		}
 	}
 
-	// Compose all detail brushes.
-	for( auto It(Level->Actors.CreateConstIterator()); It; ++It )
+	// Next append all detail brushes
+	for (auto It(Level->Actors.CreateConstIterator()); It; ++It)
 	{
 		ABrush* Brush = Cast<ABrush>(*It);
 		if (Brush && Brush->IsStaticBrush() && !FActorEditorUtils::IsABuilderBrush(Brush) &&
 			(!bSelectedBrushesOnly || Brush->IsSelected()) &&
 			(Brush->PolyFlags & PF_Semisolid) && !(Brush->PolyFlags & PF_Portal) && (Brush->BrushType == Brush_Add))
 		{
-			bspBrushCSG(Brush, Model, Brush->PolyFlags, (EBrushType)Brush->BrushType, CSG_None, false, true, false, false);
+			StaticBrushes.Add(Brush);
 		}
 	}
 
-	// Rebuild dynamic brush BSP's.
-	for( auto It(Level->Actors.CreateConstIterator()); It; ++It )
+	// Build list of dynamic brushes
+	TArray<ABrush*> DynamicBrushes;
+	if (!bTreatMovableBrushesAsStatic)
 	{
-		ABrush* DynamicBrush = Cast<ABrush>(*It);
-		if (DynamicBrush && DynamicBrush->Brush && !DynamicBrush->IsStaticBrush() &&
-			(!bSelectedBrushesOnly || DynamicBrush->IsSelected()))
+		for (auto It(Level->Actors.CreateConstIterator()); It; ++It)
 		{
-			FBSPOps::csgPrepMovingBrush(DynamicBrush);
+			ABrush* DynamicBrush = Cast<ABrush>(*It);
+			if (DynamicBrush && DynamicBrush->Brush && !DynamicBrush->IsStaticBrush() &&
+				(!bSelectedBrushesOnly || DynamicBrush->IsSelected()))
+			{
+				DynamicBrushes.Add(DynamicBrush);
+			}
 		}
 	}
+
+	FScopedSlowTask SlowTask(StaticBrushes.Num() + DynamicBrushes.Num());
+	SlowTask.MakeDialogDelayed(3.0f);
+
+	// Compose all static brushes
+	for (ABrush* Brush : StaticBrushes)
+	{
+		SlowTask.EnterProgressFrame(1);
+		Brush->Modify();
+		bspBrushCSG(Brush, Model, Brush->PolyFlags, (EBrushType)Brush->BrushType, CSG_None, false, true, false, false);
+	}
+
+	// Rebuild dynamic brush BSP's (if they weren't handled earlier)
+	for (ABrush* DynamicBrush : DynamicBrushes)
+	{
+		SlowTask.EnterProgressFrame(1);
+		BspPoints = MakeUnique<FBspPointsGrid>(50.0f, THRESH_POINTS_ARE_SAME);
+		BspVectors = MakeUnique<FBspPointsGrid>(1 / 16.0f, FMath::Max(THRESH_NORMALS_ARE_SAME, THRESH_VECTORS_ARE_NEAR));
+		FBspPointsGrid::GBspPoints = BspPoints.Get();
+		FBspPointsGrid::GBspVectors = BspVectors.Get();
+
+		FBSPOps::csgPrepMovingBrush(DynamicBrush);
+	}
+
+	FBspPointsGrid::GBspPoints = nullptr;
+	FBspPointsGrid::GBspVectors = nullptr;
 }
 
 
@@ -1688,12 +1770,19 @@ void UEditorEngine::RebuildAlteredBSP()
 		}
 
 		// Rebuild the levels
-		for (int32 LevelIdx = 0; LevelIdx < LevelsToRebuild.Num(); ++LevelIdx)
 		{
-			TWeakObjectPtr< ULevel > LevelToRebuild = LevelsToRebuild[LevelIdx];
-				if (LevelToRebuild.IsValid())
+			FScopedSlowTask SlowTask(LevelsToRebuild.Num(), NSLOCTEXT("EditorServer", "RebuildingBSP", "Rebuilding BSP..."));
+			SlowTask.MakeDialogDelayed(3.0f);
+
+			for (int32 LevelIdx = 0; LevelIdx < LevelsToRebuild.Num(); ++LevelIdx)
 			{
-				RebuildLevel(*LevelToRebuild.Get());
+				SlowTask.EnterProgressFrame(1.0f);
+
+				TWeakObjectPtr< ULevel > LevelToRebuild = LevelsToRebuild[LevelIdx];
+				if (LevelToRebuild.IsValid())
+				{
+					RebuildLevel(*LevelToRebuild.Get());
+				}
 			}
 		}
 
@@ -1718,7 +1807,8 @@ void UEditorEngine::BSPIntersectionHelper(UWorld* InWorld, ECsgOper Operation)
 	ABrush* DefaultBrush = InWorld->GetDefaultBrush();
 	if (DefaultBrush != NULL)
 	{
-		DefaultBrush->Brush->Modify();
+		DefaultBrush->Modify();
+		InWorld->GetModel()->Modify();
 		FinishAllSnaps();
 		bspBrushCSG(DefaultBrush, InWorld->GetModel(), 0, Brush_MAX, Operation, false, true, true);
 	}
@@ -1766,6 +1856,15 @@ void UEditorEngine::CheckForWorldGCLeaks( UWorld* NewWorld, UPackage* WorldPacka
 
 void UEditorEngine::EditorDestroyWorld( FWorldContext & Context, const FText& CleanseText, UWorld* NewWorld )
 {
+	if( FModuleManager::Get().IsModuleLoaded("LevelEditor") )
+	{
+		FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+
+		// Notify level editors of the map change
+		LevelEditor.BroadcastMapChanged( Context.World(), EMapChangeType::TearDownWorld );
+	}
+
+
 	UWorld* ContextWorld = Context.World();
 
 	if (ContextWorld == NULL )
@@ -1783,7 +1882,8 @@ void UEditorEngine::EditorDestroyWorld( FWorldContext & Context, const FText& Cl
 	if (ContextWorld->WorldType != EWorldType::Preview && ContextWorld->WorldType != EWorldType::Inactive)
 	{
 		// Go away, come again never!
-		ContextWorld->ClearFlags(RF_Standalone | RF_RootSet | RF_Transactional);
+		ContextWorld->ClearFlags(RF_Standalone | RF_Transactional);
+		ContextWorld->RemoveFromRoot();
 
 		// If this was a memory-only world, we should inform the asset registry that this asset is going away forever.
 		if (WorldPackage)
@@ -2002,6 +2102,8 @@ UWorld* UEditorEngine::NewMap()
 	Context.SetCurrentWorld(NewWorld);
 	GWorld = NewWorld;
 	NewWorld->AddToRoot();
+	// Register components in the persistent level (current)
+	NewWorld->UpdateWorldComponents(true, true);
 
 	NoteSelectionChange();
 
@@ -2031,7 +2133,7 @@ UWorld* UEditorEngine::NewMap()
 	InitBuilderBrush( Context.World() );
 
 	// Let navigation system know we're done creating new world
-	UNavigationSystem::InitializeForWorld(Context.World(), FNavigationSystem::EditorMode);
+	UNavigationSystem::InitializeForWorld(Context.World(), FNavigationSystemRunMode::EditorMode);
 
 	// Deselect all
 	GEditor->SelectNone( false, true );
@@ -2040,7 +2142,7 @@ UWorld* UEditorEngine::NewMap()
 	GUnrealEd->ResetTransaction( CleanseText );
 
 	// Invalidate all the level viewport hit proxies
-	InvalidateAllLevelEditorViewportClientHitProxies();
+	RedrawLevelEditingViewports();
 
 	return NewWorld;
 }
@@ -2214,7 +2316,9 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 					for (TObjectIterator<UWorld> It; It; ++It)
 					{
 						UPackage* Package = Cast<UPackage>(It->GetOuter());
-						if (Package && Package != GetTransientPackage())
+						
+
+						if (Package && Package != GetTransientPackage() && Package->GetPathName() != LongTempFname)
 						{
 							WorldPackages.AddUnique(Package);
 						}
@@ -2318,6 +2422,9 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 				Context.SetCurrentWorld(World);
 				GWorld = World;
 
+				// UE-21181 - Tracking where the loaded editor level's package gets flagged as a PIE object
+				UPackage::EditorPackage = WorldPackage;
+
 				World->WorldType = EWorldType::Editor;
 
 				// Parse requested feature level if supplied
@@ -2372,6 +2479,9 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 						Context.World()->GetModel()->Polys->SetFlags( RF_Transactional );
 					}
 
+					// Register components in the persistent level (current)
+					Context.World()->UpdateWorldComponents(true, true);
+
 					// Make sure secondary levels are loaded & visible.
 					Context.World()->FlushLevelStreaming();
 
@@ -2424,7 +2534,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 
 					InitializingFeedback.EnterProgressFrame();
 
-					UNavigationSystem::InitializeForWorld(Context.World(), FNavigationSystem::EditorMode);
+					UNavigationSystem::InitializeForWorld(Context.World(), FNavigationSystemRunMode::EditorMode);
 					Context.World()->CreateAISystem();
 
 					// Assign stationary light channels for previewing
@@ -2479,7 +2589,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 					{
 						FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
 
-						// Notify slate level editors of the map change
+						// Notify level editors of the map change
 						LevelEditor.BroadcastMapChanged( Context.World(), EMapChangeType::LoadMap );
 					}
 
@@ -2490,7 +2600,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 					}
 
 					// Invalidate all the level viewport hit proxies
-					InvalidateAllLevelEditorViewportClientHitProxies();
+					RedrawLevelEditingViewports();
 				}
 			}
 			else
@@ -2915,6 +3025,22 @@ void UEditorEngine::MoveSelectedFoliageToLevel(ULevel* InTargetLevel)
 	}
 }
 
+TArray<UFoliageType*> UEditorEngine::GetFoliageTypesInWorld(UWorld* InWorld)
+{
+	TSet<UFoliageType*> FoliageSet;
+	
+	// Iterate over all foliage actors in the world
+	for (TActorIterator<AInstancedFoliageActor> It(InWorld); It; ++It)
+	{
+		for (const auto& Pair : It->FoliageMeshes)
+		{
+			FoliageSet.Add(Pair.Key);
+		}
+	}
+
+	return FoliageSet.Array();
+}
+
 ULevel*  UEditorEngine::CreateTransLevelMoveBuffer( UWorld* InWorld )
 {
 	ULevel* BufferLevel = NewObject<ULevel>(GetTransientPackage(), TEXT("TransLevelMoveBuffer"));
@@ -3249,7 +3375,9 @@ void UEditorEngine::PasteSelectedActorsFromClipboard( UWorld* InWorld, const FTe
 		const FScopedTransaction Transaction( TransDescription );
 
 		GEditor->SelectNone( true, false );
+		ABrush::SetSuppressBSPRegeneration(true);
 		edactPasteSelected( InWorld, false, false, true );
+		ABrush::SetSuppressBSPRegeneration(false);
 
 		if( PasteTo != PT_OriginalLocation )
 		{
@@ -3275,12 +3403,25 @@ void UEditorEngine::PasteSelectedActorsFromClipboard( UWorld* InWorld, const FTe
 				const FVector Location = bbox.GetCenter();
 				const FVector Adjust = Origin - Location;
 
+				// List of group actors in the selection
+				TArray<AGroupActor*> GroupActors;
+
 				// Move the actors.
 				AActor* SingleActor = NULL;
 				for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
 				{
 					AActor* Actor = static_cast<AActor*>( *It );
 					checkSlow( Actor->IsA(AActor::StaticClass()) );
+
+					// If this actor is in a group, add it to the list
+					if (GEditor->bGroupingActive)
+					{
+						AGroupActor* ActorGroupRoot = AGroupActor::GetRootForActor(Actor, true, true);
+						if (ActorGroupRoot)
+						{
+							GroupActors.AddUnique(ActorGroupRoot);
+						}
+					}
 
 					SingleActor = Actor;
 					Actor->SetActorLocation(Actor->GetActorLocation() + Adjust, false);
@@ -3289,7 +3430,16 @@ void UEditorEngine::PasteSelectedActorsFromClipboard( UWorld* InWorld, const FTe
 
 				// Update the pivot location.
 				check(SingleActor);
-				SetPivot( SingleActor->GetActorLocation(), false, true );
+				SetPivot(SingleActor->GetActorLocation(), false, true);
+
+				// If grouping is active, go through the unique group actors and update the group actor location
+				if (GEditor->bGroupingActive)
+				{
+					for (AGroupActor* GroupActor : GroupActors)
+					{
+						GroupActor->CenterGroupLocation();
+					}
+				}
 			}
 		}
 
@@ -3758,18 +3908,17 @@ bool UEditorEngine::Map_Scale( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 			ABrush* Brush = Cast< ABrush >( Actor );
 			if( Brush )
 			{
-				Brush->Brush->Polys->Element.ModifyAllItems();
 				for( int32 poly = 0 ; poly < Brush->Brush->Polys->Element.Num() ; poly++ )
 				{
 					FPoly* Poly = &(Brush->Brush->Polys->Element[poly]);
 
 					Poly->TextureU /= Factor;
 					Poly->TextureV /= Factor;
-					Poly->Base = ((Poly->Base - Brush->GetPrePivot()) * Factor) + Brush->GetPrePivot();
+					Poly->Base = ((Poly->Base - Brush->GetPivotOffset()) * Factor) + Brush->GetPivotOffset();
 
 					for( int32 vtx = 0 ; vtx < Poly->Vertices.Num() ; vtx++ )
 					{
-						Poly->Vertices[vtx] = ((Poly->Vertices[vtx] - Brush->GetPrePivot()) * Factor) + Brush->GetPrePivot();
+						Poly->Vertices[vtx] = ((Poly->Vertices[vtx] - Brush->GetPivotOffset()) * Factor) + Brush->GetPivotOffset();
 					}
 
 					Poly->CalcNormal();
@@ -3851,6 +4000,7 @@ namespace {
 		{
 			FBspSurf* Surf = *It;
 			UModel* Model = It.GetModel();
+			Model->Modify();
 			const FVector TextureU( Model->Vectors[Surf->vTextureU] );
 			const FVector TextureV( Model->Vectors[Surf->vTextureV] );
 			Surf->vTextureU = Model->Vectors.Add(TextureU);
@@ -3865,7 +4015,8 @@ namespace {
 
 		for( FConstLevelIterator Iterator = InWorld->GetLevelIterator(); Iterator; ++Iterator )
 		{
-			UModel* Model = (*Iterator)->Model;;
+			UModel* Model = (*Iterator)->Model;
+			Model->Modify();
 			GEditor->polyTexScale( Model, UU, UV, VU, VV, !!Word2 );
 		}
 	}
@@ -4061,7 +4212,9 @@ bool UEditorEngine::Exec_Poly( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 				const int32 SurfaceIndex = It.GetSurfaceIndex();
 
 				Model->Surfs[SurfaceIndex].Material = SelectedMaterialInstance;
-				polyUpdateMaster( Model, SurfaceIndex, 0 );
+				const bool bUpdateTexCoords = false;
+				const bool bOnlyRefreshSurfaceMaterials = true;
+				polyUpdateMaster(Model, SurfaceIndex, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 				Model->MarkPackageDirty();
 
 				bModelDirtied = true;
@@ -4092,7 +4245,9 @@ bool UEditorEngine::Exec_Poly( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 				{
 					const int32 SurfaceIndex = It.GetSurfaceIndex();
 					It.GetModel()->Surfs[SurfaceIndex].Material = Material;
-					polyUpdateMaster( It.GetModel(), SurfaceIndex, 0 );
+					const bool bUpdateTexCoords = false;
+					const bool bOnlyRefreshSurfaceMaterials = true;
+					polyUpdateMaster(It.GetModel(), SurfaceIndex, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 				}
 			}
 
@@ -4157,6 +4312,7 @@ bool UEditorEngine::Exec_Poly( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 			{
 				FBspSurf* Surf = *It;
 				UModel* Model = It.GetModel();
+				Model->Modify();
 				const FVector Base( Model->Points[Surf->pBase] );
 				Surf->pBase = Model->Points.Add(Base);
 			}
@@ -4166,6 +4322,7 @@ bool UEditorEngine::Exec_Poly( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 				for( FConstLevelIterator Iterator = InWorld->GetLevelIterator(); Iterator; ++Iterator )
 				{
 					UModel* Model = (*Iterator)->Model;
+					Model->Modify();
 					polyTexPan( Model, 0, 0, 1 );
 				}
 			}
@@ -4175,6 +4332,7 @@ bool UEditorEngine::Exec_Poly( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 			for( FConstLevelIterator Iterator = InWorld->GetLevelIterator(); Iterator; ++Iterator )
 			{
 				UModel* Model = (*Iterator)->Model;
+				Model->Modify();
 				polyTexPan( Model, PanU, PanV, 0 );
 			}
 		}
@@ -6602,7 +6760,9 @@ void UEditorEngine::MoveViewportCamerasToBox(const FBox& BoundingBox, bool bActi
 			for (auto ViewportIt = LevelViewportClients.CreateConstIterator(); ViewportIt; ++ViewportIt)
 			{
 				FLevelEditorViewportClient* LinkedViewportClient = *ViewportIt;
-				LinkedViewportClient->FocusViewportOnBox(BoundingBox);
+				//Dont move camera attach to an actor
+				if (!LinkedViewportClient->IsAnyActorLocked())
+					LinkedViewportClient->FocusViewportOnBox(BoundingBox);
 			}
 		}
 	}

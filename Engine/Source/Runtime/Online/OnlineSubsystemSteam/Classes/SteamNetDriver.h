@@ -5,6 +5,7 @@
 //
 
 #pragma once
+#include "IpNetDriver.h"
 #include "SteamNetDriver.generated.h"
 
 UCLASS(transient, config=Engine)
@@ -19,11 +20,11 @@ class USteamNetDriver : public UIpNetDriver
 	/** Should this net driver behave as a passthrough to normal IP */
 	bool bIsPassthrough;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UIpNetDriver Interface
+	//~ Begin UIpNetDriver Interface
 
 	virtual class ISocketSubsystem* GetSocketSubsystem() override;
 	virtual bool IsAvailable() const override;
@@ -34,6 +35,6 @@ class USteamNetDriver : public UIpNetDriver
 	virtual void TickFlush(float DeltaSeconds) override;
 	virtual bool IsNetResourceValid() override;
 
-	// End UIpNetDriver Interface
+	//~ End UIpNetDriver Interface
 
 };

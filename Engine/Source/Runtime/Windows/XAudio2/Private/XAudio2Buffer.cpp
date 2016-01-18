@@ -343,24 +343,32 @@ void FXAudio2SoundBuffer::Seek( const float SeekTime )
  */
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave )
 {
+	// Check to see if thread has finished decompressing on the other thread
+	if( Wave->AudioDecompressor != nullptr )
+	{
+		Wave->AudioDecompressor->EnsureCompletion();
+
+		// Remove the decompressor
+		delete Wave->AudioDecompressor;
+		Wave->AudioDecompressor = nullptr;
+	}
+
 	// Always create a new buffer for real time decompressed sounds
 	FXAudio2SoundBuffer* Buffer = new FXAudio2SoundBuffer( XAudio2Device, SoundFormat_PCMRT );
+
+	// If the buffer was precached as native, the resource data will have been lost and we need to re-initialize it
+	if (Wave->ResourceData == nullptr)
+	{
+		Wave->InitAudioResource(XAudio2Device->GetRuntimeFormat(Wave));
+	}
 
 	// Prime the first two buffers and prepare the decompression
 	FSoundQualityInfo QualityInfo = { 0 };
 
 	Buffer->DecompressionState = XAudio2Device->CreateCompressedAudioInfo(Wave);
 
-	Wave->InitAudioResource(XAudio2Device->GetRuntimeFormat(Wave));
-
 	if (Buffer->DecompressionState && Buffer->DecompressionState->ReadCompressedInfo(Wave->ResourceData, Wave->ResourceSize, &QualityInfo))
 	{
-		// Refresh the wave data
-		Wave->SampleRate = QualityInfo.SampleRate;
-		Wave->NumChannels = QualityInfo.NumChannels;
-		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
-		Wave->Duration = QualityInfo.Duration;
-
 		// Clear out any dangling pointers
 		Buffer->PCM.PCMData = NULL;
 		Buffer->PCM.PCMDataSize = 0;
@@ -375,7 +383,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XA
 		Wave->RemoveAudioResource();
 	}
 
-	return( Buffer );
+	return Buffer;
 }
 
 /**

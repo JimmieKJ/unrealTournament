@@ -32,7 +32,7 @@ namespace intrinsics
 #endif
 
 	//! \brief platform-specific absolute value
-	PX_CUDA_CALLABLE PX_FORCE_INLINE float abs(float a)						{	return ::fabs(a);	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE float abs(float a)						{	return ::fabsf(a);	}
 
 	//! \brief platform-specific select float
 	PX_CUDA_CALLABLE PX_FORCE_INLINE float fsel(float a, float b, float c)	{	return (a >= 0.0f) ? b : c;	}

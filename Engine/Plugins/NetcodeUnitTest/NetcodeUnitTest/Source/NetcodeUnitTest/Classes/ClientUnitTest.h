@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "UnitTest.h"
+#include "ProcessUnitTest.h"
 
 #include "ClientUnitTest.generated.h"
 
@@ -63,8 +63,8 @@ enum class EUnitTestFlags : uint32 // NOTE: If you change from uint32, you need 
 	IgnoreDisconnect		= 0x00080000,	// Whether or not minimal/fake client disconnects, should be treated as a unit test failure
 
 	/** Unit test events */
-	NotifyAllowNetActor		= 0x00100000,	// Whether or not to trigger 'NotifyAllowNetActor', which whitelist actor channels by class
 	NotifyNetActors			= 0x00200000,	// Whether or not to trigger a 'NotifyNetActor' event, AFTER creation of actor channel actor
+	NotifyProcessEvent		= 0x00400000,	// Whether or not to trigger 'NotifyScriptProcessEvent' for every executed local function
 
 	/** Debugging */
 	CaptureReceivedRaw		= 0x01000000,	// Whether or not to capture raw (clientside) packet receives
@@ -72,8 +72,8 @@ enum class EUnitTestFlags : uint32 // NOTE: If you change from uint32, you need 
 	DumpReceivedRaw			= 0x04000000,	// Whether or not to also hex-dump the raw packet receives to the log/log-window
 	DumpSendRaw				= 0x08000000,	// Whether or not to also hex-dump the raw packet sends to the log/log-window
 	DumpControlMessages		= 0x10000000,	// Whether or not to dump control channel messages, and their raw hex content
-	DumpReceivedRPC			= 0x20000000,	// Whether or not to dump RPC receives
-	DumpSendRPC				= 0x40000000,	// Whether or not to dump RPC sends
+	DumpReceivedRPC			= 0x20000000,	// Whether or not to dump RPC receives (with LogNetTraffic, detects ProcessEvent RPC fail)
+	DumpSendRPC				= 0x40000000	// Whether or not to dump RPC sends
 };
 
 // Required for bitwise operations with the above enum
@@ -107,8 +107,8 @@ inline FString GetUnitTestFlagName(EUnitTestFlags Flag)
 		EUTF_CASE(IgnoreServerCrash);
 		EUTF_CASE(IgnoreClientCrash);
 		EUTF_CASE(IgnoreDisconnect);
-		EUTF_CASE(NotifyAllowNetActor);
 		EUTF_CASE(NotifyNetActors);
+		EUTF_CASE(NotifyProcessEvent);
 		EUTF_CASE(CaptureReceivedRaw);
 		EUTF_CASE(CaptureSendRaw);
 		EUTF_CASE(DumpReceivedRaw);
@@ -133,143 +133,13 @@ inline FString GetUnitTestFlagName(EUnitTestFlags Flag)
 
 
 /**
- * Enum for different stages of error log parsing
- */
-enum class EErrorLogStage : uint8
-{
-	ELS_NoError,		// No error logs have been received/parsed yet
-	ELS_ErrorStart,		// The text indicating the start of an error log is being parsed
-	ELS_ErrorDesc,		// The text describing the error is being parsed
-	ELS_ErrorCallstack,	// The callstack for the error is being parsed
-	ELS_ErrorExit		// The post-error exit message is being parsed (error parsing is effectively complete)
-};
-
-/**
- * Enum for specifying the suspend state of a process (typically the server)
- */
-enum class ESuspendState : uint8
-{
-	Active,				// Process is currently active/not-suspended
-	Suspended,			// Process is currently suspended
-};
-
-
-// Delegate definitions
-
-/**
- * Delegate notifying that the server suspend state has changed
- *
- * @param NewSuspendState	The new server suspend state
- */
-DECLARE_DELEGATE_OneParam(FOnSuspendStateChange, ESuspendState /*NewSuspendState*/);
-
-
-// Struct definitions
-
-/**
- * Struct used for storing and classifying each log error line
- */
-struct FErrorLog
-{
-	/** The stage of this error log line */
-	EErrorLogStage Stage;
-
-	/** The error log line */
-	FString Line;
-
-
-	/**
-	 * Base constructor
-	 */
-	FErrorLog()
-		: Stage(EErrorLogStage::ELS_NoError)
-		, Line()
-	{
-	}
-
-	FErrorLog(EErrorLogStage InStage, const FString& InLine)
-		: Stage(InStage)
-		, Line(InLine)
-	{
-	}
-};
-
-/**
- * Struct used for handling a launched UE4 client/server process
- */
-struct FUnitTestProcess
-{
-	friend class UClientUnitTest;
-
-	/** Process handle for the launched process */
-	FProcHandle ProcessHandle;
-
-	/** The process ID */
-	uint32 ProcessID;
-
-	/** The suspend state of the process (implemented as a part of unit test code, does not relate to OS API) */
-	ESuspendState SuspendState;
-
-	/** Human-readable tag given to this process */
-	FString ProcessTag;
-
-
-	/** Handle to StdOut for the launched process */
-	void* ReadPipe;
-
-	/** Handle to StdIn for the launched process (unused) */
-	void* WritePipe;
-
-
-	/** The base log type for this process (client? server? process?) */
-	ELogType BaseLogType;
-
-	/** The prefix to use for StdOut log output */
-	FString LogPrefix;
-
-	/** The OutputDeviceColor string, to use for setting the log output color */
-	const TCHAR* MainLogColor;
-
-	/** The log output color to use in the slate log window */
-	FSlateColor SlateLogColor;
-
-
-	/** If this process is outputting an error log, this is the current stage of error parsing (or ELS_NoError if not parsing) */
-	EErrorLogStage ErrorLogStage;
-
-	/** Gathered error log text */
-	TArray<FErrorLog> ErrorText;
-
-
-	/**
-	 * Base constructor
-	 */
-	FUnitTestProcess()
-		: ProcessHandle()
-		, ProcessID(0)
-		, SuspendState(ESuspendState::Active)
-		, ProcessTag(TEXT(""))
-		, ReadPipe(NULL)
-		, WritePipe(NULL)
-		, BaseLogType(ELogType::None)
-		, LogPrefix(TEXT(""))
-		, MainLogColor(COLOR_NONE)
-		, SlateLogColor(FSlateColor::UseForeground())
-		, ErrorLogStage(EErrorLogStage::ELS_NoError)
-		, ErrorText()
-	{
-	}
-};
-
-
-/**
  * Base class for all unit tests depending upon a (fake/minimal) client connecting to a server.
  * Handles creation/cleanup of an entire new UWorld, UNetDriver and UNetConnection, for fast sequential unit testing.
  * 
  * In subclasses, implement the unit test within the ExecuteClientUnitTest function (remembering to call parent)
  */
 UCLASS()
-class NETCODEUNITTEST_API UClientUnitTest : public UUnitTest
+class NETCODEUNITTEST_API UClientUnitTest : public UProcessUnitTest
 {
 	GENERATED_UCLASS_BODY()
 
@@ -300,12 +170,15 @@ protected:
 	/** The (non-URL) commandline parameters clients should be launched with */
 	FString BaseClientParameters;
 
+	/** Actors the server is allowed replicate to client (requires AllowActors flag). Use NotifyAllowNetActor for conditional allows. */
+	TArray<UClass*> AllowedClientActors;
+
+	/** Clientside RPC's that should be allowed to execute (requires NotifyProcessEvent flag; other flags also allow specific RPC's) */
+	TArray<FString> AllowedClientRPCs;
+
 
 	/** Runtime variables */
 protected:
-	/** Stores a reference to all running child processes tied to this unit test, for housekeeping */
-	TArray<TSharedPtr<FUnitTestProcess>> ActiveProcesses;
-
 	/** Reference to the created server process handling struct */
 	TWeakPtr<FUnitTestProcess> ServerHandle;
 
@@ -317,6 +190,18 @@ protected:
 
 	/** Reference to the created client process handling struct (if enabled) */
 	TWeakPtr<FUnitTestProcess> ClientHandle;
+
+	/** Whether or not there is a blocking event/process preventing setup of the server */
+	bool bBlockingServerDelay;
+
+	/** Whether or not there is a blocking event/process preventing setup of a client */
+	bool bBlockingClientDelay;
+
+	/** Whether or not there is a blocking event/process preventing the fake client from connecting */
+	bool bBlockingFakeClientDelay;
+
+	/** When a server is launched after a blocking event/process, this delays the launch of any clients, in case of more blockages */
+	double NextBlockingTimeout;
 
 
 	/** Stores a reference to the created fake world, for execution and later cleanup */
@@ -353,12 +238,7 @@ protected:
 	TArray<int32> PendingNetActorChans;
 
 
-public:
-	/** Delegate for notifying the UI, of a change in the server suspend state */
-	FOnSuspendStateChange OnServerSuspendState;
-
-
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 private:
 	/** Handle to the registered InternalNotifyNetworkFailure delegate */
 	FDelegateHandle InternalNotifyNetworkFailureDelegateHandle;
@@ -413,12 +293,13 @@ public:
 	virtual void NotifyHandleClientPlayer(APlayerController* PC, UNetConnection* Connection);
 
 	/**
-	 * Override this, to receive notification BEFORE an actor channel actor has been created (allowing you to block, based on class)
+	 * Override this, to receive notification BEFORE a replicated actor has been created (allowing you to block, based on class)
 	 *
 	 * @param ActorClass	The actor class that is about to be created
+	 * @param bActorChannel	Whether or not this actor is being created within an actor channel
 	 * @return				Whether or not to allow creation of that actor
 	 */
-	virtual bool NotifyAllowNetActor(UClass* ActorClass);
+	virtual bool NotifyAllowNetActor(UClass* ActorClass, bool bActorChannel);
 
 	/**
 	 * Override this, to receive notification AFTER an actor channel actor has been created
@@ -471,10 +352,9 @@ public:
 	 * @param Actor			The actor the event is being executed on
 	 * @param Function		The script function being executed
 	 * @param Parameters	The raw unparsed parameters, being passed into the function
-	 * @param HookOrigin	Reference to the unit test that the event is associated with
 	 * @return				Whether or not to block the event from executing
 	 */
-	virtual bool NotifyScriptProcessEvent(AActor* Actor, UFunction* Function, void* Parameters, void* HookOrigin);
+	virtual bool NotifyScriptProcessEvent(AActor* Actor, UFunction* Function, void* Parameters);
 #endif
 
 	/**
@@ -491,55 +371,19 @@ public:
 	virtual bool NotifySendRPC(AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack,
 								UObject* SubObject);
 
-	/**
-	 * For implementation in subclasses, for helping to verify success/fail upon completion of unit tests
-	 * NOTE: Not called again once VerificationState is set
-	 * WARNING: Be careful when iterating InLogLines in multiple different for loops, if the sequence of detected logs is important
-	 *
-	 * @param InProcess		The process the log lines are from
-	 * @param InLogLines	The current log lines being received
-	 */
-	virtual void NotifyProcessLog(TWeakPtr<FUnitTestProcess> InProcess, const TArray<FString>& InLogLines);
 
-	/**
-	 * Notifies that there was a request to suspend/resume the unit test server
-	 */
-	void NotifySuspendRequest();
+	virtual void NotifyProcessLog(TWeakPtr<FUnitTestProcess> InProcess, const TArray<FString>& InLogLines) override;
 
-	/**
-	 * Notifies when the suspend state of a process changes
-	 *
-	 * @param InProcess			The process whose suspend state has changed
-	 * @param InSuspendState	The new suspend state of the process
-	 */
-	void NotifyProcessSuspendState(TWeakPtr<FUnitTestProcess> InProcess, ESuspendState InSuspendState);
+	virtual void NotifyProcessFinished(TWeakPtr<FUnitTestProcess> InProcess) override;
+
+	virtual void NotifyProcessSuspendState(TWeakPtr<FUnitTestProcess> InProcess, ESuspendState InSuspendState) override;
 
 
-	/**
-	 * Notifies that there was a request to enable/disable developer mode
-	 *
-	 * @param bInDeveloperMode	Whether or not developer mode is being enabled/disabled
-	 */
-	void NotifyDeveloperModeRequest(bool bInDeveloperMode);
+	virtual void NotifySuspendRequest() override;
 
-	/**
-	 * Notifies that there was a request to execute a console command for the unit test, which can occur in a specific context,
-	 * e.g. for the unit test server, for the local minimal-client (within the unit test), or for the separate unit test client process
-	 *
-	 * @param CommandContext	The context (local/server/client?) for the console command
-	 * @param Command			The command to be executed
-	 * @return					Whether or not the command was handled
-	 */
-	virtual bool NotifyConsoleCommandRequest(FString CommandContext, FString Command);
+	virtual bool NotifyConsoleCommandRequest(FString CommandContext, FString Command) override;
 
-
-	/**
-	 * Outputs the list of console command contexts, that this unit test supports (which can include custom contexts in subclasses)
-	 *
-	 * @param OutList				Outputs the list of supported console command contexts
-	 * @param OutDefaultContext		Outputs the context which should be auto-selected/defaulted-to
-	 */
-	virtual void GetCommandContextList(TArray<TSharedPtr<FString>>& OutList, FString& OutDefaultContext);
+	virtual void GetCommandContextList(TArray<TSharedPtr<FString>>& OutList, FString& OutDefaultContext) override;
 
 
 	/**
@@ -549,12 +393,14 @@ public:
 	/**
 	 * Sends the specified RPC for the specified actor, and verifies that the RPC was sent (triggering a unit test failure if not)
 	 *
-	 * @param Target		The actor which will send the RPC
-	 * @param FunctionName	The name of the RPC
-	 * @param Parms			The RPC parameters (same as would be specified to ProcessEvent)
-	 * @return				Whether or not the RPC was sent successfully
+	 * @param Target				The actor which will send the RPC
+	 * @param FunctionName			The name of the RPC
+	 * @param Parms					The RPC parameters (same as would be specified to ProcessEvent)
+	 * @param ParmsSize				The size of the RPC parameters, for verifying binary compatibility
+	 * @param ParmsSizeCorrection	Some parameters are compressed to a different size. Verify Parms matches, and use this to correct.
+	 * @return						Whether or not the RPC was sent successfully
 	 */
-	bool SendRPCChecked(AActor* Target, const TCHAR* FunctionName, void* Parms);
+	bool SendRPCChecked(AActor* Target, const TCHAR* FunctionName, void* Parms, int16 ParmsSize, int16 ParmsSizeCorrection=0);
 
 	/**
 	 * As above, except the RPC is called within a lambda
@@ -599,6 +445,13 @@ protected:
 
 	virtual void ResetTimeout(FString ResetReason, bool bResetConnTimeout=false, uint32 MinDuration=0) override;
 
+	/**
+	 * Resets the net connection timeout
+	 *
+	 * @param Duration	The duration which the timeout reset should last
+	 */
+	void ResetConnTimeout(float Duration);
+
 
 	/**
 	 * Returns the requirements flags, that this unit test currently meets
@@ -608,10 +461,12 @@ protected:
 	/**
 	 * Whether or not all 'requirements' flag conditions have been met
 	 *
-	 * @return	Whether or not all requirements are met
+	 * @param bIgnoreCustom		If true, checks all requirements other than custom requirements
+	 * @return					Whether or not all requirements are met
 	 */
-	bool HasAllRequirements();
+	bool HasAllRequirements(bool bIgnoreCustom=false);
 
+public:
 	/**
 	 * Optionally, if the 'RequireCustom' flag is set, this returns whether custom conditions have been met.
 	 *
@@ -633,7 +488,7 @@ protected:
 	 */
 	virtual ELogType GetExpectedLogTypes() override;
 
-
+protected:
 	virtual bool ExecuteUnitTest() override;
 
 	virtual void CleanupUnitTest() override;
@@ -683,41 +538,7 @@ protected:
 	virtual FString ConstructClientParameters(FString ConnectIP);
 
 
-	/**
-	 * Starts a child UE4 process, tied to the unit test, with the specified commandline
-	 *
-	 * @param InCommandline		The commandline that the child process should use
-	 * @param bMinimized		Starts the process with the window minimized
-	 * @return					Returns a pointer to the new processes handling struct
-	 */
-	virtual TWeakPtr<FUnitTestProcess> StartUnitTestProcess(FString InCommandline, bool bMinimized=true);
-
-	/**
-	 * Shuts-down/cleans-up a child process tied to the unit test
-	 *
-	 * @param InHandle	The handling struct for the process
-	 */
-	virtual void ShutdownUnitTestProcess(TSharedPtr<FUnitTestProcess> InHandle);
-
-	/**
-	 * Processes the standard output (i.e. log output) for processes
-	 */
-	void PollProcessOutput();
-
-	/**
-	 * Updates (and if necessary, saves) the memory stats for processes
-	 */
-	void UpdateProcessStats();
-
-
-	/**
-	 * Checks incoming process logs, for any indication of a UE4 crash/error
-	 *
-	 * @param InProcess		The process the log output originates from
-	 * @param InLines		The incoming log lines
-	 */
-	void CheckOutputForError(TSharedPtr<FUnitTestProcess> InProcess, const TArray<FString>& InLines);
-
+	virtual void PrintUnitTestProcessErrors(TSharedPtr<FUnitTestProcess> InHandle) override;
 
 	void InternalNotifyNetworkFailure(UWorld* InWorld, UNetDriver* InNetDriver, ENetworkFailure::Type FailureType,
 										const FString& ErrorString);
@@ -728,15 +549,7 @@ protected:
 #endif
 
 
-	// Tick standard output of the server, if the process is launched
 	virtual void UnitTick(float DeltaTime) override;
 
-	virtual void PostUnitTick(float DeltaTime) override;
-
 	virtual bool IsTickable() const override;
-
-
-	virtual void FinishDestroy() override;
-
-	virtual void ShutdownAfterError() override;
 };

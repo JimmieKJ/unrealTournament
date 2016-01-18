@@ -9,7 +9,7 @@
 //
 //				Copyright (C) Microsoft. All rights reserved.
 //-----------------------------------------------------------------------------
- 
+
 //------------------------------------------------------------------------------
 
 #define REFINE_OVER_TIME	1
@@ -27,46 +27,10 @@
  
 #define TILED_ADDRESSING		0
 
-// HACK!
-#ifdef LPV_AMBIENT_CUBE
-	#undef	LPV_AMBIENT_CUBE 
-#endif
- 
-// TODO: pass these in from a common compile enviroment setup
-#define LPV_AMBIENT_CUBE		0				// This has to match the value in LightPropagationVolume.cpp
-#define LPV_AMBIENT_CUBE_WITH_SH_BUFFER_HACK 0	// This has to match the value in LightPropagationVolume.cpp
-#define LPV_VOLUME_TEXTURE		1				// This has to match the value in LightPropagationVolume.h
-
 //-------------------------------------------------------------------------------------------------
-
-#define AMBIENT_CUBE_NEGATIVE_X 0
-#define AMBIENT_CUBE_POSITIVE_X 1
-#define AMBIENT_CUBE_NEGATIVE_Y 2
-#define AMBIENT_CUBE_POSITIVE_Y 3
-#define AMBIENT_CUBE_NEGATIVE_Z 4
-#define AMBIENT_CUBE_POSITIVE_Z 5
-
-//-------------------------------------------------------------------------------------------------
-
-struct LPVCellPackedAmbientCube
-{
-#if LPV_AMBIENT_CUBE_WITH_SH_BUFFER_HACK
-	uint packedData[14];
-#else
-	uint packedData[6];
-#endif
-};
-
-struct LPVCellPackedSH
-{
-	uint packedCoeffs[14];
-};
-
-#if LPV_VOLUME_TEXTURE || LPV_GV_VOLUME_TEXTURE
 SamplerState								gLpv3DTextureSampler;
-#endif
 
-#if LPV_VOLUME_TEXTURE
+Texture3D<float>							gAOVolumeTexture; 
 Texture3D<float4>							gLpv3DTexture0;
 Texture3D<float4>							gLpv3DTexture1;
 Texture3D<float4>							gLpv3DTexture2;
@@ -74,16 +38,10 @@ Texture3D<float4>							gLpv3DTexture3;
 Texture3D<float4>							gLpv3DTexture4;
 Texture3D<float4>							gLpv3DTexture5;
 Texture3D<float4>							gLpv3DTexture6;
-#elif LPV_AMBIENT_CUBE
-StructuredBuffer<LPVCellPackedAmbientCube>	gLpvBuffer;
-#else
-StructuredBuffer<LPVCellPackedSH>			gLpvBuffer;
-#endif
 
 // Write shaders only
 #if LPV_WRITE_SHADER
 
-#if LPV_VOLUME_TEXTURE
 RWTexture3D<float4>							gLpv3DTextureRW0;
 RWTexture3D<float4>							gLpv3DTextureRW1;
 RWTexture3D<float4>							gLpv3DTextureRW2;
@@ -91,11 +49,8 @@ RWTexture3D<float4>							gLpv3DTextureRW3;
 RWTexture3D<float4>							gLpv3DTextureRW4;
 RWTexture3D<float4>							gLpv3DTextureRW5;
 RWTexture3D<float4>							gLpv3DTextureRW6;
-#elif LPV_AMBIENT_CUBE
-RWStructuredBuffer<LPVCellPackedAmbientCube> gLpvBufferRW;
-#else
-RWStructuredBuffer<LPVCellPackedSH>			gLpvBufferRW;
-#endif
+
+RWTexture3D<float>							gAOVolumeTextureRW;
 
 #endif // LPV_WRITE_SHADER
 
@@ -103,11 +58,8 @@ RWStructuredBuffer<LPVCellPackedSH>			gLpvBufferRW;
 
 struct LPVCell
 {
-#if LPV_AMBIENT_CUBE
-	float3 ambientCube[6];
-#else
 	float3 coeffs[9];
-#endif
+	float AO;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -116,60 +68,56 @@ struct LPVCell
 
 void ClearCell( in out LPVCell cell )
 { 
-#if LPV_AMBIENT_CUBE
 	[unroll]
-	for ( int i=0; i<6; i++ ) 
-		cell.ambientCube[i] = float3( 0.0f, 0.0f, 0.0f );
-#else
-	[unroll]
-	for ( int i=0; i<9; i++ ) 
+	for ( int i = 0; i < 9; i++ ) 
+	{
 		cell.coeffs[i] = float3( 0.0f, 0.0f, 0.0f );
-#endif
+	}
+
+	cell.AO = 0.0f;
 }
 
 //-------------------------------------------------------------------------------------------------
 
 void MultiplyCell( in out LPVCell cell, float multiplier )
 {
-#if LPV_AMBIENT_CUBE
 	[unroll]
-	for ( int i=0; i<6; i++ ) 
-		cell.ambientCube[i] *= multiplier;
-#else
+	for ( int i=0; i<9; i++ ) 
+	{
+		cell.coeffs[i] *= multiplier;
+	}
+	cell.AO *= multiplier;
+}
+
+void MultiplyCellCoeffs( in out LPVCell cell, float multiplier )
+{
 	[unroll]
 	for ( int i=0; i<9; i++ ) 
 		cell.coeffs[i] *= multiplier;
-#endif
 }
 
 //-------------------------------------------------------------------------------------------------
 
 void MultiplyCellV( in out LPVCell cellA, in out LPVCell cellB )
 {
-#if LPV_AMBIENT_CUBE
-	[unroll]
-	for ( int i=0; i<6; i++ ) 
-		cellA.ambientCube[i] *= cellB.ambientCube[i];
-#else
 	[unroll]
 	for ( int i=0; i<9; i++ ) 
+	{
 		cellA.coeffs[i] *= cellB.coeffs[i];
-#endif
+	}
+	cellA.AO *= cellB.AO;
 }
 
 //-------------------------------------------------------------------------------------------------
 
 void AddCell( in out LPVCell cellA, in LPVCell cellB )
 {
-#if LPV_AMBIENT_CUBE
-	[unroll]
-	for ( int i=0; i<6; i++ ) 
-		cellA.ambientCube[i] += cellB.ambientCube[i];
-#else
 	[unroll]
 	for ( int i=0; i<9; i++ ) 
+	{
 		cellA.coeffs[i] += cellB.coeffs[i];
-#endif
+	}
+	cellA.AO += cellB.AO;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -195,88 +143,6 @@ uint GetGridAddress( uint3 gridPos )
 #else
 	return gridPos.z*32*32+gridPos.y*32+gridPos.x;
 #endif
-}
-
-//-------------------------------------------------------------------------------------------------
-
-void PackSH3( float3 coeffs[9], out LPVCellPackedSH cell )
-{
-	uint3 compressedCoeffs[9]; 
-	[unroll]
-	for ( int i=0; i<9; i++ )
-	{
-		compressedCoeffs[i] = f32tof16( coeffs[i] );
-	}
-	
-	cell.packedCoeffs[0] = compressedCoeffs[0].x | ( compressedCoeffs[0].y << 16 );
-	cell.packedCoeffs[1] = compressedCoeffs[0].z | ( compressedCoeffs[1].x << 16 );
-	cell.packedCoeffs[2] = compressedCoeffs[1].y | ( compressedCoeffs[1].z << 16 );
-
-	cell.packedCoeffs[3] = compressedCoeffs[2].x | ( compressedCoeffs[2].y << 16 );
-	cell.packedCoeffs[4] = compressedCoeffs[2].z | ( compressedCoeffs[3].x << 16 );
-	cell.packedCoeffs[5] = compressedCoeffs[3].y | ( compressedCoeffs[3].z << 16 );
-
-	cell.packedCoeffs[6] = compressedCoeffs[4].x | ( compressedCoeffs[4].y << 16 );
-	cell.packedCoeffs[7] = compressedCoeffs[4].z | ( compressedCoeffs[5].x << 16 );
-	cell.packedCoeffs[8] = compressedCoeffs[5].y | ( compressedCoeffs[5].z << 16 );
-
-	cell.packedCoeffs[9] = compressedCoeffs[6].x | ( compressedCoeffs[6].y << 16 );
-	cell.packedCoeffs[10] = compressedCoeffs[6].z | ( compressedCoeffs[7].x << 16 );
-	cell.packedCoeffs[11] = compressedCoeffs[7].y | ( compressedCoeffs[7].z << 16 );
-
-	cell.packedCoeffs[12] = compressedCoeffs[8].x | ( compressedCoeffs[8].y << 16 );
-	cell.packedCoeffs[13] = compressedCoeffs[8].z;
-}
-
-//-------------------------------------------------------------------------------------------------
-
-void UnpackSH3( LPVCellPackedSH cell, out float3 coeffs[9] )
-{
-	uint3 compressedCoeffs;
-	compressedCoeffs.x = cell.packedCoeffs[0];
-	compressedCoeffs.y = cell.packedCoeffs[0] >> 16;
-	compressedCoeffs.z = cell.packedCoeffs[1];
-	coeffs[0] = f16tof32( compressedCoeffs );
-
-	compressedCoeffs.x = cell.packedCoeffs[1] >> 16;
-	compressedCoeffs.y = cell.packedCoeffs[2];
-	compressedCoeffs.z = cell.packedCoeffs[2] >> 16;
-	coeffs[1] = f16tof32( compressedCoeffs );
-
-	compressedCoeffs.x = cell.packedCoeffs[3];
-	compressedCoeffs.y = cell.packedCoeffs[3] >> 16;
-	compressedCoeffs.z = cell.packedCoeffs[4];
-	coeffs[2] = f16tof32( compressedCoeffs );
-
-	compressedCoeffs.x = cell.packedCoeffs[4] >> 16;
-	compressedCoeffs.y = cell.packedCoeffs[5];
-	compressedCoeffs.z = cell.packedCoeffs[5] >> 16;
-	coeffs[3] = f16tof32( compressedCoeffs );
-
-	compressedCoeffs.x = cell.packedCoeffs[6];
-	compressedCoeffs.y = cell.packedCoeffs[6] >> 16;
-	compressedCoeffs.z = cell.packedCoeffs[7];
-	coeffs[4] = f16tof32( compressedCoeffs );
-
-	compressedCoeffs.x = cell.packedCoeffs[7] >> 16;
-	compressedCoeffs.y = cell.packedCoeffs[8];
-	compressedCoeffs.z = cell.packedCoeffs[8] >> 16;
-	coeffs[5] = f16tof32( compressedCoeffs );
-
-	compressedCoeffs.x = cell.packedCoeffs[9];
-	compressedCoeffs.y = cell.packedCoeffs[9] >> 16;
-	compressedCoeffs.z = cell.packedCoeffs[10];
-	coeffs[6] = f16tof32( compressedCoeffs );
-
-	compressedCoeffs.x = cell.packedCoeffs[10] >> 16;
-	compressedCoeffs.y = cell.packedCoeffs[11];
-	compressedCoeffs.z = cell.packedCoeffs[11] >> 16;
-	coeffs[7] = f16tof32( compressedCoeffs );
-
-	compressedCoeffs.x = cell.packedCoeffs[12];
-	compressedCoeffs.y = cell.packedCoeffs[12] >> 16;
-	compressedCoeffs.z = cell.packedCoeffs[13];
-	coeffs[8] = f16tof32( compressedCoeffs );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -308,54 +174,6 @@ uint PackRGY32( float3 colour )
 	packedValue |= f32tof16( luminance );
 	return packedValue;
 }
-//-------------------------------------------------------------------------------------------------
-
-void PackAmbientCube( in float3 unpackedCube[6], out LPVCellPackedAmbientCube packedCube )
-{
-#if LPV_AMBIENT_CUBE_WITH_SH_BUFFER_HACK
-	[unroll]
-	for ( int i=0; i<14; i++ ) packedCube.packedData[i] = 0;
-#endif
-
-	[unroll]
-	for ( int i=0; i<6; i++ )
-	{
-		packedCube.packedData[i] = PackRGY32( unpackedCube[i] );
-	} 
-
-}
-
-//-------------------------------------------------------------------------------------------------
-
-void UnpackAmbientCube( LPVCellPackedAmbientCube packedCube, out float3 unpackedCube[6] )
-{
-	[unroll]
-	for ( int i=0; i<6; i++ )
-	{
-		unpackedCube[i] = UnpackRGY32( packedCube.packedData[i] );
-	}
-}
-
-//-------------------------------------------------------------------------------------------------
-
-float3 AmbientCubeLookup( float3 ambientCube[6], float3 n ) 
-{
-	float weight[6];
-	weight[0] = saturate(-n.x );
-	weight[1] = saturate( n.x );
-	weight[2] = saturate(-n.y );
-	weight[3] = saturate( n.y );
-	weight[4] = saturate(-n.z );
-	weight[5] = saturate( n.z );
-
-	float3 colour = 0;
-	[unroll]
-	for ( int i=0; i<6; i++ )
-{
-		colour += ambientCube[i] * weight[i];
-	}
-	return colour;
-}
 
 //-------------------------------------------------------------------------------------------------
 
@@ -385,11 +203,7 @@ float3 SHLookup( float3 coeffs[9], float3 n )
 
 float3 LPVCellLookup( in LPVCell cell, in float3 normal ) 
 {
-#if LPV_AMBIENT_CUBE
-	return AmbientCubeLookup( cell.ambientCube, normal );
-#else
 	return SHLookup( cell.coeffs, normal );
-#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -428,21 +242,22 @@ float3 GridToWorld( float3 gridPos )
 
 float MaxGridExtent( float3 gridPos )
 {
-	float3 av = abs(gridPos-15.5)+0.5;
+	float3 av = abs(gridPos-16.0f);
 	return max(av.x,max(av.y,av.z));
 }
 
 //-------------------------------------------------------------------------------------------------
 
-int GetGridIndex( float3 worldPos )
+int GetGridIndex( float3 worldPos ) 
 {
 	float3 p = WorldToGrid( worldPos );
 
 	float maxExtent = MaxGridExtent( p );
-	if ( maxExtent > 15.5 )
+
+	if ( maxExtent > 16.0f )
 	{
 		return -1;
-	}
+	} 
 	else
 	{
 		int3 ui = int3( p );
@@ -452,10 +267,11 @@ int GetGridIndex( float3 worldPos )
 
 //-------------------------------------------------------------------------------------------------
 
-LPVCell ReadLpvCell( in uint cellIndex, const bool bUseReadWriteBuffer = false )
+LPVCell ReadLpvCell( in uint cellIndex )
 {
 	LPVCell cell;
-#if LPV_VOLUME_TEXTURE
+	cell.AO = 0.0f;
+
 	int4 texIndex = int4( IndexToGridPos( cellIndex ), 0 );
 	float4 tex0 = gLpv3DTexture0.Load( texIndex );
 	float4 tex1 = gLpv3DTexture1.Load( texIndex );
@@ -474,39 +290,12 @@ LPVCell ReadLpvCell( in uint cellIndex, const bool bUseReadWriteBuffer = false )
 	cell.coeffs[6] = float3( tex4.a, tex5.rg );
 	cell.coeffs[7] = float3( tex5.ba, tex6.r );
 	cell.coeffs[8] = tex6.gba;
-#elif LPV_AMBIENT_CUBE
-	LPVCellPackedAmbientCube PackedCube;
-  #if LPV_WRITE_SHADER
-	if ( bUseReadWriteBuffer )
-	{
-		PackedCube = gLpvBufferRW[cellIndex];
-	}
-	else
-  #endif
-	{
-		PackedCube = gLpvBuffer[cellIndex];
-	}
-	UnpackAmbientCube( PackedCube, cell.ambientCube );
-#else
-	LPVCellPackedSH packedCell;
-  #if LPV_WRITE_SHADER
-	if ( bUseReadWriteBuffer )
-	{
-		packedCell = gLpvBufferRW[cellIndex];
-	}
-	else
-  #endif
-	{
-		packedCell = gLpvBuffer[cellIndex];
-	}
-	UnpackSH3( packedCell, cell.coeffs );
-#endif
+	cell.AO = tex0.a;
 	return cell;
 }
 
 //-------------------------------------------------------------------------------------------------
 
-#if LPV_VOLUME_TEXTURE
 LPVCell ReadLpvCellVolumeTextureFiltered( float3 gridPos )
 {
 	float3 texPos = gridPos / 32.0f; // Half pixel offset?
@@ -529,8 +318,16 @@ LPVCell ReadLpvCellVolumeTextureFiltered( float3 gridPos )
 	cell.coeffs[7] = float3( tex5.ba, tex6.r );
 	cell.coeffs[8] = tex6.gba;
 
+	cell.AO = tex0.a;
 	return cell;
 }
-#endif
+
+//-------------------------------------------------------------------------------------------------
+
+float ReadLpvCellAO( in uint cellIndex )
+{
+	int4 texIndex = int4( IndexToGridPos( cellIndex ), 0 );
+	return gLpv3DTexture0.Load( texIndex ).a;
+}
 
 //-------------------------------------------------------------------------------------------------

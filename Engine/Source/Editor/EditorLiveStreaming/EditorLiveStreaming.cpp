@@ -60,16 +60,21 @@ bool FEditorLiveStreaming::IsLiveStreamingAvailable() const
 {
 	bool bIsAvailable = false;
 
-	// We are not available if the game is already streaming
-	if( !IGameLiveStreaming::Get().IsBroadcastingGame() )
+	// This feature is currently "experimental" and disabled by default, even if you have a valid live streaming plugin installed
+	if( GetDefault<UEditorExperimentalSettings>()->bLiveStreamingFromEditor )
 	{
-		static const FName LiveStreamingFeatureName( "LiveStreaming" );
-		if( IModularFeatures::Get().IsModularFeatureAvailable( LiveStreamingFeatureName ) )
+		// We are not available if the game is already streaming
+		if( !IGameLiveStreaming::Get().IsBroadcastingGame() )
 		{
-			// Only if not already broadcasting
-			bIsAvailable = true;
+			static const FName LiveStreamingFeatureName( "LiveStreaming" );
+			if( IModularFeatures::Get().IsModularFeatureAvailable( LiveStreamingFeatureName ) )
+			{
+				// Only if not already broadcasting
+				bIsAvailable = true;
+			}
 		}
 	}
+
 	return bIsAvailable;
 }
 

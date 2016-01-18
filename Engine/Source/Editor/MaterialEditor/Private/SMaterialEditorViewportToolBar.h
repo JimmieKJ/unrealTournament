@@ -14,7 +14,7 @@ public:
 	SLATE_BEGIN_ARGS(SMaterialEditorViewportToolBar) {}
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditorViewport> InViewport);
+	void Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditor3DPreviewViewport> InViewport);
 
 	// SCommonEditorViewportToolbarBase interface
 	virtual TSharedRef<SWidget> GenerateShowMenu() const override;
@@ -30,5 +30,5 @@ public:
 	SLATE_BEGIN_ARGS(SMaterialEditorViewportPreviewShapeToolBar){}
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditorViewport> InViewport);
+	void Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditor3DPreviewViewport> InViewport);
 };

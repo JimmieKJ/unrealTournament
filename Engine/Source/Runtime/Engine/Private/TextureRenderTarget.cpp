@@ -157,7 +157,7 @@ void FDeferredUpdateResource::AddToDeferredUpdateList( bool OnlyUpdateOnce )
 	if( !bExists )
 	{
 		UpdateListLink = TLinkedList<FDeferredUpdateResource*>(this);
-		UpdateListLink.Link(UpdateList);
+		UpdateListLink.LinkHead(UpdateList);
 		bNeedsUpdate = true;
 	}
 	bOnlyUpdateOnce=OnlyUpdateOnce;

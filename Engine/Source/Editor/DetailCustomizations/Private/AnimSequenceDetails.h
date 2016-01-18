@@ -27,6 +27,7 @@ private:
 	
 	TWeakObjectPtr<USkeleton> TargetSkeleton;
 
+	// additive setting handler
 	TSharedPtr<IPropertyHandle> AdditiveAnimTypeHandle;
 	TSharedPtr<IPropertyHandle> RefPoseTypeHandle;
 	TSharedPtr<IPropertyHandle> RefPoseSeqHandle;
@@ -49,6 +50,12 @@ private:
 	FDelegateHandle OnDelegateRetargetSourceChangedDelegateHandle;
 	void RegisterRetargetSourceChanged();
 	void DelegateRetargetSourceChanged();
+
+	// button handler for Apply Compression
+	// cache all anim sequences that are selected
+	// but I need to know them before compress
+	TArray< TWeakObjectPtr<UAnimSequence> > SelectedAnimSequences;
+	FReply OnApplyCompression();
 };
 
 ///////////////////////////////////////////////////

@@ -12,3 +12,6 @@ extern ENGINE_API bool						GDisallowNetworkTravel;
 
 /** The GPU time taken to render the last frame. Same metric as FPlatformTime::Cycles(). */
 extern ENGINE_API uint32					GGPUFrameTime;
+
+/** A reference to the ability system so we do not need to get the module every time we access the tag manager. */
+extern ENGINE_API class UGameplayTagsManager* GGameplayTagsManager;

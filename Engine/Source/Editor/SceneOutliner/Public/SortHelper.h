@@ -18,8 +18,8 @@ namespace SceneOutliner
 	template<typename PrimaryKeyType, typename SecondaryKeyType = int32>
 	struct FSortHelper
 	{
-		typedef TFunctionRef<PrimaryKeyType(const ITreeItem&)> FPrimaryFunction;
-		typedef TFunctionRef<SecondaryKeyType(const ITreeItem&)> FSecondaryFunction;
+		typedef TFunction<PrimaryKeyType(const ITreeItem&)> FPrimaryFunction;
+		typedef TFunction<SecondaryKeyType(const ITreeItem&)> FSecondaryFunction;
 
 		FSortHelper()
 			: PrimarySortMode(EColumnSortMode::None), SecondarySortMode(EColumnSortMode::None)

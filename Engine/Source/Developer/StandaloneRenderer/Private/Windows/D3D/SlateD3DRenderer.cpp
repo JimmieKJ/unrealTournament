@@ -34,21 +34,6 @@ static FMatrix CreateProjectionMatrixD3D( uint32 Width, uint32 Height )
 
 }
 
-
-FSlateD3DRenderer::FSlateD3DRenderer( const ISlateStyle& InStyle )
-{
-
-	ViewMatrix = FMatrix(	FPlane(1,	0,	0,	0),
-							FPlane(0,	1,	0,	0),
-							FPlane(0,	0,	1,  0),
-							FPlane(0,	0,	0,	1));
-
-}
-
-FSlateD3DRenderer::~FSlateD3DRenderer()
-{
-}
-
 class FSlateD3DFontAtlasFactory : public ISlateFontAtlasFactory
 {
 public:
@@ -73,18 +58,39 @@ private:
 	static const uint32 TextureSize = 1024;
 };
 
+TSharedRef<FSlateFontServices> CreateD3DFontServices()
+{
+	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateD3DFontAtlasFactory)));
+
+	return MakeShareable(new FSlateFontServices(FontCache, FontCache));
+}
+
+
+FSlateD3DRenderer::FSlateD3DRenderer( const ISlateStyle& InStyle )
+	: FSlateRenderer( CreateD3DFontServices() )
+{
+
+	ViewMatrix = FMatrix(	FPlane(1,	0,	0,	0),
+							FPlane(0,	1,	0,	0),
+							FPlane(0,	0,	1,  0),
+							FPlane(0,	0,	0,	1));
+
+}
+
+FSlateD3DRenderer::~FSlateD3DRenderer()
+{
+}
+
 void FSlateD3DRenderer::Initialize()
 {
 	CreateDevice();
 
-
 	TextureManager = MakeShareable( new FSlateD3DTextureManager );
+	FSlateDataPayload::ResourceManager = TextureManager.Get();
+
 	TextureManager->LoadUsedTextures();
 
-	FontCache = MakeShareable( new FSlateFontCache( MakeShareable( new FSlateD3DFontAtlasFactory ) ) );
-	FontMeasure = FSlateFontMeasure::Create( FontCache.ToSharedRef() );
-
-	RenderingPolicy = MakeShareable( new FSlateD3D11RenderingPolicy( FontCache, TextureManager.ToSharedRef() ) );
+	RenderingPolicy = MakeShareable( new FSlateD3D11RenderingPolicy( SlateFontServices.ToSharedRef(), TextureManager.ToSharedRef() ) );
 
 	ElementBatcher = MakeShareable( new FSlateElementBatcher( RenderingPolicy.ToSharedRef() ) );
 }
@@ -114,7 +120,14 @@ void FSlateD3DRenderer::CreateDevice()
 		const D3D_FEATURE_LEVEL FeatureLevels[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_9_3 };
 		D3D_FEATURE_LEVEL CreatedFeatureLevel;
 		HRESULT Hr = D3D11CreateDevice( NULL, DriverType, NULL, DeviceCreationFlags, FeatureLevels, sizeof(FeatureLevels)/sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, GD3DDevice.GetInitReference(), &CreatedFeatureLevel, GD3DDeviceContext.GetInitReference() );
-		checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
+		UE_LOG(LogStandaloneRenderer, Log, TEXT("D3D11CreateDevice Result: %X"), Hr);
+
+		if (Hr == DXGI_ERROR_UNSUPPORTED)
+		{
+			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *NSLOCTEXT("", "", "There is a problem with your graphics card. Please ensure your card meets the minimum system requirements and that you have the latest drivers installed.").ToString(), *NSLOCTEXT("", "UnsupportedVideoCardErrorTitle", "Unsupported Video Card").ToString());
+		}
+		
+		checkf(SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr);
 	}
 }
 
@@ -135,7 +148,7 @@ void FSlateD3DRenderer::LoadStyleResources( const ISlateStyle& Style )
 FSlateUpdatableTexture* FSlateD3DRenderer::CreateUpdatableTexture(uint32 Width, uint32 Height)
 {
 	FSlateD3DTexture* NewTexture = new FSlateD3DTexture(Width, Height);
-	NewTexture->Init(DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, NULL, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE);
+	NewTexture->Init(DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, NULL, true, true);
 	return NewTexture;
 }
 
@@ -228,14 +241,22 @@ void FSlateD3DRenderer::UpdateFullscreenState( const TSharedRef<SWindow> InWindo
 
 void FSlateD3DRenderer::ReleaseDynamicResource( const FSlateBrush& Brush )
 {
-	ensure( IsInGameThread() );
 	TextureManager->ReleaseDynamicTextureResource( Brush );
 }
 
 bool FSlateD3DRenderer::GenerateDynamicImageResource(FName ResourceName, uint32 Width, uint32 Height, const TArray< uint8 >& Bytes)
 {
-	ensure( IsInGameThread() );
 	return TextureManager->CreateDynamicTextureResource(ResourceName, Width, Height, Bytes) != NULL;
+}
+
+FSlateResourceHandle FSlateD3DRenderer::GetResourceHandle( const FSlateBrush& Brush )
+{
+	return TextureManager->GetResourceHandle( Brush );
+}
+
+void FSlateD3DRenderer::RemoveDynamicBrushResource( TSharedPtr<FSlateDynamicImageBrush> BrushToRemove )
+{
+	DynamicBrushesToRemove.Add( BrushToRemove );
 }
 
 void FSlateD3DRenderer::Private_ResizeViewport( const TSharedRef<SWindow> InWindow, uint32 Width, uint32 Height, bool bFullscreen )
@@ -329,14 +350,16 @@ void FSlateD3DRenderer::CreateDepthStencilBuffer( FSlateD3DViewport& Viewport )
 
 void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 {
+	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
+
 	// Update the font cache with new text before elements are batched
 	FontCache->UpdateCache();
 
 	// Iterate through each element list and set up an RHI window for it if needed
-	TArray<FSlateWindowElementList>& WindowElementLists = InWindowDrawBuffer.GetWindowElementLists();
+	TArray< TSharedPtr<FSlateWindowElementList> >& WindowElementLists = InWindowDrawBuffer.GetWindowElementLists();
 	for( int32 ListIndex = 0; ListIndex < WindowElementLists.Num(); ++ListIndex )
 	{
-		FSlateWindowElementList& ElementList = WindowElementLists[ListIndex];
+		FSlateWindowElementList& ElementList = *WindowElementLists[ListIndex];
 		SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GRendererDrawElementList, ElementList.GetWindow()->GetCreatedInLocation());
 
 		if ( ElementList.GetWindow().IsValid() )
@@ -344,22 +367,18 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 			TSharedRef<SWindow> WindowToDraw = ElementList.GetWindow().ToSharedRef();
 
 			// Add all elements for this window to the element batcher
-			ElementBatcher->AddElements( ElementList.GetDrawElements() );
-
-			bool bUnused = false;
-			ElementBatcher->FillBatchBuffers( ElementList, bUnused );
-
-			// All elements for this window have been batched and rendering data updated
-			ElementBatcher->ResetBatches();
+			ElementBatcher->AddElements( ElementList );
 
 			FVector2D WindowSize = WindowToDraw->GetSizeInScreen();
 
 			FSlateD3DViewport* Viewport = WindowToViewportMap.Find( &WindowToDraw.Get() );
 			check(Viewport);
 
+			FSlateBatchData& BatchData = ElementList.GetBatchData();
 			{
 				SLATE_CYCLE_COUNTER_SCOPE(GRendererUpdateBuffers);
-				RenderingPolicy->UpdateBuffers(ElementList);
+				BatchData.CreateRenderBatches(ElementList.GetRootDrawLayer().GetElementBatchMap());
+				RenderingPolicy->UpdateVertexAndIndexBuffers(BatchData);
 			}
 
 			check(Viewport);
@@ -378,7 +397,7 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 
 			{
 				SLATE_CYCLE_COUNTER_SCOPE(GRendererDrawElements);
-				RenderingPolicy->DrawElements(ViewMatrix*Viewport->ProjectionMatrix, ElementList.GetRenderBatches());
+				RenderingPolicy->DrawElements(ViewMatrix*Viewport->ProjectionMatrix, BatchData.GetRenderBatches());
 			}
 
 			GD3DDeviceContext->OMSetRenderTargets(0, NULL, NULL);
@@ -396,6 +415,8 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 	// flush the cache if needed
 	FontCache->ConditionalFlushCache();
 
+	// Safely release the references now that we are finished rendering with the dynamic brushes
+	DynamicBrushesToRemove.Empty();
 }
 
 void FSlateD3DRenderer::OnWindowDestroyed( const TSharedRef<SWindow>& InWindow )

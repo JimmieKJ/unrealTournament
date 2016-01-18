@@ -3,15 +3,13 @@
 // note that since delegates hold weak pointers, you will need to keep a TSharedPtr reference to the constructed TAttributeProperty
 // to keep everything working
 
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 DECLARE_DELEGATE(FAttributePropertyChangedDelegate);
 
-Expose_TFormatSpecifier(bool, "%d")
-
 // base class so we can store a TArray of the below without regard for template parameter
-struct TAttributePropertyBase
+struct UNREALTOURNAMENT_API TAttributePropertyBase
 {
 	FAttributePropertyChangedDelegate OnChange;
 
@@ -24,7 +22,7 @@ struct TAttributePropertyBase
 	{}
 };
 template<typename T>
-struct TAttributeProperty : public TAttributePropertyBase
+struct UNREALTOURNAMENT_API TAttributeProperty : public TAttributePropertyBase
 {
 protected:
 	TWeakObjectPtr<UObject> Obj;
@@ -100,8 +98,19 @@ public:
 		OnChange.ExecuteIfBound();
 	}
 };
+
+namespace LexicalConversion
+{
+	/** Specialized for FString */
+	template<>
+	inline FString ToSanitizedString<FString>(const FString& value)
+	{
+		return FString(value);
+	}
+}
+
 // extras for bools to convert to check box type
-struct TAttributePropertyBool : public TAttributeProperty<bool>
+struct UNREALTOURNAMENT_API TAttributePropertyBool : public TAttributeProperty<bool>
 {
 	TAttributePropertyBool(UObject* InObj, bool* InData, const TCHAR* InURLKey = NULL)
 	: TAttributeProperty<bool>(InObj, InData, InURLKey)
@@ -113,8 +122,9 @@ struct TAttributePropertyBool : public TAttributeProperty<bool>
 		return GetURLKey() + TEXT("=") + ((Obj.IsValid() && *Data) ? TEXT("true") : TEXT("false"));
 	}
 };
+
 // extras for FStrings for FText conversion
-struct TAttributePropertyString : public TAttributeProperty<FString>
+struct UNREALTOURNAMENT_API TAttributePropertyString : public TAttributeProperty<FString>
 {
 	TAttributePropertyString(UObject* InObj, FString* InData, const TCHAR* InURLKey = NULL)
 	: TAttributeProperty<FString>(InObj, InData, InURLKey)

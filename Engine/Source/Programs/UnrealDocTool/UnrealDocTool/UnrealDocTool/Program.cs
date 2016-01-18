@@ -51,6 +51,8 @@ namespace UnrealDocTool
         private static string DefaultTemplate;
 
         private static string[] SupportedLanguages;
+        private static string[] SupportedLanguageLabels;
+        private static Dictionary<string, string> SupportedLanguageMap = new Dictionary<string,string>();
         private static string[] MetadataErrorIfMissing;
         private static string[] MetadataInfoIfMissing;
         private static string[] MetadataCleanKeepThese;
@@ -223,6 +225,11 @@ namespace UnrealDocTool
             }
 
             SupportedLanguages = Settings.Default.SupportedLanguages.ToUpper().Split(',');
+            SupportedLanguageLabels = Settings.Default.SupportedLanguageLabels.Split(',');
+            for (int i = 0; i < SupportedLanguages.Length; i++)
+            {
+                SupportedLanguageMap.Add(SupportedLanguages[i], SupportedLanguageLabels[i]);
+            }
 
             MetadataErrorIfMissing = Settings.Default.MetadataErrorIfMissing.Split(',');
             MetadataInfoIfMissing = Settings.Default.MetadataInfoIfMissing.Split(',');
@@ -660,6 +667,14 @@ namespace UnrealDocTool
             }
 
             markdownToHtml.SupportedLanguages = SupportedLanguages;
+            markdownToHtml.SupportedLanguageLabels = SupportedLanguageLabels;
+            for (int i = 0; i < markdownToHtml.SupportedLanguages.Length; i++)
+            {
+                if(!markdownToHtml.SupportedLanguageMap.ContainsKey(SupportedLanguages[i]))
+                {
+                    markdownToHtml.SupportedLanguageMap.Add(markdownToHtml.SupportedLanguages[i], markdownToHtml.SupportedLanguageLabels[i]);
+                }
+            }
 
             //Pass the default conversion settings to Markdown for use in the image details creation.
             markdownToHtml.DefaultImageDoCompress = DoCompressImages;
@@ -1053,7 +1068,7 @@ namespace UnrealDocTool
 
         static void CleanMetaDataRecursiveDirectory(string sourcePath)
         {
-            DoRecursively(sourcePath, recursivePath => CleanMetaDataDirectory(recursivePath));
+            DoRecursivelyIgnored(sourcePath, recursivePath => CleanMetaDataDirectory(recursivePath));
         }
 
         private static readonly string[] IgnoredFolders = new[] { "include", "javascript", "images", "attachments", "css", "templates" };
@@ -1083,9 +1098,27 @@ namespace UnrealDocTool
 
             foreach (var subDirectory in Directory.GetDirectories(sourcePath))
             {
+                //if (!IsIgnoredDirectory(subDirectory))
+                //{
+                    DoRecursively(subDirectory, action);
+                //}
+            }
+        }
+
+        private static void DoRecursivelyIgnored(string sourcePath, Action<string> action)
+        {
+            if (!Directory.Exists(sourcePath))
+            {
+                return;
+            }
+
+            action(sourcePath);
+
+            foreach (var subDirectory in Directory.GetDirectories(sourcePath))
+            {
                 if (!IsIgnoredDirectory(subDirectory))
                 {
-                    DoRecursively(subDirectory, action);
+                    DoRecursivelyIgnored(subDirectory, action);
                 }
             }
         }

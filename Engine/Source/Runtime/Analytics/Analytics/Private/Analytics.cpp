@@ -69,6 +69,12 @@ FString FAnalytics::GetConfigValueFromIni( const FString& IniName, const FString
 	return Result;
 }
 
+void FAnalytics::WriteConfigValueToIni(const FString& IniName, const FString& SectionName, const FString& KeyName, const FString& Value)
+{
+	GConfig->SetString(*SectionName, *KeyName, *Value, *IniName);
+}
+
+
 void FAnalytics::StartupModule()
 {
 }

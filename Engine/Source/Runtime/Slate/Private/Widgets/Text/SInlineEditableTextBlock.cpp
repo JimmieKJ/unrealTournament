@@ -14,6 +14,7 @@ void SInlineEditableTextBlock::Construct( const FArguments& InArgs )
 	OnVerifyTextChanged= InArgs._OnVerifyTextChanged;
 	Text = InArgs._Text;
 	bIsReadOnly = InArgs._IsReadOnly;
+	bIsMultiLine = InArgs._MultiLine;
 	DoubleSelectDelay = 0.0f;
 
 	ChildSlot
@@ -38,15 +39,32 @@ void SInlineEditableTextBlock::Construct( const FArguments& InArgs )
 		]
 	];
 
-	SAssignNew(TextBox, SEditableTextBox)
-		.Text(InArgs._Text)
-		.Style(&InArgs._Style->EditableTextBoxStyle)
-		.Font(InArgs._Font)
-		.ToolTipText( InArgs._ToolTipText )
-		.OnTextChanged( this, &SInlineEditableTextBlock::OnTextChanged )
-		.OnTextCommitted(this, &SInlineEditableTextBlock::OnTextBoxCommitted)
-		.SelectAllTextWhenFocused(true)
-		.ClearKeyboardFocusOnCommit(false);
+	if( bIsMultiLine )
+	{
+		SAssignNew(MultiLineTextBox, SMultiLineEditableTextBox)
+			.Text(InArgs._Text)
+			.Style(&InArgs._Style->EditableTextBoxStyle)
+			.Font(InArgs._Font)
+			.ToolTipText( InArgs._ToolTipText )
+			.OnTextChanged(this, &SInlineEditableTextBlock::OnTextChanged)
+			.OnTextCommitted(this, &SInlineEditableTextBlock::OnTextBoxCommitted)
+			.SelectAllTextWhenFocused(true)
+			.ClearKeyboardFocusOnCommit(true)
+			.RevertTextOnEscape(true)
+			.ModiferKeyForNewLine(InArgs._ModiferKeyForNewLine);
+	}
+	else
+	{
+		SAssignNew(TextBox, SEditableTextBox)
+			.Text(InArgs._Text)
+			.Style(&InArgs._Style->EditableTextBoxStyle)
+			.Font(InArgs._Font)
+			.ToolTipText( InArgs._ToolTipText )
+			.OnTextChanged( this, &SInlineEditableTextBlock::OnTextChanged )
+			.OnTextCommitted(this, &SInlineEditableTextBlock::OnTextBoxCommitted)
+			.SelectAllTextWhenFocused(true)
+			.ClearKeyboardFocusOnCommit(false);
+	}
 }
 
 SInlineEditableTextBlock::~SInlineEditableTextBlock()
@@ -54,7 +72,7 @@ SInlineEditableTextBlock::~SInlineEditableTextBlock()
 	if(IsInEditMode())
 	{
 		// Clear the error so it will vanish.
-		TextBox->SetError( FText::GetEmpty() );
+		SetTextBoxError( FText::GetEmpty() );
 	}
 }
 
@@ -63,7 +81,7 @@ void SInlineEditableTextBlock::CancelEditMode()
 	ExitEditingMode();
 
 	// Get the text from source again.
-	TextBox->SetText(Text);
+	SetEditableText(Text);
 }
 
 bool SInlineEditableTextBlock::SupportsKeyboardFocus() const
@@ -78,28 +96,31 @@ void SInlineEditableTextBlock::EnterEditingMode()
 	{
 		if(TextBlock->GetVisibility() == EVisibility::Visible)
 		{
+			const FText CurrentText = TextBlock->GetText();
+			SetEditableText( CurrentText );
+
+			TSharedPtr<SWidget> ActiveTextBox = GetEditableTextWidget();
 			HorizontalBox->AddSlot()
 				[
-					TextBox.ToSharedRef()
+					ActiveTextBox.ToSharedRef()
 				];
 
 			WidgetToFocus = FSlateApplication::Get().GetKeyboardFocusedWidget();
-			FSlateApplication::Get().SetKeyboardFocus(TextBox, EFocusCause::SetDirectly);
+			FSlateApplication::Get().SetKeyboardFocus(ActiveTextBox, EFocusCause::SetDirectly);
 
 			TextBlock->SetVisibility(EVisibility::Collapsed);
 
-			OnBeginTextEditDelegate.ExecuteIfBound(TextBox->GetText());
+			OnBeginTextEditDelegate.ExecuteIfBound( CurrentText );
 		}
 	}
 }
 
 void SInlineEditableTextBlock::ExitEditingMode()
 {
-	HorizontalBox->RemoveSlot(TextBox.ToSharedRef());
+	HorizontalBox->RemoveSlot( GetEditableTextWidget().ToSharedRef() );
 	TextBlock->SetVisibility(EVisibility::Visible);
-
 	// Clear the error so it will vanish.
-	TextBox->SetError( FText::GetEmpty() );
+	SetTextBoxError( FText::GetEmpty() );
 
 	// Restore the original widget focus
 	TSharedPtr<SWidget> WidgetToFocusPin = WidgetToFocus.Pin();
@@ -122,14 +143,14 @@ void SInlineEditableTextBlock::SetText( const TAttribute< FText >& InText )
 {
 	Text = InText;
 	TextBlock->SetText( Text );
-	TextBox->SetText( Text );
+	SetEditableText( Text );
 }
 
 void SInlineEditableTextBlock::SetText( const FString& InText )
 {
 	Text = FText::FromString( InText );
 	TextBlock->SetText( Text );
-	TextBox->SetText( Text );
+	SetEditableText( Text );
 }
 
 void SInlineEditableTextBlock::SetWrapTextAt( const TAttribute<float>& InWrapTextAt )
@@ -210,11 +231,11 @@ void SInlineEditableTextBlock::OnTextChanged(const FText& InText)
 
 		if(OnVerifyTextChanged.IsBound() && !OnVerifyTextChanged.Execute(InText, OutErrorMessage))
 		{
-			TextBox->SetError( OutErrorMessage );
+			SetTextBoxError( OutErrorMessage );
 		}
 		else
 		{
-			TextBox->SetError( FText::GetEmpty() );
+			SetTextBoxError( FText::GetEmpty() );
 		}
 	}
 }
@@ -237,7 +258,7 @@ void SInlineEditableTextBlock::OnTextBoxCommitted(const FText& InText, ETextComm
 				if(!OnVerifyTextChanged.Execute(InText, OutErrorMessage))
 				{
 					// Display as an error.
-					TextBox->SetError( OutErrorMessage );
+					SetTextBoxError( OutErrorMessage );
 					return;
 				}
 			}
@@ -273,4 +294,28 @@ void SInlineEditableTextBlock::OnTextBoxCommitted(const FText& InText, ETextComm
 			TextBlock->SetText( Text );
 		}
 	}
+}
+
+TSharedPtr<SWidget> SInlineEditableTextBlock::GetEditableTextWidget() const
+{
+	if( bIsMultiLine )
+	{
+		return MultiLineTextBox;
+	}
+	else
+	{
+		return TextBox;
+	}
+}
+
+void SInlineEditableTextBlock::SetEditableText( const TAttribute< FText >& InNewText )
+{
+	bIsMultiLine ? MultiLineTextBox->SetText( Text ) :
+				 TextBox->SetText( Text );
+}
+
+void SInlineEditableTextBlock::SetTextBoxError( const FText& ErrorText )
+{
+	bIsMultiLine ? MultiLineTextBox->SetError( ErrorText ) :
+				 TextBox->SetError( ErrorText );
 }

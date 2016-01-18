@@ -10,20 +10,6 @@
 #include "AllowWindowsPlatformTypes.h"
 #include <DbgHelp.h>
 
-FCrashDebugHelperWindows::FCrashDebugHelperWindows()
-{
-}
-
-FCrashDebugHelperWindows::~FCrashDebugHelperWindows()
-{
-}
-
-
-bool FCrashDebugHelperWindows::ParseCrashDump(const FString& InCrashDumpName, FCrashDebugInfo& OutCrashDebugInfo)
-{
-	return true;
-}
-
 bool FCrashDebugHelperWindows::CreateMinidumpDiagnosticReport( const FString& InCrashDumpFilename )
 {
 	const bool bSyncSymbols = FParse::Param( FCommandLine::Get(), TEXT( "SyncSymbols" ) );
@@ -44,13 +30,13 @@ bool FCrashDebugHelperWindows::CreateMinidumpDiagnosticReport( const FString& In
 	{
 		if( CrashInfo.BuiltFromCL != FCrashInfo::INVALID_CHANGELIST )
 		{
+			// Get the build version and modules paths.
+			FCrashModuleInfo ExeFileVersion;
+			WindowsStackWalkExt.GetExeFileVersionAndModuleList( ExeFileVersion );
+
 			// CrashInfo now contains a changelist to lookup a label for
 			if( bSyncSymbols )
 			{
-				// Get the build version from the crash info.
-				FCrashModuleInfo ExeFileVersion;
-				WindowsStackWalkExt.GetExeFileVersionAndModuleList( ExeFileVersion );
-
 				FindSymbolsAndBinariesStorage();
 
 				const bool bSynced = SyncModules();

@@ -3,22 +3,53 @@
 #pragma once
 
 #include "MovieSceneSection.h"
-
+#include "IKeyframeSection.h"
 #include "MovieSceneMarginSection.generated.h"
 
-struct FMarginKey;
+
+enum class EKeyMarginChannel
+{
+	Left,
+	Top,
+	Right,
+	Bottom
+};
+
+enum class EKeyMarginValueType
+{
+	Key,
+	Default
+};
+
+
+struct FMarginKey
+{
+	FMarginKey( EKeyMarginChannel InChannel, float InValue, EKeyMarginValueType InValueType )
+	{
+		Channel = InChannel;
+		Value = InValue;
+		ValueType = InValueType;
+	}
+	EKeyMarginChannel Channel;
+	float Value;
+	EKeyMarginValueType ValueType;
+};
+
 
 /**
  * A section in a Margin track
  */
 UCLASS(MinimalAPI)
-class UMovieSceneMarginSection : public UMovieSceneSection
+class UMovieSceneMarginSection 
+	: public UMovieSceneSection
+	, public IKeyframeSection<FMarginKey>
 {
 	GENERATED_UCLASS_BODY()
 public:
 	/** UMovieSceneSection interface */
-	virtual void MoveSection( float DeltaPosition ) override;
-	virtual void DilateSection( float DilationFactor, float Origin ) override;
+	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
+	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
 
 	/**
 	 * Updates this section
@@ -27,22 +58,11 @@ public:
 	 */
 	FMargin Eval( float Position, const FMargin& DefaultValue ) const;
 
-	/** 
-	 * Adds a key to the section
-	 *
-	 * @param Time	The location in time where the key should be added
-	 * @param Value	The value of the key
-	 */
-	void AddKey( float Time, const FMarginKey& MarginKey );
-	
-	/** 
-	 * Determines if a new key would be new data, or just a duplicate of existing data
-	 *
-	 * @param Time	The location in time where the key would be added
-	 * @param Value	The value of the new key
-	 * @return True if the new key would be new data, false if duplicate
-	 */
-	bool NewKeyIsNewData(float Time, const FMargin& Value) const;
+	// IKeyframeSection interface.
+	virtual void AddKey( float Time, const FMarginKey& MarginKey, EMovieSceneKeyInterpolation KeyInterpolation ) override;
+	virtual bool NewKeyIsNewData(float Time, const FMarginKey& Key ) const override;
+	virtual bool HasKeys(const FMarginKey& Key) const override;
+	virtual void SetDefault(const FMarginKey& Key) override;
 
 	/**
 	 * Gets the top curve
@@ -74,10 +94,9 @@ public:
 	 */
 	FRichCurve& GetBottomCurve() { return BottomCurve; }
 	const FRichCurve& GetBottomCurve() const { return BottomCurve; }
-private:
-	void AddKeyToNamedCurve( float Time, const FMarginKey& MarginKey );
 
 private:
+
 	/** Red curve data */
 	UPROPERTY()
 	FRichCurve TopCurve;

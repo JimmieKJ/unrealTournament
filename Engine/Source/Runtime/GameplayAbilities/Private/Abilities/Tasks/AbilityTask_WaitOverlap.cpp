@@ -43,7 +43,7 @@ void UAbilityTask_WaitOverlap::OnHitCallback(AActor* OtherActor, UPrimitiveCompo
 
 UAbilityTask_WaitOverlap* UAbilityTask_WaitOverlap::WaitForOverlap(UObject* WorldContextObject)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitOverlap>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitOverlap>(WorldContextObject);
 	return MyObj;
 }
 

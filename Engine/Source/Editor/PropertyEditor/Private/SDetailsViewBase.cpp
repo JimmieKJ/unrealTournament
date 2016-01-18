@@ -178,6 +178,11 @@ void SDetailsViewBase::SetOnDisplayedPropertiesChanged(FOnDisplayedPropertiesCha
 	OnDisplayedPropertiesChangedDelegate = InOnDisplayedPropertiesChangedDelegate;
 }
 
+void SDetailsViewBase::RerunCurrentFilter()
+{
+	UpdateFilteredDetails();
+}
+
 EVisibility SDetailsViewBase::GetTreeVisibility() const
 {
 	return DetailLayout.IsValid() && DetailLayout->HasDetails() ? EVisibility::Visible : EVisibility::Collapsed;
@@ -696,7 +701,7 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 	{
 		// Any deferred actions are likely to cause the node  tree to be at least partially rebuilt
 		// Save the expansion state of existing nodes so we can expand them later
-		SaveExpandedItems();
+		SaveExpandedItems( RootPropertyNode.ToSharedRef() );
 
 		// Execute any deferred actions
 		for (int32 ActionIndex = 0; ActionIndex < DeferredActions.Num(); ++ActionIndex)
@@ -711,7 +716,7 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 		// Reaquire the root property node.  It may have been changed by the deferred actions if something like a blueprint editor forcefully resets a details panel during a posteditchange
 		RootPropertyNode = GetRootNode();
 
-		RestoreExpandedItems();
+		RestoreExpandedItems( RootPropertyNode.ToSharedRef() );
 	}
 
 
@@ -719,12 +724,13 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 	FPropertyNode::DataValidationResult Result = RootPropertyNode->EnsureDataIsValid();
 	if (Result == FPropertyNode::PropertiesChanged || Result == FPropertyNode::EditInlineNewValueChanged)
 	{
-		RestoreExpandedItems();
+		RestoreExpandedItems( RootPropertyNode.ToSharedRef() );
 		UpdatePropertyMap();
+		UpdateFilteredDetails();
 	}
 	else if (Result == FPropertyNode::ArraySizeChanged)
 	{
-		RestoreExpandedItems();
+		RestoreExpandedItems( RootPropertyNode.ToSharedRef() );
 		UpdateFilteredDetails();
 	}
 	else if (Result == FPropertyNode::ObjectInvalid)
@@ -746,15 +752,16 @@ void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InC
 				Result = PropertyNode->EnsureDataIsValid();
 				if (Result == FPropertyNode::PropertiesChanged || Result == FPropertyNode::EditInlineNewValueChanged)
 				{
-					RestoreExpandedItems(PropertyNode);
+					RestoreExpandedItems(PropertyNode.ToSharedRef());
 					UpdatePropertyMap();
+					UpdateFilteredDetails();
 					// Note this will invalidate all the external root nodes so there is no need to continue
 					ExternalRootPropertyNodes.Empty();
 					break;
 				}
 				else if (Result == FPropertyNode::ArraySizeChanged)
 				{
-					RestoreExpandedItems(PropertyNode);
+					RestoreExpandedItems(PropertyNode.ToSharedRef());
 					UpdateFilteredDetails();
 				}
 			}
@@ -848,14 +855,12 @@ void SetExpandedItems(TSharedPtr<FPropertyNode> InPropertyNode, const TArray<FSt
 	}
 }
 
-void SDetailsViewBase::SaveExpandedItems()
+void SDetailsViewBase::SaveExpandedItems( TSharedRef<FPropertyNode> StartNode )
 {
-	auto RootPropertyNode = GetRootNode();
-	check(RootPropertyNode.IsValid());
-	UStruct* BestBaseStruct = RootPropertyNode->GetBaseStructure();
+	UStruct* BestBaseStruct = StartNode->FindComplexParent()->GetBaseStructure();
 
 	TArray<FString> ExpandedPropertyItems;
-	GetExpandedItems(RootPropertyNode, ExpandedPropertyItems);
+	GetExpandedItems(StartNode, ExpandedPropertyItems);
 
 	// Handle spaces in expanded node names by wrapping them in quotes
 	for( FString& String : ExpandedPropertyItems )
@@ -878,7 +883,7 @@ void SDetailsViewBase::SaveExpandedItems()
 	//while a valid class, and we're either the same as the base class (for multiple actors being selected and base class is AActor) OR we're not down to AActor yet)
 	for (UStruct* Struct = BestBaseStruct; Struct && ((BestBaseStruct == Struct) || (Struct != AActor::StaticClass())); Struct = Struct->GetSuperStruct())
 	{
-		if (RootPropertyNode->GetNumChildNodes() > 0)
+		if (StartNode->GetNumChildNodes() > 0)
 		{
 			bool bShouldSave = ExpandedPropertyItems.Num() > 0;
 			if (!bShouldSave)
@@ -911,21 +916,17 @@ void SDetailsViewBase::SaveExpandedItems()
 	}
 }
 
-void SDetailsViewBase::RestoreExpandedItems(TSharedPtr<FPropertyNode> InitialStartNode)
+void SDetailsViewBase::RestoreExpandedItems(TSharedRef<FPropertyNode> InitialStartNode)
 {
-	auto RootPropertyNode = GetRootNode();
-	check(RootPropertyNode.IsValid());
 	TSharedPtr<FPropertyNode> StartNode = InitialStartNode;
-	if (!StartNode.IsValid())
-	{
-		StartNode = RootPropertyNode;
-	}
 
 	ExpandedDetailNodes.Empty();
 
 	TArray<FString> ExpandedPropertyItems;
 	FString ExpandedCustomItems;
-	UStruct* BestBaseStruct = RootPropertyNode->GetBaseStructure();
+
+	UStruct* BestBaseStruct = StartNode->FindComplexParent()->GetBaseStructure();
+
 	//while a valid class, and we're either the same as the base class (for multiple actors being selected and base class is AActor) OR we're not down to AActor yet)
 	for (UStruct* Struct = BestBaseStruct; Struct && ((BestBaseStruct == Struct) || (Struct != AActor::StaticClass())); Struct = Struct->GetSuperStruct())
 	{
@@ -1193,7 +1194,5 @@ void SDetailsViewBase::UpdatePropertyMap()
 	}
 	
 	DetailLayout->GenerateDetailLayout();
-
-	UpdateFilteredDetails();
 }
 

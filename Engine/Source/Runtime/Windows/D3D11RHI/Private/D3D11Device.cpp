@@ -42,6 +42,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	NumSimultaneousRenderTargets(0),
 	NumUAVs(0),
 	SceneFrameCounter(0),
+	PresentCounter(0),
 	ResourceTableFrameCounter(INDEX_NONE),
 	CurrentDSVAccessType(FExclusiveDepthStencil::DepthWrite_StencilWrite),
 	bDiscardSharedConstants(false),
@@ -171,6 +172,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 		GMaxTextureDimensions = D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION;
 		GMaxCubeTextureDimensions = D3D11_REQ_TEXTURECUBE_DIMENSION;
 		GMaxTextureArrayLayers = D3D11_REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION;
+		GRHISupportsMSAADepthSampleAccess = true;
 	}
 	else if (FeatureLevel >= D3D_FEATURE_LEVEL_10_0)
 	{
@@ -199,8 +201,17 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	}
 }
 
+FD3D11DynamicRHI::~FD3D11DynamicRHI()
+{
+	UE_LOG(LogD3D11RHI, Log, TEXT("~FD3D11DynamicRHI"));
+
+	check(Direct3DDeviceIMContext == nullptr);
+	check(Direct3DDevice == nullptr);
+}
+
 void FD3D11DynamicRHI::Shutdown()
 {
+	UE_LOG(LogD3D11RHI, Log, TEXT("Shutdown"));
 	check(IsInGameThread() && IsInRenderingThread());  // require that the render thread has been shut down
 
 	// Cleanup the D3D device.
@@ -217,8 +228,9 @@ void FD3D11DynamicRHI::Shutdown()
 
 void FD3D11DynamicRHI::RHIPushEvent(const TCHAR* Name)
 { 
-	GPUProfilingData.PushEvent(Name); 
+	GPUProfilingData.PushEvent(Name);
 }
+
 void FD3D11DynamicRHI::RHIPopEvent()
 { 
 	GPUProfilingData.PopEvent(); 
@@ -238,14 +250,14 @@ void FD3D11DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height 
 	BestMode.Height = 0;
 
 	{
-		HRESULT hr = S_OK;
+		HRESULT HResult = S_OK;
 		TRefCountPtr<IDXGIAdapter> Adapter;
-		hr = DXGIFactory1->EnumAdapters(ChosenAdapter,Adapter.GetInitReference());
-		if( DXGI_ERROR_NOT_FOUND == hr )
+		HResult = DXGIFactory1->EnumAdapters(ChosenAdapter,Adapter.GetInitReference());
+		if( DXGI_ERROR_NOT_FOUND == HResult )
 		{
 			return;
 		}
-		if( FAILED(hr) )
+		if( FAILED(HResult) )
 		{
 			return;
 		}
@@ -259,22 +271,26 @@ void FD3D11DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height 
 		for(uint32 o = 0;o < 1; o++)
 		{
 			TRefCountPtr<IDXGIOutput> Output;
-			hr = Adapter->EnumOutputs(o,Output.GetInitReference());
-			if(DXGI_ERROR_NOT_FOUND == hr)
+			HResult = Adapter->EnumOutputs(o,Output.GetInitReference());
+			if(DXGI_ERROR_NOT_FOUND == HResult)
+			{
 				break;
-			if(FAILED(hr))
+			}
+			if(FAILED(HResult))
+			{
 				return;
+			}
 
 			// TODO: GetDisplayModeList is a terribly SLOW call.  It can take up to a second per invocation.
 			//  We might want to work around some DXGI badness here.
 			DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 			uint32 NumModes = 0;
-			hr = Output->GetDisplayModeList(Format,0,&NumModes,NULL);
-			if(hr == DXGI_ERROR_NOT_FOUND)
+			HResult = Output->GetDisplayModeList(Format,0,&NumModes,NULL);
+			if(HResult == DXGI_ERROR_NOT_FOUND)
 			{
 				return;
 			}
-			else if(hr == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
+			else if(HResult == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
 			{
 				UE_LOG(LogD3D11RHI, Fatal,
 					TEXT("This application cannot be run over a remote desktop configuration")
@@ -393,6 +409,8 @@ void FD3D11DynamicRHI::UpdateMSAASettings()
 
 void FD3D11DynamicRHI::CleanupD3DDevice()
 {
+	UE_LOG(LogD3D11RHI, Log, TEXT("CleanupD3DDevice"));
+
 	if(GIsRHIInitialized)
 	{
 		check(Direct3DDevice);

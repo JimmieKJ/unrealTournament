@@ -56,7 +56,7 @@ private:
 	bool OnShouldSetAsset(const FAssetData& InAssetData) const;
 
 	/** Reset to default implementation.  Resets Parameter to default */
-	void ResetToDefault( class UDEditorParameterValue* Parameter );
+	void ResetToDefault(TSharedRef<IPropertyHandle> PropertyHandle, class UDEditorParameterValue* Parameter);
 
 	/** Returns true if the refraction options should be displayed */
 	EVisibility ShouldShowMaterialRefractionSettings() const;
@@ -74,10 +74,12 @@ private:
 	bool OverrideBlendModeEnabled() const;
 	bool OverrideShadingModelEnabled() const;
 	bool OverrideTwoSidedEnabled() const;
+	bool OverrideDitheredLODTransitionEnabled() const;
 	void OnOverrideOpacityClipMaskValueChanged(bool NewValue);
 	void OnOverrideBlendModeChanged(bool NewValue);
 	void OnOverrideShadingModelChanged(bool NewValue);
 	void OnOverrideTwoSidedChanged(bool NewValue);
+	void OnOverrideDitheredLODTransitionChanged(bool NewValue);
 
 
 private:

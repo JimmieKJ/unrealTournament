@@ -1,11 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTLobbyPC.h"
 #include "UTGameState.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyPlayerState.h"
-#include "../Private/Slate/SUWindowsLobby.h"
+#include "Menus/SUTLobbyMenu.h"
 #include "UTBaseGameMode.h"
 #include "UTServerBeaconLobbyHostListener.h"
 #include "UTServerBeaconLobbyHostObject.h"
@@ -69,7 +69,7 @@ public:
 
 	
 	virtual void PostLogin( APlayerController* NewPlayer );
-	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
+	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
 	virtual void Logout(AController* Exiting);
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 	virtual TSubclassOf<AGameSession> GetGameSessionClass() const;
@@ -79,16 +79,14 @@ public:
 
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC);
 
-	virtual bool IsHandlingReplays();
-
 #if !UE_SERVER
 
 	/**
 	 *	Returns the Menu to popup when the user requests a menu
 	 **/
-	virtual TSharedRef<SUWindowsDesktop> GetGameMenu(UUTLocalPlayer* PlayerOwner) const
+	virtual TSharedRef<SUTMenuBase> GetGameMenu(UUTLocalPlayer* PlayerOwner) const
 	{
-		return SNew(SUWindowsLobby).PlayerOwner(PlayerOwner);
+		return SNew(SUTLobbyMenu).PlayerOwner(PlayerOwner);
 	}
 
 #endif
@@ -100,7 +98,7 @@ protected:
 	int32 InstanceQueryPort;
 
 public:
-	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
+	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
 	virtual void GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& InstanceData);
 
 	virtual int32 GetNumPlayers();

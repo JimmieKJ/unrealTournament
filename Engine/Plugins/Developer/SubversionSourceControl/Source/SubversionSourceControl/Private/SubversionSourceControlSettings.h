@@ -23,6 +23,9 @@ public:
 	/** Set the Subversion labels root */
 	void SetLabelsRoot(const FString& InString);
 
+	/** Get the svn executable location override */
+	FString GetExecutableOverride() const;
+
 	/** Load settings from ini file */
 	void LoadSettings();
 
@@ -41,4 +44,7 @@ private:
 
 	/** Relative path to repository root where labels/tags are stored. For example, if the labels/tags were to be stored in 'http://repo-name/tags/', then the path here would be 'tags/' */
 	FString LabelsRoot;
+
+	/** Advanced: Location of the svn executable to use. Used to explicitly override the default detection path / fallback executable */
+	FString ExecutableLocation;
 };

@@ -27,14 +27,19 @@ void UK2Node_Variable::Serialize(FArchive& Ar)
 			VariableReference.SetDirect(VariableName_DEPRECATED, FGuid(), VariableSourceClass_DEPRECATED, bSelfContext_DEPRECATED);
 		}
 
-		if(Ar.UE4Ver() < VER_UE4_K2NODE_REFERENCEGUIDS)
+		if(Ar.UE4Ver() < VER_UE4_K2NODE_VAR_REFERENCEGUIDS)
 		{
 			FGuid VarGuid;
 			
-			if (UBlueprint::GetGuidFromClassByFieldName<UProperty>(GetBlueprint()->GeneratedClass, VariableReference.GetMemberName(), VarGuid))
+			// Do not let this code run for local variables
+			if (!VariableReference.IsLocalScope())
 			{
 				const bool bSelf = VariableReference.IsSelfContext();
-				VariableReference.SetDirect(VariableReference.GetMemberName(), VarGuid, (bSelf ? NULL : VariableReference.GetMemberParentClass((UClass*)NULL)), bSelf);
+				UClass* MemberParentClass = VariableReference.GetMemberParentClass(nullptr);
+				if (UBlueprint::GetGuidFromClassByFieldName<UProperty>(bSelf? *GetBlueprint()->GeneratedClass : MemberParentClass, VariableReference.GetMemberName(), VarGuid))
+				{
+					VariableReference.SetDirect(VariableReference.GetMemberName(), VarGuid, bSelf ? nullptr : MemberParentClass, bSelf);
+				}
 			}
 		}
 	}
@@ -192,6 +197,21 @@ FLinearColor UK2Node_Variable::GetNodeTitleColor() const
 	}
 
 	return FLinearColor::White;
+}
+
+FString UK2Node_Variable::GetFindReferenceSearchString() const
+{
+	FString ResultSearchString;
+	if (VariableReference.IsLocalScope())
+	{
+		ResultSearchString = VariableReference.GetReferenceSearchString(nullptr);
+	}
+	else
+	{
+		UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
+		ResultSearchString = VariableReference.GetReferenceSearchString(VariableProperty->GetOwnerClass());
+	}
+	return ResultSearchString;
 }
 
 UK2Node::ERedirectType UK2Node_Variable::DoPinsMatchForReconstruction( const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex ) const 
@@ -449,20 +469,32 @@ FText UK2Node_Variable::GetToolTipHeading() const
 {
 	FText Heading = Super::GetToolTipHeading();
 
-	UProperty const* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
-	if (VariableProperty && VariableProperty->HasAllPropertyFlags(CPF_Net))
+	// attempt to reflect the node's GetCornerIcon() with some tooltip documentation 
+	FText IconTag;
+	if ( UProperty const* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode()) )
 	{
-		FText ReplicatedTag = LOCTEXT("ReplicatedVar", "Replicated");
-		if (Heading.IsEmpty())
+		if (VariableProperty->HasAllPropertyFlags(CPF_Net | CPF_EditorOnly))
 		{
-			Heading = ReplicatedTag;
+			IconTag = LOCTEXT("ReplicatedEditorOnlyVar", "Editor-Only | Replicated");
 		}
-		else 
+		else if (VariableProperty->HasAnyPropertyFlags(CPF_Net))
 		{
-			Heading = FText::Format(FText::FromString("{0}\n{1}"), ReplicatedTag, Heading);
+			IconTag = LOCTEXT("ReplicatedVar", "Replicated");
+		}
+		else if (VariableProperty->HasAnyPropertyFlags(CPF_EditorOnly))
+		{
+			IconTag = LOCTEXT("EditorOnlyVar", "Editor-Only");
 		}
 	}
 
+	if (Heading.IsEmpty())
+	{
+		return IconTag;
+	}
+	else if (!IconTag.IsEmpty())
+	{
+		Heading = FText::Format(FText::FromString("{0}\n{1}"), IconTag, Heading);
+	}
 	return Heading;
 }
 
@@ -627,25 +659,32 @@ bool UK2Node_Variable::RemapRestrictedLinkReference(FName OldVariableName, FName
 
 FName UK2Node_Variable::GetCornerIcon() const
 {
-	const UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
-	if (VariableProperty && VariableProperty->HasAllPropertyFlags(CPF_Net))
+	if (const UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode()))
 	{
-		return TEXT("Graph.Replication.Replicated");
+		if (VariableProperty->HasAllPropertyFlags(CPF_Net))
+		{
+			return TEXT("Graph.Replication.Replicated");
+		}
+		else if (VariableProperty->HasAllPropertyFlags(CPF_EditorOnly))
+		{
+			return TEXT("Graph.Editor.EditorOnlyIcon");
+		}
 	}
 
 	return Super::GetCornerIcon();
 }
 
-bool UK2Node_Variable::HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const
+bool UK2Node_Variable::HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const
 {
 	UClass* SourceClass = GetVariableSourceClass();
 	UBlueprint* SourceBlueprint = GetBlueprint();
-	const bool bResult = (SourceClass && (SourceClass->ClassGeneratedBy != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint));
+	const bool bResult = (SourceClass && (SourceClass->ClassGeneratedBy != SourceBlueprint));
 	if (bResult && OptionalOutput)
 	{
-		OptionalOutput->Add(SourceClass);
+		OptionalOutput->AddUnique(SourceClass);
 	}
-	return bResult || Super::HasExternalBlueprintDependencies(OptionalOutput);
+	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);
+	return bSuperResult || bResult;
 }
 
 FString UK2Node_Variable::GetDocumentationLink() const
@@ -797,10 +836,11 @@ void UK2Node_Variable::PostPasteNode()
 		// If the current graph is a Function graph, look to see if there is a compatible local variable (same name)
 		if (GetGraph()->GetSchema()->GetGraphType(GetGraph()) == GT_Function)
 		{
-			FBPVariableDescription* VariableDescription = FBlueprintEditorUtils::FindLocalVariable(Blueprint, GetGraph(), VariableReference.GetMemberName());
+			UEdGraph* FunctionGraph = FBlueprintEditorUtils::GetTopLevelGraph(GetGraph());
+			FBPVariableDescription* VariableDescription = FBlueprintEditorUtils::FindLocalVariable(Blueprint, FunctionGraph, VariableReference.GetMemberName());
 			if(VariableDescription)
 			{
-				VariableReference.SetLocalMember(VariableReference.GetMemberName(), GetGraph()->GetName(), VariableReference.GetMemberGuid());
+				VariableReference.SetLocalMember(VariableReference.GetMemberName(), FunctionGraph->GetName(), VariableReference.GetMemberGuid());
 			}
 		}
 		// If no variable was found, ResolveMember should automatically find a member variable with the same name in the current Blueprint and hook up to it as expected

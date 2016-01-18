@@ -12,6 +12,7 @@
 #include "Editor/Persona/Public/PersonaModule.h"
 #include "ObjectEditorUtils.h"
 #include "SNotificationList.h"
+#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "EditorAnimUtils"
 
@@ -19,7 +20,7 @@ namespace EditorAnimUtils
 {
 	//////////////////////////////////////////////////////////////////
 	// FAnimationRetargetContext
-	FAnimationRetargetContext::FAnimationRetargetContext(const TArray<FAssetData>& AssetsToRetarget, bool bRetargetReferredAssets, bool bInConvertAnimationDataInComponentSpaces) 
+	FAnimationRetargetContext::FAnimationRetargetContext(const TArray<FAssetData>& AssetsToRetarget, bool bRetargetReferredAssets, bool bInConvertAnimationDataInComponentSpaces, const FNameDuplicationRule& NameRule) 
 		: SingleTargetObject(NULL)
 		, bConvertAnimationDataInComponentSpaces(bInConvertAnimationDataInComponentSpaces)
 	{
@@ -32,7 +33,7 @@ namespace EditorAnimUtils
 		Initialize(WeakObjectList,bRetargetReferredAssets);
 	}
 
-	FAnimationRetargetContext::FAnimationRetargetContext(TArray<TWeakObjectPtr<UObject>> AssetsToRetarget, bool bRetargetReferredAssets, bool bInConvertAnimationDataInComponentSpaces) 
+	FAnimationRetargetContext::FAnimationRetargetContext(TArray<TWeakObjectPtr<UObject>> AssetsToRetarget, bool bRetargetReferredAssets, bool bInConvertAnimationDataInComponentSpaces, const FNameDuplicationRule& NameRule) 
 		: SingleTargetObject(NULL)
 		, bConvertAnimationDataInComponentSpaces(bInConvertAnimationDataInComponentSpaces)
 	{
@@ -99,6 +100,27 @@ namespace EditorAnimUtils
 				DuplicatedBlueprints.Num() > 0;
 	}
 
+	TArray<UObject*> FAnimationRetargetContext::GetAllDuplicates() const
+	{
+		TArray<UObject*> Duplicates;
+
+		if (AnimSequencesToRetarget.Num() > 0)
+		{
+			Duplicates.Append(AnimSequencesToRetarget);
+		}
+
+		if(ComplexAnimsToRetarget.Num() > 0)
+		{
+			Duplicates.Append(ComplexAnimsToRetarget);
+		}
+
+		if(AnimBlueprintsToRetarget.Num() > 0)
+		{
+			Duplicates.Append(AnimBlueprintsToRetarget);
+		}
+		return Duplicates;
+	}
+
 	UObject* FAnimationRetargetContext::GetSingleTargetObject() const
 	{
 		return SingleTargetObject;
@@ -133,13 +155,28 @@ namespace EditorAnimUtils
 		return NULL;
 	}
 
-	void FAnimationRetargetContext::DuplicateAssetsToRetarget(UPackage* DestinationPackage)
+	void FAnimationRetargetContext::DuplicateAssetsToRetarget(UPackage* DestinationPackage, const FNameDuplicationRule* NameRule)
 	{
 		if(!HasDuplicates())
 		{
-			DuplicatedSequences = DuplicateAssets<UAnimSequence>(AnimSequencesToRetarget, DestinationPackage);
-			DuplicatedComplexAssets = DuplicateAssets<UAnimationAsset>(ComplexAnimsToRetarget, DestinationPackage);
-			DuplicatedBlueprints = DuplicateAssets<UAnimBlueprint>(AnimBlueprintsToRetarget, DestinationPackage);
+			TArray<UAnimSequence*> AnimSequencesToDuplicate = AnimSequencesToRetarget;
+			TArray<UAnimationAsset*> ComplexAnimsToDuplicate = ComplexAnimsToRetarget;
+			TArray<UAnimBlueprint*> AnimBlueprintsToDuplicate = AnimBlueprintsToRetarget;
+
+			// We only want to duplicate unmapped assets, so we remove mapped assets from the list we're duplicating
+			for(TPair<UAnimSequence*, UAnimSequence*>& Pair : RemappedSequences)
+			{
+				AnimSequencesToDuplicate.Remove(Pair.Key);
+			}
+
+			for(TPair<UAnimationAsset*, UAnimationAsset*>& Pair : RemappedComplexAssets)
+			{
+				ComplexAnimsToDuplicate.Remove(Pair.Key);
+			}
+
+			DuplicatedSequences = DuplicateAssets<UAnimSequence>(AnimSequencesToDuplicate, DestinationPackage, NameRule);
+			DuplicatedComplexAssets = DuplicateAssets<UAnimationAsset>(ComplexAnimsToDuplicate, DestinationPackage, NameRule);
+			DuplicatedBlueprints = DuplicateAssets<UAnimBlueprint>(AnimBlueprintsToDuplicate, DestinationPackage, NameRule);
 
 			DuplicatedSequences.GenerateValueArray(AnimSequencesToRetarget);
 			DuplicatedComplexAssets.GenerateValueArray(ComplexAnimsToRetarget);
@@ -205,15 +242,20 @@ namespace EditorAnimUtils
 			AssetToRetarget->ReplaceSkeleton(NewSkeleton, bConvertAnimationDataInComponentSpaces);
 		}
 
+		// Put duplicated and remapped assets in one list
+		RemappedSequences.Append(DuplicatedSequences);
+		RemappedComplexAssets.Append(DuplicatedComplexAssets);
+
 		// convert all Animation Blueprints and compile 
 		for ( auto AnimBPIter = AnimBlueprintsToRetarget.CreateIterator(); AnimBPIter; ++AnimBPIter )
 		{
 			UAnimBlueprint * AnimBlueprint = (*AnimBPIter);
 
 			AnimBlueprint->TargetSkeleton = NewSkeleton;
-			if(HasDuplicates())
+
+			if(RemappedSequences.Num() > 0 || RemappedComplexAssets.Num() > 0)
 			{
-				ReplaceReferredAnimationsInBlueprint(AnimBlueprint, DuplicatedComplexAssets, DuplicatedSequences);
+				ReplaceReferredAnimationsInBlueprint(AnimBlueprint, RemappedComplexAssets, RemappedSequences);
 			}
 
 			bool bIsRegeneratingOnLoad = false;
@@ -222,6 +264,18 @@ namespace EditorAnimUtils
 			FKismetEditorUtilities::CompileBlueprint(AnimBlueprint, bIsRegeneratingOnLoad, bSkipGarbageCollection);
 			AnimBlueprint->PostEditChange();
 			AnimBlueprint->MarkPackageDirty();
+		}
+	}
+
+	void FAnimationRetargetContext::AddRemappedAsset(UAnimationAsset* OriginalAsset, UAnimationAsset* NewAsset)
+	{
+		if(OriginalAsset->IsA(UAnimSequence::StaticClass()) && NewAsset->IsA(UAnimSequence::StaticClass()))
+		{
+			RemappedSequences.Add(Cast<UAnimSequence>(OriginalAsset), Cast<UAnimSequence>(NewAsset));
+		}
+		else if(OriginalAsset->IsA(UAnimationAsset::StaticClass()) && NewAsset->IsA(UAnimationAsset::StaticClass()))
+		{
+			RemappedComplexAssets.Add(Cast<UAnimationAsset>(OriginalAsset), Cast<UAnimationAsset>(NewAsset));
 		}
 	}
 
@@ -241,19 +295,19 @@ namespace EditorAnimUtils
 	}
 
 	//////////////////////////////////////////////////////////////////
-	UObject* RetargetAnimations(USkeleton* OldSkeleton, USkeleton* NewSkeleton, TArray<TWeakObjectPtr<UObject>> AssetsToRetarget, bool bRetargetReferredAssets, bool bDuplicateAssetsBeforeRetarget, bool bConvertSpace)
+	UObject* RetargetAnimations(USkeleton* OldSkeleton, USkeleton* NewSkeleton, TArray<TWeakObjectPtr<UObject>> AssetsToRetarget, bool bRetargetReferredAssets, const FNameDuplicationRule* NameRule, bool bConvertSpace)
 	{
 		FAnimationRetargetContext RetargetContext(AssetsToRetarget, bRetargetReferredAssets, bConvertSpace);
-		return RetargetAnimations(OldSkeleton, NewSkeleton, RetargetContext, bRetargetReferredAssets, bDuplicateAssetsBeforeRetarget);
+		return RetargetAnimations(OldSkeleton, NewSkeleton, RetargetContext, bRetargetReferredAssets, NameRule);
 	}
 
-	UObject* RetargetAnimations(USkeleton* OldSkeleton, USkeleton* NewSkeleton, const TArray<FAssetData>& AssetsToRetarget, bool bRetargetReferredAssets, bool bDuplicateAssetsBeforeRetarget, bool bConvertSpace)
+	UObject* RetargetAnimations(USkeleton* OldSkeleton, USkeleton* NewSkeleton, const TArray<FAssetData>& AssetsToRetarget, bool bRetargetReferredAssets, const FNameDuplicationRule* NameRule, bool bConvertSpace)
 	{
 		FAnimationRetargetContext RetargetContext(AssetsToRetarget, bRetargetReferredAssets, bConvertSpace);
-		return RetargetAnimations(OldSkeleton, NewSkeleton, RetargetContext, bRetargetReferredAssets, bDuplicateAssetsBeforeRetarget);
+		return RetargetAnimations(OldSkeleton, NewSkeleton, RetargetContext, bRetargetReferredAssets, NameRule);
 	}
 
-	UObject* RetargetAnimations(USkeleton* OldSkeleton, USkeleton* NewSkeleton, FAnimationRetargetContext& RetargetContext, bool bRetargetReferredAssets, bool bDuplicateAssetsBeforeRetarget)
+	UObject* RetargetAnimations(USkeleton* OldSkeleton, USkeleton* NewSkeleton, FAnimationRetargetContext& RetargetContext, bool bRetargetReferredAssets, const FNameDuplicationRule* NameRule)
 	{
 		check(NewSkeleton);
 		UObject* OriginalObject  = RetargetContext.GetSingleTargetObject();
@@ -261,9 +315,9 @@ namespace EditorAnimUtils
 
 		if(	RetargetContext.HasAssetsToRetarget() )
 		{
-			if(bDuplicateAssetsBeforeRetarget)
+			if(NameRule)
 			{
-				RetargetContext.DuplicateAssetsToRetarget(DuplicationDestPackage);
+				RetargetContext.DuplicateAssetsToRetarget(DuplicationDestPackage, NameRule);
 			}
 			RetargetContext.RetargetAnimations(OldSkeleton, NewSkeleton);
 		}
@@ -272,12 +326,12 @@ namespace EditorAnimUtils
 		Notification.ExpireDuration = 5.f;
 
 		UObject* NotifyLinkObject = OriginalObject;
-		if(OriginalObject && bDuplicateAssetsBeforeRetarget)
+		if(OriginalObject && NameRule)
 		{
 			NotifyLinkObject = RetargetContext.GetDuplicate(OriginalObject);
 		}
 
-		if(!bDuplicateAssetsBeforeRetarget)
+		if(!NameRule)
 		{
 			if(OriginalObject)
 			{
@@ -309,14 +363,41 @@ namespace EditorAnimUtils
 
 		FSlateNotificationManager::Get().AddNotification(Notification);
 
-		if(OriginalObject && bDuplicateAssetsBeforeRetarget)
+		// sync newly created objects on CB
+		if (NotifyLinkObject)
+		{
+			TArray<UObject*> NewObjects = RetargetContext.GetAllDuplicates();
+			TArray<FAssetData> CurrentSelection;
+			for(auto& NewObject : NewObjects)
+			{
+				CurrentSelection.Add(FAssetData(NewObject));
+			}
+
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+			ContentBrowserModule.Get().SyncBrowserToAssets(CurrentSelection);
+		}
+		if(OriginalObject && NameRule)
 		{
 			return RetargetContext.GetDuplicate(OriginalObject);
 		}
 		return NULL;
 	}
 
-	TMap<UObject*, UObject*> DuplicateAssetsInternal(const TArray<UObject*>& AssetsToDuplicate, UPackage* DestinationPackage)
+	FString CreateDesiredName(UObject* Asset, const FNameDuplicationRule* NameRule)
+	{
+		check(Asset);
+
+		FString NewName = Asset->GetName();
+
+		if(NameRule)
+		{
+			NewName = NameRule->Rename(Asset);
+		}
+
+		return NewName;
+	}
+
+	TMap<UObject*, UObject*> DuplicateAssetsInternal(const TArray<UObject*>& AssetsToDuplicate, UPackage* DestinationPackage, const FNameDuplicationRule* NameRule)
 	{
 		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
 
@@ -327,11 +408,11 @@ namespace EditorAnimUtils
 			UObject* Asset = (*Iter);
 			if(!DuplicateMap.Contains(Asset))
 			{
-				FString PathName = FPackageName::GetLongPackagePath(DestinationPackage->GetName());
+				FString PathName = (NameRule)? NameRule->FolderPath : FPackageName::GetLongPackagePath(DestinationPackage->GetName());
 
 				FString ObjectName;
 				FString NewPackageName;
-				AssetToolsModule.Get().CreateUniqueAssetName(PathName+"/"+ Asset->GetName(), TEXT("_Copy"), NewPackageName, ObjectName);
+				AssetToolsModule.Get().CreateUniqueAssetName(PathName+"/"+ CreateDesiredName(Asset, NameRule), TEXT(""), NewPackageName, ObjectName);
 
 				// create one on skeleton folder
 				UObject* NewAsset = AssetToolsModule.Get().DuplicateAsset(ObjectName, PathName, Asset);
@@ -413,6 +494,16 @@ namespace EditorAnimUtils
 				break;
 			}
 		}
+	}
+
+	FString FNameDuplicationRule::Rename(const UObject* Asset) const
+	{
+		check(Asset);
+
+		FString NewName = Asset->GetName();
+
+		NewName = NewName.Replace(*ReplaceFrom, *ReplaceTo);
+		return FString::Printf(TEXT("%s%s%s"), *Prefix, *NewName, *Suffix);
 	}
 }
 

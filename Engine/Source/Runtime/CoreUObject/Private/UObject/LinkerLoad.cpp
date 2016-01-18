@@ -11,6 +11,9 @@
 #include "LinkerManager.h"
 #include "Serialization/DeferredMessageLog.h"
 #include "UObject/UObjectThreadContext.h"
+#include "GatherableTextData.h"
+#include "Serialization/AsyncLoading.h"
+#include "ModuleManager.h"
 
 #define LOCTEXT_NAMESPACE "LinkerLoad"
 
@@ -24,6 +27,17 @@ DECLARE_CYCLE_STAT(TEXT("Linker Load Deferred"), STAT_LinkerLoadDeferred, STATGR
 DECLARE_STATS_GROUP( TEXT( "Linker Count" ), STATGROUP_LinkerCount, STATCAT_Advanced );
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Linker Count"), STAT_LinkerCount, STATGROUP_LinkerCount);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Live Linker Count"), STAT_LiveLinkerCount, STATGROUP_LinkerCount);
+DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("Fixup editor-only flags time"), STAT_EditorOnlyFixupTime, STATGROUP_LinkerCount);
+
+#if WITH_EDITORONLY_DATA
+int32 GLinkerAllowDynamicClasses = 0;
+static FAutoConsoleVariableRef CVarLinkerAllowDynamicClasses(
+	TEXT("linker.AllowDynamicClasses"),
+	GLinkerAllowDynamicClasses,
+	TEXT("If true, linkers will attempt to use dynamic classes instead of class assets."),
+	ECVF_Default
+	);
+#endif
 
 /** Map that keeps track of any precached full package reads															*/
 TMap<FString, FLinkerLoad::FPackagePrecacheInfo> FLinkerLoad::PackagePrecacheMap;
@@ -47,12 +61,14 @@ FName FLinkerLoad::NAME_LoadErrors("LoadErrors");
 
 
 TMap<FName, FName> FLinkerLoad::ObjectNameRedirects;			    // OldClassName to NewClassName for ImportMap
+TMap<FName, TPair<FName, FName>> FLinkerLoad::ObjectNameClassRedirects; // OldClassName to NewClassClass and NewClassPackage for ImportMap
 TMap<FName, FName> FLinkerLoad::ObjectNameRedirectsInstanceOnly;	// OldClassName to NewClassName for ExportMap
 TMap<FName, FName> FLinkerLoad::ObjectNameRedirectsObjectOnly;		// Object name to NewClassName for export map
 TMap<FName, FName> FLinkerLoad::GameNameRedirects;					// Game package name to new game package name
 TMap<FName, FName> FLinkerLoad::StructNameRedirects;				// Old struct name to new struct name mapping
 TMap<FString, FString> FLinkerLoad::PluginNameRedirects;			// Old plugin name to new plugin name mapping
 TMap<FName, FLinkerLoad::FSubobjectRedirect> FLinkerLoad::SubobjectNameRedirects;	
+TSet<FName> FLinkerLoad::KnownMissingPackages;
 bool FLinkerLoad::bActiveRedirectsMapInitialized = false;
 
 void FLinkerLoad::AddGameNameRedirect(const FName OldName, const FName NewName)
@@ -68,30 +84,29 @@ void FLinkerLoad::AddGameNameRedirect(const FName OldName, const FName NewName)
  * Add redirects to FLinkerLoad static map
  */
 void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
-{		
-	if (bActiveRedirectsMapInitialized)
-	{
-		return;
-	}
-	else
-	{
-		bActiveRedirectsMapInitialized = true;
-	}
+{
+	// mark that this has been done at least once
+	bActiveRedirectsMapInitialized = true;
 
 	if (GConfig)
 	{
 		FConfigSection* PackageRedirects = GConfig->GetSectionPrivate( TEXT("/Script/Engine.Engine"), false, true, GEngineIniName );
 		if (PackageRedirects)
 		{
+			FDeferredMessageLog RedirectErrors(NAME_LoadErrors);
+
+			static FName ActiveClassRedirectsKey(TEXT("ActiveClassRedirects"));
 			for( FConfigSection::TIterator It(*PackageRedirects); It; ++It )
 			{
-				if( It.Key() == TEXT("ActiveClassRedirects") )
+				if (It.Key() == ActiveClassRedirectsKey)
 				{
 					FName OldClassName = NAME_None;
 					FName NewClassName = NAME_None;
 					FName ObjectName = NAME_None;
 					FName OldSubobjName = NAME_None;
 					FName NewSubobjName = NAME_None;
+					FName NewClassClass = NAME_None;
+					FName NewClassPackage = NAME_None;
 
 					bool bInstanceOnly = false;
 
@@ -104,19 +119,38 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 					FParse::Value( *It.Value(), TEXT("OldSubobjName="), OldSubobjName );
 					FParse::Value( *It.Value(), TEXT("NewSubobjName="), NewSubobjName );
 
+					FParse::Value( *It.Value(), TEXT("NewClassClass="), NewClassClass );
+					FParse::Value( *It.Value(), TEXT("NewClassPackage="), NewClassPackage );
+
 					if (NewSubobjName != NAME_None || OldSubobjName != NAME_None)
 					{
 						check(OldSubobjName != NAME_None && OldClassName != NAME_None );
+
+						if (SubobjectNameRedirects.Contains(OldSubobjName))
+						{
+							RedirectErrors.Error(FText::Format(LOCTEXT("SubobjRedirectorCollision", "{0} contains a collision with multiple redirectors for old suboject named {1} (old class {2})"), FText::FromName(ActiveClassRedirectsKey), FText::FromName(OldSubobjName), FText::FromName(OldClassName)));
+						}
+
 						SubobjectNameRedirects.Add(OldSubobjName, FSubobjectRedirect(OldClassName, NewSubobjName));
 					}
 					//instances only
 					else if( bInstanceOnly )
 					{
+						if (ObjectNameRedirectsInstanceOnly.Contains(OldClassName))
+						{
+							RedirectErrors.Error(FText::Format(LOCTEXT("InstanceOnlyRedirectorCollision", "{0} contains a collision with multiple instance-only redirectors for old class named {1}"), FText::FromName(ActiveClassRedirectsKey), FText::FromName(OldClassName)));
+						}
+
 						ObjectNameRedirectsInstanceOnly.Add(OldClassName,NewClassName);
 					}
 					//objects only on a per-object basis
 					else if( ObjectName != NAME_None )
 					{
+						if (ObjectNameRedirectsObjectOnly.Contains(OldClassName))
+						{
+							RedirectErrors.Error(FText::Format(LOCTEXT("ObjectOnlyRedirectorCollision", "{0} contains a collision with multiple object-only redirectors for old class named {1}"), FText::FromName(ActiveClassRedirectsKey), FText::FromName(OldClassName)));
+						}
+
 						ObjectNameRedirectsObjectOnly.Add(ObjectName, NewClassName);
 					}
 					//full redirect
@@ -124,11 +158,21 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 					{
 						if (NewClassName.ToString().Find(TEXT("."), ESearchCase::CaseSensitive) != NewClassName.ToString().Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromEnd))
 						{
-							UE_LOG(LogLinker, Error, TEXT("Currently we cannot rename nested objects for '%s'; if you want to leave the outer alone, just specify the name with no path"), *NewClassName.ToString());
+							RedirectErrors.Error(FText::Format(LOCTEXT("NestedRenameDisallowed", "{0} cannot contain a rename of nested objects for '{1}'; if you want to leave the outer alone, just specify the name with no path"), FText::FromName(ActiveClassRedirectsKey), FText::FromName(NewClassName)));
 						}
 						else
 						{
+							if (ObjectNameRedirects.Contains(OldClassName))
+							{
+								RedirectErrors.Error(FText::Format(LOCTEXT("RedirectorCollision", "{0} contains a collision with multiple redirectors for old class named {1}"), FText::FromName(ActiveClassRedirectsKey), FText::FromName(OldClassName)));
+							}
+
 							ObjectNameRedirects.Add(OldClassName,NewClassName);
+
+							if (!NewClassClass.IsNone() || !NewClassPackage.IsNone())
+							{
+								ObjectNameClassRedirects.Add(OldClassName,TPair<FName,FName>(TPairInitializer<FName, FName>(NewClassClass,NewClassPackage)));
+							}
 						}
 					}
 				}	
@@ -165,11 +209,15 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 
 					PluginNameRedirects.Add(OldPluginName, NewPluginName);
 				}
+				else if ( It.Key() == TEXT("KnownMissingPackages") )
+				{
+					FName KnownMissingPackage = NAME_None;
+
+					FParse::Value( *It.Value(), TEXT("PackageName="), KnownMissingPackage );
+
+					KnownMissingPackages.Add(KnownMissingPackage);
+				}
 			}
-		}
-		else
-		{
-			UE_LOG(LogLinker, Log, TEXT("Active class redirects did not initialize because /Script/Engine.Engine was not available in the engine ini."));
 		}
 	}
 	else
@@ -304,9 +352,9 @@ static bool IgnoreMissingReferencedClass( FName ClassName )
 	return MissingClassesToIgnore.Find( ClassName ) != INDEX_NONE;
 }
 
-static inline int32 HashNames( FName A, FName B, FName C )
+static inline int32 HashNames(FName Object, FName Class, FName Package)
 {
-	return A.GetComparisonIndex() + 7 * B.GetComparisonIndex() + 31 * FPackageName::GetShortFName(C).GetComparisonIndex();
+	return Object.GetComparisonIndex() + 7 * Class.GetComparisonIndex() + 31 * FPackageName::GetShortFName(Package).GetComparisonIndex();
 }
 
 static FORCEINLINE bool IsCoreUObjectPackage(const FName& PackageName)
@@ -387,7 +435,7 @@ FLinkerLoad* FLinkerLoad::CreateLinker( UPackage* Parent, const TCHAR* Filename,
 /**
  * Looks for an existing linker for the given package, without trying to make one if it doesn't exist
  */
-FLinkerLoad* FLinkerLoad::FindExistingLinkerForPackage(UPackage* Package)
+FLinkerLoad* FLinkerLoad::FindExistingLinkerForPackage(const UPackage* Package)
 {
 	FLinkerLoad* Linker = nullptr;
 	if (Package)
@@ -573,6 +621,12 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::Tick( float InTimeLimit, bool bInUseTime
 				Status = SerializeNameMap();
 			}
 
+			// Serialize the gatherable text data map.
+			if( Status == LINKER_Loaded )
+			{
+				Status = SerializeGatherableTextDataMap();
+			}
+
 			// Serialize the import map.
 			if( Status == LINKER_Loaded )
 			{
@@ -665,8 +719,11 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 : FLinker(ELinkerType::Load, InParent, InFilename)
 , LoadFlags(InLoadFlags)
 , bHaveImportsBeenVerified(false)
+, bDynamicClassLinker(false)
 , Loader(nullptr)
+, AsyncRoot(nullptr)
 , NameMapIndex(0)
+, GatherableTextDataMapIndex(0)
 , ImportMapIndex(0)
 , ExportMapIndex(0)
 , DependsMapIndex(0)
@@ -684,6 +741,7 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 , TickStartTime(0.0)
 , bFixupExportMapDone(false)
 #if WITH_EDITOR
+, bExportsDuplicatesFixed(false)
 ,	LoadProgressScope( nullptr )
 #endif // WITH_EDITOR
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -691,7 +749,7 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 ,	ResolvingDeferredPlaceholder(nullptr)
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 {
-	FMemory::Memset(ExportHash, 0, sizeof(ExportHash));
+	FMemory::Memset(ExportHash, INDEX_NONE, sizeof(ExportHash));
 	INC_DWORD_STAT(STAT_LinkerCount);
 	INC_DWORD_STAT(STAT_LiveLinkerCount);
 #if UE_BUILD_DEBUG
@@ -704,8 +762,10 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 FLinkerLoad::~FLinkerLoad()
 {
 #if UE_BUILD_DEBUG
-	FLinkerManager::Get().GetLiveLinkers().Add(this);
+	FLinkerManager::Get().GetLiveLinkers().Remove(this);
 #endif
+
+	UE_CLOG(!FUObjectThreadContext::Get().IsDeletingLinkers, LogLinker, Fatal, TEXT("Linkers can only be deleted by FLinkerManager."));
 
 	// Detaches linker.
 	Detach();
@@ -740,9 +800,9 @@ bool FLinkerLoad::IsTimeLimitExceeded( const TCHAR* CurrentTask, int32 Granulari
 			// Log single operations that take longer than timelimit.
 			if( (CurrentTime - TickStartTime) > (2.5 * TimeLimit) )
 			{
- 				UE_LOG(LogStreaming, Log, TEXT("FLinkerLoad: %s took (less than) %5.2f ms"), 
- 					CurrentTask, 
- 					(CurrentTime - TickStartTime) * 1000);
+				UE_LOG(LogStreaming, Log, TEXT("FLinkerLoad: %s took (less than) %5.2f ms"), 
+					CurrentTask, 
+					(CurrentTime - TickStartTime) * 1000);
 			}
 		}
 	}
@@ -754,7 +814,7 @@ bool FLinkerLoad::IsTimeLimitExceeded( const TCHAR* CurrentTask, int32 Granulari
  */
 FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 {
-	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FLinkerLoad::CreateLoader" ), STAT_LinkerLoad_CreateLoader, STATGROUP_LinkerLoad );
+	//DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FLinkerLoad::CreateLoader" ), STAT_LinkerLoad_CreateLoader, STATGROUP_LinkerLoad );
 
 #if WITH_EDITOR
 
@@ -768,7 +828,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 	// This should have been initialized in InitUObject
 	check(bActiveRedirectsMapInitialized);
 
-	if( !Loader )
+	if( !Loader && !bDynamicClassLinker )
 	{
 		bool bIsSeekFree = LoadFlags & LOAD_SeekFree;
 
@@ -779,13 +839,22 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 		LoadProgressScope->EnterProgressFrame();
 #endif
 
-		// NOTE: Precached memory read gets highest priority, then memory reader, then seek free, then normal
-
-		// check to see if there is was an async preload request for this file
-		FPackagePrecacheInfo* PrecacheInfo = PackagePrecacheMap.Find(*Filename);
-		// if so, serialize from memory (note this will have uncompressed a fully compressed package)
-		if (PrecacheInfo)
+		// Check if this linker was created for dynamic class package
+		bDynamicClassLinker = GetConvertedDynamicPackageNameToTypeName().Contains(LinkerRoot->GetFName());
+		if (bDynamicClassLinker
+#if WITH_EDITORONLY_DATA
+			&& GLinkerAllowDynamicClasses
+#endif
+			)
 		{
+			// In this case we can skip serializing PackageFileSummary and fill all the required info here
+			CreateDynamicTypeLoader();
+		}
+		// NOTE: Precached memory read gets highest priority, then memory reader, then seek free, then normal
+		// check to see if there is was an async preload request for this file
+		else if (FPackagePrecacheInfo* PrecacheInfo = PackagePrecacheMap.Find(*Filename))
+		{
+			// if so, serialize from memory (note this will have uncompressed a fully compressed package)
 			// block until the async read is complete
 			if( PrecacheInfo->SynchronizationObject->GetValue() != 0 )
 			{
@@ -859,8 +928,8 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 				return LINKER_Failed;
 			}
 		}
-		check( Loader );
-		check( !Loader->IsError() );
+		check(bDynamicClassLinker || Loader);
+		check(bDynamicClassLinker || !Loader->IsError());
 
 		//if( FLinkerLoad::FindExistingLinkerForPackage(LinkerRoot) )
 		//{
@@ -871,7 +940,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader()
 		// Set status info.
 		ArUE4Ver = GPackageFileUE4Version;
 		ArLicenseeUE4Ver = GPackageFileLicenseeUE4Version;
-		ArEngineVer = GEngineVersion;
+		ArEngineVer = FEngineVersion::Current();
 		ArIsLoading = true;
 		ArIsPersistent = true;
 
@@ -927,12 +996,12 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		}
 
 		// Don't load packages that are only compatible with an engine version newer than the current one.
-		if( !GEngineVersion.IsCompatibleWith(Summary.CompatibleWithEngineVersion) )
+		if( !FEngineVersion::Current().IsCompatibleWith(Summary.CompatibleWithEngineVersion) )
 		{
-			UE_LOG(LogLinker, Warning, TEXT("Asset '%s' has been saved with engine version newer than current and therefore can't be loaded. CurrEngineVersion: %s AssetEngineVersion: %s"), *Filename, *GEngineVersion.ToString(), *Summary.CompatibleWithEngineVersion.ToString() );
+			UE_LOG(LogLinker, Warning, TEXT("Asset '%s' has been saved with engine version newer than current and therefore can't be loaded. CurrEngineVersion: %s AssetEngineVersion: %s"), *Filename, *FEngineVersion::Current().ToString(), *Summary.CompatibleWithEngineVersion.ToString() );
 			return LINKER_Failed;
 		}
-		else if( !FPlatformProperties::RequiresCookedData() && !Summary.SavedByEngineVersion.IsPromotedBuild() && GEngineVersion.IsPromotedBuild() )
+		else if( !FPlatformProperties::RequiresCookedData() && !Summary.SavedByEngineVersion.HasChangelist() && FEngineVersion::Current().HasChangelist() )
 		{
 			// This warning can be disabled in ini with [Core.System] ZeroEngineVersionWarning=False
 			static struct FInitZeroEngineVersionWarning
@@ -958,11 +1027,35 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		}
 
 		// don't load packages that contain editor only data in builds that don't support that and vise versa
-		if ( (!FPlatformProperties::HasEditorOnlyData() && !(Summary.PackageFlags & PKG_FilterEditorOnly)) ||
-			 (FPlatformProperties::HasEditorOnlyData() && !!(Summary.PackageFlags & PKG_FilterEditorOnly)) )
+		if (!FPlatformProperties::HasEditorOnlyData() && !(Summary.PackageFlags & PKG_FilterEditorOnly))
 		{
-			UE_LOG(LogLinker, Warning, TEXT("Unable to load package (%s). Package contains EditorOnly data which is not supported by the current build or vice versa."), *Filename );
+			UE_LOG(LogLinker, Warning, TEXT("Unable to load package (%s). Package contains EditorOnly data which is not supported by the current build."), *Filename );
 			return LINKER_Failed;
+		}
+
+		// don't load packages that contain editor only data in builds that don't support that and vise versa
+		if (FPlatformProperties::HasEditorOnlyData() && !!(Summary.PackageFlags & PKG_FilterEditorOnly))
+		{
+			// This warning can be disabled in ini with [Core.System] AllowCookedDataInEditorBuilds=False
+			static struct FInitCookedDatataInEditorBuildsSupport
+			{
+				bool bAllowCookedData;
+				FInitCookedDatataInEditorBuildsSupport()
+				{
+					if (!GConfig->GetBool(TEXT("Core.System"), TEXT("AllowCookedDataInEditorBuilds"), bAllowCookedData, GEngineIni))
+					{
+						bAllowCookedData = true;
+					}
+				}
+				FORCEINLINE operator bool() const { return bAllowCookedData; }
+			} AllowCookedDataInEditorBuilds;
+			if (!AllowCookedDataInEditorBuilds)
+			{
+				UE_LOG(LogLinker, Warning, 
+					TEXT("Unable to load package (%s). Package contains cooked data which is not supported by the current build. Set [Core.System] AllowCookedDataInEditorBuilds to true in Engine.ini to allow it."), 
+					*Filename);
+				return LINKER_Failed;
+			}
 		}
 
 #if PLATFORM_WINDOWS
@@ -993,12 +1086,12 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 
 		// Check custom versions.
 		const FCustomVersionContainer& LatestCustomVersions  = FCustomVersionContainer::GetRegistered();
-		const TArray<FCustomVersion>&  PackageCustomVersions = Summary.GetCustomVersionContainer().GetAllVersions();
+		const FCustomVersionSet&  PackageCustomVersions = Summary.GetCustomVersionContainer().GetAllVersions();
 		for (auto It = PackageCustomVersions.CreateConstIterator(); It; ++It)
 		{
 			const FCustomVersion& SerializedCustomVersion = *It;
 
-			auto* LatestVersion = LatestCustomVersions.GetVersion(SerializedCustomVersion.Key);
+			const FCustomVersion* LatestVersion = LatestCustomVersions.GetVersion(SerializedCustomVersion.Key);
 			if (!LatestVersion)
 			{
 				// Loading a package with custom integration that we don't know about!
@@ -1065,10 +1158,14 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		if( LinkerRootPackage )
 		{
 			// Preserve PIE package flag
-			uint32 PIEFlag = (LinkerRootPackage->PackageFlags & PKG_PlayInEditor);
+			uint32 NewPackageFlags = Summary.PackageFlags;
+			if (LinkerRootPackage->HasAnyPackageFlags(PKG_PlayInEditor))
+			{
+				NewPackageFlags |= PKG_PlayInEditor;
+			}
 			
 			// Propagate package flags
-			LinkerRootPackage->PackageFlags = (Summary.PackageFlags | PIEFlag);
+			LinkerRootPackage->SetPackageFlagsTo(NewPackageFlags);
 
 			// Propagate package folder name
 			LinkerRootPackage->SetFolderName(*Summary.FolderName);
@@ -1086,6 +1183,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 			LinkerRootPackage->LinkerPackageVersion = ArUE4Ver;
 			LinkerRootPackage->LinkerLicenseeVersion = ArLicenseeUE4Ver;
 			LinkerRootPackage->LinkerCustomVersion = SummaryVersions;
+
+#if WITH_EDITORONLY_DATA
+			LinkerRootPackage->bIsCookedForEditor = !!(Summary.PackageFlags & PKG_FilterEditorOnly);
+#endif
 		}
 		
 		// Propagate fact that package cannot use lazy loading to archive (aka this).
@@ -1099,9 +1200,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		}
 
 		// Slack everything according to summary.
-		ImportMap   .Empty( Summary.ImportCount   );
-		ExportMap   .Empty( Summary.ExportCount   );
-		NameMap		.Empty( Summary.NameCount     );
+		ImportMap					.Empty( Summary.ImportCount				);
+		ExportMap					.Empty( Summary.ExportCount				);
+		GatherableTextDataMap		.Empty( Summary.GatherableTextDataCount );
+		NameMap						.Empty( Summary.NameCount				);
 		// Depends map gets pre-sized in SerializeDependsMap if used.
 
 		// Avoid serializing it again.
@@ -1164,6 +1266,38 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeNameMap()
 }
 
 /**
+ * Serializes the gatherable text data container.
+ */
+FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeGatherableTextDataMap(bool bForceEnableForCommandlet)
+{
+#if WITH_EDITORONLY_DATA
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FLinkerLoad::SerializeGatherableTextDataMap" ), STAT_LinkerLoad_SerializeGatherableTextDataMap, STATGROUP_LinkerLoad );
+
+	// Skip serializing gatherable text data if we are using seekfree loading
+	if( !bForceEnableForCommandlet && !GIsEditor )
+	{
+		return LINKER_Loaded;
+	}
+
+	if( GatherableTextDataMapIndex == 0 && Summary.GatherableTextDataCount > 0 )
+	{
+		Seek( Summary.GatherableTextDataOffset );
+	}
+
+	while( GatherableTextDataMapIndex < Summary.GatherableTextDataCount && !IsTimeLimitExceeded(TEXT("serializing gatherable text data map"),100) )
+	{
+		FGatherableTextData* GatherableTextData = new(GatherableTextDataMap)FGatherableTextData;
+		*this << *GatherableTextData;
+		GatherableTextDataMapIndex++;
+	}
+
+	return ((GatherableTextDataMapIndex == Summary.GatherableTextDataCount) && !IsTimeLimitExceeded( TEXT("serializing gatherable text data map") )) ? LINKER_Loaded : LINKER_TimedOut;
+#endif
+
+	return LINKER_Loaded;
+}
+
+/**
  * Serializes the import map.
  */
 FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeImportMap()
@@ -1202,6 +1336,9 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupImportMap()
 		// Fix up imports, not required if everything is cooked.
 		if (!FPlatformProperties::RequiresCookedData())
 		{
+			static const FName NAME_ScriptStruct(TEXT("ScriptStruct"));
+			static const FName NAME_BlueprintGeneratedClass(TEXT("BlueprintGeneratedClass"));
+
 			bool bDone = false;
 			while (!bDone)
 			{
@@ -1210,7 +1347,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupImportMap()
 				{
 					FObjectImport& Import = ImportMap[i];
 					{
-						FSubobjectRedirect *Redirect = SubobjectNameRedirects.Find(Import.ObjectName);
+						FSubobjectRedirect* Redirect = SubobjectNameRedirects.Find(Import.ObjectName);
 						if (Redirect)
 						{
 							if (Import.ClassName == Redirect->MatchClass)
@@ -1237,16 +1374,15 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupImportMap()
 						}
 					}
 
-					static FName NAME_ScriptStruct(TEXT("ScriptStruct"));
 
-					bool bIsClass = Import.ClassName == NAME_Class;
-					bool bIsStruct = Import.ClassName == NAME_ScriptStruct;
-					bool bIsEnum = Import.ClassName == NAME_Enum;
-					bool bIsClassOrStructOrEnum = bIsClass || bIsStruct || bIsEnum;
+					const bool bIsClass = (Import.ClassName == NAME_Class) || (Import.ClassName == NAME_BlueprintGeneratedClass);
+					const bool bIsStruct = (Import.ClassName == NAME_ScriptStruct);
+					const bool bIsEnum = (Import.ClassName == NAME_Enum);
+					const bool bIsClassOrStructOrEnum = bIsClass || bIsStruct || bIsEnum;
 
 					FString RedirectName, ResultPackage, ResultClass;
-					FName* RedirectNameObj = ObjectNameRedirects.Find(Import.ObjectName);
-					FName* RedirectNameClass = ObjectNameRedirects.Find(Import.ClassName);
+					const FName* RedirectNameObj = ObjectNameRedirects.Find(Import.ObjectName);
+					const FName* RedirectNameClass = ObjectNameRedirects.Find(Import.ClassName);
 					int32 OldOuterIndex = 0;
 					if ( (RedirectNameObj && bIsClassOrStructOrEnum) || RedirectNameClass )
 					{
@@ -1268,6 +1404,18 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupImportMap()
 							// This is a class object (needs to have its OuterIndex changed if the package is different)
 							bUpdateOuterIndex = true;
 							RedirectName = RedirectNameObj->ToString();
+
+							if (TPair<FName, FName>* RedirectNameNewClassPair = ObjectNameClassRedirects.Find(Import.ObjectName))
+							{
+								if (!RedirectNameNewClassPair->Key.IsNone())
+								{
+									Import.ClassName = RedirectNameNewClassPair->Key;
+								}
+								if (!RedirectNameNewClassPair->Value.IsNone())
+								{
+									Import.ClassPackage = RedirectNameNewClassPair->Value;
+								}
+							}
 						}
 
 						// Accepts either "PackageName.ClassName" or just "ClassName"
@@ -1401,6 +1549,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeExportMap()
 	{
 		FObjectExport* Export = new(ExportMap)FObjectExport;
 		*this << *Export;
+		Export->ThisIndex = FPackageIndex::FromExport(ExportMapIndex);
 		ExportMapIndex++;
 	}
 
@@ -1858,6 +2007,13 @@ FName FLinkerLoad::GetExportClassPackage( int32 i )
 		// the export's class is contained within the same package
 		return LinkerRoot->GetFName();
 	}
+#if WITH_EDITORONLY_DATA
+	else if (GLinkerAllowDynamicClasses && Export.bDynamicClass)
+	{
+		static FName NAME_EnginePackage(TEXT("/Script/Engine"));
+		return NAME_EnginePackage;
+	}
+#endif
 	else
 	{
 		return GLongCoreUObjectPackageName;
@@ -1962,7 +2118,7 @@ void FLinkerLoad::GatherImportDependencies(int32 ImportIndex, TSet<FDependencyRe
 	if (Import.SourceLinker == NULL || Import.SourceIndex == INDEX_NONE)
 	{
 #if DO_CHECK
-		int32 NumObjectsBefore = GetUObjectArray().GetObjectArrayNum();
+		int32 NumObjectsBefore = GUObjectArray.GetObjectArrayNum();
 #endif
 
 		// temp storage we can ignore
@@ -1979,7 +2135,7 @@ void FLinkerLoad::GatherImportDependencies(int32 ImportIndex, TSet<FDependencyRe
 		bIsGatheringDependencies = false;
 
 		bool bIsValidImport =
-			(Import.XObject != NULL && !Import.XObject->HasAnyFlags(RF_Native) && (!Import.XObject->HasAnyFlags(RF_ClassDefaultObject) || !Import.XObject->GetClass()->HasAllFlags(EObjectFlags(RF_Public|RF_Native|RF_Transient)))) ||
+			(Import.XObject != NULL && !Import.XObject->IsNative() && (!Import.XObject->HasAnyFlags(RF_ClassDefaultObject) || !(Import.XObject->GetClass()->HasAllFlags(EObjectFlags(RF_Public | RF_Transient)) && Import.XObject->GetClass()->IsNative()))) ||
 			(Import.SourceLinker != NULL && Import.SourceIndex != INDEX_NONE);
 
 		// make sure it succeeded
@@ -1989,7 +2145,7 @@ void FLinkerLoad::GatherImportDependencies(int32 ImportIndex, TSet<FDependencyRe
 			if (!Import.XObject || !(Import.XObject->GetClass()->HasAnyClassFlags(CLASS_Intrinsic)))
 			{
 				UE_LOG(LogLinker, Warning, TEXT("VerifyImportInner failed [(%x, %d), (%x, %d)] for %s with linker: %s"), 
-					Import.XObject, Import.XObject ? (Import.XObject->HasAnyFlags(RF_Native) ? 1 : 0) : 0, 
+					Import.XObject, Import.XObject ? (Import.XObject->IsNative() ? 1 : 0) : 0, 
 					Import.SourceLinker, Import.SourceIndex, 
 					*GetImportFullName(ImportIndex), *this->Filename );
 			}
@@ -1999,9 +2155,9 @@ void FLinkerLoad::GatherImportDependencies(int32 ImportIndex, TSet<FDependencyRe
 
 #if DO_CHECK && !NO_LOGGING
 		// only object we should create are one FLinkerLoad for source linker
-		if (GetUObjectArray().GetObjectArrayNum() - NumObjectsBefore > 2)
+		if (GUObjectArray.GetObjectArrayNum() - NumObjectsBefore > 2)
 		{
-			UE_LOG(LogLinker, Warning, TEXT("Created %d objects checking %s"), GetUObjectArray().GetObjectArrayNum() - NumObjectsBefore, *GetImportFullName(ImportIndex));
+			UE_LOG(LogLinker, Warning, TEXT("Created %d objects checking %s"), GUObjectArray.GetObjectArrayNum() - NumObjectsBefore, *GetImportFullName(ImportIndex));
 		}
 #endif
 	}
@@ -2030,7 +2186,6 @@ void FLinkerLoad::GatherImportDependencies(int32 ImportIndex, TSet<FDependencyRe
 		NewRef.Linker->GatherExportDependencies(NewRef.ExportIndex, Dependencies, bSkipLoadedObjects);
 	}
 }
-
 
 FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 {
@@ -2156,8 +2311,10 @@ FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 				{
 					FDeferredMessageLog LoadErrors(NAME_LoadErrors);
 					// put something into the load warnings dialog, with any extra information from above (in WarningAppend)
-					TSharedRef<FTokenizedMessage> TokenizedMessage = LoadErrors.Error(FText::Format(LOCTEXT("ImportFailure", "Failed import for {ImportClass}"), FText::FromName(GetImportClassName(ImportIndex))));
-					TokenizedMessage->AddToken(FAssetNameToken::Create(GetImportPathName(ImportIndex)));
+					TSharedRef<FTokenizedMessage> TokenizedMessage = LoadErrors.Error(FText());
+					TokenizedMessage->AddToken(FAssetNameToken::Create(LinkerRoot->GetName()));
+					TokenizedMessage->AddToken(FTextToken::Create(FText::Format(LOCTEXT("ImportFailure", " : Failed import for {ImportClass}"), FText::FromName(GetImportClassName(ImportIndex)))));
+					TokenizedMessage->AddToken(FAssetNameToken::Create(GetImportPathName(ImportIndex)));					
 
 					if (!WarningAppend.IsEmpty())
 					{
@@ -2215,7 +2372,7 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 	FObjectImport& Import = ImportMap[ImportIndex];
 
 #if WITH_EDITOR
-	FScopedSlowTask SlowTask(100, FText::Format(NSLOCTEXT("Core", "VerifyPackage_Scope", "Verifying '{0}'"), FText::FromString(Import.ObjectName.ToString())), ShouldReportProgress());
+	FScopedSlowTask SlowTask(100, FText::Format(NSLOCTEXT("Core", "VerifyPackage_Scope", "Verifying '{0}'"), FText::FromName(Import.ObjectName)), ShouldReportProgress());
 #endif
 
 	if
@@ -2228,7 +2385,6 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 		return false;
 	}
 
-
 	bool SafeReplace = false;
 	UObject* Pkg=NULL;
 	UPackage* TmpPkg=NULL;
@@ -2236,7 +2392,7 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 	// Find or load the linker load that contains the FObjectExport for this import
 	if (Import.OuterIndex.IsNull() && Import.ClassName!=NAME_Package )
 	{
-		UE_LOG(LogLinker, Warning, TEXT("%s has an inappropriate outermost, it was probably saved with a deprecated outer (file: %s)"), *Import.ObjectName.ToString(), *Filename);
+		UE_LOG(LogLinker, Error, TEXT("%s has an inappropriate outermost, it was probably saved with a deprecated outer (file: %s)"), *Import.ObjectName.ToString(), *Filename);
 		Import.SourceLinker = NULL;
 		return false;
 	}
@@ -2278,7 +2434,7 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 
 			// we now fully load the package that we need a single export from - however, we still use CreatePackage below as it handles all cases when the package
 			// didn't exist (native only), etc		
-			TmpPkg = LoadPackageInternal(NULL, *Import.ObjectName.ToString(), InternalLoadFlags, this);
+			TmpPkg = LoadPackageInternal(NULL, *Import.ObjectName.ToString(), InternalLoadFlags | LOAD_IsVerifying, this);
 		}
 
 #if WITH_EDITOR
@@ -2294,7 +2450,7 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 
 		// if we couldn't create the package or it is 
 		// to be linked to any other package's ImportMaps
-		if ( !TmpPkg || (TmpPkg->PackageFlags&PKG_Compiling) != 0 )
+		if ( !TmpPkg || TmpPkg->HasAnyPackageFlags(PKG_Compiling) )
 		{
 			return false;
 		}
@@ -2337,7 +2493,7 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 			}
 
 			auto* Package = dynamic_cast<UPackage*>(Top->XObject);
-			if (Package && (Package->PackageFlags & PKG_InMemoryOnly))
+			if (Package && Package->HasAnyPackageFlags(PKG_InMemoryOnly))
 			{
 				// This is an import to a memory-only package, just search for it in the package.
 				TmpPkg = Package;
@@ -2378,16 +2534,24 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 			
 			for( int32 j=Import.SourceLinker->ExportHash[iHash]; j!=INDEX_NONE; j=Import.SourceLinker->ExportMap[j].HashNext )
 			{
-				FObjectExport& SourceExport = Import.SourceLinker->ExportMap[ j ];
-				if
-					(
-					SourceExport.ObjectName == Import.ObjectName
-					&&	Import.SourceLinker->GetExportClassName(j) == Import.ClassName
-					&&  Import.SourceLinker->GetExportClassPackage(j) == Import.ClassPackage 
-					)
+				if (!Import.SourceLinker->ExportMap.IsValidIndex(j))
 				{
-					bMatchesWithoutShortening = true;
+					UE_LOG(LogLinker, Error, TEXT("Invalid index [%d/%d] while attempting to import '%s' with LinkerRoot '%s'"), j, Import.SourceLinker->ExportMap.Num(), *Import.ObjectName.ToString(), *GetNameSafe(Import.SourceLinker->LinkerRoot));
 					break;
+				}
+				else
+				{
+					FObjectExport& SourceExport = Import.SourceLinker->ExportMap[ j ];
+					if
+						(
+						SourceExport.ObjectName == Import.ObjectName
+						&&	Import.SourceLinker->GetExportClassName(j) == Import.ClassName
+						&&  Import.SourceLinker->GetExportClassPackage(j) == Import.ClassPackage 
+						)
+					{
+						bMatchesWithoutShortening = true;
+						break;
+					}
 				}
 			}
 			if (!bMatchesWithoutShortening)
@@ -2397,107 +2561,115 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 
 			for( int32 j=Import.SourceLinker->ExportHash[iHash]; j!=INDEX_NONE; j=Import.SourceLinker->ExportMap[j].HashNext )
 			{
-				FObjectExport& SourceExport = Import.SourceLinker->ExportMap[ j ];
-				if
-				(	
-					SourceExport.ObjectName==Import.ObjectName               
-					&&	Import.SourceLinker->GetExportClassName(j)==Import.ClassName
-					&&  (bMatchesWithoutShortening ? Import.SourceLinker->GetExportClassPackage(j) : FPackageName::GetShortFName(Import.SourceLinker->GetExportClassPackage(j))) == TestName 
-				)
+				if (!ensureMsgf(Import.SourceLinker->ExportMap.IsValidIndex(j), TEXT("Invalid index [%d/%d] while attempting to import '%s' with LinkerRoot '%s'"),
+					j, Import.SourceLinker->ExportMap.Num(), *Import.ObjectName.ToString(), *GetNameSafe(Import.SourceLinker->LinkerRoot)))
 				{
-					// at this point, SourceExport is an FObjectExport in another linker that looks like it
-					// matches the FObjectImport we're trying to load - double check that we have the correct one
-					if( Import.OuterIndex.IsImport() )
+					break;
+				}
+				else
+				{
+					FObjectExport& SourceExport = Import.SourceLinker->ExportMap[ j ];
+					if
+					(	
+						SourceExport.ObjectName==Import.ObjectName               
+						&&	Import.SourceLinker->GetExportClassName(j)==Import.ClassName
+						&&  (bMatchesWithoutShortening ? Import.SourceLinker->GetExportClassPackage(j) : FPackageName::GetShortFName(Import.SourceLinker->GetExportClassPackage(j))) == TestName 
+					)
 					{
-						// OuterImport is the FObjectImport for this resource's Outer
-						if( OuterImport.SourceLinker )
+						// at this point, SourceExport is an FObjectExport in another linker that looks like it
+						// matches the FObjectImport we're trying to load - double check that we have the correct one
+						if( Import.OuterIndex.IsImport() )
 						{
-							// if the import for our Outer doesn't have a SourceIndex, it means that
-							// we haven't found a matching export for our Outer yet.  This should only
-							// be the case if our Outer is a top-level UPackage
-							if( OuterImport.SourceIndex==INDEX_NONE )
+							// OuterImport is the FObjectImport for this resource's Outer
+							if( OuterImport.SourceLinker )
 							{
-								// At this point, we know our Outer is a top-level UPackage, so
-								// if the FObjectExport that we found has an Outer that is
-								// not a linker root, this isn't the correct resource
-								if( !SourceExport.OuterIndex.IsNull() )
+								// if the import for our Outer doesn't have a SourceIndex, it means that
+								// we haven't found a matching export for our Outer yet.  This should only
+								// be the case if our Outer is a top-level UPackage
+								if( OuterImport.SourceIndex==INDEX_NONE )
+								{
+									// At this point, we know our Outer is a top-level UPackage, so
+									// if the FObjectExport that we found has an Outer that is
+									// not a linker root, this isn't the correct resource
+									if( !SourceExport.OuterIndex.IsNull() )
+									{
+										continue;
+									}
+								}
+
+								// The import for our Outer has a matching export - make sure that the import for
+								// our Outer is pointing to the same export as the SourceExport's Outer
+								else if( FPackageIndex::FromExport(OuterImport.SourceIndex) != SourceExport.OuterIndex )
 								{
 									continue;
 								}
 							}
-
-							// The import for our Outer has a matching export - make sure that the import for
-							// our Outer is pointing to the same export as the SourceExport's Outer
-							else if( FPackageIndex::FromExport(OuterImport.SourceIndex) != SourceExport.OuterIndex )
-							{
-								continue;
-							}
 						}
-					}
-					if( !(SourceExport.ObjectFlags & RF_Public) )
-					{
-						SafeReplace = SafeReplace || (GIsEditor && !IsRunningCommandlet());
+						if( !(SourceExport.ObjectFlags & RF_Public) )
+						{
+							SafeReplace = SafeReplace || (GIsEditor && !IsRunningCommandlet());
 
-						// determine if this find the thing that caused this import to be saved into the map
-						FPackageIndex FoundIndex = FPackageIndex::FromImport(ImportIndex);
-						for ( int32 i = 0; i < Summary.ExportCount; i++ )
-						{
-							FObjectExport& Export = ExportMap[i];
-							if ( Export.SuperIndex == FoundIndex )
+							// determine if this find the thing that caused this import to be saved into the map
+							FPackageIndex FoundIndex = FPackageIndex::FromImport(ImportIndex);
+							for ( int32 i = 0; i < Summary.ExportCount; i++ )
 							{
-								UE_LOG(LogLinker, Log, TEXT("Private import was referenced by export '%s' (parent)"), *Export.ObjectName.ToString());
-								SafeReplace = false;
-							}
-							else if ( Export.ClassIndex == FoundIndex )
-							{
-								UE_LOG(LogLinker, Log, TEXT("Private import was referenced by export '%s' (class)"), *Export.ObjectName.ToString());
-								SafeReplace = false;
-							}
-							else if ( Export.OuterIndex == FoundIndex )
-							{
-								UE_LOG(LogLinker, Log, TEXT("Private import was referenced by export '%s' (outer)"), *Export.ObjectName.ToString());
-								SafeReplace = false;
-							}
-						}
-						for ( int32 i = 0; i < Summary.ImportCount; i++ )
-						{
-							if ( i != ImportIndex )
-							{
-								FObjectImport& TestImport = ImportMap[i];
-								if ( TestImport.OuterIndex == FoundIndex )
+								FObjectExport& Export = ExportMap[i];
+								if ( Export.SuperIndex == FoundIndex )
 								{
-									UE_LOG(LogLinker, Log, TEXT("Private import was referenced by import '%s' (outer)"), *Import.ObjectName.ToString());
+									UE_LOG(LogLinker, Log, TEXT("Private import was referenced by export '%s' (parent)"), *Export.ObjectName.ToString());
+									SafeReplace = false;
+								}
+								else if ( Export.ClassIndex == FoundIndex )
+								{
+									UE_LOG(LogLinker, Log, TEXT("Private import was referenced by export '%s' (class)"), *Export.ObjectName.ToString());
+									SafeReplace = false;
+								}
+								else if ( Export.OuterIndex == FoundIndex )
+								{
+									UE_LOG(LogLinker, Log, TEXT("Private import was referenced by export '%s' (outer)"), *Export.ObjectName.ToString());
 									SafeReplace = false;
 								}
 							}
-						}
-
-						if ( !SafeReplace )
-						{
-							UE_LOG(LogLinker, Warning, TEXT("%s"), *FString::Printf( TEXT("Can't import private object %s %s"), *Import.ClassName.ToString(), *GetImportFullName(ImportIndex) ) );
-							return false;
-						}
-						else
-						{
-							FString Suffix = LOCTEXT("LoadWarningSuffix_privateobject", " [private]").ToString();
-							if ( !WarningSuffix.Contains(Suffix) )
+							for ( int32 i = 0; i < Summary.ImportCount; i++ )
 							{
-								WarningSuffix += Suffix;
+								if ( i != ImportIndex )
+								{
+									FObjectImport& TestImport = ImportMap[i];
+									if ( TestImport.OuterIndex == FoundIndex )
+									{
+										UE_LOG(LogLinker, Log, TEXT("Private import was referenced by import '%s' (outer)"), *Import.ObjectName.ToString());
+										SafeReplace = false;
+									}
+								}
 							}
-							break;
-						}
-					}
 
-					// Found the FObjectExport for this import
-					Import.SourceIndex = j;
-					break;
+							if ( !SafeReplace )
+							{
+								UE_LOG(LogLinker, Warning, TEXT("%s"), *FString::Printf( TEXT("Can't import private object %s %s"), *Import.ClassName.ToString(), *GetImportFullName(ImportIndex) ) );
+								return false;
+							}
+							else
+							{
+								FString Suffix = LOCTEXT("LoadWarningSuffix_privateobject", " [private]").ToString();
+								if ( !WarningSuffix.Contains(Suffix) )
+								{
+									WarningSuffix += Suffix;
+								}
+								break;
+							}
+						}
+
+						// Found the FObjectExport for this import
+						Import.SourceIndex = j;
+						break;
+					}
 				}
 			}
 		}
 	}
 
 	bool bCameFromMemoryOnlyPackage = false;
-	if (!Pkg && TmpPkg && (TmpPkg->PackageFlags & PKG_InMemoryOnly))
+	if (!Pkg && TmpPkg && TmpPkg->HasAnyPackageFlags(PKG_InMemoryOnly))
 	{
 		Pkg = TmpPkg; // this is a package that exists in memory only, so that is the package to search regardless of FindIfFail
 		bCameFromMemoryOnlyPackage = true;
@@ -2545,9 +2717,9 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 					}
 				}
 
-				UObject* FindObject = StaticFindObject(FindClass, FindOuter, *Import.ObjectName.ToString());
+				UObject* FindObject = FindImport(FindClass, FindOuter, *Import.ObjectName.ToString());
 				// Reference to in memory-only package's object, native transient class or CDO of such a class.
-				bool bIsInMemoryOnlyOrNativeTransient = bCameFromMemoryOnlyPackage || (FindObject != NULL && (FindObject->HasAllFlags(EObjectFlags(RF_Public | RF_Native | RF_Transient)) || (FindObject->HasAnyFlags(RF_ClassDefaultObject) && FindObject->GetClass()->HasAllFlags(EObjectFlags(RF_Public | RF_Native | RF_Transient)))));
+				bool bIsInMemoryOnlyOrNativeTransient = bCameFromMemoryOnlyPackage || (FindObject != NULL && (FindObject->HasAllFlags(EObjectFlags(RF_Public | RF_MarkAsNative | RF_Transient)) || (FindObject->HasAnyFlags(RF_ClassDefaultObject) && FindObject->GetClass()->HasAllFlags(EObjectFlags(RF_Public | RF_MarkAsNative | RF_Transient)))));
 				// Check for structs which have been moved to another header (within the same class package).
 				if (!FindObject && bIsInMemoryOnlyOrNativeTransient && FindClass == UScriptStruct::StaticClass())
 				{
@@ -2666,7 +2838,7 @@ void FLinkerLoad::LoadAllObjects( bool bForcePreload )
 {
 #if WITH_EDITOR
 	FScopedSlowTask SlowTask(ExportMap.Num(), NSLOCTEXT("Core", "LinkerLoad_LoadingObjects", "Loading Objects"), ShouldReportProgress());
-	SlowTask.bVisibleOnUI = false;
+	SlowTask.Visibility = ESlowTaskVisibility::Invisible;
 #endif
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
@@ -2754,15 +2926,22 @@ int32 FLinkerLoad::FindExportIndex( FName ClassName, FName ClassPackage, FName O
 
 	for( int32 i=ExportHash[iHash]; i!=INDEX_NONE; i=ExportMap[i].HashNext )
 	{
-		if
-		(  (ExportMap[i].ObjectName  ==ObjectName                              )
-			&& (GetExportClassPackage(i) ==ClassPackage                            )
-			&& (GetExportClassName   (i) ==ClassName                               ) 
-			&& (ExportMap[i].OuterIndex  ==ExportOuterIndex 
-			|| ExportOuterIndex.IsImport()) // this is very not legit to be passing INDEX_NONE into this function to mean "ignore"
-		)
+		if (!ensureMsgf(ExportMap.IsValidIndex(i), TEXT("Invalid index [%d/%d] while attempting to find export index '%s' LinkerRoot '%s'"), i, ExportMap.Num(), *ObjectName.ToString(), *GetNameSafe(LinkerRoot)))
 		{
-			return i;
+			break;
+		}
+		else
+		{
+			if
+			(  (ExportMap[i].ObjectName  ==ObjectName                              )
+				&& (GetExportClassPackage(i) ==ClassPackage                            )
+				&& (GetExportClassName   (i) ==ClassName                               ) 
+				&& (ExportMap[i].OuterIndex  ==ExportOuterIndex 
+				|| ExportOuterIndex.IsImport()) // this is very not legit to be passing INDEX_NONE into this function to mean "ignore"
+			)
+			{
+				return i;
+			}
 		}
 	}
 	
@@ -2916,7 +3095,7 @@ void FLinkerLoad::Preload( UObject* Object )
 	check(Object);
 
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
-	bool const bIsNonNativeObject = !(Object->GetOutermost()->PackageFlags & PKG_CompiledIn);
+	bool const bIsNonNativeObject = !Object->GetOutermost()->HasAnyPackageFlags(PKG_CompiledIn);
 	// we can determine that this is a blueprint class/struct by checking if it 
 	// is a class/struct object AND if it is not native (blueprint 
 	// structs/classes are the only asset package structs/classes we have)
@@ -2949,14 +3128,30 @@ void FLinkerLoad::Preload( UObject* Object )
 		if (Object->GetLinker() == this)
 		{
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+			// Because of delta serialization, we require that a parent's CDO be 
+			// fully serialized before its children's CDOs are created. However, 
+			// due to cyclic parent/child dependencies, we have some cases where 
+			// the linker breaks that expected behavior. In those cases, we 
+			// defer the child's initialization (i.e. defer copying of parent  
+			// property values, etc.), and wait until we can guarantee that the 
+			// parent CDO has been fully loaded.
+			//
+			// In a normal scenario, the order of property initialization is:
+			// Creation (zeroed) -> Initialization (copied super's values) -> Serialization (overridden values loaded)
+			// When the initialization has been deferred we have to make sure to
+			// defer serialization here as well (don't worry, it will be invoked 
+			// again from FinalizeBlueprint()->ResolveDeferredExports())
+			if (Object->HasAnyFlags(RF_ClassDefaultObject) && FDeferredObjInitializerTracker::IsCdoDeferred(Object->GetClass()))
+			{
+				return;
+			}
 			// if this is an inherited sub-object on a CDO, and that CDO has had
-			// its initialization deferred, then we shouldn't serialize in data 
-			// for this quite yet... not until the CDO owner has had a chance to
-			// initialize itself (because, as part of CDO initialization, 
-			// inherited sub-objects get filled in with values inherited from 
-			// the parent class... it is expected that this happens prior to 
-			// sub-object serialization)
-			if (Object->HasAnyFlags(RF_DefaultSubObject) && FDeferredObjInitializerTracker::DeferSubObjectPreload(Object))
+			// its initialization deferred (for reasons explained above), then 
+			// we shouldn't serialize in data for this quite yet... not until 
+			// its owner has had a chance to initialize itself (because, as part
+			// of CDO initialization, inherited sub-objects get filled in with 
+			// values inherited from the super)
+			else if (Object->HasAnyFlags(RF_DefaultSubObject) && FDeferredObjInitializerTracker::DeferSubObjectPreload(Object))
 			{
 				// don't worry, FDeferredObjInitializerTracker::DeferSubObjectPreload() 
 				// should have cached this object, and it will run Preload() on 
@@ -3023,30 +3218,33 @@ void FLinkerLoad::Preload( UObject* Object )
 						if ((LoadFlags & LOAD_DeferDependencyLoads) != 0)
 						{
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-							if (!FBlueprintSupport::IsDeferredCDOSerializationDisabled())
-							{
-								check((DeferredCDOIndex == INDEX_NONE) || (DeferredCDOIndex == ExportIndex));
-#else // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-							{
+							check((DeferredCDOIndex == INDEX_NONE) || (DeferredCDOIndex == ExportIndex));
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-								// since serializing the CDO can introduce circular 
-								// dependencies, we want to stave that off until 
-								// we're ready to handle those 
-								DeferredCDOIndex = ExportIndex;
-								// don't need to actually "consume" the data through
-								// serialization though (since we seek back to 
-								// SavedPos later on)
+							
+							// since serializing the CDO can introduce circular 
+							// dependencies, we want to stave that off until 
+							// we're ready to handle those 
+							DeferredCDOIndex = ExportIndex;
+							// don't need to actually "consume" the data through
+							// serialization though (since we seek back to 
+							// SavedPos later on)
 
-								// reset the flag and return (don't worry, we make
-								// sure to force load this later)
-								Object->SetFlags(RF_NeedLoad);
-								return;
-							}
+							// reset the flag and return (don't worry, we make
+							// sure to force load this later)
+							Object->SetFlags(RF_NeedLoad);
+							return;
 						}
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
+						FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+						// Maintain the current SerializedObjects.
+						UObject* PrevSerializedObject = ThreadContext.SerializedObject;
+						ThreadContext.SerializedObject = Object;
+
 						Object->GetClass()->SerializeDefaultObject(Object, *this);
 						Object->SetFlags(RF_LoadCompleted);
+
+						ThreadContext.SerializedObject = PrevSerializedObject;
 					}
 					else
 					{
@@ -3085,9 +3283,9 @@ void FLinkerLoad::Preload( UObject* Object )
 							// however, sometimes DeferredExportIndex doesn't get set at all (we have to utilize FindCDOExportIndex() to set
 							// it), and that happens when the class's ClassGeneratedBy is serialized in null... this will happen for cooked 
 							// builds (because Blueprints are editor-only objects)
-							check((DeferredCDOIndex != INDEX_NONE) || FPlatformProperties::RequiresCookedData() || FBlueprintSupport::IsDeferredCDOSerializationDisabled());
+							check((DeferredCDOIndex != INDEX_NONE) || FPlatformProperties::RequiresCookedData());
 
-							if ((DeferredCDOIndex == INDEX_NONE) && !FBlueprintSupport::IsDeferredCDOSerializationDisabled())
+							if (DeferredCDOIndex == INDEX_NONE)
 							{
 								DeferredCDOIndex = FindCDOExportIndex(ObjectAsClass);
 								check(DeferredCDOIndex != INDEX_NONE);
@@ -3253,6 +3451,17 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 		check(Export.ObjectName!=NAME_None || !(Export.ObjectFlags&RF_Public));
 		check(IsLoading());
 
+		if (Export.bDynamicClass)
+		{
+			// Export is a dynamic type, construct it using registered native functions
+			Export.Object = ConstructDynamicType(*GetExportPathName(Index));
+			if (Export.Object)
+			{
+				Export.Object->SetLinker(this, Index);
+			}
+			return Export.Object;
+		}
+
 		UClass* LoadClass = GetExportLoadClass(Index);
 		if( !LoadClass && !Export.ClassIndex.IsNull() ) // Hack to load packages with classes which do not exist.
 		{
@@ -3295,14 +3504,17 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			{
 				if( LoadClass->IsChildOf(UFunction::StaticClass()) )
 				{
+					// In the case of a function object, the outer should be the function's class. For Blueprints, loading
+					// the outer class may also invalidate this entry in the export map. In that case, we won't actually be
+					// keeping the function object around, so there's no need to warn here about the missing parent object.
 					UObject* ObjOuter = IndexToObject(Export.OuterIndex);
-					if (ObjOuter)
+					if (ObjOuter && !Export.bExportLoadFailed)
 					{
 						UClass* FuncClass = Cast<UClass>(ObjOuter);
 						if (FuncClass && FuncClass->ClassGeneratedBy && !FuncClass->ClassGeneratedBy->HasAnyFlags(RF_BeingRegenerated))
 						{
-							// If this is a function (NOT being regenerated) whose parent has been removed, give it a NULL parent, as we would have in the script compiler
-							UE_LOG(LogLinker, Warning, TEXT("CreateExport: Failed to load Parent for %s; removing parent information, but keeping function"), *GetExportFullName(Index));
+							// If this is a function (NOT being regenerated) whose parent has been removed, give it a NULL parent, as we would have in the script compiler.
+							UE_LOG(LogLinker, Display, TEXT("CreateExport: Failed to load Parent for %s; removing parent information, but keeping function"), *GetExportFullName(Index));
 						}
 					}
 
@@ -3320,7 +3532,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 				// There are other attempts to force our super struct to load, and I have not verified that they can all be removed
 				// in favor of this one:
 				if (!SuperStruct->HasAnyFlags(RF_LoadCompleted)
-					&& !SuperStruct->HasAnyFlags(RF_Native)
+					&& !SuperStruct->IsNative()
 					&& SuperStruct->GetLinker()
 					&& Export.SuperIndex.IsImport())
 				{
@@ -3334,14 +3546,14 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			}
 		}
 
-		// Only UClass objects and UProperty objects of intrinsic classes can have RF_Native set. Those property objects are never
-		// serialized so we only have to worry about classes. If we encounter an object that is not a class and has RF_Native set
+		// Only UClass objects and UProperty objects of intrinsic classes can have Native flag set. Those property objects are never
+		// serialized so we only have to worry about classes. If we encounter an object that is not a class and has Native flag set
 		// we warn about it and remove the flag.
-		if( (Export.ObjectFlags & RF_Native) != 0 && !LoadClass->IsChildOf(UField::StaticClass()) )
+		if( (Export.ObjectFlags & RF_MarkAsNative) != 0 && !LoadClass->IsChildOf(UField::StaticClass()) )
 		{
-			UE_LOG(LogLinker, Warning,TEXT("%s %s has RF_Native set but is not a UField derived class"),*LoadClass->GetName(),*Export.ObjectName.ToString());
-			// Remove RF_Native;
-			Export.ObjectFlags = EObjectFlags(Export.ObjectFlags & ~RF_Native);
+			UE_LOG(LogLinker, Warning,TEXT("%s %s has RF_MarkAsNative set but is not a UField derived class"),*LoadClass->GetName(),*Export.ObjectName.ToString());
+			// Remove RF_MarkAsNative;
+			Export.ObjectFlags = EObjectFlags(Export.ObjectFlags & ~RF_MarkAsNative);
 		}
 
 		if ( !LoadClass->HasAnyClassFlags(CLASS_Intrinsic) )
@@ -3447,16 +3659,22 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			Export.bExportLoadFailed = true;
 
 			// otherwise, return NULL and let the calling code determine what to do
-			FString OuterName = Export.OuterIndex.IsNull() ? LinkerRoot->GetFullName() : GetFullImpExpName(Export.OuterIndex);
+			const FString OuterName = Export.OuterIndex.IsNull() ? LinkerRoot->GetFullName() : GetFullImpExpName(Export.OuterIndex);
+
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("ObjectName"), FText::FromName(Export.ObjectName));
+			Arguments.Add(TEXT("OuterName"), FText::FromString(OuterName));
+
 			if (ParentRedirector)
 			{
-				UE_LOG(LogLinker, Warning, TEXT("CreateExport: Failed to load Outer for resource because it is a redirector '%s': %s"), *Export.ObjectName.ToString(), *OuterName);
+				LoadErrors.Warning(FText::Format(LOCTEXT("CreateExportFailedToLoadOuterIsRedirector", "CreateExport: Failed to load Outer for resource because it is a redirector '{ObjectName}': {OuterName}"), Arguments));
 			}
 			else
 			{
-				UE_LOG(LogLinker, Warning, TEXT("CreateExport: Failed to load Outer for resource '%s': %s"), *Export.ObjectName.ToString(), *OuterName);
+				LoadErrors.Warning(FText::Format(LOCTEXT("CreateExportFailedToLoadOuter", "CreateExport: Failed to load Outer for resource '{ObjectName}': {OuterName}"), Arguments));
 			}
-			return NULL;
+
+			return nullptr;
 		}
 
 		// Find the Archetype object for the one we are loading.
@@ -3550,7 +3768,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 		// if we are loading objects just to verify an object reference during script compilation,
 		if (!GVerifyObjectReferencesOnly
 		||	(ObjectLoadFlags&RF_ClassDefaultObject) != 0					// only load this object if it's a class default object
-		||	(LinkerRoot->PackageFlags&PKG_ContainsScript) != 0		// or we're loading an existing package and it's a script package
+		||	LinkerRoot->HasAnyPackageFlags(PKG_ContainsScript)		// or we're loading an existing package and it's a script package
 		||	ThisParent->IsTemplate(RF_ClassDefaultObject)			// or if its a subobject template in a CDO
 		||	LoadClass->IsChildOf(UField::StaticClass())				// or if it is a UField
 		||	LoadClass->IsChildOf(UObjectRedirector::StaticClass()))	// or if its a redirector to another object
@@ -3566,11 +3784,11 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 		if ((ObjectLoadFlags & RF_ClassDefaultObject) != 0)
 		{
 			UClass* SuperClass = LoadClass->GetSuperClass();
-			if (SuperClass && !SuperClass->HasAnyFlags(RF_Native))
+			if (SuperClass && !SuperClass->IsNative())
 			{
 				UObject* SuperCDO = SuperClass->GetDefaultObject();
 				TArray<UObject*> SuperSubObjects;
-				GetObjectsWithOuter(SuperCDO, SuperSubObjects, /*bIncludeNestedObjects=*/ false, /*ExclusionFlags=*/ RF_Native);
+				GetObjectsWithOuter(SuperCDO, SuperSubObjects, /*bIncludeNestedObjects=*/ false, /*ExclusionFlags=*/ RF_NoFlags, /*InternalExclusionFlags=*/ EInternalObjectFlags::Native);
 
 				for (UObject* SubObject : SuperSubObjects)
 				{
@@ -3595,9 +3813,14 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			LoadClass,
 			ThisParent,
 			NewName,
-			EObjectFlags(ObjectLoadFlags | ((FPlatformProperties::RequiresCookedData() && GIsInitialLoad) ? RF_RootSet : 0)),
+			ObjectLoadFlags,
+			EInternalObjectFlags::None,
 			Template
 		);
+		if (FPlatformProperties::RequiresCookedData() && GIsInitialLoad)
+		{
+			Export.Object->AddToRoot();
+		}
 		LoadClass = Export.Object->GetClass(); // this may have changed if we are overwriting a CDO component
 
 		if (NewName != Export.ObjectName)
@@ -3613,11 +3836,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			bool const bIsBlueprintCDO = ((Export.ObjectFlags & RF_ClassDefaultObject) != 0) && (LoadClass->ClassGeneratedBy != nullptr);
 
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
-			bool bDeferCDOSerialization = bIsBlueprintCDO && ((LoadFlags & LOAD_DeferDependencyLoads) != 0);
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			bDeferCDOSerialization &= !FBlueprintSupport::IsDeferredCDOSerializationDisabled();
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS	
-
+			const bool bDeferCDOSerialization = bIsBlueprintCDO && ((LoadFlags & LOAD_DeferDependencyLoads) != 0);
 			if (bDeferCDOSerialization)			
 			{
 				// if LOAD_DeferDependencyLoads is set, then we're already
@@ -3697,12 +3916,12 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 
 					ClassObject->Bind();
 
- 					// Preload classes on first access.  Note that this may update the Export.Object, so ClassObject is not guaranteed to be valid after this point
+					// Preload classes on first access.  Note that this may update the Export.Object, so ClassObject is not guaranteed to be valid after this point
 					// If we're async loading on a cooked build we can skip this as there's no chance we will need to recompile the class. 
 					// Preload will be called during async package tick when the data has been precached
 					if( !FPlatformProperties::RequiresCookedData() )
 					{
- 						Preload( Export.Object );
+						Preload( Export.Object );
 					}
 				}
 			}
@@ -3714,7 +3933,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			}
 		}
 	}
-	return Export.Object;
+	return Export.bExportLoadFailed ? nullptr : Export.Object;
 }
 
 bool FLinkerLoad::IsImportNative(const int32 Index) const
@@ -3734,7 +3953,7 @@ bool FLinkerLoad::IsImportNative(const int32 Index) const
 		else if (UPackage* ExistingPackage = FindObject<UPackage>(/*Outer =*/nullptr, *Import.ObjectName.ToString()))
 		{
 			// @TODO: what if the package's outer isn't null... what does that mean?
-			bIsImportNative = !ExistingPackage->GetOuter() && (ExistingPackage->PackageFlags & PKG_CompiledIn);
+			bIsImportNative = !ExistingPackage->GetOuter() && ExistingPackage->HasAnyPackageFlags(PKG_CompiledIn);
 		}
 	}
 
@@ -3762,7 +3981,7 @@ UObject* FLinkerLoad::CreateImport( int32 Index )
 			// Try to find existing version in memory first.
 			if( UPackage* ClassPackage = FindObjectFast<UPackage>( NULL, Import.ClassPackage, false, false ) )
 			{
-				if( UClass*	FindClass = FindObjectFast<UClass>( ClassPackage, Import.ClassName, false, false ) )
+				if( UClass*	FindClass = FindObjectFast<UClass>( ClassPackage, Import.ClassName, false, false ) ) // 
 				{
 					// Make sure the class has been loaded and linked before creating a CDO.
 					// This is an edge case, but can happen if a blueprint package has not finished creating exports for a class
@@ -3776,7 +3995,7 @@ UObject* FLinkerLoad::CreateImport( int32 Index )
 					// Import is a toplevel package.
 					if( Import.OuterIndex.IsNull() )
 					{
-						FindObject = CreatePackage( NULL, *Import.ObjectName.ToString() );
+						FindObject = CreatePackage(NULL, *Import.ObjectName.ToString());
 					}
 					// Import is regular import/ export.
 					else
@@ -3817,7 +4036,7 @@ UObject* FLinkerLoad::CreateImport( int32 Index )
 						}
 	
 						// Find object now that we know it's class, outer and name.
-						FindObject = StaticFindObjectFast( FindClass, FindOuter, Import.ObjectName, false, false );
+						FindObject = FindImportFast(FindClass, FindOuter, Import.ObjectName);
 					}
 
 					if( FindObject )
@@ -3864,6 +4083,12 @@ UObject* FLinkerLoad::CreateImport( int32 Index )
 				FUObjectThreadContext::Get().ImportCount++;
 				FLinkerManager::Get().AddLoaderWithNewImports(this);
 			}
+		}
+
+		if (Import.XObject == nullptr)
+		{
+			const FString OuterName = Import.OuterIndex.IsNull() ? LinkerRoot->GetFullName() : GetFullImpExpName(Import.OuterIndex);
+			UE_LOG(LogLinker, Verbose, TEXT("Failed to resolve import named %s in %s"), *Import.ObjectName.ToString(), *OuterName);
 		}
 	}
 	return Import.XObject;
@@ -3955,6 +4180,7 @@ void FLinkerLoad::Detach()
 
 	// Empty out no longer used arrays.
 	NameMap.Empty();
+	GatherableTextDataMap.Empty();
 	ImportMap.Empty();
 	ExportMap.Empty();
 
@@ -3967,6 +4193,11 @@ void FLinkerLoad::Detach()
 	{
 		LinkerRoot->LinkerLoad = nullptr;
 		LinkerRoot = nullptr;
+	}
+	if (AsyncRoot)
+	{
+		AsyncRoot->DetachLinker();
+		AsyncRoot = nullptr;
 	}
 }
 
@@ -4034,7 +4265,7 @@ void FLinkerLoad::DetachAllBulkData(bool bEnsureAllBulkDataIsLoaded)
  */
 bool FLinkerLoad::Precache( int64 PrecacheOffset, int64 PrecacheSize )
 {
-	return Loader->Precache( PrecacheOffset, PrecacheSize );
+	return bDynamicClassLinker || Loader->Precache(PrecacheOffset, PrecacheSize);
 }
 
 void FLinkerLoad::Seek( int64 InPos )
@@ -4060,6 +4291,36 @@ FArchive& FLinkerLoad::operator<<( UObject*& Object )
 
 	UObject* Temporary = NULL;
 	Temporary = IndexToObject( Index );
+
+#if WITH_EDITORONLY_DATA	
+	// When loading mark all packages that are accessed by non editor-only properties as being required at runtime.
+	if (Ar.IsLoading() && Temporary && !Ar.IsEditorOnlyPropertyOnTheStack())
+	{
+		const bool bReferenceFromOutsideOfThePackage = Temporary->GetOutermost() != LinkerRoot;
+		const bool bIsAClass = Temporary->IsA(UClass::StaticClass());
+		const bool bReferencingPackageIsNotEditorOnly = bReferenceFromOutsideOfThePackage && !LinkerRoot->IsLoadedByEditorPropertiesOnly();
+		if (bReferencingPackageIsNotEditorOnly || bIsAClass)
+		{
+			// The package that caused this object to be loaded is not marked as editor-only, neighter is any of the referencing properties.
+			Temporary->GetOutermost()->SetLoadedByEditorPropertiesOnly(false);
+		}
+		else if (bReferenceFromOutsideOfThePackage && !bIsAClass)
+		{
+			// In this case the object is being accessed by object property from a package that's marked as editor-only, however
+			// since we're in the middle of loading, we can't be sure that the editor-only package will still be marked as editor-only
+			// after loading has finished (this is due to the fact how objects are being processed in EndLoad).
+			// So we need to remember which packages have been kept marked as editor-only by which package so that after all
+			// objects have been serialized we can go back and make sure the LinkerRoot package is still marked as editor-only and if not,
+			// remove the flag from all packages that are marked as such because of it.
+			FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+			TSet<FName>& PackagesMarkedEditorOnly = ThreadContext.PackagesMarkedEditorOnlyByOtherPackage.FindOrAdd(LinkerRoot->GetFName());
+			if (!PackagesMarkedEditorOnly.Contains(Temporary->GetOutermost()->GetFName()))
+			{
+				PackagesMarkedEditorOnly.Add(Temporary->GetOutermost()->GetFName());
+			}
+		}
+	}
+#endif
 
 	FMemory::Memcpy(&Object, &Temporary, sizeof(UObject*));
 	return *this;
@@ -4342,6 +4603,101 @@ FName FLinkerLoad::FindNewNameForClass(FName OldClassName, bool bIsInstance)
 	return NAME_None;
 }
 
+#if WITH_EDITOR
+
+/**
+* Checks if exports' indexes and names are equal.
+*/
+bool AreObjectExportsEqualForDuplicateChecks(const FObjectExport& Lhs, const FObjectExport& Rhs)
+{
+	return Lhs.ObjectName == Rhs.ObjectName
+		&& Lhs.ClassIndex == Rhs.ClassIndex
+		&& Lhs.OuterIndex == Rhs.OuterIndex;
+}
+
+/**
+ * Helper function to sort ExportMap for duplicate checks.
+ */
+bool ExportMapSorter(const FObjectExport& Lhs, const FObjectExport& Rhs)
+{
+	// Check names first.
+	if (Lhs.ObjectName < Rhs.ObjectName)
+	{
+		return true;
+	}
+
+	if (Lhs.ObjectName > Rhs.ObjectName)
+	{
+		return false;
+	}
+
+	// Names are equal, check classes.
+	if (Lhs.ClassIndex < Rhs.ClassIndex)
+	{
+		return true;
+	}
+
+	if (Lhs.ClassIndex > Rhs.ClassIndex)
+	{
+		return false;
+	}
+
+	// Class names are equal as well, check outers.
+	return Lhs.OuterIndex < Rhs.OuterIndex;
+}
+
+void FLinkerLoad::ReplaceExportIndexes(const FPackageIndex& OldIndex, const FPackageIndex& NewIndex)
+{
+	for (auto& Export : ExportMap)
+	{
+		if (Export.ClassIndex == OldIndex)
+		{
+			Export.ClassIndex = NewIndex;
+		}
+
+		if (Export.SuperIndex == OldIndex)
+		{
+			Export.SuperIndex = NewIndex;
+		}
+
+		if (Export.OuterIndex == OldIndex)
+		{
+			Export.OuterIndex = NewIndex;
+		}
+	}
+}
+
+void FLinkerLoad::FixupDuplicateExports()
+{
+	// We need to operate on copy to avoid incorrect indexes after sorting
+	auto ExportMapSorted = ExportMap;
+	ExportMapSorted.Sort(ExportMapSorter);
+
+	// ClassIndex, SuperIndex, OuterIndex
+	int32 LastUniqueExportIndex = 0;
+	for (int32 SortedIndex = 1; SortedIndex < ExportMapSorted.Num(); ++SortedIndex)
+	{
+		const FObjectExport& Original = ExportMapSorted[LastUniqueExportIndex];
+		const FObjectExport& Duplicate = ExportMapSorted[SortedIndex];
+
+		if (AreObjectExportsEqualForDuplicateChecks(Original, Duplicate))
+		{
+			// Duplicate entry found. Look through all Exports and update their ClassIndex, SuperIndex and OuterIndex
+			// to point on original export instead of duplicate.
+			const FPackageIndex& DuplicateIndex = Duplicate.ThisIndex;
+			const FPackageIndex& OriginalIndex = Original.ThisIndex;
+			ReplaceExportIndexes(DuplicateIndex, OriginalIndex);
+
+			// Mark Duplicate as null, so we don't load it.
+			Exp(Duplicate.ThisIndex).ThisIndex = FPackageIndex();
+		}
+		else
+		{
+			LastUniqueExportIndex = SortedIndex;
+		}
+	}
+}
+#endif // WITH_EDITOR
 
 /**
 * Allows object instances to be converted to other classes upon loading a package
@@ -4349,6 +4705,14 @@ FName FLinkerLoad::FindNewNameForClass(FName OldClassName, bool bIsInstance)
 FLinkerLoad::ELinkerStatus FLinkerLoad::FixupExportMap()
 {
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FLinkerLoad::FixupExportMap" ), STAT_LinkerLoad_FixupExportMap, STATGROUP_LinkerLoad );
+
+#if WITH_EDITOR
+	if (UE4Ver() < VER_UE4_SKIP_DUPLICATE_EXPORTS_ON_SAVE_PACKAGE && !bExportsDuplicatesFixed)
+	{
+		FixupDuplicateExports();
+		bExportsDuplicatesFixed = true;
+	}
+#endif // WITH_EDITOR
 
 	// No need to fixup exports if everything is cooked.
 	if (!FPlatformProperties::RequiresCookedData())
@@ -4533,8 +4897,46 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupExportMap()
 	}
 }
 
-void FLinkerLoad::InitLinkers()
+void FLinkerLoad::FlushCache()
 {
+	if (Loader)
+	{
+		Loader->FlushCache();
+	}
 }
+
+#if WITH_EDITORONLY_DATA
+/** Performs a fixup on packages' editor-only flag */
+void FixupPackageEditorOnlyFlag(FName PackageThatGotEditorOnlyFlagCleared, bool bRecursive)
+{
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	STAT(double ThisTime = 0);
+	{
+		SCOPE_SECONDS_COUNTER(ThisTime);
+
+		// Now go through all packages that were marked as editor-only at load time
+		// and if they're no longer marked as such, make sure that all packages that
+		// were marked as editor-only because of that package, are now also marked as not editor-only.
+		TSet<FName>* PackagesMarkedEditorOnlyByThisPackage = ThreadContext.PackagesMarkedEditorOnlyByOtherPackage.Find(PackageThatGotEditorOnlyFlagCleared);
+		if (PackagesMarkedEditorOnlyByThisPackage)
+		{			
+			for (FName& PackageName : *PackagesMarkedEditorOnlyByThisPackage)
+			{
+				UPackage* EditorOnlyPackage = FindObjectFast<UPackage>(nullptr, PackageName);
+				if (EditorOnlyPackage && EditorOnlyPackage->IsLoadedByEditorPropertiesOnly())
+				{
+					// Now we will recursively unset the flag on all other packages
+					EditorOnlyPackage->SetLoadedByEditorPropertiesOnly(false, true);
+				}
+			}
+			ThreadContext.PackagesMarkedEditorOnlyByOtherPackage.Remove(PackageThatGotEditorOnlyFlagCleared);
+		}
+	}
+	if (!bRecursive)
+	{
+		INC_FLOAT_STAT_BY(STAT_EditorOnlyFixupTime, ThisTime);
+	}
+}
+#endif
 
 #undef LOCTEXT_NAMESPACE

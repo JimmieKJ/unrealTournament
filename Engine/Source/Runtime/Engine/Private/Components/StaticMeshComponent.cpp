@@ -24,6 +24,7 @@
 #define LOCTEXT_NAMESPACE "StaticMeshComponent"
 
 DECLARE_MEMORY_STAT( TEXT( "StaticMesh VxColor Inst Mem" ), STAT_InstVertexColorMemory, STATGROUP_MemoryStaticMesh );
+DECLARE_MEMORY_STAT( TEXT( "StaticMesh PreCulled Index Memory" ), STAT_StaticMeshPreCulledIndexMemory, STATGROUP_MemoryStaticMesh );
 
 class FStaticMeshComponentInstanceData : public FSceneComponentInstanceData
 {
@@ -38,7 +39,10 @@ public:
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
 	{
 		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<UStaticMeshComponent>(Component)->ApplyComponentInstanceData(this);
+		if (CacheApplyPhase == ECacheApplyPhase::PostUserConstructionScript)
+		{
+			CastChecked<UStaticMeshComponent>(Component)->ApplyComponentInstanceData(this);
+		}
 	}
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
@@ -178,11 +182,15 @@ UStaticMeshComponent::UStaticMeshComponent(const FObjectInitializer& ObjectIniti
 	StreamingDistanceMultiplier = 1.0f;
 	bBoundsChangeTriggersStreamingDataRebuild = true;
 	bHasCustomNavigableGeometry = EHasCustomNavigableGeometry::Yes;
+	bOverrideNavigationExport = false;
+	bForceNavigationObstacle = true;
+	bDisallowMeshPaintPerInstance = false;
 
 	GetBodyInstance()->bAutoWeld = true;	//static mesh by default has auto welding
 
 #if WITH_EDITORONLY_DATA
 	SelectedEditorSection = INDEX_NONE;
+	SectionIndexPreview = INDEX_NONE;
 #endif
 }
 
@@ -363,7 +371,7 @@ void UStaticMeshComponent::CheckForErrors()
 			Arguments.Add(TEXT("MeshName"), FText::FromString(StaticMesh->GetName()));
 			FMessageLog("MapCheck").Warning()
 				->AddToken(FUObjectToken::Create(Owner))
-				->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_MoreMaterialsThanReferenced", "More overriden materials ({OverridenCount}) on static mesh component than are referenced ({ReferencedCount}) in source mesh '{MeshName}'" ), Arguments ) ))
+				->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_MoreMaterialsThanReferenced", "More overridden materials ({OverridenCount}) on static mesh component than are referenced ({ReferencedCount}) in source mesh '{MeshName}'" ), Arguments ) ))
 				->AddToken(FMapErrorToken::Create(FMapErrors::MoreMaterialsThanReferenced));
 		}
 		if (ZeroTriangleElements > 0)
@@ -385,27 +393,6 @@ void UStaticMeshComponent::CheckForErrors()
 			->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_StaticMeshNull", "Static mesh actor has NULL StaticMesh property")))
 			->AddToken(FMapErrorToken::Create(FMapErrors::StaticMeshNull));
 	}
-
-	// Make sure any non uniform scaled meshes have appropriate collision
-	/* this error is no longer correct
-	if ( IsCollisionEnabled() && StaticMesh != NULL && StaticMesh->BodySetup != NULL && Owner != NULL )
-	{
-		// Overall scale factor for this mesh.
-		const FVector& TotalScale3D = ComponentToWorld.GetScale3D();
-		if ( !TotalScale3D.IsUniform() &&
-			 (StaticMesh->BodySetup->AggGeom.BoxElems.Num() > 0   ||
-			  StaticMesh->BodySetup->AggGeom.SphylElems.Num() > 0 ||
-			  StaticMesh->BodySetup->AggGeom.SphereElems.Num() > 0) )
-
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("MeshName"), FText::FromString(StaticMesh->GetName()));
-			FMessageLog("MapCheck").Warning()
-				->AddToken(FUObjectToken::Create(Owner))
-				->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_SimpleCollisionButNonUniformScale", "'{MeshName}' has simple collision but is being scaled non-uniformly - collision creation will fail" ), Arguments)))
-				->AddToken(FMapErrorToken::Create(FMapErrors::SimpleCollisionButNonUniformScale));
-		}
-	}*/
 
 	if ( BodyInstance.bSimulatePhysics && StaticMesh != NULL && StaticMesh->BodySetup != NULL && StaticMesh->BodySetup->AggGeom.GetElementCount() == 0) 
 	{
@@ -617,7 +604,7 @@ bool UStaticMeshComponent::CanEditSimulatePhysics()
 {
 	if (UBodySetup* BodySetup = GetBodySetup())
 	{
-		return (BodySetup->AggGeom.GetElementCount() > 0) || (BodySetup->CollisionTraceFlag == CTF_UseComplexAsSimple);
+		return (BodySetup->AggGeom.GetElementCount() > 0) || (BodySetup->GetCollisionTraceFlag() == CTF_UseComplexAsSimple);
 	}
 	else
 	{
@@ -740,6 +727,18 @@ bool UStaticMeshComponent::RequiresOverrideVertexColorsFixup( TArray<int32>& Out
 
 	return bFixupRequired;
 }
+
+void UStaticMeshComponent::SetSectionPreview(int32 InSectionIndexPreview)
+{
+#if WITH_EDITORONLY_DATA
+	if (SectionIndexPreview != InSectionIndexPreview)
+	{
+		SectionIndexPreview = InSectionIndexPreview;
+		MarkRenderStateDirty();
+	}
+#endif
+}
+
 
 void UStaticMeshComponent::RemoveInstanceVertexColorsFromLOD( int32 LODToRemoveColorsFrom )
 {
@@ -872,8 +871,17 @@ void UStaticMeshComponent::CachePaintedDataIfNecessary()
 					}
 				}
 				else
-				{
-					UE_LOG(LogStaticMesh, Warning, TEXT("Unable to cache painted data for mesh component. Vertex color overrides will be lost if the mesh is modified. %s %s LOD%d."), *GetFullName(), *StaticMesh->GetFullName(), LODIter.GetIndex() );
+				{					
+					// At this point we can't resolve the colors, so just discard any isolated data we still have
+					if (CurCompLODInfo.OverrideVertexColors && CurCompLODInfo.OverrideVertexColors->GetNumVertices() > 0)
+					{
+						UE_LOG(LogStaticMesh, Warning, TEXT("Level requires re-saving! Outdated vertex color overrides have been discarded for %s %s LOD%d. "), *GetFullName(), *StaticMesh->GetFullName(), LODIter.GetIndex());
+						CurCompLODInfo.ReleaseOverrideVertexColorsAndBlock();
+					}
+					else
+					{
+						UE_LOG(LogStaticMesh, Warning, TEXT("Unable to cache painted data for mesh component. Vertex color overrides will be lost if the mesh is modified. %s %s LOD%d."), *GetFullName(), *StaticMesh->GetFullName(), LODIter.GetIndex() );
+					}
 				}
 			}
 		}
@@ -956,13 +964,71 @@ void UStaticMeshComponent::InitResources()
 	}
 }
 
+float GKeepPreCulledIndicesThreshold = .95f;
 
+FAutoConsoleVariableRef CKeepPreCulledIndicesThreshold(
+	TEXT("r.KeepPreCulledIndicesThreshold"),
+	GKeepPreCulledIndicesThreshold,
+	TEXT(""),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+	);
+
+void UStaticMeshComponent::UpdatePreCulledData(int32 LODIndex, const TArray<uint32>& PreCulledData, const TArray<int32>& NumTrianglesPerSection)
+{
+	const FStaticMeshLODResources& StaticMeshLODResources = StaticMesh->RenderData->LODResources[LODIndex];
+
+	int32 NumOriginalTriangles = 0;
+	int32 NumVisibleTriangles = 0;
+
+	for (int32 SectionIndex = 0; SectionIndex < StaticMeshLODResources.Sections.Num(); SectionIndex++)
+	{
+		const FStaticMeshSection& Section = StaticMeshLODResources.Sections[SectionIndex];
+		NumOriginalTriangles += Section.NumTriangles;
+		NumVisibleTriangles += NumTrianglesPerSection[SectionIndex];
+	}
+
+	if (NumVisibleTriangles / (float)NumOriginalTriangles < GKeepPreCulledIndicesThreshold)
+	{
+		SetLODDataCount(LODIndex + 1, LODData.Num());
+
+		DEC_DWORD_STAT_BY(STAT_StaticMeshPreCulledIndexMemory, LODData[LODIndex].PreCulledIndexBuffer.GetAllocatedSize());
+		//@todo - game thread
+		check(IsInRenderingThread());
+		LODData[LODIndex].PreCulledIndexBuffer.ReleaseResource();
+		LODData[LODIndex].PreCulledIndexBuffer.SetIndices(PreCulledData, EIndexBufferStride::AutoDetect);
+		LODData[LODIndex].PreCulledIndexBuffer.InitResource();
+
+		INC_DWORD_STAT_BY(STAT_StaticMeshPreCulledIndexMemory, LODData[LODIndex].PreCulledIndexBuffer.GetAllocatedSize());
+		LODData[LODIndex].PreCulledSections.Empty(StaticMeshLODResources.Sections.Num());
+
+		int32 FirstIndex = 0;
+
+		for (int32 SectionIndex = 0; SectionIndex < StaticMeshLODResources.Sections.Num(); SectionIndex++)
+		{
+			const FStaticMeshSection& Section = StaticMeshLODResources.Sections[SectionIndex];
+			FPreCulledStaticMeshSection PreCulledSection;
+			PreCulledSection.FirstIndex = FirstIndex;
+			PreCulledSection.NumTriangles = NumTrianglesPerSection[SectionIndex];
+			FirstIndex += PreCulledSection.NumTriangles * 3;
+			LODData[LODIndex].PreCulledSections.Add(PreCulledSection);
+		}
+	}
+	else if (LODIndex < LODData.Num())
+	{
+		LODData[LODIndex].PreCulledIndexBuffer.ReleaseResource();
+		TArray<uint32> EmptyIndices;
+		LODData[LODIndex].PreCulledIndexBuffer.SetIndices(EmptyIndices, EIndexBufferStride::AutoDetect);
+		LODData[LODIndex].PreCulledSections.Empty(StaticMeshLODResources.Sections.Num());
+	}
+}
 
 void UStaticMeshComponent::ReleaseResources()
 {
 	for(int32 LODIndex = 0;LODIndex < LODData.Num();LODIndex++)
 	{
 		LODData[LODIndex].BeginReleaseOverrideVertexColors();
+		DEC_DWORD_STAT_BY(STAT_StaticMeshPreCulledIndexMemory, LODData[LODIndex].PreCulledIndexBuffer.GetAllocatedSize());
+		BeginReleaseResource(&LODData[LODIndex].PreCulledIndexBuffer);
 	}
 
 	DetachFence.BeginFence();
@@ -1084,7 +1150,7 @@ void UStaticMeshComponent::PostEditUndo()
 	InitResources();
 
 	// Debug check command trying to track down undo related uninitialized resource
-	if (StaticMesh != NULL && StaticMesh->RenderData->LODResources.Num() > 0)
+	if (StaticMesh != NULL && StaticMesh->RenderData.IsValid() && StaticMesh->RenderData->LODResources.Num() > 0)
 	{
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 			ResourceCheckCommand,
@@ -1094,7 +1160,6 @@ void UStaticMeshComponent::PostEditUndo()
 			}
 		);
 	}
-
 	Super::PostEditUndo();
 }
 
@@ -1150,9 +1215,10 @@ void UStaticMeshComponent::PostLoad()
 #if WITH_EDITORONLY_DATA
 			FFormatNamedArguments Arguments;
 			Arguments.Add(TEXT("MeshName"), FText::FromString(GetName()));
+			Arguments.Add(TEXT("LevelName"), FText::FromString(GetOutermost()->GetName()));
 			FMessageLog("MapCheck").Info()
 				->AddToken(FUObjectToken::Create(GetOuter()))
-				->AddToken(FTextToken::Create(FText::Format( LOCTEXT( "MapCheck_Message_RepairedPaintedVertexColors", "{MeshName} : Repaired painted vertex colors" ), Arguments ) ))
+				->AddToken(FTextToken::Create(FText::Format( LOCTEXT( "MapCheck_Message_RepairedPaintedVertexColors", "{MeshName} : Repaired painted vertex colors (slow loading, can be fixed by saving {LevelName})" ), Arguments ) ))
 				->AddToken(FMapErrorToken::Create(FMapErrors::RepairedPaintedVertexColors));
 #endif
 		}
@@ -1285,7 +1351,7 @@ bool UStaticMeshComponent::GetLightMapResolution( int32& Width, int32& Height ) 
 	bool bPadded = false;
 	if( StaticMesh )
 	{
-		// Use overriden per component lightmap resolution.
+		// Use overridden per component lightmap resolution.
 		if( bOverrideLightMapRes )
 		{
 			Width	= OverriddenLightMapRes;
@@ -1318,7 +1384,7 @@ void UStaticMeshComponent::GetEstimatedLightMapResolution(int32& Width, int32& H
 
 		bool bUseSourceMesh = false;
 
-		// Use overriden per component lightmap resolution.
+		// Use overridden per component lightmap resolution.
 		// If the overridden LM res is > 0, then this is what would be used...
 		if (bOverrideLightMapRes == true)
 		{
@@ -1484,7 +1550,7 @@ bool UStaticMeshComponent::GetEstimatedLightAndShadowMapMemoryUsage(
 int32 UStaticMeshComponent::GetNumMaterials() const
 {
 	// @note : you don't have to consider Materials.Num()
-	// that only counts if overriden and it can't be more than StaticMesh->Materials. 
+	// that only counts if overridden and it can't be more than StaticMesh->Materials. 
 	if(StaticMesh)
 	{
 		return StaticMesh->Materials.Num();
@@ -1541,12 +1607,6 @@ int32 UStaticMeshComponent::GetBlueprintCreatedComponentIndex() const
 	return INDEX_NONE;
 }
 
-FName UStaticMeshComponent::GetComponentInstanceDataType() const
-{
-	static const FName StaticMeshComponentInstanceDataName(TEXT("StaticMeshInstanceData"));
-	return StaticMeshComponentInstanceDataName;
-}
-
 FActorComponentInstanceData* UStaticMeshComponent::GetComponentInstanceData() const
 {
 	FStaticMeshComponentInstanceData* StaticMeshInstanceData = nullptr;
@@ -1594,51 +1654,64 @@ void UStaticMeshComponent::ApplyComponentInstanceData(FStaticMeshComponentInstan
 
 	// Note: ApplyComponentInstanceData is called while the component is registered so the rendering thread is already using this component
 	// That means all component state that is modified here must be mirrored on the scene proxy, which will be recreated to receive the changes later due to MarkRenderStateDirty.
+	// Changing refcounted pointers like LightMap works because those are deferred cleanup resources (deleted next frame)
 
 	if (StaticMesh != StaticMeshInstanceData->StaticMesh)
 	{
 		return;
 	}
 
-	// See if data matches current state
-	if(	StaticMeshInstanceData->bHasCachedStaticLighting && StaticMeshInstanceData->CachedStaticLighting.Transform.Equals(ComponentToWorld, 1.e-3f) )
+	if (StaticMeshInstanceData->bHasCachedStaticLighting)
 	{
-		const int32 NumLODLightMaps = StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap.Num();
-		SetLODDataCount(NumLODLightMaps, NumLODLightMaps);
-		for (int32 i = 0; i < NumLODLightMaps; ++i)
+		// See if data matches current state
+		if (StaticMeshInstanceData->CachedStaticLighting.Transform.Equals(ComponentToWorld, 1.e-3f))
 		{
-			LODData[i].LightMap = StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap[i];
-			LODData[i].ShadowMap = StaticMeshInstanceData->CachedStaticLighting.LODDataShadowMap[i];
+			const int32 NumLODLightMaps = StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap.Num();
+			SetLODDataCount(NumLODLightMaps, NumLODLightMaps);
 
-// this code is to try to track down a mystery GC crash from crash reporter...if this code crashes, and then we know it is component reinstancing
-			if (LODData[i].LightMap.GetReference())
+			for (int32 i = 0; i < NumLODLightMaps; ++i)
 			{
-				FLightMap2D* LightMap = LODData[i].LightMap->GetLightMap2D();
-				if (LightMap)
+				LODData[i].LightMap = StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap[i];
+				LODData[i].ShadowMap = StaticMeshInstanceData->CachedStaticLighting.LODDataShadowMap[i];
+
+				// this code is to try to track down a mystery GC crash from crash reporter...if this code crashes, and then we know it is component reinstancing
+				if (LODData[i].LightMap.GetReference())
 				{
-					if (LightMap->IsValid(0))
+					FLightMap2D* LightMap = LODData[i].LightMap->GetLightMap2D();
+					if (LightMap)
 					{
-						UTexture2D* Tex = LightMap->GetTexture(0);
-						Tex->GetResourceSize(EResourceSizeMode::Exclusive);
-					}
-					if (LightMap->IsValid(1))
-					{
-						UTexture2D* Tex = LightMap->GetTexture(1);
-						Tex->GetResourceSize(EResourceSizeMode::Exclusive);
-					}
-					if (LightMap->GetSkyOcclusionTexture())
-					{
-						UTexture2D* Tex = LightMap->GetSkyOcclusionTexture();
-						Tex->GetResourceSize(EResourceSizeMode::Exclusive);
+						if (LightMap->IsValid(0))
+						{
+							UTexture2D* Tex = LightMap->GetTexture(0);
+							Tex->GetResourceSize(EResourceSizeMode::Exclusive);
+						}
+						if (LightMap->IsValid(1))
+						{
+							UTexture2D* Tex = LightMap->GetTexture(1);
+							Tex->GetResourceSize(EResourceSizeMode::Exclusive);
+						}
+						if (LightMap->GetSkyOcclusionTexture())
+						{
+							UTexture2D* Tex = LightMap->GetSkyOcclusionTexture();
+							Tex->GetResourceSize(EResourceSizeMode::Exclusive);
+						}
 					}
 				}
 			}
-		}
 
-		IrrelevantLights = StaticMeshInstanceData->CachedStaticLighting.IrrelevantLights;
-		bHasCachedStaticLighting = true;
+			IrrelevantLights = StaticMeshInstanceData->CachedStaticLighting.IrrelevantLights;
+			bHasCachedStaticLighting = true;
+		}
+		else
+		{
+			UE_LOG(LogStaticMesh, Warning, TEXT("Cached component instance data transform did not match!  Discarding cached lighting data which will cause lighting to be unbuilt.\n%s\nCurrent: %s Cached: %s"), 
+				*GetPathName(),
+				*ComponentToWorld.ToString(),
+				*StaticMeshInstanceData->CachedStaticLighting.Transform.ToString());
+		}
 	}
 
+	if (!bDisallowMeshPaintPerInstance)
 	{
 		FComponentReregisterContext ReregisterStaticMesh(this);
 		StaticMeshInstanceData->ApplyVertexColorData(this);
@@ -1651,7 +1724,9 @@ bool UStaticMeshComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExp
 	if (StaticMesh != NULL && StaticMesh->NavCollision != NULL)
 	{
 		UNavCollision* NavCollision = StaticMesh->NavCollision;
-		if (NavCollision->bIsDynamicObstacle)
+		const bool bExportAsObstacle = bOverrideNavigationExport ? bForceNavigationObstacle : NavCollision->bIsDynamicObstacle;
+
+		if (bExportAsObstacle)
 		{
 			return false;
 		}
@@ -1689,7 +1764,9 @@ void UStaticMeshComponent::GetNavigationData(FNavigationRelevantData& Data) cons
 	if (StaticMesh && StaticMesh->NavCollision)	
 	{
 		UNavCollision* NavCollision = StaticMesh->NavCollision;
-		if (NavCollision->bIsDynamicObstacle)
+		const bool bExportAsObstacle = bOverrideNavigationExport ? bForceNavigationObstacle : NavCollision->bIsDynamicObstacle;
+
+		if (bExportAsObstacle)
 		{
 			NavCollision->GetNavigationModifier(Data.Modifiers, ComponentToWorld);
 		}

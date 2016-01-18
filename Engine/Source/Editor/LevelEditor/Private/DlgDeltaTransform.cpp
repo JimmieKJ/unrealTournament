@@ -59,6 +59,7 @@ public:
 							.Y( this, &SDlgDeltaTransform::GetDeltaY )
 							.Z( this, &SDlgDeltaTransform::GetDeltaZ )
 							.bColorAxisLabels( true )
+							.AllowResponsiveLayout( true )
 							.OnXCommitted( this, &SDlgDeltaTransform::OnSetDelta, 0 )
 							.OnYCommitted( this, &SDlgDeltaTransform::OnSetDelta, 1 )
 							.OnZCommitted( this, &SDlgDeltaTransform::OnSetDelta, 2 )

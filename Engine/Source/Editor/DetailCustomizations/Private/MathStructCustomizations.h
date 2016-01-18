@@ -227,7 +227,7 @@ protected:
 	/** Called when the user clicks on the the button to get the full color picker */
 	FReply OnOpenFullColorPickerClicked();
 
-private:
+protected:
 	/** Saved per struct colors in case the user clicks cancel in the color picker */
 	TArray<FLinearColor> SavedPreColorPickerColors;
 	/** Color struct handle */
@@ -244,5 +244,7 @@ private:
 	TSharedPtr<SWidget> ColorPickerParentWidget;
 	/** The value won;t be updated while editing */
 	bool bDontUpdateWhileEditing;
+	/** Overrides the default state of the sRGB checkbox */
+	TOptional<bool> sRGBOverride;
 };
 

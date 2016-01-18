@@ -218,7 +218,7 @@ FCriticalSection* FName::GetCriticalSection()
 FString FName::NameToDisplayString( const FString& InDisplayName, const bool bIsBool )
 {
 	// Copy the characters out so that we can modify the string in place
-	const TArray< TCHAR > Chars = InDisplayName.GetCharArray();
+	const TArray< TCHAR >& Chars = InDisplayName.GetCharArray();
 
 	// This is used to indicate that we are in a run of uppercase letter and/or digits.  The code attempts to keep
 	// these characters together as breaking them up often looks silly (i.e. "Draw Scale 3 D" as opposed to "Draw Scale 3D"
@@ -226,6 +226,7 @@ FString FName::NameToDisplayString( const FString& InDisplayName, const bool bIs
 	bool bWasSpace = false;
 	bool bWasOpenParen = false;
 	FString OutDisplayName;
+	OutDisplayName.GetCharArray().Reserve(Chars.Num());
 	for( int32 CharIndex = 0 ; CharIndex < Chars.Num() ; ++CharIndex )
 	{
 		TCHAR ch = Chars[CharIndex];

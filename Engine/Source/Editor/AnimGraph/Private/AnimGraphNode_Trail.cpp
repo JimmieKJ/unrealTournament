@@ -49,4 +49,9 @@ FText UAnimGraphNode_Trail::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	return CachedNodeTitles[TitleType];
 }
 
+void UAnimGraphNode_Trail::PostLoad()
+{
+	Super::PostLoad();
+	Node.PostLoad();
+}
 #undef LOCTEXT_NAMESPACE

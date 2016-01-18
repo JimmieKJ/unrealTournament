@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,8 +19,8 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 	virtual void Init();
 	virtual void StartGameInstance() override;
 
-	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName) override;
-	virtual void PlayReplay(const FString& Name) override;
+	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions = TArray<FString>()) override;
+	virtual void PlayReplay(const FString& Name, UWorld* WorldOverride = nullptr, const TArray<FString>& AdditionalOptions = TArray<FString>()) override;
 
 	virtual void HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr) override;
 
@@ -78,7 +78,7 @@ protected:
 
 	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
-	TArray<TWeakPtr<class SUWRedirectDialog>> ActiveRedirectDialogs;
+	TArray<TWeakPtr<class SUTRedirectDialog>> ActiveRedirectDialogs;
 
 	// in order to handle demo redirects, we have to cancel the demo, download, then retry
 	// this tracks the demo we need to retry

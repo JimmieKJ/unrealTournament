@@ -8,24 +8,28 @@
 #pragma once
 #include "MicroTransactionBase.generated.h"
 
-/** All the types of delegate callbacks that a MicroTransaction subclass may receive from C++ */
+/** All the types of delegate callbacks that a MicroTransaction subclass may receive from C++. */
 UENUM()
 enum EMicroTransactionDelegate
 {
-	// Data:None
-	// Desc:QueryForAvailablePurchases() is complete and AvailableProducts is ready for use
+	/**
+	 * Data:None
+	 * Desc:QueryForAvailablePurchases() is complete and AvailableProducts is ready for use.
+	 */
 	MTD_PurchaseQueryComplete,
-	// Data:Result code, and identifier of the product that completed
-	// Type:Custom
-	// Desc:IntValue will have one of the enums in EMicroTransactionResult, and StringValue
-	//      will have the Identifier from the PurchaseInfo that was bought with BeginPurchase
-	//      If MTR_Failed was returned, then LastError and LastErrorSolution should be filled
-	//		out with the most recent localized and possible resolutions
+	/**
+	 * Data:Result code, and identifier of the product that completed.
+	 * Type:Custom
+	 * Desc:IntValue will have one of the enums in EMicroTransactionResult, and StringValue
+	 *      will have the Identifier from the PurchaseInfo that was bought with BeginPurchase
+	 *      If MTR_Failed was returned, then LastError and LastErrorSolution should be filled
+	 *		out with the most recent localized and possible resolutions.
+	 */
 	MTD_PurchaseComplete,
 	MTD_MAX,
 };
 
-/** Result of a purchase */
+/** Result of a purchase. */
 UENUM()
 enum EMicroTransactionResult
 {

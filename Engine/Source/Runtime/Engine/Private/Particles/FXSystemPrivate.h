@@ -24,15 +24,16 @@ namespace EParticleSimulatePhase
 	{
 		/** The main simulation pass is for standard particles. */
 		Main,
+		CollisionDistanceField,
 		/** The collision pass is used by these that collide against the scene depth buffer. */
-		Collision,
+		CollisionDepthBuffer,
 
 		/**********************************************************************/
 
 		/** The first simulation phase that is run each frame. */
 		First = Main,
 		/** The final simulation phase that is run each frame. */
-		Last = Collision
+		Last = CollisionDepthBuffer
 	};
 };
 
@@ -65,7 +66,8 @@ public:
 	virtual void UpdateVectorField(UVectorFieldComponent* VectorFieldComponent) override;
 	virtual FParticleEmitterInstance* CreateGPUSpriteEmitterInstance(FGPUSpriteEmitterInfo& EmitterInfo) override;
 	virtual void PreInitViews() override;
-	virtual void PreRender(FRHICommandListImmediate& RHICmdList) override;
+	virtual bool UsesGlobalDistanceField() const override;
+	virtual void PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData) override;
 	virtual void PostRenderOpaque(FRHICommandListImmediate& RHICmdList, const class FSceneView* CollisionView, FTexture2DRHIParamRef SceneDepthTexture, FTexture2DRHIParamRef GBufferATexture) override;
 	// End FFXSystemInterface.
 
@@ -110,6 +112,9 @@ public:
 	 */
 	int32 AddSortedGPUSimulation(FParticleSimulationGPU* Simulation, const FVector& ViewOrigin);
 
+	void PrepareGPUSimulation(FRHICommandListImmediate& RHICmdList);
+	void FinalizeGPUSimulation(FRHICommandListImmediate& RHICmdList);
+
 private:
 
 	/*--------------------------------------------------------------------------
@@ -147,6 +152,8 @@ private:
 	 */
 	void SortGPUParticles(FRHICommandListImmediate& RHICmdList);
 
+	bool UsesGlobalDistanceFieldInternal() const;
+
 	/**
 	 * Update particles simulated on the GPU.
 	 * @param Phase				Which emitters are being simulated.
@@ -158,6 +165,7 @@ private:
 		FRHICommandListImmediate& RHICmdList,
 		EParticleSimulatePhase::Type Phase,
 		const class FSceneView* CollisionView,
+		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
 		FTexture2DRHIParamRef SceneDepthTexture,
 		FTexture2DRHIParamRef GBufferATexture
 		);

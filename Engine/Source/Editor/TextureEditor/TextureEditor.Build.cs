@@ -27,6 +27,7 @@ public class TextureEditor : ModuleRules
 			new string[] {
 				"Settings",
 				"UnrealEd",
+                "PropertyEditor"
 			}
 		);
 

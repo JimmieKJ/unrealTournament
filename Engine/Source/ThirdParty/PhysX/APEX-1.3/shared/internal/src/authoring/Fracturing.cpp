@@ -3068,7 +3068,7 @@ static bool buildExplicitHierarchicalMeshFromApexAssetsInternal(physx::ExplicitH
 		// Get vb data:
 		physx::Array<physx::PxVec3> positions;
 		physx::Array<physx::PxVec3> normals;
-		physx::Array<physx::PxVec3> tangents;
+		physx::Array<physx::PxVec4> tangents;	// Handle vec4 tangents
 		physx::Array<physx::PxVec3> binormals;
 		physx::Array<physx::PxColorRGBA> colors;
 		physx::Array<physx::NxVertexUV> uvs[NxVertexFormat::MAX_UV_COUNT];
@@ -3095,12 +3095,22 @@ static bool buildExplicitHierarchicalMeshFromApexAssetsInternal(physx::ExplicitH
 
 		// Tangents
 		const physx::PxI32 tangentBufferIndex = vbFormat.getBufferIndexFromID(vbFormat.getSemanticID(NxRenderVertexSemantic::TANGENT));
-		tangents.resize(submeshVertexCount);
-		submeshData.mVertexFormat.mHasStaticTangents = vb.getBufferData(&tangents[0], physx::NxRenderDataFormat::FLOAT3, sizeof(physx::PxVec3), 
-																		(physx::PxU32)tangentBufferIndex, 0, submeshVertexCount);
-		if (!submeshData.mVertexFormat.mHasStaticTangents)
+		tangents.resize(submeshVertexCount, physx::PxVec4(physx::PxVec3(0.0f), 1.0f));	// Fill with (0,0,0,1), in case we read 3-component tangents
+		switch (vbFormat.getBufferFormat((physx::PxU32)tangentBufferIndex))
 		{
-			::memset(&tangents[0], 0, submeshVertexCount*sizeof(physx::PxVec3));	// Fill with zeros
+		case physx::NxRenderDataFormat::BYTE_SNORM3:
+		case physx::NxRenderDataFormat::SHORT_SNORM3:
+		case physx::NxRenderDataFormat::FLOAT3:
+			submeshData.mVertexFormat.mHasStaticTangents = vb.getBufferData(&tangents[0], physx::NxRenderDataFormat::FLOAT3, sizeof(physx::PxVec4), (physx::PxU32)tangentBufferIndex, 0, submeshVertexCount);
+			break;
+		case physx::NxRenderDataFormat::BYTE_SNORM4:
+		case physx::NxRenderDataFormat::SHORT_SNORM4:
+		case physx::NxRenderDataFormat::FLOAT4:
+			submeshData.mVertexFormat.mHasStaticTangents = vb.getBufferData(&tangents[0], physx::NxRenderDataFormat::FLOAT4, sizeof(physx::PxVec4), (physx::PxU32)tangentBufferIndex, 0, submeshVertexCount);
+			break;
+		default:
+			submeshData.mVertexFormat.mHasStaticTangents = false;
+			break;
 		}
 
 		// Binormals
@@ -3113,7 +3123,7 @@ static bool buildExplicitHierarchicalMeshFromApexAssetsInternal(physx::ExplicitH
 			submeshData.mVertexFormat.mHasStaticBinormals = submeshData.mVertexFormat.mHasStaticNormals && submeshData.mVertexFormat.mHasStaticTangents;
 			for (physx::PxU32 i = 0; i < submeshVertexCount; ++i)
 			{
-				binormals[i] = normals[i].cross(tangents[i]);	// Build from normals and tangents.  If one of these doesn't exist we'll get (0,0,0)'s
+				binormals[i] = physx::PxSign(tangents[i][3])*normals[i].cross(tangents[i].getXYZ());	// Build from normals and tangents.  If one of these doesn't exist we'll get (0,0,0)'s
 			}
 		}
 
@@ -3183,7 +3193,7 @@ static bool buildExplicitHierarchicalMeshFromApexAssetsInternal(physx::ExplicitH
 					physx::NxVertex& vertex = triangle.vertices[v];
 					vertex.position = positions[index];
 					vertex.normal = normals[index];
-					vertex.tangent = tangents[index];
+					vertex.tangent = tangents[index].getXYZ();
 					vertex.binormal = binormals[index];
 					vertex.color = NxVertexColor(PxColorRGBA(colors[index]));
 					for (physx::PxU32 uvNum = 0; uvNum < NxVertexFormat::MAX_UV_COUNT; ++uvNum)

@@ -37,7 +37,7 @@
 		Time.tv_sec = (int)WaitTimeMSec/1000;
 		Time.tv_usec = WaitTimeMSec;
 		fd_set SocketSet;
-		// Set up the socket sets we are interested in (just this one)
+		// Set up the socket sets we are interested in (Just this one)
 		FD_ZERO(&SocketSet);
 		FD_SET(Socket, &SocketSet);
 		// Check the status of the state
@@ -55,7 +55,7 @@
 			break;
 		}
 
-		// if the select returns a positive number, the socket had the state, 0 means didn't have it, and negative is API error condition (not socket's error state)
+		// If the select returns a positive number, the socket had the state. 0 means didn't have it and negative is API error condition (Not socket's error state).
 		return SelectStatus > 0  ? SocketRawEnum::Yes : 
 			SelectStatus == 0 ? SocketRawEnum::No : 
 			SocketRawEnum::EncounteredError;
@@ -95,12 +95,12 @@ bool FSocketRaw::HasPendingConnection( bool& bHasPendingConnection )
 	bool bHasSucceeded = false;
 	bHasPendingConnection = false;
 
-	// make sure socket has no error state
+	// Make sure socket has no error state
 	if (SocketCurrentState(SocketRawData->socket, SocketRawEnum::HasError) == SocketRawEnum::No)
 	{
-		// get the read state
+		// Get the read state
 		SocketRawEnum::Return State = SocketCurrentState(SocketRawData->socket, SocketRawEnum::CanRead);
-		// turn the result into the outputs
+		// Turn the result into the outputs
 		bHasSucceeded = State != SocketRawEnum::EncounteredError;
 		bHasPendingConnection = State == SocketRawEnum::Yes;
 	}
@@ -243,7 +243,7 @@ bool FSocketRaw::SetNonBlocking( bool bIsNonBlocking /*= true*/ )
 	return ioctlsocket(SocketRawData->socket,FIONBIO,&Value) == 0;
 #if 0 
 	int Flags = fcntl(Socket, F_GETFL, 0);
-	//Set the flag or clear it, without destroying the other flags.
+	// Set the flag or clear it (without destroying the other flags).
 	Flags = bIsNonBlocking ? Flags | O_NONBLOCK : Flags ^ (Flags & O_NONBLOCK);
 	int err = fcntl(Socket, F_SETFL, Flags);
 	return (err == 0 ? true : false);

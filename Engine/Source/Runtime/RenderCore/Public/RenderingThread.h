@@ -83,6 +83,7 @@ extern RENDERCORE_API void FlushRenderingCommands();
 extern RENDERCORE_API void FlushPendingDeleteRHIResources_GameThread();
 extern RENDERCORE_API void FlushPendingDeleteRHIResources_RenderThread();
 
+extern RENDERCORE_API void TickRenderingTickables();
 
 ////////////////////////////////////
 // Render thread suspension
@@ -150,6 +151,7 @@ public:
 	// All render commands run on the render thread
 	static ENamedThreads::Type GetDesiredThread()
 	{
+		check(!GIsThreadedRendering || ENamedThreads::RenderThread != ENamedThreads::GameThread);
 		return ENamedThreads::RenderThread;
 	}
 
@@ -196,6 +198,7 @@ DECLARE_STATS_GROUP(TEXT("Render Thread Commands"), STATGROUP_RenderThreadComman
 		if(GIsThreadedRendering || !IsInGameThread()) \
 		{ \
 			CheckNotBlockedOnRenderThread(); \
+			check(ENamedThreads::GameThread != ENamedThreads::RenderThread); \
 			TGraphTask<EURCMacro_##TypeName>::CreateTask().ConstructAndDispatchWhenReady(); \
 		} \
 		else \

@@ -76,11 +76,14 @@ bool RunProcessProgress(const FString& ExecutablePath, const FString& CommandLin
 			FPlatformProcess::WaitForProc(ProcessHandle);
 			return false;
 		}
-		FPlatformProcess::Sleep(0.25);
 	}
 
 	FPlatformProcess::WaitForProc(ProcessHandle);
-	TriggerProgress(FPlatformProcess::ReadPipe(ReadPipe), OnProcessMadeProgress);
+	FString Buffer;
+	while (!(Buffer = FPlatformProcess::ReadPipe(ReadPipe)).IsEmpty())
+	{
+		TriggerProgress(Buffer, OnProcessMadeProgress);
+	}
 
 	FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
 
@@ -92,41 +95,3 @@ bool RunProcessProgress(const FString& ExecutablePath, const FString& CommandLin
 
 	return ReturnCode == 0;
 }
-
-#if PLATFORM_WINDOWS
-
-#define DWORD int32
-
-#include <tlhelp32.h>
-
-bool IsRunningProcess(const FString& FullImagePath)
-{
-	auto InFullImagePath = FullImagePath.ToUpper();
-	FPaths::NormalizeFilename(InFullImagePath);
-
-	// append the extension
-	HANDLE SnapShot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (SnapShot != INVALID_HANDLE_VALUE)
-	{
-		PROCESSENTRY32 Entry;
-		Entry.dwSize = sizeof(PROCESSENTRY32);
-
-		if (::Process32First(SnapShot, &Entry))
-		{
-			do
-			{
-				auto AppName = FPlatformProcess::GetApplicationName(Entry.th32ProcessID).ToUpper();
-				FPaths::NormalizeFilename(AppName);
-				if (AppName.Compare(InFullImagePath) == 0)
-				{
-					::CloseHandle(SnapShot);
-					return true;
-				}
-			} while (::Process32Next(SnapShot, &Entry));
-		}
-	}
-
-	::CloseHandle(SnapShot);
-	return false;
-}
-#endif

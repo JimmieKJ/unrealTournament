@@ -92,16 +92,17 @@ void FRCPassPostProcessAmbient::Render(FRenderingCompositePassContext& Context)
 
 		PixelShader->SetParameters(Context.RHICmdList, Context, Context.View.FinalPostProcessSettings.ContributingCubemaps[i]);
 
-		// Draw a quad mapping scene color to the view's render target
-		DrawRectangle(
+		DrawPostProcessPass(
 			Context.RHICmdList,
 			0, 0,
 			View.ViewRect.Width(), View.ViewRect.Height(),
 			View.ViewRect.Min.X, View.ViewRect.Min.Y,
 			View.ViewRect.Width(), View.ViewRect.Height(),
 			View.ViewRect.Size(),
-			GSceneRenderTargets.GetBufferSizeXY(),
+			FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY(),
 			*VertexShader,
+			View.StereoPass, 
+			Context.HasHmdMesh(),
 			EDRF_UseTriangleOptimization);
 	}
 }
@@ -118,10 +119,10 @@ void FRCPassPostProcessAmbient::Process(FRenderingCompositePassContext& Context)
 	FIntRect DestRect = View.ViewRect;
 	FIntPoint DestSize = DestRect.Size();
 
-	const FSceneRenderTargetItem& DestRenderTarget = GSceneRenderTargets.GetSceneColor()->GetRenderTargetItem();
+	const FSceneRenderTargetItem& DestRenderTarget = FSceneRenderTargets::Get(Context.RHICmdList).GetSceneColor()->GetRenderTargetItem();
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), true);
 	Context.SetViewportAndCallRHI(View.ViewRect);
 
 	// set the state

@@ -160,7 +160,7 @@ public:
 		FSphere(const float& InRadius, const FVector& InLocation, const FLinearColor& InColor) :
 		Radius(InRadius),
 		Location(InLocation),
-		Color(InColor) {}
+		Color(InColor.ToFColor(true)) {}
 
 		float Radius;
 		FVector Location;
@@ -174,7 +174,7 @@ public:
 		FText3d(const FString& InString, const FVector& InLocation, const FLinearColor& InColor) :
 		Text(InString),
 		Location(InLocation),
-		Color(InColor) {}
+		Color(InColor.ToFColor(true)) {}
 
 		FString Text;
 		FVector Location;
@@ -188,7 +188,7 @@ public:
 			ConeToWorld(InConeToWorld),
 			Angle1(InAngle1),
 			Angle2(InAngle2),
-			Color(InColor) {}
+			Color(InColor.ToFColor(true)) {}
 
 		FMatrix ConeToWorld;
 		float Angle1;
@@ -209,7 +209,7 @@ public:
 		FCapsule(const FVector& InLocation, const float& InRadius, const FVector& x, const FVector& y, const FVector &z, const float& InHalfHeight, const FLinearColor& InColor)
 			: Radius(InRadius)
 			, Location(InLocation)
-			, Color(InColor)
+			, Color(InColor.ToFColor(true))
 			, HalfHeight(InHalfHeight)
 			, X(x)
 			, Y(y)
@@ -244,6 +244,8 @@ public:
 	FDelegateHandle DebugTextDrawingDelegateHandle;
 	EDrawType DrawType;
 	uint32 DrawAlpha;
+
+	TWeakObjectPtr<class UMaterial> SolidMeshMaterial;
 };
 
 #endif

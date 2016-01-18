@@ -12,7 +12,7 @@ class UParticleModuleMaterialBase : public UParticleModule
 
 	virtual bool CanTickInAnyThread() override
 	{
-		return false;
+		return true;
 	}
 };
 

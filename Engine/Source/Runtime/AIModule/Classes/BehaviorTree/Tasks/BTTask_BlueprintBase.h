@@ -26,6 +26,7 @@ class AIMODULE_API UBTTask_BlueprintBase : public UBTTaskNode
 	virtual FString GetStaticDescription() const override;
 	virtual void DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const override;
 	virtual void OnInstanceDestroyed(UBehaviorTreeComponent& OwnerComp) override;
+	virtual void OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) override;
 
 	virtual void SetOwner(AActor* ActorOwner) override;
 
@@ -60,6 +61,9 @@ protected:
 
 	/** set if ReceiveAbort is implemented by blueprint */
 	uint32 ReceiveAbortImplementations : 2;
+
+	/** set when task enters Aborting state */
+	uint32 bIsAborting : 1;
 
 	/** if set, execution is inside blueprint's ReceiveExecute(Abort) event
 	  * FinishExecute(Abort) function should store their result in CurrentCallResult variable */
@@ -124,6 +128,10 @@ protected:
 	UFUNCTION(BlueprintCallable, Category="AI|BehaviorTree")
 	bool IsTaskExecuting() const;
 	
+	/** check if task is currently being aborted */
+	UFUNCTION(BlueprintCallable, Category = "AI|BehaviorTree")
+	bool IsTaskAborting() const;
+
 	/** ticks this task */
 	virtual void TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) override;
 

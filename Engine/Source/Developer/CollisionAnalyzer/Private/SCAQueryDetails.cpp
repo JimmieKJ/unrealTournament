@@ -153,7 +153,7 @@ void SCAQueryDetails::Construct(const FArguments& InArgs, TSharedPtr<SCollisionA
 		.AutoHeight()
 		[
 			SNew( SBorder )
-			.BorderImage( FEditorStyle::GetBrush( "ToolBar.Background" ) )
+			.BorderImage(FCollisionAnalyzerStyle::Get()->GetBrush("ToolBar.Background"))
 			[
 				SNew(SHorizontalBox)
 				// Left is start/end locations
@@ -207,7 +207,7 @@ void SCAQueryDetails::Construct(const FArguments& InArgs, TSharedPtr<SCollisionA
 		.FillHeight(1) 
 		[
 			SNew(SBorder)
-			.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+			.BorderImage(FCollisionAnalyzerStyle::Get()->GetBrush("Menu.Background"))
 			.Padding(1.0)
 			[
 				SAssignNew(ResultListWidget, SListView< TSharedPtr<FCAHitInfo> >)

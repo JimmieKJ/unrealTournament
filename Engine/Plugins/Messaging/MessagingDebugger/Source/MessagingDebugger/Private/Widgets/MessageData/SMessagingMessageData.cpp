@@ -5,6 +5,12 @@
 #include "JsonStructSerializerBackend.h"
 #include "StructSerializer.h"
 
+#if WITH_EDITOR
+	#include "IDetailsView.h"
+	#include "IStructureDetailsView.h"
+	#include "PropertyEditorModule.h"
+#endif
+
 
 #define LOCTEXT_NAMESPACE "SMessagingMessageData"
 
@@ -29,13 +35,14 @@ void SMessagingMessageData::Construct( const FArguments& InArgs, const FMessagin
 	Model = InModel;
 	Style = InStyle;
 
+#if WITH_EDITOR
+
 	// initialize details view
-/*	FDetailsViewArgs DetailsViewArgs;
+	FDetailsViewArgs DetailsViewArgs;
 	{
 		DetailsViewArgs.bAllowSearch = false;
 		DetailsViewArgs.bHideSelectionTip = true;
 		DetailsViewArgs.bLockable = false;
-		DetailsViewArgs.bObjectsUseNameArea = false;
 		DetailsViewArgs.bSearchInitialKeyFocus = true;
 		DetailsViewArgs.bUpdatesFromSelection = false;
 		DetailsViewArgs.NotifyHook = this;
@@ -43,16 +50,36 @@ void SMessagingMessageData::Construct( const FArguments& InArgs, const FMessagin
 		DetailsViewArgs.bShowModifiedPropertiesOption = false;
 	}
 
-	DetailsView = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor").CreateDetailView(DetailsViewArgs);
-	DetailsView->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &SMessagingMessageData::HandleDetailsViewEnabled)));
-	DetailsView->SetVisibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &SMessagingMessageData::HandleDetailsViewVisibility)));
-*/
+	FStructureDetailsViewArgs StructureViewArgs;
+	{
+		StructureViewArgs.bShowObjects = false;
+		StructureViewArgs.bShowAssets = true;
+		StructureViewArgs.bShowClasses = true;
+		StructureViewArgs.bShowInterfaces = false;
+	}
+
+	StructureDetailsView = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor")
+		.CreateStructureDetailView(DetailsViewArgs, StructureViewArgs, nullptr, LOCTEXT("MessageData", "Message Data"));
+	{
+		IDetailsView& DetailsView = StructureDetailsView->GetDetailsView();
+		DetailsView.SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SMessagingMessageData::HandleDetailsViewIsPropertyEditable));
+		DetailsView.SetVisibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &SMessagingMessageData::HandleDetailsViewVisibility)));
+	}
+
 	ChildSlot
-		[
-			//DetailsView.ToSharedRef()
-			SAssignNew(TextBox, SMultiLineEditableTextBox)
-				.IsReadOnly(true)
-		];
+	[
+		StructureDetailsView->GetWidget().ToSharedRef()
+	];
+
+#else
+
+	ChildSlot
+	[
+		SAssignNew(TextBox, SMultiLineEditableTextBox)
+			.IsReadOnly(true)
+	];
+
+#endif //WITH_EDITOR
 
 	Model->OnSelectedMessageChanged().AddRaw(this, &SMessagingMessageData::HandleModelSelectedMessageChanged);
 }
@@ -69,9 +96,16 @@ void SMessagingMessageData::NotifyPostChange( const FPropertyChangedEvent& Prope
 /* SMessagingMessageData callbacks
  *****************************************************************************/
 
-bool SMessagingMessageData::HandleDetailsViewEnabled() const
+bool SMessagingMessageData::HandleDetailsViewIsPropertyEditable() const
 {
-	return true;
+	FMessageTracerMessageInfoPtr SelectedMessage = Model->GetSelectedMessage();
+
+	if (!SelectedMessage.IsValid() || !SelectedMessage->Context.IsValid())
+	{
+		return false;
+	}
+
+	return (SelectedMessage->TimeRouted == 0.0);
 }
 
 
@@ -96,6 +130,9 @@ void SMessagingMessageData::HandleModelSelectedMessageChanged()
 
 		if (MessageTypeInfo != nullptr)
 		{
+#if WITH_EDITOR
+			StructureDetailsView->SetStructureData(MakeShareable(new FStructOnScope(MessageTypeInfo, (uint8*)SelectedMessage->Context->GetMessage())));
+#else
 			FBufferArchive BufferArchive;
 			FJsonStructSerializerBackend Backend(BufferArchive);
 
@@ -106,15 +143,24 @@ void SMessagingMessageData::HandleModelSelectedMessageChanged()
 			BufferArchive.Add(0);
 
 			TextBox->SetText(FText::FromString(FString((TCHAR*)BufferArchive.GetData()).Replace(TEXT("\t"), TEXT("    "))));
+#endif //WITH_EDITOR
 		}
 		else
 		{
+#if WITH_EDITOR
+			StructureDetailsView->SetStructureData(nullptr);
+#else
 			TextBox->SetText(FText::Format(LOCTEXT("UnknownMessageTypeFormat", "Unknown message type '{0}'"), FText::FromString(SelectedMessage->Context->GetMessageType().ToString())));
+#endif //WITH_EDITOR
 		}
 	}
 	else
 	{
+#if WITH_EDITOR
+		StructureDetailsView->SetStructureData(nullptr);
+#else
 		TextBox->SetText(FText::GetEmpty());
+#endif //WITH_EDITOR
 	}
 }
 

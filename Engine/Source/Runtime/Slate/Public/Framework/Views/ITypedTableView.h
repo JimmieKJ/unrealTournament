@@ -15,7 +15,7 @@ namespace ESelectionMode
 		/** A single item can be selected at once, or no item may be selected. */
 		Single,
 
-		/** A single item can be selected at once, or no item may be selected.  You can click the item to toggle selection on and off */
+		/** A single item can be selected at once, or no item may be selected.  You can click the item to toggle selection on and off. */
 		SingleToggle,
 
 		/** Multiple items can be selected at the same time. */
@@ -23,7 +23,7 @@ namespace ESelectionMode
 	};
 }
 
-/** Lists can exist as regular lists or as backing widgets for a tree */
+/** Lists can exist as regular lists or as backing widgets for a tree. */
 UENUM()
 namespace ETableViewMode
 {

@@ -17,11 +17,11 @@ UENUM()
 enum ELandscapeSetupErrors
 {
 	LSE_None,
-	// No Landscape Info available
+	/** No Landscape Info available. */
 	LSE_NoLandscapeInfo,
-	// There was already component with same X,Y
+	/** There was already component with same X,Y. */
 	LSE_CollsionXY,
-	// No Layer Info, need to add proper layers
+	/** No Layer Info, need to add proper layers. */
 	LSE_NoLayerInfo,
 	LSE_MAX,
 };
@@ -35,18 +35,18 @@ class ALandscape : public ALandscapeProxy
 	static FIntPoint MakeKey( int32 X, int32 Y ) { return FIntPoint(X, Y); }
 	static void UnpackKey( FIntPoint Key, int32& OutX, int32& OutY ) { OutX = Key.X; OutY = Key.Y; }
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 #endif
-	// End AActor Interface
+	//~ End AActor Interface
 
-	// Begin ALandscapeProxy Interface
+	//~ Begin ALandscapeProxy Interface
 	LANDSCAPE_API virtual ALandscape* GetLandscapeActor() override;
 #if WITH_EDITOR
 	virtual UMaterialInterface* GetLandscapeMaterial() const override;
 	virtual UMaterialInterface* GetLandscapeHoleMaterial() const override;
-	// End ALandscapeProxy Interface
+	//~ End ALandscapeProxy Interface
 
 	LANDSCAPE_API bool HasAllComponent(); // determine all component is in this actor
 	
@@ -62,13 +62,13 @@ class ALandscape : public ALandscapeProxy
 
 	static void SplitHeightmap(ULandscapeComponent* Comp, bool bMoveToCurrentLevel = false);
 	
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PreSave() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditMove(bool bFinished) override;
 #endif
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 };
 
 LANDSCAPE_API DECLARE_LOG_CATEGORY_EXTERN(LogLandscape, Warning, All);

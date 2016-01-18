@@ -1,33 +1,37 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
+#include "Interface.h"
 #include "BlendableInterface.generated.h"
 
+class UMaterialInterface;
 class UMaterialInstanceDynamic;
 
-/** Where to place a material node in the post processing graph */
+/** Where to place a material node in the post processing graph. */
 UENUM()
 enum EBlendableLocation
 {
-	// Input0:former pass color, Input1:SeparateTranslucency
+	/** Input0:former pass color, Input1:SeparateTranslucency. */
 	BL_AfterTonemapping UMETA(DisplayName="After Tonemapping"),
-	// Input0:former pass color, Input1:SeparateTranslucency
+	/** Input0:former pass color, Input1:SeparateTranslucency. */
 	BL_BeforeTonemapping UMETA(DisplayName="Before Tonemapping"),
-	// Input0:former pass color, Input1:SeparateTranslucency
+	/** Input0:former pass color, Input1:SeparateTranslucency. */
 	BL_BeforeTranslucency UMETA(DisplayName="Before Translucency"),
-	// Input0:former pass color, Input1:SeparateTranslucency, Input2: BloomOutput
-	// vector parameters: Engine.FilmWhitePoint
-	// scalar parameters: Engine.FilmSaturation, Engine.FilmContrast
+	/**
+	* Input0:former pass color, Input1:SeparateTranslucency, Input2: BloomOutput
+	* vector parameters: Engine.FilmWhitePoint
+	* scalar parameters: Engine.FilmSaturation, Engine.FilmContrast
+	*/
 	BL_ReplacingTonemapper UMETA(DisplayName="Replacing the Tonemapper"),
 //	BL_AfterOpaque,
 //	BL_AfterFog,
 //	BL_AfterTranslucency,
 //	BL_AfterPostProcessAA,
+
 	BL_MAX,
 };
 
-/** Dummy class needed to support Cast<IBlendableInterface>(Object) */
+/** Dummy class needed to support Cast<IBlendableInterface>(Object). */
 UINTERFACE()
 class UBlendableInterface : public UInterface
 {
@@ -35,33 +39,33 @@ class UBlendableInterface : public UInterface
 };
 
 /**
- * derive from this class if you want to be blended by the PostProcess blending e.g. PostproceessVolume
+ * Derive from this class if you want to be blended by the PostProcess blending e.g. PostproceessVolume
  */
 class IBlendableInterface
 {
 	GENERATED_IINTERFACE_BODY()
 		
-	// @param Weight 0..1, 1=fully take the values from this object, crash if outside the valid range
+	/** @param Weight 0..1, excluding 0, 1=fully take the values from this object, crash if outside the valid range. */
 	virtual void OverrideBlendableSettings(class FSceneView& View, float Weight) const = 0;
 };
 
 struct FPostProcessMaterialNode
 {
-	// default constructor
+	// Default constructor
 	FPostProcessMaterialNode()
 		: MaterialInterface(0), bIsMID(false), Location(BL_MAX), Priority(0)
 	{
 		check(!IsValid());
 	}
 
-	// constructor
+	// Constructor
 	FPostProcessMaterialNode(UMaterialInterface* InMaterialInterface, EBlendableLocation InLocation, int32 InPriority)
 		: MaterialInterface(InMaterialInterface), bIsMID(false), Location(InLocation), Priority(InPriority)
 	{
 		check(IsValid());
 	}
 
-	// constructor
+	// Constructor
 	FPostProcessMaterialNode(UMaterialInstanceDynamic* InMID, EBlendableLocation InLocation, int32 InPriority)
 		: MaterialInterface((UMaterialInterface*)InMID), bIsMID(true), Location(InLocation), Priority(InPriority)
 	{
@@ -69,10 +73,10 @@ struct FPostProcessMaterialNode
 	}
 
 	UMaterialInterface* GetMaterialInterface() const { return MaterialInterface; }
-	// only call if you are sure it's an MID
+	/** Only call if you are sure it's an MID. */
 	UMaterialInstanceDynamic* GetMID() const { check(bIsMID); return (UMaterialInstanceDynamic*)MaterialInterface; }
 
-	// for type safety in FBlendableManager
+	/** For type safety in FBlendableManager. */
 	static const FName& GetFName()
 	{
 		static const FName Name = FName(TEXT("FPostProcessMaterialNode"));
@@ -102,11 +106,12 @@ struct FPostProcessMaterialNode
 private:
 	UMaterialInterface* MaterialInterface;
 
-	// if MaterialInterface is an MID, needed for GetMID()
+	/** if MaterialInterface is an MID, needed for GetMID(). */
 	bool bIsMID;
-	// e.g. BL_BeforeTonemapping
+
 	EBlendableLocation Location;
-	// default 0
+
+	/** Default is 0. */
 	int32 Priority;
 };
 

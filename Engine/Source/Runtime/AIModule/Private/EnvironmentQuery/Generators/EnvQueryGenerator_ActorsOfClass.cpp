@@ -19,15 +19,20 @@ UEnvQueryGenerator_ActorsOfClass::UEnvQueryGenerator_ActorsOfClass(const FObject
 
 void UEnvQueryGenerator_ActorsOfClass::GenerateItems(FEnvQueryInstance& QueryInstance) const
 {
-	SearchRadius.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
-	float RadiusValue = SearchRadius.GetValue();
-
-	UWorld* World = GEngine->GetWorldFromContextObject(QueryInstance.Owner.Get());
-	if (World == NULL || SearchedActorClass == NULL)
+	UObject* QueryOwner = QueryInstance.Owner.Get();
+	if (QueryOwner == nullptr)
+	{
+		return;
+	}
+	
+	UWorld* World = GEngine->GetWorldFromContextObject(QueryOwner);
+	if (World == nullptr || SearchedActorClass == nullptr)
 	{
 		return;
 	}
 
+	SearchRadius.BindData(QueryOwner, QueryInstance.QueryID);
+	const float RadiusValue = SearchRadius.GetValue();
 	const float RadiusSq = FMath::Square(RadiusValue);
 
 	TArray<FVector> ContextLocations;

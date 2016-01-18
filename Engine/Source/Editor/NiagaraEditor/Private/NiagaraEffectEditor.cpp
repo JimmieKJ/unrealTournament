@@ -2,16 +2,21 @@
 
 #include "NiagaraEditorPrivatePCH.h"
 #include "NiagaraEffect.h"
+#include "NiagaraSequence.h"
 
 #include "Toolkits/IToolkitHost.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "SNiagaraEffectEditorWidget.h"
 #include "SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEffectEditor"
 
 
 const FName FNiagaraEffectEditor::UpdateTabId(TEXT("NiagaraEditor_Effect"));
+const FName FNiagaraEffectEditor::ViewportTabID(TEXT("NiagaraEffectEditor_Viewport"));
+const FName FNiagaraEffectEditor::EmitterEditorTabID(TEXT("NiagaraEffectEditor_EmitterEditor"));
+const FName FNiagaraEffectEditor::DevEmitterEditorTabID(TEXT("NiagaraEffectEditor_DevEmitterEditor"));
+const FName FNiagaraEffectEditor::CurveEditorTabID(TEXT("NiagaraEffectEditor_CurveEditor"));
+const FName FNiagaraEffectEditor::SequencerTabID(TEXT("NiagaraEffectEditor_Sequencer"));
 
 void FNiagaraEffectEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
 {
@@ -19,9 +24,33 @@ void FNiagaraEffectEditor::RegisterTabSpawners(const TSharedRef<class FTabManage
 
 	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
 
+	TabManager->RegisterTabSpawner(ViewportTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_Viewport))
+		.SetDisplayName(LOCTEXT("Preview", "Preview"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef())
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Viewports"));
+
+	TabManager->RegisterTabSpawner(EmitterEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_EmitterList))
+		.SetDisplayName(LOCTEXT("Emitters", "Emitters"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
+
+	TabManager->RegisterTabSpawner(DevEmitterEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_DevEmitterList))
+		.SetDisplayName(LOCTEXT("DevEmitters", "Emitters_Dev"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
+
+	TabManager->RegisterTabSpawner(CurveEditorTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_CurveEd))
+		.SetDisplayName(LOCTEXT("Curves", "Curves"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
+
+	TabManager->RegisterTabSpawner(SequencerTabID, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab_Sequencer))
+		.SetDisplayName(LOCTEXT("Timeline", "Timeline"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
+
+
 	TabManager->RegisterTabSpawner(UpdateTabId, FOnSpawnTab::CreateSP(this, &FNiagaraEffectEditor::SpawnTab))
 		.SetDisplayName(LOCTEXT("NiagaraEffect", "Niagara Effect"))
 		.SetGroup( WorkspaceMenuCategory.ToSharedRef() );
+
+
 }
 
 void FNiagaraEffectEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
@@ -29,7 +58,15 @@ void FNiagaraEffectEditor::UnregisterTabSpawners(const TSharedRef<class FTabMana
 	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
 
 	TabManager->UnregisterTabSpawner(UpdateTabId);
+	TabManager->UnregisterTabSpawner(ViewportTabID);
+	TabManager->UnregisterTabSpawner(EmitterEditorTabID);
+	TabManager->UnregisterTabSpawner(DevEmitterEditorTabID);
+	TabManager->UnregisterTabSpawner(CurveEditorTabID);
+	TabManager->UnregisterTabSpawner(SequencerTabID);
 }
+
+
+
 
 FNiagaraEffectEditor::~FNiagaraEffectEditor()
 {
@@ -41,23 +78,78 @@ void FNiagaraEffectEditor::InitNiagaraEffectEditor(const EToolkitMode::Type Mode
 {
 	Effect = InEffect;
 	check(Effect != NULL);
+	EffectInstance = MakeShareable(new FNiagaraEffectInstance(InEffect));
 
-	TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout("Standalone_Niagara_Effect_Layout_v2")
+	const float InTime = -0.02f;
+	const float OutTime = 3.2f;
+
+	if (!Sequencer.IsValid())
+	{
+		MovieScene = NewObject<UMovieScene>(InEffect, FName("Niagara Effect MovieScene"));
+		MovieScene->AddToRoot();
+		auto NewAnimation = NewObject<UNiagaraSequence>(MovieScene);
+		MovieScene->SetPlaybackRange(InTime, OutTime);
+		NewAnimation->MovieScene = MovieScene;
+
+		FSequencerViewParams ViewParams(TEXT("NiagaraSequencerSettings"));
+		{
+			ViewParams.InitialScrubPosition = 0;
+		}
+
+		FSequencerInitParams SequencerInitParams;
+		{
+			SequencerInitParams.ViewParams = ViewParams;
+			SequencerInitParams.RootSequence = NewAnimation;
+			SequencerInitParams.bEditWithinLevelEditor = false;
+			SequencerInitParams.ToolkitHost = nullptr;
+		}
+
+		ISequencerModule &SeqModule = FModuleManager::LoadModuleChecked< ISequencerModule >("Sequencer");
+		FDelegateHandle CreateTrackEditorHandle = SeqModule.RegisterTrackEditor_Handle(FOnCreateTrackEditor::CreateStatic(&FNiagaraEffectEditor::CreateTrackEditor));
+		Sequencer = SeqModule.CreateSequencer(SequencerInitParams);
+
+		for (TSharedPtr<FNiagaraSimulation> Emitter : EffectInstance->GetEmitters())
+		{
+			UEmitterMovieSceneTrack *Track = MovieScene->AddMasterTrack<UEmitterMovieSceneTrack>();
+			Track->SetEmitter(Emitter);
+		}
+	}
+
+	TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout("Standalone_Niagara_Effect_Layout_v7")
 		->AddArea
 		(
-		FTabManager::NewPrimaryArea()->SetOrientation(Orient_Vertical)
-		->Split
-		(
-		FTabManager::NewStack()
-		->SetSizeCoefficient(0.1f)
-		->AddTab(GetToolbarTabId(), ETabState::OpenedTab)
-		->SetHideTabWell(true)
-		)
-		->Split
-		(
-		FTabManager::NewStack()
-		->AddTab(UpdateTabId, ETabState::OpenedTab)
-		)
+			FTabManager::NewPrimaryArea()->SetOrientation(Orient_Vertical)
+			->Split
+			(
+				FTabManager::NewStack()
+				->SetSizeCoefficient(0.1f)
+				->AddTab(GetToolbarTabId(), ETabState::OpenedTab)
+				->SetHideTabWell(true)
+			)
+			->Split
+			(
+				FTabManager::NewSplitter()->SetOrientation(Orient_Horizontal)
+				->Split
+				(
+					FTabManager::NewStack()
+					->SetSizeCoefficient(0.1f)
+					->AddTab(ViewportTabID, ETabState::OpenedTab)
+				)
+				->Split
+				(
+					FTabManager::NewStack()
+					->SetSizeCoefficient(0.3f)
+					->AddTab(EmitterEditorTabID, ETabState::OpenedTab)
+					->AddTab(DevEmitterEditorTabID, ETabState::OpenedTab)
+				)
+			)
+			->Split
+			(
+			FTabManager::NewStack()
+			->SetSizeCoefficient(0.3f)
+			->AddTab(CurveEditorTabID, ETabState::OpenedTab)
+			->AddTab(SequencerTabID, ETabState::OpenedTab)
+			)
 		);
 
 	const bool bCreateDefaultStandaloneMenu = true;
@@ -92,12 +184,21 @@ FLinearColor FNiagaraEffectEditor::GetWorldCentricTabColorScale() const
 	return FLinearColor(0.0f, 0.0f, 0.2f, 0.5f);
 }
 
+void FNiagaraEffectEditor::NotifyPreChange(UProperty* PropertyAboutToChanged)
+{
+	Viewport->GetPreviewComponent()->UnregisterComponent();
+}
+
+void FNiagaraEffectEditor::NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged)
+{
+	Viewport->GetPreviewComponent()->RegisterComponent();
+}
 
 /** Create new tab for the supplied graph - don't call this directly, call SExplorer->FindTabForGraph.*/
 TSharedRef<SNiagaraEffectEditorWidget> FNiagaraEffectEditor::CreateEditorWidget(UNiagaraEffect* InEffect)
 {
 	check(InEffect != NULL);
-	EffectInstance = new FNiagaraEffectInstance(InEffect);
+	EffectInstance = MakeShareable(new FNiagaraEffectInstance(InEffect));
 	
 	if (!EditorCommands.IsValid())
 	{
@@ -128,7 +229,7 @@ TSharedRef<SNiagaraEffectEditorWidget> FNiagaraEffectEditor::CreateEditorWidget(
 		
 		
 	// Make the effect editor widget
-	return SNew(SNiagaraEffectEditorWidget).TitleBar(TitleBarWidget).EffectObj(InEffect).EffectInstance(EffectInstance);
+	return SNew(SNiagaraEffectEditorWidget).EffectObj(InEffect).EffectInstance(EffectInstance.Get()).EffectObj(Effect).EffectEditor(this);
 }
 
 
@@ -147,6 +248,90 @@ TSharedRef<SDockTab> FNiagaraEffectEditor::SpawnTab(const FSpawnTabArgs& Args)
 			Editor
 		];
 }
+
+
+
+
+TSharedRef<SDockTab> FNiagaraEffectEditor::SpawnTab_Viewport(const FSpawnTabArgs& Args)
+{
+	check(Args.GetTabId().TabType == ViewportTabID);
+
+	Viewport = SNew(SNiagaraEffectEditorViewport);
+
+	TSharedRef<SDockTab> SpawnedTab =
+		SNew(SDockTab)
+		[
+			Viewport.ToSharedRef()
+		];
+
+	Viewport->SetPreviewEffect(EffectInstance);
+	Viewport->OnAddedToTab(SpawnedTab);
+
+	return SpawnedTab;
+}
+
+
+
+TSharedRef<SDockTab> FNiagaraEffectEditor::SpawnTab_EmitterList(const FSpawnTabArgs& Args)
+{
+	check(Args.GetTabId().TabType == EmitterEditorTabID);
+
+	TSharedRef<SDockTab> SpawnedTab =
+		SNew(SDockTab)
+		[
+			SAssignNew(EmitterEditorWidget, SNiagaraEffectEditorWidget).EffectInstance(EffectInstance.Get()).EffectEditor(this).EffectObj(Effect)
+		];
+
+
+	return SpawnedTab;
+}
+
+TSharedRef<SDockTab> FNiagaraEffectEditor::SpawnTab_DevEmitterList(const FSpawnTabArgs& Args)
+{
+	check(Args.GetTabId().TabType == DevEmitterEditorTabID);
+
+	TSharedRef<SDockTab> SpawnedTab =
+		SNew(SDockTab)
+		[
+			SAssignNew(DevEmitterEditorWidget, SNiagaraEffectEditorWidget).EffectInstance(EffectInstance.Get()).EffectEditor(this).EffectObj(Effect).bForDev(true)
+		];
+
+
+	return SpawnedTab;
+}
+
+
+TSharedRef<SDockTab> FNiagaraEffectEditor::SpawnTab_CurveEd(const FSpawnTabArgs& Args)
+{
+	check(Args.GetTabId().TabType == CurveEditorTabID);
+
+	TSharedRef<SDockTab> SpawnedTab =
+		SNew(SDockTab)
+		[
+			SAssignNew(TimeLine, SNiagaraTimeline)
+		];
+
+	return SpawnedTab;
+}
+
+
+
+TSharedRef<SDockTab> FNiagaraEffectEditor::SpawnTab_Sequencer(const FSpawnTabArgs& Args)
+{
+	check(Args.GetTabId().TabType == SequencerTabID);
+
+	TSharedRef<SDockTab> SpawnedTab =
+		SNew(SDockTab)
+		[
+			Sequencer->GetSequencerWidget()
+		];
+
+	return SpawnedTab;
+}
+
+
+
+
 
 void FNiagaraEffectEditor::ExtendToolbar()
 {
@@ -208,11 +393,72 @@ FReply FNiagaraEffectEditor::OnAddEmitterClicked()
 {
 	FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::LoadModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
 
-	FNiagaraEmitterProperties *Props = Effect->AddEmitterProperties();
+	UNiagaraEmitterProperties *Props = Effect->AddEmitterProperties();
 	TSharedPtr<FNiagaraSimulation> NewEmitter = EffectInstance->AddEmitter(Props);
 	Effect->CreateEffectRendererProps(NewEmitter);
-	UpdateEditorPtr.Pin()->GetViewport()->SetPreviewEffect(EffectInstance);
-	UpdateEditorPtr.Pin()->UpdateList();
+	Viewport->SetPreviewEffect(EffectInstance);
+	EmitterEditorWidget->UpdateList();
+	DevEmitterEditorWidget->UpdateList();
+	
+	Effect->MarkPackageDirty();
+
+	return FReply::Handled();
+}
+
+FReply FNiagaraEffectEditor::OnDuplicateEmitterClicked(TSharedPtr<FNiagaraSimulation> Emitter)
+{
+	FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::LoadModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
+
+	if (UNiagaraEmitterProperties* ToDupe = Emitter->GetProperties().Get())
+	{
+		UNiagaraEmitterProperties *Props = CastChecked<UNiagaraEmitterProperties>(StaticDuplicateObject(ToDupe,Effect));
+		Effect->AddEmitterProperties(Props);
+		TSharedPtr<FNiagaraSimulation> NewEmitter = EffectInstance->AddEmitter(Props);
+		Effect->CreateEffectRendererProps(NewEmitter);
+		Viewport->SetPreviewEffect(EffectInstance);
+		EmitterEditorWidget->UpdateList();
+		DevEmitterEditorWidget->UpdateList();
+
+		Effect->MarkPackageDirty();
+	}
+	return FReply::Handled();
+}
+
+FReply FNiagaraEffectEditor::OnDeleteEmitterClicked(TSharedPtr<FNiagaraSimulation> Emitter)
+{
+	if (UNiagaraEmitterProperties* ToDelete = Emitter->GetProperties().Get())
+	{
+		Effect->DeleteEmitterProperties(ToDelete);
+		EffectInstance->DeleteEmitter(Emitter);
+		Viewport->SetPreviewEffect(EffectInstance);
+		EmitterEditorWidget->UpdateList();
+		DevEmitterEditorWidget->UpdateList();
+
+		Effect->MarkPackageDirty();
+	}
+	return FReply::Handled();
+}
+
+
+FReply FNiagaraEffectEditor::OnEmitterSelected(TSharedPtr<FNiagaraSimulation> SelectedItem, ESelectInfo::Type SelType)
+{
+ 	if (SelectedItem.Get() != nullptr)
+	{
+		if (UNiagaraEmitterProperties* PinnedProps = SelectedItem->GetProperties().Get())
+		{
+			if (PinnedProps->UpdateScriptProps.ExternalConstants.GetNumDataObjectConstants() > 0)
+			{
+				FNiagaraVariableInfo VarInfo;
+				UNiagaraDataObject* DataObj;
+				PinnedProps->UpdateScriptProps.ExternalConstants.GetDataObjectConstant(0, DataObj, VarInfo);
+
+				if (UNiagaraCurveDataObject* CurvObj = Cast<UNiagaraCurveDataObject>(DataObj))
+				{
+					TimeLine.Get()->SetCurve(CurvObj->GetCurveObject());
+				}
+			}
+		}
+	}
 	return FReply::Handled();
 }
 

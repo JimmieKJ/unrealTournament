@@ -19,6 +19,7 @@ struct FAsyncPackage
 	 * Constructor
 	 */
 	FAsyncPackage(const FAsyncPackageDesc& InDesc);
+	~FAsyncPackage();
 
 	/**
 	 * Ticks the async loading code.
@@ -50,19 +51,16 @@ struct FAsyncPackage
 	void ResetLoader();
 
 	/**
+	* Disassociates linker from this package
+	*/
+	void DetachLinker();
+
+	/**
 	 * Returns the name of the package to load.
 	 */
 	FORCEINLINE const FName& GetPackageName() const
 	{
 		return Desc.Name;
-	}
-
-	/**
-	 * Returns the type name associated with this package
-	 */
-	const FName &GetPackageType() const
-	{
-		return Desc.Type;
 	}
 
 	void AddCompletionCallback(const FLoadPackageAsyncDelegate& Callback, bool bInternal);
@@ -80,9 +78,15 @@ struct FAsyncPackage
 	}
 
 	/** Returns package loading priority. */
-	FORCEINLINE uint32 GetPriority() const
+	FORCEINLINE TAsyncLoadPriority GetPriority() const
 	{
 		return Desc.Priority;
+	}
+
+	/** Returns package loading priority. */
+	FORCEINLINE void SetPriority(TAsyncLoadPriority InPriority)
+	{
+		Desc.Priority = InPriority;
 	}
 
 	/** Returns true if loading has failed */
@@ -91,10 +95,21 @@ struct FAsyncPackage
 		return bLoadHasFailed;
 	}
 
+	/** Adds new request ID to the existing package */
+	void AddRequestID(int32 Id);
+
 	/**
 	* Cancel loading this package.
 	*/
 	void Cancel();
+
+	/**
+	* Set the package that spawned this package as a dependency.
+	*/
+	void SetDependencyRootPackage(FAsyncPackage* InDependencyRootPackage)
+	{
+		DependencyRootPackage = InDependencyRootPackage;
+	}
 
 private:
 
@@ -117,12 +132,16 @@ private:
 	FAsyncPackageDesc Desc;
 	/** Linker which is going to have its exports and imports loaded									*/
 	FLinkerLoad*				Linker;
+	/** Package which is going to have its exports and imports loaded									*/
+	UPackage*				LinkerRoot;
 	/** Call backs called when we finished loading this package											*/
 	TArray<FCompletionCallback>	CompletionCallbacks;
 	/** Pending Import packages - we wait until all of them have been fully loaded. */
 	TArray<FAsyncPackage*> PendingImportedPackages;
 	/** Referenced imports - list of packages we need until we finish loading this package. */
 	TArray<FAsyncPackage*> ReferencedImports;
+	/** Root package if this package was loaded as a dependency of another. NULL otherwise */
+	FAsyncPackage* DependencyRootPackage;
 	/** Number of references to this package from other packages in the dependency tree. */
 	FThreadSafeCounter	DependencyRefCount;
 	/** Current index into linkers import table used to spread creation over several frames				*/
@@ -163,6 +182,8 @@ private:
 	TArray<UObject*> DeferredPostLoadObjects;
 	/** Objects to be finalized on the game thread */
 	TArray<UObject*> DeferredFinalizeObjects;
+	/** List of all request handles */
+	TArray<int32> RequestIDs;
 	/** Cached async loading thread object this package was created by */
 	class FAsyncLoadingThread& AsyncLoadingThread;
 public:
@@ -213,7 +234,7 @@ public:
 	*
 	* @return true if we finished calling PostLoad on all loaded objects and no new ones were created, false otherwise
 	*/
-	EAsyncPackageState::Type PostLoadDeferredObjects(double InTickStartTime, bool bUseTimeLimit, float& InOutTimeLimit);
+	EAsyncPackageState::Type PostLoadDeferredObjects(double InTickStartTime, bool bInUseTimeLimit, float& InOutTimeLimit);
 
 private:
 	/**
@@ -231,7 +252,7 @@ private:
 	/**
 	 * Begin async loading process. Simulates parts of BeginLoad.
 	 *
-	 * Objects created during BeginAsyncLoad and EndAsyncLoad will have RF_AsyncLoading set
+	 * Objects created during BeginAsyncLoad and EndAsyncLoad will have EInternalObjectFlags::AsyncLoading set
 	 */
 	void BeginAsyncLoad();
 	/**
@@ -288,7 +309,7 @@ private:
 	 */
 	EAsyncPackageState::Type PostLoadObjects();
 	/**
-	 * Finish up objects and state, which means clearing the RF_AsyncLoading flag on newly created ones
+	 * Finish up objects and state, which means clearing the EInternalObjectFlags::AsyncLoading flag on newly created ones
 	 *
 	 * @return true
 	 */

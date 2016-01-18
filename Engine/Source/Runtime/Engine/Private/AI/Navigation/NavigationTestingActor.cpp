@@ -48,15 +48,12 @@ ANavigationTestingActor::ANavigationTestingActor(const FObjectInitializer& Objec
 
 	QueryingExtent = FVector(DEFAULT_NAV_QUERY_EXTENT_HORIZONTAL, DEFAULT_NAV_QUERY_EXTENT_HORIZONTAL, DEFAULT_NAV_QUERY_EXTENT_VERTICAL);
 
-	// collision profile name set up - found in baseengine.ini
-	static FName CollisionProfileName(TEXT("Pawn"));
-
 	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CollisionCylinder"));
 	CapsuleComponent->InitCapsuleSize(NavAgentProps.AgentRadius, NavAgentProps.AgentHeight / 2);
-	CapsuleComponent->SetCollisionProfileName(CollisionProfileName);
+	CapsuleComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 	CapsuleComponent->CanCharacterStepUpOn = ECB_No;
 	CapsuleComponent->bShouldUpdatePhysicsVolume = true;
-	CapsuleComponent->bCanEverAffectNavigation = false;
+	CapsuleComponent->SetCanEverAffectNavigation(false);
 
 	RootComponent = CapsuleComponent;
 

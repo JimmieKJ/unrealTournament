@@ -28,8 +28,12 @@ namespace Sc
 	enum ElementType
 	{
 		PX_ELEMENT_TYPE_SHAPE = 0,
+#if PX_USE_PARTICLE_SYSTEM_API
 		PX_ELEMENT_TYPE_PARTICLE_PACKET,
+#endif
+#if PX_USE_CLOTH_API
         PX_ELEMENT_TYPE_CLOTH,
+#endif
 		PX_ELEMENT_TYPE_COUNT
 	};
 

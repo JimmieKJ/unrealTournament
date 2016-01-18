@@ -20,7 +20,6 @@ public class Toolbox : ModuleRules
                 "InputCore",
 				"Slate",
 				"SlateCore",
-				"SlateReflector",
                 "EditorStyle",
 				"DesktopPlatform",
 				"AppFramework"
@@ -34,5 +33,20 @@ public class Toolbox : ModuleRules
 				"ModuleUI"
 			}
 		);
+
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrivateIncludePathModuleNames.AddRange(
+				new string[] {
+					"SlateReflector",
+				}
+			);
+
+			DynamicallyLoadedModuleNames.AddRange(
+				new string[] {
+					"SlateReflector",
+				}
+			);
+		}
 	}
 }

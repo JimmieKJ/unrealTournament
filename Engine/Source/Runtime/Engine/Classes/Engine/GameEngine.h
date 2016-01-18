@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Engine/Engine.h"
+#include "Runtime/MovieSceneCapture/Public/MovieSceneCaptureHandle.h"
 #include "GameEngine.generated.h"
 
 
@@ -15,13 +16,13 @@ class ENGINE_API UGameEngine
 {
 	GENERATED_UCLASS_BODY()
 
-	/** Check to see if we need to start a movie capture (used on the first tick when we want to record a Matinee) */
-	UPROPERTY(transient)
-	uint32 bCheckForMovieCapture:1;
-
 	/** Maximium delta time the engine uses to populate FApp::DeltaTime. If 0, unbound. */
 	UPROPERTY(config)
 	float MaxDeltaTime;
+
+	/** Maximium time (in seconds) between the flushes of the logs on the server (best effort). If 0, this will happen every tick. */
+	UPROPERTY(config)
+	float ServerFlushLogInterval;
 
 	UPROPERTY(transient)
 	UGameInstance* GameInstance;
@@ -37,6 +38,9 @@ public:
 	
 	/**
 	 * Creates the viewport widget where the games Slate UI is added to.
+	 *
+	 * @param GameViewportClient	The viewport client to use in the game
+	 * @param MovieCapture			Optional Movie capture implementation for this viewport
 	 */
 	void CreateGameViewportWidget( UGameViewportClient* GameViewportClient );
 
@@ -44,6 +48,7 @@ public:
 	 * Creates the game viewport
 	 *
 	 * @param GameViewportClient	The viewport client to use in the game
+	 * @param MovieCapture			Optional Movie capture implementation for this viewport
 	 */
 	void CreateGameViewport( UGameViewportClient* GameViewportClient );
 	
@@ -99,6 +104,7 @@ public:
 	virtual float GetMaxTickRate( float DeltaTime, bool bAllowFrameRateSmoothing = true ) const override;
 	virtual void ProcessToggleFreezeCommand( UWorld* InWorld ) override;
 	virtual void ProcessToggleFreezeStreamingCommand( UWorld* InWorld ) override;
+	virtual bool NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading = true) override;
 
 public:
 
@@ -131,9 +137,6 @@ public:
 		return GameViewportWidget;
 	}
 
-	/** Loads engine startup modules that the game needs to run.  This will also be called when the editor starts up. */
-	static void LoadRuntimeEngineStartupModules();
-
 	/**
 	 * This is a global, parameterless function used by the online subsystem modules.
 	 * It should never be used in gamecode - instead use the appropriate world context function 
@@ -145,8 +148,14 @@ protected:
 
 	const FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
 
+	/** Handle to a movie capture implementation to create on startup */
+	FMovieSceneCaptureHandle StartupMovieCaptureHandle;
+
 private:
 
 	virtual void HandleNetworkFailure_NotifyGameInstance(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType) override;
 	virtual void HandleTravelFailure_NotifyGameInstance(UWorld* World, ETravelFailure::Type FailureType) override;
+
+	/** Last time the logs have been flushed. */
+	double LastTimeLogsFlushed;
 };

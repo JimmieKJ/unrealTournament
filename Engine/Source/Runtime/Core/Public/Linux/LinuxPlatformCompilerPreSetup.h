@@ -37,9 +37,9 @@
 		_Pragma ("clang diagnostic push") \
 		_Pragma ("clang diagnostic ignored \"-Wdeprecated-declarations\"")
 
-	#define PRAGMA_ENABLE_DEPRECATION_WARNINGS \
-		_Pragma ("clang diagnostic push") \
-		_Pragma ("clang diagnostic warning \"-Wdeprecated-declarations\"")
+	#define PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		_Pragma ("clang diagnostic pop")
+
 #endif // DISABLE_DEPRECATION
 
 #ifndef PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS

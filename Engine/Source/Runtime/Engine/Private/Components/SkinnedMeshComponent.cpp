@@ -10,7 +10,7 @@
 #include "SkeletalRenderCPUSkin.h"
 #include "SkeletalRenderGPUSkin.h"
 #include "AnimationUtils.h"
-#include "AnimTree.h"
+#include "Animation/AnimStats.h"
 #include "Animation/VertexAnim/MorphTarget.h"
 #include "ComponentReregisterContext.h"
 #include "Engine/SkeletalMeshSocket.h"
@@ -26,13 +26,43 @@ FAutoConsoleVariableRef CVarSkeletalMeshLODBias(
 	ECVF_Scalability
 	);
 
+static TAutoConsoleVariable<int32> CVarEnableAnimRateOptimization(
+	TEXT("a.URO.Enable"),
+	1,
+	TEXT("True to anim rate optimization."));
+
+static TAutoConsoleVariable<int32> CVarDrawAnimRateOptimization(
+	TEXT("a.URO.Draw"),
+	0,
+	TEXT("True to draw color coded boxes for anim rate."));
+
+static TAutoConsoleVariable<int32> CVarEnableMorphTargets(TEXT("r.EnableMorphTargets"), 1, TEXT("Enable Morph Targets"));
 
 namespace FAnimUpdateRateManager
 {
-	// Global counter to spread SkinnedMeshComponent tick updates.
-	static uint8 UpdateRateGroupCount = 0;
-
 	static float TargetFrameTimeForUpdateRate = 1.f / 30.f; //Target frame rate for lookahead URO
+
+	// Bucketed group counters to stagged update an eval, used to initialise AnimUpdateRateShiftTag
+	// for mesh params in the same shift group.
+	struct FShiftBucketParameters
+	{
+		void SetFriendlyName(const EUpdateRateShiftBucket& InShiftBucket, const FName& InFriendlyName)
+		{
+			ShiftTagFriendlyNames[(uint8)InShiftBucket] = InFriendlyName;
+		}
+
+		const FName& GetFriendlyName(const EUpdateRateShiftBucket& InShiftBucket)
+		{
+			return ShiftTagFriendlyNames[(uint8)InShiftBucket];
+		}
+
+		static uint8 ShiftTagBuckets[(uint8)EUpdateRateShiftBucket::ShiftBucketMax];
+
+	private:
+		static FName ShiftTagFriendlyNames[(uint8)EUpdateRateShiftBucket::ShiftBucketMax];
+	};
+	uint8 FShiftBucketParameters::ShiftTagBuckets[] = {};
+	FName FShiftBucketParameters::ShiftTagFriendlyNames[] = {};
 
 	struct FAnimUpdateRateParametersTracker
 	{
@@ -49,12 +79,12 @@ namespace FAnimUpdateRateManager
 
 		FAnimUpdateRateParametersTracker() : AnimUpdateRateFrameCount(0), AnimUpdateRateShiftTag(0) {}
 
-		uint8 GetAnimUpdateRateShiftTag()
+		uint8 GetAnimUpdateRateShiftTag(const EUpdateRateShiftBucket& ShiftBucket)
 		{
 			// If hasn't been initialized yet, pick a unique ID, to spread population over frames.
 			if (AnimUpdateRateShiftTag == 0)
 			{
-				AnimUpdateRateShiftTag = ++UpdateRateGroupCount;
+				AnimUpdateRateShiftTag = ++FShiftBucketParameters::ShiftTagBuckets[(uint8)ShiftBucket];
 			}
 
 			return AnimUpdateRateShiftTag;
@@ -67,7 +97,6 @@ namespace FAnimUpdateRateManager
 			return Cast<APlayerController>(Controller) != NULL;
 		}
 	};
-
 
 	TMap<UObject*, FAnimUpdateRateParametersTracker*> ActorToUpdateRateParams;
 
@@ -83,22 +112,29 @@ namespace FAnimUpdateRateManager
 
 	FAnimUpdateRateParameters* GetUpdateRateParameters(USkinnedMeshComponent* SkinnedComponent)
 	{
+		if (!SkinnedComponent)
+		{
+			return NULL;
+		}
 		UObject* TrackerIndex = GetMapIndexForComponent(SkinnedComponent);
 
-		FAnimUpdateRateParametersTracker** ExistingTracker = ActorToUpdateRateParams.Find(TrackerIndex);
-		if (!ExistingTracker)
+		FAnimUpdateRateParametersTracker** ExistingTrackerPtr = ActorToUpdateRateParams.Find(TrackerIndex);
+		if (!ExistingTrackerPtr)
 		{
-			ExistingTracker = &ActorToUpdateRateParams.Add(TrackerIndex);
-			(*ExistingTracker) = new FAnimUpdateRateParametersTracker();
+			ExistingTrackerPtr = &ActorToUpdateRateParams.Add(TrackerIndex);
+			(*ExistingTrackerPtr) = new FAnimUpdateRateParametersTracker();
 		}
 		
+		check(ExistingTrackerPtr);
+		FAnimUpdateRateParametersTracker* ExistingTracker = *ExistingTrackerPtr;
 		check(ExistingTracker);
-		check(*ExistingTracker);
+		checkSlow(!ExistingTracker->RegisteredComponents.Contains(SkinnedComponent)); // We have already been registered? Something has gone very wrong!
 
-		checkSlow(!(*ExistingTracker)->RegisteredComponents.Contains(SkinnedComponent)); // We have already been registered? Something has gone very wrong!
+		ExistingTracker->RegisteredComponents.Add(SkinnedComponent);
+		FAnimUpdateRateParameters* UpdateRateParams = &ExistingTracker->UpdateRateParameters;
+		SkinnedComponent->OnAnimUpdateRateParamsCreated.ExecuteIfBound(UpdateRateParams);
 
-		(*ExistingTracker)->RegisteredComponents.Add(SkinnedComponent);
-		return &(*ExistingTracker)->UpdateRateParameters;
+		return UpdateRateParams;
 	}
 
 	void CleanupUpdateRateParametersRef(USkinnedMeshComponent* SkinnedComponent)
@@ -114,7 +150,17 @@ namespace FAnimUpdateRateManager
 		}
 	}
 
-	void AnimUpdateRateSetParams(FAnimUpdateRateParametersTracker* Tracker, float DeltaTime, bool bRecentlyRendered, float MaxDistanceFactor, bool bNeedsValidRootMotion, bool bUsingRootMotionFromEverything)
+	static TAutoConsoleVariable<int32> CVarForceAnimRate(
+		TEXT("a.URO.ForceAnimRate"),
+		0,
+		TEXT("Non-zero to force anim rate. 10 = eval anim every ten frames for those meshes that can do it. In some cases a frame is considered to be 30fps."));
+
+	static TAutoConsoleVariable<int32> CVarForceInterpolation(
+		TEXT("a.URO.ForceInterpolation"),
+		0,
+		TEXT("Set to 1 to force interpolation"));
+
+	void AnimUpdateRateSetParams(FAnimUpdateRateParametersTracker* Tracker, float DeltaTime, bool bRecentlyRendered, float MaxDistanceFactor, int32 MinLod, bool bNeedsValidRootMotion, bool bUsingRootMotionFromEverything)
 	{
 		// default rules for setting update rates
 
@@ -126,67 +172,85 @@ namespace FAnimUpdateRateManager
 		// Not rendered, including dedicated servers. we can skip the Evaluation part.
 		if (!bRecentlyRendered)
 		{
-			Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(), (bHumanControlled ? 1 : 4), 4, false);
+			const int32 NewUpdateRate = ((bHumanControlled || bNeedsEveryFrame) ? 1 : Tracker->UpdateRateParameters.BaseNonRenderedUpdateRate);
+			const int32 NewEvaluationRate = Tracker->UpdateRateParameters.BaseNonRenderedUpdateRate;
+			Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(Tracker->UpdateRateParameters.ShiftBucket), NewUpdateRate, NewEvaluationRate, false);
 		}
 		// Visible controlled characters or playing root motion. Need evaluation and ticking done every frame.
 		else  if (bHumanControlled || bNeedsEveryFrame)
 		{
-			Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(), 1, 1, false);
+			Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(Tracker->UpdateRateParameters.ShiftBucket), 1, 1, false);
 		}
 		else
 		{
-			// For visible meshes, figure out how often bones should be evaluated VS interpolated to previous evaluation.
-			// This is based on screen size and makes sense for a 3D FPS game, different games or Actors can implement different rules.
-			int32 DesiredEvaluationRate;
-			if (MaxDistanceFactor > 0.4f)
+			int32 DesiredEvaluationRate = 1;
+
+			if(!Tracker->UpdateRateParameters.bShouldUseLodMap)
 			{
-				DesiredEvaluationRate = 1;
-			}
-			else if (MaxDistanceFactor > .2f)
-			{
-				DesiredEvaluationRate = 2;
+				DesiredEvaluationRate = Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds.Num() + 1;
+				for(int32 Index = 0; Index < Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds.Num(); Index++)
+				{
+					const float& DistanceFactorThreadhold = Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds[Index];
+					if(MaxDistanceFactor > DistanceFactorThreadhold)
+					{
+						DesiredEvaluationRate = Index + 1;
+						break;
+					}
+				}
 			}
 			else
 			{
-				DesiredEvaluationRate = 3;
+				// Using LOD map which should have been set along with flag in custom delegate on creation.
+				// if the map is empty don't throttle
+				if(int32* FrameSkip = Tracker->UpdateRateParameters.LODToFrameSkipMap.Find(MinLod))
+				{
+					// Add 1 as an eval rate of 1 is 0 frameskip
+					DesiredEvaluationRate = (*FrameSkip) + 1;
+				}
+			}
+
+			int32 ForceAnimRate = CVarForceAnimRate.GetValueOnGameThread();
+			if (ForceAnimRate)
+			{
+				DesiredEvaluationRate = ForceAnimRate;
 			}
 
 			if (bUsingRootMotionFromEverything && DesiredEvaluationRate > 1)
 			{
 				//Use look ahead mode that allows us to rate limit updates even when using root motion
-				Tracker->UpdateRateParameters.SetLookAheadMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(), TargetFrameTimeForUpdateRate*DesiredEvaluationRate);
+				Tracker->UpdateRateParameters.SetLookAheadMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(Tracker->UpdateRateParameters.ShiftBucket), TargetFrameTimeForUpdateRate*DesiredEvaluationRate);
 			}
 			else
 			{
-				Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(), DesiredEvaluationRate, DesiredEvaluationRate, true);
+				Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(Tracker->UpdateRateParameters.ShiftBucket), DesiredEvaluationRate, DesiredEvaluationRate, true);
 			}
 		}
 	}
 
 	void AnimUpdateRateTick(FAnimUpdateRateParametersTracker* Tracker, float DeltaTime, bool bNeedsValidRootMotion)
 	{
-		const float RecentlyRenderedTime = (Tracker->RegisteredComponents[0]->GetWorld()->TimeSeconds - 1.f);
-
 		// Go through components and figure out if they've been recently rendered, and the biggest MaxDistanceFactor
 		bool bRecentlyRendered = false;
 		bool bPlayingRootMotion = false;
 		bool bUsingRootMotionFromEverything = true;
 		float MaxDistanceFactor = 0.f;
+		int32 MinLod = MAX_int32;
 
 		const TArray<USkinnedMeshComponent*>& SkinnedComponents = Tracker->RegisteredComponents;
 
 		for (USkinnedMeshComponent* Component : SkinnedComponents)
 		{
-			bRecentlyRendered |= (Component->LastRenderTime > RecentlyRenderedTime);
+			bRecentlyRendered |= Component->bRecentlyRendered;
 			MaxDistanceFactor = FMath::Max(MaxDistanceFactor, Component->MaxDistanceFactor);
 			bPlayingRootMotion |= Component->IsPlayingRootMotion();
 			bUsingRootMotionFromEverything &= Component->IsPlayingRootMotionFromEverything();
+			MinLod = FMath::Min(MinLod, Component->PredictedLODLevel);
 		}
 
 		bNeedsValidRootMotion &= bPlayingRootMotion;
 
 		// Figure out which update rate should be used.
-		AnimUpdateRateSetParams(Tracker, DeltaTime, bRecentlyRendered, MaxDistanceFactor, bNeedsValidRootMotion, bUsingRootMotionFromEverything);
+		AnimUpdateRateSetParams(Tracker, DeltaTime, bRecentlyRendered, MaxDistanceFactor, MinLod, bNeedsValidRootMotion, bUsingRootMotionFromEverything);
 	}
 
 	const TCHAR* B(bool b)
@@ -220,8 +284,15 @@ void USkinnedMeshComponent::OnRegister()
 
 	AnimUpdateRateParams = FAnimUpdateRateManager::GetUpdateRateParameters(this);
 
-	AllocateTransformData();
-	UpdateMasterBoneMap();	
+	if (MasterPoseComponent.IsValid())
+	{
+		// this has to be called again during register so that it can do related initialization
+		SetMasterPoseComponent(MasterPoseComponent.Get());
+	}
+	else
+	{
+		AllocateTransformData();
+	}
 
 	Super::OnRegister();
 
@@ -285,6 +356,15 @@ void USkinnedMeshComponent::CreateRenderState_Concurrent()
 
 			// verifies vertex animations are valid
 			RefreshActiveVertexAnims();
+
+			const bool bMorphTargetsAllowed = CVarEnableMorphTargets.GetValueOnAnyThread(true) != 0;
+
+			// Are morph targets disabled for this LOD?
+			if (SkeletalMesh->LODInfo[UseLOD].bHasBeenSimplified || bDisableMorphTarget || !bMorphTargetsAllowed)
+			{
+				ActiveVertexAnims.Empty();
+			}
+
 			MeshObject->Update(UseLOD,this,ActiveVertexAnims);  // send to rendering thread
 		}
 
@@ -339,16 +419,11 @@ void USkinnedMeshComponent::SendRenderDynamicData_Concurrent()
 		SCOPE_CYCLE_COUNTER(STAT_MeshObjectUpdate);
 
 		int32 UseLOD = PredictedLODLevel;
-		// If we have a MasterPoseComponent - force this component to render at that LOD, so all bones are present for it.
-		// Note that this currently relies on the behaviour where this mesh is rendered at the LOD we pass in here for all viewports. We should
-		// be able to render it at lower LOD on viewports where it is further away. That will make the MasterPoseComponent case a bit harder to solve.
-		if(MasterPoseComponent.IsValid())
-		{
-			UseLOD = FMath::Clamp(MasterPoseComponent->PredictedLODLevel, 0, MeshObject->GetSkeletalMeshResource().LODModels.Num()-1);
-		}
+
+		const bool bMorphTargetsAllowed = CVarEnableMorphTargets.GetValueOnAnyThread(true) != 0;
 
 		// Are morph targets disabled for this LOD?
-		if ( SkeletalMesh->LODInfo[ UseLOD ].bHasBeenSimplified || bDisableMorphTarget )
+		if (SkeletalMesh->LODInfo[UseLOD].bHasBeenSimplified || bDisableMorphTarget || !bMorphTargetsAllowed)
 		{
 			ActiveVertexAnims.Empty();
 		}
@@ -406,19 +481,22 @@ bool USkinnedMeshComponent::ShouldUpdateTransform(bool bLODHasChanged) const
 	return (bLODHasChanged || bRecentlyRendered || (MeshComponentUpdateFlag == EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones));
 }
 
+bool USkinnedMeshComponent::ShouldUseUpdateRateOptimizations() const
+{
+	return bEnableUpdateRateOptimizations && CVarEnableAnimRateOptimization.GetValueOnGameThread() > 0;
+}
 
 void USkinnedMeshComponent::TickUpdateRate(float DeltaTime, bool bNeedsValidRootMotion)
 {
 	SCOPE_CYCLE_COUNTER(STAT_TickUpdateRate);
-	if( bEnableUpdateRateOptimizations )
+	if (ShouldUseUpdateRateOptimizations())
 	{
 		if (GetOwner())
 		{
 			// Tick Owner once per frame. All attached SkinnedMeshComponents will share the same settings.
 			FAnimUpdateRateManager::TickUpdateRateParameters(this, DeltaTime, bNeedsValidRootMotion);
 
-			// debug -- @todo: hook this up to a console command.
-			if (bDisplayDebugUpdateRateOptimizations)
+			if ((CVarDrawAnimRateOptimization.GetValueOnGameThread() > 0) || bDisplayDebugUpdateRateOptimizations)
 			{
 				FColor DrawColor = AnimUpdateRateParams->GetUpdateRateDebugColor();
 				DrawDebugBox(GetWorld(), Bounds.Origin, Bounds.BoxExtent, FQuat::Identity, DrawColor, false);
@@ -575,6 +653,8 @@ void USkinnedMeshComponent::RebuildVisibilityArray()
 
 FBoxSphereBounds USkinnedMeshComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_CalcSkelMeshBounds);
+
 	return CalcMeshBound( FVector::ZeroVector, false, LocalToWorld );
 }
 
@@ -596,16 +676,15 @@ class UPhysicsAsset* USkinnedMeshComponent::GetPhysicsAsset() const
 
 FBoxSphereBounds USkinnedMeshComponent::CalcMeshBound(const FVector& RootOffset, bool UsePhysicsAsset, const FTransform& LocalToWorld) const
 {
-	SCOPE_CYCLE_COUNTER(STAT_UpdateSkelMeshBounds);
-
 	FBoxSphereBounds NewBounds;
 
 	// If physics are asleep, and actor is using physics to move, skip updating the bounds.
 	AActor* Owner = GetOwner();
 	FVector DrawScale = LocalToWorld.GetScale3D();	
 
+	const USkinnedMeshComponent* const MasterPoseComponentInst = MasterPoseComponent.Get();
 	UPhysicsAsset * const PhysicsAsset = GetPhysicsAsset();
-	UPhysicsAsset * const MasterPhysicsAsset = (MasterPoseComponent != NULL)? MasterPoseComponent->GetPhysicsAsset() : NULL;
+	UPhysicsAsset * const MasterPhysicsAsset = (MasterPoseComponentInst != nullptr)? MasterPoseComponentInst->GetPhysicsAsset() : nullptr;
 
 	// Can only use the PhysicsAsset to calculate the bounding box if we are not non-uniformly scaling the mesh.
 	const bool bCanUsePhysicsAsset = DrawScale.IsUniform() && (SkeletalMesh != NULL)
@@ -625,16 +704,16 @@ FBoxSphereBounds USkinnedMeshComponent::CalcMeshBound(const FVector& RootOffset,
 		RootAdjustedBounds.Origin += RootOffset; // Adjust bounds by root bone translation
 		NewBounds = RootAdjustedBounds.TransformBy(LocalToWorld);
 	}
-	else if(MasterPoseComponent.IsValid() && MasterPoseComponent->SkeletalMesh && MasterPoseComponent->bComponentUseFixedSkelBounds)
+	else if(MasterPoseComponentInst && MasterPoseComponentInst->SkeletalMesh && MasterPoseComponentInst->bComponentUseFixedSkelBounds)
 	{
-		FBoxSphereBounds RootAdjustedBounds = MasterPoseComponent->SkeletalMesh->Bounds;
+		FBoxSphereBounds RootAdjustedBounds = MasterPoseComponentInst->SkeletalMesh->Bounds;
 		RootAdjustedBounds.Origin += RootOffset; // Adjust bounds by root bone translation
 		NewBounds = RootAdjustedBounds.TransformBy(LocalToWorld);
 	}
 	// Use MasterPoseComponent's PhysicsAsset if told to
-	else if (MasterPoseComponent.IsValid() && bCanUsePhysicsAsset && bUseBoundsFromMasterPoseComponent)
+	else if (MasterPoseComponentInst && bCanUsePhysicsAsset && bUseBoundsFromMasterPoseComponent)
 	{
-		NewBounds = MasterPoseComponent->Bounds;
+		NewBounds = MasterPoseComponentInst->Bounds;
 	}
 #if WITH_EDITOR
 	// For AnimSet Viewer, use 'bounds preview' physics asset if present.
@@ -649,7 +728,7 @@ FBoxSphereBounds USkinnedMeshComponent::CalcMeshBound(const FVector& RootOffset,
 		NewBounds = FBoxSphereBounds(PhysicsAsset->CalcAABB(this, LocalToWorld));
 	}
 	// Use MasterPoseComponent's PhysicsAsset, if we don't have one and it does
-	else if(MasterPoseComponent.IsValid() && bCanUsePhysicsAsset && bMasterHasPhysBodies)
+	else if(MasterPoseComponentInst && bCanUsePhysicsAsset && bMasterHasPhysBodies)
 	{
 		NewBounds = FBoxSphereBounds(MasterPhysicsAsset->CalcAABB(this, LocalToWorld));
 	}
@@ -687,7 +766,8 @@ FMatrix USkinnedMeshComponent::GetBoneMatrix(int32 BoneIdx) const
 	}
 
 	// Handle case of use a MasterPoseComponent - get bone matrix from there.
-	if(MasterPoseComponent.IsValid())
+	const USkinnedMeshComponent* const MasterPoseComponentInst = MasterPoseComponent.Get();
+	if(MasterPoseComponentInst)
 	{
 		if(BoneIdx < MasterBoneMap.Num())
 		{
@@ -695,9 +775,9 @@ FMatrix USkinnedMeshComponent::GetBoneMatrix(int32 BoneIdx) const
 
 			// If ParentBoneIndex is valid, grab matrix from MasterPoseComponent.
 			if(	ParentBoneIndex != INDEX_NONE && 
-				ParentBoneIndex < MasterPoseComponent->GetNumSpaceBases())
+				ParentBoneIndex < MasterPoseComponentInst->GetNumSpaceBases())
 			{
-				return MasterPoseComponent->GetSpaceBases()[ParentBoneIndex].ToMatrixWithScale() * ComponentToWorld.ToMatrixWithScale();
+				return MasterPoseComponentInst->GetSpaceBases()[ParentBoneIndex].ToMatrixWithScale() * ComponentToWorld.ToMatrixWithScale();
 			}
 			else
 			{
@@ -740,7 +820,8 @@ FTransform USkinnedMeshComponent::GetBoneTransform(int32 BoneIdx) const
 FTransform USkinnedMeshComponent::GetBoneTransform(int32 BoneIdx, const FTransform& LocalToWorld) const
 {
 	// Handle case of use a MasterPoseComponent - get bone matrix from there.
-	if(MasterPoseComponent.IsValid())
+	const USkinnedMeshComponent* const MasterPoseComponentInst = MasterPoseComponent.Get();
+	if(MasterPoseComponentInst)
 	{
 		if(BoneIdx < MasterBoneMap.Num())
 		{
@@ -748,9 +829,9 @@ FTransform USkinnedMeshComponent::GetBoneTransform(int32 BoneIdx, const FTransfo
 
 			// If ParentBoneIndex is valid, grab matrix from MasterPoseComponent.
 			if(	ParentBoneIndex != INDEX_NONE && 
-				ParentBoneIndex < MasterPoseComponent->GetNumSpaceBases())
+				ParentBoneIndex < MasterPoseComponentInst->GetNumSpaceBases())
 			{
-				return MasterPoseComponent->GetSpaceBases()[ParentBoneIndex] * LocalToWorld;
+				return MasterPoseComponentInst->GetSpaceBases()[ParentBoneIndex] * LocalToWorld;
 			}
 			else
 			{
@@ -909,7 +990,6 @@ FSkeletalMeshResource* USkinnedMeshComponent::GetSkeletalMeshResource() const
 	}
 	else if (SkeletalMesh)
 	{
-		ERHIFeatureLevel::Type SceneFeatureLevel = GetWorld()->FeatureLevel;
 		return SkeletalMesh->GetResourceForRendering();
 	}
 	else
@@ -969,7 +1049,6 @@ void USkinnedMeshComponent::SetPhysicsAsset(class UPhysicsAsset* InPhysicsAsset,
 {
 	PhysicsAssetOverride = InPhysicsAsset;
 }
-
 
 void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* NewMasterBoneComponent)
 {
@@ -1050,6 +1129,17 @@ void USkinnedMeshComponent::SetForceWireframe(bool InForceWireframe)
 }
 
 
+void USkinnedMeshComponent::SetSectionPreview(int32 InSectionIndexPreview)
+{
+#if WITH_EDITORONLY_DATA
+	if (SectionIndexPreview != InSectionIndexPreview)
+	{
+		SectionIndexPreview = InSectionIndexPreview;
+		MarkRenderStateDirty();
+	}
+#endif
+}
+
 UMorphTarget* USkinnedMeshComponent::FindMorphTarget( FName MorphTargetName ) const
 {
 	if( SkeletalMesh != NULL )
@@ -1088,6 +1178,8 @@ void USkinnedMeshComponent::UpdateMasterBoneMap()
 			}
 		}
 	}
+
+	MasterBoneMapCacheCount += 1;
 }
 
 FTransform USkinnedMeshComponent::GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace) const
@@ -1196,16 +1288,17 @@ FQuat USkinnedMeshComponent::GetBoneQuaternion(FName BoneName, EBoneSpaces::Type
 	FTransform BoneTransform;
 	if( Space == EBoneSpaces::ComponentSpace )
 	{
-		if(MasterPoseComponent.IsValid())
+		const USkinnedMeshComponent* const MasterPoseComponentInst = MasterPoseComponent.Get();
+		if(MasterPoseComponentInst)
 		{
 			if(BoneIndex < MasterBoneMap.Num())
 			{
 				int32 ParentBoneIndex = MasterBoneMap[BoneIndex];
 				// If ParentBoneIndex is valid, grab matrix from MasterPoseComponent.
 				if(	ParentBoneIndex != INDEX_NONE && 
-					ParentBoneIndex < MasterPoseComponent->GetNumSpaceBases())
+					ParentBoneIndex < MasterPoseComponentInst->GetNumSpaceBases())
 				{
-					BoneTransform = MasterPoseComponent->GetSpaceBases()[ParentBoneIndex];
+					BoneTransform = MasterPoseComponentInst->GetSpaceBases()[ParentBoneIndex];
 				}
 				else
 				{
@@ -1243,16 +1336,17 @@ FVector USkinnedMeshComponent::GetBoneLocation(FName BoneName, EBoneSpaces::Type
 
 	if( Space == EBoneSpaces::ComponentSpace )
 	{
-		if(MasterPoseComponent.IsValid())
+		const USkinnedMeshComponent* const MasterPoseComponentInst = MasterPoseComponent.Get();
+		if(MasterPoseComponentInst)
 		{
 			if(BoneIndex < MasterBoneMap.Num())
 			{
 				int32 ParentBoneIndex = MasterBoneMap[BoneIndex];
 				// If ParentBoneIndex is valid, grab transform from MasterPoseComponent.
 				if(	ParentBoneIndex != INDEX_NONE && 
-					ParentBoneIndex < MasterPoseComponent->GetNumSpaceBases())
+					ParentBoneIndex < MasterPoseComponentInst->GetNumSpaceBases())
 				{
-					return MasterPoseComponent->GetSpaceBases()[ParentBoneIndex].GetLocation();
+					return MasterPoseComponentInst->GetSpaceBases()[ParentBoneIndex].GetLocation();
 				}
 			}
 			
@@ -1309,8 +1403,6 @@ void USkinnedMeshComponent::QuerySupportedSockets(TArray<FComponentSocketDescrip
 {
 	if (SkeletalMesh != NULL)
 	{
-		//@TODO: need to make this work in the game too
-#if WITH_EDITOR
 		// Grab all the mesh and skeleton sockets
 		const TArray<USkeletalMeshSocket*> AllSockets = SkeletalMesh->GetActiveSocketList();
 
@@ -1321,7 +1413,6 @@ void USkinnedMeshComponent::QuerySupportedSockets(TArray<FComponentSocketDescrip
 				new (OutSockets) FComponentSocketDescription(Socket->SocketName, EComponentSocketType::Socket);
 			}
 		}
-#endif
 
 		// Now grab the bones, which can behave exactly like sockets
 		for (int32 BoneIdx = 0; BoneIdx < SkeletalMesh->RefSkeleton.GetNum(); ++BoneIdx)
@@ -1496,7 +1587,8 @@ FORCEINLINE FVector USkinnedMeshComponent::GetTypedSkinnedVertexPosition(const F
 {
 	FVector SkinnedPos(0,0,0);
 
-	const USkinnedMeshComponent* BaseComponent = MasterPoseComponent.IsValid() ? MasterPoseComponent.Get() : this;
+	const USkinnedMeshComponent* const MasterPoseComponentInst = MasterPoseComponent.Get();
+	const USkinnedMeshComponent* BaseComponent = MasterPoseComponentInst ? MasterPoseComponentInst : this;
 
 	// Do soft skinning for this vertex.
 	if(bSoftVertex)
@@ -1511,7 +1603,7 @@ FORCEINLINE FVector USkinnedMeshComponent::GetTypedSkinnedVertexPosition(const F
 #endif
 		{
 			int32 BoneIndex = Chunk.BoneMap[SrcSoftVertex->InfluenceBones[InfluenceIndex]];
-			if(MasterPoseComponent.IsValid())
+			if(MasterPoseComponentInst)
 			{		
 				check(MasterBoneMap.Num() == SkeletalMesh->RefSkeleton.GetNum());
 				BoneIndex = MasterBoneMap[BoneIndex];
@@ -1535,10 +1627,10 @@ FORCEINLINE FVector USkinnedMeshComponent::GetTypedSkinnedVertexPosition(const F
 	// Do rigid (one-influence) skinning for this vertex.
 	else
 	{
-		const TGPUSkinVertexBase<false>* SrcRigidVertex = VertexBufferGPUSkin.GetVertexPtr<false>(Chunk.GetRigidVertexBufferIndex()+VertIndex);
+		const TGPUSkinVertexBase<bExtraBoneInfluencesT>* SrcRigidVertex = VertexBufferGPUSkin.GetVertexPtr<bExtraBoneInfluencesT>(Chunk.GetRigidVertexBufferIndex() + VertIndex);
 		const int32 RigidInfluenceIndex = SkinningTools::GetRigidInfluenceIndex();
 		int32 BoneIndex = Chunk.BoneMap[SrcRigidVertex->InfluenceBones[RigidInfluenceIndex]];
-		if(MasterPoseComponent.IsValid())
+		if(MasterPoseComponentInst)
 		{
 			check(MasterBoneMap.Num() == SkeletalMesh->RefSkeleton.GetNum());
 			BoneIndex = MasterBoneMap[BoneIndex];
@@ -1648,13 +1740,19 @@ void USkinnedMeshComponent::ComputeSkinnedPositions(TArray<FVector> & OutPositio
 
 FColor USkinnedMeshComponent::GetVertexColor(int32 VertexIndex) const
 {
-	// Fail if no mesh
+	// Fail if no mesh or no color vertex buffer.
+	FColor FallbackColor = FColor(255, 255, 255, 255);
 	if (!SkeletalMesh || !MeshObject)
 	{
-		return FColor(255, 255, 255, 255);
+		return FallbackColor;
 	}
 
 	FStaticLODModel& Model = MeshObject->GetSkeletalMeshResource().LODModels[0];
+	
+	if (!Model.ColorVertexBuffer.IsInitialized())
+	{
+		return FallbackColor;
+	}
 
 	// Find the chunk and vertex within that chunk, and skinning type, for this vertex.
 	int32 ChunkIndex;
@@ -1747,12 +1845,34 @@ void USkinnedMeshComponent::UnHideBoneByName( FName BoneName )
 	}
 }
 
+void USkinnedMeshComponent::SetForcedLOD(int32 InNewForcedLOD)
+{
+	int32 MaxLODIndex = 0;
+	if(MeshObject)
+	{
+		MaxLODIndex = MeshObject->GetSkeletalMeshResource().LODModels.Num();
+	}
+
+	ForcedLodModel = FMath::Clamp(InNewForcedLOD, 0, MaxLODIndex);
+}
+
+void USkinnedMeshComponent::SetMinLOD(int32 InNewMinLOD)
+{
+	int32 MaxLODIndex = 0;
+	if(MeshObject)
+	{
+		MaxLODIndex = MeshObject->GetSkeletalMeshResource().LODModels.Num() - 1;
+	}
+
+	MinLodModel = FMath::Clamp(InNewMinLOD, 0, MaxLODIndex);
+}
+
 bool USkinnedMeshComponent::UpdateLODStatus()
 {
 	// Predict the best (min) LOD level we are going to need. Basically we use the Min (best) LOD the renderer desired last frame.
 	// Because we update bones based on this LOD level, we have to update bones to this LOD before we can allow rendering at it.
 
-	if(SkeletalMesh != NULL)
+	if (SkeletalMesh != nullptr)
 	{
 		int32 MaxLODIndex = 0;
 		if (MeshObject)
@@ -1761,14 +1881,14 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 		}
 
 		// Support forcing to a particular LOD.
-		if(ForcedLodModel > 0)
+		if (ForcedLodModel > 0)
 		{
 			PredictedLODLevel = FMath::Clamp(ForcedLodModel - 1, 0, MaxLODIndex);
 		}
 		else
 		{
 			// If no MeshObject - just assume lowest LOD.
-			if(MeshObject)
+			if (MeshObject)
 			{
 				PredictedLODLevel = FMath::Clamp(MeshObject->MinDesiredLODLevel + GSkeletalMeshLODBias, 0, MaxLODIndex);
 			}
@@ -1776,12 +1896,12 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 			{
 				PredictedLODLevel = MaxLODIndex;
 			}
-		}
 
-		// now check to see if we have a MinLODLevel
-		if( ( MinLodModel > 0 ) && ( MinLodModel <= MaxLODIndex ) )
-		{
-			PredictedLODLevel = FMath::Clamp(PredictedLODLevel, MinLodModel, MaxLODIndex);
+			// now check to see if we have a MinLODLevel and apply it
+			if ((MinLodModel > 0) && (MinLodModel <= MaxLODIndex))
+			{
+				PredictedLODLevel = FMath::Clamp(PredictedLODLevel, MinLodModel, MaxLODIndex);
+			}
 		}
 	}
 	else
@@ -1797,84 +1917,14 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 	if(MeshObject)
 	{
 		MaxDistanceFactor = MeshObject->MaxDistanceFactor;
-
-#if CHART_DISTANCE_FACTORS
-		// Only chart DistanceFactor if it was actually rendered recently
-		if(bChartDistanceFactor && ((LastRenderTime > GetWorld()->TimeSeconds - 1.0f) || bUpdateSkelWhenNotRendered))
-		{
-			AddDistanceFactorToChart(MaxDistanceFactor);
-		}
-#endif // CHART_DISTANCE_FACTORS
 	}
 
 	return bLODChanged;
 }
 
-/** See if an array of ActiveVertexAnims already contains the supplied anim */
-int32 FindVertexAnim(const TArray<FActiveVertexAnim>& ActiveAnims, UVertexAnimBase* Anim)
+void USkinnedMeshComponent::FinalizeBoneTransform()
 {
-	for(int32 i=0; i<ActiveAnims.Num(); i++)
-	{
-		if(ActiveAnims[i].VertAnim == Anim)
-		{
-			return i;
-		}
-	}
-
-	return INDEX_NONE;
-}
-
-TArray<FActiveVertexAnim> USkinnedMeshComponent::UpdateActiveVertexAnims(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& MorphCurveAnims, const TArray<FActiveVertexAnim>& ActiveAnims)
-{
-	TArray<struct FActiveVertexAnim> OutVertexAnims;
-
-	// First copy ActiveAnims
-	for(int32 AnimIdx=0; AnimIdx < ActiveAnims.Num(); AnimIdx++)
-	{
-		const FActiveVertexAnim& ActiveAnim = ActiveAnims[AnimIdx];
-		const float ActiveAnimAbsWeight = FMath::Abs(ActiveAnim.Weight);
-
-		// Check it has valid weight, and works on this SkeletalMesh
-		if (	ActiveAnimAbsWeight > MinVertexAnimBlendWeight &&
-			ActiveAnim.VertAnim != NULL &&
-			ActiveAnim.VertAnim->BaseSkelMesh == InSkeletalMesh)
-		{
-			OutVertexAnims.Add(ActiveAnim);
-		}
-		// @TODO Need to check for duplicates here?
-	}
-
-	// Then go over the CurveKeys finding morph targets by name
-	for(auto CurveIter=MorphCurveAnims.CreateConstIterator(); CurveIter; ++CurveIter)
-	{
-		const FName& CurveName	= (CurveIter).Key();
-		const float& Weight	= (CurveIter).Value();
-
-		// If it has a valid weight
-		if(FMath::Abs(Weight) > MinVertexAnimBlendWeight)
-		{
-			// Find morph reference
-			UMorphTarget* Target = InSkeletalMesh ? InSkeletalMesh->FindMorphTarget(CurveName) : NULL;
-			if(Target != NULL)				
-			{
-				// See if this morph target already has an entry
-				int32 AnimIndex = FindVertexAnim(OutVertexAnims, Target);
-				// If not, add it
-				if(AnimIndex == INDEX_NONE)
-				{
-					OutVertexAnims.Add(FActiveVertexAnim(Target, Weight));
-				}
-				// If it does, use the max weight
-				else
-				{
-					const float CurrentWeight = OutVertexAnims[AnimIndex].Weight;
-					OutVertexAnims[AnimIndex].Weight = FMath::Max<float>(CurrentWeight, Weight);
-				}
-			}
-		}
-	}
-
-	return OutVertexAnims;
+	FlipEditableSpaceBases();
 }
 
 void USkinnedMeshComponent::FlipEditableSpaceBases()
@@ -1913,16 +1963,24 @@ void FAnimUpdateRateParameters::SetTrailMode(float DeltaTime, uint8 UpdateRateSh
 	OptimizeMode = TrailMode;
 	ThisTickDelta = DeltaTime;
 
+	const int32 ForceAnimRate = FAnimUpdateRateManager::CVarForceAnimRate.GetValueOnGameThread();
+	if (ForceAnimRate > 0)
+	{
+		NewUpdateRate = ForceAnimRate;
+		NewEvaluationRate = ForceAnimRate;
+	}
+
 	UpdateRate = FMath::Max(NewUpdateRate, 1);
 	// Make sure EvaluationRate is a multiple of UpdateRate.
 	EvaluationRate = FMath::Max((NewEvaluationRate / UpdateRate) * UpdateRate, 1);
-	bInterpolateSkippedFrames = bNewInterpSkippedFrames;
+	bInterpolateSkippedFrames = (bNewInterpSkippedFrames && (EvaluationRate < MaxEvalRateForInterpolation)) || (FAnimUpdateRateManager::CVarForceInterpolation.GetValueOnAnyThread() == 1);
 
 	// Make sure we don't overflow. we don't need very large numbers.
 	const uint32 Counter = (GFrameCounter + UpdateRateShift)% MAX_uint8;
 
 	bSkipUpdate = ((Counter % UpdateRate) > 0);
 	bSkipEvaluation = ((Counter % EvaluationRate) > 0);
+	check((bSkipEvaluation && bSkipUpdate) || (bSkipEvaluation && !bSkipUpdate) || (!bSkipEvaluation && !bSkipUpdate));
 
 	AdditionalTime = 0.f;
 

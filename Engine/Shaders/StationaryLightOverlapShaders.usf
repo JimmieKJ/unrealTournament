@@ -36,20 +36,20 @@ void OverlapDirectionalPixelMain(
 
 void OverlapRadialPixelMain(
 	float4 InScreenPosition : TEXCOORD0,
+	in float4 SvPosition : SV_Position,		// after all interpolators
 	out float4 OutColor : SV_Target0
 	)
 {
 	OutColor = 0;
-	float2 ScreenUV = InScreenPosition.xy / InScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+	float2 ScreenUV = SvPositionToBufferUV(SvPosition);
+	SvPosition.z = LookupDeviceZ(ScreenUV);
 	
-	FGBufferData GBuffer = GetGBufferData(ScreenUV);
+	FGBufferData GBuffer = GetGBufferData(ScreenUV); 
 	
 	// Only light pixels marked as using deferred shading
 	BRANCH if( GBuffer.ShadingModelID > 0 )
 	{
-		float SceneDepth = CalcSceneDepth(ScreenUV);
-		float4 HomogeneousWorldPosition = mul(float4(InScreenPosition.xy / InScreenPosition.w * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
-		float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+		float3 WorldPosition = SvPositionToWorld(SvPosition);
 
 		float3 ToLight = DeferredLightUniforms.NormalizedLightDirection;
 

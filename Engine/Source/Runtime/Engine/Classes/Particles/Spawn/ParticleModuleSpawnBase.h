@@ -29,9 +29,9 @@ class UParticleModuleSpawnBase : public UParticleModule
 	uint32 bProcessBurstList:1;
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual EModuleType	GetModuleType() const override {	return EPMT_Spawn;	}
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
 	/**
 	 *	Retrieve the spawn amount this module is contributing.

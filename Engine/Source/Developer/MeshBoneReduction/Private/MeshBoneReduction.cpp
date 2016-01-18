@@ -27,45 +27,72 @@ public:
 	{
 	}
 
-	bool GetBoneReductionData( const USkeletalMesh* SkeletalMesh, int32 DesiredLOD, TMap<FBoneIndexType, FBoneIndexType> &OutBonesToReplace ) override
+	void EnsureChildrenPresents(FBoneIndexType BoneIndex, const TArray<FMeshBoneInfo>& RefBoneInfo, TArray<FBoneIndexType>& OutBoneIndicesToRemove)
 	{
-		const TArray<FMeshBoneInfo> & RefBoneInfo = SkeletalMesh->RefSkeleton.GetRefBoneInfo();
-
-		USkeleton* Skeleton = SkeletalMesh->Skeleton;
-		if (Skeleton)
+		// just look for direct parent, we could look for RefBoneInfo->Ischild, but more expensive, and no reason to do that all the work
+		for (int32 ChildBoneIndex = 0; ChildBoneIndex < RefBoneInfo.Num(); ++ChildBoneIndex)
 		{
-			TArray<FBoneIndexType> BoneIndicesToRemove;
-			// it accumulate from LOD 0 -> LOD N if N+1 is DesiredLOD
-			// since we don't like to keep the bones that weren't included in (LOD-1)
-			for ( int LODIndex=0; LODIndex < DesiredLOD && Skeleton->BoneReductionSettingsForLODs.Num() > LODIndex; ++LODIndex )
+			if (RefBoneInfo[ChildBoneIndex].ParentIndex == BoneIndex)
 			{
-				// first gather indices. we don't want to add bones to replace if that "to-be-replace" will be removed as well
-				for (int32 Index = 0; Index < Skeleton->BoneReductionSettingsForLODs[LODIndex].BonesToRemove.Num(); ++Index)
+				OutBoneIndicesToRemove.AddUnique(ChildBoneIndex);
+				EnsureChildrenPresents(ChildBoneIndex, RefBoneInfo, OutBoneIndicesToRemove);
+			}
+		}
+	}
+
+	bool GetBoneReductionData(const USkeletalMesh* SkeletalMesh, int32 DesiredLOD, TMap<FBoneIndexType, FBoneIndexType>& OutBonesToReplace, const TArray<FName>* BoneNamesToRemove = NULL) override
+	{
+		if (!SkeletalMesh)
+		{
+			return false;
+		}
+
+		if (!SkeletalMesh->LODInfo.IsValidIndex(DesiredLOD))
+		{
+			return false;
+		}
+
+		const TArray<FMeshBoneInfo> & RefBoneInfo = SkeletalMesh->RefSkeleton.GetRefBoneInfo();
+		TArray<FBoneIndexType> BoneIndicesToRemove;
+
+		// originally this code was accumulating from LOD 0->DesiredLOd, but that should be done outside of tool if they want to
+		// removing it, and just include DesiredLOD
+		{
+			// if name is entered, use them instead of setting
+			const TArray<FName>& BonesToRemoveSetting = (BoneNamesToRemove) ? *BoneNamesToRemove : SkeletalMesh->LODInfo[DesiredLOD].RemovedBones;
+
+			// first gather indices. we don't want to add bones to replace if that "to-be-replace" will be removed as well
+			for (int32 Index = 0; Index < BonesToRemoveSetting.Num(); ++Index)
+			{
+				int32 BoneIndex = SkeletalMesh->RefSkeleton.FindBoneIndex(BonesToRemoveSetting[Index]);
+
+				// we don't allow root to be removed
+				if ( BoneIndex > 0 )
 				{
-					int32 BoneIndex = SkeletalMesh->RefSkeleton.FindBoneIndex(Skeleton->BoneReductionSettingsForLODs[LODIndex].BonesToRemove[Index]);
-
-					// we don't allow root to be removed
-					if ( BoneIndex > 0 )
-					{
-						BoneIndicesToRemove.AddUnique(BoneIndex);
-					}
+					BoneIndicesToRemove.AddUnique(BoneIndex);
+					// make sure all children for this joint is included
+					EnsureChildrenPresents(BoneIndex, RefBoneInfo, BoneIndicesToRemove);
 				}
+			}
+		}
 
+		if (BoneIndicesToRemove.Num() <= 0)
+		{
+			return false;
+		}
+
+		// now make sure the parent isn't the one to be removed, find the one that won't be removed
+		for (int32 Index = 0; Index < BoneIndicesToRemove.Num(); ++Index)
+		{
+			int32 BoneIndex = BoneIndicesToRemove[Index];
+			int32 ParentIndex = RefBoneInfo[BoneIndex].ParentIndex;
+
+			while (BoneIndicesToRemove.Contains(ParentIndex))
+			{
+				ParentIndex = RefBoneInfo[ParentIndex].ParentIndex;
 			}
 
-			// now make sure the parent isn't the one to be removed, find the one that won't be removed
-			for (int32 Index = 0; Index < BoneIndicesToRemove.Num(); ++Index)
-			{
-				int32 BoneIndex = BoneIndicesToRemove[Index];
-				int32 ParentIndex = RefBoneInfo[BoneIndex].ParentIndex;
-
-				while (BoneIndicesToRemove.Contains(ParentIndex))
-				{
-					ParentIndex = RefBoneInfo[ParentIndex].ParentIndex;
-				}
-
-				OutBonesToReplace.Add(BoneIndex, ParentIndex);
-			}
+			OutBonesToReplace.Add(BoneIndex, ParentIndex);
 		}
 
 		return ( OutBonesToReplace.Num() > 0 );
@@ -204,13 +231,10 @@ public:
 					}
 				}
 			}
-
-			// @todo fix up RequiredBones/ActiveBoneIndices?
-			
 		}
 	}
 
-	void ReduceBoneCounts( USkeletalMesh* SkeletalMesh, int32 DesiredLOD ) override
+	bool ReduceBoneCounts(USkeletalMesh* SkeletalMesh, int32 DesiredLOD, const TArray<FName>* BoneNamesToRemove) override
 	{
 		check (SkeletalMesh);
 		USkeleton* Skeleton = SkeletalMesh->Skeleton;
@@ -219,12 +243,10 @@ public:
 		// find all the bones to remove from Skeleton settings
 		TMap<FBoneIndexType, FBoneIndexType> BonesToRemove;
 
-		if (GetBoneReductionData(SkeletalMesh, DesiredLOD, BonesToRemove) == false)
+		if (GetBoneReductionData(SkeletalMesh, DesiredLOD, BonesToRemove, BoneNamesToRemove) == false)
 		{
-			return;
+			return false;
 		}
-
-		FStaticLODModel& SrcModel = SkeletalMesh->PreModifyMesh();
 
 		TComponentReregisterContext<USkinnedMeshComponent> ReregisterContext;
 		SkeletalMesh->ReleaseResources();
@@ -232,31 +254,24 @@ public:
 
 		FSkeletalMeshResource* SkeletalMeshResource = SkeletalMesh->GetImportedResource();
 		check(SkeletalMeshResource);
-		// Insert a new LOD model entry if needed.
-		if ( DesiredLOD == SkeletalMeshResource->LODModels.Num() )
-		{
-			SkeletalMeshResource->LODModels.Add(0);
-		}
 
 		FStaticLODModel** LODModels = SkeletalMeshResource->LODModels.GetData();
-		delete LODModels[DesiredLOD];
+		FStaticLODModel* SrcModel = LODModels[DesiredLOD];
 		FStaticLODModel* NewModel = new FStaticLODModel();
 		LODModels[DesiredLOD] = NewModel;
 
 		// Bulk data arrays need to be locked before a copy can be made.
-		SrcModel.RawPointIndices.Lock( LOCK_READ_ONLY );
-		SrcModel.LegacyRawPointIndices.Lock( LOCK_READ_ONLY );
-		*NewModel = SrcModel;
-		SrcModel.RawPointIndices.Unlock();
-		SrcModel.LegacyRawPointIndices.Unlock();
+		SrcModel->RawPointIndices.Lock( LOCK_READ_ONLY );
+		SrcModel->LegacyRawPointIndices.Lock( LOCK_READ_ONLY );
+		*NewModel = *SrcModel;
+		SrcModel->RawPointIndices.Unlock();
+		SrcModel->LegacyRawPointIndices.Unlock();
 
 		// The index buffer needs to be rebuilt on copy.
-		FMultiSizeIndexContainerData IndexBufferData;
-		SrcModel.MultiSizeIndexContainer.GetIndexBufferData( IndexBufferData );
-		NewModel->MultiSizeIndexContainer.RebuildIndexBuffer( IndexBufferData );
-
-		// Required bones are recalculated later on.
-		NewModel->RequiredBones.Empty();
+		FMultiSizeIndexContainerData IndexBufferData, AdjacencyIndexBufferData;
+		SrcModel->MultiSizeIndexContainer.GetIndexBufferData( IndexBufferData );
+		SrcModel->AdjacencyMultiSizeIndexContainer.GetIndexBufferData( AdjacencyIndexBufferData );
+		NewModel->RebuildIndexBuffer( &IndexBufferData, &AdjacencyIndexBufferData );
 
 		// fix up chunks
 		for ( int32 ChunkIndex=0; ChunkIndex< NewModel->Chunks.Num(); ++ChunkIndex )	
@@ -264,17 +279,27 @@ public:
 			FixUpChunkBoneMaps(NewModel->Chunks[ChunkIndex], BonesToRemove);
 		}
 
-		// Copy over LOD info from LOD0 if there is no previous info.
-		if ( DesiredLOD == SkeletalMesh->LODInfo.Num() )
+		// fix up RequiredBones/ActiveBoneIndices
+		for(auto Iter = BonesToRemove.CreateIterator(); Iter; ++Iter)
 		{
-			FSkeletalMeshLODInfo* NewLODInfo = new( SkeletalMesh->LODInfo ) FSkeletalMeshLODInfo;
-			FSkeletalMeshLODInfo& OldLODInfo = SkeletalMesh->LODInfo[0];
-			*NewLODInfo = OldLODInfo;
+			FBoneIndexType BoneIndex = Iter.Key();
+			FBoneIndexType MappingIndex = Iter.Value();
+			NewModel->ActiveBoneIndices.Remove(BoneIndex);
+			NewModel->RequiredBones.Remove(BoneIndex);
+
+			NewModel->ActiveBoneIndices.AddUnique(MappingIndex);
+			NewModel->RequiredBones.AddUnique(MappingIndex);
 		}
 
-		SkeletalMesh->CalculateRequiredBones( SkeletalMeshResource->LODModels[DesiredLOD], SkeletalMesh->RefSkeleton, &BonesToRemove );
+		NewModel->ActiveBoneIndices.Sort();
+		NewModel->RequiredBones.Sort();
+
 		SkeletalMesh->PostEditChange();
 		SkeletalMesh->InitResources();
+
+		delete SrcModel;
+
+		return true;
 	}
 };
 

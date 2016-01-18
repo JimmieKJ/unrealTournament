@@ -96,10 +96,17 @@ private:
 		}
 
 		/** Reset the initial value to ensure a valid entry is set */
-		if ( RowResult != FPropertyAccess::MultipleValues )
+		if ( RowResult != FPropertyAccess::MultipleValues  )
 		{
-			FName NewValue = FName( **InitialValue );
-			RowNamePropertyHandle->SetValue( NewValue );
+			TArray<void*> RawData;
+
+			// This raw data access is necessary to avoid setting the value during details customization setup which would cause infinite recursion repetedly reinitializing this customization
+			RowNamePropertyHandle->AccessRawData( RawData );
+			if( RawData.Num() == 1 )
+			{
+				FName* RawFName = (FName*)RawData[0];
+				*RawFName = **InitialValue;
+			}
 		}
 
 		return InitialValue;
@@ -132,7 +139,7 @@ private:
 	/** Display the current selection */
 	FText GetRowNameComboBoxContentText( ) const
 	{
-		FString RowNameValue;
+		FName RowNameValue;
 		const FPropertyAccess::Result RowResult = RowNamePropertyHandle->GetValue( RowNameValue );
 		if ( RowResult != FPropertyAccess::MultipleValues )
 		{

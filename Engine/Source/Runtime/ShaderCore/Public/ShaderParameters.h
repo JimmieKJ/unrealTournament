@@ -18,7 +18,7 @@ enum EShaderParameterFlags
 	SPF_Mandatory
 };
 
-/** A shader parameter's register binding. */
+/** A shader parameter's register binding. e.g. float1/2/3/4, can be an array, UAV */
 class FShaderParameter
 {
 public:
@@ -127,13 +127,14 @@ public:
 		return Ar << Parameter.SRVParameter << Parameter.UAVParameter;
 	}
 
-	template<typename TShaderRHIRef>
-	inline void SetBuffer(FRHICommandList& RHICmdList, TShaderRHIRef Shader,const FRWBuffer& RWBuffer) const;
+	template<typename TShaderRHIRef, typename TRHICmdList>
+	inline void SetBuffer(TRHICmdList& RHICmdList, TShaderRHIRef Shader, const FRWBuffer& RWBuffer) const;
 
-	template<typename TShaderRHIRef>
-	inline void SetTexture(FRHICommandList& RHICmdList, TShaderRHIRef Shader,const FTextureRHIParamRef Texture,FUnorderedAccessViewRHIParamRef UAV) const;
+	template<typename TShaderRHIRef, typename TRHICmdList>
+	inline void SetTexture(TRHICmdList& RHICmdList, TShaderRHIRef Shader, const FTextureRHIParamRef Texture, FUnorderedAccessViewRHIParamRef UAV) const;
 
-	inline void UnsetUAV(FRHICommandList& RHICmdList, FComputeShaderRHIParamRef ComputeShader) const;
+	template<typename TRHICmdList>
+	inline void UnsetUAV(TRHICmdList& RHICmdList, FComputeShaderRHIParamRef ComputeShader) const;
 
 private:
 

@@ -4,20 +4,27 @@
 
 #include "HttpRetrySystem.h"
 
-FHttpRetrySystem::FRequest::FRequest(TSharedRef<IHttpRequest>& HttpRequest, FHttpRetrySystem::FRetryLimitCountSetting InRetryLimitCountOverride, FHttpRetrySystem::FRetryTimeoutRelativeSecondsSetting InRetryTimeoutRelativeSecondsOverride)
+FHttpRetrySystem::FRequest::FRequest(
+	const TSharedRef<IHttpRequest>& HttpRequest, 
+	const FHttpRetrySystem::FRetryLimitCountSetting& InRetryLimitCountOverride,
+	const FHttpRetrySystem::FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride,
+	const FHttpRetrySystem::FRetryResponseCodes& InRetryResponseCodesOverride
+	)
     : FHttpRequestAdapterBase(HttpRequest)
     , Status(FHttpRetrySystem::FRequest::EStatus::NotStarted)
     , RetryLimitCountOverride(InRetryLimitCountOverride)
     , RetryTimeoutRelativeSecondsOverride(InRetryTimeoutRelativeSecondsOverride)
+	, RetryResponseCodesOverride(InRetryResponseCodesOverride)
 {
     // if the InRetryTimeoutRelativeSecondsOverride override is being used the value cannot be negative
     check(!(InRetryTimeoutRelativeSecondsOverride.bUseValue) || (InRetryTimeoutRelativeSecondsOverride.Value >= 0.0));
 }
 
-FHttpRetrySystem::FManager::FManager(FHttpRetrySystem::FRetryLimitCountSetting InRetryLimitCountDefault, FHttpRetrySystem::FRetryTimeoutRelativeSecondsSetting InRetryTimeoutRelativeSecondsDefault)
+FHttpRetrySystem::FManager::FManager(const FRetryLimitCountSetting& InRetryLimitCountDefault, const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsDefault, const FRetryResponseCodes& InRetryResponseCodesDefault)
     : RandomFailureRate(FRandomFailureRateSetting::Unused())
     , RetryLimitCountDefault(InRetryLimitCountDefault)
     , RetryTimeoutRelativeSecondsDefault(InRetryTimeoutRelativeSecondsDefault)
+	, RetryResponseCodesDefault(InRetryResponseCodesDefault)
 {}
 
 bool FHttpRetrySystem::FManager::ShouldRetry(const FHttpRetryRequestEntry& HttpRetryRequestEntry)
@@ -25,7 +32,10 @@ bool FHttpRetrySystem::FManager::ShouldRetry(const FHttpRetryRequestEntry& HttpR
     bool bResult = false;
 
     FHttpResponsePtr Response = HttpRetryRequestEntry.HttpRequest->GetResponse();
-    if (!Response.IsValid() || Response->GetResponseCode() == 0)
+    if (!Response.IsValid() || 
+		Response->GetResponseCode() == 0 || 
+		HttpRetryRequestEntry.HttpRequest->RetryResponseCodesOverride.Contains(Response->GetResponseCode()) ||
+		RetryResponseCodesDefault.Contains(Response->GetResponseCode()))
     {
         bResult = true;
     }
@@ -185,12 +195,21 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 					}
 				}
 
-                if ((RequestStatus == EHttpRequestStatus::Failed) || forceFail)
+				// Save these for failure case retry checks if we hit a completion state
+				bool bShouldRetry = false;
+				bool bCanRetry = false;
+				if (RequestStatus == EHttpRequestStatus::Failed || RequestStatus == EHttpRequestStatus::Succeeded)
+				{
+					bShouldRetry = ShouldRetry(HttpRetryRequestEntry);
+					bCanRetry = CanRetry(HttpRetryRequestEntry);
+				}
+
+				if (RequestStatus == EHttpRequestStatus::Failed || forceFail || (bShouldRetry && bCanRetry))
 				{
 					bIsGreen = false;
                     if(HttpRetryRequestEntry.bShouldCancel == false)
                     {
-                        if (forceFail || (ShouldRetry(HttpRetryRequestEntry) && CanRetry(HttpRetryRequestEntry)))
+                        if (forceFail || (bShouldRetry && bCanRetry))
 					    {
                             float lockoutPeriod = GetLockoutPeriodSeconds(HttpRetryRequestEntry);
 
@@ -257,7 +276,7 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
         }
 		else
 		{
-			UE_LOG(LogHttp, Warning, TEXT("Timeout on %s"), HttpRetryRequestEntry.CurrentRetryCount + 1, *(HttpRetryRequest->GetURL()));
+			UE_LOG(LogHttp, Warning, TEXT("Timeout on retry %d: %s"), HttpRetryRequestEntry.CurrentRetryCount + 1, *(HttpRetryRequest->GetURL()));
 			bIsGreen = false;
             HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::FailedTimeout;
 			if (FailedCount != nullptr)
@@ -307,7 +326,7 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 FHttpRetrySystem::FManager::FHttpRetryRequestEntry::FHttpRetryRequestEntry(TSharedRef<FHttpRetrySystem::FRequest>& InHttpRequest)
     : bShouldCancel(false)
     , CurrentRetryCount(0)
-    , RequestStartTimeAbsoluteSeconds(0.0)
+	, RequestStartTimeAbsoluteSeconds(FPlatformTime::Seconds())
     , HttpRequest(InHttpRequest)
 {}
 

@@ -242,6 +242,9 @@ private:
 
 	/** @return True if the property can be edited */
 	bool CanEdit() const;
+
+	/** @return true if the passed in AssetData can be used to set the property based on the list of custom classes */
+	bool CanSetBasedOnCustomClasses( const FAssetData& InAssetData ) const;
 private:
 
 	/** Main combobutton */

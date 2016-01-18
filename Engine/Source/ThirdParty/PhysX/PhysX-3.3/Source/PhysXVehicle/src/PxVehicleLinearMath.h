@@ -32,7 +32,7 @@ public:
 	VectorN(const PxU32 size)
 		: mSize(size)
 	{
-		PX_ASSERT(mSize<=MAX_VECTORN_SIZE);
+		PX_ASSERT(mSize <= MAX_VECTORN_SIZE);
 	}
 	~VectorN()
 	{
@@ -40,32 +40,32 @@ public:
 
 	VectorN(const VectorN& src)
 	{
-		for(PxU32 i=0;i<src.mSize;i++)
+		for(PxU32 i = 0; i < src.mSize; i++)
 		{
-			mValues[i]=src.mValues[i];
+			mValues[i] = src.mValues[i];
 		}
-		mSize=src.mSize;
+		mSize = src.mSize;
 	}
 
 	PX_FORCE_INLINE VectorN& operator=(const VectorN& src)
 	{
-		for(PxU32 i=0;i<src.mSize;i++)
+		for(PxU32 i = 0; i < src.mSize; i++)
 		{
-			mValues[i]=src.mValues[i];
+			mValues[i] = src.mValues[i];
 		}
-		mSize=src.mSize;
+		mSize = src.mSize;
 		return *this;
 	}
 
 	PX_FORCE_INLINE PxF32& operator[] (const PxU32 i)
 	{
-		PX_ASSERT(i<mSize);
+		PX_ASSERT(i < mSize);
 		return (mValues[i]);
 	}
 
 	PX_FORCE_INLINE const PxF32& operator[] (const PxU32 i) const
 	{
-		PX_ASSERT(i<mSize);
+		PX_ASSERT(i < mSize);
 		return (mValues[i]);
 	}
 
@@ -88,15 +88,15 @@ public:
 	MatrixNN(const PxU32 size)
 		: mSize(size)
 	{
-		PX_ASSERT(mSize<=MAX_VECTORN_SIZE);
+		PX_ASSERT(mSize <= MAX_VECTORN_SIZE);
 	}
 	MatrixNN(const MatrixNN& src)
 	{
-		for(PxU32 i=0;i<src.mSize;i++)
+		for(PxU32 i = 0; i < src.mSize; i++)
 		{
-			for(PxU32 j=0;j<src.mSize;j++)
+			for(PxU32 j = 0; j < src.mSize; j++)
 			{
-				mValues[i][j]=src.mValues[i][j];
+				mValues[i][j] = src.mValues[i][j];
 			}
 		}
 		mSize=src.mSize;
@@ -107,28 +107,28 @@ public:
 
 	PX_FORCE_INLINE MatrixNN& operator=(const MatrixNN& src)
 	{
-		for(PxU32 i=0;i<src.mSize;i++)
+		for(PxU32 i = 0;i < src.mSize; i++)
 		{
-			for(PxU32 j=0;j<src.mSize;j++)
+			for(PxU32 j = 0;j < src.mSize; j++)
 			{
-				mValues[i][j]=src.mValues[i][j];
+				mValues[i][j] = src.mValues[i][j];
 			}
 		}
-		mSize=src.mSize;
+		mSize = src.mSize;
 		return *this;
 	}
 
 	PX_FORCE_INLINE PxF32 get(const PxU32 i, const PxU32 j) const
 	{
-		PX_ASSERT(i<mSize);
-		PX_ASSERT(j<mSize);
+		PX_ASSERT(i < mSize);
+		PX_ASSERT(j < mSize);
 		return mValues[i][j];
 	}
 	PX_FORCE_INLINE void set(const PxU32 i, const PxU32 j, const PxF32 val)
 	{
-		PX_ASSERT(i<mSize);
-		PX_ASSERT(j<mSize);
-		mValues[i][j]=val;
+		PX_ASSERT(i < mSize);
+		PX_ASSERT(j < mSize);
+		mValues[i][j] = val;
 	}
 
 	PX_FORCE_INLINE PxU32 getSize() const {return mSize;}
@@ -145,197 +145,171 @@ public:
 	PxU32 mSize;
 };
 
+
+/*
+	LUPQ decomposition
+
+	Based upon "Outer Product LU with Complete Pivoting," from Matrix Computations (4th Edition), Golub and Van Loan
+
+	Solve A*x = b using:
+
+		MatrixNNLUSolver solver;
+		solver.decomposeLU(A);
+		solver.solve(b, x);
+*/
 class MatrixNNLUSolver
 {
 private:
 
-	PxU32 mIndex[MAX_VECTORN_SIZE];
 	MatrixNN mLU;
+	PxU32	mP[MAX_VECTORN_SIZE-1];	// Row permutation
+	PxU32	mQ[MAX_VECTORN_SIZE-1];	// Column permutation
+	PxF32	mdetM;
 
 public:
 
 	MatrixNNLUSolver(){}
 	~MatrixNNLUSolver(){}
 
-	//Algorithm taken from Numerical Recipes in Fortran 77, page 38
+	PxF32 getDet() const {return mdetM;}
 
-	void decomposeLU(const MatrixNN& a)
+	void decomposeLU(const MatrixNN& A)
 	{
-#define TINY (1.0e-20f)
+		const PxU32 D = A.mSize;
 
-		const PxU32 size=a.mSize;
+		mLU = A;
 
-		//Copy a into result then work exclusively on the result matrix.
-		MatrixNN LU=a;
+		mdetM = 1.0f;
 
-		//Initialise index swapping values.
-		for(PxU32 i=0;i<size;i++)
+		for (PxU32 k = 0; k < D-1; ++k)
 		{
-			mIndex[i]=0xffffffff;
-		}
-
-		PxU32 imax=0;
-		PxF32 big,dum;
-		PxF32 vv[MAX_VECTORN_SIZE];
-		PxF32 d=1.0f;
-
-		for(PxU32 i=0;i<=(size-1);i++)
-		{
-			big=0.0f;
-			for(PxU32 j=0;j<=(size-1);j++)
+			PxU32 pivot_row = k;
+			PxU32 pivot_col = k;
+			float abs_pivot_elem = 0.0f;
+			for (PxU32 c = k; c < D; ++c)
 			{
-				const PxF32 temp=PxAbs(LU.get(i,j));
-				big = temp>big ? temp : big;
-			}
-			PX_ASSERT(big!=0.0f);
-			vv[i]=1.0f/big;
-		}
-
-		for(PxU32 j=0;j<=(size-1);j++)
-		{
-			for(PxU32 i=0;i<j;i++)
-			{
-				PxF32 sum=LU.get(i,j);
-				for(PxU32 k=0;k<i;k++)
+				for (PxU32 r = k; r < D; ++r)
 				{
-					sum-=LU.get(i,k)*LU.get(k,j);
-				}
-				LU.set(i,j,sum);
-			}
-
-			big=0.0f;
-			for(PxU32 i=j;i<=(size-1);i++)
-			{
-				PxF32 sum=LU.get(i,j);
-				for(PxU32 k=0;k<j;k++)
-				{
-					sum-=LU.get(i,k)*LU.get(k,j);
-				}
-				LU.set(i,j,sum);
-				dum=vv[i]*PxAbs(sum);
-				if(dum>=big)
-				{
-					big=dum;
-					imax=i;
-				}
-			}
-
-			if(j!=imax)
-			{
-				for(PxU32 k=0;k<size;k++)
-				{
-					dum=LU.get(imax,k);
-					LU.set(imax,k,LU.get(j,k));
-					LU.set(j,k,dum);
-				}
-				d=-d;
-				vv[imax]=vv[j];
-			}
-			mIndex[j]=imax;
-
-			if(LU.get(j,j)==0)
-			{
-				LU.set(j,j,TINY);
-			}
-
-			if(j!=(size-1))
-			{
-				dum=1.0f/LU.get(j,j);
-				for(PxU32 i=j+1;i<=(size-1);i++)
-				{
-					LU.set(i,j,LU.get(i,j)*dum);
-				}
-			}
-		}
-
-		//Store the result.
-		mLU=LU;
-	}
-
-	void solve(const VectorN& input, VectorN& result) const
-	{
-		const PxU32 size=input.getSize();
-
-		result=input;
-
-		PxU32 ip;
-		PxU32 ii=0xffffffff;
-		PxF32 sum;
-
-		for(PxU32 i=0;i<size;i++)
-		{
-			ip=mIndex[i];
-			sum=result[ip];
-			result[ip]=result[i];
-            if(ii!=(PxU32)-1)
-			{
-				for(PxU32 j=ii;j<=(i-1);j++)
-				{
-					sum-=mLU.get(i,j)*result[j];
-				}
-			}
-			else if(sum!=0)
-			{
-				ii=i;
-			}
-			result[i]=sum;
-		}
-		for(PxI32 i=PxI32(size-1);i>=0;i--)
-		{
-			sum=result[(PxU32)i];
-			for(PxU32 j=PxU32(i+1);j<=(size-1);j++)
-			{
-				sum-=mLU.get((PxU32)i,j)*result[j];
-			}
-			result[(PxU32)i]=sum/mLU.get((PxU32)i,(PxU32)i);
-		}
-	}
-};
-
-class MatrixNNDeterminant
-{
-public:
-
-	static PxF32 compute(const MatrixNN& A)
-	{
-		if(2==A.getSize())
-		{
-			const PxF32 a = A.get(0,0);
-			const PxF32 b = A.get(0,1);
-			const PxF32 c = A.get(1,0);
-			const PxF32 d = A.get(1,1);
-			const PxF32 det = a*d - b*c;
-			return det;
-		}
-		else
-		{
-			const PxU32 N = A.getSize();
-			PxF32 det = 0.0f;
-			PxF32 sigma = 1;
-			for(PxU32 k=0;k<N;k++)
-			{
-				//Construct a matrix without column 0 and row k
-				MatrixNN cofactor(N-1);
-				for(PxU32 i=1;i<N;i++)
-				{
-					for(PxU32 j=0;j<k;j++)
+					const PxF32 abs_elem = PxAbs(mLU.get(r,c));
+					if (abs_elem > abs_pivot_elem)
 					{
-						cofactor.set(i-1,j,A.get(i,j));
-					}
-					for(PxU32 j=k+1;j<N;j++)
-					{
-						cofactor.set(i-1,j-1,A.get(i,j));
+						abs_pivot_elem = abs_elem;
+						pivot_row = r;
+						pivot_col = c;
 					}
 				}
-
-				const PxF32 detsub = compute(cofactor);
-				det += A.get(0,k) * sigma * detsub;
-				sigma *= -1.0f;
 			}
-			return det;
+
+			mP[k] = pivot_row;
+			if (pivot_row != k)
+			{
+				mdetM = -mdetM;
+				for (PxU32 c = 0; c < D; ++c) 
+				{
+					//swap(m_LU(k,c), m_LU(pivot_row,c));
+					const PxF32 pivotrowc = mLU.get(pivot_row, c);
+					mLU.set(pivot_row, c, mLU.get(k, c));
+					mLU.set(k, c, pivotrowc);
+				}
+			}
+
+			mQ[k] = pivot_col;
+			if (pivot_col != k)
+			{
+				mdetM = -mdetM;
+				for (PxU32 r = 0; r < D; ++r) 
+				{
+					//swap(m_LU(r,k), m_LU(r,pivot_col));
+					const PxF32 rpivotcol = mLU.get(r, pivot_col);
+					mLU.set(r,pivot_col, mLU.get(r,k));
+					mLU.set(r, k, rpivotcol);
+				}
+			}
+
+			mdetM *= mLU.get(k,k);
+
+			if (mLU.get(k,k) != 0.0f)
+			{
+				for (PxU32 r = k+1; r < D; ++r)
+				{
+					mLU.set(r, k, mLU.get(r,k) / mLU.get(k,k));
+					for (PxU32 c = k+1; c < D; ++c) 
+					{
+						//m_LU(r,c) -= m_LU(r,k)*m_LU(k,c);
+						const PxF32 rc = mLU.get(r, c);
+						const PxF32 rk = mLU.get(r, k);
+						const PxF32 kc = mLU.get(k, c);
+						mLU.set(r, c, rc - rk*kc);
+					}
+				}
+			}
 		}
+
+		mdetM *= mLU.get(D-1,D-1);
 	}
+
+	//Given a matrix A and a vector b find x that satisfies Ax = b, where the matrix A is the matrix that was passed to decomposeLU.
+	//Returns true if the lu decomposition indicates that the matrix has an inverse and x was successfully computed.
+	//Returns false if the lu decomposition resulted in zero determinant ie the matrix has no inverse and no solution exists for x.
+	//Returns false if the size of either b or x doesn't match the size of the matrix passed to decomposeLU.
+	//If false is returned then each relevant element of x is set to zero. 
+	bool solve(const VectorN& b, VectorN& x) const
+	{
+		const PxU32 D = x.getSize();
+
+		if((b.getSize() != x.getSize()) || (b.getSize() != mLU.getSize()) || (0.0 == mdetM))
+		{
+			for(PxU32 i = 0; i < D; i++)
+			{
+				x[i] = 0.0f;
+			}
+			return false;
+		}
+
+		x = b;
+
+		// Perform row permutation to get Pb
+		for(PxU32 i = 0; i < D-1; ++i) 
+		{
+			//swap(x(i), x(m_P[i]));														
+			const PxF32 xp = x[mP[i]];
+			x[mP[i]] = x[i];
+			x[i] = xp;
+		}
+
+		// Forward substitute to get (L^-1)Pb
+		for (PxU32 r = 1; r < D; ++r)
+		{
+			for (PxU32 i = 0; i < r; ++i) 
+			{
+				x[r] -= mLU.get(r,i)*x[i];								
+			}
+		}
+
+		// Back substitute to get (U^-1)(L^-1)Pb
+		for (PxU32 r = D; r-- > 0;) 
+		{ 
+			for (PxU32 i = r+1; i < D; ++i) 
+			{
+				x[r] -= mLU.get(r,i)*x[i]; 
+			} 
+			x[r] /= mLU.get(r,r);			
+		}
+
+		// Peform column permutation to get the solution (Q^T)(U^-1)(L^-1)Pb	
+		for (PxU32 i = D-1; i-- > 0;) 
+		{
+			//swap(x(i), x(m_Q[i]));													
+			const PxF32 xq = x[mQ[i]];
+			x[mQ[i]] = x[i];
+			x[i] = xq;
+		}
+
+		return true;
+	}
+
 };
+
 
 class MatrixNGaussSeidelSolver
 {
@@ -434,9 +408,6 @@ public:
 		return true;
 	}
 };
-
-
-
 
 #ifndef PX_DOXYGEN
 } // namespace physx

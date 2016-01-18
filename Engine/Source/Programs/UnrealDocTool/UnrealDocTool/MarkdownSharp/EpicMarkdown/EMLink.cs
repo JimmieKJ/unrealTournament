@@ -6,11 +6,13 @@ using System.Text;
 using System.Drawing;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 using DotLiquid;
 
 using MarkdownSharp.EpicMarkdown.Parsers;
 using MarkdownSharp.EpicMarkdown.PathProviders;
+using MarkdownSharp.Preprocessor;
 
 namespace MarkdownSharp.EpicMarkdown
 {
@@ -21,14 +23,18 @@ namespace MarkdownSharp.EpicMarkdown
 
         public string Title { get; private set; }
         public EMSpanElements Content { get; private set; }
+        public bool isFancyLink { get; private set; }
+        public Hash metadata { get; private set; }
 
-        public EMLink(EMDocument doc, EMElementOrigin origin, EMElement parent, TransformationData data, EMPathProvider path, string title, EMSpanElements content)
+        public EMLink(EMDocument doc, EMElementOrigin origin, EMElement parent, TransformationData data, EMPathProvider path, string title, EMSpanElements content, bool isFancyLinkIn, Hash metadataIn)
             : base(doc, origin, parent)
         {
             Path = path;
 
             Title = title;
             Content = content;
+            isFancyLink = isFancyLinkIn;
+            metadata = metadataIn;
 
             if (path.ChangedLanguage)
             {
@@ -117,6 +123,11 @@ namespace MarkdownSharp.EpicMarkdown
             try
             {
                 bool isAPILink = false;
+                bool isFancyLinkLocal = false;
+                Hash metadataLocal = Hash.FromAnonymousObject(
+                    new
+                    { 
+                    });
                 string APIMember = "";
                 if (path.StartsWith("API:"))
                 {
@@ -131,6 +142,12 @@ namespace MarkdownSharp.EpicMarkdown
                         return content;
                     }
                     isAPILink = true;
+                }
+                else if (path.StartsWith("FANCY:"))
+                {
+                    path = path.Substring(6, path.Length - 6);
+                    isFancyLinkLocal = true;
+                    metadataLocal = ProcessFancyLink(path, data);
                 }
                 var pathProvider = EMPathProvider.CreatePath(path, doc, data);
                 var errorId = -1;
@@ -218,11 +235,11 @@ namespace MarkdownSharp.EpicMarkdown
 
                 if (isAPILink)
                 {
-                    return new EMLink(doc, orig, parent, data, pathProvider, APIMember, content);
+                    return new EMLink(doc, orig, parent, data, pathProvider, APIMember, content, false, metadataLocal);
                 }
                 else
                 {
-                    return new EMLink(doc, orig, parent, data, pathProvider, title, content);
+                    return new EMLink(doc, orig, parent, data, pathProvider, title, content, isFancyLinkLocal, metadataLocal);
                 }
             }
             catch (EMPathVerificationException e)
@@ -259,6 +276,32 @@ namespace MarkdownSharp.EpicMarkdown
             return Create(doc, orig, parent, data, content, url, GetReferenceTitle(data, linkId));
         }
 
+        public static Hash ProcessFancyLink(string path, TransformationData data)
+        {
+            ClosestFileStatus status;
+            var linkedDoc = data.ProcessedDocumentCache.GetClosest(path, out status);
+
+            var parameters = Hash.FromAnonymousObject(
+                new
+                {
+                });
+
+            foreach (var metadata in linkedDoc.PreprocessedData.Metadata.MetadataMap)
+            {
+                if(metadata.Key == "skilllevel")
+                {
+                    parameters.Add("skilllevellabel", string.Join(", ", metadata.Value));
+                    for(int i=0; i < metadata.Value.Count; i++)
+                    {
+                        metadata.Value[i] = metadata.Value[i].ToLower();
+                    }
+                }
+                parameters.Add(metadata.Key, string.Join(", ", metadata.Value));
+            }
+
+            return parameters;
+        }
+
         public override void ForEachWithContext<T>(T context)
         {
             context.PreChildrenVisit(this);
@@ -284,12 +327,17 @@ namespace MarkdownSharp.EpicMarkdown
                     builder.Append(linkText);
                     return;
                 }
-                
-                var result =
-                    Templates.Link.Render(
+
+                var result = "";
+                if (isFancyLink)
+                {
+                    result = Templates.FancyLink.Render(
                         Hash.FromAnonymousObject(
                             new
                                 {
+                                    version = metadata["version"],
+                                    skilllevel = metadata["skilllevel"],
+                                    skilllevellabel = metadata["skilllevellabel"],
                                     linkUrl = Path.GetPath(data).Replace("\\", "/"),
                                     linkTitle =
                                         !String.IsNullOrWhiteSpace(Title) ? Markdown.EscapeBoldItalic(Title) : null,
@@ -308,8 +356,37 @@ namespace MarkdownSharp.EpicMarkdown
                                                         "Images",
                                                         "INT_flag.jpg")
                                                           }))
-                                            : linkText
+                                            : linkText,
+                                    relativeHTMLPath = data.CurrentFolderDetails.RelativeHTMLPath
                                 }));
+                }
+                else
+                {
+                    result = Templates.Link.Render(
+                        Hash.FromAnonymousObject(
+                            new
+                            {
+                                linkUrl = Path.GetPath(data).Replace("\\", "/"),
+                                linkTitle =
+                                    !String.IsNullOrWhiteSpace(Title) ? Markdown.EscapeBoldItalic(Title) : null,
+                                linkText =
+                                    Path.ChangedLanguage
+                                        ? linkText
+                                          + Templates.ImageFrame.Render(
+                                              Hash.FromAnonymousObject(
+                                                  new
+                                                  {
+                                                      imageClass = "languageinline",
+                                                      imagePath =
+                                            System.IO.Path.Combine(
+                                                data.CurrentFolderDetails.RelativeHTMLPath,
+                                                "Include",
+                                                "Images",
+                                                "INT_flag.jpg")
+                                                  }))
+                                        : linkText
+                            }));
+                }
 
                 if (Path.ChangedLanguage)
                 {

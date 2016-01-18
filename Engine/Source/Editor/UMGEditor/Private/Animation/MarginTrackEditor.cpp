@@ -1,120 +1,96 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorPrivatePCH.h"
+#include "MovieSceneMarginTrack.h"
 #include "MarginTrackEditor.h"
-#include "Developer/MovieSceneTools/Public/PropertySection.h"
-#include "Developer/MovieSceneTools/Public/MovieSceneToolHelpers.h"
-#include "Runtime/UMG/Public/Animation/MovieSceneMarginSection.h"
-#include "Runtime/UMG/Public/Animation/MovieSceneMarginTrack.h"
-#include "Editor/Sequencer/Public/ISectionLayoutBuilder.h"
-#include "Editor/Sequencer/Public/ISequencerObjectChangeListener.h"
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
+#include "MovieSceneMarginSection.h"
+#include "PropertySection.h"
+#include "ISectionLayoutBuilder.h"
+#include "FloatCurveKeyArea.h"
 
-class FMarginPropertySection : public FPropertySection
+
+FName FMarginTrackEditor::LeftName( "Left" );
+FName FMarginTrackEditor::TopName( "Top" );
+FName FMarginTrackEditor::RightName( "Right" );
+FName FMarginTrackEditor::BottomName( "Bottom" );
+
+
+class FMarginPropertySection
+	: public FPropertySection
 {
 public:
-	FMarginPropertySection( UMovieSceneSection& InSectionObject, FName SectionName )
+
+	FMarginPropertySection( UMovieSceneSection& InSectionObject, const FText& SectionName )
 		: FPropertySection(InSectionObject, SectionName) {}
 
 	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override
 	{
 		UMovieSceneMarginSection* MarginSection = Cast<UMovieSceneMarginSection>(&SectionObject);
 
-		LayoutBuilder.AddKeyArea("Left", NSLOCTEXT("FMarginPropertySection", "MarginLeft", "Left"), MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetLeftCurve(), MarginSection)));
-		LayoutBuilder.AddKeyArea("Top", NSLOCTEXT("FMarginPropertySection", "MarginTop", "Top"), MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetTopCurve(), MarginSection)));
-		LayoutBuilder.AddKeyArea("Right", NSLOCTEXT("FMarginPropertySection", "MarginRight", "Right"), MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetRightCurve(), MarginSection)));
-		LayoutBuilder.AddKeyArea("Bottom", NSLOCTEXT("FMarginPropertySection", "MarginBottom", "Bottom"), MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetBottomCurve(), MarginSection)));
+		LeftKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetLeftCurve(), MarginSection));
+		TopKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetTopCurve(), MarginSection));
+		RightKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetRightCurve(), MarginSection));
+		BottomKeyArea = MakeShareable(new FFloatCurveKeyArea( &MarginSection->GetBottomCurve(), MarginSection));
+
+		LayoutBuilder.AddKeyArea("Left", NSLOCTEXT("FMarginPropertySection", "MarginLeft", "Left"), LeftKeyArea.ToSharedRef());
+		LayoutBuilder.AddKeyArea("Top", NSLOCTEXT("FMarginPropertySection", "MarginTop", "Top"), TopKeyArea.ToSharedRef());
+		LayoutBuilder.AddKeyArea("Right", NSLOCTEXT("FMarginPropertySection", "MarginRight", "Right"), RightKeyArea.ToSharedRef());
+		LayoutBuilder.AddKeyArea("Bottom", NSLOCTEXT("FMarginPropertySection", "MarginBottom", "Bottom"), BottomKeyArea.ToSharedRef());
 	}
+
+	virtual void SetIntermediateValue( FPropertyChangedParams PropertyChangedParams ) override
+	{
+		FMargin Margin = PropertyChangedParams.GetPropertyValue<FMargin>();
+		LeftKeyArea->SetIntermediateValue( Margin.Left );
+		TopKeyArea->SetIntermediateValue( Margin.Top );
+		RightKeyArea->SetIntermediateValue( Margin.Right );
+		BottomKeyArea->SetIntermediateValue( Margin.Bottom );
+	}
+
+
+	virtual void ClearIntermediateValue() override
+	{
+		LeftKeyArea->ClearIntermediateValue();
+		TopKeyArea->ClearIntermediateValue();
+		RightKeyArea->ClearIntermediateValue();
+		BottomKeyArea->ClearIntermediateValue();
+	}
+
+private:
+	mutable TSharedPtr<FFloatCurveKeyArea> LeftKeyArea;
+	mutable TSharedPtr<FFloatCurveKeyArea> TopKeyArea;
+	mutable TSharedPtr<FFloatCurveKeyArea> RightKeyArea;
+	mutable TSharedPtr<FFloatCurveKeyArea> BottomKeyArea;
 };
 
-FMarginTrackEditor::FMarginTrackEditor( TSharedRef<ISequencer> InSequencer )
-	: FMovieSceneTrackEditor( InSequencer ) 
-{
-	// Get the object change listener for the sequencer and register a delegates for when properties change that we care about
-	ISequencerObjectChangeListener& ObjectChangeListener = InSequencer->GetObjectChangeListener();
-	ObjectChangeListener.GetOnAnimatablePropertyChanged( "Margin" ).AddRaw( this, &FMarginTrackEditor::OnMarginChanged );
-}
 
-FMarginTrackEditor::~FMarginTrackEditor()
-{
-	TSharedPtr<ISequencer> Sequencer = GetSequencer();
-	if( Sequencer.IsValid() )
-	{
-		ISequencerObjectChangeListener& ObjectChangeListener = Sequencer->GetObjectChangeListener();
-		ObjectChangeListener.GetOnAnimatablePropertyChanged( "Margin" ).RemoveAll( this );
-	}
-}
-
-
-
-TSharedRef<FMovieSceneTrackEditor> FMarginTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> InSequencer )
+TSharedRef<ISequencerTrackEditor> FMarginTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> InSequencer )
 {
 	return MakeShareable( new FMarginTrackEditor( InSequencer ) );
 }
 
-bool FMarginTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const
-{
-	return Type == UMovieSceneMarginTrack::StaticClass();
-}
 
-TSharedRef<ISequencerSection> FMarginTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack* Track )
+TSharedRef<FPropertySection> FMarginTrackEditor::MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
 {
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
 
 	UClass* SectionClass = SectionObject.GetOuter()->GetClass();
-
-	TSharedRef<ISequencerSection> NewSection = MakeShareable( new FMarginPropertySection( SectionObject, Track->GetTrackName() ) );
-
-	return NewSection;
+	return MakeShareable(new FMarginPropertySection(SectionObject, Track.GetDisplayName()));
 }
 
 
-void FMarginTrackEditor::OnMarginChanged(  const FKeyPropertyParams& PropertyKeyParams )
+void FMarginTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FMarginKey>& GeneratedKeys )
 {
-	FName PropertyName = PropertyKeyParams.PropertyHandle->GetProperty()->GetFName();
+	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
+	FMargin Margin = PropertyChangedParams.GetPropertyValue<FMargin>();
 
-	AnimatablePropertyChanged
-	(
-		UMovieSceneMarginTrack::StaticClass(), 
-		PropertyKeyParams.bRequireAutoKey,
-		FOnKeyProperty::CreateRaw(this, &FMarginTrackEditor::OnKeyMargin, &PropertyKeyParams ) 
-	);
+	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Left, Margin.Left, ChannelName == NAME_None || ChannelName == LeftName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
+	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Top, Margin.Top, ChannelName == NAME_None || ChannelName == TopName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
+	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Right, Margin.Right, ChannelName == NAME_None || ChannelName == RightName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
+	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Bottom, Margin.Bottom, ChannelName == NAME_None || ChannelName == BottomName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
 }
 
-
-void FMarginTrackEditor::OnKeyMargin( float KeyTime, const FKeyPropertyParams* PropertyKeyParams )
+bool FMarginTrackEditor::ShouldAddKey(UMovieSceneMarginTrack* InTrack, FMarginKey InKey, FKeyParams InKeyParams) const
 {
-	TArray<const void*> MarginValues;
-	PropertyKeyParams->PropertyHandle->AccessRawData( MarginValues );
-
-	FName PropertyName = PropertyKeyParams->PropertyHandle->GetProperty()->GetFName();
-
-	for( int32 ObjectIndex = 0; ObjectIndex < PropertyKeyParams->ObjectsThatChanged.Num(); ++ObjectIndex )
-	{
-		UObject* Object = PropertyKeyParams->ObjectsThatChanged[ObjectIndex];
-		FMargin MarginValue = *(const FMargin*)MarginValues[ObjectIndex];
-
-		FMarginKey Key;
-		Key.bAddKeyEvenIfUnchanged = !PropertyKeyParams->bRequireAutoKey;
-		Key.CurveName = PropertyKeyParams->InnerStructPropertyName;
-		Key.Value = MarginValue;
-
-		FGuid ObjectHandle = FindOrCreateHandleToObject( Object );
-		if (ObjectHandle.IsValid())
-		{
-			UMovieSceneTrack* Track = GetTrackForObject( ObjectHandle, UMovieSceneMarginTrack::StaticClass(), PropertyName );
-			if( ensure( Track ) )
-			{
-				UMovieSceneMarginTrack* MarginTrack = CastChecked<UMovieSceneMarginTrack>(Track);
-				MarginTrack->SetPropertyNameAndPath( PropertyName, PropertyKeyParams->PropertyPath );
-				// Find or add a new section at the auto-key time and changing the property same property
-				// AddKeyToSection is not actually a virtual, it's redefined in each class with a different type
-				bool bSuccessfulAdd = MarginTrack->AddKeyToSection( KeyTime, Key );
-				if (bSuccessfulAdd)
-				{
-					MarginTrack->SetAsShowable();
-				}
-			}
-		}
-	}
+	return FPropertyTrackEditor::ShouldAddKey(InTrack, InKey, InKeyParams) && InKey.ValueType == EKeyMarginValueType::Key;
 }

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace UnrealBuildTool
@@ -11,119 +12,171 @@ namespace UnrealBuildTool
 	/// </summary>
 	public class LinkEnvironmentConfiguration : NativeBuildEnvironmentConfiguration
 	{
-		/** The directory to put the non-executable files in (PDBs, import library, etc) */
-		public string OutputDirectory;
+		/// <summary>
+		/// The directory to put the non-executable files in (PDBs, import library, etc)
+		/// </summary>
+		public DirectoryReference OutputDirectory;
 
-		/** Intermediate file directory */
-		public string IntermediateDirectory;
+		/// <summary>
+		/// Intermediate file directory
+		/// </summary>
+		public DirectoryReference IntermediateDirectory;
 
-		/** The directory to shadow source files in for syncing to remote compile servers */
-		public string LocalShadowDirectory = null;
+		/// <summary>
+		/// The directory to shadow source files in for syncing to remote compile servers
+		/// </summary>
+		public DirectoryReference LocalShadowDirectory = null;
 
-		/** The file path for the executable file that is output by the linker. */
-		public string[] OutputFilePaths = null;
+		/// <summary>
+		/// The file path for the executable file that is output by the linker.
+		/// </summary>
+		public List<FileReference> OutputFilePaths = new List<FileReference>();
 
-		/** Returns the OutputFilePath is there is only one entry in OutputFilePaths */
-		public string OutputFilePath
+		/// <summary>
+		/// Returns the OutputFilePath is there is only one entry in OutputFilePaths
+		/// </summary>
+		public FileReference OutputFilePath
 		{
 			get
 			{
-				if (OutputFilePaths.Length != 1)
+				if (OutputFilePaths.Count != 1)
 				{
-					throw new BuildException("Attempted to use LinkEnvironmentConfiguration.OutputFilePath property, but there are multiple (or no) OutputFilePaths. You need to handle multiple in the code that called this (size = {0})", OutputFilePaths.Length);
+					throw new BuildException("Attempted to use LinkEnvironmentConfiguration.OutputFilePath property, but there are multiple (or no) OutputFilePaths. You need to handle multiple in the code that called this (size = {0})", OutputFilePaths.Count);
 				}
 				return OutputFilePaths[0];
 			}
 		}
 
-		/** A list of the paths used to find libraries. */
+		/// <summary>
+		/// A list of the paths used to find libraries.
+		/// </summary>
 		public List<string> LibraryPaths = new List<string>();
 
-		/** A list of libraries to exclude from linking. */
+		/// <summary>
+		/// A list of libraries to exclude from linking.
+		/// </summary>
 		public List<string> ExcludedLibraries = new List<string>();
 
-		/** A list of additional libraries to link in. */
+		/// <summary>
+		/// A list of additional libraries to link in.
+		/// </summary>
 		public List<string> AdditionalLibraries = new List<string>();
 
-		/** A list of additional frameworks to link in. */
+		/// <summary>
+		/// A list of additional frameworks to link in.
+		/// </summary>
 		public List<UEBuildFramework> AdditionalFrameworks = new List<UEBuildFramework>();
 
-		/** For builds that execute on a remote machine (e.g. iPhone), this list contains additional files that
-			need to be copied over in order for the app to link successfully.  Source/header files and PCHs are
-			automatically copied.  Usually this is simply a list of precompiled third party library dependencies. */
+		/// <summary>
+		/// For builds that execute on a remote machine (e.g. iPhone), this list contains additional files that
+		/// need to be copied over in order for the app to link successfully.  Source/header files and PCHs are
+		/// automatically copied.  Usually this is simply a list of precompiled third party library dependencies.
+		/// </summary>
 		public List<string> AdditionalShadowFiles = new List<string>();
 
-		/** The iOS/Mac frameworks to link in */
+		/// <summary>
+		/// The iOS/Mac frameworks to link in
+		/// </summary>
 		public List<string> Frameworks = new List<string>();
 		public List<string> WeakFrameworks = new List<string>();
 
-		/** iOS/Mac resources that should be copied to the app bundle */
+		/// <summary>
+		/// iOS/Mac resources that should be copied to the app bundle
+		/// </summary>
 		public List<UEBuildBundleResource> AdditionalBundleResources = new List<UEBuildBundleResource>();
 
-		/**
-		 * A list of the dynamically linked libraries that shouldn't be loaded until they are first called
-		 * into.
-		 */
+		/// <summary>
+		/// A list of the dynamically linked libraries that shouldn't be loaded until they are first called
+		/// into.
+		/// </summary>
 		public List<string> DelayLoadDLLs = new List<string>();
 
-		/** Additional arguments to pass to the linker. */
+		/// <summary>
+		/// Additional arguments to pass to the linker.
+		/// </summary>
 		public string AdditionalArguments = "";
 
-		/** True if debug info should be created. */
+		/// <summary>
+		/// True if debug info should be created.
+		/// </summary>
 		public bool bCreateDebugInfo = true;
 
-		/** Whether the CLR (Common Language Runtime) support should be enabled for C++ targets (C++/CLI). */
+		/// <summary>
+		/// Whether the CLR (Common Language Runtime) support should be enabled for C++ targets (C++/CLI).
+		/// </summary>
 		public CPPCLRMode CLRMode = CPPCLRMode.CLRDisabled;
 
-		/** True if we're compiling .cpp files that will go into a library (.lib file) */
+		/// <summary>
+		/// True if we're compiling .cpp files that will go into a library (.lib file)
+		/// </summary>
 		public bool bIsBuildingLibrary = false;
 
-		/** True if we're compiling a DLL */
+		/// <summary>
+		/// True if we're compiling a DLL
+		/// </summary>
 		public bool bIsBuildingDLL = false;
 
-		/** True if this is a console application that's being build */
+		/// <summary>
+		/// True if this is a console application that's being build
+		/// </summary>
 		public bool bIsBuildingConsoleApplication = false;
 
-		/** This setting is replaced by UEBuildBinaryConfiguration.bBuildAdditionalConsoleApp. */
+		/// <summary>
+		/// This setting is replaced by UEBuildBinaryConfiguration.bBuildAdditionalConsoleApp.
+		/// </summary>
 		[Obsolete("This setting is replaced by UEBuildBinaryConfiguration.bBuildAdditionalConsoleApp. It is explicitly set to true for editor targets, and defaults to false otherwise.")]
 		public bool bBuildAdditionalConsoleApplication { set { } }
 
-		/** If set, overrides the program entry function on Windows platform.  This is used by the base UE4
-		    program so we can link in either command-line mode or windowed mode without having to recompile the Launch module. */
+		/// <summary>
+		/// If set, overrides the program entry function on Windows platform.  This is used by the base UE4
+		/// program so we can link in either command-line mode or windowed mode without having to recompile the Launch module.
+		/// </summary>
 		public string WindowsEntryPointOverride = String.Empty;
 
-		/** True if we're building a EXE/DLL target with an import library, and that library is needed by a dependency that
-		    we're directly dependent on. */
+		/// <summary>
+		/// True if we're building a EXE/DLL target with an import library, and that library is needed by a dependency that
+		/// we're directly dependent on.
+		/// </summary>
 		public bool bIsCrossReferenced = false;
 
-		/** True if we should include dependent libraries when building a static library */
+		/// <summary>
+		/// True if we should include dependent libraries when building a static library
+		/// </summary>
 		public bool bIncludeDependentLibrariesInLibrary = false;
 
-		/** True if the application we're linking has any exports, and we should be expecting the linker to
-		    generate a .lib and/or .exp file along with the target output file */
+		/// <summary>
+		/// True if the application we're linking has any exports, and we should be expecting the linker to
+		/// generate a .lib and/or .exp file along with the target output file
+		/// </summary>
 		public bool bHasExports = true;
 
-		/** True if we're building a .NET assembly (e.g. C# project) */
+		/// <summary>
+		/// True if we're building a .NET assembly (e.g. C# project)
+		/// </summary>
 		public bool bIsBuildingDotNetAssembly = false;
 
-		/** Default constructor. */
+		/// <summary>
+		/// Default constructor.
+		/// </summary>
 		public LinkEnvironmentConfiguration()
 		{
 		}
 
-		/** Copy constructor. */
-		public LinkEnvironmentConfiguration(LinkEnvironmentConfiguration InCopyEnvironment):
+		/// <summary>
+		/// Copy constructor.
+		/// </summary>
+		public LinkEnvironmentConfiguration(LinkEnvironmentConfiguration InCopyEnvironment) :
 			base(InCopyEnvironment)
 		{
 			OutputDirectory = InCopyEnvironment.OutputDirectory;
 			IntermediateDirectory = InCopyEnvironment.IntermediateDirectory;
 			LocalShadowDirectory = InCopyEnvironment.LocalShadowDirectory;
-			OutputFilePaths = InCopyEnvironment.OutputFilePaths != null ? (string[])InCopyEnvironment.OutputFilePaths.Clone() : null;
+			OutputFilePaths = InCopyEnvironment.OutputFilePaths.ToList();
 			LibraryPaths.AddRange(InCopyEnvironment.LibraryPaths);
 			ExcludedLibraries.AddRange(InCopyEnvironment.ExcludedLibraries);
 			AdditionalLibraries.AddRange(InCopyEnvironment.AdditionalLibraries);
 			Frameworks.AddRange(InCopyEnvironment.Frameworks);
-			AdditionalShadowFiles.AddRange( InCopyEnvironment.AdditionalShadowFiles );
+			AdditionalShadowFiles.AddRange(InCopyEnvironment.AdditionalShadowFiles);
 			AdditionalFrameworks.AddRange(InCopyEnvironment.AdditionalFrameworks);
 			WeakFrameworks.AddRange(InCopyEnvironment.WeakFrameworks);
 			AdditionalBundleResources.AddRange(InCopyEnvironment.AdditionalBundleResources);
@@ -141,27 +194,41 @@ namespace UnrealBuildTool
 		}
 	}
 
-	/** Encapsulates the environment that is used to link object files. */
+	/// <summary>
+	/// Encapsulates the environment that is used to link object files.
+	/// </summary>
 	public class LinkEnvironment
 	{
-		/** Whether we're linking in monolithic mode. Determines if linking should produce import library file. Relevant only for VC++, clang stores imports in shared library. */
+		/// <summary>
+		/// Whether we're linking in monolithic mode. Determines if linking should produce import library file. Relevant only for VC++, clang stores imports in shared library.
+		/// </summary>
 		public bool bShouldCompileMonolithic = false;
 
-		/** A list of the object files to be linked. */
+		/// <summary>
+		/// A list of the object files to be linked.
+		/// </summary>
 		public List<FileItem> InputFiles = new List<FileItem>();
 
-		/** A list of dependent static or import libraries that need to be linked. */
+		/// <summary>
+		/// A list of dependent static or import libraries that need to be linked.
+		/// </summary>
 		public List<FileItem> InputLibraries = new List<FileItem>();
 
-		/** The LinkEnvironmentConfiguration. */
+		/// <summary>
+		/// The LinkEnvironmentConfiguration.
+		/// </summary>
 		public LinkEnvironmentConfiguration Config = new LinkEnvironmentConfiguration();
 
-		/** Default constructor. */
+		/// <summary>
+		/// Default constructor.
+		/// </summary>
 		public LinkEnvironment()
 		{
 		}
 
-		/** Copy constructor. */
+		/// <summary>
+		/// Copy constructor.
+		/// </summary>
 		protected LinkEnvironment(LinkEnvironment InCopyEnvironment)
 		{
 			InputFiles.AddRange(InCopyEnvironment.InputFiles);
@@ -170,17 +237,11 @@ namespace UnrealBuildTool
 			Config = new LinkEnvironmentConfiguration(InCopyEnvironment.Config);
 		}
 
-		/** Links the input files into an executable. */
-		public FileItem[] LinkExecutable( bool bBuildImportLibraryOnly )
-		{
-			return UEToolChain.GetPlatformToolChain(Config.Target.Platform).LinkAllFiles(this, bBuildImportLibraryOnly);
-		}
-
 		/// <summary>
 		/// Performs a deep copy of this LinkEnvironment object.
 		/// </summary>
 		/// <returns>Copied new LinkEnvironment object.</returns>
-		public virtual LinkEnvironment DeepCopy ()
+		public virtual LinkEnvironment DeepCopy()
 		{
 			return new LinkEnvironment(this);
 		}

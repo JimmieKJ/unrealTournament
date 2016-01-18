@@ -123,6 +123,9 @@ private:
 	/** The widget hierarchy slate treeview widget */
 	TSharedPtr< STreeView< TSharedPtr<FHierarchyModel> > > WidgetTreeView;
 
+	/** The search box used to update the filter text */
+	TSharedPtr<class SSearchBox> SearchBoxPtr;
+
 	/** The filter used by the search box */
 	TSharedPtr<WidgetTextFilter> SearchBoxWidgetFilter;
 

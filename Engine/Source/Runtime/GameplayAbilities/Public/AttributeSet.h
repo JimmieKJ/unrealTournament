@@ -67,7 +67,7 @@ struct GAMEPLAYABILITIES_API FGameplayAttribute
 private:
 	friend class FAttributePropertyDetails;
 
-	UPROPERTY(Category=GameplayAttribute, EditDefaultsOnly)
+	UPROPERTY(Category=GameplayAttribute, EditAnywhere)
 	UProperty*	Attribute;
 };
 
@@ -214,9 +214,23 @@ public:
 		return FString::Printf(TEXT("%.2f"), Value);
 	}
 
+	bool IsValid() const
+	{
+		// Error checking: checks if we have a curve table specified but no valid curve entry
+		GetValueAtLevel(1.f);
+		bool bInvalid = (Curve.CurveTable != nullptr || Curve.RowName != NAME_None ) && (FinalCurve == nullptr);
+		return !bInvalid;
+	}
+
 	/** Equality/Inequality operators */
 	bool operator==(const FScalableFloat& Other) const;
 	bool operator!=(const FScalableFloat& Other) const;
+
+	//copy operator to prevent duplicate handles
+	void operator=(const FScalableFloat& Src);
+
+	/* Used to upgrade a float property into an FScalableFloat */
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
 
 private:
 
@@ -237,6 +251,17 @@ private:
 	// Cached direct pointer to RichCurve we should evaluate
 	mutable FRichCurve* FinalCurve;
 };
+
+template<>
+struct TStructOpsTypeTraits<FScalableFloat>
+	: public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithSerializeFromMismatchedTag = true,
+	};
+};
+
 
 /**
  *	DataTable that allows us to define meta data about attributes. Still a work in progress.
@@ -318,7 +343,7 @@ struct GAMEPLAYABILITIES_API FAttributeSetInitter
 	void PreloadAttributeSetData(UCurveTable* CurveData);
 
 	void InitAttributeSetDefaults(UAbilitySystemComponent* AbilitySystemComponent, FName GroupName, int32 Level, bool bInitialInit) const;
-
+	void ApplyAttributeDefault(UAbilitySystemComponent* AbilitySystemComponent, FGameplayAttribute& InAttribute, FName GroupName, int32 Level) const;
 private:
 
 	struct FAttributeDefaultValueList

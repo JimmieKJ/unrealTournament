@@ -190,6 +190,8 @@ typedef TSharedRef<class ITargetDevice, ESPMode::ThreadSafe> ITargetDeviceRef;
 /** Type definition for weak pointers to instances of ITargetDevice. */
 typedef TWeakPtr<class ITargetDevice, ESPMode::ThreadSafe> ITargetDeviceWeakPtr;
 
+/** Type definition for shared pointers to instances of ITargetDeviceOutput. */
+typedef TSharedPtr<class ITargetDeviceOutput, ESPMode::ThreadSafe> ITargetDeviceOutputPtr;
 
 /**
  * Interface for target devices.
@@ -368,6 +370,24 @@ public:
 	 * @return true on success, false if not supported.
 	 */
 	virtual bool GetUserCredentials( FString& OutUserName, FString& OutUserPassword ) = 0;
+
+	/**
+	 * Execute console command on the device
+	 * 
+	 * @param ExecCommand Command to execute
+	 */
+	virtual void ExecuteConsoleCommand(const FString& ExecCommand) const {};
+
+	/**
+	 * Create device output router
+	 *
+	 * This will route device logs into specified OutputDevice 
+	 * until connection to device is alive
+	 *
+	 * @param Output OutputDevice to where output should be routed (has to be thread safe)
+	 * @return Valid router object for devices that support output routing
+	 */
+	virtual ITargetDeviceOutputPtr CreateDeviceOutputRouter(FOutputDevice* Output) const { return nullptr; };
 
 public:
 	

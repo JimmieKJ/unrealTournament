@@ -64,9 +64,9 @@ private:
 	/**
 	 * Opens a context menu with options for the selected gradient stop
 	 *
-	 * @param Location	The location in screen space where the menu should appear
+	 * @param MouseEvent	The mouse event that raised this handler (containing the location and widget path of the click)
 	 */
-	void OpenGradientStopContextMenu( FVector2D Location );
+	void OpenGradientStopContextMenu(const FPointerEvent& MouseEvent);
 
 	/**
 	 * Opens a color picker to change the color of the selected stop

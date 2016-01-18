@@ -289,7 +289,8 @@ void InternalTriangleMeshBuilder::createSharedEdgeData(bool buildAdjacencies, bo
 	if(buildAdjacencies)
 	{
 		mesh->mAdjacencies = PX_NEW(PxU32)[nTrigs*3];
-		memset(mesh->mAdjacencies, 0xFFFFffff, sizeof(PxU32)*nTrigs*3);		
+		memset(mesh->mAdjacencies, 0xFFFFffff, sizeof(PxU32)*nTrigs*3);	
+		mesh->mNumAdjacencies = nTrigs*3;
 
 		PxU32 NbEdges = edgeList->GetNbEdges();
 		const Gu::EdgeDescData* ED = edgeList->GetEdgeToTriangles();

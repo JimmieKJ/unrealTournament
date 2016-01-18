@@ -7,6 +7,7 @@ DEFINE_LOG_CATEGORY_STATIC( LogProjectManager, Log, All );
 #define LOCTEXT_NAMESPACE "ProjectManager"
 
 FProjectManager::FProjectManager()
+	: bIsCurrentProjectDirty(false)
 {
 }
 
@@ -97,7 +98,7 @@ bool FProjectManager::LoadModulesForProject( const ELoadingPhase::Type LoadingPh
 
 bool FProjectManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleModules)
 {
-	return !CurrentProject.IsValid() || FModuleDescriptor::CheckModuleCompatbility(CurrentProject->Modules, true, OutIncompatibleModules);
+	return !CurrentProject.IsValid() || FModuleDescriptor::CheckModuleCompatibility(CurrentProject->Modules, true, OutIncompatibleModules);
 }
 
 const FString& FProjectManager::GetAutoLoadProjectFileName()
@@ -321,11 +322,8 @@ bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled,
 		}
 	}
 
-	// Try to save the project file
-	if(!CurrentProject->Save(*FPaths::GetProjectFilePath(), OutFailReason))
-	{
-		return false;
-	}
+	// Mark project as dirty
+	bIsCurrentProjectDirty = true;
 
 	return true;
 }
@@ -345,6 +343,22 @@ void FProjectManager::GetDefaultEnabledPlugins(TArray<FString>& OutPluginNames, 
 		}
 	}
 }
+
+bool FProjectManager::IsCurrentProjectDirty() const
+{
+	return bIsCurrentProjectDirty;
+}
+
+bool FProjectManager::SaveCurrentProjectToDisk(FText& OutFailReason)
+{
+	if (CurrentProject->Save(FPaths::GetProjectFilePath(), OutFailReason))
+	{
+		bIsCurrentProjectDirty = false;
+		return true;
+	}
+	return false;
+}
+
 
 IProjectManager& IProjectManager::Get()
 {

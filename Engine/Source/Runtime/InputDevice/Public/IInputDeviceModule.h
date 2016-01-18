@@ -25,7 +25,7 @@ public:
 	}
 
 	/**
-	 * Singleton-like access to IMovieSceneCore
+	 * Singleton-like access to IInputDeviceModule
 	 *
 	 * @return Returns IInputDeviceModule singleton instance, loading the module on demand if needed
 	 */

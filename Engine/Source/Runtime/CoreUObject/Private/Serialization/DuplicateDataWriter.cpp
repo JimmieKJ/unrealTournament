@@ -17,12 +17,14 @@
  * @param	InInstanceGraph			the instancing graph to use when creating the duplicate objects.
  */
 FDuplicateDataWriter::FDuplicateDataWriter( FUObjectAnnotationSparse<FDuplicatedObject,false>& InDuplicatedObjects ,TArray<uint8>& InObjectData,UObject* SourceObject,
-										   UObject* DestObject,EObjectFlags InFlagMask, EObjectFlags InApplyFlags, FObjectInstancingGraph* InInstanceGraph, uint32 InPortFlags )
+	UObject* DestObject, EObjectFlags InFlagMask, EObjectFlags InApplyFlags, EInternalObjectFlags InInternalFlagMask, EInternalObjectFlags InApplyInternalFlags, FObjectInstancingGraph* InInstanceGraph, uint32 InPortFlags)
 : DuplicatedObjectAnnotation(InDuplicatedObjects)
 , ObjectData(InObjectData)
 , Offset(0)
 , FlagMask(InFlagMask)
 , ApplyFlags(InApplyFlags)
+, InternalFlagMask(InInternalFlagMask)
+, ApplyInternalFlags(InApplyInternalFlags)
 , InstanceGraph(InInstanceGraph)
 {
 	ArIsSaving			= true;
@@ -132,7 +134,9 @@ UObject* FDuplicateDataWriter::GetDuplicatedObject(UObject* Object, bool bCreate
 			if(DupOuter != NULL)
 			{
 				// The object's outer is being duplicated, create a duplicate of this object.
-				UObject* NewEmptyDuplicate = StaticConstructObject_Internal(Object->GetClass(), DupOuter, Object->GetFName(), ApplyFlags|Object->GetMaskedFlags(FlagMask),
+				UObject* NewEmptyDuplicate = StaticConstructObject_Internal(Object->GetClass(), DupOuter, Object->GetFName(), 
+					ApplyFlags | Object->GetMaskedFlags(FlagMask),
+					ApplyInternalFlags | (Object->GetInternalFlags() & InternalFlagMask),
 					Object->GetArchetype(), true, InstanceGraph);
 
 				Result = AddDuplicate(Object, NewEmptyDuplicate);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTPlayerCameraManager.generated.h"
@@ -33,6 +33,13 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 	/** Offset to Z free camera position */
 	UPROPERTY()
 	float EndGameFreeCamDistance;
+
+	UPROPERTY()
+		FVector DeathCamOffset;
+
+	/** Offset to Z death camera position */
+	UPROPERTY()
+		float DeathCamDistance;
 
 	/** Spectator cam auto prioritization. */
 	/** Bonus for currently viewed camera. */

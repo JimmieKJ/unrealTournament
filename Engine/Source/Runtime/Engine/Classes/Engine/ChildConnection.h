@@ -50,7 +50,7 @@ public:
 		Parent->AssertValid();
 	}
 
-	virtual void SendAck( int32 PacketId, bool FirstTime=1, bool bHavePingAckData=0, uint32 PingAckData=0 ) override
+	virtual void SendAck(int32 PacketId, bool FirstTime=1) override
 	{
 	}
 

@@ -30,7 +30,7 @@ public:
 	 *
 	 * @return	true if any bone to be replaced
 	 */
-	virtual bool GetBoneReductionData( const USkeletalMesh* SkeletalMesh, int32 DesiredLOD, TMap<FBoneIndexType, FBoneIndexType> &OutBonesToReplace ) = 0;
+	virtual bool GetBoneReductionData(const USkeletalMesh* SkeletalMesh, int32 DesiredLOD, TMap<FBoneIndexType, FBoneIndexType> &OutBonesToReplace, const TArray<FName>* BoneNamesToRemove = NULL) = 0;
 
 	/**
 	 * Reduce Bone Counts for the SkeletalMesh with the LOD
@@ -39,7 +39,7 @@ public:
 	 * @param	DesriedLOD	: The data to reduce comes from Skeleton 
 	 *
 	 */
-	virtual void ReduceBoneCounts( USkeletalMesh * SkeletalMesh, int32 DesiredLOD) = 0;
+	virtual bool ReduceBoneCounts(USkeletalMesh * SkeletalMesh, int32 DesiredLOD, const TArray<FName>* BoneNamesToRemove) = 0;
 };
 
 /**

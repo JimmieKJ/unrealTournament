@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTDemoRecSpectator.h"
 #include "UTDemoNetDriver.h"
@@ -46,6 +46,7 @@ void AUTDemoRecSpectator::ViewAPlayer(int32 dir)
 		ViewPlayerState(PS);
 	}
 }
+
 APlayerState* AUTDemoRecSpectator::GetNextViewablePlayer(int32 dir)
 {
 	int32 CurrentIndex = -1;
@@ -216,8 +217,10 @@ void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float Delt
 		TargetViewRotation = TargetPawn->GetActorRotation();
 		TargetViewRotation.Pitch = TargetPawn->RemoteViewPitch;
 		// Decompress remote view pitch from 1 byte
-		TargetViewRotation.Pitch *= 360.f / 255.f;
-		
+		float ClampedPitch = (TargetPawn->RemoteViewPitch * 360.f / 255.f);
+		ClampedPitch = ClampedPitch > 90.f ? ClampedPitch - 360.f : ClampedPitch;
+		TargetViewRotation.Pitch = FMath::Clamp<float>(ClampedPitch, -89.f, 89.f);
+
 		struct FBlendHelper
 		{
 			/** worker function for AUTDemoRecSpectator::SmoothTargetViewRotation() */
@@ -235,23 +238,15 @@ void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float Delt
 					}
 				}
 
-				if (FMath::Abs(BlendC - NewC) > 90.f)
-				{
-					BlendC = NewC;
-				}
-				else
-				{
-					BlendC = BlendC + (NewC - BlendC) * FMath::Min(1.f, 12.f * DeltaTime);
-				}
-
+				BlendC = (FMath::Abs(BlendC - NewC) > 90.f) ? NewC : BlendC + (NewC - BlendC) * FMath::Min(1.f, 12.f * DeltaTime );
 				return FRotator::ClampAxis(BlendC);
 			}
 		};
 
 		BlendedTargetViewRotation.Pitch = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Pitch, FRotator::ClampAxis(TargetViewRotation.Pitch));
-		BlendedTargetViewRotation.Yaw = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Yaw, FRotator::ClampAxis(TargetViewRotation.Yaw));
+		// yaw is already smoothed when pawn position is replicated  @TODO FIXMESTEVE - UT passes viewpitch as part of movement, so should be able to Lerp just like Yaw
+		BlendedTargetViewRotation.Yaw = FRotator::ClampAxis(TargetViewRotation.Yaw);
 		BlendedTargetViewRotation.Roll = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Roll, FRotator::ClampAxis(TargetViewRotation.Roll));
-
 		return;
 	}
 

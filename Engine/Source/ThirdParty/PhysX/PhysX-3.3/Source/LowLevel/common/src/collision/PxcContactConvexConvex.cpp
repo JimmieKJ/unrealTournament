@@ -20,7 +20,9 @@
 #include "PxcNpCache.h"
 #include "GuContactBuffer.h"
 
-static const bool gEnableOptims = true;
+// csigg: the single reference of gEnableOptims (below) has been
+// replaced with the actual value to prevent ios64 compiler crash.
+// static const int gEnableOptims = 1;
 #define CONVEX_CONVEX_ROUGH_FIRST_PASS
 #define TEST_INTERNAL_OBJECTS
 #ifdef TEST_INTERNAL_OBJECTS
@@ -1165,8 +1167,8 @@ static bool PxcContactHullHull(	const PolygonalData& polyData0, const PolygonalD
 	// 2) stability. The "skipIt" optimization relies on the rough pass being present to catch the cases where it fails. If you disable the rough pass
 	// "skipIt" can skip the whole work, contacts get lost, and we never "try again" ==> explosions
 //	bool TryRoughPass = (contactDistance == 0.0f);	//Rough first pass doesn't work with dist based for some reason.
-	bool TryRoughPass = gEnableOptims;
-TryAgain:
+    for(int TryRoughPass = 1 /*gEnableOptims*/; 0 <= TryRoughPass; --TryRoughPass)
+    {
 #endif
 
 	{
@@ -1352,11 +1354,7 @@ code = SA_EE;
 	}
 
 #ifdef CONVEX_CONVEX_ROUGH_FIRST_PASS
-	if(TryRoughPass)
-	{
-		TryRoughPass = false;
-		goto TryAgain;
-	}
+    }
 #endif
 	return false;
 }

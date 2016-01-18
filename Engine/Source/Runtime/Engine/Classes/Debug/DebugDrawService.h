@@ -20,8 +20,6 @@ class ENGINE_API UDebugDrawService : public UBlueprintFunctionLibrary
 	//void Register
 
 	static FDelegateHandle Register(const TCHAR* Name, const FDebugDrawDelegate& NewDelegate);
-	DELEGATE_DEPRECATED("This overload of Unregister is deprecated, instead pass the result of Register.")
-	static void Unregister(const FDebugDrawDelegate& DelegateToRemove);
 	static void Unregister(FDelegateHandle HandleToRemove);
 	static void Draw(const FEngineShowFlags Flags, class UCanvas* Canvas);
 	static void Draw(const FEngineShowFlags Flags, class FViewport* Viewport, FSceneView* View, FCanvas* Canvas);

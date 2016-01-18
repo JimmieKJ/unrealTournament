@@ -8,21 +8,19 @@
 #include "Font.generated.h"
 
 
-/**
- * Enumerates supported font caching types.
- */
+/** Enumerates supported font caching types. */
 UENUM()
 enum class EFontCacheType
 {
-	/** The font is using offline caching (this is how UFont traditionally worked) */
+	/** The font is using offline caching (this is how UFont traditionally worked). */
 	Offline,
 
-	/** The font is using runtime caching (this is how Slate fonts work) */
+	/** The font is using runtime caching (this is how Slate fonts work). */
 	Runtime,
 };
 
 
-/** this struct is serialized using native serialization so any changes to it require a package version bump */
+/** This struct is serialized using native serialization so any changes to it require a package version bump. */
 USTRUCT()
 struct FFontCharacter
 {
@@ -91,8 +89,8 @@ struct TStructOpsTypeTraits<FFontCharacter> : public TStructOpsTypeTraitsBase
  * A font object, for use by Slate, UMG, and Canvas.
  *
  * A font can either be:
- *   ● Runtime cached - The font contains a series of TTF files that combine to form a composite font. The glyphs are cached on demand when required at runtime.
- *   ● Offline cached - The font contains a series of textures containing pre-baked cached glyphs and their associated texture coordinates.
+ *   * Runtime cached - The font contains a series of TTF files that combine to form a composite font. The glyphs are cached on demand when required at runtime.
+ *   * Offline cached - The font contains a series of textures containing pre-baked cached glyphs and their associated texture coordinates.
  */
 UCLASS(hidecategories=Object, autoexpandcategories=Font, MinimalAPI, BlueprintType)
 class UFont : public UObject, public IFontProviderInterface
@@ -198,7 +196,7 @@ public:
 	 */
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 
-	// UFont interface
+	//~ Begin UFont Interface
 	ENGINE_API TCHAR RemapChar(TCHAR CharCode) const;
 
 	/**
@@ -247,14 +245,19 @@ public:
 	 */
 	ENGINE_API int32 GetStringHeightSize( const TCHAR *Text ) const;
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void PostLoad() override;
 	virtual bool IsLocalizedResource() override;
 #if WITH_EDITORONLY_DATA
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
-	// End UObject interface
+	virtual bool NeedsLoadForServer() const override
+	{
+		// PLK - I don't like having to turn this back on, but in order for client run dedicated servers to work, I need this right now
+		return true;
+	}
+	//~ End UObject interface
 
 	/**
 	 * Caches the character count and maximum character height for this font (as well as sub-fonts, in the multi-font case)

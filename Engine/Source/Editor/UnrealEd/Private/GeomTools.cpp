@@ -263,24 +263,24 @@ static float EdgeMatchTolerance = 0.01f;
 /** Util to look for best next edge start from Start. Returns false if no good next edge found. Edge is removed from InEdgeSet when found. */
 static bool FindNextEdge(FUtilEdge2D& OutNextEdge, const FVector2D& Start, TArray<FUtilEdge2D>& InEdgeSet)
 {
-	float ClosestDist = BIG_NUMBER;
+	float ClosestDistSqr = BIG_NUMBER;
 	FUtilEdge2D OutEdge;
 	int32 OutEdgeIndex = INDEX_NONE;
 	// Search set of edges for one that starts closest to Start
 	for(int32 i=0; i<InEdgeSet.Num(); i++)
 	{
-		float Dist = (InEdgeSet[i].V0 - Start).Size();
-		if(Dist < ClosestDist)
+		float DistSqr = (InEdgeSet[i].V0 - Start).SizeSquared();
+		if(DistSqr < ClosestDistSqr)
 		{
-			ClosestDist = Dist;
+			ClosestDistSqr = DistSqr;
 			OutNextEdge = InEdgeSet[i];
 			OutEdgeIndex = i;
 		}
 
-		Dist = (InEdgeSet[i].V1 - Start).Size();
-		if(Dist < ClosestDist)
+		DistSqr = (InEdgeSet[i].V1 - Start).SizeSquared();
+		if(DistSqr < ClosestDistSqr)
 		{
-			ClosestDist = Dist;
+			ClosestDistSqr = DistSqr;
 			OutNextEdge = InEdgeSet[i];
 			Swap(OutNextEdge.V0, OutNextEdge.V1);
 			OutEdgeIndex = i;
@@ -288,17 +288,15 @@ static bool FindNextEdge(FUtilEdge2D& OutNextEdge, const FVector2D& Start, TArra
 	}
 
 	// If next edge starts close enough return it
-	if(ClosestDist < EdgeMatchTolerance)
+	if(ClosestDistSqr < FMath::Square(EdgeMatchTolerance))
 	{
 		check(OutEdgeIndex != INDEX_NONE);
 		InEdgeSet.RemoveAt(OutEdgeIndex);
 		return true;
 	}
+
 	// No next edge found.
-	else
-	{
-		return false;
-	}
+	return false;
 }
 
 /** 
@@ -315,14 +313,14 @@ static void FixPolyWinding(FUtilPoly2D& Poly)
 		int32 BIndex = i;
 		int32 CIndex = (i+1)%Poly.Verts.Num();
 
-		float ABDist = (Poly.Verts[BIndex].Pos - Poly.Verts[AIndex].Pos).Size();
+		float ABDistSqr = (Poly.Verts[BIndex].Pos - Poly.Verts[AIndex].Pos).SizeSquared();
 		FVector2D ABEdge = (Poly.Verts[BIndex].Pos - Poly.Verts[AIndex].Pos).GetSafeNormal();
 
-		float BCDist = (Poly.Verts[CIndex].Pos - Poly.Verts[BIndex].Pos).Size();
+		float BCDistSqr = (Poly.Verts[CIndex].Pos - Poly.Verts[BIndex].Pos).SizeSquared();
 		FVector2D BCEdge = (Poly.Verts[CIndex].Pos - Poly.Verts[BIndex].Pos).GetSafeNormal();
 
 		// See if points are co-incident or edges are co-linear - if so, remove.
-		if(ABDist < 0.01f || BCDist < 0.01f || ABEdge.Equals(BCEdge, 0.01f))
+		if(ABDistSqr < 0.0001f || BCDistSqr < 0.0001f || ABEdge.Equals(BCEdge, 0.01f))
 		{
 			Poly.Verts.RemoveAt(i);
 		}
@@ -373,8 +371,8 @@ void Buid2DPolysFromEdges(TArray<FUtilPoly2D>& OutPolys, const TArray<FUtilEdge2
 		}
 
 		// After walking edges see if we have a closed polygon.
-		float CloseDist = (NewPoly.Verts[0].Pos - NewPoly.Verts[ NewPoly.Verts.Num()-1 ].Pos).Size();
-		if(NewPoly.Verts.Num() >= 4 && CloseDist < EdgeMatchTolerance)
+		float CloseDistSqr = (NewPoly.Verts[0].Pos - NewPoly.Verts[ NewPoly.Verts.Num()-1 ].Pos).SizeSquared();
+		if(NewPoly.Verts.Num() >= 4 && CloseDistSqr < FMath::Square(EdgeMatchTolerance))
 		{
 			// Remove last vert - its basically a duplicate of the first.
 			NewPoly.Verts.RemoveAt( NewPoly.Verts.Num()-1 );

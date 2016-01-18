@@ -13,7 +13,7 @@
 #include "MallocDebug.h"
 #include "MallocProfiler.h"
 #include "MallocThreadSafeProxy.h"
-#include "MallocCrash.h"
+#include "PlatformMallocCrash.h"
 
 
 /** Helper function called on first allocation to create and initialize GMalloc */
@@ -21,7 +21,7 @@ void GCreateMalloc()
 {
 	GMalloc = FPlatformMemory::BaseAllocator();
 	// Setup malloc crash as soon as possible.
-	FMallocCrash::Get( GMalloc );
+	FPlatformMallocCrash::Get( GMalloc );
 
 // so now check to see if we are using a Mem Profiler which wraps the GMalloc
 #if USE_MALLOC_PROFILER
@@ -40,6 +40,46 @@ void GCreateMalloc()
 		GMalloc = new FMallocThreadSafeProxy( GMalloc );
 	}
 }
+#if STATS
+	#define MALLOC_GT_HOOKS 1
+#else
+	#define MALLOC_GT_HOOKS 0
+#endif
+
+#if MALLOC_GT_HOOKS
+
+// This code is used to find memory allocations, you set up the lambda in the section of the code you are interested in and add a breakpoint to your lambda to see who is allocating memory
+
+//An example:
+//static TFunction<void(int32)> AnimHook(
+//	[](int32 Index)
+//{
+//	TickAnimationMallocStats[Index]++;
+//	if (++AllCount % 337 == 0)
+//	{
+//		BreakMe();
+//	}
+//}
+//);
+//extern CORE_API TFunction<void(int32)>* GGameThreadMallocHook;
+//TGuardValue<TFunction<void(int32)>*> RestoreHook(GGameThreadMallocHook, &AnimHook);
+
+
+CORE_API TFunction<void(int32)>* GGameThreadMallocHook = nullptr;
+
+FORCEINLINE static void DoGamethreadHook(int32 Index)
+{
+	if (GIsRunning && GGameThreadMallocHook // otherwise our hook might not be initialized yet
+		&& IsInGameThread() ) 
+	{
+		(*GGameThreadMallocHook)(Index);
+	}
+}
+#else
+FORCEINLINE static void DoGamethreadHook(int32 Index)
+{
+}
+#endif
 
 void* FMemory::Malloc( SIZE_T Count, uint32 Alignment ) 
 { 
@@ -48,6 +88,7 @@ void* FMemory::Malloc( SIZE_T Count, uint32 Alignment )
 		GCreateMalloc();
 		CA_ASSUME( GMalloc != NULL );	// Don't want to assert, but suppress static analysis warnings about potentially NULL GMalloc
 	}
+	DoGamethreadHook(0);
 	return GMalloc->Malloc( Count, Alignment );
 }
 
@@ -58,6 +99,7 @@ void* FMemory::Realloc( void* Original, SIZE_T Count, uint32 Alignment )
 		GCreateMalloc();	
 		CA_ASSUME( GMalloc != NULL );	// Don't want to assert, but suppress static analysis warnings about potentially NULL GMalloc
 	}
+	DoGamethreadHook(1);
 	return GMalloc->Realloc( Original, Count, Alignment );
 }	
 
@@ -68,6 +110,7 @@ void FMemory::Free( void* Original )
 		GCreateMalloc();
 		CA_ASSUME( GMalloc != NULL );	// Don't want to assert, but suppress static analysis warnings about potentially NULL GMalloc
 	}
+	DoGamethreadHook(2);
 	return GMalloc->Free( Original );
 }
 

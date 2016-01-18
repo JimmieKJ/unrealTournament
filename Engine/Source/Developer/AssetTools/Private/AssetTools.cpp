@@ -34,6 +34,8 @@ FAssetTools::FAssetTools()
 	AllocatedCategoryBits.Add(TEXT("_BuiltIn_6"), FAdvancedAssetCategory(EAssetTypeCategories::Misc, LOCTEXT("MiscellaneousAssetCategory", "Miscellaneous")));
 	AllocatedCategoryBits.Add(TEXT("_BuiltIn_7"), FAdvancedAssetCategory(EAssetTypeCategories::Gameplay, LOCTEXT("GameplayAssetCategory", "Gameplay")));
 
+	EAssetTypeCategories::Type BlendablesCategoryBit = RegisterAdvancedAssetCategory(FName(TEXT("Blendables")), LOCTEXT("BlendablesAssetCategory", "Blendables"));
+
 	// Register the built-in asset type actions
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_AnimationAsset) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_AnimBlueprint) );
@@ -66,9 +68,9 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_InterpData) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_LandscapeLayer) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_LandscapeGrassType));
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Material));
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Material(BlendablesCategoryBit)));
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialFunction) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialInstanceConstant) );
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialInstanceConstant(BlendablesCategoryBit)) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialInterface) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialParameterCollection) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MorphTarget) );
@@ -85,6 +87,7 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SlateBrush) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SlateWidgetStyle) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundAttenuation) );
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundConcurrency));
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundBase) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundClass) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundCue) );
@@ -690,6 +693,11 @@ TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const F
 		}
 	}
 
+	// We need to sort the factories so that they get tested in priority order
+	for (auto& ExtensionToFactories : ExtensionToFactoriesMap)
+	{
+		ExtensionToFactories.Value.Sort(&UFactory::SortFactoriesByPriority);
+	}
 
 	// Some flags to keep track of what the user decided when asked about overwriting or replacing
 	bool bOverwriteAll = false;
@@ -788,6 +796,12 @@ TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const F
 				// If the existing object is one of the imports we've just created we can't replace or overwrite it
 				if (ReturnObjects.Contains(ExistingObject))
 				{
+					if( ImportAssetType == nullptr )
+					{
+						// The factory probably supports multiple types and cant be determined yet without asking the user or actually loading it
+						// We just need to generate an unused name so object should do fine.
+						ImportAssetType = UObject::StaticClass();
+					}
 					// generate a unique name for this import
 					Name = MakeUniqueObjectName(Pkg, ImportAssetType, *Name).ToString();
 				}

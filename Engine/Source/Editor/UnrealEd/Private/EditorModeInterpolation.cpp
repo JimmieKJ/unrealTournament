@@ -102,7 +102,7 @@ void FEdModeInterpEdit::CamMoveNotify(FEditorViewportClient* ViewportClient)
 	if(!InterpEd)
 		return;
 
-	if( ViewportClient->AllowMatineePreview() )
+	if( ViewportClient->AllowsCinematicPreview() )
 	{
 		InterpEd->CamMoved( ViewportClient->GetViewLocation(), ViewportClient->GetViewRotation() );
 	}
@@ -185,6 +185,7 @@ void FEdModeInterpEdit::ActorSelectionChangeNotify()
 bool FEdModeInterpEdit::IsCompatibleWith(FEditorModeID OtherModeID) const
 {
 	return
+		OtherModeID == FBuiltinEditorModes::EM_Placement	||
 		OtherModeID == FBuiltinEditorModes::EM_MeshPaint	||
 		OtherModeID == FBuiltinEditorModes::EM_Geometry		||
 		OtherModeID == FBuiltinEditorModes::EM_Bsp;

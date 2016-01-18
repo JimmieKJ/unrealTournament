@@ -207,28 +207,14 @@ void UK2Node_DoOnceMultiInput::AddPinsInner(int32 AdditionalPinIndex)
 	{
 		const FEdGraphPinType InputType = GetInType();
 		FText InputPinName = GetNameForPin(AdditionalPinIndex, true);
-		UEdGraphPin* InputPin = CreatePin(EGPD_Input, 
-			InputType.PinCategory, 
-			InputType.PinSubCategory, 
-			InputType.PinSubCategoryObject.Get(), 
-			InputType.bIsArray, 
-			InputType.bIsReference, 
-			InputPinName.BuildSourceString()
-		);
+		UEdGraphPin* InputPin = CreatePin(EGPD_Input, InputType, InputPinName.BuildSourceString());
 		InputPin->PinFriendlyName = InputPinName;
 	}
 
 	{
 		const FEdGraphPinType OutputType = GetOutType();
 		FText OutputPinName = GetNameForPin(AdditionalPinIndex, false);
-		UEdGraphPin* OutputPin = CreatePin(EGPD_Output,
-			OutputType.PinCategory,
-			OutputType.PinSubCategory,
-			OutputType.PinSubCategoryObject.Get(),
-			OutputType.bIsArray,
-			OutputType.bIsReference,
-			OutputPinName.BuildSourceString()
-		);
+		UEdGraphPin* OutputPin = CreatePin(EGPD_Output, OutputType, OutputPinName.BuildSourceString());
 		OutputPin->PinFriendlyName = OutputPinName;
 	}
 }

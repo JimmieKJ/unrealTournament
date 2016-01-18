@@ -52,12 +52,17 @@ extern CORE_API bool GIsReconstructingBlueprintInstances;
 /** Force blueprints to not compile on load */
 extern CORE_API bool GForceDisableBlueprintCompileOnLoad;
 
+/** True if actors and objects are being re-instanced. */
+extern CORE_API bool GIsReinstancing;
 
 /** Helper function to flush resource streaming. */
 extern CORE_API void(*GFlushStreamingFunc)(void);
 
 #if WITH_ENGINE
 extern CORE_API bool PRIVATE_GIsRunningCommandlet;
+
+/** If true, initialize RHI and set up scene for rendering even when running a commandlet. */
+extern CORE_API bool PRIVATE_GAllowCommandletRendering;
 #endif
 
 #if WITH_EDITORONLY_DATA
@@ -95,6 +100,18 @@ FORCEINLINE bool IsRunningCommandlet()
 {
 #if WITH_ENGINE
 	return PRIVATE_GIsRunningCommandlet;
+#else
+	return false;
+#endif
+}
+
+/**
+ * Check to see if we should initialise RHI and set up scene for rendering even when running a commandlet.
+ */
+FORCEINLINE bool IsAllowCommandletRendering()
+{
+#if WITH_ENGINE
+	return PRIVATE_GAllowCommandletRendering;
 #else
 	return false;
 #endif
@@ -215,20 +232,28 @@ extern CORE_API bool GIsRetrievingVTablePtr;
 /** Steadily increasing frame counter. */
 extern CORE_API uint64 GFrameCounter;
 
+/** GFrameCounter the last time GC was run. */
+extern CORE_API uint64 GLastGCFrame;
+
 /** Incremented once per frame before the scene is being rendered. In split screen mode this is incremented once for all views (not for each view). */
 extern CORE_API uint32 GFrameNumber;
 
-/** Render Thread copy of the frame number. */
+/** NEED TO RENAME, for RT version of GFrameTime use View.ViewFamily->FrameNumber or pass down from RT from GFrameTime). */
 extern CORE_API uint32 GFrameNumberRenderThread;
 
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
 // We cannot count on this variable to be accurate in a shipped game, so make sure no code tries to use it
 /** Whether we are the first instance of the game running. */
+#if PLATFORM_LINUX
+#define GIsFirstInstance FPlatformProcess::IsFirstInstance()
+#else
 extern CORE_API bool GIsFirstInstance;
 #endif
 
-/** Threshold for a frame to be considered a hitch (in seconds. */
-extern CORE_API float GHitchThreshold;
+#endif
+
+/** Threshold for a frame to be considered a hitch (in milliseconds). */
+extern CORE_API float GHitchThresholdMS;
 
 /** Size to break up data into when saving compressed data */
 extern CORE_API int32 GSavingCompressionChunkSize;
@@ -287,13 +312,14 @@ extern CORE_API bool GPumpingMessagesOutsideOfMainLoop;
 /** Total blueprint compile time. */
 extern CORE_API double GBlueprintCompileTime;
 
-/** Stack names from the VM to be unrolled when we assert */
-extern CORE_API TArray<FScriptTraceStackNode> GScriptStack;
-
 #if WITH_HOT_RELOAD_CTORS
 /**
- * Ensures that current thread is during retrieval of vtable ptr
- * of some UClass.
+ * Ensures that current thread is during retrieval of vtable ptr of some
+ * UClass.
+ *
+ * @param CtorSignature The signature of the ctor currently running to
+ *		construct proper error message.
  */
-CORE_API void EnsureRetrievingVTablePtr();
+CORE_API void EnsureRetrievingVTablePtrDuringCtor(const TCHAR* CtorSignature);
 #endif // WITH_HOT_RELOAD_CTORS
+

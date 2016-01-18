@@ -6,13 +6,14 @@
 #include "HeaderProvider.h"
 #include "UnrealTypeDefinitionInfo.h"
 #include "GeneratedCodeVersion.h"
+#include "SimplifiedParsingClassInfo.h"
 
 class FClassMetaData;
 
 /**
  * Contains information about source file that defines various UHT aware types.
  */
-class FUnrealSourceFile
+class FUnrealSourceFile : public TSharedFromThis<FUnrealSourceFile>
 {
 public:
 	// Constructor.
@@ -38,9 +39,9 @@ public:
 	 */
 	void AppendDefinedClasses(TArray<UClass*>& OutClasses) const
 	{
-		for (auto* Class : DefinedClasses)
+		for (const auto& KeyValuePair : DefinedClasses)
 		{
-			OutClasses.Add(Class);
+			OutClasses.Add(KeyValuePair.Key);
 		}
 	}
 
@@ -49,7 +50,31 @@ public:
 	 *
 	 * @returns Array with classes defined in this source file.
 	 */
-	const TArray<UClass*>& GetDefinedClasses() const
+	TArray<UClass*> GetDefinedClasses() const
+	{
+		TArray<UClass*> Array;
+
+		AppendDefinedClasses(Array);
+
+		return Array;
+	}
+
+	/**
+	 * Gets parsing info for class defined in this source file.
+	 *
+	 * @returns Parsing info for class defined in this source file.
+	 */
+	const FSimplifiedParsingClassInfo& GetDefinedClassParsingInfo(UClass* DefinedClass) const
+	{
+		return GetDefinedClassesWithParsingInfo()[DefinedClass];
+	}
+
+	/**
+	 * Gets map with classes defined in this source file with parsing info.
+	 *
+	 * @returns Map with classes defined in this source file with parsing info.
+	 */
+	const TMap<UClass*, FSimplifiedParsingClassInfo>& GetDefinedClassesWithParsingInfo() const
 	{
 		return DefinedClasses;
 	}
@@ -126,8 +151,9 @@ public:
 	 * Adds given class to class definition list for this source file.
 	 *
 	 * @param Class Class to add to list.
+	 * @param ParsingInfo Data from simplified parsing step.
 	 */
-	void AddDefinedClass(UClass* Class);
+	void AddDefinedClass(UClass* Class, FSimplifiedParsingClassInfo ParsingInfo);
 
 	/**
 	 * Gets scope for this file.
@@ -255,8 +281,11 @@ public:
 	 * Checks if dependencies has been resolved.
 	 */
 	bool AreDependenciesResolved() const;
-
+	friend FArchive& operator<<(FArchive& Ar, FUnrealSourceFile& UHTMakefile);
+	void SetScope(FFileScope* Scope);
+	void SetScope(TSharedRef<FFileScope> Scope);
 private:
+
 	// File scope.
 	TSharedRef<FFileScope> Scope;
 
@@ -290,8 +319,8 @@ private:
 	// This source file includes.
 	TArray<FHeaderProvider> Includes;
 
-	// List of classes defined in this source file.
-	TArray<UClass*> DefinedClasses;
+	// List of classes defined in this source file along with parsing info.
+	TMap<UClass*, FSimplifiedParsingClassInfo> DefinedClasses;
 
 	// Mapping of UStructs to versions, according to which their code should be generated.
 	TMap<UStruct*, EGeneratedCodeVersion> GeneratedCodeVersions;

@@ -36,7 +36,8 @@ namespace EBoneFilter
 	{
 		All,
 		Mesh,
-		Weighted,
+		LOD, 
+		Weighted, /** only showing weighted bones of current LOD */
 		None,
 		Count
 	};
@@ -57,6 +58,8 @@ namespace ESocketFilter
 }
 
 struct FDisplayedTreeRowInfo;
+class SBlendProfilePicker;
+
 typedef STreeView< TSharedPtr<FDisplayedTreeRowInfo> > SMeshSkeletonTreeRowType;
 typedef TSharedPtr< FDisplayedTreeRowInfo > FDisplayedTreeRowInfoPtr;
 
@@ -82,7 +85,7 @@ public:
 	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected ) = 0;
 
 	/** Builds the slate widget for the data column */
-	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn() = 0;
+	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn(const FName& DataColumnName) = 0;
 
 	/** Get the name of the item that this row represents */
 	virtual FName GetRowItemName() const PURE_VIRTUAL(FDisplayedTreeRowInfo::GetRowItemName, return FName(););
@@ -143,7 +146,7 @@ public:
 	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected ) override;
 
 	/** Builds the slate widget for the data column */
-	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn() override;
+	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn(const FName& DataColumnName) override;
 
 	/** Handle dragging a bone */
 	FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
@@ -154,7 +157,13 @@ public:
 	/** Set Translation Retargeting Mode for this bone. */
 	void SetBoneTranslationRetargetingMode(EBoneTranslationRetargetingMode::Type NewRetargetingMode);
 
+	/** Set current Blend Scale for this bone */
+	void SetBoneBlendProfileScale(float NewScale, bool bRecurse);
+
 	virtual ~FDisplayedMeshBoneInfo() {}
+
+	/** Cache to use Bold Font or not */
+	void CacheLODChange(UDebugSkelMeshComponent* PreviewComponent);
 
 protected:
 	/** Hidden constructor, always use Make above */
@@ -167,10 +176,13 @@ protected:
 
 private:
 	/** Gets the font for displaying bone text in the skeletal tree */
-	FSlateFontInfo GetBoneTextFont( UDebugSkelMeshComponent* PreviewComponent ) const;
+	FSlateFontInfo GetBoneTextFont() const;
 
 	/** Get the text color based on bone part of skeleton or part of mesh */
-	FLinearColor GetBoneTextColor( UDebugSkelMeshComponent* PreviewComponent ) const;
+	FSlateColor GetBoneTextColor() const;
+
+	/** visibility of the icon */
+	EVisibility GetLODIconVisibility() const;
 
 	/** Function that returns the current tooltip for this bone, depending on how it's used by the mesh */
 	FText GetBoneToolTip();
@@ -178,11 +190,21 @@ private:
 	/** The actual bone data that we create Slate widgets to display */
 	FName BoneName;
 
+	/** use bold font */
+	bool bUseBoldFont;
+	bool bUseWhiteColor;
+
 	/** Create menu for Bone Translation Retargeting Mode. */
 	TSharedRef< SWidget > CreateBoneTranslationRetargetingModeMenu();
 
 	/** Get Title for Bone Translation Retargeting Mode menu. */
 	FText GetTranslationRetargetingModeMenuTitle() const;
+
+	/** Callback from a slider widget when the user drops the slider */
+	void OnBlendSliderEnd(float NewValue);
+
+	/** Callback from a slider widget if the text entry is used */
+	void OnBlendSliderCommitted(float NewValue, ETextCommit::Type CommitType);
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -222,7 +244,7 @@ public:
 	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected ) override;
 
 	/** Builds the slate widget for the data column */
-	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn() override;
+	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn(const FName& DataColumnName) override;
 
 	ESocketParentType::Type GetParentType() const { return ParentType; }
 
@@ -319,7 +341,7 @@ public:
 	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected ) override;
 
 	/** Builds the slate widget for the data column */
-	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn() override;
+	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn(const FName& DataColumnName) override;
 
 	/** Return the name of the asset */
 	virtual FName GetRowItemName() const override {return FName( *Asset->GetName() ) ;}
@@ -401,6 +423,7 @@ public:
 
 	/** Returns true if a bone has vertices weighted against it */
 	bool IsBoneWeighted( int32 MeshBoneIndex, UDebugSkelMeshComponent* PreviewComponent ) const;
+	bool IsBoneRequired(int32 MeshBoneIndex, UDebugSkelMeshComponent* PreviewComponent) const;
 
 	/** Called when the preview mesh is changed - simply rebuilds the skeleton tree for the new mesh */
 	void OnPreviewMeshChanged(class USkeletalMesh* NewPreviewMesh);
@@ -420,10 +443,24 @@ public:
 	/** Set Bone Translation Retargeting Mode for bone selection, and their children. */
 	void SetBoneTranslationRetargetingModeRecursive(EBoneTranslationRetargetingMode::Type NewRetargetingMode);
 
+	/** Sets a scale on the current blend profile */
+	void SetBlendProfileBoneScale(int32 InBoneIndex, float InNewScale, bool bRecurse);
+
+	/** Gets a scale from the currently selected blend profile */
+	float GetBlendProfileBoneScale(int32 InBoneIndex);
+
 	/** Remove the selected bones from LOD of LODIndex when using simplygon **/
-	void RemoveFromLOD(int32 LODIndex);
-	/** Add the selected bones to LOD of LODIndex when using simplygon **/
-	void AddToLOD(int32 LODIndex);
+	void RemoveFromLOD(int32 LODIndex, bool bIncludeSelected, bool bIncludeBelowLODs);
+
+	/** Called when the preview mesh is changed - simply rebuilds the skeleton tree for the new mesh */
+	void OnLODSwitched();
+
+	/** Gets the currently selected blend profile */
+	UBlendProfile* GetSelectedBlendProfile();
+
+	/** Used by Skeleton Tree View */
+	FSlateFontInfo BoldFont;
+	FSlateFontInfo RegularFont;
 
 private:
 	/** Binds the commands in FSkeletonTreeCommands to functions in this class */
@@ -561,6 +598,18 @@ private:
 	/** Deletes a set of attached objects from a FPreviewAssetAttachContainer and notifies Persona*/
 	void DeleteAttachedObjects( FPreviewAssetAttachContainer& AttachedAssets );
 
+	/** Called when the user selects a blend profile to edit from the blend profile panel*/
+	void OnBlendProfileSelectedExternal(UBlendProfile* NewProfile);
+
+	/** Called when the user selects a blend profile to edit */
+	void OnBlendProfileSelected(UBlendProfile* NewProfile);
+
+	/** Sets the blend scale for the selected bones and all of their children */
+	void RecursiveSetBlendProfileScales(float InScaleToSet);
+
+	/** Submenu creator handler for the given skeleton */
+	static void CreateMenuForBoneReduction(FMenuBuilder& MenuBuilder, SSkeletonTree * Widget, int32 LODIndex, bool bIncludeSelected);
+
 private:
 	/** Pointer back to the kismet 2 tool that owns us */
 	TWeakPtr<FPersona> PersonaPtr;
@@ -569,6 +618,12 @@ private:
 	TSharedPtr<SSearchBox>	NameFilterBox;
 
 	USkeleton* TargetSkeleton;
+
+	/** Currently selected blend profile */
+	UBlendProfile* SelectedBlendProfile;
+
+	/** The blend profile picker displaying the selected profile */
+	TSharedPtr<SBlendProfilePicker> BlendProfilePicker;
 
 	/** Widget user to hold the skeleton tree */
 	TSharedPtr<SOverlay> TreeHolder;
@@ -604,4 +659,7 @@ private:
 
 	/** String used as a header for text based copy-paste of sockets */
 	static const FString SocketCopyPasteHeader;
+
+	/** Last Cached Preview Mesh Component LOD */
+	int32 LastCachedLODForPreviewMeshComponent;
 }; 

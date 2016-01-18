@@ -127,7 +127,9 @@ void UTexAligner::Align( UWorld* InWorld, ETexAlign InTexAlignType, UModel* InMo
 
 		AlignSurf( InTexAlignType == TEXALIGN_None ? (ETexAlign)DefTexAlign : InTexAlignType, InModel, Surf, &EdPoly, &Normal );
 
-		GEditor->polyUpdateMaster( InModel, Surf->Idx, 1 );
+		const bool bUpdateTexCoords = true;
+		const bool bOnlyRefreshSurfaceMaterials = true;
+		GEditor->polyUpdateMaster(InModel, Surf->Idx, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 	}
 
 	GEditor->RedrawLevelEditingViewports();
@@ -220,7 +222,7 @@ void UTexAlignerDefault::AlignSurf( ETexAlign InTexAlignType, UModel* InModel, F
 	InPoly->TextureV *= VTile;
 
 	ABrush* Actor = InSurfIdx->Surf->Actor;
-	const FVector PrePivot = Actor->GetPrePivot();
+	const FVector PrePivot = Actor->GetPivotOffset();
 	const FVector Location = Actor->GetActorLocation();
 	const FRotator Rotation = Actor->GetActorRotation();
 	const FVector Scale = Actor->GetActorScale();
@@ -452,11 +454,14 @@ void FTexAlignTools::Init()
 {
 	// Create the list of aligners.
 	Aligners.Empty();
-	Aligners.Add(NewObject<UTexAlignerDefault>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
-	Aligners.Add(NewObject<UTexAlignerPlanar>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
-	Aligners.Add(NewObject<UTexAlignerBox>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
-	Aligners.Add(NewObject<UTexAlignerFit>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
-	
+	Aligners.Add(NewObject<UTexAlignerDefault>(GetTransientPackage(), NAME_None, RF_Public | RF_Standalone));
+	Aligners.Add(NewObject<UTexAlignerPlanar>(GetTransientPackage(), NAME_None, RF_Public | RF_Standalone));
+	Aligners.Add(NewObject<UTexAlignerBox>(GetTransientPackage(), NAME_None, RF_Public | RF_Standalone));
+	Aligners.Add(NewObject<UTexAlignerFit>(GetTransientPackage(), NAME_None, RF_Public | RF_Standalone));
+	for (UObject* Aligner : Aligners)
+	{
+		Aligner->AddToRoot();
+	}
 	FEditorDelegates::FitTextureToSurface.AddRaw(this, &FTexAlignTools::OnEditorFitTextureToSurface);
 }
 

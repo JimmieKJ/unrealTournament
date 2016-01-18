@@ -4,6 +4,7 @@
 
 #include "AssetData.h"
 #include "ARFilter.h"
+#include "AssetRegistryInterface.h"
 
 
 namespace EAssetAvailability
@@ -25,7 +26,6 @@ namespace EAssetAvailabilityProgressReportingType
 		PercentageComplete		// percentage complete in 99.99 format
 	};
 }
-
 
 class IAssetRegistry
 {
@@ -92,15 +92,17 @@ public:
 	 *
 	 * @param OutAssetData the list of assets in this path
 	 */
-	virtual bool GetAllAssets(TArray<FAssetData>& OutAssetData) const = 0;
+	virtual bool GetAllAssets(TArray<FAssetData>& OutAssetData, bool bIncludeOnlyOnDiskAssets = false) const = 0;
 
 	/**
 	 * Gets a list of paths to objects that are referenced by the supplied package. (On disk references ONLY)
 	 *
 	 * @param PackageName		the name of the package for which to gather dependencies
 	 * @param OutDependencies	a list of paths to objects that are referenced by the package whose path is PackageName
+	 * @param InDependencyType	which kinds of dependency to include in the output list
+	 * @param bResolveIniStringReferences Tells if the method should also resolve INI references.
 	 */
-	virtual bool GetDependencies(FName PackageName, TArray<FName>& OutDependencies) const = 0;
+	virtual bool GetDependencies(FName PackageName, TArray<FName>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType = EAssetRegistryDependencyType::All, bool bResolveIniStringReferences = false) const = 0;
 
 	/**
 	 * Gets a list of paths to objects that reference the supplied package. (On disk references ONLY)
@@ -209,8 +211,25 @@ public:
 	DECLARE_EVENT( IAssetRegistry, FFilesLoadedEvent );
 	virtual FFilesLoadedEvent& OnFilesLoaded() = 0;
 
+	/** Payload data for a file progress update */
+	struct FFileLoadProgressUpdateData
+	{
+		FFileLoadProgressUpdateData(int32 InNumTotalAssets, int32 InNumAssetsProcessedByAssetRegistry, int32 InNumAssetsPendingDataLoad, bool InIsDiscoveringAssetFiles)
+			: NumTotalAssets(InNumTotalAssets)
+			, NumAssetsProcessedByAssetRegistry(InNumAssetsProcessedByAssetRegistry)
+			, NumAssetsPendingDataLoad(InNumAssetsPendingDataLoad)
+			, bIsDiscoveringAssetFiles(InIsDiscoveringAssetFiles)
+		{
+		}
+
+		int32 NumTotalAssets;
+		int32 NumAssetsProcessedByAssetRegistry;
+		int32 NumAssetsPendingDataLoad;
+		bool bIsDiscoveringAssetFiles;
+	};
+
 	/** Event to update the progress of the background file load */
-	DECLARE_EVENT_TwoParams( IAssetRegistry, FFileLoadProgressUpdatedEvent, int32 /*NumAssetsDiscovered*/, int32 /*TotalAssets*/ );
+	DECLARE_EVENT_OneParam( IAssetRegistry, FFileLoadProgressUpdatedEvent, const FFileLoadProgressUpdateData& /*ProgressUpdateData*/ );
 	virtual FFileLoadProgressUpdatedEvent& OnFileLoadProgressUpdated() = 0;
 
 	/** Returns true if the asset registry is currently loading files and does not yet know about all assets */
@@ -223,7 +242,7 @@ public:
 	virtual void Serialize(FArchive& Ar) = 0;
 
 	/** Serialize raw registry data to a file, skipping editor only data */
-	virtual void SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data) = 0;
+	virtual void SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data, TArray<FName>* InMaps = nullptr) = 0;
 
 
 	/** Serialize registry data from a file */

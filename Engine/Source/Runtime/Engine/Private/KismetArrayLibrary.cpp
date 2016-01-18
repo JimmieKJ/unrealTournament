@@ -92,7 +92,7 @@ void UKismetArrayLibrary::GenericArray_Insert(void* TargetArray, const UArrayPro
 		}
 		else
 		{
-			UE_LOG(LogArray, Warning, TEXT("Attempted to insert an item into array %s out of bounds [%d/%d]!"), *ArrayProp->GetName(), Index, GetLastIndex(ArrayHelper));
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Attempted to insert an item into array %s out of bounds [%d/%d]!"), *ArrayProp->GetName(), Index, GetLastIndex(ArrayHelper)), ELogVerbosity::Warning);
 		}
 	}
 }
@@ -108,7 +108,7 @@ void UKismetArrayLibrary::GenericArray_Remove(void* TargetArray, const UArrayPro
 		}
 		else
 		{
-			UE_LOG(LogArray, Warning, TEXT("Attempted to remove an item from an invalid index from array %s [%d/%d]!"), *ArrayProp->GetName(), IndexToRemove, GetLastIndex(ArrayHelper));
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Attempted to remove an item from an invalid index from array %s [%d/%d]!"), *ArrayProp->GetName(), IndexToRemove, GetLastIndex(ArrayHelper)), ELogVerbosity::Warning);
 		}
 	}
 }
@@ -140,7 +140,7 @@ void UKismetArrayLibrary::GenericArray_Shuffle(void* TargetArray, const UArrayPr
 	{
 		FScriptArrayHelper ArrayHelper(ArrayProp, TargetArray);
 		int32 LastIndex = ArrayHelper.Num() - 1;
-		for (int32 i = 0; i < LastIndex; ++i)
+		for (int32 i = 0; i <= LastIndex; ++i)
 		{
 			int32 Index = FMath::RandRange(0, LastIndex);
 			if (i != Index)
@@ -172,7 +172,7 @@ void UKismetArrayLibrary::GenericArray_Resize(void* TargetArray, const UArrayPro
 		}
 		else
 		{
-			UE_LOG(LogArray, Warning, TEXT("Attempted to resize an array using negative size: Array = %s, Size = %d!"), *ArrayProp->GetName(), Size);
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Attempted to resize an array using negative size: Array = %s, Size = %d!"), *ArrayProp->GetName(), Size), ELogVerbosity::Warning);
 		}
 	}
 }
@@ -214,7 +214,7 @@ void UKismetArrayLibrary::GenericArray_Get(void* TargetArray, const UArrayProper
 		}
 		else
 		{
-			UE_LOG(LogArray, Warning, TEXT("Attempted to get an item from array %s out of bounds [%d/%d]!"), *ArrayProp->GetName(), Index, GetLastIndex(ArrayHelper));
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Attempted to get an item from array %s out of bounds [%d/%d]!"), *ArrayProp->GetName(), Index, GetLastIndex(ArrayHelper)), ELogVerbosity::Warning);
 			InnerProp->InitializeValue(Item);
 		}
 	}
@@ -240,7 +240,7 @@ void UKismetArrayLibrary::GenericArray_Set(void* TargetArray, const UArrayProper
 		}
 		else
 		{
-			UE_LOG(LogArray, Warning, TEXT("Attempted to set an invalid index on array %s [%d/%d]!"), *ArrayProp->GetName(), Index, GetLastIndex(ArrayHelper));
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Attempted to set an invalid index on array %s [%d/%d]!"), *ArrayProp->GetName(), Index, GetLastIndex(ArrayHelper)), ELogVerbosity::Warning);
 		}
 	}
 }
@@ -294,77 +294,77 @@ void UKismetArrayLibrary::GenericArray_HandleBool(const UProperty* Property, voi
 //////////////////////////////////////////////////////////////////////////
 // Stubs for the UFunctions declared as kismet callable.  These are never actually called...the CustomThunk code calls the appropriate native function with a void* reference to the array
 
-int32 UKismetArrayLibrary::Array_Add(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp, const int32& NewItem)
+int32 UKismetArrayLibrary::Array_Add(const TArray<int32>& TargetArray, const int32& NewItem)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 	return 0;
 }
 
-void UKismetArrayLibrary::Array_Shuffle(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp)
+void UKismetArrayLibrary::Array_Shuffle(const TArray<int32>& TargetArray)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 }
 
-void UKismetArrayLibrary::Array_Insert(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp, const int32& NewItem, int32 Index)
+void UKismetArrayLibrary::Array_Insert(const TArray<int32>& TargetArray, const int32& NewItem, int32 Index)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 }
 
-void UKismetArrayLibrary::Array_Remove(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp, int32 IndexToRemove)
+void UKismetArrayLibrary::Array_Remove(const TArray<int32>& TargetArray, int32 IndexToRemove)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 }
 
-bool UKismetArrayLibrary::Array_RemoveItem(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp, const int32& IndexToRemove)
+bool UKismetArrayLibrary::Array_RemoveItem(const TArray<int32>& TargetArray, const int32& IndexToRemove)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 	return true;
 }
 
-void UKismetArrayLibrary::Array_Clear(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp)
+void UKismetArrayLibrary::Array_Clear(const TArray<int32>& TargetArray)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 }
 
-static void Array_Resize(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, int32 Size)
+static void Array_Resize(const TArray<int32>& TargetArray, int32 Size)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 }
 
-int32 UKismetArrayLibrary::Array_Length(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp)
-{
-	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
-	check(0);
-	return 0;
-}
-
-int32 UKismetArrayLibrary::Array_LastIndex(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp)
+int32 UKismetArrayLibrary::Array_Length(const TArray<int32>& TargetArray)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 	return 0;
 }
 
-void UKismetArrayLibrary::Array_Get(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp, int32 Index, int32& Item)
+int32 UKismetArrayLibrary::Array_LastIndex(const TArray<int32>& TargetArray)
+{
+	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
+	check(0);
+	return 0;
+}
+
+void UKismetArrayLibrary::Array_Get(const TArray<int32>& TargetArray, int32 Index, int32& Item)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 }
 
-void UKismetArrayLibrary::Array_Set(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProp, int32 Index, const int32& NewItem, bool bSizeToFit)
+void UKismetArrayLibrary::Array_Set(const TArray<int32>& TargetArray, int32 Index, const int32& NewItem, bool bSizeToFit)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);
 }
 
-int32 UKismetArrayLibrary::Array_Find(const TArray<int32>& TargetArray, const UArrayProperty* ArrayProperty, const int32& ItemToFind)
+int32 UKismetArrayLibrary::Array_Find(const TArray<int32>& TargetArray, const int32& ItemToFind)
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.  Call the Generic* equivalent instead
 	check(0);

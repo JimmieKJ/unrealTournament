@@ -17,7 +17,7 @@ bool FFuncTestManager::IsRunning() const
 
 bool FFuncTestManager::IsFinished() const
 {
-	return TestScript.IsValid() && TestScript->IsFinished();
+	return (!TestScript.IsValid() || TestScript->IsFinished());
 }
 
 void FFuncTestManager::SetLooping(const bool bLoop)
@@ -30,9 +30,30 @@ void FFuncTestManager::SetLooping(const bool bLoop)
 
 void FFuncTestManager::RunAllTestsOnMap(bool bClearLog, bool bRunLooped)
 {
-	if (UFunctionalTestingManager::RunAllFunctionalTests(GWorld, bClearLog, bRunLooped) == false)
+	UWorld* TestWorld = NULL;
+#if WITH_EDITOR
+	const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
+	for (const FWorldContext& Context : WorldContexts)
 	{
-		UE_LOG(LogFunctionalTest, Error, TEXT("No functional testing script on map."));
+		if ((Context.WorldType == EWorldType::PIE) && (Context.World() != NULL))
+		{
+			TestWorld = Context.World();
+		}
+	}
+
+#endif
+	if (!TestWorld)
+	{
+		TestWorld = GWorld;
+		UE_LOG(LogFunctionalTest, Warning, TEXT("Functional Test using GWorld.  Not correct for PIE"));
+	}
+
+	if (TestWorld)
+	{
+		if (UFunctionalTestingManager::RunAllFunctionalTests(TestWorld, bClearLog, bRunLooped) == false)
+		{
+			UE_LOG(LogFunctionalTest, Error, TEXT("No functional testing script on map."));
+		}
 	}
 }
 
@@ -47,7 +68,12 @@ static bool FuncTestExec(UWorld* InWorld, const TCHAR* Command,FOutputDevice& Ar
 		if(FParse::Command(&Command,TEXT("start")))
 		{
 			const bool bLooped = FParse::Command(&Command,TEXT("loop"));
-			FFunctionalTestingModule::Get()->RunAllTestsOnMap(/*bClearLog=*/true, bLooped);
+
+			//instead of allowing straight use of the functional test framework, this should go through the automation framework and kick off one of the Editor/Client functional tests
+			//FFunctionalTestingModule::Get()->RunAllTestsOnMap(/*bClearLog=*/true, bLooped);
+			FString TestName = InWorld->GetName();
+			FString AutomationString = FString::Printf(TEXT("Automation RunTests FunctionalTesting.%s"), *TestName);
+			GEngine->Exec(InWorld, *AutomationString);
 		}
 		return true;
 	}

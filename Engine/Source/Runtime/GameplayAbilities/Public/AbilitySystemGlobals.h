@@ -10,12 +10,16 @@ class UAbilitySystemComponent;
 class UCurveTable;
 class UDataTable;
 class UGameplayCueManager;
+class UGameplayTagReponseTable;
 
 struct FGameplayAbilityActorInfo;
 struct FGameplayEffectContext;
 struct FGameplayTag;
 struct FAttributeSetInitter;
 struct FGameplayEffectSpec;
+struct FGameplayEffectSpecForRPC;
+struct FGameplayCueParameters;
+struct FGameplayEffectContextHandle;
 
 /** Holds global data for the ability system. Can be configured per project via config file */
 UCLASS(config=Game)
@@ -67,6 +71,9 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 
 	/** Returns the gameplay cue manager singleton object, creating if necessary */
 	virtual UGameplayCueManager* GetGameplayCueManager();
+
+	/** Returns the gameplay tag response object, creating if necessary */
+	UGameplayTagReponseTable* GetGameplayTagResponseTable();
 
 	/** Sets a default gameplay cue tag using the asset's name */
 	static void DeriveGameplayCueTagFromAssetName(FString AssetName, FGameplayTag& GameplayCueTag, FName& GameplayCueName);
@@ -156,6 +163,15 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 		}
 	}
 
+	// GameplayCue Parameters
+	virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectSpecForRPC &Spec);
+	virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectContextHandle& EffectContext);
+
+	// Trigger async loading of the gameplay cue object libraries. By default, the manager will do this on creation,
+	// but that behaviour can be changed by a derived class overriding ShouldAsyncLoadObjectLibrariesAtStart and returning false.
+	// In that case, this function must be called to begin the load
+	virtual void StartAsyncLoadingObjectLibraries();
+
 protected:
 
 	virtual void InitAttributeDefaults();
@@ -193,6 +209,13 @@ private:
 	/** Look in these paths for GameplayCueNotifies */
 	UPROPERTY(config)
 	TArray<FString>	GameplayCueNotifyPaths;
+
+	/** The class to instantiate as the GameplayTagResponseTable. */
+	UPROPERTY(config)
+	FStringAssetReference GameplayTagResponseTableName;
+
+	UPROPERTY()
+	UGameplayTagReponseTable* GameplayTagResponseTable;
 
 	/** Set to true if you want clients to try to predict gameplay effects done to targets. If false it will only predict self effects */
 	UPROPERTY(config)

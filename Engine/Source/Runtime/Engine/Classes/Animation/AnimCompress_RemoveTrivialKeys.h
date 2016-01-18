@@ -26,9 +26,9 @@ class UAnimCompress_RemoveTrivialKeys : public UAnimCompress
 	float MaxScaleDiff;
 
 protected:
-	// Begin UAnimCompress Interface
+	//~ Begin UAnimCompress Interface
 	virtual void DoReduction(class UAnimSequence* AnimSeq, const TArray<class FBoneData>& BoneData) override;
-	// Begin UAnimCompress Interface
+	//~ Begin UAnimCompress Interface
 };
 
 

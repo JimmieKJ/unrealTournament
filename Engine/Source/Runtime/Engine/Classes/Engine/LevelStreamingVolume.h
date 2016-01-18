@@ -47,14 +47,14 @@ class ALevelStreamingVolume : public AVolume
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LevelStreamingVolume)
 	TEnumAsByte<enum EStreamingVolumeUsage> StreamingUsage;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	void PostLoad() override;
-	// End UObject interface.
+	//~ End UObject Interface.
 	
 #if WITH_EDITOR
-	// Begin AActor interface.
+	//~ Begin AActor Interface.
 	virtual void CheckForErrors() override;
-	// End AActor interface.
+	//~ End AActor Interface.
 	
 	/** Updates list of streaming levels that are referenced by this streaming volume */
 	void UpdateStreamingLevelsRefs();

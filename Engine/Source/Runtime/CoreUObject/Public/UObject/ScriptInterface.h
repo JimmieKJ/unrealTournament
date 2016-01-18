@@ -116,6 +116,12 @@ public:
 	 * Default constructor
 	 */
 	TScriptInterface() {}
+
+	/**
+	 * Construction from nullptr
+	 */
+	TScriptInterface(TYPE_OF_NULLPTR) {}
+
 	/**
 	 * Standard constructor.
 	 *
@@ -147,6 +153,14 @@ public:
 		SetInterface( SourceInterface );
 
 		return *((InterfaceType*)GetInterface());
+	}
+
+	/**
+	 * Assignment from nullptr
+	 */
+	void operator=(TYPE_OF_NULLPTR)
+	{
+		*this = TScriptInterface();
 	}
 
 	/**

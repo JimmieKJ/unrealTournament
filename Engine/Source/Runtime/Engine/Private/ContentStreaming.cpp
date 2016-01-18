@@ -135,7 +135,7 @@ static TAutoConsoleVariable<int32> CVarSetTextureStreaming(
 	TEXT("Allows to define if texture streaming is enabled, can be changed at run time.\n")
 	TEXT("0: off\n")
 	TEXT("1: on (default)"),
-	ECVF_Default | ECVF_RenderThreadSafe);
+	ECVF_Default | ECVF_RenderThreadSafe | ECVF_Cheat);
 #endif
 
 static TAutoConsoleVariable<int32> CVarStreamingUseFixedPoolSize(
@@ -1431,7 +1431,7 @@ void IStreamingManager::SetupViewInfos( float DeltaTime )
 			bool bFound = false;
 			for ( int32 PrevView=0; PrevView < GPrevViewLocations.Num(); ++PrevView )
 			{
-				if ( (ViewInfo.ViewOrigin - GPrevViewLocations(PrevView).ViewOrigin).Size() < 100.0f )
+				if ( (ViewInfo.ViewOrigin - GPrevViewLocations(PrevView).ViewOrigin).SizeSquared() < 10000.0f )
 				{
 					bFound = true;
 					break;
@@ -1450,7 +1450,7 @@ void IStreamingManager::SetupViewInfos( float DeltaTime )
 			for ( int32 ViewIndex = 0; ViewIndex < CurrentViewInfos.Num(); ++ViewIndex )
 			{
 				FStreamingViewInfo& ViewInfo = CurrentViewInfos( ViewIndex );
-				if ( (ViewInfo.ViewOrigin - GPrevViewLocations(PrevView).ViewOrigin).Size() < 100.0f )
+				if ( (ViewInfo.ViewOrigin - GPrevViewLocations(PrevView).ViewOrigin).SizeSquared() < 10000.0f )
 				{
 					bFound = true;
 					break;
@@ -2100,6 +2100,7 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 ,	TotalDynamicTextureHeuristicSize(0)
 ,	TotalLastRenderHeuristicSize(0)
 ,	TotalForcedHeuristicSize(0)
+,	MemoryOverBudget(0)
 ,	OriginalTexturePoolSize(0)
 ,	PreviousPoolSizeTimestamp(0.0)
 ,	PreviousPoolSizeSetting(-1)
@@ -2162,7 +2163,7 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 		UE_LOG(LogContentStreaming, Log, TEXT("Textures will NEVER stream out!"));
 	}
 
-	UE_LOG(LogContentStreaming,Log,TEXT("Texture pool size is %fMB"),GTexturePoolSize/1024.f/1024.f);
+	UE_LOG(LogContentStreaming,Log,TEXT("Texture pool size is %.2f MB"),GTexturePoolSize/1024.f/1024.f);
 
 	// Convert from MByte to byte.
 	MinEvictSize *= 1024 * 1024;
@@ -3233,8 +3234,6 @@ void FStreamingManagerTexture::UpdateStreamingTextures( FStreamingContext& Conte
 	{
 		FStreamingTexture& StreamingTexture = StreamingTextures[ Index ];
 		FPlatformMisc::Prefetch( &StreamingTexture + 1 );
-		FPlatformMisc::Prefetch( StreamingTexture.Texture );
-		FPlatformMisc::Prefetch( StreamingTexture.Texture, CACHE_LINE_SIZE );
 
 		// Is this texture marked for removal?
 		if ( StreamingTexture.Texture == NULL )
@@ -3375,11 +3374,13 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 		AvailableNow = GStreamMemoryTracker.CalcAvailableNow( Stats.ComputeAvailableMemorySize(), MemoryMargin );
 		AvailableLater = GStreamMemoryTracker.CalcAvailableLater( Stats.ComputeAvailableMemorySize(), MemoryMargin );
 
-		STAT( int64 NonStreamingUsage = Stats.AllocatedMemorySize - int64(ThreadStats.TotalResidentSize) - int64(ThreadStats.PendingStreamInSize) - int64(TempMemoryUsed) );
-		STAT( int64 MemoryBudget = Stats.TexturePoolSize - NonStreamingUsage - int64(MemoryMargin) );
-		STAT( int64 MemoryOverBudget = int64(ThreadStats.TotalRequiredSize) - MemoryBudget );
-		SET_MEMORY_STAT( STAT_StreamingOverBudget,	FMath::Max(MemoryOverBudget,0ll) );
-		SET_MEMORY_STAT( STAT_StreamingUnderBudget,	FMath::Max(-MemoryOverBudget,0ll) );
+		STAT( int64 NonStreamingUsage = Stats.AllocatedMemorySize - ThreadStats.TotalResidentSize - int64(ThreadStats.PendingStreamInSize) - TempMemoryUsed );
+		STAT( int64 MemoryBudget = Stats.TexturePoolSize - NonStreamingUsage - MemoryMargin );
+		STAT( int64 LocalMemoryOverBudget = FMath::Max(ThreadStats.TotalRequiredSize - MemoryBudget, 0LL) );
+		STAT( MemoryOverBudget = FMath::Max(LocalMemoryOverBudget, 0LL) );
+
+		SET_MEMORY_STAT( STAT_StreamingOverBudget,	MemoryOverBudget);
+		SET_MEMORY_STAT( STAT_StreamingUnderBudget,	FMath::Max(-LocalMemoryOverBudget,0ll) );
 		SET_MEMORY_STAT( STAT_NonStreamingTexturesSize,	FMath::Max<int64>(NonStreamingUsage, 0) );
 	}
 	else
@@ -3387,6 +3388,7 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 		TempMemoryUsed = ThreadStats.TempStreamingSize;
 		AvailableNow = MAX_int64;
 		AvailableLater = MAX_int64;
+		MemoryOverBudget = 0;
 		SET_MEMORY_STAT( STAT_StreamingOverBudget, 0 );
 		SET_MEMORY_STAT( STAT_StreamingUnderBudget, 0 );
 	}
@@ -3682,32 +3684,45 @@ void FStreamingManagerTexture::CheckUserSettings()
  * @param DeltaTime				Time since last call in seconds
  * @param bProcessEverything	[opt] If true, process all resources with no throttling limits
  */
+static TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
+	TEXT("r.Streaming.FramesForFullUpdate"),
+	5,
+	TEXT("Texture streaming is time sliced per frame. This values gives the number of frames to visit all textures."));
+
 void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bProcessEverything/*=false*/ )
 {
 	SCOPE_CYCLE_COUNTER(STAT_GameThreadUpdateTime);
 
 #if STREAMING_LOG_VIEWCHANGES
 	static bool bWasLocationOveridden = false;
-	bool bIsLocationOverriden = false;
+	bool bIsLocationOverridden = false;
 	for ( int32 ViewIndex=0; ViewIndex < CurrentViewInfos.Num(); ++ViewIndex )
 	{
 		FStreamingViewInfo& ViewInfo = CurrentViewInfos( ViewIndex );
 		if ( ViewInfo.bOverrideLocation )
 		{
-			bIsLocationOverriden = true;
+			bIsLocationOverridden = true;
 			break;
 		}
 	}
-	if ( bIsLocationOverriden != bWasLocationOveridden )
+	if ( bIsLocationOverridden != bWasLocationOveridden )
 	{
-		UE_LOG(LogContentStreaming, Log, TEXT("Texture streaming view location is now %s."), bIsLocationOverriden ? TEXT("OVERRIDEN") : TEXT("normal") );
-		bWasLocationOveridden = bIsLocationOverriden;
+		UE_LOG(LogContentStreaming, Log, TEXT("Texture streaming view location is now %s."), bIsLocationOverridden ? TEXT("OVERRIDDEN") : TEXT("normal") );
+		bWasLocationOveridden = bIsLocationOverridden;
 	}
 #endif
-
+	int32 NewNumTextureProcessingStages = CVarFramesForFullUpdate.GetValueOnGameThread();
+	if (NewNumTextureProcessingStages > 0 && NewNumTextureProcessingStages != NumTextureProcessingStages)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_EnsureCompletion_E);
+		AsyncWork->EnsureCompletion();
+		ProcessingStage = 0;
+		NumTextureProcessingStages = NewNumTextureProcessingStages;
+	}
 	int32 OldNumTextureProcessingStages = NumTextureProcessingStages;
 	if ( bProcessEverything || IndividualStreamingTexture )
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_EnsureCompletion_A);
 		AsyncWork->EnsureCompletion();
 		ProcessingStage = 0;
 		NumTextureProcessingStages = 1;
@@ -3728,17 +3743,30 @@ void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bP
 		// Is the AsyncWork is running for some reason? (E.g. we reset the system by simply setting ProcessingStage to 0.)
 		if ( AsyncWork->IsDone() == false )
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_EnsureCompletion_B);
 			AsyncWork->EnsureCompletion();
 		}
 
-		CheckUserSettings();
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_CheckUserSettings);
+			CheckUserSettings();
+		}
 
-		ResetStreamingStats();
-		UpdateThreadData();
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_ResetStreamingStats);
+			ResetStreamingStats();
+		}
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_UpdateThreadData);
+			UpdateThreadData();
+		}
 
 		//@TODO: Move this to the worker thread once it's thread-safe.
 		//Note: Must be done with updated primitives (right after UpdateThreadData), because we can't ignore a primitive just because it moved.
-		CalcDynamicWantedMips();
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_CalcDynamicWantedMips);
+			CalcDynamicWantedMips();
+		}
 
 		if ( bTriggerDumpTextureGroupStats )
 		{
@@ -3756,8 +3784,14 @@ void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bP
 	{
 		// Setup a context for this run. Note that we only (potentially) collect texture stats from the AsyncWork.
 		FStreamingContext Context( bProcessEverything, IndividualStreamingTexture, false );
-		UpdateStreamingTextures( Context, ProcessingStage, NumDataCollectionStages );
-		UpdateStreamingStats( Context, false );
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_UpdateStreamingTextures);
+			UpdateStreamingTextures( Context, ProcessingStage, NumDataCollectionStages );
+		}
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_UpdateStreamingStats);
+			UpdateStreamingStats( Context, false );
+		}
 	}
 
 	// Start async task after the last data collection stage (if we're not paused).
@@ -3766,17 +3800,20 @@ void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bP
 		// Is the AsyncWork is running for some reason? (E.g. we reset the system by simply setting ProcessingStage to 0.)
 		if ( AsyncWork->IsDone() == false )
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_EnsureCompletion_C);
 			AsyncWork->EnsureCompletion();
 		}
 
 		AsyncWork->GetTask().Reset(bCollectTextureStats);
 		if ( NumTextureProcessingStages > 1 )
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_StartBackgroundTask);
 			AsyncWork->StartBackgroundTask();
 		}
 		else
 		{
 			// Perform the work synchronously on this thread.
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_StartSynchronousTask);
 			AsyncWork->StartSynchronousTask();
 		}
 	}
@@ -3795,6 +3832,7 @@ void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bP
 	else
 	{
 		// All priorities have been calculated, do all streaming.
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FStreamingManagerTexture_UpdateResourceStreaming_StreamTextures);
 		StreamTextures( bProcessEverything );
 		ProcessingStage = 0;
 	}
@@ -5004,7 +5042,7 @@ void FStreamingManagerTexture::InvestigateTexture( const FString& InInvestigateT
 			UE_LOG(LogContentStreaming, Log,  TEXT("  Priority:        %.3f"), StreamingTexture.CalcPriority() );
 			UE_LOG(LogContentStreaming, Log,  TEXT("  Boost factor:    %.1f"), StreamingTexture.BoostFactor );
 			UE_LOG(LogContentStreaming, Log,  TEXT("  Allowed mips:    %d-%d"), StreamingTexture.MinAllowedMips, StreamingTexture.MaxAllowedMips );
-			UE_LOG(LogContentStreaming, Log,  TEXT("  Global mip bias: %f"), ThreadSettings.MipBias );
+			UE_LOG(LogContentStreaming, Log,  TEXT("  Global mip bias: %.1f"), ThreadSettings.MipBias );
 
 			float ScreenSizeFactor;
 			switch ( StreamingTexture.LODGroup )
@@ -5339,24 +5377,13 @@ void FStreamingManagerTexture::CalcDynamicWantedMips()
 	STAT( double StartTime = FPlatformTime::Seconds() );
 
 	// Reset the dynamic variables for all textures.
-	const int32 PrefetchCount = AlignArbitrary( 4*CACHE_LINE_SIZE, sizeof(FStreamingTexture) ) / sizeof(FStreamingTexture);
-	for ( int32 Index=0; Index < StreamingTextures.Num() - PrefetchCount; ++Index )
+	for ( int32 Index=0; Index < StreamingTextures.Num(); ++Index )
 	{
 		FStreamingTexture& StreamingTexture = StreamingTextures[ Index ];
-		FPlatformMisc::Prefetch( &StreamingTexture, CACHE_LINE_SIZE );
-		FPlatformMisc::Prefetch( &StreamingTexture, CACHE_LINE_SIZE*2 );
-		FPlatformMisc::Prefetch( &StreamingTexture, CACHE_LINE_SIZE*3 );
+		FPlatformMisc::Prefetch( &StreamingTexture, CACHE_LINE_SIZE*4 );
 		StreamingTexture.DynamicScreenSize = 0.0f;
 		StreamingTexture.DynamicMinDistanceSq = FLT_MAX;
 	}
-	// The last ones
-	for ( int32 Index=FMath::Max(StreamingTextures.Num() - PrefetchCount, 0); Index < StreamingTextures.Num(); ++Index )
-	{
-		FStreamingTexture& StreamingTexture = StreamingTextures[ Index ];
-		StreamingTexture.DynamicScreenSize = 0.0f;
-		StreamingTexture.DynamicMinDistanceSq = FLT_MAX;
-	}
-
 	// Iterate over all dynamic primitives.
 	for ( TMap<const UPrimitiveComponent*,FSpawnedPrimitiveData>::TIterator It(ThreadSettings.SpawnedPrimitives); It; ++It )
 	{

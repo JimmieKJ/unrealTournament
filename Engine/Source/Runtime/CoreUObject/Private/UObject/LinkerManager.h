@@ -115,6 +115,12 @@ public:
 	*/
 	void DissociateImportsAndForcedExports();
 
+	/** Deletes all linkers that finished loading */
+	void DeleteLinkers();
+
+	/** Adds a linker to deferred cleanup list */
+	void RemoveLinker(FLinkerLoad* Linker);
+
 private:
 
 	/** Map of packages to their open linkers **/
@@ -133,4 +139,9 @@ private:
 	TArray<FLinkerLoad*> LiveLinkers;
 #endif
 	
+	/** List of linkers to delete **/
+	TSet<FLinkerLoad*>	PendingCleanupList;
+#if THREADSAFE_UOBJECTS
+	FCriticalSection PendingCleanupListCritical;
+#endif
 };

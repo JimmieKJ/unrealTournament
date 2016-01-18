@@ -251,12 +251,12 @@ protected:
 	 * 
 	 * @note	Called whenever SetParameters() is called on this XAPO. 
 	 */
-	void OnSetParameters( const void* Parameters, UINT32 ParameterSize )
+	void OnSetParameters( const void* NewParameters, UINT32 ParameterSize )
 	{
 		// The given parameter must be a FAudioRadioEffect struct.
 		check( ParameterSize == sizeof( FAudioRadioEffect ) );
 		
-		FAudioRadioEffect& RadioParams = *( FAudioRadioEffect* )Parameters;
+		FAudioRadioEffect& RadioParams = *( FAudioRadioEffect* )NewParameters;
 	}
 
 private:

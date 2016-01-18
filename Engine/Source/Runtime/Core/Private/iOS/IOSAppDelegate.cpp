@@ -13,7 +13,11 @@
 #include <AVFoundation/AVAudioSession.h>
 
 // this is the size of the game thread stack, it must be a multiple of 4k
-#define GAME_THREAD_STACK_SIZE 1024 * 1024 
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#define GAME_THREAD_STACK_SIZE 1024 * 1024
+#else
+#define GAME_THREAD_STACK_SIZE 4 * 1024 * 1024
+#endif
 
 DEFINE_LOG_CATEGORY(LogIOSAudioSession);
 DECLARE_LOG_CATEGORY_EXTERN(LogEngine, Log, All);
@@ -622,6 +626,43 @@ void InstallSignalHandlers()
 	Tells the delegate when the application receives a memory warning from the system
 	*/
 	FPlatformMisc::HandleLowMemoryWarning();
+}
+
+#ifdef __IPHONE_8_0
+- (void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings
+{
+	[application registerForRemoteNotifications];
+}
+#endif
+
+- (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
+{
+	TArray<uint8> Token;
+	Token.AddUninitialized([deviceToken length]);
+	memcpy(Token.GetData(), [deviceToken bytes], [deviceToken length]);
+
+	FCoreDelegates::ApplicationRegisteredForRemoteNotificationsDelegate.Broadcast(Token);
+}
+
+-(void)application:(UIApplication *)application didFailtoRegisterForRemoteNotificationsWithError:(NSError *)error
+{
+	FCoreDelegates::ApplicationFailedToRegisterForRemoteNotificationsDelegate.Broadcast(FString([error description]));
+}
+
+-(void)application : (UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void(^)(UIBackgroundFetchResult result))handler
+{
+	NSString* JsonString = @"{}";
+	NSError* JsonError;
+	NSData* JsonData = [NSJSONSerialization dataWithJSONObject : userInfo
+					options : 0
+					error : &JsonError];
+
+	if (JsonData)
+	{
+		JsonString = [[[NSString alloc] initWithData:JsonData encoding : NSUTF8StringEncoding] autorelease];
+	}
+
+	FCoreDelegates::ApplicationReceivedRemoteNotificationDelegate.Broadcast(FString(JsonString));
 }
 
 /**

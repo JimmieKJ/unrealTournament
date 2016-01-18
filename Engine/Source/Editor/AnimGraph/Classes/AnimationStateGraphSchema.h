@@ -9,8 +9,8 @@ class UAnimationStateGraphSchema : public UAnimationGraphSchema
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UEdGraphSchema interface.
+	//~ Begin UEdGraphSchema Interface.
 	virtual void CreateDefaultNodesForGraph(UEdGraph& Graph) const override;
 	virtual void GetGraphDisplayInformation(const UEdGraph& Graph, /*out*/ FGraphDisplayInfo& DisplayInfo) const override;
-	// End UEdGraphSchema interface.
+	//~ End UEdGraphSchema Interface.
 };

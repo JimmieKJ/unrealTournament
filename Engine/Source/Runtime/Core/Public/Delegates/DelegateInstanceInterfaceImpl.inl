@@ -6,6 +6,8 @@
 #endif
 
 
+class FDelegateBase;
+
 // NOTE: This file in re-included for EVERY delegate signature that we support.  That is, every combination
 //		 of parameter count, return value presence or other function modifier will include this file to
 //		 generate a delegate interface type and implementation type for that signature.
@@ -33,11 +35,9 @@ class DELEGATE_INSTANCE_INTERFACE_CLASS
 public:
 
 	/**
-	 * Creates a copy of the delegate instance
-	 *
-	 * @return	The newly created copy
+	 * Emplaces a copy of the delegate instance into the FDelegateBase.
 	 */
-	virtual DELEGATE_INSTANCE_INTERFACE_CLASS* CreateCopy() = 0;
+	virtual void CreateCopy(FDelegateBase& Base) = 0;
 
 	/**
 	 * Returns true if this delegate points to exactly the same object and method as the specified delegate,

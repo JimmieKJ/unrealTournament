@@ -20,14 +20,6 @@
 /* Private includes
  *****************************************************************************/
 
-/** Defines the launcher simple profile file version. */
-#define LAUNCHERSERVICES_SIMPLEPROFILEVERSION 1
-
-/** Defines the launcher profile file version. */
-#define LAUNCHERSERVICES_PROFILEVERSION 16 
-#define LAUNCHERSERVICES_MINPROFILEVERSION 10
-
-
 // profile manager
 #include "LauncherProjectPath.h"
 #include "LauncherDeviceGroup.h"

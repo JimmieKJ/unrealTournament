@@ -151,7 +151,7 @@ public:
 
 		OptionsSource = InArgs._OptionsSource;
 
-		TSharedRef<SWidget> MenuContent = 
+		TSharedRef<SWidget> ComboBoxMenuContent = 
 			SNew(SBox)
 			.MaxDesiredHeight(InArgs._MaxListHeight)
 			[
@@ -182,7 +182,7 @@ public:
 			]
 			.MenuContent()
 			[
-				MenuContent
+				ComboBoxMenuContent
 			]
 			.HasDownArrow( InArgs._HasDownArrow )
 			.ContentPadding( InArgs._ContentPadding )
@@ -279,6 +279,11 @@ protected:
 	virtual bool SupportsKeyboardFocus() const override
 	{
 		return true;
+	}
+
+	virtual bool IsInteractable() const
+	{
+		return IsEnabled() && SupportsKeyboardFocus();
 	}
 
 private:

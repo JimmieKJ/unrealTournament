@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTGib.h"
 #include "UTWorldSettings.h"
@@ -78,7 +78,7 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 							Decal->SetAbsolute(true, true, true);
 						}
 						FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
-						Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
+						Decal->DecalSize = FVector(1.0f, DecalScale.X, DecalScale.Y);
 						Decal->SetWorldLocation(DecalHit.Location);
 						Decal->SetWorldRotation((-DecalHit.Normal).Rotation() + FRotator(0.0f, 0.0f, 360.0f * FMath::FRand()));
 						Decal->SetDecalMaterial(DecalInfo.Material);

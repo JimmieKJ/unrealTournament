@@ -21,6 +21,7 @@
 
 DEFINE_LOG_CATEGORY(LogAudio);
 
+DEFINE_LOG_CATEGORY(LogAudioDebug);
 
 /** Audio stats */
 
@@ -43,6 +44,7 @@ DEFINE_STAT(STAT_AudioPrepareDecompressionTime);
 DEFINE_STAT(STAT_OpusDecompressTime);
 
 DEFINE_STAT(STAT_AudioUpdateEffects);
+DEFINE_STAT(STAT_AudioEvaluateConcurrency);
 DEFINE_STAT(STAT_AudioUpdateSources);
 DEFINE_STAT(STAT_AudioResourceCreationTime);
 DEFINE_STAT(STAT_AudioSourceInitTime);
@@ -99,7 +101,7 @@ FName FSoundBuffer::GetSoundClassName()
 			// look through them to see if this cue uses a wave this buffer is bound to, via ResourceID
 			for (int32 WaveIndex = 0; WaveIndex < WavePlayers.Num(); ++WaveIndex)
 			{
-				USoundWave* WaveNode = WavePlayers[WaveIndex]->SoundWave;
+				USoundWave* WaveNode = WavePlayers[WaveIndex]->GetSoundWave();
 				if (WaveNode != NULL)
 				{
 					if (WaveNode->ResourceID == ResourceID)
@@ -174,9 +176,10 @@ FString FSoundSource::Describe(bool bUseLongName)
 	AActor* SoundOwner = NULL;
 	
 	// TODO - Audio Threading. This won't work cross thread.
-	if (WaveInstance->ActiveSound && WaveInstance->ActiveSound->AudioComponent.IsValid())
+	UAudioComponent* AudioComponent = (WaveInstance->ActiveSound ? WaveInstance->ActiveSound->GetAudioComponent() : nullptr);
+	if (AudioComponent)
 	{
-		SoundOwner = WaveInstance->ActiveSound->AudioComponent->GetOwner();
+		SoundOwner = AudioComponent->GetOwner();
 	}
 
 	return FString::Printf(TEXT("Wave: %s, Volume: %6.2f, Owner: %s"), 
@@ -202,20 +205,11 @@ void FSoundSource::Stop( void )
 	}
 }
 
-/**
- * Returns whether associated audio component is an ingame only component, aka one that will
- * not play unless we're in game mode (not paused in the UI)
- *
- * @return false if associated component has bIsUISound set, true otherwise
- */
 bool FSoundSource::IsGameOnly( void )
 {
 	return (WaveInstance && !WaveInstance->bIsUISound);
 }
 
-/**
- * Set the bReverbApplied variable
- */
 bool FSoundSource::SetReverbApplied( bool bHardwareAvailable )
 {
 	// Do not apply reverb if it is explicitly disallowed
@@ -236,9 +230,6 @@ bool FSoundSource::SetReverbApplied( bool bHardwareAvailable )
 	return( bReverbApplied );
 }
 
-/**
- * Set the SetStereoBleed variable
- */
 float FSoundSource::SetStereoBleed( void )
 {
 	StereoBleed = 0.0f;
@@ -257,9 +248,6 @@ float FSoundSource::SetStereoBleed( void )
 	return( StereoBleed );
 }
 
-/**
- * Set the SetLFEBleed variable
- */
 float FSoundSource::SetLFEBleed( void )
 {
 	LFEBleed = WaveInstance->LFEBleed;
@@ -272,22 +260,152 @@ float FSoundSource::SetLFEBleed( void )
 	return( LFEBleed );
 }
 
-/**
- * Set the HighFrequencyGain value
- */
-void FSoundSource::SetHighFrequencyGain( void )
+void FSoundSource::SetFilterFrequency(void)
 {
-	HighFrequencyGain = FMath::Clamp<float>( WaveInstance->HighFrequencyGain, MIN_FILTER_GAIN, 1.0f );
+	LPFFrequency = MAX_FILTER_FREQUENCY;
 
-	if( AudioDevice->GetMixDebugState() == DEBUGSTATE_DisableLPF )
+	if (AudioDevice->GetMixDebugState() == DEBUGSTATE_TestLPF)
 	{
-		HighFrequencyGain = 1.0f;
+		// If in debug mode, lets set all sounds to a LPF of MIN_FILTER_FREQUENCY
+		LPFFrequency = MIN_FILTER_FREQUENCY;
 	}
-	else if( AudioDevice->GetMixDebugState() == DEBUGSTATE_TestLPF )
+	else if (AudioDevice->GetMixDebugState() != DEBUGSTATE_DisableLPF)
 	{
-		HighFrequencyGain = MIN_FILTER_GAIN;
+		// If so, override the frequency with the occluded filter frequency
+		LPFFrequency = WaveInstance->OcclusionFilterFrequency;
+
+		// Set the LPFFrequency to the manual LowPassFilterFrequency if it's lower
+		if (WaveInstance->bEnableLowPassFilter && WaveInstance->LowPassFilterFrequency < LPFFrequency)
+		{
+			LPFFrequency = WaveInstance->LowPassFilterFrequency;
+		}
+
+		// Set the LPFFrequency to the ambient filter frequency if it's lower
+		if (WaveInstance->AmbientZoneFilterFrequency < LPFFrequency)
+		{
+			LPFFrequency = WaveInstance->AmbientZoneFilterFrequency;
+		}
+
+		if (WaveInstance->AttenuationFilterFrequency < LPFFrequency)
+		{
+			LPFFrequency = WaveInstance->AttenuationFilterFrequency;
+		}
 	}
 }
+
+void FSoundSource::UpdateStereoEmitterPositions()
+{
+	// Only call this function if we're told to use spatialization
+	check(WaveInstance->bUseSpatialization);
+	check(Buffer->NumChannels == 2);
+
+	if (WaveInstance->StereoSpread > 0.0f)
+	{
+		// We need to compute the stereo left/right channel positions using the audio component position and the spread 
+		FVector ListenerPosition = AudioDevice->Listeners[0].Transform.GetLocation();
+		FVector ListenerToSourceDir = (WaveInstance->Location - ListenerPosition).GetSafeNormal();
+
+		float HalfSpread = 0.5f * WaveInstance->StereoSpread;
+
+		// Get direction of left emitter from true emitter position (left hand rule)
+		FVector LeftEmitterDir = FVector::CrossProduct(ListenerToSourceDir, FVector::UpVector);
+		FVector LeftEmitterOffset = LeftEmitterDir * HalfSpread;
+
+		// Get position vector of left emitter by adding to true emitter the dir scaled by half the spread
+		LeftChannelSourceLocation = WaveInstance->Location + LeftEmitterOffset;
+
+		// Right emitter position is same as right but opposite direction
+		RightChannelSourceLocation = WaveInstance->Location - LeftEmitterOffset;
+	}
+	else
+	{
+		LeftChannelSourceLocation = WaveInstance->Location;
+		RightChannelSourceLocation = WaveInstance->Location;
+	}
+}
+
+void FSoundSource::DrawDebugInfo()
+{
+	// Draw 3d Debug information about this source, if enabled
+	// TODO - Audio Threading. This won't work cross thread.
+	FAudioDeviceManager* DeviceManager = GEngine->GetAudioDeviceManager();
+
+	if (DeviceManager && DeviceManager->IsVisualizeDebug3dEnabled())
+	{
+		UAudioComponent* AudioComponent = (WaveInstance->ActiveSound ? WaveInstance->ActiveSound->GetAudioComponent() : nullptr);
+		if (AudioComponent)
+		{
+			UWorld* SoundWorld = AudioComponent->GetWorld();
+			if (SoundWorld)
+			{
+				FRotator SoundRotation = AudioComponent->GetComponentRotation();
+				DrawDebugCrosshairs(SoundWorld, WaveInstance->Location, SoundRotation, 20.0f, FColor::White, false, -1.0f, SDPG_Foreground);
+
+				FString Name;
+				WaveInstance->ActiveSound->Sound->GetName(Name);
+
+				if (Buffer->NumChannels == 2 && WaveInstance->bUseSpatialization)
+				{
+					DrawDebugCrosshairs(SoundWorld, LeftChannelSourceLocation, SoundRotation, 20.0f, FColor::Red, false, -1.0f, SDPG_Foreground);
+					DrawDebugCrosshairs(SoundWorld, RightChannelSourceLocation, SoundRotation, 20.0f, FColor::Green, false, -1.0f, SDPG_Foreground);
+				}
+
+				DrawDebugString(SoundWorld, AudioComponent->GetComponentLocation() + FVector(0, 0, 32), *Name, nullptr, FColor::White, 0.033, false);
+			}
+		}
+	}
+}
+
+FSpatializationParams FSoundSource::GetSpatializationParams()
+{
+	FSpatializationParams Params;
+
+		// Calculate direction from listener to sound, where the sound is at the origin if unspatialised.
+	if (WaveInstance->bUseSpatialization)
+	{
+		FVector EmitterPosition = AudioDevice->GetListenerTransformedDirection(WaveInstance->Location, &Params.Distance);
+		
+		// If we are using the OmniRadius feature
+		if (WaveInstance->OmniRadius > 0.0f)
+		{
+			static const float MaxNormalizedRadius = 1000000.0f;
+			Params.NormalizedOmniRadius = MaxNormalizedRadius;
+
+			if (Params.Distance > 0)
+			{
+				Params.NormalizedOmniRadius = FMath::Clamp(WaveInstance->OmniRadius / Params.Distance, 0.0f, MaxNormalizedRadius);
+			}
+		}
+		else
+		{
+			Params.NormalizedOmniRadius = 0.0f;
+		}
+
+		if (Buffer->NumChannels == 2)
+		{
+			Params.LeftChannelPosition = AudioDevice->GetListenerTransformedDirection(LeftChannelSourceLocation, nullptr);
+			Params.RightChannelPosition = AudioDevice->GetListenerTransformedDirection(RightChannelSourceLocation, nullptr);
+			Params.EmitterPosition = FVector::ZeroVector;
+		}
+		else
+		{
+			Params.EmitterPosition = EmitterPosition;
+		}
+	}
+	else
+	{
+		Params.NormalizedOmniRadius = 0.0f;
+		Params.Distance = 0.0f;
+		Params.EmitterPosition = FVector::ZeroVector;
+	}
+
+	// We are currently always computing spatialization for XAudio2 relative to the listener!
+	Params.ListenerOrientation = FVector::UpVector;
+	Params.ListenerPosition = FVector::ZeroVector;
+
+	return Params;
+}
+
 
 /*-----------------------------------------------------------------------------
 	FNotifyBufferFinishedHooks implementation.
@@ -363,7 +481,7 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 ,	ActiveSound( InActiveSound )
 ,	Volume( 0.0f )
 ,	VolumeMultiplier( 1.0f )
-,	PlayPriority( 0.0f )
+,	Priority( 1.0f )
 ,	VoiceCenterChannelVolume( 0.0f )
 ,	RadioFilterVolume( 0.0f )
 ,	RadioFilterVolumeThreshold( 0.0f )
@@ -376,18 +494,24 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 ,	bIsFinished( false )
 ,	bAlreadyNotifiedHook( false )
 ,	bUseSpatialization( false )
-,	SpatializationAlgorithm(SPATIALIZATION_Default)
+,	bEnableLowPassFilter(false)
+,	bIsOccluded(false)
 ,	bEQFilterApplied(false)
 ,	bIsUISound( false )
 ,	bIsMusic( false )
 ,	bReverb( true )
 ,	bCenterChannelOnly( false )
 ,	bReportedSpatializationWarning( false )
+,	SpatializationAlgorithm(SPATIALIZATION_Default)
 ,	OutputTarget(EAudioOutputTarget::Speaker)
-,	HighFrequencyGain( 1.0f )
-,	Pitch( 0.0f )
+,	LowPassFilterFrequency(MAX_FILTER_FREQUENCY)
+,	OcclusionFilterFrequency(MAX_FILTER_FREQUENCY)
+, AmbientZoneFilterFrequency(MAX_FILTER_FREQUENCY)
+,	AttenuationFilterFrequency(MAX_FILTER_FREQUENCY), Pitch(0.0f)
 ,	Velocity( FVector::ZeroVector )
 ,	Location( FVector::ZeroVector )
+,	OmniRadius(0.0f)
+,	StereoSpread(0.0f)
 ,	UserIndex( 0 )
 {
 	TypeHash = ++TypeHashCounter;
@@ -460,7 +584,10 @@ float FWaveInstance::GetActualVolume() const
 
 float FWaveInstance::GetVolumeWeightedPriority() const
 {
-	return GetActualVolume() * VolumeWeightedPriorityScale;
+	check(ActiveSound);
+	// If this wave instance's active sound should stop due to max concurrency, return a large negative weighted priority so 
+	// that it will always be sorted to the bottom of the WaveInstance list and stopped.
+	return ActiveSound->bShouldStopDueToMaxConcurrency ? -100.0f : GetActualVolume() * Priority;
 }
 
 bool FWaveInstance::IsStreaming() const

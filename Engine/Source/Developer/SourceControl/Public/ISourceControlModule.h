@@ -10,6 +10,9 @@ SOURCECONTROL_API DECLARE_LOG_CATEGORY_EXTERN(LogSourceControl, Log, All);
 /** Delegate called when the source control login window is closed. Parameter determines if source control is enabled or not */
 DECLARE_DELEGATE_OneParam( FSourceControlLoginClosed, bool );
 
+/** Delegate called when the active source control provider is changed */
+DECLARE_MULTICAST_DELEGATE_TwoParams( FSourceControlProviderChanged, ISourceControlProvider& /*OldProvider*/, ISourceControlProvider& /*NewProvider*/ );
+
 /**
  * The modality of the login window.
  */
@@ -109,6 +112,16 @@ public:
 	 * @param bIsUseGlobalSettings	Whether we should use global settings
 	 */
 	virtual void SetUseGlobalSettings(bool bIsUseGlobalSettings) = 0;
+
+	/**
+	 * Register a delegate to be called when the source control provider changes
+	 */
+	virtual FDelegateHandle RegisterProviderChanged(const FSourceControlProviderChanged::FDelegate& SourceControlProviderChanged) = 0;
+
+	/**
+	 * Unregister a delegate to be called when the source control provider changes
+	 */
+	virtual void UnregisterProviderChanged(FDelegateHandle Handle) = 0;
 
 	/**
 	 * Gets a reference to the source control module instance.

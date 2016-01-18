@@ -62,6 +62,88 @@ enum EBulkDataLockFlags
  */
 struct COREUOBJECT_API FUntypedBulkData
 {
+private:
+	// This struct represents an optional allocation.
+	struct FAllocatedPtr
+	{
+		FAllocatedPtr()
+			: Ptr       (nullptr)
+			, bAllocated(false)
+		{
+		}
+
+		FAllocatedPtr(FAllocatedPtr&& Other)
+			: Ptr       (Other.Ptr)
+			, bAllocated(Other.bAllocated)
+		{
+			Other.Ptr        = nullptr;
+			Other.bAllocated = false;
+		}
+
+		FAllocatedPtr& operator=(FAllocatedPtr&& Other)
+		{
+			Swap(*this, Other);
+			Other.Deallocate();
+
+			return *this;
+		}
+
+		~FAllocatedPtr()
+		{
+			FMemory::Free(Ptr);
+		}
+
+		void* Get() const
+		{
+			return Ptr;
+		}
+
+		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		{
+			return bAllocated;
+		}
+
+		SAFE_BOOL_OPERATORS(FAllocatedPtr)
+
+		void Reallocate(int32 Count, int32 Alignment = DEFAULT_ALIGNMENT)
+		{
+			if (Count)
+			{
+				Ptr = FMemory::Realloc(Ptr, Count, Alignment);
+			}
+			else
+			{
+				FMemory::Free(Ptr);
+				Ptr = nullptr;
+			}
+
+			bAllocated = true;
+		}
+
+		void* ReleaseWithoutDeallocating()
+		{
+			void* Result = Ptr;
+			Ptr = nullptr;
+			bAllocated = false;
+			return Result;
+		}
+
+		void Deallocate()
+		{
+			FMemory::Free(Ptr);
+			Ptr = nullptr;
+			bAllocated = false;
+		}
+
+	private:
+		FAllocatedPtr(const FAllocatedPtr&);
+		FAllocatedPtr& operator=(const FAllocatedPtr&);
+
+		void* Ptr;
+		bool  bAllocated;
+	};
+
+public:
 	friend class FLinkerLoad;
 
 	/*-----------------------------------------------------------------------------
@@ -84,20 +166,6 @@ struct COREUOBJECT_API FUntypedBulkData
 	 * Virtual destructor, free'ing allocated memory.
 	 */
 	virtual ~FUntypedBulkData();
-
-	/**
-	* Get resource memory preallocated for serializing bulk data into
-	* This is typically GPU accessible memory to avoid multiple allocations copies from system memory
-	* If NULL is returned then default to allocating from system memory
-	*
-	* @param Owner	object with bulk data being serialized
-	* @param Idx	entry when serializing out of an array
-	* @return pointer to resource memory or NULL
-	*/
-	virtual void* GetBulkDataResourceMemory(UObject* Owner,int32 Idx) 
-	{ 
-		return NULL; 
-	}
 
 	/**
 	 * Copies the source array into this one after detaching from archive.
@@ -227,13 +295,6 @@ struct COREUOBJECT_API FUntypedBulkData
 	 * @param BulkDataFlagsToClear	Bulk data flags to clear
 	 */
 	void ClearBulkDataFlags( uint32 BulkDataFlagsToClear );
-
-	/**
-	 * BulkData memory allocated from a resource should only be freed by the resource
-	 *
-	 * @return true if bulk data should free allocated memory
-	 */
-	bool ShouldFreeOnEmpty() const;
 
 	/** 
 	 * Returns the filename this bulkdata resides in
@@ -427,17 +488,15 @@ private:
 	int32					BulkDataAlignment;
 
 	/** Pointer to cached bulk data																						*/
-	void*				BulkData;
-	/** Pointer to cached async bulk data																						*/
-	void*				BulkDataAsync;
+	FAllocatedPtr		BulkData;
+	/** Pointer to cached async bulk data																				*/
+	FAllocatedPtr		BulkDataAsync;
 	/** Current lock status																								*/
 	uint32				LockStatus;
 	/** Async helper for loading bulk data on a separate thread */
 	TFuture<bool> SerializeFuture;
 
 protected:
-	/** true when data has been allocated internally by the bulk data and does not come from a preallocated resource	*/
-	bool				bShouldFreeOnEmpty;
 	/** name of the package file containing the bulkdata */
 	FString				Filename;
 #if WITH_EDITOR
@@ -575,7 +634,7 @@ public:
 		}
 		Formats.Empty();
 	}
-	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = NULL, bool bSingleUse = true, uint32 Alignment = DEFAULT_ALIGNMENT);
+	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = NULL, bool bSingleUse = true, uint32 InAlignment = DEFAULT_ALIGNMENT);
 };
 
 #endif

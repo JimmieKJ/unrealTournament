@@ -14,6 +14,7 @@
 #include "Editor/MainFrame/Public/Interfaces/IMainFrameModule.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h"
+#include "Kismet/GameplayStatics.h"
 
 #define LOCTEXT_NAMESPACE "STutorialRoot"
 
@@ -129,7 +130,7 @@ void STutorialRoot::LaunchTutorial(UEditorTutorial* InTutorial, IIntroTutorials:
 		if(InTutorial->AssetToUse.IsValid())
 		{
 			TArray<FString> AssetPaths;
-			AssetPaths.Add(InTutorial->AssetToUse.AssetLongPathname);
+			AssetPaths.Add(InTutorial->AssetToUse.ToString());
 			FAssetEditorManager::Get().OpenEditorsForAssets(AssetPaths);
 
 			UObject* Asset = InTutorial->AssetToUse.ResolveObject();
@@ -286,23 +287,44 @@ void STutorialRoot::GoToPreviousStage()
 		{
 			CurrentTutorial->HandleTutorialStageEnded(CurrentTutorial->Stages[CurrentTutorialStage].Name);
 		}
-
-		if ((CurrentTutorialStage <= 0) && (FName(*CurrentTutorial->PreviousTutorial.AssetLongPathname) != NAME_None))
+		
+		FString PlatformName = UGameplayStatics::GetPlatformName();
+		for (--CurrentTutorialStage; CurrentTutorialStage >= 0; --CurrentTutorialStage)
 		{
-			TSubclassOf<UEditorTutorial> PreviousTutorialClass = LoadClass<UEditorTutorial>(NULL, *CurrentTutorial->PreviousTutorial.AssetLongPathname, NULL, LOAD_None, NULL);
-			if (PreviousTutorialClass != nullptr)
+			bool bPlatformFoundInList = false;
+			for (FString PlatformToTest : CurrentTutorial->Stages[CurrentTutorialStage].PlatformsToTest)
 			{
-				LaunchTutorial(PreviousTutorialClass->GetDefaultObject<UEditorTutorial>(), IIntroTutorials::ETutorialStartType::TST_LASTSTAGE, nullptr, FSimpleDelegate(), FSimpleDelegate());
+				if (!PlatformName.Compare(PlatformToTest, ESearchCase::IgnoreCase))
+				{
+					bPlatformFoundInList = true;
+					break;
+				}
 			}
-			else
+			if (bPlatformFoundInList != CurrentTutorial->Stages[CurrentTutorialStage].bInvertPlatformTest)
 			{
-				FSlateNotificationManager::Get().AddNotification(FNotificationInfo(FText::Format(LOCTEXT("TutorialNotFound", "Could not start previous tutorial {0}"), FText::FromString(CurrentTutorial->PreviousTutorial.AssetLongPathname))));
+				// Skip this stage
+				continue;
 			}
-		}
-		else
-		{
-			CurrentTutorialStage = FMath::Max(CurrentTutorialStage - 1, 0);
+			// We hit a page that we don't want to skip. Record progress and stop looking.
 			GetMutableDefault<UTutorialStateSettings>()->RecordProgress(CurrentTutorial, CurrentTutorialStage);
+			break;
+		}
+		if (CurrentTutorialStage < 0)
+		{
+			// We went out of bounds for this tutorial, so see if we want to go to another one.
+			CurrentTutorialStage = 0;
+			if (FName(*CurrentTutorial->PreviousTutorial.ToString()) != NAME_None)
+			{
+				TSubclassOf<UEditorTutorial> PreviousTutorialClass = LoadClass<UEditorTutorial>(NULL, *CurrentTutorial->PreviousTutorial.ToString(), NULL, LOAD_None, NULL);
+				if (PreviousTutorialClass != nullptr)
+				{
+					LaunchTutorial(PreviousTutorialClass->GetDefaultObject<UEditorTutorial>(), IIntroTutorials::ETutorialStartType::TST_LASTSTAGE, nullptr, FSimpleDelegate(), FSimpleDelegate());
+				}
+				else
+				{
+					FSlateNotificationManager::Get().AddNotification(FNotificationInfo(FText::Format(LOCTEXT("TutorialNotFound", "Could not start previous tutorial {0}"), FText::FromString(CurrentTutorial->PreviousTutorial.ToString()))));
+				}
+			}
 		}
 
 		if (CurrentTutorial != nullptr && CurrentTutorialStage < CurrentTutorial->Stages.Num() && (CurrentTutorial != OldTutorial || CurrentTutorialStage != OldTutorialStage))
@@ -332,22 +354,43 @@ void STutorialRoot::GoToNextStage(TWeakPtr<SWindow> InNavigationWindow)
 			CurrentTutorial->HandleTutorialStageEnded(CurrentTutorial->Stages[CurrentTutorialStage].Name);
 		}
 
-		if(CurrentTutorialStage + 1 >= CurrentTutorial->Stages.Num() && FName(*CurrentTutorial->NextTutorial.AssetLongPathname) != NAME_None)
+		FString PlatformName = UGameplayStatics::GetPlatformName();
+		for (++CurrentTutorialStage; CurrentTutorialStage < CurrentTutorial->Stages.Num(); ++CurrentTutorialStage)
 		{
-			TSubclassOf<UEditorTutorial> NextTutorialClass = LoadClass<UEditorTutorial>(NULL, *CurrentTutorial->NextTutorial.AssetLongPathname, NULL, LOAD_None, NULL);
-			if(NextTutorialClass != nullptr)
+			bool bPlatformFoundInList = false;
+			for (FString PlatformToTest : CurrentTutorial->Stages[CurrentTutorialStage].PlatformsToTest)
 			{
-				LaunchTutorial(NextTutorialClass->GetDefaultObject<UEditorTutorial>(), IIntroTutorials::ETutorialStartType::TST_RESTART, InNavigationWindow, FSimpleDelegate(), FSimpleDelegate());
+				if (!PlatformName.Compare(PlatformToTest, ESearchCase::IgnoreCase))
+				{
+					bPlatformFoundInList = true;
+					break;
+				}
 			}
-			else
+			if (bPlatformFoundInList != CurrentTutorial->Stages[CurrentTutorialStage].bInvertPlatformTest)
 			{
-				FSlateNotificationManager::Get().AddNotification(FNotificationInfo(FText::Format(LOCTEXT("TutorialNotFound", "Could not start next tutorial {0}"), FText::FromString(CurrentTutorial->NextTutorial.AssetLongPathname))));
+				// Skip this stage
+				continue;
 			}
-		}
-		else
-		{
-			CurrentTutorialStage = FMath::Min(CurrentTutorialStage + 1, CurrentTutorial->Stages.Num() - 1);
+			// We hit a page that we don't want to skip. Record progress and stop looking.
 			GetMutableDefault<UTutorialStateSettings>()->RecordProgress(CurrentTutorial, CurrentTutorialStage);
+			break;
+		}
+		if (CurrentTutorialStage + 1 >= CurrentTutorial->Stages.Num())
+		{
+			// We went out of bounds for this tutorial, so see if we want to go to another one.
+			CurrentTutorialStage = CurrentTutorial->Stages.Num() - 1;
+			if (FName(*CurrentTutorial->PreviousTutorial.ToString()) != NAME_None)
+			{
+				TSubclassOf<UEditorTutorial> NextTutorialClass = LoadClass<UEditorTutorial>(NULL, *CurrentTutorial->NextTutorial.ToString(), NULL, LOAD_None, NULL);
+				if (NextTutorialClass != nullptr)
+				{
+					LaunchTutorial(NextTutorialClass->GetDefaultObject<UEditorTutorial>(), IIntroTutorials::ETutorialStartType::TST_RESTART, InNavigationWindow, FSimpleDelegate(), FSimpleDelegate());
+				}
+				else
+				{
+					FSlateNotificationManager::Get().AddNotification(FNotificationInfo(FText::Format(LOCTEXT("TutorialNotFound", "Could not start next tutorial {0}"), FText::FromString(CurrentTutorial->NextTutorial.ToString()))));
+				}
+			}
 		}
 
 		if (CurrentTutorial != nullptr && CurrentTutorialStage < CurrentTutorial->Stages.Num() && (CurrentTutorial != OldTutorial || CurrentTutorialStage != OldTutorialStage))

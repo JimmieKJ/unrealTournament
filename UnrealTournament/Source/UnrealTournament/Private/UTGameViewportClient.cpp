@@ -1,14 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTGameViewportClient.h"
-#include "Slate/SUWMessageBox.h"
-#include "Slate/SUWDialog.h"
-#include "Slate/SUWInputBox.h"
-#include "Slate/SUWRedirectDialog.h"
-#include "Slate/SUTGameLayerManager.h"
+#include "Dialogs/SUTMessageBoxDialog.h"
+#include "Base/SUTDialogBase.h"
+#include "Dialogs/SUTInputBoxDialog.h"
+#include "Dialogs/SUTRedirectDialog.h"
+#include "SUTGameLayerManager.h"
 #include "Engine/GameInstance.h"
 #include "UTGameEngine.h"
+#include "Engine/Console.h"
 
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -33,9 +34,6 @@ UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& Obj
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, OneThird, 0.5f));
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.0f));
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.5f));
-
-	LastPasswordAttemptHost = TEXT("");
-
 }
 
 void UUTGameViewportClient::AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
@@ -154,7 +152,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 			}
 			else if (FPaths::GetExtension(URL) == FString(TEXT("pak")))
 			{
-				FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
+				FirstPlayer->OpenDialog(SNew(SUTRedirectDialog)
 					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::RedirectResult))
 					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
 					.RedirectToURL(URL)
@@ -212,21 +210,31 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 				if (bNeedsToDownload)
 				{
-					FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+					FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 					FString McpConfigOverride;
 					FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
 					if (McpConfigOverride == TEXT("gamedev"))
 					{
-						BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+						BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 					}
 
-					FileURLs.Add(BaseURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key() + TEXT(".pak"));
+					FString EpicApp;
+					FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
+					const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
+					if (bIsPublicTest)
+					{
+						BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
+					}
+
+					FString CommandURL = TEXT("/ut/api/cloudstorage/user/");
+
+					FileURLs.Add(BaseURL + CommandURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key() + TEXT(".pak"));
 				}
 			}
 
 			if (FileURLs.Num() > 0)
 			{
-				FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
+				FirstPlayer->OpenDialog(SNew(SUTRedirectDialog)
 					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::CloudRedirectResult))
 					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
 					.RedirectURLs(FileURLs)
@@ -303,40 +311,30 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 
 		if (FailureType == ENetworkFailure::PendingConnectionFailure)
 		{
-			if (ErrorString == TEXT("NEEDPASS"))
+			if (ErrorString == TEXT("NEEDPASS") || ErrorString == TEXT("NEEDSPECPASS"))
 			{
-
-				UE_LOG(UT,Log,TEXT("%s %s"), *NetDriver->LowLevelGetNetworkNumber(), *GetNameSafe(GetWorld()));
+				bool bNeedSpectator = ErrorString == TEXT("NEEDSPECPASS");
 				if (NetDriver != NULL && NetDriver->ServerConnection != NULL)
 				{
 					LastAttemptedURL = NetDriver->ServerConnection->URL;
 
-					// Look to see if there isn't a cached password for this host.
-					if (SavedPasswords.Contains(LastAttemptedURL.Host))
+					FString StoredPassword = FirstPlayer->RetrievePassword(LastAttemptedURL.Host, bNeedSpectator);
+					if (!StoredPassword.IsEmpty())
 					{
-						// Make sure we didn't just try to use it (ie: password is out of data
-						if (LastAttemptedURL.Host != LastPasswordAttemptHost)
-						{
-							FString Password = SavedPasswords[LastAttemptedURL.Host];
-							FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *Password);
+						// We have a cached password and we didn't try it already, just reconnect.  We have to do this here for Hub instances that
+						// have the same password.
 
-							//add all of the options the client was connecting with
-							for (FString& Option : LastAttemptedURL.Op)
-							{
-								if (!Option.StartsWith(TEXT("password=")))
-								{
-									ReconnectCommand += TEXT("?") + Option;
-								}
-							}
-							FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+						FString LastPass = LastAttemptedURL.GetOption((bNeedSpectator ? TEXT("specpassword=") : TEXT("password=")), TEXT(""));
+						if (LastPass.IsEmpty() || LastPass != StoredPassword)
+						{
+							FirstPlayer->Reconnect(bNeedSpectator);
 							return;
 						}
-						SavedPasswords.Remove(LastAttemptedURL.Host);
-						LastPasswordAttemptHost = TEXT("");
 					}
 
-					FirstPlayer->OpenDialog(SNew(SUWInputBox)
-						.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
+
+					FirstPlayer->OpenDialog(SNew(SUTInputBoxDialog)
+						.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult, ErrorString == TEXT("NEEDSPECPASS")))
 						.PlayerOwner(FirstPlayer)
 						.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
 						.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
@@ -647,12 +645,12 @@ void UUTGameViewportClient::NetworkFailureDialogResult(TSharedPtr<SCompoundWidge
 	ReconnectDialog.Reset();
 }
 
-void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID, bool bSpectatorPassword)
 {
 #if !UE_SERVER
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		TSharedPtr<SUTInputBoxDialog> Box = StaticCastSharedPtr<SUTInputBoxDialog>(Widget);
 		if (Box.IsValid())
 		{
 			FString InputText = Box->GetInputText();
@@ -660,28 +658,10 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 			UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 			if (!InputText.IsEmpty() && FirstPlayer != NULL)
 			{
-				FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *InputText);
-
-				//add all of the options the client was connecting with
-				for (FString& Option : LastAttemptedURL.Op)
-				{
-					if (!Option.StartsWith(TEXT("password=")))
-					{
-						ReconnectCommand += TEXT("?") + Option;
-					}
-				}
-
-				SavedPasswords.Add(LastAttemptedURL.Host, InputText);
-				LastPasswordAttemptHost = LastAttemptedURL.Host;
-
-				FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+				FirstPlayer->CachePassword(LastAttemptedURL.Host, InputText, bSpectatorPassword);
+				FirstPlayer->Reconnect(bSpectatorPassword);
 			}
 		}
-	}
-	else
-	{
-		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
-		FirstPlayer->PlayerController->ConsoleCommand(TEXT("Disconnect"));
 	}
 #endif
 }
@@ -691,15 +671,7 @@ void UUTGameViewportClient::ReconnectAfterDownloadingContent()
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 	if (FirstPlayer != nullptr)
 	{
-		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
-
-		//add all of the options the client was connecting with
-		for (FString& Option : LastAttemptedURL.Op)
-		{
-			ReconnectCommand += TEXT("?") + Option;
-		}
-
-		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+		FirstPlayer->Reconnect(false);
 	}
 }
 
@@ -1090,5 +1062,18 @@ bool UUTGameViewportClient::HideCursorDuringCapture()
 
 void UUTGameViewportClient::ClientConnectedToServer()
 {
-	LastPasswordAttemptHost.Empty();	
+}
+
+
+ULocalPlayer* UUTGameViewportClient::SetupInitialLocalPlayer(FString& OutError)
+{
+	// Work around shipping not having a console
+#if UE_BUILD_SHIPPING
+	// Create the viewport's console.
+	ViewportConsole = NewObject<UConsole>(this, GetOuterUEngine()->ConsoleClass);
+	// register console to get all log messages
+	GLog->AddOutputDevice(ViewportConsole);
+#endif // !UE_BUILD_SHIPPING
+
+	return Super::SetupInitialLocalPlayer(OutError);
 }

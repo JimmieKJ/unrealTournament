@@ -18,14 +18,13 @@ public:
 	FOnlineSubsystemIOS();
 	virtual ~FOnlineSubsystemIOS() {};
 
-	// Begin IOnlineSubsystem Interface
+	//~ Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
 	virtual IOnlineFriendsPtr GetFriendsInterface() const override;
 	virtual IOnlinePartyPtr GetPartyInterface() const override;
 	virtual IOnlineGroupsPtr GetGroupsInterface() const override;
 	virtual IOnlineSharedCloudPtr GetSharedCloudInterface() const override;
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const override;
-	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const override;
 	virtual IOnlineLeaderboardsPtr GetLeaderboardsInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const  override;
 	virtual IOnlineExternalUIPtr GetExternalUIInterface() const override;
@@ -34,6 +33,8 @@ public:
 	virtual IOnlineTitleFilePtr GetTitleFileInterface() const override;
 	virtual IOnlineEntitlementsPtr GetEntitlementsInterface() const override;
 	virtual IOnlineStorePtr GetStoreInterface() const override;
+	virtual IOnlineStoreV2Ptr GetStoreV2Interface() const override { return nullptr; }
+	virtual IOnlinePurchasePtr GetPurchaseInterface() const override { return nullptr; }
 	virtual IOnlineEventsPtr GetEventsInterface() const override;
 	virtual IOnlineAchievementsPtr GetAchievementsInterface() const override;
 	virtual IOnlineSharingPtr GetSharingInterface() const override;
@@ -47,7 +48,7 @@ public:
 	virtual FString GetAppId() const override;
 	virtual bool Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 	virtual bool Tick(float DeltaTime) override;
-	// End IOnlineSubsystem Interface
+	//~ End IOnlineSubsystem Interface
 
 PACKAGE_SCOPE:
 
@@ -91,6 +92,12 @@ private:
 
     /** Interface to the turnbased multiplayer services */
     FOnlineTurnBasedIOSPtr TurnBasedInterface;
+
+	/** Interface to the user cloud storage */
+	FOnlineUserCloudIOSPtr UserCloudInterface;
+
+	/** Interface to the shared cloud storage */
+	FOnlineSharedCloudIOSPtr SharedCloudInterface;
 };
 
 typedef TSharedPtr<FOnlineSubsystemIOS, ESPMode::ThreadSafe> FOnlineSubsystemIOSPtr;

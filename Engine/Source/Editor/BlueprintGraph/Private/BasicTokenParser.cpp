@@ -274,7 +274,7 @@ bool FBasicTokenParser::GetToken(FBasicToken& Token, bool bNoConsts/* = false*/)
 		Token.SetGuid(Token.Identifier);
 		return IsValid();
 	}
-	else if( (c>='A' && c<='Z') || (c>='a' && c<='z') || (c=='_') )
+	else if( FText::IsLetter(c)|| (c=='_') )
 	{
 		// Alphanumeric token.
 		int32 Length=0;
@@ -292,7 +292,7 @@ bool FBasicTokenParser::GetToken(FBasicToken& Token, bool bNoConsts/* = false*/)
 				break;
 			}
 			c = GetChar();
-		} while( ((c>='A')&&(c<='Z')) || ((c>='a')&&(c<='z')) || ((c>='0')&&(c<='9')) || (c=='_') );
+		} while( FText::IsLetter(c) || ((c>='0')&&(c<='9')) || (c=='_') );
 		UngetChar();
 		Token.Identifier[Length]=0;
 

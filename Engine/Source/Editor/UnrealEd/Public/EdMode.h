@@ -73,7 +73,7 @@ public:
 
 	/**
 	 * Get a cursor to override the default with, if any.
-	 * @return true if the cursor was overriden.
+	 * @return true if the cursor was overridden.
 	 */
 	virtual bool GetCursor(EMouseCursor::Type& OutCursor) const { return false; }
 

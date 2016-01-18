@@ -34,12 +34,6 @@ public:
 
 	/** Applies level of detail changes to the static mesh */
 	void ApplyChanges();
-
-	/** Reimports the current static mesh */
-	FReply Reimport();
-
-	/** Whether the user should reimport based on the changes */
-	bool CanReimport() const;
 private:
 	/** Level of detail settings for the details panel */
 	TSharedPtr<FLevelOfDetailSettingsLayout> LevelOfDetailSettings;
@@ -139,6 +133,8 @@ private:
 	ECheckBoxState ShouldRecomputeTangents() const;
 	ECheckBoxState ShouldUseMikkTSpace() const;
 	ECheckBoxState ShouldRemoveDegenerates() const;
+	ECheckBoxState ShouldBuildAdjacencyBuffer() const;
+	ECheckBoxState ShouldBuildReversedIndexBuffer() const;
 	ECheckBoxState ShouldUseFullPrecisionUVs() const;
 	ECheckBoxState ShouldGenerateLightmapUVs() const;
 	ECheckBoxState ShouldGenerateDistanceFieldAsIfTwoSided() const;
@@ -154,6 +150,8 @@ private:
 	void OnRecomputeTangentsChanged(ECheckBoxState NewState);
 	void OnUseMikkTSpaceChanged(ECheckBoxState NewState);
 	void OnRemoveDegeneratesChanged(ECheckBoxState NewState);
+	void OnBuildAdjacencyBufferChanged(ECheckBoxState NewState);
+	void OnBuildReversedIndexBufferChanged(ECheckBoxState NewState);
 	void OnUseFullPrecisionUVsChanged(ECheckBoxState NewState);
 	void OnGenerateLightmapUVsChanged(ECheckBoxState NewState);
 	void OnGenerateDistanceFieldAsIfTwoSidedChanged(ECheckBoxState NewState);
@@ -246,8 +244,10 @@ private:
 	void OnSectionCastShadowChanged(ECheckBoxState NewState, int32 SectionIndex);
 	ECheckBoxState DoesSectionCollide(int32 SectionIndex) const;
 	void OnSectionCollisionChanged(ECheckBoxState NewState, int32 SectionIndex);
-	ECheckBoxState IsSectionSelected(int32 SectionIndex) const;
-	void OnSectionSelectedChanged(ECheckBoxState NewState, int32 SectionIndex);
+	ECheckBoxState IsSectionHighlighted(int32 SectionIndex) const;
+	void OnSectionHighlightedChanged(ECheckBoxState NewState, int32 SectionIndex);
+	ECheckBoxState IsSectionIsolatedEnabled(int32 SectionIndex) const;
+	void OnSectionIsolatedChanged(ECheckBoxState NewState, int32 SectionIndex);
 	void CallPostEditChange(UProperty* PropertyChanged=nullptr);
 	
 	IStaticMeshEditor& StaticMeshEditor;
@@ -325,6 +325,9 @@ private:
 	TSharedPtr<FMeshReductionSettingsLayout> ReductionSettingsWidgets[MAX_STATIC_MESH_LODS];
 	TSharedPtr<FMeshBuildSettingsLayout> BuildSettingsWidgets[MAX_STATIC_MESH_LODS];
 	TSharedPtr<FMeshSectionSettingsLayout> SectionSettingsWidgets[MAX_STATIC_MESH_LODS];
+
+	/** ComboBox widget for the LOD Group property */
+	TSharedPtr<STextComboBox> LODGroupComboBox;
 
 	/** The display factors at which LODs swap */
 	float LODScreenSizes[MAX_STATIC_MESH_LODS];

@@ -14,7 +14,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogAndroidMediaPlayer, Log, All);
 #define LOCTEXT_NAMESPACE "FAndroidMediaModule"
 
 class FAndroidMediaPlayer::MediaTrack
-	: public IMediaTrack
+	: public IMediaStream
 {
 public:
 
@@ -42,28 +42,6 @@ public:
 		return MediaPlayer.MediaState != EMediaState::Error;
 	}
 
-	virtual const IMediaTrackAudioDetails& GetAudioDetails() const
-	{
-		verify(false); // not an audio track
-		return *static_cast<IMediaTrackAudioDetails*>(nullptr);
-	}
-
-	virtual const IMediaTrackCaptionDetails& GetCaptionDetails() const
-	{
-		verify(false); // not a caption track
-		return *static_cast<IMediaTrackCaptionDetails*>(nullptr);
-	}
-
-	virtual FText GetDisplayName() const
-	{
-		return FText::Format(LOCTEXT("UnnamedTrackFormat", "Unnamed Track {0}"), FText::AsNumber(GetIndex()));
-	}
-
-	virtual uint32 GetIndex() const
-	{
-		return TrackIndex;
-	}
-
 	virtual FString GetLanguage() const
 	{
 		return TEXT("und");
@@ -74,18 +52,12 @@ public:
 		return FPaths::GetBaseFilename(MediaPlayer.MediaUrl);
 	}
 
-	virtual const IMediaTrackVideoDetails& GetVideoDetails() const
-	{
-		verify(false); // not a video track
-		return *static_cast<IMediaTrackVideoDetails*>(nullptr);
-	}
-
 	virtual bool IsEnabled() const
 	{
 		return TrackIsEnabled;
 	}
 
-	virtual bool IsMutuallyExclusive(const IMediaTrackRef& Other) const
+	virtual bool IsMutuallyExclusive(const IMediaStreamRef& Other) const
 	{
 		return false;
 	}
@@ -102,11 +74,6 @@ public:
 
 	virtual void Tick(float DeltaTime)
 	{
-	}
-
-	virtual bool TickInRenderThread()
-	{
-		return false;
 	}
 
 	virtual void ProcessMediaSample(void* SampleBuffer, uint32 SampleSize, FTimespan SampleDuration, FTimespan SampleTime)
@@ -150,7 +117,7 @@ protected:
 
 class FAndroidMediaPlayer::VideoTrack
 	: public FAndroidMediaPlayer::MediaTrack
-	, public IMediaTrackVideoDetails
+	, public IMediaVideoTrack
 {
 public:
 
@@ -180,14 +147,9 @@ public:
 		return false;
 	}
 
-	virtual EMediaTrackTypes GetType() const
+	virtual FText GetDisplayName() const
 	{
-		return EMediaTrackTypes::Video;
-	}
-
-	virtual const IMediaTrackVideoDetails& GetVideoDetails() const
-	{
-		return *this;
+		return FText::Format(LOCTEXT("VideoTrackNameFormat", "Video Track {0}"), FText::AsNumber(TrackIndex));
 	}
 
 	virtual uint32 GetBitRate() const
@@ -214,6 +176,23 @@ public:
 		return 30.0f;
 	}
 
+	virtual IMediaStream& GetStream() override
+	{
+		return *this;
+	}
+
+#if WITH_ENGINE
+	virtual void BindTexture(class FRHITexture* Texture) override
+	{
+		// @todo android: cbabcock: implement texture binding
+	}
+
+	virtual void UnbindTexture(class FRHITexture* Texture) override
+	{
+		// @todo android: cbabcock: implement texture binding
+	}
+#endif
+
 	virtual void Tick(float DeltaTime)
 	{
 		if (MediaPlayer.MediaState != EMediaState::Error)
@@ -237,11 +216,6 @@ public:
 		}
 	}
 
-	virtual bool TickInRenderThread()
-	{
-		return true;
-	}
-
 private:
 
 	int32 LastFramePosition;
@@ -249,7 +223,7 @@ private:
 
 class FAndroidMediaPlayer::AudioTrack
 	: public FAndroidMediaPlayer::MediaTrack
-	, public IMediaTrackAudioDetails
+	, public IMediaAudioTrack
 {
 public:
 
@@ -278,14 +252,9 @@ public:
 		return false;
 	}
 
-	virtual const IMediaTrackAudioDetails& GetAudioDetails() const
+	virtual FText GetDisplayName() const
 	{
-		return *this;
-	}
-
-	virtual EMediaTrackTypes GetType() const
-	{
-		return EMediaTrackTypes::Audio;
+		return FText::Format(LOCTEXT("AudioTrackNameFormat", "Audio Track {0}"), FText::AsNumber(TrackIndex));
 	}
 
 	virtual uint32 GetNumChannels() const
@@ -296,6 +265,11 @@ public:
 	virtual uint32 GetSamplesPerSecond() const
 	{
 		return 0;
+	}
+
+	virtual IMediaStream& GetStream() override
+	{
+		return *this;
 	}
 };
 
@@ -371,9 +345,25 @@ void FAndroidMediaPlayer::Close()
 		}
 		MediaUrl = FString();
 		MediaState = EMediaState::Idle;
-		Tracks.Reset();
+		
+		AudioTracks.Reset();
+		CaptionTracks.Reset();
+		VideoTracks.Reset();
+
+		TracksChangedEvent.Broadcast();
 		ClosedEvent.Broadcast();
 	}
+}
+
+const TArray<IMediaAudioTrackRef>& FAndroidMediaPlayer::GetAudioTracks() const
+{
+	return AudioTracks;
+}
+
+
+const TArray<IMediaCaptionTrackRef>& FAndroidMediaPlayer::GetCaptionTracks() const
+{
+	return CaptionTracks;
 }
 
 const IMediaInfo& FAndroidMediaPlayer::GetMediaInfo() const
@@ -398,9 +388,9 @@ FTimespan FAndroidMediaPlayer::GetTime() const
 	}
 }
 
-const TArray<IMediaTrackRef>& FAndroidMediaPlayer::GetTracks() const
+const TArray<IMediaVideoTrackRef>& FAndroidMediaPlayer::GetVideoTracks() const
 {
-	return Tracks;
+	return VideoTracks;
 }
 
 bool FAndroidMediaPlayer::IsLooping() const
@@ -518,13 +508,15 @@ bool FAndroidMediaPlayer::Open(const FString& Url)
 		{
 			// For video we add video track and disable audio
 			JavaMediaPlayer->SetAudioEnabled(false);
-//			Tracks.Add(MakeShareable(new AudioTrack(*this, Tracks.Num())));
-			Tracks.Add(MakeShareable(new VideoTrack(*this, Tracks.Num())));
+//			AudioTracks.Add(MakeShareable(new AudioTrack(*this, AudioTracks.Num())));
+			VideoTracks.Add(MakeShareable(new VideoTrack(*this, VideoTracks.Num())));
 		}
 		else if (Extension.Equals(TEXT("aac"), ESearchCase::IgnoreCase))
 		{
-			Tracks.Add(MakeShareable(new AudioTrack(*this, Tracks.Num())));
+			AudioTracks.Add(MakeShareable(new AudioTrack(*this, AudioTracks.Num())));
 		}
+
+		TracksChangedEvent.Broadcast();
 	}
 	if (MediaState == EMediaState::Prepared)
 	{
@@ -533,7 +525,7 @@ bool FAndroidMediaPlayer::Open(const FString& Url)
 	return MediaState == EMediaState::Prepared;
 }
 
-bool FAndroidMediaPlayer::Open(const TSharedRef<TArray<uint8>>& Buffer,
+bool FAndroidMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive,
 	const FString& OriginalUrl)
 {
 	return false;
@@ -606,29 +598,31 @@ bool FAndroidMediaPlayer::SetRate(float Rate)
 	return false;
 }
 
-typedef TWeakPtr<IMediaTrack, ESPMode::ThreadSafe> IMediaTrackWeakPtr;
+typedef TWeakPtr<IMediaVideoTrack, ESPMode::ThreadSafe> IMediaVideoTrackWeakPtr;
 
 void FAndroidMediaPlayer::Tick(float DeltaTime)
 {
-	for (IMediaTrackRef track : Tracks)
+	for (IMediaAudioTrackRef AudioTrack : AudioTracks)
 	{
-		MediaTrack & TrackToTick = static_cast<MediaTrack&>(*track);
-		if (TrackToTick.TickInRenderThread())
-		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				RenderTickMediaTrack, IMediaTrackWeakPtr, Track, track, float, DeltaT, DeltaTime,
+		static_cast<MediaTrack&>(AudioTrack->GetStream()).Tick(DeltaTime);
+	}
+
+	for (IMediaCaptionTrackRef CaptionTrack : CaptionTracks)
+	{
+		static_cast<MediaTrack&>(CaptionTrack->GetStream()).Tick(DeltaTime);
+	}
+
+	for (IMediaVideoTrackRef VideoTrack : VideoTracks)
+	{
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+			RenderTickMediaTrack, IMediaVideoTrackWeakPtr, Track, VideoTrack, float, DeltaT, DeltaTime,
+			{
+				IMediaVideoTrackPtr t = Track.Pin();
+				if (t.IsValid())
 				{
-					IMediaTrackPtr t = Track.Pin();
-					if (t.IsValid())
-					{
-						StaticCastSharedPtr<MediaTrack>(t)->Tick(DeltaT);
-					}
-				});
-		}
-		else
-		{
-			TrackToTick.Tick(DeltaTime);
-		}
+					static_cast<MediaTrack&>(t->GetStream()).Tick(DeltaT);
+				}
+			});
 	}
 }
 

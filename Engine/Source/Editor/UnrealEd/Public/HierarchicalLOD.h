@@ -2,76 +2,17 @@
 
 #pragma once
 
+#include "LODCluster.h"
+
 /*=============================================================================
 	HierarchicalLOD.h: Hierarchical LOD definition.
 =============================================================================*/
 
-/**
- *
- *	This is a LOD cluster struct that holds list of actors with relevant information
- *
- *	http://deim.urv.cat/~rivi/pub/3d/icra04b.pdf
- *
- *	This is used by Hierarchical LOD Builder to generates list of clusters 
- *	that are together in vincinity and build as one actor
- *
- **/
-
-struct FLODCluster
-{
-	// constructors
-	FLODCluster(const FLODCluster& Other);
-	FLODCluster(class AActor* Actor1);
-	FLODCluster(class AActor* Actor1, class AActor* Actor2);
-
-	FLODCluster operator+( const FLODCluster& Other ) const;
-	FLODCluster operator+=( const FLODCluster& Other );
-	FLODCluster operator-(const FLODCluster& Other) const;
-	FLODCluster operator-=(const FLODCluster& Other);
-	FLODCluster& operator=(const FLODCluster & Other);
-
-	// Invalidate current cluster
-	void Invalidate() { bValid = false; }
-	// return true if valid
-	bool IsValid() const {	return bValid; }
-
-	// return cost of the cluster, lower is better
-	const float GetCost() const
-	{
-		return (FMath::Pow(Bound.W, 3) / FillingFactor);
-	}
-
-	// return true if this cluster contains ANY of actors of Other
-	bool Contains(FLODCluster& Other) const;
-	// return string of data
-	FString ToString() const;
-	
-	// member variable
-	// list of actors
-	TArray<class AActor*>	Actors;
-	// bound of this cluster
-	FSphere					Bound;
-	// filling factor - higher means filled more
-	float					FillingFactor;
-
-	// if criteria matches, build new LODActor and replace current Actors with that. We don't need 
-	// this clears previous actors and sets to this new actor
-	// this is required when new LOD is created from these actors, this will be replaced
-	// to save memory and to reduce memory increase during this process, we discard previous actors and replace with this actor
-	void BuildActor(class ULevel* InLevel, const int32 LODIdx);
-
-private:
-	// cluster operations
-	void MergeClusters(const FLODCluster& Other);
-	void SubtractCluster(const FLODCluster& Other);
-
-	// add new actor, this doesn't recalculate filling factor
-	// the filling factor has to be calculated outside
-	FSphere AddActor(class AActor* NewActor);
-
-	// whether it's valid or not
-	bool bValid;
-};
+class ULevel;
+class AActor;
+class AHierarchicalLODVolume;
+class UWorld;
+class ALODActor;
 
 /**
  *
@@ -79,35 +20,118 @@ private:
  *
  * This builds list of clusters and make sure it's sorted in the order of lower cost to high and merge clusters
  **/
-
 struct UNREALED_API FHierarchicalLODBuilder
 {
-	FHierarchicalLODBuilder(class UWorld* InWorld);
+	FHierarchicalLODBuilder(UWorld* InWorld);
 
 #if WITH_HOT_RELOAD_CTORS
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	FHierarchicalLODBuilder();
 #endif // WITH_HOT_RELOAD_CTORS
-
-	// build hierarchical cluster
+		
+	/**
+	* Build, Builds the clusters and spawn LODActors with their merged Static Meshes
+	*/
 	void Build();
+	
+	/**
+	* PreviewBuild, Builds the clusters and spawns LODActors but without actually creating/merging new StaticMeshes
+	*/
+	void PreviewBuild();
+
+	/**
+	* Clear all the HLODs and the ALODActors that were created for them
+	*/
+	void ClearHLODs();
+
+	/**
+	* Clear only the ALODActorsPreview 
+	*/
+	void ClearPreviewBuild();
+
+	/** Builds the LOD meshes for all LODActors inside of the World's Levels */
+	void BuildMeshesForLODActors();
+
+	/**
+	* Build a single LOD Actor's mesh
+	*
+	* @param LODActor - LODActor to build mesh for
+	* @param LODLevel - LODLevel to build the mesh for
+	*/
+	void BuildMeshForLODActor(ALODActor* LODActor, const uint32 LODLevel);
 
 private:
-	// data structure - this is only valid within scope since mem stack allocator
+	/**
+	* Builds the clusters (HLODs) for InLevel, and will create the new/merged StaticMeshes if bCreateMeshes is true
+	*
+	* @param InLevel - Level for which the HLODs are currently being build
+	* @param bCreateMeshes - Whether or not to create/merge the StaticMeshes (false if builing preview only)
+	*/
+	void BuildClusters(ULevel* InLevel, const bool bCreateMeshes);
+
+	/**
+	* Initializes the clusters, creating one for each actor within the level eligble for HLOD-ing
+	*
+	* @param InLevel - Level for which the HLODs are currently being build
+	* @param LODIdx - LOD index we are building
+	* @param CullCost - Test variable for tweaking HighestCost
+	*/
+	void InitializeClusters(ULevel* InLevel, const int32 LODIdx, float CullCost, bool const bPreviewBuild);
+
+	/**
+	* Merges clusters and builds actors for resulting (valid) clusters
+	*
+	* @param InLevel - Level for which the HLODs are currently being build
+	* @param LODIdx - LOD index we are building, used for determining which StaticMesh LOD to use
+	* @param HighestCost - Allowed HighestCost for this LOD level
+	* @param MinNumActors - Minimum number of actors for this LOD level
+	* @param bCreateMeshes - Whether or not to create/merge the StaticMeshes (false if builing preview only)
+	*/
+	void MergeClustersAndBuildActors(ULevel* InLevel, const int32 LODIdx, float HighestCost, int32 MinNumActors, const bool bCreateMeshes);
+
+	/**
+	* Finds the minimal spanning tree MST for the clusters by sorting on their cost ( Lower == better )
+	*/
+	void FindMST();
+
+	/* Retrieves HierarchicalLODVolumes and creates a cluster for each individual one
+	*
+	* @param InLevel - Level for which the HLODs are currently being build
+	*/
+	void HandleHLODVolumes(ULevel* InLevel);
+
+	/**
+	* Determine whether or not this actor is eligble for HLOD creation
+	*
+	* @param Actor - Actor to test
+	* @return bool
+	*/
+	bool ShouldGenerateCluster(AActor* Actor, const bool bPreviewBuild);
+	
+	/**
+	* Deletes LOD actors from the world	
+	*
+	* @param InLevel - Level to delete the actors from
+	* @param bPreviewOnly - Only delete preview actors
+	* @return void
+	*/
+	void DeleteLODActors(ULevel* InLevel, const bool bPreviewOnly);
+
+	/** Array of LOD Clusters - this is only valid within scope since mem stack allocator */
 	TArray<FLODCluster, TMemStackAllocator<>> Clusters;
 
-	// owner world
-	class UWorld*		World;
+	/** Owning world HLODs are created for */
+	UWorld*	World;
 
-	// for now it only builds per level, it turns to one actor at the end
-	void BuildClusters(class ULevel* InLevel);
+	/** Array of LOD clusters created for the HierachicalLODVolumes found within the level */
+	TMap<AHierarchicalLODVolume*, FLODCluster> HLODVolumeClusters;	
 
-	// initialize Clusters variable - each Actor becomes Cluster
-	void InitializeClusters(class ULevel* InLevel, const int32 LODIdx, float CullCost);
+	/** Cached array of LODLevel settings */
+	TArray<FHierarchicalSimplification> BuildLODLevelSettings;
 
-	// merge clusters
-	void MergeClustersAndBuildActors(class ULevel* InLevel, const int32 LODIdx, float HighestCost, int32 MinNumActors);
+	/** LOD Actors per HLOD level */
+	TArray<TArray<ALODActor*>> LODLevelLODActors;
 
-	// find minmal spanning tree of clusters
-	void FindMST();
+	/** Valid Static Mesh actors in level (populated during initialize clusters) */
+	TArray<AActor*> ValidStaticMeshActorsInLevel;
 };

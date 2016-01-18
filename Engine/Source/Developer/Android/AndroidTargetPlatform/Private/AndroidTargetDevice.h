@@ -17,6 +17,10 @@ typedef TSharedPtr<class FAndroidTargetDevice, ESPMode::ThreadSafe> FAndroidTarg
  */
 typedef TSharedRef<class FAndroidTargetDevice, ESPMode::ThreadSafe> FAndroidTargetDeviceRef;
 
+/**
+ * Type definition for shared references to instances of FAndroidTargetDevice.
+ */
+typedef TSharedPtr<class FAndroidTargetDeviceOutput, ESPMode::ThreadSafe> FAndroidTargetDeviceOutputPtr;
 
 /**
  * Implements a Android target device.
@@ -97,9 +101,14 @@ public:
 		Model = InNodel;
 	}
 
+	FString GetSerialNumber() const
+	{
+		return SerialNumber;
+	}
+
 public:
 
-	// Begin ITargetDevice interface
+	//~ Begin ITargetDevice Interface
 	virtual bool Connect() override
 	{
 		return true;
@@ -162,7 +171,12 @@ public:
 	virtual bool TerminateProcess(const int32 ProcessId) override;
 	virtual void SetUserCredentials(const FString& UserName, const FString& UserPassword) override;
 	virtual bool GetUserCredentials(FString& OutUserName, FString& OutUserPassword) override;
-	// End ITargetDevice interface
+	virtual void ExecuteConsoleCommand(const FString& ExecCommand) const override;
+	virtual ITargetDeviceOutputPtr CreateDeviceOutputRouter(FOutputDevice* Output) const override;
+	//~ End ITargetDevice Interface
+
+	/** Full filename for ADB executable. */
+	static bool GetAdbFullFilename(FString& OutFilename);
 
 protected:
 

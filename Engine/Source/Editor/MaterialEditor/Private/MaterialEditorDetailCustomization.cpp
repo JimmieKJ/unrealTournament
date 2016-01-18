@@ -5,6 +5,7 @@
 #include "MaterialEditor.h"
 #include "MaterialEditorDetailCustomization.h"
 #include "Materials/MaterialParameterCollection.h"
+#include "Materials/MaterialExpressionScalarParameter.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditor"
 
@@ -26,6 +27,40 @@ void FMaterialExpressionParameterDetails::CustomizeDetails( IDetailLayoutBuilder
 	FName DefaultCategory = NAME_None;
 	IDetailCategoryBuilder& Category = DetailLayout.EditCategory( DefaultCategory );
 
+	TArray< TWeakObjectPtr<UObject> > Objects;
+	DetailLayout.GetObjectsBeingCustomized(Objects);
+
+	if (Objects.Num() > 0)
+	{
+		UMaterialExpressionScalarParameter* ScalarParameter = Cast<UMaterialExpressionScalarParameter>(Objects[0].Get());
+
+		if (ScalarParameter)
+		{
+			// Store these for OnSliderMinMaxEdited
+			ScalarParameterObject = Objects[0];
+			DefaultValueHandle = DetailLayout.GetProperty("DefaultValue", UMaterialExpressionScalarParameter::StaticClass());
+
+			TSharedPtr<IPropertyHandle> SliderMinHandle = DetailLayout.GetProperty("SliderMin", UMaterialExpressionScalarParameter::StaticClass());
+
+			if (SliderMinHandle.IsValid())
+			{
+				// Setup a callback when SliderMin changes to update the DefaultValue slider
+				FSimpleDelegate OnSliderMinMaxEditedDelegate = FSimpleDelegate::CreateSP(this, &FMaterialExpressionParameterDetails::OnSliderMinMaxEdited);
+				SliderMinHandle->SetOnPropertyValueChanged(OnSliderMinMaxEditedDelegate);
+			}
+
+			TSharedPtr<IPropertyHandle> SliderMaxHandle = DetailLayout.GetProperty("SliderMax", UMaterialExpressionScalarParameter::StaticClass());
+
+			if (SliderMaxHandle.IsValid())
+			{
+				FSimpleDelegate OnSliderMinMaxEditedDelegate = FSimpleDelegate::CreateSP(this, &FMaterialExpressionParameterDetails::OnSliderMinMaxEdited);
+				SliderMaxHandle->SetOnPropertyValueChanged(OnSliderMinMaxEditedDelegate);
+			}
+
+			OnSliderMinMaxEdited();
+		}
+	}
+	
 	Category.AddProperty("ParameterName");
 	
 	// Get a handle to the property we are about to edit
@@ -128,7 +163,26 @@ FText FMaterialExpressionParameterDetails::OnGetText() const
 	return FText::FromString(NewString);
 }
 
+void FMaterialExpressionParameterDetails::OnSliderMinMaxEdited()
+{
+	UMaterialExpressionScalarParameter* ScalarParameter = Cast<UMaterialExpressionScalarParameter>(ScalarParameterObject.Get());
 
+	if (ScalarParameter && DefaultValueHandle.IsValid())
+	{
+		if (ScalarParameter->SliderMax > ScalarParameter->SliderMin)
+		{
+			// Update the values that SPropertyEditorNumeric reads
+			// Unfortuantly there is no way to recreate the widget to actually update the UI with these new values
+			DefaultValueHandle->SetInstanceMetaData("UIMin",FString::Printf(TEXT("%f"), ScalarParameter->SliderMin));
+			DefaultValueHandle->SetInstanceMetaData("UIMax",FString::Printf(TEXT("%f"), ScalarParameter->SliderMax));
+		}
+		else
+		{
+			DefaultValueHandle->SetInstanceMetaData("UIMin", TEXT(""));
+			DefaultValueHandle->SetInstanceMetaData("UIMax", TEXT(""));
+		}
+	}
+}
 
 TSharedRef<IDetailCustomization> FMaterialExpressionCollectionParameterDetails::MakeInstance()
 {
@@ -299,5 +353,63 @@ void FMaterialExpressionCollectionParameterDetails::OnSelectionChanged( TSharedP
 	}
 }
 
+TSharedRef<class IDetailCustomization> FMaterialDetailCustomization::MakeInstance()
+{
+	return MakeShareable( new FMaterialDetailCustomization );
+}
+
+void FMaterialDetailCustomization::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
+{
+	TArray<TWeakObjectPtr<UObject> > Objects;
+	DetailLayout.GetObjectsBeingCustomized( Objects );
+
+	bool bUIMaterial = true;
+	for( TWeakObjectPtr<UObject>& Object : Objects )
+	{
+		UMaterial* Material = Cast<UMaterial>( Object.Get() );
+		if( Material )
+		{
+			bUIMaterial &= Material->IsUIMaterial();
+		}
+		else
+		{
+			// this shouldn't happen but just in case, let all properties through
+			bUIMaterial = false;
+		}
+	}
+
+	if( bUIMaterial )
+	{
+		DetailLayout.HideCategory( TEXT("TranslucencySelfShadowing") );
+		DetailLayout.HideCategory( TEXT("Translucency") );
+		DetailLayout.HideCategory( TEXT("Tessellation") );
+		DetailLayout.HideCategory( TEXT("Mobile") );
+		DetailLayout.HideCategory( TEXT("PostProcessMaterial") );
+		DetailLayout.HideCategory( TEXT("Lightmass") );
+		DetailLayout.HideCategory( TEXT("Thumbnail") );
+		DetailLayout.HideCategory( TEXT("MaterialInterface") );
+		DetailLayout.HideCategory( TEXT("PhysicalMaterial") );
+		DetailLayout.HideCategory( TEXT("Usage") );
+
+		IDetailCategoryBuilder& MaterialCategory = DetailLayout.EditCategory( TEXT("Material") );
+
+		TArray<TSharedRef<IPropertyHandle>> AllProperties;
+		MaterialCategory.GetDefaultProperties( AllProperties );
+
+		for( TSharedRef<IPropertyHandle>& PropertyHandle : AllProperties )
+		{
+			UProperty* Property = PropertyHandle->GetProperty();
+			FName PropertyName = Property->GetFName();
+
+			if(		PropertyName != GET_MEMBER_NAME_CHECKED(UMaterial, MaterialDomain) 
+				&&	PropertyName != GET_MEMBER_NAME_CHECKED(UMaterial, BlendMode) 
+				&&	PropertyName != GET_MEMBER_NAME_CHECKED(UMaterial, OpacityMaskClipValue) 
+				&&  	PropertyName != GET_MEMBER_NAME_CHECKED(UMaterial, NumCustomizedUVs) )
+			{
+				DetailLayout.HideProperty( PropertyHandle );
+			}
+		}
+	}
+}
 
 #undef LOCTEXT_NAMESPACE

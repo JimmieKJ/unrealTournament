@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,8 @@
 #include "OnlineBeaconHost.h"
 #include "UTServerBeaconHost.h"
 #include "UTGameSession.generated.h"
+
+const float SERVER_REREGISTER_WAIT_TIME=120.0;  // 2 minutes
 
 USTRUCT()
 struct FBanInfo
@@ -44,11 +46,11 @@ public:
 
 	// The base engine ApproveLogin doesn't pass the Address and UniqueId to the approve login process.  So we have
 	// a second layer.
-	void ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator);
+	void ValidatePlayer(const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator);
 
 	// Cached reference to the Game Mode
 	UPROPERTY()
-	AUTBaseGameMode* UTGameMode;
+	AUTBaseGameMode* UTBaseGameMode;
 
 	// Will be true if this server has been registered with the MCP
 	bool bSessionValid;
@@ -86,6 +88,8 @@ protected:
 	FDelegateHandle OnEndSessionCompleteDelegate;
 	FDelegateHandle OnDestroySessionCompleteDelegate;
 	FDelegateHandle OnUpdateSessionCompleteDelegate;
+	FDelegateHandle OnSessionFailuredDelegate;
+	FDelegateHandle OnConnectionStatusDelegate;
 	
 	virtual void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnStartSessionComplete(FName SessionName, bool bWasSuccessful);
@@ -109,6 +113,10 @@ protected:
 
 	// Holds a list of unique ids of admins who can bypass the login checks.
 	TArray<FString> AllowedAdmins;
+	void SessionFailure(const FUniqueNetId& PlayerId, ESessionFailure::Type ErrorType);
+	void OnConnectionStatusChanged(EOnlineServerConnectionStatus::Type LastConnectionState, EOnlineServerConnectionStatus::Type ConnectionState);
+
+	bool bReregisterWhenDone;
 
 public:
 	UPROPERTY()

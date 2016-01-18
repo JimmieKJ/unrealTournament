@@ -37,7 +37,7 @@ Engine/UI/Tools/Foliage
 
 [EXCERPT:EditorMode.EM_Geometry]
 ###Geometry Editing
-Allows you to edit verticies of placed geometry brushes.
+Allows you to edit vertices of placed geometry brushes.
 
 [VAR:ToolTipFullLink]
 Resources/ContentExamples/Brushes

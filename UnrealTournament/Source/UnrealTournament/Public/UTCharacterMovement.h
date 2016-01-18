@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTCharacterMovement.generated.h"
@@ -131,10 +131,6 @@ public:
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float MaxRelativeSwimmingAccelDenominator;
 
-	/** Ground friction when braking. */
-	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
-	float BrakingFriction;
-
 	/** Braking when sliding. */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float BrakingDecelerationSliding;
@@ -157,6 +153,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Swimming)
 		bool bFallingInWater;
 
+	/** True if character is currently running along a wall. */
+	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
+		bool bSlidingAlongWall;
+
 	/** Apply water current to swimming or falling player in contact with water. */
 	virtual void ApplyWaterCurrent(float DeltaTime);
 
@@ -172,6 +172,8 @@ public:
 
 protected:
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
+
+	virtual float SlideAlongSurface(const FVector& Delta, float Time, const FVector& Normal, FHitResult& Hit, bool bHandleImpact) override;
 
 public:
 	/** Impulse imparted by "easy" impact jump. Not charge or jump dependent (although get a small bonus with timed jump). */
@@ -319,8 +321,8 @@ public:
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
 	bool bWasFloorSliding;
 
-	UPROPERTY(Category = "Emote", BlueprintReadOnly)
-	bool bIsEmoting;
+	UPROPERTY(Category = "Taunt", BlueprintReadOnly)
+	bool bIsTaunting;
 	
 protected:
 	/** True if player is holding modifier to floor slide.  Change with UpdateFloorSlide(). */

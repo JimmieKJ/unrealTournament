@@ -101,7 +101,7 @@ int32 UGatherTextFromSourceCommandlet::Main( const FString& Params )
 	// SourceFileSearchFilters (DEPRECATED)
 	{
 		TArray<FString> SourceFileSearchFilters;
-		GetPathArrayFromConfig(*SectionName, TEXT("SourceFileSearchFilters"), SourceFileSearchFilters, GatherTextConfigPath);
+		GetStringArrayFromConfig(*SectionName, TEXT("SourceFileSearchFilters"), SourceFileSearchFilters, GatherTextConfigPath);
 		if (SourceFileSearchFilters.Num())
 		{
 			FileNameFilters.Append(SourceFileSearchFilters);
@@ -527,7 +527,10 @@ bool UGatherTextFromSourceCommandlet::ParseSourceText(const FString& Text, const
 				{
 					// Do the parse now
 					Parsables[PendingParseIdx]->TryParse(FString(ParsePoint), ParseCtxt);
-					ParsableMatchCounters[PendingParseIdx] = 0;
+					for(auto& Element : ParsableMatchCounters)
+					{
+						Element = 0;
+					}
 					PendingParseIdx = -1;
 					ParsePoint = NULL;
 				}

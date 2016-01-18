@@ -9,23 +9,21 @@
 
 void MainVS(
 	in float4 InPosition : ATTRIBUTE0,
-	out float4 OutScreenPosition : TEXCOORD0,
 	out float4 OutPosition : SV_POSITION
 	)
 {
 	DrawRectangle(InPosition,  OutPosition);
-	OutScreenPosition = OutPosition;
 }
 
 void MainPS(
-	in float4 ScreenPosition : TEXCOORD0,
-	in float4 SvPosition : SV_Position,
+	in float4 SvPosition : SV_Position,		// after all interpolators
 	out float4 OutColor : SV_Target0
 	)
 {
 	FMaterialPixelParameters Parameters = MakeInitializedMaterialPixelParameters();
 
-	float2 ScreenUV = ScreenAlignedPosition(ScreenPosition);
+	// can be optimized
+	float2 ScreenUV = SvPositionToBufferUV(SvPosition);
 
 #if NUM_MATERIAL_TEXCOORDS
 	for(int CoordinateIndex = 0;CoordinateIndex < NUM_MATERIAL_TEXCOORDS;CoordinateIndex++)
@@ -35,15 +33,11 @@ void MainPS(
 #endif
 
 	Parameters.VertexColor = 1;
-
-	// Deproject quad pixel position into world
-	float SceneDepth = CalcSceneDepth(ScreenUV);
-	float3 ScreenVector = mul(float4(ScreenPosition.xy, 1, 0), View.ScreenToWorld).xyz;
-	float3 WorldPosition = ScreenVector * SceneDepth;
+	
+	SvPosition.z = LookupDeviceZ(ScreenUV);
 
 	// fill out other related material parameters
-	CalcMaterialParameters(Parameters, SvPosition, true, float4(WorldPosition, 1));
-	Parameters.ScreenPosition = ScreenPosition;
+	CalcMaterialParameters(Parameters, SvPosition, true);
 
 	// Grab emissive colour as output
 	OutColor = float4(GetMaterialEmissive(Parameters), 1);

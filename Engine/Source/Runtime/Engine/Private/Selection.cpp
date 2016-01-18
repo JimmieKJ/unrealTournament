@@ -26,7 +26,7 @@ void USelection::Select(UObject* InObject)
 	check( InObject );
 
 	// Warn if we attempt to select a PIE object.
-	if ( InObject->GetOutermost()->PackageFlags & PKG_PlayInEditor )
+	if ( InObject->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor) )
 	{
 		UE_LOG(LogSelection, Warning, TEXT("PIE object was selected: \"%s\""), *InObject->GetFullName() );
 	}
@@ -162,4 +162,19 @@ void USelection::Serialize(FArchive& Ar)
 {
 	Super::Serialize( Ar );
 	Ar << SelectedObjects;
+}
+
+bool USelection::Modify(bool bAlwaysMarkDirty/* =true */)
+{
+	// If the selection currently contains any PIE objects we should not be including it in the transaction buffer
+	for (auto ObjectPtr : SelectedObjects)
+	{
+		UObject* Object = ObjectPtr.Get();
+		if (Object && Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn))
+		{
+			return false;
+		}
+	}
+
+	return Super::Modify(bAlwaysMarkDirty);
 }

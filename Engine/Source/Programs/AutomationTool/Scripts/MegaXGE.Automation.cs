@@ -31,6 +31,8 @@ class MegaXGE : BuildCommand
 		bool Clean = ParseParam("Clean");
 		string CleanToolLocation = CombinePaths(CmdEnv.LocalRoot, "Engine", "Build", "Batchfiles", "Clean.bat");
 
+		bool ShowProgress = ParseParam("Progress");
+
 		var UE4Build = new UE4Build(this);
 
 		var Agenda = new UE4Build.BuildAgenda();
@@ -43,6 +45,7 @@ class MegaXGE : BuildCommand
 		Agenda.AddTargets(ProgramTargets, UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Development);
 		if (Clean)
 		{
+			LogSetProgress(ShowProgress, "Cleaning previous builds...");
 			foreach (var CurTarget in ProgramTargets)
 			{
 				string Args = String.Format("{0} {1} {2}", CurTarget, UnrealTargetPlatform.Win64.ToString(), UnrealTargetConfiguration.Development.ToString());
@@ -142,7 +145,7 @@ class MegaXGE : BuildCommand
 		Log("*************************");
 
 		Agenda.DoRetries = ParseParam("Retry");
-		UE4Build.Build(Agenda, InUpdateVersionFiles: IsBuildMachine);
+		UE4Build.Build(Agenda, InUpdateVersionFiles: IsBuildMachine, InUseParallelExecutor: ParseParam("useparallelexecutor"), InShowProgress: ShowProgress);
 
 		// 		if (WorkingCL > 0) // only move UAT files if we intend to check in some build products
 		// 		{

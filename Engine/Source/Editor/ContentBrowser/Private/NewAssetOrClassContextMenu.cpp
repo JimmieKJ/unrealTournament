@@ -300,7 +300,7 @@ void FNewAssetOrClassContextMenu::MakeContextMenu(
 		{
 			MenuBuilder.AddMenuEntry(
 				FText::Format( LOCTEXT( "ImportAsset", "Import to {0}..." ), FText::FromString( FirstSelectedPath ) ),
-				LOCTEXT( "ImportAssetTooltip", "Imports an asset from file to this folder." ),
+				LOCTEXT( "ImportAssetTooltip_NewAssetOrClass", "Imports an asset from file to this folder." ),
 				FSlateIcon( FEditorStyle::GetStyleSetName(), "ContentBrowser.ImportIcon" ),
 				FUIAction(
 					FExecuteAction::CreateStatic( &FNewAssetOrClassContextMenu::ExecuteImportAsset, InOnImportAssetRequested, FirstSelectedPath ),

@@ -43,13 +43,6 @@ NpParticleSystem* NpParticleSystem::createObject(PxU8*& address, PxDeserializati
 }
 //~PX_SERIALIZATION
 
-PxParticleSystem* NpGetNxParticleSystem(Sc::ParticleSystemCore& ps)
-{
-	char* p = reinterpret_cast<char*>(&ps);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpParticleSystem*>(0)->getScbParticleSystem()));
-	return reinterpret_cast<NpParticleSystem*>(p - scbOffset - Scb::ParticleSystem::getScOffset());
-}
-
 void NpParticleSystem::setParticleReadDataFlag(PxParticleReadDataFlag::Enum flag, bool val)
 {
 	NP_WRITE_CHECK(getNpScene());		

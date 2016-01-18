@@ -5,6 +5,7 @@
 #include "Sound/SoundNodeAttenuation.h"
 #include "Sound/SoundCue.h"
 #include "SubtitleManager.h"
+#include "Audio.h"
 
 /*-----------------------------------------------------------------------------
 UAudioComponent implementation.
@@ -17,17 +18,27 @@ UAudioComponent::UAudioComponent(const FObjectInitializer& ObjectInitializer)
 	bAllowSpatialization = true;
 	bStopWhenOwnerDestroyed = true;
 	bNeverNeedsRenderUpdate = true;
+	bWantsOnUpdateTransform = true;
 #if WITH_EDITORONLY_DATA
 	bVisualizeComponent = true;
 #endif
 	VolumeMultiplier = 1.f;
-	VolumeWeightedPriorityScale = 1.f;
+	bOverridePriority = false;
+	Priority = 1.f;
 	PitchMultiplier = 1.f;
 	VolumeModulationMin = 1.f;
 	VolumeModulationMax = 1.f;
 	PitchModulationMin = 1.f;
 	PitchModulationMax = 1.f;
-	HighFrequencyGainMultiplier = 1.0f;
+	bEnableLowPassFilter = false;
+	OcclusionVolumeAttenuation = 1.0f;
+	LowPassFilterFrequency = MAX_FILTER_FREQUENCY;
+	bEnableOcclusionChecks = false;
+	bUseComplexCollisionChecks = false;
+	OcclusionLowPassFilterFrequency = MAX_FILTER_FREQUENCY;
+	OcclusionInterpolationTime = 0.1f;
+	OcclusionCheckInterval = 0.1f;
+	ActiveCount = 0;
 }
 
 FString UAudioComponent::GetDetailedInfoInternal( void ) const
@@ -44,6 +55,30 @@ FString UAudioComponent::GetDetailedInfoInternal( void ) const
 	}
 
 	return Result;
+}
+
+void UAudioComponent::PostLoad()
+{
+	const int32 LinkerUE4Version = GetLinkerUE4Version();
+
+	// Translate the old HighFrequencyGainMultiplier value to the new LowPassFilterFrequency value
+	if (LinkerUE4Version < VER_UE4_USE_LOW_PASS_FILTER_FREQ)
+	{
+		if (HighFrequencyGainMultiplier_DEPRECATED > 0.0f &&  HighFrequencyGainMultiplier_DEPRECATED < 1.0f)
+		{
+			bEnableLowPassFilter = true;
+
+			// This seems like it wouldn't make sense, but the original implementation for HighFrequencyGainMultiplier (a number between 0.0 and 1.0).
+			// In earlier versions, this was *not* used as a high frequency gain, but instead converted to a frequency value between 0.0 and 6000.0
+			// then "converted" to a radian frequency value using an equation taken from XAudio2 documentation. To recover
+			// the original intended frequency (approximately), we'll run it through that equation, then scale radian value by the max filter frequency.
+
+			float FilterConstant = 2.0f * FMath::Sin(PI * 6000.0f * HighFrequencyGainMultiplier_DEPRECATED / 48000);
+			LowPassFilterFrequency = FilterConstant * MAX_FILTER_FREQUENCY;
+		}
+	}
+
+	Super::PostLoad();
 }
 
 #if WITH_EDITORONLY_DATA
@@ -93,9 +128,9 @@ void UAudioComponent::SetSound( USoundBase* NewSound )
 	}
 }
 
-void UAudioComponent::OnUpdateTransform(bool bSkipPhysicsMove)
+void UAudioComponent::OnUpdateTransform(bool bSkipPhysicsMove, ETeleportType Teleport)
 {
-	Super::OnUpdateTransform(bSkipPhysicsMove);
+	Super::OnUpdateTransform(bSkipPhysicsMove, Teleport);
 
 	if (bIsActive && !bPreviewComponent)
 	{
@@ -134,20 +169,38 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 		bAutoDestroy = bCurrentAutoDestroy;
 	}
 
+	// Bump ActiveCount... this is used to determine if an audio component is still active after "finishing"
+	++ActiveCount;
+
 	if (Sound && (World == nullptr || World->bAllowAudioPlayback))
 	{
 		if (FAudioDevice* AudioDevice = GetAudioDevice())
 		{
 			FActiveSound NewActiveSound;
-			NewActiveSound.AudioComponent = this;
+			NewActiveSound.SetAudioComponent(this);
 			NewActiveSound.World = GetWorld();
 			NewActiveSound.Sound = Sound;
 			NewActiveSound.SoundClassOverride = SoundClassOverride;
+			NewActiveSound.ConcurrencySettings = ConcurrencySettings;
 
 			NewActiveSound.VolumeMultiplier = (VolumeModulationMax + ((VolumeModulationMin - VolumeModulationMax) * FMath::SRand())) * VolumeMultiplier;
-			NewActiveSound.VolumeWeightedPriorityScale = VolumeWeightedPriorityScale;
+			// The priority used for the active sound is the audio component's priority scaled with the sound's priority
+			if (bOverridePriority)
+			{
+				NewActiveSound.Priority = Priority;
+			}
+			else
+			{
+				NewActiveSound.Priority = Sound->Priority;
+			}
 			NewActiveSound.PitchMultiplier = (PitchModulationMax + ((PitchModulationMin - PitchModulationMax) * FMath::SRand())) * PitchMultiplier;
-			NewActiveSound.HighFrequencyGainMultiplier = HighFrequencyGainMultiplier;
+			NewActiveSound.bEnableLowPassFilter = bEnableLowPassFilter;
+			NewActiveSound.LowPassFilterFrequency = LowPassFilterFrequency;
+			NewActiveSound.bEnableOcclusionChecks = bEnableOcclusionChecks;
+			NewActiveSound.bUseComplexOcclusionChecks = bUseComplexCollisionChecks;
+			NewActiveSound.OcclusionLowPassFilterFrequency = FMath::Clamp(OcclusionLowPassFilterFrequency, MIN_FILTER_FREQUENCY, MAX_FILTER_FREQUENCY);
+			NewActiveSound.OcclusionVolumeAttenuation = FMath::Clamp(OcclusionVolumeAttenuation, 0.0f, 1.0f);
+			NewActiveSound.OcclusionInterpolationTime = FMath::Max(0.0f, OcclusionInterpolationTime);
 
 			NewActiveSound.RequestedStartTime = FMath::Max(0.f, StartTime);
 			NewActiveSound.OcclusionCheckInterval = OcclusionCheckInterval;
@@ -175,6 +228,11 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			if (NewActiveSound.bHasAttenuationSettings)
 			{
 				NewActiveSound.AttenuationSettings = *AttenuationSettingsToApply;
+				NewActiveSound.MaxDistance = NewActiveSound.AttenuationSettings.GetMaxDimension();
+			}
+			else
+			{
+				NewActiveSound.MaxDistance = Sound->GetMaxAudibleDistance();
 			}
 
 			NewActiveSound.InstanceParameters = InstanceParameters;
@@ -279,6 +337,9 @@ void UAudioComponent::Stop()
 {
 	if (bIsActive)
 	{
+		// Set this to immediately be inactive
+		bIsActive = false;
+
 		UE_LOG(LogAudio, Verbose, TEXT( "%g: Stopping AudioComponent : '%s' with Sound: '%s'" ), GetWorld() ? GetWorld()->GetAudioTimeSeconds() : 0.0f, *GetFullName(), Sound ? *Sound->GetName() : TEXT( "nullptr" ) );
 
 		// TODO - Audio Threading. This call would be a task
@@ -291,8 +352,11 @@ void UAudioComponent::Stop()
 
 void UAudioComponent::PlaybackCompleted(bool bFailedToStart)
 {
+	check(ActiveCount > 0);
+	--ActiveCount;
+
 	// Mark inactive before calling destroy to avoid recursion
-	bIsActive = false;
+	bIsActive = (ActiveCount > 0);
 
 	if (!bFailedToStart && GetWorld() != nullptr && (OnAudioFinished.IsBound() || OnAudioFinishedNative.IsBound()))
 	{
@@ -368,6 +432,16 @@ const FAttenuationSettings* UAudioComponent::GetAttenuationSettingsToApply() con
 		return Sound->GetAttenuationSettingsToApply();
 	}
 	return nullptr;
+}
+
+bool UAudioComponent::BP_GetAttenuationSettingsToApply(FAttenuationSettings& OutAttenuationSettings)
+{
+	if (const FAttenuationSettings* Settings = GetAttenuationSettingsToApply())
+	{
+		OutAttenuationSettings = *Settings;
+		return true;
+	}
+	return false;
 }
 
 void UAudioComponent::CollectAttenuationShapesForVisualization(TMultiMap<EAttenuationShape::Type, FAttenuationSettings::AttenuationShapeDetails>& ShapeDetailsMap) const

@@ -13,11 +13,8 @@ DECLARE_LOG_CATEGORY_EXTERN(LogDistanceField, Warning, All);
 /** Tile sized used for most AO compute shaders. */
 const int32 GDistanceFieldAOTileSizeX = 16;
 const int32 GDistanceFieldAOTileSizeY = 16;
-/** Base downsample factor that all distance field AO operations are done at. */
-const int32 GAODownsampleFactor = 2;
 /** Must match usf */
 static const int32 GMaxNumObjectsPerTile = 512;
-extern uint32 UpdateObjectsGroupSize;
 
 extern int32 GDistanceFieldGI;
 
@@ -33,7 +30,7 @@ inline bool SupportsDistanceFieldGI(ERHIFeatureLevel::Type FeatureLevel, EShader
 		&& DoesPlatformSupportDistanceFieldGI(ShaderPlatform);
 }
 
-extern FIntPoint GetBufferSizeForAO();
+extern bool IsDistanceFieldGIAllowed(const FViewInfo& View);
 
 class FDistanceFieldObjectBuffers
 {
@@ -150,8 +147,16 @@ public:
 	}
 
 	template<typename TParamRef>
-	void Set(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FDistanceFieldObjectBuffers& ObjectBuffers, int32 NumObjectsValue)
+	void Set(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FDistanceFieldObjectBuffers& ObjectBuffers, int32 NumObjectsValue, bool bBarrier = false)
 	{
+		if (bBarrier)
+		{
+			FUnorderedAccessViewRHIParamRef OutUAVs[2];
+			OutUAVs[0] = ObjectBuffers.Bounds.UAV;
+			OutUAVs[1] = ObjectBuffers.Data.UAV;
+			RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, OutUAVs, ARRAY_COUNT(OutUAVs));
+		}
+
 		ObjectBounds.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Bounds);
 		ObjectData.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Data);
 		SetShaderValue(RHICmdList, ShaderRHI, NumSceneObjects, NumObjectsValue);
@@ -173,10 +178,18 @@ public:
 	}
 
 	template<typename TParamRef>
-	void UnsetParameters(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI)
+	void UnsetParameters(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FDistanceFieldObjectBuffers& ObjectBuffers, bool bBarrier = false)
 	{
 		ObjectBounds.UnsetUAV(RHICmdList, ShaderRHI);
 		ObjectData.UnsetUAV(RHICmdList, ShaderRHI);
+
+		if (bBarrier)
+		{
+			FUnorderedAccessViewRHIParamRef OutUAVs[2];
+			OutUAVs[0] = ObjectBuffers.Bounds.UAV;
+			OutUAVs[1] = ObjectBuffers.Data.UAV;
+			RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToCompute, OutUAVs, ARRAY_COUNT(OutUAVs));
+		}
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FDistanceFieldObjectBufferParameters& P)
@@ -258,8 +271,6 @@ public:
 	{
 		if (MaxObjects > 0)
 		{
-			const uint32 BufferFlags = BUF_ShaderResource;
-
 			ObjectIndirectArguments.Initialize(sizeof(uint32), 5, PF_R32_UINT, BUF_Static | BUF_DrawIndirect);
 			ObjectIndirectDispatch.Initialize(sizeof(uint32), 3, PF_R32_UINT, BUF_Static | BUF_DrawIndirect);
 			Bounds.Initialize(sizeof(FVector4), MaxObjects, PF_A32B32G32R32F);
@@ -320,6 +331,18 @@ public:
 	template<typename TParamRef>
 	void Set(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FDistanceFieldCulledObjectBuffers& ObjectBuffers)
 	{
+		int32 NumOutUAVs = 0;
+		FUnorderedAccessViewRHIParamRef OutUAVs[4];
+		OutUAVs[NumOutUAVs++] = ObjectBuffers.ObjectIndirectArguments.UAV;
+		OutUAVs[NumOutUAVs++] = ObjectBuffers.Bounds.UAV;
+		OutUAVs[NumOutUAVs++] = ObjectBuffers.Data.UAV;
+
+		if (CulledObjectBoxBounds.IsBound()) 
+		{
+			OutUAVs[NumOutUAVs++] = ObjectBuffers.BoxBounds.UAV;
+		}
+		RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, OutUAVs, NumOutUAVs);
+
 		ObjectIndirectArguments.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.ObjectIndirectArguments);
 		CulledObjectBounds.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Bounds);
 		CulledObjectData.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Data);
@@ -347,12 +370,24 @@ public:
 	}
 
 	template<typename TParamRef>
-	void UnsetParameters(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI)
+	void UnsetParameters(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FDistanceFieldCulledObjectBuffers& ObjectBuffers)
 	{
 		ObjectIndirectArguments.UnsetUAV(RHICmdList, ShaderRHI);
 		CulledObjectBounds.UnsetUAV(RHICmdList, ShaderRHI);
 		CulledObjectData.UnsetUAV(RHICmdList, ShaderRHI);
 		CulledObjectBoxBounds.UnsetUAV(RHICmdList, ShaderRHI);
+
+		int32 NumOutUAVs = 0;
+		FUnorderedAccessViewRHIParamRef OutUAVs[3];
+		OutUAVs[NumOutUAVs++] = ObjectBuffers.ObjectIndirectArguments.UAV;
+		OutUAVs[NumOutUAVs++] = ObjectBuffers.Bounds.UAV;
+		OutUAVs[NumOutUAVs++] = ObjectBuffers.Data.UAV;
+
+		if (CulledObjectBoxBounds.IsBound())
+		{
+			OutUAVs[NumOutUAVs++] = ObjectBuffers.BoxBounds.UAV;
+		}
+		RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToCompute, OutUAVs, NumOutUAVs);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FDistanceFieldCulledObjectBufferParameters& P)
@@ -487,6 +522,7 @@ public:
 		FSceneRenderer& Renderer,
 		FViewInfo& View, 
 		const FPrimitiveSceneInfo* PrimitiveSceneInfo, 
+		int32 LODIndex,
 		FUniformMeshBuffers*& OutUniformMeshBuffers,
 		const FMaterialRenderProxy*& OutMaterialRenderProxy,
 		FUniformBufferRHIParamRef& OutPrimitiveUniformBuffer);
@@ -500,6 +536,38 @@ public:
 		const FMatrix& Instance0Transform,
 		int32 SurfelOffset,
 		int32 NumSurfels);
+};
+
+class FPreCulledTriangleBuffers
+{
+public:
+
+	int32 MaxIndices;
+
+	FRWBuffer TriangleVisibleMask;
+
+	FPreCulledTriangleBuffers()
+	{
+		MaxIndices = 0;
+	}
+
+	void Initialize()
+	{
+		if (MaxIndices > 0)
+		{
+			TriangleVisibleMask.Initialize(sizeof(uint32), MaxIndices / 3, PF_R32_UINT);
+		}
+	}
+
+	void Release()
+	{
+		TriangleVisibleMask.Release();
+	}
+
+	size_t GetSizeBytes() const
+	{
+		return TriangleVisibleMask.NumBytes;
+	}
 };
 
 extern TGlobalResource<FDistanceFieldObjectBufferResource> GAOCulledObjectBuffers;

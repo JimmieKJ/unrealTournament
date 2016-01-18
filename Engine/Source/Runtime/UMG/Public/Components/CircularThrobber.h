@@ -9,8 +9,8 @@ class USlateBrushAsset;
 /**
  * A throbber widget that orients images in a spinning circle.
  * 
- * ● No Children
- * ● Spinner Progress
+ * * No Children
+ * * Spinner Progress
  */
 UCLASS()
 class UMG_API UCircularThrobber : public UWidget
@@ -52,17 +52,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Appearance")
 	void SetRadius(float InRadius);
 
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
-	// UVisual interface
+	//~ Begin UVisual Interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
+	//~ End UVisual Interface
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End of UObject interface
+	//~ End UObject Interface
 
 #if WITH_EDITOR
 	virtual const FSlateBrush* GetEditorIcon() override;
@@ -70,9 +70,9 @@ public:
 #endif
 
 protected:
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
 private:
 	/** The CircularThrobber widget managed by this object. */

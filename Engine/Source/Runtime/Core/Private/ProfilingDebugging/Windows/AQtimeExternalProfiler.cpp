@@ -35,6 +35,10 @@ public:
 		IModularFeatures::Get().UnregisterModularFeature( FExternalProfiler::GetFeatureName(), this );
 	}
 
+	virtual void FrameSync() override
+	{
+
+	}
 
 	/** Gets the name of this profiler as a string.  This is used to allow the user to select this profiler in a system configuration file or on the command-line */
 	virtual const TCHAR* GetProfilerName() const override

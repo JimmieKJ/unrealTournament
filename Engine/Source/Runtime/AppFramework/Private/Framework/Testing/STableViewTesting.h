@@ -2,5 +2,8 @@
 
 #pragma once
 
+#if !UE_BUILD_SHIPPING
 
-APPFRAMEWORK_API TSharedRef<SWidget> MakeTableViewTesting();
+TSharedRef<SWidget> MakeTableViewTesting();
+
+#endif // #if !UE_BUILD_SHIPPING

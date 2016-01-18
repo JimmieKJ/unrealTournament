@@ -563,7 +563,7 @@ void FFontEditor::CreateInternalWidgets()
 	.AutoHeight()
 	[
 		SAssignNew(FontPreviewText, SEditableTextBox)
-		.Text(LOCTEXT("DefaultPreviewText", "The quick brown fox jumped over the lazy dog"))
+		.Text(LOCTEXT("DefaultPreviewText", "The quick brown fox jumps over the lazy dog"))
 		.SelectAllTextWhenFocused(true)
 		.OnTextChanged(this, &FFontEditor::OnPreviewTextChanged)
 	];

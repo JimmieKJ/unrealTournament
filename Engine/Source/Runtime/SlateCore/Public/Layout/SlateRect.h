@@ -64,7 +64,7 @@ public:
 	 */
 	bool IsEmpty() const
 	{
-		return GetSize().Size() == 0.0f;
+		return GetSize().SizeSquared() == 0.0f;
 	}
 
 	/**
@@ -98,6 +98,16 @@ public:
 	}
 
 	/**
+	 * Returns the top-right position of the rectangle
+	 *
+	 * @return The top-right position.
+	 */
+	FVector2D GetTopRight() const
+	{
+		return FVector2D(Right, Top);
+	}
+
+	/**
 	 * Returns the bottom-right position of the rectangle
 	 * 
 	 * @return The bottom-right position.
@@ -105,6 +115,16 @@ public:
 	FVector2D GetBottomRight() const
 	{
 		return FVector2D( Right, Bottom );
+	}
+
+	/**
+	 * Returns the bottom-left position of the rectangle
+	 * 
+	 * @return The bottom-left position.
+	 */
+	FVector2D GetBottomLeft() const
+	{
+		return FVector2D( Left, Bottom );
 	}
 
 	/**
@@ -162,14 +182,13 @@ public:
 
 	/**
 	 * Returns whether or not a point is inside the rectangle
-	 * Note: The lower right and bottom points of the rect are not inside the rectangle due to rendering API clipping rules.
 	 * 
 	 * @param Point	The point to check
 	 * @return True if the point is inside the rectangle
 	 */
 	FORCEINLINE bool ContainsPoint( const FVector2D& Point ) const
 	{
-		return Point.X >= Left && Point.X < Right && Point.Y >= Top && Point.Y < Bottom;
+		return Point.X >= Left && Point.X <= Right && Point.Y >= Top && Point.Y <= Bottom;
 	}
 
 	bool operator==( const FSlateRect& Other ) const

@@ -245,8 +245,16 @@ bool FAssetEditorManager::OpenEditorForAsset(UObject* Asset, const EToolkitMode:
 	//    being edited within, we should decide whether to disallow "Edit Here" in that case, or to close the old asset
 	//    editor and summon it in the new level editor, or to just foreground the old level editor (current behavior)
 
-
 	const bool bBringToFrontIfOpen = true;
+
+	// Don't open asset editors for cooked packages
+	if (UPackage* Package = Asset->GetOutermost())
+	{
+		if (Package->bIsCookedForEditor)
+		{
+			return false;
+		}
+	}
 	
 	AssetEditorRequestOpenEvent.Broadcast(Asset);
 

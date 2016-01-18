@@ -22,7 +22,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogImageUtils, Log, All);
  */
 void FImageUtils::ImageResize(int32 SrcWidth, int32 SrcHeight, const TArray<FColor> &SrcData, int32 DstWidth, int32 DstHeight, TArray<FColor> &DstData, bool bLinearSpace )
 {
-	DstData.Empty();
+	DstData.Empty(DstWidth*DstHeight);
 	DstData.AddZeroed(DstWidth*DstHeight);
 
 	float SrcX = 0;
@@ -73,7 +73,7 @@ void FImageUtils::ImageResize(int32 SrcWidth, int32 SrcHeight, const TArray<FCol
 				LinearStepColor /= (float)PixelCount;
 
 				// Convert back from linear space to gamma space.
-				FinalColor = FColor(LinearStepColor);
+				FinalColor = LinearStepColor.ToFColor(true);
 			}
 			else
 			{
@@ -259,7 +259,7 @@ void FImageUtils::CompressImageArray( int32 ImageWidth, int32 ImageHeight, TArra
 
 UTexture2D* FImageUtils::CreateCheckerboardTexture(FColor ColorOne, FColor ColorTwo, int32 CheckerSize)
 {
-	CheckerSize = FMath::RoundUpToPowerOfTwo(CheckerSize);
+	CheckerSize = FMath::Min<uint32>( FMath::RoundUpToPowerOfTwo(CheckerSize), 4096 );
 	const int32 HalfPixelNum = CheckerSize >> 1;
 
 	// Create the texture

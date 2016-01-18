@@ -129,7 +129,7 @@ protected:
 };
 
 
-//=============================================================================
+//~=============================================================================
 /**
  * PlayerControllers are used by human players to control Pawns.
  *
@@ -241,6 +241,9 @@ class ENGINE_API APlayerController : public AController
 
 	/** Is this player currently in cinematic mode?  Prevents rotation/movement/firing/etc */
 	uint32 bCinematicMode:1;
+	
+	/** When cinematic mode is true, signifies that this controller's pawn should be hidden */
+	uint32 bHidePawnInCinematicMode:1;
 
 	/** Whether this controller is using streaming volumes.  **/
 	uint32 bIsUsingStreamingVolumes:1;
@@ -409,22 +412,30 @@ public:
 	virtual void SetCinematicMode( bool bInCinematicMode, bool bAffectsMovement, bool bAffectsTurning);
 
 	/**
-	  * Toggles move input ignoring.
+	  * Locks or unlocks movement input, consecutive calls stack up and require the same amount of calls to undo, or can all be undone using ResetIgnoreMoveInput.
 	  * @param bNewMoveInput	If true, move input is ignored. If false, input is not ignored.
 	  */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void SetIgnoreMoveInput( bool bNewMoveInput );
+
+	/** Stops ignoring move input by resetting the ignore move input state. */
+	UFUNCTION(BlueprintCallable, Category = "Input", meta = (Keywords = "ClearIgnoreMoveInput"))
+	virtual void ResetIgnoreMoveInput();
 
 	/** Returns true if movement input is ignored. */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual bool IsMoveInputIgnored() const;
 
 	/**
-	  * Toggles look input ignoring.
+	  * Locks or unlocks look input, consecutive calls stack up and require the same amount of calls to undo, or can all be undone using ResetIgnoreLookInput.
 	  * @param bNewLookInput	If true, look input is ignored. If false, input is not ignored.
 	  */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void SetIgnoreLookInput( bool bNewLookInput );
+	
+	/** Stops ignoring look input by resetting the ignore look input state. */
+	UFUNCTION(BlueprintCallable, Category = "Input", meta = (Keywords = "ClearIgnoreLookInput"))
+	virtual void ResetIgnoreLookInput();
 
 	/** Returns true if look input is ignored. */
 	UFUNCTION(BlueprintCallable, Category="Input")
@@ -458,19 +469,25 @@ public:
 	bool GetHitResultUnderFingerForObjects(ETouchIndex::Type FingerIndex, const  TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, FHitResult& HitResult) const;
 
 	/** Convert current mouse 2D position to World Space 3D position and direction. Returns false if unable to determine value. **/
-	UFUNCTION(BlueprintCallable, Category="Game|Player", meta=(DisplayName="ConvertMouseLocationToWorldSpace"))
+	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = (DisplayName = "ConvertMouseLocationToWorldSpace", Keywords = "deproject"))
 	bool DeprojectMousePositionToWorld(FVector& WorldLocation, FVector& WorldDirection) const;
 
 	/** Convert current mouse 2D position to World Space 3D position and direction. Returns false if unable to determine value. **/
-	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = (DisplayName = "ConvertScreenLocationToWorldSpace"))
+	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = (DisplayName = "ConvertScreenLocationToWorldSpace", Keywords = "deproject"))
 	bool DeprojectScreenPositionToWorld(float ScreenX, float ScreenY, FVector& WorldLocation, FVector& WorldDirection) const;
 
 	/**
 	 * Convert a World Space 3D position into a 2D Screen Space position.
 	 * @return true if the world coordinate was successfully projected to the screen.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = ( DisplayName = "ConvertWorldLocationToScreenLocation" ))
+	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = (DisplayName = "ConvertWorldLocationToScreenLocation", Keywords = "project"))
 	bool ProjectWorldLocationToScreen(FVector WorldLocation, FVector2D& ScreenLocation) const;
+
+	/**
+	 * Convert a World Space 3D position into a 3D Screen Space position.
+	 * @return true if the world coordinate was successfully projected to the screen.
+	 */
+	bool ProjectWorldLocationToScreenWithDistance(FVector WorldLocation, FVector& ScreenLocation) const;
 	
 	/**
 	  * Updates the rotation of player, based on ControlRotation after RotationInput has been applied.
@@ -672,7 +689,7 @@ public:
 	 * @param MsgLifeTime - Optional length of time to display 0 = default time
 	 */
 	UFUNCTION(Reliable, Client)
-	void ClientMessage(const FString& S, FName Type = NAME_None, float MsgLifeTime = 0);
+	void ClientMessage(const FString& S, FName Type = NAME_None, float MsgLifeTime = 0.f);
 
 	/** Play the indicated CameraAnim on this camera.
 	 * @param AnimToPlay - Camera animation to play
@@ -686,7 +703,7 @@ public:
 	 * @param CustomPlaySpace - Matrix used when Space = CAPS_UserDefined
 	 */
 	UFUNCTION(unreliable, client, BlueprintCallable, Category = "Game|Feedback")
-	void ClientPlayCameraAnim(class UCameraAnim* AnimToPlay, float Scale=0, float Rate=0, float BlendInTime=0, float BlendOutTime=0, bool bLoop=false, bool bRandomStartTime=false, ECameraAnimPlaySpace::Type Space=ECameraAnimPlaySpace::CameraLocal, FRotator CustomPlaySpace=FRotator::ZeroRotator);
+	void ClientPlayCameraAnim(class UCameraAnim* AnimToPlay, float Scale=1.f, float Rate=1.f, float BlendInTime=0.f, float BlendOutTime=0.f, bool bLoop=false, bool bRandomStartTime=false, ECameraAnimPlaySpace::Type Space=ECameraAnimPlaySpace::CameraLocal, FRotator CustomPlaySpace=FRotator::ZeroRotator);
 
 	/** 
 	 * Play Camera Shake 
@@ -696,7 +713,7 @@ public:
 	 * @param UserPlaySpaceRot - Matrix used when PlaySpace = CAPS_UserDefined
 	 */
 	UFUNCTION(unreliable, client, BlueprintCallable, Category="Game|Feedback")
-	void ClientPlayCameraShake(TSubclassOf<class UCameraShake> Shake, float Scale = 0, ECameraAnimPlaySpace::Type PlaySpace = ECameraAnimPlaySpace::CameraLocal, FRotator UserPlaySpaceRot = FRotator::ZeroRotator);
+	void ClientPlayCameraShake(TSubclassOf<class UCameraShake> Shake, float Scale = 1.f, ECameraAnimPlaySpace::Type PlaySpace = ECameraAnimPlaySpace::CameraLocal, FRotator UserPlaySpaceRot = FRotator::ZeroRotator);
 
 	/**
 	 * Play sound client-side (so only the client will hear it)
@@ -950,6 +967,10 @@ public:
 	UFUNCTION(unreliable, server, WithValidation)
 	void ServerCheckClientPossession();
 
+	/** Reliable version of ServerCheckClientPossession to be used when there is no likely danger of spamming the network. */
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerCheckClientPossessionReliable();
+
 	/** Call ServerCheckClientPossession on the server, but only if the current pawn is not the acknowledged pawn (and throttled to avoid saturating the network). */
 	virtual void SafeServerCheckClientPossession();
 
@@ -995,15 +1016,24 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerToggleAILogging();
 
-	/** Add Pitch (look up) input */
+	/**
+	 * Add Pitch (look up) input. This value is multiplied by InputPitchScale.
+	 * @param Val Amount to add to Pitch. This value is multiplied by InputPitchScale.
+	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Player", meta=(Keywords="up down"))
 	virtual void AddPitchInput(float Val);
 
-	/** Add Yaw (turn) input */
+	/**
+	 * Add Yaw (turn) input. This value is multiplied by InputYawScale.
+	 * @param Val Amount to add to Yaw. This value is multiplied by InputYawScale.
+	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Player", meta=(Keywords="left right turn"))
 	virtual void AddYawInput(float Val);
 
-	/** Add Roll input */
+	/**
+	 * Add Roll input. This value is multiplied by InputRollScale.
+	 * @param Val Amount to add to Roll. This value is multiplied by InputRollScale.
+	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Player")
 	virtual void AddRollInput(float Val);
 
@@ -1153,7 +1183,10 @@ public:
 	virtual bool InputMotion(const FVector& Tilt, const FVector& RotationRate, const FVector& Gravity, const FVector& Acceleration);
 
 	/** Associate a new UPlayer with this PlayerController. */
-	virtual void SetPlayer(UPlayer* Player);
+	virtual void SetPlayer(UPlayer* InPlayer);
+
+	/** Returns the ULocalPlayer for this controller if it exists, or null otherwise */
+	class ULocalPlayer* GetLocalPlayer() const;
 
 	/**
 	 * Called client-side to smoothly interpolate received TargetViewRotation (result is in BlendedTargetViewRotation)
@@ -1162,14 +1195,19 @@ public:
 	 */
 	virtual void SmoothTargetViewRotation(APawn* TargetPawn, float DeltaSeconds);
 
-	//@todo: Document
+	/**
+	 * Executes the Exec() command on the UPlayer object
+	 *
+	 * @param Command command to execute (string of commands optionally separated by a | (pipe))
+	 * @param bWriteToLog write out to the log
+	 */
 	virtual FString ConsoleCommand(const FString& Command, bool bWriteToLog = true);
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End of UObject Interface
+	//~ End UObject Interface
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void GetActorEyesViewPoint(FVector& Location, FRotator& Rotation) const override;
 	virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult) override;
 	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
@@ -1182,19 +1220,21 @@ public:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Destroyed() override;
 	virtual void OnActorChannelOpen(class FInBunch& InBunch, class UNetConnection* Connection) override;
+	virtual bool UseShortConnectTimeout() const override;
 	virtual void OnSerializeNewActor(class FOutBunch& OutBunch) override;
 	virtual void OnNetCleanup(class UNetConnection* Connection) override;
 	virtual float GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth) override;
 	virtual const AActor* GetNetOwner() const override;
 	virtual class UPlayer* GetNetOwningPlayer() override;
 	virtual class UNetConnection* GetNetConnection() const override;
+	virtual bool DestroyNetworkActorHandled() override;
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual void PostInitializeComponents() override;
 	virtual void EnableInput(class APlayerController* PlayerController) override;
 	virtual void DisableInput(class APlayerController* PlayerController) override;
-	// End AActor interface
+	//~ End AActor Interface
 
-	// Begin AController interface
+	//~ Begin AController Interface
 	virtual void GameHasEnded(class AActor* EndGameFocus = NULL, bool bIsWinner = false) override;
 	virtual bool IsLocalPlayerController() const override;
 	virtual bool IsLocalController() const override;
@@ -1206,7 +1246,7 @@ public:
 	virtual void EndInactiveState() override;
 	virtual void FailedToSpawnPawn() override;
 	virtual void SetPawn(APawn* InPawn) override;
-	// End AController interface
+	//~ End AController Interface
 
 	/** called on the server when the client sends a message indicating it was unable to initialize an Actor channel,
 	 * most commonly because the desired Actor's archetype couldn't be serialized
@@ -1272,7 +1312,7 @@ protected:
 	/** Whether to override the normal audio listener positioning method */
 	uint32 bOverrideAudioListener:1;
 	/** Component that is currently driving the audio listener position/orientation */
-	USceneComponent* AudioListenerComponent;
+	TWeakObjectPtr<USceneComponent> AudioListenerComponent;
 	/** Currently overridden location of audio listener */
 	FVector AudioListenerLocationOverride;
 	/** Currently overridden rotation of audio listener */
@@ -1416,7 +1456,7 @@ public:
 	bool InputEnabled() const { return bInputEnabled; }
 
 	/** @return true if we fully tick when paused (and if our tick function is enabled when paused).	 */
-	bool ShouldPerformFullTickWhenPaused() const { return bShouldPerformFullTickWhenPaused; }
+	bool ShouldPerformFullTickWhenPaused() const;
 
 	/** returns whether the client has completely loaded the server's current world (valid on server only) */
 	bool HasClientLoadedCurrentWorld();
@@ -1457,13 +1497,14 @@ public:
 	// Spectating
 
 	/** Get the Pawn used when spectating. NULL when not spectating. */
-	FORCEINLINE class ASpectatorPawn* GetSpectatorPawn() const { return SpectatorPawn; }
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	class ASpectatorPawn* GetSpectatorPawn() const { return SpectatorPawn; }
 
 	/** Returns the first of GetPawn() or GetSpectatorPawn() that is not NULL, or NULL otherwise. */
 	class APawn* GetPawnOrSpectator() const;
 
 	/** Called to notify the controller that the spectator class has been received. */
-	virtual void ReceivedSpectatorClass(TSubclassOf<class AGameMode> SpectatorClass);
+	virtual void ReceivedSpectatorClass(TSubclassOf<class ASpectatorPawn> SpectatorClass);
 
 	/** Returns the location the PlayerController is focused on.
 	 *  If there is a possessed Pawn, returns the Pawn's location.
@@ -1496,7 +1537,7 @@ private:
 
 protected:
 	/** The location used internally when there is no pawn or spectator, to know where to spawn the spectator or focus the camera on death. */
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	FVector SpawnLocation;
 
 	/** Set the SpawnLocation for use when changing states or when there is no pawn or spectator. */

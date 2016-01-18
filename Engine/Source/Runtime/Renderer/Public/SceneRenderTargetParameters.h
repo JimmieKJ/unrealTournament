@@ -13,7 +13,6 @@ namespace ESceneRenderTargetsMode
 		SetTextures,
 		DontSet,
 		DontSetIgnoreBoundByEditorCompositing,
-		NonSceneAlignedPass,
 	};
 }
 
@@ -25,9 +24,9 @@ public:
 	void Bind(const FShaderParameterMap& ParameterMap);
 
 	/** Sets the scene texture parameters for the given view. */
-	template< typename ShaderRHIParamRef >
+	template< typename ShaderRHIParamRef, typename TRHICmdList >
 	void Set(
-		FRHICommandList& RHICmdList,
+		TRHICmdList& RHICmdList,
 		const ShaderRHIParamRef& ShaderRHI,
 		const FSceneView& View,
 		ESceneRenderTargetsMode::Type TextureMode = ESceneRenderTargetsMode::SetTextures,
@@ -54,6 +53,8 @@ private:
 	FShaderResourceParameter SceneDepthSurfaceParameter;
 	/**  */
 	FShaderResourceParameter SceneDepthTextureNonMS;
+	FShaderResourceParameter DirectionalOcclusionSampler;
+	FShaderResourceParameter DirectionalOcclusionTexture;
 };
 
 /** Pixel shader parameters needed for deferred passes. */
@@ -62,9 +63,9 @@ class FDeferredPixelShaderParameters
 public:
 	void Bind(const FShaderParameterMap& ParameterMap);
 
-	template< typename ShaderRHIParamRef >
+	template< typename ShaderRHIParamRef, typename TRHICmdList >
 	void Set(
-		FRHICommandList& RHICmdList,
+		TRHICmdList& RHICmdList,
 		const ShaderRHIParamRef ShaderRHI,
 		const FSceneView& View,
 		ESceneRenderTargetsMode::Type TextureMode = ESceneRenderTargetsMode::SetTextures
@@ -94,4 +95,5 @@ private:
 	FShaderResourceParameter ScreenSpaceAOTextureSampler;
 	FShaderResourceParameter CustomDepthTexture;
 	FShaderResourceParameter CustomDepthTextureSampler;
+	FShaderResourceParameter CustomStencilTexture;
 };

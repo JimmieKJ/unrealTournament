@@ -18,13 +18,13 @@ class ENGINE_API UInterpTrackVectorBase : public UInterpTrack
 	float CurveTension;
 
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin InterpTrack interface.
+	//~ Begin InterpTrack Interface.
 	virtual int32 GetNumKeyframes() const override;
 	virtual void GetTimeRange(float& StartTime, float& EndTime) const override;
 	virtual float GetTrackEndTime() const override;
@@ -35,9 +35,9 @@ class ENGINE_API UInterpTrackVectorBase : public UInterpTrack
 	virtual int32 DuplicateKeyframe(int32 KeyIndex, float NewKeyTime, UInterpTrack* ToTrack = NULL) override;
 	virtual bool GetClosestSnapPosition(float InPosition, TArray<int32> &IgnoreKeys, float& OutPosition) override;
 	virtual FColor GetKeyframeColor(int32 KeyIndex) const override;
-	// End InterpTrack interface.
+	//~ End InterpTrack Interface.
 
-	// Begin FCurveEdInterface interface.
+	//~ Begin FCurveEdInterface Interface.
 	virtual int32		GetNumKeys() const override;
 	virtual int32		GetNumSubCurves() const override;
 	virtual FColor	GetSubCurveButtonColor(int32 SubCurveIndex, bool bIsSubCurveHidden) const override;
@@ -55,7 +55,7 @@ class ENGINE_API UInterpTrackVectorBase : public UInterpTrack
 	virtual void	SetKeyOut(int32 SubIndex, int32 KeyIndex, float NewOutVal) override;
 	virtual void	SetKeyInterpMode(int32 KeyIndex, EInterpCurveMode NewMode) override;
 	virtual void	SetTangents(int32 SubIndex, int32 KeyIndex, float ArriveTangent, float LeaveTangent) override;
-	// End FCurveEdInterface interface.
+	//~ End FCurveEdInterface Interface.
 };
 
 

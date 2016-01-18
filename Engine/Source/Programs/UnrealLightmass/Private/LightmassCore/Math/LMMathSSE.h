@@ -639,6 +639,15 @@ FORCEINLINE VectorRegister VectorLoadByte4Reverse( void* Ptr )
 #define VectorMask_NE( Vec1, Vec2 )			_mm_cmpneq_ps(Vec1, Vec2)
 
 /**
+ * Shifts the 4 signed or unsigned 32-bit integers right by input amount while shifting in zeros.
+ *
+ * @param Vec1			1st source vector
+ * @param Count			Number of bits to shift
+ * @return				Shifted vector
+ */
+#define VectorShiftRight( Vec1, Count )		_mm_castsi128_ps(_mm_srli_epi32(_mm_castps_si128(Vec1), Count))
+
+/**
  * Returns an integer bit-mask (0x00 - 0x0f) based on the sign-bit for each component in a vector.
  *
  * @param VecMask		Vector

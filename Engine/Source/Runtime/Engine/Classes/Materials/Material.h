@@ -38,39 +38,42 @@ struct FMaterialsWithDirtyUsageFlags
 
 	/** Query the annotation to see if the specified flag has been changed */	
 	bool IsUsageFlagDirty(EMaterialUsage UsageFlag);
-	
+
 	/** Default state for annotations (no flags changed)*/
 	static const FMaterialsWithDirtyUsageFlags DefaultAnnotation;
 };
 #endif
 
-/** Defines how the GBuffer channels are getting manipulated by a decal material pass. Actual index is used to control shader parameters so don't change order */
+/** Defines how the GBuffer channels are getting manipulated by a decal material pass. Actual index is used to control shader parameters so don't change order. */
 UENUM()
 enum EDecalBlendMode
 {
-	// Blend full material, updating the GBuffer, does not work for baked lighting
+	/** Blend full material, updating the GBuffer, does not work for baked lighting. */
 	DBM_Translucent UMETA(DisplayName="Translucent"),
-	// Modulate BaseColor, blend rest, updating the GBuffer, does not work for baked lighting
+	/** Modulate BaseColor, blend rest, updating the GBuffer, does not work for baked lighting. */
 	DBM_Stain UMETA(DisplayName="Stain"),
-	// Only blend normal, updating the GBuffer, does not work for baked lighting
+	/** Only blend normal, updating the GBuffer, does not work for baked lighting. */
 	DBM_Normal UMETA(DisplayName="Normal"),
-	// Additive emissive only
+	/** Additive emissive only. */
 	DBM_Emissive UMETA(DisplayName="Emissive"),
 
-	// Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_TranslucentNormal if normal is not hooked up)
+	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_TranslucentNormal if normal is not hooked up). */
 	DBM_DBuffer_ColorNormalRoughness UMETA(DisplayName="DBuffer Translucent Color,Normal,Roughness"),
-	// Non metal, put into DBuffer to work for baked lighting as well
+	/** Non metal, put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Color UMETA(DisplayName="DBuffer Translucent Color"),
-	// Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Color if normal is not hooked up)
+	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Color if normal is not hooked up). */
 	DBM_DBuffer_ColorNormal UMETA(DisplayName="DBuffer Translucent Color,Normal"),
-	// Non metal, put into DBuffer to work for baked lighting as well
+	/** Non metal, put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_ColorRoughness UMETA(DisplayName="DBuffer Translucent Color,Roughness"),
-	// Non metal, put into DBuffer to work for baked lighting as well
+	/** Non metal, put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Normal UMETA(DisplayName="DBuffer Translucent Normal"),
-	// Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Roughness if normal is not hooked up)
+	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Roughness if normal is not hooked up). */
 	DBM_DBuffer_NormalRoughness UMETA(DisplayName="DBuffer Translucent Normal,Roughness"),
-	// Non metal, put into DBuffer to work for baked lighting as well
+	/** Non metal, put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Roughness UMETA(DisplayName="DBuffer Translucent Roughness"),
+
+	/** Output signed distance in Opacity depending on LightVector. Note: Can be costly, no shadow casting but receiving, no per pixel normal yet, no quality settings yet */
+	DBM_Volumetric_DistanceFunction UMETA(DisplayName="Volumetric Distance Function (experimental)"),
 
 	DBM_MAX,
 };
@@ -87,30 +90,33 @@ enum EMaterialDomain
 	MD_LightFunction UMETA(DisplayName="Light Function"),
 	/** The material will be used in a custom post process pass. */
 	MD_PostProcess UMETA(DisplayName="Post Process"),
+	/** The material will be used for UMG or Slate UI */
+	MD_UI UMETA(DisplayName="User Interface"),
+
 	MD_MAX
 };
 
 
-/** Defines how the material reacts on DBuffer decals, later we can expose more variants between None and Default */
+/** Defines how the material reacts on DBuffer decals, later we can expose more variants between None and Default. */
 UENUM()
 enum EMaterialDecalResponse
 {
 	/** Do not receive decals (Later we still can read the DBuffer channels to customize the effect, this frees up some interpolators). */
 	MDR_None UMETA(DisplayName="None"),
 
-	// Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering
+	/** Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering. */
 	MDR_ColorNormalRoughness UMETA(DisplayName="Color Normal Roughness"),
-	// Receive Decals, applies color DBuffer channels, assumes the decal is non metal and mask the subsurface scattering
+	/** Receive Decals, applies color DBuffer channels, assumes the decal is non metal and mask the subsurface scattering. */
 	MDR_Color UMETA(DisplayName="Color"),
-	// Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering
+	/** Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering. */
 	MDR_ColorNormal UMETA(DisplayName="Color Normal"),
-	// Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering
+	/** Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering. */
 	MDR_ColorRoughness UMETA(DisplayName="Color Roughness"),
-	// Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering
+	/** Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering. */
 	MDR_Normal UMETA(DisplayName="Normal"),
-	// Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering
+	/** Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering. */
 	MDR_NormalRoughness UMETA(DisplayName="Normal Roughness"),
-	// Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering
+	/** Receive Decals, applies all DBuffer channels, assumes the decal is non metal and mask the subsurface scattering. */
 	MDR_Roughness UMETA(DisplayName="Roughness"),
 	MDR_MAX
 };
@@ -325,7 +331,7 @@ class UMaterial : public UMaterialInterface
 	 * Defines how the material reacts on DBuffer decals (Affects look, performance and texture/sample usage).
 	 * Non DBuffer Decals can be disabled on the primitive (e.g. static mesh)
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Material, meta=(DisplayName = "Decal Response (DBuffer)"), AssetRegistrySearchable)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Material, AdvancedDisplay, meta=(DisplayName = "Decal Response (DBuffer)"), AssetRegistrySearchable)
 	TEnumAsByte<enum EMaterialDecalResponse> MaterialDecalResponse;
 
 private:
@@ -335,7 +341,7 @@ private:
 public:
 
 	/** If BlendMode is BLEND_Masked, the surface is not rendered where OpacityMask < OpacityMaskClipValue. */
-	UPROPERTY(EditAnywhere, Category=Material)
+	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
 	float OpacityMaskClipValue;
 
 	/** Adds to world position in the vertex shader. */
@@ -387,14 +393,14 @@ public:
 	FScalarMaterialInput PixelDepthOffset;
 
 	/** Indicates that the material should be rendered in the SeparateTranslucency Pass (not affected by DOF, requires bAllowSeparateTranslucency to be set in .ini). */
-	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Separate Translucency"))
+	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Separate Translucency"), AdvancedDisplay)
 	uint32 bEnableSeparateTranslucency:1;
 
 	/**
 	 * Indicates that the material should be rendered using responsive anti-aliasing. Improves sharpness of small moving particles such as sparks.
 	 * Only use for small moving features because it will cause aliasing of the background.
 	 */
-	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Responsive AA"))
+	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Responsive AA"), AdvancedDisplay)
 	uint32 bEnableResponsiveAA:1;
 
 	/** SSR on translucency */
@@ -405,8 +411,16 @@ public:
 	UPROPERTY(EditAnywhere, Category=Material)
 	uint32 TwoSided:1;
 
-	/** Number of customized UV inputs to display.  Unconnected customized UV inputs will just pass through the vertex UVs. */
+	/** Whether the material should support a dithered LOD transition when used with the foliage system. */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
+	uint32 DitheredLODTransition:1;
+
+	/** Dither opacity mask. When combined with Temporal AA this can be used as a form of limited translucency which supports all lighting features. */
+	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
+	uint32 DitherOpacityMask:1;
+
+	/** Number of customized UV inputs to display.  Unconnected customized UV inputs will just pass through the vertex UVs. */
+	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay, meta=(ClampMin=0))
 	int32 NumCustomizedUVs;
 
 	/** Sets the lighting mode that will be used on this material if it is translucent. */
@@ -421,14 +435,14 @@ public:
 	float TranslucencyDirectionalLightingIntensity;
 
 	/** Scale used to make translucent shadows more or less opaque than the material's actual opacity. */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Density Scale"))
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Shadow Density Scale"))
 	float TranslucentShadowDensityScale;
 
 	/** 
 	 * Scale used to make translucent self-shadowing more or less opaque than the material's shadow on other objects. 
 	 * This is only used when the object is casting a volumetric translucent shadow.
 	 */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Density Scale"))
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Self Shadow Density Scale"))
 	float TranslucentSelfShadowDensityScale;
 
 	/** Used to make a second self shadow gradient, to add interesting shading in the shadow of the first. */
@@ -459,7 +473,7 @@ public:
 	float TranslucentShadowStartOffset;
 
 	/** Whether to draw on top of opaque pixels even if behind them. This only has meaning for translucency. */
-	UPROPERTY(EditAnywhere, Category=Translucency)
+	UPROPERTY(EditAnywhere, Category=Translucency, AdvancedDisplay)
 	uint32 bDisableDepthTest:1;
 
 	/** Whether to generate spherical normals for particles that use this material. */
@@ -470,7 +484,7 @@ public:
 	 * Whether the material takes a tangent space normal or a world space normal as input.
 	 * (TangentSpace requires extra instructions but is often more convenient).
 	 */
-	UPROPERTY(EditAnywhere, Category=Material)
+	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
 	uint32 bTangentSpaceNormal:1;
 
 	/**
@@ -478,6 +492,12 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Material, meta=(DisplayName = "Emissive (Dynamic Area Light)"), AdvancedDisplay)
 	uint32 bUseEmissiveForDynamicAreaLighting : 1;
+
+	/**
+	 * If enabled, the material's opacity defines how much GI is blocked when using the LightPropagationVolume feature
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Material, meta=(DisplayName = "Block Global Illumination"), AdvancedDisplay)
+	uint32 bBlockGI : 1;
 
 	/** 
 	 * This is a special usage flag that allows a material to be assignable to any primitive type.
@@ -583,8 +603,8 @@ public:
 	 * Indicates that the material and its instances can be use with Slate UI and UMG
 	 * This will result in the shaders required to support UI materials being compiled which will increase shader compile time and memory usage.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Usage)
-	uint32 bUsedWithUI:1;
+	UPROPERTY()
+	uint32 bUsedWithUI_DEPRECATED:1;
 
 	/** 
 	 * Whether to automatically set usage flags based on what the material is applied to in the editor.
@@ -658,9 +678,9 @@ public:
 	UPROPERTY()
 	uint32 bCanMaskedBeAssumedOpaque : 1;
 
- 	/** true if Material is masked and uses custom opacity */
- 	UPROPERTY()
- 	uint32 bIsMasked_DEPRECATED:1;
+	/** true if Material is masked and uses custom opacity */
+	UPROPERTY()
+	uint32 bIsMasked_DEPRECATED:1;
 
 	/** true if Material is the preview material used in the material editor. */
 	UPROPERTY(transient, duplicatetransient)
@@ -750,7 +770,7 @@ private:
 #endif // WITH_EDITORONLY_DATA
 public:
 
-	// Begin UMaterialInterface interface.
+	//~ Begin UMaterialInterface Interface.
 	ENGINE_API virtual UMaterial* GetMaterial() override;
 	ENGINE_API virtual const UMaterial* GetMaterial() const override;
 	ENGINE_API virtual const UMaterial* GetMaterial_Concurrent(TMicRecursionGuard& RecursionGuard) const override;
@@ -784,19 +804,22 @@ public:
 	ENGINE_API virtual EBlendMode GetBlendMode(bool bIsGameThread = IsInGameThread()) const override;
 	ENGINE_API virtual EMaterialShadingModel GetShadingModel(bool bIsGameThread = IsInGameThread()) const override;
 	ENGINE_API virtual bool IsTwoSided(bool bIsGameThread = IsInGameThread()) const override;
+	ENGINE_API virtual bool IsDitheredLODTransition(bool bIsGameThread = IsInGameThread()) const override;
 	ENGINE_API virtual bool IsMasked(bool bIsGameThread = IsInGameThread()) const override;
+	ENGINE_API virtual bool IsUIMaterial() const { return MaterialDomain == MD_UI; }
 	ENGINE_API virtual USubsurfaceProfile* GetSubsurfaceProfile_Internal() const override;
 
 	ENGINE_API void SetShadingModel(EMaterialShadingModel NewModel) {ShadingModel = NewModel;}
+	ENGINE_API bool GetScalarParameterSliderMinMax(FName ParameterName, float& OutMinSlider, float& OutMaxSlider) const;
 
 	/** Checks to see if an input property should be active, based on the state of the material */
 	ENGINE_API virtual bool IsPropertyActive(EMaterialProperty InProperty) const override;
 	/** Allows material properties to be compiled with the option of being overridden by the material attributes input. */
 	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, EMaterialProperty Property ) override;
 	ENGINE_API virtual void ForceRecompileForRendering() override;
-	// End UMaterialInterface interface.
+	//~ End UMaterialInterface Interface.
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	ENGINE_API virtual void PreSave() override;
 	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
@@ -818,7 +841,7 @@ public:
 	ENGINE_API virtual void FinishDestroy() override;
 	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	// End UObject Interface
+	//~ End UObject Interface
 
 #if WITH_EDITOR
 	/** Cancels any currently outstanding compilation jobs for this material. Useful in the material editor when some edits superceds existing, in flight compilation jobs.*/
@@ -862,6 +885,14 @@ private:
 
 	/** to share code for PostLoad() and PostEditChangeProperty(), and UMaterialInstance::InitResources(), needs to be refactored */
 	void PropagateDataToMaterialProxy();
+
+#if WITH_EDITOR
+	/** Marks the material's package dirty in order to make a material usage change set during map load persistent. 
+	  * This couldn't be done during map load as loading cannot mark packages dirty. Invoked manually by the user 
+	  * from the Map Check message log.
+	  */
+	void FixupMaterialUsageAfterLoad();
+#endif
 
 public:
 
@@ -973,9 +1004,53 @@ public:
 		}
 	}
 
-	/** Determines whether each quality level has different nodes by inspecting the material's expressions. */
-	void GetQualityLevelNodeUsage(TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num> >& QualityLevelsUsed);
+	/** Get all expressions of the requested type, recursing through any function expressions in the material */
+	template<typename ExpressionType>
+	void GetAllExpressionsInMaterialAndFunctionsOfType(TArray<ExpressionType*>& OutExpressions) const
+	{
+		for (UMaterialExpression* Expression : Expressions)
+		{
+			ExpressionType* ExpressionOfType = Cast<ExpressionType>(Expression);
+			if (ExpressionOfType)
+			{
+				OutExpressions.Add(ExpressionOfType);
+			}
 
+			UMaterialExpressionMaterialFunctionCall* ExpressionFunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>(Expression);
+			if (ExpressionFunctionCall && ExpressionFunctionCall->MaterialFunction)
+			{
+				TArray<UMaterialFunction*> Functions;
+				Functions.Add(ExpressionFunctionCall->MaterialFunction);
+
+				ExpressionFunctionCall->MaterialFunction->GetDependentFunctions(Functions);
+
+				// Handle nested functions
+				for (UMaterialFunction* Function : Functions)
+				{
+					for (UMaterialExpression* FunctionExpression : Function->FunctionExpressions)
+					{
+						ExpressionType* FunctionExpressionOfType = Cast<ExpressionType>(FunctionExpression);
+						if (FunctionExpressionOfType)
+						{
+							OutExpressions.Add(FunctionExpressionOfType);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/** Determines whether each quality level has different nodes by inspecting the material's expressions. 
+	* Or is required by the material quality setting overrides.
+	* @param	QualityLevelsUsed	output array of used quality levels.
+	* @param	ShaderPlatform	The shader platform to use for the quality settings.
+	*/
+	void GetQualityLevelUsage(TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num> >& QualityLevelsUsed, EShaderPlatform ShaderPlatform);
+
+	/** Determines whether each quality level has different nodes by inspecting the material's expressions.
+	* @param	QualityLevelsUsed	output array of used quality levels.
+	*/
+	void GetQualityLevelNodeUsage(TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num> >& OutQualityLevelsUsed);
 
 	/**
 	 * Cache the expression texture references for this UMaterial 
@@ -1029,7 +1104,7 @@ public:
 	/**
 	 * Go through every material, flush the specified types and re-initialize the material's shader maps.
 	 */
-	ENGINE_API static void UpdateMaterialShaders(TArray<FShaderType*>& ShaderTypesToFlush, TArray<const FVertexFactoryType*>& VFTypesToFlush, EShaderPlatform ShaderPlatform);
+	ENGINE_API static void UpdateMaterialShaders(TArray<FShaderType*>& ShaderTypesToFlush, TArray<const FShaderPipelineType*>& ShaderPipelineTypesToFlush, TArray<const FVertexFactoryType*>& VFTypesToFlush, EShaderPlatform ShaderPlatform);
 
 	/** 
 	 * Backs up all material shaders to memory through serialization, organized by FMaterialShaderMap. 
@@ -1091,12 +1166,12 @@ public:
 	ENGINE_API virtual bool HasDuplicateDynamicParameters(const UMaterialExpression* Expression);
 
 	/**
-	 * Iterate through all of the expression nodes and fix up changed names on
-	 * matching dynamic parameters when a name change occurs.
+	 * Iterate through all of the expression nodes and fix up changed properties on
+	 * matching dynamic parameters when a change occurs.
 	 *
 	 * @param	Expression	The expression dynamic parameter.
 	 */
-	ENGINE_API virtual void UpdateExpressionDynamicParameterNames(const UMaterialExpression* Expression);
+	ENGINE_API virtual void UpdateExpressionDynamicParameters(const UMaterialExpression* Expression);
 
 	/**
 	 * Get the name of a parameter.
@@ -1149,6 +1224,9 @@ public:
 	*									or NULL if an invalid property was requested (some properties have been removed from UI, those return NULL).
 	*/
 	ENGINE_API FExpressionInput* GetExpressionInputForProperty(EMaterialProperty InProperty);
+
+	/* Returns any UMaterialExpressionCustomOutput expressions */
+	ENGINE_API void GetAllCustomOutputExpressions(TArray<class UMaterialExpressionCustomOutput*>& OutCustomOutputs) const;
 
 	/**
 	 *	Get all referenced expressions (returns the chains for all properties).
@@ -1208,7 +1286,7 @@ public:
 	ENGINE_API static FMaterialCompilationFinished& OnMaterialCompilationFinished();
 
 	// For all materials, UMaterial::CacheResourceShadersForRendering
-	static void AllMaterialsCacheResourceShadersForRendering();
+	ENGINE_API static void AllMaterialsCacheResourceShadersForRendering();
 
 #if WITH_EDITORONLY_DATA
 	/**

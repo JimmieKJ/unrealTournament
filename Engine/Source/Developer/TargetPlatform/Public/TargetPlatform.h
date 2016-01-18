@@ -18,6 +18,7 @@
 #include "ITargetPlatform.h"
 #include "ITargetPlatformModule.h"
 #include "ITargetPlatformManagerModule.h"
+#include "ITargetDeviceOutput.h"
 
 #include "IAudioFormat.h"
 #include "IAudioFormatModule.h"

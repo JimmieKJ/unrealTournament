@@ -58,7 +58,7 @@ void FSoundCueGraphConnectionDrawingPolicy::BuildAudioFlowRoadmap()
 
 			for (int32 WaveIndex = WaveInstances.Num() - 1; WaveIndex >= 0 ; --WaveIndex)
 			{
-				UAudioComponent* WaveInstanceAudioComponent = WaveInstances[WaveIndex]->ActiveSound->AudioComponent.Get();
+				UAudioComponent* WaveInstanceAudioComponent = WaveInstances[WaveIndex]->ActiveSound->GetAudioComponent();
 				if (WaveInstanceAudioComponent != PreviewAudioComponent)
 				{
 					WaveInstances.RemoveAtSwap(WaveIndex);

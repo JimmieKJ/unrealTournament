@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCharacterMovement.h"
 #include "UTBot.h"
@@ -89,7 +89,7 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 }
 bool FBotEnemyInfo::IsValid(AActor* TeamHolder) const
 {
-	if (Pawn == NULL || Pawn->bTearOff || Pawn->bPendingKillPending || (UTChar != NULL && UTChar->IsDead()))
+	if (Pawn == NULL || Pawn->bTearOff || Pawn->IsPendingKillPending() || (UTChar != NULL && UTChar->IsDead()))
 	{
 		return false;
 	}
@@ -469,7 +469,7 @@ void AUTBot::Destroyed()
 APlayerStart* AUTBot::PickSpawnPoint(const TArray<APlayerStart*> Choices)
 {
 	APlayerStart* Pick = (Squad != NULL) ? Squad->PickSpawnPointFor(this, Choices) : NULL;
-	if (Pick == NULL)
+	if ((Pick == NULL) && (Choices.Num() > 0))
 	{
 		// fallback to pure random
 		Pick = Choices[FMath::RandHelper(Choices.Num())];
@@ -519,7 +519,7 @@ void AUTBot::Tick(float DeltaTime)
 		NavData = GetUTNavData(GetWorld());
 	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime())
+	if (!GS->IsMatchInProgress() || GS->IsMatchIntermission())
 	{
 		return;
 	}
@@ -677,7 +677,7 @@ void AUTBot::Tick(float DeltaTime)
 		// check current enemy every frame, others on a slightly random timer to avoid hitches
 		if (Enemy != NULL)
 		{
-			if (Enemy->bPendingKillPending)
+			if (Enemy->IsPendingKillPending())
 			{
 				// enemy was destroyed directly instead of killed so we didn't get notify
 				SetEnemy(NULL);
@@ -872,7 +872,7 @@ void AUTBot::Tick(float DeltaTime)
 						FVector FearAdjust(FVector::ZeroVector);
 						for (int32 i = FearSpots.Num() - 1; i >= 0; i--)
 						{
-							if (FearSpots[i] == NULL || FearSpots[i]->bPendingKillPending || !GetPawn()->IsOverlappingActor(FearSpots[i]))
+							if (FearSpots[i] == NULL || FearSpots[i]->IsPendingKillPending() || !GetPawn()->IsOverlappingActor(FearSpots[i]))
 							{
 								FearSpots.RemoveAt(i);
 							}
@@ -2278,7 +2278,7 @@ const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)
 	// this triggering probably means a notification bug where the AI hasn't been told about an enemy being killed or destroyed
 	if (TestEnemy == Enemy && bCheckTeam && PS != NULL && PS->Team != NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Bot %s has enemy %s that is not in team's enemy list! (enemy dead: %s)"), *PlayerState->PlayerName, (TestEnemy->PlayerState != NULL) ? *TestEnemy->PlayerState->PlayerName : *TestEnemy->GetName(), TestEnemy->bPendingKillPending ? TEXT("True") : TEXT("False"));
+		UE_LOG(UT, Warning, TEXT("Bot %s has enemy %s that is not in team's enemy list! (enemy dead: %s)"), *PlayerState->PlayerName, (TestEnemy->PlayerState != NULL) ? *TestEnemy->PlayerState->PlayerName : *TestEnemy->GetName(), TestEnemy->IsPendingKillPending() ? TEXT("True") : TEXT("False"));
 		return GetEnemyInfo(TestEnemy, false);
 	}
 	return NULL;
@@ -2472,7 +2472,7 @@ void AUTBot::ExecuteWhatToDoNext()
 		// make sure enemy is valid
 		if (Enemy != NULL)
 		{
-			if (Enemy->bPendingKillPending)
+			if (Enemy->IsPendingKillPending())
 			{
 				Enemy = NULL;
 			}
@@ -3778,7 +3778,7 @@ void AUTBot::ProcessIncomingWarning()
 	{
 		if (WarningProj != NULL)
 		{
-			if (!WarningProj->bPendingKillPending && !WarningProj->bExploded)
+			if (!WarningProj->IsPendingKillPending() && !WarningProj->bExploded)
 			{
 				FVector ProjVel = WarningProj->GetVelocity();
 				if (!ProjVel.IsZero())
@@ -3833,7 +3833,7 @@ void AUTBot::ProcessIncomingWarning()
 			}
 		}
 		// skip if shooter is no longer focus and bot isn't skilled enough to keep track of prior threat
-		else if (WarningShooter != NULL && !WarningShooter->bPendingKillPending && !WarningShooter->IsDead() && (WarningShooter == Enemy || Personality.Tactics >= 0.5f || Skill + Personality.Tactics >= 5.0f) && LineOfSightTo(WarningShooter))
+		else if (WarningShooter != NULL && !WarningShooter->IsPendingKillPending() && !WarningShooter->IsDead() && (WarningShooter == Enemy || Personality.Tactics >= 0.5f || Skill + Personality.Tactics >= 5.0f) && LineOfSightTo(WarningShooter))
 		{
 			// dodge perpendicular to shooter
 			FVector Dir = (WarningShooter->GetActorLocation() - GetPawn()->GetActorLocation()).GetSafeNormal();
@@ -4178,7 +4178,7 @@ bool AUTBot::IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateT
 
 void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 {
-	if (NewEnemy != NULL && !NewEnemy->bTearOff && !NewEnemy->bPendingKillPending && Squad != NULL && !IsTeammate(NewEnemy)) //  && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL || Game->bOfflineChallenge)
+	if (NewEnemy != NULL && !NewEnemy->bTearOff && !NewEnemy->IsPendingKillPending() && Squad != NULL && !IsTeammate(NewEnemy)) //  && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL || Game->bOfflineChallenge)
 	{
 		bool bImportant = IsImportantEnemyUpdate(NewEnemy, UpdateType);
 

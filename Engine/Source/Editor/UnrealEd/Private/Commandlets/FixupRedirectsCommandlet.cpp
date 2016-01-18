@@ -232,7 +232,7 @@ int32 UFixupRedirectsCommandlet::Main( const FString& Params )
 			if (((++GCIndex) % 50) == 0 || bNeedToCollectGarbage || Package->ContainsMap())
 			{
 				// collect garbage to close the package
-				CollectGarbage(RF_Native);
+				CollectGarbage(RF_NoFlags);
 				UE_LOG(LogFixupRedirectsCommandlet, Display, TEXT("GC..."));
 				// reset our counter
 				GCIndex = 0;
@@ -481,7 +481,7 @@ int32 UFixupRedirectsCommandlet::Main( const FString& Params )
 		
 		// collect garbage to close the package
 		UE_LOG(LogFixupRedirectsCommandlet, Display, TEXT("Collecting Garbage..."));
-		CollectGarbage(RF_Native);
+		CollectGarbage(RF_NoFlags);
 	}
 
 	UE_LOG(LogFixupRedirectsCommandlet, Warning, TEXT(""));
@@ -619,7 +619,7 @@ int32 UFixupRedirectsCommandlet::Main( const FString& Params )
 			if (((++GCIndex) % 50) == 0 || bIsDirty || Package->ContainsMap())
 			{
 				// collect garbage to close the package
-				CollectGarbage(RF_Native);
+				CollectGarbage(RF_NoFlags);
 				UE_LOG(LogFixupRedirectsCommandlet, Display, TEXT("GC..."));
 				// reset our counter
 				GCIndex = 0;

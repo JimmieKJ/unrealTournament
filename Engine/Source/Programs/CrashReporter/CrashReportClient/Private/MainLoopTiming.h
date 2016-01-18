@@ -38,12 +38,6 @@ private:
 	/** Interval between each Tick that we're aiming for */
 	float IdealFrameTime;
 
-	/** Actual time between Tick and previous Tick */
-	double ActualDeltaTime;
-
-	/** Absolute time of previous Tick */
-	double LastTime;
-
 	/** Should Slate's Tick be called? */
 	bool bTickSlate;
 };

@@ -23,8 +23,10 @@
 #include "BehaviorTreeEditorTabFactories.h"
 #include "BehaviorTreeEditorCommands.h"
 #include "BehaviorTreeEditorTabs.h"
+#include "BehaviorTreeEditorUtils.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardData.h"
+#include "BehaviorTreeGraphNode_SubtreeTask.h"
 #include "DetailCustomizations/BlackboardDataDetails.h"
 #include "SBehaviorTreeBlackboardView.h"
 #include "SBehaviorTreeBlackboardEditor.h"
@@ -683,72 +685,17 @@ TSharedRef<SWidget> FBehaviorTreeEditor::SpawnBlackboardDetails()
 
 void FBehaviorTreeEditor::OnSelectedNodesChanged(const TSet<class UObject*>& NewSelection)
 {
-	TArray<UObject*> Selection;
-	
-	UBehaviorTreeGraphNode_CompositeDecorator* FoundGraphNode_CompDecorator = NULL;
-	UBTDecorator* FoundDecorator = NULL;
-	bool bInjectedNode = false;
-
 	SelectedNodesCount = NewSelection.Num();
-	if(NewSelection.Num())
-	{
-		for(TSet<class UObject*>::TConstIterator SetIt(NewSelection);SetIt;++SetIt)
-		{
-			UBehaviorTreeGraphNode_Composite* GraphNode_Composite = Cast<UBehaviorTreeGraphNode_Composite>(*SetIt);
-			if (GraphNode_Composite)
-			{
-				Selection.Add(GraphNode_Composite->NodeInstance);
-				continue;
-			}
 
-			UBehaviorTreeGraphNode_Task* GraphNode_Task = Cast<UBehaviorTreeGraphNode_Task>(*SetIt);
-			if (GraphNode_Task)
-			{
-				Selection.Add(GraphNode_Task->NodeInstance);
-				continue;
-			}
-
-			UBehaviorTreeGraphNode_Decorator* GraphNode_Decorator1 = Cast<UBehaviorTreeGraphNode_Decorator>(*SetIt);
-			if (GraphNode_Decorator1)
-			{
-				Selection.Add(GraphNode_Decorator1->NodeInstance);
-				FoundDecorator = Cast<UBTDecorator>(GraphNode_Decorator1->NodeInstance);
-				bInjectedNode = bInjectedNode || GraphNode_Decorator1->bInjectedNode;
-				continue;
-			}
-
-			UBehaviorTreeDecoratorGraphNode_Decorator* GraphNode_Decorator2 = Cast<UBehaviorTreeDecoratorGraphNode_Decorator>(*SetIt);
-			if (GraphNode_Decorator2)
-			{
-				Selection.Add(GraphNode_Decorator2->NodeInstance);
-				bInjectedNode = bInjectedNode || !GraphNode_Decorator2->GetGraph()->bEditable;
-				continue;
-			}
-			
-			UBehaviorTreeGraphNode_Service* GraphNode_Service = Cast<UBehaviorTreeGraphNode_Service>(*SetIt);
-			if (GraphNode_Service)
-			{
-				Selection.Add(GraphNode_Service->NodeInstance);
-				continue;
-			}
-
-			UBehaviorTreeGraphNode_CompositeDecorator* GraphNode_CompDecorator = Cast<UBehaviorTreeGraphNode_CompositeDecorator>(*SetIt);
-			if (GraphNode_CompDecorator)
-			{
-				FoundGraphNode_CompDecorator = GraphNode_CompDecorator;
-				bInjectedNode = bInjectedNode || GraphNode_CompDecorator->bInjectedNode;
-			}
-
-			Selection.Add(*SetIt);
-		}
-	}
+	BehaviorTreeEditorUtils::FPropertySelectionInfo SelectionInfo;
+	TArray<UObject*> Selection = BehaviorTreeEditorUtils::GetSelectionForPropertyEditor(NewSelection, SelectionInfo);
 
 	UBehaviorTreeGraph* MyGraph = Cast<UBehaviorTreeGraph>(BehaviorTree->BTGraph);
 	FAbortDrawHelper Mode0, Mode1;
 	bShowDecoratorRangeLower = false;
 	bShowDecoratorRangeSelf = false;
-	bForceDisablePropertyEdit = bInjectedNode;
-	bSelectedNodeIsInjected = bInjectedNode;
+	bForceDisablePropertyEdit = SelectionInfo.bInjectedNode;
+	bSelectedNodeIsInjected = SelectionInfo.bInjectedNode;
 
 	if (Selection.Num() == 1)
 	{
@@ -757,13 +704,13 @@ void FBehaviorTreeEditor::OnSelectedNodesChanged(const TSet<class UObject*>& New
 			DetailsView->SetObjects(Selection);
 		}
 
-		if (FoundDecorator)
+		if (SelectionInfo.FoundDecorator)
 		{
-			GetAbortModePreview(FoundDecorator, Mode0, Mode1);
+			GetAbortModePreview(SelectionInfo.FoundDecorator, Mode0, Mode1);
 		}
-		else if (FoundGraphNode_CompDecorator)
+		else if (SelectionInfo.FoundGraphNode_CompDecorator)
 		{
-			GetAbortModePreview(FoundGraphNode_CompDecorator, Mode0, Mode1);
+			GetAbortModePreview(SelectionInfo.FoundGraphNode_CompDecorator, Mode0, Mode1);
 		}
 	}
 	else if (DetailsView.IsValid())
@@ -1629,7 +1576,18 @@ FText FBehaviorTreeEditor::GetToolkitName() const
 	const UObject* EditingObject = GetCurrentMode() == BehaviorTreeMode ? (UObject*)BehaviorTree : (UObject*)GetBlackboardData();
 	if(EditingObject != nullptr)
 	{
-		return FAssetEditorToolkit::GetDescriptionForObject(EditingObject);
+		return FAssetEditorToolkit::GetLabelForObject(EditingObject);
+	}
+
+	return FText();
+}
+
+FText FBehaviorTreeEditor::GetToolkitToolTipText() const
+{
+	const UObject* EditingObject = GetCurrentMode() == BehaviorTreeMode ? (UObject*)BehaviorTree : (UObject*)GetBlackboardData();
+	if(EditingObject != nullptr)
+	{
+		return FAssetEditorToolkit::GetToolTipTextForObject(EditingObject);
 	}
 
 	return FText();

@@ -25,7 +25,7 @@ public:
 
 	virtual ~FOnlineSubsystemIOSModule(){}
 
-	// Begin IModuleInterface interface
+	//~ Begin IModuleInterface Interface
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
@@ -38,7 +38,7 @@ public:
 	{
 		return false;
 	}
-	// End IModuleInterface interface
+	//~ End IModuleInterface Interface
 };
 
 

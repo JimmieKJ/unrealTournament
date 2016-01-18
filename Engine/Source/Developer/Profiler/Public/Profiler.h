@@ -30,5 +30,4 @@
 /* Interfaces
  *****************************************************************************/
 
-#include "IProfilerManager.h"
 #include "IProfilerModule.h"

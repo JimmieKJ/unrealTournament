@@ -30,6 +30,9 @@ public:
 	/** Show only bones that are present in the current mesh */
 	TSharedPtr< FUICommandInfo > ShowMeshBones;
 
+	/** Show only bones that are present in the current LOD */
+	TSharedPtr< FUICommandInfo > ShowLODBones;
+
 	/** Show only bones that have weighted vertices */
 	TSharedPtr< FUICommandInfo > ShowWeightedBones;
 

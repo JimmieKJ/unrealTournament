@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2301538
+﻿INTSourceChangelist:2621989
 Availability:NoPublish
 Title:블루프린트 에디터
 Crumbs:
@@ -95,7 +95,7 @@ Return Value 반환 값 - 스폰된 새 액터 인스턴스를 출력합니다.
 
 "Spawn Actor from Class" (클래스 노드에서 액터 스폰) 노드는 ('Class' 입력을 통해 지정된) 액터 클래스를 받아 월드에 해당 인스턴스 스폰을 시도합니다.
 
-'Spawn Transform' 입력은 액터의 스폰 위치(와 초기 방향)를 정의하는 데 사용됩니다. 그 위치가 콜리전이 있는 무언가에 막힌 경우, 액터는 'Spawn Even if Colliding' 입력이 True 로 설정되지 않은 이상 스폰에 실패합니다.
+'Spawn Transform' 입력은 액터의 스폰 위치(와 초기 방향)를 정의하는 데 사용됩니다.
 
 ---
 
@@ -104,7 +104,7 @@ Return Value 반환 값 - 스폰된 새 액터 인스턴스를 출력합니다.
 무제 실행 핀 - 이 실행 입력이 스폰을 발동시킵니다.
 Class 클래스 - 스폰하고자 하는 액터 클래스를 나타냅니다 (필수).
 Spawn Transform 스폰 트랜스폼 - 월드 내 액터의 위치와 방향을 잡는 데 사용되는 트랜스폼 값을 받습니다.
-Spawn Even if Colliding 충돌해도 스폰 - 액터의 스폰 위치에 무언가 막혀있을 경우에도 액터를 스폰할 것인지 결정하는 데 사용되는 불리언 값을 받습니다.
+Collision Handling Override 콜리전 처리 덮어쓰기 - 무언가가 스폰 위치를 막는 상황을 처리하는 데 대한 액터 클래스 세팅을 덮어씁니다. "디폴트" 가 선택된 경우, 액터 클래스의 SpawnCollisionHandlingMethod 가 사용됩니다.
 
 ---
 

@@ -109,6 +109,9 @@
 #include "UnrealEngine.h"
 #include "EngineStats.h"
 #include "Engine/SimpleConstructionScript.h"
+#include "K2Node_AddComponent.h"
+
+#include "AutoReimport/AutoReimportUtilities.h"
 
 #include "Settings/EditorSettings.h"
 
@@ -406,6 +409,16 @@ void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFi
 
 	FileTypes = FString::Printf(TEXT("All Files (%s)|%s|%s"),*AllExtensions,*AllExtensions,*FileTypes);
 
+	FString DefaultFolder;
+	FString DefaultFile;
+	
+	TArray<FString> ExistingPaths = Utils::ExtractSourceFilePaths(Obj);
+	if (ExistingPaths.Num() > 0)
+	{
+		DefaultFolder = FPaths::GetPath(ExistingPaths[0]);
+		DefaultFile = FPaths::GetCleanFilename(ExistingPaths[0]);
+	}
+
 	// Prompt the user for the filenames
 	TArray<FString> OpenFilenames;
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
@@ -425,8 +438,8 @@ void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFi
 		bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
 			Title,
-			TEXT(""),
-			TEXT(""),
+			*DefaultFolder,
+			*DefaultFile,
 			FileTypes,
 			bAllowMultiSelect ? EFileDialogFlags::Multiple : EFileDialogFlags::None,
 			OpenFilenames
@@ -440,49 +453,6 @@ void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFi
 			InOutFilenames.Add(OpenFilenames[FileIndex]);
 		}
 	}
-}
-
-FString FReimportManager::SanitizeImportFilename(const FString& InPath, const UObject* Obj)
-{
-	const UPackage* Package = Obj->GetOutermost();
-	if (Package)
-	{
-		const bool		bIncludeDot = true;
-		const FString	PackagePath	= Package->GetPathName();
-		const FName		MountPoint	= FPackageName::GetPackageMountPoint(PackagePath);
-		const FString	PackageFilename = FPackageName::LongPackageNameToFilename(PackagePath, FPaths::GetExtension(InPath, bIncludeDot));
-		const FString	AbsolutePath = FPaths::ConvertRelativePathToFull(InPath);
-
-		if ((MountPoint == FName("Engine") && AbsolutePath.StartsWith(FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir()))) ||
-			(MountPoint == FName("Game") &&	AbsolutePath.StartsWith(FPaths::ConvertRelativePathToFull(FPaths::GameDir()))))
-		{
-			FString RelativePath = InPath;
-			FPaths::MakePathRelativeTo(RelativePath, *PackageFilename);
-			return RelativePath;
-		}
-	}
-
-	return IFileManager::Get().ConvertToRelativePath(*InPath);
-}
-
-
-FString FReimportManager::ResolveImportFilename(const FString& InRelativePath, const UObject* Obj)
-{
-	FString RelativePath = InRelativePath;
-
-	const UPackage* Package = Obj->GetOutermost();
-	if (Package)
-	{
-		// Relative to the package filename?
-		const FString PathRelativeToPackage = FPaths::GetPath(FPackageName::LongPackageNameToFilename(Package->GetPathName())) / InRelativePath;
-		if (FPaths::FileExists(PathRelativeToPackage))
-		{
-			RelativePath = PathRelativeToPackage;
-		}
-	}
-
-	// Convert relative paths
-	return FPaths::ConvertRelativePathToFull(RelativePath);
 }
 
 FReimportManager::FReimportManager()
@@ -599,7 +569,7 @@ namespace EditorUtilities
 {
 	AActor* GetEditorWorldCounterpartActor( AActor* Actor )
 	{
-		const bool bIsSimActor = !!( Actor->GetOutermost()->PackageFlags & PKG_PlayInEditor );
+		const bool bIsSimActor = Actor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
 		if( bIsSimActor && GEditor->PlayWorld != NULL )
 		{
 			// Do we have a counterpart in the editor world?
@@ -630,7 +600,7 @@ namespace EditorUtilities
 
 	AActor* GetSimWorldCounterpartActor( AActor* Actor )
 	{
-		const bool bIsSimActor = !!( Actor->GetOutermost()->PackageFlags & PKG_PlayInEditor );
+		const bool bIsSimActor = Actor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
 		if( !bIsSimActor && GEditor->EditorWorld != NULL )
 		{
 			// Do we have a counterpart in the sim world?
@@ -767,18 +737,55 @@ namespace EditorUtilities
 							UInheritableComponentHandler* InheritableComponentHandler = Blueprint->GetInheritableComponentHandler(true);
 							if (InheritableComponentHandler)
 							{
-								BPGC = Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass());
-								USCS_Node* SCSNode = nullptr;
-								while (BPGC)
-								{
-									SCSNode = BPGC->SimpleConstructionScript->FindSCSNode(SourceComponent->GetFName());
-									BPGC = (SCSNode ? nullptr : Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass()));
-								}
-								check(SCSNode);
+								FComponentKey Key;
+								FName const SourceComponentName = SourceComponent->GetFName();
 
-								FComponentKey Key(SCSNode);
-								check(InheritableComponentHandler->GetOverridenComponentTemplate(Key) == nullptr);
-								TargetComponent = InheritableComponentHandler->CreateOverridenComponentTemplate(Key);
+								BPGC = Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass());
+								while (!Key.IsValid() && BPGC)
+								{
+									USCS_Node* SCSNode = BPGC->SimpleConstructionScript->FindSCSNode(SourceComponentName);
+									if (!SCSNode)
+									{
+										UBlueprint* SuperBlueprint = CastChecked<UBlueprint>(BPGC->ClassGeneratedBy);
+										for (UActorComponent* ComponentTemplate : BPGC->ComponentTemplates)
+										{
+											if (ComponentTemplate->GetFName() == SourceComponentName)
+											{
+												if (UEdGraph* UCSGraph = FBlueprintEditorUtils::FindUserConstructionScript(SuperBlueprint))
+												{
+													TArray<UK2Node_AddComponent*> ComponentNodes;
+													UCSGraph->GetNodesOfClass<UK2Node_AddComponent>(ComponentNodes);
+
+													for (UK2Node_AddComponent* UCSNode : ComponentNodes)
+													{
+														if (ComponentTemplate == UCSNode->GetTemplateFromNode())
+														{
+															Key = FComponentKey(SuperBlueprint, FUCSComponentId(UCSNode));
+															break;
+														}
+													}
+												}
+												break;
+											}
+										}
+									}
+									else
+									{
+										Key = FComponentKey(SCSNode);
+										break;
+									}
+									BPGC = Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass());
+								}
+
+								if (ensure(Key.IsValid()))
+								{
+									check(InheritableComponentHandler->GetOverridenComponentTemplate(Key) == nullptr);
+									TargetComponent = InheritableComponentHandler->CreateOverridenComponentTemplate(Key);
+								}
+								else
+								{
+									TargetComponent = nullptr;
+								}								
 							}
 						}
 					}
@@ -819,7 +826,7 @@ namespace EditorUtilities
 			for (int32 ArrayIndex = 0; ArrayIndex < PropertyArrayDim; ArrayIndex++)
 			{
 				UObject* const SourceObjectPropertyValue = ObjectProperty->GetObjectPropertyValue_InContainer(InSourcePtr, ArrayIndex);
-				if (SourceObjectPropertyValue && SourceObjectPropertyValue->GetOutermost()->PackageFlags & PKG_PlayInEditor)
+				if (SourceObjectPropertyValue && SourceObjectPropertyValue->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 				{
 					// Not all the code paths below actually copy the object, but even if they don't we need to claim that they
 					// did, as copying a reference to an object in a PIE world leads to crashes
@@ -855,6 +862,9 @@ namespace EditorUtilities
 		}
 		else if (UStructProperty* const StructProperty = Cast<UStructProperty>(InProperty))
 		{
+			// Ensure that the target struct is initialized before copying fields from the source.
+			StructProperty->InitializeValue_InContainer(InTargetPtr);
+
 			const int32 PropertyArrayDim = InProperty->ArrayDim;
 			for (int32 ArrayIndex = 0; ArrayIndex < PropertyArrayDim; ArrayIndex++)
 			{
@@ -901,11 +911,11 @@ namespace EditorUtilities
 		CopySinglePropertyRecursive(InSourceObject, InTargetObject, InTargetObject, InProperty);
 	}
 
-	int32 CopyActorProperties( AActor* SourceActor, AActor* TargetActor, const ECopyOptions::Type Options )
+	int32 CopyActorProperties( AActor* SourceActor, AActor* TargetActor, const FCopyOptions& Options )
 	{
 		check( SourceActor != nullptr && TargetActor != nullptr );
 
-		const bool bIsPreviewing = ( Options & ECopyOptions::PreviewOnly ) != 0;
+		const bool bIsPreviewing = ( Options.Flags & ECopyOptions::PreviewOnly ) != 0;
 
 		int32 CopiedPropertyCount = 0;
 
@@ -915,7 +925,7 @@ namespace EditorUtilities
 
 		// Get archetype instances for propagation (if requested)
 		TArray<AActor*> ArchetypeInstances;
-		if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+		if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 		{
 			TArray<UObject*> ObjectArchetypeInstances;
 			TargetActor->GetArchetypeInstances(ObjectArchetypeInstances);
@@ -925,7 +935,7 @@ namespace EditorUtilities
 				if (AActor* ActorArchetype = Cast<AActor>(ObjectArchetype))
 				{
 					ArchetypeInstances.Add(ActorArchetype);
-				}			
+				}
 			}
 		}
 
@@ -939,14 +949,19 @@ namespace EditorUtilities
 			const bool bIsTransient = !!( Property->PropertyFlags & CPF_Transient );
 			const bool bIsComponentContainer = !!( Property->PropertyFlags & CPF_ContainsInstancedReference );
 			const bool bIsComponentProp = !!( Property->PropertyFlags & ( CPF_InstancedReference | CPF_ContainsInstancedReference ) );
-			const bool bIsBlueprintReadonly = !!(Options & ECopyOptions::FilterBlueprintReadOnly) && !!( Property->PropertyFlags & CPF_BlueprintReadOnly );
+			const bool bIsBlueprintReadonly = !!(Options.Flags & ECopyOptions::FilterBlueprintReadOnly) && !!( Property->PropertyFlags & CPF_BlueprintReadOnly );
 			const bool bIsIdentical = Property->Identical_InContainer( SourceActor, TargetActor );
 
 			if( !bIsTransient && !bIsIdentical && !bIsComponentContainer && !bIsComponentProp && !bIsBlueprintReadonly)
 			{
-				const bool bIsSafeToCopy = !( Options & ECopyOptions::OnlyCopyEditOrInterpProperties ) || ( Property->HasAnyPropertyFlags( CPF_Edit | CPF_Interp ) );
+				const bool bIsSafeToCopy = !( Options.Flags & ECopyOptions::OnlyCopyEditOrInterpProperties ) || ( Property->HasAnyPropertyFlags( CPF_Edit | CPF_Interp ) );
 				if( bIsSafeToCopy )
 				{
+					if (!Options.CanCopyProperty(*Property, *SourceActor))
+					{
+						continue;
+					}
+
 					if( !bIsPreviewing )
 					{
 						if( !ModifiedObjects.Contains(TargetActor) )
@@ -956,14 +971,14 @@ namespace EditorUtilities
 							ModifiedObjects.Add(TargetActor);
 						}
 
-						if( Options & ECopyOptions::CallPostEditChangeProperty )
+						if( Options.Flags & ECopyOptions::CallPostEditChangeProperty )
 						{
 							TargetActor->PreEditChange( Property );
 						}
 
 						// Determine which archetype instances match the current property value of the target actor (before it gets changed). We only want to propagate the change to those instances.
 						TArray<UObject*> ArchetypeInstancesToChange;
-						if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+						if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 						{
 							for( AActor* ArchetypeInstance : ArchetypeInstances )
 							{
@@ -976,13 +991,13 @@ namespace EditorUtilities
 
 						CopySingleProperty(SourceActor, TargetActor, Property);
 
-						if( Options & ECopyOptions::CallPostEditChangeProperty )
+						if( Options.Flags & ECopyOptions::CallPostEditChangeProperty )
 						{
 							FPropertyChangedEvent PropertyChangedEvent( Property );
 							TargetActor->PostEditChangeProperty( PropertyChangedEvent );
 						}
 
-						if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+						if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 						{
 							for( int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstancesToChange.Num(); ++InstanceIndex )
 							{
@@ -1018,6 +1033,10 @@ namespace EditorUtilities
 		for( auto SourceComponentIter( SourceComponents.CreateConstIterator() ); SourceComponentIter; ++SourceComponentIter )
 		{
 			UActorComponent* SourceComponent = *SourceComponentIter;
+			if (SourceComponent->CreationMethod == EComponentCreationMethod::UserConstructionScript)
+			{
+				continue;
+			}
 			UActorComponent* TargetComponent = FindMatchingComponentInstance( SourceComponent, TargetActor, TargetComponents, TargetComponentIndex );
 
 			if( SourceComponent != nullptr && TargetComponent != nullptr )
@@ -1027,7 +1046,7 @@ namespace EditorUtilities
 
 				// Build a list of matching component archetype instances for propagation (if requested)
 				TArray<UActorComponent*> ComponentArchetypeInstances;
-				if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+				if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 				{
 					for( AActor* ArchetypeInstance : ArchetypeInstances )
 					{
@@ -1059,9 +1078,14 @@ namespace EditorUtilities
 					if( !bIsTransient && !bIsIdentical && !bIsComponent && !SourceUCSModifiedProperties.Contains(Property)
 						&& ( !bIsTransform || SourceComponent != SourceActor->GetRootComponent() || ( !SourceActor->HasAnyFlags( RF_ClassDefaultObject | RF_ArchetypeObject ) && !TargetActor->HasAnyFlags( RF_ClassDefaultObject | RF_ArchetypeObject ) ) ) )
 					{
-						const bool bIsSafeToCopy = !( Options & ECopyOptions::OnlyCopyEditOrInterpProperties ) || ( Property->HasAnyPropertyFlags( CPF_Edit | CPF_Interp ) );
+						const bool bIsSafeToCopy = !( Options.Flags & ECopyOptions::OnlyCopyEditOrInterpProperties ) || ( Property->HasAnyPropertyFlags( CPF_Edit | CPF_Interp ) );
 						if( bIsSafeToCopy )
 						{
+							if (!Options.CanCopyProperty(*Property, *SourceActor))
+							{
+								continue;
+							}
+							
 							if( !bIsPreviewing )
 							{
 								if( !ModifiedObjects.Contains(TargetComponent) )
@@ -1071,7 +1095,7 @@ namespace EditorUtilities
 									ModifiedObjects.Add(TargetComponent);
 								}
 
-								if( Options & ECopyOptions::CallPostEditChangeProperty )
+								if( Options.Flags & ECopyOptions::CallPostEditChangeProperty )
 								{
 									// @todo simulate: Should we be calling this on the component instead?
 									TargetActor->PreEditChange( Property );
@@ -1079,7 +1103,7 @@ namespace EditorUtilities
 
 								// Determine which component archetype instances match the current property value of the target component (before it gets changed). We only want to propagate the change to those instances.
 								TArray<UActorComponent*> ComponentArchetypeInstancesToChange;
-								if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+								if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 								{
 									for (UActorComponent* ComponentArchetypeInstance : ComponentArchetypeInstances)
 									{
@@ -1111,13 +1135,13 @@ namespace EditorUtilities
 
 								CopySingleProperty(SourceComponent, TargetComponent, Property);
 
-								if( Options & ECopyOptions::CallPostEditChangeProperty )
+								if( Options.Flags & ECopyOptions::CallPostEditChangeProperty )
 								{
 									FPropertyChangedEvent PropertyChangedEvent( Property );
 									TargetActor->PostEditChangeProperty( PropertyChangedEvent );
 								}
 
-								if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+								if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 								{
 									for( int32 InstanceIndex = 0; InstanceIndex < ComponentArchetypeInstancesToChange.Num(); ++InstanceIndex )
 									{
@@ -1173,7 +1197,7 @@ namespace EditorUtilities
 		// If one of the changed properties was part of the actor's transformation, then we'll call PostEditMove too.
 		if( !bIsPreviewing && bTransformChanged )
 		{
-			if( Options & ECopyOptions::CallPostEditMove )
+			if( Options.Flags & ECopyOptions::CallPostEditMove )
 			{
 				const bool bFinishedMove = true;
 				TargetActor->PostEditMove( bFinishedMove );

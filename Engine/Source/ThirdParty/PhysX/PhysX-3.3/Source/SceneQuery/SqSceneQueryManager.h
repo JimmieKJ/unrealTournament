@@ -23,6 +23,8 @@
 #include "GuRaycastTests.h" // need to include to cache entry table
 #include "GuOverlapTests.h" // need to include to cache entry table
 #include "GuSweepTests.h" // need to include cache entry table
+#include "PxActor.h" // needed for offset table
+#include "ScbActor.h" // needed for offset table
 
 // threading
 #include "PsSync.h"
@@ -41,9 +43,25 @@ namespace Scb
 	class Shape;
 }
 
+namespace Sc
+{
+	class ActorCore;
+}
+
 namespace Sq
 {
 	struct ActorShape;
+
+	struct OffsetTable
+	{
+		PX_FORCE_INLINE	OffsetTable() {}
+		PX_FORCE_INLINE const Scb::Actor&		convertPxActor2Scb(const PxActor& actor) const		{ return *Ps::pointerOffset<const Scb::Actor*>(&actor, pxActorToScbActor[actor.getConcreteType()]); }
+		PX_FORCE_INLINE const Sc::ActorCore&	convertScbActor2Sc(const Scb::Actor& actor) const	{ return *Ps::pointerOffset<const Sc::ActorCore*>(&actor, scbToSc[actor.getScbType()]); }
+
+		ptrdiff_t pxActorToScbActor[PxConcreteType::ePHYSX_CORE_COUNT];
+		ptrdiff_t scbToSc[ScbType::TYPE_COUNT];
+	};
+	extern OffsetTable gOffsetTable;
 
 	class SceneQueryManager : public Ps::UserAllocated
 	{

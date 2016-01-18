@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCTFFlagBase.h"
 #include "Net/UnrealNetwork.h"
@@ -36,11 +36,11 @@ void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Oth
 	if (Character != NULL)
 	{
 		AUTCTFFlag* CharFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
-		if ( CharFlag != NULL && CharFlag != CarriedObject && CarriedObject->ObjectState == CarriedObjectState::Home && CharFlag->GetTeamNum() != GetTeamNum() &&
+		if ( CharFlag != NULL && CharFlag != CarriedObject && CarriedObject != NULL && CarriedObject->ObjectState == CarriedObjectState::Home && CharFlag->GetTeamNum() != GetTeamNum() &&
 			!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), Capsule->GetComponentLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams) )
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchAtHalftime()))
+			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()))
 			{
 				CharFlag->Score(FName(TEXT("FlagCapture")), CharFlag->HoldingPawn, CharFlag->Holder);
 				CharFlag->PlayCaptureEffect();
@@ -75,7 +75,7 @@ FName AUTCTFFlagBase::GetFlagState()
 
 void AUTCTFFlagBase::RecallFlag()
 {
-	if (MyFlag != NULL && MyFlag->ObjectState != FName(TEXT("Home")) )
+	if (MyFlag != NULL && MyFlag->ObjectState != CarriedObjectState::Home)
 	{
 		MyFlag->SendHome();
 	}
@@ -111,4 +111,15 @@ void AUTCTFFlagBase::ObjectReturnedHome(AUTCharacter* Returner)
 	Super::ObjectReturnedHome(Returner);
 
 	UUTGameplayStatics::UTPlaySound(GetWorld(), FlagReturnedSound, this);
+
+	if (MyFlag != NULL && MyFlag->ObjectState == CarriedObjectState::Home)
+	{
+		// check for friendly flag carrier already here waiting to cap
+		TArray<AActor*> Overlapping;
+		GetOverlappingActors(Overlapping, APawn::StaticClass());
+		for (AActor* A : Overlapping)
+		{
+			OnOverlapBegin(A, Cast<UPrimitiveComponent>(A->GetRootComponent()), 0, false, FHitResult(this, Capsule, A->GetActorLocation(), (A->GetActorLocation() - GetActorLocation()).GetSafeNormal()));
+		}
+	}
 }

@@ -136,6 +136,8 @@ bool FDerivedDataNavCollisionCooker::Build( TArray<uint8>& OutData )
 //----------------------------------------------------------------------//
 UNavCollision::UNavCollision(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {	
+	bHasConvexGeometry = false;
+	bForceGeometryRebuild = false;
 }
 
 FGuid UNavCollision::GetGuid() const
@@ -155,13 +157,12 @@ void UNavCollision::Setup(UBodySetup* BodySetup)
 
 	// Make sure all are cleared before we start
 	ClearCollision(); 
-
-	bool bCalculated = false;
+		
 	if (ShouldUseConvexCollision())
 	{
 		// Find or create cooked navcollision data
 		FByteBulkData* FormatData = GetCookedData(NAVCOLLISION_FORMAT);
-		if( FormatData )
+		if (!bForceGeometryRebuild && FormatData)
 		{
 			// if it's not being already processed
 			if (FormatData->IsLocked() == false)
@@ -169,30 +170,26 @@ void UNavCollision::Setup(UBodySetup* BodySetup)
 				// Create physics objects
 				FNavCollisionDataReader CookedDataReader(*FormatData, TriMeshCollision, ConvexCollision, ConvexShapeIndices);
 
-				bCalculated = true;
+				bHasConvexGeometry = true;
 			}
 		}
 		else
 		{
-			bCalculated = GatherCollision();
+			GatherCollision();
 		}
 	}
-
-	bHasConvexGeometry = bCalculated;
 }
 
-bool UNavCollision::GatherCollision()
+void UNavCollision::GatherCollision()
 {
-	bool bCalculated = false;
 	UStaticMesh* StaticMeshOuter = Cast<UStaticMesh>(GetOuter());
 	// get data from owner
 	if (StaticMeshOuter && StaticMeshOuter->BodySetup)
 	{
+		ClearCollision();
 		NavigationHelper::GatherCollision(StaticMeshOuter->BodySetup, this);
-		bCalculated = true;
+		bHasConvexGeometry = true;
 	}
-
-	return bCalculated;
 }
 
 void UNavCollision::ClearCollision()
@@ -242,20 +239,19 @@ void UNavCollision::GetNavigationModifier(FCompositeNavModifier& Modifier, const
 		// rebuild collision data if needed
 		if (!bHasConvexGeometry)
 		{
-			bHasConvexGeometry = GatherCollision();
+			GatherCollision();
 		}
 
 		if (ConvexCollision.VertexBuffer.Num() > 0)
 		{
 			int32 LastVertIndex = 0;
-			TArray<FVector> Verts(ConvexCollision.VertexBuffer);
 
 			for (int32 i = 0; i < ConvexShapeIndices.Num(); i++)
 			{
 				int32 FirstVertIndex = LastVertIndex;
 				LastVertIndex = ConvexShapeIndices.IsValidIndex(i + 1) ? ConvexShapeIndices[i + 1] : ConvexCollision.VertexBuffer.Num();
 
-				FAreaNavModifier AreaMod(Verts, FirstVertIndex, LastVertIndex, ENavigationCoordSystem::Unreal, LocalToWorld, UseAreaClass);
+				FAreaNavModifier AreaMod(ConvexCollision.VertexBuffer, FirstVertIndex, LastVertIndex, ENavigationCoordSystem::Unreal, LocalToWorld, UseAreaClass);
 				AreaMod.SetIncludeAgentHeight(true);
 				Modifier.Add(AreaMod);
 			}
@@ -343,7 +339,8 @@ void UNavCollision::Serialize(FArchive& Ar)
 
 	const int32 VerInitial = 1;
 	const int32 VerAreaClass = 2;
-	const int32 VerLatest = VerAreaClass;
+	const int32 VerConvexTransforms = 3;
+	const int32 VerLatest = VerConvexTransforms;
 
 	// use magic number to determine if serialized stream has version :/
 	const int32 MagicNum = 0xA237F237;
@@ -399,6 +396,11 @@ void UNavCollision::Serialize(FArchive& Ar)
 	if (Version >= VerAreaClass)
 	{
 		Ar << AreaClass;
+	}
+
+	if (Version < VerConvexTransforms && Ar.IsLoading() && GIsEditor)
+	{
+		bForceGeometryRebuild = true;
 	}
 }
 

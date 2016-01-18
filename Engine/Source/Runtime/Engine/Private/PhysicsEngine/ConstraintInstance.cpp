@@ -225,6 +225,7 @@ FConstraintInstance::FConstraintInstance()
 	, ConstraintData(NULL)
 #endif	//WITH_PHYSX
 	, SceneIndex(0)
+	, bEnableProjection(true)
 	, bSwingLimitSoft(true)
 	, bTwistLimitSoft(true)
 	, Swing1LimitAngle(45)
@@ -242,6 +243,8 @@ FConstraintInstance::FConstraintInstance()
 	, LinearDriveDamping(1.0f)
 	, LinearDriveForceLimit(0)
 	, bAngularOrientationDrive(false)
+	, bEnableSwingDrive(true)
+	, bEnableTwistDrive(true)
 	, bAngularVelocityDrive(false)
 	, AngularOrientationTarget(ForceInit)
 	, AngularVelocityTarget(ForceInit)
@@ -270,8 +273,8 @@ FConstraintInstance::FConstraintInstance()
 	LinearBreakThreshold = 300.0f;
 	AngularBreakThreshold = 500.0f;
 
-	ProjectionLinearTolerance = 0.5; // Linear projection when error > 0.5 unreal units
-	ProjectionAngularTolerance = 10.f;// Angular projection when error > 10 degrees
+	ProjectionLinearTolerance = 5.f; // Linear projection when error > 5 cm
+	ProjectionAngularTolerance = 180.f; // Angular projection when error > 180 degrees
 }
 
 void FConstraintInstance::SetDisableCollision(bool InDisableCollision)
@@ -340,7 +343,7 @@ PxScene* GetPScene_LockFree(const FBodyInstance* Body1, const FBodyInstance* Bod
 	}
 	else
 	{
-		PScene = GetPhysXSceneFromIndex(SceneIndex1);
+		PScene = GetPhysXSceneFromIndex(SceneIndex1 >= 0 ? SceneIndex1 : SceneIndex2);
 	}
 
 	return PScene;
@@ -765,106 +768,40 @@ void FConstraintInstance::GetConstraintForce(FVector& OutLinearForce, FVector& O
 /** Function for turning linear position drive on and off. */
 void FConstraintInstance::SetLinearPositionDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive)
 {
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
-	{
-		// Get the current drives
-		PxD6JointDrive CurrentDriveX = Joint->getDrive(PxD6Drive::eX);
-		PxD6JointDrive CurrentDriveY = Joint->getDrive(PxD6Drive::eY);
-		PxD6JointDrive CurrentDriveZ = Joint->getDrive(PxD6Drive::eZ);
-		
-		CurrentDriveX.stiffness = bEnableXDrive ? LinearDriveSpring : 0.0f;
-		CurrentDriveY.stiffness = bEnableYDrive ? LinearDriveSpring : 0.0f;
-		CurrentDriveZ.stiffness = bEnableZDrive ? LinearDriveSpring : 0.0f;
-
-		Joint->setDrive(PxD6Drive::eX, CurrentDriveX);
-		Joint->setDrive(PxD6Drive::eY, CurrentDriveY);
-		Joint->setDrive(PxD6Drive::eZ, CurrentDriveZ);
-	});
-#endif
-
 	bLinearXPositionDrive = bEnableXDrive;
 	bLinearYPositionDrive = bEnableYDrive;
 	bLinearZPositionDrive = bEnableZDrive;
 	bLinearPositionDrive = bEnableXDrive || bEnableYDrive || bEnableZDrive;
+	SetLinearDriveParams(LinearDriveSpring, LinearDriveDamping, LinearDriveForceLimit);
 }
 
 
 /** Function for turning linear velocity drive on and off. */
 void FConstraintInstance::SetLinearVelocityDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive)
 {
-#if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-
-	if (Joint && !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
-	{
-		// Get the current drives
-		PxD6JointDrive CurrentDriveX = Joint->getDrive(PxD6Drive::eX);
-		PxD6JointDrive CurrentDriveY = Joint->getDrive(PxD6Drive::eY);
-		PxD6JointDrive CurrentDriveZ = Joint->getDrive(PxD6Drive::eZ);
-
-		CurrentDriveX.damping = bEnableXDrive && FMath::Abs(LinearVelocityTarget.X) > 0.0f ? LinearDriveDamping : 0.0f;
-		CurrentDriveY.damping = bEnableYDrive && FMath::Abs(LinearVelocityTarget.Y) > 0.0f ? LinearDriveDamping : 0.0f;
-		CurrentDriveZ.damping = bEnableZDrive && FMath::Abs(LinearVelocityTarget.Z) > 0.0f ? LinearDriveDamping : 0.0f;
-
-		Joint->setDrive(PxD6Drive::eX, CurrentDriveX);
-		Joint->setDrive(PxD6Drive::eY, CurrentDriveY);
-		Joint->setDrive(PxD6Drive::eZ, CurrentDriveZ);
-	}
-#endif
-
+	bLinearXVelocityDrive = bEnableXDrive;
+	bLinearYVelocityDrive = bEnableYDrive;
+	bLinearZVelocityDrive = bEnableZDrive;
 	bLinearVelocityDrive = bEnableXDrive || bEnableYDrive || bEnableZDrive;
+	SetLinearDriveParams(LinearDriveSpring, LinearDriveDamping, LinearDriveForceLimit);
 }
 
 /** Function for turning angular position drive on and off. */
-void FConstraintInstance::SetAngularPositionDrive(bool bEnableSwingDrive, bool bEnableTwistDrive)
+void FConstraintInstance::SetAngularPositionDrive(bool InEnableSwingDrive, bool InEnableTwistDrive)
 {
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
-	{
-		// Get the current drives
-		PxD6JointDrive CurrentDriveSwing = Joint->getDrive(PxD6Drive::eSWING);
-		PxD6JointDrive CurrentDriveTwist = Joint->getDrive(PxD6Drive::eTWIST);
-		PxD6JointDrive CurrentDriveSlerp = Joint->getDrive(PxD6Drive::eSLERP);
-		const bool bSlerp = AngularDriveMode == EAngularDriveMode::SLERP;
-
-		CurrentDriveSwing.stiffness = !bSlerp && bEnableSwingDrive ? AngularDriveSpring : 0.0f;
-		CurrentDriveTwist.stiffness = !bSlerp && bEnableTwistDrive ? AngularDriveSpring : 0.0f;
-		CurrentDriveSlerp.stiffness = bSlerp  && (bEnableSwingDrive || bEnableTwistDrive) ? AngularDriveSpring : 0.0f;
-
-		Joint->setDrive(PxD6Drive::eSWING, CurrentDriveSwing);
-		Joint->setDrive(PxD6Drive::eTWIST, CurrentDriveTwist);
-		Joint->setDrive(PxD6Drive::eSLERP, CurrentDriveSlerp);
-		
-		bAngularOrientationDrive = bEnableSwingDrive || bEnableTwistDrive;
-	});
-#endif
+	bEnableSwingDrive = InEnableSwingDrive;
+	bEnableTwistDrive = InEnableTwistDrive;
+	bAngularOrientationDrive = bEnableSwingDrive || bEnableTwistDrive;
+	SetAngularDriveParams(AngularDriveSpring, AngularDriveDamping, AngularDriveForceLimit);
 }
 
 /** Function for turning angular velocity drive on and off. */
-void FConstraintInstance::SetAngularVelocityDrive(bool bEnableSwingDrive, bool bEnableTwistDrive)
+void FConstraintInstance::SetAngularVelocityDrive(bool InEnableSwingDrive, bool InEnableTwistDrive)
 {
-#if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint &&  !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
-	{
-		// Get the current drives
-		PxD6JointDrive CurrentDriveSwing = Joint->getDrive(PxD6Drive::eSWING);
-		PxD6JointDrive CurrentDriveTwist = Joint->getDrive(PxD6Drive::eTWIST);
-		PxD6JointDrive CurrentDriveSlerp = Joint->getDrive(PxD6Drive::eSLERP);
-		const bool bSlerp = AngularDriveMode == EAngularDriveMode::SLERP;
-
-		CurrentDriveSwing.damping = !bSlerp && bEnableSwingDrive ? AngularDriveDamping : 0.0f;
-		CurrentDriveTwist.damping = !bSlerp && bEnableTwistDrive ? AngularDriveDamping : 0.0f;
-		CurrentDriveSlerp.damping = bSlerp  && (bEnableSwingDrive && bEnableTwistDrive) ? AngularDriveDamping : 0.0f;
-
-		Joint->setDrive(PxD6Drive::eSWING, CurrentDriveSwing);
-		Joint->setDrive(PxD6Drive::eTWIST, CurrentDriveTwist);
-		Joint->setDrive(PxD6Drive::eSLERP, CurrentDriveSlerp);
-		
-		bAngularVelocityDrive = bEnableSwingDrive || bEnableTwistDrive;
-	}
-#endif
+	bEnableSwingDrive = InEnableSwingDrive;
+	bEnableTwistDrive = InEnableTwistDrive;
+	bAngularVelocityDrive = bEnableSwingDrive || bEnableTwistDrive;
+	SetAngularDriveParams(AngularDriveSpring, AngularDriveDamping, AngularDriveForceLimit);
 }
 
 /** Function for setting linear position target. */
@@ -919,18 +856,18 @@ void FConstraintInstance::SetLinearDriveParams(float InSpring, float InDamping, 
 		{
 			// X-Axis linear drive
 			const float DriveSpringX = bLinearPositionDrive && bLinearXPositionDrive ? InSpring : 0.0f;
-			const float DriveDampingX = (bLinearVelocityDrive && LinearVelocityTarget.X != 0.f) ? InDamping : 0.0f;
+			const float DriveDampingX = bLinearVelocityDrive && bLinearXVelocityDrive ? InDamping : 0.0f;
 			const float LinearForceLimit = InForceLimit > 0.f ? InForceLimit : PX_MAX_F32;
 			Joint->setDrive(PxD6Drive::eX, PxD6JointDrive(DriveSpringX, DriveDampingX, LinearForceLimit, bIsAccelerationDrive));
 
 			// Y-Axis linear drive
 			const float DriveSpringY = bLinearPositionDrive && bLinearYPositionDrive ? InSpring : 0.0f;
-			const float DriveDampingY = (bLinearVelocityDrive && LinearVelocityTarget.Y != 0.f) ? InDamping : 0.0f;
+			const float DriveDampingY = bLinearVelocityDrive && bLinearYVelocityDrive ? InDamping : 0.0f;
 			Joint->setDrive(PxD6Drive::eY, PxD6JointDrive(DriveSpringY, DriveDampingY, LinearForceLimit, bIsAccelerationDrive));
 
 			// Z-Axis linear drive
 			const float DriveSpringZ = bLinearPositionDrive && bLinearZPositionDrive ? InSpring : 0.0f;
-			const float DriveDampingZ = (bLinearVelocityDrive && LinearVelocityTarget.Z != 0.f) ? InDamping : 0.0f;
+			const float DriveDampingZ = bLinearVelocityDrive && bLinearZVelocityDrive ? InDamping : 0.0f;
 			Joint->setDrive(PxD6Drive::eZ, PxD6JointDrive(DriveSpringZ, DriveDampingZ, LinearForceLimit, bIsAccelerationDrive));
 		});
 	}
@@ -1030,28 +967,25 @@ void FConstraintInstance::SetAngularVelocityTarget(const FVector& InVelTarget)
 void FConstraintInstance::SetAngularDriveParams(float InSpring, float InDamping, float InForceLimit)
 {
 #if WITH_PHYSX
-	if (bAngularOrientationDrive || bAngularVelocityDrive)
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
-		ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
-		{
-			const float AngularForceLimit = InForceLimit > 0.0f ? InForceLimit : PX_MAX_F32;
-			const float DriveSpring = bAngularOrientationDrive ? InSpring : 0.0f;
-			const float DriveDamping = bAngularVelocityDrive ? InDamping : 0.0f;
+		const float AngularForceLimit = InForceLimit > 0.0f ? InForceLimit : PX_MAX_F32;
+		const float DriveSpring = bAngularOrientationDrive ? InSpring : 0.0f;
+		const float DriveDamping = bAngularVelocityDrive ? InDamping : 0.0f;
 
-			if (AngularDriveMode == EAngularDriveMode::SLERP)
-			{
-				Joint->setDrive(PxD6Drive::eTWIST, PxD6JointDrive());
-				Joint->setDrive(PxD6Drive::eSWING, PxD6JointDrive());
-				Joint->setDrive(PxD6Drive::eSLERP, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive));
-			}
-			else
-			{
-				Joint->setDrive(PxD6Drive::eTWIST, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive));
-				Joint->setDrive(PxD6Drive::eSWING, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive));
-				Joint->setDrive(PxD6Drive::eSLERP, PxD6JointDrive());
-			}
-		});
-	}
+		if (AngularDriveMode == EAngularDriveMode::SLERP)
+		{
+			Joint->setDrive(PxD6Drive::eTWIST, PxD6JointDrive());
+			Joint->setDrive(PxD6Drive::eSWING, PxD6JointDrive());
+			Joint->setDrive(PxD6Drive::eSLERP, (bEnableSwingDrive || bEnableTwistDrive) ? PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive) : PxD6JointDrive());				
+		}
+		else
+		{
+			Joint->setDrive(PxD6Drive::eTWIST, bEnableTwistDrive ? PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive) : PxD6JointDrive());
+			Joint->setDrive(PxD6Drive::eSWING, bEnableSwingDrive ? PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive) : PxD6JointDrive());
+			Joint->setDrive(PxD6Drive::eSLERP, PxD6JointDrive());
+		}
+	});
 #endif
 
 	AngularDriveSpring = InSpring;
@@ -1258,6 +1192,13 @@ void FConstraintInstance::PostSerialize(const FArchive& Ar)
 	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_FIXUP_MOTOR_UNITS)
 	{
 		AngularVelocityTarget *= 1.f / (2.f * PI);	//we want to use revolutions per second - old system was using radians directly
+	}
+
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_CONSTRAINT_INSTANCE_MOTOR_FLAGS)
+	{
+		bLinearXVelocityDrive = LinearVelocityTarget.X != 0.f;
+		bLinearYVelocityDrive = LinearVelocityTarget.Y != 0.f;
+		bLinearZVelocityDrive = LinearVelocityTarget.Z != 0.f;
 	}
 }
 

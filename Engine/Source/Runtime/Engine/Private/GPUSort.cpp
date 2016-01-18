@@ -735,6 +735,7 @@ int32 SortGPUBuffers(FRHICommandListImmediate& RHICmdList, FGPUSortBuffers SortB
 	check( UpsweepCS->RequiresConstantBufferWorkaround() == DownsweepCS->RequiresConstantBufferWorkaround() );
 	const bool bUseConstantBufferWorkaround = UpsweepCS->RequiresConstantBufferWorkaround();
 
+
 	
 	// Execute each pass as needed.
 	uint32 PassBits = DIGIT_COUNT - 1;
@@ -755,11 +756,17 @@ int32 SortGPUBuffers(FRHICommandListImmediate& RHICmdList, FGPUSortBuffers SortB
 				SortUniformBufferRef = FRadixSortUniformBufferRef::CreateUniformBufferImmediate( SortParameters, UniformBuffer_SingleDraw );
 			}
 
-			// Clear the offsets buffer.
-			RHICmdList.SetComputeShader(ClearOffsetsCS->GetComputeShader());
+			//make UAV safe for clear
+			RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, GSortOffsetBuffers.BufferUAVs[0]);
+			
+			// Clear the offsets buffer.			
+			RHICmdList.SetComputeShader(ClearOffsetsCS->GetComputeShader());			
 			ClearOffsetsCS->SetOutput(RHICmdList, GSortOffsetBuffers.BufferUAVs[0]);
 			DispatchComputeShader(RHICmdList, *ClearOffsetsCS, 1, 1 ,1 );
 			ClearOffsetsCS->UnbindBuffers(RHICmdList);
+
+			//make UAV safe for readback
+			RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, GSortOffsetBuffers.BufferUAVs[0]);
 
 			// Phase 1: Scan upsweep to compute per-digit totals.
 			RHICmdList.SetComputeShader(UpsweepCS->GetComputeShader());
@@ -767,6 +774,13 @@ int32 SortGPUBuffers(FRHICommandListImmediate& RHICmdList, FGPUSortBuffers SortB
 			UpsweepCS->SetParameters(RHICmdList, SortBuffers.RemoteKeySRVs[BufferIndex], SortUniformBufferRef, GRadixSortParametersBuffer.SortParametersBufferSRV );
 			DispatchComputeShader(RHICmdList, *UpsweepCS, GroupCount, 1, 1 );
 			UpsweepCS->UnbindBuffers(RHICmdList);
+
+			//barrier both UAVS since for next step.
+			FUnorderedAccessViewRHIParamRef PrePhase2BarrierUAVS[2];
+			PrePhase2BarrierUAVS[0] = GSortOffsetBuffers.BufferUAVs[0];
+			PrePhase2BarrierUAVS[1] = GSortOffsetBuffers.BufferUAVs[1];
+
+			RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, PrePhase2BarrierUAVS, 2);
 
 			if (bDebugOffsets)
 			{
@@ -787,12 +801,22 @@ int32 SortGPUBuffers(FRHICommandListImmediate& RHICmdList, FGPUSortBuffers SortB
 				GSortOffsetBuffers.DumpOffsets(1);
 			}
 
+			//UAV is going to SRV, so transition to Readable.
+			RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToCompute, GSortOffsetBuffers.BufferUAVs[1]);
+
+			FUnorderedAccessViewRHIParamRef PrePhase3BarrierUAVS[2];
+			PrePhase3BarrierUAVS[0] = SortBuffers.RemoteKeyUAVs[BufferIndex ^ 0x1];
+			PrePhase3BarrierUAVS[1] = SortBuffers.RemoteValueUAVs[BufferIndex ^ 0x1];
+			RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, PrePhase3BarrierUAVS, 2);
+
 			// Phase 3: Downsweep to compute final offsets and scatter keys.
 			RHICmdList.SetComputeShader(DownsweepCS->GetComputeShader());
 			DownsweepCS->SetOutput(RHICmdList, SortBuffers.RemoteKeyUAVs[BufferIndex ^ 0x1], SortBuffers.RemoteValueUAVs[BufferIndex ^ 0x1]);
 			DownsweepCS->SetParameters(RHICmdList, SortBuffers.RemoteKeySRVs[BufferIndex], SortBuffers.RemoteValueSRVs[BufferIndex], GSortOffsetBuffers.BufferSRVs[1], SortUniformBufferRef, GRadixSortParametersBuffer.SortParametersBufferSRV );
 			DispatchComputeShader(RHICmdList, *DownsweepCS, GroupCount, 1, 1 );
 			DownsweepCS->UnbindBuffers(RHICmdList);
+
+			RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, PrePhase3BarrierUAVS, 2);
 
 			// Flip buffers.
 			BufferIndex ^= 0x1;

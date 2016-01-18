@@ -120,13 +120,17 @@ void FMainMenu::FillEditMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FExte
 			MenuBuilder.AddSubMenu(
 				LOCTEXT("EditorPreferencesSubMenuLabel", "Editor Preferences"),
 				LOCTEXT("EditorPreferencesSubMenuToolTip", "Configure the behavior and features of this Editor"),
-				FNewMenuDelegate::CreateStatic(&FSettingsMenu::MakeMenu, FName("Editor"))
+				FNewMenuDelegate::CreateStatic(&FSettingsMenu::MakeMenu, FName("Editor")),
+				false,
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "EditorPreferences.TabIcon")
 			);
 
 			MenuBuilder.AddSubMenu(
 				LOCTEXT("ProjectSettingsSubMenuLabel", "Project Settings"),
 				LOCTEXT("ProjectSettingsSubMenuToolTip", "Change the settings of the currently loaded project"),
-				FNewMenuDelegate::CreateStatic(&FSettingsMenu::MakeMenu, FName("Project"))
+				FNewMenuDelegate::CreateStatic(&FSettingsMenu::MakeMenu, FName("Project")),
+				false,
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "ProjectSettings.TabIcon")
 			);
 		}
 		else
@@ -135,7 +139,7 @@ void FMainMenu::FillEditMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FExte
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("EditorPreferencesMenuLabel", "Editor Preferences..."),
 				LOCTEXT("EditorPreferencesMenuToolTip", "Configure the behavior and features of the Unreal Editor."),
-				FSlateIcon(),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "EditorPreferences.TabIcon"),
 				FUIAction(FExecuteAction::CreateStatic(&FSettingsMenu::OpenSettings, FName("Editor"), FName("General"), FName("Appearance")))
 			);
 #endif
@@ -143,9 +147,15 @@ void FMainMenu::FillEditMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FExte
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("ProjectSettingsMenuLabel", "Project Settings..."),
 				LOCTEXT("ProjectSettingsMenuToolTip", "Change the settings of the currently loaded project."),
-				FSlateIcon(),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "ProjectSettings.TabIcon"),
 				FUIAction(FExecuteAction::CreateStatic(&FSettingsMenu::OpenSettings, FName("Project"), FName("Project"), FName("General")))
 			);
+
+			//@todo The tab system needs to be able to be extendable by plugins [9/3/2013 Justin.Sargent]
+			if (IModularFeatures::Get().IsModularFeatureAvailable(EditorFeatures::PluginsEditor))
+			{
+				FGlobalTabmanager::Get()->PopulateTabSpawnerMenu(MenuBuilder, "PluginsEditor");
+			}
 		}
 	}
 	MenuBuilder.EndSection();
@@ -176,12 +186,6 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 			FSlateIcon(FEditorStyle::GetStyleSetName(), "Launcher.TabIcon"),
 			FUIAction(FExecuteAction::CreateStatic(&FMainMenu::OpenProjectLauncher))
 			);
-
-		//@todo The tab system needs to be able to be extendable by plugins [9/3/2013 Justin.Sargent]
-		if (IModularFeatures::Get().IsModularFeatureAvailable(EditorFeatures::PluginsEditor))
-		{
-			FGlobalTabmanager::Get()->PopulateTabSpawnerMenu(MenuBuilder, "PluginsEditor");
-		}
 	}
 	MenuBuilder.EndSection();
 
@@ -193,9 +197,10 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 		bool bLocalizationDashboard = GetDefault<UEditorExperimentalSettings>()->bEnableLocalizationDashboard;
 		bool bTranslationPicker = GetDefault<UEditorExperimentalSettings>()->bEnableTranslationPicker;
 		bool bMergeActors = GetDefault<UEditorExperimentalSettings>()->bActorMerging;
+		bool bDeviceOutputLog = GetDefault<UEditorExperimentalSettings>()->bDeviceOutputLog;
 
 		// Make sure at least one is enabled before creating the section
-		if (bMessagingDebugger || bBlutility || bLocalizationDashboard || bTranslationPicker || bMergeActors)
+		if (bMessagingDebugger || bBlutility || bLocalizationDashboard || bTranslationPicker || bMergeActors || bDeviceOutputLog)
 		{
 			MenuBuilder.BeginSection("ExperimentalTabSpawners", LOCTEXT("ExperimentalTabSpawnersHeading", "Experimental"));
 			{
@@ -253,6 +258,18 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 						FUIAction(FExecuteAction::CreateStatic(&FMainMenu::OpenMergeActors))
 						);
 				}
+
+				// Device output log
+				if (bDeviceOutputLog)
+				{
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("DeviceOutputLogMenuLabel", "Device Output Log"),
+						LOCTEXT("DeviceOutputLogToolTip", "Open the Device Output Log tab."),
+						FSlateIcon(FEditorStyle::GetStyleSetName(), "Log.TabIcon"),
+						FUIAction(FExecuteAction::CreateStatic(&FMainMenu::OpenDeviceOutputLog))
+						);
+				}
+
 			}
 			MenuBuilder.EndSection();
 		}
@@ -274,17 +291,14 @@ void FMainMenu::FillHelpMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FExte
 {
 	MenuBuilder.BeginSection("HelpOnline", NSLOCTEXT("MainHelpMenu", "Online", "Online"));
 	{
-		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitUTForums);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitForums);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitSearchForAnswersPage);
-		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitUTWiki);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitWiki);
 
 
 		const FText SupportWebSiteLabel = NSLOCTEXT("MainHelpMenu", "VisitUnrealEngineSupportWebSite", "Unreal Engine Support Web Site...");
 
 		MenuBuilder.AddMenuSeparator("EpicGamesHelp");
-		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitUTDotCom, "VisitEpicGamesDotCom");
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitEpicGamesDotCom, "VisitEpicGamesDotCom");
 
 		MenuBuilder.AddMenuSeparator("Credits");

@@ -11,9 +11,10 @@ class FTapJoyProvider : public IAdvertisingProvider
 	virtual void ShutdownModule() override;
 
 	/** IAdvertisingProvider implementation */
-	virtual void ShowAdBanner( bool bShowOnBottomOfScreen ) override;
+	virtual void ShowAdBanner(bool bShowOnBottomOfScreen, int32 adID) override;
 	virtual void HideAdBanner() override;
 	virtual void CloseAdBanner() override;
+	virtual int32 GetAdIDCount() override;
 };
 
 IMPLEMENT_MODULE( FTapJoyProvider, IOSTapJoy )
@@ -207,7 +208,7 @@ void FTapJoyProvider::ShutdownModule()
 {
 }
 
-void FTapJoyProvider::ShowAdBanner( bool bShowOnBottomOfScreen )
+void FTapJoyProvider::ShowAdBanner(bool bShowOnBottomOfScreen, int32 /*adID*/)
 {
 	[[IOSTapJoy GetDelegate] performSelectorOnMainThread:@selector(ShowAdBanner:) withObject:[NSNumber numberWithBool : bShowOnBottomOfScreen] waitUntilDone : NO];
 }
@@ -220,4 +221,9 @@ void FTapJoyProvider::HideAdBanner()
 void FTapJoyProvider::CloseAdBanner()
 {
 	HideAdBanner();
+}
+
+int32 FTapJoyProvider::GetAdIDCount()
+{
+	return 1;
 }

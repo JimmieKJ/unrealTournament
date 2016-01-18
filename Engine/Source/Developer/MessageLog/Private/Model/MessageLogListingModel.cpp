@@ -59,34 +59,48 @@ FText FMessageLogListingModel::GetAllMessagesAsText( const uint32 PageIndex ) co
 	return CompiledText;
 }
 
-void FMessageLogListingModel::AddMessageInternal( const TSharedRef<FTokenizedMessage>& NewMessage )
+void FMessageLogListingModel::AddMessageInternal( const TSharedRef<FTokenizedMessage>& NewMessage, bool bMirrorToOutputLog )
 {
-	CurrentPage().Messages.Add( NewMessage );
-	const TCHAR* const LogColor = FMessageLog::GetLogColor(NewMessage->GetSeverity());
-	if(LogColor)
+	if (bIsPrintingToOutputLog)
 	{
-		SET_WARN_COLOR(LogColor);
+		return;
 	}
-	FMsg::Logf(__FILE__, __LINE__, *LogName.ToString(), FMessageLog::GetLogVerbosity(NewMessage->GetSeverity()), TEXT("%s"), *NewMessage->ToText().ToString());
-	CLEAR_WARN_COLOR();
+
+	CurrentPage().Messages.Add( NewMessage );
+
+	if (bMirrorToOutputLog)
+	{
+		// Prevent re-entrancy from the output log to message log mirroring code
+		TGuardValue<bool> PrintToOutputLogBool(bIsPrintingToOutputLog, true);
+
+		const TCHAR* const LogColor = FMessageLog::GetLogColor(NewMessage->GetSeverity());
+		if (LogColor)
+		{
+			SET_WARN_COLOR(LogColor);
+		}
+
+		FMsg::Logf(__FILE__, __LINE__, *LogName.ToString(), FMessageLog::GetLogVerbosity(NewMessage->GetSeverity()), TEXT("%s"), *NewMessage->ToText().ToString());
+
+		CLEAR_WARN_COLOR();
+	}
 }
 
-void FMessageLogListingModel::AddMessage( const TSharedRef<FTokenizedMessage>& NewMessage )
+void FMessageLogListingModel::AddMessage( const TSharedRef<FTokenizedMessage>& NewMessage, bool bMirrorToOutputLog )
 {
 	CreateNewPageIfRequired();
 
-	AddMessageInternal( NewMessage );
+	AddMessageInternal( NewMessage, bMirrorToOutputLog );
 
 	Notify();
 }
 
-void FMessageLogListingModel::AddMessages( const TArray< TSharedRef<class FTokenizedMessage> >& NewMessages )
+void FMessageLogListingModel::AddMessages( const TArray< TSharedRef<class FTokenizedMessage> >& NewMessages, bool bMirrorToOutputLog )
 {
 	CreateNewPageIfRequired();
 
 	for( int32 MessageIdx = 0; MessageIdx < NewMessages.Num(); MessageIdx++ )
 	{
-		AddMessageInternal( NewMessages[MessageIdx] );
+		AddMessageInternal( NewMessages[MessageIdx], bMirrorToOutputLog );
 	}
 	Notify();
 }

@@ -21,7 +21,5 @@ public class HeadMountedDisplay : ModuleRules
 				"SlateCore",
 			}
 		);
-
-        PCHUsage = PCHUsageMode.NoSharedPCHs;
 	}
 }

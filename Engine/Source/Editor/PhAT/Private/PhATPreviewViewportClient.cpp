@@ -52,7 +52,8 @@ FPhATEdPreviewViewportClient::FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhA
 	check(PhATFont);
 
 	EngineShowFlags.DisableAdvancedFeatures();
-	EngineShowFlags.CompositeEditorPrimitives = true;
+	EngineShowFlags.SetSeparateTranslucency(true);
+	EngineShowFlags.SetCompositeEditorPrimitives(true);
 
 	// Get actors asset collision bounding box, and move actor so its not intersection the floor plane at Z = 0.
 	FBox CollBox = SharedData->PhysicsAsset->CalcAABB(SharedData->EditorSkelComp, SharedData->EditorSkelComp->ComponentToWorld);	
@@ -86,6 +87,8 @@ FPhATEdPreviewViewportClient::FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhA
 
 	SetViewModes(VMI_Lit, VMI_Lit);
 
+	SetCameraSpeedSetting(3);
+
 	bUsingOrbitCamera = true;
 
 	if (!FPhAT::IsPIERunning())
@@ -111,13 +114,13 @@ void FPhATEdPreviewViewportClient::DrawCanvas( FViewport& InViewport, FSceneView
 	float W, H;
 	PhATFont->GetCharSize(TEXT('L'), W, H);
 
-	const float XOffset = 200.0f;
+	const float XOffset = 350.0f;
 
 	FCanvasTextItem TextItem( FVector2D::ZeroVector, FText::GetEmpty(), PhATFont, FLinearColor::White );
 
 	// Write body/constraint count at top.
 	FString StatusString = FText::Format(
-		NSLOCTEXT("UnrealEd", "BodiesConstraints_F", "{0} BODIES  {1} CONSIDERED_FOR_BOUNDS  {2} Ratio  {3} CONSTRAINTS"),
+		NSLOCTEXT("UnrealEd", "BodiesConstraints_F", "{0} Bodies  {1} Considered for bounds  {2} Ratio  {3} Constraints"),
 		FText::AsNumber(SharedData->PhysicsAsset->BodySetup.Num()),
 		FText::AsNumber(SharedData->PhysicsAsset->BoundsBodies.Num()),
 		FText::AsNumber(static_cast<float>(SharedData->PhysicsAsset->BoundsBodies.Num())/static_cast<float>(SharedData->PhysicsAsset->BodySetup.Num())),
@@ -658,7 +661,6 @@ void FPhATEdPreviewViewportClient::Tick(float DeltaSeconds)
 	FEditorViewportClient::Tick(DeltaSeconds);
 
 	UWorld* World = SharedData->PreviewScene.GetWorld();
-	World->Tick(LEVELTICK_All, DeltaSeconds);
 
 	if (SharedData->bRunningSimulation)
 	{
@@ -677,7 +679,10 @@ void FPhATEdPreviewViewportClient::Tick(float DeltaSeconds)
 		// We back up the transforms array now
 		SharedData->EditorSkelComp->AnimationSpaceBases = SharedData->EditorSkelComp->GetSpaceBases();
 		SharedData->EditorSkelComp->SetPhysicsBlendWeight(SharedData->EditorSimOptions->PhysicsBlend);
+		SharedData->EditorSkelComp->bUpdateJointsFromAnimation = SharedData->EditorSimOptions->bUpdateJointsFromAnimation;
 	}
+
+	World->Tick(LEVELTICK_All, DeltaSeconds * SharedData->EditorSimOptions->TimeDilation);
 
 	if(SharedData->Recorder.InRecording())
 	{
@@ -707,6 +712,7 @@ void FPhATEdPreviewViewportClient::OpenBodyMenu()
 
 		FSlateApplication::Get().PushMenu(
 			ParentWidget.ToSharedRef(),
+			FWidgetPath(),
 			MenuWidget.ToSharedRef(),
 			MouseCursorLocation,
 			FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
@@ -725,6 +731,7 @@ void FPhATEdPreviewViewportClient::OpenConstraintMenu()
 
 		FSlateApplication::Get().PushMenu(
 			ParentWidget.ToSharedRef(),
+			FWidgetPath(),
 			MenuWidget.ToSharedRef(),
 			MouseCursorLocation,
 			FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
@@ -826,7 +833,7 @@ void FPhATEdPreviewViewportClient::SimMousePress(FViewport* Viewport, bool bCons
 #endif
 	SharedData->LastClickPos = Click.GetClickPos();
 	FHitResult Result(1.f);
-	bool bHit = SharedData->EditorSkelComp->LineTraceComponent(Result, Click.GetOrigin() - Click.GetDirection() * SimGrabCheckDistance, Click.GetOrigin() + Click.GetDirection() * SimGrabCheckDistance, FCollisionQueryParams(true));
+	bool bHit = SharedData->EditorSkelComp->LineTraceComponent(Result, Click.GetOrigin() - Click.GetDirection() * SimGrabCheckDistance, Click.GetOrigin() + Click.GetDirection() * SimGrabCheckDistance, FCollisionQueryParams(NAME_None,true));
 
 	if (bHit)
 	{

@@ -4,6 +4,9 @@
 	HitProxyPixelShader.hlsl: Pixel shader for rendering scene hit proxies.
 =============================================================================*/
 
+// Some input nodes can't compute their output value at hit proxy rendering time, and so their implementation changes.
+#define HIT_PROXY_SHADER 1
+
 #include "Common.usf"
 #include "Material.usf"
 #include "VertexFactory.usf"
@@ -16,14 +19,14 @@ void Main(
 	float4 InstanceHitProxyId : HIT_PROXY_ID,
 #endif
 	float4 PixelPosition	: TEXCOORD6,
-	in INPUT_POSITION_QUALIFIERS float4 SvPosition	: SV_Position,
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition	: SV_Position
 	OPTIONAL_IsFrontFace
-	OPTIONAL_OutDepth
+	OPTIONAL_OutDepthConservative
 	,out float4 OutColor		: SV_Target0
 	)
 {
-	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, PixelPosition);
-	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, PixelPosition);
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
+	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace);
 
 	#if OUTPUT_PIXEL_DEPTH_OFFSET
 		ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, OutDepth);

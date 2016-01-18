@@ -40,7 +40,6 @@ namespace physx
 #else
 			128;
 #endif
-
 			materials = (PxsMaterialCore*)physx::shdfnd::AlignedAllocator<16>().allocate(sizeof(PxsMaterialCore)*matCount,  __FILE__, __LINE__);
 			maxMaterials = matCount;
 			for(PxU32 i=0; i<matCount; ++i)
@@ -88,7 +87,6 @@ namespace physx
 		void resize(PxU32 minValueForMax)
 		{
 #ifndef __SPU__
-
 			if(maxMaterials>=minValueForMax)
 				return;
 
@@ -118,30 +116,28 @@ namespace physx
 
 	class PxsMaterialManagerIterator
 	{
-	
 	public:
-		PxsMaterialManagerIterator(PxsMaterialManager& manager) : mManager(manager), index(0)
+		PxsMaterialManagerIterator(PxsMaterialManager& manager) : mManager(manager), mIndex(0)
 		{
 		}
 
-		bool hasNextMaterial()
+		bool getNextMaterial(PxsMaterialCore*& materialCore)
 		{
-			while(index < mManager.getMaxSize() && mManager.getMaterial(index)->getMaterialIndex() == MATERIAL_INVALID_HANDLE)
+			const PxU32 maxSize = mManager.getMaxSize();
+			PxU32 index = mIndex;
+			while(index < maxSize && mManager.getMaterial(index)->getMaterialIndex() == MATERIAL_INVALID_HANDLE)
 				index++;
-			return index < mManager.getMaxSize();
-		}
-
-		PxsMaterialCore* getNextMaterial()
-		{
-			PX_ASSERT(index < mManager.getMaxSize());
-			return mManager.getMaterial(index++);
+			materialCore = NULL;
+			if(index < maxSize)
+				materialCore = mManager.getMaterial(index++);
+			mIndex = index;
+			return materialCore!=NULL;
 		}
 
 	private:
 		PxsMaterialManagerIterator& operator=(const PxsMaterialManagerIterator&);
 		PxsMaterialManager& mManager;
-		PxU32 index;
-
+		PxU32				mIndex;
 	};
 
 }

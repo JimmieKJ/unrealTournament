@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -76,8 +76,10 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	AUTTeamInfo* Team;
 
 	// Where to display this object relative to the home base
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 	FVector HomeBaseOffset;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
+	FRotator HomeBaseRotOffset;
 
 	// What bone or socket on holder should this object be attached to
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
@@ -185,6 +187,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UFUNCTION()
 	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
 
+	/** Called client-side when attachment state changes. */
+	virtual void ClientUpdateAttachment(bool bNowAttached);
+
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = GameObject)
 	UCapsuleComponent* Collision;
 
@@ -269,6 +274,7 @@ protected:
 
 	/** return location for object when returning home */
 	virtual FVector GetHomeLocation() const;
+	virtual FRotator GetHomeRotation() const;
 
 	/**	Move the flag to it's home base*/
 	UFUNCTION()

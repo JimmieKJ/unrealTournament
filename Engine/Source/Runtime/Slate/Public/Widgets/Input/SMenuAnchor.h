@@ -2,26 +2,20 @@
 
 #pragma once
 #include "STextBlock.h"
+#include "IMenu.h"
+#include "PopupMethodReply.h"
 
 /** Notification when popup is opened/closed. */
 DECLARE_DELEGATE_OneParam(FOnIsOpenChanged, bool)
 
 
-enum class EPopupMethod : uint8
-{
-	/** Creating a new window allows us to place popups outside of the window in which the menu anchor resides. */
-	CreateNewWindow,
-	/** Place the popup into the current window. Applications that intend to run in fullscreen cannot create new windows, so they must use this method.. */
-	UseCurrentWindow
-};
 
-;
 
 /**
  * A PopupAnchor summons a Popup relative to its content.
  * Summoning a popup relative to the cursor is accomplished via the application.
  */
-class SLATE_API SMenuAnchor : public SPanel
+class SLATE_API SMenuAnchor : public SPanel, public IMenuHost
 {
 public:
 	DEPRECATED(4.7, "You probably do not need this setting any more. See OnQueryPopupMethod() in SWidget.h.")
@@ -75,7 +69,7 @@ public:
 	 * @param InIsOpen    If true, open the popup. Otherwise close it.
 	 * @param bFocusMenu  Shoudl we focus the popup as soon as it opens?
 	 */
-	void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true );
+	virtual void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true );
 	
 	/** @return true if the popup is open; false otherwise. */
 	bool IsOpen() const;
@@ -90,6 +84,11 @@ public:
 	/** @return Whether this menu has open submenus */
 	bool HasOpenSubMenus() const;
 
+	// IMenuHost interface
+	virtual TSharedPtr<SWindow> GetMenuWindow() const override;
+	virtual void OnMenuDismissed() override;
+	// End of IMenuHost interface
+
 protected:
 	// SWidget interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
@@ -99,24 +98,34 @@ protected:
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 	// End of SWidget interface
 
-	/** Invoked when the popup window is being closed by the application */
-	void RequestClosePopupWindow( const TSharedRef<SWindow>& PopupWindow );
-
-	/** Invoked when a click occurred outside the widget that is our popup; used for popup auto-dismissal */
-	void OnClickedOutsidePopup();
-
 	/** @return true if the popup is currently open and reusing an existing window */
 	bool IsOpenAndReusingWindow() const;
 
 	/** @return true if the popup is currently open and we created a dedicated window for it */
 	bool IsOpenViaCreatedWindow() const;
 
+	/** Handler/callback called by menus created by this anchor, when they are dismissed */
+	void OnMenuClosed(TSharedRef<IMenu> InMenu);
+
 protected:
-	/** A pointer to the window presenting this popup. Pointer is null when the popup is not visible */
+	/**
+	 * A pointer to the window presenting this popup.
+	 * Can be the window created to hold a menu or the window containing this anchor if the menu is drawn as a child of the this anchor.
+	 * Pointer is null when a popup is not visible.
+	 */
 	TWeakPtr<SWindow> PopupWindowPtr;
+
+	/**
+	 * An interface pointer to the menu object presenting this popup.
+	 * Pointer is null when a popup is not visible.
+	 */
+	TWeakPtr<IMenu> PopupMenuPtr;
 
 	/** Static menu content to use when the delegate used when OnGetMenuContent is not defined. */
 	TSharedPtr<SWidget> MenuContent;
+
+	/** MenuContent plus any extra wrapping widgets needed by the menu infrastructure. */
+	TSharedPtr<SWidget> WrappedContent;
 	
 	/** Callback invoked when the popup is being summoned */
 	FOnGetContent OnGetMenuContent;
@@ -134,7 +143,7 @@ protected:
 	TOptional<EPopupMethod> Method;
 
 	/** Method currently being used to show the popup. No value if popup is closed. */
-	TOptional<EPopupMethod> MethodInUse;
+	FPopupMethodReply MethodInUse;
 
 	/**
 	 * @todo Slate : Unify geometry so that this is not necessary.
@@ -144,8 +153,11 @@ protected:
 	 */
 	FVector2D LocalPopupPosition;
 
-	TPanelChildren<FSimpleSlot> Children;
+	/**
+	 * Screen-space version of LocalPopupPosition, also cached in Tick.
+	 * Used to satisfy calls to GetMenuPosition() for menus that are reusing the current window.
+	 */
+	FVector2D ScreenPopupPosition;
 
-	/** Handle to the registered OnClickedOutsidePopup delegate */
-	FDelegateHandle OnClickedOutsidePopupDelegateHandle;
+	TPanelChildren<FSimpleSlot> Children;
 };

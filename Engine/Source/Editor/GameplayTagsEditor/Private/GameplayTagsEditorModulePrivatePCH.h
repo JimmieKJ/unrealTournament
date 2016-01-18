@@ -13,8 +13,6 @@
 #include "Core.h"
 #include "Engine.h"
 #include "BlueprintGraphDefinitions.h"
-#include "GameplayTagsEditorClasses.h"
-
 #include "GraphEditor.h"
 #include "SNodePanel.h"
 #include "SGraphNode.h"

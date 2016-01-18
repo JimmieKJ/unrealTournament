@@ -11,3 +11,13 @@ AnimMontages (or just Montages for short) are a multipurpose tool that allows fo
 Engine/Animation/AnimMontage
 [/VAR]
 [/EXCERPT:UAnimMontage]
+
+[EXCERPT:BlendIn]
+WIP - blending in option. http://easings.net/#
+
+[/EXCERPT:BlendIn]
+
+[EXCERPT:BlendOut]
+WIP - blending out option. http://easings.net/#
+
+[/EXCERPT:BlendOut]

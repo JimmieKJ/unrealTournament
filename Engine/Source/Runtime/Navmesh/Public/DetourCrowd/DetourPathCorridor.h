@@ -30,7 +30,15 @@ class NAVMESH_API dtPathCorridor
 {
 	float m_pos[3];
 	float m_target[3];
-	
+	float m_prevMovePoint[3];
+	float m_nextExpectedCorner[3];
+	float m_nextExpectedCorner2[3];
+	float m_moveSegAngle;
+	uint32 m_hasNextExpectedCorner : 1;
+	uint32 m_hasNextExpectedCorner2 : 1;
+	uint32 m_isInSkipRange : 1;
+	uint32 m_enableEarlyReach : 1;
+
 	dtPolyRef* m_path;
 	int m_npath;
 	int m_maxPath;
@@ -144,6 +152,14 @@ public:
 	/// The number of polygons in the current corridor path.
 	/// @return The number of polygons in the current corridor path.
 	inline int getPathCount() const { return m_npath; } 	
+
+	inline void setEarlyReachTest(bool enable) { m_enableEarlyReach = enable; }
+
+	inline float getSegmentAngle() const { return m_moveSegAngle; }
+	inline const float* getNextFixedCorner() const { return &m_nextExpectedCorner[0]; }
+	inline const float* getNextFixedCorner2() const { return &m_nextExpectedCorner2[0]; }
+	inline bool hasNextFixedCorner() const { return m_hasNextExpectedCorner; }
+	inline bool hasNextFixedCorner2() const { return m_hasNextExpectedCorner2; }
 };
 
 int dtMergeCorridorStartMoved(dtPolyRef* path, const int npath, const int maxPath,

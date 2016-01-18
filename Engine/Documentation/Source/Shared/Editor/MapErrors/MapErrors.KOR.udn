@@ -1,13 +1,11 @@
-﻿INTSourceChangelist:2299960
+﻿INTSourceChangelist:2726600
 Availability:Public
 Title:맵 체크 오류
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor
 Description:언리얼 에디터에서 맵을 빌드하거나 맵 체크 실행 도중 발생하는 오류에 대한 설명입니다.
+Version: 4.9
 
 [TOC(start:2 end:3)]
-
-
-## 개요
 
 언리얼 엔진 4 에서는 어떤 문제 발생시 그 원인이나 수정 방법도 모른 채 수동으로 추적해 내려가는 대신, 맵 체크 오류와 경고라는 형태로 문제가 있을 수 있는 부분에 대해 경고해 주는 수단이 제공됩니다. 이러한 오류를 통해 어디에 문제가 있는지를 자동화된 방식으로 알 수 있으며, 게임에 심각한 영향을 끼치기 전에 고칠 수 있도록 해 줍니다.
 

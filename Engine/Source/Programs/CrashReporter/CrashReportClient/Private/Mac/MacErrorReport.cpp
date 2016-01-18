@@ -135,3 +135,5 @@ FText FMacErrorReport::DiagnoseReport() const
 		}
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

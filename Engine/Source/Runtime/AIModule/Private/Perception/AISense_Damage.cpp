@@ -87,7 +87,7 @@ float UAISense_Damage::Update()
 		if (PerceptionListener != nullptr)
 		{
 			UAIPerceptionComponent* PerceptionComponent = PerceptionListener->GetPerceptionComponent();
-			if (PerceptionComponent != nullptr)
+			if (PerceptionComponent != nullptr && PerceptionComponent->GetListenerId().IsValid())
 			{
 				// this has to succeed, will assert a failure
 				FPerceptionListener& Listener = ListenersMap[PerceptionComponent->GetListenerId()];

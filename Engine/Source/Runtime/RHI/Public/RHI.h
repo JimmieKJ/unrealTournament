@@ -11,6 +11,13 @@
 #include "RHIDefinitions.h"
 #include "StaticArray.h"
 
+#define INVALID_FENCE_ID (0xffffffffffffffffull)
+
+inline const bool IsValidFenceID( const uint64 FenceID )
+{
+	return ( ( FenceID & 0x8000000000000000ull ) == 0 );
+}
+
 /** Uniform buffer structs must be aligned to 16-byte boundaries. */
 #define UNIFORM_BUFFER_STRUCT_ALIGNMENT 16
 
@@ -85,6 +92,9 @@ extern RHI_API bool GSupportsRenderTargetFormat_PF_FloatRGBA;
 /** true if mobile framebuffer fetch is supported */
 extern RHI_API bool GSupportsShaderFramebufferFetch;
 
+/** true if mobile depth & stencil fetch is supported */
+extern RHI_API bool GSupportsShaderDepthStencilFetch;
+
 /** true if the GPU supports hidden surface removal in hardware. */
 extern RHI_API bool GHardwareHiddenSurfaceRemoval;
 
@@ -105,6 +115,12 @@ extern RHI_API bool GSupportsDepthRenderTargetWithoutColorRenderTarget;
 
 /** True if the RHI supports depth bounds testing */
 extern RHI_API bool GSupportsDepthBoundsTest;
+
+/** True if the RHI supports 'GetHDR32bppEncodeModeES2' shader intrinsic. */
+extern RHI_API bool GSupportsHDR32bppEncodeModeIntrinsic;
+
+/** True if the RHI supports getting the result of occlusion queries when on a thread other than the renderthread */
+extern RHI_API bool GSupportsParallelOcclusionQueries;
 
 /** The minimum Z value in clip space for the RHI. */
 extern RHI_API float GMinClipZ;
@@ -205,11 +221,23 @@ Requirements for RHI thread
 ***/
 extern RHI_API bool GRHISupportsRHIThread;
 
+inline bool IsAsyncComputeEnabled()
+{
+#if USE_ASYNC_COMPUTE_CONTEXT
+	extern int32 GAllowAsyncComputeJobs;
+	return GAllowAsyncComputeJobs != 0;
+#endif
+	return false;
+}
+
 /** Whether or not the RHI supports parallel RHIThread executes / translates
 Requirements:
 * RHICreateBoundShaderState is threadsafe and GetCachedBoundShaderState must not be used. GetCachedBoundShaderState_Threadsafe has a slightly different protocol.
 ***/
 extern RHI_API bool GRHISupportsParallelRHIExecute;
+
+/** Whether or not the RHI can perform MSAA sample load. */
+extern RHI_API bool GRHISupportsMSAADepthSampleAccess;
 
 /** Called once per frame only from within an RHI. */
 extern RHI_API void RHIPrivateBeginFrame();
@@ -726,27 +754,144 @@ struct FRHIResourceInfo
 	FVRamAllocation VRamAllocation;
 };
 
+enum class EClearBinding
+{
+	ENoneBound, //no clear color associated with this target.  Target will not do hardware clears on most platforms
+	EColorBound, //target has a clear color bound.  Clears will use the bound color, and do hardware clears.
+	EDepthStencilBound, //target has a depthstencil value bound.  Clears will use the bound values and do hardware clears.
+};
+
+struct FClearValueBinding
+{
+	struct DSVAlue
+	{
+		float Depth;
+		uint32 Stencil;
+	};
+
+	FClearValueBinding()
+		: ColorBinding(EClearBinding::EColorBound)
+	{
+		Value.Color[0] = 0.0f;
+		Value.Color[1] = 0.0f;
+		Value.Color[2] = 0.0f;
+		Value.Color[3] = 0.0f;
+	}
+
+	FClearValueBinding(EClearBinding NoBinding)
+		: ColorBinding(NoBinding)
+	{
+		check(ColorBinding == EClearBinding::ENoneBound);
+	}
+
+	explicit FClearValueBinding(const FLinearColor& InClearColor)
+		: ColorBinding(EClearBinding::EColorBound)
+	{
+		Value.Color[0] = InClearColor.R;
+		Value.Color[1] = InClearColor.G;
+		Value.Color[2] = InClearColor.B;
+		Value.Color[3] = InClearColor.A;
+	}
+
+	explicit FClearValueBinding(float DepthClearValue, uint32 StencilClearValue = 0)
+		: ColorBinding(EClearBinding::EDepthStencilBound)
+	{
+		Value.DSValue.Depth = DepthClearValue;
+		Value.DSValue.Stencil = StencilClearValue;
+	}
+
+	FLinearColor GetClearColor() const
+	{
+		ensure(ColorBinding == EClearBinding::EColorBound);
+		return FLinearColor(Value.Color[0], Value.Color[1], Value.Color[2], Value.Color[3]);
+	}
+
+	void GetDepthStencil(float& OutDepth, uint32& OutStencil) const
+	{
+		ensure(ColorBinding == EClearBinding::EDepthStencilBound);
+		OutDepth = Value.DSValue.Depth;
+		OutStencil = Value.DSValue.Stencil;
+	}
+
+	bool operator==(const FClearValueBinding& Other) const
+	{
+		if (ColorBinding == Other.ColorBinding)
+		{
+			if (ColorBinding == EClearBinding::EColorBound)
+			{
+				return
+					Value.Color[0] == Other.Value.Color[0] &&
+					Value.Color[1] == Other.Value.Color[1] &&
+					Value.Color[2] == Other.Value.Color[2] &&
+					Value.Color[3] == Other.Value.Color[3];
+
+			}
+			if (ColorBinding == EClearBinding::EDepthStencilBound)
+			{
+				return
+					Value.DSValue.Depth == Other.Value.DSValue.Depth &&
+					Value.DSValue.Stencil == Other.Value.DSValue.Stencil;
+			}
+			return true;
+		}
+		return false;
+	}
+
+	EClearBinding ColorBinding;
+
+	union ClearValueType
+	{
+		float Color[4];
+		DSVAlue DSValue;
+	} Value;
+
+	// common clear values
+	static RHI_API const FClearValueBinding None;
+	static RHI_API const FClearValueBinding Black;
+	static RHI_API const FClearValueBinding White;
+	static RHI_API const FClearValueBinding Transparent;
+	static RHI_API const FClearValueBinding DepthOne;
+	static RHI_API const FClearValueBinding DepthZero;
+	static RHI_API const FClearValueBinding DepthNear;
+	static RHI_API const FClearValueBinding DepthFar;	
+};
+
 struct FRHIResourceCreateInfo
 {
 	FRHIResourceCreateInfo()
-		: BulkData(0)
-		, ResourceArray(0)
+		: BulkData(nullptr)
+		, ResourceArray(nullptr)
+		, ClearValueBinding(FLinearColor::Transparent)
 	{}
 
 	// for CreateTexture calls
 	FRHIResourceCreateInfo(FResourceBulkDataInterface* InBulkData)
 		: BulkData(InBulkData)
+		, ResourceArray(nullptr)
+		, ClearValueBinding(FLinearColor::Transparent)
 	{}
 
 	// for CreateVertexBuffer/CreateStructuredBuffer calls
 	FRHIResourceCreateInfo(FResourceArrayInterface* InResourceArray)
-		: ResourceArray(InResourceArray)
+		: BulkData(nullptr)
+		, ResourceArray(InResourceArray)
+		, ClearValueBinding(FLinearColor::Transparent)
 	{}
+
+	FRHIResourceCreateInfo(const FClearValueBinding& InClearValueBinding)
+		: BulkData(nullptr)
+		, ResourceArray(nullptr)
+		, ClearValueBinding(InClearValueBinding)
+	{
+	}
 
 	// for CreateTexture calls
 	FResourceBulkDataInterface* BulkData;
 	// for CreateVertexBuffer/CreateStructuredBuffer calls
 	FResourceArrayInterface* ResourceArray;
+
+	// for binding clear colors to rendertargets.
+	FClearValueBinding ClearValueBinding;
 };
 
 // Forward-declaration.
@@ -825,25 +970,49 @@ struct FResolveParams
 	{}
 };
 
+enum class EResourceTransitionAccess
+{
+	EReadable, //transition from write-> read
+	EWritable, //transition from read -> write	
+	ERWBarrier, // Mostly for UAVs.  Transition to read/write state and always insert a resource barrier.
+	ERWNoBarrier, //Mostly UAVs.  Indicates we want R/W access and do not require synchronization for the duration of the RW state.  The initial transition from writable->RWNoBarrier and readable->RWNoBarrier still requires a sync
+	ERWSubResBarrier, //For special cases where read/write happens to different subresources of the same resource in the same call.  Inserts a barrier, but read validation will pass.  Temporary until we pass full subresource info to all transition calls.
+	EMaxAccess,
+};
+
+class RHI_API FResourceTransitionUtility
+{
+public:
+	static const FString ResourceTransitionAccessStrings[(int32)EResourceTransitionAccess::EMaxAccess + 1];
+};
+
+enum class EResourceTransitionPipeline
+{
+	EGfxToCompute,
+	EComputeToGfx,
+	EGfxToGfx,
+	EComputeToCompute,	
+};
+
 /** specifies an update region for a texture */
 struct FUpdateTextureRegion2D
 {
 	/** offset in texture */
-	int32 DestX;
-	int32 DestY;
+	uint32 DestX;
+	uint32 DestY;
 	
 	/** offset in source image data */
 	int32 SrcX;
 	int32 SrcY;
 	
 	/** size of region to copy */
-	int32 Width;
-	int32 Height;
+	uint32 Width;
+	uint32 Height;
 
 	FUpdateTextureRegion2D()
 	{}
 
-	FUpdateTextureRegion2D(int32 InDestX, int32 InDestY, int32 InSrcX, int32 InSrcY, int32 InWidth, int32 InHeight)
+	FUpdateTextureRegion2D(uint32 InDestX, uint32 InDestY, int32 InSrcX, int32 InSrcY, uint32 InWidth, uint32 InHeight)
 	:	DestX(InDestX)
 	,	DestY(InDestY)
 	,	SrcX(InSrcX)
@@ -868,9 +1037,9 @@ struct FUpdateTextureRegion2D
 struct FUpdateTextureRegion3D
 {
 	/** offset in texture */
-	int32 DestX;
-	int32 DestY;
-	int32 DestZ;
+	uint32 DestX;
+	uint32 DestY;
+	uint32 DestZ;
 
 	/** offset in source image data */
 	int32 SrcX;
@@ -878,14 +1047,14 @@ struct FUpdateTextureRegion3D
 	int32 SrcZ;
 
 	/** size of region to copy */
-	int32 Width;
-	int32 Height;
-	int32 Depth;
+	uint32 Width;
+	uint32 Height;
+	uint32 Depth;
 
 	FUpdateTextureRegion3D()
 	{}
 
-	FUpdateTextureRegion3D(int32 InDestX, int32 InDestY, int32 InDestZ, int32 InSrcX, int32 InSrcY, int32 InSrcZ, int32 InWidth, int32 InHeight, int32 InDepth)
+	FUpdateTextureRegion3D(uint32 InDestX, uint32 InDestY, uint32 InDestZ, int32 InSrcX, int32 InSrcY, int32 InSrcZ, uint32 InWidth, uint32 InHeight, uint32 InDepth)
 	:	DestX(InDestX)
 	,	DestY(InDestY)
 	,	DestZ(InDestZ)
@@ -1024,45 +1193,14 @@ DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Pixel buffer memory"),STAT_PixelBufferMemo
 
 // RHI base resource types.
 #include "RHIResources.h"
+#include "DynamicRHI.h"
 
-//
-// Platform-specific RHI types.
-//
-#if PLATFORM_USES_DYNAMIC_RHI
-	// Use dynamically bound RHIs on PCs and when using the null RHI.
-	#define USE_DYNAMIC_RHI 1
-	#include "DynamicRHI.h"
-#else
-	// Fall back to the null RHI
-	#define USE_DYNAMIC_RHI 1
-	#include "DynamicRHI.h"
-#endif
-
-#if !USE_DYNAMIC_RHI
-	// Define the statically bound RHI methods with the RHI name prefix.
-#define DEFINE_RHIMETHOD_CMDLIST(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation) \
-	extern Type Name##_Internal ParameterTypesAndNames
-#define DEFINE_RHIMETHOD_GLOBAL(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation) \
-	extern Type Name##_Internal ParameterTypesAndNames
-#define DEFINE_RHIMETHOD_GLOBALTHREADSAFE(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation) \
-	extern Type RHI##Name ParameterTypesAndNames
-#define DEFINE_RHIMETHOD_GLOBALFLUSH(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation) \
-	extern Type Name##_Internal ParameterTypesAndNames
-#define DEFINE_RHIMETHOD(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation) \
-	extern Type Name##_Internal ParameterTypesAndNames
-
-#include "RHIMethods.h"
-#undef DEFINE_RHIMETHOD
-#undef DEFINE_RHIMETHOD_CMDLIST
-#undef DEFINE_RHIMETHOD_GLOBAL
-#undef DEFINE_RHIMETHOD_GLOBALFLUSH
-#undef DEFINE_RHIMETHOD_GLOBALTHREADSAFE
-
-
-#endif
 
 /** Initializes the RHI. */
 extern RHI_API void RHIInit(bool bHasEditorToken);
+
+/** Performs additional RHI initialization before the render thread starts. */
+extern RHI_API void RHIPostInit();
 
 /** Shuts down the RHI. */
 extern RHI_API void RHIExit();
@@ -1071,10 +1209,10 @@ extern RHI_API void RHIExit();
 // the following helper macros allow to safely convert shader types without much code clutter
 #define GETSAFERHISHADER_PIXEL(Shader) (Shader ? Shader->GetPixelShader() : (FPixelShaderRHIParamRef)FPixelShaderRHIRef())
 #define GETSAFERHISHADER_VERTEX(Shader) (Shader ? Shader->GetVertexShader() : (FVertexShaderRHIParamRef)FVertexShaderRHIRef())
-#define GETSAFERHISHADER_HULL(Shader) (Shader ? Shader->GetHullShader() : FHullShaderRHIRef())
-#define GETSAFERHISHADER_DOMAIN(Shader) (Shader ? Shader->GetDomainShader() : FDomainShaderRHIRef())
-#define GETSAFERHISHADER_GEOMETRY(Shader) (Shader ? Shader->GetGeometryShader() : FGeometryShaderRHIRef())
-#define GETSAFERHISHADER_COMPUTE(Shader) (Shader ? Shader->GetComputeShader() : FComputeShaderRHIRef())
+#define GETSAFERHISHADER_HULL(Shader) (Shader ? Shader->GetHullShader() : (FHullShaderRHIParamRef)FHullShaderRHIRef())
+#define GETSAFERHISHADER_DOMAIN(Shader) (Shader ? Shader->GetDomainShader() : (FDomainShaderRHIParamRef)FDomainShaderRHIRef())
+#define GETSAFERHISHADER_GEOMETRY(Shader) (Shader ? Shader->GetGeometryShader() : (FGeometryShaderRHIParamRef)FGeometryShaderRHIRef())
+#define GETSAFERHISHADER_COMPUTE(Shader) (Shader ? Shader->GetComputeShader() : (FComputeShaderRHIParamRef)FComputeShaderRHIRef())
 
 // RHI utility functions that depend on the RHI definitions.
 #include "RHIUtilities.h"

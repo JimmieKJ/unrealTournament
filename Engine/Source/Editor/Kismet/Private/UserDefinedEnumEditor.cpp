@@ -127,6 +127,15 @@ FText FUserDefinedEnumEditor::GetToolkitName() const
 	return GetBaseToolkitName();
 }
 
+FText FUserDefinedEnumEditor::GetToolkitToolTipText() const
+{
+	if (1 == GetEditingObjects().Num())
+	{
+		return FAssetEditorToolkit::GetToolkitToolTipText();
+	}
+	return GetBaseToolkitName();
+}
+
 FString FUserDefinedEnumEditor::GetWorldCentricTabPrefix() const
 {
 	return LOCTEXT("UDEnumWorldCentricTabPrefix", "Enum ").ToString();

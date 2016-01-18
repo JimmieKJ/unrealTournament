@@ -1898,8 +1898,8 @@ void PxsBroadPhaseContextSap::batchUpdate
 
 	//KS - in theory, we should just be able to grab the min element but there's some issue where a body's max < min (i.e. an invalid extents) that
 	//appears in a unit test
-	PxcBPValType ThisValue = boxMinMax3D[startHandle].getMin(Axis);
-	BaseEPValues[1] = ThisValue;
+	PxcBPValType ThisValue_ = boxMinMax3D[startHandle].getMin(Axis);
+	BaseEPValues[1] = ThisValue_;
 	
 	PxU32 updateCounter = mUpdatedSize*2;
 
@@ -2192,7 +2192,7 @@ void PxsBroadPhaseContextSap::batchUpdateFewUpdates
 	if(isSentinel(BaseEPDatas[1]))
 		return;
 
-	PxU32 ind = 0;
+	PxU32 ind_ = 0;
 
 	PxU32 index = 1;
 
@@ -2216,10 +2216,10 @@ void PxsBroadPhaseContextSap::batchUpdateFewUpdates
 			BaseEPValues[Object->mMinMax[0]] = boxMin;
 			BaseEPValues[Object->mMinMax[1]] = boxMax;
 
-			mSortedUpdateElements[ind++] = Object->mMinMax[0];
-			mSortedUpdateElements[ind++] = Object->mMinMax[1];
+			mSortedUpdateElements[ind_++] = Object->mMinMax[0];
+			mSortedUpdateElements[ind_++] = Object->mMinMax[1];
 		}
-		Ps::sort(mSortedUpdateElements, ind);
+		Ps::sort(mSortedUpdateElements, ind_);
 	}
 	else
 	{
@@ -2235,12 +2235,12 @@ void PxsBroadPhaseContextSap::batchUpdateFewUpdates
 				//BPValType ThisValue = isMax(ThisData) ? boxMinMax3D[owner].getMax(Axis) : boxMinMax3D[owner].getMin(Axis);
 				PxcBPValType ThisValue = boxMinMax3D[owner].getExtent(isMax(ThisData), Axis);
 				BaseEPValues[index] = ThisValue;
-				mSortedUpdateElements[ind++] = (PxcBpHandle)index;
+				mSortedUpdateElements[ind_++] = (PxcBpHandle)index;
 			}
 		}
 	}
 
-	const PxU32 updateCounter = ind;
+	const PxU32 updateCounter = ind_;
 	
 	//We'll never overlap with this sentinel but it just ensures that we don't need to branch to see if
 	//there's a pocket that we need to test against

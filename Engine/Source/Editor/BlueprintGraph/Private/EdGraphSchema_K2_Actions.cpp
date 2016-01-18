@@ -500,57 +500,6 @@ void FEdGraphSchemaAction_K2AddCallOnActor::AddReferencedObjects( FReferenceColl
 }
 
 /////////////////////////////////////////////////////
-// FEdGraphSchemaAction_K2AddCallOnVariable
-
-UEdGraphNode* FEdGraphSchemaAction_K2AddCallOnVariable::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode/* = true*/)
-{
-	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-
-	// Snap the node placement location to the grid, ensures calculations later match up better
-	FVector2D LocalLocation;
-	LocalLocation.X = FMath::GridSnap( Location.X, SNAP_GRID );
-	LocalLocation.Y = FMath::GridSnap( Location.Y, SNAP_GRID );
-
-	// First use the base functionality to spawn the 'call function' node
-	FVector2D TempLocation = LocalLocation;
-	UEdGraphNode* CallNode = FEdGraphSchemaAction_K2NewNode::PerformAction(ParentGraph, FromPin, TempLocation, bSelectNewNode);
-
-	// this is the guesstimate of the function node's height, snapped to grid units
-	const float FunctionNodeHeight = FMath::GridSnap( TempLocation.Y - LocalLocation.Y, SNAP_GRID );
-	// this is roughly the middle of the function node height
-	const float FunctionNodeMidY = LocalLocation.Y + FunctionNodeHeight * 0.5f;
-	// this is the offset up from the mid point at which we start placing nodes 
-	const float StartYOffset = -NodeLiteralHeight * 0.5f;
-	// The Y location we start placing nodes from
-	const float ReferencedNodesPlacementYLocation = FunctionNodeMidY + StartYOffset;
-
-	// Now we need to create the variable literal to wire up
-	if(VariableName != NAME_None)
-	{
-		UK2Node_VariableGet* GetVarNode =  NewObject<UK2Node_VariableGet>(ParentGraph);
-		ParentGraph->AddNode(GetVarNode, false, bSelectNewNode);
-		GetVarNode->SetFlags(RF_Transactional);
-
-		GetVarNode->VariableReference.SetSelfMember(VariableName);
-		GetVarNode->AllocateDefaultPins();
-		GetVarNode->NodePosX = LocalLocation.X - FunctionNodeLiteralReferencesXOffset;
-		GetVarNode->NodePosY = ReferencedNodesPlacementYLocation;
-
-		GetVarNode->SnapToGrid(SNAP_GRID);
-
-		// Connect the literal out to the self of the call
-		UEdGraphPin* LiteralOutput = GetVarNode->GetValuePin();
-		UEdGraphPin* CallSelfInput = CallNode->FindPin(K2Schema->PN_Self);
-		if(LiteralOutput != NULL && CallSelfInput != NULL)
-		{
-			LiteralOutput->MakeLinkTo(CallSelfInput);
-		}
-	}
-
-	return CallNode;
-}
-
-/////////////////////////////////////////////////////
 // FEdGraphSchemaAction_K2AddComment
 
 UEdGraphNode* FEdGraphSchemaAction_K2AddComment::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode/* = true*/)
@@ -577,35 +526,6 @@ UEdGraphNode* FEdGraphSchemaAction_K2AddComment::PerformAction(class UEdGraph* P
 
 	// Mark Blueprint as structurally modified since
 	// UK2Node_Comment::NodeCausesStructuralBlueprintChange used to return true
-	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-
-	return NewNode;
-}
-
-/////////////////////////////////////////////////////
-// FEdGraphSchemaAction_K2AddDocumentation
-
-UEdGraphNode* FEdGraphSchemaAction_K2AddDocumentation::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode/* = true*/)
-{
-	// Add menu item for creating document nodes
-	UEdGraphNode_Documentation* DocumentTemplate = NewObject<UEdGraphNode_Documentation>();
-
-	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(ParentGraph);
-
-	FVector2D SpawnLocation = Location;
-
-	FSlateRect Bounds;
-	if ((Blueprint != NULL) && FKismetEditorUtilities::GetBoundsForSelectedNodes(Blueprint, Bounds, 50.0f))
-	{
-		DocumentTemplate->SetBounds(Bounds);
-		SpawnLocation.X = DocumentTemplate->NodePosX;
-		SpawnLocation.Y = DocumentTemplate->NodePosY;
-	}
-
-	UEdGraphNode* NewNode = FEdGraphSchemaAction_NewNode::SpawnNodeFromTemplate<UEdGraphNode_Documentation>(ParentGraph, DocumentTemplate, SpawnLocation, bSelectNewNode);
-
-	// Mark Blueprint as structurally modified since
-	// UK2Node_Documentation::NodeCausesStructuralBlueprintChange used to return true
 	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
 	return NewNode;

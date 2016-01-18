@@ -89,7 +89,7 @@ bool FTestExternalUIInterface::TestLoginUI()
 		return false;
 	}
 
-	bool bShowingUI = ExternalUI->ShowLoginUI(0, true, IOnlineExternalUI::FOnLoginUIClosedDelegate::CreateRaw(this, &FTestExternalUIInterface::OnLoginUIClosed));
+	bool bShowingUI = ExternalUI->ShowLoginUI(0, true, FOnLoginUIClosedDelegate::CreateRaw(this, &FTestExternalUIInterface::OnLoginUIClosed));
 	UE_LOG(LogOnline, Log, TEXT("TestLoginUI bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
 }
@@ -143,7 +143,11 @@ bool FTestExternalUIInterface::TestWebURL()
 		return false;
 	}
 
-	bool bShowingUI = ExternalUI->ShowWebURL("https://www.unrealengine.com");
+	bool bShowingUI = ExternalUI->ShowWebURL(
+		TEXT("https://www.unrealengine.com"),
+		FShowWebUrlParams(),
+		FOnShowWebUrlClosedDelegate::CreateRaw(this, &FTestExternalUIInterface::OnShowWebUrlClosed));
+
 	UE_LOG(LogOnline, Log, TEXT("TestWebURL bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
 }
@@ -157,11 +161,11 @@ bool FTestExternalUIInterface::TestProfileUI()
 	}
 
 	// Show our own profile
-	TSharedPtr<FUniqueNetId> UserId = OnlineSub->GetIdentityInterface()->GetUniquePlayerId(0);
+	TSharedPtr<const FUniqueNetId> UserId = OnlineSub->GetIdentityInterface()->GetUniquePlayerId(0);
 	bool bShowingUI = ExternalUI->ShowProfileUI(
 		*UserId.Get(),
 		*UserId.Get(),
-		IOnlineExternalUI::FOnProfileUIClosedDelegate::CreateRaw(this, &FTestExternalUIInterface::OnProfileUIClosed));
+		FOnProfileUIClosedDelegate::CreateRaw(this, &FTestExternalUIInterface::OnProfileUIClosed));
 
 	UE_LOG(LogOnline, Log, TEXT("TestProfileUI bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
@@ -179,7 +183,7 @@ void FTestExternalUIInterface::OnExternalUIChange(bool bIsOpening)
 	}
 }
 
-void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<FUniqueNetId> LoggedInUserId, const int LocalUserId)
+void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<const FUniqueNetId> LoggedInUserId, const int LocalUserId)
 {
 	UE_LOG(LogOnline, Log, TEXT("Login UI closed by local user %d. Logged-in user = %s"), LocalUserId, *LoggedInUserId->ToString());
 }
@@ -187,4 +191,9 @@ void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<FUniqueNetId> LoggedIn
 void FTestExternalUIInterface::OnProfileUIClosed()
 {
 	UE_LOG(LogOnline, Log, TEXT("Profile UI closed by user."));
+}
+
+void FTestExternalUIInterface::OnShowWebUrlClosed(const FString& FinalUrl)
+{
+	UE_LOG(LogOnline, Log, TEXT("Show Web Url closed with FinalUrl=%s."), *FinalUrl);
 }

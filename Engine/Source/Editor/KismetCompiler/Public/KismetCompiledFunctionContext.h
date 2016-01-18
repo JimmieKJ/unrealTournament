@@ -69,6 +69,7 @@ public:
 	TIndirectArray<FBPTerminal> Locals;
 	TIndirectArray<FBPTerminal> EventGraphLocals;
 	TIndirectArray<FBPTerminal>	LevelActorReferences;
+	TIndirectArray<FBPTerminal>	InlineGeneratedValues; // A function generating the parameter will be called inline. The value won't be stored in a local variable.
 	TMap<UEdGraphPin*, FBPTerminal*> NetMap;
 	TMap<UEdGraphPin*, FBPTerminal*> LiteralHackMap;
 
@@ -77,6 +78,7 @@ public:
 	bool bIsInterfaceStub;
 	bool bIsConstFunction;
 	bool bEnforceConstCorrectness;
+	bool bInstrumentScriptCode;
 	bool bCreateDebugData;
 	bool bIsSimpleStubGraphWithNoParams;
 	uint32 NetFlags;
@@ -92,12 +94,13 @@ public:
 	// Stored calls of latent function (on current class), needed to tell if blueprint should be tickable
 	TArray< UK2Node_CallFunction* > LatentFunctionCalls;
 
+	//Skip some optimization. C++ code will be generated in this pass. 
 	bool bGeneratingCpp;
 
 	//Does this function use requires FlowStack ?
 	bool bUseFlowStack;
 public:
-	FKismetFunctionContext(FCompilerResultsLog& InMessageLog, UEdGraphSchema_K2* InSchema, UBlueprintGeneratedClass* InNewClass, UBlueprint* InBlueprint, bool bInGeneratingCpp);
+	FKismetFunctionContext(FCompilerResultsLog& InMessageLog, UEdGraphSchema_K2* InSchema, UBlueprintGeneratedClass* InNewClass, UBlueprint* InBlueprint, bool bInGeneratingCpp, bool bInWantsInstrumentation);
 	
 	~FKismetFunctionContext();
 
@@ -168,6 +171,21 @@ public:
 	void MarkAsNetFunction(uint32 InFunctionFlags)
 	{
 		NetFlags = InFunctionFlags & (FUNC_NetFuncFlags);
+	}
+
+	bool IsDebuggingOrInstrumentationRequired() const
+	{
+		return bInstrumentScriptCode || bCreateDebugData;
+	}
+
+	EKismetCompiledStatementType GetWireTraceType() const
+	{
+		return bInstrumentScriptCode ? KCST_InstrumentedWireExit : KCST_WireTraceSite;
+	}
+
+	EKismetCompiledStatementType GetBreakpointType() const
+	{
+		return bInstrumentScriptCode ? KCST_InstrumentedWireEntry : KCST_DebugSite;
 	}
 
 	uint32 GetNetFlags() const
@@ -275,6 +293,8 @@ public:
 		return (SourceStatementList != NULL) && (SourceStatementList->Num() > 0);
 	}
 
+	KISMETCOMPILER_API bool MustUseSwitchState(const FBlueprintCompiledStatement* ExcludeThisOne) const;
+
 private:
 	// Optimize out any useless jumps (jump to the very next statement, where the control flow can just fall through)
 	void MergeAdjacentStates();
@@ -301,7 +321,7 @@ public:
 	void InsertWireTrace(FBlueprintCompiledStatement* GotoStatement, UEdGraphPin* AssociatedExecPin)
 	{
 		// only need wire traces if we're debugging the blueprint is available (not for cooked builds)
-		if (bCreateDebugData && (AssociatedExecPin != NULL))
+		if (IsDebuggingOrInstrumentationRequired() && (AssociatedExecPin != NULL))
 		{
 			UEdGraphNode* PreJumpNode = AssociatedExecPin->GetOwningNode();
 
@@ -319,14 +339,14 @@ public:
 					}
 
 					// if a wire-trace has already been inserted for us
-					if ((PrevStatement != NULL) && (PrevStatement->Type == KCST_WireTraceSite))
+					if ((PrevStatement != NULL) && PrevStatement->Type == GetWireTraceType())
 					{
 						PrevStatement->ExecContext = AssociatedExecPin;
 					}
 					else if (PrevStatement != NULL)
 					{
 						FBlueprintCompiledStatement* TraceStatement = new FBlueprintCompiledStatement();
-						TraceStatement->Type        = KCST_WireTraceSite;
+						TraceStatement->Type        = GetWireTraceType();
 						TraceStatement->Comment     = PreJumpNode->NodeComment.IsEmpty() ? PreJumpNode->GetName() : PreJumpNode->NodeComment;
 						TraceStatement->ExecContext = AssociatedExecPin;
 
@@ -338,7 +358,7 @@ public:
 			}
 		}
 	}
-	
+
 	/** Looks for a pin of the given name, erroring if the pin is not found or if the direction doesn't match (doesn't verify the pin type) */
 	UEdGraphPin* FindRequiredPinByName(const UEdGraphNode* Node, const FString& PinName, EEdGraphPinDirection RequiredDirection = EGPD_MAX)
 	{

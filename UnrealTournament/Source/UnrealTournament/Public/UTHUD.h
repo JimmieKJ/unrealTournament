@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
 #include "UTScoreboard.h"
@@ -31,6 +31,34 @@ struct FDamageHudIndicator
 		: RotationAngle(0.0f), DamageAmount(0.0f), FadeTime(0.0f), bFriendlyFire(false)
 	{
 	}
+};
+
+USTRUCT()
+struct FEnemyDamageNumber
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	APawn* DamagedPawn;
+
+	UPROPERTY()
+		float DamageTime;
+
+	UPROPERTY()
+	uint8 DamageAmount;
+
+	UPROPERTY()
+	FVector WorldPosition;
+
+	UPROPERTY()
+	float Scale;
+
+	FEnemyDamageNumber()
+		: DamagedPawn(NULL), DamageTime(0.f), DamageAmount(0), WorldPosition(FVector(0.f)), Scale(1.f)
+	{
+	}
+
+	FEnemyDamageNumber(APawn* InPawn, float InTime, uint8 InDamage, FVector InLoc, float InScale) : DamagedPawn(InPawn), DamageTime(InTime), DamageAmount(InDamage), WorldPosition(InLoc), Scale(InScale) {};
 };
 
 UCLASS(Config=Game)
@@ -107,18 +135,47 @@ public:
 
 	class UUTHUDWidget_SpectatorSlideOut* GetSpectatorSlideOut() { return SpectatorSlideOutWidget; }
 
-	// The Global Opacity for Hud Widgets
+	/** Damage values caused by viewed player recently. */
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+		TArray<FEnemyDamageNumber> DamageNumbers;
+
+	UPROPERTY()
+		bool bDrawDamageNumbers;
+
+	/** Draw in screen space damage recently applied by this player to other characters. */
+	virtual void DrawDamageNumbers();
+
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;
+
+	/** Last time player owning this HUD killed someone. */
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+	float LastKillTime;
+
+	/** Last time player owning this HUD picked up a flag. */
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+	float LastFlagGrabTime;
+
+	/** sound played when player gets a kill */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+	USoundBase* KillSound;
+
+	FTimerHandle PlayKillHandle;
+
+	/** Queue a kill notification. */
+	virtual void NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS);
+
+	/** Play kill notification sound and icon. */
+	virtual void PlayKillNotification();
 
 	/** Crosshair asset pointer */
 	UTexture2D* DefaultCrosshairTex;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-		UTexture2D* HUDAtlas;
+	UTexture2D* HUDAtlas;
 
 	UPROPERTY(EditAnywhere, Category = "Scoreboard")
-		FVector2D TeamIconUV[2];
+	FVector2D TeamIconUV[4];
 
 	/** last time we hit an enemy in LOS */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
@@ -188,8 +245,6 @@ public:
 
 	/** Creates the scoreboard */
 	virtual void CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass);
-	
-	UTexture2D* OldHudTexture;
 
 	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
@@ -320,7 +375,7 @@ public:
 	void CalcStanding();
 
 	// Takes seconds and converts it to a string
-	FText ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true) const;
+	FText ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForceHours = false, bool bForceMinutes = true, bool bForceTwoDigits = true) const;
 
 	// Creates a suffix string based on a value (st, nd, rd, th).
 	FText GetPlaceSuffix(int32 Value);

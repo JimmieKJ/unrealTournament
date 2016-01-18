@@ -5,8 +5,6 @@
 #include "ExceptionHandling.h"
 #include "UniquePtr.h"
 
-#include "../../Launch/Resources/Version.h"
-
 /** For FConfigFile in appInit							*/
 #include "ConfigCacheIni.h"
 #include "RemoteConfigIni.h"
@@ -96,8 +94,9 @@ bool FFileHelper::LoadFileToArray( TArray<uint8>& Result, const TCHAR* Filename,
 		}
 		return 0;
 	}
-	Result.Reset();
-	Result.AddUninitialized( Reader->TotalSize() );
+	int64 TotalSize = Reader->TotalSize();
+	Result.Reset( TotalSize );
+	Result.AddUninitialized( TotalSize );
 	Reader->Serialize(Result.GetData(), Result.Num());
 	bool Success = Reader->Close();
 	delete Reader;
@@ -167,17 +166,23 @@ void FFileHelper::BufferToString( FString& Result, const uint8* Buffer, int32 Si
  */
 bool FFileHelper::LoadFileToString( FString& Result, const TCHAR* Filename, uint32 VerifyFlags )
 {
-	FArchive* Reader = IFileManager::Get().CreateFileReader( Filename );
+	TUniquePtr<FArchive> Reader( IFileManager::Get().CreateFileReader( Filename ) );
 	if( !Reader )
 	{
 		return 0;
 	}
 	
 	int32 Size = Reader->TotalSize();
+	if( !Size )
+	{
+		Result.Empty();
+		return true;
+	}
+
 	uint8* Ch = (uint8*)FMemory::Malloc(Size);
 	Reader->Serialize( Ch, Size );
 	bool Success = Reader->Close();
-	delete Reader;
+	Reader = nullptr;
 	BufferToString( Result, Ch, Size );
 
 	// handle SHA verify of the file
@@ -697,6 +702,21 @@ void FMaintenance::DeleteOldLogs()
 				IFileManager::Get().Delete(*FullFileName);
 			}
 		}
+
+		// Remove old UE4 crash contexts
+		TArray<FString> Directories;
+		IFileManager::Get().FindFiles( Directories, *FString::Printf( TEXT( "%s/UE4CC*" ), *FPaths::GameLogDir() ), false, true );
+
+		for (auto Dir : Directories)
+		{
+			const FString CrashContextDirectory = FPaths::GameLogDir() / Dir;
+			const FDateTime DirectoryAccessTime = IFileManager::Get().GetTimeStamp( *CrashContextDirectory );
+			if (FDateTime::Now() - DirectoryAccessTime > FTimespan::FromDays( PurgeLogsDays ))
+			{
+				UE_LOG( LogStreaming, Log, TEXT( "Deleting old crash context %s" ), *Dir );
+				IFileManager::Get().DeleteDirectory( *CrashContextDirectory, false, true );
+			}
+		}
 	}
 }
 
@@ -723,6 +743,15 @@ class FDerivedDataCacheInterface* GetDerivedDataCache()
 		}
 	}
 	return SingletonInterface;
+}
+
+void DerivedDataCachePrint()
+{
+	class IDerivedDataCacheModule* Module = FModuleManager::LoadModulePtr<IDerivedDataCacheModule>("DerivedDataCache");
+	if (Module)
+	{
+		Module->ShutdownModule();
+	}
 }
 
 class FDerivedDataCacheInterface& GetDerivedDataCacheRef()
@@ -938,10 +967,21 @@ void GenerateConvenientWindowedResolutions(const FDisplayMetrics& InDisplayMetri
 		}
 	}
 	
-	// if no convenient resolutions have been found, add a minimum one (if it fits)
-	if (OutResolutions.Num() == 0 && InDisplayMetrics.PrimaryDisplayHeight > MinHeight && InDisplayMetrics.PrimaryDisplayWidth > MinWidth)
+	// if no convenient resolutions have been found, add a minimum one
+	if (OutResolutions.Num() == 0)
 	{
-		OutResolutions.Add(FIntPoint(MinWidth, MinHeight));
+		if (InDisplayMetrics.PrimaryDisplayHeight > MinHeight && InDisplayMetrics.PrimaryDisplayWidth > MinWidth)
+		{
+			//Add the minimum size if it fit
+			OutResolutions.Add(FIntPoint(MinWidth, MinHeight));
+		}
+		else
+		{
+			//Force a resolution even if its smaller then the minimum height and width to avoid a bigger window then the desktop
+			float TargetWidth = FMath::RoundToFloat(InDisplayMetrics.PrimaryDisplayWidth) * Scales[NumScales - 1];
+			float TargetHeight = FMath::RoundToFloat(InDisplayMetrics.PrimaryDisplayHeight) * Scales[NumScales - 1];
+			OutResolutions.Add(FIntPoint(TargetWidth, TargetHeight));
+		}
 	}
 }
 
@@ -954,11 +994,50 @@ FBoolConfigValueHelper::FBoolConfigValueHelper(const TCHAR* Section, const TCHAR
 	GConfig->GetBool(Section, Key, bValue, Filename);
 }
 
+/*----------------------------------------------------------------------------
+FBlueprintExceptionTracker
+----------------------------------------------------------------------------*/
+#if DO_BLUEPRINT_GUARD
+void FBlueprintExceptionTracker::ResetRunaway()
+{
+	Runaway = 0;
+	Recurse = 0;
+	bRanaway = false;
+}
+#endif // DO_BLUEPRINT_GUARD
+
 #if WITH_HOT_RELOAD_CTORS
 bool GIsRetrievingVTablePtr = false;
 
-void EnsureRetrievingVTablePtr()
+void EnsureRetrievingVTablePtrDuringCtor(const TCHAR* CtorSignature)
 {
-	UE_CLOG(!GIsRetrievingVTablePtr, LogCore, Fatal, TEXT("This should be used only during vtable ptr retrieval process."));
+	UE_CLOG(!GIsRetrievingVTablePtr, LogCore, Fatal, TEXT("The %s constructor is for internal usage only for hot-reload purposes. Please do NOT use it."), CtorSignature);
 }
 #endif // WITH_HOT_RELOAD_CTORS
+
+/*----------------------------------------------------------------------------
+NAN Diagnostic Failure
+----------------------------------------------------------------------------*/
+
+int32 GEnsureOnNANDiagnostic = false;
+
+#if ENABLE_NAN_DIAGNOSTIC
+static FAutoConsoleVariableRef CVarGEnsureOnNANDiagnostic(
+	TEXT( "EnsureOnNaNFail" ),
+	GEnsureOnNANDiagnostic,
+	TEXT( "If set to 1 NaN Diagnostic failures will result in ensures being emitted" )
+	);
+#endif
+
+#if DO_CHECK
+namespace UE4Asserts_Private
+{
+	void VARARGS InternalLogNANDiagnosticMessage(const TCHAR* FormattedMsg, ...)
+	{		
+		const int32 TempStrSize = 4096;
+		TCHAR TempStr[TempStrSize];
+		GET_VARARGS(TempStr, TempStrSize, TempStrSize - 1, FormattedMsg, FormattedMsg);
+		UE_LOG(LogCore, Error, TempStr);
+	}
+}
+#endif

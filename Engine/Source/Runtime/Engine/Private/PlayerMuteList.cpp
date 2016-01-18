@@ -5,7 +5,7 @@
 #include "GameFramework/GameSession.h"
 #include "GameFramework/PlayerState.h"
 
-static inline void AddIdToMuteList(TArray< TSharedRef<class FUniqueNetId> >& MuteList, const TSharedPtr<FUniqueNetId>& UniqueIdToAdd)
+static inline void AddIdToMuteList(TArray< TSharedRef<const FUniqueNetId> >& MuteList, const TSharedPtr<const FUniqueNetId>& UniqueIdToAdd)
 {
 	FUniqueNetIdMatcher UniqueIdToAddMatch(*UniqueIdToAdd);
 	if (MuteList.IndexOfByPredicate(UniqueIdToAddMatch) == INDEX_NONE)
@@ -14,7 +14,7 @@ static inline void AddIdToMuteList(TArray< TSharedRef<class FUniqueNetId> >& Mut
 	}
 }
 
-static inline void RemoveIdFromMuteList(TArray< TSharedRef<class FUniqueNetId> >& MuteList, const TSharedPtr<FUniqueNetId>& UniqueIdToRemove)
+static inline void RemoveIdFromMuteList(TArray< TSharedRef<const FUniqueNetId> >& MuteList, const TSharedPtr<const FUniqueNetId>& UniqueIdToRemove)
 {
 	FUniqueNetIdMatcher UniqueIdToRemoveMatch(*UniqueIdToRemove);
 	int32 RemoveIndex = MuteList.IndexOfByPredicate(UniqueIdToRemoveMatch);
@@ -28,7 +28,7 @@ void FPlayerMuteList::ServerMutePlayer(APlayerController* OwningPC, const FUniqu
 {
 	UWorld* World = OwningPC->GetWorld();
 
-	const TSharedPtr<FUniqueNetId>& PlayerIdToMute = MuteId.GetUniqueNetId();
+	const TSharedPtr<const FUniqueNetId>& PlayerIdToMute = MuteId.GetUniqueNetId();
 
 	// Don't reprocess if they are already muted
 	AddIdToMuteList(VoiceMuteList, PlayerIdToMute);
@@ -55,7 +55,7 @@ void FPlayerMuteList::ServerUnmutePlayer(APlayerController* OwningPC, const FUni
 {
 	UWorld* World = OwningPC->GetWorld();
 
-	const TSharedPtr<FUniqueNetId>& PlayerIdToUnmute = UnmuteId.GetUniqueNetId();
+	const TSharedPtr<const FUniqueNetId>& PlayerIdToUnmute = UnmuteId.GetUniqueNetId();
 
 	// If the player was found, remove them from our explicit list
 	RemoveIdFromMuteList(VoiceMuteList, PlayerIdToUnmute);
@@ -93,7 +93,7 @@ void FPlayerMuteList::ServerUnmutePlayer(APlayerController* OwningPC, const FUni
 
 void FPlayerMuteList::ClientMutePlayer(APlayerController* OwningPC, const FUniqueNetIdRepl& MuteId)
 {
-	const TSharedPtr<FUniqueNetId>& PlayerIdToMute = MuteId.GetUniqueNetId();
+	const TSharedPtr<const FUniqueNetId>& PlayerIdToMute = MuteId.GetUniqueNetId();
 
 	// Add to the filter list on clients (used for peer to peer voice)
 	AddIdToMuteList(VoicePacketFilter, PlayerIdToMute);
@@ -114,7 +114,7 @@ void FPlayerMuteList::ClientMutePlayer(APlayerController* OwningPC, const FUniqu
 
 void FPlayerMuteList::ClientUnmutePlayer(APlayerController* OwningPC, const FUniqueNetIdRepl& UnmuteId)
 {
-	const TSharedPtr<FUniqueNetId>& PlayerIdToUnmute = UnmuteId.GetUniqueNetId();
+	const TSharedPtr<const FUniqueNetId>& PlayerIdToUnmute = UnmuteId.GetUniqueNetId();
 
 	// It's safe to remove them from the filter list on clients (used for peer to peer voice)
 	RemoveIdFromMuteList(VoicePacketFilter, PlayerIdToUnmute);
@@ -135,7 +135,7 @@ void FPlayerMuteList::ClientUnmutePlayer(APlayerController* OwningPC, const FUni
 
 void FPlayerMuteList::GameplayMutePlayer(APlayerController* OwningPC, const FUniqueNetIdRepl& MuteId)
 {
-	const TSharedPtr<FUniqueNetId>& PlayerIdToMute = MuteId.GetUniqueNetId();
+	const TSharedPtr<const FUniqueNetId>& PlayerIdToMute = MuteId.GetUniqueNetId();
 
 	// Don't add if already muted
 	AddIdToMuteList(GameplayVoiceMuteList, PlayerIdToMute);
@@ -151,7 +151,7 @@ void FPlayerMuteList::GameplayUnmutePlayer(APlayerController* OwningPC, const FU
 {
 	UWorld* World = OwningPC->GetWorld();
 
-	const TSharedPtr<FUniqueNetId>& PlayerIdToUnmute = UnmuteId.GetUniqueNetId();
+	const TSharedPtr<const FUniqueNetId>& PlayerIdToUnmute = UnmuteId.GetUniqueNetId();
 
 	// Remove from the gameplay mute list
 	RemoveIdFromMuteList(GameplayVoiceMuteList, PlayerIdToUnmute);

@@ -56,7 +56,7 @@ void FAssetTypeActions_MorphTarget::ExecuteMovetoMesh(TArray<TWeakObjectPtr<UMor
 			{
 				USkeletalMesh * BaseSkelMesh = Object->BaseSkelMesh;
 				// duplicate
-				UMorphTarget* NewObject = DuplicateObject<UMorphTarget>(Object, Object->BaseSkelMesh, *Object->GetName());
+				UMorphTarget* NewObject = DuplicateObject<UMorphTarget>(Object, Object->BaseSkelMesh, Object->GetFName());
 				if (NewObject)
 				{
 					// unregister old morphtargets

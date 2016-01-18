@@ -30,12 +30,15 @@ bool FBoneReference::Initialize(const FBoneContainer& RequiredBones)
 	// If bone name is not found, look into the master skeleton to see if it's found there.
 	// SkeletalMeshes can exclude bones from the master skeleton, and that's OK.
 	// If it's not found in the master skeleton, the bone does not exist at all! so we should report it as a warning.
-	if( (BoneIndex == INDEX_NONE) && RequiredBones.GetSkeletonAsset() )
+	if (BoneIndex == INDEX_NONE && BoneName != NAME_None)
 	{
-		if( RequiredBones.GetSkeletonAsset()->GetReferenceSkeleton().FindBoneIndex(BoneName) == INDEX_NONE )
+		if (USkeleton* SkeletonAsset = RequiredBones.GetSkeletonAsset())
 		{
-			UE_LOG(LogAnimation, Warning, TEXT("FBoneReference::Initialize BoneIndex for Bone '%s' does not exist in Skeleton '%s'"), 
-				*BoneName.ToString(), *GetNameSafe(RequiredBones.GetSkeletonAsset()));
+			if (SkeletonAsset->GetReferenceSkeleton().FindBoneIndex(BoneName) == INDEX_NONE)
+			{
+				UE_LOG(LogAnimation, Warning, TEXT("FBoneReference::Initialize BoneIndex for Bone '%s' does not exist in Skeleton '%s'"), 
+					*BoneName.ToString(), *GetNameSafe(SkeletonAsset));
+			}
 		}
 	}
 

@@ -56,7 +56,7 @@ public:
 	 * @param VisibilityFilter Widgets must have this type of visibility to be included the path.
 	 * @return True if the widget path was found.
 	 */
-	static bool FindPathToWidget( const TArray<TSharedRef<SWindow>> WindowsToSearch, TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible );
+	static bool FindPathToWidget( const TArray<TSharedRef<SWindow>>& WindowsToSearch, TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible );
 
 	/**
 	 * Searches the given collection of windows to find the Slate window that corresponds to the specified platform window.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "UnrealTournament.h"
@@ -15,7 +15,6 @@ UUTDeathMessage::UUTDeathMessage(const class FObjectInitializer& ObjectInitializ
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;
-
 	Lifetime = 3.5f;
 }
 
@@ -38,7 +37,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	APlayerState* LocalPlayerState = ClientData.LocalPC->PlayerState;
 
 	AUTHUD* UTHUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);
-	if (UTHUD != nullptr)
+	if (UTHUD != nullptr && LocalPlayerState != nullptr)
 	{
 		//Add msg to the UUTHUDWidgetMessage_KillIconMessages
 		UTHUD->ReceiveLocalMessage(
@@ -109,6 +108,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 					GetDefault<UUTVictimMessage>()->ResolveMessage(ClientData.MessageIndex, true, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 					ClientData.OptionalObject);
 			}
+			UTHUD->NotifyKill(LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2);
 		}
 	}
 

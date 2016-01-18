@@ -358,7 +358,7 @@ template<typename ElementType, typename OctreeSemantics>
 TOctree<ElementType, OctreeSemantics>::TOctree()
 	: RootNode(nullptr)
 {
-	EnsureRetrievingVTablePtr();
+	EnsureRetrievingVTablePtrDuringCtor(TEXT("TOctree()"));
 }
 #endif // WITH_HOT_RELOAD_CTORS
 

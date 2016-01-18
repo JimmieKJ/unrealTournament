@@ -44,17 +44,29 @@ public:
 #if ENABLE_NAN_DIAGNOSTIC
 	FORCEINLINE void DiagnosticCheckNaN_Scale3D() const
 	{
-		checkf(!Scale3D.ContainsNaN(), TEXT("FTransform Scale3D contains NaN: %s"), *Scale3D.ToString());
+		if (Scale3D.ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("FTransform Scale3D contains NaN: %s"), *Scale3D.ToString());
+			const_cast<FTransform*>(this)->Scale3D = FVector(1.f);
+		}
 	}
 
 	FORCEINLINE void DiagnosticCheckNaN_Translate() const
 	{
-		checkf(!Translation.ContainsNaN(), TEXT("FTransform Translation contains NaN: %s"), *Translation.ToString());
+		if (Translation.ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("FTransform Translation contains NaN: %s"), *Translation.ToString());
+			const_cast<FTransform*>(this)->Translation = FVector::ZeroVector;
+		}
 	}
 
 	FORCEINLINE void DiagnosticCheckNaN_Rotate() const
 	{
-		checkf(!Rotation.ContainsNaN(), TEXT("FTransform Rotation contains NaN: %s"), *Rotation.ToString());
+		if (Rotation.ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("FTransform Rotation contains NaN: %s"), *Rotation.ToString());
+			const_cast<FTransform*>(this)->Rotation = FQuat::Identity;			
+		}
 	}
 
 	FORCEINLINE void DiagnosticCheckNaN_All() const
@@ -63,11 +75,22 @@ public:
 		DiagnosticCheckNaN_Rotate();
 		DiagnosticCheckNaN_Translate();
 	}
+
+	FORCEINLINE void DiagnosticCheck_IsValid() const
+	{
+		DiagnosticCheckNaN_All();
+		if (!IsValid())
+		{
+			logOrEnsureNanError(TEXT("FTransform transform is not valid: %s"), *ToHumanReadableString());
+		}
+		
+	}
 #else
 	FORCEINLINE void DiagnosticCheckNaN_Translate() const {}
 	FORCEINLINE void DiagnosticCheckNaN_Rotate() const {}
 	FORCEINLINE void DiagnosticCheckNaN_Scale3D() const {}
 	FORCEINLINE void DiagnosticCheckNaN_All() const {}
+	FORCEINLINE void DiagnosticCheck_IsValid() const {}
 #endif
 
 	/**
@@ -78,15 +101,6 @@ public:
 		, Translation(0.f)
 		, Scale3D(1.f)
 	{
-		// Note: This can be used to track down initialization issues with bone atom arrays; but it will
-		// cause issues with transient fields such as RootMotionDelta that get initialized to 0 by default
-#if 0
-		float qnan = FMath::Log2(-5.3f);
-		check(FMath::IsNaN(qnan));
-		Translation = FVector(qnan, qnan, qnan);
-		Rotation = FQuat(qnan, qnan, qnan, qnan);
-		Scale3D = FVector(qnan, qnan, qnan);
-#endif
 	}
 
 	/**
@@ -100,6 +114,22 @@ public:
 			Scale3D(FVector(1.f))
 	{
 		DiagnosticCheckNaN_All();
+	}
+
+	/**
+	 * Constructor with leaving uninitialized memory
+	 */
+	FORCEINLINE explicit FTransform(ENoInit) 
+	{
+		// Note: This can be used to track down initialization issues with bone transform arrays; but it will
+		// cause issues with transient fields such as RootMotionDelta that get initialized to 0 by default
+#if ENABLE_NAN_DIAGNOSTIC
+		float qnan = FMath::Log2(-5.3f);
+		check(FMath::IsNaN(qnan));
+		Translation = FVector(qnan, qnan, qnan);
+		Rotation = FQuat(qnan, qnan, qnan, qnan);
+		Scale3D = FVector(qnan, qnan, qnan);
+#endif
 	}
 
 	/**
@@ -489,7 +519,7 @@ public:
 	*/
 	FORCEINLINE void operator*=(const FQuat& Other);
 
-	FORCEINLINE void ScaleTranslation(const FVector& Scale3D);
+	FORCEINLINE void ScaleTranslation(const FVector& InScale3D);
 	FORCEINLINE void ScaleTranslation(const float& Scale);
 	FORCEINLINE void RemoveScaling(float Tolerance=SMALL_NUMBER);
 	FORCEINLINE float GetMaximumAxisScale() const;
@@ -610,14 +640,74 @@ public:
 	}
 	*/
 
-	inline bool Equals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
+private:
+
+	FORCEINLINE bool Private_RotationEquals(const FQuat& InRotation, const float Tolerance = KINDA_SMALL_NUMBER) const
 	{
-		return Rotation.Equals(Other.Rotation, Tolerance) && Translation.Equals(Other.Translation, Tolerance) && ((Scale3D-Other.Scale3D).Size() < Tolerance);
+		return Rotation.Equals(InRotation, Tolerance);
 	}
 
+	FORCEINLINE bool Private_TranslationEquals(const FVector& InTranslation, const float Tolerance = KINDA_SMALL_NUMBER) const
+	{
+		return Translation.Equals(InTranslation, Tolerance);
+	}
+
+	FORCEINLINE bool Private_Scale3DEquals(const FVector& InScale3D, const float Tolerance = KINDA_SMALL_NUMBER) const
+	{
+		return Scale3D.Equals(InScale3D, Tolerance);
+	}
+
+public:
+
+	// Test if A's rotation equals B's rotation, within a tolerance. Preferred over "A.GetRotation().Equals(B.GetRotation())" because it is faster on some platforms.
+	FORCEINLINE static bool AreRotationsEqual(const FTransform& A, const FTransform& B, float Tolerance=KINDA_SMALL_NUMBER)
+	{
+		return A.Private_RotationEquals(B.Rotation, Tolerance);
+	}
+
+	// Test if A's translation equals B's translation, within a tolerance. Preferred over "A.GetTranslation().Equals(B.GetTranslation())" because it is faster on some platforms.
+	FORCEINLINE static bool AreTranslationsEqual(const FTransform& A, const FTransform& B, float Tolerance=KINDA_SMALL_NUMBER)
+	{
+		return A.Private_TranslationEquals(B.Translation, Tolerance);
+	}
+
+	// Test if A's scale equals B's scale, within a tolerance. Preferred over "A.GetScale3D().Equals(B.GetScale3D())" because it is faster on some platforms.
+	FORCEINLINE static bool AreScale3DsEqual(const FTransform& A, const FTransform& B, float Tolerance=KINDA_SMALL_NUMBER)
+	{
+		return A.Private_Scale3DEquals(B.Scale3D, Tolerance);
+	}
+
+
+
+	// Test if this Transform's rotation equals another's rotation, within a tolerance. Preferred over "GetRotation().Equals(Other.GetRotation())" because it is faster on some platforms.
+	FORCEINLINE bool RotationEquals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
+	{
+		return AreRotationsEqual(*this, Other, Tolerance);
+	}
+
+	// Test if this Transform's translation equals another's translation, within a tolerance. Preferred over "GetTranslation().Equals(Other.GetTranslation())" because it is faster on some platforms.
+	FORCEINLINE bool TranslationEquals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
+	{
+		return AreTranslationsEqual(*this, Other, Tolerance);
+	}
+
+	// Test if this Transform's scale equals another's scale, within a tolerance. Preferred over "GetScale3D().Equals(Other.GetScale3D())" because it is faster on some platforms.
+	FORCEINLINE bool Scale3DEquals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
+	{
+		return AreScale3DsEqual(*this, Other, Tolerance);
+	}
+
+
+	// Test if all components of the transforms are equal, within a tolerance.
+	inline bool Equals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
+	{
+		return Private_TranslationEquals(Other.Translation, Tolerance) && Private_RotationEquals(Other.Rotation, Tolerance) && Private_Scale3DEquals(Other.Scale3D, Tolerance);
+	}
+
+	// Test if rotation and translation components of the transforms are equal, within a tolerance.
 	inline bool EqualsNoScale(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
 	{
-		return Rotation.Equals(Other.Rotation, Tolerance) && Translation.Equals(Other.Translation, Tolerance);
+		return Private_TranslationEquals(Other.Translation, Tolerance) && Private_RotationEquals(Other.Rotation, Tolerance);
 	}
 
 	/**
@@ -679,6 +769,12 @@ public:
 		DiagnosticCheckNaN_Translate();
 	}
 
+	/** Copy translation from another FTransform. */
+	FORCEINLINE void CopyTranslation(const FTransform& Other)
+	{
+		Translation = Other.Translation;
+	}
+
 	/**
 	 * Concatenates another rotation to this transformation 
 	 * @param DeltaRotation The rotation to concatenate in the following fashion: Rotation = Rotation * DeltaRotation
@@ -700,6 +796,24 @@ public:
 	}
 
 	/**
+	 * Add the translations from two FTransforms and return the result.
+	 * @return A.Translation + B.Translation
+	 */
+	FORCEINLINE static FVector AddTranslations(const FTransform& A, const FTransform& B)
+	{
+		return A.Translation + B.Translation;
+	}
+
+	/**
+	 * Subtract translations from two FTransforms and return the difference.
+	 * @return A.Translation - B.Translation.
+	 */
+	FORCEINLINE static FVector SubtractTranslations(const FTransform& A, const FTransform& B)
+	{
+		return A.Translation - B.Translation;
+	}
+
+	/**
 	 * Sets the rotation component
 	 * @param NewRotation The new value for the rotation component
 	 */
@@ -707,6 +821,12 @@ public:
 	{
 		Rotation = NewRotation;
 		DiagnosticCheckNaN_Rotate();
+	}
+
+	/** Copy rotation from another FTransform. */
+	FORCEINLINE void CopyRotation(const FTransform& Other)
+	{
+		Rotation = Other.Rotation;
 	}
 
 	/**
@@ -717,6 +837,12 @@ public:
 	{
 		Scale3D = NewScale3D;
 		DiagnosticCheckNaN_Scale3D();
+	}
+
+	/** Copy scale from another FTransform. */
+	FORCEINLINE void CopyScale3D(const FTransform& Other)
+	{
+		Scale3D = Other.Scale3D;
 	}
 
 	/**
@@ -1142,7 +1268,7 @@ FORCEINLINE FVector4 FTransform::TransformFVector4NoScale(const FVector4& V) con
 
 	//Transform using QST is following
 	//QST(P) = Q*S*P*-Q + T where Q = quaternion, S = scale, T = translation
-	FVector4 Transform = Rotation.RotateVector(V);
+	FVector4 Transform = FVector4(Rotation.RotateVector(FVector(V)), 0.f);
 	if (V.W == 1.f)
 	{
 		Transform += FVector4(Translation, 1.f);
@@ -1162,7 +1288,7 @@ FORCEINLINE FVector4 FTransform::TransformFVector4(const FVector4& V) const
 	//Transform using QST is following
 	//QST(P) = Q*S*P*-Q + T where Q = quaternion, S = scale, T = translation
 
-	FVector4 Transform = (Rotation.RotateVector(Scale3D*V));
+	FVector4 Transform = FVector4(Rotation.RotateVector(Scale3D*FVector(V)), 0.f);
 	if (V.W == 1.f)
 	{
 		Transform += FVector4(Translation, 1.f);

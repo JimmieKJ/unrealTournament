@@ -75,9 +75,30 @@ bool UDelegateProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* 
 FString UDelegateProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CPPExportFlags/*=0*/ ) const
 {
 	FString UnmangledFunctionName = SignatureFunction->GetName().LeftChop( FString( HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX ).Len() );
-	if (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_CustomTypeName))
+	const bool bBlueprintCppBackend = (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_BlueprintCppBackend));
+	const bool bNative = SignatureFunction->IsNative();
+	if (bBlueprintCppBackend && bNative)
 	{
-		UnmangledFunctionName += TEXT("__SinglecastDelegate");
+		UStruct* StructOwner = Cast<UStruct>(SignatureFunction->GetOuter());
+		if (StructOwner)
+		{
+			return FString::Printf(TEXT("%s%s::F%s"), StructOwner->GetPrefixCPP(), *StructOwner->GetName(), *UnmangledFunctionName);
+		}
+	}
+	else
+	{
+		const bool NonNativeClassOwner = (SignatureFunction->GetOwnerClass() && !SignatureFunction->GetOwnerClass()->HasAnyClassFlags(CLASS_Native));
+		if (bBlueprintCppBackend && NonNativeClassOwner)
+		{
+			// the name must be unique
+			const FString OwnerName = UnicodeToCPPIdentifier(SignatureFunction->GetOwnerClass()->GetName(), false, TEXT(""));
+			const FString NewUnmangledFunctionName = FString::Printf(TEXT("%s__%s"), *UnmangledFunctionName, *OwnerName);
+			UnmangledFunctionName = NewUnmangledFunctionName;
+		}
+		if (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_CustomTypeName))
+		{
+			UnmangledFunctionName += TEXT("__SinglecastDelegate");
+		}
 	}
 	return FString(TEXT("F")) + UnmangledFunctionName;
 }
@@ -89,6 +110,12 @@ FString UDelegateProperty::GetCPPTypeForwardDeclaration() const
 
 void UDelegateProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		ValueStr += TEXT("{}");
+		return;
+	}
+
 	FScriptDelegate* ScriptDelegate = (FScriptDelegate*)PropertyValue;
 	check(ScriptDelegate != NULL);
 	bool bDelegateHasValue = ScriptDelegate->GetFunctionName() != NAME_None;

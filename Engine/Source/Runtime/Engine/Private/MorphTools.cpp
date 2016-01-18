@@ -119,11 +119,11 @@ void UMorphTarget::CreateMorphMeshStreams( const FMorphMeshRawSource& BaseSource
 					FVector NormalDeltaZ (VTarget.TanZ - VBase.TanZ);
 
 					// check if position actually changed much
-					if( PositionDelta.Size() > THRESH_POINTS_ARE_NEAR || 
+					if( PositionDelta.SizeSquared() > FMath::Square(THRESH_POINTS_ARE_NEAR) || 
 						// since we can't get imported morphtarget normal from FBX
 						// we can't compare normal unless it's calculated
 						// this is special flag to ignore normal diff
-						( bCompareNormal && NormalDeltaZ.Size() > 0.1f) )
+						( bCompareNormal && NormalDeltaZ.SizeSquared() > 0.01f) )
 					{
 						// create a new entry
 						FVertexAnimDelta NewVertex;

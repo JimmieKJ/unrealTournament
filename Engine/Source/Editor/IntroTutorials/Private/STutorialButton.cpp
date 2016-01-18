@@ -197,9 +197,9 @@ EActiveTimerReturnType STutorialButton::HandleButtonClicked_AssetRegistryChecker
 
 		IntroTutorials.LaunchTutorial(CachedLaunchTutorial, IIntroTutorials::ETutorialStartType::TST_RESTART, ContextWindow, Delegate, Delegate);
 
-		// The user asked to start the tutorial, so we don't need to remind them about it again this session, but we'll remind
-		// them in the next session if they haven't completed it by then
-		const bool bDismissAcrossSessions = false;
+		// The user asked to start the tutorial, so we don't need to remind them about it again.
+		// We used to remind them in future sessions, but user preference is that we don't.
+		const bool bDismissAcrossSessions = true;
 		GetMutableDefault<UTutorialStateSettings>()->DismissTutorial(CachedLaunchTutorial, bDismissAcrossSessions);
 		GetMutableDefault<UTutorialStateSettings>()->SaveProgress();
 		bTutorialDismissed = true;
@@ -252,8 +252,9 @@ FReply STutorialButton::OnMouseButtonDown(const FGeometry& MyGeometry, const FPo
 			FUIAction(FExecuteAction::CreateSP(this, &STutorialButton::LaunchBrowser))
 			);
 
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
 
-		FSlateApplication::Get().PushMenu(SharedThis(this), MenuBuilder.MakeWidget(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect::ContextMenu);
+		FSlateApplication::Get().PushMenu(SharedThis(this), WidgetPath, MenuBuilder.MakeWidget(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect::ContextMenu);
 	}
 	return FReply::Handled();
 }
@@ -317,7 +318,7 @@ bool STutorialButton::ShouldShowAlert() const
 {
 	if ((bTestAlerts || !FEngineBuildSettings::IsInternalBuild()) && bTutorialAvailable && !(bTutorialCompleted || bTutorialDismissed))
 	{
-		return !GetMutableDefault<UTutorialStateSettings>()->AreAllTutorialsDismissed();
+		return (!GetMutableDefault<UEditorTutorialSettings>()->bDisableAllTutorialAlerts && !GetMutableDefault<UTutorialStateSettings>()->AreAllTutorialsDismissed());
 	}
 	return false;
 }

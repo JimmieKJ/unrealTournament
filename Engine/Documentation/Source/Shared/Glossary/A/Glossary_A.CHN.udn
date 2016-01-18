@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:1950693
-Title:A
+﻿Title:A
 Crumbs:Shared/Glossary
 Description:
 Availability:NoPublish
@@ -11,9 +10,14 @@ Availability:NoPublish
 Actor
 	[/PARAM]
 	[PARAM:Definition]
+<!--
+**Actors** are the most important concept in Unreal Engine 4. Your game will be filled with them, as every interactive entity in your game is an Actor. They usually contain one or more components, can be placed in a **Level** or **Spawned** in during gameplay, and support network replication for multiplayer games.
+-->
 
 [EXCERPT:Glossary_Actor]
-**Actor** 是可以放置在关卡中的任意对象。 从技术上来说，就是包含诸如平移，旋转和缩放的3D转换数据的通用类。 所有可放置的对象都继承于此类。 示例包括静态网格物体Actors, 相机Actors,以及光照Actors。
+**Actor** 是可以放置在关卡中的任意对象。Actor是支持三维变换的通用类，比如如平移，旋转和缩放变换。Actor可以通过游戏代码(C++或蓝图)来创建(生成)及销毁。在C++中，AActor 是所有Actor的基类。
+
+有多种不同类型的Actor，一些示例包括： StaticMeshActor（静态网格物体Actor）、CameraActor（相机Actor）及 PlayerStartActor（玩家起点Actor）。
 [/EXCERPT:Glossary_Actor]
 
 	[/PARAM]
@@ -27,8 +31,21 @@ AI
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_AI]
-**AI**,或者说人工智能，是由一系列程序化的指示来控制的操作，而不由人工输入来控制。  例如，非玩家控制的角色（NPCs）就是由AI控制的。
+**AI**,或者说人工智能，是由一组程序指令来控制的行为，而不由人工输入来控制。例如，非玩家角色（NPC）就是由AI控制的。
 [/EXCERPT:Glossary_AI]
+
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+AIController（人工智能控制器）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_AIController]
+就同PlayerController(玩家控制器)一样，玩家控制器控制一个Pawn让其代表游戏中的玩家，而 **AIController(人工智能)** 则控制一个Pawn让其代表游戏中的非玩家角色(NPC)。默认情况下，Pawn和角色都将以AIController基类结束，除非特别指出它们由一个PlayerController（玩家控制器）控制，或者被告知为其自身创建一个AIController(人工智能控制器)。
+[/EXCERPT:Glossary_AIController]
 
 	[/PARAM]
 [/OBJECT]
@@ -36,14 +53,14 @@ AI
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-animation（动画）
+动画
 	[/PARAM]
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_animation]
-**Animation** （动画）是随时间而变更的属性值。 示例包括位置，旋转，和/或缩放的变更，但也可以扩展到其它任意属性。
+**Animation（动画）** 是属性值随着时间的变化。示例包括位置，旋转，和/或缩放的变化，但也可以扩展到其它任意属性。
 
-"Animation" （动画）可以特指在虚幻Matinee中创建的序列，或是在外部3D建模和动画应用中为骨架网格物体创建的序列，然后被导入到虚幻编辑器中。 它甚至可以指由C++ 代码或蓝图创建的随时间变化的Actor的单个属性（或多个属性）。
+"Animation" （动画）可以特指在虚幻Matinee中创建的序列，或是在外部3D建模和动画应用中为骨架网格物体创建的序列，然后被导入到虚幻编辑器中。它甚至可以指由C++ 代码或蓝图创建的一个Actor属性（或多个属性）Actor随时间的变化。
 [/EXCERPT:Glossary_animation]
 
 	[/PARAM]
@@ -52,12 +69,12 @@ animation（动画）
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-Animation Sequence（动画序列）
+动画序列
 	[/PARAM]
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_animation_sequence]
-**Animation Sequence** （动画序列）, 或 **AnimSequence** （动画序列的缩写），是为骨架网格物体在3D建模和动画应用中创建的动画资源，它们被随后导入到虚幻编辑器中。 您可以在Persona中使用动画序列。
+**Animation Sequence（动画序列）** , 或 **AnimSequence** ，是在3D建模和动画应用中为骨架网格物体创建的动画资源，随后导入到虚幻编辑器中。您可以在Persona(角色编辑器)中使用动画序列。
 [/EXCERPT:Glossary_animation_sequence]
 
 	[/PARAM]
@@ -66,12 +83,12 @@ Animation Sequence（动画序列）
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-asset（资源）
+资源
 	[/PARAM]
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_asset]
-**asset** （资源）是用来构建游戏的要素。   示例包含了在内容浏览器中导入或在内容浏览器中创建的内容，例如材质，静态网格物体，贴图，粒子系统，蓝图以及声音提示。  每个资源都被存储在单独的.uasset文件中。
+**asset** （资源）是用来构建游戏的一个元素。示例包括在内容浏览器中导入或在内容浏览器中创建的内容，例如材质、静态网格物体、贴图、粒子系统、蓝图以及音效。每个资源都存储在单独的.uasset文件中。
 [/EXCERPT:Glossary_asset]
 
 	[/PARAM]

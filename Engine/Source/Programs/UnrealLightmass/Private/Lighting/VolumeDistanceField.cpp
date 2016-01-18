@@ -14,7 +14,7 @@ void FStaticLightingSystem::BeginCalculateVolumeDistanceField()
 	DistanceFieldVolumeBounds = Scene.ImportanceBoundingBox;
 	if (DistanceFieldVolumeBounds.GetVolume() < KINDA_SMALL_NUMBER)
 	{
-		DistanceFieldVolumeBounds = AggregateMesh.GetBounds();
+		DistanceFieldVolumeBounds = AggregateMesh->GetBounds();
 	}
 
 	FBox UnclampedDistanceFieldVolumeBounds = DistanceFieldVolumeBounds;
@@ -129,7 +129,7 @@ void FStaticLightingSystem::CalculateVolumeDistanceFieldWorkRange(int32 ZIndex)
 
 					// Trace rays in all directions to find the closest solid surface
 					FLightRayIntersection Intersection;
-					AggregateMesh.IntersectLightRay(Ray, true, false, false, MappingContext.RayCache, Intersection);
+					AggregateMesh->IntersectLightRay(Ray, true, false, false, MappingContext.RayCache, Intersection);
 
 					if (Intersection.bIntersects)
 					{

@@ -30,6 +30,7 @@ public:
 	TSharedPtr< FUICommandInfo > AddCodeToProject;
 	TSharedPtr< FUICommandInfo > OpenIDE;
 	TSharedPtr< FUICommandInfo > RefreshCodeProject;
+	TSharedPtr< FUICommandInfo > ZipUpProject;
 	TSharedPtr< FUICommandInfo > PackagingSettings;
 	TSharedPtr< FUICommandInfo > LocalizeProject;
 	TArray< TSharedPtr< FUICommandInfo > > SwitchProjectCommands;
@@ -46,17 +47,18 @@ public:
 	TSharedPtr< FUICommandInfo > OpenClassViewer;
 	TSharedPtr< FUICommandInfo > OpenWidgetReflector;
 
-	TSharedPtr< FUICommandInfo > VisitUTWiki;
 	TSharedPtr< FUICommandInfo > VisitWiki;
-	TSharedPtr< FUICommandInfo > VisitUTForums;
 	TSharedPtr< FUICommandInfo > VisitForums;
 	TSharedPtr< FUICommandInfo > VisitAskAQuestionPage;
 	TSharedPtr< FUICommandInfo > VisitSearchForAnswersPage;
 	TSharedPtr< FUICommandInfo > VisitSupportWebSite;
-	TSharedPtr< FUICommandInfo > VisitUTDotCom;
 	TSharedPtr< FUICommandInfo > VisitEpicGamesDotCom;
 	TSharedPtr< FUICommandInfo > AboutUnrealEd;
 	TSharedPtr< FUICommandInfo > CreditsUnrealEd;
+
+	TSharedPtr< FUICommandInfo > VisitUTWiki;
+	TSharedPtr< FUICommandInfo > VisitUTForums;
+	TSharedPtr< FUICommandInfo > VisitUTDotCom;
 
 	TSharedPtr< FUICommandInfo > ResetLayout;
 	TSharedPtr< FUICommandInfo > SaveLayout;
@@ -186,8 +188,14 @@ public:
 	/** Refresh the project in the current IDE */
 	static void RefreshCodeProject();
 
+	/** Determines whether the project is a code project */
+	static bool IsCodeProject();
+
 	/** Opens an IDE to edit c++ code */
 	static void OpenIDE();
+
+	/** Zips up the project */
+	static void ZipUpProject();
 
 	/** Opens the Packaging settings tab */
 	static void PackagingSettings();

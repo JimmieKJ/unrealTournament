@@ -294,11 +294,16 @@ public:
 
 	// static helpers
 	static const TCHAR* VerbosityToString(ELogVerbosity::Type Verbosity);
-	static FString FormatLogLine(ELogVerbosity::Type Verbosity, const class FName& Category, const TCHAR* Message = nullptr, ELogTimes::Type LogTime = ELogTimes::None);
+	static FString FormatLogLine(ELogVerbosity::Type Verbosity, const class FName& Category, const TCHAR* Message = nullptr, ELogTimes::Type LogTime = ELogTimes::None, const double Time = -1.0);
 
 
 	// FOutputDevice interface.
-	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category )=0;
+	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) = 0;
+	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time )
+	{
+		Serialize( V, Verbosity, Category );
+	}
+
 	virtual void Flush()
 	{
 	}
@@ -384,6 +389,12 @@ struct CORE_API FMsg
  **/
 struct CORE_API FDebug
 {
+	/** Conditionally emits a special UAT marker. */
+	static void ConditionallyEmitBeginCrashUATMarker();
+
+	/** Conditionally emits a special UAT marker. */
+	static void ConditionallyEmitEndCrashUATMarker();
+
 	/** Logs final assert message and exits the program. */
 	static void VARARGS AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format = TEXT(""), ...);
 
@@ -398,6 +409,8 @@ struct CORE_API FDebug
 	 * @param	File	File name ANSI string (__FILE__)
 	 * @param	Line	Line number (__LINE__)
 	 * @param	Msg		Informative error message text
+	 * 
+	 * Don't change the name of this function, it's used to detect ensures by the crash reporter.
 	 */
 	static void EnsureFailed( const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg );
 
@@ -414,7 +427,7 @@ struct CORE_API FDebug
 	 *
 	 * Note: this crazy name is to ensure that the crash reporter recognizes it, which checks for functions in the callstack starting with 'EnsureNotFalse'.
 	 */
-	static bool VARARGS EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ...);
+	static bool VARARGS OptionallyLogFormattedEnsureMessageReturningFalse(bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ...);
 #endif // DO_CHECK || DO_GUARD_SLOW
 };
 

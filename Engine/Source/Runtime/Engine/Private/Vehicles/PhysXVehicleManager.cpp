@@ -36,7 +36,7 @@ static PxQueryHitType::Enum WheelRaycastPreFilter(
 	}
 
 	// collision channels filter
-	ECollisionChannel SuspensionChannel = (ECollisionChannel)(SuspensionData.word3 >> 24);
+	ECollisionChannel SuspensionChannel = GetCollisionChannel(SuspensionData.word3);
 
 	if ( ECC_TO_BITFIELD(SuspensionChannel) & HitData.word1)
 	{
@@ -244,6 +244,9 @@ void FPhysXVehicleManager::RemoveVehicle( TWeakObjectPtr<UWheeledVehicleMovement
 		break;
 	case PxVehicleTypes::eDRIVETANK:
 		((PxVehicleDriveTank*)PVehicle)->free();
+		break;
+	case PxVehicleTypes::eDRIVENW:
+		((PxVehicleDriveNW*)PVehicle)->free();
 		break;
 	case PxVehicleTypes::eNODRIVE:
 		((PxVehicleNoDrive*)PVehicle)->free();

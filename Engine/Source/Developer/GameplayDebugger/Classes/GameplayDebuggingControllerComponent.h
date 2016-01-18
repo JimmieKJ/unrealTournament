@@ -6,6 +6,7 @@
 
 #pragma once
 #include "TimerManager.h"
+#include "InputCore.h"
 #include "GameplayDebuggingTypes.h"
 #include "GameplayDebugger.h"
 #include "GameFramework/HUD.h"
@@ -18,7 +19,7 @@ UCLASS(config = Engine)
 class GAMEPLAYDEBUGGER_API UGameplayDebuggingControllerComponent : public UActorComponent
 {
 	GENERATED_UCLASS_BODY()
-		
+
 #if WITH_HOT_RELOAD_CTORS
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	UGameplayDebuggingControllerComponent(FVTableHelper& Helper);
@@ -53,9 +54,6 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggingControllerComponent : public UActor
 
 	TWeakObjectPtr<ADebugCameraController> GetDebugCameraController() { return DebugCameraController; }
 
-	FOnChangeEQSQuery OnNextEQSQuery;
-	FOnChangeEQSQuery OnPreviousEQSQuery;
-
 protected:
 
 	UPROPERTY(Transient)
@@ -86,11 +84,13 @@ protected:
 	virtual void ToggleAIDebugView_SetView7();
 	virtual void ToggleAIDebugView_SetView8();
 	virtual void ToggleAIDebugView_SetView9();
-	virtual void NextEQSQuery();
+	virtual void CycleDetailsView();
 
 	virtual void BindAIDebugViewKeys(class UInputComponent*& InputComponent);
 	AGameplayDebuggingReplicator* GetDebuggingReplicator() const;
 	virtual void ToggleDebugCamera();
+	virtual void ToggleOnScreenDebugMessages();
+	virtual void ToggleGameHUD();
 
 	TWeakObjectPtr<APlayerController> PlayerOwner;
 	TWeakObjectPtr<ADebugCameraController> DebugCameraController;
@@ -98,24 +98,69 @@ protected:
 	/** Handle for efficient management of UpdateNavMesh timer */
 	FTimerHandle TimerHandle_UpdateNavMeshTimer;
 
-	FInputChord ActivationKey;
 	const float KeyPressActivationTime;
 	float ControlKeyPressedTime;
 	float PlayersComponentRequestTime;
 	uint32 bToolActivated : 1;
 	uint32 bWaitingForOwnersComponent : 1;
+
+public:
+	UPROPERTY(config)
+	FInputChord ActivationKey;
+
+	UPROPERTY(config)
+	FInputChord CategoryZeroBind;
+
+	UPROPERTY(config)
+	FInputChord CategoryOneBind;
+
+	UPROPERTY(config)
+	FInputChord CategoryTwoBind;
+
+	UPROPERTY(config)
+	FInputChord CategoryThreeBind;
+
+	UPROPERTY(config)
+	FInputChord CategoryFourBind;
+
+	UPROPERTY(config)
+	FInputChord CategoryFiveBind;
+
+	UPROPERTY(config)
+	FInputChord CategorySixBind;
+
+	UPROPERTY(config)
+	FInputChord CategorySevenBind;
+
+	UPROPERTY(config)
+	FInputChord CategoryEightBind;
+
+	UPROPERTY(config)
+	FInputChord CategoryNineBind;
+
+	UPROPERTY(config)
+	FInputChord CycleDetailsViewBind;
+
+	UPROPERTY(config)
+	FInputChord DebugCameraBind;
+
+	UPROPERTY(config)
+	FInputChord OnScreenDebugMessagesBind;
+
+	UPROPERTY(config)
+	FInputChord GameHUDBind;
 };
 
-UCLASS()
+UCLASS(NotBlueprintable, Transient, NotBlueprintType, hidedropdown, hidecategories = Actor, notplaceable)
 class AGaneplayDebuggerProxyHUD : public AHUD
 {
 	GENERATED_UCLASS_BODY()
 
 	FFontRenderInfo TextRenderInfo;
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void PostRender() override;
-	// End AActor Interface
+	//~ End AActor Interface
 
 	TWeakObjectPtr<AHUD> RedirectedHUD;
 };

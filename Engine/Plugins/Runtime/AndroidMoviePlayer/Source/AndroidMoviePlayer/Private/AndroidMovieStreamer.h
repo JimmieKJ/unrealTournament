@@ -4,7 +4,7 @@
 
 #include "MoviePlayer.h"
 #include "AndroidJavaMediaPlayer.h"
-#include "Slate.h"
+#include "SlateBasics.h"
 #include "Slate/SlateTextures.h"
 
 // The actual streamer class

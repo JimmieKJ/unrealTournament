@@ -12,6 +12,7 @@
 
 
 #include "ScConstraintGroupNode.h"
+#include "ScConstraintProjectionManager.h"
 #include "PsFoundation.h"
 #include "ScBodySim.h"
 #include "ScConstraintSim.h"
@@ -72,6 +73,16 @@ Sc::ConstraintGroupNode& Sc::ConstraintGroupNode::getRoot()
 		}
 
 		return *root;
+	}
+}
+
+
+void Sc::ConstraintGroupNode::markForProjectionTreeRebuild(ConstraintProjectionManager& cpManager)
+{
+	ConstraintGroupNode& root = getRoot();
+	if (!root.readFlag(ConstraintGroupNode::ePENDING_TREE_UPDATE))
+	{
+		cpManager.addToPendingTreeUpdates(root);
 	}
 }
 

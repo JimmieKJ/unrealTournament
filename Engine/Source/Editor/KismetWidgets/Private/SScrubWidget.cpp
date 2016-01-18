@@ -2,7 +2,7 @@
 
 #include "KismetWidgetsPrivatePCH.h"
 #include "SScrubWidget.h"
-
+#include "STextEntryPopup.h"
 
 #define LOCTEXT_NAMESPACE "ScrubWidget"
 
@@ -41,6 +41,7 @@ void SScrubWidget::Construct( const SScrubWidget::FArguments& InArgs )
 	OnSetInputViewRange = InArgs._OnSetInputViewRange;
 	OnCropAnimSequence = InArgs._OnCropAnimSequence;
 	OnAddAnimSequence = InArgs._OnAddAnimSequence;
+	OnAppendAnimSequence = InArgs._OnAppendAnimSequence;
 	OnReZeroAnimSequence = InArgs._OnReZeroAnimSequence;
 
 	DraggableBars = InArgs._DraggableBars;
@@ -242,7 +243,7 @@ FReply SScrubWidget::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointe
 
 		if( !bMouseMovedDuringPanning )
 		{
-			CreateContextMenu( NewValue );
+			CreateContextMenu(NewValue, MouseEvent);
 		}
 		return FReply::Handled().ReleaseMouseCapture();
 	}
@@ -411,7 +412,7 @@ FCursorReply SScrubWidget::OnCursorQuery( const FGeometry& MyGeometry, const FPo
 	return FCursorReply::Unhandled();
 }
 
-void SScrubWidget::CreateContextMenu(float CurrentFrameTime)
+void SScrubWidget::CreateContextMenu(float CurrentFrameTime, const FPointerEvent& MouseEvent)
 {
 	if ((OnCropAnimSequence.IsBound() || OnReZeroAnimSequence.IsBound() || OnAddAnimSequence.IsBound()) && (SequenceLength.Get() >= MINIMUM_ANIMATION_LENGTH))
 	{
@@ -437,7 +438,7 @@ void SScrubWidget::CreateContextMenu(float CurrentFrameTime)
 					//Corrected frame time based on selected frame number
 					float CorrectedFrameTime = CurrentFrameFraction * SequenceLength.Get();
 
-					Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceCropped, true, CorrectedFrameTime));
+					Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceCroppedCalled, true, CorrectedFrameTime));
 					Label = FText::Format(LOCTEXT("RemoveTillFrame", "Remove frame 0 to frame {0}"), FText::AsNumber(CurrentFrameNumber));
 					MenuBuilder.AddMenuEntry(Label, LOCTEXT("RemoveBefore_ToolTip", "Remove sequence before current position"), FSlateIcon(), Action);
 				}
@@ -450,7 +451,7 @@ void SScrubWidget::CreateContextMenu(float CurrentFrameTime)
 				{
 					float NextFrameFraction = float(NextFrameNumber) / (float)NumOfKeys.Get();
 					float NextFrameTime = NextFrameFraction * SequenceLength.Get();
-					Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceCropped, false, NextFrameTime));
+					Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceCroppedCalled, false, NextFrameTime));
 					Label = FText::Format(LOCTEXT("RemoveFromFrame", "Remove from frame {0} to frame {1}"), FText::AsNumber(NextFrameNumber), FText::AsNumber(NumOfKeys.Get()));
 					MenuBuilder.AddMenuEntry(Label, LOCTEXT("RemoveAfter_ToolTip", "Remove sequence after current position"), FSlateIcon(), Action);
 				}
@@ -458,33 +459,50 @@ void SScrubWidget::CreateContextMenu(float CurrentFrameTime)
 
 			if (OnAddAnimSequence.IsBound())
 			{
+				MenuBuilder.AddMenuSeparator();
+
 				//Corrected frame time based on selected frame number
 				float CorrectedFrameTime = CurrentFrameFraction * SequenceLength.Get();
 
-				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceAdded, true, CurrentFrameNumber));
+				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceAddedCalled, true, CurrentFrameNumber));
 				Label = FText::Format(LOCTEXT("InsertBeforeCurrentFrame", "Insert frame before {0}"), FText::AsNumber(CurrentFrameNumber));
 				MenuBuilder.AddMenuEntry(Label, LOCTEXT("InsertBefore_ToolTip", "Insert a frame before current position"), FSlateIcon(), Action);
 
-				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceAdded, false, CurrentFrameNumber));
+				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceAddedCalled, false, CurrentFrameNumber));
 				Label = FText::Format(LOCTEXT("InsertAfterCurrentFrame", "Insert frame after {0}"), FText::AsNumber(CurrentFrameNumber));
 				MenuBuilder.AddMenuEntry(Label, LOCTEXT("InsertAfter_ToolTip", "Insert a frame after current position"), FSlateIcon(), Action);
 			}
 
+			if(OnAppendAnimSequence.IsBound())
+			{
+				MenuBuilder.AddMenuSeparator();
+
+				//Corrected frame time based on selected frame number
+				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnShowPopupOfAppendAnimation, true));
+				MenuBuilder.AddMenuEntry(LOCTEXT("AppendBegin", "Append in the beginning"), LOCTEXT("AppendBegin_ToolTip", "Append in the beginning"), FSlateIcon(), Action);
+
+				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnShowPopupOfAppendAnimation, false));
+				MenuBuilder.AddMenuEntry(LOCTEXT("AppendEnd", "Append at the end"), LOCTEXT("AppendEnd_ToolTip", "Append at the end"), FSlateIcon(), Action);
+			}
+
 			if (OnReZeroAnimSequence.IsBound())
 			{
+				MenuBuilder.AddMenuSeparator();
 				//Menu - "ReZero"
-				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnReZero));
+				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnReZeroCalled));
 				Label = FText::Format(LOCTEXT("ReZeroAtFrame", "ReZero at frame {0}"), FText::AsNumber(CurrentFrameNumber));
 				MenuBuilder.AddMenuEntry(Label, LOCTEXT("ReZeroAtFrame_ToolTip", "Resets the root track of the frame to (0, 0, 0), and apply the difference to all root transform of the sequence. It moves whole sequence to the amount of current root transform. "), FSlateIcon(), Action);
 			}
 		}
 		MenuBuilder.EndSection();
 
-		FSlateApplication::Get().PushMenu( SharedThis( this ), MenuBuilder.MakeWidget(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ) );
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+
+		FSlateApplication::Get().PushMenu(SharedThis(this), WidgetPath, MenuBuilder.MakeWidget(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 	}
 }
 
-void SScrubWidget::OnSequenceCropped( bool bFromStart, float CurrentFrameTime )
+void SScrubWidget::OnSequenceCroppedCalled( bool bFromStart, float CurrentFrameTime )
 {
 	OnCropAnimSequence.ExecuteIfBound( bFromStart, CurrentFrameTime );
 
@@ -492,20 +510,53 @@ void SScrubWidget::OnSequenceCropped( bool bFromStart, float CurrentFrameTime )
 	OnSetInputViewRange.ExecuteIfBound( ViewInputMin.Get(), ViewInputMax.Get() );
 }
 
-void SScrubWidget::OnSequenceAdded(bool bBefore, int32 CurrentFrameNumber)
+void SScrubWidget::OnSequenceAddedCalled(bool bBefore, int32 CurrentFrameNumber)
 {
 	OnAddAnimSequence.ExecuteIfBound(bBefore, CurrentFrameNumber);
 
 	//Update scrubs new length to be new Sequence Length
 	// @Todo fixme: this whole thing needs to change to "Refresh" 
-	// - including the OnSequenceCropped
+	// - including the OnSequenceCroppedCalled
 	OnSetInputViewRange.ExecuteIfBound(ViewInputMin.Get(), SequenceLength.Get());
 }
 
-void SScrubWidget::OnReZero()
+void SScrubWidget::OnReZeroCalled()
 {
 	OnReZeroAnimSequence.ExecuteIfBound();
 }
 
+void SScrubWidget::OnShowPopupOfAppendAnimation(bool bBegin)
+{
+	TSharedRef<STextEntryPopup> TextEntry =
+		SNew(STextEntryPopup)
+		.Label(LOCTEXT("AppendAnim_AskNumFrames", "Number of Frames to Append"))
+		.OnTextCommitted(this, &SScrubWidget::OnSequenceAppendedCalled, bBegin);
+
+	// Show dialog to enter new track name
+	FSlateApplication::Get().PushMenu(
+		SharedThis(this),
+		FWidgetPath(),
+		TextEntry,
+		FSlateApplication::Get().GetCursorPos(),
+		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
+		);
+}
+
+void SScrubWidget::OnSequenceAppendedCalled(const FText & InNewGroupText, ETextCommit::Type CommitInfo, bool bBegin)
+{
+	// just a concern
+	const static int32 MaxFrame = 1000;
+
+	// handle only onEnter. This is a big thing to apply when implicit focus change or any other event
+	if (CommitInfo == ETextCommit::OnEnter)
+	{
+		int32 NumFrames = FCString::Atoi(*InNewGroupText.ToString());
+		if (NumFrames > 0 && NumFrames < MaxFrame)
+		{
+			OnAppendAnimSequence.ExecuteIfBound(bBegin, NumFrames);
+			FSlateApplication::Get().DismissAllMenus();
+		}
+	}
+}
 
 #undef LOCTEXT_NAMESPACE

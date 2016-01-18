@@ -24,3 +24,8 @@ void UGameplayTagsSettings::PostEditChangeProperty(FPropertyChangedEvent& Proper
 	}
 }
 #endif
+
+void UGameplayTagsSettings::SortTags()
+{
+	GameplayTags.Sort();
+}

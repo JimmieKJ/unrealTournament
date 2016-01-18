@@ -1,15 +1,20 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "Slate/SUTInGameMenu.h"
+#include "Menus/SUTInGameMenu.h"
 #include "UTGameEngine.h"
 #include "UTGameInstance.h"
 #include "DataChannel.h"
+#include "UTDemoRecSpectator.h"
+#if WITH_PROFILE
+#include "UtMcpProfileManager.h"
+#endif
 
 AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	ReplaySpectatorPlayerControllerClass = AUTDemoRecSpectator::StaticClass();
 }
 
 void AUTBaseGameMode::PreInitializeComponents()
@@ -26,15 +31,28 @@ void AUTBaseGameMode::CreateServerID()
 	SaveConfig();
 }
 
+void AUTBaseGameMode::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+#if WITH_PROFILE
+	if (!IsTemplate())
+	{
+		McpProfileManager = NewObject<UUtMcpProfileManager>(this);
+		GetMcpProfileManager()->Init(NULL, NULL, TEXT("Server"), FUtMcpRequestComplete());
+	}
+#endif
+}
+
 void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
 	if (!PlayerPawnObject.IsNull())
 	{
-		DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
 	// Grab the InstanceID if it's there.
-	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
+	LobbyInstanceID = UGameplayStatics::GetIntOption(Options, TEXT("InstanceID"), 0);
 
 	// If we are a lobby instance, then we always want to generate a ServerInstanceID
 	if (LobbyInstanceID > 0)
@@ -60,17 +78,17 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	if (HasOption(Options, TEXT("ServerPassword")))
+	if (UGameplayStatics::HasOption(Options, TEXT("ServerPassword")))
 	{
-		ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
+		ServerPassword = UGameplayStatics::ParseOption(Options, TEXT("ServerPassword"));
 	}
-	if (HasOption(Options, TEXT("SpectatePassword")))
+	if (UGameplayStatics::HasOption(Options, TEXT("SpectatePassword")))
 	{
-		SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
+		SpectatePassword = UGameplayStatics::ParseOption(Options, TEXT("SpectatePassword"));
 	}
 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
-	bTrainingGround = EvalBoolOptions(ParseOption(Options, TEXT("TG")), bTrainingGround);
+	bTrainingGround = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("TG")), bTrainingGround);
 
 	if (bTrainingGround)
 	{
@@ -110,7 +128,7 @@ int32 AUTBaseGameMode::GetNumMatches()
 	return 1;
 }
 
-void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
@@ -118,7 +136,7 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 	if (ErrorMessage.IsEmpty() && UTGameSession)
 	{
-		bool bJoinAsSpectator = FCString::Stricmp(*ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+		bool bJoinAsSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
 		UTGameSession->ValidatePlayer(Address, UniqueId, ErrorMessage, bJoinAsSpectator);
 	}
 
@@ -132,11 +150,17 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 			{
 				EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
 			}
+#if WITH_PROFILE
+			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+			UUtMcpProfile* Profile = Group->AddProfile<UUtMcpProfile>(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0), false);
+			FDedicatedServerUrlContext QueryContext = FDedicatedServerUrlContext::Default; // IMPORTANT to make a copy!
+			Profile->ForceQueryProfile(QueryContext);
+#endif
 		}
 	}
 }
 
-APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	// local players don't go through PreLogin()
 	if (UniqueId.IsValid() && Cast<ULocalPlayer>(NewPlayer) != NULL && IOnlineSubsystem::Get() != NULL)
@@ -147,9 +171,30 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 			// note that we need to redundantly query even if we already got this user's entitlements because they might have quit, bought some stuff, then come back
 			EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
 		}
+#if WITH_PROFILE
+		UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+		UUtMcpProfile* Profile = Group->AddProfile<UUtMcpProfile>(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0), false);
+		FDedicatedServerUrlContext QueryContext = FDedicatedServerUrlContext::Default; // IMPORTANT to make a copy!
+		Profile->ForceQueryProfile(QueryContext);
+#endif
 	}
 
-	return Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+
+#if WITH_PROFILE
+	if (PC != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+		if (PS != NULL && PS->UniqueId.IsValid())
+		{
+			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+			UUtMcpProfile* Profile = Cast<UUtMcpProfile>(Group->GetProfile(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0)));
+			AUTPlayerState::FMcpProfileSetter::Set(PS, Profile);
+		}
+	}
+#endif
+
+	return PC;
 }
 
 void AUTBaseGameMode::PostLogin(APlayerController* NewPlayer)
@@ -190,6 +235,17 @@ bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectR
 		if (BasePackageName.Equals(BaseRedirectPackageName,ESearchCase::IgnoreCase))
 		{
 			Redirect = RedirectReferences[i];
+			// if we know the checksum "for reals" then don't use the user specified one
+			// TODO: probably the user one should just go away
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine != NULL)
+			{
+				const FString* FoundChecksum = UTEngine->MountedDownloadedContentChecksums.Find(BaseRedirectPackageName);
+				if (FoundChecksum != NULL)
+				{
+					Redirect.PackageChecksum = *FoundChecksum;
+				}
+			}
 			return true;
 		}
 	}
@@ -252,15 +308,24 @@ void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& Red
 		FString CloudID = GetCloudID();
 		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
 		{
-			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 			FString McpConfigOverride;
 			FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
 			if (McpConfigOverride == TEXT("gamedev"))
 			{
-				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 			}
 
-			RedirectURL = BaseURL + GetCloudID() + TEXT("/") + PackageBaseFilename + TEXT(".pak") + TEXT(" ") + PackageChecksum;
+			FString EpicApp;
+			FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
+			const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
+			if (bIsPublicTest)
+			{
+				BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
+			}
+
+			FString CommandURL = TEXT("/ut/api/stats/accountId/");
+			RedirectURL = BaseURL + CommandURL + GetCloudID() + TEXT("/") + PackageBaseFilename + TEXT(".pak") + TEXT(" ") + PackageChecksum;
 		}
 	}
 }
@@ -283,7 +348,7 @@ FString AUTBaseGameMode::GetCloudID() const
 				IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 				if (OnlineIdentityInterface.IsValid())
 				{
-					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+					TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
 					if (UserId.IsValid())
 					{
 						CloudID = UserId->ToString();
@@ -300,7 +365,7 @@ FString AUTBaseGameMode::GetCloudID() const
 /**
  *	Returns the Menu to popup when the user requests a menu
  **/
-TSharedRef<SUWindowsDesktop> AUTBaseGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
+TSharedRef<SUTMenuBase> AUTBaseGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
 {
 	return SNew(SUTInGameMenu).PlayerOwner(PlayerOwner);
 }

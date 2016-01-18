@@ -59,7 +59,7 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 
 	UEdGraphPin* PinUnderCursor = GetHoveredPin();
 
-	bool bCanMakeSetter = false;
+	bool bCanMakeSetter = true;
 	bool bBadSchema = false;
 	bool bBadGraph = false;
 	UEdGraph* HoveredGraph = GetHoveredGraph();
@@ -204,10 +204,10 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 			Message = FText::Format( LOCTEXT("IncorrectGraphForNodeReplace_Error", "Cannot replace node with local variable '{VariableName}' in external scope '{Scope}'"), Args);
 		}
 	}
-	else if (HoveredCategoryName.Len() > 0)
+	else if (!HoveredCategoryName.IsEmpty())
 	{
 		// Find Blueprint that made this class and get category of variable
-		FName Category = NAME_None;
+		FText Category;
 		UBlueprint* Blueprint;
 		
 		// Find the Blueprint for this property
@@ -225,8 +225,6 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 			Category = FBlueprintEditorUtils::GetBlueprintVariableCategory(Blueprint, VariableProperty->GetFName(), GetLocalVariableScope() );
 		}
 
-		FName NewCategory = FName(*HoveredCategoryName,  FNAME_Find);
-
 		// See if class is native
 		UClass* OuterClass = Cast<UClass>(VariableProperty->GetOuter());
 		if(OuterClass || Cast<UFunction>(VariableProperty->GetOuter()))
@@ -235,14 +233,14 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("VariableName"), FText::FromString(VariableString));
-			Args.Add(TEXT("HoveredCategoryName"), FText::FromString(HoveredCategoryName));
+			Args.Add(TEXT("HoveredCategoryName"), HoveredCategoryName);
 
 			if (bIsNativeVar)
 			{
 				StatusSymbol = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
 				Message = FText::Format( LOCTEXT("ChangingCatagoryNotThisVar", "Cannot change category for variable '{VariableName}'"), Args );
 			}
-			else if (Category == NewCategory)
+			else if (Category.EqualTo(HoveredCategoryName))
 			{
 				StatusSymbol = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
 				Message = FText::Format( LOCTEXT("ChangingCatagoryAlreadyIn", "Variable '{VariableName}' is already in category '{HoveredCategoryName}'"), Args );
@@ -303,7 +301,7 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 		Args.Add(TEXT("VariableName"), FText::FromString(VariableString));
 
 		StatusSymbol = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
-		Message = FText::Format(LOCTEXT("CannotPlaceSetter", "Variable '{VariableName}' is readonly you cannot set this variable."), Args);
+		Message = FText::Format(LOCTEXT("CannotPlaceSetter", "Variable '{VariableName}' is readonly, you cannot set this variable."), Args);
 	}
 	// Draw variable icon
 	else
@@ -515,6 +513,7 @@ FReply FKismetVariableDragDropAction::DroppedOnPanel( const TSharedRef< SWidget 
 				// Show dialog to choose getter vs setter
 				FSlateApplication::Get().PushMenu(
 					PanelWidget,
+					FWidgetPath(),
 					MenuBuilder.MakeWidget(),
 					ScreenPosition,
 					FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu)
@@ -548,9 +547,9 @@ FReply FKismetVariableDragDropAction::DroppedOnAction(TSharedRef<FEdGraphSchemaA
 			if(bMoved)
 			{
 				// Change category of var to match the one we dragged on to as well
-				FName MovedVarCategory = FBlueprintEditorUtils::GetBlueprintVariableCategory(BP, VariableName, GetLocalVariableScope());
-				FName TargetVarCategory = FBlueprintEditorUtils::GetBlueprintVariableCategory(BP, TargetVarName, GetLocalVariableScope());
-				if(MovedVarCategory != TargetVarCategory)
+				FText MovedVarCategory = FBlueprintEditorUtils::GetBlueprintVariableCategory(BP, VariableName, GetLocalVariableScope());
+				FText TargetVarCategory = FBlueprintEditorUtils::GetBlueprintVariableCategory(BP, TargetVarName, GetLocalVariableScope());
+				if(!MovedVarCategory.EqualTo(TargetVarCategory))
 				{
 					FBlueprintEditorUtils::SetBlueprintVariableCategory(BP, VariableName, GetLocalVariableScope(), TargetVarCategory, true);
 				}
@@ -565,9 +564,9 @@ FReply FKismetVariableDragDropAction::DroppedOnAction(TSharedRef<FEdGraphSchemaA
 	return FReply::Unhandled();
 }
 
-FReply FKismetVariableDragDropAction::DroppedOnCategory(FString Category)
+FReply FKismetVariableDragDropAction::DroppedOnCategory(FText Category)
 {
-	UE_LOG(LogTemp, Log, TEXT("Dropped %s on Category %s"), *VariableName.ToString(), *Category);
+	UE_LOG(LogTemp, Log, TEXT("Dropped %s on Category %s"), *VariableName.ToString(), *Category.ToString());
 
 	UBlueprint* BP = NULL;
 	if(VariableSource.Get()->IsA(UFunction::StaticClass()))
@@ -582,10 +581,10 @@ FReply FKismetVariableDragDropAction::DroppedOnCategory(FString Category)
 	if(BP != NULL)
 	{
 		// Check this is actually a different category
-		FName CurrentCategory = FBlueprintEditorUtils::GetBlueprintVariableCategory(BP, VariableName, GetLocalVariableScope());
-		if(FName(*Category) != CurrentCategory)
+		FText CurrentCategory = FBlueprintEditorUtils::GetBlueprintVariableCategory(BP, VariableName, GetLocalVariableScope());
+		if(!Category.EqualTo(CurrentCategory))
 		{
-			FBlueprintEditorUtils::SetBlueprintVariableCategory(BP, VariableName, GetLocalVariableScope(), FName(*Category), false);
+			FBlueprintEditorUtils::SetBlueprintVariableCategory(BP, VariableName, GetLocalVariableScope(), Category, false);
 		}
 	}
 

@@ -28,6 +28,10 @@ class AIMODULE_API UEnvQueryGenerator : public UEnvQueryNode
 	UPROPERTY()
 	TSubclassOf<UEnvQueryItemType> ItemType;
 
+	/** if set, tests will be automatically sorted for best performance before running query */
+	UPROPERTY(EditDefaultsOnly, Category = Option, AdvancedDisplay)
+	uint32 bAutoSortTests : 1;
+
 	virtual void GenerateItems(FEnvQueryInstance& QueryInstance) const { checkNoEntry(); }
 
 	virtual void PostLoad() override;

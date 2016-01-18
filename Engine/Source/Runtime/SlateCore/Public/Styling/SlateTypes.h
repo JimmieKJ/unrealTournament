@@ -18,6 +18,9 @@ enum class EConsumeMouseWheel
 
 	/** Always consume mouse wheel event even if we don't scroll at all. */
 	Always,
+
+	/** Never consume the mouse wheel */
+	Never,
 };
 
 
@@ -34,6 +37,18 @@ namespace ESlateCheckBoxType
 		ToggleButton,
 	};
 }
+
+/** Current state of the check box */
+UENUM(BlueprintType)
+enum class ECheckBoxState : uint8
+{
+	/** Unchecked */
+	Unchecked,
+	/** Checked */
+	Checked,
+	/** Neither checked nor unchecked */
+	Undetermined
+};
 
 /**
  * Represents the appearance of an SCheckBox
@@ -261,8 +276,8 @@ struct SLATECORE_API FButtonStyle : public FSlateWidgetStyle
 	FSlateBrush Pressed;
 	FButtonStyle& SetPressed( const FSlateBrush& InPressed ){ Pressed = InPressed; return *this; }
 
-	/** Button appearance when disabled, not exposed as a UProperty, because they don't have an effect in the general case. */
-	UPROPERTY()
+	/** Button appearance when disabled, by default this is set to an invalid resource when that is the case default disabled drawing is used. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
 	FSlateBrush Disabled;
 	FButtonStyle& SetDisabled( const FSlateBrush& InDisabled ){ Disabled = InDisabled; return *this; }
 
@@ -496,11 +511,6 @@ struct SLATECORE_API FEditableTextStyle : public FSlateWidgetStyle
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
 	FSlateBrush BackgroundImageSelected;
 	FEditableTextStyle& SetBackgroundImageSelected( const FSlateBrush& InBackgroundImageSelected ){ BackgroundImageSelected = InBackgroundImageSelected; return *this; }
-
-	/** Background image for the selection targeting effect */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
-	FSlateBrush BackgroundImageSelectionTarget;
-	FEditableTextStyle& SetBackgroundImageSelectionTarget( const FSlateBrush& InBackgroundImageSelectionTarget ){ BackgroundImageSelectionTarget = InBackgroundImageSelectionTarget; return *this; }
 
 	/** Background image for the selected text */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)

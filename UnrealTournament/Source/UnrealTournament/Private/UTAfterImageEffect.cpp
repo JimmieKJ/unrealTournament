@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTAfterImageEffect.h"
 #include "UnrealNetwork.h"
@@ -62,10 +62,10 @@ void AUTAfterImageEffect::SetMeshProperties(USkeletalMeshComponent* DestComp)
 			DestComp->SetRelativeLocation(TemplateComp->RelativeLocation);
 			DestComp->SetRelativeRotation(TemplateComp->RelativeRotation);
 			DestComp->SetRelativeScale3D(TemplateComp->RelativeScale3D);
-			DestComp->SetAnimInstanceClass(TemplateComp->AnimBlueprintGeneratedClass);
+			DestComp->SetAnimInstanceClass(TemplateComp->AnimClass);
 
 			// force mesh update, then freeze it
-			DestComp->TickAnimation(0.0f);
+			DestComp->TickAnimation(0.0f, false);
 			DestComp->RefreshBoneTransforms();
 			DestComp->UpdateComponentToWorld();
 			DestComp->SetMasterPoseComponent(NULL);

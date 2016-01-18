@@ -247,12 +247,12 @@ class UNREALED_API UMaterialEditorInstanceConstant : public UObject
 	UPROPERTY(EditAnywhere, Category=MaterialEditorInstanceConstant)
 	uint32 bUseOldStyleMICEditorGroups:1;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 #endif
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	/** Regenerates the parameter arrays. */
 	void RegenerateArrays();

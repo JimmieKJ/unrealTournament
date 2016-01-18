@@ -33,7 +33,6 @@ public:
 	/** Constructor
 	*
 	* @param Q rotation
-	* @param Origin translation to apply
 	*/
 	FQuatRotationMatrix(const FQuat& Q)
 		: FQuatRotationTranslationMatrix(Q, FVector::ZeroVector)

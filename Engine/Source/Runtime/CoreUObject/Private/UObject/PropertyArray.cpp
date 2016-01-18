@@ -79,7 +79,7 @@ void UArrayProperty::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 	Ar << Inner;
-	checkSlow(Inner || HasAnyFlags(RF_ClassDefaultObject | RF_PendingKill));
+	checkSlow(Inner || HasAnyFlags(RF_ClassDefaultObject) || IsPendingKill());
 }
 void UArrayProperty::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {
@@ -87,20 +87,18 @@ void UArrayProperty::AddReferencedObjects(UObject* InThis, FReferenceCollector& 
 	Collector.AddReferencedObject( This->Inner, This );
 	Super::AddReferencedObjects( This, Collector );
 }
-FString UArrayProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CPPExportFlags/*=0*/ ) const
-{
-	checkSlow(Inner);
 
-	if ( ExtendedTypeText != NULL )
+FString UArrayProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, const FString& InnerTypeText, const FString& InInnerExtendedTypeText) const
+{
+	if (ExtendedTypeText != NULL)
 	{
-		FString InnerExtendedTypeText;
-		FString InnerTypeText = Inner->GetCPPType(&InnerExtendedTypeText, CPPExportFlags & ~CPPF_ArgumentOrReturnValue); // we won't consider array inners to be "arguments or return values"
-		if ( InnerExtendedTypeText.Len() && InnerExtendedTypeText.Right(1) == TEXT(">") )
+		FString InnerExtendedTypeText = InInnerExtendedTypeText;
+		if (InnerExtendedTypeText.Len() && InnerExtendedTypeText.Right(1) == TEXT(">"))
 		{
 			// if our internal property type is a template class, add a space between the closing brackets b/c VS.NET cannot parse this correctly
 			InnerExtendedTypeText += TEXT(" ");
 		}
-		else if ( !InnerExtendedTypeText.Len() && InnerTypeText.Len() && InnerTypeText.Right(1) == TEXT(">") )
+		else if (!InnerExtendedTypeText.Len() && InnerTypeText.Len() && InnerTypeText.Right(1) == TEXT(">"))
 		{
 			// if our internal property type is a template class, add a space between the closing brackets b/c VS.NET cannot parse this correctly
 			InnerExtendedTypeText += TEXT(" ");
@@ -108,6 +106,18 @@ FString UArrayProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 C
 		*ExtendedTypeText = FString::Printf(TEXT("<%s%s>"), *InnerTypeText, *InnerExtendedTypeText);
 	}
 	return TEXT("TArray");
+}
+
+FString UArrayProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CPPExportFlags/*=0*/ ) const
+{
+	checkSlow(Inner);
+	FString InnerExtendedTypeText;
+	FString InnerTypeText;
+	if ( ExtendedTypeText != NULL )
+	{
+		InnerTypeText = Inner->GetCPPType(&InnerExtendedTypeText, CPPExportFlags & ~CPPF_ArgumentOrReturnValue); // we won't consider array inners to be "arguments or return values"
+	}
+	return GetCPPTypeCustom(ExtendedTypeText, CPPExportFlags, InnerTypeText, InnerExtendedTypeText);
 }
 
 FString UArrayProperty::GetCPPTypeForwardDeclaration() const
@@ -124,6 +134,14 @@ FString UArrayProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 void UArrayProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
 	checkSlow(Inner);
+
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		FString ExtendedTypeText;
+		FString TypeText = GetCPPType(&ExtendedTypeText, EPropertyExportCPPFlags::CPPF_BlueprintCppBackend);
+		ValueStr += FString::Printf(TEXT("%s%s()"), *TypeText, *ExtendedTypeText);
+		return;
+	}
 
 	FScriptArrayHelper ArrayHelper(this, PropertyValue);
 	FScriptArrayHelper DefaultArrayHelper(this, DefaultValue);
@@ -191,7 +209,7 @@ const TCHAR* UArrayProperty::ImportText_Internal( const TCHAR* Buffer, void* Dat
 
 	// If we export an empty array we export an empty string, so ensure that if we're passed an empty string
 	// we interpret it as an empty array.
-	if ( *Buffer == TCHAR('\0') )
+	if (*Buffer == TCHAR('\0') || *Buffer == TCHAR(')') || *Buffer == TCHAR(','))
 	{
 		ArrayHelper.EmptyValues();
 		return NULL;
@@ -208,11 +226,7 @@ const TCHAR* UArrayProperty::ImportText_Internal( const TCHAR* Buffer, void* Dat
 
 	int32 Index = 0;
 
-	const bool bEmptyArray = *Buffer == TCHAR(')');
-	if (!bEmptyArray)
-	{
-		ArrayHelper.ExpandForIndex(0);
-	}
+	ArrayHelper.ExpandForIndex(0);
 	while ((Buffer != NULL) && (*Buffer != TCHAR(')')))
 	{
 		SkipWhitespace(Buffer);

@@ -3,8 +3,9 @@
 #pragma once
 
 #include "Anchors.h"
+#include "SConstraintCanvas.h"
 #include "Components/PanelSlot.h"
-#include "Slate/SConstraintCanvas.h"
+
 #include "CanvasPanelSlot.generated.h"
 
 USTRUCT(BlueprintType)

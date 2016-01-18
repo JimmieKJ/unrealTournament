@@ -6,6 +6,8 @@
 #include "Perception/AISense.h"
 #include "AISense_Damage.generated.h"
 
+class IAIPerceptionListenerInterface;
+
 USTRUCT()
 struct AIMODULE_API FAIDamageEvent
 {	
@@ -61,7 +63,7 @@ public:
 	virtual void RegisterWrappedEvent(UAISenseEvent& PerceptionEvent) override;
 
 	/** EventLocation will be reported as Instigator's location at the moment of event happening*/
-	UFUNCTION(BlueprintCallable, Category = "AI|Perception", meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext", AdvancedDisplay="HitLocation"))
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception", meta = (WorldContext="WorldContext", AdvancedDisplay="HitLocation"))
 	static void ReportDamageEvent(UObject* WorldContext, AActor* DamagedActor, AActor* Instigator, float DamageAmount, FVector EventLocation, FVector HitLocation);
 
 protected:

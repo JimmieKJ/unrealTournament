@@ -7,15 +7,12 @@
 #include "MovieSceneMarginTrackInstance.h"
 #include "MovieSceneCommonHelpers.h"
 
-UMovieSceneMarginTrack::UMovieSceneMarginTrack(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
-{
-}
 
 UMovieSceneSection* UMovieSceneMarginTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneSection>(this, UMovieSceneMarginSection::StaticClass(), NAME_None, RF_Transactional);
 }
+
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneMarginTrack::CreateInstance()
 {
@@ -23,33 +20,21 @@ TSharedPtr<IMovieSceneTrackInstance> UMovieSceneMarginTrack::CreateInstance()
 }
 
 
-bool UMovieSceneMarginTrack::AddKeyToSection( float Time, const FMarginKey& MarginKey )
-{
-	const UMovieSceneSection* NearestSection = MovieSceneHelpers::FindSectionAtTime( Sections, Time );
-	if (!NearestSection || MarginKey.bAddKeyEvenIfUnchanged || CastChecked<UMovieSceneMarginSection>(NearestSection)->NewKeyIsNewData(Time, MarginKey.Value) )
-	{
-		Modify();
-
-		UMovieSceneMarginSection* NewSection = CastChecked<UMovieSceneMarginSection>( FindOrAddSection( Time ) );
-
-		NewSection->AddKey( Time, MarginKey );
-
-		return true;
-	}
-	return false;
-}
-
-
 bool UMovieSceneMarginTrack::Eval( float Position, float LastPosition, FMargin& InOutMargin ) const
 {
-	const UMovieSceneSection* Section = MovieSceneHelpers::FindSectionAtTime( Sections, Position );
+	const UMovieSceneSection* Section = MovieSceneHelpers::FindNearestSectionAtTime( Sections, Position );
 
 	if( Section )
 	{
 		const UMovieSceneMarginSection* MarginSection = CastChecked<UMovieSceneMarginSection>( Section );
 
+		if (!Section->IsInfinite())
+		{
+			Position = FMath::Clamp(Position, Section->GetStartTime(), Section->GetEndTime());
+		}
+
 		InOutMargin = MarginSection->Eval( Position, InOutMargin );
 	}
 
-	return Section != NULL;
+	return (Section != nullptr);
 }

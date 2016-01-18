@@ -36,20 +36,20 @@ enum TextureGroup
 	TEXTUREGROUP_Lightmap UMETA(DisplayName="Lightmap"),
 	TEXTUREGROUP_RenderTarget UMETA(DisplayName="RenderTarget"),
 	TEXTUREGROUP_MobileFlattened UMETA(DisplayName="MobileFlattened"),
-	//obsolete - kept for back-compat
-	TEXTUREGROUP_ProcBuilding_Face UMETA(DisplayName="ProcBuilding_Face"),
-	//obsolete - kept for back-compat
+	/** Obsolete - kept for backwards compatibility. */
+	TEXTUREGROUP_ProcBuilding_Face UMETA(DisplayName = "ProcBuilding_Face"),
+	/** Obsolete - kept for backwards compatibility. */
 	TEXTUREGROUP_ProcBuilding_LightMap UMETA(DisplayName="ProcBuilding_LightMap"),
 	TEXTUREGROUP_Shadowmap UMETA(DisplayName="Shadowmap"),
-	// no compression, no mips
+	/** No compression, no mips. */
 	TEXTUREGROUP_ColorLookupTable UMETA(DisplayName="ColorLookupTable"),
 	TEXTUREGROUP_Terrain_Heightmap UMETA(DisplayName="Terrain_Heightmap"),
 	TEXTUREGROUP_Terrain_Weightmap UMETA(DisplayName="Terrain_Weightmap"),
-	// using this TextureGroup triggers special mip map generation code only useful for the BokehDOF post process
+	/** Using this TextureGroup triggers special mip map generation code only useful for the BokehDOF post process. */
 	TEXTUREGROUP_Bokeh UMETA(DisplayName="Bokeh"),
-	// no compression, created on import of a .IES file
+	/** No compression, created on import of a .IES file. */
 	TEXTUREGROUP_IESLightProfile UMETA(DisplayName="IESLightProfile"),
-	// non-filtered, useful for 2D rendering
+	/** Non-filtered, useful for 2D rendering. */
 	TEXTUREGROUP_Pixels2D UMETA(DisplayName="2D Pixels (unfiltered)"),
 	TEXTUREGROUP_MAX,
 };
@@ -57,26 +57,36 @@ enum TextureGroup
 UENUM()
 enum TextureMipGenSettings
 {
-	// default for the "texture"
+	/** Default for the "texture". */
 	TMGS_FromTextureGroup UMETA(DisplayName="FromTextureGroup"),
-	// 2x2 average, default for the "texture group"
+	/** 2x2 average, default for the "texture group". */
 	TMGS_SimpleAverage UMETA(DisplayName="SimpleAverage"),
-	// 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1..little, 5=medium, 10=extreme
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
 	TMGS_Sharpen0 UMETA(DisplayName="Sharpen0"),
-	TMGS_Sharpen1 UMETA(DisplayName="Sharpen1"),
-	TMGS_Sharpen2 UMETA(DisplayName="Sharpen2"),
-	TMGS_Sharpen3 UMETA(DisplayName="Sharpen3"),
-	TMGS_Sharpen4 UMETA(DisplayName="Sharpen4"),
-	TMGS_Sharpen5 UMETA(DisplayName="Sharpen5"),
-	TMGS_Sharpen6 UMETA(DisplayName="Sharpen6"),
-	TMGS_Sharpen7 UMETA(DisplayName="Sharpen7"),
-	TMGS_Sharpen8 UMETA(DisplayName="Sharpen8"),
-	TMGS_Sharpen9 UMETA(DisplayName="Sharpen9"),
-	TMGS_Sharpen10 UMETA(DisplayName="Sharpen10"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen1 UMETA(DisplayName = "Sharpen1"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen2 UMETA(DisplayName = "Sharpen2"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen3 UMETA(DisplayName = "Sharpen3"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen4 UMETA(DisplayName = "Sharpen4"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen5 UMETA(DisplayName = "Sharpen5"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen6 UMETA(DisplayName = "Sharpen6"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen7 UMETA(DisplayName = "Sharpen7"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen8 UMETA(DisplayName = "Sharpen8"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen9 UMETA(DisplayName = "Sharpen9"),
+	/** 8x8 with sharpening: 0=no sharpening but better quality which is softer, 1=little, 5=medium, 10=extreme. */
+	TMGS_Sharpen10 UMETA(DisplayName = "Sharpen10"),
 	TMGS_NoMipmaps UMETA(DisplayName="NoMipmaps"),
-	// Do not touch existing mip chain as it contains generated data
+	/** Do not touch existing mip chain as it contains generated data. */
 	TMGS_LeaveExistingMips UMETA(DisplayName="LeaveExistingMips"),
-	// blur further (useful for image based reflections)
+	/** Blur further (useful for image based reflections). */
 	TMGS_Blur1 UMETA(DisplayName="Blur1"),
 	TMGS_Blur2 UMETA(DisplayName="Blur2"),
 	TMGS_Blur3 UMETA(DisplayName="Blur3"),
@@ -89,19 +99,19 @@ enum TextureMipGenSettings
 	// in the texture compressor DDC key
 };
 
-// Options for texture padding mode
+/** Options for texture padding mode. */
 UENUM()
 namespace ETexturePowerOfTwoSetting
 {
 	enum Type
 	{
-		// Do not modify the texture dimensions
+		/** Do not modify the texture dimensions. */
 		None,
 
-		// Pad the texture to the nearest power of two size
+		/** Pad the texture to the nearest power of two size. */
 		PadToPowerOfTwo,
 
-		// Pad the texture to the nearest square power of two size
+		/** Pad the texture to the nearest square power of two size. */
 		PadToSquarePowerOfTwo
 
 		// Note: These are serialized as as raw values in the texture DDC key, so additional entries

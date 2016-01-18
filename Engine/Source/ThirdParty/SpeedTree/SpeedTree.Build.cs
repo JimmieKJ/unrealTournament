@@ -23,7 +23,20 @@ public class SpeedTree : ModuleRules
 
 			if (Target.Platform == UnrealTargetPlatform.Win64)
 			{
-				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
+				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+				{
+					PublicLibraryPaths.Add(SpeedTreePath + "Lib/Windows/VC14.x64");
+
+					if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
+					{
+						PublicAdditionalLibraries.Add("SpeedTreeCore_Windows_v7.0_VC14_MTDLL64_Static_d.lib");
+					}
+					else
+					{
+						PublicAdditionalLibraries.Add("SpeedTreeCore_Windows_v7.0_VC14_MTDLL64_Static.lib");
+					}
+				}
+				else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
 				{
 					PublicLibraryPaths.Add(SpeedTreePath + "Lib/Windows/VC12.x64");
 
@@ -52,7 +65,20 @@ public class SpeedTree : ModuleRules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Win32)
 			{
-				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
+				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+				{
+					PublicLibraryPaths.Add(SpeedTreePath + "Lib/Windows/VC14");
+
+					if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
+					{
+                        PublicAdditionalLibraries.Add("SpeedTreeCore_Windows_v7.0_VC14_MTDLL_Static_d.lib");
+					}
+					else
+					{
+                        PublicAdditionalLibraries.Add("SpeedTreeCore_Windows_v7.0_VC14_MTDLL_Static.lib");
+					}
+				}
+				else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
 				{
 					PublicLibraryPaths.Add(SpeedTreePath + "Lib/Windows/VC12");
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTGhostComponent.h"
@@ -109,7 +109,7 @@ void UUTGhostComponent::GhostStartPlaying()
 		//Spawn the GhostController
 		FActorSpawnParameters SpawnInfo;
 		SpawnInfo.Owner = nullptr;
-		SpawnInfo.bNoCollisionFail = true;
+		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save AI controllers into a map
 		AController* NewController = GetWorld()->SpawnActor<AController>(AUTGhostController::StaticClass(), UTOwner->GetActorLocation(), UTOwner->GetActorRotation(), SpawnInfo);
 		if (NewController != NULL)

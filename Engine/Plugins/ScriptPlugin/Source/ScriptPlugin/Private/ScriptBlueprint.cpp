@@ -11,14 +11,28 @@
 UScriptBlueprint::UScriptBlueprint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
+	AssetImportData = CreateEditorOnlyDefaultSubobject<UAssetImportData>(TEXT("AssetImportData"));
+#endif
 }
 
 #if WITH_EDITORONLY_DATA
 void UScriptBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
-	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+	if (AssetImportData)
+	{
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
+	}
 
 	Super::GetAssetRegistryTags(OutTags);
+}
+void UScriptBlueprint::PostLoad()
+{
+	Super::PostLoad();
+	if (!SourceFilePath_DEPRECATED.IsEmpty() && AssetImportData)
+	{
+		AssetImportData->UpdateFilenameOnly(SourceFilePath_DEPRECATED);
+	}
 }
 #endif
 
@@ -46,18 +60,30 @@ bool UScriptBlueprint::ValidateGeneratedClass(const UClass* InClass)
 	return Result;
 }
 
-void UScriptBlueprint::UpdateScriptStatus()
+bool UScriptBlueprint::IsCodeDirty() const
 {
-	FDateTime OldTimeStamp;
-	bool bCodeDirty = !FDateTime::Parse(SourceFileTimestamp, OldTimeStamp);
-	
-	if (!bCodeDirty)
+	if (!AssetImportData)
 	{
-		FDateTime TimeStamp = IFileManager::Get().GetTimeStamp(*SourceFilePath);
-		bCodeDirty = TimeStamp > OldTimeStamp;
+		return true;
 	}
 
-	if (bCodeDirty)
+	const TArray<FAssetImportInfo::FSourceFile>& Data = AssetImportData->SourceData.SourceFiles;
+
+	if (Data.Num() == 1)
+	{
+		// Check the timestamp of the file as it is now, and the last imported timestamp
+		if (IFileManager::Get().GetTimeStamp(*AssetImportData->GetFirstFilename()) <= Data[0].Timestamp)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void UScriptBlueprint::UpdateScriptStatus()
+{
+	if (IsCodeDirty())
 	{
 		FBlueprintEditorUtils::MarkBlueprintAsModified(this);
 	}
@@ -65,18 +91,14 @@ void UScriptBlueprint::UpdateScriptStatus()
 
 void UScriptBlueprint::UpdateSourceCodeIfChanged()
 {
-	FDateTime OldTimeStamp;	
-	bool bCodeDirty = !FDateTime::Parse(SourceFileTimestamp, OldTimeStamp);
-	FDateTime TimeStamp = IFileManager::Get().GetTimeStamp(*SourceFilePath);
-	bCodeDirty = bCodeDirty || (TimeStamp > OldTimeStamp);
-
-	if (bCodeDirty)
+	if (IsCodeDirty() && AssetImportData)
 	{
 		FString NewScript;
-		if (FFileHelper::LoadFileToString(NewScript, *SourceFilePath))
+		FString Filename = AssetImportData->GetFirstFilename();
+		if (FFileHelper::LoadFileToString(NewScript, *Filename))
 		{
 			SourceCode = NewScript;
-			SourceFileTimestamp = TimeStamp.ToString();
+			AssetImportData->Update(Filename);
 		}
 	}
 }

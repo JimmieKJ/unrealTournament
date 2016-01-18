@@ -92,6 +92,21 @@ namespace NavigationHelper
 					Link.Right.Z -= FallDownHeight;
 				}
 			}
+
+			if (Link.LeftProjectHeight > 0)
+			{
+				const FVector WorldLeft = LocalToWorld.TransformPosition(Link.Left);
+				const float FallDownHeight = RawGeometryFall(Actor, WorldLeft, Link.LeftProjectHeight);
+
+				if (FallDownHeight > 0.f)
+				{
+					// @todo maybe it's a good idea to clear ModifiedLink.LeftProjectHeight here
+					UE_VLOG_SEGMENT(Actor, LogNavigation, Log, WorldLeft, WorldLeft + FVector(0, 0, -FallDownHeight)
+						, FColor::Green, TEXT("LeftProjectHeight %d"), LinkIndex);
+
+					Link.Left.Z -= FallDownHeight;
+				}
+			}
 		}
 
 		CompositeModifier->Add(SimpleLink);

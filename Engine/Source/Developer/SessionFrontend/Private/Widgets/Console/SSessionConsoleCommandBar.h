@@ -3,12 +3,8 @@
 #pragma once
 
 
-/**
- * Delegate type for submitting console commands.
- *
- * The first parameter is the submitted command string.
- */
-DECLARE_DELEGATE_OneParam(FOnSessionConsoleCommandSubmitted, const FString&)
+/** Delegate type for submitting console commands. */
+DECLARE_DELEGATE_OneParam(FOnSessionConsoleCommandSubmitted, const FString& /*Command*/)
 
 
 /**
@@ -36,14 +32,14 @@ public:
 	 *
 	 * @param InArgs The declaration data for this widget.
 	 */
-	void Construct( const FArguments& InArgs );
+	void Construct(const FArguments& InArgs);
 
 	/**
 	 * Sets the number of selected engine instances.
 	 *
 	 * @param Count Number of selected instances.
 	 */
-	void SetNumSelectedInstances( int Count );
+	void SetNumSelectedInstances(int Count);
 
 protected:
 
@@ -52,21 +48,21 @@ protected:
 	 *
 	 * @param Command the command to submit.
 	 */
-	void SubmitCommand( const FString& Command );
+	void SubmitCommand(const FString& Command);
 
 private:
 
 	/** Handles changing the input text box's content. */
-	void HandleInputTextChanged( const FText& InText );
+	void HandleInputTextChanged(const FText& InText);
 
 	/** Handles committing the input text box's content. */
-	void HandleInputTextCommitted( const FText& InText, ETextCommit::Type CommitInfo );
+	void HandleInputTextCommitted(const FText& InText, ETextCommit::Type CommitInfo);
 
 	/** Handles showing a history in the input text box. */
-	void HandleInputTextShowingHistory( TArray<FString>& OutHistory );
+	void HandleInputTextShowingHistory(TArray<FString>& OutHistory);
 
 	/** Handles showing suggestions in the input text box. */
-	void HandleInputTextShowingSuggestions( const FString& Text, TArray<FString>& OutSuggestions );
+	void HandleInputTextShowingSuggestions(const FString& Text, TArray<FString>& OutSuggestions);
 
 	/** Handles clicking the promote to shortcut button. */
 	FReply HandlePromoteToShortcutButtonClicked();

@@ -106,17 +106,32 @@ static bool RunCommandInternal(const FString& InCommand, const FString& InPathTo
 FString FindGitBinaryPath()
 {
 #if PLATFORM_WINDOWS
-	// 1) First of all, look into standard install directory
+	// 1) First of all, look into standard install directories
 	// NOTE using only "git" (or "git.exe") relying on the "PATH" envvar does not always work as expected, depending on the installation:
 	// If the PATH is set with "git/cmd" instead of "git/bin",
 	// "git.exe" launch "git/cmd/git.exe" that redirect to "git/bin/git.exe" and ExecProcess() is unable to catch its outputs streams.
-	FString GitBinaryPath(TEXT("C:/Program Files (x86)/Git/bin/git.exe"));
+	// First check the 64-bit program files directory:
+	FString GitBinaryPath(TEXT("C:/Program Files/Git/bin/git.exe"));
 	bool bFound = CheckGitAvailability(GitBinaryPath);
+	if(!bFound)
+	{
+		// otherwise check the 32-bit program files directory.
+		GitBinaryPath = TEXT("C:/Program Files (x86)/Git/bin/git.exe");
+		bFound = CheckGitAvailability(GitBinaryPath);
+	}
+	if(!bFound)
+	{
+		// else the install dir for the current user: C:\Users\UserName\AppData\Local\Programs\Git\cmd
+		TCHAR AppDataLocalPath[4096];
+		FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA"), AppDataLocalPath, ARRAY_COUNT(AppDataLocalPath));
+		GitBinaryPath = FString::Printf(TEXT("%s/Programs/Git/cmd/git.exe"), AppDataLocalPath);
+		bFound = CheckGitAvailability(GitBinaryPath);
+	}
 
 	// 2) Else, look for the version of Git bundled with SmartGit "Installer with JRE"
 	if(!bFound)
 	{
-		FString GitBinaryPath(TEXT("C:/Program Files (x86)/SmartGit/bin/git.exe"));
+		GitBinaryPath = TEXT("C:/Program Files (x86)/SmartGit/bin/git.exe");
 		bFound = CheckGitAvailability(GitBinaryPath);
 	}
 

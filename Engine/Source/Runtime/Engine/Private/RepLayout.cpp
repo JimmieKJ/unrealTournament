@@ -82,7 +82,7 @@ static FORCEINLINE bool PropertiesAreIdenticalNative( const FRepLayoutCmd& Cmd, 
 		case REPCMD_PropertyString:			return CompareValue<FString>( A, B );
 		case REPCMD_Property:				return Cmd.Property->Identical( A, B );
 		default: 
-			UE_LOG( LogNet, Fatal, TEXT( "PropertiesAreIdentical: Unsupported type! %i (%s)" ), Cmd.Type, *Cmd.Property->GetName() );
+			UE_LOG( LogRep, Fatal, TEXT( "PropertiesAreIdentical: Unsupported type! %i (%s)" ), Cmd.Type, *Cmd.Property->GetName() );
 	}
 
 	return false;
@@ -95,7 +95,7 @@ static FORCEINLINE bool PropertiesAreIdentical( const FRepLayoutCmd& Cmd, const 
 	// Sanity check result
 	if ( bIsIdentical != Cmd.Property->Identical( A, B ) )
 	{
-		UE_LOG( LogNet, Fatal, TEXT( "PropertiesAreIdentical: Result mismatch! (%s)" ), *Cmd.Property->GetFullName() );
+		UE_LOG( LogRep, Fatal, TEXT( "PropertiesAreIdentical: Result mismatch! (%s)" ), *Cmd.Property->GetFullName() );
 	}
 #endif
 	return bIsIdentical;
@@ -138,7 +138,7 @@ static void SerializeReadWritePropertyChecksum( const FRepLayoutCmd& Cmd, const 
 	if ( MarkerChecksum != OriginalMarkerChecksum )
 	{
 		// This is fatal, as it means we are out of sync to the point we can't recover
-		UE_LOG( LogNet, Fatal, TEXT( "SerializeReadWritePropertyChecksum: Property checksum marker failed! [%s]" ), *Cmd.Property->GetFullName() );
+		UE_LOG( LogRep, Fatal, TEXT( "SerializeReadWritePropertyChecksum: Property checksum marker failed! [%s]" ), *Cmd.Property->GetFullName() );
 	}
 
 	if ( Cmd.Property->IsA( UObjectPropertyBase::StaticClass() ) )
@@ -202,7 +202,7 @@ static void SerializeReadWritePropertyChecksum( const FRepLayoutCmd& Cmd, const 
 	if ( PropertyChecksum != OriginalPropertyChecksum )
 	{
 		// This is a warning, because for some reason, float rounding issues in the quantization functions cause this to return false positives
-		UE_LOG( LogNet, Warning, TEXT( "Property checksum failed! [%s]" ), *Cmd.Property->GetFullName() );
+		UE_LOG( LogRep, Warning, TEXT( "Property checksum failed! [%s]" ), *Cmd.Property->GetFullName() );
 	}
 }
 
@@ -497,9 +497,9 @@ void FRepLayout::LogChangeListMismatches(
 	UObject *						Object			= (UObject*)Data;
 	const UNetDriver *				NetDriver		= OwningChannel->Connection->Driver;
 
-	UE_LOG( LogNet, Warning, TEXT( "LogChangeListMismatches: %s" ), *Object->GetName() );
+	UE_LOG( LogRep, Warning, TEXT( "LogChangeListMismatches: %s" ), *Object->GetName() );
 
-	UE_LOG( LogNet, Warning, TEXT( "  %i, %i, %i, %i" ), NetDriver->ReplicationFrame, ChangeTracker->LastReplicationFrame, ChangeTracker->LastReplicationGroupFrame, RepState1->LastReplicationFrame );
+	UE_LOG( LogRep, Warning, TEXT( "  %i, %i, %i, %i" ), NetDriver->ReplicationFrame, ChangeTracker->LastReplicationFrame, ChangeTracker->LastReplicationGroupFrame, RepState1->LastReplicationFrame );
 
 	for ( int32 i = 0; i < PropertyList.Num(); i++ )
 	{
@@ -513,7 +513,7 @@ void FRepLayout::LogChangeListMismatches(
 			FString Changed2Str = Changed2 ? TEXT( "TRUE" ) : TEXT( "FALSE" );
 			FString ExtraStr	= Changed1 != Changed2 ? TEXT( "<--- MISMATCH!" ) : TEXT( "<--- SAME" );
 
-			UE_LOG( LogNet, Warning, TEXT( "    Property changed: %s (%s / %s) %s" ), *Parents[Index].Property->GetName(), *Changed1Str, *Changed2Str, *ExtraStr );
+			UE_LOG( LogRep, Warning, TEXT( "    Property changed: %s (%s / %s) %s" ), *Parents[Index].Property->GetName(), *Changed1Str, *Changed2Str, *ExtraStr );
 
 			FString StringValue1;
 			FString StringValue2;
@@ -523,7 +523,7 @@ void FRepLayout::LogChangeListMismatches(
 			Parents[Index].Property->ExportText_InContainer( Parents[Index].ArrayIndex, StringValue2, RepState1->StaticBuffer.GetData(), NULL, NULL, PPF_DebugDump );
 			Parents[Index].Property->ExportText_InContainer( Parents[Index].ArrayIndex, StringValue3, RepState2->StaticBuffer.GetData(), NULL, NULL, PPF_DebugDump );
 
-			UE_LOG( LogNet, Warning, TEXT( "      Values: %s, %s, %s" ), *StringValue1, *StringValue2, *StringValue3 );
+			UE_LOG( LogRep, Warning, TEXT( "      Values: %s, %s, %s" ), *StringValue1, *StringValue2, *StringValue3 );
 		}
 	}
 }
@@ -561,7 +561,7 @@ void FRepLayout::SanityCheckShadowStateAgainstChangeList(
 	if ( Result != ChangedParentsHasChanged( PropertyList, OtherChangedParents ) )
 	{
 		LogChangeListMismatches( Data, OwningChannel, PropertyList, RepState, OtherRepState, LocalChangedParents, OtherChangedParents );
-		UE_LOG( LogNet, Fatal, TEXT( "ReplicateProperties: Compare result mismatch: %s" ), *Object->GetName() );
+		UE_LOG( LogRep, Fatal, TEXT( "ReplicateProperties: Compare result mismatch: %s" ), *Object->GetName() );
 	}
 
 	for ( int32 i = 0; i < PropertyList.Num(); i++ )
@@ -571,7 +571,7 @@ void FRepLayout::SanityCheckShadowStateAgainstChangeList(
 		if ( OtherChangedParents[Index].Changed.Num() != LocalChangedParents[Index].Changed.Num() )
 		{
 			LogChangeListMismatches( Data, OwningChannel, PropertyList, RepState, OtherRepState, LocalChangedParents, OtherChangedParents );
-			UE_LOG( LogNet, Fatal, TEXT( "ReplicateProperties: Compare count mismatch: %s" ), *Object->GetName() );
+			UE_LOG( LogRep, Fatal, TEXT( "ReplicateProperties: Compare count mismatch: %s" ), *Object->GetName() );
 		}
 
 		for ( int32 j = 0; j < OtherChangedParents[Index].Changed.Num(); j++ )
@@ -579,7 +579,7 @@ void FRepLayout::SanityCheckShadowStateAgainstChangeList(
 			if ( OtherChangedParents[Index].Changed[j] != LocalChangedParents[Index].Changed[j] )
 			{
 				LogChangeListMismatches( Data, OwningChannel, PropertyList, RepState, OtherRepState, LocalChangedParents, OtherChangedParents );
-				UE_LOG( LogNet, Fatal, TEXT( "ReplicateProperties: Compare changelist value mismatch: %s" ), *Object->GetName() );
+				UE_LOG( LogRep, Fatal, TEXT( "ReplicateProperties: Compare changelist value mismatch: %s" ), *Object->GetName() );
 			}
 		}
 	}
@@ -782,7 +782,7 @@ void FRepLayout::UpdateChangelistHistory( FRepState * RepState, UClass * ObjectC
 	// If our buffer is currently full, forcibly send the entire history
 	if ( DumpHistory )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "FRepLayout::UpdateChangelistHistory: History overflow, forcing history dump %s" ), *ObjectClass->GetName() );
+		UE_LOG( LogRep, Warning, TEXT( "FRepLayout::UpdateChangelistHistory: History overflow, forcing history dump %s" ), *ObjectClass->GetName() );
 	}
 
 	for ( int32 i = RepState->HistoryStart; i < RepState->HistoryEnd; i++ )
@@ -938,7 +938,7 @@ static FORCEINLINE void WritePropertyHandle( FNetBitWriter & Writer, uint16 Hand
 	}
 #endif
 
-	NETWORK_PROFILER(GNetworkProfiler.TrackWritePropertyHandle( Writer.GetNumBits() - NumStartingBits ));
+	NETWORK_PROFILER(GNetworkProfiler.TrackWritePropertyHandle( Writer.GetNumBits() - NumStartingBits, nullptr ));
 }
 
 static bool ShouldSendProperty( FRepWriterState & WriterState, const uint16 Handle )
@@ -1067,7 +1067,7 @@ uint16 FRepLayout::SendProperties_r(
 
 			const FRepParentCmd& ParentCmd = Parents[Cmd.ParentIndex];
 
-			NETWORK_PROFILER( GNetworkProfiler.TrackReplicateProperty( ParentCmd.Property, NumEndBits - NumStartBits ) );
+			NETWORK_PROFILER( GNetworkProfiler.TrackReplicateProperty( ParentCmd.Property, NumEndBits - NumStartBits, nullptr ) );
 
 			// Make the shadow state match the actual state at the time of send
 			StoreProperty( Cmd, (void*)( StoredData + Cmd.Offset ), (const void*)( Data + Cmd.Offset ) );
@@ -1140,7 +1140,7 @@ void FRepLayout::WritePropertyHeader(
 		Bunch.SerializeIntPacked( ArrayIndex );
 	}
 
-	NETWORK_PROFILER(GNetworkProfiler.TrackWritePropertyHeader(Property, Bunch.GetNumBits() - NumStartingBits));
+	NETWORK_PROFILER(GNetworkProfiler.TrackWritePropertyHeader(Property, Bunch.GetNumBits() - NumStartingBits, nullptr ));
 }
 
 void FRepLayout::SendProperties( 
@@ -1335,12 +1335,12 @@ public:
 			// Note - If we already have an existing entry for this offset, we will replace it with this most recent data
 			StackState.UnmappedGuids->Map.Add( AbsCmdOffset, FUnmappedGuidMgrElement( Bunch, Mark, TrackedUnmappedGuids, Cmd.ParentIndex, CmdIndex ) );
 
-			UE_LOG( LogNet, Verbose, TEXT( "ADDED unmapped property: Offset: %i, Name: %s"), AbsCmdOffset, *Cmd.Property->GetName() );
+			UE_LOG( LogRep, Verbose, TEXT( "ADDED unmapped property: Offset: %i, Name: %s"), AbsCmdOffset, *Cmd.Property->GetName() );
 
 			// List all the guids that were unmapped
 			for ( int32 i = 0; i < TrackedUnmappedGuids.Num(); i++ )
 			{
-				UE_LOG( LogNet, Verbose, TEXT( "  Guid: %s"), *TrackedUnmappedGuids[i].ToString() );
+				UE_LOG( LogRep, Verbose, TEXT( "  Guid: %s"), *TrackedUnmappedGuids[i].ToString() );
 			}
 
 			bHasUnmapped = true;
@@ -1399,7 +1399,7 @@ bool FRepLayout::ReceiveProperties( UClass * InObjectClass, FRepState * RESTRICT
 	// Make sure we're waiting on the last NULL terminator
 	if ( ReceivePropertiesImpl.WaitingHandle != 0 )
 	{
-		UE_LOG( LogNet, Warning, TEXT( "Read out of sync." ) );
+		UE_LOG( LogRep, Warning, TEXT( "Read out of sync." ) );
 		return false;
 	}
 
@@ -1442,7 +1442,7 @@ void FRepLayout::UpdateUnmappedObjects_r(
 		if ( AbsOffset >= MaxAbsOffset )
 		{
 			// Array must have shrunk, we can remove this item
-			UE_LOG( LogNet, VeryVerbose, TEXT( "UpdateUnmappedObjects_r: REMOVED unmapped property: AbsOffset >= MaxAbsOffset. Offset: %i" ), AbsOffset );
+			UE_LOG( LogRep, VeryVerbose, TEXT( "UpdateUnmappedObjects_r: REMOVED unmapped property: AbsOffset >= MaxAbsOffset. Offset: %i" ), AbsOffset );
 			It.RemoveCurrent();
 			continue;
 		}
@@ -1472,7 +1472,7 @@ void FRepLayout::UpdateUnmappedObjects_r(
 
 			if ( PackageMap->IsGUIDBroken( GUID, false ) )
 			{
-				UE_LOG( LogNet, Warning, TEXT( "UpdateUnmappedObjects_r: Broken GUID. NetGuid: %s" ), *GUID.ToString() );
+				UE_LOG( LogRep, Warning, TEXT( "UpdateUnmappedObjects_r: Broken GUID. NetGuid: %s" ), *GUID.ToString() );
 				UnmappedProperty.UnmappedGUIDs.RemoveAt( i );
 				continue;
 			}
@@ -1481,7 +1481,7 @@ void FRepLayout::UpdateUnmappedObjects_r(
 
 			if ( Object != NULL )
 			{
-				UE_LOG( LogNet, VeryVerbose, TEXT( "UpdateUnmappedObjects_r: REMOVED unmapped property: Offset: %i, Guid: %s, PropName: %s, ObjName: %s" ), AbsOffset, *GUID.ToString(), *Cmd.Property->GetName(), *Object->GetName() );
+				UE_LOG( LogRep, VeryVerbose, TEXT( "UpdateUnmappedObjects_r: REMOVED unmapped property: Offset: %i, Guid: %s, PropName: %s, ObjName: %s" ), AbsOffset, *GUID.ToString(), *Cmd.Property->GetName(), *Object->GetName() );
 				UnmappedProperty.UnmappedGUIDs.RemoveAt( i );
 				bMappedSomeGUIDs = true;
 			}
@@ -1583,12 +1583,12 @@ void FRepLayout::ValidateWithChecksum_DynamicArray_r( const FRepLayoutCmd& Cmd, 
 
 	if ( ArrayNum != Array->Num() )
 	{
-		UE_LOG( LogNet, Fatal, TEXT( "ValidateWithChecksum_AnyArray_r: Array sizes different! %s %i / %i" ), *Cmd.Property->GetFullName(), ArrayNum, Array->Num() );
+		UE_LOG( LogRep, Fatal, TEXT( "ValidateWithChecksum_AnyArray_r: Array sizes different! %s %i / %i" ), *Cmd.Property->GetFullName(), ArrayNum, Array->Num() );
 	}
 
 	if ( ElementSize != Cmd.ElementSize )
 	{
-		UE_LOG( LogNet, Fatal, TEXT( "ValidateWithChecksum_AnyArray_r: Array element sizes different! %s %i / %i" ), *Cmd.Property->GetFullName(), ElementSize, Cmd.ElementSize );
+		UE_LOG( LogRep, Fatal, TEXT( "ValidateWithChecksum_AnyArray_r: Array element sizes different! %s %i / %i" ), *Cmd.Property->GetFullName(), ElementSize, Cmd.ElementSize );
 	}
 
 	uint8* LocalData = (uint8*)Array->GetData();
@@ -1899,7 +1899,7 @@ public:
 
 			if ( !bSync )
 			{			
-				UE_LOG( LogNet, Warning, TEXT( "FDiffPropertiesImpl: Array sizes different: %s %i / %i" ), *Cmd.Property->GetFullName(), StackState.DataArray->Num(), StackState.ShadowArray->Num() );
+				UE_LOG( LogRep, Warning, TEXT( "FDiffPropertiesImpl: Array sizes different: %s %i / %i" ), *Cmd.Property->GetFullName(), StackState.DataArray->Num(), StackState.ShadowArray->Num() );
 				return;
 			}
 
@@ -1932,7 +1932,7 @@ public:
 
 			if ( !bSync )
 			{			
-				UE_LOG( LogNet, Warning, TEXT( "FDiffPropertiesImpl: Property different: %s" ), *Cmd.Property->GetFullName() );
+				UE_LOG( LogRep, Warning, TEXT( "FDiffPropertiesImpl: Property different: %s" ), *Cmd.Property->GetFullName() );
 				return;
 			}
 
@@ -2021,7 +2021,7 @@ void FRepLayout::AddPropertyCmd( UProperty * Property, int32 Offset, int32 Relat
 		}
 		else
 		{
-			UE_LOG( LogNet, VeryVerbose, TEXT( "AddPropertyCmd: Falling back to default type for property [%s]" ), *Cmd.Property->GetFullName() );
+			UE_LOG( LogRep, VeryVerbose, TEXT( "AddPropertyCmd: Falling back to default type for property [%s]" ), *Cmd.Property->GetFullName() );
 		}
 	}
 	else if ( Property->IsA( UBoolProperty::StaticClass() ) )
@@ -2062,7 +2062,7 @@ void FRepLayout::AddPropertyCmd( UProperty * Property, int32 Offset, int32 Relat
 	}
 	else
 	{
-		UE_LOG( LogNet, VeryVerbose, TEXT( "AddPropertyCmd: Falling back to default type for property [%s]" ), *Cmd.Property->GetFullName() );
+		UE_LOG( LogRep, VeryVerbose, TEXT( "AddPropertyCmd: Falling back to default type for property [%s]" ), *Cmd.Property->GetFullName() );
 	}
 }
 
@@ -2375,7 +2375,7 @@ void FRepLayout::SerializeProperties_DynamicArray_r(
 
 	if ( ArrayNum > MAX_ARRAY_SIZE )
 	{
-		UE_LOG( LogNetTraffic, Error, TEXT( "SerializeProperties_DynamicArray_r: ArrayNum > MAX_ARRAY_SIZE (%s)" ), *Cmd.Property->GetName() );
+		UE_LOG( LogRepTraffic, Error, TEXT( "SerializeProperties_DynamicArray_r: ArrayNum > MAX_ARRAY_SIZE (%s)" ), *Cmd.Property->GetName() );
 		Ar.SetError();
 		return;
 	}
@@ -2384,7 +2384,7 @@ void FRepLayout::SerializeProperties_DynamicArray_r(
 
 	if ( (int32)ArrayNum * Cmd.ElementSize > MAX_ARRAY_MEMORY )
 	{
-		UE_LOG( LogNetTraffic, Error, TEXT( "SerializeProperties_DynamicArray_r: ArrayNum * Cmd.ElementSize > MAX_ARRAY_MEMORY (%s)" ), *Cmd.Property->GetName() );
+		UE_LOG( LogRepTraffic, Error, TEXT( "SerializeProperties_DynamicArray_r: ArrayNum * Cmd.ElementSize > MAX_ARRAY_MEMORY (%s)" ), *Cmd.Property->GetName() );
 		Ar.SetError();
 		return;
 	}
@@ -2478,7 +2478,7 @@ void FRepLayout::SendPropertiesForRPC( UObject* Object, UFunction * Function, UA
 			if ( bHasUnmapped )
 			{
 				// RPC function is sending an unmapped object...
-				UE_LOG( LogNetTraffic, Log, TEXT( "Actor[%d] %s RPC %s parameter %s was sent while unmapped! This call may not be correctly handled on the receiving end." ),
+				UE_LOG( LogRepTraffic, Log, TEXT( "Actor[%d] %s RPC %s parameter %s was sent while unmapped! This call may not be correctly handled on the receiving end." ),
 					Channel->ChIndex, *Object->GetName(), *Function->GetName(), *Parents[i].Property->GetName() );
 			}
 		}
@@ -2510,7 +2510,7 @@ void FRepLayout::ReceivePropertiesForRPC( UObject* Object, UFunction * Function,
 			
 			if ( bHasUnmapped )
 			{
-				UE_LOG( LogNetTraffic, Log, TEXT( "Unable to resolve RPC parameter. Object[%d] %s. Function %s. Parameter %s." ), 
+				UE_LOG( LogRepTraffic, Log, TEXT( "Unable to resolve RPC parameter. Object[%d] %s. Function %s. Parameter %s." ), 
 					Channel->ChIndex, *Object->GetName(), *Function->GetName(), *Parents[i].Property->GetName() );
 			}
 		}
@@ -2536,7 +2536,7 @@ void FRepLayout::RebuildConditionalProperties( FRepState * RESTRICT	RepState, co
 {
 	SCOPE_CYCLE_COUNTER( STAT_NetRebuildConditionalTime );
 
-	//UE_LOG( LogNet, Warning, TEXT( "Rebuilding custom properties [%s]" ), *Owner->GetName() );
+	//UE_LOG( LogRep, Warning, TEXT( "Rebuilding custom properties [%s]" ), *Owner->GetName() );
 	
 	// Setup condition map
 	bool ConditionMap[COND_Max];

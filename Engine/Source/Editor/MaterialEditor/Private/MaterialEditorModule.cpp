@@ -50,6 +50,7 @@ public:
 	{
 		TSharedRef<FMaterialEditor> NewMaterialEditor(new FMaterialEditor());
 		NewMaterialEditor->InitEditorForMaterial(Material);
+		OnMaterialEditorOpened().Broadcast(NewMaterialEditor);
 		NewMaterialEditor->InitMaterialEditor(Mode, InitToolkitHost, Material);
 		return NewMaterialEditor;
 	}
@@ -58,6 +59,7 @@ public:
 	{
 		TSharedRef<FMaterialEditor> NewMaterialEditor(new FMaterialEditor());
 		NewMaterialEditor->InitEditorForMaterialFunction(MaterialFunction);
+		OnMaterialFunctionEditorOpened().Broadcast(NewMaterialEditor);
 		NewMaterialEditor->InitMaterialEditor(Mode, InitToolkitHost, MaterialFunction);
 		return NewMaterialEditor;
 	}
@@ -65,6 +67,7 @@ public:
 	virtual TSharedRef<IMaterialEditor> CreateMaterialInstanceEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UMaterialInstance* MaterialInstance ) override
 	{
 		TSharedRef<FMaterialInstanceEditor> NewMaterialInstanceEditor(new FMaterialInstanceEditor());
+		OnMaterialInstanceEditorOpened().Broadcast(NewMaterialInstanceEditor);
 		NewMaterialInstanceEditor->InitMaterialInstanceEditor(Mode, InitToolkitHost, MaterialInstance);
 		return NewMaterialInstanceEditor;
 	}

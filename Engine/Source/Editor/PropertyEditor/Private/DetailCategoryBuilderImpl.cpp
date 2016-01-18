@@ -86,6 +86,7 @@ FDetailCategoryImpl::FDetailCategoryImpl( FName InCategoryName, TSharedRef<FDeta
 	, bForceAdvanced( false )
 	, bHasFilterStrings( false )
 	, bHasVisibleDetails( true )
+	, bIsCategoryVisible( true )
 {
 	const UStruct* BaseStruct = InDetailLayout->GetDetailsView().GetBaseStruct();
 	// Use the base class name if there is one otherwise this is a generic category not specific to a class
@@ -93,7 +94,10 @@ FDetailCategoryImpl::FDetailCategoryImpl( FName InCategoryName, TSharedRef<FDeta
 
 	CategoryPathName = BaseStructName.ToString() + TEXT(".") + CategoryName.ToString();
 
-	GConfig->GetBool( TEXT("DetailCategoriesAdvanced"), *CategoryPathName, bUserShowAdvanced, GEditorPerProjectIni );
+	bool bUserShowAdvancedConfigValue = false;
+	GConfig->GetBool( TEXT("DetailCategoriesAdvanced"), *CategoryPathName, bUserShowAdvancedConfigValue, GEditorPerProjectIni );
+
+	bUserShowAdvanced = bUserShowAdvancedConfigValue;
 
 }
 
@@ -176,6 +180,15 @@ void FDetailCategoryImpl::GetDefaultProperties( TArray<TSharedRef<IPropertyHandl
 	}
 }
 
+void FDetailCategoryImpl::SetCategoryVisibility( bool bIsVisible )
+{
+	if( bIsVisible != bIsCategoryVisible )
+	{
+		bIsCategoryVisible = bIsVisible;
+
+		GetDetailsView().RerunCurrentFilter();
+	}
+}
 
 IDetailCategoryBuilder& FDetailCategoryImpl::InitiallyCollapsed( bool bInShouldBeInitiallyCollapsed )
 {
@@ -574,7 +587,7 @@ bool FDetailCategoryImpl::ShouldBeExpanded() const
 
 ENodeVisibility::Type FDetailCategoryImpl::GetVisibility() const
 {
-	return bHasVisibleDetails ? ENodeVisibility::Visible : ENodeVisibility::ForcedHidden;
+	return bHasVisibleDetails && bIsCategoryVisible ? ENodeVisibility::Visible : ENodeVisibility::ForcedHidden;
 }
 
 bool IsCustomProperty( const TSharedPtr<FPropertyNode>& PropertyNode )

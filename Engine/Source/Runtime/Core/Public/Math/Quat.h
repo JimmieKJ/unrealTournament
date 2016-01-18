@@ -136,6 +136,14 @@ public:
 	FORCEINLINE bool Equals(const FQuat& Q, float Tolerance=KINDA_SMALL_NUMBER) const;
 
 	/**
+	 * Checks whether this Quaternion is an Identity Quaternion.
+	 * Assumes Quaternion tested is normalized.
+	 *
+	 * @return true if Quaternion is a normalized Identity Quaternion.
+	 */
+	FORCEINLINE bool IsIdentity() const;
+
+	/**
 	 * Subtracts another quaternion from this.
 	 * This is a component-wise subtraction; composing quaternions should be done via multiplication.
 	 *
@@ -195,13 +203,21 @@ public:
 	FORCEINLINE FQuat operator*=( const float Scale );
 
 	/**
-	 * Get the result of scaling this rotator.
+	 * Get the result of scaling this quaternion.
 	 *
 	 * @param Scale The scaling factor.
 	 * @return The result of scaling.
 	 */
 	FORCEINLINE FQuat operator*( const float Scale ) const;
 	
+	/**
+	 * Divide this quaternion by scale.
+	 *
+	 * @param Scale What to divide by.
+	 * @return a reference to this after scaling.
+	 */
+	FORCEINLINE FQuat operator/=( const float Scale );
+
 	/**
 	 * Divide this quaternion by scale.
 	 *
@@ -252,10 +268,19 @@ public:
 
 	/**
 	 * Normalize this quaternion if it is large enough.
+	 * If it is too small, returns an identity quaternion.
 	 *
-	 * @param Tolerance Minimum squared length of vector for normalization.
+	 * @param Tolerance Minimum squared length of quaternion for normalization.
 	 */
 	FORCEINLINE void Normalize( float Tolerance=SMALL_NUMBER );
+
+	/**
+	 * Get a normalized copy of this quaternion.
+	 * If it is too small, returns an identity quaternion.
+	 *
+	 * @param Tolerance Minimum squared length of quaternion for normalization.
+	 */
+	FORCEINLINE FQuat GetNormalized( float Tolerance=SMALL_NUMBER ) const;
 
 	// Return true if this quaternion is normalized
 	bool IsNormalized() const;
@@ -322,19 +347,35 @@ public:
 	 */
 	void EnforceShortestArcWith( const FQuat& OtherQuat );
 	
-	/** Get X Rotation Axis. */
+	/** Get the forward direction (X axis) after it has been rotated by this Quaternion. */
 	FORCEINLINE FVector GetAxisX() const;
 
-	/** Get Y Rotation Axis. */
+	/** Get the right direction (Y axis) after it has been rotated by this Quaternion. */
 	FORCEINLINE FVector GetAxisY() const;
 
-	/** Get Z Rotation Axis. */
+	/** Get the up direction (Z axis) after it has been rotated by this Quaternion. */
 	FORCEINLINE FVector GetAxisZ() const;
 
-	/** @return rotator representation of this quaternion */
+	/** Get the forward direction (X axis) after it has been rotated by this Quaternion. */
+	FORCEINLINE FVector GetForwardVector() const;
+
+	/** Get the right direction (Y axis) after it has been rotated by this Quaternion. */
+	FORCEINLINE FVector GetRightVector() const;
+
+	/** Get the up direction (Z axis) after it has been rotated by this Quaternion. */
+	FORCEINLINE FVector GetUpVector() const;
+
+	/** Convert a rotation into a unit vector facing in its direction. Equivalent to GetForwardVector(). */
+	FORCEINLINE FVector Vector() const;
+
+	/** Get the FRotator representation of this Quaternion. */
 	CORE_API FRotator Rotator() const;
 
-	/** @return Vector of the axis of the quaternion */
+	/**
+	 * Get the axis of rotation of the Quaternion.
+	 * This is the axis around which rotation occurs to transform the canonical coordinate system to the target orientation.
+	 * For the identity Quaternion which has no such rotation, FVector(1,0,0) is returned.
+	 */
 	FORCEINLINE FVector GetRotationAxis() const;
 
 	/**
@@ -363,7 +404,11 @@ public:
 #if ENABLE_NAN_DIAGNOSTIC
 	FORCEINLINE void DiagnosticCheckNaN() const
 	{
-		checkf(!ContainsNaN(), TEXT("FQuat contains NaN: %s"), *ToString());
+		if (ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("FQuat contains NaN: %s"), *ToString());
+			*const_cast<FQuat*>(this) = FQuat::Identity;
+		}
 	}
 #else
 	FORCEINLINE void DiagnosticCheckNaN() const {}
@@ -372,9 +417,22 @@ public:
 public:
 
 	/**
-	 * Generates the 'smallest' (geodesic) rotation between these two vectors.
+	 * Generates the 'smallest' (geodesic) rotation between two vectors of arbitrary length.
 	 */
-	static CORE_API FQuat FindBetween( const FVector& vec1, const FVector& vec2 );
+	static FORCEINLINE FQuat FindBetween( const FVector& Vector1, const FVector& Vector2 )
+	{
+		return FindBetweenVectors(Vector1, Vector2);
+	}
+
+	/**
+	 * Generates the 'smallest' (geodesic) rotation between two normals (assumed to be unit length).
+	 */
+	static CORE_API FQuat FindBetweenNormals( const FVector& Normal1, const FVector& Normal2 );
+
+	/**
+	 * Generates the 'smallest' (geodesic) rotation between two vectors of arbitrary length.
+	 */
+	static CORE_API FQuat FindBetweenVectors( const FVector& Vector1, const FVector& Vector2 );
 
 	/**
 	 * Error measure (angle) between two quaternions, ranged [0..1].
@@ -401,16 +459,33 @@ public:
 	static FORCEINLINE FQuat FastBilerp( const FQuat& P00, const FQuat& P10, const FQuat& P01, const FQuat& P11, float FracX, float FracY );
 
 
-	/** Spherical interpolation. Will correct alignment. Output is not normalized. */
-	static CORE_API FQuat Slerp( const FQuat &Quat1,const FQuat &Quat2, float Slerp );
+	/** Spherical interpolation. Will correct alignment. Result is NOT normalized. */
+	static CORE_API FQuat Slerp_NotNormalized( const FQuat &Quat1, const FQuat &Quat2, float Slerp );
+
+	/** Spherical interpolation. Will correct alignment. Result is normalized. */
+	static FORCEINLINE FQuat Slerp( const FQuat &Quat1, const FQuat &Quat2, float Slerp )
+	{
+		return Slerp_NotNormalized(Quat1, Quat2, Slerp).GetNormalized();
+	}
 
 	/**
 	 * Simpler Slerp that doesn't do any checks for 'shortest distance' etc.
 	 * We need this for the cubic interpolation stuff so that the multiple Slerps dont go in different directions.
+	 * Result is NOT normalized.
 	 */
-	static CORE_API FQuat SlerpFullPath( const FQuat &quat1, const FQuat &quat2, float Alpha );
+	static CORE_API FQuat SlerpFullPath_NotNormalized( const FQuat &quat1, const FQuat &quat2, float Alpha );
+
+	/**
+	 * Simpler Slerp that doesn't do any checks for 'shortest distance' etc.
+	 * We need this for the cubic interpolation stuff so that the multiple Slerps dont go in different directions.
+	 * Result is normalized.
+	 */
+	static FORCEINLINE FQuat SlerpFullPath( const FQuat &quat1, const FQuat &quat2, float Alpha )
+	{
+		return SlerpFullPath_NotNormalized(quat1, quat2, Alpha).GetNormalized();
+	}
 	
-	/** Given start and end quaternions of quat1 and quat2, and tangents at those points tang1 and tang2, calculate the point at Alpha (between 0 and 1) between them. */
+	/** Given start and end quaternions of quat1 and quat2, and tangents at those points tang1 and tang2, calculate the point at Alpha (between 0 and 1) between them. Result is normalized. */
 	static CORE_API FQuat Squad( const FQuat& quat1, const FQuat& tang1, const FQuat& quat2, const FQuat& tang2, float Alpha );
 
 	/** 
@@ -436,6 +511,12 @@ public:
 	friend FArchive& operator<<( FArchive& Ar, FQuat& F )
 	{
 		return Ar << F.X << F.Y << F.Z << F.W;
+	}
+
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
 	}
 
 } GCC_ALIGN(16);
@@ -552,31 +633,6 @@ inline FMatrix FQuat::operator*( const FMatrix& M ) const
 }
 
 
-/** now we directly convert from Rotator to Quaternion and vice versa. If you see issue with rotator, you can contact @LH or  
- *  you can undo this to see if this fixes issue. Feel free to enable this and see if that fixes the issue.
- */
-#define USE_MATRIX_ROTATOR 0
-
-#if USE_MATRIX_ROTATOR
-
-#include "QuatRotationTranslationMatrix.h"
-
-/** 
- * this is not right representation of if both rotation is equal or not
- * if you really like to equal, use matrix form. 
- * @warning DO NOT USE THIS To VERIFY if rotation is same. I'm only using this for the debug purpose
- */
-FORCEINLINE bool DebugRotatorEquals(const FRotator& R1, const FRotator& R2, float Tolerance=1.f) 
-{
-	// also 0 and 360 should be considered same 
-	return ( FMath::Abs(R1.Pitch-R2.Pitch) < Tolerance || FMath::Abs(R1.Pitch+R2.Pitch-360) < Tolerance )
-		&& ( FMath::Abs(R1.Yaw-R2.Yaw) < Tolerance || FMath::Abs(R1.Yaw+R2.Yaw-360) < Tolerance )
-		&& ( FMath::Abs(R1.Roll-R2.Roll) < Tolerance || FMath::Abs(R1.Roll+R2.Roll-360) < Tolerance );
-}
-#endif
-
-
-
 /* FQuat inline functions
  *****************************************************************************/
 
@@ -605,7 +661,7 @@ FORCEINLINE FQuat::FQuat( const FQuat& Q )
 
 FORCEINLINE FString FQuat::ToString() const
 {
-	return FString::Printf(TEXT("X=%3.3f Y=%3.3f Z=%3.3f W=%3.3f"), X, Y, Z, W);
+	return FString::Printf(TEXT("X=%.6f Y=%.6f Z=%.6f W=%.6f"), X, Y, Z, W);
 }
 
 
@@ -664,10 +720,24 @@ FORCEINLINE FQuat FQuat::operator-( const FQuat& Q ) const
 
 FORCEINLINE bool FQuat::Equals(const FQuat& Q, float Tolerance) const
 {
-	return (FMath::Abs(X - Q.X) < Tolerance && FMath::Abs(Y - Q.Y) < Tolerance && FMath::Abs(Z - Q.Z) < Tolerance && FMath::Abs(W - Q.W) < Tolerance)
-		|| (FMath::Abs(X + Q.X) < Tolerance && FMath::Abs(Y + Q.Y) < Tolerance && FMath::Abs(Z + Q.Z) < Tolerance && FMath::Abs(W + Q.W) < Tolerance);
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	const VectorRegister ToleranceV = VectorLoadFloat1(&Tolerance);
+	const VectorRegister A = VectorLoadAligned(this);
+	const VectorRegister B = VectorLoadAligned(&Q);
+
+	const VectorRegister RotationSub = VectorAbs(VectorSubtract(A, B));
+	const VectorRegister RotationAdd = VectorAbs(VectorAdd(A, B));
+	return !VectorAnyGreaterThan(RotationSub, ToleranceV) || !VectorAnyGreaterThan(RotationAdd, ToleranceV);
+#else
+	return (FMath::Abs(X - Q.X) <= Tolerance && FMath::Abs(Y - Q.Y) <= Tolerance && FMath::Abs(Z - Q.Z) <= Tolerance && FMath::Abs(W - Q.W) <= Tolerance)
+		|| (FMath::Abs(X + Q.X) <= Tolerance && FMath::Abs(Y + Q.Y) <= Tolerance && FMath::Abs(Z + Q.Z) <= Tolerance && FMath::Abs(W + Q.W) <= Tolerance);
+#endif // PLATFORM_ENABLE_VECTORINTRINSICS
 }
 
+FORCEINLINE bool FQuat::IsIdentity() const
+{
+	return ((W * W) > ((1.f - DELTA) * (1.f - DELTA)));
+}
 
 FORCEINLINE FQuat FQuat::operator-=(const FQuat& Q)
 {
@@ -729,21 +799,48 @@ FORCEINLINE FQuat FQuat::operator*( const float Scale ) const
 }
 
 
-FORCEINLINE FQuat FQuat::operator/( const float Scale ) const
+FORCEINLINE FQuat FQuat::operator/=(const float Scale)
 {
-	return FQuat(X / Scale, Y / Scale, Z / Scale, W / Scale);
+	const float Recip = 1.0f / Scale;
+	X *= Recip;
+	Y *= Recip;
+	Z *= Recip;
+	W *= Recip;
+
+	DiagnosticCheckNaN();
+
+	return *this;
+}
+
+
+FORCEINLINE FQuat FQuat::operator/(const float Scale) const
+{
+	const float Recip = 1.0f / Scale;
+	return FQuat(X * Recip, Y * Recip, Z * Recip, W * Recip);
 }
 
 
 FORCEINLINE bool FQuat::operator==( const FQuat& Q ) const
 {
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	const VectorRegister A = VectorLoadAligned(this);
+	const VectorRegister B = VectorLoadAligned(&Q);
+	return VectorMaskBits(VectorCompareEQ(A, B)) == 0x0F;
+#else
 	return X == Q.X && Y == Q.Y && Z == Q.Z && W == Q.W;
+#endif // PLATFORM_ENABLE_VECTORINTRINSICS
 }
 
 
 FORCEINLINE bool FQuat::operator!=( const FQuat& Q ) const
 {
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	const VectorRegister A = VectorLoadAligned(this);
+	const VectorRegister B = VectorLoadAligned(&Q);
+	return VectorMaskBits(VectorCompareNE(A, B)) != 0x00;
+#else
 	return X != Q.X || Y != Q.Y || Z != Q.Z || W != Q.W;
+#endif // PLATFORM_ENABLE_VECTORINTRINSICS
 }
 
 
@@ -755,9 +852,20 @@ FORCEINLINE float FQuat::operator|( const FQuat& Q ) const
 
 FORCEINLINE void FQuat::Normalize(float Tolerance)
 {
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	const VectorRegister Vector = VectorLoadAligned(this);
+
+	const VectorRegister SquareSum = VectorDot4(Vector, Vector);
+	const VectorRegister NonZeroMask = VectorCompareGE(SquareSum, VectorLoadFloat1(&Tolerance));
+	const VectorRegister InvLength = VectorReciprocalSqrtAccurate(SquareSum);
+	const VectorRegister NormalizedVector = VectorMultiply(InvLength, Vector);
+	VectorRegister Result = VectorSelect(NonZeroMask, NormalizedVector, GlobalVectorConstants::Float0001);
+
+	VectorStoreAligned(Result, this);
+#else
 	const float SquareSum = X * X + Y * Y + Z * Z + W * W;
 
-	if (SquareSum > Tolerance)
+	if (SquareSum >= Tolerance)
 	{
 		const float Scale = FMath::InvSqrt(SquareSum);
 
@@ -770,7 +878,17 @@ FORCEINLINE void FQuat::Normalize(float Tolerance)
 	{
 		*this = FQuat::Identity;
 	}
+#endif // PLATFORM_ENABLE_VECTORINTRINSICS
 }
+
+
+FORCEINLINE FQuat FQuat::GetNormalized(float Tolerance) const
+{
+	FQuat Result(*this);
+	Result.Normalize(Tolerance);
+	return Result;
+}
+
 
 
 FORCEINLINE bool FQuat::IsNormalized() const
@@ -819,27 +937,19 @@ FORCEINLINE FVector FQuat::RotateVector( FVector V ) const
 	VectorQuaternionVector3Rotate(&Result, &V, this);
 	return Result;
 
-	/*
-	// In unit testing this appears to be slower than the non-vectorized version.
-#elif PLATFORM_ENABLE_VECTORINTRINSICS
-	FQuat VQ(V.X, V.Y, V.Z, 0.f);
-	FQuat VT, VR;
-	FQuat I = Inverse();
-	VectorQuaternionMultiply(&VT, this, &VQ);
-	VectorQuaternionMultiply(&VR, &VT, &I);
-
-	return FVector(VR.X, VR.Y, VR.Z);
-	*/
-
 #else
-	// (q.W*q.W-qv.qv)v + 2(qv.v)qv + 2 q.W (qv x v)
 
-	const FVector qv(X, Y, Z);
-	FVector vOut = (2.f * W) * (qv ^ V);
-	vOut += ((W * W) - (qv | qv)) * V;
-	vOut += (2.f * (qv | V)) * qv;
+	// http://people.csail.mit.edu/bkph/articles/Quaternions.pdf
+	// V' = V + 2w(Q x V) + (2Q x (Q x V))
+	// refactor:
+	// V' = V + w(2(Q x V)) + (Q x (2(Q x V)))
+	// T = 2(Q x V);
+	// V' = V + w*(T) + (Q x T)
 
-	return vOut;
+	const FVector Q(X, Y, Z);
+	const FVector T = 2.f * FVector::CrossProduct(Q, V);
+	const FVector Result = V + (W * T) + FVector::CrossProduct(Q, T);
+	return Result;
 #endif
 }
 
@@ -850,7 +960,12 @@ FORCEINLINE FVector FQuat::UnrotateVector( FVector V ) const
 	VectorQuaternionVector3InverseRotate(&Result, &V, this);
 	return Result;
 #else
-	return Inverse().RotateVector(V);
+	//return Inverse().RotateVector(V);
+
+	const FVector Q(-X, -Y, -Z); // Inverse
+	const FVector T = 2.f * FVector::CrossProduct(Q, V);
+	const FVector Result = V + (W * T) + FVector::CrossProduct(Q, T);
+	return Result;
 #endif
 }
 
@@ -890,6 +1005,27 @@ FORCEINLINE FVector FQuat::GetAxisY() const
 FORCEINLINE FVector FQuat::GetAxisZ() const
 {
 	return RotateVector(FVector(0.f, 0.f, 1.f));
+}
+
+
+FORCEINLINE FVector FQuat::GetForwardVector() const
+{
+	return GetAxisX();
+}
+
+FORCEINLINE FVector FQuat::GetRightVector() const
+{
+	return GetAxisY();
+}
+
+FORCEINLINE FVector FQuat::GetUpVector() const
+{
+	return GetAxisZ();
+}
+
+FORCEINLINE FVector FQuat::Vector() const
+{
+	return GetAxisX();
 }
 
 

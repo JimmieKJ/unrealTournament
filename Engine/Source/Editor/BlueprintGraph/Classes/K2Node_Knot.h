@@ -30,6 +30,7 @@ public:
 	virtual void PostReconstructNode() override;
 	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
+	virtual bool IsNodePure() const { return true; }
 	// End of UK2Node interface
 
 	UEdGraphPin* GetInputPin() const

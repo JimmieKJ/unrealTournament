@@ -37,6 +37,7 @@ public:
 	bool HasTranslucentObjectShadow() const { return bHasTranslucentObjectShadow; }
 	bool HasInsetObjectShadow() const { return bHasInsetObjectShadow; }
 	bool CastsSelfShadowOnly() const { return bSelfShadowOnly; }
+	bool IsES2DynamicPointLight() const { return bES2DynamicPointLight; }
 	FLightSceneInfo* GetLight() const { return LightSceneInfo; }
 	int32 GetLightId() const { return LightId; }
 	FPrimitiveSceneInfo* GetPrimitiveSceneInfo() const { return PrimitiveSceneInfo; }
@@ -99,6 +100,9 @@ private:
 	/** True if the primitive only shadows itself. */
 	uint32 bSelfShadowOnly : 1;
 
+	/** True this is an ES2 dynamic point light interaction. */
+	uint32 bES2DynamicPointLight : 1;	
+
 	/** Initialization constructor. */
 	FLightPrimitiveInteraction(FLightSceneInfo* InLightSceneInfo,FPrimitiveSceneInfo* InPrimitiveSceneInfo,
 		bool bIsDynamic,bool bInLightMapped,bool bInIsShadowMapped, bool bInHasTranslucentObjectShadow, bool bInHasInsetObjectShadow);
@@ -136,22 +140,17 @@ public:
 	/** The index of the mesh in the scene's static meshes array. */
 	int32 Id;
 
-	/** If true this static mesh should only be rendered during shadow depth passes. */
-	bool bShadowOnly;
-
 	// Constructor/destructor.
 	FStaticMesh(
 		FPrimitiveSceneInfo* InPrimitiveSceneInfo,
 		const FMeshBatch& InMesh,
 		float InScreenSize,
-		bool bInShadowOnly,
 		FHitProxyId InHitProxyId
 		):
 		FMeshBatch(InMesh),
 		ScreenSize(InScreenSize),
 		PrimitiveSceneInfo(InPrimitiveSceneInfo),
-		Id(INDEX_NONE),
-		bShadowOnly(bInShadowOnly)
+		Id(INDEX_NONE)
 	{
 		BatchHitProxyId = InHitProxyId;
 	}

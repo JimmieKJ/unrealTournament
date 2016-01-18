@@ -11,4 +11,5 @@ public:
 
 public:
 	static TSharedPtr<class IMeshPaintGeometryAdapter> CreateAdapterForMesh(UMeshComponent* InComponent, int32 InPaintingMeshLODIndex, int32 InUVChannelIndex);
+	static void InitializeAdapterGlobals();
 };

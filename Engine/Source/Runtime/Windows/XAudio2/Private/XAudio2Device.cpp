@@ -57,7 +57,6 @@ XAUDIO2_DEVICE_DETAILS FXAudioDeviceProperties::DeviceDetails;
 
 #define DEBUG_XAUDIO2 0
 
-FSpatializationHelper FXAudio2Device::SpatializationHelper;
 
 bool FXAudio2Device::InitializeHardware()
 {
@@ -75,7 +74,7 @@ bool FXAudio2Device::InitializeHardware()
 	// Load ogg and vorbis dlls if they haven't been loaded yet
 	LoadVorbisLibraries();
 
-	SampleRate = 0;
+	SampleRate = UE4_XAUDIO2_SAMPLERATE;
 
 #if PLATFORM_WINDOWS
 	bComInitialized = FWindowsPlatformMisc::CoInitialize();
@@ -182,7 +181,7 @@ bool FXAudio2Device::InitializeHardware()
 	}
 #endif	//XAUDIO_SUPPORTS_DEVICE_DETAILS
 
-	SpatializationHelper.Init();
+	DeviceProperties->SpatializationHelper.Init();
 
 	// Initialize permanent memory stack for initial & always loaded sound allocations.
 	if( CommonAudioPoolSize )
@@ -204,30 +203,6 @@ void FXAudio2Device::TeardownHardware()
 {
 	if (DeviceProperties)
 	{
-		// close hardware interfaces
-		if (DeviceProperties->MasteringVoice)
-		{
-			DeviceProperties->MasteringVoice->DestroyVoice();
-			DeviceProperties->MasteringVoice = NULL;
-		}
-
-		if (DeviceProperties->XAudio2)
-		{
-			// Force the hardware to release all references
-			DeviceProperties->XAudio2->Release();
-			DeviceProperties->XAudio2 = NULL;
-		}
-
-#if PLATFORM_WINDOWS && PLATFORM_64BITS
-		if (DeviceProperties->XAudio2Dll)
-		{
-			if (!FreeLibrary(DeviceProperties->XAudio2Dll))
-			{
-				UE_LOG(LogAudio, Warning, TEXT("Failed to free XAudio2 Dll"));
-			}
-		}
-#endif
-
 		delete DeviceProperties;
 		DeviceProperties = nullptr;
 	}
@@ -242,14 +217,6 @@ void FXAudio2Device::TeardownHardware()
 
 void FXAudio2Device::UpdateHardware()
 {
-	if (Listeners.Num() > 0)
-	{
-		// Caches the matrix used to transform a sounds position into local space so we can just look
-		// at the Y component after normalization to determine spatialization.
-		const FVector Up = Listeners[0].GetUp();
-		const FVector Right = Listeners[0].GetFront();
-		InverseTransform = FMatrix(Up, Right, Up ^ Right, Listeners[0].Transform.GetTranslation()).InverseFast();
-	}
 }
 
 FAudioEffectsManager* FXAudio2Device::CreateEffectsManager()

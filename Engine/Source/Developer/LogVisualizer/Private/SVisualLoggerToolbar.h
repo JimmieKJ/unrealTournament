@@ -6,7 +6,7 @@
 /**
 * Implements the messaging debugger toolbar widget.
 */
-class SVisualLoggerToolbar : public SCompoundWidget
+class SVisualLoggerToolbar : public SVisualLoggerBaseWidget
 {
 public:
 

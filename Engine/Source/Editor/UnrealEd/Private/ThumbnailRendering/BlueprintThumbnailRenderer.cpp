@@ -51,11 +51,9 @@ bool UBlueprintThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 
 			if (BlueprintToHarvestComponents->SimpleConstructionScript)
 			{
-				TArray<USCS_Node*> AllNodes = BlueprintToHarvestComponents->SimpleConstructionScript->GetAllNodes();
-
-				for (auto NodeIt = AllNodes.CreateConstIterator(); NodeIt; ++NodeIt)
+				for (USCS_Node* Node : BlueprintToHarvestComponents->SimpleConstructionScript->GetAllNodes())
 				{
-					if (ThumbnailScene->IsValidComponentForVisualization((*NodeIt)->ComponentTemplate))
+					if (ThumbnailScene->IsValidComponentForVisualization(Node->ComponentTemplate))
 					{
 						return true;
 					}

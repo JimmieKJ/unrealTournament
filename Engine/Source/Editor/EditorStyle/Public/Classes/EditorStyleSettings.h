@@ -27,8 +27,7 @@ enum EColorVisionDeficiency
  * Implements the Editor style settings.
  */
 UCLASS(config=EditorPerProjectUserSettings)
-class EDITORSTYLE_API UEditorStyleSettings
-	: public UObject
+class EDITORSTYLE_API UEditorStyleSettings : public UObject
 {
 public:
 
@@ -83,8 +82,12 @@ public:
 	uint32 bShowLaunchMenus : 1;
 
 	/** The display mode for timestamps in the output log */
-	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=UserInterface)
+	UPROPERTY(EditAnywhere, config, Category=Logging)
 	TEnumAsByte<ELogTimes::Type> LogTimestampMode;
+
+	/** Should warnings and errors in the Output Log during "Play in Editor" be promoted to the message log? */
+	UPROPERTY(EditAnywhere, config, Category=Logging)
+	bool bPromoteOutputLogWarningsDuringPIE;
 
 	/** If checked, new asset editor tabs will open in a new window instead of docked in the tab from which they were opened */
 	UPROPERTY(EditAnywhere, config, Category=UserInterface)

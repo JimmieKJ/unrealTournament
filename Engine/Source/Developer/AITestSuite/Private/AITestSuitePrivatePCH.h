@@ -38,3 +38,5 @@
 
 #include "MockAI.h"
 #include "MockAI_BT.h"
+#include "MockGameplayTasks.h"
+

@@ -32,6 +32,17 @@ FText UPaperSpriteSheetImportFactory::GetToolTip() const
 	return NSLOCTEXT("Paper2D", "PaperJsonImporterFactoryDescription", "Sprite sheets exported from Adobe Flash or Texture Packer");
 }
 
+bool UPaperSpriteSheetImportFactory::FactoryCanImport(const FString& Filename)
+{
+	FString FileContent;
+	if (FFileHelper::LoadFileToString(/*out*/ FileContent, *Filename))
+	{
+		return FPaperJsonSpriteSheetImporter::CanImportJSON(FileContent);
+	}
+
+	return false;
+}
+
 UObject* UPaperSpriteSheetImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn)
 {
 	Flags |= RF_Transactional;
@@ -54,20 +65,13 @@ UObject* UPaperSpriteSheetImportFactory::FactoryCreateText(UClass* InClass, UObj
 	const FString NameForErrors(InName.ToString());
 	const FString FileContent(BufferEnd - Buffer, Buffer);
 	
-	if (Importer.ImportFromString(FileContent, NameForErrors) &&
+	if (Importer.ImportFromString(FileContent, NameForErrors, /*bSilent=*/ false) &&
 		Importer.ImportTextures(LongPackagePath, CurrentSourcePath))
 	{
 		UPaperSpriteSheet* SpriteSheet = NewObject<UPaperSpriteSheet>(InParent, InName, Flags);
 		if (Importer.PerformImport(LongPackagePath, Flags, SpriteSheet))
 		{
-			if (SpriteSheet->AssetImportData == nullptr)
-			{
-				SpriteSheet->AssetImportData = NewObject<UAssetImportData>(SpriteSheet);
-			}
-
-			SpriteSheet->AssetImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(CurrentFilename, SpriteSheet);
-			SpriteSheet->AssetImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*CurrentFilename).ToString();
-			SpriteSheet->AssetImportData->bDirty = false;
+			SpriteSheet->AssetImportData->Update(CurrentFilename);
 
 			Result = SpriteSheet;
 		}

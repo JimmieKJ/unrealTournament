@@ -14,7 +14,7 @@ class ANote : public AActor
 	GENERATED_UCLASS_BODY()
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Note)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Note, meta = (MultiLine = "true"))
 	FString Text;
 
 	// Reference to sprite visualization component
@@ -32,9 +32,9 @@ public:
 #endif // WITH_EDITORONLY_DATA
 
 #if WITH_EDITOR
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void CheckForErrors() override;
-	// End AActor Interface
+	//~ End AActor Interface
 #endif
 
 #if WITH_EDITORONLY_DATA

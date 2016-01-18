@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 extern UNREALTOURNAMENT_API const FName NAME_AttackerScore;
@@ -23,11 +23,13 @@ extern UNREALTOURNAMENT_API const FName NAME_SkillRating;
 extern UNREALTOURNAMENT_API const FName NAME_TDMSkillRating;
 extern UNREALTOURNAMENT_API const FName NAME_DMSkillRating;
 extern UNREALTOURNAMENT_API const FName NAME_CTFSkillRating;
+extern UNREALTOURNAMENT_API const FName NAME_ShowdownSkillRating;
 
 extern UNREALTOURNAMENT_API const FName NAME_SkillRatingSamples;
 extern UNREALTOURNAMENT_API const FName NAME_TDMSkillRatingSamples;
 extern UNREALTOURNAMENT_API const FName NAME_DMSkillRatingSamples;
 extern UNREALTOURNAMENT_API const FName NAME_CTFSkillRatingSamples;
+extern UNREALTOURNAMENT_API const FName NAME_ShowdownSkillRatingSamples;
 
 extern UNREALTOURNAMENT_API const FName NAME_MatchesPlayed;
 extern UNREALTOURNAMENT_API const FName NAME_MatchesQuit;

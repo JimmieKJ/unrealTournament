@@ -72,8 +72,8 @@ class FTypeContainer
 	struct TFunctionInstanceProvider
 		: public IInstanceProvider
 	{
-		TFunctionInstanceProvider(TFunction<TSharedPtr<void>()> InCreateFunc)
-			: CreateFunc(InCreateFunc)
+		TFunctionInstanceProvider(TFunction<TSharedPtr<void>()>&& InCreateFunc)
+			: CreateFunc(MoveTemp(InCreateFunc))
 		{ }
 
 		virtual ~TFunctionInstanceProvider() override { }
@@ -159,12 +159,12 @@ public:
 	/**
 	 * Gets a shared pointer to an instance of the specified class.
 	 *
-	 * @param T The type of class to get an instance for.
+	 * @param R The type of class to get an instance for.
 	 * @param A shared reference to the instance.
 	 * @see RegisterClass, RegisterDelegate, RegisterFactory, RegisterInstance
 	 */
 	template<class R>
-	TSharedRef<R> GetInstance()
+	TSharedRef<R> GetInstance() const
 	{
 		FScopeLock Lock(&CriticalSection);
 		{
@@ -186,9 +186,24 @@ public:
 	 * @see GetInstance, RegisterClass, RegisterInstance
 	 */
 	template<class R>
-	TSharedRef<R> GetInstanceRef()
+	TSharedRef<R> GetInstanceRef() const
 	{
 		return GetInstance<R>().ToSharedRef();
+	}
+
+	/**
+	 * Check whether the specified class has been registered.
+	 *
+	 * @param R The type of registered class to check.
+	 * @return true if the class was registered, false otherwise.
+	 */
+	template<class R>
+	bool IsRegistered() const
+	{
+		FScopeLock Lock(&CriticalSection);
+		{
+			return Providers.Contains(TNameOf<R>::GetName());
+		}
 	}
 
 	/**
@@ -310,11 +325,11 @@ public:
 		AddProvider(TNameOf<R>::GetName(), Provider);
 	}
 
-#ifdef __clang__
+#if _MSC_VER >= 1900 || __clang__
 	/**
 	 * Register a factory function for the specified class.
 	 *
-	 * This is a Clang specific overload for handling raw function pointers.
+	 * This is a Clang/VS2015-specific overload for handling raw function pointers.
 	 *
 	 * @param R The type of class to register the instance for.
 	 * @param P Additional parameters that the factory function requires.
@@ -386,10 +401,10 @@ protected:
 private:
 
 	/** Critical section for synchronizing access. */
-	FCriticalSection CriticalSection;
+	mutable FCriticalSection CriticalSection;
 
 	/** Maps class names to instance providers. */
-	TMap<const TCHAR*, TSharedPtr<IInstanceProvider>> Providers;
+	TMap<FString, TSharedPtr<IInstanceProvider>> Providers;
 };
 
 

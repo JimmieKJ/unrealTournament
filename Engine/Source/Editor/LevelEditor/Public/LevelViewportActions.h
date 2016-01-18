@@ -80,8 +80,8 @@ public:
 	/** Reset all show flags to default */
 	TSharedPtr< FUICommandInfo > UseDefaultShowFlags;
 
-	/** Allows this viewport to be used by matinee for previewing */ 
-	TSharedPtr< FUICommandInfo > AllowMatineePreview;
+	/** Allows this viewport to be used for previewing cinematic animations */ 
+	TSharedPtr< FUICommandInfo > ToggleCinematicPreview;
 
 	/** Finds instances of selected object in level script. */ 
 	TSharedPtr< FUICommandInfo > FindInLevelScriptBlueprint;

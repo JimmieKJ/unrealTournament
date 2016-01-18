@@ -74,11 +74,11 @@ class UInterpTrackAnimControl : public UInterpTrackFloatBase
 
 
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostLoad() override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin UInterpTrack interface.
+	//~ Begin UInterpTrack Interface.
 	virtual int32 GetNumKeyframes() const override;
 	virtual void GetTimeRange(float& StartTime, float& EndTime) const override;
 	virtual float GetTrackEndTime() const override;
@@ -98,14 +98,14 @@ class UInterpTrackAnimControl : public UInterpTrackFloatBase
 	virtual class UTexture2D* GetTrackIcon() const override;
 #endif // WITH_EDITORONLY_DATA
 	virtual void DrawTrack( FCanvas* Canvas, UInterpGroup* Group, const FInterpTrackDrawParams& Params ) override;
-	// End UInterpTrack interface.
+	//~ End UInterpTrack Interface.
 
-	// Begin FInterpEdInputInterface Interface
+	//~ Begin FInterpEdInputInterface Interface
 	virtual void BeginDrag(FInterpEdInputData &InputData) override;
 	virtual void EndDrag(FInterpEdInputData &InputData) override;
 	virtual EMouseCursor::Type GetMouseCursor(FInterpEdInputData &InputData) override;
 	virtual void ObjectDragged(FInterpEdInputData& InputData) override;
-	// End FInterpEdInputInterface Interface
+	//~ End FInterpEdInputInterface Interface
 
 	/** 
 	 * Calculates the reversed time for a sequence key, if the key has bReverse set.

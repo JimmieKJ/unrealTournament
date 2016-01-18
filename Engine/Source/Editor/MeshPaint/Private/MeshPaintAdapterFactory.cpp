@@ -22,3 +22,11 @@ TSharedPtr<class IMeshPaintGeometryAdapter> FMeshPaintAdapterFactory::CreateAdap
 
 	return Result;
 }
+
+void FMeshPaintAdapterFactory::InitializeAdapterGlobals()
+{
+	for (const auto& Factory : FactoryList)
+	{
+		Factory->InitializeAdapterGlobals();
+	}
+}

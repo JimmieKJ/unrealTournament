@@ -138,6 +138,9 @@ void UModelComponent::BuildRenderData()
 		}
 
 		IndexBuffer->Indices.Shrink();
+#if !DISALLOW_32BIT_INDICES
+		IndexBuffer->ComputeIndexWidth();
+#endif
 	}
 }
 
@@ -153,7 +156,10 @@ public:
 		Component(InComponent),
 		CollisionResponse(InComponent->GetCollisionResponseToChannels())
 #if WITH_EDITOR
-		, CollisionMaterialInstance(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(false, false),FColor(157,149,223,255)	)
+		, CollisionMaterialInstance(GEngine->ShadedLevelColorationUnlitMaterial
+			? GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(false, false)
+			: nullptr,
+			FColor(157,149,223,255))
 #endif
 	{
 		OverrideOwnerName(NAME_BSP);
@@ -436,7 +442,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View) && View->Family->EngineShowFlags.BSPTriangles && View->Family->EngineShowFlags.BSP;
@@ -566,7 +572,7 @@ private:
 		}
 		
 		// FLightCacheInterface.
-		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const
+		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const override
 		{
 			if( LightSceneProxy->HasStaticShadowing() )
 			{
@@ -597,12 +603,23 @@ private:
 			}
 		}
 
-		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const
+		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const override
 		{
 			return LightMap ? LightMap->GetInteraction(InFeatureLevel) : FLightMapInteraction();
 		}
 
-		virtual FShadowMapInteraction GetShadowMapInteraction() const
+		virtual void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer) override
+		{
+			PrecomputedLightingUniformBuffer = InPrecomputedLightingUniformBuffer;
+		}
+
+		virtual FUniformBufferRHIRef GetPrecomputedLightingBuffer() const override
+		{
+			return PrecomputedLightingUniformBuffer;
+		}
+
+
+		virtual FShadowMapInteraction GetShadowMapInteraction() const override
 		{
 			return ShadowMap ? ShadowMap->GetInteraction() : FShadowMapInteraction();
 		}
@@ -624,6 +641,9 @@ private:
 		const FLightMap* LightMap;
 
 		const FShadowMap* ShadowMap;
+
+		/** The uniform buffer holding mapping the lightmap policy resources. */
+		FUniformBufferRHIRef PrecomputedLightingUniformBuffer;
 
 		/** The element's bounding volume. */
 		FBoxSphereBounds Bounds;
@@ -678,6 +698,17 @@ public:
 		}
 		return NULL;
 	}
+
+	virtual void GetLCIs(FLCIArray& LCIs) override
+	{
+		LCIs.Reserve(Elements.Num());
+		for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ++ElementIndex)
+		{
+			FLightCacheInterface* LCI = &Elements[ElementIndex];
+			LCIs.Push(LCI);
+		}
+	}
+
 
 	friend class UModelComponent;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTChallengeManager.generated.h"
@@ -94,7 +94,7 @@ static const FName NAME_REWARDSTYLE_SCARY_COMPLETED(TEXT("UT.ScaryStar.Completed
 static const int32 DAILY_STALE_TIME_HOURS = 48;
 static const int32 MAX_ACTIVE_DAILY_CHALLENGES = 1;
 
-class UUTProfileSettings;
+class UUTProgressionStorage;
 
 UCLASS(config = Game)
 class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
@@ -154,10 +154,10 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 	}
 
 	bool bNewDailyUnlocked;
-	bool CheckDailyChallenge(UUTProfileSettings* ProfileSettings);
+	bool CheckDailyChallenge(UUTProgressionStorage* Storage);
 
-	void GetChallenges(TArray<const FUTChallengeInfo*>& outChallengeList, EChallengeFilterType::Type Filter, UUTProfileSettings* ProfileSettings);
+	void GetChallenges(TArray<const FUTChallengeInfo*>& outChallengeList, EChallengeFilterType::Type Filter, UUTProgressionStorage* Storage);
 	//returns the time in hours until a challenge expires.  It returns 0 if expired or not unlocked.
-	int32 TimeUntilExpiration(FName DailyChallengeName, UUTProfileSettings* ProfileSettings );
+	int32 TimeUntilExpiration(FName DailyChallengeName, UUTProgressionStorage* Storage );
 
 };

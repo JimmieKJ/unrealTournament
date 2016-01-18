@@ -186,16 +186,22 @@ UEdGraphPin* UK2Node_DynamicCast::GetInvalidCastPin() const
 
 UEdGraphPin* UK2Node_DynamicCast::GetCastResultPin() const
 {
-	UEdGraphPin* Pin = NULL;
-
-	if(TargetType != NULL)
+	if(TargetType != nullptr)
 	{
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-		FString PinName = K2Schema->PN_CastedValuePrefix + TargetType->GetDisplayNameText().ToString();
-		Pin = FindPin(PinName);
+
+		for (int32 PinIdx = 0; PinIdx < Pins.Num(); PinIdx++)
+		{
+			if (Pins[PinIdx]->PinType.PinSubCategoryObject == *TargetType
+				&& Pins[PinIdx]->Direction == EGPD_Output
+				&& Pins[PinIdx]->PinName.StartsWith(K2Schema->PN_CastedValuePrefix))
+			{
+				return Pins[PinIdx];
+			}
+		}
 	}
 		
-	return Pin;
+	return nullptr;
 }
 
 UEdGraphPin* UK2Node_DynamicCast::GetCastSourcePin() const
@@ -273,16 +279,17 @@ FNodeHandlingFunctor* UK2Node_DynamicCast::CreateNodeHandler(FKismetCompilerCont
 	return new FKCHandler_DynamicCast(CompilerContext, KCST_DynamicCast);
 }
 
-bool UK2Node_DynamicCast::HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const
+bool UK2Node_DynamicCast::HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const
 {
 	const UBlueprint* SourceBlueprint = GetBlueprint();
 	UClass* SourceClass = *TargetType;
-	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
+	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
 	if (bResult && OptionalOutput)
 	{
-		OptionalOutput->Add(SourceClass);
+		OptionalOutput->AddUnique(SourceClass);
 	}
-	return bResult || Super::HasExternalBlueprintDependencies(OptionalOutput);
+	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);
+	return bSuperResult || bResult;
 }
 
 FText UK2Node_DynamicCast::GetMenuCategory() const

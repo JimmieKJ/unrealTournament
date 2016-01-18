@@ -44,7 +44,6 @@ public class Persona : ModuleRules
 				"Documentation",
 				"MainFrame",
 				"DesktopPlatform",
-                "PropertyEditor"
 			}
 		);
 	}

@@ -179,7 +179,7 @@ UObject* FStreamableManager::SynchronousLoad(FStringAssetReference const& InTarg
 	return Existing->Target;
 }
 
-struct FStreamable* FStreamableManager::StreamInternal(FStringAssetReference const& InTargetName)
+struct FStreamable* FStreamableManager::StreamInternal(FStringAssetReference const& InTargetName, TAsyncLoadPriority Priority)
 {
 	check(IsInGameThread());
 	UE_LOG(LogStreamableManager, Verbose, TEXT("Asynchronous load %s"), *InTargetName.ToString());
@@ -233,17 +233,17 @@ struct FStreamable* FStreamableManager::StreamInternal(FStringAssetReference con
 		}
 
 		Existing->bAsyncLoadRequestOutstanding = true;
-		LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateStatic(&AsyncLoadCallbackWrapper, new FCallback(TargetName, this)));
+		LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateStatic(&AsyncLoadCallbackWrapper, new FCallback(TargetName, this)), Priority);
 	}
 	return Existing;
 }
 
-void FStreamableManager::SimpleAsyncLoad(FStringAssetReference const& InTargetName)
+void FStreamableManager::SimpleAsyncLoad(FStringAssetReference const& InTargetName, TAsyncLoadPriority Priority)
 {
-	StreamInternal(InTargetName);
+	StreamInternal(InTargetName, Priority);
 }
 
-void FStreamableManager::RequestAsyncLoad(const TArray<FStringAssetReference>& TargetsToStream, FStreamableDelegate DelegateToCall)
+void FStreamableManager::RequestAsyncLoad(const TArray<FStringAssetReference>& TargetsToStream, FStreamableDelegate DelegateToCall, TAsyncLoadPriority Priority)
 {
 	// Schedule a new callback, this will get called when all related async loads are completed
 	TSharedRef<FStreamableRequest> NewRequest = MakeShareable(new FStreamableRequest());
@@ -254,7 +254,7 @@ void FStreamableManager::RequestAsyncLoad(const TArray<FStringAssetReference>& T
 
 	for (int32 i = 0; i < TargetsToStream.Num(); i++)
 	{
-		FStreamable* Existing = StreamInternal(TargetsToStream[i]);
+		FStreamable* Existing = StreamInternal(TargetsToStream[i], Priority);
 		ExistingStreamables[i] = Existing;
 
 		if (Existing)
@@ -275,12 +275,12 @@ void FStreamableManager::RequestAsyncLoad(const TArray<FStringAssetReference>& T
 	}
 }
 
-void FStreamableManager::RequestAsyncLoad( const FStringAssetReference& TargetToStream, FStreamableDelegate DelegateToCall )
+void FStreamableManager::RequestAsyncLoad(const FStringAssetReference& TargetToStream, FStreamableDelegate DelegateToCall, TAsyncLoadPriority Priority)
 {
 	TSharedRef< FStreamableRequest > NewRequest = MakeShareable( new FStreamableRequest() );
 	NewRequest->CompletionDelegate = DelegateToCall;
 
-	if ( FStreamable* Streamable = StreamInternal( TargetToStream ) )
+	if ( FStreamable* Streamable = StreamInternal( TargetToStream, Priority ) )
 	{
 		Streamable->AddRelatedRequest( NewRequest );
 
@@ -292,7 +292,17 @@ void FStreamableManager::RequestAsyncLoad( const FStringAssetReference& TargetTo
 }
 
 
-void FStreamableManager::FindInMemory(FStringAssetReference& InOutTargetName, struct FStreamable* Existing)
+void FStreamableManager::RequestAsyncLoad( const TArray<FStringAssetReference>& TargetsToStream, TFunction<void()>&& Callback, TAsyncLoadPriority Priority /*= DefaultAsyncLoadPriority */ )
+{
+	RequestAsyncLoad( TargetsToStream, FStreamableDelegate::CreateLambda( MoveTemp( Callback ) ), Priority );
+}
+
+void FStreamableManager::RequestAsyncLoad( const FStringAssetReference& TargetToStream, TFunction<void()>&& Callback, TAsyncLoadPriority Priority /*= DefaultAsyncLoadPriority */ )
+{
+	RequestAsyncLoad( TargetToStream, FStreamableDelegate::CreateLambda( MoveTemp( Callback ) ), Priority );
+}
+
+void FStreamableManager::FindInMemory( FStringAssetReference& InOutTargetName, struct FStreamable* Existing )
 {
 	check(Existing);
 	check(!Existing->bAsyncUnloadRequestOutstanding);
@@ -344,25 +354,32 @@ void FStreamableManager::AsyncLoadCallback(FStringAssetReference Request)
 		TargetName = ResolveRedirects(TargetName);
 		Existing = StreamableItems.FindRef(TargetName);
 	}
-	if (Existing && Existing->bAsyncLoadRequestOutstanding)
+	if (Existing)
 	{
-		Existing->bAsyncLoadRequestOutstanding = false;
-		if (!Existing->Target)
+		if (Existing->bAsyncLoadRequestOutstanding)
 		{
-			FindInMemory(TargetName, Existing);
-		}
+			Existing->bAsyncLoadRequestOutstanding = false;
+			if (!Existing->Target)
+			{
+				FindInMemory(TargetName, Existing);
+			}
 
-		CheckCompletedRequests(Request, Existing);
-	}
-	if (Existing->Target)
-	{
-		UE_LOG(LogStreamableManager, Verbose, TEXT("    Found target %s"), *Existing->Target->GetFullName());
+			CheckCompletedRequests(Request, Existing);
+		}
+		if (Existing->Target)
+		{
+			UE_LOG(LogStreamableManager, Verbose, TEXT("    Found target %s"), *Existing->Target->GetFullName());
+		}
+		else
+		{
+			// Async load failed to find the object
+			Existing->bLoadFailed = true;
+			UE_LOG(LogStreamableManager, Verbose, TEXT("    Failed async load."), *TargetName.ToString());
+		}
 	}
 	else
 	{
-		// Async load failed to find the object
-		Existing->bLoadFailed = true;
-		UE_LOG(LogStreamableManager, Verbose, TEXT("    Failed async load."), *TargetName.ToString());
+		UE_LOG(LogStreamableManager, Verbose, TEXT("    Can't find streamable for %s"), *Request.ToString());
 	}
 }
 

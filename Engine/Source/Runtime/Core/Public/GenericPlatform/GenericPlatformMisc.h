@@ -180,6 +180,16 @@ namespace EAppReturnType
 	};
 }
 
+/*
+ * Holds a computed SHA256 hash.
+ */
+struct CORE_API FSHA256Signature
+{
+	uint8 Signature[32];
+
+	/** Generates a hex string of the signature */
+	FString ToString() const;
+};
 
 /**
 * Generic implementation for most platforms
@@ -356,12 +366,12 @@ struct CORE_API FGenericPlatformMisc
 	{
 	}
 
-	FORCEINLINE static uint32 GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings )
+	FORCEINLINE static uint32 GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings )
 	{
 		return 0;
 	}
 
-	FORCEINLINE static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings)
+	FORCEINLINE static uint32 GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
 	{
 		return 0;
 	}
@@ -371,16 +381,7 @@ struct CORE_API FGenericPlatformMisc
 		return 0;
 	}
 
-	FORCEINLINE static void RaiseException( uint32 ExceptionCode )
-	{
-#if HACK_HEADER_GENERATOR && !PLATFORM_EXCEPTIONS_DISABLED
-		// We want Unreal Header Tool to throw an exception but in normal runtime code 
-		// we don't support exception handling
-		throw( ExceptionCode );
-#else	
-		*((uint32*)3) = ExceptionCode;
-#endif
-	}
+	static void RaiseException( uint32 ExceptionCode );
 
 protected:
 
@@ -391,7 +392,7 @@ protected:
 	* @param bMapUppercaseKeys If true, will map A, B, C, etc to EKeys::A, EKeys::B, EKeys::C
 	* @param bMapLowercaseKeys If true, will map a, b, c, etc to EKeys::A, EKeys::B, EKeys::C
 	*/
-	static uint32 GetStandardPrintableKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings, bool bMapUppercaseKeys, bool bMapLowercaseKeys);
+	static uint32 GetStandardPrintableKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings, bool bMapUppercaseKeys, bool bMapLowercaseKeys);
 
 public:
 
@@ -603,10 +604,28 @@ public:
 	/** Get the engine directory */
 	static const TCHAR* EngineDir();
 
+	/** Get the directory the application was launched from (useful for commandline utilities) */
+	static const TCHAR* LaunchDir();
+
+	/** Function to store the current working directory for use with LaunchDir() */
+	static void CacheLaunchDir();
+
 	/**
 	 *	Return the GameDir
 	 */
 	static const TCHAR* GameDir();
+
+	/**
+	*	Return the CloudDir.  CloudDir can be per-user.
+	*/
+	static FString CloudDir();
+
+	/**
+	*	Return the GamePersistentDownloadDir.  
+	*	On some platforms, returns the writable directory for downloaded data that persists across play sessions.
+	*	This dir is always per-game.
+	*/
+	static const TCHAR* GamePersistentDownloadDir();
 
 	/**
 	 * Load the preinit modules required by this platform, typically they are the renderer modules
@@ -676,6 +695,18 @@ public:
 	{
 		return false;
 	}
+
+	/**
+	* Generates the SHA256 signature of the given data.
+	* 
+	*
+	* @param Data Pointer to the beginning of the data to hash
+	* @param Bytesize Size of the data to has, in bytes.
+	* @param OutSignature Output Structure to hold the computed signature. 
+	*
+	* @return whether the hash was computed successfully
+	*/
+	static bool GetSHA256Signature(const void* Data, uint32 ByteSize, FSHA256Signature& OutSignature);	
 
 	static FString GetDefaultLocale();
 
@@ -764,6 +795,26 @@ public:
 	}
 
 	/*
+	 * Resets the gamepad to player controller id assignments
+	 */
+	static void ResetGamepadAssignments()
+	{}
+
+	/*
+	* Resets the gamepad assignment to player controller id
+	*/
+	static void ResetGamepadAssignmentToController(int32 ControllerId)
+	{}
+
+	/*
+	 * Returns true if controller id assigned to a gamepad
+	 */
+	static bool IsControllerAssignedToGamepad(int32 ControllerId)
+	{
+		return (ControllerId == 0);
+	}
+
+	/*
 	 * Set whether the volume buttons are handled by the system
 	 */
 	static void SetVolumeButtonsHandledBySystem(bool enabled)
@@ -828,6 +879,29 @@ public:
 	 * Get a string description of the mode the engine was running in.
 	 */
 	static const TCHAR* GetEngineMode();
+
+	/**
+	 * Returns an array of the user's preferred languages in order of preference
+	 * @return An array of language IDs ordered from most preferred to least
+	 */
+	static TArray<FString> GetPreferredLanguages();
+
+	/**
+	* Returns the currency code associated with the device's locale
+	* @return the currency code associated with the device's locale
+	*/
+	static FString GetLocalCurrencyCode();
+
+	/**
+	* Returns the currency symbol associated with the device's locale
+	* @return the currency symbol associated with the device's locale
+	*/
+	static FString GetLocalCurrencySymbol();
+
+	/**
+	 * Requests permission to send remote notifications to the user's device.
+	 */
+	static void RegisterForRemoteNotifications();
 
 	/**
 	* Execute plaform dependent pre load map actions

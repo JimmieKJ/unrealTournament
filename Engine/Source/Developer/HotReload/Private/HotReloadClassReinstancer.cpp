@@ -5,6 +5,9 @@
 
 #if WITH_ENGINE
 #include "Engine/BlueprintGeneratedClass.h"
+#include "Layers/ILayers.h"
+#include "BlueprintEditor.h"
+#include "Kismet2/CompilerResultsLog.h"
 
 void FHotReloadClassReinstancer::SetupNewClassReinstancing(UClass* InNewClass, UClass* InOldClass)
 {
@@ -166,7 +169,16 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 		virtual FArchive& operator<<(FStringAssetReference& Value) override
 		{
 			FArchive& Ar = *this;
-			Ar << Value.AssetLongPathname;
+
+			FString Path = Value.ToString();
+
+			Ar << Path;
+
+			if (IsLoading())
+			{
+				Value.SetPath(MoveTemp(Path));
+			}
+
 			return Ar;
 		}
 		/** Archive name, for debugging */
@@ -188,7 +200,7 @@ void FHotReloadClassReinstancer::ReconstructClassDefaultObject(UClass* InClass, 
 	}
 
 	// Re-create
-	InClass->ClassDefaultObject = StaticAllocateObject(InClass, InOuter, InName, InFlags, false);
+	InClass->ClassDefaultObject = StaticAllocateObject(InClass, InOuter, InName, InFlags, EInternalObjectFlags::None, false);
 	check(InClass->ClassDefaultObject);
 	const bool bShouldInitilizeProperties = false;
 	const bool bCopyTransientsFromClassDefaults = false;
@@ -228,6 +240,8 @@ void FHotReloadClassReinstancer::RecreateCDOAndSetupOldClassReinstancing(UClass*
 	// Re-create the CDO, re-running its constructor
 	ReconstructClassDefaultObject(InOldClass, CDOOuter, CDOName, CDOFlags);
 
+	ReconstructedCDOsMap.Add(OriginalCDO, InOldClass->GetDefaultObject());
+
 	// Collect the property values after re-constructing the CDO
 	SerializeCDOProperties(InOldClass->GetDefaultObject(), ReconstructedCDOProperties);
 
@@ -260,15 +274,24 @@ void FHotReloadClassReinstancer::RecreateCDOAndSetupOldClassReinstancing(UClass*
 	}
 }
 
-FHotReloadClassReinstancer::FHotReloadClassReinstancer(UClass* InNewClass, UClass* InOldClass)
+FHotReloadClassReinstancer::FHotReloadClassReinstancer(UClass* InNewClass, UClass* InOldClass, const TMap<UClass*, UClass*>& InOldToNewClassesMap, TMap<UObject*, UObject*>& OutReconstructedCDOsMap, TSet<UBlueprint*>& InBPSetToRecompile, TSet<UBlueprint*>& InBPSetToRecompileBytecodeOnly)
 	: NewClass(nullptr)
 	, bNeedsReinstancing(false)
 	, CopyOfPreviousCDO(nullptr)
+	, ReconstructedCDOsMap(OutReconstructedCDOsMap)
+	, BPSetToRecompile(InBPSetToRecompile)
+	, BPSetToRecompileBytecodeOnly(InBPSetToRecompileBytecodeOnly)
+	, OldToNewClassesMap(InOldToNewClassesMap)
 {
 	ensure(InOldClass);
 	ensure(!HotReloadedOldClass && !HotReloadedNewClass);
 	HotReloadedOldClass = InOldClass;
 	HotReloadedNewClass = InNewClass ? InNewClass : InOldClass;
+
+	for (const TPair<UClass*, UClass*>& OldToNewClass : OldToNewClassesMap)
+	{
+		ObjectsThatShouldUseOldStuff.Add(OldToNewClass.Key);
+	}
 
 	// If InNewClass is NULL, then the old class has not changed after hot-reload.
 	// However, we still need to check for changes to its constructor code (CDO values).
@@ -284,7 +307,7 @@ FHotReloadClassReinstancer::FHotReloadClassReinstancer(UClass* InNewClass, UClas
 			FArchiveReplaceObjectRef<UObject> ReplaceObjectArch(*BlueprintIt, ClassRedirects, false, true, true);
 			if (ReplaceObjectArch.GetCount())
 			{
-				EnlistDependentBlueprintToRecompile(*BlueprintIt, true);
+				EnlistDependentBlueprintToRecompile(*BlueprintIt, false);
 			}
 		}
 	}
@@ -381,7 +404,16 @@ void FHotReloadClassReinstancer::UpdateDefaultProperties()
 		virtual FArchive& operator<<(FStringAssetReference& Value) override
 		{
 			FArchive& Ar = *this;
-			Ar << Value.AssetLongPathname;
+
+			FString Path = Value.ToString();
+
+			Ar << Path;
+
+			if (IsLoading())
+			{
+				Value.SetPath(MoveTemp(Path));
+			}
+
 			return Ar;
 		}
 	};
@@ -491,6 +523,40 @@ void FHotReloadClassReinstancer::AddReferencedObjects(FReferenceCollector& Colle
 {
 	FBlueprintCompileReinstancer::AddReferencedObjects(Collector);
 	Collector.AddReferencedObject(CopyOfPreviousCDO);
+}
+
+void FHotReloadClassReinstancer::EnlistDependentBlueprintToRecompile(UBlueprint* BP, bool bBytecodeOnly)
+{
+	if (IsValid(BP))
+	{
+		if (bBytecodeOnly)
+		{
+			if (!BPSetToRecompile.Contains(BP) && !BPSetToRecompileBytecodeOnly.Contains(BP))
+			{
+				BPSetToRecompileBytecodeOnly.Add(BP);
+			}
+		}
+		else
+		{
+			if (!BPSetToRecompile.Contains(BP))
+			{
+				if (BPSetToRecompileBytecodeOnly.Contains(BP))
+				{
+					BPSetToRecompileBytecodeOnly.Remove(BP);
+				}
+
+				BPSetToRecompile.Add(BP);
+			}
+		}
+	}
+}
+
+void FHotReloadClassReinstancer::BlueprintWasRecompiled(UBlueprint* BP, bool bBytecodeOnly)
+{
+	BPSetToRecompile.Remove(BP);
+	BPSetToRecompileBytecodeOnly.Remove(BP);
+
+	FBlueprintCompileReinstancer::BlueprintWasRecompiled(BP, bBytecodeOnly);
 }
 
 #endif

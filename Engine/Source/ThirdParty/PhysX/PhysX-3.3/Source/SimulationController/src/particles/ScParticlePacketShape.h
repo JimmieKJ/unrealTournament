@@ -56,6 +56,9 @@ namespace Sc
 
 					void						computeWorldBounds(PxBounds3&)	const;
 
+		PX_FORCE_INLINE	ParticleElementRbElementInteraction**	getInteractions()		const { return mInteractions.begin(); }
+		PX_FORCE_INLINE	PxU32									getInteractionsCount()	const { return mInteractions.size(); }
+
 		PX_INLINE	PxvParticleShape*			getLowLevelParticleShape() const { return mLLParticleShape; }
 
 					void						setInteractionsDirty(CoreInteraction::DirtyFlag flag);
@@ -63,7 +66,6 @@ namespace Sc
 		// Get an iterator to the interactions connected to the element
 		PX_INLINE	Cm::Range<ParticleElementRbElementInteraction*const> getPacketShapeInteractions() const;
 		PX_INLINE	PxU32						getPacketShapeInteractionCount() const;
-		PX_INLINE	bool						interactionLimitNotReached() const;
 
 		PX_INLINE	PxU16						addPacketShapeInteraction(ParticleElementRbElementInteraction* interaction);
 		PX_INLINE	void						removePacketShapeInteraction(PxU16 id);
@@ -97,15 +99,9 @@ PX_INLINE PxU32 Sc::ParticlePacketShape::getPacketShapeInteractionCount() const
 	return mInteractions.size();
 }
 
-PX_INLINE bool Sc::ParticlePacketShape::interactionLimitNotReached() const
-{
-	return (getPacketShapeInteractionCount() < 0xffff);  // the interaction tracks the position in the array with a PxU16
-}
-
 //These are called from interaction creation/destruction
 PX_INLINE PxU16 Sc::ParticlePacketShape::addPacketShapeInteraction(ParticleElementRbElementInteraction* interaction)
 {
-	PX_ASSERT(interactionLimitNotReached());
 	mInteractions.pushBack(interaction, *this);
 	return PxU16(mInteractions.size()-1);
 }

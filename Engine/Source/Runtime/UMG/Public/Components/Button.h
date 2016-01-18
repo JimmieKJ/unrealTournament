@@ -9,14 +9,15 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonClickedEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonPressedEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonReleasedEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonHoverEvent);
 
 /**
  * The button is a click-able primitive widget to enable basic interaction, you
  * can place any other widget inside a button to make a more complex and 
  * interesting click-able element in your UI.
  *
- * ● Single Child
- * ● Clickable
+ * * Single Child
+ * * Clickable
  */
 UCLASS()
 class UMG_API UButton : public UContentWidget
@@ -29,15 +30,15 @@ public:
 	USlateWidgetStyleAsset* Style_DEPRECATED;
 
 	/** The button style used at runtime */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Style", meta=( DisplayName="Style" ))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Appearance", meta=( DisplayName="Style" ))
 	FButtonStyle WidgetStyle;
 	
 	/** The color multiplier for the button content */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Appearance", meta=( sRGB="true" ))
 	FLinearColor ColorAndOpacity;
 	
 	/** The color multiplier for the button background */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Appearance", meta=( sRGB="true" ))
 	FLinearColor BackgroundColor;
 
 	/** The type of mouse action required by the user to trigger the buttons 'Click' */
@@ -49,7 +50,7 @@ public:
 	TEnumAsByte<EButtonTouchMethod::Type> TouchMethod;
 
 	/** Sometimes a button should only be mouse-clickable and never keyboard focusable. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Interaction")
 	bool IsFocusable;
 
 public:
@@ -66,8 +67,18 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="Button|Event")
 	FOnButtonReleasedEvent OnReleased;
 
+	UPROPERTY( BlueprintAssignable, Category = "Button|Event" )
+	FOnButtonHoverEvent OnHovered;
+
+	UPROPERTY( BlueprintAssignable, Category = "Button|Event" )
+	FOnButtonHoverEvent OnUnhovered;
+
 public:
 	
+	/** Sets the color multiplier for the button background */
+	UFUNCTION(BlueprintCallable, Category="Button|Appearance")
+	void SetStyle(const FButtonStyle& InStyle);
+
 	/** Sets the color multiplier for the button content */
 	UFUNCTION(BlueprintCallable, Category="Button|Appearance")
 	void SetColorAndOpacity(FLinearColor InColorAndOpacity);
@@ -86,17 +97,17 @@ public:
 
 public:
 
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
-	// UVisual interface
+	//~ Begin UVisual Interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
+	//~ End UVisual Interface
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End of UObject interface
+	//~ End UObject Interface
 
 #if WITH_EDITOR
 	virtual const FSlateBrush* GetEditorIcon() override;
@@ -116,11 +127,13 @@ protected:
 	FReply SlateHandleClicked();
 	void SlateHandlePressed();
 	void SlateHandleReleased();
+	void SlateHandleHovered();
+	void SlateHandleUnhovered();
 
 protected:
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
 protected:
 	/** Cached pointer to the underlying slate button owned by this UWidget */

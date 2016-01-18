@@ -6,6 +6,7 @@
 #include "Developer/HotReload/Public/IHotReload.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h"
+#include "GenericCommands.h"
 
 DEFINE_LOG_CATEGORY(LogMainFrame);
 #define LOCTEXT_NAMESPACE "FMainFrameModule"
@@ -271,7 +272,7 @@ TSharedRef<SWidget> FMainFrameModule::MakeDeveloperTools() const
 
 		static FText GetUObjectCountAsString() 
 		{
-			return FText::AsNumber(GetUObjectArray().GetObjectArrayNumMinusAvailable());
+			return FText::AsNumber(GUObjectArray.GetObjectArrayNumMinusAvailable());
 		}
 
 		static void OpenVideo( FString SourceFilePath )
@@ -354,7 +355,7 @@ TSharedRef<SWidget> FMainFrameModule::MakeDeveloperTools() const
 
 	
 	const FSuperSearchModule& SuperSearchModule = FModuleManager::LoadModuleChecked< FSuperSearchModule >(TEXT("SuperSearch"));
-	
+
 	// We need the output log module in order to instantiate SConsoleInputBox widgets
 	const FOutputLogModule& OutputLogModule = FModuleManager::LoadModuleChecked< FOutputLogModule >(TEXT("OutputLog"));
 
@@ -505,34 +506,9 @@ TSharedRef<SWidget> FMainFrameModule::MakeDeveloperTools() const
 					SNew(SBox)
 					.Padding( FMargin( 4.0f, 0.0f, 0.0f, 0.0f ) )
 					[
-						bUseSuperSearch ? SuperSearchModule.MakeSearchBox( ExposedEditableTextBox ) : OutputLogModule.MakeConsoleInputBox( ExposedEditableTextBox )
+						bUseSuperSearch ? SuperSearchModule.MakeSearchBox( ExposedEditableTextBox, GEditorSettingsIni ) : OutputLogModule.MakeConsoleInputBox( ExposedEditableTextBox )
 					]
 				]
-/*
-			+SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.Padding( 6.0f, 0.0f, 2.0f, 0.0f )
-				[
-					SNew(SComboButton)
-						.ButtonContent()
-						[
-							SNew(SImage)
-								.Image(FEditorStyle::GetBrush("Icons.Search"))
-						]
-						.ContentPadding(FMargin(0.0f, 0.0f, 2.0f, 0.0f))
-						.MenuContent()
-						[
-							SNew(SBox)
-								.Padding(8.0f)
-								.WidthOverride(512.0f)
-								[
-									ISearchUIModule::Get().CreateSearchPanel()
-								]
-						]
-						.ToolTipText(LOCTEXT("SearchEditor", "Search the Editor"))
-				]
-*/
 			// Editor live streaming toggle button
 			+SHorizontalBox::Slot()
 				.AutoWidth()
@@ -608,8 +584,10 @@ void FMainFrameModule::StartupModule( )
 {
 	MRUFavoritesList = NULL;
 
+	ensureMsgf(!IsRunningGame(), TEXT("The MainFrame module should only be loaded when running the editor.  Code that extends the editor, adds menu items, etc... should not run when running in -game mode or in a non-WITH_EDITOR build"));
 	MainFrameHandler = MakeShareable(new FMainFrameHandler);
 
+	FGenericCommands::Register();
 	FMainFrameCommands::Register();
 
 	SetLevelNameForWindowTitle(TEXT(""));
@@ -725,7 +703,7 @@ void FMainFrameModule::HandleLevelEditorModuleCompileStarted( bool bIsAsyncCompi
 
 	if ( GEditor )
 	{
-		GEditor->PlayPreviewSound(CompileStartSound);
+		GEditor->PlayEditorSound(CompileStartSound);
 	}
 
 	FNotificationInfo Info( NSLOCTEXT("MainFrame", "RecompileInProgress", "Compiling C++ Code") );
@@ -776,7 +754,7 @@ void FMainFrameModule::HandleLevelEditorModuleCompileFinished(const FString& Log
 		{
 			if ( GEditor )
 			{
-				GEditor->PlayPreviewSound(CompileSuccessSound);
+				GEditor->PlayEditorSound(CompileSuccessSound);
 			}
 
 			NotificationItem->SetText(NSLOCTEXT("MainFrame", "RecompileComplete", "Compile Complete!"));
@@ -796,7 +774,7 @@ void FMainFrameModule::HandleLevelEditorModuleCompileFinished(const FString& Log
 
 			if ( GEditor )
 			{
-				GEditor->PlayPreviewSound(CompileFailSound);
+				GEditor->PlayEditorSound(CompileFailSound);
 			}
 
 			if (CompilationResult == ECompilationResult::FailedDueToHeaderChange)
@@ -844,7 +822,7 @@ void FMainFrameModule::HandleHotReloadFinished( bool bWasTriggeredAutomatically 
 		NotificationItem->SetCompletionState(SNotificationItem::CS_Success);
 		NotificationItem->ExpireAndFadeout();
 	
-		GEditor->PlayPreviewSound(CompileSuccessSound);
+		GEditor->PlayEditorSound(CompileSuccessSound);
 	}
 }
 

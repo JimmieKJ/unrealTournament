@@ -14,7 +14,7 @@
  * The number of items that can be enqueued is one less than the queue's capacity,
  * because one item will be used for detecting full and empty states.
  *
- * @param ElementType - The type of elements held in the queue.
+ * @param ElementType The type of elements held in the queue.
  */
 template<typename ElementType> class TCircularQueue
 {
@@ -43,11 +43,11 @@ public:
 	 */
 	uint32 Count() const
 	{
-		int32 Count = Head - Tail;
+		int32 Count = Tail - Head;
 
 		if (Count < 0)
 		{
-			Count += Buffer.GetSize();
+			Count += Buffer.Capacity();
 		}
 
 		return Count;

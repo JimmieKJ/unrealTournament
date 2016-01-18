@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWallDodgePoint.h"
 #include "UTRecastNavMesh.h"
@@ -22,7 +22,7 @@ AUTWallDodgePoint::AUTWallDodgePoint(const FObjectInitializer& OI)
 	{
 		EditorArrow->AttachParent = RootComponent;
 		EditorArrow->ArrowSize = 0.5f;
-		EditorArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
+		EditorArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f).ToFColor(false);
 	}
 #endif
 

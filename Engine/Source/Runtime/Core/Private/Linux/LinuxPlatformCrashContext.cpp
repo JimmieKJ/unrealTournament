@@ -3,16 +3,10 @@
 #include "CorePrivatePCH.h"
 #include "Linux/LinuxPlatformCrashContext.h"
 #include "Misc/App.h"
-#include "Runtime/Launch/Resources/Version.h"
+#include "EngineVersion.h"
 
 #include <sys/utsname.h>	// for uname()
 #include <signal.h>
-
-// these are not actually system headers, but a TPS library (see ThirdParty/elftoolchain)
-#include <libelf.h>
-#include <_libelf.h>
-#include <libdwarf.h>
-#include <dwarf.h>
 
 
 FString DescribeSignal(int32 Signal, siginfo_t* Info)
@@ -23,6 +17,9 @@ FString DescribeSignal(int32 Signal, siginfo_t* Info)
 
 	switch (Signal)
 	{
+	case 0:
+		// No signal - used for initialization stacktrace on non-fatal errors (ex: ensure)
+		break;
 	case SIGSEGV:
 		ErrorString += TEXT("SIGSEGV: invalid attempt to access memory at address ");
 		ErrorString += FString::Printf(TEXT("0x%08x"), (uint32*)Info->si_addr);
@@ -60,25 +57,6 @@ FLinuxCrashContext::~FLinuxCrashContext()
 		free(BacktraceSymbols);
 		BacktraceSymbols = NULL;
 	}
-
-	if (DebugInfo)
-	{
-		Dwarf_Error ErrorInfo;
-		dwarf_finish(DebugInfo, &ErrorInfo);
-		DebugInfo = NULL;
-	}
-
-	if (ElfHdr)
-	{
-		elf_end(ElfHdr);
-		ElfHdr = NULL;
-	}
-
-	if (ExeFd >= 0)
-	{
-		close(ExeFd);
-		ExeFd = -1;
-	}
 }
 
 void FLinuxCrashContext::InitFromSignal(int32 InSignal, siginfo_t* InInfo, void* InContext)
@@ -87,331 +65,7 @@ void FLinuxCrashContext::InitFromSignal(int32 InSignal, siginfo_t* InInfo, void*
 	Info = InInfo;
 	Context = reinterpret_cast< ucontext_t* >( InContext );
 
-	// open ourselves for examination
-	if (!FParse::Param( FCommandLine::Get(), TEXT(CMDARG_SUPPRESS_DWARF_PARSING)))
-	{
-		ExeFd = open("/proc/self/exe", O_RDONLY);
-		if (ExeFd >= 0)
-		{
-			Dwarf_Error ErrorInfo;
-			// allocate DWARF debug descriptor
-			if (dwarf_init(ExeFd, DW_DLC_READ, NULL, NULL, &DebugInfo, &ErrorInfo) == DW_DLV_OK)
-			{
-				// get ELF descritor
-				if (dwarf_get_elf(DebugInfo, &ElfHdr, &ErrorInfo) != DW_DLV_OK)
-				{
-					dwarf_finish(DebugInfo, &ErrorInfo);
-					DebugInfo = NULL;
-
-					close(ExeFd);
-					ExeFd = -1;
-				}
-			}
-			else
-			{
-				DebugInfo = NULL;
-				close(ExeFd);
-				ExeFd = -1;
-			}
-		}
-	}
-
 	FCString::Strcat(SignalDescription, ARRAY_COUNT( SignalDescription ) - 1, *DescribeSignal(Signal, Info));
-}
-
-/**
- * Finds a function name in DWARF DIE (Debug Information Entry).
- * For more info on DWARF format, see http://www.dwarfstd.org/Download.php , http://www.ibm.com/developerworks/library/os-debugging/
- *
- * @return true if we need to stop search (i.e. either found it or some error happened)
- */
-bool FindFunctionNameInDIE(Dwarf_Debug DebugInfo, Dwarf_Die Die, Dwarf_Addr Addr, const char **OutFuncName)
-{
-	Dwarf_Error ErrorInfo;
-	Dwarf_Half Tag;
-	Dwarf_Unsigned LowerPC, HigherPC;
-	char *TempFuncName;
-	int ReturnCode;
-
-	if (dwarf_tag(Die, &Tag, &ErrorInfo) != DW_DLV_OK || Tag != DW_TAG_subprogram ||
-		dwarf_attrval_unsigned(Die, DW_AT_low_pc, &LowerPC, &ErrorInfo) != DW_DLV_OK ||
-		dwarf_attrval_unsigned(Die, DW_AT_high_pc, &HigherPC, &ErrorInfo) != DW_DLV_OK ||
-		Addr < LowerPC || HigherPC <= Addr
-		) 
-	{
-		return false;
-	}
-	
-	// found it
-	*OutFuncName = NULL;
-	Dwarf_Attribute SubAt;
-	ReturnCode = dwarf_attr(Die, DW_AT_name, &SubAt, &ErrorInfo);
-	if (ReturnCode == DW_DLV_ERROR)
-	{
-		return true;	// error, but stop the search
-	}
-	else if (ReturnCode == DW_DLV_OK) 
-	{
-		if (dwarf_formstring(SubAt, &TempFuncName, &ErrorInfo))
-		{
-			*OutFuncName = NULL;
-		}
-		else
-		{
-			*OutFuncName = TempFuncName;
-		}
-		return true;
-	}
-
-	// DW_AT_Name is not present, look in DW_AT_specification
-	Dwarf_Attribute SpecAt;
-	if (dwarf_attr(Die, DW_AT_specification, &SpecAt, &ErrorInfo))
-	{
-		// not found, tough luck
-		return false;
-	}
-
-	Dwarf_Off Offset;
-	if (dwarf_global_formref(SpecAt, &Offset, &ErrorInfo))
-	{
-		return false;
-	}
-
-	Dwarf_Die SpecDie;
-	if (dwarf_offdie(DebugInfo, Offset, &SpecDie, &ErrorInfo))
-	{
-		return false;
-	}
-
-	if (dwarf_attrval_string(SpecDie, DW_AT_name, OutFuncName, &ErrorInfo))
-	{
-		*OutFuncName = NULL;
-	}
-
-	return true;
-}
-
-/**
- * Finds a function name in DWARF DIE (Debug Information Entry) and its children.
- * For more info on DWARF format, see http://www.dwarfstd.org/Download.php , http://www.ibm.com/developerworks/library/os-debugging/
- * Note: that function is not exactly traversing the tree, but this "seems to work"(tm). Not sure if we need to descend properly (taking child of every sibling), this
- * takes too much time (and callstacks seem to be fine without it).
- */
-void FindFunctionNameInDIEAndChildren(Dwarf_Debug DebugInfo, Dwarf_Die Die, Dwarf_Addr Addr, const char **OutFuncName)
-{
-	if (OutFuncName == NULL || *OutFuncName != NULL)
-	{
-		return;
-	}
-
-	// search for this Die
-	if (FindFunctionNameInDIE(DebugInfo, Die, Addr, OutFuncName))
-	{
-		return;
-	}
-
-	Dwarf_Die PrevChild = Die, Current = NULL;
-	Dwarf_Error ErrorInfo;
-
-	int32 MaxChildrenAllowed = 32 * 1024 * 1024;	// safeguard to make sure we never get into an infinite loop
-	for(;;)
-	{
-		if (--MaxChildrenAllowed <= 0)
-		{
-			fprintf(stderr, "Breaking out from what seems to be an infinite loop during DWARF parsing (too many children).\n");
-			return;
-		}
-
-		// Get the child
-		if (dwarf_child(PrevChild, &Current, &ErrorInfo) != DW_DLV_OK)
-		{
-			return;	// bail out
-		}
-
-		PrevChild = Current;
-
-		// look for in the child
-		if (FindFunctionNameInDIE(DebugInfo, Current, Addr, OutFuncName))
-		{
-			return;	// got the function name!
-		}
-
-		// search among child's siblings
-		int32 MaxSiblingsAllowed = 64 * 1024 * 1024;	// safeguard to make sure we never get into an infinite loop
-		for(;;)
-		{
-			if (--MaxSiblingsAllowed <= 0)
-			{
-				fprintf(stderr, "Breaking out from what seems to be an infinite loop during DWARF parsing (too many siblings).\n");
-				break;
-			}
-
-			Dwarf_Die Prev = Current;
-			if (dwarf_siblingof(DebugInfo, Prev, &Current, &ErrorInfo) != DW_DLV_OK || Current == NULL)
-			{
-				break;
-			}
-
-			if (FindFunctionNameInDIE(DebugInfo, Current, Addr, OutFuncName))
-			{
-				return;	// got the function name!
-			}
-		}
-	};
-}
-
-bool FLinuxCrashContext::GetInfoForAddress(void * Address, const char **OutFunctionNamePtr, const char **OutSourceFilePtr, int *OutLineNumberPtr)
-{
-	if (DebugInfo == NULL)
-	{
-		return false;
-	}
-
-	Dwarf_Die Die;
-	Dwarf_Unsigned Addr = reinterpret_cast< Dwarf_Unsigned >( Address ), LineNumber = 0;
-	const char * SrcFile = NULL;
-
-	static_assert(sizeof(Dwarf_Unsigned) >= sizeof(Address), "Dwarf_Unsigned type should be long enough to represent pointers. Check libdwarf bitness.");
-
-	int ReturnCode = DW_DLV_OK;
-	Dwarf_Error ErrorInfo;
-	bool bExitHeaderLoop = false;
-	int32 MaxCompileUnitsAllowed = 16 * 1024 * 1024;	// safeguard to make sure we never get into an infinite loop
-	const int32 kMaxBufferLinesAllowed = 16 * 1024 * 1024;	// safeguard to prevent too long line loop
-	for(;;)
-	{
-		if (--MaxCompileUnitsAllowed <= 0)
-		{
-			fprintf(stderr, "Breaking out from what seems to be an infinite loop during DWARF parsing (too many compile units).\n");
-			ReturnCode = DW_DLE_DIE_NO_CU_CONTEXT;	// invalidate
-			break;
-		}
-
-		if (bExitHeaderLoop)
-			break;
-
-		ReturnCode = dwarf_next_cu_header(DebugInfo, NULL, NULL, NULL, NULL, NULL, &ErrorInfo);
-		if (ReturnCode != DW_DLV_OK)
-			break;
-
-		Die = NULL;
-
-		while(dwarf_siblingof(DebugInfo, Die, &Die, &ErrorInfo) == DW_DLV_OK)
-		{
-			Dwarf_Half Tag;
-			if (dwarf_tag(Die, &Tag, &ErrorInfo) != DW_DLV_OK)
-			{
-				bExitHeaderLoop = true;
-				break;
-			}
-
-			if (Tag == DW_TAG_compile_unit)
-			{
-				break;
-			}
-		}
-
-		if (Die == NULL)
-		{
-			break;
-		}
-
-		// check if address is inside this CU
-		Dwarf_Unsigned LowerPC, HigherPC;
-		if (!dwarf_attrval_unsigned(Die, DW_AT_low_pc, &LowerPC, &ErrorInfo) && !dwarf_attrval_unsigned(Die, DW_AT_high_pc, &HigherPC, &ErrorInfo))
-		{
-			if (Addr < LowerPC || Addr >= HigherPC)
-			{
-				continue;
-			}
-		}
-
-		Dwarf_Line * LineBuf;
-		Dwarf_Signed NumLines = kMaxBufferLinesAllowed;
-		if (dwarf_srclines(Die, &LineBuf, &NumLines, &ErrorInfo) != DW_DLV_OK)
-		{
-			// could not get line info for some reason
-			break;
-		}
-
-		if (NumLines >= kMaxBufferLinesAllowed)
-		{
-			fprintf(stderr, "Number of lines associated with a DIE looks unreasonable (%d), early quitting.\n", static_cast<int32>(NumLines));
-			ReturnCode = DW_DLE_DIE_NO_CU_CONTEXT;	// invalidate
-			break;
-		}
-
-		// look which line is that
-		Dwarf_Addr LineAddress, PrevLineAddress = ~0ULL;
-		Dwarf_Unsigned PrevLineNumber = 0;
-		const char * PrevSrcFile = NULL;
-		char * SrcFileTemp = NULL;
-		for (int Idx = 0; Idx < NumLines; ++Idx)
-		{
-			if (dwarf_lineaddr(LineBuf[Idx], &LineAddress, &ErrorInfo) != 0 ||
-				dwarf_lineno(LineBuf[Idx], &LineNumber, &ErrorInfo) != 0)
-			{
-				bExitHeaderLoop = true;
-				break;
-			}
-
-			if (!dwarf_linesrc(LineBuf[Idx], &SrcFileTemp, &ErrorInfo))
-			{
-				SrcFile = SrcFileTemp;
-			}
-
-			// check if we hit the exact line
-			if (Addr == LineAddress)
-			{
-				bExitHeaderLoop = true;
-				break;
-			}
-			else if (PrevLineAddress < Addr && Addr < LineAddress)
-			{
-				LineNumber = PrevLineNumber;
-				SrcFile = PrevSrcFile;
-				bExitHeaderLoop = true;
-				break;
-			}
-
-			PrevLineAddress = LineAddress;
-			PrevLineNumber = LineNumber;
-			PrevSrcFile = SrcFile;
-		}
-
-	}
-
-	const char * FunctionName = NULL;
-	if (ReturnCode == DW_DLV_OK)
-	{
-		FindFunctionNameInDIEAndChildren(DebugInfo, Die, Addr, &FunctionName);
-	}
-
-	if (OutFunctionNamePtr != NULL && FunctionName != NULL)
-	{
-		*OutFunctionNamePtr = FunctionName;
-	}
-
-	if (OutSourceFilePtr != NULL && SrcFile != NULL)
-	{
-		*OutSourceFilePtr = SrcFile;
-		
-		if (OutLineNumberPtr != NULL)
-		{
-			*OutLineNumberPtr = LineNumber;
-		}
-	}
-
-	// Resets internal CU pointer, so next time we get here it begins from the start
-	while (ReturnCode != DW_DLV_NO_ENTRY) 
-	{
-		if (ReturnCode == DW_DLV_ERROR)
-			break;
-		ReturnCode = dwarf_next_cu_header(DebugInfo, NULL, NULL, NULL, NULL, NULL, &ErrorInfo);
-	}
-
-	// if we weren't able to find a function name, don't trust the source file either
-	return FunctionName != NULL;
 }
 
 /**
@@ -514,10 +168,10 @@ void FLinuxCrashContext::GenerateReport(const FString & DiagnosticsPath) const
 		WriteLine(ReportFile, "Generating report for minidump");
 		WriteLine(ReportFile);
 
-		Line = FString::Printf(TEXT("Application version %d.%d.%d.0" ), ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION);
+		Line = FString::Printf(TEXT("Application version %d.%d.%d.0" ), FEngineVersion::Current().GetMajor(), FEngineVersion::Current().GetMinor(), FEngineVersion::Current().GetPatch());
 		WriteLine(ReportFile, TCHAR_TO_UTF8(*Line));
 
-		Line = FString::Printf(TEXT(" ... built from changelist %d"), ENGINE_VERSION);
+		Line = FString::Printf(TEXT(" ... built from changelist %d"), FEngineVersion::Current().GetChangelist());
 		WriteLine(ReportFile, TCHAR_TO_UTF8(*Line));
 		WriteLine(ReportFile);
 
@@ -597,7 +251,7 @@ void GenerateWindowsErrorReport(const FString & WERPath)
 		WriteLine(ReportFile, TEXT("\t<ProblemSignatures>"));
 		WriteLine(ReportFile, TEXT("\t\t<EventType>APPCRASH</EventType>"));
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter0>UE4-%s</Parameter0>"), FApp::GetGameName()));
-		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter1>%d.%d.%d</Parameter1>"), ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION));
+		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter1>%d.%d.%d</Parameter1>"), FEngineVersion::Current().GetMajor(), FEngineVersion::Current().GetMinor(), FEngineVersion::Current().GetPatch()));
 		WriteLine(ReportFile, TEXT("\t\t<Parameter2>0</Parameter2>"));													// FIXME: supply valid?
 		WriteLine(ReportFile, TEXT("\t\t<Parameter3>Unknown Fault Module</Parameter3>"));										// FIXME: supply valid?
 		WriteLine(ReportFile, TEXT("\t\t<Parameter4>0.0.0.0</Parameter4>"));													// FIXME: supply valid?
@@ -605,7 +259,7 @@ void GenerateWindowsErrorReport(const FString & WERPath)
 		WriteLine(ReportFile, TEXT("\t\t<Parameter6>00000000</Parameter6>"));													// FIXME: supply valid?
 		WriteLine(ReportFile, TEXT("\t\t<Parameter7>0000000000000000</Parameter7>"));											// FIXME: supply valid?
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter8>!%s!</Parameter8>"), FCommandLine::Get()));				// FIXME: supply valid? Only partially valid
-		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter9>%s!%s!%s!%d</Parameter9>"), TEXT( BRANCH_NAME ), FPlatformProcess::BaseDir(), FPlatformMisc::GetEngineMode(), BUILT_FROM_CHANGELIST));
+		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter9>%s!%s!%s!%d</Parameter9>"), *FApp::GetBranchName(), FPlatformProcess::BaseDir(), FPlatformMisc::GetEngineMode(), FEngineVersion::Current().GetChangelist()));
 		WriteLine(ReportFile, TEXT("\t</ProblemSignatures>"));
 
 		WriteLine(ReportFile, TEXT("\t<DynamicSignatures>"));

@@ -33,7 +33,7 @@ struct BLUEPRINTGRAPH_API FEdGraphSchemaAction_K2Struct : public FEdGraphSchemaA
 		: FEdGraphSchemaAction()
 	{}
 
-	FEdGraphSchemaAction_K2Struct (const FString& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
+	FEdGraphSchemaAction_K2Struct (const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(InNodeCategory, InMenuDesc, InToolTip, InGrouping)
 	{}
 };
@@ -91,7 +91,10 @@ public:
 	static const FName MD_CompactNodeTitle;
 
 	// [FunctionMetadata] Indicates that the function should be drawn with this title over the function name
-	static const FName MD_FriendlyName;
+	static const FName MD_DisplayName;
+
+	// [FunctionMetadata] Indicates that a particular function parameter is for internal use only, which means it will be both hidden and not connectible.
+	static const FName MD_InternalUseParam;
 
 	//    property metadata
 
@@ -101,6 +104,9 @@ public:
 	/** UPROPERTY cannot be modified by other blueprints */
 	static const FName MD_Private;
 
+	/** If true, the self pin should not be shown or connectable regardless of purity, const, etc. similar to InternalUseParam */
+	static const FName MD_HideSelfPin;
+
 	/** If true, the specified UObject parameter will default to "self" if nothing is connected */
 	static const FName MD_DefaultToSelf;
 
@@ -109,6 +115,9 @@ public:
 
 	/** For functions that have the MD_WorldContext metadata but are safe to be called from contexts that do not have the ability to provide the world context (either through GetWorld() or ShowWorldContextPin class metadata */
 	static const FName MD_CallableWithoutWorldContext;
+
+	/** For functions that should be compiled in development mode only */
+	static const FName MD_DevelopmentOnly;
 
 	/** If true, an unconnected pin will generate a UPROPERTY under the hood to connect as the input, which will be set to the literal value for the pin.  Only valid for reference parameters. */
 	static const FName MD_AutoCreateRefTerm;
@@ -191,6 +200,18 @@ struct FBlueprintCallableFunctionRedirect
 	FString ClassParamName;
 };
 
+enum class EObjectReferenceType : uint8
+{
+	NotAnObject		= 0x00,
+	ObjectReference = 0x01,
+	ClassReference	= 0x02,
+	AssetID			= 0x04,
+	ClassAssetID	= 0x08,
+	AllTypes		= 0x0f,
+};
+
+struct FTypesDatabase;
+
 UCLASS(config=Editor)
 class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 {
@@ -201,6 +222,7 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	static const FString PC_Boolean;
 	static const FString PC_Byte;
 	static const FString PC_Class;    // SubCategoryObject is the MetaClass of the Class passed thru this pin, or SubCategory can be 'self'. The DefaultValue string should always be empty, use DefaultObject.
+	static const FString PC_AssetClass;
 	static const FString PC_Int;
 	static const FString PC_Float;
 	static const FString PC_Name;
@@ -208,6 +230,7 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	static const FString PC_MCDelegate;  // SubCategoryObject is the UFunction of the delegate signature
 	static const FString PC_Object;    // SubCategoryObject is the Class of the object passed thru this pin, or SubCategory can be 'self'. The DefaultValue string should always be empty, use DefaultObject.
 	static const FString PC_Interface;	// SubCategoryObject is the Class of the object passed thru this pin.
+	static const FString PC_Asset;		// SubCategoryObject is the Class of the AssetPtr passed thru this pin.
 	static const FString PC_String;
 	static const FString PC_Text;
 	static const FString PC_Struct;    // SubCategoryObject is the ScriptStruct of the struct passed thru this pin, 'self' is not a valid SubCategory. DefaultObject should always be empty, the DefaultValue string may be used for supported structs.
@@ -255,7 +278,7 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	static const FName GN_AnimGraph;
 
 	// variable names
-	static const FName VR_DefaultCategory;
+	static const FText VR_DefaultCategory;
 
 	// action grouping values
 	static const int32 AG_LevelReference;
@@ -266,29 +289,28 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	// ID for checking dirty status of node titles against, increases every compile
 	static int32 CurrentCacheRefreshID;
 
+	// Pin Selector category for all object types
+	static const FString AllObjectTypes;
+
 	UPROPERTY(globalconfig)
 	TArray<FBlueprintCallableFunctionRedirect> EditoronlyBPFunctionRedirects;
 
 public:
+
 	//////////////////////////////////////////////////////////////////////////
 	// FPinTypeInfo
 	/** Class used for creating type tree selection info, which aggregates the various PC_* and PinSubtypes in the schema into a heirarchy */
 	class BLUEPRINTGRAPH_API FPinTypeTreeInfo
 	{
 	private:
-		FPinTypeTreeInfo()
-			: bReadOnly(false)
-		{
-		}
-
-		void Init(const FText& FriendlyCategoryName, const FString& CategoryName, const UEdGraphSchema_K2* Schema, const FText& InTooltip, bool bInReadOnly);
-	
-	private:
 		/** The pin type corresponding to the schema type */
 		FEdGraphPinType PinType;
+		uint8 PossibleObjectReferenceTypes;
 
 		/** Asset Reference, used when PinType.PinSubCategoryObject is not loaded yet */
 		FStringAssetReference SubCategoryObjectAssetReference;
+
+		FText CachedDescription;
 
 	public:
 		/** The children of this pin type */
@@ -310,9 +332,9 @@ public:
 			PinType.PinSubCategory = SubCategory;
 		}
 
-		FPinTypeTreeInfo(const FText& FriendlyName, const FString& CategoryName, const UEdGraphSchema_K2* Schema, const FText& InTooltip, bool bInReadOnly = false);
-		FPinTypeTreeInfo(const FString& CategoryName, UObject* SubCategoryObject, const FText& InTooltip, bool bInReadOnly = false);
-		FPinTypeTreeInfo(const FString& CategoryName, const FStringAssetReference& SubCategoryObject, const FText& InTooltip, bool bInReadOnly = false);
+		FPinTypeTreeInfo(const FText& InFriendlyName, const FString& CategoryName, const UEdGraphSchema_K2* Schema, const FText& InTooltip, bool bInReadOnly = false, FTypesDatabase* TypesDatabase = nullptr);
+		FPinTypeTreeInfo(const FString& CategoryName, UObject* SubCategoryObject, const FText& InTooltip, bool bInReadOnly = false, uint8 InPossibleObjectReferenceTypes = 0);
+		FPinTypeTreeInfo(const FText& InFriendlyName, const FString& CategoryName, const FStringAssetReference& SubCategoryObject, const FText& InTooltip, bool bInReadOnly = false, uint8 InPossibleObjectReferenceTypes = 0);
 
 		FPinTypeTreeInfo(TSharedPtr<FPinTypeTreeInfo> InInfo)
 		{
@@ -321,6 +343,8 @@ public:
 			FriendlyName = InInfo->FriendlyName;
 			Tooltip = InInfo->Tooltip;
 			SubCategoryObjectAssetReference = InInfo->SubCategoryObjectAssetReference;
+			CachedDescription = InInfo->CachedDescription;
+			PossibleObjectReferenceTypes = InInfo->PossibleObjectReferenceTypes;
 		}
 		
 		/** Returns a succinct menu description of this type */
@@ -340,10 +364,26 @@ public:
 			}
 			return Tooltip;
 		}
+
+		uint8 GetPossibleObjectReferenceTypes() const
+		{
+			return PossibleObjectReferenceTypes;
+		}
+
+	private:
+
+		FPinTypeTreeInfo()
+			: PossibleObjectReferenceTypes(0)
+			, bReadOnly(false)
+		{}
+
+		void Init(const FText& FriendlyCategoryName, const FString& CategoryName, const UEdGraphSchema_K2* Schema, const FText& InTooltip, bool bInReadOnly, FTypesDatabase* TypesDatabase);
+
+		FText GenerateDescription();
 	};
 
 public:
-	// Begin EdGraphSchema Interface
+	//~ Begin EdGraphSchema Interface
 	virtual void GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, class FMenuBuilder* MenuBuilder, bool bIsDebugging) const override;
 	virtual const FPinConnectionResponse CanCreateConnection(const UEdGraphPin* A, const UEdGraphPin* B) const override;
 	virtual bool TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B) const override;
@@ -379,7 +419,6 @@ public:
 	virtual UEdGraphNode* CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph) const override;
 	virtual int32 GetNodeSelectionCount(const UEdGraph* Graph) const override;
 	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const override;
-	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateDocumentNodeAction() const override;
 	virtual bool FadeNodeWhenDraggingOffPin(const UEdGraphNode* Node, const UEdGraphPin* Pin) const override;
 	virtual void BackwardCompatibilityNodeConversion(UEdGraph* Graph, bool bOnlySafeChanges) const override;
 	virtual bool ShouldAlwaysPurgeOnModification() const override { return false; }
@@ -391,7 +430,7 @@ public:
 	virtual bool IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const override;
 	virtual int32 GetCurrentVisualizationCacheID() const override;
 	virtual void ForceVisualizationCacheClear() const override;
-	// End EdGraphSchema Interface
+	//~ End EdGraphSchema Interface
 
 	/**
 	 *
@@ -789,7 +828,7 @@ public:
 	 * @param	bAllowExec		Whether or not to add the exec type to the type tree
 	 * @param	bAllowWildcard	Whether or not to add the wildcard type to the type tree
 	 */
-	void GetVariableTypeTree( TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildcard ) const;
+	void GetVariableTypeTree(TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildcard) const;
 
 	/**
 	 * Get the type tree for the index property types valid for this schema
@@ -861,7 +900,7 @@ public:
 	static UFunction* FindSetVariableByNameFunction(const FEdGraphPinType& PinType);
 
 	/** Find an appropriate function to call to perform an automatic cast operation */
-	virtual bool SearchForAutocastFunction(const UEdGraphPin* OutputPin, const UEdGraphPin* InputPin, /*out*/ FName& TargetFunction) const;
+	virtual bool SearchForAutocastFunction(const UEdGraphPin* OutputPin, const UEdGraphPin* InputPin, /*out*/ FName& TargetFunction, /*out*/ UClass*& FunctionOwner) const;
 
 	/** Find an appropriate node that can convert from one pin type to another (not a cast; e.g. "MakeLiteralArray" node) */
 	virtual bool FindSpecializedConversionNode(const UEdGraphPin* OutputPin, const UEdGraphPin* InputPin, bool bCreateNode, /*out*/ class UK2Node*& TargetNode) const;
@@ -871,6 +910,12 @@ public:
 
 	/** Get menu for jumping to specific pin links */
 	void GetJumpToConnectionSubMenuActions(class FMenuBuilder& MenuBuilder, class UEdGraphPin* InGraphPin);
+
+	/** Get menu for straightening links to specific nodes*/
+	void GetStraightenConnectionToSubMenuActions( class FMenuBuilder& MenuBuilder, UEdGraphPin* InGraphPin ) const;
+
+	/** Get the destination pin for a straighten operation */
+	static UEdGraphPin* GetAndResetStraightenDestinationPin();
 
 	/** Create menu for variable get/set nodes which refer to a variable which does not exist. */
 	void GetNonExistentVariableMenu(const UEdGraphNode* InGraphNode, UBlueprint* OwnerBlueprint, FMenuBuilder* MenuBuilder) const;
@@ -959,6 +1004,8 @@ public:
 	static void GetReplaceVariableMenu(class FMenuBuilder& MenuBuilder, class UK2Node_Variable* Variable, UBlueprint* OwnerBlueprint, bool bReplaceExistingVariable = false);
 
 private:
+
+	void GetVariableTypeTreeImpl(TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildCard, bool bIndexTypesOnly) const;
 
 	/**
 	 * Returns true if the specified function has any out parameters

@@ -1,14 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "AssetRegistryModule.h"
 #include "ModuleManager.h"
 #include "AutomationCommon.h"
 #include "Tests/AutomationTestSettings.h"
-
-//Includes needed for opening certain assets
-#include "Materials/MaterialFunction.h"
-#include "Slate/SlateBrushAsset.h"
 
 namespace AutomationEditorCommonUtils
 {
@@ -47,13 +44,6 @@ namespace AutomationEditorCommonUtils
 	}
 
 	/**
-	* Converts a package path to an asset path
-	*
-	* @param PackagePath - The package path to convert
-	*/
-	FString ConvertPackagePathToAssetPath(const FString& PackagePath);
-
-	/**
 	* Imports an object using a given factory
 	*
 	* @param ImportFactory - The factory to use to import the object
@@ -68,7 +58,7 @@ namespace AutomationEditorCommonUtils
 	*
 	* @param InObject - Object to null references to
 	*/
-	void NullReferencesToObject(UObject* InObject);
+	UNREALED_API void NullReferencesToObject(UObject* InObject);
 
 	/**
 	* gets a factory class based off an asset file extension
@@ -154,6 +144,14 @@ namespace AutomationEditorCommonUtils
 	* @param InDeviceName - Device Name 
 	*/
 	void GetLaunchOnDeviceID(FString& OutDeviceID, const FString& InMapName, const FString& InDeviceName);
+
+	/**
+	* Sets the first found ortho viewport camera to the desired location and rotation.
+
+	* @param ViewLocation - Desired location for the viewport view.
+	* @param ViewRotation - Desired rotation of the viewport view.
+	*/
+	bool SetOrthoViewportView(const FVector& ViewLocation, const FRotator& ViewRotation);
 }
 
 
@@ -242,6 +240,21 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FDeleteDirCommand, FString, InFol
 class FEditorAutomationTestUtilities
 {
 public:
+	
+	/**
+	* Converts a package path to an asset path
+	*
+	* @param PackagePath - The package path to convert
+	*/
+	UNREALED_API static FString ConvertPackagePathToAssetPath(const FString& PackagePath);
+
+	/**
+	* Gets the asset data from a package path
+	*
+	* @param PackagePath - The package path used to look up the asset data
+	*/
+	UNREALED_API static FAssetData GetAssetDataFromPackagePath(const FString& PackagePath);
+
 	/**
 	* Loads the map specified by an automation test
 	*
@@ -287,15 +300,10 @@ public:
 	static void CollectGameContentTestsByClass(UClass * Class, bool bRecursiveClass, TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands);
 		
 	/**
-	* Generates a list of misc. assets from the GAME.
+	* Generates a list of assets from the GAME by a specific type.
 	* This is to be used by the GetTest() function.
 	*/
-	static void CollectMiscGameContentTestsByClass(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands);
-	
-	/**
-	* Generates a list of assets from the GAME by a specific type.
-	*/
-	static void CollectGameContentByClass(const UClass * Class, bool bRecursiveClass, TArray<FString>& OutAssetList);
+	static void CollectGameContentTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands);
 };
 
 

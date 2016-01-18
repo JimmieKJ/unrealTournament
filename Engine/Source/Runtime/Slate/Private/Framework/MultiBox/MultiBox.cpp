@@ -148,6 +148,15 @@ TSharedRef< IMultiBlockBaseWidget > FMultiBlock::MakeWidget( TSharedRef< SMultiB
 	return NewMultiBlockWidget;
 }
 
+void FMultiBlock::SetSearchable( bool InSearchable )
+{
+	bSearchable = InSearchable;
+}
+bool FMultiBlock::GetSearchable() const
+{
+	return bSearchable;
+}
+
 /**
  * Constructor
  *
@@ -163,7 +172,6 @@ FMultiBox::FMultiBox( const EMultiBoxType::Type InType, FMultiBoxCustomization I
 	, Type( InType )
 	, bShouldCloseWindowAfterMenuSelection( bInShouldCloseWindowAfterMenuSelection )
 {
-
 }
 
 FMultiBox::~FMultiBox()
@@ -240,12 +248,15 @@ void FMultiBox::InsertCustomMultiBlock( TSharedRef<const FMultiBlock> InBlock, i
  *
  * @return  MultiBox widget object
  */
-TSharedRef< SMultiBoxWidget > FMultiBox::MakeWidget()
+TSharedRef< SMultiBoxWidget > FMultiBox::MakeWidget( bool bSearchable )
 {	
 	ApplyCustomizedBlocks();
 
 	TSharedRef< SMultiBoxWidget > NewMultiBoxWidget =
 		SNew( SMultiBoxWidget );
+
+	// Set whether this box should be searched
+	NewMultiBoxWidget->SetSearchable( bSearchable );
 
 	// Assign ourselves to the MultiBox widget
 	NewMultiBoxWidget->SetMultiBox( AsShared() );
@@ -554,6 +565,14 @@ void SMultiBoxWidget::AddBlockWidget( const FMultiBlock& Block, TSharedPtr<SHori
 	}
 }
 
+void SMultiBoxWidget::SetSearchable(bool InSearchable)
+{
+	bSearchable = InSearchable;
+}
+bool SMultiBoxWidget::GetSearchable() const
+{
+	return bSearchable;
+}
 
 /**
  * Builds this MultiBox widget up from the MultiBox associated with it
@@ -629,6 +648,9 @@ void SMultiBoxWidget::BuildMultiBoxWidget()
 	// Start building up the actual UI from each block in this MultiBox
 	bool bSectionContainsIcons = false;
 	int32 NextMenuSeparator = INDEX_NONE;
+
+	// Assign and add the search widget at the top
+	SearchTextWidget = MultiBox->SearchTextWidget;
 
 	for( int32 Index = 0; Index < Blocks.Num(); Index++ )
 	{
@@ -709,7 +731,7 @@ void SMultiBoxWidget::BuildMultiBoxWidget()
 				}
 			}
 		}
-	
+
 
 		if( DragPreview.IsValid() && DragPreview.InsertIndex == Index )
 		{
@@ -772,46 +794,6 @@ void SMultiBoxWidget::BuildMultiBoxWidget()
 	];
 
 }
-
-
-void SMultiBoxWidget::SetSummonedMenu( TSharedRef< SMenuAnchor > InMenuAnchor )
-{
-	SummonedMenuAnchor = InMenuAnchor;
-}
-
-	
-/**
- * For menu bar multibox widgets, returns the currently open pull-down menu, if there is one open
- *
- * @return	Pull-down menu anchor, or null pointer
- */
-TSharedPtr< const SMenuAnchor > SMultiBoxWidget::GetOpenMenu() const
-{
-	if( SummonedMenuAnchor.IsValid() && SummonedMenuAnchor.Pin()->IsOpen() )
-	{
-		return SummonedMenuAnchor.Pin();
-	}
-
-	// No open menus
-	return TSharedPtr< SMenuAnchor >();
-}
-
-
-
-/**
- * For menu bar multibox widget, closes any open pull-down menus
- */
-void SMultiBoxWidget::CloseSummonedMenus()
-{
-	if( GetOpenMenu().IsValid() )
-	{
-		SummonedMenuAnchor.Pin()->SetIsOpen( false );
-
-		// Menu was closed, so we no longer need a weak reference to it
-		SummonedMenuAnchor = NULL;
-	}
-}
-
 
 TSharedRef<SWidget> SMultiBoxWidget::OnWrapButtonClicked()
 {
@@ -1080,13 +1062,167 @@ FReply SMultiBoxWidget::OnFocusReceived( const FGeometry& MyGeometry, const FFoc
 
 FReply SMultiBoxWidget::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent )
 {
-	SCompoundWidget::OnKeyDown(MyGeometry, KeyEvent);
+	SCompoundWidget::OnKeyDown( MyGeometry, KeyEvent );
 
-	// allow use of up and down keys to transfer focus/hover state
-	if(KeyEvent.GetKey() == EKeys::Up || KeyEvent.GetKey() == EKeys::Down)
+	if( bSearchable && KeyEvent.GetKey() == EKeys::BackSpace )
 	{
-		return FocusNextWidget(EUINavigation::Next);
+		ReduceSearch();
+	}
+	else if( bSearchable && KeyEvent.GetKey() == EKeys::Delete )
+	{
+		ResetSearch();
+	}
+	// allow use of up and down keys to transfer focus/hover state
+	else if( KeyEvent.GetKey() == EKeys::Up || KeyEvent.GetKey() == EKeys::Down )
+	{
+		return FocusNextWidget( EUINavigation::Next );
 	}
 
 	return FReply::Unhandled();
+}
+
+FReply SMultiBoxWidget::OnKeyChar( const FGeometry& MyGeometry, const FCharacterEvent& InCharacterEvent )
+{
+	FReply Reply = FReply::Unhandled();
+	
+	if (bSearchable)
+	{
+		// Check for special characters
+		const TCHAR Character = InCharacterEvent.GetCharacter();
+		TypeChar(Character);
+		Reply = FReply::Handled();
+	}
+
+	return Reply;
+}
+
+void SMultiBoxWidget::TypeChar(const int32 InChar)
+{
+	// Certain characters are not allowed
+	bool bIsCharAllowed = true;
+	{
+		if ( InChar == TEXT('\t') )
+		{
+			bIsCharAllowed = true;
+		}
+		else if ( InChar <= 0x1F )
+		{
+			bIsCharAllowed = false;
+		}
+	}
+
+	if ( bIsCharAllowed )
+	{
+		UpdateSearch( InChar );
+	}
+}
+
+void SMultiBoxWidget::UpdateSearch( const int32 CharToAdd )
+{
+	const FString& OldSearchText = SearchText.ToString();
+	SearchText = FText::FromString( OldSearchText + CharToAdd );
+
+	if ( SearchTextWidget.IsValid() && SearchBlockWidget.IsValid())
+	{
+		SearchTextWidget->SetText( FText::Format( FText::FromString("Searching: {0}"), SearchText ) );
+		SearchBlockWidget->SetVisibility(EVisibility::Visible);
+	}
+
+	FilterMultiBoxEntries();
+}
+
+void SMultiBoxWidget::ResetSearch()
+{
+	// Empty search name
+	SearchText = FText::GetEmpty();
+
+	for( auto It = SearchElements.CreateConstIterator(); It; ++It )
+	{
+		It.Key()->SetVisibility( EVisibility::Visible );
+	}
+
+	if (SearchTextWidget.IsValid() && SearchBlockWidget.IsValid())
+	{
+		SearchTextWidget->SetText( FText::FromString("No Search") );
+		SearchBlockWidget->SetVisibility( EVisibility::Collapsed );
+	}
+}
+
+void SMultiBoxWidget::ReduceSearch()
+{
+	if (SearchText.ToString().Len() <= 1)
+	{
+		ResetSearch();
+	}
+	else
+	{
+		SearchText = FText::FromString(SearchText.ToString().LeftChop(1));
+
+		if (SearchTextWidget.IsValid() && SearchBlockWidget.IsValid())
+		{
+			SearchTextWidget->SetText(FText::Format(FText::FromString("Searching: {0}"), SearchText));
+			SearchBlockWidget->SetVisibility(EVisibility::Visible);
+		}
+
+		FilterMultiBoxEntries();
+	}
+}
+
+void SMultiBoxWidget::FilterMultiBoxEntries()
+{
+	bool NoSearchedItems = true;
+	for(auto It = SearchElements.CreateConstIterator(); It; ++It)
+	{
+		// Non-searched elements should not be rendered while searching
+		if(It.Value().IsEmpty())
+		{
+			if(SearchText.IsEmpty())
+			{
+				It.Key()->SetVisibility( EVisibility::Visible );
+			}
+			else
+			{
+				It.Key()->SetVisibility( EVisibility::Collapsed );
+			}
+		}
+		else
+		{
+			// Compare widget text to the current search text
+			if( It.Value().ToString().Contains( SearchText.ToString() ) )
+			{
+				It.Key()->SetVisibility( EVisibility::Visible );
+				NoSearchedItems = false;
+			}
+			else
+			{
+				It.Key()->SetVisibility( EVisibility::Collapsed );
+			}
+		}
+	}
+
+	if (NoSearchedItems && SearchTextWidget.IsValid() && SearchBlockWidget.IsValid() )
+	{
+		SearchTextWidget->SetText( FText::Format( FText::FromString("No Results: {0}"), SearchText ) );
+		SearchBlockWidget->SetVisibility( EVisibility::Visible );
+	}
+}
+
+FText SMultiBoxWidget::GetSearchText() const
+{
+	return SearchText;
+}
+
+TSharedPtr<STextBlock> SMultiBoxWidget::GetSearchTextWidget()
+{
+	return SearchTextWidget;
+}
+
+void SMultiBoxWidget::SetSearchBlockWidget(TSharedPtr<SWidget> InWidget)
+{
+	SearchBlockWidget = InWidget;
+}
+
+void SMultiBoxWidget::AddSearchElement( TSharedPtr<SWidget> BlockWidget, FText BlockDisplayText )
+{
+	SearchElements.Add( BlockWidget, BlockDisplayText );
 }

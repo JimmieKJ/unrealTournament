@@ -14,7 +14,7 @@ class UChildActorComponent : public USceneComponent
 	GENERATED_UCLASS_BODY()
 
 	UFUNCTION(BlueprintCallable, Category=ChildActorComponent)
-	ENGINE_API void SetChildActorClass(TSubclassOf<AActor> Class);
+	ENGINE_API void SetChildActorClass(TSubclassOf<AActor> InClass);
 
 	TSubclassOf<AActor> GetChildActorClass() const { return ChildActorClass; }
 
@@ -36,20 +36,19 @@ public:
 	/** Cached copy of the instance data when the ChildActor is destroyed to be available when needed */
 	mutable FChildActorComponentInstanceData* CachedInstanceData;
 
-	// Begin Object interface.
+	//~ Begin Object Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
 #endif
-	// End Object interface.
+	//~ End Object Interface.
 
-	// Begin ActorComponent interface.
+	//~ Begin ActorComponent Interface.
 	virtual void OnComponentCreated() override;
 	virtual void OnComponentDestroyed() override;
 	virtual void OnRegister() override;
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	virtual FName GetComponentInstanceDataType() const override;
-	// End ActorComponent interface.
+	//~ End ActorComponent Interface.
 
 	/** Apply the component instance data to the child actor component */
 	void ApplyComponentInstanceData(class FChildActorComponentInstanceData* ComponentInstanceData);

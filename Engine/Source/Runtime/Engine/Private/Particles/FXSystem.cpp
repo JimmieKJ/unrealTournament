@@ -318,11 +318,27 @@ void FFXSystem::PreInitViews()
 	}
 }
 
-void FFXSystem::PreRender(FRHICommandListImmediate& RHICmdList)
+bool FFXSystem::UsesGlobalDistanceField() const
 {
 	if (RHISupportsGPUParticles(FeatureLevel))
 	{
-		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::Main, NULL, FTexture2DRHIParamRef(), FTexture2DRHIParamRef());
+		return UsesGlobalDistanceFieldInternal();
+	}
+
+	return false;
+}
+
+void FFXSystem::PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData)
+{
+	if (RHISupportsGPUParticles(FeatureLevel))
+	{
+		PrepareGPUSimulation(RHICmdList);
+
+		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::Main, NULL, NULL, FTexture2DRHIParamRef(), FTexture2DRHIParamRef());
+		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::CollisionDistanceField, NULL, GlobalDistanceFieldParameterData, FTexture2DRHIParamRef(), FTexture2DRHIParamRef());
+
+		//particles rendered during basepass may need to read pos/velocity buffers.  must finalize unless we know for sure that nothingin base pass will read.
+		FinalizeGPUSimulation(RHICmdList);
 	}
 }
 
@@ -330,7 +346,12 @@ void FFXSystem::PostRenderOpaque(FRHICommandListImmediate& RHICmdList, const cla
 {
 	if (RHISupportsGPUParticles(FeatureLevel))
 	{
-		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::Collision, CollisionView, SceneDepthTexture, GBufferATexture);
-		SortGPUParticles(RHICmdList);
+		PrepareGPUSimulation(RHICmdList);
+
+		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::CollisionDepthBuffer, CollisionView, NULL, SceneDepthTexture, GBufferATexture);
+
+		FinalizeGPUSimulation(RHICmdList);
+
+		SortGPUParticles(RHICmdList);		
 	}
 }

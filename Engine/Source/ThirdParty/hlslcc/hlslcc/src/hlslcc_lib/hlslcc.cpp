@@ -269,6 +269,14 @@ bool FHlslCrossCompilerContext::RunBackend(
 		return false;
 	}
 
+	// Fix the case where a variable is used with an atomic and also w/o an atomic access
+	if (Flags & HLSLCC_FixAtomicReferences)
+	{
+		TIRVarSet AtomicVariables;
+		FindAtomicVariables(ir, AtomicVariables);
+		FixAtomicReferences(ir, ParseState, AtomicVariables);
+	}
+
 	{
 		// Extract sampler states
 		if (!ExtractSamplerStatesNameInformation(ir, ParseState))
@@ -314,8 +322,9 @@ bool FHlslCrossCompilerContext::RunBackend(
 	const bool bGroupFlattenedUBs = ((Flags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers);
 	if (bPackUniforms)
 	{
+		const bool bPackGlobalArraysIntoUniformBuffers = ((Flags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers);
 		TVarVarMap UniformMap;
-		PackUniforms(ir, ParseState, bFlattenUBStructures, bGroupFlattenedUBs, UniformMap);
+		PackUniforms(ir, ParseState, bFlattenUBStructures, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, UniformMap);
 		//TIMER(pack_uniforms);
 
 		RemovePackedUniformBufferReferences(ir, ParseState, UniformMap);

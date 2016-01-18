@@ -404,6 +404,10 @@ void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGL
 
 	check(Context->DeviceContext);
 
+	if (wglGetCurrentDC() == Context->DeviceContext)
+	{
+		wglMakeCurrent( NULL, NULL );
+	}
 	ReleaseDC(Context->WindowHandle, Context->DeviceContext);
 	Context->DeviceContext = NULL;
 
@@ -450,9 +454,16 @@ bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewpor
 		{
 			Device->TargetDirty = false;
 			glDisable(GL_FRAMEBUFFER_SRGB);
-			Viewport.GetCustomPresent()->Present(SyncInterval);
+			bool bShouldPresent = Viewport.GetCustomPresent()->Present(SyncInterval);
 			glEnable(GL_FRAMEBUFFER_SRGB);
-			return false;
+			if (!bShouldPresent)
+			{
+				return false;
+			}
+			else
+			{
+				Device->TargetDirty = true;
+			}
 		}
 
 		if (Device->ViewportContexts.Num() == 1 && Device->TargetDirty)
@@ -535,8 +546,11 @@ void PlatformSharedContextSetup(FPlatformOpenGLDevice* Device)
 
 void PlatformNULLContextSetup()
 {
-	// no need to glFlush() on Windows, it does flush by itself before switching contexts
-	ContextMakeCurrent(NULL, NULL);
+	if (wglGetCurrentDC())
+	{
+		// no need to glFlush() on Windows, it does flush by itself before switching contexts
+		ContextMakeCurrent(NULL, NULL);
+	}
 }
 
 /**

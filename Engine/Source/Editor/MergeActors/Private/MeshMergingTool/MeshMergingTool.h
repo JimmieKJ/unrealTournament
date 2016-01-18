@@ -27,8 +27,8 @@ private:
 	/** Current mesh merging settings */
 	FMeshMergingSettings MergingSettings;
 
-	/** Whether to spawn merged actor in the world */
-	bool bPlaceInWorld;
+	/** Whether to replace source actors with a merged actor in the world */
+	bool bReplaceSourceActors;
 
 	bool bExportSpecificLOD;
 	int32 ExportLODIndex;

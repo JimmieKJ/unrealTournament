@@ -421,7 +421,8 @@ FReply FTextEditHelper::OnMouseButtonUp( const FGeometry& MyGeometry, const FPoi
 			if ( MyGeometry.IsUnderLocation( InMouseEvent.GetScreenSpacePosition() ) )
 			{
 				// Right clicked, so summon a context menu if the cursor is within the widget
-				TextEditor->SummonContextMenu(InMouseEvent.GetScreenSpacePosition(), InMouseEvent.GetWindow());
+				FWidgetPath WidgetPath = InMouseEvent.GetEventPath() != nullptr ? *InMouseEvent.GetEventPath() : FWidgetPath();
+				TextEditor->SummonContextMenu(InMouseEvent.GetScreenSpacePosition(), InMouseEvent.GetWindow(), WidgetPath);
 			}
 
 			// Release mouse capture

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -24,6 +24,21 @@ public class UnrealTournamentEditor : ModuleRules
             "StreamingFile", 
             "NetworkFile", 
 			"PerfCounters",
+			"UMGEditor",
             "UMG" });
+
+        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        {
+            PublicDependencyModuleNames.AddRange(
+                new string[]
+                {
+			        "McpProfileSys",
+			        "GameSubCatalog",
+			        "GameSubCatalogEditor",
+			        "LootTables",
+                }
+            );
+        }
 	}
+
 }

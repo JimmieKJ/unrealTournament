@@ -37,7 +37,7 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 	const int32 NumTexels = SrcImage.SizeX * SrcImage.SizeY * SrcImage.NumSlices;
 	
 	if (SrcImage.Format == DestImage.Format &&
-		SrcImage.bSRGB == DestImage.bSRGB)
+		SrcImage.GammaSpace == DestImage.GammaSpace)
 	{
 		DestImage.RawData = SrcImage.RawData;
 	}
@@ -53,7 +53,7 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 				uint8* DestLum = DestImage.AsG8();
 				for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
 				{
-					DestLum[TexelIndex] = SrcColors[TexelIndex].ToFColor(DestImage.bSRGB).R;
+					DestLum[TexelIndex] = SrcColors[TexelIndex].ToFColor(DestImage.IsGammaCorrected()).R;
 				}
 			}
 			break;
@@ -63,7 +63,7 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 				FColor* DestColors = DestImage.AsBGRA8();
 				for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
 				{
-					DestColors[TexelIndex] = SrcColors[TexelIndex].ToFColor(DestImage.bSRGB);
+					DestColors[TexelIndex] = SrcColors[TexelIndex].ToFColor(DestImage.IsGammaCorrected());
 				}
 			}
 			break;
@@ -115,8 +115,19 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 				for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
 				{
 					FColor SrcColor(SrcLum[TexelIndex],SrcLum[TexelIndex],SrcLum[TexelIndex],255);
-					DestColors[TexelIndex] = SrcImage.bSRGB ?
-						FLinearColor(SrcColor) : SrcColor.ReinterpretAsLinear();
+					
+					switch ( SrcImage.GammaSpace )
+					{
+					case EGammaSpace::Linear:
+						DestColors[TexelIndex] = SrcColor.ReinterpretAsLinear();
+						break;
+					case EGammaSpace::sRGB:
+						DestColors[TexelIndex] = FLinearColor(SrcColor);
+						break;
+					case EGammaSpace::Pow22:
+						DestColors[TexelIndex] = FLinearColor::FromPow22Color(SrcColor);
+						break;
+					}
 				}
 			}
 			break;
@@ -126,8 +137,18 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 				const FColor* SrcColors = SrcImage.AsBGRA8();
 				for (int32 TexelIndex = 0; TexelIndex < NumTexels; ++TexelIndex)
 				{
-					DestColors[TexelIndex] = SrcImage.bSRGB ?
-						FLinearColor(SrcColors[TexelIndex]) : SrcColors[TexelIndex].ReinterpretAsLinear();
+					switch ( SrcImage.GammaSpace )
+					{
+					case EGammaSpace::Linear:
+						DestColors[TexelIndex] = SrcColors[TexelIndex].ReinterpretAsLinear();
+						break;
+					case EGammaSpace::sRGB:
+						DestColors[TexelIndex] = FLinearColor(SrcColors[TexelIndex]);
+						break;
+					case EGammaSpace::Pow22:
+						DestColors[TexelIndex] = FLinearColor::FromPow22Color(SrcColors[TexelIndex]);
+						break;
+					}
 				}
 			}
 			break;
@@ -182,46 +203,46 @@ static void CopyImage(const FImage& SrcImage, FImage& DestImage)
 /* FImage structors
  *****************************************************************************/
 
-FImage::FImage(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, bool bInSRGB)
+FImage::FImage(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace)
 	: SizeX(InSizeX)
 	, SizeY(InSizeY)
 	, NumSlices(InNumSlices)
 	, Format(InFormat)
-	, bSRGB(bInSRGB)
+	, GammaSpace(InGammaSpace)
 {
 	InitImageStorage(*this);
 }
 
 
-FImage::FImage(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, bool bInSRGB)
+FImage::FImage(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace)
 	: SizeX(InSizeX)
 	, SizeY(InSizeY)
 	, NumSlices(1)
 	, Format(InFormat)
-	, bSRGB(bInSRGB)
+	, GammaSpace(InGammaSpace)
 {
 	InitImageStorage(*this);
 }
 
 
-void FImage::Init(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, bool bInSRGB)
+void FImage::Init(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace)
 {
 	SizeX = InSizeX;
 	SizeY = InSizeY;
 	NumSlices = InNumSlices;
 	Format = InFormat;
-	bSRGB = bInSRGB;
+	GammaSpace = InGammaSpace;
 	InitImageStorage(*this);
 }
 
 
-void FImage::Init(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, bool bInSRGB)
+void FImage::Init(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace)
 {
 	SizeX = InSizeX;
 	SizeY = InSizeY;
 	NumSlices = 1;
 	Format = InFormat;
-	bSRGB = bInSRGB;
+	GammaSpace = InGammaSpace;
 	InitImageStorage(*this);
 }
 
@@ -229,13 +250,13 @@ void FImage::Init(int32 InSizeX, int32 InSizeY, ERawImageFormat::Type InFormat, 
 /* FImage interface
  *****************************************************************************/
 
-void FImage::CopyTo(FImage& DestImage, ERawImageFormat::Type DestFormat, bool DestSRGB) const
+void FImage::CopyTo(FImage& DestImage, ERawImageFormat::Type DestFormat, EGammaSpace DestGammaSpace) const
 {
 	DestImage.SizeX = SizeX;
 	DestImage.SizeY = SizeY;
 	DestImage.NumSlices = NumSlices;
 	DestImage.Format = DestFormat;
-	DestImage.bSRGB = DestSRGB;
+	DestImage.GammaSpace = DestGammaSpace;
 	InitImageStorage(DestImage);
 	CopyImage(*this, DestImage);
 }

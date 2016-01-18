@@ -225,10 +225,10 @@ void FEdModeTileMap::FlushPendingDirtyRegions()
 
 	for (UPaperTileMapComponent* Component : ComponentsToInvalidate)
 	{
-		if (UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component))
+		if (Component)
 		{
-			NavSys->UpdateNavOctree(Component);
-		}
+			UNavigationSystem::UpdateComponentInNavOctree(*Component);
+		}		
 	}
 
 	PendingDirtyRegions.Empty();

@@ -36,7 +36,7 @@ class ENGINE_API USpotLightComponent : public UPointLightComponent
 
 	// ULightComponent interface.
 	virtual FSphere GetBoundingSphere() const override;
-	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const override;
+	virtual bool AffectsBounds(const FBoxSphereBounds& InBounds) const override;
 	virtual ELightComponentType GetLightType() const override;
 	virtual FLightSceneProxy* CreateSceneProxy() const override;
 #if WITH_EDITOR

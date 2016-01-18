@@ -8,6 +8,8 @@
 
 #include "OpenGL/SlateOpenGLRenderer.h"
 
+DEFINE_LOG_CATEGORY(LogStandaloneRenderer);
+
 /**
  * Single function to create the standalone renderer for the running platform
  */

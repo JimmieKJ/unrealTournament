@@ -17,6 +17,10 @@
 /* Private constants
  *****************************************************************************/
 
+/** Declares a log category for this module. */
+DECLARE_LOG_CATEGORY_EXTERN(LogUdpMessaging, Log, All);
+
+
 /** Defines the default IP endpoint for multicast traffic. */
 #define UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT FIPv4Endpoint(FIPv4Address(230, 0, 0, 1), 6666)
 

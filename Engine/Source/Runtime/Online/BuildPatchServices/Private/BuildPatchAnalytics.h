@@ -87,13 +87,15 @@ public:
 	static void RecordConstructionError( const FString& Filename, const int32 LastError, const FString& ErrorString );
 
 	/**
-	 * Record a file construction error event
+	 * Record a prerequisite installation error
+	 * @param AppName		The app name for the installation
+	 * @param AppVersion	The version string for the installation
 	 * @param Filename		The installer file
 	 * @param CommandLine	The command line passed to the installer
-	 * @param ErrorCode		The OS error code if appropriate
+	 * @param ErrorCode		The return code from the run
 	 * @param ErrorString	The type of error that has occurred
 	 */
-	static void RecordPrereqInstallnError( const FString& Filename, const FString& CommandLine, const int32 ErrorCode, const FString& ErrorString );
+	static void RecordPrereqInstallationError(const FString& AppName, const FString& AppVersion, const FString& Filename, const FString& CommandLine, const int32 ErrorCode, const FString& ErrorString);
 
 	/**
 	 * Set the Http Service Tracker to be used for tracking Http Service responsiveness.

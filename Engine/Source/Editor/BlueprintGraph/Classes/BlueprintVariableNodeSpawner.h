@@ -40,10 +40,11 @@ public:
 	 * @param  NodeClass	The node type that you want the spawner to spawn.
 	 * @param  VarContext	The graph that the local variable belongs to.
 	 * @param  VarDesc		Details the local variable (name, type, etc.)
+	 * @param  VarProperty	The property that represents the local-variable you want nodes spawned for.
 	 * @param  Outer		Optional outer for the new spawner (if left null, the transient package will be used).
 	 * @return A newly allocated instance of this class.
 	 */
-	static UBlueprintVariableNodeSpawner* Create(TSubclassOf<UK2Node_Variable> NodeClass, UEdGraph* VarContext, FBPVariableDescription const& VarDesc, UObject* Outer = nullptr);
+	static UBlueprintVariableNodeSpawner* Create(TSubclassOf<UK2Node_Variable> NodeClass, UEdGraph* VarContext, FBPVariableDescription const& VarDesc, UProperty* VarProperty, UObject* Outer = nullptr);
 
 	// UBlueprintNodeSpawner interface
 	virtual void Prime() override;

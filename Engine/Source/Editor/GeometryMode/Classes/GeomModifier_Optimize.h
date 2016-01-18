@@ -9,16 +9,15 @@
 #include "GeomModifier_Optimize.generated.h"
 
 UCLASS()
-class UGeomModifier_Optimize : public UGeomModifier_Edit
+class UGeomModifier_Optimize : public UGeomModifier_Triangulate
 {
 	GENERATED_UCLASS_BODY()
 
 
-	// Begin UGeomModifier Interface
-	virtual bool Supports() override;
+	//~ Begin UGeomModifier Interface
 protected:
 	virtual bool OnApply() override;
-	// End UGeomModifier Interface
+	//~ End UGeomModifier Interface
 };
 
 

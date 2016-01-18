@@ -21,8 +21,11 @@ struct FOptionalPinFromProperty
 	UPROPERTY(EditAnywhere, Category=Hi, BlueprintReadOnly)
 	FString PropertyFriendlyName;
 
+	//~ Using WITH_EDITORONLY_DATA within an Editor module to exclude this FText property from the gather for games
+#if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, Category=Hi, BlueprintReadOnly)
 	FText PropertyTooltip;
+#endif //~ WITH_EDITORONLY_DATA
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Hi)
 	bool bShowPin;
@@ -32,18 +35,26 @@ struct FOptionalPinFromProperty
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Hi)
 	bool bPropertyIsCustomized;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Hi)
+	FName CategoryName;
+
+	UPROPERTY(EditAnywhere, Category = Hi)
+	bool bHasOverridePin;
 
 	FOptionalPinFromProperty()
 	{
 	}
 	
-	FOptionalPinFromProperty(FName InPropertyName, bool bInShowPin, bool bInCanToggleVisibility, const FString& InFriendlyName, const FText& InTooltip, bool bInPropertyIsCustomized)
+	FOptionalPinFromProperty(FName InPropertyName, bool bInShowPin, bool bInCanToggleVisibility, const FString& InFriendlyName, const FText& InTooltip, bool bInPropertyIsCustomized, FName InCategoryName, bool bInHasOverridePin)
 		: PropertyName(InPropertyName)
 		, PropertyFriendlyName(InFriendlyName)
 		, PropertyTooltip(InTooltip)
 		, bShowPin(bInShowPin)
 		, bCanToggleVisibility(bInCanToggleVisibility)
 		, bPropertyIsCustomized(bInPropertyIsCustomized)
+		, CategoryName(InCategoryName)
+		, bHasOverridePin(bInHasOverridePin)
 	{
 	}
 };
@@ -72,6 +83,7 @@ public:
 protected:
 	virtual void PostInitNewPin(UEdGraphPin* Pin, FOptionalPinFromProperty& Record, int32 ArrayIndex, UProperty* Property, uint8* PropertyAddress) const {}
 	virtual void PostRemovedOldPin(FOptionalPinFromProperty& Record, int32 ArrayIndex, UProperty* Property, uint8* PropertyAddress) const {}
+	void RebuildProperty(UProperty* TestProperty, FName CategoryName, TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, TMap<FName, bool>& OldVisibility);
 };
 
 enum ERenamePinResult
@@ -104,6 +116,7 @@ class UK2Node : public UEdGraphNode
 	BLUEPRINTGRAPH_API virtual bool ShowPaletteIconOnNode() const override { return true; }
 	BLUEPRINTGRAPH_API virtual bool AllowSplitPins() const override;
 	BLUEPRINTGRAPH_API virtual UEdGraphPin* GetPassThroughPin(const UEdGraphPin* FromPin) const override;
+	BLUEPRINTGRAPH_API virtual bool IsInDevelopmentMode() const override;
 	// End of UEdGraphNode interface
 
 	// K2Node interface
@@ -115,16 +128,10 @@ class UK2Node : public UEdGraphNode
 	virtual bool IsNodePure() const { return false; }
 
 	/** 
-	 * Returns whether or not this node has dependencies on an external blueprint 
-	 * If OptionalOutput isn't null, it should be filled with the known dependencies objects (Classes, Functions, etc).
+	 * Returns whether or not this node has dependencies on an external structure 
+	 * If OptionalOutput isn't null, it should be filled with the known dependencies objects (Classes, Structures, Functions, etc).
 	 */
-	virtual bool HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput = NULL) const { return false; }
-
-	/**
-	* Returns whether or not this node has dependencies on an external user-defined structure
-	* If OptionalOutput isn't null, it should be filled with the known dependencies structures.
-	*/
-	virtual bool HasExternalUserDefinedStructDependencies(TArray<class UStruct*>* OptionalOutput = NULL) const { return false; }
+	virtual bool HasExternalDependencies(TArray<class UStruct*>* OptionalOutput = NULL) const { return false; }
 
 	/** Returns whether this node can have breakpoints placed on it in the debugger */
 	virtual bool CanPlaceBreakpoints() const { return !IsNodePure(); }

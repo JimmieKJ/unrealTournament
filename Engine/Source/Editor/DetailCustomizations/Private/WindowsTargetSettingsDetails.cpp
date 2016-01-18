@@ -41,6 +41,10 @@ FText GetFriendlyNameFromRHIName(const FString& InRHIName)
 	{
 		FriendlyRHIName = LOCTEXT("OpenGL4", "OpenGL 4 (SM5, Experimental)");
 	}
+	else if (InRHIName == TEXT("PC_VULKAN_ES2"))
+	{
+		FriendlyRHIName = LOCTEXT("VulkanES2", "Vulkan Mobile(ES2, Experimental)");
+	}
 
 	return FriendlyRHIName;
 }

@@ -6,6 +6,7 @@
 #include "BlueprintNodeHelpers.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "AssetData.h"
+#include "GraphDiffControl.h"
 #include "BehaviorTree/Decorators/BTDecorator_BlueprintBase.h"
 #include "BehaviorTree/Services/BTService_BlueprintBase.h"
 #include "BehaviorTree/Tasks/BTTask_BlueprintBase.h"
@@ -106,6 +107,81 @@ UBehaviorTreeGraph* UBehaviorTreeGraphNode::GetBehaviorTreeGraph()
 bool UBehaviorTreeGraphNode::CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const
 {
 	return DesiredSchema->GetClass()->IsChildOf(UEdGraphSchema_BehaviorTree::StaticClass());
+}
+
+void UBehaviorTreeGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Results)
+{
+	Super::FindDiffs(OtherNode, Results);
+
+	UBehaviorTreeGraphNode* OtherBTGraphNode = Cast<UBehaviorTreeGraphNode>(OtherNode);
+	if (OtherBTGraphNode)
+	{
+		auto DiffSubNodes = [&Results](const FText& NodeTypeDisplayName, const TArray<UBehaviorTreeGraphNode*>& LhsSubNodes, const TArray<UBehaviorTreeGraphNode*>& RhsSubNodes)
+		{
+			TArray<FGraphDiffControl::FNodeMatch> NodeMatches;
+			TSet<const UEdGraphNode*> MatchedRhsNodes;
+
+			FGraphDiffControl::FNodeDiffContext AdditiveDiffContext;
+			AdditiveDiffContext.NodeTypeDisplayName = NodeTypeDisplayName;
+			AdditiveDiffContext.bIsRootNode = false;
+
+			// march through the all the nodes in the rhs and look for matches 
+			for (UEdGraphNode* RhsSubNode : RhsSubNodes)
+			{
+				FGraphDiffControl::FNodeMatch NodeMatch;
+				NodeMatch.NewNode = RhsSubNode;
+
+				for (UEdGraphNode* LhsSubNode : LhsSubNodes)
+				{
+					if (FGraphDiffControl::IsNodeMatch(LhsSubNode, RhsSubNode, &NodeMatches))
+					{
+						NodeMatch.OldNode = LhsSubNode;
+						break;
+					}
+				}
+
+				// if we found a corresponding node in the lhs graph, track it (so we can prevent future matches with the same nodes)
+				if (NodeMatch.IsValid())
+				{
+					NodeMatches.Add(NodeMatch);
+					MatchedRhsNodes.Add(NodeMatch.OldNode);
+				}
+
+				NodeMatch.Diff(AdditiveDiffContext, Results);
+			}
+
+			FGraphDiffControl::FNodeDiffContext SubtractiveDiffContext = AdditiveDiffContext;
+			SubtractiveDiffContext.DiffMode = FGraphDiffControl::EDiffMode::Subtractive;
+			SubtractiveDiffContext.DiffFlags = FGraphDiffControl::EDiffFlags::NodeExistance;
+
+			// go through the lhs nodes to catch ones that may have been missing from the rhs graph
+			for (UEdGraphNode* LhsSubNode : LhsSubNodes)
+			{
+				// if this node has already been matched, move on
+				if (!LhsSubNode || MatchedRhsNodes.Find(LhsSubNode))
+				{
+					continue;
+				}
+
+				FGraphDiffControl::FNodeMatch NodeMatch;
+				NodeMatch.NewNode = LhsSubNode;
+
+				for (UEdGraphNode* RhsSubNode : RhsSubNodes)
+				{
+					if (FGraphDiffControl::IsNodeMatch(LhsSubNode, RhsSubNode, &NodeMatches))
+					{
+						NodeMatch.OldNode = RhsSubNode;
+						break;
+					}
+				}
+
+				NodeMatch.Diff(SubtractiveDiffContext, Results);
+			}
+		};
+
+		DiffSubNodes(LOCTEXT("DecoratorDiffDisplayName", "Decorator"), Decorators, OtherBTGraphNode->Decorators);
+		DiffSubNodes(LOCTEXT("ServiceDiffDisplayName", "Service"), Services, OtherBTGraphNode->Services);
+	}
 }
 
 void UBehaviorTreeGraphNode::OnSubNodeAdded(UAIGraphNode* NodeTemplate)

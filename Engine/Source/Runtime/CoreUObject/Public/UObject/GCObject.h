@@ -26,7 +26,7 @@ class UGCObjectReferencer : public UObject
 	TArray<FGCObject*> ReferencedObjects;
 
 public:
-	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UGCObjectReferencer,UObject,CLASS_Transient,CoreUObject,CASTCLASS_None,COREUOBJECT_API);
+	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UGCObjectReferencer, UObject, CLASS_Transient, TEXT("/Script/CoreUObject"), CASTCLASS_None, COREUOBJECT_API);
 
 	/**
 	 * Adds an object to the referencer list

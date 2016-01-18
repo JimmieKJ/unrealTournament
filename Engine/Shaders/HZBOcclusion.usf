@@ -3,40 +3,47 @@
 #include "Common.usf"
 
 float2 InvSize;
+float4 InputUvFactorAndOffset;
+float2 InputViewportMaxBound;
 
 Texture2D		Texture;
 SamplerState	TextureSampler;
 
-void HZBBuildPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
+void HZBBuildPS(noperspective float4 RenderTargetUVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
+	float4 Depth;
 	float2 UV[4];
 
+#if STAGE == 0
+	const float2 ViewUV = RenderTargetUVAndScreenPos.zw * float2(0.5f, -0.5f) + 0.5f;
+	const float2 InUV = ViewUV * InputUvFactorAndOffset.xy + InputUvFactorAndOffset.zw;
+	
+	// min(..., InputViewportMaxBound) because we don't want to sample outside of the viewport
+	// when the view size has odd dimensions on X/Y axis.
+	UV[0] = min(InUV + float2(-0.25f, -0.25f) * InvSize, InputViewportMaxBound);
+	UV[1] = min(InUV + float2( 0.25f, -0.25f) * InvSize, InputViewportMaxBound);
+	UV[2] = min(InUV + float2(-0.25f,  0.25f) * InvSize, InputViewportMaxBound);
+	UV[3] = min(InUV + float2( 0.25f,  0.25f) * InvSize, InputViewportMaxBound);
+
+	Depth.x = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[0], 0 ).r;
+	Depth.y = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[1], 0 ).r;
+	Depth.z = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[2], 0 ).r;
+	Depth.w = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[3], 0 ).r;
+#else
+	const float2 InUV = RenderTargetUVAndScreenPos.xy;
+	
 	UV[0] = InUV + float2(-0.25f, -0.25f) * InvSize;
 	UV[1] = InUV + float2( 0.25f, -0.25f) * InvSize;
 	UV[2] = InUV + float2(-0.25f,  0.25f) * InvSize;
 	UV[3] = InUV + float2( 0.25f,  0.25f) * InvSize;
 
-#if STAGE == 0
-	// Inverted Z buffer
-	float4 Depth;
-	Depth.x = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[0], 0 ).r;
-	Depth.y = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[1], 0 ).r;
-	Depth.z = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[2], 0 ).r;
-	Depth.w = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[3], 0 ).r;
-	
-	// Max to fill holes
-	//OutColor = max( max(Depth.x, Depth.y), max(Depth.z, Depth.w) );
-
-	// Min is conservative
-	OutColor = min( min(Depth.x, Depth.y), min(Depth.z, Depth.w) );
-#else
-	float4 Depth;	
 	Depth.x = Texture.SampleLevel( TextureSampler, UV[0], 0 ).r;
 	Depth.y = Texture.SampleLevel( TextureSampler, UV[1], 0 ).r;
 	Depth.z = Texture.SampleLevel( TextureSampler, UV[2], 0 ).r;
 	Depth.w = Texture.SampleLevel( TextureSampler, UV[3], 0 ).r;
-	OutColor = min( min(Depth.x, Depth.y), min(Depth.z, Depth.w) );
 #endif
+
+	OutColor = min( min(Depth.x, Depth.y), min(Depth.z, Depth.w) );
 }
 
 Texture2D		HZBTexture;
@@ -47,8 +54,8 @@ SamplerState	BoundsCenterSampler;
 Texture2D		BoundsExtentTexture;
 SamplerState	BoundsExtentSampler;
 
-// TODO pass as uniform
-static const float4 HZBSize = { 512, 256, 1.0 / 512.0, 1.0 / 256.0 };
+float3 HZBUvFactor;
+float4 HZBSize;
 
 void HZBTestPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
@@ -102,7 +109,7 @@ void HZBTestPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 	float4 Rect = saturate( float4( RectMin.xy, RectMax.xy ) * float2( 0.5, -0.5 ).xyxy + 0.5 ).xwzy;
 	float4 RectPixels = Rect * HZBSize.xyxy;
 	float2 RectSize = ( RectPixels.zw - RectPixels.xy ) * 0.5;	// 0.5 for 4x4
-	float Level = ceil( log2( max( RectSize.x, RectSize.y ) ) );
+	float Level = max(ceil( log2( max( RectSize.x, RectSize.y ) ) ), HZBUvFactor.z);
 
 	// Check if we can drop one level lower
 	float LevelLower = max( Level - 1, 0 );
@@ -114,7 +121,7 @@ void HZBTestPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 	}
 
 #if 0
-	float3 ToView = View.TranslatedViewOrigin.xyz - BoundsCenter.xyz;
+	float3 ToView = View.TranslatedWorldCameraOrigin - BoundsCenter.xyz;
 	float3 Sign = ToView > 0 ? float3( 1, 1, 1 ) : float3( -1, -1, -1 );
 
 #if 0
@@ -146,9 +153,9 @@ void HZBTestPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 	);
 	
 	// Backface cull. Can't avoid evaluating the plane so replace it with the near plane.
-	FrontPlaneX = dot( FrontPlaneX, View.TranslatedViewOrigin ) > 0.0 ? FrontPlaneX : NearPlane;
-	FrontPlaneY = dot( FrontPlaneY, View.TranslatedViewOrigin ) > 0.0 ? FrontPlaneY : NearPlane;
-	FrontPlaneZ = dot( FrontPlaneZ, View.TranslatedViewOrigin ) > 0.0 ? FrontPlaneZ : NearPlane;
+	FrontPlaneX = dot( FrontPlaneX, float4(View.TranslatedWorldCameraOrigin, 1) ) > 0.0 ? FrontPlaneX : NearPlane;
+	FrontPlaneY = dot( FrontPlaneY, float4(View.TranslatedWorldCameraOrigin, 1) ) > 0.0 ? FrontPlaneY : NearPlane;
+	FrontPlaneZ = dot( FrontPlaneZ, float4(View.TranslatedWorldCameraOrigin, 1) ) > 0.0 ? FrontPlaneZ : NearPlane;
 	// Back planes don't need culling.
 
 	// Transform to post projective space. Inverse transpose for plane projection.
@@ -227,8 +234,8 @@ void HZBTestPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 	OutColor = Visible ? 1 : 0;
 #else
 	// 4x4 samples
-	float2 Scale = ( Rect.zw - Rect.xy ) / 3;
-	float2 Bias = Rect.xy;
+	float2 Scale = HZBUvFactor.xy * ( Rect.zw - Rect.xy ) / 3;
+	float2 Bias = HZBUvFactor.xy * Rect.xy;
 
 	float4 MinDepth = 1;
 	UNROLL for( int i = 0; i < 4; i++ )

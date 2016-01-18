@@ -9,8 +9,8 @@
  * you needed to have a background image scale to fill an area but not become distorted with different aspect ratios, or if you need
  * to auto fit some text to an area, this is the control for you.
  *
- * ● Single Child
- * ● Aspect Ratio
+ * * Single Child
+ * * Aspect Ratio
  */
 UCLASS()
 class UMG_API UScaleBox : public UContentWidget
@@ -31,11 +31,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stretching")
 	float UserSpecifiedScale;
 
+	/** Optional bool to ignore the inherited scale. Applies inverse scaling to counteract parents before applying the local scale operation. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stretching")
+	bool IgnoreInheritedScale;
+
 public:
 
 	//TODO UMG Add Set Stretch
 	//TODO UMG Add Set Stretch DIrection
 	//TODO UMG Add Set UserSpecifiedScale
+	//TODO UMG Add Set IgnoreInheritedScale
 	
 public:
 

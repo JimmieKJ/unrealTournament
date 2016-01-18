@@ -38,6 +38,7 @@ public:
 	APawn(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PreReplication( IRepChangedPropertyTracker & ChangedPropertyTracker ) override;
 
 	/** Return our PawnMovementComponent, if we have one. By default, returns the first PawnMovementComponent found. Native classes that create their own movement component should override this method for more efficiency. */
 	UFUNCTION(BlueprintCallable, meta=(Tooltip="Return our PawnMovementComponent, if we have one."), Category="Pawn")
@@ -192,9 +193,8 @@ public:
 	/** used to prevent re-entry of OutsideWorldBounds event. */
 	uint32 bProcessingOutsideWorldBounds:1;
 
-	// Begin AActor Interface.
+	//~ Begin AActor Interface.
 	virtual FVector GetVelocity() const override;
-	virtual void Tick(float DeltaSeconds) override;
 	virtual void Reset() override;
 	virtual FString GetHumanReadableName() const override;
 	virtual bool ShouldTickIfViewportsOnly() const override;
@@ -221,7 +221,7 @@ public:
 
 	/** Overridden to defer to the RootComponent's CanCharacterStepUpOn setting if it is explicitly Yes or No. If set to Owner, will return Super::CanBeBaseForCharacter(). */
 	virtual bool CanBeBaseForCharacter(APawn* APawn) const override;
-	// End AActor Interface
+	//~ End AActor Interface
 
 	/** Use SetCanAffectNavigationGeneration to change this value at runtime.
 	 *	Note that calling this function at runtime will result in any navigation change only if runtime navigation generation is enabled. */
@@ -231,13 +231,13 @@ public:
 	/** update all components relevant for navigation generators to match bCanAffectNavigationGeneration flag */
 	virtual void UpdateNavigationRelevance() {}
 
-	// Begin INavAgentInterface Interface
+	//~ Begin INavAgentInterface Interface
 	virtual const FNavAgentProperties& GetNavAgentPropertiesRef() const override;
 	/** Basically retrieved pawn's location on navmesh */
 	UFUNCTION(BlueprintCallable, Category="Pawn")
 	virtual FVector GetNavAgentLocation() const override { return GetActorLocation() - FVector(0.f, 0.f, BaseEyeHeight); }
 	virtual void GetMoveGoalReachTest(AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override;
-	// End INavAgentInterface Interface
+	//~ End INavAgentInterface Interface
 
 	/** updates MovementComponent's parameters used by navigation system */
 	void UpdateNavAgent();
@@ -276,9 +276,13 @@ public:
 	void ReceiveUnpossessed(AController* OldController);
 
 	/** @return true if controlled by a local (not network) Controller.	 */
-	UFUNCTION(BlueprintCallable, Category="Pawn")
+	UFUNCTION(BlueprintPure, Category="Pawn")
 	virtual bool IsLocallyControlled() const;
-
+  
+	/** @return true if controlled by a human player (possessed by a PlayerController).	 */
+	UFUNCTION(BlueprintPure, Category="Pawn")
+	virtual bool IsPlayerControlled() const;
+	
 	/**
 	 * Get the view rotation of the Pawn (direction they are looking, normally Controller->ControlRotation).
 	 * @return The view rotation of the Pawn.
@@ -327,7 +331,7 @@ protected:
 	virtual void DestroyPlayerInputComponent();
 
 	/** Allows a Pawn to set up custom input bindings. Called upon possession by a PlayerController, using the InputComponent created by CreatePlayerInputComponent(). */
-	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) { /* No bindings by default.*/ }
+	virtual void SetupPlayerInputComponent(UInputComponent* InInputComponent) { /* No bindings by default.*/ }
 
 public:
 	/**
@@ -373,16 +377,31 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Pawn|Input", meta=(Keywords="ConsumeInput"))
 	virtual FVector ConsumeMovementInputVector();
 
-	/** Add input (affecting Pitch) to the Controller's ControlRotation, if it is a local PlayerController. */
-	UFUNCTION(BlueprintCallable, Category="Pawn|Input", meta=(Keywords="up down"))
+	/**
+	 * Add input (affecting Pitch) to the Controller's ControlRotation, if it is a local PlayerController.
+	 * This value is multiplied by the PlayerController's InputPitchScale value.
+	 * @param Val Amount to add to Pitch. This value is multiplied by the PlayerController's InputPitchScale value.
+	 * @see PlayerController::InputPitchScale
+	 */
+	UFUNCTION(BlueprintCallable, Category="Pawn|Input", meta=(Keywords="up down addpitch"))
 	virtual void AddControllerPitchInput(float Val);
 
-	/** Add input (affecting Yaw) to the Controller's ControlRotation, if it is a local PlayerController. */
-	UFUNCTION(BlueprintCallable, Category="Pawn|Input", meta=(Keywords="left right turn"))
+	/**
+	 * Add input (affecting Yaw) to the Controller's ControlRotation, if it is a local PlayerController.
+	 * This value is multiplied by the PlayerController's InputYawScale value.
+	 * @param Val Amount to add to Yaw. This value is multiplied by the PlayerController's InputYawScale value.
+	 * @see PlayerController::InputYawScale
+	 */
+	UFUNCTION(BlueprintCallable, Category="Pawn|Input", meta=(Keywords="left right turn addyaw"))
 	virtual void AddControllerYawInput(float Val);
 
-	/** Add input (affecting Roll) to the Controller's ControlRotation, if it is a local PlayerController. */
-	UFUNCTION(BlueprintCallable, Category="Pawn|Input")
+	/**
+	 * Add input (affecting Roll) to the Controller's ControlRotation, if it is a local PlayerController.
+	 * This value is multiplied by the PlayerController's InputRollScale value.
+	 * @param Val Amount to add to Roll. This value is multiplied by the PlayerController's InputRollScale value.
+	 * @see PlayerController::InputRollScale
+	 */
+	UFUNCTION(BlueprintCallable, Category="Pawn|Input", meta=(Keywords="addroll"))
 	virtual void AddControllerRollInput(float Val);
 
 	/** Helper to see if move input is ignored. If our controller is a PlayerController, checks Controller->IsMoveInputIgnored(). */
@@ -448,3 +467,11 @@ public:
 	FVector K2_GetMovementInputVector() const;	
 };
 
+
+//////////////////////////////////////////////////////////////////////////
+// Pawn inlines
+
+FORCEINLINE AController* APawn::GetController() const
+{
+	return Controller;
+}

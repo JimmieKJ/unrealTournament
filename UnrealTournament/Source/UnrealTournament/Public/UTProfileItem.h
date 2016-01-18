@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "EngineBuildSettings.h"
@@ -46,7 +46,7 @@ struct FCosmeticEntry
 
 /** collectable/consumable item that a player owns in their profile, such as a hat */
 UCLASS()
-class UUTProfileItem : public UDataAsset
+class UNREALTOURNAMENT_API UUTProfileItem : public UDataAsset
 {
 	GENERATED_BODY()
 public:
@@ -112,7 +112,7 @@ public:
 			else if (GrantedBots.Num() == 1)
 			{
 				UObject* BotPkg = NULL;
-				FString BotPathname = GrantedBots[0].AssetLongPathname;
+				FString BotPathname = GrantedBots[0].ToString();
 				ResolveName(BotPkg, BotPathname, true, false);
 				if (BotPkg != NULL)
 				{
@@ -144,5 +144,43 @@ public:
 		return GrantedCosmeticItems.ContainsByPredicate([&](const FCosmeticEntry& TestItem) { return TestItem.VariantId == VariantId && (TestItem.Item.ToString() == Path || TestItem.Item.ToString() == BPClassPath); }) ||
 			GrantedCharacters.ContainsByPredicate([&](const FStringClassReference& TestItem) { return TestItem.ToString() == Path || TestItem.ToString() == BPClassPath; }) ||
 			GrantedBots.ContainsByPredicate([&](const FStringAssetReference& TestItem) { return TestItem.ToString().Contains(Path); });
+	}
+
+	static FString TemplateType()
+	{
+		return TEXT("Item");
+	}
+
+	/** returns backend ID name */
+	inline FString GetTemplateID() const
+	{
+		return FString::Printf(TEXT("%s.%s"), *TemplateType(), *GetName());
+	}
+
+	void ExportBackendJson(TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > > Writer) const
+	{
+		Writer->WriteObjectStart();
+		Writer->WriteValue(TEXT("templateId"), GetTemplateID());
+		Writer->WriteObjectStart(TEXT("attributes"));
+		Writer->WriteValue(TEXT("static_max_stack_size"), bUnique ? 1 : -1);
+		Writer->WriteValue(TEXT("static_max_num_stacks"), bUnique ? 1 : -1);
+		Writer->WriteValue(TEXT("tradable"), bTradable);
+		if (Recipe.Num() > 0)
+		{
+			Writer->WriteArrayStart(TEXT("recipe"));
+			for (const FProfileItemEntry& RecipeItem : Recipe)
+			{
+				if (RecipeItem.Item != NULL)
+				{
+					Writer->WriteObjectStart();
+					Writer->WriteValue(TEXT("item"), RecipeItem.Item->GetTemplateID());
+					Writer->WriteValue(TEXT("count"), RecipeItem.Count);
+					Writer->WriteObjectEnd();
+				}
+			}
+			Writer->WriteArrayEnd();
+		}
+		Writer->WriteObjectEnd();
+		Writer->WriteObjectEnd();
 	}
 };

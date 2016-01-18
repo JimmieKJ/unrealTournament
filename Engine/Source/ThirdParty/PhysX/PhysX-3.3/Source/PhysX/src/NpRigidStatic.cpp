@@ -44,13 +44,6 @@ NpRigidStatic* NpRigidStatic::createObject(PxU8*& address, PxDeserializationCont
 }
 //~PX_SERIALIZATION
 
-PxActor* NpGetPxActorSC(Sc::StaticCore& scStatic)
-{
-	char* p = reinterpret_cast<char*>(&scStatic);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpRigidStatic*>(0)->getScbRigidStaticFast()));
-	return reinterpret_cast<NpRigidStatic*>(p - scbOffset - Scb::RigidStatic::getScOffset());
-}
-
 void NpRigidStatic::release()
 {
 	NP_WRITE_CHECK(NpActor::getOwnerScene(*this));

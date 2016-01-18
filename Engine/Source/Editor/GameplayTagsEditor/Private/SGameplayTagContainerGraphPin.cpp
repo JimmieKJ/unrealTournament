@@ -4,6 +4,7 @@
 #include "SGameplayTagContainerGraphPin.h"
 #include "GameplayTagsModule.h"
 #include "GameplayTags.h"
+#include "SScaleBox.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagGraphPin"
 
@@ -157,7 +158,7 @@ void SGameplayTagContainerGraphPin::RefreshTagList()
 	FString CurrentDefaultValue = GraphPinObj->GetDefaultAsString();
 	if (CurrentDefaultValue.IsEmpty())
 	{
-		CurrentDefaultValue = FString(TEXT("(GameplayTags=())"));
+		CurrentDefaultValue = FString(TEXT("(GameplayTags=)"));
 	}
 	if (!CurrentDefaultValue.Equals(TagContainerString))
 	{

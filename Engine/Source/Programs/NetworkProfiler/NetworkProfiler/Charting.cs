@@ -9,6 +9,7 @@ using System.Text;
 using System.Windows.Forms.DataVisualization;
 using System.Windows.Forms.DataVisualization.Charting;
 using System.Drawing;
+using System.Windows.Forms;
 
 // Microsoft Chart Controls Add-on for Microsoft Visual Studio 2008
 //
@@ -18,17 +19,28 @@ namespace NetworkProfiler
 {
 	class ChartParser
 	{
-		public static void ParseStreamIntoChart( NetworkStream NetworkStream, Chart NetworkChart, string ActorFilter, string PropertyFilter, string RPCFilter )
+		public static void ParseStreamIntoChart( MainWindow InMainWindow, NetworkStream NetworkStream, Chart NetworkChart, FilterValues InFilterValues )
 		{
 			var StartTime = DateTime.UtcNow;
+
+			InMainWindow.ShowProgress( true );
+
+			// Save old scroll position
+			double OldPosition = NetworkChart.ChartAreas["DefaultChartArea"].AxisX.ScaleView.Position;
 
 			NetworkChart.BeginInit();
 
 			// Reset existing data.
-			foreach( var Series in NetworkChart.Series )
+			for ( int i = 0; i < NetworkChart.Series.Count; i++ )
 			{
-				Series.Points.Clear();
+				float Percent = ( float )i / ( float )NetworkChart.Series.Count;
+				InMainWindow.UpdateProgress( ( int )( Percent * 100 ) );
+
+				NetworkChart.Series[i].Points.Clear();
 			}
+
+			InMainWindow.ShowProgress( true );
+
 			NetworkChart.ResetAutoValues();
 			NetworkChart.Invalidate();
 
@@ -43,69 +55,88 @@ namespace NetworkProfiler
 			NetworkChart.ChartAreas[0].AxisY.ScrollBar.ButtonColor = Color.LightGray;
 
 			int FrameCounter = 0;
+
 			foreach( PartialNetworkStream RawFrame in NetworkStream.Frames )
 			{
-				PartialNetworkStream Frame = RawFrame.Filter(ActorFilter,PropertyFilter,RPCFilter);
+				if ( FrameCounter % 1000 == 0 )
+				{
+					float Percent = ( float )FrameCounter / ( float )NetworkStream.Frames.Count;
+					InMainWindow.UpdateProgress( ( int )( Percent * 100 ) );
+				}
+
+				PartialNetworkStream Frame = RawFrame.Filter( InFilterValues );
 
 				if( Frame.EndTime == Frame.StartTime )
 				{
 					throw new InvalidOperationException();
 				}
+
 				float OneOverDeltaTime = 1 / (Frame.EndTime - Frame.StartTime);
 
-				NetworkChart.Series["ActorCount"].Points.AddXY( FrameCounter, Frame.ActorCount );
-				NetworkChart.Series["ActorCountSec"].Points.AddXY( FrameCounter, Frame.ActorCount * OneOverDeltaTime );
-				NetworkChart.Series["PropertyCount"].Points.AddXY( FrameCounter, Frame.PropertyCount );
-				NetworkChart.Series["PropertyCountSec"].Points.AddXY( FrameCounter, Frame.PropertyCount * OneOverDeltaTime );
-				NetworkChart.Series["PropertySize"].Points.AddXY( FrameCounter, Frame.ReplicatedSizeBits / 8 );
-				NetworkChart.Series["PropertySizeSec"].Points.AddXY( FrameCounter, Frame.ReplicatedSizeBits / 8 * OneOverDeltaTime );
-				NetworkChart.Series["RPCCount"].Points.AddXY( FrameCounter, Frame.RPCCount );
-				NetworkChart.Series["RPCCountSec"].Points.AddXY( FrameCounter, Frame.RPCCount * OneOverDeltaTime );
-				NetworkChart.Series["RPCSize"].Points.AddXY( FrameCounter, Frame.RPCSizeBits / 8 );
-				NetworkChart.Series["RPCSizeSec"].Points.AddXY( FrameCounter, Frame.RPCSizeBits / 8 * OneOverDeltaTime );
-				NetworkChart.Series["ExportBunchCount"].Points.AddXY( FrameCounter, Frame.ExportBunchCount );
-				NetworkChart.Series["ExportBunchSize"].Points.AddXY( FrameCounter, Frame.ExportBunchSizeBits / 8 );
-				NetworkChart.Series["MustBeMappedGuidsCount"].Points.AddXY( FrameCounter, Frame.MustBeMappedGuidCount / 8 );
-				NetworkChart.Series["MustBeMappedGuidsSize"].Points.AddXY( FrameCounter, Frame.MustBeMappedGuidSizeBits / 8 );
-				NetworkChart.Series["SendAckCount"].Points.AddXY( FrameCounter, Frame.SendAckCount );
-				NetworkChart.Series["SendAckCountSec"].Points.AddXY( FrameCounter, Frame.SendAckCount * OneOverDeltaTime );
-				NetworkChart.Series["SendAckSize"].Points.AddXY( FrameCounter, Frame.SendAckSizeBits / 8 );
-				NetworkChart.Series["SendAckSizeSec"].Points.AddXY( FrameCounter, Frame.SendAckSizeBits / 8 * OneOverDeltaTime );
-				NetworkChart.Series["ContentBlockHeaderSize"].Points.AddXY( FrameCounter, Frame.ContentBlockHeaderSizeBits / 8 );
-				NetworkChart.Series["ContentBlockFooterSize"].Points.AddXY( FrameCounter, Frame.ContentBlockFooterSizeBits / 8 );
-				NetworkChart.Series["PropertyHandleSize"].Points.AddXY( FrameCounter, Frame.PropertyHandleSizeBits / 8 );
-				NetworkChart.Series["SendBunchCount"].Points.AddXY( FrameCounter, Frame.SendBunchCount );
-				NetworkChart.Series["SendBunchCountSec"].Points.AddXY( FrameCounter, Frame.SendBunchCount * OneOverDeltaTime );
-				NetworkChart.Series["SendBunchSize"].Points.AddXY( FrameCounter, Frame.SendBunchSizeBits / 8 );
-				NetworkChart.Series["SendBunchSizeSec"].Points.AddXY( FrameCounter, Frame.SendBunchSizeBits / 8 * OneOverDeltaTime );
-				NetworkChart.Series["SendBunchHeaderSize"].Points.AddXY( FrameCounter, Frame.SendBunchHeaderSizeBits / 8 );
-				NetworkChart.Series["GameSocketSendSize"].Points.AddXY( FrameCounter, Frame.UnrealSocketSize );
-				NetworkChart.Series["GameSocketSendSizeSec"].Points.AddXY( FrameCounter, Frame.UnrealSocketSize * OneOverDeltaTime );
-				NetworkChart.Series["GameSocketSendCount"].Points.AddXY( FrameCounter, Frame.UnrealSocketCount );
-				NetworkChart.Series["GameSocketSendCountSec"].Points.AddXY( FrameCounter, Frame.UnrealSocketCount * OneOverDeltaTime );
-				NetworkChart.Series["MiscSocketSendSize"].Points.AddXY( FrameCounter, Frame.OtherSocketSize );
-				NetworkChart.Series["MiscSocketSendSizeSec"].Points.AddXY( FrameCounter, Frame.OtherSocketSize * OneOverDeltaTime );
-				NetworkChart.Series["MiscSocketSendCount"].Points.AddXY( FrameCounter, Frame.OtherSocketCount );
-				NetworkChart.Series["MiscSocketSendCountSec"].Points.AddXY( FrameCounter, Frame.OtherSocketCount * OneOverDeltaTime );								
-				int OutgoingBandwidth = Frame.UnrealSocketSize + Frame.OtherSocketSize + NetworkStream.PacketOverhead * (Frame.UnrealSocketCount + Frame.OtherSocketCount);
-				NetworkChart.Series["OutgoingBandwidthSize"].Points.AddXY( FrameCounter, OutgoingBandwidth );
-				NetworkChart.Series["OutgoingBandwidthSizeSec"].Points.AddXY( FrameCounter, OutgoingBandwidth * OneOverDeltaTime );
-				NetworkChart.Series["ActorReplicateTimeInMS"].Points.AddXY(FrameCounter, Frame.ActorReplicateTimeInMS);
+				int OutgoingBandwidth = Frame.UnrealSocketSize + Frame.OtherSocketSize + NetworkStream.PacketOverhead * ( Frame.UnrealSocketCount + Frame.OtherSocketCount );
 
-				if( Frame.NumEvents > 0 )
+				InMainWindow.AddChartPoint( SeriesType.OutgoingBandwidthSize,		FrameCounter, OutgoingBandwidth );
+				InMainWindow.AddChartPoint( SeriesType.OutgoingBandwidthSizeSec,	FrameCounter, OutgoingBandwidth * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.ActorCount,					FrameCounter, Frame.ActorCount );
+				InMainWindow.AddChartPoint( SeriesType.PropertySize,				FrameCounter, Frame.ReplicatedSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.PropertySizeSec,				FrameCounter, Frame.ReplicatedSizeBits / 8 * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.RPCSize,						FrameCounter, Frame.RPCSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.RPCSizeSec,					FrameCounter, Frame.RPCSizeBits / 8 * OneOverDeltaTime );
+
+#if true
+				InMainWindow.AddChartPoint( SeriesType.ActorCountSec,				FrameCounter, Frame.ActorCount * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.PropertyCount,				FrameCounter, Frame.PropertyCount );
+				InMainWindow.AddChartPoint( SeriesType.PropertyCountSec,			FrameCounter, Frame.PropertyCount * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.RPCCount,					FrameCounter, Frame.RPCCount );
+				InMainWindow.AddChartPoint( SeriesType.RPCCountSec,					FrameCounter, Frame.RPCCount * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.ExportBunchCount,			FrameCounter, Frame.ExportBunchCount );
+				InMainWindow.AddChartPoint( SeriesType.ExportBunchSize,				FrameCounter, Frame.ExportBunchSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.MustBeMappedGuidsCount,		FrameCounter, Frame.MustBeMappedGuidCount / 8 );
+				InMainWindow.AddChartPoint( SeriesType.MustBeMappedGuidsSize,		FrameCounter, Frame.MustBeMappedGuidSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.SendAckCount,				FrameCounter, Frame.SendAckCount );
+				InMainWindow.AddChartPoint( SeriesType.SendAckCountSec,				FrameCounter, Frame.SendAckCount * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.SendAckSize,					FrameCounter, Frame.SendAckSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.SendAckSizeSec,				FrameCounter, Frame.SendAckSizeBits / 8 * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.ContentBlockHeaderSize,		FrameCounter, Frame.ContentBlockHeaderSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.ContentBlockFooterSize,		FrameCounter, Frame.ContentBlockFooterSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.PropertyHandleSize,			FrameCounter, Frame.PropertyHandleSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.SendBunchCount,				FrameCounter, Frame.SendBunchCount );
+				InMainWindow.AddChartPoint( SeriesType.SendBunchCountSec,			FrameCounter, Frame.SendBunchCount * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.SendBunchSize,				FrameCounter, Frame.SendBunchSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.SendBunchSizeSec,			FrameCounter, Frame.SendBunchSizeBits / 8 * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.SendBunchHeaderSize,			FrameCounter, Frame.SendBunchHeaderSizeBits / 8 );
+				InMainWindow.AddChartPoint( SeriesType.GameSocketSendSize,			FrameCounter, Frame.UnrealSocketSize );
+				InMainWindow.AddChartPoint( SeriesType.GameSocketSendSizeSec,		FrameCounter, Frame.UnrealSocketSize * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.GameSocketSendCount,			FrameCounter, Frame.UnrealSocketCount );
+				InMainWindow.AddChartPoint( SeriesType.GameSocketSendCountSec,		FrameCounter, Frame.UnrealSocketCount * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.ActorReplicateTimeInMS,		FrameCounter, Frame.ActorReplicateTimeInMS);
+#endif
+
+#if false
+				InMainWindow.AddChartPoint( SeriesType.MiscSocketSendSize,			FrameCounter, Frame.OtherSocketSize );
+				InMainWindow.AddChartPoint( SeriesType.MiscSocketSendSizeSec,		FrameCounter, Frame.OtherSocketSize * OneOverDeltaTime );
+				InMainWindow.AddChartPoint( SeriesType.MiscSocketSendCount,			FrameCounter, Frame.OtherSocketCount );
+				InMainWindow.AddChartPoint( SeriesType.MiscSocketSendCountSec,		FrameCounter, Frame.OtherSocketCount * OneOverDeltaTime );								
+#endif
+
+				if ( Frame.NumEvents > 0 )
 				{
-					NetworkChart.Series["Events"].Points.AddXY( FrameCounter, 0 );
+					InMainWindow.AddChartPoint( SeriesType.Events, FrameCounter, 0 );
 				}
 
 				FrameCounter++;
 			}
 
-			NetworkChart.DataManipulator.FinancialFormula(FinancialFormula.MovingAverage,"30","GameSocketSendSizeSec","GameSocketSendSizeAvgSec");			
-			NetworkChart.DataManipulator.FinancialFormula(FinancialFormula.MovingAverage,"30","OutgoingBandwidthSizeSec","OutgoingBandwidthSizeAvgSec");						
+			//NetworkChart.DataManipulator.FinancialFormula( FinancialFormula.MovingAverage, "30", SeriesType.GameSocketSendSizeSec, SeriesType.GameSocketSendSizeAvgSec );
+			NetworkChart.DataManipulator.FinancialFormula( FinancialFormula.MovingAverage, "30", SeriesType.OutgoingBandwidthSizeSec.ToString(), SeriesType.OutgoingBandwidthSizeAvgSec.ToString() );
 
 			NetworkChart.ChartAreas["DefaultChartArea"].RecalculateAxesScale();
-			
+
+			NetworkChart.ChartAreas["DefaultChartArea"].AxisX.ScaleView.Position = OldPosition;
+
 			NetworkChart.EndInit();
+
+			InMainWindow.ShowProgress( false );
 
             Console.WriteLine("Adding data to chart took {0} seconds", (DateTime.UtcNow - StartTime).TotalSeconds);
 		}

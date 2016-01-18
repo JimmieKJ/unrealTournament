@@ -44,6 +44,20 @@ public:
 		(*this)=Object;
 	}
 
+	/**  
+	 * Synchronously load (if necessary) and return the asset object represented by this asset ptr
+	 */
+	UObject* LoadSynchronous()
+	{
+		UObject* Asset = Get();
+		if (Asset == nullptr && IsPending())
+		{
+			Asset = GetUniqueID().TryLoad();
+			*this = Asset;
+		}
+		return Asset;
+	}
+
 	using TPersistentObjectPtr<FStringAssetReference>::operator=;
 };
 
@@ -195,6 +209,19 @@ public:
 	}
 
 	/**  
+	 * Synchronously load (if necessary) and return the asset object represented by this asset ptr
+	 */
+	T* LoadSynchronous()
+	{
+		UObject* Asset = AssetPtr.Get();
+		if (Asset == nullptr && IsPending())
+		{
+			Asset = AssetPtr.LoadSynchronous();
+		}
+		return Cast<T>(Asset);
+	}
+
+	/**  
 	 * Test if this points to a live UObject
 	 * @return true if Get() would return a valid non-null pointer
 	 */
@@ -229,6 +256,16 @@ public:
 		return AssetPtr.GetUniqueID();
 	}
 
+	FORCEINLINE const FString& ToString() const
+	{
+		return ToStringReference().ToString();
+	}
+
+	FORCEINLINE FString GetLongPackageName() const
+	{
+		return ToStringReference().GetLongPackageName();
+	}
+
 	/**  
 	 * Dereference lazy pointer to see if it points somewhere valid.
 	 */
@@ -260,6 +297,9 @@ template <class T> struct TIsWeakPointerType<TAssetPtr<T> > { enum { Value = TIs
 template<class TClass>
 class TAssetSubclassOf
 {
+	template <class U>
+	friend class TAssetSubclassOf;
+
 public:
 	/** NULL constructor **/
 	FORCEINLINE TAssetSubclassOf()

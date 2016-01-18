@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2220820
+﻿INTSourceChangelist:2573924
 Title:S
 Crumbs:Shared/Glossary
 Description:
@@ -8,12 +8,12 @@ Availability:Public
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-safe frame（セーフフレーム）
+safe frame （セーフ フレーム）
 	[/PARAM]
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_safe_area]
-マチネにおける **セーフフレーム** は表示のことです。ビューポートカメラの FOV で定義されて、シネマティックの最中に見ることができます。
+マチネにおける **セーフ フレーム** は表示のことです。ビューポートカメラの FOV で定義されて、シネマティックの最中に見ることができます。
 [/EXCERPT:Glossary_safe_area]
 
 	[/PARAM]
@@ -21,7 +21,7 @@ safe frame（セーフフレーム）
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-Scale tool (スケーリングツール)
+Scale tool （スケーリングツール）
 	[/PARAM]
 	[PARAM:Definition]
 
@@ -55,7 +55,7 @@ Simulate In Editor (SIE)
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Skeletal_Mesh_Actor]
-**スケルタル メッシュ アクタ** は外部 3D モデリング プログラムで作成したアニメート可能な 3D モデルで、作成後アンリアル エディタへインポートします。スケルタル メッシュ アクタは、メッシュ自体とスケルタル階層の 2 つの部分から構成されます。スケルタル階層のボーンは、 3D モデリング プログラムで定義されたルールに従って変形させたメッシュで、アニメーションの作成に使用することができます。**コンテンツ ブラウザ**でスケルタル メッシュをアセットとしてインポートすることができます。
+**スケルタル メッシュ アクタ** は、外部 3D モデリング プログラムでアニメートしてからアンリアル エディタへインポートが可能な 3D モデル アセットです。スケルタル メッシュ アクタは、メッシュ自体とスケルタル階層の 2 つの部分から構成されます。スケルタル階層のボーンは、 3D モデリング プログラムで定義されたルールに従って変形させたメッシュで、アニメーションの作成に使用することができます。**コンテンツ ブラウザ**でスケルタル メッシュをアセットとしてインポートすることができます。
 [/EXCERPT:Glossary_Skeletal_Mesh_Actor]
 
 	[/PARAM]
@@ -63,7 +63,7 @@ Simulate In Editor (SIE)
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-Socket (ソケット)
+Socket （ソケット）
 	[/PARAM]
 	[PARAM:Definition]
 
@@ -91,7 +91,7 @@ Socket (ソケット)
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-Static (スタティック)
+Static （スタティック）
 	[/PARAM]
 	[PARAM:Definition]
 
@@ -131,7 +131,7 @@ Static (スタティック)
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
- Stationary (固定)
+ Stationary （固定）
 	[/PARAM]
 	[PARAM:Definition]
 

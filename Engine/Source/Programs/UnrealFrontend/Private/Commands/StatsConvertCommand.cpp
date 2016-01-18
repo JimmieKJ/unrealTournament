@@ -117,57 +117,25 @@ void FStatsConvertCommand::ReadAndConvertStatMessages( FArchive& Reader, FArchiv
 	const bool bIsFinalized = Stream.Header.IsFinalized();
 	float DataLoadingProgress = 0.0f;
 
-	if( bHasCompressedData )
+	// Sanity checks.
+	check( bHasCompressedData );
+
+	while( Reader.Tell() < Reader.TotalSize() )
 	{
-		while( Reader.Tell() < Reader.TotalSize() )
+		// Read the compressed data.
+		FCompressedStatsData UncompressedData( SrcData, DestData );
+		Reader << UncompressedData;
+		if( UncompressedData.HasReachedEndOfCompressedData() )
 		{
-			// Read the compressed data.
-			FCompressedStatsData UncompressedData( SrcData, DestData );
-			Reader << UncompressedData;
-			if( UncompressedData.HasReachedEndOfCompressedData() )
-			{
-				return;
-			}
-
-			FMemoryReader MemoryReader( DestData, true );
-
-			while( MemoryReader.Tell() < MemoryReader.TotalSize() )
-			{
-				// read the message
-				FStatMessage Message( Stream.ReadMessage( MemoryReader, bIsFinalized ) );
-				ReadMessages++;
-				if( ReadMessages % 32768 == 0 )
-				{
-					UE_LOG( LogStats, Log, TEXT( "StatsConvertCommand progress: %.1f%%" ), DataLoadingProgress );
-				}
-
-				if( Message.NameAndInfo.GetShortName() != TEXT( "Unknown FName" ) )
-				{
-					if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread && ReadMessages > 2 )
-					{
-						new (Messages) FStatMessage( Message );
-						ThreadState.AddMessages( Messages );
-						Messages.Reset();
-
-						CollectAndWriteStatsValues( Writer );
-						DataLoadingProgress = (double)Reader.Tell() / (double)Reader.TotalSize() * 100.0f;
-					}
-
-					new (Messages) FStatMessage( Message );
-				}
-				else
-				{
-					break;
-				}
-			}
+			return;
 		}
-	}
-	else
-	{
-		while( Reader.Tell() < Reader.TotalSize() )
+
+		FMemoryReader MemoryReader( DestData, true );
+
+		while( MemoryReader.Tell() < MemoryReader.TotalSize() )
 		{
 			// read the message
-			FStatMessage Message( Stream.ReadMessage( Reader, bIsFinalized ) );
+			FStatMessage Message( Stream.ReadMessage( MemoryReader, bIsFinalized ) );
 			ReadMessages++;
 			if( ReadMessages % 32768 == 0 )
 			{
@@ -176,13 +144,7 @@ void FStatsConvertCommand::ReadAndConvertStatMessages( FArchive& Reader, FArchiv
 
 			if( Message.NameAndInfo.GetShortName() != TEXT( "Unknown FName" ) )
 			{
-				if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::SpecialMessageMarker )
-				{
-					// Simply break the loop.
-					// The profiler supports more advanced handling of this message.
-					return;
-				}
-				else if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread && ReadMessages > 2 )
+				if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread && ReadMessages > 2 )
 				{
 					new (Messages) FStatMessage( Message );
 					ThreadState.AddMessages( Messages );
@@ -208,10 +170,21 @@ void FStatsConvertCommand::CollectAndWriteStatsValues( FArchive& Writer )
 	// get the thread stats
 	TArray<FStatMessage> Stats;
 	ThreadState.GetInclusiveAggregateStackStats(ThreadState.CurrentGameFrame, Stats);
+
+	// The tick rate for different platforms will be different. We cannot use the Windows tick rate accurately here. We will pull it from the stats,
+	// but until we encounter one our best bet is to leave values as full ticks that can be analysed by hand.
+	double MillisecondsPerCycle = 1.0f;
+
 	for (int32 Index = 0; Index < Stats.Num(); ++Index)
 	{
 		FStatMessage const& Meta = Stats[Index];
 		//UE_LOG(LogTemp, Display, TEXT("Stat: %s"), *Meta.NameAndInfo.GetShortName().ToString());
+
+		if (Meta.NameAndInfo.GetShortName() == FStatConstants::NAME_SecondsPerCycle)
+		{
+			// SecondsPerCycle may vary over time, so we update it here
+			MillisecondsPerCycle = Meta.GetValue_double() * 1000.0f;
+		}
 
 		for (int32 Jndex = 0; Jndex < StatList.Num(); ++Jndex)
 		{
@@ -220,11 +193,11 @@ void FStatsConvertCommand::CollectAndWriteStatsValues( FArchive& Writer )
 				double StatValue = 0.0f;
 				if (Meta.NameAndInfo.GetFlag(EStatMetaFlags::IsPackedCCAndDuration))
 				{
-					StatValue = FPlatformTime::ToMilliseconds( FromPackedCallCountDuration_Duration(Meta.GetValue_int64()) );
+					StatValue = MillisecondsPerCycle * FromPackedCallCountDuration_Duration(Meta.GetValue_int64());
 				}
 				else if (Meta.NameAndInfo.GetFlag(EStatMetaFlags::IsCycle))
 				{
-					StatValue = FPlatformTime::ToMilliseconds( Meta.GetValue_int64() );
+					StatValue = MillisecondsPerCycle * Meta.GetValue_int64();
 				}
 				else
 				{

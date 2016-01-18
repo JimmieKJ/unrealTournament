@@ -2,54 +2,69 @@
 
 #include "CollectionManagerPrivatePCH.h"
 #include "ISourceControlModule.h"
+#include "TextFilterExpressionEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "CollectionManager"
 
-
-enum ECollectionFileVersion
+struct FCollectionUtils
 {
-	// The initial version for collection files
-	COLLECTION_VER_INITIAL								= 1,
-
-	// The automatic version count. This must always be at the end of the enum
-	COLLECTION_VER_AUTOMATIC_VERSION_PLUS_ONE
+	static void AppendCollectionToArray(const TSet<FName>& InObjectSet, TArray<FName>& OutObjectArray)
+	{
+		OutObjectArray.Reserve(OutObjectArray.Num() + InObjectSet.Num());
+		for (const FName& ObjectName : InObjectSet)
+		{
+			OutObjectArray.Add(ObjectName);
+		}
+	}
 };
 
-FCollection::FCollection()
+FCollection::FCollection(const FString& InFilename, bool InUseSCC, ECollectionStorageMode::Type InStorageMode)
 {
+	ensure(InFilename.Len() > 0);
 
-}
-
-FCollection::FCollection(FName InCollectionName, const FString& SourceFolder, const FString& CollectionExtension, bool InUseSCC)
-{
-	CollectionName = InCollectionName;
-	bUseSCC = InUseSCC;
-
-	// Initialize the file version to the most recent
-	FileVersion = COLLECTION_VER_AUTOMATIC_VERSION_PLUS_ONE - 1;
-
-	if ( ensure(SourceFolder.Len()) )
-	{
-		SourceFilename = SourceFolder / CollectionName.ToString() + TEXT(".") + CollectionExtension;
-		SourceFilename.ReplaceInline(TEXT("//"), TEXT("/"));
-	}
-}
-
-bool FCollection::LoadFromFile(const FString& InFilename, bool InUseSCC)
-{
-	Clear();
-
-	FString FullFileContentsString;
-	if ( !FFileHelper::LoadFileToString(FullFileContentsString, *InFilename) )
-	{
-		return false;
-	}
-
-	// Initialize the FCollection and set up the collection name
 	bUseSCC = InUseSCC;
 	SourceFilename = InFilename;
 	CollectionName = FName(*FPaths::GetBaseFilename(InFilename));
-		
+
+	StorageMode = InStorageMode;
+
+	CollectionGuid = FGuid::NewGuid();
+
+	// Initialize the file version to the most recent
+	FileVersion = ECollectionVersion::CurrentVersion;
+}
+
+TSharedRef<FCollection> FCollection::Clone(const FString& InFilename, bool InUseSCC, ECollectionCloneMode InCloneMode) const
+{
+	TSharedRef<FCollection> NewCollection = MakeShareable(new FCollection(*this));
+
+	// Set the new collection name and path
+	NewCollection->bUseSCC = InUseSCC;
+	NewCollection->SourceFilename = InFilename;
+	NewCollection->CollectionName = FName(*FPaths::GetBaseFilename(InFilename));
+
+	NewCollection->StorageMode = StorageMode;
+
+	// Create a new GUID?
+	if (InCloneMode == ECollectionCloneMode::Unique)
+	{
+		NewCollection->CollectionGuid = FGuid::NewGuid();
+	}
+
+	return NewCollection;
+}
+
+bool FCollection::Load(FText& OutError)
+{
+	Empty();
+
+	FString FullFileContentsString;
+	if (!FFileHelper::LoadFileToString(FullFileContentsString, *SourceFilename))
+	{
+		OutError = FText::Format(LOCTEXT("LoadError_FailedToLoadFile", "Failed to load the collection '{0}' from disk."), FText::FromString(SourceFilename));
+		return false;
+	}
+
 	// Normalize line endings and parse into array
 	TArray<FString> FileContents;
 	FullFileContentsString.ReplaceInline(TEXT("\r"), TEXT(""));
@@ -87,29 +102,35 @@ bool FCollection::LoadFromFile(const FString& InFilename, bool InUseSCC)
 	if ( !LoadHeaderPairs(HeaderPairs) )
 	{
 		// Bad header
+		OutError = FText::Format(LOCTEXT("LoadError_BadHeader", "The collection file '{0}' contains a bad header and could not be loaded."), FText::FromString(SourceFilename));
 		return false;
 	}
 
 	// Now load the content if the header load was successful
-	if ( IsDynamic() )
-	{
-		// @todo collection Load dynamic collections
-	}
-	else
+	if (StorageMode == ECollectionStorageMode::Static)
 	{
 		// Static collection, a flat list of asset paths
-		for (int32 LineIdx = 0; LineIdx < FileContents.Num(); ++LineIdx)
+		for (FString Line : FileContents)
 		{
-			const FString Line = FileContents[LineIdx].Trim().TrimTrailing();
+			Line.Trim();
+			Line.TrimTrailing();
 
 			if ( Line.Len() )
 			{
-				AddAssetToCollection(FName(*Line));
+				AddObjectToCollection(FName(*Line));
 			}
 		}
-
-		DiskAssetList = AssetList;
 	}
+	else
+	{
+		// Dynamic collection, a single query line
+		DynamicQueryText = (FileContents.Num() > 0) ? FileContents[0] : FString();
+
+		DynamicQueryText.Trim();
+		DynamicQueryText.TrimTrailing();
+	}
+
+	DiskSnapshot.TakeSnapshot(*this);
 
 	return true;
 }
@@ -151,25 +172,30 @@ bool FCollection::Save(FText& OutError)
 
 	// Start with the header
 	TMap<FString,FString> HeaderPairs;
-	GenerateHeaderPairs(HeaderPairs);
-	for (TMap<FString,FString>::TConstIterator HeaderIt(HeaderPairs); HeaderIt; ++HeaderIt)
+	SaveHeaderPairs(HeaderPairs);
+	for (const auto& HeaderPair : HeaderPairs)
 	{
-		FileOutput += HeaderIt.Key() + TEXT(":") + HeaderIt.Value() + LINE_TERMINATOR;
+		FileOutput += HeaderPair.Key + TEXT(":") + HeaderPair.Value + LINE_TERMINATOR;
 	}
 	FileOutput += LINE_TERMINATOR;
 
 	// Now for the content
-	if ( IsDynamic() )
+	if (StorageMode == ECollectionStorageMode::Static)
 	{
-		// @todo Dynamic collections
+		// Write out the set as a sorted array to keep things in a known order for diffing
+		TArray<FName> ObjectList = ObjectSet.Array();
+		ObjectList.Sort();
+
+		// Static collection. Save a flat list of all objects in the collection.
+		for (const FName& ObjectName : ObjectList)
+		{
+			FileOutput += ObjectName.ToString() + LINE_TERMINATOR;
+		}
 	}
 	else
 	{
-		// Static collection. Save a flat list of all assets in the collection.
-		for (int32 AssetIdx = 0; AssetIdx < AssetList.Num(); ++AssetIdx)
-		{
-			FileOutput += AssetList[AssetIdx].ToString() + LINE_TERMINATOR;
-		}
+		// Dynamic collection, a single query line
+		FileOutput += DynamicQueryText + LINE_TERMINATOR;
 	}
 
 	// Attempt to save the file
@@ -183,8 +209,8 @@ bool FCollection::Save(FText& OutError)
 		}
 		else
 		{
-			OutError = LOCTEXT("Error_WriteFailed", "Failed to write to collection file.");
-			UE_LOG(LogCollectionManager, Error, TEXT("%s %s"), *OutError.ToString(), *CollectionName.ToString());
+			OutError = FText::Format(LOCTEXT("Error_WriteFailed", "Failed to write to collection file: {0}"), FText::FromString(SourceFilename));
+			UE_LOG(LogCollectionManager, Error, TEXT("%s"), *OutError.ToString());
 		}
 	}
 	else
@@ -227,7 +253,10 @@ bool FCollection::Save(FText& OutError)
 
 	if ( bSaveSuccessful )
 	{
-		DiskAssetList = AssetList;
+		// Files are always saved at the latest version as loading should take care of data upgrades
+		FileVersion = ECollectionVersion::CurrentVersion;
+
+		DiskSnapshot.TakeSnapshot(*this);
 	}
 
 	GWarn->EndSlowTask();
@@ -235,6 +264,84 @@ bool FCollection::Save(FText& OutError)
 	UE_LOG(LogCollectionManager, Verbose, TEXT("Saved collection %s in %0.6f seconds"), *CollectionName.ToString(), FPlatformTime::Seconds() - SaveStartTime);
 
 	return bSaveSuccessful;
+}
+
+bool FCollection::Update(FText& OutError)
+{
+	if ( !ensure(SourceFilename.Len()) )
+	{
+		OutError = LOCTEXT("Error_Internal", "There was an internal error.");
+		return false;
+	}
+
+	if ( !bUseSCC )
+	{
+		// Not under SCC control, so already up-to-date
+		return true;
+	}
+
+	FScopedSlowTask SlowTask(1.0f, FText::Format(LOCTEXT("UpdatingCollection", "Updating Collection {0}"), FText::FromName(CollectionName )));
+
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+	if ( !ISourceControlModule::Get().IsEnabled() )
+	{
+		OutError = LOCTEXT("Error_SCCDisabled", "Source control is not enabled. Enable source control in the preferences menu.");
+		return false;
+	}
+
+	if ( !SourceControlProvider.IsAvailable() )
+	{
+		OutError = LOCTEXT("Error_SCCNotAvailable", "Source control is currently not available. Check your connection and try again.");
+		return false;
+	}
+
+	const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SourceFilename);
+	FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
+
+	// If not at the head revision, sync up
+	if (SourceControlState.IsValid() && !SourceControlState->IsCurrent())
+	{
+		if ( SourceControlProvider.Execute(ISourceControlOperation::Create<FSync>(), AbsoluteFilename) == ECommandResult::Failed )
+		{
+			// Could not sync up with the head revision
+			OutError = FText::Format(LOCTEXT("Error_SCCSync", "Failed to sync collection '{0}' to the head revision."), FText::FromName(CollectionName));
+			return false;
+		}
+
+		// Check to see if the file exists at the head revision
+		if ( IFileManager::Get().FileExists(*SourceFilename) )
+		{
+			// File found! Load it and merge with our local changes
+			FText LoadErrorText;
+			FCollection NewCollection(SourceFilename, false, ECollectionStorageMode::Static);
+			if ( !NewCollection.Load(LoadErrorText) )
+			{
+				// Failed to load the head revision file so it isn't safe to delete it
+				OutError = FText::Format(LOCTEXT("Error_SCCBadHead", "Failed to load the collection '{0}' at the head revision. {1}"), FText::FromName(CollectionName), LoadErrorText);
+				return false;
+			}
+
+			// Loaded the head revision, now merge up so the files are in a consistent state
+			MergeWithCollection(NewCollection);
+		}
+
+		// Make sure we get a fresh state from the server
+		SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
+
+		// Got an updated version?
+		if (SourceControlState.IsValid() && !SourceControlState->IsCurrent())
+		{
+			OutError = FText::Format(LOCTEXT("Error_SCCNotCurrent", "Collection '{0}' is not at head revision after sync."), FText::FromName(CollectionName));
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool FCollection::Merge(const FCollection& NewCollection)
+{
+	return MergeWithCollection(NewCollection);
 }
 
 bool FCollection::DeleteSourceFile(FText& OutError)
@@ -252,7 +359,7 @@ bool FCollection::DeleteSourceFile(FText& OutError)
 			bSuccessfullyDeleted = IFileManager::Get().Delete(*SourceFilename);
 			if ( !bSuccessfullyDeleted )
 			{
-				OutError = LOCTEXT("Error_DiskDeleteFailed", "Failed to delete the collection file from disk.");
+				OutError = FText::Format(LOCTEXT("Error_DiskDeleteFailed", "Failed to delete the collection file: {0}"), FText::FromString(SourceFilename));
 			}
 		}
 	}
@@ -264,114 +371,227 @@ bool FCollection::DeleteSourceFile(FText& OutError)
 
 	if ( bSuccessfullyDeleted )
 	{
-		DiskAssetList.Empty();
+		DiskSnapshot = FCollectionSnapshot();
 	}
 
 	return bSuccessfullyDeleted;
 }
 
-bool FCollection::AddAssetToCollection (FName ObjectPath)
+void FCollection::Empty()
 {
-	// @todo collection Does this apply to dynamic collections?
-	if ( !AssetSet.Contains(ObjectPath) )
-	{
-		AssetList.Add(ObjectPath);
-		AssetSet.Add(ObjectPath);
+	ObjectSet.Reset();
+	DynamicQueryText.Reset();
+	DynamicQueryExpressionEvaluatorPtr.Reset();
 
+	DiskSnapshot.TakeSnapshot(*this);
+}
+
+bool FCollection::AddObjectToCollection(FName ObjectPath)
+{
+	if (StorageMode == ECollectionStorageMode::Static && !ObjectSet.Contains(ObjectPath))
+	{
+		ObjectSet.Add(ObjectPath);
 		return true;
 	}
 
 	return false;
 }
 
-bool FCollection::RemoveAssetFromCollection (FName ObjectPath)
+bool FCollection::RemoveObjectFromCollection(FName ObjectPath)
 {
-	// @todo collection Does this apply to dynamic collections?
-	AssetSet.Remove(ObjectPath);
-	return AssetList.Remove(ObjectPath) > 0;
+	if (StorageMode == ECollectionStorageMode::Static)
+	{
+		return ObjectSet.Remove(ObjectPath) > 0;
+	}
+
+	return false;
 }
 
 void FCollection::GetAssetsInCollection(TArray<FName>& Assets) const
 {
-	// @todo collection Does this apply to dynamic collections?
-	for (int Index = 0; Index < AssetList.Num(); Index++)
+	if (StorageMode == ECollectionStorageMode::Static)
 	{
-		if ( !AssetList[ Index ].ToString().StartsWith( TEXT("/Script/") ) )
+		for (const FName& ObjectName : ObjectSet)
 		{
-			Assets.Add( AssetList[ Index ] );
+			if (!ObjectName.ToString().StartsWith(TEXT("/Script/")))
+			{
+				Assets.Add(ObjectName);
+			}
 		}
 	}
 }
 
 void FCollection::GetClassesInCollection(TArray<FName>& Classes) const
 {
-	// @todo collection Does this apply to dynamic collections?
-	for (int Index = 0; Index < AssetList.Num(); Index++)
+	if (StorageMode == ECollectionStorageMode::Static)
 	{
-		if ( AssetList[ Index ].ToString().StartsWith( TEXT("/Script/") ) )
+		for (const FName& ObjectName : ObjectSet)
 		{
-			Classes.Add( AssetList[ Index ] );
+			if (ObjectName.ToString().StartsWith(TEXT("/Script/")))
+			{
+				Classes.Add(ObjectName);
+			}
 		}
 	}
 }
 
 void FCollection::GetObjectsInCollection(TArray<FName>& Objects) const
 {
-	// @todo collection Does this apply to dynamic collections?
-	Objects.Append(AssetList);
+	if (StorageMode == ECollectionStorageMode::Static)
+	{
+		FCollectionUtils::AppendCollectionToArray(ObjectSet, Objects);
+	}
 }
 
-bool FCollection::IsAssetInCollection(FName ObjectPath) const
+bool FCollection::IsObjectInCollection(FName ObjectPath) const
 {
-	// @todo collection Does this apply to dynamic collections?
-	return AssetSet.Contains(ObjectPath);
-}
+	if (StorageMode == ECollectionStorageMode::Static)
+	{
+		return ObjectSet.Contains(ObjectPath);
+	}
 
-void FCollection::Clear()
-{
-	CollectionName = NAME_None;
-	bUseSCC = false;
-	SourceFilename = TEXT("");
-	AssetList.Empty();
-	AssetSet.Empty();
-	DiskAssetList.Empty();
-}
-
-bool FCollection::IsDynamic() const
-{
-	// @todo collection Dynamic collections
 	return false;
 }
+
+bool FCollection::IsRedirectorInCollection(FName ObjectPath) const
+{
+	if (StorageMode == ECollectionStorageMode::Static)
+	{
+		// Redirectors are fixed up in-memory once the asset registry has finished loading, 
+		// so we need to test our on-disk set of objects rather than our in-memory set of objects
+		return DiskSnapshot.ObjectSet.Contains(ObjectPath);
+	}
+
+	return false;
+}
+
+bool FCollection::SetDynamicQueryText(const FString& InQueryText)
+{
+	if (StorageMode == ECollectionStorageMode::Dynamic)
+	{
+		DynamicQueryText = InQueryText;
+		return true;
+	}
+
+	return false;
+}
+
+FString FCollection::GetDynamicQueryText() const
+{
+	return (StorageMode == ECollectionStorageMode::Dynamic) ? DynamicQueryText : FString();
+}
+
+bool FCollection::TestDynamicQuery(const ITextFilterExpressionContext& InContext) const
+{
+	if (StorageMode == ECollectionStorageMode::Dynamic)
+	{
+		if (!DynamicQueryExpressionEvaluatorPtr.IsValid())
+		{
+			DynamicQueryExpressionEvaluatorPtr = MakeShareable(new FTextFilterExpressionEvaluator(ETextFilterExpressionEvaluatorMode::Complex));
+		}
+
+		if (!DynamicQueryExpressionEvaluatorPtr->GetFilterText().ToString().Equals(DynamicQueryText, ESearchCase::CaseSensitive))
+		{
+			DynamicQueryExpressionEvaluatorPtr->SetFilterText(FText::FromString(DynamicQueryText));
+		}
+
+		return DynamicQueryExpressionEvaluatorPtr->TestTextFilter(InContext);
+	}
+
+	return false;
+}
+
+FCollectionStatusInfo FCollection::GetStatusInfo() const
+{
+	FCollectionStatusInfo StatusInfo;
+
+	StatusInfo.bIsDirty = IsDirty();
+	StatusInfo.bIsEmpty = IsEmpty();
+	StatusInfo.bUseSCC  = bUseSCC;
+
+	StatusInfo.NumObjects = ObjectSet.Num();
+
+	if (bUseSCC && ISourceControlModule::Get().IsEnabled())
+	{
+		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+		if (SourceControlProvider.IsAvailable())
+		{
+			const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SourceFilename);
+			StatusInfo.SCCState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::Use);
+		}
+	}
+
+	return StatusInfo;
+}
+
+bool FCollection::IsDirty() const
+{
+	if (ParentCollectionGuid != DiskSnapshot.ParentCollectionGuid)
+	{
+		return true;
+	}
 	
+	bool bHasChanges = false;
+
+	if (StorageMode == ECollectionStorageMode::Static)
+	{
+		TArray<FName> ObjectsAdded;
+		TArray<FName> ObjectsRemoved;
+		GetObjectDifferencesFromDisk(ObjectsAdded, ObjectsRemoved);
+
+		bHasChanges = ObjectsAdded.Num() != 0 || ObjectsRemoved.Num() != 0;
+	}
+	else
+	{
+		bHasChanges = DynamicQueryText != DiskSnapshot.DynamicQueryText;
+	}
+
+	return bHasChanges;
+}
+
 bool FCollection::IsEmpty() const
 {
-	return AssetList.Num() == 0;
+	if (StorageMode == ECollectionStorageMode::Static)
+	{
+		return ObjectSet.Num() == 0;
+	}
+	else
+	{
+		return DynamicQueryText.IsEmpty();
+	}
 }
 
 void FCollection::PrintCollection() const
 {
-	if ( IsDynamic() )
-	{
-		// @todo collection Printing Dynamic collections
-	}
-	else
+	if (StorageMode == ECollectionStorageMode::Static)
 	{
 		UE_LOG(LogCollectionManager, Log, TEXT("    Printing static elements of collection %s"), *CollectionName.ToString());
 		UE_LOG(LogCollectionManager, Log, TEXT("    ============================="));
 
-		for (int32 AssetIdx = 0; AssetIdx < AssetList.Num(); ++AssetIdx)
+		// Print the set as a sorted array to keep things in a sane order
+		TArray<FName> ObjectList = ObjectSet.Array();
+		ObjectList.Sort();
+
+		for (const FName& ObjectName : ObjectList)
 		{
-			UE_LOG(LogCollectionManager, Log, TEXT("        %s"), *AssetList[AssetIdx].ToString());
+			UE_LOG(LogCollectionManager, Log, TEXT("        %s"), *ObjectName.ToString());
 		}
+	}
+	else
+	{
+		UE_LOG(LogCollectionManager, Log, TEXT("    Printing dynamic query of collection %s"), *CollectionName.ToString());
+		UE_LOG(LogCollectionManager, Log, TEXT("    ============================="));
+		UE_LOG(LogCollectionManager, Log, TEXT("        %s"), *DynamicQueryText);
 	}
 }
 
-void FCollection::GenerateHeaderPairs(TMap<FString,FString>& OutHeaderPairs)
+void FCollection::SaveHeaderPairs(TMap<FString,FString>& OutHeaderPairs) const
 {
 	// These pairs will appear at the top of the file followed by a newline
-	ensure(FileVersion > 0);
-	OutHeaderPairs.Add(TEXT("FileVersion"), FString::FromInt(FileVersion));
-	OutHeaderPairs.Add(TEXT("Type"), IsDynamic() ? TEXT("Dynamic") : TEXT("Static"));
+	OutHeaderPairs.Add(TEXT("FileVersion"), FString::FromInt(ECollectionVersion::CurrentVersion)); // Files are always saved at the latest version as loading should take care of data upgrades
+	OutHeaderPairs.Add(TEXT("Type"), ECollectionStorageMode::ToString(StorageMode));
+	OutHeaderPairs.Add(TEXT("Guid"), CollectionGuid.ToString(EGuidFormats::DigitsWithHyphens));
+	OutHeaderPairs.Add(TEXT("ParentGuid"), ParentCollectionGuid.ToString(EGuidFormats::DigitsWithHyphens));
 }
 
 bool FCollection::LoadHeaderPairs(const TMap<FString,FString>& InHeaderPairs)
@@ -392,76 +612,113 @@ bool FCollection::LoadHeaderPairs(const TMap<FString,FString>& InHeaderPairs)
 		return false;
 	}
 
-	FileVersion = FCString::Atoi(**Version);
+	StorageMode = ECollectionStorageMode::FromString(**Type);
 
-	if ( *Type == TEXT("Dynamic") )
+	FileVersion = (ECollectionVersion::Type)FCString::Atoi(**Version);
+
+	if (FileVersion >= ECollectionVersion::AddedCollectionGuid)
 	{
-		// @todo Set this file up to be dynamic
+		const FString* GuidStr = InHeaderPairs.Find(TEXT("Guid"));
+		if ( !GuidStr || !FGuid::Parse(*GuidStr, CollectionGuid) )
+		{
+			// Guid is required
+			return false;
+		}
+
+		const FString* ParentGuidStr = InHeaderPairs.Find(TEXT("ParentGuid"));
+		if ( !ParentGuidStr || !FGuid::Parse(*ParentGuidStr, ParentCollectionGuid) )
+		{
+			ParentCollectionGuid = FGuid();
+		}
 	}
 
-	return FileVersion > 0;
+	return FileVersion > 0 && FileVersion <= ECollectionVersion::CurrentVersion;
 }
 
-void FCollection::MergeWithCollection(const FCollection& Other)
+bool FCollection::MergeWithCollection(const FCollection& Other)
 {
-	if ( IsDynamic() )
+	bool bHasChanges = ParentCollectionGuid != Other.ParentCollectionGuid;
+
+	ParentCollectionGuid = Other.ParentCollectionGuid;
+
+	if (StorageMode != Other.StorageMode)
 	{
-		// @todo collection Merging dynamic collections?
+		bHasChanges = true;
+		StorageMode = Other.StorageMode;
+
+		// Storage mode has changed! Empty the collection so we just copy over the new data verbatim
+		Empty();
+	}
+
+	if (StorageMode == ECollectionStorageMode::Static)
+	{
+		// Work out whether we have any changes compared to the other collection
+		TArray<FName> ObjectsAdded;
+		TArray<FName> ObjectsRemoved;
+		GetObjectDifferences(ObjectSet, Other.ObjectSet, ObjectsAdded, ObjectsRemoved);
+
+		bHasChanges = bHasChanges || ObjectsAdded.Num() > 0 || ObjectsRemoved.Num() > 0;
+
+		if (bHasChanges)
+		{
+			// Gather the differences from the file on disk
+			ObjectsAdded.Reset();
+			ObjectsRemoved.Reset();
+			GetObjectDifferencesFromDisk(ObjectsAdded, ObjectsRemoved);
+
+			// Copy asset list from other collection
+			ObjectSet = Other.ObjectSet;
+
+			// Add the objects that were added before the merge
+			for (const FName& AddedObjectName : ObjectsAdded)
+			{
+				ObjectSet.Add(AddedObjectName);
+			}
+
+			// Remove the objects that were removed before the merge
+			for (const FName& RemovedObjectName : ObjectsRemoved)
+			{
+				ObjectSet.Remove(RemovedObjectName);
+			}
+		}
 	}
 	else
 	{
-		// Gather the differences from the file on disk
-		TArray<FName> AssetsAdded;
-		TArray<FName> AssetsRemoved;
-		GetDifferencesFromDisk(AssetsAdded, AssetsRemoved);
+		bHasChanges = bHasChanges || DynamicQueryText != Other.DynamicQueryText;
+		DynamicQueryText = Other.DynamicQueryText;
+	}
 
-		// Copy asset list from other collection
-		DiskAssetList = Other.DiskAssetList;
-		AssetList = DiskAssetList;
+	DiskSnapshot = Other.DiskSnapshot;
 
-		// Add the assets that were added before the merge
-		for (int32 AssetIdx = 0; AssetIdx < AssetsAdded.Num(); ++AssetIdx)
+	return bHasChanges;
+}
+
+void FCollection::GetObjectDifferences(const TSet<FName>& BaseSet, const TSet<FName>& NewSet, TArray<FName>& ObjectsAdded, TArray<FName>& ObjectsRemoved)
+{
+	// Find the objects that were removed compared to the base set
+	for (const FName& BaseObjectName : BaseSet)
+	{
+		if (!NewSet.Contains(BaseObjectName))
 		{
-			AssetList.AddUnique(AssetsAdded[AssetIdx]);
+			ObjectsRemoved.Add(BaseObjectName);
 		}
+	}
 
-		// Remove the assets that were removed before the merge
-		for (int32 AssetIdx = 0; AssetIdx < AssetsRemoved.Num(); ++AssetIdx)
+	// Find the objects that were added compare to the base set
+	for (const FName& NewObjectName : NewSet)
+	{
+		if (!BaseSet.Contains(NewObjectName))
 		{
-			AssetList.Remove(AssetsRemoved[AssetIdx]);
-		}
-
-		// Update the set
-		AssetSet.Empty();
-		for (int32 AssetIdx = 0; AssetIdx < AssetList.Num(); ++AssetIdx)
-		{
-			AssetSet.Add(AssetList[AssetIdx]);
+			ObjectsAdded.Add(NewObjectName);
 		}
 	}
 }
 
-void FCollection::GetDifferencesFromDisk(TArray<FName>& AssetsAdded, TArray<FName>& AssetsRemoved)
+void FCollection::GetObjectDifferencesFromDisk(TArray<FName>& ObjectsAdded, TArray<FName>& ObjectsRemoved) const
 {
-	// Find the assets that were removed since the disk list
-	for (int32 AssetIdx = 0; AssetIdx < DiskAssetList.Num(); ++AssetIdx)
+	if (StorageMode == ECollectionStorageMode::Static)
 	{
-		const FName& DiskAsset = DiskAssetList[AssetIdx];
-
-		if ( !AssetSet.Contains(DiskAsset) )
-		{
-			AssetsRemoved.Add(DiskAsset);
-		}
-	}
-
-	// Find the assets that were added since the disk list
-	for (int32 AssetIdx = 0; AssetIdx < AssetList.Num(); ++AssetIdx)
-	{
-		const FName& MemoryAsset = AssetList[AssetIdx];
-
-		if ( !DiskAssetList.Contains(MemoryAsset) )
-		{
-			AssetsAdded.Add(MemoryAsset);
-		}
+		GetObjectDifferences(DiskSnapshot.ObjectSet, ObjectSet, ObjectsAdded, ObjectsRemoved);
 	}
 }
 
@@ -486,12 +743,10 @@ bool FCollection::CheckoutCollection(FText& OutError)
 		return false;
 	}
 
-	FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SourceFilename);
+	const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SourceFilename);
 	FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
 
 	bool bSuccessfullyCheckedOut = false;
-	TArray<FString> FilesToBeCheckedOut;
-	FilesToBeCheckedOut.Add(AbsoluteFilename);
 
 	if (SourceControlState.IsValid() && SourceControlState->IsDeleted())
 	{
@@ -508,29 +763,23 @@ bool FCollection::CheckoutCollection(FText& OutError)
 	// If not at the head revision, sync up
 	if (SourceControlState.IsValid() && !SourceControlState->IsCurrent())
 	{
-		if ( SourceControlProvider.Execute(ISourceControlOperation::Create<FSync>(), FilesToBeCheckedOut) == ECommandResult::Failed )
+		if ( SourceControlProvider.Execute(ISourceControlOperation::Create<FSync>(), AbsoluteFilename) == ECommandResult::Failed )
 		{
 			// Could not sync up with the head revision
-			OutError = LOCTEXT("Error_SCCSync", "Failed to sync collection to the head revision.");
+			OutError = FText::Format(LOCTEXT("Error_SCCSync", "Failed to sync collection '{0}' to the head revision."), FText::FromName(CollectionName));
 			return false;
 		}
 
 		// Check to see if the file exists at the head revision
-		if ( IFileManager::Get().FileSize(*SourceFilename) < 0 )
-		{
-			// File was deleted at head...
-			// Just add our changes to an empty list so we can mark it for add
-			FCollection NewCollection;
-			MergeWithCollection(NewCollection);
-		}
-		else
+		if ( IFileManager::Get().FileExists(*SourceFilename) )
 		{
 			// File found! Load it and merge with our local changes
-			FCollection NewCollection;
-			if ( !NewCollection.LoadFromFile(SourceFilename, false) )
+			FText LoadErrorText;
+			FCollection NewCollection(SourceFilename, false, ECollectionStorageMode::Static);
+			if ( !NewCollection.Load(LoadErrorText) )
 			{
 				// Failed to load the head revision file so it isn't safe to delete it
-				OutError = LOCTEXT("Error_SCCBadHead", "Failed to load the collection at the head revision.");
+				OutError = FText::Format(LOCTEXT("Error_SCCBadHead", "Failed to load the collection '{0}' at the head revision. {1}"), FText::FromName(CollectionName), LoadErrorText);
 				return false;
 			}
 
@@ -544,7 +793,12 @@ bool FCollection::CheckoutCollection(FText& OutError)
 
 	if(SourceControlState.IsValid())
 	{
-		if(SourceControlState->IsAdded() || SourceControlState->IsCheckedOut())
+		if(!SourceControlState->IsSourceControlled())
+		{
+			// Not yet in the depot. We'll add it when we call CheckinCollection
+			bSuccessfullyCheckedOut = true;
+		}
+		else if(SourceControlState->IsAdded() || SourceControlState->IsCheckedOut())
 		{
 			// Already checked out or opened for add
 			bSuccessfullyCheckedOut = true;
@@ -552,32 +806,23 @@ bool FCollection::CheckoutCollection(FText& OutError)
 		else if(SourceControlState->CanCheckout())
 		{
 			// In depot and needs to be checked out
-			bSuccessfullyCheckedOut = (SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), FilesToBeCheckedOut) == ECommandResult::Succeeded);
+			bSuccessfullyCheckedOut = (SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), AbsoluteFilename) == ECommandResult::Succeeded);
 			if (!bSuccessfullyCheckedOut)
 			{
-				OutError = LOCTEXT("Error_SCCCheckout", "Failed to check out collection.");
-			}
-		}
-		else if(!SourceControlState->IsSourceControlled())
-		{
-			// Not yet in the depot. Add it.
-			bSuccessfullyCheckedOut = (SourceControlProvider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), FilesToBeCheckedOut) == ECommandResult::Succeeded);
-			if (!bSuccessfullyCheckedOut)
-			{
-				OutError = LOCTEXT("Error_SCCAdd", "Failed to add new collection to source control.");
+				OutError = FText::Format(LOCTEXT("Error_SCCCheckout", "Failed to check out collection '{0}'"), FText::FromName(CollectionName));
 			}
 		}
 		else if(!SourceControlState->IsCurrent())
 		{
-			OutError = LOCTEXT("Error_SCCNotCurrent", "Collection is not at head revision after sync.");
+			OutError = FText::Format(LOCTEXT("Error_SCCNotCurrent", "Collection '{0}' is not at head revision after sync."), FText::FromName(CollectionName));
 		}
 		else if(SourceControlState->IsCheckedOutOther())
 		{
-			OutError = LOCTEXT("Error_SCCCheckedOutOther", "Collection is checked out by another user.");
+			OutError = FText::Format(LOCTEXT("Error_SCCCheckedOutOther", "Collection '{0}' is checked out by another user."), FText::FromName(CollectionName));
 		}
 		else
 		{
-			OutError = LOCTEXT("Error_SCCUnknown", "Could not determine source control state.");
+			OutError = FText::Format(LOCTEXT("Error_SCCUnknown", "Could not determine source control state for collection '{0}'"), FText::FromName(CollectionName));
 		}
 	}
 	else
@@ -609,100 +854,113 @@ bool FCollection::CheckinCollection(FText& OutError)
 		return false;
 	}
 
-	FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SourceFilename);
+	const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SourceFilename);
 	FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
+
+	if (SourceControlState.IsValid() && !SourceControlState->IsSourceControlled())
+	{
+		// Not yet in the depot. Add it.
+		const bool bWasAdded = (SourceControlProvider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), AbsoluteFilename) == ECommandResult::Succeeded);
+		if (!bWasAdded)
+		{
+			OutError = FText::Format(LOCTEXT("Error_SCCAdd", "Failed to add collection '{0}' to source control."), FText::FromName(CollectionName));
+			return false;
+		}
+		SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
+	}
 
 	if ( SourceControlState.IsValid() && !(SourceControlState->IsCheckedOut() || SourceControlState->IsAdded()) )
 	{
-		OutError = LOCTEXT("Error_SCCNotCheckedOut", "Collection not checked out or open for add.");
+		OutError = FText::Format(LOCTEXT("Error_SCCNotCheckedOut", "Collection '{0}' not checked out or open for add."), FText::FromName(CollectionName));
 		return false;
 	}
 
 	// Form an appropriate summary for the changelist
 	const FText CollectionNameText = FText::FromName( CollectionName );
-	FText ChangelistDesc = FText::Format( LOCTEXT("CollectionGenericModifiedDesc", "Modified collection: {0}"), CollectionNameText );
-	if ( SourceControlState.IsValid() && SourceControlState->IsAdded() )
+	FTextBuilder ChangelistDescBuilder;
+
+	if (SourceControlState.IsValid() && SourceControlState->IsAdded())
 	{
-		ChangelistDesc = FText::Format( LOCTEXT("CollectionAddedNewDesc", "Added collection"), CollectionNameText);
-	}
-	else if ( IsDynamic() )
-	{
-		// @todo collection Change description for dynamic collections
+		ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionAddedNewDesc", "Added collection '{0}'"), CollectionNameText);
 	}
 	else
 	{
-		// Gather differences from disk
-		TArray<FName> AssetsAdded;
-		TArray<FName> AssetsRemoved;
-		GetDifferencesFromDisk(AssetsAdded, AssetsRemoved);
-
-		// Clear description
-		ChangelistDesc = FText::GetEmpty();
-
-		// Report added files
-		FFormatNamedArguments Args;
-		Args.Add( TEXT("AssetAdded"), AssetsAdded.Num() > 0 ? FText::FromName( AssetsAdded[0] ) : NSLOCTEXT( "Core", "None", "None" ) );
-		Args.Add( TEXT("NumberAdded"), FText::AsNumber( FMath::Max( AssetsAdded.Num() - 1, 0 ) ));
-		Args.Add( TEXT("CollectionName"), CollectionNameText );
-
-		if ( AssetsRemoved.Num() == 0 )
+		if (StorageMode == ECollectionStorageMode::Static)
 		{
-			if (AssetsAdded.Num() == 1)
+			// Gather differences from disk
+			TArray<FName> ObjectsAdded;
+			TArray<FName> ObjectsRemoved;
+			GetObjectDifferencesFromDisk(ObjectsAdded, ObjectsRemoved);
+
+			ObjectsAdded.Sort();
+			ObjectsRemoved.Sort();
+
+			// Report added files
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("FirstObjectAdded"), ObjectsAdded.Num() > 0 ? FText::FromName(ObjectsAdded[0]) : NSLOCTEXT("Core", "None", "None"));
+			Args.Add(TEXT("NumberAdded"), FText::AsNumber(ObjectsAdded.Num()));
+			Args.Add(TEXT("FirstObjectRemoved"), ObjectsRemoved.Num() > 0 ? FText::FromName(ObjectsRemoved[0]) : NSLOCTEXT("Core", "None", "None"));
+			Args.Add(TEXT("NumberRemoved"), FText::AsNumber(ObjectsRemoved.Num()));
+			Args.Add(TEXT("CollectionName"), CollectionNameText);
+
+			if (ObjectsAdded.Num() == 1)
 			{
-				ChangelistDesc = FText::Format( LOCTEXT("CollectionAddedSingleDesc", "Added {AssetAdded} to collection: {CollectionName}"), Args );
+				ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionAddedSingleDesc", "Added '{FirstObjectAdded}' to collection '{CollectionName}'"), Args);
 			}
-			else if (AssetsAdded.Num() > 1)
+			else if (ObjectsAdded.Num() > 1)
 			{
-				ChangelistDesc = FText::Format( LOCTEXT("CollectionAddedMultipleDesc", "Added {AssetAdded} and {NumberAdded} other(s) to collection: {CollectionName}"), Args );
+				ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionAddedMultipleDesc", "Added {NumberAdded} objects to collection '{CollectionName}':"), Args);
+
+				ChangelistDescBuilder.Indent();
+				for (const FName& AddedObjectName : ObjectsAdded)
+				{
+					ChangelistDescBuilder.AppendLine(FText::FromName(AddedObjectName));
+				}
+				ChangelistDescBuilder.Unindent();
+			}
+
+			if ( ObjectsRemoved.Num() == 1 )
+			{
+				ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionRemovedSingleDesc", "Removed '{FirstObjectRemoved}' from collection '{CollectionName}'"), Args);
+			}
+			else if (ObjectsRemoved.Num() > 1)
+			{
+				ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionRemovedMultipleDesc", "Removed {NumberRemoved} objects from collection '{CollectionName}'"), Args);
+
+				ChangelistDescBuilder.Indent();
+				for (const FName& RemovedObjectName : ObjectsRemoved)
+				{
+					ChangelistDescBuilder.AppendLine(FText::FromName(RemovedObjectName));
+				}
+				ChangelistDescBuilder.Unindent();
 			}
 		}
 		else
 		{
-			Args.Add( TEXT("AssetRemoved"), FText::FromName( AssetsRemoved[0] ) );
-			Args.Add( TEXT("NumberRemoved"), FText::AsNumber( AssetsRemoved.Num() - 1 ) );
+			if (DiskSnapshot.DynamicQueryText != DynamicQueryText)
+			{
+				ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionChangedParentDesc", "Changed the dynamic query of collection '{0}' to '{1}'"), CollectionNameText, FText::FromString(DynamicQueryText));
+			}
+		}
 
-			if ( AssetsAdded.Num() == 1 )
-			{
-				if ( AssetsRemoved.Num() == 1 )
-				{
-					ChangelistDesc = FText::Format( LOCTEXT("CollectionRemovedSingle_AddedSingleDesc", "Added {AssetAdded} to collection: {CollectionName} : Removed {AssetRemoved} from collection: {CollectionName}"), Args );
-				}
-				else if (AssetsRemoved.Num() > 1)
-				{
-					ChangelistDesc = FText::Format( LOCTEXT("CollectionRemovedMultiple_AddedSingleDesc", "Added {AssetAdded} to collection: {CollectionName} : Removed {AssetRemoved} and {NumberRemoved} other(s) from collection: {CollectionName}"), Args );
-				}
-			}
-			else if (AssetsAdded.Num() > 1)
-			{
-				if ( AssetsRemoved.Num() == 1 )
-				{
-					ChangelistDesc = FText::Format( LOCTEXT("CollectionRemovedSingle_AddedMultpleDesc", "Added {AssetAdded} and {NumberAdded} other(s) to collection: {CollectionName} : Removed {AssetRemoved} from collection: {CollectionName}"), Args );
-				}
-				else if (AssetsRemoved.Num() > 1)
-				{
-					ChangelistDesc = FText::Format( LOCTEXT("CollectionRemovedMultiple_AddedMultpleDesc", "Added {AssetAdded} and {NumberAdded} other(s) to collection: {CollectionName} : Removed {AssetRemoved} and {NumberRemoved} other(s) from collection: {CollectionName}"), Args );
-				}
-			}
-			else
-			{
-				if ( AssetsRemoved.Num() == 1 )
-				{
-					ChangelistDesc = FText::Format( LOCTEXT("CollectionRemovedSingleDesc", "Removed {AssetRemoved} from collection: {CollectionName}"), Args );
-				}
-				else if (AssetsRemoved.Num() > 1)
-				{
-					ChangelistDesc = FText::Format( LOCTEXT("CollectionRemovedMultipleDesc", "Removed {AssetRemoved} and {NumberRemoved} other(s) from collection: {CollectionName}"), Args );
-				}
-			}
+		// Parent change?
+		if (DiskSnapshot.ParentCollectionGuid != ParentCollectionGuid)
+		{
+			ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionChangedParentDesc", "Changed the parent of collection '{0}'"), CollectionNameText);
+		}
+
+		// Version bump?
+		if (FileVersion < ECollectionVersion::CurrentVersion)
+		{
+			ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionUpgradedDesc", "Upgraded collection '{0}' (was version {1}, now version {2})"), CollectionNameText, FText::AsNumber(FileVersion), FText::AsNumber(ECollectionVersion::CurrentVersion));
 		}
 	}
 
-	if ( ChangelistDesc.IsEmpty() )
+	FText ChangelistDesc = ChangelistDescBuilder.ToText();
+	if (ChangelistDesc.IsEmpty())
 	{
-		// No files were added or removed
-		FFormatNamedArguments Args;
-		Args.Add( TEXT("CollectionName"), CollectionNameText );
-		ChangelistDesc = FText::Format( LOCTEXT("CollectionNotModifiedDesc", "Collection not modified: {CollectionName}"), Args );
+		// No changes could be detected
+		ChangelistDesc = FText::Format(LOCTEXT("CollectionNotModifiedDesc", "Collection '{0}' not modified"), CollectionNameText);
 	}
 
 	// Finally check in the file
@@ -714,7 +972,7 @@ bool FCollection::CheckinCollection(FText& OutError)
 	}
 	else 
 	{
-		OutError = LOCTEXT("Error_SCCCheckIn", "Failed to check in collection.");
+		OutError = FText::Format(LOCTEXT("Error_SCCCheckIn", "Failed to check in collection '{0}'."), FText::FromName(CollectionName));
 		return false;
 	}
 }
@@ -745,7 +1003,7 @@ bool FCollection::RevertCollection(FText& OutError)
 
 	if ( SourceControlState.IsValid() && !(SourceControlState->IsCheckedOut() || SourceControlState->IsAdded()) )
 	{
-		OutError = LOCTEXT("Error_SCCNotCheckedOut", "Collection not checked out or open for add.");
+		OutError = FText::Format(LOCTEXT("Error_SCCNotCheckedOut", "Collection '{0}' not checked out or open for add."), FText::FromName(CollectionName));
 		return false;
 	}
 
@@ -755,7 +1013,7 @@ bool FCollection::RevertCollection(FText& OutError)
 	}
 	else
 	{
-		OutError = LOCTEXT("Error_SCCRevert", "Could not revert Collection.");
+		OutError = FText::Format(LOCTEXT("Error_SCCRevert", "Could not revert collection '{0}'"), FText::FromName(CollectionName));
 		return false;
 	}
 }
@@ -815,25 +1073,25 @@ bool FCollection::DeleteFromSourceControl(FText& OutError)
 		{
 			// Could not sync up with the head revision
 			GWarn->EndSlowTask();
-			OutError = LOCTEXT("Error_SCCSync", "Failed to sync collection to the head revision.");
+			OutError = FText::Format(LOCTEXT("Error_SCCSync", "Failed to sync collection '{0}' to the head revision."), FText::FromName(CollectionName));
 			return false;
 		}
 
 		// Check to see if the file exists at the head revision
-		if ( IFileManager::Get().FileSize(*SourceFilename) < 0 )
+		if ( !IFileManager::Get().FileExists(*SourceFilename) )
 		{
 			// File was already deleted, consider this a success
 			GWarn->EndSlowTask();
 			return true;
 		}
 			
-		FCollection NewCollection;
-				
-		if ( !NewCollection.LoadFromFile(SourceFilename, false) )
+		FCollection NewCollection(SourceFilename, false, ECollectionStorageMode::Static);
+		FText LoadErrorText;
+		if ( !NewCollection.Load(LoadErrorText) )
 		{
 			// Failed to load the head revision file so it isn't safe to delete it
 			GWarn->EndSlowTask();
-			OutError = LOCTEXT("Error_SCCBadHead", "Failed to load the collection at the head revision.");
+			OutError = FText::Format(LOCTEXT("Error_SCCBadHead", "Failed to load the collection '{0}' at the head revision. {1}"), FText::FromName(CollectionName), LoadErrorText);
 			return false;
 		}
 
@@ -850,7 +1108,7 @@ bool FCollection::DeleteFromSourceControl(FText& OutError)
 	{
 		if(SourceControlState->IsAdded() || SourceControlState->IsCheckedOut())
 		{
-			OutError = LOCTEXT("Error_SCCDeleteWhileCheckedOut", "Failed to delete collection in source control because it is checked out or open for add.");
+			OutError = FText::Format(LOCTEXT("Error_SCCDeleteWhileCheckedOut", "Failed to delete collection '{0}' in source control because it is checked out or open for add."), FText::FromName(CollectionName));
 		}
 		else if(SourceControlState->CanCheckout())
 		{
@@ -873,12 +1131,12 @@ bool FCollection::DeleteFromSourceControl(FText& OutError)
 						UE_LOG(LogCollectionManager, Warning, TEXT("Failed to revert collection '%s' after failing to check in the file that was marked for delete."), *CollectionName.ToString());
 					}
 
-					OutError = LOCTEXT("Error_SCCCheckIn", "Failed to check in collection.");
+					OutError = FText::Format(LOCTEXT("Error_SCCCheckIn", "Failed to check in collection '{0}'."), FText::FromName(CollectionName));
 				}
 			}
 			else
 			{
-				OutError = LOCTEXT("Error_SCCDeleteFailed", "Failed to delete collection in source control.");
+				OutError = FText::Format(LOCTEXT("Error_SCCDeleteFailed", "Failed to delete collection '{0}' in source control."), FText::FromName(CollectionName));
 			}
 		}
 		else if(!SourceControlState->IsSourceControlled())
@@ -887,20 +1145,20 @@ bool FCollection::DeleteFromSourceControl(FText& OutError)
 			bDeletedSuccessfully = IFileManager::Get().Delete(*AbsoluteFilename);
 			if ( !bDeletedSuccessfully )
 			{
-				OutError = LOCTEXT("Error_DiskDeleteFailed", "Failed to delete the collection file from disk.");
+				OutError = FText::Format(LOCTEXT("Error_DiskDeleteFailed", "Failed to delete the collection file: {0}"), FText::FromString(AbsoluteFilename));
 			}
 		}
 		else if (!SourceControlState->IsCurrent())
 		{
-			OutError = LOCTEXT("Error_SCCNotCurrent", "Collection is not at head revision after sync.");
+			OutError = FText::Format(LOCTEXT("Error_SCCNotCurrent", "Collection '{0}' is not at head revision after sync."), FText::FromName(CollectionName));
 		}
 		else if(SourceControlState->IsCheckedOutOther())
 		{
-			OutError = LOCTEXT("Error_SCCCheckedOutOther", "Collection is checked out by another user.");
+			OutError = FText::Format(LOCTEXT("Error_SCCCheckedOutOther", "Collection '{0}' is checked out by another user."), FText::FromName(CollectionName));
 		}
 		else
 		{
-			OutError = LOCTEXT("Error_SCCUnknown", "Could not determine source control state.");
+			OutError = FText::Format(LOCTEXT("Error_SCCUnknown", "Could not determine source control state for collection '{0}'"), FText::FromName(CollectionName));
 		}
 	}
 	else

@@ -35,11 +35,13 @@ public:
 	const UWidgetAnimation* GetAnimation() const { return Animation; }
 
 	/** IMovieScenePlayer interface */
-	virtual void GetRuntimeObjects( TSharedRef<FMovieSceneInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray< UObject* >& OutObjects ) const override;
-	virtual void UpdatePreviewViewports(UObject* ObjectToViewThrough) const override {}
-	virtual void AddMovieSceneInstance( class UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneInstance> InstanceToAdd ) override {}
-	virtual void RemoveMovieSceneInstance( class UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneInstance> InstanceToRemove ) override {}
-	virtual TSharedRef<FMovieSceneInstance> GetRootMovieSceneInstance() const override { return RootMovieSceneInstance.ToSharedRef(); }
+	virtual void GetRuntimeObjects( TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray< UObject* >& OutObjects ) const override;
+	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject) const override {}
+	virtual void SetViewportSettings(const TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) override {}
+	virtual void GetViewportSettings(TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) const override {}
+	virtual void AddOrUpdateMovieSceneInstance( class UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToAdd ) override {}
+	virtual void RemoveMovieSceneInstance( class UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToRemove ) override {}
+	virtual TSharedRef<FMovieSceneSequenceInstance> GetRootMovieSceneSequenceInstance() const override { return RootMovieSceneInstance.ToSharedRef(); }
 	virtual EMovieScenePlayerStatus::Type GetPlaybackStatus() const override;
 
 	DECLARE_EVENT_OneParam(UUMGSequencePlayer, FOnSequenceFinishedPlaying, UUMGSequencePlayer&);
@@ -50,18 +52,19 @@ private:
 	UPROPERTY()
 	const UWidgetAnimation* Animation;
 
-	/** Bindings to actual live objects */
-	UPROPERTY()
-	UMovieSceneBindings* RuntimeBindings;
+	TMap<FGuid, TArray<UObject*> > GuidToRuntimeObjectMap;
 
 	/** The root movie scene instance to update when playing. */
-	TSharedPtr<class FMovieSceneInstance> RootMovieSceneInstance;
+	TSharedPtr<class FMovieSceneSequenceInstance> RootMovieSceneInstance;
 
 	/** Time range of the animation */
 	TRange<float> TimeRange;
 
 	/** The current time cursor position within the sequence (in seconds) */
 	double TimeCursorPosition;
+
+	/** The offset from 0 to the start of the animation (in seconds) */
+	double AnimationStartOffset;
 
 	/** Status of the player (e.g play, stopped) */
 	EMovieScenePlayerStatus::Type PlayerStatus;

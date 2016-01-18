@@ -3,6 +3,7 @@
 #pragma once
 
 #include "AITypes.h"
+#include "GameplayTask.h"
 #include "GameFramework/Pawn.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "AI/Navigation/NavigationSystem.h"
@@ -11,11 +12,15 @@
 #include "Actions/PawnActionsComponent.h"
 #include "Perception/AIPerceptionListenerInterface.h"
 #include "BehaviorTree/BehaviorTreeTypes.h"
+#include "GameplayTaskOwnerInterface.h"
+#include "GenericTeamAgentInterface.h"
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 #include "AIController.generated.h"
 
 class APawn;
 class UPathFollowingComponent;
 class UBrainComponent;
+class UBlackboardComponent;
 class UAIPerceptionComponent;
 class UPawnAction;
 class UPawnActionsComponent;
@@ -61,7 +66,7 @@ struct FFocusKnowledge
 	TArray<FFocusItem> Priorities;
 };
 
-//=============================================================================
+//~=============================================================================
 /**
  * AIController is the base class of controllers for AI-controlled Pawns.
  * 
@@ -73,7 +78,7 @@ struct FFocusKnowledge
  */
 
 UCLASS(ClassGroup = AI, BlueprintType, Blueprintable)
-class AIMODULE_API AAIController : public AController, public IAIPerceptionListenerInterface
+class AIMODULE_API AAIController : public AController, public IAIPerceptionListenerInterface, public IGameplayTaskOwnerInterface, public IGenericTeamAgentInterface, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 
@@ -101,7 +106,7 @@ private_subobject:
 
 	/** Component used for moving along a path. */
 	DEPRECATED_FORGAME(4.6, "PathFollowingComponent should not be accessed directly, please use GetPathFollowingComponent() function instead. PathFollowingComponent will soon be private and your code will not compile.")
-	UPROPERTY()
+	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	UPathFollowingComponent* PathFollowingComponent;
 
 public:
@@ -111,13 +116,21 @@ public:
 	UBrainComponent* BrainComponent;
 
 	DEPRECATED_FORGAME(4.8, "PerceptionComponent should not be accessed directly, please use GetAIPerceptionComponent() function instead. PerceptionComponent will soon be private and your code will not compile.")
-	UPROPERTY()
+	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	UAIPerceptionComponent* PerceptionComponent;
 
 private_subobject:
 	DEPRECATED_FORGAME(4.6, "ActionsComp should not be accessed directly, please use GetActionsComp() function instead. ActionsComp will soon be private and your code will not compile.")
 	UPROPERTY(BlueprintReadOnly, Category = AI, meta = (AllowPrivateAccess = "true"))
 	UPawnActionsComponent* ActionsComp;
+
+protected:
+	/** blackboard */
+	UPROPERTY(BlueprintReadOnly, Category = AI, meta = (AllowPrivateAccess = "true"))
+	UBlackboardComponent* Blackboard;
+
+	UPROPERTY()
+	UGameplayTasksComponent* CachedGameplayTasksComponent;
 
 public:
 
@@ -126,6 +139,8 @@ public:
 	/** Event called when PossessedPawn is possessed by this controller. */
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnPossess(APawn* PossessedPawn);
+
+	virtual void SetPawn(APawn* InPawn) override;
 
 	/** Makes AI go toward specified Goal actor (destination will be continuously updated)
 	 *  @param AcceptanceRadius - finish move if pawn gets close enough
@@ -254,7 +269,7 @@ public:
 	virtual FVector GetFocalPointOnActor(const AActor *Actor) const;
 
 	/** Set the position that controller should be looking at. */
-	UFUNCTION(BlueprintCallable, Category="AI", meta=(DisplayName="SetFocalPoint"))
+	UFUNCTION(BlueprintCallable, Category="AI", meta=(DisplayName="SetFocalPoint", Keywords="focus"))
 	void K2_SetFocalPoint(FVector FP);
 
 	/** Set Focus for actor, will set FocalPoint as a result. */
@@ -286,13 +301,13 @@ public:
 	 */
 	bool SuggestTossVelocity(FVector& OutTossVelocity, FVector Start, FVector End, float TossSpeed, bool bPreferHighArc, float CollisionRadius=0, bool bOnlyTraceUp=false);
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void Tick(float DeltaTime) override;
 	virtual void PostInitializeComponents() override;
 	virtual void PostRegisterAllComponents() override;
-	// End AActor Interface
+	//~ End AActor Interface
 
-	// Begin AController Interface
+	//~ Begin AController Interface
 	virtual void Possess(APawn* InPawn) override;
 	virtual void UnPossess() override;
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
@@ -311,7 +326,7 @@ public:
 	 * @return true if controller's pawn can see Other actor.
 	 */
 	virtual bool LineOfSightTo(const AActor* Other, FVector ViewPoint = FVector(ForceInit), bool bAlternateChecks = false) const override;
-	// End AController Interface
+	//~ End AController Interface
 
 	/** Notifies AIController of changes in given actors' perception */
 	virtual void ActorsPerceptionUpdated(const TArray<AActor*>& UpdatedActors);
@@ -341,6 +356,31 @@ public:
 	virtual bool IsFollowingAPath() const override;
 
 	//----------------------------------------------------------------------//
+	// IGenericTeamAgentInterface
+	//----------------------------------------------------------------------//
+private:
+	FGenericTeamId TeamID;
+public:
+	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamID) override;
+	virtual FGenericTeamId GetGenericTeamId() const override { return TeamID; }
+
+	//----------------------------------------------------------------------//
+	// IGameplayTaskOwnerInterface
+	//----------------------------------------------------------------------//
+	UGameplayTasksComponent* GetGameplayTasksComponent() const { return CachedGameplayTasksComponent; }
+	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override { return CachedGameplayTasksComponent; }
+	virtual void OnTaskActivated(UGameplayTask& Task) override {}
+	virtual void OnTaskDeactivated(UGameplayTask& Task) override {}
+	virtual void OnTaskInitialized(UGameplayTask& Task) override {}
+	virtual AActor* GetOwnerActor(const UGameplayTask* Task) const override { return const_cast<AAIController*>(this); }
+	virtual AActor* GetAvatarActor(const UGameplayTask* Task) const override { return GetPawn(); }
+	virtual uint8 GetDefaultPriority() const override { return FGameplayTasks::DefaultPriority - 1; }
+
+	// other GT tasks related
+	UFUNCTION()
+	virtual void OnGameplayTaskResourcesClaimed(FGameplayResourceSet NewlyClaimed, FGameplayResourceSet FreshlyReleased);
+
+	//----------------------------------------------------------------------//
 	// Actions
 	//----------------------------------------------------------------------//
 	bool PerformAction(UPawnAction& Action, EAIRequestPriority::Type Priority, UObject* const Instigator = NULL);
@@ -367,6 +407,8 @@ public:
 	UAIPerceptionComponent* GetAIPerceptionComponent();
 
 	const UAIPerceptionComponent* GetAIPerceptionComponent() const;
+
+	UBrainComponent* GetBrainComponent() { return BrainComponent; }
 };
 
 //----------------------------------------------------------------------//

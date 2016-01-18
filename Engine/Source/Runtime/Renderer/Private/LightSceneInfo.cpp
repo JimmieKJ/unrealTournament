@@ -83,7 +83,9 @@ void FLightSceneInfo::AddToScene()
 	if (Proxy->CastsDynamicShadow() 
 		|| Proxy->CastsStaticShadow() 
 		// Lights that should be baked need to check for interactions to track unbuilt state correctly
-		|| Proxy->HasStaticLighting())
+		|| Proxy->HasStaticLighting()
+		// ES2 path supports dynamic point lights in the base pass using forward rendering, so we need to know the primitives
+		|| (Scene->GetFeatureLevel() < ERHIFeatureLevel::SM4 && Proxy->GetLightType() == LightType_Point && Proxy->IsMovable()))
 	{
 		// Add the light to the scene's light octree.
 		Scene->LightOctree.AddElement(LightSceneInfoCompact);
@@ -176,7 +178,9 @@ bool FLightSceneInfo::ShouldRenderLight(const FViewInfo& View) const
 
 	return bLocalVisible
 		// Only render lights with static shadowing for reflection captures, since they are only captured at edit time
-		&& (!View.bStaticSceneOnly || Proxy->HasStaticShadowing());
+		&& (!View.bStaticSceneOnly || Proxy->HasStaticShadowing())
+		// Only render lights in the default channel, or if there are any primitives outside the default channel
+		&& (Proxy->GetLightingChannelMask() & GetDefaultLightingChannelMask() || View.bUsesLightingChannels);
 }
 
 bool FLightSceneInfo::IsPrecomputedLightingValid() const
@@ -205,6 +209,11 @@ void FLightSceneInfo::ReleaseRHI()
 	{
 		TileIntersectionResources->Release();
 	}
+
+	ShadowSphereShapesVertexBuffer.SafeRelease();
+	ShadowSphereShapesSRV.SafeRelease();
+	ShadowCapsuleShapesVertexBuffer.SafeRelease();
+	ShadowCapsuleShapesSRV.SafeRelease();
 }
 
 /** Determines whether two bounding spheres intersect. */
@@ -250,6 +259,11 @@ bool FLightSceneInfoCompact::AffectsPrimitive(const FPrimitiveSceneInfoCompact& 
 	}
 
 	if (LightSceneInfo->Proxy->CastsShadowsFromCinematicObjectsOnly() && !CompactPrimitiveSceneInfo.Proxy->CastsCinematicShadow())
+	{
+		return false;
+	}
+
+	if (!(LightSceneInfo->Proxy->GetLightingChannelMask() & CompactPrimitiveSceneInfo.Proxy->GetLightingChannelMask()))
 	{
 		return false;
 	}

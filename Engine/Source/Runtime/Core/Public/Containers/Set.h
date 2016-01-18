@@ -298,12 +298,25 @@ public:
 		if(!ConditionalRehash(ExpectedNumElements,true))
 		{
 			// If the hash was already the desired size, clear the references to the elements that have now been removed.
-			for(int32 HashIndex = 0;HashIndex < HashSize;HashIndex++)
+			for (int32 HashIndex = 0, LocalHashSize = HashSize; HashIndex < LocalHashSize; ++HashIndex)
 			{
 				GetTypedHash(HashIndex) = FSetElementId();
 			}
 		}
 	}
+
+	/** Efficiently empties out the set but preserves all allocations and capacities */
+    void Reset()
+    {
+		// Reset the elements array.
+		Elements.Reset();
+
+		// Clear the references to the elements that have now been removed.
+		for (int32 HashIndex = 0, LocalHashSize = HashSize; HashIndex < LocalHashSize; ++HashIndex)
+		{
+			GetTypedHash(HashIndex) = FSetElementId();
+		}
+    }
 
 	/** Shrinks the set's element storage to avoid slack. */
 	FORCEINLINE void Shrink()
@@ -315,8 +328,10 @@ public:
 	/** Compacts the allocated elements into a contiguous range. */
 	FORCEINLINE void Compact()
 	{
-		Elements.Compact();
-		Rehash();
+		if (Elements.Compact())
+		{
+			Rehash();
+		}
 	}
 
 	/** Preallocates enough memory to contain Number elements */
@@ -412,18 +427,23 @@ public:
 		if (!KeyFuncs::bAllowDuplicateKeys)
 		{
 			// If the set doesn't allow duplicate keys, check for an existing element with the same key as the element being added.
-			FSetElementId ExistingId = FindId(KeyFuncs::GetSetKey(Element.Value));
-			bIsAlreadyInSet = ExistingId.IsValidId();
-			if (bIsAlreadyInSet)
+
+			// Don't bother searching for a duplicate if this is the first element we're adding
+			if (Elements.Num() != 1)
 			{
-				// If there's an existing element with the same key as the new element, replace the existing element with the new element.
-				MoveByRelocate(Elements[ExistingId].Value, Element.Value);
+				FSetElementId ExistingId = FindId(KeyFuncs::GetSetKey(Element.Value));
+				bIsAlreadyInSet = ExistingId.IsValidId();
+				if (bIsAlreadyInSet)
+				{
+					// If there's an existing element with the same key as the new element, replace the existing element with the new element.
+					MoveByRelocate(Elements[ExistingId].Value, Element.Value);
 
-				// Then remove the new element.
-				Elements.RemoveAtUninitialized(ElementId);
+					// Then remove the new element.
+					Elements.RemoveAtUninitialized(ElementId);
 
-				// Then point the return value at the replaced element.
-				ElementId = ExistingId;
+					// Then point the return value at the replaced element.
+					ElementId = ExistingId;
+				}
 			}
 		}
 
@@ -479,7 +499,7 @@ public:
 	 */
 	void Remove(FSetElementId ElementId)
 	{
-		if(HashSize)
+		if (Elements.Num())
 		{
 			const auto& ElementBeingRemoved = Elements[ElementId];
 
@@ -507,7 +527,7 @@ public:
 	 */
 	FSetElementId FindId(KeyInitType Key) const
 	{
-		if(HashSize)
+		if (Elements.Num())
 		{
 			for(FSetElementId ElementId = GetTypedHash(KeyFuncs::GetKeyHash(Key));
 				ElementId.IsValidId();
@@ -568,7 +588,7 @@ public:
 	{
 		int32 NumRemovedElements = 0;
 
-		if(HashSize)
+		if (Elements.Num())
 		{
 			FSetElementId* NextElementId = &GetTypedHash(KeyFuncs::GetKeyHash(Key));
 			while(NextElementId->IsValidId())
@@ -646,7 +666,7 @@ public:
 	void Dump(FOutputDevice& Ar)
 	{
 		Ar.Logf( TEXT("TSet: %i elements, %i hash slots"), Elements.Num(), HashSize );
-		for(int32 HashIndex = 0;HashIndex < HashSize;HashIndex++)
+		for (int32 HashIndex = 0, LocalHashSize = HashSize; HashIndex < LocalHashSize; ++HashIndex)
 		{
 			// Count the number of elements in this hash bucket.
 			int32 NumElementsInBucket = 0;
@@ -664,7 +684,7 @@ public:
 	bool VerifyHashElementsKey(KeyInitType Key)
 	{
 		bool bResult=true;
-		if(HashSize)
+		if (Elements.Num())
 		{
 			// iterate over all elements for the hash entry of the given key 
 			// and verify that the ids are valid
@@ -684,7 +704,7 @@ public:
 
 	void DumpHashElements(FOutputDevice& Ar)
 	{
-		for(int32 HashIndex = 0;HashIndex < HashSize;HashIndex++)
+		for (int32 HashIndex = 0, LocalHashSize = HashSize; HashIndex < LocalHashSize; ++HashIndex)
 		{
 			Ar.Logf(TEXT("   Hash[%i]"),HashIndex);
 
@@ -722,7 +742,7 @@ public:
 		TSet Result;
 		for(TConstIterator SetIt(*this);SetIt;++SetIt)
 		{
-			if(OtherSet.Contains(*SetIt))
+			if(OtherSet.Contains(KeyFuncs::GetSetKey(*SetIt)))
 			{
 				Result.Add(*SetIt);
 			}
@@ -751,7 +771,7 @@ public:
 		TSet Result;
 		for(TConstIterator SetIt(*this);SetIt;++SetIt)
 		{
-			if(!OtherSet.Contains(*SetIt))
+			if(!OtherSet.Contains(KeyFuncs::GetSetKey(*SetIt)))
 			{
 				Result.Add(*SetIt);
 			}
@@ -771,7 +791,7 @@ public:
 		bool bIncludesSet = true;
 		for(TConstIterator OtherSetIt(OtherSet); OtherSetIt; ++OtherSetIt)
 		{
-			if (!Contains(*OtherSetIt))
+			if (!Contains(KeyFuncs::GetSetKey(*OtherSetIt)))
 			{
 				bIncludesSet = false;
 				break;
@@ -900,12 +920,13 @@ private:
 		// Free the old hash.
 		Hash.ResizeAllocation(0,0,sizeof(FSetElementId));
 
-		if(HashSize)
+		int32 LocalHashSize = HashSize;
+		if (LocalHashSize)
 		{
 			// Allocate the new hash.
-			checkSlow(!(HashSize&(HashSize-1)));
-			Hash.ResizeAllocation(0,HashSize,sizeof(FSetElementId));
-			for(int32 HashIndex = 0;HashIndex < HashSize;HashIndex++)
+			checkSlow(!(LocalHashSize & (HashSize - 1)));
+			Hash.ResizeAllocation(0, LocalHashSize, sizeof(FSetElementId));
+			for (int32 HashIndex = 0; HashIndex < LocalHashSize; ++HashIndex)
 			{
 				GetTypedHash(HashIndex) = FSetElementId();
 			}
@@ -1357,9 +1378,6 @@ private:
 		static_assert(STRUCT_OFFSET(ScriptType, Elements) == STRUCT_OFFSET(RealType, Elements), "FScriptSet's Elements member offset does not match TSet's");
 		static_assert(STRUCT_OFFSET(ScriptType, Hash)     == STRUCT_OFFSET(RealType, Hash),     "FScriptSet's Hash member offset does not match TSet's");
 		static_assert(STRUCT_OFFSET(ScriptType, HashSize) == STRUCT_OFFSET(RealType, HashSize), "FScriptSet's FirstFreeIndex member offset does not match TSet's");
-
-		typedef TSet<bool>  ::SetElementType RealSetElementType1;
-		typedef TSet<double>::SetElementType RealSetElementType2;
 	}
 
 public:

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "TAttributeProperty.h"
@@ -17,6 +17,7 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
 	extern UNREALTOURNAMENT_API const FName MapVoteHappening;				// The game is in mapvote stage
 	extern UNREALTOURNAMENT_API const FName MatchIntermission;				// The game is in a round intermission
+	extern UNREALTOURNAMENT_API const FName MatchExitingIntermission;		// Exiting Halftime
 }
 
 USTRUCT()
@@ -111,6 +112,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
 		float WinnerSummaryDisplayTime;
 
+	/* How long to display winning team match summary */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float TeamSummaryDisplayTime;
+
+	/* How long to display intro */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float IntroDisplayTime;
+
 	/** Return how long to wait after end of match before travelling to next map. */
 	virtual float GetTravelDelay();
 
@@ -131,8 +140,12 @@ public:
 	UPROPERTY(AssetRegistrySearchable, EditDefaultsOnly)
 	bool bHideInUI;
 
+	/** If true, require full set of players to be ready to start. */
+	UPROPERTY()
+		bool bRequireReady;
+
 	/** maximum amount of time (in seconds) to wait for players to be ready before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
-	UPROPERTY(globalconfig)
+	UPROPERTY()
 	int32 MaxReadyWaitTime;
 
 	/** Score needed to win the match.  Can be overridden with GOALSCORE=x on the url */
@@ -168,13 +181,11 @@ public:
 
 	/** After this wait, add bots to min players level */
 	UPROPERTY()
-	float MaxWaitForPlayers;
+	int32 MaxWaitForPlayers;
 
 	/** World time when match was first ready to start. */
 	UPROPERTY()
 	float StartPlayTime;
-
-	virtual void StartPlay() override;
 
 	/** add bots until NumPlayers + NumBots is this number */
 	UPROPERTY(config)
@@ -357,7 +368,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
 	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
 	virtual void InitGameState() override;
-	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void Reset();
 	virtual void RestartGame();
 	virtual void BeginGame();
@@ -371,7 +383,7 @@ public:
 	void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
+		void ScoreDamage(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
@@ -410,7 +422,7 @@ public:
 	virtual void RestartPlayer(AController* aPlayer);
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
-	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
+	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 
@@ -436,7 +448,6 @@ public:
 	virtual void HandlePlayerIntro();
 	virtual void EndPlayerIntro();
 
-	virtual void HandleMatchIsWaitingToStart() override;
 	virtual void HandleMatchHasStarted();
 	virtual void AnnounceMatchStart();
 	virtual void HandleMatchHasEnded() override;
@@ -467,6 +478,13 @@ public:
 	void AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	void AddMultiKillEventToReplay(AController* Killer, int32 MultiKillLevel);
 	void AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel);
+	
+	UPROPERTY(config)
+	bool bRecordReplays;
+
+	/** The standard IsHandlingReplays() codepath is not flexible enough for UT, this is the compromise */
+	virtual bool UTIsHandlingReplays();
+
 protected:
 
 	/** Returns random bot character skill matched to current GameDifficulty. */
@@ -621,8 +639,6 @@ private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);
 
-	bool CanAwardXP();
-
 public:
 	/**
 	 *	Tells an associated lobby that this game is ready for joins.
@@ -632,7 +648,6 @@ public:
 	// How long before a lobby instance times out waiting for players to join and the match to begin.  This is to keep lobby instance servers from sitting around forever.
 	UPROPERTY(Config)
 	float LobbyInitialTimeoutTime;
-
 
 	UPROPERTY(Config)
 	bool bDisableCloudStats;
@@ -750,14 +765,9 @@ public:
 
 	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects) override;
 
+	virtual int32 GetEloFor(AUTPlayerState* PS) const;
+
 private:
-	// note: one based
-	UPROPERTY()
-	TArray<FStringAssetReference> LevelUpRewards;
-
-	UPROPERTY(globalconfig)
-	FStringAssetReference EventReward;
-
 	UTAntiCheatModularFeature* AntiCheatEngine;
 
 public:
@@ -768,5 +778,12 @@ public:
 
 	UFUNCTION(exec)
 		virtual void GetGood();
+
+	// Will be true if this instance is rank locked
+	bool bRankLocked;
+
+	// The average rank allowed
+	int32 RankCheck;
+
 };
 

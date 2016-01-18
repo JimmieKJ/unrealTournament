@@ -104,7 +104,9 @@ FORCEINLINE GLenum GetOpenGLCubeFace(ECubeFace Face)
 			}
 		}
 	};
-	#define VERIFY_GL_SCOPE_WITH_MSG_STR(MsgStr) FOpenGLErrorScope ErrorScope_##__LINE__ (MsgStr, TEXT(__FILE__), __LINE__)
+	#define MACRO_TOKENIZER(IdentifierName, Msg, FileName, LineNumber) FOpenGLErrorScope IdentifierName_ ## LineNumber (Msg, FileName, LineNumber)
+	#define MACRO_TOKENIZER2(IdentifierName, Msg, FileName, LineNumber) MACRO_TOKENIZER(IdentiferName, Msg, FileName, LineNumber)
+	#define VERIFY_GL_SCOPE_WITH_MSG_STR(MsgStr) MACRO_TOKENIZER2(ErrorScope_, MsgStr, TEXT(__FILE__), __LINE__)
 	#define VERIFY_GL_SCOPE() VERIFY_GL_SCOPE_WITH_MSG_STR(ANSI_TO_TCHAR(__FUNCTION__))
 	#define VERIFY_GL_FUNC(Func, ...) { VERIFY_GL_SCOPE_WITH_MSG_STR(TEXT(#Func)); Func(__VA_ARGS__); }
 

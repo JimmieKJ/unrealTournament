@@ -2114,53 +2114,22 @@ void NpScene::collide(PxReal _elapsedTime, physx::PxBaseTask* completionTask, vo
 bool NpScene::checkResultsInternal(bool block)
 {
 	CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,Basic,checkResults);
-
-	// ret is ANDed with all results the user wants to check
-	bool ret = true;
-
-	if(block) 
-	{
-		ret = mPhysicsDone.wait(Ps::Sync::waitForever);
-	} 
-	else
-	{
-		ret = mPhysicsDone.wait(0);
-	}
-
-	return ret;
+	return mPhysicsDone.wait(block ? Ps::Sync::waitForever : 0);
 }
 
 bool NpScene::checkCollisionInternal(bool block)
 {
 	CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,Basic,checkCollision);
-
-	// ret is ANDed with all results the user wants to check
-	bool ret = true;
-
-	if(block) 
-	{
-		ret = mCollisionDone.wait(Ps::Sync::waitForever);
-	} 
-	else 
-	{
-		ret = mCollisionDone.wait(0);
-	}
-
-	return ret;
+	return mCollisionDone.wait(block ? Ps::Sync::waitForever : 0);
 }
-
 
 bool NpScene::checkResults(bool block)
 {
-	NP_READ_CHECK(this);
-
 	return checkResultsInternal(block);
 }
 
 bool NpScene::checkCollision(bool block)
 {
-	NP_READ_CHECK(this);
-
 	return checkCollisionInternal(block);
 }
 

@@ -8,4 +8,4 @@
 #include "DestructibleMeshEditor.h"
 #include "SDestructibleMeshEditorViewport.h"
 #include "DestructibleChunkParamsProxy.h"
-#include "DestructibleMeshEditorClasses.h"
+

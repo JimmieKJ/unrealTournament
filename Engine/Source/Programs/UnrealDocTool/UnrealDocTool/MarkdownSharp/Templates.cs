@@ -235,6 +235,11 @@ namespace MarkdownSharp
             get { return GetCached("link.html"); }
         }
 
+        public static TemplateFile FancyLink
+        {
+            get { return GetCached("fancyLink.html"); }
+        }
+
         public static TemplateFile Header
         {
             get { return GetCached("header.html"); }
@@ -340,6 +345,11 @@ namespace MarkdownSharp
             get { return GetCached("translatedPageLink.html"); }
         }
 
+        public static TemplateFile TranslatedPages
+        {
+            get { return GetCached("translatedPages.html"); }
+        }
+
         public static TemplateFile RelatedPages
         {
             get { return GetCached("relatedPages.html"); }
@@ -353,6 +363,16 @@ namespace MarkdownSharp
         public static TemplateFile Versions
         {
             get { return GetCached("Version.html"); }
+        }
+
+        public static TemplateFile SkillLevels
+        {
+            get { return GetCached("SkillLevel.html"); }
+        }
+
+        public static TemplateFile Tags
+        {
+            get { return GetCached("Tag.html"); }
         }
 
         public static TemplateFile MissingTemplate

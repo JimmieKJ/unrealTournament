@@ -68,7 +68,7 @@ struct BigConvexRawData
 	PxU8*			mAdjacentVerts;	//!< List of adjacent vertices
 	//~Valencies data
 };
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 PX_COMPILE_TIME_ASSERT(sizeof(Gu::BigConvexRawData) == 40);
 #else
 PX_COMPILE_TIME_ASSERT(sizeof(Gu::BigConvexRawData) == 24);

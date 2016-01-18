@@ -25,69 +25,77 @@ enum EGraphType
 UENUM()
 enum ECanCreateConnectionResponse
 {
-	// Make the connection; there are no issues (message string is displayed if not empty)
+	/** Make the connection; there are no issues (message string is displayed if not empty). */
 	CONNECT_RESPONSE_MAKE,
 
-	// Cannot make this connection; display the message string as an error
+	/** Cannot make this connection; display the message string as an error. */
 	CONNECT_RESPONSE_DISALLOW,
 
-	// Break all existing connections on A and make the new connection (it's exclusive); display the message string as a warning/notice
+	/** Break all existing connections on A and make the new connection (it's exclusive); display the message string as a warning/notice. */
 	CONNECT_RESPONSE_BREAK_OTHERS_A,
 
-	// Break all existing connections on B and make the new connection (it's exclusive); display the message string as a warning/notice
+	/** Break all existing connections on B and make the new connection (it's exclusive); display the message string as a warning/notice. */
 	CONNECT_RESPONSE_BREAK_OTHERS_B,
 
-	// Break all existing connections on A and B, and make the new connection (it's exclusive); display the message string as a warning/notice
+	/** Break all existing connections on A and B, and make the new connection (it's exclusive); display the message string as a warning/notice. */
 	CONNECT_RESPONSE_BREAK_OTHERS_AB,
 
-	// Make the connection via an intermediate cast node, or some other conversion node
+	/** Make the connection via an intermediate cast node, or some other conversion node. */
 	CONNECT_RESPONSE_MAKE_WITH_CONVERSION_NODE,
 
 	CONNECT_RESPONSE_MAX,
 };
 
-/** This structure represents a context dependent action, with sufficient information for the schema to perform it */
+/** This structure represents a context dependent action, with sufficient information for the schema to perform it. */
 USTRUCT()
 struct ENGINE_API FEdGraphSchemaAction
 {
 	GENERATED_USTRUCT_BODY()
 
-	// Simple type info
+	/** Simple type info. */
 	static FName StaticGetTypeId() {static FName Type("FEdGraphSchemaAction"); return Type;}
 	virtual FName GetTypeId() const { return StaticGetTypeId(); }
 
-	/** The menu text that should be displayed for this node in the creation menu */
+private:
+	/** The menu text that should be displayed for this node in the creation menu. */
 	UPROPERTY()
 	FText MenuDescription;
 
-	/** The tooltip text that should be displayed for this node in the creation menu */
+	/** The tooltip text that should be displayed for this node in the creation menu. */
 	UPROPERTY()
 	FString TooltipDescription;
 
-	/** This is the UI centric category the action fits in (e.g., Functions, Variables).  Use this instead of the NodeType.NodeCategory because multiple NodeCategories might visually belong together. */
+	/** This is the UI centric category the action fits in (e.g., Functions, Variables). Use this instead of the NodeType.NodeCategory because multiple NodeCategories might visually belong together. */
 	UPROPERTY()
-	FString Category;
+	FText Category;
 
-	/** This is just an arbitrary dump of extra text that search will match on, in addition to the description and tooltip, e.g., Add might have the keyword Math */
+	/** This is just an arbitrary dump of extra text that search will match on, in addition to the description and tooltip, e.g., Add might have the keyword Math. */
 	UPROPERTY()
 	FText Keywords;
 
-	/** This is a priority number for overriding alphabetical order in the action list (higher value  == higher in the list) */
+public:
+	/** This is a priority number for overriding alphabetical order in the action list (higher value  == higher in the list). */
 	UPROPERTY()
 	int32 Grouping;
 
-	/** Section ID of the action list in which this action belongs */
+	/** Section ID of the action list in which this action belongs. */
 	UPROPERTY()
 	int32 SectionID;
 
-	/** Search title for the action (doesn't have to be set when instantiated, will be constructed by GetSearchTitle() if left empty)*/
 	UPROPERTY()
-	FText CachedSearchTitle;
+	TArray<FString> MenuDescriptionArray;
 
-	/** Search keywords for the action (doesn't have to be set when instantiated, will be constructed by GetSearchTitle() if left empty)*/
 	UPROPERTY()
-	FText CachedSearchKeywords;
+	TArray<FString> FullSearchTitlesArray;
 
+	UPROPERTY()
+	TArray<FString>  FullSearchKeywordsArray;
+
+	UPROPERTY()
+	TArray<FString>  FullSearchCategoryArray;
+
+	UPROPERTY()
+	FString SearchText;
 	FEdGraphSchemaAction() 
 		: Grouping(0)
 		, SectionID(0)
@@ -95,22 +103,20 @@ struct ENGINE_API FEdGraphSchemaAction
 	
 	virtual ~FEdGraphSchemaAction() {}
 
-	FEdGraphSchemaAction(const FString& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
-		: MenuDescription(InMenuDesc)
-		, TooltipDescription(InToolTip)
-		, Category(InNodeCategory)
-		, Grouping(InGrouping)
-		, SectionID(0)
+	FEdGraphSchemaAction(const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping, const FText& InKeywords = FText(), int32 InSectionID = 0)
+		: Grouping(InGrouping)
+		, SectionID(InSectionID)
 	{
+		UpdateSearchData(InMenuDesc, InToolTip, InNodeCategory, InKeywords);
 	}
 
-	/** Whether or not this action can be parented to other actions of the same type */
+	/** Whether or not this action can be parented to other actions of the same type. */
 	virtual bool IsParentable() const { return false; }
 
-	/** Execute this action, given the graph and schema, and possibly a pin that we were dragged from. Returns a node that was created by this action (if any).  */
+	/** Execute this action, given the graph and schema, and possibly a pin that we were dragged from. Returns a node that was created by this action (if any). */
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) { return NULL; }
 
-	/** Execute this action, given the graph and schema, and possibly a pin that we were dragged from. Returns a node that was created by this action (if any).  */
+	/** Execute this action, given the graph and schema, and possibly a pin that we were dragged from. Returns a node that was created by this action (if any). */
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode = true)
 	{
 		UEdGraphNode* NewNode = NULL;
@@ -126,30 +132,66 @@ struct ENGINE_API FEdGraphSchemaAction
 		return NewNode;
 	}
 
-	/** Retrieves the full searchable title for this action */
-	FText GetSearchTitle()
+	void UpdateCategory(const FText& NewCategory);
+
+	void UpdateSearchData(const FText& NewMenuDescription, const FString& NewToolTipDescription, const FText& NewCategory, const FText& NewKeywords);
+
+	int32 GetSectionID() const
 	{
-		if(CachedSearchTitle.IsEmpty())
-		{
-			FFormatNamedArguments Args;
-			Args.Add(TEXT("LocalizedTitle"), MenuDescription);
-			Args.Add(TEXT("SourceTitle"), FText::FromString(MenuDescription.BuildSourceString()));
-			CachedSearchTitle = FText::Format(FText::FromString("{LocalizedTitle} {SourceTitle}"), Args);
-		}
-		return CachedSearchTitle;
+		return SectionID;
 	}
 
-	/** Retrieves the full searchable title for this action */
-	FText GetSearchKeywords()
+	int32 GetGrouping() const 
 	{
-		if(CachedSearchKeywords.IsEmpty())
-		{
-			FFormatNamedArguments Args;
-			Args.Add(TEXT("LocalizedKeywords"), Keywords);
-			Args.Add(TEXT("SourceKeywords"), FText::FromString(Keywords.BuildSourceString()));
-			CachedSearchKeywords = FText::Format(FText::FromString("{LocalizedKeywords} {SourceKeywords}"), Args);
-		}
-		return CachedSearchKeywords;
+		return Grouping;
+	}
+
+	const FText& GetMenuDescription() const
+	{
+		return MenuDescription;
+	}
+
+	const FString& GetTooltipDescription() const
+	{
+		return TooltipDescription;
+	}
+
+	const FText& GetCategory() const
+	{
+		return Category;
+	}
+
+	const FText& GetKeywords() const
+	{
+		return Keywords;
+	}
+
+	const TArray<FString>& GetMenuDescriptionArray() const
+	{
+		return MenuDescriptionArray;
+	}
+
+	/** Retrieves the full searchable title for this action. */
+	const TArray<FString>& GetSearchTitleArray() const
+	{
+		return FullSearchTitlesArray;
+	}
+
+	/** Retrieves the full searchable keywords for this action. */
+	const TArray<FString>& GetSearchKeywordsArray() const
+	{
+		return FullSearchKeywordsArray;
+	}
+
+	/** Retrieves the full searchable categories for this action. */
+	const TArray<FString>& GetSearchCategoryArray() const
+	{
+		return FullSearchCategoryArray;
+	}
+
+	const FString& GetFullSearchText() const
+	{
+		return SearchText;
 	}
 
 	// GC.
@@ -176,7 +218,7 @@ struct ENGINE_API FEdGraphSchemaAction_NewNode : public FEdGraphSchemaAction
 		, NodeTemplate(NULL)
 	{}
 
-	FEdGraphSchemaAction_NewNode(const FString& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
+	FEdGraphSchemaAction_NewNode(const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(InNodeCategory, InMenuDesc, InToolTip, InGrouping) 
 		, NodeTemplate(NULL)
 	{}
@@ -209,7 +251,7 @@ struct FEdGraphSchemaAction_Dummy : public FEdGraphSchemaAction
 	: FEdGraphSchemaAction()
 	{}
 
-	FEdGraphSchemaAction_Dummy(const FString& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
+	FEdGraphSchemaAction_Dummy(const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(InNodeCategory, InMenuDesc, InToolTip, InGrouping)		
 	{}
 };
@@ -280,14 +322,19 @@ public:
 		/** Constructor accepting multiple actions */
 		ActionGroup( const TArray< TSharedPtr<FEdGraphSchemaAction> >& InActions, FString const& RootCategory = TEXT("") );
 
+		/** Move constructor and move assignment operator */
+		ENGINE_API ActionGroup(ActionGroup && Other);
+		ENGINE_API ActionGroup& operator=(ActionGroup && Other);
+
+		/** Copy constructor and assignment operator */
+		ENGINE_API ActionGroup(const ActionGroup&);
+		ENGINE_API ActionGroup& operator=(const ActionGroup&);
+
+		ENGINE_API ~ActionGroup();
 		/**
-		 * Concatenates RootCategory with the first action's category (RootCategory
-		 * coming first, as a prefix, and the splits the category hierarchy apart 
-		 * into separate entries.
-		 * 
-		 * @param  HierarchyOut	A list of the category tiers that this action should be listed under.
+		 * @return  A reference to the array of strings that represent the category chain
 		 */
-		ENGINE_API void GetCategoryChain(TArray<FString>& HierarchyOut) const;
+		 ENGINE_API const TArray<FString>& GetCategoryChain() const;
 
 		/**
 		 * Goes through all actions and calls PerformAction on them individually
@@ -297,12 +344,43 @@ public:
 		 */
 		ENGINE_API void PerformAction( class UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location );
 		
+		/**
+		 * Returns a the string that should be used when searching for matching actions. Looks only at the first action.
+		 */
+		ENGINE_API const FString& GetSearchTextForFirstAction() const { return Actions[0]->GetFullSearchText(); }
+
+		/** Returns the SearchKeywordsArray */
+		ENGINE_API const TArray<FString>& GetSearchKeywordsArrayForFirstAction() const { return Actions[0]->GetSearchKeywordsArray(); }
+		/** Returns the MenuDescriptionArray */
+		ENGINE_API const TArray<FString>& GetMenuDescriptionArrayForFirstAction() const { return Actions[0]->GetMenuDescriptionArray(); }
+		/** Returns the SearchTitleArray */
+		ENGINE_API const TArray<FString>& GetSearchTitleArrayForFirstAction() const { return Actions[0]->GetSearchTitleArray(); }
+		/** Returns the SearchCategoryArray */
+		ENGINE_API const TArray<FString>& GetSearchCategoryArrayForFirstAction() const { return Actions[0]->GetSearchCategoryArray(); }
+
 		/** All of the actions this entry contains */
 		TArray< TSharedPtr<FEdGraphSchemaAction> > Actions;
 
 	private:
+		void Move(ActionGroup& Other);
+		void Copy(const ActionGroup& Other);
+
+		/**
+		 * Concatenates RootCategory with the first action's category (RootCategory
+		 * coming first, as a prefix, and the splits the category hierarchy apart
+		 * into separate entries.
+		 */
+		void InitCategoryChain();
+
+		/**
+		 * Initializes the search text.
+		 */
+		void InitSearchText();
+
 		/** The category to list this entry under (could be left empty, as it gets concatenated with the first sub-action's category) */
 		FString RootCategory;
+		/** The chain of categories */
+		TArray<FString> CategoryChain;
 	};
 private:
 
@@ -572,8 +650,10 @@ class ENGINE_API UEdGraphSchema : public UObject
 	 */
 	virtual FLinearColor GetPinTypeColor(const FEdGraphPinType& PinType) const { return FLinearColor::Black; }
 
+#if WITH_EDITORONLY_DATA
 	/** Get the name to show in the editor */
 	virtual FText GetPinDisplayName(const UEdGraphPin* Pin) const;
+#endif // WITH_EDITORONLY_DATA
 
 	/**
 	 * Takes the PinDescription and tacks on any other data important to the 
@@ -682,9 +762,6 @@ class ENGINE_API UEdGraphSchema : public UObject
 
 	/** Returns schema action to create comment from implemention */
 	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const { return NULL; }
-
-	/** Returns schema action to create documention node from implemention */
-	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateDocumentNodeAction() const { return NULL; }
 
 	/**
 	 * Handle a graph being removed by the user (potentially removing associated bound nodes, etc...)

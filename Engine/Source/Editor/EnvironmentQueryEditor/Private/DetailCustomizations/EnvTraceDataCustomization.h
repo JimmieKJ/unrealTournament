@@ -11,10 +11,10 @@ public:
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
 	static TSharedRef<IPropertyTypeCustomization> MakeInstance();
 
-	// Begin IPropertyTypeCustomization interface
+	//~ Begin IPropertyTypeCustomization Interface
 	virtual void CustomizeHeader( TSharedRef<class IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils ) override;
 	virtual void CustomizeChildren( TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils ) override;
-	// End IPropertyTypeCustomization interface
+	//~ End IPropertyTypeCustomization Interface
 
 protected:
 
@@ -35,7 +35,10 @@ protected:
 
 	TSharedPtr<IPropertyHandle> PropTraceMode;
 	TSharedPtr<IPropertyHandle> PropTraceShape;
+	TSharedPtr<IPropertyHandle> PropTraceChannel;
+	TSharedPtr<IPropertyHandle> PropTraceChannelSerialized;
 
+	void OnTraceChannelChanged();
 	void OnTraceModeChanged(int32 Index);
 	TSharedRef<SWidget> OnGetTraceModeContent();
 	FText GetCurrentTraceModeDesc() const;

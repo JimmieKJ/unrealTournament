@@ -18,6 +18,6 @@ class UNavigationGraphNodeComponent : public USceneComponent
 	UPROPERTY()
 	UNavigationGraphNodeComponent* PrevNodeComponent;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void BeginDestroy() override;
 };

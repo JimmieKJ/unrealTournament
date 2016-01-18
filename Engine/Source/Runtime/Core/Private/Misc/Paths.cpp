@@ -3,7 +3,6 @@
 // Core includes.
 #include "CorePrivatePCH.h"
 #include "Misc/App.h"
-#include "Runtime/Launch/Resources/Version.h" 
 #include "EngineVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPaths, Log, All);
@@ -13,10 +12,50 @@ DEFINE_LOG_CATEGORY_STATIC(LogPaths, Log, All);
 	Path helpers for retrieving game dir, engine dir, etc.
 -----------------------------------------------------------------------------*/
 
-bool FPaths::ShouldSaveToUserDir()
+namespace UE4Paths_Private
 {
+	auto IsSlashOrBackslash    = [](TCHAR C) { return C == TEXT('/') || C == TEXT('\\'); };
+	auto IsNotSlashOrBackslash = [](TCHAR C) { return C != TEXT('/') && C != TEXT('\\'); };
+
+	FString GameSavedDir()
+	{
+		FString Result = FPaths::GameUserDir();
+
+		FString NonDefaultSavedDirSuffix;
+		if (FParse::Value(FCommandLine::Get(), TEXT("-saveddirsuffix="), NonDefaultSavedDirSuffix))
+		{
+			for (int32 CharIdx = 0; CharIdx < NonDefaultSavedDirSuffix.Len(); ++CharIdx)
+			{
+				if (!FCString::Strchr(VALID_SAVEDDIRSUFFIX_CHARACTERS, NonDefaultSavedDirSuffix[CharIdx]))
+				{
+					NonDefaultSavedDirSuffix.RemoveAt(CharIdx, 1, false);
+					--CharIdx;
+				}
+			}
+
+			if (!NonDefaultSavedDirSuffix.IsEmpty())
+			{
+				Result += TEXT("Saved_") + NonDefaultSavedDirSuffix + TEXT("/");
+			}
+		}
+		else
+		{
+			Result += TEXT("Saved/");
+		}
+
+		return Result;
+	}
+}
+
+bool FPaths::ShouldSaveToUserDir()
+{ 
 	static bool bShouldSaveToUserDir = FApp::IsInstalled() || FParse::Param(FCommandLine::Get(), TEXT("SaveToUserDir"));
 	return bShouldSaveToUserDir;
+}
+
+FString FPaths::LaunchDir()
+{
+	return FString(FPlatformMisc::LaunchDir());
 }
 
 FString FPaths::EngineDir()
@@ -28,7 +67,7 @@ FString FPaths::EngineUserDir()
 {
 	if (ShouldSaveToUserDir() || FApp::IsEngineInstalled())
 	{
-		return FPaths::Combine(FPlatformProcess::UserSettingsDir(), TEXT(EPIC_PRODUCT_IDENTIFIER), *GEngineVersion.ToString(EVersionComponent::Minor)) + TEXT("/");
+		return FPaths::Combine(FPlatformProcess::UserSettingsDir(), *FApp::GetEpicProductIdentifier(), *FEngineVersion::Current().ToString(EVersionComponent::Minor)) + TEXT("/");
 	}
 	else
 	{
@@ -40,7 +79,7 @@ FString FPaths::EngineVersionAgnosticUserDir()
 {
 	if (ShouldSaveToUserDir() || FApp::IsEngineInstalled())
 	{
-		return FPaths::Combine(FPlatformProcess::UserSettingsDir(), TEXT(EPIC_PRODUCT_IDENTIFIER), TEXT("Common")) + TEXT("/");
+		return FPaths::Combine(FPlatformProcess::UserSettingsDir(), *FApp::GetEpicProductIdentifier(), TEXT("Common")) + TEXT("/");
 	}
 	else
 	{
@@ -114,7 +153,8 @@ FString FPaths::GameConfigDir()
 
 FString FPaths::GameSavedDir()
 {
-	return GameUserDir() + TEXT("Saved/");
+	static FString Result = UE4Paths_Private::GameSavedDir();
+	return Result;
 }
 
 FString FPaths::GameIntermediateDir()
@@ -125,6 +165,11 @@ FString FPaths::GameIntermediateDir()
 FString FPaths::GamePluginsDir()
 {
 	return FPaths::GameDir() + TEXT("Plugins/");
+}
+
+FString FPaths::GamePersistentDownloadDir()
+{
+	return FPlatformMisc::GamePersistentDownloadDir();
 }
 
 FString FPaths::SourceConfigDir()
@@ -192,7 +237,7 @@ FString FPaths::AutomationLogDir()
 
 FString FPaths::CloudDir()
 {
-	return FPaths::GameSavedDir() + TEXT("Cloud/");
+	return FPlatformMisc::CloudDir();
 }
 
 FString FPaths::GameDevelopersDir()
@@ -239,7 +284,7 @@ const TArray<FString>& FPaths::GetEngineLocalizationPaths()
 			GConfig->GetArray( TEXT("Internationalization"), TEXT("LocalizationPaths"), Results, GEngineIni );
 			if(!Results.Num())
 			{
-				UE_LOG(LogInit, Warning, TEXT("We appear to have no engine localization data?"));
+				UE_LOG(LogInit, Warning, TEXT("No paths for engine localization data were specifed in the engine configuration."));
 			}
 			HasInitialized = true;
 		}
@@ -264,7 +309,7 @@ const TArray<FString>& FPaths::GetEditorLocalizationPaths()
 			GConfig->GetArray( TEXT("Internationalization"), TEXT("LocalizationPaths"), Results, GEditorIni );
 			if(!Results.Num())
 			{
-				UE_LOG(LogInit, Warning, TEXT("We appear to have no editor localization data? Editor can't run."));
+				UE_LOG(LogInit, Warning, TEXT("No paths for editor localization data were specifed in the editor configuration."));
 			}
 			HasInitialized = true;
 		}
@@ -289,7 +334,7 @@ const TArray<FString>& FPaths::GetPropertyNameLocalizationPaths()
 			GConfig->GetArray( TEXT("Internationalization"), TEXT("PropertyNameLocalizationPaths"), Results, GEditorIni );
 			if(!Results.Num())
 			{
-				UE_LOG(LogInit, Warning, TEXT("We appear to have no property name localization data? Editor can't run."));
+				UE_LOG(LogInit, Warning, TEXT("No paths for property name localization data were specifed in the editor configuration."));
 			}
 			HasInitialized = true;
 		}
@@ -314,7 +359,7 @@ const TArray<FString>& FPaths::GetToolTipLocalizationPaths()
 			GConfig->GetArray( TEXT("Internationalization"), TEXT("ToolTipLocalizationPaths"), Results, GEditorIni );
 			if(!Results.Num())
 			{
-				UE_LOG(LogInit, Warning, TEXT("We appear to have no tool tip localization data? Editor can't run."));
+				UE_LOG(LogInit, Warning, TEXT("No paths for tooltips localization data were specifed in the editor configuration."));
 			}
 			HasInitialized = true;
 		}
@@ -339,7 +384,7 @@ const TArray<FString>& FPaths::GetGameLocalizationPaths()
 			GConfig->GetArray( TEXT("Internationalization"), TEXT("LocalizationPaths"), Results, GGameIni );
 			if(!Results.Num()) // Failed to find localization path.
 			{
-				UE_LOG(LogPaths, Warning, TEXT("We appear to have no game localization data? Game can't run."));
+				UE_LOG(LogPaths, Warning, TEXT("No paths for game localization data were specifed in the game configuration."));
 			}
 			HasInitialized = true;
 		}
@@ -402,22 +447,13 @@ FString FPaths::GetExtension( const FString& InPath, bool bIncludeDot )
 
 FString FPaths::GetCleanFilename(const FString& InPath)
 {
-	int32 Pos = InPath.Find(TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-	// in case we are using backslashes on a platform that doesn't use backslashes
-	Pos = FMath::Max(Pos, InPath.Find(TEXT("\\"), ESearchCase::CaseSensitive, ESearchDir::FromEnd));
+	static_assert(INDEX_NONE == -1, "INDEX_NONE assumed to be -1");
 
-	if ( Pos != INDEX_NONE)
-	{
-		// if it was a trailing one, cut it (account for trailing whitespace?) and try removing path again
-		if (Pos == InPath.Len() - 1)
-		{
-			return GetCleanFilename(InPath.Left(Pos));
-		}
+	int32 EndPos   = InPath.FindLastCharByPredicate(UE4Paths_Private::IsNotSlashOrBackslash) + 1;
+	int32 StartPos = InPath.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash, EndPos) + 1;
 
-		return InPath.Mid(Pos + 1);
-	}
-
-	return InPath;
+	FString Result = InPath.Mid(StartPos, EndPos - StartPos);
+	return Result;
 }
 
 FString FPaths::GetBaseFilename( const FString& InPath, bool bRemovePath )
@@ -425,20 +461,18 @@ FString FPaths::GetBaseFilename( const FString& InPath, bool bRemovePath )
 	FString Wk = bRemovePath ? GetCleanFilename(InPath) : InPath;
 
 	// remove the extension
-	int32 Pos = Wk.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+	int32 ExtPos = Wk.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 	
 	// determine the position of the path/leaf separator
 	int32 LeafPos = INDEX_NONE;
 	if (!bRemovePath)
 	{
-		LeafPos = Wk.Find(TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-		// in case we are using backslashes on a platform that doesn't use backslashes
-		LeafPos = FMath::Max(LeafPos, Wk.Find(TEXT("\\"), ESearchCase::CaseSensitive, ESearchDir::FromEnd));
+		LeafPos = Wk.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash);
 	}
 
-	if (Pos != INDEX_NONE && (LeafPos == INDEX_NONE || Pos > LeafPos))
+	if (ExtPos != INDEX_NONE && (LeafPos == INDEX_NONE || ExtPos > LeafPos))
 	{
-		return Wk.Left(Pos);
+		Wk = Wk.Left(ExtPos);
 	}
 
 	return Wk;
@@ -446,20 +480,20 @@ FString FPaths::GetBaseFilename( const FString& InPath, bool bRemovePath )
 
 FString FPaths::GetPath(const FString& InPath)
 {
-	int32 Pos = InPath.Find(TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-	// in case we are using backslashes on a platform that doesn't use backslashes
-	Pos = FMath::Max(Pos, InPath.Find(TEXT("\\"), ESearchCase::CaseSensitive, ESearchDir::FromEnd));
-	if ( Pos != INDEX_NONE )
+	int32 Pos = InPath.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash);
+
+	FString Result;
+	if (Pos != INDEX_NONE)
 	{
-		return InPath.Left(Pos);
+		Result = InPath.Left(Pos);
 	}
 
-	return TEXT("");
+	return Result;
 }
 
 bool FPaths::FileExists(const FString& InPath)
 {
-	return IFileManager::Get().GetTimeStamp(*InPath) > FDateTime::MinValue();
+	return IFileManager::Get().FileExists(*InPath);
 }
 
 bool FPaths::DirectoryExists(const FString& InPath)
@@ -682,7 +716,7 @@ void FPaths::MakeStandardFilename(FString& InPath)
 	// UNC (windows) network path
 	bool bCannotBeStandardized = InPath.StartsWith(TEXT("\\\\"), ESearchCase::CaseSensitive);
 	// windows drive letter path that doesn't start with base dir
-	bCannotBeStandardized |= (InPath[1] == ':' && !WithSlashes.StartsWith(RootDirectory));
+	bCannotBeStandardized |= ((InPath.Len() > 1) && (InPath[1] == ':') && !WithSlashes.StartsWith(RootDirectory));
 	// Unix style absolute path that doesn't start with base dir
 	bCannotBeStandardized |= (WithSlashes.GetCharArray()[0] == '/' && !WithSlashes.StartsWith(RootDirectory));
 
@@ -695,12 +729,6 @@ void FPaths::MakeStandardFilename(FString& InPath)
 	// make an absolute path
 	
 	FString Standardized = FPaths::ConvertRelativePathToFull(InPath);
-
-	// fix separators and remove any trailing slashes
-	FPaths::NormalizeDirectoryName(Standardized);
-	
-	// remove inner ..'s
-	FPaths::CollapseRelativeDirectories(Standardized);
 
 	// remove duplicate slashes
 	FPaths::RemoveDuplicateSlashes(Standardized);

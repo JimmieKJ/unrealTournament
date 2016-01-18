@@ -1,0 +1,15 @@
+AddType application/x-javascript .jsgz    
+AddType application/octet-stream .datagz
+
+RewriteEngine on 
+# If client accepts compressed files 
+RewriteCond %{HTTP:Accept-Encoding} gzip 
+# and if compressed file exists 
+RewriteCond %{REQUEST_FILENAME}gz -f 
+# send .ext.gz instead of .ext 
+RewriteRule ^(.+)\.(mem|js|data|symbols)$ $1.$2gz
+
+AddEncoding gzip .jsgz 
+AddEncoding gzip .datagz
+AddEncoding gzip .memgz
+AddEncoding gzip .symbolsgz

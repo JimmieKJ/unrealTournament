@@ -23,57 +23,14 @@ void FWidgetNavigationCustomization::CustomizeChildren(TSharedRef<IPropertyHandl
 {
 	TWeakPtr<IPropertyHandle> PropertyHandlePtr(PropertyHandle);
 
+	//IDetailCategoryBuilder& PropertyCategory = DetailLayout.EditCategory("Events", LOCTEXT("Events", "Events"), ECategoryPriority::Uncommon);
+
 	MakeNavRow(PropertyHandlePtr, ChildBuilder, EUINavigation::Left, LOCTEXT("LeftNavigation", "Left"));
 	MakeNavRow(PropertyHandlePtr, ChildBuilder, EUINavigation::Right, LOCTEXT("RightNavigation", "Right"));
 	MakeNavRow(PropertyHandlePtr, ChildBuilder, EUINavigation::Up, LOCTEXT("UpNavigation", "Up"));
 	MakeNavRow(PropertyHandlePtr, ChildBuilder, EUINavigation::Down, LOCTEXT("DownNavigation", "Down"));
-}
-
-void FWidgetNavigationCustomization::FillOutChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
-{
-	// Generate all the other children
-	uint32 NumChildren;
-	PropertyHandle->GetNumChildren(NumChildren);
-
-	for ( uint32 ChildIndex = 0; ChildIndex < NumChildren; ChildIndex++ )
-	{
-		TSharedRef<IPropertyHandle> ChildHandle = PropertyHandle->GetChildHandle(ChildIndex).ToSharedRef();
-		if ( ChildHandle->IsCustomized() )
-		{
-			continue;
-		}
-
-		if ( ChildHandle->GetProperty() == NULL )
-		{
-			FillOutChildren(ChildHandle, ChildBuilder, CustomizationUtils);
-		}
-		else
-		{
-			ChildBuilder.AddChildProperty(ChildHandle);
-		}
-	}
-}
-
-FReply FWidgetNavigationCustomization::OnCustomizeNavigation(TWeakPtr<IPropertyHandle> PropertyHandle)
-{
-	TArray<UObject*> OuterObjects;
-	PropertyHandle.Pin()->GetOuterObjects(OuterObjects);
-
-	const FScopedTransaction Transaction(LOCTEXT("UpdateNavigation", "Update Navigation"));
-
-	for ( UObject* OuterObject : OuterObjects )
-	{
-		if ( UWidget* Widget = Cast<UWidget>(OuterObject) )
-		{
-			if ( !Widget->Navigation )
-			{
-				Widget->Modify();
-				Widget->Navigation = NewObject<UWidgetNavigation>(Widget);
-			}
-		}
-	}
-
-	return FReply::Handled();
+	MakeNavRow(PropertyHandlePtr, ChildBuilder, EUINavigation::Next, LOCTEXT("NextNavigation", "Next"));
+	MakeNavRow(PropertyHandlePtr, ChildBuilder, EUINavigation::Previous, LOCTEXT("PreviousNavigation", "Previous"));
 }
 
 EUINavigationRule FWidgetNavigationCustomization::GetNavigationRule(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const
@@ -307,6 +264,12 @@ void FWidgetNavigationCustomization::SetNav(UWidget* Widget, EUINavigation Nav, 
 		break;
 	case EUINavigation::Down:
 		DirectionNavigation = &WidgetNavigation->Down;
+		break;
+	case EUINavigation::Next:
+		DirectionNavigation = &WidgetNavigation->Next;
+		break;
+	case EUINavigation::Previous:
+		DirectionNavigation = &WidgetNavigation->Previous;
 		break;
 	default:
 		// Should not be possible.

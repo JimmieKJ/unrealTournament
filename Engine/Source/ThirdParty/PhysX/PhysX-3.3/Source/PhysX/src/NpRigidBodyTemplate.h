@@ -134,7 +134,7 @@ protected:
 					void				setCMassLocalPoseInternal(const PxTransform&);
 
 					void				addSpatialForce(const PxVec3* force, const PxVec3* torque, PxForceMode::Enum mode);
-					void				clearSpatialForce(PxForceMode::Enum mode);
+					void				clearSpatialForce(PxForceMode::Enum mode, bool force, bool torque);
 
 	PX_INLINE		void				updateBody2Actor(const PxTransform& newBody2Actor);
 
@@ -364,24 +364,19 @@ void NpRigidBodyTemplate<APIClass>::addSpatialForce(const PxVec3* force, const P
 }
 
 template<class APIClass>
-void NpRigidBodyTemplate<APIClass>::clearSpatialForce(PxForceMode::Enum mode)
+void NpRigidBodyTemplate<APIClass>::clearSpatialForce(PxForceMode::Enum mode, bool force, bool torque)
 {
 	PX_ASSERT(!(mBody.getFlags() & PxRigidBodyFlag::eKINEMATIC));
 
 	switch (mode)
 	{
 	case PxForceMode::eFORCE:
-		mBody.clearSpatialAcceleration();
-		break;
-
 	case PxForceMode::eACCELERATION:
-		mBody.clearSpatialAcceleration();
+		mBody.clearSpatialAcceleration(force, torque);
 		break;
 	case PxForceMode::eIMPULSE:
-		mBody.clearSpatialVelocity();
-		break;
 	case PxForceMode::eVELOCITY_CHANGE:
-		mBody.clearSpatialVelocity();
+		mBody.clearSpatialVelocity(force, torque);
 		break;
 	}
 }
@@ -435,13 +430,23 @@ PX_FORCE_INLINE void updateDynamicSceneQueryShapes(NpShapeManager& shapeManager,
 template<class APIClass>
 PX_FORCE_INLINE void NpRigidBodyTemplate<APIClass>::setRigidBodyFlagsInternal(const PxRigidBodyFlags& currentFlags, const PxRigidBodyFlags& newFlags)
 {
+	PxRigidBodyFlags filteredNewFlags = newFlags;
+	//Test to ensure we are not enabling both CCD and kinematic state on a body. This is unsupported
+	if((filteredNewFlags & PxRigidBodyFlag::eENABLE_CCD) && (filteredNewFlags & PxRigidBodyFlag::eKINEMATIC))
+	{
+		physx::shdfnd::getFoundation().error(physx::PxErrorCode::eINVALID_PARAMETER, __FILE__, __LINE__, 
+			"RigidBody::setRigidBodyFlag: kinematic bodies with CCD enabled are not supported! CCD will be ignored.");
+		filteredNewFlags &= PxRigidBodyFlags(~PxRigidBodyFlag::eENABLE_CCD);
+	}
+
 	Scb::Body& body = getScbBodyFast();
 	NpScene* scene = NpActor::getAPIScene(*this);
 
 	const bool isKinematic = currentFlags & PxRigidBodyFlag::eKINEMATIC;
-	const bool willBeKinematic = newFlags & PxRigidBodyFlag::eKINEMATIC;
+	const bool willBeKinematic = filteredNewFlags & PxRigidBodyFlag::eKINEMATIC;
 	const bool kinematicSwitchingToDynamic = isKinematic && (!willBeKinematic);
 	const bool dynamicSwitchingToKinematic = (!isKinematic) && willBeKinematic;
+
 	if(kinematicSwitchingToDynamic)
 	{
 		NpShapeManager& shapeManager = this->getShapeManager();
@@ -458,7 +463,7 @@ PX_FORCE_INLINE void NpRigidBodyTemplate<APIClass>::setRigidBodyFlagsInternal(co
 		}
 		if(hasTriangleMesh)
 		{
-			physx::shdfnd::getFoundation().error(physx::PxErrorCode::eINVALID_PARAMETER, __FILE__, __LINE__, "RigidBody::setRigidBodyFlag: dynamic meshes/planes/heighfields are not supported!");
+			physx::shdfnd::getFoundation().error(physx::PxErrorCode::eINVALID_PARAMETER, __FILE__, __LINE__, "RigidBody::setRigidBodyFlag: dynamic meshes/planes/heightfields are not supported!");
 			return;
 		}
 
@@ -485,7 +490,7 @@ PX_FORCE_INLINE void NpRigidBodyTemplate<APIClass>::setRigidBodyFlagsInternal(co
 	}
 
 	const bool kinematicSwitchingUseTargetForSceneQuery = isKinematic && willBeKinematic && 
-														((currentFlags & PxRigidDynamicFlag::eUSE_KINEMATIC_TARGET_FOR_SCENE_QUERIES) != (newFlags & PxRigidDynamicFlag::eUSE_KINEMATIC_TARGET_FOR_SCENE_QUERIES));
+														((currentFlags & PxRigidBodyFlag::eUSE_KINEMATIC_TARGET_FOR_SCENE_QUERIES) != (filteredNewFlags & PxRigidBodyFlag::eUSE_KINEMATIC_TARGET_FOR_SCENE_QUERIES));
 	if (kinematicSwitchingUseTargetForSceneQuery)
 	{
 		PxTransform bodyTarget;
@@ -495,9 +500,7 @@ PX_FORCE_INLINE void NpRigidBodyTemplate<APIClass>::setRigidBodyFlagsInternal(co
 		}
 	}
 
-	body.setFlags(newFlags);
-
-	GRB_EVENT(this->getScene(), GrbInteropEvent3, GrbInteropEvent3::PxActorSetRigidBodyFlags, static_cast<PxActor *>(this), (PxU32)newFlags);
+	body.setFlags(filteredNewFlags);
 }
 
 

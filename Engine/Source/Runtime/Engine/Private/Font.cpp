@@ -8,6 +8,9 @@
 #include "Engine/Font.h"
 #include "Engine/FontImportOptions.h"
 #include "SlateBasics.h"
+#include "EngineFontServices.h"
+
+#include "EditorFramework/AssetImportData.h"
 
 UFontImportOptions::UFontImportOptions(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -97,19 +100,23 @@ void UFont::PostLoad()
 #if WITH_EDITORONLY_DATA
 void UFont::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
+	FAssetImportInfo ImportInfo;
+
 	// Add all the font filenames
 	for( const FTypefaceEntry& TypefaceEntry : CompositeFont.DefaultTypeface.Fonts )
 	{
-		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), TypefaceEntry.Font.FontFilename, FAssetRegistryTag::TT_Hidden) );
+		ImportInfo.Insert(FAssetImportInfo::FSourceFile(TypefaceEntry.Font.FontFilename));
 	}
 
 	for( const FCompositeSubFont& SubFont : CompositeFont.SubTypefaces )
 	{
 		for( const FTypefaceEntry& TypefaceEntry : SubFont.Typeface.Fonts )
 		{
-			OutTags.Add( FAssetRegistryTag(SourceFileTagName(), TypefaceEntry.Font.FontFilename, FAssetRegistryTag::TT_Hidden) );
+			ImportInfo.Insert(FAssetImportInfo::FSourceFile(TypefaceEntry.Font.FontFilename));
 		}
 	}
+
+	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), ImportInfo.ToJson(), FAssetRegistryTag::TT_Hidden) );
 
 	Super::GetAssetRegistryTags(OutTags);
 }
@@ -202,17 +209,20 @@ void UFont::GetCharSize(TCHAR InCh, float& Width, float& Height) const
 
 	case EFontCacheType::Runtime:
 		{
-			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-	
-			const float FontScale = 1.0f;
-			const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
-			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+			TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
 
-			const FCharacterEntry& Entry = CharacterList[InCh];
-			Width = Entry.XAdvance;
+			if (FontCache.IsValid())
+			{
+				const float FontScale = 1.0f;
+				const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
+				FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+				const FCharacterEntry& Entry = CharacterList.GetCharacter(LegacyFontInfo, InCh);
 
-			// The height of the character will always be the maximum height of any character in this font
-			Height = CharacterList.GetMaxHeight();
+				Width = Entry.XAdvance;
+
+				// The height of the character will always be the maximum height of any character in this font
+				Height = CharacterList.GetMaxHeight();
+			}
 		}
 		break;
 
@@ -233,13 +243,16 @@ int8 UFont::GetCharKerning(TCHAR First, TCHAR Second) const
 
 	case EFontCacheType::Runtime:
 		{
-			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-	
-			const float FontScale = 1.0f;
-			const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
-			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+			TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
 
-			return CharacterList.GetKerning(First, Second);
+			if (FontCache.IsValid())
+			{
+				const float FontScale = 1.0f;
+				const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
+				FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+
+				return CharacterList.GetKerning(LegacyFontInfo, First, Second);
+			}
 		}
 		break;
 
@@ -254,14 +267,17 @@ int16 UFont::GetCharHorizontalOffset(TCHAR InCh) const
 {
 	if(FontCacheType == EFontCacheType::Runtime)
 	{
-		TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-	
-		const float FontScale = 1.0f;
-		const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
-		FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+		TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
 
-		const FCharacterEntry& Entry = CharacterList[InCh];
-		return Entry.HorizontalOffset;
+		if (FontCache.IsValid())
+		{
+			const float FontScale = 1.0f;
+			const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
+			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+			const FCharacterEntry& Entry = CharacterList.GetCharacter(LegacyFontInfo, InCh);
+
+			return Entry.HorizontalOffset;
+		}
 	}
 
 	return 0;
@@ -302,13 +318,16 @@ float UFont::GetMaxCharHeight() const
 
 	case EFontCacheType::Runtime:
 		{
-			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-	
-			const float FontScale = 1.0f;
-			const FSlateFontInfo LegacyFontInfo(this, LegacyFontSize);
-			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+			TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
+			
+			if (FontCache.IsValid())
+			{
+				const float FontScale = 1.0f;
+				const FSlateFontInfo LegacyFontInfo(this, LegacyFontSize);
+				FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
 
-			MaxHeight = CharacterList.GetMaxHeight();
+				MaxHeight = CharacterList.GetMaxHeight();
+			}
 		}
 		break;
 

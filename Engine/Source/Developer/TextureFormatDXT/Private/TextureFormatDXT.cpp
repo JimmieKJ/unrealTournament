@@ -422,7 +422,7 @@ class FTextureFormatDXT : public ITextureFormat
 		) const override
 	{
 		FImage Image;
-		InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.bSRGB);
+		InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.GetGammaSpace());
 
 		bool bIsNormalMap = false;
 		EPixelFormat CompressedPixelFormat = PF_Unknown;
@@ -467,7 +467,7 @@ class FTextureFormatDXT : public ITextureFormat
 				CompressedPixelFormat,
 				Image.SizeX,
 				Image.SizeY,
-				Image.bSRGB,
+				Image.IsGammaCorrected(),
 				bIsNormalMap,
 				CompressedSliceData
 				);

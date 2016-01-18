@@ -48,7 +48,14 @@ private:
 	 *
 	 * @param EnumIndex	- The index of the enum to return the friendly name for
 	 */
-	FString OnGetFriendlyName(int32 EnumIndex);
+	FText OnGetFriendlyName(int32 EnumIndex);
+
+	/**
+	 * Returns the tooltip of the enum at index EnumIndex
+	 *
+	 * @param EnumIndex	- The index of the enum to return the tooltip for
+	 */
+	FText OnGetTooltip(int32 EnumIndex);
 
 	TSharedPtr<class SPinComboBox>	ComboBox;
 };

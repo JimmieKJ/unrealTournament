@@ -215,7 +215,11 @@ STDMETHODIMP FWmfMediaSession::Invoke( IMFAsyncResult* AsyncResult )
 			}
 			else
 			{
-				if (EventType == MEEndOfPresentation)
+				if (EventType == MESessionCapabilitiesChanged)
+				{
+					Capabilities = ::MFGetAttributeUINT32(Event, MF_EVENT_SESSIONCAPS, Capabilities);
+				}
+				else if (EventType == MESessionEnded)
 				{
 					if (Looping)
 					{
@@ -229,16 +233,8 @@ STDMETHODIMP FWmfMediaSession::Invoke( IMFAsyncResult* AsyncResult )
 					else
 					{
 						RequestedState = EMediaStates::Stopped;
-						MediaSession->Stop();
+						UpdateState(EMediaStates::Stopped);
 					}
-				}
-				else if (EventType == MESessionCapabilitiesChanged)
-				{
-					Capabilities = ::MFGetAttributeUINT32(Event, MF_EVENT_SESSIONCAPS, Capabilities);
-				}
-				else if (EventType == MESessionEnded)
-				{
-					// do nothing
 				}
 				else if (EventType == MESessionPaused)
 				{
@@ -294,6 +290,11 @@ STDMETHODIMP FWmfMediaSession::Invoke( IMFAsyncResult* AsyncResult )
 }
 
 
+#if _MSC_VER == 1900
+#pragma warning(push)
+#pragma warning(disable:4838)
+#endif // _MSC_VER == 1900
+
 STDMETHODIMP FWmfMediaSession::QueryInterface( REFIID RefID, void** Object )
 {
 	static const QITAB QITab[] =
@@ -304,6 +305,9 @@ STDMETHODIMP FWmfMediaSession::QueryInterface( REFIID RefID, void** Object )
 
 	return QISearch(this, QITab, RefID, Object);
 }
+#if _MSC_VER == 1900
+#pragma warning(pop)
+#endif // _MSC_VER == 1900
 
 
 STDMETHODIMP_(ULONG) FWmfMediaSession::Release()

@@ -19,7 +19,7 @@ enum ETrailsRenderAxisOption
 	Trails_MAX,
 };
 
-UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Ribbon Data"))
+UCLASS(MinimalAPI, editinlinenew, hidecategories=Object, meta=(DisplayName = "Ribbon Data"))
 class UParticleModuleTypeDataRibbon : public UParticleModuleTypeDataBase
 {
 	GENERATED_UCLASS_BODY()
@@ -159,19 +159,19 @@ class UParticleModuleTypeDataRibbon : public UParticleModuleTypeDataBase
 	float TangentTessellationScalar;
 
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
-	// Begin UParticleModuleTypeDataBase Interface
+	//~ Begin UParticleModuleTypeDataBase Interface
 	virtual FParticleEmitterInstance* CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent) override;
-	// End UParticleModuleTypeDataBase Interface
+	//~ End UParticleModuleTypeDataBase Interface
 };
 
 

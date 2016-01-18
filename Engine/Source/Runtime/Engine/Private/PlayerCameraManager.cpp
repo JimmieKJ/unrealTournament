@@ -15,6 +15,8 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlayerCameraManager, Log, All);
 
+DECLARE_CYCLE_STAT(TEXT("ServerUpdateCamera"), STAT_ServerUpdateCamera, STATGROUP_Game);
+
 
 //////////////////////////////////////////////////////////////////////////
 // APlayerCameraManager
@@ -78,8 +80,8 @@ void APlayerCameraManager::SetViewTarget(class AActor* NewTarget, struct FViewTa
 		return;
 	}
 
-	// if different then new one, then assign it
-	if( NewTarget != ViewTarget.Target )
+	// if viewtarget different then new one or we're transitioning from the same target with locked outgoing, then assign it
+	if((NewTarget != ViewTarget.Target) || (PendingViewTarget.Target && BlendParams.bLockOutgoing))
 	{
 		// if a transition time is specified, then set pending view target accordingly
 		if( TransitionParams.BlendTime > 0 )
@@ -541,7 +543,7 @@ void APlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime
 				Rotator = PCOwner->GetControlRotation();
 			}
 
-			FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(FreeCamOffset) - Rotator.Vector() * FreeCamDistance;
+			FVector Pos = Loc + ViewTargetOffset + FRotationMatrix(Rotator).TransformVector(FreeCamOffset) - Rotator.Vector() * FreeCamDistance;
 			FCollisionQueryParams BoxParams(NAME_FreeCam, false, this);
 			BoxParams.AddIgnoredActor(OutVT.Target);
 			FHitResult Result;
@@ -733,13 +735,17 @@ void APlayerCameraManager::PostInitializeComponents()
 	{
 		for (auto ModifierClass : DefaultModifiers)
 		{
-			UCameraModifier* const NewMod = AddNewCameraModifier(ModifierClass);
-		
-			// cache ref to camera shake if this is it
-			UCameraModifier_CameraShake* const ShakeMod = Cast<UCameraModifier_CameraShake>(NewMod);
-			if (ShakeMod)
+			// empty entries are not valid here, do work only for actual classes
+			if (ModifierClass)
 			{
-				CachedCameraShakeMod = ShakeMod;
+				UCameraModifier* const NewMod = AddNewCameraModifier(ModifierClass);
+
+				// cache ref to camera shake if this is it
+				UCameraModifier_CameraShake* const ShakeMod = Cast<UCameraModifier_CameraShake>(NewMod);
+				if (ShakeMod)
+				{
+					CachedCameraShakeMod = ShakeMod;
+				}
 			}
 		}
 	}
@@ -757,20 +763,23 @@ void APlayerCameraManager::PostInitializeComponents()
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.Owner = this;
 	SpawnInfo.Instigator = Instigator;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save these temp actors into a map
 	AnimCameraActor = GetWorld()->SpawnActor<ACameraActor>(SpawnInfo);
 }
 
-void APlayerCameraManager::Destroyed()
+void APlayerCameraManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	// clean up the temp camera actor
 	if (AnimCameraActor)
 	{
-		AnimCameraActor->Destroy();
+		if (EndPlayReason == EEndPlayReason::Destroyed)
+		{
+			AnimCameraActor->Destroy();
+		}
 		AnimCameraActor = NULL;
 	}
-	Super::Destroyed();
+	Super::EndPlay(EndPlayReason);
 }
 
 void APlayerCameraManager::InitializeFor(APlayerController* PC)
@@ -876,6 +885,8 @@ void APlayerCameraManager::UpdateCamera(float DeltaTime)
 
 		if (GetNetMode() == NM_Client && bShouldSendClientSideCameraUpdate)
 		{
+			SCOPE_CYCLE_COUNTER(STAT_ServerUpdateCamera);
+
 			// compress the rotation down to 4 bytes
 			int32 const ShortYaw = FRotator::CompressAxisToShort(CameraCache.POV.Rotation.Yaw);
 			int32 const ShortPitch = FRotator::CompressAxisToShort(CameraCache.POV.Rotation.Pitch);
@@ -1078,18 +1089,11 @@ void APlayerCameraManager::LimitViewYaw(FRotator& ViewRotation, float InViewYawM
 
 void APlayerCameraManager::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
 {
-	Canvas->SetDrawColor(255,255,255);
-
-	UFont* RenderFont = GEngine->GetSmallFont();
-	YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("   Camera Style:%s main ViewTarget:%s"), *CameraStyle.ToString(), *ViewTarget.Target->GetName()), 4.0f, YPos );
-	YPos += YL;
-
-	//@TODO: Print out more information
-	YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("   CamLoc:%s CamRot:%s FOV:%f"), *CameraCache.POV.Location.ToCompactString(), *CameraCache.POV.Rotation.ToCompactString(), CameraCache.POV.FOV), 4.0f, YPos );
-	YPos += YL;
-
-	YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("   AspectRatio: %1.3f"), CameraCache.POV.AspectRatio), 4.0f, YPos );
-	YPos += YL;
+	FDisplayDebugManager& DisplayDebugManager = Canvas->DisplayDebugManager;
+	DisplayDebugManager.SetDrawColor(FColor(255, 255, 255));
+	DisplayDebugManager.DrawString(FString::Printf(TEXT("   Camera Style:%s main ViewTarget:%s"), *CameraStyle.ToString(), *ViewTarget.Target->GetName()));
+	DisplayDebugManager.DrawString(FString::Printf(TEXT("   CamLoc:%s CamRot:%s FOV:%f"), *CameraCache.POV.Location.ToCompactString(), *CameraCache.POV.Rotation.ToCompactString(), CameraCache.POV.FOV));
+	DisplayDebugManager.DrawString(FString::Printf(TEXT("   AspectRatio: %1.3f"), CameraCache.POV.AspectRatio));
 }
 
 void APlayerCameraManager::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
@@ -1142,7 +1146,7 @@ AEmitterCameraLensEffectBase* APlayerCameraManager::AddCameraLensEffect(TSubclas
 			FActorSpawnParameters SpawnInfo;
 			SpawnInfo.Owner = PCOwner->GetViewTarget();
 			SpawnInfo.Instigator = Instigator;
-			SpawnInfo.bNoCollisionFail = true;
+			SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save these into a map
 			LensEffect = GetWorld()->SpawnActor<AEmitterCameraLensEffectBase>(LensEffectEmitterClass, SpawnInfo);
 			if (LensEffect != NULL)
@@ -1234,7 +1238,7 @@ float APlayerCameraManager::CalcRadialShakeScale(APlayerCameraManager* Camera, F
 	else
 	{
 		// ignore OuterRadius and do a cliff falloff at InnerRadius
-		return ((Epicenter - POVLoc).Size() < InnerRadius) ? 1.f : 0.f;
+		return ((Epicenter - POVLoc).SizeSquared() < FMath::Square(InnerRadius)) ? 1.f : 0.f;
 	}
 }
 
@@ -1389,7 +1393,7 @@ void FTViewTarget::CheckViewTarget(APlayerController* OwningController)
 					}
 					else
 					{
-						PlayerState = NULL;
+						Target = PlayerState; // this will cause it to update to the next Pawn possessed by the player being viewed
 					}
 				}
 				else

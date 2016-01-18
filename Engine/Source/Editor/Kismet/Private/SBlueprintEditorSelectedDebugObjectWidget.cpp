@@ -24,6 +24,8 @@
 
 #define LOCTEXT_NAMESPACE "KismetToolbar"
 
+static TAutoConsoleVariable<int32> CVarUseFastDebugObjectDiscovery(TEXT("r.UseFastDebugObjectDiscovery"), 1, TEXT("Enable new optimised debug object discovery"));
+
 //////////////////////////////////////////////////////////////////////////
 // SBlueprintEditorSelectedDebugObjectWidget
 
@@ -373,6 +375,65 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugObjectNames(bool bR
 
 	UWorld* PreviewWorld = BlueprintEditor.Pin()->GetPreviewScene()->GetWorld();
 
+	const bool bModifiedIterator = CVarUseFastDebugObjectDiscovery.GetValueOnGameThread() == 1;
+	UClass* BlueprintClass = Cast<UClass>(GetBlueprintObj()->GeneratedClass);
+
+	if (bModifiedIterator && BlueprintClass)
+	{
+		// Experimental new path for debug object discovery
+		TArray<UObject*> BlueprintInstances;
+		GetObjectsOfClass(BlueprintClass, BlueprintInstances, true);
+
+		for (auto It = BlueprintInstances.CreateIterator(); It; ++It)
+		{
+			UObject* TestObject = *It;
+			// Skip Blueprint preview objects (don't allow them to be selected for debugging)
+			if (PreviewWorld != nullptr && TestObject->IsIn(PreviewWorld))
+			{
+				continue;
+			}
+
+			if (!TestObject->HasAnyFlags(RF_ClassDefaultObject) && !TestObject->IsPendingKill())
+			{
+				UObject *ObjOuter = TestObject;
+				UWorld *ObjWorld = nullptr;
+				static bool bUseNewWorldCode = false;
+				do		// Run through at least once in case the TestObject is a UGameInstance
+				{
+					UGameInstance *ObjGameInstance = Cast<UGameInstance>(ObjOuter);
+
+					ObjOuter = ObjOuter->GetOuter();
+					ObjWorld = ObjGameInstance ? ObjGameInstance->GetWorld() : Cast<UWorld>(ObjOuter);
+				} while (ObjWorld == nullptr && ObjOuter != nullptr);
+
+				if (ObjWorld)
+				{
+					// Make check on owning level (not streaming level)
+					if (ObjWorld->PersistentLevel && ObjWorld->PersistentLevel->OwningWorld)
+					{
+						ObjWorld = ObjWorld->PersistentLevel->OwningWorld;
+					}
+
+					// We have a specific debug world and the object isn't in it
+					if (DebugWorld && ObjWorld != DebugWorld)
+					{
+						continue;
+					}
+
+					if ((ObjWorld->WorldType == EWorldType::Editor) && (GUnrealEd->GetPIEViewport() == nullptr))
+					{
+						AddDebugObject(TestObject);
+					}
+					else if (ObjWorld->WorldType == EWorldType::PIE)
+					{
+						AddDebugObject(TestObject);
+					}
+				}
+			}
+		}
+	}
+	else
+	{
 	for (TObjectIterator<UObject> It; It; ++It)
 	{
 		UObject* TestObject = *It;
@@ -383,7 +444,7 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugObjectNames(bool bR
 			continue;
 		}
 
-		const bool bPassesFlags = !TestObject->HasAnyFlags(RF_PendingKill | RF_ClassDefaultObject);
+		const bool bPassesFlags = !TestObject->HasAnyFlags(RF_ClassDefaultObject) && !TestObject->IsPendingKill();
 		const bool bGeneratedByAnyBlueprint = TestObject->GetClass()->ClassGeneratedBy != nullptr;
 		const bool bGeneratedByThisBlueprint = bGeneratedByAnyBlueprint && TestObject->IsA(GetBlueprintObj()->GeneratedClass);
 
@@ -423,6 +484,7 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugObjectNames(bool bR
 				}
 			}
 		}
+	}
 	}
 
 	// Attempt to restore the old selection

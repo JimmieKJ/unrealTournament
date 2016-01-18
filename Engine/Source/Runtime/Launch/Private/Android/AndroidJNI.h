@@ -29,6 +29,20 @@ public:
 	static jmethodID AndroidThunkJava_KeepScreenOn;
 	static jmethodID AndroidThunkJava_InitHMDs;
 	static jmethodID AndroidThunkJava_IsGearVRApplication;
+	static jmethodID AndroidThunkJava_DismissSplashScreen;
+	static jmethodID AndroidThunkJava_GetCurrentVolume;
+	static jmethodID AndroidThunkJava_GetMaximumVolume;
+	static jmethodID AndroidThunkJava_SetVolume;
+	static jmethodID AndroidThunkJava_AdjustVolume;
+	static jmethodID AndroidThunkJava_GetInputDeviceInfo;
+	
+	// InputDeviceInfo member field ids
+	static jclass InputDeviceInfoClass;
+	static jfieldID InputDeviceInfo_VendorId;
+	static jfieldID InputDeviceInfo_ProductId;
+	static jfieldID InputDeviceInfo_ControllerId;
+	static jfieldID InputDeviceInfo_Name;
+	static jfieldID InputDeviceInfo_Descriptor;
 
 	// IDs related to google play services
 	static jclass GoogleServicesClassID;
@@ -39,6 +53,7 @@ public:
 	static jmethodID AndroidThunkJava_CloseAdBanner;
 
 	// In app purchase functionality
+	static jclass JavaStringClass;
 	static jmethodID AndroidThunkJava_IapSetupService;
 	static jmethodID AndroidThunkJava_IapQueryInAppPurchases;
 	static jmethodID AndroidThunkJava_IapBeginPurchase;
@@ -59,6 +74,7 @@ public:
 
 	static void CallVoidMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
 	static jobject CallObjectMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
+	static int32 CallIntMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
 	static bool CallBooleanMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
 
 	// Delegate that can be registered to that is called when an activity is finished

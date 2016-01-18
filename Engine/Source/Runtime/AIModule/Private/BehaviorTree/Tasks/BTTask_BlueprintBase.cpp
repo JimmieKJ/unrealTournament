@@ -7,12 +7,14 @@
 UBTTask_BlueprintBase::UBTTask_BlueprintBase(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	UClass* StopAtClass = UBTTask_BlueprintBase::StaticClass();
-	ReceiveTickImplementations = FBTNodeBPImplementationHelper::CheckEventImplementationVersion(TEXT("ReceiveTick"), TEXT("ReceiveTickAI"), this, StopAtClass);
-	ReceiveExecuteImplementations = FBTNodeBPImplementationHelper::CheckEventImplementationVersion(TEXT("ReceiveExecute"), TEXT("ReceiveExecuteAI"), this, StopAtClass);
-	ReceiveAbortImplementations = FBTNodeBPImplementationHelper::CheckEventImplementationVersion(TEXT("ReceiveAbort"), TEXT("ReceiveAbortAI"), this, StopAtClass);
+	ReceiveTickImplementations = FBTNodeBPImplementationHelper::CheckEventImplementationVersion(TEXT("ReceiveTick"), TEXT("ReceiveTickAI"), *this, *StopAtClass);
+	ReceiveExecuteImplementations = FBTNodeBPImplementationHelper::CheckEventImplementationVersion(TEXT("ReceiveExecute"), TEXT("ReceiveExecuteAI"), *this, *StopAtClass);
+	ReceiveAbortImplementations = FBTNodeBPImplementationHelper::CheckEventImplementationVersion(TEXT("ReceiveAbort"), TEXT("ReceiveAbortAI"), *this, *StopAtClass);
 
 	bNotifyTick = ReceiveTickImplementations != FBTNodeBPImplementationHelper::NoImplementation;
+	bNotifyTaskFinished = true;
 	bShowPropertyDetails = true;
+	bIsAborting = false;
 
 	// all blueprint based nodes must create instances
 	bCreateNodeInstance = true;
@@ -33,12 +35,13 @@ EBTNodeResult::Type UBTTask_BlueprintBase::ExecuteTask(UBehaviorTreeComponent& O
 {
 	// fail when task doesn't react to execution (start or tick)
 	CurrentCallResult = (ReceiveExecuteImplementations != 0 || ReceiveTickImplementations != 0) ? EBTNodeResult::InProgress : EBTNodeResult::Failed;
+	bIsAborting = false;
 
 	if (ReceiveExecuteImplementations != FBTNodeBPImplementationHelper::NoImplementation)
 	{
 		bStoreFinishResult = true;
 
-		if (AIOwner != nullptr && ReceiveExecuteImplementations & FBTNodeBPImplementationHelper::AISpecific)
+		if (AIOwner != nullptr && (ReceiveExecuteImplementations & FBTNodeBPImplementationHelper::AISpecific))
 		{
 			ReceiveExecuteAI(AIOwner, AIOwner->GetPawn());
 		}
@@ -60,12 +63,13 @@ EBTNodeResult::Type UBTTask_BlueprintBase::AbortTask(UBehaviorTreeComponent& Own
 	BlueprintNodeHelpers::AbortLatentActions(OwnerComp, *this);
 
 	CurrentCallResult = ReceiveAbortImplementations != 0 ? EBTNodeResult::InProgress : EBTNodeResult::Aborted;
+	bIsAborting = true;
 
 	if (ReceiveAbortImplementations != FBTNodeBPImplementationHelper::NoImplementation)
 	{
 		bStoreFinishResult = true;
 
-		if (AIOwner != nullptr && ReceiveAbortImplementations & FBTNodeBPImplementationHelper::AISpecific)
+		if (AIOwner != nullptr && (ReceiveAbortImplementations & FBTNodeBPImplementationHelper::AISpecific))
 		{
 			ReceiveAbortAI(AIOwner, AIOwner->GetPawn());
 		}
@@ -82,13 +86,23 @@ EBTNodeResult::Type UBTTask_BlueprintBase::AbortTask(UBehaviorTreeComponent& Own
 
 void UBTTask_BlueprintBase::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
-	if (AIOwner != nullptr && ReceiveTickImplementations & FBTNodeBPImplementationHelper::AISpecific)
+	if (AIOwner != nullptr && (ReceiveTickImplementations & FBTNodeBPImplementationHelper::AISpecific))
 	{
 		ReceiveTickAI(AIOwner, AIOwner->GetPawn(), DeltaSeconds);
 	}
 	else if (ReceiveTickImplementations & FBTNodeBPImplementationHelper::Generic)
 	{
 		ReceiveTick(ActorOwner, DeltaSeconds);
+	}
+}
+
+void UBTTask_BlueprintBase::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
+{
+	Super::OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
+	
+	if (TaskResult != EBTNodeResult::InProgress)
+	{
+		BlueprintNodeHelpers::AbortLatentActions(OwnerComp, *this);
 	}
 }
 
@@ -101,7 +115,7 @@ void UBTTask_BlueprintBase::FinishExecute(bool bSuccess)
 	{
 		CurrentCallResult = NodeResult;
 	}
-	else if (OwnerComp)
+	else if (OwnerComp && !bIsAborting)
 	{
 		FinishLatentTask(*OwnerComp, NodeResult);
 	}
@@ -116,7 +130,7 @@ void UBTTask_BlueprintBase::FinishAbort()
 	{
 		CurrentCallResult = NodeResult;
 	}
-	else if (OwnerComp)
+	else if (OwnerComp && bIsAborting)
 	{
 		FinishLatentAbort(*OwnerComp);
 	}
@@ -128,6 +142,12 @@ bool UBTTask_BlueprintBase::IsTaskExecuting() const
 	EBTTaskStatus::Type TaskStatus = OwnerComp->GetTaskStatus(this);
 
 	return (TaskStatus == EBTTaskStatus::Active);
+}
+
+bool UBTTask_BlueprintBase::IsTaskAborting() const
+{
+	// use already cached data
+	return bIsAborting;
 }
 
 void UBTTask_BlueprintBase::SetFinishOnMessage(FName MessageName)

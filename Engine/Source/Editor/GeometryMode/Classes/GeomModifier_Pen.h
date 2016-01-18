@@ -40,7 +40,7 @@ class UGeomModifier_Pen : public UGeomModifier_Edit
 
 	FEditorViewportClient*		UsingViewportClient;
 
-	// Begin UGeomModifier Interface
+	//~ Begin UGeomModifier Interface
 	virtual bool InputKey(class FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event) override;
 	virtual void Render(const FSceneView* View,FViewport* Viewport,FPrimitiveDrawInterface* PDI) override;
 	virtual void DrawHUD(FEditorViewportClient* ViewportClient,FViewport* Viewport,const FSceneView* View,FCanvas* Canvas) override;
@@ -48,7 +48,7 @@ class UGeomModifier_Pen : public UGeomModifier_Edit
 	virtual void WasActivated() override;
 protected:
 	virtual bool OnApply() override;
-	// End UGeomModifier Interface
+	//~ End UGeomModifier Interface
 private:
 	void Apply();
 };

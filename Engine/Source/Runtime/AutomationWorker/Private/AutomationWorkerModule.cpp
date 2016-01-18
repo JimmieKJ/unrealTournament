@@ -1,8 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationWorkerPrivatePCH.h"
-#include "AssetRegistryModule.h"
 
+#if WITH_EDITOR
+#include "AssetRegistryModule.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "AutomationTest"
 
@@ -70,9 +72,6 @@ void FAutomationWorkerModule::Tick()
 	{
 		MessageEndpoint->ProcessInbox();
 	}
-
-	// Run any of the automation commands that was obtained during initialization.
-	//RunDeferredAutomationCommands();
 }
 
 
@@ -134,27 +133,7 @@ void FAutomationWorkerModule::Initialize()
 	}
 	ExecutionCount = INDEX_NONE;
 	bExecutingNetworkCommandResults = false;
-
-#if !(UE_BUILD_SHIPPING)
-	//Obtain any command line tests commands that use '-automationtests='.
-	FString AutomationCmds;
-	if (FParse::Value(FCommandLine::Get(), TEXT("AutomationTests="), AutomationCmds, false))
-	{
-		new(DeferredAutomationCommands) FString(FString(TEXT("Automation CommandLineTests ")) + AutomationCmds);
-	}
-
-	//If the asset registry is loading assets then we'll wait for it to stop before running our automation tests.
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	if (AssetRegistryModule.Get().IsLoadingAssets())
-	{
-		AssetRegistryModule.Get().OnFilesLoaded().AddRaw(this, &FAutomationWorkerModule::RunDeferredAutomationCommands);
-	}
-	else
-	{
-		//If the registry is not loading then we'll just go ahead and run our tests.
-		RunDeferredAutomationCommands();
-	}
-#endif // !(UE_BUILD_SHIPPING)
+	bSendAnalytics = false;
 }
 
 void FAutomationWorkerModule::ReportNetworkCommandComplete()
@@ -234,8 +213,17 @@ void FAutomationWorkerModule::ReportTestComplete()
 			Message->Errors = ExecutionInfo.Errors;
 			Message->Warnings = ExecutionInfo.Warnings;
 			Message->Logs = ExecutionInfo.LogItems;
-
 			MessageEndpoint->Send(Message, TestRequesterAddress);
+
+			if (bSendAnalytics)
+			{
+				if (!FAutomationAnalytics::IsInitialized())
+				{
+					FAutomationAnalytics::Initialize();
+				}
+				FAutomationAnalytics::FireEvent_AutomationTestResults(Message, BeautifiedTestName);
+				SendAnalyticsEvents(ExecutionInfo.AnalyticsItems);
+			}
 		}
 
 
@@ -254,44 +242,68 @@ void FAutomationWorkerModule::SendTests( const FMessageAddress& ControllerAddres
 	{
 		MessageEndpoint->Send(new FAutomationWorkerRequestTestsReply(TestInfo[TestIndex].GetTestAsString(), TestInfo.Num()), ControllerAddress);
 	}
+	MessageEndpoint->Send(new FAutomationWorkerRequestTestsReplyComplete(), ControllerAddress);
 }
 
 
 /* FAutomationWorkerModule callbacks
  *****************************************************************************/
 
-void FAutomationWorkerModule::HandleFindWorkersMessage( const FAutomationWorkerFindWorkers& Message, const IMessageContextRef& Context )
+void FAutomationWorkerModule::HandleFindWorkersMessage(const FAutomationWorkerFindWorkers& Message, const IMessageContextRef& Context)
 {
 	// Set the Instance name to be the same as the session browser. This information should be shared at some point
-	FString InstanceName = FString::Printf(TEXT("%s-%i"), FPlatformProcess::ComputerName(), FPlatformProcess::GetCurrentProcessId());
-
 	if ((Message.SessionId == FApp::GetSessionId()) && (Message.Changelist == 10000))
 	{
-		FAutomationWorkerFindWorkersResponse* Response = new FAutomationWorkerFindWorkersResponse();
+		TestRequesterAddress = Context->GetSender();
 
-		FString OSMajorVersionString, OSSubVersionString;
-		FPlatformMisc::GetOSVersions( OSMajorVersionString, OSSubVersionString );
+#if WITH_EDITOR
+		//If the asset registry is loading assets then we'll wait for it to stop before running our automation tests.
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		if (AssetRegistryModule.Get().IsLoadingAssets())
+		{
+			if (!AssetRegistryModule.Get().OnFilesLoaded().IsBoundToObject(this))
+			{
+				AssetRegistryModule.Get().OnFilesLoaded().AddRaw(this, &FAutomationWorkerModule::SendWorkerFound);
+				GLog->Logf(ELogVerbosity::Log, TEXT("...Forcing Asset Registry Load For Automation"));
+			}
+		}
+		else
+#endif
+		{
+			//If the registry is not loading then we'll just go ahead and run our tests.
+			SendWorkerFound();
+		}
+	}
+}
 
-		FString OSVersionString = OSMajorVersionString + TEXT(" ") + OSSubVersionString;
-		FString CPUModelString = FPlatformMisc::GetCPUBrand().Trim();
 
-		Response->DeviceName = FPlatformProcess::ComputerName();
-		Response->InstanceName = InstanceName;
-		Response->Platform = FPlatformProperties::PlatformName();
-		Response->SessionId = Message.SessionId;
-		Response->OSVersionName = OSVersionString;
-		Response->ModelName = FPlatformMisc::GetDefaultDeviceProfileName();
-		Response->GPUName = FPlatformMisc::GetPrimaryGPUBrand();
-		Response->CPUModelName = CPUModelString;
-		Response->RAMInGB = FPlatformMemory::GetPhysicalGBRam();
+void FAutomationWorkerModule::SendWorkerFound()
+{
+	FAutomationWorkerFindWorkersResponse* Response = new FAutomationWorkerFindWorkersResponse();
+
+	FString OSMajorVersionString, OSSubVersionString;
+	FPlatformMisc::GetOSVersions(OSMajorVersionString, OSSubVersionString);
+
+	FString OSVersionString = OSMajorVersionString + TEXT(" ") + OSSubVersionString;
+	FString CPUModelString = FPlatformMisc::GetCPUBrand().Trim();
+
+	Response->DeviceName = FPlatformProcess::ComputerName();
+	Response->InstanceName = FString::Printf(TEXT("%s-%i"), FPlatformProcess::ComputerName(), FPlatformProcess::GetCurrentProcessId());
+	Response->Platform = FPlatformProperties::PlatformName();
+	Response->SessionId = FApp::GetSessionId();
+	Response->OSVersionName = OSVersionString;
+	Response->ModelName = FPlatformMisc::GetDefaultDeviceProfileName();
+	Response->GPUName = FPlatformMisc::GetPrimaryGPUBrand();
+	Response->CPUModelName = CPUModelString;
+	Response->RAMInGB = FPlatformMemory::GetPhysicalGBRam();
 #if WITH_ENGINE
-		Response->RenderModeName = AutomationCommon::GetRenderDetailsString();
+	Response->RenderModeName = AutomationCommon::GetRenderDetailsString();
 #else
-		Response->RenderModeName = TEXT("Unknown");
+	Response->RenderModeName = TEXT("Unknown");
 #endif
 
-		MessageEndpoint->Send(Response, Context->GetSender());
-	}
+	MessageEndpoint->Send(Response, TestRequesterAddress);
+	TestRequesterAddress.Invalidate();
 }
 
 
@@ -321,7 +333,7 @@ void FAutomationWorkerModule::HandleRequestTestsMessage( const FAutomationWorker
 {
 	FAutomationTestFramework::GetInstance().LoadTestModules();
 	FAutomationTestFramework::GetInstance().SetDeveloperDirectoryIncluded(Message.DeveloperDirectoryIncluded);
-	FAutomationTestFramework::GetInstance().SetVisualCommandletFilter(Message.VisualCommandletFilterOn);
+	FAutomationTestFramework::GetInstance().SetRequestedTestFilter(Message.RequestedTestFlags);
 	FAutomationTestFramework::GetInstance().GetValidTestNames( TestInfo );
 
 	SendTests(Context->GetSender());
@@ -422,6 +434,8 @@ void FAutomationWorkerModule::HandleRunTestsMessage( const FAutomationWorkerRunT
 {
 	ExecutionCount = Message.ExecutionCount;
 	TestName = Message.TestName;
+	BeautifiedTestName = Message.BeautifiedTestName;
+	bSendAnalytics = Message.bSendAnalytics;
 	TestRequesterAddress = Context->GetSender();
 	FAutomationTestFramework::GetInstance().SetScreenshotOptions(Message.bScreenshotsEnabled, Message.bUseFullSizeScreenShots);
 
@@ -435,274 +449,33 @@ void FAutomationWorkerModule::HandleRunTestsMessage( const FAutomationWorkerRunT
 }
 
 
-void FAutomationWorkerModule::RunTest(const FString& InTestToRun, const int32 InRoleIndex, FStopTestEvent const& InStopTestEvent)
+//dispatches analytics events to the data collector
+void FAutomationWorkerModule::SendAnalyticsEvents(TArray<FString>& InAnalyticsItems)
 {
-	TestName = InTestToRun;
-
-	StopTestEvent = InStopTestEvent;
-	// Always allow the first network command to execute
-	bExecuteNextNetworkCommand = true;
-
-	// We are not executing network command sub-commands right now
-	bExecutingNetworkCommandResults = false;
-
-	FAutomationTestFramework::GetInstance().StartTestByName(InTestToRun, InRoleIndex);
-}
-
-void FAutomationWorkerModule::RunDeferredAutomationCommands()
-{
-	// Get the loaded asset registry module.
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	
-	// Don't run any of the deferred commands if the registry is still loading otherwise not all possible tests will be found and ran.
-	if (!AssetRegistryModule.Get().IsLoadingAssets())
+	for (int32 i = 0; i < InAnalyticsItems.Num(); ++i)
 	{
-		// Execute all currently queued deferred commands (allows commands to be queued up for next frame).
-		const int32 DeferredCommandsCount = DeferredAutomationCommands.Num();
-		for (int32 DeferredCommandsIndex = 0; DeferredCommandsIndex < DeferredCommandsCount; DeferredCommandsIndex++)
+		FString EventString = InAnalyticsItems[i];
+		if( EventString.EndsWith( TEXT( ",PERF" ) ) )
 		{
-			{
-				GEngine->Exec(NULL, *DeferredAutomationCommands[DeferredCommandsIndex], *GLog);
-			}
-		}
+			// Chop the ",PERF" off the end
+			EventString = EventString.Left( EventString.Len() - 5 );
 
-		// Once all of the commands have executed then we remove them from the array.
-		DeferredAutomationCommands.RemoveAt(0, DeferredCommandsCount);
-	}
-}
-
-/**
- * Implements a local controller to run tests and spew results, mostly used by automated testing.
- */
-static struct FQueueTests
-{
-	struct FJob
-	{
-		FString Test;
-		int32 RoleIndex;
-		FOutputDevice* Ar;
-
-		FJob(FString const& InTest, int32 InRoleIndex, FOutputDevice* InAr)
-			: Test(InTest)
-			, RoleIndex(InRoleIndex)
-			, Ar(InAr)
-		{
-		}
-	};
-
-	int32 NumTestsRun;
-	bool bTestInPogress;
-	bool bTicking;
-	TArray<FJob> Queue;
-
-	FQueueTests()
-		: NumTestsRun(0)
-		, bTestInPogress(false)
-		, bTicking(false)
-	{ }
-
-	void NewTest(FString const& Command, int32 RoleIndex = 0, FOutputDevice* Ar = GLog)
-	{
-		new (Queue) FJob(Command, RoleIndex, Ar);
-		if (!bTicking)
-		{
-			FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FQueueTests::TickQueueTests), 0.1f);
-			bTicking = true;
+			FAutomationPerformanceSnapshot PerfSnapshot;
+			PerfSnapshot.FromCommaDelimitedString( EventString );
+			
+			RecordPerformanceAnalytics( PerfSnapshot );
 		}
 	}
-
-	bool TickQueueTests(float DeltaTime)
-	{
-		check(bTicking);
-		if (!GIsAutomationTesting && !bTestInPogress && Queue.Num())
-		{
-			FJob& CurrentJob = Queue[0];
-			TArray<FAutomationTestInfo> TestInfo;
-			FAutomationTestFramework::GetInstance().GetValidTestNames( TestInfo );
-			bool bRanIt = false;
-			for ( int TestIndex = 0; TestIndex < TestInfo.Num(); ++TestIndex )
-			{
-				FString TestCommand = TestInfo[TestIndex].GetTestName();
-				if (TestCommand == CurrentJob.Test)
-				{
-					CurrentJob.Ar->Logf(TEXT("Running: %s"), *CurrentJob.Test);
-					IAutomationWorkerModule::FStopTestEvent Event;
-					Event.BindRaw(this, &FQueueTests::ConsoleCommandTestComplete, CurrentJob.Ar);
-					if (FModuleManager::Get().IsModuleLoaded(TEXT("AutomationWorker")))
-					{
-						FModuleManager::GetModuleChecked<IAutomationWorkerModule>("AutomationWorker").RunTest(CurrentJob.Test, CurrentJob.RoleIndex, Event);
-						bTestInPogress = true;
-						bRanIt = true;
-					}
-					break;
-				}
-			}
-			if (!bRanIt)
-			{
-				CurrentJob.Ar->Logf(TEXT("ERROR: Failed to find test %s"), *CurrentJob.Test);
-			}
-			Queue.RemoveAt(0);
-		}
-		bTicking = !!Queue.Num();
-		return bTicking;
-	}
-
-	void ConsoleCommandTestComplete(bool bSuccess, FString Test, FAutomationTestExecutionInfo const& Results, FOutputDevice* Ar)
-	{
-		for ( TArray<FString>::TConstIterator ErrorIter( Results.Errors ); ErrorIter; ++ErrorIter )
-		{
-			Ar->Logf(ELogVerbosity::Error, TEXT("%s"), **ErrorIter);
-		}
-		for ( TArray<FString>::TConstIterator WarningIter( Results.Warnings ); WarningIter; ++WarningIter )
-		{
-			Ar->Logf(ELogVerbosity::Warning, TEXT("%s"), **WarningIter );
-		}
-		for ( TArray<FString>::TConstIterator LogItemIter( Results.LogItems ); LogItemIter; ++LogItemIter )
-		{
-			Ar->Logf(ELogVerbosity::Log, TEXT("%s"), **LogItemIter );
-		}
-		if (bSuccess)
-		{
-			Ar->Logf(ELogVerbosity::Log, TEXT("...Automation Test Succeeded (%s)"), *Test);
-		}
-		else
-		{
-			Ar->Logf(ELogVerbosity::Log, TEXT("...Automation Test Failed (%s)"), *Test);
-		}
-		bTestInPogress = false;
-		NumTestsRun++;
-		if (!bTicking)
-		{
-			GLog->Logf(ELogVerbosity::Log, TEXT("...Automation Test Queue Empty %d tests performed."), NumTestsRun);
-			NumTestsRun = 0;
-
-			//Quit when we are done if we have the command line option
-			const FString CommandLine(FCommandLine::Get());
-			if (CommandLine.Contains(TEXT("-AutomationTests=")))
-			{
-				//Let the current callstack complete then quit
-				if (GEngine->IsEditor())
-				{
-					GEngine->DeferredCommands.Add(TEXT("QUIT_EDITOR"));
-				}
-				else
-				{
-					GEngine->DeferredCommands.Add(TEXT("QUIT"));
-				}
-			}
-		}
-	}
-
-} QueueTests;
-
-bool GenerateTestNamesFromCommandLine(const TCHAR* InTestCommands, TArray<FString>& OutTestNames)
-{
-	//Split the test names up
-	TArray<FString> TestList;
-	const FString StringCommand = InTestCommands;
-	StringCommand.ParseIntoArray(TestList, TEXT(","), true);
-
-	//Get the list of valid names
-	TArray<FAutomationTestInfo> TestInfo;
-	FAutomationTestFramework::GetInstance().GetValidTestNames(TestInfo);
-
-	for (int32 TestListIndex = 0; TestListIndex < TestList.Num(); ++TestListIndex)
-	{
-		const FString CleanTestName = TestList[TestListIndex].Trim();
-		for (int TestIndex = 0; TestIndex < TestInfo.Num(); ++TestIndex)
-		{
-			if (TestInfo[TestIndex].GetDisplayName().StartsWith(CleanTestName))
-			{
-				OutTestNames.Add(TestInfo[TestIndex].GetTestName());
-			}
-		}
-	}
-
-	return OutTestNames.Num() > 0;
-}
-
-bool DirectAutomationCommand(const TCHAR* Cmd, FOutputDevice* Ar = GLog)
-{
-	bool bResult = false;
-	if(FParse::Command(&Cmd,TEXT("automation")))
-	{
-		const TCHAR* TempCmd = Cmd;
-		bResult = true;
-		if( FParse::Command( &TempCmd, TEXT( "list" ) ) )
-		{
-			TArray<FAutomationTestInfo> TestInfo;
-			FAutomationTestFramework::GetInstance().GetValidTestNames( TestInfo );
-			for ( int TestIndex = 0; TestIndex < TestInfo.Num(); ++TestIndex )
-			{
-				FString TestCommand = TestInfo[TestIndex].GetTestName();
-				Ar->Logf(TEXT("%s"), *TestCommand);
-			}
-		}
-		else if( FParse::Command(&TempCmd,TEXT("run")) )
-		{
-			FString Test(TempCmd);
-			Test = Test.Trim();
-			QueueTests.NewTest(Test);
-		}
-		else if (FParse::Command(&TempCmd, TEXT("CommandLineTests")))
-		{
-			TArray<FString> TestNames;
-
-			const bool bSkipScreenshots = FParse::Param(FCommandLine::Get(), TEXT("NoScreenshots"));
-			const bool bFullSizeScreenshots = FParse::Param(FCommandLine::Get(), TEXT("FullSizeScreenshots"));
-			FAutomationTestFramework::GetInstance().SetScreenshotOptions(!bSkipScreenshots, bFullSizeScreenshots);
-
-			if (GenerateTestNamesFromCommandLine(TempCmd, TestNames))
-			{
-				//Get the number of times to loop
-				int32 NumTestLoops = 1;
-				FParse::Value(FCommandLine::Get(), TEXT("TestLoops="), NumTestLoops);
-
-				for (int32 LoopIndex = 0; LoopIndex < NumTestLoops; ++LoopIndex)
-				{
-					for (int32 TestIndex = 0; TestIndex < TestNames.Num(); ++TestIndex)
-					{
-						QueueTests.NewTest(TestNames[TestIndex]);
-					}
-				}
-			}
-		}
-		else if( FParse::Command(&TempCmd,TEXT("runall")) )
-		{
-			int32 Mod = 0;
-			int32 Rem = 0;
-			FParse::Value(Cmd, TEXT("MOD="), Mod);
-			FParse::Value(Cmd, TEXT("REM="), Rem);
-			TArray<FAutomationTestInfo> TestInfo;
-			FAutomationTestFramework::GetInstance().GetValidTestNames( TestInfo );
-			for ( int TestIndex = 0; TestIndex < TestInfo.Num(); ++TestIndex )
-			{
-				if (!Mod || TestIndex % Mod == Rem)
-				{
-					QueueTests.NewTest(TestInfo[TestIndex].GetTestName());
-				}
-			}
-		}
-		else
-		{
-			bResult = false;
-		}
-	}
-	return bResult;
 }
 
 
 
 
-static class FAutomationTestCmd : private FSelfRegisteringExec
+void FAutomationWorkerModule::RecordPerformanceAnalytics( const FAutomationPerformanceSnapshot& PerfSnapshot )
 {
-public:
-	/** Console commands, see embeded usage statement **/
-	virtual bool Exec( UWorld*, const TCHAR* Cmd, FOutputDevice& Ar) override
-	{
-		return DirectAutomationCommand(Cmd, &Ar);
-	}
-} AutomationTestCmd;
+	// @todo: Pass in additional performance capture data from incoming FAutomationPerformanceSnapshot!
 
+	FAutomationAnalytics::FireEvent_FPSCapture(PerfSnapshot);
+}
 
 #undef LOCTEXT_NAMESPACE

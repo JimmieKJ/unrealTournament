@@ -40,6 +40,7 @@
 #include "GameFramework/GameMode.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/PlayerState.h"
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 #include "Materials/MaterialParameterCollectionInstance.h"
 
@@ -51,6 +52,8 @@
 	#include "SlateBasics.h"
 	#include "Editor/Kismet/Public/FindInBlueprintManager.h"
 	#include "Editor/UnrealEd/Classes/Editor/UnrealEdTypes.h"
+	#include "Editor/UnrealEd/Classes/Settings/LevelEditorPlaySettings.h"
+	#include "Editor/UnrealEd/Public/HierarchicalLOD.h"
 #endif
 
 #include "MallocProfiler.h"
@@ -78,11 +81,35 @@
 #include "Engine/LightMapTexture2D.h"
 #include "Engine/GameInstance.h"
 #include "UObject/UObjectThreadContext.h"
+#include "Engine/CoreSettings.h"
+#include "PerfCountersHelpers.h"
+#include "NetworkReplayStreaming.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogWorld, Log, All);
 DEFINE_LOG_CATEGORY(LogSpawn);
 
 #define LOCTEXT_NAMESPACE "World"
+
+// Deprecation warnings disabled to initialize bNoCollisionFail
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
+FActorSpawnParameters::FActorSpawnParameters()
+: Name(NAME_None)
+, Template(NULL)
+, Owner(NULL)
+, Instigator(NULL)
+, OverrideLevel(NULL)
+, SpawnCollisionHandlingOverride(ESpawnActorCollisionHandlingMethod::Undefined)
+, bNoCollisionFail(false)
+, bRemoteOwned(false)
+, bNoFail(false)
+, bDeferConstruction(false)
+, bAllowDuringConstructionScript(false)
+, ObjectFlags(RF_Transactional)
+{
+}
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 /*-----------------------------------------------------------------------------
 	UWorld implementation.
@@ -106,14 +133,15 @@ FWorldDelegates::FOnLevelChanged FWorldDelegates::LevelAddedToWorld;
 FWorldDelegates::FOnLevelChanged FWorldDelegates::LevelRemovedFromWorld;
 FWorldDelegates::FLevelOffsetEvent FWorldDelegates::PostApplyLevelOffset;
 FWorldDelegates::FWorldGetAssetTags FWorldDelegates::GetAssetTags;
+FWorldDelegates::FOnWorldTickStart FWorldDelegates::OnWorldTickStart;
 #if WITH_EDITOR
 FWorldDelegates::FRefreshLevelScriptActionsEvent FWorldDelegates::RefreshLevelScriptActions;
 #endif // WITH_EDITOR
 
 UWorld::UWorld( const FObjectInitializer& ObjectInitializer )
-:	UObject(ObjectInitializer)
+: UObject(ObjectInitializer)
 #if WITH_EDITOR
-,	HierarchicalLODBuilder(this)
+, HierarchicalLODBuilder(new FHierarchicalLODBuilder(this))
 #endif
 ,	FeatureLevel(GMaxRHIFeatureLevel)
 , URL(FURL(NULL))
@@ -138,7 +166,7 @@ UWorld::~UWorld()
 	while (AsyncPreRegisterLevelStreamingTasks.GetValue())
 	{
 		FPlatformProcess::Sleep(0.0f);
-	}
+	}	
 }
 
 void UWorld::Serialize( FArchive& Ar )
@@ -225,7 +253,7 @@ void UWorld::Serialize( FArchive& Ar )
 	}
 	
 	// UWorlds loaded/duplicated for PIE must lose RF_Public and RF_Standalone since they should not be referenced by objects in other packages and they should be GCed normally
-	if (GetOutermost()->PackageFlags & PKG_PlayInEditor)
+	if (GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 	{
 		ClearFlags(RF_Public|RF_Standalone);
 	}
@@ -349,7 +377,7 @@ bool UWorld::Rename(const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags)
 		// If this is the last world removed from a package, clear the PKG_ContainsMap flag
 		if ( UWorld::FindWorldInPackage(OldPackage) == NULL )
 		{
-			OldPackage->PackageFlags &= ~PKG_ContainsMap;
+			OldPackage->ClearPackageFlags(PKG_ContainsMap);
 		}
 
 		// Set the PKG_ContainsMap flag in the new package
@@ -403,7 +431,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 		{
 			if (Tex && Tex->GetOutermost() != MyPackage)
 			{
-				UObject* NewTex = StaticDuplicateObject(Tex, MyPackage, *Tex->GetName());
+				UObject* NewTex = StaticDuplicateObject(Tex, MyPackage, Tex->GetFName());
 				ReplacementMap.Add(Tex, NewTex);
 			}
 		}
@@ -416,7 +444,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 			UObject* OldGeneratedClass = LevelScriptBlueprint->GeneratedClass;
 			if (OldGeneratedClass)
 			{
-				UObject* NewGeneratedClass = StaticDuplicateObject(OldGeneratedClass, MyPackage, *OldGeneratedClass->GetName());
+				UObject* NewGeneratedClass = StaticDuplicateObject(OldGeneratedClass, MyPackage, OldGeneratedClass->GetFName());
 				ReplacementMap.Add(OldGeneratedClass, NewGeneratedClass);
 
 				// The class may have referenced a lightmap or landscape resource that is also being duplicated. Add it to the list of objects that need references fixed up.
@@ -426,7 +454,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 			UObject* OldSkeletonClass = LevelScriptBlueprint->SkeletonGeneratedClass;
 			if (OldSkeletonClass)
 			{
-				UObject* NewSkeletonClass = StaticDuplicateObject(OldSkeletonClass, MyPackage, *OldSkeletonClass->GetName());
+				UObject* NewSkeletonClass = StaticDuplicateObject(OldSkeletonClass, MyPackage, OldSkeletonClass->GetFName());
 				ReplacementMap.Add(OldSkeletonClass, NewSkeletonClass);
 
 				// The class may have referenced a lightmap or landscape resource that is also being duplicated. Add it to the list of objects that need references fixed up.
@@ -513,6 +541,13 @@ void UWorld::FinishDestroy()
 		delete TimerManager;
 	}
 
+#if WITH_EDITOR
+	if (HierarchicalLODBuilder)
+	{
+		delete HierarchicalLODBuilder;
+	}
+#endif // WITH_EDITOR
+
 	// Remove the PKG_ContainsMap flag from packages that no longer contain a world
 	{
 		UPackage* WorldPackage = GetOutermost();
@@ -532,7 +567,7 @@ void UWorld::FinishDestroy()
 
 		if ( !bContainsAnotherWorld )
 		{
-			WorldPackage->PackageFlags &= ~PKG_ContainsMap;
+			WorldPackage->ClearPackageFlags(PKG_ContainsMap);
 		}
 	}
 
@@ -554,6 +589,8 @@ void UWorld::PostLoad()
 
 	Super::PostLoad();
 	CurrentLevel = PersistentLevel;
+
+	RepairWorldSettings();
 
 	// Remove null streaming level entries (could be if level was saved with transient level streaming objects)
 	StreamingLevels.Remove(nullptr);
@@ -587,7 +624,7 @@ void UWorld::PostLoad()
 #if WITH_EDITOR
 	if (GIsEditor)
 	{
-		if (!(GetOutermost()->PackageFlags & PKG_PlayInEditor))
+		if (!GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			// Needed for VER_UE4_WORLD_NAMED_AFTER_PACKAGE. If this file was manually renamed outside of the editor, this is needed anyway
 			const FString ShortPackageName = FPackageName::GetLongPackageAssetName(GetOutermost()->GetName());
@@ -762,14 +799,13 @@ void UWorld::UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffe
 
 UAISystemBase* UWorld::CreateAISystem()
 {
-#if WITH_SERVER_CODE || WITH_EDITOR
 	// create navigation system for editor and server targets, but remove it from game clients
-	if (AISystem == NULL && GetNetMode() != NM_Client)
+	if (AISystem == NULL && UAISystemBase::ShouldInstantiateInNetMode(GetNetMode()))
 	{
 		FName AIModuleName = UAISystemBase::GetAISystemModuleName();
 		if (AIModuleName.IsNone() == false)
 		{
-			auto AISystemModule = FModuleManager::LoadModulePtr<IAISystemModule>(UAISystemBase::GetAISystemModuleName());
+			IAISystemModule* AISystemModule = FModuleManager::LoadModulePtr<IAISystemModule>(UAISystemBase::GetAISystemModuleName());
 			if (AISystemModule)
 			{
 				AISystem = AISystemModule->CreateAISystemInstance(this);
@@ -780,8 +816,64 @@ UAISystemBase* UWorld::CreateAISystem()
 			}
 		}
 	}
-#endif
+
 	return AISystem; 
+}
+
+void UWorld::RepairWorldSettings()
+{
+	// If for some reason we don't have a valid WorldSettings object go ahead and spawn one to avoid crashing.
+	// This will generally happen if a map is being moved from a different project.
+	const bool bNeedsExchange = PersistentLevel->Actors.Num() > 0;
+	const bool bNeedsDestroy = bNeedsExchange && PersistentLevel->Actors[0] != NULL;
+
+	if (PersistentLevel->Actors.Num() < 1 || PersistentLevel->Actors[0] == NULL || !PersistentLevel->Actors[0]->IsA(GEngine->WorldSettingsClass))
+	{
+		// Rename invalid WorldSettings to avoid name collisions
+		if (bNeedsDestroy)
+		{
+			PersistentLevel->Actors[0]->Rename(NULL, PersistentLevel, REN_ForceNoResetLoaders);
+		}
+		
+		bool bClearOwningWorld = false;
+
+		if (PersistentLevel->OwningWorld == nullptr)
+		{
+			bClearOwningWorld = true;
+			PersistentLevel->OwningWorld = this;
+		}
+
+		FActorSpawnParameters SpawnInfo;
+		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		SpawnInfo.Name = GEngine->WorldSettingsClass->GetFName();
+		AWorldSettings* const NewWorldSettings = SpawnActor<AWorldSettings>( GEngine->WorldSettingsClass, SpawnInfo );
+
+		const int32 NewWorldSettingsActorIndex = PersistentLevel->Actors.Find( NewWorldSettings );
+
+		if (bNeedsExchange)
+		{
+			// The world info must reside at index 0.
+			Exchange(PersistentLevel->Actors[0],PersistentLevel->Actors[NewWorldSettingsActorIndex]);
+		}
+
+		// If there was an existing actor, copy its properties to the new actor and then destroy it
+		if (bNeedsDestroy)
+		{
+			NewWorldSettings->UnregisterAllComponents();
+			UEngine::CopyPropertiesForUnrelatedObjects(PersistentLevel->Actors[NewWorldSettingsActorIndex], NewWorldSettings);
+			NewWorldSettings->RegisterAllComponents();
+			PersistentLevel->Actors[NewWorldSettingsActorIndex]->Destroy();
+		}
+
+		// Re-sort actor list as we just shuffled things around.
+		PersistentLevel->SortActorList();
+
+		if (bClearOwningWorld)
+		{
+			PersistentLevel->OwningWorld = nullptr;
+		}
+	}
+	check(GetWorldSettings());
 }
 
 void UWorld::InitWorld(const InitializationValues IVS)
@@ -846,58 +938,11 @@ void UWorld::InitWorld(const InitializationValues IVS)
 	PersistentLevel->OwningWorld = this;
 	PersistentLevel->bIsVisible = true;
 
-	// If for some reason we don't have a valid WorldSettings object go ahead and spawn one to avoid crashing.
-	// This will generally happen if a map is being moved from a different project.
-	const bool bNeedsExchange = PersistentLevel->Actors.Num() > 0;
-	const bool bNeedsDestroy = bNeedsExchange && PersistentLevel->Actors[0] != NULL;
-
-	if (PersistentLevel->Actors.Num() < 1 || PersistentLevel->Actors[0] == NULL || !PersistentLevel->Actors[0]->IsA(GEngine->WorldSettingsClass))
-	{
-		// Rename invalid WorldSettings to avoid name collisions
-		if (bNeedsDestroy)
-		{
-			PersistentLevel->Actors[0]->Rename(NULL, PersistentLevel, REN_ForceNoResetLoaders);
-		}
-		
-		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.bNoCollisionFail = true;
-		SpawnInfo.Name = GEngine->WorldSettingsClass->GetFName();
-		AWorldSettings* NewWorldSettings = SpawnActor<AWorldSettings>( GEngine->WorldSettingsClass, SpawnInfo );
-
-		const int32 NewWorldSettingsActorIndex = PersistentLevel->Actors.Find( NewWorldSettings );
-
-		if (bNeedsExchange)
-		{
-			// The world info must reside at index 0.
-			Exchange(PersistentLevel->Actors[0],PersistentLevel->Actors[NewWorldSettingsActorIndex]);
-		}
-
-		// If there was an existing actor, copy its properties to the new actor and then destroy it
-		if (bNeedsDestroy)
-		{
-			NewWorldSettings->UnregisterAllComponents();
-			UEngine::CopyPropertiesForUnrelatedObjects(PersistentLevel->Actors[NewWorldSettingsActorIndex], NewWorldSettings);
-			NewWorldSettings->RegisterAllComponents();
-			PersistentLevel->Actors[NewWorldSettingsActorIndex]->Destroy();
-		}
-
-		// Re-sort actor list as we just shuffled things around.
-		PersistentLevel->SortActorList();
-
-	}
-	check(GetWorldSettings());
+	RepairWorldSettings();
 
 	// initialize DefaultPhysicsVolume for the world
-	// checked
-	if (DefaultPhysicsVolume == NULL)
-	{
-		DefaultPhysicsVolume = SpawnActor<APhysicsVolume>(ADefaultPhysicsVolume::StaticClass());
-		DefaultPhysicsVolume->Priority = -1000000;
-	}
-
-	// update default values when world is restarted
-	DefaultPhysicsVolume->TerminalVelocity = UPhysicsSettings::Get()->DefaultTerminalVelocity;
-	DefaultPhysicsVolume->FluidFriction = UPhysicsSettings::Get()->DefaultFluidFriction;
+	// Spawned on demand by this function.
+	DefaultPhysicsVolume = GetDefaultPhysicsVolume();
 
 	// Find gravity
 	if (GetPhysicsScene())
@@ -1037,7 +1082,7 @@ void UWorld::InitializeNewWorld(const InitializationValues IVS)
 
 	// Create the WorldInfo actor.
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	// Set constant name for WorldSettings to make a network replication work between new worlds on host and client
 	SpawnInfo.Name = GEngine->WorldSettingsClass->GetFName();
 	AActor* WorldSettings = SpawnActor( GEngine->WorldSettingsClass, NULL, NULL, SpawnInfo );
@@ -1082,6 +1127,15 @@ void UWorld::DestroyWorld( bool bInformEngineOfWorld, UWorld* NewWorld )
 	}
 }
 
+void UWorld::MarkObjectsPendingKill()
+{
+	auto MarkObjectPendingKill = [](UObject* Object)
+	{
+		Object->MarkPendingKill();
+	};
+	ForEachObjectWithOuter(this, MarkObjectPendingKill, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
+}
+
 UWorld* UWorld::CreateWorld(const EWorldType::Type InWorldType, bool bInformEngineOfWorld, FName WorldName, UPackage* InWorldPackage, bool bAddToRoot, ERHIFeatureLevel::Type InFeatureLevel)
 {
 	if (InFeatureLevel >= ERHIFeatureLevel::Num)
@@ -1098,7 +1152,7 @@ UWorld* UWorld::CreateWorld(const EWorldType::Type InWorldType, bool bInformEngi
 
 	if (InWorldType == EWorldType::PIE)
 	{
-		WorldPackage->PackageFlags |= PKG_PlayInEditor;
+		WorldPackage->SetPackageFlags(PKG_PlayInEditor);
 	}
 
 	// Mark the package as containing a world.  This has to happen here rather than at serialization time,
@@ -1329,9 +1383,9 @@ void UWorld::UpdateCullDistanceVolumes(AActor* ActorToUpdate, UPrimitiveComponen
 		}
 		else
 		{
-			for( FActorIterator It(this); It; ++It )
+			for( AActor* Actor : FActorRange(this) )
 			{
-				TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents(*It);
+				TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents(Actor);
 				for (UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
 				{
 					if (ACullDistanceVolume::CanBeAffectedByVolumes(PrimitiveComponent))
@@ -1340,7 +1394,7 @@ void UWorld::UpdateCullDistanceVolumes(AActor* ActorToUpdate, UPrimitiveComponen
 					}
 				}
 
-				ACullDistanceVolume* CullDistanceVolume = Cast<ACullDistanceVolume>(*It);
+				ACullDistanceVolume* CullDistanceVolume = Cast<ACullDistanceVolume>(Actor);
 				if (CullDistanceVolume)
 				{
 					CullDistanceVolumes.Add(CullDistanceVolume);
@@ -1522,7 +1576,7 @@ void UWorld::TransferBlueprintDebugReferences(UWorld* NewWorld)
 							UE_LOG(LogWorld, Warning, TEXT("  OldObject path is %s"), *OldTargetObject->GetPathName());
 							UE_LOG(LogWorld, Warning, TEXT("  OldObject class path is %s"), *OldTargetObject->GetClass()->GetPathName());
 
-							ensureMsg(false, TEXT("Failed to find an appropriate object to debug back in the editor world"));
+							ensureMsgf(false, TEXT("Failed to find an appropriate object to debug back in the editor world"));
 						}
 
 						NewTargetObject = NULL;
@@ -1583,7 +1637,7 @@ static bool IsTimeLimitExceeded( const TCHAR* CurrentTask, double StartTime, ULe
 	// We don't spread work across several frames in the Editor to avoid potential side effects.
 	if( Level->OwningWorld->IsGameWorld() == true )
 	{
-		double TimeLimit = GEngine->LevelStreamingActorsUpdateTimeLimit;
+		double TimeLimit = GLevelStreamingActorsUpdateTimeLimit;
 		double CurrentTime	= FPlatformTime::Seconds();
 		// Delta time in ms.
 		double DeltaTime	= (CurrentTime - StartTime) * 1000;
@@ -1651,7 +1705,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 	
 	check(Level);
 	check(!Level->IsPendingKill());
-	check(!Level->HasAnyFlags(RF_Unreachable));
+	check(!Level->IsUnreachable());
 
 	FScopeCycleCounterUObject ContextScope(Level);
 
@@ -1785,7 +1839,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 		const bool bRerunConstructionScript = !(FPlatformProperties::RequiresCookedData() || (IsGameWorld() && (Level->bWasDuplicatedForPIE || !bRerunConstructionDuringEditorStreaming)));
 		
 		// Incrementally update components.
-		int32 NumComponentsToUpdate = GEngine->LevelStreamingComponentsRegistrationGranularity;
+		int32 NumComponentsToUpdate = GLevelStreamingComponentsRegistrationGranularity;
 		do
 		{
 			Level->IncrementalUpdateComponents( (!IsGameWorld() || IsRunningCommandlet()) ? 0 : NumComponentsToUpdate, bRerunConstructionScript );
@@ -1858,7 +1912,8 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 		{
 			for (FLocalPlayerIterator It(GEngine, this); It; ++It)
 			{
-				if (It->PlayerController != NULL)
+				APlayerController* LocalPlayerController = It->GetPlayerController(this);
+				if (LocalPlayerController != NULL)
 				{
 					// Remap packagename for PIE networking before sending out to server
 					FName PackageName = Level->GetOutermost()->GetFName();
@@ -1868,7 +1923,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 						PackageName = FName(*PackageNameStr);
 					}
 
-					It->PlayerController->ServerUpdateLevelVisibility(PackageName, true);
+					LocalPlayerController->ServerUpdateLevelVisibility(PackageName, true);
 				}
 			}
 		}
@@ -1925,7 +1980,7 @@ void UWorld::RemoveFromWorld( ULevel* Level )
 	FScopeCycleCounterUObject Context(Level);
 	check(Level);
 	check(!Level->IsPendingKill());
-	check(!Level->HasAnyFlags(RF_Unreachable));
+	check(!Level->IsUnreachable());
 
 	if (CurrentLevelPendingVisibility == NULL && Level->bIsVisible)
 	{
@@ -1974,7 +2029,8 @@ void UWorld::RemoveFromWorld( ULevel* Level )
 		{
 			for (FLocalPlayerIterator It(GEngine, this); It; ++It)
 			{
-				if (It->PlayerController != NULL)
+				APlayerController* LocalPlayerController = It->GetPlayerController(this);
+				if (LocalPlayerController != NULL)
 				{
 					// Remap packagename for PIE networking before sending out to server
 					FName PackageName = Level->GetOutermost()->GetFName();
@@ -1984,7 +2040,7 @@ void UWorld::RemoveFromWorld( ULevel* Level )
 						PackageName = FName(*PackageNameStr);
 					}
 
-					It->PlayerController->ServerUpdateLevelVisibility(PackageName, false);
+					LocalPlayerController->ServerUpdateLevelVisibility(PackageName, false);
 				}
 			}
 		}
@@ -2068,7 +2124,7 @@ void FLevelStreamingGCHelper::PrepareStreamedOutLevelsForGC()
 	{
 		ULevel*	Level = LevelsPendingUnload[LevelIndex].Get();
 
-		if( Level && (!GIsEditor || (Level->GetOutermost()->PackageFlags & PKG_PlayInEditor) ))
+		if( Level && (!GIsEditor || Level->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor) ))
 		{
 			UPackage* LevelPackage = Cast<UPackage>(Level->GetOutermost());
 			UE_LOG(LogStreaming, Log, TEXT("PrepareStreamedOutLevelsForGC called on '%s'"), *LevelPackage->GetName() );
@@ -2097,32 +2153,12 @@ void FLevelStreamingGCHelper::PrepareStreamedOutLevelsForGC()
 			LevelPackageNames.Add( LevelPackage->GetFName() );
 
 			// Mark level as pending kill so references to it get deleted.
-			Level->GetOuter()->MarkPendingKill();
-			Level->MarkPendingKill();
+			UWorld* LevelWorld = CastChecked<UWorld>(Level->GetOuter());
+			LevelWorld->MarkObjectsPendingKill();
+			LevelWorld->MarkPendingKill();
 			if (LevelPackage->MetaData)
 			{
 				LevelPackage->MetaData->MarkPendingKill();
-			}
-
-			// Mark all model components as pending kill so GC deletes references to them.
-			for( int32 ModelComponentIndex=0; ModelComponentIndex<Level->ModelComponents.Num(); ModelComponentIndex++ )
-			{
-				UModelComponent* ModelComponent = Level->ModelComponents[ModelComponentIndex];
-				if( ModelComponent )
-				{
-					ModelComponent->MarkPendingKill();
-				}
-			}
-
-			// Mark all actors and their components as pending kill so GC will delete references to them.
-			for( int32 ActorIndex=0; ActorIndex<Level->Actors.Num(); ActorIndex++ )
-			{
-				AActor* Actor = Level->Actors[ActorIndex];
-				if (Actor != NULL)
-				{
-					Actor->MarkComponentsAsPendingKill();
-					Actor->MarkPendingKill();
-				}
 			}
 		}
 	}
@@ -2265,7 +2301,7 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 	const FName PrefixedLevelFName = FName(*PrefixedLevelName);
 	UWorld::WorldTypePreLoadMap.FindOrAdd(PrefixedLevelFName) = EWorldType::PIE;
 	UPackage* PIELevelPackage = CastChecked<UPackage>(CreatePackage(NULL,*PrefixedLevelName));
-	PIELevelPackage->PackageFlags |= PKG_PlayInEditor;
+	PIELevelPackage->SetPackageFlags(PKG_PlayInEditor);
 #if WITH_EDITOR
 	PIELevelPackage->PIEInstanceID = WorldContext.PIEInstance;
 #endif
@@ -2273,6 +2309,7 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 
 	// Set up string asset reference fixups
 	TArray<FString> PackageNamesBeingDuplicatedForPIE;
+	PackageNamesBeingDuplicatedForPIE.Add(PrefixedLevelName);
 	if ( OwningWorld )
 	{
 		const FString PlayWorldMapName = ConvertToPIEPackageName(OwningWorld->GetOutermost()->GetName(), WorldContext.PIEInstance);
@@ -2284,7 +2321,7 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 			if (StreamingLevel)
 			{
 				const FString StreamingLevelPIEName = UWorld::ConvertToPIEPackageName(StreamingLevel->GetWorldAssetPackageName(), WorldContext.PIEInstance);
-				PackageNamesBeingDuplicatedForPIE.Add(StreamingLevelPIEName);
+				PackageNamesBeingDuplicatedForPIE.AddUnique(StreamingLevelPIEName);
 			}
 		}
 	}
@@ -2292,7 +2329,7 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 	FStringAssetReference::SetPackageNamesBeingDuplicatedForPIE(PackageNamesBeingDuplicatedForPIE);
 
 	ULevel::StreamedLevelsOwningWorld.Add(PIELevelPackage->GetFName(), OwningWorld);
-	UWorld* PIELevelWorld = CastChecked<UWorld>(StaticDuplicateObject(EditorLevelWorld, PIELevelPackage, *EditorLevelWorld->GetName(), RF_AllFlags, nullptr, SDO_DuplicateForPie));
+	UWorld* PIELevelWorld = CastChecked<UWorld>(StaticDuplicateObject(EditorLevelWorld, PIELevelPackage, EditorLevelWorld->GetFName(), RF_AllFlags, nullptr, SDO_DuplicateForPie));
 	
 	// Clean up string asset reference fixups
 	FStringAssetReference::ClearPackageNamesBeingDuplicatedForPIE();
@@ -2363,7 +2400,7 @@ void UWorld::UpdateLevelStreamingInner(ULevelStreaming* StreamingLevel)
 	bool bHasVisibilityRequestPending	= StreamingLevel->GetLoadedLevel() && StreamingLevel->GetLoadedLevel() == CurrentLevelPendingVisibility;
 		
 	// Figure out whether level should be loaded, visible and block on load if it should be loaded but currently isn't.
-	bool bShouldBeLoaded	= bHasVisibilityRequestPending || (!GEngine->bUseBackgroundLevelStreaming && !bShouldForceUnloadStreamingLevels && !StreamingLevel->bIsRequestingUnloadAndRemoval);
+	bool bShouldBeLoaded = bHasVisibilityRequestPending || (!GUseBackgroundLevelStreaming && !bShouldForceUnloadStreamingLevels && !StreamingLevel->bIsRequestingUnloadAndRemoval);
 	bool bShouldBeVisible	= bHasVisibilityRequestPending || bShouldForceVisibleStreamingLevels;
 	bool bShouldBlockOnLoad	= StreamingLevel->bShouldBlockOnLoad || StreamingLevel->ShouldBeAlwaysLoaded();
 
@@ -2396,7 +2433,7 @@ void UWorld::UpdateLevelStreamingInner(ULevelStreaming* StreamingLevel)
 	// See whether level is already loaded
 	if (bShouldBeLoaded)
 	{
-		const bool bBlockOnLoad = (!IsGameWorld() || !GEngine->bUseBackgroundLevelStreaming || bShouldBlockOnLoad);
+		const bool bBlockOnLoad = (!IsGameWorld() || !GUseBackgroundLevelStreaming || bShouldBlockOnLoad);
 		// Request to load or duplicate existing level
 		StreamingLevel->RequestLevel(this, bAllowLevelLoadRequests, bBlockOnLoad);
 	}
@@ -2496,7 +2533,7 @@ void UWorld::UpdateLevelStreaming()
 	}
 }
 
-void UWorld::FlushLevelStreaming(EFlushLevelStreamingType FlushType, FName ExcludeType)
+void UWorld::FlushLevelStreaming(EFlushLevelStreamingType FlushType)
 {
 	AWorldSettings* WorldSettings = GetWorldSettings();
 
@@ -2506,7 +2543,7 @@ void UWorld::FlushLevelStreaming(EFlushLevelStreamingType FlushType, FName Exclu
 	UpdateLevelStreaming();
 
 	// Make sure all outstanding loads are taken care of, other than ones associated with the excluded type
-	FlushAsyncLoading(ExcludeType);
+	FlushAsyncLoading();
 
 	// Kick off making levels visible if loading finished by flushing.
 	UpdateLevelStreaming();
@@ -2524,7 +2561,7 @@ void UWorld::FlushLevelStreaming(EFlushLevelStreamingType FlushType, FName Exclu
 			if (FlushLevelStreamingType == EFlushLevelStreamingType::Full)
 			{
 				// Make sure all outstanding loads are taken care of...
-				FlushAsyncLoading(NAME_None);
+				FlushAsyncLoading();
 			}
 	
 			// Update level streaming.
@@ -2543,6 +2580,11 @@ void UWorld::FlushLevelStreaming(EFlushLevelStreamingType FlushType, FName Exclu
 	{
 		bRequestedBlockOnAsyncLoading = false;
 	}
+}
+
+void UWorld::FlushLevelStreaming(EFlushLevelStreamingType FlushType, FName ExcludeType)
+{
+	FlushLevelStreaming(FlushType);
 }
 
 /**
@@ -2631,6 +2673,71 @@ bool UWorld::AllowLevelLoadRequests()
 	return true;
 }
 
+bool UWorld::HandleDemoScrubCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	FString TimeString;
+	if (!FParse::Token(Cmd, TimeString, 0))
+	{
+		Ar.Log(TEXT("You must specify a time"));
+	}
+	else if (DemoNetDriver != nullptr && DemoNetDriver->ReplayStreamer.IsValid() && DemoNetDriver->ServerConnection != nullptr && DemoNetDriver->ServerConnection->OwningActor != nullptr)
+	{
+		APlayerController* PlayerController = Cast<APlayerController>(DemoNetDriver->ServerConnection->OwningActor);
+		if (PlayerController != nullptr)
+		{
+			GetWorldSettings()->Pauser = PlayerController->PlayerState;
+			const uint32 Time = FCString::Atoi(*TimeString);
+			DemoNetDriver->GotoTimeInSeconds(Time);
+		}
+	}
+	return true;
+}
+
+bool UWorld::HandleDemoPauseCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	FString TimeString;
+
+	AWorldSettings* WorldSettings = GetWorldSettings();
+	check(WorldSettings != nullptr);
+
+	if (WorldSettings->Pauser == nullptr)
+	{
+		if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection != nullptr && DemoNetDriver->ServerConnection->OwningActor != nullptr)
+		{
+			APlayerController* PlayerController = Cast<APlayerController>(DemoNetDriver->ServerConnection->OwningActor);
+			if (PlayerController != nullptr)
+			{
+				WorldSettings->Pauser = PlayerController->PlayerState;
+			}
+		}
+	}
+	else
+	{
+		WorldSettings->Pauser = nullptr;
+	}
+	return true;
+}
+
+bool UWorld::HandleDemoSpeedCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	FString TimeString;
+
+	AWorldSettings* WorldSettings = GetWorldSettings();
+	check(WorldSettings != nullptr);
+
+	FString SpeedString;
+	if (!FParse::Token(Cmd, SpeedString, 0))
+	{
+		Ar.Log(TEXT("You must specify a speed in the form of a float"));
+	}
+	else
+	{
+		const float Speed = FCString::Atof(*SpeedString);
+		WorldSettings->DemoPlayTimeDilation = Speed;
+	}
+	return true;
+}
+
 bool UWorld::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 {
 	if( FParse::Command( &Cmd, TEXT("TRACETAG") ) )
@@ -2656,6 +2763,18 @@ bool UWorld::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	else if( FParse::Command( &Cmd, TEXT("DEMOSTOP") ) )
 	{		
 		return HandleDemoStopCommand( Cmd, Ar, InWorld );
+	}
+	else if (FParse::Command(&Cmd, TEXT("DEMOSCRUB")))
+	{
+		return HandleDemoScrubCommand(Cmd, Ar, InWorld);
+	}
+	else if (FParse::Command(&Cmd, TEXT("DEMOPAUSE")))
+	{
+		return HandleDemoPauseCommand(Cmd, Ar, InWorld);
+	}
+	else if (FParse::Command(&Cmd, TEXT("DEMOSPEED")))
+	{
+		return HandleDemoSpeedCommand(Cmd, Ar, InWorld);
 	}
 	else if( ExecPhysCommands( Cmd, &Ar, InWorld ) )
 	{
@@ -2842,16 +2961,7 @@ bool UWorld::SetGameMode(const FURL& InURL)
 
 		if ( !GameClass )
 		{
-			if( GIsAutomationTesting )
-			{
-				// fall back to raw GameMode if Automation Testing, as the shared engine maps were not designed to use what could be any developer default GameMode
-				GameClass = AGameMode::StaticClass();
-			}
-			else
-			{
-				// fall back to overall default game type
-				GameClass = StaticLoadClass(AGameMode::StaticClass(), NULL, *UGameMapsSettings::GetGlobalDefaultGameMode(), NULL, LOAD_None, NULL);
-			}
+			GameClass = StaticLoadClass(AGameMode::StaticClass(), NULL, *UGameMapsSettings::GetGlobalDefaultGameMode(), NULL, LOAD_None, NULL);
 		}
 
 		if ( !GameClass ) 
@@ -2875,7 +2985,7 @@ bool UWorld::SetGameMode(const FURL& InURL)
 		// Spawn the GameMode.
 		UE_LOG(LogWorld, Log,  TEXT("Game class is '%s'"), *GameClass->GetName() );
 		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.bNoCollisionFail = true;
+		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save game modes into a map
 		AuthorityGameMode = SpawnActor<AGameMode>( GameClass, SpawnInfo );
 		
@@ -3059,6 +3169,12 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 {
 	check(IsVisibilityRequestPending() == false);
 
+	// Wait on current physics scenes if they are processing
+	if(FPhysScene* CurrPhysicsScene = GetPhysicsScene())
+	{
+		CurrPhysicsScene->WaitPhysScenes();
+	}
+
 	FWorldDelegates::OnWorldCleanup.Broadcast(this, bSessionEnded, bCleanupResources);
 
 	if (AISystem != NULL)
@@ -3097,7 +3213,7 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 #endif //WITH_EDITOR
 
 #if ENABLE_VISUAL_LOG
-	FVisualLogger::Get().Cleanup();
+	FVisualLogger::Get().Cleanup(this);
 #endif // ENABLE_VISUAL_LOG	
 
 	// Tell actors to remove their components from the scene.
@@ -3106,6 +3222,12 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 	if (bCleanupResources && PersistentLevel)
 	{
 		PersistentLevel->ReleaseRenderingResources();
+
+		// Flush any render commands and released accessed UTextures and materials to give them a chance to be collected.
+		if ( FSlateApplication::IsInitialized() )
+		{
+			FSlateApplication::Get().FlushRenderState();
+		}
 	}
 
 	// Clear standalone flag when switching maps in the Editor. This causes resources placed in the map
@@ -3258,19 +3380,12 @@ void UWorld::AddNetworkActor( AActor* Actor )
 		return;
 	}
 
-#if 0
-	if ( ( !NetDriver || NetDriver->ServerConnection ) && !GIsEditor )
-	{
-		return;		// Clients or standalone games don't use this list
-	}
-#endif
-
 	if ( !ContainsLevel(Actor->GetLevel()) )
 	{
 		return;
 	}
 
-	NetworkActors.AddUnique( Actor );
+	NetworkActors.Add( Actor );
 }
 
 void UWorld::RemoveNetworkActor( AActor* Actor )
@@ -3280,17 +3395,12 @@ void UWorld::RemoveNetworkActor( AActor* Actor )
 		return;
 	}
 
-	NetworkActors.RemoveSingleSwap( Actor );
+	NetworkActors.Remove( Actor );
 }
 
 FDelegateHandle UWorld::AddOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler )
 {
 	return OnActorSpawned.Add(InHandler);
-}
-
-void UWorld::RemoveOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler )
-{
-	OnActorSpawned.DEPRECATED_Remove(InHandler);
 }
 
 void UWorld::RemoveOnActorSpawnedHandler( FDelegateHandle InHandle )
@@ -3359,7 +3469,7 @@ void UWorld::SetPhysicsScene(FPhysScene* InScene)
 	// Clear world pointer in old FPhysScene (if there is one)
 	if(PhysicsScene != NULL)
 	{
-		PhysicsScene->OwningWorld = NULL;
+		PhysicsScene->SetOwningWorld(nullptr);
 		delete PhysicsScene;
 	}
 
@@ -3369,13 +3479,30 @@ void UWorld::SetPhysicsScene(FPhysScene* InScene)
 	// Set pointer in scene to know which world its coming from
 	if(PhysicsScene != NULL)
 	{
-		PhysicsScene->OwningWorld = this;
+		PhysicsScene->SetOwningWorld(this);
 	}
 }
 
-
 APhysicsVolume* UWorld::GetDefaultPhysicsVolume() const
 {
+	// Create on demand.
+	if (DefaultPhysicsVolume == nullptr)
+	{
+		// Try WorldSettings first
+		AWorldSettings* WorldSettings = GetWorldSettings();
+		UClass* DefaultPhysicsVolumeClass = WorldSettings->DefaultPhysicsVolumeClass;
+
+		// Fallback on DefaultPhysicsVolume static
+		if (DefaultPhysicsVolumeClass == nullptr)
+		{
+			DefaultPhysicsVolumeClass = ADefaultPhysicsVolume::StaticClass();
+		}
+
+		// Spawn volume
+		UWorld* MutableThis = const_cast<UWorld*>(this);
+		MutableThis->DefaultPhysicsVolume = MutableThis->SpawnActor<APhysicsVolume>(DefaultPhysicsVolumeClass);
+		MutableThis->DefaultPhysicsVolume->Priority = -1000000;
+	}
 	return DefaultPhysicsVolume;
 }
 
@@ -3564,8 +3691,8 @@ void UWorld::NotifyAcceptedConnection( UNetConnection* Connection )
 {
 	check(NetDriver!=NULL);
 	check(NetDriver->ServerConnection==NULL);
-	UE_LOG(LogNet, Log, TEXT("Open %s %s %s"), *GetName(), FPlatformTime::StrTimestamp(), *Connection->LowLevelGetRemoteAddress() );
-	NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("OPEN"), *(GetName() + TEXT(" ") + Connection->LowLevelGetRemoteAddress())));
+	UE_LOG(LogNet, Log, TEXT("NotifyAcceptedConnection: Name: %s, TimeStamp: %s, %s"), *GetName(), FPlatformTime::StrTimestamp(), *Connection->Describe() );
+	NETWORK_PROFILER( GNetworkProfiler.TrackEvent( TEXT( "OPEN" ), *( GetName() + TEXT( " " ) + Connection->LowLevelGetRemoteAddress() ), Connection ) );
 }
 
 bool UWorld::NotifyAcceptingChannel( UChannel* Channel )
@@ -3583,6 +3710,13 @@ bool UWorld::NotifyAcceptingChannel( UChannel* Channel )
 		{
 			// Actor channel.
 			//UE_LOG(LogWorld, Log,  "Client accepting actor channel" );
+			return 1;
+		}
+		else if (Channel->ChType == CHTYPE_Voice)
+		{
+			// Accept server requests to open a voice channel, allowing for custom voip implementations
+			// which utilize multiple server controlled voice channels.
+			//UE_LOG(LogNet, Log,  "Client accepting voice channel" );
 			return 1;
 		}
 		else
@@ -3740,6 +3874,8 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 					FNetControlMessage<NMT_Upgrade>::Send(Connection, LocalNetworkVersion);
 					Connection->FlushNet(true);
 					Connection->Close();
+
+					PerfCountersIncrement(TEXT("ClosedConnectionsDueToIncompatibleVersion"));
 				}
 				else
 				{
@@ -3812,7 +3948,7 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 				if (!ErrorMsg.IsEmpty())
 				{
 					UE_LOG(LogNet, Log, TEXT("PreLogin failure: %s"), *ErrorMsg);
-					NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("RRELOGIN FAILURE"), *ErrorMsg));
+					NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("RRELOGIN FAILURE"), *ErrorMsg, Connection));
 					FNetControlMessage<NMT_Failure>::Send(Connection, ErrorMsg);
 					Connection->FlushNet(true);
 					//@todo sz - can't close the connection here since it will leave the failure message 
@@ -3847,7 +3983,7 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 					{
 						// Failed to connect.
 						UE_LOG(LogNet, Log, TEXT("Join failure: %s"), *ErrorMsg);
-						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOIN FAILURE"), *ErrorMsg));
+						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOIN FAILURE"), *ErrorMsg, Connection));
 						FNetControlMessage<NMT_Failure>::Send(Connection, ErrorMsg);
 						Connection->FlushNet(true);
 						//@todo sz - can't close the connection here since it will leave the failure message 
@@ -3858,7 +3994,7 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 					{
 						// Successfully in game.
 						UE_LOG(LogNet, Log, TEXT("Join succeeded: %s"), *Connection->PlayerController->PlayerState->PlayerName);
-						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOIN"), *Connection->PlayerController->PlayerState->PlayerName));
+						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOIN"), *Connection->PlayerController->PlayerState->PlayerName, Connection));
 						// if we're in the middle of a transition or the client is in the wrong world, tell it to travel
 						FString LevelName;
 						FSeamlessTravelHandler &SeamlessTravelHandler = GEngine->SeamlessTravelHandlerForWorld( this );
@@ -3930,7 +4066,7 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 				{
 					// if any splitscreen viewport fails to join, all viewports on that client also fail
 					UE_LOG(LogNet, Log, TEXT("PreLogin failure: %s"), *ErrorMsg);
-					NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("PRELOGIN FAILURE"), *ErrorMsg));
+					NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("PRELOGIN FAILURE"), *ErrorMsg, Connection));
 					FNetControlMessage<NMT_Failure>::Send(Connection, ErrorMsg);
 					Connection->FlushNet(true);
 					//@todo sz - can't close the connection here since it will leave the failure message 
@@ -3957,7 +4093,7 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 					{
 						// Failed to connect.
 						UE_LOG(LogNet, Log, TEXT("JOINSPLIT: Join failure: %s"), *ErrorMsg);
-						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOINSPLIT FAILURE"), *ErrorMsg));
+						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOINSPLIT FAILURE"), *ErrorMsg, Connection));
 						// remove the child connection
 						Connection->Children.Remove(ChildConn);
 						// if any splitscreen viewport fails to join, all viewports on that client also fail
@@ -4014,6 +4150,7 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 
 bool UWorld::Listen( FURL& InURL )
 {
+#if WITH_SERVER_CODE
 	if( NetDriver )
 	{
 		GEngine->BroadcastNetworkFailure(this, NetDriver, ENetworkFailure::NetDriverAlreadyExists);
@@ -4050,6 +4187,9 @@ bool UWorld::Listen( FURL& InURL )
 
 	NextSwitchCountdown = NetDriver->ServerTravelPause;
 	return true;
+#else
+	return false;
+#endif // WITH_SERVER_CODE
 }
 
 bool UWorld::IsClient()
@@ -4292,6 +4432,8 @@ void FSeamlessTravelHandler::SeamlessTravelLoadCallback(const FName& PackageName
 
 		SetHandlerLoadedData(LevelPackage, World);
 	}
+
+	STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, *(FString( TEXT( "StartTravelComplete - " ) + PackageName.ToString() )) );
 }
 
 bool FSeamlessTravelHandler::StartTravel(UWorld* InCurrentWorld, const FURL& InURL, const FGuid& InGuid)
@@ -4307,9 +4449,10 @@ bool FSeamlessTravelHandler::StartTravel(UWorld* InCurrentWorld, const FURL& InU
 	else
 	{
 		UE_LOG(LogWorld, Log, TEXT("SeamlessTravel to: %s"), *InURL.Map);
-		if (!FPackageName::DoesPackageExist(InURL.Map, InGuid.IsValid() ? &InGuid : NULL))
+		FString MapName = UWorld::RemovePIEPrefix(InURL.Map);
+		if (!FPackageName::DoesPackageExist(MapName, InGuid.IsValid() ? &InGuid : NULL))
 		{
-			UE_LOG(LogWorld, Error, TEXT("Unable to travel to '%s' - file not found"), *InURL.Map);
+			UE_LOG(LogWorld, Error, TEXT("Unable to travel to '%s' - file not found"), *MapName);
 			return false;
 			// @todo: might have to handle this more gracefully to handle downloading (might also need to send GUID and check it here!)
 		}
@@ -4393,6 +4536,7 @@ bool FSeamlessTravelHandler::StartTravel(UWorld* InCurrentWorld, const FURL& InU
 				UWorld::WorldTypePreLoadMap.FindOrAdd(*TransitionMap) = CurrentWorld->WorldType;
 
 				// first, load the entry level package
+				STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, *(FString( TEXT( "StartTravel - " ) + TransitionMap )) );
 				LoadPackageAsync(TransitionMap, 
 					FLoadPackageAsyncDelegate::CreateRaw(this, &FSeamlessTravelHandler::SeamlessTravelLoadCallback),
 					0, 
@@ -4511,7 +4655,7 @@ void FSeamlessTravelHandler::StartLoadingDestination()
 			{
 				PackageFlags |= PKG_PlayInEditor;
 			}
-			UPackage* EditorLevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), NULL, URLMapFName, 0, 0, RF_PendingKill);
+			UPackage* EditorLevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), NULL, URLMapFName, 0, 0, RF_NoFlags, EInternalObjectFlags::PendingKill);
 			if (EditorLevelPackage)
 			{
 				PIEInstanceID = WorldContext.PIEInstance;
@@ -4522,7 +4666,6 @@ void FSeamlessTravelHandler::StartLoadingDestination()
 		LoadPackageAsync(
 			URLMapPackageName, 
 			PendingTravelGuid.IsValid() ? &PendingTravelGuid : NULL,
-			NAME_None,
 			*URLMapPackageToLoadFrom,
 			FLoadPackageAsyncDelegate::CreateRaw(this, &FSeamlessTravelHandler::SeamlessTravelLoadCallback), 			
 			PackageFlags,
@@ -4538,6 +4681,8 @@ void FSeamlessTravelHandler::StartLoadingDestination()
 
 void FSeamlessTravelHandler::CopyWorldData()
 {
+	CurrentWorld->DestroyDemoNetDriver();
+
 	UNetDriver* const NetDriver = CurrentWorld->GetNetDriver();
 	LoadedWorld->SetNetDriver(NetDriver);
 	if (NetDriver != NULL)
@@ -4745,7 +4890,7 @@ UWorld* FSeamlessTravelHandler::Tick()
 			{
 				UPackage * WorldPackage = LoadedWorld->GetOutermost();
 				check(WorldPackage);
-				WorldPackage->PackageFlags |= PKG_PlayInEditor;
+				WorldPackage->SetPackageFlags(PKG_PlayInEditor);
 			}
 
 			// Clear any world specific state from NetDriver before switching World
@@ -4757,22 +4902,12 @@ UWorld* FSeamlessTravelHandler::Tick()
 			GWorld = NULL;
 
 			// mark everything else contained in the world to be deleted
-			TSet<UWorld*> CurrentWorlds;
 			for (auto LevelIt(CurrentWorld->GetLevelIterator()); LevelIt; ++LevelIt)
 			{
 				const ULevel* Level = *LevelIt;
 				if (Level)
 				{
-					CurrentWorlds.Add(CastChecked<UWorld>(Level->GetOuter()));
-				}
-			}
-
-			for (TObjectIterator<UObject> It(RF_PendingKill); It; ++It)
-			{
-				UWorld* InWorld = It->GetTypedOuter<UWorld>();
-				if (InWorld && CurrentWorlds.Contains(InWorld))
-				{
-					It->MarkPendingKill();
+					CastChecked<UWorld>(Level->GetOuter())->MarkObjectsPendingKill();
 				}
 			}
 
@@ -4828,13 +4963,17 @@ UWorld* FSeamlessTravelHandler::Tick()
 				}
 			}
 
-			UNavigationSystem::InitializeForWorld(LoadedWorld, FNavigationSystem::GameMode);
-
+			// Make sure "always loaded" sub-levels are fully loaded
+			LoadedWorld->FlushLevelStreaming(EFlushLevelStreamingType::Visibility);
+			
 			// Note that AI system will be created only if ai-system-creation conditions are met
 			LoadedWorld->CreateAISystem();
 
 			// call initialize functions on everything that wasn't carried over from the old world
 			LoadedWorld->InitializeActorsForPlay(PendingTravelURL, false);
+
+			// calling it after InitializeActorsForPlay has been called to have all potential bounding boxed initialized
+			UNavigationSystem::InitializeForWorld(LoadedWorld, FNavigationSystemRunMode::GameMode);
 
 			// send loading complete notifications for all local players
 			for (FLocalPlayerIterator It(GEngine, LoadedWorld); It; ++It)
@@ -5105,6 +5244,11 @@ bool UWorld::IsGameWorld() const
 	return WorldType == EWorldType::Game || WorldType == EWorldType::PIE;
 }
 
+bool UWorld::IsPreviewWorld() const
+{
+	return WorldType == EWorldType::Preview;
+}
+
 bool UWorld::UsesGameHiddenFlags() const
 {
 	return IsGameWorld() || bHack_Force_UsesGameHiddenFlags_True;
@@ -5268,9 +5412,17 @@ void UWorld::SetSelectedLevels( const TArray<class ULevel*>& InLevels )
  */
 void UWorld::ServerTravel(const FString& FURL, bool bAbsolute, bool bShouldSkipGameNotify)
 {
+	// NOTE - This is a temp check while we work on a long term fix
+	// There are a few issues with seamless travel using single process PIE, so we're disabling that for now while working on a fix
+	if ( WorldType == EWorldType::PIE && AuthorityGameMode && AuthorityGameMode->bUseSeamlessTravel && !FParse::Param( FCommandLine::Get(), TEXT( "MultiprocessOSS" ) ) )
+	{
+		UE_LOG( LogWorld, Warning, TEXT( "UWorld::ServerTravel: Seamless travel currently NOT supported in single process PIE." ) );
+		return;
+	}
+
 	if (FURL.Contains(TEXT("%")) )
 	{
-		UE_LOG(LogWorld, Log, TEXT("FURL %s Contains illegal character '%'."), *FURL);
+		UE_LOG(LogWorld, Log, TEXT("FURL %s Contains illegal character '%%'."), *FURL);
 		return;
 	}
 
@@ -5369,8 +5521,124 @@ ENetMode UWorld::GetNetMode() const
 		return DemoNetDriver->GetNetMode();
 	}
 
+// PIE: NetDriver is not initialized so use PlayInSettings
+// to determine the Net Mode
+#if WITH_EDITOR
+	return AttemptDeriveFromPlayInSettings();
+#endif
+
+	// Use NextURL or PendingNetURL to derive NetMode
+	return AttemptDeriveFromURL();
+}
+
+bool UWorld::IsRecordingClientReplay() const
+{
+	if (GetNetDriver() != nullptr && !GetNetDriver()->IsServer())
+	{
+		if (DemoNetDriver != nullptr && DemoNetDriver->IsServer())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+#if WITH_EDITOR
+ENetMode UWorld::AttemptDeriveFromPlayInSettings() const
+{
+	if (WorldType == EWorldType::PIE)
+	{
+		const ULevelEditorPlaySettings* PlayInSettings = GetDefault<ULevelEditorPlaySettings>();
+		if (PlayInSettings)
+		{
+			EPlayNetMode PlayNetMode;
+			PlayInSettings->GetPlayNetMode(PlayNetMode);
+
+			switch (PlayNetMode)
+			{
+			case EPlayNetMode::PIE_Client:
+			{
+				int32 NumberOfClients = 0;
+				PlayInSettings->GetPlayNumberOfClients(NumberOfClients);
+
+				bool bAutoConnectToServer = false;
+				PlayInSettings->GetAutoConnectToServer(bAutoConnectToServer);
+
+				// Playing as client without listen server in single process,
+				// or as a client not going to connect to a server
+				if(NumberOfClients == 1 || bAutoConnectToServer == false)
+				{
+					return NM_Standalone;
+				}
+				return NM_Client;
+			}
+			case EPlayNetMode::PIE_ListenServer:
+			{
+				bool bDedicatedServer = false;
+				PlayInSettings->GetPlayNetDedicated(bDedicatedServer);
+
+				if(bDedicatedServer == true)
+				{
+					return NM_DedicatedServer;
+				}
+
+				return NM_ListenServer;
+			}
+			case EPlayNetMode::PIE_Standalone:
+				return NM_Standalone;
+			default:
+				break;
+			}
+		}
+	}
 	return NM_Standalone;
 }
+#endif
+
+ENetMode UWorld::AttemptDeriveFromURL() const
+{
+	if (GEngine != nullptr)
+	{
+		FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(this);
+
+		if (WorldContext != nullptr)
+		{
+			// NetMode can be derived from the NextURL if it exists
+			if (NextURL.Len() > 0)
+			{
+				FURL NextLevelURL(&WorldContext->LastURL, *NextURL, NextTravelType);
+
+				if (NextLevelURL.Valid)
+				{
+					if (NextLevelURL.HasOption(TEXT("listen")))
+					{
+						return NM_ListenServer;
+					}
+					else if (NextLevelURL.Host.Len() > 0)
+					{
+						return NM_Client;
+					}
+				}
+			}
+			// NetMode can be derived from the PendingNetURL if it exists
+			else if (WorldContext->PendingNetGame != nullptr && WorldContext->PendingNetGame->URL.Valid)
+			{
+				if (WorldContext->PendingNetGame->URL.HasOption(TEXT("listen")))
+				{
+					return NM_ListenServer;
+				}
+				else if (WorldContext->PendingNetGame->URL.Host.Len() > 0)
+				{
+					return NM_Client;
+				}
+			}
+		}
+	}
+
+	return NM_Standalone;
+}
+
 
 void UWorld::CopyGameState(AGameMode* FromGameMode, AGameState* FromGameState)
 {
@@ -5453,8 +5721,6 @@ void UWorld::ChangeFeatureLevel(ERHIFeatureLevel::Type InFeatureLevel)
         FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "ChangingPreviewRenderingLevelMessage", "Changing Preview Rendering Level"));
         SlowTask.MakeDialog();
         {
-            FlushRenderingCommands();
-
             SlowTask.EnterProgressFrame(10.0f);
             // Give all scene components the opportunity to prepare for pending feature level change.
             for (TObjectIterator<USceneComponent> It; It; ++It)
@@ -5468,6 +5734,7 @@ void UWorld::ChangeFeatureLevel(ERHIFeatureLevel::Type InFeatureLevel)
 
             SlowTask.EnterProgressFrame(10.0f);
             FGlobalComponentReregisterContext RecreateComponents;
+            FlushRenderingCommands();
 
             // Decrement refcount on old feature level
             UMaterialInterface::SetGlobalRequiredFeatureLevel(InFeatureLevel, true);
@@ -5512,10 +5779,6 @@ void UWorld::ChangeFeatureLevel(ERHIFeatureLevel::Type InFeatureLevel)
 
             SlowTask.EnterProgressFrame(10.0f);
             TriggerStreamingDataRebuild();
-
-            SlowTask.EnterProgressFrame(10.0f);
-            FOutputDeviceNull Ar;
-            RecompileShaders(TEXT("CHANGED"), Ar);
         }
 	}
 }
@@ -5538,6 +5801,15 @@ void UWorld::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 			OutTags.Add(FAssetRegistryTag("FiB", FString(), FAssetRegistryTag::TT_Hidden));
 		}
 	}
+
+	// Get the full file path with extension
+	const FString FullFilePath = FPackageName::LongPackageNameToFilename(GetOutermost()->GetName(), FPackageName::GetMapPackageExtension());
+
+	// Save/Display the file size and modify date
+	FDateTime AssetDateModified = IFileManager::Get().GetTimeStamp(*FullFilePath);
+	OutTags.Add(FAssetRegistryTag("DateModified", FText::AsDate(AssetDateModified, EDateTimeStyle::Short).ToString(), FAssetRegistryTag::TT_Dimensional));
+	OutTags.Add(FAssetRegistryTag("MapFileSize", FText::AsMemory(IFileManager::Get().FileSize(*FullFilePath)).ToString(), FAssetRegistryTag::TT_Numerical));
+
 	FWorldDelegates::GetAssetTags.Broadcast(this, OutTags);
 }
 #endif

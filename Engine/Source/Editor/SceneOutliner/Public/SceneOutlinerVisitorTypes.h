@@ -29,9 +29,9 @@ namespace SceneOutliner
 		typedef TFunctionRef<void(const FWorldTreeItem&)> 				FWorldFunction;
 		typedef TFunctionRef<void(const FFolderTreeItem&)> 				FFolderFunction;
 
-		FFunctionalVisitor& Actor(const FActorFunction& InFunction) 					{ ActorFunction = InFunction; return *this; }
-		FFunctionalVisitor& World(const FWorldFunction& InFunction) 					{ WorldFunction = InFunction; return *this; }
-		FFunctionalVisitor& Folder(const FFolderFunction& InFunction) 					{ FolderFunction = InFunction; return *this; }
+		FFunctionalVisitor& Actor(FActorFunction InFunction) 					{ ActorFunction = InFunction; return *this; }
+		FFunctionalVisitor& World(FWorldFunction InFunction) 					{ WorldFunction = InFunction; return *this; }
+		FFunctionalVisitor& Folder(FFolderFunction InFunction) 					{ FolderFunction = InFunction; return *this; }
 
 	private:
 		TOptional<FActorFunction> ActorFunction;

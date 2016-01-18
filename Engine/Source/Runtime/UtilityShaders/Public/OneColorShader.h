@@ -42,18 +42,21 @@ class FOneColorPS : public FGlobalShader
 {
 	DECLARE_EXPORTED_SHADER_TYPE(FOneColorPS,Global,UTILITYSHADERS_API);
 public:
+	
 	FOneColorPS( )	{ }
 	FOneColorPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 	:	FGlobalShader( Initializer )
 	{
-		ColorParameter.Bind( Initializer.ParameterMap, TEXT("DrawColorMRT"), SPF_Mandatory);
+		//ColorParameter.Bind( Initializer.ParameterMap, TEXT("DrawColorMRT"), SPF_Mandatory);
 	}
+
+	virtual void SetColors(FRHICommandList& RHICmdList, const FLinearColor* Colors, int32 NumColors);	
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << ColorParameter;
+		//Ar << ColorParameter;
 		return bShaderHasOutdatedParameters;
 	}
 	static bool ShouldCache(EShaderPlatform Platform)
@@ -62,7 +65,7 @@ public:
 	}
 
 	/** The parameter to use for setting the draw Color. */
-	FShaderParameter ColorParameter;
+	//FShaderParameter ColorParameter;
 };
 
 /**

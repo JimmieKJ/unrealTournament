@@ -21,6 +21,8 @@
 #include "Persona.h"
 #include "BoneSelectionWidget.h"
 #include "SExpandableArea.h"
+#include "Animation/BlendProfile.h"
+#include "SBlendProfilePicker.h"
 
 #define LOCTEXT_NAMESPACE "KismetNodeWithOptionalPinsDetails"
 
@@ -65,7 +67,7 @@ void FAnimGraphNodeDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailB
 		return;
 	}
 
-	USkeleton* TargetSkeleton = AnimGraphNode->GetAnimBlueprint()->TargetSkeleton;
+	TargetSkeleton = AnimGraphNode->GetAnimBlueprint()->TargetSkeleton;
 	TargetSkeletonName = FString::Printf(TEXT("%s'%s'"), *TargetSkeleton->GetClass()->GetName(), *TargetSkeleton->GetPathName());
 
 	// Get the node property
@@ -213,6 +215,21 @@ TSharedRef<SWidget> FAnimGraphNodeDetails::CreatePropertyWidget(UProperty* Targe
 				.AllowClear(bAllowClear)
 				.OnShouldFilterAsset(FOnShouldFilterAsset::CreateSP(this, &FAnimGraphNodeDetails::OnShouldFilterAnimAsset));
 		}
+		else if(ObjectProperty->PropertyClass->IsChildOf(UBlendProfile::StaticClass()) && TargetSkeleton)
+		{
+			TSharedPtr<IPropertyHandle> PropertyPtr(TargetPropertyHandle);
+
+			UObject* PropertyValue = nullptr;
+			TargetPropertyHandle->GetValue(PropertyValue);
+
+			UBlendProfile* CurrentProfile = Cast<UBlendProfile>(PropertyValue);
+
+			return SNew(SBlendProfilePicker)
+				.TargetSkeleton(this->TargetSkeleton)
+				.AllowNew(false)
+				.OnBlendProfileSelected(this, &FAnimGraphNodeDetails::OnBlendProfileChanged, PropertyPtr)
+				.InitialProfile(CurrentProfile);
+		}
 	}
 
 	return SNullWidget::NullWidget;
@@ -262,6 +279,14 @@ void FAnimGraphNodeDetails::AbortDisplayOfAllNodes(TArray< TWeakObjectPtr<UObjec
 	}
 }
 
+void FAnimGraphNodeDetails::OnBlendProfileChanged(UBlendProfile* NewProfile, TSharedPtr<IPropertyHandle> PropertyHandle)
+{
+	if(PropertyHandle.IsValid())
+	{
+		PropertyHandle->SetValue((const UObject*&)NewProfile);
+	}
+}
+
 
 TSharedRef<IPropertyTypeCustomization> FInputScaleBiasCustomization::MakeInstance() 
 {
@@ -275,6 +300,7 @@ void FInputScaleBiasCustomization::CustomizeHeader(TSharedRef<class IPropertyHan
 	[
 		SNew(STextBlock)
 		.Text(StructPropertyHandle->GetPropertyDisplayName())
+		.Font(IDetailLayoutBuilder::GetDetailFont())
 	]
 	.ValueContent()
 	[
@@ -478,19 +504,14 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void FBoneReferenceCustomization::CustomizeChildren( TSharedRef<IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
 {
-	// No child customisations as the properties are shown in the header
+	// No child customizations as the properties are shown in the header
 }
 
 void FBoneReferenceCustomization::OnBoneSelectionChanged(FName Name)
 {
 	BoneRefProperty->SetValue(Name);
-
-	// Force a refresh of cached node titles, K2Schema is no different than the AnimSchema for this purpose
-	if (const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>())
-	{
-		K2Schema->ForceVisualizationCacheClear();
-	}
 }
+
 FName FBoneReferenceCustomization::GetSelectedBone() const
 {
 	FString OutText;

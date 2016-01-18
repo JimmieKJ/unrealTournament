@@ -94,6 +94,12 @@ int32 UGatherTextFromMetaDataCommandlet::Main( const FString& Params )
 		}
 	}
 
+	// Get whether we should gather editor-only data. Typically only useful for the localization of UE4 itself.
+	if (!GetBoolFromConfig(*SectionName, TEXT("ShouldGatherFromEditorOnlyData"), ShouldGatherFromEditorOnlyData, GatherTextConfigPath))
+	{
+		ShouldGatherFromEditorOnlyData = false;
+	}
+
 	FGatherParameters Arguments;
 	GetStringArrayFromConfig(*SectionName, TEXT("InputKeys"), Arguments.InputKeys, GatherTextConfigPath);
 	GetStringArrayFromConfig(*SectionName, TEXT("OutputNamespaces"), Arguments.OutputNamespaces, GatherTextConfigPath);
@@ -125,6 +131,13 @@ void UGatherTextFromMetaDataCommandlet::GatherTextFromUObjects(const TArray<FStr
 {
 	for(TObjectIterator<UField> It; It; ++It)
 	{
+		// Skip editor-only properties if we're not gathering for editor-only data.
+		UProperty* Property = Cast<UProperty>(*It);
+		if (Property && !ShouldGatherFromEditorOnlyData && Property->HasAnyPropertyFlags(CPF_EditorOnly))
+		{
+			continue;
+		}
+
 		FString SourceFilePath;
 		FSourceCodeNavigation::FindClassHeaderPath(*It, SourceFilePath);
 		SourceFilePath = FPaths::ConvertRelativePathToFull(SourceFilePath);

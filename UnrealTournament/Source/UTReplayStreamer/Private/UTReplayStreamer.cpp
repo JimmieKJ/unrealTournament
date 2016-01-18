@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UTReplayStreamer.h"
 #include "Runtime/NetworkReplayStreaming/NullNetworkReplayStreaming/Public/NullNetworkReplayStreaming.h"
@@ -21,8 +21,8 @@ FUTReplayStreamer::FUTReplayStreamer()
 	const bool bCmdGamedevEnvironment		= McpConfigOverride.Equals( TEXT( "gamedev" ), ESearchCase::IgnoreCase );
 	const bool bCmdLocalhostEnvironment		= McpConfigOverride.Equals( TEXT( "localhost" ), ESearchCase::IgnoreCase );
 
-	const TCHAR* ProdURL	= TEXT( "https://replay-public-service-prod10.ol.epicgames.com/replay/" );
-	const TCHAR* GamedevURL	= TEXT( "https://replay-public-service-gamedev.ol.epicgames.net/replay/" );
+	const TCHAR* ProdURL	= TEXT( "https://utreplay-public-service-prod10.ol.epicgames.com/replay/v2/" );
+	const TCHAR* GamedevURL	= TEXT( "https://utreplay-public-service-gamedev.ol.epicgames.net/replay/v2/" );
 	const TCHAR* LocalURL	= TEXT( "http://localhost:8080/replay/" );
 
 	//
@@ -77,18 +77,10 @@ void FUTReplayStreamer::ProcessRequestInternal( TSharedPtr< class IHttpRequest >
 
 IMPLEMENT_MODULE( FUTReplayStreamingFactory, UTReplayStreamer )
 
-TSharedPtr< INetworkReplayStreamer > FUTReplayStreamingFactory::CreateReplayStreamer(const FURL& URL)
+TSharedPtr< INetworkReplayStreamer > FUTReplayStreamingFactory::CreateReplayStreamer()
 {
-	if (URL.HasOption(TEXT("Remote")))
-	{
-		// use FUTReplayStreamer for remote streams
-		TSharedPtr< FHttpNetworkReplayStreamer > Streamer(new FUTReplayStreamer);
-		HttpStreamers.Add(Streamer);
-		return Streamer;
-	}
-	else
-	{
-		// use FNullStreamer for local streams
-		return TSharedPtr<INetworkReplayStreamer>(new FNullNetworkReplayStreamer);
-	}
+	// use FUTReplayStreamer for remote streams
+	TSharedPtr< FHttpNetworkReplayStreamer > Streamer(new FUTReplayStreamer);
+	HttpStreamers.Add(Streamer);
+	return Streamer;
 }

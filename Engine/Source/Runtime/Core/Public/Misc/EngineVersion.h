@@ -31,6 +31,15 @@ public:
 	/** Parses a version object from a string. Returns true on success. */
 	static bool Parse(const FString &Text, FEngineVersion &OutVersion);
 
+	/** Gets the current engine version */
+	static const FEngineVersion& Current();
+
+	/** Gets the earliest version which this engine maintains strict API and package compatibility with */
+	static const FEngineVersion& CompatibleWith();
+
+	/** Overrides the current changelist in the verison */
+	static bool OverrideCurrentVersionChangelist(int32 NewChangelist);
+
 	/** Serialization function */
 	friend CORE_API void operator<<(class FArchive &Ar, FEngineVersion &Version);
 
@@ -44,11 +53,20 @@ private:
 
 	/** Branch name. */
 	FString Branch;
+
+	/** Global instance of the current engine version. */
+	static FEngineVersion CurrentVersion;
+
+	/** Earliest version which this engine maintains strict API and package compatibility with */
+	static FEngineVersion CompatibleWithVersion;
 };
 
+/** Version used for networking; the P4 changelist number. */
+CORE_API extern int32 GEngineNetVersion;
 
-/** Global instance of the current engine version. */
-CORE_API extern const FEngineVersion GEngineVersion;
+/** Earliest engine build that is network compatible with this one. */
+CORE_API extern const int32 GEngineMinNetVersion;
 
-/** Earliest version which this engine maintains strict API and package compatibility with */
-CORE_API extern const FEngineVersion GCompatibleWithEngineVersion;
+/** Base protocol version to negotiate in network play. */
+CORE_API extern const int32 GEngineNegotiationVersion;		
+

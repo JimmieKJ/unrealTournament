@@ -7,6 +7,7 @@
 #include "ModuleManager.h"
 #include "SDockTab.h"
 #include "WidgetCarouselModule.h"
+#include "WidgetCarouselStyle.h"
 
 #define LOCTEXT_NAMESPACE "AddContentDialog"
 
@@ -17,6 +18,8 @@ public:
 	virtual void StartupModule() override
 	{
 		FModuleManager::LoadModuleChecked<FWidgetCarouselModule>("WidgetCarousel");
+		FWidgetCarouselModuleStyle::Initialize();
+
 		ContentSourceProviderManager = TSharedPtr<FContentSourceProviderManager>(new FContentSourceProviderManager());
 		ContentSourceProviderManager->RegisterContentSourceProvider(MakeShareable(new FFeaturePackContentSourceProvider()));
 		FAddContentDialogStyle::Initialize();
@@ -25,6 +28,7 @@ public:
 	virtual void ShutdownModule() override
 	{
 		FAddContentDialogStyle::Shutdown();
+		FWidgetCarouselModuleStyle::Shutdown();
 	}
 
 	virtual TSharedRef<FContentSourceProviderManager> GetContentSourceProviderManager() override

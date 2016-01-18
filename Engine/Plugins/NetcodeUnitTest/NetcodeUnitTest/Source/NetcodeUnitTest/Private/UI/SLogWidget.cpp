@@ -8,19 +8,19 @@
 #include "SMultiSelectTableRow.h"
 
 
-// @todo JohnB: It would be good to have both a 'Search' filter tab, and a 'Ctrl+F Find' button for each existing tab;
+// @todo #JohnBFeatureUI: It would be good to have both a 'Search' filter tab, and a 'Ctrl+F Find' button for each existing tab;
 //				two different search abilities (should be easy to add too)
 
-// @todo JohnB: Could change the 'close' button, to a '+' button, which clones the current tab and enables search filtering
+// @todo #JohnBFeatureUI: Could change the 'close' button, to a '+' button, which clones the current tab and enables search filtering
 
 
-// @todo JohnB: Perhaps have conditional tabs, which only appear if log entries of this type come up?
-//				(such as: Warning, Error, Debug)
+// @todo #JohnBReview: Perhaps have conditional tabs, which only appear if log entries of this type come up?
+//				(such as: Warning, Error, Debug) UPDATE: Is this not already present?
 
-// @todo JohnB: Consider adding a "TabName (LineCount)" to the tab name (maybe just for important tabs, like Error/Warning)
+// @todo #JohnBFeatureUI: Consider adding a "TabName (LineCount)" to the tab name (maybe just for important tabs, like Error/Warning)
 
 
-// @todo JohnB: Change the opacity, of background highlight for selected log entries - really ugly at the moment
+// @todo #JohnBUI: Change the opacity, of background highlight for selected log entries - really ugly at the moment
 
 
 // Enable access to the private SEditableTextBox.EditableText variable, using the GET_PRIVATE macro
@@ -29,11 +29,11 @@ IMPLEMENT_GET_PRIVATE_VAR(SEditableTextBox, EditableText, TSharedPtr<SEditableTe
 // Enable access to SButton.Style
 IMPLEMENT_GET_PRIVATE_VAR(SButton, Style, const FButtonStyle*);
 
-// Enable access to SDockTab::GetCurrentStyle, using the CALL_PRIVATE macro
-IMPLEMENT_GET_PRIVATE_FUNC_CONST(SDockTab, GetCurrentStyle, const FDockTabStyle&, void, const);
+// Enable access to SDockTab::GetCurrentStyle, using the CALL_PROTECTED macro
+IMPLEMENT_GET_PROTECTED_FUNC_CONST(SDockTab, GetCurrentStyle, const FDockTabStyle&, void,, const);
 
 
-// @todo JohnB: Perhaps move widget searching to a NUTSlate.h file, or such?
+// @todo #JohnBRefactorUI: Perhaps move widget searching to a NUTSlate.h file, or such?
 
 /**
  * Delegate used for recursively iterating a widgets child widgets, and testing if they match a search condition
@@ -211,7 +211,7 @@ void SLogWidget::Construct(const FArguments& Args)
 						})
 						[
 							SNew(SImage)
-							// @todo JohnB: The scaled image looks a bit fuzzy, so perhaps don't do that
+							// @todo #JohnBUI: The scaled image looks a bit fuzzy, so perhaps don't do that
 							//				(if you can figure out how to make it clip rather than scale though, do that)
 #if 1
 							.Image(&FCoreStyle::Get().GetWidgetStyle<FSearchBoxStyle>("SearchBox").GlassImage)
@@ -450,7 +450,7 @@ void SLogWidget::Construct(const FArguments& Args)
 						SAssignNew(ConsoleComboBox, SComboBox<TSharedPtr<FString>>)
 						.OptionsSource(&ConsoleContextList)
 						.ToolTipText(FText::FromString(FString(TEXT("Select the context for executing console commands."))))
-						// @todo JohnB: Too big to inline? Separate into its own function?
+						// @todo #JohnBRefactorUI: Too big to inline? Separate into its own function?
 						.OnGenerateWidget_Lambda(
 								[](TSharedPtr<FString> Item)
 								{
@@ -471,12 +471,12 @@ void SLogWidget::Construct(const FArguments& Args)
 									}
 									else if (ItemStr == TEXT("Client"))
 									{
-										// @todo JohnB: Update when implemented
+										// @todo #JohnBFeatureUI: Update when implemented
 										ToolTipStr = TEXT("(Not yet implemented) ") 
 														TEXT("Execute the command on the client associated with this unit test.");
 									}
 
-									// @todo JohnB: Custom context hints?
+									// @todo #JohnB: Custom context hints?
 
 									return	SNew(STextBlock)
 											.Text(FText::FromString(ItemStr))
@@ -500,7 +500,7 @@ void SLogWidget::Construct(const FArguments& Args)
 				/**
 				 * Console command edit box
 				 */
-				 // @todo JohnB: Borrow the auto-complete from SOutputLog's version of log windows
+				 // @todo #JohnBFeatureUI: Borrow the auto-complete from SOutputLog's version of log windows
 				+SHorizontalBox::Slot()
 					.HAlign(HAlign_Fill)
 					.VAlign(VAlign_Center)
@@ -510,7 +510,7 @@ void SLogWidget::Construct(const FArguments& Args)
 						.HintText(FText::FromString(TEXT("Console")))
 						.ToolTipText(FText::FromString(TEXT("Executes a console command within the specified context.")))
 						.ClearKeyboardFocusOnCommit(false)
-						// @todo JohnB: Too big to inline? Separate into its own function?
+						// @todo #JohnBRefactorUI: Too big to inline? Separate into its own function?
 						.OnTextCommitted_Lambda(
 							[&](const FText& InText, ETextCommit::Type InCommitType)
 							{
@@ -571,17 +571,17 @@ TSharedRef<FTabManager::FLayout> SLogWidget::InitializeTabLayout(const FArgument
 {
 	// Initialize the LogTabs array (which includes labels/tooltips, for each log type)
 	LogTabs.Add(MakeShareable(new
-		FLogTabInfo(TEXT("Summary"),	TEXT("Filter for the most notable log entries."), ELogType::StatusImportant)));
+		FLogTabInfo(TEXT("Summary"),	TEXT("Filter for the most notable log entries."), ELogType::StatusImportant, 10)));
 
 	if (Args._bStatusWidget)
 	{
 		LogTabs.Add(MakeShareable(new
 			FLogTabInfo(TEXT("Advanced Summary"),	TEXT("Filter for the most notable log entries, with extra/advanced information."),
-						ELogType::StatusImportant | ELogType::StatusVerbose | ELogType::StatusAdvanced)));
+						ELogType::StatusImportant | ELogType::StatusVerbose | ELogType::StatusAdvanced, 20)));
 	}
 
 	LogTabs.Add(MakeShareable(new
-		FLogTabInfo(TEXT("All"),		TEXT("No filters - all log output it shown."), ELogType::All)));
+		FLogTabInfo(TEXT("All"),		TEXT("No filters - all log output it shown."), ELogType::All, 30)));
 
 	if (!Args._bStatusWidget)
 	{
@@ -605,11 +605,11 @@ TSharedRef<FTabManager::FLayout> SLogWidget::InitializeTabLayout(const FArgument
 		bool bOpenDebugTab = ((Args._ExpectedFilters & ELogType::StatusDebug) == ELogType::StatusDebug);
 
 		LogTabs.Add(MakeShareable(new
-			FLogTabInfo(TEXT("Debug"),		TEXT("Filter for debug log entries."), ELogType::StatusDebug, bOpenDebugTab)));
-
-		LogTabs.Add(MakeShareable(new
-			FLogTabInfo(TEXT("Console"), TEXT("Filter for local console command results."), ELogType::OriginConsole, false)));
+			FLogTabInfo(TEXT("Debug"),		TEXT("Filter for debug log entries."), ELogType::StatusDebug, 5, bOpenDebugTab)));
 	}
+
+	LogTabs.Add(MakeShareable(new
+		FLogTabInfo(TEXT("Console"), TEXT("Filter for local console command results."), ELogType::OriginConsole, 5, false)));
 
 
 	// Initialize the tab manager, stack and layout
@@ -658,7 +658,7 @@ TSharedRef<SDockTab> SLogWidget::SpawnLogTab(const FSpawnTabArgs& InSpawnTabArgs
 		});
 
 
-	// @todo JohnB: Code duplication - this is defined above too - move to an inline function
+	// @todo #JohnBRefactorUI: Code duplication - this is defined above too - move to an inline function
 	auto ArrayAddNew =
 		[] (TArray<TSharedPtr<SWidget>>& InArray) -> TSharedPtr<SWidget>&
 		{
@@ -706,27 +706,27 @@ TSharedRef<SDockTab> SLogWidget::SpawnLogTab(const FSpawnTabArgs& InSpawnTabArgs
 						 */
 						SAssignNew(CurTabInfo->LogListView, SListView<TSharedRef<FLogLine>>)
 						.ListItemsSource(&CurTabInfo->TabLogLines)
-						// @todo JohnB: Probably large enough to separate to its own function now
+						// @todo #JohnBRefactorUI: Probably large enough to separate to its own function now
 						.OnGenerateRow_Lambda(
 							[](TSharedRef<FLogLine> Item, const TSharedRef<STableViewBase>& OwnerTable)
 							{
 								// Various types of special font formatting
 								FString FontPath;
-								ELogType LogType = Item->LogType;
+								ELogType CurLogType = Item->LogType;
 
-								if (!!(LogType & ELogType::StyleMonospace))
+								if (!!(CurLogType & ELogType::StyleMonospace))
 								{
 									FontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/DroidSansMono.ttf");
 								}
-								else if (!!(LogType & ELogType::StyleBold) && !!(LogType & ELogType::StyleItalic))
+								else if (!!(CurLogType & ELogType::StyleBold) && !!(CurLogType & ELogType::StyleItalic))
 								{
 									FontPath = FPaths::EngineContentDir() / TEXT("Editor/Slate/Fonts/Roboto-BoldCondensedItalic.ttf");
 								}
-								else if (!!(LogType & ELogType::StyleBold))
+								else if (!!(CurLogType & ELogType::StyleBold))
 								{
 									FontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf");
 								}
-								else if (!!(LogType & ELogType::StyleItalic))
+								else if (!!(CurLogType & ELogType::StyleItalic))
 								{
 									FontPath = FPaths::EngineContentDir() / TEXT("Editor/Slate/Fonts/Roboto-Italic.ttf");
 								}
@@ -741,7 +741,7 @@ TSharedRef<SDockTab> SLogWidget::SpawnLogTab(const FSpawnTabArgs& InSpawnTabArgs
 
 
 								// Pseudo-underline; just adds newline, and then underlines with lots of ----
-								if (!!(LogType & ELogType::StyleUnderline) && RenderText.Len() > 0)
+								if (!!(CurLogType & ELogType::StyleUnderline) && RenderText.Len() > 0)
 								{
 									const TCHAR* TextToUnderline = *RenderText;
 									const TCHAR* UnderlineEnd = TextToUnderline + RenderText.Len()-1;
@@ -968,7 +968,7 @@ TSharedRef<SDockTab> SLogWidget::SpawnLogTab(const FSpawnTabArgs& InSpawnTabArgs
 				{
 					TSharedRef<SButton> CurButton = StaticCastSharedRef<SButton>(InWidget);
 					const FButtonStyle* ButtonStyle = GET_PRIVATE(SButton, CurButton, Style);
-					const FDockTabStyle& TabStyle = CALL_PRIVATE(SDockTab, ReturnVal, GetCurrentStyle)();
+					const FDockTabStyle& TabStyle = CALL_PROTECTED(SDockTab, ReturnVal, GetCurrentStyle)();
 
 					bFound = ButtonStyle == &TabStyle.CloseButtonStyle;
 				}
@@ -1005,23 +1005,33 @@ TSharedPtr<FLogTabInfo> SLogWidget::GetActiveTabInfo() const
 }
 
 
-void SLogWidget::AddLine(ELogType LogType, TSharedRef<FString> LogLine, FSlateColor LogColor/*=FSlateColor::UseForeground()*/)
+void SLogWidget::AddLine(ELogType InLogType, TSharedRef<FString> LogLine, FSlateColor LogColor/*=FSlateColor::UseForeground()*/,
+							bool bTakeTabFocus/*=false*/)
 {
-	TSharedRef<FLogLine> CurLogEntry = MakeShareable(new FLogLine(LogType, LogLine, LogColor));
+	TSharedRef<FLogLine> CurLogEntry = MakeShareable(new FLogLine(InLogType, LogLine, LogColor));
 
 	// Add the line to the master list
 	LogLines.Add(CurLogEntry);
 
+	TSharedPtr<FLogTabInfo> ActiveTab = GetActiveTabInfo();
+
+	auto MatchesTabFilter =
+		[&](const TSharedPtr<FLogTabInfo>& InTab)
+		{
+			return InTab->Filter == ELogType::All || !!(InTab->Filter & InLogType);
+		};
+
+	bool bLineInTabFocus = ActiveTab.IsValid() && MatchesTabFilter(ActiveTab);
+	TSharedPtr<FLogTabInfo> FocusTab = NULL;
+
 	// Then add it to each log tab, if it passes that tabs filter
 	for (auto CurTabInfo : LogTabs)
 	{
-		if (!!(CurTabInfo->Filter & LogType))
+		if (MatchesTabFilter(CurTabInfo))
 		{
 			// If the tab is not presently open, open it now
 			if (!CurTabInfo->bTabOpen && LogTabManager.IsValid())
 			{
-				TSharedPtr<FLogTabInfo> ActiveTab = GetActiveTabInfo();
-
 				LogTabManager->InvokeTab(CurTabInfo->TabIdName);
 
 				// The new tab has stolen focus, now restore the old tabs focus
@@ -1029,6 +1039,16 @@ void SLogWidget::AddLine(ELogType LogType, TSharedRef<FString> LogLine, FSlateCo
 
 				CurTabInfo->bTabOpen = true;
 			}
+
+			// If the line is requesting focus, but is not currently in focus, select a tab for focusing
+			if (bTakeTabFocus && !bLineInTabFocus)
+			{
+				if (CurTabInfo != ActiveTab && (!FocusTab.IsValid() || CurTabInfo->Priority < FocusTab->Priority))
+				{
+					FocusTab = CurTabInfo;
+				}
+			}
+
 
 			CurTabInfo->TabLogLines.Add(CurLogEntry);
 
@@ -1042,6 +1062,12 @@ void SLogWidget::AddLine(ELogType LogType, TSharedRef<FString> LogLine, FSlateCo
 
 			CurLogListView->RequestListRefresh();
 		}
+	}
+
+	// If a focus change is required, perform it
+	if (FocusTab.IsValid() && LogTabManager.IsValid())
+	{
+		LogTabManager->InvokeTab(FocusTab->TabIdName);
 	}
 }
 
@@ -1188,12 +1214,18 @@ void SLogWidget::ScrollToText(TSharedRef<FLogTabInfo> InTab, FString FindText, b
 		int32 SearchDir = (bSearchUp ? -1 : 1);
 		int32 FoundIdx = INDEX_NONE;
 
-		for (int32 i=FindStartIdx + SearchDir; i != FindStartIdx; i += SearchDir)
+		for (int32 i=FindStartIdx + SearchDir; true; i += SearchDir)
 		{
 			// When the start/end of the array is reached, wrap-around to the other end
 			if (i < 0 || i >= CurTabLogLines.Num())
 			{
 				i = (bSearchUp ? CurTabLogLines.Num()-1 : 0);
+			}
+
+			// Moved out of 'for' condition, and into the loop, to avoid infinite recursion in rare circumstances
+			if (i == FindStartIdx)
+			{
+				break;
 			}
 
 			if (CurTabLogLines[i]->LogLine->Contains(FindText))
@@ -1210,7 +1242,7 @@ void SLogWidget::ScrollToText(TSharedRef<FLogTabInfo> InTab, FString FindText, b
 			CurLogListView->RequestListRefresh();
 		}
 
-		// @todo JohnB: Find some way of indicating a failed search
+		// @todo #JohnBUI: Find some way of indicating a failed search
 
 		InTab->bLastFindWasUp = bSearchUp;
 	}

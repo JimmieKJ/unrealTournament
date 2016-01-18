@@ -4,80 +4,122 @@
 #include "MovieScene2DTransformSection.h"
 #include "MovieScene2DTransformTrack.h"
 
-UMovieScene2DTransformSection::UMovieScene2DTransformSection( const FObjectInitializer& ObjectInitializer )
-	: Super( ObjectInitializer )
+
+void UMovieScene2DTransformSection::MoveSection( float DeltaTime, TSet<FKeyHandle>& KeyHandles )
 {
+	Super::MoveSection( DeltaTime, KeyHandles );
 
-}
-
-void UMovieScene2DTransformSection::MoveSection( float DeltaTime )
-{
-	Super::MoveSection( DeltaTime );
-
-	Rotation.ShiftCurve( DeltaTime );
+	Rotation.ShiftCurve( DeltaTime, KeyHandles );
 
 	// Move all the curves in this section
 	for( int32 Axis = 0; Axis < 2; ++Axis )
 	{
-		Translation[Axis].ShiftCurve( DeltaTime );
-		Scale[Axis].ShiftCurve( DeltaTime );
-		Shear[Axis].ShiftCurve( DeltaTime );
+		Translation[Axis].ShiftCurve( DeltaTime, KeyHandles );
+		Scale[Axis].ShiftCurve( DeltaTime, KeyHandles );
+		Shear[Axis].ShiftCurve( DeltaTime, KeyHandles );
 	}
 }
 
-void UMovieScene2DTransformSection::DilateSection( float DilationFactor, float Origin )
-{
-	Super::DilateSection(DilationFactor, Origin);
 
-	Rotation.ScaleCurve( Origin, DilationFactor );
+void UMovieScene2DTransformSection::DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
+{
+	Super::DilateSection(DilationFactor, Origin, KeyHandles);
+
+	Rotation.ScaleCurve( Origin, DilationFactor, KeyHandles);
 
 	for( int32 Axis = 0; Axis < 2; ++Axis )
 	{
-		Translation[Axis].ScaleCurve( Origin, DilationFactor );
-		Scale[Axis].ScaleCurve( Origin, DilationFactor );
-		Shear[Axis].ScaleCurve( Origin, DilationFactor  );
+		Translation[Axis].ScaleCurve( Origin, DilationFactor, KeyHandles );
+		Scale[Axis].ScaleCurve( Origin, DilationFactor, KeyHandles );
+		Shear[Axis].ScaleCurve( Origin, DilationFactor, KeyHandles );
 	}
 }
+
+
+void UMovieScene2DTransformSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+{
+	for (auto It(Rotation.GetKeyHandleIterator()); It; ++It)
+	{
+		float Time = Rotation.GetKeyTime(It.Key());
+		if (IsTimeWithinSection(Time))
+		{
+			KeyHandles.Add(It.Key());
+		}
+	}
+
+	for (int32 Axis = 0; Axis < 2; ++Axis)
+	{
+		for (auto It(Translation[Axis].GetKeyHandleIterator()); It; ++It)
+		{
+			float Time = Translation[Axis].GetKeyTime(It.Key());
+			if (IsTimeWithinSection(Time))
+			{
+				KeyHandles.Add(It.Key());
+			}
+		}
+		for (auto It(Scale[Axis].GetKeyHandleIterator()); It; ++It)
+		{
+			float Time = Scale[Axis].GetKeyTime(It.Key());
+			if (IsTimeWithinSection(Time))
+			{
+				KeyHandles.Add(It.Key());
+			}
+		}
+		for (auto It(Shear[Axis].GetKeyHandleIterator()); It; ++It)
+		{
+			float Time = Shear[Axis].GetKeyTime(It.Key());
+			if (IsTimeWithinSection(Time))
+			{
+				KeyHandles.Add(It.Key());
+			}
+		}
+	}
+}
+
 
 /**
  * Chooses an appropriate curve from an axis and a set of curves
  */
 static FRichCurve* ChooseCurve( EAxis::Type Axis, FRichCurve* Curves )
 {
-	switch( Axis )
+	switch(Axis)
 	{
 	case EAxis::X:
 		return &Curves[0];
-		break;
+
 	case EAxis::Y:
 		return &Curves[1];
-		break;
+
 	default:
-		check( false );
-		return NULL;
-		break;
+		check(false);
+		return nullptr;
 	}
 }
+
 
 FRichCurve& UMovieScene2DTransformSection::GetTranslationCurve(EAxis::Type Axis)
 {
 	return *ChooseCurve( Axis, Translation );
 }
 
+
 FRichCurve& UMovieScene2DTransformSection::GetRotationCurve()
 {
 	return Rotation;
 }
+
 
 FRichCurve& UMovieScene2DTransformSection::GetScaleCurve(EAxis::Type Axis)
 {
 	return *ChooseCurve(Axis, Scale);
 }
 
+
 FRichCurve& UMovieScene2DTransformSection::GetSheerCurve(EAxis::Type Axis)
 {
 	return *ChooseCurve(Axis, Shear);
 }
+
 
 FWidgetTransform UMovieScene2DTransformSection::Eval( float Position, const FWidgetTransform& DefaultValue ) const
 {
@@ -87,70 +129,74 @@ FWidgetTransform UMovieScene2DTransformSection::Eval( float Position, const FWid
 								Rotation.Eval( Position, DefaultValue.Angle ) );
 }
 
-
-bool UMovieScene2DTransformSection::NewKeyIsNewData( float Time, const FWidgetTransform& Transform ) const
+// This function uses a template to avoid duplicating this for const and non-const versions
+template<typename CurveType>
+CurveType* GetCurveForChannelAndAxis( EKey2DTransformChannel Channel, EKey2DTransformAxis Axis, 
+	CurveType* TranslationCurves, CurveType* ScaleCurves, CurveType* ShearCurves, CurveType* RotationCurve )
 {
-	bool bIsNewData = false;
-	for(int32 Axis = 0; Axis < 2; ++Axis)
+	switch ( Channel )
 	{
-		bIsNewData |= Translation[Axis].GetNumKeys() == 0;
-		bIsNewData |= Scale[Axis].GetNumKeys() == 0;
-		bIsNewData |= Shear[Axis].GetNumKeys() == 0;
+	case EKey2DTransformChannel::Translation:
+		if ( Axis == EKey2DTransformAxis::X )
+		{
+			return &TranslationCurves[0];
+		}
+		else if ( Axis == EKey2DTransformAxis::Y )
+		{
+			return &TranslationCurves[1];
+		}
+	case EKey2DTransformChannel::Scale:
+		if ( Axis == EKey2DTransformAxis::X )
+		{
+			return &ScaleCurves[0];
+		}
+		else if ( Axis == EKey2DTransformAxis::Y )
+		{
+			return &ScaleCurves[1];
+		}
+	case EKey2DTransformChannel::Shear:
+		if ( Axis == EKey2DTransformAxis::X )
+		{
+			return &ShearCurves[0];
+		}
+		else if ( Axis == EKey2DTransformAxis::Y )
+		{
+			return &ShearCurves[1];
+		}
+	case EKey2DTransformChannel::Rotation:
+		if ( Axis == EKey2DTransformAxis::None )
+		{
+			return RotationCurve;
+		}
 	}
-
-	bIsNewData |= Rotation.GetNumKeys() == 0;
-
-	return bIsNewData || Eval(Time,Transform) != Transform;
+	checkf( false, TEXT( "Invalid channel and axis combination." ) );
+	return nullptr;
 }
 
-void UMovieScene2DTransformSection::AddKeyToNamedCurve(float Time, const F2DTransformKey& TransformKey)
+
+bool UMovieScene2DTransformSection::NewKeyIsNewData( float Time, const struct F2DTransformKey& TransformKey ) const
 {
-	static FName TranslationName("Translation");
-	static FName ScaleName("Scale");
-	static FName ShearName("Shear");
-	static FName AngleName("Angle");
-
-	FName CurveName = TransformKey.CurveName;
-
-	if(CurveName == TranslationName)
-	{
-		AddKeyToCurve(Translation[0], Time, TransformKey.Value.Translation.X);
-		AddKeyToCurve(Translation[1], Time, TransformKey.Value.Translation.Y);
-	}
-	else if(CurveName == ScaleName)
-	{
-		AddKeyToCurve(Scale[0], Time, TransformKey.Value.Scale.X);
-		AddKeyToCurve(Scale[1], Time, TransformKey.Value.Scale.Y);
-	}
-	else if(CurveName == ShearName)
-	{
-		AddKeyToCurve(Shear[0], Time, TransformKey.Value.Shear.X);
-		AddKeyToCurve(Shear[1], Time, TransformKey.Value.Shear.Y);
-	}
-	else if(CurveName == AngleName)
-	{
-		AddKeyToCurve(Rotation, Time, TransformKey.Value.Angle);
-	}
+	const FRichCurve* KeyCurve = GetCurveForChannelAndAxis( TransformKey.Channel, TransformKey.Axis, Translation, Scale, Shear, &Rotation );
+	return FMath::IsNearlyEqual( KeyCurve->Eval( Time ), TransformKey.Value ) == false;
 }
 
 
-
-void UMovieScene2DTransformSection::AddKey( float Time, const struct F2DTransformKey& TransformKey )
+bool UMovieScene2DTransformSection::HasKeys( const struct F2DTransformKey& TransformKey ) const
 {
-	Modify();
+	const FRichCurve* KeyCurve = GetCurveForChannelAndAxis( TransformKey.Channel, TransformKey.Axis, Translation, Scale, Shear, &Rotation );
+	return KeyCurve->GetNumKeys() != 0;
+}
 
-	if(TransformKey.CurveName == NAME_None)
-	{
-		AddKeyToCurve(Translation[0], Time, TransformKey.Value.Translation.X);
-		AddKeyToCurve(Translation[1], Time, TransformKey.Value.Translation.Y);
-		AddKeyToCurve(Scale[0], Time, TransformKey.Value.Scale.X);
-		AddKeyToCurve(Scale[1], Time, TransformKey.Value.Scale.Y);
-		AddKeyToCurve(Shear[0], Time, TransformKey.Value.Shear.X);
-		AddKeyToCurve(Shear[1], Time, TransformKey.Value.Shear.Y);
-		AddKeyToCurve(Rotation, Time, TransformKey.Value.Angle);
-	}
-	else
-	{
-		AddKeyToNamedCurve(Time, TransformKey);
-	}
+
+void UMovieScene2DTransformSection::AddKey( float Time, const struct F2DTransformKey& TransformKey, EMovieSceneKeyInterpolation KeyInterpolation )
+{
+	FRichCurve* KeyCurve = GetCurveForChannelAndAxis( TransformKey.Channel, TransformKey.Axis, Translation, Scale, Shear, &Rotation );
+	AddKeyToCurve( *KeyCurve, Time, TransformKey.Value, KeyInterpolation );
+}
+
+
+void UMovieScene2DTransformSection::SetDefault( const struct F2DTransformKey& TransformKey )
+{
+	FRichCurve* KeyCurve = GetCurveForChannelAndAxis( TransformKey.Channel, TransformKey.Axis, Translation, Scale, Shear, &Rotation );
+	SetCurveDefault( *KeyCurve, TransformKey.Value );
 }

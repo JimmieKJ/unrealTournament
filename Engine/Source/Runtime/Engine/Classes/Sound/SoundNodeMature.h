@@ -16,14 +16,14 @@ class USoundNodeMature : public USoundNode
 
 
 public:
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin USoundNode interface.
+	//~ Begin USoundNode Interface.
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual void CreateStartingConnectors( void ) override;
 	virtual int32 GetMaxChildNodes() const override;
-	// End USoundNode interface.
+	//~ End USoundNode Interface.
 };
 

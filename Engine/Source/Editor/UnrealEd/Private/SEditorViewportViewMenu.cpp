@@ -68,6 +68,10 @@ FText SEditorViewportViewMenu::GetViewMenuLabel() const
 				Label = LOCTEXT("ViewMenuTitle_ShaderComplexity", "Shader Complexity");
 				break;
 
+			case VMI_QuadComplexity:
+				Label = LOCTEXT("ViewMenuTitle_QuadComplexity", "Quad Complexity");
+				break;
+
 			case VMI_StationaryLightOverlap:
 				Label = LOCTEXT("ViewMenuTitle_StationaryLightOverlap", "Stationary Light Overlap");
 				break;
@@ -94,6 +98,10 @@ FText SEditorViewportViewMenu::GetViewMenuLabel() const
 
 			case VMI_LitLightmapDensity:
 				break;
+
+			case VMI_LODColoration:
+				Label = LOCTEXT("ViewMenuTitle_LODColoration", "LOD Coloration");
+				break;
 		}
 	}
 
@@ -113,9 +121,11 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 		static FName LightingOnlyIcon("EditorViewport.LightingOnlyMode");
 		static FName LightComplexityIcon("EditorViewport.LightComplexityMode");
 		static FName ShaderComplexityIcon("EditorViewport.ShaderComplexityMode");
+		static FName QuadComplexityIcon("EditorViewport.QuadComplexityMode");
 		static FName LightOverlapIcon("EditorViewport.StationaryLightOverlapMode");
 		static FName LightmapDensityIcon("EditorViewport.LightmapDensityMode");
 		static FName ReflectionModeIcon("EditorViewport.ReflectionOverrideMode");
+		static FName LODColorationIcon("EditorViewport.LODColorationMode");
 		static FName VisualizeBufferIcon("EditorViewport.VisualizeBufferMode");
 		static FName CollisionPawnIcon("EditorViewport.CollisionPawn");
 		static FName CollisionVisibilityIcon("EditorViewport.CollisionVisibility");
@@ -154,6 +164,10 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 				Icon = ShaderComplexityIcon;
 				break;
 
+			case VMI_QuadComplexity:
+				Icon = QuadComplexityIcon;
+				break;
+
 			case VMI_StationaryLightOverlap:
 				Icon = LightOverlapIcon;
 				break;
@@ -179,6 +193,10 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 				break;
 
 			case VMI_LitLightmapDensity:
+				break;
+
+			case VMI_LODColoration:
+				Icon = LODColorationIcon;
 				break;
 		}
 	}
@@ -206,9 +224,11 @@ TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.LightingOnlyMode, NAME_None, LOCTEXT("LightingOnlyViewModeDisplayName", "Lighting Only") );
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.LightComplexityMode, NAME_None, LOCTEXT("LightComplexityViewModeDisplayName", "Light Complexity") );
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.ShaderComplexityMode, NAME_None, LOCTEXT("ShaderComplexityViewModeDisplayName", "Shader Complexity") );
+				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.QuadComplexityMode, NAME_None, LOCTEXT("QuadComplexityViewModeDisplayName", "Quad Complexity") );
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.StationaryLightOverlapMode, NAME_None, LOCTEXT("StationaryLightOverlapViewModeDisplayName", "Stationary Light Overlap") );
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.LightmapDensityMode, NAME_None, LOCTEXT("LightmapDensityViewModeDisplayName", "Lightmap Density") );
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.ReflectionOverrideMode, NAME_None, LOCTEXT("ReflectionOverrideViewModeDisplayName", "Reflections") );
+				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.LODColorationMode, NAME_None, LOCTEXT("LODColorationViewModeDisplayName", "LOD Coloration") );
 			}
 			ViewMenuBuilder.EndSection();
 		}

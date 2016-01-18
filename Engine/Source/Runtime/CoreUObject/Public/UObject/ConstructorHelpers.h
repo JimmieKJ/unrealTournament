@@ -79,7 +79,12 @@ namespace ConstructorHelpersInternal
 				PathName += TCHAR('C');
 			}
 		}
-		return StaticLoadClass(BaseClass, NULL, *PathName);
+		UClass* LoadedClass = StaticLoadClass(BaseClass, NULL, *PathName);
+		if (LoadedClass)
+		{
+			LoadedClass->AddToRoot();
+		}
+		return LoadedClass;
 	}
 }
 

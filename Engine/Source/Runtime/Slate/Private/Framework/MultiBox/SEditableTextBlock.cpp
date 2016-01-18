@@ -50,8 +50,12 @@ void SEditableTextBlock::BuildMultiBlockWidget( const ISlateStyle* StyleSet, con
 	const TSharedPtr< const FUICommandInfo >& UICommand = EditableTextBlock->GetAction();
 
 	const TAttribute<FText>& Label = !EditableTextBlock->LabelOverride.IsBound() && EditableTextBlock->LabelOverride.Get().IsEmpty() && UICommand.IsValid() ? UICommand->GetLabel() : EditableTextBlock->LabelOverride;
-	const TAttribute<FText>& ToolTip = !EditableTextBlock->ToolTipOverride.IsBound() && EditableTextBlock->ToolTipOverride.Get().IsEmpty() && UICommand.IsValid() ? UICommand->GetDescription() : EditableTextBlock->ToolTipOverride;
+	const TAttribute<FText>& TextBlockToolTip = !EditableTextBlock->ToolTipOverride.IsBound() && EditableTextBlock->ToolTipOverride.Get().IsEmpty() && UICommand.IsValid() ? UICommand->GetDescription() : EditableTextBlock->ToolTipOverride;
 	const bool bHasLabel = !Label.Get().IsEmpty();
+
+	// Add this widget to the search list of the multibox
+	if (MultiBlock->GetSearchable())
+		OwnerMultiBoxWidget.Pin()->AddSearchElement(this->AsWidget(), Label.Get());
 
 	// See if the action is valid and if so we will use the actions icon if we dont override it later
 	const FSlateIcon ActionIcon = UICommand.IsValid() ? UICommand->GetIcon() : FSlateIcon();
@@ -111,7 +115,7 @@ void SEditableTextBlock::BuildMultiBlockWidget( const ISlateStyle* StyleSet, con
 					SNew( STextBlock )
 					.TextStyle( StyleSet, ISlateStyle::Join(StyleName, ".Label") )
 					.Text( Label )
-					.ToolTipText( ToolTip )
+					.ToolTipText( TextBlockToolTip )
 				]
 		]
 
@@ -129,7 +133,7 @@ void SEditableTextBlock::BuildMultiBlockWidget( const ISlateStyle* StyleSet, con
 			.MinDesiredWidth( MultiBoxConstants::EditableTextMinWidth )
 			.OnTextChanged( EditableTextBlock->OnTextChanged )
 			.OnTextCommitted( EditableTextBlock->OnTextCommitted )
-			.ToolTipText( ToolTip )
+			.ToolTipText( TextBlockToolTip )
 		]
 	];
 

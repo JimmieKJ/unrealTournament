@@ -2,6 +2,8 @@
 
 #include "FriendsAndChatPrivatePCH.h"
 
+#include "FriendsAndChatStyle.h"
+
 /**
  * Implements the FriendsAndChat module.
  */
@@ -10,29 +12,20 @@ class FFriendsAndChatModule
 {
 public:
 
-	// IFriendsAndChatModule interface
-
-	virtual TSharedRef<IFriendsAndChatManager> GetFriendsAndChatManager() override
-	{
-		return FFriendsAndChatManager::Get();
-	}
-
-public:
-
 	// IModuleInterface interface
 
 	virtual void StartupModule() override
 	{
- 		FFriendsAndChatManager::Get();
 	}
 
 	virtual void ShutdownModule() override
 	{
-		FFriendsAndChatManager::Shutdown();
 	}
 
-private:
-
+	virtual void ShutdownStyle() override
+	{
+		FFriendsAndChatModuleStyle::Shutdown();
+	}
 };
 
 

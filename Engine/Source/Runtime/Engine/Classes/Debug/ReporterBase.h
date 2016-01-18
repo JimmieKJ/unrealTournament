@@ -2,7 +2,7 @@
 #pragma once
 #include "ReporterBase.generated.h"
 
-/** Draw styles for lines */
+/** Draw styles for lines. */
 UENUM()
 namespace EReporterLineStyle
 {

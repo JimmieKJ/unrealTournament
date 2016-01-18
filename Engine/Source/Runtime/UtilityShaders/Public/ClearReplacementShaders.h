@@ -84,6 +84,7 @@ public:
 	}
 	
 	void SetParameters(FRHICommandList& RHICmdList, FUnorderedAccessViewRHIParamRef TextureRW, FLinearColor Value);
+	void FinalizeParameters(FRHICommandList& RHICmdList, FUnorderedAccessViewRHIParamRef TextureRW);
 	
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
@@ -127,6 +128,7 @@ public:
 	}
 
 	void SetParameters(FRHICommandList& RHICmdList, FUnorderedAccessViewRHIParamRef TextureRW, FLinearColor ClearColor, const FVector4& InTargetBounds);
+	void FinalizeParameters(FRHICommandList& RHICmdList, FUnorderedAccessViewRHIParamRef TextureRW);
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
@@ -167,6 +169,7 @@ public:
 	}
 	
 	void SetParameters(FRHICommandList& RHICmdList, FUnorderedAccessViewRHIParamRef BufferRW, uint32 Dword);
+	void FinalizeParameters(FRHICommandList& RHICmdList, FUnorderedAccessViewRHIParamRef BufferRW);
 	
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override

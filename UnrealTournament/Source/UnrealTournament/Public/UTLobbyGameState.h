@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTLobbyPlayerState.h"
@@ -144,7 +144,8 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 **/
 	void GameInstance_Empty(uint32 GameInstanceID);
 
-	void CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bool bReturnedFromMatch);
+	// Look to see if we should automatically place this player in a match
+	void CheckForAutoPlacement(AUTLobbyPlayerState* NewPlayer);
 
 	bool IsMatchStillValid(AUTLobbyMatchInfo* TestMatch);
 
@@ -180,7 +181,7 @@ protected:
 public:
 	// The actual cached copy of all of the game rulesets
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
-	TArray<TWeakObjectPtr<AUTReplicatedGameRuleset>> AvailableGameRulesets;
+	TArray< AUTReplicatedGameRuleset* > AvailableGameRulesets;
 
 	virtual TWeakObjectPtr<AUTReplicatedGameRuleset> FindRuleset(FString TagToFind);
 
@@ -255,6 +256,8 @@ public:
 
 	// Returns the # of matches available.  Not it ignores matches that are in the non-setup/dying state
 	int32 NumMatchesInProgress();
+
+	virtual void AttemptDirectJoin(AUTLobbyPlayerState* PlayerState, const FString& SessionID, bool bSpectator = false);
 
 };
 

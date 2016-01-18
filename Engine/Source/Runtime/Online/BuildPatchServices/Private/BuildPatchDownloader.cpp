@@ -6,6 +6,7 @@
 =============================================================================*/
 
 #include "BuildPatchServicesPrivatePCH.h"
+#include "Async.h"
 
 #define EXTRA_DOWNLOAD_LOGGING 0
 
@@ -70,8 +71,9 @@ private:
 
 /* FBuildPatchDownloader implementation
 *****************************************************************************/
-FBuildPatchDownloader::FBuildPatchDownloader( const FString& InSaveDirectory, const FBuildPatchAppManifestRef& InInstallManifest, FBuildPatchProgress* InBuildProgress )
+FBuildPatchDownloader::FBuildPatchDownloader(const FString& InSaveDirectory, const FString& InCloudDirectory, const FBuildPatchAppManifestRef& InInstallManifest, FBuildPatchProgress* InBuildProgress)
 	: SaveDirectory( InSaveDirectory )
+	, CloudDirectory( InCloudDirectory )
 	, InstallManifest( InInstallManifest )
 	, Thread( NULL )
 	, bIsRunning( false )
@@ -121,6 +123,7 @@ uint32 FBuildPatchDownloader::Run()
 
 	// The Average chunk download time
 	FMeanChunkTime MeanChunkTime;
+	TArray< FGuid > InFlightKeys;
 
 	// While there is the possibility of more chunks to download
 	while ( ShouldBeRunning() && !FBuildPatchInstallError::HasFatalError() )
@@ -129,7 +132,7 @@ uint32 FBuildPatchDownloader::Run()
 		FPlatformProcess::Sleep( 0.0f );
 		// Check inflight downloads for completion and process them
 		InFlightDownloadsLock.Lock();
-		TArray< FGuid > InFlightKeys;
+		InFlightKeys.Empty();
 		InFlightDownloads.GetKeys( InFlightKeys );
 		for( auto InFlightKeysIt = InFlightKeys.CreateConstIterator(); InFlightKeysIt && !FBuildPatchInstallError::HasFatalError(); ++InFlightKeysIt )
 		{
@@ -272,7 +275,7 @@ uint32 FBuildPatchDownloader::Run()
 		SetIdle( false );
 
 		// Make the filename and download url
-		FString DownloadUrl = FBuildPatchUtils::GetDataFilename(InstallManifest, FBuildPatchServicesModule::GetCloudDirectory(), NextGuid);
+		FString DownloadUrl = FBuildPatchUtils::GetDataFilename(InstallManifest, CloudDirectory, NextGuid);
 		const bool bIsHTTPRequest = DownloadUrl.Contains( TEXT( "http" ), ESearchCase::IgnoreCase );
 
 		// Start the download
@@ -293,29 +296,54 @@ uint32 FBuildPatchDownloader::Run()
 		else
 		{
 			// Load file from drive/network
-			TArray< uint8 > FileDataArray;
-			FArchive* Reader = IFileManager::Get().CreateFileReader( *DownloadUrl );
-			bool bSuccess = Reader != NULL;
-			if( Reader )
-			{
-				const int64 BytesPerCall = 256*1024;
-				const int64 FileSize = Reader->TotalSize();
-				FileDataArray.Reset();
-				FileDataArray.AddUninitialized( FileSize );
-				int64 BytesRead = 0;
-				while ( BytesRead < FileSize && !FBuildPatchInstallError::HasFatalError() )
+			TFunction<void()> Task = [this, DownloadUrl, NextGuid]() {
+				TArray< uint8 > FileDataArray;
+				FArchive* Reader = IFileManager::Get().CreateFileReader( *DownloadUrl );
+				bool bSuccess = Reader != NULL;
+				if( Reader )
 				{
-					const int64 ReadLen = FMath::Min<int64>( BytesPerCall, FileSize - BytesRead );
-					Reader->Serialize( FileDataArray.GetData() + BytesRead, ReadLen );
-					BytesRead += ReadLen;
-					OnDownloadProgress( NextGuid, BytesRead );
+					const int64 BytesPerCall = 256*1024;
+					const int64 FileSize = Reader->TotalSize();
+					FileDataArray.Reset();
+					FileDataArray.AddUninitialized( FileSize );
+					int64 BytesRead = 0;
+					while ( BytesRead < FileSize && !FBuildPatchInstallError::HasFatalError() )
+					{
+						const int64 ReadLen = FMath::Min<int64>( BytesPerCall, FileSize - BytesRead );
+						Reader->Serialize( FileDataArray.GetData() + BytesRead, ReadLen );
+						BytesRead += ReadLen;
+						OnDownloadProgress( NextGuid, BytesRead );
+					}
+					bSuccess = Reader->Close() && !FBuildPatchInstallError::HasFatalError();
+					delete Reader;
 				}
-				bSuccess = Reader->Close() && !FBuildPatchInstallError::HasFatalError();
-				delete Reader;
-			}
-			OnDownloadComplete( NextGuid, DownloadUrl, FileDataArray, bSuccess, INDEX_NONE );
+				OnDownloadComplete(NextGuid, DownloadUrl, FileDataArray, bSuccess, INDEX_NONE);
+				FileDataArray.Empty();
+			};
+			Async(EAsyncExecution::ThreadPool, MoveTemp(Task));
 		}
 	}
+
+	// Wait for all canceled downloads to complete
+	InFlightDownloadsLock.Lock();
+	while (InFlightDownloads.Num() > 0)
+	{
+		InFlightKeys.Empty();
+		InFlightDownloads.GetKeys(InFlightKeys);
+		for (const FGuid& InFlightKey : InFlightKeys)
+		{
+			// If the download is not running
+			if (InFlightDownloads[InFlightKey].StateFlag.GetValue() != EDownloadState::DownloadRunning)
+			{
+				InFlightDownloads.Remove(InFlightKey);
+			}
+		}
+		InFlightDownloadsLock.Unlock();
+		FPlatformProcess::Sleep(0.0f);
+		InFlightDownloadsLock.Lock();
+	}
+	InFlightDownloadsLock.Unlock();
+
 	SetIdle( true );
 	SetRunning( false );
 	return 0;
@@ -466,7 +494,7 @@ bool FBuildPatchDownloader::ShouldBeRunning()
 void FBuildPatchDownloader::HttpRequestProgress( FHttpRequestPtr Request, int32 BytesSent, int32 BytesReceived )
 {
 #if EXTRA_DOWNLOAD_LOGGING
-	GWarn->Logf(TEXT("BuildPatchDownloader: Request %p Bytes: %d"), Request.Get(), BytesSoFar);
+	GWarn->Logf(TEXT("BuildPatchDownloader: Request %p BytesSent: %d BytesReceived: %d"), Request.Get(), BytesSent, BytesReceived);
 #endif
 	if ( !FBuildPatchInstallError::HasFatalError() )
 	{
@@ -480,18 +508,15 @@ void FBuildPatchDownloader::HttpRequestComplete( FHttpRequestPtr Request, FHttpR
 {
 	// track the request if we want CDN analytics.
 	FBuildPatchAnalytics::TrackRequest(Request);
-	if ( !FBuildPatchInstallError::HasFatalError() )
+	FGuid DataGUID;
+	FBuildPatchUtils::GetGUIDFromFilename( Request->GetURL(), DataGUID );
+	if( bSucceeded && Response.IsValid() && EHttpResponseCodes::IsOk( Response->GetResponseCode() ) )
 	{
-		FGuid DataGUID;
-		FBuildPatchUtils::GetGUIDFromFilename( Request->GetURL(), DataGUID );
-		if( bSucceeded && Response.IsValid() && EHttpResponseCodes::IsOk( Response->GetResponseCode() ) )
-		{
-			OnDownloadComplete( DataGUID, Request->GetURL(), Response->GetContent(), true, Response->GetResponseCode() );
-		}
-		else
-		{
-			OnDownloadComplete( DataGUID, Request->GetURL(), TArray< uint8 >(), false, Response.IsValid() ? Response->GetResponseCode() : INDEX_NONE );
-		}
+		OnDownloadComplete( DataGUID, Request->GetURL(), Response->GetContent(), true, Response->GetResponseCode() );
+	}
+	else
+	{
+		OnDownloadComplete( DataGUID, Request->GetURL(), TArray< uint8 >(), false, Response.IsValid() ? Response->GetResponseCode() : INDEX_NONE );
 	}
 }
 
@@ -522,7 +547,6 @@ void FBuildPatchDownloader::OnDownloadComplete( const FGuid& Guid, const FString
 #if EXTRA_DOWNLOAD_LOGGING
 	GWarn->Logf(TEXT("BuildPatchDownloader: OnDownloadComplete %s %s %d"), *Guid.ToString(), bSucceeded?TEXT("SUCCESS"):TEXT("FAIL"), ResponseCode);
 #endif
-	if (!FBuildPatchInstallError::HasFatalError())
 	{
 		FScopeLock ScopeLock(&InFlightDownloadsLock);
 		FDownloadJob& CurrentJob = InFlightDownloads[Guid];
@@ -624,11 +648,11 @@ bool FBuildPatchDownloader::GetNextDownload( FGuid& Job )
 *****************************************************************************/
 TSharedPtr< FBuildPatchDownloader, ESPMode::ThreadSafe > FBuildPatchDownloader::SingletonInstance = NULL;
 
-void FBuildPatchDownloader::Create( const FString& InSaveDirectory, const FBuildPatchAppManifestRef& InInstallManifest, FBuildPatchProgress* InBuildProgress )
+void FBuildPatchDownloader::Create(const FString& SaveDirectory, const FString& CloudDirectory, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress)
 {
 	// We won't allow misuse of these functions
 	check( !SingletonInstance.IsValid() );
-	SingletonInstance = MakeShareable( new FBuildPatchDownloader( InSaveDirectory, InInstallManifest, InBuildProgress ) );
+	SingletonInstance = MakeShareable(new FBuildPatchDownloader(SaveDirectory, CloudDirectory, InstallManifest, BuildProgress));
 }
 
 FBuildPatchDownloader& FBuildPatchDownloader::Get()

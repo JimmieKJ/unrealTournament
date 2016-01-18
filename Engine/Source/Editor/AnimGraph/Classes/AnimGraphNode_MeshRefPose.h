@@ -2,7 +2,7 @@
 
 #pragma once
 #include "AnimGraphNode_Base.h"
-#include "Animation/AnimNode_RefPose.h"
+#include "AnimNodes/AnimNode_RefPose.h"
 #include "AnimGraphNode_MeshRefPose.generated.h"
 
 UCLASS(MinimalAPI)

@@ -10,12 +10,12 @@
 #include "PostProcessHistogramCommon.usf"
 
 /** Main pixel shader function */
-void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
 {
 	float Alpha = 1;
 
 #if DRAWING_TILE
-	int2 PixelPos = (int2)(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
+	int2 PixelPos = (int2)SvPosition.xy;
 
 	// half viewport size
 	int2 HalfInsetSize = (int2)(ViewportSize.xy / 2);

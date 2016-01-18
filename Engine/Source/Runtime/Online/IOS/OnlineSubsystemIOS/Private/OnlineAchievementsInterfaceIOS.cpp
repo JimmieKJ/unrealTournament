@@ -7,7 +7,6 @@
 #include <GameKit/GKAchievement.h>
 #include <GameKit/GKAchievementDescription.h>
 
-
 FOnlineAchievementsIOS::FOnlineAchievementsIOS(class FOnlineSubsystemIOS* InSubsystem)
 {
 	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemIOS::FOnlineAchievementsIOS()"));

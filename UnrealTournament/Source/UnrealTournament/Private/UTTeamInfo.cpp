@@ -257,7 +257,7 @@ bool AUTTeamInfo::AssignToSquad(AController* C, FName Orders, AController* Leade
 	AUTSquadAI* NewSquad = NULL;
 	for (int32 i = 0; i < Squads.Num(); i++)
 	{
-		if (Squads[i] == NULL || Squads[i]->bPendingKillPending)
+		if (Squads[i] == NULL || Squads[i]->IsPendingKillPending())
 		{
 			Squads.RemoveAt(i--);
 		}
@@ -318,7 +318,7 @@ void AUTTeamInfo::NotifyObjectiveEvent(AActor* InObjective, AController* Instiga
 	for (AUTSquadAI* Squad : Squads)
 	{
 		// by default just notify all squads and let them filter
-		if (Squad != NULL && !Squad->bPendingKillPending)
+		if (Squad != NULL && !Squad->IsPendingKillPending())
 		{
 			Squad->NotifyObjectiveEvent(InObjective, InstigatedBy, EventName);
 		}

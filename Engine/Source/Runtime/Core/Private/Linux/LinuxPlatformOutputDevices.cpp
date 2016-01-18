@@ -208,9 +208,8 @@ void FOutputDeviceConsoleLinux::Serialize(const TCHAR* Data, ELogVerbosity::Type
 					bNeedToResetColor = true;
 				}
 			}
-			TCHAR OutputString[MAX_SPRINTF]=TEXT(""); //@warning: this is safe as FCString::Sprintf only use 1024 characters max
-			FCString::Sprintf(OutputString,TEXT("%s%s"),*FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes),LINE_TERMINATOR);
-			printf("%s", TCHAR_TO_UTF8(OutputString));
+
+			printf("%ls\n", *FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes));
 
 			if (bNeedToResetColor)
 			{

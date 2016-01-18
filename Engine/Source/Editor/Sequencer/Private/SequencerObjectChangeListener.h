@@ -2,6 +2,9 @@
 
 #pragma once
 
+//#include "ISequencerObjectChangeListener.h"
+#include "ObjectKey.h"
+
 class IPropertyHandle;
 
 /**
@@ -16,8 +19,10 @@ public:
 	/** ISequencerObjectChangeListener interface */
 	virtual FOnAnimatablePropertyChanged& GetOnAnimatablePropertyChanged( FName PropertyTypeName ) override;
 	virtual FOnPropagateObjectChanges& GetOnPropagateObjectChanges() override;
-	virtual bool IsTypeKeyable(const UClass& ObjectClass, const IPropertyHandle& PropertyHandle) const override;
-	virtual void KeyProperty( const TArray<UObject*>& ObjectsToKey, const class IPropertyHandle& PropertyHandle ) const override;
+	virtual FOnObjectPropertyChanged& GetOnAnyPropertyChanged(UObject& Object) override;
+	virtual void ReportObjectDestroyed(UObject& Object) override;
+	virtual bool CanKeyProperty(FCanKeyPropertyParams KeyPropertyParams) const override;
+	virtual void KeyProperty(FKeyPropertyParams KeyPropertyParams) const override;
 	virtual void TriggerAllPropertiesChanged(UObject* Object) override;
 
 private:
@@ -48,7 +53,10 @@ private:
 	 *
 	 * @param Object	The object that PostEditChange was called on
 	 */
-	void OnPropertyChanged( const TArray<UObject*>& ChangedObjects, const IPropertyHandle& PropertyValue, bool bRequireAutoKey ) const;
+	void OnPropertyChanged( const TArray<UObject*>& ChangedObjects, const IPropertyHandle& PropertyHandle ) const;
+
+	/** Broadcasts the property change callback to the appropriate listeners. */
+	void BroadcastPropertyChanged(FKeyPropertyParams KeyPropertyParams) const;
 
 	/**
 	 * @return True if an object is valid for listening to property changes 
@@ -56,13 +64,16 @@ private:
 	bool IsObjectValidForListening( UObject* Object ) const;
 
 	/** @return Whether or not a property setter could be found for a property on a class */
-	bool FindPropertySetter( const UClass& ObjectClass, const FName PropertyTypeName, const FString& PropertyVarName ) const;
+	bool FindPropertySetter( const UClass& ObjectClass, const FName PropertyTypeName, const FString& PropertyVarName, const UStructProperty* StructProperty = 0 ) const;
 private:
 	/** Mapping of object to a listener used to check for property changes */
 	TMap< TWeakObjectPtr<UObject>, TSharedPtr<class IPropertyChangeListener> > ActivePropertyChangeListeners;
 
 	/** A mapping of property classes to multi-cast delegate that is broadcast when properties of that type change */
 	TMap< FName, FOnAnimatablePropertyChanged > ClassToPropertyChangedMap;
+
+	/** A mapping of object instance to property change event */
+	TMap< FObjectKey, FOnObjectPropertyChanged > ObjectToPropertyChangedEvent;
 
 	/** Delegate to call when object changes should be propagated */
 	FOnPropagateObjectChanges OnPropagateObjectChanges;

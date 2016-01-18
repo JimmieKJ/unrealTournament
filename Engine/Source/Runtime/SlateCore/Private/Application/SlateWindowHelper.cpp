@@ -88,7 +88,7 @@ bool FSlateWindowHelper::ContainsWindow( const TArray<TSharedRef<SWindow>>& Wind
 }
 
 
-bool FSlateWindowHelper::FindPathToWidget( const TArray<TSharedRef<SWindow>> WindowsToSearch,  TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter )
+bool FSlateWindowHelper::FindPathToWidget( const TArray<TSharedRef<SWindow>>& WindowsToSearch,  TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter )
 {
 	SCOPE_CYCLE_COUNTER(STAT_FindPathToWidget);
 

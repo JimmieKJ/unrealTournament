@@ -641,7 +641,7 @@ namespace
 	{
 		PatternPropertyHandle = InPatternPropertyHandle;
 
-		for(const FString& PossiblePlaceHolder : FMetaDataTextKeyPattern::PossiblePlaceHolders)
+		for(const FString& PossiblePlaceHolder : FMetaDataTextKeyPattern::GetPossiblePlaceHolders())
 		{
 			PossiblePlaceHoldersListItemsSource.Add( MakeShareable(new FString(PossiblePlaceHolder)) );
 		}

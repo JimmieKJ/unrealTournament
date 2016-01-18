@@ -331,7 +331,7 @@ int32 SProfilerMiniView::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 
 void SProfilerMiniView::DrawText( const FString& Text, const FSlateFontInfo& FontInfo, FVector2D Position, const FColor& TextColor, const FColor& ShadowColor, FVector2D ShadowOffset ) const
 {
-	if( ShadowOffset.Size() > 0.0f )
+	if( ShadowOffset.SizeSquared() > 0.0f )
 	{
 		FSlateDrawElement::MakeText
 		(

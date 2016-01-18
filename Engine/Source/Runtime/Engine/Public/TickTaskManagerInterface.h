@@ -1,8 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 
-#ifndef __TickTaskManagerInterface_h__
-#define __TickTaskManagerInterface_h__
+#pragma once
+
+DECLARE_STATS_GROUP(TEXT("TickGroups"), STATGROUP_TickGroups, STATCAT_Advanced);
 
 /** 
  * Interface for the tick task manager
@@ -61,4 +62,3 @@ public:
 };
 
 
-#endif		// __DerivedDataBackendInterface_h__

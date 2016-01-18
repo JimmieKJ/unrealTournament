@@ -221,7 +221,7 @@ bool FIOSHttpRequest::StartRequest()
 		[Request setValue:[NSString stringWithFormat:@"%d", GetContentLength()] forHTTPHeaderField:@"Content-Length"];
 	}
 
-	NSString* Tag = [NSString stringWithFString:FString::Printf(TEXT("UE4-%s,UE4Ver(%s)"), FApp::GetGameName(), *GEngineVersion.ToString())];
+	NSString* Tag = [NSString stringWithFString:FString::Printf(TEXT("UE4-%s,UE4Ver(%s)"), FApp::GetGameName(), *FEngineVersion::Current().ToString())];
 	[Request addValue:Tag forHTTPHeaderField:@"User-Agent"];
 
 	Response = MakeShareable( new FIOSHttpResponse( *this ) );

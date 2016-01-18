@@ -28,7 +28,7 @@ public:
 	 * @param InOwner The session that owns this instance.
 	 * @param InMessageBus The message bus to use.
 	 */
-	FSessionInstanceInfo( const FGuid& InInstanceId, const TSharedRef<ISessionInfo>& InOwner, const IMessageBusRef& InMessageBus );
+	FSessionInstanceInfo(const FGuid& InInstanceId, const TSharedRef<ISessionInfo>& InOwner, const IMessageBusRef& InMessageBus);
 
 public:
 
@@ -38,7 +38,7 @@ public:
 	 * @param Message The message containing engine information.
 	 * @param Context The message context.
 	 */
-	void UpdateFromMessage( const FEngineServicePong& Message, const IMessageContextRef& Context );
+	void UpdateFromMessage(const FEngineServicePong& Message, const IMessageContextRef& Context);
 
 	/**
 	 * Updates this instance info with the data in the specified message.
@@ -46,13 +46,13 @@ public:
 	 * @param Message The message containing instance information.
 	 * @param Context The message context.
 	 */
-	void UpdateFromMessage( const FSessionServicePong& Message, const IMessageContextRef& Context );
+	void UpdateFromMessage(const FSessionServicePong& Message, const IMessageContextRef& Context);
 
 public:	
 
 	// IGameInstanceInfo interface
 
-	virtual void ExecuteCommand( const FString& CommandString ) override;
+	virtual void ExecuteCommand(const FString& CommandString) override;
 
 	virtual const FString& GetBuildDate() const override
 	{
@@ -114,6 +114,11 @@ public:
 		return WorldTimeSeconds;
 	}
 
+	virtual bool IsAuthorized() const override
+	{
+		return Authorized;
+	}
+
 	virtual const bool IsConsole() const override
 	{
 		return IsConsoleBuild;
@@ -135,12 +140,15 @@ public:
 private:
 
 	/** Handles FSessionServiceLog messages. */
-	void HandleSessionLogMessage( const FSessionServiceLog& Message, const IMessageContextRef& Context );
+	void HandleSessionLogMessage(const FSessionServiceLog& Message, const IMessageContextRef& Context);
 
 private:
 
 	/** Holds the message bus address of the application instance. */
 	FMessageAddress ApplicationAddress;
+
+	/** Whether the current user is authorized to interact with this instance. */
+	bool Authorized;
 
 	/** Holds the instance's build date. */
 	FString BuildDate;

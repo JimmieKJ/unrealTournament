@@ -56,7 +56,6 @@ namespace UnrealBuildTool.Rules
 
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
-                    "Documentation",
 					"MainFrame",
 					"LauncherServices",
 				}

@@ -35,30 +35,30 @@ HIDInputInterface::HIDInputInterface(const TSharedRef<FGenericApplicationMessage
 	InitialButtonRepeatDelay = 0.2f;
 	ButtonRepeatDelay = 0.1f;
 
-	Buttons[0] = EControllerButtons::FaceButtonBottom;
-	Buttons[1] = EControllerButtons::FaceButtonRight;
-	Buttons[2] = EControllerButtons::FaceButtonLeft;
-	Buttons[3] = EControllerButtons::FaceButtonTop;
-	Buttons[4] = EControllerButtons::LeftShoulder;
-	Buttons[5] = EControllerButtons::RightShoulder;
-	Buttons[6] = EControllerButtons::SpecialRight;
-	Buttons[7] = EControllerButtons::SpecialLeft;
-	Buttons[8] = EControllerButtons::LeftThumb;
-	Buttons[9] = EControllerButtons::RightThumb;
-	Buttons[10] = EControllerButtons::LeftTriggerThreshold;
-	Buttons[11] = EControllerButtons::RightTriggerThreshold;
-	Buttons[12] = EControllerButtons::DPadUp;
-	Buttons[13] = EControllerButtons::DPadDown;
-	Buttons[14] = EControllerButtons::DPadLeft;
-	Buttons[15] = EControllerButtons::DPadRight;
-	Buttons[16] = EControllerButtons::LeftStickUp;
-	Buttons[17] = EControllerButtons::LeftStickDown;
-	Buttons[18] = EControllerButtons::LeftStickLeft;
-	Buttons[19] = EControllerButtons::LeftStickRight;
-	Buttons[20] = EControllerButtons::RightStickUp;
-	Buttons[21] = EControllerButtons::RightStickDown;
-	Buttons[22] = EControllerButtons::RightStickLeft;
-	Buttons[23] = EControllerButtons::RightStickRight;
+	Buttons[0] = FGamepadKeyNames::FaceButtonBottom;
+	Buttons[1] = FGamepadKeyNames::FaceButtonRight;
+	Buttons[2] = FGamepadKeyNames::FaceButtonLeft;
+	Buttons[3] = FGamepadKeyNames::FaceButtonTop;
+	Buttons[4] = FGamepadKeyNames::LeftShoulder;
+	Buttons[5] = FGamepadKeyNames::RightShoulder;
+	Buttons[6] = FGamepadKeyNames::SpecialRight;
+	Buttons[7] = FGamepadKeyNames::SpecialLeft;
+	Buttons[8] = FGamepadKeyNames::LeftThumb;
+	Buttons[9] = FGamepadKeyNames::RightThumb;
+	Buttons[10] = FGamepadKeyNames::LeftTriggerThreshold;
+	Buttons[11] = FGamepadKeyNames::RightTriggerThreshold;
+	Buttons[12] = FGamepadKeyNames::DPadUp;
+	Buttons[13] = FGamepadKeyNames::DPadDown;
+	Buttons[14] = FGamepadKeyNames::DPadLeft;
+	Buttons[15] = FGamepadKeyNames::DPadRight;
+	Buttons[16] = FGamepadKeyNames::LeftStickUp;
+	Buttons[17] = FGamepadKeyNames::LeftStickDown;
+	Buttons[18] = FGamepadKeyNames::LeftStickLeft;
+	Buttons[19] = FGamepadKeyNames::LeftStickRight;
+	Buttons[20] = FGamepadKeyNames::RightStickUp;
+	Buttons[21] = FGamepadKeyNames::RightStickDown;
+	Buttons[22] = FGamepadKeyNames::RightStickLeft;
+	Buttons[23] = FGamepadKeyNames::RightStickRight;
 
 	// Init HID Manager
 	HIDManager = IOHIDManagerCreate(kCFAllocatorDefault, 0L);
@@ -427,37 +427,37 @@ void HIDInputInterface::SendControllerEvents()
 
 						if (Element.Usage == ControllerState.Device.LeftAnalogXMapping && ControllerState.LeftAnalogX != NewValue)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::LeftAnalogX, ControllerState.ControllerId, FloatValue);
-							CurrentButtonStates[18] = FloatValue < -0.2f;	// EControllerButtons::LeftStickLeft
-							CurrentButtonStates[19] = FloatValue > 0.2f;	// EControllerButtons::LeftStickRight
+							MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogX, ControllerState.ControllerId, FloatValue);
+							CurrentButtonStates[18] = FloatValue < -0.2f;	// FGamepadKeyNames::LeftStickLeft
+							CurrentButtonStates[19] = FloatValue > 0.2f;	// FGamepadKeyNames::LeftStickRight
 							ControllerState.LeftAnalogX = NewValue;
 						}
 						else if (Element.Usage == ControllerState.Device.LeftAnalogYMapping && ControllerState.LeftAnalogY != NewValue)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::LeftAnalogY, ControllerState.ControllerId, -FloatValue);
-							CurrentButtonStates[16] = FloatValue < -0.2f;	// EControllerButtons::LeftStickUp
-							CurrentButtonStates[17] = FloatValue > 0.2f;	// EControllerButtons::LeftStickDown
+							MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogY, ControllerState.ControllerId, -FloatValue);
+							CurrentButtonStates[16] = FloatValue < -0.2f;	// FGamepadKeyNames::LeftStickUp
+							CurrentButtonStates[17] = FloatValue > 0.2f;	// FGamepadKeyNames::LeftStickDown
 							ControllerState.LeftAnalogY = NewValue;
 						}
 						else if (Element.Usage == ControllerState.Device.RightAnalogXMapping && ControllerState.RightAnalogX != NewValue)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::RightAnalogX, ControllerState.ControllerId, FloatValue);
-							CurrentButtonStates[22] = FloatValue < -0.2f;	// EControllerButtons::RightStickLeft
-							CurrentButtonStates[23] = FloatValue > 0.2f;	// EControllerButtons::RightStickDown
+							MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogX, ControllerState.ControllerId, FloatValue);
+							CurrentButtonStates[22] = FloatValue < -0.2f;	// FGamepadKeyNames::RightStickLeft
+							CurrentButtonStates[23] = FloatValue > 0.2f;	// FGamepadKeyNames::RightStickDown
 							ControllerState.RightAnalogX = NewValue;
 						}
 						else if (Element.Usage == ControllerState.Device.RightAnalogYMapping && ControllerState.RightAnalogY != NewValue)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::RightAnalogY, ControllerState.ControllerId, -FloatValue);
-							CurrentButtonStates[20] = FloatValue < -0.2f;	// EControllerButtons::RightStickUp
-							CurrentButtonStates[21] = FloatValue > 0.2f;	// EControllerButtons::RightStickRight
+							MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogY, ControllerState.ControllerId, -FloatValue);
+							CurrentButtonStates[20] = FloatValue < -0.2f;	// FGamepadKeyNames::RightStickUp
+							CurrentButtonStates[21] = FloatValue > 0.2f;	// FGamepadKeyNames::RightStickRight
 							ControllerState.RightAnalogY = NewValue;
 						}
 						else if (Element.Usage == ControllerState.Device.LeftTriggerAnalogMapping)
 						{
 							if (ControllerState.LeftTriggerAnalog != NewValue)
 							{
-								MessageHandler->OnControllerAnalog(EControllerButtons::LeftTriggerAnalog, ControllerState.ControllerId, FloatValue);
+								MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftTriggerAnalog, ControllerState.ControllerId, FloatValue);
 								ControllerState.LeftTriggerAnalog = NewValue;
 							}
 							CurrentButtonStates[10] = FloatValue > 0.01f;
@@ -466,7 +466,7 @@ void HIDInputInterface::SendControllerEvents()
 						{
 							if (ControllerState.RightTriggerAnalog != NewValue)
 							{
-								MessageHandler->OnControllerAnalog(EControllerButtons::RightTriggerAnalog, ControllerState.ControllerId, FloatValue);
+								MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightTriggerAnalog, ControllerState.ControllerId, FloatValue);
 								ControllerState.RightTriggerAnalog = NewValue;
 							}
 							CurrentButtonStates[11] = FloatValue > 0.01f;

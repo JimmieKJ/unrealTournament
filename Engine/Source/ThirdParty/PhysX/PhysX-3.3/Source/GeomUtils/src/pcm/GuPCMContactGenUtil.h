@@ -298,8 +298,8 @@ namespace Gu
 
 		for(PxU32 i=1; i< polyData.mNbPolygons; ++i)
 		{
-			Vec3V planeN = V3LoadU(polyData.mPolygons[i].mPlane.n);
-			const FloatV proj = V3Dot(n, planeN);
+			Vec3V planeNi = V3LoadU(polyData.mPolygons[i].mPlane.n);
+			const FloatV proj = V3Dot(n, planeNi);
 			if(FAllGrtr(minProj, proj))
 			{
 				minProj = proj;
@@ -384,8 +384,8 @@ namespace Gu
 
 		for(PxU32 i=1; i< polyData.mNbPolygons; ++i)
 		{
-			Vec3V planeN = V3LoadU(polyData.mPolygons[i].mPlane.n);
-			const FloatV proj = V3Dot(n, planeN);
+			Vec3V planeNi = V3LoadU(polyData.mPolygons[i].mPlane.n);
+			const FloatV proj = V3Dot(n, planeNi);
 			if(FAllGrtr(minProj, proj))
 			{
 				minProj = proj;

@@ -34,11 +34,10 @@ static GLenum GetOpenGLPrimitiveType( ESlateDrawPrimitive::Type SlateType )
 };
 
 
-FSlateOpenGLRenderingPolicy::FSlateOpenGLRenderingPolicy( TSharedPtr<FSlateFontCache>& InFontCache, TSharedPtr<FSlateOpenGLTextureManager>& InTextureManager )
-	: FSlateRenderingPolicy( PixelCenterOffsetOpenGL )
+FSlateOpenGLRenderingPolicy::FSlateOpenGLRenderingPolicy( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateOpenGLTextureManager> InTextureManager )
+	: FSlateRenderingPolicy( InSlateFontServices, PixelCenterOffsetOpenGL )
 	, VertexBuffer( sizeof(FSlateVertex) )
 	, WhiteTexture( NULL )
-	, FontCache( InFontCache )
 	, TextureManager( InTextureManager )
 	, bIsInitialized( false )
 {
@@ -86,45 +85,43 @@ void FSlateOpenGLRenderingPolicy::ReleaseResources()
  * @param InVertices	The vertices to copy to the vertex buffer
  * @param InIndices		The indices to copy to the index buffer
  */
-void FSlateOpenGLRenderingPolicy::UpdateBuffers( const FSlateWindowElementList& InElementList )
+void FSlateOpenGLRenderingPolicy::UpdateVertexAndIndexBuffers(FSlateBatchData& InBatchData)
 {
-	const TArray<FSlateVertex>& Vertices = InElementList.GetBatchedVertices();
-	const TArray<SlateIndex>& Indices = InElementList.GetBatchedIndices();
-
-	if( Vertices.Num() )
+	if( InBatchData.GetRenderBatches().Num() > 0 )
 	{
-		uint32 NumVertices = Vertices.Num();
-	
-		// resize if needed
-		if( NumVertices*sizeof(FSlateVertex) > VertexBuffer.GetBufferSize() )
+		if( InBatchData.GetNumBatchedVertices() > 0 )
 		{
-			uint32 NumBytesNeeded = NumVertices*sizeof(FSlateVertex);
-			// increase by a static size.
-			// @todo make this better
-			VertexBuffer.ResizeBuffer( NumBytesNeeded + 200*sizeof(FSlateVertex) );
+			uint32 NumVertices = InBatchData.GetNumBatchedVertices();
+	
+			// resize if needed
+			if( NumVertices*sizeof(FSlateVertex) > VertexBuffer.GetBufferSize() )
+			{
+				uint32 NumBytesNeeded = NumVertices*sizeof(FSlateVertex);
+				// increase by a static size.
+				// @todo make this better
+				VertexBuffer.ResizeBuffer( NumBytesNeeded + 200*sizeof(FSlateVertex) );
+			}
 		}
 
-		void* VerticesPtr = VertexBuffer.Lock(0);
-		FMemory::Memcpy( VerticesPtr, Vertices.GetData(), sizeof(FSlateVertex)*NumVertices );
+		if( InBatchData.GetNumBatchedIndices() > 0 )
+		{
+			uint32 NumIndices = InBatchData.GetNumBatchedIndices();
+
+			// resize if needed
+			if( NumIndices > IndexBuffer.GetMaxNumIndices() )
+			{
+				// increase by a static size.
+				// @todo make this better
+				IndexBuffer.ResizeBuffer( NumIndices + 100 );
+			}
+		}
+
+		uint8* VerticesPtr = (uint8*)VertexBuffer.Lock(0);
+		uint8* IndicesPtr = (uint8*)IndexBuffer.Lock(0);
+
+		InBatchData.FillVertexAndIndexBuffer(VerticesPtr, IndicesPtr);
 
 		VertexBuffer.Unlock();
-	}
-
-	if( Indices.Num() )
-	{
-		uint32 NumIndices = Indices.Num();
-
-		// resize if needed
-		if( NumIndices > IndexBuffer.GetMaxNumIndices() )
-		{
-			// increase by a static size.
-			// @todo make this better
-			IndexBuffer.ResizeBuffer( NumIndices + 100 );
-		}
-
-		void* IndicesPtr = IndexBuffer.Lock(0);
-		FMemory::Memcpy( IndicesPtr, Indices.GetData(), sizeof(SlateIndex)*NumIndices );
-
 		IndexBuffer.Unlock();
 	}
 }
@@ -245,22 +242,15 @@ void FSlateOpenGLRenderingPolicy::DrawElements( const FMatrix& ViewProjectionMat
 
 		glEnableVertexAttribArray(1);
 		Offset = STRUCT_OFFSET( FSlateVertex, Position );
-		glVertexAttribPointer( 1, 2, GL_SHORT, GL_FALSE, Stride, BUFFER_OFFSET(Stride*BaseVertexIndex+Offset) );
-
-		bool bUseFloat16 =
-#if SLATE_USE_FLOAT16
-			true;
-#else
-			false;
-#endif
+		glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, Stride, BUFFER_OFFSET(Stride*BaseVertexIndex+Offset) );
 
 		glEnableVertexAttribArray(2);
 		Offset = STRUCT_OFFSET( FSlateVertex, ClipRect );
-		glVertexAttribPointer( 2, 2, bUseFloat16 ? GL_HALF_FLOAT : GL_FLOAT, GL_FALSE, Stride, BUFFER_OFFSET(Stride*BaseVertexIndex+Offset) );
+		glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, Stride, BUFFER_OFFSET(Stride*BaseVertexIndex+Offset) );
 
 		glEnableVertexAttribArray(3);
 		Offset = STRUCT_OFFSET( FSlateVertex, ClipRect ) + STRUCT_OFFSET( FSlateRotatedClipRectType, ExtentX );
-		glVertexAttribPointer( 3, 4, bUseFloat16 ? GL_HALF_FLOAT : GL_FLOAT, GL_FALSE, Stride, BUFFER_OFFSET(Stride*BaseVertexIndex+Offset) );
+		glVertexAttribPointer( 3, 4, GL_FLOAT, GL_FALSE, Stride, BUFFER_OFFSET(Stride*BaseVertexIndex+Offset) );
 
 		glEnableVertexAttribArray(4);
 		Offset = STRUCT_OFFSET( FSlateVertex, Color );
@@ -295,7 +285,7 @@ void FSlateOpenGLRenderingPolicy::DrawElements( const FMatrix& ViewProjectionMat
 
 }
 
-TSharedRef<FSlateShaderResourceManager> FSlateOpenGLRenderingPolicy::GetResourceManager()
+TSharedRef<FSlateShaderResourceManager> FSlateOpenGLRenderingPolicy::GetResourceManager() const
 {
 	return TextureManager.ToSharedRef();
 }

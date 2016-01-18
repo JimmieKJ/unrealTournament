@@ -31,6 +31,29 @@ DEFINE_LOG_CATEGORY_STATIC(LogAndroidFile, Log, All);
 // make an FTimeSpan object that represents the "epoch" for time_t (from a stat struct)
 const FDateTime AndroidEpoch(1970, 1, 1);
 
+namespace
+{
+	FFileStatData AndroidStatToUEFileData(struct stat& FileInfo)
+	{
+		const bool bIsDirectory = S_ISDIR(FileInfo.st_mode);
+
+		int64 FileSize = -1;
+		if (!bIsDirectory)
+		{
+			FileSize = FileInfo.st_size;
+		}
+
+		return FFileStatData(
+			AndroidEpoch + FTimespan(0, 0, FileInfo.st_ctime), 
+			AndroidEpoch + FTimespan(0, 0, FileInfo.st_atime), 
+			AndroidEpoch + FTimespan(0, 0, FileInfo.st_mtime), 
+			FileSize,
+			bIsDirectory,
+			!!(FileInfo.st_mode & S_IWUSR)
+			);
+	}
+}
+
 #define USE_UTIME 0
 
 
@@ -49,6 +72,8 @@ FString GFontPathBase;
 
 // Is the OBB in an APK file or not
 bool GOBBinAPK;
+
+#define FILEBASE_DIRECTORY "/UE4Game/"
 
 extern jobject AndroidJNI_GetJavaAssetManager();
 extern AAssetManager * AndroidThunkCpp_GetAssetManager();
@@ -71,7 +96,7 @@ extern "C" void Java_com_epicgames_ue4_GameActivity_nativeSetObbInfo(JNIEnv* jen
 // Constructs the base path for any files which are not in OBB/pak data
 const FString &GetFileBasePath()
 {
-	static FString BasePath = GFilePathBase + FString("/UE4Game/") + FApp::GetGameName() + FString("/");
+	static FString BasePath = GFilePathBase + FString(FILEBASE_DIRECTORY) + FApp::GetGameName() + FString("/");
 	return BasePath;
 }
 
@@ -131,6 +156,7 @@ public:
 	TSharedPtr<FileReference> File;
 	int64 Start;
 	int64 Length;
+	int64 CurrentOffset;
 
 	FORCEINLINE void CheckValid()
 	{
@@ -140,7 +166,7 @@ public:
 	// Invalid handle.
 	FFileHandleAndroid()
 		: File(MakeShareable(new FileReference()))
-		, Start(0), Length(0)
+		, Start(0), Length(0), CurrentOffset(0)
 	{
 	}
 
@@ -149,6 +175,7 @@ public:
 		int64 start, int64 length)
 		: File(base.File)
 		, Start(base.Start + start), Length(length)
+		, CurrentOffset(0)
 	{
 		CheckValid();
 		LogInfo();
@@ -157,7 +184,7 @@ public:
 	// Handle that covers the entire file content.
 	FFileHandleAndroid(const FString & path, int32 filehandle)
 		: File(MakeShareable(new FileReference(path, filehandle)))
-		, Start(0), Length(0)
+		, Start(0), Length(0), CurrentOffset(0)
 	{
 		CheckValid();
 #if UE_ANDROID_FILE_64
@@ -173,7 +200,7 @@ public:
 	// Handle that covers the entire content of an asset.
 	FFileHandleAndroid(const FString & path, AAsset * asset)
 		: File(MakeShareable(new FileReference(path, asset)))
-		, Start(0), Length(0)
+		, Start(0), Length(0), CurrentOffset(0)
 	{
 #if UE_ANDROID_FILE_64
 		File->Handle = AAsset_openFileDescriptor64(File->Asset, &Start, &Length);
@@ -195,11 +222,7 @@ public:
 	virtual int64 Tell() override
 	{
 		CheckValid();
-#if UE_ANDROID_FILE_64
-		int64 pos = lseek64(File->Handle, 0, SEEK_CUR);
-#else
-		int64 pos = lseek(File->Handle, 0, SEEK_CUR);
-#endif
+		int64 pos = CurrentOffset;
 		check(pos != -1);
 		return pos - Start; // We are treating 'tell' as a virtual location from file Start
 	}
@@ -208,16 +231,10 @@ public:
 	{
 		CheckValid();
 		// we need to offset all positions by the Start offset
-		NewPosition += Start;
+		CurrentOffset = NewPosition += Start;
 		check(NewPosition >= 0);
 		
-#if UE_ANDROID_FILE_64
-		int64 pos = lseek64(File->Handle, NewPosition, SEEK_SET);
-#else
-		check(NewPosition <= std::numeric_limits<off_t>::max());
-		int64 pos = lseek(File->Handle, static_cast<off_t>(NewPosition), SEEK_SET);
-#endif
-		return pos != -1;
+		return true;
 	}
 
     virtual bool SeekFromEnd(int64 NewPositionRelativeToEnd = 0) override
@@ -225,34 +242,35 @@ public:
 		CheckValid();
 		check(NewPositionRelativeToEnd <= 0);
 		// We need to convert this to a virtual offset inside the file we are interested in
-		int64 position = Start + (Length - NewPositionRelativeToEnd);
-#if UE_ANDROID_FILE_64
-		int64 pos = lseek64(File->Handle, position, SEEK_SET);
-#else
-		check(position <= std::numeric_limits<off_t>::max());
-		int64 pos = lseek(File->Handle, static_cast<off_t>(position), SEEK_SET);
-#endif
-		return pos != -1;
+		CurrentOffset = Start + (Length - NewPositionRelativeToEnd);
+		return true;
 	}
+
+	
 
 	virtual bool Read(uint8* Destination, int64 BytesToRead) override
 	{
 		CheckValid();
 #if LOG_ANDROID_FILE
 		FPlatformMisc::LowLevelOutputDebugStringf(
-			TEXT("FFileHandleAndroid:Read => Path = %s, BytesToRead = %d"),
+			TEXT("(%d/%d) FFileHandleAndroid:Read => Path = %s, BytesToRead = %d"),
+			FAndroidTLS::GetCurrentThreadId(), File->Handle,
 			*(File->Path), int32(BytesToRead));
 #endif
 		check(BytesToRead >= 0);
 		check(Destination);
+		
 		while (BytesToRead > 0)
 		{
+
 			int64 ThisSize = FMath::Min<int64>(READWRITE_SIZE, BytesToRead);
-			ThisSize = read(File->Handle, Destination, ThisSize);
+			
+			ThisSize = pread(File->Handle, Destination, ThisSize, CurrentOffset);
 #if LOG_ANDROID_FILE
 			FPlatformMisc::LowLevelOutputDebugStringf(
-				TEXT("FFileHandleAndroid:Read => Path = %s, ThisSize = %d"),
-				*(File->Path), int32(ThisSize));
+				TEXT("(%d/%d) FFileHandleAndroid:Read => Path = %s, ThisSize = %d, destination = %X"),
+				FAndroidTLS::GetCurrentThreadId(), File->Handle,
+				*(File->Path), int32(ThisSize), Destination);
 #endif
 			if (ThisSize < 0)
 			{
@@ -262,9 +280,11 @@ public:
 			{
 				break;
 			}
+			CurrentOffset += ThisSize;
 			Destination += ThisSize;
 			BytesToRead -= ThisSize;
 		}
+
 		return BytesToRead == 0;
 	}
 
@@ -276,15 +296,17 @@ public:
 			// Can't write to assets.
 			return false;
 		}
+		
 		while (BytesToWrite)
 		{
 			check(BytesToWrite >= 0);
 			int64 ThisSize = FMath::Min<int64>(READWRITE_SIZE, BytesToWrite);
 			check(Source);
-			if (write(File->Handle, Source, ThisSize) != ThisSize)
+			if (pwrite(File->Handle, Source, ThisSize, CurrentOffset) != ThisSize)
 			{
 				return false;
 			}
+			CurrentOffset += ThisSize;
 			Source += ThisSize;
 			BytesToWrite -= ThisSize;
 		}
@@ -845,6 +867,7 @@ public:
 #endif
 		if (!IPhysicalPlatformFile::Initialize(Inner, CmdLine))
 		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::Initialize failed"));
 			return false;
 		}
 		if (GOBBinAPK)
@@ -883,6 +906,12 @@ public:
 				MountOBB(*(OBBDir2 / PatchOBBName));
 			}
 		}
+
+		// make sure the base path directory exists (UE4Game and UE4Game/ProjectName)
+		FString FileBaseDir = GFilePathBase + FString(FILEBASE_DIRECTORY);
+		mkdir(TCHAR_TO_UTF8(*FileBaseDir), 0766);
+		mkdir(TCHAR_TO_UTF8(*(FileBaseDir + GAndroidProjectName)), 0766);
+
 		return true;
 	}
 
@@ -1213,6 +1242,76 @@ public:
 		}
 	}
 
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override
+	{
+		return GetStatData(FilenameOrDirectory, false);
+	}
+
+	FFileStatData GetStatData(const TCHAR* FilenameOrDirectory, bool AllowLocal)
+	{
+#if LOG_ANDROID_FILE
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::GetStatData('%s')"), FilenameOrDirectory);
+#endif
+		FString LocalPath;
+		FString AssetPath;
+		PathToAndroidPaths(LocalPath, AssetPath, FilenameOrDirectory, AllowLocal);
+
+		if (IsLocal(LocalPath))
+		{
+			struct stat FileInfo;
+			if (stat(TCHAR_TO_UTF8(*LocalPath), &FileInfo) != -1)
+			{
+				return AndroidStatToUEFileData(FileInfo);
+			}
+		}
+		else if (IsResource(AssetPath))
+		{
+			return FFileStatData(
+				FDateTime::MinValue(),					// CreationTime
+				FDateTime::MinValue(),					// AccessTime
+				FDateTime::MinValue(),					// ModificationTime
+				ZipResource.GetEntryLength(AssetPath),	// FileSize
+				false,									// bIsDirectory
+				true									// bIsReadOnly
+				);
+		}
+		else
+		{
+			AAsset * file = AAssetManager_open(AssetMgr, TCHAR_TO_UTF8(*AssetPath), AASSET_MODE_UNKNOWN);
+			if (nullptr != file)
+			{
+				bool isDirectory = false;
+				AAssetDir * subdir = AAssetManager_openDir(AssetMgr, TCHAR_TO_UTF8(*AssetPath));
+				if (nullptr != subdir)
+				{
+					isDirectory = true;
+					AAssetDir_close(subdir);
+				}
+
+				int64 FileSize = -1;
+				if (!isDirectory)
+				{
+					FileSize = AAsset_getLength(file);
+				}
+
+				FFileStatData StatData(
+					FDateTime::MinValue(),				// CreationTime
+					FDateTime::MinValue(),				// AccessTime
+					FDateTime::MinValue(),				// ModificationTime
+					FileSize,							// FileSize
+					isDirectory,						// bIsDirectory
+					true								// bIsReadOnly
+					);
+
+				AAsset_close(file);
+
+				return StatData;
+			}
+		}
+		
+		return FFileStatData();
+	}
+
 	virtual FString GetFilenameOnDisk(const TCHAR* Filename) override
 	{
 		return Filename;
@@ -1276,11 +1375,7 @@ public:
 		PathToAndroidPaths(LocalPath, AssetPath, Filename, AllowLocal);
 
 		int Flags = O_CREAT;
-		if (bAppend)
-		{
-			Flags |= O_APPEND;
-		}
-		else
+		if (!bAppend)
 		{
 			Flags |= O_TRUNC;
 		}
@@ -1323,6 +1418,9 @@ public:
 		bool Found = false;
 		if (IsLocal(LocalPath))
 		{
+#if LOG_ANDROID_FILE
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::DirectoryExists('%s') => Check IsLocal: '%s'"), Directory, *(LocalPath + "/"));
+#endif
 			struct stat FileInfo;
 			if (stat(TCHAR_TO_UTF8(*LocalPath), &FileInfo) != -1)
 			{
@@ -1405,6 +1503,108 @@ public:
 
 	bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor, bool AllowLocal, bool AllowAsset)
 	{
+		const FString DirectoryStr = Directory;
+
+		auto InternalVisitor = [&](const FString& InLocalPath, struct dirent* InEntry) -> bool
+		{
+			const FString DirPath = DirectoryStr / UTF8_TO_TCHAR(InEntry->d_name);
+			return Visitor.Visit(*DirPath, InEntry->d_type == DT_DIR);
+		};
+		
+		auto InternalResourceVisitor = [&](const FString& InResourceName) -> bool
+		{
+			return Visitor.Visit(*InResourceName, false);
+		};
+		
+		auto InternalAssetVisitor = [&](const char* InAssetPath) -> bool
+		{
+			bool isDirectory = false;
+			AAssetDir* subdir = AAssetManager_openDir(AssetMgr, InAssetPath);
+			if (nullptr != subdir)
+			{
+				isDirectory = true;
+				AAssetDir_close(subdir);
+			}
+
+			return Visitor.Visit(UTF8_TO_TCHAR(InAssetPath), isDirectory);
+		};
+
+		return IterateDirectoryCommon(Directory, InternalVisitor, InternalResourceVisitor, InternalAssetVisitor, AllowLocal, AllowAsset);
+	}
+
+	virtual bool IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor) override
+	{
+		return IterateDirectoryStat(Directory, Visitor, false, false);
+	}
+
+	bool IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor, bool AllowLocal, bool AllowAsset)
+	{
+		const FString DirectoryStr = Directory;
+
+		auto InternalVisitor = [&](const FString& InLocalPath, struct dirent* InEntry) -> bool
+		{
+			const FString DirPath = DirectoryStr / UTF8_TO_TCHAR(InEntry->d_name);
+
+			struct stat FileInfo;
+			if (stat(TCHAR_TO_UTF8(*(InLocalPath / UTF8_TO_TCHAR(InEntry->d_name))), &FileInfo) != -1)
+			{
+				return Visitor.Visit(*DirPath, AndroidStatToUEFileData(FileInfo));
+			}
+
+			return true;
+		};
+		
+		auto InternalResourceVisitor = [&](const FString& InResourceName) -> bool
+		{
+			return Visitor.Visit(
+				*InResourceName, 
+				FFileStatData(
+					FDateTime::MinValue(),						// CreationTime
+					FDateTime::MinValue(),						// AccessTime
+					FDateTime::MinValue(),						// ModificationTime
+					ZipResource.GetEntryLength(InResourceName),	// FileSize
+					false,										// bIsDirectory
+					true										// bIsReadOnly
+					)
+				);
+		};
+		
+		auto InternalAssetVisitor = [&](const char* InAssetPath) -> bool
+		{
+			bool isDirectory = false;
+			AAssetDir* subdir = AAssetManager_openDir(AssetMgr, InAssetPath);
+			if (nullptr != subdir)
+			{
+				isDirectory = true;
+				AAssetDir_close(subdir);
+			}
+
+			int64 FileSize = -1;
+			if (!isDirectory)
+			{
+				AAsset* file = AAssetManager_open(AssetMgr, InAssetPath, AASSET_MODE_UNKNOWN);
+				FileSize = AAsset_getLength(file);
+				AAssetDir_close(subdir);
+			}
+
+			return Visitor.Visit(
+				UTF8_TO_TCHAR(InAssetPath), 
+				FFileStatData(
+					FDateTime::MinValue(),	// CreationTime
+					FDateTime::MinValue(),	// AccessTime
+					FDateTime::MinValue(),	// ModificationTime
+					FileSize,				// FileSize
+					isDirectory,			// bIsDirectory
+					true					// bIsReadOnly
+					)
+				);
+		};
+
+		return IterateDirectoryCommon(Directory, InternalVisitor, InternalResourceVisitor, InternalAssetVisitor, AllowLocal, AllowAsset);
+	}
+
+	bool IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(const FString&, struct dirent*)>& Visitor, const TFunctionRef<bool(const FString&)>& ResourceVisitor, const TFunctionRef<bool(const char*)>& AssetVisitor, bool AllowLocal, bool AllowAsset)
+	{
 #if LOG_ANDROID_FILE
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::IterateDirectory('%s')"), Directory);
 #endif
@@ -1423,11 +1623,10 @@ public:
 				{
 					if (FCString::Strcmp(UTF8_TO_TCHAR(Entry->d_name), TEXT(".")) && FCString::Strcmp(UTF8_TO_TCHAR(Entry->d_name), TEXT("..")))
 					{
-						FString DirPath = FString(Directory) / UTF8_TO_TCHAR(Entry->d_name);
 #if LOG_ANDROID_FILE
-						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::IterateDirectory('%s').. LOCAL Visit: '%s'"), Directory, *DirPath);
+						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::IterateDirectory('%s').. LOCAL Visit: '%s'"), Directory, *(FString(Directory) / UTF8_TO_TCHAR(Entry->d_name)));
 #endif
-						Result = Visitor.Visit(*DirPath, Entry->d_type == DT_DIR);
+						Result = Visitor(LocalPath, Entry);
 					}
 				}
 				closedir(Handle);
@@ -1443,7 +1642,7 @@ public:
 #if LOG_ANDROID_FILE
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::IterateDirectory('%s').. RESOURCE Visit: '%s'"), Directory, *ResourceDir.Current.Key());
 #endif
-				Result = Visitor.Visit(*ResourceDir.Current.Key(), false);
+				Result = ResourceVisitor(ResourceDir.Current.Key());
 			}
 		}
 		else if (IsResource(AssetPath + "/"))
@@ -1455,7 +1654,7 @@ public:
 #if LOG_ANDROID_FILE
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::IterateDirectory('%s').. RESOURCE/ Visit: '%s'"), Directory, *ResourceDir.Current.Key());
 #endif
-				Result = Visitor.Visit(*ResourceDir.Current.Key(), false);
+				Result = ResourceVisitor(ResourceDir.Current.Key());
 			}
 		}
 		else if (AllowAsset)
@@ -1467,17 +1666,10 @@ public:
 				const char * fileName = nullptr;
 				while ((fileName = AAssetDir_getNextFileName(dir)) != nullptr && Result == true)
 				{
-					bool isDirectory = false;
-					AAssetDir * dir = AAssetManager_openDir(AssetMgr, fileName);
-					if (nullptr != dir)
-					{
-						isDirectory = true;
-						AAssetDir_close(dir);
-					}
 #if LOG_ANDROID_FILE
 					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::IterateDirectory('%s').. ASSET Visit: '%s'"), Directory, UTF8_TO_TCHAR(fileName));
 #endif
-					Result = Visitor.Visit(UTF8_TO_TCHAR(fileName), isDirectory);
+					Result = AssetVisitor(fileName);
 				}
 				AAssetDir_close(dir);
 				return true;

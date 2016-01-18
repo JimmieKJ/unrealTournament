@@ -3,6 +3,7 @@
 #include "PhyaPluginPrivatePCH.h"
 #include "PhysicsPublic.h"
 #include "Phya.hpp"
+#include "Sound/SoundWaveProcedural.h"
 
 #define N_BODIES 5
 
@@ -69,16 +70,16 @@ void UPhyaCollisionHandler::InitCollisionHandler()
 	InitPhya();
 
 	// Create streaming wave object
-	StreamingWave = NewObject<USoundWaveStreaming>(this);
-	StreamingWave->SampleRate = SampleRate;
-	StreamingWave->NumChannels = 1;
-	StreamingWave->Duration = INDEFINITELY_LOOPING_DURATION;
-	StreamingWave->bLooping = false;
-	StreamingWave->OnSoundWaveStreamingUnderflow = FOnSoundWaveStreamingUnderflow::CreateUObject(this, &UPhyaCollisionHandler::StreamingWaveUnderflow);
+	ProceduralWave = NewObject<USoundWaveProcedural>(this);
+	ProceduralWave->SampleRate = SampleRate;
+	ProceduralWave->NumChannels = 1;
+	ProceduralWave->Duration = INDEFINITELY_LOOPING_DURATION;
+	ProceduralWave->bLooping = false;
+	ProceduralWave->OnSoundWaveProceduralUnderflow = FOnSoundWaveProceduralUnderflow::CreateUObject(this, &UPhyaCollisionHandler::ProceduralWaveUnderflow);
 
 	// Create audio component
 	AudioComp = NewObject<UAudioComponent>(this);
-	AudioComp->SetSound(StreamingWave);
+	AudioComp->SetSound(ProceduralWave);
 	AudioComp->Play();
 
 	Whitesurf = new paFunSurface;			// Function surface.. uses surface functions, combined with
@@ -128,11 +129,11 @@ void UPhyaCollisionHandler::InitCollisionHandler()
 	//GenerateAudio();
 }
 
-void UPhyaCollisionHandler::StreamingWaveUnderflow(USoundWaveStreaming* InStreamingWave, int32 SamplesRequired)
+void UPhyaCollisionHandler::ProceduralWaveUnderflow(USoundWaveProcedural* InProceduralWave, int32 SamplesRequired)
 {
-	check(StreamingWave == InStreamingWave);
+	check(ProceduralWave == InProceduralWave);
 
-	const int32 QueuedSamples = StreamingWave->GetAvailableAudioByteCount()/sizeof(uint16);
+	const int32 QueuedSamples = ProceduralWave->GetAvailableAudioByteCount()/sizeof(uint16);
 	const int32 SamplesNeeded = SamplesRequired - QueuedSamples;
 	const int32 BlocksNeeded = FMath::CeilToInt(SamplesNeeded/BlockSize);
 
@@ -155,7 +156,7 @@ void UPhyaCollisionHandler::StreamingWaveUnderflow(USoundWaveStreaming* InStream
 		}
 	}
 
-	StreamingWave->QueueAudio((uint8*)SampleData.GetData(), SampleData.Num() * sizeof(int16));
+	ProceduralWave->QueueAudio((uint8*)SampleData.GetData(), SampleData.Num() * sizeof(int16));
 }
 
 

@@ -5,13 +5,29 @@
 // This MUST be kept in sync with EGeneratedBodyVersion in UBT defined in ExternalExecution.cs
 // and with ToGeneratedBodyVersion function below
 //
-enum class EGeneratedCodeVersion : int32
+enum class EGeneratedCodeVersion : uint8
 {
 	None,
 	V1,
 	V2,
 	VLatest = V2
 };
+
+inline FArchive& operator<<(FArchive& Ar, EGeneratedCodeVersion& Type)
+{
+	if (Ar.IsLoading())
+	{
+		uint8 Value;
+		Ar << Value;
+		Type = (EGeneratedCodeVersion)Value;
+	}
+	else if (Ar.IsSaving())
+	{
+		uint8 Value = (uint8)Type;
+		Ar << Value;
+	}
+	return Ar;
+}
 
 inline EGeneratedCodeVersion ToGeneratedCodeVersion(const FString& InString)
 {

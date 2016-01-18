@@ -212,19 +212,9 @@ FText UKismetTextLibrary::AsTimespan_Timespan(const FTimespan& InTimespan)
 }
 
 
-FText UKismetTextLibrary::Format(FText InPattern, TArray<FFormatTextArgument> InArgs)
+FText UKismetTextLibrary::Format(FText InPattern, TArray<FFormatArgumentData> InArgs)
 {
-	TArray< FFormatArgumentData > Arguments;
-	for(auto It = InArgs.CreateConstIterator(); It; ++It)
-	{
-		FFormatArgumentData argument;
-		argument.ArgumentName = It->ArgumentName;
-		argument.ArgumentValue = It->TextValue;
-
-		Arguments.Add(argument);
-	}
-
-	return FText::Format(InPattern, Arguments);
+	return FText::Format(MoveTemp(InPattern), MoveTemp(InArgs));
 }
 
 

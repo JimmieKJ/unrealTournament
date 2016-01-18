@@ -97,6 +97,9 @@ private:
 	// The directory to save data to
 	const FString SaveDirectory;
 
+	// The base url for downloads
+	const FString CloudDirectory;
+
 	// The Manifest that is being installed
 	const FBuildPatchAppManifestRef InstallManifest;
 
@@ -152,11 +155,12 @@ public:
 
 	/**
 	 * Constructor
-	 * @param	InSaveDirectory		The chunk save to directory
-	 * @param	InInstallManifest	The manifest being installed so we can pull info from it
-	 * @param	InBuildProgress		Pointer to the progress tracker, for setting progress and getting pause state
+	 * @param	SaveDirectory		The chunk save to directory
+	 * @param	CloudDirectory		The base path or url for the downloads
+	 * @param	InstallManifest		The manifest being installed so we can pull info from it
+	 * @param	BuildProgress		Pointer to the progress tracker, for setting progress and getting pause state
 	 */
-	FBuildPatchDownloader( const FString& InSaveDirectory, const FBuildPatchAppManifestRef& InInstallManifest, FBuildPatchProgress* InBuildProgress );
+	FBuildPatchDownloader(const FString& SaveDirectory, const FString& CloudDirectory, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress);
 
 	/**
 	 * Default Destructor, deletes allocated Thread
@@ -312,11 +316,12 @@ public:
 
 	/**
 	 * Creates the singleton downloader system. Takes the arguments required for construction.
-	 * @param	InSaveDirectory		The chunk save to directory
-	 * @param	InInstallManifest	The manifest being installed so we can pull info from it
-	 * @param	InBuildProgress		Pointer to the progress tracker, for setting progress and getting pause state
+	 * @param	SaveDirectory		The chunk save to directory
+	 * @param	CloudDirectory		The base path or url for the downloads
+	 * @param	InstallManifest		The manifest being installed so we can pull info from it
+	 * @param	BuildProgress		Pointer to the progress tracker, for setting progress and getting pause state
 	 */
-	static void Create( const FString& InSaveDirectory, const FBuildPatchAppManifestRef& InInstallManifest, FBuildPatchProgress* InBuildProgress );
+	static void Create(const FString& SaveDirectory, const FString& CloudDirectory, const FBuildPatchAppManifestRef& InstallManifest, FBuildPatchProgress* BuildProgress);
 
 	/**
 	 * Get the singleton class object. Must only be called between Create and Shutdown calls otherwise the code will assert.

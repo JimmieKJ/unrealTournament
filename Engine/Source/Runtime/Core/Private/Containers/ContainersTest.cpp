@@ -4,7 +4,7 @@
 #include "AutomationTest.h"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainersTest, "System.Core.Misc.Containers", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainersTest, "System.Core.Misc.Containers", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
 
 #define MAX_TEST_OBJECTS      65
 #define MAX_TEST_OBJECTS_STEP 1
@@ -269,15 +269,6 @@ namespace
 
 		check(end(                  Cont) == Iter);
 		check(end((const Container&)Cont) == CIter);
-	}
-}
-
-static bool doodle = false;
-void checkDoodle(bool b)
-{
-	if (doodle)
-	{
-		check(b);
 	}
 }
 

@@ -54,7 +54,10 @@ public:
 	UENUM()
 	enum class EUnitDisplay : uint8
 	{
-		None, Metric, Imperial, Invalid
+		None,
+		Metric,
+		Imperial,
+		Invalid
 	};
 
 	UPROPERTY(config)
@@ -64,8 +67,18 @@ public:
 	UENUM()
 	enum class EDefaultLocationUnit : uint8
 	{
-		Micrometers, Millimeters, Centimeters, Meters, Kilometers,
-		Inches, Feet, Yards, Miles, Invalid
+		Micrometers,
+		Millimeters,
+		Centimeters,
+		Meters,
+		Kilometers,
+
+		Inches,
+		Feet,
+		Yards,
+		Miles,
+		
+		Invalid
 	};
 
 	UPROPERTY(config)

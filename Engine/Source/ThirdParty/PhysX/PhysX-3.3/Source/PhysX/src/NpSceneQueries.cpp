@@ -221,7 +221,7 @@ struct GeomQueryAny
 			reinterpret_cast<const Gu::GeometryUnion&>(sceneGeom).computeBounds(b1, pose, 0.0f, NULL);
 			const PxVec3 combExt = (b0.getExtents() + b1.getExtents())*1.01f;
 			PxF32 tnear, tfar;
- 			if (!Gu::intersectRayAABB2(-combExt, combExt, b0.getCenter() - b1.getCenter(), input.getDir(), shrunkMaxDistance, tnear, tfar)) // returns (tnear<tfar)
+			if (!Gu::intersectRayAABB2(-combExt, combExt, b0.getCenter() - b1.getCenter(), input.getDir(), shrunkMaxDistance, tnear, tfar)) // returns (tnear<tfar)
 				if(tnear>tfar) // this second test is needed because shrunkMaxDistance can be 0 for 0 length sweep
 					return 0;
 			PX_ASSERT(input.getDir().isNormalized());
@@ -444,7 +444,7 @@ struct MultiQueryCallback : public PrunerCallback
 				hit.shape = as.shape;
 
 				// some additional processing only for sweep hits with initial overlap
-				if(HitTypeSupport<HitType>::IsSweep && HITDIST(hit) == 0.0f)
+				if(HitTypeSupport<HitType>::IsSweep && HITDIST(hit) == 0.0f && !((!PX_IS_SPU) && filteredHitFlags & PxHitFlag::eMTD))
 					// PT: necessary as some leaf routines are called with reversed params, thus writing +unitDir there.
 					// AP: apparently still necessary to also do in Gu because Gu can be used standalone (without SQ)
 					((PxSweepHit&)hit).normal = -input.getDir();
@@ -692,9 +692,6 @@ private:
 
 //========================================================================================================================
 template<typename HitType>
-	#if (PX_IS_WINDOWS | PX_IS_X360)
-	PX_FORCE_INLINE
-	#endif
 bool NpSceneQueries::multiQuery(
 	const MultiQueryInput& input, PxHitCallback<HitType>& hits, PxHitFlags hitFlags, const PxQueryCache* cache,
 	const PxQueryFilterData& filterData, PxQueryFilterCallback* filterCall, BatchQueryFilterData* bfd) const

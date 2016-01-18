@@ -8,7 +8,7 @@
 //----------------------------------------------------------------------//
 // FPathFindingQuery
 //----------------------------------------------------------------------//
-FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill)
+FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill)
 : NavData(InNavData)
 , Owner(InOwner)
 , StartLocation(Start)
@@ -24,7 +24,7 @@ FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationDa
 	}
 }
 
-FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill)
+FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, FSharedConstNavQueryFilter SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill)
 : NavData(&InNavData)
 , Owner(InOwner)
 , StartLocation(Start)
@@ -77,7 +77,7 @@ FPathFindingQuery::FPathFindingQuery(FNavPathSharedRef PathToRecalculate, const 
 //----------------------------------------------------------------------//
 uint32 FAsyncPathFindingQuery::LastPathFindingUniqueID = INVALID_NAVQUERYID;
 
-FAsyncPathFindingQuery::FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter)
+FAsyncPathFindingQuery::FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, FSharedConstNavQueryFilter SourceQueryFilter)
 : FPathFindingQuery(InOwner, *InNavData, Start, End, SourceQueryFilter)
 , QueryID(GetUniqueID())
 , OnDoneDelegate(Delegate)
@@ -88,7 +88,7 @@ FAsyncPathFindingQuery::FAsyncPathFindingQuery(const UObject* InOwner, const ANa
 	}
 }
 
-FAsyncPathFindingQuery::FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter)
+FAsyncPathFindingQuery::FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, FSharedConstNavQueryFilter SourceQueryFilter)
 : FPathFindingQuery(InOwner, InNavData, Start, End, SourceQueryFilter)
 , QueryID(GetUniqueID())
 , OnDoneDelegate(Delegate)
@@ -126,8 +126,10 @@ FSupportedAreaData::FSupportedAreaData(TSubclassOf<UNavArea> NavAreaClass, int32
 ANavigationData::ANavigationData(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, bEnableDrawing(false)
-	, RuntimeGeneration(ERuntimeGenerationType::LegacyGeneration) //TODO: set to a valid value once bRebuildAtRuntime_DEPRECATED is removed
 	, bForceRebuildOnLoad(false)
+	, bCanBeMainNavData(true)
+	, bCanSpawnOnRebuild(true)
+	, RuntimeGeneration(ERuntimeGenerationType::LegacyGeneration) //TODO: set to a valid value once bRebuildAtRuntime_DEPRECATED is removed
 	, DataVersion(NAVMESHVER_LATEST)
 	, FindPathImplementation(NULL)
 	, FindHierarchicalPathImplementation(NULL)
@@ -176,6 +178,7 @@ void ANavigationData::PostInitProperties()
 		}
 
 		RenderingComp = ConstructRenderingComponent();
+		RootComponent = RenderingComp;
 	}
 }
 
@@ -183,9 +186,11 @@ void ANavigationData::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	
-	CachedWorld = GetWorld();
+	UWorld* MyWorld = GetWorld();
 
-	if (CachedWorld == NULL || CachedWorld->GetNavigationSystem() == NULL)
+	if (MyWorld == nullptr ||
+		(MyWorld->GetNetMode() != NM_Client && MyWorld->GetNavigationSystem() == nullptr) ||
+		(MyWorld->GetNetMode() == NM_Client && !bNetLoadOnClient))
 	{
 		CleanUpAndMarkPendingKill();
 	}
@@ -193,7 +198,7 @@ void ANavigationData::PostInitializeComponents()
 	{
 		// note: this is not a final fix for world composition's issues with navmesh generation
 		// but it's good for now, and navmesh creation is going to get a face-lift soon anyway
-		bWantsUpdate |= CachedWorld->GetWorldSettings()->bEnableWorldComposition;
+		bWantsUpdate |= MyWorld->GetWorldSettings()->bEnableWorldComposition;
 	}
 }
 
@@ -209,8 +214,6 @@ void ANavigationData::PostLoad()
 
 	InstantiateAndRegisterRenderingComponent();
 
-	CachedWorld = GetWorld();
-
 	bNetLoadOnClient = (*GEngine->NavigationSystemClass != nullptr) && (GEngine->NavigationSystemClass->GetDefaultObject<UNavigationSystem>()->ShouldLoadNavigationOnClient(this));
 }
 
@@ -219,6 +222,9 @@ void ANavigationData::TickActor(float DeltaTime, enum ELevelTick TickType, FActo
 	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 
 	PurgeUnusedPaths();
+
+	INC_DWORD_STAT_BY(STAT_Navigation_ObservedPathsCount, ObservedPaths.Num());
+
 	if (NextObservedPathsTickInSeconds >= 0.f)
 	{
 		NextObservedPathsTickInSeconds -= DeltaTime;
@@ -397,19 +403,31 @@ bool ANavigationData::DoesSupportAgent(const FNavAgentProperties& AgentProps) co
 	return NavDataConfig.IsEquivalent(AgentProps);
 }
 
+void ANavigationData::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UnregisterAndCleanUp();
+	Super::EndPlay(EndPlayReason);
+}
+
 void ANavigationData::Destroyed()
 {
-	UWorld* WorldOuter = GetWorld();
-
-	bRegistered = false;
-	if (WorldOuter != NULL && WorldOuter->GetNavigationSystem() != NULL)
-	{
-		WorldOuter->GetNavigationSystem()->UnregisterNavData(this);
-	}
-
-	CleanUp();
-
+	UnregisterAndCleanUp();
 	Super::Destroyed();
+}
+void ANavigationData::UnregisterAndCleanUp()
+{
+	if (bRegistered)
+	{
+		UWorld* WorldOuter = GetWorld();
+
+		bRegistered = false;
+		if (WorldOuter != NULL && WorldOuter->GetNavigationSystem() != NULL)
+		{
+			WorldOuter->GetNavigationSystem()->UnregisterNavData(this);
+		}
+
+		CleanUp();
+	}
 }
 
 void ANavigationData::CleanUp()
@@ -544,14 +562,9 @@ void ANavigationData::DrawDebugPath(FNavigationPath* Path, FColor PathColor, UCa
 	Path->DebugDraw(this, PathColor, Canvas, bPersistent, NextPathPointIndex);
 }
 
-const UWorld* ANavigationData::GetCachedWorld() const
-{
-	return CachedWorld;
-}
-
 float ANavigationData::GetWorldTimeStamp() const
 {
-	const UWorld* World = GetCachedWorld();
+	const UWorld* World = GetWorld();
 	return World ? World->GetTimeSeconds() : 0.f;
 }
 
@@ -636,11 +649,11 @@ void ANavigationData::OnNavAreaChanged()
 	// empty in base class
 }
 
-void ANavigationData::ProcessNavAreas(const TArray<const UClass*>& AreaClasses, int32 AgentIndex)
+void ANavigationData::ProcessNavAreas(const TSet<const UClass*>& AreaClasses, int32 AgentIndex)
 {
-	for (int32 i = 0; i < AreaClasses.Num(); i++)
+	for (const UClass* AreaClass : AreaClasses)
 	{
-		OnNavAreaAdded(AreaClasses[i], AgentIndex);
+		OnNavAreaAdded(AreaClass, AgentIndex);
 	}
 
 	OnNavAreaChanged();
@@ -711,12 +724,12 @@ void ANavigationData::UpdateCustomLink(const INavLinkCustomInterface* CustomLink
 	// no implementation for abstract class
 }
 
-TSharedPtr<const FNavigationQueryFilter> ANavigationData::GetQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass) const
+FSharedConstNavQueryFilter ANavigationData::GetQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass) const
 {
 	return QueryFilters.FindRef(FilterClass);
 }
 
-void ANavigationData::StoreQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass, TSharedPtr<const FNavigationQueryFilter> NavFilter)
+void ANavigationData::StoreQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass, FSharedConstNavQueryFilter NavFilter)
 {
 	QueryFilters.Add(FilterClass, NavFilter);
 }

@@ -3,20 +3,71 @@
 #pragma once
 
 #include "Core.h"
+#include "Engine.h"
 #include "ModuleManager.h"
 #include "OnlineSubsystemUtilsModule.h"
 #include "Online.h"
 
-/** @return an initialized audio component specifically for use with VoIP */
+struct FWorldContext;
+
 #ifdef ONLINESUBSYSTEMUTILS_API
+
+/** @return an initialized audio component specifically for use with VoIP */
 ONLINESUBSYSTEMUTILS_API class UAudioComponent* CreateVoiceAudioComponent(uint32 SampleRate);
+
+/** @return the world associated with a named online subsystem instance */
 ONLINESUBSYSTEMUTILS_API UWorld* GetWorldForOnline(FName InstanceName);
 
 /**
  * Try to retrieve the active listen port for a server session
+ *
+ * @param InstanceName online subsystem instance to query
+ *
+ * @return the port number currently associated with the GAME net driver
  */
 ONLINESUBSYSTEMUTILS_API int32 GetPortFromNetDriver(FName InstanceName);
+
 #endif
+
+/**
+ * Interface class for various online utility functions
+ */
+class IOnlineSubsystemUtils
+{
+protected:
+	/** Hidden on purpose */
+	IOnlineSubsystemUtils() {}
+
+public:
+
+	virtual ~IOnlineSubsystemUtils() {}
+
+	/** @return the proper online subsystem identifier for the real online subsystem */
+	virtual FName GetOnlineIdentifier(const FWorldContext& WorldContext) = 0;
+	/**
+	 * Gets an FName that uniquely identifies an instance of OSS
+	 *
+	 * @param World the world to use for context
+	 * @param Subsystem the name of the subsystem
+	 * @return an FName of format Subsystem:Context_Id
+	 */
+	virtual FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) = 0;
+
+#if WITH_EDITOR
+	/**
+	 * Play in Editor settings
+	 */
+
+	/** @return true if the default platform supports logging in for Play In Editor (PIE) */
+	virtual bool SupportsOnlinePIE() const = 0;
+	/** @return true if the user has enabled logging in for Play In Editor (PIE) */
+	virtual bool IsOnlinePIEEnabled() const = 0;
+	/** @return the number of logins the user has setup for Play In Editor (PIE) */
+	virtual int32 GetNumPIELogins() const = 0;
+	/** @return the array of valid credentials the user has setup for Play In Editor (PIE) */
+	virtual void GetPIELogins(TArray<FOnlineAccountCredentials>& Logins) = 0;
+#endif // WITH_EDITOR
+};
 
 /** Macro to handle the boilerplate of accessing the proper online subsystem and getting the requested interface (UWorld version) */
 #define IMPLEMENT_GET_INTERFACE(InterfaceType) \
@@ -28,6 +79,14 @@ static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(class UWorld* W
 
 namespace Online
 {
+	/** 
+	 * Get the online subsystem for a given service
+	 *
+	 * @param World the world to use for context
+	 * @param SubsystemName - Name of the requested online service
+	 *
+	 * @return pointer to the appropriate online subsystem
+	 */
 	static IOnlineSubsystem* GetSubsystem(UWorld* World, const FName& SubsystemName = NAME_None)
 	{
 #if UE_EDITOR // at present, multiple worlds are only possible in the editor
@@ -47,6 +106,46 @@ namespace Online
 #endif
 	}
 
+	/** 
+	 * Determine if the subsystem for a given interface is already loaded
+	 *
+	 * @param World the world to use for context
+	 * @param SubsystemName name of the requested online service
+	 *
+	 * @return true if module for the subsystem is loaded
+	 */
+	static bool IsLoaded(UWorld* World, const FName& SubsystemName = NAME_None)
+	{
+#if UE_EDITOR // at present, multiple worlds are only possible in the editor
+		FName Identifier = SubsystemName;
+		if (World != NULL)
+		{
+			FWorldContext& CurrentContext = GEngine->GetWorldContextFromWorldChecked(World);
+			if (CurrentContext.WorldType == EWorldType::PIE)
+			{
+				Identifier = FName(*FString::Printf(TEXT("%s:%s"), SubsystemName != NAME_None ? *SubsystemName.ToString() : TEXT(""), *CurrentContext.ContextHandle.ToString()));
+			}
+		}
+
+		return IOnlineSubsystem::IsLoaded(SubsystemName);
+#else
+		return IOnlineSubsystem::IsLoaded(SubsystemName);
+#endif
+	}
+
+	/** @return the single instance of the online subsystem utils interface */
+	static IOnlineSubsystemUtils* GetUtils()
+	{
+		static const FName OnlineSubsystemModuleName = TEXT("OnlineSubsystemUtils");
+		FOnlineSubsystemUtilsModule* OSSUtilsModule = FModuleManager::GetModulePtr<FOnlineSubsystemUtilsModule>(OnlineSubsystemModuleName);
+		if (OSSUtilsModule != nullptr)
+		{
+			return OSSUtilsModule->GetUtils();
+		}
+
+		return nullptr;
+	}
+
 	/** Reimplement all the interfaces of Online.h with support for UWorld accessors */
 	IMPLEMENT_GET_INTERFACE(Session);
 	IMPLEMENT_GET_INTERFACE(Party);
@@ -62,6 +161,7 @@ namespace Online
 	IMPLEMENT_GET_INTERFACE(Entitlements);
 	IMPLEMENT_GET_INTERFACE(Leaderboards);
 	IMPLEMENT_GET_INTERFACE(Achievements);
+	IMPLEMENT_GET_INTERFACE(Presence);
 }
 
 #undef IMPLEMENT_GET_INTERFACE

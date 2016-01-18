@@ -16,14 +16,14 @@ class FOnlineSharingFacebook : public IOnlineSharing
 
 public:
 
-	// Begin IOnlineSharing Interface
+	//~ Begin IOnlineSharing Interface
 	virtual bool ReadNewsFeed(int32 LocalUserNum, int32 NumPostsToRead) override;
 	virtual bool RequestNewReadPermissions(int32 LocalUserNum, EOnlineSharingReadCategory::Type NewPermissions) override;
 	virtual bool ShareStatusUpdate(int32 LocalUserNum, const FOnlineStatusUpdate& StatusUpdate) override;
 	virtual bool RequestNewPublishPermissions(int32 LocalUserNum, EOnlineSharingPublishingCategory::Type NewPermissions, EOnlineStatusUpdatePrivacy::Type Privacy) override;
 	virtual EOnlineCachedResult::Type GetCachedNewsFeed(int32 LocalUserNum, int32 NewsFeedIdx, FOnlineStatusUpdate& OutNewsFeed) override;
 	virtual EOnlineCachedResult::Type GetCachedNewsFeeds(int32 LocalUserNum, TArray<FOnlineStatusUpdate>& OutNewsFeeds) override;
-	// End IOnlineSharing Interface
+	//~ End IOnlineSharing Interface
 
 	
 public:

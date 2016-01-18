@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTProjectile.h"
@@ -394,7 +394,7 @@ void AUTProjectile::SendInitialReplication()
 	// force immediate replication for projectiles with extreme speed or radial effects
 	// this prevents clients from being hit by invisible projectiles in almost all cases, because it'll exist locally before it has even been moved
 	UNetDriver* NetDriver = GetNetDriver();
-	if (NetDriver != NULL && NetDriver->IsServer() && !bPendingKillPending && (ProjectileMovement->Velocity.Size() >= 7500.0f || DamageParams.OuterRadius > 0.0f))
+	if (NetDriver != NULL && NetDriver->IsServer() && !IsPendingKillPending() && (ProjectileMovement->Velocity.Size() >= 7500.0f || DamageParams.OuterRadius > 0.0f))
 	{
 		NetDriver->ReplicationFrame++;
 		for (int32 i = 0; i < NetDriver->ClientConnections.Num(); i++)
@@ -622,9 +622,14 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 		{
 			Hit = SweepResult;
 		}
+		else if (CollisionComp != NULL)
+		{
+			USphereComponent* TestComp = (PawnOverlapSphere != NULL && PawnOverlapSphere->GetUnscaledSphereRadius() > CollisionComp->GetUnscaledSphereRadius()) ? PawnOverlapSphere : CollisionComp;
+			OtherComp->SweepComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), TestComp->GetCollisionShape(), TestComp->bTraceComplexOnMove);
+		}
 		else
 		{
-			OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));
+			OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), false, this));
 		}
 
 		ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
@@ -716,7 +721,6 @@ bool AUTProjectile::ShouldIgnoreHit_Implementation(AActor* OtherActor, UPrimitiv
 	// ignore client-side actors if will bounce
 	return ( ((Cast<AUTTeleporter>(OtherActor) != NULL || Cast<AVolume>(OtherActor) != NULL) && !GetVelocity().IsZero())
 			|| (Cast<AUTProjectile>(OtherActor) != NULL && !InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
-			|| (Cast<AUTWeaponRedirector>(OtherActor) != NULL && ((AUTWeaponRedirector*)OtherActor)->bWeaponPortal)
 			|| Cast<AUTProj_WeaponScreen>(OtherActor) != NULL )
 			|| (ProjectileMovement->bShouldBounce && (Role != ROLE_Authority) && OtherActor && OtherActor->bTearOff);
 }
@@ -895,7 +899,7 @@ void AUTProjectile::ShutDown()
 	{
 		MyFakeProjectile->ShutDown();
 	}
-	if (!bPendingKillPending)
+	if (!IsPendingKillPending())
 	{
 		SetActorEnableCollision(false);
 		ProjectileMovement->SetActive(false);

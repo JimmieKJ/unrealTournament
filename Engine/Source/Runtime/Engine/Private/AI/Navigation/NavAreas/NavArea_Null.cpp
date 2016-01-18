@@ -6,4 +6,5 @@
 UNavArea_Null::UNavArea_Null(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	DefaultCost = BIG_NUMBER;
+	AreaFlags = 0;
 }

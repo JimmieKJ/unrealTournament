@@ -54,28 +54,28 @@ namespace Sc
 		PxVec3	angularPerStep;
 		PxU32	pad3;
 
-		PX_FORCE_INLINE	void					clear()													{ linearPerSec = angularPerSec = linearPerStep = angularPerStep = PxVec3(0,0,0); }
+		PX_FORCE_INLINE	void					clear()													{ linearPerSec = angularPerSec = linearPerStep = angularPerStep = PxVec3(0.0f); }
 
-		PX_FORCE_INLINE const PxVec3&			getLinearVelModPerSec()							const	{ return linearPerSec;		}
-		PX_FORCE_INLINE void					accumulateLinearVelModPerSec(const PxVec3& v)			{ linearPerSec += v;		}
-		PX_FORCE_INLINE void					clearLinearVelModPerSec()								{ linearPerSec = PxVec3(0.0f,0.0f,0.0f); }
+		PX_FORCE_INLINE const PxVec3&			getLinearVelModPerSec()							const	{ return linearPerSec;			}
+		PX_FORCE_INLINE void					accumulateLinearVelModPerSec(const PxVec3& v)			{ linearPerSec += v;			}
+		PX_FORCE_INLINE void					clearLinearVelModPerSec()								{ linearPerSec = PxVec3(0.0f);	}
 
-		PX_FORCE_INLINE const PxVec3&			getLinearVelModPerStep()						const	{ return linearPerStep;	}
-		PX_FORCE_INLINE void					accumulateLinearVelModPerStep(const PxVec3& v)			{ linearPerStep += v;		}
-		PX_FORCE_INLINE void					clearLinearVelModPerStep()								{ linearPerStep = PxVec3(0.0f,0.0f,0.0f); }
+		PX_FORCE_INLINE const PxVec3&			getLinearVelModPerStep()						const	{ return linearPerStep;			}
+		PX_FORCE_INLINE void					accumulateLinearVelModPerStep(const PxVec3& v)			{ linearPerStep += v;			}
+		PX_FORCE_INLINE void					clearLinearVelModPerStep()								{ linearPerStep = PxVec3(0.0f);	}
 
-		PX_FORCE_INLINE const PxVec3&			getAngularVelModPerSec()						const	{ return angularPerSec;	}
-		PX_FORCE_INLINE void					accumulateAngularVelModPerSec(const PxVec3& v)			{ angularPerSec += v;		}
-		PX_FORCE_INLINE void					clearAngularVelModPerSec()								{ angularPerSec = PxVec3(0.0f,0.0f,0.0f); }
+		PX_FORCE_INLINE const PxVec3&			getAngularVelModPerSec()						const	{ return angularPerSec;			}
+		PX_FORCE_INLINE void					accumulateAngularVelModPerSec(const PxVec3& v)			{ angularPerSec += v;			}
+		PX_FORCE_INLINE void					clearAngularVelModPerSec()								{ angularPerSec = PxVec3(0.0f);	}
 
-		PX_FORCE_INLINE const PxVec3&			getAngularVelModPerStep()						const	{ return angularPerStep;	}
-		PX_FORCE_INLINE void					accumulateAngularVelModPerStep(const PxVec3& v)			{ angularPerStep += v;		}
-		PX_FORCE_INLINE void					clearAngularVelModPerStep()								{ angularPerStep = PxVec3(0.0f,0.0f,0.0f); }
+		PX_FORCE_INLINE const PxVec3&			getAngularVelModPerStep()						const	{ return angularPerStep;		}
+		PX_FORCE_INLINE void					accumulateAngularVelModPerStep(const PxVec3& v)			{ angularPerStep += v;			}
+		PX_FORCE_INLINE void					clearAngularVelModPerStep()								{ angularPerStep = PxVec3(0.0f);}
 
-		PX_FORCE_INLINE void					notifyAddAcceleration()									{ flags |= VMF_ACC_DIRTY;}
-		PX_FORCE_INLINE void					notifyClearAcceleration()								{ flags |= VMF_ACC_DIRTY;}
-		PX_FORCE_INLINE void					notifyAddVelocity()										{ flags |= VMF_VEL_DIRTY; }
-		PX_FORCE_INLINE void					notifyClearVelocity()									{ flags |= VMF_VEL_DIRTY; }
+		PX_FORCE_INLINE void					notifyAddAcceleration()									{ flags |= VMF_ACC_DIRTY;		}
+		PX_FORCE_INLINE void					notifyClearAcceleration()								{ flags |= VMF_ACC_DIRTY;		}
+		PX_FORCE_INLINE void					notifyAddVelocity()										{ flags |= VMF_VEL_DIRTY;		}
+		PX_FORCE_INLINE void					notifyClearVelocity()									{ flags |= VMF_VEL_DIRTY;		}
 	};
 	PX_COMPILE_TIME_ASSERT(sizeof(VelocityMod) == sizeof(Kinematic));
 

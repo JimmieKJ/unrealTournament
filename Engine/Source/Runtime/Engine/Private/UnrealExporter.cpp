@@ -519,7 +519,7 @@ void UExporter::EmitEndObject( FOutputDevice& Ar )
 FExportObjectInnerContext::FExportObjectInnerContext()
 {
 	// For each object . . .
-	for (UObject* InnerObj : TObjectRange<UObject>(RF_ClassDefaultObject | RF_PendingKill))
+	for (UObject* InnerObj : TObjectRange<UObject>(RF_ClassDefaultObject, true, EInternalObjectFlags::PendingKill))
 	{
 		UObject* OuterObj = InnerObj->GetOuter();
 		if ( OuterObj )
@@ -544,7 +544,7 @@ FExportObjectInnerContext::FExportObjectInnerContext()
 FExportObjectInnerContext::FExportObjectInnerContext(TArray<UObject*>& ObjsToIgnore)
 {
 	// For each object . . .
-	for (UObject* InnerObj : TObjectRange<UObject>(RF_ClassDefaultObject | RF_PendingKill))
+	for (UObject* InnerObj : TObjectRange<UObject>(RF_ClassDefaultObject, true, EInternalObjectFlags::PendingKill))
 	{
 		if (!ObjsToIgnore.Contains(InnerObj))
 		{
@@ -583,7 +583,7 @@ void UExporter::ExportObjectInner(const FExportObjectInnerContext* Context, UObj
 	else
 	{
 		// NOTE: We ignore inner objects that have been tagged for death
-		GetObjectsWithOuter(Object, TempInners, false, RF_PendingKill);
+		GetObjectsWithOuter(Object, TempInners, false, RF_NoFlags, EInternalObjectFlags::PendingKill);
 	}
 	FExportObjectInnerContext::InnerList const& UnsortedObjectInners = ContextInners ? *ContextInners : TempInners;
 

@@ -16,14 +16,14 @@ pushd hlslcc\projects
 	msbuild hlslcc.sln /target:Clean,hlslcc_lib /m /p:Platform=Win32;Configuration="Debug"
 	popd
 
-	REM vs2012 x64
-	pushd vs2012
+	REM vs2015 x64
+	pushd vs2015
 	msbuild hlslcc.sln /target:Clean,hlslcc_lib /p:Platform=x64;Configuration="Debug"
 	msbuild hlslcc.sln /target:Clean,hlslcc_lib /p:Platform=x64;Configuration="Release"
 	popd
 
-	REM vs2012 x86
-	pushd vs2012
+	REM vs2015 x86
+	pushd vs2015
 	msbuild hlslcc.sln /target:Clean,hlslcc_lib /p:Platform=Win32;Configuration="Debug"
 	msbuild hlslcc.sln /target:Clean,hlslcc_lib /p:Platform=Win32;Configuration="Release"
 	popd

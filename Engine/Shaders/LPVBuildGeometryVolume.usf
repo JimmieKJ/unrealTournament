@@ -20,7 +20,8 @@
 
 //------------------------------------------------------------------------------
 
-#define LPV_MULTIPLE_BOUNCES_ENABLED LPV_MULTIPLE_BOUNCES
+#define LPV_MULTIPLE_BOUNCES_ENABLED	LPV_MULTIPLE_BOUNCES
+#define DEBUG_HIGHLIGHT_BORDERS			0
 
 //------------------------------------------------------------------------------
 
@@ -35,16 +36,12 @@ void CSBuildGeometryVolume(uint3 DTid : SV_DispatchThreadID)
 	int index = GetGridAddress( DTid );
 	if ( index == -1 ) return;
 
-	uint listIndex = gGvListHeadBuffer.Load( index*4 );
+	uint listIndex = gGvListHeadBuffer.Load( index*4 ) - 1; // 0-terminated lists to prevent infinite recursion
 
 	GeometryVolumeEntry cell;
-	[unroll]
-	for ( int i=0; i<9; i++ ) cell.SH[i] = 0;
 
-#if LPV_MULTIPLE_BOUNCES_ENABLED
-	// cell.color records the average color for the cell (it is not cumulative)
-	cell.color = 0.0f;
-#endif
+	ClearGvEntry( cell );
+	const float RsmAreaMultiplier = LpvWrite.RsmAreaIntensityMultiplier * 0.25;
 
 	uint count = 0;
 	while (listIndex != -1 )
@@ -58,12 +55,20 @@ void CSBuildGeometryVolume(uint3 DTid : SV_DispatchThreadID)
 		float weight = 0.15 / nDotL;
 
 #if LPV_MULTIPLE_BOUNCES_ENABLED
-		cell.color += vpl.flux;
+		cell.color += vpl.flux * RsmAreaMultiplier;
 #endif
-		AccumulateCoeffsScalar( weight, vpl.normal, cell.SH );
+
+#if DEBUG_HIGHLIGHT_BORDERS
+		if ( DTid.x==0 || DTid.x == 31 || DTid.y == 0 || DTid.y == 31 )
+		{
+			weight = 100;
+		}
+#endif
+		AccumulateCoeffsGeometryVolume( weight * RsmAreaMultiplier, vpl.normal, cell );
+
 		count++;
-		if ( count > 32 ) break; // Prevent huge spikes in this shader on PC
-		listIndex = listEntry.nextIndex;
+		if ( count > 128 ) break; // Prevent huge spikes in this shader on PC
+		listIndex = listEntry.nextIndex-1; // 0-terminated lists to prevent infinite recursion
 	}
 
 #if LPV_MULTIPLE_BOUNCES_ENABLED

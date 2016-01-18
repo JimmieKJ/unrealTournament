@@ -184,8 +184,8 @@ void AGameplayAbilityTargetActor_Trace::Tick(float DeltaSeconds)
 
 		if (bDebug)
 		{
-			DrawDebugLine(GetWorld(), SourceActor->GetActorLocation(), EndPoint, FLinearColor::Green, false);
-			DrawDebugSphere(GetWorld(), EndPoint, 16, 10, FLinearColor::Green, false);
+			DrawDebugLine(GetWorld(), SourceActor->GetActorLocation(), EndPoint, FColor::Green, false);
+			DrawDebugSphere(GetWorld(), EndPoint, 16, 10, FColor::Green, false);
 		}
 
 		SetActorLocationAndRotation(EndPoint, SourceActor->GetActorRotation());

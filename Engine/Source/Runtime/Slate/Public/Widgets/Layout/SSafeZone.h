@@ -51,6 +51,8 @@ class SLATE_API SSafeZone : public SBox
 
 	FMargin GetSafeZonePadding() const;
 
+	void SetTitleSafe( bool bIsTitleSafe );
+
 private:
 	/** Cached values from the args */
 	TAttribute<FMargin> Padding;

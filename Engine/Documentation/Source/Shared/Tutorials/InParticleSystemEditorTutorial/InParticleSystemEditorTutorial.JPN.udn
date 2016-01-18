@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2238395
+﻿INTSourceChangelist:2591123
 Availability:NoPublish
 Title:カスケードの Welcome Tutorial
 Crumbs:
@@ -26,9 +26,9 @@ Description:アンリアル エンジン 4 チュートリアル入門の内容
 
 ![](CascadeTutorial_Emitters.png)
 
-各列は、1 つのパーティクル エミッタを表し、いくつかのモジュールが入っています。一番上のエミッタ モジュールには、エミッタの名前、タイプなどのエミッタの主要なプロパティが含まれます。その下にあるモジュールは、それぞれパーティクルの動作の様々な側面を制御します。
+各列は、1 つのパーティクル エミッタを表し、いくつかのモジュールが入っています。一番上のエミッタ モジュールには、エミッタの名前、タイプなどのエミッタの主要プロパティがあります。その下のモジュールは、それぞれパーティクルの動作の様々な側面を制御します。
 
-[詳しい情報については、カスケードのパーティクル エディタのドキュメントをご覧ください](DOCLINK:Engine\Rendering\ParticleSystems\Cascade#emitterspanel)
+[詳しい情報は、カスケードのパーティクル エディタのドキュメントをご覧ください](DOCLINK:Engine\Rendering\ParticleSystems\Cascade#emitterspanel)
 
 [/EXCERPT:Stage2]
 
@@ -68,10 +68,10 @@ Description:アンリアル エンジン 4 チュートリアル入門の内容
 
 [EXCERPT:Stage4]
 [VAR:StageTitle]
-Details (詳細) 
+Details （詳細）
 [/VAR]
 
-[詳細] パネルには、現在選択しているエミッタまたはモジュールのプロパティが表示されます。 
+[Details] （詳細）パネルには、現在選択しているエミッタまたはモジュールのプロパティが表示されます。 
 
 ![](CascadeTutorial_Details.png)
 
@@ -82,16 +82,16 @@ Details (詳細)
 
 [EXCERPT:Stage4.1]
 [VAR:StageTitle]
-Details (詳細) 
+Details （詳細）
 [/VAR]
 
-[詳細] パネルには、現在選択しているエミッタまたはモジュールのプロパティが表示されます。 
+[Details] （詳細）パネルには、現在選択しているエミッタまたはモジュールのプロパティが表示されます。 
 
 ![](CascadeTutorial_Details02.png)
 
 各エミッタとモジュール内のプロパティは、どのようなパーティクル システムを作り上げるかを表します。パーティクル システムのプロパティの多くはシステム全体に影響を及ぼす静的な値ですが、通常はライフタイムにわたり、個々のパーティクルに影響を及ぼす必要があるプロパティは「Distributions (分布) 」と呼ばれる特殊なプロパティを持ちます。
 
-[詳しい情報については、カスケードのパーティクル エディタのドキュメントをご覧ください。](DOCLINK:Engine\Rendering\ParticleSystems\Cascade#[詳細]パネル)
+[詳しい情報は、カスケードのパーティクル エディタのドキュメントをご覧ください。](DOCLINK:Engine\Rendering\ParticleSystems\Cascade#DetailsPanel)
 
 [/EXCERPT:Stage4.1]
 
@@ -99,16 +99,16 @@ Details (詳細)
 
 [EXCERPT:Stage4.2]
 [VAR:StageTitle]
-Distributions (分布)
+Distributions （分布）
 [/VAR]
 
-Distributions (分布) は、パーティクルのライフタイムにわたり値を調整できるようにします。
+Distributions （分布） は、パーティクルのライフタイムにわたり値を調整できるようにします。
 
 ![](CascadeTutorial_Details03.png)
 
 Distributions (分布) は、データ型の集まりであり、定数値、一定範囲内のランダム値、カーブに沿って補間された値、パラメータによって動く値を使用できる柔軟性があります。
 
-[Distributions (分布) の詳しい情報については、エンジンの基礎のドキュメントのページをご覧ください](DOCLINK:Engine/Basics/Distributions)
+[Distributions の詳しい情報については、エンジンの基礎のドキュメントのページをご覧ください](DOCLINK:Engine/Basics/Distributions)
 
 [/EXCERPT:Stage4.2]
 
@@ -125,7 +125,7 @@ Distributions (分布) は、データ型の集まりであり、定数値、一
 
 カーブエディタで分布を視覚化するには、モジュール上でグラフ アイコンをクリックします。
 
-[使用の詳細については、カーブエディタのドキュメントをご覧ください。](DOCLINK:Engine/UI/CurveEditor)
+[使用の詳細は、カーブエディタのドキュメントをご覧ください。](DOCLINK:Engine/UI/CurveEditor)
 
 [/EXCERPT:Stage5]
 
@@ -145,7 +145,7 @@ Distributions (分布) は、データ型の集まりであり、定数値、一
 "2" と表示されているボックスは、トラックのすべてのカーブを非表示にします。
 
 
-[使用の詳細については、カーブエディタのドキュメントをご覧ください。](DOCLINK:Engine/UI/CurveEditor)
+[使用の詳細は、カーブエディタのドキュメントをご覧ください。](DOCLINK:Engine/UI/CurveEditor)
 
 [/EXCERPT:Stage5.1]
 
@@ -160,14 +160,14 @@ Distributions (分布) は、データ型の集まりであり、定数値、一
 
 ![](CascadeTutorial_Curves03.png)
 
-  キー上で左マウスボタン (LMB) :選択キー  
- 点上で Ctrl + LMB :点の選択を切り替えます。  
- 点上で Ctrl + LMB :クリックした位置で新規キーを追加  
- Ctrl + LMB + ドラッグ :現在の選択を移動します。  
- Ctrl + Alt + LMB ドラッグ :範囲を選択します。  
- Ctrl + Alt + Shift + LMB + ドラッグ :範囲指定します (現在の選択に追加します)。    
+ キー上で左マウスボタン (LMB) :選択キー  
+ 点上で Ctrl + 左マウスボタン :点の選択を切り替えます。  
+ 点上で Ctrl + 左マウスボタン :クリックした位置で新規キーを追加  
+ Ctrl + 左マウスボタン + ドラッグ :現在の選択を移動します。  
+ Ctrl + Alt + 左マウスボタン ドラッグ :範囲を選択します。  
+ Ctrl + Alt + Shift + 左マウスボタン + ドラッグ :範囲指定します (現在の選択に追加します)。    
 
-[使用の詳細については、カーブエディタのドキュメントをご覧ください。](DOCLINK:Engine/UI/CurveEditor)
+[使用の詳細は、カーブエディタのドキュメントをご覧ください。](DOCLINK:Engine/UI/CurveEditor)
 
 [/EXCERPT:Stage5.2]
 
@@ -179,10 +179,10 @@ Distributions (分布) は、データ型の集まりであり、定数値、一
 
 これでカスケードのクイックスタートガイドは終わりです。詳細は、以下を参照してください。
 
-[Cascade](DOCLINK:Engine/Rendering/ParticleSystems/Cascade)
-[Modules](DOCLINK:Engine/Rendering/ParticleSystems/Reference)
+[カスケード](DOCLINK:Engine/Rendering/ParticleSystems/Cascade)
+[モジュール](DOCLINK:Engine/Rendering/ParticleSystems/Reference)
 [Distributions](DOCLINK:Engine/Basics/Distributions)
-[Curve Editor](DOCLINK:Engine/UI/CurveEditor)
+[カーブエディタ](DOCLINK:Engine/UI/CurveEditor)
 
 ![](Stage1.png)
 

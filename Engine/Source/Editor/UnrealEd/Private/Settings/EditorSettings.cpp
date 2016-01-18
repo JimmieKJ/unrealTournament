@@ -2,6 +2,7 @@
 
 #include "UnrealEd.h"
 #include "EditorSettings.h"
+#include "IProjectManager.h"
 
 UEditorSettings::UEditorSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

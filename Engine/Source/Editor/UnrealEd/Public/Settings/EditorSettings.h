@@ -55,7 +55,7 @@ class UNREALED_API UEditorSettings : public UObject
 	/** @return true if the scalability benchmark is valid */
 	bool IsScalabilityBenchmarkValid() const;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End UObject Interface
+	//~ End UObject Interface
 };

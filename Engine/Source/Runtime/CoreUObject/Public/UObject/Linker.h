@@ -4,6 +4,7 @@
 
 #include "ObjectBase.h"
 #include "EngineVersion.h"
+#include "GatherableTextData.h"
 
 
 DECLARE_LOG_CATEGORY_EXTERN(LogLinker, Log, All);
@@ -97,6 +98,23 @@ public:
 		return Index != Other.Index;
 	}
 
+	/** Compare package indecies **/
+	FORCEINLINE bool operator<(const FPackageIndex& Other) const
+	{
+		return Index < Other.Index;
+	}
+	FORCEINLINE bool operator>(const FPackageIndex& Other) const
+	{
+		return Index > Other.Index;
+	}
+	FORCEINLINE bool operator<=(const FPackageIndex& Other) const
+	{
+		return Index <= Other.Index;
+	}
+	FORCEINLINE bool operator>=(const FPackageIndex& Other) const
+	{
+		return Index >= Other.Index;
+	}
 	/**
 	 * Serializes a package index value from or into an archive.
 	 *
@@ -161,6 +179,13 @@ struct FObjectExport : public FObjectResource
 	FPackageIndex  	ClassIndex;
 
 	/**
+	* Location of this resource in export map. Used for export fixups while loading packages.
+	* Value of zero indicates resource is invalid and shouldn't be loaded.
+	* Not serialized.
+	*/
+	FPackageIndex ThisIndex;
+
+	/**
 	 * Location of the resource for this export's SuperField (parent).  Only valid if
 	 * this export represents a UStruct object. A value of zero indicates that the object
 	 * represented by this export isn't a UStruct-derived object.
@@ -174,11 +199,6 @@ struct FObjectExport : public FObjectResource
 	 * Serialized
 	 */
 	EObjectFlags	ObjectFlags;
-
-	/**
-	 * Force this export to not load, it failed because the outer didn't exist.
-	 */
-	bool         	bExportLoadFailed;
 
 	/**
 	 * The number of bytes to serialize when saving/loading this export's UObject.
@@ -237,6 +257,29 @@ struct FObjectExport : public FObjectResource
 	 */
 	bool			bNotForServer;
 
+	/**
+	* whether the export should be always loaded in editor game
+	* False means that the object is necessary for editor game,
+	* True doesn't means, that the object won't be loaded.
+	* Serialized
+	*/
+	bool			bNotForEditorGame;
+
+	/**
+	* True if this export is an asset object.
+	*/
+	bool			bIsAsset;
+
+	/**
+	* Force this export to not load, it failed because the outer didn't exist.
+	*/
+	bool			bExportLoadFailed;
+
+	/**
+	* Export is a dynamic class.
+	*/
+	bool			bDynamicClass;
+
 	/** If this object is a top level package (which must have been forced into the export table via OBJECTMARK_ForceTagExp)
 	 * this is the GUID for the original package file
 	 * Serialized
@@ -248,14 +291,6 @@ struct FObjectExport : public FObjectResource
 	 * Serialized
 	 */
 	uint32			PackageFlags;
-
-	/**
-	 * whether the export should be always loaded in editor game
-	 * False means that the object is necessary for editor game,
-	 * True doesn't means, that the object won't be loaded.
-	 * Serialized
-	 */
-	bool			bNotForEditorGame;
 
 	/**
 	 * Constructors
@@ -313,6 +348,7 @@ struct FObjectImport : public FObjectResource
 	 */
 	COREUOBJECT_API FObjectImport();
 	FObjectImport( UObject* InObject );
+	FObjectImport( UObject* InObject, UClass* InClass );
 	
 	/** I/O function */
 	friend COREUOBJECT_API FArchive& operator<<( FArchive& Ar, FObjectImport& I );
@@ -566,6 +602,16 @@ public:
 	int32 	NameOffset;
 
 	/**
+	 * Number of gatherable text data items in this package
+	 */
+	int32		GatherableTextDataCount;
+
+	/**
+	 * Location into the file on disk for the gatherable text data items
+	 */
+	int32 	GatherableTextDataOffset;
+	
+	/**
 	 * Number of exports contained in this package
 	 */
 	int32		ExportCount;
@@ -755,7 +801,8 @@ public:
 		{
 			return Exp(Index);
 		}
-	}	/**
+	}	
+	/**
 	 * Return an import or export for this index
 	 * @param	Index	Package index to get
 	 * @return	the resource corresponding to this index, or NULL if the package index is null
@@ -831,46 +878,6 @@ public:
 		}
 		return NULL;
 	}
-
-	/** Gets the class name for the specified index in the export map. */
-	COREUOBJECT_API FName GetExportClassName( int32 ExportIdx );
-	/** Gets the class name for the specified index in the import map. */
-	FName GetExportClassName(FPackageIndex PackageIndex)
-	{
-		if (PackageIndex.IsExport())
-		{
-			return GetExportClassName(PackageIndex.ToExport());
-		}
-		return NAME_None;
-	}
-	/** Gets the class name for the specified index in the import map. */
-	FName GetImportClassName( int32 ImportIdx )
-	{
-		return ImportMap[ImportIdx].ClassName;
-	}
-	/** Gets the class name for the specified index in the import map. */
-	FName GetImportClassName(FPackageIndex PackageIndex)
-	{
-		if (PackageIndex.IsImport())
-		{
-			return GetImportClassName(PackageIndex.ToImport());
-		}
-		return NAME_None;
-	}
-	/** Gets the class name for the specified package index. */
-	FName GetClassName(FPackageIndex PackageIndex)
-	{
-		if (PackageIndex.IsImport())
-		{
-			return GetImportClassName(PackageIndex);
-		}
-		else if (PackageIndex.IsExport())
-		{
-			return GetExportClassName(PackageIndex);
-		}
-		return NAME_None;
-	}
-
 };
 
 
@@ -941,6 +948,9 @@ public:
 	/** Names used by objects contained within this package */
 	TArray<FName>			NameMap;
 
+	/** Gatherable text data contained within this package */
+	TArray<FGatherableTextData> GatherableTextDataMap;
+
 	/** The name of the file for this package */
 	FString					Filename;
 
@@ -957,6 +967,46 @@ public:
 	FLinker(ELinkerType::Type InType, UPackage* InRoot, const TCHAR* InFilename);
 
 	virtual ~FLinker();
+
+	/** Gets the class name for the specified index in the export map. */
+	COREUOBJECT_API FName GetExportClassName(int32 ExportIdx);
+	/** Gets the class name for the specified index in the import map. */
+	FName GetExportClassName(FPackageIndex PackageIndex)
+	{
+		if (PackageIndex.IsExport())
+		{
+			return GetExportClassName(PackageIndex.ToExport());
+		}
+		return NAME_None;
+	}
+	/** Gets the class name for the specified index in the import map. */
+	FName GetImportClassName(int32 ImportIdx)
+	{
+		return ImportMap[ImportIdx].ClassName;
+	}
+	/** Gets the class name for the specified index in the import map. */
+	FName GetImportClassName(FPackageIndex PackageIndex)
+	{
+		if (PackageIndex.IsImport())
+		{
+			return GetImportClassName(PackageIndex.ToImport());
+		}
+		return NAME_None;
+	}
+	/** Gets the class name for the specified package index. */
+	FName GetClassName(FPackageIndex PackageIndex)
+	{
+		if (PackageIndex.IsImport())
+		{
+			return GetImportClassName(PackageIndex);
+		}
+		else if (PackageIndex.IsExport())
+		{
+			return GetExportClassName(PackageIndex);
+		}
+		return NAME_None;
+	}
+
 
 	FORCEINLINE ELinkerType::Type GetType() const
 	{
@@ -1166,6 +1216,10 @@ public:
 		{
 			return true;
 		}
+		if (Export.ThisIndex.IsNull()) // Export is invalid and shouldn't be processed.
+		{
+			return true;
+		}
 		return false;
 	}
 
@@ -1239,9 +1293,6 @@ class FLinkerLoad : public FLinker, public FArchiveUObject
 	// Variables.
 public:
 
-	/** Initialize everything related to linkers */
-	static void InitLinkers();
-
 	FORCEINLINE static ELinkerType::Type StaticType()
 	{
 		return ELinkerType::Load;
@@ -1253,6 +1304,8 @@ public:
 	uint32					LoadFlags;
 	/** Indicates whether the imports for this loader have been verified													*/
 	bool					bHaveImportsBeenVerified;
+	/** Indicates that this linker was created for a dynamic class package and will not use Loader */
+	bool					bDynamicClassLinker;
 	/** Hash table for exports.																								*/
 	int32						ExportHash[256];
 #if WITH_EDITOR
@@ -1261,9 +1314,13 @@ public:
 #endif // WITH_EDITOR
 	/** The archive that actually reads the raw data from disk.																*/
 	FArchive*				Loader;
+	/** The async package associated with this linker */
+	struct FAsyncPackage* AsyncRoot;
 
 	/** OldClassName to NewClassName for ImportMap */
 	static TMap<FName, FName> ObjectNameRedirects;
+	/** Additional info for some ObjectName redirects to also redirect the class and class package  */
+	static TMap<FName, TPair<FName, FName>> ObjectNameClassRedirects;
 	/** OldClassName to NewClassName for ExportMap */
 	static TMap<FName, FName> ObjectNameRedirectsInstanceOnly;
 	/** Object name to NewClassName for export map */
@@ -1276,6 +1333,8 @@ public:
 	static TMap<FName, FName> StructNameRedirects;
 	/** Old plugin name to new plugin name mapping */
 	static TMap<FString, FString> PluginNameRedirects;
+	/** Packages that are known to be missing when verifying imports that we don't want a message about */
+	static TSet<FName> KnownMissingPackages;
 
 	/** Object name to required class and new name for load-time remapping */
 	struct FSubobjectRedirect
@@ -1312,15 +1371,17 @@ public:
 private:
 	// Variables used during async linker creation.
 
-	/** Current index into name map, used by async linker creation for spreading out serializing name entries.				*/
+	/** Current index into name map, used by async linker creation for spreading out serializing name entries.					*/
 	int32						NameMapIndex;
-	/** Current index into import map, used by async linker creation for spreading out serializing importmap entries.		*/	
+	/** Current index into gatherable text data map, used by async linker creation for spreading out serializing text entries.	*/
+	int32						GatherableTextDataMapIndex;
+	/** Current index into import map, used by async linker creation for spreading out serializing importmap entries.			*/	
 	int32						ImportMapIndex;
-	/** Current index into export map, used by async linker creation for spreading out serializing exportmap entries.		*/
+	/** Current index into export map, used by async linker creation for spreading out serializing exportmap entries.			*/
 	int32						ExportMapIndex;
-	/** Current index into depends map, used by async linker creation for spreading out serializing dependsmap entries.		*/
+	/** Current index into depends map, used by async linker creation for spreading out serializing dependsmap entries.			*/
 	int32						DependsMapIndex;
-	/** Current index into export hash map, used by async linker creation for spreading out hashing exports.				*/
+	/** Current index into export hash map, used by async linker creation for spreading out hashing exports.					*/
 	int32						ExportHashIndex;
 
 
@@ -1350,6 +1411,10 @@ private:
 	/** Used for ActiveClassRedirects functionality */
 	bool					bFixupExportMapDone;
 
+#if WITH_EDITOR
+	/** Check to avoid multiple export duplicate fixups in case we don't save asset. */
+	bool bExportsDuplicatesFixed;
+#endif // WITH_EDITOR
 	/** Id of the thread that created this linker. This is to guard against using this linker on other threads than the one it was created on **/
 	int32					OwnerThread;
 
@@ -1460,6 +1525,9 @@ public:
 	 */
 	virtual FLinker* GetLinker() override { return this; }
 
+	/** Flush Loader Cache */
+	virtual void FlushCache() override;
+
 	/**
 	 * Creates and returns a FLinkerLoad object.
 	 *
@@ -1514,7 +1582,7 @@ public:
 	 * @param bForcePreload	Whether to explicitly call Preload (serialize) right away instead of being
 	 *						called from EndLoad()
 	 */
-	void LoadAllObjects( bool bForcePreload = false );
+	COREUOBJECT_API void LoadAllObjects(bool bForcePreload = false);
 
 	/**
 	 * Returns the ObjectName associated with the resource indicated.
@@ -1537,7 +1605,7 @@ public:
 	 * @param Checked		Whether or not a failure will throw an error
 	 * @return The created object, or (UObject*)-1 if this is just verifying
 	 */
-	UObject* Create( UClass* ObjectClass, FName ObjectName, UObject* Outer, uint32 LoadFlags, bool Checked );
+	UObject* Create( UClass* ObjectClass, FName ObjectName, UObject* Outer, uint32 InLoadFlags, bool Checked );
 
 	/**
 	 * Serialize the object data for the specified object from the unreal package file.  Loads any
@@ -1606,7 +1674,7 @@ public:
 	/**
 	 * Looks for an existing linker for the given package, without trying to make one if it doesn't exist
 	 */
-	COREUOBJECT_API static FLinkerLoad* FindExistingLinkerForPackage(UPackage* Package);
+	COREUOBJECT_API static FLinkerLoad* FindExistingLinkerForPackage(const UPackage* Package);
 
 	/**
 	 * Replaces OldObject's entry in its linker with NewObject, so that all subsequent loads of OldObject will return NewObject.
@@ -1620,6 +1688,18 @@ public:
 	COREUOBJECT_API static void PRIVATE_PatchNewObjectIntoExport(UObject* OldObject, UObject* NewObject);
 
 	/**
+	 * Wraps a call to the package linker's ResolveAllImports().
+	 * 
+	 * @param  Package    The package whose imports you want all loaded.
+	 * 
+	 * WARNING!!!	This function shouldn't be used carelessly, and serves as a
+	 *				hacky entrypoint to FLinkerLoad's privates. It should only 
+	 *				be used at very specific times, and in very specific cases.
+	 *				If you're unsure, DON'T TRY TO USE IT!!!
+	 */
+	COREUOBJECT_API static void PRIVATE_ForceLoadAllDependencies(UPackage* Package);
+
+	/**
 	 * Invalidates the future loading of a specific object, so that subsequent loads will fail
 	 * This is used to invalidate sub objects of a replaced object that may no longer be valid
 	 */
@@ -1629,6 +1709,19 @@ public:
 	COREUOBJECT_API static FName FindSubobjectRedirectName(const FName& Name);
 
 private:
+#if WITH_EDITOR
+
+	/**
+	 * Nulls duplicated exports and fixes indexes in ExportMap to point to original objects instead of duplicates.
+	 */
+	void FixupDuplicateExports();
+
+	/**
+	 * Replaces all instances of OldIndex in ExportMap with NewIndex.
+	 */
+	void ReplaceExportIndexes(const FPackageIndex& OldIndex, const FPackageIndex& NewIndex);
+
+#endif // WITH_EDITOR
 
 	UObject* CreateExport( int32 Index );
 
@@ -1730,16 +1823,19 @@ private:
 #endif
 	void DetachAllBulkData(bool bEnsureBulkDataIsLoaded);
 public:
+
 	/**
-	 * Detaches linker from bulk data/ exports and removes itself from array of loaders.
-	 *
-	 * @param	bEnsureAllBulkDataIsLoaded	Whether to load all bulk data first before detaching.
+	 * Detaches linker from bulk data.
 	 */
 	void LoadAndDetachAllBulkData();
 
+	/**
+	* Detaches linker from bulk data/ exports and removes itself from array of loaders.
+	*/
+	COREUOBJECT_API void Detach();
+
 private:
 
-	void Detach();
 	void Seek( int64 InPos ) override;
 	int64 Tell() override;
 	int64 TotalSize() override;
@@ -1859,10 +1955,25 @@ private:
 
 public:
 	/**
+	 * Serializes the gatherable text data container.
+	 */
+	COREUOBJECT_API ELinkerStatus SerializeGatherableTextDataMap(bool bForceEnableForCommandlet = false);
+
+	/**
 	 * Serializes thumbnails
 	 */
 	COREUOBJECT_API ELinkerStatus SerializeThumbnails( bool bForceEnableForCommandlet=false );
 
+	/**
+	* Query method to help handle recursive behavior. When this returns true,
+	* this linker is in the middle of, or is about to call FinalizeBlueprint()
+	* (for a blueprint class somewhere in the current callstack). Needed when
+	* we get to finalizing a sub-class before we've finished finalizing its
+	* super (so we know we need to finish finalizing the super first).
+	*
+	* @return True if FinalizeBlueprint() is currently being ran (or about to be ran) for an export (Blueprint) class.
+	*/
+	bool IsBlueprintFinalizationPending() const;
 private:
 	/**
 	 * Regenerates/Refreshes a blueprint class
@@ -1933,6 +2044,14 @@ private:
 	bool HasUnresolvedDependencies() const;
 
 	/**
+	 * Iterates through the ImportMap and calls CreateImport() for every entry, 
+	 * creating/loading each import as we go. This also makes sure that class 
+	 * imports have had ResolveDeferredDependencies() completely executed for 
+	 * them (even those already running through it earlier in the callstack).
+	 */
+	void ResolveAllImports();
+
+	/**
 	 * Takes the supplied serialized class and serializes in its CDO, then 
 	 * regenerates both.
 	 * 
@@ -1951,17 +2070,6 @@ private:
 	 * @param  LoadClass    A fully loaded/serialized class that may have property references to placeholder export objects (in need of fix-up).
 	 */
 	void ResolveDeferredExports(UClass* LoadClass);
-
-	/**
-	 * Query method to help handle recursive behavior. When this returns true, 
-	 * this linker is in the middle of, or is about to call FinalizeBlueprint()
-	 * (for a blueprint class somewhere in the current callstack). Needed when 
-	 * we get to finalizing a sub-class before we've finished finalizing its 
-	 * super (so we know we need to finish finalizing the super first).
-	 * 
-	 * @return True if FinalizeBlueprint() is currently being ran (or about to be ran) for an export (Blueprint) class.
-	 */
-	bool IsBlueprintFinalizationPending() const;
 
 	/**
 	 * Sometimes we have to instantiate an export object that is of an imported 
@@ -1994,8 +2102,16 @@ private:
 
 
 	void ResetDeferredLoadingState();
-public:
+
 	bool HasPerformedFullExportResolvePass();
+
+	/** Finds import, tries to fall back to dynamic class if the object could not be found */
+	UObject* FindImport(UClass* ImportClass, UObject* ImportOuter, const TCHAR* Name);
+	/** Finds import, tries to fall back to dynamic class if the object could not be found */
+	UObject* FindImportFast(UClass* ImportClass, UObject* ImportOuter, FName Name);
+
+	/** Fills all necessary information for constructing dynamic type package linker */
+	void CreateDynamicTypeLoader();
 
 #if	USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	/** 
@@ -2087,6 +2203,8 @@ public:
 	FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForceByteSwapping, bool bInSaveUnversioned = false );
 	/** Constructor for memory writer */
 	FLinkerSave(UPackage* InParent, bool bForceByteSwapping, bool bInSaveUnversioned = false );
+	/** Constructor for custom savers */
+	FLinkerSave(UPackage* InParent, FArchive *InSaver, bool bForceByteSwapping, bool bInSaveUnversioned = false);
 
 	/** Returns the appropriate name index for the source name, or 0 if not found in NameIndices */
 	int32 MapName(const FName& Name) const;
@@ -2099,6 +2217,15 @@ public:
 	FArchive& operator<<( UObject*& Obj );
 	FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr );
 	FArchive& operator<<( FAssetPtr& AssetPtr );
+
+#if WITH_EDITOR
+	// proxy for debugdata
+	virtual void PushDebugDataString(const FName& DebugData) override { Saver->PushDebugDataString(DebugData); }
+	virtual void PopDebugDataString() override { Saver->PopDebugDataString(); }
+#endif
+
+
+	virtual FString GetArchiveName() const override;
 
 	/**
 	 * If this archive is a FLinkerLoad or FLinkerSave, returns a pointer to the FLinker portion.
@@ -2168,7 +2295,14 @@ typedef uint32 ELazyLoaderFlags;
 	Global functions
 -----------------------------------------------------------------------------*/
 
+/** Resets linkers on packages after they have finished loading */
 COREUOBJECT_API void ResetLoaders( UObject* InOuter );
+
+/** Deletes all linkers that have finished loading */
+COREUOBJECT_API void DeleteLoaders();
+
+/** Queues linker for deletion */
+COREUOBJECT_API void DeleteLoader(FLinkerLoad* Loader);
 
 /**
  * Dissociates all linker import and forced export object references. This currently needs to 

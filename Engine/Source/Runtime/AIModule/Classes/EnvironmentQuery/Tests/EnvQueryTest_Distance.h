@@ -14,6 +14,7 @@ namespace EEnvTestDistance
 		Distance3D,
 		Distance2D,
 		DistanceZ,
+		DistanceAbsoluteZ UMETA(DisplayName = "Distance Z (Absolute)")
 	};
 }
 

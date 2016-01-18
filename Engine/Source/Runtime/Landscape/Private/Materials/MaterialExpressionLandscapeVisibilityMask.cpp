@@ -21,9 +21,9 @@ UMaterialExpressionLandscapeVisibilityMask::UMaterialExpressionLandscapeVisibili
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
-		FString NAME_Landscape;
+		FText NAME_Landscape;
 		FConstructorStatics()
-			: NAME_Landscape(LOCTEXT("Landscape", "Landscape").ToString())
+			: NAME_Landscape(LOCTEXT("Landscape", "Landscape"))
 		{
 		}
 	};

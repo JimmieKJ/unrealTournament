@@ -128,6 +128,8 @@ void UK2Node_Knot::PostReconstructNode()
 			break;
 		}
 	}
+
+	Super::PostReconstructNode();
 }
 
 void UK2Node_Knot::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const

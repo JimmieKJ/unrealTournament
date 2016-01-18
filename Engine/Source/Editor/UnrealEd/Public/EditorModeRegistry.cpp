@@ -91,6 +91,18 @@ TArray<FEditorModeInfo> FEditorModeRegistry::GetSortedModeInfo() const
 	return ModeInfoArray;
 }
 
+FEditorModeInfo FEditorModeRegistry::GetModeInfo(FEditorModeID ModeID) const
+{
+	FEditorModeInfo Result;
+	const TSharedRef<IEditorModeFactory>* ModeFactory = ModeFactories.Find(ModeID);
+	if (ModeFactory)
+	{
+		Result = (*ModeFactory)->GetModeInfo();
+	}
+	
+	return Result;
+}
+
 TSharedPtr<FEdMode> FEditorModeRegistry::CreateMode(FEditorModeID ModeID, FEditorModeTools& Owner)
 {
 	const TSharedRef<IEditorModeFactory>* ModeFactory = ModeFactories.Find(ModeID);

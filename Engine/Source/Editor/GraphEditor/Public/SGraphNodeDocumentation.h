@@ -10,29 +10,29 @@ public:
 	SLATE_BEGIN_ARGS(SGraphNodeDocumentation){}
 	SLATE_END_ARGS()
 
-	// Begin SPanel Interface
+	//~ Begin SPanel Interface
 	virtual FVector2D ComputeDesiredSize(float) const override;
-	// End SPanel interface
+	//~ End SPanel Interface
 
-	// Begin SWidget Interface
+	//~ Begin SWidget Interface
 	void Construct( const FArguments& InArgs, UEdGraphNode* InNode );
 	virtual FReply OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	// End SWidget Interface
+	//~ End SWidget Interface
 
-	// Begin SGraphNodeResizable Interface
+	//~ Begin SGraphNodeResizable Interface
 	virtual FVector2D GetNodeMinimumSize() const override;
 	virtual FVector2D GetNodeMaximumSize() const override;
 	virtual float GetTitleBarHeight() const override;
-	virtual FSlateRect GetHitTestingBorder( float InverseZoomFactor ) const override;
-	// End SGraphNodeResizable Interface
+	virtual FSlateRect GetHitTestingBorder() const override;
+	//~ End SGraphNodeResizable Interface
 
 protected:
 
-	// Begin SGraphNode Interface
+	//~ Begin SGraphNode Interface
 	virtual void UpdateGraphNode() override;
 	virtual bool IsNameReadOnly () const override { return false; }
-	// End SGraphNode Interface
+	//~ End SGraphNode Interface
 
 	/** Retrives the current documentation title based on the chosen excerpt */
 	FText GetDocumentationTitle() const;

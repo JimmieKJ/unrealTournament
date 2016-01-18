@@ -17,11 +17,15 @@
 #include "AssetData.h"
 #endif
 
+#include "Base64.h"
+
 static TSharedRef<FSearchEntry> OtherCategory(new FSearchEntry());
 static TSharedRef<FSearchEntry> AskQuestionEntry (new FSearchEntry());
 
+#define LOCTEXT_NAMESPACE "SuperSearch"
+
 SSuperSearchBox::SSuperSearchBox()
-	: SelectedSuggestion(-1)
+	: SelectedSuggestion(INDEX_NONE)
 	, bIgnoreUIUpdate(false)
 {
 	CategoryToIconMap.Add("Documentation", FName("LevelEditor.BrowseDocumentation") );
@@ -30,14 +34,15 @@ SSuperSearchBox::SSuperSearchBox()
 	CategoryToIconMap.Add("API", FName("LevelEditor.BrowseAPIReference") );
 	CategoryToIconMap.Add("Tutorials", FName("LevelEditor.Tutorials") );
 
-
 	OtherCategory->Title = NSLOCTEXT("SuperSearchBox", "OtherCategory", "Help").ToString();
 	OtherCategory->bCategory = true;
 
 	AskQuestionEntry->Title = NSLOCTEXT("SuperSearchBox", "AskQuestion", "Ask Online").ToString();
 	AskQuestionEntry->URL = "https://answers.unrealengine.com/questions/ask.html";
 	AskQuestionEntry->bCategory = false;
-	
+
+	SearchEngines.Add(MakeShareable(new ESearchEngine(ESearchEngine::Google)));
+	SearchEngines.Add(MakeShareable(new ESearchEngine(ESearchEngine::Bing)));
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -45,44 +50,102 @@ void SSuperSearchBox::Construct( const FArguments& InArgs )
 {
 	// Allow style to be optionally overridden, but fallback to SSearchBox default if not specified
 	const FSearchBoxStyle* InStyle = InArgs._Style.IsSet() ? InArgs._Style.GetValue() : &FCoreStyle::Get().GetWidgetStyle<FSearchBoxStyle>("SearchBox");
+	const FComboBoxStyle* InSearchEngineStyle = InArgs._SearchEngineComboBoxStyle.IsSet() ? InArgs._SearchEngineComboBoxStyle.GetValue() : &FCoreStyle::Get().GetWidgetStyle<FComboBoxStyle>("ComboBox");
+
+	CurrentSearchEngine = InArgs._SearchEngine;
+	SearchEngineChanged = InArgs._OnSearchEngineChanged;
 
 	ChildSlot
 	[
 		SAssignNew( SuggestionBox, SMenuAnchor )
-			.Placement( InArgs._SuggestionListPlacement )
+		.Placement( InArgs._SuggestionListPlacement )
 		.Method( EPopupMethod::UseCurrentWindow )
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SComboBox< TSharedPtr<ESearchEngine> >)
+				.ComboBoxStyle(InSearchEngineStyle)
+				.OptionsSource(&SearchEngines)
+				.OnGenerateWidget(this, &SSuperSearchBox::GenerateSearchEngineItem)
+				.OnSelectionChanged(this, &SSuperSearchBox::HandleSearchEngineChanged)
+				.ContentPadding(FMargin(4.0f, 1.0f))
+				[
+					SNew(STextBlock)
+					.Text(this, &SSuperSearchBox::GetSelectedSearchEngineText)
+				]
+			]
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
 			[
 				SAssignNew(InputText, SSearchBox)
-					.Style(InStyle)
-					.OnTextCommitted(this, &SSuperSearchBox::OnTextCommitted)
-					.HintText( NSLOCTEXT( "SuperSearchBox", "HelpHint", "Search For Help" ) )
-					.OnTextChanged(this, &SSuperSearchBox::OnTextChanged)
-					.SelectAllTextWhenFocused(false)
-					.DelayChangeNotificationsWhileTyping(true)
-					.MinDesiredWidth(200)
+				.Style(InStyle)
+				.OnTextCommitted(this, &SSuperSearchBox::OnTextCommitted)
+				.HintText( NSLOCTEXT( "SuperSearchBox", "HelpHint", "Search For Help" ) )
+				.OnTextChanged(this, &SSuperSearchBox::OnTextChanged)
+				.SelectAllTextWhenFocused(false)
+				.DelayChangeNotificationsWhileTyping(true)
+				.MinDesiredWidth(200)
 			]
-			.MenuContent
-			(
-				SNew(SBorder)
-				.BorderImage(FCoreStyle::Get().GetBrush("Menu.Background"))
-				.Padding( FMargin(2) )
+		]
+		.MenuContent
+		(
+			SNew(SBorder)
+			.BorderImage(FCoreStyle::Get().GetBrush("Menu.Background"))
+			.Padding( FMargin(2) )
+			[
+				SNew(SBox)
 				[
-					SNew(SBox)
-				//.HeightOverride(250) // avoids flickering, ideally this would be adaptive to the content without flickering
-					[
-						SAssignNew(SuggestionListView, SListView< TSharedPtr<FSearchEntry> >)
-							.ListItemsSource(&Suggestions)
-							.SelectionMode( ESelectionMode::Single )							// Ideally the mouse over would not highlight while keyboard controls the UI
-							.OnGenerateRow(this, &SSuperSearchBox::MakeSuggestionListItemWidget)
-						.OnMouseButtonClick(this, &SSuperSearchBox::SuggestionSelectionChanged)
-							.ItemHeight(18)
-					]
+					SAssignNew(SuggestionListView, SListView< TSharedPtr<FSearchEntry> >)
+					.ListItemsSource(&Suggestions)
+					.SelectionMode( ESelectionMode::Single )							// Ideally the mouse over would not highlight while keyboard controls the UI
+					.OnGenerateRow(this, &SSuperSearchBox::MakeSuggestionListItemWidget)
+					.OnMouseButtonClick(this, &SSuperSearchBox::SuggestionSelectionChanged)
+					.ItemHeight(18)
 				]
-			)
-			.OnMenuOpenChanged(this, &SSuperSearchBox::OnMenuOpenChanged)
+			]
+		)
+		.OnMenuOpenChanged(this, &SSuperSearchBox::OnMenuOpenChanged)
 	];
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+TSharedRef<SWidget> SSuperSearchBox::GenerateSearchEngineItem(TSharedPtr<ESearchEngine> SearchEngine)
+{
+	return SNew(STextBlock)
+		.Text(GetSearchEngineText(*SearchEngine));
+}
+
+void SSuperSearchBox::HandleSearchEngineChanged(TSharedPtr<ESearchEngine> InSearchEngine, ESelectInfo::Type)
+{
+	CurrentSearchEngine = *InSearchEngine;
+
+	SearchEngineChanged.Execute(CurrentSearchEngine);
+
+	//Broadcast to anyone registered
+	//FSuperSearchModule& SuperSearchModule = FModuleManager::LoadModuleChecked< FSuperSearchModule >(TEXT("SuperSearch"));
+//	SuperSearchModule.GetSearchEngineChanged().Broadcast(CurrentSearchEngine);
+}
+
+FText SSuperSearchBox::GetSelectedSearchEngineText() const
+{
+	return GetSearchEngineText(CurrentSearchEngine);
+}
+
+FText SSuperSearchBox::GetSearchEngineText(ESearchEngine Type) const
+{
+	switch ( Type )
+	{
+	case ESearchEngine::Google:
+		return LOCTEXT("Google", "Google");
+	case ESearchEngine::Bing:
+		return LOCTEXT("Bing", "Bing");
+	}
+
+	return FText::GetEmpty();
+}
 
 int32 GetNumRealSuggestions(const TArray< TSharedPtr<FSearchEntry> > & Suggestions)
 {
@@ -103,13 +166,13 @@ void SSuperSearchBox::OnMenuOpenChanged( bool bIsOpen )
 #if WITH_EDITOR
 	if (bIsOpen == false)
 	{
-		if(FEngineAnalytics::IsAvailable())
+		if ( FEngineAnalytics::IsAvailable() )
 		{
 			TArray< FAnalyticsEventAttribute > SearchAttribs;
-			SearchAttribs.Add(FAnalyticsEventAttribute(TEXT("SearchTerm"), InputText->GetText().ToString() ));
+			SearchAttribs.Add(FAnalyticsEventAttribute(TEXT("SearchTerm"), InputText->GetText().ToString()));
 			SearchAttribs.Add(FAnalyticsEventAttribute(TEXT("NumFoundResults"), GetNumRealSuggestions(Suggestions)));
-			SearchAttribs.Add(FAnalyticsEventAttribute(TEXT("ClickedTitle"), EntryClicked.Get() ? EntryClicked->Title : "") );
-			SearchAttribs.Add(FAnalyticsEventAttribute(TEXT("ClickedOnSomething"), EntryClicked.IsValid()) );
+			SearchAttribs.Add(FAnalyticsEventAttribute(TEXT("ClickedTitle"), EntryClicked.Get() ? EntryClicked->Title : ""));
+			SearchAttribs.Add(FAnalyticsEventAttribute(TEXT("ClickedOnSomething"), EntryClicked.IsValid()));
 
 			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.SuperSearch"), SearchAttribs);
 		}
@@ -117,7 +180,7 @@ void SSuperSearchBox::OnMenuOpenChanged( bool bIsOpen )
 		InputText->SetText(FText::GetEmpty());
 	}
 #endif
-	EntryClicked = NULL;
+	EntryClicked = nullptr;
 }
 
 /** Input string should have no leading & or ? */
@@ -311,20 +374,40 @@ void SSuperSearchBox::OnTextChanged(const FText& InText)
 	const FString& InputTextStr = InputText->GetText().ToString();
 	if(!InputTextStr.IsEmpty())
 	{
-		//search through google for online content
-		{
-			TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
+		TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
 
-			// build the url
-				FString UrlEncodedString = FGenericPlatformHttp::UrlEncode(InText.ToString());	//we need to url encode for special characters (especially other languages)
+		FString UrlEncodedString = FPlatformHttp::UrlEncode(InText.ToString());	//we need to url encode for special characters (especially other languages)
+
+		if ( CurrentSearchEngine == ESearchEngine::Bing )
+		{
+			//search through bing for online content
+			static FString AccountKey = FBase64::Encode(TEXT(":RSY8G4W5Fnb+baWUUq9N2eYa5nWuu2tKhNEoJzQEykY"));
+			static FString AuthToken = FString::Printf(TEXT("Basic %s"), *AccountKey);
+
 			// use partial response to only look at items and things we care about for items right now (title,link and label name)
-				const FText QueryURL = FText::Format(FText::FromString("https://www.googleapis.com/customsearch/v1?key=AIzaSyCMGfdDaSfjqv5zYoS0mTJnOT3e9MURWkU&cx=009868829633250020713:y7tfd8hlcgg&fields=items(title,link,labels/name)&q={0}+less:forums"), FText::FromString(UrlEncodedString));
+			const FText QueryURL = FText::Format(FText::FromString("https://api.datamarket.azure.com/Data.ashx/Bing/Search/v1/Web?$format=json&Query=%27site%3Aunrealengine.com%20{0}%27"), FText::FromString(UrlEncodedString));
 
 			//save http request into map to ensure correct ordering
-			FText & Query = RequestQueryMap.FindOrAdd(HttpRequest);
+			FText& Query = RequestQueryMap.FindOrAdd(HttpRequest);
 			Query = InText;
 
-			
+			// kick off http request to read friends
+			HttpRequest->OnProcessRequestComplete().BindRaw(this, &SSuperSearchBox::Query_HttpRequestComplete);
+			HttpRequest->SetURL(QueryURL.ToString());
+			//HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+			HttpRequest->SetHeader(TEXT("Authorization"), AuthToken);
+			HttpRequest->SetVerb(TEXT("GET"));
+			HttpRequest->ProcessRequest();
+		}
+		else
+		//search through google for online content
+		{
+			// use partial response to only look at items and things we care about for items right now (title,link and label name)
+			const FText QueryURL = FText::Format(FText::FromString("https://www.googleapis.com/customsearch/v1?key=AIzaSyCMGfdDaSfjqv5zYoS0mTJnOT3e9MURWkU&cx=009868829633250020713:y7tfd8hlcgg&fields=items(title,link,labels/name)&q={0}+less:forums"), FText::FromString(UrlEncodedString));
+
+			//save http request into map to ensure correct ordering
+			FText& Query = RequestQueryMap.FindOrAdd(HttpRequest);
+			Query = InText;
 
 			// kick off http request to read friends
 			HttpRequest->OnProcessRequestComplete().BindRaw(this, &SSuperSearchBox::Query_HttpRequestComplete);
@@ -397,6 +480,7 @@ void SSuperSearchBox::OnTextChanged(const FText& InText)
 	else
 	{
 		ClearSuggestions();
+		SuggestionBox->SetIsOpen(false);
 	}
 }
 
@@ -423,7 +507,6 @@ void SSuperSearchBox::OnTextCommitted( const FText& InText, ETextCommit::Type Co
 		{
 			OnTextChanged(InText);
 		}
-
 	}
 }
 
@@ -446,6 +529,60 @@ void SSuperSearchBox::Query_HttpRequestComplete(FHttpRequestPtr HttpRequest, FHt
 				if (FText * QueryText = RequestQueryMap.Find(HttpRequest))
 				{
 					const TArray<TSharedPtr<FJsonValue> > * JsonItems = nullptr;
+
+					// with bing search result
+					if ( CurrentSearchEngine == ESearchEngine::Bing )
+					{
+						int32 iFitResultCount = 0;
+						TSharedPtr<FJsonValue> Field = JsonObject->TryGetField(TEXT("d"));
+						if ( Field.IsValid() && Field->AsObject()->TryGetArrayField(TEXT("results"), JsonItems) )
+						{
+							//add search result into cache
+							FSearchResults & SearchResults = SearchResultsCache.FindOrAdd(QueryText->ToString());
+							FCategoryResults & OnlineResults = SearchResults.OnlineResults;
+							OnlineResults.Empty();	//reset online results since we just got updated
+
+							// The default bing search list the top 50 results, we need to filter out the 10 from wiki, docs and answers.
+							for ( TSharedPtr<FJsonValue> JsonItem : *JsonItems )
+							{
+								const TSharedPtr<FJsonObject> & ItemObject = JsonItem->AsObject();
+								FSearchEntry SearchEntry;
+								SearchEntry.Title = ItemObject->GetStringField("Title");
+								SearchEntry.URL = ItemObject->GetStringField("Url");
+								SearchEntry.bCategory = false;
+
+								FString LabelString;
+								bool bValidLabel = true;
+								if ( SearchEntry.URL.Contains(TEXT("://docs.unrealengine.com")) )
+								{
+									LabelString = TEXT("documentation");
+								}
+								else if ( SearchEntry.URL.Contains(TEXT("://wiki.unrealengine.com")) )
+								{
+									LabelString = TEXT("wiki");
+								}
+								else if ( SearchEntry.URL.Contains(TEXT("://answers.unrealengine.com")) )
+								{
+									LabelString = TEXT("answers");
+								}
+								else
+								{
+									bValidLabel = false;
+								}
+
+								if ( bValidLabel )
+								{
+									TArray<FSearchEntry> & SuggestionCategory = OnlineResults.FindOrAdd(LabelString);
+									SuggestionCategory.Add(SearchEntry);
+									if ( ++iFitResultCount > 9 )
+									{
+										break;
+									}
+								}
+							}
+						}
+					}
+					// with google search result
 					if (JsonObject->TryGetArrayField(TEXT("items"), JsonItems))
 					{
 						//add search result into cache
@@ -566,19 +703,18 @@ void UpdateSuggestionHelper(const FText & CategoryLabel, const TArray<FSearchEnt
 
 void SSuperSearchBox::UpdateSuggestions()
 {
-	const FText & Query = InputText->GetText();
-	FSearchResults * SearchResults = SearchResultsCache.Find(Query.ToString());
+	const FText& Query = InputText->GetText();
+	FSearchResults* SearchResults = SearchResultsCache.Find(Query.ToString());
+
+	//go through and build new suggestion list for list view widget
+	ClearSuggestions();
 
 	//still waiting on results for current query
-	if (SearchResults == NULL)
+	if (SearchResults == nullptr)
 	{
 		return;
 	}
 
-	//go through and build new suggestion list for list view widget
-	Suggestions.Empty();
-	SelectedSuggestion = -1;
-	
 	//first tutorials
 	UpdateSuggestionHelper(NSLOCTEXT("SuperSearch", "tutorials", "Tutorials"), SearchResults->TutorialResults, Suggestions);
 
@@ -602,18 +738,13 @@ void SSuperSearchBox::UpdateSuggestions()
 	Suggestions.Add(OtherCategory);
 	Suggestions.Add(AskQuestionEntry);
 
-		SelectedSuggestion = 1;
-		// Ideally if the selection box is open the output window is not changing it's window title (flickers)
-		SuggestionBox->SetIsOpen(true, false);
-		MarkActiveSuggestion();
+	SelectedSuggestion = 1;
+	// Ideally if the selection box is open the output window is not changing it's window title (flickers)
+	SuggestionBox->SetIsOpen(true, false);
+	MarkActiveSuggestion();
 
-		// Force the textbox back into focus.
+	// Force the textbox back into focus.
 	FSlateApplication::Get().SetKeyboardFocus(InputText.ToSharedRef(), EFocusCause::SetDirectly);
-}
-
-void SSuperSearchBox::OnFocusLost( const FFocusEvent& InFocusEvent )
-{
-//	SuggestionBox->SetIsOpen(false);
 }
 
 void SSuperSearchBox::MarkActiveSuggestion()
@@ -633,7 +764,9 @@ void SSuperSearchBox::MarkActiveSuggestion()
 
 void SSuperSearchBox::ClearSuggestions()
 {
-	SelectedSuggestion = -1;
+	SelectedSuggestion = INDEX_NONE;
+	SuggestionBox->SetIsOpen(false);
+	SelectedSuggestion = INDEX_NONE;
 	SuggestionBox->SetIsOpen(false);
 	Suggestions.Empty();
 }
@@ -646,3 +779,5 @@ FString SSuperSearchBox::GetSelectionText() const
 
 	return ret;
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTRemoteRedeemer.h"
 #include "Net/UnrealNetwork.h"
@@ -37,12 +37,12 @@ void UUTProjectileMovementComponent::InitializeComponent()
 	}
 }
 
-bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit)
+bool UUTProjectileMovementComponent::MoveUpdatedComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit, ETeleportType Teleport)
 {
 	// if we have no extra components or we don't need to sweep, use the default behavior
 	if (AddlUpdatedComponents.Num() == 0 || UpdatedComponent == NULL || !bSweep || Delta.IsNearlyZero())
 	{
-		return Super::MoveUpdatedComponent(Delta, NewRotation, bSweep, OutHit);
+		return Super::MoveUpdatedComponentImpl(Delta, NewRotation, bSweep, OutHit, Teleport);
 	}
 	else
 	{
@@ -78,11 +78,11 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 			DeferredUpdates.Add(new FNewableScopedMovementUpdate(AddlUpdatedComponents[i]));
 		}
 
-		FRotator RotChange = NewRotation.GetNormalized() - UpdatedComponent->ComponentToWorld.GetRotation().Rotator().GetNormalized();
+		FRotator RotChange = NewRotation.Rotator().GetNormalized() - UpdatedComponent->ComponentToWorld.GetRotation().Rotator().GetNormalized();
 
 		FHitResult EarliestHit;
 		// move root
-		bool bResult = Super::MoveUpdatedComponent(Delta, NewRotation, bSweep, &EarliestHit);
+		bool bResult = Super::MoveUpdatedComponentImpl(Delta, NewRotation, bSweep, &EarliestHit, Teleport);
 		
 		float InitialMoveSize = Delta.Size() * EarliestHit.Time;
 		float ShortestMoveSize = InitialMoveSize;
@@ -163,7 +163,7 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 				{
 					// recurse
 					bRecursing = true;
-					bResult = MoveUpdatedComponent(Delta.GetSafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit);
+					bResult = MoveUpdatedComponentImpl(Delta.GetSafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit, Teleport);
 					bRecursing = false;
 				}				
 
@@ -216,7 +216,7 @@ void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float T
 			}
 			FHitResult NewHit;
 			SafeMoveUpdatedComponent(Delta, ActorOwner->GetActorRotation(), true, NewHit);
-			if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+			if (UpdatedComponent != NULL && !ActorOwner->IsPendingKillPending())
 			{
 				if (NewHit.Time < 1.f) // hit second wall
 				{
@@ -234,11 +234,11 @@ void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float T
 						//}
 
 						TwoWallAdjust(Delta, NewHit, OldHitNormal);
-						if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+						if (UpdatedComponent != NULL && !ActorOwner->IsPendingKillPending())
 						{
 							bool bDitch = ((OldHitNormal.Z > 0.0f) && (NewHit.Normal.Z > 0.0f) && (Delta.Z == 0.0f) && ((NewHit.Normal | OldHitNormal) < 0.0f));
 							SafeMoveUpdatedComponent(Delta, ActorOwner->GetActorRotation(), true, NewHit);
-							if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+							if (UpdatedComponent != NULL && !ActorOwner->IsPendingKillPending())
 							{
 								if (bDitch || NewHit.Normal.Z >= HitZStopSimulatingThreshold)
 								{

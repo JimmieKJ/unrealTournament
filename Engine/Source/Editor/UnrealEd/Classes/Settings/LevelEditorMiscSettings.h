@@ -26,6 +26,10 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Editing, meta=( DisplayName = "Update BSP Automatically" ))
 	uint32 bBSPAutoUpdate:1;
 
+	/** If true, the pivot offset for BSP will be automatically moved to stay centered on its vertices */
+	UPROPERTY(EditAnywhere, config, Category=Editing, meta=( DisplayName = "Move BSP Pivot Offset Automatically" ))
+	uint32 bAutoMoveBSPPivotOffset:1;
+
 	/** If true, Navigation will auto-update */
 	UPROPERTY(EditAnywhere, config, Category=Editing, meta=( DisplayName = "Update Navigation Automatically" ))
 	uint32 bNavigationAutoUpdate:1;

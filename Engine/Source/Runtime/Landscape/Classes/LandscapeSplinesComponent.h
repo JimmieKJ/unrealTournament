@@ -10,6 +10,8 @@ class ULandscapeSplineSegment;
 class USplineMeshComponent;
 class UControlPointMeshComponent;
 
+// structs for ForeignWorldSplineDataMap
+// these are editor-only, but we don't have the concept of an editor-only USTRUCT
 USTRUCT()
 struct FForeignControlPointData
 {
@@ -22,8 +24,6 @@ struct FForeignControlPointData
 	UPROPERTY()
 	UControlPointMeshComponent* MeshComponent;
 #endif
-
-	friend FArchive& operator<<(FArchive& Ar, FForeignControlPointData& Value);
 };
 
 USTRUCT()
@@ -32,14 +32,12 @@ struct FForeignSplineSegmentData
 	GENERATED_USTRUCT_BODY()
 
 #if WITH_EDITORONLY_DATA
-		UPROPERTY()
-		FGuid ModificationKey;
+	UPROPERTY()
+	FGuid ModificationKey;
 
 	UPROPERTY()
-		TArray<USplineMeshComponent*> MeshComponents;
+	TArray<USplineMeshComponent*> MeshComponents;
 #endif
-
-	friend FArchive& operator<<(FArchive& Ar, FForeignSplineSegmentData& Value);
 };
 
 USTRUCT()
@@ -48,14 +46,21 @@ struct FForeignWorldSplineData
 	GENERATED_USTRUCT_BODY()
 
 #if WITH_EDITORONLY_DATA
+	UPROPERTY()
 	TMap<TLazyObjectPtr<ULandscapeSplineControlPoint>, FForeignControlPointData> ForeignControlPointDataMap;
+
+	UPROPERTY()
 	TMap<TLazyObjectPtr<ULandscapeSplineSegment>, FForeignSplineSegmentData> ForeignSplineSegmentDataMap;
 #endif
 
-	friend FArchive& operator<<(FArchive& Ar, FForeignWorldSplineData& Value);
-
+#if WITH_EDITOR
 	bool IsEmpty();
+#endif
 };
+
+//////////////////////////////////////////////////////////////////////////
+// ULandscapeSplinesComponent
+//////////////////////////////////////////////////////////////////////////
 
 UCLASS(MinimalAPI)
 class ULandscapeSplinesComponent : public UPrimitiveComponent
@@ -92,11 +97,19 @@ protected:
 	TArray<ULandscapeSplineSegment*> Segments;
 
 #if WITH_EDITORONLY_DATA
+	// Serialized
+	UPROPERTY(TextExportTransient)
 	TMap<TAssetPtr<UWorld>, FForeignWorldSplineData> ForeignWorldSplineDataMap;
 
+	// Transient - rebuilt on load
 	TMap<UMeshComponent*, UObject*> MeshComponentLocalOwnersMap;
 	TMap<UMeshComponent*, TLazyObjectPtr<UObject>> MeshComponentForeignOwnersMap;
 #endif
+
+	// References to components owned by landscape splines in other levels
+	// for cooked build (uncooked keeps references via ForeignWorldSplineDataMap)
+	UPROPERTY(TextExportTransient)
+	TArray<UMeshComponent*> CookedForeignMeshComponents;
 
 public:
 	void CheckSplinesValid();
@@ -137,7 +150,7 @@ public:
 	void AutoFixMeshComponentErrors(UWorld* OtherWorld);
 #endif
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
@@ -145,21 +158,21 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UActorComponent interface
+	//~ Begin UActorComponent Interface
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 #endif
 	virtual void OnRegister() override;
-	// End UActorComponent interface
+	//~ End UActorComponent Interface
 	
-	// Begin UPrimitiveComponent interface.
+	//~ Begin UPrimitiveComponent Interface.
 #if WITH_EDITOR
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 #endif
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	// End UPrimitiveComponent interface.
+	//~ End UPrimitiveComponent Interface.
 
 	// many friends
 	friend class FLandscapeToolSplines;

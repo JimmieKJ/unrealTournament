@@ -18,22 +18,19 @@ public:
 public:
 
 	/** Removes all data from the buffer. */
-	void ClearBuffer( )
-	{
-		WindowElementLists.Empty();
-	}
+	void ClearBuffer();
 
 	/**
 	 * Creates a new FSlateWindowElementList and returns a reference to it so it can have draw elements added to it
 	 *
 	 * @param ForWindow    The window for which we are creating a list of paint elements.
 	 */
-	FSlateWindowElementList& AddWindowElementList( TSharedRef<SWindow> ForWindow );
+	FSlateWindowElementList& AddWindowElementList(TSharedRef<SWindow> ForWindow);
 
 	/**
 	 * Gets all window element lists in this buffer.
 	 */
-	TArray<FSlateWindowElementList>& GetWindowElementLists( )
+	TArray< TSharedPtr<FSlateWindowElementList> >& GetWindowElementLists()
 	{
 		return WindowElementLists;
 	}
@@ -56,7 +53,11 @@ public:
 protected:
 
 	// List of window element lists.
-	TArray<FSlateWindowElementList> WindowElementLists;
+	TArray< TSharedPtr<FSlateWindowElementList> > WindowElementLists;
+
+	// List of window element lists that we store from the previous frame 
+	// that we restore if they're requested again.
+	TArray< TSharedPtr<FSlateWindowElementList> > WindowElementListsPool;
 
 	// 1 if this buffer is locked, 0 otherwise.
 	int32 Locked;

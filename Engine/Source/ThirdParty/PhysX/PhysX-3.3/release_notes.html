@@ -51,7 +51,7 @@
     <ul>
         <li>Microsoft Windows XP or later</li>
         <li>Microsoft Visual Studio 2010, 2012 and 2013</li>
-        <li>Xcode 4.6|5.0|5.0.1</li>
+        <li>Xcode 6.2</li>
     </ul>
 	</blockquote>
 	<h2>Known Issues</h2>
@@ -69,11 +69,15 @@
 	<ul>
 		<li>Added support for Microsoft Visual Studio 2013 and removed support for Microsoft Visual Studio 2008.</li>
 		<li>Where applicable, mutexes on Unix flavored platforms now inherit priority to avoid priority inversion. This is a default behavior of Windows mutexes.</li>
+		<li>Added arm64 support for the iOS version of the PhysX SDK.</li>
+		<li>Removed samples from the iOS version of the PhysX SDK.</li> 
 		<li>Fixed:</li>
 		<ul>
 			<li>x64 samples running on Windows 8.</li>
 			<li>Concurrent calls to PxPhysics::(un)registerDeletionListener() and PxPhysics::(un)registerDeletionListenerObjects() were not safe.</li>
 			<li>PxGeometryQuery::pointDistance() could sometimes read uninitialized memory. This has been fixed.</li>
+			<li>The PxPhysics::getMaterials() function did not work with a non-zero 'startIndex' parameter. This has been fixed.</li>
+			<li>The following static Android libs are now packed into a single library called PhysX3: LowLevel, LowLevelCloth, PhysX3, PhysXProfileSDK, PhysXVisualDebuggerSDK, PvdRuntime, PxTask, SceneQuery and SimulationController. This fixes cyclic dependencies between these libraries.</li>
 		</ul>
 	</ul>
 
@@ -87,7 +91,10 @@
 			<li>Island manager performance in the presence of large numbers of kinematic actors has been improved.</li>
 			<li>Using PxConstraint::setActors() or PxJoint::setActors() could cause a crash if the new actors resulted in the constraint/joint being removed from the scene.</li>
 			<li>The functions PxRigidActor::setGlobalPose and PxShape::setLocalPose failed to update cached contact data internal to PhysX.  This led to contacts being generated with transforms that were no longer valid.  Similarly, contacts could be missed due to transforms being invalid.  This defect affected the classes PxRigidStatic and PxRigidDynamic, though it was more immediately noticeable with the PxRigidStatic class.</li>
-		</ul>
+			<li>The sphere-vs-mesh contact generation code has been improved. It could previously generate wrong contacts. This has been fixed.</li>
+			<li>The capsule-vs-convex contact generation had a bug that could lead to rare invalid contacts. This has been fixed.</li>
+			<li>The mesh contact generation had a bug on PS3 that could lead to invalid contacts. This has been fixed.</li>
+			<li>The PxRigidBody::clearForce() and PxRigidBody::clearTorque() were not properly decoupled - they both cleared the force and the torque. This has been fixed.</li>		</ul>
 	</ul>
 
 	<h3>Particles</h3>
@@ -96,6 +103,7 @@
 		<ul>
 			<li>Consistency between GPU and CPU particles has been improved in the case of a spatial date structure overflow. The positions and velocities of particles that have the PxParticleFlag::eSPATIAL_DATA_STRUCTURE_OVERFLOW set
 			are now updated also for CPU particles.</li>
+			<li>Fixed potential deadlocks from occurring in the GPU particle kernels running on GM204 and above GPUs .</li>
 		</ul>
 	</ul>
 
@@ -126,6 +134,7 @@
 		<ul>
 			<li>Raycasts against triangle meshes with large scales potentionaly failed to register a hit.</li>
 			<li>Overlaps against height field meshes with the flag eNO_BOUNDARY_EDGES potentionaly failed to register a hit.</li>
+            <li>Sweeps using shapes modelled around a space significantly offset from their geometric center could fail to register a hit. </li>
 		</ul>
 	</ul>
 	
@@ -222,6 +231,7 @@
 			<li>Significant revision of the user's guide.  Both structure and most content have been modified.</li>
 			<li>Fixed search function of user's guide.</li>
 			<li>Foundation math classes now have in-place arithmetic operators (+= etc).</li>
+			<li>PxScene::checkResults() no longer counts as a read API method. Hence it is now possible to call this method in blocking mode without causing all writes to block until it returns.</li>
 		</ul>
 		<li>Deprecated:</li>
 		<ul>

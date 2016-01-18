@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2483253
+﻿INTSourceChangelist:2649699
 Title:A
 Crumbs:Shared/Glossary
 Description:
-Availability:Public
+Availability:NoPublish
 
 [EXCERPT:Glossary_A]
 
@@ -16,7 +16,7 @@ Actor 액터
 -->
 
 [EXCERPT:Glossary_Actor]
-**Actor**, 액터란 레벨에 배치할 수 있는 오브젝트를 말합니다. 액터는 이동, 회전, 스케일과 같은 3D 트랜스폼을 지원하는 범용 클래스입니다. 액터는 게임플레이 코드(C++ 또는 블루프린트)를 통해 생성(스폰) 및 소멸 가능합니다. C++ 에서 `AActor` 는 모든 액터의 베이스 클래스입니다.
+**Actor**, 액터란 레벨에 배치할 수 있는 오브젝트를 말합니다. 액터는 이동, 회전, 스케일과 같은 3D 트랜스폼을 지원하는 범용 클래스입니다. 액터는 게임플레이 코드(C++ 또는 블루프린트)를 통해 생성(스폰) 및 소멸 가능합니다. C++ 에서 AActor 는 모든 액터의 베이스 클래스입니다.
 
 액터에는 여러가지 유형이 있으며, 몇 가지 예를 들면 다음과 같습니다: StaticMeshActor, CameraActor, and PlayerStartActor. 
 [/EXCERPT:Glossary_Actor]

@@ -9,35 +9,35 @@
 class FUdpMessageProcessor
 	: public FRunnable
 {
-	// Structure for known remote endpoints.
+	/** Structure for known remote endpoints. */
 	struct FNodeInfo
 	{
-		// Holds the node's IP endpoint.
+		/** Holds the node's IP endpoint. */
 		FIPv4Endpoint Endpoint;
 
-		// Holds the time at which the last Hello was received.
+		/** Holds the time at which the last Hello was received. */
 		FDateTime LastSegmentReceivedTime;
 
-		// Holds the endpoint's node identifier.
+		/** Holds the endpoint's node identifier. */
 		FGuid NodeId;
 
-		// Holds the collection of reassembled messages.
+		/** Holds the collection of reassembled messages. */
 		TMap<int32, FUdpReassembledMessagePtr> ReassembledMessages;
 
-		// Holds the message resequencer.
+		/** Holds the message resequencer. */
 		FUdpMessageResequencer Resequencer;
 
-		// Holds the collection of message segmenters.
+		/** Holds the collection of message segmenters. */
 		TMap<int32, TSharedPtr<FUdpMessageSegmenter> > Segmenters;
 
-		// Default constructor.
+		/** Default constructor. */
 		FNodeInfo()
 			: LastSegmentReceivedTime(FDateTime::MinValue())
 			, NodeId()
 		{ }
 
-		// Resets the endpoint info.
-		void ResetIfRestarted( const FGuid& NewNodeId )
+		/** Resets the endpoint info. */
+		void ResetIfRestarted(const FGuid& NewNodeId)
 		{
 			if (NewNodeId != NodeId)
 			{
@@ -50,21 +50,20 @@ class FUdpMessageProcessor
 	};
 
 
-	// Structure for inbound segments.
+	/** Structure for inbound segments. */
 	struct FInboundSegment
 	{
-		// Holds the segment data.
+		/** Holds the segment data. */
 		FArrayReaderPtr Data;
 
-		// Holds the sender's network endpoint.
+		/** Holds the sender's network endpoint. */
 		FIPv4Endpoint Sender;
 
-
-		// Default constructor.
+		/** Default constructor. */
 		FInboundSegment() { }
 
-		// Creates and initializes a new instance.
-		FInboundSegment( const FArrayReaderPtr& InData, const FIPv4Endpoint& InSender )
+		/** Creates and initializes a new instance. */
+		FInboundSegment(const FArrayReaderPtr& InData, const FIPv4Endpoint& InSender)
 			: Data(InData)
 			, Sender(InSender)
 		{ }
@@ -74,18 +73,17 @@ class FUdpMessageProcessor
 	// Structure for outbound messages.
 	struct FOutboundMessage
 	{
-		// Holds the serialized message.
+		/** Holds the serialized message. */
 		FUdpSerializedMessagePtr SerializedMessage;
 
-		// Holds the recipient.
+		/** Holds the recipient. */
 		FGuid RecipientId;
 
-
-		// Default constructor.
+		/** Default constructor. */
 		FOutboundMessage() { }
 
-		// Creates and initializes a new instance.
-		FOutboundMessage( const FUdpSerializedMessageRef& InSerializedMessage, const FGuid& InRecipientId )
+		/** Creates and initializes a new instance. */
+		FOutboundMessage(const FUdpSerializedMessageRef& InSerializedMessage, const FGuid& InRecipientId)
 			: SerializedMessage(InSerializedMessage)
 			, RecipientId(InRecipientId)
 		{ }
@@ -100,10 +98,10 @@ public:
 	 * @param InNodeId The local node identifier (used to detect the unicast endpoint).
 	 * @param InMulticastEndpoint The multicast group endpoint to transport messages to.
 	 */
-	FUdpMessageProcessor( FSocket* InSocket, const FGuid& InNodeId, const FIPv4Endpoint& InMulticastEndpoint );
+	FUdpMessageProcessor(FSocket* InSocket, const FGuid& InNodeId, const FIPv4Endpoint& InMulticastEndpoint);
 
-	/** Destructor. */
-	~FUdpMessageProcessor();
+	/** Virtual destructor. */
+	virtual ~FUdpMessageProcessor();
 
 public:
 
@@ -114,7 +112,7 @@ public:
 	 * @param Sender The sender's network endpoint.
 	 * @return true if the segment was queued up, false otherwise.
 	 */
-	bool EnqueueInboundSegment( const FArrayReaderPtr& Data, const FIPv4Endpoint& Sender );
+	bool EnqueueInboundSegment(const FArrayReaderPtr& Data, const FIPv4Endpoint& Sender);
 
 	/**
 	 * Queues up an outbound message.
@@ -123,14 +121,14 @@ public:
 	 * @param Recipient The recipient's IPv4 endpoint.
 	 * @return true if the message was queued up, false otherwise.
 	 */
-	bool EnqueueOutboundMessage( const FUdpSerializedMessageRef& SerializedMessage, const FGuid& Recipient );
+	bool EnqueueOutboundMessage(const FUdpSerializedMessageRef& SerializedMessage, const FGuid& Recipient);
 
 public:
 
 	/**
 	 * Returns a delegate that is executed when message data has been received.
 	 *
-	 * @param Delegate The delegate to set.
+	 * @return The delegate.
 	 */
 	DECLARE_DELEGATE_ThreeParams(FOnMessageReassembled, const FUdpReassembledMessageRef& /*ReassembledMessage*/, const IMessageAttachmentPtr& /*Attachment*/, const FGuid& /*NodeId*/)
 	FOnMessageReassembled& OnMessageReassembled()
@@ -138,15 +136,22 @@ public:
 		return MessageReassembledDelegate;
 	}
 
+	/**
+	 * Returns a delegate that is executed when a remote node has been discovered.
+	 *
+	 * @return The delegate.
+	 * @see OnNodeLost
+	 */
 	IMessageTransport::FOnNodeDiscovered& OnNodeDiscovered()
 	{
 		return NodeDiscoveredDelegate;
 	}
 
 	/**
-	 * Returns a delegate that is executed when a channel has closed or timed out.
+	 * Returns a delegate that is executed when a remote node was closed or timed out.
 	 *
-	 * @param Delegate The delegate to set.
+	 * @return The delegate.
+	 * @see OnNodeDiscovered
 	 */
 	IMessageTransport::FOnNodeLost& OnNodeLost()
 	{
@@ -171,7 +176,7 @@ protected:
 	 * @param NodeInfo Details for the node to send the acknowledgment to.
 	 * @todo gmp: batch multiple of these into a single message
 	 */
-	void AcknowledgeReceipt( int32 MessageId, const FNodeInfo& NodeInfo );
+	void AcknowledgeReceipt(int32 MessageId, const FNodeInfo& NodeInfo);
 
 	/**
 	 * Calculates the time span that the thread should wait for work.
@@ -194,7 +199,7 @@ protected:
 	 * @param Sender The segment sender.
 	 * @return true if the segment passed the filter, false otherwise.
 	 */
-	bool FilterSegment( const FUdpMessageSegment::FHeader& Header, const FArrayReaderPtr& Data, const FIPv4Endpoint& Sender );
+	bool FilterSegment(const FUdpMessageSegment::FHeader& Header, const FArrayReaderPtr& Data, const FIPv4Endpoint& Sender);
 
 	/**
 	 * Processes an Abort segment.
@@ -202,7 +207,7 @@ protected:
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
-	void ProcessAbortSegment( FInboundSegment& Segment, FNodeInfo& NodeInfo );
+	void ProcessAbortSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
 	 * Processes a Success segment.
@@ -210,7 +215,7 @@ protected:
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
-	void ProcessAcknowledgeSegment( FInboundSegment& Segment, FNodeInfo& NodeInfo );
+	void ProcessAcknowledgeSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
 	 * Processes a Bye segment.
@@ -218,7 +223,7 @@ protected:
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
-	void ProcessByeSegment( FInboundSegment& Segment, FNodeInfo& NodeInfo );
+	void ProcessByeSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
 	 * Processes a Ping segment.
@@ -226,7 +231,7 @@ protected:
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
-	void ProcessDataSegment( FInboundSegment& Segment, FNodeInfo& NodeInfo );
+	void ProcessDataSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
 	 * Processes a Hello segment.
@@ -234,7 +239,7 @@ protected:
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
-	void ProcessHelloSegment( FInboundSegment& Segment, FNodeInfo& NodeInfo );
+	void ProcessHelloSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
 	 * Processes a Ping segment.
@@ -242,7 +247,7 @@ protected:
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
-	void ProcessRetransmitSegment( FInboundSegment& Segment, FNodeInfo& NodeInfo );
+	void ProcessRetransmitSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
 	 * Processes a Timeout segment.
@@ -250,7 +255,7 @@ protected:
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
-	void ProcessTimeoutSegment( FInboundSegment& Segment, FNodeInfo& NodeInfo );
+	void ProcessTimeoutSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
 	 * Processes an unknown segment type.
@@ -259,14 +264,14 @@ protected:
 	 * @param NodeInfo Details for the node that sent the segment.
 	 * @param SegmentType The segment type.
 	 */
-	void ProcessUnknownSegment( FInboundSegment& Segment, FNodeInfo& NodeInfo, uint8 SegmentType );
+	void ProcessUnknownSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo, uint8 SegmentType);
 
 	/**
 	 * Removes the specified node from the list of known remote endpoints.
 	 *
 	 * @param NodeId The identifier of the node to remove.
 	 */
-	void RemoveKnownNode( const FGuid& NodeId );
+	void RemoveKnownNode(const FGuid& NodeId);
 
 	/** Updates all known remote nodes. */
 	void UpdateKnownNodes();
@@ -276,7 +281,7 @@ protected:
 	 *
 	 * @param NodeInfo Details for the node to update.
 	 */
-	void UpdateSegmenters( FNodeInfo& NodeInfo );
+	void UpdateSegmenters(FNodeInfo& NodeInfo);
 
 	/** Updates all static remote nodes. */
 	void UpdateStaticNodes();
@@ -288,10 +293,10 @@ private:
 
 private:
 
-	// Holds the queue of outbound messages. */
+	/** Holds the queue of outbound messages. */
 	TQueue<FInboundSegment, EQueueMode::Mpsc> InboundSegments;
 
-	// Holds the queue of outbound messages. */
+	/** Holds the queue of outbound messages. */
 	TQueue<FOutboundMessage, EQueueMode::Mpsc> OutboundMessages;
 
 private:

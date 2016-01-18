@@ -23,6 +23,10 @@ public class IntelTBB : ModuleRules
 				{
 					PublicLibraryPaths.Add(IntelTBBPath + "lib/Win64/vc11");
 				}
+				else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+				{
+					PublicLibraryPaths.Add(IntelTBBPath + "lib/Win64/vc14");
+				}
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Win32)
 			{
@@ -33,6 +37,10 @@ public class IntelTBB : ModuleRules
 				else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2012)
 				{
 					PublicLibraryPaths.Add(IntelTBBPath + "lib/Win32/vc11");
+				}
+				else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+				{
+					PublicLibraryPaths.Add(IntelTBBPath + "lib/Win32/vc14");
 				}
 			}
 

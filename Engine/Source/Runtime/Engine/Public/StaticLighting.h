@@ -154,6 +154,10 @@ public:
 	/** Other FStaticLightingMesh's that should be considered the same mesh object (just different LOD), and should not shadow this LOD. */
 	TArray<TRefCountPtr<FStaticLightingMesh> > OtherMeshLODs;
 
+	uint32 HLODTreeIndex;
+	uint32 HLODChildStartIndex;
+	uint32 HLODChildEndIndex;
+
 	/** Initialization constructor. */
 	ENGINE_API FStaticLightingMesh(
 		int32 InNumTriangles,

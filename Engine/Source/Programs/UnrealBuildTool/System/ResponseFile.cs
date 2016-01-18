@@ -14,11 +14,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="TempFileName">Name of response file</param>
 		/// <param name="Lines">List of lines to write to the response file</param>
-		public static string Create(string TempFileName, List<string> Lines)
+		public static FileReference Create(FileReference TempFileName, List<string> Lines)
 		{
-			FileInfo TempFileInfo = new FileInfo( TempFileName );
+			FileInfo TempFileInfo = new FileInfo(TempFileName.FullName);
 			// Delete the existing file if it exists
-			if( TempFileInfo.Exists )
+			if (TempFileInfo.Exists)
 			{
 				TempFileInfo.IsReadOnly = false;
 				TempFileInfo.Delete();

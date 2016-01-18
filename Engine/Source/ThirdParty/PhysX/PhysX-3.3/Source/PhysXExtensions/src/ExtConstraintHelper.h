@@ -113,11 +113,22 @@ namespace Ext
 			const PxVec3 va(qa.x,qa.y,qa.z), vb(qb.x,qb.y,qb.z);
 
 			const PxVec3 c = vb*wa + va*wb;
-			const PxReal d = wa*wb - va.dot(vb);
+			const PxReal d0 = wa*wb;
+			const PxReal d1 = va.dot(vb);
+			const PxReal d = d0 - d1;
 
 			row[0] = (va * vb.x + vb * va.x + PxVec3(d,     c.z, -c.y)) * 0.5f;
 			row[1] = (va * vb.y + vb * va.y + PxVec3(-c.z,  d,    c.x)) * 0.5f;
 			row[2] = (va * vb.z + vb * va.z + PxVec3(c.y,   -c.x,   d)) * 0.5f;
+
+			if ((d0 + d1) != 0.0f)  // check if relative rotation is 180 degrees which can lead to singular matrix
+				return;
+			else
+			{
+				row[0].x += PX_EPS_F32;
+				row[1].y += PX_EPS_F32;
+				row[2].z += PX_EPS_F32;
+			}
 		}
 
 		class ConstraintHelper
@@ -213,8 +224,6 @@ namespace Ext
 				if(ang)
 				{
 					PxQuat qB2qA = qA.getConjugate() * qB;
-					if(qB2qA.w<0)
-						qB2qA = -qB2qA;
 
 					PxVec3 row[3];
 					computeJacobianAxes(row, qA, qB);

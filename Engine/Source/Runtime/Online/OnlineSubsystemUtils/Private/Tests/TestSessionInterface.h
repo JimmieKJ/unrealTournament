@@ -21,7 +21,7 @@
 	bool bIsHost;
 
 	/** Logged in UserId */
-	TSharedPtr<FUniqueNetId> UserId;
+	TSharedPtr<const FUniqueNetId> UserId;
 
 	/** World test is occurring in */
 	UWorld* World;
@@ -156,7 +156,7 @@
 	 * @param UserId the user being invited
 	 * @param InviteResult the search/settings for the session we're joining via invite
      */
-	void OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 LocalUserNum, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult& SearchResult);
+	void OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 LocalUserNum, TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult& SearchResult);
 
 	/**
 	 * Delegate fired when a session create request has completed
@@ -205,7 +205,7 @@
      * @param Players array of players registered with the call
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 */
-	void OnRegisterPlayerComplete(FName SessionName, const TArray< TSharedRef<FUniqueNetId> >& Players, bool bWasSuccessful);
+	void OnRegisterPlayerComplete(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasSuccessful);
 	
 	/**
 	 * Delegate fired when player(s) have been unregistered with the session
@@ -214,7 +214,7 @@
      * @param Players array of players unregistered with the call
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 */
-    void OnUnregisterPlayerComplete(FName SessionName, const TArray< TSharedRef<FUniqueNetId> >& Players, bool bWasSuccessful);
+    void OnUnregisterPlayerComplete(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasSuccessful);
 
 	/**
 	 * Delegate fired when the joining process for an online session has completed

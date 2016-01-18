@@ -26,6 +26,7 @@ UBlueprintEditorSettings::UBlueprintEditorSettings(const FObjectInitializer& Obj
 	// Compiler Settings
 	, SaveOnCompile(SoC_Never)
 	, bJumpToNodeErrors(false)
+	, bAllowExplicitImpureNodeDisabling(false)
 	// Developer Settings
 	, bShowActionMenuItemSignatures(false)
 	// Perf Settings

@@ -274,6 +274,12 @@ public:
 	{
 		return Ar << Point.X << Point.Y;
 	}
+
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
+	}
 };
 
 
@@ -481,3 +487,5 @@ FORCEINLINE FString FIntPoint::ToString() const
 {
 	return FString::Printf(TEXT("X=%d Y=%d"), X, Y);
 }
+
+template <> struct TIsPODType<FIntPoint> { enum { Value = true }; };

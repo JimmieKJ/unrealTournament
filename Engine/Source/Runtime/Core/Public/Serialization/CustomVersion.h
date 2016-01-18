@@ -9,8 +9,14 @@ struct ECustomVersionSerializationFormat
 {
 	enum Type
 	{
+		Unknown,
 		Guids,
-		Enums
+		Enums,
+		Optimized,
+
+		// Add new versions above this comment
+		CustomVersion_Automatic_Plus_One,
+		Latest = CustomVersion_Automatic_Plus_One - 1
 	};
 };
 
@@ -20,14 +26,13 @@ struct ECustomVersionSerializationFormat
  */
 struct CORE_API FCustomVersion
 {
+	friend class FCustomVersionContainer;
+
 	/** Unique custom key. */
 	FGuid Key;
 
 	/** Custom version. */
 	int32 Version;
-
-	/** Friendly name for error messages or whatever. */
-	FString FriendlyName;
 
 	/** Number of times this GUID has been registered */
 	int32 ReferenceCount;
@@ -38,11 +43,11 @@ struct CORE_API FCustomVersion
 	}
 
 	/** Helper constructor. */
-	FORCEINLINE FCustomVersion(FGuid InKey, int32 InVersion, FString InFriendlyName)
+	FORCEINLINE FCustomVersion(FGuid InKey, int32 InVersion, FName InFriendlyName)
 	: Key           (InKey)
 	, Version       (InVersion)
-	, FriendlyName  (MoveTemp(InFriendlyName))
 	, ReferenceCount(1)
+	, FriendlyName  (InFriendlyName)
 	{
 	}
 
@@ -59,8 +64,33 @@ struct CORE_API FCustomVersion
 	}
 
 	CORE_API friend FArchive& operator<<(FArchive& Ar, FCustomVersion& Version);
+
+	/** Gets the friendly name for error messages or whatever */
+	const FName GetFriendlyName() const;
+
+private:
+
+	/** Friendly name for error messages or whatever. Lazy initialized for serialized versions */
+	mutable FName FriendlyName;
 };
 
+struct FCustomVersionKeyFuncs : BaseKeyFuncs<FCustomVersion, FGuid, false>
+{
+	static FORCEINLINE const FGuid& GetSetKey(const FCustomVersion& Element)
+	{
+		return Element.Key;
+	}
+	static FORCEINLINE bool Matches(FGuid A, FGuid B)
+	{
+		return A == B;
+	}
+	static FORCEINLINE uint32 GetKeyHash(FGuid Key)
+	{
+		return FCrc::MemCrc_DEPRECATED(&Key, sizeof(FGuid));
+	}
+};
+
+typedef TSet<FCustomVersion, FCustomVersionKeyFuncs> FCustomVersionSet;
 
 class CORE_API FCustomVersionRegistration;
 
@@ -74,7 +104,7 @@ class CORE_API FCustomVersionContainer
 
 public:
 	/** Gets available custom versions in this container. */
-	FORCEINLINE const TArray<FCustomVersion>& GetAllVersions() const
+	FORCEINLINE const FCustomVersionSet& GetAllVersions() const
 	{
 		return Versions;
 	}
@@ -88,16 +118,24 @@ public:
 	const FCustomVersion* GetVersion(FGuid CustomKey) const;
 
 	/**
+	* Gets a custom version friendly name from the container.
+	*
+	* @param CustomKey Custom key for which to retrieve the version.
+	* @return The friendly name for the specified custom key, or NAME_None if the key doesn't exist in the container.
+	*/
+	const FName GetFriendlyName(FGuid CustomKey) const;
+
+	/**
 	 * Sets a specific custom version in the container.
 	 *
 	 * @param CustomKey Custom key for which to retrieve the version.
 	 * @param Version The version number for the specified custom key
 	 * @param FriendlyName A friendly name to assign to this version
 	 */
-	void SetVersion(FGuid CustomKey, int32 Version, FString FriendlyName);
+	void SetVersion(FGuid CustomKey, int32 Version, FName FriendlyName);
 
 	/** Serialization. */
-	void Serialize(FArchive& Ar, ECustomVersionSerializationFormat::Type Format = ECustomVersionSerializationFormat::Guids);
+	void Serialize(FArchive& Ar, ECustomVersionSerializationFormat::Type Format = ECustomVersionSerializationFormat::Latest);
 
 	/**
 	 * Gets a singleton with the registered versions.
@@ -120,7 +158,7 @@ private:
 	static FCustomVersionContainer& GetInstance();
 
 	/** Array containing custom versions. */
-	TArray<FCustomVersion> Versions;
+	FCustomVersionSet Versions;
 };
 
 
@@ -133,7 +171,7 @@ class FCustomVersionRegistration : FNoncopyable
 {
 public:
 
-	FCustomVersionRegistration(FGuid InKey, int32 Version, const TCHAR*);
+	FCustomVersionRegistration(FGuid InKey, int32 Version, FName InFriendlyName);
 	~FCustomVersionRegistration();
 
 private:

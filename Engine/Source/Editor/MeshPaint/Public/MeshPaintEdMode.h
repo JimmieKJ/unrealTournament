@@ -644,7 +644,7 @@ private:
 				  OUT bool& bAnyPaintAbleActorsUnderCursor);
 
 	/** Paints mesh vertices */
-	void PaintMeshVertices( UStaticMeshComponent* StaticMeshComponent, const FMeshPaintParameters& Params, const bool bShouldApplyPaint, FStaticMeshLODResources& LODModel, const FVector& ActorSpaceCameraPosition, const FMatrix& ActorToWorldMatrix, FPrimitiveDrawInterface* PDI, const float VisualBiasDistance );
+	void PaintMeshVertices( UStaticMeshComponent* StaticMeshComponent, const FMeshPaintParameters& Params, const bool bShouldApplyPaint, FStaticMeshLODResources& LODModel, const FVector& ActorSpaceCameraPosition, const FMatrix& ActorToWorldMatrix, FPrimitiveDrawInterface* PDI, const float VisualBiasDistance, const IMeshPaintGeometryAdapter& GeometryInfo );
 
 	/** Paints mesh texture */
 	void PaintMeshTexture( UMeshComponent* MeshComponent, const FMeshPaintParameters& Params, const bool bShouldApplyPaint, const FVector& ActorSpaceCameraPosition, const FMatrix& ActorToWorldMatrix, const float ActorSpaceSquaredBrushRadius, const FVector& ActorSpaceBrushPosition, const IMeshPaintGeometryAdapter& GeometryInfo );
@@ -743,6 +743,22 @@ private:
 
 	/** Returns valid MeshComponents in the current selection */
 	TArray<UMeshComponent*> GetSelectedMeshComponents() const;
+
+	/** Finds an existing geometry adapter for the given component, or creates a new one */
+	IMeshPaintGeometryAdapter* FindOrAddGeometryAdapter(UMeshComponent* MeshComponent);
+
+	/** Removes stale geometry adapters from the cache (those associated with unselected components) */
+	void CleanStaleGeometryAdapters(const TArray<UMeshComponent*>& ValidComponents);
+
+	/** Removes all geometry adapters from the cache */
+	void RemoveAllGeometryAdapters();
+
+	/** Called when an asset is about to be imported */
+	void OnPreImportAsset(UFactory* Factory, UClass* Class, UObject* Object, const FName& Name, const TCHAR* Type);
+
+	/** Called when an asset is about to be reimported */
+	void OnPreReimportAsset(UObject* Object);
+
 private:
 
 	/** Whether we're currently painting */
@@ -791,19 +807,14 @@ private:
 	/** Temporary buffers used when copying/pasting colors */
 	TArray<FPerComponentVertexColorData> CopiedColorsByComponent;
 
-	/**
-	 * Does the work of removing instance vertex colors from a single static mesh component.
-	 *
-	 * @param	StaticMeshComponent		The SMC to remove vertex colors from.
-	 * @param	InstanceMeshLODInfo		The instance's LODInfo which stores the painted information to be cleared.
-	 */
-	void RemoveInstanceVertexColorsWorker(UStaticMeshComponent* StaticMeshComponent, FStaticMeshComponentLODInfo *InstanceMeshLODInfo) const;
-
 	/** Texture paint: Will hold a list of texture items that we can paint on */
 	TArray<FTextureTargetListInfo> TexturePaintTargetList;
 
 	/** Map of settings for each StaticMeshComponent */
 	TMap< UMeshComponent*, StaticMeshSettings > StaticMeshSettingsMap;
+
+	/** Map from UMeshComponent to the associated MeshPaintAdapter */
+	TMap< UMeshComponent*, TSharedPtr<IMeshPaintGeometryAdapter> > ComponentToAdapterMap;
 
 	/** Used to store a flag that will tell the tick function to restore data to our rendertargets after they have been invalidated by a viewport resize. */
 	bool bDoRestoreRenTargets;

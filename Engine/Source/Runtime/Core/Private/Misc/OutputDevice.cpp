@@ -3,7 +3,6 @@
 #include "CorePrivatePCH.h"
 #include "ExceptionHandling.h"
 #include "VarargsHelper.h"
-#include "MallocCrash.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogOutputDevice, Log, All);
@@ -46,14 +45,17 @@ const TCHAR* FOutputDevice::VerbosityToString(ELogVerbosity::Type Verbosity)
 	return TEXT("UknownVerbosity");
 }
 
-FString FOutputDevice::FormatLogLine(ELogVerbosity::Type Verbosity, const class FName& Category, const TCHAR* Message, ELogTimes::Type LogTime)
+FString FOutputDevice::FormatLogLine( ELogVerbosity::Type Verbosity, const class FName& Category, const TCHAR* Message /*= nullptr*/, ELogTimes::Type LogTime /*= ELogTimes::None*/, const double Time /*= -1.0*/ )
 {
 	FString Format;
 	switch (LogTime)
 	{
 		case ELogTimes::SinceGStartTime:
-			Format = FString::Printf(TEXT("[%07.2f][%3d]"), FPlatformTime::Seconds() - GStartTime, GFrameCounter % 1000);
+		{
+			const double RealTime = Time == -1.0f ? FPlatformTime::Seconds() - GStartTime : Time;
+			Format = FString::Printf( TEXT( "[%07.2f][%3d]" ), RealTime, GFrameCounter % 1000 );
 			break;
+		}
 
 		case ELogTimes::UTC:
 			Format = FString::Printf(TEXT("[%s][%3d]"), *FDateTime::UtcNow().ToString(TEXT("%Y.%m.%d-%H.%M.%S:%s")), GFrameCounter % 1000);
@@ -153,6 +155,29 @@ CORE_API FOutputDeviceError* GError = NULL;
 /** Lock used to synchronize the fail debug calls. */
 static FCriticalSection	FailDebugCriticalSection;
 
+void PrintScriptCallstack(bool bEmptyWhenDone)
+{
+#if DO_BLUEPRINT_GUARD
+	// Walk the script stack, if any
+	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
+	if( BlueprintExceptionTracker.ScriptStack.Num() > 0 )
+	{
+		FString ScriptStack = TEXT( "\n\nScript Stack:\n" );
+		for (int32 FrameIdx = BlueprintExceptionTracker.ScriptStack.Num() - 1; FrameIdx >= 0; --FrameIdx)
+		{
+			ScriptStack += BlueprintExceptionTracker.ScriptStack[FrameIdx].GetStackDescription() + TEXT( "\n" );
+		}
+
+		UE_LOG( LogOutputDevice, Warning, TEXT( "%s" ), *ScriptStack );
+
+		if (bEmptyWhenDone)
+		{
+			BlueprintExceptionTracker.ScriptStack.Empty();
+		}
+	}
+#endif
+}
+
 /**
  *	Prints error to the debug output, 
  *	prompts for the remote debugging if there is not debugger, breaks into the debugger 
@@ -177,6 +202,24 @@ void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, cons
 	FCString::Strncat( GErrorHist, TEXT( "\r\n\r\n" ), ARRAY_COUNT( GErrorHist ) );
 }
 
+void FDebug::ConditionallyEmitBeginCrashUATMarker()
+{
+	const bool bWriteUATMarkers = FParse::Param( FCommandLine::Get(), TEXT( "CrashForUAT" ) ) && FParse::Param( FCommandLine::Get(), TEXT( "stdout" ) );
+	if (bWriteUATMarkers)
+	{
+		UE_LOG( LogOutputDevice, Error, TEXT( "\nbegin: stack for UAT" ) );
+	}
+}
+
+void FDebug::ConditionallyEmitEndCrashUATMarker()
+{
+	const bool bWriteUATMarkers = FParse::Param( FCommandLine::Get(), TEXT( "CrashForUAT" ) ) && FParse::Param( FCommandLine::Get(), TEXT( "stdout" ) );
+	if (bWriteUATMarkers)
+	{
+		UE_LOG( LogOutputDevice, Error, TEXT( "\nend: stack for UAT" ) );
+	}
+}
+
 #if DO_CHECK || DO_GUARD_SLOW
 //
 // Failed assertion handler.
@@ -184,19 +227,8 @@ void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, cons
 //
 void VARARGS FDebug::LogAssertFailedMessage(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format/*=TEXT("")*/, ...)
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	// Walk the script stack, if any
-	if( GScriptStack.Num() > 0 )
-	{
-		FString ScriptStack = TEXT( "\n\nScript Stack:\n" );
-		while( GScriptStack.Num() )
-		{
-			ScriptStack += GScriptStack.Pop().GetStackDescription() + TEXT( "\n" );
-		}
-
-		UE_LOG( LogOutputDevice, Warning, TEXT( "%s" ), *ScriptStack );
-	}
-#endif
+	// Print out the blueprint callstack
+	PrintScriptCallstack(true);
 
 	// Ignore this assert if we're already forcibly shutting down because of a critical error.
 	if( !GIsCriticalError )
@@ -206,6 +238,18 @@ void VARARGS FDebug::LogAssertFailedMessage(const ANSICHAR* Expr, const ANSICHAR
 
 		TCHAR ErrorString[MAX_SPRINTF];
 		FCString::Sprintf( ErrorString, TEXT( "Assertion failed: %s" ), ANSI_TO_TCHAR( Expr ) );
+
+		if( FPlatformProperties::AllowsCallStackDumpDuringAssert() )
+		{
+			ANSICHAR StackTrace[4096];
+			if( StackTrace != NULL )
+			{
+				StackTrace[0] = 0;
+				FPlatformStackWalk::StackWalkAndDump( StackTrace, ARRAY_COUNT(StackTrace), CALLSTACK_IGNOREDEPTH );
+
+				FCString::Strncat( DescriptionString, ANSI_TO_TCHAR( StackTrace ), ARRAY_COUNT( DescriptionString ) - 1 );
+			}
+		}
 
 		StaticFailDebug( ErrorString, File, Line, DescriptionString );
 	}
@@ -221,6 +265,12 @@ void VARARGS FDebug::LogAssertFailedMessage(const ANSICHAR* Expr, const ANSICHAR
  */
 void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg)
 {
+
+#if STATS
+	FString EnsureFailedPerfMessage = FString::Printf(TEXT("FDebug::EnsureFailed"));
+	SCOPE_LOG_TIME_IN_SECONDS(*EnsureFailedPerfMessage, nullptr)
+#endif
+
 	// You can set bShouldCrash to true to cause a regular assertion to trigger (stopping program execution) when an ensure() error occurs
 	const bool bShouldCrash = false;		// By default, don't crash on ensure()
 	if( bShouldCrash )
@@ -229,6 +279,9 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 		FDebug::LogAssertFailedMessage( Expr, File, Line, Msg );
 		return;
 	}
+
+	// Print out the blueprint callstack
+	PrintScriptCallstack(false);
 
 	// Print initial debug message for this error
 	TCHAR ErrorString[MAX_SPRINTF];
@@ -251,8 +304,15 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 	ANSICHAR* StackTrace = (ANSICHAR*) FMemory::SystemMalloc( StackTraceSize );
 	if( StackTrace != NULL )
 	{
-		StackTrace[0] = 0;
-		FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, CALLSTACK_IGNOREDEPTH );
+
+		{
+#if STATS
+			FString StackWalkPerfMessage = FString::Printf(TEXT("FPlatformStackWalk::StackWalkAndDump"));
+			SCOPE_LOG_TIME_IN_SECONDS(*StackWalkPerfMessage, nullptr)
+#endif
+			StackTrace[0] = 0;
+			FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, CALLSTACK_IGNOREDEPTH );
+		}
 
 		// Create a final string that we'll output to the log (and error history buffer)
 		TCHAR ErrorMsg[16384];
@@ -263,7 +323,9 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 		FMemory::SystemFree( StackTrace );
 
 		// Dump the error and flush the log.
-		UE_LOG(LogOutputDevice, Log, TEXT("=== Handled error: ===") LINE_TERMINATOR LINE_TERMINATOR TEXT("%s"), ErrorMsg);
+		FDebug::ConditionallyEmitBeginCrashUATMarker();
+		UE_LOG(LogOutputDevice, Warning, TEXT("=== Handled error: ===") LINE_TERMINATOR LINE_TERMINATOR TEXT("%s"), ErrorMsg);
+		FDebug::ConditionallyEmitEndCrashUATMarker();
 		GLog->Flush();
 
 		// Submit the error report to the server! (and display a balloon in the system tray)
@@ -300,6 +362,11 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 
 				if( !bHasErrorAlreadyBeenReported )
 				{
+#if STATS
+					FString SubmitErrorReporterfMessage = FString::Printf(TEXT("SubmitErrorReport"));
+					SCOPE_LOG_TIME_IN_SECONDS(*SubmitErrorReporterfMessage, nullptr)
+#endif
+
 					FCoreDelegates::OnHandleSystemEnsure.Broadcast();
 
 					FPlatformMisc::SubmitErrorReport( ErrorMsg, EErrorReportMode::Balloon );
@@ -318,6 +385,11 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 
 	if ( bShouldSendNewReport )
 	{
+#if STATS
+		FString SendNewReportMessage = FString::Printf(TEXT("SendNewReport"));
+		SCOPE_LOG_TIME_IN_SECONDS(*SendNewReportMessage, nullptr)
+#endif
+
 #if PLATFORM_DESKTOP
 		FScopeLock Lock( &FailDebugCriticalSection );
 
@@ -356,7 +428,7 @@ void VARARGS FDebug::AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, in
 }
 
 #if DO_CHECK || DO_GUARD_SLOW
-bool VARARGS FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse( bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... )
+bool VARARGS FDebug::OptionallyLogFormattedEnsureMessageReturningFalse( bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... )
 {
 	if (bLog)
 	{

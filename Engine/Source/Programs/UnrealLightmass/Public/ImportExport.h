@@ -48,7 +48,7 @@ namespace Lightmass
 	static const FGuid LM_MESHAREALIGHTDATA_VERSION		= FGuid(0x7b05d71b, 0x81484a07, 0xa15e44ba, 0x76f4634f);
 	static const FGuid LM_DEBUGOUTPUT_VERSION			= FGuid(0xfa520216, 0xd5aa49eb, 0xa9bbc1f5, 0x8ab715fc);
 	static const FGuid LM_SCENE_VERSION					= FGuid(0x8ad6acb1, 0xe15e4fec, 0x93c72936, 0xf2b67090);
-	static const FGuid LM_STATICMESH_VERSION			= FGuid(0x9b3b1bc6, 0x9270497a, 0xa07522fe, 0xc7055e91);
+	static const FGuid LM_STATICMESH_VERSION			= FGuid(0x2d398613, 0x3a0e47b9, 0xa861cda4, 0x784a345d);
 	static const FGuid LM_MATERIAL_VERSION				= FGuid(0x8487ad2e, 0x5dba413c, 0x81373d29, 0xb2915895);
 
 
@@ -84,6 +84,7 @@ namespace Lightmass
 			SkyOcclusion[0] = 0;
 			SkyOcclusion[1] = 0;
 			SkyOcclusion[2] = 0;
+			AOMaterialMask = 0;
 		}
 
 		/** 
@@ -94,6 +95,8 @@ namespace Lightmass
 		float Coefficients[LM_NUM_STORED_LIGHTMAP_COEF][3];
 
 		float SkyOcclusion[3];
+
+		float AOMaterialMask;
 
 		/** True if this sample maps to a valid point on a triangle.  This is only meaningful for texture lightmaps. */
 		bool bIsMapped;
@@ -121,6 +124,7 @@ namespace Lightmass
 		uint8 Coverage;
 		uint8 Coefficients[LM_NUM_STORED_LIGHTMAP_COEF][4];
 		uint8 SkyOcclusion[4];
+		uint8 AOMaterialMask;
 	};
 
 	struct FLightMapDataBase

@@ -21,6 +21,7 @@ import android.text.InputType;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.AssetManager;
 import android.content.res.Configuration;
 import android.content.IntentSender.SendIntentException;
@@ -31,6 +32,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.media.AudioManager;
 import android.util.DisplayMetrics;
 
+import android.view.InputDevice;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -62,6 +64,8 @@ import java.net.HttpURLConnection;
 import com.epicgames.ue4.GooglePlayStoreHelper;
 import com.epicgames.ue4.GooglePlayLicensing;
 
+// Console commands listener, only for debug builds
+import com.epicgames.ue4.ConsoleCmdReceiver;
 
 // TODO: use the resources from the UE4 lib project once we've got the packager up and running
 //import com.epicgames.ue4.R;
@@ -94,6 +98,9 @@ public class GameActivity extends NativeActivity
 	
 	static GameActivity _activity;
 
+	protected Dialog mSplashDialog;
+	private int noActionAnimID = -1;
+
 	// Console
 	AlertDialog consoleAlert;
 	EditText consoleInputBox;
@@ -106,9 +113,15 @@ public class GameActivity extends NativeActivity
 	AlertDialog virtualKeyboardAlert;
 	EditText virtualKeyboardInputBox;
 
+	// Console commands receiver
+	ConsoleCmdReceiver consoleCmdReceiver;
+
 	// default the PackageDataInsideApk to an invalid value to make sure we don't get it too early
 	private static int PackageDataInsideApkValue = -1;
 	private static int HasOBBFiles = -1;
+	
+	// depthbuffer preference from manifest
+	int DepthBufferPreference = 0;
 	
 	/** AssetManger reference - populated on start up and used when the OBB is packed into the APK */
 	private AssetManager			AssetManagerReference;
@@ -120,8 +133,10 @@ public class GameActivity extends NativeActivity
 	private AdView adView;
 	private boolean adInit = false;
 	private LinearLayout adLayout;
-	private LinearLayout activityLayout;
 	private int adGravity = Gravity.TOP;
+
+	// layout required by popups, e.g ads, native controls
+	LinearLayout activityLayout;
 
 	/** true when the application has requested that an ad be displayed */
 	private boolean adWantsToBeShown = false;
@@ -154,6 +169,9 @@ public class GameActivity extends NativeActivity
 	private boolean InitCompletedOK = false;
 	
 	private boolean ShouldHideUI = false;
+
+	/** Whether this application is for distribution */
+	private boolean IsForDistribution = false;
 	
 	/** Access singleton activity for game. **/
 	public static GameActivity Get()
@@ -175,6 +193,13 @@ public class GameActivity extends NativeActivity
 	public void onStart()
 	{
 		super.onStart();
+		
+		if (IsForDistribution == false)
+		{
+			// Create console command broadcast listener
+			consoleCmdReceiver = new ConsoleCmdReceiver(this);
+			registerReceiver(consoleCmdReceiver, new IntentFilter(Intent.ACTION_RUN));
+		}
 		
 		Log.debug("==================================> Inside onStart function in GameActivity");
 	}
@@ -202,10 +227,43 @@ public class GameActivity extends NativeActivity
 		}
 	}
 
+	private int getResourceId(String VariableName, String ResourceName, String PackageName)
+	{
+		try {
+			return getResources().getIdentifier(VariableName, ResourceName, PackageName);
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			return -1;
+		} 
+	}
+
 	@Override
 	public void onCreate(Bundle savedInstanceState)
 	{
 		super.onCreate(savedInstanceState);
+
+		// create splashscreen dialog (if launched by SplashActivity)
+		Bundle intentBundle = getIntent().getExtras();
+		if (intentBundle != null && intentBundle.getString("UseSplashScreen") != null)
+		{
+			try {
+				// try to get the splash theme (can't use R.style.UE4SplashTheme since we don't know the package name until runtime)
+				int SplashThemeId = getResources().getIdentifier("UE4SplashTheme", "style", getPackageName());
+				mSplashDialog = new Dialog(this, SplashThemeId);
+				mSplashDialog.setCancelable(false);
+				mSplashDialog.show();
+			}
+			catch (Exception e) {
+				e.printStackTrace();
+			}
+			try {
+				noActionAnimID = getResources().getIdentifier("noaction", "anim", getPackageName());
+			}
+			catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
 		
 		// Suppress java logs in Shipping builds
 		if (nativeIsShippingBuild())
@@ -214,7 +272,13 @@ public class GameActivity extends NativeActivity
 		}
 
 		_activity = this;
-		
+
+		// layout required by popups, e.g ads, native controls
+		MarginLayoutParams params = new MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+		params.setMargins(0, 0, 0, 0);
+		activityLayout = new LinearLayout(_activity);
+		_activity.setContentView(activityLayout, params);
+
 /*
 		// Turn on and unlock screen.. Assumption is that this
 		// will only really have an effect when for debug launching
@@ -231,6 +295,27 @@ public class GameActivity extends NativeActivity
 			android.app.KeyguardManager keyman = (android.app.KeyguardManager)getSystemService(KEYGUARD_SERVICE);
 			android.app.KeyguardManager.KeyguardLock keylock = keyman.newKeyguardLock("Unlock");
 			keylock.disableKeyguard();
+		}
+*/
+
+/*
+		// log a list of input devices for debugging
+		{
+			int[] deviceIds = InputDevice.getDeviceIds();
+			for (int deviceIndex=0; deviceIndex < deviceIds.length; deviceIndex++)
+			{
+				InputDevice inputDevice = InputDevice.getDevice(deviceIds[deviceIndex]);
+				Log.debug("Device index " + deviceIndex + ": (deviceId=" + inputDevice.getId() + 
+				", controllerNumber=" + inputDevice.getControllerNumber() + ", sources=" + String.format("%08x", inputDevice.getSources()) +
+				", vendorId=" + String.format("%04x", inputDevice.getVendorId()) + ", productId=" + String.format("%04x", inputDevice.getProductId()) + 
+				", descriptor=" + inputDevice.getDescriptor() +	", deviceName=" + inputDevice.getName() + ")");
+
+				// is it a joystick?
+				if ((inputDevice.getSources() & InputDevice.SOURCE_JOYSTICK) != 0)
+				{
+					Log.debug("Gamepad detected: (deviceIndex=" + deviceIndex + ", deviceId=" + inputDevice.getId() + ", deviceName=" + inputDevice.getName() + ")");
+				}
+			}
 		}
 */
 
@@ -294,12 +379,16 @@ public class GameActivity extends NativeActivity
 		AssetManagerReference = this.getAssets();
 
 		// Read metadata from AndroidManifest.xml
-		int DepthBufferPreference = 0;
 		String ProjectName = getPackageName();
 		ProjectName = ProjectName.substring(ProjectName.lastIndexOf('.') + 1);
 		try {
 			ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
 			Bundle bundle = ai.metaData;
+
+			if ((ai.flags & ApplicationInfo.FLAG_DEBUGGABLE) == 0) 
+			{
+				IsForDistribution = true;
+			}
 
 			// Get the preferred depth buffer size from AndroidManifest.xml
 			if (bundle.containsKey("com.epicgames.ue4.GameActivity.DepthBufferPreference"))
@@ -372,6 +461,8 @@ public class GameActivity extends NativeActivity
 				PackagedForGearVR = true;
 				String VRMode = bundle.getString("com.samsung.android.vr.application.mode");
 				Log.debug("Found GearVR mode = " + VRMode);
+
+				com.oculus.svclib.OVREntitlementChecker.doAutomatedCheck(this);
 			}
 			else
 			{
@@ -552,12 +643,51 @@ public class GameActivity extends NativeActivity
 	public void onResume()
 	{
 		super.onResume();
+
+		// invalidate window cache
+		nativeSetWindowInfo(getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT, DepthBufferPreference);
 		
 		// only do this on KitKat and above
-		if (android.os.Build.VERSION.SDK_INT >= 19 && ShouldHideUI)
+		if (ShouldHideUI)
 		{ 
+		
 			View decorView = getWindow().getDecorView(); 
-			decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY); 
+			if(android.os.Build.VERSION.SDK_INT >= 19) {
+				decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+											| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+											| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+											| View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+											| View.SYSTEM_UI_FLAG_FULLSCREEN
+											| View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY); 
+			} /*else {
+				decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+											| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+											| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+											| View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+											| View.SYSTEM_UI_FLAG_FULLSCREEN);
+
+			}*/
+			
+			decorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+				@Override public void onSystemUiVisibilityChange(int visibility) {
+							View decorView = getWindow().getDecorView(); 
+							if(android.os.Build.VERSION.SDK_INT >= 19) {
+								decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+															| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+															| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+															| View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+															| View.SYSTEM_UI_FLAG_FULLSCREEN
+															| View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY); 
+							} /*else {
+								decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+															| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+															| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+															| View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+															| View.SYSTEM_UI_FLAG_FULLSCREEN);
+
+							}*/
+						}
+			});
 		}
 		
 		if(HasAllFiles)
@@ -569,11 +699,16 @@ public class GameActivity extends NativeActivity
 		else
 		{
 			// Start the check activity here
-			Log.debug("==============> Starting activity to check files and download if required");			
+			Log.debug("==============> Starting activity to check files and download if required");
 			Intent intent = new Intent(this, DownloadShim.GetDownloaderType());
+			intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
 			startActivityForResult(intent, DOWNLOAD_ACTIVITY_ID);
+			if (noActionAnimID != -1)
+			{
+				overridePendingTransition(noActionAnimID, noActionAnimID);
+			}
 		}
-		
+
 		Log.debug("==============> GameActive.onResume complete!");
 	}
 
@@ -581,6 +716,11 @@ public class GameActivity extends NativeActivity
 	public void onStop()
 	{
 		super.onStop();
+
+		if (consoleCmdReceiver != null)
+		{
+			unregisterReceiver(consoleCmdReceiver);
+		}
 	}
 
 	// handle ad popup visibility and requests
@@ -713,7 +853,8 @@ public class GameActivity extends NativeActivity
 
 		// Set label and starting contents
 		virtualKeyboardAlert.setTitle(Label);
-		virtualKeyboardInputBox.setText(Contents);
+		virtualKeyboardInputBox.setText("");
+		virtualKeyboardInputBox.append(Contents);
 
 		// configure for type of input
 		virtualKeyboardInputBox.setInputType(InputType);
@@ -827,7 +968,6 @@ public class GameActivity extends NativeActivity
 					adPopupWindow.setClippingEnabled(false);
 
 					adLayout = new LinearLayout(_activity);
-					activityLayout = new LinearLayout(_activity);
 
 					final int padding = (int)(-5*scale);
 					adLayout.setPadding(padding,padding,padding,padding);
@@ -839,8 +979,6 @@ public class GameActivity extends NativeActivity
 					adLayout.setOrientation(LinearLayout.VERTICAL);
 					adLayout.addView(adView, params);
 					adPopupWindow.setContentView(adLayout);
-
-					_activity.setContentView(activityLayout, params);
 
 					// set up our ad callbacks
 					_activity.adView.setAdListener(new AdListener()
@@ -1035,38 +1173,48 @@ public class GameActivity extends NativeActivity
 	{
 		if( requestCode == DOWNLOAD_ACTIVITY_ID)
 		{
-			int errorCode = data.getIntExtra(DOWNLOAD_RETURN_NAME, DOWNLOAD_NO_RETURN_CODE);
-			
-			String logMsg = "DownloadActivity Returned with ";
-			switch(errorCode)
+			int errorCode = 0;
+			if(resultCode == RESULT_OK)
 			{
-			case DOWNLOAD_FILES_PRESENT:
-				logMsg += "Download Files Present";
-				break;
-			case DOWNLOAD_COMPLETED_OK:
-				logMsg += "Download Completed OK";
-				break;
-			case DOWNLOAD_NO_RETURN_CODE:
-				logMsg += "Download No Return Code";
-				break;
-			case DOWNLOAD_USER_QUIT:
-				logMsg += "Download User Quit";
-				break;
-			case DOWNLOAD_FAILED:
-				logMsg += "Download Failed";
-				break;
-			case DOWNLOAD_INVALID:
-				logMsg += "Download Invalid";
-				break;
-			case DOWNLOAD_NO_PLAY_KEY:
-				logMsg +="Download No Play Key";
-				break;
-			default:
-				logMsg += "Unknown message!";
-				break;
+								
+				errorCode = data.getIntExtra(DOWNLOAD_RETURN_NAME, DOWNLOAD_NO_RETURN_CODE);
+				
+				String logMsg = "DownloadActivity Returned with ";
+				switch(errorCode)
+				{
+				case DOWNLOAD_FILES_PRESENT:
+					logMsg += "Download Files Present";
+					break;
+				case DOWNLOAD_COMPLETED_OK:
+					logMsg += "Download Completed OK";
+					break;
+				case DOWNLOAD_NO_RETURN_CODE:
+					logMsg += "Download No Return Code";
+					break;
+				case DOWNLOAD_USER_QUIT:
+					logMsg += "Download User Quit";
+					break;
+				case DOWNLOAD_FAILED:
+					logMsg += "Download Failed";
+					break;
+				case DOWNLOAD_INVALID:
+					logMsg += "Download Invalid";
+					break;
+				case DOWNLOAD_NO_PLAY_KEY:
+					logMsg +="Download No Play Key";
+					break;
+				default:
+					logMsg += "Unknown message!";
+					break;
+				}
+				
+				Log.debug(logMsg);
 			}
-			
-			Log.debug(logMsg);
+			else
+			{
+				Log.debug("Download activity cancelled by user.");
+				errorCode = DOWNLOAD_USER_QUIT;
+			}
 			
 			HasAllFiles = (errorCode == DOWNLOAD_FILES_PRESENT || errorCode == DOWNLOAD_COMPLETED_OK);
 			
@@ -1075,7 +1223,10 @@ public class GameActivity extends NativeActivity
 			|| errorCode == DOWNLOAD_FAILED 
 			|| errorCode == DOWNLOAD_INVALID
 			|| errorCode == DOWNLOAD_NO_PLAY_KEY)
+			{
 				finish();
+				return;
+			}
 		}
 		else if( IapStoreHelper != null )
 		{
@@ -1129,6 +1280,87 @@ public class GameActivity extends NativeActivity
 		return bIsAllowedToMakePurchase;
 	}
 
+	public void AndroidThunkJava_DismissSplashScreen()
+	{
+		if (mSplashDialog != null)
+		{
+			mSplashDialog.dismiss();
+			mSplashDialog = null;
+		}
+	}
+
+	private static class DeviceInfoData {
+		public final int vendorId;
+		public final int productId;
+		public final String name;
+
+		DeviceInfoData(int vid, int pid, String inName)
+		{
+			vendorId = vid;
+			productId = pid;
+			name = inName;
+		}
+
+		boolean IsMatch(int vid, int pid)
+		{
+			return (vendorId == vid && productId == pid);
+		}
+	}
+
+	// List of vendor/product ids
+	private static final DeviceInfoData[] DeviceInfoList = {
+		new DeviceInfoData(0x04e8, 0xa000, "Samsung Game Pad EI-GP20"),
+		new DeviceInfoData(0x0955, 0x7203, "NVIDIA Corporation NVIDIA Controller v01.01"),
+		new DeviceInfoData(0x0955, 0x7210, "NVIDIA Corporation NVIDIA Controller v01.03"),
+		new DeviceInfoData(0x1949, 0x0404, "Amazon Fire TV Remote"),
+		new DeviceInfoData(0x1949, 0x0406, "Amazon Fire Game Controller")
+	};
+
+	public class InputDeviceInfo {
+		public int deviceId;
+		public int vendorId;
+		public int productId;
+		public int controllerId;
+		public String name;
+		public String descriptor;
+
+		InputDeviceInfo(int did, int vid, int pid, int cid, String inName, String inDescriptor)
+		{
+			deviceId = did;
+			vendorId = vid;
+			productId = pid;
+			controllerId = cid;
+			name = inName;
+			descriptor = inDescriptor;
+		}
+	}
+
+	public InputDeviceInfo AndroidThunkJava_GetInputDeviceInfo(int deviceId)
+	{
+		int[] deviceIds = InputDevice.getDeviceIds();
+		for (int deviceIndex=0; deviceIndex < deviceIds.length; deviceIndex++)
+		{
+			InputDevice inputDevice = InputDevice.getDevice(deviceIds[deviceIndex]);
+			if (inputDevice.getId() == deviceId)
+			{
+				// note: inputDevice.getName may not return a proper name so check vendor and product id first
+				int vendorId = inputDevice.getVendorId();
+				int productId = inputDevice.getProductId();
+				for (DeviceInfoData deviceInfo : DeviceInfoList)
+				{
+					if (deviceInfo.IsMatch(vendorId, productId))
+					{
+						return new InputDeviceInfo(deviceId, vendorId, productId, inputDevice.getControllerNumber(), deviceInfo.name, inputDevice.getDescriptor());
+					}
+				}
+
+				// use device name as fallback (may be generic like "Bluetooth HID" so not always useful)
+				return new InputDeviceInfo(deviceId, vendorId, productId, inputDevice.getControllerNumber(), inputDevice.getName(), inputDevice.getDescriptor());
+			}
+		}
+		return new InputDeviceInfo(deviceId, 0, 0, -1, "Unknown", "Unknown");
+	}
+
 	public native boolean nativeIsShippingBuild();
 	public native void nativeSetGlobalActivity();
 	public native void nativeSetWindowInfo(boolean bIsPortrait, int DepthBufferPreference);
@@ -1147,6 +1379,14 @@ public class GameActivity extends NativeActivity
 	static
 	{
 		System.loadLibrary("gnustl_shared");
+		try
+		{
+			System.loadLibrary("vrapi");
+		}
+		catch (java.lang.UnsatisfiedLinkError e)
+		{
+			Log.debug("GearVR library not loaded. Ignore this if GearVR plugin intentionally disabled.");
+		}
 		System.loadLibrary("UE4");
 	}
 }

@@ -4,10 +4,11 @@
 #include "SlateMaterialResource.h"
 
 
-FSlateMaterialResource::FSlateMaterialResource(UMaterialInterface& InMaterial, const FVector2D& InImageSize)
+FSlateMaterialResource::FSlateMaterialResource(const UMaterialInterface& InMaterial, const FVector2D& InImageSize, FSlateShaderResource* InTextureMask )
 	: MaterialObject( &InMaterial )
 	, RenderProxy( InMaterial.GetRenderProxy(false) )
 	, SlateProxy( new FSlateShaderResourceProxy )
+	, TextureMaskResource( InTextureMask )
 	, Width(FMath::RoundToInt(InImageSize.X))
 	, Height(FMath::RoundToInt(InImageSize.Y))
 {
@@ -23,7 +24,7 @@ FSlateMaterialResource::~FSlateMaterialResource()
 	}
 }
 
-void FSlateMaterialResource::UpdateMaterial(UMaterialInterface& InMaterialResource, const FVector2D& InImageSize)
+void FSlateMaterialResource::UpdateMaterial(const UMaterialInterface& InMaterialResource, const FVector2D& InImageSize, FSlateShaderResource* InTextureMask )
 {
 	MaterialObject = &InMaterialResource;
 	RenderProxy = InMaterialResource.GetRenderProxy(false);
@@ -31,6 +32,8 @@ void FSlateMaterialResource::UpdateMaterial(UMaterialInterface& InMaterialResour
 	{
 		SlateProxy = new FSlateShaderResourceProxy;
 	}
+
+	TextureMaskResource = InTextureMask;
 
 	SlateProxy->ActualSize = InImageSize.IntPoint();
 	SlateProxy->Resource = this;

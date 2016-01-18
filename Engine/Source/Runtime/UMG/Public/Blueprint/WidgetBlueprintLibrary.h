@@ -53,25 +53,46 @@ public:
 	 *
 	 * @param PositionA		Starting position of the line in local space.
 	 * @param PositionB		Ending position of the line in local space.
-	 * @param Thickness				How many pixels thick this line should be.
+	 * @param Thickness		How many pixels thick this line should be.
 	 * @param Tint			Color to render the line.
 	 */
-	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "5" ), Category="Painting" )
-	static void DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, float Thickness = 1.0f, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
+	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "4" ), Category="Painting" )
+	static void DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
 
-	// TODO UMG DrawLines
+	/**
+	 * Draws several line segments.
+	 *
+	 * @param Points		Line pairs, each line needs to be 2 separate points in the array.
+	 * @param Thickness		How many pixels thick this line should be.
+	 * @param Tint			Color to render the line.
+	 */
+	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "3" ), Category="Painting" )
+	static void DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
 
-	/** 
+	/**
 	 * Draws text.
 	 *
 	 * @param InString		The string to draw.
 	 * @param Position		The starting position where the text is drawn in local space.
 	 * @param Tint			Color to render the line.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Painting")
+	UFUNCTION(BlueprintCallable, Category="Painting", meta=( DeprecatedFunction, DeprecationMessage = "Use Draw Text instead", DisplayName="Draw String"))
 	static void DrawText(UPARAM(ref) FPaintContext& Context, const FString& InString, FVector2D Position, FLinearColor Tint = FLinearColor::White);
 
-	/** The default event reply when simply handling an event. */
+	/**
+	 * Draws text.
+	 *
+	 * @param Text			The string to draw.
+	 * @param Position		The starting position where the text is drawn in local space.
+	 * @param Tint			Color to render the line.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Painting", meta=(DisplayName="Draw Text"))
+	static void DrawTextFormatted(UPARAM(ref) FPaintContext& Context, const FText& Text, FVector2D Position, UFont* Font, int32 FontSize = 16, FName FontTypeFace = FName(TEXT("Regular")), FLinearColor Tint = FLinearColor::White);
+
+	/**
+	 * The event reply to use when you choose to handle an event.  This will prevent the event 
+	 * from continuing to bubble up / down the widget hierarchy.
+	 */
 	UFUNCTION(BlueprintPure, Category="Widget|Event Reply")
 	static FEventReply Handled();
 
@@ -86,6 +107,12 @@ public:
 	/**  */
 	UFUNCTION(BlueprintPure, Category="Widget|Event Reply")
 	static FEventReply ReleaseMouseCapture(UPARAM(ref) FEventReply& Reply);
+
+	UFUNCTION( BlueprintPure, Category = "Widget|Event Reply", meta = ( HidePin = "CapturingWidget", DefaultToSelf = "CapturingWidget" ) )
+	static FEventReply LockMouse( UPARAM( ref ) FEventReply& Reply, UWidget* CapturingWidget );
+
+	UFUNCTION( BlueprintPure, Category = "Widget|Event Reply" )
+	static FEventReply UnlockMouse( UPARAM( ref ) FEventReply& Reply );
 
 	/**  */
 	UFUNCTION(BlueprintPure, meta= (HidePin="CapturingWidget", DefaultToSelf="CapturingWidget"), Category="Widget|Event Reply")
@@ -106,8 +133,8 @@ public:
 	static FEventReply SetMousePosition(UPARAM(ref) FEventReply& Reply, FVector2D NewMousePosition);
 
 	/**
-	 * Ask Slate to detect if a user started dragging in this widget.
-	 * If a drag is detected, Slate will send an OnDragDetected event.
+	 * Ask Slate to detect if a user starts dragging in this widget later.  Slate internally tracks the movement
+	 * and if it surpasses the drag threshold, Slate will send an OnDragDetected event to the widget.
 	 *
 	 * @param WidgetDetectingDrag  Detect dragging in this widget
 	 * @param DragKey		       This button should be pressed to detect the drag
@@ -115,6 +142,13 @@ public:
 	UFUNCTION(BlueprintPure, meta=( HidePin="WidgetDetectingDrag", DefaultToSelf="WidgetDetectingDrag" ), Category="Widget|Drag and Drop|Event Reply")
 	static FEventReply DetectDrag(UPARAM(ref) FEventReply& Reply, UWidget* WidgetDetectingDrag, FKey DragKey);
 
+	/**
+	 * Given the pointer event, emit the DetectDrag reply if the provided key was pressed.
+	 * If the DragKey is a touch key, that will also automatically work.
+	 * @param PointerEvent	The pointer device event coming in.
+	 * @param WidgetDetectingDrag  Detect dragging in this widget.
+	 * @param DragKey		       This button should be pressed to detect the drag, won't emit the DetectDrag FEventReply unless this is pressed.
+	 */
 	UFUNCTION(BlueprintCallable, meta=( HidePin="WidgetDetectingDrag", DefaultToSelf="WidgetDetectingDrag" ), Category="Widget|Drag and Drop|Event Reply")
 	static FEventReply DetectDragIfPressed(const FPointerEvent& PointerEvent, UWidget* WidgetDetectingDrag, FKey DragKey);
 
@@ -131,10 +165,16 @@ public:
 	static bool IsDragDropping();
 
 	/**
-	 * Returns the drag and drop operation that is currently occuring if any, otherwise nothing.
+	 * Returns the drag and drop operation that is currently occurring if any, otherwise nothing.
 	 */
 	UFUNCTION(BlueprintPure, BlueprintCosmetic, Category="Widget|Drag and Drop")
 	static UDragDropOperation* GetDragDroppingContent();
+
+	/**
+	 * Cancels any current drag drop operation.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Widget|Drag and Drop")
+	static void CancelDragDrop();
 
 	/**
 	 * Creates a Slate Brush from a Slate Brush Asset
@@ -165,6 +205,36 @@ public:
 	static FSlateBrush MakeBrushFromMaterial(UMaterialInterface* Material, int32 Width = 32, int32 Height = 32);
 
 	/**
+	 * Gets the resource object on a brush.  This could be a UTexture2D or a UMaterialInterface.
+	 */
+	UFUNCTION(BlueprintPure, Category="Widget|Brush")
+	static UObject* GetBrushResource(UPARAM(ref) FSlateBrush& Brush);
+
+	/**
+	 * Gets the brush resource as a texture 2D.
+	 */
+	UFUNCTION(BlueprintPure, Category="Widget|Brush")
+	static UTexture2D* GetBrushResourceAsTexture2D(UPARAM(ref) FSlateBrush& Brush);
+
+	/**
+	 * Gets the brush resource as a material.
+	 */
+	UFUNCTION(BlueprintPure, Category="Widget|Brush")
+	static UMaterialInterface* GetBrushResourceAsMaterial(UPARAM(ref) FSlateBrush& Brush);
+
+	/**
+	 * Sets the resource on a brush to be a UTexture2D.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Widget|Brush")
+	static void SetBrushResourceToTexture(UPARAM(ref) FSlateBrush& Brush, UTexture2D* Texture);
+
+	/**
+	 * Sets the resource on a brush to be a Material.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Widget|Brush")
+	static void SetBrushResourceToMaterial(UPARAM(ref) FSlateBrush& Brush, UMaterialInterface* Material);
+
+	/**
 	 * Creates a Slate Brush that wont draw anything, the "Null Brush".
 	 *
 	 * @return A new slate brush that wont draw anything.
@@ -179,7 +249,7 @@ public:
 	 * @return A material that supports dynamic input from the game.
 	 */
 	UFUNCTION(BlueprintPure, Category="Widget|Brush")
-	static UMaterialInstanceDynamic* GetDynamicMaterial(FSlateBrush& Brush);
+	static UMaterialInstanceDynamic* GetDynamicMaterial(UPARAM(ref) FSlateBrush& Brush);
 
 	/** Closes any popup menu */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Widget|Menu")
@@ -201,6 +271,24 @@ public:
 	* @param FoundWidgets Output array of widgets that implement the specified interface.
 	* @param TopLevelOnly Only the widgets that are direct children of the viewport will be returned.
 	*/
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Widget", meta = (WorldContext = "WorldContextObject"))
 	static void GetAllWidgetsWithInterface(UObject* WorldContextObject, TSubclassOf<UInterface> Interface, TArray<UUserWidget*>& FoundWidgets, bool TopLevelOnly);
+
+	UFUNCTION(BlueprintPure, Category="Widget", meta = (CompactNodeTitle = "->", BlueprintAutocast))
+	static FInputEvent GetInputEventFromKeyEvent(const FKeyEvent& Event);
+
+	UFUNCTION(BlueprintPure, Category="Widget", meta = (CompactNodeTitle = "->", BlueprintAutocast))
+	static FKeyEvent GetKeyEventFromAnalogInputEvent(const FAnalogInputEvent& Event);
+
+	UFUNCTION(BlueprintPure, Category="Widget", meta = ( CompactNodeTitle = "->", BlueprintAutocast ))
+	static FInputEvent GetInputEventFromCharacterEvent(const FCharacterEvent& Event);
+
+	UFUNCTION(BlueprintPure, Category="Widget", meta = ( CompactNodeTitle = "->", BlueprintAutocast ))
+	static FInputEvent GetInputEventFromPointerEvent(const FPointerEvent& Event);
+
+	UFUNCTION(BlueprintPure, Category="Widget", meta = ( CompactNodeTitle = "->", BlueprintAutocast ))
+	static FInputEvent GetInputEventFromControllerEvent(const FControllerEvent& Event);
+
+	UFUNCTION(BlueprintPure, Category="Widget", meta = ( CompactNodeTitle = "->", BlueprintAutocast ))
+	static FInputEvent GetInputEventFromNavigationEvent(const FNavigationEvent& Event);
 };

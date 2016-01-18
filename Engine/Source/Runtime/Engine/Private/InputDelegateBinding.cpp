@@ -15,7 +15,12 @@ UInputDelegateBinding::UInputDelegateBinding(const FObjectInitializer& ObjectIni
 {
 }
 
-void UInputDelegateBinding::BindInputDelegates(const UBlueprintGeneratedClass* BGClass, UInputComponent* InputComponent)
+bool UInputDelegateBinding::SupportsInputDelegate(const UClass* InClass)
+{
+	return Cast<UDynamicClass>(InClass) || Cast<UBlueprintGeneratedClass>(InClass);
+}
+
+void UInputDelegateBinding::BindInputDelegates(const UClass* InClass, UInputComponent* InputComponent)
 {
 	static UClass* InputBindingClasses[] = { 
 												UInputActionDelegateBinding::StaticClass(), 
@@ -26,13 +31,15 @@ void UInputDelegateBinding::BindInputDelegates(const UBlueprintGeneratedClass* B
 												UInputVectorAxisDelegateBinding::StaticClass(),
 										   };
 
-	if (BGClass)
+	if (InClass)
 	{
-		BindInputDelegates(Cast<UBlueprintGeneratedClass>(BGClass->GetSuperStruct()), InputComponent);
+		BindInputDelegates(InClass->GetSuperClass(), InputComponent);
 
 		for (int32 Index = 0; Index < ARRAY_COUNT(InputBindingClasses); ++Index)
 		{
-			UInputDelegateBinding* BindingObject = CastChecked<UInputDelegateBinding>(BGClass->GetDynamicBindingObject(InputBindingClasses[Index]), ECastCheckedType::NullAllowed);
+			UInputDelegateBinding* BindingObject = CastChecked<UInputDelegateBinding>(
+				UBlueprintGeneratedClass::GetDynamicBindingObject(InClass, InputBindingClasses[Index])
+				, ECastCheckedType::NullAllowed);
 			if (BindingObject)
 			{
 				BindingObject->BindToInputComponent(InputComponent);

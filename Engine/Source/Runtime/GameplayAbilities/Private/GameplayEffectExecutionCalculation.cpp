@@ -52,6 +52,12 @@ const FGameplayEffectSpec& FGameplayEffectCustomExecutionParameters::GetOwningSp
 	return *OwningSpec;
 }
 
+FGameplayEffectSpec* FGameplayEffectCustomExecutionParameters::GetOwningSpecForPreExecuteMod() const
+{
+	check(OwningSpec);
+	return OwningSpec;
+}
+
 UAbilitySystemComponent* FGameplayEffectCustomExecutionParameters::GetTargetAbilitySystemComponent() const
 {
 	return TargetAbilitySystemComponent.Get();

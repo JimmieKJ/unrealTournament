@@ -99,7 +99,7 @@ struct PX_PHYSX_COMMON_API MaterialIndicesStruct
 	PxU16*	indices; // the remap table for material index
 	PxU16	numIndices; // the size of the remap table
 	PxU16	pad; // pad for serialization
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 	PxU32	pad64; // pad for serialization
 #endif
 };

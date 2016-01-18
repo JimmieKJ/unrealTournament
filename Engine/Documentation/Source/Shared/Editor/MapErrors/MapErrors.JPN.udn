@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2299960
+﻿INTSourceChangelist:2573136
 Availability:Public
 Title:マップ チェック エラー
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor
@@ -35,7 +35,7 @@ Description:アンリアル エディタでマップのビルドまたはマッ�
 
 ## 警告
 
-警告は、クリティカルではないものの、ゲームが適切に機能しなくなったり、パフォーマンスが最適より低くなる可能性がある問題を表します。これらは対処する必要がありますが、致命的問題ではありません。
+警告は、クリティカルではないものの、ゲームが適切に機能しなくなったり、パフォーマンスが最適な状態より低くなる可能性がある問題を表します。これらは対処する必要がありますが、致命的問題ではありません。
 
 
 ### アクタ
@@ -181,14 +181,14 @@ DrawScale、DrawScale3D X、DrawScale3D Y、および DrawScale3D Z のいずれ
 
 (#FoliageMissingStaticMesh)
 [EXCERPT:FoliageMissingStaticMesh]
-**Foliage instances for a missing Static Mesh have been removed.** (不足しているスタティックメッシュのフォーリッジ インスタンスが取り除かれました。) 
+**Foliage instances for a missing Static Mesh have been removed.** MapErrors(不足しているスタティックメッシュのフォーリッジ インスタンスが取り除かれました。) 
 
 <!-- TODO -->
 [/EXCERPT:FoliageMissingStaticMesh]
 
 (#FoliageMissingStaticMesh)
 [EXCERPT:FoliageMissingClusterComponent]
-**Foliage in this map is missing [MissingCount] cluster component(s) for Static Mesh [MeshName]. (このマップのフォーリッジは [MissingCount] 個のクラスター コンポーネントがスタティックメッシュ [MeshName] に対して不足しています。)フォーリッジ ツールを開くとこの問題が解決します。**
+**Foliage in this map is missing [MissingCount] cluster component(s) for Static Mesh [MeshName]. Opening the Foliage tool will fix this problem.**(このマップのフォーリッジは [MissingCount] 個のクラスター コンポーネントがスタティックメッシュ [MeshName] に対して不足しています。)
 
 <!-- TODO -->
 [/EXCERPT:FoliageMissingClusterComponent]
@@ -326,18 +326,18 @@ Param.Material を NULL にしないでください。
 [EXCERPT:AudioComponentNull]
 **[Actor] &#58; Ambient sound Actor has NULL AudioComponent property - please delete!** (環境サウンド アクタに NULL な AudioComponent のプロパティがあります。削除して下さい！) 
 
-環境サウンド アクタの AudioComponent が None に設定されている場合、この警告メッセージが表示されます。通常この問題は、複製を使用してアクタが作成された古いマップが原因で生じます。警告の原因であるアクタを削除し、新しいアクタを作成して解消して下さい。
+環境サウンド アクタの AudioComponent が None に設定されている場合、この警告メッセージが表示されます。これは通常、複製を使用してアクタが作成されている古いマップで生じる問題です。警告の原因となっているアクタを削除し、新しいアクタを作成して解決して下さい。
 [/EXCERPT:AudioComponentNull]
 
 (#SoundCueNull)
 [EXCERPT:SoundCueNull]
 **Ambient sound Actor's AudioComponent has a NULL SoundCue property!** (アンビエントサウンドアクタの AudioComponent で、SoundCue プロパティが NULL です。) 
 
-この警告は、AmbientSound アクタの SoundCue プロパティが NULL に設定されているときに表示されます。これは、アクタが実際にサウンドを再生しないため問題になります。これを解決するには、Generic ブラウザでサウンド キューをまず選択し、次に、アクタの "Property Window" →"Audio Category" → [AudioComponent] の順序で進み、「SoundCue」プロパティをセットします。
+この警告は、AmbientSound アクタの SoundCue プロパティが NULL に設定されているときに表示されます。これは、アクタが実際にサウンドを再生しないため問題になります。これを解決するには、Generic ブラウザでサウンド キューをまず選択し、次に、アクタの Property Window->Audio Category->Audio Component の順序で進み、「SoundCue」プロパティをセットします。
 [/EXCERPT:SoundCueNull]
 
 
-### スタティック メッシュ
+### スタティックメッシュ
 
 (#StaticMeshNull)
 [EXCERPT:StaticMeshNull]
@@ -419,7 +419,7 @@ LevelStreamingVolume に関連付けられたレベルがなく、動作しな�
 ## Infos
 
 
-Infos はユーザー側で対処する必要はない問題ですがが、知っておくと役立つことがあります。
+Infos はユーザー側で対処する必要はない問題ですが、知っておくと役立つことがあります。
 
 
 ### アクタ

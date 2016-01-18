@@ -9,3 +9,8 @@
  * @param bP4EnvTabOnly Tells if initialize GUI with P4 env settings tab only.
  */
 void InitGUI(const TCHAR* CommandLine, bool bP4EnvTabOnly = false);
+
+/**
+ * Saves GUI settings to settings cache.
+ */
+void SaveGUISettings();

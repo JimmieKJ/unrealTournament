@@ -46,6 +46,7 @@ public:
 	void ReplaceLockedSequence(class UAnimSequenceBase * NewLockedSequence);
 protected:
 	TWeakPtr<FPersona> PersonaPtr;
+	FOnSetInputViewRange OnSetInputViewRange;
 
 	bool bSliderBeingDragged;
 
@@ -66,6 +67,7 @@ protected:
 
 	/** Function to crop animation sequence before/after selected frame */
 	void OnCropAnimSequence( bool bFromStart, float CurrentTime );
+	void OnAppendAnimSequence( bool bFromStart, int32 NumOfFrames );
 	void OnInsertAnimSequence( bool bBefore, int32 CurrentFrame );
 
 	/** Function to zero out translation of the selected frame */

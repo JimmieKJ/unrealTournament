@@ -20,6 +20,7 @@ struct TStructOpsTypeTraits<FVector> : public TStructOpsTypeTraitsBase
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Vector);
@@ -31,19 +32,10 @@ struct TStructOpsTypeTraits<FIntPoint> : public TStructOpsTypeTraitsBase
 	{
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(IntPoint);
-
-template<>
-struct TStructOpsTypeTraits<FIntRect> : public TStructOpsTypeTraitsBase
-{
-	enum 
-	{
-		WithZeroConstructor = true,
-	};
-};
-IMPLEMENT_STRUCT(IntRect);
 
 template<>
 struct TStructOpsTypeTraits<FVector2D> : public TStructOpsTypeTraitsBase
@@ -53,6 +45,7 @@ struct TStructOpsTypeTraits<FVector2D> : public TStructOpsTypeTraitsBase
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Vector2D);
@@ -64,6 +57,7 @@ struct TStructOpsTypeTraits<FVector4> : public TStructOpsTypeTraitsBase
 	{
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Vector4);
@@ -76,6 +70,7 @@ struct TStructOpsTypeTraits<FPlane> : public TStructOpsTypeTraitsBase
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Plane);
@@ -88,6 +83,7 @@ struct TStructOpsTypeTraits<FRotator> : public TStructOpsTypeTraitsBase
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Rotator);
@@ -99,6 +95,7 @@ struct TStructOpsTypeTraits<FBox> : public TStructOpsTypeTraitsBase
 	{
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Box);
@@ -110,20 +107,10 @@ struct TStructOpsTypeTraits<FMatrix> : public TStructOpsTypeTraitsBase
 	{
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Matrix);
-
-template<>
-struct TStructOpsTypeTraits<FSphere> : public TStructOpsTypeTraitsBase
-{
-	enum 
-	{
-		WithNoInitConstructor = true,
-		WithZeroConstructor = true,
-	};
-};
-IMPLEMENT_STRUCT(Sphere);
 
 template<>
 struct TStructOpsTypeTraits<FBoxSphereBounds> : public TStructOpsTypeTraitsBase
@@ -149,6 +136,7 @@ struct TStructOpsTypeTraits<FLinearColor> : public TStructOpsTypeTraitsBase
 	{
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(LinearColor);
@@ -160,6 +148,7 @@ struct TStructOpsTypeTraits<FColor> : public TStructOpsTypeTraitsBase
 	{
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Color);
@@ -183,6 +172,8 @@ struct TStructOpsTypeTraits<FTwoVectors> : public TStructOpsTypeTraitsBase
 	enum 
 	{
 		WithZeroConstructor = true,
+		WithSerializer = true,
+		WithNoDestructor = true,
 	};
 };
 IMPLEMENT_STRUCT(TwoVectors);
@@ -195,6 +186,7 @@ struct TStructOpsTypeTraits<FGuid> : public TStructOpsTypeTraitsBase
 		WithExportTextItem = true,
 		WithImportTextItem = true,
 		WithZeroConstructor = true,
+		WithSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Guid);
@@ -210,6 +202,7 @@ struct TStructOpsTypeTraits<FRandomStream> : public TStructOpsTypeTraitsBase
 {
 	enum 
 	{
+		WithExportTextItem = true,
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 	};
@@ -356,14 +349,12 @@ UProperty::UProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, 
 
 void UProperty::Init()
 {
-	// properties created in C++ should always be marked RF_Transient so that when the package containing
-	// this property is saved, it doesn't try to save this UProperty into the ExportMap
-	SetFlags(RF_Transient | RF_Native);
 #if !WITH_EDITORONLY_DATA
 	//@todo.COOKER/PACKAGER: Until we have a cooker/packager step, this can fire when WITH_EDITORONLY_DATA is not defined!
 	//	checkSlow(!HasAnyPropertyFlags(CPF_EditorOnly));
 #endif // WITH_EDITORONLY_DATA
-	checkSlow(GetOuterUField()->HasAllFlags(RF_Native | RF_Transient));
+	checkSlow(GetOuterUField()->HasAllFlags(RF_Transient));
+	checkSlow(HasAllFlags(RF_Transient));
 
 	GetOuterUField()->AddCppProperty(this);
 }
@@ -460,7 +451,8 @@ FString UProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	return TEXT("PROPERTY");
 }
 
-void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::Type DeclarationType, const TCHAR* ArrayDimOverride, uint32 AdditionalExportCPPFlags, bool bSkipParameterName) const
+void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::Type DeclarationType, const TCHAR* ArrayDimOverride, uint32 AdditionalExportCPPFlags
+	, bool bSkipParameterName, const FString* ActualCppType, const FString* ActualExtendedType) const
 {
 	const bool bIsParameter = (DeclarationType == EExportedDeclaration::Parameter) || (DeclarationType == EExportedDeclaration::MacroParameter);
 	const bool bIsInterfaceProp = dynamic_cast<const UInterfaceProperty*>(this) != nullptr;
@@ -468,9 +460,23 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 	// export the property type text (e.g. FString; int32; TArray, etc.)
 	FString ExtendedTypeText;
 	const uint32 ExportCPPFlags = AdditionalExportCPPFlags | (bIsParameter ? CPPF_ArgumentOrReturnValue : 0);
-	FString TypeText = GetCPPType(&ExtendedTypeText, ExportCPPFlags);
+	FString TypeText;
+	if (ActualCppType)
+	{
+		TypeText = *ActualCppType;
+	}
+	else
+	{
+		TypeText = GetCPPType(&ExtendedTypeText, ExportCPPFlags);
+	}
 
-	if (!dynamic_cast<const UBoolProperty*>(this)) // can't have const bitfields because then we cannot determine their offset and mask from the compiler
+	if (ActualExtendedType)
+	{
+		ExtendedTypeText = *ActualExtendedType;
+	}
+
+	const bool bCanHaveConst = 0 == (AdditionalExportCPPFlags & CPPF_NoConst);
+	if (!dynamic_cast<const UBoolProperty*>(this) && bCanHaveConst) // can't have const bitfields because then we cannot determine their offset and mask from the compiler
 	{
 		const UObjectProperty* ObjectProp = dynamic_cast<const UObjectProperty*>(this);
 
@@ -492,14 +498,26 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 		}
 	}
 
-	FString NameCpp = bSkipParameterName ? FString() : GetNameCPP();
+	FString NameCpp;
+	if (!bSkipParameterName)
+	{
+		if (AdditionalExportCPPFlags & CPPF_BlueprintCppBackend)
+		{
+			NameCpp = UnicodeToCPPIdentifier(GetName(), HasAnyPropertyFlags(CPF_Deprecated), HasAnyPropertyFlags(CPF_Parm) ? TEXT("bpp__") : TEXT("bpv__"));
+		}
+		else
+		{
+			NameCpp = GetNameCPP();
+		}
+	}
 	if (DeclarationType == EExportedDeclaration::MacroParameter)
 	{
 		NameCpp = FString(TEXT(", ")) + NameCpp;
 	}
 
 	TCHAR ArrayStr[MAX_SPRINTF]=TEXT("");
-	if( ArrayDim != 1 )
+	const bool bExportStaticArray = 0 == (CPPF_NoStaticArray & AdditionalExportCPPFlags);
+	if ((ArrayDim != 1) && bExportStaticArray)
 	{
 		if (ArrayDimOverride)
 		{
@@ -511,6 +529,7 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 		}
 	}
 
+	const bool bCanHaveRef = 0 == (AdditionalExportCPPFlags & CPPF_NoRef);
 	if(auto BoolProperty = dynamic_cast<const UBoolProperty*>(this) )
 	{
 		// if this is a member variable, export it as a bitfield
@@ -525,7 +544,9 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 		else if( bIsParameter && HasAnyPropertyFlags(CPF_OutParm) )
 		{
 			// export as a reference
-			Out.Logf(TEXT("%s%s%s %s%s"), *TypeText, *ExtendedTypeText, TEXT("&"), *NameCpp, ArrayStr);
+			Out.Logf(TEXT("%s%s%s %s%s"), *TypeText, *ExtendedTypeText
+				, bCanHaveRef ? TEXT("&") : TEXT("")
+				, *NameCpp, ArrayStr);
 		}
 
 		else
@@ -550,16 +571,16 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 				{
 					// export as a reference (const ref if it isn't an out parameter)
 					Out.Logf(TEXT("%s%s%s%s %s"),
-						!HasAnyPropertyFlags(CPF_OutParm|CPF_ConstParm) ? TEXT("const ") : TEXT(""),
+						(bCanHaveConst && !HasAnyPropertyFlags(CPF_OutParm | CPF_ConstParm)) ? TEXT("const ") : TEXT(""),
 						*TypeText, *ExtendedTypeText,
-						TEXT("&"),
+						bCanHaveRef ? TEXT("&") : TEXT(""),
 						*NameCpp);
 				}
 				else
 				{
 					// export as a pointer if this is an optional out parm, reference if it's just an out parm, standard otherwise...
 					TCHAR ModifierString[2]={0,0};
-					if (HasAnyPropertyFlags(CPF_OutParm | CPF_ReferenceParm) || bIsInterfaceProp)
+					if (bCanHaveRef && (HasAnyPropertyFlags(CPF_OutParm | CPF_ReferenceParm) || bIsInterfaceProp))
 					{
 						ModifierString[0] = TEXT('&');
 					}
@@ -1096,7 +1117,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 			// strip whitespace after =
 			SkipWhitespace(Str);
 
-			if (!IsPropertyValueSpecified(Str))
+			if (!IsPropertyValueSpecified(Str) && ArrayProperty == nullptr)
 			{
 				// if we're not importing default properties for classes (i.e. we're pasting something in the editor or something)
 				// and there is no property value for this element, skip it, as that means that the value of this element matches
@@ -1127,7 +1148,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 							Warn->Logf(ELogVerbosity::Warning,*ImportErrors[ErrorIndex]);
 						}
 					}
-					else if (Result == NULL || Result == Str)
+					else if ((Result == NULL && ArrayProperty == nullptr) || Result == Str)
 					{
 						Warn->Logf(ELogVerbosity::Warning, TEXT("Invalid property value in defaults: %s"), Start);
 					}
@@ -1159,7 +1180,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 							Warn->Logf(ELogVerbosity::Warning, *ImportErrors[ErrorIndex]);
 						}
 					}
-					else if (Result == NULL || Result == Str)
+					else if ((Result == NULL && ArrayProperty == nullptr) || Result == Str)
 					{
 						Warn->Logf(ELogVerbosity::Warning, TEXT("Invalid property value in defaults: %s"), Start);
 					}
@@ -1265,17 +1286,27 @@ void UNumericProperty::ExportTextItem( FString& ValueStr, const void* PropertyVa
 	ValueStr += GetNumericPropertyValueToString(PropertyValue);
 }
 
+void UFloatProperty::ExportTextItem(FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const
+{
+	Super::ExportTextItem(ValueStr, PropertyValue, DefaultValue, Parent, PortFlags, ExportRootScope);
+
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		ValueStr += TEXT("f");
+	}
+}
+
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UNumericProperty, UProperty,
 {
 }
 );
 
-UProperty* UStruct::FindPropertyByName(FName Name) const
+UProperty* UStruct::FindPropertyByName(FName InName) const
 {
 	for (UProperty* Property = PropertyLink; Property != NULL; Property = Property->PropertyLinkNext)
 	{
-		if (Property->GetFName() == Name)
+		if (Property->GetFName() == InName)
 		{
 			return Property;
 		}

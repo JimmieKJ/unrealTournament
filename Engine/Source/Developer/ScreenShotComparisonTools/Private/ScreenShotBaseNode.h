@@ -28,7 +28,7 @@ public:
 
 public:
 
-	// Begin IScreenShotData interface
+	//~ Begin IScreenShotData Interface
 
 	virtual void AddScreenShotData( const FScreenShotDataItem& InScreenDataItem ) override;
 	virtual const FString& GetAssetName() const override;
@@ -39,7 +39,7 @@ public:
 	virtual bool SetFilter( TSharedPtr< ScreenShotFilterCollection > ScreenFilter ) override;
 	virtual void SetDisplayEveryNthScreenshot( int32 NewNthValue ) override;
 
-	// End IScreenShotData interface
+	//~ End IScreenShotData Interface
 
 protected:
 

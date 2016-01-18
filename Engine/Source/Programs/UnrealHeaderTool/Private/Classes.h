@@ -71,7 +71,7 @@ public:
 	 * @param   InPackage  The package to return the classes from.
 	 * @return             The classes in the specified package.
 	 */
-	TArray<FClass*> GetClassesInPackage(UPackage* InPackage = ANY_PACKAGE) const;
+	TArray<FClass*> GetClassesInPackage(const UPackage* InPackage = ANY_PACKAGE) const;
 
 // Anything in here should eventually be removed when this class encapsulates its own data structure, rather than being 'poked' by the outside
 #if WIP_UHT_REFACTOR

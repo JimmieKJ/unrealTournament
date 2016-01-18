@@ -16,11 +16,22 @@
 
 //-------------------------------------------------------------------------------------------------
 
+// Bind UAVs to specific indices for materials with the following flags to ensure the UAVs set match
+// up with what the shader is expecting. Only do this for these materials as it causes other compute
+// shaders which include this file to fail to compile.
+#if MATERIAL_INJECT_EMISSIVE_INTO_LPV || MATERIAL_BLOCK_GI
+RWStructuredBuffer<VplListEntry>				RWGvListBuffer : register (u2);		// 0
+RWByteAddressBuffer								RWGvListHeadBuffer : register (u3);	// 1
+
+RWStructuredBuffer<VplListEntry>				RWVplListBuffer : register (u4);		// 2
+RWByteAddressBuffer								RWVplListHeadBuffer : register (u5);	// 3
+#else
 RWStructuredBuffer<VplListEntry>				RWGvListBuffer;		// 0
 RWByteAddressBuffer								RWGvListHeadBuffer;	// 1
 
 RWStructuredBuffer<VplListEntry>				RWVplListBuffer;		// 2
 RWByteAddressBuffer								RWVplListHeadBuffer;	// 3
+#endif
 
 //-------------------------------------------------------------------------------------------------
 // Functions
@@ -34,7 +45,8 @@ int AddToVplList( float3 worldPos, float3 flux, float3 direction, const bool emi
 		// Allocate a new list entry 
 		uint newHeadIndex = RWVplListBuffer.IncrementCounter();
 		uint oldHeadIndex;
-		RWVplListHeadBuffer.InterlockedExchange( gridIndex*4, newHeadIndex, oldHeadIndex );
+		// Note: we add one to the list index to make the list 0-terminated and prevent infinite recursion
+		RWVplListHeadBuffer.InterlockedExchange( gridIndex*4, newHeadIndex+1, oldHeadIndex );
 
 		if ( emissiveInjection )
 		{
@@ -69,7 +81,8 @@ int AddToGvList( float3 worldPos, float3 flux, float3 direction )
 		// Allocate a new list entry 
 		uint newHeadIndex = RWGvListBuffer.IncrementCounter();
 		uint oldHeadIndex;
-		RWGvListHeadBuffer.InterlockedExchange( gridIndex*4, newHeadIndex, oldHeadIndex );
+		// Note: we add one to the list index to make the list 0-terminated and prevent infinite recursion
+		RWGvListHeadBuffer.InterlockedExchange( gridIndex*4, newHeadIndex+1, oldHeadIndex );
 
 		// Fill in the new list node 
 		Vpl vpl;

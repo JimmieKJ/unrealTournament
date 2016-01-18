@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "GenericPlatform/GenericPlatformContext.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 
 /**
  * Declaration for common crash context implementation for Apple platforms.
@@ -24,6 +24,9 @@ struct CORE_API FApplePlatformCrashContext : public FGenericCrashContext
 	
 	/** Thread context */
 	ucontext_t*	Context;
+	
+	/** Number of stack frames to ignore as they are crash handling/stack walking */
+	uint32 IgnoreDepth;
 	
 	/** Memory reserved for "exception" (signal) info */
 	char SignalDescription[128];

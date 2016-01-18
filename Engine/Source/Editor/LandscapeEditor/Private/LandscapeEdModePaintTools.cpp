@@ -59,14 +59,13 @@ class FLandscapeToolStrokePaintBase : public FLandscapeToolStrokeBase
 {
 public:
 	FLandscapeToolStrokePaintBase(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: Cache(InTarget)
-		, LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+		, Cache(InTarget)
 	{
 	}
 
 protected:
 	typename ToolTarget::CacheClass Cache;
-	ULandscapeInfo* LandscapeInfo;
 };
 
 
@@ -164,6 +163,16 @@ public:
 		{
 			float DeltaTime = FMath::Min<float>(FApp::GetDeltaTime(), 0.1f); // Under 10 fps slow down paint speed
 			PaintStrength *= DeltaTime * 3.0f; // * 3.0f to partially compensate for impact of DeltaTime on slowing the tools down compared to the old framerate-dependent version
+		}
+
+		if (PaintStrength <= 0.0f)
+		{
+			return;
+		}
+
+		if (!bUseWeightTargetValue && !bUseClayBrush)
+		{
+			PaintStrength = FMath::Max(PaintStrength, 1.0f);
 		}
 
 		FPlane BrushPlane;
@@ -385,14 +394,16 @@ public:
 		TArray<typename ToolTarget::CacheClass::DataType> Data;
 		this->Cache.GetCachedData(X1, Y1, X2, Y2, Data);
 
+		const float ToolStrength = FMath::Clamp<float>(UISettings->ToolStrength * Pressure, 0.0f, 1.0f);
+
 		// Apply the brush
 		if (UISettings->bDetailSmooth)
 		{
-			LowPassFilter<typename ToolTarget::CacheClass::DataType>(X1, Y1, X2, Y2, BrushInfo, Data, UISettings->DetailScale, UISettings->ToolStrength * Pressure);
+			LowPassFilter<typename ToolTarget::CacheClass::DataType>(X1, Y1, X2, Y2, BrushInfo, Data, UISettings->DetailScale, ToolStrength);
 		}
 		else
 		{
-			int32 FilterRadius = UISettings->SmoothFilterKernelSize;
+			const int32 FilterRadius = UISettings->SmoothFilterKernelSize;
 
 			for (int32 Y = BrushInfo.GetBounds().Min.Y; Y < BrushInfo.GetBounds().Max.Y; Y++)
 			{
@@ -405,25 +416,32 @@ public:
 
 					if (BrushValue > 0.0f)
 					{
+						// needs to be ~12 bits larger than ToolTarget::CacheClass::DataType (for max FilterRadius (31))
+						// the editor is 64-bit native so just go the whole hog :)
 						int64 FilterValue = 0;
 						int32 FilterSamplingNumber = 0;
 
-						// The previous version of this clamped to X1/Y1/X2/Y2 *inside* the loop, which were always expanded by one from the BrushInfo
-						// So the Find on the BrushInfo always gave null for anything that would have been clamped and caused it to do nothing
-						// So now just skip iterating those by clamping first
+						const int32 XRadius = FMath::Min3<int32>(FilterRadius, X - BrushInfo.GetBounds().Min.X, BrushInfo.GetBounds().Max.X - X - 1);
+						const int32 YRadius = FMath::Min3<int32>(FilterRadius, Y - BrushInfo.GetBounds().Min.Y, BrushInfo.GetBounds().Max.Y - Y - 1);
 
-						const int32 SampleX1 = FMath::Max<int32>(X - FilterRadius, BrushInfo.GetBounds().Min.X);
-						const int32 SampleY1 = FMath::Max<int32>(Y - FilterRadius, BrushInfo.GetBounds().Min.Y);
-						const int32 SampleX2 = FMath::Min<int32>(X + FilterRadius + 1, BrushInfo.GetBounds().Max.X);
-						const int32 SampleY2 = FMath::Min<int32>(Y + FilterRadius + 1, BrushInfo.GetBounds().Max.Y);
-						for (int32 SampleY = SampleY1; SampleY < SampleY2; SampleY++)
+						const int32 SampleX1 = X - XRadius; checkSlow(SampleX1 >= BrushInfo.GetBounds().Min.X);
+						const int32 SampleY1 = Y - YRadius; checkSlow(SampleY1 >= BrushInfo.GetBounds().Min.Y);
+						const int32 SampleX2 = X + XRadius; checkSlow(SampleX2 <  BrushInfo.GetBounds().Max.X);
+						const int32 SampleY2 = Y + YRadius; checkSlow(SampleY2 <  BrushInfo.GetBounds().Max.Y);
+						for (int32 SampleY = SampleY1; SampleY <= SampleY2; SampleY++)
 						{
 							const float* SampleBrushScanline = BrushInfo.GetDataPtr(FIntPoint(0, SampleY));
+							const float* SampleBrushScanline2 = BrushInfo.GetDataPtr(FIntPoint(0, Y + (Y - SampleY)));
 							auto* SampleDataScanline = Data.GetData() + (SampleY - Y1) * (X2 - X1 + 1) + (0 - X1);
 
-							for (int32 SampleX = SampleX1; SampleX < SampleX2; SampleX++)
+							for (int32 SampleX = SampleX1; SampleX <= SampleX2; SampleX++)
 							{
-								const float SampleBrushValue = SampleBrushScanline[SampleX];
+								// constrain sample to within the brush, symmetrically to prevent flattening bug
+								const float SampleBrushValue =
+									FMath::Min(
+										FMath::Min<float>(SampleBrushScanline [SampleX], SampleBrushScanline [X + (X - SampleX)]),
+										FMath::Min<float>(SampleBrushScanline2[SampleX], SampleBrushScanline2[X + (X - SampleX)])
+										);
 								if (SampleBrushValue > 0.0f)
 								{
 									FilterValue += SampleDataScanline[SampleX];
@@ -434,7 +452,7 @@ public:
 
 						FilterValue /= FilterSamplingNumber;
 
-						DataScanline[X] = FMath::Lerp(DataScanline[X], (typename ToolTarget::CacheClass::DataType)FilterValue, BrushValue * UISettings->ToolStrength * Pressure);
+						DataScanline[X] = FMath::Lerp(DataScanline[X], (typename ToolTarget::CacheClass::DataType)FilterValue, BrushValue * ToolStrength);
 					}
 				}
 			}
@@ -613,7 +631,7 @@ public:
 };
 
 template<class ToolTarget>
-class FLandscapeToolFlatten : public FLandscapeToolPaintBase<ToolTarget, FLandscapeToolStrokeFlatten<ToolTarget>>
+class FLandscapeToolFlatten : public FLandscapeToolPaintBase < ToolTarget, FLandscapeToolStrokeFlatten<ToolTarget> >
 {
 protected:
 	UStaticMesh* PlaneMesh;
@@ -626,6 +644,12 @@ public:
 		, MeshComponent(NULL)
 	{
 		check(PlaneMesh);
+	}
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(PlaneMesh);
+		Collector.AddReferencedObject(MeshComponent);
 	}
 
 	virtual const TCHAR* GetToolName() override { return TEXT("Flatten"); }

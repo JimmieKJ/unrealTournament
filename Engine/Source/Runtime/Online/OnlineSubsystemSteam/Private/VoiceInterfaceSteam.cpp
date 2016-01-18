@@ -53,13 +53,14 @@ bool FOnlineVoiceSteam::Init()
 		bSuccess = SessionInt && IdentityInt;
 	}
 
-	if (bSuccess && !SteamSubsystem->IsDedicated())
+	const bool bIntentionallyDisabled = SteamSubsystem->IsDedicated() || GIsBuildMachine;
+	if (bSuccess && !bIntentionallyDisabled)
 	{
 		VoiceEngine = MakeShareable(new FVoiceEngineSteam(SteamSubsystem));
 		bSuccess = VoiceEngine->Init(MaxLocalTalkers, MaxRemoteTalkers);
-		LocalTalkers.Init(FLocalTalker(), MaxLocalTalkers);
 	}
 
+	LocalTalkers.Init(FLocalTalker(), MaxLocalTalkers);
 	RemoteTalkers.Empty(MaxRemoteTalkers);
 
 	if (!bSuccess)
@@ -112,7 +113,7 @@ void FOnlineVoiceSteam::Tick(float DeltaTime)
 void FOnlineVoiceSteam::StartNetworkedVoice(uint8 LocalUserNum)
 {
 	// Validate the range of the entry
-	if (LocalUserNum >= 0 && LocalUserNum < MAX_LOCAL_PLAYERS)
+	if (LocalUserNum < MAX_LOCAL_PLAYERS)
 	{
 		LocalTalkers[LocalUserNum].bHasNetworkedVoice = true;
 		UE_LOG(LogVoice, Log, TEXT("Starting networked voice for user: %d"), LocalUserNum);
@@ -210,7 +211,7 @@ bool FOnlineVoiceSteam::UnregisterLocalTalker(uint32 LocalUserNum)
 		{
 			if (OnPlayerTalkingStateChangedDelegates.IsBound() && (Talker.bIsTalking || Talker.bWasTalking))
 			{
-				TSharedPtr<FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
+				TSharedPtr<const FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
 				if (UniqueId.IsValid())
 				{
 					OnPlayerTalkingStateChangedDelegates.Broadcast(UniqueId.ToSharedRef(), false);
@@ -325,7 +326,7 @@ bool FOnlineVoiceSteam::UnregisterRemoteTalker(const FUniqueNetId& UniqueId)
 			}
 			else
 			{
-				UE_LOG(LogVoice, Log, TEXT("Unknown remote talker (%s) specified to UnregisterRemoteTalker()"), *UniqueId.ToDebugString());
+				UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to UnregisterRemoteTalker()"), *UniqueId.ToDebugString());
 			}
 		}
 	}
@@ -429,7 +430,7 @@ bool FOnlineVoiceSteam::MuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId&
 				}
 				else
 				{
-					UE_LOG(LogVoice, Warning, TEXT("Unknown remote talker (%s) specified to MuteRemoteTalker()"), *PlayerId.ToDebugString());
+					UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to MuteRemoteTalker()"), *PlayerId.ToDebugString());
 				}
 			}
 		}
@@ -475,7 +476,7 @@ bool FOnlineVoiceSteam::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetI
 				}
 				else
 				{
-					UE_LOG(LogVoice, Warning, TEXT("Unknown remote talker (%s) specified to UnmuteRemoteTalker()"), *PlayerId.ToDebugString());
+					UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to UnmuteRemoteTalker()"), *PlayerId.ToDebugString());
 				}
 			}
 		}
@@ -608,7 +609,7 @@ void FOnlineVoiceSteam::ProcessTalkingDelegates(float DeltaTime)
 				// Skip all delegate handling if none are registered
 				if (OnPlayerTalkingStateChangedDelegates.IsBound())
 				{
-					TSharedPtr<FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
+					TSharedPtr<const FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
 					OnPlayerTalkingStateChangedDelegates.Broadcast(UniqueId.ToSharedRef(), Talker.bIsTalking);
 				}
 
@@ -769,7 +770,7 @@ void FOnlineVoiceSteam::ProcessRemoteVoicePackets()
 
 FString FOnlineVoiceSteam::GetVoiceDebugState() const
 {
-	TSharedPtr<FUniqueNetId> UniqueId;
+	TSharedPtr<const FUniqueNetId> UniqueId;
 
 	FString Output = TEXT("Voice state\n");
 	Output += VoiceEngine.IsValid() ? VoiceEngine->GetVoiceDebugState() : TEXT("No Voice Engine!");

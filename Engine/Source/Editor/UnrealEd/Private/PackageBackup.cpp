@@ -98,10 +98,10 @@ bool FAutoPackageBackup::ShouldBackupPackage( const UPackage& InPackage, FString
 	// Check various conditions to see if the package is a valid candidate for backing up
 	bool bShouldBackup =
 		GIsEditor																			// Backing up packages only makes sense in the editor
-		&& !IsRunningCommandlet()																			// Don't backup saves resulting from commandlets
+		&& !IsRunningCommandlet()															// Don't backup saves resulting from commandlets
 		&& IsPackageBackupEnabled()															// Ensure that the package backup is enabled in the first place
-		&& ( InPackage.PackageFlags & PKG_PlayInEditor ) == 0								// Don't back up PIE packages
-		&& ( InPackage.PackageFlags & PKG_ContainsScript ) == 0;							// Don't back up script packages
+		&& (InPackage.HasAnyPackageFlags(PKG_PlayInEditor) == false)						// Don't back up PIE packages
+		&& (InPackage.HasAnyPackageFlags(PKG_ContainsScript) == false);						// Don't back up script packages
 
 	if( bShouldBackup )
 	{

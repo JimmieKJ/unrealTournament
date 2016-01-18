@@ -7,37 +7,38 @@
 #include "AnimGraphNode_RotationOffsetBlendSpace.h"
 #include "GraphEditorActions.h"
 
+#define LOCTEXT_NAMESPACE "AnimGraphNode_BlendSpaceBase"
+
 /////////////////////////////////////////////////////
 
 // Action to add a sequence player node to the graph
 struct FNewBlendSpacePlayerAction : public FEdGraphSchemaAction_K2NewNode
 {
 	FNewBlendSpacePlayerAction(class UBlendSpaceBase* BlendSpace)
+		: FEdGraphSchemaAction_K2NewNode()
 	{
 		check(BlendSpace);
 
 		const bool bIsAimOffset = BlendSpace->IsA(UAimOffsetBlendSpace::StaticClass()) || BlendSpace->IsA(UAimOffsetBlendSpace1D::StaticClass());
+		FString NewTooltipDescription;
 		if (bIsAimOffset)
 		{
 			UAnimGraphNode_RotationOffsetBlendSpace* Template = NewObject<UAnimGraphNode_RotationOffsetBlendSpace>();
 			Template->Node.BlendSpace = BlendSpace;
 			NodeTemplate = Template;
-			TooltipDescription = TEXT("Evaluates an aim offset at a particular coordinate to produce a pose");
+			NewTooltipDescription = TEXT("Evaluates an aim offset at a particular coordinate to produce a pose");
 		}
 		else
 		{
 			UAnimGraphNode_BlendSpacePlayer* Template = NewObject<UAnimGraphNode_BlendSpacePlayer>();
 			Template->Node.BlendSpace = BlendSpace;
 			NodeTemplate = Template;
-			TooltipDescription = TEXT("Evaluates a blend space at a particular coordinate to produce a pose");
+			NewTooltipDescription = TEXT("Evaluates a blend space at a particular coordinate to produce a pose");
 		}
 
-		MenuDescription = NodeTemplate->GetNodeTitle(ENodeTitleType::ListView);
+		FText NewMenuDescription = NodeTemplate->GetNodeTitle(ENodeTitleType::ListView);
 
-		Category = TEXT("Animations");
-
-		// Grab extra keywords
-		Keywords = FText::FromString(BlendSpace->GetPathName());
+		UpdateSearchData(NewMenuDescription, NewTooltipDescription, LOCTEXT("Animation", "Animations"), FText::FromString(BlendSpace->GetPathName()));
 	}
 };
 
@@ -109,3 +110,5 @@ void UAnimGraphNode_BlendSpaceBase::PostProcessPinName(const UEdGraphPin* Pin, F
 
 	Super::PostProcessPinName(Pin, DisplayName);
 }
+
+#undef LOCTEXT_NAMESPACE

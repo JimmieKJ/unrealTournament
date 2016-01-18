@@ -13,6 +13,20 @@
 
 struct FUserDefinedStructureCompilerInner
 {
+	static void ClearStructReferencesInBP(UBlueprint* FoundBlueprint, TSet<UBlueprint*>& BlueprintsToRecompile)
+	{
+		bool bAlreadyProcessed = false;
+		BlueprintsToRecompile.Add(FoundBlueprint, &bAlreadyProcessed);
+		if (!bAlreadyProcessed)
+		{
+			for (auto Function : TFieldRange<UFunction>(FoundBlueprint->GeneratedClass, EFieldIteratorFlags::ExcludeSuper))
+			{
+				Function->Script.Empty();
+			}
+			FoundBlueprint->Status = BS_Dirty;
+		}
+	}
+
 	static void ReplaceStructWithTempDuplicate(
 		UUserDefinedStruct* StructureToReinstance, 
 		TSet<UBlueprint*>& BlueprintsToRecompile,
@@ -26,7 +40,7 @@ struct FUserDefinedStructureCompilerInner
 				const FName UniqueName = MakeUniqueObjectName(GetTransientPackage(), UUserDefinedStruct::StaticClass(), FName(*ReinstancedName));
 
 				TGuardValue<bool> IsDuplicatingClassForReinstancing(GIsDuplicatingClassForReinstancing, true);
-				DuplicatedStruct = (UUserDefinedStruct*)StaticDuplicateObject(StructureToReinstance, GetTransientPackage(), *UniqueName.ToString(), ~RF_Transactional); 
+				DuplicatedStruct = (UUserDefinedStruct*)StaticDuplicateObject(StructureToReinstance, GetTransientPackage(), UniqueName, ~RF_Transactional); 
 			}
 
 			DuplicatedStruct->Guid = StructureToReinstance->Guid;
@@ -38,7 +52,7 @@ struct FUserDefinedStructureCompilerInner
 			DuplicatedStruct->AddToRoot();
 			CastChecked<UUserDefinedStructEditorData>(DuplicatedStruct->EditorData)->RecreateDefaultInstance();
 
-			for (auto StructProperty : TObjectRange<UStructProperty>(RF_ClassDefaultObject | RF_PendingKill))
+			for (auto StructProperty : TObjectRange<UStructProperty>(RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill))
 			{
 				if (StructProperty && (StructureToReinstance == StructProperty->Struct))
 				{
@@ -46,15 +60,15 @@ struct FUserDefinedStructureCompilerInner
 					{
 						if (UBlueprint* FoundBlueprint = Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
 						{
-							BlueprintsToRecompile.Add(FoundBlueprint);
 							StructProperty->Struct = DuplicatedStruct;
+							ClearStructReferencesInBP(FoundBlueprint, BlueprintsToRecompile);
 						}
 					}
 					else if (auto OwnerStruct = Cast<UUserDefinedStruct>(StructProperty->GetOwnerStruct()))
 					{
 						check(OwnerStruct != DuplicatedStruct);
 						const bool bValidStruct = (OwnerStruct->GetOutermost() != GetTransientPackage())
-							&& !OwnerStruct->HasAnyFlags(RF_PendingKill)
+							&& !OwnerStruct->IsPendingKill()
 							&& (EUserDefinedStructureStatus::UDSS_Duplicate != OwnerStruct->Status.GetValue());
 
 						if (bValidStruct)
@@ -71,10 +85,22 @@ struct FUserDefinedStructureCompilerInner
 			}
 
 			DuplicatedStruct->RemoveFromRoot();
+
+			for (auto Blueprint : TObjectRange<UBlueprint>(RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill))
+			{
+				if (Blueprint && !BlueprintsToRecompile.Contains(Blueprint))
+				{
+					FBlueprintEditorUtils::EnsureCachedDependenciesUpToDate(Blueprint);
+					if (Blueprint->CachedUDSDependencies.Contains(StructureToReinstance))
+					{
+						ClearStructReferencesInBP(Blueprint, BlueprintsToRecompile);
+					}
+				}
+			}
 		}
 	}
 
-	static void CleanAndSanitizeStruct(UUserDefinedStruct* StructToClean)
+	static UObject* CleanAndSanitizeStruct(UUserDefinedStruct* StructToClean)
 	{
 		check(StructToClean);
 
@@ -86,7 +112,7 @@ struct FUserDefinedStructureCompilerInner
 		const FString TransientString = FString::Printf(TEXT("TRASHSTRUCT_%s"), *StructToClean->GetName());
 		const FName TransientName = MakeUniqueObjectName(GetTransientPackage(), UUserDefinedStruct::StaticClass(), FName(*TransientString));
 		UUserDefinedStruct* TransientStruct = NewObject<UUserDefinedStruct>(GetTransientPackage(), TransientName, RF_Public | RF_Transient);
-
+		
 		TArray<UObject*> SubObjects;
 		GetObjectsWithOuter(StructToClean, SubObjects, true);
 		SubObjects.Remove(StructToClean->EditorData);
@@ -114,6 +140,8 @@ struct FUserDefinedStructureCompilerInner
 		StructToClean->ScriptObjectReferences.Empty();
 		StructToClean->PropertyLink = NULL;
 		StructToClean->ErrorMessage.Empty();
+
+		return TransientStruct;
 	}
 
 	static void LogError(UUserDefinedStruct* Struct, FCompilerResultsLog& MessageLog, const FString& ErrorMsg)
@@ -177,6 +205,11 @@ struct FUserDefinedStructureCompilerInner
 			VarDesc.CurrentDefaultValue = VarDesc.DefaultValue;
 
 			VarDesc.bInvalidMember = false;
+
+			if (NewProperty->HasAnyPropertyFlags(CPF_InstancedReference | CPF_ContainsInstancedReference))
+			{
+				Struct->StructFlags = EStructFlags(Struct->StructFlags | STRUCT_HasInstancedReference);
+			}
 		}
 	}
 
@@ -285,16 +318,13 @@ void FUserDefinedStructureCompilerUtils::CompileStruct(class UUserDefinedStruct*
 {
 	if (FStructureEditorUtils::UserDefinedStructEnabled() && Struct)
 	{
-		TSet<UBlueprint*> BlueprintsThatHaveBeenRecompiled;
-		TSet<UBlueprint*> BlueprintsToRecompile;
-
 		TArray<UUserDefinedStruct*> ChangedStructs; 
-
 		if (FUserDefinedStructureCompilerInner::ShouldBeCompiled(Struct) || bForceRecompile)
 		{
 			ChangedStructs.Add(Struct);
 		}
 
+		TSet<UBlueprint*> BlueprintsToRecompile;
 		for (int32 StructIdx = 0; StructIdx < ChangedStructs.Num(); ++StructIdx)
 		{
 			UUserDefinedStruct* ChangedStruct = ChangedStructs[StructIdx];
@@ -310,13 +340,14 @@ void FUserDefinedStructureCompilerUtils::CompileStruct(class UUserDefinedStruct*
 		FUserDefinedStructureCompilerInner::BuildDependencyMapAndCompile(ChangedStructs, MessageLog);
 
 		// UPDATE ALL THINGS DEPENDENT ON COMPILED STRUCTURES
-		for (TObjectIterator<UK2Node> It(RF_Transient | RF_PendingKill | RF_ClassDefaultObject, true); It && ChangedStructs.Num(); ++It)
+		TSet<UBlueprint*> BlueprintsThatHaveBeenRecompiled;
+		for (TObjectIterator<UK2Node> It(RF_Transient | RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill); It && ChangedStructs.Num(); ++It)
 		{
 			bool bReconstruct = false;
 
 			UK2Node* Node = *It;
 
-			if (Node && !Node->HasAnyFlags(RF_Transient | RF_PendingKill))
+			if (Node && !Node->HasAnyFlags(RF_Transient) && !Node->IsPendingKill())
 			{
 				// If this is a struct operation node operation on the changed struct we must reconstruct
 				if (UK2Node_StructOperation* StructOpNode = Cast<UK2Node_StructOperation>(Node))

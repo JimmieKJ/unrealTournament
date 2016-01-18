@@ -15,6 +15,9 @@ table, table tr, table th, table td
 
 	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 	font-size: 12px;
+
+	padding: 2px;
+	margin: 2px;
 }
 
 </style>
@@ -43,7 +46,7 @@ table, table tr, table th, table td
 </table>
 <br />
 
-<table>
+<table style="width: 100%">
 	<tr>
 		<th>
 			#
@@ -52,19 +55,13 @@ table, table tr, table th, table td
 			URL
 		</th>
 		<th>
-			JIRA
-		</th>
-		<th>
-			FixCL
-		</th>
-		<th>
 			# Occurrences
 		</th>
 		<th>
-			Latest Version Affected
+			# Affected Users
 		</th>
 		<th>
-			# Affected Users
+			Versions Affected
 		</th>
 		<th>
 			Latest CL Affected
@@ -73,21 +70,20 @@ table, table tr, table th, table td
 			Latest Environment Affected
 		</th>
 		<th>
-			First Crash Timestamp
+			JIRA
 		</th>
-
 		<%--JIRA--%>
 		<th>
-			JiraSummary
+			JiraComponents
 		</th>
-		<th>
-			JiraComponentsText
+		<th style="width: 384px">
+			JiraSummary
 		</th>
 		<th>
 			JiraResolution
 		</th>
 		<th>
-			JiraFixVersionsText
+			JiraFixVersions
 		</th>
 		<th>
 			JiraFixCL
@@ -106,42 +102,20 @@ table, table tr, table th, table td
 		</td>
 		<td>
 			<%--NewBugg.Id = RealBugg.Id;								// CrashGroup URL (a link to the Bugg)--%>
-			<%--<a href="https://jira.ol.epicgames.net/browse/<%=Model.Bugg.TTPID%>" target="_blank"><%=Model.Bugg.TTPID%></a>--%>
+			<%--<a href="https://jira.ol.epicgames.net/browse/<%=Model.Bugg.Jira%>" target="_blank"><%=Model.Bugg.Jira%></a>--%>
 			<%=Html.ActionLink( Bugg.Id.ToString(), "Show", new { controller = "Buggs", id = Bugg.Id }, null )%>
-		</td>
-
-		<%if( string.IsNullOrEmpty( Bugg.TTPID ) && !string.IsNullOrEmpty(Bugg.Pattern ) )
-		{ %>
-			<td>
-				<input type="submit" value="CopyToJira" title="<%=Bugg.ToTooltip()%>" id="id <%=Bugg.Id%>" name="CopyToJira-<%=Bugg.Id%>" class="CopyToJiraStyle" />
-			</td>
-		<% } else if( string.IsNullOrEmpty( Bugg.TTPID ) && string.IsNullOrEmpty(Bugg.Pattern ) )
-		{ %>
-			<td>
-				No pattern!
-			</td>
-		<% } else { %>
-			<td>
-				<%--NewBugg.TTPID = RealBugg.TTPID;							// JIRA--%>
-				<a href="https://jira.ol.epicgames.net/browse/<%=Bugg.TTPID%>" target="_blank"><%=Bugg.TTPID%></a>
-			</td>
-		<% } %>
-
-		<td>
-			<%--NewBugg.FixedChangeList = RealBugg.FixedChangeList;		// FixCL--%>
-			<%=Bugg.FixedChangeList%>
 		</td>
 		<td>
 			<%--NewBugg.NumberOfCrashes = Top.Value;					// # Occurrences--%>
-			<%=Bugg.NumberOfCrashes%>
-		</td>
-		<td>
-			<%--NewBugg.BuildVersion = NewBugg.AffectedVersions.Last();	// Latest Version Affected--%>
-			<%=Bugg.BuildVersion%>
+			<%=Bugg.CrashesInTimeFrameGroup%>
 		</td>
 		<td>
 			<%--NewBugg.NumberOfUniqueMachines = MachineIds.Count;		// # Affected Users--%>
 			<%=Bugg.NumberOfUniqueMachines%>
+		</td>
+		<td>
+			<%--NewBugg.BuildVersion = NewBugg.AffectedVersions.Last();	// Latest Version Affected--%>
+			<%=Bugg.GetAffectedVersions()%>
 		</td>
 		<td>
 			<%--NewBugg.LatestCLAffected = ILatestCLAffected;			// Latest CL Affected--%>
@@ -151,18 +125,30 @@ table, table tr, table th, table td
 			<%--NewBugg.LatestOSAffected = LatestOSAffected;			// Latest Environment Affected--%>
 			<%=Bugg.LatestOSAffected%>
 		</td>
-		<td>
-			<%--NewBugg.TimeOfFirstCrash = RealBugg.TimeOfFirstCrash;	// First Crash Timestamp	--%>
-			<%=Bugg.TimeOfFirstCrash%>
-		</td>
+		<%if (string.IsNullOrEmpty( Bugg.Jira ) && !string.IsNullOrEmpty( Bugg.Pattern ))
+		{ %>
+			<td>
+				<input type="submit" value="CopyToJira" title="<%=Bugg.ToTooltip()%>" id="id <%=Bugg.Id%>" name="CopyToJira-<%=Bugg.Id%>" class="SearchButton CopyToJiraStyle CopyToJiraStyle" />
+			</td>
+		<% } else if( string.IsNullOrEmpty( Bugg.Jira ) && string.IsNullOrEmpty(Bugg.Pattern ) )
+		{ %>
+			<td>
+				No pattern!
+			</td>
+		<% } else { %>
+			<td>
+				<%--NewBugg.Jira = RealBugg.Jira;							// JIRA--%>
+				<a href="https://jira.ol.epicgames.net/browse/<%=Bugg.Jira%>" target="_blank"><%=Bugg.Jira%></a>
+			</td>
+		<% } %>
 
-		<%--JIRA--%>
-		<td style="max-width: 256px;">
-			<%=Bugg.JiraSummary%>
-		</td>
 		<td>
 			<%=Bugg.JiraComponentsText%>
 		</td>
+		<%--JIRA--%>
+		<td style="max-width: 256px;">
+			<%=Bugg.JiraSummary%>
+		</td>		
 		<td>
 			<%=Bugg.JiraResolution%>
 		</td>

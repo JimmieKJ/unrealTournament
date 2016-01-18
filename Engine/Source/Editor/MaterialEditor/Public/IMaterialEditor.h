@@ -8,7 +8,7 @@
 /**
  * Public interface to Material Editor
  */
-class IMaterialEditor : public FAssetEditorToolkit
+class IMaterialEditor : public FAssetEditorToolkit, public IHasMenuExtensibility, public IHasToolBarExtensibility
 {
 public:
 	/**
@@ -91,6 +91,23 @@ public:
 
 	/** Draws messages on the specified viewport and canvas. */
 	virtual void DrawMessages( FViewport* Viewport, FCanvas* Canvas ) = 0;
+
+	/** Delegate to be called when the tabs are being registered **/
+	DECLARE_EVENT_OneParam(IMaterialEditorModule, FRegisterTabSpawnersEvent, const TSharedRef<class FTabManager>&);
+	virtual FRegisterTabSpawnersEvent& OnRegisterTabSpawners() { return RegisterTabSpawnersEvent; };
+
+	/** Delegate to be called when the tabs are being unregistered **/
+	DECLARE_EVENT_OneParam(IMaterialEditorModule, FUnregisterTabSpawnersEvent, const TSharedRef<class FTabManager>&);
+	virtual FUnregisterTabSpawnersEvent& OnUnregisterTabSpawners() { return UnregisterTabSpawnersEvent; };
+
+	/** Delegate to be called when this IMaterialEditor is about to be destroyed **/
+	DECLARE_EVENT(IMaterialEditorModule, FMaterialEditorClosedEvent);
+	virtual FMaterialEditorClosedEvent& OnMaterialEditorClosed() { return MaterialEditorClosedEvent; };
+
+private:
+	FMaterialEditorClosedEvent MaterialEditorClosedEvent;
+	FRegisterTabSpawnersEvent RegisterTabSpawnersEvent;
+	FUnregisterTabSpawnersEvent UnregisterTabSpawnersEvent;
 };
 
 

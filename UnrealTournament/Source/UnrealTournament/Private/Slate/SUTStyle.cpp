@@ -1,7 +1,7 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UnrealTournament.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "Slate/SlateBrushAsset.h"
@@ -159,6 +159,34 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.SortUpX2", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDownX2", FVector2D(16,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
 	Style.Set("UT.Icon.Alert", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Alert", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.Icon.Server.Epic", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Server.Epic", FVector2D(54, 54), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.Server.Trusted", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Server.Trusted", FVector2D(54, 54), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.Server.Untrusted", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Server.Untrusted", FVector2D(54, 54), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.Icon.Star.24x24", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Star.24x24", FVector2D(24, 24), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	
+	Style.Set("UT.Icon.Back", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Back", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Forward", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Forward", FVector2D(48, 48)));
+	Style.Set("UT.Icon.About", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.About", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Online", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Online", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Settings", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Settings", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Exit", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Exit", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Stats", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Stats", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Chat36", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Chat36", FVector2D(36, 36)));
+	Style.Set("UT.Icon.Browser", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Browser", FVector2D(48, 48)));
+	Style.Set("UT.Icon.SocialBang", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SocialBang", FVector2D(12, 12)));
+
+	Style.Set("UT.Icon.Minimize", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Minimize", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Fullscreen", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Fullscreen", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Windowed", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Windowed", FVector2D(48, 48)));
+
+
+	Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SignOut", FVector2D(48, 48)));
+	Style.Set("UT.Icon.SignIn",  new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SignIn", FVector2D(48, 48)));
+
+	Style.Set("UT.Icon.ChangeTeam", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.ChangeTeam", FVector2D(48, 48)));
+
 }
 
 
@@ -345,8 +373,9 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.HomePanel.FragCenterLogo", new IMAGE_BRUSH("UTStyle/MainPanel/FragCenterEmblem", FVector2D(644, 644), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.HomePanel.Flak", new IMAGE_BRUSH( "UTStyle/MainPanel/Flak", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.FMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/FMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.HomePanel.DMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/DMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.HomePanel.CTFBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/CTFBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.DMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/DMBadge", FVector2D(250,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.CTFBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/CTFBadge", FVector2D(250,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.TeamShowdownBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/TeamShowdownBadge", FVector2D(250,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.Replays", new IMAGE_BRUSH( "UTStyle/MainPanel/Replays", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.Live", new IMAGE_BRUSH( "UTStyle/MainPanel/Live", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
@@ -407,6 +436,8 @@ void SUTStyle::SetAvatars(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Avatar.2", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.2", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Avatar.3", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.3", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Avatar.4", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.4", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.Avatar.5", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.5", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.Avatar.6", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.6", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 }
 
 void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
@@ -451,6 +482,7 @@ void SUTStyle::SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.ChallengeBadges.SpookyD", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenD", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.ChallengeBadges.SpookyE", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenE", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.ChallengeBadges.SpookyF", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenF", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
 }
 
 void SUTStyle::SetContextMenus(TSharedRef<FSlateStyleSet> StyleRef)

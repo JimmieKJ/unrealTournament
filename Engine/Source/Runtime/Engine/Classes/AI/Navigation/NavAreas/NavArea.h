@@ -23,43 +23,48 @@ public:
 	UPROPERTY(EditAnywhere, Category=NavArea, config)
 	FColor DrawColor;
 
+	/** restrict area only to specified agents */
+	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	FNavAgentSelector SupportedAgents;
+
+	// DEPRECATED AGENT CONFIG
 #if CPP
 	union
 	{
 		struct
 		{
 #endif
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent0 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent1 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent2 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent3 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent4 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent5 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent6 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent7 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent8 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent9 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent10 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent11 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent12 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent13 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent14 : 1;
-	UPROPERTY(EditAnywhere, Category=NavArea, config)
+	UPROPERTY(config)
 	uint32 bSupportsAgent15 : 1;
 #if CPP
 		};
@@ -67,13 +72,17 @@ public:
 	};
 #endif
 
-	virtual void PostInitProperties() override;
 	virtual void FinishDestroy() override;
+	virtual void PostLoad() override;
+	virtual void Serialize(FArchive& Ar) override;
 
 	FORCEINLINE uint16 GetAreaFlags() const { return AreaFlags; }
 	FORCEINLINE bool HasFlags(uint16 InFlags) const { return (InFlags & AreaFlags) != 0; }
 
-	FORCEINLINE bool IsSupportingAgent(int32 AgentIndex) const { return (AgentIndex >= 0 && AgentIndex < 16) ? !!(SupportedAgentsBits & (1 << AgentIndex)) : false; }
+	FORCEINLINE bool IsSupportingAgent(int32 AgentIndex) const { return SupportedAgents.Contains(AgentIndex); }
+
+	/** called before adding to navigation system */
+	virtual void InitializeArea() {};
 
 	/** Get the fixed area entering cost. */
 	virtual float GetFixedAreaEnteringCost() { return FixedAreaEnteringCost; }
@@ -82,7 +91,7 @@ public:
 	static FColor GetColor(UClass* AreaDefinitionClass);
 
 #if WITH_EDITOR
-	/** setup bSupportsAgentX properties */
+	/** setup agent related properties */
 	virtual void UpdateAgentConfig();
 #endif
 	/** copy properties from other area */

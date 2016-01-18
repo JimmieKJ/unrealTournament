@@ -9,8 +9,10 @@
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
-bool DragDropHandler::ValidateDragDropOnAssetFolder(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, const FString& TargetPath)
+bool DragDropHandler::ValidateDragDropOnAssetFolder(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, const FString& TargetPath, bool& OutIsKnownDragOperation)
 {
+	OutIsKnownDragOperation = false;
+
 	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
 	if (!Operation.IsValid())
 	{
@@ -25,6 +27,8 @@ bool DragDropHandler::ValidateDragDropOnAssetFolder(const FGeometry& MyGeometry,
 	if (Operation->IsOfType<FAssetDragDropOp>())
 	{
 		TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>(Operation);
+
+		OutIsKnownDragOperation = true;
 
 		if (bIsAssetPath)
 		{
@@ -61,6 +65,8 @@ bool DragDropHandler::ValidateDragDropOnAssetFolder(const FGeometry& MyGeometry,
 	else if (Operation->IsOfType<FAssetPathDragDropOp>())
 	{
 		TSharedPtr<FAssetPathDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetPathDragDropOp>(Operation);
+
+		OutIsKnownDragOperation = true;
 
 		if (DragDropOp->PathNames.Num() == 1 && DragDropOp->PathNames[0] == TargetPath)
 		{
@@ -101,6 +107,7 @@ bool DragDropHandler::ValidateDragDropOnAssetFolder(const FGeometry& MyGeometry,
 	else if (Operation->IsOfType<FExternalDragOperation>())
 	{
 		TSharedPtr<FExternalDragOperation> DragDropOp = StaticCastSharedPtr<FExternalDragOperation>(Operation);
+		OutIsKnownDragOperation = true;
 		bIsValidDrag = DragDropOp->HasFiles() && bIsAssetPath;
 	}
 
@@ -150,6 +157,7 @@ void DragDropHandler::HandleAssetsDroppedOnAssetFolder(const TSharedRef<SWidget>
 
 	FSlateApplication::Get().PushMenu(
 		ParentWidget,
+		FWidgetPath(),
 		MenuBuilder.MakeWidget(),
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
@@ -191,6 +199,7 @@ void DragDropHandler::HandleFoldersDroppedOnAssetFolder(const TSharedRef<SWidget
 
 	FSlateApplication::Get().PushMenu(
 		ParentWidget,
+		FWidgetPath(),
 		MenuBuilder.MakeWidget(),
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)

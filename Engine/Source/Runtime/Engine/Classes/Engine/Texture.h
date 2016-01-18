@@ -12,7 +12,7 @@
 UENUM()
 enum TextureCompressionSettings
 {
-	TC_Default					UMETA(DisplayName="Default (DXT1/5, BC1/5 on DX11)"),
+	TC_Default					UMETA(DisplayName="Default (DXT1/5, BC1/3 on DX11)"),
 	TC_Normalmap				UMETA(DisplayName="Normalmap (DXT5, BC5 on DX11)"),
 	TC_Masks					UMETA(DisplayName="Masks (no sRGB)"),
 	TC_Grayscale				UMETA(DisplayName="Grayscale (R8, RGB8 sRGB)"),
@@ -33,7 +33,7 @@ enum TextureFilter
 	TF_Nearest UMETA(DisplayName="Nearest"),
 	TF_Bilinear UMETA(DisplayName="Bi-linear"),
 	TF_Trilinear UMETA(DisplayName="Tri-linear"),
-	/** use setting from the Texture Group */
+	/** Use setting from the Texture Group. */
 	TF_Default UMETA(DisplayName="Default (from Texture Group)"),
 	TF_MAX,
 };
@@ -51,13 +51,13 @@ UENUM()
 enum ECompositeTextureMode
 {
 	CTM_Disabled UMETA(DisplayName="Disabled"),
-	// CompositingTexture needs to be a normal map with the same or larger size
+	/** CompositingTexture needs to be a normal map with the same or larger size. */
 	CTM_NormalRoughnessToRed UMETA(DisplayName="Add Normal Roughness To Red"),
-	// CompositingTexture needs to be a normal map with the same or larger size
+	/** CompositingTexture needs to be a normal map with the same or larger size. */
 	CTM_NormalRoughnessToGreen UMETA(DisplayName="Add Normal Roughness To Green"),
-	// CompositingTexture needs to be a normal map with the same or larger size
+	/** CompositingTexture needs to be a normal map with the same or larger size. */
 	CTM_NormalRoughnessToBlue UMETA(DisplayName="Add Normal Roughness To Blue"),
-	// CompositingTexture needs to be a normal map with the same or larger size
+	/** CompositingTexture needs to be a normal map with the same or larger size. */
 	CTM_NormalRoughnessToAlpha UMETA(DisplayName="Add Normal Roughness To Alpha"),
 	CTM_MAX,
 
@@ -78,11 +78,11 @@ enum ETextureMipCount
 UENUM()
 enum ETextureSourceArtType
 {
-	// FColor Data[SrcWidth * SrcHeight]
+	/** FColor Data[SrcWidth * SrcHeight]. */
 	TSAT_Uncompressed,
-	// PNG compresed version of FColor Data[SrcWidth * SrcHeight]
+	/** PNG compresed version of FColor Data[SrcWidth * SrcHeight]. */
 	TSAT_PNGCompressed,
-	// DDS file with header
+	/** DDS file with header. */
 	TSAT_DDSFile,
 	TSAT_MAX,
 };
@@ -181,7 +181,7 @@ struct FTextureSource
 	ENGINE_API int32 GetBytesPerPixel() const;
 
 	/** Return true if the source data is power-of-2. */
-	bool IsPowerOfTwo() const;
+	ENGINE_API bool IsPowerOfTwo() const;
 
 	/** Returns true if source art is available. */
 	ENGINE_API bool IsValid() const;
@@ -357,13 +357,14 @@ private:
 	FGuid LightingGuid;
 
 public:
-	/** Path to the resource used to construct this texture. Relative to the object's package, BaseDir() or absolute */
-	UPROPERTY(Category=Texture, VisibleAnywhere, BlueprintReadWrite)
-	FString SourceFilePath;
+	
+	UPROPERTY()
+	FString SourceFilePath_DEPRECATED;
 
-	/** Date/Time-stamp of the file from the last import. */
-	UPROPERTY(Category=Texture, VisibleAnywhere, BlueprintReadWrite)
-	FString SourceFileTimestamp;
+	UPROPERTY(VisibleAnywhere, Instanced, Category=ImportSettings)
+	class UAssetImportData* AssetImportData;
+
+public:
 
 	/** Static texture brightness adjustment (scales HSV value.)  (Non-destructive; Requires texture source art to be available.) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Adjustments, meta=(DisplayName = "Brightness"))
@@ -488,6 +489,14 @@ public:
 	/** This should be unchecked if using alpha channels individually as masks. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Texture, meta=(DisplayName="sRGB"), AssetRegistrySearchable)
 	uint32 SRGB:1;
+
+#if WITH_EDITORONLY_DATA
+
+	/** A flag for using the simplified legacy gamma space e.g pow(color,1/2.2) for converting from FColor to FLinearColor, if we're doing sRGB. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Texture, AdvancedDisplay)
+	uint32 bUseLegacyGamma:1;
+
+#endif // WITH_EDITORONLY_DATA
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Texture, AssetRegistrySearchable, AdvancedDisplay)
 	uint32 NeverStream:1;
@@ -673,11 +682,12 @@ public:
 	/** @return the height of the surface represented by the texture. */
 	virtual float GetSurfaceHeight() const PURE_VIRTUAL(UTexture::GetSurfaceHeight,return 0;);
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
+	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void PostLoad() override;
 	ENGINE_API virtual void PreSave() override;
 	ENGINE_API virtual void BeginDestroy() override;
@@ -687,7 +697,7 @@ public:
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
 	ENGINE_API virtual bool IsPostLoadThreadSafe() const override{ return false; }
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	/**
 	 *	Gets the average brightness of the texture (in linear space)
@@ -768,9 +778,36 @@ public:
 	/**
 	 * Retrieves the pixel format enum for enum <-> string conversions.
 	 */
-	static class UEnum* GetPixelFormatEnum();
+	ENGINE_API static class UEnum* GetPixelFormatEnum();
 
 };
 
+/** 
+* Replaces the RHI reference of one texture with another.
+* Allows one texture to be replaced with another at runtime and have all existing references to it remain valid.
+*/
+struct FTextureReferenceReplacer
+{
+	FTextureReferenceRHIRef OriginalRef;
 
+	FTextureReferenceReplacer(UTexture* OriginalTexture)
+	{
+		if (OriginalTexture)
+		{
+			OriginalTexture->ReleaseResource();
+			OriginalRef = OriginalTexture->TextureReference.TextureReferenceRHI;
+		}
+		else
+		{
+			OriginalRef = nullptr;
+		}
+	}
 
+	void Replace(UTexture* NewTexture)
+	{
+		if (OriginalRef)
+		{
+			NewTexture->TextureReference.TextureReferenceRHI = OriginalRef;
+		}
+	}
+};

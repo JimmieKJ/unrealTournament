@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ProjectTargetPlatformEditor.h"
+#include "IProjectManager.h"
 
 
 #define LOCTEXT_NAMESPACE "FCookContentMenu"

@@ -16,9 +16,9 @@ UCheckBox::UCheckBox(const FObjectInitializer& ObjectInitializer)
 	CheckedState = ECheckBoxState::Unchecked;
 
 	HorizontalAlignment = SlateDefaults._HAlign;
-	Padding = SlateDefaults._Padding.Get();
+	Padding_DEPRECATED = SlateDefaults._Padding.Get();
 
-	BorderBackgroundColor = FLinearColor::White;
+	BorderBackgroundColor_DEPRECATED = FLinearColor::White;
 }
 
 void UCheckBox::ReleaseSlateResources(bool bReleaseChildren)
@@ -34,8 +34,6 @@ TSharedRef<SWidget> UCheckBox::RebuildWidget()
 		.OnCheckStateChanged( BIND_UOBJECT_DELEGATE(FOnCheckStateChanged, SlateOnCheckStateChangedCallback) )
 		.Style(&WidgetStyle)
 		.HAlign( HorizontalAlignment )
-		.Padding( Padding )
-		.BorderBackgroundColor( BorderBackgroundColor )
 		;
 
 	if ( GetChildrenCount() > 0 )
@@ -50,6 +48,7 @@ void UCheckBox::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
 
+	MyCheckbox->SetStyle(&WidgetStyle);
 	MyCheckbox->SetIsChecked( OPTIONAL_BINDING(ECheckBoxState, CheckedState) );
 }
 
@@ -197,6 +196,18 @@ void UCheckBox::PostLoad()
 		{
 			WidgetStyle.UndeterminedPressedImage = UndeterminedPressedImage_DEPRECATED->Brush;
 			UndeterminedPressedImage_DEPRECATED = nullptr;
+		}
+	}
+
+	if (GetLinkerUE4Version() < VER_UE4_DEPRECATE_UMG_STYLE_OVERRIDES)
+	{
+		WidgetStyle.Padding = Padding_DEPRECATED;
+		Padding_DEPRECATED = FMargin(0);
+
+		if (BorderBackgroundColor_DEPRECATED != FLinearColor::White)
+		{
+			WidgetStyle.BorderBackgroundColor = BorderBackgroundColor_DEPRECATED;
+			BorderBackgroundColor_DEPRECATED = FLinearColor::White;
 		}
 	}
 }

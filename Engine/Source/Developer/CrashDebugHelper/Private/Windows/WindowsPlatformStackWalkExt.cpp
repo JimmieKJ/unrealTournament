@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashDebugHelperPrivatePCH.h"
-#include "GenericPlatform/GenericPlatformContext.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 #include "WindowsPlatformStackWalkExt.h"
 #include "CrashDebugPDBCache.h"
 
@@ -132,17 +132,18 @@ void FWindowsPlatformStackWalkExt::GetExeFileVersionAndModuleList( FCrashModuleI
 		// Get the full path of the module name
 		TCHAR ModuleName[MAX_PATH] = {0};
 		Symbol->GetModuleNameStringWide( DEBUG_MODNAME_IMAGE, ModuleIndex, ModuleBase, ModuleName, MAX_PATH, NULL );
-
-		FString RelativeModuleName = ExtractRelativePath( TEXT( "binaries" ), ModuleName );
-		if( RelativeModuleName.Len() > 0 )
-		{
-			CrashInfo.ModuleNames.Add( RelativeModuleName );
-		}
-
+		
+		const FString RelativeModuleName = ExtractRelativePath( TEXT( "binaries" ), ModuleName );
 		// Get the exe, which we extract the version number, so we know what label to sync to
-		if( RelativeModuleName.EndsWith( TEXT( ".exe" ) ) )
+		if (RelativeModuleName.Len() > 0 && RelativeModuleName.EndsWith( TEXT( ".exe" ) ))
 		{
 			ExecutableIndex = ModuleIndex;
+		}
+
+		// Add only modules in Binaries folders
+		if (RelativeModuleName.Len() > 0)
+		{
+			CrashInfo.ModuleNames.Add( ModuleName );
 		}
 	}
 
@@ -162,104 +163,19 @@ void FWindowsPlatformStackWalkExt::GetExeFileVersionAndModuleList( FCrashModuleI
 	}
 }
 
-/**
- *	Optimized version used to grab the list of the PDB and binary files.
- *	Based on the FPackageDependencyTimestampVisitor.
- */
-class FSymbolAndExecutableFinder : public IPlatformFile::FDirectoryVisitor
-{
-private:
-	/** The file interface to use for any file operations. */
-	IPlatformFile& FileInterface;
-
-	/**
-	 *	A list of file types that should be included in the file paths.
-	 *	An extension with a dot.
-	 */
-	TArray<FString> FiletypesToInclude;
-
-	/** A list of directories that we should not traverse into. */
-	TArray<FString> DirectoriesToIgnore;
-
-	/** Relative paths to local files. */
-	TArray<FString> FilePaths;
-
-public:
-
-	/** A list of directories to be checked, to avoid using recursive algorithm and save stack-memory. */
-	TArray<FString> RecursiveDirectories;
-
-	FSymbolAndExecutableFinder( IPlatformFile& InFileInterface, const TArray<FString>& InFiletypesToInclude, const TArray<FString>& InDirectoriesToIgnore )
-		: FileInterface( InFileInterface )
-		, FiletypesToInclude( InFiletypesToInclude )
-		, DirectoriesToIgnore( InDirectoriesToIgnore )
-	{}
-
-	virtual bool Visit( const TCHAR* FilenameOrDirectory, bool bIsDirectory )
-	{
-		// Make sure all paths are "standardized" so the other end can match up with it's own standardized paths
-		FString RelativeFilename = FilenameOrDirectory;
-		FPaths::MakeStandardFilename( RelativeFilename );
-
-		// Grab the file.
-		if( !bIsDirectory )
-		{
-			if( FiletypesToInclude.Num() > 0 )
-			{
-				// If it is a file that matches the filetypes, add it.
-				for( const auto& FileExtension : FiletypesToInclude )
-				{
-					if( RelativeFilename.Contains( FileExtension ) )
-					{
-						new(FilePaths) FString( RelativeFilename );
-						break;
-					}
-				}
-			}
-			else
-			{
-				new(FilePaths) FString( RelativeFilename );
-			}
-		}
-
-		// Iterate over directories we care about.
-		if( bIsDirectory )
-		{
-			bool bShouldRecurse = true;
-			// Look in all the ignore directories looking for a match.
-			for( const auto& Directory : DirectoriesToIgnore )
-			{
-				if( RelativeFilename.EndsWith( Directory ) )
-				{
-					bShouldRecurse = false;
-					break;
-				}
-			}
-
-			// Recurse if we should.
-			if( bShouldRecurse )
-			{
-				RecursiveDirectories.Add(FilenameOrDirectory);
-			}
-		}
-
-		return true;
-	}
-
-	
-	/**
-	 * @return a reference to the results.
-	 */
-	const TArray<FString>& GetFilePaths() const
-	{
-		return FilePaths;
-	}
-};
-
 void FWindowsPlatformStackWalkExt::SetSymbolPathsFromModules()
 {
 	const bool bUseCachedData = CrashInfo.PDBCacheEntry.IsValid();
 	FString CombinedPath = TEXT( "" );
+
+	// Use symbol cache from command line
+	FString DebugSymbols;
+	if (FParse::Value(FCommandLine::Get(), TEXT("DebugSymbols="), DebugSymbols))
+	{
+		CombinedPath += TEXT("SRV*");
+		CombinedPath += DebugSymbols;
+		CombinedPath += TEXT(";");
+	}
 
 	// For externally launched minidump diagnostics.
 	if( bUseCachedData )
@@ -287,44 +203,9 @@ void FWindowsPlatformStackWalkExt::SetSymbolPathsFromModules()
 	// For locally launched minidump diagnostics.
 	else
 	{
-		// We care only about the PDB and binary files.
-		TArray<FString> FiletypesToInclude;
-		FiletypesToInclude.Add( TEXT( ".pdb" ) );
-		FiletypesToInclude.Add( TEXT( ".dll" ) );
-		FiletypesToInclude.Add( TEXT( ".exe" ) );
-		// These folders don't contain any binary files, so skip them to improve the finder performance.
-		TArray<FString> DirectoriesToIgnore;
-		DirectoriesToIgnore.Add( TEXT( "/Content" ) );
-		DirectoriesToIgnore.Add( TEXT( "/DerivedDataCache" ) );
-		DirectoriesToIgnore.Add( TEXT( "/Intermediate" ) );
-		DirectoriesToIgnore.Add( TEXT( "/Documentation" ) );
-		DirectoriesToIgnore.Add( TEXT( "/NoRedist" ) );
-		DirectoriesToIgnore.Add( TEXT( "/Public" ) );
-		DirectoriesToIgnore.Add( TEXT( "/Private" ) );
-
-		// Platforms to ignore.
-		DirectoriesToIgnore.Add( TEXT( "/Android" ) );
-		DirectoriesToIgnore.Add( TEXT( "/Cygwin" ) );
-		DirectoriesToIgnore.Add( TEXT( "/HTML5" ) );
-		DirectoriesToIgnore.Add( TEXT( "/IOS" ) );
-		DirectoriesToIgnore.Add( TEXT( "/Java" ) );
-		DirectoriesToIgnore.Add( TEXT( "/Linux" ) );
-		DirectoriesToIgnore.Add( TEXT( "/Mac" ) );
-		DirectoriesToIgnore.Add( TEXT( "/PS4" ) );
-		DirectoriesToIgnore.Add( TEXT( "/XboxOne" ) );
-
-		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-		FSymbolAndExecutableFinder SymbolAndExecutableFinder( PlatformFile, FiletypesToInclude, DirectoriesToIgnore );
-		SymbolAndExecutableFinder.Visit( *FPaths::RootDir(), true );
-
-		while( SymbolAndExecutableFinder.RecursiveDirectories.Num() )
-		{
-			const FString Directory = SymbolAndExecutableFinder.RecursiveDirectories.Pop();
-			PlatformFile.IterateDirectory( *Directory, SymbolAndExecutableFinder );
-		}
-
+		// Iterate over all loaded modules.
 		TSet<FString> SymbolPaths;
-		for( const auto& Filename : SymbolAndExecutableFinder.GetFilePaths() )
+		for (const auto& Filename : CrashInfo.ModuleNames)
 		{
 			const FString Path = FPaths::GetPath( Filename );
 			if( Path.Len() > 0 )
@@ -570,7 +451,7 @@ int FWindowsPlatformStackWalkExt::GetCallstacks()
 	}
 
 	// Get the entire stack trace
-	const uint32 MaxFrames = 128;
+	const uint32 MaxFrames = 8192;
 	const uint32 MaxFramesSize = MaxFrames * ContextUsed;
 
 	DEBUG_STACK_FRAME* StackFrames = new(FMemStack::Get()) DEBUG_STACK_FRAME[MaxFrames];
@@ -579,6 +460,8 @@ int FWindowsPlatformStackWalkExt::GetCallstacks()
 	void* ContextData = FMemStack::Get().PushBytes( MaxFramesSize, 0 );
 	FMemory::Memzero( ContextData, MaxFramesSize );
 	HRESULT HR = Control->GetContextStackTrace( Context, ContextUsed, StackFrames, MaxFrames, ContextData, MaxFramesSize, ContextUsed, &Count );
+
+	int32 AssertOrEnsureIndex = -1;
 
 	for( uint32 StackIndex = 0; StackIndex < Count; StackIndex++ )
 	{	
@@ -593,7 +476,7 @@ int FWindowsPlatformStackWalkExt::GetCallstacks()
 			FString ModuleAndFunction = NameByOffset;
 
 			// Don't care about any more entries higher than this
-			if( ModuleAndFunction.Contains( TEXT( "tmainCRTStartup" ) ) )
+			if (ModuleAndFunction.Contains( TEXT( "tmainCRTStartup" ) ) || ModuleAndFunction.Contains( TEXT( "FRunnableThreadWin::GuardedRun" ) ))
 			{
 				break;
 			}
@@ -627,15 +510,15 @@ int FWindowsPlatformStackWalkExt::GetCallstacks()
 				ModuleName = ModuleAndFunction;
 			}
 
-			// @TODO yrx 2015-02-24 Add for other platforms
+			// #YRX_Crash: 2015-07-24 Add for other platforms
 			// If we find an assert, the actual source file we're interested in is the next one up, so reset the source file found flag
 			if( FunctionName.Len() > 0 )
 			{
-				if( FunctionName.Contains( TEXT( "FDebug::AssertFailed" ), ESearchCase::CaseSensitive )
-					|| FunctionName.Contains( TEXT( "FDebug::EnsureNotFalse" ), ESearchCase::CaseSensitive )
-					|| FunctionName.Contains( TEXT( "FDebug::EnsureFailed" ), ESearchCase::CaseSensitive ) )
+				if( FunctionName.Contains( TEXT( "FDebug::" ), ESearchCase::CaseSensitive )
+					|| FunctionName.Contains( TEXT( "NewReportEnsure" ), ESearchCase::CaseSensitive ) )
 				{
 					bFoundSourceFile = false;
+					AssertOrEnsureIndex = FMath::Max( AssertOrEnsureIndex, (int32)StackIndex );
 				}
 			}
 
@@ -647,6 +530,13 @@ int FWindowsPlatformStackWalkExt::GetCallstacks()
 
 			UE_LOG( LogCrashDebugHelper, Log, TEXT( "%3u: %s" ), StackIndex, *GenericFormattedCallstackLine );
 		}
+	}
+
+	// Remove callstack entries below FDebug, we don't need them.
+	if (AssertOrEnsureIndex > 0)
+	{	
+		Exception.CallStackString.RemoveAt( 0, AssertOrEnsureIndex );
+		UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Callstack trimmed to %i entries" ), Exception.CallStackString.Num() );
 	}
 
 	UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Callstack generated with %i valid function names" ), NumValidFunctionNames );

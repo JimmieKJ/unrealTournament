@@ -21,21 +21,40 @@ void SMergeDetailsView::Construct(const FArguments InArgs
 	const UObject* BaseCDO = DiffUtils::GetCDO(InData.BlueprintBase);
 	const UObject* LocalCDO = DiffUtils::GetCDO(InData.BlueprintLocal);
 
-	TArray<FSingleObjectDiffEntry> RemoteDifferences;
-	DiffUtils::CompareUnrelatedObjects(BaseCDO, RemoteCDO, RemoteDifferences);
-	TArray<FSingleObjectDiffEntry> LocalDifferences;
-	DiffUtils::CompareUnrelatedObjects(BaseCDO, LocalCDO, LocalDifferences);
-
-	const auto GetPropertyNames = []( const TArray<FSingleObjectDiffEntry>& FromDifferences, TArray<FPropertySoftPath>& OutNames )
+	// EMergeParticipant::Remote
 	{
-		for( const auto& Entry : FromDifferences )
+		DetailsViews.Add(
+			FDetailsDiff(RemoteCDO, FDetailsDiff::FOnDisplayedPropertiesChanged() )
+		);
+	}
+	// EMergeParticipant::Base
+	{
+		DetailsViews.Add(
+			FDetailsDiff(BaseCDO, FDetailsDiff::FOnDisplayedPropertiesChanged())
+		);
+	}
+	// EMergeParticipant::Local
+	{
+		DetailsViews.Add(
+			FDetailsDiff(LocalCDO, FDetailsDiff::FOnDisplayedPropertiesChanged())
+		);
+	}
+	
+	TArray<FSingleObjectDiffEntry> RemoteDifferences;
+	GetBaseDetails().DiffAgainst(GetRemoteDetails(), RemoteDifferences);
+	TArray<FSingleObjectDiffEntry> LocalDifferences;
+	GetBaseDetails().DiffAgainst(GetLocalDetails(), LocalDifferences);
+
+	const auto GetPropertyNames = [](const TArray<FSingleObjectDiffEntry>& FromDifferences, TArray<FPropertySoftPath>& OutNames)
+	{
+		for (const auto& Entry : FromDifferences)
 		{
 			OutNames.Push(Entry.Identifier);
 		}
 	};
 
 	TArray<FPropertySoftPath> RemoteDifferingProperties;
-	GetPropertyNames( RemoteDifferences, RemoteDifferingProperties );
+	GetPropertyNames(RemoteDifferences, RemoteDifferingProperties);
 	TArray<FPropertySoftPath> LocalDifferingProperties;
 	GetPropertyNames(LocalDifferences, LocalDifferingProperties);
 
@@ -43,46 +62,6 @@ void SMergeDetailsView::Construct(const FArguments InArgs
 	FPropertySoftPathSet LocalDifferingPropertiesSet(LocalDifferingProperties);
 	FPropertySoftPathSet BaseDifferingPropertiesSet(RemoteDifferingPropertiesSet.Union(LocalDifferingPropertiesSet));
 	MergeConflicts = RemoteDifferingPropertiesSet.Intersect(LocalDifferingPropertiesSet).Array();
-
-	/*	
-		DifferingProperties is an ordered list of all differing properties (properties added, removed or changed) in remote or local.
-		Strictly speaking it's impossible to guarantee that we'll traverse remote and local differences in the same order (for instance
-		because property layout could somehow change between revisions) but in practice the following works:
-
-			1. Iterate properties in base, add any properties that differ in remote or local to DifferingProperties.
-			2. Iterate properties in remote, add any new properties to DifferingProperties
-			3. Iterate properties in local, add any new properties to DifferingProperties, if they have not already been added
-	*/
-	const auto AddPropertiesOrdered = [](FPropertySoftPath const& Property, const FPropertySoftPathSet& InDifferingProperties, TArray<FPropertySoftPath>& ResultingProperties)
-	{
-		// contains check here is O(n), so we're needlessly n^2:
-		if (!ResultingProperties.Contains(Property))
-		{
-			if (InDifferingProperties.Contains(Property))
-			{
-				ResultingProperties.Add(Property);
-			}
-		}
-	};
-
-	// EMergeParticipant::Remote
-	{
-		DetailsViews.Add(
-			FDetailsDiff(RemoteCDO, DiffUtils::ResolveAll( RemoteCDO, RemoteDifferingProperties), FDetailsDiff::FOnDisplayedPropertiesChanged() )
-		);
-	}
-	// EMergeParticipant::Base
-	{
-		DetailsViews.Add(
-			FDetailsDiff(BaseCDO, DiffUtils::ResolveAll( BaseCDO, BaseDifferingPropertiesSet.Array()), FDetailsDiff::FOnDisplayedPropertiesChanged())
-		);
-	}
-	// EMergeParticipant::Local
-	{
-		DetailsViews.Add(
-			FDetailsDiff(LocalCDO, DiffUtils::ResolveAll( LocalCDO, LocalDifferingProperties), FDetailsDiff::FOnDisplayedPropertiesChanged())
-		);
-	}
 
 	TArray<FPropertySoftPath> RemoteVisibleProperties = GetRemoteDetails().GetDisplayedProperties();
 	TArray<FPropertySoftPath> BaseVisibleProperties = GetBaseDetails().GetDisplayedProperties();
@@ -150,6 +129,27 @@ void SMergeDetailsView::Construct(const FArguments InArgs
 			FText Label = DiffViewUtils::PropertyDiffMessage(*LocalDiffering, LocalLabel);
 			FDiffPair Difference = { LocalDiffering->Identifier, Label, false };
 			OutProcessedDifferences.Push(Difference);
+		}
+	};
+
+	/*
+		DifferingProperties is an ordered list of all differing properties (properties added, removed or changed) in remote or local.
+		Strictly speaking it's impossible to guarantee that we'll traverse remote and local differences in the same order (for instance
+		because property layout could somehow change between revisions) but in practice the following works:
+
+		1. Iterate properties in base, add any properties that differ in remote or local to DifferingProperties.
+		2. Iterate properties in remote, add any new properties to DifferingProperties
+		3. Iterate properties in local, add any new properties to DifferingProperties, if they have not already been added
+	*/
+	const auto AddPropertiesOrdered = [](FPropertySoftPath const& Property, const FPropertySoftPathSet& InDifferingProperties, TArray<FPropertySoftPath>& ResultingProperties)
+	{
+		// contains check here is O(n), so we're needlessly n^2:
+		if (!ResultingProperties.Contains(Property))
+		{
+			if (InDifferingProperties.Contains(Property))
+			{
+				ResultingProperties.Add(Property);
+			}
 		}
 	};
 

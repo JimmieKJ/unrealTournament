@@ -2,8 +2,67 @@
 
 #pragma once
 #include "SCompoundWidget.h"
+#include "TranslationPickerEditWindow.generated.h"
 
 #define LOCTEXT_NAMESPACE "TranslationPicker"
+
+UCLASS(config = TranslationPickerSettings)
+class UTranslationPickerSettings : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+public:
+	/** Bool submit translation picker changes to Localization Service */
+	UPROPERTY(config)
+	bool bSubmitTranslationPickerChangesToLocalizationService;
+};
+
+class FTranslationPickerSettingsManager
+{
+	FTranslationPickerSettingsManager()
+	{
+		TranslationPickerSettingsObject = NewObject<UTranslationPickerSettings>();
+		TranslationPickerSettingsObject->LoadConfig();
+	}
+
+public:
+	void SaveSettings()
+	{
+		TranslationPickerSettingsObject->SaveConfig();
+	}
+
+	void LoadSettings()
+	{
+		TranslationPickerSettingsObject->LoadConfig();
+	}
+
+	UTranslationPickerSettings* GetSettings()
+	{
+		return TranslationPickerSettingsObject;
+	}
+
+	/**
+	* Gets a reference to the translation picker manager instance.
+	*
+	* @return A reference to the translation picker manager instance.
+	*/
+	static inline TSharedPtr<FTranslationPickerSettingsManager>& Get()
+	{
+		if (!TranslationPickerSettingsManagerInstance.IsValid())
+		{
+			TranslationPickerSettingsManagerInstance = MakeShareable(new FTranslationPickerSettingsManager());
+		}
+
+		return TranslationPickerSettingsManagerInstance;
+	}
+
+private:
+
+	static TSharedPtr<FTranslationPickerSettingsManager> TranslationPickerSettingsManagerInstance;
+
+	/** Used to load and store settings for the Translation Picker */
+	UTranslationPickerSettings* TranslationPickerSettingsObject;
+};
 
 /** Translation picker edit Widget to handle the display and editing of a single selected FText */
 class STranslationPickerEditWidget : public SCompoundWidget
@@ -20,6 +79,12 @@ class STranslationPickerEditWidget : public SCompoundWidget
 
 	/** Return the translation unit for this text, with any modifications */
 	UTranslationUnit* GetTranslationUnitWithAnyChanges();
+
+	/** Whether or not we can save */
+	bool CanSave()
+	{
+		return bAllowEditing && bHasRequiredLocalizationInfoForSaving;
+	}
 
 private:
 
@@ -41,6 +106,9 @@ private:
 
 	/** Whether or not to show the save button*/
 	bool bAllowEditing;
+
+	/** Whether or not we were able to find the necessary info for saving */
+	bool bHasRequiredLocalizationInfoForSaving;
 };
 
 /** Translation picker edit window to allow you to translate selected FTexts in place */
@@ -86,6 +154,8 @@ private:
 
 	/** Save all translations and close */
 	FReply SaveAllAndClose();
+
+
 };
 
 #undef LOCTEXT_NAMESPACE

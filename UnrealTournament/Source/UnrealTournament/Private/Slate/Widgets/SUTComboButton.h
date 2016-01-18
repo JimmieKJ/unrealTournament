@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "SlateBasics.h"
@@ -113,7 +113,7 @@ class UNREALTOURNAMENT_API SUTComboButton : public SMenuAnchor
 		SLATE_ARGUMENT( bool, IsToggleButton )
 
 		/** The text to display in this button, if no custom content is specified */
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE( FText, Text )
 
 		SLATE_ARGUMENT( EHorizontalAlignment, ContentHAlign )
 
@@ -138,6 +138,8 @@ public:
 	virtual void BePressed();
 
 	int32 GetSubMenuItemCount();
+
+	virtual void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true ) override;
 
 protected:
 
@@ -194,7 +196,7 @@ protected:
 	virtual void SetMenus( const TSharedRef< SWidget >& InContent );
 
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
-
+	void OnMenuDismissed();
 };
 
 #endif

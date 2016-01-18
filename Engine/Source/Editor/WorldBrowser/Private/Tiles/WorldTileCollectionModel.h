@@ -19,9 +19,9 @@ public:
 	 *
 	 *	@param	InEditor		The UEditorEngine to use
 	 */
-	static TSharedRef<FWorldTileCollectionModel> Create(UEditorEngine* InEditor, UWorld* InWorld)
+	static TSharedRef<FWorldTileCollectionModel> Create(UWorld* InWorld)
 	{
-		TSharedRef<FWorldTileCollectionModel> LevelCollectionModel(new FWorldTileCollectionModel(InEditor));
+		TSharedRef<FWorldTileCollectionModel> LevelCollectionModel(new FWorldTileCollectionModel());
 		LevelCollectionModel->Initialize(InWorld);
 		return LevelCollectionModel;
 	}
@@ -121,7 +121,7 @@ public:
 											FVector2D InAbsoluteDelta, 
 											float SnappingDistance);
 	
-	// Begin FEditorUndoClient Interface
+	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }
 	// End of FEditorUndoClient
@@ -145,7 +145,7 @@ public:
 	void BuildWorldCompositionMenu(FMenuBuilder& InMenuBuilder) const;
 
 private:
-	FWorldTileCollectionModel(UEditorEngine* InEditor);
+	FWorldTileCollectionModel();
 	
 	/** Setups parent->child links between tiles */
 	void SetupParentChildLinks();

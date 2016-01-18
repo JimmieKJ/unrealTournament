@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2246990
+﻿INTSourceChangelist:2573005
 Availability:NoPublish
 Title:ARadialForceActor
 Crumbs:
@@ -6,7 +6,7 @@ Description: RadialForceActor クラスの概要
 
 [EXCERPT:ARadialForceActor]
 
-Radial Force Actor を使用して、 Constant Force または Impulse (エディタで Force Strength としてリスト表示) を適用できます。
+RadialForceActor を使用して、 Constant Force または Impulse (エディタで Force Strength としてリスト表示) を適用できます。
 
 [VAR:ToolTipFullLink]
 Resources/ContentExamples/Physics/1_3

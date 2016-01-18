@@ -6,18 +6,20 @@
 #include "SEditorViewport.h"
 #include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
 
+struct FSlateMaterialBrush;
+
 /**
  * Material Editor Preview viewport widget
  */
-class SMaterialEditorViewport : public SEditorViewport, public FGCObject, public ICommonEditorViewportToolbarInfoProvider
+class SMaterialEditor3DPreviewViewport : public SEditorViewport, public FGCObject, public ICommonEditorViewportToolbarInfoProvider
 {
 public:
-	SLATE_BEGIN_ARGS( SMaterialEditorViewport ){}
+	SLATE_BEGIN_ARGS( SMaterialEditor3DPreviewViewport ){}
 		SLATE_ARGUMENT(TWeakPtr<IMaterialEditor>, MaterialEditor)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
-	~SMaterialEditorViewport();
+	~SMaterialEditor3DPreviewViewport();
 	
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
 
@@ -94,7 +96,30 @@ private:
 
 	/** Pointer back to the material editor tool that owns us */
 	TWeakPtr<IMaterialEditor> MaterialEditorPtr;
-	
+
 	/** Level viewport client */
 	TSharedPtr<class FMaterialEditorViewportClient> EditorViewportClient;
+};
+
+/**
+ * A preview viewport used for 2D UI materials
+ */
+class SMaterialEditorUIPreviewViewport : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS( SMaterialEditorUIPreviewViewport ){}
+	SLATE_END_ARGS()
+
+	void Construct( const FArguments& InArgs, UMaterialInterface* PreviewMaterial );
+
+private:
+	void OnPreviewXChanged( int32 NewValue );
+	void OnPreviewXCommitted( int32 NewValue, ETextCommit::Type );
+	void OnPreviewYChanged( int32 NewValue );
+	void OnPreviewYCommitted( int32 NewValue, ETextCommit::Type );
+	TOptional<int32> OnGetPreviewXValue() const { return PreviewSize.X; }
+	TOptional<int32> OnGetPreviewYValue() const { return PreviewSize.Y; }
+private:
+	FIntPoint PreviewSize;
+	TSharedPtr<class SMaterialEditorUIPreviewZoomer> PreviewZoomer;
 };

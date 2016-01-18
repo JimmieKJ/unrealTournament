@@ -88,10 +88,11 @@ void FRCPassPostProcessPassThrough::Process(FRenderingCompositePassContext& Cont
 
 	FIntPoint SrcSize = InputDesc->Extent;
 	FIntPoint DestSize = Dest ? Dest->GetDesc().Extent : PassOutputs[0].RenderTargetDesc.Extent;
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 InputScaleFactor = GSceneRenderTargets.GetBufferSizeXY().X / SrcSize.X;
-	uint32 OutputScaleFactor = GSceneRenderTargets.GetBufferSizeXY().X / DestSize.X;
+	uint32 InputScaleFactor = SceneContext.GetBufferSizeXY().X / SrcSize.X;
+	uint32 OutputScaleFactor = SceneContext.GetBufferSizeXY().X / DestSize.X;
 
 	FIntRect SrcRect = View.ViewRect / InputScaleFactor;
 	FIntRect DestRect = View.ViewRect / OutputScaleFactor;
@@ -126,8 +127,7 @@ void FRCPassPostProcessPassThrough::Process(FRenderingCompositePassContext& Cont
 	VertexShader->SetParameters(Context);
 	PixelShader->SetParameters(Context);
 
-	// Draw a quad mapping scene color to the view's render target
-	DrawRectangle(
+	DrawPostProcessPass(
 		Context.RHICmdList,
 		DestRect.Min.X, DestRect.Min.Y,
 		DestRect.Width(), DestRect.Height(),
@@ -136,12 +136,12 @@ void FRCPassPostProcessPassThrough::Process(FRenderingCompositePassContext& Cont
 		DestSize,
 		SrcSize,
 		*VertexShader,
+		View.StereoPass,
+		Context.HasHmdMesh(),
 		EDRF_UseTriangleOptimization);
-
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }
-
 
 FPooledRenderTargetDesc FRCPassPostProcessPassThrough::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
@@ -150,7 +150,7 @@ FPooledRenderTargetDesc FRCPassPostProcessPassThrough::ComputeOutputDesc(EPassOu
 	// we assume this pass is additively blended with the scene color so an intermediate is not always needed
 	if(!Dest)
 	{
-		Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+		Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 		if(NewDesc.IsValid())
 		{
@@ -162,4 +162,52 @@ FPooledRenderTargetDesc FRCPassPostProcessPassThrough::ComputeOutputDesc(EPassOu
 	Ret.DebugName = TEXT("PassThrough");
 
 	return Ret;
+}
+
+void CopyOverOtherViewportsIfNeeded(FRenderingCompositePassContext& Context, const FSceneView& ExcludeView)
+{
+	const FSceneView& View = Context.View;
+	const FSceneViewFamily* ViewFamily = View.Family;
+
+	// only for multiple views we need to do this
+	if(ViewFamily->Views.Num())
+	{
+		SCOPED_DRAW_EVENT(Context.RHICmdList, CopyOverOtherViewportsIfNeeded);
+
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessPassThroughPS> PixelShader(Context.GetShaderMap());
+
+		static FGlobalBoundShaderState BoundShaderState;
+
+		SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+
+		VertexShader->SetParameters(Context);
+		PixelShader->SetParameters(Context);
+
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
+
+		FIntPoint Size = SceneContext.GetBufferSizeXY();
+	
+		for(uint32 ViewId = 0, ViewCount = ViewFamily->Views.Num(); ViewId < ViewCount; ++ViewId)
+		{
+			const FSceneView& LocalView = *ViewFamily->Views[ViewId];
+			
+			if(&LocalView != &ExcludeView)
+			{
+				FIntRect Rect = LocalView.ViewRect;
+
+				DrawPostProcessPass(Context.RHICmdList,
+					Rect.Min.X, Rect.Min.Y,
+					Rect.Width(), Rect.Height(),
+					Rect.Min.X, Rect.Min.Y,
+					Rect.Width(), Rect.Height(),
+					Size,
+					Size,
+					*VertexShader,
+					View.StereoPass, 
+					Context.HasHmdMesh(),
+					EDRF_UseTriangleOptimization);
+			}
+		}
+	}
 }

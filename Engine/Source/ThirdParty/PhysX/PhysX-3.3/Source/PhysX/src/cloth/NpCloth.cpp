@@ -71,15 +71,6 @@ NpCloth* NpCloth::createObject(PxU8*& address, PxDeserializationContext& context
 }
 //~PX_SERIALIZATION
 
-
-PxCloth* NpGetPxCloth(Sc::ClothCore& cloth)
-{
-	char* p = reinterpret_cast<char*>(&cloth);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpCloth*>(0)->getScbCloth()));
-	return reinterpret_cast<NpCloth*>(p - scbOffset - Scb::Cloth::getScOffset());
-}
-
-
 void NpCloth::release()
 {
 	NP_WRITE_CHECK(NpActor::getOwnerScene(*this));

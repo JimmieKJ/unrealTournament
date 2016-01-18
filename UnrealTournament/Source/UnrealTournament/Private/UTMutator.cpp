@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTMutator.h"
 
@@ -99,7 +99,7 @@ void AUTMutator::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCha
 	}
 }
 
-void AUTMutator::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTMutator::ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker)
 {
 	if (NextMutator != NULL)
 	{
@@ -124,21 +124,21 @@ bool AUTMutator::OverridePickupQuery_Implementation(APawn* Other, TSubclassOf<AU
 // just forward for now, but something to think about.
 FString AUTMutator::ParseOption( const FString& Options, const FString& InKey )
 {
-	return AGameMode::StaticClass()->GetDefaultObject<AGameMode>()->ParseOption(Options, InKey);
+	return UGameplayStatics::ParseOption(Options, InKey);
 }
 
 //TODO: Maybe we should just create a static object for parsing game options.  Since this is currently at the engine level I'll
 // just forward for now, but something to think about.
 bool AUTMutator::HasOption( const FString& Options, const FString& InKey )
 {
-	return AGameMode::StaticClass()->GetDefaultObject<AGameMode>()->HasOption(Options, InKey);
+	return UGameplayStatics::HasOption(Options, InKey);
 }
 
 //TODO: Maybe we should just create a static object for parsing game options.  Since this is currently at the engine level I'll
 // just forward for now, but something to think about.
 int32 AUTMutator::GetIntOption( const FString& Options, const FString& ParseString, int32 CurrentValue)
 {
-	return AGameMode::StaticClass()->GetDefaultObject<AGameMode>()->GetIntOption(Options, ParseString, CurrentValue);
+	return UGameplayStatics::GetIntOption(Options, ParseString, CurrentValue);
 }
 
 void AUTMutator::AddDefaultInventory(TSubclassOf<AUTInventory> InventoryClass)

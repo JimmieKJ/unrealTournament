@@ -35,6 +35,9 @@ public:
 
 	/** Save the translations to file */
 	TSharedPtr<FUICommandInfo> PreviewAllTranslationsInEditor;
+	
+	/** Download and import the latest translations from the active Translation Service */
+	TSharedPtr<FUICommandInfo> ImportLatestFromLocalizationService;
 
 	/** Export to PortableObject format (.po) */
 	TSharedPtr<FUICommandInfo> ExportToPortableObjectFormat;

@@ -98,7 +98,7 @@ class UParticleModuleLocationBoneSocket : public UParticleModuleLocationBase
 
 #endif // WITH_EDITORONLY_DATA
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void	Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
 	virtual void	FinalUpdate(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
@@ -109,14 +109,14 @@ class UParticleModuleLocationBoneSocket : public UParticleModuleLocationBase
 	virtual void	AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp) override;
 	virtual bool CanTickInAnyThread() override
 	{
-		return false;
+		return true;
 	}
 #if WITH_EDITOR
 	virtual int32 GetNumberOfCustomMenuOptions() const override;
 	virtual bool GetCustomMenuEntryDisplayString(int32 InEntryIndex, FString& OutDisplayString) const override;
 	virtual bool PerformCustomMenuEntry(int32 InEntryIndex) override;
 #endif
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
 	/**
 	 *	Retrieve the skeletal mesh component source to use for the current emitter instance.

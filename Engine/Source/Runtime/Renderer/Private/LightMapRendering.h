@@ -13,28 +13,75 @@ extern ENGINE_API bool GShowDebugSelectedLightmap;
 extern ENGINE_API class FLightMap2D* GDebugSelectedLightmap;
 extern bool GVisualizeMipLevels;
 
+BEGIN_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, IndirectLightingCachePrimitiveAdd) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, IndirectLightingCachePrimitiveScale) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, IndirectLightingCacheMinUV) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, IndirectLightingCacheMaxUV) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PointSkyBentNormal) // FCachedPointIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float, DirectionalLightShadowing, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, StaticShadowMapMasks) // TDistanceFieldShadowsAndLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, InvUniformPenumbraSizes) // TDistanceFieldShadowsAndLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4, IndirectLightingSHCoefficients, [3]) // FCachedPointIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4, IndirectLightingSHSingleCoefficient, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy used in Forward Translucent
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, LightMapCoordinateScaleBias) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, ShadowMapCoordinateScaleBias) // TDistanceFieldShadowsAndLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY_EX(FVector4, LightMapScale, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY_EX(FVector4, LightMapAdd, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture2D, LightMapTexture) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture2D, SkyOcclusionTexture) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture2D, AOMaterialMaskTexture) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture0) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture1) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture2) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture2D, StaticShadowTexture) // 
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, LightMapSampler) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, SkyOcclusionSampler) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, AOMaterialMaskSampler) // TLightMapPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler0) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler1) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler2) // FCachedVolumeIndirectLightingPolicy
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, StaticShadowTextureSampler) // TDistanceFieldShadowsAndLightMapPolicy
+END_UNIFORM_BUFFER_STRUCT( FPrecomputedLightingParameters )
+
+
+uint32 GetPrecompuledLightingVersionID(const FLightMapInteraction& LightMapInteraction, const FShadowMapInteraction& ShadowMapInteraction, ERHIFeatureLevel::Type FeatureLevel);
+uint32 GetPrecompuledLightingVersionID(const FLightCacheInterface* LCI, ERHIFeatureLevel::Type FeatureLevel);
+
+void GetPrecomputedLightingParameters(
+	ERHIFeatureLevel::Type FeatureLevel,
+	FPrecomputedLightingParameters& Parameters, 
+	const class FIndirectLightingCache* LightingCache = NULL, 
+	const class FIndirectLightingCacheAllocation* LightingAllocation = NULL, 
+	const FLightCacheInterface* LCI = NULL
+	);
+
+FUniformBufferRHIRef CreatePrecomputedLightingUniformBuffer(
+	EUniformBufferUsage BufferUsage,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const class FIndirectLightingCache* LightingCache = NULL, 
+	const class FIndirectLightingCacheAllocation* LightingAllocation = NULL, 
+	const FLightCacheInterface* LCI = NULL
+	);
+
 /**
+ * Default precomputed lighting data. Used for fully dynamic lightmap policies.
  */
-class FNullLightMapShaderComponent
+class FEmptyPrecomputedLightingUniformBuffer : public TUniformBuffer< FPrecomputedLightingParameters >
 {
+	typedef TUniformBuffer< FPrecomputedLightingParameters > Super;
 public:
-	void Bind(const FShaderParameterMap& ParameterMap)
-	{}
-	void Serialize(FArchive& Ar)
-	{}
+	virtual void InitDynamicRHI() override;
 };
+
+/** Global uniform buffer containing the default precomputed lighting data. */
+extern TGlobalResource< FEmptyPrecomputedLightingUniformBuffer > GEmptyPrecomputedLightingUniformBuffer;
 
 /**
  * A policy for shaders without a light-map.
  */
-class FNoLightMapPolicy
+struct FNoLightMapPolicy
 {
-public:
-
-	typedef FNullLightMapShaderComponent VertexParametersType;
-	typedef FNullLightMapShaderComponent PixelParametersType;
-	typedef FMeshDrawingPolicy::ElementDataType ElementDataType;
-
 	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
 		return true;
@@ -42,45 +89,6 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{}
-
-	void Set(
-		FRHICommandList& RHICmdList, 
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FSceneView* View
-		) const
-	{
-		check(VertexFactory);
-		VertexFactory->Set(RHICmdList);
-	}
-
-	void SetMesh(
-		FRHICommandList& RHICmdList,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const ElementDataType& ElementData
-		) const
-	{}
-
-	friend bool operator==(const FNoLightMapPolicy A,const FNoLightMapPolicy B)
-	{
-		return true;
-	}
-
-	friend int32 CompareDrawingPolicy(const FNoLightMapPolicy&,const FNoLightMapPolicy&)
-	{
-		return 0;
-	}
 };
 
 enum ELightmapQuality
@@ -93,117 +101,8 @@ enum ELightmapQuality
  * Base policy for shaders with lightmaps.
  */
 template< ELightmapQuality LightmapQuality >
-class TLightMapPolicy
+struct TLightMapPolicy
 {
-public:
-
-	typedef FLightMapInteraction ElementDataType;
-
-	class VertexParametersType
-	{
-	public:
-		void Bind(const FShaderParameterMap& ParameterMap)
-		{
-			LightMapCoordinateScaleBiasParameter.Bind(ParameterMap,TEXT("LightMapCoordinateScaleBias"));
-		}
-
-		void SetLightMapScale(FRHICommandList& RHICmdList, FShader* VertexShader,const FLightMapInteraction& LightMapInteraction) const
-		{
-			const FVector2D LightmapCoordinateScale = LightMapInteraction.GetCoordinateScale();
-			const FVector2D LightmapCoordinateBias = LightMapInteraction.GetCoordinateBias();
-			SetShaderValue(RHICmdList, VertexShader->GetVertexShader(),LightMapCoordinateScaleBiasParameter,FVector4(
-				LightmapCoordinateScale.X,
-				LightmapCoordinateScale.Y,
-				LightmapCoordinateBias.X,
-				LightmapCoordinateBias.Y
-				));
-		}
-
-		void Serialize(FArchive& Ar)
-		{
-			Ar << LightMapCoordinateScaleBiasParameter;
-		}
-
-	private:
-		FShaderParameter LightMapCoordinateScaleBiasParameter;
-	};
-
-	class PixelParametersType
-	{
-	public:
-		void Bind(const FShaderParameterMap& ParameterMap)
-		{
-			LightMapTextureParameter.Bind(ParameterMap,TEXT("LightMapTexture"));
-			LightMapSamplerParameter.Bind(ParameterMap,TEXT("LightMapSampler"));
-			SkyOcclusionTexture.Bind(ParameterMap,TEXT("SkyOcclusionTexture"));
-			SkyOcclusionSampler.Bind(ParameterMap,TEXT("SkyOcclusionSampler"));
-			LightMapScaleParameter.Bind(ParameterMap,TEXT("LightMapScale"));
-			LightMapAddParameter.Bind(ParameterMap,TEXT("LightMapAdd"));
-		}
-
-		void SetLightMapTexture(FRHICommandList& RHICmdList, FShader* PixelShader, const UTexture2D* LightMapTexture) const
-		{
-			FTexture* TextureResource = GBlackTexture;
-
-			if (LightMapTexture)
-			{
-				TextureResource = LightMapTexture->Resource;
-			}
-
-			SetTextureParameter(
-				RHICmdList, 
-				PixelShader->GetPixelShader(),
-				LightMapTextureParameter,
-				LightMapSamplerParameter,
-				TextureResource
-				);
-		}
-
-		void SetSkyOcclusionTexture(FRHICommandList& RHICmdList, FShader* PixelShader, const UTexture2D* SkyOcclusionTextureValue) const
-		{
-			FTexture* TextureResource = GWhiteTexture;
-
-			if (SkyOcclusionTextureValue)
-			{
-				TextureResource = SkyOcclusionTextureValue->Resource;
-			}
-
-			SetTextureParameter(
-				RHICmdList, 
-				PixelShader->GetPixelShader(),
-				SkyOcclusionTexture,
-				SkyOcclusionSampler,
-				TextureResource
-				);
-		}
-
-		void SetLightMapScale(FRHICommandList& RHICmdList, FShader* PixelShader,const FLightMapInteraction& LightMapInteraction) const
-		{
-			const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
-
-			SetShaderValueArray(RHICmdList,ShaderRHI,LightMapScaleParameter,LightMapInteraction.GetScaleArray(),LightMapInteraction.GetNumLightmapCoefficients());
-			SetShaderValueArray(RHICmdList,ShaderRHI,LightMapAddParameter,LightMapInteraction.GetAddArray(),LightMapInteraction.GetNumLightmapCoefficients());
-		}
-
-		void Serialize(FArchive& Ar)
-		{
-			Ar << LightMapTextureParameter;
-			Ar << LightMapSamplerParameter;
-			Ar << SkyOcclusionTexture;
-			Ar << SkyOcclusionSampler;
-			Ar << LightMapScaleParameter;
-			Ar << LightMapAddParameter;
-		}
-
-	private:
-		FShaderResourceParameter LightMapTextureParameter;
-		FShaderResourceParameter LightMapSamplerParameter;
-		FShaderResourceParameter SkyOcclusionTexture;
-		FShaderResourceParameter SkyOcclusionSampler;
-		FShaderParameter LightMapScaleParameter;
-		FShaderParameter LightMapAddParameter;
-	};
-
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		switch( LightmapQuality )
@@ -234,156 +133,13 @@ public:
 		// if LQ
 		//return (IsPCPlatform(Platform) || IsES2Platform(Platform));
 	}
-
-	void Set(
-		FRHICommandList& RHICmdList, 
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FSceneView* View
-		) const
-	{
-		check(VertexFactory);
-		VertexFactory->Set(RHICmdList);
-	}
-
-	void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FLightMapInteraction& LightMapInteraction
-		) const
-	{
-		if(VertexShaderParameters)
-		{
-			VertexShaderParameters->SetLightMapScale(RHICmdList, VertexShader,LightMapInteraction);
-		}
-
-		if(PixelShaderParameters)
-		{
-			PixelShaderParameters->SetLightMapScale(RHICmdList, PixelShader,LightMapInteraction);
-			PixelShaderParameters->SetLightMapTexture(RHICmdList, PixelShader, LightMapInteraction.GetTexture(AllowHighQualityLightmaps(View.GetFeatureLevel())));
-			PixelShaderParameters->SetSkyOcclusionTexture(RHICmdList, PixelShader, LightMapInteraction.GetSkyOcclusionTexture());
-		}
-	}
-
-	friend bool operator==( const TLightMapPolicy< LightmapQuality > A, const TLightMapPolicy< LightmapQuality > B )
-	{
-		return true;
-	}
-
-	friend int32 CompareDrawingPolicy( const TLightMapPolicy< LightmapQuality >& A, const TLightMapPolicy< LightmapQuality >& B )
-	{
-		return 0;
-	}
 };
 
 // A light map policy for computing up to 4 signed distance field shadow factors in the base pass.
 template< ELightmapQuality LightmapQuality >
-class TDistanceFieldShadowsAndLightMapPolicy : public TLightMapPolicy< LightmapQuality >
+struct TDistanceFieldShadowsAndLightMapPolicy : public TLightMapPolicy< LightmapQuality >
 {
 	typedef TLightMapPolicy< LightmapQuality >	Super;
-	typedef typename Super::ElementDataType		SuperElementDataType;
-public:
-
-	struct ElementDataType
-	{
-		SuperElementDataType SuperElementData;
-		
-		FShadowMapInteraction ShadowMapInteraction;
-
-		/** Initialization constructor. */
-		ElementDataType( const FShadowMapInteraction& InShadowMapInteraction, const SuperElementDataType& InSuperElementData )
-			: SuperElementData(InSuperElementData)
-		{
-			ShadowMapInteraction = InShadowMapInteraction;
-		}
-	};
-
-	class VertexParametersType : public Super::VertexParametersType
-	{
-	public:
-		void Bind(const FShaderParameterMap& ParameterMap)
-		{
-			ShadowMapCoordinateScaleBias.Bind(ParameterMap, TEXT("ShadowMapCoordinateScaleBias"));
-			Super::VertexParametersType::Bind(ParameterMap);
-		}
-
-		void SetMesh(FRHICommandList& RHICmdList, FShader* VertexShader, const FShadowMapInteraction& ShadowMapInteraction) const
-		{
-			SetShaderValue(RHICmdList, VertexShader->GetVertexShader(), ShadowMapCoordinateScaleBias, FVector4(ShadowMapInteraction.GetCoordinateScale(), ShadowMapInteraction.GetCoordinateBias()));
-		}
-
-		void Serialize(FArchive& Ar)
-		{
-			Ar << ShadowMapCoordinateScaleBias;
-			Super::VertexParametersType::Serialize(Ar);
-		}
-
-	private:
-		FShaderParameter ShadowMapCoordinateScaleBias;
-	};
-
-
-	class PixelParametersType : public Super::PixelParametersType
-	{
-	public:
-		void Bind(const FShaderParameterMap& ParameterMap)
-		{
-			InvUniformPenumbraSizes.Bind(ParameterMap,TEXT("InvUniformPenumbraSizes"));
-			StaticShadowMapMasks.Bind(ParameterMap,TEXT("StaticShadowMapMasks"));
-			StaticShadowTexture.Bind(ParameterMap,TEXT("StaticShadowTexture"));
-			StaticShadowSampler.Bind(ParameterMap, TEXT("StaticShadowTextureSampler"));
-
-			Super::PixelParametersType::Bind(ParameterMap);
-		}
-
-		void SetMesh(FRHICommandList& RHICmdList, FShader* PixelShader, const FShadowMapInteraction& ShadowMapInteraction) const
-		{
-			const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
-
-			SetShaderValue(RHICmdList, ShaderRHI, InvUniformPenumbraSizes, ShadowMapInteraction.GetInvUniformPenumbraSize());
-
-			SetShaderValue(RHICmdList, ShaderRHI, StaticShadowMapMasks, FVector4(
-				ShadowMapInteraction.GetChannelValid(0),
-				ShadowMapInteraction.GetChannelValid(1),
-				ShadowMapInteraction.GetChannelValid(2),
-				ShadowMapInteraction.GetChannelValid(3)
-				));
-
-			SetTextureParameter(
-				RHICmdList, 
-				ShaderRHI,
-				StaticShadowTexture,
-				StaticShadowSampler,
-				ShadowMapInteraction.GetTexture() ? ShadowMapInteraction.GetTexture()->Resource : GWhiteTexture
-				);
-		}
-
-		void Serialize(FArchive& Ar)
-		{
-			Ar << InvUniformPenumbraSizes;
-			Ar << StaticShadowMapMasks;
-			Ar << StaticShadowTexture;
-			Ar << StaticShadowSampler;
-			Super::PixelParametersType::Serialize(Ar);
-		}
-
-	private:
-		FShaderParameter StaticShadowMapMasks;
-		FShaderResourceParameter StaticShadowTexture;
-		FShaderResourceParameter StaticShadowSampler;
-		FShaderParameter InvUniformPenumbraSizes;
-	};
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
@@ -391,40 +147,12 @@ public:
 		OutEnvironment.SetDefine(TEXT("STATICLIGHTING_SIGNEDDISTANCEFIELD"), 1);
 		Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 	}
-
-	TDistanceFieldShadowsAndLightMapPolicy() {}
-
-	void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const ElementDataType& ElementData
-		) const
-	{
-		if (VertexShaderParameters)
-		{
-			VertexShaderParameters->SetMesh(RHICmdList, VertexShader, ElementData.ShadowMapInteraction);
-		}
-
-		if (PixelShaderParameters)
-		{
-			PixelShaderParameters->SetMesh(RHICmdList, PixelShader, ElementData.ShadowMapInteraction);
-		}
-
-		Super::SetMesh(RHICmdList, View, PrimitiveSceneProxy, VertexShaderParameters, PixelShaderParameters, VertexShader, PixelShader, VertexFactory, MaterialRenderProxy, ElementData.SuperElementData);
-	}
 };
 
 /**
  * Policy for 'fake' texture lightmaps, such as the LightMap density rendering mode
  */
-class FDummyLightMapPolicy : public TLightMapPolicy< HQ_LIGHTMAP >
+struct FDummyLightMapPolicy : public TLightMapPolicy< HQ_LIGHTMAP >
 {
 public:
 
@@ -432,66 +160,12 @@ public:
 	{
 		return Material->GetShadingModel() != MSM_Unlit && VertexFactoryType->SupportsStaticLighting();
 	}
-
-	void Set(
-		FRHICommandList& RHICmdList, 
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FSceneView* View
-		) const
-	{
-		check(VertexFactory);
-		VertexFactory->Set(RHICmdList);
-	}
-
-	void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FLightMapInteraction& LightMapInteraction
-		) const
-	{
-		if(VertexShaderParameters)
-		{
-			VertexShaderParameters->SetLightMapScale(RHICmdList, VertexShader,LightMapInteraction);
-		}
-
-		if(PixelShaderParameters)
-		{
-			PixelShaderParameters->SetLightMapScale(RHICmdList, PixelShader,LightMapInteraction);
-		}
-	}
-
-	/** Initialization constructor. */
-	FDummyLightMapPolicy()
-	{
-	}
-
-	friend bool operator==(const FDummyLightMapPolicy A,const FDummyLightMapPolicy B)
-	{
-		return true;
-	}
-
-	friend int32 CompareDrawingPolicy(const FDummyLightMapPolicy& A,const FDummyLightMapPolicy& B)
-	{
-		return 0;
-	}
 };
 
 /**
  * Policy for self shadowing translucency from a directional light
  */
-class FSelfShadowedTranslucencyPolicy : public FNoLightMapPolicy
+class FSelfShadowedTranslucencyPolicy
 {
 public:
 
@@ -504,7 +178,14 @@ public:
 		const FProjectedShadowInfo* TranslucentSelfShadow;
 	};
 
-	class PixelParametersType : public FNoLightMapPolicy::PixelParametersType
+	class VertexParametersType
+	{
+	public:
+		void Bind(const FShaderParameterMap& ParameterMap) {}
+		void Serialize(FArchive& Ar) {}
+	};
+
+	class PixelParametersType
 	{
 	public:
 		void Bind(const FShaderParameterMap& ParameterMap)
@@ -540,11 +221,25 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		OutEnvironment.SetDefine(TEXT("TRANSLUCENT_SELF_SHADOWING"),TEXT("1"));
-		FNoLightMapPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 	}
 
 	/** Initialization constructor. */
 	FSelfShadowedTranslucencyPolicy() {}
+
+	void Set(
+		FRHICommandList& RHICmdList, 
+		const VertexParametersType* VertexShaderParameters,
+		const PixelParametersType* PixelShaderParameters,
+		FShader* VertexShader,
+		FShader* PixelShader,
+		const FVertexFactory* VertexFactory,
+		const FMaterialRenderProxy* MaterialRenderProxy,
+		const FSceneView* View
+		) const
+	{
+		check(VertexFactory);
+		VertexFactory->Set(RHICmdList);
+	}
 
 	void SetMesh(
 		FRHICommandList& RHICmdList,
@@ -588,63 +283,24 @@ public:
 			}
 		}
 	}
+
+	friend bool operator==(const FSelfShadowedTranslucencyPolicy A,const FSelfShadowedTranslucencyPolicy B)
+	{
+		return true;
+	}
+
+	friend int32 CompareDrawingPolicy(const FSelfShadowedTranslucencyPolicy&,const FSelfShadowedTranslucencyPolicy&)
+	{
+		return 0;
+	}
+
 };
 
 /**
  * Allows a dynamic object to access indirect lighting through a per-object allocation in a volume texture atlas
  */
-class FCachedVolumeIndirectLightingPolicy : public FNoLightMapPolicy
+struct FCachedVolumeIndirectLightingPolicy
 {
-public:
-
-	struct ElementDataType {};
-
-	class PixelParametersType : public FNoLightMapPolicy::PixelParametersType
-	{
-	public:
-		void Bind(const FShaderParameterMap& ParameterMap)
-		{
-			IndirectLightingCacheTexture0.Bind(ParameterMap, TEXT("IndirectLightingCacheTexture0"));
-			IndirectLightingCacheTexture1.Bind(ParameterMap, TEXT("IndirectLightingCacheTexture1"));
-			IndirectLightingCacheTexture2.Bind(ParameterMap, TEXT("IndirectLightingCacheTexture2"));
-			IndirectLightingCacheSampler0.Bind(ParameterMap, TEXT("IndirectLightingCacheTextureSampler0"));
-			IndirectLightingCacheSampler1.Bind(ParameterMap, TEXT("IndirectLightingCacheTextureSampler1"));
-			IndirectLightingCacheSampler2.Bind(ParameterMap, TEXT("IndirectLightingCacheTextureSampler2"));
-			IndirectlightingCachePrimitiveAdd.Bind(ParameterMap, TEXT("IndirectlightingCachePrimitiveAdd"));
-			IndirectlightingCachePrimitiveScale.Bind(ParameterMap, TEXT("IndirectlightingCachePrimitiveScale"));
-			IndirectlightingCacheMinUV.Bind(ParameterMap, TEXT("IndirectlightingCacheMinUV"));
-			IndirectlightingCacheMaxUV.Bind(ParameterMap, TEXT("IndirectlightingCacheMaxUV"));
-			PointSkyBentNormal.Bind(ParameterMap, TEXT("PointSkyBentNormal"));
-		}
-
-		void Serialize(FArchive& Ar)
-		{
-			Ar << IndirectLightingCacheTexture0;
-			Ar << IndirectLightingCacheTexture1;
-			Ar << IndirectLightingCacheTexture2;
-			Ar << IndirectLightingCacheSampler0;
-			Ar << IndirectLightingCacheSampler1;
-			Ar << IndirectLightingCacheSampler2;
-			Ar << IndirectlightingCachePrimitiveAdd;
-			Ar << IndirectlightingCachePrimitiveScale;
-			Ar << IndirectlightingCacheMinUV;
-			Ar << IndirectlightingCacheMaxUV;
-			Ar << PointSkyBentNormal;
-		}
-
-		FShaderResourceParameter IndirectLightingCacheTexture0;
-		FShaderResourceParameter IndirectLightingCacheTexture1;
-		FShaderResourceParameter IndirectLightingCacheTexture2;
-		FShaderResourceParameter IndirectLightingCacheSampler0;
-		FShaderResourceParameter IndirectLightingCacheSampler1;
-		FShaderResourceParameter IndirectLightingCacheSampler2;
-		FShaderParameter IndirectlightingCachePrimitiveAdd;
-		FShaderParameter IndirectlightingCachePrimitiveScale;
-		FShaderParameter IndirectlightingCacheMinUV;
-		FShaderParameter IndirectlightingCacheMaxUV;
-		FShaderParameter PointSkyBentNormal;
-	};
-
 	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
 		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
@@ -658,11 +314,189 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		OutEnvironment.SetDefine(TEXT("CACHED_VOLUME_INDIRECT_LIGHTING"),TEXT("1"));
-		FNoLightMapPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	}
+};
+
+
+/**
+ * Allows a dynamic object to access indirect lighting through a per-object lighting sample
+ */
+struct FCachedPointIndirectLightingPolicy
+{
+	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	{
+		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
+	
+		return Material->GetShadingModel() != MSM_Unlit
+			&& (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnAnyThread() != 0);
 	}
 
-	/** Initialization constructor. */
-	FCachedVolumeIndirectLightingPolicy() {}
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		OutEnvironment.SetDefine(TEXT("CACHED_POINT_INDIRECT_LIGHTING"),TEXT("1"));
+	}
+};
+
+
+/**
+ * Renders an unshadowed directional light in the base pass, used to support low end hardware where deferred shading is too expensive.
+ */
+struct FSimpleDynamicLightingPolicy
+{
+	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	{
+		return Material->GetShadingModel() != MSM_Unlit;
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		OutEnvironment.SetDefine(TEXT("SIMPLE_DYNAMIC_LIGHTING"),TEXT("1"));
+	}
+};
+
+/** Combines an unshadowed directional light with indirect lighting from a single SH sample. */
+struct FSimpleDirectionalLightAndSHIndirectPolicy
+{
+	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	{
+		return FSimpleDynamicLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType) && FCachedPointIndirectLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FSimpleDynamicLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FCachedPointIndirectLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	}
+};
+
+/** Combines a directional light with indirect lighting from a single SH sample. */
+struct FSimpleDirectionalLightAndSHDirectionalIndirectPolicy : public FSimpleDirectionalLightAndSHIndirectPolicy
+{
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"), TEXT("1"));
+		OutEnvironment.SetDefine(TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)), MAX_FORWARD_SHADOWCASCADES);
+		FSimpleDirectionalLightAndSHIndirectPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	}
+};
+
+/** Combines a directional light with CSM with indirect lighting from a single SH sample. */
+struct FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy : public FSimpleDirectionalLightAndSHDirectionalIndirectPolicy
+{
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT_CSM"), TEXT("1"));
+		FSimpleDirectionalLightAndSHDirectionalIndirectPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	}
+};
+
+struct FMovableDirectionalLightLightingPolicy
+{
+	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	{
+		return Material->GetShadingModel() != MSM_Unlit;
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"),TEXT("1"));
+	}
+};
+
+struct FMovableDirectionalLightCSMLightingPolicy
+{
+	static bool ShouldCache(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
+	{
+		return Material->GetShadingModel() != MSM_Unlit;
+	}	
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+};
+
+struct FMovableDirectionalLightWithLightmapLightingPolicy : public TLightMapPolicy<LQ_LIGHTMAP>
+{
+	typedef TLightMapPolicy<LQ_LIGHTMAP> Super;
+
+	static bool ShouldCache(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
+	{
+		return (Material->GetShadingModel() != MSM_Unlit) && Super::ShouldCache(Platform, Material, VertexFactoryType);
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"), TEXT("1"));
+		OutEnvironment.SetDefine(TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)), MAX_FORWARD_SHADOWCASCADES);
+
+		Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	}
+};
+
+struct FMovableDirectionalLightCSMWithLightmapLightingPolicy : public FMovableDirectionalLightWithLightmapLightingPolicy
+{
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT_CSM"), TEXT("1"));
+
+		FMovableDirectionalLightWithLightmapLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+	}
+};
+
+enum ELightMapPolicyType
+{
+	LMP_NO_LIGHTMAP,
+	LMP_CACHED_VOLUME_INDIRECT_LIGHTING,
+	LMP_CACHED_POINT_INDIRECT_LIGHTING,
+	LMP_SIMPLE_DYNAMIC_LIGHTING,
+	LMP_LQ_LIGHTMAP,
+	LMP_HQ_LIGHTMAP,
+	LMP_DISTANCE_FIELD_SHADOWS_AND_HQ_LIGHTMAP,
+	// Forward shading specific
+	LMP_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP,
+	LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT,
+	LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_DIRECTIONAL_INDIRECT,
+	LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_DIRECTIONAL_CSM_INDIRECT,
+	LMP_MOVABLE_DIRECTIONAL_LIGHT,
+	LMP_MOVABLE_DIRECTIONAL_LIGHT_CSM,
+	LMP_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP,
+	LMP_MOVABLE_DIRECTIONAL_LIGHT_CSM_WITH_LIGHTMAP,
+	// LightMapDensity
+	LMP_DUMMY
+};
+
+class FUniformLightMapPolicyShaderParametersType
+{
+public:
+	void Bind(const FShaderParameterMap& ParameterMap)
+	{
+		BufferParameter.Bind(ParameterMap, TEXT("PrecomputedLightingBuffer"));
+	}
+
+	void Serialize(FArchive& Ar)
+	{
+		Ar << BufferParameter;
+	}
+
+	FShaderUniformBufferParameter BufferParameter;
+};
+
+class FUniformLightMapPolicy
+{
+public:
+
+	typedef  const FLightCacheInterface* ElementDataType;
+
+	typedef FUniformLightMapPolicyShaderParametersType PixelParametersType;
+	typedef FUniformLightMapPolicyShaderParametersType VertexParametersType;
+
+	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	{
+		return false; // This one does not compile shaders since we can't tell which policy to use.
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment) 
+	{}
+
+	FUniformLightMapPolicy(ELightMapPolicyType InIndirectPolicy) : IndirectPolicy(InIndirectPolicy) {}
 
 	void Set(
 		FRHICommandList& RHICmdList, 
@@ -676,7 +510,7 @@ public:
 		) const;
 
 	void SetMesh(
-		FRHICommandList& RHICmdList, 
+		FRHICommandList& RHICmdList,
 		const FSceneView& View,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const VertexParametersType* VertexShaderParameters,
@@ -685,78 +519,148 @@ public:
 		FShader* PixelShader,
 		const FVertexFactory* VertexFactory,
 		const FMaterialRenderProxy* MaterialRenderProxy,
-		const ElementDataType& ElementData
+		const FLightCacheInterface* LCI
 		) const;
+
+	friend bool operator==(const FUniformLightMapPolicy A,const FUniformLightMapPolicy B)
+	{
+		return A.IndirectPolicy == B.IndirectPolicy;
+	}
+
+	friend int32 CompareDrawingPolicy(const FUniformLightMapPolicy& A,const FUniformLightMapPolicy& B)
+	{
+		COMPAREDRAWINGPOLICYMEMBERS(IndirectPolicy);
+		return  0;
+	}
+
+	ELightMapPolicyType GetIndirectPolicy() const { return IndirectPolicy; }
+
+private:
+
+	ELightMapPolicyType IndirectPolicy;
 };
 
-
-/**
- * Allows a dynamic object to access indirect lighting through a per-object lighting sample
- */
-class FCachedPointIndirectLightingPolicy : public FNoLightMapPolicy
+template <ELightMapPolicyType Policy>
+class TUniformLightMapPolicy : public FUniformLightMapPolicy
 {
 public:
 
-	struct ElementDataType 
-	{
-		ElementDataType(bool bInPackAmbientTermInFirstVector) :
-			bPackAmbientTermInFirstVector(bInPackAmbientTermInFirstVector)
-		{}
-
-		bool bPackAmbientTermInFirstVector;
-	};
-
-	class PixelParametersType : public FNoLightMapPolicy::PixelParametersType
-	{
-	public:
-		void Bind(const FShaderParameterMap& ParameterMap)
-		{
-			IndirectLightingSHCoefficients.Bind(ParameterMap, TEXT("IndirectLightingSHCoefficients"));
-			PointSkyBentNormal.Bind(ParameterMap, TEXT("PointSkyBentNormal"));
-			DirectionalLightShadowing.Bind(ParameterMap, TEXT("DirectionalLightShadowing"));
-		}
-
-		void Serialize(FArchive& Ar)
-		{
-			Ar << IndirectLightingSHCoefficients;
-			Ar << PointSkyBentNormal;
-			Ar << DirectionalLightShadowing;
-		}
-
-		FShaderParameter IndirectLightingSHCoefficients;
-		FShaderParameter PointSkyBentNormal;
-		FShaderParameter DirectionalLightShadowing;
-	};
+	TUniformLightMapPolicy() : FUniformLightMapPolicy(Policy) {}
 
 	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
+		switch (Policy)
+		{
+		case LMP_NO_LIGHTMAP:
+			return FNoLightMapPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_CACHED_VOLUME_INDIRECT_LIGHTING:
+			return FCachedVolumeIndirectLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_CACHED_POINT_INDIRECT_LIGHTING:
+			return FCachedPointIndirectLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_SIMPLE_DYNAMIC_LIGHTING:
+			return FSimpleDynamicLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_LQ_LIGHTMAP:
+			return TLightMapPolicy<LQ_LIGHTMAP>::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_HQ_LIGHTMAP:
+			return TLightMapPolicy<HQ_LIGHTMAP>::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_DISTANCE_FIELD_SHADOWS_AND_HQ_LIGHTMAP:
+			return TDistanceFieldShadowsAndLightMapPolicy<HQ_LIGHTMAP>::ShouldCache(Platform, Material, VertexFactoryType);
+
+		// Forward shading specific
+		
+		case LMP_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP:
+			return TDistanceFieldShadowsAndLightMapPolicy<LQ_LIGHTMAP>::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT:
+			return FSimpleDirectionalLightAndSHIndirectPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_DIRECTIONAL_INDIRECT:
+			return FSimpleDirectionalLightAndSHDirectionalIndirectPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_DIRECTIONAL_CSM_INDIRECT:
+			return FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_MOVABLE_DIRECTIONAL_LIGHT:
+			return FMovableDirectionalLightLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_MOVABLE_DIRECTIONAL_LIGHT_CSM:
+			return FMovableDirectionalLightCSMLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP:
+			return FMovableDirectionalLightWithLightmapLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+		case LMP_MOVABLE_DIRECTIONAL_LIGHT_CSM_WITH_LIGHTMAP:
+			return FMovableDirectionalLightCSMWithLightmapLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+
+		// LightMapDensity
 	
-		return Material->GetShadingModel() != MSM_Unlit
-			&& (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnAnyThread() != 0);
+		case LMP_DUMMY:
+			return FDummyLightMapPolicy::ShouldCache(Platform, Material, VertexFactoryType);
+
+		default:
+			check(false);
+			return false;
+		};
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment) 
 	{
-		OutEnvironment.SetDefine(TEXT("CACHED_POINT_INDIRECT_LIGHTING"),TEXT("1"));
-		FNoLightMapPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("MAX_NUM_LIGHTMAP_COEF"), MAX_NUM_LIGHTMAP_COEF);
+
+		switch (Policy)
+		{
+		case LMP_NO_LIGHTMAP:							
+			FNoLightMapPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_CACHED_VOLUME_INDIRECT_LIGHTING:
+			FCachedVolumeIndirectLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_CACHED_POINT_INDIRECT_LIGHTING:
+			FCachedPointIndirectLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_SIMPLE_DYNAMIC_LIGHTING:
+			FSimpleDynamicLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_LQ_LIGHTMAP:
+			TLightMapPolicy<LQ_LIGHTMAP>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_HQ_LIGHTMAP:
+			TLightMapPolicy<HQ_LIGHTMAP>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_DISTANCE_FIELD_SHADOWS_AND_HQ_LIGHTMAP:
+			TDistanceFieldShadowsAndLightMapPolicy<HQ_LIGHTMAP>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+
+		// Forward shading specific
+		case LMP_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP:
+			TDistanceFieldShadowsAndLightMapPolicy<LQ_LIGHTMAP>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT:
+			FSimpleDirectionalLightAndSHIndirectPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_DIRECTIONAL_INDIRECT:
+			FSimpleDirectionalLightAndSHDirectionalIndirectPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_SIMPLE_DIRECTIONAL_LIGHT_AND_SH_DIRECTIONAL_CSM_INDIRECT:
+			FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_MOVABLE_DIRECTIONAL_LIGHT:
+			FMovableDirectionalLightLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_MOVABLE_DIRECTIONAL_LIGHT_CSM:
+			FMovableDirectionalLightCSMLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP:
+			FMovableDirectionalLightWithLightmapLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+		case LMP_MOVABLE_DIRECTIONAL_LIGHT_CSM_WITH_LIGHTMAP:
+			FMovableDirectionalLightCSMWithLightmapLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+
+		// LightMapDensity
+	
+		case LMP_DUMMY:
+			FDummyLightMapPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+			break;
+
+		default:
+			check(false);
+			break;
+		}
 	}
-
-	/** Initialization constructor. */
-	FCachedPointIndirectLightingPolicy() {}
-
-	void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const ElementDataType& ElementData
-		) const;
 };
 
 /**
@@ -766,26 +670,20 @@ class FSelfShadowedCachedPointIndirectLightingPolicy : public FSelfShadowedTrans
 {
 public:
 
-	class PixelParametersType : public FSelfShadowedTranslucencyPolicy::PixelParametersType
+	class PixelParametersType : public FUniformLightMapPolicyShaderParametersType, public FSelfShadowedTranslucencyPolicy::PixelParametersType
 	{
 	public:
 		void Bind(const FShaderParameterMap& ParameterMap)
 		{
-			IndirectLightingSHCoefficients.Bind(ParameterMap, TEXT("IndirectLightingSHCoefficients"));
-			PointSkyBentNormal.Bind(ParameterMap, TEXT("PointSkyBentNormal"));
+			FUniformLightMapPolicyShaderParametersType::Bind(ParameterMap);
 			FSelfShadowedTranslucencyPolicy::PixelParametersType::Bind(ParameterMap);
 		}
 
 		void Serialize(FArchive& Ar)
 		{
-			Ar << IndirectLightingSHCoefficients;
-			Ar << PointSkyBentNormal;
-
+			FUniformLightMapPolicyShaderParametersType::Serialize(Ar);
 			FSelfShadowedTranslucencyPolicy::PixelParametersType::Serialize(Ar);
 		}
-
-		FShaderParameter IndirectLightingSHCoefficients;
-		FShaderParameter PointSkyBentNormal;
 	};
 
 	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
@@ -820,251 +718,4 @@ public:
 		const ElementDataType& ElementData
 		) const;
 };
-
-/**
- * Renders an unshadowed directional light in the base pass, used to support low end hardware where deferred shading is too expensive.
- */
-class FSimpleDynamicLightingPolicy : public FNoLightMapPolicy
-{
-public:
-
-	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
-	{
-		return Material->GetShadingModel() != MSM_Unlit;
-	}
-
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("SIMPLE_DYNAMIC_LIGHTING"),TEXT("1"));
-		FNoLightMapPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-	}
-
-	/** Initialization constructor. */
-	FSimpleDynamicLightingPolicy() {}
-};
-
-/** Combines an unshadowed directional light with indirect lighting from a single SH sample. */
-class FSimpleDirectionalLightAndSHIndirectPolicy
-{
-public:
-
-	struct ElementDataType : public FSimpleDynamicLightingPolicy::ElementDataType, FCachedPointIndirectLightingPolicy::ElementDataType
-	{
-		ElementDataType(bool bInPackAmbientTermInFirstVector)
-			: FCachedPointIndirectLightingPolicy::ElementDataType(bInPackAmbientTermInFirstVector)
-		{}
-	};
-
-	class VertexParametersType
-	{
-	public:
-		void Bind(const FShaderParameterMap& ParameterMap)
-		{
-			SimpleDynamicLightingParameters.Bind(ParameterMap);
-			CachedPointIndirectParameters.Bind(ParameterMap);
-		}
-
-		void Serialize(FArchive& Ar)
-		{
-			SimpleDynamicLightingParameters.Serialize(Ar);
-			CachedPointIndirectParameters.Serialize(Ar);
-		}
-
-		FSimpleDynamicLightingPolicy::VertexParametersType SimpleDynamicLightingParameters;
-		FCachedPointIndirectLightingPolicy::VertexParametersType CachedPointIndirectParameters;
-	};
-
-	class PixelParametersType
-	{
-	public:
-		void Bind(const FShaderParameterMap& ParameterMap)
-		{
-			SimpleDynamicLightingParameters.Bind(ParameterMap);
-			CachedPointIndirectParameters.Bind(ParameterMap);
-		}
-
-		void Serialize(FArchive& Ar)
-		{
-			SimpleDynamicLightingParameters.Serialize(Ar);
-			CachedPointIndirectParameters.Serialize(Ar);
-		}
-
-		FSimpleDynamicLightingPolicy::PixelParametersType SimpleDynamicLightingParameters;
-		FCachedPointIndirectLightingPolicy::PixelParametersType CachedPointIndirectParameters;
-	};
-
-	/** Initialization constructor. */
-	FSimpleDirectionalLightAndSHIndirectPolicy() {}
-
-	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
-	{
-		return FSimpleDynamicLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType) && FCachedPointIndirectLightingPolicy::ShouldCache(Platform, Material, VertexFactoryType);
-	}
-
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		FSimpleDynamicLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-		FCachedPointIndirectLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-	}
-
-	void Set(
-		FRHICommandList& RHICmdList, 
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FSceneView* View
-		) const
-	{
-		check(VertexFactory);
-		VertexFactory->Set(RHICmdList);
-	}
-
-	void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const VertexParametersType* VertexShaderParameters,
-		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const ElementDataType& ElementData
-		) const
-	{
-		if (VertexShaderParameters && PixelShaderParameters)
-		{
-			CachedPointIndirectLightingPolicy.SetMesh(
-				RHICmdList, 
-				View, 
-				PrimitiveSceneProxy, 
-				&VertexShaderParameters->CachedPointIndirectParameters, 
-				&PixelShaderParameters->CachedPointIndirectParameters, 
-				VertexShader, 
-				PixelShader, 
-				VertexFactory, 
-				MaterialRenderProxy, 
-				ElementData.bPackAmbientTermInFirstVector);
-		}
-	}
-
-	friend bool operator==(const FSimpleDirectionalLightAndSHIndirectPolicy A,const FSimpleDirectionalLightAndSHIndirectPolicy B)
-	{
-		return true;
-	}
-
-	friend int32 CompareDrawingPolicy(const FSimpleDirectionalLightAndSHIndirectPolicy&,const FSimpleDirectionalLightAndSHIndirectPolicy&)
-	{
-		return 0;
-	}
-
-private:
-
-	FSimpleDynamicLightingPolicy SimpleDynamicLightingPolicy;
-	FCachedPointIndirectLightingPolicy CachedPointIndirectLightingPolicy;
-};
-
-/** Combines a directional light with indirect lighting from a single SH sample. */
-class FSimpleDirectionalLightAndSHDirectionalIndirectPolicy : public FSimpleDirectionalLightAndSHIndirectPolicy
-{
-public:
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"), TEXT("1"));
-		OutEnvironment.SetDefine(TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)), MAX_FORWARD_SHADOWCASCADES);
-		FSimpleDirectionalLightAndSHIndirectPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-	}
-
-	friend bool operator==(const FSimpleDirectionalLightAndSHDirectionalIndirectPolicy A, const FSimpleDirectionalLightAndSHDirectionalIndirectPolicy B)
-	{
-		return true;
-	}
-
-	friend int32 CompareDrawingPolicy(const FSimpleDirectionalLightAndSHDirectionalIndirectPolicy&, const FSimpleDirectionalLightAndSHDirectionalIndirectPolicy&)
-	{
-		return 0;
-	}
-};
-
-/** Combines a directional light with CSM with indirect lighting from a single SH sample. */
-class FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy : public FSimpleDirectionalLightAndSHDirectionalIndirectPolicy
-{
-public:
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT_CSM"), TEXT("1"));
-		FSimpleDirectionalLightAndSHDirectionalIndirectPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-	}
-
-	friend bool operator==(const FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy A, const FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy B)
-	{
-		return true;
-	}
-
-	friend int32 CompareDrawingPolicy(const FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy&, const FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy&)
-	{
-		return 0;
-	}
-};
-
-class FMovableDirectionalLightLightingPolicy : public FNoLightMapPolicy
-{
-public:
-
-	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
-	{
-		return Material->GetShadingModel() != MSM_Unlit;
-	}
-
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"),TEXT("1"));
-		FNoLightMapPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-	}
-};
-
-class FMovableDirectionalLightCSMLightingPolicy : public FNoLightMapPolicy
-{
-public:
-	static bool ShouldCache(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
-	{
-		return Material->GetShadingModel() != MSM_Unlit;
-	}	
-
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
-};
-
-class FMovableDirectionalLightWithLightmapLightingPolicy : public TLightMapPolicy<LQ_LIGHTMAP>
-{
-	typedef TLightMapPolicy< LQ_LIGHTMAP >	Super;
-
-public:
-	static bool ShouldCache(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
-	{
-		return (Material->GetShadingModel() != MSM_Unlit) && Super::ShouldCache(Platform, Material, VertexFactoryType);
-	}
-
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"), TEXT("1"));
-		OutEnvironment.SetDefine(TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)), MAX_FORWARD_SHADOWCASCADES);
-
-		Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-	}
-};
-
-class FMovableDirectionalLightCSMWithLightmapLightingPolicy : public FMovableDirectionalLightWithLightmapLightingPolicy
-{
-public:
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT_CSM"), TEXT("1"));
-
-		FMovableDirectionalLightWithLightmapLightingPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-	}
-};
-
 #endif // __LIGHTMAPRENDERING_H__

@@ -38,7 +38,7 @@ void SMaterialPaletteItem::Construct(const FArguments& InArgs, FCreateWidgetForA
 	// Find icons
 	const FSlateBrush* IconBrush = FEditorStyle::GetBrush(TEXT("NoBrush"));
 	FSlateColor IconColor = FSlateColor::UseForeground();
-	FString ToolTip = GraphAction->TooltipDescription;
+	FString ToolTip = GraphAction->GetTooltipDescription();
 	FText IconToolTip = FText::FromString(ToolTip);
 	bool bIsReadOnly = false;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTDuelScoreboard.h"
@@ -28,7 +28,7 @@ void UUTDuelScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffse
 		}
 	}
 
-	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Dueler", " "), GetPlayerNameFor(TopScorerRed), GetPlayerNameFor(TopScorerBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	DrawPlayerStatsLine(NSLOCTEXT("UTScoreboard", "Dueler", " "), TopScorerRed, TopScorerBlue, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	FText RedFavoriteWeapon = (TopScorerRed && TopScorerRed->FavoriteWeapon) ? TopScorerRed->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();

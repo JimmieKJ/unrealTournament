@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTShowdownGame.h"
@@ -24,9 +24,17 @@ public:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual AInfo* GetTiebreakWinner(FName* WinReason = NULL) const override;
 	virtual void ScoreExpiredRoundTime() override;
+	virtual void PlayEndOfMatchMessage() override;
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
+
+	virtual bool CanSpectate_Implementation(APlayerController* Viewer, APlayerState* ViewTarget) override
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(ViewTarget);
+		return Super::CanSpectate_Implementation(Viewer, ViewTarget) && (PS == NULL || PS->GetUTCharacter() != NULL);
+	}
 
 	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps) override;

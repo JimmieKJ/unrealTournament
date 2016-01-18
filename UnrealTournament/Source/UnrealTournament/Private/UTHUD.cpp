@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 
@@ -7,7 +7,6 @@
 #include "UTHUDWidgetMessage_DeathMessages.h"
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
 #include "UTHUDWidget_WeaponInfo.h"
-#include "UTHUDWidget_DMPlayerScore.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTHUDWidget_Spectator.h"
 #include "UTHUDWidget_WeaponBar.h"
@@ -30,9 +29,6 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	// Set the crosshair texture
 	static ConstructorHelpers::FObjectFinder<UTexture2D> CrosshairTexObj(TEXT("Texture2D'/Game/RestrictedAssets/Textures/crosshair.crosshair'"));
 	DefaultCrosshairTex = CrosshairTexObj.Object;
-
-	static ConstructorHelpers::FObjectFinder<UTexture2D> OldHudTextureObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
-	OldHudTexture = OldHudTextureObj.Object;
 
 	static ConstructorHelpers::FObjectFinder<UFont> TFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Tiny.fntScoreboard_Tiny'"));
 	TinyFont = TFont.Object;
@@ -68,6 +64,10 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> SelectedPlayerTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedPlayerTexture = SelectedPlayerTextureObject.Object;
 
+	static ConstructorHelpers::FObjectFinder<USoundBase> KillSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Stinger_Kill01_Cue.A_Stinger_Kill01_Cue'"));
+	KillSound = KillSoundFinder.Object;
+
+	LastKillTime = -100.f;
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
 	bFontsCached = false;
@@ -127,13 +127,16 @@ void AUTHUD::AddSpectatorWidgets()
 	{
 		UTLP->OpenSpectatorWindow();
 	}
-
 }
 
 void AUTHUD::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
+	if (UTPlayerOwner)
+	{
+		UTPlayerOwner->UpdateCrosshairs(this);
+	}
 }
 
 void AUTHUD::ShowDebugInfo(float& YL, float& YPos)
@@ -394,7 +397,7 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else
 		{
-			UTLP->CloseMatchSummary();
+			UTLP->HideMenu();
 		}
 	}
 }
@@ -410,12 +413,7 @@ void AUTHUD::OpenMatchSummary()
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
-		// temp check for testing, until match summary is ready.  Make sure same setting for client and server
-		UTLP->OpenMatchSummary(GS);
-		if (GS->GetMatchState() == MatchState::WaitingToStart)
-		{
-			UTLP->ShowMenu(TEXT(""));
-		}
+		UTLP->ShowMenu(TEXT("forcesummary"));
 	}
 }
 
@@ -443,7 +441,7 @@ void AUTHUD::CacheFonts()
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	float YPos = 0.f;
-	Canvas->DrawColor = FLinearColor::White;
+	Canvas->DrawColor = FLinearColor::White.ToFColor(false);
 	Canvas->DrawText(TinyFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	//YPos += 0.1f*Canvas->ClipY;
 	Canvas->DrawText(SmallFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
@@ -506,15 +504,27 @@ void AUTHUD::DrawHUD()
 			}
 			else 
 			{
-				if (!UTPlayerOwner->bCurrentlyBehindView || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator)
+				if (!UTPlayerOwner->IsBehindView() || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator)
 				{
 					DrawDamageIndicators();
 				}
-				UTPlayerOwner->SetViewedScorePS(NULL, 0);
+				if (SpectatorSlideOutWidget && SpectatorSlideOutWidget->bShowingStats && !UTPlayerOwner->CurrentlyViewedScorePS)
+				{
+					UTPlayerOwner->CurrentlyViewedStatsTab = 1;
+					UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+				}
+				else
+				{
+					UTPlayerOwner->SetViewedScorePS(NULL, 0);
+				}
 				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
 				{
 					const float MapSize = float(Canvas->SizeY) * 0.75f;
 					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
+				}
+				if (bDrawDamageNumbers)
+				{
+					DrawDamageNumbers();
 				}
 			}
 		}
@@ -555,7 +565,6 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForce
 		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Seconds}{Suffix}"), Args);
 	}
 }
-
 
 void AUTHUD::DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale, bool bOutline)
 {
@@ -667,6 +676,50 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 	{
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
 	}
+	if (bDrawDamageNumbers && (HitPawn != nullptr))
+	{
+		// add to current hit if there
+		for (int32 i = 0; i < DamageNumbers.Num(); i++)
+		{
+			if ((DamageNumbers[i].DamagedPawn == HitPawn) && (GetWorld()->GetTimeSeconds() - DamageNumbers[i].DamageTime < 0.05f))
+			{
+				DamageNumbers[i].DamageAmount = FMath::Min(255, Damage + int32(DamageNumbers[i].DamageAmount));
+				return;
+			}
+		}
+		// save amount, scale , 2D location
+		float HalfHeight = Cast<ACharacter>(HitPawn) ? 1.1f * ((ACharacter *)(HitPawn))->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() : 0.f;
+		DamageNumbers.Add(FEnemyDamageNumber(HitPawn, GetWorld()->GetTimeSeconds(), FMath::Min(Damage, 255), HitPawn->GetActorLocation() + FVector(0.f, 0.f, HalfHeight), 0.75f));
+	}
+}
+
+void AUTHUD::DrawDamageNumbers()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	//	UE_LOG(UT, Warning, TEXT("DrawDamageNumbers, numbers %d"), DamageNumbers.Num());
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	Canvas->DrawColor = FColor::Red;
+
+	for (int32 i = 0; i < DamageNumbers.Num(); i++)
+	{
+		DamageNumbers[i].Scale = DamageNumbers[i].Scale + 2.5f * GetWorld()->DeltaTimeSeconds;
+		if (DamageNumbers[i].Scale > 1.5f)
+		{
+			DamageNumbers.RemoveAt(i, 1);
+			i--;
+		}
+		else
+		{
+			Canvas->DrawColor.A = 255.f * (1.f - 0.45f * DamageNumbers[i].Scale);
+			FVector ScreenPosition = Canvas->Project(DamageNumbers[i].WorldPosition);
+			float XL, YL;
+			FString DamageString = FString::Printf(TEXT("%d"), DamageNumbers[i].DamageAmount);
+			Canvas->TextSize(MediumFont, DamageString, XL, YL, DamageNumbers[i].Scale, DamageNumbers[i].Scale);
+			Canvas->DrawText(MediumFont, DamageString, ScreenPosition.X - 0.5f*XL, ScreenPosition.Y - 0.5f*YL, DamageNumbers[i].Scale, DamageNumbers[i].Scale, TextRenderInfo);
+		}
+	}
+#endif
 }
 
 FLinearColor AUTHUD::GetBaseHUDColor()
@@ -1094,4 +1147,22 @@ void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawS
 	ImageItem.PivotPoint = FVector2D(0.f, 0.f);
 	ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
 	Canvas->DrawItem(ImageItem);
+}
+
+void AUTHUD::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS)
+{
+	if (POVPS == KillerPS)
+	{
+		LastKillTime = GetWorld()->GetTimeSeconds();
+		if (GetWorldTimerManager().IsTimerActive(PlayKillHandle))
+		{
+			PlayKillNotification();
+		}
+		GetWorldTimerManager().SetTimer(PlayKillHandle, this, &AUTHUD::PlayKillNotification, 0.35f, false);
+	}
+}
+
+void AUTHUD::PlayKillNotification()
+{
+	PlayerOwner->ClientPlaySound(KillSound);
 }

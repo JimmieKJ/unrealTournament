@@ -12,8 +12,13 @@
 #include "MapErrors.h"
 #include "Particles/ParticleEventManager.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#include "GameFramework/DefaultPhysicsVolume.h"
 
 #define LOCTEXT_NAMESPACE "ErrorChecking"
+
+#if WITH_EDITOR
+#include "Editor.h"
+#endif 
 
 AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.DoNotCreateDefaultSubobject(TEXT("Sprite")))
@@ -38,6 +43,7 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 
  	FHierarchicalSimplification LODBaseSetup;
 	HierarchicalLODSetup.Add(LODBaseSetup);
+	NumHLODLevels = HierarchicalLODSetup.Num();
 #endif
 
 	KillZ = -HALF_WORLD_MAX1;
@@ -45,6 +51,7 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 
 	WorldToMeters = 100.f;
 
+	DefaultPhysicsVolumeClass = ADefaultPhysicsVolume::StaticClass();
 	GameNetworkManagerClass = AGameNetworkManager::StaticClass();
 	SetRemoteRoleForBackwardsCompat(ROLE_SimulatedProxy);
 	bReplicates = true;
@@ -121,6 +128,12 @@ void AWorldSettings::OnRep_WorldGravityZ()
 	bWorldGravitySet = true;
 }
 
+float AWorldSettings::FixupDeltaSeconds(float DeltaSeconds, float RealDeltaSeconds)
+{
+	// Clamp time between 2000 fps and 2.5 fps.
+	return FMath::Clamp(DeltaSeconds, 0.0005f, 0.4f);	
+}
+
 void AWorldSettings::NotifyBeginPlay()
 {
 	UWorld* World = GetWorld();
@@ -131,6 +144,7 @@ void AWorldSettings::NotifyBeginPlay()
 			// Actors that have traveled seamlessly from other levels already had BeginPlay called in that level
 			if (!It->IsPendingKill() && !It->HasActorBegunPlay())
 			{
+				SCOPE_CYCLE_COUNTER(STAT_ActorBeginPlay);
 				It->BeginPlay();
 			}
 		}
@@ -208,6 +222,21 @@ void AWorldSettings::RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDat
 	}
 }
 
+void AWorldSettings::PostLoad()
+{
+	Super::PostLoad();
+
+#if WITH_EDITOR
+	FHierarchicalSimplification DefaultObject;
+
+	for (FHierarchicalSimplification Entry : HierarchicalLODSetup)
+	{
+		Entry.ProxySetting.PostLoadDeprecated();	
+	}
+#endif// WITH_EDITOR
+}
+
+
 #if WITH_EDITOR
 
 void AWorldSettings::CheckForErrors()
@@ -258,7 +287,7 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	LightmassSettings.NumIndirectLightingBounces = FMath::Clamp(LightmassSettings.NumIndirectLightingBounces, 0, 100);
 	LightmassSettings.IndirectLightingSmoothness = FMath::Clamp(LightmassSettings.IndirectLightingSmoothness, .25f, 10.0f);
 	LightmassSettings.VolumeLightSamplePlacementScale = FMath::Clamp(LightmassSettings.VolumeLightSamplePlacementScale, .1f, 100.0f);
-	LightmassSettings.IndirectLightingQuality = FMath::Clamp(LightmassSettings.IndirectLightingQuality, .1f, 10.0f);
+	LightmassSettings.IndirectLightingQuality = FMath::Clamp(LightmassSettings.IndirectLightingQuality, .1f, 100.0f);
 	LightmassSettings.StaticLightingLevelScale = FMath::Clamp(LightmassSettings.StaticLightingLevelScale, .001f, 1000.0f);
 	LightmassSettings.EmissiveBoost = FMath::Max(LightmassSettings.EmissiveBoost, 0.0f);
 	LightmassSettings.DiffuseBoost = FMath::Max(LightmassSettings.DiffuseBoost, 0.0f);
@@ -272,11 +301,22 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	// Ensure texture size is power of two between 512 and 4096.
 	PackedLightAndShadowMapTextureSize = FMath::Clamp<uint32>( FMath::RoundUpToPowerOfTwo( PackedLightAndShadowMapTextureSize ), 512, 4096 );
 
-	if (GetWorld() != nullptr && GetWorld()->PersistentLevel->GetWorldSettings() == this)
+	if (PropertyThatChanged != nullptr && GetWorld() != nullptr && GetWorld()->PersistentLevel->GetWorldSettings() == this)
 	{
 		if (GIsEditor)
 		{
 			GEngine->DeferredCommands.AddUnique(TEXT("UpdateLandscapeSetup"));
+		}
+
+		if (PropertyThatChanged->GetName() == TEXT("TransitionScreenSize"))
+		{
+			GEditor->BroadcastHLODTransitionScreenSizeChanged();
+		}
+
+		if (PropertyThatChanged->GetName() == TEXT("HierarchicalLODSetup"))
+		{
+			GEditor->BroadcastHLODLevelsArrayChanged();
+			NumHLODLevels = HierarchicalLODSetup.Num();			
 		}
 	}
 

@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // LinearStairBuilder: Builds a Linear Staircase.
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "LinearStairBuilder.generated.h"
@@ -40,9 +40,9 @@ public:
 	FName GroupName;
 
 
-	// Begin UBrushBuilder Interface
+	//~ Begin UBrushBuilder Interface
 	virtual bool Build( UWorld* InWorld, ABrush* InBrush = NULL ) override;
-	// End UBrushBuilder Interface
+	//~ End UBrushBuilder Interface
 };
 
 

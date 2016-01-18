@@ -5,7 +5,7 @@
 #include "GameMapsSettings.generated.h"
 
 
-// Ways the screen can be split with two players
+/** Ways the screen can be split with two players. */
 UENUM()
 namespace ETwoPlayerSplitScreenType
 {
@@ -17,7 +17,7 @@ namespace ETwoPlayerSplitScreenType
 }
 
 
-// Ways the screen can be split with three players
+/** Ways the screen can be split with three players. */
 UENUM()
 namespace EThreePlayerSplitScreenType
 {

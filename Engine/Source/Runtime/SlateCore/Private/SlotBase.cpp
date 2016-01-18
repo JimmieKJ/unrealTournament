@@ -14,17 +14,6 @@ FSlotBase::FSlotBase( const TSharedRef<SWidget>& InWidget )
 	
 }
 
-void FSlotBase::AttachWidget( const TSharedRef<SWidget>& InWidget )
-{
-	Widget = InWidget;
-}
-
-
-const TSharedRef<SWidget>& FSlotBase::GetWidget() const
-{
-	return Widget;
-}
-
 const TSharedPtr<SWidget> FSlotBase::DetachWidget()
 {
 	if (Widget != SNullWidget::NullWidget)

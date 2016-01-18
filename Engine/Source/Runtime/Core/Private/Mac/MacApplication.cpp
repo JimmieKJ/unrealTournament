@@ -46,6 +46,8 @@ FMacApplication::FMacApplication()
 ,	bSystemModalMode(false)
 ,	ModifierKeysFlags(0)
 ,	CurrentModifierFlags(0)
+,	bEmulatingRightClick(false)
+,	bIgnoreMouseMoveDelta(false)
 ,	bIsWorkspaceSessionActive(true)
 {
 	TextInputMethodSystem = MakeShareable(new FMacTextInputMethodSystem);
@@ -144,12 +146,12 @@ void FMacApplication::PollGameDeviceState(const float TimeDelta)
 		for( auto InputPluginIt = PluginImplementations.CreateIterator(); InputPluginIt; ++InputPluginIt )
 		{
 			TSharedPtr<IInputDevice> Device = (*InputPluginIt)->CreateInputDevice(MessageHandler);
-            if (Device.IsValid())
-            {
-                UE_LOG(LogInit, Log, TEXT("Adding external input plugin."));
-                ExternalInputDevices.Add(Device);
-            }
-        }
+			if (Device.IsValid())
+			{
+				UE_LOG(LogInit, Log, TEXT("Adding external input plugin."));
+				ExternalInputDevices.Add(Device);
+			}
+		}
 
 		bHasLoadedInputPlugins = true;
 	}
@@ -219,7 +221,7 @@ FModifierKeysState FMacApplication::GetModifierKeys() const
 	const bool bIsRightAltDown			= (CurrentFlags & (1 << 5)) != 0;
 	const bool bIsLeftCommandDown		= (CurrentFlags & (1 << 2)) != 0; // Mac pretends the Control key is Command
 	const bool bIsRightCommandDown		= (CurrentFlags & (1 << 3)) != 0; // Mac pretends the Control key is Command
-	const bool bAreCapsLocked           = (CurrentFlags & (1 << 8)) != 0;
+	const bool bAreCapsLocked			= (CurrentFlags & (1 << 8)) != 0;
 
 	return FModifierKeysState(bIsLeftShiftDown, bIsRightShiftDown, bIsLeftControlDown, bIsRightControlDown, bIsLeftAltDown, bIsRightAltDown, bIsLeftCommandDown, bIsRightCommandDown, bAreCapsLocked);
 }
@@ -318,7 +320,7 @@ void FMacApplication::DeferEvent(NSObject* Object)
 			case NSRightMouseDragged:
 			case NSOtherMouseDragged:
 			case NSEventTypeSwipe:
-				DeferredEvent.Delta = FVector2D([Event deltaX], [Event deltaY]);
+				DeferredEvent.Delta = bIgnoreMouseMoveDelta ? FVector2D::ZeroVector : FVector2D([Event deltaX], [Event deltaY]);
 				break;
 
 			case NSLeftMouseDown:
@@ -329,6 +331,18 @@ void FMacApplication::DeferEvent(NSObject* Object)
 			case NSOtherMouseUp:
 				DeferredEvent.ButtonNumber = [Event buttonNumber];
 				DeferredEvent.ClickCount = [Event clickCount];
+				if (DeferredEvent.Type == NSLeftMouseDown && (DeferredEvent.ModifierFlags & NSControlKeyMask))
+				{
+					bEmulatingRightClick = true;
+					DeferredEvent.Type = NSRightMouseDown;
+					DeferredEvent.ButtonNumber = 2;
+				}
+				else if (DeferredEvent.Type == NSLeftMouseUp && bEmulatingRightClick)
+				{
+					bEmulatingRightClick = false;
+					DeferredEvent.Type = NSRightMouseUp;
+					DeferredEvent.ButtonNumber = 2;
+				}
 				break;
 
 			case NSScrollWheel:
@@ -386,13 +400,13 @@ void FMacApplication::DeferEvent(NSObject* Object)
 		}
 		else if ([[Notification object] conformsToProtocol:@protocol(NSDraggingInfo)])
 		{
-            NSWindow* NotificationWindow = [(id<NSDraggingInfo>)[Notification object] draggingDestinationWindow];
-            
-            if (NotificationWindow && [NotificationWindow isKindOfClass:[FCocoaWindow class]])
-            {
-           		DeferredEvent.Window = (FCocoaWindow*)NotificationWindow;
-            }
-            
+			NSWindow* NotificationWindow = [(id<NSDraggingInfo>)[Notification object] draggingDestinationWindow];
+
+			if (NotificationWindow && [NotificationWindow isKindOfClass:[FCocoaWindow class]])
+			{
+				DeferredEvent.Window = (FCocoaWindow*)NotificationWindow;
+			}
+
 			if (DeferredEvent.NotificationName == NSPrepareForDragOperation)
 			{
 				DeferredEvent.DraggingPasteboard = [[(id<NSDraggingInfo>)[Notification object] draggingPasteboard] retain];
@@ -486,45 +500,33 @@ void FMacApplication::ProcessEvent(const FDeferredMacEvent& Event)
 	TSharedPtr<FMacWindow> EventWindow = FindWindowByNSWindow(Event.Window);
 	if (Event.Type)
 	{
-		if (CurrentModifierFlags != Event.ModifierFlags)
-		{
-			NSUInteger ModifierFlags = Event.ModifierFlags;
-
-			HandleModifierChange(ModifierFlags, (1<<4), 7, MMK_RightCommand);
-			HandleModifierChange(ModifierFlags, (1<<3), 6, MMK_LeftCommand);
-			HandleModifierChange(ModifierFlags, (1<<1), 0, MMK_LeftShift);
-			HandleModifierChange(ModifierFlags, (1<<16), 8, MMK_CapsLock);
-			HandleModifierChange(ModifierFlags, (1<<5), 4, MMK_LeftAlt);
-			HandleModifierChange(ModifierFlags, (1<<0), 2, MMK_LeftControl);
-			HandleModifierChange(ModifierFlags, (1<<2), 1, MMK_RightShift);
-			HandleModifierChange(ModifierFlags, (1<<6), 5, MMK_RightAlt);
-			HandleModifierChange(ModifierFlags, (1<<13), 3, MMK_RightControl);
-
-			CurrentModifierFlags = ModifierFlags;
-		}
-
 		switch (Event.Type)
 		{
 			case NSMouseMoved:
 			case NSLeftMouseDragged:
 			case NSRightMouseDragged:
 			case NSOtherMouseDragged:
+				ConditionallyUpdateModifierKeys(Event);
 				ProcessMouseMovedEvent(Event, EventWindow);
+				bIgnoreMouseMoveDelta = false;
 				break;
 
 			case NSLeftMouseDown:
 			case NSRightMouseDown:
 			case NSOtherMouseDown:
+				ConditionallyUpdateModifierKeys(Event);
 				ProcessMouseDownEvent(Event, EventWindow);
 				break;
 
 			case NSLeftMouseUp:
 			case NSRightMouseUp:
 			case NSOtherMouseUp:
+				ConditionallyUpdateModifierKeys(Event);
 				ProcessMouseUpEvent(Event, EventWindow);
 				break;
 
 			case NSScrollWheel:
+				ConditionallyUpdateModifierKeys(Event);
 				ProcessScrollWheelEvent(Event, EventWindow);
 				break;
 
@@ -533,15 +535,27 @@ void FMacApplication::ProcessEvent(const FDeferredMacEvent& Event)
 			case NSEventTypeRotate:
 			case NSEventTypeBeginGesture:
 			case NSEventTypeEndGesture:
+				ConditionallyUpdateModifierKeys(Event);
 				ProcessGestureEvent(Event);
 				break;
 
 			case NSKeyDown:
+				ConditionallyUpdateModifierKeys(Event);
 				ProcessKeyDownEvent(Event, EventWindow);
 				break;
 
 			case NSKeyUp:
+				ConditionallyUpdateModifierKeys(Event);
 				ProcessKeyUpEvent(Event);
+				break;
+				
+			case NSFlagsChanged:
+				ConditionallyUpdateModifierKeys(Event);
+				break;
+				
+			case NSMouseEntered:
+			case NSMouseExited:
+				ConditionallyUpdateModifierKeys(Event);
 				break;
 		}
 	}
@@ -636,8 +650,9 @@ void FMacApplication::ProcessMouseMovedEvent(const FDeferredMacEvent& Event, TSh
 {
 	if (EventWindow.IsValid() && EventWindow->IsRegularWindow())
 	{
-		bool IsMouseOverTitleBar = false;
-		const bool IsMovable = IsWindowMovable(EventWindow.ToSharedRef(), &IsMouseOverTitleBar);
+		const EWindowZone::Type Zone = GetCurrentWindowZone(EventWindow.ToSharedRef());
+		bool IsMouseOverTitleBar = (Zone == EWindowZone::TitleBar);
+		const bool IsMovable = IsMouseOverTitleBar || IsEdgeZone(Zone);
 		[EventWindow->GetWindowHandle() setMovable:IsMovable];
 		[EventWindow->GetWindowHandle() setMovableByWindowBackground:IsMouseOverTitleBar];
 	}
@@ -646,7 +661,7 @@ void FMacApplication::ProcessMouseMovedEvent(const FDeferredMacEvent& Event, TSh
 
 	FVector2D const MouseScaling = MacCursor->GetMouseScaling();
 
-	if (bUsingHighPrecisionMouseInput)
+	if (bUsingHighPrecisionMouseInput || MacCursor->IsLocked())
 	{
 		// Under OS X we disassociate the cursor and mouse position during hi-precision mouse input.
 		// The game snaps the mouse cursor back to the starting point when this is disabled, which
@@ -753,11 +768,10 @@ void FMacApplication::ProcessMouseDownEvent(const FDeferredMacEvent& Event, TSha
 
 	if (EventWindow.IsValid())
 	{
+		const EWindowZone::Type Zone = GetCurrentWindowZone(EventWindow.ToSharedRef());
 		if (Button == LastPressedMouseButton && (Event.ClickCount % 2) == 0)
 		{
-			bool IsMouseOverTitleBar = false;
-			const bool IsMovable = IsWindowMovable(EventWindow.ToSharedRef(), &IsMouseOverTitleBar);
-			if (IsMouseOverTitleBar)
+			if (Zone == EWindowZone::TitleBar)
 			{
 				const bool bShouldMinimize = [[NSUserDefaults standardUserDefaults] boolForKey:@"AppleMiniaturizeOnDoubleClick"];
 				FCocoaWindow* WindowHandle = EventWindow->GetWindowHandle();
@@ -775,7 +789,8 @@ void FMacApplication::ProcessMouseDownEvent(const FDeferredMacEvent& Event, TSha
 				MessageHandler->OnMouseDoubleClick(EventWindow, Button);
 			}
 		}
-		else
+		// Only forward left mouse button down events if it's not inside the resize edge zone of a normal resizable window.
+		else if (!EventWindow->IsRegularWindow() || Button != EMouseButtons::Left || !IsEdgeZone(Zone))
 		{
 			MessageHandler->OnMouseDown(EventWindow, Button);
 		}
@@ -904,7 +919,7 @@ void FMacApplication::ProcessKeyDownEvent(const FDeferredMacEvent& Event, TShare
 void FMacApplication::ProcessKeyUpEvent(const FDeferredMacEvent& Event)
 {
 	bool bHandled = false;
-	if (!bSystemModalMode)
+	if (!bSystemModalMode && [Event.Characters length] > 0 && [Event.CharactersIgnoringModifiers length] > 0)
 	{
 		const TCHAR Character = ConvertChar([Event.Characters characterAtIndex:0]);
 		const TCHAR CharCode = [Event.CharactersIgnoringModifiers characterAtIndex:0];
@@ -965,7 +980,7 @@ void FMacApplication::OnWindowDidResize(TSharedRef<FMacWindow> Window)
 bool FMacApplication::OnWindowDestroyed(TSharedRef<FMacWindow> Window)
 {
 	SCOPED_AUTORELEASE_POOL;
-	if ([Window->GetWindowHandle() isKeyWindow])
+	if ([Window->GetWindowHandle() isMainWindow])
 	{
 		MessageHandler->OnWindowActivationChanged(Window, EWindowActivation::Deactivate);
 	}
@@ -1035,7 +1050,7 @@ void FMacApplication::OnApplicationWillResignActive()
 	if (SavedWindowsOrder.Num() > 0)
 	{
 		NSWindow* TopWindow = [NSApp windowWithWindowNumber:SavedWindowsOrder[0].WindowNumber];
-		if ( TopWindow )
+		if (TopWindow)
 		{
 			[TopWindow orderWindow:NSWindowAbove relativeTo:0];
 		}
@@ -1045,18 +1060,13 @@ void FMacApplication::OnApplicationWillResignActive()
 			NSWindow* Window = [NSApp windowWithWindowNumber:Info.WindowNumber];
 			if (Window)
 			{
-				if (SavedWindowsOrder[Index - 1].Level == Info.Level && TopWindow)
-				{
-					[Window orderWindow:NSWindowBelow relativeTo:[TopWindow windowNumber]];
-				}
-				else
-				{
-					[Window orderWindow:NSWindowAbove relativeTo:0];
-				}
+				[Window orderWindow:NSWindowBelow relativeTo:[TopWindow windowNumber]];
 				TopWindow = Window;
 			}
 		}
 	}
+
+	SetHighPrecisionMouseMode(false, nullptr);
 
 	((FMacCursor*)Cursor.Get())->UpdateVisibility();
 
@@ -1104,6 +1114,50 @@ void FMacApplication::OnWindowsReordered(bool bIsAppInBackground)
 				[Window setLevel:NSNormalWindowLevel];
 			}
 		}
+	}
+}
+
+void FMacApplication::OnCursorLock()
+{
+	NSWindow* NativeWindow = [NSApp keyWindow];
+	if (NativeWindow)
+	{
+		const bool bIsCursorLocked = ((FMacCursor*)Cursor.Get())->IsLocked();
+		if (bIsCursorLocked)
+		{
+			[NativeWindow setMinSize:NSMakeSize(NativeWindow.frame.size.width, NativeWindow.frame.size.height)];
+			[NativeWindow setMaxSize:NSMakeSize(NativeWindow.frame.size.width, NativeWindow.frame.size.height)];
+		}
+		else
+		{
+			TSharedPtr<FMacWindow> Window = FindWindowByNSWindow((FCocoaWindow*)NativeWindow);
+			if (Window.IsValid())
+			{
+				const FGenericWindowDefinition& Definition = Window->GetDefinition();
+				[NativeWindow setMinSize:NSMakeSize(Definition.SizeLimits.GetMinWidth().Get(10.0f), Definition.SizeLimits.GetMinHeight().Get(10.0f))];
+				[NativeWindow setMaxSize:NSMakeSize(Definition.SizeLimits.GetMaxWidth().Get(10000.0f), Definition.SizeLimits.GetMaxHeight().Get(10000.0f))];
+			}
+		}
+	}
+}
+
+void FMacApplication::ConditionallyUpdateModifierKeys(const FDeferredMacEvent& Event)
+{
+	if (CurrentModifierFlags != Event.ModifierFlags)
+	{
+		NSUInteger ModifierFlags = Event.ModifierFlags;
+		
+		HandleModifierChange(ModifierFlags, (1<<4), 7, MMK_RightCommand);
+		HandleModifierChange(ModifierFlags, (1<<3), 6, MMK_LeftCommand);
+		HandleModifierChange(ModifierFlags, (1<<1), 0, MMK_LeftShift);
+		HandleModifierChange(ModifierFlags, (1<<16), 8, MMK_CapsLock);
+		HandleModifierChange(ModifierFlags, (1<<5), 4, MMK_LeftAlt);
+		HandleModifierChange(ModifierFlags, (1<<0), 2, MMK_LeftControl);
+		HandleModifierChange(ModifierFlags, (1<<2), 1, MMK_RightShift);
+		HandleModifierChange(ModifierFlags, (1<<6), 5, MMK_RightAlt);
+		HandleModifierChange(ModifierFlags, (1<<13), 3, MMK_RightControl);
+		
+		CurrentModifierFlags = ModifierFlags;
 	}
 }
 
@@ -1175,19 +1229,16 @@ NSScreen* FMacApplication::FindScreenByPoint(int32 X, int32 Y) const
 	return TargetScreen;
 }
 
-bool FMacApplication::IsWindowMovable(TSharedRef<FMacWindow> Window, bool* OutMovableByBackground) const
+EWindowZone::Type FMacApplication::GetCurrentWindowZone(const TSharedRef<FMacWindow>& Window) const
 {
-	if (OutMovableByBackground)
-	{
-		*OutMovableByBackground = false;
-	}
-
 	const FVector2D CursorPos = ((FMacCursor*)Cursor.Get())->GetPosition();
 	const int32 LocalMouseX = CursorPos.X - Window->PositionX;
 	const int32 LocalMouseY = CursorPos.Y - Window->PositionY;
+	return MessageHandler->GetWindowZoneForPoint(Window, LocalMouseX, LocalMouseY);
+}
 
-	const EWindowZone::Type Zone = MessageHandler->GetWindowZoneForPoint(Window, LocalMouseX, LocalMouseY);
-	const bool IsMouseOverTitleBar = Zone == EWindowZone::TitleBar;
+bool FMacApplication::IsEdgeZone(EWindowZone::Type Zone) const
+{
 	switch (Zone)
 	{
 		case EWindowZone::NotInWindow:
@@ -1201,11 +1252,6 @@ bool FMacApplication::IsWindowMovable(TSharedRef<FMacWindow> Window, bool* OutMo
 		case EWindowZone::BottomRightBorder:
 			return true;
 		case EWindowZone::TitleBar:
-			if (OutMovableByBackground)
-			{
-				*OutMovableByBackground = true;
-			}
-			return true;
 		case EWindowZone::ClientArea:
 		case EWindowZone::MinimizeButton:
 		case EWindowZone::MaximizeButton:

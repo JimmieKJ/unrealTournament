@@ -105,9 +105,9 @@ struct FDiffResults
 	}
 
 	/** Test if it can store results*/
-	operator bool () const
+	bool CanStoreResults() const
 	{
-		return ResultArray != NULL;
+		return ResultArray != nullptr;
 	}
 
 	/** Get the number of diffs found*/

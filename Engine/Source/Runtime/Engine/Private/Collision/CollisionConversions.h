@@ -7,6 +7,12 @@
 
 #include "../PhysicsEngine/PhysXSupport.h"
 
+enum class EConvertQueryResult
+{
+	Valid,
+	Invalid
+};
+
 /** 
  * Util to convert single physX hit (raycast or sweep) to our hit result
  *
@@ -19,12 +25,14 @@
  * @param	Geom
  * @param	bReturnFaceIndex	True if we want to lookup the face index
  * @param	bReturnPhysMat		True if we want to lookup the physical material
+ * @return	Whether result passed NaN/Inf checks.
  */
-void ConvertQueryImpactHit(const UWorld* World, const PxLocationHit& PHit, FHitResult& OutResult, float CheckLength, const PxFilterData& QueryFilter, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry* const Geom, const PxTransform& QueryTM, bool bReturnFaceIndex, bool bReturnPhysMat);
+EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationHit& PHit, FHitResult& OutResult, float CheckLength, const PxFilterData& QueryFilter, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry* const Geom, const PxTransform& QueryTM, bool bReturnFaceIndex, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX raycast results to our hit results
  *
+ * @param	OutHasValidBlockingHit set to whether there is a valid blocking hit found in the results.
  * @param	NumHits		Number of Hits
  * @param	Hits		Array of hits
  * @param	CheckLength	Distance of trace
@@ -33,12 +41,14 @@ void ConvertQueryImpactHit(const UWorld* World, const PxLocationHit& PHit, FHitR
  * @param	EndLoc		End of trace
  * @param	bReturnFaceIndex	True if we want to lookup the face index
  * @param	bReturnPhysMat		True if we want to lookup the physical material
+ * @return	Whether all results passed NaN/Inf checks.
  */
-void ConvertRaycastResults(const UWorld* World, int32 NumHits, PxRaycastHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, bool bReturnFaceIndex, bool bReturnPhysMat);
+EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, PxRaycastHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, bool bReturnFaceIndex, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX sweep results to unreal hit results and add to array
  *
+ * @param	OutHasValidBlockingHit set to whether there is a valid blocking hit found in the results.
  * @param	NumHits		Number of Hits
  * @param	Hits		Array of hits
  * @param	CheckLength	Distance of trace
@@ -46,9 +56,9 @@ void ConvertRaycastResults(const UWorld* World, int32 NumHits, PxRaycastHit* Hit
  * @param	StartLoc	Start of trace
  * @param	EndLoc		End of trace
  * @param	Geom
- * @return	true if any blocking hit was found within MaxDistance.
+ * @return	Whether all results passed NaN/Inf checks.
  */
-bool AddSweepResults(const UWorld* World, int32 NumHits, const PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnPhysMat);
+EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, const PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX overlap query to our overlap result

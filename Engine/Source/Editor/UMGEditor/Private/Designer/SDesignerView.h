@@ -47,6 +47,7 @@ public:
 	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override;
 
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
@@ -76,6 +77,12 @@ public:
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	// End of FGCObject interface
 
+protected:
+	virtual FSlateRect ComputeAreaBounds() const override;
+	virtual int32 GetGraphRulePeriod() const override;
+	virtual float GetGridScaleAmount() const override;
+	virtual int32 GetSnapGridSize() const override;
+
 private:
 	/** Establishes the resolution and aspect ratio to use on construction from config settings */
 	void SetStartupResolution();
@@ -98,8 +105,6 @@ private:
 
 	/** Gets the DPI scale that would be applied given the current preview width and height */
 	float GetPreviewDPIScale() const;
-
-	virtual FSlateRect ComputeAreaBounds() const override;
 
 	/** Adds any pending selected widgets to the selection set */
 	void ResolvePendingSelectedWidgets();
@@ -134,6 +139,9 @@ private:
 
 	/** @return Formatted text for the given resolution params */
 	FText GetResolutionText(int32 Width, int32 Height, const FString& AspectRatio) const;
+
+	/** Move the selected widget by the nudge amount. */
+	FReply NudgeSelectedWidget(FVector2D Nudge);
 
 	FText GetCurrentResolutionText() const;
 	FText GetCurrentDPIScaleText() const;
@@ -184,7 +192,7 @@ private:
 	};
 
 	/** @returns Gets the widget under the cursor based on a mouse pointer event. */
-	bool FindWidgetUnderCursor(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, FWidgetHitResult& HitResult);
+	bool FindWidgetUnderCursor(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, TSubclassOf<UWidget> FindType, FWidgetHitResult& HitResult);
 
 private:
 	FReply HandleZoomToFitClicked();
@@ -206,12 +214,14 @@ private:
 	bool CanSetTransformMode(ETransformMode::Type InTransformMode) const;
 	bool IsTransformModeActive(ETransformMode::Type InTransformMode) const;
 
-	UWidget* ProcessDropAndAddWidget(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, bool bIsPreview);
+	void ProcessDropAndAddWidget(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, const bool bIsPreview);
 
 	FVector2D GetExtensionPosition(TSharedRef<FDesignerSurfaceElement> ExtensionElement) const;
 
 	FVector2D GetExtensionSize(TSharedRef<FDesignerSurfaceElement> ExtensionElement) const;
 	
+	void ClearDropPreviews();
+
 private:
 	/** A reference to the BP Editor that owns this designer */
 	TWeakPtr<FWidgetBlueprintEditor> BlueprintEditor;
@@ -228,8 +238,13 @@ private:
 	/** The current preview widget's slate widget */
 	TWeakPtr<SWidget> PreviewSlateWidget;
 	
-	UWidget* DropPreviewWidget;
-	UPanelWidget* DropPreviewParent;
+	struct FDropPreview
+	{
+		UWidget* Widget;
+		UPanelWidget* Parent;
+	};
+
+	TArray<FDropPreview> DropPreviews;
 
 	TSharedPtr<class SZoomPan> PreviewHitTestRoot;
 	TSharedPtr<SBox> PreviewAreaConstraint;

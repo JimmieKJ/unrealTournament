@@ -36,8 +36,11 @@ class FPaperJsonSpriteSheetImporter
 {
 public:
 	FPaperJsonSpriteSheetImporter();
-	bool ImportFromString(const FString& FileContents, const FString& NameForErrors);
-	bool ImportFromArchive(FArchive* Archive, const FString& NameForErrors);
+
+	static bool CanImportJSON(const FString& FileContents);
+
+	bool ImportFromString(const FString& FileContents, const FString& NameForErrors, bool bSilent);
+	bool ImportFromArchive(FArchive* Archive, const FString& NameForErrors, bool bSilent);
 
 	bool ImportTextures(const FString& LongPackagePath, const FString& SourcePath);
 
@@ -49,7 +52,7 @@ public:
 	static UTexture2D* ImportTexture(const FString& TextureSourcePath, const FString& DestinationAssetFolder);
 
 protected:
-	bool Import(TSharedPtr<FJsonObject> SpriteDescriptorObject, const FString& NameForErrors);
+	bool Import(TSharedPtr<FJsonObject> SpriteDescriptorObject, const FString& NameForErrors, bool bSilent);
 	UPaperSprite* FindExistingSprite(const FString& Name);
 
 protected:

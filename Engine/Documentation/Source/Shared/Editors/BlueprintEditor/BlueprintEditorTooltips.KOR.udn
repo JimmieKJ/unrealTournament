@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2488380
+﻿INTSourceChangelist:2573142
 Availability:NoPublish
 Title:
 Crumbs:
@@ -66,6 +66,7 @@ Engine/Blueprints/Editor/Modes/GraphPanel
 [/VAR]
 
 [/EXCERPT:GraphMode]
+
 [EXCERPT:FindInBlueprint_IndexAll]
 예전 블루프린트에는 언로드시 검색에 필요한 데이터가 들어있지 않아 재저장이 필요합니다. 소스 콘트롤이 켜진 경우 캐시되지 않은 파일은 자동 체크아웃 되며, 실패한 경우 보고됩니다.
 [/EXCERPT:FindInBlueprint_IndexAll]

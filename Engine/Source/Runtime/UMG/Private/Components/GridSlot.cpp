@@ -26,7 +26,7 @@ void UGridSlot::ReleaseSlateResources(bool bReleaseChildren)
 // COMPILE PLEASE
 void UGridSlot::BuildSlot(TSharedRef<SGridPanel> GridPanel)
 {
-	Slot = &GridPanel->AddSlot(Column, Row)
+	Slot = &GridPanel->AddSlot(Column, Row, SGridPanel::Layer(Layer))
 		.HAlign(HorizontalAlignment)
 		.VAlign(VerticalAlignment)
 		.RowSpan(RowSpan)
@@ -70,6 +70,15 @@ void UGridSlot::SetColumnSpan(int32 InColumnSpan)
 	if ( Slot )
 	{
 		Slot->ColumnSpan(InColumnSpan);
+	}
+}
+
+void UGridSlot::SetLayer(int32 InLayer)
+{
+	Layer = InLayer;
+	if (Slot)
+	{
+		Slot->Layer(InLayer);
 	}
 }
 

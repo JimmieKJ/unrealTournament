@@ -23,11 +23,20 @@ namespace CCT
 		FString InputFile;
 		FString OutputFile;
 		EBackend BackEnd;
+		bool bValidate;
 		bool bRunCPP;
 		bool bUseNew;
 		bool bList;
 		bool bPreprocessOnly;
-		bool bForcePackedUBs;
+		bool bPackIntoUBs;
+		bool bUseDX11Clip;
+		bool bFlattenUBs;
+		bool bFlattenUBStructs;
+		bool bGroupFlattenUBs;
+		bool bCSE;
+		bool bExpandExpressions;
+		bool bFixAtomics;
+		bool bSeparateShaders;
 
 		FRunInfo();
 		bool Setup(const FString& InOptions, const TArray<FString>& InSwitches);

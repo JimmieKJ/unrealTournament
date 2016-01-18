@@ -11,7 +11,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #define RTREE_TEXT_DUMP_ENABLE		0
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 #define RTREE_PAGES_PER_POOL_SLAB	16384 // preallocate all pages in first batch to make sure we stay within 32 bits for relative pointers.. this is 2 megs
 #else
 #define RTREE_PAGES_PER_POOL_SLAB	128
@@ -42,7 +42,7 @@ namespace Gu {
 #define CONVERT_PTR_TO_INT PxU64
 #endif
 
-#if defined(PX_X64) || defined(PX_ARM64)
+#ifdef PX_P64
 RTreePage* RTree::sFirstPoolPage = NULL; // used for relative addressing on 64-bit platforms
 #endif
 

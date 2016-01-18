@@ -25,3 +25,6 @@ DEFINE_STAT(STAT_HasApplicationImmunityToSpec);
 DEFINE_STAT(STAT_HasMatchingGameplayTag);
 DEFINE_STAT(STAT_HandleGameplayCueNotifyStatic);
 DEFINE_STAT(STAT_HandleGameplayCueNotifyActor);
+DEFINE_STAT(STAT_ApplyGameplayEffectToTarget);
+DEFINE_STAT(STAT_OnActiveGameplayEffectAdded);
+DEFINE_STAT(STAT_OnActiveGameplayEffectRemoved);

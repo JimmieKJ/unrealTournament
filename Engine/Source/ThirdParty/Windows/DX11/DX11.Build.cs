@@ -21,15 +21,6 @@ public class DX11 : ModuleRules
 			PublicLibraryPaths.Add(DirectXSDKDir + "/Lib/x86");
 		}
 
-		// If we're targeting Windows XP, then always delay-load D3D11 as it won't exist on that architecture
-		if (WindowsPlatform.IsWindowsXPSupported())
-		{
-			PublicDelayLoadDLLs.AddRange( new string[] {
-				"d3d11.dll", 
-				"dxgi.dll" 
-			} );
-		}
-
 		PublicAdditionalLibraries.AddRange(
 			new string[] {
 				"dxgi.lib",

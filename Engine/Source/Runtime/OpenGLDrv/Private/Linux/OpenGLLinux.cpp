@@ -110,11 +110,20 @@ static void _PlatformCreateDummyGLWindow( FPlatformOpenGLContext *OutContext )
 	static bool bInitializedWindowClass = false;
 
 	// Create a dummy window.
-	SDL_HWindow h_wnd = SDL_CreateWindow(	NULL,
+	SDL_HWindow DummyWindow = SDL_CreateWindow(	NULL,
 											0, 0, 1, 1,
-											SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIDDEN );
+											SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIDDEN | SDL_WINDOW_SKIP_TASKBAR );
+	if (DummyWindow == nullptr)
+	{
+		UE_LOG(LogLinux, Fatal, TEXT("Cannot create dummy GL window for shared context."));
+		// unreachable
+	}
+	else
+	{
+		SDL_SetWindowTitle(DummyWindow, "UE4 Dummy GL window");
+	}
 
-	OutContext->hWnd					= h_wnd;
+	OutContext->hWnd					= DummyWindow;
 	OutContext->bReleaseWindowOnDestroy	= true;
 }
 
@@ -389,6 +398,12 @@ bool PlatformBlitToViewport(FPlatformOpenGLDevice* Device,
 		SDL_GL_GetDrawableSize(Context->hWnd, &WinW, &WinH);
 		GLenum BlitFilter;
 		GLint DestX0, DestY0, DestX1, DestY1;
+
+		if ( WinH == 0 || WinW == 0 )
+		{
+			// Nothing to blit
+			return false;
+		}
 
 		if ( ( WinW == BackbufferSizeX ) && ( WinH == BackbufferSizeY ) )
 		{

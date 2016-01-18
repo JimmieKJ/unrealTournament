@@ -117,7 +117,6 @@ void SDesignSurface::Construct(const FArguments& InArgs)
 	ZoomLevel = ZoomLevels->GetDefaultZoomLevel();
 	PreviousZoomLevel = ZoomLevels->GetDefaultZoomLevel();
 	PostChangedZoom();
-	SnapGridSize = 16.0f;
 	AllowContinousZoomInterpolation = InArgs._AllowContinousZoomInterpolation;
 	bIsPanning = false;
 
@@ -380,7 +379,7 @@ bool SDesignSurface::ScrollToLocation(const FGeometry& MyGeometry, FVector2D Des
 	ViewOffset = NewPosition - HalfOFScreenInGraphSpace;
 
 	// If within 1 pixel of target, stop interpolating
-	return ( ( NewPosition - DesiredCenterPosition ).Size() < 1.f );
+	return ( ( NewPosition - DesiredCenterPosition ).SizeSquared() < 1.f );
 }
 
 bool SDesignSurface::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, const FVector2D& DesiredSize, bool bDoneScrolling)
@@ -470,11 +469,6 @@ FVector2D SDesignSurface::GetViewOffset() const
 	return ViewOffset;
 }
 
-float SDesignSurface::GetSnapGridSize() const
-{
-	return SnapGridSize;
-}
-
 FVector2D SDesignSurface::GraphCoordToPanelCoord(const FVector2D& GraphSpaceCoordinate) const
 {
 	return ( GraphSpaceCoordinate - GetViewOffset() ) * GetZoomAmount();
@@ -485,11 +479,21 @@ FVector2D SDesignSurface::PanelCoordToGraphCoord(const FVector2D& PanelSpaceCoor
 	return PanelSpaceCoordinate / GetZoomAmount() + GetViewOffset();
 }
 
+int32 SDesignSurface::GetGraphRulePeriod() const
+{
+	return (int32)FEditorStyle::GetFloat("Graph.Panel.GridRulePeriod");
+}
+
+float SDesignSurface::GetGridScaleAmount() const
+{
+	return 1;
+}
+
 void SDesignSurface::PaintBackgroundAsLines(const FSlateBrush* BackgroundImage, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32& DrawLayerId) const
 {
 	const bool bAntialias = false;
 
-	const int32 RulePeriod = (int32)FEditorStyle::GetFloat("Graph.Panel.GridRulePeriod");
+	const int32 RulePeriod = GetGraphRulePeriod();
 	check(RulePeriod > 0);
 
 	const FLinearColor RegularColor(FEditorStyle::GetColor("Graph.Panel.GridLineColor"));
@@ -497,7 +501,7 @@ void SDesignSurface::PaintBackgroundAsLines(const FSlateBrush* BackgroundImage, 
 	const FLinearColor CenterColor(FEditorStyle::GetColor("Graph.Panel.GridCenterColor"));
 	const float GraphSmallestGridSize = 8.0f;
 	const float RawZoomFactor = GetZoomAmount();
-	const float NominalGridSize = GetSnapGridSize();
+	const float NominalGridSize = GetSnapGridSize() * GetGridScaleAmount();
 
 	float ZoomFactor = RawZoomFactor;
 	float Inflation = 1.0f;

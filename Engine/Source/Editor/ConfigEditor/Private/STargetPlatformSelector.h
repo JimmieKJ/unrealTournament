@@ -14,9 +14,9 @@ public:
 		SLATE_EVENT(FSimpleDelegate, OnTargetPlatformChanged)
 	SLATE_END_ARGS()
 
-	// Begin SCompoundWidget|SWidget interface
+	//~ Begin SCompoundWidget|SWidget Interface
 	void Construct(const FArguments& InArgs);
-	// End SCompoundWidget|SWidget interface
+	//~ End SCompoundWidget|SWidget Interface
 
 	/**
 	 * Access to the selected target platform in this widget.

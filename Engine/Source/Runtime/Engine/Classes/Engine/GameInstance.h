@@ -49,18 +49,22 @@ protected:
 	// Delegate handle that stores delegate for when an invite is accepted by a user
 	FDelegateHandle OnSessionUserInviteAcceptedDelegateHandle;
 	
+	/** Class to manage online services */
+	UPROPERTY()
+	class UOnlineSession* OnlineSession;
+
 public:
 
 	FString PIEMapName;
 
-	// Begin FExec Interface
+	//~ Begin FExec Interface
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out = *GLog) override;
-	// End FExec Interface
+	//~ End FExec Interface
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual class UWorld* GetWorld() const override;
 	virtual void FinishDestroy() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/** virtual function to allow custom GameInstances an opportunity to set up what it needs */
 	virtual void Init();
@@ -88,9 +92,13 @@ public:
 	void InitializeStandalone();
 #if WITH_EDITOR
 	/* Called to initialize the game instance for PIE instances of the game */
-	bool InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance);
+	virtual bool InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, bool bRunAsDedicated);
 
 	virtual bool StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode);
+
+	/** Initial map to load when starting the game instance. Overrides anything set on the command line */
+	FString InitialMapOverride;
+
 #endif
 
 	class UEngine* GetEngine() const;
@@ -128,7 +136,7 @@ public:
 	 * @param SpawnActor - True if an actor should be spawned for the new player.
 	 * @return The player which was created.
 	 */
-	class ULocalPlayer*		CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnActor);
+	ULocalPlayer*			CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnActor);
 
 	/**
 	 * Adds a LocalPlayer to the local and global list of Players.
@@ -148,38 +156,58 @@ public:
 
 	int32					GetNumLocalPlayers() const;
 	ULocalPlayer*			GetLocalPlayerByIndex(const int32 Index) const;
-	APlayerController*		GetFirstLocalPlayerController() const;
+	APlayerController*		GetFirstLocalPlayerController(UWorld* World = nullptr) const;
 	ULocalPlayer*			FindLocalPlayerFromControllerId(const int32 ControllerId) const;
-	ULocalPlayer*			FindLocalPlayerFromUniqueNetId(TSharedPtr< FUniqueNetId > UniqueNetId) const;
+	ULocalPlayer*			FindLocalPlayerFromUniqueNetId(TSharedPtr<const FUniqueNetId> UniqueNetId) const;
 	ULocalPlayer*			FindLocalPlayerFromUniqueNetId(const FUniqueNetId& UniqueNetId) const;
 	ULocalPlayer*			GetFirstGamePlayer() const;
 
-	void					CleanupGameViewport();
+	TArray<ULocalPlayer*>::TConstIterator	GetLocalPlayerIterator() const;
+	const TArray<ULocalPlayer*> &			GetLocalPlayers() const;
+	/**
+	 * Get the primary player controller on this machine (others are splitscreen children)
+	 * (must have valid player state and unique id)
+	 *
+	 * @return the primary controller on this machine
+	 */
+	APlayerController* GetPrimaryPlayerController() const;
 
-	TArray<class ULocalPlayer*>::TConstIterator	GetLocalPlayerIterator();
-	const TArray<class ULocalPlayer*> &			GetLocalPlayers();
+	/**
+	 * Get the unique id for the primary player on this machine (others are splitscreen children)
+	 *
+	 * @return the unique id of the primary player on this machine
+	 */
+	TSharedPtr<const FUniqueNetId> GetPrimaryPlayerUniqueId() const;
+
+	void CleanupGameViewport();
 
 	/** Called when demo playback fails for any reason */
-	virtual void			HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureType, const FString& ErrorString = TEXT("") ) { }
+	virtual void HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureType, const FString& ErrorString = TEXT("") ) { }
 
-	static void				AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
     /** Delegate that is called when a user has accepted an invite. */
-	void HandleSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult);
+	void HandleSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult);
 	
 	/** Overridable implementation of HandleSessionUserInviteAccepted, which does nothing but call this function */
-	virtual void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult);
+	virtual void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult);
 
 	inline FTimerManager& GetTimerManager() const { return *TimerManager; }
 
-	/** Start recording a replay with the given custom name and friendly name. */
-	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName);
+	/**
+	 * Start recording a replay with the given custom name and friendly name.
+	 *
+	 * @param InName If not empty, the unique name to use as an identifier for the replay. If empty, a name will be automatically generated by the replay streamer implementation.
+	 * @param FriendlyName An optional (may be empty) descriptive name for the replay. Does not have to be unique.
+	 * @param AdditionalOptions Additional URL options to append to the URL that will be processed by the replay net driver. Will usually remain empty.
+	 */
+	virtual void StartRecordingReplay(const FString& InName, const FString& FriendlyName, const TArray<FString>& AdditionalOptions = TArray<FString>());
 
 	/** Stop recording a replay if one is currently in progress */
 	virtual void StopRecordingReplay();
 
 	/** Start playing back a previously recorded replay. */
-	virtual void PlayReplay(const FString& Name);
+	virtual void PlayReplay(const FString& InName, UWorld* WorldOverride = nullptr, const TArray<FString>& AdditionalOptions = TArray<FString>());
 
 	/**
 	 * Adds a join-in-progress user to the set of users associated with the currently recording replay (if any)
@@ -194,7 +222,7 @@ public:
 	 */
 	virtual void HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr)
 	{}
-
+	
 	/** return true to delay an otherwise ready-to-join PendingNetGame performing LoadMap() and finishing up
 	 * useful to wait for content downloads, etc
 	 */
@@ -203,6 +231,14 @@ public:
 		return false;
 	}
 
-private:
 	FTimerManager* TimerManager;
+
+	/** @return online session management object associated with this game instance */
+	class UOnlineSession* GetOnlineSession() const { return OnlineSession; }
+
+	/** @return OnlineSession class to use for this game instance  */
+	virtual TSubclassOf<UOnlineSession> GetOnlineSessionClass();
+
+	/** Returns true if this instance is for a dedicated server world */
+	bool IsDedicatedServerInstance() const;
 };

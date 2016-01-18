@@ -31,7 +31,7 @@ void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObje
 	auto ObjectActionList = GetActionListForObject(InObject);
 	if (ObjectActionList)
 	{
-		auto ActionToRemoveListPtr = ActionsToRemoveMap.FindOrAdd(InObject);
+		auto& ActionToRemoveListPtr = ActionsToRemoveMap.FindOrAdd(InObject);
 		if (!ActionToRemoveListPtr.IsValid())
 		{
 			ActionToRemoveListPtr = MakeShareable(new TArray<FUuidAndAction>());
@@ -44,11 +44,16 @@ void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObje
 	}
 }
 
+
+DECLARE_CYCLE_STAT(TEXT("Blueprint Latent Actions"), STAT_TickLatentActions, STATGROUP_Game);
+
 void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTime)
 {
+	SCOPE_CYCLE_COUNTER(STAT_TickLatentActions);
+
 	for (FActionsForObject::TIterator It(ActionsToRemoveMap); It; ++It)
 	{
-		auto ActionList = GetActionListForObject(InObject);
+		auto ActionList = GetActionListForObject(It.Key());
 		auto ActionToRemoveListPtr = It.Value();
 		if (ActionToRemoveListPtr.IsValid() && ActionList)
 		{
@@ -64,7 +69,7 @@ void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTi
 			}
 		}
 	}
-	ActionsToRemoveMap.Empty();
+	ActionsToRemoveMap.Reset();
 
 	//@TODO: K2: Very inefficient code right now
 	if (InObject != NULL)
@@ -110,7 +115,7 @@ void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTi
 					Action->NotifyObjectDestroyed();
 					delete Action;
 				}
-				ObjectActionList.Empty();
+				ObjectActionList.Reset();
 			}
 
 			// Remove the entry if there are no pending actions remaining for this object (or if the object was NULLed and cleaned up)
@@ -210,6 +215,7 @@ FString FLatentActionManager::GetDescription(UObject* InObject, int32 UUID) cons
 	}
 	return Description;
 }
+
 void FLatentActionManager::GetActiveUUIDs(UObject* InObject, TSet<int32>& UUIDList) const
 {
 	check(InObject);
@@ -225,3 +231,21 @@ void FLatentActionManager::GetActiveUUIDs(UObject* InObject, TSet<int32>& UUIDLi
 }
 
 #endif
+
+FLatentActionManager::~FLatentActionManager()
+{
+	for (auto& ObjectActionListIterator : ObjectToActionListMap)
+	{
+		TSharedPtr<FActionList>& ActionList = ObjectActionListIterator.Value;
+		if (ActionList.IsValid())
+		{
+			for (auto& ActionIterator : *ActionList.Get())
+			{
+				FPendingLatentAction* Action = ActionIterator.Value;
+				ActionIterator.Value = nullptr;
+				delete Action;
+			}
+			ActionList->Reset();
+		}
+	}
+}

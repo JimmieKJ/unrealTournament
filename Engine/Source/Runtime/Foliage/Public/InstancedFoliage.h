@@ -187,7 +187,10 @@ struct FFoliageMeshInfo
 	FOLIAGE_API void AddInstance(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings, const FFoliageInstance& InNewInstance);
 	FOLIAGE_API void AddInstance(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings, const FFoliageInstance& InNewInstance, UActorComponent* InBaseComponent);
 	FOLIAGE_API void RemoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesToRemove);
+	// Apply changes in the FoliageType to the component
 	FOLIAGE_API void UpdateComponentSettings(const UFoliageType* InSettings);
+	// Recreate the component if the FoliageType's ComponentClass doesn't match the Component's class
+	FOLIAGE_API void CheckComponentClass(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings);
 	FOLIAGE_API void PreMoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesToMove);
 	FOLIAGE_API void PostMoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesMoved);
 	FOLIAGE_API void PostUpdateInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesUpdated, bool bReAddToHash = false);
@@ -210,7 +213,10 @@ struct FFoliageMeshInfo
 
 	FOLIAGE_API void AddToBaseHash(int32 InstanceIdx);
 	FOLIAGE_API void RemoveFromBaseHash(int32 InstanceIdx);
-		
+
+	// Create and register a new component
+	void CreateNewComponent(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings);
+
 	// For debugging. Validate state after editing.
 	void CheckValid();
 #endif

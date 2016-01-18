@@ -3,23 +3,67 @@
 #pragma once
 
 #include "MovieSceneSection.h"
-
+#include "IKeyframeSection.h"
 #include "MovieScene2DTransformSection.generated.h"
 
-struct FWidgetTransform;
+
+enum class EKey2DTransformChannel
+{
+	Translation,
+	Rotation,
+	Scale,
+	Shear
+};
+
+
+enum class EKey2DTransformAxis
+{
+	X,
+	Y,
+	None
+};
+
+enum class EKey2DTransformValueType
+{
+	Key,
+	Default
+};
+
+struct F2DTransformKey
+{
+	F2DTransformKey( EKey2DTransformChannel InChannel, EKey2DTransformAxis InAxis, float InValue, EKey2DTransformValueType InValueType )
+	{
+		Channel = InChannel;
+		Axis = InAxis;
+		Value = InValue;
+		ValueType = InValueType;
+	}
+	EKey2DTransformChannel Channel;
+	EKey2DTransformAxis Axis;
+	float Value;
+	EKey2DTransformValueType ValueType;	
+};
+
 
 /**
  * A transform section
  */
 UCLASS(MinimalAPI)
-class UMovieScene2DTransformSection : public UMovieSceneSection
+class UMovieScene2DTransformSection
+	: public UMovieSceneSection
+	, public IKeyframeSection<F2DTransformKey>
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+
 public:
 
-	/** MovieSceneSection interface */
-	virtual void MoveSection( float DeltaPosition ) override;
-	virtual void DilateSection( float DilationFactor, float Origin ) override;
+	// UMovieSceneSection interface
+
+	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
+	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
+
+public:
 
 	UMG_API FRichCurve& GetTranslationCurve( EAxis::Type Axis );
 
@@ -31,12 +75,14 @@ public:
 
 	FWidgetTransform Eval( float Position, const FWidgetTransform& DefaultValue ) const;
 
-	bool NewKeyIsNewData( float Time, const FWidgetTransform& Transform ) const;
+	// IKeyframeSection interface.
+	virtual bool NewKeyIsNewData( float Time, const struct F2DTransformKey& TransformKey ) const override;
+	virtual bool HasKeys( const struct F2DTransformKey& TransformKey ) const override;
+	virtual void AddKey( float Time, const struct F2DTransformKey& TransformKey, EMovieSceneKeyInterpolation KeyInterpolation ) override;
+	virtual void SetDefault( const struct F2DTransformKey& TransformKey ) override;
 
-	void AddKey( float Time, const struct F2DTransformKey& TransformKey );
 private:
-	void AddKeyToNamedCurve(float Time, const F2DTransformKey& TransformKey);
-private:
+
 	/** Translation curves*/
 	UPROPERTY()
 	FRichCurve Translation[2];

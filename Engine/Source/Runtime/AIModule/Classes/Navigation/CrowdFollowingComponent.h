@@ -75,12 +75,18 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	void SetCrowdSeparation(bool bEnable, bool bUpdateAgent = true);
 	void SetCrowdOptimizeVisibility(bool bEnable, bool bUpdateAgent = true);
 	void SetCrowdOptimizeTopology(bool bEnable, bool bUpdateAgent = true);
+	void SetCrowdPathOffset(bool bEnable, bool bUpdateAgent = true);
 	void SetCrowdSlowdownAtGoal(bool bEnable, bool bUpdateAgent = true);
 	void SetCrowdSeparationWeight(float Weight, bool bUpdateAgent = true);
 	void SetCrowdCollisionQueryRange(float Range, bool bUpdateAgent = true);
 	void SetCrowdPathOptimizationRange(float Range, bool bUpdateAgent = true);
 	void SetCrowdAvoidanceQuality(ECrowdAvoidanceQuality::Type Quality, bool bUpdateAgent = true);
 	void SetCrowdAvoidanceRangeMultiplier(float Multipler, bool bUpdateAgent = true);
+	void SetCrowdAffectFallingVelocity(bool bEnable);
+	void SetCrowdRotateToVelocity(bool bEnable);
+	void SetAvoidanceGroup(int32 GroupFlags, bool bUpdateAgent = true);
+	void SetGroupsToAvoid(int32 GroupFlags, bool bUpdateAgent = true);
+	void SetGroupsToIgnore(int32 GroupFlags, bool bUpdateAgent = true);
 
 	FORCEINLINE bool IsCrowdSimulationEnabled() const { return bEnableCrowdSimulation; }
 	FORCEINLINE bool IsCrowdSimulatioSuspended() const { return bSuspendCrowdSimulation; }
@@ -91,6 +97,8 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	FORCEINLINE bool IsCrowdOptimizeTopologyEnabled() const { return bEnableOptimizeTopology; }
 	FORCEINLINE bool IsCrowdPathOffsetEnabled() const { return bEnablePathOffset; }
 	FORCEINLINE bool IsCrowdSlowdownAtGoalEnabled() const { return bEnableSlowdownAtGoal; }
+	FORCEINLINE bool IsCrowdAffectFallingVelocityEnabled() const { return bAffectFallingVelocity; }
+	FORCEINLINE bool IsCrowdRotateToVelocityEnabled() const { return bRotateToVelocity; }
 
 	FORCEINLINE bool IsCrowdSimulationActive() const { return IsCrowdSimulationEnabled() && !IsCrowdSimulatioSuspended(); }
 	/** checks if bEnableAnticipateTurns is set to true, and if crowd simulation is not suspended */
@@ -162,6 +170,8 @@ protected:
 	/** if set, movement will be finished when velocity is opposite to path direction (runtime flag) */
 	uint32 bCheckMovementAngle : 1;
 
+	uint32 bEnableSimulationReplanOnResume : 1;
+
 	float SeparationWeight;
 	float CollisionQueryRange;
 	float PathOptimizationRange;
@@ -192,6 +202,10 @@ protected:
 	bool ShouldSwitchPathPart(int32 CorridorSize) const;
 	bool HasMovedDuringPause() const;
 	void UpdateCachedDirections(const FVector& NewVelocity, const FVector& NextPathCorner, bool bTraversingLink);
+	virtual bool UpdateCachedGoal(FVector& NewGoalPos);
+	
+	void OnPendingNavigationInit();
+	bool RegisterCrowdAgent();
 
 	friend UCrowdManager;
 };

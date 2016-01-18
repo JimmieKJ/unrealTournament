@@ -135,7 +135,7 @@ namespace physx
 	\brief Tangent of an angle.
 	<b>Unit:</b> Radians
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxTan(PxF32 a)						{ return ::tan(a);							}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxTan(PxF32 a)						{ return ::tanf(a);							}
 
 	/**
 	\brief Tangent of an angle.
@@ -148,7 +148,7 @@ namespace physx
 	Returns angle between -PI/2 and PI/2 in radians
 	<b>Unit:</b> Radians
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxAsin(PxF32 f)						{ return ::asin(PxClamp(f,-1.0f,1.0f));	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxAsin(PxF32 f)						{ return ::asinf(PxClamp(f,-1.0f,1.0f));	}
 
 	/**
 	\brief Arcsine.
@@ -162,7 +162,7 @@ namespace physx
 	Returns angle between 0 and PI in radians
 	<b>Unit:</b> Radians
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxAcos(PxF32 f)						{ return ::acos(PxClamp(f,-1.0f,1.0f));			}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxAcos(PxF32 f)						{ return ::acosf(PxClamp(f,-1.0f,1.0f));			}
 
 	/**
 	\brief Arccosine.
@@ -176,7 +176,7 @@ namespace physx
 	Returns angle between -PI/2 and PI/2 in radians
 	<b>Unit:</b> Radians
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxAtan(PxF32 a)						{ return ::atan(a);	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxAtan(PxF32 a)						{ return ::atanf(a);	}
 
 	/**
 	\brief ArcTangent.
@@ -190,7 +190,7 @@ namespace physx
 	Returns angle between -PI and PI in radians
 	<b>Unit:</b> Radians
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxAtan2(PxF32 x, PxF32 y)			{ return ::atan2(x,y);	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxAtan2(PxF32 x, PxF32 y)			{ return ::atan2f(x,y);	}
 
 	/**
 	\brief Arctangent of (x/y) with correct sign.
@@ -215,7 +215,7 @@ namespace physx
 
 	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxPow(PxF32 x,PxF32 y)				{ return ::powf(x,y); }
 
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxLog(PxF32 x)						{ return ::log(x); }
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 PxLog(PxF32 x)						{ return ::logf(x); }
 
 #ifndef PX_DOXYGEN
 } // namespace physx

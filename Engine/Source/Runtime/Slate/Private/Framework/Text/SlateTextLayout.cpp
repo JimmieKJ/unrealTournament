@@ -147,10 +147,10 @@ const FTextBlockStyle& FSlateTextLayout::GetDefaultTextStyle() const
 void FSlateTextLayout::AggregateChildren()
 {
 	Children.Empty();
-	const TArray< FLineModel >& LineModels = GetLineModels();
-	for (int32 LineModelIndex = 0; LineModelIndex < LineModels.Num(); LineModelIndex++)
+	const TArray< FLineModel >& LayoutLineModels = GetLineModels();
+	for (int32 LineModelIndex = 0; LineModelIndex < LayoutLineModels.Num(); LineModelIndex++)
 	{
-		const FLineModel& LineModel = LineModels[ LineModelIndex ];
+		const FLineModel& LineModel = LayoutLineModels[ LineModelIndex ];
 		for (int32 RunIndex = 0; RunIndex < LineModel.Runs.Num(); RunIndex++)
 		{
 			const FRunModel& LineRun = LineModel.Runs[ RunIndex ];

@@ -1,6 +1,6 @@
 // path that requires a higher than normal jump capability
 // may also be traversed by advanced weapon use, e.g. impact jump, translocator
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -299,6 +299,22 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 					}
 				}
 			}
+		}
+	}
+
+	virtual bool OverrideAirControl(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const
+	{
+		// make sure AI won't clip level geometry on the way up, if so back up via air control
+		float Dist = (MovePos.Get() - Asker->GetActorLocation()).Size();
+		FHitResult Hit;
+		if (Asker->GetWorld()->LineTraceSingleByChannel(Hit, Asker->GetActorLocation(), Asker->GetActorLocation() + Asker->GetVelocity().GetSafeNormal() * Dist, ECC_Pawn, FCollisionQueryParams::DefaultQueryParam, WorldResponseParams))
+		{
+			Asker->GetMovementComponent()->AddInputVector((Asker->GetActorLocation() - MovePos.Get()).GetSafeNormal2D());
+			return true;
+		}
+		else
+		{
+			return false;
 		}
 	}
 

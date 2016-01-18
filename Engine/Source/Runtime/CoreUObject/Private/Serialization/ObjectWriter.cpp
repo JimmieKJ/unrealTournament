@@ -37,7 +37,16 @@ FArchive& FObjectWriter::operator<<( class FAssetPtr& AssetPtr )
 
 FArchive& FObjectWriter::operator<<(FStringAssetReference& Value)
 {
-	return *this << Value.AssetLongPathname;
+	FString Path = Value.ToString();
+
+	*this << Path;
+
+	if (IsLoading())
+	{
+		Value.SetPath(MoveTemp(Path));
+	}
+
+	return *this;
 }
 
 FString FObjectWriter::GetArchiveName() const

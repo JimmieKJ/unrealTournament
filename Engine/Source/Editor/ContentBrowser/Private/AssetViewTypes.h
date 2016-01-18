@@ -82,6 +82,9 @@ struct FAssetViewFolder : public FAssetViewItem
 	/** Whether this is a developer folder */
 	bool bDeveloperFolder;
 
+	/** Whether this is a collection folder */
+	bool bCollectionFolder;
+
 	/** Whether this folder is a new folder */
 	bool bNewFolder;
 
@@ -91,6 +94,7 @@ struct FAssetViewFolder : public FAssetViewItem
 	{
 		FolderName = FText::FromString(FPaths::GetBaseFilename(FolderPath));
 		bDeveloperFolder = ContentBrowserUtils::IsDevelopersFolder(FolderPath);
+		bCollectionFolder = ContentBrowserUtils::IsCollectionPath(FolderPath);
 	}
 
 	/** Set the name of this folder (without path) */

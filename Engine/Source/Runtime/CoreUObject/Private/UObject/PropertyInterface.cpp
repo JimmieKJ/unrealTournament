@@ -54,12 +54,15 @@ FString UInterfaceProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint
 	if ( ExtendedTypeText != NULL )
 	{
 		UClass* ExportClass = InterfaceClass;
-		while ( ExportClass && !ExportClass->HasAnyClassFlags(CLASS_Native) )
+		if (0 == (CPPF_BlueprintCppBackend & CPPExportFlags))
 		{
-			ExportClass = ExportClass->GetSuperClass();
+			while (ExportClass && !ExportClass->HasAnyClassFlags(CLASS_Native))
+			{
+				ExportClass = ExportClass->GetSuperClass();
+			}
 		}
 		check(ExportClass);
-		check(ExportClass->HasAnyClassFlags(CLASS_Interface));
+		check(ExportClass->HasAnyClassFlags(CLASS_Interface) || 0 != (CPPF_BlueprintCppBackend & CPPExportFlags));
 
 		*ExtendedTypeText = FString::Printf(TEXT("<I%s>"), *ExportClass->GetName());
 	}
@@ -130,6 +133,18 @@ void UInterfaceProperty::ExportTextItem( FString& ValueStr, const void* Property
 	FScriptInterface* InterfaceValue = (FScriptInterface*)PropertyValue;
 
 	UObject* Temp = InterfaceValue->GetObject();
+
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		const FString GetObjectStr = Temp
+			? FString::Printf(TEXT("LoadObject<UObject>(nullptr, TEXT(\"%s\"))"), *Temp->GetPathName().ReplaceCharWithEscapedChar())
+			: TEXT("");
+		ValueStr += FString::Printf(TEXT("TScriptInterface<I%s>(%s)")
+			, (InterfaceClass ? *InterfaceClass->GetName() : TEXT("Interface"))
+			, *GetObjectStr);
+		return;
+	}
+
 	if( Temp != NULL )
 	{
 		bool bExportFullyQualified = true;
@@ -232,9 +247,6 @@ void UInterfaceProperty::Serialize( FArchive& Ar )
 		{
 			checkf(false, TEXT("Interface property tried to serialize a missing interface.  Did you remove a native class and not fully recompile?"));
 		}
-
-		int32 a = 0;
-		++a;
  	}
 }
 
@@ -258,6 +270,13 @@ void UInterfaceProperty::SetInterfaceClass(UClass* NewInterfaceClass)
 bool UInterfaceProperty::SameType(const UProperty* Other) const
 {
 	return Super::SameType(Other) && (InterfaceClass == ((UInterfaceProperty*)Other)->InterfaceClass);
+}
+
+void UInterfaceProperty::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
+{
+	UInterfaceProperty* This = CastChecked<UInterfaceProperty>(InThis);
+	Collector.AddReferencedObject(This->InterfaceClass, This);
+	Super::AddReferencedObjects(This, Collector);
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UInterfaceProperty, UProperty,

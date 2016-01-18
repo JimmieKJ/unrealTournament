@@ -156,6 +156,8 @@ public:
 	virtual void ReceivedFocus(FViewport* Viewport) override;
 	virtual void ProcessClick(FSceneView& View, HHitProxy* HitProxy, FKey Key, EInputEvent Event, uint32 HitX, uint32 HitY) override;
 	virtual UWorld* GetWorld() const override;
+	virtual void BeginCameraMovement(bool bHasMovement) override;
+	virtual void EndCameraMovement() override;
 
 	virtual bool OverrideHighResScreenshotCaptureRegion(FIntRect& OutCaptureRegion) override;
 
@@ -434,7 +436,23 @@ public:
 			LockedActor = ActorLockedToCamera.Get();
 		}
 
-		return LockedActor ? LockedActor->FindComponentByClass<UCameraComponent>() : nullptr;
+		UCameraComponent* CameraComponent = nullptr;
+		if (LockedActor)
+		{
+			TArray<UCameraComponent*> CamComps;
+			LockedActor->GetComponents<UCameraComponent>(CamComps);
+
+			for (UCameraComponent* Comp : CamComps)
+			{
+				if (Comp->bIsActive)
+				{
+					CameraComponent = Comp;
+					break;
+				}
+			}
+		}
+
+		return CameraComponent;
 	}
 
 	/** 
@@ -606,7 +624,7 @@ private:
 
 	/** Helper functions for ApplyDeltaTo* functions - modifies scale based on grid settings */
 	void ModifyScale( AActor* InActor, FVector& ScaleDelta, bool bCheckSmallExtent = false ) const;
-	void ValidateScale( const FVector& CurrentScale, const FVector& BoxExtent, FVector& ScaleDelta, bool bCheckSmallExtent = false ) const;
+	void ValidateScale( const FVector& InOriginalPreDragScale, const FVector& CurrentScale, const FVector& BoxExtent, FVector& ScaleDelta, bool bCheckSmallExtent = false ) const;
 
 	/** Project the specified actors into the world according to the current drag parameters */
 	void ProjectActorsIntoWorld(const TArray<AActor*>& Actors, FViewport* Viewport, const FVector& Drag, const FRotator& Rot);
@@ -642,9 +660,6 @@ public:
 
 	bool					bEnableColorScaling;
 
-	/** If true, the pivot has been moved independently of the actor and position updates should not occur when the actor is moved. */
-	bool					bPivotMovedIndependently;
-
 	/** If true, we switched between two different cameras. Set by matinee, used by the motion blur to invalidate this frames motion vectors */
 	bool					bEditorCameraCut;
 
@@ -668,6 +683,11 @@ public:
 	 */
 	bool					bIsTrackingBrushModification;
 
+	/**
+	 * true if only the pivot position has been moved
+	 */
+	bool					bOnlyMovedPivot;
+
 	/** True if this viewport is to change its view (aspect ratio, post processing, FOV etc) to match that of the currently locked camera, if applicable */
 	bool					bLockedCameraView;
 
@@ -679,7 +699,7 @@ private:
 	static TArray< TWeakObjectPtr< AActor > > DropPreviewActors;
 
 	/** A map of actor locations before a drag operation */
-	TMap<TWeakObjectPtr<AActor>, FTransform> PreDragActorTransforms;
+	mutable TMap<TWeakObjectPtr<AActor>, FTransform> PreDragActorTransforms;
 
 	/** Bit array representing the visibility of every sprite category in the current viewport */
 	TBitArray<>	SpriteCategoryVisibility;

@@ -12,6 +12,75 @@
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnExternalUIChange, bool);
 typedef FOnExternalUIChange::FDelegate FOnExternalUIChangeDelegate;
 
+/**
+ * Delegate executed when the external login UI has been closed.
+ *
+ * @param UniqueId The unique id of the user who signed in. Null if no user signed in.
+ * @param ControllerIndex The controller index of the controller that activated the login UI.
+ */
+DECLARE_DELEGATE_TwoParams(FOnLoginUIClosedDelegate, TSharedPtr<const FUniqueNetId>, const int);
+
+/**
+ * Delegate executed when the web url UI has been closed
+ *
+ * @param FinalUrl the url that was used as the final redirect before closing
+ */
+DECLARE_DELEGATE_OneParam(FOnShowWebUrlClosedDelegate, const FString& /*FinalUrl*/);
+
+/** 
+ * Delegate executed when the user profile UI has been closed. 
+ */
+DECLARE_DELEGATE(FOnProfileUIClosedDelegate);
+
+/** Parameters used to show a web UI */
+struct FShowWebUrlParams
+{
+	/** presented without a frame if embedded enabled */
+	bool bEmbedded;
+	/** Show the built in close button */
+	bool bShowCloseButton;
+	/** Show the built in background */
+	bool bShowBackground;
+	/** x offset in pixels from top left */
+	int32 OffsetX;
+	/** y offset in pixels from top left */
+	int32 OffsetY;
+	/** x size in pixels */
+	int32 SizeX;
+	/** y size in pixels */
+	int32 SizeY;
+	/** if specified then restricted to only navigate within these domains */
+	TArray<FString> AllowedDomains;
+	/** portion of url for detecting callback.  Eg. "&code=", "redirect=", etc */
+	FString CallbackPath;
+
+	/**
+	 * Constructor
+	 */
+	FShowWebUrlParams(bool InbEmbedded, int32 InOffsetX, int32 InOffsetY, int32 InSizeX, int32 InSizeY)
+		: bEmbedded(InbEmbedded)
+		, bShowCloseButton(false)
+		, bShowBackground(false)
+		, OffsetX(InOffsetX)
+		, OffsetY(InOffsetY)
+		, SizeX(InSizeX)
+		, SizeY(InSizeY)
+	{}
+
+	/**
+	 * Default Constructor
+	 */
+	FShowWebUrlParams()
+		: bEmbedded(false)
+		, bShowCloseButton(false)
+		, bShowBackground(false)
+		, OffsetX(0)
+		, OffsetY(0)
+		, SizeX(0)
+		, SizeY(0)
+	{}
+};
+
 /** 
  * Interface definition for the online services external UIs
  * Any online service that provides extra UI overlays will implement the relevant functions
@@ -25,14 +94,6 @@ public:
 	virtual ~IOnlineExternalUI() {};
 
 	/**
-	 * Delegate executed when the external login UI has been closed.
-	 *
-	 * @param UniqueId The unique id of the user who signed in. Null if no user signed in.
-	 * @param ControllerIndex The controller index of the controller that activated the login UI.
-	 */
-	DECLARE_DELEGATE_TwoParams(FOnLoginUIClosedDelegate, TSharedPtr<FUniqueNetId>, const int);
-
-	/**
 	 * Displays the UI that prompts the user for their login credentials. Each
 	 * platform handles the authentication of the user's data.
 	 *
@@ -43,7 +104,7 @@ public:
  	 *
 	 * @return true if it was able to show the UI, false if it failed
 	 */
-	virtual bool ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, const FOnLoginUIClosedDelegate& Delegate) = 0;
+	virtual bool ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate()) = 0;
 
 	/**
 	 * Displays the UI that shows a user's list of friends
@@ -61,7 +122,7 @@ public:
 	 *
 	 * @return true if it was able to show the UI, false if it failed
 	 */
-	virtual bool ShowInviteUI(int32 LocalUserNum) = 0;
+	virtual bool ShowInviteUI(int32 LocalUserNum, FName SessionMame = GameSessionName) = 0;
 
 	/**
 	 *	Displays the UI that shows a user's list of achievements
@@ -82,16 +143,20 @@ public:
 	virtual bool ShowLeaderboardUI(const FString& LeaderboardName) = 0;
 
 	/**
-	 *	Displays a web page in the external UI
+	 * Displays a web page in the external UI
 	 *
 	 * @param WebURL fully formed web address (http://www.google.com)
 	 *
 	 * @return true if it was able to show the UI, false if it failed
 	 */
-	virtual bool ShowWebURL(const FString& WebURL) = 0;
+	virtual bool ShowWebURL(const FString& Url, const FShowWebUrlParams& ShowParams, const FOnShowWebUrlClosedDelegate& Delegate = FOnShowWebUrlClosedDelegate()) = 0;
 
-	/** Delegate executed when the user profile UI has been closed. */
-	DECLARE_DELEGATE(FOnProfileUIClosedDelegate);
+	/**
+	 * Closes the currently active web external UI
+	 *
+	 * @return true if it was able to show the UI, false if it failed
+	 */
+	virtual bool CloseWebURL() = 0;
 
 	/**
 	 * Displays a user's profile card.
@@ -101,7 +166,7 @@ public:
 	 *
 	 * @return true if it was able to show the UI, false if it failed
 	 */
-	virtual bool ShowProfileUI(const FUniqueNetId& Requestor, const FUniqueNetId& Requestee, const FOnProfileUIClosedDelegate& Delegate) = 0;
+	virtual bool ShowProfileUI(const FUniqueNetId& Requestor, const FUniqueNetId& Requestee, const FOnProfileUIClosedDelegate& Delegate = FOnProfileUIClosedDelegate()) = 0;
 
 	/**
 	* Displays a system dialog to purchase user account upgrades.  e.g. PlaystationPlus, XboxLive GOLD, etc.

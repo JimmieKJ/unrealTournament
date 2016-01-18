@@ -13,7 +13,7 @@
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "NamedSlot.h"
 
-///-------------------------------------------------------------
+#define LOCTEXT_NAMESPACE "UMG"
 
 FWidgetBlueprintCompiler::FWidgetBlueprintCompiler(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded)
 	: Super(SourceSketch, InMessageLog, InCompilerOptions, InObjLoaded)
@@ -147,16 +147,25 @@ void FWidgetBlueprintCompiler::CleanAndSanitizeClass(UBlueprintGeneratedClass* C
 	check(ClassToClean == NewClass);
 	NewWidgetBlueprintClass = CastChecked<UWidgetBlueprintGeneratedClass>((UObject*)NewClass);
 
-	//// Purge all subobjects (properties, functions, params) of the class, as they will be regenerated
-	//TArray<UObject*> ClassSubObjects;
-	//GetObjectsWithOuter(ClassToClean, ClassSubObjects, true);
+	// Don't leave behind widget trees that are outered to the same widget blueprint rename them away first.
+	if ( NewWidgetBlueprintClass->WidgetTree )
+	{
+		NewWidgetBlueprintClass->WidgetTree->Rename(nullptr, GetTransientPackage(), REN_ForceNoResetLoaders | REN_DontCreateRedirectors);
+		NewWidgetBlueprintClass->WidgetTree = nullptr;
+	}
+	if ( NewWidgetBlueprintClass->DesignerWidgetTree )
+	{
+		NewWidgetBlueprintClass->DesignerWidgetTree->Rename(nullptr, GetTransientPackage(), REN_ForceNoResetLoaders | REN_DontCreateRedirectors);
+		NewWidgetBlueprintClass->DesignerWidgetTree = nullptr;
+	}
 
-	//UWidgetBlueprint* Blueprint = WidgetBlueprint();
+	for ( UWidgetAnimation* Animation : NewWidgetBlueprintClass->Animations )
+	{
+		Animation->Rename(nullptr, GetTransientPackage(), REN_ForceNoResetLoaders | REN_DontCreateRedirectors);
+	}
+	NewWidgetBlueprintClass->Animations.Empty();
 
-	//if ( 0 != Blueprint->WidgetTree->WidgetTemplates.Num() )
-	//{
-	//	ClassSubObjects.RemoveAllSwap(FCullTemplateObjectsHelper<UWidget>(Blueprint->WidgetTree->WidgetTemplates));
-	//}
+	NewWidgetBlueprintClass->Bindings.Empty();
 }
 
 void FWidgetBlueprintCompiler::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjectCollection& SubObjectsToSave, UBlueprintGeneratedClass* ClassToClean, UObject*& OldCDO)
@@ -167,9 +176,17 @@ void FWidgetBlueprintCompiler::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjec
 
 	UWidgetBlueprint* Blueprint = WidgetBlueprint();
 
+	// We need to save the widget tree to survive the initial sub-object clean blitz, 
+	// otherwise they all get renamed, and it causes early loading errors.
 	SubObjectsToSave.AddObject(Blueprint->WidgetTree);
 
-	SubObjectsToSave.AddObject( NewWidgetBlueprintClass->WidgetTree );
+	// We need to save all the animations to survive the initial sub-object clean blitz, 
+	// otherwise they all get renamed, and it causes early loading errors.
+	SubObjectsToSave.AddObject(NewWidgetBlueprintClass->WidgetTree);
+	for ( UWidgetAnimation* Animation : NewWidgetBlueprintClass->Animations )
+	{
+		SubObjectsToSave.AddObject(Animation);
+	}
 }
 
 void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
@@ -206,9 +223,13 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 		}
 
 		FEdGraphPinType WidgetPinType(Schema->PC_Object, TEXT(""), Widget->GetClass(), false, false);
+		
+		// Always name the variable according to the underlying FName of the widget object
 		UProperty* WidgetProperty = CreateVariable(Widget->GetFName(), WidgetPinType);
 		if ( WidgetProperty != nullptr )
 		{
+			const FString VariableName = Widget->IsGeneratedName() ? Widget->GetName() : Widget->GetLabelText().ToString();
+			WidgetProperty->SetMetaData(TEXT("DisplayName"), *VariableName);
 			WidgetProperty->SetMetaData(TEXT("Category"), *Blueprint->GetName());
 			
 			WidgetProperty->SetPropertyFlags(CPF_BlueprintVisible);
@@ -240,50 +261,45 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 {
 	UWidgetBlueprint* Blueprint = WidgetBlueprint();
 
-	UWidgetBlueprintGeneratedClass* BPGClass = CastChecked<UWidgetBlueprintGeneratedClass>(Class);
-
-	BPGClass->WidgetTree = DuplicateObject<UWidgetTree>(Blueprint->WidgetTree, BPGClass);
-
-	BPGClass->Animations.Empty();
-
-	// Dont duplicate animation data on the skeleton class
-	if( Blueprint->SkeletonGeneratedClass != Class )
+	// Don't do a bunch of extra work on the skeleton generated class
+	if ( Blueprint->SkeletonGeneratedClass != Class )
 	{
-		for(const UWidgetAnimation* Animation : Blueprint->Animations)
+		UWidgetBlueprintGeneratedClass* BPGClass = CastChecked<UWidgetBlueprintGeneratedClass>(Class);
+		BPGClass->WidgetTree = BPGClass->DesignerWidgetTree = DuplicateObject<UWidgetTree>(Blueprint->WidgetTree, BPGClass);
+
+		for ( const UWidgetAnimation* Animation : Blueprint->Animations )
 		{
-			UWidgetAnimation* ClonedAnimation = DuplicateObject<UWidgetAnimation>(Animation, BPGClass, *(Animation->GetName()+TEXT("_INST")));
+			UWidgetAnimation* ClonedAnimation = DuplicateObject<UWidgetAnimation>(Animation, BPGClass, *( Animation->GetName() + TEXT("_INST") ));
 
 			BPGClass->Animations.Add(ClonedAnimation);
 		}
-	}
 
-	BPGClass->Bindings.Reset();
-
-	// Only check bindings on a full compile.  Also don't check them if we're regenerating on load,
-	// that has a nasty tendency to fail because the other dependent classes that may also be blueprints
-	// might not be loaded yet.
-	const bool bIsLoading = Blueprint->bIsRegeneratingOnLoad;
-	if ( bIsFullCompile )
-	{
-		// Convert all editor time property bindings into a list of bindings
-		// that will be applied at runtime.  Ensure all bindings are still valid.
-		for ( const FDelegateEditorBinding& EditorBinding : Blueprint->Bindings )
+		// Only check bindings on a full compile.  Also don't check them if we're regenerating on load,
+		// that has a nasty tendency to fail because the other dependent classes that may also be blueprints
+		// might not be loaded yet.
+		const bool bIsLoading = Blueprint->bIsRegeneratingOnLoad;
+		if ( bIsFullCompile )
 		{
-			if ( bIsLoading || EditorBinding.IsBindingValid(Class, Blueprint, MessageLog) )
+			// Convert all editor time property bindings into a list of bindings
+			// that will be applied at runtime.  Ensure all bindings are still valid.
+			for ( const FDelegateEditorBinding& EditorBinding : Blueprint->Bindings )
 			{
-				BPGClass->Bindings.Add(EditorBinding.ToRuntimeBinding(Blueprint));
+				if ( bIsLoading || EditorBinding.IsBindingValid(Class, Blueprint, MessageLog) )
+				{
+					BPGClass->Bindings.Add(EditorBinding.ToRuntimeBinding(Blueprint));
+				}
 			}
 		}
-	}
 
-	// Add all the names of the named slot widgets to the slot names structure.
-	BPGClass->NamedSlots.Reset();
-	BPGClass->WidgetTree->ForEachWidget([&] (UWidget* Widget) {
-		if ( Widget && Widget->IsA<UNamedSlot>() )
-		{
-			BPGClass->NamedSlots.Add(Widget->GetFName());
-		}
-	});
+		// Add all the names of the named slot widgets to the slot names structure.
+		BPGClass->NamedSlots.Reset();
+		BPGClass->WidgetTree->ForEachWidget([&] (UWidget* Widget) {
+			if ( Widget && Widget->IsA<UNamedSlot>() )
+			{
+				BPGClass->NamedSlots.Add(Widget->GetFName());
+			}
+		});
+	}
 
 	Super::FinishCompilingClass(Class);
 }
@@ -291,6 +307,26 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 void FWidgetBlueprintCompiler::Compile()
 {
 	Super::Compile();
+
+	//TODO Once we handle multiple derived blueprint classes, we need to check parent versions of the class.
+	if ( const UFunction* ReceiveTickEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(GET_FUNCTION_NAME_CHECKED(UUserWidget, Tick), NewWidgetBlueprintClass) )
+	{
+		NewWidgetBlueprintClass->bCanEverTick = true;
+	}
+	else
+	{
+		NewWidgetBlueprintClass->bCanEverTick = false;
+	}
+	
+	//TODO Once we handle multiple derived blueprint classes, we need to check parent versions of the class.
+	if ( const UFunction* ReceivePaintEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(GET_FUNCTION_NAME_CHECKED(UUserWidget, OnPaint), NewWidgetBlueprintClass) )
+	{
+		NewWidgetBlueprintClass->bCanEverPaint = true;
+	}
+	else
+	{
+		NewWidgetBlueprintClass->bCanEverPaint = false;
+	}
 
 	WidgetToMemberVariableMap.Empty();
 }
@@ -320,6 +356,37 @@ void FWidgetBlueprintCompiler::SpawnNewClass(const FString& NewClassName)
 	NewClass = NewWidgetBlueprintClass;
 }
 
+void FWidgetBlueprintCompiler::PrecompileFunction(FKismetFunctionContext& Context)
+{
+	Super::PrecompileFunction(Context);
+
+	VerifyEventReplysAreNotEmpty(Context);
+}
+
+void FWidgetBlueprintCompiler::VerifyEventReplysAreNotEmpty(FKismetFunctionContext& Context)
+{
+	TArray<UK2Node_FunctionResult*> FunctionResults;
+	Context.SourceGraph->GetNodesOfClass<UK2Node_FunctionResult>(FunctionResults);
+
+	UScriptStruct* EventReplyStruct = FEventReply::StaticStruct();
+	FEdGraphPinType EventReplyPinType(Schema->PC_Struct, TEXT(""), EventReplyStruct, /*bIsArray =*/false, /*bIsReference =*/false);
+
+	for ( UK2Node_FunctionResult* FunctionResult : FunctionResults )
+	{
+		for ( UEdGraphPin* ReturnPin : FunctionResult->Pins )
+		{
+			if ( ReturnPin->PinType == EventReplyPinType )
+			{
+				const bool IsUnconnectedEventReply = ReturnPin->Direction == EEdGraphPinDirection::EGPD_Input && ReturnPin->LinkedTo.Num() == 0;
+				if ( IsUnconnectedEventReply )
+				{
+					MessageLog.Warning(*LOCTEXT("MissingEventReply_Warning", "Event Reply @@ should not be empty.  Return a reply such as Handled or Unhandled.").ToString(), ReturnPin);
+				}
+			}
+		}
+	}
+}
+
 bool FWidgetBlueprintCompiler::ValidateGeneratedClass(UBlueprintGeneratedClass* Class)
 {
 	bool SuperResult = Super::ValidateGeneratedClass(Class);
@@ -327,3 +394,5 @@ bool FWidgetBlueprintCompiler::ValidateGeneratedClass(UBlueprintGeneratedClass* 
 
 	return SuperResult && Result;
 }
+
+#undef LOCTEXT_NAMESPACE

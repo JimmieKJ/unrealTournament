@@ -467,6 +467,11 @@ FText FSpriteEditor::GetToolkitName() const
 	return FText::Format(LOCTEXT("SpriteEditorAppLabel", "{SpriteName}{DirtyState}"), Args);
 }
 
+FText FSpriteEditor::GetToolkitToolTipText() const
+{
+	return FAssetEditorToolkit::GetToolTipTextForObject(SpriteBeingEdited);
+}
+
 FString FSpriteEditor::GetWorldCentricTabPrefix() const
 {
 	return TEXT("SpriteEditor");

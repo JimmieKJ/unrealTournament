@@ -7,10 +7,10 @@
 UENUM()
 enum class ESpriteExtractMode : uint8
 {
-	// Automatically extract sprites by detecting using alpha
+	/** Automatically extract sprites by detecting using alpha */
 	Auto,
 
-	// Extract sprites in a grid defined in the properties below
+	/** Extract sprites in a grid defined in the properties below */
 	Grid,	
 };
 

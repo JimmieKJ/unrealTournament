@@ -88,6 +88,7 @@ public:
 		, _ClearSelectionOnClick(true)
 		, _ExternalScrollbar()
 		, _ConsumeMouseWheel( EConsumeMouseWheel::WhenScrollingPossible )
+		, _AllowOverscroll(EAllowOverscroll::Yes)
 		{}
 
 		SLATE_EVENT( FOnGenerateRow, OnGenerateRow )
@@ -121,6 +122,8 @@ public:
 		SLATE_ARGUMENT( TSharedPtr<SScrollBar>, ExternalScrollbar )
 
 		SLATE_ARGUMENT( EConsumeMouseWheel, ConsumeMouseWheel );
+		
+		SLATE_ARGUMENT( EAllowOverscroll, AllowOverscroll );
 
 	SLATE_END_ARGS()
 
@@ -146,6 +149,7 @@ public:
 
 		this->bClearSelectionOnClick = InArgs._ClearSelectionOnClick;
 		this->ConsumeMouseWheel = InArgs._ConsumeMouseWheel;
+		this->AllowOverscroll = InArgs._AllowOverscroll;
 
 		// Check for any parameters that the coder forgot to specify.
 		FString ErrorString;
@@ -420,7 +424,7 @@ public:
 	 * @return true if we encountered expanded children; false otherwise.
 	 */
 	bool PopulateLinearizedItems(
-		const TArray<ItemType>& ItemsSource,
+		const TArray<ItemType>& InItemsSource,
 		TArray< ItemType >& InLinearizedItems,
 		TArray< FItemInfo >& NewDenseItemInfos,
 		int32 TreeLevel,
@@ -429,13 +433,13 @@ public:
 		bool bAddingItems )
 	{
 		bool bSawExpandedItems = false;
-		for ( int32 ItemIndex = 0; ItemIndex < ItemsSource.Num(); ++ItemIndex )
+		for ( int32 ItemIndex = 0; ItemIndex < InItemsSource.Num(); ++ItemIndex )
 		{
-			const ItemType& CurItem = ItemsSource[ItemIndex];
+			const ItemType& CurItem = InItemsSource[ItemIndex];
 
 			// Find this items children.
 			TArray<ItemType> ChildItems;
-			OnGetChildren.Execute( ItemsSource[ItemIndex], ChildItems );
+			OnGetChildren.Execute(InItemsSource[ItemIndex], ChildItems );
 
 			const bool bHasChildren = ChildItems.Num() > 0;
 

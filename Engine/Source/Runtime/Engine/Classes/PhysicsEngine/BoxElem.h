@@ -2,13 +2,14 @@
 
 #pragma once
 
+#include "ShapeElem.h"
 #include "BoxElem.generated.h"
 
 class FMeshElementCollector;
 
 /** Box shape used for collision */
 USTRUCT()
-struct FKBoxElem
+struct FKBoxElem : public FKShapeElem
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -33,7 +34,8 @@ struct FKBoxElem
 
 
 	FKBoxElem()
-	: Center( FVector::ZeroVector )
+	: FKShapeElem(EAggCollisionShape::Box)
+	, Center( FVector::ZeroVector )
 	, Orientation( FQuat::Identity )
 	, X(1), Y(1), Z(1)
 	{
@@ -41,7 +43,8 @@ struct FKBoxElem
 	}
 
 	FKBoxElem( float s )
-	: Center( FVector::ZeroVector )
+	: FKShapeElem(EAggCollisionShape::Box)
+	, Center( FVector::ZeroVector )
 	, Orientation( FQuat::Identity )
 	, X(s), Y(s), Z(s)
 	{
@@ -49,7 +52,8 @@ struct FKBoxElem
 	}
 
 	FKBoxElem( float InX, float InY, float InZ ) 
-	: Center( FVector::ZeroVector )
+	: FKShapeElem(EAggCollisionShape::Box)
+	, Center( FVector::ZeroVector )
 	, Orientation( FQuat::Identity )
 	, X(InX), Y(InY), Z(InZ)
 
@@ -81,12 +85,16 @@ struct FKBoxElem
 		Center = InTransform.GetLocation();
 	}
 
-	FORCEINLINE float GetVolume(const FVector& Scale) const { float MinScale = Scale.GetMin(); return (X * MinScale) * (Y * MinScale) * (Z * MinScale); }
+	FORCEINLINE float GetVolume(const FVector& Scale3D) const { float MinScale = Scale3D.GetMin(); return (X * MinScale) * (Y * MinScale) * (Z * MinScale); }
 
-	ENGINE_API void	DrawElemWire(class FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, float Scale, const FColor Color) const;
-	ENGINE_API void	DrawElemSolid(class FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, float Scale, const FMaterialRenderProxy* MaterialRenderProxy) const;
-	ENGINE_API void GetElemSolid(const FTransform& ElemTM, float Scale, const FMaterialRenderProxy* MaterialRenderProxy, int32 ViewIndex, FMeshElementCollector& Collector) const;
+	ENGINE_API void	DrawElemWire(class FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const FVector& Scale3D, const FColor Color) const;
+	ENGINE_API void	DrawElemSolid(class FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const FVector& Scale3D, const FMaterialRenderProxy* MaterialRenderProxy) const;
+	
+	ENGINE_API void GetElemSolid(const FTransform& ElemTM, const FVector& Scale3D, const FMaterialRenderProxy* MaterialRenderProxy, int32 ViewIndex, FMeshElementCollector& Collector) const;
+
 	ENGINE_API FBox CalcAABB(const FTransform& BoneTM, float Scale) const;
 
 	ENGINE_API void ScaleElem(FVector DeltaSize, float MinSize);
+
+	ENGINE_API static EAggCollisionShape::Type StaticShapeType;
 };

@@ -13,6 +13,7 @@ class UBTCompositeNode;
 class UBTTaskNode;
 class UBTDecorator;
 class UBTTask_RunBehavior;
+class UBTTask_RunBehaviorDynamic;
 class FBehaviorTreeDebugger;
 class UBehaviorTree;
 class UBTAuxiliaryNode;
@@ -66,13 +67,15 @@ struct FBTPendingExecutionInfo
 	void Unlock() { bLocked = false; }
 };
 
-struct FBTPendingInitializeInfo
+struct FBTTreeStartInfo
 {
 	UBehaviorTree* Asset;
 	EBTExecutionMode::Type ExecuteMode;
+	uint8 bPendingInitialize : 1;
 
-	FBTPendingInitializeInfo() : Asset(nullptr), ExecuteMode(EBTExecutionMode::Looped) {}
+	FBTTreeStartInfo() : Asset(nullptr), ExecuteMode(EBTExecutionMode::Looped), bPendingInitialize(0) {}
 	bool IsSet() const { return Asset != nullptr; }
+	bool HasPendingInitialize() const { return bPendingInitialize && IsSet(); }
 };
 
 UCLASS()
@@ -187,6 +190,7 @@ public:
 
 	/** @return true if aux node is currently active */
 	bool IsAuxNodeActive(const UBTAuxiliaryNode* AuxNode) const;
+	bool IsAuxNodeActive(const UBTAuxiliaryNode* AuxNodeTemplate, int32 InstanceIdx) const;
 
 	/** @return status of speficied task */
 	EBTTaskStatus::Type GetTaskStatus(const UBTTaskNode* TaskNode) const;
@@ -196,10 +200,16 @@ public:
 	virtual FString DescribeActiveTrees() const;
 
 	/** @return the cooldown tag end time, 0.0f if CooldownTag is not found */
+	UFUNCTION(BlueprintCallable, Category = "AI|Logic")
 	float GetTagCooldownEndTime(FGameplayTag CooldownTag) const;
 
 	/** add to the cooldown tag's duration */
+	UFUNCTION(BlueprintCallable, Category = "AI|Logic")
 	void AddCooldownTagDuration(FGameplayTag CooldownTag, float CooldownDuration, bool bAddToExistingDuration);
+
+	/** assign subtree to RunBehaviorDynamic task specified by tag */
+	UFUNCTION(BlueprintCallable, Category="AI|Logic")
+	virtual void SetDynamicSubtree(FGameplayTag InjectTag, UBehaviorTree* BehaviorAsset);
 
 #if ENABLE_VISUAL_LOG
 	virtual void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const override;
@@ -226,7 +236,7 @@ protected:
 	FBTPendingExecutionInfo PendingExecution;
 
 	/** stored data for starting new tree, waits until previously running finishes aborting */
-	FBTPendingInitializeInfo PendingInitialize;
+	FBTTreeStartInfo TreeStartInfo;
 
 	/** message observers mapped by instance & execution index */
 	TMultiMap<FBTNodeIndex,FAIMessageObserverHandle> TaskMessageObservers;
@@ -350,6 +360,7 @@ protected:
 	friend UBTCompositeNode;
 	friend UBTTaskNode;
 	friend UBTTask_RunBehavior;
+	friend UBTTask_RunBehaviorDynamic;
 	friend FBehaviorTreeDebugger;
 	friend FBehaviorTreeInstance;
 };

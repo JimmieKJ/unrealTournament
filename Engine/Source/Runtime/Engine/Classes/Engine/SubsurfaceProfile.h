@@ -60,10 +60,10 @@ class USubsurfaceProfile : public UObject
 	UPROPERTY(Category = USubsurfaceProfile, EditAnywhere, meta = (ShowOnlyInnerProperties))
 	struct FSubsurfaceProfileStruct Settings;
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void BeginDestroy();
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent);
-	// End UObject interface
+	//~ End UObject Interface
 };
 
 // render thread
@@ -114,7 +114,7 @@ public:
 	const struct IPooledRenderTarget* GetTexture(FRHICommandListImmediate& RHICmdList);
 
 
-	// FRenderResource interface.
+	//~ Begin FRenderResource Interface.
 	/**
 	* Release textures when device is lost/destroyed.
 	*/
@@ -156,5 +156,12 @@ private:
 
 };
 
+// If you change this you need to recompile the SSS shaders.
+// Required if we use a texture format with limited size but want to express a larger radius
+#define SUBSURFACE_RADIUS_SCALE 1024.0f
+
+ // The kernels range from -3 to 3
+#define SUBSURFACE_KERNEL_SIZE 3.0f
+
 // lives on the render thread
-extern ENGINE_API TGlobalResource<FSubsurfaceProfileTexture> GSubsufaceProfileTextureObject;
+extern ENGINE_API TGlobalResource<FSubsurfaceProfileTexture> GSubsurfaceProfileTextureObject;

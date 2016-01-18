@@ -261,7 +261,9 @@ bool FModeTool_Texture::InputDelta(FEditorViewportClient* InViewportClient,FView
 			Surf->vTextureU = Model->Vectors.Add(TextureU);
 			Surf->vTextureV = Model->Vectors.Add(TextureV);
 
-			GEditor->polyUpdateMaster( Model, It.GetSurfaceIndex(), 1 );
+			const bool bUpdateTexCoords = true;
+			const bool bOnlyRefreshSurfaceMaterials = true;
+			GEditor->polyUpdateMaster(Model, It.GetSurfaceIndex(), bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 		}
 	}
 

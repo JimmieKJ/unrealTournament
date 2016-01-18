@@ -461,7 +461,7 @@ void AssetTestCreate(const TCHAR* NamePrefix, const FString& CurrentTimestamp, c
 /**
 * Automation test for creating, saving, and duplicating assets
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAssetEditorTest, "System.Editor.Content.Asset Creation and Duplication", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAssetEditorTest, "System.Editor.Content.Asset Creation and Duplication", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
 
 bool FAssetEditorTest::RunTest(const FString& Parameters)
 {
@@ -1067,7 +1067,7 @@ bool FLogImportExportTestResultsCommand::Update()
 /**
 * Automation test to import, open, screenshot, and export assets
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAssetImportEditorTest, "Project.Editor.Content.Asset Import and Export", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAssetImportEditorTest, "Project.Editor.Content.Asset Import and Export", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
 bool FAssetImportEditorTest::RunTest(const FString& Parameters)
 {
 	UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();

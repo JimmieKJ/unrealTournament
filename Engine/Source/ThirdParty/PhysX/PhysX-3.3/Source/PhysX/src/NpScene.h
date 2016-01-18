@@ -467,57 +467,36 @@ PX_FORCE_INLINE	void NpScene::addToConstraintList(PxConstraint& constraint)
 
 PX_FORCE_INLINE	void NpScene::removeFromConstraintList(PxConstraint& constraint)
 {
-	{
-		CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,API,findAndReplaceWithLast);
-#ifdef PX_DEBUG
-		bool status = mConstraints.findAndReplaceWithLast(&constraint);
-		PX_ASSERT(status);
-#else
-		mConstraints.findAndReplaceWithLast(&constraint);
-#endif
-	}
+	CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,API,findAndReplaceWithLast);
+	bool status = mConstraints.findAndReplaceWithLast(&constraint);
+	PX_ASSERT(status);
+	PX_UNUSED(status);
 }
 
 
 PX_FORCE_INLINE void NpScene::removeFromArticulationList(PxArticulation& articulation)
 {
-	{
-		CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,API,findAndReplaceWithLast);
-#ifdef PX_DEBUG
-		bool status = mArticulations.findAndReplaceWithLast(&articulation);
-		PX_ASSERT(status);
-#else
-		mArticulations.findAndReplaceWithLast(&articulation);
-#endif
-	}
+	CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,API,findAndReplaceWithLast);
+	bool status = mArticulations.findAndReplaceWithLast(&articulation);
+	PX_ASSERT(status);
+	PX_UNUSED(status);
 }
 
 PX_FORCE_INLINE void NpScene::removeFromAggregateList(PxAggregate& aggregate)
 {
-	{
-		CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,API,findAndReplaceWithLast);
-#ifdef PX_DEBUG
-		bool status = mAggregates.findAndReplaceWithLast(&aggregate);
-		PX_ASSERT(status);
-#else
-		mAggregates.findAndReplaceWithLast(&aggregate);
-#endif
-	}
-
+	CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,API,findAndReplaceWithLast);
+	bool status = mAggregates.findAndReplaceWithLast(&aggregate);
+	PX_ASSERT(status);
+	PX_UNUSED(status);
 }
 
 #if PX_USE_CLOTH_API
 PX_FORCE_INLINE void NpScene::removeFromClothList(PxCloth& cloth)
 {
-	{
-		CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,API,findAndReplaceWithLast);
-#ifdef PX_DEBUG
-		bool status = mPxClothArray.findAndReplaceWithLast(&cloth);
-		PX_ASSERT(status);
-#else
-		mPxClothArray.findAndReplaceWithLast(&cloth);
-#endif
-	}
+	CM_PROFILE_ZONE_WITH_SUBSYSTEM(mScene,API,findAndReplaceWithLast);
+	bool status = mPxClothArray.findAndReplaceWithLast(&cloth);
+	PX_ASSERT(status);
+	PX_UNUSED(status);
 }
 #endif  // PX_USE_CLOTH_API
 

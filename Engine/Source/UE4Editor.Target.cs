@@ -8,6 +8,7 @@ public class UE4EditorTarget : TargetRules
 	public UE4EditorTarget( TargetInfo Target )
 	{
 		Type = TargetType.Editor;
+		bBuildAllPlugins = true;
 	}
 
 	public override void SetupBinaries(
@@ -36,6 +37,9 @@ public class UE4EditorTarget : TargetRules
 	{
 		ModuleNames.Add("Launch");
 		ModuleNames.Add("GameMenuBuilder");
+		ModuleNames.Add("JsonUtilities");
+		ModuleNames.Add("RuntimeAssetCache");
+		ModuleNames.Add("UnrealCodeAnalyzerTests");
 		if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
 		{
 			ModuleNames.Add("OnlineSubsystemNull");
@@ -129,11 +133,11 @@ public class UE4EditorTarget : TargetRules
         List<UnrealTargetPlatform> TappyChickenPlats = null;
         if (HostPlatform == UnrealTargetPlatform.Mac)
         {
-            TappyChickenPlats = new List<UnrealTargetPlatform> {};
+            TappyChickenPlats = new List<UnrealTargetPlatform> { UnrealTargetPlatform.IOS };
         }
         else
         {
-            TappyChickenPlats = new List<UnrealTargetPlatform> { HostPlatform, UnrealTargetPlatform.Android, UnrealTargetPlatform.HTML5 };
+            TappyChickenPlats = new List<UnrealTargetPlatform> { UnrealTargetPlatform.Android };
         }
 
 		List<UnrealTargetPlatform> TP_2DSideScrollerPlats = null;
@@ -201,7 +205,7 @@ public class UE4EditorTarget : TargetRules
         NonCodeProjectNames.Add("BlackJack", DesktopAndMobilePlats);
         NonCodeProjectNames.Add("MemoryGame", DesktopAndMobilePlats);
         NonCodeProjectNames.Add("TappyChicken", TappyChickenPlats);
-        NonCodeProjectNames.Add("SwingNinja", DesktopAndMobilePlats);
+        NonCodeProjectNames.Add("SwingNinja", TappyChickenPlats);
         NonCodeProjectNames.Add("SunTemple", DesktopAndMobilePlats);
 
         NonCodeProjectNames.Add("FP_FirstPersonBP", AllSupportedPlats);
@@ -223,167 +227,25 @@ public class UE4EditorTarget : TargetRules
     {
         #region Sample Configurations
         //Generic Configurations
-        var PCBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-            };
-
-		//var MobileBuildSettings = new List<GUBPFormalBuild>
-		//	{
-		//			new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false),
-		//			new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false),
-		//	};
-        // Non-Code Sample Configurations
-        var BlackJackBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false),
-            };
-        
-        var MemoryGameBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.HTML5, UnrealTargetConfiguration.Test, false),
-            };
-        
-        var SwingNinjaBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false),
-            };
-        
+               
         var SunTempleBuildSettings = new List<GUBPFormalBuild>
             {
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
                     new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false, true),
                     new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false, true),
-                    new GUBPFormalBuild(UnrealTargetPlatform.HTML5, UnrealTargetConfiguration.Test, false),
-            };
-
-        var ElementalBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.XboxOne, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.PS4, UnrealTargetConfiguration.Test, false),
-                    
-                    new GUBPFormalBuild(UnrealTargetPlatform.XboxOne, UnrealTargetConfiguration.Shipping, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.PS4, UnrealTargetConfiguration.Shipping, false),
-                    
-                    new GUBPFormalBuild(UnrealTargetPlatform.XboxOne, UnrealTargetConfiguration.Development, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.PS4, UnrealTargetConfiguration.Development, false),
             };
 
         var TappyChickenBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Shipping, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false, true),                    
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Development, false),        			
-					new GUBPFormalBuild(UnrealTargetPlatform.HTML5, UnrealTargetConfiguration.Shipping, false),
-					new GUBPFormalBuild(UnrealTargetPlatform.HTML5, UnrealTargetConfiguration.Test, false),
-            };
-        #endregion
-
-        #region Template Configurations
-        // Template Build Configurations
-        // DEFAULT 
-        var AllBuildSettings = new List<GUBPFormalBuild>
-            {                                     
-                    new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.HTML5, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.XboxOne, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.PS4, UnrealTargetConfiguration.Test, false),
-            };
-
-        //TP_PUZZLE
-        var TP_PuzzleBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.HTML5, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-            };
-
-        //TP_TOPDOWN
-        var TP_TopDownBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.HTML5, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-            };
-
-        //TP_TWINSTICK
-        var TP_TwinStickBuildSettings = new List<GUBPFormalBuild>
-            {
-                    new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win32, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.XboxOne, UnrealTargetConfiguration.Test, false),
-                    new GUBPFormalBuild(UnrealTargetPlatform.PS4, UnrealTargetConfiguration.Test, false),
+            {                    
+                    new GUBPFormalBuild(UnrealTargetPlatform.Android, UnrealTargetConfiguration.Test, false, true),
+                    new GUBPFormalBuild(UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Test, false, true),
             };
         #endregion
 
         var NonCodeProjectNames = new Dictionary<string, List<GUBPFormalBuild>>();
 
         //Add Samples to the list with its corresponding settings
-        NonCodeProjectNames.Add("TappyChicken", TappyChickenBuildSettings);    
-        NonCodeProjectNames.Add("BlackJack", BlackJackBuildSettings);
-        NonCodeProjectNames.Add("MemoryGame", MemoryGameBuildSettings);
-        NonCodeProjectNames.Add("SwingNinja", SwingNinjaBuildSettings);
+        NonCodeProjectNames.Add("TappyChicken", TappyChickenBuildSettings);
         NonCodeProjectNames.Add("SunTemple", SunTempleBuildSettings);
-        NonCodeProjectNames.Add("BlueprintOffice", PCBuildSettings);
-        NonCodeProjectNames.Add("ContentExamples", PCBuildSettings);
-        NonCodeProjectNames.Add("CouchKnights", PCBuildSettings);
-        NonCodeProjectNames.Add("EffectsCave", PCBuildSettings);
-        NonCodeProjectNames.Add("LandscapeMountains", PCBuildSettings);
-        NonCodeProjectNames.Add("GDC2014", PCBuildSettings);
-        NonCodeProjectNames.Add("MatineeFightScene", PCBuildSettings);
-        NonCodeProjectNames.Add("RealisticRendering", PCBuildSettings);
-        NonCodeProjectNames.Add("ReflectionsSubway", PCBuildSettings);
-        NonCodeProjectNames.Add("Stylized", PCBuildSettings);
-        NonCodeProjectNames.Add("ElementalDemo", ElementalBuildSettings);
-
-        //Add Templates to the list with its corresponding settings
-        NonCodeProjectNames.Add("FP_FirstPersonBP", AllBuildSettings);
-		NonCodeProjectNames.Add("TP_2DSideScrollerBP", AllBuildSettings);
-        NonCodeProjectNames.Add("TP_FirstPersonBP", AllBuildSettings);
-        NonCodeProjectNames.Add("TP_FlyingBP", AllBuildSettings);
-        NonCodeProjectNames.Add("TP_PuzzleBP", TP_PuzzleBuildSettings);
-        NonCodeProjectNames.Add("TP_RollingBP", AllBuildSettings);
-        NonCodeProjectNames.Add("TP_SideScrollerBP", AllBuildSettings);
-        NonCodeProjectNames.Add("TP_ThirdPersonBP", AllBuildSettings);
-        NonCodeProjectNames.Add("TP_TopDownBP", TP_TopDownBuildSettings);
-        NonCodeProjectNames.Add("TP_TwinStickBP", TP_TwinStickBuildSettings);
-        NonCodeProjectNames.Add("TP_VehicleBP", AllBuildSettings);
-        NonCodeProjectNames.Add("TP_VehicleAdvBP", AllBuildSettings);
-
-
         return NonCodeProjectNames;
     }
 }

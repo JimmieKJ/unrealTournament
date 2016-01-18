@@ -11,19 +11,22 @@
 UEditableTextBox::UEditableTextBox(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ForegroundColor = FLinearColor::Black;
-	BackgroundColor = FLinearColor::White;
-	ReadOnlyForegroundColor = FLinearColor::Black;
+	ForegroundColor_DEPRECATED = FLinearColor::Black;
+	BackgroundColor_DEPRECATED = FLinearColor::White;
+	ReadOnlyForegroundColor_DEPRECATED = FLinearColor::Black;
 
-	static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
-	Font = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	if (!IsRunningDedicatedServer())
+	{
+		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
+		Font_DEPRECATED = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	}
 
 	// Grab other defaults from slate arguments.
 	SEditableTextBox::FArguments Defaults;
 	IsReadOnly = Defaults._IsReadOnly.Get();
 	IsPassword = Defaults._IsPassword.Get();
 	MinimumDesiredWidth = Defaults._MinDesiredWidth.Get();
-	Padding = Defaults._Padding.Get();
+	Padding_DEPRECATED = Defaults._Padding.Get();
 	IsCaretMovedWhenGainFocus = Defaults._IsCaretMovedWhenGainFocus.Get();
 	SelectAllTextWhenFocused = Defaults._SelectAllTextWhenFocused.Get();
 	RevertTextOnEscape = Defaults._RevertTextOnEscape.Get();
@@ -44,12 +47,7 @@ TSharedRef<SWidget> UEditableTextBox::RebuildWidget()
 {
 	MyEditableTextBlock = SNew(SEditableTextBox)
 		.Style(&WidgetStyle)
-		.Font(Font)
-		.ForegroundColor(ForegroundColor)
-		.BackgroundColor(BackgroundColor)
-		.ReadOnlyForegroundColor(ReadOnlyForegroundColor)
 		.MinDesiredWidth(MinimumDesiredWidth)
-		.Padding(Padding)
 		.IsCaretMovedWhenGainFocus(IsCaretMovedWhenGainFocus)
 		.SelectAllTextWhenFocused(SelectAllTextWhenFocused)
 		.RevertTextOnEscape(RevertTextOnEscape)
@@ -57,7 +55,7 @@ TSharedRef<SWidget> UEditableTextBox::RebuildWidget()
 		.SelectAllTextOnCommit(SelectAllTextOnCommit)
 		.OnTextChanged(BIND_UOBJECT_DELEGATE(FOnTextChanged, HandleOnTextChanged))
 		.OnTextCommitted(BIND_UOBJECT_DELEGATE(FOnTextCommitted, HandleOnTextCommitted))
-		;
+		.VirtualKeyboardType(EVirtualKeyboardType::AsKeyboardType(KeyboardType.GetValue()));
 
 	return MyEditableTextBlock.ToSharedRef();
 }
@@ -69,13 +67,17 @@ void UEditableTextBox::SynchronizeProperties()
 	TAttribute<FText> TextBinding = OPTIONAL_BINDING(FText, Text);
 	TAttribute<FText> HintTextBinding = OPTIONAL_BINDING(FText, HintText);
 
+	MyEditableTextBlock->SetStyle(&WidgetStyle);
 	MyEditableTextBlock->SetText(TextBinding);
 	MyEditableTextBlock->SetHintText(HintTextBinding);
 	MyEditableTextBlock->SetIsReadOnly(IsReadOnly);
 	MyEditableTextBlock->SetIsPassword(IsPassword);
-//	MyEditableTextBlock->SetColorAndOpacity(ColorAndOpacity);
-
-	// TODO UMG Complete making all properties settable on SEditableTextBox
+	MyEditableTextBlock->SetMinimumDesiredWidth(MinimumDesiredWidth);
+	MyEditableTextBlock->SetIsCaretMovedWhenGainFocus(IsCaretMovedWhenGainFocus);
+	MyEditableTextBlock->SetSelectAllTextWhenFocused(SelectAllTextWhenFocused);
+	MyEditableTextBlock->SetRevertTextOnEscape(RevertTextOnEscape);
+	MyEditableTextBlock->SetClearKeyboardFocusOnCommit(ClearKeyboardFocusOnCommit);
+	MyEditableTextBlock->SetSelectAllTextOnCommit(SelectAllTextOnCommit);
 }
 
 FText UEditableTextBox::GetText() const
@@ -140,6 +142,36 @@ void UEditableTextBox::PostLoad()
 			}
 
 			Style_DEPRECATED = nullptr;
+		}
+	}
+
+	if (GetLinkerUE4Version() < VER_UE4_DEPRECATE_UMG_STYLE_OVERRIDES)
+	{
+		if (Font_DEPRECATED.HasValidFont())
+		{
+			WidgetStyle.Font = Font_DEPRECATED;
+			Font_DEPRECATED = FSlateFontInfo();
+		}
+
+		WidgetStyle.Padding = Padding_DEPRECATED;
+		Padding_DEPRECATED = FMargin(0);
+
+		if (ForegroundColor_DEPRECATED != FLinearColor::Black)
+		{
+			WidgetStyle.ForegroundColor = ForegroundColor_DEPRECATED;
+			ForegroundColor_DEPRECATED = FLinearColor::Black;
+		}
+
+		if (BackgroundColor_DEPRECATED != FLinearColor::White)
+		{
+			WidgetStyle.BackgroundColor = BackgroundColor_DEPRECATED;
+			BackgroundColor_DEPRECATED = FLinearColor::White;
+		}
+
+		if (ReadOnlyForegroundColor_DEPRECATED != FLinearColor::Black)
+		{
+			WidgetStyle.ReadOnlyForegroundColor = ReadOnlyForegroundColor_DEPRECATED;
+			ReadOnlyForegroundColor_DEPRECATED = FLinearColor::Black;
 		}
 	}
 }

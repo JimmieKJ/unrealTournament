@@ -9,6 +9,7 @@
 #include "Shader.h"
 #include "SceneManagement.h"
 
+class FShaderCommonCompileJob;
 class FShaderCompileJob;
 
 /** Used to identify the global shader map in compile queues. */
@@ -26,9 +27,11 @@ public:
 	void AppendKeyString(FString& KeyString) const;
 
 private:
-
 	/** Shader types that this shader map is dependent on and their stored state. */
 	TArray<FShaderTypeDependency> ShaderTypeDependencies;
+
+	/** Shader pipeline types that this shader map is dependent on and their stored state. */
+	TArray<FShaderPipelineTypeDependency> ShaderPipelineTypeDependencies;
 };
 
 /**
@@ -63,15 +66,16 @@ public:
 
 	/**
 	 * Enqueues compilation of a shader of this type.  
-	 * @param Compiler - The shader compiler to use.
-	 * @param OutErrors - Upon compilation failure, OutErrors contains a list of the errors which occured.
-	 * @param bDebugDump - Dump out the preprocessed and disassembled shader for debugging.
-	 * @param ShaderSubDir - Sub directory for dumping out preprocessor output.
 	 */
-	ENGINE_API void BeginCompileShader(EShaderPlatform Platform, TArray<FShaderCompileJob*>& NewJobs);
+	ENGINE_API class FShaderCompileJob* BeginCompileShader(EShaderPlatform Platform, const FShaderPipelineType* ShaderPipeline, TArray<FShaderCommonCompileJob*>& NewJobs);
+
+	/**
+	 * Enqueues compilation of a shader pipeline of this type.  
+	 */
+	ENGINE_API static void BeginCompileShaderPipeline(EShaderPlatform Platform, const FShaderPipelineType* ShaderPipeline, const TArray<FGlobalShaderType*>& ShaderStages, TArray<FShaderCommonCompileJob*>& NewJobs);
 
 	/** Either returns an equivalent existing shader of this type, or constructs a new instance. */
-	FShader* FinishCompileShader(const FShaderCompileJob& CompileJob);
+	FShader* FinishCompileShader(const FShaderCompileJob& CompileJob, const FShaderPipelineType* ShaderPipelineType);
 
 	/**
 	 * Checks if the shader type should be cached for a particular platform.
@@ -95,7 +99,8 @@ public:
 	}
 
 	// Dynamic casting.
-	virtual FGlobalShaderType* GetGlobalShaderType() { return this; }
+	virtual FGlobalShaderType* GetGlobalShaderType() override { return this; }
+	virtual const FGlobalShaderType* GetGlobalShaderType() const override { return this; }
 
 private:
 	ConstructCompiledType ConstructCompiledRef;
@@ -117,12 +122,15 @@ public:
 
 	ENGINE_API FGlobalShader(const ShaderMetaType::CompiledShaderInitializerType& Initializer);
 	
-	template<typename ShaderRHIParamRef>
-	void SetParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI,const FSceneView& View)
+	template<typename ShaderRHIParamRef, typename TRHICmdList>
+	void SetParameters(TRHICmdList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FSceneView& View)
 	{
-		check(GetUniformBufferParameter<FViewUniformShaderParameters>().IsInitialized());
 		CheckShaderIsValid();
-		SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FViewUniformShaderParameters>(),View.UniformBuffer);
+		auto& ViewUBParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUBParameter, View.UniformBuffer);
+
+		auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
 	}
 
 	typedef void (*ModifyCompilationEnvironmentType)(EShaderPlatform, FShaderCompilerEnvironment&);
@@ -211,17 +219,26 @@ extern ENGINE_API void RecompileGlobalShaders();
  * Begins recompiling the specified global shader types, and flushes their bound shader states.
  * FinishRecompileGlobalShaders must be called after this and before using the global shaders for anything.
  */
-extern ENGINE_API void BeginRecompileGlobalShaders(const TArray<FShaderType*>& OutdatedShaderTypes, EShaderPlatform ShaderPlatform);
+extern ENGINE_API void BeginRecompileGlobalShaders(const TArray<FShaderType*>& OutdatedShaderTypes, const TArray<const FShaderPipelineType*>& OutdatedShaderPipelineTypes, EShaderPlatform ShaderPlatform);
 
 /** Finishes recompiling global shaders.  Must be called after BeginRecompileGlobalShaders. */
 extern ENGINE_API void FinishRecompileGlobalShaders();
 
 /** Called by the shader compiler to process completed global shader jobs. */
-extern void ProcessCompiledGlobalShaders(const TArray<FShaderCompileJob*>& CompilationResults);
+extern void ProcessCompiledGlobalShaders(const TArray<FShaderCommonCompileJob*>& CompilationResults);
 
 extern ENGINE_API FString GetGlobalShaderMapDDCKey();
 
 extern ENGINE_API FString GetMaterialShaderMapDDCKey();
+
+
+/**
+ * Recompiles global shaders and material shaders
+ * rebuilds global shaders and also 
+ * clears the cooked platform data for all materials if there is a global shader change detected
+ * can be slow
+ */
+extern ENGINE_API bool RecompileChangedShadersForPlatform(const FString& PlatformName);
 
 
 /** 

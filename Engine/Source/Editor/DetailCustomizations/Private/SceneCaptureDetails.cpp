@@ -66,7 +66,6 @@ void FSceneCaptureDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout 
 	// Show flags that should be exposed for Scene Captures
 	TArray<FEngineShowFlags::EShowFlag> ShowFlagsToAllowForCaptures;
 
-	// General
 	ShowFlagsToAllowForCaptures.Add(FEngineShowFlags::EShowFlag::SF_AtmosphericFog);
 	ShowFlagsToAllowForCaptures.Add(FEngineShowFlags::EShowFlag::SF_BSP);
 	ShowFlagsToAllowForCaptures.Add(FEngineShowFlags::EShowFlag::SF_Decals);
@@ -147,6 +146,9 @@ void FSceneCaptureDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout 
 				break;
 			case SFG_Visualize:
 				GroupName = LOCTEXT("VisualizeShowFlagsMenu", "Visualize Show Flags");
+				break;
+			case SFG_LightTypes:
+				GroupName = LOCTEXT("LightTypesShowFlagsMenu", "Light Types Show Flags");
 				break;
 			case SFG_LightingComponents:
 				GroupName = LOCTEXT("LightingComponentsShowFlagsMenu", "Lighting Components Show Flags");

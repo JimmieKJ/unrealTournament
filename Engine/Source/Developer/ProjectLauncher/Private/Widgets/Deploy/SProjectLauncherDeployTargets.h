@@ -75,10 +75,26 @@ private:
 	// Callback for when a device proxy has been removed from the device proxy manager.
 	void HandleDeviceProxyManagerProxyRemoved(const ITargetDeviceProxyRef& RemovedProxy);
 
+	// Callback for getting the name of the selected default platform.
+	FText HandlePlatformComboBoxContentText() const;
+
+	// Callback for generating widgets for the platforms combo box.
+	TSharedRef<SWidget> HandlePlatformComboBoxGenerateWidget(TSharedPtr<FName> StringItem);
+
+	// Callback for handling default platform selection changes.
+	void HandlePlatformComboBoxSelectionChanged(TSharedPtr<FName> StringItem, ESelectInfo::Type SelectInfo);
+
 private:
 
 	// Holds the list of available device proxies.
 	TArray<ITargetDeviceProxyPtr> DeviceProxyList;
+
+	// Holds the list of vanilla platforms;
+	TArray<TSharedPtr<FName>> VanillaPlatformList;
+
+	// Holds the list of vanilla platform options.
+	TSharedPtr<SComboBox<TSharedPtr<FName>>> PlatformComboBox;
+	mutable FText DefaultPlatformText;
 
 	// Holds the device proxy list view .
 	TSharedPtr<SListView<ITargetDeviceProxyPtr> > DeviceProxyListView;

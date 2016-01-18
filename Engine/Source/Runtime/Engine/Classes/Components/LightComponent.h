@@ -7,11 +7,7 @@
 #include "EngineDefines.h"
 #include "LightComponent.generated.h"
 
-/** 
- * A texture containing depth values of static objects that was computed during the lighting build.
- * Used by Stationary lights to shadow translucency.
- */
-class FStaticShadowDepthMap : public FTexture
+class FStaticShadowDepthMapData
 {
 public:
 	/** Transform from world space to the coordinate space that DepthSamples are stored in. */
@@ -22,11 +18,23 @@ public:
 	/** Shadowmap depth values */
 	TArray<FFloat16> DepthSamples;
 
-	FStaticShadowDepthMap() :
+	FStaticShadowDepthMapData() :
 		WorldToLight(FMatrix::Identity),
 		ShadowMapSizeX(0),
 		ShadowMapSizeY(0)
 	{}
+
+	friend FArchive& operator<<(FArchive& Ar, FStaticShadowDepthMapData& ShadowMap);
+};
+
+/** 
+ * A texture containing depth values of static objects that was computed during the lighting build.
+ * Used by Stationary lights to shadow translucency.
+ */
+class FStaticShadowDepthMap : public FTexture
+{
+public:
+	FStaticShadowDepthMapData Data;
 
 	virtual void InitRHI();
 
@@ -108,6 +116,13 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	uint32 bAffectDynamicIndirectLighting : 1;
 
 	/** 
+	 * Channels that this light should affect.  
+	 * These channels only apply to opaque materials, direct lighting, and dynamic lighting and shadowing.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Light)
+	FLightingChannels LightingChannels;
+
+	/** 
 	 * The light function material to be applied to this light.
 	 * Note that only non-lightmapped lights (UseDirectLightMap=False) can have a light function. 
 	 */
@@ -141,7 +156,7 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	 * Brightness factor applied to the light when the light function is specified but disabled, for example in scene captures that use SceneCapView_LitNoShadows. 
 	 * This should be set to the average brightness of the light function material's emissive input, which should be between 0 and 1.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LightFunction)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LightFunction, meta=(UIMin = "0.0", UIMax = "1.0"))
 	float DisabledBrightness;
 
 	/** 
@@ -190,7 +205,7 @@ public:
 
 	/** Set color of the light */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
-	void SetLightColor(FLinearColor NewLightColor);
+	void SetLightColor(FLinearColor NewLightColor, bool bSRGB = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
 	void SetTemperature(float NewTemperature);
@@ -250,7 +265,7 @@ public:
 	 * @param Bounds - The bounding volume to test.
 	 * @return True if the light affects the bounding volume
 	 */
-	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const;
+	virtual bool AffectsBounds(const FBoxSphereBounds& InBounds) const;
 
 	/**
 	 * Return the world-space bounding box of the light's influence.
@@ -297,7 +312,7 @@ public:
 	/** Compute current light brightness based on whether there is a valid IES profile texture attached, and whether IES brightness is enabled */
 	float ComputeLightBrightness() const;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
@@ -307,10 +322,9 @@ public:
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	virtual FName GetComponentInstanceDataType() const override;
 	 void ApplyComponentInstanceData(class FPrecomputedLightInstanceData* ComponentInstanceData);
 
 	/** @return number of material elements in this primitive */
@@ -329,12 +343,12 @@ public:
 	}
 
 protected:
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 	virtual void OnRegister() override;
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void SendRenderTransform_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 
 public:
 	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;

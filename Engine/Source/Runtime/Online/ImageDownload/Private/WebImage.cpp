@@ -3,11 +3,6 @@
 #include "ImageDownloadPCH.h"
 #include "WebImage.h"
 
-static const FString IMAGE_MIME_PNG(TEXT("image/png"));
-static const FString IMAGE_MIME_PNG_ALT(TEXT("image/x-png"));
-static const FString IMAGE_MIME_JPEG(TEXT("image/jpeg"));
-static const FString IMAGE_MIME_BMP(TEXT("image/bmp"));
-
 FWebImage::FWebImage()
 : StandInBrush(FCoreStyle::Get().GetDefaultBrush())
 , bDownloadSuccess(false)
@@ -19,7 +14,7 @@ TAttribute< const FSlateBrush* > FWebImage::Attr() const
 	return TAttribute< const FSlateBrush* >(AsShared(), &FWebImage::GetBrush);
 }
 
-bool FWebImage::BeginDownload(const FString& UrlIn, const FOnImageDownloaded& DownloadCb)
+bool FWebImage::BeginDownload(const FString& UrlIn, const TOptional<FString>& StandInETag, const FOnImageDownloaded& DownloadCb)
 {
 	CancelDownload();
 
@@ -30,8 +25,13 @@ bool FWebImage::BeginDownload(const FString& UrlIn, const FOnImageDownloaded& Do
 	TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
 	HttpRequest->SetVerb(TEXT("GET"));
 	HttpRequest->SetURL(Url);
-	HttpRequest->SetHeader(TEXT("Accept"), FString::Printf(TEXT("%s, %s, %s; q=0.8, %s; q=0.5"), *IMAGE_MIME_PNG, *IMAGE_MIME_PNG_ALT, *IMAGE_MIME_JPEG, *IMAGE_MIME_BMP));
+	HttpRequest->SetHeader(TEXT("Accept"), TEXT("image/png, image/x-png, image/jpeg; q=0.8, image/vnd.microsoft.icon, image/x-icon, image/bmp, image/*; q=0.5, image/webp; q=0.0"));
 	HttpRequest->OnProcessRequestComplete().BindSP(this, &FWebImage::HttpRequestComplete, DownloadCb);
+
+	if (StandInETag.IsSet())
+	{
+		HttpRequest->SetHeader(TEXT("If-None-Match"), *StandInETag.GetValue());
+	}
 
 	// queue the request
 	PendingRequest = HttpRequest;
@@ -73,50 +73,47 @@ bool FWebImage::ProcessHttpResponse(const FString& RequestUrl, FHttpResponsePtr 
 		return false;
 	}
 
+	ETag = HttpResponse->GetHeader("ETag");
+
 	// check status code
 	int32 StatusCode = HttpResponse->GetResponseCode();
 	if (StatusCode / 100 != 2)
 	{
+		if ( StatusCode == 304)
+		{
+			// Not modified means that the image is identical to the placeholder image.
+			return true;
+		}
 		UE_LOG(LogImageDownload, Error, TEXT("Image Download: HTTP response %d. url=%s"), StatusCode, *RequestUrl);
-		return false;
-	}
-
-	// get the content type and figure out the image format from it
-	FString ContentType = HttpResponse->GetContentType();
-	EImageFormat::Type ImageFormat;
-	if (ContentType.Equals(IMAGE_MIME_PNG, ESearchCase::IgnoreCase) || ContentType.Equals(IMAGE_MIME_PNG_ALT, ESearchCase::IgnoreCase))
-	{
-		ImageFormat = EImageFormat::PNG;
-	}
-	else if (ContentType.Equals(IMAGE_MIME_JPEG, ESearchCase::IgnoreCase))
-	{
-		ImageFormat = EImageFormat::JPEG;
-	}
-	else if (ContentType.Equals(IMAGE_MIME_BMP, ESearchCase::IgnoreCase))
-	{
-		ImageFormat = EImageFormat::BMP;
-	}
-	else
-	{
-		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Invalid Content-Type '%s'. url=%s"), *ContentType, *RequestUrl);
 		return false;
 	}
 
 	// build an image wrapper for this type
 	static const FName MODULE_IMAGE_WRAPPER("ImageWrapper");
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(MODULE_IMAGE_WRAPPER);
+
+	// Look at the signature of the downloaded image to detect image type. (and ignore the content type header except for error reporting)
+	const TArray<uint8>& Content = HttpResponse->GetContent();
+	EImageFormat::Type ImageFormat = ImageWrapperModule.DetectImageFormat(Content.GetData(), Content.Num());
+
+	if (ImageFormat == EImageFormat::Invalid)
+	{
+		FString ContentType = HttpResponse->GetContentType();
+		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Could not recognize file type of image downloaded from url %s, server-reported content type: %s"), *RequestUrl, *ContentType);
+		return false;
+	}
+
 	IImageWrapperPtr ImageWrapper = ImageWrapperModule.CreateImageWrapper(ImageFormat);
 	if (!ImageWrapper.IsValid())
 	{
-		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Unable to make image wrapper for %s"), *ContentType);
+		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Unable to make image wrapper for image format %d"), (int32)ImageFormat);
 		return false;
 	}
 
 	// parse the content
-	const TArray<uint8>& Content = HttpResponse->GetContent();
 	if (!ImageWrapper->SetCompressed(Content.GetData(), Content.Num()))
 	{
-		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Unable to parse %s from %s"), *ContentType, *RequestUrl);
+		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Unable to parse image format %d from %s"), (int32)ImageFormat, *RequestUrl);
 		return false;
 	}
 
@@ -124,7 +121,7 @@ bool FWebImage::ProcessHttpResponse(const FString& RequestUrl, FHttpResponsePtr 
 	const TArray<uint8>* RawImageData = nullptr;
 	if (!ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawImageData) || RawImageData == nullptr)
 	{
-		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Unable to convert %s to BGRA 8"), *ContentType);
+		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Unable to convert image format %d to BGRA 8"), (int32)ImageFormat);
 		return false;
 	}
 

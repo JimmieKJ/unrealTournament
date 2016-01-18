@@ -14,7 +14,7 @@ UAbilityTask_SpawnActor::UAbilityTask_SpawnActor(const FObjectInitializer& Objec
 
 UAbilityTask_SpawnActor* UAbilityTask_SpawnActor::SpawnActor(UObject* WorldContextObject, FGameplayAbilityTargetDataHandle TargetData, TSubclassOf<AActor> InClass)
 {
-	auto MyObj = NewTask<UAbilityTask_SpawnActor>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_SpawnActor>(WorldContextObject);
 	MyObj->CachedTargetDataHandle = TargetData;
 	return MyObj;
 }
@@ -25,8 +25,11 @@ bool UAbilityTask_SpawnActor::BeginSpawningActor(UObject* WorldContextObject, FG
 {
 	if (Ability.IsValid() && Ability.Get()->GetCurrentActorInfo()->IsNetAuthority())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-		SpawnedActor = World->SpawnActorDeferred<AActor>(InClass, FVector::ZeroVector, FRotator::ZeroRotator, NULL, NULL, true);
+		UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject);
+		if (World)
+		{
+			SpawnedActor = World->SpawnActorDeferred<AActor>(InClass, FTransform::Identity, NULL, NULL, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		}
 	}
 	
 	if (SpawnedActor == nullptr)
@@ -53,7 +56,7 @@ void UAbilityTask_SpawnActor::FinishSpawningActor(UObject* WorldContextObject, F
 			}
 			else if (LocationData->HasEndPoint())
 			{
-				SpawnTransform.SetLocation(LocationData->GetEndPoint());
+				SpawnTransform = LocationData->GetEndPointTransform();
 			}
 		}
 

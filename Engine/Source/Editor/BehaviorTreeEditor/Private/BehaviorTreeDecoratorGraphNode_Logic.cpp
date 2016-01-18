@@ -42,7 +42,7 @@ void UBehaviorTreeDecoratorGraphNode_Logic::GetMenuEntries(struct FGraphContextM
 	const int32 NumModes = sizeof(Modes) / sizeof(Modes[0]);
 	for (int32 i = 0; i < NumModes; i++)
 	{
-		TSharedPtr<FDecoratorSchemaAction_NewNode> AddOpAction = UEdGraphSchema_BehaviorTreeDecorator::AddNewDecoratorAction(ContextMenuBuilder, TEXT("Logic"), FText::FromString(DescribeLogicModeHelper(Modes[i])), "");
+		TSharedPtr<FDecoratorSchemaAction_NewNode> AddOpAction = UEdGraphSchema_BehaviorTreeDecorator::AddNewDecoratorAction(ContextMenuBuilder, NSLOCTEXT("BehaviorTreeGraphNode_Logic", "Logic", "Logic"), FText::FromString(DescribeLogicModeHelper(Modes[i])), "");
 
 		UBehaviorTreeDecoratorGraphNode_Logic* OpNode = NewObject<UBehaviorTreeDecoratorGraphNode_Logic>(ContextMenuBuilder.OwnerOfTemporaries);
 		OpNode->LogicMode = Modes[i];

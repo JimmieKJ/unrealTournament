@@ -1,0 +1,198 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "Sequencer.h"
+#include "SequencerClipboardReconciler.h"
+
+/**
+ * Class responsible for generating a menu for the currently selected sections.
+ * This is a shared class that's entirely owned by the context menu handlers.
+ * Once the menu is closed, all references to this class are removed, and the 
+ * instance is cleaned up. To ensure no weak references are held, AsShared is hidden
+ */
+struct FSectionContextMenu : TSharedFromThis<FSectionContextMenu>
+{
+	static void BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& Sequencer, float InMouseDownTime);
+
+private:
+
+	/** Hidden AsShared() methods to discourage CreateSP delegate use. */
+	using TSharedFromThis::AsShared;
+
+	FSectionContextMenu(FSequencer& InSeqeuncer, float InMouseDownTime)
+		: Sequencer(StaticCastSharedRef<FSequencer>(InSeqeuncer.AsShared()))
+		, MouseDownTime(InMouseDownTime)
+	{}
+
+	void PopulateMenu(FMenuBuilder& MenuBuilder);
+
+	/** Add edit menu for trim and split */
+	void AddEditMenu(FMenuBuilder& MenuBuilder);
+
+	/** Add extrapolation menu for pre and post infinity */
+	void AddExtrapolationMenu(FMenuBuilder& MenuBuilder, bool bPreInfinity);
+
+	void SelectAllKeys();
+
+	bool CanSelectAllKeys() const;
+
+	void TrimSection(bool bTrimLeft);
+
+	void SplitSection();
+
+	bool IsTrimmable() const;
+
+	void SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity);
+
+	bool IsExtrapolationModeSelected(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) const;
+
+	void ToggleSectionActive();
+
+	bool IsSectionActive() const;
+
+	void ToggleSectionLocked();
+
+	bool IsSectionLocked() const;
+
+	void DeleteSection();
+
+	void BringToFront();
+
+	void SendToBack();
+
+	void BringForward();
+
+	void SendBackward();
+
+	/** The sequencer */
+	TSharedRef<FSequencer> Sequencer;
+
+	/** The time that we clicked on to summon this menu */
+	float MouseDownTime;
+};
+
+/** Arguments required for a paste operation */
+struct FPasteContextMenuArgs
+{
+	/** Paste the clipboard into the specified array of sequencer nodes, at the given time */
+	static FPasteContextMenuArgs PasteInto(TArray<TSharedRef<FSequencerDisplayNode>> InNodes, float InTime, TSharedPtr<FMovieSceneClipboard> InClipboard = nullptr)
+	{
+		FPasteContextMenuArgs Args;
+		Args.Clipboard = InClipboard;
+		Args.DestinationNodes = MoveTemp(InNodes);
+		Args.PasteAtTime = InTime;
+		return Args;
+	}
+
+	/** Paste the clipboard at the given time, using the sequencer selection states to determine paste destinations */
+	static FPasteContextMenuArgs PasteAt(float InTime, TSharedPtr<FMovieSceneClipboard> InClipboard = nullptr)
+	{
+		FPasteContextMenuArgs Args;
+		Args.Clipboard = InClipboard;
+		Args.PasteAtTime = InTime;
+		return Args;
+	}
+
+	/** The clipboard to paste */
+	TSharedPtr<FMovieSceneClipboard> Clipboard;
+
+	/** The Time to paste at */
+	float PasteAtTime;
+
+	/** Optional user-supplied nodes to paste into */
+	TArray<TSharedRef<FSequencerDisplayNode>> DestinationNodes;
+};
+
+struct FPasteContextMenu : TSharedFromThis<FPasteContextMenu>
+{
+	static bool BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& Sequencer, const FPasteContextMenuArgs& Args);
+
+	static TSharedRef<FPasteContextMenu> CreateMenu(FSequencer& Sequencer, const FPasteContextMenuArgs& Args);
+
+	void PopulateMenu(FMenuBuilder& MenuBuilder);
+
+	bool IsValidPaste() const;
+
+	bool AutoPaste();
+
+private:
+
+	using TSharedFromThis::AsShared;
+
+	FPasteContextMenu(FSequencer& InSequencer, const FPasteContextMenuArgs& InArgs)
+		: Sequencer(StaticCastSharedRef<FSequencer>(InSequencer.AsShared()))
+		, Args(InArgs)
+	{}
+
+	void Setup();
+
+	void AddPasteMenuForTrackType(FMenuBuilder& MenuBuilder, int32 DestinationIndex);
+
+	void PasteInto(int32 DestinationIndex, FName KeyAreaName);
+
+	void GatherPasteDestinationsForNode(FSequencerDisplayNode& InNode, int32 SectionIndex, const FName& CurrentScope, TMap<FName, FSequencerClipboardReconciler>& Map);
+
+	/** The sequencer */
+	TSharedRef<FSequencer> Sequencer;
+
+	/** Paste destinations are organized by track type primarily, then by key area name  */
+	struct FPasteDestination
+	{
+		FText Name;
+		TMap<FName, FSequencerClipboardReconciler> Reconcilers;
+	};
+	TArray<FPasteDestination> PasteDestinations;
+
+	/** Paste arguments */
+	FPasteContextMenuArgs Args;
+};
+
+struct FPasteFromHistoryContextMenu : TSharedFromThis<FPasteFromHistoryContextMenu>
+{
+	static bool BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& Sequencer, const FPasteContextMenuArgs& Args);
+
+	static TSharedPtr<FPasteFromHistoryContextMenu> CreateMenu(FSequencer& Sequencer, const FPasteContextMenuArgs& Args);
+
+	void PopulateMenu(FMenuBuilder& MenuBuilder);
+
+private:
+
+	using TSharedFromThis::AsShared;
+
+	FPasteFromHistoryContextMenu(FSequencer& InSequencer, const FPasteContextMenuArgs& InArgs)
+		: Sequencer(StaticCastSharedRef<FSequencer>(InSequencer.AsShared()))
+		, Args(InArgs)
+	{}
+
+	/** The sequencer */
+	TSharedRef<FSequencer> Sequencer;
+
+	/** Paste arguments */
+	FPasteContextMenuArgs Args;
+};
+
+/**
+ * Class responsible for generating a menu for the currently selected keys.
+ * This is a shared class that's entirely owned by the context menu handlers.
+ * Once the menu is closed, all references to this class are removed, and the 
+ * instance is cleaned up. To ensure no weak references are held, AsShared is hidden
+ */
+struct FKeyContextMenu : TSharedFromThis<FKeyContextMenu>
+{
+	static void BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& Sequencer);
+
+private:
+
+	FKeyContextMenu(FSequencer& InSeqeuncer)
+		: Sequencer(StaticCastSharedRef<FSequencer>(InSeqeuncer.AsShared()))
+	{}
+
+	/** Hidden AsShared() methods to discourage CreateSP delegate use. */
+	using TSharedFromThis::AsShared;
+
+	void PopulateMenu(FMenuBuilder& MenuBuilder);
+
+	/** The sequencer */
+	TSharedRef<FSequencer> Sequencer;
+};

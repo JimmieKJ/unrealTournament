@@ -8,8 +8,8 @@
 
 
 class FMediaSampleQueue;
+class IMediaAudioTrack;
 class IMediaPlayer;
-class IMediaTrack;
 class UMediaPlayer;
 
 
@@ -29,11 +29,6 @@ class MEDIAASSETS_API UMediaSoundWave
 	/** The MediaPlayer asset to stream audio from. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MediaPlayer)
 	UMediaPlayer* MediaPlayer;
-
-public:
-
-	/** Destructor. */
-	~UMediaSoundWave();
 
 public:
 
@@ -72,6 +67,7 @@ public:
 	virtual SIZE_T GetResourceSize( EResourceSizeMode::Type Mode ) override;
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void PostLoad() override;
+	virtual void BeginDestroy() override;
 
 protected:
 
@@ -80,8 +76,8 @@ protected:
 
 private:
 
-	/** Callback for when the UMediaPlayer asset changed its media. */
-	void HandleMediaPlayerMediaChanged();
+	/** Callback for when the UMediaPlayer changed tracks. */
+	void HandleMediaPlayerTracksChanged();
 
 private:
 
@@ -89,11 +85,14 @@ private:
 	TSharedRef<FMediaSampleQueue, ESPMode::ThreadSafe> AudioQueue;
 
 	/** Holds the selected audio track. */
-	TSharedPtr<IMediaTrack, ESPMode::ThreadSafe> AudioTrack;
+	TSharedPtr<IMediaAudioTrack, ESPMode::ThreadSafe> AudioTrack;
 
 	/** Holds the media player asset currently being used. */
-	UMediaPlayer* CurrentMediaPlayer;
+	UPROPERTY()
+	TWeakObjectPtr<UMediaPlayer> CurrentMediaPlayer;
 
 	/** Holds queued audio samples. */
 	TArray<uint8> QueuedAudio;
+
+	bool bSetupDelegates;
 };

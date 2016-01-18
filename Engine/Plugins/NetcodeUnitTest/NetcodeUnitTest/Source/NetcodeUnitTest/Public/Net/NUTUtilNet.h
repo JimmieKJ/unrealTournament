@@ -107,7 +107,7 @@ public:
 	{
 		if (AttachedWorld != NULL)
 		{
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 			TickDispatchDelegateHandle  = AttachedWorld->OnTickDispatch().AddRaw(this, &FWorldTickHook::TickDispatch);
 			PostTickFlushDelegateHandle = AttachedWorld->OnPostTickFlush().AddRaw(this, &FWorldTickHook::PostTickFlush);
 #else
@@ -121,7 +121,7 @@ public:
 	{
 		if (AttachedWorld != NULL)
 		{
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 			AttachedWorld->OnPostTickFlush().Remove(PostTickFlushDelegateHandle);
 			AttachedWorld->OnTickDispatch().Remove(TickDispatchDelegateHandle);
 #else
@@ -148,7 +148,7 @@ public:
 	/** The world this is attached to */
 	UWorld* AttachedWorld;
 
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 private:
 	/** Handle for Tick dispatch delegate */
 	FDelegateHandle TickDispatchDelegateHandle;

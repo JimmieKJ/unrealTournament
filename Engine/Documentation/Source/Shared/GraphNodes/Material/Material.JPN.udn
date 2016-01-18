@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2300945
+﻿INTSourceChangelist:2588108
 Availability:NoPublish
 Title:
 Crumbs:
 Description:
 
 [EXCERPT:UMaterialExpressionAtmosphericFogColor]
-Atmospheric Fog Material 表現式は、ワールド空間のどの位置からでも、レベルの Atmospheric Fog の現在のカラーを問い合わせることができます。ワールド位置が表現式へ入力されない場合、問い合わせたピクセルのワールド位置を使用します。遠方の霧の色に薄れていくマテリアルの表示に役立ちます。 
+Atmospheric Fog Material 表現式は、ワールド空間のどの位置からでも、レベルの Atmospheric Fog の現在のカラーを問い合わせることができます。ワールド位置が表現式へ入力されない場合、問い合わせたピクセルのワールド位置を使用します。遠方の霧の色に薄れていくように見えるマテリアルが必要な場合に役立ちます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Atmosphere
@@ -23,7 +23,7 @@ Engine/Rendering/Materials/ExpressionReference/Color#desaturation
 
 
 [EXCERPT:UMaterialExpressionConstant]
-Constant 表現式は浮動小数点値を出力します。これは最もよく使用される表現式で、入力のチャンネル数に関係なく入力と接続します。例えば、 Constant を 3 Vector が期待される入力へ接続した場合、定数値は 3 つすべてのエレメントに使用されます。数が 1 つだけ提供された場合は、説明領域の小さな三角のアイコンを使ってノードを折りたたむと便利です。 
+Constant 表現式はsingle float 値を出力します。Constant は、最もよく使用される表現式の 1 つで、入力のチャンネル数に関係なくどの入力にでも接続します。例えば、 Constant を 3 Vector が期待される入力へ接続した場合、定数値は 3 つのすべてのエレメントに使用されます。数を 1 つだけ入れた場合は、説明領域の小さな三角のアイコンを使ってノードを折りたたむと便利です。 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#constant
 [/VAR]
@@ -38,7 +38,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#constant2vector
 [/EXCERPT:UMaterialExpressionConstant2Vector]
 
 [EXCERPT:UMaterialExpressionConstant3Vector]
-Constant3Vector 表現式は、 3 チャンネルのベクター値を出力します。つまり、 3 つの定数です。RGB カラーは各チャンネルが色に割り当てられる (赤、緑、青) Constant3Vector として考えられます。 
+Constant3Vector 表現式は、 3 チャンネルのベクター値を出力します。つまり、 3 つの定数です。RGB カラーは各チャンネルが色 (赤、緑、青) に割り当てられる Constant3Vector として考えられます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#constant3vector
@@ -46,7 +46,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#constant3vector
 [/EXCERPT:UMaterialExpressionConstant3Vector]
 
 [EXCERPT:UMaterialExpressionConstant4Vector]
-Constant4Vector 表現式は、 4 チャンネルのベクター値を出力します。つまり、 4 つの定数です。RGBA カラーは各チャンネルが色に割り当てられる (赤、緑、青、アルファ) Constant4Vector として考えられます。 
+Constant4Vector 表現式は、 4 チャンネルのベクター値を出力します。つまり、 4 つの定数です。RGBA カラーは各チャンネルが色 (赤、緑、青、アルファ) に割り当てられるConstant4Vector として考えられます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#constant4vector
@@ -54,7 +54,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#constant4vector
 [/EXCERPT:UMaterialExpressionConstant4Vector]
 
 [EXCERPT:UMaterialExpressionDistanceCullFade]
-DistanceCullFade 表現式は、黒から白へフェードさせるスカラー値を出力し、オブジェクトがカリング距離に近づいた時点でオブジェクトをフェードさせることが出来ます。オブジェクトをフェードアウトさせないことにご留意ください。 
+DistanceCullFade 表現式は、黒から白へフェードさせるスカラー値を出力し、オブジェクトがカリング距離内に入った時点でオブジェクトをフェードさせることが出来ます。これは、オブジェクトをフェードアウトさせないことにご注意ください。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#distancecullfade
@@ -62,7 +62,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#distancecullfade
 [/EXCERPT:UMaterialExpressionDistanceCullFade]
 
 [EXCERPT:UMaterialExpressionParticleColor]
-ParticleColor 表現式は、 Cascade 内で定義されたパーティクルごとのカラーデータをもとに任意のパーティクルの現在のカラーに結合します。関数は適切なチャンネル (エミッシブ カラー) に接続しなくてはいけません。
+ParticleColor 表現式は、 Cascade 内で定義されたパーティクルごとのカラーデータをもとに任意のパーティクルの現在のカラーに結合します。これは適切なチャンネル (エミッシブ カラー) に接続しなくてはいけません。
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#particlecolor
@@ -87,7 +87,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#particlemotionblurfade
 [/EXCERPT:UMaterialExpressionParticleMotionBlurFade]
 
 [EXCERPT:UMaterialExpressionParticleRadius]
-ParticleRadius 表現式は、それぞれのパーティクルの半径をアンリアル単位で個別に出力します。例えば、半径がある特定のポイントになると、マテリアルに変化をもたらします。 
+ParticleRadius 表現式は、各パーティクルの半径をアンリアル単位で個別に出力します。例えば、半径がある特定のポイントになると、マテリアルに変化をもたらします。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#particleradius
@@ -104,7 +104,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#particlerelativetime
 
 
 [EXCERPT:UMaterialExpressionParticleSize]
-ParticleSize 表現式は、パーティクル スプライトの X と Y のサイズを出力します。これは、マテリアルのある局面の操作に使用できます。 
+ParticleSize 表現式は、パーティクル スプライトの X と Y のサイズを出力します。これは、マテリアルの一部の操作に使用できます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#particlesize
@@ -120,7 +120,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#particlespeed
 [/EXCERPT:UMaterialExpressionParticleSpeed]
 
 [EXCERPT:UMaterialExpressionPerInstanceFadeAmount]
-PerInstanceFadeAmount 表現式は、例えばフォーリッジのような、インスタンス化されたスタティックメッシュに適用されるフェード量に関連した浮動小数点値を出力します。出力値は定数ですが、メッシュの個々のインスタンスに対し異なる数値になります。 
+PerInstanceFadeAmount 表現式は、例えばフォーリッジのような、インスタンス化されたスタティックメッシュに適用されるフェード量に関連した float 値を出力します。出力値は定数ですが、メッシュの個々のインスタンスに対し異なる数値になります。 
 
 注記：InstancedStaticMesh アクタ、または InstancedStaticMeshComponents を利用する別のアクタに適用時のみ機能します。 
 
@@ -130,9 +130,9 @@ Engine/Rendering/Materials/ExpressionReference/Constant#perinstancefadeamount
 [/EXCERPT:UMaterialExpressionPerInstanceFadeAmount]
 
 [EXCERPT:UMaterialExpressionPerInstanceRandom]
-PerInstanceRandom 表現式は、マテリアルが適用されたスタティックメッシュのインスタンスごとに異なるランダムな浮動小数点値を出力します。InstancedStaticMeshComponent はランダムな浮動小数点値をインスタンスに設定しますが、必要に応じてどこでも利用できるようにエクスポーズされています (例えば窓の後方のランダムな光源レベル)。出力値は定数ですが、個々のメッシュのインスタンスに対し異なる値となります。
+PerInstanceRandom 表現式は、マテリアルが適用されるスタティックメッシュのインスタンスごとに異なるランダムな float 値を出力します。InstancedStaticMeshComponent はランダムな float 値をインスタンスに設定しますが、必要に応じて何にでも利用できるようにエクスポーズされています (例えば窓の後方のランダムな光源レベル)。出力値は定数ですが、個々のメッシュのインスタンスに対し異なる値となります。
 
-出力値は、ターゲットプラットフォームに対して 0 から RAND_MAX 間の整数になります。 
+出力値は、ターゲット プラットフォームに対して 0 から RAND_MAX 間の整数になります。 
 
 注記：InstancedStaticMesh アクタ、または InstancedStaticMeshComponents を利用する別のアクタに適用時のみ機能します。 
 
@@ -142,7 +142,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#perinstancerandom
 [/EXCERPT:UMaterialExpressionPerInstanceRandom]
 
 [EXCERPT:UMaterialExpressionTime]
-Time ノードは、マテリアルに時間の推移を追加する際に使用されます。例えば、Panner、Cosine、またはその他の時間に依存する演算があります。 
+Time ノードは、マテリアルに時間の推移を追加する際に使用します。例えば、Panner、Cosine、またはその他の時間に依存する演算があります。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#time
@@ -150,7 +150,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#time
 [/EXCERPT:UMaterialExpressionTime]
 
 [EXCERPT:UMaterialExpressionTwoSidedSign]
-TwoSidedSign 表現式は、 Phong の機能と合致させるため、両面カスタム ライティング マテリアルの背面で法線を反転させる際に有益です。 ＋1 は表面へ、 -1 は、両面マテリアルの背面へ反転します。 
+TwoSidedSign 表現式は、 Phong の機能と合致させるため、両面カスタム ライティング マテリアルの背面で法線を反転させる際に役立ちます。 ＋1 は両面マテリアルの表面へ、 -1 は背面へ反転します。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#twosidedsign
@@ -158,7 +158,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#twosidedsign
 [/EXCERPT:UMaterialExpressionTwoSidedSign]
 
 [EXCERPT:UMaterialExpressionVertexColor]
-VertexColor 表現式は、スプライト パーティクル エミッターに影響を及ぼすカラー モジュールの出力を目的とした、マテリアルのアクセスポイントです。 
+VertexColor 表現式は、スプライト パーティクル エミッターに影響を及ぼすカラー モジュールの出力を目的とした、マテリアルのアクセス ポイントです。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#vertexcolor
@@ -166,7 +166,7 @@ Engine/Rendering/Materials/ExpressionReference/Constant#vertexcolor
 [/EXCERPT:UMaterialExpressionVertexColor]
 
 [EXCERPT:UMaterialExpressionActorPositionWS]
-ActorPositionWS は、マテリアルが設定されたワールド空間のオブジェクト位置を表す 3vector (RGB) データを出力します。 
+ActorPositionWS は、マテリアルが設定されたオブジェクトのワールド空間の位置を表す 3vector (RGB) データを出力します。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#actorpositionws
@@ -198,7 +198,7 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#objectorientation
 [/EXCERPT:UMaterialExpressionObjectOrientation]
 
 [EXCERPT:UMaterialExpressionObjectPositionWS]
-ObjectPositionWS 表現式は、オブジェクト範囲にあるワールド空間の中心位置を出力します。例えばフォーリッジに球状のライティングを作成する際に便利です。 
+ObjectPositionWS 表現式は、オブジェクト範囲のワールド空間の中心位置を出力します。例えばフォーリッジに球状のライティングを作成する際に便利です。 
 
 [VAR:ToolTipFullLink]
 # ObjectPositionWS
@@ -206,7 +206,7 @@ ObjectPositionWS 表現式は、オブジェクト範囲にあるワールド空
 [/EXCERPT:UMaterialExpressionObjectPositionWS]
 
 [EXCERPT:UMaterialExpressionObjectRadius]
-ObjectRadius は、アンリアル ユニットのオブジェクトの半径と同等の値を出力します。スケーリングが考慮され、個々のオブジェクトに対して固有の結果となります。 
+ObjectRadius は、アンリアル単位の任意のオブジェクトの半径と同等の値を出力します。スケーリングが考慮され、個々のオブジェクトに対して固有の結果となります。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#objectradius
@@ -216,7 +216,7 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#objectradius
 [EXCERPT:UMaterialExpressionPanner]
 Panner 表現式はテクスチャのパン、または移動に使用する UV テクスチャ座標を出力します。 
 
-Panner は Time の入力値によって変化する UV を生成します。Coordinate 入力値は、Panne rノードによって生成された UV を操作 (例えばオフセット) する際に利用します。 
+Panner は Time の入力値によって変化する UV を生成します。Coordinate 入力値は、Panner ノードによって生成された UV を操作 (例えばオフセット) する際に利用します。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#panner
@@ -224,7 +224,7 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#panner
 [/EXCERPT:UMaterialExpressionPanner]
 
 [EXCERPT:UMaterialExpressionParticlePositionWS]
-ParticlePositionWS 表現式は、ワールド空間におけるそれぞれのパーティクルの位置を表す 3vector (RGB) データを出力します。 
+ParticlePositionWS 表現式は、ワールド空間における各パーティクルの位置を表す 3vector (RGB) データを出力します。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#particlepositionws
@@ -248,7 +248,7 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#rotator
 [/EXCERPT:UMaterialExpressionRotator]
 
 [EXCERPT:UMaterialExpressionSceneTexelSize]
-SceneTexelSize 表現式は、SceneColor や SceneDepth の表現式の使用時と同様に、Texel サイズでオフセットすることが出来ます。これは多重解像度システムでエッジを検出する際に実用的です。この計算を使用しない場合、小さな静的な値の使用が強制され、低解像度で一貫性のない結果になります。 
+SceneTexelSize 表現式は、SceneColor や SceneDepth の表現式の使用時と同様に、Texel サイズでオフセットすることができます。これは多重解像度システムでエッジを検出する際に便利です。この計算を使用しない場合、小さな静的な値の使用が強制され、低解像度で一貫性のない結果になります。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#scenetexelsize
@@ -256,7 +256,7 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#scenetexelsize
 [/EXCERPT:UMaterialExpressionSceneTexelSize]
 
 [EXCERPT:UMaterialExpressionScreenPosition]
-ScreenPosition 表現式は、現在レンダリングされているピクセルのスクリーン空間位置を出力します。
+ScreenPosition 表現式は、現在レンダリング中のピクセルのスクリーン空間位置を出力します。
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#screenposition
@@ -272,12 +272,20 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#texturecoordinate
 [/EXCERPT:UMaterialExpressionTextureCoordinate]
 
 [EXCERPT:UMaterialExpressionVertexNormalWS]
-VertexNormalWS 表現式はワールド空間の頂点法線を出力します。WorldPositionOffset など頂点シェーダーの実行のマテリアル入力としてのみ使用することができます。メッシュを拡大または収縮させるのに便利です。法線に沿ったオフセット位置は UV の継ぎ目に沿ってジオメトリが割れる原因であることに注目してください。 
+VertexNormalWS 表現式はワールド空間の頂点法線を出力します。WorldPositionOffset など頂点シェーダーで実行するマテリアル入力としてのみ使用することができます。メッシュを拡大または収縮させるのに便利です。法線に沿ったオフセット位置は UV の継ぎ目に沿ってジオメトリが割れる原因であることに注目してください。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#vertexnormalws
 [/VAR]
 [/EXCERPT:UMaterialExpressionVertexNormalWS]
+
+[EXCERPT:UMaterialExpressionViewProperty]
+ViewProperty 表現式は、ビューに従属する定数のプロパティを出力します。アクセスするビュー プロパティは設定可能であり、出力のタイプは、こうして設定しアクセスしたプロパティに依存します。
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/Materials/ExpressionReference/Constant#viewproperty
+[/VAR]
+[/EXCERPT:UMaterialExpressionViewProperty]
 
 [EXCERPT:UMaterialExpressionViewSize]
 ViewSize 表現式は、現在のビューサイズをピクセルで表した 2D ベクター値を出力します。スクリーンの現在の解像度を元に、様々な変化をマテリアルにもたらす際に役立ちます。 
@@ -313,6 +321,14 @@ Engine/Rendering/Materials/ExpressionReference/Custom#customtexture
 [/VAR]
 [/EXCERPT:UMaterialExpressionCustomTexture]
 
+[EXCERPT:UMaterialExpressionDecalMipmapLevel]
+DecalMipmapLevel は、デカールが投影されるエッジ上で 2x2 ピクセルのミップマップ アーティファクトを避けるために、カスタム UV がないことを前提に、デカールのテクスチャのミップマップ レベルを明示的に計算するために使用します。
+
+[VAR:ToolTipFullLink]
+Engine/Actors/DecalActor/DecalUserGuide
+[/VAR]
+[/EXCERPT:UMaterialExpressionDecalMipmapLevel]
+
 [EXCERPT:UMaterialExpressionDepthFade]
 DepthFade 表現式は、半透明オブジェクトが不透明なオブジェクトと交わった時に生じる目障りな継ぎ目を非表示にする際に使用します。 
 
@@ -330,7 +346,7 @@ Engine/Rendering/Materials/ExpressionReference/Depth#pixeldepth
 [/EXCERPT:UMaterialExpressionPixelDepth]
 
 [EXCERPT:UMaterialExpressionSceneDepth]
-SceneDepth 表現式は、既存シーンの深度を出力します。PixelDepth と似た機能ですが、PixelDepth は現在描画されているピクセルのサンプル化のみが可能ですが、SceneDepthは どのような位置の深度もサンプル化することが出来ます。 
+SceneDepth 表現式は、既存シーンの深度を出力します。PixelDepth と似た機能ですが、PixelDepth は現在描画されているピクセルのサンプル化のみが可能ですが、SceneDepth は どのような位置の深度もサンプル化することが出来ます。 
 
 注記：SceneDepth は半透明なマテリアルのみに利用されます。
 
@@ -340,7 +356,7 @@ Engine/Rendering/Materials/ExpressionReference/Depth#scenedepth
 [/EXCERPT:UMaterialExpressionSceneDepth]
 
 [EXCERPT:UMaterialExpressionFontSample]
-FontSample 表現式は、通常の 2D テクスチャとしてフォントリソースからテクスチャページのサンプルを作成します。フォントのアルファ チャンネルには、フォント アウトライン値が格納されます。有効なフォントページのみを指定できます。 
+FontSample 表現式は、通常の 2D テクスチャとしてフォント リソースからテクスチャページのサンプルを作成します。フォントのアルファ チャンネルには、フォント アウトライン値が格納されます。有効なフォントページのみを指定できます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Font#fontsample
@@ -356,7 +372,7 @@ Engine/Rendering/Materials/ExpressionReference/Font#fontsampleparameter
 [/EXCERPT:UMaterialExpressionFontSampleParameter]
 
 [EXCERPT:UMaterialExpressionMaterialFunctionCall]
- MaterialFunctionCall 表現式では、別のマテリアルまたは関数から外部マテリアル関数を使用することができます。外部関数の入出力ノードは関数呼び出しノードの入出力になります。こうした式を配置する場合に、コンテンツ ブラウザでマテリアル関数が選択されると、自動的に割り当てられます。 
+MaterialFunctionCall 表現式では、別のマテリアルまたは関数から外部マテリアル関数を使用することができます。外部関数の入出力ノードは関数呼び出しノードの入出力になります。こうした式を配置する場合に、コンテンツ ブラウザでマテリアル関数が選択されると、自動的に割り当てられます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Functions#materialfunctioncall
@@ -364,7 +380,7 @@ Engine/Rendering/Materials/ExpressionReference/Functions#materialfunctioncall
 [/EXCERPT:UMaterialExpressionMaterialFunctionCall]
 
 [EXCERPT:UMaterialExpressionStaticBool]
-StaticBool 表現式は、関数内のスタティック bool 関数入力のデフォルトの bool 値の提供に使用されます。このノードは切り替えをしないため、StaticSwitch ノードを併用しなくてはいけません。 
+StaticBool 表現式は、関数内のスタティック bool 関数入力のデフォルトの bool 値を与えるために使用されます。このノードは切り替えをしないため、StaticSwitch ノードを併用しなくてはいけません。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Functions#staticbool
@@ -407,7 +423,7 @@ Engine/Rendering/Materials/ExpressionReference/Landscape#landscapelayercoords
 [/EXCERPT:UMaterialExpressionLandscapeLayerCoords]
 
 [EXCERPT:UMaterialExpressionLandscapeLayerSwitch]
-LandscapeLayerSwitch ノードを使用することによって、あるレイヤーがランドスケープのある地域に寄与していない場合に、マテリアルの演算をいくつか除外するこができます。これにより、特定のレイヤーのウエイトが 0 である場合に不要な計算を削除して、マテリアルを最適化することができます。 
+LandscapeLayerSwitch ノードを使用することによって、あるレイヤーがランドスケープのある領域に寄与していない場合に、マテリアルの演算をいくつか除外するこができます。これにより、特定のレイヤーのウエイトが 0 である場合に不要な計算を削除して、マテリアルを最適化することができます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Landscape#landscapelayerswitch
@@ -433,9 +449,9 @@ Engine/Rendering/Materials/ExpressionReference/Landscape#landscapevisibilitymask
 [EXCERPT:UMaterialExpressionBreakMaterialAttributes]
 Break Material Attributes 表現式は、マテリアル関数システムの特徴である Layered Material を使用する場合に理想的な式です。Materia l 内で Material Layer 関数を使用時に、レイヤーの一側面のみを使用するとします。 
 
-例えば、スチールのような一般的なマテリアルを定義するきれいなマテリアルレイヤーがあるとします。全ての属性を使用せずに、最終マテリアルのレイヤーから Roughness と Base Color 属性のみを使用するのがいいかもしれません。 
+例えば、スチールのような一般的なマテリアルを定義するきれいなマテリアル レイヤーがあるとします。全ての属性を使用せずに、最終マテリアル レイヤーから Roughness と Base Color 属性のみを使用するのがいいかもしれません。 
 
-そのような場合、Material Layer が受け取る属性全てを個別に分ける Break Material Attributes ノードを使用して、必要な属性のみを接続します。さまざまな Material Attributes の複雑なブレンドも可能になります。 
+そのような場合、マテリアル レイヤーが受け取る属性全てを個別に分ける Break Material Attributes ノードを使用して、必要な属性のみを接続します。さまざまな Material Attributes の複雑なブレンドも可能になります。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/MaterialAttributes#breakmaterialattributes
@@ -461,7 +477,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#abs
 [/EXCERPT:UMaterialExpressionAbs]
 
 [EXCERPT:UMaterialExpressionAdd]
-Add 表現式は、 2 つの入力値を受け取り、 2 つを足して結果を出力します。この加法演算はチャンネル毎に実行されます。つまり、 R チャンネルへの入力が加算され、 G チャンネルが加算され、そして B チャンネルが加算されるといったかんじです。入力の片方が単一の Constant 値でない限り、両入力は同数のチャンネル数を持っていなくてはいけません。Constant は入力数に関係なくベクターに加法出来ます。 
+Add 表現式は、 2 つの入力値を受け取り、 2 つを足して結果を出力します。この加法演算はチャンネル毎に実行されます。つまり、 R チャンネルへの入力が加算され、 G チャンネルが加算され、そして B チャンネルが加算されるなどのようになります。入力の片方が単一の Constant 値でない限り、両入力は同数のチャンネル数を持っていなくてはいけません。Constant は入力数に関係なくベクターに加法できます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#add
@@ -469,7 +485,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#add
 [/EXCERPT:UMaterialExpressionAdd]
 
 [EXCERPT:UMaterialExpressionAppendVector]
-AppendVector 表現式は、オリジナルよりも多いチャンネルでベクターを作成するために、チャンネルの結合を有効にします。例えば、2 つの個別の Constant 値を受け取り、2 チャンネルのConstant2Vector 値を作成するためにこれらを追加 (append) します。単一テクスチャ内でチャンネルの再順序付けをしたり、複数のグレースケールテクスチャを 1 つの RGB カラーテクスチャに結合する際に実用的です。 
+AppendVector 表現式は、オリジナルよりも多いチャンネルでベクターを作成するために、チャンネルの結合を有効にします。例えば、2 つの個別の Constant 値を受け取り、2 チャンネルのConstant2Vector 値を作成するためにこれらを追加 (append) します。単一テクスチャ内でチャンネルの再順序付けをしたり、複数のグレースケール テクスチャを 1 つの RGB カラーテクスチャに結合する際に実用的です。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#appendvector
@@ -517,7 +533,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#crossproduct
 [/EXCERPT:UMaterialExpressionCrossProduct]
 
 [EXCERPT:UMaterialExpressionDivide]
-Divide 表現式は、 2 つの入力値を受け取り、 1 番目の値を 2 番目の値で割った結果を出力します。除算はチャンネルごとに計算されます。つまり、最初の R チャンネルが 2 番目のチャンネルによって、最初の G チャンネルが 2 番目のチャンネルによって除算される形です。約数が単精度浮動小数点値でない限り、両方の入力値は同数でなくてはいけません。 
+Divide 表現式は、 2 つの入力値を受け取り、 1 番目の値を 2 番目の値で割った結果を出力します。除算はチャンネルごとに計算されます。つまり、最初の R チャンネルが 2 番目のチャンネルによって、最初の G チャンネルが 2 番目のチャンネルによって除算される形です。約数が single float 値でない限り、両方の入力値は同数でなくてはいけません。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#divide
@@ -557,7 +573,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#frac
 [/EXCERPT:UMaterialExpressionFrac]
 
 [EXCERPT:UMaterialExpressionIf]
-If 表現式は、 2 つの入力値を比較し、比較結果に基づいて他の 3 つの値のうち 1 つを渡します。比較される 2 つの入力値は単精度浮動小数点でなければいけません。 
+If 表現式は、 2 つの入力値を比較し、比較結果に基づいて他の 3 つの値のうち 1 つを渡します。比較される 2 つの入力値は single float 値でなければいけません。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#if
@@ -567,7 +583,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#if
 [EXCERPT:UMaterialExpressionLinearInterpolate]
 LinearInterpolate 表現式はマスクに使用された第 3 の入力値に基づいて 2 つの入力値をブレンドします。これは Photoshop でレイヤーマスクを処理する際のテクスチャ間のトランジションを定義するマスクのようなものです。マスク アルファの輝度は、二つの入力値から受け取るカラーの割合を決定します。アルファが 1.0/White (白) の場合、最初の入力値が使用されます。
 
-アルファ値が 0.0/black (黒) の場合は二番目の入力値が使用されます。アルファ値がグレー (0.0 と 1.0 の間にある値) の場合、出力値は二つの入力値のブレンドになります。ブレンドはチャンネル毎に処理されることにご注意ください。アルファ値が RGB カラーの時、アルファの赤のチャンネル値によって A と B の赤のチャンネル間のブレンドが定義されます。これは、 A と B の緑のチャンネルの間のブレンドを定義する、アルファの緑のチャンネルとは 無関係 です。 
+アルファ値が 0.0/black (黒) の場合は二番目の入力値が使用されます。アルファ値がグレー (0.0 と 1.0 の間にある値) の場合、出力値は 2 つの入力値のブレンドになります。ブレンドはチャンネル毎に処理されることにご注意ください。アルファ値が RGB カラーの時、アルファの赤のチャンネル値によって A と B の赤のチャンネル間のブレンドが定義されます。これは、 A と B の緑のチャンネルの間のブレンドを定義する、アルファの緑のチャンネルとは 無関係 です。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#linearinterpolate
@@ -575,7 +591,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#linearinterpolate
 [/EXCERPT:UMaterialExpressionLinearInterpolate]
 
 [EXCERPT:UMaterialExpressionMultiply]
-Multiply 表現式は、 2 つの入力値を受け取り、その入力値を掛け合わせて結果を出力します。Photoshop のレイヤーのブレンドモードの乗算に似た機能です。乗算はチャンネルごとに計算されます。つまり最初の R チャンネルが 2 番目の値と掛けられ、最初の G チャンネルが 2 番目の値と掛けられる形になります。片方の値が単精度浮動小数点値でない限り、同数の入力値でなくてはいけません。 
+Multiply 表現式は、 2 つの入力値を受け取り、その入力値を掛け合わせて結果を出力します。Photoshop のレイヤーのブレンドモードの乗算に似た機能です。乗算はチャンネルごとに計算されます。つまり最初の R チャンネルが 2 番目の値と掛けられ、最初の G チャンネルが 2 番目の値と掛けられる形になります。片方の値が single float 値でない限り、同数の入力値でなくてはいけません。 
 
 注記：UE4 のマテリアルは [0,1] に制限されていないことを忘れないでください！カラー / 値が 1 より大きい場合、 Multiply 表現式は実際にカラーを明るくします。 
 
@@ -610,6 +626,14 @@ Engine/Rendering/Materials/ExpressionReference/Math#power
 [/VAR]
 [/EXCERPT:UMaterialExpressionPower]
 
+[EXCERPT:UMaterialExpressionLogarithm2]
+この対数の式は、2 つの入力を取り、X の対数の底 2 を計算し、その結果を出力します。つまり、X を見つけるために 2 で累乗する回数です。対数の計算はチャンネル毎に行われます。片方の値が single float 値でない限り、同数の入力値でなくてはいけません。 
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/Materials/ExpressionReference/Math#Logarithm
+[/VAR]
+[/EXCERPT:UMaterialExpressionLogarithm2]
+
 [EXCERPT:UMaterialExpressionSine]
 Sine は入力値 (ラジアン単位) の正弦を出力します。通常、この関数は、 Time 表現式をその入力に接続して継続的な振動の波形を出力するために使用します。出力値は -1 と 1 の周期を行ったり来たりします。この表現式の結果と Cosine 表現式の出力値の違いは、出力波形がほぼ半分にオフセットされることです。
 
@@ -619,7 +643,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#sine
 [/EXCERPT:UMaterialExpressionSine]
 
 [EXCERPT:UMaterialExpressionSquareRoot]
-SquareRoot 表現式は入力値の平方根を出力します。SquareRoot は、単精度浮動小数点入力値のみ演算することが出来ます。 
+SquareRoot 表現式は入力値の平方根を出力します。SquareRoot は、single float 入力値のみ演算することが出来ます。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#squareroot
@@ -629,7 +653,7 @@ Engine/Rendering/Materials/ExpressionReference/Math#squareroot
 [EXCERPT:UMaterialExpressionSubtract]
 Subtract ノードは 2 つの入力値を受け取り、最初の入力値から 2 番目の値を減算し差分を出力します。減算はチャンネルごとに実行されます。つまり、 2 番目の入力の R チャンネルが最初の入力値から減算され、 2 番目の入力の G チャンネルから最初の入力値が減算される、といった具合です。 
 
-2 番目の入力値が単精度浮動小数点値でない限り、両入力値は同数のチャンネルを持たなくてはいけません。定数は、ベクターのさまざまな入力値から減算されます。
+2 番目の入力値が single float 値でない限り、両入力値は同数のチャンネルを持たなくてはいけません。定数は、ベクターのさまざまな入力値から減算されます。
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Math#subtract
@@ -655,7 +679,7 @@ Engine/Rendering/Materials/ExpressionReference/Parameters#dynamicparameter
 [/EXCERPT:UMaterialExpressionDynamicParameter]
 
 [EXCERPT:UMaterialExpressionScalarParameter]
-ScalarParameter 表現式は、アクセス可能な単精度浮動小数点値 (Constant) を出力し、これはマテリアルのインスタンス、またはオンザフライ書き込みで変更することができます。
+ScalarParameter 表現式は、アクセス可能な single float 値 (Constant) を出力し、これはマテリアルのインスタンス、またはオンザフライ書き込みで変更することができます。
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Parameters#scalarparameter
@@ -663,7 +687,7 @@ Engine/Rendering/Materials/ExpressionReference/Parameters#scalarparameter
 [/EXCERPT:UMaterialExpressionScalarParameter]
 
 [EXCERPT:UMaterialExpressionStaticBoolParameter]
-StaticBoolParameter 表現式は、 Bool 型パラメータのみを作成する点とスイッチを実装しない点を除いて、 StaticSwitchParameter 表現式のような機能をします。 
+StaticBoolParameter 表現式は、 Bool 型パラメータのみを作成する点とスイッチを実装しない点を除いて、 StaticSwitchParameter 表現式のように機能します。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Parameters#staticboolparameter
@@ -723,7 +747,7 @@ ParticleMacroUV 表現式は、連続的に 2D テクスチャをパーティク
 
 UV は、MacroUVPosition (MacroUV カテゴリ配下の ParticleSystem 、 Cascade で特定) を中心に配置され、MacroUVRadius は UV がタイル処理されるワールド空間の半径を決定します。
 
-ParticleMacroUV ノードは、法線テクスチャ座標と各パーティクル上にテクスチャをマッピングすることによってパターン化を解消し、パーティクル上の連続的なノイズのマッピングに有益です。
+ParticleMacroUV ノードは、法線テクスチャ座標で各パーティクル上にテクスチャをマッピングすることによってパターン化を解消し、パーティクル上に連続的なノイズをマッピングするのに役立ちます。
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Particles#particlemacrouv
@@ -755,7 +779,7 @@ Engine/Rendering/Materials/ExpressionReference/Textures#scenecolor
 [/EXCERPT:UMaterialExpressionSceneColor]
 
 [EXCERPT:UMaterialExpressionTextureSample]
-TextureSample 表現式は、テクスチャからカラー値を出力します。テキスチャは、通常の Texture2D (法線マップを含む) 、キューブマップまたはムービーテクスチャとなります。 
+TextureSample 表現式は、テクスチャからカラー値を出力します。テキスチャは、通常の Texture2D (法線マップを含む) 、キューブマップまたはムービー テクスチャとなります。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Textures#texturesample
@@ -833,7 +857,7 @@ Engine/Rendering/Materials/ExpressionReference/Utility#fresnel
 [/EXCERPT:UMaterialExpressionFresnel]
 
 [EXCERPT:UMaterialExpressionLightmassReplace]
-LightmassReplace 表現式は、通常のレンダリング目的のマテリアルコンパイル時に Realtime 入力を通過し、グローバルイルミネーション処理の際にマテリアルを Lightmass へエクスポートする時、 Lightmass 入力を通過します。
+LightmassReplace 表現式は、通常のレンダリング目的のマテリアル コンパイル時に Realtime 入力を通過し、グローバル イルミネーション処理の際にマテリアルを Lightmass へエクスポートする時、 Lightmass 入力を通過します。
 
 これは、 WorldPosition のようなエクスポートされたバージョンが正常に処理されない際など回避策として有益です。 
 
@@ -859,7 +883,7 @@ Engine/Rendering/Materials/ExpressionReference/Utility#qualityswitch
 [/EXCERPT:UMaterialExpressionQualitySwitch]
 
 [EXCERPT:UMaterialExpressionRotateAboutAxis]
-RotateAboutAxis 表現式は回転軸、軸の点、回転角度に与えられた 3 チャンネルのベクター入力値を回転させます。簡素なシーヤよりもより品質の高い WorldPositionOffset を使用しているアニメーションで役立ちます。 
+RotateAboutAxis 表現式は回転軸、軸の点、回転角度に与えられた 3 チャンネルのベクター入力値を回転させます。簡素なシアーよりも品質の高い WorldPositionOffset を使用しているアニメーションで役立ちます。 
 
 注記：Absolute World Position ノードは、RotateAboutAxis ノードが追加されると自動的に作成されます。 
 
@@ -869,7 +893,7 @@ Engine/Rendering/Materials/ExpressionReference/Utility#rotateaboutaxis
 [/EXCERPT:UMaterialExpressionRotateAboutAxis]
 
 [EXCERPT:UMaterialExpressionAntialiasedTextureMask]
-AntialiasedTextureMask 表現式はソフト (アンチエイリアス化) トランジションマスクを使用したマテリアルの作成を可能にします。マスクは二つの複雑なマテリアルプロパティのブレンドや、アルファブレンドされたマテリアル (SoftMasked とうまく機能します) をフェードアウトする際に使用されます。 
+AntialiasedTextureMask 表現式はソフト (アンチエイリアス化) トランジションマスクを使用したマテリアルの作成を可能にします。マスクは 2 つの複雑なマテリアルプロパティのブレンドや、アルファブレンドされたマテリアル (SoftMasked とうまく機能します) のフェードアウトに使用されます。 
 
 Simple はあるチャンネル (赤、緑、青、アルファ) で特定されたマスクと共にテクスチャを指定し、使用チャンネルを表現式に設定し、比較値を特定します。
 
@@ -913,7 +937,7 @@ Engine/Rendering/Materials/ExpressionReference/VectorOps#transformposition
 [EXCERPT:UMaterialExpressionCameraVectorWS]
 CameraVector 表現式はサーフェスに対するカメラ方向を表す 3 チャンネルベクター値を出力しま。つまり、ピクセルからカメラへの方向を表します。 
 
-使用例：CameraVector は、CameraVector と ComponentMask を接続して環境マップの偽造や、テクスチャ座標として CameraVector のX、Yチャンネルを使用します。 
+使用例：CameraVector は、CameraVector と ComponentMask を接続して環境マップの偽造や、テクスチャ座標として CameraVector のX、Y チャンネルを使用します。 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Vector#cameravectorws
@@ -991,7 +1015,7 @@ Engine/Rendering/Materials/ExpressionReference/Utility#gireplace
 [/EXCERPT:UMaterialExpressionGIReplace]
 
 [EXCERPT:UMaterialExpressionSpriteTextureSampler]
-カスタム仕様のスプライト マテリアルの作成は、既存マテリアルの 1 つを複製して作成、または コンテンツ ブラウザで新規マテリアルを作成して行います。スプライトがレンダリングされると、スプライト アセットで定義されたテクスチャはマテリアルの「SpriteTexture」というテクスチャ パラメータに繋がります。SpriteTextureSampler ノードを配置することで、この作業が自動的に行えます。
+カスタム仕様のスプライト マテリアルの作成は、既存マテリアルの 1 つを複製して作成、またはコンテンツ ブラウザで新規マテリアルを作成して行います。スプライトがレンダリングされると、スプライト アセットで定義されたテクスチャはマテリアルの「SpriteTexture」というテクスチャ パラメータに繋がります。SpriteTextureSampler ノードを配置することで、この作業が自動的に行えます。
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Textures#spritetexturesampler

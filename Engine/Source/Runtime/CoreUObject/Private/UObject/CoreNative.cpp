@@ -186,7 +186,7 @@ UObject* FObjectInstancingGraph::GetInstancedSubobject( UObject* SourceSubobject
 							{
 								// finally, create the component instance
 								InstancedSubobject = StaticConstructObject_Internal(SourceSubobject->GetClass(), SubobjectOuter,
-									SubobjectName, SubobjectOuter->GetMaskedFlags(RF_PropagateToSubObjects), SourceSubobject,
+									SubobjectName, SubobjectOuter->GetMaskedFlags(RF_PropagateToSubObjects), EInternalObjectFlags::None, SourceSubobject,
 									true, this);
 							}
 						}

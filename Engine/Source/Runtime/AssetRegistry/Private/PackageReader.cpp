@@ -54,11 +54,9 @@ bool FPackageReader::OpenPackageFile(const FString& InPackageFilename)
 
 	// Check serialized custom versions against latest custom versions.
 	const FCustomVersionContainer& LatestCustomVersions  = FCustomVersionContainer::GetRegistered();
-	const TArray<FCustomVersion>&  PackageCustomVersions = PackageFileSummary.GetCustomVersionContainer().GetAllVersions();
-	for (TArray<FCustomVersion>::TConstIterator It(PackageCustomVersions); It; ++It)
+	const FCustomVersionSet&  PackageCustomVersions = PackageFileSummary.GetCustomVersionContainer().GetAllVersions();
+	for (const FCustomVersion& SerializedCustomVersion : PackageCustomVersions)
 	{
-		const FCustomVersion& SerializedCustomVersion = *It;
-
 		auto* LatestVersion = LatestCustomVersions.GetVersion(SerializedCustomVersion.Key);
 		if (!LatestVersion || SerializedCustomVersion.Version > LatestVersion->Version)
 		{
@@ -101,7 +99,7 @@ bool FPackageReader::OpenPackageFile(const FString& InPackageFilename)
 	return true;
 }
 
-bool FPackageReader::ReadAssetRegistryData (TArray<FBackgroundAssetData*>& AssetDataList)
+bool FPackageReader::ReadAssetRegistryData (TArray<FAssetData*>& AssetDataList)
 {
 	check(Loader);
 
@@ -140,9 +138,8 @@ bool FPackageReader::ReadAssetRegistryData (TArray<FBackgroundAssetData*>& Asset
 		const bool bNoMapAsset = (ObjectCount == 0);
 		if (bLegacyPackage || bNoMapAsset)
 		{
-			const FString AssetName = FPackageName::GetLongPackageAssetName(PackageName);
-			TMultiMap<FString, FString> TagsAndValues;
-			AssetDataList.Add(new FBackgroundAssetData(PackageName, PackagePath, TEXT(""), AssetName, TEXT("World"), TagsAndValues, PackageFileSummary.ChunkIDs));
+			FString AssetName = FPackageName::GetLongPackageAssetName(PackageName);
+			AssetDataList.Add(new FAssetData(FName(*PackageName), FName(*PackagePath), FName(), MoveTemp(FName(*AssetName)), FName(TEXT("World")), TMap<FName, FString>(), PackageFileSummary.ChunkIDs, PackageFileSummary.PackageFlags));
 		}
 	}
 
@@ -156,7 +153,8 @@ bool FPackageReader::ReadAssetRegistryData (TArray<FBackgroundAssetData*>& Asset
 		*this << ObjectClassName;
 		*this << TagCount;
 
-		TMultiMap<FString, FString> TagsAndValues;
+		TMap<FName, FString> TagsAndValues;
+		TagsAndValues.Reserve(TagCount);
 
 		for(int32 TagIdx = 0; TagIdx < TagCount; ++TagIdx)
 		{
@@ -165,7 +163,7 @@ bool FPackageReader::ReadAssetRegistryData (TArray<FBackgroundAssetData*>& Asset
 			*this << Key;
 			*this << Value;
 
-			TagsAndValues.Add(Key, Value);
+			TagsAndValues.Add(FName(*Key), Value);
 		}
 
 		FString GroupNames;
@@ -190,14 +188,14 @@ bool FPackageReader::ReadAssetRegistryData (TArray<FBackgroundAssetData*>& Asset
 			}
 		}
 
-		// Create a new FBackgroundAssetData for this asset and update it with the gathered data
-		AssetDataList.Add(new FBackgroundAssetData(PackageName, PackagePath, GroupNames, AssetName, ObjectClassName, TagsAndValues, PackageFileSummary.ChunkIDs));
+		// Create a new FAssetData for this asset and update it with the gathered data
+		AssetDataList.Add(new FAssetData(FName(*PackageName), FName(*PackagePath), MoveTemp(FName(*GroupNames)), MoveTemp(FName(*AssetName)), MoveTemp(FName(*ObjectClassName)), MoveTemp(TagsAndValues), PackageFileSummary.ChunkIDs, PackageFileSummary.PackageFlags));
 	}
 
 	return true;
 }
 
-bool FPackageReader::ReadAssetDataFromThumbnailCache(TArray<FBackgroundAssetData*>& AssetDataList)
+bool FPackageReader::ReadAssetDataFromThumbnailCache(TArray<FAssetData*>& AssetDataList)
 {
 	check(Loader);
 
@@ -245,12 +243,72 @@ bool FPackageReader::ReadAssetDataFromThumbnailCache(TArray<FBackgroundAssetData
 			AssetName = ObjectPathWithoutPackageName;
 		}
 
-		// Create a new FBackgroundAssetData for this asset and update it with the gathered data
-		TMultiMap<FString, FString> TagsAndValues;
-		AssetDataList.Add(new FBackgroundAssetData(PackageName, PackagePath, GroupNames, AssetName, AssetClassName, TagsAndValues, PackageFileSummary.ChunkIDs));
+		// Create a new FAssetData for this asset and update it with the gathered data
+		AssetDataList.Add(new FAssetData(FName(*PackageName), FName(*PackagePath), MoveTemp(FName(*GroupNames)), MoveTemp(FName(*AssetName)), MoveTemp(FName(*AssetClassName)), TMap<FName, FString>(), PackageFileSummary.ChunkIDs, PackageFileSummary.PackageFlags));
 	}
 
 	return true;
+}
+
+bool FPackageReader::ReadAssetRegistryDataIfCookedPackage(TArray<FAssetData*>& AssetDataList, TArray<FString>& CookedPackageNamesWithoutAssetData)
+{
+	if (!!(GetPackageFlags() & PKG_FilterEditorOnly))
+	{
+		const FString PackageName = FPackageName::FilenameToLongPackageName(PackageFilename);
+		
+		bool bFoundAtLeastOneAsset = false;
+
+		// If the packaged is saved with the right version we have the information
+		// which of the objects in the export map as the asset.
+		// Otherwise we need to store a temp minimal data and then force load the asset
+		// to re-generate its registry data
+		if (UE4Ver() >= VER_UE4_COOKED_ASSETS_IN_EDITOR_SUPPORT)
+		{
+			const FString PackagePath = FPackageName::GetLongPackagePath(PackageName);
+
+			TArray<FObjectImport> ImportMap;
+			TArray<FObjectExport> ExportMap;
+			SerializeNameMap();
+			SerializeImportMap(ImportMap);
+			SerializeExportMap(ExportMap);
+			for (FObjectExport& Export : ExportMap)
+			{
+				if (Export.bIsAsset)
+				{
+					FString GroupNames; // Not used for anything
+					TMap<FName, FString> Tags; // Not used for anything
+					TArray<int32> ChunkIDs; // Not used for anything
+
+					// We need to get the class name from the import/export maps
+					FName ObjectClassName;
+					if (Export.ClassIndex.IsNull())
+					{
+						ObjectClassName = UClass::StaticClass()->GetFName();
+					}
+					else if (Export.ClassIndex.IsExport())
+					{
+						const FObjectExport& ClassExport = ExportMap[Export.ClassIndex.ToExport()];
+						ObjectClassName = ClassExport.ObjectName;
+					}
+					else if (Export.ClassIndex.IsImport())
+					{
+						const FObjectImport& ClassImport = ImportMap[Export.ClassIndex.ToImport()];
+						ObjectClassName = ClassImport.ObjectName;
+					}
+
+					new(AssetDataList) FAssetData(FName(*PackageName), FName(*PackagePath), FName(*GroupNames), Export.ObjectName, ObjectClassName, Tags, ChunkIDs, GetPackageFlags());
+					bFoundAtLeastOneAsset = true;
+				}
+			}
+		}
+		if (!bFoundAtLeastOneAsset)
+		{
+			CookedPackageNamesWithoutAssetData.Add(PackageName);
+		}
+		return true;
+	}
+
+	return false;
 }
 
 bool FPackageReader::ReadDependencyData (FPackageDependencyData& OutDependencyData)
@@ -298,17 +356,58 @@ void FPackageReader::SerializeImportMap(TArray<FObjectImport>& OutImportMap)
 	}
 }
 
+void FPackageReader::SerializeExportMap(TArray<FObjectExport>& OutExportMap)
+{
+	if (PackageFileSummary.ExportCount > 0)
+	{
+		Seek(PackageFileSummary.ExportOffset);
+		for (int32 ExportMapIdx = 0; ExportMapIdx < PackageFileSummary.ExportCount; ++ExportMapIdx)
+		{
+			FObjectExport* Export = new(OutExportMap)FObjectExport;
+			*this << *Export;
+		}
+	}
+}
+
 void FPackageReader::SerializeStringAssetReferencesMap(TArray<FString>& OutStringAssetReferencesMap)
 {
 	if (UE4Ver() >= VER_UE4_ADD_STRING_ASSET_REFERENCES_MAP && PackageFileSummary.StringAssetReferencesCount > 0)
 	{
 		Seek(PackageFileSummary.StringAssetReferencesOffset);
 
-		for (int32 ReferenceIdx = 0; ReferenceIdx < PackageFileSummary.StringAssetReferencesCount; ++ReferenceIdx)
+		if (UE4Ver() < VER_UE4_KEEP_ONLY_PACKAGE_NAMES_IN_STRING_ASSET_REFERENCES_MAP)
 		{
-			FString Buf;
-			*this << Buf;
-			OutStringAssetReferencesMap.Add(MoveTemp(Buf));
+			for (int32 ReferenceIdx = 0; ReferenceIdx < PackageFileSummary.StringAssetReferencesCount; ++ReferenceIdx)
+			{
+				FString Buf;
+				*this << Buf;
+
+				if (GetIniFilenameFromObjectsReference(Buf) != nullptr)
+				{
+					OutStringAssetReferencesMap.AddUnique(MoveTemp(Buf));
+				}
+				else
+				{
+					FString NormalizedPath = FPackageName::GetNormalizedObjectPath(MoveTemp(Buf));
+					if (!NormalizedPath.IsEmpty())
+					{
+						OutStringAssetReferencesMap.AddUnique(
+							FPackageName::ObjectPathToPackageName(
+								NormalizedPath
+							)
+						);
+					}
+				}
+			}
+		}
+		else
+		{
+			for (int32 ReferenceIdx = 0; ReferenceIdx < PackageFileSummary.StringAssetReferencesCount; ++ReferenceIdx)
+			{
+				FString Buf;
+				*this << Buf;
+				OutStringAssetReferencesMap.Add(MoveTemp(Buf));
+			}
 		}
 	}
 }
@@ -341,6 +440,11 @@ int64 FPackageReader::TotalSize()
 {
 	check(Loader);
 	return Loader->TotalSize();
+}
+
+uint32 FPackageReader::GetPackageFlags() const
+{
+	return PackageFileSummary.PackageFlags;
 }
 
 FArchive& FPackageReader::operator<<( FName& Name )

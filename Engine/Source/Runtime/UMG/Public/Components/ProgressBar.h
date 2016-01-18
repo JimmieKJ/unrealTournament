@@ -9,7 +9,7 @@
 /**
  * The progress bar widget is a simple bar that fills up that can be restyled to fit any number of uses.
  *
- * ● No Children
+ * * No Children
  */
 UCLASS()
 class UMG_API UProgressBar : public UWidget
@@ -79,31 +79,31 @@ public:
 
 public:
 	
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
-	// UVisual interface
+	//~ Begin UVisual Interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
+	//~ End UVisual Interface
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End of UObject interface
+	//~ End UObject Interface
 
 #if WITH_EDITOR
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
 	virtual void OnCreationFromPalette() override;
-	// End UWidget interface
+	//~ End UWidget Interface
 #endif
 
 protected:
 	/** Native Slate Widget */
 	TSharedPtr<SProgressBar> MyProgressBar;
 
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 };

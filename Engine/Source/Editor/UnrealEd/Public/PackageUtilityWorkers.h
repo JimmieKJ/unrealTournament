@@ -23,8 +23,9 @@ enum EPackageInfoFlags
 	PKGINFO_Thumbs			=0x80,
 	PKGINFO_Lazy			=0x100,
 	PKGINFO_AssetRegistry	=0x200,
+	PKGINFO_Text			=0x400,
 
-	PKGINFO_All			= PKGINFO_Names|PKGINFO_Imports|PKGINFO_Exports|PKGINFO_Chunks|PKGINFO_Depends|PKGINFO_Paths|PKGINFO_Thumbs|PKGINFO_Lazy|PKGINFO_AssetRegistry,
+	PKGINFO_All			= PKGINFO_Names|PKGINFO_Imports|PKGINFO_Exports|PKGINFO_Chunks|PKGINFO_Depends|PKGINFO_Paths|PKGINFO_Thumbs|PKGINFO_Lazy|PKGINFO_AssetRegistry|PKGINFO_Text,
 };
 
 /**

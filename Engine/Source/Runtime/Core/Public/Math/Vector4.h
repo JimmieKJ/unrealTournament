@@ -298,13 +298,26 @@ public:
 	FORCEINLINE FVector4 UnsafeNormal3() const;
 
 	/**
-	 * Return the FRotator corresponding to the direction that the vector
-	 * is pointing in.  Sets Yaw and Pitch to the proper numbers, and sets
-	 * roll to zero because the roll can't be determined from a vector.
-	 *
-	 * @return The FRotator of the vector's direction.
+	 * Return the FRotator orientation corresponding to the direction in which the vector points.
+	 * Sets Yaw and Pitch to the proper numbers, and sets roll to zero because the roll can't be determined from a vector.
+	 * @return FRotator from the Vector's direction.
 	 */
-	CORE_API FRotator Rotation() const;
+	CORE_API FRotator ToOrientationRotator() const;
+
+	/**
+	 * Return the Quaternion orientation corresponding to the direction in which the vector points.
+	 * @return Quaternion from the Vector's direction.
+	 */
+	CORE_API FQuat ToOrientationQuat() const;
+
+	/**
+	 * Return the FRotator orientation corresponding to the direction in which the vector points.
+	 * Sets Yaw and Pitch to the proper numbers, and sets roll to zero because the roll can't be determined from a vector.
+	 * Identical to 'ToOrientationRotator()'.
+	 * @return FRotator from the Vector's direction.
+	 * @see ToOrientationRotator()
+	 */
+	FRotator Rotation() const;
 
 	/**
 	 * Set all of the vectors coordinates.
@@ -346,12 +359,17 @@ public:
 	void FindBestAxisVectors3( FVector4& Axis1, FVector4& Axis2 ) const;
 
 #if ENABLE_NAN_DIAGNOSTIC
-	FORCEINLINE void DiagnosticCheckNaN() const
+	FORCEINLINE void DiagnosticCheckNaN()
 	{
-		checkf(!ContainsNaN(), TEXT("FVector contains NaN: %s"), *ToString());
+		if (ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("FVector contains NaN: %s"), *ToString());
+			*this = FVector4(FVector::ZeroVector);
+
+		}
 	}
 #else
-	FORCEINLINE void DiagnosticCheckNaN() const { }
+	FORCEINLINE void DiagnosticCheckNaN() { }
 #endif
 
 public:
@@ -366,6 +384,12 @@ public:
 	friend FArchive& operator<<( FArchive& Ar, FVector4& V )
 	{
 		return Ar << V.X << V.Y << V.Z << V.W;
+	}
+
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
 	}
 
 } GCC_ALIGN(16);
@@ -537,7 +561,7 @@ FORCEINLINE bool FVector4::operator!=( const FVector4& V ) const
 
 FORCEINLINE bool FVector4::Equals( const FVector4& V, float Tolerance ) const
 {
-	return FMath::Abs(X-V.X) < Tolerance && FMath::Abs(Y-V.Y) < Tolerance && FMath::Abs(Z-V.Z) < Tolerance && FMath::Abs(W-V.W) < Tolerance;
+	return FMath::Abs(X-V.X) <= Tolerance && FMath::Abs(Y-V.Y) <= Tolerance && FMath::Abs(Z-V.Z) <= Tolerance && FMath::Abs(W-V.W) <= Tolerance;
 }
 
 
@@ -623,9 +647,9 @@ FORCEINLINE bool FVector4::ContainsNaN() const
 FORCEINLINE bool FVector4::IsNearlyZero3( float Tolerance ) const
 {
 	return
-			FMath::Abs(X)<Tolerance
-		&&	FMath::Abs(Y)<Tolerance
-		&&	FMath::Abs(Z)<Tolerance;
+			FMath::Abs(X)<=Tolerance
+		&&	FMath::Abs(Y)<=Tolerance
+		&&	FMath::Abs(Z)<=Tolerance;
 }
 
 
@@ -678,3 +702,5 @@ FORCEINLINE FVector4 FVector4::operator/( const FVector4& V ) const
 {
 	return FVector4( X / V.X, Y / V.Y, Z / V.Z, W / V.W );
 }
+
+template <> struct TIsPODType<FVector4> { enum { Value = true }; };

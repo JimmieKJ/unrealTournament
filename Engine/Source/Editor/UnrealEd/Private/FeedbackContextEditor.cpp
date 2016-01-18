@@ -29,7 +29,7 @@ public:
 		SLATE_EVENT( FOnCancelClickedDelegate, OnCancelClickedDelegate )
 
 		/** The feedback scope stack that we are presenting to the user */
-		SLATE_ARGUMENT( TWeakPtr<FScopedSlowTaskStack>, ScopeStack )
+		SLATE_ARGUMENT( TWeakPtr<FSlowTaskStack>, ScopeStack )
 
 	SLATE_END_ARGS()
 
@@ -157,11 +157,15 @@ private:
 		// Always show the first one
 		DynamicProgressIndices.Add(0);
 
-		for (int32 Index = 1; Index < ScopeStack->Num(); ++Index)
+		for (int32 Index = 1; Index < ScopeStack->Num() && DynamicProgressIndices.Num() <= MaxNumSecondaryBars - 1; ++Index)
 		{
 			const auto* Scope = (*ScopeStack)[Index];
 
-			if (Scope->bVisibleOnUI && !Scope->DefaultMessage.IsEmpty())
+			if (Scope->Visibility == ESlowTaskVisibility::ForceVisible)
+			{
+				DynamicProgressIndices.Add(Index);
+			}
+			else if (Scope->Visibility == ESlowTaskVisibility::Default && !Scope->DefaultMessage.IsEmpty())
 			{
 				const auto TimeOpen = FPlatformTime::Seconds() - Scope->StartTime;
 				const auto WorkDone = ScopeStack->GetProgressFraction(Index);
@@ -170,11 +174,6 @@ private:
 				if (WorkDone * TimeOpen > VisibleScopeThreshold)
 				{
 					DynamicProgressIndices.Add(Index);
-				}
-
-				if (DynamicProgressIndices.Num() == MaxNumSecondaryBars)
-				{
-					break;
 				}
 			}
 		}
@@ -319,7 +318,7 @@ private:
 	FOnCancelClickedDelegate OnCancelClickedDelegate;
 
 	/** The scope stack that we are reflecting */
-	TWeakPtr<FScopedSlowTaskStack> WeakStack;
+	TWeakPtr<FSlowTaskStack> WeakStack;
 
 	/** The vertical box containing the secondary progress bars */
 	TSharedPtr<SVerticalBox> SecondaryBars;
@@ -463,8 +462,10 @@ void FFeedbackContextEditor::ProgressReported( const float TotalProgressInterp, 
 		FlushRenderingCommands();
 		// It is now safe to delete the pending clean objects.
 		delete PendingCleanupObjects;
+		// This is also a good time to destroy any linkers pending delete		
+		DeleteLoaders();
 		// Keep track of time this operation was performed so we don't do it too often.
-		LastTimePendingCleanupObjectsWhereDeleted = FPlatformTime::Seconds();
+		LastTimePendingCleanupObjectsWhereDeleted = FPlatformTime::Seconds();		
 	}
 
 	if (FSlateApplication::Get().CanDisplayWindows())

@@ -2,6 +2,7 @@
 
 #include "ProjectTargetPlatformEditorPrivatePCH.h"
 #include "ISettingsModule.h"
+#include "IProjectManager.h"
 
 
 #define LOCTEXT_NAMESPACE "FProjectTargetPlatformEditorModule"

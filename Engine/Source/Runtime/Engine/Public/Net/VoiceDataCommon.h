@@ -18,6 +18,8 @@
 	#define MAX_REMOTE_TALKERS 16
 #endif
 
+class FUniqueNetId;
+
 /** Defines the data involved in a voice packet */
 class FVoicePacket
 {
@@ -50,7 +52,7 @@ public:
 	virtual uint16 GetBufferSize() = 0;
 
 	/** @return the sender of this voice packet */
-	virtual TSharedPtr<class FUniqueNetId> GetSender() = 0;
+	virtual TSharedPtr<const FUniqueNetId> GetSender() = 0;
 
 	/** @return true if this packet should be sent reliably */
 	virtual bool IsReliable() = 0;

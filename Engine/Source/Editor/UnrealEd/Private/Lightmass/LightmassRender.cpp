@@ -17,6 +17,7 @@
 #include "LightmassLandscapeRender.h"
 #include "LandscapeMaterialInstanceConstant.h"
 #include "LandscapeLight.h"
+#include "EngineModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLightmassRender, Error, All);
 
@@ -47,6 +48,11 @@ struct FLightmassMaterialCompiler : public FProxyMaterialCompiler
 	virtual int32 ParticleMotionBlurFade() override
 	{
 		return Compiler->Constant(1.0f);
+	}
+
+	virtual int32 ParticleRandom() override
+	{
+		return Compiler->Constant(0.0f);
 	}
 
 	virtual int32 ParticleDirection() override
@@ -155,6 +161,8 @@ struct FLightmassMaterialCompiler : public FProxyMaterialCompiler
 	virtual int32 LightmassReplace(int32 Realtime, int32 Lightmass) override { return Lightmass; }
 
 	virtual int32 GIReplace(int32 Direct, int32 StaticIndirect, int32 DynamicIndirect) override { return StaticIndirect; }
+
+	virtual int32 MaterialProxyReplace(int32 Realtime, int32 MaterialProxy) override { return Realtime; }
 };
 
 /**
@@ -189,11 +197,12 @@ public:
 				{
 					TArray<FShaderType*> ShaderTypes;
 					TArray<FVertexFactoryType*> VFTypes;
-					GetDependentShaderAndVFTypes(GMaxRHIShaderPlatform, ShaderTypes, VFTypes);
+					TArray<const FShaderPipelineType*> ShaderPipelineTypes;
+					GetDependentShaderAndVFTypes(GMaxRHIShaderPlatform, ShaderTypes, ShaderPipelineTypes, VFTypes);
 
 					// Overwrite the shader map Id's dependencies with ones that came from the FMaterial actually being compiled (this)
 					// This is necessary as we change FMaterial attributes like GetShadingModel(), which factor into the ShouldCache functions that determine dependent shader types
-					ResourceId.SetShaderDependencies(ShaderTypes, VFTypes);
+					ResourceId.SetShaderDependencies(ShaderTypes, ShaderPipelineTypes, VFTypes);
 				}
 
 				// Override with a special usage so we won't re-use the shader map used by the material for rendering
@@ -409,6 +418,14 @@ public:
 		if (MaterialInterface)
 		{
 			return MaterialInterface->IsTwoSided();
+		}
+		return false;
+	}
+	virtual bool IsDitheredLODTransition() const override
+	{
+		if (MaterialInterface)
+		{
+			return MaterialInterface->IsDitheredLODTransition();
 		}
 		return false;
 	}
@@ -998,6 +1015,13 @@ bool FLightmassMaterialRenderer::GenerateMaterialPropertyData(
 			}
 			else
 			{
+				ENQUEUE_UNIQUE_RENDER_COMMAND(
+					InitializeSystemTextures,
+					{
+						GetRendererModule().InitializeSystemTextures(RHICmdList);
+					});
+				
+
 				if (bIsLandscapeMaterial)
 				{
 					// Landscape needs special handling because it uses multiple UVs, which isn't yet supported by lightmass's regular pipeline

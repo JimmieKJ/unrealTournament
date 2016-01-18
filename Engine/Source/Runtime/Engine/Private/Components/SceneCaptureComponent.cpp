@@ -155,9 +155,11 @@ USceneCaptureComponent::USceneCaptureComponent(const FObjectInitializer& ObjectI
 	MaxViewDistanceOverride = -1;
 
 	// Disable features that are not desired when capturing the scene
-	ShowFlags.MotionBlur = 0; // motion blur doesn't work correctly with scene captures.
-	ShowFlags.SeparateTranslucency = 0;
-	ShowFlags.HMDDistortion = 0;
+	ShowFlags.SetMotionBlur(0); // motion blur doesn't work correctly with scene captures.
+	ShowFlags.SetSeparateTranslucency(0);
+	ShowFlags.SetHMDDistortion(0);
+
+    CaptureStereoPass = EStereoscopicPass::eSSP_FULL;
 }
 
 void USceneCaptureComponent::PostLoad()
@@ -278,6 +280,7 @@ USceneCaptureComponent2D::USceneCaptureComponent2D(const FObjectInitializer& Obj
 	CaptureSource = SCS_SceneColorHDR;
 	// default to full blend weight..
 	PostProcessBlendWeight = 1.0f;
+	CaptureStereoPass = EStereoscopicPass::eSSP_FULL;
 }
 
 void USceneCaptureComponent2D::OnRegister()
@@ -324,6 +327,7 @@ void USceneCaptureComponent2D::UpdateDeferredCaptures( FSceneInterface* Scene )
 	UWorld* World = Scene->GetWorld();
 	if( World && SceneCapturesToUpdateMap.Num() > 0 )
 	{
+		World->SendAllEndOfFrameUpdates();
 		// Only update the scene captures assoicated with the current scene.
 		// Updating others not associated with the scene would cause invalid data to be rendered into the target
 		TArray< TWeakObjectPtr<USceneCaptureComponent2D> > SceneCapturesToUpdate;
@@ -352,6 +356,15 @@ void USceneCaptureComponent2D::PostEditChangeProperty(FPropertyChangedEvent& Pro
 }
 #endif // WITH_EDITOR
 
+void USceneCaptureComponent2D::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if(Ar.IsLoading())
+	{
+		PostProcessSettings.OnAfterLoad();
+	}
+}
 
 // -----------------------------------------------
 
@@ -409,6 +422,7 @@ void USceneCaptureComponentCube::UpdateDeferredCaptures( FSceneInterface* Scene 
 	
 	if( World && CubedSceneCapturesToUpdateMap.Num() > 0 )
 	{
+		World->SendAllEndOfFrameUpdates();
 		// Only update the scene captures associated with the current scene.
 		// Updating others not associated with the scene would cause invalid data to be rendered into the target
 		TArray< TWeakObjectPtr<USceneCaptureComponentCube> > SceneCapturesToUpdate;

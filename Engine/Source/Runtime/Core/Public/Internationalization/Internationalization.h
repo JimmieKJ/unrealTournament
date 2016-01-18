@@ -21,10 +21,7 @@ public:
 
 	static CORE_API void TearDown();
 
-	static CORE_API FText ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText( const TCHAR* InTextLiteral, const TCHAR* Namespace, const TCHAR* Key )
-	{
-		return FText( InTextLiteral, Namespace, Key, ETextFlag::Immutable );
-	}
+	static CORE_API FText ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(const TCHAR* InTextLiteral, const TCHAR* InNamespace, const TCHAR* InKey);
 
 	//Set the current culture by name
 	CORE_API bool SetCurrentCulture(const FString& Name);

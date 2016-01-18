@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<VSTemplate Version="3.0.0" Type="Project" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005" xmlns:sdk="http://schemas.microsoft.com/developer/vstemplate-sdkextension/2010">
+  <TemplateData>
+    <Name>UE4TemplateProject</Name>
+    <Description>UE4TemplateProject</Description>
+    <Icon>UE4TemplateProject.ico</Icon>
+    <ProjectType>CSharp</ProjectType>
+    <RequiredFrameworkVersion>2.0</RequiredFrameworkVersion>
+    <SortOrder>1000</SortOrder>
+    <TemplateID>25bc9149-8727-49fb-a72b-2687dcf44e96</TemplateID>
+    <CreateNewFolder>true</CreateNewFolder>
+    <DefaultName>UE4TemplateProject</DefaultName>
+    <ProvideDefaultName>true</ProvideDefaultName>
+  </TemplateData>
+  <TemplateContent>
+    <Project File="ProjectTemplate.csproj" ReplaceParameters="true">
+      <ProjectItem ReplaceParameters="true" TargetFileName="Properties\AssemblyInfo.cs">AssemblyInfo.cs</ProjectItem>
+      <ProjectItem ReplaceParameters="true" OpenInEditor="true">Class1.cs</ProjectItem>
+    </Project>
+  </TemplateContent>
+  <WizardExtension>
+    <Assembly>WizardAssembly, Version=1.0.0.0, Culture=Neutral, PublicKeyToken=7f3a15a1c8497c83</Assembly>
+    <FullClassName>WizardAssembly.IWizardImpl</FullClassName>
+  </WizardExtension>
+</VSTemplate>

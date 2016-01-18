@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SlateBasics.h"
@@ -52,7 +52,7 @@ class UNREALTOURNAMENT_API UUTGameViewportClient : public UGameViewportClient
 	virtual void FinalizeViews(FSceneViewFamily* ViewFamily, const TMap<ULocalPlayer*, FSceneView*>& PlayerViewMap) override;
 	virtual void UpdateActiveSplitscreenType() override;
 	virtual void PostRender(UCanvas* Canvas) override;
-
+	virtual ULocalPlayer* SetupInitialLocalPlayer(FString& OutError) override;
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** panini project the given location using the player's view
@@ -66,8 +66,8 @@ protected:
 
 	TWeakPtr<class SUTGameLayerManager> LayerManagerPtr;
 
-	TSharedPtr<class SUWDialog> ReconnectDialog;
-	TSharedPtr<class SUWRedirectDialog> RedirectDialog;
+	TSharedPtr<class SUTDialogBase> ReconnectDialog;
+	TSharedPtr<class SUTRedirectDialog> RedirectDialog;
 
 	// Holds the IP/Port of the last connect so we can try to reconnect
 	FURL LastAttemptedURL;
@@ -77,7 +77,7 @@ protected:
 	virtual void RankDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void NetworkFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void LoginFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-	virtual void ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	virtual void ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID, bool bSpectatorPassword);
 	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
@@ -127,9 +127,6 @@ public:
 	// Will be called when a client connects to a server.
 	void ClientConnectedToServer();
 
-protected:
-	TMap<FString, FString> SavedPasswords;
-	FString LastPasswordAttemptHost;
 
 };
 

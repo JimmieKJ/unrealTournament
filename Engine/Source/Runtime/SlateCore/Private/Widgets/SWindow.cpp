@@ -176,6 +176,25 @@ private:
 	TWeakPtr<SWindow> OwnerWindow;
 };
 
+FVector2D SWindow::GetWindowSizeFromClientSize(FVector2D InClientSize)
+{
+	// If this is a regular non-OS window, we need to compensate for the border and title bar area that we will add
+	// Note: Windows with an OS border do this in ReshapeWindow
+	if (IsRegularWindow() && !HasOSWindowBorder())
+	{
+		const FMargin BorderSize = GetWindowBorderSize();
+
+		InClientSize.X += BorderSize.Left + BorderSize.Right;
+		InClientSize.Y += BorderSize.Bottom + BorderSize.Top;
+
+		if (bCreateTitleBar)
+		{
+			InClientSize.Y += SWindowDefs::DefaultTitleBarSize;
+		}
+	}
+
+	return InClientSize;
+}
 
 void SWindow::Construct(const FArguments& InArgs)
 {
@@ -206,22 +225,10 @@ void SWindow::Construct(const FArguments& InArgs)
 		.SetMaxHeight(InArgs._MaxHeight);
 	
 	// calculate window size from client size
-	const bool bCreateTitleBar = InArgs._CreateTitleBar && !bIsPopupWindow && !bIsCursorDecoratorWindow && !bHasOSWindowBorder;
-	FVector2D WindowSize = InArgs._ClientSize;
-
+	bCreateTitleBar = InArgs._CreateTitleBar && !bIsPopupWindow && !bIsCursorDecoratorWindow && !bHasOSWindowBorder;
+	
 	// If the window has no OS border, simulate it ourselves, enlarging window by the size that OS border would have.
-	if (!HasOSWindowBorder())
-	{
-		const FMargin BorderSize = GetWindowBorderSize();
-
-		WindowSize.X += BorderSize.Left + BorderSize.Right;
-		WindowSize.Y += BorderSize.Bottom + BorderSize.Top;
-
-		if (bCreateTitleBar)
-		{
-			WindowSize.Y += SWindowDefs::DefaultTitleBarSize;
-		}
-	}
+	FVector2D WindowSize = GetWindowSizeFromClientSize(InArgs._ClientSize);
 
 	// calculate initial window position
 	FVector2D WindowPosition = InArgs._ScreenPosition;
@@ -280,6 +287,10 @@ void SWindow::Construct(const FArguments& InArgs)
 			break;
 		}
 
+		// Clamp window size to be no greater than the work area size
+		WindowSize.X = FMath::Min(WindowSize.X, AutoCenterRect.GetSize().X);
+		WindowSize.Y = FMath::Min(WindowSize.Y, AutoCenterRect.GetSize().Y);
+
 		// Setup a position and size for the main frame window that's centered in the desktop work area
 		const FVector2D DisplayTopLeft( AutoCenterRect.Left, AutoCenterRect.Top );
 		const FVector2D DisplaySize( AutoCenterRect.Right - AutoCenterRect.Left, AutoCenterRect.Bottom - AutoCenterRect.Top );
@@ -297,7 +308,7 @@ void SWindow::Construct(const FArguments& InArgs)
 	// Window visibility is currently driven by whether the window is interactive.
 	this->Visibility = TAttribute<EVisibility>::Create( TAttribute<EVisibility>::FGetter::CreateRaw(this, &SWindow::GetWindowVisibility) );
 
-	this->ConstructWindowInternals( bCreateTitleBar );
+	this->ConstructWindowInternals();
 	this->SetContent( InArgs._Content.Widget );
 }
 
@@ -370,14 +381,14 @@ FVector2D SWindow::ComputeWindowSizeForContent( FVector2D ContentSize )
 	return ContentSize + FVector2D(0, SWindowDefs::DefaultTitleBarSize);
 }
 
-void SWindow::ConstructWindowInternals( const bool bCreateTitleBar )
+void SWindow::ConstructWindowInternals()
 {
 	ForegroundColor = FCoreStyle::Get().GetSlateColor("DefaultForeground");
 
 	// Setup widget that represents the main area of the window.  That is, everything inside the window's border.
 	TSharedRef< SVerticalBox > MainWindowArea = 
 		SNew( SVerticalBox )
-			.Visibility( EVisibility::SelfHitTestInvisible );
+		.Visibility( EVisibility::SelfHitTestInvisible );
 
 	if (bCreateTitleBar)
 	{
@@ -401,10 +412,10 @@ void SWindow::ConstructWindowInternals( const bool bCreateTitleBar )
 		}
 
 		MainWindowArea->AddSlot()
-			.AutoHeight()
-			[
-				FSlateApplicationBase::Get().MakeWindowTitleBar(SharedThis(this), nullptr, TitleContentAlignment, TitleBar)
-			];
+		.AutoHeight()
+		[
+			FSlateApplicationBase::Get().MakeWindowTitleBar(SharedThis(this), nullptr, TitleContentAlignment, TitleBar)
+		];
 	}
 	else
 	{
@@ -430,57 +441,56 @@ void SWindow::ConstructWindowInternals( const bool bCreateTitleBar )
 		this->ChildSlot
 		[
 			SAssignNew(WindowOverlay, SOverlay)
-				.Visibility(EVisibility::SelfHitTestInvisible)
+			.Visibility(EVisibility::SelfHitTestInvisible)
 
 			// window background
 			+ SOverlay::Slot()
-				[
-					FSlateApplicationBase::Get().MakeImage(
-						WindowBackgroundAttr,
-						FLinearColor::White,
-						WindowContentVisibility
-					)
-				]
+			[
+				FSlateApplicationBase::Get().MakeImage(
+					WindowBackgroundAttr,
+					FLinearColor::White,
+					WindowContentVisibility
+				)
+			]
 
 			// window border
 			+ SOverlay::Slot()
-				[
-					FSlateApplicationBase::Get().MakeImage(
-						&Style->BorderBrush,
-						FLinearColor::White,
-						WindowContentVisibility
-					)
-				]
+			[
+				FSlateApplicationBase::Get().MakeImage(
+					&Style->BorderBrush,
+					FLinearColor::White,
+					WindowContentVisibility
+				)
+			]
 
 			// main area
 			+ SOverlay::Slot()
-				[
-					SNew(SVerticalBox)
-						.Visibility(WindowContentVisibility)
+			[
+				SNew(SVerticalBox)
+				.Visibility(WindowContentVisibility)
 
-					+ SVerticalBox::Slot()
-					
-						.Padding(TAttribute<FMargin>::Create(TAttribute<FMargin>::FGetter::CreateSP(this, &SWindow::GetWindowBorderSize, false)))
-						[
-							MainWindowArea
-						]
+				+ SVerticalBox::Slot()					
+				.Padding(TAttribute<FMargin>::Create(TAttribute<FMargin>::FGetter::CreateSP(this, &SWindow::GetWindowBorderSize, false)))
+				[
+					MainWindowArea
 				]
+			]
 
 			// pop-up layer
 			+ SOverlay::Slot()
-				[
-					SAssignNew(PopupLayer, SPopupLayer, SharedThis(this))
-				]
+			[
+				SAssignNew(PopupLayer, SPopupLayer, SharedThis(this))
+			]
 
 			// window outline
 			+ SOverlay::Slot()
-				[
-					FSlateApplicationBase::Get().MakeImage(
-						WindowOutlineAttr,
-						WindowOutlineColorAttr,
-						WindowContentVisibility
-					)
-				]
+			[
+				FSlateApplicationBase::Get().MakeImage(
+					WindowOutlineAttr,
+					WindowOutlineColorAttr,
+					WindowContentVisibility
+				)
+			]
 		];
 	}
 	else if( bHasOSWindowBorder )
@@ -490,7 +500,7 @@ void SWindow::ConstructWindowInternals( const bool bCreateTitleBar )
 			SAssignNew(WindowOverlay, SOverlay)
 			+ SOverlay::Slot()
 			[
-					MainWindowArea
+				MainWindowArea
 			]
 			+ SOverlay::Slot()
 			[
@@ -759,8 +769,17 @@ void SWindow::ReshapeWindow( const FSlateRect& InNewShape )
 void SWindow::Resize( FVector2D NewSize )
 {
 	Morpher.Sequence.JumpToEnd();
+
+	NewSize = GetWindowSizeFromClientSize(NewSize);
+
 	if ( Size != NewSize )
 	{
+		NewSize.X = FMath::Max(SizeLimits.GetMinWidth().Get(NewSize.X), NewSize.X);
+		NewSize.X = FMath::Min(SizeLimits.GetMaxWidth().Get(NewSize.X), NewSize.X);
+		
+		NewSize.Y = FMath::Max(SizeLimits.GetMinHeight().Get(NewSize.Y), NewSize.Y);
+		NewSize.Y = FMath::Min(SizeLimits.GetMaxHeight().Get(NewSize.Y), NewSize.Y);
+		
 		if (NativeWindow.IsValid())
 		{
 			NativeWindow->ReshapeWindow( FMath::TruncToInt(ScreenPosition.X), FMath::TruncToInt(ScreenPosition.Y), FMath::TruncToInt(NewSize.X), FMath::TruncToInt(NewSize.Y) );
@@ -986,7 +1005,7 @@ SOverlay::FOverlaySlot& SWindow::AddOverlaySlot( const int32 ZOrder )
 {
 	if(!WindowOverlay.IsValid())
 	{
-		ensureMsg( false, TEXT("This window does not support overlays. The added slot will not be visible!") );
+		ensureMsgf( false, TEXT("This window does not support overlays. The added slot will not be visible!") );
 		WindowOverlay = SNew(SOverlay).Visibility( EVisibility::HitTestInvisible );
 	}
 
@@ -1022,11 +1041,13 @@ bool SWindow::AppearsInTaskbar() const
 
 void SWindow::SetOnWindowActivated( const FOnWindowActivated& InDelegate )
 {
+	// deprecated
 	OnWindowActivated = InDelegate;
 }
 
 void SWindow::SetOnWindowDeactivated( const FOnWindowDeactivated& InDelegate )
 {
+	// deprecated
 	OnWindowDeactivated = InDelegate;
 }
 
@@ -1238,7 +1259,7 @@ bool SWindow::IsTopmostWindow() const
 /** @return true if mouse coordinates is within this window */
 bool SWindow::IsScreenspaceMouseWithin(FVector2D ScreenspaceMouseCoordinate) const
 {
-	const FVector2D LocalMouseCoordinate = ScreenspaceMouseCoordinate - GetWindowGeometryInScreen().AbsolutePosition;
+	const FVector2D LocalMouseCoordinate = ScreenspaceMouseCoordinate - ScreenPosition;
 	return NativeWindow->IsPointInWindow(FMath::TruncToInt(LocalMouseCoordinate.X), FMath::TruncToInt(LocalMouseCoordinate.Y));
 }
 
@@ -1297,7 +1318,8 @@ bool SWindow::OnIsActiveChanged( const FWindowActivateEvent& ActivateEvent )
 	const bool bWasDeactivated = ( ActivateEvent.GetActivationType() == FWindowActivateEvent::EA_Deactivate );
 	if ( bWasDeactivated )
 	{
-		OnWindowDeactivated.ExecuteIfBound();
+		OnWindowDeactivated.ExecuteIfBound();	// deprecated
+		WindowDeactivatedEvent.Broadcast();
 
 		const EWindowMode::Type WindowMode = GetWindowMode();
 		// If the window is not fullscreen, we do not want to automatically recapture the mouse unless an external UI such as Steam is open. Fullscreen windows we do.
@@ -1327,7 +1349,7 @@ bool SWindow::OnIsActiveChanged( const FWindowActivateEvent& ActivateEvent )
 				FWidgetPath WidgetToFocusPath;
 				if( FSlateWindowHelper::FindPathToWidget( JustThisWindow, PinnedWidgetToFocus.ToSharedRef(), WidgetToFocusPath ) )
 				{
-					FSlateApplicationBase::Get().SetKeyboardFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
+					FSlateApplicationBase::Get().SetAllUserFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
 				}
 			}
 			else
@@ -1336,12 +1358,13 @@ bool SWindow::OnIsActiveChanged( const FWindowActivateEvent& ActivateEvent )
 				if( FSlateWindowHelper::FindPathToWidget( JustThisWindow, AsShared(), WindowWidgetPath ) )
 				{
 					FWeakWidgetPath WeakWindowPath(WindowWidgetPath);
-					FSlateApplicationBase::Get().SetKeyboardFocus( WeakWindowPath.ToNextFocusedPath(EUINavigation::Next), EFocusCause::SetDirectly );
+					FSlateApplicationBase::Get().SetAllUserFocus( WeakWindowPath.ToNextFocusedPath(EUINavigation::Next), EFocusCause::SetDirectly );
 				}
 			}
 		}
 
-		OnWindowActivated.ExecuteIfBound();
+		OnWindowActivated.ExecuteIfBound();	// deprecated
+		WindowActivatedEvent.Broadcast();
 	}
 
 	return true;
@@ -1430,11 +1453,6 @@ FReply SWindow::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& M
 FVector2D SWindow::ComputeDesiredSize(float LayoutScaleMultiplier) const
 {
 	return SCompoundWidget::ComputeDesiredSize(LayoutScaleMultiplier) * LayoutScaleMultiplier;
-}
-
-float SWindow::GetRelativeLayoutScale(const FSlotBase& Child) const
-{
-	return FSlateApplicationBase::Get().GetApplicationScale();
 }
 
 const TArray< TSharedRef<SWindow> >& SWindow::GetChildWindows() const
@@ -1696,7 +1714,7 @@ void SWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 
 		NativeWindow->SetWindowMode( NewWindowMode );
 	
-		FVector2D vp = GetViewportSize();
+		const FVector2D vp = (NewWindowMode == EWindowMode::WindowedMirror) ? GetSizeInScreen() : GetViewportSize();
 		FSlateApplicationBase::Get().GetRenderer()->UpdateFullscreenState(SharedThis(this), vp.X, vp.Y);
 
 		if( TitleArea.IsValid() )

@@ -56,5 +56,8 @@
     <Setting Name="DisableHighlighting" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="SupportedLanguageLabelsString" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">English,中国,日本人,한국어</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

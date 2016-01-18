@@ -12,7 +12,7 @@
 #define USE_VERTEX_FOG					(!OUTPUT_GAMMA_SPACE)
 
 #define PACK_INTERPOLANTS (USE_VERTEX_FOG && NUM_VF_PACKED_INTERPOLANTS > 0 && (ES2_PROFILE || ES3_1_PROFILE))
-#define LANDSCAPE_BUG_WORKAROUND (IS_FORWARD_BASEPASS_VERTEX_SHADER && PACK_INTERPOLANTS)
+#define LANDSCAPE_BUG_WORKAROUND (IOS && IS_FORWARD_BASEPASS_VERTEX_SHADER && PACK_INTERPOLANTS)
 
 #if METAL_PROFILE 
 // @todo-rco: @todo metal: FIXME!
@@ -32,7 +32,7 @@ struct FSharedForwardShadingBasePassInterpolants
 	float4 PixelPosition	: TEXCOORD8; // xyz = world position, w = clip z
 
 #if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
-	float4 PixelPositionExcludingWPO	: TEXCOORD9;
+	float3 PixelPositionExcludingWPO	: TEXCOORD9;
 #endif
 };
 

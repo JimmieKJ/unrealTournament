@@ -17,9 +17,9 @@ class UPhysicsThrusterComponent : public USceneComponent
 	UPROPERTY(BlueprintReadWrite, interp, Category=Physics)
 	float ThrustStrength;
 
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-	// End UActorComponent Interface
+	//~ End UActorComponent Interface
 };
 
 

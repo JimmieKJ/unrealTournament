@@ -24,30 +24,22 @@ class UBrushComponent : public UPrimitiveComponent
 	class UBodySetup* BrushBodySetup;
 
 	/** Local space translation */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Transform)
-	FVector PrePivot;
+	UPROPERTY()
+	FVector PrePivot_DEPRECATED;
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
-	// End UObject interface
+	//~ End UObject Interface
 
-	// Begin USceneComponent interface
+	//~ Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	virtual FVector GetCustomLocation() const override;
 	virtual bool ShouldCollideWhenPlacing() const override { return true; }
-
-protected:
-	
-	/** Calculate the new ComponentToWorld transform for this component.
-	Parent is optional and can be used for computing ComponentToWorld based on arbitrary USceneComponent.
-	If Parent is not passed in we use the component's AttachParent*/
-	virtual FTransform CalcNewComponentToWorld(const FTransform& NewRelativeTransform, const USceneComponent* Parent = NULL) const override;
-	// End USceneComponent interface
+	//~ End USceneComponent Interface
 
 public:
 
-	// Begin UPrimitiveComponent interface.
+	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual class UBodySetup* GetBodySetup() override { return BrushBodySetup; };
 	virtual void GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const override;
@@ -55,8 +47,14 @@ public:
 #if WITH_EDITOR
 	virtual bool ComponentIsTouchingSelectionBox(const FBox& InSelBBox, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const override;
 	virtual bool ComponentIsTouchingSelectionFrustum(const FConvexVolume& InFrustum, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const override;
+	//~ End UPrimitiveComponent Interface.
+
+	/** Return true if the brush appears to have inverted polys */
+	ENGINE_API bool HasInvertedPolys() const;
+
+	/** If the transform mirroring no longer reflects the body setup, request its recalculation */
+	ENGINE_API void RequestUpdateBrushCollision();
 #endif
-	// End UPrimitiveComponent interface.
 
 	/** Create the AggGeom collection-of-convex-primitives from the Brush UModel data. */
 	ENGINE_API void BuildSimpleBrushCollision();

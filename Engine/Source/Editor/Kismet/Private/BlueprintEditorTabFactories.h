@@ -59,6 +59,17 @@ public:
 };
 
 /////////////////////////////////////////////////////
+// FBlueprintProfilerSummoner
+
+struct FBlueprintProfilerSummoner : public FWorkflowTabFactory
+{
+public:
+	FBlueprintProfilerSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
+
+	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+};
+
+/////////////////////////////////////////////////////
 // FDefaultsEditorSummoner
 
 struct FDefaultsEditorSummoner : public FWorkflowTabFactory
@@ -236,6 +247,22 @@ public:
 	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override
 	{
 		return LOCTEXT("MyBlueprintTooltip", "The MyBlueprint tab shows you elements that belong to _this_ Blueprint (variables, graphs etc.)");
+	}
+};
+
+/////////////////////////////////////////////////////
+// FReplaceNodeReferencesSummoner
+
+struct FReplaceNodeReferencesSummoner : public FWorkflowTabFactory
+{
+public:
+	FReplaceNodeReferencesSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
+
+	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+
+	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override
+	{
+		return LOCTEXT("ReplaceNodeReferencesTooltip", "Allows the user to replace node references in all Blueprint graphs with another node reference.");
 	}
 };
 

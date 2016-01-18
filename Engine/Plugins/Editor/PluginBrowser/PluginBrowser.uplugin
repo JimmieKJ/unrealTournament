@@ -4,11 +4,11 @@
 	"FriendlyName" : "Plugin Browser",
 	"Version" : 1,
 	"VersionName" : "1.0",
-	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedBy" : "Epic Games, Inc. and Karol Szyszka",
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
-	"Description" : "User interface for managing installed plugins.",
-	"Category" : "Misc",
+	"Description" : "User interface for managing installed plugins and creating new ones.",
+	"Category" : "Editor",
 	"EnabledByDefault" : true,
 	
 	"Modules" :

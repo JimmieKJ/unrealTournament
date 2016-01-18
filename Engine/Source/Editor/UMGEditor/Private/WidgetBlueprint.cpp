@@ -2,7 +2,7 @@
 
 #include "UMGEditorPrivatePCH.h"
 
-#include "Runtime/MovieSceneCore/Classes/MovieScene.h"
+#include "Runtime/MovieScene/Public/MovieScene.h"
 #include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
 
 #include "Blueprint/WidgetTree.h"
@@ -570,6 +570,27 @@ UClass* UWidgetBlueprint::GetBlueprintClass() const
 bool UWidgetBlueprint::AllowsDynamicBinding() const
 {
 	return true;
+}
+
+void UWidgetBlueprint::GatherDependencies(TSet<TWeakObjectPtr<UBlueprint>>& InDependencies) const
+{
+	Super::GatherDependencies(InDependencies);
+
+	if ( WidgetTree )
+	{
+		WidgetTree->ForEachWidget([&] (UWidget* Widget) {
+			if ( UBlueprint* WidgetBlueprint = UBlueprint::GetBlueprintFromClass(Widget->GetClass()) )
+			{
+				bool bWasAlreadyInSet;
+				InDependencies.Add(WidgetBlueprint, &bWasAlreadyInSet);
+
+				if ( !bWasAlreadyInSet )
+				{
+					WidgetBlueprint->GatherDependencies(InDependencies);
+				}
+			}
+		});
+	}
 }
 
 bool UWidgetBlueprint::ValidateGeneratedClass(const UClass* InClass)

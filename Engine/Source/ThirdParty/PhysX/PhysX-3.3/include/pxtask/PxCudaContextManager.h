@@ -223,6 +223,7 @@ public:
     virtual bool supportsArchSM30() const = 0;  //!< GK100
 	virtual bool supportsArchSM35() const = 0;  //!< GK110
 	virtual bool supportsArchSM50() const = 0;  //!< GM100
+	virtual bool supportsArchSM52() const = 0;  //!< GM200
 	virtual bool isIntegrated() const = 0;      //!< true if GPU is an integrated (MCP) part
 	virtual bool canMapHostMemory() const = 0;  //!< true if GPU map host memory to GPU (0-copy)
 	virtual int  getDriverVersion() const = 0;  //!< returns cached value of cuGetDriverVersion()

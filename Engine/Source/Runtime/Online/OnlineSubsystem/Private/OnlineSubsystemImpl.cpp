@@ -10,24 +10,25 @@ const FName FOnlineSubsystemImpl::DefaultInstanceName(TEXT("DefaultInstance"));
 FOnlineSubsystemImpl::FOnlineSubsystemImpl() :
 	InstanceName(DefaultInstanceName),
 	bForceDedicated(false),
-	NamedInterfaces(NULL)
+	NamedInterfaces(nullptr)
 {
 }
 
 FOnlineSubsystemImpl::FOnlineSubsystemImpl(FName InInstanceName) :
 	InstanceName(InInstanceName),
 	bForceDedicated(false),
-	NamedInterfaces(NULL)
+	NamedInterfaces(nullptr)
 {
 }
 
 FOnlineSubsystemImpl::~FOnlineSubsystemImpl()
+{	
+}
+
+bool FOnlineSubsystemImpl::Shutdown()
 {
-	if (NamedInterfaces)
-	{
-		NamedInterfaces->RemoveFromRoot();
-		NamedInterfaces = NULL;
-	}
+	OnNamedInterfaceCleanup();
+	return true;
 }
 
 void FOnlineSubsystemImpl::ExecuteDelegateNextTick(const FNextTickDelegate& Callback)
@@ -62,7 +63,19 @@ void FOnlineSubsystemImpl::InitNamedInterfaces()
 	if (NamedInterfaces)
 	{
 		NamedInterfaces->Initialize();
+		NamedInterfaces->OnCleanup().AddRaw(this, &FOnlineSubsystemImpl::OnNamedInterfaceCleanup);
 		NamedInterfaces->AddToRoot();
+	}
+}
+
+void FOnlineSubsystemImpl::OnNamedInterfaceCleanup()
+{
+	if (NamedInterfaces)
+	{
+		UE_LOG_ONLINE(Display, TEXT("Removing %d named interfaces"), NamedInterfaces->GetNumInterfaces());
+		NamedInterfaces->RemoveFromRoot();
+		NamedInterfaces->OnCleanup().RemoveAll(this);
+		NamedInterfaces = nullptr;
 	}
 }
 
@@ -78,7 +91,7 @@ UObject* FOnlineSubsystemImpl::GetNamedInterface(FName InterfaceName)
 		return NamedInterfaces->GetNamedInterface(InterfaceName);
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 void FOnlineSubsystemImpl::SetNamedInterface(FName InterfaceName, UObject* NewInterface)
@@ -96,8 +109,12 @@ void FOnlineSubsystemImpl::SetNamedInterface(FName InterfaceName, UObject* NewIn
 
 bool FOnlineSubsystemImpl::IsServer() const
 {
+#if WITH_EDITOR
 	FName WorldContextHandle = (InstanceName != NAME_None && InstanceName != DefaultInstanceName) ? InstanceName : NAME_None;
 	return IsServerForOnlineSubsystems(WorldContextHandle);
+#else
+	return IsServerForOnlineSubsystems(NAME_None);
+#endif
 }
 
 bool FOnlineSubsystemImpl::IsLocalPlayer(const FUniqueNetId& UniqueId) const
@@ -109,7 +126,7 @@ bool FOnlineSubsystemImpl::IsLocalPlayer(const FUniqueNetId& UniqueId) const
 		{
 			for (int32 LocalUserNum = 0; LocalUserNum < MAX_LOCAL_PLAYERS; LocalUserNum++)
 			{
-				TSharedPtr<FUniqueNetId> LocalUniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
+				TSharedPtr<const FUniqueNetId> LocalUniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
 				if (LocalUniqueId.IsValid() && UniqueId == *LocalUniqueId)
 				{
 					return true;

@@ -329,6 +329,7 @@ private:
 		return SNew( SLayersCommandsMenu, LayerCollectionViewModel.ToSharedRef() );
 	}
 
+	void OnFilterTextChanged( const FText& InNewText );
 
 private:
 
@@ -346,6 +347,9 @@ private:
 
 	/**	 */
 	TSharedPtr< SBorder > LayerContentsHeader;
+
+	/** */
+	TSharedPtr< class SSearchBox> SearchBoxPtr;
 
 	/**	 */
 	TSharedPtr< LayerTextFilter > SearchBoxLayerFilter;

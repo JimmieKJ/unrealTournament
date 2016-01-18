@@ -17,19 +17,26 @@
 #include "PxTolerancesScale.h"
 #include "Factory.h"
 
-
 using namespace physx;
 
 Sc::Physics* Sc::Physics::mInstance = NULL;
 const PxReal Sc::Physics::sWakeCounterOnCreation = 20.0f*0.02f;
 
+namespace physx
+{
+	namespace Sc
+	{
+		OffsetTable	gOffsetTable;
+	}
+}
 
-Sc::Physics::Physics(const PxTolerancesScale& scale)
+Sc::Physics::Physics(const PxTolerancesScale& scale, const PxvOffsetTable& pxvOffsetTable)
 : mScale(scale)
 , mLowLevelClothFactory(0)
 {
 	mInstance = this;
-	PxvInit();
+	
+	PxvInit(pxvOffsetTable);
 }
 
 

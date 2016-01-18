@@ -41,10 +41,10 @@ class ENGINE_API UComponentDelegateBinding
 	UPROPERTY()
 	TArray<FBlueprintComponentDelegateBinding> ComponentDelegateBindings;
 
-	// Begin DynamicBlueprintBinding interface
+	//~ Begin DynamicBlueprintBinding Interface
 	virtual void BindDynamicDelegates(UObject* InInstance) const override;
 	virtual void UnbindDynamicDelegatesForProperty(UObject* InInstance, const UObjectProperty* InObjectProperty) const override;
-	// End DynamicBlueprintBinding interface
+	//~ End DynamicBlueprintBinding Interface
 
 private:
 	// Utility method used to find the target delegate given an instance and a binding descriptor

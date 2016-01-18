@@ -28,6 +28,8 @@ void FEnvTraceDataCustomization::CustomizeHeader( TSharedRef<class IPropertyHand
 
 	PropTraceMode = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FEnvTraceData,TraceMode));
 	PropTraceShape = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FEnvTraceData,TraceShape));
+	PropTraceChannel = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FEnvTraceData, TraceChannel));
+	PropTraceChannelSerialized = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FEnvTraceData, SerializedChannel));
 	CacheTraceModes(StructPropertyHandle);
 }
 
@@ -60,7 +62,7 @@ void FEnvTraceDataCustomization::CustomizeChildren( TSharedRef<class IPropertyHa
 		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FEnvTraceDataCustomization::GetNavigationVisibility)));
 
 	// geometry props
-	TSharedPtr<IPropertyHandle> PropTraceChannel = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FEnvTraceData,TraceChannel));
+	PropTraceChannel->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FEnvTraceDataCustomization::OnTraceChannelChanged));
 	StructBuilder.AddChildProperty(PropTraceChannel.ToSharedRef())
 		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FEnvTraceDataCustomization::GetGeometryVisibility)));
 
@@ -139,6 +141,20 @@ void FEnvTraceDataCustomization::CacheTraceModes(TSharedRef<class IPropertyHandl
 
 	ActiveMode = EEnvQueryTrace::None;
 	PropTraceMode->GetValue(ActiveMode);
+}
+
+void FEnvTraceDataCustomization::OnTraceChannelChanged()
+{
+	uint8 TraceChannelValue;
+	FPropertyAccess::Result Result = PropTraceChannel->GetValue(TraceChannelValue);
+	if (Result == FPropertyAccess::Success)
+	{
+		ETraceTypeQuery TraceTypeValue = (ETraceTypeQuery)TraceChannelValue;
+		ECollisionChannel CollisionChannelValue = UEngineTypes::ConvertToCollisionChannel(TraceTypeValue);
+
+		uint8 SerializedChannelValue = CollisionChannelValue;
+		PropTraceChannelSerialized->SetValue(SerializedChannelValue);
+	}
 }
 
 void FEnvTraceDataCustomization::OnTraceModeChanged(int32 Index)

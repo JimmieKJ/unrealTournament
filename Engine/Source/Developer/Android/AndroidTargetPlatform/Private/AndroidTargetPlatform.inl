@@ -189,7 +189,13 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 		|| (InTexture->Source.GetSizeY() < 4)
 		|| (InTexture->Source.GetSizeX() % 4 != 0)
 		|| (InTexture->Source.GetSizeY() % 4 != 0);
-
+	
+	bool bIsNonPOT = false;
+#if WITH_EDITORONLY_DATA
+	// is this texture not a power of 2?
+	bIsNonPOT = !InTexture->Source.IsPowerOfTwo();
+#endif
+	
 	// Determine the pixel format of the compressed texture.
 	if (bNoCompression && InTexture->HasHDRSource())
 	{
@@ -206,11 +212,11 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 	}
 	else if (InTexture->CompressionSettings == TC_Normalmap)
 	{
-		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC4, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats);
+		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC4, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT);
 	}
 	else if (InTexture->CompressionSettings == TC_Displacementmap)
 	{
@@ -235,35 +241,35 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 	else if (InTexture->bForcePVRTC4
 		|| InTexture->CompressionSettings == TC_BC7)
 	{
-		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC4, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats);
+		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC4, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT);
 	}
 	else if (InTexture->CompressionNoAlpha)
 	{
-		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC2, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT1, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGB, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameETC2_RGB, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameETC1, OutFormats);
+		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT1, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGB, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameETC2_RGB, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameETC1, OutFormats, bIsNonPOT);
 	}
 	else if (InTexture->bDitherMipMapAlpha)
 	{
-		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC4, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats);
+		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC4, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT);
 	}
 	else
 	{
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoPVRTC, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoDXT, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoATC, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats);
-		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoPVRTC, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoDXT, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoATC, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT);
 	}
 }
 
@@ -346,11 +352,18 @@ FText FAndroidTargetPlatform<TPlatformProperties>::GetVariantTitle() const
  *****************************************************************************/
 
 template<class TPlatformProperties>
-inline void FAndroidTargetPlatform<TPlatformProperties>::AddTextureFormatIfSupports( FName Format, TArray<FName>& OutFormats ) const
+inline void FAndroidTargetPlatform<TPlatformProperties>::AddTextureFormatIfSupports( FName Format, TArray<FName>& OutFormats, bool bIsCompressedNonPOT ) const
 {
 	if (SupportsTextureFormat(Format))
 	{
-		OutFormats.Add(Format);
+		if (bIsCompressedNonPOT && SupportsCompressedNonPOT() == false)
+		{
+			OutFormats.Add(AndroidTexFormat::NamePOTERROR);
+		}
+		else
+		{
+			OutFormats.Add(Format);
+		}
 	}
 }
 

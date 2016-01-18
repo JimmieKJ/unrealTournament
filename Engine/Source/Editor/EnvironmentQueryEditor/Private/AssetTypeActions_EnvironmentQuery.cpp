@@ -7,8 +7,10 @@
 #include "Editor/EnvironmentQueryEditor/Public/IEnvironmentQueryEditor.h"
 
 #include "EnvironmentQuery/EnvQuery.h"
-
 #include "AssetTypeActions_EnvironmentQuery.h"
+
+#include "AIModule.h"
+
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
 void FAssetTypeActions_EnvironmentQuery::OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor )
@@ -31,5 +33,9 @@ UClass* FAssetTypeActions_EnvironmentQuery::GetSupportedClass() const
 	return UEnvQuery::StaticClass(); 
 }
 
-
+uint32 FAssetTypeActions_EnvironmentQuery::GetCategories()
+{
+	IAIModule& AIModule = FModuleManager::GetModuleChecked<IAIModule>("AIModule").Get();
+	return AIModule.GetAIAssetCategoryBit();
+}
 #undef LOCTEXT_NAMESPACE

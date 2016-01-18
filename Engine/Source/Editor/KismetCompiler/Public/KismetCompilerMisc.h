@@ -121,6 +121,9 @@ protected:
 	// Returns true if the net is *not* a literal, or if it's a literal that is valid.
 	// Returns false only for a bogus literal value.
 	bool ValidateAndRegisterNetIfLiteral(FKismetFunctionContext& Context, UEdGraphPin* Net);
+
+	// Helper to register literal term
+	FBPTerminal* RegisterLiteral(FKismetFunctionContext& Context, UEdGraphPin* Net);
 public:
 	FNodeHandlingFunctor(FKismetCompilerContext& InCompilerContext)
 		: CompilerContext(InCompilerContext)

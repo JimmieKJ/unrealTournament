@@ -24,6 +24,11 @@ void FPhysCommandHandler::Flush()
 	PendingCommands.Empty();
 }
 
+bool FPhysCommandHandler::HasPendingCommands()
+{
+	return PendingCommands.Num() > 0;
+}
+
 void FPhysCommandHandler::ExecuteCommands()
 {
 	for (int32 i = 0; i < PendingCommands.Num(); ++i)

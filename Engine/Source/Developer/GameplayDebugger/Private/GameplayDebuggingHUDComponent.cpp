@@ -15,7 +15,6 @@
 #include "AITypes.h"
 #include "AISystem.h"
 #include "GenericTeamAgentInterface.h"
-#include "Perception/AIPerceptionComponent.h"
 #include "AIController.h"
 
 
@@ -46,6 +45,10 @@ AGameplayDebuggingHUDComponent::AGameplayDebuggingHUDComponent(const FObjectInit
 	bEditable = false;
 #	endif
 #endif
+
+	ItemDescriptionWidth = 312.f; // 200.0f;
+	ItemScoreWidth = 50.0f;
+	TestScoreWidth = 100.0f;
 }
 
 void AGameplayDebuggingHUDComponent::Render()
@@ -93,7 +96,7 @@ void AGameplayDebuggingHUDComponent::PrintAllData()
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 	// Allow child hud components to position the displayed info
-	DefaultContext = FPrintContext(GEngine->GetSmallFont(), Canvas, DebugInfoStartX, DebugInfoStartY);;
+	DefaultContext = FPrintContext(GEngine->GetSmallFont(), Canvas, DebugInfoStartX, DebugInfoStartY);
 	DefaultContext.FontRenderInfo.bEnableShadow = true;
 
 	if (DefaultContext.Canvas != NULL)
@@ -113,7 +116,7 @@ void AGameplayDebuggingHUDComponent::PrintAllData()
 		DebugComponent = GetDebuggingReplicator()->GetDebugComponent();
 	}
 				
-	if (DebugComponent && DebugComponent->GetSelectedActor())
+	if (DebugComponent)
 	{
 		APlayerController* const MyPC = Cast<APlayerController>(PlayerOwner);
 		DrawDebugComponentData(MyPC, DebugComponent);
@@ -132,6 +135,7 @@ void AGameplayDebuggingHUDComponent::DrawMenu(const float X, const float Y, clas
 	const float OldX = DefaultContext.CursorX;
 	const float OldY = DefaultContext.CursorY;
 
+	UGameplayDebuggingControllerComponent*  GDC = GetDebuggingReplicator()->FindComponentByClass<UGameplayDebuggingControllerComponent>();
 	if (DefaultContext.Canvas != NULL)
 	{
 		TArray<FDebugCategoryView> Categories;
@@ -148,7 +152,6 @@ void AGameplayDebuggingHUDComponent::DrawMenu(const float X, const float Y, clas
 		FString ActivationKeyName = TEXT("Apostrophe");
 
 		APlayerController* const MyPC = Cast<APlayerController>(PlayerOwner);
-		UGameplayDebuggingControllerComponent*  GDC = GetDebuggingReplicator()->FindComponentByClass<UGameplayDebuggingControllerComponent>();
 		if (GDC)
 		{
 			ActivationKeyDisplayName = GDC->GetActivationKey().Key.GetDisplayName().ToString();
@@ -157,10 +160,6 @@ void AGameplayDebuggingHUDComponent::DrawMenu(const float X, const float Y, clas
 
 		const FString KeyDesc = ActivationKeyName != ActivationKeyDisplayName ? FString::Printf(TEXT("(%s key)"), *ActivationKeyName) : TEXT("");
 		FString HeaderDesc = FString::Printf(TEXT("Tap %s %s to close, use Numpad numbers to toggle categories"), *ActivationKeyDisplayName, *KeyDesc);
-		if (UGameplayDebuggerSettings::StaticClass()->GetDefaultObject<UGameplayDebuggerSettings>()->UseAlternateKeys())
-		{
-			HeaderDesc = FString::Printf(TEXT("Tap %s %s to close, use Alt + number to toggle categories"), *ActivationKeyDisplayName, *KeyDesc);
-		}
 
 		float HeaderWidth = 0.0f;
 		CalulateStringSize(DefaultContext, DefaultContext.Font, HeaderDesc, HeaderWidth, MaxHeight);
@@ -176,14 +175,37 @@ void AGameplayDebuggingHUDComponent::DrawMenu(const float X, const float Y, clas
 		}
 
 		{
+			static FString KeyShortcut = GDC->DebugCameraBind.GetInputText().ToString();
 			const int32 DebugCameraIndex = Categories.Add(FDebugCategoryView());
 			CategoriesWidth.AddZeroed(1);
-			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[Tab]: %s  "), GDC && GDC->GetDebugCameraController().IsValid() ? TEXT("{Green}") : TEXT("{White}"), TEXT("Debug Camera"));
+			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[%s]: %s  "), GDC && GDC->GetDebugCameraController().IsValid() ? TEXT("{Green}") : TEXT("{White}"), *KeyShortcut, TEXT("Debug Camera"));
 			float StrHeight = 0.0f;
 			CalulateStringSize(DefaultContext, DefaultContext.Font, Categories[DebugCameraIndex].Desc, CategoriesWidth[DebugCameraIndex], StrHeight);
 			TotalWidth += CategoriesWidth[DebugCameraIndex];
 			MaxHeight = FMath::Max(MaxHeight, StrHeight);
 		}
+		{
+			static FString KeyShortcut = GDC->OnScreenDebugMessagesBind.GetInputText().ToString();
+			const int32 DebugCameraIndex = Categories.Add(FDebugCategoryView());
+			CategoriesWidth.AddZeroed(1);
+			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[%s]: %s  "), GEngine && GEngine->bEnableOnScreenDebugMessages ? TEXT("{Green}") : TEXT("{White}"), *KeyShortcut, TEXT("DebugMessages"));
+			float StrHeight = 0.0f;
+			CalulateStringSize(DefaultContext, DefaultContext.Font, Categories[DebugCameraIndex].Desc, CategoriesWidth[DebugCameraIndex], StrHeight);
+			TotalWidth += CategoriesWidth[DebugCameraIndex];
+			MaxHeight = FMath::Max(MaxHeight, StrHeight);
+		}
+		{
+			static FString KeyShortcut = GDC->GameHUDBind.GetInputText().ToString();
+			const AHUD* GameHUD = MyPC ? MyPC->GetHUD() : NULL;
+			const int32 DebugCameraIndex = Categories.Add(FDebugCategoryView());
+			CategoriesWidth.AddZeroed(1);
+			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[%s]: %s  "), GameHUD && GameHUD->bShowHUD ? TEXT("{Green}") : TEXT("{White}"), *KeyShortcut, TEXT("GameHUD"));
+			float StrHeight = 0.0f;
+			CalulateStringSize(DefaultContext, DefaultContext.Font, Categories[DebugCameraIndex].Desc, CategoriesWidth[DebugCameraIndex], StrHeight);
+			TotalWidth += CategoriesWidth[DebugCameraIndex];
+			MaxHeight = FMath::Max(MaxHeight, StrHeight);
+		}
+
 
 		TotalWidth = FMath::Max(TotalWidth, HeaderWidth);
 
@@ -210,6 +232,33 @@ void AGameplayDebuggingHUDComponent::DrawMenu(const float X, const float Y, clas
 		PrintString(DefaultContext, "\n{red}No Pawn selected - waiting for data to replicate from server. {green}Press and hold ' to select Pawn \n");
 	}
 
+	if (GDC && GDC->GetDebugCameraController().IsValid())
+	{
+		ADebugCameraController* DebugCamController = GDC->GetDebugCameraController().Get();
+		if (DebugCamController != NULL)
+		{
+			FVector const CamLoc = DebugCamController->PlayerCameraManager->GetCameraLocation();
+			FRotator const CamRot = DebugCamController->PlayerCameraManager->GetCameraRotation();
+
+			FString HitString;
+			FCollisionQueryParams TraceParams(NAME_None, true, this);
+			FHitResult Hit;
+			bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
+			if (bHit && Hit.GetActor() != nullptr)
+			{
+				HitString = FString::Printf(TEXT("{white}Under cursor: {yellow}'%s'"), *Hit.GetActor()->GetName());
+				DrawDebugLine(GetWorld(), Hit.Location, Hit.Location + Hit.Normal*30.f, FColor::White);
+			}
+			else
+			{
+				HitString = FString::Printf(TEXT("Not actor under cursor"));
+			}
+
+			PrintString(DefaultContext, FColor::White, HitString, MenuStartX, MenuStartY + 40);
+		}
+	}
+
+
 	DefaultContext.CursorX = OldX;
 	DefaultContext.CursorY = OldY;
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -223,7 +272,8 @@ void AGameplayDebuggingHUDComponent::DrawDebugComponentData(APlayerController* M
 	const FVector ScreenLoc = SelectedActor ? ProjectLocation(DefaultContext, SelectedActor->GetActorLocation() + FVector(0.f, 0.f, SelectedActor->GetSimpleCollisionHalfHeight())) : FVector::ZeroVector;
 
 	OverHeadContext = FPrintContext(GEngine->GetSmallFont(), Canvas, ScreenLoc.X, ScreenLoc.Y);
-	DefaultContext.CursorY += 20;
+	//DefaultContext.CursorY += 20;
+	BlackboardFinishY = 0.0f;
 
 	FGameplayDebuggerSettings DebuggerSettings = GameplayDebuggerSettings(GetDebuggingReplicator());
 	bool bForceOverhead = false;
@@ -241,7 +291,7 @@ void AGameplayDebuggingHUDComponent::DrawDebugComponentData(APlayerController* M
 		DrawNavMeshSnapshot(MyPC, DebugComponent);
 	}
 
-	if (DebugComponent->GetSelectedActor() && bDrawFullData)
+	if (SelectedActor && bDrawFullData)
 	{
 		if (DebuggerSettings.CheckFlag(EAIDebugDrawDataView::Basic) /*|| EngineShowFlags.DebugAI*/)
 		{
@@ -270,9 +320,9 @@ void AGameplayDebuggingHUDComponent::DrawDebugComponentData(APlayerController* M
 		{
 			DrawPerception(MyPC, DebugComponent);
 		}
-
-		DrawGameSpecificView(MyPC, DebugComponent);
 	}
+
+	DrawGameSpecificView(MyPC, DebugComponent);
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
@@ -391,7 +441,7 @@ void AGameplayDebuggingHUDComponent::DrawBasicData(APlayerController* PC, class 
 		PrintString(DefaultContext, FString::Printf(TEXT("Behavior: {yellow}%s{white}, Tree: {yellow}%s\n"), *DebugComponent->CurrentAIState, *DebugComponent->CurrentAIAssets));
 		PrintString(DefaultContext, FString::Printf(TEXT("Active task: {yellow}%s\n"), *DebugComponent->CurrentAITask));
 	}
-
+		
 	// ability + animation
 	if (DebugComponent->bIsUsingAbilities && DebugComponent->bIsUsingCharacter)
 	{
@@ -406,6 +456,9 @@ void AGameplayDebuggingHUDComponent::DrawBasicData(APlayerController* PC, class 
 		PrintString(DefaultContext, FString::Printf(TEXT("Ability: {yellow}%s\n"), *DebugComponent->AbilityInfo));
 	}
 
+	// putting gameplay tasks' stuff last since it can expand heavily
+	PrintString(DefaultContext, FString::Printf(TEXT("GameplayTasks:\n{yellow}%s\n"), *DebugComponent->GameplayTasksState));
+
 	DrawPath(PC, DebugComponent);
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
@@ -416,7 +469,8 @@ void AGameplayDebuggingHUDComponent::DrawBehaviorTreeData(APlayerController* PC,
 	PrintString(DefaultContext, TEXT("\n{green}BEHAVIOR TREE\n"));
 	PrintString(DefaultContext, FString::Printf(TEXT("Brain Component: {yellow}%s\n"), *DebugComponent->BrainComponentName));
 	PrintString(DefaultContext, DebugComponent->BrainComponentString);
-	PrintString(DefaultContext, FColor::White, DebugComponent->BlackboardString, 600.0f, 40.0f);
+	PrintString(DefaultContext, FColor::White, DebugComponent->BlackboardString, 600.0f, DebugInfoStartY);
+	BlackboardFinishY = DefaultContext.CursorY;
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
@@ -550,15 +604,15 @@ void AGameplayDebuggingHUDComponent::DrawEQSData(APlayerController* PC, class UG
 
 			float HeaderX = DefaultContext.CursorX;
 			PrintString(DefaultContext, FColor::Yellow, FString::Printf(TEXT("Num items: %d"), CurrentLocalData.NumValidItems), HeaderX, HeaderY);
-			HeaderX += 200.0f;
+			HeaderX += ItemDescriptionWidth;
 
 			PrintString(DefaultContext, FColor::White, TEXT("Score"), HeaderX, HeaderY);
-			HeaderX += 50.0f;
+			HeaderX += ItemScoreWidth;
 
 			for (int32 TestIdx = 0; TestIdx < NumTests; TestIdx++)
 			{
 				PrintString(DefaultContext, FColor::White, FString::Printf(TEXT("Test %d"), TestIdx), HeaderX, HeaderY);
-				HeaderX += 100.0f;
+				HeaderX += TestScoreWidth;
 			}
 
 			DefaultContext.CursorY += RowHeight;
@@ -601,11 +655,11 @@ void AGameplayDebuggingHUDComponent::DrawEQSItemDetails(int32 ItemIdx, class UGa
 	const EQSDebug::FItemData& ItemData = CurrentLocalData.Items[ItemIdx];
 
 	PrintString(DefaultContext, FColor::White, ItemData.Desc, PosX, PosY);
-	PosX += 200.0f;
+	PosX += ItemDescriptionWidth;
 
 	FString ScoreDesc = FString::Printf(TEXT("%.2f"), ItemData.TotalScore);
 	PrintString(DefaultContext, FColor::Yellow, ScoreDesc, PosX, PosY);
-	PosX += 50.0f;
+	PosX += ItemScoreWidth;
 
 	FCanvasTileItem ActiveTileItem(FVector2D(0, PosY + 15.0f), GWhiteTexture, FVector2D(0, 2.0f), FLinearColor::Yellow);
 	FCanvasTileItem BackTileItem(FVector2D(0, PosY + 15.0f), GWhiteTexture, FVector2D(0, 2.0f), FLinearColor(0.1f, 0.1f, 0.1f));
@@ -637,7 +691,7 @@ void AGameplayDebuggingHUDComponent::DrawEQSItemDetails(int32 ItemIdx, class UGa
 		DrawItem(DefaultContext, BackTileItem, BackTileItem.Position.X, BackTileItem.Position.Y);
 
 		PrintString(DefaultContext, FColor::Green, TestDesc, PosX, PosY);
-		PosX += 100.0f;
+		PosX += TestScoreWidth;
 	}
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST) && WITH_EQS
 }
@@ -650,41 +704,38 @@ void AGameplayDebuggingHUDComponent::DrawPerception(APlayerController* PC, class
 		return;
 	}
 
-	//@FIXME: It have to be changed to only draw data collected by Debugging Component, just moved functionality from FN for now
-	APawn* MyPawn = Cast<APawn>(DebugComponent->GetSelectedActor());
-	if (MyPawn)
+	PrintString(DefaultContext, FColor::Green, TEXT("\nPERCEPTION COMPONENT\n"));
+	PrintString(DefaultContext, FString::Printf(TEXT("Draw Colors:")));
+	PrintString(DefaultContext, *DebugComponent->PerceptionLegend);
+
+	PrintString(DefaultContext, FString::Printf(TEXT("\nDistance Sensor-PlayerPawn: %.1f\n"), DebugComponent->DistanceFromSensor));
+	PrintString(DefaultContext, FString::Printf(TEXT("Distance Pawn-PlayerPawn: %.1f\n"), DebugComponent->DistanceFromPlayer));
+
+	float VerticalLabelOffset = 0.f;
+	for (const FGameplayDebuggerShapeElement& Shape : DebugComponent->PerceptionShapeElements)
 	{
-		AAIController* BTAI = Cast<AAIController>(MyPawn->GetController());
-		if (BTAI)
+		if (Shape.GetType() == EGameplayDebuggerShapeElement::String)
 		{
-			// standalone only
-			if (BTAI->GetAIPerceptionComponent() && DefaultContext.Canvas != NULL)
-			{
-				BTAI->GetAIPerceptionComponent()->DrawDebugInfo(DefaultContext.Canvas);
+			const FVector& Loc = Shape.Points[0];
+			const FVector ScreenLoc = DefaultContext.Canvas->Project(Loc);
 
-				const FVector AILocation = MyPawn->GetActorLocation();
-				const FVector Facing = MyPawn->GetActorForwardVector();
-
-				UAIPerceptionSystem* PerceptionSys = UAIPerceptionSystem::GetCurrent(this);
-				if (PerceptionSys)
-				{
-					PrintString(DefaultContext, FColor::Green, TEXT("\nPERCEPTION COMPONENT\n"));
-					PrintString(DefaultContext, FString::Printf(TEXT("Draw Colors:")));
-					
-					FString PerceptionLegend = PerceptionSys->GetPerceptionDebugLegend();
-					PrintString(DefaultContext, *PerceptionLegend);
-				}
-				
-				if (PC && PC->GetPawn())
-				{
-					const float DistanceFromPlayer = (MyPawn->GetActorLocation() - PC->GetPawn()->GetActorLocation()).Size();
-					const float DistanceFromSensor = DebugComponent->SensingComponentLocation != FVector::ZeroVector ? (DebugComponent->SensingComponentLocation - PC->GetPawn()->GetActorLocation()).Size() : -1;
-					PrintString(DefaultContext, FString::Printf(TEXT("Distance Sensor-PlayerPawn: %.1f\n"), DistanceFromSensor));
-					PrintString(DefaultContext, FString::Printf(TEXT("Distance Pawn-PlayerPawn: %.1f\n"), DistanceFromPlayer));
-				}
-			}
+			PrintString(DefaultContext, Shape.GetFColor(), Shape.Description, ScreenLoc.X, ScreenLoc.Y + VerticalLabelOffset);
+			VerticalLabelOffset += 17;
+		}
+		else if (Shape.GetType() == EGameplayDebuggerShapeElement::Segment)
+		{
+			DrawDebugLine(World, Shape.Points[0], Shape.Points[1], Shape.GetFColor());
+		}
+		else if (Shape.GetType() == EGameplayDebuggerShapeElement::SinglePoint)
+		{
+			DrawDebugSphere(World, Shape.Points[0], Shape.ThicknesOrRadius, 16, Shape.GetFColor());
+		}
+		else if (Shape.GetType() == EGameplayDebuggerShapeElement::Cylinder)
+		{
+			DrawDebugCylinder(World, Shape.Points[0], Shape.Points[1], Shape.ThicknesOrRadius, 16, Shape.GetFColor());
 		}
 	}
+
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
@@ -720,6 +771,7 @@ void AGameplayDebuggingHUDComponent::PrintString(FPrintContext& Context, const F
 			NewLine,
 			EndOfString,
 			RegularChar,
+			Tab
 		};
 
 		enum Tag
@@ -748,6 +800,10 @@ void AGameplayDebuggingHUDComponent::PrintString(FPrintContext& Context, const F
 				break;
 			case '\n':
 				OutToken = NewLine;
+				Index++;
+				break;
+			case '\t':
+				OutToken = Tab;
 				Index++;
 				break;
 			default:
@@ -840,6 +896,17 @@ void AGameplayDebuggingHUDComponent::PrintString(FPrintContext& Context, const F
 					break;
 				case EndOfString:
 					break;
+				case Tab:
+					{
+						const FString TabString(TEXT("     "));
+						Strings[Strings.Num()-1].String.Append(TabString);
+						static bool sbTest = false;
+						if (sbTest)
+						{
+						Index++;
+						}
+						break;
+					}
 				case OpenTag:
 					{
 						FString OutData;

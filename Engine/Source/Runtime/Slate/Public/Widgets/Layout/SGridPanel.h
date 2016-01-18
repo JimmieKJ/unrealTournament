@@ -109,6 +109,19 @@ public:
 				return *this;
 			}
 
+			/** Positive values offset this cell to be hit-tested and drawn on top of others. Default is 0; i.e. no offset. */
+			FSlot& Layer(int32 Layer)
+			{
+				LayerParam = Layer;
+
+				if (Panel.IsValid())
+				{
+					Panel.Pin()->NotifySlotChanged(this);
+				}
+
+				return *this;
+			}
+
 			/** Offset this slot's content by some amount; positive values offset to lower right */
 			FSlot& Nudge( const FVector2D& Nudge )
 			{
@@ -147,32 +160,32 @@ public:
 		SLATE_SUPPORTS_SLOT( FSlot )
 
 		/** Specify a column to stretch instead of sizing to content. */
-		FArguments& FillColumn( int32 ColumnId, float Coefficient )
+		FArguments& FillColumn( int32 ColumnId, const TAttribute<float>& Coefficient )
 		{
-			if (ColFillCoefficients.Num() <= ColumnId)
+			while (ColFillCoefficients.Num() <= ColumnId)
 			{
-				ColFillCoefficients.AddZeroed( ColumnId - ColFillCoefficients.Num() + 1 );
+				ColFillCoefficients.Emplace( 0 );
 			}
 			ColFillCoefficients[ColumnId] = Coefficient;
 			return Me();
 		}
 
 		/** Specify a row to stretch instead of sizing to content. */
-		FArguments& FillRow( int32 RowId, float Coefficient )
+		FArguments& FillRow( int32 RowId, const TAttribute<float>& Coefficient )
 		{
-			if (RowFillCoefficients.Num() <= RowId)
+			while (RowFillCoefficients.Num() <= RowId)
 			{
-				RowFillCoefficients.AddZeroed( RowId - RowFillCoefficients.Num() + 1 );
+				RowFillCoefficients.Emplace( 0 );
 			}
 			RowFillCoefficients[RowId] = Coefficient;
 			return Me();
 		}
 
 		/** Coefficients for columns that need to stretch instead of size to content */
-		TArray<float> ColFillCoefficients;
+		TArray<TAttribute<float>> ColFillCoefficients;
 		
 		/** Coefficients for rows that need to stretch instead of size to content */
-		TArray<float> RowFillCoefficients;
+		TArray<TAttribute<float>> RowFillCoefficients;
 		
 	SLATE_END_ARGS()
 
@@ -194,10 +207,10 @@ public:
 	FVector2D GetDesiredSize( const FIntPoint& StartCell, int32 Width, int32 Height ) const;
 
 	/** Specify a column to stretch instead of sizing to content. */
-	void SetColumnFill( int32 ColumnId, float Coefficient );
+	void SetColumnFill( int32 ColumnId, const TAttribute<float>& Coefficient );
 
 	/** Specify a row to stretch instead of sizing to content. */
-	void SetRowFill( int32 RowId, float Coefficient );
+	void SetRowFill( int32 RowId, const TAttribute<float>& Coefficient );
 
 public:
 
@@ -264,8 +277,8 @@ private:
 	FVector2D TotalDesiredSizes;
 
 	/** Fill coefficients for the columns */
-	TArray<float> ColFillCoefficients;
+	TArray<TAttribute<float>> ColFillCoefficients;
 
 	/** Fill coefficients for the rows */
-	TArray<float> RowFillCoefficients;
+	TArray<TAttribute<float>> RowFillCoefficients;
 };

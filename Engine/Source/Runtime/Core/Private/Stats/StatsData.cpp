@@ -22,12 +22,19 @@ DECLARE_MEMORY_STAT( TEXT("Stat Messages"), STAT_StatMessagesMemory, STATGROUP_S
 const FName FStatConstants::NAME_ThreadRoot = "ThreadRoot";
 const char* FStatConstants::ThreadGroupName = STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupName();
 const FName FStatConstants::NAME_ThreadGroup = FStatConstants::ThreadGroupName;
+const FName FStatConstants::NAME_SecondsPerCycle = TEXT( "STAT_SecondsPerCycle" );
 const FName FStatConstants::NAME_NoCategory = FName(TEXT("STATCAT_None"));
 
 const FString FStatConstants::StatsFileExtension = TEXT( ".ue4stats" );
 const FString FStatConstants::StatsFileRawExtension = TEXT( ".ue4statsraw" );
 
 const FString FStatConstants::ThreadNameMarker = TEXT( "Thread_" );
+
+const FName FStatConstants::RAW_EventWaitWithId = FStatNameAndInfo( GET_STATFNAME( STAT_EventWaitWithId ), true ).GetRawName();
+const FName FStatConstants::RAW_EventTriggerWithId = FStatNameAndInfo( GET_STATFNAME( STAT_EventTriggerWithId ), true ).GetRawName();
+const FName FStatConstants::RAW_NamedMarker = FStatNameAndInfo( GET_STATFNAME( STAT_NamedMarker ), true ).GetRawName(); 
+
+const FStatNameAndInfo FStatConstants::AdvanceFrame = FStatNameAndInfo( NAME_AdvanceFrame, "", "", TEXT( "" ), EStatDataType::ST_int64, true, false );
 
 /*-----------------------------------------------------------------------------
 	FRawStatStackNode
@@ -97,33 +104,66 @@ void FRawStatStackNode::Divide(uint32 Div)
 	}
 }
 
-
-void FRawStatStackNode::Cull(int64 MinCycles, int32 NoCullLevels)
+void FRawStatStackNode::CullByCycles( int64 MinCycles )
 {
-	FRawStatStackNode* Culled = NULL;
-	for (TMap<FName, FRawStatStackNode*>::TIterator It(Children); It; ++It)
+	FRawStatStackNode* Culled = nullptr;
+	const int32 NumChildren = Children.Num();
+	for (TMap<FName, FRawStatStackNode*>::TIterator It( Children ); It; ++It)
 	{
 		FRawStatStackNode* Child = It.Value();
-		if (NoCullLevels < 1 && FromPackedCallCountDuration_Duration(Child->Meta.GetValue_int64()) < MinCycles)
+		const int64 ChildCycles = Child->Meta.GetValue_Duration();
+		if (FromPackedCallCountDuration_Duration( Child->Meta.GetValue_int64() ) < MinCycles)
 		{
-			if (!Culled)
+			// Don't accumulate if we have just one child.
+			if (NumChildren > 1)
 			{
-				Culled = new FRawStatStackNode(FStatMessage(NAME_OtherChildren, EStatDataType::ST_int64, NULL, NULL, NULL, true, true));
-				Culled->Meta.NameAndInfo.SetFlag(EStatMetaFlags::IsPackedCCAndDuration, true);
-				Culled->Meta.Clear();
+				if (!Culled)
+				{
+					Culled = new FRawStatStackNode( FStatMessage( NAME_OtherChildren, EStatDataType::ST_int64, nullptr, nullptr, nullptr, true, true ) );
+					Culled->Meta.NameAndInfo.SetFlag( EStatMetaFlags::IsPackedCCAndDuration, true );
+					Culled->Meta.Clear();
+				}
+				FStatsUtils::AccumulateStat( Culled->Meta, Child->Meta, EStatOperation::Add, true );
+				delete Child;
+				It.RemoveCurrent();
 			}
-			FStatsUtils::AccumulateStat(Culled->Meta, Child->Meta, EStatOperation::Add, true);
+			else
+			{
+				// Remove children.
+				for (TMap<FName, FRawStatStackNode*>::TIterator InnerIt( Child->Children ); InnerIt; ++InnerIt)
+				{
+					delete InnerIt.Value();
+					InnerIt.RemoveCurrent();
+				}
+			}
+		}
+		else if (NumChildren > 0)
+		{
+			Child->CullByCycles( MinCycles );
+		}
+	}
+	if (Culled)
+	{
+		Children.Add( NAME_OtherChildren, Culled );
+	}
+}
+
+void FRawStatStackNode::CullByDepth( int32 NoCullLevels )
+{
+	FRawStatStackNode* Culled = nullptr;
+	const int32 NumChildren = Children.Num();
+	for (TMap<FName, FRawStatStackNode*>::TIterator It( Children ); It; ++It)
+	{
+		FRawStatStackNode* Child = It.Value();
+		if (NoCullLevels < 1)
+		{
 			delete Child;
 			It.RemoveCurrent();
 		}
 		else
 		{
-			Child->Cull(MinCycles, NoCullLevels - 1);
+			Child->CullByDepth( NoCullLevels - 1 );
 		}
-	}
-	if (Culled)
-	{
-		Children.Add(NAME_OtherChildren, Culled);
 	}
 }
 
@@ -293,7 +333,7 @@ void FRawStatStackNode::DebugPrint(TCHAR const* Filter, int32 InMaxDepth, int32 
 			UE_LOG(LogStats, Log, TEXT("%s%s"), FCString::Spc(Depth*2), *TmpDebugStr);
 		}
 
-		static int64 MinPrint = int64(.004f / FPlatformTime::ToMilliseconds(1.0f) + 0.5f);
+		static int64 MinPrint = int64( .004f / FPlatformTime::ToMilliseconds( 1 ) + 0.5f );
 		if (Children.Num())
 		{
 			TArray<FRawStatStackNode*> ChildArray;
@@ -309,7 +349,7 @@ void FRawStatStackNode::DebugPrint(TCHAR const* Filter, int32 InMaxDepth, int32 
 				{
 					if (ChildArray[Index]->Meta.NameAndInfo.GetRawName().ToString().Contains(Filter))
 					{
-						ChildArray[Index]->DebugPrint(NULL, InMaxDepth, 0);
+						ChildArray[Index]->DebugPrint(nullptr, InMaxDepth, 0);
 					}
 					else
 					{
@@ -433,18 +473,75 @@ void FComplexRawStatStackNode::Divide(uint32 Div)
 	}
 }
 
+void FComplexRawStatStackNode::CullByCycles( int64 MinCycles )
+{
+	FComplexRawStatStackNode* Culled = nullptr;
+	const int32 NumChildren = Children.Num();
+	for (auto It = Children.CreateIterator(); It; ++It)
+	{
+		FComplexRawStatStackNode* Child = It.Value();
+		const int64 ChildCycles = Child->ComplexStat.GetValue_Duration( EComplexStatField::IncAve );
+		if (ChildCycles < MinCycles)
+		{
+			// Don't accumulate if we have just one child.
+			if (NumChildren > 1)
+			{	
+				// #YRX_STATS: 2015-06-09 Accumulate over complex stats
+				delete Child;
+				It.RemoveCurrent();
+			}
+			else
+			{
+				// Remove children.
+				for (auto ChildIt = Child->Children.CreateIterator(); ChildIt; ++ChildIt)
+				{
+					delete ChildIt.Value();
+					ChildIt.RemoveCurrent();
+				}
+			}
+		}
+		else if (NumChildren > 0)
+		{
+			Child->CullByCycles( MinCycles );
+		}
+	}
+	if (Culled)
+	{
+		Children.Add( NAME_OtherChildren, Culled );
+	}
+}
+
+void FComplexRawStatStackNode::CullByDepth( int32 NoCullLevels )
+{
+	FComplexRawStatStackNode* Culled = nullptr;
+	const int32 NumChildren = Children.Num();
+	for (auto It = Children.CreateIterator(); It; ++It)
+	{
+		FComplexRawStatStackNode* Child = It.Value();
+		if (NoCullLevels < 1)
+		{
+			delete Child;
+			It.RemoveCurrent();
+		}
+		else
+		{
+			Child->CullByDepth( NoCullLevels - 1 );
+		}
+	}
+}
+
 void FComplexRawStatStackNode::CopyExclusivesFromSelf()
 {
-	if( Children.Num() )
+	if (Children.Num())
 	{
 		const FComplexRawStatStackNode* SelfStat = Children.FindRef( NAME_Self );
-		if( SelfStat )
+		if (SelfStat)
 		{
-			ComplexStat.GetValue_int64(EComplexStatField::ExcAve) = SelfStat->ComplexStat.GetValue_int64(EComplexStatField::IncAve);
-			ComplexStat.GetValue_int64(EComplexStatField::ExcMax) = SelfStat->ComplexStat.GetValue_int64(EComplexStatField::IncMax);
+			ComplexStat.GetValue_int64( EComplexStatField::ExcAve ) = SelfStat->ComplexStat.GetValue_int64( EComplexStatField::IncAve );
+			ComplexStat.GetValue_int64( EComplexStatField::ExcMax ) = SelfStat->ComplexStat.GetValue_int64( EComplexStatField::IncMax );
 		}
 
-		for( auto It = Children.CreateIterator(); It; ++It )
+		for (auto It = Children.CreateIterator(); It; ++It)
 		{
 			FComplexRawStatStackNode* Child = It.Value();
 			Child->CopyExclusivesFromSelf();
@@ -470,23 +567,22 @@ void FStatPacketArray::Empty()
 
 FStatsThreadState::FStatsThreadState(int32 InHistoryFrames)
 	: HistoryFrames(InHistoryFrames)
-	, MaxFrameSeen(0)
-	, MinFrameSeen(-1)
 	, LastFullFrameMetaAndNonFrame(-1)
 	, LastFullFrameProcessed(-1)
 	, TotalNumStatMessages(0)
 	, MaxNumStatMessages(0)
-	, bWasLoaded(false)
 	, bFindMemoryExtensiveStats(false)
 	, CurrentGameFrame(1)
 	, CurrentRenderFrame(1)
+	, MaxFrameSeen(0)
+	, MinFrameSeen(-1)
+	, bWasLoaded(false)
 {
 }
 
-// FStatsFileState:: ????
 //FStatsThreadState::FStatsThreadState(FString const& Filename)
-// void FStatsThreadState::AddMessages(TArray<FStatMessage>& InMessages)
-// @see moved to StatsFile.cpp
+//void FStatsThreadState::AddMessages(TArray<FStatMessage>& InMessages)
+//@see moved to StatsFile.cpp
 
 FStatsThreadState& FStatsThreadState::GetLocalState()
 {
@@ -608,10 +704,25 @@ void FStatsThreadState::ScanForAdvance(FStatPacketArray& NewData)
 	uint32 Count = 0;
 	for (int32 Index = 0; Index < NewData.Packets.Num(); Index++)
 	{
-
-		const int64 FrameNum = NewData.Packets[Index]->ThreadType == EThreadType::Renderer ? CurrentRenderFrame : CurrentGameFrame;
-		NewData.Packets[Index]->AssignFrame( FrameNum );
-		
+		const EThreadType::Type ThreadType = NewData.Packets[Index]->ThreadType;
+		FStatPacket* Packet = NewData.Packets[Index];
+		if ( ThreadType == EThreadType::Renderer)
+		{
+			Packet->AssignFrame( CurrentRenderFrame );
+		}
+		else if (ThreadType == EThreadType::Game)
+		{
+			Packet->AssignFrame( CurrentGameFrame );
+		}
+		else if (ThreadType == EThreadType::Other)
+		{
+			// @see FThreadStats::DetectAndUpdateCurrentGameFrame 
+		}
+		else
+		{
+			checkf( 0, TEXT( "Unknown thread type" ) );
+		}
+				
 		const FStatMessagesArray& Data = NewData.Packets[Index]->StatMessages;
 		ScanForAdvance(Data);
 		Count += Data.Num();
@@ -656,15 +767,15 @@ void FStatsThreadState::ProcessNonFrameStats(FStatMessagesArray& Data, TSet<FNam
 				Op != EStatOperation::ChildrenEnd &&
 				Op != EStatOperation::Leaf &&
 				Op != EStatOperation::AdvanceFrameEventGameThread &&
-				Op != EStatOperation::AdvanceFrameEventRenderThread /*&&
-				Op != EStatOperation::Memory*/
+				Op != EStatOperation::AdvanceFrameEventRenderThread
 				))
 			{
 				UE_LOG(LogStats, Fatal, TEXT( "Stat %s was not cleared every frame, but was used with a scope cycle counter." ), *Item.NameAndInfo.GetRawName().ToString() );
 			}
 			else
 			{
-				if( Op != EStatOperation::Memory )
+				// Ignore any memory or special messages, they shouldn't be treated as regular stats messages.
+				if( Op != EStatOperation::Memory && Op != EStatOperation::SpecialMessageMarker )
 				{
 					FStatMessage* Result = NotClearedEveryFrame.Find(Item.NameAndInfo.GetRawName());
 					if (!Result)
@@ -699,14 +810,22 @@ void FStatsThreadState::AddToHistoryAndEmpty(FStatPacketArray& NewData)
 		ShortNameToLongName.Empty();
 		Groups.Empty();
 		History.Empty();
+		EventsHistory.Empty();
 		return;
 	}
 
 	for (int32 Index = 0; Index < NewData.Packets.Num(); Index++)
 	{
-		int64 FrameNum = NewData.Packets[Index]->Frame;
+		FStatPacket* Packet = NewData.Packets[Index];
+		int64 FrameNum = Packet->Frame;
 		FStatPacketArray& Frame = History.FindOrAdd(FrameNum);
-		Frame.Packets.Add(NewData.Packets[Index]);
+		Frame.Packets.Add(Packet);
+		if (FrameNum <= LastFullFrameMetaAndNonFrame && LastFullFrameMetaAndNonFrame != -1)
+		{
+			// This packet was from an older frame. We process the non-frame stats immediately here
+			// since the algorithm below assumes only new frames should be processed.
+			ProcessNonFrameStats(Packet->StatMessages, nullptr);
+		}
 	}
 
 	NewData.RemovePtrsButNoData(); // don't delete the elements
@@ -732,7 +851,7 @@ void FStatsThreadState::AddToHistoryAndEmpty(FStatPacketArray& NewData)
 		{
 			FStatPacketArray& Frame = History.FindChecked(FrameNum);
 
-			FStatPacket const* PacketToCopyForNonFrame = NULL;
+			FStatPacket const* PacketToCopyForNonFrame = nullptr;
 
 			if( bFindMemoryExtensiveStats )
 			{
@@ -755,7 +874,7 @@ void FStatsThreadState::AddToHistoryAndEmpty(FStatPacketArray& NewData)
 
 				check(PacketToCopyForNonFrame);
 				FThreadStats* ThreadStats = FThreadStats::GetThreadStats();
-				FStatMessagesArray* NonFrameMessages = NULL;
+				FStatMessagesArray* NonFrameMessages = nullptr;
 
 				for (TMap<FName, FStatMessage>::TConstIterator It(NotClearedEveryFrame); It; ++It)
 				{
@@ -820,10 +939,17 @@ void FStatsThreadState::AddToHistoryAndEmpty(FStatPacketArray& NewData)
 	for (auto It = History.CreateIterator(); It; ++It)
 	{
 		int64 ThisFrame = It.Key();
-		FStatPacketArray& StatPacketArray = It.Value();
 		if (ThisFrame <= LastFullFrameMetaAndNonFrame && ThisFrame < MinFrameToKeep)
 		{
 			check(ThisFrame <= LastFullFrameMetaAndNonFrame);
+			It.RemoveCurrent();
+		}
+	}
+	for (auto It = EventsHistory.CreateIterator(); It; ++It)
+	{
+		int64 ThisFrame = It.Value().Frame;
+		if (ThisFrame <= LastFullFrameProcessed && ThisFrame < MinFrameToKeep)
+		{
 			It.RemoveCurrent();
 		}
 	}
@@ -909,14 +1035,8 @@ void FStatsThreadState::ResetRegularStats()
 
 void FStatsThreadState::UpdateStatMessagesMemoryUsage()
 {
-	// .UpdateStatMessagesMemoryUsage
 	const int32 CurrentNumStatMessages = NumStatMessages.GetValue();
-	//MaxNumStatMessages = FMath::Max(MaxNumStatMessages,CurrentNumStatMessages);
-
-	if( CurrentNumStatMessages > MaxNumStatMessages )
-	{
-		MaxNumStatMessages = CurrentNumStatMessages;
-	}
+	MaxNumStatMessages = FMath::Max(MaxNumStatMessages,CurrentNumStatMessages);
 
 	TotalNumStatMessages += CurrentNumStatMessages;
 	SET_MEMORY_STAT( STAT_StatMessagesMemory, CurrentNumStatMessages*sizeof(FStatMessage) );
@@ -940,14 +1060,14 @@ void FStatsThreadState::UpdateStatMessagesMemoryUsage()
 		ToGame->GroupDescriptions.Add( Total );
 
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
-			(
+		(
 			FSimpleDelegateGraphTask::FDelegate::CreateRaw(&FHUDGroupGameThreadRenderer::Get(), &FHUDGroupGameThreadRenderer::NewData, ToGame),
 			TStatId(), nullptr, ENamedThreads::GameThread
-			);
+		);
 	}
 }
 
-void FStatsThreadState::GetInclusiveAggregateStackStats(int64 TargetFrame, TArray<FStatMessage>& OutStats, IItemFiler* Filter, bool bAddNonStackStats /*= true*/) const
+void FStatsThreadState::GetInclusiveAggregateStackStats(int64 TargetFrame, TArray<FStatMessage>& OutStats, IItemFiler* Filter, bool bAddNonStackStats, TMap<FName, TArray<FStatMessage>>* OptionalOutThreadBreakdownMap) const
 {
 	struct FTimeInfo
 	{
@@ -964,10 +1084,42 @@ void FStatsThreadState::GetInclusiveAggregateStackStats(int64 TargetFrame, TArra
 	};
 	TMap<FName, FTimeInfo> Timing;
 	TMap<FName, FStatMessage> ThisFrameMetaData;
+	TMap<FName, TMap<FName, FStatMessage>> ThisFrameMetaDataPerThread;
+	TMap<FName, FStatMessage> ThreadStarts;
+	TMap<FName, FStatMessage> ThreadEnds;
 	TArray<FStatMessage> const& Data = GetCondensedHistory(TargetFrame);
+	TMap<FName, FStatMessage>* ThisFrameMetaDataPerThreadPtr = nullptr;
+	int32 Depth = 0;
 	for (int32 Index = 0; Index < Data.Num(); Index++)
 	{
 		FStatMessage const& Item = Data[Index];
+
+		//Need to get thread root first regardless of filter
+		if(OptionalOutThreadBreakdownMap)
+		{
+			EStatOperation::Type Op = Item.NameAndInfo.GetField<EStatOperation>();
+			if (Op == EStatOperation::ChildrenStart)
+			{
+				if(Depth++ == 1)
+				{
+					FName LongName = Item.NameAndInfo.GetRawName();
+					check(ThisFrameMetaDataPerThreadPtr == nullptr);
+					ThreadStarts.Add(LongName, Item);
+					ThisFrameMetaDataPerThreadPtr = &ThisFrameMetaDataPerThread.FindOrAdd(LongName);
+				}
+			}
+			else if (Op == EStatOperation::ChildrenEnd)
+			{
+				if(--Depth == 1)
+				{
+					FName LongName = Item.NameAndInfo.GetRawName();
+					ThreadEnds.Add(LongName, Item);
+					check(ThisFrameMetaDataPerThreadPtr);
+					ThisFrameMetaDataPerThreadPtr = nullptr;
+				}
+			}
+		}
+
 		if (!Filter || Filter->Keep(Item))
 		{
 			FName LongName = Item.NameAndInfo.GetRawName();
@@ -984,7 +1136,21 @@ void FStatsThreadState::GetInclusiveAggregateStackStats(int64 TargetFrame, TArra
 					Result->NameAndInfo.SetFlag(EStatMetaFlags::IsPackedCCAndDuration, true);
 					Result->Clear();
 				}
+
+				if(Depth && ThisFrameMetaDataPerThreadPtr)
+				{
+					FStatMessage* ThreadResult = ThisFrameMetaDataPerThreadPtr->Find(LongName);
+					if (!ThreadResult)
+					{
+						ThreadResult = &ThisFrameMetaDataPerThreadPtr->Add(LongName, Item);
+						ThreadResult->NameAndInfo.SetField<EStatOperation>(EStatOperation::Set);
+						ThreadResult->NameAndInfo.SetFlag(EStatMetaFlags::IsPackedCCAndDuration, true);
+						ThreadResult->Clear();
+					}
+				}
+
 				FTimeInfo& ItemTime = Timing.FindOrAdd(LongName);
+
 				if (Op == EStatOperation::ChildrenStart)
 				{
 					ItemTime.StartCalls++;
@@ -1000,6 +1166,11 @@ void FStatsThreadState::GetInclusiveAggregateStackStats(int64 TargetFrame, TArra
 					if (!ItemTime.Recursion) // doing aggregates here, so ignore misleading recursion which would be counted twice
 					{
 						FStatsUtils::AccumulateStat(*Result, Item, EStatOperation::Add);
+						if (Depth && ThisFrameMetaDataPerThreadPtr)
+						{
+							FStatMessage& ThreadResult = ThisFrameMetaDataPerThreadPtr->FindChecked(LongName);
+							FStatsUtils::AccumulateStat(ThreadResult, Item, EStatOperation::Add);
+						}
 					}
 
 				}
@@ -1014,6 +1185,24 @@ void FStatsThreadState::GetInclusiveAggregateStackStats(int64 TargetFrame, TArra
 	for (TMap<FName, FStatMessage>::TConstIterator It(ThisFrameMetaData); It; ++It)
 	{
 		OutStats.Add(It.Value());
+	}
+	
+	if(OptionalOutThreadBreakdownMap)
+	{
+		for (TMap<FName, TMap<FName, FStatMessage>> ::TConstIterator ItThread(ThisFrameMetaDataPerThread); ItThread; ++ItThread)
+		{
+			const TMap<FName, FStatMessage>& ItemNameToMeta = ItThread.Value();
+			const FName ThreadName = ItThread.Key();
+
+			if(ItemNameToMeta.Num())
+			{
+				TArray<FStatMessage>& MetaForThread = OptionalOutThreadBreakdownMap->FindOrAdd(ThreadName);
+				for (TMap<FName, FStatMessage>::TConstIterator It(ItemNameToMeta); It; ++It)
+				{
+					MetaForThread.Add(It.Value());
+				}
+			}
+		}
 	}
 }
 
@@ -1123,10 +1312,9 @@ void FStatsThreadState::GetRawStackStats(int64 TargetFrame, FRawStatStackNode& R
 				check(Item.NameAndInfo.GetFlag(EStatMetaFlags::DummyAlwaysOne));  // we should never be sending short names to the stats anymore
 
 				EStatOperation::Type Op = Item.NameAndInfo.GetField<EStatOperation>();
-
-				FName LongName = Item.NameAndInfo.GetRawName();
+				const FName LongName = Item.NameAndInfo.GetRawName();
 				if (Op == EStatOperation::CycleScopeStart || Op == EStatOperation::CycleScopeEnd)
-				{
+				{				
 					check(Item.NameAndInfo.GetFlag(EStatMetaFlags::IsCycle));
 					if (Op == EStatOperation::CycleScopeStart)
 					{
@@ -1141,7 +1329,6 @@ void FStatsThreadState::GetRawStackStats(int64 TargetFrame, FRawStatStackNode& R
 						Stack.Add(Result);
 						StartStack.Add(&Item);
 						Current = Result;
-
 					}
 					if (Op == EStatOperation::CycleScopeEnd)
 					{
@@ -1150,6 +1337,74 @@ void FStatsThreadState::GetRawStackStats(int64 TargetFrame, FRawStatStackNode& R
 						check(Current->Meta.NameAndInfo.GetFlag(EStatMetaFlags::IsPackedCCAndDuration));
 						verify(Current == Stack.Pop());
 						Current = Stack.Last();
+					}
+				}
+				// We are using here EStatOperation::SpecialMessageMarker to indicate custom stat messages
+				// At this moment only these messages are supported:
+				//	EventWaitWithId
+				//	EventTriggerWithId
+				//	StatMarker
+				else if( Op == EStatOperation::SpecialMessageMarker )
+				{
+					//const FName EncName = Item.NameAndInfo.GetEncodedName();
+					const FName RawName = Item.NameAndInfo.GetRawName();
+
+					const uint64 PacketEventIdAndCycles = Item.GetValue_Ptr();
+					const uint32 EventId = uint32(PacketEventIdAndCycles >> 32);
+					const uint32 EventCycles = uint32(PacketEventIdAndCycles & MAX_uint32);
+
+					if (RawName == FStatConstants::RAW_EventWaitWithId || RawName==FStatConstants::RAW_EventTriggerWithId)
+					{
+						if (FStatConstants::RAW_EventWaitWithId == RawName)
+						{
+							TArray<FStatNameAndInfo> EventWaitStack;
+							for (const auto& It : Stack)
+							{
+								EventWaitStack.Add( It->Meta.NameAndInfo );
+							}
+
+#if	UE_BUILD_DEBUG
+							// Debug check, detect duplicates.
+							FEventData* EventPtr = EventsHistory.Find( EventId );
+							if (EventPtr && EventPtr->WaitStackStats.Num() > 0)
+							{
+								int32 k = 0; k++;
+							}
+#endif // UE_BUILD_DEBUG
+
+							FEventData& EventStats = EventsHistory.FindOrAdd( EventId );
+							EventStats.WaitStackStats = EventWaitStack;
+							EventStats.Frame = EventStats.HasValidStacks() ? TargetFrame : 0; // Only to maintain history.
+						}
+
+						if (FStatConstants::RAW_EventTriggerWithId == RawName)
+						{
+							TArray<FStatNameAndInfo> EventTriggerStack;
+							for (const auto& It : Stack)
+							{
+								EventTriggerStack.Add( It->Meta.NameAndInfo );
+							}
+
+#if	UE_BUILD_DEBUG
+							// Debug check, detect duplicates.
+							FEventData* EventPtr = EventsHistory.Find( EventId );
+							if (EventPtr && EventPtr->TriggerStackStats.Num() > 0)
+							{
+								int32 k = 0; k++;
+							}
+#endif // UE_BUILD_DEBUG
+
+							FEventData& EventStats = EventsHistory.FindOrAdd( EventId );
+
+							EventStats.TriggerStackStats = EventTriggerStack;
+							EventStats.Duration = EventCycles;
+							EventStats.DurationMS = FPlatformTime::ToMilliseconds( EventCycles );
+							EventStats.Frame = EventStats.HasValidStacks() ? TargetFrame : 0; // Only to maintain history.
+						}
+					}
+					else if (RawName == FStatConstants::RAW_NamedMarker)
+					{
+
 					}
 				}
 				else if( Op == EStatOperation::Memory )
@@ -1469,11 +1724,11 @@ FString FStatsUtils::DebugPrint(FStatMessage const& Item)
 	case EStatDataType::ST_int64:
 		if (Item.NameAndInfo.GetFlag(EStatMetaFlags::IsPackedCCAndDuration))
 		{
-			Result = FString::Printf(TEXT("%.2fms (%4d)"), FPlatformTime::ToMilliseconds(FromPackedCallCountDuration_Duration(Item.GetValue_int64())), FromPackedCallCountDuration_CallCount(Item.GetValue_int64()));
+			Result = FString::Printf(TEXT("%.3fms (%4d)"), FPlatformTime::ToMilliseconds(FromPackedCallCountDuration_Duration(Item.GetValue_int64())), FromPackedCallCountDuration_CallCount(Item.GetValue_int64()));
 		}
 		else if (Item.NameAndInfo.GetFlag(EStatMetaFlags::IsCycle))
 		{
-			Result = FString::Printf(TEXT("%.2fms"), FPlatformTime::ToMilliseconds(Item.GetValue_int64()));
+			Result = FString::Printf(TEXT("%.3fms"), FPlatformTime::ToMilliseconds(Item.GetValue_int64()));
 		}
 		else
 		{

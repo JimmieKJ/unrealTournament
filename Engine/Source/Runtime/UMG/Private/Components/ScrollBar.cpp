@@ -42,6 +42,8 @@ TSharedRef<SWidget> UScrollBar::RebuildWidget()
 
 void UScrollBar::SynchronizeProperties()
 {
+	Super::SynchronizeProperties();
+
 	//MyScrollBar->SetScrollOffset(DesiredScrollOffset);
 }
 

@@ -308,7 +308,7 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 const FSlateBrush* SAutomationTestItem::GetSmokeTestImage() const
 {
 	const FSlateBrush* ImageToUse = nullptr;
-	if ( TestStatus->GetTestType() & EAutomationTestType::ATT_SmokeTest )
+	if ( TestStatus->GetTestFlags() & EAutomationTestFlags::SmokeFilter )
 	{
 		if ( TestStatus->IsParent() )
 		{

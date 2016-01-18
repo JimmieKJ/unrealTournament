@@ -203,15 +203,12 @@ void Sc::ParticleSystemCore::onOriginShift(const PxVec3& shift)
 
 //----------------------------------------------------------------------------//
 
-PxParticleSystem* NpGetNxParticleSystem(Sc::ParticleSystemCore&);
-PxParticleFluid* NpGetNxParticleFluid(Sc::ParticleSystemCore&);
-
 PxParticleBase* Sc::ParticleSystemCore::getPxParticleBase()
 {
 	if (getActorCoreType() == PxActorType::ePARTICLE_SYSTEM)
-		return NpGetNxParticleSystem(*this);
+		return gOffsetTable.convertScParticleSystem2Px(this);
 	else
-		return NpGetNxParticleFluid(*this);
+		return gOffsetTable.convertScParticleSystem2PxParticleFluid(this);
 }
 
 //----------------------------------------------------------------------------//

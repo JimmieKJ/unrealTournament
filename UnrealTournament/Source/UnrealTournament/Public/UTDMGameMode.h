@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTDMGameMode.generated.h"
@@ -18,8 +18,10 @@ class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 	UPROPERTY()
 	uint32 bPlayedOneKillRemains:1;
 
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+
 protected:
-	virtual void UpdateSkillRating();
+	virtual void UpdateSkillRating() override;
 };
 
 

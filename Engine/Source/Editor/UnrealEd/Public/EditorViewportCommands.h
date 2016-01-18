@@ -14,7 +14,7 @@ public:
 		(
 			TEXT("EditorViewport"), // Context name for fast lookup
 			NSLOCTEXT("Contexts", "EditorViewportCommands", "Common Viewport Commands"), // Localized context name for displaying
-			TEXT("LevelEditor"),
+			TEXT("MainFrame"),
 			FEditorStyle::GetStyleSetName() // Icon Style Set
 		)
 	{
@@ -65,11 +65,20 @@ public:
 	/** Changes the viewport to shader complexity mode */
 	TSharedPtr< FUICommandInfo > ShaderComplexityMode;
 
+	/** Changes the viewport to quad complexity mode */
+	TSharedPtr< FUICommandInfo > QuadComplexityMode;
+
 	/** Changes the viewport to stationary light overlap mode */
 	TSharedPtr< FUICommandInfo > StationaryLightOverlapMode;
 
 	/** Changes the viewport to lightmap density mode */
 	TSharedPtr< FUICommandInfo > LightmapDensityMode;
+
+	/** Changes the viewport to vertex densities mode */
+	TSharedPtr< FUICommandInfo > VertexDensitiesMode;
+
+	/** Changes the viewport to LOD index coloration mode */
+	TSharedPtr< FUICommandInfo > LODColorationMode;
 
 	/** Changes the viewport to visualize the buffer content */
 	TSharedPtr< FUICommandInfo > VisualizeBufferMode;

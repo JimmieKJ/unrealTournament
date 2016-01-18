@@ -5,7 +5,7 @@
 #include "Materials/MaterialExpression.h"
 #include "MaterialExpressionCustomOutput.generated.h"
 
-UCLASS(collapsecategories, hidecategories=Object, MinimalAPI)
+UCLASS(abstract,collapsecategories, hidecategories = Object, MinimalAPI)
 class UMaterialExpressionCustomOutput : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()

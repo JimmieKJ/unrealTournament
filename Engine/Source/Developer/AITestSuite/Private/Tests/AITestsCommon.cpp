@@ -53,7 +53,7 @@ bool FAITestCommand_SetUpTest::Update()
 
 bool FAITestCommand_PerformTest::Update()
 {
-	return AITest != nullptr && AITest->Update();
+	return AITest == nullptr || AITest->Update();
 }
 
 bool FAITestCommand_TearDownTest::Update()
@@ -184,23 +184,4 @@ void FAITest_SimpleBT::VerifyResults()
 
 		UE_LOG(LogBehaviorTreeTest, Error, TEXT("Test scenario failed to produce expected results!\nExecution log: %s\nExpected values: %s"), *DescriptionResult, *DescriptionExpected);
 	}
-}
-
-//----------------------------------------------------------------------//
-// FAITest_SimpleActionsTest
-//----------------------------------------------------------------------//
-FAITest_SimpleActionsTest::FAITest_SimpleActionsTest()
-{
-	ActionsComponent = NewAutoDestroyObject<UPawnActionsComponent>();
-}
-
-FAITest_SimpleActionsTest::~FAITest_SimpleActionsTest()
-{
-	Test(TEXT("Not all expected values has been logged"), Logger.ExpectedValues.Num() == 0 || Logger.ExpectedValues.Num() == Logger.LoggedValues.Num());
-}
-
-void FAITest_SimpleActionsTest::SetUp()
-{
-	UWorld* World = FAITestHelpers::GetWorld();
-	ActionsComponent->RegisterComponentWithWorld(World);	
 }

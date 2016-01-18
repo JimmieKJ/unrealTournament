@@ -88,7 +88,7 @@ FString FArchiveTraceRoute::PrintRootPath( const TMap<UObject*,UProperty*>& Rout
 			ObjectReachability += TEXT(" (root)");
 		}
 		
-		if( Object->HasAnyFlags(RF_Native) )
+		if( Object->IsNative() )
 		{
 			ObjectReachability += TEXT(" (native)");
 		}
@@ -127,7 +127,7 @@ FArchiveTraceRoute::FArchiveTraceRoute( UObject* TargetObject, TMap<UObject*,FTr
 :	CurrentReferencer(NULL)
 ,	Depth(0)
 ,	bIncludeTransients(bShouldIncludeTransients)
-,	RequiredFlags(KeepFlags|RF_RootSet)
+,	RequiredFlags(KeepFlags)
 {
 	// this object is part of the root set; don't have to do anything
 	if ( TargetObject == NULL || TargetObject->HasAnyFlags(KeepFlags) )
@@ -140,15 +140,15 @@ FArchiveTraceRoute::FArchiveTraceRoute( UObject* TargetObject, TMap<UObject*,FTr
 	TSparseArray<UObject*> RootObjects;
 
 	// allocate enough memory for all objects
-	ObjectGraph.Empty(GetUObjectArray().GetObjectArrayNum());
-	RootObjects.Empty(GetUObjectArray().GetObjectArrayNum() / 2);
+	ObjectGraph.Empty(GUObjectArray.GetObjectArrayNum());
+	RootObjects.Empty(GUObjectArray.GetObjectArrayNum() / 2);
 
 	// search for objects that have the right flags and add them to the list of objects that we're going to start with
 	// all other objects need to be tagged so that we can tell whether they've been serialized or not.
 	for( FObjectIterator It; It; ++It )
 	{
 		UObject* CurrentObject = *It;
-		if ( CurrentObject->HasAnyFlags(RequiredFlags) )
+		if ( CurrentObject->HasAnyFlags(RequiredFlags) || CurrentObject->IsRooted() )
 		{
 			// make sure it isn't tagged
 			CurrentObject->UnMark(OBJECTMARK_TagExp);
@@ -415,7 +415,7 @@ void FArchiveTraceRoute::CalculateReferenceDepthsForNode( FObjectGraphNode* Obje
 		{
 			// if the object from this node has one of the required flags, don't process this object's referencers
 			// as it's considered a "root" for the route
-			if ( !CurrentNode->NodeObject->HasAnyFlags(RequiredFlags) )
+			if (!CurrentNode->NodeObject->HasAnyFlags(RequiredFlags) && !CurrentNode->NodeObject->IsRooted())
 			{
 				CalculateReferenceDepthsForNode(CurrentNode);
 			}

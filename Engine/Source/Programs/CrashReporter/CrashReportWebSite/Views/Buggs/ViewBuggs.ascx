@@ -14,14 +14,14 @@
 				new 
 				{ 
 					page = i, 
+					SortTerm = Model.SortTerm,
+					SortOrder = Model.SortOrder,
+					CrashType = Model.CrashType,
+					UserGroup = Model.UserGroup,
 					SearchQuery = Model.SearchQuery,
-					SortTerm = Model.SortTerm, 
-					SortOrder = Model.SortOrder, 
-					UserGroup = Model.UserGroup, 
-					DateFrom = Model.DateFrom, 
+					DateFrom = Model.DateFrom,
 					DateTo = Model.DateTo,
-					BuildVersion = Model.BuildVersion,
-					CrashType = Model.CrashType
+					VersionName = Model.VersionName,
 				} 
 			) )%>
 			</div>
@@ -33,7 +33,7 @@
 			<%=Html.Hidden( "SearchQuery", Model.SearchQuery )%>
 			<%=Html.HiddenFor( m => m.DateFrom )%>
 			<%=Html.HiddenFor( m => m.DateTo )%>
-			<%=Html.HiddenFor( m => m.BuildVersion )%>
+			<%=Html.HiddenFor( m => m.VersionName )%>
 		</td>
 	</tr>
 	<tr id="CrashesTableHeader">
@@ -41,12 +41,12 @@
 		<!-- if you add a new column be sure to update the switch statement in the repository SortBy function -->
 		<th style='width:  6em;'><%=Url.TableHeader( "Id", "Id", Model )%></th>
 		<th style='width: 8em;'><%=Url.TableHeader( "Build Version", "BuildVersion", Model )%></th>
-		<th style='width: 8em;'><%=Url.TableHeader( "Crashes In Time Frame (Group)", "CrashesInTimeFrameGroup", Model )%></th>
-		<th style='width: 8em;'><%=Url.TableHeader( "Crashes In Time Frame (All)", "CrashesInTimeFrameAll", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "Crashes In Timeframe (Group)", "CrashesInTimeFrameGroup", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "Crashes In Timeframe (All)", "CrashesInTimeFrameAll", Model )%></th>
 		<th style='width: 12em;'><%=Url.TableHeader( "Latest Crash", "LatestCrash", Model )%></th>
 		<th style='width: 12em;'><%=Url.TableHeader( "First Crash", "FirstCrash", Model )%></th> 
 		<th style='width: 8em;'><%=Url.TableHeader( "# of Crashes", "NumberOfCrashes", Model )%></th> 
-		<th style='width: 8em;'><%=Url.TableHeader( "Users Affected", "NumberOfUsers", Model )%></th> 
+		<th style='width: 8em;'><%=Url.TableHeader( "Users Affected in Timeframe", "NumberOfUsers", Model )%></th> 
 		<th style='width: 24em;'><%=Url.TableHeader( "Pattern", "Pattern", Model )%></th>
 		<th style='width: 8em;'><%=Url.TableHeader( "CrashType", "CrashType", Model )%></th>
 		<th style='width: 8em;'><%=Url.TableHeader( "Status", "Status", Model )%></th>
@@ -65,16 +65,16 @@
 						string BuggRowColor = "grey";
 						string BuggColorDescription = "Incoming CrashGroup";
 
-						if( string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ) && string.IsNullOrWhiteSpace( CurrentBugg.TTPID ) )
+						if( string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ) && string.IsNullOrWhiteSpace( CurrentBugg.Jira ) )
 						{
 							BuggRowColor = "#FFFF88"; // yellow
 							BuggColorDescription = "This CrashGroup has not been fixed or assigned a JIRA";
 						}
 
-						if( !string.IsNullOrWhiteSpace( CurrentBugg.TTPID ) && string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ) )
+						if (!string.IsNullOrWhiteSpace( CurrentBugg.Jira ) && string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ))
 						{
 							BuggRowColor = "#D01F3C"; // red
-							BuggColorDescription = "This CrashGroup has  been assigned a JIRA: " + CurrentBugg.TTPID + " but has not been fixed.";
+							BuggColorDescription = "This CrashGroup has  been assigned a JIRA: " + CurrentBugg.Jira + " but has not been fixed.";
 						}
 
 						if( CurrentBugg.Status == "Coder" )
@@ -149,7 +149,7 @@
 			<td><%=CurrentBugg.GetCrashTypeAsString()%></td>
 			<td><%=CurrentBugg.Status%></td>
 			<td><%=CurrentBugg.FixedChangeList%></td>
-			<td> <span><a href="https://jira.ol.epicgames.net/browse/<%=CurrentBugg.TTPID%>" target="_blank"><%=CurrentBugg.TTPID%></a></span>  </td>
+			<td> <span><a href="https://jira.ol.epicgames.net/browse/<%=CurrentBugg.Jira%>" target="_blank"><%=CurrentBugg.Jira%></a></span>  </td>
 		</tr>
 	<%				}
 				}

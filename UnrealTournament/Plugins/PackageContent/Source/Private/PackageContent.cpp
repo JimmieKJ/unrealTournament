@@ -9,6 +9,7 @@
 #include "SNotificationList.h"
 #include "EdGraphSchema_K2.h"
 #include "DesktopPlatformModule.h"
+#include "IDesktopPlatform.h"
 #include "SHyperlink.h"
 #include "UTUnrealEdEngine.h"
 #include "ITargetPlatformManagerModule.h"
@@ -520,7 +521,7 @@ public:
 					LauncherCommandLine += TEXT(" -mcpconfig=gamedev -Launcherlabel=LatestLauncherDev -applabel=Production-Latest");
 				}
 
-				if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine))
+				if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine, FString()))
 				{
 
 				}
@@ -528,7 +529,7 @@ public:
 				{
 					if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallLauncherPrompt", "Sharing content requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
 					{
-						if (!DesktopPlatform->OpenLauncher(true, LauncherCommandLine))
+						if (!DesktopPlatform->OpenLauncher(true, LauncherCommandLine, FString()))
 						{
 						}
 					}

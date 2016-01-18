@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTHUD_DM.h"
@@ -34,4 +34,9 @@ void AUTDMGameMode::UpdateSkillRating()
 			PS->UpdateIndividualSkillRating(NAME_DMSkillRating, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
+}
+
+int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->DMRank : Super::GetEloFor(PS);
 }

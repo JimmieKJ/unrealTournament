@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutomationTool", "AutomationTool.csproj", "{A35B0261-D868-475E-A098-EB14CE6DC89F}"
@@ -21,7 +21,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mac.Automation", "Mac\Mac.A
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Win.Automation", "Win\Win.Automation.csproj", "{6F6F8E5B-53CA-4C9F-A696-96AA9B8FB128}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Desktop.Automation", "Desktop\Desktop.Automation.csproj", "{A9CD1A06-764A-86CE-4C53-2F34B94F0283}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AllDesktop.Automation", "AllDesktop\AllDesktop.Automation.csproj", "{A9CD1A06-764A-86CE-4C53-2F34B94F0283}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutomationScripts.Automation", "Scripts\AutomationScripts.Automation.csproj", "{8AA00D65-0954-4A27-AC0D-FB8B1106120F}"
 EndProject

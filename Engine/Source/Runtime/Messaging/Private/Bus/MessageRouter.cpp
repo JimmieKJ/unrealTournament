@@ -72,18 +72,16 @@ void FMessageRouter::Exit()
 	TArray<IReceiveMessagesWeakPtr> Recipients;
 
 	// gather all subscribed and registered recipients
-	for (TMap<FMessageAddress, IReceiveMessagesWeakPtr>::TConstIterator It(ActiveRecipients); It; ++It)
+	for (const auto& RecipientPair : ActiveRecipients)
 	{
-		Recipients.AddUnique(It.Value());
+		Recipients.AddUnique(RecipientPair.Value);
 	}
 
-	for (TMap<FName, TArray<IMessageSubscriptionPtr> >::TIterator It(ActiveSubscriptions); It; ++It)
+	for (const auto& SubscriptionsPair : ActiveSubscriptions)
 	{
-		TArray<IMessageSubscriptionPtr>& Subscribers = It.Value();
-
-		for (int32 Index = 0; Index < Subscribers.Num(); ++Index)
+		for (const auto& Subscription : SubscriptionsPair.Value)
 		{
-			Recipients.AddUnique(Subscribers[Index]->GetSubscriber());
+			Recipients.AddUnique(Subscription->GetSubscriber());
 		}
 	}
 }
@@ -121,9 +119,9 @@ void FMessageRouter::DispatchMessage( const IMessageContextRef& Context )
 
 		if (RecipientList.Num() > 0)
 		{
-			for (int32 Index = 0; Index < RecipientList.Num(); Index++)
+			for (const auto& RecipientAddress : RecipientList)
 			{
-				IReceiveMessagesPtr Recipient = ActiveRecipients.FindRef(RecipientList[Index]).Pin();
+				IReceiveMessagesPtr Recipient = ActiveRecipients.FindRef(RecipientAddress).Pin();
 
 				if (Recipient.IsValid())
 				{
@@ -131,7 +129,7 @@ void FMessageRouter::DispatchMessage( const IMessageContextRef& Context )
 				}
 				else
 				{
-					ActiveRecipients.Remove(RecipientList[Index]);
+					ActiveRecipients.Remove(RecipientAddress);
 				}
 			}
 		}
@@ -143,9 +141,8 @@ void FMessageRouter::DispatchMessage( const IMessageContextRef& Context )
 		}
 
 		// dispatch the message
-		for (int32 RecipientIndex = 0; RecipientIndex < Recipients.Num(); RecipientIndex++)
+		for (auto& Recipient : Recipients)
 		{
-			IReceiveMessagesPtr Recipient = Recipients[RecipientIndex];
 			ENamedThreads::Type RecipientThread = Recipient->GetRecipientThread();
 
 			if (RecipientThread == ENamedThreads::AnyThread)
@@ -171,30 +168,32 @@ void FMessageRouter::FilterSubscriptions( TArray<IMessageSubscriptionPtr>& Subsc
 	{
 		const IMessageSubscriptionPtr& Subscription = Subscriptions[SubscriptionIndex];
 
-		if (Subscription->IsEnabled() && Subscription->GetScopeRange().Contains(MessageScope))
+		if (!Subscription->IsEnabled() || !Subscription->GetScopeRange().Contains(MessageScope))
 		{
-			IReceiveMessagesPtr Subscriber = Subscription->GetSubscriber().Pin();
+			continue;
+		}
 
-			if (Subscriber.IsValid())
+		IReceiveMessagesPtr Subscriber = Subscription->GetSubscriber().Pin();
+
+		if (Subscriber.IsValid())
+		{
+			if (MessageScope == EMessageScope::Thread)
 			{
-				if (MessageScope == EMessageScope::Thread)
+				ENamedThreads::Type RecipientThread = Subscriber->GetRecipientThread();
+				ENamedThreads::Type SenderThread = Context->GetSenderThread();
+
+				if (RecipientThread != SenderThread)
 				{
-					ENamedThreads::Type RecipientThread = Subscriber->GetRecipientThread();
-					ENamedThreads::Type SenderThread = Context->GetSenderThread();
-
-					if (RecipientThread != SenderThread)
-					{
-						continue;
-					}
+					continue;
 				}
+			}
 
-				OutRecipients.AddUnique(Subscriber);
-			}
-			else
-			{
-				Subscriptions.RemoveAtSwap(SubscriptionIndex);
-				--SubscriptionIndex;
-			}
+			OutRecipients.AddUnique(Subscriber);
+		}
+		else
+		{
+			Subscriptions.RemoveAtSwap(SubscriptionIndex);
+			--SubscriptionIndex;
 		}
 	}
 }
@@ -245,10 +244,9 @@ void FMessageRouter::HandleRemoveInterceptor( IMessageInterceptorRef Interceptor
 {
 	if (MessageType == NAME_All)
 	{
-		for (TMap<FName, TArray<IMessageInterceptorPtr> >::TIterator It(ActiveInterceptors); It; ++It)
+		for (auto& InterceptorsPair : ActiveInterceptors)
 		{
-			TArray<IMessageInterceptorPtr>& Interceptors = It.Value();
-			Interceptors.Remove(Interceptor);
+			InterceptorsPair.Value.Remove(Interceptor);
 		}
 	}
 	else
@@ -278,25 +276,30 @@ void FMessageRouter::HandleRemoveSubscriber( IReceiveMessagesWeakPtr SubscriberP
 {
 	IReceiveMessagesPtr Subscriber = SubscriberPtr.Pin();
 
-	if (Subscriber.IsValid())
+	if (!Subscriber.IsValid())
 	{
-		for (TMap<FName, TArray<IMessageSubscriptionPtr> >::TIterator It(ActiveSubscriptions); It; ++It)
+		return;
+	}
+
+	for (auto& SubscriptionsPair : ActiveSubscriptions)
+	{
+		if ((MessageType != NAME_All) && (MessageType != SubscriptionsPair.Key))
 		{
-			if ((MessageType == NAME_All) || (MessageType == It.Key()))
+			continue;
+		}
+
+		TArray<IMessageSubscriptionPtr>& Subscriptions = SubscriptionsPair.Value;
+
+		for (int32 Index = 0; Index < Subscriptions.Num(); Index++)
+		{
+			const auto& Subscription = Subscriptions[Index];
+
+			if (Subscription->GetSubscriber().Pin() == Subscriber)
 			{
-				TArray<IMessageSubscriptionPtr>& Subsriptions = It.Value();
+				Subscriptions.RemoveAtSwap(Index);
+				Tracer->TraceRemovedSubscription(Subscription.ToSharedRef(), MessageType);
 
-				for (int32 Index = 0; Index < Subsriptions.Num(); Index++)
-				{
-					if (Subsriptions[Index]->GetSubscriber().Pin() == Subscriber)
-					{
-						Subsriptions.RemoveAtSwap(Index);
-
-						Tracer->TraceRemovedSubscription(Subsriptions[Index].ToSharedRef(), MessageType);
-
-						break;
-					}
-				}
+				break;
 			}
 		}
 	}
@@ -305,14 +308,16 @@ void FMessageRouter::HandleRemoveSubscriber( IReceiveMessagesWeakPtr SubscriberP
 
 void FMessageRouter::HandleRouteMessage( IMessageContextRef Context )
 {
+	Tracer->TraceRoutedMessage(Context);
+
 	// intercept routing
 	TArray<IMessageInterceptorPtr>& Interceptors = ActiveInterceptors.FindOrAdd(Context->GetMessageType());
 
-	for (TArray<IMessageInterceptorPtr>::TIterator It(Interceptors); It; ++It)
+	for (auto& Interceptor : Interceptors)
 	{
-		if ((*It)->InterceptMessage(Context))
+		if (Interceptor->InterceptMessage(Context))
 		{
-			Tracer->TraceInterceptedMessage(Context, It->ToSharedRef());
+			Tracer->TraceInterceptedMessage(Context, Interceptor.ToSharedRef());
 
 			return;
 		}
@@ -328,6 +333,4 @@ void FMessageRouter::HandleRouteMessage( IMessageContextRef Context )
 	{
 		DispatchMessage(Context);
 	}
-
-	Tracer->TraceRoutedMessage(Context);
 }

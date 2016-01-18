@@ -1,19 +1,20 @@
 
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
+#include "UnrealTournament.h"
 #include "SUTChallengePanel.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
-#include "../SUWScaleBox.h"
+#include "../Widgets/SUTScaleBox.h"
 #include "../Widgets/SUTButton.h"
 #include "UTChallengeManager.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "../SUWindowsMainMenu.h"
+#include "../Menus/SUTMainMenu.h"
 #include "UTLevelSummary.h"
 #include "UTGameEngine.h"
+#include "../Widgets/SUTBorder.h"
 
 #if !UE_SERVER
 
@@ -44,322 +45,327 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
-		SNew(SOverlay)
-		+SOverlay::Slot()
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
+		SAssignNew(AnimWidget, SUTBorder).OnAnimEnd(this, &SUTChallengePanel::AnimEnd)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
+			SNew(SOverlay)
+			+SOverlay::Slot()
 			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Fill)
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.VAlign(VAlign_Fill)
 				.HAlign(HAlign_Fill)
 				[
-					SNew(SUWScaleBox)
-					.bMaintainAspectRatio(false)
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Fill)
 					[
-						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.HomePanel.Background"))
+						SNew(SUTScaleBox)
+						.bMaintainAspectRatio(false)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.HomePanel.Background"))
+						]
 					]
 				]
 			]
-		]
-		+ SOverlay::Slot()
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.Padding(64.0, 15.0, 64.0, 15.0)
-			.FillHeight(1.0)
+			+ SOverlay::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Fill)
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.AutoWidth()
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.Padding(64.0, 15.0, 64.0, 15.0)
+				.FillHeight(1.0)
 				[
-					SNew(SBox).WidthOverride(1792).HeightOverride(860)
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
 					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						.Padding(0.0f,0.0f,8.0f,0.0f)
+						SNew(SBox).WidthOverride(1792).HeightOverride(860)
 						[
-							SNew(SBox).WidthOverride(900)
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(0.0f,0.0f,8.0f,0.0f)
 							[
-								SNew(SVerticalBox)
-
-								+SVerticalBox::Slot()
-								.Padding(0.0,0.0,0.0,16.0)
-								.AutoHeight()
+								SNew(SBox).WidthOverride(900)
 								[
 									SNew(SVerticalBox)
+	/*
 									+SVerticalBox::Slot()
-									.FillHeight(1.0)
-									.VAlign(VAlign_Center)
-									[
-										SNew(SButton)
-										.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-										.OnClicked(this, &SUTChallengePanel::CustomClicked)
-										[
-											SNew(SBox).HeightOverride(96)
-											[
-												SNew(SBorder)
-												.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-												[
-													SNew(SHorizontalBox)
-													+SHorizontalBox::Slot()
-													.HAlign(HAlign_Center)
-													.VAlign(VAlign_Center)
-													[
-														SNew(STextBlock)
-														.Text(NSLOCTEXT("SUTChallengePanel","CustomChallenge","Create your own custom match."))
-														.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
-													]
-												]									
-											]
-										]
-									]
-								]
-/*
-								+SVerticalBox::Slot()
-								.Padding(0.0,0.0,0.0,16.0)
-								.AutoHeight()
-								[
-									SNew(SBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
-									[
-										SNew(SVerticalBox)
-										+SVerticalBox::Slot()
-										.HAlign(HAlign_Center)
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUTChallengePanel","AvailableChallenges","AVAILABLE CHALLENGES"))
-											.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
-										]
-									]
-								]
-*/
-								+SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									SNew(SBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
-									[
-										SNew(SVerticalBox)
-										+ SVerticalBox::Slot()
-										.AutoHeight()
-										.Padding(FMargin(0.0f,0.0f,5.0f,0.0f))
-										[
-											SNew(SHorizontalBox)
-											+ SHorizontalBox::Slot()
-											.HAlign(HAlign_Center)
-											.VAlign(VAlign_Center)
-											[
-												SNew(STextBlock)
-												.Text(NSLOCTEXT("SUTChallengePanel", "AvailableChallenges", "Filter challenges by..."))
-												.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
-											]
-										]
-										+ SVerticalBox::Slot()
-										.HAlign(HAlign_Fill)
-										.AutoHeight()
-										[
-											SNew(SBox).HeightOverride(48)
-											[
-												SNew(SHorizontalBox)
-												+ SHorizontalBox::Slot()
-												.Padding(3.0, 0.0, 3.0, 0.0)
-												[
-													SNew(SBorder)
-													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-													[
-														SAssignNew(TabUnstarted, SUTButton)
-														.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-														.OnClicked(this, &SUTChallengePanel::TabChanged, 0)
-														[
-															SNew(SVerticalBox)
-															+ SVerticalBox::Slot()
-															.AutoHeight()
-															.HAlign(HAlign_Center)
-															[
-																SNew(STextBlock)
-																.Text(NSLOCTEXT("SUTChallengePanel", "NewChallenges", "Active"))
-																.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-															]
-														]
-													]
-												]
-												+ SHorizontalBox::Slot()
-												.Padding(3.0, 0.0, 3.0, 0.0)
-												[
-													SNew(SBorder)
-													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-													[
-														SAssignNew(TabCompleted, SUTButton)
-														.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-														.OnClicked(this, &SUTChallengePanel::TabChanged, 1)
-														[
-															SNew(SVerticalBox)
-															+ SVerticalBox::Slot()
-															.AutoHeight()
-															.HAlign(HAlign_Center)
-															[
-																SNew(STextBlock)
-																.Text(NSLOCTEXT("SUTChallengePanel", "CompletedChallenges", "Completed"))
-																.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-															]
-														]
-													]
-												]
-												+ SHorizontalBox::Slot()
-												.Padding(3.0, 0.0, 3.0, 0.0)
-												[
-													SNew(SBorder)
-													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-													[
-														SAssignNew(TabExpired, SUTButton)
-														.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-														.OnClicked(this, &SUTChallengePanel::TabChanged, 2)
-														[
-															SNew(SVerticalBox)
-															+ SVerticalBox::Slot()
-															.AutoHeight()
-															.HAlign(HAlign_Center)
-															[
-																SNew(STextBlock)
-																.Text(NSLOCTEXT("SUTChallengePanel", "ExpiredChallenges", "Expired"))
-																.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-
-															]
-														]
-													]
-												]
-												+ SHorizontalBox::Slot()
-												.Padding(3.0, 0.0, 3.0, 0.0)
-												[
-													SNew(SBorder)
-													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-													[
-														SAssignNew(TabAll, SUTButton)
-														.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-														.OnClicked(this, &SUTChallengePanel::TabChanged, 3)
-														[
-															SNew(SVerticalBox)
-															+ SVerticalBox::Slot()
-															.AutoHeight()
-															.HAlign(HAlign_Center)
-															[
-																SNew(STextBlock)
-																.Text(NSLOCTEXT("SUTChallengePanel", "AllChallenges", "All"))
-																.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-
-															]
-														]
-													]
-												]
-											]
-										]
-									]
-								]
-
-								+SVerticalBox::Slot()
-								.FillHeight(1.0)
-								[
-									SNew(SBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-									[
-										SNew(SScrollBox)
-										.Style(SUWindowsStyle::Get(),"UT.ScrollBox.Borderless")
-										+SScrollBox::Slot()
-										[
-											SAssignNew(ChallengeBox,SVerticalBox)
-										]
-									]
-								]
-
-
-							]
-						]
-
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						.Padding(8.0f,0.0f,0.0f,0.0f)
-						[
-							SNew(SBox).WidthOverride(876)
-							[
-								SNew(SVerticalBox)
-								+SVerticalBox::Slot()
-								.Padding(0.0,0.0,0.0,16.0)
-								.AutoHeight()
-								[
-									SNew(SBox).HeightOverride(438)
-									[
-										SNew(SImage)
-										.Image(LevelScreenshot)
-									]
-								]
-
-								+SVerticalBox::Slot()
-								.Padding(10.0,0.0,10.0,16.0)
-								.FillHeight(1.0)
-								[
-									SNew(SBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Medium"))
+									.Padding(0.0,0.0,0.0,16.0)
+									.AutoHeight()
 									[
 										SNew(SVerticalBox)
 										+SVerticalBox::Slot()
 										.FillHeight(1.0)
+										.VAlign(VAlign_Center)
 										[
-											SNew(SScrollBox)
-											+ SScrollBox::Slot()
-											.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+											SNew(SButton)
+											.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+											.OnClicked(this, &SUTChallengePanel::CustomClicked)
 											[
-												SAssignNew(ChallengeDescription, SRichTextBlock)
-												.Text(NSLOCTEXT("SUTChallengePanel", "Description", "This is the description"))	// Change me to a delegate call
-												.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-												.Justification(ETextJustify::Center)
-												.DecoratorStyleSet(&SUTStyle::Get())
-												.AutoWrapText(true)
-											]
-										]
-										+SVerticalBox::Slot()
-										.AutoHeight()
-										[
-											SNew(SBox).HeightOverride(64)
-											[
-												SNew(SVerticalBox)
-												+SVerticalBox::Slot()
-												.AutoHeight()
+												SNew(SBox).HeightOverride(96)
 												[
-													SNew(STextBlock)
-													.Text(this,&SUTChallengePanel::GetCurrentScoreText)
-													.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
-													.ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f))
-
+													SNew(SBorder)
+													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+													[
+														SNew(SHorizontalBox)
+														+SHorizontalBox::Slot()
+														.HAlign(HAlign_Center)
+														.VAlign(VAlign_Center)
+														[
+															SNew(STextBlock)
+															.Text(NSLOCTEXT("SUTChallengePanel","CustomChallenge","Create your own custom match."))
+															.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
+														]
+													]									
 												]
-												+SVerticalBox::Slot()
-												.AutoHeight()
-												[
-													SNew(STextBlock)
-													.Text(this,&SUTChallengePanel::GetCurrentChallengeData)
-													.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small.Bold")
-													.ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f))
-												]
-											
 											]
 										]
 									]
-								]
-								+SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									SNew(SBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+									+SVerticalBox::Slot()
+									.Padding(0.0,0.0,0.0,16.0)
+									.AutoHeight()
 									[
-										SAssignNew(GoBox, SVerticalBox)
+										SNew(SBorder)
+										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot()
+											.HAlign(HAlign_Center)
+											[
+												SNew(STextBlock)
+												.Text(NSLOCTEXT("SUTChallengePanel","AvailableChallenges","AVAILABLE CHALLENGES"))
+												.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
+											]
+										]
+									]
+	*/
+									+SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SBorder)
+										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+										[
+											SNew(SVerticalBox)
+											+ SVerticalBox::Slot()
+											.AutoHeight()
+											.Padding(FMargin(0.0f,0.0f,5.0f,0.0f))
+											[
+												SNew(SHorizontalBox)
+												+ SHorizontalBox::Slot()
+												.HAlign(HAlign_Center)
+												.VAlign(VAlign_Center)
+												[
+													SNew(STextBlock)
+													.Text(NSLOCTEXT("SUTChallengePanel", "AvailableChallenges", "Filter challenges by..."))
+													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+												]
+											]
+											+ SVerticalBox::Slot()
+											.HAlign(HAlign_Fill)
+											.AutoHeight()
+											[
+												SNew(SBox).HeightOverride(48)
+												[
+													SNew(SHorizontalBox)
+													+ SHorizontalBox::Slot()
+													.Padding(3.0, 0.0, 3.0, 0.0)
+													[
+														SNew(SBorder)
+														.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+														[
+															SAssignNew(TabUnstarted, SUTButton)
+															.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+															.OnClicked(this, &SUTChallengePanel::TabChanged, 0)
+															[
+																SNew(SVerticalBox)
+																+ SVerticalBox::Slot()
+																.AutoHeight()
+																.HAlign(HAlign_Center)
+																[
+																	SNew(STextBlock)
+																	.Text(NSLOCTEXT("SUTChallengePanel", "NewChallenges", "Active"))
+																	.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+																	.ColorAndOpacity(this, &SUTChallengePanel::GetTabColor, EChallengeFilterType::Active)
+																]
+															]
+														]
+													]
+													+ SHorizontalBox::Slot()
+													.Padding(3.0, 0.0, 3.0, 0.0)
+													[
+														SNew(SBorder)
+														.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+														[
+															SAssignNew(TabCompleted, SUTButton)
+															.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+															.OnClicked(this, &SUTChallengePanel::TabChanged, 1)
+															[
+																SNew(SVerticalBox)
+																+ SVerticalBox::Slot()
+																.AutoHeight()
+																.HAlign(HAlign_Center)
+																[
+																	SNew(STextBlock)
+																	.Text(NSLOCTEXT("SUTChallengePanel", "CompletedChallenges", "Completed"))
+																	.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+																	.ColorAndOpacity(this, &SUTChallengePanel::GetTabColor, EChallengeFilterType::Completed)
+																]
+															]
+														]
+													]
+													+ SHorizontalBox::Slot()
+													.Padding(3.0, 0.0, 3.0, 0.0)
+													[
+														SNew(SBorder)
+														.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+														[
+															SAssignNew(TabExpired, SUTButton)
+															.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+															.OnClicked(this, &SUTChallengePanel::TabChanged, 2)
+															[
+																SNew(SVerticalBox)
+																+ SVerticalBox::Slot()
+																.AutoHeight()
+																.HAlign(HAlign_Center)
+																[
+																	SNew(STextBlock)
+																	.Text(NSLOCTEXT("SUTChallengePanel", "ExpiredChallenges", "Expired"))
+																	.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+																	.ColorAndOpacity(this, &SUTChallengePanel::GetTabColor, EChallengeFilterType::Expired)
+
+																]
+															]
+														]
+													]
+													+ SHorizontalBox::Slot()
+													.Padding(3.0, 0.0, 3.0, 0.0)
+													[
+														SNew(SBorder)
+														.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+														[
+															SAssignNew(TabAll, SUTButton)
+															.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+															.OnClicked(this, &SUTChallengePanel::TabChanged, 3)
+															[
+																SNew(SVerticalBox)
+																+ SVerticalBox::Slot()
+																.AutoHeight()
+																.HAlign(HAlign_Center)
+																[
+																	SNew(STextBlock)
+																	.Text(NSLOCTEXT("SUTChallengePanel", "AllChallenges", "All"))
+																	.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+																	.ColorAndOpacity(this, &SUTChallengePanel::GetTabColor, EChallengeFilterType::All)
+																]
+															]
+														]
+													]
+												]
+											]
+										]
+									]
+
+									+SVerticalBox::Slot()
+									.FillHeight(1.0)
+									[
+										SNew(SBorder)
+										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+										[
+											SNew(SScrollBox)
+											.Style(SUWindowsStyle::Get(),"UT.ScrollBox.Borderless")
+											+SScrollBox::Slot()
+											[
+												SAssignNew(ChallengeBox,SVerticalBox)
+											]
+										]
+									]
+
+
+								]
+							]
+
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(8.0f,0.0f,0.0f,0.0f)
+							[
+								SNew(SBox).WidthOverride(876)
+								[
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot()
+									.Padding(0.0,0.0,0.0,16.0)
+									.AutoHeight()
+									[
+										SNew(SBox).HeightOverride(438)
+										[
+											SNew(SImage)
+											.Image(LevelScreenshot)
+										]
+									]
+
+									+SVerticalBox::Slot()
+									.Padding(10.0,0.0,10.0,16.0)
+									.FillHeight(1.0)
+									[
+										SNew(SBorder)
+										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Medium"))
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot()
+											.FillHeight(1.0)
+											[
+												SNew(SScrollBox)
+												+ SScrollBox::Slot()
+												.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+												[
+													SAssignNew(ChallengeDescription, SRichTextBlock)
+													.Text(NSLOCTEXT("SUTChallengePanel", "Description", "This is the description"))	// Change me to a delegate call
+													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+													.Justification(ETextJustify::Center)
+													.DecoratorStyleSet(&SUTStyle::Get())
+													.AutoWrapText(true)
+												]
+											]
+											+SVerticalBox::Slot()
+											.AutoHeight()
+											[
+												SNew(SBox).HeightOverride(64)
+												[
+													SNew(SVerticalBox)
+													+SVerticalBox::Slot()
+													.AutoHeight()
+													[
+														SNew(STextBlock)
+														.Text(this,&SUTChallengePanel::GetCurrentScoreText)
+														.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
+														.ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f))
+
+													]
+													+SVerticalBox::Slot()
+													.AutoHeight()
+													[
+														SNew(STextBlock)
+														.Text(this,&SUTChallengePanel::GetCurrentChallengeData)
+														.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small.Bold")
+														.ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f))
+													]
+											
+												]
+											]
+										]
+									]
+									+SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SBorder)
+										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+										[
+											SAssignNew(GoBox, SVerticalBox)
+										]
 									]
 								]
 							]
@@ -639,9 +645,9 @@ void SUTChallengePanel::GenerateChallengeList()
 		}
 
 		TArray<const FUTChallengeInfo*> Challenges;
-		ChallengeManager->GetChallenges(Challenges, ChallengeFilter, PlayerOwner->GetProfileSettings());
 
 		// First count the stars
+		ChallengeManager->GetChallenges(Challenges, EChallengeFilterType::All, PlayerOwner->GetProgressionStorage());
 		for (int32 i = 0 ; i < Challenges.Num(); i++)
 		{
 			const FUTChallengeInfo* Challenge = Challenges[i];
@@ -659,6 +665,11 @@ void SUTChallengePanel::GenerateChallengeList()
 			}
 		}
 
+		// Now build the list.
+		Challenges.Empty();
+		ChallengeManager->GetChallenges(Challenges, ChallengeFilter, PlayerOwner->GetProgressionStorage());
+
+
 		// Now create the buttons
 		for (int32 i = 0 ; i < Challenges.Num(); i++)
 		{
@@ -669,6 +680,10 @@ void SUTChallengePanel::GenerateChallengeList()
 		if (Challenges.Num() > 0)
 		{
 			ChallengeClicked(Challenges[0]->Tag);
+		}
+		else
+		{
+			ChallengeClicked(NAME_None);
 		}
 	}
 }
@@ -850,18 +865,27 @@ FText SUTChallengePanel::GetYourScoreText() const
 
 FText SUTChallengePanel::GetCurrentScoreText() const
 {
+	if (SelectedChallenge == NAME_None)
+	{
+		return FText::GetEmpty();
+	}
+
 	return FText::Format(NSLOCTEXT("SUTChallengePanel","StarsForChallengeFormat","You have earned {0} stars for this challenge"), FText::AsNumber(PlayerOwner->GetChallengeStars(SelectedChallenge)));
 }
 
 FText SUTChallengePanel::GetCurrentChallengeData() const
 {
-	if (!ChallengeManager->Challenges.Contains(SelectedChallenge))
+	if (SelectedChallenge == NAME_None)
+	{
+		return FText::GetEmpty();
+	}
+	else if (!ChallengeManager->Challenges.Contains(SelectedChallenge))
 	{
 		UE_LOG(UT, Warning, TEXT("SelectedChallenge not in list of Challenges"));
 	}
 	else if (ChallengeManager->Challenges[SelectedChallenge].bDailyChallenge)
 	{
-		int32 HoursLeft = ChallengeManager->TimeUntilExpiration(SelectedChallenge, PlayerOwner->GetProfileSettings());
+		int32 HoursLeft = ChallengeManager->TimeUntilExpiration(SelectedChallenge, PlayerOwner->GetProgressionStorage());
 		return FText::Format(NSLOCTEXT("SUTChallengePanel","DateForChallengeFormatDaily","Last Completed: {0}  --  Expires in {1} hours"), FText::FromString(PlayerOwner->GetChallengeDate(SelectedChallenge)), FText::AsNumber(HoursLeft));
 	}
 
@@ -871,6 +895,45 @@ FText SUTChallengePanel::GetCurrentChallengeData() const
 
 FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 {
+
+	UE_LOG(UT,Log,TEXT("ChallengeTag %s"), *ChallengeTag.ToString());
+
+	if (ChallengeTag == NAME_None)
+	{
+		SelectedChallenge = ChallengeTag;
+		// Generate empty challenges..
+
+		if (ChallengeFilter == EChallengeFilterType::Active)
+		{
+			// This is the active tab.  
+
+			LevelShot = LoadObject<UTexture2D>(nullptr, TEXT("/Game/RestrictedAssets/SlateLargeImages/TayeApprovedBanner.TayeApprovedBanner"));
+			if (LevelShot)
+			{
+				*LevelScreenshot = FSlateDynamicImageBrush(LevelShot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+			}
+
+			ChallengeDescription->SetText(NSLOCTEXT("SUTChallengePanel","AllChallengesCompleted","Congratulations\n\nYou have completed all of the available challenges.  Keep checking back as new challenges will be made available for you or why not try to improve your score on one of the challenges you have already played."));
+			if (GoBox.IsValid())
+			{
+				GoBox->ClearChildren();
+			}
+			return FReply::Handled();
+		}
+		else
+		{
+			// This is the active tab.  
+
+			*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+			ChallengeDescription->SetText(NSLOCTEXT("SUTChallengePanel", "NoChallenges", "There are no challenges available in this group."));
+			if (GoBox.IsValid())
+			{
+				GoBox->ClearChildren();
+			}
+			return FReply::Handled();
+		}
+	}
+
 	if (SelectedChallenge == ChallengeTag) return FReply::Handled();
 
 	if (ChallengeManager.IsValid() && ChallengeManager->Challenges.Contains(ChallengeTag))
@@ -1016,7 +1079,7 @@ void SUTChallengePanel::StartChallenge(int32 Difficulty)
 
 FReply SUTChallengePanel::CustomClicked()
 {
-	TSharedPtr<SUWindowsMainMenu> MainMenu = StaticCastSharedPtr<SUWindowsMainMenu>(PlayerOwner->GetCurrentMenu());
+	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(PlayerOwner->GetCurrentMenu());
 	if (MainMenu.IsValid())
 	{
 		MainMenu->ShowCustomGamePanel();
@@ -1071,5 +1134,47 @@ FReply SUTChallengePanel::TabChanged(int32 Index)
 	GenerateChallengeList();
 	return FReply::Handled();
 }
+
+FSlateColor SUTChallengePanel::GetTabColor(EChallengeFilterType::Type TargetFilter) const
+{
+	if (TargetFilter == ChallengeFilter) return FSlateColor(FLinearColor::Yellow);
+	return FSlateColor(FLinearColor::White);
+}
+
+void SUTChallengePanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
+{
+	SUTPanelBase::OnShowPanel(inParentWindow);
+
+	if (AnimWidget.IsValid())
+	{
+		AnimWidget->Animate(FVector2D(200, 0), FVector2D(0, 0), 0.0f, 1.0f, 0.3f);
+	}
+}
+
+void SUTChallengePanel::OnHidePanel()
+{
+	bClosing = true;
+	if (AnimWidget.IsValid())
+	{
+		AnimWidget->Animate(FVector2D(0, 0), FVector2D(200, 0), 1.0f, 0.0f, 0.3f);
+	}
+	else
+	{
+		SUTPanelBase::OnHidePanel();
+	}
+}
+
+
+void SUTChallengePanel::AnimEnd()
+{
+	if (bClosing)
+	{
+		bClosing = false;
+		TSharedPtr<SWidget> Panel = this->AsShared();
+		ParentWindow->PanelHidden(Panel);
+		ParentWindow.Reset();
+	}
+}
+
 
 #endif

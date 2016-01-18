@@ -57,5 +57,6 @@ public class CrossCompilerToolTarget : TargetRules
 		OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = true;
 
 		//UEBuildConfiguration.bCompileWithStatsWithoutEngine = true;
+		BuildConfiguration.bDebugBuildsActuallyUseDebugCRT = true;
 	}
 }

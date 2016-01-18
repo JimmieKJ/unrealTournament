@@ -23,7 +23,6 @@ public class BspMode : ModuleRules
         DynamicallyLoadedModuleNames.AddRange(
             new string[] {
 				"PropertyEditor",
-                "LevelEditor",
 			}
         );
 	}

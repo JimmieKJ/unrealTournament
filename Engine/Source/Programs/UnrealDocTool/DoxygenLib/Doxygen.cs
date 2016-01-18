@@ -30,7 +30,7 @@ namespace DoxygenLib
 			OutputPath = InOutputPath;
 		}
 
-		public void Write(string ConfigPath)
+		public void Write(string ConfigPath, string ExecutePath)
 		{
 			using (StreamWriter Output = new StreamWriter(ConfigPath))
 			{
@@ -67,6 +67,17 @@ namespace DoxygenLib
 				// List of input paths
 				Output.WriteLine();
 				FormatSetting(Output, "INPUT", new List<string>(InputPaths.Select(x => QuoteValue(x))));
+
+				// Input filter program
+				Output.WriteLine();
+				string FilterPath = Path.GetDirectoryName(ExecutePath).Replace("\\", "/");
+				for (int PathRemovalCoiunt = 0; PathRemovalCoiunt < 5; ++PathRemovalCoiunt)
+				{
+					// Back up five levels.
+					FilterPath = FilterPath.Remove(FilterPath.LastIndexOf('/'));
+				}
+				FilterPath = "\"" + FilterPath + "/Source/Programs/UnrealDocTool/DoxygenInputFilter/perl.exe " + FilterPath + "/Source/Programs/UnrealDocTool/DoxygenInputFilter/DoxygenInputFilter.pl\" ";
+				FormatSetting(Output, "INPUT_FILTER", FilterPath);
 
 				// List of predefined macros
 				Output.WriteLine();
@@ -153,7 +164,7 @@ namespace DoxygenLib
 
 			// Write the doxygen config file
 			string ConfigFilePath = Path.Combine(Config.OutputPath, "Doxyfile");
-			Config.Write(ConfigFilePath);
+			Config.Write(ConfigFilePath, DoxygenPath);
 
 			// Spawn doxygen
 			using (Process DoxygenProcess = new Process())

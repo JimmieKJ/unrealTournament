@@ -475,7 +475,7 @@ public:
 		// will use it as a multiplier to decide how much smaller than the original the
 		// compressed data should be
 		int32 OriginalBitRate = QualityInfo.SampleRate * QualityInfo.NumChannels * SAMPLE_SIZE * 8;
-		return (float)OriginalBitRate * FMath::GetMappedRangeValue(FVector2D(1, 100), FVector2D(0.04, 0.25), QualityInfo.Quality);
+		return (float)OriginalBitRate * FMath::GetMappedRangeValueClamped(FVector2D(1, 100), FVector2D(0.04, 0.25), QualityInfo.Quality);
 	}
 
 	void SerializeHeaderData(FMemoryWriter& CompressedData, uint16 SampleRate, uint32 TrueSampleCount, uint8 NumChannels, uint16 NumFrames) const

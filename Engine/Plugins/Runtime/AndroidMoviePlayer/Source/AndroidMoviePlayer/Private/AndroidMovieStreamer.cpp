@@ -6,7 +6,7 @@
 #include "AndroidJava.h"
 #include "AndroidFile.h"
 
-#include "Slate.h"
+#include "SlateBasics.h"
 #include "RenderingCommon.h"
 #include "RenderUtils.h"
 #include "Slate/SlateTextures.h"

@@ -30,6 +30,26 @@ namespace FActorEditorUtils
 	 * @param OutEditableComponents The populated list of editable components on InActor
 	 */
 	ENGINE_API void GetEditableComponents( const AActor* InActor, TArray<UActorComponent*>& OutEditableComponents );
+
+	/**
+	 * Traverse an actor sub-tree (defined by attached children), parent first.
+	 * 
+	 * @param InActor				The Actor to traverse. InPredicate is only invoked for this actor where bIncludeThisActor is true
+	 * @param InPredicate			Predicate to call for each actor of the traversal. Return true to continue, false to terminate the traversal
+	 * @param bIncludeThisActor		True to include this actor in the traversal, false otherwise
+	 * @return true on expected completion, false where the client prematurely terminated the traversal
+	 */
+	ENGINE_API bool TraverseActorTree_ParentFirst(AActor* InActor, TFunctionRef<bool(AActor*)> InPredicate, bool bIncludeThisActor = true);
+
+	/**
+	 * Traverse an actor sub-tree (defined by attached children), child first.
+	 * 
+	 * @param InActor				The Actor to traverse. InPredicate is only invoked for this actor where bIncludeThisActor is true
+	 * @param InPredicate			Predicate to call for each actor of the traversal. Return true to continue, false to terminate the traversal
+	 * @param bIncludeThisActor		True to include this actor in the traversal, false otherwise
+	 * @return true on expected completion, false where the client prematurely terminated the traversal
+	 */
+	ENGINE_API bool TraverseActorTree_ChildFirst(AActor* InActor, TFunctionRef<bool(AActor*)> InPredicate, bool bIncludeThisActor = true);
 };
 
 #endif// __ActorEditorUtils_h__

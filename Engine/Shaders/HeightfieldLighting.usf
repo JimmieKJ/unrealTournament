@@ -479,7 +479,8 @@ void CalculateHeightfieldOcclusionCS(
 			{
 				float3 WorldHeightfieldShadingPosition = GetHeightfieldWorldPosition(HeightfieldIndex, LocalPosition.xy, HeightfieldUV);
 
-				float MinDistanceToOccluder = AOMaxDistance;
+				float MaxOcclusionDistance = GetAOMaxDistance();
+				float MinDistanceToOccluder = MaxOcclusionDistance;
 
 				for (uint ConeIndex = 0; ConeIndex < NUM_CONE_DIRECTIONS; ConeIndex++)
 				{
@@ -489,7 +490,7 @@ void CalculateHeightfieldOcclusionCS(
 					float ExistingConeVisibility = RWRecordConeVisibility[DispatchThreadId.x * NUM_CONE_DIRECTIONS + ConeIndex];
 				
 					float ZBias = 20;
-					float DistanceAlongConeToOccluder = clamp((WorldPosition.z + ZBias - WorldHeightfieldShadingPosition.z) / max(-RotatedConeDirection.z, .0001f), .00001f, AOMaxDistance);
+					float DistanceAlongConeToOccluder = clamp((WorldPosition.z + ZBias - WorldHeightfieldShadingPosition.z) / max(-RotatedConeDirection.z, .0001f), .00001f, MaxOcclusionDistance);
 					float DistanceFromConeEndToOccluder = max(WorldPosition.z + ZBias + RotatedConeDirection.z * DistanceAlongConeToOccluder - WorldHeightfieldShadingPosition.z, 0);
 
 					float SphereRadius = DistanceAlongConeToOccluder * TanConeHalfAngle;
@@ -497,7 +498,7 @@ void CalculateHeightfieldOcclusionCS(
 					// Derive visibility from 1d intersection
 					float Visibility = saturate(DistanceFromConeEndToOccluder / SphereRadius);
 
-					float OccluderDistanceFraction = DistanceAlongConeToOccluder / AOMaxDistance;
+					float OccluderDistanceFraction = DistanceAlongConeToOccluder / MaxOcclusionDistance;
 					// Fade out occlusion based on distance to occluder to avoid a discontinuity at the max AO distance
 					Visibility = max(Visibility, saturate(OccluderDistanceFraction * OccluderDistanceFraction * .8f));
 
@@ -772,5 +773,294 @@ void CalculateHeightfieldIrradianceCS(
 		}
 
 		RWHeightfieldIrradiance[RelativeRecordIndex] = float4(Irradiance, 0);
+	}
+}
+
+RWBuffer<float> RWScreenGridConeVisibility;
+
+#ifndef HEIGHTFIELD_OCCLUSION_DISPATCH_SIZEX
+#define HEIGHTFIELD_OCCLUSION_DISPATCH_SIZEX 1
+#endif
+
+/**  */
+[numthreads(HEIGHTFIELD_OCCLUSION_DISPATCH_SIZEX, HEIGHTFIELD_OCCLUSION_DISPATCH_SIZEX, 1)]
+void CalculateHeightfieldOcclusionScreenGridCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint2 OutputCoordinate = DispatchThreadId.xy;
+	
+	if (all(OutputCoordinate < ScreenGridConeVisibilitySize))
+	{
+		float2 BaseLevelScreenUV = GetBaseLevelScreenUVFromScreenGrid(OutputCoordinate);
+
+		float3 WorldNormal;
+		float SceneDepth;
+		bool bHasDistanceFieldRepresentation;
+		bool bHasHeightfieldRepresentation;
+		GetDownsampledGBuffer(BaseLevelScreenUV, WorldNormal, SceneDepth, bHasDistanceFieldRepresentation, bHasHeightfieldRepresentation);
+
+		float3 TangentX;
+		float3 TangentY;
+		FindBestAxisVectors2(WorldNormal, TangentX, TangentY);
+
+		float2 ScreenUV = GetScreenUVFromScreenGrid(OutputCoordinate);
+		float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+		
+		float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+		float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+		uint OutputBaseIndex = (OutputCoordinate.y * ScreenGridConeVisibilitySize.x + OutputCoordinate.x) * NUM_CONE_DIRECTIONS;
+
+		if (!bHasHeightfieldRepresentation)
+		{
+			LOOP
+			for (uint HeightfieldIndex = 0; HeightfieldIndex < NumHeightfields; HeightfieldIndex++)
+			{
+				float3 LocalPosition = mul(float4(WorldPosition, 1), GetWorldToLocal(HeightfieldIndex)).xyz;
+				float4 MinMaxHeightfieldUV;
+				float2 HeightfieldUV = GetHeightfieldUV(HeightfieldIndex, LocalPosition.xy, MinMaxHeightfieldUV);
+
+				BRANCH
+				if (all(HeightfieldUV > MinMaxHeightfieldUV.xy) 
+					&& all(HeightfieldUV < MinMaxHeightfieldUV.zw))
+				{
+					float3 WorldHeightfieldShadingPosition = GetHeightfieldWorldPosition(HeightfieldIndex, LocalPosition.xy, HeightfieldUV);
+
+					float MinDistanceToOccluder = AOGlobalMaxOcclusionDistance;
+
+					for (uint ConeIndex = 0; ConeIndex < NUM_CONE_DIRECTIONS; ConeIndex++)
+					{
+						float3 ConeDirection = AOSamples2.SampleDirections[ConeIndex].xyz;
+						float3 RotatedConeDirection = ConeDirection.x * TangentX + ConeDirection.y * TangentY + ConeDirection.z * WorldNormal;
+
+						float ExistingConeVisibility = RWScreenGridConeVisibility[OutputBaseIndex + ConeIndex];
+				
+						float ZBias = 20;
+						float DistanceAlongConeToOccluder = clamp((WorldPosition.z + ZBias - WorldHeightfieldShadingPosition.z) / max(-RotatedConeDirection.z, .0001f), .00001f, AOGlobalMaxOcclusionDistance);
+						float DistanceFromConeEndToOccluder = max(WorldPosition.z + ZBias + RotatedConeDirection.z * DistanceAlongConeToOccluder - WorldHeightfieldShadingPosition.z, 0);
+
+						float SphereRadius = DistanceAlongConeToOccluder * TanConeHalfAngle;
+
+						// Derive visibility from 1d intersection
+						float Visibility = saturate(DistanceFromConeEndToOccluder / SphereRadius);
+
+						float OccluderDistanceFraction = DistanceAlongConeToOccluder / AOGlobalMaxOcclusionDistance;
+						// Fade out occlusion based on distance to occluder to avoid a discontinuity at the max AO distance
+						Visibility = max(Visibility, saturate(OccluderDistanceFraction * OccluderDistanceFraction * .6f));
+
+						MinDistanceToOccluder = min(MinDistanceToOccluder, DistanceAlongConeToOccluder);
+
+						// Shouldn't have to use atomics here as only one heightfield can affect a given world space position
+						RWScreenGridConeVisibility[OutputBaseIndex + ConeIndex] = min(Visibility, ExistingConeVisibility);
+					}
+				}
+			}
+		}
+	}
+}
+
+
+/**  */
+[numthreads(FINAL_GATHER_THREADGROUP_SIZE, 1, 1)]
+void CalculateHeightfieldIrradianceScreenGridCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint2 OutputCoordinate = GroupId.xy;
+	uint ThreadIndex = GroupThreadId.x;
+
+	float3 Lighting = 0;
+	
+	if (all(OutputCoordinate < ScreenGridConeVisibilitySize))
+	{
+		float2 BaseLevelScreenUV = GetBaseLevelScreenUVFromScreenGrid(OutputCoordinate);
+
+		float3 WorldNormal;
+		float SceneDepth;
+		bool bHasDistanceFieldRepresentation;
+		bool bHasHeightfieldRepresentation;
+		GetDownsampledGBuffer(BaseLevelScreenUV, WorldNormal, SceneDepth, bHasDistanceFieldRepresentation, bHasHeightfieldRepresentation);
+
+		float2 ScreenUV = GetScreenUVFromScreenGrid(OutputCoordinate);
+		float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+		
+		float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+		float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+		//@todo - constant time grid lookup
+		LOOP
+		for (uint HeightfieldIndex = 0; HeightfieldIndex < NumHeightfields; HeightfieldIndex++)
+		{
+			float4x4 WorldToLocal = GetWorldToLocal(HeightfieldIndex);
+			float3 LocalPosition = mul(float4(WorldPosition, 1), WorldToLocal).xyz;
+			float4 MinMaxHeightfieldUV;
+			float2 HeightfieldUV = GetHeightfieldUV(HeightfieldIndex, LocalPosition.xy, MinMaxHeightfieldUV);
+
+			BRANCH
+			if (all(HeightfieldUV > MinMaxHeightfieldUV.xy) 
+				&& all(HeightfieldUV < MinMaxHeightfieldUV.zw))
+			{
+				uint StepBentNormalBaseIndex = OutputCoordinate.y * ScreenGridConeVisibilitySize.x + OutputCoordinate.x;
+				float3 BentNormal = ComputeBentNormal(WorldNormal, StepBentNormalBaseIndex);
+
+				float4 GlobalUVScaleBias = GetHeightfieldGlobalScaleBias(HeightfieldIndex);
+				float2 GlobalUV = LocalPosition.xy * GlobalUVScaleBias.xy + GlobalUVScaleBias.zw;
+				float4x4 LocalToWorld = GetLocalToWorld(HeightfieldIndex);
+
+				float3 WorldHeightfieldNormal = GetGlobalHeightfieldNormal(GlobalUV);
+				float3 WorldHeightfieldShadingPosition = GetGlobalHeightfieldWorldPosition(LocalPosition.xy, GlobalUV, LocalToWorld);
+
+				#define VISUALIZE_HEIGHTFIELD_LIGHTING 0
+				#if VISUALIZE_HEIGHTFIELD_LIGHTING
+
+					Lighting = SampleHeightfieldLighting(GlobalUV) / FINAL_GATHER_THREADGROUP_SIZE;
+					//Lighting = GetGlobalDiffuseColor(GlobalUV) / FINAL_GATHER_THREADGROUP_SIZE;
+					//Lighting = frac(WorldHeightfieldShadingPosition / 1000);
+					//Lighting = abs(WorldHeightfieldShadingPosition.z - WorldPosition.z) / 100.0f;
+					//Lighting = GetGlobalHeightfieldHeight(GlobalUV) / 100000.0f;
+				#else
+
+					float3 WorldShadingPosition = WorldPosition + 40 * WorldHeightfieldNormal;
+					float3 LocalShadingPosition = mul(float4(WorldShadingPosition, 1), WorldToLocal).xyz;
+
+					float2 GlobalTexelSize = GetGlobalTexelSize(HeightfieldIndex);
+					float2 ShadingGlobalUV = LocalShadingPosition.xy * GlobalUVScaleBias.xy + GlobalUVScaleBias.zw;
+
+					float WorldToLocalScale = length(WorldToLocal[0].xyz);
+					float HeightfieldTexelSize = 1.0f / WorldToLocalScale;
+					float VPLRadius = sqrt(2) * .5f * HeightfieldTexelSize * GlobalTexelSize.x / GlobalUVScaleBias.x;
+
+					float2 GlobalUVExtents = InnerLightTransferDistance * WorldToLocalScale * GlobalUVScaleBias.xy;
+					
+					Lighting = GatherHeightfieldLighting(
+						WorldPosition, 
+						WorldNormal, 
+						BentNormal, 
+						ShadingGlobalUV, 
+						GlobalUVExtents, 
+						GlobalTexelSize, 
+						VPLRadius, 
+						1,
+						GlobalUVScaleBias, 
+						LocalToWorld, 
+						InnerLightTransferDistance, 
+						ThreadIndex,
+						false);
+
+					Lighting += GatherHeightfieldLighting(
+						WorldPosition, 
+						WorldNormal, 
+						BentNormal, 
+						ShadingGlobalUV, 
+						GlobalUVExtents, 
+						GlobalTexelSize, 
+						VPLRadius, 
+						OuterLightTransferDistanceScale,
+						GlobalUVScaleBias, 
+						LocalToWorld, 
+						InnerLightTransferDistance, 
+						ThreadIndex,
+						true);
+				#endif
+
+				break;
+			}
+		}
+	}
+	
+	SharedThreadIrradiance[ThreadIndex] = Lighting;
+
+	GroupMemoryBarrierWithGroupSync();
+
+	if (ThreadIndex == 0)
+	{
+		float3 Irradiance = 0;
+
+		for (uint i = 0; i < FINAL_GATHER_THREADGROUP_SIZE; i++)
+		{
+			Irradiance += SharedThreadIrradiance[i];
+		}
+
+		if (all(OutputCoordinate < ScreenGridConeVisibilitySize))
+		{
+			uint OutputIndex = OutputCoordinate.y * ScreenGridConeVisibilitySize.x + OutputCoordinate.x;
+			RWHeightfieldIrradiance[OutputIndex] = float4(Irradiance, 0);
+		}
+	}
+}
+
+// In float's, must match FConvertToUniformMeshVertex and ComputeUniformVertexStride()
+#define TRIANGLE_VERTEX_DATA_STRIDE 24
+
+uint StartIndex;
+uint NumTriangles;
+Buffer<float> TriangleVertexData;
+
+float LoadVertexAttribute(uint TriangleIndex, uint VertexIndex, uint AttributeIndex)
+{
+	return TriangleVertexData[(TriangleIndex * 3 + VertexIndex) * TRIANGLE_VERTEX_DATA_STRIDE + AttributeIndex];
+}
+
+RWBuffer<uint> RWTriangleVisibleMask;
+
+#ifndef PRECULL_TRIANGLES_TO_HEIGHTFIELDS_GROUP_SIZE
+#define PRECULL_TRIANGLES_TO_HEIGHTFIELDS_GROUP_SIZE 1
+#endif
+
+/**  */
+[numthreads(PRECULL_TRIANGLES_TO_HEIGHTFIELDS_GROUP_SIZE, 1, 1)]
+void PreCullTrianglesToHeightfieldsCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint TriangleIndex = DispatchThreadId.x;
+
+	if (TriangleIndex < NumTriangles)
+	{
+		uint GlobalTriangleIndex = TriangleIndex + StartIndex / 3;
+		float3 Position0 = float3(LoadVertexAttribute(GlobalTriangleIndex, 0, 0), LoadVertexAttribute(GlobalTriangleIndex, 0, 1), LoadVertexAttribute(GlobalTriangleIndex, 0, 2));
+		float3 Position1 = float3(LoadVertexAttribute(GlobalTriangleIndex, 1, 0), LoadVertexAttribute(GlobalTriangleIndex, 1, 1), LoadVertexAttribute(GlobalTriangleIndex, 1, 2));
+		float3 Position2 = float3(LoadVertexAttribute(GlobalTriangleIndex, 2, 0), LoadVertexAttribute(GlobalTriangleIndex, 2, 1), LoadVertexAttribute(GlobalTriangleIndex, 2, 2));
+		/*
+		float3 TriangleNormal = cross(Position2 - Position0, Position1 - Position0);
+		float TriangleArea = .5f * length(TriangleNormal);
+		uint NumSamplesOneDim = 10;
+		float SampleArea = TriangleArea / (NumSamplesOneDim * NumSamplesOneDim);
+		float SampleRadius = .5f * sqrt(2 * SampleArea);
+		*/
+		float3 InterpolatedPosition = (Position0 + Position1 + Position2) / 3.0f;
+		float SampleRadius = length(InterpolatedPosition - Position0);
+
+		bool bTriangleIsVisible = true;
+
+		LOOP
+		for (uint HeightfieldIndex = 0; HeightfieldIndex < NumHeightfields; HeightfieldIndex++)
+		{
+			float3 LocalPosition = mul(float4(InterpolatedPosition, 1), GetWorldToLocal(HeightfieldIndex)).xyz;
+			float4 MinMaxHeightfieldUV;
+			float2 HeightfieldUV = GetHeightfieldUV(HeightfieldIndex, LocalPosition.xy, MinMaxHeightfieldUV);
+
+			BRANCH
+			if (all(HeightfieldUV > MinMaxHeightfieldUV.xy) 
+				&& all(HeightfieldUV < MinMaxHeightfieldUV.zw))
+			{
+				float3 WorldHeightfieldShadingPosition = GetHeightfieldWorldPosition(HeightfieldIndex, LocalPosition.xy, HeightfieldUV);
+
+				//@todo - multiple samples to reduce error
+				if (InterpolatedPosition.z + SampleRadius * 1.5f < WorldHeightfieldShadingPosition.z)
+				{
+					bTriangleIsVisible = false;
+				}
+			}
+		}
+		
+		if (!bTriangleIsVisible)
+		{
+			RWTriangleVisibleMask[GlobalTriangleIndex] = 0;
+		}
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTWeaponState.h"
@@ -82,10 +82,10 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 		{
 			// now that the anim is playing, force update first person meshes
 			// this is necessary to avoid one frame artifacts since the meshes may have been set to not update while the weapon was down
-			GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh->TickAnimation(0.0f);
+			GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh->TickAnimation(0.0f, false);
 			GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh->RefreshBoneTransforms();
 			GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh->UpdateComponentToWorld();
-			GetOuterAUTWeapon()->Mesh->TickAnimation(0.0f);
+			GetOuterAUTWeapon()->Mesh->TickAnimation(0.0f, false);
 			GetOuterAUTWeapon()->Mesh->RefreshBoneTransforms();
 			GetOuterAUTWeapon()->Mesh->UpdateComponentToWorld();
 			FComponentRecreateRenderStateContext ReregisterContext(GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh);

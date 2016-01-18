@@ -45,6 +45,11 @@ IDetailPropertyRow& FCustomChildrenBuilder::AddChildProperty( TSharedRef<IProper
 	FDetailLayoutCustomization NewCustomization;
 	NewCustomization.PropertyRow = MakeShareable( new FDetailPropertyRow( StaticCastSharedRef<FPropertyHandleBase>( PropertyHandle )->GetPropertyNode(), ParentCategory.Pin().ToSharedRef() ) );
 
+	if (CustomResetChildToDefault.IsSet())
+	{
+		NewCustomization.PropertyRow->OverrideResetToDefault(CustomResetChildToDefault.GetValue());
+	}
+
 	ChildCustomizations.Add( NewCustomization );
 
 	return *NewCustomization.PropertyRow;
@@ -110,3 +115,8 @@ TSharedRef<SWidget> FCustomChildrenBuilder::GenerateStructValueWidget( TSharedRe
 	}
 }
 
+FCustomChildrenBuilder& FCustomChildrenBuilder::OverrideResetChildrenToDefault(const FResetToDefaultOverride& ResetToDefault)
+{
+	CustomResetChildToDefault = ResetToDefault;
+	return *this;
+}

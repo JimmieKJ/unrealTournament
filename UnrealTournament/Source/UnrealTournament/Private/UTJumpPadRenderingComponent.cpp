@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTJumpPad.h"
@@ -70,7 +70,7 @@ public:
 		return(sizeof(*this));
 	}
 
-	FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View) && (IsSelected() || View->Family->EngineShowFlags.Navigation);
@@ -103,7 +103,7 @@ FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & Loc
 {
 	FBox Bounds(0);
 
-	if (GExitPurge || HasAnyFlags(RF_BeginDestroyed))
+	if (GExitPurge || HasAnyFlags(RF_BeginDestroyed) || World == nullptr)
 	{
 		return FBoxSphereBounds(Bounds);
 	}

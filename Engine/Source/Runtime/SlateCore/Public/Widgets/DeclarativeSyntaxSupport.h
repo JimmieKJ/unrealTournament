@@ -109,10 +109,15 @@ class IToolTip;
 	};
 
 
-#define INTERNAL_SLATE_DECL_ATTRIBUTE( Var, AttrType, AttrName ) \
-		WidgetArgsType& AttrName( const AttrType& InAttribute ) \
+/**
+ * Use this macro to add a attribute to the declaration of your widget.
+ * An attribute can be a value or a function.
+ */
+#define SLATE_ATTRIBUTE( AttrType, AttrName ) \
+		TAttribute< AttrType > _##AttrName; \
+		WidgetArgsType& AttrName( const TAttribute< AttrType >& InAttribute ) \
 		{ \
-			Var = InAttribute; \
+			_##AttrName = InAttribute; \
 			return this->Me(); \
 		} \
 	\
@@ -121,31 +126,31 @@ class IToolTip;
 		template< typename StaticFuncPtr > \
 		WidgetArgsType& AttrName##_Static( StaticFuncPtr InFunc )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateStatic( InFunc ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateStatic( InFunc ) ); \
 			return this->Me(); \
 		} \
 		template< typename Var1Type > \
-		WidgetArgsType& AttrName##_Static( typename AttrType::FGetter::template TStaticDelegate_OneVar< Var1Type >::FFuncPtr InFunc, Var1Type Var1 )	\
+		WidgetArgsType& AttrName##_Static( typename TAttribute< AttrType >::FGetter::template TStaticDelegate_OneVar< Var1Type >::FFuncPtr InFunc, Var1Type Var1 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateStatic( InFunc, Var1 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateStatic( InFunc, Var1 ) ); \
 			return this->Me(); \
 		} \
 		template< typename Var1Type, typename Var2Type > \
-		WidgetArgsType& AttrName##_Static( typename AttrType::FGetter::template TStaticDelegate_TwoVars< Var1Type, Var2Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
+		WidgetArgsType& AttrName##_Static( typename TAttribute< AttrType >::FGetter::template TStaticDelegate_TwoVars< Var1Type, Var2Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateStatic( InFunc, Var1, Var2 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateStatic( InFunc, Var1, Var2 ) ); \
 			return this->Me(); \
 		} \
 		template< typename Var1Type, typename Var2Type, typename Var3Type > \
-		WidgetArgsType& AttrName##_Static( typename AttrType::FGetter::template TStaticDelegate_ThreeVars< Var1Type, Var2Type, Var3Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
+		WidgetArgsType& AttrName##_Static( typename TAttribute< AttrType >::FGetter::template TStaticDelegate_ThreeVars< Var1Type, Var2Type, Var3Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateStatic( InFunc, Var1, Var2, Var3 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateStatic( InFunc, Var1, Var2, Var3 ) ); \
 			return this->Me(); \
 		} \
 		template< typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type > \
-		WidgetArgsType& AttrName##_Static( typename AttrType::FGetter::template TStaticDelegate_FourVars< Var1Type, Var2Type, Var3Type, Var4Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
+		WidgetArgsType& AttrName##_Static( typename TAttribute< AttrType >::FGetter::template TStaticDelegate_FourVars< Var1Type, Var2Type, Var3Type, Var4Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateStatic( InFunc, Var1, Var2, Var3, Var4 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateStatic( InFunc, Var1, Var2, Var3, Var4 ) ); \
 			return this->Me(); \
 		} \
 	\
@@ -154,381 +159,141 @@ class IToolTip;
 		template<typename FunctorType> \
 		WidgetArgsType& AttrName##_Lambda(FunctorType&& InFunctor) \
 		{ \
-			Var = AttrType::Create(AttrType::FGetter::CreateLambda(Forward<FunctorType>(InFunctor))); \
+			_##AttrName = TAttribute< AttrType >::Create(TAttribute< AttrType >::FGetter::CreateLambda(Forward<FunctorType>(InFunctor))); \
 			return this->Me(); \
 		} \
 	\
 		/* Bind attribute with delegate to a raw C++ class method */ \
 		template< class UserClass >	\
-		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename AttrType::FGetter::template TRawMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
+		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TRawMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateRaw( InUserObject, InFunc ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateRaw( InUserObject, InFunc ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type >	\
-		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename AttrType::FGetter::template TRawMethodDelegate_OneVar_Const< UserClass, Var1Type  >::FMethodPtr InFunc, Var1Type Var1 )	\
+		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TRawMethodDelegate_OneVar_Const< UserClass, Var1Type  >::FMethodPtr InFunc, Var1Type Var1 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateRaw( InUserObject, InFunc, Var1 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateRaw( InUserObject, InFunc, Var1 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type >	\
-		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename AttrType::FGetter::template TRawMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
+		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TRawMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type >	\
-		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename AttrType::FGetter::template TRawMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
+		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TRawMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2, Var3 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2, Var3 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type >	\
-		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename AttrType::FGetter::template TRawMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
+		WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TRawMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ); \
 			return this->Me(); \
 		} \
 	\
 		/* Bind attribute with delegate to a shared pointer-based class method.  Slate mostly uses shared pointers so we use an overload for this type of binding. */ \
 		template< class UserClass >	\
-		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename AttrType::FGetter::template TSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
+		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
 		{ \
-			Var = AttrType( InUserObjectRef, InFunc ); \
+			_##AttrName = TAttribute< AttrType >( InUserObjectRef, InFunc ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type >	\
-		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename AttrType::FGetter::template TSPMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
+		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObjectRef, InFunc, Var1 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObjectRef, InFunc, Var1 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type >	\
-		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename AttrType::FGetter::template TSPMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
+		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type >	\
-		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename AttrType::FGetter::template TSPMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
+		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2, Var3 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2, Var3 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type >	\
-		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename AttrType::FGetter::template TSPMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
+		WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2, Var3, Var4 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2, Var3, Var4 ) ); \
 			return this->Me(); \
 		} \
 	\
 		/* Bind attribute with delegate to a shared pointer-based class method.  Slate mostly uses shared pointers so we use an overload for this type of binding. */ \
 		template< class UserClass >	\
-		WidgetArgsType& AttrName( UserClass* InUserObject, typename AttrType::FGetter::template TSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
+		WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObject, InFunc ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObject, InFunc ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type >	\
-		WidgetArgsType& AttrName( UserClass* InUserObject, typename AttrType::FGetter::template TSPMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
+		WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObject, InFunc, Var1 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObject, InFunc, Var1 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type >	\
-		WidgetArgsType& AttrName( UserClass* InUserObject, typename AttrType::FGetter::template TSPMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
+		WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type >	\
-		WidgetArgsType& AttrName( UserClass* InUserObject, typename AttrType::FGetter::template TSPMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
+		WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2, Var3 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2, Var3 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type >	\
-		WidgetArgsType& AttrName( UserClass* InUserObject, typename AttrType::FGetter::template TSPMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
+		WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TSPMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ); \
 			return this->Me(); \
 		} \
 	\
 		/* Bind attribute with delegate to a UObject-based class method */ \
 		template< class UserClass >	\
-		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename AttrType::FGetter::template TUObjectMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
+		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TUObjectMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateUObject( InUserObject, InFunc ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateUObject( InUserObject, InFunc ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type >	\
-		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename AttrType::FGetter::template TUObjectMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
+		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TUObjectMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateUObject( InUserObject, InFunc, Var1 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateUObject( InUserObject, InFunc, Var1 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type  >	\
-		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename AttrType::FGetter::template TUObjectMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
+		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TUObjectMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type >	\
-		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename AttrType::FGetter::template TUObjectMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
+		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TUObjectMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2, Var3 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2, Var3 ) ); \
 			return this->Me(); \
 		} \
 		template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type >	\
-		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename AttrType::FGetter::template TUObjectMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
+		WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< AttrType >::FGetter::template TUObjectMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
 		{ \
-			Var = AttrType::Create( AttrType::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ); \
+			_##AttrName = TAttribute< AttrType >::Create( TAttribute< AttrType >::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ); \
 			return this->Me(); \
 		}
 
 
 /**
- * Use this macro to add a attribute to the declaration of your widget.
- * An attribute can be a value or a function.
- */
-#define SLATE_ATTRIBUTE( AttrType, AttrName ) \
-	TAttribute< AttrType > _##AttrName; \
-	INTERNAL_SLATE_DECL_ATTRIBUTE( _##AttrName, TAttribute< AttrType >, AttrName )
-
-
-#define SLATE_TEXT_ATTRIBUTE_IMPL( Var, AttrName ) \
-	TAttribute< FText > Var; \
-	struct AttrName##_Local\
-	{\
-		static FText PassThroughDelegate( TAttribute< FString >::FGetter StringDelegate )\
-		{\
-			return (StringDelegate.IsBound()) ? FText::FromString( StringDelegate.Execute() ) : FText::GetEmpty();\
-		}\
-		\
-		static FText PassThroughAttribute( TAttribute< FString > StringAttribute )\
-		{\
-			return FText::FromString( StringAttribute.Get( FString() ) );\
-		}\
-	};\
-	WidgetArgsType& AttrName( const FText& Text ) \
-	{ \
-		Var = TAttribute< FText >( Text ); \
-		return this->Me(); \
-	} \
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( const FString& String ) \
-	{ \
-		Var = TAttribute< FText >( FText::FromString( String ) ); \
-		return this->Me(); \
-	} \
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( const TAttribute< FString >& InAttribute ) \
-	{ \
-		if ( InAttribute.IsBound() ) {\
-			Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughAttribute, InAttribute ) ); \
-		} else {\
-			Var = FText::FromString( InAttribute.Get() );\
-		}\
-		return this->Me(); \
-	} \
-	/* Bind attribute with delegate to a global function \
-	* NOTE: We use a template here to avoid 'typename' issues when hosting attributes inside templated classes */ \
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Static( TAttribute< FString >::FGetter::FStaticDelegate::FFuncPtr InFunc )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateStatic( InFunc ) ) ); \
-		return this->Me(); \
-	} \
-	template< typename Var1Type > \
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Static( typename TAttribute< FString >::FGetter::template TStaticDelegate_OneVar< Var1Type >::FFuncPtr InFunc, Var1Type Var1 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateStatic( InFunc, Var1 ) ) ); \
-		return this->Me(); \
-	} \
-	template< typename Var1Type, typename Var2Type > \
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Static( typename TAttribute< FString >::FGetter::template TStaticDelegate_TwoVars< Var1Type, Var2Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateStatic( InFunc, Var1, Var2 ) ) ); \
-		return this->Me(); \
-	} \
-	template< typename Var1Type, typename Var2Type, typename Var3Type > \
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Static( typename TAttribute< FString >::FGetter::template TStaticDelegate_ThreeVars< Var1Type, Var2Type, Var3Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateStatic( InFunc, Var1, Var2, Var3 ) ) ); \
-		return this->Me(); \
-	} \
-	template< typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type > \
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Static( typename TAttribute< FString >::FGetter::template TStaticDelegate_FourVars< Var1Type, Var2Type, Var3Type, Var4Type >::FFuncPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateStatic( InFunc, Var1, Var2, Var3, Var4 ) ) ); \
-		return this->Me(); \
-	} \
-\
-	/* We don't support binding FString lambdas to FText attributes because we currently have no way to disambiguate them from FText lambdas \
-	template<typename FunctorType> \
-	WidgetArgsType& AttrName##_Lambda(FunctorType&& InFunctor) */ \
-\
-	/* Bind attribute with delegate to a raw C++ class method */ \
-	template< class UserClass >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TRawMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateRaw( InUserObject, InFunc ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TRawMethodDelegate_OneVar_Const< UserClass, Var1Type  >::FMethodPtr InFunc, Var1Type Var1 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateRaw( InUserObject, InFunc, Var1 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TRawMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TRawMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2, Var3 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_Raw( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TRawMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateRaw( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ) ); \
-		return this->Me(); \
-	} \
-\
-	/* Bind attribute with delegate to a shared pointer-based class method.  Slate mostly uses shared pointers so we use an overload for this type of binding. */ \
-	template< class UserClass >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObjectRef, InFunc ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObjectRef, InFunc, Var1 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2, Var3 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( TSharedRef< UserClass > InUserObjectRef, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObjectRef, InFunc, Var1, Var2, Var3, Var4 ) ) ); \
-		return this->Me(); \
-	} \
-\
-	/* Bind attribute with delegate to a shared pointer-based class method.  Slate mostly uses shared pointers so we use an overload for this type of binding. */ \
-	template< class UserClass >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObject, InFunc ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObject, InFunc, Var1 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2, Var3 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TSPMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateSP( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ) ); \
-		return this->Me(); \
-	} \
-\
-	/* Bind attribute with delegate to a UObject-based class method */ \
-	template< class UserClass >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TUObjectMethodDelegate_Const< UserClass >::FMethodPtr InFunc )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateUObject( InUserObject, InFunc ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TUObjectMethodDelegate_OneVar_Const< UserClass, Var1Type >::FMethodPtr InFunc, Var1Type Var1 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateUObject( InUserObject, InFunc, Var1 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type  >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TUObjectMethodDelegate_TwoVars_Const< UserClass, Var1Type, Var2Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TUObjectMethodDelegate_ThreeVars_Const< UserClass, Var1Type, Var2Type, Var3Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2, Var3 ) ) ); \
-		return this->Me(); \
-	} \
-	template< class UserClass, typename Var1Type, typename Var2Type, typename Var3Type, typename Var4Type >	\
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& AttrName##_UObject( UserClass* InUserObject, typename TAttribute< FString >::FGetter::template TUObjectMethodDelegate_FourVars_Const< UserClass, Var1Type, Var2Type, Var3Type, Var4Type >::FMethodPtr InFunc, Var1Type Var1, Var2Type Var2, Var3Type Var3, Var4Type Var4 )	\
-	{ \
-		Var = TAttribute< FText >::Create( TAttribute< FText >::FGetter::CreateStatic( &AttrName##_Local::PassThroughDelegate, TAttribute< FString >::FGetter::CreateUObject( InUserObject, InFunc, Var1, Var2, Var3, Var4 ) ) ); \
-		return this->Me(); \
-	}\
-	INTERNAL_SLATE_DECL_ATTRIBUTE( Var, TAttribute< FText >, AttrName )
-
-/**
- * Declare an FText attribute which also allows content passthrough from FString
- */
-#define SLATE_TEXT_ATTRIBUTE( AttrName ) SLATE_TEXT_ATTRIBUTE_IMPL( _##AttrName, AttrName )
-
-
-/**
- * Use this macro to declar a slate argument.
+ * Use this macro to declare a slate argument.
  * Arguments differ from attributes in that they can only be values
  */
 #define SLATE_ARGUMENT( ArgType, ArgName ) \
@@ -538,21 +303,6 @@ class IToolTip;
 			_##ArgName = InArg; \
 			return this->Me(); \
 		}
-
-#define SLATE_TEXT_ARGUMENT( ArgName ) \
-	FText _##ArgName; \
-	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")\
-	WidgetArgsType& ArgName( FString InArg ) \
-	{ \
-		_##ArgName = FText::FromString(InArg); \
-		return this->Me(); \
-	}\
-	\
-	WidgetArgsType& ArgName( FText InArg ) \
-	{ \
-		_##ArgName = InArg; \
-		return this->Me(); \
-	}
 
 
 /**
@@ -1013,6 +763,7 @@ struct TSlateBaseNamedArgs
 	, _Visibility( EVisibility::Visible )
 	, _RenderTransform( )
 	, _RenderTransformPivot( FVector2D::ZeroVector )
+	, _ForceVolatile( false )
 	{
 	}
 
@@ -1045,7 +796,7 @@ struct TSlateBaseNamedArgs
 		return Me();
 	}
 
-	SLATE_TEXT_ATTRIBUTE( ToolTipText )
+	SLATE_ATTRIBUTE( FText, ToolTipText )
 	SLATE_ARGUMENT( TSharedPtr<IToolTip>, ToolTip )
 	SLATE_ATTRIBUTE( TOptional<EMouseCursor::Type>, Cursor )
 	SLATE_ATTRIBUTE( bool, IsEnabled )
@@ -1053,6 +804,7 @@ struct TSlateBaseNamedArgs
 	SLATE_ATTRIBUTE( TOptional<FSlateRenderTransform>, RenderTransform )
 	SLATE_ATTRIBUTE( FVector2D, RenderTransformPivot )
 	SLATE_ARGUMENT( FName, Tag )
+	SLATE_ARGUMENT( bool, ForceVolatile )
 
 	TArray<TSharedRef<ISlateMetaData>> MetaData;
 };
@@ -1070,6 +822,7 @@ namespace RequiredArgs
 		{
 			// YOUR WIDGET MUST IMPLEMENT void Construct(const FArguments& InArgs)
 			OnWidget->Construct(WithNamedArgs);
+			OnWidget->CacheVolatility();
 		}
 	};
 
@@ -1086,6 +839,7 @@ namespace RequiredArgs
 		{
 			// YOUR WIDGET MUST IMPLEMENT void Construct(const FArguments& InArgs)
 			OnWidget->Construct(WithNamedArgs, Forward<Arg0Type>(Arg0));
+			OnWidget->CacheVolatility();
 		}
 
 		Arg0Type& Arg0;
@@ -1105,6 +859,7 @@ namespace RequiredArgs
 		{
 			// YOUR WIDGET MUST IMPLEMENT Construct(const FArguments& InArgs)
 			OnWidget->Construct(WithNamedArgs, Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1));
+			OnWidget->CacheVolatility();
 		}
 
 		Arg0Type& Arg0;
@@ -1126,6 +881,7 @@ namespace RequiredArgs
 		{
 			// YOUR WIDGET MUST IMPLEMENT Construct(const FArguments& InArgs)
 			OnWidget->Construct(WithNamedArgs, Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1), Forward<Arg2Type>(Arg2));
+			OnWidget->CacheVolatility();
 		}
 
 		Arg0Type& Arg0;
@@ -1149,6 +905,7 @@ namespace RequiredArgs
 		{
 			// YOUR WIDGET MUST IMPLEMENT Construct(const FArguments& InArgs)
 			OnWidget->Construct(WithNamedArgs, Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1), Forward<Arg2Type>(Arg2), Forward<Arg3Type>(Arg3));
+			OnWidget->CacheVolatility();
 		}
 
 		Arg0Type& Arg0;
@@ -1174,6 +931,7 @@ namespace RequiredArgs
 		{
 			// YOUR WIDGET MUST IMPLEMENT Construct(const FArguments& InArgs)
 			OnWidget->Construct(WithNamedArgs, Forward<Arg0Type>(Arg0), Forward<Arg1Type>(Arg1), Forward<Arg2Type>(Arg2), Forward<Arg3Type>(Arg3), Forward<Arg4Type>(Arg4));
+			OnWidget->CacheVolatility();
 		}
 
 		Arg0Type& Arg0;
@@ -1316,6 +1074,7 @@ struct TDecl
 			InArgs._RenderTransform,
 			InArgs._RenderTransformPivot,
 			InArgs._Tag,
+			InArgs._ForceVolatile,
 			InArgs.MetaData );
 
 		_RequiredArgs.CallConstruct(_Widget, InArgs);

@@ -7,8 +7,12 @@
 #include "GenericPlatformMemoryPoolStats.h"
 #include "MemoryMisc.h"
 
+#if ENABLE_WIN_ALLOC_TRACKING
+#include <crtdbg.h>
+#endif // ENABLE_WIN_ALLOC_TRACKING
+
 #if !FORCE_ANSI_ALLOCATOR
-#include "MallocBinned.h"
+#include "MallocBinned2.h"
 #endif
 
 #include "AllowWindowsPlatformTypes.h"
@@ -17,26 +21,24 @@
 
 DECLARE_MEMORY_STAT(TEXT("Windows Specific Memory Stat"),	STAT_WindowsSpecificMemoryStat, STATGROUP_MemoryPlatform);
 
-/** Enable this to track down windows allocations not wrapped by our wrappers
+#if ENABLE_WIN_ALLOC_TRACKING
+// This allows tracking of allocations that don't happen within the engine's wrappers.
+// You will probably want to set conditional breakpoints here to capture specific allocations
+// which aren't related to static initialization, they will happen on the CRT anyway.
 int WindowsAllocHook(int nAllocType, void *pvData,
 				  size_t nSize, int nBlockUse, long lRequest,
 				  const unsigned char * szFileName, int nLine )
 {
-	if ((nAllocType == _HOOK_ALLOC || nAllocType == _HOOK_REALLOC) && nSize > 2048)
-	{
-		static int i = 0;
-		i++;
-	}
 	return true;
 }
-*/
+#endif // ENABLE_WIN_ALLOC_TRACKING
 
 #include "GenericPlatformMemoryPoolStats.h"
 
 
 void FWindowsPlatformMemory::Init()
 {
-	FGenericPlatformMemory::SetupMemoryPools();
+	FGenericPlatformMemory::Init();
 
 #if PLATFORM_32BITS
 	const int64 GB(1024*1024*1024);
@@ -56,21 +58,25 @@ void FWindowsPlatformMemory::Init()
 		MemoryConstants.TotalPhysicalGB );
 #endif //PLATFORM_32BITS
 
-	UpdateStats();
 	DumpStats( *GLog );
 }
 
 FMalloc* FWindowsPlatformMemory::BaseAllocator()
 {
+#if ENABLE_WIN_ALLOC_TRACKING
+	// This allows tracking of allocations that don't happen within the engine's wrappers.
+	// This actually won't be compiled unless bDebugBuildsActuallyUseDebugCRT is set in the
+	// build configuration for UBT.
+	_CrtSetAllocHook(WindowsAllocHook);
+#endif // ENABLE_WIN_ALLOC_TRACKING
+
 #if FORCE_ANSI_ALLOCATOR
 	return new FMallocAnsi();
 #elif (WITH_EDITORONLY_DATA || IS_PROGRAM) && TBB_ALLOCATOR_ALLOWED
 	return new FMallocTBB();
 #else
-	return new FMallocBinned((uint32)(GetConstants().PageSize&MAX_uint32), (uint64)MAX_uint32+1);
+	return new FMallocBinned2((uint32)(GetConstants().PageSize&MAX_uint32), (uint64)MAX_uint32+1);
 #endif
-
-//	_CrtSetAllocHook(WindowsAllocHook); // Enable to track down windows allocs not handled by our wrapper
 }
 
 FPlatformMemoryStats FWindowsPlatformMemory::GetStats()
@@ -94,14 +100,19 @@ FPlatformMemoryStats FWindowsPlatformMemory::GetStats()
 	 *		PageSize
 	 */
 
+	// This method is slow, do not call it too often.
+	// #TODO Should be executed only on the background thread.
+
 	FPlatformMemoryStats MemoryStats;
 
 	// Gather platform memory stats.
-	MEMORYSTATUSEX MemoryStatusEx = {0};
+	MEMORYSTATUSEX MemoryStatusEx;
+	FPlatformMemory::Memzero( &MemoryStatusEx, sizeof( MemoryStatusEx ) );
 	MemoryStatusEx.dwLength = sizeof( MemoryStatusEx );
 	::GlobalMemoryStatusEx( &MemoryStatusEx );
 
-	PROCESS_MEMORY_COUNTERS ProcessMemoryCounters = {0};
+	PROCESS_MEMORY_COUNTERS ProcessMemoryCounters;
+	FPlatformMemory::Memzero( &ProcessMemoryCounters, sizeof( ProcessMemoryCounters ) );
 	::GetProcessMemoryInfo( ::GetCurrentProcess(), &ProcessMemoryCounters, sizeof(ProcessMemoryCounters) );
 
 	MemoryStats.AvailablePhysical = MemoryStatusEx.ullAvailPhys;
@@ -123,7 +134,7 @@ void FWindowsPlatformMemory::GetStatsForMallocProfiler( FGenericMemoryStats& out
 	FPlatformMemoryStats Stats = GetStats();
 
 	// Windows specific stats.
-	out_Stats.Add(TEXT("Windows Specific Memory Stat"), Stats.WindowsSpecificMemoryStat );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_WindowsSpecificMemoryStat ), Stats.WindowsSpecificMemoryStat );
 #endif // STATS
 }
 
@@ -134,45 +145,23 @@ const FPlatformMemoryConstants& FWindowsPlatformMemory::GetConstants()
 	if( MemoryConstants.TotalPhysical == 0 )
 	{
 		// Gather platform memory constants.
-		MEMORYSTATUSEX MemoryStatusEx = {0};
+		MEMORYSTATUSEX MemoryStatusEx;
+		FPlatformMemory::Memzero( &MemoryStatusEx, sizeof( MemoryStatusEx ) );
 		MemoryStatusEx.dwLength = sizeof( MemoryStatusEx );
 		::GlobalMemoryStatusEx( &MemoryStatusEx );
 
-		PERFORMANCE_INFORMATION PerformanceInformation = {0};
-		::GetPerformanceInfo( &PerformanceInformation, sizeof(PerformanceInformation) );
+		SYSTEM_INFO SystemInfo;
+		FPlatformMemory::Memzero( &SystemInfo, sizeof( SystemInfo ) );
+		::GetSystemInfo(&SystemInfo);
 
 		MemoryConstants.TotalPhysical = MemoryStatusEx.ullTotalPhys;
 		MemoryConstants.TotalVirtual = MemoryStatusEx.ullTotalVirtual;
-		MemoryConstants.PageSize = PerformanceInformation.PageSize;
+		MemoryConstants.PageSize = SystemInfo.dwAllocationGranularity;	// Use this so we get larger 64KiB pages, instead of 4KiB
 
 		MemoryConstants.TotalPhysicalGB = (MemoryConstants.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
 	}
 
 	return MemoryConstants;	
-}
-
-void FWindowsPlatformMemory::UpdateStats()
-{
-#if STATS
-	if (FThreadStats::IsCollectingData(GET_STATID(STAT_TotalPhysical)))
-	{
-		FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
-		SET_MEMORY_STAT(STAT_TotalPhysical,MemoryStats.TotalPhysical);
-		SET_MEMORY_STAT(STAT_TotalVirtual,MemoryStats.TotalVirtual);
-		SET_MEMORY_STAT(STAT_PageSize,MemoryStats.PageSize);
-		SET_MEMORY_STAT(STAT_TotalPhysicalGB,MemoryStats.TotalPhysicalGB);
-
-		SET_MEMORY_STAT(STAT_AvailablePhysical,MemoryStats.AvailablePhysical);
-		SET_MEMORY_STAT(STAT_AvailableVirtual,MemoryStats.AvailableVirtual);
-		SET_MEMORY_STAT(STAT_UsedPhysical,MemoryStats.UsedPhysical);
-		SET_MEMORY_STAT(STAT_PeakUsedPhysical,MemoryStats.PeakUsedPhysical);
-		SET_MEMORY_STAT(STAT_UsedVirtual,MemoryStats.UsedVirtual);
-		SET_MEMORY_STAT(STAT_PeakUsedVirtual,MemoryStats.PeakUsedVirtual);
-
-		// Windows specific stats.
-		SET_MEMORY_STAT(STAT_WindowsSpecificMemoryStat,MemoryStats.WindowsSpecificMemoryStat);
-	}
-#endif
 }
 
 void* FWindowsPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
@@ -311,4 +300,11 @@ bool FWindowsPlatformMemory::UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * 
 
 	return bAllSucceeded;
 }
+
+void FWindowsPlatformMemory::InternalUpdateStats( const FPlatformMemoryStats& MemoryStats )
+{
+	// Windows specific stats.
+	SET_MEMORY_STAT( STAT_WindowsSpecificMemoryStat, MemoryStats.WindowsSpecificMemoryStat );
+}
+
 #include "HideWindowsPlatformTypes.h"

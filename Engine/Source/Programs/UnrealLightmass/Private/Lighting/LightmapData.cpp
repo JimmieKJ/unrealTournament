@@ -121,7 +121,7 @@ namespace Lightmass
 			{
 				// Color
 				MinCoefficient[ CoefficientIndex ][ ColorIndex ] = 10000.0f;
-				MaxCoefficient[ CoefficientIndex ][ ColorIndex ] = 0.0f;
+				MaxCoefficient[ CoefficientIndex ][ ColorIndex ] = -10000.0f;
 
 				// Direction
 				MinCoefficient[ CoefficientIndex + 1 ][ ColorIndex ] = 10000.0f;
@@ -275,6 +275,9 @@ namespace Lightmass
 			DestCoefficients.SkyOcclusion[2] = (uint8)FMath::Clamp<int32>( FMath::RoundToInt( NormalizedBentNormal[2] * 255.0f ), 0, 255 );
 			// Sqrt on length to allocate more precision near 0
 			DestCoefficients.SkyOcclusion[3] = (uint8)FMath::Clamp<int32>( FMath::RoundToInt( FMath::Sqrt(BentNormalLength) * 255.0f ), 0, 255 );
+
+			// Sqrt to allocate more precision near 0
+			DestCoefficients.AOMaterialMask = (uint8)FMath::Clamp<int32>( FMath::RoundToInt( FMath::Sqrt(SourceSample.AOMaterialMask) * 255.0f ), 0, 255 ); 
 
 			{
 				float L, U, V, W;

@@ -30,10 +30,3 @@ void Sc::StaticCore::setActor2World(const PxTransform& actor2World)
 	if(sim)
 		sim->postActor2WorldChange();
 }
-
-const PxRigidActor* ScGetPxRigidStaticFromPxsRigidCore(const PxsRigidCore* core)
-{
-	const size_t offset = size_t(&(reinterpret_cast<Sc::StaticCore*>(0)->getCore()));
-	const Sc::StaticCore* staticCore = reinterpret_cast<const Sc::StaticCore*>(reinterpret_cast<const char*>(core)-offset);
-	return static_cast<const PxRigidStatic*>(staticCore->getPxActor());
-}

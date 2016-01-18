@@ -15,6 +15,8 @@ namespace UnrealBuildTool.Rules
 				}
 			);
 
+            PublicDependencyModuleNames.Add("GameplayTasks");
+
             PrivateDependencyModuleNames.AddRange(
                 new string[]
 				{
@@ -26,6 +28,7 @@ namespace UnrealBuildTool.Rules
 					"ClassViewer",
                     "GameplayTags",
 					"GameplayAbilities",
+                    "GameplayTasksEditor",
                     "InputCore",
                     "PropertyEditor",
 					"Slate",
@@ -37,6 +40,10 @@ namespace UnrealBuildTool.Rules
 					"GraphEditor",
 					"MainFrame",
 					"UnrealEd",
+                    "WorkspaceMenuStructure",
+                    "ContentBrowser",
+                    "EditorWidgets",
+                    "SourceControl",
 				}
 			);
 		}

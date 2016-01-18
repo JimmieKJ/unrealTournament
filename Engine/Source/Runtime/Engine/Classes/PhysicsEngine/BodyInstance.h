@@ -11,6 +11,7 @@
 struct FCollisionShape;
 struct FConstraintInstance;
 class UPhysicsConstraintComponent;
+enum class ETeleportType;
 
 /** Delegate for applying custom physics forces upon the body. Can be passed to "AddCustomPhysics" so 
   * custom forces and torques can be calculated induvidually for every physics substep.
@@ -18,6 +19,13 @@ class UPhysicsConstraintComponent;
   * 
   * Do not expect this callback to be called from the main game thread! It may get called from a physics simulation thread. */
 DECLARE_DELEGATE_TwoParams(FCalculateCustomPhysics, float, FBodyInstance*);
+
+/** Delegate for applying custom physics projection upon the body. When this is set for the body instance,
+  * it will be called whenever component transformation is requested from the physics engine. If
+  * projection is required (for example, visual position of an object must be different to the one in physics engine,
+  * e.g. the box should not penetrate the wall visually) the transformation of body must be updated to account for it.
+  * Since this could be called many times by GetWorldTransform any expensive computations should be cached if possible.*/
+DECLARE_DELEGATE_TwoParams(FCalculateCustomProjection, const FBodyInstance*, FTransform&);
 
 #if WITH_PHYSX
 struct FShapeData;
@@ -81,7 +89,7 @@ struct ENGINE_API FCollisionResponse
 	void ReplaceChannels(ECollisionResponse OldResponse, ECollisionResponse NewResponse);
 
 	/** Returns the response set on the specified channel */
-	ECollisionResponse GetResponse(ECollisionChannel Channel) const;
+	FORCEINLINE_DEBUGGABLE ECollisionResponse GetResponse(ECollisionChannel Channel) const { return ResponseToChannels.GetResponse(Channel); }
 	const FCollisionResponseContainer& GetResponseContainer() const { return ResponseToChannels; }
 
 	/** Set all channels from ChannelResponse Array **/
@@ -109,7 +117,7 @@ private:
 	struct FCollisionResponseContainer ResponseToChannels;
 
 	/** Custom Channels for Responses */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Custom)
 	TArray<FResponseChannel> ResponseArray;
 
 	friend struct FBodyInstance;
@@ -134,20 +142,20 @@ struct ENGINE_API FBodyInstance
 	 *	Index of this BodyInstance within the SkeletalMeshComponent/PhysicsAsset. 
 	 *	Is INDEX_NONE if a single body component
 	 */
-	int32 InstanceBodyIndex;
+	int16 InstanceBodyIndex;
 
 	/** When we are a body within a SkeletalMeshComponent, we cache the index of the bone we represent, to speed up sync'ing physics to anim. */
-	int32 InstanceBoneIndex;
+	int16 InstanceBoneIndex;
 
 	/** Current scale of physics - used to know when and how physics must be rescaled to match current transform of OwnerComponent. */
 	UPROPERTY()
 	FVector Scale3D;
 
 	/** Physics scene index for the synchronous scene. */
-	int32 SceneIndexSync;
+	int16 SceneIndexSync;
 
 	/** Physics scene index for the asynchronous scene. */
-	int32 SceneIndexAsync;
+	int16 SceneIndexAsync;
 
 	/////////
 	// COLLISION SETTINGS
@@ -159,60 +167,38 @@ struct ENGINE_API FBodyInstance
 	struct FCollisionResponseContainer ResponseToChannels_DEPRECATED;
 
 private:
+
 	/** Collision Profile Name **/
 	UPROPERTY(EditAnywhere, Category=Custom)
 	FName CollisionProfileName;
 
-	/** Type of Collision Enabled 
-	 * 
-	 *	No Collision				: No collision is performed against this neither trace or physics
-	 *	No Physics Collision		: This body is only used for collision raycasts, sweeps and overlaps 
-	 *	Collision Enabled			: This body is used for physics simulation and collision queries
-	 */
-	UPROPERTY(EditAnywhere, Category=Custom)
-	TEnumAsByte<ECollisionEnabled::Type> CollisionEnabled;
-
-	/** Enum indicating what type of object this should be considered as when it moves */
-	UPROPERTY(EditAnywhere, Category=Custom)
-	TEnumAsByte<enum ECollisionChannel> ObjectType;
-
 	/** Custom Channels for Responses*/
-	UPROPERTY(EditAnywhere, Category=Custom) 
+	UPROPERTY(EditAnywhere, Category = Custom)
 	struct FCollisionResponse CollisionResponses;
+
+	/** Extra mask for filtering. Look at declaration for logic */
+	FMaskFilter MaskFilter;
 
 public:
 
 	/** If true Continuous Collision Detection (CCD) will be used for this component */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Collision)
-	uint32 bUseCCD:1;
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Collision)
+	uint32 bUseCCD : 1;
 
 	/**	Should 'Hit' events fire when this object collides during physics simulation. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Collision, meta=(DisplayName="Simulation Generates Hit Events"))
-	uint32 bNotifyRigidBodyCollision:1;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Collision, meta = (DisplayName = "Simulation Generates Hit Events"))
+	uint32 bNotifyRigidBodyCollision : 1;
 
 	/////////
 	// SIM SETTINGS
 
 	/** If true, this body will use simulation. If false, will be 'fixed' (ie kinematic) and move where it is told. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Physics)
-	uint32 bSimulatePhysics:1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+	uint32 bSimulatePhysics : 1;
 
 	/** If true, mass will not be automatically computed and you must set it directly */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics, meta=(DisplayName="Override"))
+	UPROPERTY(meta = (DisplayName = "Override"))
 	uint32 bOverrideMass : 1;
-
-	/**Mass of the body in KG. By default we compute this based on physical material and mass scale.
-	*@see bOverrideMass to set this directly */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMass", ClampMin = "0.001", UIMin = "0.001"))
-	float MassInKg;
-
-	/** 'Drag' force added to reduce linear movement */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
-	float LinearDamping;
-
-	/** 'Drag' force added to reduce angular movement */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
-	float AngularDamping;
 
 	/** If object should have the force of gravity applied */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics)
@@ -228,6 +214,10 @@ public:
 	/** If object should start awake, or if it should initially be sleeping */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bSimulatePhysics"))
 	uint32 bStartAwake:1;
+
+	/**	Should 'wake/sleep' events fire when this object is woken up or put to sleep by the physics simulation. */
+	UPROPERTY(EditAnywhere,AdvancedDisplay, BlueprintReadOnly, Category = Physics)
+	uint32 bGenerateWakeEvents : 1;
 
 	/** If true, it will update mass when scale changes **/
 	UPROPERTY()
@@ -265,9 +255,49 @@ public:
 	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Z"))
 	uint32 bLockZRotation : 1;
 
-	/** Locks physical movement along specified axis.*/
-	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Mode"))
-	TEnumAsByte<EDOFMode::Type> DOFMode;
+	/** Override the default max angular velocity */
+	UPROPERTY(meta = (editcondition = "bSimulatePhysics"))
+	uint32 bOverrideMaxAngularVelocity : 1;
+
+	/** When initializing dynamic instances their component or velocity can override the bStartAwake flag */
+	uint32 bWokenExternally : 1;
+protected:
+
+	/**
+	 * If true, this body will be put into the asynchronous physics scene. If false, it will be put into the synchronous physics scene.
+	 * If the body is static, it will be placed into both scenes regardless of the value of bUseAsyncScene.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics)
+	uint32 bUseAsyncScene:1;
+
+	/** Whether this body instance has its own custom MaxDepenetrationVelocity*/
+	UPROPERTY()
+	uint32 bOverrideMaxDepenetrationVelocity : 1;
+
+	/** Whether this instance of the object has its own custom walkable slope override setting. */
+	UPROPERTY()
+	uint32 bOverrideWalkableSlopeOnInstance : 1;
+
+	uint32 bHasSharedShapes : 1;
+
+	/** The maximum velocity used to depenetrate this object*/
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMaxDepenetrationVelocity", ClampMin = "0.0", UIMin = "0.0"))
+	float MaxDepenetrationVelocity;
+
+public:
+
+	/**Mass of the body in KG. By default we compute this based on physical material and mass scale.
+	*@see bOverrideMass to set this directly */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMass", ClampMin = "0.001", UIMin = "0.001"))
+	float MassInKg;
+
+	/** 'Drag' force added to reduce linear movement */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+	float LinearDamping;
+
+	/** 'Drag' force added to reduce angular movement */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+	float AngularDamping;
 
 	/** Locks physical movement along a custom plane for a given normal.*/
 	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Plane Normal"))
@@ -280,11 +310,6 @@ public:
 	/** Per-instance scaling of mass */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics)
 	float MassScale;
-
-	/** The maximum angular velocity for this instance */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bSimulatePhysics"))
-	float MaxAngularVelocity;
-
 
 	/** Locks physical movement along axis. */
 	void SetDOFLock(EDOFMode::Type NewDOFMode);
@@ -309,25 +334,6 @@ public:
 protected:
 
 	/**
-	 * If true, this body will be put into the asynchronous physics scene. If false, it will be put into the synchronous physics scene.
-	 * If the body is static, it will be placed into both scenes regardless of the value of bUseAsyncScene.
-	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics)
-	uint32 bUseAsyncScene:1;
-
-	/** Whether this body instance has its own custom MaxDepenetrationVelocity*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
-	uint32 bOverrideMaxDepenetrationVelocity : 1;
-
-	/** The maximum velocity used to depenetrate this object*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMaxDepenetrationVelocity", ClampMin = "0.0", UIMin = "0.0"))
-	float MaxDepenetrationVelocity;
-
-	/** Whether this instance of the object has its own custom walkable slope override setting. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
-	uint32 bOverrideWalkableSlopeOnInstance : 1;
-
-	/**
 	* Custom walkable slope override setting for this instance.
 	* @see GetWalkableSlopeOverride(), SetWalkableSlopeOverride()
 	*/
@@ -339,9 +345,14 @@ protected:
 	class UPhysicalMaterial* PhysMaterialOverride;
 
 public:
-	/** The set of values used in considering when put this body to sleep. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics)
-	ESleepFamily SleepFamily;
+	/** The maximum angular velocity for this instance */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMaxAngularVelocity"))
+	float MaxAngularVelocity;
+
+
+	/** If the SleepFamily is set to custom, multiply the natural sleep threshold by this amount. A higher number will cause the body to sleep sooner. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
+	float CustomSleepThresholdMultiplier;
 
 	/**	Influence of rigid body physics (blending) on the mesh's pose (0.0 == use only animation, 1.0 == use only physics) */
 	/** Provide appropriate interface for doing this instead of allowing BlueprintReadWrite **/
@@ -351,10 +362,6 @@ public:
 	/** This physics body's solver iteration count for position. Increasing this will be more CPU intensive, but better stabilized.  */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
 	int32 PositionSolverIterationCount;
-
-	/** This physics body's solver iteration count for velocity. Increasing this will be more CPU intensive, but better stabilized. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
-	int32 VelocitySolverIterationCount;
 
 public:
 
@@ -379,12 +386,13 @@ public:
 	UPROPERTY()
 	uint64 RigidActorAsyncId;
 
+	/** This physics body's solver iteration count for velocity. Increasing this will be more CPU intensive, but better stabilized. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
+	int32 VelocitySolverIterationCount;
+
 	/** Per instance data used to initialize dynamic instances */
 	/** Initial physx velocity to apply to dynamic instances */
 	FVector InitialLinearVelocity;
-
-	/** When initializing dynamic instances their component or velocity can override the bStartAwake flag */
-	bool bWokenExternally;
 
 	/** PrimitiveComponent containing this body.   */
 	TWeakObjectPtr<class UPrimitiveComponent> OwnerComponent;
@@ -435,7 +443,7 @@ public:
 	 *	@param InRBScene
 	 *  @param PhysicsSerializer
 	 */
-	static void InitStaticBodies(TArray<FBodyInstance*>& Bodies, TArray<FTransform>& Transforms, class UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, class UPhysicsSerializer* PhysicsSerializer);
+	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, class UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, class UPhysicsSerializer* PhysicsSerializer);
 
 	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda. */
 	void ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func) const;
@@ -473,7 +481,7 @@ public:
 	}
 
 	/** Populate the filter data within the provided FShapeData with the correct filters for this instance
-	 *	@param ShapeData ShapeData to populate
+	 *	@param ShapeData ShapeData to populate. ShapeData.CollisionEnabled and ShapeData.FilterData will be filled in.
 	 *	@param bForceSimpleAsComplex Whether to force simple colision as complex
 	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
 	 */
@@ -512,7 +520,7 @@ public:
 	}
 
 	/** Populate the flag fields of the provided FShapeData with correct initialisation flags
-	 *	@param ShapeData ShapeData to populate
+	 *	@param ShapeData ShapeData to populate. ShapeData.FilterData will not be modified.
 	 *	@param UseCollisionEnabled Whether collision is enabled for this instance
 	 *	@param bUseComplexAsSimple Whether to use complex collision as simple
 	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
@@ -606,11 +614,13 @@ public:
 
 	/**
 	 * Update Body Scale
-	 * @param inScale3D - new Scale3D. If that's different from previous Scale3D, it will update Body scale
+	 * @param	InScale3D		New Scale3D. If that's different from previous Scale3D, it will update Body scale.
+	 * @param	bForceUpdate	Will refresh shape dimensions from BodySetup, even if scale has not changed.
 	 * @return true if succeed
 	 */
-	bool UpdateBodyScale(const FVector& InScale3D);
+	bool UpdateBodyScale(const FVector& InScale3D, bool bForceUpdate = false);
 
+	/** Dynamically update the vertices of per-poly collision for this body. */
 	void UpdateTriMeshVertices(const TArray<FVector> & NewPositions);
 
 	/** Returns the center of mass of this body (in world space) */
@@ -682,6 +692,8 @@ public:
 	void WakeInstance();
 	/** Force this body to sleep */
 	void PutInstanceToSleep();
+	/** Gets the multiplier to the theshold where the body will go to sleep automatically. */
+	float GetSleepThresholdMultiplier();
 	/** Add custom forces and torques on the body. The callback will be called more than once, if substepping enabled, for every substep.  */
 	void AddCustomPhysics(FCalculateCustomPhysics& CalculateCustomPhysics);
 	/** Add a force to this body */
@@ -701,7 +713,10 @@ public:
 	/** Set the angular velocity of this body */
 	void SetAngularVelocity(const FVector& NewAngVel, bool bAddToCurrent);
 	/** Set the maximum angular velocity of this body */
-	void SetMaxAngularVelocity(float NewMaxAngVel, bool bAddToCurrent);
+	void SetMaxAngularVelocity(float NewMaxAngVel, bool bAddToCurrent, bool bUpdateOverrideMaxAngularVelocity = true);
+	/** Get the maximum angular velocity of this body */
+	float GetMaxAngularVelocity() const;
+
 	/** Set the maximum depenetration velocity the physics simulation will introduce */
 	void SetMaxDepenetrationVelocity(float MaxVelocity);
 	/** Set whether we should get a notification about physics collisions */
@@ -709,19 +724,25 @@ public:
 	/** Enables/disables whether this body is affected by gravity. */
 	void SetEnableGravity(bool bGravityEnabled);
 
+	/** Custom projection for physics (callback to update component transform based on physics data) */
+	FCalculateCustomProjection OnCalculateCustomProjection;
+
 	/** See if this body is valid. */
 	bool IsValidBodyInstance() const;
 
 	/** Get current transform in world space from physics body. */
-	FTransform GetUnrealWorldTransform() const;
+	FTransform GetUnrealWorldTransform(bool bWithProjection = true) const;
 
 	/** Get current transform in world space from physics body. */
-	FTransform GetUnrealWorldTransform_AssumesLocked() const;
+	FTransform GetUnrealWorldTransform_AssumesLocked(bool bWithProjection = true) const;
 
 	/**
 	 *	Move the physics body to a new pose.
 	 *	@param	bTeleport	If true, no velocity is inferred on the kinematic body from this movement, but it moves right away.
 	 */
+	void SetBodyTransform(const FTransform& NewTransform, ETeleportType Teleport);
+
+	DEPRECATED(4.9, "Please pass the teleport flag using the new ETeleportType enum ")
 	void SetBodyTransform(const FTransform& NewTransform, bool bTeleport);
 
 	/** Get current velocity in world space from physics body. */
@@ -752,7 +773,7 @@ public:
 	void SetResponseToChannel(ECollisionChannel Channel, ECollisionResponse NewResponse);
 
 	/** Get the collision response of this body to a particular channel */
-	ECollisionResponse GetResponseToChannel(ECollisionChannel Channel) const;
+	FORCEINLINE_DEBUGGABLE ECollisionResponse GetResponseToChannel(ECollisionChannel Channel) const { return CollisionResponses.GetResponse(Channel); }
 
 	/** Set the response of this body to all channels */
 	void SetResponseToAllChannels(ECollisionResponse NewResponse);
@@ -764,13 +785,13 @@ public:
 	void SetResponseToChannels(const FCollisionResponseContainer& NewReponses);
 
 	/** Get Collision ResponseToChannels container for this component **/
-	const FCollisionResponseContainer& GetResponseToChannels() const;
+	FORCEINLINE_DEBUGGABLE const FCollisionResponseContainer& GetResponseToChannels() const { return CollisionResponses.GetResponseContainer(); }
 
 	/** Set the movement channel of this body to the one supplied */
 	void SetObjectType(ECollisionChannel Channel);
 
 	/** Get the movement channel of this body **/
-	ECollisionChannel GetObjectType() const;
+	FORCEINLINE_DEBUGGABLE ECollisionChannel GetObjectType() const { return ObjectType; }
 
 	/** Controls what kind of collision is enabled for this body and allows optional disable physics rebuild */
 	void SetCollisionEnabled(ECollisionEnabled::Type NewType, bool bUpdatePhysicsFilterData = true);
@@ -787,8 +808,14 @@ public:
 	 */
 	void SetCollisionProfileName(FName InCollisionProfileName);
 
+	/** Updates the mask filter. */
+	void SetMaskFilter(FMaskFilter InMaskFilter);
+
+	/** Return the ignore mask filter. */
+	FORCEINLINE FMaskFilter GetMaskFilter() const { return MaskFilter; }
+
 	/** Get the current collision profile assigned to this body */
-	FName GetCollisionProfileName() const;
+	FORCEINLINE_DEBUGGABLE FName GetCollisionProfileName() const { return CollisionProfileName; }
 
 	/** return true if it uses Collision Profile System. False otherwise*/
 	bool DoesUseCollisionProfile() const;
@@ -832,7 +859,7 @@ public:
 #endif
 
 	/** Update the instances collision filtering data */
-	void UpdatePhysicsFilterData(bool bForceSimpleAsComplex = false);
+	void UpdatePhysicsFilterData();
 
 	friend FArchive& operator<<(FArchive& Ar,FBodyInstance& BodyInst);
 
@@ -909,6 +936,7 @@ public:
 	 *  @return true if any of the bodies passed in overlap with this
 	 */
 	bool OverlapTestForBodies(const FVector& Position, const FQuat& Rotation, const TArray<FBodyInstance*>& Bodies) const;
+	bool OverlapTestForBody(const FVector& Position, const FQuat& Rotation, FBodyInstance* Body) const;
 
 	/**
 	 *  Determines the set of components that this body instance would overlap with at the supplied location/rotation
@@ -976,8 +1004,11 @@ public:
 public:
 	FPhysxUserData PhysxUserData;
 
-	// Current state of the physx body for tracking deferred addition and removal.
-	BodyInstanceSceneState CurrentSceneState;
+	/** Returns the original owning body instance. This is needed for welding */
+	const FBodyInstance* GetOriginalBodyInstance(const physx::PxShape* PShape) const;
+
+	/** Returns the relative transform between root body and welded instance owned by the shape.*/
+	const FTransform& GetRelativeBodyTransform(const physx::PxShape* PShape) const;
 
 private:
 	/**
@@ -995,7 +1026,10 @@ private:
 	/** 
 	 * Helper function to update per shape filtering info. This should interface is not very friendly and should only be used from inside FBodyInstance
 	 */
-	void UpdatePhysicsShapeFilterData(uint32 SkelMeshCompID, bool bUseComplexAsSimple, bool bUseSimpleAsComplex, bool bPhysicsStatic, TEnumAsByte<ECollisionEnabled::Type> * CollisionEnabledOverride, FCollisionResponseContainer * ResponseOverride, bool * bNotifyOverride);
+	void UpdatePhysicsShapeFilterData(uint32 SkelMeshCompID, bool bUseComplexAsSimple, bool bUseSimpleAsComplex, bool bPhysicsStatic, const TEnumAsByte<ECollisionEnabled::Type> * CollisionEnabledOverride, FCollisionResponseContainer * ResponseOverride, bool * bNotifyOverride);
+
+	/** Check if the shape is owned by this body instance */
+	bool IsShapeBoundToBody(const physx::PxShape* PShape) const;
 #endif 
 	/**
 	 * Invalidate Collision Profile Name
@@ -1009,12 +1043,16 @@ private:
 	 */
 	static bool IsValidCollisionProfileName(FName InCollisionProfileName);
 
+	template<typename AllocatorType>
+	bool OverlapTestForBodiesImpl(const FVector& Position, const FQuat& Rotation, const TArray<FBodyInstance*, AllocatorType>& Bodies) const;
+
 	friend class UCollisionProfile;
 	friend class FBodyInstanceCustomization;
 	
 	friend struct FInitBodiesHelper<true>;
 	friend struct FInitBodiesHelper<false>;
 	friend class FDerivedDataPhysXBinarySerializer;
+	friend class FBodyInstanceCustomizationHelper;
 
 #if WITH_BOX2D
 
@@ -1024,7 +1062,51 @@ public:
 #endif	//WITH_BOX2D
 
 private:
-	bool bHasSharedShapes;
+
+	struct FWeldInfo
+	{
+		FWeldInfo(FBodyInstance* InChildBI, const FTransform& InRelativeTM)
+		: ChildBI(InChildBI)
+		, RelativeTM(InRelativeTM)
+		{}
+
+		FBodyInstance* ChildBI;
+		FTransform RelativeTM;
+	};
+
+#if WITH_PHYSX
+	/** Used to map between shapes and welded bodies. We do not create entries if the owning body instance is root*/
+	TSharedPtr<TMap<physx::PxShape*, FWeldInfo>> ShapeToBodiesMap;
+
+#endif
+
+public:
+	// Current state of the physx body for tracking deferred addition and removal.
+	BodyInstanceSceneState CurrentSceneState;
+
+	/** The set of values used in considering when put this body to sleep. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics)
+	ESleepFamily SleepFamily;
+
+	/** Locks physical movement along specified axis.*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Mode"))
+	TEnumAsByte<EDOFMode::Type> DOFMode;
+
+private:
+	/**
+	 * Type of collision enabled.
+	 * 
+	 *	No Collision      : No collision is performed against this body.
+	 *	Query Only        : This body is used only for collision queries (raycasts, sweeps, and overlaps).
+	 *	Physics Only      : This body is used only for physics collision.
+	 *	Collision Enabled : This body interacts with all collision (Query and Physics).
+	 */
+	UPROPERTY(EditAnywhere, Category=Custom)
+	TEnumAsByte<ECollisionEnabled::Type> CollisionEnabled;
+
+	/** Enum indicating what type of object this should be considered as when it moves */
+	UPROPERTY(EditAnywhere, Category=Custom)
+	TEnumAsByte<enum ECollisionChannel> ObjectType;
 };
 
 template<>
@@ -1052,9 +1134,30 @@ private:
 //////////////////////////////////////////////////////////////////////////
 // BodyInstance inlines
 
-inline bool FBodyInstance::OverlapMulti(TArray<struct FOverlapResult>& InOutOverlaps, const class UWorld* World, const FTransform* pWorldToComponent, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
+FORCEINLINE_DEBUGGABLE bool FBodyInstance::OverlapMulti(TArray<struct FOverlapResult>& InOutOverlaps, const class UWorld* World, const FTransform* pWorldToComponent, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
 {
 	// Pass on to FQuat version
 	return OverlapMulti(InOutOverlaps, World, pWorldToComponent, Pos, Rot.Quaternion(), TestChannel, Params, ResponseParams, ObjectQueryParams);
 }
 
+FORCEINLINE_DEBUGGABLE bool FBodyInstance::OverlapTestForBodies(const FVector& Position, const FQuat& Rotation, const TArray<FBodyInstance*>& Bodies) const
+{
+	return OverlapTestForBodiesImpl(Position, Rotation, Bodies);
+}
+
+FORCEINLINE_DEBUGGABLE bool FBodyInstance::OverlapTestForBody(const FVector& Position, const FQuat& Rotation, FBodyInstance* Body) const
+{
+	TArray<FBodyInstance*, TInlineAllocator<1>> InlineArray;
+	InlineArray.Add(Body);
+	return OverlapTestForBodiesImpl(Position, Rotation, InlineArray);
+}
+
+FORCEINLINE_DEBUGGABLE bool FBodyInstance::IsInstanceSimulatingPhysics()
+{
+	return ShouldInstanceSimulatingPhysics() && IsValidBodyInstance();
+}
+
+FORCEINLINE_DEBUGGABLE bool FBodyInstance::ShouldInstanceSimulatingPhysics()
+{
+	return bSimulatePhysics;
+}

@@ -356,7 +356,7 @@ void FSpriteDrawCallRecord::BuildFromSprite(const UPaperSprite* Sprite)
 		BaseTexture = Sprite->GetBakedTexture();
 		Sprite->GetBakedAdditionalSourceTextures(/*out*/ AdditionalTextures);
 
-		Color = FLinearColor::White;
+		Color = FColor::White;
 
 		RenderVerts = Sprite->BakedRenderData;
 	}
@@ -1293,17 +1293,17 @@ void UPaperSprite::FindContours(const FIntPoint& ScanPos, const FIntPoint& ScanS
 								// Move to the next pixel
 
 								// Check to see if we closed the loop
- 								if ((CX == X) && (CY == Y))
- 								{
+								if ((CX == X) && (CY == Y))
+								{
 // 									// If we went thru the boundary pixel more than two times, or
 // 									// entered it from the same way we started, then we're done
 // 									++EnteredStartingSquareCount;
 // 									if ((EnteredStartingSquareCount > 2) || (NeighborPhase == 0))
 // 									{
 									//@TODO: Not good enough, will early out too soon some of the time!
- 										bInsideBoundary = true;
- 										break;
- 									}
+										bInsideBoundary = true;
+										break;
+									}
 // 								}
 
 								BoundaryImage.SetPixel(CX, CY, NeighborPhase+1);
@@ -1391,7 +1391,13 @@ void UPaperSprite::ExtractRectsFromTexture(UTexture2D* Texture, TArray<FIntRect>
 	SpriteTextureBitmap.ExtractRects(/*out*/ OutRects);
 }
 
-void UPaperSprite::InitializeSprite(const FSpriteAssetInitParameters& InitParams)
+void UPaperSprite::RebuildData()
+{
+	RebuildCollisionData();
+	RebuildRenderData();
+}
+
+void UPaperSprite::InitializeSprite(const FSpriteAssetInitParameters& InitParams, bool bRebuildData /*= true*/)
 {
 	if (InitParams.bOverridePixelsPerUnrealUnit)
 	{
@@ -1422,32 +1428,40 @@ void UPaperSprite::InitializeSprite(const FSpriteAssetInitParameters& InitParams
 	SourceUV = InitParams.Offset;
 	SourceDimension = InitParams.Dimension;
 
-	RebuildCollisionData();
-	RebuildRenderData();
+	if (bRebuildData)
+	{
+		RebuildData();
+	}
 }
 
-void UPaperSprite::SetTrim(bool bTrimmed, const FVector2D& OriginInSourceImage, const FVector2D& SourceImageDimension)
+void UPaperSprite::SetTrim(bool bTrimmed, const FVector2D& OriginInSourceImage, const FVector2D& SourceImageDimension, bool bRebuildData /*= true*/)
 {
 	this->bTrimmedInSourceImage = bTrimmed;
 	this->OriginInSourceImageBeforeTrimming = OriginInSourceImage;
 	this->SourceImageDimensionBeforeTrimming = SourceImageDimension;
-	RebuildRenderData();
-	RebuildCollisionData();
+	if (bRebuildData)
+	{
+		RebuildData();
+	}
 }
 
-void UPaperSprite::SetRotated(bool bRotated)
+void UPaperSprite::SetRotated(bool bRotated, bool bRebuildData /*= true*/)
 {
 	this->bRotatedInSourceImage = bRotated;
-	RebuildRenderData();
-	RebuildCollisionData();
+	if (bRebuildData)
+	{
+		RebuildData();
+	}
 }
 
-void UPaperSprite::SetPivotMode(ESpritePivotMode::Type InPivotMode, FVector2D InCustomTextureSpacePivot)
+void UPaperSprite::SetPivotMode(ESpritePivotMode::Type InPivotMode, FVector2D InCustomTextureSpacePivot, bool bRebuildData /*= true*/)
 {
 	PivotMode = InPivotMode;
 	CustomPivotPoint = InCustomTextureSpacePivot;
-	RebuildRenderData();
-	RebuildCollisionData();
+	if (bRebuildData)
+	{
+		RebuildData();
+	}
 }
 
 FVector2D UPaperSprite::ConvertTextureSpaceToPivotSpace(FVector2D Input) const

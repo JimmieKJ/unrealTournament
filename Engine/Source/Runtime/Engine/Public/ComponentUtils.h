@@ -6,6 +6,8 @@ class USimpleConstructionScript;
 class USCS_Node;
 class USceneComponent;
 
+DECLARE_STATS_GROUP(TEXT("Component"), STATGROUP_Component, STATCAT_Advanced);
+
 namespace ComponentUtils
 {
 	/**

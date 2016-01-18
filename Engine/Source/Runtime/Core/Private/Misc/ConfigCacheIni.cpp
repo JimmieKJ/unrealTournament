@@ -809,12 +809,9 @@ bool DoesConfigPropertyValueMatch( FConfigFile* InConfigFile, const FString& InS
 		if( Section )
 		{
 			// Start Array check, if the property is in an array, we need to iterate over all properties.
-			TArray< FString > MatchingProperties;
-			Section->MultiFind( InPropertyName, MatchingProperties );
-
-			for( int32 PropertyIndex = 0; PropertyIndex < MatchingProperties.Num() && !bFoundAMatch; PropertyIndex++ )
+			for (FConfigSection::TConstKeyIterator It(*Section, InPropertyName); It && !bFoundAMatch; ++It)
 			{
-				const FString& PropertyValue = MatchingProperties[ PropertyIndex ];
+				const FString& PropertyValue = It.Value();
 				bFoundAMatch = PropertyValue == InPropertyValue;
 
 				// if our properties don't match, run further checks
@@ -948,8 +945,9 @@ bool FConfigFile::Write( const FString& Filename, bool bDoRemoteWrite/* = true*/
 
 				// If we are writing to a default config file and this property is an array, we need to be careful to remove those from higher up the hierarchy
 				const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(Filename);
-				const FString AbsoluteGeneratedConfigDir = FPaths::ConvertRelativePathToFull(FPaths::GeneratedConfigDir());
-				const bool bIsADefaultIniWrite = !AbsoluteFilename.Contains(AbsoluteGeneratedConfigDir);
+				const FString AbsoluteGameGeneratedConfigDir = FPaths::ConvertRelativePathToFull(FPaths::GeneratedConfigDir());
+				const FString AbsoluteGameAgnosticGeneratedConfigDir = FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::GameAgnosticSavedDir(), TEXT("Config")) + TEXT("/"));
+				const bool bIsADefaultIniWrite = !AbsoluteFilename.Contains(AbsoluteGameGeneratedConfigDir) && !AbsoluteFilename.Contains(AbsoluteGameAgnosticGeneratedConfigDir);
 
 				// Check if the property matches the source configs. We do not wanna write it out if so.
 				if ((bIsADefaultIniWrite || bDifferentNumberOfElements || !DoesConfigPropertyValueMatch(SourceConfigFile, SectionName, PropertyName, PropertyValue)) && !bOptionIsFromCommandline)
@@ -1350,7 +1348,7 @@ FConfigCacheIni::FConfigCacheIni(EConfigCacheType InType)
 #if WITH_HOT_RELOAD_CTORS
 FConfigCacheIni::FConfigCacheIni()
 {
-	EnsureRetrievingVTablePtr();
+	EnsureRetrievingVTablePtrDuringCtor(TEXT("FConfigCacheIni()"));
 }
 #endif // WITH_HOT_RELOAD_CTORS
 
@@ -1739,6 +1737,18 @@ FConfigSection* FConfigCacheIni::GetSectionPrivate( const TCHAR* Section, bool F
 	if( Sec && (Force || !Const) )
 		File->Dirty = 1;
 	return Sec;
+}
+
+bool FConfigCacheIni::DoesSectionExist(const TCHAR* Section, const FString& Filename)
+{
+	bool bReturnVal = false;
+
+	FRemoteConfig::Get()->FinishRead(*Filename); // Ensure the remote file has been loaded and processed
+	FConfigFile* File = Find(Filename, false);
+
+	bReturnVal = File != NULL && File->Find(Section) != NULL;
+
+	return bReturnVal;
 }
 
 void FConfigCacheIni::SetString( const TCHAR* Section, const TCHAR* Key, const TCHAR* Value, const FString& Filename )
@@ -2739,7 +2749,13 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 
 	// [[[[ ENGINE DEFAULTS ]]]]
 	// Engine/Config/Base.ini (included in every ini type, required)
-	OutHierarchy.Add(EConfigFileHierarchy::AbsoluteBase, FIniFilename(FString::Printf(TEXT("%sBase.ini"), EngineConfigDir), true));
+	// @todo: ChrisW - this is a temporary measure to allow standalone tools to work when engine config files are in a pak
+#if IS_PROGRAM
+	const bool BaseIniRequired = false;
+#else
+	const bool BaseIniRequired = true;
+#endif
+	OutHierarchy.Add(EConfigFileHierarchy::AbsoluteBase, FIniFilename(FString::Printf(TEXT("%sBase.ini"), EngineConfigDir), BaseIniRequired));
 	// Engine/Config/Base* ini
 	OutHierarchy.Add(EConfigFileHierarchy::EngineDirBase, FIniFilename(FString::Printf(TEXT("%sBase%s.ini"), EngineConfigDir, InBaseIniName), false));
 	// Engine/Config/NotForLicensees/Base* ini
@@ -2851,7 +2867,7 @@ void FConfigCacheIni::InitializeConfigSystem()
 		{
 			const FText AbsolutePath = FText::FromString( IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*FPaths::GetPath(GEngineIni)) );
 			//@todo this is too early to localize
-			const FText Message = FText::Format( NSLOCTEXT("Core", "FirstCmdArgMustBeGameName", "The first command line argument must be a game name. ('{0}' must exist and contain a DefaultEngine.ini)"), AbsolutePath );
+			const FText Message = FText::Format( NSLOCTEXT("Core", "FirstCmdArgMustBeGameName", "'{0}' must exist and contain a DefaultEngine.ini."), AbsolutePath );
 			if (!GIsBuildMachine)
 			{
 				FMessageDialog::Open(EAppMsgType::Ok, Message);
@@ -3162,94 +3178,214 @@ void FConfigFile::UpdateSections(const TCHAR* DiskFilename, const TCHAR* IniRoot
 	Write(DiskFilename, true, NewFile);
 }
 
-bool FConfigFile::UpdateSinglePropertyInSection(const TCHAR* DiskFilename, const TCHAR* PropertyName, const TCHAR* SectionName)
+
+
+/**
+ * Functionality to assist with updating a config file with one property value change.
+ */
+class FSinglePropertyConfigHelper
 {
-	// Result of whether the file has been updated on disk.
-	bool bSuccessfullyUpdatedFile = false;
+public:
+	
 
-	// Since we don't want any modifications to other sections, or properties, we manually process the file, not read into sections
-	FString DiskFile;
-	if (FFileHelper::LoadFileToString(DiskFile, DiskFilename))
+	/**
+	 * We need certain information for the helper to be useful.
+	 *
+	 * @Param InIniFilename - The disk location of the file we wish to edit.
+	 * @Param InSectionName - The section the property belongs to.
+	 * @Param InPropertyName - The name of the property that has been edited.
+	 * @Param InPropertyValue - The new value of the property that has been edited.
+	 */
+	FSinglePropertyConfigHelper(const FString& InIniFilename, const FString& InSectionName, const FString& InPropertyName, const FString& InPropertyValue)
+		: IniFilename(InIniFilename)
+		, SectionName(InSectionName)
+		, PropertyName(InPropertyName)
+		, PropertyValue(InPropertyValue)
 	{
-		FString NewFile;
-		const FString DecoratedSectionName = FString::Printf(TEXT("[%s]"), SectionName);
+		// Split the file into the necessary parts.
+		PopulateFileContentHelper();
+	}
 
-		// Track if the these properties belong to the section we are looking for.
-		bool bIsCurrentlyWritingSectionProperty = false;
-		
-		// Track if the section was ever updated.
-		bool bSectionWasUpdated = false;
-		// Track if the property was ever updated.
-		bool bPropertyWasUpdated = false;
+	/**
+	 * Perform the action of updating the config file with the new property value.
+	 */
+	bool UpdateConfigFile()
+	{
+		UpdatePropertyInSection();
+		// Rebuild the file with the updated section.
+		const FString NewFile = IniFileMakeup.BeforeSection + IniFileMakeup.Section + IniFileMakeup.AfterSection;
+		return FFileHelper::SaveStringToFile(NewFile, *IniFilename);
+	}
 
-		// Iterate through the file, line by line, to find the property we would like to update.
-		FString TheLine;
-		const TCHAR* Ptr = DiskFile.Len() > 0 ? *DiskFile : NULL;
-		while (Ptr != NULL && FParse::Line(&Ptr, TheLine, true))
+
+private:
+
+	/**
+	 * Clear any trailing whitespace from the end of the output.
+	 */
+	void ClearTrailingWhitespace(FString& InStr)
+	{
+		const FString Endl(LINE_TERMINATOR);
+		while (InStr.EndsWith(LINE_TERMINATOR))
 		{
-			const bool bIsASectionHeader = (TheLine.Len() > 3) && (TheLine[0] == '[') && (TheLine[TheLine.Len() - 1] == ']');
-			if (bIsASectionHeader)
+			InStr = InStr.LeftChop(Endl.Len());
+		}
+	}
+	
+	/**
+	 * Update the section with the new value for the property.
+	 */
+	void UpdatePropertyInSection()
+	{
+		FString UpdatedSection;
+		if (IniFileMakeup.Section.IsEmpty())
+		{
+			const FString DecoratedSectionName = FString::Printf(TEXT("[%s]"), *SectionName);
+			
+			ClearTrailingWhitespace(IniFileMakeup.BeforeSection);
+			UpdatedSection += LINE_TERMINATOR;
+			UpdatedSection += LINE_TERMINATOR;
+			UpdatedSection += DecoratedSectionName;
+			AppendPropertyLine(UpdatedSection);
+		}
+		else
+		{
+			FString SectionLine;
+			const TCHAR* Ptr = *IniFileMakeup.Section;
+			bool bWrotePropertyOnPass = false;
+			while (Ptr != nullptr && FParse::Line(&Ptr, SectionLine, true))
 			{
-				// Cache off the old value of whether we had been writing a section.
-				const bool bWasWritingSection = bIsCurrentlyWritingSectionProperty;
-
-				if (!bSectionWasUpdated && bWasWritingSection && !bPropertyWasUpdated)
+				if (SectionLine.StartsWith(FString::Printf(TEXT("%s="), *PropertyName)))
 				{
-					bPropertyWasUpdated = true;
-					// If we have found the property in the file, let's update it with the new value.
-					if (const FConfigSection* LocalSection = this->Find(SectionName))
-					{
-						if (const FString* LocalSectionPropertyStr = LocalSection->Find(PropertyName))
-						{
-							NewFile += FString::Printf(TEXT("%s=%s"), PropertyName, *(*LocalSectionPropertyStr)) + LINE_TERMINATOR + LINE_TERMINATOR;
-						}
-					}
+					UpdatedSection += FString::Printf(TEXT("%s=%s"), *PropertyName, *PropertyValue);
+					UpdatedSection += LINE_TERMINATOR;
+					bWrotePropertyOnPass = true;
 				}
-
-				bIsCurrentlyWritingSectionProperty = (TheLine == DecoratedSectionName);
-				bSectionWasUpdated |= bIsCurrentlyWritingSectionProperty;
-
-				NewFile += TheLine + LINE_TERMINATOR;
-			}
-			else if (bIsCurrentlyWritingSectionProperty && TheLine.StartsWith(PropertyName))
-			{
-				bPropertyWasUpdated = true;
-				// If we have found the property in the file, let's update it with the new value.
-				if (const FConfigSection* LocalSection = this->Find(SectionName))
+				else
 				{
-					if (const FString* LocalSectionPropertyStr = LocalSection->Find(PropertyName))
+					UpdatedSection += SectionLine;
+					UpdatedSection += LINE_TERMINATOR;
+				}
+			}
+
+			// If the property wasnt found in the text of the existing section content,
+			// append it to the end of the section.
+			if (!bWrotePropertyOnPass)
+			{
+				AppendPropertyLine(UpdatedSection);
+			}
+			else
+			{
+				UpdatedSection += LINE_TERMINATOR;
+			}
+		}
+
+		IniFileMakeup.Section = UpdatedSection;
+	}
+	
+	/**
+	 * Split the file up into parts:
+	 * -> Before the section we wish to edit, which will remain unaltered,
+	 * ->-> The section we wish to edit, we only seek to edit the single property,
+	 * ->->-> After the section we wish to edit, which will remain unaltered.
+	 */
+	void PopulateFileContentHelper()
+	{
+		FString UnprocessedFileContents;
+		if (FFileHelper::LoadFileToString(UnprocessedFileContents, *IniFilename))
+		{
+			// Find the section in the file text.
+			const FString DecoratedSectionName = FString::Printf(TEXT("[%s]"), *SectionName);
+
+			const int32 DecoratedSectionNameStartIndex = UnprocessedFileContents.Find(DecoratedSectionName);
+			if (DecoratedSectionNameStartIndex != INDEX_NONE)
+			{
+				// If we found the section, cache off the file text before the section.
+				IniFileMakeup.BeforeSection = UnprocessedFileContents.Left(DecoratedSectionNameStartIndex);
+				UnprocessedFileContents.RemoveAt(0, IniFileMakeup.BeforeSection.Len());
+
+				// For the rest of the file, split it into the section we are editing and the rest of the file after.
+				const TCHAR* Ptr = UnprocessedFileContents.Len() > 0 ? *UnprocessedFileContents : nullptr;
+				FString NextUnprocessedLine;
+				bool bReachedNextSection = false;
+				while (Ptr != nullptr && FParse::Line(&Ptr, NextUnprocessedLine, true))
+				{
+					bReachedNextSection |= (NextUnprocessedLine.StartsWith(TEXT("[")) && NextUnprocessedLine != DecoratedSectionName);
+					if (bReachedNextSection)
 					{
-						NewFile += FString::Printf(TEXT("%s=%s"), PropertyName, *(*LocalSectionPropertyStr)) + LINE_TERMINATOR;
+						IniFileMakeup.AfterSection += NextUnprocessedLine;
+						IniFileMakeup.AfterSection += LINE_TERMINATOR;
+					}
+					else
+					{
+						IniFileMakeup.Section += NextUnprocessedLine;
+						IniFileMakeup.Section += LINE_TERMINATOR;
 					}
 				}
 			}
 			else
 			{
-				NewFile += TheLine + LINE_TERMINATOR;
+				IniFileMakeup.BeforeSection = UnprocessedFileContents;
 			}
 		}
+	}
+	
+	/**
+	 * Append the property entry to the section
+	 */
+	void AppendPropertyLine(FString& PreText)
+	{
+		// Make sure we dont leave much whitespace, and append the property name/value entry
+		ClearTrailingWhitespace(PreText);
+		PreText += LINE_TERMINATOR;
+		PreText += FString::Printf(TEXT("%s=%s"), *PropertyName, *PropertyValue);
+		PreText += LINE_TERMINATOR;
+		PreText += LINE_TERMINATOR;
+	}
 
-		if (bSectionWasUpdated == false)
+
+private:
+	// The disk location of the ini file we seek to edit
+	FString IniFilename;
+
+	// The section in the config file
+	FString SectionName;
+
+	// The name of the property that has been changed
+	FString PropertyName;
+
+	// The new value, in string format, of the property that has been changed
+	FString PropertyValue;
+
+	// Helper struct that holds the makeup of the ini file.
+	struct IniFileContent
+	{
+		// The section we wish to edit
+		FString Section;
+
+		// The file contents before the section we are editing
+		FString BeforeSection;
+
+		// The file contents after the section we are editing
+		FString AfterSection;
+	} IniFileMakeup; // Instance of the helper to maintain file structure.
+};
+
+
+bool FConfigFile::UpdateSinglePropertyInSection(const TCHAR* DiskFilename, const TCHAR* PropertyName, const TCHAR* SectionName)
+{
+	// Result of whether the file has been updated on disk.
+	bool bSuccessfullyUpdatedFile = false;
+
+	FString PropertyValue;
+	if (const FConfigSection* LocalSection = this->Find(SectionName))
+	{
+		if (const FString* LocalSectionPropertyStr = LocalSection->Find(PropertyName))
 		{
-			// If we reached the eof without updating the section, write the header
-			NewFile += LINE_TERMINATOR + DecoratedSectionName + LINE_TERMINATOR;
+			PropertyValue = *LocalSectionPropertyStr;
+			FSinglePropertyConfigHelper SinglePropertyConfigHelper(DiskFilename, SectionName, PropertyName, PropertyValue);
+			bSuccessfullyUpdatedFile = SinglePropertyConfigHelper.UpdateConfigFile();
 		}
-
-		if (bPropertyWasUpdated == false)
-		{
-			// If we reached the eof without updating the property, we should write it out.
-			bPropertyWasUpdated = true;
-			if (const FConfigSection* LocalSection = this->Find(SectionName))
-			{
-				if (const FString* LocalSectionPropertyStr = LocalSection->Find(PropertyName))
-				{
-					NewFile += FString::Printf(TEXT("%s=%s"), PropertyName, *(*LocalSectionPropertyStr)) + LINE_TERMINATOR;
-				}
-			}
-		}
-
-		// Write the updated file to disk.
-		bSuccessfullyUpdatedFile = FFileHelper::SaveStringToFile(NewFile, DiskFilename);
 	}
 
 	return bSuccessfullyUpdatedFile;

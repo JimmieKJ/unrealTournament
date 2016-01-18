@@ -27,7 +27,7 @@
 
 
 /**
- * Implements a media player using the Windows Media Foundation framework.
+ * Implements a media player using the AV framework.
  */
 class FAvfMediaPlayer
 	: public IMediaInfo
@@ -58,16 +58,18 @@ public:
 	// IMediaPlayer interface
 
 	virtual void Close() override;
+	virtual const TArray<IMediaAudioTrackRef>& GetAudioTracks() const override;
+	virtual const TArray<IMediaCaptionTrackRef>& GetCaptionTracks() const override;
 	virtual const IMediaInfo& GetMediaInfo() const override;
 	virtual float GetRate() const override;
 	virtual FTimespan GetTime() const override;
-	virtual const TArray<IMediaTrackRef>& GetTracks() const override;
+	virtual const TArray<IMediaVideoTrackRef>& GetVideoTracks() const override;
 	virtual bool IsLooping() const override;
 	virtual bool IsPaused() const override;
 	virtual bool IsPlaying() const override;
 	virtual bool IsReady() const override;
 	virtual bool Open( const FString& Url ) override;
-	virtual bool Open( const TSharedRef<TArray<uint8>>& Buffer, const FString& OriginalUrl ) override;
+	virtual bool Open( const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl ) override;
 	virtual bool Seek( const FTimespan& Time ) override;
 	virtual bool SetLooping( bool Looping ) override;
 	virtual bool SetRate( float Rate ) override;
@@ -84,33 +86,50 @@ public:
 		return OpenedEvent;
 	}
 
+	DECLARE_DERIVED_EVENT(FAvfMediaPlayer, IMediaPlayer::FOnMediaOpenFailed, FOnMediaOpenFailed);
+	virtual FOnMediaOpenFailed& OnOpenFailed() override
+	{
+		return OpenFailedEvent;
+	}
+
+	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnTracksChanged, FOnTracksChanged);
+	virtual FOnTracksChanged& OnTracksChanged() override
+	{
+		return TracksChangedEvent;
+	}
+
 public:
 
     // FTickerObjectBase interface
-
     virtual bool Tick( float DeltaTime ) override;
-
+	
 protected:
-
-    /**
-	 * Whether the media player should advance to the next frame.
+	
+	/**
+	 * Whether the media player should tick in this frame.
 	 *
-	 * @return true if the player should advance, false otherwise.
+	 * @return true if the player should advance, false otherwise
 	 */
-    bool ShouldAdvanceFrames() const;
+	bool ShouldTick() const;
+	
+	/**
+	 * Has the video completed it's playthrough
+	 */
+	bool ReachedEnd() const;
 
 private:
+
+	/** The available audio tracks. */
+	TArray<IMediaAudioTrackRef> AudioTracks;
+
+	/** The available caption tracks. */
+	TArray<IMediaCaptionTrackRef> CaptionTracks;
 
     /** The AVFoundation media player */
     AVPlayer* MediaPlayer;
 
     /** The player item which the media player uses to progress. */
     AVPlayerItem* PlayerItem;
-
-    /** The available media tracks. */
-    TArray<IMediaTrackRef> Tracks;
-
-private:
 
     /** The duration of the media. */
     FTimespan Duration;
@@ -124,6 +143,15 @@ private:
     /** The current playback rate. */
     float CurrentRate;
 
+	/** Cocoa helper object we can use to keep track of ns property changes in our media items */
+	FMediaHelper* MediaHelper;
+
+	/** The available video tracks. */
+	TArray<IMediaVideoTrackRef> VideoTracks;
+    
+    /** Should the video loop to the beginning at completion */
+    bool bLoop;
+
 private:
 
 	/** Holds an event delegate that is invoked when media is being unloaded. */
@@ -131,8 +159,10 @@ private:
 
 	/** Holds an event delegate that is invoked when media has been loaded. */
 	FOnMediaOpened OpenedEvent;
-	
-private:
-	/** Cocoa helper object we can use to keep track of ns property changes in our media items */
-	FMediaHelper* MediaHelper;
+
+	/** Holds an event delegate that is invoked when media failed to open. */
+	FOnMediaOpenFailed OpenFailedEvent;
+
+	/** Holds an event delegate that is invoked when the media tracks have changed. */
+	FOnTracksChanged TracksChangedEvent;
 };

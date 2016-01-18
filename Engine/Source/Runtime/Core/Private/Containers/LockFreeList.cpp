@@ -6,9 +6,6 @@
 
 DEFINE_LOG_CATEGORY(LogLockFreeList);
 
-FThreadSafeCounter FLockFreeListStats::NumOperations;
-FThreadSafeCounter FLockFreeListStats::Cycles;
-
 
 #if USE_LOCKFREELIST_128
 
@@ -87,6 +84,59 @@ FLockFreeVoidPointerListBase::FLinkAllocator::~FLinkAllocator()
 	SpecialClosedLink = 0;
 #endif // 0
 }
+
+FLockFreePointerQueueBaseLinkAllocator& FLockFreePointerQueueBaseLinkAllocator::Get()
+{
+	static FLockFreePointerQueueBaseLinkAllocator Singleton;
+	return Singleton;
+}
+
+//static FThreadSafeCounter Sleeps;
+//static FThreadSafeCounter BigSleeps;
+
+void LockFreeCriticalSpin(int32& SpinCount)
+{
+	SpinCount++;
+	if (SpinCount > 256)
+	{
+		FPlatformProcess::Sleep(0.00001f);
+		//BigSleeps.Increment();
+	}
+	else if (SpinCount > 32)
+	{
+		FPlatformProcess::Sleep(0.0f);
+		//if (Sleeps.Increment() % 10000 == 9999)
+		//{
+		//	UE_LOG(LogTemp, Warning, TEXT("sleep0 %d sleep 10us %d"), Sleeps.GetValue() + 1, BigSleeps.GetValue());
+		//}
+	}
+	else if (SpinCount > 8)
+	{
+		FPlatformMisc::MemoryBarrier();
+	}
+}
+
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+
+static FThreadSafeCounter TestStall;
+
+void DoTestCriticalStall()
+{
+	if (TestStall.Increment() % 9713 == 9712)
+	{
+		FPlatformProcess::Sleep(0.000001f);
+	}
+}
+
+int32 GTestCriticalStalls = 0;
+static FAutoConsoleVariableRef CVarTestCriticalLockFree(
+	TEXT("TaskGraph.TestCriticalLockFree"),
+	GTestCriticalStalls,
+	TEXT("If > 0, then we sleep periodically at critical points in the lock free lists. Threads must not starve...this will encourage them to starve at the right place to find livelocks."),
+	ECVF_Cheat
+	);
+
+#endif
 
 #endif //USE_LOCKFREELIST_128
 

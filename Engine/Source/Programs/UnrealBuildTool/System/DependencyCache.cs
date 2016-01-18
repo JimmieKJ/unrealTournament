@@ -9,9 +9,24 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace UnrealBuildTool
 {
-	[Serializable]
+	[DebuggerDisplay("{IncludeName}")]
 	public class DependencyInclude
 	{
+		/// <summary>
+		/// These are direct include paths and cannot be resolved to an actual file on disk without using the proper list of include directories for this file's module 
+		/// </summary>
+		public readonly string IncludeName;
+
+		/// <summary>
+		/// Whether we've attempted to resolve this include (may be set even if IncludeResolvedNameIfSuccessful = null, in cases where it couldn't be found)
+		/// </summary>
+		public bool HasAttemptedResolve;
+
+		/// <summary>
+		/// This is the fully resolved name, and a bool for whether we've attempted the resolve but failed. We can't really store this globally, but we're going to see how well it works.
+		/// </summary>
+		public FileReference IncludeResolvedNameIfSuccessful;
+
 		/// <summary>
 		/// Public ctor that initializes the include name (the resolved name won't be determined until later)
 		/// </summary>
@@ -20,151 +35,205 @@ namespace UnrealBuildTool
 		{
 			IncludeName = InIncludeName;
 		}
-
-		/// <summary>
-		/// These are direct include paths and cannot be resolved to an actual file on disk without using the proper list of include directories for this file's module 
-		/// </summary>
-		public readonly string IncludeName;
-		/// <summary>
-		/// This is the fully resolved name. We can't really store this globally, but we're going to see how well it works.
-		/// </summary>
-		public string IncludeResolvedName;
-
-		public override string ToString()
-		{
-			return IncludeName;
-		}
 	}
 
-	[Serializable]
-	struct DependencyInfo
-	{
-		/** List of files this file includes.  These are direct include paths and cannot be resolved to an actual file on 
-		    disk without using the proper list of include directories for this file's module */
-		public List<DependencyInclude> Includes;
-
-		/** True if this file was found to contain UObject class or type definitions, and the file needs to be preprocessed
-		    by UnrealHeaderTool to generate reflection code */
-		public bool HasUObjects;
-	}
-
-
-	/**
-	 * Caches include dependency information to speed up preprocessing on subsequent runs.
-	 */
-	[Serializable]
+	/// <summary>
+	/// Caches include dependency information to speed up preprocessing on subsequent runs.
+	/// </summary>
 	public class DependencyCache
 	{
-		/** The time the cache was created. Used to invalidate entries. */
-		public DateTimeOffset CacheCreateDate;
+		/// <summary>
+		/// The version number for binary serialization
+		/// </summary>
+		const int FileVersion = 1;
 
-		/** The time the cache was last updated. Stored as the creation date when saved. */
-		[NonSerialized]
-		private DateTimeOffset CacheUpdateDate;
+		/// <summary>
+		/// The file signature for binary serialization
+		/// </summary>
+		const int FileSignature = ('D' << 24) | ('C' << 16) | FileVersion;
 
-		/** Path to store the cache data to. */
-		[NonSerialized]
-		private string CachePath;
+		/// <summary>
+		/// Path to store the cache data to.
+		/// </summary>
+		private FileReference BackingFile;
 
-		/** Dependency lists, keyed (case-insensitively) on file's absolute path. */
-		private Dictionary<string, DependencyInfo> DependencyMap;
+		/// <summary>
+		/// The time the cache was created. Used to invalidate entries.
+		/// </summary>
+		public DateTime CreationTimeUtc;
 
-		[NonSerialized]
-		private Dictionary<string, bool> FileExistsInfo;
+		/// <summary>
+		/// The time the cache was last updated. Stored as the creation date when saved. Not serialized.
+		/// </summary>
+		private DateTime UpdateTimeUtc;
 
-		/** Whether the dependency cache is dirty and needs to be saved. */
-		[NonSerialized]
+		/// <summary>
+		/// Dependency lists, keyed on file's absolute path.
+		/// </summary>
+		private Dictionary<FileReference, List<DependencyInclude>> DependencyMap;
+
+		/// <summary>
+		/// A mapping of whether various files exist. Not serialized.
+		/// </summary>
+		private Dictionary<FileReference, bool> FileExistsInfo;
+
+		/// <summary>
+		/// Whether the dependency cache is dirty and needs to be saved. Not serialized.
+		/// </summary>
 		private bool bIsDirty;
 
-		/**
-		 * Creates and deserializes the dependency cache at the passed in location
-		 * 
-		 * @param	CachePath	Name of the cache file to deserialize
-		 */
-		public static DependencyCache Create(string CachePath)
+		/// <summary>
+		/// Creates and deserializes the dependency cache at the passed in location
+		/// </summary>
+		/// <param name="CachePath">Name of the cache file to deserialize</param>
+		public static DependencyCache Create(FileReference CacheFile)
 		{
 			// See whether the cache file exists.
-			FileItem Cache = FileItem.GetItemByPath(CachePath);
-			if (Cache.bExists)
+			if (CacheFile.Exists())
 			{
 				if (BuildConfiguration.bPrintPerformanceInfo)
 				{
-					Log.TraceInformation("Loading existing IncludeFileCache: " + Cache.AbsolutePath);
+					Log.TraceInformation("Loading existing IncludeFileCache: " + CacheFile.FullName);
 				}
 
 				var TimerStartTime = DateTime.UtcNow;
 
 				// Deserialize cache from disk if there is one.
-				DependencyCache Result = Load(Cache);
+				DependencyCache Result = Load(CacheFile);
 				if (Result != null)
 				{
 					// Successfully serialize, create the transient variables and return cache.
-					Result.CachePath = CachePath;
-					Result.CacheUpdateDate = DateTimeOffset.Now;
+					Result.UpdateTimeUtc = DateTime.UtcNow;
 
 					var TimerDuration = DateTime.UtcNow - TimerStartTime;
 					if (BuildConfiguration.bPrintPerformanceInfo)
 					{
 						Log.TraceInformation("Loading IncludeFileCache took " + TimerDuration.TotalSeconds + "s");
 					}
-					Telemetry.SendEvent("LoadIncludeDependencyCacheStats.2",
-						"TotalDuration", TimerDuration.TotalSeconds.ToString("0.00"));
+					//Telemetry.SendEvent("LoadIncludeDependencyCacheStats.2", "TotalDuration", TimerDuration.TotalSeconds.ToString("0.00"));
 					return Result;
 				}
 			}
 			// Fall back to a clean cache on error or non-existance.
-			return new DependencyCache(Cache);
+			return new DependencyCache(CacheFile);
 		}
 
-		/**
-		 * Loads the cache from the passed in file.
-		 * 
-		 * @param	Cache	File to deserialize from
-		 */
-		public static DependencyCache Load(FileItem Cache)
+		/// <summary>
+		/// Loads the cache from the passed in file.
+		/// </summary>
+		/// <param name="Cache">File to deserialize from</param>
+		public static DependencyCache Load(FileReference CacheFile)
 		{
 			DependencyCache Result = null;
 			try
 			{
-				using (FileStream Stream = new FileStream(Cache.AbsolutePath, FileMode.Open, FileAccess.Read))
+				string CacheBuildMutexPath = CacheFile.FullName + ".buildmutex";
+
+				// If the .buildmutex file for the cache is present, it means that something went wrong between loading
+				// and saving the cache last time (most likely the UBT process being terminated), so we don't want to load
+				// it.
+				if (!File.Exists(CacheBuildMutexPath))
 				{
-					BinaryFormatter Formatter = new BinaryFormatter();
-					Result = Formatter.Deserialize(Stream) as DependencyCache;
+					using (File.Create(CacheBuildMutexPath))
+					{
+					}
+
+					using (BinaryReader Reader = new BinaryReader(new FileStream(CacheFile.FullName, FileMode.Open, FileAccess.Read)))
+					{
+						if (Reader.ReadInt32() == FileSignature)
+						{
+							Result = DependencyCache.Deserialize(Reader);
+						}
+					}
 				}
-				Result.CreateFileExistsInfo();
-				Result.ResetUnresolvedDependencies();
 			}
 			catch (Exception Ex)
 			{
-				// Don't bother logging this expected error.
-				// It's due to a change in the CacheCreateDate type.
-				if (Ex.Message != "Object of type 'System.DateTime' cannot be converted to type 'System.DateTimeOffset'" &&
-	Ex.Message != "Object of type 'System.Collections.Generic.Dictionary`2[System.String,System.Collections.Generic.List`1[System.String]]' cannot be converted to type 'System.Collections.Generic.Dictionary`2[System.String,UnrealBuildTool.DependencyInfo]'.")	// To catch serialization differences added when we added the DependencyInfo struct
-				{
-					Console.Error.WriteLine("Failed to read dependency cache: {0}", Ex.Message);
-				}
+				Console.Error.WriteLine("Failed to read dependency cache: {0}", Ex.Message);
+				CacheFile.Delete();
 			}
 			return Result;
 		}
 
-		/**
-		 * Constructor
-		 * 
-		 * @param	Cache	File associated with this cache
-		 */
-		protected DependencyCache(FileItem Cache)
+		/// <summary>
+		/// Serializes the dependency cache to a binary writer
+		/// </summary>
+		/// <param name="Writer">Writer to output to</param>
+		void Serialize(BinaryWriter Writer)
 		{
-			CacheCreateDate = DateTimeOffset.Now;
-			CacheUpdateDate = DateTimeOffset.Now;
-			CachePath = Cache.AbsolutePath;
-			DependencyMap = new Dictionary<string, DependencyInfo>();
+			Writer.Write(BackingFile);
+			Writer.Write(CreationTimeUtc.ToBinary());
+
+			Dictionary<FileReference, int> FileToUniqueId = new Dictionary<FileReference, int>();
+
+			Writer.Write(DependencyMap.Count);
+			foreach (KeyValuePair<FileReference, List<DependencyInclude>> Pair in DependencyMap)
+			{
+				Writer.Write(Pair.Key);
+				Writer.Write(Pair.Value.Count);
+				foreach (DependencyInclude Include in Pair.Value)
+				{
+					Writer.Write(Include.IncludeName);
+					Writer.Write(Include.HasAttemptedResolve);
+					Writer.Write(Include.IncludeResolvedNameIfSuccessful, FileToUniqueId);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Deserialize the dependency cache from a binary reader
+		/// </summary>
+		/// <param name="Reader">Reader for the cache data</param>
+		/// <returns>New dependency cache object</returns>
+		static DependencyCache Deserialize(BinaryReader Reader)
+		{
+			DependencyCache Cache = new DependencyCache(Reader.ReadFileReference());
+			Cache.CreationTimeUtc = DateTime.FromBinary(Reader.ReadInt64());
+
+			int NumEntries = Reader.ReadInt32();
+			Cache.DependencyMap = new Dictionary<FileReference, List<DependencyInclude>>(NumEntries);
+
+			List<FileReference> UniqueFiles = new List<FileReference>();
+			for (int Idx = 0; Idx < NumEntries; Idx++)
+			{
+				FileReference File = Reader.ReadFileReference();
+
+				int NumIncludes = Reader.ReadInt32();
+				List<DependencyInclude> Includes = new List<DependencyInclude>(NumIncludes);
+
+				for (int IncludeIdx = 0; IncludeIdx < NumIncludes; IncludeIdx++)
+				{
+					DependencyInclude Include = new DependencyInclude(Reader.ReadString());
+					Include.HasAttemptedResolve = Reader.ReadBoolean();
+					Include.IncludeResolvedNameIfSuccessful = Reader.ReadFileReference(UniqueFiles);
+					Includes.Add(Include);
+				}
+
+				Cache.DependencyMap.Add(File, Includes);
+			}
+
+			Cache.CreateFileExistsInfo();
+			Cache.ResetUnresolvedDependencies();
+			return Cache;
+		}
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Cache">File associated with this cache</param>
+		protected DependencyCache(FileReference InBackingFile)
+		{
+			BackingFile = InBackingFile;
+			CreationTimeUtc = DateTime.UtcNow;
+			UpdateTimeUtc = DateTime.UtcNow;
+			DependencyMap = new Dictionary<FileReference, List<DependencyInclude>>();
 			bIsDirty = false;
 			CreateFileExistsInfo();
 		}
 
-		/**
-		 * Saves the dependency cache to disk using the update time as the creation time.
-		 */
+		/// <summary>
+		/// Saves the dependency cache to disk using the update time as the creation time.
+		/// </summary>
 		public void Save()
 		{
 			// Only save if we've made changes to it since load.
@@ -173,16 +242,16 @@ namespace UnrealBuildTool
 				var TimerStartTime = DateTime.UtcNow;
 
 				// Save update date as new creation date.
-				CacheCreateDate = CacheUpdateDate;
+				CreationTimeUtc = UpdateTimeUtc;
 
 				// Serialize the cache to disk.
 				try
 				{
-					Directory.CreateDirectory(Path.GetDirectoryName(CachePath));
-					using (FileStream Stream = new FileStream(CachePath, FileMode.Create, FileAccess.Write))
+					BackingFile.Directory.CreateDirectory();
+					using (BinaryWriter Writer = new BinaryWriter(new FileStream(BackingFile.FullName, FileMode.Create, FileAccess.Write)))
 					{
-						BinaryFormatter Formatter = new BinaryFormatter();
-						Formatter.Serialize(Stream, this);
+						Writer.Write(FileSignature);
+						Serialize(Writer);
 					}
 				}
 				catch (Exception Ex)
@@ -203,110 +272,79 @@ namespace UnrealBuildTool
 					Log.TraceInformation("IncludeFileCache did not need to be saved (bIsDirty=false)");
 				}
 			}
-		}
 
-
-		/// <summary>
-		/// Gets information about this file from our dependency cache.  Only returns information if the file has already been 
-		/// cached, and the file has not been changed since the last time we updated our cache
-		/// </summary>
-		/// <param name="File">The file to check</param>
-		/// <returns>Information about this dependency, or null if we have nothing cached</returns>
-		DependencyInfo? GetCachedDependencyInfo( FileItem File )
-		{
-			// Check whether File is in cache.
-			DependencyInfo DependencyInfo;
-			if (DependencyMap.TryGetValue(File.AbsolutePath.ToLowerInvariant(), out DependencyInfo))
+			FileReference MutexPath = BackingFile + ".buildmutex";
+			if (MutexPath.Exists())
 			{
-				// File is in cache, now check whether last write time is prior to cache creation time.
-				if (File.LastWriteTime < CacheCreateDate)
+				try
 				{
-					return DependencyInfo;					
+					MutexPath.Delete();
 				}
-				else
+				catch
 				{
-					// Remove entry from cache as it's stale.
-					RemoveFileFromCache(File.AbsolutePath);
-					return null;
+					// We don't care if we couldn't delete this file, as maybe it couldn't have been created in the first place.
 				}
 			}
-
-			return null;
 		}
 
-		/**
-		 * Returns the direct dependencies of the specified FileItem if it exists in the cache and if the
-		 * file has a last write time before the creation time of the cache. 
-		 * 
-		 * The code also keeps track of whether dependencies have been successfully accessed for a given
-		 * file.
-		 * 
-		 * @param	File				File to try to find dependencies in cache
-		 * @param	Result	[out]		List of dependencies if successful, null otherwise
-		 * @param	HasUObjects			True if the file was found to have UObject classes, otherwise false
-		 */
-		public bool GetCachedDirectDependencies(FileItem File, out List<DependencyInclude> Result, out bool HasUObjects)
+		/// <summary>
+		/// Returns the direct dependencies of the specified FileItem if it exists in the cache and they are not stale.
+		/// </summary>
+		/// <param name="">File  File to try to find dependencies in cache</param>
+		public List<DependencyInclude> GetCachedDependencyInfo(FileItem File)
 		{
-			Result = null;
-			HasUObjects = false;
-
 			// Check whether File is in cache.
-			DependencyInfo? DependencyInfo = GetCachedDependencyInfo(File);
-			if( DependencyInfo != null )
+			List<DependencyInclude> Includes;
+			if (!DependencyMap.TryGetValue(File.Reference, out Includes))
 			{
-				// Check if any of the resolved includes is missing
-				foreach (var Include in DependencyInfo.Value.Includes)
+				return null;
+			}
+
+			// File is in cache, now check whether last write time is prior to cache creation time.
+			if (File.LastWriteTime.ToUniversalTime() >= CreationTimeUtc)
+			{
+				// Remove entry from cache as it's stale.
+				DependencyMap.Remove(File.Reference);
+				bIsDirty = true;
+				return null;
+			}
+
+			// Check if any of the resolved includes is missing
+			foreach (var Include in Includes)
+			{
+				if (Include.IncludeResolvedNameIfSuccessful != null)
 				{
-					if (!String.IsNullOrEmpty(Include.IncludeResolvedName))
+					bool bIncludeExists = false;
+					if (!FileExistsInfo.TryGetValue(Include.IncludeResolvedNameIfSuccessful, out bIncludeExists))
 					{
-						bool bIncludeExists = false;
-						string FileExistsKey = Include.IncludeResolvedName.ToLowerInvariant();
-						if (FileExistsInfo.TryGetValue(FileExistsKey, out bIncludeExists) == false)
-						{
-							bIncludeExists = System.IO.File.Exists(Include.IncludeResolvedName);
-							FileExistsInfo.Add(FileExistsKey, bIncludeExists);
-						}
-						if (!bIncludeExists)
-						{
-							// Remove entry from cache as it's stale, as well as the include which no longer exists
-							RemoveFileFromCache(Include.IncludeResolvedName);
-							RemoveFileFromCache(File.AbsolutePath);							
-							return false;
-						}
-					}						
+						bIncludeExists = Include.IncludeResolvedNameIfSuccessful.Exists();
+						FileExistsInfo.Add(Include.IncludeResolvedNameIfSuccessful, bIncludeExists);
+					}
+
+					if (!bIncludeExists)
+					{
+						// Remove entry from cache as it's stale, as well as the include which no longer exists
+						DependencyMap.Remove(Include.IncludeResolvedNameIfSuccessful);
+						DependencyMap.Remove(File.Reference);
+						bIsDirty = true;
+						return null;
+					}
 				}
-				// Cached version is up to date, return it.
-				Result = DependencyInfo.Value.Includes;
-				HasUObjects = DependencyInfo.Value.HasUObjects;
-				return true;
 			}
-			// Not in cache.
-			else
-			{
-				return false;
-			}
+
+			// Cached version is up to date, return it.
+			return Includes;
 		}
 
 		/// <summary>
-		/// Removes file entry from dependency cache.
+		/// Update cache with dependencies for the passed in file.
 		/// </summary>
-		/// <param name="AbsolutePath"></param>
-		private void RemoveFileFromCache(string AbsolutePath)
+		/// <param name="File">  File to update dependencies for</param>
+		/// <param name="Dependencies">List of dependencies to cache for passed in file</param>
+		/// <param name="HasUObjects"> True if this file was found to contain UObject classes or types</param>
+		public void SetDependencyInfo(FileItem File, List<DependencyInclude> Info)
 		{
-			DependencyMap.Remove(AbsolutePath.ToLowerInvariant());
-			bIsDirty = true;
-		}
-
-		/**
-		 * Update cache with dependencies for the passed in file.
-		 * 
-		 * @param	File			File to update dependencies for
-		 * @param	Dependencies	List of dependencies to cache for passed in file
-		 * @param	HasUObjects		True if this file was found to contain UObject classes or types
-		 */
-		public void SetDependencyInfo(FileItem File, List<DependencyInclude> DirectDependencies, bool HasUObjects)
-		{
-			DependencyMap[File.AbsolutePath.ToLowerInvariant()] = new DependencyInfo() { Includes = DirectDependencies, HasUObjects = HasUObjects };
+			DependencyMap[File.Reference] = Info;
 			bIsDirty = true;
 		}
 
@@ -317,7 +355,7 @@ namespace UnrealBuildTool
 		{
 			// Pre-allocate about 125% of the dependency map count (which amounts to 1.25 unique includes per dependency which is a little more than empirical
 			// results show but gives us some slack in case something gets added).
-			FileExistsInfo = new Dictionary<string, bool>((DependencyMap.Count * 5) / 4);
+			FileExistsInfo = new Dictionary<FileReference, bool>((DependencyMap.Count * 5) / 4);
 		}
 
 		/// <summary>
@@ -327,11 +365,11 @@ namespace UnrealBuildTool
 		{
 			foreach (var Dependency in DependencyMap)
 			{
-				foreach (var Include in Dependency.Value.Includes)
+				foreach (var Include in Dependency.Value)
 				{
-					if (Include.IncludeResolvedName == String.Empty)
+					if (Include.HasAttemptedResolve && Include.IncludeResolvedNameIfSuccessful == null)
 					{
-						Include.IncludeResolvedName = null;
+						Include.HasAttemptedResolve = false;
 					}
 				}
 			}
@@ -345,23 +383,24 @@ namespace UnrealBuildTool
 		/// <param name="File">The file whose include is being resolved</param>
 		/// <param name="DirectlyIncludedFileNameIndex">Index in the resolve list to quickly find the include in question in the existing cache.</param>
 		/// <param name="DirectlyIncludedFileNameFullPath">Full path name of the resolve include.</param>
-		public void CacheResolvedIncludeFullPath(FileItem File, int DirectlyIncludedFileNameIndex, string DirectlyIncludedFileNameFullPath)
+		public void CacheResolvedIncludeFullPath(FileItem File, int DirectlyIncludedFileNameIndex, FileReference DirectlyIncludedFileNameFullPath)
 		{
 			if (BuildConfiguration.bUseIncludeDependencyResolveCache)
 			{
-				var Includes = DependencyMap[File.AbsolutePath.ToLowerInvariant()].Includes;
+				var Includes = DependencyMap[File.Reference];
 				var IncludeToResolve = Includes[DirectlyIncludedFileNameIndex];
 				if (BuildConfiguration.bTestIncludeDependencyResolveCache)
 				{
 					// test whether there are resolve conflicts between modules with different include paths.
-					if (IncludeToResolve.IncludeResolvedName != null && IncludeToResolve.IncludeResolvedName != DirectlyIncludedFileNameFullPath)
+					if (IncludeToResolve.HasAttemptedResolve && IncludeToResolve.IncludeResolvedNameIfSuccessful != DirectlyIncludedFileNameFullPath)
 					{
 						throw new BuildException("Found directly included file that resolved differently in different modules. File ({0}) had previously resolved to ({1}) and now resolves to ({2}).",
-							File.AbsolutePath, IncludeToResolve.IncludeResolvedName, DirectlyIncludedFileNameFullPath);
+							File.AbsolutePath, IncludeToResolve.IncludeResolvedNameIfSuccessful, DirectlyIncludedFileNameFullPath);
 					}
 				}
-				Includes[DirectlyIncludedFileNameIndex].IncludeResolvedName = DirectlyIncludedFileNameFullPath;
-				if (!String.IsNullOrEmpty(DirectlyIncludedFileNameFullPath))
+				Includes[DirectlyIncludedFileNameIndex].HasAttemptedResolve = true;
+				Includes[DirectlyIncludedFileNameIndex].IncludeResolvedNameIfSuccessful = DirectlyIncludedFileNameFullPath;
+				if (DirectlyIncludedFileNameFullPath != null)
 				{
 					bIsDirty = true;
 				}
@@ -373,15 +412,18 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Target">Current build target</param>
 		/// <returns>Cache Path</returns>
-		public static string GetDependencyCachePathForTarget(UEBuildTarget Target)
+		public static FileReference GetDependencyCachePathForTarget(UEBuildTarget Target)
 		{
-			string PlatformIntermediatePath = BuildConfiguration.PlatformIntermediatePath;
-			if (UnrealBuildTool.HasUProjectFile())
+			DirectoryReference PlatformIntermediatePath;
+			if (Target.ProjectFile != null)
 			{
-				PlatformIntermediatePath = Path.Combine(UnrealBuildTool.GetUProjectPath(), BuildConfiguration.PlatformIntermediateFolder);
+				PlatformIntermediatePath = DirectoryReference.Combine(Target.ProjectFile.Directory, BuildConfiguration.PlatformIntermediateFolder);
 			}
-			string CachePath = Path.Combine(PlatformIntermediatePath, Target.GetTargetName(), "DependencyCache.bin");
-			return CachePath;
+			else
+			{
+				PlatformIntermediatePath = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, BuildConfiguration.PlatformIntermediateFolder);
+			}
+			return FileReference.Combine(PlatformIntermediatePath, Target.GetTargetName(), "DependencyCache.bin");
 		}
 	}
 }

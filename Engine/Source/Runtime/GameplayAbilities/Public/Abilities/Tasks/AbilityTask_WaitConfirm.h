@@ -10,7 +10,7 @@ class UAbilityTask_WaitConfirm : public UAbilityTask
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(BlueprintAssignable)
-	FGenericAbilityTaskDelegate	OnConfirm;
+	FGenericGameplayTaskDelegate	OnConfirm;
 
 	UFUNCTION()
 	void OnConfirmCallback(UGameplayAbility* Ability);

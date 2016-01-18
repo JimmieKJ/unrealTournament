@@ -116,7 +116,7 @@
 				
 			<dt>Saved Files</dt>
 				<dd class='even'>
-					<%if( !Model.Crash.HasLogFile.HasValue || Model.Crash.HasLogFile.Equals( true ) ) 
+					<%if( Model.Crash.HasLogFile() ) 
 					{ %>
 						<a style='text-decoration:none; vertical-align:middle;' href='<%=Model.Crash.GetLogUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Log</a>
 						<%
@@ -125,15 +125,15 @@
 				</dd>
 			<dt>&nbsp;</dt>
 				<dd>	
-					<%if( !Model.Crash.HasMiniDumpFile.HasValue || Model.Crash.HasMiniDumpFile.Equals( true ) ) 
+					<%if( Model.Crash.HasMiniDumpFile() ) 
 					{ %>
-						<a style='text-decoration:none;' href='<%=Model.Crash.GetDumpUrl() %>'><img src="../../Content/Images/Icons/miniDump.png" style="height:20px;border:none;" />&nbsp;MiniDump</a>
+						<a style='text-decoration:none;' href='<%=Model.Crash.GetMiniDumpUrl() %>' title="<%=Model.Crash.GetDumpTitle()%>"><img src="../../Content/Images/Icons/miniDump.png" style="height:20px;border:none;" />&nbsp;<%=Model.Crash.GetDumpName() %></a>
 						<%
 					} %>
 				</dd>
 			<dt>&nbsp;</dt>
 				<dd>
-					<%if( Model.Crash.HasVideoFile.HasValue && Model.Crash.HasVideoFile.Equals( true ) ) 
+					<%if( Model.Crash.HasVideoFile() ) 
 					{ %>
 						<a id="VideoLink" style="text-decoration:none;" href='<%=Model.Crash.GetVideoUrl() %>'><img src="../../Content/Images/Icons/video.png" style="height:20px;border:none;" />&nbsp;Video</a>
 						<%
@@ -141,7 +141,15 @@
 				</dd>
 			<dt>&nbsp;</dt>
 				<dd>
-					<%if( Model.Crash.HasDiagnosticsFile.HasValue && Model.Crash.HasDiagnosticsFile.Equals( true ) ) 
+					<%if (Model.Crash.HasCrashContextFile() ) 
+					{ %>
+						<a id="A1" style="text-decoration:none;" href='<%=Model.Crash.GetCrashContextUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;CrashContext</a>
+						<%
+					} %>
+				</dd>
+			<dt>&nbsp;</dt>
+				<dd>
+					<%if (Model.Crash.HasDiagnosticsFile() ) 
 					{ %>
 						<a id="A1" style="text-decoration:none;" href='<%=Model.Crash.GetDiagnosticsUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Diags</a>
 						<%
@@ -149,7 +157,7 @@
 				</dd>
 			<dt>&nbsp;</dt>
 				<dd>
-					<%if( Model.Crash.HasMetaData.HasValue && Model.Crash.HasMetaData.Equals( true ) ) 
+					<%if( Model.Crash.HasMetaDataFile() ) 
 					{ %>
 						<a id="A2" style="text-decoration:none;" href='<%=Model.Crash.GetMetaDataUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;WERInfo</a>
 						<%
@@ -186,10 +194,10 @@
 				<dd ><%=Html.DisplayFor(m => Model.Crash.LanguageExt) %></dd>
 			
 			<dt>Platform</dt>
-				<dd ><%=Html.DisplayFor(m => Model.Crash.PlatformName) %></dd>
+				<dd ><small><%=Html.DisplayFor(m => Model.Crash.PlatformName) %></small></dd>
 
 			<dt>Machine Id</dt> 
-				<dd class='even'><small><%=Html.DisplayFor(m => Model.Crash.ComputerName) %></small></dd>
+				<dd class='even'><small><%=Html.DisplayFor(m => Model.Crash.MachineId) %></small></dd>
 
 			<dt>Epic Account Id</dt> 
 				<dd class='even'><small><%=Html.DisplayFor(m => Model.Crash.EpicAccountId) %></small></dd>
@@ -204,11 +212,11 @@
 				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.FixedChangeList) %></dd>
 
 			<dt>Changelist #</dt>
-				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.ChangeListVersion) %></dd>
+				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.BuiltFromCL) %></dd>
 
 			<dt>JIRA</dt>
-				<%--<dd ><%=Html.DisplayFor(m => Model.Crash.TTPID) %></dd>--%>
-				<dd><a href="https://jira.ol.epicgames.net/browse/<%=Model.Crash.TTPID%>" target="_blank"><%=Model.Crash.TTPID%></a></dd>
+				<%--<dd ><%=Html.DisplayFor(m => Model.Crash.Jira) %></dd>--%>
+				<dd><a href="https://jira.ol.epicgames.net/browse/<%=Model.Crash.Jira%>" target="_blank"><%=Model.Crash.Jira%></a></dd>
 
 			<dt>Status</dt>
 				<dd ><%=Html.DisplayFor(m => Model.Crash.Status) %></dd>
@@ -248,8 +256,7 @@
 					<div>
 						<% foreach( CallStackEntry CallStackLine in Model.CallStack.CallStackEntries )
 						   {%>
-								<span class="module-name"><%=Html.DisplayFor( m => CallStackLine.ModuleName )%>!</span>
-								<span class="function-name"><%=Html.DisplayFor( m => CallStackLine.FunctionName )%></span>
+								<span class="module-name"><%=Html.DisplayFor( m => CallStackLine.ModuleName )%>!</span><span class="function-name"><%=Html.DisplayFor( m => CallStackLine.FunctionName )%></span>
 								<span class="file-name"><%=Html.DisplayFor( m => CallStackLine.FileName )%></span>
 								<span class="file-path" style='display: none'><%=Html.DisplayFor( m => CallStackLine.FilePath )%></span>
 								<br />

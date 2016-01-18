@@ -9,28 +9,36 @@
 namespace FObjectEditorUtils
 {
 
-	FString GetCategory( const UProperty* InProperty )
+	FText GetCategoryText( const UProperty* InProperty )
 	{
 		static const FName NAME_Category(TEXT("Category"));
-		if (InProperty->HasMetaData(NAME_Category))
+		if (InProperty && InProperty->HasMetaData(NAME_Category))
 		{
-			return InProperty->GetMetaData(NAME_Category);
+			return InProperty->GetMetaDataText(NAME_Category, TEXT("UObjectCategory"), InProperty->GetFullGroupName(false));
 		}
 		else
 		{
-			return FString();
+			return FText::GetEmpty();
 		}
+	}
+
+	FString GetCategory( const UProperty* InProperty )
+	{
+		return GetCategoryText(InProperty).ToString();
 	}
 
 
 	FName GetCategoryFName( const UProperty* InProperty )
 	{
-		FName CategoryName(NAME_None);
-		if( InProperty )
+		FName OutCategoryName( NAME_None );
+
+		static const FName CategoryKey( TEXT("Category") );
+		if( InProperty && InProperty->HasMetaData( CategoryKey ) )
 		{
-			CategoryName = *GetCategory( InProperty );
+			OutCategoryName = FName( *InProperty->GetMetaData( CategoryKey ) );
 		}
-		return CategoryName;
+
+		return OutCategoryName;
 	}
 
 	bool IsFunctionHiddenFromClass( const UFunction* InFunction,const UClass* Class )
@@ -80,17 +88,22 @@ namespace FObjectEditorUtils
 	{
 		FString SourceValue;
 
+		if (SourceObject == nullptr || DestinationObject == nullptr)
+		{
+			return false;
+		}
+
 		// Get the property addresses for the source and destination objects.
 		uint8* SourceAddr = SourceProperty->ContainerPtrToValuePtr<uint8>(SourceObject);
 		uint8* DestionationAddr = DestinationProperty->ContainerPtrToValuePtr<uint8>(DestinationObject);
 
-		if ( SourceAddr == NULL || DestionationAddr == NULL )
+		if (SourceAddr == nullptr || DestionationAddr == nullptr)
 		{
 			return false;
 		}
 
 		// Get the current value from the source object.
-		SourceProperty->ExportText_Direct(SourceValue, SourceAddr, SourceAddr, NULL, PPF_Localized);
+		SourceProperty->ExportText_Direct(SourceValue, SourceAddr, SourceAddr, nullptr, PPF_Localized);
 
 		if ( !DestinationObject->HasAnyFlags(RF_ClassDefaultObject) )
 		{

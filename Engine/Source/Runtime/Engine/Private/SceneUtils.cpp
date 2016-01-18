@@ -4,9 +4,10 @@
 #include "RHI.h"
 #include "SceneUtils.h"
 
-#if WANTS_DRAW_MESH_EVENTS && PLATFORM_SUPPORTS_DRAW_MESH_EVENTS
+#if WANTS_DRAW_MESH_EVENTS
 
-void FDrawEvent::Start(FRHICommandList& InRHICmdList, const TCHAR* Fmt, ...)
+template<typename TRHICmdList>
+void TDrawEvent<TRHICmdList>::Start(TRHICmdList& InRHICmdList, const TCHAR* Fmt, ...)
 {
 	check(IsInParallelRenderingThread() || IsInRHIThread());
 	{
@@ -20,9 +21,36 @@ void FDrawEvent::Start(FRHICommandList& InRHICmdList, const TCHAR* Fmt, ...)
 	}
 }
 
-void FDrawEvent::Stop()
+template<typename TRHICmdList>
+void TDrawEvent<TRHICmdList>::Stop()
 {
-	RHICmdList->PopEvent();
+	if (RHICmdList)
+	{
+		RHICmdList->PopEvent();
+		RHICmdList = NULL;
+	}
+}
+template struct TDrawEvent<FRHICommandList>;
+template struct TDrawEvent<FRHIAsyncComputeCommandList>;
+
+void FDrawEventRHIExecute::Start(IRHIComputeContext& InRHICommandContext, const TCHAR* Fmt, ...)
+{
+	check(IsInParallelRenderingThread() || IsInRHIThread() || (!GRHIThread && IsInRenderingThread()));
+	{
+		
+		va_list ptr;
+		va_start(ptr, Fmt);
+		TCHAR TempStr[256];
+		// Build the string in the temp buffer
+		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), ARRAY_COUNT(TempStr) - 1, Fmt, ptr);
+		RHICommandContext = &InRHICommandContext;
+		RHICommandContext->RHIPushEvent(TempStr);		
+	}
 }
 
-#endif // WANTS_DRAW_MESH_EVENTS && PLATFORM_SUPPORTS_DRAW_MESH_EVENTS
+void FDrawEventRHIExecute::Stop()
+{
+	RHICommandContext->RHIPopEvent();
+}
+
+#endif // WANTS_DRAW_MESH_EVENTS

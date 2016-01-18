@@ -103,6 +103,8 @@ public:
 	EColumnSortMode::Type GetTimeSortMode() const;
 	// Handler delegates
 	FReply OnRecordButtonClicked();
+	FReply OnLoadButtonClicked();
+	FReply OnSaveButtonClicked();
 	void OnDrawRecentChanged(ECheckBoxState NewState);
 	void OnGroupByFrameChanged(ECheckBoxState NewState);
 	void OnGroupByTagChanged(ECheckBoxState NewState);
@@ -119,6 +121,9 @@ public:
 
 	/** Util to convert a query type to a string */
 	static FString QueryTypeToString(ECAQueryType::Type QueryType);
+
+	/** Util to convert a query mode to a string */
+	static FString QueryModeToString(ECAQueryMode::Type QueryMode);
 
 	/** Pointer to the analyzer object we want to show ui for */
 	FCollisionAnalyzer*				Analyzer;
@@ -180,5 +185,18 @@ private:
 	TSharedPtr<SEditableTextBox>	OwnerFilterBox;
 	/** Box to filter by time */
 	TSharedPtr<SEditableTextBox>	TimeFilterBox;
+
+	// Column names
+public:
+	static const FName IDColumnName;
+	static const FName FrameColumnName;
+	static const FName TypeColumnName;
+	static const FName ShapeColumnName;
+	static const FName ModeColumnName;
+	static const FName TagColumnName;
+	static const FName OwnerColumnName;
+	static const FName NumBlockColumnName;
+	static const FName NumTouchColumnName;
+	static const FName TimeColumnName;
 
 };

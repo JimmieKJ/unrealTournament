@@ -13,11 +13,15 @@ bool RequiresAdjacencyInformation( UMaterialInterface* Material, const FVertexFa
 		if ( IsInRenderingThread() )
 		{
 			FMaterialRenderProxy* MaterialRenderProxy = Material->GetRenderProxy( false, false );
-			check( MaterialRenderProxy );
-			const FMaterial* MaterialResource = MaterialRenderProxy->GetMaterial(InFeatureLevel);
-			check( MaterialResource );
-			TessellationMode = MaterialResource->GetTessellationMode();
-			bEnableCrackFreeDisplacement = MaterialResource->IsCrackFreeDisplacementEnabled();
+			if (ensureMsgf( MaterialRenderProxy, TEXT("Could not determine if RequiresAdjacencyInformation. Invalid MaterialRenderProxy on Material '%s'"), *GetNameSafe(Material) ))
+			{
+				const FMaterial* MaterialResource = MaterialRenderProxy->GetMaterial(InFeatureLevel);
+				if (ensureMsgf( MaterialResource, TEXT("Could not determine if RequiresAdjacencyInformation. Invalid MaterialResource on Material '%s'"), *GetNameSafe(Material) ))
+				{
+					TessellationMode = MaterialResource->GetTessellationMode();
+					bEnableCrackFreeDisplacement = MaterialResource->IsCrackFreeDisplacementEnabled();
+				}
+			}
 		}
 		else if ( IsInGameThread() )
 		{

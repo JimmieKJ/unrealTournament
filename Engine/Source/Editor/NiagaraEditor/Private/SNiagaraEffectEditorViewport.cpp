@@ -140,7 +140,7 @@ void SNiagaraEffectEditorViewport::Tick( const FGeometry& AllottedGeometry, cons
 	SEditorViewport::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
 
-void SNiagaraEffectEditorViewport::SetPreviewEffect(FNiagaraEffectInstance *InPreviewEffect)
+void SNiagaraEffectEditorViewport::SetPreviewEffect(TSharedPtr<FNiagaraEffectInstance> InPreviewEffect)
 {
 	check( PreviewComponent );
 

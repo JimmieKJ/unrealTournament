@@ -12,13 +12,23 @@ DECLARE_STATS_GROUP(TEXT("Kismet Reinstancer"), STATGROUP_KismetReinstancer, STA
 
 class FReinstanceFinalizer;
 
+struct UNREALED_API FRecreateUberGraphFrameScope
+{
+private:
+	TArray<UObject*> Objects;
+	UClass* RecompiledClass;
+public:
+	FRecreateUberGraphFrameScope(UClass* InClass, bool bRecreate);
+	~FRecreateUberGraphFrameScope();
+};
+
 class UNREALED_API FBlueprintCompileReinstancer : public TSharedFromThis<FBlueprintCompileReinstancer>, public FGCObject
 {
 public:
 	/**
 	 * CDO duplicates provider delegate type.
 	 */
-	DECLARE_DELEGATE_RetVal_TwoParams(UObject*, FCDODuplicatesProvider, UClass*, FName);
+	DECLARE_DELEGATE_RetVal_TwoParams(UObject*, FCDODuplicatesProvider, UObject*, FName);
 
 	/**
 	 * Gets CDO duplicates provider delegate.
@@ -30,6 +40,7 @@ protected:
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToRefresh;
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToRecompile;
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToByteRecompile;
+	static TSet<UBlueprint*> CompiledBlueprintsToSave;
 
 	static UClass* HotReloadedOldClass;
 	static UClass* HotReloadedNewClass;
@@ -67,6 +78,9 @@ protected:
 	/** Objects that should keep reference to old class */
 	TSet<UObject*> ObjectsThatShouldUseOldStuff;
 
+	/** TRUE if this is the source reinstancer that all other active reinstancing is spawned from */
+	bool bIsSourceReinstancer;
+
 public:
 	// FSerializableObject interface
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
@@ -75,8 +89,8 @@ public:
 	static void OptionallyRefreshNodes(UBlueprint* BP);
 
 	void ListDependentBlueprintsToRefresh(const TArray<UBlueprint*>& DependentBPs);
-	void EnlistDependentBlueprintToRecompile(UBlueprint* BP, bool bBytecodeOnly);
-	void BlueprintWasRecompiled(UBlueprint* BP, bool bBytecodeOnly);
+	virtual void EnlistDependentBlueprintToRecompile(UBlueprint* BP, bool bBytecodeOnly);
+	virtual void BlueprintWasRecompiled(UBlueprint* BP, bool bBytecodeOnly);
 
 	static TSharedPtr<FBlueprintCompileReinstancer> Create(UClass* InClassToReinstance, bool bIsBytecodeOnly = false, bool bSkipGC = false)
 	{
@@ -99,6 +113,9 @@ public:
 
 	/** Worker function to replace all instances of OldClass with a new instance of NewClass */
 	static void ReplaceInstancesOfClass(UClass* OldClass, UClass* NewClass, UObject* OriginalCDO = NULL, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
+
+	/** Batch replaces a mapping of one or more classes to their new class by leveraging ReplaceInstancesOfClass */
+	static void BatchReplaceInstancesOfClass(TMap<UClass*, UClass*>& InOldToNewClassMap, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
 
 	/**
 	 * When re-instancing a component, we have to make sure all instance owners' 
@@ -148,10 +165,13 @@ private:
 	 * Gets class CDO duplicate from cache (or creates it if not available or not
 	 * during hot-reload) for given class.
 	 *
-	 * @param Class Class to get (or create) CDO for.
+	 * @param CDO Object to get duplicate of.
 	 * @param Name The name that CDO has to be renamed with (or created with).
 	 */
-	static UObject* GetClassCDODuplicate(UClass* Class, FName Name);
+	static UObject* GetClassCDODuplicate(UObject* CDO, FName Name);
+
+	/** Handles the work of ReplaceInstancesOfClass, handling both normal replacement of instances and batch */
+	static void ReplaceInstancesOfClass_Inner(TMap<UClass*, UClass*>& InOldToNewClassMap, UObject* InOriginalCDO, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
 };
 
 

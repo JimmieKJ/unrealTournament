@@ -19,7 +19,7 @@ Description: This is a test
 
 ![](TutorialTestImage02.png)
 
-1. Select Actor from the “Pick Parent Class” window.
+1. Select Actor from the ï¿½Pick Parent Classï¿½ window.
 
 [/EXCERPT:TestSecond]
 
@@ -63,7 +63,7 @@ Description: This is a test
 
 ![](TutorialTestImage06.png)
 
-1. Above the Components option you will find the Static Mesh options. Once you have found it, click on the bar next to the prview window.
+1. Above the Components option you will find the Static Mesh options. Once you have found it, click on the bar next to the preview window.
 1. In the new window that has appeared, type EditorCube in the search bar. Once it appears, add it to the StaticMeshComponent.
 
 [/EXCERPT:Six]
@@ -86,7 +86,7 @@ Description: This is a test
 
 ![](TutorialTestImage09.png)
 
-1. (Right-click) inside the Event Graph and select Add Timeline…, then give it a Name.
+1. (Right-click) inside the Event Graph and select Add Timelineï¿½, then give it a Name.
 
 [/EXCERPT:Nine]
 

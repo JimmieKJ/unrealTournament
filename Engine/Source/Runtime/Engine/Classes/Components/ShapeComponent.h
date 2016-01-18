@@ -20,9 +20,6 @@ class ENGINE_API UShapeComponent : public UPrimitiveComponent
 	UPROPERTY(transient, duplicatetransient)
 	class UBodySetup* ShapeBodySetup;
 
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Shape)
-	class UMaterialInterface* ShapeMaterial;
-
 	/** Only show this component if the actor is selected */
 	UPROPERTY()
 	uint32 bDrawOnlyIfSelected:1;
@@ -39,27 +36,30 @@ class ENGINE_API UShapeComponent : public UPrimitiveComponent
 	UPROPERTY(EditAnywhere, Category = Navigation)
 	TSubclassOf<class UNavArea> AreaClass;
 
-	// Begin UPrimitiveComponent interface.
+	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-	virtual void GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const override; 
 	virtual class UBodySetup* GetBodySetup() override;
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
-	// End UPrimitiveComponent interface.
+	//~ End UPrimitiveComponent Interface.
 
-	// Begin USceneComponent interface
+	//~ Begin INavRelevantInterface Interface
+	virtual bool IsNavigationRelevant() const override;
+	//~ End INavRelevantInterface Interface
+
+	//~ Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	virtual bool ShouldCollideWhenPlacing() const override
 	{
 		return bShouldCollideWhenPlacing || IsCollisionEnabled();
 	}
-	// End USceneComponent interface
+	//~ End USceneComponent Interface
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	/** Update the body setup parameters based on shape information*/
 	virtual void UpdateBodySetup();

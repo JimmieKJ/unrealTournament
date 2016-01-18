@@ -84,7 +84,8 @@ namespace SizeMapInternals
 			// Only look at objects which are valid
 			const bool bIsValidObject =
 				Object != nullptr &&	// Object should not be null
-				!Object->HasAnyFlags( RF_Transient | RF_PendingKill );	// Should not be transient or pending kill
+				!Object->HasAnyFlags(RF_Transient) &&	// Should not be transient
+				!Object->IsPendingKill(); // Should not be pending kill
 			if( bIsValidObject )
 			{
 				// Skip objects that we've already processed
@@ -320,12 +321,9 @@ void SSizeMap::GatherDependenciesRecursively( FAssetRegistryModule& AssetRegistr
 							NodeSizeMapData.AssetSize = Asset->GetResourceSize( EResourceSizeMode::Exclusive );
 						}
 
-						NodeSizeMapData.bHasKnownSize = NodeSizeMapData.AssetSize != UObject::RESOURCE_SIZE_NONE && NodeSizeMapData.AssetSize != 0;
+						NodeSizeMapData.bHasKnownSize = (NodeSizeMapData.AssetSize != 0);
 						if( !NodeSizeMapData.bHasKnownSize )
 						{
-							// Asset has no meaningful size
-							NodeSizeMapData.AssetSize = 0;
-
 							// @todo sizemap urgent: Try to serialize to figure out how big it is (not into sub-assets though!)
 							// FObjectMemoryAnalyzer ObjectMemoryAnalyzer( Asset );
 						}
@@ -516,19 +514,19 @@ void SSizeMap::RefreshMap()
 	else if( RootAssetPackageNames.Num() == 1 && !SharedRootNode.IsValid() )
 	{
 		// @todo sizemap: When zoomed right into one asset, can we use the Class color for the node instead of grey?
-		
+
 		FString OnlyAssetName = RootAssetPackageNames[ 0 ].ToString();
 		if( RootTreeMapNode->Children.Num() > 0 )
 		{
-		// The root will only have one child, so go ahead and use that child as the actual root
-		FTreeMapNodeDataPtr OnlyChild = RootTreeMapNode->Children[0];
-		OnlyChild->CopyNodeInto( *RootTreeMapNode );
-		RootTreeMapNode->Children = OnlyChild->Children;
-		RootTreeMapNode->Parent = nullptr;
-		for( const auto& ChildNode : RootTreeMapNode->Children )
-		{
-			ChildNode->Parent = RootTreeMapNode.Get();
-		}
+			// The root will only have one child, so go ahead and use that child as the actual root
+			FTreeMapNodeDataPtr OnlyChild = RootTreeMapNode->Children[ 0 ];
+			OnlyChild->CopyNodeInto( *RootTreeMapNode );
+			RootTreeMapNode->Children = OnlyChild->Children;
+			RootTreeMapNode->Parent = nullptr;
+			for( const auto& ChildNode : RootTreeMapNode->Children )
+			{
+				ChildNode->Parent = RootTreeMapNode.Get();
+			}
 
 			OnlyAssetName = OnlyChild->Name;
 		}

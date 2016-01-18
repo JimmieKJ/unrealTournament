@@ -77,7 +77,7 @@ public:
 PX_ALIGN_SUFFIX(16);
 PX_COMPILE_TIME_ASSERT(0 == (sizeof(PxcRigidBody) & 0x0f));
 
-//#ifndef PX_X64
+//#if !defined(PX_P64)
 //PX_COMPILE_TIME_ASSERT(96==sizeof(PxcRigidBody));
 //#endif
 

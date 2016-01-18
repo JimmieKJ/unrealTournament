@@ -20,7 +20,21 @@ struct EBuildModuleType
 		Max
 	};
 
-
+	friend FArchive& operator<<(FArchive& Ar, EBuildModuleType::Type& Type)
+	{
+		if (Ar.IsLoading())
+		{
+			uint8 Value;
+			Ar << Value;
+			Type = (EBuildModuleType::Type)Value;
+		}
+		else if (Ar.IsSaving())
+		{
+			uint8 Value = (uint8)Type;
+			Ar << Value;
+		}
+		return Ar;
+	}
 	/**
 	* Converts a string literal into EModuleType::Type value
 	*

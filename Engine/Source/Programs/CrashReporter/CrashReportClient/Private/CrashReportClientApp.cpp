@@ -21,7 +21,7 @@
 #include "XmlFile.h"
 
 /** Default main window size */
-const FVector2D InitialWindowDimensions(640, 560);
+const FVector2D InitialWindowDimensions(740, 560);
 
 /** Average tick rate the app aims for */
 const float IdealTickRate = 30.f;
@@ -73,17 +73,26 @@ FPlatformErrorReport LoadErrorReport()
 	}
 
 	FPlatformErrorReport ErrorReport(ReportDirectoryAbsolutePath);
-	
-	FString XMLWerFilename;
-	ErrorReport.FindFirstReportFileWithExtension( XMLWerFilename, TEXT( ".xml" ) );
 
-	extern FCrashDescription& GetCrashDescription();
-	GetCrashDescription() = FCrashDescription( ReportDirectoryAbsolutePath / XMLWerFilename );
+	FString Filename;
+	// CrashContext.runtime-xml has the precedence over the WER
+	if (ErrorReport.FindFirstReportFileWithExtension( Filename, *FGenericCrashContext::CrashContextExtension ))
+	{
+		FPrimaryCrashProperties::Set( new FCrashContext( ReportDirectoryAbsolutePath / Filename ) );
+	}
+	else if (ErrorReport.FindFirstReportFileWithExtension( Filename, TEXT( ".xml" ) ))
+	{
+		FPrimaryCrashProperties::Set( new FCrashWERContext( ReportDirectoryAbsolutePath / Filename ) );
+	}
+	else
+	{
+		return FPlatformErrorReport();
+	}
 
 #if CRASH_REPORT_UNATTENDED_ONLY
 	return ErrorReport;
 #else
-	if( !GameNameFromCmd.IsEmpty() && GameNameFromCmd != GetCrashDescription().GameName )
+	if (!GameNameFromCmd.IsEmpty() && GameNameFromCmd != FPrimaryCrashProperties::Get()->GameName)
 	{
 		// Don't display or upload anything if it's not the report we expected
 		ErrorReport = FPlatformErrorReport();
@@ -92,17 +101,6 @@ FPlatformErrorReport LoadErrorReport()
 #endif
 }
 
-FCrashReportClientConfig::FCrashReportClientConfig()
-	: DiagnosticsFilename( TEXT( "Diagnostics.txt" ))
-{
-	if( !GConfig->GetString( TEXT( "CrashReportClient" ), TEXT( "CrashReportReceiverIP" ), CrashReportReceiverIP, GEngineIni ) )
-	{
-		// Use the default value.
-		CrashReportReceiverIP = TEXT( "http://crashreporter.epicgames.com:57005" );
-	}
-
-	UE_LOG( CrashReportClientLog, Log, TEXT( "CrashReportReceiverIP: %s" ), *CrashReportReceiverIP );
-}
 
 void RunCrashReportClient(const TCHAR* CommandLine)
 {
@@ -134,16 +132,10 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 	FPlatformErrorReport::Init();
 	auto ErrorReport = LoadErrorReport();
 	
-	if( ErrorReport.HasFilesToUpload() )
-	{
-		// Send analytics.
-		extern FCrashDescription& GetCrashDescription();
-		GetCrashDescription().SendAnalytics();
-	}
-
 	if (bUnattended)
 	{
-		ErrorReport.SetUserComment( NSLOCTEXT( "CrashReportClient", "UnattendedMode", "Sent in the unattended mode" ), false );
+		// In the unattended mode we don't send any PII.
+		ErrorReport.SetUserComment( NSLOCTEXT( "CrashReportClient", "UnattendedMode", "Sent in the unattended mode" ) );
 		FCrashReportClientUnattended CrashReportClient( ErrorReport );
 
 		// loop until the app is ready to quit
@@ -183,12 +175,7 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 		// Debugging code
 		if (RunWidgetReflector)
 		{
-			FSlateApplication::Get().AddWindow(
-				SNew(SWindow)
-				.ClientSize(FVector2D(800, 600))
-				[
-					FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector").GetWidgetReflector()
-				]);
+			FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector").DisplayWidgetReflector();
 		}
 
 		// loop until the app is ready to quit
@@ -210,18 +197,11 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 #endif // !CRASH_REPORT_UNATTENDED_ONLY
 	}
 
+	FPrimaryCrashProperties::Shutdown();
 	FPlatformErrorReport::ShutDown();
 
 	FEngineLoop::AppPreExit();
 	FTaskGraphInterface::Shutdown();
 
 	FEngineLoop::AppExit();
-}
-
-void CrashReportClientCheck(bool bCondition, const TCHAR* Location)
-{
-	if (!bCondition)
-	{
-		UE_LOG(CrashReportClientLog, Warning, TEXT("CHECK FAILED at %s"), Location);
-	}
 }

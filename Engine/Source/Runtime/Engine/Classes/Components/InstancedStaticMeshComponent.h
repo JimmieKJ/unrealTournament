@@ -60,7 +60,7 @@ struct FInstancedStaticMeshMappingInfo
 };
 
 /** A component that efficiently renders multiple instances of the same StaticMesh. */
-UCLASS(ClassGroup=Rendering, meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup = Rendering, meta = (BlueprintSpawnableComponent), Blueprintable)
 class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -105,8 +105,16 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	/** Get the transform for the instance specified. Instance is returned in local space of this component unless bWorldSpace is set.  Returns True on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
 	bool GetInstanceTransform(int32 InstanceIndex, FTransform& OutInstanceTransform, bool bWorldSpace = false) const;
-	
-	/** Update the transform for the instance specified. Instance is given in local space of this component unless bWorldSpace is set.  Returns True on success. */
+
+	/**
+	* Update the transform for the instance specified.
+	*
+	* @param InstanceIndex			The index of the instance to update
+	* @param NewInstanceTransform	The new transform
+	* @param bWorldSpace			If true, the new transform interpreted as a World Space transform, otherwise it is interpreted as Local Space
+	* @param bMarkRenderStateDirty	If true, the change should be visible immediately. If you are updating many instances you should only set this to true for the last instance.
+	* @return						True on success.
+	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
 	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace=false, bool bMarkRenderStateDirty = false);
 
@@ -125,6 +133,10 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	/** Sets the fading start and culling end distances for this component. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
 	void SetCullDistances(int32 StartCullDistance, int32 EndCullDistance);
+
+	/** Returns the instances with instance bounds overlapping the specified sphere. The return value is an array of instance indices. */
+	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
+	virtual TArray<int32> GetInstancesOverlappingSphere(const FVector& Center, float Radius, bool bSphereInWorldSpace=true) const;
 
 	virtual bool ShouldCreatePhysicsState() const override;
 
@@ -155,12 +167,11 @@ public:
 	UPROPERTY()
 	class UPhysicsSerializer* PhysicsSerializer;
 
-	// Begin UActorComponent interface 
+	//~ Begin UActorComponent Interface 
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	virtual FName GetComponentInstanceDataType() const override;
-	// End UActorComponent interface 
+	//~ End UActorComponent Interface 
 
-	// Begin UPrimitiveComponent Interface
+	//~ Begin UPrimitiveComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual void CreatePhysicsState() override;
 	virtual void DestroyPhysicsState() override;
@@ -174,11 +185,11 @@ public:
 	virtual void GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsage, int32& ShadowMapMemoryUsage ) const override;
 	
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
-	// End UPrimitiveComponent Interface
+	//~ End UPrimitiveComponent Interface
 	
-	// Begin UNavRelevantInterface interface.
+	//~ Begin UNavRelevantInterface Interface.
 	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
-	// End UPrimitiveComponent interface.
+	//~ End UPrimitiveComponent Interface.
 	
 	//Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
@@ -226,7 +237,7 @@ protected:
 	virtual void GetNavigationPerInstanceTransforms(const FBox& AreaBox, TArray<FTransform>& InstanceData) const;
 
 	/** Initializes the body instance for the specified instance of the static mesh*/
-	void InitInstanceBody(int32 InstanceIdx, FBodyInstance* BodyInstance);
+	void InitInstanceBody(int32 InstanceIdx, FBodyInstance* InBodyInstance);
 
 	/** Number of pending lightmaps still to be calculated (Apply()'d) */
 	UPROPERTY(Transient, DuplicateTransient, TextExportTransient)

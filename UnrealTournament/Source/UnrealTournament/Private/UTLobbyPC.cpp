@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "GameFramework/PlayerController.h"
@@ -15,7 +15,7 @@
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
-#include "Slate/SUTDownloadAllDialog.h"
+#include "Dialogs/SUTDownloadAllDialog.h"
 
 AUTLobbyPC::AUTLobbyPC(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -39,12 +39,6 @@ void AUTLobbyPC::OnRep_PlayerState()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		if (!LP->IsInSession())
-		{
-			LP->MessageBox(NSLOCTEXT("UTLobbyPC","SessionErrorTitle","Session Error"), NSLOCTEXT("UTLobbyPC","SessionErrorMsg","You can not connect directly to a Hub.  Please select 'PLAY' then 'Find a Game...' from the main menu."));
-			ConsoleCommand("Disconnect");
-		}
-		else
 		{
 			LP->UpdatePresence(TEXT("In Hub"), true, true, true, false);
 		}

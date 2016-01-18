@@ -25,5 +25,7 @@ public class ImageWrapper : ModuleRules
             Definitions.Add("WITH_UNREALEXR=1");
             AddThirdPartyPrivateStaticDependencies(Target, "UEOpenEXR");
         }
-	}
+
+        bEnableShadowVariableWarnings = false;
+    }
 }

@@ -6,6 +6,7 @@
 
 #include "EnginePrivate.h"
 #include "Net/UnrealNetwork.h"
+#include "AssetRegistryModule.h"
 
 /*-----------------------------------------------------------------------------
 	FURL Statics.
@@ -62,9 +63,6 @@ static bool ValidNetChar( const TCHAR* c )
 	Constructors.
 -----------------------------------------------------------------------------*/
 
-//
-// Constuct a purely default, local URL from an optional filename.
-//
 FURL::FURL( const TCHAR* LocalFilename )
 :	Protocol	( UrlConfig.DefaultProtocol )
 ,	Host		( UrlConfig.DefaultHost )
@@ -119,9 +117,6 @@ void FURL::FilterURLString( FString& Str )
 
 
 
-//
-// Construct a URL from text and an optional relative base.
-//
 FURL::FURL( FURL* Base, const TCHAR* TextURL, ETravelType Type )
 :	Protocol	( UrlConfig.DefaultProtocol )
 ,	Host		( UrlConfig.DefaultHost )
@@ -331,15 +326,50 @@ FURL::FURL( FURL* Base, const TCHAR* TextURL, ETravelType Type )
 			// find full pathname from short map name
 			FString MapFullName;
 			FText MapNameError;
+			bool bFoundMap = false;
 			if (FPaths::FileExists(URL))
 			{
 				Map = FPackageName::FilenameToLongPackageName(URL);
+				bFoundMap = true;
 			}
-			else if (!FPackageName::DoesPackageNameContainInvalidCharacters(URL, &MapNameError) && FPackageName::SearchForPackageOnDisk(FString(URL) + FPackageName::GetMapPackageExtension(), &MapFullName))
+			else if (!FPackageName::DoesPackageNameContainInvalidCharacters(URL, &MapNameError))
 			{
-				Map = MapFullName;
+				// First try to use the asset registry if it is available and finished scanning
+				if (FModuleManager::Get().IsModuleLoaded("AssetRegistry"))
+				{
+					IAssetRegistry& AssetRegistry = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+
+					if (!AssetRegistry.IsLoadingAssets())
+					{
+						TArray<FAssetData> MapList;
+						if (AssetRegistry.GetAssetsByClass(UWorld::StaticClass()->GetFName(), /*out*/ MapList))
+						{
+							FName TargetTestName(URL);
+							for (const FAssetData& MapAsset : MapList)
+							{
+								if (MapAsset.AssetName == TargetTestName)
+								{
+									Map = MapAsset.PackageName.ToString();
+									bFoundMap = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				if (!bFoundMap)
+				{
+					// Fall back to incredibly slow disk scan for the package
+					if (FPackageName::SearchForPackageOnDisk(FString(URL) + FPackageName::GetMapPackageExtension(), &MapFullName))
+					{
+						Map = MapFullName;
+						bFoundMap = true;
+					}
+				}
 			}
-			else
+
+			if (!bFoundMap)
 			{
 				// can't find file, invalidate and bail
 				UE_CLOG(MapNameError.ToString().Len() > 0, LogLongPackageNames, Warning, TEXT("URL: %s: %s"), URL, *MapNameError.ToString());
@@ -433,29 +463,16 @@ FString FURL::ToString (bool FullyQualified) const
 	Informational.
 -----------------------------------------------------------------------------*/
 
-//
-// Return whether this URL corresponds to an internal object, i.e. an Unreal
-// level which this app can try to connect to locally or on the net. If this
-// is false, the URL refers to an object that a remote application like Internet
-// Explorer can execute.
-//
 bool FURL::IsInternal() const
 {
 	return Protocol == UrlConfig.DefaultProtocol;
 }
 
-//
-// Return whether this URL corresponds to an internal object on this local 
-// process. In this case, no Internet use is necessary.
-//
 bool FURL::IsLocalInternal() const
 {
 	return IsInternal() && Host.Len()==0;
 }
 
-//
-// Add a unique option to the URL, replacing any existing one.
-//
 void FURL::AddOption( const TCHAR* Str )
 {
 	int32 Match = FCString::Strchr(Str, '=') ? (FCString::Strchr(Str, '=') - Str) : FCString::Strlen(Str);
@@ -480,9 +497,6 @@ void FURL::AddOption( const TCHAR* Str )
 }
 
 
-//
-// Remove an option from the URL
-//
 void FURL::RemoveOption( const TCHAR* Key, const TCHAR* Section, const FString& Filename )
 {
 	if ( !Key )
@@ -504,9 +518,6 @@ void FURL::RemoveOption( const TCHAR* Key, const TCHAR* Section, const FString& 
 	}
 }
 
-//
-// Load URL from config.
-//
 void FURL::LoadURLConfig( const TCHAR* Section, const FString& Filename )
 {
 	TArray<FString> Options;
@@ -517,9 +528,6 @@ void FURL::LoadURLConfig( const TCHAR* Section, const FString& Filename )
 	}
 }
 
-//
-// Save URL to config.
-//
 void FURL::SaveURLConfig( const TCHAR* Section, const TCHAR* Item, const FString& Filename ) const
 {
 	for( int32 i=0; i<Op.Num(); i++ )
@@ -536,9 +544,6 @@ void FURL::SaveURLConfig( const TCHAR* Section, const TCHAR* Item, const FString
 	}
 }
 
-//
-// See if the URL contains an option string.
-//
 bool FURL::HasOption( const TCHAR* Test ) const
 {
 	return GetOption( Test, NULL ) != NULL;
@@ -570,9 +575,6 @@ const TCHAR* FURL::GetOption( const TCHAR* Match, const TCHAR* Default ) const
 	Comparing.
 -----------------------------------------------------------------------------*/
 
-//
-// Compare two URL's to see if they refer to the same exact thing.
-//
 bool FURL::operator==( const FURL& Other ) const
 {
 	if

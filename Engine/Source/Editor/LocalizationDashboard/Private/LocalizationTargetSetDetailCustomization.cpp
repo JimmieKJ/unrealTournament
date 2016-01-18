@@ -10,38 +10,41 @@
 #include "IDetailsView.h"
 #include "LocalizationCommandletTasks.h"
 #include "ObjectEditorUtils.h"
+#include "ILocalizationServiceProvider.h"
+#include "ILocalizationServiceModule.h"
+#include "ILocalizationDashboardModule.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationDashboard"
 
 FLocalizationTargetSetDetailCustomization::FLocalizationTargetSetDetailCustomization()
 	: DetailLayoutBuilder(nullptr)
-	//, ServiceProviderCategoryBuilder(nullptr)
+	, ServiceProviderCategoryBuilder(nullptr)
 	, NewEntryIndexToBeInitialized(INDEX_NONE)
 {
-	//TArray<ILocalizationServiceProvider*> ActualProviders = ILocalizationDashboardModule::Get().GetLocalizationServiceProviders();
-	//for (ILocalizationServiceProvider* ActualProvider : ActualProviders)
-	//{
-	//	TSharedPtr<FLocalizationServiceProviderWrapper> Provider = MakeShareable(new FLocalizationServiceProviderWrapper(ActualProvider));
-	//	Providers.Add(Provider);
-	//}
+	TArray<ILocalizationServiceProvider*> ActualProviders = ILocalizationDashboardModule::Get().GetLocalizationServiceProviders();
+	for (ILocalizationServiceProvider* ActualProvider : ActualProviders)
+	{
+		TSharedPtr<FLocalizationServiceProviderWrapper> Provider = MakeShareable(new FLocalizationServiceProviderWrapper(ActualProvider));
+		Providers.Add(Provider);
+	}
 }
 
-//class FindProviderPredicate
-//{
-//public:
-//	FindProviderPredicate(ILocalizationServiceProvider* const InActualProvider)
-//		: ActualProvider(InActualProvider)
-//	{
-//	}
+class FindProviderPredicate
+{
+public:
+	FindProviderPredicate(ILocalizationServiceProvider* const InActualProvider)
+		: ActualProvider(InActualProvider)
+	{
+	}
 
-//	bool operator()(const TSharedPtr<FLocalizationServiceProviderWrapper>& Provider)
-//	{
-//		return Provider->Provider == ActualProvider;
-//	}
+	bool operator()(const TSharedPtr<FLocalizationServiceProviderWrapper>& Provider)
+	{
+		return Provider->Provider == ActualProvider;
+	}
 
-//private:
-//	ILocalizationServiceProvider* ActualProvider;
-//};
+private:
+	ILocalizationServiceProvider* ActualProvider;
+};
 
 namespace
 {
@@ -83,6 +86,7 @@ void FLocalizationTargetSetDetailCustomization::CustomizeDetails(IDetailLayoutBu
 	}
 
 	{
+		const ILocalizationServiceProvider& LSP = ILocalizationServiceModule::Get().GetProvider();
 		TargetObjectsPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULocalizationTargetSet,TargetObjects));
 		if (TargetObjectsPropertyHandle->IsValidHandle())
 		{
@@ -95,7 +99,15 @@ void FLocalizationTargetSetDetailCustomization::CustomizeDetails(IDetailLayoutBu
 
 			FLocalizationDashboardCommands::Register();
 			const TSharedRef< FUICommandList > CommandList = MakeShareable(new FUICommandList);
-			FToolBarBuilder ToolBarBuilder( CommandList, FMultiBoxCustomization::AllowCustomization("LocalizationDashboard") );
+
+			// Let the localization service extend this toolbar
+			TSharedRef<FExtender> LocalizationServiceExtender = MakeShareable(new FExtender);
+			if (TargetSet.IsValid() && ILocalizationServiceModule::Get().IsEnabled())
+			{
+				LSP.CustomizeTargetSetToolbar(LocalizationServiceExtender, TargetSet);
+			}
+
+			FToolBarBuilder ToolBarBuilder( CommandList, FMultiBoxCustomization::AllowCustomization("LocalizationDashboard"), LocalizationServiceExtender );
 
 			TAttribute<FText> GatherAllTargetsToolTipTextAttribute = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateLambda([this]() -> FText
 				{
@@ -115,6 +127,12 @@ void FLocalizationTargetSetDetailCustomization::CustomizeDetails(IDetailLayoutBu
 
 			CommandList->MapAction( FLocalizationDashboardCommands::Get().CompileAllTargets, FExecuteAction::CreateSP(this, &FLocalizationTargetSetDetailCustomization::CompileAllTargets), FCanExecuteAction::CreateSP(this, &FLocalizationTargetSetDetailCustomization::CanCompileAllTargets));
 			ToolBarBuilder.AddToolBarButton(FLocalizationDashboardCommands::Get().CompileAllTargets, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "LocalizationDashboard.CompileAllTargetsAllCultures"));
+
+			if (ILocalizationServiceModule::Get().IsEnabled())
+			{
+				ToolBarBuilder.BeginSection("LocalizationService");
+				ToolBarBuilder.EndSection();
+			}
 
 			BuildTargetsList();
 
@@ -174,6 +192,49 @@ void FLocalizationTargetSetDetailCustomization::CustomizeDetails(IDetailLayoutBu
 						]
 				];
 		}
+	}
+
+	ServiceProviderCategoryBuilder = &(DetailLayoutBuilder->EditCategory("ServiceProvider", LOCTEXT("LocalizationServiceProvider", "Localization Service Provider"), ECategoryPriority::Important));
+	FDetailWidgetRow& DetailWidgetRow = ServiceProviderCategoryBuilder->AddCustomRow(LOCTEXT("Selected LocalizationServiceProvider", "Selected Localization Service Provider"));
+
+	int32 CurrentlySelectedProviderIndex = 0;
+
+	for (int ProviderIndex = 0; ProviderIndex < Providers.Num(); ++ProviderIndex)
+	{
+		FName CurrentlySelectedProviderName = ILocalizationServiceModule::Get().GetProvider().GetName();
+		if (Providers[ProviderIndex].IsValid() && Providers[ProviderIndex]->Provider && Providers[ProviderIndex]->Provider->GetName() == CurrentlySelectedProviderName)
+		{
+			CurrentlySelectedProviderIndex = ProviderIndex;
+			break;
+		}
+	}
+
+	DetailWidgetRow.NameContent()
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("LocalizationServiceProvider", "Localization Service Provider"))
+		];
+	DetailWidgetRow.ValueContent()
+		[
+			SNew(SComboBox< TSharedPtr<FLocalizationServiceProviderWrapper>>)
+			.OptionsSource(&(Providers))
+			.OnSelectionChanged(this, &FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnSelectionChanged)
+			.OnGenerateWidget(this, &FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnGenerateWidget)
+			.InitiallySelectedItem(Providers[CurrentlySelectedProviderIndex])
+			.Content()
+			[
+				SNew(STextBlock)
+				.Text_Lambda([]()
+				{
+					return ILocalizationServiceModule::Get().GetProvider().GetDisplayName();
+				})
+			]
+		];
+
+	const ILocalizationServiceProvider& LSP = ILocalizationServiceModule::Get().GetProvider();
+	if (ServiceProviderCategoryBuilder != nullptr)
+	{
+		LSP.CustomizeSettingsDetails(*ServiceProviderCategoryBuilder);
 	}
 }
 
@@ -237,31 +298,33 @@ void FLocalizationTargetSetDetailCustomization::RebuildTargetsList()
 	}
 }
 
-//FText FLocalizationTargetSetDetailCustomization::GetCurrentServiceProviderDisplayName() const
-//{
-//	ILocalizationServiceProvider* const LSP = ILocalizationDashboardModule::Get().GetCurrentLocalizationServiceProvider();
-//	return LSP ? LSP->GetDisplayName() : LOCTEXT("NoServiceProviderName", "None");
-//}
-//
-//TSharedRef<SWidget> FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnGenerateWidget(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper) const
-//{
-//	ILocalizationServiceProvider* const LSP = LSPWrapper->Provider;
-//	return	SNew(STextBlock)
-//		.Text(LSP ? LSP->GetDisplayName() : LOCTEXT("NoServiceProviderName", "None"));
-//}
-//
-//void FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnSelectionChanged(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper, ESelectInfo::Type SelectInfo)
-//{
-//	ILocalizationServiceProvider* const LSP = LSPWrapper->Provider;
-//	FString ServiceProviderName = LSP ? LSP->GetName().ToString() : TEXT("None");
-//	ServiceProviderPropertyHandle->SetValue(ServiceProviderName);
-//
-//	if (LSP)
-//	{
-//		LSP->CustomizeSettingsDetails(*ServiceProviderCategoryBuilder);
-//	}
-//	DetailLayoutBuilder->ForceRefreshDetails();
-//}
+FText FLocalizationTargetSetDetailCustomization::GetCurrentServiceProviderDisplayName() const
+{
+	const ILocalizationServiceProvider& LSP = ILocalizationServiceModule::Get().GetProvider();
+	return LSP.GetDisplayName();
+}
+
+TSharedRef<SWidget> FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnGenerateWidget(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper) const
+{
+	ILocalizationServiceProvider* LSP = LSPWrapper.IsValid() ? LSPWrapper->Provider : nullptr;
+
+	return	SNew(STextBlock)
+		.Text(LSP ? LSP->GetDisplayName() : LOCTEXT("NoServiceProviderName", "None"));
+}
+
+void FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnSelectionChanged(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper, ESelectInfo::Type SelectInfo)
+{
+	ILocalizationServiceProvider* LSP = LSPWrapper.IsValid() ? LSPWrapper->Provider : nullptr;
+
+	FName ServiceProviderName = LSP ? LSP->GetName() : FName(TEXT("None"));
+	ILocalizationServiceModule::Get().SetProvider(ServiceProviderName);
+
+	if (LSP && ServiceProviderCategoryBuilder)
+	{
+		LSP->CustomizeSettingsDetails(*ServiceProviderCategoryBuilder);
+	}
+	DetailLayoutBuilder->ForceRefreshDetails();
+}
 
 bool FLocalizationTargetSetDetailCustomization::CanGatherAllTargets() const
 {

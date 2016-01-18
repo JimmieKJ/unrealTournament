@@ -12,11 +12,11 @@ namespace EVertexColorImportOption
 {
 	enum Type
 	{
-		/** Import the static mesh using the vertex colors from the FBX file */
+		/** Import the static mesh using the vertex colors from the FBX file. */
 		Replace,
-		/** Ignore vertex colors from the FBX file, and keep the existing mesh vertex colors */
+		/** Ignore vertex colors from the FBX file, and keep the existing mesh vertex colors. */
 		Ignore,
-		/** Override all vertex colors with the specified color */
+		/** Override all vertex colors with the specified color. */
 		Override
 	};
 }
@@ -25,6 +25,10 @@ UCLASS(config=EditorPerProjectUserSettings, AutoExpandCategories=(Options), Mini
 class UFbxStaticMeshImportData : public UFbxMeshImportData
 {
 	GENERATED_UCLASS_BODY()
+
+	/** If this option is true the staticmesh absolute transform will be apply to the staticmesh vertices. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = ImportSettings, meta = (ImportType = "StaticMesh"))
+	bool bTransformVertexToAbsolute;
 
 	/** For static meshes, enabling this option will combine all meshes in the FBX into a single monolithic mesh in Unreal */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=ImportSettings, meta=(ImportType="StaticMesh"))
@@ -41,7 +45,14 @@ class UFbxStaticMeshImportData : public UFbxMeshImportData
 	/** Disabling this option will keep degenerate triangles found.  In general you should leave this option on. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = ImportSettings, meta = (ImportType = "StaticMesh"))
 	uint32 bRemoveDegenerates:1;
-	
+
+	/** Required for PNT tessellation but can be slow. Recommend disabling for larger meshes. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = ImportSettings, meta = (ImportType = "StaticMesh"))
+	uint32 bBuildAdjacencyBuffer:1;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = ImportSettings, meta = (ImportType = "StaticMesh"))
+	uint32 bBuildReversedIndexBuffer:1;
+
 	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=ImportSettings, meta=(ImportType="StaticMesh"))
 	uint32 bGenerateLightmapUVs:1;
 

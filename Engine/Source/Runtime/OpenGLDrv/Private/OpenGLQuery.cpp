@@ -7,9 +7,6 @@
 #include "OpenGLDrvPrivate.h"
 #include "RenderCore.h"
 
-// Ignore functions from RHIMethods.h when parsing documentation; Doxygen's preprocessor can't parse the declaration, so spews warnings for the definitions.
-#if !UE_BUILD_DOCS
-
 void FOpenGLDynamicRHI::RHIBeginOcclusionQueryBatch()
 {
 }
@@ -92,6 +89,7 @@ void FOpenGLDynamicRHI::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 		else if(Query->QueryType == RQT_AbsoluteTime)
 		{
 			FOpenGL::QueryTimestampCounter(Query->Resource);
+			Query->bResultIsCached = false;
 		}
 	}
 }
@@ -204,7 +202,7 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 	return bSuccess;
 }
 
-#endif
+
 
 extern void OnQueryCreation( FOpenGLRenderQuery* Query );
 extern void OnQueryDeletion( FOpenGLRenderQuery* Query );
@@ -442,7 +440,7 @@ void FOpenGLBufferedGPUTiming::EndTiming()
 				TimerQuery->bInvalidResource = true;
 			}
 
-			if (TimerQuery->bInvalidResource)
+			if (TimerQuery->bInvalidResource && PlatformOpenGLContextValid())
 			{
 				PlatformGetNewRenderQuery(&TimerQuery->Resource, &TimerQuery->ResourceContext);
 				TimerQuery->bInvalidResource = false;

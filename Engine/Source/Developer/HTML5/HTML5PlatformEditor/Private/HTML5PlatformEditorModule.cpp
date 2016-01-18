@@ -20,11 +20,24 @@ class FHTML5PlatformEditorModule
 
 	virtual void StartupModule() override
 	{
-		// register settings
+#if PLATFORM_WINDOWS
+		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Win64");
+#elif PLATFORM_MAC
+		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Mac");
+#elif PLATFORM_LINUX
+		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Linux");
+#else 
+		return; 
+#endif 
+		// we don't have the SDK, don't bother setting this up. 
+		if (!IFileManager::Get().DirectoryExists(*SDKPath))
+		{
+			return; 
+		}
+
+		// register settings6
 		static FName PropertyEditor("PropertyEditor");
 		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>(PropertyEditor);
-		PropertyModule.RegisterCustomPropertyTypeLayout("HTML5SDKPath", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FHTML5SDKPathCustomization::MakeInstance));
-
 		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 
 		if (SettingsModule != nullptr)
@@ -40,12 +53,6 @@ class FHTML5PlatformEditorModule
  				LOCTEXT("SDKSettingsDescription", "Settings for HTML5 SDK (system wide)"),
  				GetMutableDefault<UHTML5SDKSettings>()
 			);
-		}
-
-		auto* Settings = GetMutableDefault<UHTML5SDKSettings>();
-		if (Settings->DeviceMap.Num() == 0)
-		{
-			Settings->QueryKnownBrowserLocations();
 		}
 	}
 

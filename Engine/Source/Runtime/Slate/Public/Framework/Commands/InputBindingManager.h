@@ -126,17 +126,6 @@ public:
 	}
 
 	/** Unregisters a delegate to be called when a user-defined chord is edited */
-	DELEGATE_DEPRECATED("This UnregisterUserDefinedGestureChanged overload is deprecated - please remove delegates using the FDelegateHandle returned by the RegisterUserDefinedChordChanged function.")
-	void UnregisterUserDefinedGestureChanged(const FOnUserDefinedChordChanged::FDelegate& Delegate)
-	{
-		PRAGMA_DISABLE_DEPRECATION_WARNINGS
-
-		OnUserDefinedChordChanged.Remove(Delegate);
-
-		PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	}
-
-	/** Unregisters a delegate to be called when a user-defined chord is edited */
 	DEPRECATED(4.8, "Use RegisterUserDefinedChordChanged instead of RegisterUserDefinedGestureChanged")
 	void UnregisterUserDefinedGestureChanged(FDelegateHandle DelegateHandle)
 	{

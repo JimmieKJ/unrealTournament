@@ -1,11 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTGameInstance.h"
 #include "UnrealNetwork.h"
-#include "Slate/SUWRedirectDialog.h"
+#include "Dialogs/SUTRedirectDialog.h"
 #include "UTDemoNetDriver.h"
 #include "UTGameEngine.h"
+#include "UTGameViewportClient.h"
 
 UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -55,6 +56,17 @@ bool UUTGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWo
 	{
 		WorldContext->LastURL.RemoveOption(TEXT("game="));
 	}
+
+	// Invalidate the LastSession member in UTLocalPlayer since we connected via IP.  NOTE: clients will attempt to rejoin the session
+	// of servers connected to the internet and at that point LastSession will become valid again.
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+	if (LocalPlayer != nullptr)
+	{
+		LocalPlayer->InvalidateLastSession();
+		LocalPlayer->LastConnectToIP = Cmd;
+	}
+
+
 	return GEngine->HandleTravelCommand(Cmd, Ar, InWorld);
 }
 
@@ -97,13 +109,13 @@ bool UUTGameInstance::IsAutoDownloadingContent()
 bool UUTGameInstance::StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum)
 {
 #if !UE_SERVER
-	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
-	if (Engine != NULL && !Engine->HasContentWithChecksum(PakName, Checksum))
+	UUTGameViewportClient* Viewport = Cast<UUTGameViewportClient>(GetGameViewportClient());
+	if (Viewport != NULL && !Viewport->CheckIfRedirectExists(FPackageRedirectReference(PakName, TEXT(""), TEXT(""), Checksum)))
 	{
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 		if (LocalPlayer != NULL)
 		{
-			TSharedRef<SUWRedirectDialog> Dialog = SNew(SUWRedirectDialog)
+			TSharedRef<SUTRedirectDialog> Dialog = SNew(SUTRedirectDialog)
 				.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameInstance::RedirectResult))
 				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
 				.RedirectToURL(URL)
@@ -152,7 +164,7 @@ void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 
 #if !UE_SERVER
 	if (Widget.IsValid())
 	{
-		ActiveRedirectDialogs.Remove(StaticCastSharedPtr<SUWRedirectDialog>(Widget));
+		ActiveRedirectDialogs.Remove(StaticCastSharedPtr<SUTRedirectDialog>(Widget));
 	}
 	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
 	{
@@ -168,7 +180,7 @@ void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 
 #endif
 }
 
-void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName)
+void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions)
 {
 	if (FParse::Param(FCommandLine::Get(), TEXT("NOREPLAYS")))
 	{
@@ -222,7 +234,7 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 		UE_LOG(UT, VeryVerbose, TEXT("Num Network Actors: %i"), CurrentWorld->NetworkActors.Num());
 	}
 }
-void UUTGameInstance::PlayReplay(const FString& Name)
+void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, const TArray<FString>& AdditionalOptions)
 {
 	UWorld* CurrentWorld = GetWorld();
 

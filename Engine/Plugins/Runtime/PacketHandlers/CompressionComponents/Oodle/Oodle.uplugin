@@ -1,0 +1,28 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Oodle network compression",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.4.0",
+	"Description" : "Realtime network compression using Oodle technology",
+	"Category" : "Networking",
+	"EnabledByDefault" : false,
+    "IsBetaVersion": false,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "OodleHandlerComponent",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" :
+			[
+				"Win32",
+				"Win64",
+				"Linux"
+			]
+		}
+	]
+}

@@ -535,6 +535,46 @@ struct FAITest_BTAbortDuringLatentAbort : public FAITest_SimpleBT
 };
 IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortDuringLatentAbort, "System.Engine.AI.Behavior Trees.Abort: during latent task abort")
 
+struct FAITest_BTLowPriObserverInLoop : public FAITest_SimpleBT
+{
+	FAITest_BTLowPriObserverInLoop()
+	{
+		UBTCompositeNode& CompNode = FBTBuilder::AddSelector(*BTAsset);
+		{
+			FBTBuilder::AddTask(CompNode, 1, EBTNodeResult::Failed);
+
+			UBTCompositeNode& CompNode2 = FBTBuilder::AddSelector(CompNode);
+			{
+				FBTBuilder::WithDecoratorLoop(CompNode);
+
+				FBTBuilder::AddTaskLatentFlags(CompNode2, EBTNodeResult::Succeeded, 1, TEXT("Bool2"), 2, 3);
+				{
+					FBTBuilder::WithDecoratorBlackboard(CompNode2, EBasicKeyOperation::Set, EBTFlowAbortMode::None, TEXT("Bool1"));
+				}
+
+				UBTCompositeNode& CompNode4 = FBTBuilder::AddSequence(CompNode2);
+				{
+					FBTBuilder::AddTask(CompNode4, 4, EBTNodeResult::Succeeded);
+					FBTBuilder::AddTaskFlagChange(CompNode4, true, EBTNodeResult::Failed, TEXT("Bool1"));
+				}
+
+				FBTBuilder::AddTask(CompNode2, 5, EBTNodeResult::Succeeded);
+				{
+					FBTBuilder::WithDecoratorBlackboard(CompNode2, EBasicKeyOperation::Set, EBTFlowAbortMode::LowerPriority, TEXT("Bool2"));
+				}
+			}
+
+			FBTBuilder::AddTask(CompNode, 6, EBTNodeResult::Succeeded);
+		}
+
+		ExpectedResult.Add(1);
+		ExpectedResult.Add(4);
+		ExpectedResult.Add(2);
+		ExpectedResult.Add(3);
+	}
+};
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTLowPriObserverInLoop, "System.Engine.AI.Behavior Trees.Other: low priority observer in looped branch")
+
 struct FAITest_BTSubtreeSimple : public FAITest_SimpleBT
 {
 	FAITest_BTSubtreeSimple()

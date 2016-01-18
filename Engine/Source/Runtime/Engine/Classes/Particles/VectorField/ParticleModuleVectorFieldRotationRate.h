@@ -18,8 +18,8 @@ class UParticleModuleVectorFieldRotationRate : public UParticleModuleVectorField
 	FVector RotationRate;
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void CompileModule(struct FParticleEmitterBuildInfo& EmitterInfo) override;
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 };
 

@@ -169,6 +169,9 @@ struct FGPUSpriteEmitterInfo
 	UPROPERTY()
 	uint32 bEnableCollision : 1;
 
+	UPROPERTY()
+	TEnumAsByte<EParticleCollisionMode::Type> CollisionMode;
+
 	/** Dynamic color scale from the ColorOverLife module. */
 	UPROPERTY()
 	FRawDistributionVector DynamicColor;
@@ -201,6 +204,7 @@ struct FGPUSpriteEmitterInfo
 		, ScreenAlignment(0)
 		, LockAxisFlag(0)
 		, bEnableCollision(false)
+		, CollisionMode(EParticleCollisionMode::SceneDepth)
 	{
 	}
 
@@ -410,15 +414,15 @@ class UParticleModuleTypeDataGpu : public UParticleModuleTypeDataBase
 	UPROPERTY(EditAnywhere, Category = ParticleModuleTypeDataGpu)
 	uint32 bClearExistingParticlesOnInit:1;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UParticleModuleTypeDataBase Interface
+	//~ Begin UParticleModuleTypeDataBase Interface
 	virtual void Build( struct FParticleEmitterBuildInfo& EmitterBuildInfo ) override;
 	virtual bool RequiresBuild() const override { return true; }
 	virtual FParticleEmitterInstance* CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent) override;
-	// End UParticleModuleTypeDataBase Interface
+	//~ End UParticleModuleTypeDataBase Interface
 };
 

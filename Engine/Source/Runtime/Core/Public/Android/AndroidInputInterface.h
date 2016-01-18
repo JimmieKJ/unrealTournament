@@ -77,16 +77,54 @@ enum TouchType
 	TouchEnded,
 };
 
+enum MappingState
+{
+	Unassigned,
+	ToValidate,
+	Valid
+};
+
+struct FAndroidInputDeviceInfo {
+	int32 DeviceId;
+	int32 VendorId;
+	int32 ProductId;
+	int32 ControllerId;
+	FString Name;
+	FString Descriptor;
+};
+
+struct FAndroidGamepadDeviceMapping
+{
+	// Information for this mapped device
+	FAndroidInputDeviceInfo DeviceInfo;
+
+	// State of mapping
+	MappingState DeviceState;
+
+	// Device supports hat as dpad
+	bool bSupportsHat;
+
+	// Map L1 and R1 to LTRIGGER and RTRIGGER
+	bool bMapL1R1ToTriggers;
+
+	// Right stick on Z/RZ
+	bool bRightStickZRZ;
+
+	// Right stick on RX/RY
+	bool bRightStickRXRY;
+};
+
 struct TouchInput
 {
-	int Handle;
+	int32 DeviceId;
+	int32 Handle;
 	TouchType Type;
 	FVector2D LastPosition;
 	FVector2D Position;
 };
 
-#define MAX_NUM_CONTROLLERS					1  // Only one for now
-#define MAX_NUM_CONTROLLER_BUTTONS			20
+#define MAX_NUM_CONTROLLERS					8  // reasonable limit for now
+#define MAX_NUM_CONTROLLER_BUTTONS			18
 #define MAX_DEFERRED_MESSAGE_QUEUE_SIZE		128
 
 struct FAndroidControllerData
@@ -105,10 +143,6 @@ struct FAndroidControllerData
 	float RYAnalog;
 	float LTAnalog;
 	float RTAnalog;
-
-	/** Vibration settings */
-	bool VibeIsOn;
-	FForceFeedbackValues VibeValues;
 };
 
 enum FAndroidMessageType
@@ -162,6 +196,10 @@ public:
 
 	static void QueueTouchInput(TArray<TouchInput> InTouchEvents);
 
+	static void ResetGamepadAssignments();
+	static void ResetGamepadAssignmentToController(int32 ControllerId);
+	static bool IsControllerAssignedToGamepad(int32 ControllerId);
+
 	static void JoystickAxisEvent(int32 deviceId, int32 axisId, float axisValue);
 	static void JoystickButtonEvent(int32 deviceId, int32 buttonId, bool buttonDown);
 
@@ -176,6 +214,8 @@ public:
 	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &values) override;
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override {}
 
+	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
+
 private:
 
 	FAndroidInputInterface( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler );
@@ -183,8 +223,14 @@ private:
 
 private:
 
+	/** Get controller index corresponding to deviceId (assigns and queries type if new) */
+	static int32 GetControllerIndex(int32 deviceId);
+
+	/** Find controller index corresponding to validated deviceId (returns -1 if not found) */
+	static int32 FindExistingDevice(int32 deviceId);
+
 	/** Push Vibration changes to the controllers */
-	void UpdateVibeMotors(FAndroidControllerData &State);
+	void UpdateVibeMotors();
 
 	struct MotionData
 	{
@@ -199,10 +245,16 @@ private:
 
 	static TArray<TouchInput> TouchInputStack;
 
+	/** Vibration settings */
+	static bool VibeIsOn;
+	static FForceFeedbackValues VibeValues;
+
+	static FAndroidGamepadDeviceMapping DeviceMapping[MAX_NUM_CONTROLLERS];
+
 	static FAndroidControllerData OldControllerData[MAX_NUM_CONTROLLERS];
 	static FAndroidControllerData NewControllerData[MAX_NUM_CONTROLLERS];
 
-	static EControllerButtons::Type ButtonMapping[MAX_NUM_CONTROLLER_BUTTONS];
+	static FGamepadKeyNames::Type ButtonMapping[MAX_NUM_CONTROLLER_BUTTONS];
 
 	static float InitialButtonRepeatDelay;
 	static float ButtonRepeatDelay;
@@ -214,4 +266,7 @@ private:
 	static TArray<MotionData> MotionDataStack;
 
 	TSharedRef< FGenericApplicationMessageHandler > MessageHandler;
+
+	/** List of input devices implemented in external modules. */
+	TArray<TSharedPtr<class IInputDevice>> ExternalInputDevices;
 };

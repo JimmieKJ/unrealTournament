@@ -35,8 +35,8 @@ public:
 	 */
 	virtual void* Malloc( SIZE_T Size, uint32 Alignment ) override
 	{
+		IncrementTotalMallocCalls();
 		FScopeLock ScopeLock( &SynchronizationObject );
-		STAT(TotalMallocCalls++);
 		return UsedMalloc->Malloc( Size, Alignment );
 	}
 
@@ -45,8 +45,8 @@ public:
 	 */
 	virtual void* Realloc( void* Ptr, SIZE_T NewSize, uint32 Alignment ) override
 	{
+		IncrementTotalReallocCalls();
 		FScopeLock ScopeLock( &SynchronizationObject );
-		STAT(TotalReallocCalls++);
 		return UsedMalloc->Realloc( Ptr, NewSize, Alignment );
 	}
 
@@ -57,17 +57,10 @@ public:
 	{
 		if( Ptr )
 		{
+			IncrementTotalFreeCalls();
 			FScopeLock ScopeLock( &SynchronizationObject );
-			STAT(TotalFreeCalls++);
 			UsedMalloc->Free( Ptr );
 		}
-	}
-
-	/** Called once per frame, gathers and sets all memory allocator statistics into the corresponding stats. */
-	virtual void UpdateStats() override
-	{
-		FScopeLock ScopeLock( &SynchronizationObject );
-		UsedMalloc->UpdateStats();
 	}
 
 	/** Writes allocator stats from the last update into the specified destination. */

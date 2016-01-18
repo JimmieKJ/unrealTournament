@@ -25,20 +25,21 @@ enum ERoundingMode
 	/** Rounds to the value which is more positive: 0.1 becomes 1, -0.1 becomes 0 */
 	ToPositiveInfinity,
 };
-#endif
 
-/** Used for formatting text in Blueprints; a helper struct that helps funnel the data to FText::Format */
-USTRUCT()
-struct FFormatTextArgument
+/**
+ * Used to pass argument/value pairs into FText::Format.
+ * The full C++ struct is located here: Engine\Source\Runtime\Core\Public\Internationalization\Text.h
+ */
+USTRUCT(noexport)
+struct FFormatArgumentData
 {
-	GENERATED_USTRUCT_BODY()
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
+	FString ArgumentName;
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
-	FText ArgumentName;
-
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
-	FText TextValue;
+	FText ArgumentValue;
 };
+#endif
 
 UCLASS()
 class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
@@ -46,15 +47,15 @@ class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 	GENERATED_UCLASS_BODY()
 
 	/** Converts localizable text to the string */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (text)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (text)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|String")
 	static FString Conv_TextToString(const FText& InText);
 
 	/** Converts string to localizable text */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (string)", CompactNodeTitle = "->"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (string)", CompactNodeTitle = "->", BlueprintAutocast), Category="Utilities|Text")
 	static FText Conv_StringToText(const FString& InString);
 
 	/** Converts string to localizable text */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (name)", CompactNodeTitle = "->"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (name)", CompactNodeTitle = "->", BlueprintAutocast), Category="Utilities|Text")
 	static FText Conv_NameToText(FName InName);
 
 	/* Returns true if text is empty. */
@@ -106,21 +107,21 @@ class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 	static bool NotEqual_IgnoreCase_TextText(const FText& A, const FText& B);
 
 	/** Converts a boolean value to text, either 'true' or 'false' */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (boolean)", CompactNodeTitle = "->"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (boolean)", CompactNodeTitle = "->", BlueprintAutocast), Category="Utilities|Text")
 	static FText Conv_BoolToText(bool InBool);
 
 	/** Converts a byte value to text */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (byte)", CompactNodeTitle = "->"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (byte)", CompactNodeTitle = "->", BlueprintAutocast), Category="Utilities|Text")
 	static FText Conv_ByteToText(uint8 Value);
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in integer to a text based on formatting options */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (int)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (int)", AdvancedDisplay = "1", BlueprintAutocast), Category="Utilities|Text")
 	static FText Conv_IntToText(int32 Value, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324);
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in float to a text based on formatting options */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (float)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (float)", AdvancedDisplay = "1", BlueprintAutocast), Category="Utilities|Text")
 	static FText Conv_FloatToText(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3);
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
@@ -156,5 +157,5 @@ class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 
 	/* Used for formatting text using the FText::Format function and utilized by the UK2Node_FormatText */
 	UFUNCTION(BlueprintPure, meta=(BlueprintInternalUseOnly = "true"))
-	static FText Format(FText InPattern, TArray<FFormatTextArgument> InArgs);
+	static FText Format(FText InPattern, TArray<FFormatArgumentData> InArgs);
 };

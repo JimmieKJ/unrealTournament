@@ -42,13 +42,19 @@ namespace Lightmass
 
 		virtual bool IsElementCastingShadow(int32 ElementIndex) const;
 
-		virtual int32 GetLODIndex() const { return EncodedLODIndex; }
+		virtual uint32 GetLODIndices() const { return EncodedLODIndices; }
+		virtual uint32 GetHLODRange() const { return EncodedHLODRange; }
+
 		/**
 		 * @return the portion of the LOD index variable that is actually the mesh LOD level
 		 * It strips off the MassiveLOD portion, which is in the high bytes. The MassiveLOD
 		 * portion is needed for disallowing shadow casting between parents/children 
 		 */
-		virtual int32 GetMeshLODIndex() const { return EncodedLODIndex & 0xFFFF; }
+		virtual uint32 GetMeshLODIndex() const { return EncodedLODIndices & 0xFFFF; }
+		virtual uint32 GetMeshHLODIndex() const { return (EncodedLODIndices & 0xFFFF0000) >> 16; }
+
+		virtual uint32 GetMeshHLODRangeStart() const { return EncodedHLODRange & 0xFFFF; }
+		virtual uint32 GetMeshHLODRangeEnd() const { return (EncodedHLODRange & 0xFFFF0000) >> 16; }
 
 		virtual void Import( class FLightmassImporter& Importer );
 

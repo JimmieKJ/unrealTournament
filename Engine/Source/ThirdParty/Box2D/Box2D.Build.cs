@@ -11,7 +11,7 @@ public class Box2D : ModuleRules
 		Type = ModuleType.External;
 
 		// Determine the root directory of Box2D
-		string ModuleCSFilename = UnrealBuildTool.RulesCompiler.GetModuleFilename(this.GetType().Name);
+		string ModuleCSFilename = UnrealBuildTool.RulesCompiler.GetFileNameFromType(GetType());
 		string ModuleBaseDirectory = Path.GetDirectoryName(ModuleCSFilename);
 		string Box2DBaseDir = Path.Combine(ModuleBaseDirectory, "Box2D_v2.3.1");
 
@@ -39,7 +39,7 @@ public class Box2D : ModuleRules
 		if (bSupported)
 		{
 			// Include path
-			PublicIncludePaths.Add(Box2DBaseDir);
+			PublicSystemIncludePaths.Add(Box2DBaseDir);
 		}
 	}
 }

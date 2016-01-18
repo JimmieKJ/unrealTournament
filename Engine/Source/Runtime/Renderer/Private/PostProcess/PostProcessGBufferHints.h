@@ -15,7 +15,7 @@ class FRCPassPostProcessGBufferHints : public TRenderingCompositePassBase<2, 1>
 {
 public:
 	// constructor
-	FRCPassPostProcessGBufferHints();
+	FRCPassPostProcessGBufferHints(FRHICommandList& RHICmdList);
 
 	// interface FRenderingCompositePass ---------
 	virtual void Process(FRenderingCompositePassContext& Context) override;

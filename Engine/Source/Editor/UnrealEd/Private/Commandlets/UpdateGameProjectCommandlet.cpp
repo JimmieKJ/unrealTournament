@@ -4,6 +4,7 @@
 #include "UnrealEd.h"
 #include "ISourceControlModule.h"
 #include "GameProjectGenerationModule.h"
+#include "IProjectManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUpdateGameProjectCommandlet, Log, All);
 
@@ -67,7 +68,7 @@ int32 UUpdateGameProjectCommandlet::Main( const FString& InParams )
 		SourceControlProvider.Init();
 	}
 
-	FString EngineIdentifier = GEngineVersion.ToString(EVersionComponent::Minor);
+	FString EngineIdentifier = FEngineVersion::Current().ToString(EVersionComponent::Minor);
 
 	UE_LOG(LogUpdateGameProjectCommandlet, Display, TEXT("Updating project file %s to %s..."), *ProjectFilePath, *EngineIdentifier);
 

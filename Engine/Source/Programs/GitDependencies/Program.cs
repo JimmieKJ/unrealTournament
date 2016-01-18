@@ -182,10 +182,6 @@ namespace GitDependencies
 				{
 					ExcludeFolders.Add("Mac");
 				}
-				if(Environment.GetEnvironmentVariable("EMSCRIPTEN") == null)
-				{
-					ExcludeFolders.Add("HTML5");
-				}
 				if(Environment.GetEnvironmentVariable("NDKROOT") == null)
 				{
 					ExcludeFolders.Add("Android");
@@ -199,13 +195,13 @@ namespace GitDependencies
 			// Parse all the explicit include filters
 			foreach(string IncludeFolder in ParseParameters(ArgsList, "-include="))
 			{
-				ExcludeFolders.Remove(IncludeFolder.Replace('\\', '/').Trim('/'));
+				ExcludeFolders.Remove(IncludeFolder.Replace('\\', '/').TrimEnd('/'));
 			}
 
 			// Parse all the explicit exclude filters
 			foreach(string ExcludeFolder in ParseParameters(ArgsList, "-exclude="))
 			{
-				ExcludeFolders.Add(ExcludeFolder.Replace('\\', '/').Trim('/'));
+				ExcludeFolders.Add(ExcludeFolder.Replace('\\', '/').TrimEnd('/'));
 			}
 
 			// If there are any more parameters, print an error
@@ -795,9 +791,21 @@ namespace GitDependencies
 			string RootedName = "/" + Name;
 			foreach(string ExcludeFolder in ExcludeFolders)
 			{
-				if(RootedName.IndexOf("/" + ExcludeFolder + "/", StringComparison.CurrentCultureIgnoreCase) != -1)
+				if(ExcludeFolder.StartsWith("/"))
 				{
-					return true;
+					// Do a prefix check
+					if(RootedName.StartsWith(ExcludeFolder + "/", StringComparison.CurrentCultureIgnoreCase))
+					{
+						return true;
+					}
+				}
+				else
+				{
+					// Do a substring check
+					if(RootedName.IndexOf("/" + ExcludeFolder + "/", StringComparison.CurrentCultureIgnoreCase) != -1)
+					{
+						return true;
+					}
 				}
 			}
 			return false;

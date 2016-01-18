@@ -20,20 +20,15 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)override;
 	//End UObject interface
 
-	// Begin UNiagaraNode interface
+	//~ Begin UNiagaraNode Interface
 	virtual void Compile(class INiagaraCompiler* Compiler, TArray<FNiagaraNodeResult>& Outputs)override;
 	//End UNiagaraNode interface
 
-	// Begin EdGraphNode interface
+	//~ Begin EdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FLinearColor GetNodeTitleColor() const override;
-	// End EdGraphNode interface
-
-private:
-	
-	/** Destroys and reallocates input and output pins. */
-	void ReallocatePins();
+	//~ End EdGraphNode Interface
 };
 

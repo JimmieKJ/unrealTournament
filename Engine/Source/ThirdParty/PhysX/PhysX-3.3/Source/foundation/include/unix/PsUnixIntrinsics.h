@@ -105,12 +105,12 @@ namespace shdfnd
 	/*!
 	Prefetch \c count bytes starting at \c ptr.
 	*/
-#if (defined (PX_ANDROID) || defined (PX_APPLE_IOS)) && !defined (PX_ARM64)
+#if (defined (PX_ANDROID) || defined (PX_APPLE_IOS)) && !defined (PX_A64)
 	PX_FORCE_INLINE void prefetch(const void* ptr, PxU32 count = 1)
 	{
 		const char* cp = (char*)ptr;
-		PxU32 p = size_t(ptr);
-		PxU32 startLine = p>>5, endLine = (p+count-1)>>5;
+		size_t p = (size_t)ptr;
+		PxU32 startLine = PxU32(p>>5), endLine = PxU32((p+count-1)>>5);
 		PxU32 lines = endLine - startLine + 1;
 		do
 		{

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTHUD_CTF.h"
 #include "UTCTFGameState.h"
@@ -29,15 +29,10 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 {
 	if (MyUTScoreboard != NULL)
 	{
-		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
+		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
 	}
 
-	if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime)
-	{
-		// no match summary at half-time for now
-		//GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 7.0f);
-	}
-	else
+	if (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission)
 	{
 		Super::NotifyMatchStateChange();
 	}
@@ -60,7 +55,7 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 			Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
 
 			Pos = WorldToMapToScreen(Base->MyFlag->GetActorLocation());
-			DrawMinimapIcon(OldHudTexture, Pos, FVector2D(30.f, 30.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
+			DrawMinimapIcon(HUDAtlas, Pos, FVector2D(30.f, 30.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
 		}
 	}
 

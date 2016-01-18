@@ -23,27 +23,40 @@ FCulturePtr FCulture::Create(const FText& InDisplayName, const FString& InEnglis
 #if UE_ENABLE_ICU
 FCulture::FCulture(const FString& LocaleName)
 	: Implementation( new FICUCultureImplementation( LocaleName ) )
-{
-
-}
 #else
 FCulture::FCulture(const FText& InDisplayName, const FString& InEnglishName, const int InKeyboardLayoutId, const int InLCID, const FString& InName, const FString& InNativeName, const FString& InUnrealLegacyThreeLetterISOLanguageName, const FString& InThreeLetterISOLanguageName, const FString& InTwoLetterISOLanguageName, const FNumberFormattingRules& InNumberFormattingRule, const FTextFormattingRules& InTextFormattingRule, const FDateTimeFormattingRules& InDateTimeFormattingRule) 
 	: Implementation( new FLegacyCultureImplementation(InDisplayName, InEnglishName, InKeyboardLayoutId, InLCID, InName, InNativeName, InUnrealLegacyThreeLetterISOLanguageName, InThreeLetterISOLanguageName, InTwoLetterISOLanguageName) )
 	, DateTimeFormattingRule(InDateTimeFormattingRule)
 	, TextFormattingRule(InTextFormattingRule)
 	, NumberFormattingRule(InNumberFormattingRule)
+#endif
+	, CachedDisplayName(Implementation->GetDisplayName())
+	, CachedEnglishName(Implementation->GetEnglishName())
+	, CachedName(Implementation->GetName())
+	, CachedNativeName(Implementation->GetNativeName())
+	, CachedUnrealLegacyThreeLetterISOLanguageName(Implementation->GetUnrealLegacyThreeLetterISOLanguageName())
+	, CachedThreeLetterISOLanguageName(Implementation->GetThreeLetterISOLanguageName())
+	, CachedTwoLetterISOLanguageName(Implementation->GetTwoLetterISOLanguageName())
+	, CachedNativeLanguage(Implementation->GetNativeLanguage())
+#if UE_ENABLE_ICU
+	, CachedRegion(Implementation->GetRegion())
+#endif
+	, CachedNativeRegion(Implementation->GetNativeRegion())
+#if UE_ENABLE_ICU
+	, CachedScript(Implementation->GetScript())
+	, CachedVariant(Implementation->GetVariant())
+#endif
 { 
 }
-#endif
 
-FString FCulture::GetDisplayName() const
+const FString& FCulture::GetDisplayName() const
 {
-	return Implementation->GetDisplayName();
+	return CachedDisplayName;
 }
 
-FString FCulture::GetEnglishName() const
+const FString& FCulture::GetEnglishName() const
 {
-	return Implementation->GetEnglishName();
+	return CachedEnglishName;
 }
 
 int FCulture::GetKeyboardLayoutId() const
@@ -65,15 +78,15 @@ TArray<FString> FCulture::GetPrioritizedParentCultureNames()
 	TArray<FString> LocaleTagCombinations;
 	if (!ScriptCode.IsEmpty() && !RegionCode.IsEmpty())
 	{
-		LocaleTagCombinations.Add(LanguageCode + TEXT("_") + ScriptCode + TEXT("_") + RegionCode);
+		LocaleTagCombinations.Add(LanguageCode + TEXT("-") + ScriptCode + TEXT("-") + RegionCode);
 	}
 	if (!RegionCode.IsEmpty())
 	{
-		LocaleTagCombinations.Add(LanguageCode + TEXT("_") + RegionCode);
+		LocaleTagCombinations.Add(LanguageCode + TEXT("-") + RegionCode);
 	}
 	if (!ScriptCode.IsEmpty())
 	{
-		LocaleTagCombinations.Add(LanguageCode + TEXT("_") + ScriptCode);
+		LocaleTagCombinations.Add(LanguageCode + TEXT("-") + ScriptCode);
 	}
 	LocaleTagCombinations.Add(LanguageCode);
 
@@ -85,64 +98,52 @@ FString FCulture::GetCanonicalName(const FString& Name)
 	return FImplementation::GetCanonicalName(Name);
 }
 
-FString FCulture::GetName() const
+const FString& FCulture::GetName() const
 {
-	return Implementation->GetName();
+	return CachedName;
 }
 
-FString FCulture::GetNativeName() const
+const FString& FCulture::GetNativeName() const
 {
-	return Implementation->GetNativeName();
+	return CachedNativeName;
 }
 
-FString FCulture::GetUnrealLegacyThreeLetterISOLanguageName() const
+const FString& FCulture::GetUnrealLegacyThreeLetterISOLanguageName() const
 {
-	return Implementation->GetUnrealLegacyThreeLetterISOLanguageName();
+	return CachedUnrealLegacyThreeLetterISOLanguageName;
 }
 
-FString FCulture::GetThreeLetterISOLanguageName() const
+const FString& FCulture::GetThreeLetterISOLanguageName() const
 {
-	return Implementation->GetThreeLetterISOLanguageName();
+	return CachedThreeLetterISOLanguageName;
 }
 
-FString FCulture::GetTwoLetterISOLanguageName() const
+const FString& FCulture::GetTwoLetterISOLanguageName() const
 {
-	return Implementation->GetTwoLetterISOLanguageName();
+	return CachedTwoLetterISOLanguageName;
 }
 
-FString FCulture::GetNativeLanguage() const
+const FString& FCulture::GetNativeLanguage() const
 {
-	return Implementation->GetNativeLanguage();
+	return CachedNativeLanguage;
 }
 
-FString FCulture::GetRegion() const
+const FString& FCulture::GetRegion() const
 {
-#if UE_ENABLE_ICU
-	return Implementation->GetRegion();
-#else
-	return TEXT("");
-#endif
+	return CachedRegion;
 }
 
-FString FCulture::GetNativeRegion() const
+const FString& FCulture::GetNativeRegion() const
 {
-	return Implementation->GetNativeRegion();
+	return CachedNativeRegion;
 }
 
-FString FCulture::GetScript() const
+const FString& FCulture::GetScript() const
 {
-#if UE_ENABLE_ICU
-	return Implementation->GetScript();
-#else
-	return TEXT("");
-#endif
+	return CachedScript;
 }
 
-FString FCulture::GetVariant() const
+const FString& FCulture::GetVariant() const
 {
-#if UE_ENABLE_ICU
-	return Implementation->GetVariant();
-#else
-	return TEXT("");
-#endif
+	return CachedVariant;
 }

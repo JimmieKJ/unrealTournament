@@ -137,8 +137,17 @@ private:
 	FIntPoint GetCellCoordinate(FVector2D Position);
 
 	/** Access a cell at coordinates X, Y. Coordinates are row and column indexes. */
-	FCell& CellAt( const int32 X, const int32 Y );
-	const FCell& CellAt( const int32 X, const int32 Y ) const;
+	FORCEINLINE_DEBUGGABLE FCell& CellAt(const int32 X, const int32 Y)
+	{
+		check(( Y*NumCells.X + X ) < Cells.Num());
+		return Cells[Y*NumCells.X + X];
+	}
+
+	FORCEINLINE_DEBUGGABLE const FCell& CellAt( const int32 X, const int32 Y ) const
+	{
+		check(( Y*NumCells.X + X ) < Cells.Num());
+		return Cells[Y*NumCells.X + X];
+	}
 
 	/** All the widgets and their arranged geometries encountered this frame. */
 	TSharedRef< TArray<FCachedWidget> > WidgetsCachedThisFrame;

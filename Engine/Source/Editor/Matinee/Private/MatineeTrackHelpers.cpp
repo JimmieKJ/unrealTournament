@@ -2,7 +2,19 @@
 
 #include "MatineeModule.h"
 #include "Matinee.h"
-#include "MatineeClasses.h"
+#include "Classes/InterpTrackHelper.h"
+#include "Classes/MatineeTrackAnimControlHelper.h"
+#include "Classes/MatineeTrackBoolPropHelper.h"
+#include "Classes/MatineeTrackDirectorHelper.h"
+#include "Classes/MatineeTrackEventHelper.h"
+#include "Classes/MatineeTrackFloatPropHelper.h"
+#include "Classes/MatineeTrackParticleReplayHelper.h"
+#include "Classes/MatineeTrackSoundHelper.h"
+#include "Classes/MatineeTrackToggleHelper.h"
+#include "Classes/MatineeTrackVectorPropHelper.h"
+#include "Classes/MatineeTrackColorPropHelper.h"
+#include "Classes/MatineeTrackLinearColorPropHelper.h"
+#include "Classes/MatineeTrackVisibilityHelper.h"
 #include "AssetRegistryModule.h"
 #include "SoundDefinitions.h"
 #include "MatineeUtils.h"
@@ -25,6 +37,7 @@
 #include "STextEntryPopup.h"
 #include "Engine/Selection.h"
 #include "Sound/SoundBase.h"
+#include "IMenu.h"
 
 #define LOCTEXT_NAMESPACE "MatineeTrackHelpers"
 
@@ -63,7 +76,7 @@ static UAnimSequence*	KeyframeAddAnimSequence = NULL;
 static USoundBase*		KeyframeAddSound = NULL;
 static FName			TrackAddPropName = NAME_None;
 static FName			AnimSlotName = NAME_None;
-static TWeakPtr< class SWindow > EntryPopupWindow;
+static TWeakPtr< class IMenu > EntryMenu;
 
 /**
  * Sets the global property name to use for newly created property tracks
@@ -83,7 +96,7 @@ UMatineeTrackAnimControlHelper::UMatineeTrackAnimControlHelper(const FObjectInit
 bool UMatineeTrackAnimControlHelper::PreCreateTrack( UInterpGroup* Group, const UInterpTrack *TrackDef, bool bDuplicatingTrack, bool bAllowPrompts ) const
 {
 	// For AnimControl tracks - pop up a dialog to choose slot name.
-	AnimSlotName = NAME_None;
+	AnimSlotName = FAnimSlotGroup::DefaultSlotName;
 
 	FEdModeInterpEdit* Mode = (FEdModeInterpEdit*)GLevelEditorModeTools().GetActiveMode( FBuiltinEditorModes::EM_InterpEdit );
 	check(Mode != NULL);
@@ -273,8 +286,9 @@ bool UMatineeTrackAnimControlHelper::PreCreateKeyframe( UInterpTrack *Track, flo
 			}
 			MenuBuilder.EndSection();
 
-			EntryPopupWindow = FSlateApplication::Get().PushMenu(
+			EntryMenu = FSlateApplication::Get().PushMenu(
 				Parent.ToSharedRef(),
+				FWidgetPath(),
 				MenuBuilder.MakeWidget(),
 				FSlateApplication::Get().GetCursorPos(),
 				FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -291,9 +305,9 @@ bool UMatineeTrackAnimControlHelper::PreCreateKeyframe( UInterpTrack *Track, flo
 
 void UMatineeTrackAnimControlHelper::OnAddKeyTextEntry(const FAssetData& AssetData, IMatineeBase* Matinee, UInterpTrack* Track)
 {
-	if( EntryPopupWindow.IsValid() )
+	if (EntryMenu.IsValid())
 	{
-		EntryPopupWindow.Pin()->RequestDestroyWindow();
+		EntryMenu.Pin()->Dismiss();
 	}
 
 	UObject* SelectedObject = AssetData.GetAsset();
@@ -349,8 +363,9 @@ bool UMatineeTrackDirectorHelper::PreCreateKeyframe( UInterpTrack *Track, float 
 		TSharedPtr< SWindow > Parent = FSlateApplication::Get().GetActiveTopLevelWindow();
 		if ( Parent.IsValid() )
 		{
-			EntryPopupWindow = FSlateApplication::Get().PushMenu(
+			EntryMenu = FSlateApplication::Get().PushMenu(
 				Parent.ToSharedRef(),
+				FWidgetPath(),
 				TextEntryPopup,
 				FSlateApplication::Get().GetCursorPos(),
 				FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -363,7 +378,10 @@ bool UMatineeTrackDirectorHelper::PreCreateKeyframe( UInterpTrack *Track, float 
 
 void UMatineeTrackDirectorHelper::OnAddKeyTextEntry(const FString& ChosenText, IMatineeBase* Matinee, UInterpTrack* Track)
 {
-	EntryPopupWindow.Pin()->RequestDestroyWindow();
+	if (EntryMenu.IsValid())
+	{
+		EntryMenu.Pin()->Dismiss();
+	}
 	
 	KeyframeAddDataName = FName( *ChosenText );
 	Matinee->FinishAddKey(Track,true);
@@ -407,8 +425,9 @@ bool UMatineeTrackEventHelper::PreCreateKeyframe( UInterpTrack *Track, float Key
 	TSharedPtr< SWindow > Parent = FSlateApplication::Get().GetActiveTopLevelWindow();
 	if ( Parent.IsValid() )
 	{
-		EntryPopupWindow = FSlateApplication::Get().PushMenu(
+		EntryMenu = FSlateApplication::Get().PushMenu(
 			Parent.ToSharedRef(),
+			FWidgetPath(),
 			TextEntryPopup,
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -420,9 +439,9 @@ bool UMatineeTrackEventHelper::PreCreateKeyframe( UInterpTrack *Track, float Key
 
 void UMatineeTrackEventHelper::OnAddKeyTextEntry(const FText& ChosenText, ETextCommit::Type CommitInfo, IMatineeBase* Matinee, UInterpTrack* Track)
 {
-	if (EntryPopupWindow.IsValid())
+	if (EntryMenu.IsValid())
 	{
-		EntryPopupWindow.Pin()->RequestDestroyWindow();
+		EntryMenu.Pin()->Dismiss();
 	}
 
 	if (CommitInfo == ETextCommit::OnEnter)
@@ -786,8 +805,9 @@ bool UMatineeTrackToggleHelper::PreCreateKeyframe( UInterpTrack *Track, float Ke
 	TSharedPtr< SWindow > Parent = FSlateApplication::Get().GetActiveTopLevelWindow();
 	if ( Parent.IsValid() )
 	{
-		EntryPopupWindow = FSlateApplication::Get().PushMenu(
+		EntryMenu = FSlateApplication::Get().PushMenu(
 			Parent.ToSharedRef(),
+			FWidgetPath(),
 			TextEntryPopup,
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -799,9 +819,9 @@ bool UMatineeTrackToggleHelper::PreCreateKeyframe( UInterpTrack *Track, float Ke
 
 void UMatineeTrackToggleHelper::OnAddKeyTextEntry(const FString& ChosenText, IMatineeBase* Matinee, UInterpTrack* Track)
 {
-	if (EntryPopupWindow.IsValid())
+	if (EntryMenu.IsValid())
 	{
-		EntryPopupWindow.Pin()->RequestDestroyWindow();
+		EntryMenu.Pin()->Dismiss();
 	}
 
 	KeyframeAddDataName = FName(*ChosenText);
@@ -1137,8 +1157,9 @@ bool UMatineeTrackVisibilityHelper::PreCreateKeyframe( UInterpTrack *Track, floa
 	TSharedPtr< SWindow > Parent = FSlateApplication::Get().GetActiveTopLevelWindow();
 	if ( Parent.IsValid() )
 	{
-		EntryPopupWindow = FSlateApplication::Get().PushMenu(
+		EntryMenu = FSlateApplication::Get().PushMenu(
 			Parent.ToSharedRef(),
+			FWidgetPath(),
 			TextEntryPopup,
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -1150,9 +1171,9 @@ bool UMatineeTrackVisibilityHelper::PreCreateKeyframe( UInterpTrack *Track, floa
 
 void UMatineeTrackVisibilityHelper::OnAddKeyTextEntry(const FString& ChosenText, IMatineeBase* Matinee, UInterpTrack* Track)
 {
-	if (EntryPopupWindow.IsValid())
+	if (EntryMenu.IsValid())
 	{
-		EntryPopupWindow.Pin()->RequestDestroyWindow();
+		EntryMenu.Pin()->Dismiss();
 	}
 
 	KeyframeAddDataName = FName(*ChosenText);

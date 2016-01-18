@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTWeaponState.h"
@@ -320,6 +320,12 @@ void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVeloci
 	}
 }
 
+void AUTWeapon::InitializeDroppedPickup(class AUTDroppedPickup* Pickup)
+{
+	Super::InitializeDroppedPickup(Pickup);
+	Pickup->SetWeaponSkin(WeaponSkin);
+}
+
 void AUTWeapon::Removed()
 {
 	GotoState(InactiveState);
@@ -557,6 +563,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 	}
 	// register components now
 	Super::RegisterAllComponents();
+	RegisterAllActorTickFunctions(true, true); // 4.11 changed components to only get tick registered automatically if they're registered prior to BeginPlay()!
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UpdateOverlays();
@@ -1482,7 +1489,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 	FActorSpawnParameters Params;
 	Params.Instigator = UTOwner;
 	Params.Owner = UTOwner;
-	Params.bNoCollisionFail = true; // we already checked this in GetFireStartLoc()
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	AUTProjectile* NewProjectile = 
 		((Role == ROLE_Authority) || (CatchupTickDelta > 0.f))
 		? GetWorld()->SpawnActor<AUTProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, Params)
@@ -1533,7 +1540,7 @@ void AUTWeapon::SpawnDelayedFakeProjectile()
 		FActorSpawnParameters Params;
 		Params.Instigator = UTOwner;
 		Params.Owner = UTOwner;
-		Params.bNoCollisionFail = true; // we already checked this in GetFireStartLoc()
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		AUTProjectile* NewProjectile = GetWorld()->SpawnActor<AUTProjectile>(DelayedProjectile.ProjectileClass, DelayedProjectile.SpawnLocation, DelayedProjectile.SpawnRotation, Params);
 		if (NewProjectile)
 		{
@@ -1627,7 +1634,7 @@ float AUTWeapon::LagWeaponRotation(float NewValue, float LastValue, float DeltaT
 void AUTWeapon::Tick(float DeltaTime)
 {
 	// try to gracefully detect being active with no owner, which should never happen because we should always end up going through Removed() and going to the inactive state
-	if (CurrentState != InactiveState && (UTOwner == NULL || UTOwner->bPendingKillPending) && CurrentState != NULL)
+	if (CurrentState != InactiveState && (UTOwner == NULL || UTOwner->IsPendingKillPending()) && CurrentState != NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("%s lost Owner while active (state %s"), *GetName(), *GetNameSafe(CurrentState));
 		GotoState(InactiveState);
@@ -1908,6 +1915,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 				if (PSC == NULL)
 				{
 					PSC = NewObject<UParticleSystemComponent>(InOverlayMesh);
+					PSC->SetAbsolute(false, false, true);
 					PSC->RegisterComponent();
 				}
 				PSC->AttachTo(InOverlayMesh, TopOverlay.ParticleAttachPoint);

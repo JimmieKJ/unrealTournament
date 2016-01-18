@@ -38,9 +38,9 @@ struct TextureStatsGenerator : public FFindReferencedAssets
 		if( InObjectSet == TextureObjectSet_SelectedActors )
 		{
 			// In this mode only get selected actors
-			for( FSelectedActorIterator It(GetWorld()); It; ++It )
+			for( AActor* Actor : FSelectedActorRange(GetWorld()) )
 			{
-				OutObjectsToSearch.Add( *It );
+				OutObjectsToSearch.Add( Actor );
 			}
 		}
 		else if( InObjectSet == TextureObjectSet_SelectedMaterials )

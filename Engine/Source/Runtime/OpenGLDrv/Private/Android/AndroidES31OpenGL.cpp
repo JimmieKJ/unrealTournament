@@ -175,6 +175,10 @@ void FPlatformOpenGLDevice::Init()
 
 	}
 
+	// For MSAA
+	glFramebufferTexture2DMultisampleEXT = (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC)((void*)eglGetProcAddress("glFramebufferTexture2DMultisampleEXT"));
+	glRenderbufferStorageMultisampleEXT = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC)((void*)eglGetProcAddress("glRenderbufferStorageMultisampleEXT"));
+
 	if (!bFoundAllEntryPoints)
 	{
 		UE_LOG(LogRHI, Warning, TEXT("Failed to acquire all optional OpenGL entrypoints, may fall back to OpenGL ES 2.0"));
@@ -349,7 +353,7 @@ FRHITexture* PlatformCreateBuiltinBackBuffer(FOpenGLDynamicRHI* OpenGLRHI, uint3
 	if ( FOpenGL::IsES2())
 	{
 		uint32 Flags = TexCreate_RenderTargetable;
-		Texture2D = new FOpenGLTexture2D(OpenGLRHI, AndroidEGL::GetInstance()->GetOnScreenColorRenderBuffer(), GL_RENDERBUFFER, GL_COLOR_ATTACHMENT0, SizeX, SizeY, 0, 1, 1, 1, PF_B8G8R8A8, false, false, Flags, nullptr);
+		Texture2D = new FOpenGLTexture2D(OpenGLRHI, AndroidEGL::GetInstance()->GetOnScreenColorRenderBuffer(), GL_RENDERBUFFER, GL_COLOR_ATTACHMENT0, SizeX, SizeY, 0, 1, 1, 1, PF_B8G8R8A8, false, false, Flags, nullptr, FClearValueBinding::Transparent);
 		OpenGLTextureAllocated(Texture2D, Flags);
 	}
 
@@ -498,7 +502,7 @@ void PlatformReleaseRenderQuery(GLuint Query, uint64 QueryContext)
 	EGLContext Context = eglGetCurrentContext();
 	if ((uint64)Context == QueryContext)
 	{
-		FOpenGL::GenQueries(1, &Query);
+		FOpenGL::DeleteQueries(1, &Query);
 	}
 	else
 	{
@@ -553,7 +557,13 @@ FString FAndroidMisc::GetGLVersion()
 
 bool FAndroidMisc::SupportsFloatingPointRenderTargets()
 {
-	return FAndroidGPUInfo::Get().bSupportsFloatingPointRenderTargets;}
+	return FAndroidGPUInfo::Get().bSupportsFloatingPointRenderTargets;
+}
+
+bool FAndroidMisc::SupportsShaderFramebufferFetch()
+{
+	return FAndroidGPUInfo::Get().bSupportsFrameBufferFetch;
+}
 
 void FAndroidMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNames)
 {

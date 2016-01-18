@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTCharacterMovement.h"
@@ -51,9 +51,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeAirControl = 0.41f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 6000.f; 
+	MaxAcceleration = 5500.f; 
 	MaxFallingAcceleration = 4200.f;
-	MaxSwimmingAcceleration = 6000.f;
+	MaxSwimmingAcceleration = 5500.f;
 	MaxRelativeSwimmingAccelNumerator = 0.f;
 	MaxRelativeSwimmingAccelDenominator = 1000.f;
 	BrakingDecelerationWalking = 500.f;
@@ -61,12 +61,12 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 12.f;
+	GroundFriction = 11.5f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
 	NavAgentProps.AgentStepHeight = MaxStepHeight; // warning: must be manually mirrored, won't be set automatically
-	CrouchedHalfHeight = 60.0f;
+	CrouchedHalfHeight = 69.0f;
 	SlopeDodgeScaling = 0.93f;
 
 	FloorSlideAcceleration = 1500.f;
@@ -138,6 +138,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 
 	TotalTimeStampError = -0.15f;  // allow one initial slow frame
 	bClearingSpeedHack = false;
+	NetworkSmoothingMode = ENetworkSmoothingMode::Exponential;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment
@@ -312,7 +313,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 void UUTCharacterMovement::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
 {
 	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
-
+	bSlidingAlongWall = false;
 	if (MovementMode == MOVE_Swimming)
 	{
 		FVector HorizontalVelocity = Velocity;
@@ -949,7 +950,7 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		return;
 	}
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
-
+	bSlidingAlongWall = false;
 	if (!UTOwner || !UTOwner->IsRagdoll())
 	{
 		float RealGroundFriction = GroundFriction;
@@ -1084,7 +1085,7 @@ float UUTCharacterMovement::GetMaxSpeed() const
 		// small non-zero number used to avoid divide by zero issues
 		return 0.01f;
 	}
-	else if (bIsEmoting)
+	else if (bIsTaunting)
 	{
 		return 0.01f;
 	}
@@ -1190,9 +1191,42 @@ void UUTCharacterMovement::OnTeleported()
 	{
 		return;
 	}
-
 	bool bWasFalling = (MovementMode == MOVE_Falling);
-	Super::OnTeleported();
+	bJustTeleported = true;
+
+	// Find floor at current location
+	UpdateFloorFromAdjustment();
+	SaveBaseLocation();
+
+	// Validate it. We don't want to pop down to walking mode from very high off the ground, but we'd like to keep walking if possible.
+	UPrimitiveComponent* OldBase = CharacterOwner->GetMovementBase();
+	UPrimitiveComponent* NewBase = NULL;
+
+	if (OldBase && CurrentFloor.IsWalkableFloor() && CurrentFloor.FloorDist <= MAX_FLOOR_DIST && Velocity.Z <= 0.f)
+	{
+		// Close enough to land or just keep walking.
+		NewBase = CurrentFloor.HitResult.Component.Get();
+	}
+	else
+	{
+		CurrentFloor.Clear();
+	}
+
+	float SavedVelocityZ = Velocity.Z;
+
+	// If we were walking but no longer have a valid base or floor, start falling.
+	SetDefaultMovementMode();
+	if ((MovementMode == MOVE_Walking) && (!CurrentFloor.IsWalkableFloor() || (OldBase && !NewBase)))
+	{
+		// If we were walking but no longer have a valid base or floor, start falling.
+		SetMovementMode(MOVE_Falling);
+	}
+
+	if (MovementMode != MOVE_Walking)
+	{
+		Velocity.Z = SavedVelocityZ;
+	}
+
 	if (bWasFalling && (MovementMode == MOVE_Walking))
 	{
 		ProcessLanded(CurrentFloor.HitResult, 0.f, 0);
@@ -1463,7 +1497,7 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
-		if (bWantsWallSlide && (Impact.ImpactNormal.Z > -0.1f) && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && (UTCharOwner->EmoteCount <= 0))
+		if (bWantsWallSlide && (Impact.ImpactNormal.Z > -0.1f) && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && !UTCharOwner->IsThirdPersonTaunting())
 		{
 			FVector VelocityAlongWall = Velocity + FMath::Abs(Velocity | Impact.ImpactNormal) * Impact.ImpactNormal;
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
@@ -1545,6 +1579,15 @@ float UUTCharacterMovement::GetGravityZ() const
 		return Super::GetGravityZ() * SlideGravityScaling * (1.f - FMath::Square(WallSlideNormal.Z));
 	}
 	return Super::GetGravityZ();
+}
+
+float UUTCharacterMovement::SlideAlongSurface(const FVector& Delta, float Time, const FVector& InNormal, FHitResult& Hit, bool bHandleImpact)
+{
+	if (Hit.bBlockingHit)
+	{
+		bSlidingAlongWall = true;
+	}
+	return Super::SlideAlongSurface(Delta, Time, InNormal, Hit, bHandleImpact);
 }
 
 void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
@@ -1671,7 +1714,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
 	FHitResult Hit(1.f);
 	bIsAgainstWall = false;
-	if (!HasRootMotion())
+	if (!HasRootMotionSources())
 	{
 		// test for slope to avoid using air control to climb walls 
 		float TickAirControl = GetCurrentAirControl();
@@ -1758,7 +1801,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		FVector OldVelocity = Velocity;
 
 		// Apply input
-		if (!HasRootMotion())
+		if (!HasRootMotionSources())
 		{
 			// Acceleration = FallAcceleration for CalcVelocity, but we restore it after using it.
 			TGuardValue<FVector> RestoreAcceleration(Acceleration, FallAcceleration);
@@ -1778,7 +1821,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			NotifyJumpApex();
 		}
 
-		if (!HasRootMotion())
+		if (!HasRootMotionSources())
 		{
 			// make sure not exceeding acceptable speed
 			Velocity = Velocity.GetClampedToMaxSize2D(BoundSpeed);
@@ -1922,7 +1965,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			}
 		}
 
-		if (!HasRootMotion() && !bJustTeleported && MovementMode != MOVE_None)
+		if (!HasRootMotionSources() && !bJustTeleported && MovementMode != MOVE_None)
 		{
 			// refine the velocity by figuring out the average actual velocity over the tick, and then the final velocity.
 			// This particularly corrects for situations where level geometry affected the fall.

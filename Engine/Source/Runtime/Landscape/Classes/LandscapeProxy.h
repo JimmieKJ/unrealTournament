@@ -126,6 +126,20 @@ struct FLandscapeLayerStruct
 	}
 };
 
+UENUM()
+enum class ELandscapeImportAlphamapType : uint8
+{
+	// Three layers blended 50/30/20 represented as 0.5, 0.3, and 0.2 in the alpha maps
+	// All alpha maps for blended layers total to 1.0
+	// This is the style used by UE4 internally for blended layers
+	Additive,
+
+	// Three layers blended 50/30/20 represented as 0.5, 0.6, and 1.0 in the alpha maps
+	// Each alpha map only specifies the remainder from previous layers, so the last layer used will always be 1.0
+	// Some other tools use this format
+	Layered,
+};
+
 /** Structure storing Layer Data for import */
 USTRUCT()
 struct FLandscapeImportLayerInfo
@@ -170,13 +184,13 @@ namespace ELandscapeLayerPaintingRestriction
 {
 	enum Type
 	{
-		// No restriction, can paint anywhere (default)
+		/** No restriction, can paint anywhere (default). */
 		None         UMETA(DisplayName="None"),
 
-		// Uses the MaxPaintedLayersPerComponent setting from the LandscapeProxy
+		/** Uses the MaxPaintedLayersPerComponent setting from the LandscapeProxy. */
 		UseMaxLayers UMETA(DisplayName="Limit Layer Count"),
 
-		// Restricts painting to only components that already have this layer
+		/** Restricts painting to only components that already have this layer. */
 		ExistingOnly UMETA(DisplayName="Existing Layers Only"),
 	};
 }
@@ -186,9 +200,9 @@ namespace ELandscapeLODFalloff
 {
 	enum Type
 	{
-		// Default mode
+		/** Default mode. */
 		Linear			UMETA(DisplayName = "Linear"),
-		// Square Root give more natural transition, and also keep the same LOD 
+		/** Square Root give more natural transition, and also keep the same LOD. */
 		SquareRoot		UMETA(DisplayName = "Square Root"),
 	};
 }
@@ -503,7 +517,7 @@ public:
 
 	// End blueprint functions
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void UnregisterAllComponents() override;
 	virtual void RegisterAllComponents() override;
 	virtual void RerunConstructionScripts() override {}
@@ -516,7 +530,7 @@ public:
 	virtual void PostEditMove(bool bFinished) override;
 	virtual bool ShouldImport(FString* ActorPropString, bool IsMovingLevel) override;
 	virtual bool ShouldExport() override;
-	// End AActor Interface
+	//~ End AActor Interface
 #endif	//WITH_EDITOR
 
 	FGuid GetLandscapeGuid() const { return LandscapeGuid; }
@@ -553,7 +567,7 @@ public:
 	int32 UpdateBakedTexturesCountdown;
 #endif
 
-	// Begin FTickableGameObject interface.
+	//~ Begin FTickableGameObject Interface.
 	virtual void Tick(float DeltaTime) override;
 	virtual bool IsTickable() const override 
 	{ 
@@ -572,7 +586,7 @@ public:
 		return GetStatID();
 	}
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	virtual void PostLoad() override;
@@ -583,7 +597,7 @@ public:
 	virtual void PreEditUndo() override;
 	virtual void PostEditUndo() override;
 	virtual void PostEditImport() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	LANDSCAPE_API static TArray<FName> GetLayersFromMaterial(UMaterialInterface* Material);
 	LANDSCAPE_API TArray<FName> GetLayersFromMaterial() const;
@@ -633,10 +647,9 @@ public:
 
 	LANDSCAPE_API static ULandscapeMaterialInstanceConstant* GetLayerThumbnailMIC(UMaterialInterface* LandscapeMaterial, FName LayerName, UTexture2D* ThumbnailWeightmap, UTexture2D* ThumbnailHeightmap, ALandscapeProxy* Proxy);
 
-	LANDSCAPE_API void Import(FGuid Guid, int32 VertsX, int32 VertsY, 
-							int32 ComponentSizeQuads, int32 NumSubsections, int32 SubsectionSizeQuads, 
-							const uint16* HeightData, const TCHAR* HeightmapFileName, 
-							const TArray<FLandscapeImportLayerInfo>& ImportLayerInfos);
+	LANDSCAPE_API void Import(FGuid Guid, int32 MinX, int32 MinY, int32 MaxX, int32 MaxY, int32 NumSubsections, int32 SubsectionSizeQuads,
+							const uint16* HeightData, const TCHAR* HeightmapFileName,
+							const TArray<FLandscapeImportLayerInfo>& ImportLayerInfos, ELandscapeImportAlphamapType ImportLayerType);
 
 	/**
 	 * Exports landscape into raw mesh

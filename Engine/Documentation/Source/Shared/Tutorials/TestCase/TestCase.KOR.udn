@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2301415
+﻿INTSourceChangelist:2591123
 Availability:NoPublish
 Title:테스트 - 번역하지 않습니다.
 Crumbs:
@@ -64,7 +64,7 @@ Description: This is a test
 
 ![](TutorialTestImage06.png)
 
-1. Above the Components option you will find the Static Mesh options. Once you have found it, click on the bar next to the prview window.
+1. Above the Components option you will find the Static Mesh options. Once you have found it, click on the bar next to the preview window.
 1. In the new window that has appeared, type EditorCube in the search bar. Once it appears, add it to the StaticMeshComponent.
 
 [/EXCERPT:Six]
@@ -87,7 +87,7 @@ Description: This is a test
 
 ![](TutorialTestImage09.png)
 
-1. (Right-click) inside the Event Graph and select Add Timeline…, then give it a Name.
+1. (Right-click) inside the Event Graph and select Add Timeline..., then give it a Name.
 
 [/EXCERPT:Nine]
 

@@ -15,8 +15,7 @@
 
 FHTML5TargetPlatform::FHTML5TargetPlatform( )
 {
-	RefreshAvailableDevices();
-
+	RefreshHTML5Setup();
 #if WITH_ENGINE
 	// load up texture settings from the config file
 	HTML5LODSettings = nullptr;
@@ -62,113 +61,22 @@ ITargetDevicePtr FHTML5TargetPlatform::GetDevice( const FTargetDeviceId& DeviceI
 
 bool FHTML5TargetPlatform::IsSdkInstalled(bool bProjectHasCode, FString& OutDocumentationPath) const
 {
-	FConfigSection SDKPaths;
-	//New style detection of devices
-	if (HTML5EngineSettings.Find("/Script/HTML5PlatformEditor.HTML5SDKSettings"))
-	{
-
-		SDKPaths = HTML5EngineSettings["/Script/HTML5PlatformEditor.HTML5SDKSettings"];
-		for (auto It : SDKPaths)
-		{
-			const FString& Platform = It.Key.ToString();
-			FString Path = It.Value;
-			if (Platform == "EmscriptenRoot")
-			{
-				FString SDKPathString;
-				FString VersionString;
-				auto Index = Path.Find(TEXT("SDKPath="));
-				if (Index != INDEX_NONE)
-				{
-					Index+=9;
-					auto Index2 = Path.Find(TEXT("\""), ESearchCase::IgnoreCase, ESearchDir::FromStart, Index);
-					if (Index2 != INDEX_NONE)
-					{
-						SDKPathString = Path.Mid(Index, Index2-Index);
-					}
-				}
-				Index = Path.Find(TEXT("EmscriptenVersion="));
-				if (Index != INDEX_NONE)
-				{
-					Index += 19;
-					auto Index2 = Path.Find(TEXT("\""), ESearchCase::IgnoreCase, ESearchDir::FromStart, Index);
-					if (Index2 != INDEX_NONE)
-					{
-						VersionString = Path.Mid(Index, Index2 - Index);
-					}
-				}
-				if (!VersionString.IsEmpty() && !SDKPathString.IsEmpty())
-				{
-					bool bFoundSDK = false;
-					FHTML5SDKVersionNumber RequiredVersion;
-					RequiredVersion.VersionNumberFromString(*VersionString);
-					TArray<FHTML5SDKVersionNumber> SDKVersions;
-					GetInstalledSDKVersions(*SDKPathString, SDKVersions);
-
-					if (SDKVersions.Num() > 0 &&
-						RequiredVersion.VersionNumber.Major == -1 &&
-						RequiredVersion.VersionNumber.Minor == -1 &&
-						RequiredVersion.VersionNumber.Revision == -1)
-					{
-						bFoundSDK = true;
-						SDKPathString = SDKVersions.Last().VersionPath;
-					}
-					else
-					{
-						for (const auto& i : SDKVersions)
-						{
-							if (i == RequiredVersion)
-							{
-								SDKPathString = i.VersionPath;
-								bFoundSDK = true;
-								break;
-							}
-						}
-					}
-
-					
-					return bFoundSDK && IFileManager::Get().DirectoryExists(*SDKPathString);
-				}
-			}
-		}
-	}
-
-	// Old fallbacks
-	if (HTML5EngineSettings.Find("HTML5SDKPaths"))
-	{
-		FString SectionName = "HTML5SDKPaths";
-		SDKPaths = HTML5EngineSettings[SectionName];
-		for (auto It : SDKPaths)
-		{
-			const FString& Platform = It.Key.ToString();
-			const FString& Path = It.Value;
-			{
-				if (Platform == "Emscripten" && IFileManager::Get().DirectoryExists(*Path))
-				{
-					return true;
-				}
 #if PLATFORM_WINDOWS
-				if (Platform == "Windows" && IFileManager::Get().DirectoryExists(*Path))
-				{
-					return true;
-				}
+		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Win64");
+#elif PLATFORM_MAC
+		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Mac");
+#elif PLATFORM_LINUX
+		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Linux");
+#else 
+		return; 
 #endif 
-#if PLATFORM_MAC
-				if (Platform == "Mac" && IFileManager::Get().DirectoryExists(*Path))
-				{
-					return true;
-				}
-#endif 
-			}
-		}
-	}
 
-	TCHAR BaseSDKPath[512];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("EMSCRIPTEN"), BaseSDKPath, ARRAY_COUNT(BaseSDKPath));
-	if (FString(BaseSDKPath).Len() > 0 && IFileManager::Get().DirectoryExists(BaseSDKPath) )
+	FString SDKDirectory = FPaths::ConvertRelativePathToFull(SDKPath);
+
+	if (IFileManager::Get().DirectoryExists(*SDKDirectory))
 	{
 		return true; 	
 	}
-
 	return false; 
 }
 
@@ -181,11 +89,11 @@ bool FHTML5TargetPlatform::IsRunningPlatform( ) const
 
 #if WITH_ENGINE
 
-static FName NAME_OPENGL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
+static FName NAME_GLSL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
 
 void FHTML5TargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const
 {
-	OutFormats.AddUnique(NAME_OPENGL_ES2_WEBGL);
+	OutFormats.AddUnique(NAME_GLSL_ES2_WEBGL);
 }
 
 
@@ -319,10 +227,14 @@ FName FHTML5TargetPlatform::GetWaveFormat( const USoundWave* Wave ) const
 
 #endif // WITH_ENGINE
 
-void FHTML5TargetPlatform::RefreshAvailableDevices()
+void FHTML5TargetPlatform::RefreshHTML5Setup()
 {
-	// load the final HTML5 engine settings for this game
-	FConfigCacheIni::LoadLocalIniFile(HTML5EngineSettings, TEXT("Engine"), true, *PlatformName());
+	FString Temp; 
+	if (!FHTML5TargetPlatform::IsSdkInstalled(true, Temp))
+	{
+		// nothing to do. 
+		return;
+	}
 
 	//New style detection of devices
 	for (const auto& Device : LocalDevice)
@@ -337,9 +249,10 @@ void FHTML5TargetPlatform::RefreshAvailableDevices()
 		Config = &HTML5EngineSettings;
 	}
 	TArray<FString> ValueArray;
-	if (Config->Find("/Script/HTML5PlatformEditor.HTML5SDKSettings")) 
+
+	if (Config->Find("/Script/HTML5PlatformEditor.HTML5SDKSettings"))
 	{
-		FConfigSection AvaliableDevicesNewSection =  (*Config)["/Script/HTML5PlatformEditor.HTML5SDKSettings"];
+		FConfigSection AvaliableDevicesNewSection = (*Config)["/Script/HTML5PlatformEditor.HTML5SDKSettings"];
 		for (auto It : AvaliableDevicesNewSection)
 		{
 			ValueArray.Reset();
@@ -368,7 +281,7 @@ void FHTML5TargetPlatform::RefreshAvailableDevices()
 					(FPlatformFileManager::Get().GetPlatformFile().FileExists(*DevicePath) ||
                      FPlatformFileManager::Get().GetPlatformFile().DirectoryExists(*DevicePath)))
 				{
-					ITargetDevicePtr Device = MakeShareable(new FHTML5TargetDevice(*this, FString::Printf(TEXT("%s on %s"), *DeviceName, FPlatformProcess::ComputerName())));
+					ITargetDevicePtr Device = MakeShareable(new FHTML5TargetDevice(*this, DeviceName, DevicePath));
 					LocalDevice.Add(Device);
 					DeviceDiscoveredEvent.Broadcast(Device.ToSharedRef());
 				}
@@ -376,78 +289,36 @@ void FHTML5TargetPlatform::RefreshAvailableDevices()
 		}
 	}
 
-	// Old Fallback
-	if (LocalDevice.Num() == 0)
+	struct FBrowserLocation
 	{
-		FString DeviceSectionName;
-
+		FString Name;
+		FString Path;
+	} PossibleLocations[] =
+	{
 #if PLATFORM_WINDOWS
-		DeviceSectionName = "HTML5DevicesWindows";
+		{ TEXT("Nightly(64bit)"), TEXT("C:/Program Files/Nightly/firefox.exe") },
+		{ TEXT("Nightly"), TEXT("C:/Program Files (x86)/Nightly/firefox.exe") },
+		{ TEXT("Firefox"), TEXT("C:/Program Files (x86)/Mozilla Firefox/firefox.exe") },
+	//	{ TEXT("Chrome"), TEXT("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe") },
 #elif PLATFORM_MAC
-		DeviceSectionName = "HTML5DevicesMac";
-#else 
-		DeviceSectionName = "HTML5DevicesLinux";
-#endif 
-		if (HTML5EngineSettings.Find(DeviceSectionName))
-		{
-			FConfigSection AvaliableDevicesSection = HTML5EngineSettings[DeviceSectionName];
-			for (auto It : AvaliableDevicesSection)
-			{
-				const FString& BrowserName = It.Key.ToString();
-				const FString& BrowserPath = It.Value;
-				if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*It.Value))
-				{
-					ITargetDevicePtr Device = MakeShareable(new FHTML5TargetDevice(*this, FString::Printf(TEXT("%s on %s"), *It.Key.ToString(), FPlatformProcess::ComputerName())));
-					LocalDevice.Add(Device);
-					DeviceDiscoveredEvent.Broadcast(Device.ToSharedRef());
-				}
-			}
-		}
-	}
-}
-
-void FHTML5TargetPlatform::GetInstalledSDKVersions(const TCHAR* SDKDirectory, TArray<FHTML5SDKVersionNumber>& OutSDKs)
-{
-	if (!SDKDirectory)
-	{
-		return;
-	}
-
-	struct FVersionSearch : public IPlatformFile::FDirectoryVisitor
-	{
-		IPlatformFile* PlatformFile;
-		TArray<FHTML5SDKVersionNumber>& SDKs;
-		FString VersionFilePath;
-
-		FVersionSearch(IPlatformFile* InPlatformFile, TArray<FHTML5SDKVersionNumber>& InSDKs)
-			: PlatformFile(InPlatformFile)
-			, SDKs(InSDKs)
-		{}
-		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
-		{
-			if (bIsDirectory == true)
-			{
-				VersionFilePath = FPaths::Combine(FilenameOrDirectory, TEXT("emscripten-version.txt"));
-				if (PlatformFile->FileExists(*VersionFilePath))
-				{
-					FString VersionText;
-					FFileHelper::LoadFileToString(VersionText, *VersionFilePath);
-					VersionText.Trim();
-					VersionText.TrimTrailing();
-					FHTML5SDKVersionNumber Ver;
-					Ver.VersionPath = FilenameOrDirectory;
-					Ver.VersionNumberFromString(*VersionText);
-					SDKs.Add(Ver);
-				}
-			}
-			return true;
-		}
+		{ TEXT("Safari"), TEXT("/Applications/Safari.app") },
+		{ TEXT("Firefox"), TEXT("/Applications/Firefox.app") },
+		{ TEXT("Chrome"), TEXT("/Applications/Google Chrome.app") },
+#elif PLATFORM_LINUX
+		{ TEXT("Firefox"), TEXT("/usr/bin/firefox") },
+#else
+		{ TEXT("Firefox"), TEXT("") },
+#endif
 	};
 
-	auto& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-
-	FVersionSearch VersionSearch(&PlatformFile, OutSDKs);
-	FString EmscriptenSDkDir = FPaths::Combine(SDKDirectory, TEXT("emscripten"));
-	PlatformFile.IterateDirectory(*EmscriptenSDkDir, VersionSearch);
-	OutSDKs.Sort();
+	// Add default devices..
+	for (const auto& Loc : PossibleLocations)
+	{
+		if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*Loc.Path) || FPlatformFileManager::Get().GetPlatformFile().DirectoryExists(*Loc.Path))
+		{
+			ITargetDevicePtr Device = MakeShareable(new FHTML5TargetDevice(*this, *Loc.Name, *Loc.Path));
+			LocalDevice.Add(Device);
+			DeviceDiscoveredEvent.Broadcast(Device.ToSharedRef());
+		}
+	}
 }

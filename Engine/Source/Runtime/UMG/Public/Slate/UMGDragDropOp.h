@@ -22,9 +22,8 @@ public:
 	// End FGCObject
 
 	virtual void OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent ) override;
-
 	virtual void OnDragged( const class FDragDropEvent& DragDropEvent ) override;
-
+	virtual FCursorReply OnCursorQuery() override;
 	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override;
 
 	UDragDropOperation* GetOperation() const { return DragOperation; }
@@ -39,6 +38,9 @@ private:
 
 	/** Source User Widget */
 	TSharedPtr<SObjectWidget> SourceUserWidget;
+
+	/** The viewport this drag/drop operation is associated with. */
+	UGameViewportClient* GameViewport;
 
 	/** The widget used during the drag/drop action to show something being dragged. */
 	TSharedPtr<SWidget> DecoratorWidget;

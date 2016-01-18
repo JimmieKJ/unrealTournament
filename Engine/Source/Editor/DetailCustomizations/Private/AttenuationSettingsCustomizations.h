@@ -18,8 +18,17 @@ protected:
 	EVisibility IsCapsuleSelected() const;
 	EVisibility IsConeSelected() const;
 	EVisibility IsNaturalSoundSelected() const;
+	EVisibility IsCustomCurveSelected() const;
 
 	TSharedPtr< IPropertyHandle > AttenuationShapeHandle;
 	TSharedPtr< IPropertyHandle > DistanceAlgorithmHandle;
 	TSharedPtr< IPropertyHandle > SpatializationAlgorithmHandle;
+
+	TSharedPtr< IPropertyHandle > bIsSpatializedHandle;
+	TSharedPtr< IPropertyHandle > bIsFocusedHandle;
+
+	bool IsFocusedEnabled() const;
+	TAttribute<bool> GetIsFocusEnabledAttribute() const;
+
+	TAttribute<bool> IsFocusEnabledAttribute;
 };

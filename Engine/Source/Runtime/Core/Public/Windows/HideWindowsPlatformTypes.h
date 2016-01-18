@@ -18,3 +18,5 @@
 #ifdef FALSE
 	#undef FALSE
 #endif
+
+#pragma warning( pop )

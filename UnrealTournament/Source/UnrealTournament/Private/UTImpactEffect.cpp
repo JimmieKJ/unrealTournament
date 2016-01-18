@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTImpactEffect.h"
 #include "UTWorldSettings.h"
@@ -226,9 +226,10 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 	}
 	for (int32 i = 0; i < BPNodes.Num(); i++)
 	{
-		if (Cast<USceneComponent>(BPNodes[i]->ComponentTemplate) != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName && ShouldCreateComponent((USceneComponent*)BPNodes[i]->ComponentTemplate, TemplateName, BaseTransform, HitComp, SpawnedBy, InstigatedBy))
+		USceneComponent* ComponentTemplate = Cast<USceneComponent>(BPNodes[i]->GetActualComponentTemplate(Cast<UBlueprintGeneratedClass>(GetClass())));
+		if (ComponentTemplate != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName && ShouldCreateComponent(ComponentTemplate, TemplateName, BaseTransform, HitComp, SpawnedBy, InstigatedBy))
 		{
-			USceneComponent* NewComp = NewObject<USceneComponent>(World, BPNodes[i]->ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
+			USceneComponent* NewComp = NewObject<USceneComponent>(World, ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, ComponentTemplate);
 			NewComp->AttachParent = NULL;
 			NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);

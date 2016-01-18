@@ -1,22 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTProfileSettings.h"
 #include "UTPlayerInput.h"
 #include "GameFramework/InputSettings.h"
-
-const FName AchievementIDs::TutorialComplete(TEXT("TutorialComplete"));
-const FName AchievementIDs::ChallengeStars5(TEXT("ChallengeStars5"));
-const FName AchievementIDs::ChallengeStars15(TEXT("ChallengeStars15"));
-const FName AchievementIDs::ChallengeStars25(TEXT("ChallengeStars25"));
-const FName AchievementIDs::ChallengeStars35(TEXT("ChallengeStars35"));
-const FName AchievementIDs::ChallengeStars45(TEXT("ChallengeStars45"));
-const FName AchievementIDs::PumpkinHead2015Level1(TEXT("PumpkinHead2015Level1"));
-const FName AchievementIDs::PumpkinHead2015Level2(TEXT("PumpkinHead2015Level2"));
-const FName AchievementIDs::PumpkinHead2015Level3(TEXT("PumpkinHead2015Level3"));
-const FName AchievementIDs::ChallengePumpkins5(TEXT("ChallengePumpkins5"));
-const FName AchievementIDs::ChallengePumpkins10(TEXT("ChallengePumpkins10"));
-const FName AchievementIDs::ChallengePumpkins15(TEXT("ChallengePumpkins15"));
-const FName AchievementIDs::FacePumpkins(TEXT("FacePumpkins"));
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -94,7 +80,7 @@ void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPri
 			{
 				WeaponPriorities[i].WeaponPriority = NewPriority;
 			}
-			break;
+			return;
 		}
 	}
 
@@ -204,6 +190,33 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 }
 void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
+
+	// Unfortunately, the profile may have multiple WeaponPriorites due to older bugs, so let's clean it up here
+
+	int32 WeaponPriIdx = 1;
+	while (WeaponPriIdx < WeaponPriorities.Num())
+	{
+		bool bFound = false;
+		for (int32 j = 0; j < WeaponPriIdx; j++)
+		{
+			if (WeaponPriorities[j].WeaponClassName == WeaponPriorities[WeaponPriIdx].WeaponClassName)
+			{
+				bFound = true;
+				UE_LOG(UT, Log, TEXT("Found Duplicate %s"), *WeaponPriorities[WeaponPriIdx].WeaponClassName);
+			}
+		}
+
+		if (bFound)
+		{
+			WeaponPriorities.RemoveAt(WeaponPriIdx);
+		}
+		else
+		{
+			WeaponPriIdx++;
+		}
+	}
+
+
 	ProfilePlayer->bSuppressToastsInGame = bSuppressToastsInGame;
 	ProfilePlayer->SetNickname(PlayerName);
 	ProfilePlayer->SaveConfig();
@@ -329,10 +342,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 			AUTHUD* Hud = *It;
 			if (Hud != nullptr)
 			{
-				Hud->LoadedCrosshairs.Empty();
-				Hud->CrosshairInfos = CrosshairInfos;
-				Hud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
-				Hud->SaveConfig();
+				UpdateCrosshairs(Hud);
 			}
 		}
 	}
@@ -352,6 +362,16 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	}
 
 	TokensCommit();
+
+	WeaponSkins.Remove(nullptr);
+}
+
+void UUTProfileSettings::UpdateCrosshairs(AUTHUD* HUD)
+{
+	HUD->LoadedCrosshairs.Empty();
+	HUD->CrosshairInfos = CrosshairInfos;
+	HUD->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
+	HUD->SaveConfig();
 }
 
 bool UUTProfileSettings::HasTokenBeenPickedUpBefore(FName TokenUniqueID)

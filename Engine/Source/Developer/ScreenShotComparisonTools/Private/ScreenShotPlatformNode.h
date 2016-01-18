@@ -23,7 +23,7 @@ public:
 
 public:
 
-	// Begin IScreenShotData interface
+	//~ Begin IScreenShotData Interface
 
 	virtual void AddScreenShotData( const FScreenShotDataItem& InScreenDataItem ) override 
 	{
@@ -77,7 +77,7 @@ public:
 	}
 
 
-	// End IScreenShotData interface
+	//~ End IScreenShotData Interface
 
 private:
 	// If > 1 we will only show every Nth screenshot.

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,6 +9,7 @@
 #include "UTReachSpec.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "UTPathNode.h"
+#include "AI/Navigation/RecastNavMesh.h"
 
 #include "UTRecastNavMesh.generated.h"
 

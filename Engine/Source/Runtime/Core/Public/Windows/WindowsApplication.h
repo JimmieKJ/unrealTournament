@@ -22,7 +22,7 @@ class FGenericApplicationMessageHandler;
 
 namespace ETaskbarProgressState
 {
-	enum Type
+	enum CORE_API Type
 	{
 		//Stops displaying progress and returns the button to its normal state.
 		NoProgress = 0x0,
@@ -60,7 +60,7 @@ namespace ETaskbarProgressState
  * This class can be used to change the appearance of a window's entry in the windows task bar,
  * such as setting an overlay icon or showing a progress indicator.
  */
-class FTaskbarList
+class CORE_API FTaskbarList
 {
 public:
 
@@ -272,7 +272,7 @@ public:
 /**
  * Windows-specific application implementation.
  */
-class FWindowsApplication
+class CORE_API FWindowsApplication
 	: public GenericApplication
 	, public IForceFeedbackSystem
 {
@@ -290,7 +290,7 @@ public:
 	/** Virtual destructor. */
 	virtual ~FWindowsApplication();
 
-public:
+public:	
 
 	/** Called by a window when an OLE Drag and Drop operation occurred on a non-game thread */
 	void DeferDragDropOperation( const FDeferredWindowsDragDropOperation& DeferredDragDropOperation );
@@ -315,7 +315,7 @@ public:
 	 * @param MessageHandler The message handler to register.
 	 * @see RemoveMessageHandler
 	 */
-	virtual void AddMessageHandler(IWindowsMessageHandler& MessageHandler);
+	virtual void AddMessageHandler(IWindowsMessageHandler& InMessageHandler);
 
 	/**
 	 * Removes a Windows message handler with the application instance.
@@ -323,7 +323,7 @@ public:
 	 * @param MessageHandler The message handler to register.
 	 * @see AddMessageHandler
 	 */
-	virtual void RemoveMessageHandler(IWindowsMessageHandler& MessageHandler);
+	virtual void RemoveMessageHandler(IWindowsMessageHandler& InMessageHandler);
 
 public:
 
@@ -447,11 +447,11 @@ private:
 	bool bHasLoadedInputPlugins;
 
 	TArray<int32> PressedModifierKeys;
-	
+
 	FModifierKeysState CachedModifierKeyState;
 
 	int32 bAllowedToDeferMessageProcessing;
-
+	
 	FAutoConsoleVariableRef CVarDeferMessageProcessing;
 	
 	/** True if we are in the middle of a windows modal size loop */
@@ -464,9 +464,9 @@ private:
 	TSharedPtr<FTaskbarList> TaskbarList;
 
 	// Accessibility shortcut keys
-	STICKYKEYS StartupStickyKeys;
-	TOGGLEKEYS StartupToggleKeys;
-	FILTERKEYS StartupFilterKeys;
+	STICKYKEYS							StartupStickyKeys;
+	TOGGLEKEYS							StartupToggleKeys;
+	FILTERKEYS							StartupFilterKeys;
 };
 
 

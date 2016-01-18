@@ -11,7 +11,8 @@
  * @todo gmp: needs better error handling in case MessageBusPtr is invalid
  */
 class FSessionServicesModule
-	: public ISessionServicesModule
+	: public FSelfRegisteringExec
+	, public ISessionServicesModule
 {
 public:
 
@@ -20,6 +21,63 @@ public:
 		: SessionManager(nullptr)
 		, SessionService(nullptr)
 	{ }
+
+public:
+
+	// FSelfRegisteringExec interface
+
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override
+	{
+		if (!FParse::Command(&Cmd, TEXT("SESSION")))
+		{
+			return false;
+		}
+
+		if (FParse::Command(&Cmd, TEXT("AUTH")))
+		{
+			FApp::AuthorizeUser(FParse::Token(Cmd, false));
+		}
+		else if (FParse::Command(&Cmd, TEXT("DENY")))
+		{
+			FApp::DenyUser(FParse::Token(Cmd, false));
+		}
+		else if (FParse::Command(&Cmd, TEXT("DENYALL")))
+		{
+			FApp::DenyAllUsers();
+		}
+		else if (FParse::Command(&Cmd, TEXT("STATUS")))
+		{
+			Ar.Logf(TEXT("Instance ID: %s"), *FApp::GetInstanceId().ToString());
+			Ar.Logf(TEXT("Instance Name: %s"), *FApp::GetInstanceName());
+			Ar.Logf(TEXT("Session ID: %s"), *FApp::GetSessionId().ToString());
+			Ar.Logf(TEXT("Session Name: %s"), *FApp::GetSessionName());
+			Ar.Logf(TEXT("Session Owner: %s"), *FApp::GetSessionOwner());
+			Ar.Logf(TEXT("Standalone: %s"), FApp::IsStandalone() ? *GYes.ToString() : *GNo.ToString());
+		}
+		else if (FParse::Command(&Cmd, TEXT("SETNAME")))
+		{
+			FApp::SetSessionName(FParse::Token(Cmd, false));
+		}
+		else if (FParse::Command(&Cmd, TEXT("SETOWNER")))
+		{
+			FApp::SetSessionOwner(FParse::Token(Cmd, false));
+		}
+		else
+		{
+			// show usage
+			Ar.Log(TEXT("Usage: SESSION <Command>"));
+			Ar.Log(TEXT(""));
+			Ar.Log(TEXT("Command"));
+			Ar.Log(TEXT("    AUTH <UserName> = Authorize a user to interact with this instance"));
+			Ar.Log(TEXT("    DENY <UserName> = Unauthorize a user from interacting with this instance"));
+			Ar.Log(TEXT("    DENYALL = Removes all authorized session users"));
+			Ar.Log(TEXT("    SETNAME <Name> = Sets the name of this instance"));
+			Ar.Log(TEXT("    SETOWNER <Owner> = Sets the name of the owner of this instance"));
+			Ar.Log(TEXT("    STATUS = Displays the status of this application session"));
+		}
+
+		return true;
+	}
 
 public:
 

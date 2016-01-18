@@ -15,6 +15,11 @@
 #include "SHyperlink.h"
 #include "UTCharacterVoice.h"
 #include "StatManager.h"
+#include "UTWeaponSkin.h"
+#include "OnlineNotification.h"
+#if WITH_PROFILE
+#include "UtMcpProfile.h"
+#endif
 
 #include "UTPlayerState.generated.h"
 
@@ -37,12 +42,12 @@ struct FWeaponSpree
 struct FTempBanInfo
 {
 	// The person who voted for this ban
-	TSharedPtr<class FUniqueNetId> Voter;
+	TSharedPtr<const FUniqueNetId> Voter;
 
 	// When was the vote cast.  Votes will time out over time (5mins)
 	float BanTime;
 
-	FTempBanInfo(const TSharedPtr<class FUniqueNetId> inVoter, float inBanTime)
+	FTempBanInfo(const TSharedPtr<const FUniqueNetId> inVoter, float inBanTime)
 		: Voter(inVoter)
 		, BanTime(inBanTime)
 	{
@@ -208,8 +213,20 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	int32 Kills;
 
+	/** Damage done by this player.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		int32 DamageDone;
+
+	/** Damage done by this player this round.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		int32 RoundDamageDone;
+
+	virtual void IncrementDamageDone(int32 AddedDamage);
+
+	virtual void SetOutOfLives(bool bNewValue);
+
 	/** Can't respawn once out of lives */
-	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+	UPROPERTY(BlueprintReadWrite, replicated, ReplicatedUsing = OnOutOfLives, Category = PlayerState)
 	uint32 bOutOfLives:1;
 
 	/** How many times associated player has died */
@@ -364,6 +381,9 @@ public:
 	UFUNCTION()
 	void OnDeathsReceived();
 
+	UFUNCTION()
+		void OnOutOfLives();
+
 	/** Team has changed, announce, tell pawn, etc. */
 	UFUNCTION()
 	virtual void HandleTeamChanged(AController* Controller);
@@ -402,6 +422,15 @@ public:
 
 	UFUNCTION()
 	AUTCharacter* GetUTCharacter();
+
+	UPROPERTY(replicated)
+	TArray<UUTWeaponSkin*> WeaponSkins;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveWeaponSkin(const FString& NewWeaponSkin);
+	
+	UFUNCTION()
+	virtual void UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon);
 
 	UPROPERTY(replicatedUsing = OnRepHat)
 	TSubclassOf<AUTHat> HatClass;
@@ -487,34 +516,75 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	FName CountryFlag;
 
-	virtual void SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId) override;
-	
-	/** read profile items for this user from the backend */
-	virtual void ReadProfileItems();
-
 	virtual void Destroyed() override;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	FName Avatar;
 
 private:
-	FHttpRequestPtr ItemListReq;
-	void ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
-protected:
-	/** profile items this player owns, downloaded from the server */
-	UPROPERTY(BlueprintReadOnly)
-	TArray<FProfileItemEntry> ProfileItems;
+	UPROPERTY()
+	UObject* McpProfile;
+
 public:
+#if WITH_PROFILE
+	inline UUtMcpProfile* GetMcpProfile() const
+	{
+		return Cast<UUtMcpProfile>(McpProfile);
+	}
+	// allows UTBaseGameMode to be the only class that can set McpProfile
+	friend struct FMcpProfileSetter;
+	struct FMcpProfileSetter
+	{
+		friend class AUTBaseGameMode;
+	private:
+		static void Set(AUTPlayerState* PS, UUtMcpProfile* Profile)
+		{
+			PS->McpProfile = Profile;
+			Profile->OnStatsUpdated().AddUObject(PS, &AUTPlayerState::ProfileStatsChanged);
+			Profile->OnHandleNotification().BindUObject(PS, &AUTPlayerState::ProfileNotification);
+			Profile->OnInventoryUpdated().AddUObject(PS, &AUTPlayerState::ProfileItemsChanged);
+			if (Profile->HasValidProfileData())
+			{
+				PS->ProfileStatsChanged(0);
+				PS->ProfileItemsChanged(TSet<FString>(), 0);
+			}
+		}
+	};
+#endif
+	
+	/** temp while backend sends profile notifications to server when server triggered the update instead of client like it should */
+	void ProfileNotification(const FOnlineNotification& Notification);
+
+	void ProfileStatsChanged(int64 ProfileRevision)
+	{
+#if WITH_PROFILE
+		if (PrevXP == GetClass()->GetDefaultObject<AUTPlayerState>()->PrevXP)
+		{
+			PrevXP = GetMcpProfile()->GetXP();
+		}
+#endif
+	}
+	void ProfileItemsChanged(const TSet<FString>& ChangedTypes, int64 ProfileRevision);
+
 	inline bool IsProfileItemListPending() const
 	{
-		return ItemListReq.IsValid() && ItemListReq->GetStatus() == EHttpRequestStatus::Processing;
+#if WITH_PROFILE
+		return McpProfile == NULL || !GetMcpProfile()->HasValidProfileData();
+#else
+		return false;
+#endif
 	}
 	inline bool OwnsItem(const UUTProfileItem* Item) const
 	{
-		return ProfileItems.ContainsByPredicate([=](const FProfileItemEntry& A) { return A.Item == Item; });
+#if WITH_PROFILE
+		TSharedPtr<const FMcpItem> McpItem = GetMcpProfile()->FindItemByTemplate(Item->GetTemplateID());
+		return (McpItem.IsValid() && McpItem->Quantity > 0);
+#else
+		return false;
+#endif
 	}
 	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
-	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
+	inline bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
 
 protected:
 	/** returns whether this user has rights to the given item
@@ -523,6 +593,7 @@ protected:
 	virtual bool HasRightsFor(UObject* Obj) const;
 public:
 	virtual void ValidateEntitlements();
+	virtual bool ValidateEntitlementSingleObject(UObject* Object);
 
 	void WriteStatsToCloud();
 	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
@@ -560,6 +631,7 @@ private:
 	int32 CTFSkillRatingThisMatch;
 	int32 TDMSkillRatingThisMatch;
 	int32 DMSkillRatingThisMatch;
+	int32 ShowdownSkillRatingThisMatch;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
@@ -592,6 +664,8 @@ public:
 	int32 TDMRank;
 	UPROPERTY(Replicated)
 	int32 DMRank;
+	UPROPERTY(Replicated)
+	int32 ShowdownRank;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;
@@ -716,6 +790,12 @@ public:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientReceiveRconMessage(const FString& Message);
 
+	/** hook for blueprints */
+	UFUNCTION(BlueprintCallable, Category = PlayerState)
+	bool IsOnlySpectator() const
+	{
+		return bOnlySpectator;
+	}
 };
 
 

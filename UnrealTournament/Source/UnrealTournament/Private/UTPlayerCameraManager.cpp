@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTPlayerCameraManager.h"
@@ -8,9 +8,12 @@
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	FreeCamOffset = FVector(-256, 0, 90);
-	EndGameFreeCamOffset = FVector(-256, 0, 45);
+	FreeCamOffset = FVector(-256.f, 0.f, 90.f);
+	EndGameFreeCamOffset = FVector(-256.f, 0.f, 45.f);
 	EndGameFreeCamDistance = 55.0f;
+
+	DeathCamDistance = 55.f;
+	DeathCamOffset = FVector(-128.f, 0.f, 30.f);
 	FlagBaseFreeCamOffset = FVector(0, 0, 90);
 	bUseClientSideCameraUpdates = false;
 	
@@ -73,7 +76,7 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	{
 		return ((ViewTarget == PCOwner->GetPawn()) || (ViewTarget == PCOwner->GetSpectatorPawn())) ? NAME_FirstPerson : NAME_FreeCam;
 	}
-	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0)
+	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->IsThirdPersonTaunting())
 	{
 		// force third person if target is dead, ragdoll or emoting
 		return NAME_FreeCam;
@@ -232,9 +235,21 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
-		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
-		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-		FRotator Rotator = (!UTPC || (UTPC->MouseButtonPressCount > 0)) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
+		bool bUseDeathCam = !bGameOver && UTCharacter && (UTCharacter->IsDead() || UTCharacter->IsRagdoll());
+
+		float CameraDistance = bUseDeathCam ? DeathCamDistance : FreeCamDistance;
+		FVector CameraOffset = bUseDeathCam ? DeathCamOffset : FreeCamOffset;
+		if (bGameOver)
+		{
+			CameraDistance = EndGameFreeCamDistance;
+			CameraOffset = EndGameFreeCamOffset;
+		}
+		FRotator Rotator = (!UTPC || UTPC->bSpectatorMouseChangesView) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
+		if (bUseDeathCam)
+		{
+			Rotator.Pitch = FRotator::NormalizeAxis(Rotator.Pitch);
+			Rotator.Pitch = FMath::Clamp(Rotator.Pitch, -85.f, -5.f);
+		}
 		if (Cast<AUTProjectile>(TargetActor) && !TargetActor->IsPendingKillPending())
 		{
 			Rotator = TargetActor->GetVelocity().Rotation();
@@ -243,12 +258,10 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		}
 
 		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
-
 		FHitResult Result;
 		CheckCameraSweep(Result, TargetActor, Loc, Pos);
 		OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
 		OutVT.POV.Rotation = Rotator;
-
 		ApplyCameraModifiers(DeltaTime, OutVT.POV);
 
 		// Synchronize the actor with the view target results
@@ -339,8 +352,10 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 void AUTPlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot)
 {
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
-	if (UTPC && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && (UTPC->MouseButtonPressCount == 0) && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
+	AUTPlayerState* PS = UTPC ? UTPC->UTPlayerState : NULL;
+	if (UTPC && PS && (PS->bOnlySpectator || PS->bOutOfLives) && !UTPC->bSpectatorMouseChangesView && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
 	{
+		LimitViewPitch(OutViewRotation, ViewPitchMin, ViewPitchMax);
 		return;
 	}
 	Super::ProcessViewRotation(DeltaTime, OutViewRotation, OutDeltaRot);

@@ -15,12 +15,10 @@
 #include "LevelEditor.h"
 #endif // WITH_EDITOR
 
-DEFINE_LOG_CATEGORY(LogGameplayDebugger);
-
 #define LOCTEXT_NAMESPACE "FGameplayDebugger"
 FGameplayDebuggerSettings GameplayDebuggerSettings(class AGameplayDebuggingReplicator* Replicator)
 {
-	uint32 Settings = UGameplayDebuggerSettings::StaticClass()->GetDefaultObject<UGameplayDebuggerSettings>()->GetSettings();
+	uint32& Settings = UGameplayDebuggerSettings::StaticClass()->GetDefaultObject<UGameplayDebuggerSettings>()->GetSettings();
 	return FGameplayDebuggerSettings(Replicator == NULL ? Settings : Replicator->DebuggerShowFlags);
 }
 
@@ -53,6 +51,7 @@ public:
 
 private:
 	virtual bool CreateGameplayDebuggerForPlayerController(APlayerController* PlayerController) override;
+	virtual bool IsGameplayDebuggerActiveForPlayerController(APlayerController* PlayerController) override;
 
 	bool DoesGameplayDebuggingReplicatorExistForPlayerController(APlayerController* PlayerController);
 
@@ -68,6 +67,9 @@ IMPLEMENT_MODULE(FGameplayDebugger, GameplayDebugger)
 // This code will execute after your module is loaded into memory (but after global variables are initialized, of course.)
 void FGameplayDebugger::StartupModule()
 { 
+	//EMIT_CUSTOM_WARNING("/Engine/Source/Developer/GameplayDebugger module is deprecated and it's going to be removed with next UE4 version. Please use GameplayDebuggerPlugin instead.");
+	//UE_LOG(LogGameplayDebugger, Warning, TEXT("/Engine/Source/Developer/GameplayDebugger module is deprecated and it's going to be removed with next UE4 version. Please use GameplayDebuggerPlugin instead."));
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (GEngine)
 	{
@@ -294,7 +296,8 @@ bool FGameplayDebugger::CreateGameplayDebuggerForPlayerController(APlayerControl
 	}
 
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	SpawnInfo.ObjectFlags = RF_Transient;
 	SpawnInfo.Name = *FString::Printf(TEXT("GameplayDebuggingReplicator_%s"), *PlayerController->GetName());
 	AGameplayDebuggingReplicator* DestActor = World->SpawnActor<AGameplayDebuggingReplicator>(FVector::ZeroVector, FRotator::ZeroRotator, SpawnInfo);
 	if (DestActor != NULL)
@@ -315,6 +318,36 @@ bool FGameplayDebugger::CreateGameplayDebuggerForPlayerController(APlayerControl
 	}
 #endif
 	
+	return false;
+}
+
+bool FGameplayDebugger::IsGameplayDebuggerActiveForPlayerController(APlayerController* PlayerController)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (PlayerController == NULL)
+	{
+		return false;
+	}
+
+	UWorld* World = PlayerController->GetWorld();
+	if (World == NULL)
+	{
+		return false;
+	}
+
+	for (auto It = GetAllReplicators(World).CreateConstIterator(); It; ++It)
+	{
+		TWeakObjectPtr<AGameplayDebuggingReplicator> Replicator = *It;
+		if (Replicator.IsValid())
+		{
+			if (Replicator->GetLocalPlayerOwner() == PlayerController)
+			{
+				return Replicator->IsDrawEnabled();
+			}
+		}
+	}
+#endif
+
 	return false;
 }
 
@@ -359,7 +392,8 @@ void FGameplayDebugger::WorldAdded(UWorld* InWorld)
 
 	// create global replicator on level
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	SpawnInfo.ObjectFlags = RF_Transient;
 	SpawnInfo.Name = *FString::Printf(TEXT("GameplayDebuggingReplicator_Global"));
 	AGameplayDebuggingReplicator* DestActor = InWorld->SpawnActor<AGameplayDebuggingReplicator>(FVector::ZeroVector, FRotator::ZeroRotator, SpawnInfo);
 	if (DestActor != NULL)
@@ -397,7 +431,11 @@ void FGameplayDebugger::OnLevelActorAdded(AActor* InActor)
 	APlayerController* PC = Cast<APlayerController>(InActor);
 	if (PC && PC->GetNetMode() < ENetMode::NM_Client)
 	{
-		CreateGameplayDebuggerForPlayerController(PC);
+		UWorld* PCWorld = PC->GetWorld();
+		if (PCWorld && PCWorld->IsGameWorld())
+		{
+			CreateGameplayDebuggerForPlayerController(PC);
+		}
 	}
 #endif
 }
@@ -434,151 +472,21 @@ void FGameplayDebugger::OnLevelActorDeleted(AActor* InActor)
 }
 #endif //WITH_EDITOR
 
-bool FGameplayDebugger::Exec(UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& Ar)
+bool FGameplayDebugger::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bool bHandled = false;
 
-	
-	if (!Inworld)
+	if (FParse::Command(&Cmd, TEXT("RunEQS")) && InWorld)
 	{
-		return bHandled;
-	}
-
-	if (FParse::Command(&Cmd, TEXT("EnableGDT")))
-	{
-		if (Inworld->GetNetMode() == NM_Client)
-		{
-			APlayerController* LocalPC = NULL;
-			for (FConstPlayerControllerIterator Iterator = Inworld->GetPlayerControllerIterator(); Iterator; ++Iterator)
-			{
-				APlayerController* PlayerController = *Iterator;
-				if (PlayerController && PlayerController->IsLocalPlayerController())
-				{
-					LocalPC = PlayerController;
-					break;
-				}
-			}
-
-			if (LocalPC)
-			{
-				AGameplayDebuggingReplicator* Replicator = NULL;
-				for (TActorIterator<AGameplayDebuggingReplicator> It(Inworld); It; ++It)
-				{
-					Replicator = *It;
-					if (Replicator && !Replicator->IsPendingKill())
-					{
-						APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
-						if (LocalPC == PCOwner)
-						{
-							break;
-						}
-					}
-					Replicator = NULL;
-				}
-
-				if (!Replicator)
-				{					
-					LocalPC->ClientMessage(TEXT("Enabling GameplayDebugger on server, please wait for replicated data..."));
-					const FString ServerCheatString = FString::Printf(TEXT("cheat EnableGDT %s"), *LocalPC->PlayerState->UniqueId.ToString());
-					UE_LOG(LogGameplayDebugger, Warning, TEXT("Sending to Server: %s"), *ServerCheatString);
-					LocalPC->ConsoleCommand(*ServerCheatString);
-					bHandled = true;
-				}
-				else if (!Replicator->IsToolCreated())
-				{
-					Replicator->CreateTool();
-					Replicator->EnableTool();
-					bHandled = true;
-				}
-			}
-		}
-		else if (Inworld->GetNetMode() < NM_Client)
-		{
-			APlayerController* LocalPC = NULL;
-			UE_LOG(LogGameplayDebugger, Warning, TEXT("Got from client: %s"), Cmd);
-			FString UniqueId = FParse::Token(Cmd, 0);
-			for (FConstPlayerControllerIterator Iterator = Inworld->GetPlayerControllerIterator(); Iterator; ++Iterator)
-			{
-				APlayerController* PlayerController = *Iterator;
-				UE_LOG(LogGameplayDebugger, Warning, TEXT("- Client: %s"), *PlayerController->PlayerState->UniqueId.ToString());
-				if (PlayerController && PlayerController->PlayerState->UniqueId.ToString() == UniqueId)
-				{
-					LocalPC = PlayerController;
-					break;
-				}
-			}
-			if (!LocalPC && Inworld->GetNetMode() != NM_DedicatedServer)
-			{
-				LocalPC = Inworld->GetFirstPlayerController();
-			}
-
-			if (LocalPC)
-			{
-				AGameplayDebuggingReplicator* Replicator = NULL;
-				for (TActorIterator<AGameplayDebuggingReplicator> It(Inworld); It; ++It)
-				{
-					Replicator = *It;
-					if (Replicator && !Replicator->IsPendingKill())
-					{
-						APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
-						if (LocalPC == PCOwner)
-						{
-							break;
-						}
-					}
-					Replicator = NULL;
-				}
-
-				if (!Replicator)
-				{
-					CreateGameplayDebuggerForPlayerController(LocalPC);
-					for (TActorIterator<AGameplayDebuggingReplicator> It(Inworld); It; ++It)
-					{
-						Replicator = *It;
-						if (Replicator && !Replicator->IsPendingKill())
-						{
-							APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
-							if (LocalPC == PCOwner)
-							{
-								break;
-							}
-						}
-						Replicator = NULL;
-					}
-				}
-
-				if (Inworld->GetNetMode() != NM_DedicatedServer)
-				{
-					if (Replicator && !Replicator->IsToolCreated())
-					{
-						Replicator->CreateTool();
-						Replicator->EnableTool();
-						bHandled = true;
-					}
-				}
-				else
-				{
-					if (Replicator)
-					{
-						Replicator->ClientAutoActivate();
-						bHandled = true;
-					}
-				}
-			}
-		}
-	}
-	else if (FParse::Command(&Cmd, TEXT("RunEQS")))
-	{
-		bHandled = true;
-		APlayerController* MyPC = Inworld->GetFirstPlayerController();
-		UAISystem* AISys = UAISystem::GetCurrent(*Inworld);
+		APlayerController* MyPC = InWorld->GetGameInstance() ? InWorld->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
+		UAISystem* AISys = UAISystem::GetCurrent(*InWorld);
 
 		UEnvQueryManager* EQS = AISys ? AISys->GetEnvironmentQueryManager() : NULL;
 		if (MyPC && EQS)
 		{
 			AGameplayDebuggingReplicator* DebuggingReplicator = NULL;
-			for (TActorIterator<AGameplayDebuggingReplicator> It(Inworld); It; ++It)
+			for (TActorIterator<AGameplayDebuggingReplicator> It(InWorld); It; ++It)
 			{
 				AGameplayDebuggingReplicator* A = *It;
 				if (!A->IsPendingKill())
@@ -600,6 +508,178 @@ bool FGameplayDebugger::Exec(UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& A
 			else
 			{
 				MyPC->ClientMessage(TEXT("No debugging target to run EQS"));
+			}
+		}
+
+		return true;
+	}
+
+
+	if (FParse::Command(&Cmd, TEXT("EnableGDT")) == false)
+	{
+		return false;
+	}
+
+	FString UniquePlayerId = FParse::Token(Cmd, 0);
+	APlayerController* LocalPC = NULL;
+	UWorld* MyWorld = InWorld;
+
+	if (MyWorld == nullptr)
+	{
+		if (UniquePlayerId.Len() > 0)
+		{
+			// let's find correct world based on Player Id
+			const TIndirectArray<FWorldContext> WorldContexts = GEngine->GetWorldContexts();
+			for (auto& Context : WorldContexts)
+			{
+				if (Context.WorldType != EWorldType::Game && Context.WorldType != EWorldType::PIE)
+				{
+					continue;
+				}
+
+				UWorld *CurrentWorld = Context.World();
+				for (FConstPlayerControllerIterator Iterator = CurrentWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
+				{
+					APlayerController* PC = *Iterator;
+					if (PC && PC->PlayerState->UniqueId.ToString() == UniquePlayerId)
+					{
+						LocalPC = PC;
+						MyWorld = PC->GetWorld();
+						break;
+					}
+				}
+
+				if (LocalPC && MyWorld)
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	if (MyWorld == nullptr)
+	{
+		return false;
+	}
+
+	if (LocalPC == nullptr)
+	{
+		if (UniquePlayerId.Len() > 0)
+		{
+			for (FConstPlayerControllerIterator Iterator = MyWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				APlayerController* PlayerController = *Iterator;
+				UE_LOG(LogGameplayDebugger, Log, TEXT("- Client: %s"), *PlayerController->PlayerState->UniqueId.ToString());
+				if (PlayerController && PlayerController->PlayerState->UniqueId.ToString() == UniquePlayerId)
+				{
+					LocalPC = PlayerController;
+					break;
+				}
+			}
+		}
+
+		if (!LocalPC && MyWorld->GetNetMode() != NM_DedicatedServer)
+		{
+			LocalPC = MyWorld->GetGameInstance() ? MyWorld->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
+		}
+	}
+
+	if (LocalPC == nullptr)
+	{
+		return false;
+	}
+
+	if (MyWorld->GetNetMode() == NM_Client)
+	{
+		AGameplayDebuggingReplicator* Replicator = NULL;
+		for (TActorIterator<AGameplayDebuggingReplicator> It(MyWorld); It; ++It)
+		{
+			Replicator = *It;
+			if (Replicator && !Replicator->IsPendingKill())
+			{
+				APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
+				if (LocalPC == PCOwner)
+				{
+					break;
+				}
+			}
+			Replicator = NULL;
+		}
+
+		if (!Replicator)
+		{
+			LocalPC->ClientMessage(TEXT("Enabling GameplayDebugger on server, please wait for replicated data..."));
+			if (LocalPC->PlayerState)
+			{
+				const FString ServerCheatString = FString::Printf(TEXT("cheat EnableGDT %s"), *LocalPC->PlayerState->UniqueId.ToString());
+				UE_LOG(LogGameplayDebugger, Warning, TEXT("Sending to Server: %s"), *ServerCheatString);
+				LocalPC->ConsoleCommand(*ServerCheatString);
+				bHandled = true;
+			}
+		}
+		else
+		{
+			if (Replicator->IsToolCreated() == false)
+			{
+				Replicator->CreateTool();
+			}
+			Replicator->EnableTool();
+			bHandled = true;
+		}
+	}
+	else
+	{
+		UE_LOG(LogGameplayDebugger, Warning, TEXT("Got from client: EnableGDT %s"), *UniquePlayerId);
+		{
+			AGameplayDebuggingReplicator* Replicator = NULL;
+			for (TActorIterator<AGameplayDebuggingReplicator> It(MyWorld); It; ++It)
+			{
+				Replicator = *It;
+				if (Replicator && !Replicator->IsPendingKill())
+				{
+					APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
+					if (LocalPC == PCOwner)
+					{
+						break;
+					}
+				}
+				Replicator = NULL;
+			}
+
+			if (!Replicator)
+			{
+				CreateGameplayDebuggerForPlayerController(LocalPC);
+				for (TActorIterator<AGameplayDebuggingReplicator> It(MyWorld); It; ++It)
+				{
+					Replicator = *It;
+					if (Replicator && !Replicator->IsPendingKill())
+					{
+						APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
+						if (LocalPC == PCOwner)
+						{
+							break;
+						}
+					}
+					Replicator = NULL;
+				}
+			}
+
+			if (MyWorld->GetNetMode() != NM_DedicatedServer)
+			{
+				if (Replicator && !Replicator->IsToolCreated())
+				{
+					Replicator->CreateTool();
+					Replicator->EnableTool();
+					bHandled = true;
+				}
+			}
+			else
+			{
+				if (Replicator)
+				{
+					Replicator->ClientAutoActivate();
+					bHandled = true;
+				}
 			}
 		}
 	}

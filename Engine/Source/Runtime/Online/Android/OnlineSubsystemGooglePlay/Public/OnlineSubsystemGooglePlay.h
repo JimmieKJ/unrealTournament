@@ -8,11 +8,15 @@
 #include "OnlineAchievementsInterfaceGooglePlay.h"
 #include "OnlineLeaderboardInterfaceGooglePlay.h"
 #include "OnlineExternalUIInterfaceGooglePlay.h"
+#include "OnlineAsyncTaskManagerGooglePlay.h"
 #include "UniquePtr.h"
 
 #include "gpg/game_services.h"
+#include "gpg/android_platform_configuration.h"
 
 class FOnlineAsyncTaskGooglePlayLogin;
+class FOnlineAsyncTaskGooglePlayShowLoginUI;
+class FOnlineAsyncTaskGooglePlayLogout;
 class FRunnableThread;
 
 /**
@@ -25,14 +29,13 @@ public:
 	FOnlineSubsystemGooglePlay();
 	virtual ~FOnlineSubsystemGooglePlay() {}
 
-	// Begin IOnlineSubsystem Interface
+	//~ Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
 	virtual IOnlineFriendsPtr GetFriendsInterface() const override;
 	virtual IOnlinePartyPtr GetPartyInterface() const override;
 	virtual IOnlineGroupsPtr GetGroupsInterface() const override;
 	virtual IOnlineSharedCloudPtr GetSharedCloudInterface() const override;
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const override;
-	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const override;
 	virtual IOnlineLeaderboardsPtr GetLeaderboardsInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const  override;
 	virtual IOnlineExternalUIPtr GetExternalUIInterface() const override;
@@ -41,16 +44,18 @@ public:
 	virtual IOnlineTitleFilePtr GetTitleFileInterface() const override;
 	virtual IOnlineEntitlementsPtr GetEntitlementsInterface() const override;
 	virtual IOnlineStorePtr GetStoreInterface() const override;
-	virtual IOnlineEventsPtr GetEventsInterface() const override { return NULL; }
-	virtual IOnlineMessagePtr GetMessageInterface() const override { return NULL; }
-	virtual IOnlineSharingPtr GetSharingInterface() const override { return NULL; }
-	virtual IOnlineUserPtr GetUserInterface() const override { return NULL; }
+	virtual IOnlineStoreV2Ptr GetStoreV2Interface() const override { return nullptr; }
+	virtual IOnlinePurchasePtr GetPurchaseInterface() const override { return nullptr; }
+	virtual IOnlineEventsPtr GetEventsInterface() const override { return nullptr; }
+	virtual IOnlineMessagePtr GetMessageInterface() const override { return nullptr; }
+	virtual IOnlineSharingPtr GetSharingInterface() const override { return nullptr; }
+	virtual IOnlineUserPtr GetUserInterface() const override { return nullptr; }
 	virtual IOnlineAchievementsPtr GetAchievementsInterface() const override;
-	virtual IOnlinePresencePtr GetPresenceInterface() const override { return NULL; }
-	virtual IOnlineChatPtr GetChatInterface() const override { return NULL; }
-	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override { return NULL; }
+	virtual IOnlinePresencePtr GetPresenceInterface() const override { return nullptr; }
+	virtual IOnlineChatPtr GetChatInterface() const override { return nullptr; }
+	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override { return nullptr; }
 
-	virtual class UObject* GetNamedInterface(FName InterfaceName) override { return NULL; }
+	virtual class UObject* GetNamedInterface(FName InterfaceName) override { return nullptr; }
 	virtual void SetNamedInterface(FName InterfaceName, class UObject* NewInterface) override {}
 	virtual bool IsDedicated() const override { return false; }
 	virtual bool IsServer() const override { return true; }
@@ -61,7 +66,7 @@ public:
 	virtual bool Shutdown() override;
 	virtual FString GetAppId() const override;
 	virtual bool Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
-	// End IOnlineSubsystem Interface
+	//~ End IOnlineSubsystem Interface
 
 	virtual bool Tick(float DeltaTime) override;
 	
@@ -83,7 +88,7 @@ PACKAGE_SCOPE:
 	void QueueAsyncTask(class FOnlineAsyncTask* AsyncTask);
 
 	/** Returns a pointer to the Google API entry point */
-	gpg::GameServices* GetGameServices() const { return GameServicesPtr.Get(); }
+	gpg::GameServices* GetGameServices() const { return GameServicesPtr.get(); }
 
 	/** Utility function, useful for Google APIs that take a std::string but we only have an FString */
 	static std::string ConvertFStringToStdString(const FString& InString);
@@ -100,6 +105,15 @@ PACKAGE_SCOPE:
 	*/
 	bool IsInAppPurchasingEnabled();
 
+	/** Returns true if there are any async login tasks currently being tracked. */
+	bool AreAnyAsyncLoginTasksRunning() const { return CurrentLoginTask != nullptr || CurrentShowLoginUITask != nullptr; }
+
+	/** Start a ShowLoginUI async task. Creates the GameServices object first if necessary. */
+	void StartShowLoginUITask(int PlayerId, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate());
+
+	/** Start a logout task if one isn't already in progress. */
+	void StartLogoutTask(int32 LocalUserNum);
+
 private:
 
 	/** Google callback when auth is complete */
@@ -107,6 +121,9 @@ private:
 
 	/** Android callback when an activity is finished */
 	void OnActivityResult(JNIEnv *env, jobject thiz, jobject activity, jint requestCode, jint resultCode, jobject data);
+
+	/** Start a ShowLoginUI async task. */
+	void StartShowLoginUITask_Internal(int PlayerId, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate());
 
 	/** Online async task runnable */
 	TUniquePtr<class FOnlineAsyncTaskManagerGooglePlay> OnlineAsyncTaskThreadRunnable;
@@ -129,13 +146,43 @@ private:
 	FOnlineExternalUIGooglePlayPtr ExternalUIInterface;
 
 	/** Pointer to the main entry point for the Google API */
-	TUniquePtr<gpg::GameServices> GameServicesPtr;
+	std::unique_ptr<gpg::GameServices> GameServicesPtr;
 
-	/** Track the current login task (if any) so callbacks can notify it */
+	// Since the OnAuthActionFinished callback is "global" (within the scope of one GameServices object),
+	// we track the async tasks that depend on this callback to notify us that they're finished.
+	// Only one of these pointers should be non-null at any given time.
+
+	/**
+	 * Track the current login task (if any) so callbacks can notify it.
+	 * Still owned by the AsyncTaskManager, do not delete via this pointer!
+	 **/
 	FOnlineAsyncTaskGooglePlayLogin* CurrentLoginTask;
+
+	/**
+	 * Track the current ShowLoginUI task (if any)
+	 * Still owned by the AsyncTaskManager, do not delete via this pointer!
+	 **/
+	FOnlineAsyncTaskGooglePlayShowLoginUI* CurrentShowLoginUITask;
+
+	/**
+	 * Track the current Logout task
+	 * Still owned by the AsyncTaskManager, do not delete via this pointer!
+	 */
+	FOnlineAsyncTaskGooglePlayLogout* CurrentLogoutTask;
 
 	/** Handle of registered delegate for onActivityResult */
 	FDelegateHandle OnActivityResultDelegateHandle;
+
+	/** This task needs to be able to set the GameServicesPtr and clear CurrentLoginTask*/
+	friend class FOnlineAsyncTaskGooglePlayLogin;
+
+	/** This task needs to be able to clear CurrentShowLoginUITask */
+	friend class FOnlineAsyncTaskGooglePlayShowLoginUI;
+
+	/** This task needs to be able to clear CurrentLogoutTask */
+	friend class FOnlineAsyncTaskGooglePlayLogout;
+
+	gpg::AndroidPlatformConfiguration PlatformConfiguration;
 };
 
 typedef TSharedPtr<FOnlineSubsystemGooglePlay, ESPMode::ThreadSafe> FOnlineSubsystemGooglePlayPtr;

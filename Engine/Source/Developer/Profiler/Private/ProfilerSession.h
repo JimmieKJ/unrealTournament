@@ -1243,12 +1243,6 @@ class FRawProfilerSession : public FProfilerSession
 	/** Index of the last processed data for the mini-view. */
 	int32 CurrentMiniViewFrame;
 
-	/** Basic memory profiling, only for debugging purpose. */
-	void ProcessMemoryOperations( const TMap<int64, FStatPacketArray>& CombinedHistory );
-
-	/** Generate a basic memory usage report and prints it to the log. */
-	void GenerateMemoryUsageReport( const TMap<uint64, FAllocationInfo>& AllocationMap );
-
 public:
 	/**
 	* Default constructor, creates a profiler session from a capture file.

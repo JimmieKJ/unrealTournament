@@ -52,6 +52,40 @@ void SPluginTile::RecreateWidgets()
 		PluginIconDynamicImageBrush = MakeShareable(new FSlateDynamicImageBrush(BrushName, FVector2D(Size.X, Size.Y)));
 	}
 
+	// create support link
+	TSharedPtr<SWidget> SupportWidget;
+	{
+		if (PluginDescriptor.SupportURL.IsEmpty())
+		{
+			SupportWidget = SNullWidget::NullWidget;
+		}
+		else
+		{
+			FString SupportURL = PluginDescriptor.SupportURL;
+			SupportWidget = SNew(SHorizontalBox)
+
+			+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(SImage)
+					.ColorAndOpacity(FSlateColor::UseForeground())
+					.Image(FEditorStyle::GetBrush("Icons.Contact"))
+				]
+
+			+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(2.0f, 0.0f, 0.0f, 0.0f)
+				[
+					SNew(SHyperlink)
+					.Text(LOCTEXT("SupportLink", "Support"))
+					.ToolTipText(FText::Format(LOCTEXT("NavigateToSupportURL", "Open the plug-in's online support ({0})"), FText::FromString(SupportURL)))
+					.OnNavigate_Lambda([=]() { FPlatformProcess::LaunchURL(*SupportURL, nullptr, nullptr); })
+				];
+		}
+	}
+
 	// create documentation link
 	TSharedPtr<SWidget> DocumentationWidget;
 	{
@@ -80,7 +114,7 @@ void SPluginTile::RecreateWidgets()
 				[
 					SNew(SHyperlink)
 						.Text(LOCTEXT("DocumentationLink", "Documentation"))
-						.ToolTipText(LOCTEXT("NavigateToCreatedByURL", "Open the plug-in's online documentation"))
+						.ToolTipText(FText::Format(LOCTEXT("NavigateToDocumentation", "Open the plug-in's online documentation ({0})"), FText::FromString(DocsURL)))
 						.OnNavigate_Lambda([=]() { FPlatformProcess::LaunchURL(*DocsURL, nullptr, nullptr); })
 				];
 		}
@@ -288,9 +322,18 @@ void SPluginTile::RecreateWidgets()
 															]
 													]
 
+												// support link
+												+SHorizontalBox::Slot()
+													.Padding(PaddingAmount)
+													.HAlign(HAlign_Right)
+													[
+														SupportWidget.ToSharedRef()
+													]
+
 												// docs link
 												+ SHorizontalBox::Slot()
-													.Padding(PaddingAmount)
+													.AutoWidth()
+													.Padding(12.0f, PaddingAmount, PaddingAmount, PaddingAmount)
 													.HAlign(HAlign_Right)
 													[
 														DocumentationWidget.ToSharedRef()
@@ -316,9 +359,9 @@ void SPluginTile::RecreateWidgets()
 ECheckBoxState SPluginTile::IsPluginEnabled() const
 {
 	FPluginBrowserModule& PluginBrowserModule = FPluginBrowserModule::Get();
-	if(PluginBrowserModule.PendingEnablePlugins.Contains(Plugin->GetName()))
+	if(PluginBrowserModule.HasPluginPendingEnable(Plugin->GetName()))
 	{
-		return PluginBrowserModule.PendingEnablePlugins[Plugin->GetName()]? ECheckBoxState::Checked : ECheckBoxState::Unchecked;;
+		return PluginBrowserModule.GetPluginPendingEnableState(Plugin->GetName()) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;;
 	}
 	else
 	{
@@ -344,7 +387,6 @@ void SPluginTile::OnEnablePluginCheckboxChanged(ECheckBoxState NewCheckedState)
 		}
 	}
 
-	FGameProjectGenerationModule::Get().TryMakeProjectFileWriteable(FPaths::GetProjectFilePath());
 	FText FailMessage;
 
 	if (!IProjectManager::Get().SetPluginEnabled(Plugin->GetName(), bNewEnabledState, FailMessage, PluginDescriptor.MarketplaceURL))
@@ -353,14 +395,15 @@ void SPluginTile::OnEnablePluginCheckboxChanged(ECheckBoxState NewCheckedState)
 	}
 	else
 	{
-		FPluginBrowserModule& PluginBrowserModule = FPluginBrowserModule::Get();
-		if(Plugin->IsEnabled() == bNewEnabledState)
+		FGameProjectGenerationModule::Get().TryMakeProjectFileWriteable(FPaths::GetProjectFilePath());
+
+		if (!IProjectManager::Get().SaveCurrentProjectToDisk(FailMessage))
 		{
-			PluginBrowserModule.PendingEnablePlugins.Remove(Plugin->GetName());
+			FMessageDialog::Open(EAppMsgType::Ok, FailMessage);
 		}
 		else
 		{
-			PluginBrowserModule.PendingEnablePlugins.FindOrAdd(Plugin->GetName()) = bNewEnabledState;
+			FPluginBrowserModule::Get().SetPluginPendingEnableState(Plugin->GetName(), Plugin->IsEnabled(), bNewEnabledState);
 		}
 	}
 

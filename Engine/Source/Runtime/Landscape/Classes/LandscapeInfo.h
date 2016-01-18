@@ -139,12 +139,12 @@ public:
 
 	TMap<FIntPoint,float> SelectedRegion;
 
-	// Begin UObject Interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	// @todo document 
 	// all below.

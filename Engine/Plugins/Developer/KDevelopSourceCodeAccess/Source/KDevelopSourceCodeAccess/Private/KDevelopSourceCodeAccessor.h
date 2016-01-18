@@ -13,6 +13,7 @@ public:
 	void Shutdown();
 
 	/** ISourceCodeAccessor implementation */
+	virtual void RefreshAvailability() override { }
 	virtual bool CanAccessSourceCode() const override;
 	virtual FName GetFName() const override;
 	virtual FText GetNameText() const override;

@@ -366,7 +366,10 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 	// the good triangle to the coinciding vertex.
 	// all other degenerate triangles will just copy a space from any good triangle
 	// with the same welded index in piTriListIn[].
-	DegenEpilogue(psTspace, pTriInfos, piTriListIn, pContext, iNrTrianglesIn, iTotTris);
+	if (!pContext->m_bIgnoreDegenerates)
+	{
+		DegenEpilogue(psTspace, pTriInfos, piTriListIn, pContext, iNrTrianglesIn, iTotTris);
+	}
 
 	free(pTriInfos); free(piTriListIn);
 

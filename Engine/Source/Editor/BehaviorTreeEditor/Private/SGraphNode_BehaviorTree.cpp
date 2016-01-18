@@ -16,6 +16,7 @@
 #include "IDocumentation.h"
 #include "SInlineEditableTextBlock.h"
 #include "SCommentBubble.h"
+#include "SLevelOfDetailBranchNode.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
@@ -318,12 +319,24 @@ void SGraphNode_BehaviorTree::UpdateGraphNode()
 	TSharedPtr<SErrorText> ErrorText;
 	TSharedPtr<STextBlock> DescriptionText; 
 	TSharedPtr<SNodeTitle> NodeTitle = SNew(SNodeTitle, GraphNode);
-	float NodePadding = 10.0f;
 
-	if (Cast<UBehaviorTreeGraphNode_Decorator>(GraphNode) || Cast<UBehaviorTreeGraphNode_CompositeDecorator>(GraphNode) || Cast<UBehaviorTreeGraphNode_Service>(GraphNode))
+	TWeakPtr<SNodeTitle> WeakNodeTitle = NodeTitle;
+	auto GetNodeTitlePlaceholderWidth = [WeakNodeTitle]() -> FOptionalSize
 	{
-		NodePadding = 2.0f;
-	}
+		TSharedPtr<SNodeTitle> NodeTitlePin = WeakNodeTitle.Pin();
+		const float DesiredWidth = (NodeTitlePin.IsValid()) ? NodeTitlePin->GetTitleSize().X : 0.0f;
+		return FMath::Max(75.0f, DesiredWidth);
+	};
+	auto GetNodeTitlePlaceholderHeight = [WeakNodeTitle]() -> FOptionalSize
+	{
+		TSharedPtr<SNodeTitle> NodeTitlePin = WeakNodeTitle.Pin();
+		const float DesiredHeight = (NodeTitlePin.IsValid()) ? NodeTitlePin->GetTitleSize().Y : 0.0f;
+		return FMath::Max(22.0f, DesiredHeight);
+	};
+
+	const FMargin NodePadding = (Cast<UBehaviorTreeGraphNode_Decorator>(GraphNode) || Cast<UBehaviorTreeGraphNode_CompositeDecorator>(GraphNode) || Cast<UBehaviorTreeGraphNode_Service>(GraphNode))
+		? FMargin(2.0f)
+		: FMargin(8.0f);
 
 	IndexOverlay = SNew(SBehaviorTreeIndex)
 		.ToolTipText(this, &SGraphNode_BehaviorTree::GetIndexTooltipText)
@@ -339,132 +352,164 @@ void SGraphNode_BehaviorTree::UpdateGraphNode()
 		[
 			SNew(SBorder)
 			.BorderImage( FEditorStyle::GetBrush( "Graph.StateNode.Body" ) )
-			.Padding(0)
+			.Padding(0.0f)
 			.BorderBackgroundColor( this, &SGraphNode_BehaviorTree::GetBorderBackgroundColor )
 			.OnMouseButtonDown(this, &SGraphNode_BehaviorTree::OnMouseDown)
 			[
-				SNew(SOverlay)	
-				// INPUT PIN AREA
-				+SOverlay::Slot()
-				.HAlign(HAlign_Fill)
-				.VAlign(VAlign_Top)
-				[
-					SAssignNew(LeftNodeBox, SVerticalBox)
-				]
+				SNew(SOverlay)
 
-				// OUTPUT PIN AREA
+				// Pins and node details
 				+SOverlay::Slot()
 				.HAlign(HAlign_Fill)
-				.VAlign(VAlign_Bottom)
-				[
-					SAssignNew(RightNodeBox, SVerticalBox)
-					+SVerticalBox::Slot()
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Fill)
-					.Padding(20.0f,0.0f)
-					.FillHeight(1.0f)
-					[
-						SAssignNew(OutputPinBox, SHorizontalBox)
-					]
-				]
-
-				// STATE NAME AREA
-				+SOverlay::Slot()
-				.HAlign(HAlign_Fill)
-				.VAlign(VAlign_Center)
-				.Padding(NodePadding)
+				.VAlign(VAlign_Fill)
 				[
 					SNew(SVerticalBox)
+
+					// INPUT PIN AREA
 					+SVerticalBox::Slot()
 					.AutoHeight()
 					[
-						DecoratorsBox.ToSharedRef()
-					]
-					+SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						SAssignNew(NodeBody, SBorder)
-						.BorderImage( FEditorStyle::GetBrush("BTEditor.Graph.BTNode.Body") )
-						.BorderBackgroundColor( this, &SGraphNode_BehaviorTree::GetBackgroundColor )
-						.HAlign(HAlign_Fill)
-						.VAlign(VAlign_Center)
-						.Visibility(EVisibility::SelfHitTestInvisible)
+						SNew(SBox)
+						.MinDesiredHeight(NodePadding.Top)
 						[
-							SNew(SOverlay)
-							+SOverlay::Slot()
+							SAssignNew(LeftNodeBox, SVerticalBox)
+						]
+					]
+
+					// STATE NAME AREA
+					+SVerticalBox::Slot()
+					.Padding(FMargin(NodePadding.Left, 0.0f, NodePadding.Right, 0.0f))
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.AutoHeight()
+						[
+							DecoratorsBox.ToSharedRef()
+						]
+						+SVerticalBox::Slot()
+						.AutoHeight()
+						[
+							SAssignNew(NodeBody, SBorder)
+							.BorderImage( FEditorStyle::GetBrush("BTEditor.Graph.BTNode.Body") )
+							.BorderBackgroundColor( this, &SGraphNode_BehaviorTree::GetBackgroundColor )
 							.HAlign(HAlign_Fill)
-							.VAlign(VAlign_Fill)
+							.VAlign(VAlign_Center)
+							.Visibility(EVisibility::SelfHitTestInvisible)
 							[
-								SNew(SVerticalBox)
-								+SVerticalBox::Slot()
-								.AutoHeight()
+								SNew(SOverlay)
+								+SOverlay::Slot()
+								.HAlign(HAlign_Fill)
+								.VAlign(VAlign_Fill)
 								[
-									SNew(SHorizontalBox)
-									+SHorizontalBox::Slot()
-									.AutoWidth()
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot()
+									.AutoHeight()
 									[
-										// POPUP ERROR MESSAGE
-										SAssignNew(ErrorText, SErrorText )
-										.BackgroundColor( this, &SGraphNode_BehaviorTree::GetErrorColor )
-										.ToolTipText( this, &SGraphNode_BehaviorTree::GetErrorMsgToolTip )
-									]
-									+SHorizontalBox::Slot()
-									.AutoWidth()
-									.VAlign(VAlign_Center)
-									[
-										SNew(SImage)
-										.Image(this, &SGraphNode_BehaviorTree::GetNameIcon)
-									]
-									+SHorizontalBox::Slot()
-									.Padding(FMargin(4.0f, 0.0f, 4.0f, 0.0f))
-									[
-										SNew(SVerticalBox)
-										+SVerticalBox::Slot()
-										.AutoHeight()
+										SNew(SHorizontalBox)
+										+SHorizontalBox::Slot()
+										.AutoWidth()
 										[
-											SAssignNew(InlineEditableText, SInlineEditableTextBlock)
-											.Style( FEditorStyle::Get(), "Graph.StateNode.NodeTitleInlineEditableText" )
-											.Text( NodeTitle.Get(), &SNodeTitle::GetHeadTitle )
-											.OnVerifyTextChanged(this, &SGraphNode_BehaviorTree::OnVerifyNameTextChanged)
-											.OnTextCommitted(this, &SGraphNode_BehaviorTree::OnNameTextCommited)
-											.IsReadOnly( this, &SGraphNode_BehaviorTree::IsNameReadOnly )
-											.IsSelected(this, &SGraphNode_BehaviorTree::IsSelectedExclusively)
+											// POPUP ERROR MESSAGE
+											SAssignNew(ErrorText, SErrorText )
+											.BackgroundColor( this, &SGraphNode_BehaviorTree::GetErrorColor )
+											.ToolTipText( this, &SGraphNode_BehaviorTree::GetErrorMsgToolTip )
 										]
-										+SVerticalBox::Slot()
-										.AutoHeight()
+										
+										+SHorizontalBox::Slot()
+										.AutoWidth()
 										[
-											NodeTitle.ToSharedRef()
+											SNew(SLevelOfDetailBranchNode)
+											.UseLowDetailSlot(this, &SGraphNode_BehaviorTree::UseLowDetailNodeTitles)
+											.LowDetail()
+											[
+												SNew(SBox)
+												.WidthOverride_Lambda(GetNodeTitlePlaceholderWidth)
+												.HeightOverride_Lambda(GetNodeTitlePlaceholderHeight)
+											]
+											.HighDetail()
+											[
+												SNew(SHorizontalBox)
+												+SHorizontalBox::Slot()
+												.AutoWidth()
+												.VAlign(VAlign_Center)
+												[
+													SNew(SImage)
+													.Image(this, &SGraphNode_BehaviorTree::GetNameIcon)
+												]
+												+SHorizontalBox::Slot()
+												.Padding(FMargin(4.0f, 0.0f, 4.0f, 0.0f))
+												[
+													SNew(SVerticalBox)
+													+SVerticalBox::Slot()
+													.AutoHeight()
+													[
+														SAssignNew(InlineEditableText, SInlineEditableTextBlock)
+														.Style( FEditorStyle::Get(), "Graph.StateNode.NodeTitleInlineEditableText" )
+														.Text( NodeTitle.Get(), &SNodeTitle::GetHeadTitle )
+														.OnVerifyTextChanged(this, &SGraphNode_BehaviorTree::OnVerifyNameTextChanged)
+														.OnTextCommitted(this, &SGraphNode_BehaviorTree::OnNameTextCommited)
+														.IsReadOnly( this, &SGraphNode_BehaviorTree::IsNameReadOnly )
+														.IsSelected(this, &SGraphNode_BehaviorTree::IsSelectedExclusively)
+													]
+													+SVerticalBox::Slot()
+													.AutoHeight()
+													[
+														NodeTitle.ToSharedRef()
+													]
+												]
+											]
 										]
+									]
+									+SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										// DESCRIPTION MESSAGE
+										SAssignNew(DescriptionText, STextBlock )
+										.Visibility(this, &SGraphNode_BehaviorTree::GetDescriptionVisibility)
+										.Text(this, &SGraphNode_BehaviorTree::GetDescription)
 									]
 								]
-								+SVerticalBox::Slot()
-								.AutoHeight()
+								+SOverlay::Slot()
+								.HAlign(HAlign_Right)
+								.VAlign(VAlign_Fill)
 								[
-									// DESCRIPTION MESSAGE
-									SAssignNew(DescriptionText, STextBlock )
-									.Text(this, &SGraphNode_BehaviorTree::GetDescription)
+									SNew(SBorder)
+									.BorderImage( FEditorStyle::GetBrush("BTEditor.Graph.BTNode.Body") )
+									.BorderBackgroundColor(BehaviorTreeColors::Debugger::SearchFailed)
+									.Padding(FMargin(4.0f, 0.0f))
+									.Visibility(this, &SGraphNode_BehaviorTree::GetDebuggerSearchFailedMarkerVisibility)
 								]
 							]
-							+SOverlay::Slot()
-							.HAlign(HAlign_Right)
+						]
+						+SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(FMargin(10.0f,0,0,0))
+						[
+							ServicesBox.ToSharedRef()
+						]
+					]
+
+					// OUTPUT PIN AREA
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SBox)
+						.MinDesiredHeight(NodePadding.Bottom)
+						[
+							SAssignNew(RightNodeBox, SVerticalBox)
+							+SVerticalBox::Slot()
+							.HAlign(HAlign_Fill)
 							.VAlign(VAlign_Fill)
+							.Padding(20.0f,0.0f)
+							.FillHeight(1.0f)
 							[
-								SNew(SBorder)
-								.BorderImage( FEditorStyle::GetBrush("BTEditor.Graph.BTNode.Body") )
-								.BorderBackgroundColor(BehaviorTreeColors::Debugger::SearchFailed)
-								.Padding(FMargin(4.0f, 0.0f))
-								.Visibility(this, &SGraphNode_BehaviorTree::GetDebuggerSearchFailedMarkerVisibility)
+								SAssignNew(OutputPinBox, SHorizontalBox)
 							]
 						]
 					]
-					+SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(FMargin(10.0f,0,0,0))
-					[
-						ServicesBox.ToSharedRef()
-					]
 				]
-				//drag marker overlay
+
+				// Drag marker overlay
 				+SOverlay::Slot()
 				.HAlign(HAlign_Fill)
 				.VAlign(VAlign_Top)
@@ -479,6 +524,7 @@ void SGraphNode_BehaviorTree::UpdateGraphNode()
 						.HeightOverride(4)
 					]
 				]
+
 				// Blueprint indicator overlay
 				+SOverlay::Slot()
 				.HAlign(HAlign_Left)
@@ -687,18 +733,18 @@ void SGraphNode_BehaviorTree::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
 			OutputPinBox->AddSlot()
 			.HAlign(HAlign_Fill)
 			.VAlign(VAlign_Fill)
-				.FillWidth(0.4f)
-				.Padding(0,0,20.0f,0)
-				[
-					PinToAdd
-				];
+			.FillWidth(0.4f)
+			.Padding(0,0,20.0f,0)
+			[
+				PinToAdd
+			];
 		}
 		else
 		{
 			OutputPinBox->AddSlot()
-				.HAlign(HAlign_Fill)
-				.VAlign(VAlign_Fill)
-				.FillWidth(1.0f)
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Fill)
+			.FillWidth(1.0f)
 			[
 				PinToAdd
 			];
@@ -832,8 +878,11 @@ EVisibility SGraphNode_BehaviorTree::GetIndexVisibility() const
 	}
 
 	// Visible if we are in PIE or if we have siblings
-	const bool bIsVisible = (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL) || (MyParentOutputPin && MyParentOutputPin->LinkedTo.Num() > 1);
-	return bIsVisible ? EVisibility::Visible : EVisibility::Collapsed;
+	const bool bCanShowIndex = (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL) || (MyParentOutputPin && MyParentOutputPin->LinkedTo.Num() > 1);
+
+	// LOD this out once things get too small
+	TSharedPtr<SGraphPanel> MyOwnerPanel = GetOwnerPanel();
+	return (bCanShowIndex && (!MyOwnerPanel.IsValid() || MyOwnerPanel->GetCurrentLOD() > EGraphRenderingLOD::LowDetail)) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 FText SGraphNode_BehaviorTree::GetIndexText() const
@@ -894,7 +943,11 @@ FText SGraphNode_BehaviorTree::GetIndexTooltipText() const
 EVisibility SGraphNode_BehaviorTree::GetBlueprintIconVisibility() const
 {
 	UBehaviorTreeGraphNode* BTGraphNode = Cast<UBehaviorTreeGraphNode>(GraphNode);
-	return (BTGraphNode != nullptr && BTGraphNode->UsesBlueprint()) ? EVisibility::Visible : EVisibility::Collapsed;
+	const bool bCanShowIcon = (BTGraphNode != nullptr && BTGraphNode->UsesBlueprint());
+
+	// LOD this out once things get too small
+	TSharedPtr<SGraphPanel> MyOwnerPanel = GetOwnerPanel();
+	return (bCanShowIcon && (!MyOwnerPanel.IsValid() || MyOwnerPanel->GetCurrentLOD() > EGraphRenderingLOD::LowDetail)) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 void SGraphNode_BehaviorTree::GetOverlayBrushes(bool bSelected, const FVector2D WidgetSize, TArray<FOverlayBrushInfo>& Brushes) const
@@ -1008,6 +1061,34 @@ TSharedRef<SGraphNode> SGraphNode_BehaviorTree::GetNodeUnderMouse(const FGeometr
 {
 	TSharedPtr<SGraphNode> SubNode = GetSubNodeUnderCursor(MyGeometry, MouseEvent);
 	return SubNode.IsValid() ? SubNode.ToSharedRef() : StaticCastSharedRef<SGraphNode>(AsShared());
+}
+
+void SGraphNode_BehaviorTree::MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter)
+{
+	SGraphNodeAI::MoveTo(NewPosition, NodeFilter);
+
+	// keep node order (defined by linked pins) up to date with actual positions
+	// this function will keep spamming on every mouse move update
+	UBehaviorTreeGraphNode* BTGraphNode = Cast<UBehaviorTreeGraphNode>(GraphNode);
+	if (BTGraphNode && !BTGraphNode->IsSubNode())
+	{
+		UBehaviorTreeGraph* BTGraph = BTGraphNode->GetBehaviorTreeGraph();
+		if (BTGraph)
+		{
+			for (int32 Idx = 0; Idx < BTGraphNode->Pins.Num(); Idx++)
+			{
+				UEdGraphPin* Pin = BTGraphNode->Pins[Idx];
+				if (Pin && Pin->Direction == EGPD_Input && Pin->LinkedTo.Num() == 1) 
+				{
+					UEdGraphPin* ParentPin = Pin->LinkedTo[0];
+					if (ParentPin)
+					{
+						BTGraph->RebuildChildOrder(ParentPin->GetOwningNode());
+					}
+				}
+			}
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

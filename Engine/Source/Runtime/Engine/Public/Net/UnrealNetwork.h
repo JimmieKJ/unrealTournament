@@ -52,8 +52,9 @@ struct ENGINE_API FNetworkVersion
 	/**
 	 * Generates a version number, that by default, is based on a checksum of the engine version + project name + project version string
 	 * Game/project code can completely override what this value returns through the GetLocalNetworkVersionOverride delegate
+	 * If called with AllowOverrideDelegate=false, we will not call the game project override. (This allows projects to call base implementation in their project implementation)
 	 */
-	static uint32 GetLocalNetworkVersion();
+	static uint32 GetLocalNetworkVersion(bool AllowOverrideDelegate=true);
 
 	/**
 	 * Determine if a connection is compatible with this instance
@@ -79,6 +80,16 @@ struct ENGINE_API FNetworkVersion
 	 * the RPC header format.
 	 */
 	static const uint32 InternalProtocolVersion;
+};
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FPreActorDestroyReplayScrub, AActor*);
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FPreReplayScrub, UWorld*);
+
+struct ENGINE_API FNetworkReplayDelegates
+{
+	/** global delegate called one time prior to scrubbing */
+	static FPreReplayScrub OnPreScrub;
 };
 
 /*-----------------------------------------------------------------------------
@@ -107,6 +118,15 @@ static UProperty* GetReplicatedProperty(UClass* CallingClass, UClass* PropClass,
 #define DOREPLIFETIME(c,v) \
 { \
 	static UProperty* sp##v = GetReplicatedProperty(StaticClass(), c::StaticClass(),GET_MEMBER_NAME_CHECKED(c,v)); \
+	for ( int32 i = 0; i < sp##v->ArrayDim; i++ )							\
+	{																		\
+		OutLifetimeProps.AddUnique( FLifetimeProperty( sp##v->RepIndex + i ) );	\
+	}																		\
+}
+
+#define DOREPLIFETIME_DIFFNAMES(c,v, n) \
+{ \
+	static UProperty* sp##v = GetReplicatedProperty(StaticClass(), c::StaticClass(), n); \
 	for ( int32 i = 0; i < sp##v->ArrayDim; i++ )							\
 	{																		\
 		OutLifetimeProps.AddUnique( FLifetimeProperty( sp##v->RepIndex + i ) );	\

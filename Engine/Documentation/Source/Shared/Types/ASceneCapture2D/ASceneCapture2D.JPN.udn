@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2246990
+﻿INTSourceChangelist:2573029
 Availability:NoPublish
 Title:ASceneCapture2D
 Crumbs:
@@ -6,7 +6,7 @@ Description: ASceneCapture2D クラスの概要
 
 [EXCERPT:ASceneCapture2D]
 
-Scene Capture Cube と同様に、 Scene Capture 2D はシーンの画像をフレームごとに作成します。Scene Capture 2D はビュー錐台からのシーンをキャプチャして、そのビューを画像としてビューへ格納します。格納した画像はその後マテリアル内で使用されます。
+SceneCaptureCube と同様に、SceneCapture2D はシーンの画像をフレームごとに作成します。SceneCapture2D はビュー錐台からシーンをキャプチャします。そして、そのビューをマテリアルで使用する画像として格納します。 
 
 [VAR:ToolTipFullLink]
 Resources/ContentExamples/Reflections/1_7

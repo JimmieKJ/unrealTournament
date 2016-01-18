@@ -24,13 +24,13 @@ class ULevelStreamingKismet : public ULevelStreaming
 	UPROPERTY(Category=LevelStreaming, EditAnywhere)
 	uint32 bInitiallyVisible:1;
 	
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin ULevelStreaming Interface
+	//~ Begin ULevelStreaming Interface
 	virtual bool ShouldBeLoaded() const override;
 	virtual bool ShouldBeVisible() const override;
-	// End ULevelStreaming Interface
+	//~ End ULevelStreaming Interface
 };
 

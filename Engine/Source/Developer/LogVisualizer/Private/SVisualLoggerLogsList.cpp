@@ -39,11 +39,22 @@ void SVisualLoggerLogsList::Construct(const FArguments& InArgs, const TSharedRef
 		[
 			SAssignNew(LogsLinesWidget, SListView<TSharedPtr<FLogEntryItem> >)
 			.ItemHeight(20)
-			.ListItemsSource(&LogEntryLines)
+			.ListItemsSource(&CachedLogEntryLines)
 			.SelectionMode(ESelectionMode::Multi)
 			.OnSelectionChanged(this, &SVisualLoggerLogsList::LogEntryLineSelectionChanged)
 			.OnGenerateRow(this, &SVisualLoggerLogsList::LogEntryLinesGenerateRow)
 		];
+
+	FVisualLoggerDatabase::Get().GetEvents().OnItemSelectionChanged.AddRaw(this, &SVisualLoggerLogsList::OnItemSelectionChanged);
+	FVisualLoggerDatabase::Get().GetEvents().OnRowSelectionChanged.AddRaw(this, &SVisualLoggerLogsList::ObjectSelectionChanged);
+	FLogVisualizer::Get().GetEvents().OnFiltersChanged.AddRaw(this, &SVisualLoggerLogsList::OnFiltersChanged);
+}
+
+SVisualLoggerLogsList::~SVisualLoggerLogsList()
+{
+	FVisualLoggerDatabase::Get().GetEvents().OnItemSelectionChanged.RemoveAll(this);
+	FVisualLoggerDatabase::Get().GetEvents().OnRowSelectionChanged.RemoveAll(this);
+	FLogVisualizer::Get().GetEvents().OnFiltersChanged.RemoveAll(this);
 }
 
 FReply SVisualLoggerLogsList::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
@@ -53,73 +64,87 @@ FReply SVisualLoggerLogsList::OnKeyDown(const FGeometry& MyGeometry, const FKeyE
 		FString ClipboardString;
 		for (const TSharedPtr<struct FLogEntryItem>& CurrentItem : LogsLinesWidget->GetSelectedItems())
 		{
-			ClipboardString += CurrentItem->Category + FString(TEXT(" (")) + FString(FOutputDevice::VerbosityToString(CurrentItem->Verbosity)) + FString(TEXT(") ")) + CurrentItem->Line;
+			if (CurrentItem->Category.Len() > 0)
+				ClipboardString += CurrentItem->Category + FString(TEXT(" (")) + FString(FOutputDevice::VerbosityToString(CurrentItem->Verbosity)) + FString(TEXT(") ")) + CurrentItem->Line;
+			else
+				ClipboardString += CurrentItem->Line;
+
 			ClipboardString += TEXT("\n");
 		}
 		FPlatformMisc::ClipboardCopy(*ClipboardString);
 		return FReply::Handled();
 	}
 
-	return FReply::Unhandled();
+	return SVisualLoggerBaseWidget::OnKeyDown(MyGeometry, InKeyEvent);
 }
 
 void SVisualLoggerLogsList::OnFiltersChanged()
 {
-	FVisualLogDevice::FVisualLogEntryItem LogEntry = CurrentLogEntry;
-	OnItemSelectionChanged(LogEntry);
-}
-
-void SVisualLoggerLogsList::LogEntryLineSelectionChanged(TSharedPtr<FLogEntryItem> SelectedItem, ESelectInfo::Type SelectInfo)
-{
-	if (SelectedItem.IsValid() == true)
-	{
-		FLogVisualizer::Get().GetVisualLoggerEvents().OnLogLineSelectionChanged.ExecuteIfBound(SelectedItem, SelectedItem->UserData, SelectedItem->TagName);
-	}
-	else
-	{
-		FLogVisualizer::Get().GetVisualLoggerEvents().OnLogLineSelectionChanged.ExecuteIfBound(SelectedItem, 0, NAME_None);
-	}
+	RegenerateLogEntries();
+	LogsLinesWidget->RequestListRefresh();
 }
 
 TSharedRef<ITableRow> SVisualLoggerLogsList::LogEntryLinesGenerateRow(TSharedPtr<FLogEntryItem> Item, const TSharedRef<STableViewBase>& OwnerTable)
 {
-	return SNew(STableRow< TSharedPtr<FString> >, OwnerTable)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(FMargin(5.0f, 0.0f))
+	if (Item->Category.Len() > 0)
+	{
+		return SNew(STableRow< TSharedPtr<FString> >, OwnerTable)
 			[
-				SNew(STextBlock)
-				.ColorAndOpacity(FSlateColor(Item->CategoryColor))
-				.Text( FText::FromString(Item->Category) )
-				.HighlightText(this, &SVisualLoggerLogsList::GetFilterText)
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(FMargin(5.0f, 0.0f))
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(FSlateColor(Item->CategoryColor))
+					.Text(FText::FromString(Item->Category))
+					.HighlightText(this, &SVisualLoggerLogsList::GetFilterText)
+				]
+				+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(FMargin(5.0f, 0.0f))
+					[
+						SNew(STextBlock)
+						.ColorAndOpacity(FSlateColor(Item->Verbosity == ELogVerbosity::Error ? FLinearColor::Red : (Item->Verbosity == ELogVerbosity::Warning ? FLinearColor::Yellow : FLinearColor::Gray)))
+						.Text(FText::FromString(FString(TEXT("(")) + FString(FOutputDevice::VerbosityToString(Item->Verbosity)) + FString(TEXT(")"))))
+					]
+				+ SHorizontalBox::Slot()
+					.Padding(FMargin(5.0f, 0.0f))
+					[
+						SNew(STextBlock)
+						.AutoWrapText(true)
+						.ColorAndOpacity(FSlateColor(Item->Verbosity == ELogVerbosity::Error ? FLinearColor::Red : (Item->Verbosity == ELogVerbosity::Warning ? FLinearColor::Yellow : FLinearColor::Gray)))
+						.Text(FText::FromString(Item->Line))
+						.HighlightText(this, &SVisualLoggerLogsList::GetFilterText)
+						.TextStyle(FLogVisualizerStyle::Get(), TEXT("TextLogs.Text"))
+					]
+			];
+
+	}
+	else
+	{
+		return SNew(STableRow< TSharedPtr<FString> >, OwnerTable)
 			[
-				SNew(STextBlock)
-				.ColorAndOpacity(FSlateColor(Item->Verbosity == ELogVerbosity::Error ? FLinearColor::Red : (Item->Verbosity == ELogVerbosity::Warning ? FLinearColor::Yellow : FLinearColor::Gray)))
-				.Text(FText::FromString(FString(TEXT("(")) + FString(FOutputDevice::VerbosityToString(Item->Verbosity)) + FString(TEXT(")"))))
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(5.0f, 0.0f))
-			[
-				SNew(STextBlock)
-				.AutoWrapText(true)
-				.ColorAndOpacity(FSlateColor(Item->Verbosity == ELogVerbosity::Error ? FLinearColor::Red : (Item->Verbosity == ELogVerbosity::Warning ? FLinearColor::Yellow : FLinearColor::Gray)))
-				.Text(FText::FromString(Item->Line))
-				.HighlightText(this, &SVisualLoggerLogsList::GetFilterText)
-			]
-		];
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(STextBlock)
+					/*.AutoWrapText(true)*/
+					.ColorAndOpacity(FSlateColor(FLinearColor::White))
+					.Text(FText::FromString(Item->Line))
+					.HighlightText(this, &SVisualLoggerLogsList::GetFilterText)
+					.Justification(ETextJustify::Center)
+				]
+			];
+	}
 }
 
 FText SVisualLoggerLogsList::GetFilterText() const
 {
 	static FText NoText;
 	const bool bSearchInsideLogs = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bSearchInsideLogs;
-	return bSearchInsideLogs ? FText::FromString(FCategoryFiltersManager::Get().GetSearchString()) : NoText;
+	return bSearchInsideLogs ? FText::FromString(FVisualLoggerFilters::Get().GetSearchString()) : NoText;
 }
 
 void SVisualLoggerLogsList::OnFiltersSearchChanged(const FText& Filter)
@@ -127,17 +152,84 @@ void SVisualLoggerLogsList::OnFiltersSearchChanged(const FText& Filter)
 	OnFiltersChanged();
 }
 
-void SVisualLoggerLogsList::OnItemSelectionChanged(const FVisualLogDevice::FVisualLogEntryItem& LogEntry)
+void SVisualLoggerLogsList::LogEntryLineSelectionChanged(TSharedPtr<FLogEntryItem> SelectedItem, ESelectInfo::Type SelectInfo)
 {
-	CurrentLogEntry.Entry.Reset();
-	LogEntryLines.Reset();
+	if (SelectedItem.IsValid() == true)
+	{
+		FLogVisualizer::Get().GetEvents().OnLogLineSelectionChanged.ExecuteIfBound(SelectedItem, SelectedItem->UserData, SelectedItem->TagName);
+	}
+	else
+	{
+		FLogVisualizer::Get().GetEvents().OnLogLineSelectionChanged.ExecuteIfBound(SelectedItem, 0, NAME_None);
+	}
+}
 
+void SVisualLoggerLogsList::ObjectSelectionChanged(const TArray<FName>&)
+{
+	RegenerateLogEntries();
+	LogsLinesWidget->RequestListRefresh();
+}
+
+void SVisualLoggerLogsList::ResetData()
+{
+	CachedLogEntryLines.Reset();
+	LogsLinesWidget->RequestListRefresh();
+}
+
+void SVisualLoggerLogsList::OnItemSelectionChanged(const FVisualLoggerDBRow& BDRow, int32 ItemIndex)
+{
+	RegenerateLogEntries();
+}
+
+void SVisualLoggerLogsList::RegenerateLogEntries()
+{
+	CachedLogEntryLines.Reset();
+
+	const TArray<FName> SelectedRows = FVisualLoggerDatabase::Get().GetSelectedRows();
+	for (FName CurrentRow : SelectedRows)
+	{
+		if (FVisualLoggerDatabase::Get().IsRowVisible(CurrentRow)  == false)
+		{
+			continue;
+		}
+
+		const FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(CurrentRow);
+		const TArray<FVisualLogDevice::FVisualLogEntryItem>& Entries = FVisualLoggerDatabase::Get().GetRowByName(CurrentRow).GetItems();
+		
+		int32 BestItemIndex = INDEX_NONE;
+		float BestDistance = MAX_FLT;
+		for (int32 Index = 0; Index < Entries.Num(); Index++)
+		{
+			auto& CurrentEntryItem = Entries[Index];
+			if (DBRow.IsItemVisible(Index) == false)
+			{
+				continue;
+			}
+
+			TArray<FVisualLoggerCategoryVerbosityPair> OutCategories;
+			const float CurrentDist = DBRow.GetCurrentItemIndex() == INDEX_NONE ? 0 : FMath::Abs(CurrentEntryItem.Entry.TimeStamp - DBRow.GetCurrentItem().Entry.TimeStamp);
+			if (CurrentDist < BestDistance)
+			{
+				BestDistance = CurrentDist;
+				BestItemIndex = Index;
+			}
+		}
+
+		if (Entries.IsValidIndex(BestItemIndex))
+		{
+			GenerateLogs(Entries[BestItemIndex], SelectedRows.Num() > 1);
+		}
+	}
+}
+
+void SVisualLoggerLogsList::GenerateLogs(const FVisualLogDevice::FVisualLogEntryItem& LogEntry, bool bGenerateHeader)
+{
 	TArray<FVisualLoggerCategoryVerbosityPair> OutCategories;
 	FVisualLoggerHelpers::GetCategories(LogEntry.Entry, OutCategories);
 	bool bHasValidCategory = false;
 	for (auto& CurrentCategory : OutCategories)
 	{
-		bHasValidCategory |= FCategoryFiltersManager::Get().MatchCategoryFilters(CurrentCategory.CategoryName.ToString(), CurrentCategory.Verbosity);
+		bHasValidCategory |= FVisualLoggerFilters::Get().MatchCategoryFilters(CurrentCategory.CategoryName.ToString(), CurrentCategory.Verbosity);
 	}
 	
 	if (!bHasValidCategory)
@@ -145,15 +237,26 @@ void SVisualLoggerLogsList::OnItemSelectionChanged(const FVisualLogDevice::FVisu
 		return;
 	}
 
-	CurrentLogEntry = LogEntry;
+	if (bGenerateHeader)
+	{
+		FLogEntryItem EntryItem;
+		EntryItem.Category = FString();
+		EntryItem.CategoryColor = FLinearColor::Black;
+		EntryItem.Verbosity = ELogVerbosity::VeryVerbose;
+		EntryItem.Line = LogEntry.OwnerName.ToString();
+		EntryItem.UserData = 0;
+		EntryItem.TagName = NAME_None;
+		CachedLogEntryLines.Add(MakeShareable(new FLogEntryItem(EntryItem)));
+	}
+
 	const FVisualLogLine* LogLine = LogEntry.Entry.LogLines.GetData();
 	const bool bSearchInsideLogs = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bSearchInsideLogs;
 	for (int LineIndex = 0; LineIndex < LogEntry.Entry.LogLines.Num(); ++LineIndex, ++LogLine)
 	{
-		bool bShowLine = FCategoryFiltersManager::Get().MatchCategoryFilters(LogLine->Category.ToString(), LogLine->Verbosity);
+		bool bShowLine = FVisualLoggerFilters::Get().MatchCategoryFilters(LogLine->Category.ToString(), LogLine->Verbosity);
 		if (bSearchInsideLogs)
 		{
-			FString String = FCategoryFiltersManager::Get().GetSearchString();
+			FString String = FVisualLoggerFilters::Get().GetSearchString();
 			if (String.Len() > 0)
 			{
 				bShowLine &= LogLine->Line.Find(String) != INDEX_NONE || LogLine->Category.ToString().Find(String) != INDEX_NONE;
@@ -171,13 +274,13 @@ void SVisualLoggerLogsList::OnItemSelectionChanged(const FVisualLogDevice::FVisu
 			EntryItem.UserData = LogLine->UserData;
 			EntryItem.TagName = LogLine->TagName;
 
-			LogEntryLines.Add(MakeShareable(new FLogEntryItem(EntryItem)));
+			CachedLogEntryLines.Add(MakeShareable(new FLogEntryItem(EntryItem)));
 		}
 	}
 
 	for (auto& Event : LogEntry.Entry.Events)
 	{
-		bool bShowLine = FCategoryFiltersManager::Get().MatchCategoryFilters(Event.Name, Event.Verbosity);
+		bool bShowLine = FVisualLoggerFilters::Get().MatchCategoryFilters(Event.Name, Event.Verbosity);
 
 		if (bShowLine)
 		{
@@ -193,7 +296,7 @@ void SVisualLoggerLogsList::OnItemSelectionChanged(const FVisualLogDevice::FVisu
 			EntryItem.UserData = Event.UserData;
 			EntryItem.TagName = Event.TagName;
 
-			LogEntryLines.Add(MakeShareable(new FLogEntryItem(EntryItem)));
+			CachedLogEntryLines.Add(MakeShareable(new FLogEntryItem(EntryItem)));
 		}
 
 	}

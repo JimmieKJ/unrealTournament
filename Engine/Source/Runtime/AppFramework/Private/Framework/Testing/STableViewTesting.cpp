@@ -2,6 +2,9 @@
 
 #include "AppFrameworkPrivatePCH.h"
 #include "STableViewTesting.h"
+
+#if !UE_BUILD_SHIPPING
+
 #include "SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "STableViewTesting"
@@ -444,6 +447,7 @@ public:
 		FSlateApplication::Get().PushMenu
 		(
 			SharedThis( this ),
+			FWidgetPath(),
 			GetPopupContent(),
 			SpawnLocation,
 			FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
@@ -603,6 +607,7 @@ public:
 		FSlateApplication::Get().PushMenu
 		(
 			SharedThis( this ),
+			FWidgetPath(),
 			GetPopupContent(),
 			SpawnLocation,
 			FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
@@ -1277,3 +1282,5 @@ TSharedRef<SWidget> MakeTableViewTesting()
 
 
 #undef LOCTEXT_NAMESPACE
+
+#endif // #if !UE_BUILD_SHIPPING

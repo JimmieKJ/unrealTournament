@@ -17,19 +17,24 @@ class ENGINE_API UAnimSingleNodeInstance : public UAnimInstance
 {
 	GENERATED_UCLASS_BODY()
 
+	// Disable compiler-generated deprecation warnings by implementing our own destructor
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	~UAnimSingleNodeInstance() {}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
 	/** Current Asset being played **/
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::CurrentAsset")
 	class UAnimationAsset* CurrentAsset;
 
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::CurrentVertexAnim")
 	class UVertexAnimation* CurrentVertexAnim;
 
 	/** Random cached values to play each asset **/
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::BlendSpaceInput")
 	FVector BlendSpaceInput;
 
 	/** Random cached values to play each asset **/
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::BlendSampleData")
 	TArray<FBlendSampleData> BlendSampleData;
 
 	/** Random cached values to play each asset **/
@@ -37,34 +42,36 @@ class ENGINE_API UAnimSingleNodeInstance : public UAnimInstance
 	FBlendFilter BlendFilter;
 
 	/** Shared parameters for previewing blendspace or animsequence **/
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::CurrentTime")
 	float CurrentTime;
 
-	UPROPERTY(transient)
+	/** Cache for data needed during marker sync */
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::GetMarkerTickRecord")
+	FMarkerTickRecord MarkerTickRecord;
+
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::PlayRate")
 	float PlayRate;
 	 
 	UPROPERTY(Transient)
 	FPostEvaluateAnimEvent PostEvaluateAnimEvent;
 
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::bLooping")
 	uint32 bLooping:1;
 
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::bPlaying")
 	uint32 bPlaying:1;
 
-	UPROPERTY(transient)
+	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::bReverse")
 	uint32 bReverse:1;
 
-	// Begin UAnimInstance interface
+	//~ Begin UAnimInstance Interface
 	virtual void NativeInitializeAnimation() override;
-	virtual void NativeUpdateAnimation(float DeltaTimeX) override;
-	virtual bool NativeEvaluateAnimation(FPoseContext& Output) override;
-	virtual void PostAnimEvaluation() override;
+	virtual void NativePostEvaluateAnimation() override;
+	virtual void OnMontageInstanceStopped(FAnimMontageInstance& StoppedMontageInstance) override;
 
 protected:
 	virtual void Montage_Advance(float DeltaTime) override;
-	void InternalBlendSpaceEvaluatePose(class UBlendSpaceBase* BlendSpace, TArray<FBlendSampleData>& BlendSampleDataCache, struct FA2Pose& Pose);
-	// End UAnimInstance interface
+	//~ End UAnimInstance Interface
 public:
 
 	UFUNCTION(BlueprintCallable, Category="Animation")
@@ -108,9 +115,29 @@ public:
 	/** Updates the blendspace samples list in the case of our asset being a blendspace */
 	void UpdateBlendspaceSamples(FVector InBlendInput);
 
-#if WITH_EDITORONLY_DATA
-	float PreviewPoseCurrentTime;
-#endif
+	/** Check whether we are currently playing */
+	bool IsPlaying() const;
+
+	/** Check whether we are currently playing in reverse */
+	bool IsReverse() const;
+
+	/** Check whether we are currently looping */
+	bool IsLooping() const;
+
+	/** Get the current playback time */
+	float GetCurrentTime() const;
+
+	/** Get the current play rate multiplier */
+	float GetPlayRate() const;
+
+	/** Get the currently playing asset. Can return NULL */
+	UAnimationAsset* GetCurrentAsset();
+
+	/** Get the currently playing vertex animation. Can return NULL */
+	UVertexAnimation* GetCurrentVertexAnimation();
+
+protected:
+	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override;
 };
 
 

@@ -379,7 +379,7 @@ FReply FLandscapeEditorDetailCustomization_CopyPaste::OnGizmoExportButtonClicked
 
 			// Local set for export
 			TSet<ULandscapeLayerInfoObject*> LayerInfoSet;
-			for (int i = 0; i < Gizmo->LayerInfos.Num(); i++)
+			for (int32 i = 0; i < Gizmo->LayerInfos.Num(); i++)
 			{
 				if (LandscapeEdMode->CurrentToolTarget.TargetType == ELandscapeToolTargetType::Weightmap && LandscapeEdMode->CurrentToolTarget.LayerInfo == Gizmo->LayerInfos[i])
 				{

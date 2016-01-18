@@ -14,7 +14,6 @@ public:
 	SLATE_BEGIN_ARGS(SMessagingBreakpoints) { }
 	SLATE_END_ARGS()
 
-
 public:
 
 	/**
@@ -29,10 +28,10 @@ public:
 private:
 
 	/** Handles generating a row widget for the endpoint list view. */
-	TSharedRef<ITableRow> HandleBreakpointListGenerateRow( IMessageTracerBreakpointPtr EndpointInfo, const TSharedRef<STableViewBase>& OwnerTable );
+	TSharedRef<ITableRow> HandleBreakpointListGenerateRow(IMessageTracerBreakpointPtr EndpointInfo, const TSharedRef<STableViewBase>& OwnerTable);
 
 	/** Handles the selection of endpoints. */
-	void HandleBreakpointListSelectionChanged( IMessageTracerBreakpointPtr InItem, ESelectInfo::Type SelectInfo );
+	void HandleBreakpointListSelectionChanged(IMessageTracerBreakpointPtr InItem, ESelectInfo::Type SelectInfo);
 
 private:
 

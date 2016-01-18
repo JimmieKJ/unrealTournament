@@ -17,6 +17,7 @@ struct FWinRTTypes : public FGenericPlatformTypes
 	// defined in windefs.h, even though this is equivalent, the compiler doesn't think so
 	typedef unsigned long       DWORD;
 	typedef unsigned __int64	SIZE_T;
+	typedef __int64				SSIZE_T;
 
 	typedef decltype(__nullptr) TYPE_OF_NULLPTR;
 };
@@ -45,7 +46,6 @@ typedef FWinRTTypes FPlatformTypes;
 #define PLATFORM_MAX_FILEPATH_LENGTH						MAX_PATH
 //@todo.WinRT: Texture streaming support...
 #define PLATFORM_SUPPORTS_TEXTURE_STREAMING					0
-#define PLATFORM_USES_DYNAMIC_RHI							1
 #define PLATFORM_REQUIRES_FILESERVER						1
 #define PLATFORM_SUPPORTS_MULTITHREADED_GC					0
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS			1

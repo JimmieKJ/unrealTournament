@@ -415,7 +415,7 @@ FReply SColorGradientEditor::OnMouseButtonUp( const FGeometry& MyGeometry, const
 			// Didnt move the mouse too far, open a context menu
 			if( DistanceDragged < DragThresholdDist && SelectedStop.IsValid( *CurveOwner ) )
 			{
-				OpenGradientStopContextMenu( MouseEvent.GetScreenSpacePosition() );
+				OpenGradientStopContextMenu( MouseEvent );
 			}
 
 			DistanceDragged = 0;
@@ -449,8 +449,10 @@ void SColorGradientEditor::SetCurveOwner( FCurveOwnerInterface* InCurveOwner )
 }
 
 
-void SColorGradientEditor::OpenGradientStopContextMenu( FVector2D Location )
+void SColorGradientEditor::OpenGradientStopContextMenu(const FPointerEvent& MouseEvent)
 {
+	const FVector2D& Location = MouseEvent.GetScreenSpacePosition();
+
 	FMenuBuilder GradientStopMenu( true, NULL );
 
 	
@@ -522,7 +524,8 @@ void SColorGradientEditor::OpenGradientStopContextMenu( FVector2D Location )
 		// Add a Remove option
 		GradientStopMenu.AddMenuEntry( LOCTEXT("RemoveGradientStop", "Remove Stop"), LOCTEXT("RemoveGradientStopTooltip", "Removes the selected gradient stop"), FSlateIcon(), RemoveStopAction );
 
-		FSlateApplication::Get().PushMenu( AsShared(), GradientStopMenu.MakeWidget(), Location, FPopupTransitionEffect::ContextMenu );
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+		FSlateApplication::Get().PushMenu(AsShared(), WidgetPath, GradientStopMenu.MakeWidget(), Location, FPopupTransitionEffect::ContextMenu);
 
 		FSlateApplication::Get().SetKeyboardFocus( WidgetToFocus.ToSharedRef() );
 	}
@@ -569,7 +572,7 @@ void SColorGradientEditor::OpenGradientStopColorPicker()
 			]
 		];
 
-		FSlateApplication::Get().PushMenu( SharedThis( this ), AlphaSlider, ContextMenuPosition, FPopupTransitionEffect::TypeInPopup );
+		FSlateApplication::Get().PushMenu( SharedThis( this ), FWidgetPath(), AlphaSlider, ContextMenuPosition, FPopupTransitionEffect::TypeInPopup );
 	}
 	else
 	{

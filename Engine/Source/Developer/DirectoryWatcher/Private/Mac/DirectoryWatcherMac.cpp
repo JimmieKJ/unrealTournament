@@ -37,7 +37,7 @@ FDirectoryWatcherMac::~FDirectoryWatcherMac()
 	ensure(NumRequests == 0);
 }
 
-bool FDirectoryWatcherMac::RegisterDirectoryChangedCallback( const FString& Directory, const FDirectoryChanged& InDelegate )
+bool FDirectoryWatcherMac::RegisterDirectoryChangedCallback_Handle( const FString& Directory, const FDirectoryChanged& InDelegate, FDelegateHandle& OutHandle, uint32 Flags )
 {
 	FDirectoryWatchRequestMac** RequestPtr = RequestMap.Find(Directory);
 	FDirectoryWatchRequestMac* Request = NULL;
@@ -51,72 +51,7 @@ bool FDirectoryWatcherMac::RegisterDirectoryChangedCallback( const FString& Dire
 	}
 	else
 	{
-		Request = new FDirectoryWatchRequestMac(false);
-		NumRequests++;
-
-		// Begin reading directory changes
-		if ( !Request->Init(Directory) )
-		{
-			UE_LOG(LogDirectoryWatcher, Warning, TEXT("Failed to begin reading directory changes for %s."), *Directory);
-			delete Request;
-			NumRequests--;
-			return false;
-		}
-
-		RequestMap.Add(Directory, Request);
-	}
-
-	Request->AddDelegate(InDelegate);
-
-	return true;
-}
-
-bool FDirectoryWatcherMac::UnregisterDirectoryChangedCallback( const FString& Directory, const FDirectoryChanged& InDelegate )
-{
-	FDirectoryWatchRequestMac** RequestPtr = RequestMap.Find(Directory);
-	
-	if ( RequestPtr )
-	{
-		// There should be no NULL entries in the map
-		check (*RequestPtr);
-
-		FDirectoryWatchRequestMac* Request = *RequestPtr;
-
-		if ( Request->DEPRECATED_RemoveDelegate(InDelegate) )
-		{
-			if ( !Request->HasDelegates() )
-			{
-				// Remove from the active map and add to the pending delete list
-				RequestMap.Remove(Directory);
-				RequestsPendingDelete.AddUnique(Request);
-
-				// Signal to end the watch which will mark this request for deletion
-				Request->EndWatchRequest();
-			}
-
-			return true;
-		}
-		
-	}
-
-	return false;
-}
-
-bool FDirectoryWatcherMac::RegisterDirectoryChangedCallback_Handle( const FString& Directory, const FDirectoryChanged& InDelegate, FDelegateHandle& OutHandle, bool bIncludeDirectoryChanges )
-{
-	FDirectoryWatchRequestMac** RequestPtr = RequestMap.Find(Directory);
-	FDirectoryWatchRequestMac* Request = NULL;
-	
-	if ( RequestPtr )
-	{
-		// There should be no NULL entries in the map
-		check (*RequestPtr);
-
-		Request = *RequestPtr;
-	}
-	else
-	{
-		Request = new FDirectoryWatchRequestMac(bIncludeDirectoryChanges);
+		Request = new FDirectoryWatchRequestMac(Flags);
 		NumRequests++;
 
 		// Begin reading directory changes

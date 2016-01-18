@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "SlateBasics.h"
@@ -43,7 +43,7 @@ class UNREALTOURNAMENT_API SUTTabButton : public SButton
 		SLATE_ATTRIBUTE( FMargin, ContentPadding )
 	
 		/** The text to display in this button, if no custom content is specified */
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE(FText, Text)
 	
 		/** Called when the button is clicked */
 		SLATE_EVENT( FOnClicked, OnClicked )

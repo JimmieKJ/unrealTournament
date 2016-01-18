@@ -76,6 +76,7 @@
 #include "Distributions/DistributionFloatUniformCurve.h"
 #include "Engine/InterpCurveEdSetup.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
+#include "Components/PointLightComponent.h"
 
 /*-----------------------------------------------------------------------------
 	Abstract base modules used for categorization.
@@ -276,6 +277,7 @@ void UParticleModule::ChangeEditorColor(FColor& Color, UInterpCurveEdSetup* EdSe
 
 void UParticleModule::AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp)
 {
+	check(IsInGameThread());
 	for (TFieldIterator<UStructProperty> It(GetClass()); It; ++It)
 	{
 		// attempt to get a distribution from a random struct property
@@ -509,7 +511,7 @@ UParticleModule* UParticleModule::GenerateLODModule(UParticleLODLevel* SourceLOD
 	// Otherwise, construct a new object and set the values appropriately... if required.
 	UParticleModule* NewModule = NULL;
 
-	UObject* DupObject = StaticDuplicateObject(this, GetOuter(), TEXT("None"));
+	UObject* DupObject = StaticDuplicateObject(this, GetOuter());
 	if (DupObject)
 	{
 		NewModule = CastChecked<UParticleModule>(DupObject);
@@ -873,16 +875,32 @@ UParticleModuleSourceMovement::UParticleModuleSourceMovement(const FObjectInitia
 	bFinalUpdateModule = true;
 }
 
-void UParticleModuleSourceMovement::PostInitProperties()
+void UParticleModuleSourceMovement::InitializeDefaults()
 {
-	Super::PostInitProperties();
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	if (!SourceMovementScale.Distribution)
 	{
 		UDistributionVectorConstant* DistributionSourceMovementScale = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionSourceMovementScale"));
 		DistributionSourceMovementScale->Constant = FVector(1.0f, 1.0f, 1.0f);
 		SourceMovementScale.Distribution = DistributionSourceMovementScale;
 	}
 }
+
+void UParticleModuleSourceMovement::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		InitializeDefaults();
+	}
+}
+
+#if WITH_EDITOR
+void UParticleModuleSourceMovement::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleSourceMovement::FinalUpdate(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)
 {
@@ -1142,10 +1160,9 @@ UParticleModuleMeshRotation::UParticleModuleMeshRotation(const FObjectInitialize
 	bInheritParent = false;
 }
 
-void UParticleModuleMeshRotation::PostInitProperties()
+void UParticleModuleMeshRotation::InitializeDefaults()
 {
-	Super::PostInitProperties();
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	if (!StartRotation.Distribution)
 	{
 		UDistributionVectorUniform* DistributionStartRotation = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartRotation"));
 		DistributionStartRotation->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -1153,6 +1170,24 @@ void UParticleModuleMeshRotation::PostInitProperties()
 		StartRotation.Distribution = DistributionStartRotation;
 	}
 }
+
+
+void UParticleModuleMeshRotation::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		InitializeDefaults();
+	}
+}
+
+#if WITH_EDITOR
+void UParticleModuleMeshRotation::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleMeshRotation::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -1240,10 +1275,9 @@ UParticleModuleMeshRotationRate::UParticleModuleMeshRotationRate(const FObjectIn
 	bUpdateModule = true;
 }
 
-void UParticleModuleMeshRotationRate::PostInitProperties()
+void UParticleModuleMeshRotationRate::InitializeDefaults()
 {
-	Super::PostInitProperties();
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	if (!StartRotationRate.Distribution)
 	{
 		UDistributionVectorUniform* DistributionStartRotationRate = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartRotationRate"));
 		DistributionStartRotationRate->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -1251,6 +1285,23 @@ void UParticleModuleMeshRotationRate::PostInitProperties()
 		StartRotationRate.Distribution = DistributionStartRotationRate;
 	}
 }
+
+void UParticleModuleMeshRotationRate::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		InitializeDefaults();
+	}
+}
+
+#if WITH_EDITOR
+void UParticleModuleMeshRotationRate::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleMeshRotationRate::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -1334,15 +1385,31 @@ UParticleModuleMeshRotationRateMultiplyLife::UParticleModuleMeshRotationRateMult
 	bSpawnModule = true;
 	bUpdateModule = true;
 }
+void UParticleModuleMeshRotationRateMultiplyLife::InitializeDefaults()
+{
+	if (!LifeMultiplier.Distribution)
+	{
+		LifeMultiplier.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLifeMultiplier"));
+	}
+}
 
 void UParticleModuleMeshRotationRateMultiplyLife::PostInitProperties()
 {
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		LifeMultiplier.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLifeMultiplier"));
+		InitializeDefaults();
 	}
 }
+
+#if WITH_EDITOR
+void UParticleModuleMeshRotationRateMultiplyLife::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
+
 
 void UParticleModuleMeshRotationRateMultiplyLife::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -1394,14 +1461,30 @@ UParticleModuleMeshRotationRateOverLife::UParticleModuleMeshRotationRateOverLife
 	bUpdateModule = true;
 }
 
+void UParticleModuleMeshRotationRateOverLife::InitializeDefaults()
+{
+	if (!RotRate.Distribution)
+	{
+		RotRate.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionRotRate"));
+	}
+}
+
 void UParticleModuleMeshRotationRateOverLife::PostInitProperties()
 {
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		RotRate.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionRotRate"));
+		InitializeDefaults();
 	}
 }
+
+#if WITH_EDITOR
+void UParticleModuleMeshRotationRateOverLife::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleMeshRotationRateOverLife::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -2687,6 +2770,11 @@ void UParticleModuleLight::InitializeDefaults()
 	{
 		LightExponent.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionLightExponent"));
 	}
+
+	if (!bHighQualityLights)
+	{
+		bShadowCastingLights = false;
+	}
 }
 
 void UParticleModuleLight::PostInitProperties()
@@ -2707,6 +2795,11 @@ void UParticleModuleLight::PostEditChangeProperty(FPropertyChangedEvent& Propert
 }
 #endif // WITH_EDITOR
 
+bool UParticleModuleLight::CanTickInAnyThread()
+{
+	return !bHighQualityLights && BrightnessOverLife.OkForParallel() && ColorScaleOverLife.OkForParallel() && RadiusScale.OkForParallel() && LightExponent.OkForParallel();
+}
+
 void UParticleModuleLight::SpawnEx(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, struct FRandomStream* InRandomStream, FBaseParticle* ParticleBase)
 {
 	SPAWN_INIT;
@@ -2719,6 +2812,112 @@ void UParticleModuleLight::SpawnEx(FParticleEmitterInstance* Owner, int32 Offset
 	const float RandomNumber = InRandomStream ? InRandomStream->GetFraction() : FMath::SRand();
 	LightData.bValid = RandomNumber < SpawnFraction;
 	LightData.bAffectsTranslucency = bAffectsTranslucency;
+	LightData.bHighQuality = bHighQualityLights;
+	LightData.LightId = 0;
+
+	if (bHighQualityLights)
+	{		
+		LightData.LightId = SpawnHQLight(LightData, Particle, Owner);
+	}
+}
+
+uint64 UParticleModuleLight::SpawnHQLight(const FLightParticlePayload& Payload, const FBaseParticle& Particle, FParticleEmitterInstance* Owner)
+{
+	uint64 LightId = 0;
+	if (!Owner)
+	{
+		return 0;
+	}
+	UParticleSystemComponent* ParticleSystem = Owner->Component;
+	if (!ParticleSystem)
+	{
+		return 0;
+	}
+	AActor* HQLightContainer = ParticleSystem->GetOwner();
+	if (!HQLightContainer || HQLightContainer->IsPendingKillPending())
+	{
+		return 0;
+	}
+
+	// Construct the new component and attach as needed				
+	UPointLightComponent* PointLightComponent = NewObject<UPointLightComponent>(HQLightContainer, NAME_None, RF_NoFlags);
+	if (PointLightComponent)
+	{
+		LightId = (uint64)PointLightComponent;
+						
+		USceneComponent* RootComponent = HQLightContainer->GetRootComponent();
+		if (RootComponent)
+		{
+			PointLightComponent->AttachTo(RootComponent, NAME_None, EAttachLocation::KeepRelativeOffset);
+		}			
+		PointLightComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
+		PointLightComponent->RegisterComponent();
+		Owner->HighQualityLights.Add(PointLightComponent);
+			
+			
+		PointLightComponent->bUseInverseSquaredFalloff = bUseInverseSquaredFalloff;
+		PointLightComponent->bAffectTranslucentLighting = bAffectsTranslucency;
+		PointLightComponent->SetCastShadows(bShadowCastingLights);
+
+		int32 ScreenAlignment;
+		FVector ComponentScale;
+		Owner->GetScreenAlignmentAndScale(ScreenAlignment, ComponentScale);
+		UpdateHQLight(PointLightComponent, Payload, Particle, ScreenAlignment, ComponentScale, Owner->UseLocalSpace(), nullptr, false);
+	}	
+	return LightId;
+}
+
+void UParticleModuleLight::UpdateHQLight(UPointLightComponent* PointLightComponent, const FLightParticlePayload& Payload, const FBaseParticle& Particle, int32 ScreenAlignment, FVector ComponentScale, bool bLocalSpace, FSceneInterface* OwnerScene, bool bDoRTUpdate)
+{
+	if (bLocalSpace)
+	{
+		PointLightComponent->SetRelativeLocation(Particle.Location);
+	}
+	else
+	{
+		PointLightComponent->SetWorldLocation(Particle.Location);
+	}
+	
+	FLinearColor DesiredFinalColor = FVector(Particle.Color) * Particle.Color.A * Payload.ColorScale;
+	if (bUseInverseSquaredFalloff)
+	{
+		//later in light rendering HQ lights are multiplied by 16 in inverse falloff mode to adjust for lumens.  
+		//We want our particle lights to match simple lights as much as possible when toggling so remove that here.
+		const float fLumenAdjust = 1.0f / 16.0f;
+		DesiredFinalColor *= fLumenAdjust;
+	}
+
+	//light color on HQ lights is just a uint32 and our light scalars can be huge.  To preserve the color control and range from the particles we need to normalize
+	//around the full range multiplied value, and set the scalar intensity such that it will bring things back into line later.
+	FVector AdjustedColor(DesiredFinalColor.R, DesiredFinalColor.G, DesiredFinalColor.B);
+	float Intensity = AdjustedColor.Size();
+	AdjustedColor.Normalize();	
+	
+	//light module currently needs to run AFTER any size modification modules to get a value that matches 'simple' lights.
+	FVector2D Size;
+	Size.X = FMath::Abs(Particle.Size.X * ComponentScale.X);
+	Size.Y = FMath::Abs(Particle.Size.Y * ComponentScale.Y);
+	if (ScreenAlignment == PSA_Square || ScreenAlignment == PSA_FacingCameraPosition)
+	{
+		Size.Y = Size.X;
+	}
+	float Radius = Payload.RadiusScale * (Size.X + Size.X) * 0.5f;
+
+	//HQ light color is an FColor which is a uint32.  Thus we have to break out the out of range value into the intensity scalar.
+	FColor NormalizedColor;
+	NormalizedColor.R = (uint8)FMath::Min(AdjustedColor.X * 255.0f, 255.0f);
+	NormalizedColor.G = (uint8)FMath::Min(AdjustedColor.Y * 255.0f, 255.0f);
+	NormalizedColor.B = (uint8)FMath::Min(AdjustedColor.Z * 255.0f, 255.0f);
+	PointLightComponent->SetIntensity(Intensity);
+	PointLightComponent->SetLightColor(NormalizedColor);
+	PointLightComponent->SetAttenuationRadius(Radius);
+	PointLightComponent->SetLightFalloffExponent(Payload.LightExponent);
+
+	if (OwnerScene && bDoRTUpdate)
+	{
+		OwnerScene->UpdateLightTransform(PointLightComponent);
+		OwnerScene->UpdateLightColorAndBrightness(PointLightComponent);
+	}
 }
 
 void UParticleModuleLight::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
@@ -2733,17 +2932,56 @@ void UParticleModuleLight::Update(FParticleEmitterInstance* Owner, int32 Offset,
 	{
 		return;
 	}
+
+	UWorld* OwnerWorld = Owner->GetWorld();
+	FSceneInterface* OwnerScene = nullptr;
+	if (OwnerWorld)
+	{
+		OwnerScene = OwnerWorld->Scene;
+	}
+	
+	TSet<uint64> ActiveLights;
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
 	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride));
 	FPlatformMisc::Prefetch(Owner->ParticleData, (Owner->ParticleIndices[0] * Owner->ParticleStride) + CACHE_LINE_SIZE);
+	const bool bUseLocalSpace = Owner->UseLocalSpace();
+	int32 ScreenAlignment;
+	FVector ComponentScale;
+	Owner->GetScreenAlignmentAndScale(ScreenAlignment, ComponentScale);
+
 	BEGIN_UPDATE_LOOP;
 	{
 		PARTICLE_ELEMENT(FLightParticlePayload,	Data);
 		const float Brightness = BrightnessOverLife.GetValue(Particle.RelativeTime, Owner->Component);
 		Data.ColorScale = ColorScaleOverLife.GetValue(Particle.RelativeTime, Owner->Component) * Brightness;
+
+		if (bHighQualityLights && (Data.LightId != 0))
+		{
+			ActiveLights.Add(Data.LightId);
+
+			//for now we can do this
+			UPointLightComponent* PointLightComponent = (UPointLightComponent*)Data.LightId;
+			UpdateHQLight(PointLightComponent, Data, Particle, ScreenAlignment, ComponentScale, bUseLocalSpace, OwnerScene, true);
+		}
 	}
 	END_UPDATE_LOOP;
+
+	//remove any dead lights.
+	if (bHighQualityLights)
+	{
+		for (int32 i = 0; i < Owner->HighQualityLights.Num(); ++i)
+		{
+			UPointLightComponent* PointLightComponent = Owner->HighQualityLights[i];
+			if (PointLightComponent && !ActiveLights.Contains((uint64)PointLightComponent))
+			{
+				PointLightComponent->Modify();
+				PointLightComponent->DestroyComponent(false);
+				Owner->HighQualityLights.RemoveAtSwap(i);
+				--i;
+			}
+		}
+	}
 }
 
 uint32 UParticleModuleLight::RequiredBytes(FParticleEmitterInstance* Owner)
@@ -2786,7 +3024,6 @@ void UParticleModuleLight::SetToSensibleDefaults(UParticleEmitter* Owner)
 void UParticleModuleLight::Render3DPreview(FParticleEmitterInstance* Owner, const FSceneView* View,FPrimitiveDrawInterface* PDI)
 {
 #if WITH_EDITOR
-
 	if ((Owner == NULL) || (Owner->ActiveParticles <= 0) || 
 		(Owner->ParticleData == NULL) || (Owner->ParticleIndices == NULL))
 	{
@@ -2795,6 +3032,7 @@ void UParticleModuleLight::Render3DPreview(FParticleEmitterInstance* Owner, cons
 
 	if (bPreviewLightRadius)
 	{
+		check(IsInGameThread());
 		int32 Offset = 0;
 		UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 		const bool bLocalSpace = LODLevel->RequiredModule->bUseLocalSpace;
@@ -2885,6 +3123,7 @@ UParticleModuleTypeDataMesh::UParticleModuleTypeDataMesh(const FObjectInitialize
 	AxisLockOption = EPAL_NONE;
 	CameraFacingUpAxisOption_DEPRECATED = CameraFacing_NoneUP;
 	CameraFacingOption = XAxisFacing_NoUp;
+	bCollisionsConsiderPartilceSize = true;
 }
 
 FParticleEmitterInstance* UParticleModuleTypeDataMesh::CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent)
@@ -2919,6 +3158,10 @@ void UParticleModuleTypeDataMesh::Serialize(FArchive& Ar)
 		RPYDistribution->Min = oldOrient;
 		RPYDistribution->Max = oldOrient;
 		RPYDistribution->bIsDirty = true;
+	}
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_MESH_PARTICLE_COLLISIONS_CONSIDER_PARTICLE_SIZE)
+	{
+		bCollisionsConsiderPartilceSize = false;//Old data should default to the old behavior of not considering particle size.
 	}
 }
 
@@ -3436,7 +3679,7 @@ void UParticleModuleAttractorLine::Update(FParticleEmitterInstance* Owner, int32
 	FVector Line = EndPoint1 - EndPoint0;
 
 	// if both end points are the same, we end up with NaNs in the results of the update
-	if (Line.Size() == 0.0f)
+	if (Line.SizeSquared() == 0.0f)
 	{
 		Line = FVector(SMALL_NUMBER, SMALL_NUMBER, SMALL_NUMBER);
 	}
@@ -3992,29 +4235,8 @@ bool UDistributionVectorParticleParameter::GetParamValue(UObject* Data, FName Pa
 	UParticleSystemComponent* ParticleComp = Cast<UParticleSystemComponent>(Data);
 	if(ParticleComp)
 	{
-		bFoundParam = ParticleComp->GetVectorParameter(ParameterName, OutVector);
-
-		// If we failed to get a Vector parameter with the given name, see if we can get a Color parameter or Float parameter
-		if(!bFoundParam)
-		{
-			FLinearColor OutColor;
-			bFoundParam = ParticleComp->GetColorParameter(ParameterName, OutColor);
-			if(bFoundParam)
-			{
-				OutVector = FVector(OutColor);
-			}
-			else
-			{
-				float OutFloat;
-				bFoundParam = ParticleComp->GetFloatParameter(ParameterName, OutFloat);
-				if(bFoundParam)
-				{
-					OutVector = FVector(OutFloat);
-				}
-			}
-		}
+		bFoundParam = ParticleComp->GetAnyVectorParameter(ParameterName, OutVector);
 	}
-
 	return bFoundParam;
 }
 
@@ -4341,6 +4563,7 @@ void UParticleModuleTypeDataGpu::Build( FParticleEmitterBuildInfo& EmitterBuildI
 
 	// Collision flag.
 	EmitterInfo.bEnableCollision = EmitterBuildInfo.bEnableCollision;
+	EmitterInfo.CollisionMode = (EParticleCollisionMode::Type)EmitterBuildInfo.CollisionMode;
 
 	// Create or update GPU resources.
 	if ( EmitterInfo.Resources )

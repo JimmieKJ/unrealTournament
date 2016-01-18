@@ -1,98 +1,48 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "UTCTFGameState.h"
 #include "UTCTFScoring.h"
-#include "UTTeamGameMode.h"
+#include "UTCTFBaseGame.h"
 #include "UTCTFGameMode.generated.h"
 
-namespace MatchState
-{
-	extern UNREALTOURNAMENT_API const FName MatchEnteringHalftime;		// Entering Halftime
-	extern UNREALTOURNAMENT_API const FName MatchIsAtHalftime;			// The match has entered halftime
-	extern UNREALTOURNAMENT_API const FName MatchExitingHalftime;		// Exiting Halftime
-} 
-
 UCLASS()
-class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
+class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 {
 	GENERATED_UCLASS_BODY()
-
-	/** Cached reference to the CTF game state */
-	UPROPERTY(BlueprintReadOnly, Category=CTF)
-	AUTCTFGameState* CTFGameState;
-
-	/** Class of GameState associated with this GameMode. */
-	UPROPERTY(EditAnywhere, noclear, BlueprintReadWrite, Category = Classes)
-		TSubclassOf<class AUTCTFScoring> CTFScoringClass;
-
-	/** Handles individual player scoring */
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-	AUTCTFScoring* CTFScoring;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
-	int32 HalftimeDuration;
 
 	/**Holds the amount of time to give a flag carrier who has the flag out going in to half-time*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 	int32 AdvantageDuration;
 
-	TAssetSubclassOf<AUTWeapon> TranslocatorObject;
-
-	UFUNCTION(exec)
-	void CheatScore();
-
-	/** Admin control for restarting competitive matches with appropriate status. */
-	UFUNCTION(exec)
-		void SetRedScore(int32 NewScore);
-
-	UFUNCTION(exec)
-		void SetBlueScore(int32 NewScore);
-
 	UFUNCTION(exec)
 		void SetRemainingTime(int32 RemainingSeconds);
 
-	virtual void InitGameState();
-	virtual void PreInitializeComponents();
-	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
+	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage ) override;
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
-	virtual void CheckGameTime();
-	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
+	virtual void CheckGameTime() override;
 	virtual void DefaultTimer() override;
 
-	virtual void CallMatchStateChangeNotify() override;
 	virtual float GetTravelDelay() override;
 
-	virtual void HandleEnteringHalftime();
-	virtual void HandleHalftime();
-	virtual void HandleExitingHalftime();
+	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
+	virtual void HandleMatchIntermission() override;
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime() override;
-
-	virtual void PlacePlayersAroundFlagBase(int32 TeamNum);
+	virtual void HandleExitingIntermission() override;
 
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 
-	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
-	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 	void BuildServerResponseRules(FString& OutRules);
-
-	void AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo* Team);
-	void AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInfo* Team);
-	void AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team);
 
 	virtual void GetGood() override;
 
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+
 protected:
 
-	virtual void HandleMatchHasStarted();
-
-	UFUNCTION()
-	virtual void HalftimeIsOver();
-
-	virtual void ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker) override;
-	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual void HandleMatchHasStarted() override;
 
 	// returns the team index of a team with advatage or < 0 if no team has one
 	virtual uint8 TeamWithAdvantage();
@@ -105,11 +55,10 @@ protected:
 
 	virtual void EndOfHalf();
 
-	virtual void UpdateSkillRating() override;
-
-#if !UE_SERVER
 public:
-	virtual void BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList);
+	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
+#if !UE_SERVER
+	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
 #endif
 
 

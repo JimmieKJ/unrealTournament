@@ -13,9 +13,9 @@ class UGatherTextFromMetaDataCommandlet : public UGatherTextCommandletBase
 	GENERATED_UCLASS_BODY()
 
 public:
-	// Begin UCommandlet Interface
+	//~ Begin UCommandlet Interface
 	virtual int32 Main(const FString& Params) override;
-	// End UCommandlet Interface
+	//~ End UCommandlet Interface
 
 private:
 	struct FGatherParameters
@@ -28,4 +28,7 @@ private:
 private:
 	void GatherTextFromUObjects(const TArray<FString>& IncludePaths, const TArray<FString>& ExcludePaths, const FGatherParameters& Arguments);
 	void GatherTextFromUObject(UField* const Field, const FGatherParameters& Arguments);
+
+private:
+	bool ShouldGatherFromEditorOnlyData;
 };

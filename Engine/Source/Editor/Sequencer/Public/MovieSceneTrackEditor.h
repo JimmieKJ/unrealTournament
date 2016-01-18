@@ -4,32 +4,53 @@
 
 //@todo Sequencer - these have to be here for now because this class contains a small amount of implementation inside this header to avoid exporting this class
 #include "ISequencer.h"
+#include "ISequencerSection.h"
+#include "ISequencerTrackEditor.h"
 #include "MovieScene.h"
+#include "MovieSceneTrack.h"
 #include "ScopedTransaction.h"
+#include "MovieSceneSequence.h"
+
 
 class ISequencerSection;
+class UMovieSceneTrack;
 
-DECLARE_DELEGATE_OneParam(FOnKeyProperty, float)
+
+/** Delegate for adding keys for a property
+ * float - The time at which to add the key.
+ * return - True if any data was changed as a result of the call, otherwise false.
+ */
+DECLARE_DELEGATE_RetVal_OneParam(bool, FOnKeyProperty, float)
+
+DECLARE_DELEGATE_RetVal_OneParam(bool, FCanKeyProperty, float)
+
 
 /**
- * Base class for handling key and section drawing and manipulation for a UMovieSceneTrack class
- * @todo Sequencer - Interface needs cleanup
+ * Base class for handling key and section drawing and manipulation
+ * of a UMovieSceneTrack class.
+ *
+ * @todo Sequencer Interface needs cleanup
  */
 class FMovieSceneTrackEditor
+	: public TSharedFromThis<FMovieSceneTrackEditor>
+	, public ISequencerTrackEditor
 {
 public:
+
 	/** Constructor */
-	FMovieSceneTrackEditor( TSharedRef<ISequencer> InSequencer )
-		: Sequencer( InSequencer )
-	{}
+	FMovieSceneTrackEditor(TSharedRef<ISequencer> InSequencer)
+		: Sequencer(InSequencer)
+	{ }
 
 	/** Destructor */
-	virtual ~FMovieSceneTrackEditor(){};
+	virtual ~FMovieSceneTrackEditor() { };
+
+public:
 
 	/** @return The current movie scene */
-	UMovieScene* GetMovieScene() const
+	UMovieSceneSequence* GetMovieSceneSequence() const
 	{
-		return Sequencer.Pin()->GetFocusedMovieScene();
+		return Sequencer.Pin()->GetFocusedMovieSceneSequence();
 	}
 
 	/**
@@ -39,17 +60,9 @@ public:
 	 * @param OutTime		The current time of the sequencer which should be used for adding keys during auto-key
 	 * @return true	if we can auto-key
 	 */
-	float GetTimeForKey( UMovieScene* InMovieScene )
+	float GetTimeForKey( UMovieSceneSequence* InMovieSceneSequence )
 	{ 
-		return Sequencer.Pin()->GetCurrentLocalTime( *InMovieScene );
-	}
-
-	/** Gets whether the tool can legally autokey */
-	virtual bool IsAllowedToAutoKey() const
-	{
-		// @todo sequencer livecapture: This turns on "auto key" for the purpose of capture keys for actor state
-		// during PIE sessions when record mode is active.
-		return Sequencer.Pin()->IsRecordingLive() || Sequencer.Pin()->IsAutoKeyEnabled();
+		return Sequencer.Pin()->GetCurrentLocalTime( *InMovieSceneSequence );
 	}
 
 	void NotifyMovieSceneDataChanged()
@@ -60,33 +73,39 @@ public:
 			SequencerPin->NotifyMovieSceneDataChanged();
 		}
 	}
-	
-	void AnimatablePropertyChanged( TSubclassOf<UMovieSceneTrack> TrackClass, bool bMustBeAutokeying, FOnKeyProperty OnKeyProperty )
+
+	void AnimatablePropertyChanged( FOnKeyProperty OnKeyProperty )
 	{
 		check(OnKeyProperty.IsBound());
 
 		// Get the movie scene we want to autokey
-		UMovieScene* MovieScene = GetMovieScene();
-		float KeyTime = GetTimeForKey( MovieScene );
-		bool bIsKeyingValid = !bMustBeAutokeying || IsAllowedToAutoKey();
+		UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
+		float KeyTime = GetTimeForKey( MovieSceneSequence );
 
-		if( bIsKeyingValid )
+		if( !Sequencer.Pin()->IsRecordingLive() )
 		{
-			check( MovieScene );
+			check( MovieSceneSequence );
 
 			// @todo Sequencer - The sequencer probably should have taken care of this
-			MovieScene->SetFlags(RF_Transactional);
+			MovieSceneSequence->SetFlags(RF_Transactional);
 		
 			// Create a transaction record because we are about to add keys
 			const bool bShouldActuallyTransact = !Sequencer.Pin()->IsRecordingLive();		// Don't transact if we're recording in a PIE world.  That type of keyframe capture cannot be undone.
 			FScopedTransaction AutoKeyTransaction( NSLOCTEXT("AnimatablePropertyTool", "PropertyChanged", "Animatable Property Changed"), bShouldActuallyTransact );
 
-			OnKeyProperty.ExecuteIfBound( KeyTime );
-
-			// Movie scene data has changed
-			NotifyMovieSceneDataChanged();
+			if( OnKeyProperty.Execute( KeyTime ) )
+			{
+				// Movie scene data has changed
+				NotifyMovieSceneDataChanged();
+			}
 		}
 	}
+
+	struct FFindOrCreateHandleResult
+	{
+		FGuid Handle;
+		bool bWasCreated;
+	};
 	
 	/**
 	 * Finds or creates a binding to an object
@@ -94,92 +113,136 @@ public:
 	 * @param Object	The object to create a binding for
 	 * @return A handle to the binding or an invalid handle if the object could not be bound
 	 */
-	FGuid FindOrCreateHandleToObject( UObject* Object )
+	FFindOrCreateHandleResult FindOrCreateHandleToObject( UObject* Object, bool bCreateHandleIfMissing = true )
 	{
-		return GetSequencer()->GetHandleToObject( Object );
+		FFindOrCreateHandleResult Result;
+		bool bHandleWasValid = GetSequencer()->GetHandleToObject( Object, false ).IsValid();
+		Result.Handle = GetSequencer()->GetHandleToObject( Object, bCreateHandleIfMissing );
+		Result.bWasCreated = bHandleWasValid == false && Result.Handle.IsValid();
+		return Result;
 	}
 
-	UMovieSceneTrack* GetTrackForObject( const FGuid& ObjectHandle, TSubclassOf<class UMovieSceneTrack> TrackClass, FName UniqueTypeName )
+	struct FFindOrCreateTrackResult
 	{
-		check( UniqueTypeName != NAME_None );
+		UMovieSceneTrack* Track;
+		bool bWasCreated;
+	};
 
-		UMovieScene* MovieScene = GetSequencer()->GetFocusedMovieScene();
+	FFindOrCreateTrackResult FindOrCreateTrackForObject( const FGuid& ObjectHandle, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName = NAME_None, bool bCreateTrackIfMissing = true )
+	{
+		FFindOrCreateTrackResult Result;
+		bool bTrackExisted;
 
-		UMovieSceneTrack* Type = MovieScene->FindTrack( TrackClass, ObjectHandle, UniqueTypeName );
+		UMovieScene* MovieScene = GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene();
+		Result.Track = MovieScene->FindTrack( TrackClass, ObjectHandle, PropertyName );
+		bTrackExisted = Result.Track != nullptr;
 
-		if( !Type )
+		if (!Result.Track && bCreateTrackIfMissing)
 		{
-			Type = MovieScene->AddTrack( TrackClass, ObjectHandle );
+			Result.Track = AddTrack(MovieScene, ObjectHandle, TrackClass, PropertyName);
 		}
 
-		return Type;
+		Result.bWasCreated = bTrackExisted == false && Result.Track != nullptr;
+
+		return Result;
 	}
 
-	UMovieSceneTrack* GetMasterTrack( TSubclassOf<UMovieSceneTrack> TrackClass )
+	template<typename TrackClass>
+	struct FFindOrCreateMasterTrackResult
 	{
-		UMovieScene* MovieScene = GetSequencer()->GetFocusedMovieScene();
-		UMovieSceneTrack* Type = MovieScene->FindMasterTrack( TrackClass );
+		TrackClass* Track;
+		bool bWasCreated;
+	};
 
-		if( !Type )
+	/**
+	 * Find or add a master track of the specified type in the focused movie scene.
+	 *
+	 * @param TrackClass The class of the track to find or add.
+	 * @return The track results.
+	 */
+	template<typename TrackClass>
+	FFindOrCreateMasterTrackResult<TrackClass> FindOrCreateMasterTrack()
+	{
+		FFindOrCreateMasterTrackResult<TrackClass> Result;
+		bool bTrackExisted;
+
+		UMovieScene* MovieScene = GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene();
+		Result.Track = MovieScene->FindMasterTrack<TrackClass>();
+		bTrackExisted = Result.Track != nullptr;
+
+		if (Result.Track == nullptr)
 		{
-			Type = MovieScene->AddMasterTrack( TrackClass );
+			Result.Track = MovieScene->AddMasterTrack<TrackClass>();
 		}
 
-		return Type;
+		Result.bWasCreated = bTrackExisted == false && Result.Track != nullptr;
+		return Result;
 	}
 
 
 	/** @return The sequencer bound to this handler */
-	const TSharedPtr<ISequencer> GetSequencer() const { return Sequencer.Pin(); }
-	
-	/**
-	 * Returns whether a track class is supported by this tool
-	 *
-	 * @param TrackClass	The track class that could be supported
-	 * @return true if the type is supported
-	 */
+	const TSharedPtr<ISequencer> GetSequencer() const
+	{
+		return Sequencer.Pin();
+	}
+
+public:
+
+	// ISequencerTrackEditor interface
+
+	virtual void AddKey( const FGuid& ObjectGuid, UObject* AdditionalAsset = nullptr ) override { }
+
+	virtual UMovieSceneTrack* AddTrack(UMovieScene* FocusedMovieScene, const FGuid& ObjectHandle, TSubclassOf<class UMovieSceneTrack> TrackClass, FName UniqueTypeName) override
+	{
+		return FocusedMovieScene->AddTrack(TrackClass, ObjectHandle);
+	}
+
+	virtual void BindCommands(TSharedRef<FUICommandList> SequencerCommandBindings) override { }
+	virtual void BuildAddTrackMenu(FMenuBuilder& MenuBuilder) override { }
+	virtual void BuildObjectBindingEditButtons(TSharedPtr<SHorizontalBox> EditBox, const FGuid& ObjectBinding, const UClass* ObjectClass) override { }
+	virtual void BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass) override { }
+	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track) override  { return TSharedPtr<SWidget>(); }
+	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override { }
+	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override { return false; }
+
+	virtual bool IsAllowedKeyAll() const
+	{
+		return Sequencer.Pin()->GetKeyAllEnabled();
+	}
+
+	virtual bool IsAllowedToAutoKey() const
+	{
+		// @todo sequencer livecapture: This turns on "auto key" for the purpose of capture keys for actor state
+		// during PIE sessions when record mode is active.
+		return Sequencer.Pin()->IsRecordingLive() || Sequencer.Pin()->GetAutoKeyEnabled();
+	}
+
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(class UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) = 0;
+	virtual void OnRelease() override { };
+
+	virtual int32 PaintTrackArea(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) override
+	{
+		return LayerId;
+	}
+
 	virtual bool SupportsType( TSubclassOf<class UMovieSceneTrack> TrackClass ) const = 0;
+	virtual void Tick(float DeltaTime) override { }
+
+protected:
 
 	/**
-	 * Called to generate a section layout for a particular section
+	 * Gets the currently focused movie scene, if any.
 	 *
-	 * @param SectionObject	The section to make UI for
-	 * @param SectionName	The name of the section
+	 * @result Focused movie scene, or nullptr if no movie scene is focused.
 	 */
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface( class UMovieSceneSection& SectionObject, UMovieSceneTrack* Track ) = 0;
-
-	/**
-	 * Manually adds a key
-
-	 * @param ObjectGuid		The Guid of the object that we are adding a key to
-	 * @param AdditionalAsset	An optional asset that can be added with the key
-	 */
-	virtual void AddKey( const FGuid& ObjectGuid, UObject* AdditionalAsset = NULL ) {}
-
-	/** Ticks this tool */
-	virtual void Tick(float DeltaTime) {}
-	
-	/**
-	 * Called when an asset is dropped into Sequencer. Can potentially consume the asset
-	 * so it doesn't get added as a spawnable
-	 *
-	 * @param Asset				The asset that is dropped in
-	 * @param TargetObjectGuid	The object guid this asset is dropped onto, if applicable
-	 * @return					True, if we want to consume this asset
-	 */
-	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) {return false;}
-	
-	/**
-	 * Builds up the object binding context menu for the outliner
-	 *
-	 * @param MenuBuilder	The menu builder to change
-	 * @param ObjectBinding	The object binding this is for
-	 * @param ObjectClass	The class of the object this is for
-	 */
-	virtual void BuildObjectBindingContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass) {}
+	UMovieScene* GetFocusedMovieScene() const
+	{
+		UMovieSceneSequence* FocusedSequence = GetSequencer()->GetFocusedMovieSceneSequence();
+		return FocusedSequence->GetMovieScene();
+	}
 
 private:
+
 	/** The sequencer bound to this handler.  Used to access movie scene and time info during auto-key */
 	TWeakPtr<ISequencer> Sequencer;
 };
-

@@ -31,27 +31,27 @@ public:
 	 *
 	 * @param InRecipientAuthorizer An optional recipient authorizer.
 	 */
-	FMessageBus( const IAuthorizeMessageRecipientsPtr& InRecipientAuthorizer );
+	FMessageBus(const IAuthorizeMessageRecipientsPtr& InRecipientAuthorizer);
 
-	/** Destructor. */
-	~FMessageBus();
+	/** Virtual destructor. */
+	virtual ~FMessageBus();
 
 public:
 
 	// IMessageBus interface
 
-	virtual void Forward( const IMessageContextRef& Context, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const ISendMessagesRef& Forwarder ) override;
+	virtual void Forward(const IMessageContextRef& Context, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const ISendMessagesRef& Forwarder) override;
 	virtual IMessageTracerRef GetTracer() override;
-	virtual void Intercept( const IMessageInterceptorRef& Interceptor, const FName& MessageType ) override;
+	virtual void Intercept(const IMessageInterceptorRef& Interceptor, const FName& MessageType) override;
 	virtual FOnMessageBusShutdown& OnShutdown() override;
-	virtual void Publish( void* Message, UScriptStruct* TypeInfo, EMessageScope Scope, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Publisher ) override;
-	virtual void Register( const FMessageAddress& Address, const IReceiveMessagesRef& Recipient ) override;
-	virtual void Send( void* Message, UScriptStruct* TypeInfo, const IMessageAttachmentPtr& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Sender ) override;
+	virtual void Publish(void* Message, UScriptStruct* TypeInfo, EMessageScope Scope, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Publisher) override;
+	virtual void Register(const FMessageAddress& Address, const IReceiveMessagesRef& Recipient) override;
+	virtual void Send(void* Message, UScriptStruct* TypeInfo, const IMessageAttachmentPtr& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Sender) override;
 	virtual void Shutdown() override;
-	virtual IMessageSubscriptionPtr Subscribe( const IReceiveMessagesRef& Subscriber, const FName& MessageType, const FMessageScopeRange& ScopeRange ) override;
-	virtual void Unintercept( const IMessageInterceptorRef& Interceptor, const FName& MessageType ) override;
-	virtual void Unregister( const FMessageAddress& Address ) override;
-	virtual void Unsubscribe( const IReceiveMessagesRef& Subscriber, const FName& MessageType ) override;
+	virtual IMessageSubscriptionPtr Subscribe(const IReceiveMessagesRef& Subscriber, const FName& MessageType, const FMessageScopeRange& ScopeRange) override;
+	virtual void Unintercept(const IMessageInterceptorRef& Interceptor, const FName& MessageType) override;
+	virtual void Unregister(const FMessageAddress& Address) override;
+	virtual void Unsubscribe(const IReceiveMessagesRef& Subscriber, const FName& MessageType) override;
 
 private:
 

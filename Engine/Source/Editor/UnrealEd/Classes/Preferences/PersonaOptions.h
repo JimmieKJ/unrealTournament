@@ -49,6 +49,15 @@ class UNREALED_API UPersonaOptions : public UObject
 	UPROPERTY(EditAnywhere, config, Category=Options)
 	uint32 DefaultLocalAxesSelection;
 
+	UPROPERTY(EditAnywhere, config, Category = Options)
+	FLinearColor SectionTimingNodeColor;
+
+	UPROPERTY(EditAnywhere, config, Category = Options)
+	FLinearColor NotifyTimingNodeColor;
+
+	UPROPERTY(EditAnywhere, config, Category = Options)
+	FLinearColor BranchingPointTimingNodeColor;
+
 public:
 	void SetViewportBackgroundColor( const FLinearColor& InViewportBackgroundColor);
 	void SetShowGrid( bool bInShowGrid );
@@ -61,5 +70,7 @@ public:
 	void SetViewFOV( float InViewFOV );
 	void SetDefaultLocalAxesSelection( uint32 InDefaultLocalAxesSelection );
 	void SetShowMeshStats( int32 InShowMeshStats );
+	void SetSectionTimingNodeColor(const FLinearColor& InColor);
+	void SetNotifyTimingNodeColor(const FLinearColor& InColor);
+	void SetBranchingPointTimingNodeColor(const FLinearColor& InColor);
 };
-

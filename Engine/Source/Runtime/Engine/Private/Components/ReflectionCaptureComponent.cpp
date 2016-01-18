@@ -1087,9 +1087,6 @@ void UReflectionCaptureComponent::UpdateDerivedData(FReflectionCaptureFullHDRDer
 {
 	if (FullHDRDerivedData)
 	{
-#if UE_SERVER
-		delete FullHDRDerivedData;
-#else
 		// Delete the derived data on the rendering thread, since the rendering thread may be reading from its contents in FScene::UpdateReflectionCaptureContents
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( 
 			DeleteCaptureDataCommand,
@@ -1097,7 +1094,6 @@ void UReflectionCaptureComponent::UpdateDerivedData(FReflectionCaptureFullHDRDer
 		{
 			delete FullHDRDerivedData;
 		});
-#endif
 	}
 
 	FullHDRDerivedData = NewDerivedData;

@@ -20,7 +20,7 @@
 namespace physx
 {
 
-typedef unsigned long PxTaskID;
+typedef PxU32 PxTaskID;
 class PxGpuCopyDescQueue;
 
 namespace apex

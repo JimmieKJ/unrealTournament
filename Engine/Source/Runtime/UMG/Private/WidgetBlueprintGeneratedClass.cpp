@@ -15,15 +15,33 @@ UWidgetBlueprintGeneratedClass::UWidgetBlueprintGeneratedClass(const FObjectInit
 {
 }
 
-void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) const
+void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWidget
+	, const UClass* InClass
+	, bool InCanEverTick
+	, bool InCanEverPaint
+	, UWidgetTree* InWidgetTree
+	, const TArray< UWidgetAnimation* >& InAnimations
+	, const TArray< FDelegateRuntimeBinding >& InBindings
+	, UWidgetTree* InDesignerWidgetTree)
 {
-	UWidgetTree* ClonedTree = DuplicateObject<UWidgetTree>( WidgetTree, UserWidget );
+	check(InClass);
 
-#if WITH_EDITOR
-	UserWidget->WidgetGeneratedBy = ClassGeneratedBy;
+	UserWidget->bCanEverTick = InCanEverTick;
+	UserWidget->bCanEverPaint = InCanEverPaint;
+
+#if WITH_EDITORONLY_DATA
+	UWidgetTree* ClonedTree = DuplicateObject<UWidgetTree>(InDesignerWidgetTree ? InDesignerWidgetTree : InWidgetTree, UserWidget);
+#else
+	UWidgetTree* ClonedTree = DuplicateObject<UWidgetTree>(InWidgetTree, UserWidget);
 #endif
 
-	if ( ClonedTree )
+	UserWidget->WidgetGeneratedByClass = InClass;
+
+#if WITH_EDITOR
+	UserWidget->WidgetGeneratedBy = InClass->ClassGeneratedBy;
+#endif
+
+	if (ClonedTree)
 	{
 		ClonedTree->SetFlags(RF_Transactional);
 
@@ -31,30 +49,32 @@ void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) c
 
 		UClass* WidgetBlueprintClass = UserWidget->GetClass();
 
-		for(UWidgetAnimation* Animation : Animations)
+		for (UWidgetAnimation* Animation : InAnimations)
 		{
-			UWidgetAnimation* Anim = DuplicateObject<UWidgetAnimation>( Animation, UserWidget );
+			UWidgetAnimation* Anim = DuplicateObject<UWidgetAnimation>(Animation, UserWidget);
 
-			if( Anim->MovieScene )
+			if( Anim->GetMovieScene() )
 			{
 				// Find property with the same name as the template and assign the new widget to it.
-				UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WidgetBlueprintClass, Anim->MovieScene->GetFName());
-				if(Prop)
+				UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WidgetBlueprintClass, Anim->GetMovieScene()->GetFName());
+				if (Prop)
 				{
 					Prop->SetObjectPropertyValue_InContainer(UserWidget, Anim);
 				}
 			}
 		}
 
-		ClonedTree->ForEachWidget([&] (UWidget* Widget) {
+		ClonedTree->ForEachWidget([&](UWidget* Widget) {
 			// Not fatal if NULL, but shouldn't happen
-			if ( !ensure(Widget != nullptr) )
+			if (!ensure(Widget != nullptr))
 			{
 				return;
 			}
 
+			Widget->WidgetGeneratedByClass = InClass;
+
 #if WITH_EDITOR
-			Widget->WidgetGeneratedBy = ClassGeneratedBy;
+			Widget->WidgetGeneratedBy = InClass->ClassGeneratedBy;
 #endif
 
 			// TODO UMG Make this an FName
@@ -64,7 +84,7 @@ void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) c
 
 			// Find property with the same name as the template and assign the new widget to it.
 			UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WidgetBlueprintClass, *VariableName);
-			if ( Prop )
+			if (Prop)
 			{
 				Prop->SetObjectPropertyValue_InContainer(UserWidget, Widget);
 				UObject* Value = Prop->GetObjectPropertyValue_InContainer(UserWidget);
@@ -72,22 +92,22 @@ void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) c
 			}
 
 			// Perform binding
-			for ( const FDelegateRuntimeBinding& Binding : Bindings )
+			for (const FDelegateRuntimeBinding& Binding : InBindings)
 			{
 				//TODO UMG Make this faster.
-				if ( Binding.ObjectName == VariableName )
+				if (Binding.ObjectName == VariableName)
 				{
-					UDelegateProperty* DelegateProperty = FindField<UDelegateProperty>(Widget->GetClass(), FName(*( Binding.PropertyName.ToString() + TEXT("Delegate") )));
-					if ( !DelegateProperty )
+					UDelegateProperty* DelegateProperty = FindField<UDelegateProperty>(Widget->GetClass(), FName(*(Binding.PropertyName.ToString() + TEXT("Delegate"))));
+					if (!DelegateProperty)
 					{
 						DelegateProperty = FindField<UDelegateProperty>(Widget->GetClass(), Binding.PropertyName);
 					}
 
-					if ( DelegateProperty )
+					if (DelegateProperty)
 					{
 						bool bSourcePathBound = false;
 
-						if ( Binding.SourcePath.IsValid() )
+						if (Binding.SourcePath.IsValid())
 						{
 							bSourcePathBound = Widget->AddBinding(DelegateProperty, UserWidget, Binding.SourcePath);
 						}
@@ -95,10 +115,10 @@ void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) c
 						// If no native binder is found then the only possibility is that the binding is for
 						// a delegate that doesn't match the known native binders available and so we
 						// fallback to just attempting to bind to the function directly.
-						if ( bSourcePathBound == false )
+						if (bSourcePathBound == false)
 						{
 							FScriptDelegate* ScriptDelegate = DelegateProperty->GetPropertyValuePtr_InContainer(Widget);
-							if ( ScriptDelegate )
+							if (ScriptDelegate)
 							{
 								ScriptDelegate->BindUFunction(UserWidget, Binding.FunctionName);
 							}
@@ -113,16 +133,27 @@ void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) c
 				Widget->Navigation->ResolveExplictRules(ClonedTree);
 			}
 
-	#if WITH_EDITOR
+#if WITH_EDITOR
 			Widget->ConnectEditorData();
-	#endif
+#endif
 		});
 
 		// Bind any delegates on widgets
-		BindDynamicDelegates(UserWidget);
+		UBlueprintGeneratedClass::BindDynamicDelegates(InClass, UserWidget);
 
 		//TODO UMG Add OnWidgetInitialized?
 	}
+}
+
+void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) const
+{
+	InitializeWidgetStatic(UserWidget, this, bCanEverTick, bCanEverPaint, WidgetTree, Animations, Bindings, 
+#if WITH_EDITOR
+		DesignerWidgetTree
+#else // WITH_EDITOR
+		nullptr
+#endif  // WITH_EDITOR
+		);
 }
 
 void UWidgetBlueprintGeneratedClass::PostLoad()

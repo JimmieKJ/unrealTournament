@@ -22,8 +22,9 @@
 
 =============================================================================*/
 
+
 #include "VertexFactoryCommon.usf"
-#include "GpuSkinCacheCommon.usf"
+#include "GpuSkinCommon.usf"
 
 #ifndef GPUSKIN_MORPH_BLEND
 #define GPUSKIN_MORPH_BLEND 0
@@ -52,9 +53,7 @@ bool PerBoneMotionBlur;
 
 #if GPUSKIN_APEX_CLOTH
 /** Vertex buffer from which to read simulated positions of clothing. */
-Buffer<float4> ClothSimulVertsPositions;
-/** Vertex buffer from which to read simulated normals of clothing. */
-Buffer<float4> ClothSimulVertsNormals;
+Buffer<float2> ClothSimulVertsPositionsNormals;
 /** blend weight between simulated positions and original key-framed animation */
 float ClothBlendWeight;
 #endif// #if GPUSKIN_APEX_CLOTH
@@ -123,7 +122,7 @@ struct FVertexFactoryInterpolantsVSToDS
 };
 
 /** Converts from vertex factory specific interpolants to a FMaterialPixelParameters, which is used by material inputs. */
-FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVSToPS Interpolants, float4 PixelPosition)
+FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVSToPS Interpolants, float4 SvPosition)
 {
 	// GetMaterialPixelParameters is responsible for fully initializing the result
 	FMaterialPixelParameters Result = MakeInitializedMaterialPixelParameters();
@@ -161,13 +160,11 @@ half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
 
-// The bone matrix buffer stored as 4x3 (3 float4 texels behind each other), all chunks of a skeletal mesh in one
+// The bone matrix buffer stored as 4x3 (3 float4 behind each other), all chunks of a skeletal mesh in one, each skeletal mesh has it's own buffer
 Buffer<float4> BoneMatrices;
-// buffer with all old bone matrices stored as 4x3 (3 float4 texels behind each other), all chunks of a skeletal mesh in one
+// The previous bone matrix buffer stored as 4x3 (3 float4 behind each other), all chunks of a skeletal mesh in one, each skeletal mesh has it's own buffer
 Buffer<float4> PreviousBoneMatrices;
 
-// .xyz to offset the lookup in the buffer .w unused
-uint4 BoneIndexOffset;
 
 	#if GPUSKIN_PASS_THROUGH
 uint GPUSkinCacheStreamFloatOffset;
@@ -230,7 +227,7 @@ bool IsSimulatedVertex( FVertexFactoryInput Input )
 float3 GetClothSimulPosition(int Index)
 {
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
-		return ClothSimulVertsPositions[Index].xyz;
+		return float3(ClothSimulVertsPositionsNormals[Index * 3], ClothSimulVertsPositionsNormals[Index * 3 + 1].x);
 #else
 	return APEXClothParam.Positions[Index];
 #endif //FEATURE_LEVEL >= FEATURE_LEVEL_SM4
@@ -239,7 +236,7 @@ float3 GetClothSimulPosition(int Index)
 float3 GetClothSimulNormal(int Index)
 {
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
-		return ClothSimulVertsNormals[Index].xyz;
+		return float3(ClothSimulVertsPositionsNormals[Index * 3 + 1].y, ClothSimulVertsPositionsNormals[Index * 3 + 2]);
 #else
 	return APEXClothParam.Normals[Index];
 #endif //FEATURE_LEVEL >= FEATURE_LEVEL_SM4
@@ -307,9 +304,9 @@ FBoneMatrix CalcBoneMatrix( FVertexFactoryInput Input )
 FBoneMatrix GetPreviousBoneMatrix(int Index)
 {
 #if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
-	float4 A = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.x];
-	float4 B = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.y];
-	float4 C = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.z];
+	float4 A = PreviousBoneMatrices[Index * 3 + 0];
+	float4 B = PreviousBoneMatrices[Index * 3 + 1];
+	float4 C = PreviousBoneMatrices[Index * 3 + 2];
 	return FBoneMatrix(A,B,C);
 #else
 	return Bones.BoneMatrices[Index];
@@ -574,19 +571,16 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
 #if GPUSKIN_PASS_THROUGH
-		uint StreamOffset = GPUSkinCacheStreamFloatOffset + (Intermediates.VertexID * GPUSkinCacheStreamStride);
-		return mul(float4(	GPUSkinCacheStreamBuffer[StreamOffset + GPUSKIN_VB_OFFSET_POSITION + 0],
-							GPUSkinCacheStreamBuffer[StreamOffset + GPUSKIN_VB_OFFSET_POSITION + 1],
-							GPUSkinCacheStreamBuffer[StreamOffset + GPUSKIN_VB_OFFSET_POSITION + 2],
-							1),
-					PreviousLocalToWorld);
+	//#todo-rco: Currently have no information to calculate it, so return current World Position
+	return TransformLocalToTranslatedWorld(Intermediates.UnpackedPosition);
 #else
 	float4 PrevSkinPosInWorld = mul(float4(SkinPreviousPosition(Input, Intermediates),1), PreviousLocalToWorld);
 #if GPUSKIN_APEX_CLOTH
 	if( IsSimulatedVertex(Input) )
 	{
-		float3 BlendedPrevPos = lerp(PrevSkinPosInWorld.xyz, Intermediates.SimulatedPosition, ClothBlendWeight);		 
-		return float4(BlendedPrevPos + View.PrevPreViewTranslation, 1);
+		float3 PrevSimulatedPos = mul(mul(float4(Intermediates.SimulatedPosition.xyz, 1), Primitive.WorldToLocal), PreviousLocalToWorld).xyz;
+		float3 BlendedPrevPos = lerp(PrevSkinPosInWorld.xyz, PrevSimulatedPos.xyz, ClothBlendWeight);
+		return float4(BlendedPrevPos, 1);
 	}
 #endif // GPUSKIN_APEX_CLOTH
 
@@ -641,7 +635,7 @@ FMaterialTessellationParameters GetMaterialTessellationParameters(FVertexFactory
 	Result.TangentToWorldPreScale = 1;
 
 
-	Result.WorldPosition = CameraLocalWorldPosition + View.ViewOrigin.xyz;
+	Result.WorldPosition = CameraLocalWorldPosition + View.WorldCameraOrigin;
 
 	return Result;
 }

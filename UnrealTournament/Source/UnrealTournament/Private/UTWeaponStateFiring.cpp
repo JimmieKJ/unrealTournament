@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTWeaponState.h"
@@ -139,6 +139,3 @@ bool UUTWeaponStateFiring::BeginFiringSequence(uint8 FireModeNum, bool bClientFi
 	}
 	return false;
 }
-
-
-// FIX PUTDOWN FOR CHARGING modes

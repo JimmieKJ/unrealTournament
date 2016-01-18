@@ -40,7 +40,7 @@ class AIGRAPH_API UAIGraphNode : public UEdGraphNode
 	UPROPERTY()
 	FString ErrorMessage;
 
-	// Begin UEdGraphNode Interface
+	//~ Begin UEdGraphNode Interface
 	virtual class UAIGraph* GetAIGraph();
 	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
 	virtual void PostPlacedNewNode() override;
@@ -52,9 +52,9 @@ class AIGRAPH_API UAIGraphNode : public UEdGraphNode
 	virtual void NodeConnectionListChanged() override;
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const override;
 	virtual void FindDiffs(class UEdGraphNode* OtherNode, struct FDiffResults& Results) override;
-	// End UEdGraphNode Interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditImport() override;
 	virtual void PostEditUndo() override;

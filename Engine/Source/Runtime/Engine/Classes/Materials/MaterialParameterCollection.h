@@ -66,32 +66,32 @@ class UMaterialParameterCollection : public UObject
 	UPROPERTY(EditAnywhere, Category=Material)
 	TArray<FCollectionVectorParameter> VectorParameters;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void PreEditChange(class FEditPropertyChain& PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostLoad() override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	/** Finds a parameter name given an Id, returns NAME_None if the parameter was not found. */
 	FName GetParameterName(const FGuid& Id) const;
 
 	/** Finds a parameter id given a name, returns the default guid if the parameter was not found. */
-	FGuid GetParameterId(FName ParameterName) const;
+	ENGINE_API FGuid GetParameterId(FName ParameterName) const;
 
 	/** Gets a vector and component index for the given parameter, used when compiling materials, to know where to access a certain parameter. */
-	void GetParameterIndex(const FGuid& Id, int32& OutIndex, int32& OutComponentIndex) const;
+	ENGINE_API void GetParameterIndex(const FGuid& Id, int32& OutIndex, int32& OutComponentIndex) const;
 
 	/** Populates an array with either scalar or vector parameter names. */
 	ENGINE_API void GetParameterNames(TArray<FName>& OutParameterNames, bool bVectorParameters) const;
 
 	/** Utility to find a scalar parameter struct given a parameter name.  Returns NULL if not found. */
-	const FCollectionScalarParameter* GetScalarParameterByName(FName ParameterName) const;
+	ENGINE_API const FCollectionScalarParameter* GetScalarParameterByName(FName ParameterName) const;
 
 	/** Utility to find a vector parameter struct given a parameter name.  Returns NULL if not found. */
-	const FCollectionVectorParameter* GetVectorParameterByName(FName ParameterName) const;
+	ENGINE_API const FCollectionVectorParameter* GetVectorParameterByName(FName ParameterName) const;
 
 	/** Accessor for the uniform buffer layout description. */
 	const FUniformBufferStruct& GetUniformBufferStruct() const

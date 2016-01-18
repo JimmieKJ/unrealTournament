@@ -8,6 +8,7 @@
 #include "AnimationUtils.h"
 #include "Animation/AnimCompositeBase.h"
 #include "Animation/AnimSequence.h"
+#include "AnimationRuntime.h"
 
 ///////////////////////////////////////////////////////
 // FAnimSegment
@@ -99,7 +100,8 @@ void FAnimSegment::GetAnimNotifiesFromTrackPositions(const float& PreviousTrackP
 			// The track can be playing backwards and the animation can be playing backwards, so we
 			// need to combine to work out what direction we are traveling through the animation
 			bool bAnimPlayingBackwards = bTrackPlayingBackwards ^ (ValidPlayRate < 0.f);
-			
+			const float ResetStartPosition = bAnimPlayingBackwards ? AnimEndTime : AnimStartTime;
+
 			// Abstract out end point since animation can be playing forward or backward.
 			const float AnimEndPoint = bAnimPlayingBackwards ? AnimStartTime : AnimEndTime;
 
@@ -111,9 +113,8 @@ void FAnimSegment::GetAnimNotifiesFromTrackPositions(const float& PreviousTrackP
 				// If our time left is shorter than time to end point, no problem. End there.
 				if( FMath::Abs(TrackTimeToGo) < FMath::Abs(TrackTimeToAnimEndPoint) )
 				{
-					const float AnimEndPosition = ConvertTrackPosToAnimPos(CurrentTrackPosition);
-					// Make sure we have not wrapped around, positions should be contiguous.
-					check(bAnimPlayingBackwards ? (AnimEndPosition <= AnimStartPosition) : (AnimStartPosition <= AnimEndPosition));
+					const float PlayRate = ValidPlayRate * (bTrackPlayingBackwards ? -1.f : 1.f);
+					const float AnimEndPosition = (TrackTimeToGo * PlayRate) + AnimStartPosition;
 					AnimSequence->GetAnimNotifiesFromDeltaPositions(AnimStartPosition, AnimEndPosition, OutActiveNotifies);
 					break;
 				}
@@ -121,14 +122,12 @@ void FAnimSegment::GetAnimNotifiesFromTrackPositions(const float& PreviousTrackP
 				else
 				{
 					// Add that piece for extraction.
-					// Make sure we have not wrapped around, positions should be contiguous.
-					check(bAnimPlayingBackwards ? (AnimEndPoint <= AnimStartPosition) : (AnimStartPosition <= AnimEndPoint));
 					AnimSequence->GetAnimNotifiesFromDeltaPositions(AnimStartPosition, AnimEndPoint, OutActiveNotifies);
 
 					// decrease our TrackTimeToGo if we have to do another iteration.
 					// and put ourselves back at the beginning of the animation.
 					TrackTimeToGo -= TrackTimeToAnimEndPoint;
-					AnimStartPosition = bAnimPlayingBackwards ? AnimEndTime : AnimStartTime;
+					AnimStartPosition = ResetStartPosition;
 				}
 			}
 		}
@@ -167,12 +166,14 @@ void FAnimSegment::GetRootMotionExtractionStepsForTrackRange(TArray<FRootMotionE
 
 			// Get starting position, closest overlap.
 			float AnimStartPosition = ConvertTrackPosToAnimPos(bTrackPlayingBackwards ? FMath::Min(StartTrackPosition, SegmentEndPos) : FMath::Max(StartTrackPosition, SegmentStartPos));
-			check( (AnimStartPosition >= AnimStartTime) && (AnimStartPosition <= AnimEndTime) );
+			AnimStartPosition = FMath::Clamp(AnimStartPosition, AnimStartTime, AnimEndTime);
+			//check( (AnimStartPosition >= AnimStartTime) && (AnimStartPosition <= AnimEndTime) );
 			float TrackTimeToGo = FMath::Abs(EndTrackPosition - StartTrackPosition);
 
 			// The track can be playing backwards and the animation can be playing backwards, so we
 			// need to combine to work out what direction we are traveling through the animation
 			bool bAnimPlayingBackwards = bTrackPlayingBackwards ^ (ValidPlayRate < 0.f);
+			const float ResetStartPosition = bAnimPlayingBackwards ? AnimEndTime : AnimStartTime;
 
 			// Abstract out end point since animation can be playing forward or backward.
 			const float AnimEndPoint = bAnimPlayingBackwards ? AnimStartTime : AnimEndTime;
@@ -185,9 +186,8 @@ void FAnimSegment::GetRootMotionExtractionStepsForTrackRange(TArray<FRootMotionE
 				// If our time left is shorter than time to end point, no problem. End there.
 				if( FMath::Abs(TrackTimeToGo) < FMath::Abs(TrackTimeToAnimEndPoint) )
 				{
-					const float AnimEndPosition = ConvertTrackPosToAnimPos(EndTrackPosition);
-					// Make sure we have not wrapped around, positions should be contiguous.
-					check(bAnimPlayingBackwards ? (AnimEndPosition <= AnimStartPosition) : (AnimStartPosition <= AnimEndPosition));
+					const float PlayRate = ValidPlayRate * (bTrackPlayingBackwards ? -1.f : 1.f);
+					const float AnimEndPosition = (TrackTimeToGo * PlayRate) + AnimStartPosition;
 					RootMotionExtractionSteps.Add(FRootMotionExtractionStep(AnimSequence, AnimStartPosition, AnimEndPosition));
 					break;
 				}
@@ -195,14 +195,12 @@ void FAnimSegment::GetRootMotionExtractionStepsForTrackRange(TArray<FRootMotionE
 				else
 				{
 					// Add that piece for extraction.
-					// Make sure we have not wrapped around, positions should be contiguous.
-					check(bAnimPlayingBackwards ? (AnimEndPoint <= AnimStartPosition) : (AnimStartPosition <= AnimEndPoint));
 					RootMotionExtractionSteps.Add(FRootMotionExtractionStep(AnimSequence, AnimStartPosition, AnimEndPoint));
 
 					// decrease our TrackTimeToGo if we have to do another iteration.
 					// and put ourselves back at the beginning of the animation.
 					TrackTimeToGo -= TrackTimeToAnimEndPoint;
-					AnimStartPosition = bAnimPlayingBackwards ? AnimEndTime : AnimStartTime;
+					AnimStartPosition = ResetStartPosition;
 				}
 			}
 		}
@@ -484,6 +482,66 @@ void FAnimTrack::SortAnimSegments()
 }
 #endif
 
+void FAnimTrack::GetAnimationPose(/*out*/ FCompactPose& OutPose, /*out*/ FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const
+{
+	TArray<FCompactPose, TInlineAllocator<8>> SourcePoses;
+	TArray<float, TInlineAllocator<8>> SourceWeights;
+	TArray<FBlendedCurve, TInlineAllocator<8>> SourceCurves;
+	float TotalWeight = 0.f;
+
+	float CurrentTime = FMath::Clamp(ExtractionContext.CurrentTime, 0.f, GetLength());
+
+	// first get all the montage instance weight this slot node has
+	for(int32 I = 0; I<AnimSegments.Num(); ++I)
+	{
+		const FAnimSegment& AnimSegment = AnimSegments[I];
+
+		float PositionInAnim = 0.f;
+		float Weight = 0.f;
+		UAnimSequenceBase* AnimRef = AnimSegment.GetAnimationData(CurrentTime, PositionInAnim, Weight);
+
+		// make this to be 1 function
+		if(AnimRef && (Weight > ZERO_ANIMWEIGHT_THRESH))
+		{
+			// todo anim: hack - until we fix animcomposite
+			const int32 NewIndex = SourceWeights.AddUninitialized(1);
+			SourcePoses.Add(FCompactPose());
+			SourceCurves.Add(FBlendedCurve());
+			SourcePoses[NewIndex].SetBoneContainer(&OutPose.GetBoneContainer());
+			SourceCurves[NewIndex].InitFrom(OutCurve);
+			SourceWeights[NewIndex] = Weight;
+			TotalWeight += Weight;
+
+			// Copy passed in Extraction Context, but override position and looping parameters.
+			FAnimExtractContext SequenceExtractionContext(ExtractionContext);
+			SequenceExtractionContext.CurrentTime = PositionInAnim;
+			SequenceExtractionContext.bExtractRootMotion &= AnimRef->HasRootMotion();
+				
+			AnimRef->GetAnimationPose(SourcePoses[NewIndex], SourceCurves[NewIndex], SequenceExtractionContext);
+		}
+	}
+
+	if (SourcePoses.Num() == 0)
+	{
+		OutPose.ResetToRefPose();
+	}
+	else if (SourcePoses.Num() == 1)
+	{
+		OutPose = SourcePoses[0];
+		OutCurve = SourceCurves[0];
+	}
+	else
+	{
+		// If we have SourcePoses.Num() > 0, then we will have a non zero weight.
+		check(TotalWeight >= ZERO_ANIMWEIGHT_THRESH);
+		for(int32 I = 0; I < SourceWeights.Num(); ++I)
+		{
+			// normalize I
+			SourceWeights[I] /= TotalWeight;
+		}
+		FAnimationRuntime::BlendPosesTogether(SourcePoses, SourceCurves, SourceWeights, OutPose, OutCurve);
+	}
+}
 ///////////////////////////////////////////////////////
 // UAnimCompositeBase
 ///////////////////////////////////////////////////////
@@ -505,7 +563,7 @@ void UAnimCompositeBase::ExtractRootMotionFromTrack(const FAnimTrack &SlotAnimTr
 	TArray<FRootMotionExtractionStep> RootMotionExtractionSteps;
 	SlotAnimTrack.GetRootMotionExtractionStepsForTrackRange(RootMotionExtractionSteps, StartTrackPosition, EndTrackPosition);
 
-	UE_LOG(LogRootMotion, Log, TEXT("\tUAnimMontage::ExtractRootMotionForTrackRange, NumSteps: %d, StartTrackPosition: %.3f, EndTrackPosition: %.3f"),
+	UE_LOG(LogRootMotion, Verbose, TEXT("\tUAnimCompositeBase::ExtractRootMotionFromTrack, NumSteps: %d, StartTrackPosition: %.3f, EndTrackPosition: %.3f"),
 		RootMotionExtractionSteps.Num(), StartTrackPosition, EndTrackPosition);
 
 	// Go through steps sequentially, extract root motion, and accumulate it.

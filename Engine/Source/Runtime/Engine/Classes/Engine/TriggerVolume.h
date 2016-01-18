@@ -10,11 +10,11 @@ class ATriggerVolume : public AVolume
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void LoadedFromAnotherClass(const FName& OldClassName) override;
 #endif // WITH_EDITOR	
-	// End UObject interface.
+	//~ End UObject Interface.
 };
 
 

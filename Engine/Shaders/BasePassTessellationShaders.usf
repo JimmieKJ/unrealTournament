@@ -17,6 +17,14 @@ FBasePassVSToDS PassInterpolate(FBasePassVSToDS a, float aInterp, FBasePassVSToD
 		TESSELLATION_INTERPOLATE_MEMBER(BasePassInterpolants.VertexFog);
 	#endif
 
+	#if TRANSLUCENCY_LIGHTING_VOLUMETRIC_PERVERTEX_NONDIRECTIONAL || TRANSLUCENCY_LIGHTING_VOLUMETRIC_PERVERTEX_DIRECTIONAL
+		TESSELLATION_INTERPOLATE_MEMBER(AmbientLightingVector);
+	#endif
+
+	#if TRANSLUCENCY_LIGHTING_VOLUMETRIC_PERVERTEX_DIRECTIONAL
+		TESSELLATION_INTERPOLATE_MEMBER(DirectionalLightingVector);
+	#endif
+
 	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 		TESSELLATION_INTERPOLATE_MEMBER(BasePassInterpolants.WorldPositionExcludingWPO);
 	#endif
@@ -54,12 +62,9 @@ FBasePassVSToPS PassFinalizeTessellationOutput(FBasePassVSToDS Interpolants, flo
 		#endif
 #endif
 	}
-	
-	// Calc position-dependent interps
-	O.BasePassInterpolants.PixelPosition = WorldPosition;
 
 	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
-		O.BasePassInterpolants.PixelPositionExcludingWPO = float4(Interpolants.BasePassInterpolants.WorldPositionExcludingWPO, 1);
+		O.BasePassInterpolants.PixelPositionExcludingWPO = Interpolants.BasePassInterpolants.WorldPositionExcludingWPO;
 	#endif
 
 	return O;

@@ -2,8 +2,18 @@
 
 #include "CorePrivatePCH.h"
 #include "UnitConversion.h"
+#include "BasicMathExpressionEvaluator.h"
 
-FUnitConversion::FParseCandidate FUnitConversion::ParseCandidates[] = {
+#define LOCTEXT_NAMESPACE "UnitConversion"
+
+/** Structure used to match units when parsing */
+struct FParseCandidate
+{
+	const TCHAR* String;
+	EUnit Unit;
+};
+
+FParseCandidate ParseCandidates[] = {
 	
 	{ TEXT("Micrometers"),			EUnit::Micrometers },			{ TEXT("um"),		EUnit::Micrometers }, 			{ TEXT("\u00B5m"),	EUnit::Micrometers },
 	{ TEXT("Millimeters"),			EUnit::Millimeters },			{ TEXT("mm"),		EUnit::Millimeters },
@@ -61,9 +71,12 @@ FUnitConversion::FParseCandidate FUnitConversion::ParseCandidates[] = {
 	{ TEXT("Days"),					EUnit::Days },					{ TEXT("dy"),		EUnit::Days },
 	{ TEXT("Months"),				EUnit::Months },				{ TEXT("mth"),		EUnit::Months },
 	{ TEXT("Years"),				EUnit::Years },					{ TEXT("yr"),		EUnit::Years },
+
+	{ TEXT("times"),				EUnit::Multiplier },			{ TEXT("x"),	EUnit::Multiplier },			{ TEXT("multiplier"),		EUnit::Multiplier },
 };
 
-const TCHAR* const FUnitConversion::DisplayStrings[] = {
+/** Static array of display strings that directly map to EUnit enumerations */
+const TCHAR* const DisplayStrings[] = {
 	TEXT("\u00B5m"),			TEXT("mm"),					TEXT("cm"),					TEXT("m"),					TEXT("km"),
 	TEXT("in"),					TEXT("ft"),					TEXT("yd"),					TEXT("mi"),
 	TEXT("ly"),
@@ -86,9 +99,11 @@ const TCHAR* const FUnitConversion::DisplayStrings[] = {
 	TEXT("lm"),
 
 	TEXT("ms"), TEXT("s"), TEXT("min"), TEXT("hr"), TEXT("dy"), TEXT("mth"), TEXT("yr"),
+
+	TEXT("x"),
 };
 
-const EUnitType FUnitConversion::Types[] = {
+const EUnitType UnitTypes[] = {
 	EUnitType::Distance,	EUnitType::Distance,	EUnitType::Distance,	EUnitType::Distance,	EUnitType::Distance,
 	EUnitType::Distance,	EUnitType::Distance,	EUnitType::Distance,	EUnitType::Distance,
 	EUnitType::Distance,
@@ -111,6 +126,207 @@ const EUnitType FUnitConversion::Types[] = {
 	EUnitType::LuminousFlux,
 
 	EUnitType::Time,		EUnitType::Time,		EUnitType::Time,		EUnitType::Time,		EUnitType::Time,		EUnitType::Time,		EUnitType::Time,
+
+	EUnitType::Arbitrary,
+};
+
+
+
+DEFINE_EXPRESSION_NODE_TYPE(FNumericUnit<double>, 0x3C138BC9, 0x71314F0B, 0xBB469BF7, 0xED47D147)
+
+struct FUnitExpressionParser
+{
+	FUnitExpressionParser(EUnit InDefaultUnit)
+	{
+		using namespace ExpressionParser;
+
+		TokenDefinitions.IgnoreWhitespace();
+			
+		// Defined in order of importance
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FPlus>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FMinus>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FStar>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FForwardSlash>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FSubExpressionStart>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FSubExpressionEnd>);
+
+		TokenDefinitions.DefineToken([&](FExpressionTokenConsumer& Consumer){ return ConsumeNumberWithUnits(Consumer); });
+
+		Grammar.DefineGrouping<FSubExpressionStart, FSubExpressionEnd>();
+		
+		Grammar.DefinePreUnaryOperator<FPlus>();
+		Grammar.DefinePreUnaryOperator<FMinus>();
+
+		Grammar.DefineBinaryOperator<FPlus>(5);
+		Grammar.DefineBinaryOperator<FMinus>(5);
+		Grammar.DefineBinaryOperator<FStar>(4);
+		Grammar.DefineBinaryOperator<FForwardSlash>(4);
+
+		// Unary operators for numeric units
+		JumpTable.MapPreUnary<FPlus>(	[](const FNumericUnit<double>& N) {	return FNumericUnit<double>(N.Value, N.Units);		});
+		JumpTable.MapPreUnary<FMinus>(	[](const FNumericUnit<double>& N) {	return FNumericUnit<double>(-N.Value, N.Units);		});
+
+		/** Addition for numeric units */
+		JumpTable.MapBinary<FPlus>([InDefaultUnit](const FNumericUnit<double>& A, const FNumericUnit<double>& B) -> FExpressionResult {
+
+			// Have to ensure we're adding the correct units here
+
+			EUnit UnitsLHS = A.Units, UnitsRHS = B.Units;
+
+			if (UnitsLHS == EUnit::Unspecified && UnitsRHS != EUnit::Unspecified)
+			{
+				UnitsLHS = InDefaultUnit;
+			}
+			else if (UnitsLHS != EUnit::Unspecified && UnitsRHS == EUnit::Unspecified)
+			{
+				UnitsRHS = InDefaultUnit;
+			}
+
+			if (FUnitConversion::AreUnitsCompatible(UnitsLHS, UnitsRHS))
+			{
+				if (UnitsLHS != EUnit::Unspecified)
+				{
+					return MakeValue(FNumericUnit<double>(A.Value + FUnitConversion::Convert(B.Value, UnitsRHS, UnitsLHS), UnitsLHS));
+				}
+				else
+				{
+					return MakeValue(FNumericUnit<double>(FUnitConversion::Convert(A.Value, UnitsLHS, UnitsRHS) + B.Value, UnitsRHS));
+				}
+			}
+
+			FFormatOrderedArguments Args;
+			Args.Add(FText::FromString(FUnitConversion::GetUnitDisplayString(B.Units)));
+			Args.Add(FText::FromString(FUnitConversion::GetUnitDisplayString(A.Units)));
+			return MakeError(FText::Format(LOCTEXT("CannotAddErr", "Cannot add {0} to {1}"), Args));
+		});
+
+		/** Subtraction for numeric units */
+		JumpTable.MapBinary<FMinus>([InDefaultUnit](const FNumericUnit<double>& A, const FNumericUnit<double>& B) -> FExpressionResult {
+			
+			// Have to ensure we're adding the correct units here
+
+			EUnit UnitsLHS = A.Units, UnitsRHS = B.Units;
+
+			if (UnitsLHS == EUnit::Unspecified && UnitsRHS != EUnit::Unspecified)
+			{
+				UnitsLHS = InDefaultUnit;
+			}
+			else if (UnitsLHS != EUnit::Unspecified && UnitsRHS == EUnit::Unspecified)
+			{
+				UnitsRHS = InDefaultUnit;
+			}
+
+			if (FUnitConversion::AreUnitsCompatible(UnitsLHS, UnitsRHS))
+			{
+				if (UnitsLHS != EUnit::Unspecified)
+				{
+					return MakeValue(FNumericUnit<double>(A.Value - FUnitConversion::Convert(B.Value, UnitsRHS, UnitsLHS), UnitsLHS));
+				}
+				else
+				{
+					return MakeValue(FNumericUnit<double>(FUnitConversion::Convert(A.Value, UnitsLHS, UnitsRHS) - B.Value, UnitsRHS));
+				}
+			}
+
+			FFormatOrderedArguments Args;
+			Args.Add(FText::FromString(FUnitConversion::GetUnitDisplayString(B.Units)));
+			Args.Add(FText::FromString(FUnitConversion::GetUnitDisplayString(A.Units)));
+			return MakeError(FText::Format(LOCTEXT("CannotSubtractErr", "Cannot subtract {1} from {0}"), Args));
+		});
+
+		/** Multiplication */
+		JumpTable.MapBinary<FStar>([](const FNumericUnit<double>& A, const FNumericUnit<double>& B) -> FExpressionResult {
+			if (A.Units != EUnit::Unspecified && B.Units != EUnit::Unspecified)
+			{
+				return MakeError(LOCTEXT("InvalidMultiplication", "Cannot multiply by numbers with units"));
+			}
+			return MakeValue(FNumericUnit<double>(B.Value*A.Value, A.Units == EUnit::Unspecified ? B.Units : A.Units));
+		});
+
+		/** Division */
+		JumpTable.MapBinary<FForwardSlash>([](const FNumericUnit<double>& A, const FNumericUnit<double>& B) -> FExpressionResult {
+			if (B.Units != EUnit::Unspecified)
+			{
+				return MakeError(LOCTEXT("InvalidDivision", "Cannot divide by numbers with units"));
+			}
+			else if (B.Value == 0)
+			{
+				return MakeError(LOCTEXT("DivideByZero", "DivideByZero"));	
+			}
+			return MakeValue(FNumericUnit<double>(A.Value/B.Value, A.Units));
+		});
+	}
+
+	/** Consume a number from the stream, optionally including units */
+	TOptional<FExpressionError> ConsumeNumberWithUnits(FExpressionTokenConsumer& Consumer)
+	{
+		auto& Stream = Consumer.GetStream();
+
+		if (!FChar::IsDigit(Stream.PeekChar()))
+		{
+			return TOptional<FExpressionError>();
+		}
+
+		TOptional<FStringToken> NumberToken = ExpressionParser::ParseNumber(Stream);
+		
+		if (NumberToken.IsSet())
+		{
+			// Skip over whitespace
+			Stream.ParseToken([](TCHAR InC){ return FChar::IsWhitespace(InC) ? EParseState::Continue : EParseState::StopBefore; }, &NumberToken.GetValue());
+
+			TOptional<EUnit> Unit;
+			TOptional<FStringToken> UnitToken;
+			for (int32 Index = 0; Index < ARRAY_COUNT(ParseCandidates); ++Index)
+			{
+				UnitToken = Stream.ParseTokenIgnoreCase(ParseCandidates[Index].String, &NumberToken.GetValue());
+				if (UnitToken.IsSet())
+				{
+					Unit = ParseCandidates[Index].Unit;
+					break;
+				}
+			}
+
+			const double Value = FCString::Atod(*NumberToken.GetValue().GetString());
+			if (Unit.IsSet())
+			{
+				Consumer.Add(NumberToken.GetValue(), FNumericUnit<double>(Value, Unit.GetValue()));
+			}
+			else
+			{
+				Consumer.Add(NumberToken.GetValue(), FNumericUnit<double>(Value));
+			}
+		}
+
+		return TOptional<FExpressionError>();
+	}
+
+	TValueOrError<FNumericUnit<double>, FExpressionError> Evaluate(const TCHAR* InExpression) const
+	{
+		TValueOrError<FExpressionNode, FExpressionError> Result = ExpressionParser::Evaluate(InExpression, TokenDefinitions, Grammar, JumpTable);
+		if (!Result.IsValid())
+		{
+			return MakeError(Result.GetError());
+		}
+
+		auto& Node = Result.GetValue();
+		if (const auto* Numeric = Node.Cast<double>())
+		{
+			return MakeValue(FNumericUnit<double>(*Numeric, EUnit::Unspecified));
+		}
+		else if (const auto* NumericUnit = Node.Cast<FNumericUnit<double>>())
+		{
+			return MakeValue(*NumericUnit);
+		}
+		else
+		{
+			return MakeError(LOCTEXT("UnrecognizedResult", "Unrecognized result returned from expression"));
+		}
+	}
+	
+private:
+	FTokenDefinitions TokenDefinitions;
+	FExpressionGrammar Grammar;
+	FOperatorJumpTable JumpTable;
 };
 
 FUnitSettings::FUnitSettings()
@@ -128,7 +344,18 @@ FUnitSettings::FUnitSettings()
 	DisplayUnits[(uint8)EUnitType::Time].Add(EUnit::Seconds);
 }
 
-const TArray<EUnit>& FUnitSettings::GetDisplayUnits(EUnitType InType)
+bool FUnitSettings::ShouldDisplayUnits() const
+{
+	return bGlobalUnitDisplay;
+}
+
+void FUnitSettings::SetShouldDisplayUnits(bool bInGlobalUnitDisplay)
+{
+	bGlobalUnitDisplay = bInGlobalUnitDisplay;
+	SettingChangedEvent.Broadcast();
+}
+
+const TArray<EUnit>& FUnitSettings::GetDisplayUnits(EUnitType InType) const
 {
 	return DisplayUnits[(uint8)InType];
 }
@@ -171,11 +398,33 @@ FUnitSettings& FUnitConversion::Settings()
 	return *Settings;
 }
 
+/** Check whether it is possible to convert a number between the two specified units */
+bool FUnitConversion::AreUnitsCompatible(EUnit From, EUnit To)
+{
+	return From == EUnit::Unspecified || To == EUnit::Unspecified || GetUnitType(From) == GetUnitType(To);
+}
+
+/** Check whether a unit is of the specified type */
+bool FUnitConversion::IsUnitOfType(EUnit Unit, EUnitType Type)
+{
+	return Unit != EUnit::Unspecified && GetUnitType(Unit) == Type;
+}
+
+/** Get the type of the specified unit */
+EUnitType FUnitConversion::GetUnitType(EUnit InUnit)
+{
+	if (ensure(InUnit != EUnit::Unspecified))
+	{
+		return UnitTypes[(uint8)InUnit];
+	}
+	return EUnitType::NumberOf;
+}
+
 /** Get the unit abbreviation the specified unit type */
 const TCHAR* FUnitConversion::GetUnitDisplayString(EUnit Unit)
 {
-	static_assert(ARRAY_COUNT(FUnitConversion::Types) == (uint8)EUnit::Unspecified, "Type array does not match size of unit enum");
-	static_assert(ARRAY_COUNT(FUnitConversion::DisplayStrings) == (uint8)EUnit::Unspecified, "Display String array does not match size of unit enum");
+	static_assert(ARRAY_COUNT(UnitTypes) == (uint8)EUnit::Unspecified, "Type array does not match size of unit enum");
+	static_assert(ARRAY_COUNT(DisplayStrings) == (uint8)EUnit::Unspecified, "Display String array does not match size of unit enum");
 	
 	if (Unit != EUnit::Unspecified)
 	{
@@ -203,212 +452,240 @@ TOptional<EUnit> FUnitConversion::UnitFromString(const TCHAR* UnitString)
 	return TOptional<EUnit>();
 }
 
-double FUnitConversion::DistanceUnificationFactor(EUnit From)
+namespace UnitConversion
 {
-	// Convert to meters
-	double Factor = 1;
-	switch (From)
+
+	double DistanceUnificationFactor(EUnit From)
 	{
-		case EUnit::Micrometers:		return 0.000001;
-		case EUnit::Millimeters:		return 0.001;
-		case EUnit::Centimeters:		return 0.01;
-		case EUnit::Kilometers:			return 1000;
-
-		case EUnit::Lightyears:			return 9.4605284e15;
-
-		case EUnit::Miles:				Factor *= 1760;				// fallthrough
-		case EUnit::Yards:				Factor *= 3;				// fallthrough
-		case EUnit::Feet:				Factor *= 12;				// fallthrough
-		case EUnit::Inches:				Factor /= 39.3700787;		// fallthrough
-		default: 						return Factor;				// return
-	}
-}
-
-double FUnitConversion::AngleUnificationFactor(EUnit From)
-{
-	// Convert to degrees
-	switch (From)
-	{
-		case EUnit::Radians:			return (180 / PI);
-		default: 						return 1;
-	}
-}
-
-double FUnitConversion::SpeedUnificationFactor(EUnit From)
-{
-	// Convert to km/h
-	switch (From)
-	{
-		case EUnit::MetersPerSecond:	return 3.6;
-		case EUnit::MilesPerHour:		return DistanceUnificationFactor(EUnit::Miles) / 1000;
-		default: 						return 1;
-	}
-}
-
-double FUnitConversion::MassUnificationFactor(EUnit From)
-{
-	double Factor = 1;
-	// Convert to grams
-	switch (From)
-	{
-		case EUnit::Micrograms:			return 0.000001;
-		case EUnit::Milligrams:			return 0.001;
-		case EUnit::Kilograms:			return 1000;
-		case EUnit::MetricTons:			return 1000000;
-
-		case EUnit::Stones:				Factor *= 14;		// fallthrough
-		case EUnit::Pounds:				Factor *= 16;		// fallthrough
-		case EUnit::Ounces:				Factor *= 28.3495;	// fallthrough
-		default: 						return Factor;		// return
-	}
-}
-
-double FUnitConversion::ForceUnificationFactor(EUnit From)
-{
-	// Convert to Newtons
-	switch (From)
-	{
-		case EUnit::PoundsForce:		return 4.44822162;
-		case EUnit::KilogramsForce:		return 9.80665;
-		default: 						return 1;
-	}
-}
-
-double FUnitConversion::FrequencyUnificationFactor(EUnit From)
-{
-	// Convert to KHz
-	switch (From)
-	{
-		case EUnit::Hertz:				return 0.001;
-		case EUnit::Megahertz:			return 1000;
-		case EUnit::Gigahertz:			return 1000000;
-
-		case EUnit::RevolutionsPerMinute:	return 0.001/60;
-
-		default: 						return 1;
-	}
-}
-
-double FUnitConversion::DataSizeUnificationFactor(EUnit From)
-{
-	// Convert to MB
-	switch (From)
-	{
-		case EUnit::Bytes:				return 1.0/(1024*1024);
-		case EUnit::Kilobytes:			return 1.0/1024;
-		case EUnit::Gigabytes:			return 1024;
-		case EUnit::Terabytes:			return 1024*1024;
-
-		default: 						return 1;
-	}
-}
-
-double FUnitConversion::TimeUnificationFactor(EUnit From)
-{
-	// Convert to hours
-	double Factor = 1;
-	switch (From)
-	{
-		case EUnit::Months:				return (365.242 * 24) / 12;
-
-		case EUnit::Years:				Factor *= 365.242;	// fallthrough
-		case EUnit::Days:				Factor *= 24;		// fallthrough
-										return Factor;
-
-		case EUnit::Milliseconds:		Factor /= 1000;		// fallthrough
-		case EUnit::Seconds:			Factor /= 60;		// fallthrough
-		case EUnit::Minutes:			Factor /= 60;		// fallthrough
-										return Factor;
-
-		default: 						return 1;
-	}
-}
-
-TOptional<const TArray<FUnitConversion::FQuantizationInfo>*> FUnitConversion::GetQuantizationBounds(EUnit Unit)
-{
-	struct FStaticBounds
-	{
-		TArray<FQuantizationInfo> MetricDistance;
-		TArray<FQuantizationInfo> ImperialDistance;
-
-		TArray<FQuantizationInfo> MetricMass;
-		TArray<FQuantizationInfo> ImperialMass;
-
-		TArray<FQuantizationInfo> Frequency;
-		TArray<FQuantizationInfo> DataSize;
-
-		TArray<FQuantizationInfo> Time;
-
-		FStaticBounds()
+		// Convert to meters
+		double Factor = 1;
+		switch (From)
 		{
-			MetricDistance.Emplace(EUnit::Micrometers,	1000);
-			MetricDistance.Emplace(EUnit::Millimeters,	10);
-			MetricDistance.Emplace(EUnit::Centimeters,	100);
-			MetricDistance.Emplace(EUnit::Meters,			1000);
-			MetricDistance.Emplace(EUnit::Kilometers,		0);
+			case EUnit::Micrometers:		return 0.000001;
+			case EUnit::Millimeters:		return 0.001;
+			case EUnit::Centimeters:		return 0.01;
+			case EUnit::Kilometers:			return 1000;
 
-			ImperialDistance.Emplace(EUnit::Inches,	12);
-			ImperialDistance.Emplace(EUnit::Feet,		3);
-			ImperialDistance.Emplace(EUnit::Yards,	1760);
-			ImperialDistance.Emplace(EUnit::Miles,	0);
+			case EUnit::Lightyears:			return 9.4605284e15;
 
-			MetricMass.Emplace(EUnit::Micrograms,	1000);
-			MetricMass.Emplace(EUnit::Milligrams,	1000);
-			MetricMass.Emplace(EUnit::Grams,		1000);
-			MetricMass.Emplace(EUnit::Kilograms,	1000);
-			MetricMass.Emplace(EUnit::MetricTons,	0);
-
-			ImperialMass.Emplace(EUnit::Ounces,	16);
-			ImperialMass.Emplace(EUnit::Pounds,	14);
-			ImperialMass.Emplace(EUnit::Stones,	0);
-
-			Frequency.Emplace(EUnit::Hertz,		1000);
-			Frequency.Emplace(EUnit::Kilohertz,	1000);
-			Frequency.Emplace(EUnit::Megahertz,	1000);
-			Frequency.Emplace(EUnit::Gigahertz,	0);
-
-			DataSize.Emplace(EUnit::Bytes,		1000);
-			DataSize.Emplace(EUnit::Kilobytes,	1000);
-			DataSize.Emplace(EUnit::Megabytes,	1000);
-			DataSize.Emplace(EUnit::Gigabytes,	1000);
-			DataSize.Emplace(EUnit::Terabytes,	0);
-
-			Time.Emplace(EUnit::Milliseconds,		1000);
-			Time.Emplace(EUnit::Seconds,			60);
-			Time.Emplace(EUnit::Minutes,			60);
-			Time.Emplace(EUnit::Hours,			24);
-			Time.Emplace(EUnit::Days,				365.242f / 12);
-			Time.Emplace(EUnit::Months,			12);
-			Time.Emplace(EUnit::Years,			0);
+			case EUnit::Miles:				Factor *= 1760;				// fallthrough
+			case EUnit::Yards:				Factor *= 3;				// fallthrough
+			case EUnit::Feet:				Factor *= 12;				// fallthrough
+			case EUnit::Inches:				Factor /= 39.3700787;		// fallthrough
+			default: 						return Factor;				// return
 		}
-	};
-
-	static FStaticBounds Bounds;
-
-	switch (Unit)
-	{
-	case EUnit::Micrometers: case EUnit::Millimeters: case EUnit::Centimeters: case EUnit::Meters: case EUnit::Kilometers:
-		return &Bounds.MetricDistance;
-
-	case EUnit::Inches: case EUnit::Feet: case EUnit::Yards: case EUnit::Miles:
-		return &Bounds.ImperialDistance;
-
-	case EUnit::Micrograms: case EUnit::Milligrams: case EUnit::Grams: case EUnit::Kilograms: case EUnit::MetricTons:
-		return &Bounds.MetricMass;
-
-	case EUnit::Ounces: case EUnit::Pounds: case EUnit::Stones:
-		return &Bounds.ImperialMass;
-
-	case EUnit::Hertz: case EUnit::Kilohertz: case EUnit::Megahertz: case EUnit::Gigahertz: case EUnit::RevolutionsPerMinute:
-		return &Bounds.Frequency;
-
-	case EUnit::Bytes: case EUnit::Kilobytes: case EUnit::Megabytes: case EUnit::Gigabytes: case EUnit::Terabytes:
-		return &Bounds.DataSize;
-
-	case EUnit::Milliseconds: case EUnit::Seconds: case EUnit::Minutes: case EUnit::Hours: case EUnit::Days: case EUnit::Months: case EUnit::Years:
-		return &Bounds.Time;
-
-	default:
-		return TOptional<const TArray<FQuantizationInfo>*>();
 	}
-}
+
+	double AngleUnificationFactor(EUnit From)
+	{
+		// Convert to degrees
+		switch (From)
+		{
+			case EUnit::Radians:			return (180 / PI);
+			default: 						return 1;
+		}
+	}
+
+	double SpeedUnificationFactor(EUnit From)
+	{
+		// Convert to km/h
+		switch (From)
+		{
+			case EUnit::MetersPerSecond:	return 3.6;
+			case EUnit::MilesPerHour:		return DistanceUnificationFactor(EUnit::Miles) / 1000;
+			default: 						return 1;
+		}
+	}
+
+	double MassUnificationFactor(EUnit From)
+	{
+		double Factor = 1;
+		// Convert to grams
+		switch (From)
+		{
+			case EUnit::Micrograms:			return 0.000001;
+			case EUnit::Milligrams:			return 0.001;
+			case EUnit::Kilograms:			return 1000;
+			case EUnit::MetricTons:			return 1000000;
+
+			case EUnit::Stones:				Factor *= 14;		// fallthrough
+			case EUnit::Pounds:				Factor *= 16;		// fallthrough
+			case EUnit::Ounces:				Factor *= 28.3495;	// fallthrough
+			default: 						return Factor;		// return
+		}
+	}
+
+	double ForceUnificationFactor(EUnit From)
+	{
+		// Convert to Newtons
+		switch (From)
+		{
+			case EUnit::PoundsForce:		return 4.44822162;
+			case EUnit::KilogramsForce:		return 9.80665;
+			default: 						return 1;
+		}
+	}
+
+	double FrequencyUnificationFactor(EUnit From)
+	{
+		// Convert to KHz
+		switch (From)
+		{
+			case EUnit::Hertz:				return 0.001;
+			case EUnit::Megahertz:			return 1000;
+			case EUnit::Gigahertz:			return 1000000;
+
+			case EUnit::RevolutionsPerMinute:	return 0.001/60;
+
+			default: 						return 1;
+		}
+	}
+
+	double DataSizeUnificationFactor(EUnit From)
+	{
+		// Convert to MB
+		switch (From)
+		{
+			case EUnit::Bytes:				return 1.0/(1024*1024);
+			case EUnit::Kilobytes:			return 1.0/1024;
+			case EUnit::Gigabytes:			return 1024;
+			case EUnit::Terabytes:			return 1024*1024;
+
+			default: 						return 1;
+		}
+	}
+
+	double TimeUnificationFactor(EUnit From)
+	{
+		// Convert to hours
+		double Factor = 1;
+		switch (From)
+		{
+			case EUnit::Months:				return (365.242 * 24) / 12;
+
+			case EUnit::Years:				Factor *= 365.242;	// fallthrough
+			case EUnit::Days:				Factor *= 24;		// fallthrough
+											return Factor;
+
+			case EUnit::Milliseconds:		Factor /= 1000;		// fallthrough
+			case EUnit::Seconds:			Factor /= 60;		// fallthrough
+			case EUnit::Minutes:			Factor /= 60;		// fallthrough
+											return Factor;
+
+			default: 						return 1;
+		}
+	}
+
+	TValueOrError<FNumericUnit<double>, FText> TryParseExpression(const TCHAR* InExpression, EUnit From)
+	{
+		const FUnitExpressionParser Parser(From);
+		auto Result = Parser.Evaluate(InExpression);
+		if (Result.IsValid())
+		{
+			if (Result.GetValue().Units == EUnit::Unspecified)
+			{
+				return MakeValue(FNumericUnit<double>(Result.GetValue().Value, From));
+			}
+			else
+			{
+				return MakeValue(Result.GetValue());
+			}
+		}
+		else
+		{
+			return MakeError(Result.GetError().Text);
+		}
+	}
+
+	TOptional<const TArray<FQuantizationInfo>*> GetQuantizationBounds(EUnit Unit)
+	{
+		struct FStaticBounds
+		{
+			TArray<FQuantizationInfo> MetricDistance;
+			TArray<FQuantizationInfo> ImperialDistance;
+
+			TArray<FQuantizationInfo> MetricMass;
+			TArray<FQuantizationInfo> ImperialMass;
+
+			TArray<FQuantizationInfo> Frequency;
+			TArray<FQuantizationInfo> DataSize;
+
+			TArray<FQuantizationInfo> Time;
+
+			FStaticBounds()
+			{
+				MetricDistance.Emplace(EUnit::Micrometers,	1000);
+				MetricDistance.Emplace(EUnit::Millimeters,	10);
+				MetricDistance.Emplace(EUnit::Centimeters,	100);
+				MetricDistance.Emplace(EUnit::Meters,			1000);
+				MetricDistance.Emplace(EUnit::Kilometers,		0);
+
+				ImperialDistance.Emplace(EUnit::Inches,	12);
+				ImperialDistance.Emplace(EUnit::Feet,		3);
+				ImperialDistance.Emplace(EUnit::Yards,	1760);
+				ImperialDistance.Emplace(EUnit::Miles,	0);
+
+				MetricMass.Emplace(EUnit::Micrograms,	1000);
+				MetricMass.Emplace(EUnit::Milligrams,	1000);
+				MetricMass.Emplace(EUnit::Grams,		1000);
+				MetricMass.Emplace(EUnit::Kilograms,	1000);
+				MetricMass.Emplace(EUnit::MetricTons,	0);
+
+				ImperialMass.Emplace(EUnit::Ounces,	16);
+				ImperialMass.Emplace(EUnit::Pounds,	14);
+				ImperialMass.Emplace(EUnit::Stones,	0);
+
+				Frequency.Emplace(EUnit::Hertz,		1000);
+				Frequency.Emplace(EUnit::Kilohertz,	1000);
+				Frequency.Emplace(EUnit::Megahertz,	1000);
+				Frequency.Emplace(EUnit::Gigahertz,	0);
+
+				DataSize.Emplace(EUnit::Bytes,		1000);
+				DataSize.Emplace(EUnit::Kilobytes,	1000);
+				DataSize.Emplace(EUnit::Megabytes,	1000);
+				DataSize.Emplace(EUnit::Gigabytes,	1000);
+				DataSize.Emplace(EUnit::Terabytes,	0);
+
+				Time.Emplace(EUnit::Milliseconds,		1000);
+				Time.Emplace(EUnit::Seconds,			60);
+				Time.Emplace(EUnit::Minutes,			60);
+				Time.Emplace(EUnit::Hours,			24);
+				Time.Emplace(EUnit::Days,				365.242f / 12);
+				Time.Emplace(EUnit::Months,			12);
+				Time.Emplace(EUnit::Years,			0);
+			}
+		};
+
+		static FStaticBounds Bounds;
+
+		switch (Unit)
+		{
+		case EUnit::Micrometers: case EUnit::Millimeters: case EUnit::Centimeters: case EUnit::Meters: case EUnit::Kilometers:
+			return &Bounds.MetricDistance;
+
+		case EUnit::Inches: case EUnit::Feet: case EUnit::Yards: case EUnit::Miles:
+			return &Bounds.ImperialDistance;
+
+		case EUnit::Micrograms: case EUnit::Milligrams: case EUnit::Grams: case EUnit::Kilograms: case EUnit::MetricTons:
+			return &Bounds.MetricMass;
+
+		case EUnit::Ounces: case EUnit::Pounds: case EUnit::Stones:
+			return &Bounds.ImperialMass;
+
+		case EUnit::Hertz: case EUnit::Kilohertz: case EUnit::Megahertz: case EUnit::Gigahertz: case EUnit::RevolutionsPerMinute:
+			return &Bounds.Frequency;
+
+		case EUnit::Bytes: case EUnit::Kilobytes: case EUnit::Megabytes: case EUnit::Gigabytes: case EUnit::Terabytes:
+			return &Bounds.DataSize;
+
+		case EUnit::Milliseconds: case EUnit::Seconds: case EUnit::Minutes: case EUnit::Hours: case EUnit::Days: case EUnit::Months: case EUnit::Years:
+			return &Bounds.Time;
+
+		default:
+			return TOptional<const TArray<FQuantizationInfo>*>();
+		}
+	}
+
+}	// namespace UnitConversion
+
+#undef LOCTEXT_NAMESPACE

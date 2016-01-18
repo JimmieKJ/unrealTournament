@@ -179,6 +179,12 @@ public:
 		return Ar << G.A << G.B << G.C << G.D;
 	}
 
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
+	}
+
 public:
 
 	/**
@@ -305,3 +311,5 @@ public:
 	/** Holds the fourth component. */
 	uint32 D;
 };
+
+template <> struct TIsPODType<FGuid> { enum { Value = true }; };

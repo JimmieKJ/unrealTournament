@@ -22,7 +22,7 @@ class UParticleModuleSizeScaleBySpeed : public UParticleModuleSizeBase
 	FVector2D MaxScale;
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
 	virtual void CompileModule(struct FParticleEmitterBuildInfo& EmitterInfo) override;
 	// End UParticleModule Interface

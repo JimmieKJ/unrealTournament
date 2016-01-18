@@ -395,20 +395,6 @@ struct CORE_API IConsoleManager
 	 * The registered command is executed at few defined points (see CallAllConsoleVariableSinks)
 	 * @param Command
 	 */
-	DELEGATE_DEPRECATED("This function is deprecated - please replace any usage with RegisterConsoleVariableSink_Handle.")
-	virtual void RegisterConsoleVariableSink(const FConsoleCommandDelegate& Command) = 0;
-
-	/**
-	 * The registered command is executed at few defined points (see CallAllConsoleVariableSinks)
-	 * @param Command
-	 */
-	DELEGATE_DEPRECATED("Delegate comparison is deprecated - please replace any usage with UnregisterConsoleVariableSink_Handle, passing the result of RegisterConsoleVariableSink_Handle.")
-	virtual void UnregisterConsoleVariableSink(const FConsoleCommandDelegate& Command) = 0;
-
-	/**
-	 * The registered command is executed at few defined points (see CallAllConsoleVariableSinks)
-	 * @param Command
-	 */
 	virtual FConsoleVariableSinkHandle RegisterConsoleVariableSink_Handle(const FConsoleCommandDelegate& Command) = 0;
 
 	/**
@@ -771,10 +757,7 @@ public:
 	T GetValueOnGameThread() const
 	{
 		// compiled out in shipping for performance (we can change in development later), if this get triggered you need to call GetValueOnRenderThread() or GetValueOnAnyThread(), the last one is a bit slower
-	#if DO_CHECK
 		ensure(GetShadowIndex() == 0);	// ensure to not block content creators, #if to optimize in shipping
-	#endif
-
 		return ShadowedValue[0];
 	}
 
@@ -783,18 +766,15 @@ public:
 	{
 #if !defined(__clang__) // @todo Mac: figure out how to make this compile
 		// compiled out in shipping for performance (we can change in development later), if this get triggered you need to call GetValueOnGameThread() or GetValueOnAnyThread(), the last one is a bit slower
-	#if DO_CHECK
 		ensure(IsInParallelRenderingThread());	// ensure to not block content creators, #if to optimize in shipping
-	#endif
-
 #endif
 		return ShadowedValue[1];
 	}
 
 	// convenient, for better performance consider using GetValueOnGameThread() or GetValueOnRenderThread()
-	T GetValueOnAnyThread() const
+	T GetValueOnAnyThread(bool bForceGameThread = false) const
 	{
-		return ShadowedValue[GetShadowIndex()];
+		return ShadowedValue[GetShadowIndex(bForceGameThread)];
 	}
 
 private: // ----------------------------------------------------
@@ -803,15 +783,20 @@ private: // ----------------------------------------------------
 	T ShadowedValue[2];
 
 	// @return 0:main thread, 1: render thread, later more
-	static uint32 GetShadowIndex()
+	static uint32 GetShadowIndex(bool bForceGameThread = false)
 	{	
+		if (bForceGameThread)
+		{
+			ensure(!IsInActualRenderingThread());
+			return 0;
+		}
 		return IsInGameThread() ? 0 : 1;
 	}
 
 	// needed for FConsoleVariable and FConsoleVariableRef2, intentionally not public
-	T& GetReferenceOnAnyThread()
+	T& GetReferenceOnAnyThread(bool bForceGameThread = false)
 	{
-		return ShadowedValue[GetShadowIndex()];
+		return ShadowedValue[GetShadowIndex(bForceGameThread)];
 	}
 
 	template<class T2> friend class FConsoleVariable;
@@ -843,9 +828,9 @@ public:
 		return Ref->GetValueOnRenderThread();
 	}
 
-	T GetValueOnAnyThread() const
+	T GetValueOnAnyThread(bool bForceGameThread = false) const
 	{
-		return Ref->GetValueOnAnyThread();
+		return Ref->GetValueOnAnyThread(bForceGameThread);
 	}
 
 private:

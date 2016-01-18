@@ -3,6 +3,7 @@
 #include "DestructibleMeshEditorPrivatePCH.h"
 
 #include "PhysicsPublic.h"
+#include "Runtime/Engine/Private/PhysicsEngine/PhysXSupport.h"
 #include "MouseDeltaTracker.h"
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "PreviewScene.h"
@@ -245,11 +246,11 @@ bool FDestructibleMeshEditorViewportClient::CanRefreshFromStaticMesh()
 		return false;
 	}
 
-	FDateTime CurrentSourceTimestamp;
-	if (DestructibleMesh->SourceStaticMesh->AssetImportData == NULL || !FDateTime::Parse(DestructibleMesh->SourceStaticMesh->AssetImportData->SourceFileTimestamp,
-						 CurrentSourceTimestamp))
+	const auto* ImportInfo = DestructibleMesh->SourceStaticMesh->AssetImportData;
+	FDateTime CurrentSourceTimestamp = FDateTime::MinValue();
+	if (ImportInfo && ImportInfo->SourceData.SourceFiles.Num() == 1)
 	{
-		CurrentSourceTimestamp = FDateTime::MinValue();
+		CurrentSourceTimestamp = ImportInfo->SourceData.SourceFiles[0].Timestamp;
 	}
 
 	return (CurrentSourceTimestamp > DestructibleMesh->SourceSMImportTimestamp);

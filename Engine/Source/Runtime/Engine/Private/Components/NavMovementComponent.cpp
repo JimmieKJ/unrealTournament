@@ -16,6 +16,11 @@ void FNavAgentProperties::UpdateWithCollisionComponent(UShapeComponent* Collisio
 	AgentRadius = CollisionComponent->Bounds.SphereRadius;
 }
 
+bool FNavAgentProperties::IsNavDataMatching(const FNavAgentProperties& Other) const
+{
+	return (PreferredNavData == Other.PreferredNavData || PreferredNavData == nullptr || Other.PreferredNavData == nullptr);
+}
+
 //----------------------------------------------------------------------//
 // UMovementComponent
 //----------------------------------------------------------------------//

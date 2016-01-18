@@ -142,6 +142,8 @@ EActiveTimerReturnType SDeviceProcesses::UpdateProcessList( double InCurrentTime
 
 	return EActiveTimerReturnType::Continue;
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 
 /* SDeviceDetails implementation
  *****************************************************************************/

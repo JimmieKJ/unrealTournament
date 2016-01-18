@@ -43,6 +43,16 @@ UCameraComponent::UCameraComponent(const FObjectInitializer& ObjectInitializer)
 }
 
 #if WITH_EDITORONLY_DATA
+
+void UCameraComponent::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
+{
+	UCameraComponent* This = CastChecked<UCameraComponent>(InThis);
+	Collector.AddReferencedObject(This->ProxyMeshComponent);
+	Collector.AddReferencedObject(This->DrawFrustum);
+
+	Super::AddReferencedObjects(InThis, Collector);
+}
+
 void UCameraComponent::OnComponentDestroyed()
 {
 	Super::OnComponentDestroyed();
@@ -61,29 +71,32 @@ void UCameraComponent::OnComponentDestroyed()
 void UCameraComponent::OnRegister()
 {
 #if WITH_EDITORONLY_DATA
-	if (ProxyMeshComponent == NULL)
+	if (AActor* MyOwner = GetOwner())
 	{
-		ProxyMeshComponent = NewObject<UStaticMeshComponent>(GetOuter(), NAME_None, RF_Transactional);
-		ProxyMeshComponent->AttachTo(this);
-		ProxyMeshComponent->AlwaysLoadOnClient = false;
-		ProxyMeshComponent->AlwaysLoadOnServer = false;
-		ProxyMeshComponent->StaticMesh = CameraMesh;
-		ProxyMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-		ProxyMeshComponent->bHiddenInGame = true;
-		ProxyMeshComponent->CastShadow = false;
-		ProxyMeshComponent->PostPhysicsComponentTick.bCanEverTick = false;
-		ProxyMeshComponent->CreationMethod = CreationMethod;
-		ProxyMeshComponent->RegisterComponentWithWorld(GetWorld());
-	}
+		if (ProxyMeshComponent == nullptr)
+		{
+			ProxyMeshComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
+			ProxyMeshComponent->AttachTo(this);
+			ProxyMeshComponent->AlwaysLoadOnClient = false;
+			ProxyMeshComponent->AlwaysLoadOnServer = false;
+			ProxyMeshComponent->StaticMesh = CameraMesh;
+			ProxyMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+			ProxyMeshComponent->bHiddenInGame = true;
+			ProxyMeshComponent->CastShadow = false;
+			ProxyMeshComponent->PostPhysicsComponentTick.bCanEverTick = false;
+			ProxyMeshComponent->CreationMethod = CreationMethod;
+			ProxyMeshComponent->RegisterComponentWithWorld(GetWorld());
+		}
 
-	if (DrawFrustum == NULL)
-	{
-		DrawFrustum = NewObject<UDrawFrustumComponent>(GetOuter(), NAME_None, RF_Transactional);
-		DrawFrustum->AttachTo(this);
-		DrawFrustum->AlwaysLoadOnClient = false;
-		DrawFrustum->AlwaysLoadOnServer = false;
-		DrawFrustum->CreationMethod = CreationMethod;
-		DrawFrustum->RegisterComponentWithWorld(GetWorld());
+		if (DrawFrustum == nullptr)
+		{
+			DrawFrustum = NewObject<UDrawFrustumComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
+			DrawFrustum->AttachTo(this);
+			DrawFrustum->AlwaysLoadOnClient = false;
+			DrawFrustum->AlwaysLoadOnServer = false;
+			DrawFrustum->CreationMethod = CreationMethod;
+			DrawFrustum->RegisterComponentWithWorld(GetWorld());
+		}
 	}
 
 	RefreshVisualRepresentation();
@@ -94,31 +107,6 @@ void UCameraComponent::OnRegister()
 	// Init deprecated var, for old code that may refer to it.
 	SetDeprecatedControllerViewRotation(*this, bUsePawnControlRotation);
 }
-
-void UCameraComponent::OnUnregister()
-{
-	Super::OnUnregister();
-
-#if WITH_EDITORONLY_DATA
-	// have to removed the sub-components that we added in OnRegister (for 
-	// reinstancing, where we CopyPropertiesForUnrelatedObjects()... don't want
-	// these copied since we'll generate them on the next OnRegister)
-	if (ProxyMeshComponent != NULL)
-	{
-		ProxyMeshComponent->DetachFromParent();
-		ProxyMeshComponent->DestroyComponent();
-		ProxyMeshComponent = NULL;
-	}
-
-	if (DrawFrustum != NULL)
-	{
-		DrawFrustum->DetachFromParent();
-		DrawFrustum->DestroyComponent();
-		DrawFrustum = NULL;
-	}
-#endif
-}
-
 
 void UCameraComponent::PostLoad()
 {
@@ -135,11 +123,23 @@ void UCameraComponent::PostLoad()
 	SetDeprecatedControllerViewRotation(*this, bUsePawnControlRotation);
 }
 
-
 #if WITH_EDITORONLY_DATA
+
+ void UCameraComponent::SetCameraMesh(UStaticMesh* Mesh)
+ {
+	 if (Mesh != CameraMesh)
+	 {
+		 CameraMesh = Mesh;
+
+		 if (ProxyMeshComponent)
+		 {
+			 ProxyMeshComponent->SetStaticMesh(Mesh);
+		 }
+	 }
+ }
 void UCameraComponent::RefreshVisualRepresentation()
 {
-	if (DrawFrustum != NULL)
+	if (DrawFrustum != nullptr)
 	{
 		const float FrustumDrawDistance = 1000.0f;
 		if (ProjectionMode == ECameraProjectionMode::Perspective)
@@ -161,7 +161,7 @@ void UCameraComponent::RefreshVisualRepresentation()
 
 void UCameraComponent::OverrideFrustumColor(FColor OverrideColor)
 {
-	if (DrawFrustum != NULL)
+	if (DrawFrustum != nullptr)
 	{
 		DrawFrustum->FrustumColor = OverrideColor;
 	}
@@ -169,7 +169,7 @@ void UCameraComponent::OverrideFrustumColor(FColor OverrideColor)
 
 void UCameraComponent::RestoreFrustumColor()
 {
-	if (DrawFrustum != NULL)
+	if (DrawFrustum != nullptr)
 	{
 		//@TODO: 
 		const FColor DefaultFrustumColor(255, 0, 255, 255);
@@ -178,18 +178,26 @@ void UCameraComponent::RestoreFrustumColor()
 		//Cam->DrawFrustum->FrustumColor = DefCam->DrawFrustum->FrustumColor;
 	}
 }
-#endif
+#endif	// WITH_EDITORONLY_DATA
 
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 void UCameraComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-#if WITH_EDITORONLY_DATA
 	RefreshVisualRepresentation();
-#endif
 }
-#endif
+#endif	// WITH_EDITORONLY_DATA
+
+void UCameraComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		PostProcessSettings.OnAfterLoad();
+	}
+}
 
 void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView)
 {
@@ -238,7 +246,7 @@ void UCameraComponent::CheckForErrors()
 			->AddToken(FMapErrorToken::Create(FMapErrors::CameraAspectRatioIsZero));
 	}
 }
-#endif
+#endif	// WITH_EDITOR
 
 
 void SetDeprecatedControllerViewRotation(UCameraComponent& Component, bool bValue)

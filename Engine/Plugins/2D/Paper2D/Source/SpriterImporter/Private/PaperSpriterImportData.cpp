@@ -16,7 +16,7 @@ void UPaperSpriterImportData::GetAssetRegistryTags(TArray<FAssetRegistryTag>& Ou
 {
 	if (AssetImportData != nullptr)
 	{
-		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
 	}
 
 	Super::GetAssetRegistryTags(OutTags);

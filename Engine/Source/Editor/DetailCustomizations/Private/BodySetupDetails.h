@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "BodyInstanceCustomization.h"
+
 class FBodySetupDetails : public IDetailCustomization
 {
 public:
@@ -11,12 +13,8 @@ public:
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) override;
 
-	FText OnGetBodyMass() const;
-	bool IsBodyMassReadOnly() const;
-	bool IsBodyMassEnabled() const { return !IsBodyMassReadOnly(); }
-	EVisibility IsMassVisible(bool bOverrideMass) const;
-
 private:
+	TSharedPtr<class FBodyInstanceCustomizationHelper> BodyInstanceCustomizationHelper;
 	TArray< TWeakObjectPtr<UObject> > ObjectsCustomized;
 };
 

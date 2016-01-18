@@ -48,7 +48,7 @@ enum EObjectMark
 	OBJECTMARK_NotForClient			= 0x00000020,		// Temporary save tag for client load flag.
 	OBJECTMARK_NotForServer			= 0x00000040,		// Temporary save tag for server load flag.
 	OBJECTMARK_NotForEditorGame		= 0x00000080,		// Temporary save tag for editorgame load flag.
-
+	OBJECTMARK_EditorOnly = 0x00000100, // Temporary editor only flag
 	OBJECTMARK_ALLMARKS				= 0xffffffff,		// -1, all possible marks
 };
 

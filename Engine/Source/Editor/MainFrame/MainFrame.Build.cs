@@ -69,14 +69,11 @@ public class MainFrame : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"AssetTools",
-				"DesktopPlatform",
-                "Documentation",
 				"GameProjectGeneration",
 				"ProjectTargetPlatformEditor",
 				"LevelEditor",
                 "OutputLog",
 				"SuperSearch",
-                "TranslationEditor",
 				"SourceCodeAccess",
 				"EditorLiveStreaming",
 				"HotReload",

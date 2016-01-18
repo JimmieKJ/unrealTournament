@@ -666,12 +666,15 @@ class FScene : public FSceneFileHeader
 {
 public:
 	FScene();
+	virtual ~FScene();
+
 	virtual void			Import( class FLightmassImporter& Importer );
 	FBoxSphereBounds		GetImportanceBounds() const;
 
 	FBox ImportanceBoundingBox;
 	TArray<FBox> ImportanceVolumes;
 	TArray<FBox> CharacterIndirectDetailVolumes;
+	TArray<FSphere> Portals;
 	TArray<FPrecomputedVisibilityVolume> PrecomputedVisibilityVolumes;
 	TArray<FPrecomputedVisibilityOverrideVolume> PrecomputedVisibilityOverrideVolumes;
 	TArray<FVector4> CameraTrackPositions;
@@ -690,6 +693,9 @@ public:
 	TArray<FLandscapeStaticLightingTextureMapping>		LandscapeMappings;
 
 	TArray<FGuid> VisibilityBucketGuids;
+
+	RTCDevice EmbreeDevice;
+	bool bVerifyEmbree;
 
 	/** The mapping whose texel is selected in Unreal and is being debugged. */
 	const class FStaticLightingMapping* DebugMapping;

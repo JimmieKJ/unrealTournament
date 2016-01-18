@@ -20,6 +20,7 @@ bool FComponentVisualizerManager::HandleClick(FLevelEditorViewportClient* InView
 				TSharedPtr<SWidget> MenuParent = ParentLevelEditor->GetActiveViewportInterface()->GetViewportWidget().Pin();
 				FSlateApplication::Get().PushMenu(
 					MenuParent.ToSharedRef(),
+					FWidgetPath(),
 					MenuWidget.ToSharedRef(),
 					FSlateApplication::Get().GetCursorPos(),
 					FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));

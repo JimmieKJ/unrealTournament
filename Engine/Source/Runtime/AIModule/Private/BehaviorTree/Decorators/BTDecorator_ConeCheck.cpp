@@ -33,9 +33,12 @@ void UBTDecorator_ConeCheck::InitializeFromAsset(UBehaviorTree& Asset)
 	ConeHalfAngleDot = FMath::Cos(FMath::DegreesToRadians(ConeHalfAngle));
 
 	UBlackboardData* BBAsset = GetBlackboardAsset();
-	ConeOrigin.CacheSelectedKey(BBAsset);
-	ConeDirection.CacheSelectedKey(BBAsset);
-	Observed.CacheSelectedKey(BBAsset);
+	if (ensure(BBAsset))
+	{
+		ConeOrigin.ResolveSelectedKey(*BBAsset);
+		ConeDirection.ResolveSelectedKey(*BBAsset);
+		Observed.ResolveSelectedKey(*BBAsset);
+	}
 }
 
 bool UBTDecorator_ConeCheck::CalculateDirection(const UBlackboardComponent* BlackboardComp, const FBlackboardKeySelector& Origin, const FBlackboardKeySelector& End, FVector& Direction) const
@@ -94,10 +97,12 @@ void UBTDecorator_ConeCheck::OnBlackboardChange(const UBlackboardComponent& Blac
 
 void UBTDecorator_ConeCheck::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
-	const TNodeInstanceMemory* DecoratorMemory = reinterpret_cast<TNodeInstanceMemory*>(NodeMemory);
-
-	if (CalcConditionImpl(OwnerComp, NodeMemory) != DecoratorMemory->bLastRawResult)
+	TNodeInstanceMemory* DecoratorMemory = reinterpret_cast<TNodeInstanceMemory*>(NodeMemory);
+	
+	const bool bResult = CalcConditionImpl(OwnerComp, NodeMemory);
+	if (bResult != DecoratorMemory->bLastRawResult)
 	{
+		DecoratorMemory->bLastRawResult = bResult;
 		OwnerComp.RequestExecution(this);
 	}
 }

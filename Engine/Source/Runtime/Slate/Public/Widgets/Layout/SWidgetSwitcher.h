@@ -142,6 +142,8 @@ protected:
 	virtual FVector2D ComputeDesiredSize( float ) const override;
 	virtual FChildren* GetChildren( ) override;
 
+	const FSlot* GetActiveSlot() const;
+
 private:
 
 	/** Required to implement GetChildren() in a way that can dynamically return the currently active child. */

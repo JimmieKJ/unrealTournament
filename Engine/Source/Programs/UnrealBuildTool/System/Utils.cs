@@ -11,18 +11,109 @@ using System.Xml.Serialization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Linq;
+using Tools.DotNETCommon.CaselessDictionary;
+using Tools.DotNETCommon.HarvestEnvVars;
+using System.Web.Script.Serialization;
 
 namespace UnrealBuildTool
 {
-	public abstract class Utils
+	/// <summary>
+	/// Holds information about the current engine version
+	/// </summary>
+	[Serializable]
+	public class BuildVersion
+	{
+		public int MajorVersion;
+		public int MinorVersion;
+		public int PatchVersion;
+		public int Changelist;
+		public int IsLicenseeVersion;
+		public string BranchName;
+
+		/// <summary>
+		/// Try to read the Build/Build.version file from disk
+		/// </summary>
+		/// <param name="Version">The version information</param>
+		/// <returns>True if the version was read sucessfully, false otherwise</returns>
+		public static bool TryRead(string FileName, out BuildVersion Version)
+		{
+			JsonObject Object;
+			if (!JsonObject.TryRead(FileName, out Object))
+			{
+				Version = null;
+				return false;
+			}
+			return TryParse(Object, out Version);
+		}
+
+		/// <summary>
+		/// Parses a build version from a JsonObject
+		/// </summary>
+		/// <param name="Object">The object to read from</param>
+		/// <param name="Version">The resulting version field</param>
+		/// <returns>True if the build version could be read, false otherwise</returns>
+		public static bool TryParse(JsonObject Object, out BuildVersion Version)
+		{
+			BuildVersion NewVersion = new BuildVersion();
+			if (!Object.TryGetIntegerField("MajorVersion", out NewVersion.MajorVersion) || !Object.TryGetIntegerField("MinorVersion", out NewVersion.MinorVersion) || !Object.TryGetIntegerField("PatchVersion", out NewVersion.PatchVersion))
+			{
+				Version = null;
+				return false;
+			}
+
+			Object.TryGetIntegerField("Changelist", out NewVersion.Changelist);
+			Object.TryGetIntegerField("IsLicenseeVersion", out NewVersion.IsLicenseeVersion);
+			Object.TryGetStringField("BranchName", out NewVersion.BranchName);
+
+			Version = NewVersion;
+			return true;
+		}
+
+		/// <summary>
+		/// Exports this object as Json
+		/// </summary>
+		/// <param name="Object">The object to read from</param>
+		/// <param name="Version">The resulting version field</param>
+		/// <returns>True if the build version could be read, false otherwise</returns>
+		public void Write(JsonWriter Writer)
+		{
+			Writer.WriteValue("MajorVersion", MajorVersion);
+			Writer.WriteValue("MinorVersion", MinorVersion);
+			Writer.WriteValue("PatchVersion", PatchVersion);
+			Writer.WriteValue("Changelist", Changelist);
+			Writer.WriteValue("IsLicenseeVersion", IsLicenseeVersion);
+			Writer.WriteValue("BranchName", BranchName);
+		}
+	}
+
+	/// 
+	/// Log Event Type
+	///
+	public enum LogEventType
+	{
+		Fatal = 1,
+		Error = 2,
+		Warning = 4,
+		Console = 8,
+		Log = 16,
+		Verbose = 32,
+		VeryVerbose = 64
+	}
+
+	/// <summary>
+	/// Utility functions
+	/// </summary>
+	public static class Utils
 	{
 		/// <summary>
 		/// Whether we are currently running on Mono platform.  We cache this statically because it is a bit slow to check.
 		/// </summary>
-		public static readonly bool IsRunningOnMono = Type.GetType( "Mono.Runtime" ) != null;
+		public static readonly bool IsRunningOnMono = Type.GetType("Mono.Runtime") != null;
 
-		/** Searches for a flag in a set of command-line arguments. */
-		public static bool ParseCommandLineFlag(string[] Arguments, string FlagName, out int ArgumentIndex )
+		/// <summary>
+		/// Searches for a flag in a set of command-line arguments.
+		/// </summary>
+		public static bool ParseCommandLineFlag(string[] Arguments, string FlagName, out int ArgumentIndex)
 		{
 			// Find an argument with the given name.
 			for (ArgumentIndex = 0; ArgumentIndex < Arguments.Length; ArgumentIndex++)
@@ -36,44 +127,45 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-		/** Regular expression to match $(ENV) and/ or %ENV% environment variables. */
-		static Regex EnvironmentVariableRegex = new Regex( @"\$\((.*?)\)|\%(.*?)\%", RegexOptions.None );
+		/// <summary>
+		/// Regular expression to match $(ENV) and/ or %ENV% environment variables.
+		/// </summary>
+		static Regex EnvironmentVariableRegex = new Regex(@"\$\((.*?)\)|\%(.*?)\%", RegexOptions.None);
 
-		/**
-		 * Resolves $(ENV) and/ or %ENV% to the value of the environment variable in the passed in string.
-		 * 
-		 * @param	InString	String to resolve environment variable in.
-		 * @return	String with environment variable expanded/ resolved.
-		 */
-		public static string ResolveEnvironmentVariable( string InString )
+		/// <summary>
+		/// Resolves $(ENV) and/ or %ENV% to the value of the environment variable in the passed in string.
+		/// </summary>
+		/// <param name="InString">String to resolve environment variable in.</param>
+		/// <returns>String with environment variable expanded/ resolved.</returns>
+		public static string ResolveEnvironmentVariable(string InString)
 		{
 			string Result = InString;
-		
+
 			// Try to find $(ENV) substring.
-			Match M = EnvironmentVariableRegex.Match( InString );
+			Match M = EnvironmentVariableRegex.Match(InString);
 
 			// Iterate over all matches, resolving the match to an environment variable.
-			while( M.Success )
+			while (M.Success)
 			{
 				// Convoluted way of stripping first and last character and '(' in the case of $(ENV) to get to ENV
 				string EnvironmentVariable = M.ToString();
-				if ( EnvironmentVariable.StartsWith("$") && EnvironmentVariable.EndsWith(")") )
+				if (EnvironmentVariable.StartsWith("$") && EnvironmentVariable.EndsWith(")"))
 				{
 					EnvironmentVariable = EnvironmentVariable.Substring(1, EnvironmentVariable.Length - 2).Replace("(", "");
 				}
 
-				if ( EnvironmentVariable.StartsWith("%") && EnvironmentVariable.EndsWith("%") )
+				if (EnvironmentVariable.StartsWith("%") && EnvironmentVariable.EndsWith("%"))
 				{
 					EnvironmentVariable = EnvironmentVariable.Substring(1, EnvironmentVariable.Length - 2);
 				}
-			
+
 				// Resolve environment variable.				
-				Result = Result.Replace( M.ToString(), Environment.GetEnvironmentVariable( EnvironmentVariable ) );
+				Result = Result.Replace(M.ToString(), Environment.GetEnvironmentVariable(EnvironmentVariable));
 
 				// Move on to next match. Multiple environment variables are handled correctly by regexp.
 				M = M.NextMatch();
 			}
-				
+
 			return Result;
 		}
 
@@ -87,11 +179,11 @@ namespace UnrealBuildTool
 		public static string ExpandVariables(string InputString, Dictionary<string, string> AdditionalVariables = null)
 		{
 			string Result = InputString;
-			for(int Idx = Result.IndexOf("$("); Idx != -1; Idx = Result.IndexOf("$(", Idx))
+			for (int Idx = Result.IndexOf("$("); Idx != -1; Idx = Result.IndexOf("$(", Idx))
 			{
 				// Find the end of the variable name
 				int EndIdx = Result.IndexOf(')', Idx + 2);
-				if(EndIdx == -1)
+				if (EndIdx == -1)
 				{
 					break;
 				}
@@ -101,10 +193,10 @@ namespace UnrealBuildTool
 
 				// Find the value for it, either from the dictionary or the environment block
 				string Value;
-				if(AdditionalVariables == null || !AdditionalVariables.TryGetValue(Name, out Value))
+				if (AdditionalVariables == null || !AdditionalVariables.TryGetValue(Name, out Value))
 				{
 					Value = Environment.GetEnvironmentVariable(Name);
-					if(Value == null)
+					if (Value == null)
 					{
 						Idx = EndIdx + 1;
 						continue;
@@ -116,31 +208,28 @@ namespace UnrealBuildTool
 			}
 			return Result;
 		}
-		
-		/**
-		 * This is a faster replacement of File.ReadAllText. Code snippet based on code 
-		 * and analysis by Sam Allen
-		 * 
-		 * http://dotnetperls.com/Content/File-Handling.aspx
-		 * 
-		 * @param	SourceFile		Source file to fully read and convert to string
-		 * @return	Textual representation of file.
-		 */
-		public static string ReadAllText( string SourceFile )
+
+		/// <summary>
+		/// This is a faster replacement of File.ReadAllText. Code snippet based on code
+		/// and analysis by Sam Allen
+		/// http://dotnetperls.com/Content/File-Handling.aspx
+		/// </summary>
+		/// <param name="SourceFile"> Source file to fully read and convert to string</param>
+		/// <returns>Textual representation of file.</returns>
+		public static string ReadAllText(string SourceFile)
 		{
-			using( StreamReader Reader = new StreamReader( SourceFile, System.Text.Encoding.UTF8 ) )
+			using (StreamReader Reader = new StreamReader(SourceFile, System.Text.Encoding.UTF8))
 			{
 				return Reader.ReadToEnd();
 			}
 		}
 
-		/**
-		 * Reads the specified environment variable
-		 *
-		 * @param	VarName		the environment variable to read
-		 * @param	bDefault	the default value to use if missing
-		 * @return	the value of the environment variable if found and the default value if missing
-		 */
+		/// <summary>
+		/// Reads the specified environment variable
+		/// </summary>
+		/// <param name="VarName"> the environment variable to read</param>
+		/// <param name="bDefault">the default value to use if missing</param>
+		/// <returns>the value of the environment variable if found and the default value if missing</returns>
 		public static bool GetEnvironmentVariable(string VarName, bool bDefault)
 		{
 			string Value = Environment.GetEnvironmentVariable(VarName);
@@ -152,13 +241,12 @@ namespace UnrealBuildTool
 			return bDefault;
 		}
 
-		/**
-		 * Reads the specified environment variable
-		 *
-		 * @param	VarName		the environment variable to read
-		 * @param	Default	the default value to use if missing
-		 * @return	the value of the environment variable if found and the default value if missing
-		 */
+		/// <summary>
+		/// Reads the specified environment variable
+		/// </summary>
+		/// <param name="VarName"> the environment variable to read</param>
+		/// <param name="Default">the default value to use if missing</param>
+		/// <returns>the value of the environment variable if found and the default value if missing</returns>
 		public static string GetStringEnvironmentVariable(string VarName, string Default)
 		{
 			string Value = Environment.GetEnvironmentVariable(VarName);
@@ -169,13 +257,12 @@ namespace UnrealBuildTool
 			return Default;
 		}
 
-		/**
-		 * Reads the specified environment variable
-		 *
-		 * @param	VarName		the environment variable to read
-		 * @param	Default	the default value to use if missing
-		 * @return	the value of the environment variable if found and the default value if missing
-		 */
+		/// <summary>
+		/// Reads the specified environment variable
+		/// </summary>
+		/// <param name="VarName"> the environment variable to read</param>
+		/// <param name="Default">the default value to use if missing</param>
+		/// <returns>the value of the environment variable if found and the default value if missing</returns>
 		public static double GetEnvironmentVariable(string VarName, double Default)
 		{
 			string Value = Environment.GetEnvironmentVariable(VarName);
@@ -186,13 +273,12 @@ namespace UnrealBuildTool
 			return Default;
 		}
 
-		/**
-		 * Reads the specified environment variable
-		 *
-		 * @param	VarName		the environment variable to read
-		 * @param	Default	the default value to use if missing
-		 * @return	the value of the environment variable if found and the default value if missing
-		 */
+		/// <summary>
+		/// Reads the specified environment variable
+		/// </summary>
+		/// <param name="VarName"> the environment variable to read</param>
+		/// <param name="Default">the default value to use if missing</param>
+		/// <returns>the value of the environment variable if found and the default value if missing</returns>
 		public static string GetEnvironmentVariable(string VarName, string Default)
 		{
 			string Value = Environment.GetEnvironmentVariable(VarName);
@@ -203,192 +289,41 @@ namespace UnrealBuildTool
 			return Default;
 		}
 
-		[Serializable]
-		[DebuggerDisplay("\\{{Key}={Value}\\}")]
-		public struct EnvVar
-		{
-			[XmlAttribute("Key")]
-			public string Key;
-
-			[XmlAttribute("Value")]
-			public string Value;
-		}
-
-		private static XmlSerializer EnvVarListSerializer = XmlSerializer.FromTypes(new Type[]{ typeof(List<EnvVar>) })[0];
-
-		[DllImport("kernel32.dll", SetLastError=true)]
-		private static extern int GetShortPathName(string pathName, StringBuilder shortName, int cbShortName);
-
-		public static string GetShortPathName(string Path)
-		{
-			int BufferSize = GetShortPathName(Path, null, 0);
-			if (BufferSize == 0)
-			{
-				throw new BuildException("Unable to convert path {0} to 8.3 format", Path);
-			}
-
-			var Builder = new StringBuilder(BufferSize);
-			int ConversionResult = GetShortPathName(Path, Builder, BufferSize);
-			if (ConversionResult == 0)
-			{
-				throw new BuildException("Unable to convert path {0} to 8.3 format", Path);
-			}
-
-			return Builder.ToString();
-		}
-
-		/**
-		 * Sets the environment variables from the passed in batch file
-		 * 
-		 * @param	BatchFileName	Name of the batch file to parse
-		 */
-		public static void SetEnvironmentVariablesFromBatchFile(string BatchFileName)
+		/// <summary>
+		/// Sets the environment variables from the passed in batch file
+		/// </summary>
+		/// <param name="BatchFileName">Name of the batch file to parse</param>
+		/// <param name="Parameters"> Optional command-line parameters to pass to the batch file when running it</param>
+		public static void SetEnvironmentVariablesFromBatchFile(string BatchFileName, string Parameters = "")
 		{
 			// @todo ubtmake: Experiment with changing this to run asynchronously at startup, and only blocking if accessed before the .bat file finishes
-			if( File.Exists( BatchFileName ) )
+			CaselessDictionary<string> EnvVars;
+			try
 			{
-				// Create a wrapper batch file that echoes environment variables to a text file
-                string EnvOutputFileName;
-                string EnvReaderBatchFileName;
-                try
-                {
-					EnvOutputFileName = Path.GetTempFileName();
-					EnvReaderBatchFileName = EnvOutputFileName + ".bat";
-
-					Log.TraceVerbose( "Creating .bat file {0} for harvesting environment variables.", EnvReaderBatchFileName );
-
-					var EnvReaderBatchFileContent = new List<string>();
-
-					var EnvVarsToXMLExePath = Path.Combine( GetExecutingAssemblyDirectory(), "EnvVarsToXML.exe" );
-
-					// Convert every path to short filenames to ensure we don't accidentally write out a non-ASCII batch file
-					var ShortBatchFileName       = GetShortPathName(BatchFileName);
-					var ShortEnvOutputFileName   = GetShortPathName(EnvOutputFileName);
-					var ShortEnvVarsToXMLExePath = GetShortPathName(EnvVarsToXMLExePath);
-
-					// Run 'vcvars32.bat' (or similar x64 version) to set environment variables
-					EnvReaderBatchFileContent.Add( String.Format( "call \"{0}\"", ShortBatchFileName ) );
-
-					// Pipe all environment variables to a file where we can read them in.
-					// We use a separate executable which runs after the batch file because we want to capture
-					// the environment after it has been set, and there's no easy way of doing this, and parsing
-					// the output of the set command is problematic when the vars contain non-ASCII characters.
-					EnvReaderBatchFileContent.Add( String.Format( "\"{0}\" \"{1}\"", ShortEnvVarsToXMLExePath, ShortEnvOutputFileName ) );
-
-					ResponseFile.Create( EnvReaderBatchFileName, EnvReaderBatchFileContent );
-                }
-                catch (Exception Ex)
-                {
-                    throw new BuildException(Ex, "Failed to create temporary batch file to harvest environment variables (\"{0}\")", Ex.Message);
-                }
-
-				Log.TraceVerbose( "Finished creating .bat file.  Environment variables will be written to {0}.", EnvOutputFileName );
-
-				// process needs to be disposed when done
-				using(var BatchFileProcess = new Process())
-				{
-					// Run the batch file using cmd.exe with the /U option, to force Unicode output. Many locales have non-ANSI characters in system paths.
-					var StartInfo = BatchFileProcess.StartInfo;
-
-					StartInfo.FileName = Path.Combine(Environment.SystemDirectory, "cmd.exe");
-					StartInfo.Arguments = String.Format("/U /C \"{0}\"", EnvReaderBatchFileName);
-					StartInfo.CreateNoWindow = true;
-					StartInfo.UseShellExecute = false;
-
-					// The engine adds a lot of DLL search paths to the PATH environment variable, and this gets propagated through to UBT. MSVC wants
-					// to add a lot more, so reset it to the system default before spawning the batch file, otherwise we can overflow the max length and fail.
-					string NewPathVariable = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
-					if(String.IsNullOrEmpty(NewPathVariable))
-					{
-						NewPathVariable = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
-					}
-					else
-					{
-						NewPathVariable += ";" + Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
-					}
-					StartInfo.EnvironmentVariables["PATH"] = NewPathVariable;
-
-					StartInfo.RedirectStandardOutput = true;
-					StartInfo.RedirectStandardError = true;
-					StartInfo.RedirectStandardInput = true;
-
-					Log.TraceVerbose( "Launching {0} to harvest Visual Studio environment settings...", StartInfo.FileName );
-
-					// Try to launch the process, and produce a friendly error message if it fails.
-					try
-					{
-						// Start the process up and then wait for it to finish
-						BatchFileProcess.Start();
-						BatchFileProcess.WaitForExit();
-					}
-					catch(Exception ex)
-					{
-						throw new BuildException( ex, "Failed to start local process for action (\"{0}\"): {1} {2}", ex.Message, StartInfo.FileName, StartInfo.Arguments );
-					}
-
-					Log.TraceVerbose( "Finished launching {0}.", StartInfo.FileName );
-				}
-
-				// Accept chars which are technically not valid XML - they were written out by XmlSerializer anyway!
-				var Settings = new XmlReaderSettings();
-				Settings.CheckCharacters  = false;
-
-				List<EnvVar> EnvVars;
-				try
-				{
-					using (var Stream = new StreamReader(EnvOutputFileName))
-					using (var Reader = XmlReader.Create(Stream, Settings))
-					{
-						EnvVars = (List<EnvVar>)EnvVarListSerializer.Deserialize(Reader);
-					}
-				}
-				catch (Exception e)
-				{
-					throw new BuildException(e, "Failed to read environment variables from XML file: {0}", EnvOutputFileName);
-				}
-
-				foreach (var EnvVar in EnvVars)
-				{
-					Environment.SetEnvironmentVariable(EnvVar.Key, EnvVar.Value);
-				}
-
-				// Clean up the temporary files we created earlier on, so the temp directory doesn't fill up
-				// with these guys over time
-				try
-				{
-					File.Delete( EnvOutputFileName );
-				}
-				catch( Exception )
-				{
-					// Unable to delete the temporary file.  Not a big deal.
-					Log.TraceInformation( "Warning: Was not able to delete temporary file created by Unreal Build Tool: " + EnvOutputFileName );
-				}
-				try
-				{
-					File.Delete( EnvReaderBatchFileName );
-				}
-				catch( Exception )
-				{
-					// Unable to delete the temporary file.  Not a big deal.
-					Log.TraceInformation( "Warning: Was not able to delete temporary file created by Unreal Build Tool: " + EnvReaderBatchFileName );
-				}
+				EnvVars = HarvestEnvVars.HarvestEnvVarsFromBatchFile(BatchFileName, Parameters, HarvestEnvVars.EPathOverride.User);
 			}
-			else
+			catch (Exception Ex)
 			{
-				throw new BuildException("SetEnvironmentVariablesFromBatchFile: BatchFile {0} does not exist!", BatchFileName);
+				throw new BuildException(Ex, "Failed to harvest environment variables");
+			}
+
+			foreach (var EnvVar in EnvVars)
+			{
+				Environment.SetEnvironmentVariable(EnvVar.Key, EnvVar.Value);
 			}
 		}
 
 
-		/**
-		/* Try to launch a local process, and produce a friendly error message if it fails.
-		/*/
+		/// <summary>
+		/// Try to launch a local process, and produce a friendly error message if it fails.
+		/// /
+		/// </summary>
 		public static int RunLocalProcess(Process LocalProcess)
 		{
 			int ExitCode = -1;
 
 			// release all process resources
-			using(LocalProcess)
+			using (LocalProcess)
 			{
 				LocalProcess.StartInfo.UseShellExecute = false;
 				LocalProcess.StartInfo.RedirectStandardOutput = true;
@@ -403,7 +338,7 @@ namespace UnrealBuildTool
 					LocalProcess.WaitForExit();
 					ExitCode = LocalProcess.ExitCode;
 				}
-				catch(Exception ex)
+				catch (Exception ex)
 				{
 					throw new BuildException(ex, "Failed to start local process for action (\"{0}\"): {1} {2}", ex.Message, LocalProcess.StartInfo.FileName, LocalProcess.StartInfo.Arguments);
 				}
@@ -412,16 +347,40 @@ namespace UnrealBuildTool
 			return ExitCode;
 		}
 
-		/**
-		 * Runs a local process and pipes the output to the log
-		 */
+		/// <summary>
+		/// Runs a local process and pipes the output to the log
+		/// </summary>
 		public static int RunLocalProcessAndLogOutput(ProcessStartInfo StartInfo)
 		{
 			Process LocalProcess = new Process();
 			LocalProcess.StartInfo = StartInfo;
-			LocalProcess.OutputDataReceived += (Sender, Line) => { if(Line != null && Line.Data != null) Log.TraceInformation(Line.Data); };
-			LocalProcess.ErrorDataReceived += (Sender, Line) => { if(Line != null && Line.Data != null) Log.TraceError(Line.Data); };
+			LocalProcess.OutputDataReceived += (Sender, Line) => { if (Line != null && Line.Data != null) Log.TraceInformation(Line.Data); };
+			LocalProcess.ErrorDataReceived += (Sender, Line) => { if (Line != null && Line.Data != null) Log.TraceError(Line.Data); };
 			return RunLocalProcess(LocalProcess);
+		}
+
+		/// <summary>
+		/// Runs a command line process, and returns simple StdOut output. This doesn't handle errors or return codes
+		/// </summary>
+		/// <returns>The entire StdOut generated from the process as a single trimmed string</returns>
+		/// <param name="Command">Command to run</param>
+		/// <param name="Args">Arguments to Command</param>
+		public static string RunLocalProcessAndReturnStdOut(string Command, string Args)
+		{
+			var StartInfo = new ProcessStartInfo(Command, Args);
+			StartInfo.UseShellExecute = false;
+			StartInfo.RedirectStandardOutput = true;
+			StartInfo.CreateNoWindow = true;
+
+			string FullOutput = "";
+			using (var LocalProcess = Process.Start(StartInfo))
+			{
+				StreamReader OutputReader = LocalProcess.StandardOutput;
+				// trim off any extraneous new lines, helpful for those one-line outputs
+				FullOutput = OutputReader.ReadToEnd().Trim();
+			}
+
+			return FullOutput;
 		}
 
 		/// <summary>
@@ -429,7 +388,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="SupportedPlatforms">List of supported platforms</param>
 		/// <returns>List of unsupported platforms in string format</returns>
-		public static List<string> MakeListOfUnsupportedPlatforms( List<UnrealTargetPlatform> SupportedPlatforms )
+		public static List<string> MakeListOfUnsupportedPlatforms(List<UnrealTargetPlatform> SupportedPlatforms)
 		{
 			// Make a list of all platform name strings that we're *not* currently compiling, to speed
 			// up file path comparisons later on
@@ -464,28 +423,28 @@ namespace UnrealBuildTool
 					}
 				}
 
-				foreach( UnrealTargetPlatform CurPlatform in Enum.GetValues( typeof( UnrealTargetPlatform ) ) )
+				foreach (UnrealTargetPlatform CurPlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
 				{
 					if (CurPlatform != UnrealTargetPlatform.Unknown)
 					{
-                        bool ShouldConsider = true;
+						bool ShouldConsider = true;
 
-                        // If we have a platform and a group with the same name, don't add the platform
-                        // to the other list if the same-named group is supported.  This is a lot of
-                        // lines because we need to do the comparisons as strings.
-                        string CurPlatformString = CurPlatform.ToString();
-                        foreach (UnrealPlatformGroup Group in Enum.GetValues(typeof(UnrealPlatformGroup)))
-                        {
-                            if (Group.ToString().Equals(CurPlatformString))
-                            {
-                                ShouldConsider = false;
-                                break;
-                            }
-                        }
+						// If we have a platform and a group with the same name, don't add the platform
+						// to the other list if the same-named group is supported.  This is a lot of
+						// lines because we need to do the comparisons as strings.
+						string CurPlatformString = CurPlatform.ToString();
+						foreach (UnrealPlatformGroup Group in Enum.GetValues(typeof(UnrealPlatformGroup)))
+						{
+							if (Group.ToString().Equals(CurPlatformString))
+							{
+								ShouldConsider = false;
+								break;
+							}
+						}
 
 						// Don't add our current platform to the list of platform sub-directory names that
 						// we'll skip source files for
-						if ( ShouldConsider && !SupportedPlatforms.Contains( CurPlatform ) )
+						if (ShouldConsider && !SupportedPlatforms.Contains(CurPlatform))
 						{
 							OtherPlatformNameStrings.Add(CurPlatform.ToString());
 						}
@@ -502,7 +461,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="FilePath">File path with potentially inconsistent slashes</param>
 		/// <returns>File path with consistent separators</returns>
-		public static string CleanDirectorySeparators( string FilePath, char UseDirectorySeparatorChar = '\0' )
+		public static string CleanDirectorySeparators(string FilePath, char UseDirectorySeparatorChar = '\0')
 		{
 			StringBuilder CleanPath = null;
 			if (UseDirectorySeparatorChar == '\0')
@@ -514,23 +473,23 @@ namespace UnrealBuildTool
 			bool bCanCheckDoubleSeparators = false;
 			for (int Index = 0; Index < FilePath.Length; ++Index)
 			{
-				char C = FilePath[Index];				
+				char C = FilePath[Index];
 				if (C == '/' || C == '\\')
 				{
-					if( C != UseDirectorySeparatorChar )
-					{ 
+					if (C != UseDirectorySeparatorChar)
+					{
 						C = UseDirectorySeparatorChar;
-						if( CleanPath == null )
-						{ 
-							CleanPath = new StringBuilder( FilePath.Substring( 0, Index ), FilePath.Length );
+						if (CleanPath == null)
+						{
+							CleanPath = new StringBuilder(FilePath.Substring(0, Index), FilePath.Length);
 						}
 					}
 
 					if (bCanCheckDoubleSeparators && C == PrevC)
 					{
-						if( CleanPath == null )
-						{ 
-							CleanPath = new StringBuilder( FilePath.Substring( 0, Index ), FilePath.Length );
+						if (CleanPath == null)
+						{
+							CleanPath = new StringBuilder(FilePath.Substring(0, Index), FilePath.Length);
 						}
 						continue;
 					}
@@ -541,8 +500,8 @@ namespace UnrealBuildTool
 					bCanCheckDoubleSeparators = true;
 				}
 
-				if( CleanPath != null )
-				{ 
+				if (CleanPath != null)
+				{
 					CleanPath.Append(C);
 				}
 				PrevC = C;
@@ -550,7 +509,7 @@ namespace UnrealBuildTool
 			return CleanPath != null ? CleanPath.ToString() : FilePath;
 		}
 
-	
+
 		/// <summary>
 		/// Given a file path and a directory, returns a file path that is relative to the specified directory
 		/// </summary>
@@ -558,51 +517,51 @@ namespace UnrealBuildTool
 		/// <param name="RelativeToDirectory">The directory that the source file path should be converted to be relative to.  If this path is not rooted, it will be assumed to be relative to the current working directory.</param>
 		/// <param name="AlwaysTreatSourceAsDirectory">True if we should treat the source path like a directory even if it doesn't end with a path separator</param>
 		/// <returns>Converted relative path</returns>
-		public static string MakePathRelativeTo( string SourcePath, string RelativeToDirectory, bool AlwaysTreatSourceAsDirectory = false )
+		public static string MakePathRelativeTo(string SourcePath, string RelativeToDirectory, bool AlwaysTreatSourceAsDirectory = false)
 		{
-			if( String.IsNullOrEmpty( RelativeToDirectory ) )
+			if (String.IsNullOrEmpty(RelativeToDirectory))
 			{
 				// Assume CWD
 				RelativeToDirectory = ".";
 			}
 
 			var AbsolutePath = SourcePath;
-			if( !Path.IsPathRooted( AbsolutePath ) )
+			if (!Path.IsPathRooted(AbsolutePath))
 			{
-				AbsolutePath = Path.GetFullPath( SourcePath );
+				AbsolutePath = Path.GetFullPath(SourcePath);
 			}
-			var SourcePathEndsWithDirectorySeparator = AbsolutePath.EndsWith( Path.DirectorySeparatorChar.ToString() ) || AbsolutePath.EndsWith( Path.AltDirectorySeparatorChar.ToString() );
-			if( AlwaysTreatSourceAsDirectory && !SourcePathEndsWithDirectorySeparator )
+			var SourcePathEndsWithDirectorySeparator = AbsolutePath.EndsWith(Path.DirectorySeparatorChar.ToString()) || AbsolutePath.EndsWith(Path.AltDirectorySeparatorChar.ToString());
+			if (AlwaysTreatSourceAsDirectory && !SourcePathEndsWithDirectorySeparator)
 			{
 				AbsolutePath += Path.DirectorySeparatorChar;
 			}
 
-			var AbsolutePathUri = new Uri( AbsolutePath );
+			var AbsolutePathUri = new Uri(AbsolutePath);
 
 			var AbsoluteRelativeDirectory = RelativeToDirectory;
-			if( !Path.IsPathRooted( AbsoluteRelativeDirectory ) )
+			if (!Path.IsPathRooted(AbsoluteRelativeDirectory))
 			{
-				AbsoluteRelativeDirectory = Path.GetFullPath( AbsoluteRelativeDirectory );
+				AbsoluteRelativeDirectory = Path.GetFullPath(AbsoluteRelativeDirectory);
 			}
 
 			// Make sure the directory has a trailing directory separator so that the relative directory that
 			// MakeRelativeUri creates doesn't include our directory -- only the directories beneath it!
-			if( !AbsoluteRelativeDirectory.EndsWith( Path.DirectorySeparatorChar.ToString() ) && !AbsoluteRelativeDirectory.EndsWith( Path.AltDirectorySeparatorChar.ToString() ) )
+			if (!AbsoluteRelativeDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) && !AbsoluteRelativeDirectory.EndsWith(Path.AltDirectorySeparatorChar.ToString()))
 			{
 				AbsoluteRelativeDirectory += Path.DirectorySeparatorChar;
 			}
 
 			// Convert to URI form which is where we can make the relative conversion happen
-			var AbsoluteRelativeDirectoryUri = new Uri( AbsoluteRelativeDirectory );
+			var AbsoluteRelativeDirectoryUri = new Uri(AbsoluteRelativeDirectory);
 
 			// Ask the URI system to convert to a nicely formed relative path, then convert it back to a regular path string
-			var UriRelativePath = AbsoluteRelativeDirectoryUri.MakeRelativeUri( AbsolutePathUri );
-			var RelativePath = Uri.UnescapeDataString( UriRelativePath.ToString() ).Replace( '/', Path.DirectorySeparatorChar );
+			var UriRelativePath = AbsoluteRelativeDirectoryUri.MakeRelativeUri(AbsolutePathUri);
+			var RelativePath = Uri.UnescapeDataString(UriRelativePath.ToString()).Replace('/', Path.DirectorySeparatorChar);
 
 			// If we added a directory separator character earlier on, remove it now
-			if( !SourcePathEndsWithDirectorySeparator && AlwaysTreatSourceAsDirectory && RelativePath.EndsWith( Path.DirectorySeparatorChar.ToString() ) )
+			if (!SourcePathEndsWithDirectorySeparator && AlwaysTreatSourceAsDirectory && RelativePath.EndsWith(Path.DirectorySeparatorChar.ToString()))
 			{
-				RelativePath = RelativePath.Substring( 0, RelativePath.Length - 1 );
+				RelativePath = RelativePath.Substring(0, RelativePath.Length - 1);
 			}
 
 			// Uri.MakeRelativeUri is broken in Mono 2.x and sometimes returns broken path
@@ -631,58 +590,58 @@ namespace UnrealBuildTool
 		/// <param name="Numerator">Progress numerator</param>
 		/// <param name="Denominator">Progress denominator</param>
 		/// <param name="NumCharsToBackspaceOver">Number of characters to backspace before writing the text.  This value will be updated with the length of the new progress string.  The first time progress is displayed, you should pass 0 for this value.</param>
-		public static void DisplayProgress( int Numerator, int Denominator, ref int NumCharsToBackspaceOver )
+		public static void DisplayProgress(int Numerator, int Denominator, ref int NumCharsToBackspaceOver)
 		{
 			// Backspace over previous progress value
-			while( NumCharsToBackspaceOver-- > 0 )
+			while (NumCharsToBackspaceOver-- > 0)
 			{
-				Console.Write( "\b" );
+				Console.Write("\b");
 			}
 
 			// Display updated progress string and keep track of how long it was
-			float ProgressValue = Denominator > 0 ? ( (float)Numerator / (float)Denominator ) : 1.0f;
-			var ProgressString = String.Format( "{0}%", Math.Round( ProgressValue * 100.0f ) );
+			float ProgressValue = Denominator > 0 ? ((float)Numerator / (float)Denominator) : 1.0f;
+			var ProgressString = String.Format("{0}%", Math.Round(ProgressValue * 100.0f));
 			NumCharsToBackspaceOver = ProgressString.Length;
-			Console.Write( ProgressString );
+			Console.Write(ProgressString);
 		}
 
 
 		/*
 		 * Read and write classes with xml specifiers
 		 */
-		static private void UnknownAttributeDelegate( object sender, XmlAttributeEventArgs e )
+		static private void UnknownAttributeDelegate(object sender, XmlAttributeEventArgs e)
 		{
 		}
 
-		static private void UnknownNodeDelegate( object sender, XmlNodeEventArgs e )
+		static private void UnknownNodeDelegate(object sender, XmlNodeEventArgs e)
 		{
 		}
 
-		static public T ReadClass<T>( string FileName ) where T : new()
+		static public T ReadClass<T>(string FileName) where T : new()
 		{
 			T Instance = new T();
 			StreamReader XmlStream = null;
 			try
 			{
 				// Get the XML data stream to read from
-				XmlStream = new StreamReader( FileName );
+				XmlStream = new StreamReader(FileName);
 
 				// Creates an instance of the XmlSerializer class so we can read the settings object
-				XmlSerializer Serialiser = new XmlSerializer( typeof( T ) );
+				XmlSerializer Serialiser = new XmlSerializer(typeof(T));
 				// Add our callbacks for unknown nodes and attributes
-				Serialiser.UnknownNode += new XmlNodeEventHandler( UnknownNodeDelegate );
-				Serialiser.UnknownAttribute += new XmlAttributeEventHandler( UnknownAttributeDelegate );
+				Serialiser.UnknownNode += new XmlNodeEventHandler(UnknownNodeDelegate);
+				Serialiser.UnknownAttribute += new XmlAttributeEventHandler(UnknownAttributeDelegate);
 
 				// Create an object graph from the XML data
-				Instance = ( T )Serialiser.Deserialize( XmlStream );
+				Instance = (T)Serialiser.Deserialize(XmlStream);
 			}
-			catch( Exception E )
+			catch (Exception E)
 			{
-				Log.TraceInformation( E.Message );
+				Log.TraceInformation(E.Message);
 			}
 			finally
 			{
-				if( XmlStream != null )
+				if (XmlStream != null)
 				{
 					// Done with the file so close it
 					XmlStream.Close();
@@ -692,14 +651,14 @@ namespace UnrealBuildTool
 			return Instance;
 		}
 
-		static public bool WriteClass<T>( T Data, string FileName, string DefaultNameSpace )
+		static public bool WriteClass<T>(T Data, string FileName, string DefaultNameSpace)
 		{
 			bool bSuccess = true;
 			StreamWriter XmlStream = null;
 			try
 			{
-				FileInfo Info = new FileInfo( FileName );
-				if( Info.Exists )
+				FileInfo Info = new FileInfo(FileName);
+				if (Info.Exists)
 				{
 					Info.IsReadOnly = false;
 				}
@@ -708,32 +667,32 @@ namespace UnrealBuildTool
 				Directory.CreateDirectory(Path.GetDirectoryName(FileName));
 
 				XmlSerializerNamespaces EmptyNameSpace = new XmlSerializerNamespaces();
-				EmptyNameSpace.Add( "", DefaultNameSpace );
+				EmptyNameSpace.Add("", DefaultNameSpace);
 
-				XmlStream = new StreamWriter( FileName, false, Encoding.Unicode );
-				XmlSerializer Serialiser = new XmlSerializer( typeof( T ) );
+				XmlStream = new StreamWriter(FileName, false, Encoding.Unicode);
+				XmlSerializer Serialiser = new XmlSerializer(typeof(T));
 
 				// Add our callbacks for unknown nodes and attributes
-				Serialiser.UnknownNode += new XmlNodeEventHandler( UnknownNodeDelegate );
-				Serialiser.UnknownAttribute += new XmlAttributeEventHandler( UnknownAttributeDelegate );
+				Serialiser.UnknownNode += new XmlNodeEventHandler(UnknownNodeDelegate);
+				Serialiser.UnknownAttribute += new XmlAttributeEventHandler(UnknownAttributeDelegate);
 
-				Serialiser.Serialize( XmlStream, Data, EmptyNameSpace );
+				Serialiser.Serialize(XmlStream, Data, EmptyNameSpace);
 			}
-			catch( Exception E )
+			catch (Exception E)
 			{
-				Log.TraceInformation( E.Message );
+				Log.TraceInformation(E.Message);
 				bSuccess = false;
 			}
 			finally
 			{
-				if( XmlStream != null )
+				if (XmlStream != null)
 				{
 					// Done with the file so close it
 					XmlStream.Close();
 				}
 			}
 
-			return ( bSuccess );
+			return (bSuccess);
 		}
 
 		/// <summary>
@@ -744,13 +703,13 @@ namespace UnrealBuildTool
 		public static bool IsValidProcess(Process p)
 		{
 			// null objects are always invalid
-			if(p == null)
+			if (p == null)
 				return false;
 			// due to multithreading on Windows, lock the object
-			lock(p)
+			lock (p)
 			{
 				// Mono has a specific requirement if testing for an alive process
-				if(IsRunningOnMono)
+				if (IsRunningOnMono)
 					return p.Handle != IntPtr.Zero; // native handle to the process
 				// on Windows, simply test the process ID to be non-zero. 
 				// note that this can fail and have a race condition in threads, but the framework throws an exception when this occurs.
@@ -807,14 +766,14 @@ namespace UnrealBuildTool
 		/// <param name="FilePath">The path to the file</param>
 		/// <param name="Directory">The directory to check to see if the file is located under (or any of this directory's subfolders)</param>
 		/// <returns></returns>
-		public static bool IsFileUnderDirectory( string FilePath, string Directory )
+		public static bool IsFileUnderDirectory(string FilePath, string Directory)
 		{
-			var DirectoryPathPlusSeparator = Path.GetFullPath( Directory );
-			if( !DirectoryPathPlusSeparator.EndsWith( Path.DirectorySeparatorChar.ToString() ) )
+			var DirectoryPathPlusSeparator = Path.GetFullPath(Directory);
+			if (!DirectoryPathPlusSeparator.EndsWith(Path.DirectorySeparatorChar.ToString()))
 			{
 				DirectoryPathPlusSeparator += Path.DirectorySeparatorChar;
 			}
-			return Path.GetFullPath( FilePath ).StartsWith( DirectoryPathPlusSeparator, StringComparison.InvariantCultureIgnoreCase );
+			return Path.GetFullPath(FilePath).StartsWith(DirectoryPathPlusSeparator, StringComparison.InvariantCultureIgnoreCase);
 		}
 
 
@@ -824,9 +783,9 @@ namespace UnrealBuildTool
 		/// <param name="FilePath">The full path</param>
 		/// <param name="BaseDirectory">The base directory, which must be the first part of the path</param>
 		/// <returns>The part of the path after the base directory</returns>
-		public static string StripBaseDirectory( string FilePath, string BaseDirectory )
+		public static string StripBaseDirectory(string FilePath, string BaseDirectory)
 		{
-			return CleanDirectorySeparators( FilePath ).Substring( CleanDirectorySeparators( BaseDirectory ).Length + 1 );
+			return CleanDirectorySeparators(FilePath).Substring(CleanDirectorySeparators(BaseDirectory).Length + 1);
 		}
 
 
@@ -837,10 +796,10 @@ namespace UnrealBuildTool
 		/// <param name="BaseDirectory"></param>
 		/// <param name="NewBaseDirectory"></param>
 		/// <returns></returns>
-		public static string MakeRerootedFilePath( string FilePath, string BaseDirectory, string NewBaseDirectory )
+		public static string MakeRerootedFilePath(string FilePath, string BaseDirectory, string NewBaseDirectory)
 		{
-			var RelativeFile = StripBaseDirectory( FilePath, BaseDirectory );
-			var DestFile = Path.Combine( NewBaseDirectory, RelativeFile );
+			var RelativeFile = StripBaseDirectory(FilePath, BaseDirectory);
+			var DestFile = Path.Combine(NewBaseDirectory, RelativeFile);
 			return DestFile;
 		}
 
@@ -861,10 +820,10 @@ namespace UnrealBuildTool
 				bHadBackSlashes = true;
 			}
 
-			string ParentDir       = "/..";
-			int    ParentDirLength = ParentDir.Length;
+			string ParentDir = "/..";
+			int ParentDirLength = ParentDir.Length;
 
-			for (;;)
+			for (; ; )
 			{
 				// An empty path is finished
 				if (string.IsNullOrEmpty(LocalString))
@@ -880,7 +839,7 @@ namespace UnrealBuildTool
 					break;
 
 				int PreviousSeparatorIndex = Index;
-				for (;;)
+				for (; ; )
 				{
 					// Find the previous slash
 					PreviousSeparatorIndex = Math.Max(0, LocalString.LastIndexOf("/", PreviousSeparatorIndex - 1));
@@ -915,56 +874,6 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-
-		/// <summary>
-		/// Finds the Engine Version from ObjVersion.cpp.
-		/// </summary>
-		/// <remarks>
-		/// If UBT eventually gets the engine version passed from the build environment this code should be scrapped for that instead.
-		/// </remarks>
-		/// <returns></returns>
-		public static int GetEngineVersionFromObjVersionCPP()
-		{
-			if(UnrealBuildTool.RunningRocket() == false)
-			{
-				try
-				{
-					return
-						(from line in File.ReadLines("Runtime/Core/Private/UObject/ObjectVersion.cpp", Encoding.ASCII)
-						 where line.StartsWith("#define	ENGINE_VERSION")
-						 select int.Parse(line.Split()[2])).Single();
-				}
-				catch (Exception ex)
-				{
-					// Don't do a stack trace so we don't pollute the logs with spurious exception data, as we don't crash on this case.
-					Log.TraceWarning("Could not parse Engine Version from ObjectVersion.cpp: {0}", ex.Message);
-				}
-			}
-			return 0;
-		}
-
-		/// <summary>
-		/// Gets the executing assembly path (including filename).
-		/// This method is using Assembly.CodeBase property to properly resolve original
-		/// assembly path in case shadow copying is enabled.
-		/// </summary>
-		/// <returns>Absolute path to the executing assembly including the assembly filename.</returns>
-		public static string GetExecutingAssemblyLocation()
-		{
-			return new Uri(System.Reflection.Assembly.GetExecutingAssembly().CodeBase).LocalPath;
-		}
-
-		/// <summary>
-		/// Gets the executing assembly directory.
-		/// This method is using Assembly.CodeBase property to properly resolve original
-		/// assembly directory in case shadow copying is enabled.
-		/// </summary>
-		/// <returns>Absolute path to the directory containing the executing assembly.</returns>
-		public static string GetExecutingAssemblyDirectory()
-		{
-			return Path.GetDirectoryName(GetExecutingAssemblyLocation());
-		}
-
 		/// <summary>
 		/// Checks if given type implements given interface.
 		/// </summary>
@@ -979,32 +888,71 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Returns the User Settings Directory path. This matches FPlatformProcess::UserSettingsDir()
 		/// </summary>
-		public static string GetUserSettingDirectory()
+		public static DirectoryReference GetUserSettingDirectory()
 		{
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 			{
-				return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Library", "Application Support", "Epic");
+				return new DirectoryReference(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Library", "Application Support", "Epic"));
 			}
 			else if (Environment.OSVersion.Platform == PlatformID.Unix)
 			{
-				return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Epic");
+				return new DirectoryReference(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Epic"));
 			}
 			else
 			{
-				return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+				return new DirectoryReference(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
 			}
 		}
 
-		/** Helper function to get the minimum of two comparable objects */
+		/// <summary>
+		/// Helper function to get the minimum of two comparable objects
+		/// </summary>
 		public static T Min<T>(T a, T b) where T : IComparable
 		{
 			return a.CompareTo(b) < 0 ? a : b;
 		}
 
-		/** Helper function to get the maximum of two comparable objects */
+		/// <summary>
+		/// Helper function to get the maximum of two comparable objects
+		/// </summary>
 		public static T Max<T>(T a, T b) where T : IComparable
 		{
 			return a.CompareTo(b) > 0 ? a : b;
+		}
+
+		/// <summary>
+		/// Gets the number of physical cores, excluding hyper threading.
+		/// </summary>
+		/// <param name="NumCores">The number of physical cores, excluding hyper threading</param>
+		/// <returns>The number of physical cores, or -1 if it could not be obtained</returns>
+		public static int GetPhysicalProcessorCount()
+		{
+			// Can't use WMI queries on Mono; just fail.
+			if (Utils.IsRunningOnMono)
+			{
+				return -1;
+			}
+
+			// On some systems this requires a hot fix to work so catch any exceptions
+			try
+			{
+				int NumCores = 0;
+				using (var Mos = new System.Management.ManagementObjectSearcher("Select * from Win32_Processor"))
+				{
+					var MosCollection = Mos.Get();
+					foreach (var Item in MosCollection)
+					{
+						NumCores += int.Parse(Item["NumberOfCores"].ToString());
+					}
+				}
+				return NumCores;
+			}
+			catch (Exception Ex)
+			{
+				Log.TraceWarning("Unable to get the number of Cores: {0}", Ex.ToString());
+				Log.TraceWarning("Falling back to processor count.");
+				return -1;
+			}
 		}
 	}
 
@@ -1018,6 +966,7 @@ namespace UnrealBuildTool
 		bool bWriteToConsole;
 		string Message;
 		int NumCharsToBackspaceOver;
+		string CurrentProgressString;
 
 		public ProgressWriter(string InMessage, bool bInWriteToConsole)
 		{
@@ -1042,74 +991,141 @@ namespace UnrealBuildTool
 		{
 			float ProgressValue = Denominator > 0 ? ((float)Numerator / (float)Denominator) : 1.0f;
 			string ProgressString = String.Format("{0}%", Math.Round(ProgressValue * 100.0f));
-
-			if (bWriteMarkup)
+			if (ProgressString != CurrentProgressString)
 			{
-				Log.WriteLine(TraceEventType.Information, "@progress '{0}' {1}", Message, ProgressString);
-			}
-			else if (bWriteToConsole)
-			{
-				// Backspace over previous progress value
-				while (NumCharsToBackspaceOver-- > 0)
+				CurrentProgressString = ProgressString;
+				if (bWriteMarkup)
 				{
-					Console.Write("\b");
+					Log.WriteLine(LogEventType.Console, "@progress '{0}' {1}", Message, ProgressString);
 				}
+				else if (bWriteToConsole)
+				{
+					// Backspace over previous progress value
+					while (NumCharsToBackspaceOver-- > 0)
+					{
+						Console.Write("\b");
+					}
 
-				// Display updated progress string and keep track of how long it was
-				NumCharsToBackspaceOver = ProgressString.Length;
-				Console.Write(ProgressString);
+					// Display updated progress string and keep track of how long it was
+					NumCharsToBackspaceOver = ProgressString.Length;
+					Console.Write(ProgressString);
+				}
 			}
 		}
 	}
 
 	/// <summary>
-	/// Verbosity filter
+	/// UAT/UBT Custom log system.
+	/// 
+	/// This lets you use any TraceListeners you want, but you should only call the static 
+	/// methods below, not call Trace.XXX directly, as the static methods
+	/// This allows the system to enforce the formatting and filtering conventions we desire.
+	///
+	/// For posterity, we cannot use the Trace or TraceSource class directly because of our special log requirements:
+	///   1. We possibly capture the method name of the logging event. This cannot be done as a macro, so must be done at the top level so we know how many layers of the stack to peel off to get the real function.
+	///   2. We have a verbose filter we would like to apply to all logs without having to have each listener filter individually, which would require our string formatting code to run every time.
+	///   3. We possibly want to ensure severity prefixes are logged, but Trace.WriteXXX does not allow any severity info to be passed down.
 	/// </summary>
-	class VerbosityFilter : TraceFilter
+	static public class Log
 	{
-		public override bool ShouldTrace(TraceEventCache Cache, string Source, TraceEventType EventType, int Id, string FormatOrMessage, object[] Args, object Data1, object[] Data)
-		{
-			return EventType < TraceEventType.Verbose || BuildConfiguration.bPrintDebugInfo;
-		}
-	}
+		/// <summary>
+		/// Guard our initialization. Mainly used by top level exception handlers to ensure its safe to call a logging function.
+		/// In general user code should not concern itself checking for this.
+		/// </summary>
+		private static bool bIsInitialized = false;
+		/// <summary>
+		/// When true, verbose loggin is enabled.
+		/// </summary>
+		private static LogEventType LogLevel = LogEventType.Log;
+		/// <summary>
+		/// When true, warnings and errors will have a WARNING: or ERROR: prexifx, respectively.
+		/// </summary>
+		private static bool bLogSeverity = false;
+		/// <summary>
+		/// When true, logs will have the calling mehod prepended to the output as MethodName:
+		/// </summary>
+		private static bool bLogSources = false;
+		/// <summary>
+		/// When true, will detect warnings and errors and set the console output color to yellow and red.
+		/// </summary>
+		private static bool bColorConsoleOutput = false;
+		/// <summary>
+		/// When configured, this tracks time since initialization to prepend a timestamp to each log.
+		/// </summary>
+		private static Stopwatch Timer;
 
-	/// <summary>
-	/// Console Trace listener for UBT
-	/// </summary>
-	class ConsoleListener : TextWriterTraceListener
-	{
-		public override void Write(string Message)
+		/// <summary>
+		/// Expose the log level. This is a hack for ProcessResult.LogOutput, which wants to bypass our normal formatting scheme.
+		/// </summary>
+		public static bool bIsVerbose { get { return LogLevel >= LogEventType.Verbose; } }
+
+		/// <summary>
+		/// A collection of strings that have been already written once
+		/// </summary>
+		private static List<string> WriteOnceSet = new List<string>();
+
+		/// <summary>
+		/// Allows code to check if the log system is ready yet.
+		/// End users should NOT need to use this. It pretty much exists
+		/// to work around startup issues since this is a global singleton.
+		/// </summary>
+		/// <returns></returns>
+		public static bool IsInitialized()
 		{
-			Console.Write(Message);
+			return bIsInitialized;
 		}
 
-		public override void WriteLine(string Message)
+		/// <summary>
+		/// Allows us to change verbosity after initializing. This can happen since we initialize logging early, 
+		/// but then read the config and command line later, which could change this value.
+		/// </summary>
+		/// <param name="bLogVerbose">Whether to log verbose logs.</param>
+		public static void SetLoggingLevel(LogEventType InLogLevel)
 		{
-			Console.WriteLine(Message);
+			Log.LogLevel = InLogLevel;
 		}
 
-		public override void TraceEvent(TraceEventCache EventCache, string Source, TraceEventType EventType, int Id, string Message)
+		/// <summary>
+		/// This class allows InitLogging to be called more than once to work around chicken and eggs issues with logging and parsing command lines (see UBT startup code).
+		/// </summary>
+		/// <param name="bLogTimestamps">If true, the timestamp from Log init time will be prepended to all logs.</param>
+		/// <param name="bLogVerbose">If true, any Verbose log method method will not be ignored.</param>
+		/// <param name="bLogSeverity">If true, warnings and errors will have a WARNING: and ERROR: prefix to them. </param>
+		/// <param name="bLogSources">If true, logs will have the originating method name prepended to them.</param>
+		/// <param name="TraceListeners">Collection of trace listeners to attach to the Trace.Listeners, in addition to the Default listener. The existing listeners (except the Default listener) are cleared first.</param>
+		public static void InitLogging(bool bLogTimestamps, LogEventType InLogLevel, bool bLogSeverity, bool bLogSources, bool bColorConsoleOutput, IEnumerable<TraceListener> TraceListeners)
 		{
-			if (Filter == null || Filter.ShouldTrace(EventCache, Source, EventType, Id, Message, null, null, null))
+			bIsInitialized = true;
+			Timer = (bLogTimestamps && Timer == null) ? Stopwatch.StartNew() : null;
+			Log.LogLevel = InLogLevel;
+			Log.bLogSeverity = bLogSeverity;
+			Log.bLogSources = bLogSources;
+			Log.bColorConsoleOutput = bColorConsoleOutput;
+
+			// ensure that if InitLogging is called more than once we don't stack listeners.
+			// but always leave the default listener around.
+			for (int ListenerNdx = 0; ListenerNdx < Trace.Listeners.Count; )
 			{
-				WriteLine(Message);
+				if (Trace.Listeners[ListenerNdx].GetType() != typeof(DefaultTraceListener))
+				{
+					Trace.Listeners.RemoveAt(ListenerNdx);
+				}
+				else
+				{
+					++ListenerNdx;
+				}
 			}
+			// don't add any null listeners
+			Trace.Listeners.AddRange(TraceListeners.Where(l => l != null).ToArray());
+			Trace.AutoFlush = true;
 		}
 
-		public override void TraceEvent(TraceEventCache EventCache, string Source, TraceEventType EventType, int Id, string Format, params object[] Args)
-		{
-			if (Filter == null || Filter.ShouldTrace(EventCache, Source, EventType, Id, Format, Args, null, null))
-			{
-				WriteLine(String.Format(Format, Args));
-			}
-		}
-	}
-
-	/// <summary>
-	/// UnrealBuiltTool console logging system.
-	/// </summary>
-	public sealed class Log
-	{
+		/// <summary>
+		/// Gets the name of the Method N levels deep in the stack frame. Used to trap what method actually made the logging call.
+		/// Only used when bLogSources is true.
+		/// </summary>
+		/// <param name="StackFramesToSkip"></param>
+		/// <returns>ClassName.MethodName</returns>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		private static string GetSource(int StackFramesToSkip)
 		{
@@ -1119,100 +1135,209 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Writes a formatted message to the console.
+		/// Converts a LogEventType into a log prefix. Only used when bLogSeverity is true.
 		/// </summary>
-		/// <param name="Verbosity">Message verbosity level.</param>
-		/// <param name="Format">Message format string.</param>
-		/// <param name="Args">Optional arguments</param>
-		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void WriteLine(int StackFramesToSkip, TraceEventType Verbosity, string Format, params object[] Args)
+		/// <param name="EventType"></param>
+		/// <returns></returns>
+		private static string GetSeverityPrefix(LogEventType Severity)
 		{
-			var Source = GetSource(StackFramesToSkip);
-			var EventCache = new TraceEventCache();
-			foreach (TraceListener Listener in Trace.Listeners)
+			switch (Severity)
 			{
-				Listener.TraceEvent(EventCache, Source, Verbosity, (int)Verbosity, Format, Args);
+				case LogEventType.Fatal:
+					return "FATAL: ";
+				case LogEventType.Error:
+					return "ERROR: ";
+				case LogEventType.Warning:
+					return "WARNING: ";
+				case LogEventType.Console:
+					return "";
+				case LogEventType.Verbose:
+					return "VERBOSE: ";
+				case LogEventType.VeryVerbose:
+					return "VVERBOSE: ";
+				default:
+					return " ";
 			}
 		}
 
 		/// <summary>
-		/// Writes a message to the console.
+		/// Converts a LogEventType into a message code
 		/// </summary>
-		/// <param name="Verbosity">Message verbosity level.</param>
-		/// <param name="Message">Message text.</param>
-		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void WriteLine(int StackFramesToSkip, TraceEventType Verbosity, string Message)
+		/// <param name="EventType"></param>
+		/// <returns></returns>
+		private static int GetMessageCode(LogEventType Severity)
 		{
-			var Source = GetSource(StackFramesToSkip);
-			var EventCache = new TraceEventCache();
-			foreach (TraceListener Listener in Trace.Listeners)
-			{
-				Listener.TraceEvent(EventCache, Source, Verbosity, (int)Verbosity, Message);
-			}
+			return (int)Severity;
 		}
 
 		/// <summary>
-		/// Writes a formatted message to the console.
+		/// Formats message for logging. Enforces the configured options.
 		/// </summary>
-		/// <param name="Verbosity">Message verbosity level.</param>
-		/// <param name="Format">Message format string.</param>
-		/// <param name="Args">Optional arguments</param>
-		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void WriteLine(TraceEventType Verbosity, string Format, params object[] Args)
-		{
-			var Source = GetSource(0);
-			var EventCache = new TraceEventCache();
-			foreach (TraceListener Listener in Trace.Listeners)
-			{
-				Listener.TraceEvent(EventCache, Source, Verbosity, (int)Verbosity, Format, Args);
-			}
-		}
-
-		/// <summary>
-		/// Writes a message to the console.
-		/// </summary>
-		/// <param name="Verbosity">Message verbosity level.</param>
-		/// <param name="Message">Message text.</param>
-		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void WriteLine(TraceEventType Verbosity, string Message)
-		{
-			var Source = GetSource(0);
-			var EventCache = new TraceEventCache();
-			foreach (TraceListener Listener in Trace.Listeners)
-			{
-				Listener.TraceEvent(EventCache, Source, Verbosity, (int)Verbosity, Message);
-			}
-		}
-
-		/// <summary>
-		/// Writes a formatted message to the console if the condition is met.
-		/// </summary>
-		/// <param name="Condition">Condition</param>
+		/// <param name="StackFramesToSkip">Number of frames to skip to get to the originator of the log request.</param>
+		/// <param name="CustomSource">Custom source string to use. Use the Class.Method string if null. Only used if bLogSources = true.</param>
 		/// <param name="Verbosity">Message verbosity level</param>
+		/// <param name="Format">Message text format string</param>
+		/// <param name="Args">Message text parameters</param>
+		/// <returns>Formatted message</returns>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		private static string FormatMessage(int StackFramesToSkip, string CustomSource, LogEventType Verbosity, string Format, params object[] Args)
+		{
+			return string.Format("{0}{1}{2}{3}",
+					Timer != null ? String.Format("[{0:hh\\:mm\\:ss\\.fff}] ", Timer.Elapsed) : "",
+					bLogSources ? string.Format("{0}: ", string.IsNullOrEmpty(CustomSource) ? GetSource(StackFramesToSkip) : CustomSource) : "",
+					bLogSeverity ? GetSeverityPrefix(Verbosity) : "",
+				// If there are no extra args, don't try to format the string, in case it has any format control characters in it (our LOCTEXT strings tend to).
+					Args.Length > 0 ? string.Format(Format, Args) : Format);
+		}
+
+		/// <summary>
+		/// Writes a formatted message to the console. All other functions should boil down to calling this method.
+		/// </summary>
+		/// <param name="StackFramesToSkip">Number of frames to skip to get to the originator of the log request.</param>
+		/// <param name="CustomSource">Custom source string to use. Use the default if null.</param>
+		/// <param name="bWriteOnce">If true, this message will be written only once</param>
+		/// <param name="Verbosity">Message verbosity level. We only meaningfully use values up to Verbose</param>
+		/// <param name="Format">Message format string.</param>
+		/// <param name="Args">Optional arguments</param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		private static void WriteLinePrivate(int StackFramesToSkip, string CustomSource, bool bWriteOnce, LogEventType Verbosity, string Format, params object[] Args)
+		{
+			if (!bIsInitialized)
+			{
+				throw new BuildException("Tried to using Logging system before it was ready");
+			}
+
+			// if we want this message only written one time, check if it was already written out
+			if (bWriteOnce)
+			{
+				string Formatted = string.Format(Format, Args);
+				if (WriteOnceSet.Contains(Formatted))
+				{
+					return;
+				}
+
+				WriteOnceSet.Add(Formatted);
+			}
+
+			if (Verbosity <= LogLevel)
+			{
+				// Do console color highlighting here.
+				ConsoleColor DefaultColor = ConsoleColor.Gray;
+				bool bIsWarning = false;
+				bool bIsError = false;
+				// don't try to touch the console unless we are told to color the output.
+				if (bColorConsoleOutput)
+				{
+					DefaultColor = Console.ForegroundColor;
+					bIsWarning = Verbosity == LogEventType.Warning;
+					bIsError = Verbosity <= LogEventType.Error;
+					// @todo mono - mono doesn't seem to initialize the ForegroundColor properly, so we can't restore it properly.
+					// Avoid touching the console color unless we really need to.
+					if (bIsWarning || bIsError)
+					{
+						Console.ForegroundColor = bIsWarning ? ConsoleColor.Yellow : ConsoleColor.Red;
+					}
+				}
+				try
+				{
+					// @todo mono: mono has some kind of bug where calling mono recursively by spawning
+					// a new process causes Trace.WriteLine to stop functioning (it returns, but does nothing for some reason).
+					// work around this by simulating Trace.WriteLine on mono.
+					// We use UAT to spawn UBT instances recursively a lot, so this bug can effectively
+					// make all build output disappear outside of the top level UAT process.
+					//					#if MONO
+					lock (((System.Collections.ICollection)Trace.Listeners).SyncRoot)
+					{
+						foreach (TraceListener l in Trace.Listeners)
+						{
+							if (Verbosity != LogEventType.Log || (l as ConsoleTraceListener) == null || LogLevel >= LogEventType.Verbose)
+							{
+								l.WriteLine(FormatMessage(StackFramesToSkip + 1, CustomSource, Verbosity, Format, Args));
+							}
+							l.Flush();
+						}
+					}
+					//					#else
+					// Call Trace directly here. Trace ensures that our logging is threadsafe using the GlobalLock.
+					//                    	Trace.WriteLine(FormatMessage(StackFramesToSkip + 1, CustomSource, Verbosity, Format, Args));
+					//					#endif
+				}
+				finally
+				{
+					// make sure we always put the console color back.
+					if (bColorConsoleOutput && (bIsWarning || bIsError))
+					{
+						Console.ForegroundColor = DefaultColor;
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Similar to Trace.WriteLineIf
+		/// </summary>
+		/// <param name="Condition"></param>
+		/// <param name="Verbosity"></param>
+		/// <param name="Format"></param>
+		/// <param name="Args"></param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void WriteLineIf(bool Condition, LogEventType Verbosity, string Format, params object[] Args)
+		{
+			if (Condition)
+			{
+				WriteLinePrivate(1, null, false, Verbosity, Format, Args);
+			}
+		}
+
+		/// <summary>
+		/// Mostly an internal function, but expose StackFramesToSkip to allow UAT to use existing wrapper functions and still get proper formatting.
+		/// </summary>
+		/// <param name="StackFramesToSkip"></param>
+		/// <param name="CustomSource">Custom source string to use. Use the default if null.</param>
+		/// <param name="Verbosity"></param>
+		/// <param name="Format"></param>
+		/// <param name="Args"></param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void WriteLine(int StackFramesToSkip, LogEventType Verbosity, string Format, params object[] Args)
+		{
+			WriteLinePrivate(StackFramesToSkip + 1, null, false, Verbosity, Format, Args);
+		}
+
+		/// <summary>
+		/// Mostly an internal function, but expose StackFramesToSkip and a custom Source to alow UAT to use existing wrapper functions and still get proper formatting.
+		/// </summary>
+		/// <param name="StackFramesToSkip"></param>
+		/// <param name="CustomSource">Custom source string to use. Use the default if null.</param>
+		/// <param name="Verbosity"></param>
+		/// <param name="Format"></param>
+		/// <param name="Args"></param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void WriteLine(int StackFramesToSkip, string CustomSource, LogEventType Verbosity, string Format, params object[] Args)
+		{
+			WriteLinePrivate(StackFramesToSkip + 1, CustomSource, false, Verbosity, Format, Args);
+		}
+
+		/// <summary>
+		/// Similar to Trace.WriteLin
+		/// </summary>
+		/// <param name="Verbosity"></param>
+		/// <param name="Format"></param>
+		/// <param name="Args"></param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void WriteLine(LogEventType Verbosity, string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, null, false, Verbosity, Format, Args);
+		}
+
+		/// <summary>
+		/// Writes an error message to the console.
+		/// </summary>
 		/// <param name="Format">Message format string</param>
 		/// <param name="Args">Optional arguments</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void WriteLineIf(bool Condition, TraceEventType Verbosity, string Format, params object[] Args)
+		public static void TraceError(string Format, params object[] Args)
 		{
-			if (Condition)
-			{
-				WriteLine(1, Verbosity, Format, Args);
-			}
-		}
-
-		/// <summary>
-		/// Writes a message to the console if the condition is met.
-		/// </summary>
-		/// <param name="Condition">Condition.</param>
-		/// <param name="Verbosity">Message verbosity level</param>
-		/// <param name="Message">Message text</param>
-		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void WriteLineIf(bool Condition, TraceEventType Verbosity, string Message)
-		{
-			if (Condition)
-			{
-				WriteLine(1, Verbosity, Message);
-			}
+			WriteLinePrivate(1, null, false, LogEventType.Error, Format, Args);
 		}
 
 		/// <summary>
@@ -1224,18 +1349,7 @@ namespace UnrealBuildTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void TraceVerbose(string Format, params object[] Args)
 		{
-			WriteLine(1, TraceEventType.Verbose, Format, Args);
-		}
-
-		/// <summary>
-		/// Writes a verbose message to the console.
-		/// </summary>
-		/// <param name="Message">Message text</param>
-		[Conditional("TRACE")]
-		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void TraceVerbose(string Message)
-		{
-			WriteLine(1, TraceEventType.Verbose, Message);
+			WriteLinePrivate(1, null, false, LogEventType.Verbose, Format, Args);
 		}
 
 		/// <summary>
@@ -1246,17 +1360,7 @@ namespace UnrealBuildTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void TraceInformation(string Format, params object[] Args)
 		{
-			WriteLine(1, TraceEventType.Information, Format, Args);
-		}
-
-		/// <summary>
-		/// Writes a message to the console.
-		/// </summary>
-		/// <param name="Message">Message text</param>
-		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void TraceInformation(string Message)
-		{
-			WriteLine(1, TraceEventType.Information, Message);
+			WriteLinePrivate(1, null, false, LogEventType.Console, Format, Args);
 		}
 
 		/// <summary>
@@ -1267,17 +1371,43 @@ namespace UnrealBuildTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void TraceWarning(string Format, params object[] Args)
 		{
-			WriteLine(1, TraceEventType.Warning, Format, Args);
+			WriteLinePrivate(1, null, false, LogEventType.Warning, Format, Args);
 		}
 
 		/// <summary>
-		/// Writes a warning message to the console.
+		/// Writes a very verbose message to the console.
 		/// </summary>
-		/// <param name="Message">Message text</param>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
+		[Conditional("TRACE")]
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void TraceWarning(string Message)
+		public static void TraceVeryVerbose(string Format, params object[] Args)
 		{
-			WriteLine(1, TraceEventType.Warning, Message);
+			WriteLinePrivate(1, null, false, LogEventType.VeryVerbose, Format, Args);
+		}
+
+		/// <summary>
+		/// Writes a message to the log only.
+		/// </summary>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
+		[Conditional("TRACE")]
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void TraceLog(string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, null, false, LogEventType.Log, Format, Args);
+		}
+
+		/// <summary>
+		/// Similar to Trace.WriteLin
+		/// </summary>
+		/// <param name="Verbosity"></param>
+		/// <param name="Format"></param>
+		/// <param name="Args"></param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void WriteLineOnce(LogEventType Verbosity, string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, null, true, Verbosity, Format, Args);
 		}
 
 		/// <summary>
@@ -1286,227 +1416,257 @@ namespace UnrealBuildTool
 		/// <param name="Format">Message format string</param>
 		/// <param name="Args">Optional arguments</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void TraceError(string Format, params object[] Args)
+		public static void TraceErrorOnce(string Format, params object[] Args)
 		{
-			WriteLine(1, TraceEventType.Error, Format, Args);
+			WriteLinePrivate(1, null, true, LogEventType.Error, Format, Args);
 		}
 
 		/// <summary>
-		/// Writes an error message to the console.
+		/// Writes a verbose message to the console.
 		/// </summary>
-		/// <param name="Message">Message text</param>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
+		[Conditional("TRACE")]
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void TraceError(string Message)
+		public static void TraceVerboseOnce(string Format, params object[] Args)
 		{
-			WriteLine(1, TraceEventType.Error, Message);
+			WriteLinePrivate(1, null, true, LogEventType.Verbose, Format, Args);
 		}
 
 		/// <summary>
-		/// Writes a message with the specified verbosity to the console.
+		/// Writes a message to the console.
 		/// </summary>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void TraceEvent(TraceEventType Verbosity, string Message)
+		public static void TraceInformationOnce(string Format, params object[] Args)
 		{
-			WriteLine(1, Verbosity, Message);
+			WriteLinePrivate(1, null, true, LogEventType.Console, Format, Args);
 		}
 
 		/// <summary>
-		/// Writes a formatted message with the specified verbosity to the console.
+		/// Writes a warning message to the console.
 		/// </summary>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void TraceEvent(TraceEventType Verbosity, string Format, params object[] Args)
+		public static void TraceWarningOnce(string Format, params object[] Args)
 		{
-			WriteLine(1, Verbosity, Format, Args);
+			WriteLinePrivate(1, null, true, LogEventType.Warning, Format, Args);
+		}
+
+		/// <summary>
+		/// Writes a very verbose message to the console.
+		/// </summary>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
+		[Conditional("TRACE")]
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void TraceVeryVerboseOnce(string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, null, true, LogEventType.VeryVerbose, Format, Args);
+		}
+
+		/// <summary>
+		/// Writes a message to the log only.
+		/// </summary>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
+		[Conditional("TRACE")]
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void TraceLogOnce(string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, null, true, LogEventType.Log, Format, Args);
 		}
 	}
 
-    #region StreamUtils
-    public static class StreamUtils
-    {
-        /// <summary>
-        /// Read a stream into another, buffering in 4K chunks.
-        /// </summary>
-        /// <param name="output">this</param>
-        /// <param name="input">the Stream to read from</param>
-        /// <returns>same stream for expression chaining.</returns>
-        public static Stream ReadFrom(this Stream output, Stream input)
-        {
-            long bytesRead;
-            return output.ReadFrom(input, out bytesRead);
-        }
+	#region StreamUtils
+	public static class StreamUtils
+	{
+		/// <summary>
+		/// Read a stream into another, buffering in 4K chunks.
+		/// </summary>
+		/// <param name="output">this</param>
+		/// <param name="input">the Stream to read from</param>
+		/// <returns>same stream for expression chaining.</returns>
+		public static Stream ReadFrom(this Stream output, Stream input)
+		{
+			long bytesRead;
+			return output.ReadFrom(input, out bytesRead);
+		}
 
-        /// <summary>
-        /// Read a stream into another, buffering in 4K chunks.
-        /// </summary>
-        /// <param name="output">this</param>
-        /// <param name="input">the Stream to read from</param>
-        /// <param name="totalBytesRead">returns bytes read</param>
-        /// <returns>same stream for expression chaining.</returns>
-        public static Stream ReadFrom(this Stream output, Stream input, out long totalBytesRead)
-        {
-            totalBytesRead = 0;
-            const int BytesToRead = 4096;
-            var buf = new byte[BytesToRead];
-            var bytesReadThisTime = 0;
-            do
-            {
-                bytesReadThisTime = input.Read(buf, 0, BytesToRead);
-                totalBytesRead += bytesReadThisTime;
-                output.Write(buf, 0, bytesReadThisTime);
-            } while (bytesReadThisTime != 0);
-            return output;
-        }
+		/// <summary>
+		/// Read a stream into another, buffering in 4K chunks.
+		/// </summary>
+		/// <param name="output">this</param>
+		/// <param name="input">the Stream to read from</param>
+		/// <param name="totalBytesRead">returns bytes read</param>
+		/// <returns>same stream for expression chaining.</returns>
+		public static Stream ReadFrom(this Stream output, Stream input, out long totalBytesRead)
+		{
+			totalBytesRead = 0;
+			const int BytesToRead = 4096;
+			var buf = new byte[BytesToRead];
+			var bytesReadThisTime = 0;
+			do
+			{
+				bytesReadThisTime = input.Read(buf, 0, BytesToRead);
+				totalBytesRead += bytesReadThisTime;
+				output.Write(buf, 0, bytesReadThisTime);
+			} while (bytesReadThisTime != 0);
+			return output;
+		}
 
-        /// <summary>
-        /// Read stream into a new MemoryStream. Useful for chaining together expressions.
-        /// </summary>
-        /// <param name="input">Stream to read from.</param>
-        /// <returns>memory stream that contains the stream contents.</returns>
-        public static MemoryStream ReadIntoMemoryStream(this Stream input)
-        {
-            var data = new MemoryStream(4096);
-            data.ReadFrom(input);
-            return data;
-        }
+		/// <summary>
+		/// Read stream into a new MemoryStream. Useful for chaining together expressions.
+		/// </summary>
+		/// <param name="input">Stream to read from.</param>
+		/// <returns>memory stream that contains the stream contents.</returns>
+		public static MemoryStream ReadIntoMemoryStream(this Stream input)
+		{
+			var data = new MemoryStream(4096);
+			data.ReadFrom(input);
+			return data;
+		}
 
-        /// <summary>
-        /// Writes the entire contents of a byte array to the stream.
-        /// </summary>
-        /// <param name="stream"></param>
-        /// <param name="arr"></param>
-        /// <returns></returns>
-        public static Stream Write(this Stream stream, byte[] arr)
-        {
-            stream.Write(arr, 0, arr.Length);
-            return stream;
-        }
-    }
-    #endregion
+		/// <summary>
+		/// Writes the entire contents of a byte array to the stream.
+		/// </summary>
+		/// <param name="stream"></param>
+		/// <param name="arr"></param>
+		/// <returns></returns>
+		public static Stream Write(this Stream stream, byte[] arr)
+		{
+			stream.Write(arr, 0, arr.Length);
+			return stream;
+		}
+	}
+	#endregion
 
-    #region HashCodeHelper
-    /// <summary>
-    /// Helper for generating hashcodes for value types.
-    /// </summary>
-    public static class HashCodeHelper
-    {
-        private const int BasePrimeNumber = 691;
-        private const int FieldMutatorPrimeNumber = 397;
+	#region HashCodeHelper
+	/// <summary>
+	/// Helper for generating hashcodes for value types.
+	/// </summary>
+	public static class HashCodeHelper
+	{
+		private const int BasePrimeNumber = 691;
+		private const int FieldMutatorPrimeNumber = 397;
 
-        /// <summary>
-        /// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
-        /// </summary>
-        /// <typeparam name="T1"></typeparam>
-        /// <param name="Value1"></param>
-        /// <returns></returns>
-        public static int GetHashCodeFromValues<T1>(T1 Value1)
-        {
-            var Result = BasePrimeNumber;
-            if (Value1 != null)
-            {
-                Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            return Result;
-        }
+		/// <summary>
+		/// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
+		/// </summary>
+		/// <typeparam name="T1"></typeparam>
+		/// <param name="Value1"></param>
+		/// <returns></returns>
+		public static int GetHashCodeFromValues<T1>(T1 Value1)
+		{
+			var Result = BasePrimeNumber;
+			if (Value1 != null)
+			{
+				Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			return Result;
+		}
 
-        /// <summary>
-        /// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
-        /// </summary>
-        /// <typeparam name="T1"></typeparam>
-        /// <typeparam name="T2"></typeparam>
-        /// <param name="Value1"></param>
-        /// <param name="Value2"></param>
-        /// <returns></returns>
-        public static int GetHashCodeFromValues<T1, T2>(T1 Value1, T2 Value2)
-        {
-            var Result = BasePrimeNumber;
-            if (Value1 != null)
-            {
-                Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            if (Value2 != null)
-            {
-                Result *= Value2.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            return Result;
-        }
+		/// <summary>
+		/// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
+		/// </summary>
+		/// <typeparam name="T1"></typeparam>
+		/// <typeparam name="T2"></typeparam>
+		/// <param name="Value1"></param>
+		/// <param name="Value2"></param>
+		/// <returns></returns>
+		public static int GetHashCodeFromValues<T1, T2>(T1 Value1, T2 Value2)
+		{
+			var Result = BasePrimeNumber;
+			if (Value1 != null)
+			{
+				Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			if (Value2 != null)
+			{
+				Result *= Value2.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			return Result;
+		}
 
-        /// <summary>
-        /// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
-        /// </summary>
-        /// <typeparam name="T1"></typeparam>
-        /// <typeparam name="T2"></typeparam>
-        /// <typeparam name="T3"></typeparam>
-        /// <param name="Value1"></param>
-        /// <param name="Value2"></param>
-        /// <param name="Value3"></param>
-        /// <returns></returns>
-        public static int GetHashCodeFromValues<T1, T2, T3>(T1 Value1, T2 Value2, T3 Value3)
-        {
-            var Result = BasePrimeNumber;
-            if (Value1 != null)
-            {
-                Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            if (Value2 != null)
-            {
-                Result *= Value2.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            if (Value3 != null)
-            {
-                Result *= Value3.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            return Result;
-        }
+		/// <summary>
+		/// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
+		/// </summary>
+		/// <typeparam name="T1"></typeparam>
+		/// <typeparam name="T2"></typeparam>
+		/// <typeparam name="T3"></typeparam>
+		/// <param name="Value1"></param>
+		/// <param name="Value2"></param>
+		/// <param name="Value3"></param>
+		/// <returns></returns>
+		public static int GetHashCodeFromValues<T1, T2, T3>(T1 Value1, T2 Value2, T3 Value3)
+		{
+			var Result = BasePrimeNumber;
+			if (Value1 != null)
+			{
+				Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			if (Value2 != null)
+			{
+				Result *= Value2.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			if (Value3 != null)
+			{
+				Result *= Value3.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			return Result;
+		}
 
-        /// <summary>
-        /// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
-        /// </summary>
-        /// <typeparam name="T1"></typeparam>
-        /// <typeparam name="T2"></typeparam>
-        /// <typeparam name="T3"></typeparam>
-        /// <typeparam name="T4"></typeparam>
-        /// <param name="Value1"></param>
-        /// <param name="Value2"></param>
-        /// <param name="Value3"></param>
-        /// <param name="Value4"></param>
-        /// <returns></returns>
-        public static int GetHashCodeFromValues<T1, T2, T3, T4>(T1 Value1, T2 Value2, T3 Value3, T4 Value4)
-        {
-            var Result = BasePrimeNumber;
-            if (Value1 != null)
-            {
-                Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            if (Value2 != null)
-            {
-                Result *= Value2.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            if (Value3 != null)
-            {
-                Result *= Value3.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            if (Value4 != null)
-            {
-                Result *= Value4.GetHashCode() + FieldMutatorPrimeNumber;
-            }
-            return Result;
-        }
+		/// <summary>
+		/// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
+		/// </summary>
+		/// <typeparam name="T1"></typeparam>
+		/// <typeparam name="T2"></typeparam>
+		/// <typeparam name="T3"></typeparam>
+		/// <typeparam name="T4"></typeparam>
+		/// <param name="Value1"></param>
+		/// <param name="Value2"></param>
+		/// <param name="Value3"></param>
+		/// <param name="Value4"></param>
+		/// <returns></returns>
+		public static int GetHashCodeFromValues<T1, T2, T3, T4>(T1 Value1, T2 Value2, T3 Value3, T4 Value4)
+		{
+			var Result = BasePrimeNumber;
+			if (Value1 != null)
+			{
+				Result *= Value1.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			if (Value2 != null)
+			{
+				Result *= Value2.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			if (Value3 != null)
+			{
+				Result *= Value3.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			if (Value4 != null)
+			{
+				Result *= Value4.GetHashCode() + FieldMutatorPrimeNumber;
+			}
+			return Result;
+		}
 
-        /// <summary>
-        /// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
-        /// </summary>
-        /// <param name="values"></param>
-        /// <returns></returns>
-        public static int GetHashCodeFromValues(params object[] values)
-        {
-            // prevent arithmetic overflow exceptions
-            unchecked
-            {
-                return values.Where(elt => elt != null).Aggregate(BasePrimeNumber, (result, rhs) => result * (FieldMutatorPrimeNumber + rhs.GetHashCode()));
-            }
-        }
-    }
-    #endregion
+		/// <summary>
+		/// Helper to compute a reasonable hash code from a group of objects, typically base types, but could be anything.
+		/// </summary>
+		/// <param name="values"></param>
+		/// <returns></returns>
+		public static int GetHashCodeFromValues(params object[] values)
+		{
+			// prevent arithmetic overflow exceptions
+			unchecked
+			{
+				return values.Where(elt => elt != null).Aggregate(BasePrimeNumber, (result, rhs) => result * (FieldMutatorPrimeNumber + rhs.GetHashCode()));
+			}
+		}
+	}
+	#endregion
 
 	#region Scoped Timers
 
@@ -1517,11 +1677,11 @@ namespace UnrealBuildTool
 	{
 		DateTime StartTime;
 		string TimerName;
-		TraceEventType Verbosity;
+		LogEventType Verbosity;
 		static int Indent = 0;
 		static object IndentLock = new object();
 
-		public ScopedTimer(string Name, TraceEventType InVerbosity = TraceEventType.Verbose)
+		public ScopedTimer(string Name, LogEventType InVerbosity = LogEventType.Verbose)
 		{
 			TimerName = Name;
 			lock (IndentLock)
@@ -1542,8 +1702,8 @@ namespace UnrealBuildTool
 			}
 			var IndentText = new StringBuilder(LogIndent * 2);
 			IndentText.Append(' ', LogIndent * 2);
-			
-			Log.TraceEvent(Verbosity, "{0}{1} took {2}s", IndentText.ToString(), TimerName, TotalSeconds);
+
+			Log.WriteLine(Verbosity, "{0}{1} took {2}s", IndentText.ToString(), TimerName, TotalSeconds);
 		}
 	}
 
@@ -1555,15 +1715,15 @@ namespace UnrealBuildTool
 		class Accumulator
 		{
 			public double Time;
-			public TraceEventType Verbosity;
+			public LogEventType Verbosity;
 		}
 		DateTime StartTime;
 		Accumulator ScopedAccumulator;
 		string CounterName;
-		
+
 		static Dictionary<string, Accumulator> Accumulators = new Dictionary<string, Accumulator>();
 
-		public ScopedCounter(string Name, TraceEventType InVerbosity = TraceEventType.Verbose)
+		public ScopedCounter(string Name, LogEventType InVerbosity = LogEventType.Verbose)
 		{
 			CounterName = Name;
 			if (!Accumulators.TryGetValue(CounterName, out ScopedAccumulator))
@@ -1613,7 +1773,7 @@ namespace UnrealBuildTool
 
 		static private void LogAccumulator(string Name, Accumulator Counter)
 		{
-			Log.TraceEvent(Counter.Verbosity, "{0} took {1}s", Name, Counter.Time);
+			Log.WriteLine(Counter.Verbosity, "{0} took {1}s", Name, Counter.Time);
 		}
 
 		/// <summary>
@@ -1629,4 +1789,5 @@ namespace UnrealBuildTool
 	}
 
 	#endregion
+
 }

@@ -58,7 +58,7 @@ UK2Node_Event* UBlueprintEventNodeSpawnerImpl::FindCustomEventNode(UBlueprint* B
 //------------------------------------------------------------------------------
 static void UBlueprintEventNodeSpawnerImpl::RemoveAllDisabledNodes(UEdGraphNode* InNode, UEdGraph* InParentGraph)
 {
-	if(InNode && !InNode->bIsNodeEnabled)
+	if(InNode && !InNode->IsNodeEnabled() && !InNode->bUserSetEnabledState)
 	{
 		// Go through all pin connections and consume any disabled nodes so we do not leave garbage.
 		for (UEdGraphPin* Pin : InNode->Pins)
@@ -98,8 +98,7 @@ UBlueprintEventNodeSpawner* UBlueprintEventNodeSpawner::Create(UFunction const* 
 	FBlueprintActionUiSpec& MenuSignature = NodeSpawner->DefaultMenuSignature;
 	FText const FuncName = UEdGraphSchema_K2::GetFriendlySignatureName(EventFunc);
 	MenuSignature.MenuName = FText::Format(LOCTEXT("EventWithSignatureName", "Event {0}"), FuncName);
-	FString const FuncCategory = UK2Node_CallFunction::GetDefaultCategoryForFunction(EventFunc, TEXT(""));
-	MenuSignature.Category = FText::FromString(LOCTEXT("AddEventCategory", "Add Event").ToString() + TEXT("|") + FuncCategory);
+	MenuSignature.Category = UK2Node_CallFunction::GetDefaultCategoryForFunction(EventFunc, LOCTEXT("AddEventCategory", "Add Event"));
 	//MenuSignature.Tooltip, will be pulled from the node template
 	MenuSignature.Keywords = UK2Node_CallFunction::GetKeywordsForFunction(EventFunc);
 	if (MenuSignature.Keywords.IsEmpty())
@@ -172,8 +171,7 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(ParentGraph);
 
 	UK2Node_Event* EventNode = nullptr;
-	bool const bIsTemplateNode = FBlueprintNodeTemplateCache::IsTemplateOuter(ParentGraph);
-	if (!bIsTemplateNode)
+	if (!FBlueprintNodeTemplateCache::IsTemplateOuter(ParentGraph))
 	{
 		// look to see if a node for this event already exists (only one node is
 		// allowed per event, per blueprint)
@@ -193,7 +191,7 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 
 	// This Event node might already be present in the Blueprint in a disabled state, 
 	// remove it and allow the user to successfully place the node where they want it.
-	if(EventNode && !EventNode->bIsNodeEnabled)
+	if(EventNode && !EventNode->IsNodeEnabled() && !EventNode->bUserSetEnabledState)
 	{
 		UBlueprintEventNodeSpawnerImpl::RemoveAllDisabledNodes(EventNode, ParentGraph);
 		EventNode = nullptr;
@@ -202,7 +200,7 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 	// if there is no existing node, then we can happily spawn one into the graph
 	if (EventNode == nullptr)
 	{
-		auto PostSpawnLambda = [](UEdGraphNode* NewNode, bool bInIsTemplateNode, UFunction const* InEventFunc, FName InEventName, FCustomizeNodeDelegate UserDelegate)
+		auto PostSpawnLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, UFunction const* InEventFunc, FName InEventName, FCustomizeNodeDelegate UserDelegate)
 		{
 			UK2Node_Event* K2EventNode = CastChecked<UK2Node_Event>(NewNode);
 			if (InEventFunc != nullptr)
@@ -210,12 +208,12 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 				K2EventNode->EventReference.SetFromField<UFunction>(InEventFunc, false);
 				K2EventNode->bOverrideFunction   = true;
 			}
-			else if (!bInIsTemplateNode)
+			else if (!bIsTemplateNode)
 			{
 				K2EventNode->CustomFunctionName = InEventName;
 			}
 
-			UserDelegate.ExecuteIfBound(NewNode, bInIsTemplateNode);
+			UserDelegate.ExecuteIfBound(NewNode, bIsTemplateNode);
 		};
 
 		FCustomizeNodeDelegate PostSpawnDelegate = FCustomizeNodeDelegate::CreateStatic(PostSpawnLambda, EventFunc, EventName, CustomizeNodeDelegate);

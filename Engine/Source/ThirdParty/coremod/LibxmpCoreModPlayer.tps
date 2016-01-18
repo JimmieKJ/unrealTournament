@@ -2,12 +2,11 @@
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Libxmp Core Mod Player v4.2</Name>
   <Location>//depot/UE4/Engine/Source/ThirdParty/coremod/</Location>
-  <Date>2014-12-23T15:16:42.9157128-05:00</Date>
+  <Date>2015-09-04T19:25:17.4782287-04:00</Date>
   <Function>Plays audio .mod, .it, and XM files… it’s a self-contained music sequencer and sample playback engine for playing back generative music files</Function>
   <Justification>It will be a nice plugin to provide as an additional option for playing back audio in UE4</Justification>
   <Platforms>
     <Platform>PC</Platform>
-    <Platform>Mac</Platform>
     <Platform>Xbox One</Platform>
     <Platform>Playstation 4</Platform>
     <Platform>Android</Platform>
@@ -15,6 +14,7 @@
     <Platform>HTML 5</Platform>
     <Platform>Windows 8</Platform>
     <Platform>Linux</Platform>
+    <Platform>Mac</Platform>
   </Platforms>
   <Products>
     <Product>UDK4</Product>
@@ -27,7 +27,28 @@
   <RedistributeTo />
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
+  <NoticeType>Full EULA Text</NoticeType>
+  <Notification>LICENSE
+
+Extended Module Player core player
+Copyright (C) 1996-2014 Claudio Matsuoka and Hipolito Carraro Jr
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.</Notification>
   <LicenseFolder />
 </TpsData>

@@ -42,7 +42,7 @@ bool FPredictionKey::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bO
 		}
 		else
 		{
-			int16 Payload = 0;
+			KeyType Payload = 0;
 			Ar << Payload;
 		}
 	}
@@ -55,6 +55,10 @@ void FPredictionKey::GenerateNewPredictionKey()
 {
 	static KeyType GKey = 1;
 	Current = GKey++;
+	if (GKey < 0)
+	{
+		GKey = 1;
+	}
 	bIsStale = false;
 }
 
@@ -156,7 +160,8 @@ void FPredictionKeyDelegates::NewRejectOrCaughtUpDelegate(FPredictionKey::KeyTyp
 
 void FPredictionKeyDelegates::BroadcastRejectedDelegate(FPredictionKey::KeyType Key)
 {
-	TArray<FPredictionKeyEvent>& DelegateList = Get().DelegateMap.FindOrAdd(Key).RejectedDelegates;
+	// Intentionally making a copy of the delegate list since it may change when firing one of the delegates
+	TArray<FPredictionKeyEvent> DelegateList = Get().DelegateMap.FindOrAdd(Key).RejectedDelegates;
 	for (auto Delegate : DelegateList)
 	{
 		Delegate.ExecuteIfBound();
@@ -165,7 +170,8 @@ void FPredictionKeyDelegates::BroadcastRejectedDelegate(FPredictionKey::KeyType 
 
 void FPredictionKeyDelegates::BroadcastCaughtUpDelegate(FPredictionKey::KeyType Key)
 {
-	TArray<FPredictionKeyEvent>& DelegateList = Get().DelegateMap.FindOrAdd(Key).CaughtUpDelegates;
+	// Intentionally making a copy of the delegate list since it may change when firing one of the delegates
+	TArray<FPredictionKeyEvent> DelegateList = Get().DelegateMap.FindOrAdd(Key).CaughtUpDelegates;
 	for (auto Delegate : DelegateList)
 	{
 		Delegate.ExecuteIfBound();

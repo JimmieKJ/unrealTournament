@@ -81,7 +81,7 @@ public:
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailLayout ) override;
 	
-	static void PopulateCategories(SMyBlueprint* MyBlueprint, TArray<TSharedPtr<FString>>& CategorySource);
+	static void PopulateCategories(SMyBlueprint* MyBlueprint, TArray<TSharedPtr<FText>>& CategorySource);
 
 private:
 	/** Accessors passed to parent */
@@ -92,7 +92,7 @@ private:
 	FName GetVariableName() const;
 
 	/** Commonly queried attributes about the schema action */
-	bool IsAComponentVariable(UProperty* VariableProperty) const;
+	bool IsASCSVariable(UProperty* VariableProperty) const;
 	bool IsABlueprintVariable(UProperty* VariableProperty) const;
 	bool IsALocalVariable(UProperty* VariableProperty) const;
 	UStruct* GetLocalVariableScope(UProperty* VariableProperty) const;
@@ -124,8 +124,8 @@ private:
 	
 	FText OnGetCategoryText() const;
 	void OnCategoryTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit, FName VarName);
-	TSharedRef< ITableRow > MakeCategoryViewWidget( TSharedPtr<FString> Item, const TSharedRef< STableViewBase >& OwnerTable );
-	void OnCategorySelectionChanged( TSharedPtr<FString> ProposedSelection, ESelectInfo::Type /*SelectInfo*/ );
+	TSharedRef< ITableRow > MakeCategoryViewWidget( TSharedPtr<FText> Item, const TSharedRef< STableViewBase >& OwnerTable );
+	void OnCategorySelectionChanged( TSharedPtr<FText> ProposedSelection, ESelectInfo::Type /*SelectInfo*/ );
 	
 	EVisibility ShowEditableCheckboxVisibilty() const;
 	ECheckBoxState OnEditableCheckboxState() const;
@@ -169,6 +169,10 @@ private:
 	ECheckBoxState OnGetSaveGameCheckboxState() const;
 	void OnSaveGameChanged(ECheckBoxState InNewState);
 
+	EVisibility GetAdvancedDisplayVisibility() const;
+	ECheckBoxState OnGetAdvancedDisplayCheckboxState() const;
+	void OnAdvancedDisplayChanged(ECheckBoxState InNewState);
+
 	/** Refresh the property flags list */
 	void RefreshPropertyFlags();
 
@@ -181,6 +185,14 @@ private:
 	/** Refreshes cached data that changes after a Blueprint recompile */
 	void OnPostEditorRefresh();
 
+	/** Returns the Property's Blueprint */
+	UBlueprint* GetPropertyOwnerBlueprint() const { return PropertyOwnerBlueprint.Get(); }
+
+	/** Returns TRUE if the Variable is in the current Blueprint */
+	bool IsVariableInBlueprint() const { return GetPropertyOwnerBlueprint() == GetBlueprintObj(); }
+
+	/** Returns TRUE if the Variable is inherited by the current Blueprint */
+	bool IsVariableInheritedByBlueprint() const { return GetBlueprintObj()->SkeletonGeneratedClass->IsChildOf(GetPropertyOwnerBlueprint()->SkeletonGeneratedClass); }
 private:
 	/** Pointer back to my parent tab */
 	TWeakPtr<SMyBlueprint> MyBlueprint;
@@ -195,10 +207,10 @@ private:
 	bool bIsVarNameInvalid;
 	
 	/** A list of all category names to choose from */
-	TArray<TSharedPtr<FString>> CategorySource;
+	TArray<TSharedPtr<FText>> CategorySource;
 	/** Widgets for the categories */
 	TWeakPtr<SComboButton> CategoryComboButton;
-	TWeakPtr<SListView<TSharedPtr<FString>>> CategoryListView;
+	TWeakPtr<SListView<TSharedPtr<FText>>> CategoryListView;
 
 	/** Array of names of property flags on the selected property */
 	TArray< TSharedPtr< FString > > PropertyFlags;
@@ -211,6 +223,9 @@ private:
 
 	/** Cached name for the variable we are affecting */
 	FName CachedVariableName;
+
+	/** Pointer back to the variable's Blueprint */
+	TWeakObjectPtr<UBlueprint> PropertyOwnerBlueprint;
 };
 
 class FBaseBlueprintGraphActionDetails : public IDetailCustomization
@@ -240,9 +255,6 @@ public:
 
 	/** Refreshes the graph and ensures the target node is up to date */
 	bool OnPinRenamed(UK2Node_EditablePinBase* TargetNode, const FString& OldName, const FString& NewName);
-
-	/** Called to potentially remove the result node (if there are no output args), returns true if it was cleaned up */
-	bool ConditionallyCleanUpResultNode();
 	
 	/** Gets the blueprint we're editing */
 	TWeakPtr<SMyBlueprint> GetMyBlueprint() const {return MyBlueprint.Pin();}
@@ -315,8 +327,8 @@ private:
 	void OnTooltipTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit);
 	FText OnGetCategoryText() const;
 	void OnCategoryTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit);
-	TSharedRef< ITableRow > MakeCategoryViewWidget( TSharedPtr<FString> Item, const TSharedRef< STableViewBase >& OwnerTable );
-	void OnCategorySelectionChanged( TSharedPtr<FString> ProposedSelection, ESelectInfo::Type /*SelectInfo*/ );
+	TSharedRef< ITableRow > MakeCategoryViewWidget( TSharedPtr<FText> Item, const TSharedRef< STableViewBase >& OwnerTable );
+	void OnCategorySelectionChanged( TSharedPtr<FText> ProposedSelection, ESelectInfo::Type /*SelectInfo*/ );
 
 	void CollectAvailibleSignatures();
 	void OnFunctionSelected(TSharedPtr<FString> FunctionItemData, ESelectInfo::Type SelectInfo);
@@ -325,11 +337,11 @@ private:
 private:
 
 	/** A list of all category names to choose from */
-	TArray<TSharedPtr<FString>> CategorySource;
+	TArray<TSharedPtr<FText>> CategorySource;
 
 	/** Widgets for the categories */
 	TWeakPtr<SComboButton> CategoryComboButton;
-	TWeakPtr<SListView<TSharedPtr<FString>>> CategoryListView;
+	TWeakPtr<SListView<TSharedPtr<FText>>> CategoryListView;
 
 	TArray<TSharedPtr<FString>> FunctionsToCopySignatureFrom;
 	TSharedPtr<STextComboBox> CopySignatureComboButton;
@@ -480,6 +492,12 @@ private:
 	
 	FText OnGetCategoryText() const;
 	void OnCategoryTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit);
+
+	FText OnGetKeywordsText() const;
+	void OnKeywordsTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit);
+
+	FText OnGetCompactNodeTitleText() const;
+	void OnCompactNodeTitleTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit);
 	
 	FText AccessSpecifierProperName( uint32 AccessSpecifierFlag ) const;
 	bool IsAccessSpecifierVisible() const;
@@ -534,10 +552,10 @@ private:
 	static void SetNetFlags( TWeakObjectPtr<UK2Node_EditablePinBase> FunctionEntryNode, uint32 NetFlags);
 
 	/** Callback when a graph category is changed */
-	void OnCategorySelectionChanged( TSharedPtr<FString> ProposedSelection, ESelectInfo::Type /*SelectInfo*/ );
+	void OnCategorySelectionChanged( TSharedPtr<FText> ProposedSelection, ESelectInfo::Type /*SelectInfo*/ );
 
 	/** Callback to make category widgets */
-	TSharedRef< ITableRow > MakeCategoryViewWidget( TSharedPtr<FString> Item, const TSharedRef< STableViewBase >& OwnerTable );
+	TSharedRef< ITableRow > MakeCategoryViewWidget( TSharedPtr<FText> Item, const TSharedRef< STableViewBase >& OwnerTable );
 
 private:
 
@@ -551,11 +569,11 @@ private:
 	TSharedPtr<class SColorBlock> ColorBlock;
 
 	/** A list of all category names to choose from */
-	TArray<TSharedPtr<FString>> CategorySource;
+	TArray<TSharedPtr<FText>> CategorySource;
 
 	/** Widgets for the categories */
 	TWeakPtr<SComboButton> CategoryComboButton;
-	TWeakPtr<SListView<TSharedPtr<FString>>> CategoryListView;
+	TWeakPtr<SListView<TSharedPtr<FText>>> CategoryListView;
 };
 
 /** Blueprint Interface List Details */
@@ -714,8 +732,8 @@ protected:
 	bool OnVariableCategoryChangeEnabled() const;
 	FText OnGetVariableCategoryText() const;
 	void OnVariableCategoryTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit, FName VarName);
-	void OnVariableCategorySelectionChanged(TSharedPtr<FString> ProposedSelection, ESelectInfo::Type /*SelectInfo*/);
-	TSharedRef<ITableRow> MakeVariableCategoryViewWidget(TSharedPtr<FString> Item, const TSharedRef< STableViewBase >& OwnerTable);
+	void OnVariableCategorySelectionChanged(TSharedPtr<FText> ProposedSelection, ESelectInfo::Type /*SelectInfo*/);
+	TSharedRef<ITableRow> MakeVariableCategoryViewWidget(TSharedPtr<FText> Item, const TSharedRef< STableViewBase >& OwnerTable);
 
 	FText GetSocketName() const;
 	void OnBrowseSocket();
@@ -741,11 +759,11 @@ private:
 	bool bIsVariableNameInvalid;
 
 	/** A list of all category names to choose from */
-	TArray<TSharedPtr<FString>> VariableCategorySource;
+	TArray<TSharedPtr<FText>> VariableCategorySource;
 
 	/** Widgets for the categories */
 	TSharedPtr<SComboButton> VariableCategoryComboButton;
-	TSharedPtr<SListView<TSharedPtr<FString>>> VariableCategoryListView;
+	TSharedPtr<SListView<TSharedPtr<FText>>> VariableCategoryListView;
 };
 
 /** Details customization for All Graph Nodes */
@@ -776,14 +794,19 @@ protected:
 
 private:
 
+	/** Set error to name textbox */
+	void SetNameError( const FText& Error );
+
 	// Callbacks for uproperty details customization
 	FText OnGetName() const;
 	bool IsNameReadOnly() const;
 	void OnNameChanged(const FText& InNewText);
 	void OnNameCommitted(const FText& InNewName, ETextCommit::Type InTextCommit);
 
-	/** The widget used when editing the name */ 
+	/** The widget used when editing a singleline name */ 
 	TSharedPtr<SEditableTextBox> NameEditableTextBox;
+	/** The widget used when editing a multiline name */ 
+	TSharedPtr<SMultiLineEditableTextBox> MultiLineNameEditableTextBox;
 	/** The target GraphNode */
 	TWeakObjectPtr<UEdGraphNode> GraphNodePtr;
 	/** Weak reference to the Blueprint editor */

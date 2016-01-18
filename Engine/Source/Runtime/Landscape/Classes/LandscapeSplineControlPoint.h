@@ -49,26 +49,45 @@ class ULandscapeSplineControlPoint : public UObject
 
 // Directly editable data:
 	/** Location in Landscape-space */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineControlPoint)
+	UPROPERTY(EditAnywhere, Category=LandscapeSpline)
 	FVector Location;
 
 	/** Rotation of tangent vector at this point (in landscape-space) */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineControlPoint)
+	UPROPERTY(EditAnywhere, Category=LandscapeSpline)
 	FRotator Rotation;
 
 	/** Width of the spline at this point. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineControlPoint)
+	UPROPERTY(EditAnywhere, Category=LandscapeSpline)
 	float Width;
 
 	/** Falloff at the sides of the spline at this point. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineControlPoint)
+	UPROPERTY(EditAnywhere, Category=LandscapeSpline)
 	float SideFalloff;
 
 	/** Falloff at the start/end of the spline (if this point is a start or end point, otherwise ignored). */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineControlPoint)
+	UPROPERTY(EditAnywhere, Category=LandscapeSpline)
 	float EndFalloff;
 
 #if WITH_EDITORONLY_DATA
+	/** Vertical offset of the spline segment mesh. Useful for a river's surface, among other things. */
+	UPROPERTY(EditAnywhere, Category=LandscapeSpline, meta=(DisplayName="Mesh Vertical Offset"))
+	float SegmentMeshOffset;
+
+	/**
+	 * Name of blend layer to paint when applying spline to landscape
+	 * If "none", no layer is painted
+	 */
+	UPROPERTY(EditAnywhere, Category=LandscapeDeformation)
+	FName LayerName;
+
+	/** If the spline is above the terrain, whether to raise the terrain up to the level of the spline when applying it to the landscape. */
+	UPROPERTY(EditAnywhere, Category=LandscapeDeformation)
+	uint32 bRaiseTerrain:1;
+
+	/** If the spline is below the terrain, whether to lower the terrain down to the level of the spline when applying it to the landscape. */
+	UPROPERTY(EditAnywhere, Category=LandscapeDeformation)
+	uint32 bLowerTerrain:1;
+
 	/** Mesh to use on the control point */
 	UPROPERTY(EditAnywhere, Category=Mesh)
 	UStaticMesh* Mesh;
@@ -81,8 +100,16 @@ class ULandscapeSplineControlPoint : public UObject
 	UPROPERTY(EditAnywhere, Category=Mesh)
 	FVector MeshScale;
 
+	/** Whether to enable collision for the Control Point Mesh. */
+	UPROPERTY(EditAnywhere, Category=Mesh)
+	uint32 bEnableCollision:1;
+
+	/** Whether the Control Point Mesh should cast a shadow. */
+	UPROPERTY(EditAnywhere, Category=Mesh)
+	uint32 bCastShadow:1;
+
 	/**  Max draw distance for the mesh used on this control point */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Mesh, meta = (DisplayName = "Max Draw Distance"))
+	UPROPERTY(EditAnywhere, Category=Mesh, AdvancedDisplay, meta=(DisplayName="Max Draw Distance"))
 	float LDMaxDrawDistance;
 
 	/**
@@ -92,35 +119,12 @@ class ULandscapeSplineControlPoint : public UObject
 	 * Ignored if the object is not translucent.  The default priority is zero.
 	 * Warning: This should never be set to a non-default value unless you know what you are doing, as it will prevent the renderer from sorting correctly.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Mesh)
+	UPROPERTY(EditAnywhere, Category=Mesh, AdvancedDisplay)
 	int32 TranslucencySortPriority;
 
-	/**
-	 * Name of blend layer to paint when applying spline to landscape
-	 * If "none", no layer is painted
-	 */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineControlPoint)
-	FName LayerName;
-
-	/** If the spline is above the terrain, whether to raise the terrain up to the level of the spline when applying it to the landscape. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineControlPoint)
-	uint32 bRaiseTerrain:1;
-
-	/** If the spline is below the terrain, whether to lower the terrain down to the level of the spline when applying it to the landscape. */
-	UPROPERTY(EditAnywhere, Category=LandscapeSplineControlPoint)
-	uint32 bLowerTerrain:1;
-
 	/** Whether control point mesh should be placed in landscape proxy streaming level (true) or the spline's level (false) */
-	UPROPERTY(EditAnywhere, Category=Mesh)
+	UPROPERTY(EditAnywhere, Category=Mesh, AdvancedDisplay)
 	uint32 bPlaceSplineMeshesInStreamingLevels : 1;
-
-	/** Whether to enable collision for the Control Point Mesh. */
-	UPROPERTY(EditAnywhere, Category=Mesh)
-	uint32 bEnableCollision:1;
-
-	/** Whether the Control Point Mesh should cast a shadow. */
-	UPROPERTY(EditAnywhere, Category=Mesh)
-	uint32 bCastShadow:1;
 
 protected:
 	UPROPERTY(Transient)
@@ -195,7 +199,7 @@ public:
 	FGuid GetModificationKey() const { return ModificationKey; }
 #endif // WITH_EDITOR
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
@@ -203,7 +207,7 @@ public:
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void PostEditImport() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End UObject Interface
+	//~ End UObject Interface
 #endif // WITH_EDITOR
 
 	friend class FLandscapeToolSplines;

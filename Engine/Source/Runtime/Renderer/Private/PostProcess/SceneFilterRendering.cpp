@@ -8,6 +8,7 @@
 #include "ScenePrivate.h"
 #include "SceneFilterRendering.h"
 #include "PostProcessWeightedSampleSum.h"
+#include "IHeadMountedDisplay.h"
 
 /**
 * Static vertex and index buffer used for 2D screen rectangles.
@@ -299,4 +300,60 @@ void DrawTransformedRectangle(
 	static const uint16 Indices[] =	{ 0, 1, 3, 0, 3, 2 };
 
 	DrawIndexedPrimitiveUP(RHICmdList, PT_TriangleList, 0, 4, 2, Indices, sizeof(Indices[0]), Vertices, sizeof(Vertices[0]));
+}
+
+void DrawHmdMesh(
+	FRHICommandList& RHICmdList,
+	float X,
+	float Y,
+	float SizeX,
+	float SizeY,
+	float U,
+	float V,
+	float SizeU,
+	float SizeV,
+	FIntPoint TargetSize,
+	FIntPoint TextureSize,
+	EStereoscopicPass StereoView,
+	FShader* VertexShader
+	)
+{
+	FDrawRectangleParameters Parameters;
+	Parameters.PosScaleBias = FVector4(SizeX, SizeY, X, Y);
+	Parameters.UVScaleBias = FVector4(SizeU, SizeV, U, V);
+
+	Parameters.InvTargetSizeAndTextureSize = FVector4(
+		1.0f / TargetSize.X, 1.0f / TargetSize.Y,
+		1.0f / TextureSize.X, 1.0f / TextureSize.Y);
+
+	SetUniformBufferParameterImmediate(RHICmdList, VertexShader->GetVertexShader(), VertexShader->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
+
+	GEngine->HMDDevice->DrawVisibleAreaMesh_RenderThread(RHICmdList, StereoView);
+}
+
+void DrawPostProcessPass(
+	FRHICommandList& RHICmdList,
+	float X,
+	float Y,
+	float SizeX,
+	float SizeY,
+	float U,
+	float V,
+	float SizeU,
+	float SizeV,
+	FIntPoint TargetSize,
+	FIntPoint TextureSize,
+	FShader* VertexShader,
+	EStereoscopicPass StereoView,
+	bool bHasCustomMesh,
+	EDrawRectangleFlags Flags)
+{
+	if (bHasCustomMesh && StereoView != eSSP_FULL)
+	{
+		DrawHmdMesh(RHICmdList, X, Y, SizeX, SizeY, U, V, SizeU, SizeV, TargetSize, TextureSize, StereoView, VertexShader);
+	}
+	else
+	{
+		DrawRectangle(RHICmdList, X, Y, SizeX, SizeY, U, V, SizeU, SizeV, TargetSize, TextureSize, VertexShader, Flags);
+	}
 }

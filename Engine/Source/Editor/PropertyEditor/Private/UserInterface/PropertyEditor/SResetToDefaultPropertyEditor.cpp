@@ -2,6 +2,7 @@
 #include "PropertyEditorPrivatePCH.h"
 #include "SResetToDefaultPropertyEditor.h"
 #include "PropertyEditor.h"
+#include "IDetailPropertyRow.h"
 
 #define LOCTEXT_NAMESPACE "ResetToDefaultPropertyEditor"
 
@@ -10,9 +11,9 @@ void SResetToDefaultPropertyEditor::Construct( const FArguments& InArgs, const T
 	PropertyEditor = InPropertyEditor;
 	NonVisibleState = InArgs._NonVisibleState;
 	bValueDiffersFromDefault = false;
-	CustomResetToDefault = InArgs._CustomResetToDefault;
+	OptionalCustomResetToDefault = InArgs._CustomResetToDefault;
 
-	if( CustomResetToDefault.IsResetToDefaultVisible.IsSet() )
+	if (OptionalCustomResetToDefault.IsSet())
 	{
 		ChildSlot
 		[
@@ -52,9 +53,9 @@ void SResetToDefaultPropertyEditor::Construct( const FArguments& InArgs, const T
 
 void SResetToDefaultPropertyEditor::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	if( CustomResetToDefault.IsResetToDefaultVisible.IsSet() )
+	if (OptionalCustomResetToDefault.IsSet())
 	{
-		bValueDiffersFromDefault = CustomResetToDefault.IsResetToDefaultVisible.Get();
+		bValueDiffersFromDefault = OptionalCustomResetToDefault.GetValue().IsResetToDefaultVisible(PropertyEditor->GetPropertyHandle());
 	}
 	else
 	{
@@ -85,7 +86,7 @@ FReply SResetToDefaultPropertyEditor::OnDefaultResetClicked()
 
 FReply SResetToDefaultPropertyEditor::OnCustomResetClicked()
 {
-	PropertyEditor->CustomResetToDefault( CustomResetToDefault.OnResetToDefaultClicked );
+	PropertyEditor->CustomResetToDefault(OptionalCustomResetToDefault.GetValue());
 
 	return FReply::Handled();
 }

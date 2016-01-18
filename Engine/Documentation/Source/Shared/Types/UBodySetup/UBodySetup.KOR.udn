@@ -1,4 +1,4 @@
-INTSourceChangelist:2308784
+﻿INTSourceChangelist:2574188
 Availability:NoPublish
 Title:UBodySetup RTTs
 Crumbs:
@@ -102,6 +102,6 @@ Engine/Physics/PhAT/Properties#physicsbodyproperties
 - Default - 기본 방식은 두 가지 다른 질의에 쓸 두 가지 모양을 월드에 추가합니다.
 - Use Simple Collision As Complex - 심플 콜리전을 컴플렉스로 사용 옵션은 심플 콜리전을 컴플렉스로 추가합니다. 단순한 모양을 추가하여 심플 & 컴플렉스 질의 모두에 사용합니다.
 - Use Complex Collision As Simple - 컴플렉스 콜리전을 심플로 사용 옵션은 컴플렉스 콜리전을 심플로 추가합니다. 복합 모양을 추가하여 심플 & 컴플렉스 질의 모두에 사용합니다.
-
+	
 
 [/EXCERPT:CollisionTraceFlag]

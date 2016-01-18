@@ -3,6 +3,7 @@
 #include "UMGPrivatePCH.h"
 
 #include "Slate/SlateBrushAsset.h"
+#include "Runtime/Engine/Classes/Engine/UserInterfaceSettings.h"
 #include "SlateBlueprintLibrary.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
@@ -33,6 +34,40 @@ FVector2D USlateBlueprintLibrary::LocalToAbsolute(const FGeometry& Geometry, FVe
 FVector2D USlateBlueprintLibrary::GetLocalSize(const FGeometry& Geometry)
 {
 	return Geometry.GetLocalSize();
+}
+
+void USlateBlueprintLibrary::LocalToViewport(UObject* WorldContextObject, const FGeometry& Geometry, FVector2D LocalCoordinate, FVector2D& PixelPosition, FVector2D& ViewportPosition)
+{
+	FVector2D AbsoluteCoordinate = Geometry.LocalToAbsolute(LocalCoordinate);
+	AbsoluteToViewport(WorldContextObject, AbsoluteCoordinate, PixelPosition, ViewportPosition);
+}
+
+void USlateBlueprintLibrary::AbsoluteToViewport(UObject* WorldContextObject, FVector2D AbsoluteDesktopCoordinate, FVector2D& PixelPosition, FVector2D& ViewportPosition)
+{
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	if ( World && World->IsGameWorld() )
+	{
+		if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
+		{
+			if ( FViewport* Viewport = ViewportClient->Viewport )
+			{
+				FVector2D ViewportSize;
+				ViewportClient->GetViewportSize(ViewportSize);
+
+				PixelPosition = Viewport->VirtualDesktopPixelToViewport(FIntPoint((int32)AbsoluteDesktopCoordinate.X, (int32)AbsoluteDesktopCoordinate.Y)) * ViewportSize;
+
+				float CurrentViewportScale = GetDefault<UUserInterfaceSettings>()->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+
+				// Remove DPI Scaling.
+				ViewportPosition = PixelPosition / CurrentViewportScale;
+
+				return;
+			}
+		}
+	}
+
+	PixelPosition = FVector2D(0, 0);
+	ViewportPosition = FVector2D(0, 0);
 }
 
 #undef LOCTEXT_NAMESPACE

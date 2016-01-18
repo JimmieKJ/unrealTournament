@@ -109,6 +109,18 @@ void FVariantData::SetValue(int32 InData)
  *
  * @param InData the new data to assign
  */
+void FVariantData::SetValue(uint32 InData)
+{
+	Empty();
+	Type = EOnlineKeyValuePairDataType::UInt32;
+	Value.AsUInt = InData;
+}
+
+/**
+ * Copies the data and sets the type
+ *
+ * @param InData the new data to assign
+ */
 void FVariantData::SetValue(bool InData)
 {
 	Empty();
@@ -163,7 +175,7 @@ void FVariantData::SetValue(uint32 Size, const uint8* InData)
 	if (Size > 0)
 	{
 		// Deep copy the binary data
-		Value.AsBlob.BlobSize = (int32)Size;
+		Value.AsBlob.BlobSize = Size;
 		Value.AsBlob.BlobData = new uint8[Size];
 		FMemory::Memcpy(Value.AsBlob.BlobData, InData, Size);
 	}
@@ -174,11 +186,23 @@ void FVariantData::SetValue(uint32 Size, const uint8* InData)
  *
  * @param InData the new data to assign
  */
-void FVariantData::SetValue(uint64 InData)
+void FVariantData::SetValue(int64 InData)
 {
 	Empty();
 	Type = EOnlineKeyValuePairDataType::Int64;
 	Value.AsInt64 = InData;
+}
+
+/**
+ * Copies the data and sets the type
+ *
+ * @param InData the new data to assign
+ */
+void FVariantData::SetValue(uint64 InData)
+{
+	Empty();
+	Type = EOnlineKeyValuePairDataType::UInt64;
+	Value.AsUInt64 = InData;
 }
 
 /**
@@ -220,6 +244,23 @@ void FVariantData::GetValue(int32& OutData) const
  *
  * @param OutData out value that receives the copied data
  */
+void FVariantData::GetValue(uint32& OutData) const
+{
+	if (Type == EOnlineKeyValuePairDataType::UInt32)
+	{
+		OutData = Value.AsUInt;
+	}
+	else
+	{
+		OutData = 0;
+	}
+}
+
+/**
+ * Copies the data after verifying the type
+ *
+ * @param OutData out value that receives the copied data
+ */
 void FVariantData::GetValue(bool& OutData) const
 {
 	if (Type == EOnlineKeyValuePairDataType::Bool)
@@ -237,11 +278,28 @@ void FVariantData::GetValue(bool& OutData) const
  *
  * @param OutData out value that receives the copied data
  */
-void FVariantData::GetValue(uint64& OutData) const
+void FVariantData::GetValue(int64& OutData) const
 {
 	if (Type == EOnlineKeyValuePairDataType::Int64)
 	{
 		OutData = Value.AsInt64;
+	}
+	else
+	{
+		OutData = 0;
+	}
+}
+
+/**
+ * Copies the data after verifying the type
+ *
+ * @param OutData out value that receives the copied data
+ */
+void FVariantData::GetValue(uint64& OutData) const
+{
+	if (Type == EOnlineKeyValuePairDataType::UInt64)
+	{
+		OutData = Value.AsUInt64;
 	}
 	else
 	{
@@ -374,12 +432,26 @@ FString FVariantData::ToString() const
 			GetValue(Val);
 			return FString::Printf(TEXT("%d"), Val);
 		}
+		case EOnlineKeyValuePairDataType::UInt32:
+		{
+			// Convert the int to a string
+			uint32 Val;
+			GetValue(Val);
+			return FString::Printf(TEXT("%d"), Val);
+		}
 		case EOnlineKeyValuePairDataType::Int64:
+		{
+			// Convert the int to a string
+			int64 Val;
+			GetValue(Val);
+			return FString::Printf(TEXT("%lld"),Val);
+		}
+		case EOnlineKeyValuePairDataType::UInt64:
 		{
 			// Convert the int to a string
 			uint64 Val;
 			GetValue(Val);
-			return FString::Printf(TEXT("%lld"),Val);
+			return FString::Printf(TEXT("%lld"), Val);
 		}
 		case EOnlineKeyValuePairDataType::Double:
 		{
@@ -426,6 +498,13 @@ bool FVariantData::FromString(const FString& NewValue)
 			SetValue(IntVal);
 			return true;
 		}
+		case EOnlineKeyValuePairDataType::UInt32:
+		{
+			// Convert the string to a int
+			uint64 IntVal = FCString::Strtoui64(*NewValue, nullptr, 10);
+			SetValue(static_cast<uint32>(IntVal));
+			return true;
+		}
 		case EOnlineKeyValuePairDataType::Double:
 		{
 			// Convert the string to a double
@@ -435,7 +514,13 @@ bool FVariantData::FromString(const FString& NewValue)
 		}
 		case EOnlineKeyValuePairDataType::Int64:
 		{
-			uint64 Val = FCString::Strtoui64(*NewValue, NULL, 10);
+			int64 Val = FCString::Atoi64(*NewValue);
+			SetValue(Val);
+			return true;
+		}
+		case EOnlineKeyValuePairDataType::UInt64:
+		{
+			uint64 Val = FCString::Strtoui64(*NewValue, nullptr, 10);
 			SetValue(Val);
 			return true;
 		}
@@ -476,6 +561,13 @@ TSharedRef<class FJsonObject> FVariantData::ToJson() const
 			JsonObject->SetNumberField(ValueStr, (double)FieldValue);
 			break;
 		}
+		case EOnlineKeyValuePairDataType::UInt32:
+		{
+			uint32 FieldValue;
+			GetValue(FieldValue);
+			JsonObject->SetNumberField(ValueStr, (double)FieldValue);
+			break;
+		}
 		case EOnlineKeyValuePairDataType::Float:
 		{
 			float FieldValue;
@@ -498,6 +590,11 @@ TSharedRef<class FJsonObject> FVariantData::ToJson() const
 			break;
 		}
 		case EOnlineKeyValuePairDataType::Int64:
+		{
+			JsonObject->SetStringField(ValueStr, ToString());
+			break;
+		}
+		case EOnlineKeyValuePairDataType::UInt64:
 		{
 			JsonObject->SetStringField(ValueStr, ToString());
 			break;
@@ -541,6 +638,15 @@ bool FVariantData::FromJson(const TSharedRef<FJsonObject>& JsonObject)
 				bResult = true;
 			}
 		}
+		else if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::UInt32)))
+		{
+			uint32 FieldValue;
+			if (JsonObject->TryGetNumberField(ValueStr, FieldValue))
+			{
+				SetValue(FieldValue);
+				bResult = true;
+			}
+		}
 		else if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::Float)))
 		{
 			double FieldValue;
@@ -574,6 +680,15 @@ bool FVariantData::FromJson(const TSharedRef<FJsonObject>& JsonObject)
 			if (JsonObject->TryGetStringField(ValueStr, FieldValue))
 			{
 				Type = EOnlineKeyValuePairDataType::Int64;
+				bResult = FromString(FieldValue);
+			}
+		}
+		else if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::UInt64)))
+		{
+			FString FieldValue;
+			if (JsonObject->TryGetStringField(ValueStr, FieldValue))
+			{
+				Type = EOnlineKeyValuePairDataType::UInt64;
 				bResult = FromString(FieldValue);
 			}
 		}
@@ -612,9 +727,17 @@ bool FVariantData::operator==(const FVariantData& Other) const
 			{
 				return Value.AsInt == Other.Value.AsInt;
 			}
+		case EOnlineKeyValuePairDataType::UInt32:
+			{
+				return Value.AsUInt == Other.Value.AsUInt;
+			}
 		case EOnlineKeyValuePairDataType::Int64:
 			{
 				return Value.AsInt64 == Other.Value.AsInt64;
+			}
+		case EOnlineKeyValuePairDataType::UInt64:
+			{
+				return Value.AsInt64 == Other.Value.AsUInt64;
 			}
 		case EOnlineKeyValuePairDataType::Double:
 			{
@@ -636,4 +759,365 @@ bool FVariantData::operator==(const FVariantData& Other) const
 bool FVariantData::operator!=(const FVariantData& Other) const
 {
 	return !(operator==(Other));
+}
+
+bool FVariantDataConverter::VariantMapToUStruct(const FOnlineKeyValuePairs<FString, FVariantData>& VariantMap, const UStruct* StructDefinition, void* OutStruct, int64 CheckFlags, int64 SkipFlags)
+{
+	for (TFieldIterator<UProperty> PropIt(StructDefinition); PropIt; ++PropIt)
+	{
+		UProperty* Property = *PropIt;
+		FString PropertyName = Property->GetName();
+
+		// Check to see if we should ignore this property
+		if (CheckFlags != 0 && !Property->HasAnyPropertyFlags(CheckFlags))
+		{
+			continue;
+		}
+		if (Property->HasAnyPropertyFlags(SkipFlags))
+		{
+			continue;
+		}
+
+		// Possible case sensitive issues?
+		const FVariantData* VariantData = VariantMap.Find(PropertyName);
+		if (!VariantData)
+		{
+			// we allow values to not be found since this mirrors the typical UObject mantra that all the fields are optional when deserializing
+			continue;
+		}
+
+		void* Value = Property->ContainerPtrToValuePtr<uint8>(OutStruct);
+		if (!VariantDataToUProperty(VariantData, Property, Value, CheckFlags, SkipFlags))
+		{
+			UE_LOG(LogOnline, Error, TEXT("VariantMapToUStruct - Unable to parse %s.%s from Variant"), *StructDefinition->GetName(), *PropertyName);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool FVariantDataConverter::VariantDataToUProperty(const FVariantData* Variant, UProperty* Property, void* OutValue, int64 CheckFlags, int64 SkipFlags)
+{
+	if (!Variant)
+	{
+		UE_LOG(LogOnline, Error, TEXT("VariantDataToUProperty - Invalid value"));
+		return false;
+	}
+
+	bool bArrayProperty = Property->IsA<UArrayProperty>();
+	if (bArrayProperty)
+	{
+		UE_LOG(LogOnline, Error, TEXT("VariantDataToUProperty - doesn't support array properties"));
+		return false;
+	}
+
+	if (Property->ArrayDim != 1)
+	{
+		UE_LOG(LogOnline, Warning, TEXT("Ignoring excess properties when deserializing %s"), *Property->GetName());
+	}
+
+	return ConvertScalarVariantToUProperty(Variant, Property, OutValue, CheckFlags, SkipFlags);
+}
+
+bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* Variant, UProperty* Property, void* OutValue, int64 CheckFlags, int64 SkipFlags)
+{
+	UNumericProperty* NumericProperty = Cast<UNumericProperty>(Property);
+	if (NumericProperty)
+	{
+		if (NumericProperty->IsEnum() && Variant->GetType() == EOnlineKeyValuePairDataType::String)
+		{
+			// see if we were passed a string for the enum
+			const UEnum* EnumProperty = NumericProperty->GetIntPropertyEnum();
+			check(EnumProperty); // should be assured by IsEnum()
+			FString StrValue;
+			Variant->GetValue(StrValue);
+
+			int32 IntValue = EnumProperty->GetValueByName(FName(*StrValue));
+			if (IntValue == INDEX_NONE)
+			{
+				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import enum %s from string value %s for property %s"), *EnumProperty->CppType, *StrValue, *Property->GetNameCPP());
+				return false;
+			}
+			NumericProperty->SetIntPropertyValue(OutValue, (int64)IntValue);
+		}
+		else if (NumericProperty->IsFloatingPoint())
+		{
+			if (Variant->GetType() == EOnlineKeyValuePairDataType::Double)
+			{
+				double DoubleValue;
+				Variant->GetValue(DoubleValue);
+				NumericProperty->SetFloatingPointPropertyValue(OutValue, DoubleValue);
+			}
+			else if (Variant->GetType() == EOnlineKeyValuePairDataType::Float)
+			{
+				float FloatValue;
+				Variant->GetValue(FloatValue);
+				NumericProperty->SetFloatingPointPropertyValue(OutValue, FloatValue);
+			}
+		}
+		else if (NumericProperty->IsInteger())
+		{
+			if (Variant->GetType() == EOnlineKeyValuePairDataType::String)
+			{
+				FString StrValue;
+				Variant->GetValue(StrValue);
+
+				// parse string -> int64 ourselves so we don't lose any precision going through AsNumber (aka double)
+				NumericProperty->SetIntPropertyValue(OutValue, FCString::Atoi64(*StrValue));
+			}
+			else
+			{
+				int64 Value = 0;
+				if (Variant->GetType() == EOnlineKeyValuePairDataType::Double)
+				{
+					double DoubleValue = 0.0;
+					Variant->GetValue(DoubleValue);
+					Value = (int64)DoubleValue;
+				}
+				else if (Variant->GetType() == EOnlineKeyValuePairDataType::Float)
+				{
+					float FloatValue = 0.0f;
+					Variant->GetValue(FloatValue);
+					Value = (int64)FloatValue;
+				}
+				else if (Variant->GetType() == EOnlineKeyValuePairDataType::Int32)
+				{
+					int32 IntValue = 0;
+					Variant->GetValue(IntValue);
+					Value = (int64)IntValue;
+				}
+				else if (Variant->GetType() == EOnlineKeyValuePairDataType::UInt32)
+				{
+					uint32 IntValue = 0;
+					Variant->GetValue(IntValue);
+					Value = (int64)IntValue;
+				}
+				else if (Variant->GetType() == EOnlineKeyValuePairDataType::Int64)
+				{
+					int64 Int64Value;
+					Variant->GetValue(Int64Value);
+					Value = (int64)Int64Value;
+				}
+				else if (Variant->GetType() == EOnlineKeyValuePairDataType::UInt64)
+				{
+					uint64 UInt64Value;
+					Variant->GetValue(UInt64Value);
+					Value = (int64)UInt64Value;
+				}
+
+				// AsNumber will log an error for completely inappropriate types (then give us a default)
+				NumericProperty->SetIntPropertyValue(OutValue, Value);
+			}
+		}
+		else
+		{
+			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to set numeric property type %s for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+			return false;
+		}
+	}
+	else if (UBoolProperty *BoolProperty = Cast<UBoolProperty>(Property))
+	{
+		bool BoolValue;
+		Variant->GetValue(BoolValue);
+		BoolProperty->SetPropertyValue(OutValue, BoolValue);
+	}
+	else if (UStrProperty *StringProperty = Cast<UStrProperty>(Property))
+	{
+		FString StrValue;
+		Variant->GetValue(StrValue);
+		StringProperty->SetPropertyValue(OutValue, StrValue);
+	}
+	else if (UArrayProperty *ArrayProperty = Cast<UArrayProperty>(Property))
+	{
+		UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - arrays not supported for property %s"), *Property->GetNameCPP());
+		return false;
+	}
+	else if (UTextProperty *TextProperty = Cast<UTextProperty>(Property))
+	{
+		if (Variant->GetType() == EOnlineKeyValuePairDataType::String)
+		{
+			FString StrValue;
+			Variant->GetValue(StrValue);
+			// assume this string is already localized, so import as invariant
+			TextProperty->SetPropertyValue(OutValue, FText::FromString(StrValue));
+		}
+		else
+		{
+			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Attempted to import FText from variant that was not a string for property %s"), *Property->GetNameCPP());
+			return false;
+		}
+	}
+	else if (UStructProperty *StructProperty = Cast<UStructProperty>(Property))
+	{
+		static const FName NAME_DateTime(TEXT("DateTime"));
+		if (Variant->GetType() == EOnlineKeyValuePairDataType::String && StructProperty->Struct->GetFName() == NAME_DateTime)
+		{
+			FString DateString;
+			Variant->GetValue(DateString);
+
+			FDateTime& DateTimeOut = *(FDateTime*)OutValue;
+			if (DateString == TEXT("min"))
+			{
+				// min representable value for our date struct. Actual date may vary by platform (this is used for sorting)
+				DateTimeOut = FDateTime::MinValue();
+			}
+			else if (DateString == TEXT("max"))
+			{
+				// max representable value for our date struct. Actual date may vary by platform (this is used for sorting)
+				DateTimeOut = FDateTime::MaxValue();
+			}
+			else if (DateString == TEXT("now"))
+			{
+				// this value's not really meaningful from serialization (since we don't know timezone) but handle it anyway since we're handling the other keywords
+				DateTimeOut = FDateTime::UtcNow();
+			}
+			else if (!FDateTime::ParseIso8601(*DateString, DateTimeOut))
+			{
+				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to import FDateTime from Iso8601 String for property %s"), *Property->GetNameCPP());
+				return false;
+			}
+		}
+		else
+		{
+			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Attempted to import UStruct from non-string key for property %s"), *Property->GetNameCPP());
+			return false;
+		}
+	}
+	else
+	{
+		// Default to expect a string for everything else
+		if (Variant->GetType() == EOnlineKeyValuePairDataType::String)
+		{
+			FString StrValue;
+			Variant->GetValue(StrValue);
+			if (Property->ImportText(*StrValue, OutValue, 0, NULL) == NULL)
+			{
+				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+				return false;
+			}
+		}
+		else
+		{
+			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+		}
+	}
+
+	return true;
+}
+
+bool FVariantDataConverter::UStructToVariantMap(const UStruct* StructDefinition, const void* Struct, FOnlineKeyValuePairs<FString, FVariantData>& OutVariantMap, int64 CheckFlags, int64 SkipFlags)
+{
+	for (TFieldIterator<UProperty> It(StructDefinition); It; ++It)
+	{
+		UProperty* Property = *It;
+
+		// Check to see if we should ignore this property
+		if (CheckFlags != 0 && !Property->HasAnyPropertyFlags(CheckFlags))
+		{
+			continue;
+		}
+		if (Property->HasAnyPropertyFlags(SkipFlags))
+		{
+			continue;
+		}
+
+		FString VariableName = Property->GetName();
+
+		const void* Value = Property->ContainerPtrToValuePtr<uint8>(Struct);
+
+		// set the value on the output object
+		FVariantData& VariantData = OutVariantMap.Add(VariableName);
+
+		// convert the property to an FVariantData
+		if (!UPropertyToVariantData(Property, Value, CheckFlags, SkipFlags, VariantData))
+		{
+			VariantData.Empty();
+			UClass* PropClass = Property->GetClass();
+			UE_LOG(LogOnline, Error, TEXT("UStructToVariantMap - Unhandled property type '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool FVariantDataConverter::UPropertyToVariantData(UProperty* Property, const void* Value, int64 CheckFlags, int64 SkipFlags, FVariantData& OutVariantData)
+{
+	if (Property->ArrayDim == 1)
+	{
+		return ConvertScalarUPropertyToVariant(Property, Value, OutVariantData, CheckFlags, SkipFlags);
+	}	
+	else 
+	{ 
+		UClass* PropClass = Property->GetClass();
+		UE_LOG(LogOnline, Error, TEXT("UPropertyToVariantData - ArrayDim > 1 for '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
+	}
+
+	return false;
+}
+
+bool FVariantDataConverter::ConvertScalarUPropertyToVariant(UProperty* Property, const void* Value, FVariantData& OutVariantData, int64 CheckFlags, int64 SkipFlags)
+{
+	OutVariantData.Empty();
+
+	if (UNumericProperty *NumericProperty = Cast<UNumericProperty>(Property))
+	{
+		// see if it's an enum
+		UEnum* EnumDef = NumericProperty->GetIntPropertyEnum();
+		if (EnumDef != NULL)
+		{
+			// export enums as strings
+			FString StringValue = EnumDef->GetEnumName(NumericProperty->GetSignedIntPropertyValue(Value));
+			OutVariantData.SetValue(StringValue);
+		}
+
+		// We want to export numbers as numbers
+		if (NumericProperty->IsFloatingPoint())
+		{
+			double DoubleValue = NumericProperty->GetFloatingPointPropertyValue(Value);
+			OutVariantData.SetValue(DoubleValue);
+		}
+		else if (NumericProperty->IsInteger())
+		{
+			int64 Int64Value = NumericProperty->GetSignedIntPropertyValue(Value);
+			OutVariantData.SetValue((uint64)Int64Value);
+		}
+
+		// fall through to default
+	}
+	else if (UBoolProperty *BoolProperty = Cast<UBoolProperty>(Property))
+	{
+		// Export bools as bools
+		bool bBoolValue = BoolProperty->GetPropertyValue(Value);
+		OutVariantData.SetValue(bBoolValue);
+	}
+	else if (UStrProperty *StringProperty = Cast<UStrProperty>(Property))
+	{
+		FString StringValue = StringProperty->GetPropertyValue(Value);
+		OutVariantData.SetValue(StringValue);
+	}
+	else if (UArrayProperty *ArrayProperty = Cast<UArrayProperty>(Property))
+	{
+		// not supported yet
+	}
+	else if (UStructProperty *StructProperty = Cast<UStructProperty>(Property))
+	{
+		FOnlineKeyValuePairs<FString, FVariantData> Out;
+		if (FVariantDataConverter::UStructToVariantMap(StructProperty->Struct, Value, Out, CheckFlags & (~CPF_ParmFlags), SkipFlags))
+		{
+			// need to convert the data into the existing variant mapping
+		}
+		// fall through to default
+	}
+	
+	if (OutVariantData.GetType() == EOnlineKeyValuePairDataType::Empty)
+	{
+		// Default to export as string for everything else
+		FString StringValue;
+		Property->ExportTextItem(StringValue, Value, NULL, NULL, PPF_None);
+		OutVariantData.SetValue(StringValue);
+	}
+
+	return OutVariantData.GetType() != EOnlineKeyValuePairDataType::Empty;
 }

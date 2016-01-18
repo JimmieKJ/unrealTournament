@@ -238,6 +238,8 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			Ar.Logf(TEXT("%s $%X: Let (Variable = Expression)"), *Indents, (int32)Opcode);
 			AddIndent();
 
+			ReadPointer<UProperty>(ScriptIndex);
+
 			// Variable expr.
 			Ar.Logf(TEXT("%s Variable:"), *Indents);
 			SerializeExpr( ScriptIndex );
@@ -289,7 +291,7 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			DropIndent();
 			break;
 		}
-	case Ex_LetValueOnPersistentFrame:
+	case EX_LetValueOnPersistentFrame:
 		{
 			Ar.Logf(TEXT("%s $%X: LetValueOnPersistentFrame"), *Indents, (int32)Opcode);
 			AddIndent();
@@ -376,6 +378,12 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 		{
 			UProperty* PropertyPtr = ReadPointer<UProperty>(ScriptIndex);
 			Ar.Logf(TEXT("%s $%X: Local variable named %s"), *Indents, (int32)Opcode, PropertyPtr ? *PropertyPtr->GetName() : TEXT("(null)"));
+			break;
+		}
+	case EX_DefaultVariable:
+		{
+			UProperty* PropertyPtr = ReadPointer<UProperty>(ScriptIndex);
+			Ar.Logf(TEXT("%s $%X: Default variable named %s"), *Indents, (int32)Opcode, PropertyPtr ? *PropertyPtr->GetName() : TEXT("(null)"));
 			break;
 		}
 	case EX_InstanceVariable:
@@ -478,6 +486,17 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			SerializeExpr( ScriptIndex ); // Return expression.
 			break;
 		}
+	case EX_CallMath:
+		{
+			UStruct* StackNode = ReadPointer<UStruct>(ScriptIndex);
+			Ar.Logf(TEXT("%s $%X: Call Math (stack node %s::%s)"), *Indents, (int32)Opcode, *GetNameSafe(StackNode ? StackNode->GetOuter() : nullptr), *GetNameSafe(StackNode));
+
+			while (SerializeExpr(ScriptIndex) != EX_EndFunctionParms)
+			{
+				// Params
+			}
+			break;
+		}
 	case EX_FinalFunction:
 		{
 			UStruct* StackNode = ReadPointer<UStruct>(ScriptIndex);
@@ -511,10 +530,11 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			}
 			break;
 		}
+	case EX_ClassContext:
 	case EX_Context:
 	case EX_Context_FailSilent:
 		{
-			Ar.Logf(TEXT("%s $%X: %s"), *Indents, (int32)Opcode, TEXT("Context"));
+			Ar.Logf(TEXT("%s $%X: %s"), *Indents, (int32)Opcode, Opcode == EX_ClassContext ? TEXT("Class Context") : TEXT("Context"));
 			AddIndent();
 
 			// Object expression.
@@ -533,10 +553,6 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			// Property corresponding to the r-value data, in case the l-value needs to be mem-zero'd
 			UField* Field = ReadPointer<UField>(ScriptIndex);
 			Ar.Logf(TEXT("%s R-Value Property: %s"), *Indents, Field ? *Field->GetName() : TEXT("(null)"));
-
-			// Property type, in case the r-value is a non-property such as dynamic array length
-			uint8 PropType = ReadBYTE(ScriptIndex);
-			Ar.Logf(TEXT("%s PropertyTypeIfNeeded: %d"), *Indents, PropType);
 
 			// Context expression.
 			Ar.Logf(TEXT("%s ContextExpression:"), *Indents);
@@ -584,6 +600,12 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 		{
 			UObject* Pointer = ReadPointer<UObject>(ScriptIndex);
 			Ar.Logf(TEXT("%s $%X: EX_ObjectConst (%p:%s)"), *Indents, (int32)Opcode, Pointer, *Pointer->GetFullName());
+			break;
+		}
+	case EX_AssetConst:
+		{
+			Ar.Logf(TEXT("%s $%X: EX_AssetConst"), *Indents, (int32)Opcode);
+			SerializeExpr(ScriptIndex);
 			break;
 		}
 	case EX_NameConst:
@@ -788,9 +810,49 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			Ar.Logf(TEXT("%s $%X: .. wire debug site .."), *Indents, (int32)Opcode);
 			break;
 		}
+	case EX_InstrumentationEvent:
+		{
+			const int32 EventType = ReadINT(ScriptIndex);
+			switch (EventType)
+			{
+				case EScriptInstrumentation::NodeEntry:
+					Ar.Logf(TEXT("%s $%X: .. instrumented wire entry site .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::NodeExit:
+					Ar.Logf(TEXT("%s $%X: .. instrumented wire exit site .."), *Indents, (int32)Opcode);
+					break;
+			}
+			break;
+		}
 	case EX_Tracepoint:
 		{
 			Ar.Logf(TEXT("%s $%X: .. debug site .."), *Indents, (int32)Opcode);
+			break;
+		}
+	case EX_SwitchValue:
+		{
+			const auto NumCases = ReadWORD(ScriptIndex);
+			const auto AfterSkip = ReadSkipCount(ScriptIndex);
+
+			Ar.Logf(TEXT("%s $%X: Switch Value %d cases, end in 0x%X"), *Indents, (int32)Opcode, NumCases, AfterSkip);
+			AddIndent();
+			Ar.Logf(TEXT("%s Index:"), *Indents);
+			SerializeExpr(ScriptIndex);
+
+			for (uint16 CaseIndex = 0; CaseIndex < NumCases; ++CaseIndex)
+			{
+				Ar.Logf(TEXT("%s [%d] Case Index (label: 0x%X):"), *Indents, CaseIndex, ScriptIndex);
+				SerializeExpr(ScriptIndex);	// case index value term
+				const auto OffsetToNextCase = ReadSkipCount(ScriptIndex);
+				Ar.Logf(TEXT("%s [%d] Offset to the next case: 0x%X"), *Indents, CaseIndex, OffsetToNextCase);
+				Ar.Logf(TEXT("%s [%d] Case Result:"), *Indents, CaseIndex);
+				SerializeExpr(ScriptIndex);	// case term
+			}
+
+			Ar.Logf(TEXT("%s Default result (label: 0x%X):"), *Indents, ScriptIndex);
+			SerializeExpr(ScriptIndex);
+			Ar.Logf(TEXT("%s (label: 0x%X)"), *Indents, ScriptIndex);
+			DropIndent();
 			break;
 		}
 	default:

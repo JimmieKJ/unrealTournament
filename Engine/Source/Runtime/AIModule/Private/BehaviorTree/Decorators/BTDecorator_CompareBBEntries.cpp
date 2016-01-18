@@ -18,8 +18,11 @@ void UBTDecorator_CompareBBEntries::InitializeFromAsset(UBehaviorTree& Asset)
 	Super::InitializeFromAsset(Asset);
 
 	UBlackboardData* BBAsset = GetBlackboardAsset();
-	BlackboardKeyA.CacheSelectedKey(BBAsset);
-	BlackboardKeyB.CacheSelectedKey(BBAsset);
+	if (ensure(BBAsset))
+	{
+		BlackboardKeyA.ResolveSelectedKey(*BBAsset);
+		BlackboardKeyB.ResolveSelectedKey(*BBAsset);
+	}
 }
 
 // @note I know it's ugly to have "return" statements in many places inside a function, but the way 

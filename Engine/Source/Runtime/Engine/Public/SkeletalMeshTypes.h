@@ -19,10 +19,6 @@ typedef uint16 FBoneIndexType;
 
 #include "ReferenceSkeleton.h"
 
-// Define that controls showing chart of distance factors for skel meshes during entire run of the game on exit.
-#define CHART_DISTANCE_FACTORS 0
-
-
 class FRawStaticIndexBuffer16or32Interface;
 class FPrimitiveDrawInterface;
 
@@ -1242,7 +1238,7 @@ private:
 	/**
 	 * Resizes the vertex data storage & updates the cached info.
 	 */
-	void ResizeData(int32 NumVertices);
+	void ResizeData(int32 InNumVertices);
 
 	/**
 	 * Update the cached 'VertexData' information.
@@ -1662,6 +1658,17 @@ public:
 
 		return false;
 	}
+
+	/**
+	 * Get Resource Size
+	 */
+	SIZE_T GetResourceSize() const;
+
+	/** Rebuild index buffer for everything **/
+#if WITH_EDITOR
+	ENGINE_API void RebuildIndexBuffer();
+#endif
+	ENGINE_API void RebuildIndexBuffer(FMultiSizeIndexContainerData* IndexBufferData, FMultiSizeIndexContainerData* AdjacencyData);
 };
 
 /**
@@ -1695,6 +1702,11 @@ public:
 
 	/** Returns true if there are more than MAX_INFLUENCES_PER_STREAM influences per vertex. */
 	bool HasExtraBoneInfluences() const;
+
+	/** 
+	 *	Return the resource size
+	 */
+	SIZE_T GetResourceSize();
 
 private:
 	/** True if the resource has been initialized. */
@@ -1736,16 +1748,20 @@ public:
 	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent* Component, TArray<TRefCountPtr<HHitProxy> >& OutHitProxies) override;
 #endif
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override;
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
 	
+	virtual bool HasDistanceFieldRepresentation() const override;
+	virtual void GetShadowShapes(TArray<FSphere>& SphereShapes, TArray<FCapsuleShape>& CapsuleShapes) const override;
+
 	/**
 	 * Returns the world transform to use for drawing.
-	 * @param View - Current view
 	 * @param OutLocalToWorld - Will contain the local-to-world transform when the function returns.
 	 * @param OutWorldToLocal - Will contain the world-to-local transform when the function returns.
+	 * 
+	 * @return true if out matrices are valid 
 	 */
-	void GetWorldMatrices( FMatrix& OutLocalToWorld, FMatrix& OutWorldToLocal ) const;
+	bool GetWorldMatrices( FMatrix& OutLocalToWorld, FMatrix& OutWorldToLocal ) const;
 
 	/** Util for getting LOD index currently used by this SceneProxy. */
 	int32 GetCurrentLODIndex();
@@ -1829,7 +1845,7 @@ protected:
 	
 	void GetDynamicElementsSection(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, 
 		const FStaticLODModel& LODModel, const int32 LODIndex, const FSkelMeshSection& Section, const FSkelMeshChunk& Chunk, 
-		const FSectionElementInfo& SectionElementInfo, const FTwoVectors& CustomLeftRightVectors, bool bSelectable, FMeshElementCollector& Collector ) const;
+		const FSectionElementInfo& SectionElementInfo, const FTwoVectors& CustomLeftRightVectors, bool bInSelectable, FMeshElementCollector& Collector ) const;
 
-	void GetMeshElementsConditionallySelectable(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, bool bSelectable, uint32 VisibilityMap, FMeshElementCollector& Collector) const;
+	void GetMeshElementsConditionallySelectable(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, bool bInSelectable, uint32 VisibilityMap, FMeshElementCollector& Collector) const;
 };

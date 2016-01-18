@@ -7,30 +7,45 @@
 #ifndef __EditorBuildUtils_h__
 #define __EditorBuildUtils_h__
 
-namespace EBuildOptions
+/** Names of the built-in editor build types. */
+struct FBuildOptions
 {
-	enum Type
-	{
-		/** Build all geometry */
-		BuildGeometry,
-		/** Build only visible geometry */
-		BuildVisibleGeometry,
-		/** Build lighting */
-		BuildLighting,
-		/** Build all AI paths */
-		BuildAIPaths,
-		/** Build only selected AI paths */
-		BuildSelectedAIPaths,
-		/** Build everything */
-		BuildAll,
-		/** Build everything and submit to source control */
-		BuildAllSubmit,
-		/** Build everything except for paths only build seleced */
-		BuildAllOnlySelectedPaths,
-		/** Build Hierarchical LOD system - need WorldSetting setup*/
-		BuildHierarchicalLOD, 
-	};
-}
+	/** Build all geometry */
+	UNREALED_API static const FName BuildGeometry;
+	/** Build only visible geometry */
+	UNREALED_API static const FName BuildVisibleGeometry;
+	/** Build lighting */
+	UNREALED_API static const FName BuildLighting;
+	/** Build all AI paths */
+	UNREALED_API static const FName BuildAIPaths;
+	/** Build only selected AI paths */
+	UNREALED_API static const FName BuildSelectedAIPaths;
+	/** Build everything */
+	UNREALED_API static const FName BuildAll;
+	/** Build everything and submit to source control */
+	UNREALED_API static const FName BuildAllSubmit;
+	/** Build everything except for paths only build selected */
+	UNREALED_API static const FName BuildAllOnlySelectedPaths;
+	/** Build Hierarchical LOD system - need WorldSetting setup*/
+	UNREALED_API static const FName BuildHierarchicalLOD;
+};
+/**
+ * Result of a custom editor build.
+ */
+enum class EEditorBuildResult
+{
+	Success,		// The build step completed successfully
+	Skipped,		// The build step was skipped for some reason (e.g. cancelled)
+	InProgress,		// The build step is running asynchronously
+};
+
+/**
+ * Delegate for performing a custom editor build.
+ * @param UWorld* The world to run the build on.
+ * @param FName The Id of the build being run (either the registered build Id, or one of the BuildAll types).
+ * @return Status of the build step.
+ */
+DECLARE_DELEGATE_RetVal_TwoParams(EEditorBuildResult, FDoEditorBuildDelegate, UWorld*, FName);
 
 /** Utility class to hold functionality for building within the editor */
 class FEditorBuildUtils
@@ -61,6 +76,9 @@ public:
 
 		/** Behavior to take when a saveable map fails to save correctly */
 		EAutomatedBuildBehavior FailedToSaveBehavior;
+
+		/** Use SCC to checkout/checkin files */
+		bool bUseSCC;
 
 		/** If true, built map files not already in the source control depot will be added */
 		bool bAutoAddNewFiles;
@@ -98,7 +116,7 @@ public:
 	 *
 	 * @return	true if the build completed successfully; false if it did not (or was manually canceled)
 	 */
-	static UNREALED_API bool EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, const bool bAllowLightingDialog = true );
+	static UNREALED_API bool EditorBuild( UWorld* InWorld, FName Id, const bool bAllowLightingDialog = true );
 
 	/** 
 	* check if navigation build was was triggered from editor as user request
@@ -111,6 +129,30 @@ public:
 	* call it to notify that navigation builder finished building 
 	*/
 	static UNREALED_API void PathBuildingFinished() { bBuildingNavigationFromUserRequest = false; }
+
+	/**
+	 * Call this when an async custom build step has completed (successfully or not).
+	 */
+	static UNREALED_API void AsyncBuildCompleted();
+
+	/**
+	 * Is there currently an (async) build in progress?
+	 */
+	static UNREALED_API bool IsBuildCurrentlyRunning();
+
+	/**
+	 * Register a custom build type.
+	 * @param Id The identifier to use for this build type.
+	 * @param DoBuild The delegate to execute to run this build.
+	 * @param BuildAllExtensionPoint If a valid name, run this build *before* running the build with this id when performing a Build All.
+	 */
+	static UNREALED_API void RegisterCustomBuildType(FName Id, const FDoEditorBuildDelegate& DoBuild, FName BuildAllExtensionPoint);
+
+	/**
+	 * Unregister a custom build type.
+	 * @param Id The identifier of the build type to unregister.
+	 */
+	static UNREALED_API void UnregisterCustomBuildType(FName Id);
 private:
 
 	/**
@@ -163,7 +205,7 @@ private:
 	 * @param	InWorld			WorldContext
 	 * @param	BuildSettings	Build settings that will be used for the editor build
 	 */
-	static void TriggerNavigationBuilder(UWorld* InWorld, EBuildOptions::Type Id);
+	static void TriggerNavigationBuilder(UWorld* InWorld, FName Id);
 
 	/** 
 	 * Trigger LOD builder to (re)generate LODActors
@@ -171,7 +213,7 @@ private:
 	 * @param	InWorld			WorldContext
 	 * @param	BuildSettings	Build settings that will be used for the editor build
 	 */
-	static void TriggerHierarchicalLODBuilder(UWorld* InWorld, EBuildOptions::Type Id);
+	static void TriggerHierarchicalLODBuilder(UWorld* InWorld, FName Id);
 
 	/** Intentionally hide constructors, etc. to prevent instantiation */
 	FEditorBuildUtils();
@@ -179,8 +221,31 @@ private:
 	FEditorBuildUtils( const FEditorBuildUtils& );
 	FEditorBuildUtils operator=( const FEditorBuildUtils& );
 
+	// Allow the async build all handler to access custom build type info.
+	friend class FBuildAllHandler;
+
 	/** static variable to cache data about user request. navigation builder works in a background and we have to cache this information */
 	static bool bBuildingNavigationFromUserRequest;
+
+	/**
+	 * Struct containing data for a custom build type.
+	 */
+	struct FCustomBuildType
+	{
+		FDoEditorBuildDelegate DoBuild;
+		FName BuildAllExtensionPoint;
+
+		FCustomBuildType(const FDoEditorBuildDelegate& InDoBuild, FName InBuildAllExtensionPoint)
+			: DoBuild(InDoBuild)
+			, BuildAllExtensionPoint(InBuildAllExtensionPoint)
+		{}
+	};
+
+	/** Map of custom build types registered with us. */
+	static TMap<FName, FCustomBuildType> CustomBuildTypes;
+
+	/** Set to a valid build type if an async build is in progress. */
+	static FName InProgressBuildId;
 };
 
 #endif // #ifndef __EditorBuildUtils_h__

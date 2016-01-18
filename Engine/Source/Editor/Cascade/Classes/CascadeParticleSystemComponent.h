@@ -17,9 +17,9 @@ class UCascadeParticleSystemComponent : public UParticleSystemComponent
 public:	
 	class FCascadeEdPreviewViewportClient*	CascadePreviewViewportPtr;
 
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-	// End UActorComponent Interface
+	//~ End UActorComponent Interface
 
 	/**
 	 * Updates time dependent state for this component, called from within Cascade.

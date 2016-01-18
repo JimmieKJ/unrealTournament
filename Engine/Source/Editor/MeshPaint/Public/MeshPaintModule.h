@@ -11,6 +11,9 @@ class IMeshPaintGeometryAdapter
 {
 public:
 	virtual bool Construct(UMeshComponent* InComponent, int32 InPaintingMeshLODIndex, int32 InUVChannelIndex) = 0;
+	virtual bool InitializeMeshData() = 0;
+	virtual void OnAdded() = 0;
+	virtual void OnRemoved() = 0;
 	virtual int32 GetNumTexCoords() const = 0;
 	virtual void GetTriangleInfo(int32 TriIndex, struct FTexturePaintTriangleInfo& OutTriInfo) const = 0;
 	virtual bool SupportsTexturePaint() const = 0;
@@ -19,6 +22,9 @@ public:
 	virtual void SphereIntersectTriangles(TArray<int32>& OutTriangles, const float ComponentSpaceSquaredBrushRadius, const FVector& ComponentSpaceBrushPosition) const = 0;
 	virtual void QueryPaintableTextures(int32 MaterialIndex, int32& OutDefaultIndex, TArray<struct FPaintableTexture>& InOutTextureList) = 0;
 	virtual void ApplyOrRemoveTextureOverride(UTexture* SourceTexture, UTexture* OverrideTexture) const = 0;
+	virtual void SetCurrentUVChannelIndex(int32 InUVChannelIndex) = 0;
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) = 0;
+	virtual FVector GetMeshVertex(int32 Index) const = 0;
 	virtual ~IMeshPaintGeometryAdapter() {}
 
 	MESHPAINT_API static void DefaultApplyOrRemoveTextureOverride(UMeshComponent* InMeshComponent, UTexture* SourceTexture, UTexture* OverrideTexture);
@@ -32,6 +38,7 @@ class IMeshPaintGeometryAdapterFactory
 {
 public:
 	virtual TSharedPtr<IMeshPaintGeometryAdapter> Construct(class UMeshComponent* InComponent, int32 InPaintingMeshLODIndex, int32 InUVChannelIndex) const = 0;
+	virtual void InitializeAdapterGlobals() = 0;
 	virtual ~IMeshPaintGeometryAdapterFactory() {}
 };
 

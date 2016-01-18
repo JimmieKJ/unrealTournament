@@ -1,26 +1,20 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "Components/SlateWrapperTypes.h"
 #include "Components/Widget.h"
 #include "Geometry.h"
 #include "Engine/GameInstance.h"
-
+#include "Layout/Anchors.h"
 #include "NamedSlotInterface.h"
-#include "Slate/Anchors.h"
 #include "Engine/LocalPlayer.h"
 #include "Logging/MessageLog.h"
 
 #include "UserWidget.generated.h"
 
-static FGeometry NullGeometry;
-static FSlateRect NullRect;
-static FSlateWindowElementList NullElementList;
-static FWidgetStyle NullStyle;
-
 class UWidget;
 class UWidgetAnimation;
-struct FAnchors;
 struct FLocalPlayerContext;
 
 /**
@@ -35,15 +29,7 @@ struct UMG_API FPaintContext
 public:
 
 	/** Don't ever use this constructor.  Needed for code generation. */
-	FPaintContext()
-		: AllottedGeometry(NullGeometry)
-		, MyClippingRect(NullRect)
-		, OutDrawElements(NullElementList)
-		, LayerId(0)
-		, WidgetStyle(NullStyle)
-		, bParentEnabled(true)
-		, MaxLayer(0)
-	{ }
+	FPaintContext();
 
 	FPaintContext(const FGeometry& InAllottedGeometry, const FSlateRect& InMyClippingRect, FSlateWindowElementList& InOutDrawElements, const int32 InLayerId, const FWidgetStyle& InWidgetStyle, const bool bInParentEnabled)
 		: AllottedGeometry(InAllottedGeometry)
@@ -62,6 +48,7 @@ public:
 		FPaintContext* Ptr = this;
 		Ptr->~FPaintContext();
 		new(Ptr) FPaintContext(Other.AllottedGeometry, Other.MyClippingRect, Other.OutDrawElements, Other.LayerId, Other.WidgetStyle, Other.bParentEnabled);
+		Ptr->MaxLayer = Other.MaxLayer;
 	}
 
 public:
@@ -134,10 +121,12 @@ enum class EDesignPreviewSizeMode : uint8
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnConstructEvent);
 
+DECLARE_DYNAMIC_DELEGATE( FOnInputAction );
+
 /**
  * The user widget is extensible by users through the WidgetBlueprint.
  */
-UCLASS(Abstract, editinlinenew, BlueprintType, Blueprintable, meta=( Category="User Controls" ))
+UCLASS(Abstract, editinlinenew, BlueprintType, Blueprintable, meta=( Category="User Controls", DontUseGenericSpawnObject="True" ) )
 class UMG_API UUserWidget : public UWidget, public INamedSlotInterface
 {
 	GENERATED_BODY()
@@ -152,26 +141,24 @@ public:
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void BeginDestroy() override;
 	virtual void PostLoad() override;
-	// End of UObject interface
+	//~ End UObject Interface
 
-	void Initialize();
+	virtual bool Initialize();
+	virtual void CustomNativeInitilize() {}
 
 	//UVisual interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
+	//~ End UVisual Interface
 
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
 	// UNamedSlotInterface Begin
 	virtual void GetSlotNames(TArray<FName>& SlotNames) const override;
 	virtual UWidget* GetContentForSlot(FName SlotName) const override;
 	virtual void SetContentForSlot(FName SlotName, UWidget* Content) override;
 	// UNamedSlotInterface End
-
-	/** Sets that this widget is being designed sets it on all children as well. */
-	virtual void SetIsDesignTime(bool bInDesignTime) override;
 
 	/**
 	 * Adds it to the game's viewport and fills the entire screen, unless SetDesiredSizeInViewport is called
@@ -234,7 +221,7 @@ public:
 	bool IsInViewport() const;
 
 	/** Sets the player context associated with this UI. */
-	void SetPlayerContext(FLocalPlayerContext InPlayerContext);
+	void SetPlayerContext(const FLocalPlayerContext& InPlayerContext);
 
 	/** Gets the player context associated with this UI. */
 	const FLocalPlayerContext& GetPlayerContext() const;
@@ -705,11 +692,14 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Appearance")
 	void SetForegroundColor(FSlateColor InForegroundColor);
 
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Appearance")
+	void SetPadding(FMargin InPadding);
+
 	/**
 	 * Plays an animation in this widget a specified number of times
 	 * 
 	 * @param InAnimation The animation to play
-	 * @param StartAtTime The time in the animation from which to start playing. For looped animations, this will only affect the first playback of the animation.
+	 * @param StartAtTime The time in the animation from which to start playing, relative to the start position. For looped animations, this will only affect the first playback of the animation.
 	 * @param NumLoopsToPlay The number of times to loop this animation (0 to loop indefinitely)
 	 * @param PlayMode Specifies the playback mode
 	 */
@@ -728,10 +718,19 @@ public:
 	 * Pauses an already running animation in this widget
 	 * 
 	 * @param The name of the animation to pause
-	 * @return the time point the animation was at when it was paused.
+	 * @return the time point the animation was at when it was paused, relative to its start position.  Use this as the StartAtTime when you trigger PlayAnimation.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="User Interface|Animation")
 	float PauseAnimation(const UWidgetAnimation* InAnimation);
+
+	/**
+	 * Gets whether an animation is currently playing on this widget.
+	 * 
+	 * @param InAnimation The animation to check the playback status of
+	 * @return True if the animation is currently playing
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="User Interface|Animation")
+	bool IsAnimationPlaying(const UWidgetAnimation* InAnimation) const;
 
 	/** Called when a sequence player is finished playing an animation */
 	void OnAnimationFinishedPlaying(UUMGSequencePlayer& Player );
@@ -741,14 +740,11 @@ public:
 	 *
 	 * @param The sound to play
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Sound", meta=( DeprecatedFunction, DeprecationMessage="Use the global function PlaySound2D instead." ))
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Sound", meta=( DeprecatedFunction, DeprecationMessage="Use the UGameplayStatics::PlaySound2D instead." ))
 	void PlaySound(class USoundBase* SoundToPlay);
 
 	/** @returns The UObject wrapper for a given SWidget */
 	UWidget* GetWidgetHandle(TSharedRef<SWidget> InWidget);
-
-	/** Creates a fullscreen host widget, that wraps this widget. */
-	TSharedRef<SWidget> MakeViewportWidget(TSharedPtr<SWidget>& UserSlateWidget);
 
 	/** @returns The root UObject widget wrapper */
 	UWidget* GetRootWidget() const;
@@ -759,20 +755,26 @@ public:
 	/** @returns The uobject widget corresponding to a given name */
 	UWidget* GetWidgetFromName(const FName& Name) const;
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PreSave() override;
-	// End UObject interface
+	//~ End UObject Interface
+
+	/** Are we currently playing any animations? */
+	UFUNCTION(BlueprintCallable, Category="User Interface|Animation")
+	bool IsPlayingAnimation() const { return ActiveSequencePlayers.Num() > 0; }
 
 #if WITH_EDITOR
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
-	// End UWidget interface
+	//~ End UWidget Interface
+
+	void SetDesignerFlags(EWidgetDesignFlags::Type NewFlags);
 #endif
 
 public:
 	/** The color and opacity of this widget.  Tints all child widgets. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Style")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Appearance")
 	FLinearColor ColorAndOpacity;
 
 	UPROPERTY()
@@ -782,15 +784,22 @@ public:
 	 * The foreground color of the widget, this is inherited by sub widgets.  Any color property
 	 * that is marked as inherit will use this color.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Style")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Appearance")
 	FSlateColor ForegroundColor;
 
 	UPROPERTY()
 	FGetSlateColor ForegroundColorDelegate;
 
+	/** The padding area around the content. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Appearance")
+	FMargin Padding;
+
+	UPROPERTY()
+	bool bSupportsKeyboardFocus_DEPRECATED;
+
 	/** Setting this flag to true, allows this widget to accept focus when clicked, or when navigated to. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category="Behavior")
-	bool bSupportsKeyboardFocus;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Interaction")
+	bool bIsFocusable;
 
 	/** The widget tree contained inside this user widget initialized by the blueprint */
 	UPROPERTY(Transient)
@@ -807,6 +816,12 @@ public:
 	/** Stores the widgets being assigned to named slots */
 	UPROPERTY()
 	TArray<FNamedSlotBinding> NamedSlotBindings;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	bool bStopAction;
+
+	UPROPERTY( EditAnywhere, BlueprintReadOnly, Category = "Input" )
+	int32 Priority;
 
 #if WITH_EDITORONLY_DATA
 
@@ -838,7 +853,14 @@ public:
 
 #endif
 
+	/** If a widget doesn't ever need to tick the blueprint, setting this to false is an optimization. */
+	bool bCanEverTick : 1;
+
+	/** If a widget doesn't ever need to do custom painting in the blueprint, setting this to false is an optimization. */
+	bool bCanEverPaint : 1;
+
 protected:
+
 	/** Adds the widget to the screen, either to the viewport or to the player's screen depending on if the LocalPlayer is null. */
 	void AddToScreen(ULocalPlayer* LocalPlayer, int32 ZOrder);
 
@@ -893,12 +915,38 @@ protected:
 	virtual FReply NativeOnTouchMoved( const FGeometry& InGeometry, const FPointerEvent& InGestureEvent );
 	virtual FReply NativeOnTouchEnded( const FGeometry& InGeometry, const FPointerEvent& InGestureEvent );
 	virtual FReply NativeOnMotionDetected( const FGeometry& InGeometry, const FMotionEvent& InMotionEvent );
+	virtual FCursorReply NativeOnCursorQuery( const FGeometry& InGeometry, const FPointerEvent& InCursorEvent );
 
 protected:
 	/**
 	 * Ticks the active sequences and latent actions that have been scheduled for this Widget.
 	 */
 	void TickActionsAndAnimation(const FGeometry& MyGeometry, float InDeltaTime);
+
+	void RemoveObsoleteBindings(const TArray<FName>& NamedSlots);
+	
+	UFUNCTION( BlueprintCallable, Category = "Input", meta = ( BlueprintProtected = "true" ) )
+	void ListenForInputAction( FName ActionName, TEnumAsByte< EInputEvent > EventType, bool bConsume, FOnInputAction Callback );
+
+	UFUNCTION( BlueprintCallable, Category = "Input", meta = ( BlueprintProtected = "true" ) )
+	void StopListeningForInputAction( FName ActionName, TEnumAsByte< EInputEvent > EventType );
+
+	UFUNCTION( BlueprintCallable, Category = "Input", meta = ( BlueprintProtected = "true" ) )
+	void StopListeningForAllInputActions();
+
+	UFUNCTION( BlueprintCallable, Category = "Input", meta = ( BlueprintProtected = "true" ) )
+	bool IsListeningForInputAction( FName ActionName ) const;
+
+	UFUNCTION( BlueprintCallable, Category = "Input", meta = ( BlueprintProtected = "true" ) )
+	void SetInputActionPriority( int32 NewPriority );
+
+	UFUNCTION( BlueprintCallable, Category = "Input", meta = ( BlueprintProtected = "true" ) )
+	void SetInputActionBlocking( bool bShouldBlock );
+
+	void OnInputAction( FOnInputAction Callback );
+
+	UPROPERTY( transient )
+	class UInputComponent* InputComponent;
 
 private:
 	FAnchors ViewportAnchors;
@@ -908,6 +956,9 @@ private:
 	TWeakPtr<SWidget> FullScreenWidget;
 
 	FLocalPlayerContext PlayerContext;
+
+	/** Get World calls can be expensive for Widgets, we speed them up by caching the last found world until it goes away. */
+	mutable TWeakObjectPtr<UWorld> CachedWorld;
 
 	/** Has this widget been initialized by its class yet? */
 	bool bInitialized;
@@ -974,6 +1025,12 @@ T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass)
 	if ( !OwningPlayer->IsLocalPlayerController() )
 	{
 		FMessageLog("PIE").Error(LOCTEXT("NotLocalPlayer", "Only Local Player Controllers can be assigned to widgets."));
+		return nullptr;
+	}
+
+	if (!OwningPlayer->Player)
+	{
+		FMessageLog("PIE").Error(LOCTEXT("NoPLayer", "CreateWidget cannot be used on Player Controller with no attached player."));
 		return nullptr;
 	}
 

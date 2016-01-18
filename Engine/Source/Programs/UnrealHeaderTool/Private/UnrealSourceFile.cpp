@@ -5,10 +5,11 @@
 #include "ParserHelper.h"
 #include "HeaderParser.h"
 #include "GeneratedCodeVersion.h"
+#include "Scope.h"
 
-void FUnrealSourceFile::AddDefinedClass(UClass* Class)
+void FUnrealSourceFile::AddDefinedClass(UClass* Class, FSimplifiedParsingClassInfo ParsingInfo)
 {
-	DefinedClasses.Add(Class);
+	DefinedClasses.Add(Class, MoveTemp(ParsingInfo));
 }
 
 FString FUnrealSourceFile::GetFileId() const
@@ -119,6 +120,19 @@ void FUnrealSourceFile::MarkDependenciesResolved()
 bool FUnrealSourceFile::AreDependenciesResolved() const
 {
 	return bDependenciesResolved;
+}
+
+void FUnrealSourceFile::SetScope(FFileScope* InScope)
+{
+	if (&Scope.Get() != InScope)
+	{
+		Scope = TSharedRef<FFileScope>(InScope);
+	}
+}
+
+void FUnrealSourceFile::SetScope(TSharedRef<FFileScope> InScope)
+{
+	Scope = InScope;
 }
 
 void FUnrealSourceFile::MarkAsParsed()

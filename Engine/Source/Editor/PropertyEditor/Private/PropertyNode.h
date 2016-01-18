@@ -41,9 +41,11 @@ namespace EPropertyNodeFlags
 
 	const Type	ShouldShowDisableEditOnInstance = 1 << 19; /** true if this node should show child properties marked CPF_DisableEditOnInstance */
 
-	const Type	IsReadOnly						= 1 << 20; /** true if this node is overriden to appear as read-only */
+	const Type	IsReadOnly						= 1 << 20; /** true if this node is overridden to appear as read-only */
 
 	const Type	SkipChildValidation				= 1 << 21; /** true if this node should skip child validation */
+
+	const Type	PersistentInstance				= 1 << 22; /** true if this node supports creating 'editinlinenew' sub-objects */
 
 	const Type 	NoFlags							= 0;
 
@@ -483,6 +485,9 @@ public:
 	DECLARE_EVENT( FPropertyNode, FPropertyValueChangedEvent );
 	FPropertyValueChangedEvent& OnPropertyValueChanged() { return PropertyValueChangedEvent; }
 
+	/** Broadcasts when a child of this property changes */
+	FPropertyValueChangedEvent& OnChildPropertyValueChanged() { return ChildPropertyValueChangedEvent; }
+
 	/**
 	 * Marks window's seem due to filtering flags
 	 * @param InFilterStrings	- List of strings that must be in the property name in order to display
@@ -662,6 +667,16 @@ public:
 
 	FPropertyChangedEvent& FixPropertiesInEvent(FPropertyChangedEvent& Event);
 
+	/** Set metadata value for 'Key' to 'Value' on this property instance (as opposed to the class) */
+	void SetInstanceMetaData(const FName& Key, const FString& Value);
+
+	/**
+	 * Get metadata value for 'Key' for this property instance (as opposed to the class)
+	 * 
+	 * @return Pointer to metadata value; nullptr if Key not found
+	 */
+	const FString* GetInstanceMetaData(const FName& Key) const;
+
 protected:
 
 	TSharedRef<FEditPropertyChain> BuildPropertyChain( UProperty* PropertyAboutToChange );
@@ -720,7 +735,7 @@ protected:
 	 * Helper function for derived members to be able to 
 	 * broadcast property changed notifications
 	 */
-	void BroadcastPropertyValueChanged() const;
+	void BroadcastPropertyChangedDelegates();
 
 	/**
 	 * Gets a value tracker for the default of this property in the passed in object
@@ -751,6 +766,9 @@ protected:
 
 	/** Called when this node's property value has changed (called during NotifyPostChange) */
 	FPropertyValueChangedEvent PropertyValueChangedEvent;
+	
+	/** Called when a child's property value has changed */
+	FPropertyValueChangedEvent ChildPropertyValueChangedEvent;
 
 	/** The property being displayed/edited. */
 	TWeakObjectPtr<UProperty> Property;
@@ -781,6 +799,12 @@ protected:
 
 	/** Optional reference to a tree node that is displaying this property */
 	TWeakPtr< class IDetailTreeNode > TreeNode;
+
+	/**
+	 * Stores metadata for this instasnce of the property (in contrast
+	 * to regular metadata, which is stored per-class)
+	 */
+	TMap<FName, FString> InstanceMetaData;
 };
 
 class FComplexPropertyNode : public FPropertyNode

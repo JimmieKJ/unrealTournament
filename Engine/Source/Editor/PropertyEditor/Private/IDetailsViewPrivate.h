@@ -82,8 +82,6 @@ public:
 	 */
 	virtual bool IsPropertyReadOnly( const struct FPropertyAndParent& PropertyAndParent ) const = 0;
 
-	virtual TSharedPtr<IDetailKeyframeHandler> GetKeyframeHandler() = 0;
-
 	virtual TSharedPtr<IDetailPropertyExtensionHandler> GetExtensionHandler() = 0;
 
 	/**
@@ -115,6 +113,11 @@ public:
 	 * Called when properties have finished changing (after PostEditChange is called)
 	 */
 	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) = 0;
+
+	/**
+	 * Reruns the current search filter applied to the details panel to account for any new changes                                                              
+	 */
+	virtual void RerunCurrentFilter() = 0;
 
 	/** If a customization standalone widget is used, the value should be update only once, when its window is closed */
 	virtual bool DontUpdateValueWhileEditing() const = 0;

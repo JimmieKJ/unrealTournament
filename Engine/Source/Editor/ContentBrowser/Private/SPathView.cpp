@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "ContentBrowserPCH.h"
 
@@ -553,9 +553,9 @@ void SPathView::ApplyHistoryData ( const FHistoryData& History )
 
 	// Update paths
 	TArray<FString> SelectedPaths;
-	for ( auto PathIt = History.SourcesData.PackagePaths.CreateConstIterator(); PathIt; ++PathIt)
+	for (const FName& HistoryPath : History.SourcesData.PackagePaths)
 	{
-		SelectedPaths.Add((*PathIt).ToString());
+		SelectedPaths.Add(HistoryPath.ToString());
 	}
 	SetSelectedPaths(SelectedPaths);
 }
@@ -623,8 +623,12 @@ void SPathView::LoadSettings(const FString& IniFilename, const FString& IniSecti
 
 			if ( bSelectedAtLeastOnePath )
 			{
+				// Send the first selected item with the notification
+				const TArray<TSharedPtr<FTreeItem>> SelectedItems = TreeViewPtr->GetSelectedItems();
+				check(SelectedItems.Num() > 0);
+
 				// Signal a single selection changed event to let any listeners know that paths have changed
-				TreeSelectionChanged( TSharedPtr<FTreeItem>(), ESelectInfo::Direct );
+				TreeSelectionChanged( SelectedItems[0], ESelectInfo::Direct );
 			}
 		}
 		else
@@ -632,8 +636,12 @@ void SPathView::LoadSettings(const FString& IniFilename, const FString& IniSecti
 			// If all assets are already discovered, just select paths the best we can
 			SetSelectedPaths(NewSelectedPaths);
 
+			// Send the first selected item with the notification
+			const TArray<TSharedPtr<FTreeItem>> SelectedItems = TreeViewPtr->GetSelectedItems();
+			check(SelectedItems.Num() > 0);
+
 			// Signal a single selection changed event to let any listeners know that paths have changed
-			TreeSelectionChanged( TSharedPtr<FTreeItem>(), ESelectInfo::Direct );
+			TreeSelectionChanged( SelectedItems[0], ESelectInfo::Direct );
 		}
 	}
 }
@@ -750,17 +758,15 @@ TSharedPtr<struct FTreeItem> SPathView::AddRootItem( const FString& InFolderName
 
 	// If this isn't an engine folder or we want to show them, add
 	const bool bDisplayEngine = GetDefault<UContentBrowserSettings>()->GetDisplayEngineFolder();
-	if ( bDisplayEngine || !ContentBrowserUtils::IsEngineFolder(InFolderName) )
-	{
 		const bool bDisplayPlugins = GetDefault<UContentBrowserSettings>()->GetDisplayPluginFolders();
-		if ( bDisplayPlugins || !ContentBrowserUtils::IsPluginFolder(InFolderName) )
+	if ( (bDisplayEngine || !ContentBrowserUtils::IsEngineFolder(InFolderName)) && 
+		 (bDisplayPlugins || !ContentBrowserUtils::IsPluginFolder(InFolderName)) )
 		{
 			const FText DisplayName = ContentBrowserUtils::GetRootDirDisplayName(InFolderName);
 			NewItem = MakeShareable( new FTreeItem(DisplayName, InFolderName, FString(TEXT("/")) + InFolderName, TSharedPtr<FTreeItem>()));
 			TreeRootItems.Add( NewItem );
 			TreeViewPtr->RequestTreeRefresh();
 		}
-	}
 
 	return NewItem;
 }
@@ -847,7 +853,7 @@ void SPathView::TreeSelectionChanged( TSharedPtr< FTreeItem > TreeItem, ESelectI
 	{
 		// Prioritize the asset registry scan for the selected path
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-		AssetRegistryModule.Get().PrioritizeSearchPath(TreeItem->FolderPath);
+		AssetRegistryModule.Get().PrioritizeSearchPath(TreeItem->FolderPath / TEXT(""));
 	}
 }
 
@@ -878,6 +884,7 @@ void SPathView::TreeExpansionChanged( TSharedPtr< FTreeItem > TreeItem, bool bIs
 void SPathView::OnAssetTreeSearchBoxChanged( const FText& InSearchText )
 {
 	SearchBoxFolderFilter->SetRawFilterText( InSearchText );
+	SearchBoxPtr->SetError( SearchBoxFolderFilter->GetFilterErrorText() );
 }
 
 void SPathView::FilterUpdated()
@@ -940,7 +947,10 @@ void SPathView::Populate()
 			{
 				CleanRootPathName = CleanRootPathName.Mid( 0, CleanRootPathName.Len() - 1 );
 			}
-			AddRootItem(CleanRootPathName);
+
+			// Templates can mount "root" items which are actually sub-items under a root (see FUnrealEdMisc::MountTemplateSharedPaths)
+			// We can use AddPath here (rather than AddRootItem), as this will ensure that both the root and any sub-path items are added correctly
+			AddPath(CleanRootPathName);
 		}
 	}
 	
@@ -957,6 +967,12 @@ void SPathView::Populate()
 	// Add the user developer folder
 	const FString UserDeveloperFolder = FPackageName::FilenameToLongPackageName(FPaths::GameUserDeveloperDir().LeftChop(1));
 	PathList.Add(UserDeveloperFolder);
+
+	// Remove paths of localized assets.
+	PathList.RemoveAll([](const FString& Path) -> bool
+	{
+		return ContentBrowserUtils::IsLocalizationFolder(Path);
+	});
 
 	// we have a text filter, expand all parents of matching folders
 	for ( int32 PathIdx = 0; PathIdx < PathList.Num(); ++PathIdx)
@@ -1088,21 +1104,9 @@ FReply SPathView::OnFolderDragDetected(const FGeometry& Geometry, const FPointer
 	return FReply::Unhandled();
 }
 
-bool SPathView::VerifyFolderNameChanged(const FText& InName, FText& OutErrorMessage, const FString& InFolderPath) const
+bool SPathView::VerifyFolderNameChanged(const FString& InName, FText& OutErrorMessage, const FString& InFolderPath) const
 {	
-	if( !ContentBrowserUtils::IsValidFolderName(InName.ToString(), OutErrorMessage) )
-	{
-		return false;
-	}
-
-	const FString NewPath = FPaths::GetPath(InFolderPath) / InName.ToString();
-	if (ContentBrowserUtils::DoesFolderExist(NewPath))
-	{
-		OutErrorMessage = LOCTEXT("RenameFolderAlreadyExists", "A folder already exists at this location with this name.");
-		return false;
-	}
-
-	return true;
+	return ContentBrowserUtils::IsValidFolderPathForCreate(FPaths::GetPath(InFolderPath), InName, OutErrorMessage);
 }
 
 void SPathView::FolderNameChanged( const TSharedPtr< FTreeItem >& TreeItem, const FString& OldPath, const FVector2D& MessageLocation )
@@ -1308,7 +1312,10 @@ void SPathView::ExecuteTreeDropMove(TArray<FAssetData> AssetList, FString Destin
 
 void SPathView::ExecuteTreeDropCopyFolder(TArray<FString> PathNames, FString DestinationPath)
 {
-	ContentBrowserUtils::CopyFolders(PathNames, DestinationPath);
+	if (!ContentBrowserUtils::CopyFolders(PathNames, DestinationPath))
+	{
+		return;
+	}
 
 	TSharedPtr<FTreeItem> RootItem = FindItemRecursive(DestinationPath);
 	if (RootItem.IsValid())
@@ -1334,7 +1341,10 @@ void SPathView::ExecuteTreeDropCopyFolder(TArray<FString> PathNames, FString Des
 
 void SPathView::ExecuteTreeDropMoveFolder(TArray<FString> PathNames, FString DestinationPath)
 {
-	ContentBrowserUtils::MoveFolders(PathNames, DestinationPath);
+	if (!ContentBrowserUtils::MoveFolders(PathNames, DestinationPath))
+	{
+		return;
+	}
 
 	TSharedPtr<FTreeItem> RootItem = FindItemRecursive(DestinationPath);
 	if (RootItem.IsValid())
@@ -1364,7 +1374,11 @@ void SPathView::OnAssetRegistryPathAdded(const FString& Path)
 	// of successful hits in the filtered list. 
 	if ( SearchBoxFolderFilter->PassesFilter( Path ) )
 	{
+		// Do not add paths of localized assets.
+		if (!ContentBrowserUtils::IsLocalizationFolder(Path))
+		{
 		AddPath(Path);
+	}
 	}
 }
 

@@ -26,9 +26,6 @@
     <Setting Name="DefaultTemplate" Type="System.String" Scope="Application">
       <Value Profile="(Default)">Default.html</Value>
     </Setting>
-    <Setting Name="MetadataErrorIfMissing" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">Title,Crumbs,Availability</Value>
-    </Setting>
     <Setting Name="MetadataInfoIfMissing" Type="System.String" Scope="Application">
       <Value Profile="(Default)">Description</Value>
     </Setting>
@@ -52,6 +49,12 @@
     </Setting>
     <Setting Name="DoNotPublishAvailabilityFlag" Type="System.String" Scope="Application">
       <Value Profile="(Default)">NoPublish</Value>
+    </Setting>
+    <Setting Name="SupportedLanguageLabels" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">English,中国,日本人,한국어</Value>
+    </Setting>
+    <Setting Name="MetadataErrorIfMissing" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Title,Availability</Value>
     </Setting>
   </Settings>
 </SettingsFile>

@@ -36,6 +36,13 @@ public:
 
 public:
 
+	/**
+	 * Defines a custom cursor shape for the EMouseCursor::Custom type.
+	 *
+	 * @param CursorHandle	A native NSCursor instance to show when EMouseCursor::Custom is selected.
+	 */
+	virtual void SetCustomShape( NSCursor* CursorHandle );
+
 	bool UpdateCursorClipping( FVector2D& CursorPosition );
 
 	void WarpCursor( const int32 X, const int32 Y );
@@ -52,13 +59,15 @@ public:
 
 	void UpdateVisibility();
 
+	bool IsLocked() const { return CursorClipRect.Area() > 0; }
+
 private:
 	EMouseCursor::Type CurrentType;
 
 	/** Cursors */
 	NSCursor* CursorHandles[EMouseCursor::TotalCursorCount];
 
-	FIntRect CusorClipRect;
+	FIntRect CursorClipRect;
 
 	bool bIsVisible;
 	bool bUseHighPrecisionMode;

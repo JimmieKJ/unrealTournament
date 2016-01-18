@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTPlayerInput.h"
 
@@ -23,18 +23,15 @@ void UUTPlayerInput::PostInitProperties()
 bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOuterAPlayerController());
-	if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator)
+	if (PC != NULL && PC->PlayerState != NULL && PC->IsInState(NAME_Spectating))
 	{
-		//	UE_LOG(UT, Warning, TEXT("Key %s"), *Key.GetDisplayName().ToString());
 		for (int32 i = 0; i < SpectatorBinds.Num(); i++)
 		{
-			//		UE_LOG(UT, Warning, TEXT("Check Key %s bind %s"), *FKey(SpectatorBinds[i].KeyName).GetDisplayName().ToString(), *SpectatorBinds[i].Command);
 			if (FKey(SpectatorBinds[i].KeyName) == Key && SpectatorBinds[i].EventType == EventType)
 			{
 				FStringOutputDevice DummyOut;
 				if (GetOuterAPlayerController()->Player->Exec(GetOuterAPlayerController()->GetWorld(), *SpectatorBinds[i].Command, DummyOut))
 				{
-					PC->bHasUsedSpectatingBind = true;
 					return true;
 				}
 			}

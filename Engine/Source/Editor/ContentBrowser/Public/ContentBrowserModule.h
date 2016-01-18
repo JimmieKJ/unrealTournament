@@ -46,6 +46,9 @@ public:
 	virtual TArray<FContentBrowserMenuExtender_SelectedAssets>& GetAllAssetViewContextMenuExtenders() {return AssetViewContextMenuExtenders;}
 	virtual TArray<FContentBrowserMenuExtender>& GetAllAssetViewViewMenuExtenders() {return AssetViewViewMenuExtenders;}
 
+	/** Delegates to be called to extend the drag-and-drop support of the asset view */
+	virtual TArray<FAssetViewDragAndDropExtender>& GetAssetViewDragAndDropExtenders() { return AssetViewDragAndDropExtenders; }
+
 	/** Delegate accessors */
 	FOnFilterChanged& GetOnFilterChanged() { return OnFilterChanged; } 
 	FOnSearchBoxChanged& GetOnSearchBoxChanged() { return OnSearchBoxChanged; } 
@@ -64,6 +67,9 @@ private:
 	TArray<FContentBrowserMenuExtender> CollectionViewContextMenuExtenders;
 	TArray<FContentBrowserMenuExtender_SelectedAssets> AssetViewContextMenuExtenders;
 	TArray<FContentBrowserMenuExtender> AssetViewViewMenuExtenders;
+
+	/** All extender delegates for the drag-and-drop support of the asset view */
+	TArray<FAssetViewDragAndDropExtender> AssetViewDragAndDropExtenders;
 
 	FOnFilterChanged OnFilterChanged;
 	FOnSearchBoxChanged OnSearchBoxChanged;

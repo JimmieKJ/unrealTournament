@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "AssetRegistryModule.h"
@@ -25,7 +25,7 @@ DEFINE_LOG_CATEGORY(UTLoading);
 
 static uint32 UTGetNetworkVersion()
 {
-	return 3008041;
+	return 3008042;
 }
 
 const FString ITEM_STAT_PREFIX = TEXT("ITEM_");
@@ -159,6 +159,8 @@ static TMap<FName, FString> HackedEntitlementTable = []()
 	Result.Add(TEXT("BP_CardboardHat_C"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
 	Result.Add(TEXT("BP_CardboardHat_Leader"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
 	Result.Add(TEXT("BP_CardboardHat_Leader_C"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
+	Result.Add(TEXT("BP_Char_Oct2015"), TEXT("527E7E209F4142F8835BA696919E2BEC"));
+	Result.Add(TEXT("BP_Char_Oct2015_C"), TEXT("527E7E209F4142F8835BA696919E2BEC"));
 	Result.Add(TEXT("DM-Lea"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
 	Result.Add(TEXT("CTF-Pistola"), TEXT("48d281f487154bb29dd75bd7bb95ac8e"));
 	return Result;
@@ -241,7 +243,7 @@ bool LocallyHasEntitlement(const FString& Entitlement)
 			{
 				for (int32 i = 0; i < MAX_LOCAL_PLAYERS; i++)
 				{
-					TSharedPtr<FUniqueNetId> Id = IdentityInterface->GetUniquePlayerId(i);
+					TSharedPtr<const FUniqueNetId> Id = IdentityInterface->GetUniquePlayerId(i);
 					if (Id.IsValid())
 					{
 						if (EntitlementInterface->GetItemEntitlement(*Id.Get(), Entitlement).IsValid())
@@ -409,6 +411,7 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 	RootPaths.Add(TEXT("/Game/EpicInternal/PK/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Teams/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Cosmetic_Items/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/WeaponSkins/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
@@ -654,10 +657,10 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
 	if (StatsReadRequest.IsValid())
 	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/");
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 #endif
 		FString McpConfigOverride;
 		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
@@ -667,14 +670,23 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 		}
 		else if (McpConfigOverride == TEXT("gamedev"))
 		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 		}
 		else if (McpConfigOverride == TEXT("prodnet"))
 		{
-			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
+			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 		}
 
-		FString FinalStatsURL = BaseURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
+		FString EpicApp;
+		FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
+		const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
+		if (bIsPublicTest)
+		{
+			BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
+		}
+
+		FString CommandURL = TEXT("/ut/api/stats/accountId/");
+		FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
 
 		StatsReadRequest->SetURL(FinalStatsURL);
 		StatsReadRequest->OnProcessRequestComplete() = ResultDelegate;
@@ -756,7 +768,7 @@ bool NeedsProfileItem(UObject* TestObj)
 	return (CosmeticCls != NULL && CosmeticCls.GetDefaultObject()->bRequiresItem) || (CharacterCls != NULL && CharacterCls.GetDefaultObject()->bRequiresItem) || (TauntCls != NULL && TauntCls.GetDefaultObject()->bRequiresItem) || (BotChar != NULL && BotChar->bRequiresItem);
 }
 
-void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileItemEntry>& ItemList)
+void GiveProfileItems(TSharedPtr<const FUniqueNetId> UniqueId, const TArray<FProfileItemEntry>& ItemList)
 {
 	if (UniqueId.IsValid() && ItemList.Num() > 0)
 	{
@@ -781,9 +793,9 @@ void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileIt
 		FString StatsID = UniqueId->ToString();
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+		FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 #else
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 #endif
 
 		FString McpConfigOverride;
@@ -791,21 +803,32 @@ void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileIt
 
 		if (McpConfigOverride == TEXT("prodnet"))
 		{
-			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 		}
 		else if (McpConfigOverride == TEXT("localhost"))
 		{
-			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			BaseURL = TEXT("http://localhost:8080");
 		}
 		else if (McpConfigOverride == TEXT("gamedev"))
 		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 		}
+
+		FString EpicApp;
+		FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
+		const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
+		if (bIsPublicTest)
+		{
+			BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
+		}
+
+		FString CommandURL = TEXT("/ut/api/stats/accountId/");
+		FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk?ownertype=1");
 
 		FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();
 		if (StatsWriteRequest.IsValid())
 		{
-			StatsWriteRequest->SetURL(BaseURL);
+			StatsWriteRequest->SetURL(FinalStatsURL);
 			StatsWriteRequest->SetVerb(TEXT("POST"));
 			StatsWriteRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 

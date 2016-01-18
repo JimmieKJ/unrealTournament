@@ -2,6 +2,7 @@
 
 #include "HttpPrivatePCH.h"
 #include "HttpWinInet.h"
+#include "EngineVersion.h"
 
 bool FWinInetConnection::bStaticConnectionInitialized = false;
 

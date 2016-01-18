@@ -47,6 +47,11 @@ TSharedRef<FSubversionSourceControlState, ESPMode::ThreadSafe> FSubversionSource
 	}
 }
 
+bool FSubversionSourceControlProvider::RemoveFileFromCache(const FString& Filename)
+{
+	return StateCache.Remove(Filename) > 0;
+}
+
 FText FSubversionSourceControlProvider::GetStatusText() const
 {
 	FFormatNamedArguments Args;
@@ -107,7 +112,7 @@ ECommandResult::Type FSubversionSourceControlProvider::GetState( const TArray<FS
 	return ECommandResult::Succeeded;
 }
 
-TArray<FSourceControlStateRef> FSubversionSourceControlProvider::GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const
+TArray<FSourceControlStateRef> FSubversionSourceControlProvider::GetCachedStateByPredicate(TFunctionRef<bool(const FSourceControlStateRef&)> Predicate) const
 {
 	TArray<FSourceControlStateRef> Result;
 	for (const auto& CacheItem : StateCache)
@@ -119,16 +124,6 @@ TArray<FSourceControlStateRef> FSubversionSourceControlProvider::GetCachedStateB
 		}
 	}
 	return Result;
-}
-
-void FSubversionSourceControlProvider::RegisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
-{
-	OnSourceControlStateChanged.Add( SourceControlStateChanged );
-}
-
-void FSubversionSourceControlProvider::UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
-{
-	OnSourceControlStateChanged.DEPRECATED_Remove( SourceControlStateChanged );
 }
 
 FDelegateHandle FSubversionSourceControlProvider::RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
@@ -533,6 +528,13 @@ ECommandResult::Type FSubversionSourceControlProvider::ExecuteSynchronousCommand
 
 	// Delete the command now
 	check(!InCommand.bAutoDelete);
+
+	// ensure commands that are not auto deleted do not end up in the command queue
+	if ( CommandQueue.Contains( &InCommand ) ) 
+	{
+		CommandQueue.Remove( &InCommand );
+	}
+
 	delete &InCommand;
 
 	return Result;

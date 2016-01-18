@@ -22,11 +22,36 @@ FORCEINLINE_DEBUGGABLE bool FRHICommandListBase::IsImmediate()
 	return this == &FRHICommandListExecutor::GetImmediateCommandList();
 }
 
+FORCEINLINE_DEBUGGABLE bool FRHICommandListBase::IsImmediateAsyncCompute()
+{
+	return this == &FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
+}
+
 FORCEINLINE_DEBUGGABLE bool FRHICommandListBase::Bypass()
 {
 	return GRHICommandList.Bypass();
 }
 
+FORCEINLINE_DEBUGGABLE FScopedRHIThreadStaller::FScopedRHIThreadStaller(class FRHICommandListImmediate& InImmed)
+	: Immed(nullptr)
+{
+	if (GRHIThread)
+	{
+		check(IsInRenderingThread());
+		if (InImmed.StallRHIThread())
+		{
+			Immed = &InImmed;
+		}
+	}
+}
+
+FORCEINLINE_DEBUGGABLE FScopedRHIThreadStaller::~FScopedRHIThreadStaller()
+{
+	if (Immed)
+	{
+		Immed->UnStallRHIThread();
+	}
+}
 
 FORCEINLINE_DEBUGGABLE void FRHICommandListImmediate::ImmediateFlush(EImmediateFlushType::Type FlushType)
 {
@@ -53,12 +78,6 @@ FORCEINLINE_DEBUGGABLE void FRHICommandListImmediate::ImmediateFlush(EImmediateF
 				GRHICommandList.ExecuteList(*this);
 			}
 			WaitForDispatch();
-		}
-		break;
-	case EImmediateFlushType::WaitForRHIThread:
-		{
-			check(GRHIThread);
-			WaitForRHIThreadTasks();
 		}
 		break;
 	case EImmediateFlushType::FlushRHIThread:

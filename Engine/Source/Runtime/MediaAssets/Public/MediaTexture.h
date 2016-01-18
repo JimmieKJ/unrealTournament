@@ -8,7 +8,7 @@
 
 class FMediaSampleBuffer;
 class IMediaPlayer;
-class IMediaTrack;
+class IMediaVideoTrack;
 class UMediaPlayer;
 enum EPixelFormat;
 enum TextureAddress;
@@ -38,11 +38,6 @@ class MEDIAASSETS_API UMediaTexture
 	/** The index of the MediaPlayer's video track to render on this texture. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MediaPlayer)
 	int32 VideoTrackIndex;
-
-public:
-
-	/** Destructor. */
-	~UMediaTexture();
 
 public:
 
@@ -78,7 +73,7 @@ public:
 	 *
 	 * @return The selected video track, or nullptr if none is selected.
 	 */
-	TSharedPtr<IMediaTrack, ESPMode::ThreadSafe> GetVideoTrack() const
+	TSharedPtr<IMediaVideoTrack, ESPMode::ThreadSafe> GetVideoTrack() const
 	{
 		return VideoTrack;
 	}
@@ -99,6 +94,7 @@ public:
 	virtual EMaterialValueType GetMaterialType() override;
 	virtual float GetSurfaceWidth() const override;
 	virtual float GetSurfaceHeight() const override;
+	virtual void UpdateResource() override;	
 
 public:
 
@@ -129,8 +125,8 @@ protected:
 
 private:
 
-	/** Callback for when the UMediaPlayer asset changed its media. */
-	void HandleMediaPlayerMediaChanged();
+	/** Callback for when the UMediaPlayer changed tracks. */
+	void HandleMediaPlayerTracksChanged();
 
 private:
 
@@ -138,7 +134,8 @@ private:
 	FIntPoint CachedDimensions;
 
 	/** Holds the UMediaPlayer asset currently being used. */
-	UMediaPlayer* CurrentMediaPlayer;
+	UPROPERTY() 
+	TWeakObjectPtr<UMediaPlayer> CurrentMediaPlayer;
 
 	/** Synchronizes access to this object from the render thread. */
 	FRenderCommandFence* ReleasePlayerFence;
@@ -147,5 +144,7 @@ private:
 	TSharedRef<FMediaSampleBuffer, ESPMode::ThreadSafe> VideoBuffer;
 
 	/** Holds the selected video track. */
-	TSharedPtr<IMediaTrack, ESPMode::ThreadSafe> VideoTrack;
+	TSharedPtr<IMediaVideoTrack, ESPMode::ThreadSafe> VideoTrack;
+
+	bool bDelegatesAdded;
 };

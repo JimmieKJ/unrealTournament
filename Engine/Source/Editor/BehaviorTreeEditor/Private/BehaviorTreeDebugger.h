@@ -35,6 +35,7 @@ public:
 	void OnTreeStarted(const UBehaviorTreeComponent& OwnerComp, const UBehaviorTree& InTreeAsset);
 	void OnBeginPIE(const bool bIsSimulating);
 	void OnEndPIE(const bool bIsSimulating);
+	void OnPausePIE(const bool bIsSimulating);
 
 	void OnBreakpointAdded(UBehaviorTreeGraphNode* Node);
 	void OnBreakpointRemoved(UBehaviorTreeGraphNode* Node);

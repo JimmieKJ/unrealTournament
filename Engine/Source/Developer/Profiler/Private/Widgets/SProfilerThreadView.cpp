@@ -464,7 +464,7 @@ void SProfilerThreadView::DrawText( const FString& Text, const FSlateFontInfo& F
 {
 	check( PaintState );
 
-	if( ShadowOffset.Size() > 0.0f )
+	if( ShadowOffset.SizeSquared() > 0.0f )
 	{
 		FSlateDrawElement::MakeText
 		(

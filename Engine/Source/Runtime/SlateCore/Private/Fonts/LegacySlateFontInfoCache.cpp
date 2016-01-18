@@ -49,6 +49,9 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetCompositeFont(con
 		}
 	}
 
+	// Don't allow GC while we perform this allocation
+	FGCScopeGuard GCGuard;
+
 	UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
 	FontBulkData->Initialize(LegacyFontPath);
 	TSharedRef<const FCompositeFont> NewCompositeFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, LegacyFontPath, FontBulkData, InLegacyFontHinting));
@@ -60,11 +63,15 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetSystemFont()
 {
 	if (!SystemFont.IsValid())
 	{
+		// Don't allow GC while we perform this allocation
+		FGCScopeGuard GCGuard;
+
 		TArray<uint8> FontBytes = FPlatformMisc::GetSystemFontBytes();
 		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
 		FontBulkData->Initialize(FontBytes.GetData(), FontBytes.Num());
 		SystemFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, TEXT("DefaultSystemFont"), FontBulkData, EFontHinting::Default));
 	}
+
 	return SystemFont;
 }
 
@@ -78,6 +85,9 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetFallbackFont()
 
 	if (!FallbackFont.IsValid() || FallbackFontHistoryVersion != CurrentHistoryVersion)
 	{
+		// Don't allow GC while we perform this allocation
+		FGCScopeGuard GCGuard;
+
 		FallbackFontHistoryVersion = CurrentHistoryVersion;
 
 		const FString FallbackFontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/") / (NSLOCTEXT("Slate", "FallbackFont", "DroidSansFallback").ToString() + TEXT(".ttf"));
@@ -99,6 +109,9 @@ const FFontData& FLegacySlateFontInfoCache::GetFallbackFontData()
 
 	if (!FallbackFontData.IsValid() || FallbackFontDataHistoryVersion != CurrentHistoryVersion)
 	{
+		// Don't allow GC while we perform this allocation
+		FGCScopeGuard GCGuard;
+
 		FallbackFontDataHistoryVersion = CurrentHistoryVersion;
 
 		const FString FallbackFontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/") / (NSLOCTEXT("Slate", "FallbackFont", "DroidSansFallback").ToString() + TEXT(".ttf"));
@@ -117,6 +130,9 @@ const FFontData& FLegacySlateFontInfoCache::GetLastResortFontData()
 
 	if (!LastResortFontData.IsValid())
 	{
+		// Don't allow GC while we perform this allocation
+		FGCScopeGuard GCGuard;
+
 		const FString LastResortFontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/LastResort.ttf");
 		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
 		FontBulkData->Initialize(LastResortFontPath);
@@ -128,13 +144,13 @@ const FFontData& FLegacySlateFontInfoCache::GetLastResortFontData()
 
 void FLegacySlateFontInfoCache::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	if(FallbackFontData.IsValid())
+	if (FallbackFontData.IsValid())
 	{
 		const UFontBulkData* TmpPtr = FallbackFontData->BulkDataPtr;
 		Collector.AddReferencedObject(TmpPtr);
 	}
 
-	if(LastResortFontData.IsValid())
+	if (LastResortFontData.IsValid())
 	{
 		const UFontBulkData* TmpPtr = LastResortFontData->BulkDataPtr;
 		Collector.AddReferencedObject(TmpPtr);

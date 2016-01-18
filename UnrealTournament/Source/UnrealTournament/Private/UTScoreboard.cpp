@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTScoreboard.h"
@@ -69,6 +69,9 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "WeaponStatsFooter", "Up Arrow to View Game Stats, Down Arrow to View Reward Stats"));
 	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "RewardStatsFooter", "Press Up Arrow to View Weapon Stats, Down Arrow to View Movement Stats"));
 	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "MovementStatsFooter", "Press Up Arrow to View Reward Stats"));
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_SpecSwitch01.A_UI_SpecSwitch01'"));
+	ScoreUpdateSound = OtherSpreeSoundFinder.Object;
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
@@ -226,24 +229,21 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 {
 	if (UTGameState)
 	{
-		if (UTGameState->GoalScore > 0)
-		{
-			// Draw Game Text
-			FText Score = FText::Format(NSLOCTEXT("UTScoreboard","GoalScoreFormat","First to {0} Frags"), FText::AsNumber(UTGameState->GoalScore));
-			DrawText(Score, Size.X * 0.985f, YOffset + 14.f, UTHUDOwner->SmallFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
-		}
-
 		FText StatusText = UTGameState->GetGameStatusText();
 		if (!StatusText.IsEmpty())
 		{
 			DrawText(StatusText, Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->SmallFont, 1.f, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		}
-		else
+		else if (UTGameState->GoalScore > 0)
 		{
-			float RemainingTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
-			FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RemainingTime, true, true, true);
-			DrawText(Timer, Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->NumberFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+			// Draw Game Text
+			FText Score = FText::Format(UTGameState->GoalScoreText, FText::AsNumber(UTGameState->GoalScore));
+			DrawText(Score, Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->SmallFont, 1.f, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		}
+
+		float DisplayedTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
+		FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), DisplayedTime, false, true, true);
+		DrawText(Timer, Size.X * 0.985f, YOffset + 20.f, UTHUDOwner->NumberFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	}
 }
 
@@ -283,7 +283,6 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	{
 		// Draw the background Border
 		DrawTexture(TextureAtlas, XOffset, YOffset, Width, Height, 149, 138, 32, 32, 1.0, FLinearColor(0.72f, 0.72f, 0.72f, 0.85f));
-
 		DrawText(CH_PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
 
 		if (UTGameState && UTGameState->HasMatchStarted())
@@ -413,7 +412,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		FinalBarOpacity = 0.75f;
 	}
 
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
+	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.9f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
 
 	if (PlayerState->KickPercent > 0)
 	{
@@ -430,12 +429,17 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		{
 			int32 Badge;
 			int32 Level;
-			UUTLocalPlayer::GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
-			Badge = FMath::Clamp<int32>(Badge, 0, 3);
-			Level = FMath::Clamp<int32>(Level, 0, 8);
-			float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
-			DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
-			DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+			if (DefaultGame)
+			{
+				int32 EloRating = DefaultGame->GetEloFor(PlayerState);
+				UUTLocalPlayer::GetBadgeFromELO(EloRating, Badge, Level);
+				Badge = FMath::Clamp<int32>(Badge, 0, 3);
+				Level = FMath::Clamp<int32>(Level, 0, 8);
+				float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
+				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			}
 		}
 	}
 
@@ -690,6 +694,22 @@ void UUTScoreboard::DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreV
 	YPos += StatsFontInfo.TextHeight;
 }
 
+void UUTScoreboard::DrawPlayerStatsLine(FText StatsName, AUTPlayerState* FirstPS, AUTPlayerState* SecondPS, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex)
+{
+	if ((HighlightIndex == 0) && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && !UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
+	{
+		if (FirstPS == UTHUDOwner->UTPlayerOwner->UTPlayerState)
+		{
+			HighlightIndex = 1;
+		}
+		else if (SecondPS == UTHUDOwner->UTPlayerOwner->UTPlayerState)
+		{
+			HighlightIndex = 2;
+		}
+	}
+	DrawTextStatsLine(StatsName, GetPlayerNameFor(FirstPS), GetPlayerNameFor(SecondPS), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, HighlightIndex);
+}
+
 void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex)
 {
 	Canvas->SetLinearDrawColor(FLinearColor::White);
@@ -775,9 +795,10 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 			BestWeaponIndex = i;
 		}
 	}
+	YPos -= 0.2f*StatsFontInfo.TextHeight;
 
 	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	YPos += StatsFontInfo.TextHeight;
+	YPos += 0.7f*StatsFontInfo.TextHeight;
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ShockComboKills", "Shock Combo Kills"), PS->GetStatsValue(NAME_ShockComboKills), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "AmazingCombos", "Amazing Combos"), PS->GetStatsValue(NAME_AmazingCombos), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
@@ -785,10 +806,6 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "AirRox", "Air Rocket Kills"), PS->GetStatsValue(NAME_AirRox), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlakShreds", "Flak Shreds"), PS->GetStatsValue(NAME_FlakShreds), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "AirSnot", "Air Snot Kills"), PS->GetStatsValue(NAME_AirSnot), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
-	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	YPos += StatsFontInfo.TextHeight;
-
 	float BestComboRating = PS->GetStatsValue(NAME_BestShockCombo);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "ShockComboRating", "Best Shock Combo Rating"), FString::Printf(TEXT(" %4.1f"), BestComboRating), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (BestComboRating > 8.f));
 }
@@ -1014,4 +1031,9 @@ void UUTScoreboard::DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float
 float UUTScoreboard::GetDrawScaleOverride()
 {
 	return 1.0;
+}
+
+TWeakObjectPtr<AUTPlayerState> UUTScoreboard::GetSelectedPlayer()
+{
+	return SelectedPlayer;
 }

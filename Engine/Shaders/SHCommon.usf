@@ -128,7 +128,7 @@ half3 DotSH3(FThreeBandSHVectorRGB A,FThreeBandSHVector B)
 }
 
 /** Computes the value of the SH basis functions for a given direction. */
-FOneBandSHVector SHBasisFunction1(half3 InputVector)
+FOneBandSHVector SHBasisFunction1()
 {
 	FOneBandSHVector Result;
 	// These are derived from simplifying SHBasisFunction in C++
@@ -176,9 +176,9 @@ half SHAmbientFunction()
  * Computes the diffuse transfer function for a surface with the given normal and DiffusePower,
  * and projects it into the SH basis.
  */
-FOneBandSHVector CalcDiffuseTransferSH1(half3 Normal,half Exponent)
+FOneBandSHVector CalcDiffuseTransferSH1(half Exponent)
 {
-	FOneBandSHVector Result = SHBasisFunction1(Normal);
+	FOneBandSHVector Result = SHBasisFunction1();
 
 	// These formula are scaling factors for each SH band that convolve a SH with the circularly symmetric function
 	// max(0,cos(theta))^Exponent

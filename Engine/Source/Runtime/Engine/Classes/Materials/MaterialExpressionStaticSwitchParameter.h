@@ -17,7 +17,7 @@ class UMaterialExpressionStaticSwitchParameter : public UMaterialExpressionStati
 	FExpressionInput B;
 
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual FString GetInputName(int32 InputIndex) const override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
@@ -26,6 +26,6 @@ class UMaterialExpressionStaticSwitchParameter : public UMaterialExpressionStati
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Unknown;}
 	virtual uint32 GetOutputType(int32 OutputIndex) override {return MCT_Unknown;}
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 

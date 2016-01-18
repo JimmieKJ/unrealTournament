@@ -11,6 +11,7 @@
 #include "InputCore.h"
 #include "SlateBasics.h"
 #include "SlateCore.h"
+#include "Json.h"
 
 
 /* Private includes

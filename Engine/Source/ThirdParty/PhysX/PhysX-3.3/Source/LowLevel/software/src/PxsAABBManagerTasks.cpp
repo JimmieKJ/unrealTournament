@@ -845,12 +845,35 @@ void ProcessBPResultsTask::runInternal()
 	mAABBMgr->processBPResults(mParams);
 }
 
+void AggregateOverlapWorkTask::setAABBMgr(PxsAABBManager* AABBMgr)
+{
+	mAABBMgr = AABBMgr;
+
+	mCreatedPairs = (PxvBroadPhaseOverlap*)mAABBMgr->mScratchAllocator.alloc(sizeof(PxvBroadPhaseOverlap)*1024, true);
+	mDeletedPairs = (PxvBroadPhaseOverlap*)mAABBMgr->mScratchAllocator.alloc(sizeof(PxvBroadPhaseOverlap)*1024, true);
+	mCreatedPairsCapacity = 1024;
+	mDeletedPairsCapacity = 1024;
+}
+
+void AggregateOverlapWorkTask::runInternal()
+{
+	mAABBMgr->selfCollideAggregates
+		(mAggSelfStartId, mAggSelfNbWorkItems, mAggregateSortedData,
+		mCreatedPairs, mCreatedPairsSize, mCreatedPairsCapacity,
+		mDeletedPairs, mDeletedPairsSize, mDeletedPairsCapacity);
+
+	mAABBMgr->processAggregatePairs
+		(mAggAggStartId, mAggAggNbWorkItems, mAggregateSortedData,
+		 mCreatedPairs, mCreatedPairsSize, mCreatedPairsCapacity,
+		 mDeletedPairs, mDeletedPairsSize, mDeletedPairsCapacity);
+}
+
+
 void AggregateOverlapTask::runInternal()
 {
 #ifdef PX_PROFILE
 	CM_PROFILE_STOP_CROSSTHREAD(mAABBMgr->mEventProfiler, Cm::ProfileEventId::BroadPhase::GetupdateLazyAggShapeAABBs());
-	Cm::EventProfiler* profiler = &mAABBMgr->mEventProfiler;
-	CM_PROFILE_START(profiler, Cm::ProfileEventId::BroadPhase::GetcomputeAggAggShapePairs());
+	CM_PROFILE_START_CROSSTHREAD(mAABBMgr->mEventProfiler, Cm::ProfileEventId::BroadPhase::GetcomputeAggAggShapePairs());
 #ifdef PX_PS3
 	stopTimerMarker(eCOMPUTE_LAZY_AGG_SHAPE_AABBS);
 	startTimerMarker(eCOMPUTE_AGGAGG_SHAPE_PAIRS);
@@ -859,21 +882,172 @@ void AggregateOverlapTask::runInternal()
 
 	if(mAABBMgr->mNumAggregatesToSort > 0)
 	{
-		InlineBuffer<PxcBpHandle, 1024> rankIds(&mAABBMgr->mScratchAllocator);
-		InlineBuffer<PxcBpHandle, 1024> elemIds(&mAABBMgr->mScratchAllocator);
-		InlineBuffer<AggregateSortedData, 256> aggregateSortedData(&mAABBMgr->mScratchAllocator);
-		rankIds.resize(mAABBMgr->mAggregateElems.getCapacity());
-		elemIds.resize(mAABBMgr->mAggregateElems.getCapacity());
-		aggregateSortedData.resize(mAABBMgr->mAggregateManager.getAggregatesCapacity());
+		mRankIds.resize(mAABBMgr->mAggregateElems.getCapacity());
+		mElemIds.resize(mAABBMgr->mAggregateElems.getCapacity());
+		mAggregateSortedData.resize(mAABBMgr->mAggregateManager.getAggregatesCapacity());
 
-		//Sort the aggregate shape bounds.
-		mAABBMgr->sortAggregates(rankIds.mBuffer, rankIds.mBufferSize, elemIds.mBuffer, elemIds.mBufferSize, aggregateSortedData.mBuffer);
+		//Sort the aggregate shape bounds serially.  Could be done in parallel.
+		mAABBMgr->sortAggregates(mRankIds.mBuffer, mRankIds.mBufferSize, mElemIds.mBuffer, mElemIds.mBufferSize, mAggregateSortedData.mBuffer);
 
-		// Self-collide all the aggregates.
-		mAABBMgr->selfCollideAggregates(aggregateSortedData.mBuffer);
+		processSelfCollideAndAggregatePairs();
+	}
+}
 
-		// Process all aggregate pairs (existing and freshly added).
-		mAABBMgr->processAggregatePairs(aggregateSortedData.mBuffer);
+void AggregateOverlapTask::processSelfCollideAndAggregatePairs()
+{
+	PX_ASSERT(mAABBMgr->mNumAggregatesToSort > 0);
+
+	//Reset all tasks.
+	for(PxU32 i = 0; i < eMAX_NUM_TASKS; i++)
+	{
+		new(&mAggregateOverlapWorkTasks[i]) AggregateOverlapWorkTask();
+		mAggregateOverlapWorkTasks[i].setAABBMgr(mAABBMgr);
+		mAggregateOverlapWorkTasks[i].setAggregateSortedData(mAggregateSortedData.mBuffer);
+	}
+
+	const PxU32 numSelfCollide = mAABBMgr->mAggregatesUpdated.getElemsSize();
+	const PxU32 numAggPairs = mAABBMgr->mNumAggregatePairsToOverlap;
+
+	//Allocate all memory serially.
+	if(numAggPairs > 0)
+	{
+		mAABBMgr->initialiseAggregateAggregateBitmaps();
+	}
+
+	//Divide work up among all tasks.
+	const PxU32 numTasks = PxMin((PxU32)eMAX_NUM_TASKS, mParams.numCpuTasks);
+	if((numTasks > 1) && ((numAggPairs > eTASK_UNIT_WORK_SIZE) || (numSelfCollide > eTASK_UNIT_WORK_SIZE)))
+	{
+		if(numSelfCollide > eTASK_UNIT_WORK_SIZE)
+		{
+			//Divide the work among the available tasks.
+			PxU32 starts[eMAX_NUM_TASKS];
+			PxU32 counts[eMAX_NUM_TASKS];
+			computeTaskWork<eTASK_UNIT_WORK_SIZE, eMAX_NUM_TASKS>(numSelfCollide, numTasks, starts, counts);
+			for(PxU32 i = 0; i < numTasks; i++)
+			{
+				mAggregateOverlapWorkTasks[i].setAggSelfWorkStartAndCount(starts[i],counts[i]);
+			}
+		}
+		else
+		{
+			mAggregateOverlapWorkTasks[0].setAggSelfWorkStartAndCount(0, numSelfCollide);
+		}
+
+		if(numAggPairs > eTASK_UNIT_WORK_SIZE)
+		{
+			PxU32 starts[eMAX_NUM_TASKS];
+			PxU32 counts[eMAX_NUM_TASKS];
+			computeTaskWork<eTASK_UNIT_WORK_SIZE, eMAX_NUM_TASKS>(numAggPairs, numTasks, starts, counts);
+			for(PxU32 i = 0; i < numTasks; i++)
+			{
+				mAggregateOverlapWorkTasks[i].setAggAggWorkStartAndCount(starts[i],counts[i]);
+			}
+		}
+		else
+		{
+			mAggregateOverlapWorkTasks[0].setAggAggWorkStartAndCount(0, numAggPairs);
+		}
+
+		//Run in parallel using the tasks.
+		for(PxU32 i=0;i<numTasks;i++)
+		{
+			mAggregateOverlapWorkTasks[i].setContinuation(mCont);
+		}
+		for(PxU32 i=0;i<numTasks;i++)
+		{
+			mAggregateOverlapWorkTasks[i].removeReference();
+		}
+	}
+	else
+	{
+		mAggregateOverlapWorkTasks[0].setAggSelfWorkStartAndCount(0, numSelfCollide);
+		mAggregateOverlapWorkTasks[0].setAggAggWorkStartAndCount(0, numAggPairs);
+		mAggregateOverlapWorkTasks[0].run();
+	}
+}
+
+void AggregateOverlapTask::complete()
+{
+	if(mAABBMgr->mNumAggregatesToSort > 0)
+	{
+		mAggregateSortedData.free();
+		mRankIds.free();
+		mElemIds.free();
+
+		//Copy created and deleted pairs from tasks back to aabbmgr.
+		PxvBroadPhaseOverlap* outPairs[2] = {mAABBMgr->mCreatedPairs, mAABBMgr->mDeletedPairs};
+		PxU32 outSizes[2] = {mAABBMgr->mCreatedPairsSize, mAABBMgr->mDeletedPairsSize};
+		PxU32 outCapacities[2] = {mAABBMgr->mCreatedPairsCapacity, mAABBMgr->mDeletedPairsCapacity};
+		{
+			PxcScratchAllocator& scratchAllocator = mAABBMgr->mScratchAllocator;
+
+			//Count the number of created and deleted pairs.
+			PxvBroadPhaseOverlap* modifiedPairs[eMAX_NUM_TASKS][2];
+			PxU32 modifiedSizes[eMAX_NUM_TASKS][2];
+			PxU32 totalModifiedSizes[2] = {0, 0};
+			for(PxU32 i = 0; i < eMAX_NUM_TASKS; i++)
+			{
+				const AggregateOverlapWorkTask& workTask = mAggregateOverlapWorkTasks[i];
+				modifiedPairs[i][0] = workTask.mCreatedPairs;
+				modifiedPairs[i][1] = workTask.mDeletedPairs;
+				modifiedSizes[i][0] = workTask.mCreatedPairsSize;
+				modifiedSizes[i][1] = workTask.mDeletedPairsSize;
+				totalModifiedSizes[0] += workTask.mCreatedPairsSize;
+				totalModifiedSizes[1] += workTask.mDeletedPairsSize;
+			}
+
+			for(PxU32 i = 0; i < 2; i++)
+			{
+				PxvBroadPhaseOverlap* pairs = outPairs[i];
+				PxU32 pairsSize = outSizes[i];
+				PxU32 pairsCapacity = outCapacities[i];
+				const PxU32 totalModifiedSize = totalModifiedSizes[i];
+
+				//Allocate memory for new pairs if required.
+				if(((pairsSize + totalModifiedSize) > pairsCapacity))
+				{
+					const PxU32 newCapacity = ((pairsSize + totalModifiedSize + 31) & ~31);
+					PxvBroadPhaseOverlap* newPairs = (PxvBroadPhaseOverlap*)scratchAllocator.alloc(sizeof(PxvBroadPhaseOverlap)*newCapacity, true);
+					PxMemCopy(newPairs, pairs, sizeof(PxvBroadPhaseOverlap)*pairsSize);
+					scratchAllocator.free(pairs);
+					outPairs[i] = newPairs;
+					outCapacities[i] = newCapacity;
+				}
+
+				//Copy new pairs to aabbmgr.
+				for(PxU32 k = 0; k < eMAX_NUM_TASKS; k++)
+				{
+					PxMemCopy(outPairs[i] + outSizes[i], modifiedPairs[k][i], sizeof(PxvBroadPhaseOverlap)*modifiedSizes[k][i]);
+					outSizes[i] += modifiedSizes[k][i];
+					scratchAllocator.free(modifiedPairs[k][i]);
+				}
+			}
+		}
+		mAABBMgr->mCreatedPairs = outPairs[0];
+		mAABBMgr->mCreatedPairsSize = outSizes[0];
+		mAABBMgr->mCreatedPairsCapacity = outCapacities[0];
+		mAABBMgr->mDeletedPairs = outPairs[1];
+		mAABBMgr->mDeletedPairsSize = outSizes[1];
+		mAABBMgr->mDeletedPairsCapacity = outCapacities[1];
+	}
+}
+
+void FinishTask::runInternal()
+{
+#ifdef PX_PROFILE
+	CM_PROFILE_STOP_CROSSTHREAD(mAABBMgr->mEventProfiler, Cm::ProfileEventId::BroadPhase::GetcomputeAggAggShapePairs());
+	Cm::EventProfiler* profiler = &mAABBMgr->mEventProfiler;
+	CM_PROFILE_START(profiler, Cm::ProfileEventId::BroadPhase::Getfinish());
+#ifdef PX_PS3
+	stopTimerMarker(eCOMPUTE_AGGAGG_SHAPE_PAIRS);
+	startTimerMarker(eCOMPUTE_BPFINISH);
+#endif
+#endif
+
+	//Need to aggregate the work of all the aggregate overlap tasks.
+	{
+		mAABBMgr->mAggregateOverlapTask.complete();
 	}
 
 	//Now free all buffers allocated during the update of the abbb manager
@@ -886,13 +1060,13 @@ void AggregateOverlapTask::runInternal()
 		mAABBMgr->mBPUpdatedElems.free();
 		mAABBMgr->mBPRemovedElems.free();
 		mAABBMgr->mAggregatesUpdated.free();
-	
+
 		//Don't need the arrays of updated bp and aggregate shapes.
 		mAABBMgr->mBPUpdatedElemIds.free();
 		mAABBMgr->mBPUpdatedElemIdsSize = 0;
 		mAABBMgr->mAggregateUpdatedElemIds.free();
 		mAABBMgr->mAggregateUpdatedElemIdsSize = 0;
-
+		
 #ifdef PX_PS3
 		//Don't need the lists of spu work to update bp elems.
 		mAABBMgr->mBPUpdatedElemWordStarts.free();
@@ -933,11 +1107,9 @@ void AggregateOverlapTask::runInternal()
 	}
 
 #ifdef PX_PROFILE
-	CM_PROFILE_STOP(profiler, Cm::ProfileEventId::BroadPhase::GetcomputeAggAggShapePairs());
+	CM_PROFILE_STOP(profiler, Cm::ProfileEventId::BroadPhase::Getfinish());
 #ifdef PX_PS3
-	stopTimerMarker(eCOMPUTE_AGGAGG_SHAPE_PAIRS);
+	stopTimerMarker(eCOMPUTE_BPFINISH);
 #endif
 #endif
 }
-
-

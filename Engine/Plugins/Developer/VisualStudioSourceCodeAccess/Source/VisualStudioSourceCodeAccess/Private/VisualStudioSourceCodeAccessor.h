@@ -26,6 +26,7 @@ public:
 	void Shutdown();
 
 	/** ISourceCodeAccessor implementation */
+	virtual void RefreshAvailability() override;
 	virtual bool CanAccessSourceCode() const override;
 	virtual FName GetFName() const override;
 	virtual FText GetNameText() const override;
@@ -51,10 +52,10 @@ private:
 		{
 		}
 
-		FileOpenRequest(const FString& FullPath, int32 LineNumber, int32 ColumnNumber)
-			: FullPath(FullPath)
-			, LineNumber(LineNumber)
-			, ColumnNumber(ColumnNumber)
+		FileOpenRequest(const FString& InitFullPath, int32 InitLineNumber, int32 InitColumnNumber)
+			: FullPath(InitFullPath)
+			, LineNumber(InitLineNumber)
+			, ColumnNumber(InitColumnNumber)
 		{
 		}
 	};

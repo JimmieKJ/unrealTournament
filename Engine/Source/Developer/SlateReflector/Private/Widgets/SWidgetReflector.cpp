@@ -3,6 +3,23 @@
 #include "SlateReflectorPrivatePCH.h"
 #include "ISlateReflectorModule.h"
 #include "SlateStats.h"
+#include "SInvalidationPanel.h"
+#include "SDockTab.h"
+#include "SNotificationList.h"
+#include "NotificationManager.h"
+#include "SWidgetSnapshotVisualizer.h"
+#include "WidgetSnapshotService.h"
+
+#if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
+#include "DesktopPlatformModule.h"
+#endif // SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
+
+#if SLATE_REFLECTOR_HAS_SESSION_SERVICES
+#include "ISessionInfo.h"
+#include "ISessionInstanceInfo.h"
+#include "ISessionManager.h"
+#include "ISessionServicesModule.h"
+#endif // SLATE_REFLECTOR_HAS_SESSION_SERVICES
 
 #define LOCTEXT_NAMESPACE "SWidgetReflector"
 #define WITH_EVENT_LOGGING 0
@@ -46,17 +63,57 @@ struct FLoggedEvent
 namespace WidgetReflectorImpl
 {
 
+/** Information about a potential widget snapshot target */
+struct FWidgetSnapshotTarget
+{
+	/** Display name of the target (used in the UI) */
+	FText DisplayName;
+
+	/** Instance ID of the target */
+	FGuid InstanceId;
+};
+
+/** Different UI modes the widget reflector can be in */
+enum class EWidgetReflectorUIMode : uint8
+{
+	Live,
+	Snapshot,
+};
+
+namespace WidgetReflectorTabID
+{
+	static const FName WidgetHierarchy = "WidgetReflector.WidgetHierarchyTab";
+	static const FName SlateStats = "WidgetReflector.SlateStatsTab";
+	static const FName SnapshotWidgetPicker = "WidgetReflector.SnapshotWidgetPickerTab";
+}
+
 /**
  * Widget reflector implementation
  */
 class SWidgetReflector : public ::SWidgetReflector
 {
-	// The reflector uses a tree that observes FReflectorNodes.
-	typedef STreeView<TSharedPtr<FReflectorNode>> SReflectorTree;
+	// The reflector uses a tree that observes FWidgetReflectorNodeBase objects.
+	typedef STreeView<TSharedRef<FWidgetReflectorNodeBase>> SReflectorTree;
+
+public:
+
+	~SWidgetReflector();
 
 private:
 
 	virtual void Construct( const FArguments& InArgs ) override;
+
+	TSharedRef<SDockTab> SpawnWidgetHierarchyTab(const FSpawnTabArgs& Args);
+#if SLATE_STATS
+	TSharedRef<SDockTab> SpawnSlateStatsTab(const FSpawnTabArgs& Args);
+#endif
+	TSharedRef<SDockTab> SpawnSnapshotWidgetPicker(const FSpawnTabArgs& Args);
+
+	void OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab);
+
+	void CloseTab(const FName& TabIdentifier);
+
+	void SetUIMode(const EWidgetReflectorUIMode InNewMode);
 
 	// SCompoundWidget overrides
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
@@ -107,14 +164,14 @@ private:
 	 * @param InReflectorNode The node to generate the tool tip for.
 	 * @return The tool tip widget.
 	 */
-	TSharedRef<SToolTip> GenerateToolTipForReflectorNode( TSharedPtr<FReflectorNode> InReflectorNode );
+	TSharedRef<SToolTip> GenerateToolTipForReflectorNode( TSharedRef<FWidgetReflectorNodeBase> InReflectorNode );
 
 	/**
 	 * Mark the provided reflector nodes such that they stand out in the tree and are visible.
 	 *
 	 * @param WidgetPathToObserve The nodes to mark.
 	 */
-	void VisualizeAsTree( const TArray< TSharedPtr<FReflectorNode> >& WidgetPathToVisualize );
+	void VisualizeAsTree( const TArray< TSharedRef<FWidgetReflectorNodeBase> >& WidgetPathToVisualize );
 
 	/**
 	 * Draw the widget path to the picked widget as the widgets' outlines.
@@ -135,7 +192,7 @@ private:
 	 * @param LayerId the maximum layer achieved in OutDrawElements so far.
 	 * @return The maximum layer ID we achieved while painting.
 	 */
-	int32 VisualizeSelectedNodesAsRectangles( const TArray<TSharedPtr<FReflectorNode>>& InNodesToDraw, const TSharedRef<SWindow>& VisualizeInWindow, FSlateWindowElementList& OutDrawElements, int32 LayerId );
+	int32 VisualizeSelectedNodesAsRectangles( const TArray<TSharedRef<FWidgetReflectorNodeBase>>& InNodesToDraw, const TSharedRef<SWindow>& VisualizeInWindow, FSlateWindowElementList& OutDrawElements, int32 LayerId );
 
 	/** Callback for changing the application scale slider. */
 	void HandleAppScaleSliderChanged( float NewValue )
@@ -172,6 +229,12 @@ private:
 		if (bIsPicking)
 		{
 			bShowFocus = false;
+			SetUIMode(EWidgetReflectorUIMode::Live);
+			SInvalidationPanel::SetEnableWidgetCaching(false);
+		}
+		else
+		{
+			SInvalidationPanel::SetEnableWidgetCaching(true);
 		}
 
 		return FReply::Handled();
@@ -181,38 +244,91 @@ private:
 	FSlateColor HandlePickButtonColorAndOpacity() const
 	{
 		static const FName SelectionColor("SelectionColor");
-		static const FName DefaultForeground("DefaultForeground");
 
 		return bIsPicking
 			? FCoreStyle::Get().GetSlateColor(SelectionColor)
-			: FCoreStyle::Get().GetSlateColor(DefaultForeground);
+			: FLinearColor::White;
 	}
 
 	/** Callback for getting the text of the pick button. */
 	FText HandlePickButtonText() const;
 
+	/** Callback to see whether the "Snapshot Target" combo should be enabled */
+	bool IsSnapshotTargetComboEnabled() const;
+
+	/** Callback to see whether the "Take Snapshot" button should be enabled */
+	bool IsTakeSnapshotButtonEnabled() const;
+
+	/** Callback for clicking the "Take Snapshot" button. */
+	FReply HandleTakeSnapshotButtonClicked();
+
+	/** Used as a callback for the "snapshot pending" notification item buttons, called when we should give up on a snapshot request */
+	void OnCancelPendingRemoteSnapshot();
+
+	/** Callback for when a remote widget snapshot is available */
+	void HandleRemoteSnapshotReceived(const TArray<uint8>& InSnapshotData);
+
+#if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
+	/** Callback for clicking the "Load Snapshot" button. */
+	FReply HandleLoadSnapshotButtonClicked();
+#endif // SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
+
+	/** Called to update the list of available snapshot targets */
+	void UpdateAvailableSnapshotTargets();
+
+	/** Called to update the currently selected snapshot target (after the list has been refreshed) */
+	void UpdateSelectedSnapshotTarget();
+
+	/** Called when the list of available snapshot targets changes */
+	void OnAvailableSnapshotTargetsChanged();
+
+	/** Get the display name of the currently selected snapshot target */
+	FText GetSelectedSnapshotTargetDisplayName() const;
+
+	/** Generate a row widget for the available targets combo box */
+	TSharedRef<SWidget> HandleGenerateAvailableSnapshotComboItemWidget(TSharedPtr<FWidgetSnapshotTarget> InItem) const;
+	
+	/** Update the selected target when the combo box selection is changed */
+	void HandleAvailableSnapshotComboSelectionChanged(TSharedPtr<FWidgetSnapshotTarget> InItem, ESelectInfo::Type InSeletionInfo);
+
 	/** Callback for generating a row in the reflector tree view. */
-	TSharedRef<ITableRow> HandleReflectorTreeGenerateRow( TSharedPtr<FReflectorNode> InReflectorNode, const TSharedRef<STableViewBase>& OwnerTable );
+	TSharedRef<ITableRow> HandleReflectorTreeGenerateRow( TSharedRef<FWidgetReflectorNodeBase> InReflectorNode, const TSharedRef<STableViewBase>& OwnerTable );
 
 	/** Callback for getting the child items of the given reflector tree node. */
-	void HandleReflectorTreeGetChildren( TSharedPtr<FReflectorNode> InWidgetGeometry, TArray<TSharedPtr<FReflectorNode>>& OutChildren );
+	void HandleReflectorTreeGetChildren( TSharedRef<FWidgetReflectorNodeBase> InReflectorNode, TArray<TSharedRef<FWidgetReflectorNodeBase>>& OutChildren );
 
 	/** Callback for when the selection in the reflector tree has changed. */
-	void HandleReflectorTreeSelectionChanged( TSharedPtr< FReflectorNode >, ESelectInfo::Type /*SelectInfo*/ )
+	void HandleReflectorTreeSelectionChanged( TSharedPtr<FWidgetReflectorNodeBase>, ESelectInfo::Type /*SelectInfo*/ )
 	{
 		SelectedNodes = ReflectorTree->GetSelectedItems();
 	}
 
 	TSharedRef<ITableRow> GenerateEventLogRow( TSharedRef<FLoggedEvent> InReflectorNode, const TSharedRef<STableViewBase>& OwnerTable );
 
+	EWidgetReflectorUIMode CurrentUIMode;
+
+	TSharedPtr<FTabManager> TabManager;
+	TMap<FName, TWeakPtr<SDockTab>> SpawnedTabs;
+
 	TArray< TSharedRef<FLoggedEvent> > LoggedEvents;
 	TSharedPtr< SListView< TSharedRef< FLoggedEvent > > > EventListView;
-	TSharedPtr< SHorizontalBox > StatsToolsBox;
 	TSharedPtr<SReflectorTree> ReflectorTree;
 
-	TArray<TSharedPtr<FReflectorNode>> SelectedNodes;
-	TArray<TSharedPtr<FReflectorNode>> ReflectorTreeRoot;
-	TArray<TSharedPtr<FReflectorNode>> PickedPath;
+	TArray<TSharedRef<FWidgetReflectorNodeBase>> SelectedNodes;
+	TArray<TSharedRef<FWidgetReflectorNodeBase>> ReflectorTreeRoot;
+	TArray<TSharedRef<FWidgetReflectorNodeBase>> PickedPath;
+
+	/** When working with a snapshotted tree, this will contain the snapshot hierarchy and screenshot info */
+	FWidgetSnapshotData SnapshotData;
+	TSharedPtr<SWidgetSnapshotVisualizer> WidgetSnapshotVisualizer;
+
+	/** List of available snapshot targets, as well as the one we currently have selected */
+	TSharedPtr<SComboBox<TSharedPtr<FWidgetSnapshotTarget>>> AvailableSnapshotTargetsComboBox;
+	TArray<TSharedPtr<FWidgetSnapshotTarget>> AvailableSnapshotTargets;
+	FGuid SelectedSnapshotTargetInstanceId;
+	TSharedPtr<FWidgetSnapshotService> WidgetSnapshotService;
+	TWeakPtr<SNotificationItem> WidgetSnapshotNotificationPtr;
+	FGuid RemoteSnapshotRequestId;
 
 	SSplitter::FSlot* WidgetInfoLocation;
 
@@ -240,23 +356,19 @@ private:
 };
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+SWidgetReflector::~SWidgetReflector()
+{
+	TabManager->UnregisterTabSpawner(WidgetReflectorTabID::WidgetHierarchy);
+	TabManager->UnregisterTabSpawner(WidgetReflectorTabID::SlateStats);
+	TabManager->UnregisterTabSpawner(WidgetReflectorTabID::SnapshotWidgetPicker);
+}
 
 
 void SWidgetReflector::Construct( const FArguments& InArgs )
 {
 	LoggedEvents.Reserve(MaxLoggedEvents);
+
+	CurrentUIMode = EWidgetReflectorUIMode::Live;
 
 	bShowFocus = false;
 	bIsPicking = false;
@@ -265,289 +377,571 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 	LastMouseClickTime = -1;
 	CursorPingPosition = FVector2D::ZeroVector;
 
+	WidgetSnapshotService = InArgs._WidgetSnapshotService;
+
+#if SLATE_REFLECTOR_HAS_SESSION_SERVICES
+	{
+		ISessionManagerRef SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
+		SessionManager->OnSessionsUpdated().AddSP(this, &SWidgetReflector::OnAvailableSnapshotTargetsChanged);
+	}
+#endif // SLATE_REFLECTOR_HAS_SESSION_SERVICES
+	SelectedSnapshotTargetInstanceId = FApp::GetInstanceId();
+	UpdateAvailableSnapshotTargets();
+
+#if SLATE_STATS
+	const FName TabLayoutName = "WidgetReflector_Layout_v1";
+#else
+	const FName TabLayoutName = "WidgetReflector_Layout_NoStats_v1";
+#endif
+
+	TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout(TabLayoutName)
+	->AddArea
+	(
+		FTabManager::NewPrimaryArea()
+		->SetOrientation(Orient_Vertical)
+		->Split
+		(
+			FTabManager::NewStack()
+			->SetHideTabWell(true)
+			->SetSizeCoefficient(0.7f)
+			->AddTab(WidgetReflectorTabID::WidgetHierarchy, ETabState::OpenedTab)
+		)
+		->Split
+		(
+			FTabManager::NewStack()
+			->SetHideTabWell(true)
+			->SetSizeCoefficient(0.3f)
+#if SLATE_STATS
+			->AddTab(WidgetReflectorTabID::SlateStats, ETabState::ClosedTab)
+#endif
+			->AddTab(WidgetReflectorTabID::SnapshotWidgetPicker, ETabState::ClosedTab)
+		)
+	);
+
+	auto RegisterTrackedTabSpawner = [this](const FName& TabId, const FOnSpawnTab& OnSpawnTab) -> FTabSpawnerEntry&
+	{
+		return TabManager->RegisterTabSpawner(TabId, FOnSpawnTab::CreateLambda([this, OnSpawnTab](const FSpawnTabArgs& Args) -> TSharedRef<SDockTab>
+		{
+			TSharedRef<SDockTab> SpawnedTab = OnSpawnTab.Execute(Args);
+			OnTabSpawned(Args.GetTabId().TabType, SpawnedTab);
+			return SpawnedTab;
+		}));
+	};
+
+	check(InArgs._ParentTab.IsValid());
+	TabManager = FGlobalTabmanager::Get()->NewTabManager(InArgs._ParentTab.ToSharedRef());
+
+	RegisterTrackedTabSpawner(WidgetReflectorTabID::WidgetHierarchy, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnWidgetHierarchyTab))
+		.SetDisplayName(LOCTEXT("WidgetHierarchyTab", "Widget Hierarchy"));
+
+#if SLATE_STATS
+	RegisterTrackedTabSpawner(WidgetReflectorTabID::SlateStats, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnSlateStatsTab))
+		.SetDisplayName(LOCTEXT("SlateStatsTab", "Slate Stats"));
+#endif
+
+	RegisterTrackedTabSpawner(WidgetReflectorTabID::SnapshotWidgetPicker, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnSnapshotWidgetPicker))
+		.SetDisplayName(LOCTEXT("SnapshotWidgetPickerTab", "Snapshot Widget Picker"));
+
 	this->ChildSlot
 	[
 		SNew(SBorder)
-			.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
-			[
-				SNew(SVerticalBox)
+		.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+		.BorderBackgroundColor(FLinearColor::Gray) // Darken the outer border
+		[
+			SNew(SVerticalBox)
 				
-				+ SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						SNew(SHorizontalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(FMargin(0.0f, 0.0f, 0.0f, 6.0f))
+			[
+				SNew(SHorizontalBox)
 					
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("AppScale", "Application Scale: "))
-						]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("AppScale", "Application Scale: "))
+				]
 
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SBox)
-							.MinDesiredWidth(100)
-							.MaxDesiredWidth(250)
-							[
-								SNew(SSpinBox<float>)
-									.Value(this, &SWidgetReflector::HandleAppScaleSliderValue)
-									.MinValue(0.1f)
-									.MaxValue(3.0f)
-									.Delta(0.01f)
-									.OnValueChanged(this, &SWidgetReflector::HandleAppScaleSliderChanged)
-							]
-						]
-						+ SHorizontalBox::Slot()
-						.FillWidth(1.0f)
-						[
-							SNew(SSpacer)
-						]
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						.Padding(FMargin(5.0f, 0.0f))
-						[
-							SNew(SButton)
-							.Text(LOCTEXT("DisplayTextureAtlases", "Display Texture Atlases"))
-							.OnClicked(this, &SWidgetReflector::HandleDisplayTextureAtlases)
-						]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.MinDesiredWidth(100)
+					.MaxDesiredWidth(250)
+					[
+						SNew(SSpinBox<float>)
+						.Value(this, &SWidgetReflector::HandleAppScaleSliderValue)
+						.MinValue(0.1f)
+						.MaxValue(3.0f)
+						.Delta(0.01f)
+						.OnValueChanged(this, &SWidgetReflector::HandleAppScaleSliderChanged)
+					]
+				]
 
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						.Padding(FMargin(5.0f, 0.0f))
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SCheckBox)
+					.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
+					.IsChecked_Lambda([]()
+					{
+						return bFoldTick == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
+					})
+					.OnCheckStateChanged_Lambda([]( const ECheckBoxState NewState )
+					{
+						bFoldTick = (NewState == ECheckBoxState::Checked) ? 1 : 0;
+					})
+					[
+						SNew(SBox)
+						.VAlign( VAlign_Center )
+						.HAlign( HAlign_Center )
+						.Padding(FMargin(4.0, 2.0))
 						[
-							SNew(SButton)
-							.Text(LOCTEXT("DisplayFontAtlases", "Display Font Atlases"))
-							.OnClicked(this, &SWidgetReflector::HandleDisplayFontAtlases)
+							SNew(STextBlock)	
+							.Text( LOCTEXT("ToggleTickFolding", "Fold Tick") )
 						]
 					]
+				]
 
-				+ SVerticalBox::Slot()
-				.AutoHeight()
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SCheckBox)
+					.Style(FCoreStyle::Get(), "ToggleButtonCheckbox")
+					.IsChecked_Lambda([&]()
+					{
+						return SInvalidationPanel::GetEnableWidgetCaching() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					})
+					.OnCheckStateChanged_Lambda([&](const ECheckBoxState NewState)
+					{
+						SInvalidationPanel::SetEnableWidgetCaching(( NewState == ECheckBoxState::Checked ) ? true : false);
+					})
+					[
+						SNew(SBox)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
+						.Padding(FMargin(4.0, 2.0))
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("EnableWidgetCaching", "Widget Caching"))
+						]
+					]
+				]
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SCheckBox)
+					.Style(FCoreStyle::Get(), "ToggleButtonCheckbox")
+					.IsChecked_Lambda([&]()
+					{
+						return SInvalidationPanel::IsInvalidationDebuggingEnabled() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					})
+					.OnCheckStateChanged_Lambda([&](const ECheckBoxState NewState)
+					{
+						SInvalidationPanel::EnableInvalidationDebugging(( NewState == ECheckBoxState::Checked ) ? true : false);
+					})
+					[
+						SNew(SBox)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
+						.Padding(FMargin(4.0, 2.0))
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("InvalidationDebugging", "Invalidation Debugging"))
+						]
+					]
+				]
+#endif
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SCheckBox)
+					.Style(FCoreStyle::Get(), "ToggleButtonCheckbox")
+					.IsChecked_Lambda([&]()
+					{
+						return bEnableDemoMode ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					})
+					.OnCheckStateChanged_Lambda([&](const ECheckBoxState NewState)
+					{
+						bEnableDemoMode = (NewState == ECheckBoxState::Checked) ? true : false;
+					})
+					[
+						SNew(SBox)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
+						.Padding(FMargin(4.0, 2.0))
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("EnableDemoMode", "Demo Mode"))
+						]
+					]
+				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SCheckBox)
+					.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
+					.IsEnabled(SLATE_STATS != 0)
+					.IsChecked_Static([]
+					{
+#if SLATE_STATS
+						return GSlateStatsFlatEnable == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
+#else
+						return ECheckBoxState::Unchecked;
+#endif
+					})
+					.OnCheckStateChanged_Lambda( [=]( const ECheckBoxState NewState )
+					{
+#if SLATE_STATS
+						GSlateStatsFlatEnable = (NewState == ECheckBoxState::Checked) ? 1 : 0;
+						if (GSlateStatsFlatEnable)
+						{
+							TabManager->InvokeTab(WidgetReflectorTabID::SlateStats);
+						}
+						else
+						{
+							CloseTab(WidgetReflectorTabID::SlateStats);
+						}
+#endif
+					})
+					.ToolTip
+					(
+						SNew(SToolTip)
+						[
+							SNew(STextBlock)
+							.WrapTextAt(200.0f)
+#if SLATE_STATS
+							.Text( LOCTEXT("ToggleStatsTooltip", "Enables flat stats view.") )
+#else
+							.Text( LOCTEXT("ToggleStatsUnavailableTooltip", "To enable slate stats, compile with SLATE_STATS defined to one (see SlateStats.h).") )
+#endif
+						]
+					)
+					[
+						SNew(SBox)
+						.VAlign( VAlign_Center )
+						.HAlign( HAlign_Center )
+						.Padding(FMargin(4.0, 2.0))
+						[
+							SNew(STextBlock)	
+							.Text( LOCTEXT("ToggleStats", "Toggle Stats") )
+						]
+					]
+				]
+
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					SNew(SSpacer)
+				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("DisplayTextureAtlases", "Display Texture Atlases"))
+					.OnClicked(this, &SWidgetReflector::HandleDisplayTextureAtlases)
+				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("DisplayFontAtlases", "Display Font Atlases"))
+					.OnClicked(this, &SWidgetReflector::HandleDisplayFontAtlases)
+				]
+			]
+
+			+SVerticalBox::Slot()
+			[
+				TabManager->RestoreFrom(Layout, nullptr).ToSharedRef()
+			]
+		]
+	];
+
+#if SLATE_STATS
+	if (GSlateStatsFlatEnable)
+	{
+		TabManager->InvokeTab(WidgetReflectorTabID::SlateStats);
+	}
+	else
+	{
+		CloseTab(WidgetReflectorTabID::SlateStats);
+	}
+#endif
+}
+
+
+TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabArgs& Args)
+{
+	TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
+		.Label(LOCTEXT("WidgetHierarchyTab", "Widget Hierarchy"))
+		//.OnCanCloseTab_Lambda([]() { return false; }) // Can't prevent this as it stops the editor from being able to close while the widget reflector is open
+		[
+			SNew(SVerticalBox)
+				
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SHorizontalBox)
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					// Check box that controls LIVE MODE
+					SNew(SCheckBox)
+					.IsChecked(this, &SWidgetReflector::HandleFocusCheckBoxIsChecked)
+					.OnCheckStateChanged(this, &SWidgetReflector::HandleFocusCheckBoxCheckedStateChanged)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ShowFocus", "Show Focus"))
+					]
+                ]
+				
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					// Check box that controls PICKING A WIDGET TO INSPECT
+					SNew(SButton)
+					.OnClicked(this, &SWidgetReflector::HandlePickButtonClicked)
+					.ButtonColorAndOpacity(this, &SWidgetReflector::HandlePickButtonColorAndOpacity)
+					[
+						SNew(STextBlock)
+						.Text(this, &SWidgetReflector::HandlePickButtonText)
+					]
+				]
+
+				+SHorizontalBox::Slot()
+				[
+					SNew(SSpacer)
+				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
 				[
 					SNew(SHorizontalBox)
 
-					+ SHorizontalBox::Slot()
+					+SHorizontalBox::Slot()
 					.AutoWidth()
-					.Padding(5.0f)
 					[
-						// Check box that controls LIVE MODE
-						SNew(SCheckBox)
-						.IsChecked(this, &SWidgetReflector::HandleFocusCheckBoxIsChecked)
-						.OnCheckStateChanged(this, &SWidgetReflector::HandleFocusCheckBoxCheckedStateChanged)
+						// Button that controls taking a snapshot of the current window(s)
+						SNew(SButton)
+						.IsEnabled(this, &SWidgetReflector::IsTakeSnapshotButtonEnabled)
+						.OnClicked(this, &SWidgetReflector::HandleTakeSnapshotButtonClicked)
 						[
 							SNew(STextBlock)
-							.Text(LOCTEXT("ShowFocus", "Show Focus"))
+							.Text(LOCTEXT("TakeSnapshotButtonText", "Take Snapshot"))
 						]
 					]
 
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						// Check box that controls PICKING A WIDGET TO INSPECT
-						SNew(SButton)
-							.OnClicked(this, &SWidgetReflector::HandlePickButtonClicked)
-							.ButtonColorAndOpacity(this, &SWidgetReflector::HandlePickButtonColorAndOpacity)
-							[
-								SNew(STextBlock)
-									.Text(this, &SWidgetReflector::HandlePickButtonText)
-							]
-					]
 					+SHorizontalBox::Slot()
 					.AutoWidth()
-					.Padding(5.0f)
 					[
-						SNew(SCheckBox)
-						.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
-						.IsChecked_Lambda([]()
-						{
-							return bFoldTick == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
-						})
-						.OnCheckStateChanged_Lambda([]( const ECheckBoxState NewState )
-						{
-							bFoldTick = (NewState == ECheckBoxState::Checked) ? 1 : 0;
-						})
-						[
-							SNew(SBox)
-							.VAlign( VAlign_Center )
-							.HAlign( HAlign_Center )
-							[
-								SNew(STextBlock)	
-								.Text( LOCTEXT("ToggleTickFolding", "Fold Tick") )
-							]
-						]
-					]
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(SCheckBox)
-						.Style(FCoreStyle::Get(), "ToggleButtonCheckbox")
-						.IsChecked_Lambda([&]()
-						{
-							return bEnableDemoMode ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-						})
-						.OnCheckStateChanged_Lambda([&](const ECheckBoxState NewState)
-						{
-							bEnableDemoMode = (NewState == ECheckBoxState::Checked) ? true : false;
-						})
-						[
-							SNew(SBox)
-							.VAlign(VAlign_Center)
-							.HAlign(HAlign_Center)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("EnableDemoMode", "Demo Mode"))
-							]
-						]
-					]
-#if SLATE_STATS
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(SCheckBox)
-						.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
-						.IsChecked_Static([]
-						{
-							return GSlateStatsFlatEnable == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
-						})
-						.OnCheckStateChanged_Lambda( [=]( const ECheckBoxState NewState )
-						{
-							GSlateStatsFlatEnable = (NewState == ECheckBoxState::Checked) ? 1 : 0;
-							StatsToolsBox->SetVisibility(GSlateStatsFlatEnable != 0 ? EVisibility::Visible : EVisibility::Collapsed);
-						})
-						.ToolTip
-						(
-							SNew(SToolTip)
-							[
-								SNew(STextBlock)
-								.WrapTextAt(200.0f)
-								.Text( LOCTEXT("ToggleStatsTooltip", "Enables flat stats view.") )
-							]
-						)
-						[
-							SNew(SBox)
-							.VAlign( VAlign_Center )
-							.HAlign( HAlign_Center )
-							[
-								SNew(STextBlock)	
-								.Text( LOCTEXT("ToggleStats", "Toggle Stats") )
-							]
-						]
-					]
-#else
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(SCheckBox)
-						.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
-						.ToolTip
-						(
-							SNew(SToolTip)
-							[
-								SNew(STextBlock)
-								.WrapTextAt(200.0f)
-								.Text( LOCTEXT("ToggleStatsUnavailableTooltip", "To enable slate stats, compile with SLATE_STATS defined to one (see SlateStats.h).") )
-							]
-						)
-						[
-							SNew(SBox)
-							.VAlign( VAlign_Center )
-							.HAlign( HAlign_Center )
-							[
-								SNew(STextBlock)	
-								.Text( LOCTEXT("ToggleStatsUnavailable", "Toggle Stats [see toolip]") )
-							]
-						]
-						.IsEnabled(false)
-					]
-#endif
-				]
-#if SLATE_STATS
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SAssignNew(StatsToolsBox, SHorizontalBox)
-					.Visibility(EVisibility::Collapsed)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(SCheckBox)
-						.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
-						.IsChecked_Static([]
-						{
-							return GSlateStatsFlatLogOutput == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
-						})
-						.OnCheckStateChanged_Static([]( const ECheckBoxState NewState )
-						{
-							GSlateStatsFlatLogOutput = (NewState == ECheckBoxState::Checked) ? 1 : 0;
-						})
-						.ToolTip
-						(
-							SNew(SToolTip)
-							[
-								SNew(STextBlock)
-								.WrapTextAt(200.0f)
-								.Text( LOCTEXT("LogStatsTooltip", "Enables outputting stats to the log at the given interval.") )
-							]
-						)
-						[
-							SNew(SBox)
-							.VAlign( VAlign_Center )
-							.HAlign( HAlign_Center )
-							[
-								SNew(STextBlock)	
-								.Text( LOCTEXT("ToggleLogStats", "Log Stats") )
-							]
-						]
-					]
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(SButton)
-						.OnClicked_Static([]
-						{
-							GSlateStatsHierarchyTrigger = 1;
-							return FReply::Handled();
-						})
-						.ToolTip
-						(
-							SNew(SToolTip)
-							[
-								SNew(STextBlock)
-								.WrapTextAt(200.0f)
-								.Text( LOCTEXT("CaptureStatsHierarchyTooltip", "When clicked, the next rendered frame will capture hierarchical stats and save them to file in the Saved/ folder with the following name: SlateHierarchyStats-<timestamp>.csv") )
-							]
-						)
+						// Button that controls the target for the snapshot operation
+						SAssignNew(AvailableSnapshotTargetsComboBox, SComboBox<TSharedPtr<FWidgetSnapshotTarget>>)
+						.IsEnabled(this, &SWidgetReflector::IsSnapshotTargetComboEnabled)
+						.ToolTipText(LOCTEXT("ChooseSnapshotTargetToolTipText", "Choose Snapshot Target"))
+						.OptionsSource(&AvailableSnapshotTargets)
+						.OnGenerateWidget(this, &SWidgetReflector::HandleGenerateAvailableSnapshotComboItemWidget)
+						.OnSelectionChanged(this, &SWidgetReflector::HandleAvailableSnapshotComboSelectionChanged)
 						[
 							SNew(STextBlock)
-								.Text(LOCTEXT("CaptureHierarchy", "Capture Hierarchy"))
+							.Text(this, &SWidgetReflector::GetSelectedSnapshotTargetDisplayName)
 						]
 					]
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
+				]
+
+#if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					// Button that controls loading a saved snapshot
+					SNew(SButton)
+					.OnClicked(this, &SWidgetReflector::HandleLoadSnapshotButtonClicked)
 					[
 						SNew(STextBlock)
-						.ToolTip
-						(
-							SNew(SToolTip)
-							[
-								SNew(STextBlock)
-								.WrapTextAt(200.0f)
-								.Text( LOCTEXT("StatsSamplingIntervalTooltip", "the interval (in seconds) to integrate stats before updating the averages.") )
-							]
-						)
-						.Text(LOCTEXT("StatsSampleWindow", "Sampling Interval: "))
+						.Text(LOCTEXT("LoadSnapshotButtonText", "Load Snapshot"))
 					]
-					+ SHorizontalBox::Slot()
+				]
+#endif // SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
+			]
+
+			+SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			[
+				SNew(SBorder)
+				.Padding(0)
+				.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+				[
+					// The tree view that shows all the info that we capture.
+					SAssignNew(ReflectorTree, SReflectorTree)
+					.ItemHeight(24.0f)
+					.TreeItemsSource(&ReflectorTreeRoot)
+					.OnGenerateRow(this, &SWidgetReflector::HandleReflectorTreeGenerateRow)
+					.OnGetChildren(this, &SWidgetReflector::HandleReflectorTreeGetChildren)
+					.OnSelectionChanged(this, &SWidgetReflector::HandleReflectorTreeSelectionChanged)
+					.HeaderRow
+					(
+						SNew(SHeaderRow)
+
+						+SHeaderRow::Column("WidgetName")
+						.DefaultLabel(LOCTEXT("WidgetName", "Widget Name"))
+						.FillWidth(0.65f)
+
+						+SHeaderRow::Column("ForegroundColor")
+						.FixedWidth(24.0f)
+						.VAlignHeader(VAlign_Center)
+						.HeaderContent()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("ForegroundColor", "FG"))
+							.ToolTipText(LOCTEXT("ForegroundColorToolTip", "Foreground Color"))
+						]
+
+						+SHeaderRow::Column("Visibility")
+						.DefaultLabel(LOCTEXT("Visibility", "Visibility" ))
+						.FixedWidth(125.0f)
+
+						+SHeaderRow::Column("WidgetInfo")
+						.DefaultLabel(LOCTEXT("WidgetInfo", "Widget Info" ))
+						.FillWidth(0.25f)
+
+						+SHeaderRow::Column("Address")
+						.DefaultLabel( LOCTEXT("Address", "Address") )
+						.FixedWidth(140.0f)
+					)
+				]
+			]
+		];
+
+	UpdateSelectedSnapshotTarget();
+
+	return SpawnedTab;
+}
+
+
+#if SLATE_STATS
+
+TSharedRef<SDockTab> SWidgetReflector::SpawnSlateStatsTab(const FSpawnTabArgs& Args)
+{
+	auto OnTabClosed = [](TSharedRef<SDockTab>)
+	{
+		// Tab closed - disable stats
+		GSlateStatsFlatEnable = 0;
+	};
+
+	return SNew(SDockTab)
+		.Label(LOCTEXT("SlateStatsTab", "Slate Stats"))
+		.OnTabClosed_Lambda(OnTabClosed)
+		[
+			SNew(SVerticalBox)
+				
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SHorizontalBox)
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SCheckBox)
+					.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
+					.IsChecked_Static([]
+					{
+						return GSlateStatsFlatLogOutput == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
+					})
+					.OnCheckStateChanged_Static([]( const ECheckBoxState NewState )
+					{
+						GSlateStatsFlatLogOutput = (NewState == ECheckBoxState::Checked) ? 1 : 0;
+					})
+					.ToolTip
+					(
+						SNew(SToolTip)
+						[
+							SNew(STextBlock)
+							.WrapTextAt(200.0f)
+							.Text( LOCTEXT("LogStatsTooltip", "Enables outputting stats to the log at the given interval.") )
+						]
+					)
+					[
+						SNew(SBox)
+						.VAlign( VAlign_Center )
+						.HAlign( HAlign_Center )
+						[
+							SNew(STextBlock)	
+							.Text( LOCTEXT("ToggleLogStats", "Log Stats") )
+						]
+					]
+				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					SNew(SButton)
+					.OnClicked_Static([]
+					{
+						GSlateStatsHierarchyTrigger = 1;
+						return FReply::Handled();
+					})
+					.ToolTip
+					(
+						SNew(SToolTip)
+						[
+							SNew(STextBlock)
+							.WrapTextAt(200.0f)
+							.Text( LOCTEXT("CaptureStatsHierarchyTooltip", "When clicked, the next rendered frame will capture hierarchical stats and save them to file in the Saved/ folder with the following name: SlateHierarchyStats-<timestamp>.csv") )
+						]
+					)
+					[
+						SNew(STextBlock)
+							.Text(LOCTEXT("CaptureHierarchy", "Capture Hierarchy"))
+					]
+				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.ToolTip
+					(
+						SNew(SToolTip)
+						[
+							SNew(STextBlock)
+							.WrapTextAt(200.0f)
+							.Text( LOCTEXT("StatsSamplingIntervalTooltip", "the interval (in seconds) to integrate stats before updating the averages.") )
+						]
+					)
+					.Text(LOCTEXT("StatsSampleWindow", "Sampling Interval: "))
+				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.MinDesiredWidth(100)
+					.MaxDesiredWidth(250)
 					[
 						SNew(SSpinBox<float>)
 						.ToolTip
@@ -572,75 +966,116 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 						})
 					]
 				]
-#endif
-				+ SVerticalBox::Slot()
-					.FillHeight(1.0f)
-					[
-						// The tree view that shows all the info that we capture.
-						SAssignNew(ReflectorTree, SReflectorTree)
-						.ItemHeight(24.0f)
-						.TreeItemsSource(&ReflectorTreeRoot)
-						.OnGenerateRow(this, &SWidgetReflector::HandleReflectorTreeGenerateRow)
-						.OnGetChildren(this, &SWidgetReflector::HandleReflectorTreeGetChildren)
-						.OnSelectionChanged(this, &SWidgetReflector::HandleReflectorTreeSelectionChanged)
-						.HeaderRow
-						(
-							SNew(SHeaderRow)
-
-							+ SHeaderRow::Column("WidgetName")
-							.DefaultLabel(LOCTEXT("WidgetName", "Widget Name"))
-							.FillWidth(0.65f)
-
-							+ SHeaderRow::Column("ForegroundColor")
-							.FixedWidth(24.0f)
-							.VAlignHeader(VAlign_Center)
-							.HeaderContent()
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("ForegroundColor", "FG"))
-								.ToolTipText(LOCTEXT("ForegroundColorToolTip", "Foreground Color"))
-							]
-
-							+ SHeaderRow::Column("Visibility")
-							.DefaultLabel(LOCTEXT("Visibility", "Visibility" ))
-							.FixedWidth(125.0f)
-
-							+ SHeaderRow::Column("WidgetInfo")
-							.DefaultLabel(LOCTEXT("WidgetInfo", "Widget Info" ))
-							.FillWidth(0.25f)
-
-							+ SHeaderRow::Column("Address")
-							.DefaultLabel( LOCTEXT("Address", "Address") )
-							.FillWidth( 0.10f )
-						)
-					]
-
-				#if WITH_EVENT_LOGGING
-				+ SVerticalBox::Slot()
-					.FillHeight(1.0f)
-					[
-						SAssignNew(EventListView, SListView<TSharedRef<FLoggedEvent>>)
-							.ListItemsSource( &LoggedEvents )
-							.OnGenerateRow(this, &SWidgetReflector::GenerateEventLogRow)
-					]
-				#endif //WITH_EVENT_LOGGING
-#if SLATE_STATS			
-				+ SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						MakeStatViewer()
-					]
-#endif
 			]
-	];
 
-#if SLATE_STATS			
-	if (StatsToolsBox.IsValid())
-	{
-		StatsToolsBox->SetVisibility(GSlateStatsFlatEnable != 0 ? EVisibility::Visible : EVisibility::Collapsed);
-	}
-#endif
+#if WITH_EVENT_LOGGING
+			+SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			[
+				SNew(SBorder)
+				.Padding(0)
+				.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+				[
+					SAssignNew(EventListView, SListView<TSharedRef<FLoggedEvent>>)
+					.ListItemsSource( &LoggedEvents )
+					.OnGenerateRow(this, &SWidgetReflector::GenerateEventLogRow)
+				]
+			]
+#endif //WITH_EVENT_LOGGING
+
+			+SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			[
+				MakeStatViewer()
+			]
+		];
 }
+
+#endif // #if SLATE_STATS
+
+
+TSharedRef<SDockTab> SWidgetReflector::SpawnSnapshotWidgetPicker(const FSpawnTabArgs& Args)
+{
+	auto OnTabClosed = [this](TSharedRef<SDockTab>)
+	{
+		// Tab closed - leave snapshot mode
+		SetUIMode(EWidgetReflectorUIMode::Live);
+	};
+
+	auto OnWidgetPathPicked = [this](const TArray<TSharedRef<FWidgetReflectorNodeBase>>& PickedWidgetPath)
+	{
+		VisualizeAsTree(PickedWidgetPath);
+	};
+
+	return SNew(SDockTab)
+		.Label(LOCTEXT("SnapshotWidgetPickerTab", "Snapshot Widget Picker"))
+		.OnTabClosed_Lambda(OnTabClosed)
+		[
+			SAssignNew(WidgetSnapshotVisualizer, SWidgetSnapshotVisualizer)
+			.SnapshotData(&SnapshotData)
+			.OnWidgetPathPicked_Lambda(OnWidgetPathPicked)
+		];
+}
+
+
+void SWidgetReflector::OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab)
+{
+	TWeakPtr<SDockTab>* const ExistingTab = SpawnedTabs.Find(TabIdentifier);
+	if (!ExistingTab)
+	{
+		SpawnedTabs.Add(TabIdentifier, SpawnedTab);
+	}
+	else
+	{
+		check(!ExistingTab->IsValid());
+		*ExistingTab = SpawnedTab;
+	}
+}
+
+
+void SWidgetReflector::CloseTab(const FName& TabIdentifier)
+{
+	TWeakPtr<SDockTab>* const ExistingTab = SpawnedTabs.Find(TabIdentifier);
+	if (ExistingTab)
+	{
+		TSharedPtr<SDockTab> ExistingTabPin = ExistingTab->Pin();
+		if (ExistingTabPin.IsValid())
+		{
+			ExistingTabPin->RequestCloseTab();
+		}
+	}
+}
+
+
+void SWidgetReflector::SetUIMode(const EWidgetReflectorUIMode InNewMode)
+{
+	if (CurrentUIMode != InNewMode)
+	{
+		CurrentUIMode = InNewMode;
+
+		SelectedNodes.Reset();
+		ReflectorTreeRoot.Reset();
+		PickedPath.Reset();
+		ReflectorTree->RequestTreeRefresh();
+
+		if (CurrentUIMode == EWidgetReflectorUIMode::Snapshot)
+		{
+			TabManager->InvokeTab(WidgetReflectorTabID::SnapshotWidgetPicker);
+		}
+		else
+		{
+			SnapshotData.ClearSnapshot();
+
+			if (WidgetSnapshotVisualizer.IsValid())
+			{
+				WidgetSnapshotVisualizer->SnapshotDataUpdated();
+			}
+
+			CloseTab(WidgetReflectorTabID::SnapshotWidgetPicker);
+		}
+	}
+}
+
 
 /* SCompoundWidget overrides
  *****************************************************************************/
@@ -683,7 +1118,7 @@ void SWidgetReflector::OnEventProcessed( const FInputEvent& Event, const FReplyB
 
 bool SWidgetReflector::ReflectorNeedsToDrawIn( TSharedRef<SWindow> ThisWindow ) const
 {
-	return ((SelectedNodes.Num() > 0) && (ReflectorTreeRoot.Num() > 0) && (ReflectorTreeRoot[0]->Widget.Pin() == ThisWindow));
+	return ((SelectedNodes.Num() > 0) && (ReflectorTreeRoot.Num() > 0) && (ReflectorTreeRoot[0]->GetLiveWidget() == ThisWindow));
 }
 
 
@@ -693,13 +1128,13 @@ void SWidgetReflector::SetWidgetsToVisualize( const FWidgetPath& InWidgetsToVisu
 
 	if (InWidgetsToVisualize.IsValid())
 	{
-		ReflectorTreeRoot.Add(FReflectorNode::NewTreeFrom(InWidgetsToVisualize.Widgets[0]));
+		ReflectorTreeRoot.Add(FWidgetReflectorNodeUtils::NewLiveNodeTreeFrom(InWidgetsToVisualize.Widgets[0]));
 		PickedPath.Empty();
 
-		FReflectorNode::FindWidgetPath( ReflectorTreeRoot, InWidgetsToVisualize, PickedPath );
+		FWidgetReflectorNodeUtils::FindLiveWidgetPath(ReflectorTreeRoot, InWidgetsToVisualize, PickedPath);
 		VisualizeAsTree(PickedPath);
 	}
-	
+
 	ReflectorTree->RequestTreeRefresh();
 }
 
@@ -708,20 +1143,21 @@ int32 SWidgetReflector::Visualize( const FWidgetPath& InWidgetsToVisualize, FSla
 {
 	const bool bAttemptingToVisualizeReflector = InWidgetsToVisualize.ContainsWidget(ReflectorTree.ToSharedRef());
 
-	if (!InWidgetsToVisualize.IsValid())
+	if (!InWidgetsToVisualize.IsValid() && SelectedNodes.Num() > 0 && ReflectorTreeRoot.Num() > 0)
 	{
-		TSharedPtr<SWidget> WindowWidget = ReflectorTreeRoot[0]->Widget.Pin();
-		TSharedPtr<SWindow> Window = StaticCastSharedPtr<SWindow>(WindowWidget);
-
-		return VisualizeSelectedNodesAsRectangles(SelectedNodes, Window.ToSharedRef(), OutDrawElements, LayerId);
+		TSharedPtr<SWidget> WindowWidget = ReflectorTreeRoot[0]->GetLiveWidget();
+		if (WindowWidget.IsValid())
+		{
+			TSharedPtr<SWindow> Window = StaticCastSharedPtr<SWindow>(WindowWidget);
+			return VisualizeSelectedNodesAsRectangles(SelectedNodes, Window.ToSharedRef(), OutDrawElements, LayerId);
+		}
 	}
 
 	if (!bAttemptingToVisualizeReflector)
 	{
 		SetWidgetsToVisualize(InWidgetsToVisualize);
-
 		return VisualizePickAsRectangles(InWidgetsToVisualize, OutDrawElements, LayerId);
-	}		
+	}
 
 	return LayerId;
 }
@@ -767,7 +1203,7 @@ int32 SWidgetReflector::VisualizeCursorAndKeys(FSlateWindowElementList& OutDrawE
 /* SWidgetReflector implementation
  *****************************************************************************/
 
-TSharedRef<SToolTip> SWidgetReflector::GenerateToolTipForReflectorNode( TSharedPtr<FReflectorNode> InReflectorNode )
+TSharedRef<SToolTip> SWidgetReflector::GenerateToolTipForReflectorNode( TSharedRef<FWidgetReflectorNodeBase> InReflectorNode )
 {
 	return SNew(SToolTip)
 		[
@@ -777,18 +1213,18 @@ TSharedRef<SToolTip> SWidgetReflector::GenerateToolTipForReflectorNode( TSharedP
 }
 
 
-void SWidgetReflector::VisualizeAsTree( const TArray<TSharedPtr<FReflectorNode>>& WidgetPathToVisualize )
+void SWidgetReflector::VisualizeAsTree( const TArray<TSharedRef<FWidgetReflectorNodeBase>>& WidgetPathToVisualize )
 {
 	const FLinearColor TopmostWidgetColor(1.0f, 0.0f, 0.0f);
 	const FLinearColor LeafmostWidgetColor(0.0f, 1.0f, 0.0f);
 
 	for (int32 WidgetIndex = 0; WidgetIndex<WidgetPathToVisualize.Num(); ++WidgetIndex)
 	{
-		TSharedPtr<FReflectorNode> CurWidget = WidgetPathToVisualize[WidgetIndex];
+		const auto& CurWidget = WidgetPathToVisualize[WidgetIndex];
 
 		// Tint the item based on depth in picked path
 		const float ColorFactor = static_cast<float>(WidgetIndex)/WidgetPathToVisualize.Num();
-		CurWidget->Tint = FMath::Lerp(TopmostWidgetColor, LeafmostWidgetColor, ColorFactor);
+		CurWidget->SetTint(FMath::Lerp(TopmostWidgetColor, LeafmostWidgetColor, ColorFactor));
 
 		// Make sure the user can see the picked path in the tree.
 		ReflectorTree->SetItemExpansion(CurWidget, true);
@@ -833,11 +1269,11 @@ int32 SWidgetReflector::VisualizePickAsRectangles( const FWidgetPath& InWidgetsT
 }
 
 
-int32 SWidgetReflector::VisualizeSelectedNodesAsRectangles( const TArray<TSharedPtr<FReflectorNode>>& InNodesToDraw, const TSharedRef<SWindow>& VisualizeInWindow, FSlateWindowElementList& OutDrawElements, int32 LayerId )
+int32 SWidgetReflector::VisualizeSelectedNodesAsRectangles( const TArray<TSharedRef<FWidgetReflectorNodeBase>>& InNodesToDraw, const TSharedRef<SWindow>& VisualizeInWindow, FSlateWindowElementList& OutDrawElements, int32 LayerId )
 {
 	for (int32 NodeIndex = 0; NodeIndex < InNodesToDraw.Num(); ++NodeIndex)
 	{
-		const TSharedPtr<FReflectorNode>& NodeToDraw = InNodesToDraw[NodeIndex];
+		const auto& NodeToDraw = InNodesToDraw[NodeIndex];
 		const FLinearColor Tint(0.0f, 1.0f, 0.0f);
 
 		// The FGeometry we get is from a WidgetPath, so it's rooted in desktop space.
@@ -845,7 +1281,7 @@ int32 SWidgetReflector::VisualizeSelectedNodesAsRectangles( const TArray<TShared
 		// and get us back into Window Space.
 		// This is nonstandard so we have to go through some hoops and a specially exposed method 
 		// in FPaintGeometry to allow appending layout transforms.
-		FPaintGeometry WindowSpaceGeometry = NodeToDraw->Geometry.ToPaintGeometry();
+		FPaintGeometry WindowSpaceGeometry(NodeToDraw->GetAccumulatedLayoutTransform(), NodeToDraw->GetAccumulatedRenderTransform(), NodeToDraw->GetLocalSize());
 		WindowSpaceGeometry.AppendTransform(TransformCast<FSlateLayoutTransform>(Inverse(VisualizeInWindow->GetPositionInScreen())));
 
 		FSlateDrawElement::MakeBox(
@@ -855,7 +1291,7 @@ int32 SWidgetReflector::VisualizeSelectedNodesAsRectangles( const TArray<TShared
 			FCoreStyle::Get().GetBrush(TEXT("Debug.Border")),
 			VisualizeInWindow->GetClippingRectangleInWindow(),
 			ESlateDrawEffect::None,
-			NodeToDraw->Tint
+			NodeToDraw->GetTint()
 		);
 	}
 
@@ -904,14 +1340,287 @@ FString SWidgetReflector::HandleFrameRateText() const
 
 FText SWidgetReflector::HandlePickButtonText() const
 {
-	static const FText NotPicking = LOCTEXT("PickWidget", "Pick Widget");
+	static const FText NotPicking = LOCTEXT("PickLiveWidget", "Pick Live Widget");
 	static const FText Picking = LOCTEXT("PickingWidget", "Picking (Esc to Stop)");
 
 	return bIsPicking ? Picking : NotPicking;
 }
 
 
-TSharedRef<ITableRow> SWidgetReflector::HandleReflectorTreeGenerateRow( TSharedPtr<FReflectorNode> InReflectorNode, const TSharedRef<STableViewBase>& OwnerTable )
+bool SWidgetReflector::IsSnapshotTargetComboEnabled() const
+{
+	return SLATE_REFLECTOR_HAS_SESSION_SERVICES != 0 && !RemoteSnapshotRequestId.IsValid();
+}
+
+
+bool SWidgetReflector::IsTakeSnapshotButtonEnabled() const
+{
+	return SelectedSnapshotTargetInstanceId.IsValid() && !RemoteSnapshotRequestId.IsValid();
+}
+
+
+FReply SWidgetReflector::HandleTakeSnapshotButtonClicked()
+{
+	// Local snapshot?
+	if (SelectedSnapshotTargetInstanceId == FApp::GetInstanceId())
+	{
+		SetUIMode(EWidgetReflectorUIMode::Snapshot);
+
+		// Take a snapshot of any window(s) that are currently open
+		SnapshotData.TakeSnapshot();
+
+		// Rebuild the reflector tree from the snapshot data
+		ReflectorTreeRoot = SnapshotData.GetWindowsRef();
+		ReflectorTree->RequestTreeRefresh();
+
+		WidgetSnapshotVisualizer->SnapshotDataUpdated();
+	}
+	else
+	{
+		// Remote snapshot - these can take a while, show a progress message
+		FNotificationInfo Info(LOCTEXT("RemoteWidgetSnapshotPendingNotificationText", "Waiting for Remote Widget Snapshot Data"));
+
+		// Add the buttons with text, tooltip and callback
+		Info.ButtonDetails.Add(FNotificationButtonInfo(
+			LOCTEXT("CancelPendingSnapshotButtonText", "Cancel"), 
+			LOCTEXT("CancelPendingSnapshotButtonToolTipText", "Cancel the pending widget snapshot request."), 
+			FSimpleDelegate::CreateSP(this, &SWidgetReflector::OnCancelPendingRemoteSnapshot)
+			));
+
+		// We will be keeping track of this ourselves
+		Info.bFireAndForget = false;
+
+		// Launch notification
+		WidgetSnapshotNotificationPtr = FSlateNotificationManager::Get().AddNotification(Info);
+
+		if (WidgetSnapshotNotificationPtr.IsValid())
+		{
+			WidgetSnapshotNotificationPtr.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
+		}
+
+		RemoteSnapshotRequestId = WidgetSnapshotService->RequestSnapshot(SelectedSnapshotTargetInstanceId, FWidgetSnapshotService::FOnWidgetSnapshotResponse::CreateSP(this, &SWidgetReflector::HandleRemoteSnapshotReceived));
+
+		if (!RemoteSnapshotRequestId.IsValid())
+		{
+			TSharedPtr<SNotificationItem> WidgetSnapshotNotificationPin = WidgetSnapshotNotificationPtr.Pin();
+
+			if (WidgetSnapshotNotificationPin.IsValid())
+			{
+				WidgetSnapshotNotificationPin->SetText(LOCTEXT("RemoteWidgetSnapshotFailedNotificationText", "Remote Widget Snapshot Failed"));
+				WidgetSnapshotNotificationPin->SetCompletionState(SNotificationItem::CS_Fail);
+				WidgetSnapshotNotificationPin->ExpireAndFadeout();
+
+				WidgetSnapshotNotificationPtr.Reset();
+			}
+		}
+	}
+
+	return FReply::Handled();
+}
+
+
+void SWidgetReflector::OnCancelPendingRemoteSnapshot()
+{
+	TSharedPtr<SNotificationItem> WidgetSnapshotNotificationPin = WidgetSnapshotNotificationPtr.Pin();
+
+	if (WidgetSnapshotNotificationPin.IsValid())
+	{
+		WidgetSnapshotNotificationPin->SetText(LOCTEXT("RemoteWidgetSnapshotAbortedNotificationText", "Aborted Remote Widget Snapshot"));
+		WidgetSnapshotNotificationPin->SetCompletionState(SNotificationItem::CS_Fail);
+		WidgetSnapshotNotificationPin->ExpireAndFadeout();
+
+		WidgetSnapshotNotificationPtr.Reset();
+	}
+
+	WidgetSnapshotService->AbortSnapshotRequest(RemoteSnapshotRequestId);
+	RemoteSnapshotRequestId = FGuid();
+}
+
+
+void SWidgetReflector::HandleRemoteSnapshotReceived(const TArray<uint8>& InSnapshotData)
+{
+	{
+		TSharedPtr<SNotificationItem> WidgetSnapshotNotificationPin = WidgetSnapshotNotificationPtr.Pin();
+
+		if (WidgetSnapshotNotificationPin.IsValid())
+		{
+			WidgetSnapshotNotificationPin->SetText(LOCTEXT("RemoteWidgetSnapshotReceivedNotificationText", "Remote Widget Snapshot Data Received"));
+			WidgetSnapshotNotificationPin->SetCompletionState(SNotificationItem::CS_Success);
+			WidgetSnapshotNotificationPin->ExpireAndFadeout();
+
+			WidgetSnapshotNotificationPtr.Reset();
+		}
+	}
+
+	RemoteSnapshotRequestId = FGuid();
+
+	SetUIMode(EWidgetReflectorUIMode::Snapshot);
+
+	// Load up the remote data
+	SnapshotData.LoadSnapshotFromBuffer(InSnapshotData);
+
+	// Rebuild the reflector tree from the snapshot data
+	ReflectorTreeRoot = SnapshotData.GetWindowsRef();
+	ReflectorTree->RequestTreeRefresh();
+
+	WidgetSnapshotVisualizer->SnapshotDataUpdated();
+}
+
+
+#if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
+
+FReply SWidgetReflector::HandleLoadSnapshotButtonClicked()
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+
+	if (DesktopPlatform)
+	{
+		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(SharedThis(this));
+
+		TArray<FString> OpenFilenames;
+		const bool bOpened = DesktopPlatform->OpenFileDialog(
+			(ParentWindow.IsValid()) ? ParentWindow->GetNativeWindow()->GetOSWindowHandle() : nullptr,
+			LOCTEXT("LoadSnapshotDialogTitle", "Load Widget Snapshot").ToString(),
+			FPaths::GameAgnosticSavedDir(),
+			TEXT(""),
+			TEXT("Slate Widget Snapshot (*.widgetsnapshot)|*.widgetsnapshot"),
+			EFileDialogFlags::None,
+			OpenFilenames
+			);
+
+		if (bOpened && SnapshotData.LoadSnapshotFromFile(OpenFilenames[0]))
+		{
+			SetUIMode(EWidgetReflectorUIMode::Snapshot);
+
+			// Rebuild the reflector tree from the snapshot data
+			ReflectorTreeRoot = SnapshotData.GetWindowsRef();
+			ReflectorTree->RequestTreeRefresh();
+
+			WidgetSnapshotVisualizer->SnapshotDataUpdated();
+		}
+	}
+
+	return FReply::Handled();
+}
+
+#endif // SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
+
+
+void SWidgetReflector::UpdateAvailableSnapshotTargets()
+{
+	AvailableSnapshotTargets.Reset();
+
+#if SLATE_REFLECTOR_HAS_SESSION_SERVICES
+	{
+		ISessionManagerRef SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
+
+		TArray<TSharedPtr<ISessionInfo>> AvailableSessions;
+		SessionManager->GetSessions(AvailableSessions);
+
+		for (const auto& AvailableSession : AvailableSessions)
+		{
+			// Only allow sessions belonging to the current user
+			if (AvailableSession->GetSessionOwner() != FApp::GetSessionOwner())
+			{
+				continue;
+			}
+
+			TArray<TSharedPtr<ISessionInstanceInfo>> AvailableInstances;
+			AvailableSession->GetInstances(AvailableInstances);
+
+			for (const auto& AvailableInstance : AvailableInstances)
+			{
+				FWidgetSnapshotTarget SnapshotTarget;
+				SnapshotTarget.DisplayName = FText::Format(LOCTEXT("SnapshotTargetDisplayNameFmt", "{0} ({1})"), FText::FromString(AvailableInstance->GetInstanceName()), FText::FromString(AvailableInstance->GetPlatformName()));
+				SnapshotTarget.InstanceId = AvailableInstance->GetInstanceId();
+
+				AvailableSnapshotTargets.Add(MakeShareable(new FWidgetSnapshotTarget(SnapshotTarget)));
+			}
+		}
+	}
+#else
+	{
+		// No session services, just add an entry that lets us snapshot ourself
+		FWidgetSnapshotTarget SnapshotTarget;
+		SnapshotTarget.DisplayName = FText::FromString(FApp::GetInstanceName());
+		SnapshotTarget.InstanceId = FApp::GetInstanceId();
+
+		AvailableSnapshotTargets.Add(MakeShareable(new FWidgetSnapshotTarget(SnapshotTarget)));
+	}
+#endif
+}
+
+
+void SWidgetReflector::UpdateSelectedSnapshotTarget()
+{
+	if (AvailableSnapshotTargetsComboBox.IsValid())
+	{
+		const TSharedPtr<FWidgetSnapshotTarget>* FoundSnapshotTarget = AvailableSnapshotTargets.FindByPredicate([this](const TSharedPtr<FWidgetSnapshotTarget>& InAvailableSnapshotTarget) -> bool
+		{
+			return InAvailableSnapshotTarget->InstanceId == SelectedSnapshotTargetInstanceId;
+		});
+
+		if (FoundSnapshotTarget)
+		{
+			AvailableSnapshotTargetsComboBox->SetSelectedItem(*FoundSnapshotTarget);
+		}
+		else if (AvailableSnapshotTargets.Num() > 0)
+		{
+			SelectedSnapshotTargetInstanceId = AvailableSnapshotTargets[0]->InstanceId;
+			AvailableSnapshotTargetsComboBox->SetSelectedItem(AvailableSnapshotTargets[0]);
+		}
+		else
+		{
+			SelectedSnapshotTargetInstanceId = FGuid();
+			AvailableSnapshotTargetsComboBox->SetSelectedItem(nullptr);
+		}
+	}
+}
+
+
+void SWidgetReflector::OnAvailableSnapshotTargetsChanged()
+{
+	UpdateAvailableSnapshotTargets();
+	UpdateSelectedSnapshotTarget();
+}
+
+
+FText SWidgetReflector::GetSelectedSnapshotTargetDisplayName() const
+{
+	if (AvailableSnapshotTargetsComboBox.IsValid())
+	{
+		TSharedPtr<FWidgetSnapshotTarget> SelectedSnapshotTarget = AvailableSnapshotTargetsComboBox->GetSelectedItem();
+		if (SelectedSnapshotTarget.IsValid())
+		{
+			return SelectedSnapshotTarget->DisplayName;
+		}
+	}
+
+	return FText::GetEmpty();
+}
+
+
+TSharedRef<SWidget> SWidgetReflector::HandleGenerateAvailableSnapshotComboItemWidget(TSharedPtr<FWidgetSnapshotTarget> InItem) const
+{
+	return SNew(STextBlock)
+		.Text(InItem->DisplayName);
+}
+
+
+void SWidgetReflector::HandleAvailableSnapshotComboSelectionChanged(TSharedPtr<FWidgetSnapshotTarget> InItem, ESelectInfo::Type InSeletionInfo)
+{
+	if (InItem.IsValid())
+	{
+		SelectedSnapshotTargetInstanceId = InItem->InstanceId;
+	}
+	else
+	{
+		SelectedSnapshotTargetInstanceId = FGuid();
+	}
+}
+
+
+TSharedRef<ITableRow> SWidgetReflector::HandleReflectorTreeGenerateRow( TSharedRef<FWidgetReflectorNodeBase> InReflectorNode, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	return SNew(SReflectorTreeWidgetItem, OwnerTable)
 		.WidgetInfoToVisualize(InReflectorNode)
@@ -921,9 +1630,9 @@ TSharedRef<ITableRow> SWidgetReflector::HandleReflectorTreeGenerateRow( TSharedP
 }
 
 
-void SWidgetReflector::HandleReflectorTreeGetChildren(TSharedPtr<FReflectorNode> InWidgetGeometry, TArray<TSharedPtr<FReflectorNode>>& OutChildren)
+void SWidgetReflector::HandleReflectorTreeGetChildren(TSharedRef<FWidgetReflectorNodeBase> InReflectorNode, TArray<TSharedRef<FWidgetReflectorNodeBase>>& OutChildren)
 {
-	OutChildren = InWidgetGeometry->ChildNodes;
+	OutChildren = InReflectorNode->GetChildNodes();
 }
 
 
@@ -983,7 +1692,8 @@ TSharedRef<SWidget> SWidgetReflector::MakeStatViewer()
 
 	return
 		SAssignNew(StatsBorder, SBorder)
-		.BorderImage( FCoreStyle::Get().GetBrush("NoBrush") )
+		.Padding(0)
+		.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
 		.Visibility_Lambda([]
 		{
 			return GSlateStatsFlatEnable > 0 ? EVisibility::Visible : EVisibility::Collapsed;

@@ -45,6 +45,10 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=TextureRenderTarget2D, AssetRegistrySearchable)
 	uint32 bHDR:1;
 
+	/** Whether to support Mip maps for this render target texture */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=TextureRenderTarget2D, AssetRegistrySearchable)
+	uint32 bAutoGenerateMips:1;
+
 	/** Normally the format is derived from bHDR, this allows code to set the format explicitly. */
 	UPROPERTY()
 	TEnumAsByte<enum EPixelFormat> OverrideFormat;
@@ -72,7 +76,7 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 	 * @param AlphaOverride - If specified, the values here will become the alpha values in the resulting texture
 	 * @return New UTexture2D object.
 	 */
-	ENGINE_API UTexture2D* ConstructTexture2D(UObject* Outer, const FString& NewTexName, EObjectFlags ObjectFlags, uint32 Flags=CTF_Default, TArray<uint8>* AlphaOverride=NULL);
+	ENGINE_API UTexture2D* ConstructTexture2D(UObject* InOuter, const FString& NewTexName, EObjectFlags InObjectFlags, uint32 Flags=CTF_Default, TArray<uint8>* AlphaOverride=NULL);
 
 	/**
 	 * Updates (resolves) the render target texture immediately.
@@ -80,25 +84,25 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 	 */
 	ENGINE_API void UpdateResourceImmediate(bool bClearRenderTarget=true);
 
-	// Begin UTexture interface.
+	//~ Begin UTexture Interface.
 	virtual float GetSurfaceWidth() const override { return SizeX; }
 	virtual float GetSurfaceHeight() const override { return SizeY; }
 	ENGINE_API virtual FTextureResource* CreateResource() override;
 	ENGINE_API virtual EMaterialValueType GetMaterialType() override;
-	// End UTexture interface.
+	//~ End UTexture Interface.
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	ENGINE_API virtual void PostLoad() override;
 	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	ENGINE_API virtual FString GetDesc() override;
-	// End UObject interface
+	//~ End UObject Interface
 
 	FORCEINLINE int32 GetNumMips() const
 	{
-		return 1;
+		return NumMips;
 	}
 
 	FORCEINLINE EPixelFormat GetFormat() const
@@ -112,6 +116,9 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 			return OverrideFormat;
 		}
 	}
+
+private:
+	int32	NumMips;
 };
 
 

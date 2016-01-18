@@ -112,7 +112,7 @@ static void RemapProperty(UProperty* Property, int32 Index, const TMap<FName, AA
 			if (Object)
 			{
 				AActor* const* RemappedObject = ActorRemapper.Find(Object->GetFName());
-				if (RemappedObject)
+				if (RemappedObject && (*RemappedObject)->GetClass()->IsChildOf(ObjectProperty->PropertyClass))
 				{
 					ObjectProperty->SetObjectPropertyValue(PropertyAddr, *RemappedObject);
 				}

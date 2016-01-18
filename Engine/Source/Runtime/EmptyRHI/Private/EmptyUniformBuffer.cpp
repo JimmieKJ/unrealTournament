@@ -54,8 +54,8 @@ void FEmptyGlobalUniformBuffer::UpdateConstant(const uint8* Data, uint16 Offset,
 	Uniform buffer RHI object
 -----------------------------------------------------------------------------*/
 
-FEmptyUniformBuffer::FEmptyUniformBuffer(const void* Contents, uint32 NumBytes, EUniformBufferUsage Usage)
-	: FRHIUniformBuffer(NumBytes)
+FEmptyUniformBuffer::FEmptyUniformBuffer(const FRHIUniformBufferLayout& InLayout, const void* Contents, uint32 NumBytes, EUniformBufferUsage Usage)
+	: FRHIUniformBuffer(InLayout)
 {
 }
 
@@ -63,8 +63,8 @@ FEmptyUniformBuffer::~FEmptyUniformBuffer()
 {
 }
 
-FUniformBufferRHIRef FEmptyDynamicRHI::RHICreateUniformBuffer(const void* Contents, uint32 NumBytes, EUniformBufferUsage Usage)
+FUniformBufferRHIRef FEmptyDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 {
 	check(IsInRenderingThread());
-	return new FEmptyUniformBuffer(Contents, NumBytes, Usage);
+	return nullptr;//new FEmptyUniformBuffer(Contents, NumBytes, Usage);
 }

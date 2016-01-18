@@ -14,7 +14,7 @@ FAnimationSegmentViewportClient::FAnimationSegmentViewportClient(FPreviewScene& 
 	SetViewMode(VMI_Lit);
 
 	// Always composite editor objects after post processing in the editor
-	EngineShowFlags.CompositeEditorPrimitives = true;
+	EngineShowFlags.SetCompositeEditorPrimitives(true);
 	EngineShowFlags.DisableAdvancedFeatures();
 	
 	UpdateLighting();
@@ -226,7 +226,7 @@ void SAnimationSegmentViewport::InitSkeleton()
 		if (PreviewMesh)
 		{
 			UAnimSingleNodeInstance * Preview = PreviewComponent->PreviewInstance;
-			if((Preview == NULL || Preview->CurrentAsset != AnimSequence) ||
+			if((Preview == NULL || Preview->GetCurrentAsset() != AnimSequence) ||
 				(PreviewComponent->SkeletalMesh != PreviewMesh))
 			{
 				PreviewComponent->SetSkeletalMesh(PreviewMesh);
@@ -250,7 +250,7 @@ void SAnimationSegmentViewport::OnTickPreview( double InCurrentTime, float InDel
 	float Start, End;
 	StartTimePropertyHandle->GetValue( Start );
 	EndTimePropertyHandle->GetValue( End );
-	if ( PreviewComponent->PreviewInstance->CurrentTime > End || PreviewComponent->PreviewInstance->CurrentTime < Start )
+	if ( PreviewComponent->PreviewInstance->GetCurrentTime() > End || PreviewComponent->PreviewInstance->GetCurrentTime() < Start )
 	{
 		PreviewComponent->PreviewInstance->SetPosition( Start, false );
 	}
@@ -273,9 +273,9 @@ void SAnimationSegmentViewport::Tick( const FGeometry& AllottedGeometry, const d
 		{
 			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()) ));
 		}
-		else if (Component->AnimBlueprintGeneratedClass)
+		else if (Component->AnimClass)
 		{
-			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName()) ));
+			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->AnimClass->GetName()) ));
 		}
 		else if (Component->SkeletalMesh == NULL)
 		{
@@ -311,9 +311,9 @@ float SAnimationSegmentViewport::GetViewMinInput() const
 		{
 			return 0.0f;
 		}
-		else if (PreviewComponent->AnimScriptInstance != NULL)
+		else if (PreviewComponent->GetAnimInstance() != NULL)
 		{
-			return FMath::Max<float>((float)(PreviewComponent->AnimScriptInstance->LifeTimer - 30.0), 0.0f);
+			return FMath::Max<float>((float)(PreviewComponent->GetAnimInstance()->LifeTimer - 30.0), 0.0f);
 		}
 	}
 
@@ -328,9 +328,9 @@ float SAnimationSegmentViewport::GetViewMaxInput() const
 		{
 			return PreviewComponent->PreviewInstance->GetLength();
 		}
-		else if (PreviewComponent->AnimScriptInstance != NULL)
+		else if (PreviewComponent->GetAnimInstance() != NULL)
 		{
-			return PreviewComponent->AnimScriptInstance->LifeTimer;
+			return PreviewComponent->GetAnimInstance()->LifeTimer;
 		}
 	}
 
@@ -417,8 +417,8 @@ FReply SAnimationSegmentScrubPanel::OnClick_Forward()
 	UAnimSingleNodeInstance* PreviewInst = GetPreviewInstance();
 	if (PreviewInst)
 	{
-		bool bIsReverse = PreviewInst->bReverse;
-		bool bIsPlaying = PreviewInst->bPlaying;
+		bool bIsReverse = PreviewInst->IsReverse();
+		bool bIsPlaying = PreviewInst->IsPlaying();
 		// if current bIsReverse and bIsPlaying, we'd like to just turn off reverse
 		if (bIsReverse && bIsPlaying)
 		{
@@ -443,9 +443,9 @@ FReply SAnimationSegmentScrubPanel::OnClick_Forward()
 EPlaybackMode::Type SAnimationSegmentScrubPanel::GetPlaybackMode() const
 {
 	UAnimSingleNodeInstance* PreviewInst = GetPreviewInstance();
-	if (PreviewInst && PreviewInst->bPlaying)
+	if (PreviewInst && PreviewInst->IsPlaying())
 	{
-		return PreviewInst->bReverse ? EPlaybackMode::PlayingReverse : EPlaybackMode::PlayingForward;
+		return PreviewInst->IsReverse() ? EPlaybackMode::PlayingReverse : EPlaybackMode::PlayingForward;
 	}
 	return EPlaybackMode::Stopped;
 }
@@ -491,9 +491,9 @@ uint32 SAnimationSegmentScrubPanel::GetNumOfFrames() const
 		float Length = PreviewInst->GetLength();
 		// if anim sequence, use correct num frames
 		int32 NumFrames = (int32) (Length/0.0333f); 
-		if (PreviewInst->CurrentAsset && PreviewInst->CurrentAsset->IsA(UAnimSequenceBase::StaticClass()))
+		if (PreviewInst->GetCurrentAsset() && PreviewInst->GetCurrentAsset()->IsA(UAnimSequenceBase::StaticClass()))
 		{
-			NumFrames = CastChecked<UAnimSequenceBase>(PreviewInst->CurrentAsset)->GetNumberOfFrames();
+			NumFrames = CastChecked<UAnimSequenceBase>(PreviewInst->GetCurrentAsset())->GetNumberOfFrames();
 		}
 		return NumFrames;
 	}
@@ -521,7 +521,7 @@ bool SAnimationSegmentScrubPanel::DoesSyncViewport() const
 {
 	UAnimSingleNodeInstance* PreviewInst = GetPreviewInstance();
 
-	return (( LockedSequence==NULL && PreviewInst ) || ( LockedSequence && PreviewInst && PreviewInst->CurrentAsset == LockedSequence ));
+	return (( LockedSequence==NULL && PreviewInst ) || ( LockedSequence && PreviewInst && PreviewInst->GetCurrentAsset() == LockedSequence ));
 }
 
 class UAnimSingleNodeInstance* SAnimationSegmentScrubPanel::GetPreviewInstance() const
@@ -536,7 +536,7 @@ float SAnimationSegmentScrubPanel::GetScrubValue() const
 		UAnimSingleNodeInstance* PreviewInst = GetPreviewInstance();
 		if (PreviewInst)
 		{
-			return PreviewInst->CurrentTime; 
+			return PreviewInst->GetCurrentTime();
 		}
 	}
 	return 0.f;

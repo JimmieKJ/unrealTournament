@@ -101,9 +101,9 @@ float4 CalculateCompositeTessellationFactors(float3 Control0, float3 Control1, f
 	float3 Edge1 = ( Control1 - Control2 );
 	float3 Edge2 = ( Control2 - Control0 );
 
-	float3 ToMidpoint0 = 0.5 * ( Control0 + Control1 ) - View.TranslatedViewOrigin.xyz;
-	float3 ToMidpoint1 = 0.5 * ( Control1 + Control2 ) - View.TranslatedViewOrigin.xyz;
-	float3 ToMidpoint2 = 0.5 * ( Control2 + Control0 ) - View.TranslatedViewOrigin.xyz;
+	float3 ToMidpoint0 = 0.5 * ( Control0 + Control1 ) - View.TranslatedWorldCameraOrigin;
+	float3 ToMidpoint1 = 0.5 * ( Control1 + Control2 ) - View.TranslatedWorldCameraOrigin;
+	float3 ToMidpoint2 = 0.5 * ( Control2 + Control0 ) - View.TranslatedWorldCameraOrigin;
 
 	// Use spherical projection instead of planer
 	float4 CompositeFactors = float4(

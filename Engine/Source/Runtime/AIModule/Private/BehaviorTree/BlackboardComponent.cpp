@@ -914,24 +914,3 @@ FDelegateHandle UBlackboardComponent::RegisterObserver(FBlackboard::FKey KeyID, 
 
 	return Handle;
 }
-
-void UBlackboardComponent::UnregisterObserver(FBlackboard::FKey KeyID, FOnBlackboardChange ObserverDelegate)
-{
-	for (auto It = Observers_DEPRECATED.CreateKeyIterator(KeyID); It; ++It)
-	{
-		if (It.Value().DEPRECATED_Compare(ObserverDelegate))
-		{
-			for (auto HandleIt = ObserverHandles.CreateIterator(); HandleIt; ++HandleIt)
-			{
-				if (HandleIt.Value() == It.Value().GetHandle())
-				{
-					HandleIt.RemoveCurrent();
-					break;
-				}
-			}
-
-			It.RemoveCurrent();
-			break;
-		}
-	}
-}

@@ -5,7 +5,7 @@
 #include "FontImportOptions.generated.h"
 
 
-/** Font character set type for importing TrueType fonts */
+/** Font character set type for importing TrueType fonts. */
 UENUM()
 enum EFontImportCharacterSet
 {
