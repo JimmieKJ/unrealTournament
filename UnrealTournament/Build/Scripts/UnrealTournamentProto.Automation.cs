@@ -175,7 +175,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePathMac,
                     AppLaunchCmd = "./Engine/Binaries/Mac/UE4-Mac-Shipping.app",
-                    AppLaunchCmdArgs = "UnrealTournament",
+                    AppLaunchCmdArgs = "UnrealTournament -opengl",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
                 });
 
