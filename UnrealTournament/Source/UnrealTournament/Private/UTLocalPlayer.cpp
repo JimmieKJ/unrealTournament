@@ -2075,6 +2075,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 {
 	HideMenu();
 
+#if !UE_SERVER
 	// Under certain situations (when we fail to load a replay immediately after starting watching it), 
 	//	the replay menu will show up at the last second, and nothing will close it.
 	// This is to make absolutely sure the replay menu doesn't persist into the main menu
@@ -2082,6 +2083,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	{
 		CloseReplayWindow();
 	}
+#endif
 
 	if ( GetWorld() != nullptr )
 	{
