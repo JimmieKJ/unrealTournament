@@ -15,8 +15,8 @@
 
 #define EPIC_COMPANY_NAME  "Epic Games, Inc."
 #define EPIC_COPYRIGHT_STRING "Copyright 1998-2015 Epic Games, Inc. All Rights Reserved."
-#define EPIC_PRODUCT_NAME "Unreal Engine"
-#define EPIC_PRODUCT_IDENTIFIER "UnrealEngine"
+#define EPIC_PRODUCT_NAME "Unreal Tournament"
+#define EPIC_PRODUCT_IDENTIFIER "UnrealTournament"
 
 #define ENGINE_VERSION_TEXT_2(x) L ## x
 #define ENGINE_VERSION_TEXT(x) ENGINE_VERSION_TEXT_2(x)
