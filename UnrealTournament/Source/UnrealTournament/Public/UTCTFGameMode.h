@@ -38,7 +38,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 
 	virtual void GetGood() override;
 
-	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const override;
 
 protected:
 

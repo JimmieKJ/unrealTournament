@@ -36,7 +36,8 @@ void AUTDMGameMode::UpdateSkillRating()
 	}
 }
 
-int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS) const
+int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 {
-	return PS ? PS->DMRank : Super::GetEloFor(PS);
+	bEloIsValid = PS ? PS->bDMEloValid : false;
+	return PS ? PS->DMRank : Super::GetEloFor(PS, bEloIsValid);
 }

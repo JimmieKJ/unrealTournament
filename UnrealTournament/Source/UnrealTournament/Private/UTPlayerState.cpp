@@ -1871,28 +1871,28 @@ void AUTPlayerState::UnregisterPlayerWithSession()
 
 #if !UE_SERVER
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeImage(int32 EloRating, bool bSmall) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage(int32 EloRating, bool bEloIsValid, bool bSmall) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	UUTLocalPlayer::GetBadgeFromELO(EloRating, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
 	FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 	if (bSmall) BadgeStr += TEXT(".Small");
 	return SUTStyle::Get().GetBrush(*BadgeStr);
 }
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	UUTLocalPlayer::GetBadgeFromELO(EloRating, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
 	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
 	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
 }
 
-TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank)
+TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool bEloIsValid)
 {
 	return SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
@@ -1925,12 +1925,12 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank)
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeImage(Rank))
+						.Image(GetELOBadgeImage(Rank, bEloIsValid))
 					]
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeNumberImage(Rank))
+						.Image(GetELOBadgeNumberImage(Rank, bEloIsValid))
 					]
 				]
 			]
@@ -1955,31 +1955,31 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank)
+		BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank, bShowdownEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank)
+		BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank, bCTFEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
+		BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank, bDuelEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"), TDMRank)
+		BuildRank(NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"), TDMRank, bTDMEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank)
+		BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank, bDMEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)

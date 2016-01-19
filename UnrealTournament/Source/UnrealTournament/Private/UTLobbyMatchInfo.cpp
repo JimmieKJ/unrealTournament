@@ -1002,13 +1002,14 @@ void AUTLobbyMatchInfo::UpdateRank()
 		if (Players.Num() > 0)
 		{
 			AUTGameMode* UTGame = CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-			MinRank = UTGame ? UTGame->GetEloFor(Players[0].Get()) : 1400;
+			bool bIsValidElo = false;
+			MinRank = UTGame ? UTGame->GetEloFor(Players[0].Get(), bIsValidElo) : 1400;
 			MaxRank = MinRank;
 			AverageRank = MinRank;
 
 			for (int32 i=1; i < Players.Num(); i++)
 			{
-				int32 PlayerRank = UTGame ? UTGame->GetEloFor(Players[i].Get()) : 1400;
+				int32 PlayerRank = UTGame ? UTGame->GetEloFor(Players[i].Get(), bIsValidElo) : 1400;
 				if (PlayerRank < MinRank) MinRank = PlayerRank;
 				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
 				AverageRank += PlayerRank;

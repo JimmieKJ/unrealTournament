@@ -302,7 +302,8 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	}
 
 	AUTGameMode* UTGame = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-	int32 PlayerRank = (UTGame && NewPlayer) ? UTGame->GetEloFor(NewPlayer) : 1500;
+	bool bIsValidElo = false;
+	int32 PlayerRank = (UTGame && NewPlayer) ? UTGame->GetEloFor(NewPlayer, bIsValidElo) : 1500;
 	if (!MatchInfo->SkillTest(PlayerRank)) // MAKE THIS CONFIG
 	{
 		if (PlayerRank > MatchInfo->AverageRank)

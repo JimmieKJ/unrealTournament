@@ -462,12 +462,12 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveRank(LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars());
+		ServerReceiveRank(LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), LP->DuelEloValid(), LP->CTFEloValid(), LP->TDMEloValid(), LP->DMEloValid(), LP->ShowdownEloValid());
 	}
 }
 
-bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars) { return true; }
-void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars)
+bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid) { return true; }
+void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid)
 {
 	if (UTPlayerState)
 	{
@@ -477,6 +477,11 @@ void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank
 		UTPlayerState->DMRank = NewDMRank;
 		UTPlayerState->ShowdownRank = NewShowdownRank;
 		UTPlayerState->TotalChallengeStars = TotalStars;
+		UTPlayerState->bDuelEloValid = bDuelEloValid;
+		UTPlayerState->bCTFEloValid = bCTFEloValid;
+		UTPlayerState->bTDMEloValid = bTDMEloValid;
+		UTPlayerState->bDMEloValid = bDMEloValid;
+		UTPlayerState->bShowdownEloValid = bShowdownEloValid;
 	}
 }
 

@@ -299,6 +299,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	if (PS)
 	{
 		PS->TDMRank = 400.f + 200.f*Skill;
+		PS->bTDMEloValid = true;
 	}
 
 	float AimingSkill = Skill + Personality.Accuracy;

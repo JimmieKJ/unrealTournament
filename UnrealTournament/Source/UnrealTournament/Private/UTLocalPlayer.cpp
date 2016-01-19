@@ -1385,7 +1385,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
+			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1467,7 +1467,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
 		}
 	}
 }
@@ -1736,32 +1736,66 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		AUTGameMode* UTGame = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
 		if (UTGame)
 		{
-			return UTGame->GetEloFor(PC->UTPlayerState);
+			bool bIsValidElo = false;
+			return UTGame->GetEloFor(PC->UTPlayerState, bIsValidElo);
 		}
 	}
 
-	int32 MaxElo = FMath::Max(GetRankDuel(), GetRankTDM());
-	MaxElo = FMath::Max(MaxElo, GetRankShowdown());
-	MaxElo = FMath::Max(MaxElo, GetRankDM());
-	return MaxElo;
-}
-
-void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
-{
-	if (EloRating  < 1660)
+	int32 MaxElo = 0;
+	bool bHasValidElo = DuelEloValid() || DMEloValid() || TDMEloValid() || ShowdownEloValid();
+	if (bHasValidElo)
 	{
-		BadgeLevel = 0;
-		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 140.f, 0.f, 8.f);
-	}
-	else if (EloRating < 2200)
-	{
-		BadgeLevel = 1;
-		SubLevel = FMath::Clamp((float(EloRating) - 1660.f) / 60.f, 0.f, 8.f);
+		if (DuelEloValid())
+		{
+			MaxElo = FMath::Max(MaxElo, GetRankDuel());
+		}
+		if (DMEloValid())
+		{
+			MaxElo = FMath::Max(MaxElo, GetRankDM());
+		}
+		if (TDMEloValid())
+		{
+			MaxElo = FMath::Max(MaxElo, GetRankTDM());
+		}
+		if (ShowdownEloValid())
+		{
+			MaxElo = FMath::Max(MaxElo, GetRankShowdown());
+		}
 	}
 	else
 	{
-		BadgeLevel = 2;
-		SubLevel = FMath::Clamp((float(EloRating) - 2200.f) / 50.f, 0.f, 8.f);
+		MaxElo = FMath::Max(GetRankDuel(), GetRankTDM());
+		MaxElo = FMath::Max(MaxElo, GetRankShowdown());
+		MaxElo = FMath::Max(MaxElo, GetRankDM());
+	}
+	return MaxElo;
+}
+
+void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel)
+{
+	if (!bEloIsValid)
+	{
+		// beginner badges
+		BadgeLevel = 0;
+		SubLevel = 0;
+	}
+	else
+	{
+		if (EloRating < 1600)
+		{
+			BadgeLevel = 0;
+			SubLevel = 1 + FMath::Clamp((float(EloRating) - 400.f) / 150.f, 0.f, 7.f);
+		}
+		else if (EloRating < 2000)
+		{
+			BadgeLevel = 1;
+			SubLevel = FMath::Clamp((float(EloRating) - 1500.f) / 55.6f, 0.f, 8.f);
+		}
+		else
+		{
+			BadgeLevel = 2;
+			SubLevel = FMath::Clamp((float(EloRating) - 2000.f) / 40.f, 0.f, 8.f);
+		}
 	}
 }
 

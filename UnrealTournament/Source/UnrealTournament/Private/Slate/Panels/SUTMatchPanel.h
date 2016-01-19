@@ -125,7 +125,8 @@ public:
 		{
 			int32 AllowedRank = MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500);
 			AUTGameMode* UTGame = (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid()) ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-			int32 PlayerRank = (UTGame && PlayerState) ? UTGame->GetEloFor(PlayerState) : 1500;
+			bool bEloIsValid = false;
+			int32 PlayerRank = (UTGame && PlayerState) ? UTGame->GetEloFor(PlayerState, bEloIsValid) : 1500;
 			if (PlayerRank < AllowedRank - 400 || PlayerRank > AllowedRank + 400)
 			{
 				// Second check.  If both the client, and the match is ranked below beginner (1400) then we want to skip the icon
@@ -210,7 +211,7 @@ public:
 	{
 		int32 Badge;
 		int32 Level;
-		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500)), Badge, Level);
+		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500)), true, Badge, Level);
 		
 		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 		return SUTStyle::Get().GetBrush(*BadgeStr);
@@ -221,7 +222,7 @@ public:
 	{
 		int32 Badge;
 		int32 Level;
-		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500)), Badge, Level);
+		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500)), true, Badge, Level);
 
 		return FText::AsNumber(Level);
 	}

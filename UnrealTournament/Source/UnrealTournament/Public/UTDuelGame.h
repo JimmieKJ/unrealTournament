@@ -34,7 +34,7 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 
 	virtual void BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, UClass* PickupClass);
 
-	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const override;
 
 #if !UE_SERVER
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
