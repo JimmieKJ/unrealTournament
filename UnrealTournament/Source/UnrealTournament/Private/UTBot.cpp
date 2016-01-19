@@ -298,8 +298,16 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS)
 	{
-		PS->TDMRank = 400.f + 200.f*Skill;
+		PS->TDMRank = 900.f + 120.f*Skill;
+		PS->CTFRank = PS->TDMRank;
+		PS->DMRank = PS->TDMRank;
+		PS->DuelRank = PS->TDMRank;
+		PS->ShowdownRank = PS->TDMRank;
 		PS->bTDMEloValid = true;
+		PS->bDuelEloValid = true;
+		PS->bCTFEloValid = true;
+		PS->bDMEloValid = true;
+		PS->bShowdownEloValid = true;
 	}
 
 	float AimingSkill = Skill + Personality.Accuracy;

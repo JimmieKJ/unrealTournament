@@ -1783,9 +1783,9 @@ void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& B
 	{
 		if (EloRating < 1590)
 		{
-			int32 EloBounds[10] = { 500, 670, 820, 960, 1090, 1210, 1320, 1420, 1510, 1590 };
+			int32 EloBounds[9] = { 670, 820, 960, 1090, 1210, 1320, 1420, 1510, 1590 };
 			int32 i = 0;
-			for (i = 0; i < 10; i++)
+			for (i = 0; i < 9; i++)
 			{
 				if (EloRating < EloBounds[i])
 				{
