@@ -3242,24 +3242,31 @@ void UUTLocalPlayer::YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, ui
 {
 	if (ButtonID == UTDIALOG_BUTTON_OK)
 	{
-		// Show a dialog here to stop the user for doing anything
-		YoutubeDialog = ShowMessage(NSLOCTEXT("VideoMessages", "YoutubeTokenTitle", "AccessingYoutube"),
-			NSLOCTEXT("VideoMessages", "YoutubeToken", "Contacting YouTube..."), 0);
+		if (!YoutubeDialog.IsValid())
+		{
+			// Show a dialog here to stop the user for doing anything
+			YoutubeDialog = ShowMessage(NSLOCTEXT("VideoMessages", "YoutubeTokenTitle", "AccessingYoutube"),
+				NSLOCTEXT("VideoMessages", "YoutubeToken", "Contacting YouTube..."), 0);
 
-		FHttpRequestPtr YoutubeTokenRequest = FHttpModule::Get().CreateRequest();
-		YoutubeTokenRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
-		YoutubeTokenRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRequestComplete);
-		YoutubeTokenRequest->SetVerb(TEXT("POST"));
-		YoutubeTokenRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
+			FHttpRequestPtr YoutubeTokenRequest = FHttpModule::Get().CreateRequest();
+			YoutubeTokenRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+			YoutubeTokenRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRequestComplete);
+			YoutubeTokenRequest->SetVerb(TEXT("POST"));
+			YoutubeTokenRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
 
-		// ClientID and ClientSecret UT Youtube app on PLK google account
-		FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
-		FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
-		FString TokenRequest = TEXT("code=") + YoutubeConsentDialog->UniqueCode + TEXT("&client_id=") + ClientID
-			+ TEXT("&client_secret=") + ClientSecret + TEXT("&redirect_uri=urn:ietf:wg:oauth:2.0:oob&grant_type=authorization_code");
+			// ClientID and ClientSecret UT Youtube app on PLK google account
+			FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
+			FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
+			FString TokenRequest = TEXT("code=") + YoutubeConsentDialog->UniqueCode + TEXT("&client_id=") + ClientID
+				+ TEXT("&client_secret=") + ClientSecret + TEXT("&redirect_uri=urn:ietf:wg:oauth:2.0:oob&grant_type=authorization_code");
 
-		YoutubeTokenRequest->SetContentAsString(TokenRequest);
-		YoutubeTokenRequest->ProcessRequest();
+			YoutubeTokenRequest->SetContentAsString(TokenRequest);
+			YoutubeTokenRequest->ProcessRequest();
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Already getting Youtube Consent"));
+		}
 	}
 	else
 	{
@@ -3272,27 +3279,35 @@ void UUTLocalPlayer::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FH
 	if (YoutubeDialog.IsValid())
 	{
 		CloseDialog(YoutubeDialog.ToSharedRef());
+		YoutubeDialog.Reset();
 	}
 
-	if (HttpResponse->GetResponseCode() == 200)
+	if (HttpResponse.IsValid())
 	{
-		TSharedPtr<FJsonObject> YoutubeTokenJson;
-		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
-		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+		if (HttpResponse->GetResponseCode() == 200)
 		{
-			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
-			YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), YoutubeRefreshToken);
+			TSharedPtr<FJsonObject> YoutubeTokenJson;
+			TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+			if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+			{
+				YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
+				YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), YoutubeRefreshToken);
 
-			UE_LOG(UT, Log, TEXT("YoutubeTokenRequestComplete %s %s"), *YoutubeAccessToken, *YoutubeRefreshToken);
+				UE_LOG(UT, Log, TEXT("YoutubeTokenRequestComplete %s %s"), *YoutubeAccessToken, *YoutubeRefreshToken);
 
-			SaveConfig();
+				SaveConfig();
 
-			UploadVideoToYoutube();
+				UploadVideoToYoutube();
+			}
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Failed to get token from Youtube\n%s"), *HttpResponse->GetContentAsString());
 		}
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("Failed to get token from Youtube\n%s"), *HttpResponse->GetContentAsString());
+		UE_LOG(UT, Warning, TEXT("Failed to get token from Youtube. Request failed."));
 	}
 }
 
@@ -3301,9 +3316,10 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 	if (YoutubeDialog.IsValid())
 	{
 		CloseDialog(YoutubeDialog.ToSharedRef());
+		YoutubeDialog.Reset();
 	}
 
-	if (HttpResponse->GetResponseCode() == 200)
+	if (HttpResponse.IsValid() && HttpResponse->GetResponseCode() == 200)
 	{
 		UE_LOG(UT, Log, TEXT("YouTube Token refresh succeeded"));
 
@@ -3319,7 +3335,14 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 	}
 	else
 	{
-		UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent\n%s"), *HttpResponse->GetContentAsString());
+		if (HttpResponse.IsValid())
+		{
+			UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent\n%s"), *HttpResponse->GetContentAsString());
+		}
+		else
+		{
+			UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent"));
+		}
 
 		// Refresh token might have been expired
 		YoutubeAccessToken.Empty();
