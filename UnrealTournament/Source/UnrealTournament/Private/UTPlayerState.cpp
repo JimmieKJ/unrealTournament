@@ -1894,6 +1894,8 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating, bool 
 
 TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool bEloIsValid)
 {
+	FText ELOText = FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScore", "     ({0})"), FText::AsNumber(Rank));
+
 	return SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
 		.HAlign(HAlign_Left)
@@ -1944,7 +1946,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 			.WidthOverride(500)
 			[
 				SNew(STextBlock)
-				.Text((bEloIsValid ? NSLOCTEXT("Generic", "ValidELO", "") : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
+				.Text((bEloIsValid ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
