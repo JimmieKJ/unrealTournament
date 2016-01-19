@@ -72,7 +72,6 @@ bool AUTLobbyPC::CanRestartPlayer()
 	return false;
 }
 
-
 void AUTLobbyPC::MatchChat(FString Message)
 {
 	Chat(ChatDestinations::Match, Message);
@@ -82,7 +81,6 @@ void AUTLobbyPC::GlobalChat(FString Message)
 {
 	Chat(ChatDestinations::Global, Message);
 }
-
 
 void AUTLobbyPC::Chat(FName Destination, FString Message)
 {
@@ -99,7 +97,6 @@ void AUTLobbyPC::ServerChat_Implementation(const FName Destination, const FStrin
 	if (LobbyGameState)
 	{
 		LobbyGameState->BroadcastChat(UTLobbyPlayerState, Destination, Message);
-
 	}
 }
 
@@ -116,7 +113,6 @@ void AUTLobbyPC::ReceivedPlayer()
 		ServerSetAvatar(UTLocalPlayer->GetAvatar());
 	}
 }
-
 
 void AUTLobbyPC::ServerDebugTest_Implementation(const FString& TestCommand)
 {
@@ -171,10 +167,9 @@ void AUTLobbyPC::Say(FString Message)
 			{
 				if (UTLobbyPlayerState->CurrentMatch->Players[i].IsValid())
 				{
-					UE_LOG(UT,Log,TEXT("--- Player %i = %s (%i)"), i, *UTLobbyPlayerState->CurrentMatch->Players[i]->PlayerName , UTLobbyPlayerState->CurrentMatch->Players[i]->AverageRank);
+					UE_LOG(UT,Log,TEXT("--- Player %i = %s"), i, *UTLobbyPlayerState->CurrentMatch->Players[i]->PlayerName);
 				}
 			}
-
 		}
 		return;
 	}
@@ -216,7 +211,6 @@ void AUTLobbyPC::ServerRconKillMatch_Implementation(AUTLobbyMatchInfo* MatchToKi
 	{
 		LobbyGameState->AdminKillMatch(MatchToKill);
 	}
-
 }
 
 void AUTLobbyPC::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
@@ -254,7 +248,6 @@ void AUTLobbyPC::ServerSay_Implementation(const FString& Message, bool bTeamMess
 	}
 
 	Super::ServerSay_Implementation(Message, bTeamMessage);
-
 }
 
 
@@ -270,7 +263,6 @@ void AUTLobbyPC::GetAllRedirects(TSharedPtr<SUTDownloadAllDialog> inDownloadDial
 	{
 		ServerSendRedirectCount();
 	}
-
 }
 #endif
 
@@ -312,7 +304,6 @@ void AUTLobbyPC::ServerSendAllRedirects_Implementation()
 			ClientReceiveRedirect(GameMode->RedirectReferences[i]);
 		}
 	}
-
 }
 
 void AUTLobbyPC::ClientReceiveRedirectCount_Implementation(int32 NewCount)
@@ -327,6 +318,7 @@ void AUTLobbyPC::ClientReceiveRedirectCount_Implementation(int32 NewCount)
 		RedirectCount = NewCount;
 	}
 }
+
 void AUTLobbyPC::ClientReceiveRedirect_Implementation(const FPackageRedirectReference& Redirect)
 {
 	AllRedirects.Add(FPackageRedirectReference(Redirect));
@@ -335,7 +327,5 @@ void AUTLobbyPC::ClientReceiveRedirect_Implementation(const FPackageRedirectRefe
 	{
 		DownloadAllContent();
 	}
-
-
 }
 

@@ -52,7 +52,6 @@ struct FTempBanInfo
 		, BanTime(inBanTime)
 	{
 	}
-
 };
 
 USTRUCT()
@@ -654,8 +653,6 @@ public:
 	void ModifyStatsValue(FName StatsName, float Change);
 
 	// Average ELO rank for this player.
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
-	int32 AverageRank;
 	UPROPERTY(Replicated)
 	int32 DuelRank;
 	UPROPERTY(Replicated)

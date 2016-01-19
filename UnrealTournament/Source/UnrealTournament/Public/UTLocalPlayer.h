@@ -476,11 +476,12 @@ public:
 	// Returns the base ELO Rank with any type of processing we need.
 	virtual int32 GetBaseELORank();
 
-	inline virtual int32 GetRankTDM() { return TDM_ELO; }
-	inline virtual int32 GetRankDuel() { return DUEL_ELO; }
-	inline virtual int32 GetRankDM() { return FFA_ELO; }
-	inline virtual int32 GetRankCTF() { return CTF_ELO; }
-	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
+	// Limit displayed Rank to 400 + 50 * number of matches played
+	inline virtual int32 GetRankTDM() { return FMath::Min(TDM_ELO, int32(400.f + 50.f * TDMMatchesPlayed)); }
+	inline virtual int32 GetRankDuel() { return FMath::Min(DUEL_ELO, int32(400.f + 50.f * DuelMatchesPlayed)); }
+	inline virtual int32 GetRankDM() { return  FMath::Min(FFA_ELO, int32(400.f + 50.f * FFAMatchesPlayed)); }
+	inline virtual int32 GetRankCTF() { return FMath::Min(CTF_ELO, int32(400.f + 50.f * CTFMatchesPlayed)); }
+	inline virtual int32 GetRankShowdown() { return FMath::Min(Showdown_ELO, int32(400.f + 50.f * ShowdownMatchesPlayed)); }
 
 	// Returns what badge should represent player's skill level.
 	UFUNCTION(BlueprintCallable, Category = Badge)

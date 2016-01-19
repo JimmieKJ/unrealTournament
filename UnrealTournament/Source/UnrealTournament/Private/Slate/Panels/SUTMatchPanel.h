@@ -124,7 +124,8 @@ public:
 		else if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
 		{
 			int32 AllowedRank = MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500);
-			int32 PlayerRank = PlayerState ? PlayerState->AverageRank : 1500;
+			AUTGameMode* UTGame = (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid()) ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
+			int32 PlayerRank = (UTGame && PlayerState) ? UTGame->GetEloFor(PlayerState) : 1500;
 			if (PlayerRank < AllowedRank - 400 || PlayerRank > AllowedRank + 400)
 			{
 				// Second check.  If both the client, and the match is ranked below beginner (1400) then we want to skip the icon

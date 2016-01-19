@@ -298,7 +298,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS)
 	{
-		PS->AverageRank = Skill;
+		PS->TDMRank = 400.f + 200.f*Skill;
 	}
 
 	float AimingSkill = Skill + Personality.Accuracy;
