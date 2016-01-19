@@ -179,4 +179,9 @@ public:
 		return Cast<UUtMcpProfileManager>(McpProfileManager);
 	}
 #endif
+
+	// This will be set to true if this is a private match.  
+	UPROPERTY()
+	bool bPrivateMatch;
+	
 };

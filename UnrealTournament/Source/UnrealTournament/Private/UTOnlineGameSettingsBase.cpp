@@ -5,7 +5,7 @@
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
 
-FUTOnlineGameSettingsBase::FUTOnlineGameSettingsBase(bool bIsLanGame, bool bIsPresense, int32 MaxNumberPlayers)
+FUTOnlineGameSettingsBase::FUTOnlineGameSettingsBase(bool bIsLanGame, bool bIsPresense, bool bPrivate, int32 MaxNumberPlayers)
 {
 	NumPublicConnections = FMath::Max(MaxNumberPlayers, 0);
 	NumPrivateConnections = 0;
@@ -13,16 +13,15 @@ FUTOnlineGameSettingsBase::FUTOnlineGameSettingsBase(bool bIsLanGame, bool bIsPr
 
 	bShouldAdvertise = true;
 	bAllowJoinInProgress = true;
-	bAllowInvites = true;
+	bAllowInvites = !bPrivate;
 	bUsesPresence = bIsPresense;
-	bAllowJoinViaPresence = bIsPresense;
-	bAllowJoinViaPresenceFriendsOnly = bIsPresense;
+	bAllowJoinViaPresence = !bPrivate;
+	bAllowJoinViaPresenceFriendsOnly = !bPrivate;
 }
 
 void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTBaseGameMode* CurrentGame)
 {
 	if (!CurrentGame) return;
-
 
 	// Stub function.  We will need to fill this out later.
 	bIsDedicated = CurrentGame->GetWorld()->GetNetMode() == NM_DedicatedServer;
@@ -66,7 +65,6 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTBaseGameMode* CurrentGame)
 
 	int32 NumMatches = CurrentGame->GetNumMatches();
 	Set(SETTING_NUMMATCHES, NumMatches, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-
 
 }
 

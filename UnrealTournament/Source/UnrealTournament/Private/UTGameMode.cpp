@@ -530,6 +530,7 @@ void AUTGameMode::PreLogin(const FString& Options, const FString& Address, const
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
+
 	if (ErrorMessage.IsEmpty())
 	{
 		// broadcast incoming player's character choices for preloading
@@ -3546,13 +3547,17 @@ void AUTGameMode::UpdatePlayersPresence()
 {
 	bool bAllowJoin = (NumPlayers < GameSession->MaxPlayers);
 	UE_LOG(UT,Verbose,TEXT("AllowJoin: %i %i %i"), bAllowJoin, NumPlayers, GameSession->MaxPlayers);
+
+	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+	bool bNoJoinInProgress = UTGameSession ? UTGameSession->bNoJoinInProgress : false;
+
 	FString PresenceString = FText::Format(NSLOCTEXT("UTGameMode","PlayingPresenceFormatStr","Playing {0} on {1}"), DisplayName, FText::FromString(*GetWorld()->GetMapName())).ToString();
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
 		if (Controller)
 		{
-			Controller->ClientSetPresence(PresenceString, bAllowJoin, bAllowJoin, bAllowJoin, false);
+			Controller->ClientSetPresence(PresenceString, !bPrivateMatch, !bNoJoinInProgress, !bPrivateMatch, false);
 		}
 	}
 }

@@ -75,6 +75,8 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 		}
 	}
 
+	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Private"));
+	bPrivateMatch = EvalBoolOptions(InOpt, false);
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
@@ -94,7 +96,6 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	{
 		UE_LOG(UT,Log,TEXT("=== This is a Training Ground Server.  It will only be visibly to beginners ==="));
 	}
-
 	
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
 }

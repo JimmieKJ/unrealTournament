@@ -1374,6 +1374,11 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// Set some profile defaults, should be a function call if this gets any larger
 			CurrentProfileSettings->TauntPath = GetDefaultURLOption(TEXT("Taunt"));
 			CurrentProfileSettings->Taunt2Path = GetDefaultURLOption(TEXT("Taunt2"));
+
+			// Attempt to load the progression anyway since the user might have reset their profile.
+			LoadProgression();
+
+
 		}
 
 		// Set the ranks/etc so the player card is right.
@@ -2332,10 +2337,10 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 			FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
 			if (GameSettings != NULL)
 			{
-				GameSettings->bAllowInvites = true;
-				GameSettings->bAllowJoinInProgress = true;
-				GameSettings->bAllowJoinViaPresence = true;
-				GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
+				GameSettings->bAllowInvites = bAllowInvites;
+				GameSettings->bAllowJoinInProgress = bAllowJoinInProgress;
+				GameSettings->bAllowJoinViaPresence = bAllowJoinViaPresence;
+				GameSettings->bAllowJoinViaPresenceFriendsOnly = bAllowJoinViaPresenceFriendsOnly;
 				OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
 			}
 

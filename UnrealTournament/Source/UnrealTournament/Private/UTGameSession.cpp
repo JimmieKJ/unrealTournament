@@ -263,7 +263,7 @@ void AUTGameSession::RegisterServer()
 				bSessionValid = false;
 				OnCreateSessionCompleteDelegate = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnCreateSessionComplete));
 				bool bLanGame = FParse::Param(FCommandLine::Get(), TEXT("lan"));
-				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(bLanGame, false, 10000));
+				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(bLanGame, false, false, 10000));
 
 				if (OnlineGameSettings.IsValid() && UTBaseGameMode)
 				{
@@ -272,6 +272,7 @@ void AUTGameSession::RegisterServer()
 					SessionInterface->CreateSession(0, GameSessionName, *OnlineGameSettings);
 					return;
 				}
+
 			}
 			else if (State == EOnlineSessionState::Ended)
 			{
@@ -282,7 +283,7 @@ void AUTGameSession::RegisterServer()
 			else
 			{
 				// We have a valid session.
-				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 10000));
+				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, false, 10000));
 				if (OnlineGameSettings.IsValid() && UTBaseGameMode)
 				{
 					InitHostBeacon(OnlineGameSettings.Get());
@@ -376,6 +377,7 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 	{
 		UE_LOG(UT,Verbose,TEXT("Session %s Created!"), *SessionName.ToString());
 		UpdateSessionJoinability(GameSessionName, true, true, true, false);
+
 		// Immediately start the online session
 		StartMatch();
 	}
