@@ -354,6 +354,13 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 		}
 	}
 
+	// If we have a menu up, hide it before opening the new one
+	if (DesktopSlateWidget.IsValid())
+	{
+		UE_LOG(UT,Log,TEXT("Closing Existing menu so we can open a new one"));
+		HideMenu();
+	}
+
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
@@ -2157,7 +2164,10 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	// Under certain situations (when we fail to load a replay immediately after starting watching it), 
 	//	the replay menu will show up at the last second, and nothing will close it.
 	// This is to make absolutely sure the replay menu doesn't persist into the main menu
-	CloseReplayWindow();
+	if (ReplayWindow.IsValid())
+	{
+		CloseReplayWindow();
+	}
 
 	if ( GetWorld() != nullptr )
 	{
@@ -3976,12 +3986,12 @@ void UUTLocalPlayer::OpenSpectatorWindow()
 #if !UE_SERVER
 	if (!SpectatorWidget.IsValid())
 	{
-		SAssignNew(SpectatorWidget, SUTSpectatorWindow)
-			.PlayerOwner(this);
+		SAssignNew(SpectatorWidget, SUTSpectatorWindow, this)
+			.bShadow(false);
 
 		if (SpectatorWidget.IsValid())
 		{
-			GEngine->GameViewport->AddViewportWidgetContent(SNew(SWeakWidget).PossiblyNullContent(SpectatorWidget.ToSharedRef()), 0);
+			OpenWindow(SpectatorWidget);
 		}
 	}
 #endif
@@ -3991,7 +4001,7 @@ void UUTLocalPlayer::CloseSpectatorWindow()
 #if !UE_SERVER
 	if (SpectatorWidget.IsValid())
 	{
-		GEngine->GameViewport->RemoveViewportWidgetContent(SpectatorWidget.ToSharedRef());
+		CloseWindow(SpectatorWidget);
 		SpectatorWidget.Reset();
 	}
 #endif
