@@ -301,6 +301,10 @@ FText AUTCTFGameState::GetGameStatusText()
 		{
 			return (ElapsedTime - OvertimeStartTime < TimeLimit) ? NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!") : NSLOCTEXT("UTCTFGameState", "ExtendedOvertime", "Extended Overtime!");
 		}
+		if (TimeLimit == 0)
+		{
+			return FText::GetEmpty();
+		}
 
 		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "SecondHalf", "Second Half") : NSLOCTEXT("UTCTFGameState", "FirstHalf", "First Half");
 	}

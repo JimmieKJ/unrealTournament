@@ -308,9 +308,6 @@ void SUTInGameHomePanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 			ReplayTimeSlider->BecomeInteractive();
 		}
 	}
-
-	FocusChat();
-
 }
 void SUTInGameHomePanel::OnHidePanel()
 {
@@ -330,24 +327,7 @@ void SUTInGameHomePanel::OnHidePanel()
 			ReplayTimeSlider->BecomeNonInteractive();
 		}
 	}
-
-	if (ChatText.IsValid() && !ChatText->GetText().IsEmpty())
-	{
-		UUTConsole* Console = (PlayerOwner != nullptr && PlayerOwner->ViewportClient != nullptr) ? Cast<UUTConsole>(PlayerOwner->ViewportClient->ViewportConsole) : nullptr;
-		if (Console)
-		{
-			FString SayCommand;
-			     if (ChatDestination == ChatDestinations::Global)	SayCommand = TEXT("GlobalChat");
-			else if (ChatDestination == ChatDestinations::Friends)	SayCommand = TEXT("FriendSay");
-			else if (ChatDestination == ChatDestinations::Lobby)	SayCommand = TEXT("LobbySay");
-			else if (ChatDestination == ChatDestinations::Match)	SayCommand = TEXT("MatchChat");
-			else if (ChatDestination == ChatDestinations::Team)		SayCommand = TEXT("TeamSay");
-			else SayCommand = TEXT("Say");
-
-			Console->StartTyping(FString::Printf(TEXT("%s %s"), *SayCommand, *ChatText->GetText().ToString()));
-		}
 	}
-}
 
 FText SUTInGameHomePanel::GetChatDestinationText() const
 {

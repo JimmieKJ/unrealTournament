@@ -501,8 +501,6 @@ void SUTInGameMenu::OnMenuOpened(const FString& Parameters)
 		StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->ShowMatchSummary(true);
 	}
 
-	StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->FocusChat();
-
 	if (Parameters.Equals(TEXT("say"),ESearchCase::IgnoreCase) || Parameters.Equals(TEXT("teamsay"),ESearchCase::IgnoreCase))
 	{
 		if (Parameters.Equals(TEXT("teamsay"),ESearchCase::IgnoreCase))
@@ -510,6 +508,7 @@ void SUTInGameMenu::OnMenuOpened(const FString& Parameters)
 			StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->SetChatDestination(ChatDestinations::Team);
 		}
 		StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->bCloseOnSubmit = true;
+		StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->FocusChat();
 	}
 }
 

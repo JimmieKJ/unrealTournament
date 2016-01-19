@@ -76,21 +76,11 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
+	friend class UUTProgressionStorage;
+
 	void ClearWeaponPriorities();
 	void SetWeaponPriority(FString WeaponClassName, float NewPriority);
 	float GetWeaponPriority(FString WeaponClassName, float DefaultPriority);
-
-	bool HasTokenBeenPickedUpBefore(FName TokenUniqueID);
-	void TokenPickedUp(FName TokenUniqueID);
-	void TokenRevoke(FName TokenUniqueID);
-	void TokensCommit();
-	void TokensReset();
-
-	bool GetBestTime(FName TimingName, float& OutBestTime);
-	void SetBestTime(FName TimingName, float InBestTime);
-	
-	// debug only
-	void TokensClear();
 
 	/**
 	 *	Gather all of the settings so that this profile object can be saved.
@@ -177,9 +167,26 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	float ReplayCustomMotionBlurMax;
 
+	// the below have been moved to UTProgressionStorage and are only here for backwards compatibility
+private:
 	UPROPERTY()
 	TArray<FName> Achievements;
 
+	UPROPERTY()
+	int32 TotalChallengeStars;
+
+	UPROPERTY()
+	int32 SkullCount;
+
+	// Linear list of token unique ids for serialization
+	UPROPERTY()
+	TArray<FName> FoundTokenUniqueIDs;
+
+	TArray<FName> TempFoundTokenUniqueIDs;
+
+	UPROPERTY()
+	TMap<FName, float> BestTimes;
+public:
 	/** local XP, not synced with backend - granted for local play and untrusted servers */
 	UPROPERTY()
 	int32 LocalXP;
@@ -192,12 +199,6 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 
 	UPROPERTY()
 	TArray<FUTDailyChallengeUnlock> UnlockedDailyChallenges;
-
-	UPROPERTY()
-	int32 TotalChallengeStars;
-
-	UPROPERTY()
-	int32 SkullCount;
 
 	UPROPERTY()
 	TArray<FStoredWeaponGroupInfo> WeaponGroups;
@@ -304,15 +305,6 @@ protected:
 
 	UPROPERTY()
 	float PlayerFOV;
-
-	// Linear list of token unique ids for serialization
-	UPROPERTY()
-	TArray<FName> FoundTokenUniqueIDs;
-	
-	TArray<FName> TempFoundTokenUniqueIDs;
-
-	UPROPERTY()
-	TMap<FName, float> BestTimes;
 
 	// If true, then the player will not show toasts in game.
 	UPROPERTY()

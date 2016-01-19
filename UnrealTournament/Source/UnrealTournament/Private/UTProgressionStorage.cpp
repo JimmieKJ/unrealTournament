@@ -11,6 +11,7 @@ UUTProgressionStorage::UUTProgressionStorage(const FObjectInitializer& ObjectIni
 
 void UUTProgressionStorage::VersionFixup()
 {
+	TokensCommit(); // just in case any achievements failed to unlock previously due to bug
 }
 
 void UUTProgressionStorage::LoadFromProfile(UUTProfileSettings* ProfileSettings)
