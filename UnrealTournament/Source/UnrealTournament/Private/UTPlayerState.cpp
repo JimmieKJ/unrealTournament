@@ -1934,6 +1934,20 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 					]
 				]
 			]
+		]
+		+SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(500)
+			[
+				SNew(STextBlock)
+				.Text((bEloIsValid ? NSLOCTEXT("Generic", "ValidELO", "") : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
 		];
 }
 
