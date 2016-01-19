@@ -91,7 +91,6 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
-	DOREPLIFETIME(AUTPlayerState, AverageRank);
 	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
 	DOREPLIFETIME(AUTPlayerState, CTFRank);
@@ -1941,10 +1940,235 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank)
 TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 {
 	TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
-	if (bIsABot)
+	VBox->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SBox)
+		.HeightOverride(2.f)
+		[
+			SNew(SImage)
+			.Image(SUTStyle::Get().GetBrush("UT.Divider"))
+		]
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank)
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank)
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildRank(NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"), TDMRank)
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank)
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SBox)
+		.HeightOverride(2.f)
+		[
+			SNew(SImage)
+			.Image(SUTStyle::Get().GetBrush("UT.Divider"))
+		]
+	];
+
+	int32 CurrentXP;
+#if WITH_PROFILE
+	// use profile if available
+	UUtMcpProfile* Profile = GetMcpProfile();
+	if (Profile == NULL)
 	{
-		VBox->AddSlot()
-			.Padding(10.0f, 20.0f, 10.0f, 5.0f)
+		APlayerController* PC = Cast<APlayerController>(GetOwner());
+		if (PC != NULL)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+			if (LP != NULL)
+			{
+				Profile = LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+			}
+		}
+	}
+	if (Profile != NULL)
+	{
+		CurrentXP = Profile->GetXP();
+	}
+	else
+#endif
+	{
+		CurrentXP = PrevXP;
+	}
+	int32 Level = GetLevelForXP(CurrentXP);
+	int32 LevelXPStart = GetXPForLevel(Level);
+	int32 LevelXPEnd = GetXPForLevel(Level + 1);
+	int32 LevelXPRange = LevelXPEnd - LevelXPStart;
+
+	FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(FMath::Max(0, CurrentXP)));
+	float LevelAlpha = 1.0f;
+
+	if (LevelXPRange > 0)
+	{
+		LevelAlpha = (float)(CurrentXP - LevelXPStart) / (float)LevelXPRange;
+		TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP need to obtain the next level"), FText::AsNumber(LevelXPEnd - CurrentXP));
+	}
+
+	VBox->AddSlot()
+	.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("AUTPlayerState", "LevelNum", "Experience Level:"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelFormat", "{0} ({1} XP Total)"), FText::AsNumber(Level), FText::AsNumber(FMath::Max(0, CurrentXP))))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("AUTPlayerState", "Progress", "Progress to next level:"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::AsNumber(LevelXPStart))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(25.0, 0.0, 25.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(500.0f).HeightOverride(14.0f)
+			[
+				SNew(SProgressBar)
+				.Style(SUTStyle::Get(),"UT.ProgressBar")
+				.Percent(LevelAlpha)
+				.ToolTipText(TooltipXP)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::AsNumber(LevelXPEnd))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("AUTPlayerState", "ChallengeStars", "Challenge Stars:"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", "{0} "), FText::AsNumber(TotalChallengeStars)))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			[
+				SNew(SBox).WidthOverride(32).HeightOverride(32)
+				[
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.Star"))
+				]
+			]
+		]
+
+	];
+
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
+	if (PC)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP && LP->GetProgressionStorage() && LP->GetProgressionStorage()->SkullCount > 0)
+		{				
+			VBox->AddSlot()
+			.Padding(10.0f, 10.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
 				SNew(SHorizontalBox)
@@ -1954,296 +2178,26 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 				.AutoWidth()
 				[
 					SNew(SBox)
-					.WidthOverride(150)
+					.WidthOverride(300)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("Generic", "SkillPrompt", "Skill Level "))
+						.Text(NSLOCTEXT("AUTPlayerState", "SkullsCount", "Skulls Collected: "))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 						.ColorAndOpacity(FLinearColor::Gray)
 					]
 				]
+					
 				+ SHorizontalBox::Slot()
 				.HAlign(HAlign_Left)
 				.VAlign(VAlign_Center)
-				.Padding(5.0, 0.0, 0.0, 0.0)
 				.AutoWidth()
 				[
 					SNew(STextBlock)
-					.Text(FText::AsNumber(AverageRank))
+					.Text(FText::AsNumber(LP->GetProgressionStorage()->SkullCount))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+					.ColorAndOpacity(FLinearColor::Gray)
 				]
 			];
-	}
-	else
-	{
-		VBox->AddSlot()
-		.Padding(10.0f, 5.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			SNew(SBox)
-			.HeightOverride(2.f)
-			[
-				SNew(SImage)
-				.Image(SUTStyle::Get().GetBrush("UT.Divider"))
-			]
-		];
-		VBox->AddSlot()
-		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			SNew(STextBlock)
-			.Text(FText::AsNumber(AverageRank))
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-		];
-
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank)
-		];
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank)
-		];
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
-		];
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"), TDMRank)
-		];
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank)
-		];
-		VBox->AddSlot()
-		.Padding(10.0f, 5.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			SNew(SBox)
-			.HeightOverride(2.f)
-			[
-				SNew(SImage)
-				.Image(SUTStyle::Get().GetBrush("UT.Divider"))
-			]
-		];
-
-		int32 CurrentXP;
-#if WITH_PROFILE
-		// use profile if available
-		UUtMcpProfile* Profile = GetMcpProfile();
-		if (Profile == NULL)
-		{
-			APlayerController* PC = Cast<APlayerController>(GetOwner());
-			if (PC != NULL)
-			{
-				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-				if (LP != NULL)
-				{
-					Profile = LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
-				}
-			}
-		}
-		if (Profile != NULL)
-		{
-			CurrentXP = Profile->GetXP();
-		}
-		else
-#endif
-		{
-			CurrentXP = PrevXP;
-		}
-		int32 Level = GetLevelForXP(CurrentXP);
-		int32 LevelXPStart = GetXPForLevel(Level);
-		int32 LevelXPEnd = GetXPForLevel(Level + 1);
-		int32 LevelXPRange = LevelXPEnd - LevelXPStart;
-
-		FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(FMath::Max(0, CurrentXP)));
-		float LevelAlpha = 1.0f;
-
-		if (LevelXPRange > 0)
-		{
-			LevelAlpha = (float)(CurrentXP - LevelXPStart) / (float)LevelXPRange;
-			TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP need to obtain the next level"), FText::AsNumber(LevelXPEnd - CurrentXP));
-		}
-
-		VBox->AddSlot()
-		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(SBox)
-				.WidthOverride(300)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("AUTPlayerState", "LevelNum", "Experience Level:"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-					.ColorAndOpacity(FLinearColor::Gray)
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelFormat", "{0} ({1} XP Total)"), FText::AsNumber(Level), FText::AsNumber(FMath::Max(0, CurrentXP))))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-		];
-		VBox->AddSlot()
-		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(SBox)
-				.WidthOverride(300)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("AUTPlayerState", "Progress", "Progress to next level:"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-					.ColorAndOpacity(FLinearColor::Gray)
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(STextBlock)
-				.Text(FText::AsNumber(LevelXPStart))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(25.0, 0.0, 25.0, 0.0)
-			.AutoWidth()
-			[
-				SNew(SBox)
-				.WidthOverride(500.0f).HeightOverride(14.0f)
-				[
-					SNew(SProgressBar)
-					.Style(SUTStyle::Get(),"UT.ProgressBar")
-					.Percent(LevelAlpha)
-					.ToolTipText(TooltipXP)
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(STextBlock)
-				.Text(FText::AsNumber(LevelXPEnd))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-
-		];
-		VBox->AddSlot()
-		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(SBox)
-				.WidthOverride(300)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("AUTPlayerState", "ChallengeStars", "Challenge Stars:"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-					.ColorAndOpacity(FLinearColor::Gray)
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", "{0} "), FText::AsNumber(TotalChallengeStars)))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				[
-					SNew(SBox).WidthOverride(32).HeightOverride(32)
-					[
-						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.Star"))
-					]
-				]
-			]
-
-		];
-
-		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
-		if (PC)
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-			if (LP && LP->GetProgressionStorage() && LP->GetProgressionStorage()->SkullCount > 0)
-			{				
-				VBox->AddSlot()
-				.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-				.AutoHeight()
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.HAlign(HAlign_Left)
-					.VAlign(VAlign_Center)
-					.AutoWidth()
-					[
-						SNew(SBox)
-						.WidthOverride(300)
-						[
-							SNew(STextBlock)
-							.Text(NSLOCTEXT("AUTPlayerState", "SkullsCount", "Skulls Collected: "))
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-							.ColorAndOpacity(FLinearColor::Gray)
-						]
-					]
-					
-					+ SHorizontalBox::Slot()
-					.HAlign(HAlign_Left)
-					.VAlign(VAlign_Center)
-					.AutoWidth()
-					[
-						SNew(STextBlock)
-						.Text(FText::AsNumber(LP->GetProgressionStorage()->SkullCount))
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-						.ColorAndOpacity(FLinearColor::Gray)
-					]
-				];
-			}
 		}
 	}
 	return VBox;
@@ -2784,3 +2738,4 @@ void AUTPlayerState::ClientReceiveRconMessage_Implementation(const FString& Mess
 		PC->ShowAdminMessage(Message);
 	}
 }
+

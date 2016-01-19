@@ -301,9 +301,11 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		}
 	}
 
-	if (!MatchInfo->SkillTest(NewPlayer->AverageRank)) // MAKE THIS CONFIG
+	AUTGameMode* UTGame = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
+	int32 PlayerRank = (UTGame && NewPlayer) ? UTGame->GetEloFor(NewPlayer) : 1500;
+	if (!MatchInfo->SkillTest(PlayerRank)) // MAKE THIS CONFIG
 	{
-		if (NewPlayer->AverageRank > MatchInfo->AverageRank)
+		if (PlayerRank > MatchInfo->AverageRank)
 		{
 			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchTooGood", "Your skill rating is too high for this match."));
 		}

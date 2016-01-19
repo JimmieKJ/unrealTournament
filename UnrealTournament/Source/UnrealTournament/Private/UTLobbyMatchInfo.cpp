@@ -971,12 +971,10 @@ bool AUTLobbyMatchInfo::SkillTest(int32 Rank, bool bForceLock)
 	return true;
 }
 
-
 bool AUTLobbyMatchInfo::CanAddPlayer(int32 ELORank, bool bForceRankLock)
 {
 	return SkillTest(ELORank, bForceRankLock) && MatchHasRoom();
 }
-
 
 void AUTLobbyMatchInfo::UpdateRank()
 {
@@ -1003,13 +1001,14 @@ void AUTLobbyMatchInfo::UpdateRank()
 	{
 		if (Players.Num() > 0)
 		{
-			MinRank = Players[0]->AverageRank;
-			MaxRank = Players[0]->AverageRank;
-			AverageRank = Players[0]->AverageRank;
+			AUTGameMode* UTGame = CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
+			MinRank = UTGame ? UTGame->GetEloFor(Players[0].Get()) : 1400;
+			MaxRank = MinRank;
+			AverageRank = MinRank;
 
 			for (int32 i=1; i < Players.Num(); i++)
 			{
-				int32 PlayerRank = Players[i]->AverageRank;
+				int32 PlayerRank = UTGame ? UTGame->GetEloFor(Players[i].Get()) : 1400;
 				if (PlayerRank < MinRank) MinRank = PlayerRank;
 				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
 				AverageRank += PlayerRank;

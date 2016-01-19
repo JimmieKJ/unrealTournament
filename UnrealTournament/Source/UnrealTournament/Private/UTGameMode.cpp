@@ -4220,6 +4220,14 @@ void AUTGameMode::GetGood()
 
 int32 AUTGameMode::GetEloFor(AUTPlayerState* PS) const
 {
-	return 1400;
-}
+	if (!PS)
+	{
+		return 1400;
+	}
 
+	// return highest non-CTF Elo
+	int32 MaxElo = FMath::Max(PS->DuelRank, PS->TDMRank);
+	MaxElo = FMath::Max(MaxElo, PS->ShowdownRank);
+	MaxElo = FMath::Max(MaxElo, PS->DMRank);
+	return MaxElo;
+}

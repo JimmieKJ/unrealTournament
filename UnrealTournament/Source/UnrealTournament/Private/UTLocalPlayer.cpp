@@ -1380,7 +1380,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
+			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1462,7 +1462,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
 		}
 	}
 }
@@ -1705,29 +1705,14 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 		Showdown_ELO = StartingELO;
 	}
 
-	// 3000 should be fairly difficult to achieve
+	// 4000 should be fairly difficult to achieve
 	// Have some possible bugged profiles with overlarge ELOs
-	const int32 MaximumELO = 3000;
-	if (DUEL_ELO > MaximumELO)
-	{
-		DUEL_ELO = MaximumELO;
-	}
-	if (TDM_ELO > MaximumELO)
-	{
-		TDM_ELO = MaximumELO;
-	}
-	if (FFA_ELO > MaximumELO)
-	{
-		FFA_ELO = MaximumELO;
-	}
-	if (CTF_ELO > MaximumELO)
-	{
-		CTF_ELO = MaximumELO;
-	}
-	if (Showdown_ELO > MaximumELO)
-	{
-		Showdown_ELO = MaximumELO;
-	}
+	const int32 MaximumElo = 4000;
+	DUEL_ELO = FMath::Min(DUEL_ELO, MaximumElo);
+	TDM_ELO = FMath::Min(TDM_ELO, MaximumElo);
+	FFA_ELO = FMath::Min(FFA_ELO, MaximumElo);
+	CTF_ELO = FMath::Min(CTF_ELO, MaximumElo);
+	Showdown_ELO = FMath::Min(Showdown_ELO, MaximumElo);
 
 	MatchesPlayed = FMath::Max(MatchesPlayed, 0);
 	DuelMatchesPlayed = FMath::Max(DuelMatchesPlayed, 0);
@@ -1739,91 +1724,21 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 
 int32 UUTLocalPlayer::GetBaseELORank()
 {
-	float TotalRating = 0.f;
-	float RatingCount = 0.f;
-	float CurrentRating = 1.f;
-	int32 BestRating = 0;
-	int32 MatchCount = DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed;
-	const int32 MatchThreshold = 40;
-
-	// Avoid integer overflow and initial state divide by 0
-	if (MatchCount <= 0)
+	// let UTGame do it if have PlayerState
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+	if (PC && PC->UTPlayerState)
 	{
-		MatchCount = 1;
-		MatchCount = FMath::Max(MatchCount, DuelMatchesPlayed);
-		MatchCount = FMath::Max(MatchCount, TDMMatchesPlayed);
-		MatchCount = FMath::Max(MatchCount, FFAMatchesPlayed);
-		MatchCount = FMath::Max(MatchCount, CTFMatchesPlayed);
-	}
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	int32 ForcedELORank;
-	if (FParse::Value(FCommandLine::Get(), TEXT("ForceELORank="), ForcedELORank))
-	{
-		return ForcedELORank;
-	}
-#endif
-
-	UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Duels:%d, TDM:%d, FFA %d, CTF %d"), DuelMatchesPlayed, TDMMatchesPlayed, FFAMatchesPlayed, CTFMatchesPlayed);
-
-	if (DUEL_ELO > 0)
-	{
-		TotalRating += DUEL_ELO;
-		RatingCount += 1.f;
-		CurrentRating = TotalRating / RatingCount;
-		if (DuelMatchesPlayed > MatchThreshold)
+		AUTGameMode* UTGame = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
+		if (UTGame)
 		{
-			BestRating = FMath::Max(BestRating, DUEL_ELO);
-			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Duel ELO %d is candidate for best"), DUEL_ELO);
+			return UTGame->GetEloFor(PC->UTPlayerState);
 		}
 	}
 
-	if (TDM_ELO > 0)
-	{
-		TotalRating += TDM_ELO;
-		RatingCount += 1.f;
-		CurrentRating = TotalRating / RatingCount;
-		if (TDMMatchesPlayed > MatchThreshold)
-		{
-			BestRating = FMath::Max(BestRating, TDM_ELO);
-			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank TDM ELO %d is candidate for best"), TDM_ELO);
-		}
-	}
-
-	// FFA Elo is the least accurate, weighted lower
-	// max rating of 2400 based on FFA 
-	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < MatchThreshold)))
-	{
-		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank applying FFA ELO %d to average rank, max 2400"), FFA_ELO);
-		TotalRating += 0.5f * FMath::Min(FFA_ELO, 2400);
-		RatingCount += 0.5f;
-		CurrentRating = TotalRating / RatingCount;
-	}
-	else
-	{
-		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank not factoring in FFA ELO %d to average rank"), FFA_ELO);
-	}
-
-	if (CTF_ELO > 0 && ((CTF_ELO > CurrentRating) || (DuelMatchesPlayed + TDMMatchesPlayed < MatchThreshold)))
-	{
-		TotalRating += CTF_ELO;
-		RatingCount += 1.f;
-		CurrentRating = TotalRating / RatingCount;
-		if (CTFMatchesPlayed > MatchThreshold)
-		{
-			BestRating = FMath::Max(BestRating, CTF_ELO);
-			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank CTF ELO %d is candidate for best"), CTF_ELO);
-		}
-	}
-	else
-	{
-		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank not factoring in CTF ELO %d to average rank"), CTF_ELO);
-	}
-
-	UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Best:%d WeightedAverage:%f MatchThrottled:%f"), BestRating, CurrentRating, 400.f + 50.f * MatchCount);
-
-	// Limit displayed Elo to 400 + 50 * number of matches played
-	return FMath::Min(FMath::Max(float(BestRating), CurrentRating), 400.f + 50.f * MatchCount);
+	int32 MaxElo = FMath::Max(GetRankDuel(), GetRankTDM());
+	MaxElo = FMath::Max(MaxElo, GetRankShowdown());
+	MaxElo = FMath::Max(MaxElo, GetRankDM());
+	return MaxElo;
 }
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
@@ -1844,7 +1759,6 @@ void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& 
 		SubLevel = FMath::Clamp((float(EloRating) - 2200.f) / 50.f, 0.f, 8.f);
 	}
 }
-
 
 bool UUTLocalPlayer::IsConsideredABeginnner()
 {
@@ -2161,6 +2075,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 {
 	HideMenu();
 
+#if !UE_SERVER
 	// Under certain situations (when we fail to load a replay immediately after starting watching it), 
 	//	the replay menu will show up at the last second, and nothing will close it.
 	// This is to make absolutely sure the replay menu doesn't persist into the main menu
@@ -2168,6 +2083,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	{
 		CloseReplayWindow();
 	}
+#endif
 
 	if ( GetWorld() != nullptr )
 	{
