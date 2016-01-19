@@ -1559,14 +1559,14 @@ class UnrealTournament_PromoteBuild : BuildCommand
 					// For prod labels, do both BI services and also dual-label with the entitlement prefix
 					LabelInMcpConfigs = ProdStagingAndGameDevMcpConfigString;
 				}
-				LabelBuildForBackwardsCompat(BuildVersion, DestinationLabel, Platforms, LabelInMcpConfigs, EditorAppName);
+				List<MCPPlatform> EditorPlatforms = Platforms.Where(x => x != MCPPlatform.Win32).ToList();
+				LabelBuildForBackwardsCompat(BuildVersion, DestinationLabel, EditorPlatforms, LabelInMcpConfigs, EditorAppName);
 				// If labeling as the Live build, also create a new archive label based on the date
 				if (DestinationLabel == "Live")
 				{
 					string DateFormatString = "yyyy.MM.dd.HH.mm";
 					string ArchiveDateString = DateTime.Now.ToString(DateFormatString);
 					string ArchiveLabel = "Archived" + ArchiveDateString;
-					List<MCPPlatform> EditorPlatforms = Platforms.Where(x => x != MCPPlatform.Win32).ToList();
 					LabelBuildForBackwardsCompat(BuildVersion, ArchiveLabel, EditorPlatforms, LabelInMcpConfigs, EditorAppName);
 				}
 			}
