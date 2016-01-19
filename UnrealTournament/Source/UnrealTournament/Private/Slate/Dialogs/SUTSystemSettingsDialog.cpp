@@ -809,7 +809,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 		NSLOCTEXT("SUTSystemSettingsDialog", "MasterSoundVolume_Tooltip", "Controls the volume of all audio, this setting in conjuction the vlolumes below will determine the volume of a particular piece of audio."))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUTSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUTSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
