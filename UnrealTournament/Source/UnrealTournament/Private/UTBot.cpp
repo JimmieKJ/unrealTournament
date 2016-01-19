@@ -298,7 +298,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS)
 	{
-		PS->TDMRank = 900.f + 120.f*Skill;
+		PS->TDMRank = 800.f + 100.f*Skill;
 		PS->CTFRank = PS->TDMRank;
 		PS->DMRank = PS->TDMRank;
 		PS->DuelRank = PS->TDMRank;
