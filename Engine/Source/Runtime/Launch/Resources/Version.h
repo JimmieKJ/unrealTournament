@@ -1,20 +1,20 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #define ENGINE_MAJOR_VERSION	4
-#define ENGINE_MINOR_VERSION	8
+#define ENGINE_MINOR_VERSION	11
 #define ENGINE_PATCH_VERSION	0
-
-#define ENGINE_VERSION 2771652
 
 #define ENGINE_IS_LICENSEE_VERSION 0
 
-#define BUILT_FROM_CHANGELIST 2771652
+#define BUILT_FROM_CHANGELIST 2832429
 #define BRANCH_NAME "++depot+UE4-UT-Releases"
 
+#define ENGINE_IS_PROMOTED_BUILD (BUILT_FROM_CHANGELIST > 0)
+
 #define EPIC_COMPANY_NAME  "Epic Games, Inc."
-#define EPIC_COPYRIGHT_STRING "Copyright 1998-2015 Epic Games, Inc. All Rights Reserved."
+#define EPIC_COPYRIGHT_STRING "Copyright 1998-2016 Epic Games, Inc. All Rights Reserved."
 #define EPIC_PRODUCT_NAME "Unreal Tournament"
 #define EPIC_PRODUCT_IDENTIFIER "UnrealTournament"
 
