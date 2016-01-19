@@ -711,11 +711,11 @@ void AUTBasePlayerController::UpdateInputMode()
 				break;
 			case EInputMode::EIM_GameAndUI:
 				bShowMouseCursor = true;
-				Super::SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
+				Super::SetInputMode(FInputModeGameAndUI().SetLockMouseToViewport(true).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
 				break;
 			case EInputMode::EIM_UIOnly:
 				bShowMouseCursor = true;
-				Super::SetInputMode(FInputModeUIOnly());
+				Super::SetInputMode(FInputModeUIOnly().SetLockMouseToViewport(true));
 				break;
 			}
 		}
