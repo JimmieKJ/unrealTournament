@@ -18,4 +18,5 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleExitingIntermission() override;
 	virtual void InitGameState() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
+	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
 };
