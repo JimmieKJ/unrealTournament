@@ -2678,7 +2678,7 @@ TSharedPtr<SUTMatchSummaryPanel> UUTLocalPlayer::GetSummaryPanel()
 }
 #endif
 
-void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
+void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target, bool bAllowLogout)
 {
 #if !UE_SERVER
 	TSharedPtr<SUTMatchSummaryPanel> MatchSummary = GetSummaryPanel();
@@ -2692,7 +2692,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 		{
 			HideMenu();
 		}
-		OpenDialog(SNew(SUTPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
+		OpenDialog(SNew(SUTPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target).bAllowLogout(bAllowLogout));
 	}
 #endif
 }

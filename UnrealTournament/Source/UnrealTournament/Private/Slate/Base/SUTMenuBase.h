@@ -156,8 +156,6 @@ protected:
 	virtual void QuitConfirmation();
 	virtual void QuitConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
-	FReply Logout();
-	void SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 public:
 	virtual bool SkipWorldRender();

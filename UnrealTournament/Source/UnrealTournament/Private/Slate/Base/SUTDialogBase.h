@@ -84,6 +84,13 @@ protected:
 	TSharedRef<class SWidget> BuildButtonBar(uint16 ButtonMask);
 
 	/**
+	 *	Adds any widgets to the left of the actual button bar.
+	 **/
+	virtual void AddButtonsToLeftOfButtonBar(uint32& ButtonCount)
+	{
+	}
+
+	/**
 	 *	Allow for children to add custom buttons
 	 **/
 
