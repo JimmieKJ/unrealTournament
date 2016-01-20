@@ -953,13 +953,9 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 		APlayerState** PlayerToView = NULL;
 		if ((TeamNum == 255) || !GS->Teams.IsValidIndex(TeamNum))
 		{
-			if (TeamNum == 0)
+			if (TeamNum == 1)
 			{
-				Index += 1;
-			}
-			else if (TeamNum == 1)
-			{
-				Index += 6;
+				Index += 5;
 			}
 			int32 MaxSpectatingId = GS->GetMaxSpectatingId();
 			while ((Index <= MaxSpectatingId) && (PlayerToView == NULL))
@@ -969,7 +965,7 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 					const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
 					return (PS != NULL && PS->SpectatingID == Index);
 				});
-				Index += 5;
+				Index += 10;
 			}
 		}
 		else
