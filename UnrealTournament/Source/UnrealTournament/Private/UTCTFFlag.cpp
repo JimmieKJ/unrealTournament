@@ -22,8 +22,8 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 
 	MeshOffset = FVector(-64.f, 0.f, -48.f);
 	HeldOffset = FVector(0.f, 0.f, 0.f);
-	HomeBaseOffset = FVector(0.f, 64.f, -8.f);
-	HomeBaseRotOffset.Yaw = 90.0f;
+	HomeBaseOffset = FVector(64.f, 0.f, -8.f);
+	HomeBaseRotOffset.Yaw = 0.0f;
 
 	FlagWorldScale = 1.75f;
 	FlagHeldScale = 1.f;
