@@ -311,9 +311,10 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlagCaps", "Flag Captures"), UTGameState->Teams[0]->Score, UTGameState->Teams[1]->Score, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "TeamFlagHeldTime", "Flag Held Time"), NAME_TeamFlagHeldTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , false);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamGrabs", "Flag Grabs"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamFlagGrabs), UTGameState->Teams[1]->GetStatsValue(NAME_TeamFlagGrabs), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
-	YPos += StatsFontInfo.TextHeight;
+
+	float SectionSpacing = 0.6f * StatsFontInfo.TextHeight;
+	YPos += SectionSpacing;
 
 	// find top scorer
 	AUTPlayerState* TopScorerRed = FindTopTeamScoreFor(0);
@@ -332,55 +333,67 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	DrawPlayerStatsLine(NSLOCTEXT("UTScoreboard", "TopDefender", "Top Defender"), UTGameState->Teams[0]->TopDefender, UTGameState->Teams[1]->TopDefender, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	DrawPlayerStatsLine(NSLOCTEXT("UTScoreboard", "TopSupport", "Top Support"), UTGameState->Teams[0]->TopSupporter, UTGameState->Teams[1]->TopSupporter, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	DrawPlayerStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), TopKillerRed, TopKillerBlue, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
-	YPos += StatsFontInfo.TextHeight;
+	YPos += SectionSpacing;
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BeltPickups", "Shield Belt Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ShieldBeltCount), UTGameState->Teams[1]->GetStatsValue(NAME_ShieldBeltCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorVestCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorVestCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorPadsCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorPadsCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 
-	int32 TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_HelmetCount);
-	int32 TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_HelmetCount);
-	if (TeamStat0 > 0 || TeamStat1 > 0)
-	{
-		DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-	}
-
-	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_UDamageCount);
-	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_UDamageCount);
+	int32 OptionalLines = 0;
+	int32 TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_UDamageCount);
+	int32 TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_UDamageCount);
 	if (TeamStat0 > 0 || TeamStat1 > 0)
 	{
 		DrawStatsLine(NSLOCTEXT("UTScoreboard", "UDamagePickups", "UDamage Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+		DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, true);
+		OptionalLines += 2;
 	}
 	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_BerserkCount);
 	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_BerserkCount);
 	if (TeamStat0 > 0 || TeamStat1 > 0)
 	{
 		DrawStatsLine(NSLOCTEXT("UTScoreboard", "BerserkPickups", "Berserk Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+		DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, true);
+		OptionalLines += 2;
 	}
 	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_InvisibilityCount);
 	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_InvisibilityCount);
 	if (TeamStat0 > 0 || TeamStat1 > 0)
 	{
 		DrawStatsLine(NSLOCTEXT("UTScoreboard", "InvisibilityPickups", "Invisibility Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+		DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), NAME_InvisibilityTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, true);
+		OptionalLines += 2;
 	}
+
 	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_KegCount);
 	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_KegCount);
 	if (TeamStat0 > 0 || TeamStat1 > 0)
 	{
 		DrawStatsLine(NSLOCTEXT("UTScoreboard", "KegPickups", "Keg Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+		OptionalLines += 1;
 	}
 
-	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , true);
-	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , true);
-	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), NAME_InvisibilityTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , true);
-
-	int32 BootJumpsRed = UTGameState->Teams[0]->GetStatsValue(NAME_BootJumps);
-	int32 BootJumpsBlue = UTGameState->Teams[1]->GetStatsValue(NAME_BootJumps);
-	if ((BootJumpsRed != 0) || (BootJumpsBlue != 0))
+	if (OptionalLines < 7)
 	{
-		DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumpsRed, BootJumpsBlue, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
+		TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_HelmetCount);
+		TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_HelmetCount);
+		if (TeamStat0 > 0 || TeamStat1 > 0)
+		{
+			DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+			OptionalLines += 1;
+		}
 	}
 
+	if (OptionalLines < 7)
+	{
+		int32 BootJumpsRed = UTGameState->Teams[0]->GetStatsValue(NAME_BootJumps);
+		int32 BootJumpsBlue = UTGameState->Teams[1]->GetStatsValue(NAME_BootJumps);
+		if ((BootJumpsRed != 0) || (BootJumpsBlue != 0))
+		{
+			DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumpsRed, BootJumpsBlue, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+			OptionalLines += 1;
+		}
+	}
 	// later do redeemer shots -and all these also to individual
 	// track individual movement stats as well
 	// @TODO FIXMESTEVE make all the loc text into properties instead of recalc

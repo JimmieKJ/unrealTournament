@@ -32,7 +32,7 @@ void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState,
 			// draw skull here
 			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderPlayerX), YOffset + 0.35f*CellHeight, 0.5f*CellHeight, 0.5f*CellHeight, 725, 0, 28, 36, 1.0, FLinearColor::White);
 		}
-		else if ((GS->GetMatchState() == MatchState::MatchIntermission) || GS->OnSameTeam(PlayerState, UTHUDOwner->PlayerOwner))
+		else if ((GS->GetMatchState() == MatchState::MatchIntermission) || GS->HasMatchEnded() || GS->OnSameTeam(PlayerState, UTHUDOwner->PlayerOwner))
 		{
 			AUTCharacter* UTC = PlayerState->GetUTCharacter();
 			if (UTC)

@@ -1551,12 +1551,30 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 		SkillRating = 1500;
 	}
 
-	// Going to try bots out at 1200, meaning you'll get ~4 ELO per win at 1500 in a bot grind match and ~3 at 1600
-	// 70 bot matches to climb to silver seems fair for now
-	// Once a player get near 1950 ELO (assuming KFactor 32), a win against a 1200 will be 0 points making it impossible to grind bot wins to gold
 	if (bIsABot)
 	{
-		SkillRating = 1200;
+		if (SkillStatName == NAME_SkillRating)
+		{
+			SkillRating = DuelRank;
+		}
+		else if (SkillStatName == NAME_TDMSkillRating)
+		{
+			SkillRating = TDMRank;
+		}
+		else if (SkillStatName == NAME_DMSkillRating)
+		{
+			SkillRating = DMRank;
+		}
+		else if (SkillStatName == NAME_CTFSkillRating)
+		{
+			SkillRating = CTFRank;
+		}
+		else if (SkillStatName == NAME_ShowdownSkillRating)
+		{
+			SkillRating = ShowdownRank;
+		}
+
+		SkillRating = FMath::Min(SkillRating, 1500);
 	}
 
 	return SkillRating;
@@ -1871,29 +1889,31 @@ void AUTPlayerState::UnregisterPlayerWithSession()
 
 #if !UE_SERVER
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeImage(int32 EloRating, bool bSmall) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage(int32 EloRating, bool bEloIsValid, bool bSmall) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	UUTLocalPlayer::GetBadgeFromELO(EloRating, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
 	FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 	if (bSmall) BadgeStr += TEXT(".Small");
 	return SUTStyle::Get().GetBrush(*BadgeStr);
 }
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	UUTLocalPlayer::GetBadgeFromELO(EloRating, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
 	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
 	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
 }
 
-TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank)
+TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool bEloIsValid)
 {
+	FText ELOText = FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScore", "     ({0})"), FText::AsNumber(Rank));
+
 	return SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
 		.HAlign(HAlign_Left)
@@ -1925,14 +1945,28 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank)
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeImage(Rank))
+						.Image(GetELOBadgeImage(Rank, bEloIsValid))
 					]
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeNumberImage(Rank))
+						.Image(GetELOBadgeNumberImage(Rank, bEloIsValid))
 					]
 				]
+			]
+		]
+		+SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(500)
+			[
+				SNew(STextBlock)
+				.Text((bEloIsValid ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
 			]
 		];
 }
@@ -1955,31 +1989,31 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank)
+		BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank, bShowdownEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank)
+		BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank, bCTFEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
+		BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank, bDuelEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"), TDMRank)
+		BuildRank(NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"), TDMRank, bTDMEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank)
+		BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank, bDMEloValid)
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)

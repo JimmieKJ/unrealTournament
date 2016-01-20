@@ -778,9 +778,10 @@ void AUTShowdownGame::UpdateSkillRating()
 	}
 }
 
-int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS) const
+int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 {
-	return PS ? PS->ShowdownRank : Super::GetEloFor(PS);
+	bEloIsValid = PS ? PS->bShowdownEloValid : false;
+	return PS ? PS->ShowdownRank : Super::GetEloFor(PS, bEloIsValid);
 }
 
 #if !UE_SERVER

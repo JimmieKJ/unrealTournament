@@ -1374,13 +1374,18 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// Set some profile defaults, should be a function call if this gets any larger
 			CurrentProfileSettings->TauntPath = GetDefaultURLOption(TEXT("Taunt"));
 			CurrentProfileSettings->Taunt2Path = GetDefaultURLOption(TEXT("Taunt2"));
+
+			// Attempt to load the progression anyway since the user might have reset their profile.
+			LoadProgression();
+
+
 		}
 
 		// Set the ranks/etc so the player card is right.
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
+			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1462,7 +1467,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
 		}
 	}
 }
@@ -1731,32 +1736,75 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		AUTGameMode* UTGame = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
 		if (UTGame)
 		{
-			return UTGame->GetEloFor(PC->UTPlayerState);
+			bool bIsValidElo = false;
+			return UTGame->GetEloFor(PC->UTPlayerState, bIsValidElo);
 		}
 	}
 
-	int32 MaxElo = FMath::Max(GetRankDuel(), GetRankTDM());
-	MaxElo = FMath::Max(MaxElo, GetRankShowdown());
-	MaxElo = FMath::Max(MaxElo, GetRankDM());
-	return MaxElo;
-}
-
-void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
-{
-	if (EloRating  < 1660)
+	int32 MaxElo = 0;
+	bool bHasValidElo = DuelEloValid() || DMEloValid() || TDMEloValid() || ShowdownEloValid();
+	if (bHasValidElo)
 	{
-		BadgeLevel = 0;
-		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 140.f, 0.f, 8.f);
-	}
-	else if (EloRating < 2200)
-	{
-		BadgeLevel = 1;
-		SubLevel = FMath::Clamp((float(EloRating) - 1660.f) / 60.f, 0.f, 8.f);
+		if (DuelEloValid())
+		{
+			MaxElo = FMath::Max(MaxElo, GetRankDuel());
+		}
+		if (DMEloValid())
+		{
+			MaxElo = FMath::Max(MaxElo, GetRankDM());
+		}
+		if (TDMEloValid())
+		{
+			MaxElo = FMath::Max(MaxElo, GetRankTDM());
+		}
+		if (ShowdownEloValid())
+		{
+			MaxElo = FMath::Max(MaxElo, GetRankShowdown());
+		}
 	}
 	else
 	{
-		BadgeLevel = 2;
-		SubLevel = FMath::Clamp((float(EloRating) - 2200.f) / 50.f, 0.f, 8.f);
+		MaxElo = FMath::Max(GetRankDuel(), GetRankTDM());
+		MaxElo = FMath::Max(MaxElo, GetRankShowdown());
+		MaxElo = FMath::Max(MaxElo, GetRankDM());
+	}
+	return MaxElo;
+}
+
+void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel)
+{
+	if (!bEloIsValid)
+	{
+		// beginner badges
+		BadgeLevel = 0;
+		SubLevel = 0;
+	}
+	else
+	{
+		if (EloRating < 1590)
+		{
+			int32 EloBounds[9] = { 670, 820, 960, 1090, 1210, 1320, 1420, 1510, 1590 };
+			int32 i = 0;
+			for (i = 0; i < 9; i++)
+			{
+				if (EloRating < EloBounds[i])
+				{
+					break;
+				}
+			}
+			BadgeLevel = 0;
+			SubLevel = i;
+		}
+		else if (EloRating < 2000)
+		{
+			BadgeLevel = 1;
+			SubLevel = FMath::Clamp((float(EloRating) - 1500.f) / 55.6f, 0.f, 8.f);
+		}
+		else
+		{
+			BadgeLevel = 2;
+			SubLevel = FMath::Clamp((float(EloRating) - 2000.f) / 40.f, 0.f, 8.f);
+		}
 	}
 }
 
@@ -2332,10 +2380,10 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 			FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
 			if (GameSettings != NULL)
 			{
-				GameSettings->bAllowInvites = true;
-				GameSettings->bAllowJoinInProgress = true;
-				GameSettings->bAllowJoinViaPresence = true;
-				GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
+				GameSettings->bAllowInvites = bAllowInvites;
+				GameSettings->bAllowJoinInProgress = bAllowJoinInProgress;
+				GameSettings->bAllowJoinViaPresence = bAllowJoinViaPresence;
+				GameSettings->bAllowJoinViaPresenceFriendsOnly = bAllowJoinViaPresenceFriendsOnly;
 				OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
 			}
 
@@ -3194,24 +3242,31 @@ void UUTLocalPlayer::YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, ui
 {
 	if (ButtonID == UTDIALOG_BUTTON_OK)
 	{
-		// Show a dialog here to stop the user for doing anything
-		YoutubeDialog = ShowMessage(NSLOCTEXT("VideoMessages", "YoutubeTokenTitle", "AccessingYoutube"),
-			NSLOCTEXT("VideoMessages", "YoutubeToken", "Contacting YouTube..."), 0);
+		if (!YoutubeDialog.IsValid())
+		{
+			// Show a dialog here to stop the user for doing anything
+			YoutubeDialog = ShowMessage(NSLOCTEXT("VideoMessages", "YoutubeTokenTitle", "AccessingYoutube"),
+				NSLOCTEXT("VideoMessages", "YoutubeToken", "Contacting YouTube..."), 0);
 
-		FHttpRequestPtr YoutubeTokenRequest = FHttpModule::Get().CreateRequest();
-		YoutubeTokenRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
-		YoutubeTokenRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRequestComplete);
-		YoutubeTokenRequest->SetVerb(TEXT("POST"));
-		YoutubeTokenRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
+			FHttpRequestPtr YoutubeTokenRequest = FHttpModule::Get().CreateRequest();
+			YoutubeTokenRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+			YoutubeTokenRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRequestComplete);
+			YoutubeTokenRequest->SetVerb(TEXT("POST"));
+			YoutubeTokenRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
 
-		// ClientID and ClientSecret UT Youtube app on PLK google account
-		FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
-		FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
-		FString TokenRequest = TEXT("code=") + YoutubeConsentDialog->UniqueCode + TEXT("&client_id=") + ClientID
-			+ TEXT("&client_secret=") + ClientSecret + TEXT("&redirect_uri=urn:ietf:wg:oauth:2.0:oob&grant_type=authorization_code");
+			// ClientID and ClientSecret UT Youtube app on PLK google account
+			FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
+			FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
+			FString TokenRequest = TEXT("code=") + YoutubeConsentDialog->UniqueCode + TEXT("&client_id=") + ClientID
+				+ TEXT("&client_secret=") + ClientSecret + TEXT("&redirect_uri=urn:ietf:wg:oauth:2.0:oob&grant_type=authorization_code");
 
-		YoutubeTokenRequest->SetContentAsString(TokenRequest);
-		YoutubeTokenRequest->ProcessRequest();
+			YoutubeTokenRequest->SetContentAsString(TokenRequest);
+			YoutubeTokenRequest->ProcessRequest();
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Already getting Youtube Consent"));
+		}
 	}
 	else
 	{
@@ -3224,27 +3279,35 @@ void UUTLocalPlayer::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FH
 	if (YoutubeDialog.IsValid())
 	{
 		CloseDialog(YoutubeDialog.ToSharedRef());
+		YoutubeDialog.Reset();
 	}
 
-	if (HttpResponse->GetResponseCode() == 200)
+	if (HttpResponse.IsValid())
 	{
-		TSharedPtr<FJsonObject> YoutubeTokenJson;
-		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
-		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+		if (HttpResponse->GetResponseCode() == 200)
 		{
-			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
-			YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), YoutubeRefreshToken);
+			TSharedPtr<FJsonObject> YoutubeTokenJson;
+			TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+			if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+			{
+				YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
+				YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), YoutubeRefreshToken);
 
-			UE_LOG(UT, Log, TEXT("YoutubeTokenRequestComplete %s %s"), *YoutubeAccessToken, *YoutubeRefreshToken);
+				UE_LOG(UT, Log, TEXT("YoutubeTokenRequestComplete %s %s"), *YoutubeAccessToken, *YoutubeRefreshToken);
 
-			SaveConfig();
+				SaveConfig();
 
-			UploadVideoToYoutube();
+				UploadVideoToYoutube();
+			}
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Failed to get token from Youtube\n%s"), *HttpResponse->GetContentAsString());
 		}
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("Failed to get token from Youtube\n%s"), *HttpResponse->GetContentAsString());
+		UE_LOG(UT, Warning, TEXT("Failed to get token from Youtube. Request failed."));
 	}
 }
 
@@ -3253,9 +3316,10 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 	if (YoutubeDialog.IsValid())
 	{
 		CloseDialog(YoutubeDialog.ToSharedRef());
+		YoutubeDialog.Reset();
 	}
 
-	if (HttpResponse->GetResponseCode() == 200)
+	if (HttpResponse.IsValid() && HttpResponse->GetResponseCode() == 200)
 	{
 		UE_LOG(UT, Log, TEXT("YouTube Token refresh succeeded"));
 
@@ -3271,7 +3335,14 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 	}
 	else
 	{
-		UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent\n%s"), *HttpResponse->GetContentAsString());
+		if (HttpResponse.IsValid())
+		{
+			UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent\n%s"), *HttpResponse->GetContentAsString());
+		}
+		else
+		{
+			UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent"));
+		}
 
 		// Refresh token might have been expired
 		YoutubeAccessToken.Empty();

@@ -164,7 +164,7 @@ public:
 	virtual bool CloseWindow(TSharedPtr<SUTWindowBase> WindowToClose);
 	virtual void WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed);
 
-	virtual TSharedPtr<class SUTDialogBase> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0,0.0f));
+	virtual TSharedPtr<class SUTDialogBase> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0, 0.0f));
 	virtual TSharedPtr<class SUTDialogBase> ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback = FDialogResultDelegate());
 
 	/** utilities for opening and closing dialogs */
@@ -176,7 +176,7 @@ public:
 	TSharedPtr<class SUTCreditsPanel> GetCreditsPanel();
 
 	UFUNCTION()
-	virtual void ChangeStatsViewerTarget(FString InStatsID);
+		virtual void ChangeStatsViewerTarget(FString InStatsID);
 
 	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
@@ -194,26 +194,26 @@ public:
 	virtual void SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color, bool bMyChat, uint8 TeamNum);
 
 	UPROPERTY(Config)
-	FString TutorialLaunchParams;
+		FString TutorialLaunchParams;
 
 	UPROPERTY(Config)
-	bool bFragCenterAutoPlay;
+		bool bFragCenterAutoPlay;
 
 	UPROPERTY(Config)
-	bool bFragCenterAutoMute;
+		bool bFragCenterAutoMute;
 
 	UPROPERTY(config)
-	FString YoutubeAccessToken;
+		FString YoutubeAccessToken;
 
 	UPROPERTY(config)
-	FString YoutubeRefreshToken;
+		FString YoutubeRefreshToken;
 
 protected:
 
 #if !UE_SERVER
 	TSharedPtr<class SUTMenuBase> DesktopSlateWidget;
 	TSharedPtr<class SUTSpectatorWindow> SpectatorWidget;
-	
+
 	// Holds a persistent reference to the server browser.
 	TSharedPtr<class SUTServerBrowserPanel> ServerBrowserWidget;
 
@@ -244,10 +244,10 @@ public:
 
 	// Last text entered in Connect To IP
 	UPROPERTY(config)
-	FString LastConnectToIP;
+		FString LastConnectToIP;
 
 	UPROPERTY(config)
-	uint32 bNoMidGameMenu:1;
+		uint32 bNoMidGameMenu : 1;
 
 	/** returns path for player's cosmetic item
 	 * profile settings takes priority over .ini
@@ -274,7 +274,7 @@ public:
 	virtual FString GetDefaultURLOption(const TCHAR* Key) const;
 	virtual void SetDefaultURLOption(const FString& Key, const FString& Value);
 
-// ONLINE ------
+	// ONLINE ------
 
 	// Called after creation on non-default objects to setup the online Subsystem
 	virtual void InitializeOnlineSubsystem();
@@ -285,7 +285,7 @@ public:
 	virtual FString GetOnlinePlayerNickname();
 
 	/**
-	 *	Login to the Epic online serivces. 
+	 *	Login to the Epic online serivces.
 	 *
 	 *  EpicID = the ID to login with.  Right now it's the's players UT forum id
 	 *  Auth = is the auth-token or password to login with
@@ -293,11 +293,11 @@ public:
 	 *  bSilentlyFail = If true, failure to login will not trigger a request for auth
 	 *
 	 **/
-	virtual void LoginOnline(FString EpicID, FString Auth, bool bIsRememberToken=false, bool bSilentlyFail=false);
+	virtual void LoginOnline(FString EpicID, FString Auth, bool bIsRememberToken = false, bool bSilentlyFail = false);
 
 	// Log this local player out
 	virtual void Logout();
-	
+
 	/**
 	 *	Gives a call back to an object looking to know when a player's status changed.
 	 **/
@@ -332,15 +332,15 @@ protected:
 
 	// Holds the local copy of the player nickname.
 	UPROPERTY(config)
-	FString PlayerNickname;
+		FString PlayerNickname;
 
 	// What is the Epic ID associated with this player.
 	UPROPERTY(config)
-	FString LastEpicIDLogin;
-	
+		FString LastEpicIDLogin;
+
 	// The RememberMe Token for this player. 
 	UPROPERTY(config)
-	FString LastEpicRememberMeToken;
+		FString LastEpicRememberMeToken;
 
 	// Called to insure the OSS is cleaned up properly
 	virtual void CleanUpOnlineSubSystyem();
@@ -356,7 +356,7 @@ protected:
 	double LastProfileCloudWriteTime;
 	double ProfileCloudWriteCooldownTime;
 	FTimerHandle ProfileWriteTimerHandle;
-	
+
 	// Hopefully the only magic number needed for profile versions, but being safe
 	uint32 CloudProfileMagicNumberVersion1;
 
@@ -372,7 +372,7 @@ public:
 	virtual void GetAuth(FString ErrorMessage = TEXT(""));
 
 private:
-	
+
 	// Holds the Username of the pending user.  It's set in LoginOnline and cleared when there is a successful connection
 	FString PendingLoginUserName;
 
@@ -388,7 +388,7 @@ private:
 	IOnlineTitleFilePtr OnlineTitleFileInterface;
 
 	// Our delegate references....
-	FDelegateHandle OnLoginCompleteDelegate;		
+	FDelegateHandle OnLoginCompleteDelegate;
 	FDelegateHandle OnLoginStatusChangedDelegate;
 	FDelegateHandle OnLogoutCompleteDelegate;
 
@@ -401,13 +401,13 @@ private:
 	FDelegateHandle OnEndSessionCompleteDelegate;
 	FDelegateHandle OnDestroySessionCompleteDelegate;
 	FDelegateHandle OnFindFriendSessionCompleteDelegate;
-	
+
 	FDelegateHandle OnReadTitleFileCompleteDelegate;
 
 public:
 	virtual void LoadProfileSettings();
 	UFUNCTION()
-	virtual void SaveProfileSettings();
+		virtual void SaveProfileSettings();
 	virtual void ClearProfileSettings();
 
 	virtual UUTProfileSettings* GetProfileSettings() { return CurrentProfileSettings; };
@@ -418,19 +418,19 @@ public:
 
 	virtual void LoadProgression();
 	UFUNCTION()
-	virtual void SaveProgression();
+		virtual void SaveProgression();
 	virtual UUTProgressionStorage* GetProgressionStorage() { return CurrentProgression; }
 
 protected:
 
 	// Holds the current profile settings.  
 	UPROPERTY()
-	UUTProfileSettings* CurrentProfileSettings;
+		UUTProfileSettings* CurrentProfileSettings;
 
 	UPROPERTY()
-	UUTProgressionStorage* CurrentProgression;
+		UUTProgressionStorage* CurrentProgression;
 
-	virtual FString GetProfileFilename();	
+	virtual FString GetProfileFilename();
 	virtual FString GetProgressionFilename();
 	virtual void ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
@@ -451,7 +451,7 @@ public:
 	// NOTE: These functions are for getting the user's ELO rating from the cloud.  This
 	// is temp code and will be changed so don't rely on it staying as is.
 private:
-	
+
 	int32 TDM_ELO;	// The Player's current TDM ELO rank
 	int32 DUEL_ELO;	// The Player's current Duel ELO rank
 	int32 FFA_ELO;	// The Player's current FFA ELO rank
@@ -472,20 +472,25 @@ public:
 
 	// Returns the filename for stats.
 	static FString GetStatsFilename() { return TEXT("stats.json"); }
-	
+
 	// Returns the base ELO Rank with any type of processing we need.
 	virtual int32 GetBaseELORank();
 
-	// Limit displayed Rank to 400 + 50 * number of matches played
-	inline virtual int32 GetRankTDM() { return FMath::Min(TDM_ELO, int32(400.f + 50.f * TDMMatchesPlayed)); }
-	inline virtual int32 GetRankDuel() { return FMath::Min(DUEL_ELO, int32(400.f + 50.f * DuelMatchesPlayed)); }
-	inline virtual int32 GetRankDM() { return  FMath::Min(FFA_ELO, int32(400.f + 50.f * FFAMatchesPlayed)); }
-	inline virtual int32 GetRankCTF() { return FMath::Min(CTF_ELO, int32(400.f + 50.f * CTFMatchesPlayed)); }
-	inline virtual int32 GetRankShowdown() { return FMath::Min(Showdown_ELO, int32(400.f + 50.f * ShowdownMatchesPlayed)); }
+	inline virtual int32 GetRankTDM() { return TDM_ELO; }
+	inline virtual int32 GetRankDuel() { return DUEL_ELO; }
+	inline virtual int32 GetRankDM() { return FFA_ELO; }
+	inline virtual int32 GetRankCTF() { return CTF_ELO; }
+	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
+
+	virtual bool DuelEloValid() { return DuelMatchesPlayed > 10; }
+	virtual bool CTFEloValid() { return CTFMatchesPlayed > 10; }
+	virtual bool TDMEloValid() { return TDMMatchesPlayed > 10; }
+	virtual bool DMEloValid() { return FFAMatchesPlayed > 10; }
+	virtual bool ShowdownEloValid() { return ShowdownMatchesPlayed > 10; }
 
 	// Returns what badge should represent player's skill level.
 	UFUNCTION(BlueprintCallable, Category = Badge)
-	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
+		static void GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
 	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam = -1, FString InstanceId=TEXT(""));

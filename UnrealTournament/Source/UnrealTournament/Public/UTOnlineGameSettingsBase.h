@@ -30,7 +30,7 @@
 class UNREALTOURNAMENT_API FUTOnlineGameSettingsBase : public FOnlineSessionSettings
 {
 public:
-	FUTOnlineGameSettingsBase(bool bIsLanGame = false, bool bIsPresense = false, int32 MaxNumberPlayers = 32);
+	FUTOnlineGameSettingsBase(bool bIsLanGame = false, bool bIsPresense = false, bool bPrivate = false, int32 MaxNumberPlayers = 32);
 	virtual ~FUTOnlineGameSettingsBase(){}
 
 	virtual void ApplyGameSettings(AUTBaseGameMode* CurrentGame);

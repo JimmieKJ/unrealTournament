@@ -530,6 +530,7 @@ void AUTGameMode::PreLogin(const FString& Options, const FString& Address, const
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
+
 	if (ErrorMessage.IsEmpty())
 	{
 		// broadcast incoming player's character choices for preloading
@@ -2884,7 +2885,8 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
 			if (PlayerState && !PlayerState->bIsDemoRecording)
 			{
-				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, GetEloFor(PlayerState), PlayerState->Avatar);
+				bool bEloIsValid = false;
+				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, GetEloFor(PlayerState, bEloIsValid), PlayerState->Avatar);
 			}
 		}
 	}
@@ -2999,7 +3001,8 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 		{
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, GetEloFor(PS), PS->Avatar);
+			bool bEloIsValid = false;
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, GetEloFor(PS, bEloIsValid), PS->Avatar);
 		}
 	}
 }
@@ -3515,7 +3518,8 @@ void AUTGameMode::UpdateLobbyPlayerList()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 			{
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, GetEloFor(PS), PS->Avatar);
+				bool bEloIsValid = false;
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, GetEloFor(PS, bEloIsValid), PS->Avatar);
 			}
 		}
 	}
@@ -3546,13 +3550,17 @@ void AUTGameMode::UpdatePlayersPresence()
 {
 	bool bAllowJoin = (NumPlayers < GameSession->MaxPlayers);
 	UE_LOG(UT,Verbose,TEXT("AllowJoin: %i %i %i"), bAllowJoin, NumPlayers, GameSession->MaxPlayers);
+
+	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+	bool bNoJoinInProgress = UTGameSession ? UTGameSession->bNoJoinInProgress : false;
+
 	FString PresenceString = FText::Format(NSLOCTEXT("UTGameMode","PlayingPresenceFormatStr","Playing {0} on {1}"), DisplayName, FText::FromString(*GetWorld()->GetMapName())).ToString();
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
 		if (Controller)
 		{
-			Controller->ClientSetPresence(PresenceString, bAllowJoin, bAllowJoin, bAllowJoin, false);
+			Controller->ClientSetPresence(PresenceString, !bPrivateMatch, !bNoJoinInProgress, !bPrivateMatch, false);
 		}
 	}
 }
@@ -4218,16 +4226,43 @@ void AUTGameMode::GetGood()
 #endif
 }
 
-int32 AUTGameMode::GetEloFor(AUTPlayerState* PS) const
+int32 AUTGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 {
 	if (!PS)
 	{
+		bEloIsValid = false;
 		return 1400;
 	}
 
-	// return highest non-CTF Elo
-	int32 MaxElo = FMath::Max(PS->DuelRank, PS->TDMRank);
-	MaxElo = FMath::Max(MaxElo, PS->ShowdownRank);
-	MaxElo = FMath::Max(MaxElo, PS->DMRank);
+	bEloIsValid = PS ? PS->bDMEloValid : false;
+	int32 MaxElo = 0;
+	bool bHasValidElo = PS->bDMEloValid || PS->bTDMEloValid || PS->bShowdownEloValid || PS->bDuelEloValid;
+	if (bHasValidElo)
+	{
+		//only consider valid Elos
+		if (PS->bDuelEloValid)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->DuelRank);
+		}
+		if (PS->bShowdownEloValid)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->ShowdownRank);
+		}
+		if (PS->bTDMEloValid)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->TDMRank);
+		}
+		if (PS->bDMEloValid)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->DMRank);
+		}
+	}
+	else
+	{
+		// return highest non-CTF Elo
+		MaxElo = FMath::Max(PS->DuelRank, PS->TDMRank);
+		MaxElo = FMath::Max(MaxElo, PS->ShowdownRank);
+		MaxElo = FMath::Max(MaxElo, PS->DMRank);
+	}
 	return MaxElo;
 }

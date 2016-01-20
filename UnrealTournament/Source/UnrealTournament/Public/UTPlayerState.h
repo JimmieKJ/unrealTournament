@@ -663,6 +663,17 @@ public:
 	int32 DMRank;
 	UPROPERTY(Replicated)
 	int32 ShowdownRank;
+	
+	UPROPERTY(Replicated)
+		bool bDuelEloValid;
+	UPROPERTY(Replicated)
+		bool bCTFEloValid;
+	UPROPERTY(Replicated)
+		bool bTDMEloValid;
+	UPROPERTY(Replicated)
+		bool bDMEloValid;
+	UPROPERTY(Replicated)
+		bool bShowdownEloValid;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;
@@ -688,12 +699,12 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage(int32 EloRating, bool bSmall = false) const;
-	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating) const;
+	const FSlateBrush* GetELOBadgeImage(int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
+	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();
-	TSharedRef<SWidget> BuildRank(FText RankName, int32 Rank);
+	TSharedRef<SWidget> BuildRank(FText RankName, int32 Rank, bool bEloIsValid);
 	void EpicIDClicked();
 #endif
 

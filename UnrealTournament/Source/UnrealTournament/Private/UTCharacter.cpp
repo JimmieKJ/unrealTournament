@@ -2882,11 +2882,13 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 }
 
 static AUTWeapon* SavedWeapon = NULL;
+static bool bSavedIsSwitchingWeapon = false;
 void AUTCharacter::PreNetReceive()
 {
 	Super::PreNetReceive();
 
 	SavedWeapon = Weapon;
+	bSavedIsSwitchingWeapon = bIsSwitchingWeapon;
 }
 void AUTCharacter::PostNetReceive()
 {
@@ -2902,6 +2904,15 @@ void AUTCharacter::PostNetReceive()
 	if (Weapon != NULL && Weapon->GetUTOwner() == this && !Weapon->Mesh->IsAttachedTo(CharacterCameraComponent) && Weapon->ShouldPlay1PVisuals())
 	{
 		Weapon->AttachToOwner();
+		// play weapon switch anim from here for 1P spectators
+		if (Controller == NULL && (bIsSwitchingWeapon || bSavedIsSwitchingWeapon))
+		{
+			Weapon->PlayWeaponAnim(Weapon->BringUpAnim, Weapon->BringUpAnimHands);
+		}
+	}
+	else if (Weapon != NULL && Controller == NULL && bIsSwitchingWeapon && !bSavedIsSwitchingWeapon)
+	{
+		Weapon->PlayWeaponAnim(Weapon->PutDownAnim, Weapon->PutDownAnimHands);
 	}
 }
 

@@ -422,7 +422,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		FText Kick = FText::Format(NSLOCTEXT("Common", "PercFormat", "{0}%"), FText::AsNumber(PlayerState->KickPercent));
 		DrawText(Kick, XOffset + 0.01f*Width, YOffset + ColumnY + 0.33f*SmallYL, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 	}
-	else if (!PlayerState->bIsABot)
+	else
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
 		if (LP)
@@ -432,8 +432,9 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 			if (DefaultGame)
 			{
-				int32 EloRating = DefaultGame->GetEloFor(PlayerState);
-				UUTLocalPlayer::GetBadgeFromELO(EloRating, Badge, Level);
+				bool bEloIsValid = false;
+				int32 EloRating = DefaultGame->GetEloFor(PlayerState, bEloIsValid);
+				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
 				Badge = FMath::Clamp<int32>(Badge, 0, 3);
 				Level = FMath::Clamp<int32>(Level, 0, 8);
 				float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;

@@ -138,9 +138,7 @@ AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner_Implementation(bool& bTied)
 			}
 		}
 	}
-
 	return BestPlayer;
-
 }
 
 void AUTTeamDMGameMode::UpdateSkillRating()
@@ -164,7 +162,8 @@ void AUTTeamDMGameMode::UpdateSkillRating()
 	}
 }
 
-int32 AUTTeamDMGameMode::GetEloFor(AUTPlayerState* PS) const
+int32 AUTTeamDMGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 {
-	return PS ? PS->TDMRank : Super::GetEloFor(PS);
+	bEloIsValid = PS ? PS->bShowdownEloValid : false;
+	return PS ? PS->TDMRank : Super::GetEloFor(PS, bEloIsValid);
 }

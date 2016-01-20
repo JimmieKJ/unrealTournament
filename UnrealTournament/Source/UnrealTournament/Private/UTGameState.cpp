@@ -1650,7 +1650,8 @@ void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
 				{
 					AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerArray[i]);
 					AUTGameMode* DefaultGame = GameModeClass ? GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-					int32 Rank = UTPlayerState && DefaultGame ? DefaultGame->GetEloFor(UTPlayerState) : 0;
+					bool bIsValidElo = false;
+					int32 Rank = UTPlayerState && DefaultGame ? DefaultGame->GetEloFor(UTPlayerState, bIsValidElo) : 0;
 					FString PlayerIP = PlayerController->GetPlayerNetworkAddress();
 					FRconPlayerData PlayerInfo(PlayerArray[i]->PlayerName, PlayerID, PlayerIP, Rank);
 					PlayerList.Add( PlayerInfo );

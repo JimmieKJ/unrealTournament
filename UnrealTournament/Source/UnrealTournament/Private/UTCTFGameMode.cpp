@@ -464,9 +464,10 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 	}
 }
 
-int32 AUTCTFGameMode::GetEloFor(AUTPlayerState* PS) const
+int32 AUTCTFGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 {
-	return PS ? PS->CTFRank : Super::GetEloFor(PS);
+	bEloIsValid = PS ? PS->bCTFEloValid : false;
+	return PS ? PS->CTFRank : Super::GetEloFor(PS, bEloIsValid);
 }
 
 void AUTCTFGameMode::GetGood()
