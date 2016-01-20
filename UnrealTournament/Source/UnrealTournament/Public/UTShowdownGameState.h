@@ -31,7 +31,7 @@ class UNREALTOURNAMENT_API AUTShowdownGameState : public AUTGameState
 	bool bActivateXRayVision;
 
 	/** True once match has been in progress. */
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadOnly, Replicated)
 		bool bMatchHasStarted;
 	
 	bool IsAllowedSpawnPoint_Implementation(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const override;
