@@ -102,7 +102,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	else
 	{
 		AUTWeapon* CurrentWeapon = UTCharacterOwner->GetWeapon();
-
 		if ((!CurrentWeapon || CurrentWeapon->IsUnEquipping()) && !WeaponNameText.Text.EqualTo(SelectedWeapon->DisplayName))
 		{
 			WeaponNameText.Text = SelectedWeapon->DisplayName;
@@ -297,7 +296,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		bool bRealScaling = bScaleByDesignedResolution;
 		bScaleByDesignedResolution = false;
 		Opacity = 1.f;
-		DrawText(WeaponNameText.Text, Canvas->ClipX * 0.5f - RenderPosition.X, Canvas->ClipY * 0.8f - RenderPosition.Y, WeaponNameText.Font, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.f, WeaponNameText.RenderOpacity, WeaponNameText.RenderColor, ETextHorzPos::Center, ETextVertPos::Top);
+		DrawText(WeaponNameText.Text, Canvas->ClipX * 0.5f - RenderPosition.X, Canvas->ClipY * 0.83f - RenderPosition.Y, WeaponNameText.Font, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.f, WeaponNameText.RenderOpacity, WeaponNameText.RenderColor, ETextHorzPos::Center, ETextVertPos::Top);
 		bScaleByDesignedResolution = bRealScaling;
 	}
 
