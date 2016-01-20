@@ -52,7 +52,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CharacterData = DefaultCharContentRef.Object;
 
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(45.5f, 106.0f);
+	GetCapsuleComponent()->InitCapsuleSize(45.5f, 108.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
@@ -79,9 +79,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
 	GetMesh()->bReceivesDecals = false;
 	GetMesh()->bLightAttachmentsAsGroup = true;
-	GetMesh()->SetRelativeScale3D(FVector(1.15f));
 	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
-
 	HealthMax = 100;
 	SuperHealthMax = 199;
 	DamageScaling = 1.0f;
