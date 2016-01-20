@@ -638,7 +638,7 @@ void AUTCharacter::OnRepHeadArmorFlashCount()
 		PSC->SetTemplate(HeadArmorHitEffect);
 		PSC->bOverrideLODMethod = false;
 		PSC->RegisterComponent();
-		PSC->AttachTo(GetMesh(), HeadBone);
+		PSC->AttachTo(GetMesh(), NAME_HatSocket);
 		PSC->ActivateSystem(true);
 	}
 }
@@ -3764,7 +3764,7 @@ AUTPlayerController* AUTCharacter::GetLocalViewer()
 void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 	if (HeadScale < 0.1f)
 	{
 		GetMesh()->ClothBlendWeight = 0.0f;
