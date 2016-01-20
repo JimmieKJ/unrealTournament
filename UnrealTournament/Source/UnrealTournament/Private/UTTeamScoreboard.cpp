@@ -336,7 +336,7 @@ void UUTTeamScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, flo
 	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ScoreColumn*ScoreWidth - IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[1].X, UTHUDOwner->TeamIconUV[1].Y, 72, 72, 1.f, UTGameState->Teams[1]->TeamColor);
 	Canvas->DrawText(UTHUDOwner->LargeFont, FText::AsNumber(UTGameState->Teams[0]->Score), XOffset + ValueColumn*ScoreWidth, YPos - 0.5f * MedYL, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	Canvas->DrawText(UTHUDOwner->LargeFont, FText::AsNumber(UTGameState->Teams[1]->Score), XOffset + ScoreColumn*ScoreWidth, YPos - 0.5f * MedYL, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	YPos += 2.f * MedYL;
+	YPos += 1.5f * MedYL;
 	DrawTeamStats(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
 }
 
