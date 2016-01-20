@@ -4979,6 +4979,9 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 				}
 				else if (IsLocallyControlled() && FirstPersonMesh)
 				{
+					// Don't freeze movement or go to 3rd person camera
+					UTCharacterMovement->bIsTaunting = false;
+
 					FirstPersonMesh->bPauseAnims = false;
 					FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 
