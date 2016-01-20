@@ -10,13 +10,14 @@
 class UNREALTOURNAMENT_API SUTDownloadAllDialog : public SUTDialogBase
 {
 	SLATE_BEGIN_ARGS(SUTDownloadAllDialog)
-	: _DialogTitle(NSLOCTEXT("SUTDownloadAllDialog", "Title", "DOWNLOADING ALL CONTENT...."))
+	: _DialogTitle(NSLOCTEXT("SUTDownloadAllDialog", "Title", "DOWNLOADING CONTENT...."))
 	, _DialogSize(FVector2D(1000,300))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
 	, _ButtonMask(UTDIALOG_BUTTON_CLOSE)
+	, _bTransitionWhenDone(false)
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
 	SLATE_ARGUMENT(FText, DialogTitle)											
@@ -26,6 +27,7 @@ class UNREALTOURNAMENT_API SUTDownloadAllDialog : public SUTDialogBase
 	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)								
 	SLATE_ARGUMENT(FVector2D, ContentPadding)
 	SLATE_ARGUMENT(uint16, ButtonMask)
+	SLATE_ARGUMENT(bool, bTransitionWhenDone)
 
 	SLATE_END_ARGS()
 
@@ -43,8 +45,9 @@ protected:
 	FText GetNumFilesLeft() const;
 	bool bActive;
 	bool bDone;
+	bool bTransitionWhenDone;
 	FText GetFilename() const;
-
+	FReply OnButtonClick(uint16 ButtonID);
 };
 
 #endif

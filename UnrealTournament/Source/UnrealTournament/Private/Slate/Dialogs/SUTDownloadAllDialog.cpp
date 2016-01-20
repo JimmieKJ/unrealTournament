@@ -5,11 +5,13 @@
 #include "SUTDownloadAllDialog.h"
 #include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
+#include "UTLobbyPlayerState.h"
 
 #if !UE_SERVER
 
 void SUTDownloadAllDialog::Construct(const FArguments& InArgs)
 {
+	bTransitionWhenDone = InArgs._bTransitionWhenDone;
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
 							.DialogTitle(InArgs._DialogTitle)
@@ -27,10 +29,21 @@ void SUTDownloadAllDialog::Construct(const FArguments& InArgs)
 
 	if (DialogContent.IsValid())
 	{
+
 		DialogContent->AddSlot()
 		[
 			SAssignNew(MessageBox,SVerticalBox)
-			+SVerticalBox::Slot()
+		];
+
+
+		// If we are already downloading content, then we 
+		if (InArgs._bTransitionWhenDone || PlayerOwner->IsDownloadInProgress())
+		{
+			Start();
+		}
+		else
+		{
+			MessageBox->AddSlot()
 			.FillHeight(1.0)
 			.HAlign(HAlign_Center)
 			.VAlign(VAlign_Center)
@@ -43,8 +56,9 @@ void SUTDownloadAllDialog::Construct(const FArguments& InArgs)
 					.Text(NSLOCTEXT("SUTDownloadAllDialog","ReceivingList","Receiving Content list..."))
 					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 				]
-			]
-		];
+			];
+		}
+
 	}
 }
 
@@ -139,6 +153,17 @@ void SUTDownloadAllDialog::Start()
 
 void SUTDownloadAllDialog::Done()
 {
+
+	if (bTransitionWhenDone)
+	{
+		AUTBasePlayerController* BasePC =  Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
+		if (BasePC)
+		{
+			BasePC->StartGUIDJoin();
+			PlayerOwner->CloseDialog(SharedThis(this));
+		}
+	}
+
 	MessageBox->ClearChildren();
 	MessageBox->AddSlot()
 	.FillHeight(1.0)
@@ -169,5 +194,21 @@ TOptional<float> SUTDownloadAllDialog::GetProgress() const
 {
 	return PlayerOwner.IsValid() ? PlayerOwner->Download_Percentage : 0;
 }
+
+FReply SUTDownloadAllDialog::OnButtonClick(uint16 ButtonID)
+{
+	if (bTransitionWhenDone)
+	{
+		// We are in a match that launched but canceled the download so we need to leave the match
+		AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		if (PlayerState)
+		{
+			PlayerState->ServerDestroyOrLeaveMatch();
+		}
+	}
+
+	return SUTDialogBase::OnButtonClick(ButtonID);
+}
+
 
 #endif

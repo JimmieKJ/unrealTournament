@@ -811,7 +811,10 @@ public:
 	void DownloadAll();
 	void CloseDownloadAll();
 
+	bool ShowDownloadDialog(bool bTransitionWhenDone);
+
 protected:
+
 
 #if !UE_SERVER
 	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;

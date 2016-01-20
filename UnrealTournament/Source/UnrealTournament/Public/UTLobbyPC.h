@@ -82,6 +82,7 @@ protected:
 	void DownloadAllContent();
 
 	int32 RedirectCount;
+public:
 	TArray<FPackageRedirectReference> AllRedirects;
 
 #if !UE_SERVER

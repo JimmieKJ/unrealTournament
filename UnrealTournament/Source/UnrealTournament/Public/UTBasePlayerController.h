@@ -138,11 +138,15 @@ protected:
 	int32 GUIDJoinAttemptCount;
 	int32 GUIDJoinDesiredTeam;
 
+public:
 	void StartGUIDJoin();
+
+protected:
 	void AttemptGUIDJoin();
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnCancelGUIDFindSessionComplete(bool bWasSuccessful);
 
+	//FIXME JOE - I think we can remove this but I have to search to make sure noone else is using it
 	FContentDownloadComplete OnDownloadComleteDelgate;
 	FDelegateHandle OnDownloadCompleteDelegateHandle;
 	virtual void OnDownloadComplete(class UUTGameViewportClient* ViewportClient, ERedirectStatus::Type RedirectStatus, const FString& PackageName);
