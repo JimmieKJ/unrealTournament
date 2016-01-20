@@ -52,7 +52,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CharacterData = DefaultCharContentRef.Object;
 
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(45.5f, 106.0f);
+	GetCapsuleComponent()->InitCapsuleSize(45.5f, 108.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
@@ -79,9 +79,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
 	GetMesh()->bReceivesDecals = false;
 	GetMesh()->bLightAttachmentsAsGroup = true;
-	GetMesh()->SetRelativeScale3D(FVector(1.15f));
 	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
-
 	HealthMax = 100;
 	SuperHealthMax = 199;
 	DamageScaling = 1.0f;
@@ -640,7 +638,7 @@ void AUTCharacter::OnRepHeadArmorFlashCount()
 		PSC->SetTemplate(HeadArmorHitEffect);
 		PSC->bOverrideLODMethod = false;
 		PSC->RegisterComponent();
-		PSC->AttachTo(GetMesh(), HeadBone);
+		PSC->AttachTo(GetMesh(), NAME_HatSocket);
 		PSC->ActivateSystem(true);
 	}
 }
@@ -3766,7 +3764,7 @@ AUTPlayerController* AUTCharacter::GetLocalViewer()
 void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 	if (HeadScale < 0.1f)
 	{
 		GetMesh()->ClothBlendWeight = 0.0f;
@@ -4981,6 +4979,9 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 				}
 				else if (IsLocallyControlled() && FirstPersonMesh)
 				{
+					// Don't freeze movement or go to 3rd person camera
+					UTCharacterMovement->bIsTaunting = false;
+
 					FirstPersonMesh->bPauseAnims = false;
 					FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 

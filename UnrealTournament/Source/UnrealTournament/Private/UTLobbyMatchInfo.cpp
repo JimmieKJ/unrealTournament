@@ -399,6 +399,12 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 			return;
 		}
 
+		if (NumSpectatorsInMatch() > 0 && !bSpectatable)
+		{
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "HasSpectators","There are spectators in this match.  Please remove them or enable spectating before launching."));
+			return;
+		}
+
 		AUTTeamGameMode* TeamGame = Cast<AUTTeamGameMode>(CurrentRuleset->GetDefaultGameModeObject());
 		if (TeamGame != NULL)
 		{

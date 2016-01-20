@@ -317,7 +317,8 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 D
 		UUTGameViewportClient* ViewportClient = Cast<UUTGameViewportClient>(Cast<ULocalPlayer>(Player)->ViewportClient);
 		if (ViewportClient && ViewportClient->IsDownloadInProgress())
 		{
-			OnDownloadCompleteDelegateHandle = ViewportClient->RegisterContentDownloadCompleteDelegate(FContentDownloadComplete::FDelegate::CreateUObject(this, &AUTBasePlayerController::OnDownloadComplete));
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);			
+			LP->ShowDownloadDialog(true);
 		}
 		else
 		{

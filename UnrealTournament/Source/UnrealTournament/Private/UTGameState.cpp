@@ -825,7 +825,7 @@ void AUTGameState::AddPlayerState(APlayerState* PlayerState)
 		for (int32 i = 0; i < PlayerArrayCopy.Num(); i++)
 		{
 			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(PlayerArrayCopy[i]);
-			if (OtherPS == NULL || OtherPS->SpectatingID != uint8(i + 1))
+			if (OtherPS == NULL || OtherPS->bOnlySpectator || OtherPS->SpectatingID != uint8(i + 1))
 			{
 				PS->SpectatingID = uint8(i + 1);
 				bFound = true;
@@ -850,7 +850,7 @@ void AUTGameState::CompactSpectatingIDs()
 		for (APlayerState* PS : PlayerArray)
 		{
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-			if (UTPS != NULL && UTPS->SpectatingID > 0)
+			if (UTPS != NULL && UTPS->SpectatingID > 0 && !UTPS->bOnlySpectator)
 			{
 				PlayerArrayCopy.Add(UTPS);
 			}

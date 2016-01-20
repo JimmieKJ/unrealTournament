@@ -275,14 +275,20 @@ void AUTLobbyPC::DownloadAllContent()
 		if (LocalPlayer)
 		{
 			LocalPlayer->AccquireContent(AllRedirects);
-			DownloadDialog->Start();
-			DownloadDialog.Reset();
+			if (DownloadDialog.IsValid())
+			{
+				DownloadDialog->Start();
+				DownloadDialog.Reset();
+			}
 		}
 	}
 	else
 	{
-		DownloadDialog->Done();
-		DownloadDialog.Reset();
+		if (DownloadDialog.IsValid())
+		{
+			DownloadDialog->Done();
+			DownloadDialog.Reset();
+		}
 	}
 #endif
 }

@@ -1203,7 +1203,7 @@ uint32 FCaptureAudioWorker::Run()
 	HANDLE waitArray[1] = { hWakeUp };
 	DWORD dwWaitResult;
 
-	while (!bStopCapture)
+	while (!bStopCapture && bCapturingAudio)
 	{
 		UINT32 nNextPacketSize;
 		for (HRESULT hr = AudioCaptureClient->GetNextPacketSize(&nNextPacketSize); hr == S_OK && nNextPacketSize > 0; hr = AudioCaptureClient->GetNextPacketSize(&nNextPacketSize))

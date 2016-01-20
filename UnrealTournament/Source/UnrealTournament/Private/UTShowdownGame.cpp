@@ -725,6 +725,7 @@ void AUTShowdownGame::DefaultTimer()
 				}
 				else
 				{
+					GS->bMatchHasStarted = true;
 					GS->bFinalIntermissionDelay = false;
 					SetMatchState(MatchState::InProgress);
 				}

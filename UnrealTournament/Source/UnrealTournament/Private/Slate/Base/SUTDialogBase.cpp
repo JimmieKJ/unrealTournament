@@ -227,6 +227,9 @@ TSharedRef<class SWidget> SUTDialogBase::BuildButtonBar(uint16 ButtonMask)
 
 	if ( ButtonBar.IsValid() )
 	{
+
+		AddButtonsToLeftOfButtonBar(ButtonCount);
+
 		if (ButtonMask & UTDIALOG_BUTTON_OK)		BuildButton(ButtonBar, NSLOCTEXT("SUTDialogBase","OKButton","OK"),					UTDIALOG_BUTTON_OK,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_PLAY)		BuildButton(ButtonBar, NSLOCTEXT("SUTDialogBase","PlayButton","PLAY"),				UTDIALOG_BUTTON_PLAY,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_LAN)		BuildButton(ButtonBar, NSLOCTEXT("SUTDialogBase","LanButton","START LAN GAME"),		UTDIALOG_BUTTON_LAN,ButtonCount);

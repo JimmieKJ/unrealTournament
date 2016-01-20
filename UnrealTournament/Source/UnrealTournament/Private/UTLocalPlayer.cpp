@@ -2678,7 +2678,7 @@ TSharedPtr<SUTMatchSummaryPanel> UUTLocalPlayer::GetSummaryPanel()
 }
 #endif
 
-void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
+void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target, bool bAllowLogout)
 {
 #if !UE_SERVER
 	TSharedPtr<SUTMatchSummaryPanel> MatchSummary = GetSummaryPanel();
@@ -2692,7 +2692,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 		{
 			HideMenu();
 		}
-		OpenDialog(SNew(SUTPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
+		OpenDialog(SNew(SUTPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target).bAllowLogout(bAllowLogout));
 	}
 #endif
 }
@@ -3903,23 +3903,39 @@ void UUTLocalPlayer::AdminDialogClosed()
 #endif
 }
 
+bool UUTLocalPlayer::ShowDownloadDialog(bool bTransitionWhenDone)
+{
+#if !UE_SERVER
+	if (!DownloadAllDialog.IsValid())
+	{
+		SAssignNew(DownloadAllDialog, SUTDownloadAllDialog)			
+			.PlayerOwner(this)
+			.bTransitionWhenDone(bTransitionWhenDone);
+
+		if (DownloadAllDialog.IsValid())
+		{
+			OpenDialog(DownloadAllDialog.ToSharedRef(),210);
+			return true;
+		}
+	}
+
+	return false;
+#endif
+}
+
 void UUTLocalPlayer::DownloadAll()
 {
 #if !UE_SERVER
 	AUTLobbyPC* PC = Cast<AUTLobbyPC>(PlayerController);
 	if (PC)
 	{
-		if (!DownloadAllDialog.IsValid())
-		{
-			SAssignNew(DownloadAllDialog, SUTDownloadAllDialog)			
-				.PlayerOwner(this);
+		PC->ServerSendRedirectCount();
 
-			if (DownloadAllDialog.IsValid())
-			{
-				OpenDialog(DownloadAllDialog.ToSharedRef(),210);
-			}
+		if ( ShowDownloadDialog(false) )
+		{
+			PC->GetAllRedirects(DownloadAllDialog);
 		}
-		PC->GetAllRedirects(DownloadAllDialog);
+
 	}
 #endif
 }

@@ -22,7 +22,7 @@ void AUTShowdownGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AUTShowdownGameState, IntermissionStageTime);
 	DOREPLIFETIME(AUTShowdownGameState, bStartedSpawnSelection);
 	DOREPLIFETIME(AUTShowdownGameState, bFinalIntermissionDelay);
-	
+	DOREPLIFETIME(AUTShowdownGameState, bMatchHasStarted);
 	DOREPLIFETIME(AUTShowdownGameState, bActivateXRayVision);
 }
 
@@ -80,7 +80,6 @@ void AUTShowdownGameState::OnRep_MatchState()
 	// clean up old corpses after intermission
 	if (PreviousMatchState == MatchState::MatchIntermission && MatchState == MatchState::InProgress)
 	{
-		bMatchHasStarted = true;
 		for (APlayerState* PS : PlayerArray)
 		{
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);

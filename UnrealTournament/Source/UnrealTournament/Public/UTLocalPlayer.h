@@ -611,7 +611,7 @@ public:
 	UPROPERTY(config)
 	int32 ServerPingBlockSize;
 
-	virtual void ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target);
+	virtual void ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target, bool bAllowLogout=false);
 	virtual void OnTauntPlayed(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed);
 	virtual void OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed);
 
@@ -811,7 +811,10 @@ public:
 	void DownloadAll();
 	void CloseDownloadAll();
 
+	bool ShowDownloadDialog(bool bTransitionWhenDone);
+
 protected:
+
 
 #if !UE_SERVER
 	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;

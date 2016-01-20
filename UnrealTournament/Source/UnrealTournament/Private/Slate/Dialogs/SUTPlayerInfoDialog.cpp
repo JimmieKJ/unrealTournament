@@ -24,6 +24,7 @@ void SUTPlayerInfoDialog::Construct(const FArguments& InArgs)
 {
 	FVector2D ViewportSize;
 	InArgs._PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+	bAllowLogout = InArgs._bAllowLogout;
 
 	TargetPlayerState = InArgs._TargetPlayerState;
 
@@ -142,6 +143,15 @@ void SUTPlayerInfoDialog::Construct(const FArguments& InArgs)
 	SSRQualityCVar->Set(4, ECVF_SetByCode);
 }
 
+void SUTPlayerInfoDialog::AddButtonsToLeftOfButtonBar(uint32& ButtonCount)
+{
+	if (ButtonBar.IsValid() && bAllowLogout)
+	{
+		BuildButton(ButtonBar, NSLOCTEXT("SUTPlayerInfoDialog","LogoutButton","LOG OUT"),0xFFFF, ButtonCount);
+	}
+}
+
+
 SUTPlayerInfoDialog::~SUTPlayerInfoDialog()
 {
 	// Reset Screen Space Reflection max quality, wish there was a cleaner way to reset the flags
@@ -192,6 +202,10 @@ FReply SUTPlayerInfoDialog::OnButtonClick(uint16 ButtonID)
 	if (ButtonID == UTDIALOG_BUTTON_OK) 
 	{
 		GetPlayerOwner()->CloseDialog(SharedThis(this));	
+	}
+	else if (ButtonID == 0xFFFF)
+	{
+		Logout();
 	}
 	return FReply::Handled();
 }
@@ -758,5 +772,21 @@ TSharedRef<class SWidget> SUTPlayerInfoDialog::BuildTitleBar(FText InDialogTitle
 	}
 	return SUTDialogBase::BuildTitleBar(InDialogTitle);
 }
+
+FReply SUTPlayerInfoDialog::Logout()
+{
+	PlayerOwner->ShowMessage(NSLOCTEXT("SUTPlayerInfoDialog", "SignOuttConfirmationTitle", "Sign Out?"), NSLOCTEXT("SUTPlayerInfoDialog", "SignOuttConfirmationMessage", "You are about to sign out of this account.  Doing so will return you to the main menu.  Are you sure?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTPlayerInfoDialog::SignOutConfirmationResult));
+	return FReply::Handled();
+}
+
+void SUTPlayerInfoDialog::SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		PlayerOwner->CloseDialog(SharedThis(this));
+		PlayerOwner->Logout();
+	}
+}
+
 
 #endif
