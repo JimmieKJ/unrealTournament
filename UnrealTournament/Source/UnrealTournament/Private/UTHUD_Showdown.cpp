@@ -336,9 +336,10 @@ void AUTHUD_Showdown::DrawHUD()
 					BlueDeathTime = GetWorld()->GetTimeSeconds();
 				}
 
-				float PipSize = 0.02f * Canvas->ClipX;
-				float XOffset = 0.47f * Canvas->ClipX - PipSize;
-				float YOffset = 0.09f * Canvas->ClipY;
+				float XAdjust = 0.03f * Canvas->ClipX * HUDWidgetScaleOverride;
+				float PipSize = 0.025f * Canvas->ClipX * HUDWidgetScaleOverride;
+				float XOffset = 0.5f * Canvas->ClipX - XAdjust - PipSize;
+				float YOffset = 0.09f * Canvas->ClipY * HUDWidgetScaleOverride;
 
 				Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f);
 				for (int32 i = 0; i < RedPlayerCount; i++)
@@ -354,7 +355,7 @@ void AUTHUD_Showdown::DrawHUD()
 					Canvas->DrawTile(PlayerStartIcon.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 				}
 
-				XOffset = 0.53f * Canvas->ClipX;
+				XOffset = 0.5f * Canvas->ClipX + XAdjust;
 				Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f);
 				for (int32 i = 0; i < BluePlayerCount; i++)
 				{
