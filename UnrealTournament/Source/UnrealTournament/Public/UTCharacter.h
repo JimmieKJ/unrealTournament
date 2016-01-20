@@ -583,7 +583,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	/** replicated weapon switch status (for animation). */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
-		bool bIsSwitchingWeapon;
+	bool bIsSwitchingWeapon;
 
 	/** replicated weapon firing info */
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoReplicated, Category = "Weapon")
