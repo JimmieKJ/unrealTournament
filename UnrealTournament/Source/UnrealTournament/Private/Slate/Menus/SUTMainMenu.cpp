@@ -477,7 +477,6 @@ void SUTMainMenu::RecentReplays()
 			ActivatePanel(ReplayBrowser);
 		}
 	}
-
 }
 
 FReply SUTMainMenu::OnLiveGameReplaysClick()
@@ -511,8 +510,6 @@ void SUTMainMenu::ShowLiveGameReplays()
 			ActivatePanel(ReplayBrowser);
 		}
 	}
-
-	return;
 }
 
 FReply SUTMainMenu::OnCommunityClick()
@@ -582,7 +579,6 @@ void SUTMainMenu::CheckLocalContentForLanPlay()
 						GameSettings->bShouldSuppressLanWarning,
 						FDialogResultDelegate::CreateLambda( OnDialogConfirmation ) );
 				}
-
 			}
 		}
 		
@@ -599,7 +595,6 @@ void SUTMainMenu::CheckLocalContentForLanPlay()
 			StartGame(true);
 		}
 	}
-	
 }
 
 void SUTMainMenu::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID)
@@ -610,10 +605,8 @@ void SUTMainMenu::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, u
 	}
 }
 
-
 void SUTMainMenu::StartGame(bool bLanGame)
 {
-
 	// Kill any existing Dedicated servers
 	if (PlayerOwner->DedicatedServerProcessHandle.IsValid())
 	{
@@ -644,12 +637,9 @@ void SUTMainMenu::StartGame(bool bLanGame)
 		FString GameMode;
 		FString Description;
 		TArray<FString> GameOptionsList;
-
 		int32 DesiredPlayerCount = 0;
 		int32 bTeamGame;
-
 		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptionsList, DesiredPlayerCount,bTeamGame);	
-
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *GameMode);
 		for (int32 i = 0; i < GameOptionsList.Num(); i++)
 		{
@@ -664,18 +654,13 @@ void SUTMainMenu::StartGame(bool bLanGame)
 		{
 			GameOptions += FString::Printf(TEXT("?BotFill=0?MaxPlayers=%i"), DesiredPlayerCount);
 		}
-
 	}
 	else
 	{
 		// Build the settings from the ruleset...
-
 		AUTReplicatedGameRuleset* CurrentRule = CreateGameDialog->SelectedRuleset.Get();
-	
 		StartingMap = CreateGameDialog->GetSelectedMap();
-		
 		AUTGameMode* DefaultGameMode = CurrentRule->GetDefaultGameModeObject();
-
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *CurrentRule->GameMode);
 		GameOptions += FString::Printf(TEXT("?MaxPlayers=%i"), CurrentRule->MaxPlayers);
 		GameOptions += CurrentRule->GameOptions;
@@ -683,6 +668,7 @@ void SUTMainMenu::StartGame(bool bLanGame)
 		{
 			// This match wants bots.  
 			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? CreateGameDialog->MapPlayList[0].MapInfo->OptimalTeamPlayerCount : CreateGameDialog->MapPlayList[0].MapInfo->OptimalPlayerCount;
+			OptimalPlayerCount = FMath::Min(OptimalPlayerCount, CurrentRule->MaxPlayers);
 			GameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));				
 		}
 		else
@@ -690,7 +676,6 @@ void SUTMainMenu::StartGame(bool bLanGame)
 			GameOptions += TEXT("?BotFill=0");
 		}
 	}
-
 
 	for (int32 i=0; i<AvailableGameRulesets.Num();i++)
 	{
