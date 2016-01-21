@@ -348,9 +348,15 @@ TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FT
 													SNew(STextBlock)
 													.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRank)))
 													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
-													.ColorAndOpacity(FSlateColor(FLinearColor(0.0f,0.0f,0.0f,1.0f)))
+													.ShadowOffset(FVector2D(0.0f,2.0f))
+													.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))
 												]
 											]
+										]
+										+SOverlay::Slot()
+										[
+											SNew(SImage)
+											.Image(InItem.Get(), &FTrackedMatch::GetStar)
 										]
 									]
 								]

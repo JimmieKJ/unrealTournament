@@ -1900,6 +1900,17 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeImage(int32 EloRating, bool bEloIs
 	return SUTStyle::Get().GetBrush(*BadgeStr);
 }
 
+const FSlateBrush* AUTPlayerState::GetELOStarImage(int32 EloRating, bool bEloIsValid, bool bSmall) const
+{
+	int32 Star = 0;
+
+	UUTLocalPlayer::GetStarFromELO(EloRating, bEloIsValid, Star);
+	FString StarStr = FString::Printf(TEXT("UT.RankStar.%i"), Star);
+	if (bSmall) StarStr += TEXT(".Small");
+	return SUTStyle::Get().GetBrush(*StarStr);
+}
+
+
 const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const
 {
 	int32 Badge = 0;
@@ -1952,6 +1963,12 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 						SNew(SImage)
 						.Image(GetELOBadgeNumberImage(Rank, bEloIsValid))
 					]
+					+ SOverlay::Slot()
+					[
+						SNew(SImage)
+						.Image(GetELOStarImage(Rank, bEloIsValid))
+					]
+
 				]
 			]
 		]

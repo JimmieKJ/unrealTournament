@@ -1771,6 +1771,13 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	return MaxElo;
 }
 
+void UUTLocalPlayer::GetStarFromELO(int32 EloRating, bool bEloIsValid, int32& Star)
+{
+	Star = 0;
+	// FIXME Steve - Add what you want here.
+}
+
+
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel)
 {
 	if (!bEloIsValid)
