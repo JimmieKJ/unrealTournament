@@ -18,6 +18,7 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	LastMan = FName(TEXT("RW_LMS"));
 	OverCharge = FName(TEXT("Overload"));
 	Termination = FName(TEXT("RW_Termination"));
+	AnnouncementDelay = 0.5f;
 }
 
 FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const 

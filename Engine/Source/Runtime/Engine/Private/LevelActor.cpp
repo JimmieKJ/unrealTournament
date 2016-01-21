@@ -791,7 +791,7 @@ static bool ComponentEncroachesBlockingGeometry_NoAdjustment(UWorld const* World
 			FCollisionQueryParams Params(NAME_ComponentEncroachesBlockingGeometry_NoAdjustment, false, TestActor);
 			FCollisionResponseParams ResponseParams;
 			PrimComp->InitSweepCollisionParams(Params, ResponseParams);
-			return World->OverlapAnyTestByChannel(TestWorldTransform.GetLocation(), TestWorldTransform.GetRotation(), BlockingChannel, CollisionShape, Params, ResponseParams);
+			return World->OverlapBlockingTestByChannel(TestWorldTransform.GetLocation(), TestWorldTransform.GetRotation(), BlockingChannel, CollisionShape, Params, ResponseParams);
 		}
 	}
 

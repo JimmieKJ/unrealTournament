@@ -131,6 +131,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	TArray<FVector2D> BadgeUVs;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
+	TArray<FVector2D> StarUVs;
+
 	/** number of 'pages' that can be flipped through on the scoreboard */
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	int32 NumPages;

@@ -81,6 +81,9 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	virtual UUTHUDWidget* AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass) override;
 	virtual void NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS) override;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		USoundBase* MapOpenSound;
+
 	/** sound played when teammate gets a kill. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		USoundBase* TeamKillSound;
@@ -88,6 +91,10 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	/** sound played when teammate is killed. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		USoundBase* TeamVictimSound;
+
+	/** sound played when teammate is killed. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		USoundBase* TeamLMSVictimSound;
 
 	FTimerHandle PlayTeamKillHandle;
 	FTimerHandle PlayTeamVictimHandle;

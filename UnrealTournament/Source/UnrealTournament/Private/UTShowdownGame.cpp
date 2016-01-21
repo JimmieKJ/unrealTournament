@@ -689,6 +689,7 @@ void AUTShowdownGame::DefaultTimer()
 			if (!GS->bStartedSpawnSelection)
 			{
 				GS->bStartedSpawnSelection = true;
+				GS->bStartingSpawnSelection = true;
 				GS->IntermissionStageTime = 3;
 			}
 			else

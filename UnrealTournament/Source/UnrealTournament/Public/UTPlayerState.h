@@ -700,6 +700,7 @@ public:
 #if !UE_SERVER
 public:
 	const FSlateBrush* GetELOBadgeImage(int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
+	const FSlateBrush* GetELOStarImage(int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
 	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();

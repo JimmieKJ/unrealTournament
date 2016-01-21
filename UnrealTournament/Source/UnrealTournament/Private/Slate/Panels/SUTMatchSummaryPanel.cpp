@@ -1716,10 +1716,7 @@ void SUTMatchSummaryPanel::ViewTeam(int32 NewTeam)
 	CameraShots.Empty();
 	CameraShots.Add(TeamCam);
 	SetCamShot(0);
-
 	ChangeViewingState(MatchSummaryViewState::ViewingTeam);
-
-
 	bAutoScrollTeam = true;
 	BuildInfoPanel();
 	RecreateAllPlayers(NewTeam);
@@ -2152,6 +2149,10 @@ FReply SUTMatchSummaryPanel::OnExpandViewClicked()
 	if (ViewingState == MatchSummaryViewState::ViewingSingle)
 	{
 		uint32 TeamToView = CurrentlyViewedCharacter->GetTeamNum();
+		if (TeamToView == 255)
+		{
+			TeamToView = 0;
+		}
 		ViewTeam(TeamToView);
 		ChangeViewingState(MatchSummaryViewState::ViewingTeam);
 	}
@@ -2163,8 +2164,6 @@ EVisibility SUTMatchSummaryPanel::GetTeamViewVis() const
 {
 	return (ViewingState == MatchSummaryViewState::ViewingSingle) ? EVisibility::Visible : EVisibility::Collapsed;
 }
-
-
 
 EVisibility SUTMatchSummaryPanel::GetExitViewVis() const
 {

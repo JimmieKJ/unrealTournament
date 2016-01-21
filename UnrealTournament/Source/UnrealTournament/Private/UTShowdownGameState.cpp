@@ -60,6 +60,14 @@ bool AUTShowdownGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Ch
 	}
 }
 
+void AUTShowdownGameState::OnRep_StartSpawnSelect()
+{
+	if (bStartedSpawnSelection)
+	{
+		bStartingSpawnSelection = true;
+	}
+}
+
 void AUTShowdownGameState::OnRep_XRayVision()
 {
 	if (bActivateXRayVision)

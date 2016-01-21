@@ -492,6 +492,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Badge)
 		static void GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel);
 
+	UFUNCTION(BlueprintCallable, Category = Badge)
+		static void GetStarFromELO(int32 EloRating, bool bEloIsValid, int32& StarLevel);
+
+
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
 	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam = -1, FString InstanceId=TEXT(""));
 	virtual void CancelJoinSession();

@@ -134,7 +134,25 @@ void FGenericCrashContext::SerializeContentToBuffer()
 	AddCrashProperty( TEXT( "PlatformNameIni" ), *NCachedCrashContextProperties::PlatformNameIni );
 	AddCrashProperty( TEXT( "EngineMode" ), FPlatformMisc::GetEngineMode() );
 	AddCrashProperty( TEXT( "EngineVersion" ), *FEngineVersion::Current().ToString() );
-	AddCrashProperty( TEXT( "CommandLine" ), FCommandLine::IsInitialized() ? FCommandLine::Get() : TEXT( "" ) );
+
+	FString CommandLineWithoutPassword = TEXT("");
+	if (FCommandLine::IsInitialized())
+	{
+		CommandLineWithoutPassword = FCommandLine::GetOriginal();
+		int32 PasswordStart = CommandLineWithoutPassword.Find((TEXT("-password=")));
+		if (PasswordStart != INDEX_NONE)
+		{
+			int32 PasswordEnd = CommandLineWithoutPassword.Find(TEXT(" "), ESearchCase::IgnoreCase, ESearchDir::FromStart, PasswordStart);
+			if (PasswordEnd == INDEX_NONE)
+			{
+				PasswordEnd = CommandLineWithoutPassword.Len();
+			}
+
+			CommandLineWithoutPassword.RemoveAt(PasswordStart, PasswordEnd - PasswordStart);
+		}
+	}
+	AddCrashProperty( TEXT( "CommandLine" ), *CommandLineWithoutPassword );
+
 	AddCrashProperty( TEXT( "LanguageLCID" ), FInternationalization::Get().GetCurrentCulture()->GetLCID() );
 	AddCrashProperty( TEXT( "AppDefaultLocale" ), *NCachedCrashContextProperties::DefaultLocale );
 

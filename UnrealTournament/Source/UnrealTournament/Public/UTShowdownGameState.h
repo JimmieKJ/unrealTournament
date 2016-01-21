@@ -19,8 +19,12 @@ class UNREALTOURNAMENT_API AUTShowdownGameState : public AUTGameState
 	uint8 IntermissionStageTime;
 
 	/** set during intermission after spawn selection is started */
-	UPROPERTY(BlueprintReadOnly, Replicated)
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_StartSpawnSelect)
 	bool bStartedSpawnSelection;
+
+	/** transiently true whe bStartedSpawnSelection becomes set. */
+	UPROPERTY(BlueprintReadOnly)
+		bool bStartingSpawnSelection;
 
 	/** set during final countdown before next round begins */
 	UPROPERTY(BlueprintReadOnly, Replicated)
@@ -35,6 +39,9 @@ class UNREALTOURNAMENT_API AUTShowdownGameState : public AUTGameState
 		bool bMatchHasStarted;
 	
 	bool IsAllowedSpawnPoint_Implementation(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const override;
+
+	UFUNCTION()
+		virtual void OnRep_StartSpawnSelect();
 
 	UFUNCTION()
 	virtual void OnRep_XRayVision();

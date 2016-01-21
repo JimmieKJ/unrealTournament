@@ -31,10 +31,13 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	SpawnHelpTextBG.VL = 128;
 	SpawnHelpTextBG.Texture = HelpBGTex.Object;
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
+	static ConstructorHelpers::FObjectFinder<USoundBase> MapOpen(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_MapOpen.A_MapOpen'")); 
+	MapOpenSound = MapOpen.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_SpawnSelect_Self.A_SpawnSelect_Self'")); 
 	SpawnSelectSound = PressedSelect.Object;
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSelect(TEXT("SoundCue'/Game/RestrictedAssets/Audio/UI/OtherSelect_Cue.OtherSelect_Cue'"));
+	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSelect(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_SpawnSelect_Other.A_SpawnSelect_Other'")); 
 	OtherSelectSound = OtherSelect.Object;
 
 	SpawnPreviewCapture = OI.CreateDefaultSubobject<USceneCaptureComponent2D>(this, TEXT("SpawnPreviewCapture"));
@@ -45,11 +48,12 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	LastHoveredActorChangeTime = -1000.0f;
 	bNeedOnDeckNotify = true;
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpree01.A_UI_EnemySpree01'"));
+	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_EnemyKilled.A_EnemyKilled'"));
 	TeamKillSound = OtherSpreeSoundFinder.Object;
-	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeEndedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpreeBroken01.A_UI_EnemySpreeBroken01'"));
+	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeEndedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_TeammateKilled.A_TeammateKilled'"));
 	TeamVictimSound = OtherSpreeEndedSoundFinder.Object;
-
+//	static ConstructorHelpers::FObjectFinder<USoundBase> LMSVictimSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_TeammateKilled_LMS.A_TeammateKilled_LMS'"));
+//	TeamLMSVictimSound = LMSVictimSoundFinder.Object;
 }
 
 void AUTHUD_Showdown::BeginPlay()
@@ -219,6 +223,11 @@ void AUTHUD_Showdown::DrawHUD()
 	{
 		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)
 		{
+			if (GS->bStartingSpawnSelection)
+			{
+				GS->bStartingSpawnSelection = false;
+				UTPlayerOwner->ClientPlaySound(MapOpenSound);
+			}
 			bDrewSpawnMap = true;
 			if (!bLockedLookInput)
 			{
