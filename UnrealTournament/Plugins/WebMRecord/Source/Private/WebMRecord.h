@@ -150,6 +150,7 @@ protected:
 	bool bRecording;
 	bool bCompressing;
 
+	uint64 LastFrameCounter;
 	int32 VideoWidth;
 	int32 VideoHeight;
 	uint32 VideoFrameRate;
