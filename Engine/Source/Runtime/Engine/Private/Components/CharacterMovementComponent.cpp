@@ -1216,9 +1216,9 @@ void UCharacterMovementComponent::SimulatedTick(float DeltaSeconds)
 			CharacterOwner->OnRep_ReplicatedBasedMovement();
 		}
 
-		// Avoid moving the mesh during movement, SmoothClientPosition will take care of it.
+		// Avoid moving the mesh during movement if SmoothClientPosition will take care of it.
 		// TODO: also for root motion stuff above?
-		const FScopedPreventAttachedComponentMove PreventMeshMovement(CharacterOwner->GetMesh());
+		const FScopedPreventAttachedComponentMove PreventMeshMovement(bNetworkSmoothingComplete ? nullptr : CharacterOwner->GetMesh());
 
 		if (CharacterOwner->bReplicateMovement)
 		{
