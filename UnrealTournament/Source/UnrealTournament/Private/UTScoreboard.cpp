@@ -442,13 +442,22 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 				bool bEloIsValid = false;
 				int32 EloRating = DefaultGame->GetEloFor(PlayerState, bEloIsValid);
 				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
-				UUTLocalPlayer::GetStarFromELO(EloRating, bEloIsValid, Stars);
+				UUTLocalPlayer::GetStarsFromXP(PlayerState->GetPrevXP(), Stars);
 				Badge = FMath::Clamp<int32>(Badge, 0, 3);
 				Level = FMath::Clamp<int32>(Level, 0, 8);
 				float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
-				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+
+				FLinearColor BadgeColor = FLinearColor(0.4f, 0.235f, 0.07f, 1.0f);
+				if (Badge == 1) BadgeColor = FLinearColor(0.96f, 0.96f, 0.96f, 1.0f);
+				else if (Badge == 2) BadgeColor = FLinearColor(1.0f, 0.95f, 0.42f, 1.0f);
+
+				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, BadgeColor, FVector2D(0.5f, 0.5f));
 				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
-				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, StarUVs[Level].X, StarUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+
+				if (Stars > 0 && Stars <= 5)
+				{
+					DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, StarUVs[Stars-1].X, StarUVs[Stars-1].Y, 32, 32, 1.0, FLinearColor(1.0f, 0.95f, 0.42f, 1.0f), FVector2D(0.5f, 0.5f));
+				}
 			}
 		}
 	}

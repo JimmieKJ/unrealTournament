@@ -353,11 +353,6 @@ TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FT
 												]
 											]
 										]
-										+SOverlay::Slot()
-										[
-											SNew(SImage)
-											.Image(InItem.Get(), &FTrackedMatch::GetStar)
-										]
 									]
 								]
 							]

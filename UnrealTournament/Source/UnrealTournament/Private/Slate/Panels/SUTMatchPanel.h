@@ -217,16 +217,6 @@ public:
 		return SUTStyle::Get().GetBrush(*BadgeStr);
 	}
 
-	const FSlateBrush* GetStar() const
-	{
-		int32 Star;
-		UUTLocalPlayer::GetStarFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500)), true, Star);
-		FString BadgeStr = FString::Printf(TEXT("UT.RankStar.%i"), Star);
-		return SUTStyle::Get().GetBrush(*BadgeStr);
-	}
-
-
-
 	FText GetRank()
 	{
 		int32 Badge;

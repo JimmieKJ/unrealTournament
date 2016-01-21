@@ -492,8 +492,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Badge)
 		static void GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel);
 
+	// Returns the # of stars to show based on XP value. 
 	UFUNCTION(BlueprintCallable, Category = Badge)
-		static void GetStarFromELO(int32 EloRating, bool bEloIsValid, int32& StarLevel);
+		static void GetStarsFromXP(int32 XPValue, int32& StarLevel);
 
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
