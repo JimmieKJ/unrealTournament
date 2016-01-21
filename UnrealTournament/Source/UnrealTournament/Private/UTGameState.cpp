@@ -450,6 +450,11 @@ void AUTGameState::DefaultTimer()
 				{
 					RemainingMinute = RemainingTime;
 				}
+				AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (Game && (RemainingTime < 0.8f * TimeLimit))
+				{
+					Game->bPastELOLimit = true;
+				}
 			}
 		}
 		CheckTimerMessage();

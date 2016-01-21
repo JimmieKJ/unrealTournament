@@ -926,6 +926,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->StatsData = StatsData;
 		PS->TauntClass = TauntClass;
 		PS->Taunt2Class = Taunt2Class;
+		PS->bSkipELO = bSkipELO;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);
@@ -1583,7 +1584,7 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	// Not writing stats for this player
-	if (StatManager == nullptr || StatsID.IsEmpty())
+	if (StatManager == nullptr || StatsID.IsEmpty() || bSkipELO)
 	{
 		return;
 	}
@@ -1595,7 +1596,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < ActivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent->Team != Team && !Opponent->bOnlySpectator)
+		if (Opponent->Team != Team && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
 		{
 			if (SkillRating > BotELOLimit && Opponent->bIsABot)
 			{
@@ -1611,7 +1612,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent && Opponent->Team != Team && !Opponent->bOnlySpectator)
+		if (Opponent && Opponent->Team != Team && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
 		{
 			if (SkillRating > BotELOLimit && Opponent->bIsABot)
 			{
@@ -1662,7 +1663,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	// Not writing stats for this player
-	if (StatManager == nullptr || StatsID.IsEmpty())
+	if (StatManager == nullptr || StatsID.IsEmpty() || bSkipELO)
 	{
 		return;
 	}
@@ -1675,7 +1676,7 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < ActivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent != this && !Opponent->bOnlySpectator)
+		if (Opponent != this && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
 		{
 			if (SkillRating > BotELOLimit && Opponent->bIsABot)
 			{
@@ -1700,7 +1701,7 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent && Opponent != this && !Opponent->bOnlySpectator)
+		if (Opponent && Opponent != this && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
 		{
 			if (SkillRating > BotELOLimit && Opponent->bIsABot)
 			{

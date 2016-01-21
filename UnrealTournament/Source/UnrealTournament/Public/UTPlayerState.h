@@ -366,6 +366,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	bool bNeedsAssistAnnouncement;
 
+	/** Set if player joined too late to count for ELO calculations */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		bool bSkipELO;
+
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	TArray<FWeaponSpree> WeaponSprees;
 
