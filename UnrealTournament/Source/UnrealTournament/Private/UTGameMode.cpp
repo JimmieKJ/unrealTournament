@@ -88,7 +88,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	PersonalSummaryDisplayTime = 8.f;
 	WinnerSummaryDisplayTime = 5.f;
 	IntroDisplayTime = 5.f;
-	TeamSummaryDisplayTime = 30.f;
+	TeamSummaryDisplayTime = 20.f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
 	VictoryMessageClass = UUTVictoryMessage::StaticClass();
