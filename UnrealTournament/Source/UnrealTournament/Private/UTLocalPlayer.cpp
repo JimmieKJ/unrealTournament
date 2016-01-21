@@ -3918,9 +3918,9 @@ bool UUTLocalPlayer::ShowDownloadDialog(bool bTransitionWhenDone)
 			return true;
 		}
 	}
+#endif
 
 	return false;
-#endif
 }
 
 void UUTLocalPlayer::DownloadAll()
