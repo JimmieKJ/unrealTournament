@@ -70,7 +70,21 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
     if (LinkGun && !LinkGun->FireShotOverride() && LinkGun->InstantHitInfo.IsValidIndex(LinkGun->GetCurrentFireMode()))
     {
-        const FInstantHitDamageInfo& DamageInfo = LinkGun->InstantHitInfo[LinkGun->GetCurrentFireMode()]; //Get and store reference to DamageInfo, Damage = 34, Momentum = -100000, TraceRange = 1800
+		if (GetWorld()->GetTimeSeconds() - LinkGun->LastBeamPulseTime < LinkGun->BeamPulseInterval)
+		{
+			if (LinkGun->PulseTarget && !LinkGun->PulseTarget->IsPendingKillPending())
+			{
+				LinkGun->PulseLoc = LinkGun->PulseTarget->GetActorLocation();
+				LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseTarget->GetActorLocation(), LinkGun->GetCurrentFireMode());
+			}
+			else
+			{
+				LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseLoc, LinkGun->GetCurrentFireMode());
+			}
+			return;
+		}
+
+		const FInstantHitDamageInfo& DamageInfo = LinkGun->InstantHitInfo[LinkGun->GetCurrentFireMode()]; //Get and store reference to DamageInfo, Damage = 34, Momentum = -100000, TraceRange = 1800
 		FHitResult Hit; 
 		FName RealShotsStatsName = LinkGun->ShotsStatsName;
 		LinkGun->ShotsStatsName = NAME_None;
