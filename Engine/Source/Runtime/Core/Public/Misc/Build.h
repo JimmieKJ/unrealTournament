@@ -193,7 +193,7 @@
 #elif UE_BUILD_TEST
 	#define DO_GUARD_SLOW									0
 	#define DO_CHECK										USE_CHECKS_IN_SHIPPING
-	#define STATS											0
+	#define STATS											1
 	#define ALLOW_DEBUG_FILES								1
 	#define NO_LOGGING										!USE_LOGGING_IN_SHIPPING
 #elif UE_BUILD_SHIPPING
