@@ -140,6 +140,10 @@ public:
 	UPROPERTY(AssetRegistrySearchable, EditDefaultsOnly)
 	bool bHideInUI;
 
+	/** If true, players joining past this time will not count for Elo. */
+	UPROPERTY(BlueprintReadOnly)
+		bool bPastELOLimit;
+
 	/** If true, require full set of players to be ready to start. */
 	UPROPERTY()
 		bool bRequireReady;

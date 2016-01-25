@@ -368,6 +368,7 @@ void AUTShowdownGame::CheckGameTime()
 void AUTShowdownGame::StartIntermission()
 {
 	ClearTimerUFunc(this, FName(TEXT("StartIntermission")));
+	bPastELOLimit = true;
 	if (!HasMatchEnded())
 	{
 		// if there's not enough time for a new round to work, then award victory now

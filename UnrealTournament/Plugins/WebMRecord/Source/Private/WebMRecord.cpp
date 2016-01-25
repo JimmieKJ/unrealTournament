@@ -70,6 +70,8 @@ FWebMRecord::FWebMRecord()
 	VideoTempFile = nullptr;
 
 	bWriteYUVToTempFile = true;
+
+	LastFrameCounter = 0;
 }
 
 void FWebMRecord::StartupModule()
@@ -227,6 +229,14 @@ void FWebMRecord::Tick(float DeltaTime)
 	{
 		return;
 	}
+
+	// Avoid double ticking
+	if (LastFrameCounter > 0 && LastFrameCounter == GFrameCounter)
+	{
+		return;
+	}
+
+	LastFrameCounter = GFrameCounter;
 
 	if (bRecording)
 	{

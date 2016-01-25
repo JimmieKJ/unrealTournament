@@ -67,6 +67,13 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UFUNCTION(exec)
 	virtual void DebugSetLinkGunLinks(int32 newLinks);
 
+	/** Target being link pulled. */
+	UPROPERTY()
+		AActor* PulseTarget;
+
+	/** Location of beam end for link pull attempt. */
+	UPROPERTY()
+		FVector PulseLoc;
 
 	// override to handle setting Link Bolt properties by Links.
 	virtual AUTProjectile* FireProjectile() override;

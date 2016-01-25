@@ -58,9 +58,11 @@ void SUTMenuBase::OnMenuClosed()
 
 	FSlateApplication::Get().ClearUserFocus(0);
 	FSlateApplication::Get().ClearKeyboardFocus();
-
-	PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
-	PlayerOnlineStatusChangedDelegate.Reset();
+	if (PlayerOwner.IsValid())
+	{
+		PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+		PlayerOnlineStatusChangedDelegate.Reset();
+	}
 }
 
 void SUTMenuBase::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)

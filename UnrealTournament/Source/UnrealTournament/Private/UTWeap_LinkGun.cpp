@@ -37,9 +37,9 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	LinkFlexibility = 0.64f;
 	LinkDistanceScaling = 1.5f;
 
-	BeamPulseInterval = 0.5f;
+	BeamPulseInterval = 0.7f;
 	BeamPulseMomentum = -220000.0f;
-	BeamPulseAmmoCost = 2;
+	BeamPulseAmmoCost = 8;
 
 	PerLinkDamageScalingPrimary = 1.f;
 	PerLinkDamageScalingSecondary = 1.25f;
@@ -166,12 +166,17 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		if (PulseInstigator != NULL)
 		{
-			AActor* PulseTarget = (LinkTarget != NULL) ? LinkTarget : OutHit->Actor.Get();
+			PulseTarget = (LinkTarget != NULL) ? LinkTarget : OutHit->Actor.Get();
 			if (PulseTarget != NULL)
 			{
 				// use owner to target direction instead of exactly the weapon orientation so that shooting below center doesn't cause the pull to send them over the shooter's head
 				const FVector Dir = (PulseTarget->GetActorLocation() - PulseStart).GetSafeNormal();
 				PulseTarget->TakeDamage(0.0f, FUTPointDamageEvent(0.0f, *OutHit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), PulseInstigator, this);
+				PulseLoc = PulseTarget->GetActorLocation();
+			}
+			else
+			{
+				PulseLoc = OutHit->Location;
 			}
 		}
 		if (UTOwner != NULL)
@@ -221,6 +226,14 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 		float NewScale = 1.0f + FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - LastBeamPulseTime) / 0.35f);
 		MuzzleFlash[1]->SetVectorParameter(NAME_PulseScale, FVector(NewScale, NewScale, NewScale));
 	}
+
+	if (GetWorld()->GetTimeSeconds() - LastBeamPulseTime < BeamPulseInterval)
+	{
+		const FVector SpawnLocation = GetFireStartLoc();
+		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+		const FVector FireDir = SpawnRotation.Vector();
+		PulseLoc = PulseLoc - 5.f * DeltaTime * (PulseLoc - (SpawnLocation + 80.f*FireDir));
+	}
 }
 
 bool AUTWeap_LinkGun::IsLinkValid_Implementation()
@@ -247,7 +260,6 @@ bool AUTWeap_LinkGun::IsLinkValid_Implementation()
 		// exceeded distance
 		return false;
 	}
-
 	return (FVector::DotProduct(Dir, TargetDir) > LinkFlexibility);
 }
 

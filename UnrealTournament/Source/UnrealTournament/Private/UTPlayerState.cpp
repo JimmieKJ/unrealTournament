@@ -926,6 +926,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->StatsData = StatsData;
 		PS->TauntClass = TauntClass;
 		PS->Taunt2Class = Taunt2Class;
+		PS->bSkipELO = bSkipELO;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);
@@ -1583,7 +1584,7 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	// Not writing stats for this player
-	if (StatManager == nullptr || StatsID.IsEmpty())
+	if (StatManager == nullptr || StatsID.IsEmpty() || bSkipELO)
 	{
 		return;
 	}
@@ -1595,7 +1596,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < ActivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent->Team != Team && !Opponent->bOnlySpectator)
+		if (Opponent->Team != Team && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
 		{
 			if (SkillRating > BotELOLimit && Opponent->bIsABot)
 			{
@@ -1611,7 +1612,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent && Opponent->Team != Team && !Opponent->bOnlySpectator)
+		if (Opponent && Opponent->Team != Team && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
 		{
 			if (SkillRating > BotELOLimit && Opponent->bIsABot)
 			{
@@ -1662,7 +1663,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	// Not writing stats for this player
-	if (StatManager == nullptr || StatsID.IsEmpty())
+	if (StatManager == nullptr || StatsID.IsEmpty() || bSkipELO)
 	{
 		return;
 	}
@@ -1675,7 +1676,7 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < ActivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent != this && !Opponent->bOnlySpectator)
+		if (Opponent != this && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
 		{
 			if (SkillRating > BotELOLimit && Opponent->bIsABot)
 			{
@@ -1700,7 +1701,7 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent && Opponent != this && !Opponent->bOnlySpectator)
+		if (Opponent && Opponent != this && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
 		{
 			if (SkillRating > BotELOLimit && Opponent->bIsABot)
 			{
@@ -1900,14 +1901,18 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeImage(int32 EloRating, bool bEloIs
 	return SUTStyle::Get().GetBrush(*BadgeStr);
 }
 
-const FSlateBrush* AUTPlayerState::GetELOStarImage(int32 EloRating, bool bEloIsValid, bool bSmall) const
+const FSlateBrush* AUTPlayerState::GetXPStarImage(bool bSmall) const
 {
 	int32 Star = 0;
+	UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PrevXP), Star);
+	if (Star > 0 && Star <= 5)
+	{
+		FString StarStr = FString::Printf(TEXT("UT.RankStar.%i"), Star-1);
+		if (bSmall) StarStr += TEXT(".Small");
+		return SUTStyle::Get().GetBrush(*StarStr);
+	}
 
-	UUTLocalPlayer::GetStarFromELO(EloRating, bEloIsValid, Star);
-	FString StarStr = FString::Printf(TEXT("UT.RankStar.%i"), Star);
-	if (bSmall) StarStr += TEXT(".Small");
-	return SUTStyle::Get().GetBrush(*StarStr);
+	return SUTStyle::Get().GetBrush("UT.RankStar.Empty");
 }
 
 
@@ -1924,6 +1929,11 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating, bool 
 TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool bEloIsValid)
 {
 	FText ELOText = FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScore", "     ({0})"), FText::AsNumber(Rank));
+	int32 Badge;
+	int32 Level;
+	UUTLocalPlayer::GetBadgeFromELO(Rank, bEloIsValid, Badge, Level);
+
+	FText RankNumber = FText::AsNumber(Level+1);
 
 	return SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
@@ -1950,25 +1960,30 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 			+SVerticalBox::Slot()
 			.AutoHeight()
 			[
-				SNew(SBox).WidthOverride(32).HeightOverride(32)
+				SNew(SBox).WidthOverride(48).HeightOverride(48)
 				[
 					SNew(SOverlay)
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeImage(Rank, bEloIsValid))
+						.Image(GetELOBadgeImage(Rank, bEloIsValid, true))
 					]
 					+ SOverlay::Slot()
 					[
-						SNew(SImage)
-						.Image(GetELOBadgeNumberImage(Rank, bEloIsValid))
-					]
-					+ SOverlay::Slot()
-					[
-						SNew(SImage)
-						.Image(GetELOStarImage(Rank, bEloIsValid))
-					]
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Center)
+						.VAlign(VAlign_Center)
+						.Padding(FMargin(-2.0,0.0,0.0,0.0))
+						[
+							SNew(STextBlock)
+							.Text(RankNumber)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween.Bold")
+							.ShadowOffset(FVector2D(0.0f,2.0f))
+							.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))
 
+						]
+					]
 				]
 			]
 		]
@@ -2107,8 +2122,42 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		.VAlign(VAlign_Center)
 		.AutoWidth()
 		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SBox).WidthOverride(77).HeightOverride(77)
+				[
+					SNew(SOverlay)
+					+SOverlay::Slot()
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Center)
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock)
+							.Text(FText::AsNumber(Level))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween.Bold")
+							.ShadowOffset(FVector2D(0.0f,2.0f))
+							.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))					
+						]
+					]
+					+SOverlay::Slot()
+					[
+						SNew(SImage)
+						.Image(GetXPStarImage(false))
+					]
+				]
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
 			SNew(STextBlock)
-			.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelFormat", "{0} ({1} XP Total)"), FText::AsNumber(Level), FText::AsNumber(FMath::Max(0, CurrentXP))))
+			.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelFormat", " ({0} XP Total)"), FText::AsNumber(FMath::Max(0, CurrentXP))))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 			.ColorAndOpacity(FLinearColor::Gray)
 		]

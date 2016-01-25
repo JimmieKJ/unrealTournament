@@ -366,6 +366,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	bool bNeedsAssistAnnouncement;
 
+	/** Set if player joined too late to count for ELO calculations */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		bool bSkipELO;
+
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	TArray<FWeaponSpree> WeaponSprees;
 
@@ -700,7 +704,7 @@ public:
 #if !UE_SERVER
 public:
 	const FSlateBrush* GetELOBadgeImage(int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
-	const FSlateBrush* GetELOStarImage(int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
+	const FSlateBrush* GetXPStarImage(bool bSmall = false) const;
 	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();

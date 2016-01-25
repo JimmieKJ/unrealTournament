@@ -1771,10 +1771,16 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	return MaxElo;
 }
 
-void UUTLocalPlayer::GetStarFromELO(int32 EloRating, bool bEloIsValid, int32& Star)
+void UUTLocalPlayer::GetStarsFromXP(int32 XPValue, int32& Star)
 {
-	Star = 0;
-	// FIXME Steve - Add what you want here.
+	if (XPValue > 0)
+	{
+		Star = int32( FMath::Clamp<float>((XPValue / 10.0), 0, 5));
+	}
+	else
+	{
+		Star = -1;
+	}
 }
 
 
@@ -2295,6 +2301,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
 			Context.LastURL.RemoveOption(TEXT("QuickStart"));
+			Context.LastURL.RemoveOption(TEXT("Friend"));
 			
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 

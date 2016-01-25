@@ -88,7 +88,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	PersonalSummaryDisplayTime = 8.f;
 	WinnerSummaryDisplayTime = 5.f;
 	IntroDisplayTime = 5.f;
-	TeamSummaryDisplayTime = 30.f;
+	TeamSummaryDisplayTime = 20.f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
 	VictoryMessageClass = UUTVictoryMessage::StaticClass();
@@ -650,6 +650,9 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 				PS->bCaster = true;
 				PS->bOnlySpectator = true;
 			}
+			
+			// don't consider this player for Elo calculations if he joins too late.
+			PS->bSkipELO = bPastELOLimit && Cast<AUTGameSession>(GameSession) && !((AUTGameSession *)(GameSession))->bNoJoinInProgress;
 		}
 	}
 
