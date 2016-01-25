@@ -117,6 +117,12 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bIsRconAdmin);
 	DOREPLIFETIME(AUTPlayerState, SelectionOrder);
 
+	DOREPLIFETIME(AUTPlayerState, bDuelEloValid);
+	DOREPLIFETIME(AUTPlayerState, bCTFEloValid);
+	DOREPLIFETIME(AUTPlayerState, bTDMEloValid);
+	DOREPLIFETIME(AUTPlayerState, bDMEloValid);
+	DOREPLIFETIME(AUTPlayerState, bShowdownEloValid);
+
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_None); // also used when replicating spawn choice to other players
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bChosePrimaryRespawnChoice, COND_OwnerOnly);
