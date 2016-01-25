@@ -105,6 +105,15 @@ void AUTShowdownGame::StartNewRound()
 			IUTResetInterface::Execute_Reset(*It);
 		}
 	}
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && !PS->bIsInactive && !PS->bOnlySpectator)
+		{
+			PS->SetOutOfLives(false);
+			PS->AdjustScore(100);
+		}
+	}
 
 	// respawn players
 	bAllowPlayerRespawns = true;
@@ -119,14 +128,6 @@ void AUTShowdownGame::StartNewRound()
 	bAllowPlayerRespawns = false;
 	UTGameState->SetTimeLimit(TimeLimit);
 	AnnounceMatchStart();
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS && !PS->bIsInactive && !PS->bOnlySpectator)
-		{
-			PS->AdjustScore(100);
-		}
-	}
 }
 
 bool AUTShowdownGame::CheckRelevance_Implementation(AActor* Other)
@@ -566,7 +567,6 @@ void AUTShowdownGame::HandleMatchIntermission()
 			{
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
-				PS->SetOutOfLives(false);
 				TeamPlayers.Add(PS->Team, PS);
 				// use spectating state so camera can be placed on spawn selection
 				AUTPlayerController* PC = Cast<AUTPlayerController>(C);
