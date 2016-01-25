@@ -298,10 +298,13 @@ void AUTHUD_Showdown::DrawHUD()
 			AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
 			if (OwnerPS != NULL && OwnerPS->RespawnChoiceA != NULL && PlayerOwner->GetSpectatorPawn() != NULL)
 			{
-				PlayerOwner->GetSpectatorPawn()->TeleportTo(OwnerPS->RespawnChoiceA->GetActorLocation(), OwnerPS->RespawnChoiceA->GetActorRotation(), false, true);
+				if (PlayerOwner->GetViewTarget() != PlayerOwner->GetSpectatorPawn())
+				{
+					PlayerOwner->SetViewTarget(PlayerOwner->GetSpectatorPawn());
+				}
+				bool bResult = PlayerOwner->GetSpectatorPawn()->TeleportTo(OwnerPS->RespawnChoiceA->GetActorLocation(), OwnerPS->RespawnChoiceA->GetActorRotation(), false, true);
 				PlayerOwner->SetControlRotation(OwnerPS->RespawnChoiceA->GetActorRotation());
 			}
-
 			DrawPlayerList();
 		}
 		else
