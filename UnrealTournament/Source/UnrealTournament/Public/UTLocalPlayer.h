@@ -273,6 +273,7 @@ public:
 	/** accessors for default URL options */
 	virtual FString GetDefaultURLOption(const TCHAR* Key) const;
 	virtual void SetDefaultURLOption(const FString& Key, const FString& Value);
+	virtual void ClearDefaultURLOption(const FString& Key);
 
 	// ONLINE ------
 

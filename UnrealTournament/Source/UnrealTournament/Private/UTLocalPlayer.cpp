@@ -2043,6 +2043,30 @@ void UUTLocalPlayer::SetDefaultURLOption(const FString& Key, const FString& Valu
 	DefaultURL.AddOption(*FString::Printf(TEXT("%s=%s"), *Key, *Value));
 	DefaultURL.SaveURLConfig(TEXT("DefaultPlayer"), *Key, GGameIni);
 }
+void UUTLocalPlayer::ClearDefaultURLOption(const FString& Key)
+{
+	FURL DefaultURL;
+	DefaultURL.LoadURLConfig(TEXT("DefaultPlayer"), GGameIni);
+	// doing it manually instead of RemoveOption() as the latter doesn't properly handle longer keys that have the same starting characters
+	int32 KeyLen = Key.Len();
+	for (int32 i = DefaultURL.Op.Num() - 1; i >= 0; i--)
+	{
+		if (DefaultURL.Op[i].Left(KeyLen) == Key)
+		{
+			const TCHAR* s = *DefaultURL.Op[i];
+			if (s[KeyLen - 1] == '=' || s[KeyLen] == '=' || s[KeyLen] == '\0')
+			{
+				FConfigSection* Sec = GConfig->GetSectionPrivate(TEXT("DefaultPlayer"), 0, 0, GGameIni);
+				if (Sec != NULL && Sec->Remove(*Key) > 0)
+				{
+					GConfig->Flush(0, GGameIni);
+				}
+
+				DefaultURL.Op.RemoveAt(i);
+			}
+		}
+	}
+}
 
 #if !UE_SERVER
 void UUTLocalPlayer::ShowContentLoadingMessage()
