@@ -225,6 +225,8 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 	}
 	else if (Character->IsRagdoll())
 	{
+		// check again later in case they get up
+		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTCarriedObject::CheckTouching, 0.1f, false);
 		return false;
 	}
 	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
