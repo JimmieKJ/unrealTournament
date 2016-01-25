@@ -499,6 +499,10 @@ void AUTShowdownGame::HandleMatchIntermission()
 			}
 		}
 	}
+	if ((Teams.Num() >= 2) && Teams[0] && Teams[1] && (Teams[0]->GetSize() > 1) && (Teams[1]->GetSize() > 1))
+	{
+		bFirstBloodOccurred = false;
+	}
 
 	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
 
