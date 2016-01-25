@@ -109,6 +109,45 @@ SVerticalBox::FSlot& SUTSystemSettingsDialog::AddConsoleVarSliderWidget(TSharedR
 			]
 		];
 }
+SVerticalBox::FSlot& SUTSystemSettingsDialog::AddTopLevelConsoleVarCheckboxWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label)
+{
+
+	CVarDelegates.Add(CVar);
+
+	return SVerticalBox::Slot()
+		.HAlign(HAlign_Fill)
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(650)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(Label)
+					.ToolTip(SUTUtils::CreateTooltip(CVar->GetTooltip()))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.Padding(FMargin(0.0f, 2.0f))
+				.Content()
+				[
+					SNew(SCheckBox)
+					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+					.IsChecked(CVar, &SSlateConsoleVarDelegate::GetCheckbox)
+					.OnCheckStateChanged(CVar, &SSlateConsoleVarDelegate::SetCheckbox)
+				]
+			]
+		];
+}
 
 SVerticalBox::FSlot& SUTSystemSettingsDialog::AddConsoleVarCheckboxWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label)
 {
@@ -782,6 +821,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
 		+ AddGeneralSliderWithLabelWidget(DecalLifetime, DecalLifetimeLabel, &SUTSystemSettingsDialog::OnDecalLifetimeChange, GetDecalLifetimeLabelText(DecalSliderSetting), DecalSliderSetting,
 		NSLOCTEXT("SUTSystemSettingsDialog", "DecalLifetime_Tooltip", "Controls how long decals last (like the bullet impact marks left on walls)."))
 
+		+ AddTopLevelConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.FinishCurrentFrame"))), NSLOCTEXT("SUTSystemSettingsDialog", "RenderBeforeSubmit", "Skip GPU buffering"))
 
 		// Autodetect settings button
 		+SVerticalBox::Slot()
