@@ -688,6 +688,13 @@ bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
 		}
 		FStringOutputDevice DummyOut;
 		UTHUDOwner->PlayerOwner->Player->Exec(UTHUDOwner->PlayerOwner->GetWorld(), *ClickElementStack[ElementIndex].Command, DummyOut);
+		AUTPlayerController* PC = Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner);
+		if (PC)
+		{
+			// This is a hack.  The mouse press will end up at the player controller and it will toggle this flag
+			// so we togger it here and it let it "fixed"
+			PC->bSpectatorMouseChangesView = !PC->bSpectatorMouseChangesView;
+		}
 		return false;
 	}
 	return false; 
