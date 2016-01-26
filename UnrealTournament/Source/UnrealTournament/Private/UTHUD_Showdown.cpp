@@ -391,7 +391,7 @@ void AUTHUD_Showdown::DrawHUD()
 	bDrawMinimap = bRealDrawMinimap;
 	bShowScores = bRealShowScores;
 
-	if (bNeedOnDeckNotify && GS != NULL && GS->SpawnSelector == PlayerOwner->PlayerState)
+	if (bNeedOnDeckNotify && GS != NULL && (GS->SpawnSelector == PlayerOwner->PlayerState) && (GS->SpawnSelector != nullptr))
 	{
 		bNeedOnDeckNotify = false;
 		PlayerOwner->ClientReceiveLocalizedMessage(UUTShowdownGameMessage::StaticClass(), 2, PlayerOwner->PlayerState, NULL, NULL);
