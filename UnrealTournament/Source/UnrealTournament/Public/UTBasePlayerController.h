@@ -219,4 +219,9 @@ public:
 	// If set to true, the player controller will pop up a menu as soon as it's safe
 	bool bRequestShowMenu;
 
+public:
+	UPROPERTY()
+	bool bSpectatorMouseChangesView;
+
+
 };

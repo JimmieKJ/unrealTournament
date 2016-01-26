@@ -585,12 +585,9 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 	}
 
 #if !UE_SERVER
-	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives))
+	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Pressed && bSpectatorMouseChangesView)
 	{
-		if (InputMode == EInputMode::EIM_GameAndUI && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && (EventType == EInputEvent::IE_Released))
-		{
-			SetSpectatorMouseChangesView(!bSpectatorMouseChangesView);
-		}
+		SetSpectatorMouseChangesView(false);
 	}
 #endif
 
@@ -3696,6 +3693,7 @@ void AUTPlayerController::UpdateRotation(float DeltaTime)
 				}
 			}
 		}
+
 	}
 
 	Super::UpdateRotation(DeltaTime);
@@ -4022,3 +4020,4 @@ void AUTPlayerController::UpdateCrosshairs(AUTHUD* HUD)
 		}
 	}
 }
+

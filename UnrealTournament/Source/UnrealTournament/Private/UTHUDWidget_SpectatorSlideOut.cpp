@@ -564,7 +564,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	bool bFriendlySpectator = (OwnerPS && (OwnerPS->bOnlySpectator || UTGameState->OnSameTeam(OwnerPS, PlayerState)));
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
-	if (bIsInteractive && bFriendlySpectator && UTGameState)
+	if (bIsInteractive && UTGameState)
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
@@ -684,18 +684,12 @@ bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
 		if (ClickElementStack[ElementIndex].SelectedPlayer && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == ClickElementStack[ElementIndex].SelectedPlayer->SpectatingID))
 		{
 			ToggleStats();
-			return false;
+			return true;
 		}
 		FStringOutputDevice DummyOut;
 		UTHUDOwner->PlayerOwner->Player->Exec(UTHUDOwner->PlayerOwner->GetWorld(), *ClickElementStack[ElementIndex].Command, DummyOut);
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner);
-		if (PC)
-		{
-			// This is a hack.  The mouse press will end up at the player controller and it will toggle this flag
-			// so we togger it here and it let it "fixed"
-			PC->bSpectatorMouseChangesView = !PC->bSpectatorMouseChangesView;
-		}
-		return false;
+		return true;
 	}
 	return false; 
 }
