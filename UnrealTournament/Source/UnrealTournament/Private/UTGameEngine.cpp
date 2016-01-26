@@ -352,7 +352,7 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL URL, FString& Error )
 {
 	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayerFromControllerId(WorldContext.World(),0));
-	if (UTLocalPlayer)
+	if (UTLocalPlayer != NULL)
 	{
 		UUTProfileSettings* ProfileSettings = UTLocalPlayer->GetProfileSettings();
 		if (ProfileSettings && ProfileSettings->bNeedProfileWriteOnLevelChange)
@@ -366,6 +366,11 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 			UTLocalPlayer->SaveProgression();
 		}
 
+		// clear Team from URL when leaving server (go back to no preference)
+		if (URL.IsLocalInternal())
+		{
+			UTLocalPlayer->ClearDefaultURLOption(TEXT("Team"));
+		}
 	}
 
 #if !UE_SERVER && !UE_EDITOR

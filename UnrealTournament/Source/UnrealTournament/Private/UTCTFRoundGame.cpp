@@ -24,7 +24,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GoalScore = 3;
 	TimeLimit = 0;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Capture - Round based CTF");
-
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -91,6 +90,7 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	Super::HandleExitingIntermission();
+	bFirstBloodOccurred = false;
 	CTFGameState->CTFRound++;
 }
 

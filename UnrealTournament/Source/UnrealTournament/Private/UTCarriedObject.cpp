@@ -125,9 +125,17 @@ void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* O
 	if (!bIsDropping)
 	{
 		AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
-		if (Character != NULL && !GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+		if (Character != NULL)
 		{
-			TryPickup(Character);
+			if (!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+			{
+				TryPickup(Character);
+			}
+			else
+			{
+				// it may be possible for the character to get into a valid spot without leaving our collision so keep checking until they're gone
+				GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTCarriedObject::CheckTouching, 0.1f, false);
+			}
 		}
 	}
 }
@@ -217,6 +225,8 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 	}
 	else if (Character->IsRagdoll())
 	{
+		// check again later in case they get up
+		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTCarriedObject::CheckTouching, 0.1f, false);
 		return false;
 	}
 	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
@@ -418,6 +428,15 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 	{
 		// make sure no other players are touching the flag and should cause it to change state immediately
 		Collision->UpdateOverlaps();
+		CheckTouching();
+	}
+}
+
+void AUTCarriedObject::CheckTouching()
+{
+	if (ObjectState != CarriedObjectState::Held)
+	{
+		const FName PrevState = ObjectState;
 		TArray<AActor*> Touching;
 		GetOverlappingActors(Touching, APawn::StaticClass());
 		for (AActor* Touched : Touching)
@@ -425,7 +444,7 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 			if (Touched != LastHoldingPawn)
 			{
 				OnOverlapBegin(Touched, Cast<UPrimitiveComponent>(Touched->GetRootComponent()), INDEX_NONE, false, FHitResult(this, Collision, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
-				if (ObjectState != CarriedObjectState::Dropped)
+				if (ObjectState != PrevState)
 				{
 					break;
 				}

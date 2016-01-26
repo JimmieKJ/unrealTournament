@@ -298,10 +298,13 @@ void AUTHUD_Showdown::DrawHUD()
 			AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
 			if (OwnerPS != NULL && OwnerPS->RespawnChoiceA != NULL && PlayerOwner->GetSpectatorPawn() != NULL)
 			{
-				PlayerOwner->GetSpectatorPawn()->TeleportTo(OwnerPS->RespawnChoiceA->GetActorLocation(), OwnerPS->RespawnChoiceA->GetActorRotation(), false, true);
+				if (PlayerOwner->GetViewTarget() != PlayerOwner->GetSpectatorPawn())
+				{
+					PlayerOwner->SetViewTarget(PlayerOwner->GetSpectatorPawn());
+				}
+				bool bResult = PlayerOwner->GetSpectatorPawn()->TeleportTo(OwnerPS->RespawnChoiceA->GetActorLocation(), OwnerPS->RespawnChoiceA->GetActorRotation(), false, true);
 				PlayerOwner->SetControlRotation(OwnerPS->RespawnChoiceA->GetActorRotation());
 			}
-
 			DrawPlayerList();
 		}
 		else
@@ -388,7 +391,7 @@ void AUTHUD_Showdown::DrawHUD()
 	bDrawMinimap = bRealDrawMinimap;
 	bShowScores = bRealShowScores;
 
-	if (bNeedOnDeckNotify && GS != NULL && GS->SpawnSelector == PlayerOwner->PlayerState)
+	if (bNeedOnDeckNotify && GS != NULL && (GS->SpawnSelector == PlayerOwner->PlayerState) && (GS->SpawnSelector != nullptr))
 	{
 		bNeedOnDeckNotify = false;
 		PlayerOwner->ClientReceiveLocalizedMessage(UUTShowdownGameMessage::StaticClass(), 2, PlayerOwner->PlayerState, NULL, NULL);

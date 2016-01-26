@@ -1142,7 +1142,7 @@ void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 
 void AUTPlayerController::ViewCamera(int32 Index)
 {
-	if (IsInState(NAME_Spectating))
+	if (IsInState(NAME_Spectating) && PlayerState->bOnlySpectator)
 	{
 		int32 CamCount = 0;
 		for (FActorIterator It(GetWorld()); It; ++It)
@@ -1323,14 +1323,14 @@ void AUTPlayerController::OnAltFire()
 	else if (GetWorld()->GetGameState() != NULL && GetWorld()->GetGameState()->HasMatchStarted() && IsInState(NAME_Spectating) )
 	{
 		PlayMenuSelectSound();
-		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) && bPlayerIsWaiting)
-		{
-			ServerRestartPlayer();
-		}
-		else
+		if (PlayerState && PlayerState->bOnlySpectator)
 		{
 			bAutoCam = false;
 			ViewSelf();
+		}
+		else if (bPlayerIsWaiting)
+		{
+			ServerRestartPlayer();
 		}
 	}
 	else
