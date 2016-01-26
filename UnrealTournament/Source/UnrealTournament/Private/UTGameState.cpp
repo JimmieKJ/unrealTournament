@@ -175,11 +175,11 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(HighlightNames::DamageAward, NSLOCTEXT("AUTGameMode", "DamageAward", "<UT.MatchSummary.HighlightText.Value>{0}</> Damage Done."));
 	HighlightMap.Add(HighlightNames::ParticipationAward, NSLOCTEXT("AUTGameMode", "ParticipationAward", "Participation Award."));
 
-	HighlightMap.Add(NAME_AmazingCombos, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
-	HighlightMap.Add(NAME_SniperHeadshotKills, NSLOCTEXT("AUTGameMode", "SniperHeadshotKills", "Headshot Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
-	HighlightMap.Add(NAME_AirRox, NSLOCTEXT("AUTGameMode", "AirRox", "Air Rocket Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
-	HighlightMap.Add(NAME_FlakShreds, NSLOCTEXT("AUTGameMode", "FlakShreds", "Flak Shred Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
-	HighlightMap.Add(NAME_AirSnot, NSLOCTEXT("AUTGameMode", "AirSnot", "Air Snot Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(NAME_AmazingCombos, NSLOCTEXT("AUTGameMode", "AmazingCombosHL", "Amazing Combos (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(NAME_SniperHeadshotKills, NSLOCTEXT("AUTGameMode", "SniperHeadshotKillsHL", "Headshot Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(NAME_AirRox, NSLOCTEXT("AUTGameMode", "AirRoxHL", "Air Rocket Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(NAME_FlakShreds, NSLOCTEXT("AUTGameMode", "FlakShredsHL", "Flak Shred Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(NAME_AirSnot, NSLOCTEXT("AUTGameMode", "AirSnotHL", "Air Snot Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_MultiKillLevel0, NSLOCTEXT("AUTGameMode", "MultiKillLevel0", "Double Kill (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_MultiKillLevel1, NSLOCTEXT("AUTGameMode", "MultiKillLevel1", "Multi Kill (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_MultiKillLevel2, NSLOCTEXT("AUTGameMode", "MultiKillLevel2", "Ultra Kill (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
