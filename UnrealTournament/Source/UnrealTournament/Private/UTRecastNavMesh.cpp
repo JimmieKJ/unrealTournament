@@ -56,7 +56,7 @@ AUTRecastNavMesh::AUTRecastNavMesh(const FObjectInitializer& ObjectInitializer)
 
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
 
-	SizeSteps.Add(FCapsuleSize(46, 106));
+	SizeSteps.Add(FCapsuleSize(46, 108));
 	SizeSteps.Add(FCapsuleSize(46, 69));
 	JumpTestThreshold2D = 2048.0f;
 	ScoutClass = AUTCharacter::StaticClass();
@@ -71,6 +71,40 @@ AUTRecastNavMesh::~AUTRecastNavMesh()
 	}
 }
 #endif
+
+void AUTRecastNavMesh::PostLoad()
+{
+	Super::PostLoad();
+
+	// work around nav data selection code that keeps breaking us
+	NavDataConfig.AgentRadius = GetClass()->GetDefaultObject<AUTRecastNavMesh>()->AgentRadius;
+	NavDataConfig.AgentHeight = GetClass()->GetDefaultObject<AUTRecastNavMesh>()->AgentHeight;
+	NavDataConfig.AgentStepHeight = GetClass()->GetDefaultObject<AUTRecastNavMesh>()->AgentMaxStepHeight;
+
+	// HACK: UNavigationSystem's preloading of nav classes doesn't work because UT module wasn't loaded yet
+	UNavigationSystem::StaticClass()->GetDefaultObject()->PostInitProperties();
+
+	PathNodes.Remove(NULL); // really shouldn't happen but no need to crash for it
+
+	// FIXME: temporary backwards compat with a last minute change
+	for (UUTPathNode* Node : PathNodes)
+	{
+		for (FUTPathLink& Path : Node->Paths)
+		{
+			if (Path.CollisionHeight == 106)
+			{
+				Path.CollisionHeight = 108;
+			}
+		}
+	}
+	for (FCapsuleSize& Size : SizeSteps)
+	{
+		if (Size.Height == 106)
+		{
+			Size.Height = 108;
+		}
+	}
+}
 
 UPrimitiveComponent* AUTRecastNavMesh::ConstructRenderingComponent()
 {
