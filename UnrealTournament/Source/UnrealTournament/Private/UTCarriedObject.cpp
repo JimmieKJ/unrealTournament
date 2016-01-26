@@ -396,19 +396,18 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 		Loc.Z -= ObjectHolder->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 		Loc.Z += Collision->GetUnscaledCapsuleHalfHeight() * 1.1f;
 		const FRotator DesiredRot = Extra.IsZero() ? FRotator::ZeroRotator : Extra.Rotation();
-		bool bSuccess = true;
-		if (!TeleportTo(Loc, DesiredRot))
+		bool bSuccess = false;
+		const float AdjustDist = ObjectHolder->GetSimpleCollisionRadius() * 0.5f;
+		const FVector TestLocs[] = { Loc, Loc + FVector(AdjustDist, 0.0f, 0.0f), Loc - FVector(AdjustDist, 0.0f, 0.0f), Loc + FVector(0.0f, AdjustDist, 0.0f), Loc - FVector(0.0f, AdjustDist, 0.0f) };
+		for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
 		{
-			const float AdjustDist = ObjectHolder->GetSimpleCollisionRadius() * 0.5f;
-			FVector AdjustedLocs[] = { Loc + FVector(AdjustDist, 0.0f, 0.0f), Loc - FVector(AdjustDist, 0.0f, 0.0f), Loc + FVector(0.0f, AdjustDist, 0.0f), Loc - FVector(0.0f, AdjustDist, 0.0f) };
-			bSuccess = false;
-			for (int32 i = 0; i < ARRAY_COUNT(AdjustedLocs); i++)
+			FVector AdjustedLoc = TestLocs[i];
+			// make sure adjusted teleport location won't push flag through wall
+			if ( GetWorld()->FindTeleportSpot(this, AdjustedLoc, DesiredRot) && !GetWorld()->LineTraceTestByChannel(ObjectHolder->GetActorLocation(), AdjustedLoc, ECC_Pawn, FCollisionQueryParams::DefaultQueryParam, WorldResponseParams) &&
+				TeleportTo(TestLocs[i], DesiredRot) )
 			{
-				if (TeleportTo(AdjustedLocs[i], DesiredRot))
-				{
-					bSuccess = true;
-					break;
-				}
+				bSuccess = true;
+				break;
 			}
 		}
 		if (bSuccess)
