@@ -2083,6 +2083,7 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 	if (IsInState(NAME_Spectating))
 	{
 		bSpectateBehindView = bWantBehindView;
+		SaveConfig();
 	}
 	else
 	{
