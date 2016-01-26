@@ -585,12 +585,9 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 	}
 
 #if !UE_SERVER
-	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives))
+	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Pressed && bSpectatorMouseChangesView)
 	{
-		if (InputMode == EInputMode::EIM_GameAndUI && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && (EventType == EInputEvent::IE_Released))
-		{
-			SetSpectatorMouseChangesView(!bSpectatorMouseChangesView);
-		}
+		SetSpectatorMouseChangesView(false);
 	}
 #endif
 
@@ -983,6 +980,11 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 		}
 		if (PlayerToView != NULL)
 		{
+			if (PlayerState && !PlayerState->bOnlySpectator && !GS->OnSameTeam(this, *PlayerToView))
+			{
+				// can't view opposing players if not spectator
+				return;
+			}
 			bAutoCam = false;
 			BehindView(bSpectateBehindView);
 			ViewPlayerState(*PlayerToView);
@@ -2083,6 +2085,7 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 	if (IsInState(NAME_Spectating))
 	{
 		bSpectateBehindView = bWantBehindView;
+		SaveConfig();
 	}
 	else
 	{
@@ -3695,6 +3698,7 @@ void AUTPlayerController::UpdateRotation(float DeltaTime)
 				}
 			}
 		}
+
 	}
 
 	Super::UpdateRotation(DeltaTime);
@@ -4021,3 +4025,4 @@ void AUTPlayerController::UpdateCrosshairs(AUTHUD* HUD)
 		}
 	}
 }
+

@@ -517,7 +517,7 @@ void AUTHUD::DrawHUD()
 				{
 					UTPlayerOwner->SetViewedScorePS(NULL, 0);
 				}
-				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
+				if (bDrawMinimap && UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives))
 				{
 					const float MapSize = float(Canvas->SizeY) * 0.75f;
 					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
@@ -919,6 +919,21 @@ UTexture2D* AUTHUD::ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV)
 
 EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 {
+	if (UTPlayerOwner != nullptr)
+	{
+		AUTPlayerState* UTPlayerState = UTPlayerOwner->UTPlayerState;
+		if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) )
+		{
+			if (UTPlayerOwner->bSpectatorMouseChangesView)
+			{
+				return EInputMode::EIM_GameOnly;
+			}
+			else
+			{
+				return EInputMode::EIM_UIOnly;
+			}
+		}
+	}
 	return EInputMode::EIM_None;
 }
 
@@ -1086,7 +1101,7 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 		Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
 	}
 
-	if (PlayerOwner && PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
+	if (UTPlayerOwner && UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives))
 	{
 		DrawMinimapSpectatorIcons();
 	}
@@ -1095,6 +1110,7 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
 	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 	{
 		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
@@ -1110,6 +1126,10 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 			{
 				// draw team colored dot at location
 				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+				if (bOnlyShowTeammates && PS && PS->Team && (PS->Team != UTPlayerOwner->UTPlayerState->Team))
+				{
+					continue;
+				}
 				FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
 				PlayerColor.A = 0.5f;
 				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, UTChar->GetActorRotation().Yaw + 90.0f);

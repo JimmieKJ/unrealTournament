@@ -998,14 +998,9 @@ public:
 
 #endif
 
-	bool bSpectatorMouseChangesView;
-
-protected:
-	void SetSpectatorMouseChangesView(bool bNewValue);
-
 public:
+	void SetSpectatorMouseChangesView(bool bNewValue);
 	void UpdateCrosshairs(AUTHUD* HUD);
-
 };
 
 

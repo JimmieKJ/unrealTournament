@@ -13,6 +13,5 @@ protected:
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual bool GetGameMousePosition(FVector2D& MousePosition);
 
-
 };
 #endif

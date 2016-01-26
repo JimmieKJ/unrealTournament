@@ -684,11 +684,6 @@ void AUTBasePlayerController::UpdateInputMode()
 		{
 			NewInputMode = EInputMode::EIM_UIOnly;
 		}
-		else if ((UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives))
-			     || LocalPlayer->ViewportClient->ViewportConsole->ConsoleState != NAME_None) //Console has some focus issues with UI Only
-		{
-			NewInputMode = EInputMode::EIM_GameAndUI;
-		}
 		else
 		{
 			//Give blueprints a chance to set the input
@@ -696,6 +691,10 @@ void AUTBasePlayerController::UpdateInputMode()
 			if (UTHUD != nullptr)
 			{
 				NewInputMode = UTHUD->GetInputMode();
+				if (NewInputMode == EInputMode::EIM_GameAndUI || NewInputMode == EInputMode::EIM_UIOnly)
+				{
+					bShowMouseCursor = true;
+				}
 			}
 			
 			//Default to game only if no other input mode is wanted

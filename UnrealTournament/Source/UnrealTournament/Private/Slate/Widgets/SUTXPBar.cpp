@@ -8,7 +8,7 @@
 
 const float XP_ANIM_TIME = 2.0f;
 
-const FLinearColor XPColor(0.05f, 0.05f, 0.05f);
+const FLinearColor XPColor(0.5f, 0.5f, 0.25f);
 const FLinearColor BreakdownColor(1.0f, 0.22f, 0.0f);
 
 #if !UE_SERVER
