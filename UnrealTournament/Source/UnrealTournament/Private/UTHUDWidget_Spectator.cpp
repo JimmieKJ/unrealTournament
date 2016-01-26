@@ -21,11 +21,12 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
 	if (!bShowScores && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
+		AUTPlayerState* PS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
 		if (UTGameState->IsMatchIntermission() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
 		{
 			return true;
 		}
-		return (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL)));
+		return (PS->bOnlySpectator || PS->bOutOfLives || (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL)));
 	}
 	return false;
 }
@@ -156,7 +157,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 											: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "Intermission", "Game resumes in {Time}"), Args);
 				}
 			}
-			else if (UTPS && UTPS->bOnlySpectator)
+			else if (UTPS && (UTPS->bOnlySpectator || UTPS->bOutOfLives))
 			{
 				AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
 				AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
