@@ -194,5 +194,5 @@ int32 UIpConnection::GetAddrPort(void)
 
 FString UIpConnection::RemoteAddressToString()
 {
-	return RemoteAddr->ToString(true);
+	return RemoteAddr.IsValid() ? RemoteAddr->ToString(true) : TEXT("Unconnected");
 }
