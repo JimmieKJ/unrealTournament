@@ -980,6 +980,11 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 		}
 		if (PlayerToView != NULL)
 		{
+			if (PlayerState && !PlayerState->bOnlySpectator && !GS->OnSameTeam(this, *PlayerToView))
+			{
+				// can't view opposing players if not spectator
+				return;
+			}
 			bAutoCam = false;
 			BehindView(bSpectateBehindView);
 			ViewPlayerState(*PlayerToView);
