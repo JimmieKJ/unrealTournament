@@ -919,19 +919,21 @@ UTexture2D* AUTHUD::ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV)
 
 EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 {
-	AUTPlayerState* UTPlayerState = UTPlayerOwner->UTPlayerState;
-	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) )
+	if (UTPlayerOwner != nullptr)
 	{
-		if (UTPlayerOwner->bSpectatorMouseChangesView)
+		AUTPlayerState* UTPlayerState = UTPlayerOwner->UTPlayerState;
+		if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) )
 		{
-			return EInputMode::EIM_GameOnly;
-		}
-		else
-		{
-			return EInputMode::EIM_UIOnly;
+			if (UTPlayerOwner->bSpectatorMouseChangesView)
+			{
+				return EInputMode::EIM_GameOnly;
+			}
+			else
+			{
+				return EInputMode::EIM_UIOnly;
+			}
 		}
 	}
-
 	return EInputMode::EIM_None;
 }
 
