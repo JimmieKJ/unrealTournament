@@ -508,10 +508,13 @@ void AUTHUD::DrawHUD()
 				{
 					DrawDamageIndicators();
 				}
-				if (SpectatorSlideOutWidget && SpectatorSlideOutWidget->bShowingStats && !UTPlayerOwner->CurrentlyViewedScorePS)
+				if (SpectatorSlideOutWidget && SpectatorSlideOutWidget->bShowingStats)
 				{
-					UTPlayerOwner->CurrentlyViewedStatsTab = 1;
-					UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+					if (!UTPlayerOwner->CurrentlyViewedScorePS)
+					{
+						UTPlayerOwner->CurrentlyViewedStatsTab = 1;
+						UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+					}
 				}
 				else
 				{

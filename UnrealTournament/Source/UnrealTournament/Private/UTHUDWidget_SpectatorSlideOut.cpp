@@ -750,7 +750,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawWeaponStatsLine(FText StatsName, int32 
 		NumberFormattingOptions.MaximumFractionalDigits = 1;
 		FFormatNamedArguments AccArgs;
 		AccArgs.Add("Stat", FText::AsNumber(Accuracy, &NumberFormattingOptions));
-		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}%"), AccArgs), XOffset + AccuracyColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplayPct", "{Stat}%"), AccArgs), XOffset + AccuracyColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
 	}
 	YPos += StatsFontInfo.TextHeight;
 }
