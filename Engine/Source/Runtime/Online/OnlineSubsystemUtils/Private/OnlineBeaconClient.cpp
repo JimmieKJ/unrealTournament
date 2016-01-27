@@ -152,7 +152,11 @@ void AOnlineBeaconClient::DestroyBeacon()
 
 void AOnlineBeaconClient::OnNetCleanup(UNetConnection* Connection)
 {
-	ensure(Connection == BeaconConnection);
+	if (ConnectionState != EBeaconConnectionState::Invalid || ConnectionState != EBeaconConnectionState::Closed)
+	{
+		ensure(Connection == BeaconConnection);
+	}
+
 	SetConnectionState(EBeaconConnectionState::Closed);
 
 	AOnlineBeaconHostObject* BeaconHostObject = GetBeaconOwner();
