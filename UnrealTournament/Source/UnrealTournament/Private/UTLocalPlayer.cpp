@@ -4292,7 +4292,8 @@ void UUTLocalPlayer::Reconnect(bool bSpectator)
 	}
 	else
 	{
-		FString Password = RetrievePassword(LastConnectToIP, bSpectator);
+		FString Password = bWantsToConnectAsSpectator ? "?specpassword=" : "?password=";
+		Password = Password + RetrievePassword(LastConnectToIP, bSpectator);
 		ConsoleCommand(TEXT("open ") + LastConnectToIP + Password);
 	}
 }
