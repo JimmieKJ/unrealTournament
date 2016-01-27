@@ -54,8 +54,8 @@ FReply SUTSpectatorWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const 
 			}
 		}
 	}
-
-	return FReply::Unhandled();
+	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
+	return FReply::Handled();
 }
 
 
@@ -78,5 +78,36 @@ FReply SUTSpectatorWindow::OnMouseMove(const FGeometry& MyGeometry, const FPoint
 
 	return FReply::Unhandled();
 }
+
+void SUTSpectatorWindow::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		if (PC->bSpectatorMouseChangesView != bLast)
+		{
+			bLast = PC->bSpectatorMouseChangesView;
+			FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
+		}
+	}
+
+}
+
+bool SUTSpectatorWindow::SupportsKeyboardFocus() const
+{
+	return true;
+}
+
+FReply SUTSpectatorWindow::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape && PlayerOwner.IsValid())
+	{
+		PlayerOwner->ShowMenu(TEXT(""));
+		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
+}
+
 
 #endif

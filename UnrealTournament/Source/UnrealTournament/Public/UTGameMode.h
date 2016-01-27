@@ -769,8 +769,6 @@ public:
 
 	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects) override;
 
-	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const;
-
 private:
 	UTAntiCheatModularFeature* AntiCheatEngine;
 

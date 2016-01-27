@@ -437,6 +437,16 @@ void UUTLocalPlayer::HideMenu()
 		{
 			PlayerController->SetPause(false);
 		}
+
+		if (SpectatorWidget.IsValid())
+		{
+			FSlateApplication::Get().SetKeyboardFocus(SpectatorWidget, EKeyboardFocusCause::Keyboard);
+		}
+
+		if (ReplayWindow.IsValid())
+		{
+			FSlateApplication::Get().SetKeyboardFocus(ReplayWindow, EKeyboardFocusCause::Keyboard);
+		}
 	}
 	else
 	{
@@ -3077,6 +3087,7 @@ void UUTLocalPlayer::OpenReplayWindow()
 			{
 				UTGVC->AddViewportWidgetContent_NoAspect(ReplayWindow.ToSharedRef(), 0);
 				ReplayWindow->SetVisibility(EVisibility::SelfHitTestInvisible);
+				ReplayWindow->GrabKeyboardFocus();
 			}
 		}
 	}

@@ -161,6 +161,65 @@ public:
 			return SUTStyle::Get().GetBrush(Avatar);			
 		}
 	}
+
+	const FSlateBrush* GetBadge() const
+	{
+		int32 Badge;
+		int32 Level;
+
+		if (PlayerState.IsValid())
+		{
+			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+			if (DefaultGame)
+			{
+				bool bEloIsValid = false;
+				int32 EloRating = DefaultGame->GetEloFor(PlayerState.Get(), bEloIsValid);
+				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+				Badge = FMath::Clamp<int32>(Badge, 0, 3);
+				FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
+				return SUTStyle::Get().GetBrush(*BadgeStr);
+			}
+		}
+		return SUTStyle::Get().GetBrush("UT.NoStyle");
+	}
+
+	FText GetRank()
+	{
+		int32 Badge;
+		int32 Level = 1;
+
+		if (PlayerState.IsValid())
+		{
+			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+			if (DefaultGame)
+			{
+				bool bEloIsValid = false;
+				int32 EloRating = DefaultGame->GetEloFor(PlayerState.Get(), bEloIsValid);
+				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+			}
+		}
+
+		return FText::AsNumber(Level+1);
+	}
+
+	const FSlateBrush* GetXPStarImage() const
+	{
+		int32 Star = 0;
+		UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState.IsValid() ? PlayerState->GetPrevXP() : 0), Star);
+		Star = 3;
+		if (Star > 0 && Star <= 5)
+		{
+			FString StarStr = FString::Printf(TEXT("UT.RankStar.%i.Tiny"), Star-1);
+			return SUTStyle::Get().GetBrush(*StarStr);
+		}
+
+		return SUTStyle::Get().GetBrush("UT.RankStar.Empty");
+	}
+
+
+
 };
 
 DECLARE_DELEGATE_OneParam(FPlayerClicked, FUniqueNetIdRepl);
