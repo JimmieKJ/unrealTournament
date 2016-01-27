@@ -227,7 +227,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 		MuzzleFlash[1]->SetVectorParameter(NAME_PulseScale, FVector(NewScale, NewScale, NewScale));
 	}
 
-	if (GetWorld()->GetTimeSeconds() - LastBeamPulseTime < BeamPulseInterval)
+	if (UTOwner && (GetWorld()->GetTimeSeconds() - LastBeamPulseTime < BeamPulseInterval))
 	{
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
