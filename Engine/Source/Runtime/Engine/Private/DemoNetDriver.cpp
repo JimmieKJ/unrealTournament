@@ -2177,6 +2177,11 @@ FString UDemoNetConnection::LowLevelGetRemoteAddress( bool bAppendPort )
 	return TEXT( "UDemoNetConnection" );
 }
 
+FString UDemoNetConnection::RemoteAddressToString()
+{
+	return TEXT("UDemoNetConnection");
+}
+
 void UDemoNetConnection::LowLevelSend( void* Data, int32 Count )
 {
 	if ( GetDriver()->bSavingCheckpoint )
