@@ -208,7 +208,6 @@ public:
 	{
 		int32 Star = 0;
 		UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState.IsValid() ? PlayerState->GetPrevXP() : 0), Star);
-		Star = 3;
 		if (Star > 0 && Star <= 5)
 		{
 			FString StarStr = FString::Printf(TEXT("UT.RankStar.%i.Tiny"), Star-1);
