@@ -1126,7 +1126,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 			{
 				// draw team colored dot at location
 				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
-				if (bOnlyShowTeammates && PS && PS->Team && (PS->Team != UTPlayerOwner->UTPlayerState->Team))
+				if (!PS || (bOnlyShowTeammates && PS->Team && (PS->Team != UTPlayerOwner->UTPlayerState->Team)))
 				{
 					continue;
 				}
