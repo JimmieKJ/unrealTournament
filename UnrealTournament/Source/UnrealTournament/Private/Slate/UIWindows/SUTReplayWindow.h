@@ -32,6 +32,7 @@ class UNREALTOURNAMENT_API SUTReplayWindow : public SCompoundWidget
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
 
+
 protected:
 
 	float RecordTimeStart;
@@ -90,6 +91,8 @@ protected:
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
+	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
 
@@ -138,6 +141,15 @@ protected:
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TWeakObjectPtr<class UDemoNetDriver> DemoNetDriver;
+
+	// HACKS needed to keep window focus
+	virtual bool SupportsKeyboardFocus() const override;
+
+	TSharedPtr<SOverlay> MainOverlay;
+
+public:
+	void GrabKeyboardFocus();
+
 };
 
 #endif

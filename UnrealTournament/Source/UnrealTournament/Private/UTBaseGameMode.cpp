@@ -446,3 +446,44 @@ void AUTBaseGameMode::RconNormal(AUTBasePlayerController* Admin)
 		Admin->UTPlayerState->bIsRconAdmin = false;
 	}
 }
+
+int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
+{
+	if (!PS)
+	{
+		bEloIsValid = false;
+		return 1400;
+	}
+
+	bEloIsValid = PS ? PS->bDMEloValid : false;
+	int32 MaxElo = 0;
+	bool bHasValidElo = PS->bDMEloValid || PS->bTDMEloValid || PS->bShowdownEloValid || PS->bDuelEloValid;
+	if (bHasValidElo)
+	{
+		//only consider valid Elos
+		if (PS->bDuelEloValid)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->DuelRank);
+		}
+		if (PS->bShowdownEloValid)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->ShowdownRank);
+		}
+		if (PS->bTDMEloValid)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->TDMRank);
+		}
+		if (PS->bDMEloValid)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->DMRank);
+		}
+	}
+	else
+	{
+		// return highest non-CTF Elo
+		MaxElo = FMath::Max(PS->DuelRank, PS->TDMRank);
+		MaxElo = FMath::Max(MaxElo, PS->ShowdownRank);
+		MaxElo = FMath::Max(MaxElo, PS->DMRank);
+	}
+	return MaxElo;
+}

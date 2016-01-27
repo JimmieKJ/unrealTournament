@@ -187,4 +187,6 @@ public:
 	UPROPERTY()
 	bool bPrivateMatch;
 	
+	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const;
+
 };

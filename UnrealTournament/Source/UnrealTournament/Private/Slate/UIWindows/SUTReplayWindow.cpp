@@ -29,6 +29,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 
 	PlayerOwner = InArgs._PlayerOwner;
 	DemoNetDriver = InArgs._DemoNetDriver;
+
 	checkSlow(PlayerOwner != nullptr);
 	checkSlow(DemoNetDriver != nullptr);
 
@@ -50,7 +51,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
-		SNew(SOverlay)
+		SAssignNew(MainOverlay,SOverlay)
 		.Visibility(this, &SUTReplayWindow::GetVis)
 		+ SOverlay::Slot()
 		[
@@ -604,9 +605,18 @@ FReply SUTReplayWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const FPo
 	{
 		Reply = FReply::Handled();
 	}
-
+	else
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+		if (!PC->bSpectatorMouseChangesView)
+		{
+			PC->SetSpectatorMouseChangesView(true);
+		}
+	}
+	
+	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 	bHandledMouseClick = Reply.IsEventHandled();
-	return Reply;
+	return FReply::Handled();
 }
 
 FReply SUTReplayWindow::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
@@ -617,6 +627,7 @@ FReply SUTReplayWindow::OnMouseButtonUp(const FGeometry& MyGeometry, const FPoin
 	{
 		UTPC->SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
 	}
+	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 	return FReply::Unhandled();
 }
 
@@ -718,7 +729,7 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 		}
 	}
 
-	return FReply::Unhandled();
+	return FReply::Handled(); //FReply::Unhandled();
 }
 
 FReply SUTReplayWindow::OnMarkRecordStartClicked()
@@ -1362,5 +1373,27 @@ TSharedRef<SWidget> SUTReplayWindow::MakeRecordButton()
 				]
 			];
 }
+
+FReply SUTReplayWindow::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape && PlayerOwner.IsValid())
+	{
+		PlayerOwner->ShowMenu(TEXT(""));
+		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
+}
+
+bool SUTReplayWindow::SupportsKeyboardFocus() const
+{
+	return true;
+}
+
+void SUTReplayWindow::GrabKeyboardFocus()
+{
+	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
+}
+
 
 #endif

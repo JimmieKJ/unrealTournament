@@ -460,18 +460,23 @@ void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.RankStar.0", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.One.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 	Style.Set("UT.RankStar.0.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.One.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
+	Style.Set("UT.RankStar.0.Tiny", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.One.32x32", FVector2D(32.0f, 32.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 
 	Style.Set("UT.RankStar.1", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Two.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
-	Style.Set("UT.RankStar.1.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Two.77x77", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
+	Style.Set("UT.RankStar.1.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Two.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
+	Style.Set("UT.RankStar.1.Tiny", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Two.32x32", FVector2D(32.0f, 32.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 
 	Style.Set("UT.RankStar.2", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Three.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 	Style.Set("UT.RankStar.2.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Three.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
+	Style.Set("UT.RankStar.2.Tiny", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Three.32x32", FVector2D(32.0f, 32.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 
 	Style.Set("UT.RankStar.3", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Four.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 	Style.Set("UT.RankStar.3.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Four.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
+	Style.Set("UT.RankStar.3.Tiny", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Four.32x32", FVector2D(32.0f, 32.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 
 	Style.Set("UT.RankStar.4", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Five.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 	Style.Set("UT.RankStar.4.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Five.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
+	Style.Set("UT.RankStar.4.Tiny", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Five.32x32", FVector2D(32.0f, 32.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 
 	Style.Set("UT.RankStar.Empty", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.Five.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 1.0f, 1.0f, 0.0f) ));
 
