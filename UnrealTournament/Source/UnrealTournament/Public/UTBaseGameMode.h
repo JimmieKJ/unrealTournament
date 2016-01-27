@@ -154,6 +154,9 @@ public:
 private:
 	FString GetCloudID() const;
 
+	// Never allow the engine to start replays, we'll do it manually
+	bool IsHandlingReplays() override { return false; }
+
 public:
 	virtual void BuildPlayerInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
 	virtual void BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
