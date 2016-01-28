@@ -24,6 +24,7 @@ public:
 		BlueTeamRound = FName(TEXT("BlueTeamWinsRound"));
 		NewRoundIn = FName(TEXT("NewRoundIn"));
 		FinalRound = FName(TEXT("FinalRound"));
+		FiveKillsLeft = FName(TEXT("DM_Kills5"));
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -46,6 +47,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		FName FinalRound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName FiveKillsLeft;
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
@@ -84,6 +88,8 @@ public:
 			return NewRoundIn;
 		case 6:
 			return FinalRound;
+		case 7:
+			return FiveKillsLeft;
 		default:
 			return NAME_None;
 		}
@@ -96,5 +102,6 @@ public:
 		Announcer->PrecacheAnnouncement(BlueTeamRound);
 		Announcer->PrecacheAnnouncement(NewRoundIn);
 		Announcer->PrecacheAnnouncement(FinalRound);
+		Announcer->PrecacheAnnouncement(FiveKillsLeft);
 	}
 };

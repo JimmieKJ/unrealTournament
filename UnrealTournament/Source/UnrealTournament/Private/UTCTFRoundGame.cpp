@@ -17,13 +17,17 @@
 #include "StatNames.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
+#include "UTShowdownGameMessage.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	GoalScore = 3;
 	TimeLimit = 0;
-	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Capture - Round based CTF");
+	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Round based CTF");
+	RoundLives = 15;
+	bNeedFiveKillsMessage = true;
+	FlagCapScore = 2;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -65,7 +69,6 @@ void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 	}
 }
 
-
 int32 AUTCTFRoundGame::IntermissionTeamToView(AUTPlayerController* PC)
 {
 	if (LastTeamToScore)
@@ -89,13 +92,110 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
+	InitRound();
 	Super::HandleExitingIntermission();
+}
+
+void AUTCTFRoundGame::InitRound()
+{
 	bFirstBloodOccurred = false;
-	CTFGameState->CTFRound++;
+	bNeedFiveKillsMessage = true;
+	if (CTFGameState)
+	{
+		CTFGameState->CTFRound++;
+		CTFGameState->RedLivesRemaining = RoundLives;
+		CTFGameState->BlueLivesRemaining = RoundLives;
+		if (CTFGameState->FlagBases.Num() > 1)
+		{
+			CTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
+			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
+		}
+	}
 }
 
 void AUTCTFRoundGame::InitGameState()
 {
 	Super::InitGameState();
+	InitRound();
 	CTFGameState->CTFRound = 1;
 }
+
+void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
+{
+	Super::RestartPlayer(aPlayer);
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+	if (aPlayer->GetPawn() && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
+	{
+		if (PS->Team->TeamIndex == 0)
+		{
+			CTFGameState->RedLivesRemaining--;
+			if (CTFGameState->RedLivesRemaining <= 0)
+			{
+				CTFGameState->RedLivesRemaining = 0;
+				ScoreOutOfLives(1);
+				return;
+			}
+			else if (bNeedFiveKillsMessage && (CTFGameState->RedLivesRemaining == 5))
+			{
+				bNeedFiveKillsMessage = false;
+				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
+			}
+		}
+		else
+		{
+			CTFGameState->BlueLivesRemaining--;
+			if (CTFGameState->BlueLivesRemaining <= 0)
+			{
+				CTFGameState->BlueLivesRemaining = 0;
+				ScoreOutOfLives(0);
+				return;
+			}
+			else if (bNeedFiveKillsMessage && (CTFGameState->BlueLivesRemaining == 5))
+			{
+				bNeedFiveKillsMessage = false;
+				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
+			}
+		}
+	}
+}
+
+void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
+{
+	FindAndMarkHighScorer();
+	AUTTeamInfo* WinningTeam = (Teams.Num() > WinningTeamIndex) ? Teams[WinningTeamIndex] : NULL;
+	if (WinningTeam)
+	{
+		WinningTeam->Score++;
+		WinningTeam->ForceNetUpdate();
+		LastTeamToScore = WinningTeam;
+		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
+		if (GoalScore > 0 && LastTeamToScore->Score >= GoalScore)
+		{
+			EndGame(NULL, FName(TEXT("scorelimit")));
+		}
+		else if (MercyScore > 0)
+		{
+			int32 Spread = LastTeamToScore->Score;
+			for (AUTTeamInfo* OtherTeam : Teams)
+			{
+				if (OtherTeam != LastTeamToScore)
+				{
+					Spread = FMath::Min<int32>(Spread, LastTeamToScore->Score - OtherTeam->Score);
+				}
+			}
+			if (Spread >= MercyScore)
+			{
+				EndGame(NULL, FName(TEXT("MercyScore")));
+			}
+		}
+		if (UTGameState->IsMatchInProgress())
+		{
+			SetMatchState(MatchState::MatchIntermission);
+		}
+	}
+}
+
+
+
+

@@ -160,6 +160,12 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		int32 CTFRound;
 
+	UPROPERTY(Replicated)
+		int32 RedLivesRemaining;
+
+	UPROPERTY(Replicated)
+		int32 BlueLivesRemaining;
+
 	/** Sets the # of teams.  This will also Pre-seed FlagsBases */
 	virtual void SetMaxNumberOfTeams(int32 TeamCount);
 

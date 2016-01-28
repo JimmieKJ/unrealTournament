@@ -12,7 +12,6 @@ UUTHUDWidget_TeamGameClock::UUTHUDWidget_TeamGameClock(const FObjectInitializer&
 	Origin=FVector2D(0.5f,0.0f);
 }
 
-
 void UUTHUDWidget_TeamGameClock::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
@@ -55,13 +54,27 @@ void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 
 FText UUTHUDWidget_TeamGameClock::GetRedScoreText_Implementation()
 {
-	if (UTGameState && UTGameState->bTeamGame && UTGameState->Teams.Num() > 0 && UTGameState->Teams[0]) return FText::AsNumber(UTGameState->Teams[0]->Score);
+	if (Cast<AUTCTFGameState>(UTGameState))
+	{
+		return FText::AsNumber(((AUTCTFGameState*)(UTGameState))->RedLivesRemaining);
+	}
+	if (UTGameState && UTGameState->bTeamGame && UTGameState->Teams.Num() > 0 && UTGameState->Teams[0])
+	{
+		return FText::AsNumber(UTGameState->Teams[0]->Score);
+	}
 	return FText::AsNumber(0);
 }
 
 FText UUTHUDWidget_TeamGameClock::GetBlueScoreText_Implementation()
 {
-	if (UTGameState && UTGameState->bTeamGame && UTGameState->Teams.Num() > 1 && UTGameState->Teams[1]) return FText::AsNumber(UTGameState->Teams[1]->Score);
+	if (Cast<AUTCTFGameState>(UTGameState))
+	{
+		return FText::AsNumber(((AUTCTFGameState*)(UTGameState))->BlueLivesRemaining);
+	}
+	if (UTGameState && UTGameState->bTeamGame && UTGameState->Teams.Num() > 1 && UTGameState->Teams[1])
+	{
+		return FText::AsNumber(UTGameState->Teams[1]->Score);
+	}
 	return FText::AsNumber(0);
 }
 

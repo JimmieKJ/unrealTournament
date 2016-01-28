@@ -40,6 +40,10 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Flag)
 	TArray< TSubclassOf<AUTCTFFlag> > TeamFlagTypes;
 
+	/** Adjustment to number of lives available to team with this base in round based CTF. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Objective)
+		int32 RoundLivesAdjustment;
+
 	virtual FName GetFlagState();
 	virtual void RecallFlag();
 
