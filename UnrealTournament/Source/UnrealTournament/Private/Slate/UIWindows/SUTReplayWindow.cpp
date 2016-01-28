@@ -600,8 +600,19 @@ bool SUTReplayWindow::GetGameMousePosition(FVector2D& MousePosition) const
 FReply SUTReplayWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	FReply Reply = FReply::Unhandled();
-	FGeometry TimeBarGeometry = FindChildGeometry(MyGeometry, TimeBar.ToSharedRef());
-	if (TimeBarGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()) || MouseClickHUD())
+	
+	TSet< TSharedRef<SWidget> > TimeBarSet;
+	TimeBarSet.Add(TimeBar.ToSharedRef());
+	TMap<TSharedRef<SWidget>, FArrangedWidget> TimeBarGeometryResult;
+
+	// FindChildGeometry can't handle the case where a child might not actually be a descendant, must use this overcomplicated version
+	bool bFoundTimeBarGeometry = FindChildGeometries(MyGeometry, TimeBarSet, TimeBarGeometryResult);
+
+	if (bFoundTimeBarGeometry && TimeBarGeometryResult[TimeBarSet.Array()[0]].Geometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
+	{
+		Reply = FReply::Handled();
+	}
+	else if (MouseClickHUD())
 	{
 		Reply = FReply::Handled();
 	}
