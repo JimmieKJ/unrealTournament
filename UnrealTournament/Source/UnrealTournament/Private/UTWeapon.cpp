@@ -1293,7 +1293,7 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
 	HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[CurrentFireMode].TraceHalfSize, Hit, PredictionTime);
 
-	if (Role == ROLE_Authority && UTPC && bCheckHeadSphere && (Cast<AUTCharacter>(Hit.Actor.Get()) == NULL) && (Spread[GetCurrentFireMode()] == 0.f) && (UTOwner->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere))
+	if (Role == ROLE_Authority && UTPC && bCheckHeadSphere && (Cast<AUTCharacter>(Hit.Actor.Get()) == NULL) && ((Spread.Num() <= GetCurrentFireMode()) || (Spread[GetCurrentFireMode()] == 0.f)) && (UTOwner->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere))
 	{
 		// in some cases the head sphere is partially outside the capsule
 		// so do a second search just for that
