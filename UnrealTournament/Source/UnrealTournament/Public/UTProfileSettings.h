@@ -187,7 +187,7 @@ private:
 	UPROPERTY()
 	TMap<FName, float> BestTimes;
 public:
-	/** local XP, not synced with backend - granted for local play and untrusted servers */
+	/** UNUSED - REMOVE */
 	UPROPERTY()
 	int32 LocalXP;
 
