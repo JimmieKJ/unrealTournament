@@ -549,6 +549,7 @@ void AUTCarriedObject::MoveToHome()
 	if (HomeBase != NULL)
 	{
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
+		Collision->SetRelativeRotation(FRotator(0, 0, 0));
 		SetActorLocationAndRotation(GetHomeLocation(), GetHomeRotation());
 		ForceNetUpdate();
 	}
