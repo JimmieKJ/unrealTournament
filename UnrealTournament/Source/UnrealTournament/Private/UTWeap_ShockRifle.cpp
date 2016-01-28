@@ -23,6 +23,7 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	AltDeathStatsName = NAME_ShockCoreDeaths;
 	HitsStatsName = NAME_ShockRifleHits;
 	ShotsStatsName = NAME_ShockRifleShots;
+	bCheckHeadSphere = true;
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()

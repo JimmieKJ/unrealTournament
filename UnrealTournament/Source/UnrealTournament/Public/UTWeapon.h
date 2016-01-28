@@ -148,6 +148,14 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	bool bAffectedByStoppingPower;
 
+	/** Whether Hitscan hits should do extra check for whether hit head sphere. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		bool bCheckHeadSphere;
+
+	/** Whether Hitscan hits should do extra check for whether hit head sphere when target is moving. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		bool bCheckMovingHeadSphere;
+
 	/** Custom Momentum scaling for friendly hitscanned pawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float FriendlyMomentumScaling;

@@ -99,6 +99,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
 	bShowPowerupTimer = false;
 
+	bCheckHeadSphere = false;
+	bCheckMovingHeadSphere = false;
 }
 
 void AUTWeapon::PostInitProperties()
@@ -1286,10 +1288,22 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
 	FHitResult Hit;
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
-	AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+	AUTPlayerController* UTPC = UTOwner ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
+	AUTPlayerState* PS = (UTOwner && UTOwner->Controller) ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
 	HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[CurrentFireMode].TraceHalfSize, Hit, PredictionTime);
+
+	if (Role == ROLE_Authority && UTPC && bCheckHeadSphere && (Cast<AUTCharacter>(Hit.Actor.Get()) == NULL) && (Spread[GetCurrentFireMode()] == 0.f) && (UTOwner->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere))
+	{
+		// in some cases the head sphere is partially outside the capsule
+		// so do a second search just for that
+		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(UTPC, SpawnLocation, FireDir, 0.9f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
+		if (AltTarget != NULL && (AltTarget->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere) && AltTarget->IsHeadShot(SpawnLocation, FireDir, 1.f, UTOwner, PredictionTime))
+		{
+			Hit = FHitResult(AltTarget, AltTarget->GetCapsuleComponent(), SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), -FireDir);
+		}
+	}
+
 	if (Role == ROLE_Authority)
 	{
 		if (PS && (ShotsStatsName != NAME_None))

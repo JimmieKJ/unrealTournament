@@ -57,6 +57,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	ShotsStatsName = NAME_EnforcerShots;
 
 	DisplayName = NSLOCTEXT("UTWeap_Enforcer", "DisplayName", "Enforcer");
+	bCheckHeadSphere = true;
 }
 
 void AUTWeap_Enforcer::AttachLeftMesh()
