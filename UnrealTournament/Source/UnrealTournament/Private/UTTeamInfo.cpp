@@ -42,6 +42,60 @@ void AUTTeamInfo::Destroyed()
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
+int32 AUTTeamInfo::AverageEloFor(AUTGameMode* GameMode)
+{
+	if (GameMode)
+	{
+		bool bEloIsValid = false;
+		int32 TeamElo = 0;
+		int32 EloCount = 0;
+		for (AController* C : TeamMembers)
+		{
+			AUTPlayerState* TeamPS = Cast<AUTPlayerState>(C->PlayerState);
+			if (TeamPS)
+			{
+				int32 NewElo = GameMode->GetEloFor(TeamPS, bEloIsValid);
+				if (!bEloIsValid)
+				{
+					NewElo = 1000;
+				}
+				EloCount++;
+				TeamElo += NewElo;
+			}
+		}
+		return (EloCount > 0) ? TeamElo / EloCount : 1000;
+	}
+
+	return 0;
+}
+
+AController* AUTTeamInfo::MemberClosestToElo(class AUTGameMode* GameMode, int32 DesiredElo)
+{
+	AController* BestMatch = nullptr;
+	int32 BestDiff = 0;
+	bool bEloIsValid = false;
+	for (AController* C : TeamMembers)
+	{
+		AUTPlayerState* TeamPS = Cast<AUTPlayerState>(C->PlayerState);
+		if (TeamPS)
+		{
+			int32 NewElo = GameMode->GetEloFor(TeamPS, bEloIsValid);
+			if (!bEloIsValid)
+			{
+				NewElo = 1000;
+			}
+			int32 NewEloDiff = FMath::Abs(DesiredElo - NewElo);
+			if (!BestMatch || (NewEloDiff < BestDiff))
+			{
+				BestMatch = C;
+				BestDiff = NewEloDiff;
+			}
+		}
+	}
+	return BestMatch ? BestMatch : TeamMembers[0];
+}
+
+
 void AUTTeamInfo::UpdateTeamLeaders()
 {
 	TArray<AUTPlayerState*> MemberPS;

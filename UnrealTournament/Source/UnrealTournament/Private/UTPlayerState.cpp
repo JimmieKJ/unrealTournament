@@ -908,6 +908,10 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS != NULL)
 	{
+		if (PS->Team == nullptr)
+		{
+			// MovePlayerToTeam(AController* Player, AUTPlayerState* PS, uint8 NewTeam
+		}
 		PS->Team = Team;
 		PS->bReadStatsFromCloud = bReadStatsFromCloud;
 		PS->bSuccessfullyReadStatsFromCloud = bSuccessfullyReadStatsFromCloud;
@@ -2266,46 +2270,6 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		]
 
 	];
-
-	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
-	if (PC)
-	{
-		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProgressionStorage() && LP->GetProgressionStorage()->SkullCount > 0)
-		{				
-			VBox->AddSlot()
-			.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-			.AutoHeight()
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.HAlign(HAlign_Left)
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				[
-					SNew(SBox)
-					.WidthOverride(300)
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("AUTPlayerState", "SkullsCount", "Skulls Collected: "))
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-						.ColorAndOpacity(FLinearColor::Gray)
-					]
-				]
-					
-				+ SHorizontalBox::Slot()
-				.HAlign(HAlign_Left)
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				[
-					SNew(STextBlock)
-					.Text(FText::AsNumber(LP->GetProgressionStorage()->SkullCount))
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-					.ColorAndOpacity(FLinearColor::Gray)
-				]
-			];
-		}
-	}
 	return VBox;
 }
 

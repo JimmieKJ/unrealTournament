@@ -114,6 +114,7 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
+		// FIXMESTEVE Does team get overwritten in postlogin if inactive player?
 		uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(UGameplayStatics::GetIntOption(Options, TEXT("Team"), 255), 0, 255));
 		ChangeTeam(PC, DesiredTeam, false);
 	}
@@ -311,6 +312,71 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 		}
 	}
 
+	// if match is in progress, try to put on lower score team
+	AUTTeamInfo* WorstTeam = nullptr;
+	if (IsMatchInProgress())
+	{
+		int32 WorstScore = 0;
+		for (AUTTeamInfo* TestTeam : BestTeams)
+		{
+			if (!WorstTeam || (TestTeam->Score < WorstScore))
+			{
+				WorstTeam = TestTeam;
+				WorstScore = TestTeam->Score;
+			}
+			else if (WorstTeam && (TestTeam->Score == WorstScore))
+			{
+				WorstTeam = nullptr;
+				break;
+			}
+		}
+	}
+	if (WorstTeam)
+	{
+		return WorstTeam->TeamIndex;
+	}
+
+	// Balance by Elo if no request and teams are same size 
+	int32 WorstElo = 0;
+	int32 AverageElo = 0;
+	WorstTeam = nullptr;
+	for (AUTTeamInfo* TestTeam : BestTeams)
+	{
+		int32 TeamElo = TestTeam->AverageEloFor(this);
+		if (!WorstTeam || (TeamElo < WorstElo))
+		{
+			WorstTeam = TestTeam;
+			WorstElo = TeamElo;
+		}
+		AverageElo += TeamElo;
+	}
+	AverageElo = (BestTeams.Num() > 0) ? AverageElo / BestTeams.Num() : AverageElo;
+
+	// If match in progress, put on worst Elo team.  before match, try to improve Elo average
+	if (WorstTeam)
+	{
+		if (IsMatchInProgress())
+		{
+			return WorstTeam->TeamIndex;
+		}
+		else if (BestSize > 0)
+		{
+			bool bEloIsValid = false;
+			int32 NewElo = GetEloFor(PS, bEloIsValid);
+			if (bEloIsValid && NewElo > AverageElo)
+			{
+				return WorstTeam->TeamIndex;
+			}
+			for (AUTTeamInfo* TestTeam : BestTeams)
+			{
+				if (TestTeam != WorstTeam)
+				{
+					return TestTeam->TeamIndex;
+				}
+			}
+		}
+	}
+
 	for (int32 i = 0; i < BestTeams.Num(); i++)
 	{
 		if (BestTeams[i]->TeamIndex == RequestedTeam)
@@ -330,17 +396,22 @@ void AUTTeamGameMode::HandlePlayerIntro()
 	{
 		TArray<AUTTeamInfo*> SortedTeams = UTGameState->Teams;
 		SortedTeams.Sort([](AUTTeamInfo& A, AUTTeamInfo& B) { return A.GetSize() > B.GetSize(); });
-
 		for (int32 i = 0; i < SortedTeams.Num() - 1; i++)
 		{
 			if (SortedTeams[i]->GetSize() > 1)
 			{
+				// sort players on this team by Elo
 				for (int32 j = i + 1; j < SortedTeams.Num(); j++)
 				{
 					while (SortedTeams[i]->GetSize() > SortedTeams[j]->GetSize() + 1)
 					{
+						// FIXMESTEVE calc team Elos, move best or worst player depending on difference in Elos
 						UTGameState->bForcedBalance = true;
-						AController* ToBeMoved = SortedTeams[i]->GetTeamMembers()[0];
+						int32 SourceTeamElo = SortedTeams[i]->AverageEloFor(this);
+						int32 EloDiff = SourceTeamElo - SortedTeams[j]->AverageEloFor(this);
+						int32 SizeDiff = SortedTeams[i]->GetSize() - SortedTeams[j]->GetSize();
+						int32 DesiredElo = SourceTeamElo + EloDiff*SortedTeams[j]->GetSize() / 2 * SizeDiff;
+						AController* ToBeMoved = SortedTeams[i]->MemberClosestToElo(this, DesiredElo);
 						if (!ChangeTeam(ToBeMoved, j) || UTGameState->OnSameTeam(ToBeMoved, SortedTeams[i]))
 						{
 							// abort if failed to actually change team so we don't end up in recursion
