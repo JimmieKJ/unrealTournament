@@ -79,7 +79,12 @@ public:
 	// UObject overrides
 	virtual UWorld* GetWorld() const override;
 
+	/** Don't delete the underlying resource if it already exists */
+	void FastUpdateResource();
+
 protected:
+
+	void RepaintCanvas();
 
 	/* The world this render target will be used with */
 	UPROPERTY()

@@ -1220,7 +1220,7 @@ void SUTPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const doub
 
 	if ( PlayerPreviewTexture != nullptr )
 	{
-		PlayerPreviewTexture->UpdateResource();
+		PlayerPreviewTexture->FastUpdateResource();
 	}
 
 	// Force the preview mesh to put the highest mips into memory
