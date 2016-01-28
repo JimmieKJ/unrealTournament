@@ -13,7 +13,10 @@ UCanvasRenderTarget2D::UCanvasRenderTarget2D( const FObjectInitializer& ObjectIn
 void UCanvasRenderTarget2D::UpdateResource()
 {
 	// Call parent implementation
-	Super::UpdateResource();
+	if (Resource == nullptr)
+	{
+		Super::UpdateResource();
+	}
 	
 	// Don't allocate canvas object for CRT2D CDO
 	if(IsTemplate())
