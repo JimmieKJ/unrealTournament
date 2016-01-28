@@ -29,7 +29,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
 
 	/** Score round ending due to team out of lives. */
-	virtual void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex);
+	virtual void ScoreOutOfLives(int32 WinningTeamIndex);
 
 	/** Initialize for new round. */
 	virtual void InitRound();
