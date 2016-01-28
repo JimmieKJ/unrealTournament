@@ -584,18 +584,20 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		return true;
 	}
 
-#if !UE_SERVER
-	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Pressed && bSpectatorMouseChangesView)
-	{
-		SetSpectatorMouseChangesView(false);
-	}
-#endif
-
 	// pass mouse events to HUD if requested
 	if (bShowMouseCursor && MyUTHUD != NULL && Key.IsMouseButton() && MyUTHUD->OverrideMouseClick(Key, EventType))
 	{
 		return true;
 	}
+
+
+#if !UE_SERVER
+	else if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Pressed && bSpectatorMouseChangesView)
+	{
+		SetSpectatorMouseChangesView(false);
+	}
+#endif
+
 
 	// hack for scoreboard until we have a real interactive system
 	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL && EventType == IE_Pressed)
