@@ -211,6 +211,11 @@ void AUTWeap_LinkGun::PlayWeaponAnim(UAnimMontage* WeaponAnim, UAnimMontage* Han
 	}
 }
 
+bool AUTWeap_LinkGun::IsLinkPulsing()
+{
+	return (GetWorld()->GetTimeSeconds() - LastBeamPulseTime < BeamPulseInterval);
+}
+
 void AUTWeap_LinkGun::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -227,12 +232,32 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 		MuzzleFlash[1]->SetVectorParameter(NAME_PulseScale, FVector(NewScale, NewScale, NewScale));
 	}
 
-	if (UTOwner && (GetWorld()->GetTimeSeconds() - LastBeamPulseTime < BeamPulseInterval))
+	if (UTOwner && IsLinkPulsing()) 
 	{
+		// update link pull pulse beam endpoint
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 		const FVector FireDir = SpawnRotation.Vector();
-		PulseLoc = PulseLoc - 5.f * DeltaTime * (PulseLoc - (SpawnLocation + 80.f*FireDir));
+		PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : PulseLoc - 5.f * DeltaTime * (PulseLoc - (SpawnLocation + 80.f*FireDir));
+
+		// don't allow beam to go behind player
+		FVector PulseDir = PulseLoc - SpawnLocation;
+		float PulseDist = PulseDir.Size();
+		PulseDir = (PulseDist > 0.f) ? PulseDir / PulseDist : PulseDir;
+		if ((PulseDir | FireDir) < 0.7f)
+		{
+			PulseDir = PulseDir - FireDir * ((PulseDir | FireDir) - 0.7f);
+			PulseDir = PulseDir.SafeNormal() * PulseDist;
+			PulseLoc = PulseDir + SpawnLocation;
+		}
+
+		// make sure beam doesn't clip through geometry
+		FHitResult Hit;
+		HitScanTrace(SpawnLocation, PulseLoc, 0.f, Hit, 0.f);
+		if (Hit.Time < 1.f)
+		{
+			PulseLoc = Hit.Location;
+		}
 	}
 }
 
@@ -500,7 +525,7 @@ void AUTWeap_LinkGun::ServerStopFire_Implementation(uint8 FireModeNum)
 
 void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
 {
-	if (CurrentFireMode == 1 && OtherFireMode == 0 && GetWorld()->TimeSeconds - LastBeamPulseTime >= BeamPulseInterval)
+	if (CurrentFireMode == 1 && OtherFireMode == 0 && !IsLinkPulsing())
 	{
 		bPendingBeamPulse = true;
 	}
@@ -515,7 +540,7 @@ void AUTWeap_LinkGun::StateChanged()
 	static FName NAME_CheckBotPulseFire(TEXT("CheckBotPulseFire"));
 	if (CurrentFireMode == 1 && Cast<UUTWeaponStateFiring>(CurrentState) != NULL && Cast<AUTBot>(UTOwner->Controller) != NULL)
 	{
-		SetTimerUFunc(this, NAME_CheckBotPulseFire, 0.1f, true);
+		SetTimerUFunc(this, NAME_CheckBotPulseFire, 0.2f, true);
 	}
 	else
 	{
@@ -528,18 +553,17 @@ void AUTWeap_LinkGun::CheckBotPulseFire()
 	if (UTOwner != NULL && LinkTarget == NULL && CurrentFireMode == 1 && InstantHitInfo.IsValidIndex(1) && !bPendingBeamPulse)
 	{
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-		if ( B != NULL && (B->Skill + B->Personality.Tactics >= 3.0f || B->IsFavoriteWeapon(GetClass())) && B->GetEnemy() != NULL && B->GetTarget() == B->GetEnemy() &&
+		if ( B != NULL && B->WeaponProficiencyCheck() && B->GetEnemy() != NULL && B->GetTarget() == B->GetEnemy() &&
 			(B->IsCharging() || B->GetSquad()->MustKeepEnemy(B->GetEnemy()) || B->RelativeStrength(B->GetEnemy()) < 0.0f) )
 		{
-			const FVector SpawnLocation = GetFireStartLoc();
-			const FVector EndTrace = SpawnLocation + GetAdjustedAim(SpawnLocation).Vector() * InstantHitInfo[1].TraceRange;
-
-			bool bTryPulse = FMath::FRand() < (B->IsFavoriteWeapon(GetClass()) ? 0.2f : 0.1f);
+			bool bTryPulse = FMath::FRand() < (B->IsFavoriteWeapon(GetClass()) ? 0.1f : 0.05f);
 			if (bTryPulse)
 			{
 				// if bot has good reflexes only pulse if enemy is being hit
 				if (FMath::FRand() < 0.07f * B->Skill + B->Personality.ReactionTime)
 				{
+					const FVector SpawnLocation = GetFireStartLoc();
+					const FVector EndTrace = SpawnLocation + GetAdjustedAim(SpawnLocation).Vector() * InstantHitInfo[1].TraceRange;
 					FHitResult Hit;
 					HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[1].TraceHalfSize, Hit, 0.0f);
 					bTryPulse = Hit.Actor.Get() == B->GetEnemy();

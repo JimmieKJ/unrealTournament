@@ -52,8 +52,36 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
     }
 }
 
+void UUTWeaponStateFiringLinkBeam::EndFiringSequence(uint8 FireModeNum)
+{
+	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+	if (LinkGun && !LinkGun->IsLinkPulsing())
+	{
+		Super::EndFiringSequence(FireModeNum);
+		if (FireModeNum == GetOuterAUTWeapon()->GetCurrentFireMode())
+		{
+			GetOuterAUTWeapon()->GotoActiveState();
+		}
+	}
+	else
+	{
+		bPendingEndFire = true;
+	}
+}
+
+
+void UUTWeaponStateFiringLinkBeam::RefireCheckTimer()
+{
+	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+	if (!LinkGun || !LinkGun->IsLinkPulsing())
+	{
+		Super::RefireCheckTimer();
+	}
+}
+
 void UUTWeaponStateFiringLinkBeam::EndState()
 {
+	bPendingEndFire = false;
     AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
 	if (LinkGun->GetLinkTarget() != nullptr)
     {
@@ -65,22 +93,19 @@ void UUTWeaponStateFiringLinkBeam::EndState()
 
 void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 {
+	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+	if (bPendingEndFire && (!LinkGun || !LinkGun->IsLinkPulsing()))
+	{
+		EndFiringSequence(1);
+		return;
+	}
 	HandleDelayedShot();
 	
-	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
     if (LinkGun && !LinkGun->FireShotOverride() && LinkGun->InstantHitInfo.IsValidIndex(LinkGun->GetCurrentFireMode()))
     {
-		if (GetWorld()->GetTimeSeconds() - LinkGun->LastBeamPulseTime < LinkGun->BeamPulseInterval)
+		if (LinkGun->IsLinkPulsing())
 		{
-			if (LinkGun->PulseTarget && !LinkGun->PulseTarget->IsPendingKillPending())
-			{
-				LinkGun->PulseLoc = LinkGun->PulseTarget->GetActorLocation();
-				LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseTarget->GetActorLocation(), LinkGun->GetCurrentFireMode());
-			}
-			else
-			{
-				LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseLoc, LinkGun->GetCurrentFireMode());
-			}
+			LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseLoc, LinkGun->GetCurrentFireMode());
 			return;
 		}
 

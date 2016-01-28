@@ -75,6 +75,9 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY()
 		FVector PulseLoc;
 
+	/** Return true if currently in Link Pulse. */
+	virtual bool IsLinkPulsing();
+
 	// override to handle setting Link Bolt properties by Links.
 	virtual AUTProjectile* FireProjectile() override;
 
