@@ -837,7 +837,7 @@ void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double 
 
 	if ( PlayerPreviewTexture != nullptr )
 	{
-		PlayerPreviewTexture->UpdateResource();
+		PlayerPreviewTexture->FastUpdateResource();
 	}
 
 	UpdateChatText();

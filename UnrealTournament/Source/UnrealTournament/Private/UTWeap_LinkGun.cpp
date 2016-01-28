@@ -217,7 +217,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 
 	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 1.0f)
 	{
-		ScreenTexture->UpdateResource();
+		ScreenTexture->FastUpdateResource();
 	}
 
 	if (MuzzleFlash.IsValidIndex(1) && MuzzleFlash[1] != NULL)

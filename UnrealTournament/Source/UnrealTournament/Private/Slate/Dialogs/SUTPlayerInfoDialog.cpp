@@ -235,7 +235,7 @@ void SUTPlayerInfoDialog::Tick(const FGeometry& AllottedGeometry, const double I
 
 	if ( PlayerPreviewTexture != nullptr )
 	{
-		PlayerPreviewTexture->UpdateResource();
+		PlayerPreviewTexture->FastUpdateResource();
 	}
 
 	BuildFriendPanel();
