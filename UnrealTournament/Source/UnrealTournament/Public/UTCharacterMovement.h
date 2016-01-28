@@ -43,6 +43,9 @@ public:
 	/** Sets LastClientAdjustmentTime so there will be no delay in sending any needed adjustment. */
 	virtual void NeedsClientAdjustment();
 
+	/** Clear falling mode flags because left falling without calling processlanded, */
+	virtual void ClearFallingStateFlags();
+
 	virtual void ResetPredictionData_Client() override;
 
 	/* Bandwidth saving version, when position is not relative to base */
