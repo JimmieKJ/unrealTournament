@@ -514,7 +514,7 @@ AActor* AUTHUD_Showdown::FindHoveredIconActor() const
 
 bool AUTHUD_Showdown::OverrideMouseClick(FKey Key, EInputEvent EventType)
 {
-	if (Key.GetFName() == EKeys::LeftMouseButton && EventType == IE_Pressed)
+	if (Key.GetFName() == EKeys::LeftMouseButton && EventType == IE_Released)
 	{
 		APlayerStart* ClickedStart = Cast<APlayerStart>(FindHoveredIconActor());
 		if (ClickedStart != NULL)
