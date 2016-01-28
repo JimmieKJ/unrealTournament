@@ -335,26 +335,34 @@ void UUTCharacterMovement::OnMovementModeChanged(EMovementMode PreviousMovementM
 		}
 		if (PreviousMovementMode == MOVE_Falling)
 		{
-			// clear falling state flags
-			bIsAgainstWall = false;
-			bFallingInWater = false;
-			bCountWallSlides = true;
-			bIsFloorSliding = false;
-			bIsDodging = false;
-			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
-			bJumpAssisted = false;
+			ClearFallingStateFlags();
 			AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
 			if (UTCharOwner)
 			{
-				UTCharOwner->bApplyWallSlide = false;
 				UTCharOwner->InventoryEvent(InventoryEventName::LandedWater);
 			}
-			bExplicitJump = false;
-			ClearRestrictedJump();
-			CurrentMultiJumpCount = 0;
-			CurrentWallDodgeCount = 0;
 		}
 	}
+}
+
+void UUTCharacterMovement::ClearFallingStateFlags()
+{
+	bIsAgainstWall = false;
+	bFallingInWater = false;
+	bCountWallSlides = true;
+	bIsFloorSliding = false;
+	bIsDodging = false;
+	SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+	bJumpAssisted = false;
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner)
+	{
+		UTCharOwner->bApplyWallSlide = false;
+	}
+	bExplicitJump = false;
+	ClearRestrictedJump();
+	CurrentMultiJumpCount = 0;
+	CurrentWallDodgeCount = 0;
 }
 
 bool UUTCharacterMovement::CheckFall(const FFindFloorResult& OldFloor, const FHitResult& Hit, const FVector& Delta, const FVector& OldLocation, float remainingTime, float timeTick, int32 Iterations, bool bMustJump)

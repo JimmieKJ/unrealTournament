@@ -108,7 +108,12 @@ void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, 
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
 	if (UTOwner == NULL || UTOwner->GetRootComponent() == NULL || (!UTOwner->GetRootComponent()->IsSimulatingPhysics() && !UTOwner->IsRagdoll()))
 	{
+		bool bWasFalling = (MovementMode == MOVE_Falling);
 		Super::ClientAdjustPosition_Implementation(TimeStamp, NewLocation, NewVelocity, NewBase, NewBaseBoneName, bHasBase, bBaseRelativePosition, ServerMovementMode);
+		if (bWasFalling && (MovementMode == MOVE_Walking))
+		{
+			ClearFallingStateFlags();
+		}
 	}
 	else
 	{
