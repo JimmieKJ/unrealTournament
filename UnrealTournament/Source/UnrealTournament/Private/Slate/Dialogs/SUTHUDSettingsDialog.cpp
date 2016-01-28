@@ -493,6 +493,7 @@ void SUTHUDSettingsDialog::OnWeaponBarOpacityChanged(float NewValue)
 	if (TargetHUD.IsValid())
 	{
 		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->bHUDWeaponBarSettingChanged = true;
 	}
 }
 
@@ -501,6 +502,7 @@ void SUTHUDSettingsDialog::OnWeaponBarIconOpacityChanged(float NewValue)
 	if (TargetHUD.IsValid())
 	{
 		TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->bHUDWeaponBarSettingChanged = true;
 	}
 }
 
@@ -509,10 +511,9 @@ void SUTHUDSettingsDialog::OnWeaponBarEmptyOpacityChanged(float NewValue)
 	if (TargetHUD.IsValid())
 	{
 		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->bHUDWeaponBarSettingChanged = true;
 	}
 }
-
-
 
 void SUTHUDSettingsDialog::OnWeaponBarScaleChanged(float NewValue)
 {

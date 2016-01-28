@@ -302,6 +302,10 @@ public:
 	UPROPERTY(globalconfig)
 	float HUDWidgetWeaponBarEmptyOpacity;
 
+	/** Set true to force weapon bar to immediately update. */
+	UPROPERTY()
+		bool bHUDWeaponBarSettingChanged;
+
 	// Allows the user to override the scaling factor for their hud.
 	UPROPERTY(globalconfig)
 	float HUDWidgetScaleOverride;

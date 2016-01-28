@@ -55,6 +55,13 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 	if (UTCharacterOwner == NULL) return; // Don't draw without a character
 
+	if (UTHUDOwner->bHUDWeaponBarSettingChanged)
+	{
+		InactiveOpacity = UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity;
+		InactiveIconOpacity = UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity;
+		UTHUDOwner->bHUDWeaponBarSettingChanged = false;
+	}
+
 	// Handle fading out.
 	if (FadeTimer > 0.0f)
 	{
