@@ -46,6 +46,8 @@ public class UnrealTournamentBuild
 
 		// Dev branch app in gamedev
 		UnrealTournamentDevTesting,
+		UnrealTournamentDevStage,
+		UnrealTournamentDevPlaytest,
 
 		// Release branch promotions
 		UnrealTournamentReleaseTesting,
@@ -72,6 +74,8 @@ public class UnrealTournamentBuild
 
 		// Dev branch promotions
 		UnrealTournamentEditorDevTesting,
+		UnrealTournamentEditorDevStage,
+		UnrealTournamentEditorDevPlaytest,
 
 		// Release branch promotions
 		UnrealTournamentEditorReleaseTesting,
@@ -1255,6 +1259,8 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		// Setup the list of dev apps vs. release apps for enforcing branch consistency for each backend.  Editor builds track with game builds, so just use the game builds' app-to-env mappings
 		List<UnrealTournamentBuild.UnrealTournamentAppName> DevBranchApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
 		DevBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting);
+		DevBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage);
+		DevBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest);
 
 		List<UnrealTournamentBuild.UnrealTournamentAppName> ReleaseBranchApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
 		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting);
@@ -1273,9 +1279,11 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		GameDevApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting);
 		// Map which apps are Stage only
 		List<UnrealTournamentBuild.UnrealTournamentAppName> StageApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
+		StageApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage);
 		StageApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseStage);
 		// Map which apps are Production only
 		List<UnrealTournamentBuild.UnrealTournamentAppName> ProdApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
+		ProdApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest);
 		ProdApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest);
 		ProdApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev);
 
@@ -1333,6 +1341,14 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting)
 			{
 				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorDevTesting;
+			}
+			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevStage)
+			{
+				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorDevStage;
+			}
+			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevPlaytest)
+			{
+				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorDevPlaytest;
 			}
 			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting)
 			{
