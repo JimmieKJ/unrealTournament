@@ -1328,7 +1328,6 @@ void AUTGameState::UpdateHighlights_Implementation()
 		{
 			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
 
-			// @TODO FIXMESTEVE support tie scores!
 			if (PS->Score >(TopScorer[TeamIndex] ? TopScorer[TeamIndex]->Score : 0))
 			{
 				TopScorer[TeamIndex] = PS;

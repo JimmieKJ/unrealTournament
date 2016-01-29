@@ -612,13 +612,6 @@ bool AUTCharacter::BlockedHeadShot(FVector HitLocation, FVector ShotDirection, f
 			{
 				ShotInstigator->HeadShotBlocked();
 			}
-
-			// @TODO FIXMESTEVE - hack - need more elegant way of keeping headshots w/ udamage
-			if (!ShotInstigator || (ShotInstigator->DamageScaling < 2.f))
-			{
-				return true;
-			}
-
 			break;
 		}
 	}
