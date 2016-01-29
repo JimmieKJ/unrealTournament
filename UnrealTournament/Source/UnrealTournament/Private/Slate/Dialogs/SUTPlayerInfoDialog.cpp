@@ -304,7 +304,11 @@ void SUTPlayerInfoDialog::RecreatePlayerPreview()
 				}
 			}
 
-			UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
+			UClass* PreviewAttachmentType = TargetPlayerState.IsValid() && TargetPlayerState->FavoriteWeapon ? TargetPlayerState->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
+			if (!PreviewAttachmentType)
+			{
+				PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
+			}
 			if (PreviewAttachmentType != NULL)
 			{
 				PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));

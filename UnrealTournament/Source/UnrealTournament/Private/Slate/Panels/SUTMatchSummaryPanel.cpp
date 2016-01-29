@@ -1213,7 +1213,6 @@ AUTCharacter* SUTMatchSummaryPanel::RecreatePlayerPreview(AUTPlayerState* NewPS,
 			UClass* PreviewAttachmentType = NewPS->FavoriteWeapon ? NewPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
 			if (!PreviewAttachmentType)
 			{
-				// @TODO FIXMESTEVE - should always have a favorite weapon (choose from stats)
 				UClass* PreviewAttachments[6];
 				PreviewAttachments[0] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.BP_LinkGun_Attach_C"), NULL, LOAD_None, NULL);
 				PreviewAttachments[1] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper_Attach.BP_Sniper_Attach_C"), NULL, LOAD_None, NULL);
