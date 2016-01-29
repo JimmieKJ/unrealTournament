@@ -247,7 +247,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 		if ((PulseDir | FireDir) < 0.7f)
 		{
 			PulseDir = PulseDir - FireDir * ((PulseDir | FireDir) - 0.7f);
-			PulseDir = PulseDir.SafeNormal() * PulseDist;
+			PulseDir = PulseDir.GetSafeNormal() * PulseDist;
 			PulseLoc = PulseDir + SpawnLocation;
 		}
 

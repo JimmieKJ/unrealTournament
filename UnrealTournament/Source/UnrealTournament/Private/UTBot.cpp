@@ -157,6 +157,21 @@ void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
 			PS->ServerReceiveEyewearClass(CharacterData->EyewearType.ToString());
 			PS->ServerReceiveEyewearVariant(CharacterData->EyewearVariantId);
 		}
+		if (!PS->FavoriteWeapon && (Personality.FavoriteWeapon != NAME_None))
+		{
+			for (FActorIterator It(GetWorld()); It; ++It)
+			{
+				AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+				if (Pickup && Pickup->WeaponType)
+				{
+					if (IsFavoriteWeapon(Pickup->WeaponType))
+					{
+						PS->FavoriteWeapon = Pickup->WeaponType;
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	InitializeSkill(CharacterData->Skill);
