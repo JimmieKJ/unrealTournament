@@ -166,6 +166,33 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		int32 BlueLivesRemaining;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText RedAdvantageStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText BlueAdvantageStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText RoundInProgressStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText IntermissionStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText HalftimeStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText OvertimeStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText ExtendedOvertimeStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText FirstHalfStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText SecondHalfStatus;
+
 	/** Sets the # of teams.  This will also Pre-seed FlagsBases */
 	virtual void SetMaxNumberOfTeams(int32 TeamCount);
 

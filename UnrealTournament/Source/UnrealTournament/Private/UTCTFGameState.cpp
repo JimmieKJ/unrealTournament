@@ -79,6 +79,16 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	HighlightPriority.Add(HighlightNames::FlagCaptures, 3.5f);
 	HighlightPriority.Add(HighlightNames::Assists, 3.f);
 	HighlightPriority.Add(HighlightNames::FlagReturns, 1.9f);
+
+	RedAdvantageStatus = NSLOCTEXT("UTCTFGameState", "RedAdvantage", "Red Advantage");
+	BlueAdvantageStatus = NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "Blue Advantage");
+	RoundInProgressStatus = NSLOCTEXT("UTCharacter", "CTFRoundDisplay", "Round {RoundNum}");
+	IntermissionStatus = NSLOCTEXT("UTCTFGameState", "Intermission", "Intermission");
+	HalftimeStatus = NSLOCTEXT("UTCTFGameState", "HalfTime", "HalfTime");
+	OvertimeStatus = NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!");
+	ExtendedOvertimeStatus = NSLOCTEXT("UTCTFGameState", "ExtendedOvertime", "Extended Overtime!");
+	FirstHalfStatus = NSLOCTEXT("UTCTFGameState", "FirstHalf", "First Half");
+	SecondHalfStatus = NSLOCTEXT("UTCTFGameState", "SecondHalf", "Second Half");
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -271,45 +281,45 @@ FText AUTCTFGameState::GetGameStatusText()
 {
 	if (HasMatchEnded())
 	{
-		return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
+		return GameOverStatus;
 	}
 	else if (GetMatchState() == MatchState::MapVoteHappening)
 	{
-		return NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
+		return MapVoteStatus;
 	}
 	else if (bPlayingAdvantage)
 	{
 		if (AdvantageTeamIndex == 0)
 		{
-			return NSLOCTEXT("UTCTFGameState", "RedAdvantage", "Red Advantage");
+			return RedAdvantageStatus;
 		}
 		else
 		{
-			return NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "Blue Advantage");
+			return BlueAdvantageStatus;
 		}
 	}
 	else if (CTFRound > 0)
 	{
 		FFormatNamedArguments Args;
 		Args.Add("RoundNum", FText::AsNumber(CTFRound));
-		return FText::Format(NSLOCTEXT("UTCharacter", "CTFRoundDisplay", "Round {RoundNum}"), Args);
+		return FText::Format(RoundInProgressStatus, Args);
 	}
 	else if (IsMatchIntermission())
 	{
-		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "PreOvertime", "Get Ready!") : NSLOCTEXT("UTCTFGameState", "HalfTime", "HalfTime");
+		return (bSecondHalf || (CTFRound > 0)) ? IntermissionStatus : HalftimeStatus;
 	}
 	else if (IsMatchInProgress())
 	{
 		if (IsMatchInOvertime())
 		{
-			return (ElapsedTime - OvertimeStartTime < TimeLimit) ? NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!") : NSLOCTEXT("UTCTFGameState", "ExtendedOvertime", "Extended Overtime!");
+			return (ElapsedTime - OvertimeStartTime < TimeLimit) ? OvertimeStatus : ExtendedOvertimeStatus;
 		}
 		if (TimeLimit == 0)
 		{
 			return FText::GetEmpty();
 		}
 
-		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "SecondHalf", "Second Half") : NSLOCTEXT("UTCTFGameState", "FirstHalf", "First Half");
+		return bSecondHalf ? SecondHalfStatus : FirstHalfStatus;
 	}
 
 	return Super::GetGameStatusText();

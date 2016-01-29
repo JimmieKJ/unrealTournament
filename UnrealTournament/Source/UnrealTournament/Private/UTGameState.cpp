@@ -247,6 +247,10 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightPriority.Add(HighlightNames::KillsAward, 0.2f);
 	HighlightPriority.Add(HighlightNames::DamageAward, 0.15f);
 	HighlightPriority.Add(HighlightNames::ParticipationAward, 0.1f);
+
+	GameOverStatus = NSLOCTEXT("UTGameState", "PostGame", "Game Over");
+	MapVoteStatus = NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
+	PreGameStatus = NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -757,15 +761,15 @@ FText AUTGameState::GetGameStatusText()
 	{
 		if (HasMatchEnded())
 		{
-			return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
+			return GameOverStatus;
 		}
 		else if (GetMatchState() == MatchState::MapVoteHappening)
 		{
-			return NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
+			return MapVoteStatus;
 		}
 		else
 		{
-			return NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
+			return PreGameStatus;
 		}
 	}
 
