@@ -38,7 +38,7 @@ void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState,
 			if (UTC)
 			{
 				// draw armor and health bars
-				float HealthPct = FMath::Max<float>(0.0f, float(UTC->Health) / float(UTC->SuperHealthMax));
+				float HealthPct = FMath::Clamp<float>(float(UTC->Health) / float(UTC->SuperHealthMax), 0.f, 1.f);
 				float ArmorPct = float(UTC->ArmorAmount) / float(UTC->MaxStackedArmor);
 				float Height = 8.f;
 				float YPos = YOffset + 0.5f*CellHeight;
