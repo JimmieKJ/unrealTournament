@@ -268,6 +268,6 @@ void AUTDuelGame::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 
 int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 {
-	bEloIsValid = PS ? PS->bDMEloValid : false;
+	bEloIsValid = PS ? PS->bDuelEloValid : false;
 	return PS ? PS->DuelRank : Super::GetEloFor(PS, bEloIsValid);
 }
