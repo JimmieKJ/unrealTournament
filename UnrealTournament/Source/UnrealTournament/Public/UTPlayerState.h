@@ -809,6 +809,8 @@ public:
 	{
 		return bOnlySpectator;
 	}
+
+	void SetXP(int32 XP);
 };
 
 

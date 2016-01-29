@@ -2809,3 +2809,7 @@ void AUTPlayerState::ClientReceiveRconMessage_Implementation(const FString& Mess
 	}
 }
 
+void AUTPlayerState::SetXP(int32 XP)
+{
+	PrevXP = XP;
+}
