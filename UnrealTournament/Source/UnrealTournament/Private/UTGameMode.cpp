@@ -484,7 +484,7 @@ void AUTGameMode::InitGameState()
 		{
 			UTGameSession->RegisterServer();
 			FTimerHandle TempHandle;
-			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
+			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f*GetActorTimeDilation());
 
 			if (UTGameSession->bSessionValid)
 			{
@@ -1667,7 +1667,7 @@ void AUTGameMode::EndMatch()
 	UTGameState->UpdateMatchHighlights();
 
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, GetActorTimeDilation());
 
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
 	{
@@ -1880,13 +1880,13 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 	// Setup a timer to pop up the final scoreboard on everyone
 	FTimerHandle TempHandle2;
-	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
+	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay*GetActorTimeDilation());
 
 	// Setup a timer to continue to the next map.  Need enough time for match summaries
 	EndTime = GetWorld()->TimeSeconds;
 	float TravelDelay = GetTravelDelay();
 	FTimerHandle TempHandle3;
-	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, TravelDelay);
+	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, TravelDelay*GetActorTimeDilation());
 
 	FTimerHandle TempHandle4;
 	float EndReplayDelay = TravelDelay - 10.f;
@@ -2762,7 +2762,7 @@ void AUTGameMode::HandleMatchInOvertime()
 void AUTGameMode::HandlePlayerIntro()
 {
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 5.f, false);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 5.f*GetActorTimeDilation(), false);
 }
 
 void AUTGameMode::EndPlayerIntro()
@@ -2781,7 +2781,7 @@ void AUTGameMode::HandleCountdownToBegin()
 	}*/
 	CountDown = 3;
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.0, false);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.f*GetActorTimeDilation(), false);
 }
 
 void AUTGameMode::CheckCountDown()
@@ -2791,7 +2791,7 @@ void AUTGameMode::CheckCountDown()
 		// Broadcast the localized message saying when the game begins.
 		BroadcastLocalized( this, UUTCountDownMessage::StaticClass(), CountDown, NULL, NULL, NULL);
 		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.0, false);
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.f*GetActorTimeDilation(), false);
 		CountDown--;
 	}
 	else
@@ -3953,13 +3953,12 @@ void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid, int32 InstanceID)
 void AUTGameMode::HandleMapVote()
 {
 	// Force at least 20 seconds of map vote time.
-	if (MapVoteTime < 20) MapVoteTime = 20;
-
+	MapVoteTime = FMath::Max(MapVoteTime, 20) * GetActorTimeDilation();
 	UTGameState->VoteTimer = MapVoteTime;
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::TallyMapVotes, MapVoteTime+1);	
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::TallyMapVotes, MapVoteTime + GetActorTimeDilation());
 	FTimerHandle TempHandle2;
-	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::CullMapVotes, MapVoteTime-10);	
+	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::CullMapVotes, MapVoteTime - 10 * GetActorTimeDilation());
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);

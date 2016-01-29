@@ -393,7 +393,7 @@ void AUTHUD::NotifyMatchStateChange()
 
 			AUTGameMode* DefaultGame = Cast<AUTGameMode>(GS->GetDefaultGameMode());
 			float MatchSummaryDelay = DefaultGame ? DefaultGame->EndScoreboardDelay + DefaultGame->MainScoreboardDisplayTime + DefaultGame->ScoringPlaysDisplayTime : 10.f;
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, MatchSummaryDelay, false);
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, MatchSummaryDelay*GetActorTimeDilation(), false);
 		}
 		else if (GS->GetMatchState() == MatchState::WaitingToStart)
 		{
