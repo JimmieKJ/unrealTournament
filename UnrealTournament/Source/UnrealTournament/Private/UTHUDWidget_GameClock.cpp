@@ -10,6 +10,7 @@ UUTHUDWidget_GameClock::UUTHUDWidget_GameClock(const FObjectInitializer& ObjectI
 	Size=FVector2D(430.0f,83.0f);
 	ScreenPosition=FVector2D(0.5f, 0.0f);
 	Origin=FVector2D(0.5f,0.0f);
+	NumPlayersDisplay = NSLOCTEXT("UTHUD", "NumPlayersDisplay", "/{PlayerCount}");
 }
 
 void UUTHUDWidget_GameClock::InitializeWidget(AUTHUD* Hud)
@@ -74,6 +75,7 @@ FText UUTHUDWidget_GameClock::GetNumPlayersText_Implementation()
 {
 	FFormatNamedArguments Args;
 	Args.Add("PlayerCount", FText::AsNumber(UTHUDOwner->NumActualPlayers));
-	return FText::Format(NSLOCTEXT("UTHUD", "NumPlayersDisplay", "/{PlayerCount}"), Args);
+	return FText::Format(NumPlayersDisplay, Args);
 }
+
 

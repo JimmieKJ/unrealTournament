@@ -40,6 +40,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float ColumnPadding;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FText RewardMessageText;
+
 	virtual void AgeMessages_Implementation(float DeltaTime) override; 
 
 protected:

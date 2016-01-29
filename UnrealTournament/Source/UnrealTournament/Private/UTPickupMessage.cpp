@@ -18,7 +18,7 @@ UUTPickupMessage::UUTPickupMessage(const class FObjectInitializer& ObjectInitial
 	StyleTag = FName(TEXT("Default"));
 
 	bIsUnique = true;
-	//bIsConsoleMessage = false;
+	PendingWeaponPickupText = NSLOCTEXT("PickupMessage", "PendingWeaponPickup", "");
 }
 
 FText UUTPickupMessage::ResolveMessage_Implementation(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
@@ -35,7 +35,7 @@ FText UUTPickupMessage::ResolveMessage_Implementation(int32 Switch, bool bTarget
 		const AUTCharacter* Pawn = LocalPC ? Cast<AUTCharacter>(LocalPC->GetPawn()) : NULL;
 		if (Pawn && Pawn->GetPendingWeapon() && (Pawn->GetPendingWeapon()->GetClass() == Weapon->GetClass()))
 		{
-			return NSLOCTEXT("PickupMessage", "PendingWeaponPickup", "");
+			return PendingWeaponPickupText;
 		}
 		return Weapon->DisplayName;
 	}

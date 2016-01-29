@@ -55,6 +55,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float AltClockScale;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FText NumPlayersDisplay;
+
 	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
 	FText GetPlayerScoreText();
 

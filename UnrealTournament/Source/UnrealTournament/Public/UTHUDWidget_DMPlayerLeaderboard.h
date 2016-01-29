@@ -59,6 +59,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FLinearColor OwnerNameColor;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FText SpreadText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float BarWidth;
