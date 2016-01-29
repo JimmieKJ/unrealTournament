@@ -405,7 +405,7 @@ void AUTTeamGameMode::HandlePlayerIntro()
 				{
 					while (SortedTeams[i]->GetSize() > SortedTeams[j]->GetSize() + 1)
 					{
-						// FIXMESTEVE calc team Elos, move best or worst player depending on difference in Elos
+						// Calc team Elos, move player who will result in best team average Elo match.
 						UTGameState->bForcedBalance = true;
 						int32 SourceTeamElo = SortedTeams[i]->AverageEloFor(this);
 						int32 EloDiff = SourceTeamElo - SortedTeams[j]->AverageEloFor(this);

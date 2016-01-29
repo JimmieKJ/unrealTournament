@@ -73,6 +73,10 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	UFUNCTION(exec)
 	void McpRefreshProfile();
 
+	/** Adjust spread on all weapons (multiply by scaling). */
+	UFUNCTION(exec)
+	void Spread(float Scaling);
+
 #if WITH_PROFILE
 	void LogWebResponse(const FMcpQueryResult& Response);
 #endif
