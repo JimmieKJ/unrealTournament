@@ -123,6 +123,54 @@ public:
 	UPROPERTY()
 		TArray<FText> StatsPageFooters;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText GameMessageText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText CH_PlayerName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText CH_Score;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText CH_Kills;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText CH_Deaths;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText CH_Skill;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText CH_Ping;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText CH_Ready;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText OneSpectatorWatchingText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText SpectatorsWatchingText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText PingFormatText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText PositionFormatText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText TeamSwapText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText ReadyText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText NotReadyText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText ArrowKeysText;
+
 protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")

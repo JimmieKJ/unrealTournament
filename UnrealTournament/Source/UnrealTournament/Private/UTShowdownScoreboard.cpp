@@ -67,13 +67,6 @@ void UUTShowdownScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	float Width = (Size.X * 0.5f) - CenterBuffer;
 	float Height = 23;
 
-	FText CH_PlayerName = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerName", "Player");
-	FText CH_Score = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerScore", "Score");
-	FText CH_Kills = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerKills", "KILLS");
-	FText CH_Deaths = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerDeaths", "DEATHS");
-	FText CH_Ping = (GetWorld()->GetNetMode() == NM_Standalone) ? NSLOCTEXT("UTScoreboard", "ColumnHeader_BotSkill", "Skill") : NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "Ping");
-	FText CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "");
-
 	for (int32 i = 0; i < 2; i++)
 	{
 		// Draw the background Border
@@ -86,11 +79,7 @@ void UUTShowdownScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 			DrawText(CH_Kills, XOffset + (Width * ColumnHeaderKillsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			DrawText(CH_Deaths, XOffset + (Width * ColumnHeaderDeathsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		}
-		else
-		{
-			DrawText(CH_Ready, XOffset + (Width * ColumnHeaderKillsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-		}
-		DrawText(CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText((GetWorld()->GetNetMode() == NM_Standalone) ? CH_Skill : CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		XOffset = Size.X - Width;
 	}
 

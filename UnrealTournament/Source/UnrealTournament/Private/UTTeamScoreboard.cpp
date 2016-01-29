@@ -9,6 +9,8 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 {
 	NumPages = 2;
 	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Stats");
+	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
+	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
@@ -28,7 +30,7 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(TextureAtlas, XOffset + FrontSize, YOffset + 22, MiddleSize, 65, 39,188,64,65, 1.0, FLinearColor::Red);
 	DrawTexture(TextureAtlas, XOffset + FrontSize + MiddleSize, YOffset + 22, EndSize, 65, 39,188,64,65, 1.0, FLinearColor::Red);
 
-	DrawText(NSLOCTEXT("UTTeamScoreboard","RedTeam","RED"), 36, YOffset + 40.f, UTHUDOwner->HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(RedTeamText, 36, YOffset + 40.f, UTHUDOwner->HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), Width * 0.9, YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 
 	XOffset = Size.X - Width;
@@ -37,7 +39,7 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(TextureAtlas, XOffset + EndSize, YOffset + 22, MiddleSize, 65, 130,188,64,65, 1.0, FLinearColor::Blue);
 	DrawTexture(TextureAtlas, XOffset, YOffset + 22, EndSize, 65, 117, 188, 16, 65, 1.0, FLinearColor::Blue);
 
-	DrawText(NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE"), 1237, YOffset + 40.f, UTHUDOwner->HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(BlueTeamText, 1237, YOffset + 40.f, UTHUDOwner->HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), Size.X - Width + (Width * 0.1), YOffset + 48.f, UTHUDOwner->ScoreFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	YOffset += 119;
 }
@@ -82,8 +84,8 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	if (UTGameState->PlayerArray.Num() <= 28 && NumSpectators > 0)
 	{
 		FText SpectatorCount = (NumSpectators == 1)
-			? NSLOCTEXT("UTScoreboard", "OneSpectator", "1 spectator is watching this match")
-			: FText::Format(NSLOCTEXT("UTScoreboard", "SpectatorFormat", "{0} spectators are watching this match"), FText::AsNumber(NumSpectators));
+			? OneSpectatorWatchingText
+			: FText::Format(SpectatorsWatchingText, FText::AsNumber(NumSpectators));
 		DrawText(SpectatorCount, Size.X * 0.5, 765, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor(0.75f, 0.75f, 0.75f, 1.0f), ETextHorzPos::Center, ETextVertPos::Bottom);
 	}
 }
