@@ -384,6 +384,27 @@ public:
 	// Creates a suffix string based on a value (st, nd, rd, th).
 	FText GetPlaceSuffix(int32 Value);
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+	FText TimerHours;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText TimerMinutes;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText TimerSeconds;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText SuffixFirst;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText SuffixSecond;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText SuffixThird;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText SuffixNth;
+
 	void DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);
 	void DrawNumber(int32 Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int32 MinDigits=0, bool bRightAlign=false);
 

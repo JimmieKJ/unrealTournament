@@ -29,6 +29,8 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::ImOnOffense, 900);
 	StatusOffsets.Add(StatusMessage::SpreadOut, 1000);
 	StatusOffsets.Add(StatusMessage::BaseUnderAttack, 1100);
+
+	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", "{PlayerName}: {TauntMessage}");
 }
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -166,7 +168,7 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	{
 		return FText::GetEmpty();
 	}
-	return FText::Format(NSLOCTEXT("UTCharacterVoice", "Taunt", "{PlayerName}: {TauntMessage}"), Args);
+	return FText::Format(TauntText, Args);
 }
 
 FName UUTCharacterVoice::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const

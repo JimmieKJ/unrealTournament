@@ -81,6 +81,14 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	bDrawPopupKillMsg = true;
 
 	bCustomWeaponCrosshairs = true;
+
+	TimerHours = NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}");
+	TimerMinutes = NSLOCTEXT("UTHUD", "TIMERMINUTES", "{Prefix}{Minutes}:{Seconds}{Suffix}");
+	TimerSeconds = NSLOCTEXT("UTHUD", "TIMERSECONDS", "{Prefix}{Seconds}{Suffix}");
+	SuffixFirst = NSLOCTEXT("UTHUD", "FirstPlaceSuffix", "st");
+	SuffixSecond = NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd");
+	SuffixThird = NSLOCTEXT("UTHUD", "ThirdPlaceSuffix", "rd");
+	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
 }
 
 void AUTHUD::BeginPlay()
@@ -557,15 +565,15 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForce
 
 	if (bDisplayHours)
 	{
-		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}"), Args);
+		return FText::Format(TimerHours, Args);
 	}
 	else if (bDisplayMinutes)
 	{
-		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Minutes}:{Seconds}{Suffix}"), Args);
+		return FText::Format(TimerMinutes, Args);
 	}
 	else
 	{
-		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Seconds}{Suffix}"), Args);
+		return FText::Format(TimerSeconds, Args);
 	}
 }
 
@@ -875,15 +883,15 @@ FText AUTHUD::GetPlaceSuffix(int32 Value)
 	switch (Value)
 	{
 		case 0: return FText::GetEmpty(); break;
-		case 1:  return NSLOCTEXT("UTHUD","FirstPlaceSuffix","st"); break;
-		case 2:  return NSLOCTEXT("UTHUD","SecondPlaceSuffix","nd"); break;
-		case 3:  return NSLOCTEXT("UTHUD","ThirdPlaceSuffix","rd"); break;
-		case 21:  return NSLOCTEXT("UTHUD", "FirstPlaceSuffix", "st"); break;
-		case 22:  return NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd"); break;
-		case 23:  return NSLOCTEXT("UTHUD", "ThirdPlaceSuffix", "rd"); break;
-		case 31:  return NSLOCTEXT("UTHUD", "FirstPlaceSuffix", "st"); break;
-		case 32:  return NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd"); break;
-		default: return NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th"); break;
+		case 1:  return SuffixFirst; break;
+		case 2:  return SuffixSecond; break;
+		case 3:  return SuffixThird; break;
+		case 21:  return SuffixFirst; break;
+		case 22:  return SuffixSecond; break;
+		case 23:  return SuffixThird; break;
+		case 31:  return SuffixFirst; break;
+		case 32:  return SuffixSecond; break;
+		default: return SuffixNth; break;
 	}
 
 	return FText::GetEmpty();

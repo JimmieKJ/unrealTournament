@@ -82,6 +82,9 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	UPROPERTY(BlueprintReadOnly, Category = Voice)
 		int32 StatusBaseIndex;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FText TauntText;
+
 	/** map of status index offsets. */
 	TMap< FName, float > StatusOffsets;
 
