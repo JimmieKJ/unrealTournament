@@ -41,31 +41,24 @@ public class UnrealTournamentBuild
 	/// </summary>
 	public enum UnrealTournamentAppName
 	{
-		// Dev and release branch builds source app
+		// Dev and release branch game builds source app
 		UnrealTournamentBuilds,
 
-		// Dev branch promotions
+		// Dev branch app in gamedev
 		UnrealTournamentDevTesting,
-		//UnrealTournamentDevStage,  // no plans for UT yet
-		//UnrealTournamentDevPlaytest,  // no plans for UT yet
 
 		// Release branch promotions
 		UnrealTournamentReleaseTesting,
-		UnrealTournamentReleaseStage,
 		UnrealTournamentPublicTest,
 
-		/// Live branch promotions
-		UnrealTournamentLiveTesting,
-        UnrealTournamentLiveStage,
-		/// Legacy Dev app, used as "Live", displays in Launcher as "UnrealTournament"
+		/// Live app, displays in Launcher as "UnrealTournament"
 		UnrealTournamentDev,
-		//UnrealTournamentLive, // Name we wish we could migrate to for live app
 	}
 
 
     public static UnrealTournamentEditorAppName EditorBranchNameToAppName(string BranchName)
     {
-        return UnrealTournamentEditorAppName.UnrealTournamentEditor;
+        return UnrealTournamentEditorAppName.UnrealTournamentEditorBuilds;
     }
 
     /// <summary>
@@ -73,23 +66,18 @@ public class UnrealTournamentBuild
     /// </summary>
     public enum UnrealTournamentEditorAppName
     {
-		// Dev and release branch builds
+		// Dev and release branch editor builds source app
 		UnrealTournamentEditorBuilds,
 
 		// Dev branch promotions
 		UnrealTournamentEditorDevTesting,
-		//UnrealTournamentEditorDevStage,  // no plans for UT yet
-		//UnrealTournamentEditorDevPlaytest,  // no plans for UT yet
 
 		// Release branch promotions
 		UnrealTournamentEditorReleaseTesting,
-		UnrealTournamentEditorReleaseStage,
 		UnrealTournamentEditorPublicTest,
 
 		/// Live branch promotions
-		UnrealTournamentEditorLiveTesting,
-		UnrealTournamentEditorLiveStage,
-		UnrealTournamentEditor // live app for the public
+		UnrealTournamentEditor
     }
 
 
@@ -1004,7 +992,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				string LabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Live", StagingInfo.Platform);
 				BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LabelName, McpConfigName);
 
-				// For back-compat post to branch's Testing app in Launcher as well.  To be deprecated.
+				// Auto-post new builds to testing app for testing in the launcher
 				UnrealTournamentBuild.UnrealTournamentEditorAppName TestingApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorDevTesting;
 				if (BranchName.Contains("UT-Releases"))
 				{
@@ -1268,10 +1256,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 
 		List<UnrealTournamentBuild.UnrealTournamentAppName> ReleaseBranchApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
 		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting);
-		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseStage);
 		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest);
-		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentLiveTesting);
-		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentLiveStage);
 		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev); // live public app, stuck on confusing legacy name
 
 		// FromApps
@@ -1283,11 +1268,8 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		List<UnrealTournamentBuild.UnrealTournamentAppName> GameDevApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
 		GameDevApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting);
 		GameDevApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting);
-		GameDevApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentLiveTesting);
 		// Map which apps are Stage only
 		List<UnrealTournamentBuild.UnrealTournamentAppName> StageApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
-		GameDevApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseStage);
-		GameDevApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentLiveStage);
 		// Map which apps are Production only
 		List<UnrealTournamentBuild.UnrealTournamentAppName> ProdApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
 		ProdApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest);
@@ -1341,35 +1323,40 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			}
 		}
 
-		// Setup the editor to app as well
+		// Setup the editor ToApp based on the game app
 		UnrealTournamentBuild.UnrealTournamentEditorAppName ToEditorApp;
 		{
-			String ToEditorAppName = ToGameApp.ToString().Replace("UnrealTournament", "UnrealTournamentEditor");
-
-			if (!Enum.TryParse(ToEditorAppName, out ToEditorApp))
+			if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting)
 			{
-				throw new AutomationException("Unable to find an editor app {0} matching game app {1}", ToEditorAppName, ToGameApp.ToString());
+				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorDevTesting;
+			}
+			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting)
+			{
+				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorReleaseTesting;
+			}
+			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest)
+			{
+				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorPublicTest;
+			}
+			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
+			{
+				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditor;
+			}
+			else
+			{
+				throw new AutomationException("Unable to find an editor app matching game app {1}", ToGameApp);
 			}
 		}
 
 		// Setup source game app
 		UnrealTournamentBuild.UnrealTournamentAppName FromGameApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentBuilds;
-		// UT only has one source app, but setup the editor source as well
-		UnrealTournamentBuild.UnrealTournamentEditorAppName FromEditorApp;
-		{
-			String FromEditorAppName = FromGameApp.ToString().Replace("UnrealTournament", "UnrealTournamentEditor");
-
-			if (!Enum.TryParse(FromEditorAppName, out FromEditorApp))
-			{
-				throw new AutomationException("Unable to find an editor app {0} matching game app {1}", FromEditorAppName, FromGameApp.ToString());
-			}
-		}
+		// Setup source editor app
+		UnrealTournamentBuild.UnrealTournamentEditorAppName FromEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorBuilds;
 
 		// Set some simple flags for identifying the type of promotion
 		bool bIsGameDevPromotion = GameDevApps.Contains(ToGameApp);
 		bool bIsStagePromotion = StageApps.Contains(ToGameApp);
 		bool bIsProdPromotion = ProdApps.Contains(ToGameApp);
-		bool bIsLivePromotion = ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev;
 
 		// Determine the environment for the target app
 		string TargetAppMcpConfig;
@@ -1393,7 +1380,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 
 		// Make sure the switch was flipped if promoting to the Live app used by the public
 		bool AllowLivePromotion = ParseParam("AllowLivePromotion");
-		if (AllowLivePromotion == false && bIsLivePromotion)
+		if (AllowLivePromotion == false && ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev)
 		{
 			throw new AutomationException("You attempted to promote to Live without toggling on AllowLivePromotions.  Did you mean to promote to Live?");
 		}
