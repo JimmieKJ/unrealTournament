@@ -49,6 +49,7 @@ public class UnrealTournamentBuild
 
 		// Release branch promotions
 		UnrealTournamentReleaseTesting,
+		UnrealTournamentReleaseStage,
 		UnrealTournamentPublicTest,
 
 		/// Live app, displays in Launcher as "UnrealTournament"
@@ -74,6 +75,7 @@ public class UnrealTournamentBuild
 
 		// Release branch promotions
 		UnrealTournamentEditorReleaseTesting,
+		UnrealTournamentEditorReleaseStage,
 		UnrealTournamentEditorPublicTest,
 
 		/// Live branch promotions
@@ -1256,6 +1258,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 
 		List<UnrealTournamentBuild.UnrealTournamentAppName> ReleaseBranchApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
 		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting);
+		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseStage);
 		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest);
 		ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev); // live public app, stuck on confusing legacy name
 
@@ -1270,6 +1273,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		GameDevApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting);
 		// Map which apps are Stage only
 		List<UnrealTournamentBuild.UnrealTournamentAppName> StageApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
+		StageApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseStage);
 		// Map which apps are Production only
 		List<UnrealTournamentBuild.UnrealTournamentAppName> ProdApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
 		ProdApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest);
@@ -1333,6 +1337,10 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting)
 			{
 				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorReleaseTesting;
+			}
+			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseStage)
+			{
+				ToEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorReleaseStage;
 			}
 			else if (ToGameApp == UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest)
 			{
