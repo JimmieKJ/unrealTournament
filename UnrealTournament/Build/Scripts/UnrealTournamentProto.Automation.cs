@@ -791,13 +791,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         BranchInfo.BranchUProject GameProj;
 		string TargetPlatforms;
         string StageDirectory;
-        GUBP.GUBPBranchConfig BranchConfig;
 
         public UnrealTournamentEditorDDCNode(GUBP.GUBPBranchConfig InBranchConfig, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InTargetPlatforms, string InStageDirectory)
 			: base(InHostPlatform)
 		{
             GameProj = InGameProj;
-            BranchConfig = InBranchConfig;
 			TargetPlatforms = InTargetPlatforms;
 			StageDirectory = InStageDirectory;
 			AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(InGameProj, InHostPlatform));
