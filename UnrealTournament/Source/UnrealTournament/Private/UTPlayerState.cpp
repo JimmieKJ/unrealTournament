@@ -955,6 +955,13 @@ void AUTPlayerState::OverrideWith(APlayerState* PlayerState)
 
 		SpectatingID = PS->SpectatingID;
 		SpectatingIDTeam = PS->SpectatingIDTeam;
+
+#if WITH_PROFILE
+		if (PS->McpProfile != NULL)
+		{
+			FMcpProfileSetter::Set(this, PS->GetMcpProfile());
+		}
+#endif
 	}
 }
 
@@ -2069,9 +2076,8 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		]
 	];
 
-	int32 CurrentXP;
 #if WITH_PROFILE
-	// use profile if available
+	// use profile if available, in case new data was received from MCP since the server set the replicated value
 	UUtMcpProfile* Profile = GetMcpProfile();
 	if (Profile == NULL)
 	{
@@ -2087,25 +2093,21 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	}
 	if (Profile != NULL)
 	{
-		CurrentXP = Profile->GetXP();
+		PrevXP = Profile->GetXP();
 	}
-	else
 #endif
-	{
-		CurrentXP = PrevXP;
-	}
-	int32 Level = GetLevelForXP(CurrentXP);
+	int32 Level = GetLevelForXP(PrevXP);
 	int32 LevelXPStart = GetXPForLevel(Level);
 	int32 LevelXPEnd = GetXPForLevel(Level + 1);
 	int32 LevelXPRange = LevelXPEnd - LevelXPStart;
 
-	FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(FMath::Max(0, CurrentXP)));
+	FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(FMath::Max(0, PrevXP)));
 	float LevelAlpha = 1.0f;
 
 	if (LevelXPRange > 0)
 	{
-		LevelAlpha = (float)(CurrentXP - LevelXPStart) / (float)LevelXPRange;
-		TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP need to obtain the next level"), FText::AsNumber(LevelXPEnd - CurrentXP));
+		LevelAlpha = (float)(PrevXP - LevelXPStart) / (float)LevelXPRange;
+		TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP need to obtain the next level"), FText::AsNumber(LevelXPEnd - PrevXP));
 	}
 
 	VBox->AddSlot()
@@ -2167,7 +2169,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		.AutoWidth()
 		[
 			SNew(STextBlock)
-			.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelFormat", " ({0} XP Total)"), FText::AsNumber(FMath::Max(0, CurrentXP))))
+			.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelFormat", " ({0} XP Total)"), FText::AsNumber(FMath::Max(0, PrevXP))))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 			.ColorAndOpacity(FLinearColor::Gray)
 		]
@@ -2807,9 +2809,4 @@ void AUTPlayerState::ClientReceiveRconMessage_Implementation(const FString& Mess
 	{
 		PC->ShowAdminMessage(Message);
 	}
-}
-
-void AUTPlayerState::SetXP(int32 XP)
-{
-	PrevXP = XP;
 }

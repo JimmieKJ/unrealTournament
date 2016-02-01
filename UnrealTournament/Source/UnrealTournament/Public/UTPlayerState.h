@@ -543,6 +543,7 @@ public:
 	struct FMcpProfileSetter
 	{
 		friend class AUTBaseGameMode;
+		friend class AUTPlayerState;
 	private:
 		static void Set(AUTPlayerState* PS, UUtMcpProfile* Profile)
 		{
@@ -813,8 +814,6 @@ public:
 	{
 		return bOnlySpectator;
 	}
-
-	void SetXP(int32 XP);
 };
 
 

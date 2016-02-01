@@ -1395,7 +1395,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), GetOnlineXP(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
+			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1487,7 +1487,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), GetOnlineXP(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
 		}
 	}
 }
