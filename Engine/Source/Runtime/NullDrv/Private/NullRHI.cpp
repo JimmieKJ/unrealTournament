@@ -30,7 +30,7 @@ void FNullDynamicRHI::Init()
 	check(!GIsRHIInitialized);
 
 	// do not do this at least on dedicated server; clients with -NullRHI may need additional consideration
-	if (!IsRunningDedicatedServer())
+    if (WITH_EDITOR || !IsRunningDedicatedServer())
 	{
 		// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 		for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
@@ -59,7 +59,7 @@ void FNullDynamicRHI::Shutdown()
  */
 void* FNullDynamicRHI::GetStaticBuffer()
 {
-	checkf(!IsRunningDedicatedServer(), TEXT("NullRHI should never allocate memory on the server. Change the caller to avoid doing allocs in when FApp::ShouldUseNullRHI() is true."));
+    checkf(WITH_EDITOR || !IsRunningDedicatedServer(), TEXT("NullRHI should never allocate memory on the server. Change the caller to avoid doing allocs in when FApp::ShouldUseNullRHI() is true."));
 
 	static void* Buffer = nullptr;
 	if (!IsRunningDedicatedServer() && !Buffer)
