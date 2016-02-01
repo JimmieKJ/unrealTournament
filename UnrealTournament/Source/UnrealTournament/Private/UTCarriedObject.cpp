@@ -652,9 +652,9 @@ void AUTCarriedObject::OnRep_ReplicatedMovement()
 	if (AttachmentReplication.AttachParent == NULL)
 	{
 		Super::OnRep_ReplicatedMovement();
-		if ((ObjectState == CarriedObjectState::Home) && (HomeBase != NULL))
+		if (ObjectState == CarriedObjectState::Home && HomeBase != NULL)
 		{
-			const FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
+			const FVector BaseLocation = GetHomeLocation();
 			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
 			if ((BaseLocation - GetActorLocation()).SizeSquared() > 1.f)
 			{
