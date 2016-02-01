@@ -25,6 +25,7 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	GoalScore = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Team Showdown");
 	bAnnounceTeam = true;
+	QuickPlayersToStart = 6;
 }
 
 void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

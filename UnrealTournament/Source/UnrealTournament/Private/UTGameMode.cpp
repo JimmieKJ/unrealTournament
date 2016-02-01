@@ -81,7 +81,9 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
-	MaxWaitForPlayers = 90;
+	QuickPlayersToStart = 4;
+	MaxWaitForPlayers = 240;
+	MaxWaitForQuickMatch = 180;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
@@ -2598,7 +2600,14 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 	{
 		StartPlayTime = (NumPlayers > 0) ? FMath::Min(StartPlayTime, GetWorld()->GetTimeSeconds()) : 10000000.f;
 		float  ElapsedWaitTime = FMath::Max(0.f, GetWorld()->GetTimeSeconds() - StartPlayTime);
-		UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
+		if (bIsQuickMatch)
+		{
+			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
+		}
+		else
+		{
+			UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
+		}
 		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
 			// Count how many ready players we have
@@ -2622,7 +2631,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			}
 
 			// start if everyone is ready, or have waited long enough and 60% ready.
-			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (ElapsedWaitTime > MaxReadyWaitTime);
+			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
 			if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
 			{
 				if (((ReadyCount > 0) && !bCasterControl) || bCasterReady)
@@ -2631,10 +2640,13 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 				}
 			}
 		}
-		// if not competitive match, Fill with bots if have waited long enough
-		if (!bRequireReady && (MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
+		// if not competitive match, fill with bots if have waited long enough
+		if (!bRequireReady)
 		{
-			BotFillCount = FMath::Max(BotFillCount, MinPlayersToStart);
+			if ((MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
+			{
+				BotFillCount = FMath::Max(BotFillCount, MinPlayersToStart);
+			}
 		}
 		if (!bRequireReady && (MaxReadyWaitTime > 0) && UTGameState && (ElapsedWaitTime > 0))
 		{
