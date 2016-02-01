@@ -80,7 +80,12 @@ UNiagaraSparseVolumeDataObject::UNiagaraSparseVolumeDataObject(const FObjectInit
 	Size = 64;
 	NumBuckets = Size*Size*Size;
 	//Data.AddZeroed(NumBuckets);
-	Data.Init(FVector4(0.1f, 0.1f, 0.1f, 0.1f), NumBuckets);
+
+	// avoid allocation in CDO
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		Data.Init(FVector4(0.1f, 0.1f, 0.1f, 0.1f), NumBuckets);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
