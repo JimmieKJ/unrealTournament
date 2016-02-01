@@ -75,7 +75,6 @@ protected:
 	void OnRep_CurrentMatch();
 
 public:
-	FString DesiredQuickStartGameMode;
 	// The Unique ID of a friend this player wants to join
 	FString DesiredFriendToJoin;
 

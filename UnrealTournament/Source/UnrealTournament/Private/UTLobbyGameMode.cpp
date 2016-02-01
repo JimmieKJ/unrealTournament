@@ -162,13 +162,6 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 
 	if (PS)
 	{	
-		FString QuickStartOption = UGameplayStatics::ParseOption(Options, TEXT("QuickStart"));
-
-		if ( QuickStartOption != TEXT("") )
-		{
-			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? EEpicDefaultRuleTags::CTF : EEpicDefaultRuleTags::Deathmatch;
-		}
-
 		FString InstanceID = UGameplayStatics::ParseOption(Options,"Session");
 		if (!InstanceID.IsEmpty())
 		{

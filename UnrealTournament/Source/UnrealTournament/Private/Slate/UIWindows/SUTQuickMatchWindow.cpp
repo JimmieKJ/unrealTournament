@@ -102,7 +102,7 @@ void SUTQuickMatchWindow::BuildWindow()
 				.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Dark")
 				.OnClicked(this, &SUTQuickMatchWindow::OnCancelClick)
 				.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
-				.Text(NSLOCTEXT("QuickMatchg", "CancelText", "ESC to Cancel"))
+				.Text(NSLOCTEXT("QuickMatch", "CancelText", "ESC to Cancel"))
 				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 			]
 		]
@@ -628,7 +628,7 @@ void SUTQuickMatchWindow::RequestQuickPlayResults(AUTServerBeaconClient* Beacon,
 
 	if (CommandCode == EQuickMatchResults::WaitingForStart || CommandCode == EQuickMatchResults::WaitingForStartNew )
 	{
-		UE_LOG(UT,Log,TEXT("Quickplay hub is spooling up instance"));
+		UE_LOG(UT,Log,TEXT("Quickmatch instance is spooling up."));
 		bWaitingForMatch = true;
 		if ( CommandCode == EQuickMatchResults::WaitingForStartNew )
 		{

@@ -474,6 +474,11 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 			GameURL += FString::Printf(TEXT("?RankCheck=%i"), MatchOwner->AverageRank);
 		}
 
+		if (MatchOwner->bQuickPlayMatch)
+		{
+			GameURL += TEXT("?QuickMatch=1");
+		}
+
 		if (MatchOwner->bPrivateMatch)
 		{
 			GameURL += TEXT("?Private=1");

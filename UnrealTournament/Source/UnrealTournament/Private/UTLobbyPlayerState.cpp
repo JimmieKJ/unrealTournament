@@ -9,12 +9,10 @@
 AUTLobbyPlayerState::AUTLobbyPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
 }
 
 void AUTLobbyPlayerState::PreInitializeComponents()
 {
-	DesiredQuickStartGameMode = TEXT("");
 }
 
 void AUTLobbyPlayerState::BeginPlay()
@@ -28,7 +26,6 @@ void AUTLobbyPlayerState::BeginPlay()
 		Server_ReadyToBeginDataPush();
 	}
 }
-
 
 void AUTLobbyPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
@@ -99,7 +96,6 @@ void AUTLobbyPlayerState::ServerJoinMatch_Implementation(AUTLobbyMatchInfo* Matc
 		}
 	}
 }
-
 
 void AUTLobbyPlayerState::AddedToMatch(AUTLobbyMatchInfo* Match)
 {
@@ -179,9 +175,7 @@ void AUTLobbyPlayerState::CheckDataPushReady()
 	if (GameState)
 	{
 		// We are ready.  Setup the 
-
 		//UE_LOG(UT,Log,TEXT("[DataPush] - Requesting Block 0"));
-
 		CurrentBlock = 0;
 		Server_SendDataBlock(CurrentBlock);
 	}
@@ -199,9 +193,7 @@ bool AUTLobbyPlayerState::Server_SendDataBlock_Validate(int32 Block) { return tr
 void AUTLobbyPlayerState::Server_SendDataBlock_Implementation(int32 Block)
 {
 	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
-
 	//UE_LOG(UT,Log,TEXT("[DataPush] - Sending Block %i (%s)"), Block, GameState ? TEXT("Good To Send") : TEXT("Can't Send"));
-
 	if (GameState && (Block >= 0) && (Block < GameState->AllowedGameData.Num()))
 	{
 		Client_ReceiveBlock(Block, GameState->AllowedGameData[Block]);
