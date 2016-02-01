@@ -169,66 +169,6 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 {
 	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
 	{
-		if (Other != NULL)
-		{
-			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
-			if (OtherPS != NULL && OtherPS->Team != NULL)
-			{
-				OtherPS->SetOutOfLives(true);
-				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
-				AUTTeamInfo* KillerTeam = (KillerPS != NULL && KillerPS->Team != OtherPS->Team) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
-
-				int32 AliveCount = 0;
-				AController* LastAlive = NULL;
-				for (AController* C : OtherPS->Team->GetTeamMembers())
-				{
-					if (C != Other && C->GetPawn() != NULL && !C->GetPawn()->bTearOff)
-					{
-						LastAlive = C;
-						AliveCount++;
-					}
-				}
-				if (AliveCount == 1)
-				{
-					for (AController* C : OtherPS->Team->GetTeamMembers())
-					{
-						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
-						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
-						{
-							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 1, PC->PlayerState, NULL, NULL);
-						}
-					}
-					for (AController* C : KillerTeam->GetTeamMembers())
-					{
-						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
-						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
-						{
-							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 0, PC->PlayerState, NULL, NULL);
-						}
-					}
-				}
-				else if (AliveCount == 0)
-				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(Killer);
-					if (PC && (Killer != Other))
-					{
-						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
-					}
-					KillerTeam->Score += 1;
-					if (LastRoundWinner == NULL)
-					{
-						LastRoundWinner = KillerTeam;
-					}
-					else if (LastRoundWinner != KillerTeam)
-					{
-						LastRoundWinner = NULL; // both teams got a point so nobody won
-					}
-
-					// this is delayed so mutual kills can happen
-					SetTimerUFunc(this, FName(TEXT("StartIntermission")), 1.0f, false);
-				}
-			}
-		}
 		if (Killer != Other && Killer != NULL && UTGameState->OnSameTeam(Killer, Other))
 		{
 			// AUTGameMode doesn't handle team kills and AUTTeamDMGameMode would change the team score so we need to do it ourselves
@@ -257,13 +197,81 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 				{
 					KillerPlayerState->AdjustScore(+100);
 					KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
-					CheckScore(KillerPlayerState);
 				}
 
 				if (!bFirstBloodOccurred)
 				{
 					BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
 					bFirstBloodOccurred = true;
+				}
+			}
+		}
+		if (Other != NULL)
+		{
+			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
+			if (OtherPS != NULL && OtherPS->Team != NULL)
+			{
+				OtherPS->SetOutOfLives(true);
+				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
+				AUTTeamInfo* KillerTeam = (KillerPS != NULL && KillerPS->Team != OtherPS->Team) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
+
+				int32 AliveCount = 0;
+				AController* LastAlive = NULL;
+				int32 TeamCount = 0;
+				for (AController* C : OtherPS->Team->GetTeamMembers())
+				{
+					if (C != Other && C->GetPawn() != NULL && !C->GetPawn()->bTearOff)
+					{
+						LastAlive = C;
+						AliveCount++;
+					}
+					TeamCount++;
+				}
+				if (AliveCount == 1)
+				{
+					for (AController* C : OtherPS->Team->GetTeamMembers())
+					{
+						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 1, PC->PlayerState, NULL, NULL);
+						}
+					}
+					for (AController* C : KillerTeam->GetTeamMembers())
+					{
+						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 0, PC->PlayerState, NULL, NULL);
+						}
+					}
+				}
+				else if (AliveCount == 0)
+				{
+					AUTPlayerController* PC = Cast<AUTPlayerController>(Killer);
+					if (PC && (Killer != Other))
+					{
+						if (KillerPS && (KillerPS->RoundKills >= FMath::Min(3, TeamCount)))
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+						}
+						else
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+						}
+					}
+					KillerTeam->Score += 1;
+					if (LastRoundWinner == NULL)
+					{
+						LastRoundWinner = KillerTeam;
+					}
+					else if (LastRoundWinner != KillerTeam)
+					{
+						LastRoundWinner = NULL; // both teams got a point so nobody won
+					}
+
+					// this is delayed so mutual kills can happen
+					SetTimerUFunc(this, FName(TEXT("StartIntermission")), 1.0f, false);
 				}
 			}
 		}

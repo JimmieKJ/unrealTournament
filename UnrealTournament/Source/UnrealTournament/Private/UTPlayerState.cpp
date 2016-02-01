@@ -42,6 +42,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	Kills = 0;
 	DamageDone = 0;
 	RoundDamageDone = 0;
+	RoundKills = 0;
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
