@@ -29,19 +29,15 @@ void FNullDynamicRHI::Init()
 	
 	check(!GIsRHIInitialized);
 
-	// do not do this at least on dedicated server; clients with -NullRHI may need additional consideration
-    if (WITH_EDITOR || !IsRunningDedicatedServer())
+	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
+	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
 	{
-		// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
-		for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
-		{
-			ResourceIt->InitRHI();
-		}
-		// Dynamic resources can have dependencies on static resources (with uniform buffers) and must initialized last!
-		for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
-		{
-			ResourceIt->InitDynamicRHI();
-		}
+		ResourceIt->InitRHI();
+	}
+	// Dynamic resources can have dependencies on static resources (with uniform buffers) and must initialized last!
+	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
+	{
+		ResourceIt->InitDynamicRHI();
 	}
 
 	GIsRHIInitialized = true;
@@ -59,10 +55,8 @@ void FNullDynamicRHI::Shutdown()
  */
 void* FNullDynamicRHI::GetStaticBuffer()
 {
-    checkf(WITH_EDITOR || !IsRunningDedicatedServer(), TEXT("NullRHI should never allocate memory on the server. Change the caller to avoid doing allocs in when FApp::ShouldUseNullRHI() is true."));
-
 	static void* Buffer = nullptr;
-	if (!IsRunningDedicatedServer() && !Buffer)
+	if (!Buffer)
 	{
 		// allocate an 64 meg buffer, should be big enough for any texture/surface
 		Buffer = FMemory::Malloc(64 * 1024 * 1024);
