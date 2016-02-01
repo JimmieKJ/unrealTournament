@@ -1461,6 +1461,16 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			CurrentProgression->Serialize(Ar);
 			CurrentProgression->VersionFixup();
+
+			// set PlayerState progressionv variables if in main menu/single player
+			if (PlayerController != NULL)
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+				if (PS != NULL)
+				{
+					PS->TotalChallengeStars = CurrentProgression->TotalChallengeStars;
+				}
+			}
 		}
 		else if (CurrentProfileSettings)
 		{
