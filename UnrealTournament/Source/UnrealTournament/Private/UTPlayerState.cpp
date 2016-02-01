@@ -1499,7 +1499,6 @@ void AUTPlayerState::WriteStatsToCloud()
 				StatsWriteRequest->ProcessRequest();
 			}
 		}
-
 	}
 }
 

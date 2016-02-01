@@ -1598,6 +1598,16 @@ FText AUTGameState::FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index)
 		return FText::GetEmpty();
 	}
 	FText BestWeaponText = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
+
+	// special case for float KDR
+	if (PS->MatchHighlights[Index] == HighlightNames::BestKD)
+	{
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(HighlightMap.FindRef(PS->MatchHighlights[Index]), FText::AsNumber(PS->MatchHighlightData[Index], &FormatOptions), BestWeaponText);
+	}
+
 	return FText::Format(HighlightMap.FindRef(PS->MatchHighlights[Index]), FText::AsNumber(PS->MatchHighlightData[Index]), BestWeaponText);
 }
 
