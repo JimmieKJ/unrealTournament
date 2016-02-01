@@ -351,7 +351,7 @@ void SUTMainMenu::OpenDelayedMenu()
 			.PlayerOwner(PlayerOwner)
 			.GameRuleSets(AvailableGameRulesets)
 			.DialogSize(FVector2D(1920,1080))
-			.ButtonMask(UTDIALOG_BUTTON_PLAY | UTDIALOG_BUTTON_CANCEL | UTDIALOG_BUTTON_LAN)
+			.ButtonMask(UTDIALOG_BUTTON_PLAY | UTDIALOG_BUTTON_CANCEL)
 			.OnDialogResult(this, &SUTMainMenu::OnGameChangeDialogResult);
 		
 
