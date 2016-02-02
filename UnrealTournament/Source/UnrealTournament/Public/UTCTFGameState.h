@@ -158,6 +158,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	uint8 AdvantageTeamIndex;
 
 	UPROPERTY(Replicated)
+		uint32 bRoundBased : 1;
+
+	UPROPERTY(Replicated)
 		int32 CTFRound;
 
 	UPROPERTY(Replicated)

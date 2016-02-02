@@ -54,7 +54,7 @@ void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 
 FText UUTHUDWidget_TeamGameClock::GetRedScoreText_Implementation()
 {
-	if (Cast<AUTCTFGameState>(UTGameState))
+	if (Cast<AUTCTFGameState>(UTGameState) && Cast<AUTCTFGameState>(UTGameState)->bRoundBased)
 	{
 		return FText::AsNumber(((AUTCTFGameState*)(UTGameState))->RedLivesRemaining);
 	}
@@ -67,7 +67,7 @@ FText UUTHUDWidget_TeamGameClock::GetRedScoreText_Implementation()
 
 FText UUTHUDWidget_TeamGameClock::GetBlueScoreText_Implementation()
 {
-	if (Cast<AUTCTFGameState>(UTGameState))
+	if (Cast<AUTCTFGameState>(UTGameState) && Cast<AUTCTFGameState>(UTGameState)->bRoundBased)
 	{
 		return FText::AsNumber(((AUTCTFGameState*)(UTGameState))->BlueLivesRemaining);
 	}
