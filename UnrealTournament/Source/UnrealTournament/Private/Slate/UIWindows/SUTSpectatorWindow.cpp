@@ -26,34 +26,31 @@ bool SUTSpectatorWindow::GetGameMousePosition(FVector2D& MousePosition)
 }
 
 
-FReply SUTSpectatorWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+FReply SUTSpectatorWindow::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
 		if ( !PC->bSpectatorMouseChangesView )
-
 		{
-			FVector2D MousePosition;
-			if (GetGameMousePosition(MousePosition))
+			FVector2D MousePosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ).IntPoint();
+			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
+			if (SpectatorWidget)
 			{
-				UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
-				if (SpectatorWidget)
+				SpectatorWidget->SetMouseInteractive(true);
+				if ( SpectatorWidget->MouseClick(MousePosition) )
 				{
-					SpectatorWidget->SetMouseInteractive(true);
-					if ( SpectatorWidget->MouseClick(MousePosition) )
-					{
-						return FReply::Handled();
-					}
+					return FReply::Handled();
+				}
 
-					if (!PC->bSpectatorMouseChangesView)
-					{
-						PC->SetSpectatorMouseChangesView(true);
-					}
+				if (!PC->bSpectatorMouseChangesView)
+				{
+					PC->SetSpectatorMouseChangesView(true);
 				}
 			}
 		}
 	}
+
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 	return FReply::Handled();
 }
@@ -64,7 +61,7 @@ FReply SUTSpectatorWindow::OnMouseMove(const FGeometry& MyGeometry, const FPoint
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
-		FVector2D MousePosition;
+		FVector2D MousePosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ).IntPoint();
 		if (!PC->bSpectatorMouseChangesView && GetGameMousePosition(MousePosition))
 		{
 			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();

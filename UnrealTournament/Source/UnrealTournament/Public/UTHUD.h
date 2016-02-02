@@ -490,5 +490,7 @@ protected:
 	{
 		return FVector2D(MapToScreen.TransformPosition(MinimapTransform.TransformPosition(InPos)));
 	}
+
+
 };
 

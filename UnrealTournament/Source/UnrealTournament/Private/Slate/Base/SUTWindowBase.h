@@ -96,6 +96,11 @@ protected:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	EUIWindowState::Type WindowState;
 
+	const FSlateBrush* GetFocusBrush() const
+	{
+		return FCoreStyle::Get().GetBrush("NoBrush");
+	}
+
 private:
 	TSharedPtr<class SWidget> GameViewportWidget;
 	bool bClosing;

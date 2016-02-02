@@ -592,7 +592,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 
 
 #if !UE_SERVER
-	else if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Pressed && bSpectatorMouseChangesView)
+	else if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Released && bSpectatorMouseChangesView)
 	{
 		SetSpectatorMouseChangesView(false);
 	}

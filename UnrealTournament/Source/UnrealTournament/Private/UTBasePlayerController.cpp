@@ -691,10 +691,6 @@ void AUTBasePlayerController::UpdateInputMode()
 			if (UTHUD != nullptr)
 			{
 				NewInputMode = UTHUD->GetInputMode();
-				if (NewInputMode == EInputMode::EIM_GameAndUI || NewInputMode == EInputMode::EIM_UIOnly)
-				{
-					bShowMouseCursor = true;
-				}
 			}
 			
 			//Default to game only if no other input mode is wanted
@@ -704,6 +700,7 @@ void AUTBasePlayerController::UpdateInputMode()
 			}
 		}
 
+
 		//Apply the new input if it needs to be changed
 		if (NewInputMode != InputMode && NewInputMode != EInputMode::EIM_None)
 		{
@@ -711,19 +708,19 @@ void AUTBasePlayerController::UpdateInputMode()
 			switch (NewInputMode)
 			{
 			case EInputMode::EIM_GameOnly:
-				bShowMouseCursor = false;
 				Super::SetInputMode(FInputModeGameOnly());
 				break;
 			case EInputMode::EIM_GameAndUI:
-				bShowMouseCursor = true;
 				Super::SetInputMode(FInputModeGameAndUI().SetLockMouseToViewport(true).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
 				break;
 			case EInputMode::EIM_UIOnly:
-				bShowMouseCursor = true;
-				Super::SetInputMode(FInputModeUIOnly().SetLockMouseToViewport(true));
+				Super::SetInputMode(FInputModeUIOnly().SetLockMouseToViewport(true).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
 				break;
 			}
 		}
+
+		bShowMouseCursor = (InputMode == EInputMode::EIM_GameAndUI || InputMode == EInputMode::EIM_UIOnly);
+	
 	}
 }
 #endif

@@ -27,6 +27,8 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	RecordTimeStart = -1;
 	RecordTimeStop = -1;
 
+	bHideScrubBar = false;
+
 	PlayerOwner = InArgs._PlayerOwner;
 	DemoNetDriver = InArgs._DemoNetDriver;
 
@@ -508,7 +510,7 @@ FReply SUTReplayWindow::OnPlayPauseButtonClicked()
 
 FLinearColor SUTReplayWindow::GetTimeBarColor() const
 {
-	return FLinearColor(1.0f, 1.0f, 1.0f, FMath::Max(1.0f + HideTimeBarTime, 0.0f));
+	return FLinearColor(1.0f, 1.0f, 1.0f, FMath::Max(HideTimeBarTime / 2.0f, 0.0f));
 }
 
 FSlateColor SUTReplayWindow::GetTimeBarBorderColor() const
@@ -518,21 +520,18 @@ FSlateColor SUTReplayWindow::GetTimeBarBorderColor() const
 
 void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
-	//Check if the mouse is close to the bottom of the screen to unhide the timebar
-	UUTGameViewportClient* GVC = Cast<UUTGameViewportClient>(PlayerOwner->ViewportClient);
-	if (GVC && GVC->GetGameViewport())
+	if ( bHideScrubBar )
 	{
-		FVector2D MousePosition;
-		FVector2D ScreenSize;
-		GVC->GetMousePosition(MousePosition);
-		GVC->GetViewportSize(ScreenSize);
-		
-		if (!GVC->GetGameViewport()->HasMouseCapture() && (MousePosition.Y / ScreenSize.Y > 0.8f))
+		if (HideTimeBarTime > 0.0)
 		{
-			HideTimeBarTime = 2.0f;
+			HideTimeBarTime -= InDeltaTime;
 		}
 	}
-	HideTimeBarTime -= InDeltaTime;
+	else
+	{
+		HideTimeBarTime = 2.0f;
+	}
+
 
 	// If focus has changed and we're looking at kill bookmarks, refilter the bookmarks
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
@@ -583,86 +582,70 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 	return SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
-// @Returns true if the mouse position is inside the viewport
-bool SUTReplayWindow::GetGameMousePosition(FVector2D& MousePosition) const
-{
-	// We need to get the mouse input but the mouse event only has the mouse in screen space.  We need it in viewport space and there
-	// isn't a good way to get there.  So we punt and just get it from the game viewport.
-
-	UUTGameViewportClient* GVC = Cast<UUTGameViewportClient>(PlayerOwner->ViewportClient);
-	if (GVC)
-	{
-		return GVC->GetMousePosition(MousePosition);
-	}
-	return false;
-}
-
 FReply SUTReplayWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	FReply Reply = FReply::Unhandled();
+	if (GetVis() != EVisibility::Hidden)
+	{
+		FReply Reply = FReply::Unhandled();
 	
-	TSet< TSharedRef<SWidget> > TimeBarSet;
-	TimeBarSet.Add(TimeBar.ToSharedRef());
-	TMap<TSharedRef<SWidget>, FArrangedWidget> TimeBarGeometryResult;
+		TSet< TSharedRef<SWidget> > TimeBarSet;
+		TimeBarSet.Add(TimeBar.ToSharedRef());
+		TMap<TSharedRef<SWidget>, FArrangedWidget> TimeBarGeometryResult;
 
-	// FindChildGeometry can't handle the case where a child might not actually be a descendant, must use this overcomplicated version
-	bool bFoundTimeBarGeometry = FindChildGeometries(MyGeometry, TimeBarSet, TimeBarGeometryResult);
+		// FindChildGeometry can't handle the case where a child might not actually be a descendant, must use this overcomplicated version
+		bool bFoundTimeBarGeometry = FindChildGeometries(MyGeometry, TimeBarSet, TimeBarGeometryResult);
 
-	if (bFoundTimeBarGeometry && TimeBarGeometryResult[TimeBarSet.Array()[0]].Geometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
-	{
-		Reply = FReply::Handled();
-	}
-	else if (MouseClickHUD())
-	{
-		Reply = FReply::Handled();
-	}
-	else
-	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
-		if (!PC->bSpectatorMouseChangesView)
+		if (bFoundTimeBarGeometry && TimeBarGeometryResult[TimeBarSet.Array()[0]].Geometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
 		{
-			PC->SetSpectatorMouseChangesView(true);
+			Reply = FReply::Handled();
 		}
-	}
 	
-	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
-	bHandledMouseClick = Reply.IsEventHandled();
+		FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
+		bHandledMouseClick = Reply.IsEventHandled();
+	}
 	return FReply::Handled();
 }
 
 FReply SUTReplayWindow::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	//If mouse down was handled, set to the current position so it doesn't jump around
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
-	if (bHandledMouseClick && UTPC != nullptr)
+	if (GetVis() != EVisibility::Hidden)
 	{
-		UTPC->SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
+		FVector2D MousePosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ).IntPoint();
+		if (MouseClickHUD(MousePosition))
+		{
+		}
+		else
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+			if (!PC->bSpectatorMouseChangesView)
+			{
+				PC->SetSpectatorMouseChangesView(true);
+			}
+		}
+
+		//If mouse down was handled, set to the current position so it doesn't jump around
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+		if (bHandledMouseClick && UTPC != nullptr)
+		{
+			UTPC->SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
+		}
+		FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 	}
-	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
-	return FReply::Unhandled();
+	return FReply::Handled();
 }
 
-FReply SUTReplayWindow::OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent)
-{
-	return MouseClickHUD() ? FReply::Handled() : FReply::Unhandled();
-}
-
-bool SUTReplayWindow::MouseClickHUD()
+bool SUTReplayWindow::MouseClickHUD(const FVector2D& MousePosition)
 {
 	if (GetVis() != EVisibility::Hidden)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 		if (PC && PC->MyUTHUD)
 		{
-			FVector2D MousePosition;
-			if (GetGameMousePosition(MousePosition))
+			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
+			if (SpectatorWidget)
 			{
-				UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
-				if (SpectatorWidget)
-				{
-					SpectatorWidget->SetMouseInteractive(true);
-					return SpectatorWidget->MouseClick(MousePosition);
-				}
+				SpectatorWidget->SetMouseInteractive(true);
+				return SpectatorWidget->MouseClick(MousePosition);
 			}
 		}
 	}
@@ -671,18 +654,20 @@ bool SUTReplayWindow::MouseClickHUD()
 
 FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
+
+	FVector2D MousePosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ).IntPoint();
+	FVector2D MenuSize = MyGeometry.GetDrawSize();
+
+	bHideScrubBar = (MousePosition.Y < MenuSize.Y * 0.8f);
+
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
-		FVector2D MousePosition;
-		if (GetGameMousePosition(MousePosition))
+		UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
+		if (SpectatorWidget)
 		{
-			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
-			if (SpectatorWidget)
-			{
-				SpectatorWidget->SetMouseInteractive(true);
-				SpectatorWidget->TrackMouseMovement(MousePosition);
-			}
+			SpectatorWidget->SetMouseInteractive(true);
+			SpectatorWidget->TrackMouseMovement(MousePosition);
 		}
 	}
 

@@ -441,6 +441,13 @@ void AUTHUD::PostRender()
 		GS->SortPRIArray();
 	}
 	Super::PostRender();
+
+/*
+	DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+	Canvas->SetDrawColor(255,0,0,255);
+	Canvas->K2_DrawBox(DebugMousePosition, FVector2D(3,3),1.0);
+*/
+
 }
 
 void AUTHUD::CacheFonts()

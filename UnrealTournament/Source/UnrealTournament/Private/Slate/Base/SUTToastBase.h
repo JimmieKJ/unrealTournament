@@ -43,6 +43,14 @@ private:
 
 	// HACKS needed to keep window focus
 	virtual bool SupportsKeyboardFocus() const override;
+
+protected:
+	const FSlateBrush* GetFocusBrush() const
+	{
+		return FCoreStyle::Get().GetBrush("NoBrush");
+	}
+
+
 };
 
 #endif

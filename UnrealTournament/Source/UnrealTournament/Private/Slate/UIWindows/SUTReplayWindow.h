@@ -90,11 +90,10 @@ protected:
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
 	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
-	virtual bool MouseClickHUD();
+	virtual bool MouseClickHUD(const FVector2D& MousePosition);
 
 	bool bHandledMouseClick;
 	
@@ -138,6 +137,10 @@ protected:
 	TSharedRef<SWidget> MakeMarkRecordStartButton();
 	TSharedRef<SWidget> MakeMarkRecordStopButton();
 	TSharedRef<SWidget> MakeRecordButton();
+
+	bool bHideScrubBar;
+
+
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TWeakObjectPtr<class UDemoNetDriver> DemoNetDriver;
@@ -149,7 +152,6 @@ private:
 
 public:
 	void GrabKeyboardFocus();
-
 };
 
 #endif

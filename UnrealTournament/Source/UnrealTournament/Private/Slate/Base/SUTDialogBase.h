@@ -129,6 +129,11 @@ private:
 	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	const FSlateBrush* GetFocusBrush() const
+	{
+		return FCoreStyle::Get().GetBrush("NoBrush");
+	}
+
 
 public:
 	virtual void EnableButton(uint16 ButtonID);
@@ -136,5 +141,7 @@ public:
 
 	bool bSkipWorldRender;
 };
+
+
 
 #endif
