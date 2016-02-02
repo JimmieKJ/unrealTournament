@@ -519,15 +519,6 @@ bool AUTCharacter::IsSpawnProtected()
 void AUTCharacter::SetHeadScale(float NewHeadScale)
 {
 	HeadScale = NewHeadScale;
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-		HeadScaleUpdated();
-	}
-}
-
-void AUTCharacter::HeadScaleUpdated()
-{
-	// TODO
 }
 
 static TAutoConsoleVariable<int32> CVarDebugHeadshots(

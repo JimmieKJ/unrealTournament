@@ -665,7 +665,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	float HeadRadius;
 	/** head scale factor (generally for use at runtime) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, ReplicatedUsing = HeadScaleUpdated, Category = Pawn)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Replicated, Category = Pawn)
 	float HeadScale;
 
 	/** multiplier to damage caused by this Pawn */
@@ -867,10 +867,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
 	
-	/** apply HeadScale to mesh */
-	UFUNCTION()
-	virtual void HeadScaleUpdated();
-
 	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit 
 	AppliedDamage is the damage inflicted, Damage is the net damage taken after armor, etc. reductions. */
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
