@@ -452,7 +452,7 @@ int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 	if (!PS)
 	{
 		bEloIsValid = false;
-		return 1400;
+		return NEW_USER_ELO;
 	}
 
 	bEloIsValid = PS ? PS->bDMEloValid : false;
@@ -486,4 +486,26 @@ int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 		MaxElo = FMath::Max(MaxElo, PS->DMRank);
 	}
 	return MaxElo;
+}
+
+int32 AUTBaseGameMode::GetAverageElo()
+{
+	AUTGameState* UTGameState = Cast<AUTGameState>(GameState);
+	int32 Total = 0;
+	int32 Cnt = 0;
+	if (UTGameState)
+	{
+		for (int i=0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PlayerState)
+			{
+				bool bIsValid;
+				Total += GetEloFor(PlayerState, bIsValid);
+				Cnt++;
+			}
+		}
+	}
+
+	return Cnt > 0 ? Total / Cnt : NEW_USER_ELO;
 }

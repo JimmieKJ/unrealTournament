@@ -358,20 +358,35 @@ bool SUTQuickMatchWindow::HasFriendsInInstances(const TArray<TSharedPtr<FServerI
 		{
 			for (int32 i = 0; i < InstancesToCheck.Num(); i++)
 			{
-				for (int32 p = 0; p < InstancesToCheck[i]->Players.Num(); p++)
+				int32 Count = CountFriendsInInstance(FriendsList, InstancesToCheck[i], PlayerOwner);
+				if (Count >0)
 				{
-					for (int32 j = 0; j < FriendsList.Num(); j++)
-					{
-						if (InstancesToCheck[i]->Players[p].PlayerId == FriendsList[j].UserId)
-						{
-							return true;
-						}
-					}
+					return true;
 				}
 			}
 		}
 	}
 	return false;
+}
+
+int32 SUTQuickMatchWindow::CountFriendsInInstance(const TArray<FUTFriend>& FriendsList, TSharedPtr<FServerInstanceData> InstanceToCheck, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer)
+{
+	int32 FinalCount = 0;
+	if (PlayerOwner.IsValid() && InstanceToCheck.IsValid() )
+	{
+		for (int32 p = 0; p < InstanceToCheck->Players.Num(); p++)
+		{
+			for (int32 j = 0; j < FriendsList.Num(); j++)
+			{
+				if (InstanceToCheck->Players[p].PlayerId == FriendsList[j].UserId)
+				{
+					FinalCount++;
+				}
+			}
+		}
+	}
+
+	return FinalCount;
 }
 
 void SUTQuickMatchWindow::CollectInstances()
@@ -408,7 +423,7 @@ void SUTQuickMatchWindow::CollectInstances()
 
 void SUTQuickMatchWindow::FindBestMatch()
 {
-	// At this point, FileList contains a list of hub servers grouped first by beginner (if available), then trust level and then each group is sorted by ping.
+	// At this point, FinalList contains a list of hub servers grouped first by beginner (if available), then trust level and then each group is sorted by ping.
 	// Instances contains a full list of active instances available to play.  
 
 	if (FinalList.Num() > 0)

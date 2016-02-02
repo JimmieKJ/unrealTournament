@@ -986,22 +986,7 @@ void AUTLobbyMatchInfo::UpdateRank()
 {
 	if (CurrentState == ELobbyMatchState::InProgress)
 	{
-		if (PlayersInMatchInstance.Num() > 0)
-		{
-			MinRank = PlayersInMatchInstance[0].PlayerRank;
-			MaxRank = PlayersInMatchInstance[0].PlayerRank;
-			AverageRank = PlayersInMatchInstance[0].PlayerRank;
-
-			for (int32 i=1; i < PlayersInMatchInstance.Num(); i++)
-			{
-				int32 PlayerRank = PlayersInMatchInstance[i].PlayerRank;
-				if (PlayerRank < MinRank) MinRank = PlayerRank;
-				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
-				AverageRank += PlayerRank;
-			}
-		
-			AverageRank = int32( float(AverageRank) / float(PlayersInMatchInstance.Num()));
-		}
+		AverageRank=MatchUpdate.AverageElo;
 	}
 	else
 	{
@@ -1009,15 +994,11 @@ void AUTLobbyMatchInfo::UpdateRank()
 		{
 			AUTGameMode* UTGame = CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
 			bool bIsValidElo = false;
-			MinRank = UTGame ? UTGame->GetEloFor(Players[0].Get(), bIsValidElo) : 1400;
-			MaxRank = MinRank;
-			AverageRank = MinRank;
+			AverageRank = UTGame ? UTGame->GetEloFor(Players[0].Get(), bIsValidElo) : NEW_USER_ELO;
 
 			for (int32 i=1; i < Players.Num(); i++)
 			{
-				int32 PlayerRank = UTGame ? UTGame->GetEloFor(Players[i].Get(), bIsValidElo) : 1400;
-				if (PlayerRank < MinRank) MinRank = PlayerRank;
-				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
+				int32 PlayerRank = UTGame ? UTGame->GetEloFor(Players[i].Get(), bIsValidElo) : NEW_USER_ELO;
 				AverageRank += PlayerRank;
 			}
 		

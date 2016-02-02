@@ -192,6 +192,7 @@ protected:
 	TSharedPtr<FServerInstanceData> ConnectingInstance;
 
 	bool HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& Instances, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer);
+	int32 CountFriendsInInstance(const TArray<FUTFriend>& FriendsList, TSharedPtr<FServerInstanceData> InstanceToCheck, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer);
 
 	bool bWaitingForResponseFromHub;
 	float HubResponseWaitTime;

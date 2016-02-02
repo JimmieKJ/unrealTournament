@@ -48,8 +48,6 @@ void AUTServerBeaconLobbyClient::OnConnected()
 		}
 
 	}
-
-
 }
 
 void AUTServerBeaconLobbyClient::OnFailure()

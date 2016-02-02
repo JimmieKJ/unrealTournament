@@ -3506,12 +3506,15 @@ void AUTGameMode::UpdateLobbyMatchStats()
 	if (ensure(LobbyBeacon) && UTGameState)
 	{
 		FMatchUpdate MatchUpdate;
+		MatchUpdate.TimeLimit = TimeLimit;
+		MatchUpdate.GoalScore = GoalScore;
 		MatchUpdate.GameTime = TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
 		MatchUpdate.NumPlayers = NumPlayers;
 		MatchUpdate.NumSpectators = NumSpectators;
 		MatchUpdate.MatchState = MatchState;
 		MatchUpdate.bMatchHasBegun = HasMatchStarted();
 		MatchUpdate.bMatchHasEnded = HasMatchEnded();
+		MatchUpdate.AverageElo = GetAverageElo();
 
 		UpdateLobbyScore(MatchUpdate);
 		LobbyBeacon->UpdateMatch(MatchUpdate);

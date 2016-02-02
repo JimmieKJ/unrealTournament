@@ -18,6 +18,8 @@ const uint16 UTDIALOG_BUTTON_PLAY = 0x0400;
 const uint16 UTDIALOG_BUTTON_LAN = 0x0800;
 const uint16 UTDIALOG_BUTTON_CLOSE = 0x1000;
 
+const int32 NEW_USER_ELO = 1000;
+
 UENUM()
 namespace EGameStage
 {
@@ -683,6 +685,12 @@ struct FMatchUpdate
 {
 	GENERATED_USTRUCT_BODY()
 
+	UPROPERTY()
+	float TimeLimit;
+
+	UPROPERTY()
+	int32 GoalScore;
+
 	// The current game time of this last update
 	UPROPERTY()
 	float GameTime;
@@ -709,6 +717,8 @@ struct FMatchUpdate
 	UPROPERTY()
 	bool bMatchHasEnded;
 
+	UPROPERTY()
+	int32 AverageElo;
 
 	FMatchUpdate()
 	{
@@ -787,7 +797,7 @@ struct FServerInstanceData
 		, MapName(TEXT(""))
 		, MaxPlayers(0)
 		, Flags(0x00)
-		, Rank(1500)
+		, Rank(NEW_USER_ELO)
 		, bTeamGame(false)
 		, bJoinableAsPlayer(false)
 		, bJoinableAsSpectator(false)
@@ -819,6 +829,19 @@ struct FServerInstanceData
 
 	void SetNumPlayers(int32 NewNumPlayers)			{ MatchData.NumPlayers = NewNumPlayers; }
 	void SetNumSpectators(int32 NewNumSpectators)	{ MatchData.NumSpectators = NewNumSpectators; }
+
+	int32 GetNumPlayersOnTeam(int32 TeamNum)
+	{
+		int32 Count = 0;
+		for (int i=0; i < Players.Num(); i++)
+		{
+			if (Players[i].TeamNum == TeamNum)
+			{
+				Count++;
+			}
+		}
+		return Count;
+	}
 
 	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, bool inbQuickplayMatch)
 	{

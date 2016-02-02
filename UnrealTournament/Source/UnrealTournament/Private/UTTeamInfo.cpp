@@ -57,13 +57,13 @@ int32 AUTTeamInfo::AverageEloFor(AUTGameMode* GameMode)
 				int32 NewElo = GameMode->GetEloFor(TeamPS, bEloIsValid);
 				if (!bEloIsValid)
 				{
-					NewElo = 1000;
+					NewElo = NEW_USER_ELO;
 				}
 				EloCount++;
 				TeamElo += NewElo;
 			}
 		}
-		return (EloCount > 0) ? TeamElo / EloCount : 1000;
+		return (EloCount > 0) ? TeamElo / EloCount : NEW_USER_ELO;
 	}
 
 	return 0;
@@ -82,7 +82,7 @@ AController* AUTTeamInfo::MemberClosestToElo(class AUTGameMode* GameMode, int32 
 			int32 NewElo = GameMode->GetEloFor(TeamPS, bEloIsValid);
 			if (!bEloIsValid)
 			{
-				NewElo = 1000;
+				NewElo = NEW_USER_ELO;
 			}
 			int32 NewEloDiff = FMath::Abs(DesiredElo - NewElo);
 			if (!BestMatch || (NewEloDiff < BestDiff))

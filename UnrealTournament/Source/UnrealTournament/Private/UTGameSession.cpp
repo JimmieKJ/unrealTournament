@@ -268,7 +268,7 @@ void AUTGameSession::RegisterServer()
 				if (OnlineGameSettings.IsValid() && UTBaseGameMode)
 				{
 					InitHostBeacon(OnlineGameSettings.Get());
-					OnlineGameSettings->ApplyGameSettings(UTBaseGameMode);
+					OnlineGameSettings->ApplyGameSettings(OnlineGameSettings.Get(), UTBaseGameMode, this);
 					SessionInterface->CreateSession(0, GameSessionName, *OnlineGameSettings);
 					return;
 				}
@@ -287,7 +287,7 @@ void AUTGameSession::RegisterServer()
 				if (OnlineGameSettings.IsValid() && UTBaseGameMode)
 				{
 					InitHostBeacon(OnlineGameSettings.Get());
-					OnlineGameSettings->ApplyGameSettings(UTBaseGameMode);
+					OnlineGameSettings->ApplyGameSettings(OnlineGameSettings.Get(), UTBaseGameMode,this);
 				}
 
 				bSessionValid = true;
@@ -510,16 +510,9 @@ void AUTGameSession::UpdateGameState()
 			EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
 			if (State != EOnlineSessionState::Creating && State != EOnlineSessionState::Ended && State != EOnlineSessionState::Ending && State != EOnlineSessionState::Destroying && State != EOnlineSessionState::NoSession )
 			{
-				FUTOnlineGameSettingsBase* OGS = (FUTOnlineGameSettingsBase*)SessionInterface->GetSessionSettings(GameSessionName);
-
-				OGS->Set(SETTING_UTMAXPLAYERS, MaxPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_UTMAXSPECTATORS, MaxSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_NUMMATCHES, UTBaseGameMode->GetNumMatches(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_PLAYERSONLINE, UTBaseGameMode->GetNumPlayers(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_SPECTATORSONLINE, UTBaseGameMode->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_SERVERINSTANCEGUID, UTBaseGameMode->ServerInstanceGUID.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-
-				SessionInterface->UpdateSession(SessionName, *OGS, true);
+				FUTOnlineGameSettingsBase* OnlineGameSettings = (FUTOnlineGameSettingsBase*)SessionInterface->GetSessionSettings(GameSessionName);
+				OnlineGameSettings->ApplyGameSettings(OnlineGameSettings, UTBaseGameMode,this);
+				SessionInterface->UpdateSession(SessionName, *OnlineGameSettings, true);
 			}
 		}
 	}

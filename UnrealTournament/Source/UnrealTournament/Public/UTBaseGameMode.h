@@ -188,5 +188,5 @@ public:
 	bool bPrivateMatch;
 	
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const;
-
+	int32 GetAverageElo();
 };

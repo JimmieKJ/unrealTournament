@@ -21,6 +21,14 @@
 #define SETTING_UTMAXPLAYERS FName(TEXT("UT_MAXPLAYERS"))
 #define SETTING_UTMAXSPECTATORS FName(TEXT("UT_MAXSPECTATORS"))
 
+#define SETTING_UTREDTEAMSIZE FName(TEXT("UT_REDTEAMSIZE"))
+#define SETTING_UTBLUETEAMSIZE FName(TEXT("UT_BLUETEAMSIZE"))
+#define SETTING_UTMATCHSTATE FName(TEXT("UT_MATCHSTATE"))
+#define SETTING_UTMATCHELO FName(TEXT("UT_MATCHELO"))
+#define SETTING_UTMATCHDURATION FName(TEXT("UT_MATCHDURATION"))
+#define SETTING_UTMATCHELAPSEDTIME FName(TEXT("UT_MATCHELAPSEDTIME"))
+
+
 // Requires a password to join
 #define SERVERFLAG_RequiresPassword 0x00000001
 
@@ -33,5 +41,5 @@ public:
 	FUTOnlineGameSettingsBase(bool bIsLanGame = false, bool bIsPresense = false, bool bPrivate = false, int32 MaxNumberPlayers = 32);
 	virtual ~FUTOnlineGameSettingsBase(){}
 
-	virtual void ApplyGameSettings(AUTBaseGameMode* CurrentGame);
+	void ApplyGameSettings(FOnlineSessionSettings* Settings, AUTBaseGameMode* CurrentGame, AUTGameSession* CurrentSession) const;
 };
