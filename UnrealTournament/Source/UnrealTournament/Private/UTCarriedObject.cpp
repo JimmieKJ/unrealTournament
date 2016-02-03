@@ -641,6 +641,7 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 	else
 	{
 		DetachRootComponentFromParent();
+		OnRep_ReplicatedMovement(); // make sure this was applied, since it might be ignored if it arrived in a seperate packet to AttachmentReplication
 		ClientUpdateAttachment(false);
 	}
 }
