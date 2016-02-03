@@ -13,6 +13,8 @@ using System.Reflection;
 using System.Web.Script.Serialization;
 using EpicGames.MCP.Automation;
 using EpicGames.MCP.Config;
+using System.Net.Http;
+using System.Security.Cryptography;
 
 public class UnrealTournamentBuild
 {
@@ -152,6 +154,96 @@ public class UnrealTournamentBuild
 	{
 		return CommandUtils.CombinePaths(BuildPatchToolStagingInfo.GetBuildRootPath(), "UnrealTournament", CreateBuildVersion());
 	}
+
+    public static void Tweet(string InTweet)
+    {
+        string CredentialsPath = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UnrealTournament", "Build", "NotForLicensees", "twittercredentials.txt");
+        if (!CommandUtils.FileExists(CredentialsPath))
+        {
+            CommandUtils.Log("No twitter credentials found!");
+            return;
+        }
+
+        JsonObject TwitterCreds;
+        if (!JsonObject.TryRead(CredentialsPath, out TwitterCreds))
+        {
+            CommandUtils.Log("No twitter credentials found!");
+            return;
+        }
+
+        string TwitterConsumerKey;
+        string TwitterConsumerSecret;
+        string TwitterAccessTokenSecret;
+        string TwitterAccessToken;
+
+        if (!TwitterCreds.TryGetStringField("consumerkey", out TwitterConsumerKey) ||
+            !TwitterCreds.TryGetStringField("consumersecret", out TwitterConsumerSecret) ||
+            !TwitterCreds.TryGetStringField("accesstokensecret", out TwitterAccessTokenSecret) ||
+            !TwitterCreds.TryGetStringField("accesstoken", out TwitterAccessToken))
+        {
+            CommandUtils.Log("Invalid twitter credentials found!");
+            return;
+        }
+
+        string TwitterBaseUrl = "https://api.twitter.com/1.1/statuses/update.json";
+        string TwitterData = "status=" + InTweet;
+        string TwitterMethod = "POST";
+
+        string oAuthNonce = Convert.ToBase64String(new ASCIIEncoding().GetBytes(DateTime.Now.Ticks.ToString()));
+        string oAuthTimestamp = Convert.ToInt64((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds).ToString();
+        string oAuthVersion = "1.0";
+        string oAuthSignatureMethod = "HMAC-SHA1";
+
+        string oAuthFormat = "oauth_consumer_key={0}&oauth_nonce={1}&oauth_signature_method={2}&oauth_timestamp={3}&oauth_token={4}&oauth_version={5}";
+        string oAuthString = string.Format(oAuthFormat, TwitterConsumerKey, oAuthNonce, oAuthSignatureMethod, oAuthTimestamp, TwitterAccessToken, oAuthVersion);
+
+        string BaseString = string.Concat(TwitterMethod, "&", Uri.EscapeDataString(TwitterBaseUrl), "&", Uri.EscapeDataString(oAuthString), Uri.EscapeDataString("&"), Uri.EscapeDataString(TwitterData));
+
+        string CompositeKey = string.Concat(Uri.EscapeDataString(TwitterConsumerSecret), "&", Uri.EscapeDataString(TwitterAccessTokenSecret));
+
+        string oAuthSignature;
+        using (HMACSHA1 hasher = new HMACSHA1(ASCIIEncoding.ASCII.GetBytes(CompositeKey)))
+        {
+            oAuthSignature = Convert.ToBase64String(hasher.ComputeHash(ASCIIEncoding.ASCII.GetBytes(BaseString)));
+        }
+
+        string HeaderFormat = "OAuth oauth_consumer_key=\"{0}\", oauth_nonce=\"{1}\", oauth_signature=\"{2}\", oauth_signature_method=\"{3}\", " +
+                              "oauth_timestamp=\"{4}\", oauth_token=\"{5}\", oauth_version=\"{6}\"";
+
+        string oAuthHeader = string.Format(HeaderFormat, Uri.EscapeDataString(TwitterConsumerKey), Uri.EscapeDataString(oAuthNonce), Uri.EscapeDataString(oAuthSignature),
+                                           Uri.EscapeDataString(oAuthSignatureMethod), Uri.EscapeDataString(oAuthTimestamp), Uri.EscapeDataString(TwitterAccessToken),
+                                           Uri.EscapeDataString(oAuthVersion));
+
+
+        HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(TwitterBaseUrl);
+        webRequest.Headers.Add("Authorization", oAuthHeader);
+        webRequest.Method = TwitterMethod;
+        webRequest.ContentType = "application/x-www-form-urlencoded;charset=UTF-8";
+        webRequest.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+
+        byte[] byteArray = Encoding.UTF8.GetBytes(TwitterData);
+        webRequest.ContentLength = byteArray.Length;
+        Stream dataStream = webRequest.GetRequestStream();
+        dataStream.Write(byteArray, 0, byteArray.Length);
+        dataStream.Close();
+
+        try
+        {
+            WebResponse TwitterResponse = webRequest.GetResponse();
+            using (TwitterResponse)
+            {
+                using (var reader = new StreamReader(TwitterResponse.GetResponseStream()))
+                {
+                    string ResponseString = reader.ReadToEnd();
+                }
+            }
+            CommandUtils.Log("Tweeted: " + InTweet);
+        }
+        catch
+        {
+            CommandUtils.Log("Tweet failed");
+        }
+    }
 }
 
 [RequireP4]
@@ -465,6 +557,11 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("UnrealTournamentBuild build built from changelist {0}", P4Env.Changelist));
 			Log("Build from {0}    Working in {1}", P4Env.Changelist, WorkingCL);
 		}
+
+        if (P4Enabled)
+        {
+            UnrealTournamentBuild.Tweet(String.Format("Starting {0} build from changelist {1}", P4Env.BuildRootP4, P4Env.Changelist));
+        }
 
 		Project.Build(this, Params, WorkingCL);
 		Project.Cook(Params);
@@ -1130,6 +1227,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
             {
                 SubmitVersionFilesToPerforce();
+            }
+
+            if (CommandUtils.P4Enabled)
+            {
+                UnrealTournamentBuild.Tweet(String.Format("Completed {0} build from changelist {1}", CommandUtils.P4Env.BuildRootP4, CommandUtils.P4Env.Changelist));
             }
 
 			string ReleasesDir = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UnrealTournament", "Releases");
@@ -1953,5 +2055,15 @@ public class MakeUTDLC : BuildCommand
             }
             Stage(SC, Params);
         }
+    }
+}
+
+public class UTTweet : BuildCommand
+{
+    public override void ExecuteBuild()
+    {
+        string TweetText = ParseParamValue("Tweet", "Test tweet from RunUAT");
+
+        UnrealTournamentBuild.Tweet(TweetText);
     }
 }
