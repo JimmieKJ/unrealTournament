@@ -605,26 +605,26 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 			if(!bp.ParseParam("nomac"))
 			{
-				AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
+                AddPseudodependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
 			}
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win32));
+            AddPseudodependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
+            AddPseudodependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win32));
 			if(!bp.ParseParam("nolinux"))
 			{
-	            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
+                AddPseudodependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
 			}
 
-            
-            AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
-            AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
+
+            AddPseudodependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
+            AddPseudodependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
             //var Chunker = bp.Branch.FindProgram("BuildPatchTool");
             //AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
 
             // Make sure we have the mac version of Chunker as well
 			if(!bp.ParseParam("nomac"))
 			{
-				AddDependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
-				AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
+                AddPseudodependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
+                AddPseudodependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
 				//AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
 			}
         }
