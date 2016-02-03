@@ -115,8 +115,8 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Font.NormalText.Small", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Small.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 
-	Style.Set("UT.Font.ChatText.Text", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor(0.7,0.7,0.7,1.0)));
-	Style.Set("UT.Font.ChatText.Name", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.Chat.Text", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor(0.7,0.7,0.7,1.0)));
+	Style.Set("UT.Font.Chat.Name", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 
 	Style.Set("UT.Font.NormalText.Tween", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Tween)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Tween.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tween)).SetColorAndOpacity(FLinearColor::White));
@@ -144,6 +144,7 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Font.ServerBrowser.List.Normal", TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Browser));
 	Style.Set("UT.Font.ServerBrowser.List.Bold", TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Browser));
 
+	SetTextChatStyle(StyleRef);
 }
 
 
@@ -591,5 +592,25 @@ const FSlateColor SUTStyle::GetSlateColor( const FName PropertyName, const ANSIC
 	
 	return FSlateColor(FLinearColor(0.6,0.6,0.6,1.0));
 }
+
+
+void SUTStyle::SetTextChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
+{	
+	// Text Chat styles
+
+	FSlateStyleSet& Style = StyleRef.Get();
+	FTextBlockStyle NormalChatStyle = Style.GetWidgetStyle<FTextBlockStyle>("UT.Font.Chat.Text");
+
+	Style.Set("UT.Font.Chat.Text.Global",		FTextBlockStyle(NormalChatStyle));
+	Style.Set("UT.Font.Chat.Text.Lobby",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.Chat.Text.Match",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+	Style.Set("UT.Font.Chat.Text.Friends",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Green));
+	Style.Set("UT.Font.Chat.Text.Team",			FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+	Style.Set("UT.Font.Chat.Text.Team.Red",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor(1.0f, 0.25f, 0.25f, 1.0f)));
+	Style.Set("UT.Font.Chat.Text.Team.Blue",	FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor(0.25, 0.25, 1.0, 1.0)));
+	Style.Set("UT.Font.Chat.Text.Local",		FTextBlockStyle(NormalChatStyle));
+	Style.Set("UT.Font.Chat.Text.Admin",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+}
+
 
 #endif

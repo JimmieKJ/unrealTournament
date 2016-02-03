@@ -133,19 +133,21 @@ namespace ArmorTypeName
 namespace ChatDestinations
 {
 	// You can chat with your friends from anywhere
-	const FName Friends = FName(TEXT("CHAT_Friends"));
+	const FName Friends = FName(TEXT("CHAT_Friends"));			// The chat should go to anyone on the server
 
 	// These are lobby chat types
-	const FName Global = FName(TEXT("CHAT_Global"));
-	const FName Match = FName(TEXT("CHAT_Match"));
+	const FName Global = FName(TEXT("CHAT_Global"));			// The chat should route to everyone on the server
+	const FName Match = FName(TEXT("CHAT_Match"));				// The chat should route to everyone currently in my match lobby
 
 	// these are general game chating
-	const FName Lobby = FName(TEXT("CHAT_Lobby"));
-	const FName Local = FName(TEXT("CHAT_Local"));
-	const FName Team = FName(TEXT("CHAT_Team"));
+	const FName Lobby = FName(TEXT("CHAT_Lobby"));				// The chat came in from a hub lobby and needs to go directly to a player
+	const FName Local = FName(TEXT("CHAT_Local"));				// The chat is local to everyone on that server
+	const FName Team = FName(TEXT("CHAT_Team"));				// The chat is for anyone with the same team num
+	const FName Whisper = FName(TEXT("CHAT_Whisper"));			// The chat is only for the person specified
 
-	const FName System = FName(TEXT("CHAT_System"));
-	const FName MOTD = FName(TEXT("CHAT_MOTD"));
+	const FName System = FName(TEXT("CHAT_System"));			// This chat message is a system message
+	const FName MOTD = FName(TEXT("CHAT_MOTD"));				// This chat message is a message of the day
+
 }
 
 // Our Dialog results delegate.  It passes in a reference to the dialog triggering it, as well as the button id 
