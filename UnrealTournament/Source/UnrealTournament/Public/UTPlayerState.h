@@ -819,5 +819,90 @@ public:
 	}
 };
 
+USTRUCT()
+struct FRemotePlayerInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The unique ID of this player.  This will be used to associate any incoming updates for a player
+	UPROPERTY()
+	FUniqueNetIdRepl PlayerID;
+
+	UPROPERTY()
+	bool bIsSpectator;
+
+	// The current name of this player
+	UPROPERTY()
+	FString PlayerName;
+
+	// The current score for this player
+	UPROPERTY()
+	int32 PlayerScore;
+	
+	UPROPERTY()
+	int32 PlayerRank;
+
+	UPROPERTY()
+	int32 XPLevel;
+
+	UPROPERTY()
+	uint8 TeamNum;
+
+	UPROPERTY()
+	FName Avatar;
+
+	FRemotePlayerInfo() {};
+
+	FRemotePlayerInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inPlayerRank, int32 inXPLevel, FName inAvatar)
+		: PlayerID(inPlayerID)
+		, bIsSpectator(inbIsSpectator)
+		, PlayerName(inPlayerName)
+		, PlayerScore(inPlayerScore)
+		, PlayerRank(inPlayerRank)
+		, XPLevel(inXPLevel)
+		, TeamNum(inTeamNum)
+		, Avatar(inAvatar)
+	{
+	}
+
+	FRemotePlayerInfo(const FRemotePlayerInfo& NewInfo)
+		: PlayerID(NewInfo.PlayerID)
+		, bIsSpectator(NewInfo.bIsSpectator)
+		, PlayerName(NewInfo.PlayerName)
+		, PlayerScore(NewInfo.PlayerScore)
+		, PlayerRank(NewInfo.PlayerRank)
+		, XPLevel(NewInfo.XPLevel)
+		, TeamNum(NewInfo.TeamNum)
+		, Avatar(NewInfo.Avatar)
+	{
+	}
+
+	FRemotePlayerInfo(AUTPlayerState* PlayerState, int32 inElo)
+		: PlayerID(PlayerState->UniqueId)
+		, bIsSpectator(PlayerState->bOnlySpectator)
+		, PlayerName(PlayerState->PlayerName)
+		, PlayerScore(PlayerState->Score)
+		, PlayerRank(inElo)
+		, XPLevel(PlayerState->GetPrevXP())
+		, TeamNum(PlayerState->GetTeamNum())
+		, Avatar(PlayerState->Avatar)
+	{
+	}
+
+
+	void Update(const FRemotePlayerInfo& NewInfo)
+	{
+		PlayerID = NewInfo.PlayerID;
+		bIsSpectator = NewInfo.bIsSpectator;
+		PlayerName = NewInfo.PlayerName;
+		PlayerScore = NewInfo.PlayerScore;
+		PlayerRank = NewInfo.PlayerRank;
+		XPLevel = NewInfo.XPLevel;
+		TeamNum = NewInfo.TeamNum;
+		Avatar = NewInfo.Avatar;
+	}
+
+};
+
 
 

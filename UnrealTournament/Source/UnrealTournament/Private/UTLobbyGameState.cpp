@@ -597,7 +597,7 @@ void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 InGameInstanceID, const 
 	}
 }
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, const FRemotePlayerInfo& PlayerInfo, bool bLastUpdate)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
@@ -611,7 +611,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 			{
 				for (int32 j=0; j < Match->PlayersInMatchInstance.Num(); j++)
 				{
-					if (Match->PlayersInMatchInstance[j].PlayerID == PlayerID)
+					if (Match->PlayersInMatchInstance[j].PlayerID == PlayerInfo.PlayerID)
 					{
 						if (bLastUpdate)
 						{
@@ -628,12 +628,8 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 						}
 						else
 						{
-							Match->PlayersInMatchInstance[j].PlayerName = PlayerName;
-							Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
-							Match->PlayersInMatchInstance[j].bIsSpectator = bSpectator;
-							Match->PlayersInMatchInstance[j].PlayerRank = PlayerRank;
-							Match->PlayersInMatchInstance[j].TeamNum = TeamNum;
-							Match->PlayersInMatchInstance[j].Avatar = Avatar;
+
+							Match->PlayersInMatchInstance[j].Update(PlayerInfo);
 							Match->UpdateRank();
 							return;
 						}
@@ -642,7 +638,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 				}
 	
 				// A player not in the instance table.. add them
-				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, PlayerRank, Avatar));
+				Match->PlayersInMatchInstance.Add( FRemotePlayerInfo(PlayerInfo) );
 				Match->UpdateRank();
 
 				// Update the Game state.
@@ -651,8 +647,6 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 					AUTGameSession* UTGameSession = Cast<AUTGameSession>(LobbyGameMode->GameSession);
 					if (UTGameSession) UTGameSession->UpdateGameState();
 				}
-
-
 			}
 		}
 	}

@@ -23,50 +23,6 @@ const uint32 MATCH_FLAG_NoSpectators = 0x0010;
 const int32 RANK_CHECK_MIN = -400;
 const int32 RANK_CHECK_MAX =  400;
 
-USTRUCT()
-struct FPlayerListInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	// The unique ID of this player.  This will be used to associate any incoming updates for a player
-	UPROPERTY()
-	FUniqueNetIdRepl PlayerID;
-
-	UPROPERTY()
-	bool bIsSpectator;
-
-	// The current name of this player
-	UPROPERTY()
-	FString PlayerName;
-
-	// The current score for this player
-	UPROPERTY()
-	int32 PlayerScore;
-	
-	UPROPERTY()
-	int32 PlayerRank;
-
-	UPROPERTY()
-	uint8 TeamNum;
-
-	UPROPERTY()
-	FName Avatar;
-
-	FPlayerListInfo() {};
-
-	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inPlayerRank, FName inAvatar)
-		: PlayerID(inPlayerID)
-		, bIsSpectator(inbIsSpectator)
-		, PlayerName(inPlayerName)
-		, PlayerScore(inPlayerScore)
-		, PlayerRank(inPlayerRank)
-		, TeamNum(inTeamNum)
-		, Avatar(inAvatar)
-	{
-	}
-
-};
-
 class AUTServerBeaconLobbyClient;
 
 UCLASS(notplaceable)
@@ -143,7 +99,7 @@ public:
 
 	// Holds a list of Unique IDs of players who are currently in the match.  When a player returns to lobby if their ID is in this list, they will be re-added to the match.
 	UPROPERTY(Replicated)
-	TArray<FPlayerListInfo> PlayersInMatchInstance;
+	TArray<FRemotePlayerInfo> PlayersInMatchInstance;
 
 	~AUTLobbyMatchInfo();
 
@@ -351,12 +307,6 @@ public:
 
 	// Updates the rank variables based on an event
 	void UpdateRank();
-
-protected:
-	// Holds the min/max ranks of the players in this match.
-	int32 MinRank;
-	int32 MaxRank;
-
 
 public:
 	/**

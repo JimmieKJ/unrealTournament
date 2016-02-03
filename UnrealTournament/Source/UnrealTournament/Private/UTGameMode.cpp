@@ -2900,8 +2900,7 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
 			if (PlayerState && !PlayerState->bIsDemoRecording)
 			{
-				bool bEloIsValid = false;
-				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, GetEloFor(PlayerState, bEloIsValid), PlayerState->Avatar);
+				LobbyBeacon->UpdatePlayer(this, PlayerState, false);
 			}
 		}
 	}
@@ -3016,8 +3015,7 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 		{
-			bool bEloIsValid = false;
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, GetEloFor(PS, bEloIsValid), PS->Avatar);
+			LobbyBeacon->UpdatePlayer(this, PS, true);
 		}
 	}
 }
@@ -3536,8 +3534,7 @@ void AUTGameMode::UpdateLobbyPlayerList()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 			{
-				bool bEloIsValid = false;
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, GetEloFor(PS, bEloIsValid), PS->Avatar);
+				LobbyBeacon->UpdatePlayer(this, PS, false);
 			}
 		}
 	}

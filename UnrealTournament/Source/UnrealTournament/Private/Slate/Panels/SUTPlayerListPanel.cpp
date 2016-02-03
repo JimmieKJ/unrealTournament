@@ -273,6 +273,10 @@ void SUTPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionDat
 	{
 		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ShowPlayerCard","Player Card"), EPlayerListContentCommand::PlayerCard));
 	}
+	else
+	{
+		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","PlayerCardUnAvail","Player Card Unavailable"), EPlayerListContentCommand::PlayerCard));
+	}
 
 	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
 
@@ -563,7 +567,7 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 						bListNeedsUpdate = true;
 						// This is a new player.. Add them.
 
-						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost, LobbyPlayerState ? (LobbyPlayerState->DesiredTeamNum == 255) : false));
+						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost, LobbyPlayerState ? (LobbyPlayerState->DesiredTeamNum == 255) : false, 0, 0));
 					}
 				}
 			}
@@ -596,7 +600,9 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 								TrackedPlayers.Add(FTrackedPlayer::Make(nullptr, MatchInfo->PlayersInMatchInstance[j].PlayerID, 
 																				MatchInfo->PlayersInMatchInstance[j].PlayerName,
 																				MatchInfo->PlayersInMatchInstance[j].TeamNum,
-																				MatchInfo->PlayersInMatchInstance[j].Avatar, false, false, false));
+																				MatchInfo->PlayersInMatchInstance[j].Avatar, false, false, false,
+																				MatchInfo->PlayersInMatchInstance[j].PlayerRank,
+																				MatchInfo->PlayersInMatchInstance[j].XPLevel));
 							}
 						}
 					}

@@ -66,6 +66,10 @@ public:
 
 	float SortOrder;
 
+	int32 Elo;
+
+	int32 XP;
+
 	TWeakObjectPtr<AUTPlayerState> PlayerState;
 
 	FTrackedPlayer(FString inHeaderText, ETrackedPlayerType::Type inEntryType)
@@ -79,7 +83,7 @@ public:
 		bInInstance = false;
 	}
 
-	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator)
+	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator, int32 inElo, int32 inXP)
 		: PlayerID(inPlayerID)
 		, PlayerName(inPlayerName)
 		, Avatar(inAvatar)
@@ -88,6 +92,8 @@ public:
 		, TeamNum(inTeamNum)
 		, bIsSpectator(inbIsSpectator)
 		, PlayerState(inPlayerState)
+		, Elo(inElo)
+		, XP(inXP)
 	{
 		bPendingKill = false;
 		TeamNum = 255;
@@ -97,9 +103,9 @@ public:
 		bInInstance = inPlayerState == NULL;
 	}
 
-	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator)
+	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator, int32 inElo, int32 inXP)
 	{
-		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost, inbIsSpectator));
+		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost, inbIsSpectator, inElo, inXP));
 	}
 
 	static TSharedRef<FTrackedPlayer> MakeHeader(FString inHeaderText, ETrackedPlayerType::Type inEntryType)
@@ -166,6 +172,8 @@ public:
 	{
 		int32 Badge;
 		int32 Level;
+		int32 EloRating = NEW_USER_ELO;
+		bool bEloIsValid = false;
 
 		if (PlayerState.IsValid())
 		{
@@ -173,21 +181,26 @@ public:
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 			if (DefaultGame)
 			{
-				bool bEloIsValid = false;
 				int32 EloRating = DefaultGame->GetEloFor(PlayerState.Get(), bEloIsValid);
-				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
-				Badge = FMath::Clamp<int32>(Badge, 0, 3);
-				FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
-				return SUTStyle::Get().GetBrush(*BadgeStr);
 			}
 		}
-		return SUTStyle::Get().GetBrush("UT.NoStyle");
+		else
+		{
+			EloRating = Elo;
+		}
+
+		UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+		Badge = FMath::Clamp<int32>(Badge, 0, 3);
+		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
+		return SUTStyle::Get().GetBrush(*BadgeStr);
 	}
 
 	FText GetRank()
 	{
 		int32 Badge;
 		int32 Level = 1;
+		int32 EloRating = NEW_USER_ELO;
+		bool bEloIsValid = false;
 
 		if (PlayerState.IsValid())
 		{
@@ -195,19 +208,21 @@ public:
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 			if (DefaultGame)
 			{
-				bool bEloIsValid = false;
 				int32 EloRating = DefaultGame->GetEloFor(PlayerState.Get(), bEloIsValid);
-				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
 			}
 		}
-
+		else
+		{
+			EloRating = Elo;
+		}
+		UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
 		return FText::AsNumber(Level+1);
 	}
 
 	const FSlateBrush* GetXPStarImage() const
 	{
 		int32 Star = 0;
-		UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState.IsValid() ? PlayerState->GetPrevXP() : 0), Star);
+		UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState.IsValid() ? PlayerState->GetPrevXP() : XP), Star);
 		if (Star > 0 && Star <= 5)
 		{
 			FString StarStr = FString::Printf(TEXT("UT.RankStar.%i.Tiny"), Star-1);
@@ -216,8 +231,6 @@ public:
 
 		return SUTStyle::Get().GetBrush("UT.RankStar.Empty");
 	}
-
-
 
 };
 
