@@ -41,14 +41,14 @@ void AUTWeap_Translocator::PostInitProperties()
 	Group = DefaultGroup;
 }
 
-FText AUTWeap_Translocator::GetHUDText()
+FText AUTWeap_Translocator::GetHUDText() const
 {
 	return FText::FromString(TEXT("Q"));
 }
 
-bool AUTWeap_Translocator::HUDShouldRender(UUTHUDWidget* TargetWidget)
+bool AUTWeap_Translocator::HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget)
 {
-	return (TargetWidget && Cast<UUTHUDWidget_Powerups>(TargetWidget));
+	return (Cast<UUTHUDWidget_Powerups>(TargetWidget) != NULL);
 }
 
 void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)

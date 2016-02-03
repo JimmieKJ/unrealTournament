@@ -165,7 +165,7 @@ void AUTTimedPowerup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Out
 }
 
 // Allows inventory items to decide if a widget should be allowed to render them.
-bool AUTTimedPowerup::HUDShouldRender(UUTHUDWidget* TargetWidget)
+bool AUTTimedPowerup::HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget)
 {
-	return (TargetWidget && Cast<UUTHUDWidget_Powerups>(TargetWidget));
+	return (Cast<UUTHUDWidget_Powerups>(TargetWidget) != NULL);
 }

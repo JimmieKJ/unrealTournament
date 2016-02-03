@@ -47,11 +47,11 @@ class UNREALTOURNAMENT_API AUTJumpBoots : public AUTInventory
 
 public:
 	/** Returns the HUD text to display for this item */
-	virtual FText GetHUDText()
+	virtual FText GetHUDText() const override
 	{
 		return FText::AsNumber(NumJumps);
 	}
 
-	virtual bool HUDShouldRender(UUTHUDWidget* TargetWidget);
+	virtual bool HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget) override;
 
 };

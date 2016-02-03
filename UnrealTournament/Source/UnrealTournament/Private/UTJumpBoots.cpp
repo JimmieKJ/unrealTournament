@@ -223,7 +223,7 @@ float AUTJumpBoots::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, fl
 }
 
 // Allows inventory items to decide if a widget should be allowed to render them.
-bool AUTJumpBoots::HUDShouldRender(UUTHUDWidget* TargetWidget)
+bool AUTJumpBoots::HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget)
 {
-	return (TargetWidget && Cast<UUTHUDWidget_Powerups>(TargetWidget));
+	return (Cast<UUTHUDWidget_Powerups>(TargetWidget) != NULL);
 }

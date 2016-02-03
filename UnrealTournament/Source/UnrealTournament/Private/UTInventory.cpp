@@ -295,6 +295,11 @@ void AUTInventory::OwnerEvent_Implementation(FName EventName)
 {
 }
 
+bool AUTInventory::HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget)
+{
+	return false;
+}
+
 void AUTInventory::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size)
 {
 }
