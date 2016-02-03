@@ -1869,6 +1869,7 @@ public class MakeUTDLC : BuildCommand
             Cook: true,
             Stage: true,
             Pak: true,
+            Compressed: true,
             BasedOnReleaseVersion: AssetRegistry,
             RawProjectPath: new FileReference(CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject")),
             StageDirectoryParam: CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds", DLCName)
@@ -1880,7 +1881,7 @@ public class MakeUTDLC : BuildCommand
 
     public void Cook(DeploymentContext SC, ProjectParams Params)
     {
-        string Parameters = "-newcook -BasedOnReleaseVersion=" + AssetRegistry + " -Compressed";
+        string Parameters = "-newcook -BasedOnReleaseVersion=" + AssetRegistry;
 
         if (DLCMaps.Length > 0)
         {
