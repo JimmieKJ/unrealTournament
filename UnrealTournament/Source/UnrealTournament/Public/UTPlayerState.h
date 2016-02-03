@@ -766,6 +766,9 @@ public:
 	UPROPERTY(Replicated)
 	uint8 KickPercent;
 
+	UPROPERTY(Replicated)
+	uint32 bHasVoted : 1;
+
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void RegisterVote(AUTReplicatedMapInfo* VoteInfo);
 

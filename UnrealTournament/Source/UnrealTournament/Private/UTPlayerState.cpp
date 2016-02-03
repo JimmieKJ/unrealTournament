@@ -124,6 +124,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bDMEloValid);
 	DOREPLIFETIME(AUTPlayerState, bShowdownEloValid);
 
+	DOREPLIFETIME(AUTPlayerState, bHasVoted);
+
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_None); // also used when replicating spawn choice to other players
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bChosePrimaryRespawnChoice, COND_OwnerOnly);
@@ -2670,6 +2672,7 @@ void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapInfo* VoteInfo)
 		return;
 	}
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	bHasVoted = true;
 	if (UTGameState != NULL)
 	{
 		for (int32 i = 0; i < UTGameState->MapVoteList.Num(); i++)

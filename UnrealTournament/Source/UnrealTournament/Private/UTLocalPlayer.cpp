@@ -555,6 +555,12 @@ void UUTLocalPlayer::CloseDialog(TSharedRef<SUTDialogBase> Dialog)
 	OpenDialogs.Remove(Dialog);
 	Dialog->OnDialogClosed();
 	GEngine->GameViewport->RemoveViewportWidgetContent(Dialog);
+
+	if (DesktopSlateWidget.IsValid())
+	{
+		FSlateApplication::Get().SetKeyboardFocus(DesktopSlateWidget, EKeyboardFocusCause::Keyboard);
+	}
+
 }
 
 TSharedPtr<class SUTServerBrowserPanel> UUTLocalPlayer::GetServerBrowser()
