@@ -2720,9 +2720,12 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target, bool 
 int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
 {
 	OutFriendsList.Empty();
-	/*
+	int32 RetVal = 0;
+
+	// GetFilteredFriendsList is not exposed
+#if 0
 	TArray< TSharedPtr< IFriendItem > > FriendsList;
-	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetFilteredFriendsList(FriendsList);
+	RetVal = ISocialModule::Get().GetFriendsAndChatManager()->GetFilteredFriendsList(FriendsList);
 	for (auto Friend : FriendsList)
 	{
 		OutFriendsList.Add(FUTFriend(Friend->GetUniqueID()->ToString(), Friend->GetName(), true));
@@ -2732,18 +2735,21 @@ int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
 	{
 		return A.DisplayName < B.DisplayName;
 	});
+#endif
 
-	return RetVal;*/
-	return 0;
+	return RetVal;
 }
 
 int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayersList)
 {
 	OutRecentPlayersList.Empty();
-	// Need to readd GetRecentPlayersList function
-	/*
+
+	int32 RetVal = 0;
+
+	// GetRecentPlayersList is not exposed
+#if 0
 	TArray< TSharedPtr< IFriendItem > > RecentPlayersList;
-	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetRecentPlayersList(RecentPlayersList);
+	RetVal = ISocialModule::Get().GetFriendsAndChatManager()->GetRecentPlayersList(RecentPlayersList);
 	for (auto RecentPlayer : RecentPlayersList)
 	{
 		OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUniqueID()->ToString(), RecentPlayer->GetName(), false));
@@ -2752,10 +2758,9 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 	{
 		return A.DisplayName < B.DisplayName;
 	});
+#endif
 
 	return RetVal;
-	*/
-	return 0;
 }
 
 
@@ -3834,8 +3839,11 @@ bool UUTLocalPlayer::QuickMatchCheckFull()
 void UUTLocalPlayer::RestartQuickMatch()
 {
 #if !UE_SERVER
-	// Restart the quickmatch attempt.
-	QuickMatchDialog->FindHUBToJoin();
+	if (QuickMatchDialog.IsValid())
+	{
+		// Restart the quickmatch attempt.
+		QuickMatchDialog->FindHUBToJoin();
+	}
 #endif
 }
 
