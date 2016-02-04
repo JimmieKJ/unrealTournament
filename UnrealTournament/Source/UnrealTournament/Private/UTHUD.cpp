@@ -627,37 +627,49 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendly
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
 	if (UTC != NULL && !UTC->IsDead() && DamageAmount > 0)	// If have a pawn and it's alive...
 	{
-		FVector CharacterLocation;
-		FRotator CharacterRotation;
-
-		UTC->GetActorEyesViewPoint(CharacterLocation, CharacterRotation);
-		FVector HitSafeNormal = (HitLocation - CharacterLocation).GetSafeNormal2D();
-		float Ang = FMath::Acos(FVector::DotProduct(CharacterRotation.Vector().GetSafeNormal2D(), HitSafeNormal)) * (180.0f / PI);
-
-		// Figure out Left/Right....
-		float FinalAng = ( FVector::DotProduct( FVector::CrossProduct(CharacterRotation.Vector(), FVector(0,0,1)), HitSafeNormal)) > 0 ? 360 - Ang : Ang;
-
-		int32 BestIndex = 0;
-		float BestTime = DamageIndicators[0].FadeTime;
-		for (int32 i=0; i < MAX_DAMAGE_INDICATORS; i++)
+		if (HitLocation == UTC->GetActorLocation())
 		{
-			if (DamageIndicators[i].FadeTime <= 0.0f)					
+			// trigger all damage indicators
+			for (int32 i = 0; i < MAX_DAMAGE_INDICATORS; i++)
 			{
-				BestIndex = i;
-				break;
-			}
-			else
-			{
-				if (DamageIndicators[i].FadeTime < BestTime)
-				{
-					BestIndex = i;
-					BestTime = DamageIndicators[i].FadeTime;
-				}
+				DamageIndicators[i].FadeTime = DAMAGE_FADE_DURATION;
+				DamageIndicators[i].RotationAngle = i* 360/MAX_DAMAGE_INDICATORS;
+				DamageIndicators[i].bFriendlyFire = bFriendlyFire;
 			}
 		}
-		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION;
-		DamageIndicators[BestIndex].RotationAngle = FinalAng;
-		DamageIndicators[BestIndex].bFriendlyFire = bFriendlyFire;
+		else
+		{
+			FVector CharacterLocation;
+			FRotator CharacterRotation;
+			UTC->GetActorEyesViewPoint(CharacterLocation, CharacterRotation);
+			FVector HitSafeNormal = (HitLocation - CharacterLocation).GetSafeNormal2D();
+			float Ang = FMath::Acos(FVector::DotProduct(CharacterRotation.Vector().GetSafeNormal2D(), HitSafeNormal)) * (180.0f / PI);
+
+			// Figure out Left/Right....
+			float FinalAng = (FVector::DotProduct(FVector::CrossProduct(CharacterRotation.Vector(), FVector(0, 0, 1)), HitSafeNormal)) > 0 ? 360 - Ang : Ang;
+
+			int32 BestIndex = 0;
+			float BestTime = DamageIndicators[0].FadeTime;
+			for (int32 i = 0; i < MAX_DAMAGE_INDICATORS; i++)
+			{
+				if (DamageIndicators[i].FadeTime <= 0.0f)
+				{
+					BestIndex = i;
+					break;
+				}
+				else
+				{
+					if (DamageIndicators[i].FadeTime < BestTime)
+					{
+						BestIndex = i;
+						BestTime = DamageIndicators[i].FadeTime;
+					}
+				}
+			}
+			DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION;
+			DamageIndicators[BestIndex].RotationAngle = FinalAng;
+			DamageIndicators[BestIndex].bFriendlyFire = bFriendlyFire;
+		}
 		if (DamageAmount > 0)
 		{
 			UTC->PlayDamageEffects();
