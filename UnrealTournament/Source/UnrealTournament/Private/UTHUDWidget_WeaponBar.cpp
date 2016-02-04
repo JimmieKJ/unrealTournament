@@ -212,7 +212,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					if (CurrentWeapon)
 					{
 						WeaponIcon.UVs = CurrentWeapon->WeaponBarSelectedUVs;
-						WeaponIcon.RenderColor = bSelected ? CurrentWeapon->IconColor : FLinearColor::White;
+						WeaponIcon.RenderColor = (bSelected || UTHUDOwner->bUseWeaponColors) ? CurrentWeapon->IconColor : FLinearColor::White;
 					}
 
 					float WeaponY = (CellHeight * 0.5f) - (WeaponIcon.UVs.VL * CellScale * 0.5f);
@@ -265,7 +265,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				// Draw the background and the background's border.
 				float FullIconCellWidth = CellWidth;
 				float FullCellWidth = FullIconCellWidth + HeaderTab[0].GetWidth() + 3 + GroupHeaderCap[0].GetWidth();
-				float CellScale = 1.0;
+				float CellScale = 1.f;
 				float CellHeight = CellBackground[0].GetHeight() * CellScale;
 				float IconCellWidth = CellWidth * CellScale;
 				float XPosition = (FullCellWidth * -1);
