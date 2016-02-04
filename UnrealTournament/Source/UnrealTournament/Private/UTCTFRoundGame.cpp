@@ -118,7 +118,6 @@ void AUTCTFRoundGame::InitGameState()
 	Super::InitGameState();
 	InitRound();
 	CTFGameState->CTFRound = 1;
-	CTFGameState->bRoundBased = true;
 }
 
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)

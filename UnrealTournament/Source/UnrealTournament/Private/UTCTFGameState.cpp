@@ -89,7 +89,6 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	ExtendedOvertimeStatus = NSLOCTEXT("UTCTFGameState", "ExtendedOvertime", "Extended Overtime!");
 	FirstHalfStatus = NSLOCTEXT("UTCTFGameState", "FirstHalf", "First Half");
 	SecondHalfStatus = NSLOCTEXT("UTCTFGameState", "SecondHalf", "Second Half");
-	bRoundBased = false;
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -105,8 +104,6 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, CTFRound); 
 	DOREPLIFETIME(AUTCTFGameState, RedLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, BlueLivesRemaining);
-
-	DOREPLIFETIME_CONDITION(AUTCTFGameState, bRoundBased, COND_InitialOnly);
 }
 
 void AUTCTFGameState::SetMaxNumberOfTeams(int32 TeamCount)
