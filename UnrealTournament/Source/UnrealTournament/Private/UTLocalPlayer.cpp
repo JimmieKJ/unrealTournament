@@ -84,11 +84,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	EarnedStars = 0;
 
 	CloudProfileMagicNumberVersion1 = 0xBEEF0001;
-
 	CloudProfileUE4VerForUnversionedProfile = 452;
-
 	McpProfileManager = nullptr;
-
 	bShowingFriendsMenu = false;
 }
 
@@ -150,7 +147,6 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 			OnlineIdentityInterface->ClearOnLoginStatusChangedDelegate_Handle(GetControllerId(), OnLoginStatusChangedDelegate);
 			OnlineIdentityInterface->ClearOnLogoutCompleteDelegate_Handle(GetControllerId(), OnLogoutCompleteDelegate);
 		}
-
 		if (OnlineUserCloudInterface.IsValid())
 		{
 			OnlineUserCloudInterface->ClearOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegate);
@@ -158,7 +154,6 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 			OnlineUserCloudInterface->ClearOnDeleteUserFileCompleteDelegate_Handle(OnDeleteUserFileCompleteDelegate);
 			OnlineUserCloudInterface->ClearOnEnumerateUserFilesCompleteDelegate_Handle(OnEnumerateUserFilesCompleteDelegate);
 		}
-
 		if (OnlineSessionInterface.IsValid())
 		{
 			OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
@@ -203,7 +198,6 @@ FText UUTLocalPlayer::GetAccountDisplayName() const
 			}
 		}
 	}
-
 	return FText::GetEmpty();
 }
 
@@ -223,10 +217,8 @@ FString UUTLocalPlayer::GetAccountName() const
 			}
 		}
 	}
-
 	return TEXT("");
 }
-
 
 FText UUTLocalPlayer::GetAccountSummary() const
 {
@@ -243,11 +235,8 @@ FText UUTLocalPlayer::GetAccountSummary() const
 			}
 		}
 	}
-
 	return FText::GetEmpty();
 }
-
-
 
 void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID)
 {
@@ -262,9 +251,7 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 	{
 		FString OSMajor;
 		FString OSMinor;
-
 		FPlatformMisc::GetOSVersions(OSMajor, OSMinor);
-
 		TArray<FAnalyticsEventAttribute> ParamArray;
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("OSMajor"), OSMajor));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("OSMinor"), OSMinor));
@@ -301,7 +288,6 @@ bool UUTLocalPlayer::IsMenuGame()
 		AUTMenuGameMode* GM = Cast<AUTMenuGameMode>(GetWorld()->GetAuthGameMode());
 		return GM != NULL;
 	}
-
 	return false;
 }
 
@@ -374,7 +360,6 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 		}
 		else
 		{
-
 			AGameState* GameState = GetWorld()->GetGameState<AGameState>();
 			if (GameState != nullptr && GameState->GameModeClass != nullptr)
 			{
@@ -560,7 +545,6 @@ void UUTLocalPlayer::CloseDialog(TSharedRef<SUTDialogBase> Dialog)
 	{
 		FSlateApplication::Get().SetKeyboardFocus(DesktopSlateWidget, EKeyboardFocusCause::Keyboard);
 	}
-
 }
 
 TSharedPtr<class SUTServerBrowserPanel> UUTLocalPlayer::GetServerBrowser()
@@ -1624,15 +1608,12 @@ void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 	#endif
 		}
 	}
-
 }
 
 void UUTLocalPlayer::SetNickname(FString NewName)
 {
 	PlayerNickname = NewName;
 	SaveConfig();
-
-	
 	if (PlayerController) 
 	{
 		PlayerController->ServerChangeName(NewName);
@@ -1688,9 +1669,7 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 		}
 
 		FString JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
-
 		UE_LOG(LogGameStats,VeryVerbose,TEXT("Stats JSON: %s"),*JsonString);
-
 		TSharedPtr<FJsonObject> StatsJson;
 		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
 		if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.IsValid())
@@ -1799,16 +1778,8 @@ int32 UUTLocalPlayer::GetBaseELORank()
 
 void UUTLocalPlayer::GetStarsFromXP(int32 XPValue, int32& Star)
 {
-	if (XPValue > 0)
-	{
-		Star = int32( FMath::Clamp<float>((XPValue / 10.0), 0, 5));
-	}
-	else
-	{
-		Star = -1;
-	}
+	Star = (XPValue > 0) ? int32(FMath::Clamp<float>((XPValue / 10.0), 0, 5)) : -1;
 }
-
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel)
 {
@@ -1854,7 +1825,6 @@ bool UUTLocalPlayer::IsConsideredABeginnner()
 	return (BaseELO < 1660) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed + ShowdownMatchesPlayed) < 50;
 }
 
-
 int32 UUTLocalPlayer::GetHatVariant() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatVariant : FCString::Atoi(*GetDefaultURLOption(TEXT("HatVar")));
@@ -1880,8 +1850,8 @@ void UUTLocalPlayer::SetHatVariant(int32 NewVariant)
 int32 UUTLocalPlayer::GetEyewearVariant() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->EyewearVariant : FCString::Atoi(*GetDefaultURLOption(TEXT("EyewearVar")));
-
 }
+
 void UUTLocalPlayer::SetEyewearVariant(int32 NewVariant)
 {
 	if (CurrentProfileSettings != NULL)
@@ -1903,6 +1873,7 @@ FString UUTLocalPlayer::GetHatPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatPath : GetDefaultURLOption(TEXT("Hat"));
 }
+
 void UUTLocalPlayer::SetHatPath(const FString& NewHatPath)
 {
 	if (CurrentProfileSettings != NULL)
@@ -1922,7 +1893,6 @@ void UUTLocalPlayer::SetHatPath(const FString& NewHatPath)
 				ParamArray.Add(FAnalyticsEventAttribute(TEXT("HatPath"), NewHatPath));
 				FUTAnalytics::GetProvider().RecordEvent( TEXT("HatChanged"), ParamArray );
 			}
-
 			PS->ServerReceiveHatClass(NewHatPath);
 		}
 	}
@@ -1932,6 +1902,7 @@ FString UUTLocalPlayer::GetLeaderHatPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->LeaderHatPath : GetDefaultURLOption(TEXT("LeaderHat"));
 }
+
 void UUTLocalPlayer::SetLeaderHatPath(const FString& NewLeaderHatPath)
 {
 	if (CurrentProfileSettings != NULL)
@@ -1951,7 +1922,6 @@ void UUTLocalPlayer::SetLeaderHatPath(const FString& NewLeaderHatPath)
 				ParamArray.Add(FAnalyticsEventAttribute(TEXT("LeaderHatPath"), NewLeaderHatPath));
 				FUTAnalytics::GetProvider().RecordEvent( TEXT("LeaderHatChanged"), ParamArray );
 			}
-
 			PS->ServerReceiveLeaderHatClass(NewLeaderHatPath);
 		}
 	}
@@ -1961,6 +1931,7 @@ FString UUTLocalPlayer::GetEyewearPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->EyewearPath : GetDefaultURLOption(TEXT("Eyewear"));
 }
+
 void UUTLocalPlayer::SetEyewearPath(const FString& NewEyewearPath)
 {
 	if (CurrentProfileSettings != NULL)
@@ -1985,10 +1956,12 @@ void UUTLocalPlayer::SetEyewearPath(const FString& NewEyewearPath)
 		}
 	}
 }
+
 FString UUTLocalPlayer::GetCharacterPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->CharacterPath : GetDefaultURLOption(TEXT("Character"));
 }
+
 void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>((PlayerController != NULL) ? PlayerController->PlayerState : NULL);
@@ -2010,10 +1983,12 @@ void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 		PS->ServerSetCharacter(NewCharacterPath);
 	}
 }
+
 FString UUTLocalPlayer::GetTauntPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->TauntPath : GetDefaultURLOption(TEXT("Taunt"));
 }
+
 void UUTLocalPlayer::SetTauntPath(const FString& NewTauntPath)
 {
 	if (CurrentProfileSettings != NULL)
@@ -2031,11 +2006,11 @@ void UUTLocalPlayer::SetTauntPath(const FString& NewTauntPath)
 	}
 }
 
-
 FString UUTLocalPlayer::GetTaunt2Path() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->Taunt2Path : GetDefaultURLOption(TEXT("Taunt2"));
 }
+
 void UUTLocalPlayer::SetTaunt2Path(const FString& NewTauntPath)
 {
 	if (CurrentProfileSettings != NULL)
@@ -2062,6 +2037,7 @@ FString UUTLocalPlayer::GetDefaultURLOption(const TCHAR* Key) const
 	Op.Split(TEXT("="), NULL, &Result);
 	return Result;
 }
+
 void UUTLocalPlayer::SetDefaultURLOption(const FString& Key, const FString& Value)
 {
 	FURL DefaultURL;
@@ -2152,7 +2128,6 @@ void UUTLocalPlayer::ShowContentLoadingMessage()
 	{
 		GEngine->GameViewport->AddViewportWidgetContent(ContentLoadingMessage.ToSharedRef(), 255);
 	}
-
 }
 
 void UUTLocalPlayer::HideContentLoadingMessage()
@@ -2171,7 +2146,6 @@ TSharedPtr<SUTFriendsPopupWindow> UUTLocalPlayer::GetFriendsPopup()
 		SAssignNew(FriendsMenu, SUTFriendsPopupWindow)
 			.PlayerOwner(this);
 	}
-
 	return FriendsMenu;
 }
 
@@ -2179,7 +2153,6 @@ void UUTLocalPlayer::SetShowingFriendsPopup(bool bShowing)
 {
 	bShowingFriendsMenu = bShowing;
 }
-
 #endif
 
 void UUTLocalPlayer::ReturnToMainMenu()
@@ -2222,7 +2195,6 @@ void UUTLocalPlayer::InvalidateLastSession()
 	LastSession.Session.SessionInfo.Reset();
 }
 
-
 bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam, FString InstanceId)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
@@ -2233,9 +2205,7 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	bWantsToConnectAsSpectator = bSpectate;
 	ConnectDesiredTeam = DesiredTeam;
 	bCancelJoinSession = false;
-
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
-
 	if (!UniqueId.IsValid())
 	{
 		return false;
@@ -2254,7 +2224,6 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 			SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
 			OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 		}
-
 		return true;
 	}
 }
@@ -2280,7 +2249,6 @@ void UUTLocalPlayer::CancelJoinSession()
 		ServerBrowserWidget->SetBrowserState(EBrowserState::BrowserIdle);
 	}
 #endif
-
 }
 
 void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
@@ -2369,8 +2337,6 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	{
 		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "AlreadyInSession", "You are already in a session and can't join another."));
 	}
-
-
 	if (Result == EOnJoinSessionCompleteResult::SessionIsFull)
 	{
 		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "SessionFull", "The session you are attempting to join is full."));
@@ -2395,12 +2361,9 @@ void UUTLocalPlayer::LeaveSession()
 			OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
 			OnlineSessionInterface->EndSession(GameSessionName);
 		}
-		else
+		else if (bPendingLoginCreds)
 		{
-			if (bPendingLoginCreds)
-			{
-				Logout();
-			}
+			Logout();
 		}
 	}
 }
@@ -2426,7 +2389,6 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 	{
 		JoinPendingSession();
 	}
-
 }
 
 void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
@@ -2622,9 +2584,7 @@ void UUTLocalPlayer::SetAvatar(FName NewAvatar, bool bSave)
 	}
 }
 
-
 #if !UE_SERVER
-
 void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 {
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
@@ -2633,19 +2593,16 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 		{
 			return;
 		}
-
 		if (GetWorld()->GetTimeSeconds() < QuickMatchLimitTime)
 		{
 			MessageBox(NSLOCTEXT("Generic","CantStartQuickMatchTitle","Please Wait"), NSLOCTEXT("Generic","CantStartQuickMatchText","You need to wait for at least 1 minute before you can attempt to quickmatch again."));
 			return;
 		}
-
 		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
 		{
 			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickmatch."));
 			return;
 		}
-
 		if (OnlineSessionInterface.IsValid())
 		{
 			OnlineSessionInterface->CancelFindSessions();				
@@ -2653,7 +2610,6 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 
 		SAssignNew(QuickMatchDialog, SUTQuickMatchWindow, this)
 			.QuickMatchType(QuickMatchType);
-
 		if (QuickMatchDialog.IsValid())
 		{
 			OpenWindow(QuickMatchDialog);
@@ -2909,12 +2865,9 @@ bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 				FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
 			}
 		}
-
 		return false;
 	}
-
 	return true;
-
 }
 
 void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirects)
