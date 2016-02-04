@@ -960,6 +960,18 @@ FReply SUTWeaponConfigDialog::OKClick()
 						ProfileSettings->WeaponSkins.Add(Skin);
 					}
 				}
+				else
+				{
+					// User selected "No Skin"
+					for (int i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+					{
+						if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType == Selection.Key)
+						{
+							ProfileSettings->WeaponSkins.RemoveAt(i);
+							break;
+						}
+					}
+				}
 			}
 		}
 	}
