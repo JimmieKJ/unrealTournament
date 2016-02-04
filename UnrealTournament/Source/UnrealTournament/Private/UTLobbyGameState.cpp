@@ -580,6 +580,9 @@ void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameIn
 			GameInstances[i].MatchInfo->InitialMap = MapName;
 			GameInstances[i].MatchInfo->InstanceBeacon = InstanceBeacon;
 
+			// Load the map info
+			GameInstances[i].MatchInfo->GetMapInformation();
+
 			break;
 		}
 	}

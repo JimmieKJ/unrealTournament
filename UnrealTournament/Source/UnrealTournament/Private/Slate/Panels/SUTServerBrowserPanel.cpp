@@ -2294,6 +2294,8 @@ void SUTServerBrowserPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 	{
 		RefreshServers();
 	}
+
+	PlayerOwner->GetWorld()->GetTimerManager().SetTimer(RefreshTimerHandle, FTimerDelegate::CreateSP(this, &SUTServerBrowserPanel::RefreshSelectedServer), 30.f, true);
 }
 
 void SUTServerBrowserPanel::OnHidePanel()
@@ -2307,8 +2309,18 @@ void SUTServerBrowserPanel::OnHidePanel()
 	{
 		SUTPanelBase::OnHidePanel();
 	}
+
+	PlayerOwner->GetWorld()->GetTimerManager().ClearTimer(RefreshTimerHandle);
 }
 
+void SUTServerBrowserPanel::RefreshSelectedServer()
+{
+	TArray<TSharedPtr<FServerData>> SelectedItems = (bShowingHubs ? HUBServerList->GetSelectedItems() : InternetServerList->GetSelectedItems());
+	if (SelectedItems.Num() > 0)
+	{
+		PingServer(SelectedItems[0]);
+	}
+}
 
 void SUTServerBrowserPanel::AnimEnd()
 {

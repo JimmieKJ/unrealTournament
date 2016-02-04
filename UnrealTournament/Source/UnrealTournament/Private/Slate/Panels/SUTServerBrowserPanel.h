@@ -858,6 +858,11 @@ protected:
 	FReply OnCancelJoinClick();
 	FReply OnIPClick();
 	void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+	FTimerHandle RefreshTimerHandle;
+	virtual void RefreshSelectedServer();
+
+
 };
 
 #endif
