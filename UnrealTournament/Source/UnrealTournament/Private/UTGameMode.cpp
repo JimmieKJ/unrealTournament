@@ -2562,7 +2562,7 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 		}
 
 		// start match, or let player enter, immediately
-		if (UTGameState->HasMatchStarted())
+		if (PlayerCanRestart(NewPlayer))
 		{
 			RestartPlayer(NewPlayer);
 		}
