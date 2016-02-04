@@ -1513,12 +1513,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
-		bool bHRTFEnabled = false;
-		if (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll())
-		{
-			bHRTFEnabled = true;
-		}
-
+		bool bHRTFEnabled = (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll());
 		if (!bHRTFEnabled && (SoundPlayer == this || SoundPlayer == GetViewTarget()))
 		{
 			// no attenuation/spatialization, full volume

@@ -1743,8 +1743,6 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 		}
 	}
 
-	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
-
 	if (OpponentCount == 0)
 	{
 		UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s no opponents found, can't adjust skill rating"), *PlayerName);
@@ -1764,7 +1762,7 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 
 	int32 NewSkillRating = SkillRating + KFactor*(ActualWinPercentage - ExpectedWinPercentage);
 
-	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s New Skill Rating %d"), *PlayerName, NewSkillRating);
+	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s  RA: %d ExpectWinPct %f New Skill Rating %d"), *PlayerName, SkillRating, ExpectedWinPercentage, NewSkillRating);
 	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
