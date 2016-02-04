@@ -206,7 +206,7 @@ bool AUTPlayerState::ShouldAutoTaunt() const
 		return bShouldAutoTaunt;
 	}
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	return GS && GS->IsBotSpeechEnabled();
+	return GS != NULL && GS->GetBotSpeech() == BSO_All;
 }
 
 void AUTPlayerState::AnnounceKill()
@@ -270,7 +270,7 @@ void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 
 void AUTPlayerState::AnnounceStatus(FName NewStatus)
 {
-	if (CharacterVoice && ShouldAutoTaunt())
+	if (CharacterVoice != NULL)
 	{
 		// send to same team only
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();

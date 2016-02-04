@@ -163,7 +163,11 @@ protected:
 	TSharedPtr<SCheckBox> VSync;
 	TSharedPtr<SEditableTextBox> FrameRateCap;
 
-	TSharedPtr<SCheckBox> BotSpeechCheckBox;
+	TArray<TSharedPtr<FString>> BotSpeechList;
+	TSharedPtr<SComboBox<TSharedPtr<FString>>> BotSpeechCombo;
+	TSharedPtr<STextBlock> SelectedBotSpeech;
+	void OnBotSpeechSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
 	TSharedPtr<SCheckBox> HRTFCheckBox;
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	TSharedPtr<STextBlock> SoundVolumesLabels[EUTSoundClass::MAX];

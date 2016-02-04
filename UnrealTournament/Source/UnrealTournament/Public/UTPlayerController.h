@@ -118,11 +118,7 @@ public:
 	UFUNCTION(client, unreliable)
 	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
 
-	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override
-	{
-		ClientPlaySound(ChatMsgSound);
-		Super::ClientSay_Implementation(Speaker, Message, Destination);
-	}
+	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override;
 
 	UFUNCTION(client, unreliable)
 		void ClientUpdateDamageDone(int32 DamageDone, int32 RoundDamageDone);

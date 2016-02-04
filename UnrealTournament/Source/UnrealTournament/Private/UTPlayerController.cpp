@@ -3197,6 +3197,16 @@ void AUTPlayerController::SetWeaponGroup(AUTWeapon* InWeapon)
 	}
 }
 
+void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
+{
+	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (Speaker == NULL || !Speaker->bIsABot || GS == NULL || GS->GetBotSpeech() > BSO_None)
+	{
+		ClientPlaySound(ChatMsgSound);
+		Super::ClientSay_Implementation(Speaker, Message, Destination);
+	}
+}
+
 void AUTPlayerController::RconMap(FString NewMap)
 {
 	ServerRconMap(NewMap);

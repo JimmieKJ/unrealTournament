@@ -843,6 +843,11 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 {
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 
+	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechNone", "None").ToString())));
+	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechStatusText", "Status Text").ToString())));
+	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechAll", "All").ToString())));
+	const int32 SpeechSettingValue = FMath::Clamp<int32>(int32(UserSettings->GetBotSpeech()), 0, BotSpeechList.Num() - 1);
+
 	return SNew(SVerticalBox)
 
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Master], SoundVolumesLabels[EUTSoundClass::Master], &SUTSystemSettingsDialog::OnSoundVolumeChangedMaster, NSLOCTEXT("SUTSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Master),
@@ -869,12 +874,27 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			]
 		]
 		+ SHorizontalBox::Slot()
-			.AutoWidth()
+		.AutoWidth()
+		[
+			SAssignNew(BotSpeechCombo, SComboBox<TSharedPtr<FString>>)
+			.InitiallySelectedItem(BotSpeechList[SpeechSettingValue])
+			.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+			.OptionsSource(&BotSpeechList)
+			.OnGenerateWidget(this, &SUTDialogBase::GenerateStringListWidget)
+			.OnSelectionChanged(this, &SUTSystemSettingsDialog::OnBotSpeechSelected)
+			.Content()
 			[
-				SAssignNew(BotSpeechCheckBox, SCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.IsChecked(UserSettings->IsBotSpeechEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				[
+					SAssignNew(SelectedBotSpeech, STextBlock)
+					.Text(FText::FromString(*BotSpeechList[SpeechSettingValue].Get()))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+				]
 			]
+		]
 	]
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -901,6 +921,11 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]
 	];
+}
+
+void SUTSystemSettingsDialog::OnBotSpeechSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedBotSpeech->SetText(*NewSelection.Get());
 }
 
 void SUTSystemSettingsDialog::OnSoundVolumeChangedMaster(float NewValue)
@@ -1069,7 +1094,7 @@ FReply SUTSystemSettingsDialog::OKClick()
 	Suffixes.Add(FString("w"));
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), *Suffixes[NewDisplayMode]));
 
-	UserSettings->SetBotSpeechEnabled(BotSpeechCheckBox->IsChecked());
+	UserSettings->SetBotSpeech(EBotSpeechOption(FMath::Max<int32>(0, BotSpeechList.Find(BotSpeechCombo->GetSelectedItem()))));
 	UserSettings->SetHRTFEnabled(HRTFCheckBox->IsChecked());
 	UserSettings->SetAAMode(ConvertComboSelectionToAAMode(*AAMode->GetSelectedItem().Get()));
 

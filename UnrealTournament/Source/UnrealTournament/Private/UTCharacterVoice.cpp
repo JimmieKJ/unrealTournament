@@ -43,7 +43,7 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	}
 
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (GS && !GS->IsBotSpeechEnabled())
+	if (GS != NULL && GS->GetBotSpeech() < ((Switch >= StatusBaseIndex) ? BSO_StatusTextOnly : BSO_All))
 	{ 
 		return FText::GetEmpty();
 	}
@@ -303,7 +303,7 @@ void UUTCharacterVoice::PrecacheAnnouncements_Implementation(UUTAnnouncer* Annou
 bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (GS && !GS->IsBotSpeechEnabled())
+	if (GS != NULL && GS->GetBotSpeech() < BSO_All)
 	{
 		return false;
 	}
