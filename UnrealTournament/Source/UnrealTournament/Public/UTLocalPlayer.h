@@ -174,10 +174,7 @@ public:
 	TSharedPtr<class SUTReplayBrowserPanel> GetReplayBrowser();
 	TSharedPtr<class SUTStatsViewerPanel> GetStatsViewer();
 	TSharedPtr<class SUTCreditsPanel> GetCreditsPanel();
-
-	UFUNCTION()
-		virtual void ChangeStatsViewerTarget(FString InStatsID);
-
+	
 	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
 
@@ -188,6 +185,9 @@ public:
 
 	virtual bool AreMenusOpen();
 #endif
+
+	UFUNCTION()
+	virtual void ChangeStatsViewerTarget(FString InStatsID);
 
 	// Holds all of the chat this client has received.
 	TArray<TSharedPtr<FStoredChatMessage>> ChatArchive;

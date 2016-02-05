@@ -577,14 +577,6 @@ TSharedPtr<class SUTStatsViewerPanel> UUTLocalPlayer::GetStatsViewer()
 	return StatsViewerWidget;
 }
 
-void UUTLocalPlayer::ChangeStatsViewerTarget(FString InStatsID)
-{
-	if (StatsViewerWidget.IsValid())
-	{
-		StatsViewerWidget->ChangeStatsID(InStatsID);
-	}
-}
-
 TSharedPtr<class SUTCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 {
 	if (!CreditsPanelWidget.IsValid())
@@ -605,6 +597,16 @@ bool UUTLocalPlayer::AreMenusOpen()
 }
 
 #endif
+
+void UUTLocalPlayer::ChangeStatsViewerTarget(FString InStatsID)
+{
+#if !UE_SERVER
+	if (StatsViewerWidget.IsValid())
+	{
+		StatsViewerWidget->ChangeStatsID(InStatsID);
+	}
+#endif
+}
 
 void UUTLocalPlayer::ShowHUDSettings()
 {
