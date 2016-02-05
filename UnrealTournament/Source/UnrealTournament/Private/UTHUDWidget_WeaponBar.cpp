@@ -159,7 +159,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			}
 			// We have now allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.
 			float Y2 = YPosition;
-			float TextXPosition = 0;
+			float TextXPosition = 0.f;
 			bool bSelectedGroup = false;
 			if (WeaponGroups[GroupIdx].WeaponsInGroup.Num() > 0)
 			{
@@ -168,22 +168,17 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				{
 					AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 					bool bSelected = CurrentWeapon == SelectedWeapon;
-					int32 CurrentGroup = CurrentWeapon->Group;
-
-					if (bSelected)
-					{
-						bSelectedGroup = true;
-					}
+					bSelectedGroup = bSelectedGroup || bSelected;
 					Opacity = bSelected ? 1.f : InactiveOpacity;
 
 					// Draw the background and the background's border.
 					int32 Idx = (WeapIdx == 0) ? 0 : 1;
-					float FullIconCellWidth = (CurrentGroup == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
+					float FullIconCellWidth = (CurrentWeapon->Group == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
 					float FullCellWidth = FullIconCellWidth + HeaderTab[Idx].GetWidth() + 3.f + GroupHeaderCap[Idx].GetWidth();
 					float CellScale = bSelected ? SelectedCellScale : 1.f;
-					float CellHeight =CellBackground[Idx].GetHeight() * CellScale;
+					float CellHeight = CellBackground[Idx].GetHeight() * CellScale;
 					float IconCellWidth = CellWidth * CellScale;
-					float XPosition = (FullCellWidth * -1);
+					float XPosition = -1.f * FullCellWidth;
 					YPosition -= HeaderTab[Idx].GetHeight() * CellScale;
 
 					// Draw the Tab.
