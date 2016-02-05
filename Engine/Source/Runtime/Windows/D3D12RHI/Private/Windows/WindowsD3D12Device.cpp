@@ -402,7 +402,8 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
     // TODO MS: We need to do this after CreateDevice due to a bug in QueryVideoMemoryInfo
     GRHIAdapterName = AdapterDesc->Description;
     GRHIVendorId = AdapterDesc->VendorId;
-	GRHIDeviceId = AdapterDesc->DeviceId;
+	//plk hacks
+	//GRHIDeviceId = AdapterDesc->DeviceId;
 
 	// Issue: 32bit windows doesn't report 64bit value, we take what we get.
 	FD3D12GlobalStats::GDedicatedVideoMemory = int64(AdapterDesc->DedicatedVideoMemory);

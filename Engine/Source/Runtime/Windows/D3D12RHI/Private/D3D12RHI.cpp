@@ -424,7 +424,7 @@ namespace D3D12RHI
 
 		if (GEmitDrawEvents)
 		{
-			PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255));
+			PushEvent(TEXT("FRAME"));
 		}
 	}
 }
@@ -642,13 +642,14 @@ void FD3D12CommandContext::RHIEndScene()
 	OwningRHI.ResourceTableFrameCounter = INDEX_NONE;
 }
 
-void FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
+void FD3DGPUProfiler::PushEvent(const TCHAR* Name)
 {
 #if WITH_DX_PERF
-	D3DPERF_BeginEvent(Color.DWColor(), Name);
+	// plk hacks
+	//D3DPERF_BeginEvent(Color.DWColor(), Name);
 #endif
 
-	FGPUProfiler::PushEvent(Name, Color);
+	FGPUProfiler::PushEvent(Name);
 }
 
 void FD3DGPUProfiler::PopEvent()
