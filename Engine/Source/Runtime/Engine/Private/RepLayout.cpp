@@ -782,7 +782,7 @@ void FRepLayout::UpdateChangelistHistory( FRepState * RepState, UClass * ObjectC
 	// If our buffer is currently full, forcibly send the entire history
 	if ( DumpHistory )
 	{
-		UE_LOG( LogRep, Warning, TEXT( "FRepLayout::UpdateChangelistHistory: History overflow, forcing history dump %s" ), *ObjectClass->GetName() );
+		UE_LOG( LogRep, Log, TEXT( "FRepLayout::UpdateChangelistHistory: History overflow, forcing history dump %s" ), *ObjectClass->GetName() );
 	}
 
 	for ( int32 i = RepState->HistoryStart; i < RepState->HistoryEnd; i++ )
