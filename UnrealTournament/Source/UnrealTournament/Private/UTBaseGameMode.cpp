@@ -488,6 +488,10 @@ int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 	return MaxElo;
 }
 
+void AUTBaseGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+{
+}
+
 int32 AUTBaseGameMode::GetAverageElo()
 {
 	AUTGameState* UTGameState = Cast<AUTGameState>(GameState);

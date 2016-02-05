@@ -41,3 +41,11 @@ int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 	bEloIsValid = PS ? PS->bDMEloValid : false;
 	return PS ? PS->DMRank : Super::GetEloFor(PS, bEloIsValid);
 }
+
+void AUTDMGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+{
+	if (PS)
+	{
+		PS->DMRank = NewEloValue;
+	}
+}

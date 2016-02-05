@@ -1780,7 +1780,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 
 void UUTLocalPlayer::GetStarsFromXP(int32 XPValue, int32& Star)
 {
-	Star = (XPValue > 0) ? int32(FMath::Clamp<float>((XPValue / 10.0), 0, 5)) : -1;
+	Star = (XPValue > 0) ? int32(FMath::Clamp<float>((XPValue / 10.f), 0.f, 5.f)) : -1;
 }
 
 void UUTLocalPlayer::GetBadgeFromELO(bool bIsBeginner, int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel)

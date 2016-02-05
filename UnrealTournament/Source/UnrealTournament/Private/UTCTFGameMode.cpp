@@ -471,6 +471,14 @@ int32 AUTCTFGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 	return PS ? PS->CTFRank : Super::GetEloFor(PS, bEloIsValid);
 }
 
+void AUTCTFGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+{
+	if (PS)
+	{
+		PS->CTFRank = NewEloValue;
+	}
+}
+
 void AUTCTFGameMode::GetGood()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

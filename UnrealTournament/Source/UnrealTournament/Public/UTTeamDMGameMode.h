@@ -20,4 +20,5 @@ class UNREALTOURNAMENT_API AUTTeamDMGameMode : public AUTTeamGameMode
 	virtual AUTPlayerState* IsThereAWinner_Implementation(bool& bTied) override;
 	virtual void UpdateSkillRating() override;
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const override;
+	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue) override;
 };

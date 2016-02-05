@@ -1678,6 +1678,13 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 	UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s New Skill Rating %d"), *PlayerName, NewSkillRating);
 	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
+
+	// tell player about rating change, so can display if desired
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	if (PC)
+	{
+		PC->ClientUpdateSkillRating(SkillRating, NewSkillRating, true);
+	}
 }
 
 void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
@@ -1766,6 +1773,12 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s  RA: %d ExpectWinPct %f New Skill Rating %d"), *PlayerName, SkillRating, ExpectedWinPercentage, NewSkillRating);
 	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
+
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	if (PC)
+	{
+		PC->ClientUpdateSkillRating(SkillRating, NewSkillRating, true);
+	}
 }
 
 bool AUTPlayerState::OwnsItemFor(const FString& Path, int32 VariantId) const

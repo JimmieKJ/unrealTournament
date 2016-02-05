@@ -910,6 +910,13 @@ public:
 	UFUNCTION(client, unreliable)
 	virtual void ClientUpdateTeamStats(uint8 TeamNum, uint8 TeamStatsIndex, float NewValue);
 
+	UFUNCTION(client, reliable)
+		virtual void ClientUpdateSkillRating(int32 OldRating, int32 NewRating, bool bEloIsValid);
+
+	/** Set at end of match if ranking badge changed. */
+	UPROPERTY()
+		bool bBadgeChanged;
+
 	virtual void AdvanceStatsPage(int32 Increment);
 
 	int32 DilationIndex;

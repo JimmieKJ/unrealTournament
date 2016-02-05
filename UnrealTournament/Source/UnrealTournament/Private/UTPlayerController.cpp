@@ -3811,6 +3811,27 @@ void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, ui
 	}
 }
 
+void AUTPlayerController::ClientUpdateSkillRating_Implementation(int32 OldRating, int32 NewRating, bool bEloIsValid)
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (LocalPlayer && UTGameState)
+	{
+		AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+		if (DefaultGame && UTPlayerState)
+		{
+			int32 OldLevel = 0;
+			int32 OldBadge = 0;
+			int32 NewLevel = 0;
+			int32 NewBadge = 0;
+			LocalPlayer->GetBadgeFromELO(UTPlayerState->bIsBeginner, OldRating, bEloIsValid, OldBadge, OldLevel);
+			LocalPlayer->GetBadgeFromELO(UTPlayerState->bIsBeginner, NewRating, bEloIsValid, NewBadge, NewLevel);
+			DefaultGame->SetEloFor(UTPlayerState, NewRating);
+			bBadgeChanged = ((OldLevel != NewLevel) || (OldBadge != NewBadge));
+		}
+	}
+}
+
 void AUTPlayerController::ClientShowMapVote_Implementation()
 {
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);

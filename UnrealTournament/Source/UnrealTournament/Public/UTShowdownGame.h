@@ -90,6 +90,7 @@ public:
 	virtual void DefaultTimer() override;
 
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const override;
+	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue) override;
 
 	// Creates the URL options for custom games
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);

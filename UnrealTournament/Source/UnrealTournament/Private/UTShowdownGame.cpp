@@ -791,6 +791,14 @@ int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 	return PS ? PS->ShowdownRank : Super::GetEloFor(PS, bEloIsValid);
 }
 
+void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+{
+	if (PS)
+	{
+		PS->ShowdownRank = NewEloValue;
+	}
+}
+
 #if !UE_SERVER
 void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {

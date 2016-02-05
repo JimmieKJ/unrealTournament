@@ -271,3 +271,11 @@ int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
 	bEloIsValid = PS ? PS->bDuelEloValid : false;
 	return PS ? PS->DuelRank : Super::GetEloFor(PS, bEloIsValid);
 }
+
+void AUTDuelGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+{
+	if (PS)
+	{
+		PS->DuelRank = NewEloValue;
+	}
+}
