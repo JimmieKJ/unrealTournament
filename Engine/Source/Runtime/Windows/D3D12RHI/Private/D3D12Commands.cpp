@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Commands.cpp: D3D RHI commands implementation.
@@ -7,7 +7,14 @@ D3D12Commands.cpp: D3D RHI commands implementation.
 #include "D3D12RHIPrivate.h"
 #if WITH_D3DX_LIBS
 #include "AllowWindowsPlatformTypes.h"
+	#if _MSC_VER == 1900
+		#pragma warning(push)
+		#pragma warning(disable:4838)
+	#endif // _MSC_VER == 1900
 	#include <xnamath.h>
+	#if _MSC_VER == 1900
+		#pragma warning(pop)
+	#endif // _MSC_VER == 1900
 #include "HideWindowsPlatformTypes.h"
 #endif
 #include "D3D12RHIPrivateUtil.h"
@@ -52,10 +59,24 @@ DECLARE_ISBOUNDSHADER(ComputeShader)
 #define VALIDATE_BOUND_SHADER(s)
 #endif
 
+#define WITH_GPA 0//(!PLATFORM_XBOXONE)
+#if WITH_GPA
+#define GPA_WINDOWS 1
+#include <GPUPerfAPI/Gpa.h>
+#endif
+
+static int32 GD3D12AllowDrawClears = 0;
+static FAutoConsoleVariableRef CVarAllowDrawClears(
+	TEXT("D3D12.AllowDrawClears"),
+	GD3D12AllowDrawClears,
+	TEXT("Allows the use of draw calls to clear render targets."),
+	ECVF_RenderThreadSafe
+	);
+
 void FD3D12DynamicRHI::SetupRecursiveResources()
 {
 	extern ENGINE_API FShaderCompilingManager* GShaderCompilingManager;
-	check (FPlatformProperties::RequiresCookedData() || GShaderCompilingManager);
+	check(FPlatformProperties::RequiresCookedData() || GShaderCompilingManager);
 
 	FRHICommandList_RecursiveHazardous RHICmdList(RHIGetDefaultContext());
 	auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
@@ -160,7 +181,7 @@ void FD3D12CommandContext::RHISetComputeShader(FComputeShaderRHIParamRef Compute
 }
 
 void FD3D12CommandContext::RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ)
-{ 
+{
 	FComputeShaderRHIParamRef ComputeShaderRHI = GetCurrentComputeShader();
 	FD3D12ComputeShader* ComputeShader = FD3D12DynamicRHI::ResourceCast(ComputeShaderRHI);
 
@@ -186,7 +207,7 @@ void FD3D12CommandContext::RHIDispatchComputeShader(uint32 ThreadGroupCountX, ui
 }
 
 void FD3D12CommandContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset)
-{ 
+{
 	FComputeShaderRHIParamRef ComputeShaderRHI = GetCurrentComputeShader();
 	FD3D12ComputeShader* ComputeShader = FD3D12DynamicRHI::ResourceCast(ComputeShaderRHI);
 	FD3D12VertexBuffer* ArgumentBuffer = FD3D12DynamicRHI::ResourceCast(ArgumentBufferRHI);
@@ -229,7 +250,7 @@ void FD3D12CommandContext::RHISetViewport(uint32 MinX, uint32 MinY, float MinZ, 
 	check(MaxX <= (uint32)D3D12_VIEWPORT_BOUNDS_MAX);
 	check(MaxY <= (uint32)D3D12_VIEWPORT_BOUNDS_MAX);
 
-	D3D12_VIEWPORT Viewport = { MinX, MinY, MaxX - MinX, MaxY - MinY, MinZ, MaxZ };
+	D3D12_VIEWPORT Viewport = { (float)MinX, (float)MinY, (float)MaxX - MinX, (float)MaxY - MinY, MinZ, MaxZ };
 	//avoid setting a 0 extent viewport, which the debug runtime doesn't like
 	if (Viewport.Width > 0 && Viewport.Height > 0)
 	{
@@ -313,7 +334,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FVertexShaderRHIParamRef VertexSh
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
-	if (  ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) !=NULL) || (NewTexture->HasDepthStencilView()))
 		SetShaderResourceView<SF_Vertex>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Dynamic);
 	else
 		SetShaderResourceView<SF_Vertex>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Static);
@@ -325,14 +346,14 @@ void FD3D12CommandContext::RHISetShaderTexture(FVertexShaderRHIParamRef VertexSh
 void FD3D12CommandContext::RHISetShaderTexture(FHullShaderRHIParamRef HullShaderRHI, uint32 TextureIndex, FTextureRHIParamRef NewTextureRHI)
 {
 	uint32 Start = FPlatformTime::Cycles();
-	 
+
 	VALIDATE_BOUND_SHADER(HullShaderRHI);
 
 	FD3D12TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
-	if (  ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) !=NULL) || (NewTexture->HasDepthStencilView()))
 		SetShaderResourceView<SF_Hull>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Dynamic);
 	else
 		SetShaderResourceView<SF_Hull>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Static);
@@ -351,7 +372,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FDomainShaderRHIParamRef DomainSh
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
-	if (  ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) !=NULL) || (NewTexture->HasDepthStencilView()))
 		SetShaderResourceView<SF_Domain>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Dynamic);
 	else
 		SetShaderResourceView<SF_Domain>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Static);
@@ -370,7 +391,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FGeometryShaderRHIParamRef Geomet
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
-	if (  ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) !=NULL) || (NewTexture->HasDepthStencilView()))
 		SetShaderResourceView<SF_Geometry>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Dynamic);
 	else
 		SetShaderResourceView<SF_Geometry>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Static);
@@ -389,7 +410,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FPixelShaderRHIParamRef PixelShad
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
-	if ( ( NewTexture == NULL) ||  ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
+	if ((NewTexture == NULL) ||  (NewTexture->GetRenderTargetView(0, 0) !=NULL) || (NewTexture->HasDepthStencilView()))
 		SetShaderResourceView<SF_Pixel>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Dynamic);
 	else
 		SetShaderResourceView<SF_Pixel>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Static);
@@ -408,7 +429,7 @@ void FD3D12CommandContext::RHISetShaderTexture(FComputeShaderRHIParamRef Compute
 	FD3D12ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 	FD3D12ResourceLocation* ResourceLocation = NewTexture ? NewTexture->ResourceLocation : nullptr;
 
-	if ( ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) !=NULL) || (NewTexture->HasDepthStencilView()))
 	{
 		SetShaderResourceView<SF_Compute>(ResourceLocation, ShaderResourceView, TextureIndex, FD3D12StateCache::SRV_Dynamic);
 	}
@@ -745,42 +766,42 @@ void FD3D12CommandContext::RHISetShaderParameter(FHullShaderRHIParamRef HullShad
 {
 	VALIDATE_BOUND_SHADER(HullShaderRHI);
 	checkSlow(HSConstantBuffers[BufferIndex]);
-	HSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue,BaseIndex,NumBytes);
+	HSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue, BaseIndex, NumBytes);
 }
 
 void FD3D12CommandContext::RHISetShaderParameter(FDomainShaderRHIParamRef DomainShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
 	VALIDATE_BOUND_SHADER(DomainShaderRHI);
 	checkSlow(DSConstantBuffers[BufferIndex]);
-	DSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue,BaseIndex,NumBytes);
+	DSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue, BaseIndex, NumBytes);
 }
 
 void FD3D12CommandContext::RHISetShaderParameter(FVertexShaderRHIParamRef VertexShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
 	VALIDATE_BOUND_SHADER(VertexShaderRHI);
 	checkSlow(VSConstantBuffers[BufferIndex]);
-	VSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue,BaseIndex,NumBytes);
+	VSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue, BaseIndex, NumBytes);
 }
 
 void FD3D12CommandContext::RHISetShaderParameter(FPixelShaderRHIParamRef PixelShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
 	VALIDATE_BOUND_SHADER(PixelShaderRHI);
 	checkSlow(PSConstantBuffers[BufferIndex]);
-	PSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue,BaseIndex,NumBytes);
+	PSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue, BaseIndex, NumBytes);
 }
 
 void FD3D12CommandContext::RHISetShaderParameter(FGeometryShaderRHIParamRef GeometryShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
 	VALIDATE_BOUND_SHADER(GeometryShaderRHI);
 	checkSlow(GSConstantBuffers[BufferIndex]);
-	GSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue,BaseIndex,NumBytes);
+	GSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue, BaseIndex, NumBytes);
 }
 
 void FD3D12CommandContext::RHISetShaderParameter(FComputeShaderRHIParamRef ComputeShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
 	//VALIDATE_BOUND_SHADER(ComputeShaderRHI);
 	checkSlow(CSConstantBuffers[BufferIndex]);
-	CSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue,BaseIndex,NumBytes);
+	CSConstantBuffers[BufferIndex]->UpdateConstant((const uint8*)NewValue, BaseIndex, NumBytes);
 }
 
 void FD3D12CommandContext::ValidateExclusiveDepthStencilAccess(FExclusiveDepthStencil RequestedAccess) const
@@ -800,7 +821,7 @@ void FD3D12CommandContext::ValidateExclusiveDepthStencilAccess(FExclusiveDepthSt
 		check(!bSrcDepthWrite || bDstDepthWrite);
 		check(!bSrcStencilWrite || bDstStencilWrite);
 	}
-	}
+}
 
 void FD3D12CommandContext::RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewStateRHI, uint32 StencilRef)
 {
@@ -821,14 +842,14 @@ void FD3D12CommandContext::CommitRenderTargetsAndUAVs()
 {
 	FD3D12RenderTargetView* RTArray[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
 
-	for(uint32 RenderTargetIndex = 0;RenderTargetIndex < NumSimultaneousRenderTargets;++RenderTargetIndex)
+	for (uint32 RenderTargetIndex = 0;RenderTargetIndex < NumSimultaneousRenderTargets;++RenderTargetIndex)
 	{
 		RTArray[RenderTargetIndex] = CurrentRenderTargets[RenderTargetIndex];
 	}
 	FD3D12UnorderedAccessView* UAVArray[D3D12_PS_CS_UAV_REGISTER_COUNT];
 
 	uint32 UAVInitialCountArray[D3D12_PS_CS_UAV_REGISTER_COUNT];
-	for(uint32 UAVIndex = 0;UAVIndex < NumUAVs;++UAVIndex)
+	for (uint32 UAVIndex = 0;UAVIndex < NumUAVs;++UAVIndex)
 	{
 		UAVArray[UAVIndex] = CurrentUAVs[UAVIndex];
 		// Using the value that indicates to keep the current UAV counter
@@ -874,33 +895,33 @@ FRTVDesc GetRenderTargetViewDesc(FD3D12RenderTargetView* RenderTargetView)
 	case D3D12_RTV_DIMENSION_TEXTURE2DMS:
 	case D3D12_RTV_DIMENSION_TEXTURE2DARRAY:
 	case D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY:
+	{
+		D3D12_RESOURCE_DESC const& Desc = BaseResource->GetDesc();
+		ret.Width = (uint32)Desc.Width;
+		ret.Height = Desc.Height;
+		ret.SampleDesc = Desc.SampleDesc;
+		if (TargetDesc.ViewDimension == D3D12_RTV_DIMENSION_TEXTURE2D || TargetDesc.ViewDimension == D3D12_RTV_DIMENSION_TEXTURE2DARRAY)
 		{
-			D3D12_RESOURCE_DESC const& Desc = BaseResource->GetDesc();
-			ret.Width = (uint32)Desc.Width;
-			ret.Height = Desc.Height;
-			ret.SampleDesc = Desc.SampleDesc;
-			if (TargetDesc.ViewDimension == D3D12_RTV_DIMENSION_TEXTURE2D || TargetDesc.ViewDimension == D3D12_RTV_DIMENSION_TEXTURE2DARRAY)
-			{
-				// All the non-multisampled texture types have their mip-slice in the same position.
-				MipIndex = TargetDesc.Texture2D.MipSlice;
-			}
-			break;
+			// All the non-multisampled texture types have their mip-slice in the same position.
+			MipIndex = TargetDesc.Texture2D.MipSlice;
 		}
+		break;
+	}
 	case D3D12_RTV_DIMENSION_TEXTURE3D:
-		{
-			D3D12_RESOURCE_DESC const& Desc = BaseResource->GetDesc();
-			ret.Width = (uint32)Desc.Width;
-			ret.Height = Desc.Height;
-			ret.SampleDesc.Count = 1;
-			ret.SampleDesc.Quality = 0;
-			MipIndex = TargetDesc.Texture3D.MipSlice;
-			break;
-		}
+	{
+		D3D12_RESOURCE_DESC const& Desc = BaseResource->GetDesc();
+		ret.Width = (uint32)Desc.Width;
+		ret.Height = Desc.Height;
+		ret.SampleDesc.Count = 1;
+		ret.SampleDesc.Quality = 0;
+		MipIndex = TargetDesc.Texture3D.MipSlice;
+		break;
+	}
 	default:
-		{
-			// not expecting 1D targets.
-			checkNoEntry();
-		}
+	{
+		// not expecting 1D targets.
+		checkNoEntry();
+	}
 	}
 	ret.Width >>= MipIndex;
 	ret.Height >>= MipIndex;
@@ -957,7 +978,7 @@ void FD3D12CommandContext::RHISetRenderTargets(
 
 	// Gather the render target views for the new render targets.
 	FD3D12RenderTargetView* NewRenderTargetViews[MaxSimultaneousRenderTargets];
-	for(uint32 RenderTargetIndex = 0;RenderTargetIndex < MaxSimultaneousRenderTargets;++RenderTargetIndex)
+	for (uint32 RenderTargetIndex = 0;RenderTargetIndex < MaxSimultaneousRenderTargets;++RenderTargetIndex)
 	{
 		FD3D12RenderTargetView* RenderTargetView = NULL;
 		if (RenderTargetIndex < NewNumSimultaneousRenderTargets && NewRenderTargetsRHI[RenderTargetIndex].Texture != nullptr)
@@ -994,13 +1015,13 @@ void FD3D12CommandContext::RHISetRenderTargets(
 				D3D12_RESOURCE_DESC DTTDesc = DepthTargetTexture->GetDesc();
 
 				// enforce color target is <= depth and MSAA settings match
-				if (RTTDesc.Width > DTTDesc.Width || RTTDesc.Height > DTTDesc.Height || 
-					RTTDesc.SampleDesc.Count != DTTDesc.SampleDesc.Count || 
+				if (RTTDesc.Width > DTTDesc.Width || RTTDesc.Height > DTTDesc.Height ||
+					RTTDesc.SampleDesc.Count != DTTDesc.SampleDesc.Count ||
 					RTTDesc.SampleDesc.Quality != DTTDesc.SampleDesc.Quality)
 				{
-					UE_LOG(LogD3D12RHI, Fatal,TEXT("RTV(%i,%i c=%i,q=%i) and DSV(%i,%i c=%i,q=%i) have mismatching dimensions and/or MSAA levels!"),
-						RTTDesc.Width,RTTDesc.Height,RTTDesc.SampleDesc.Count,RTTDesc.SampleDesc.Quality,
-						DTTDesc.Width,DTTDesc.Height,DTTDesc.SampleDesc.Count,DTTDesc.SampleDesc.Quality);
+					UE_LOG(LogD3D12RHI, Fatal, TEXT("RTV(%i,%i c=%i,q=%i) and DSV(%i,%i c=%i,q=%i) have mismatching dimensions and/or MSAA levels!"),
+						RTTDesc.Width, RTTDesc.Height, RTTDesc.SampleDesc.Count, RTTDesc.SampleDesc.Quality,
+						DTTDesc.Width, DTTDesc.Height, DTTDesc.SampleDesc.Count, DTTDesc.SampleDesc.Quality);
 				}
 			}
 #endif
@@ -1022,7 +1043,7 @@ void FD3D12CommandContext::RHISetRenderTargets(
 	}
 
 	// Gather the new UAVs.
-	for(uint32 UAVIndex = 0;UAVIndex < MaxSimultaneousUAVs;++UAVIndex)
+	for (uint32 UAVIndex = 0;UAVIndex < MaxSimultaneousUAVs;++UAVIndex)
 	{
 		FD3D12UnorderedAccessView* RHIUAV = NULL;
 		if (UAVIndex < NewNumUAVs && UAVs[UAVIndex] != NULL)
@@ -1154,7 +1175,7 @@ static D3D_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(uint32 PrimitiveType, bool b
 {
 	if (bUsingTessellation)
 	{
-		switch(PrimitiveType)
+		switch (PrimitiveType)
 		{
 		case PT_1_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST;
 		case PT_2_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST;
@@ -1166,7 +1187,7 @@ static D3D_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(uint32 PrimitiveType, bool b
 		case PT_TriangleStrip:
 		case PT_QuadList:
 		case PT_PointList:
-			UE_LOG(LogD3D12RHI, Fatal,TEXT("Invalid type specified for tessellated render, probably missing a case in FSkeletalMeshSceneProxy::DrawDynamicElementsByMaterial or FStaticMeshSceneProxy::GetMeshElement"));
+			UE_LOG(LogD3D12RHI, Fatal, TEXT("Invalid type specified for tessellated render, probably missing a case in FSkeletalMeshSceneProxy::DrawDynamicElementsByMaterial or FStaticMeshSceneProxy::GetMeshElement"));
 			break;
 		default:
 			// Other cases are valid.
@@ -1174,7 +1195,7 @@ static D3D_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(uint32 PrimitiveType, bool b
 		};
 	}
 
-	switch(PrimitiveType)
+	switch (PrimitiveType)
 	{
 	case PT_TriangleList: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	case PT_TriangleStrip: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
@@ -1191,32 +1212,32 @@ static D3D_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(uint32 PrimitiveType, bool b
 	case PT_5_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_5_CONTROL_POINT_PATCHLIST;
 	case PT_6_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_6_CONTROL_POINT_PATCHLIST;
 	case PT_7_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_7_CONTROL_POINT_PATCHLIST;
-	case PT_8_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_8_CONTROL_POINT_PATCHLIST; 
-	case PT_9_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_9_CONTROL_POINT_PATCHLIST; 
-	case PT_10_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_10_CONTROL_POINT_PATCHLIST; 
-	case PT_11_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_11_CONTROL_POINT_PATCHLIST; 
-	case PT_12_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_12_CONTROL_POINT_PATCHLIST; 
-	case PT_13_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_13_CONTROL_POINT_PATCHLIST; 
-	case PT_14_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_14_CONTROL_POINT_PATCHLIST; 
-	case PT_15_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_15_CONTROL_POINT_PATCHLIST; 
-	case PT_16_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST; 
-	case PT_17_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_17_CONTROL_POINT_PATCHLIST; 
-	case PT_18_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_18_CONTROL_POINT_PATCHLIST; 
-	case PT_19_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_19_CONTROL_POINT_PATCHLIST; 
-	case PT_20_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_20_CONTROL_POINT_PATCHLIST; 
-	case PT_21_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_21_CONTROL_POINT_PATCHLIST; 
-	case PT_22_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_22_CONTROL_POINT_PATCHLIST; 
-	case PT_23_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_23_CONTROL_POINT_PATCHLIST; 
-	case PT_24_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_24_CONTROL_POINT_PATCHLIST; 
-	case PT_25_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_25_CONTROL_POINT_PATCHLIST; 
-	case PT_26_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_26_CONTROL_POINT_PATCHLIST; 
-	case PT_27_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_27_CONTROL_POINT_PATCHLIST; 
-	case PT_28_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_28_CONTROL_POINT_PATCHLIST; 
-	case PT_29_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_29_CONTROL_POINT_PATCHLIST; 
-	case PT_30_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_30_CONTROL_POINT_PATCHLIST; 
-	case PT_31_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_31_CONTROL_POINT_PATCHLIST; 
-	case PT_32_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST; 
-	default: UE_LOG(LogD3D12RHI, Fatal,TEXT("Unknown primitive type: %u"),PrimitiveType);
+	case PT_8_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_8_CONTROL_POINT_PATCHLIST;
+	case PT_9_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_9_CONTROL_POINT_PATCHLIST;
+	case PT_10_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_10_CONTROL_POINT_PATCHLIST;
+	case PT_11_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_11_CONTROL_POINT_PATCHLIST;
+	case PT_12_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_12_CONTROL_POINT_PATCHLIST;
+	case PT_13_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_13_CONTROL_POINT_PATCHLIST;
+	case PT_14_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_14_CONTROL_POINT_PATCHLIST;
+	case PT_15_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_15_CONTROL_POINT_PATCHLIST;
+	case PT_16_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST;
+	case PT_17_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_17_CONTROL_POINT_PATCHLIST;
+	case PT_18_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_18_CONTROL_POINT_PATCHLIST;
+	case PT_19_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_19_CONTROL_POINT_PATCHLIST;
+	case PT_20_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_20_CONTROL_POINT_PATCHLIST;
+	case PT_21_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_21_CONTROL_POINT_PATCHLIST;
+	case PT_22_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_22_CONTROL_POINT_PATCHLIST;
+	case PT_23_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_23_CONTROL_POINT_PATCHLIST;
+	case PT_24_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_24_CONTROL_POINT_PATCHLIST;
+	case PT_25_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_25_CONTROL_POINT_PATCHLIST;
+	case PT_26_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_26_CONTROL_POINT_PATCHLIST;
+	case PT_27_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_27_CONTROL_POINT_PATCHLIST;
+	case PT_28_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_28_CONTROL_POINT_PATCHLIST;
+	case PT_29_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_29_CONTROL_POINT_PATCHLIST;
+	case PT_30_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_30_CONTROL_POINT_PATCHLIST;
+	case PT_31_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_31_CONTROL_POINT_PATCHLIST;
+	case PT_32_ControlPointPatchList: return D3D_PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST;
+	default: UE_LOG(LogD3D12RHI, Fatal, TEXT("Unknown primitive type: %u"), PrimitiveType);
 	};
 
 	return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1228,7 +1249,7 @@ void FD3D12CommandContext::CommitNonComputeShaderConstants()
 
 	// MSFT: Seb: Do we need to support this none parallel case?
 	//if (GRHISupportsParallelRHIExecute)
-		FD3D12BoundShaderState* RESTRICT CurrentBoundShaderState = this->CurrentBoundShaderState.GetReference();
+	FD3D12BoundShaderState* RESTRICT CurrentBoundShaderState = this->CurrentBoundShaderState.GetReference();
 	//else
 	//	FD3D12BoundShaderState* RESTRICT CurrentBoundShaderState = (FD3D12BoundShaderState*)OwningRHI.BoundShaderStateHistory.GetLast();
 
@@ -1239,10 +1260,10 @@ void FD3D12CommandContext::CommitNonComputeShaderConstants()
 	if (CurrentBoundShaderState->bShaderNeedsGlobalConstantBuffer[SF_Vertex])
 	{
 		// Commit and bind vertex shader constants
-		for(uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
+		for (uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
 		{
 			FD3D12ConstantBuffer* ConstantBuffer = VSConstantBuffers[i];
-			FD3DRHIUtil::CommitConstants<SF_Vertex>(UploadHeapAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
+			FD3DRHIUtil::CommitConstants<SF_Vertex>(ConstantsAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
 		}
 	}
 
@@ -1255,20 +1276,20 @@ void FD3D12CommandContext::CommitNonComputeShaderConstants()
 		if (CurrentBoundShaderState->bShaderNeedsGlobalConstantBuffer[SF_Hull])
 		{
 			// Commit and bind hull shader constants
-			for(uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
+			for (uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
 			{
 				FD3D12ConstantBuffer* ConstantBuffer = HSConstantBuffers[i];
-				FD3DRHIUtil::CommitConstants<SF_Hull>(UploadHeapAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
+				FD3DRHIUtil::CommitConstants<SF_Hull>(ConstantsAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
 			}
 		}
 
 		if (CurrentBoundShaderState->bShaderNeedsGlobalConstantBuffer[SF_Domain])
 		{
 			// Commit and bind domain shader constants
-			for(uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
+			for (uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
 			{
 				FD3D12ConstantBuffer* ConstantBuffer = DSConstantBuffers[i];
-				FD3DRHIUtil::CommitConstants<SF_Domain>(UploadHeapAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
+				FD3DRHIUtil::CommitConstants<SF_Domain>(ConstantsAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
 			}
 		}
 	}
@@ -1276,20 +1297,20 @@ void FD3D12CommandContext::CommitNonComputeShaderConstants()
 	if (CurrentBoundShaderState->bShaderNeedsGlobalConstantBuffer[SF_Geometry])
 	{
 		// Commit and bind geometry shader constants
-		for(uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
+		for (uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
 		{
 			FD3D12ConstantBuffer* ConstantBuffer = GSConstantBuffers[i];
-			FD3DRHIUtil::CommitConstants<SF_Geometry>(UploadHeapAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
+			FD3DRHIUtil::CommitConstants<SF_Geometry>(ConstantsAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
 		}
 	}
 
 	if (CurrentBoundShaderState->bShaderNeedsGlobalConstantBuffer[SF_Pixel])
 	{
 		// Commit and bind pixel shader constants
-		for(uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
+		for (uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
 		{
 			FD3D12ConstantBuffer* ConstantBuffer = PSConstantBuffers[i];
-			FD3DRHIUtil::CommitConstants<SF_Pixel>(UploadHeapAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
+			FD3DRHIUtil::CommitConstants<SF_Pixel>(ConstantsAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
 		}
 	}
 
@@ -1301,10 +1322,10 @@ void FD3D12CommandContext::CommitComputeShaderConstants()
 	bool bLocalDiscardSharedConstants = true;
 
 	// Commit and bind compute shader constants
-	for(uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
+	for (uint32 i=0;i<MAX_CONSTANT_BUFFER_SLOTS; i++)
 	{
 		FD3D12ConstantBuffer* ConstantBuffer = CSConstantBuffers[i];
-		FD3DRHIUtil::CommitConstants<SF_Compute>(UploadHeapAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
+		FD3DRHIUtil::CommitConstants<SF_Compute>(ConstantsAllocator, ConstantBuffer, StateCache, i, bDiscardSharedConstants);
 	}
 }
 
@@ -1422,12 +1443,12 @@ void FD3D12CommandContext::CommitComputeResourceTables(FD3D12ComputeShader* InCo
 
 void FD3D12CommandContext::RHIDrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
-	RHI_DRAW_CALL_STATS(PrimitiveType,NumInstances*NumPrimitives);
+	RHI_DRAW_CALL_STATS(PrimitiveType, NumInstances*NumPrimitives);
 
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
 
-	uint32 VertexCount = GetVertexCountForPrimitiveCount(NumPrimitives,PrimitiveType);
+	uint32 VertexCount = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
 
 	OwningRHI.RegisterGPUWork(NumPrimitives * NumInstances, VertexCount * NumInstances);
 
@@ -1494,7 +1515,7 @@ void FD3D12CommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexB
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
 
 	StateCache.SetIndexBuffer(IndexBuffer->ResourceLocation.GetReference(), Format, 0);
-	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
+	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType, bUsingTessellation));
 	StateCache.ApplyState();
 
 
@@ -1523,7 +1544,7 @@ void FD3D12CommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef Index
 	// called should make sure the input is valid, this avoid hidden bugs
 	ensure(NumPrimitives > 0);
 
-	RHI_DRAW_CALL_STATS(PrimitiveType,NumInstances*NumPrimitives);
+	RHI_DRAW_CALL_STATS(PrimitiveType, NumInstances*NumPrimitives);
 
 	OwningRHI.RegisterGPUWork(NumPrimitives * NumInstances, NumVertices * NumInstances);
 
@@ -1534,15 +1555,15 @@ void FD3D12CommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef Index
 	uint32 SizeFormat = sizeof(DXGI_FORMAT);
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
 
-	uint32 IndexCount = GetVertexCountForPrimitiveCount(NumPrimitives,PrimitiveType);
+	uint32 IndexCount = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
 
 	// Verify that we are not trying to read outside the index buffer range
 	// test is an optimized version of: StartIndex + IndexCount <= IndexBuffer->GetSize() / IndexBuffer->GetStride() 
-	checkf((StartIndex + IndexCount) * IndexBuffer->GetStride() <= IndexBuffer->GetSize(), 		
+	checkf((StartIndex + IndexCount) * IndexBuffer->GetStride() <= IndexBuffer->GetSize(),
 		TEXT("Start %u, Count %u, Type %u, Buffer Size %u, Buffer stride %u"), StartIndex, IndexCount, PrimitiveType, IndexBuffer->GetSize(), IndexBuffer->GetStride());
 
 	StateCache.SetIndexBuffer(IndexBuffer->ResourceLocation.GetReference(), Format, 0);
-	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
+	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType, bUsingTessellation));
 	StateCache.ApplyState();
 
 	numDraws++;
@@ -1570,7 +1591,7 @@ void FD3D12CommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,
 	const uint32 SizeFormat = sizeof(DXGI_FORMAT);
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
 	StateCache.SetIndexBuffer(IndexBuffer->ResourceLocation.GetReference(), Format, 0);
-	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
+	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType, bUsingTessellation));
 	StateCache.ApplyState();
 
 	FD3D12DynamicRHI::TransitionResource(CommandListHandle, ArgumentBuffer->ResourceLocation->GetResource(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_BARRIER_TYPE_TRANSITION);
@@ -1596,12 +1617,12 @@ void FD3D12CommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,
 * @param PrimitiveType The type (triangles, lineloop, etc) of primitive to draw
 * @param NumPrimitives The number of primitives in the VertexData buffer
 * @param NumVertices The number of vertices to be written
-* @param VertexDataStride Size of each vertex 
+* @param VertexDataStride Size of each vertex
 * @param OutVertexData Reference to the allocated vertex memory
 */
 void FD3D12CommandContext::RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 {
-	checkSlow( PendingNumVertices == 0 );
+	checkSlow(PendingNumVertices == 0);
 
 	// Remember the parameters for the draw call.
 	PendingPrimitiveType = PrimitiveType;
@@ -1618,7 +1639,7 @@ void FD3D12CommandContext::RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 
 */
 void FD3D12CommandContext::RHIEndDrawPrimitiveUP()
 {
-	RHI_DRAW_CALL_STATS(PendingPrimitiveType,PendingNumPrimitives);
+	RHI_DRAW_CALL_STATS(PendingPrimitiveType, PendingNumPrimitives);
 
 	checkSlow(!bUsingTessellation || PendingPrimitiveType == PT_TriangleList);
 
@@ -1632,7 +1653,7 @@ void FD3D12CommandContext::RHIEndDrawPrimitiveUP()
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
 	StateCache.SetStreamSource(BufferLocation, 0, PendingVertexDataStride, VBOffset);
-	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType,bUsingTessellation));
+	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType, bUsingTessellation));
 	StateCache.ApplyState();
 	numDraws++;
 	CommandListHandle->DrawInstanced(PendingNumVertices, 1, 0, 0);
@@ -1686,7 +1707,7 @@ void FD3D12CommandContext::RHIEndDrawIndexedPrimitiveUP()
 	// tessellation only supports trilists
 	checkSlow(!bUsingTessellation || PendingPrimitiveType == PT_TriangleList);
 
-	RHI_DRAW_CALL_STATS(PendingPrimitiveType,PendingNumPrimitives);
+	RHI_DRAW_CALL_STATS(PendingPrimitiveType, PendingNumPrimitives);
 
 	OwningRHI.RegisterGPUWork(PendingNumPrimitives, PendingNumVertices);
 
@@ -1700,7 +1721,7 @@ void FD3D12CommandContext::RHIEndDrawIndexedPrimitiveUP()
 	CommitNonComputeShaderConstants();
 	StateCache.SetStreamSource(VertexBufferLocation, 0, PendingVertexDataStride, VBOffset);
 	StateCache.SetIndexBuffer(IndexBufferLocation, PendingIndexDataStride == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
-	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType,bUsingTessellation));
+	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType, bUsingTessellation));
 	StateCache.ApplyState();
 
 	numDraws++;
@@ -1709,6 +1730,10 @@ void FD3D12CommandContext::RHIEndDrawIndexedPrimitiveUP()
 	OwningRHI.DrawCount++;
 #endif
 	DEBUG_EXECUTE_COMMAND_LIST(this);
+
+	//It's important to release the locations so the fast alloc page can be freed
+	DynamicVB->ReleaseResourceLocation();
+	DynamicIB->ReleaseResourceLocation();
 
 	// Clear these parameters.
 	PendingPrimitiveType = 0;
@@ -1743,10 +1768,15 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 	class FDeviceStateHelper
 	{
 		enum { ResourceCount = D3D12_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT };
+		enum { ConstantBufferCount = D3D12_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT };
+
 		//////////////////////////////////////////////////////////////////////////
 		// Relevant recorded states:
 		FD3D12ShaderResourceView* VertResources[ResourceCount];
 		uint32 NumVertResources;
+		// TODO: Restore constant buffers
+		//ID3D11Buffer* VertexConstantBuffers[ConstantBufferCount];
+		//ID3D11Buffer* PixelConstantBuffers[ConstantBufferCount];
 		FD3D12BoundShaderState* OldShaderState;
 		D3D12_DEPTH_STENCIL_DESC* pOldDepthStencilState;
 		D3D12_RASTERIZER_DESC* pOldRasterizerState;
@@ -1758,7 +1788,7 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 		void ReleaseResources()
 		{
 			FD3D12ShaderResourceView** Resources = VertResources;
-			for (uint32 i = 0 ; i < NumVertResources; i++, Resources++)
+			for (uint32 i = 0; i < NumVertResources; i++, Resources++)
 			{
 				SAFE_RELEASE(*Resources);
 			}
@@ -1771,6 +1801,9 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 		{
 			StateCacheRef.GetBoundShaderState(&OldShaderState);
 			StateCacheRef.GetShaderResourceViews<SF_Vertex>(0, NumVertResources, &VertResources[0]);
+			// TODO: Capture constant buffers
+			//StateCacheRef.GetConstantBuffers<SF_Pixel>(0, ConstantBufferCount, &(PixelConstantBuffers[0]));
+			//StateCacheRef.GetConstantBuffers<SF_Vertex>(0, ConstantBufferCount, &(VertexConstantBuffers[0]));
 			StateCacheRef.GetDepthStencilState(&pOldDepthStencilState, &StencilRef);
 			StateCacheRef.GetBlendState(&pOldBlendState, BlendFactor, &SampleMask);
 			StateCacheRef.GetRasterizerState(&pOldRasterizerState);
@@ -1778,8 +1811,8 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 
 		void ClearCurrentVertexResources(FD3D12StateCache& StateCacheRef)
 		{
-			static FD3D12ShaderResourceView* NullResources[ResourceCount] = {};
-			for (uint32 ResourceLoop = 0 ; ResourceLoop < NumVertResources; ResourceLoop++)
+			static FD3D12ShaderResourceView* NullResources[ResourceCount] ={};
+			for (uint32 ResourceLoop = 0; ResourceLoop < NumVertResources; ResourceLoop++)
 			{
 				StateCacheRef.SetShaderResourceView<SF_Vertex>(NullResources[0], 0);
 			}
@@ -1790,10 +1823,16 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 
 			// Restore the old shaders
 			StateCacheRef.SetBoundShaderState(OldShaderState);
-			for (uint32 ResourceLoop = 0 ; ResourceLoop < NumVertResources; ResourceLoop++)
+			for (uint32 ResourceLoop = 0; ResourceLoop < NumVertResources; ResourceLoop++)
 			{
 				StateCacheRef.SetShaderResourceView<SF_Vertex>(VertResources[ResourceLoop], ResourceLoop);
 			}
+			// TODO: Restore constant buffers
+			/*for (int BufferIndex = 0; BufferIndex < ConstantBufferCount; ++BufferIndex)
+			{
+				StateCacheRef.SetConstantBuffer<SF_Pixel>(PixelConstantBuffers[BufferIndex], BufferIndex);
+				StateCacheRef.SetConstantBuffer<SF_Vertex>(VertexConstantBuffers[BufferIndex], BufferIndex);
+			}*/
 			StateCacheRef.SetDepthStencilState(pOldDepthStencilState, StencilRef);
 			StateCacheRef.SetBlendState(pOldBlendState, BlendFactor, SampleMask);
 			StateCacheRef.SetRasterizerState(pOldRasterizerState);
@@ -1862,7 +1901,7 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 	}
 
 	/*	// possible optimization
-	if (ExcludeRect.Width() > 0 && ExcludeRect.Height() > 0 && HardwareHasLinearClearPerformance) 
+	if (ExcludeRect.Width() > 0 && ExcludeRect.Height() > 0 && HardwareHasLinearClearPerformance)
 	{
 	UseDrawClear = true;
 	}
@@ -1873,8 +1912,8 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 		return;
 	}
 
-	D3D12_RECT ScissorRect = { 0 };
 	uint32 NumRects = 1;
+	D3D12_RECT ScissorRect;
 	StateCache.GetScissorRect(&ScissorRect);
 	if (ScissorRect.left > 0
 		|| ScissorRect.right < Viewport.TopLeftX + Viewport.Width
@@ -1915,14 +1954,14 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 			}
 		}
 
-		if ((Viewport.Width < Width || Viewport.Height < Height) 
+		if ((Viewport.Width < Width || Viewport.Height < Height)
 			&& (Viewport.Width > 1 && Viewport.Height > 1))
 		{
 			UseDrawClear = true;
 		}
 	}
 
-	if (UseDrawClear)
+	if (UseDrawClear && GD3D12AllowDrawClears)
 	{
 		// we don't support draw call clears before the RHI is initialized, reorder the code or make sure it's not a draw call clear
 		check(GIsRHIInitialized);
@@ -1946,28 +1985,28 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 		{
 			BlendStateRHI = (bClearColor && BoundRenderTargets.GetRenderTargetView(0))
 				? TStaticBlendState<>::GetRHI()
-				: TStaticBlendStateWriteMask<CW_NONE,CW_NONE,CW_NONE,CW_NONE,CW_NONE,CW_NONE,CW_NONE,CW_NONE>::GetRHI();
+				: TStaticBlendStateWriteMask<CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI();
 		}
 
-		FRasterizerStateRHIParamRef RasterizerStateRHI = TStaticRasterizerState<FM_Solid,CM_None>::GetRHI();
-		float BF[4] = {0,0,0,0};
+		FRasterizerStateRHIParamRef RasterizerStateRHI = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+		float BF[4] ={0,0,0,0};
 
-		const FDepthStencilStateRHIParamRef DepthStencilStateRHI = 
+		const FDepthStencilStateRHIParamRef DepthStencilStateRHI =
 			(bClearDepth && bClearStencil)
 			? TStaticDepthStencilState<
 			true, CF_Always,
-			true,CF_Always,SO_Replace,SO_Replace,SO_Replace,
-			false,CF_Always,SO_Replace,SO_Replace,SO_Replace,
-			0xff,0xff
+			true, CF_Always, SO_Replace, SO_Replace, SO_Replace,
+			false, CF_Always, SO_Replace, SO_Replace, SO_Replace,
+			0xff, 0xff
 			>::GetRHI()
 			: bClearDepth
 			? TStaticDepthStencilState<true, CF_Always>::GetRHI()
 			: bClearStencil
 			? TStaticDepthStencilState<
 			false, CF_Always,
-			true,CF_Always,SO_Replace,SO_Replace,SO_Replace,
-			false,CF_Always,SO_Replace,SO_Replace,SO_Replace,
-			0xff,0xff
+			true, CF_Always, SO_Replace, SO_Replace, SO_Replace,
+			false, CF_Always, SO_Replace, SO_Replace, SO_Replace,
+			0xff, 0xff
 			>::GetRHI()
 			:     TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
@@ -1992,7 +2031,7 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 		StateCache.SetBlendState(&BlendState->Desc, BF, 0xffffffff);
 		StateCache.SetDepthStencilState(&DepthStencilState->Desc, Stencil);
 		StateCache.SetRasterizerState(&RasterizerState->Desc);
-		OriginalResourceState.ClearCurrentVertexResources(StateCache);		
+		OriginalResourceState.ClearCurrentVertexResources(StateCache);
 
 		// Set the new shaders
 		auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
@@ -2054,20 +2093,20 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 				{
 					// with a hole in it (optimization in case the hardware has non constant clear performance)
 					FVector4 OuterVertices[4];
-					OuterVertices[0].Set( -1.0f,  1.0f, Depth, 1.0f );
-					OuterVertices[1].Set(  1.0f,  1.0f, Depth, 1.0f );
-					OuterVertices[2].Set(  1.0f, -1.0f, Depth, 1.0f );
-					OuterVertices[3].Set( -1.0f, -1.0f, Depth, 1.0f );
+					OuterVertices[0].Set(-1.0f, 1.0f, Depth, 1.0f);
+					OuterVertices[1].Set(1.0f, 1.0f, Depth, 1.0f);
+					OuterVertices[2].Set(1.0f, -1.0f, Depth, 1.0f);
+					OuterVertices[3].Set(-1.0f, -1.0f, Depth, 1.0f);
 
 					float InvViewWidth = 1.0f / Viewport.Width;
 					float InvViewHeight = 1.0f / Viewport.Height;
 					FVector4 FractionRect = FVector4(ExcludeRect.Min.X * InvViewWidth, ExcludeRect.Min.Y * InvViewHeight, (ExcludeRect.Max.X - 1) * InvViewWidth, (ExcludeRect.Max.Y - 1) * InvViewHeight);
 
 					FVector4 InnerVertices[4];
-					InnerVertices[0].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.Y), Depth, 1.0f );
-					InnerVertices[1].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.Y), Depth, 1.0f );
-					InnerVertices[2].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f );
-					InnerVertices[3].Set( FMath::Lerp(-1.0f,  1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f );
+					InnerVertices[0].Set(FMath::Lerp(-1.0f, 1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.Y), Depth, 1.0f);
+					InnerVertices[1].Set(FMath::Lerp(-1.0f, 1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.Y), Depth, 1.0f);
+					InnerVertices[2].Set(FMath::Lerp(-1.0f, 1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f);
+					InnerVertices[3].Set(FMath::Lerp(-1.0f, 1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f);
 
 					FVector4 Vertices[10];
 					Vertices[0] = OuterVertices[0];
@@ -2087,10 +2126,10 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 				{
 					// without a hole
 					FVector4 Vertices[4];
-					Vertices[0].Set( -1.0f,  1.0f, Depth, 1.0f );
-					Vertices[1].Set(  1.0f,  1.0f, Depth, 1.0f );
-					Vertices[2].Set( -1.0f, -1.0f, Depth, 1.0f );
-					Vertices[3].Set(  1.0f, -1.0f, Depth, 1.0f );
+					Vertices[0].Set(-1.0f, 1.0f, Depth, 1.0f);
+					Vertices[1].Set(1.0f, 1.0f, Depth, 1.0f);
+					Vertices[2].Set(-1.0f, -1.0f, Depth, 1.0f);
+					Vertices[3].Set(1.0f, -1.0f, Depth, 1.0f);
 					DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
 				}
 			}
@@ -2098,7 +2137,7 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 		}
 
 		// Restore the original device state
-		OriginalResourceState.RestoreDeviceState(StateCache); 
+		OriginalResourceState.RestoreDeviceState(StateCache);
 	}
 	else
 	{
@@ -2106,7 +2145,7 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 		{
 			for (int32 TargetIndex = 0; TargetIndex < BoundRenderTargets.GetNumActiveTargets(); TargetIndex++)
 			{
-				TRefCountPtr<FD3D12RenderTargetView> RTView = BoundRenderTargets.GetRenderTargetView(TargetIndex);
+				FD3D12RenderTargetView* RTView = BoundRenderTargets.GetRenderTargetView(TargetIndex);
 
 				FD3D12DynamicRHI::TransitionResource(CommandListHandle, RTView, D3D12_RESOURCE_STATE_RENDER_TARGET);
 				numClears++;
@@ -2116,43 +2155,40 @@ void FD3D12CommandContext::RHIClearMRTImpl(bool bClearColor, int32 NumClearColor
 
 		if ((bClearDepth || bClearStencil) && DepthStencilView)
 		{
-			FExclusiveDepthStencil ExclusiveDepthStencil;
 			uint32 ClearFlags = 0;
 			if (bClearDepth)
 			{
 				ClearFlags |= D3D12_CLEAR_FLAG_DEPTH;
 				check(DepthStencilView->HasDepth());
-				ExclusiveDepthStencil.SetDepthWrite();
 			}
 			if (bClearStencil)
 			{
 				ClearFlags |= D3D12_CLEAR_FLAG_STENCIL;
 				check(DepthStencilView->HasStencil());
-				ExclusiveDepthStencil.SetStencilWrite();
 			}
 
-			if (ExclusiveDepthStencil.IsDepthWrite() && (!DepthStencilView->HasStencil() || ExclusiveDepthStencil.IsStencilWrite()))
+			if (bClearDepth && (!DepthStencilView->HasStencil() || bClearStencil))
 			{
 				// Transition the entire view (Both depth and stencil planes if applicable)
 				// Some DSVs don't have stencil bits.
 				FD3D12DynamicRHI::TransitionResource(CommandListHandle, DepthStencilView, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 			}
-			else 
+			else
 			{
-				if (ExclusiveDepthStencil.IsDepthWrite())
+				if (bClearDepth)
 				{
 					// Transition just the depth plane
-					check(ExclusiveDepthStencil.IsDepthWrite() && !ExclusiveDepthStencil.IsStencilWrite());
+					check(bClearDepth && !bClearStencil);
 					FD3D12DynamicRHI::TransitionResource(CommandListHandle, DepthStencilView->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, DepthStencilView->GetDepthOnlyViewSubresourceSubset());
 				}
 				else
 				{
 					// Transition just the stencil plane
-					check(!ExclusiveDepthStencil.IsDepthWrite() && ExclusiveDepthStencil.IsStencilWrite());
+					check(!bClearDepth && bClearStencil);
 					FD3D12DynamicRHI::TransitionResource(CommandListHandle, DepthStencilView->GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, DepthStencilView->GetStencilOnlyViewSubresourceSubset());
 				}
 			}
-			
+
 			numClears++;
 			CommandListHandle->ClearDepthStencilView(DepthStencilView->GetView(), (D3D12_CLEAR_FLAGS)ClearFlags, Depth, Stencil, 0, nullptr);
 		}
@@ -2184,6 +2220,24 @@ void FD3D12CommandContext::RHIGraphicsWaitOnAsyncComputeJob(uint32 FenceIndex)
 #endif
 }
 
+// Functions to yield and regain rendering control from D3D
+
+void FD3D12DynamicRHI::RHISuspendRendering()
+{
+	// Not supported
+}
+
+void FD3D12DynamicRHI::RHIResumeRendering()
+{
+	// Not supported
+}
+
+bool FD3D12DynamicRHI::RHIIsRenderingSuspended()
+{
+	// Not supported
+	return false;
+}
+
 // Blocks the CPU until the GPU catches up and goes idle.
 void FD3D12DynamicRHI::RHIBlockUntilGPUIdle()
 {
@@ -2206,10 +2260,16 @@ void FD3D12DynamicRHI::RHIExecuteCommandList(FRHICommandList* CmdList)
 // NVIDIA Depth Bounds Test interface
 void FD3D12CommandContext::RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth)
 {
-	//UE_LOG(LogD3D12RHI, Warning, TEXT("RHIEnableDepthBoundsTest not supported on DX12."));
+	static bool bOnce = false;
+	if (!bOnce)
+	{
+		UE_LOG(LogD3D12RHI, Warning, TEXT("RHIEnableDepthBoundsTest not supported on DX12."));
+		bOnce = true;
+	}
 }
 
 void FD3D12CommandContext::RHISubmitCommandsHint()
 {
-
+	// Submit the work we have so far, and start a new command list.
+	FlushCommands();
 }

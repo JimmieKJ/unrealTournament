@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12Util.h: D3D RHI utility definitions.
@@ -70,6 +70,171 @@ namespace D3D12RHI
 }
 
 using namespace D3D12RHI;
+
+enum EShaderVisibility
+{
+	SV_Vertex,
+	SV_Pixel,
+	SV_Hull,
+	SV_Domain,
+	SV_Geometry,
+	SV_All,
+	SV_ShaderVisibilityCount
+};
+
+FORCEINLINE D3D12_SHADER_VISIBILITY GetD3D12ShaderVisibility(EShaderVisibility Visibility)
+{
+	switch (Visibility)
+	{
+	case SV_Vertex:
+		return D3D12_SHADER_VISIBILITY_VERTEX;
+	case SV_Hull:
+		return D3D12_SHADER_VISIBILITY_HULL;
+	case SV_Domain:
+		return D3D12_SHADER_VISIBILITY_DOMAIN;
+	case SV_Geometry:
+		return D3D12_SHADER_VISIBILITY_GEOMETRY;
+	case SV_Pixel:
+		return D3D12_SHADER_VISIBILITY_PIXEL;
+	case SV_All:
+		return D3D12_SHADER_VISIBILITY_ALL;
+
+	default:
+		check(false);
+		return static_cast<D3D12_SHADER_VISIBILITY>(-1);
+	};
+}
+
+FORCEINLINE D3D12_ROOT_SIGNATURE_FLAGS GetD3D12RootSignatureDenyFlag(EShaderVisibility Visibility)
+{
+	switch (Visibility)
+	{
+	case SV_Vertex:
+		return D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS;
+	case SV_Hull:
+		return D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
+	case SV_Domain:
+		return D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS;
+	case SV_Geometry:
+		return D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+	case SV_Pixel:
+		return D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
+	case SV_All:
+		return D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+	default:
+		check(false);
+		return static_cast<D3D12_ROOT_SIGNATURE_FLAGS>(-1);
+	};
+}
+
+struct FShaderRegisterCounts
+{
+	uint8 SamplerCount;
+	uint8 ConstantBufferCount;
+	uint8 ShaderResourceCount;
+	uint8 UnorderedAccessCount;
+};
+
+struct FD3D12QuantizedBoundShaderState
+{
+	FShaderRegisterCounts RegisterCounts[SV_ShaderVisibilityCount];
+	bool bAllowIAInputLayout;
+
+	inline bool operator==(const FD3D12QuantizedBoundShaderState& RHS) const
+	{
+		return 0 == FMemory::Memcmp(this, &RHS, sizeof(RHS));
+	}
+
+	friend uint32 GetTypeHash(const FD3D12QuantizedBoundShaderState& Key);
+
+	static void InitShaderRegisterCounts(const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier, const FShaderCodePackedResourceCounts& Counts, FShaderRegisterCounts& Shader, bool bAllowUAVs = false);
+};
+
+/**
+* Creates a discrete bound shader state object from a collection of graphics pipeline shaders.
+*/
+
+class FD3D12BoundShaderState;
+extern void QuantizeBoundShaderState(
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12BoundShaderState* const BSS,
+	FD3D12QuantizedBoundShaderState &QBSS
+	);
+
+class FD3D12ComputeShader;
+extern void QuantizeBoundShaderState(
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12ComputeShader* const ComputeShader,
+	FD3D12QuantizedBoundShaderState &QBSS);
+
+class FD3D12RootSignatureDesc
+{
+public:
+	explicit FD3D12RootSignatureDesc(const FD3D12QuantizedBoundShaderState& QBSS)
+	{
+		const EShaderVisibility RootSignaturePriorityOrder[] = { SV_Pixel, SV_Vertex, SV_Hull, SV_Domain, SV_Geometry, SV_All };
+		D3D12_ROOT_SIGNATURE_FLAGS Flags = QBSS.bAllowIAInputLayout ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE;
+		uint32 RootParameterCount = 0;
+		for (uint32 i = 0; i < _countof(RootSignaturePriorityOrder); i++)
+		{
+			const EShaderVisibility Visibility = RootSignaturePriorityOrder[i];
+			bool bUsesShaderRegisters = false;
+			if (QBSS.RegisterCounts[Visibility].ShaderResourceCount > 0)
+			{
+				check(RootParameterCount < MaxRootParameters);
+				DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, QBSS.RegisterCounts[Visibility].ShaderResourceCount, 0u);
+				TableSlots[RootParameterCount].InitAsDescriptorTable(1, &DescriptorRanges[RootParameterCount], GetD3D12ShaderVisibility(Visibility));
+				RootParameterCount++;
+				bUsesShaderRegisters = true;
+			}
+
+			if (QBSS.RegisterCounts[Visibility].ConstantBufferCount > 0)
+			{
+				check(RootParameterCount < MaxRootParameters);
+				DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, QBSS.RegisterCounts[Visibility].ConstantBufferCount, 0u);
+				TableSlots[RootParameterCount].InitAsDescriptorTable(1, &DescriptorRanges[RootParameterCount], GetD3D12ShaderVisibility(Visibility));
+				RootParameterCount++;
+				bUsesShaderRegisters = true;
+			}
+
+			if (QBSS.RegisterCounts[Visibility].SamplerCount > 0)
+			{
+				check(RootParameterCount < MaxRootParameters);
+				DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, QBSS.RegisterCounts[Visibility].SamplerCount, 0u);
+				TableSlots[RootParameterCount].InitAsDescriptorTable(1, &DescriptorRanges[RootParameterCount], GetD3D12ShaderVisibility(Visibility));
+				RootParameterCount++;
+				bUsesShaderRegisters = true;
+			}
+
+			if (QBSS.RegisterCounts[Visibility].UnorderedAccessCount > 0)
+			{
+				check(RootParameterCount < MaxRootParameters);
+				DescriptorRanges[RootParameterCount].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, QBSS.RegisterCounts[Visibility].UnorderedAccessCount, 0u);
+				TableSlots[RootParameterCount].InitAsDescriptorTable(1, &DescriptorRanges[RootParameterCount], GetD3D12ShaderVisibility(Visibility));
+				RootParameterCount++;
+				bUsesShaderRegisters = true;
+			}
+
+			if (!bUsesShaderRegisters)
+			{
+				// Deny access to the shader stage in the root signature.
+				Flags = (Flags | GetD3D12RootSignatureDenyFlag(Visibility));
+			}
+		}
+
+		// Init the desc.
+		RootDesc.Init(RootParameterCount, TableSlots, 0, nullptr, Flags);
+	}
+
+	inline const D3D12_ROOT_SIGNATURE_DESC& GetDesc() const { return RootDesc; }
+
+private:
+	static const uint32 MaxRootParameters = 16;
+	CD3DX12_ROOT_PARAMETER TableSlots[MaxRootParameters];
+	CD3DX12_DESCRIPTOR_RANGE DescriptorRanges[MaxRootParameters];
+	CD3DX12_ROOT_SIGNATURE_DESC RootDesc;
+};
 
 /**
 * Convert from ECubeFace to D3DCUBEMAP_FACES type
@@ -236,7 +401,7 @@ class FD3D12DynamicBuffer : public FRenderResource, public FRHIResource, public 
 {
 public:
 	/** Initialization constructor. */
-	FD3D12DynamicBuffer(FD3D12Device* InParent, class FD3D12DynamicHeapAllocator& UploadHeap);
+	FD3D12DynamicBuffer(FD3D12Device* InParent, class FD3D12FastAllocator& Allocator);
 	/** Destructor. */
 	~FD3D12DynamicBuffer();
 
@@ -245,19 +410,21 @@ public:
 	/** Unlocks the buffer returning the underlying D3D12 buffer to use as a resource. */
 	FD3D12ResourceLocation* Unlock();
 
-	//~ Begin FRenderResource Interface.
+	// Begin FRenderResource interface.
 	virtual void InitRHI() override;
 	virtual void ReleaseRHI() override;
 	// End FRenderResource interface.
 
+	void ReleaseResourceLocation() { ResourceLocation = nullptr; }
+
 private:
 	TRefCountPtr<FD3D12ResourceLocation> ResourceLocation;
-	class FD3D12DynamicHeapAllocator& UploadHeapAllocator;
+	class FD3D12FastAllocator& FastAllocator;
 };
 
-static D3D12_DESCRIPTOR_HEAP_DESC CreateDHD (D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32 NumDescriptorsPerHeap, D3D12_DESCRIPTOR_HEAP_FLAGS Flags)
+static D3D12_DESCRIPTOR_HEAP_DESC CreateDHD(D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32 NumDescriptorsPerHeap, D3D12_DESCRIPTOR_HEAP_FLAGS Flags)
 {
-	D3D12_DESCRIPTOR_HEAP_DESC DHD = {Type, NumDescriptorsPerHeap, Flags};
+	D3D12_DESCRIPTOR_HEAP_DESC DHD ={Type, NumDescriptorsPerHeap, Flags};
 
 	return DHD;
 }
@@ -283,7 +450,7 @@ private: // Types
 public: // Methods
 	FDescriptorHeapManager(D3D12_DESCRIPTOR_HEAP_TYPE Type,
 		uint32 NumDescriptorsPerHeap)
-		: m_Desc(CreateDHD (Type, NumDescriptorsPerHeap, D3D12_DESCRIPTOR_HEAP_FLAG_NONE))
+		: m_Desc(CreateDHD(Type, NumDescriptorsPerHeap, D3D12_DESCRIPTOR_HEAP_FLAG_NONE))
 		, m_DescriptorSize(0)
 		, m_pDevice(nullptr)
 	{
@@ -327,7 +494,7 @@ public: // Methods
 		FScopeLock Lock(&CritSect);
 		SHeapEntry &HeapEntry = m_Heaps[index];
 
-		SFreeRange NewRange = 
+		SFreeRange NewRange =
 		{
 			Offset.ptr,
 			Offset.ptr + m_DescriptorSize
@@ -375,12 +542,12 @@ private: // Methods
 	void AllocateHeap()
 	{
 		TRefCountPtr<ID3D12DescriptorHeap> Heap;
-		VERIFYD3D11RESULT( m_pDevice->CreateDescriptorHeap(&m_Desc, IID_PPV_ARGS(Heap.GetInitReference())) );
+		VERIFYD3D11RESULT(m_pDevice->CreateDescriptorHeap(&m_Desc, IID_PPV_ARGS(Heap.GetInitReference())));
 		HeapOffset HeapBase = Heap->GetCPUDescriptorHandleForHeapStart();
 		check(HeapBase.ptr != 0);
 
 		// Allocate and initialize a single new entry in the map
-		m_Heaps.SetNum(m_Heaps.Num() + 1); 
+		m_Heaps.SetNum(m_Heaps.Num() + 1);
 		SHeapEntry& HeapEntry = m_Heaps.Last();
 		HeapEntry.m_FreeList.AddTail({HeapBase.ptr,
 			HeapBase.ptr + m_Desc.NumDescriptors * m_DescriptorSize});
@@ -469,17 +636,17 @@ struct ShaderBytecodeHash
 class FD3D12ShaderBytecode
 {
 public:
-	 FD3D12ShaderBytecode()
+	FD3D12ShaderBytecode()
 	{
-		 FMemory::Memzero(&Shader, sizeof(Shader));
-		 FMemory::Memset(&Hash, 0, sizeof(Hash));
+		FMemory::Memzero(&Shader, sizeof(Shader));
+		FMemory::Memset(&Hash, 0, sizeof(Hash));
 	}
 
-	 FD3D12ShaderBytecode(const D3D12_SHADER_BYTECODE &InShader) :
+	FD3D12ShaderBytecode(const D3D12_SHADER_BYTECODE &InShader) :
 		Shader(InShader)
-	 {
-		 HashShader();
-	 }
+	{
+		HashShader();
+	}
 
 	void SetShaderBytecode(const D3D12_SHADER_BYTECODE &InShader)
 	{
@@ -488,7 +655,7 @@ public:
 	}
 
 	const D3D12_SHADER_BYTECODE& GetShaderBytecode() const { return Shader; }
-	ShaderBytecodeHash GetHash() const { return Hash; }
+	const ShaderBytecodeHash& GetHash() const { return Hash; }
 
 private:
 	void HashShader()
@@ -505,8 +672,10 @@ private:
 	D3D12_SHADER_BYTECODE Shader;
 };
 
+class FD3D12RootSignature;
 struct FD3D12LowLevelGraphicsPipelineStateDesc
 {
+	FD3D12RootSignature *pRootSignature;
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC Desc;
 	ShaderBytecodeHash VSHash;
 	ShaderBytecodeHash HSHash;
@@ -529,17 +698,18 @@ struct FD3D12HighLevelGraphicsPipelineStateDesc
 	uint32 SampleMask;
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType;
 	uint32 NumRenderTargets;
-	DXGI_FORMAT RTVFormats[ 8 ];
+	DXGI_FORMAT RTVFormats[8];
 	DXGI_FORMAT DSVFormat;
 	DXGI_SAMPLE_DESC SampleDesc;
 
 	SIZE_T CombinedHash; // Pre-computed hash
 
-	void GetLowLevelDesc(ID3D12RootSignature* pRS, FD3D12LowLevelGraphicsPipelineStateDesc& psoDesc);
+	void GetLowLevelDesc(FD3D12LowLevelGraphicsPipelineStateDesc& psoDesc);
 };
 
 struct FD3D12ComputePipelineStateDesc
 {
+	FD3D12RootSignature* pRootSignature;
 	D3D12_COMPUTE_PIPELINE_STATE_DESC Desc;
 	ShaderBytecodeHash CSHash;
 
@@ -566,8 +736,8 @@ public:
 	bool Dequeue(Type& Result)
 	{
 		FScopeLock ScopeLock(&SynchronizationObject);
-		
-		return Items.Dequeue (Result);
+
+		return Items.Dequeue(Result);
 	}
 
 	template <typename CompareFunc>
@@ -575,12 +745,12 @@ public:
 	{
 		FScopeLock ScopeLock(&SynchronizationObject);
 
-		if (Items.Peek (Result))
+		if (Items.Peek(Result))
 		{
-			if (Func (Result))
+			if (Func(Result))
 			{
-				Items.Dequeue (Result);
-				
+				Items.Dequeue(Result);
+
 				return true;
 			}
 		}
@@ -588,23 +758,346 @@ public:
 		return false;
 	}
 
-	bool Peek (Type& Result)
+	template <typename CompareFunc>
+	bool BatchDequeue(TQueue<Type>* Result, CompareFunc Func, uint32 MaxItems)
 	{
-		FScopeLock ScopeLock( &SynchronizationObject );
-		return Items.Peek (Result);
+		FScopeLock ScopeLock(&SynchronizationObject);
+
+		uint32 i = 0;
+		Type Item;
+		while (Items.Peek(Item) && i <= MaxItems)
+		{
+			if (Func(Item))
+			{
+				Items.Dequeue(Item);
+
+				Result->Enqueue(Item);
+
+				i++;
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		return i > 0;
+	}
+
+	bool Peek(Type& Result)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		return Items.Peek(Result);
 	}
 
 	bool IsEmpty()
 	{
-		FScopeLock ScopeLock( &SynchronizationObject );
+		FScopeLock ScopeLock(&SynchronizationObject);
 		return Items.IsEmpty();
 	}
 
 	void Empty()
 	{
-		FScopeLock ScopeLock( &SynchronizationObject );
+		FScopeLock ScopeLock(&SynchronizationObject);
 
 		Type Result;
-		while (Items.Dequeue (Result)) {}
+		while (Items.Dequeue(Result)) {}
 	}
 };
+
+inline bool IsCPUWritable(D3D12_HEAP_TYPE HeapType, const D3D12_HEAP_PROPERTIES *pCustomHeapProperties = nullptr)
+{
+	check(HeapType == D3D12_HEAP_TYPE_CUSTOM ? pCustomHeapProperties != nullptr : true);
+	return HeapType == D3D12_HEAP_TYPE_UPLOAD ||
+		(HeapType == D3D12_HEAP_TYPE_CUSTOM && 
+			(pCustomHeapProperties->CPUPageProperty == D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE || pCustomHeapProperties->CPUPageProperty == D3D12_CPU_PAGE_PROPERTY_WRITE_BACK));
+}
+
+class FD3D12Fence;
+class FD3D12SyncPoint
+{
+public:
+	FD3D12SyncPoint()
+		: Fence(nullptr)
+		, Value(0)
+	{
+	}
+
+	FD3D12SyncPoint(FD3D12Fence* InFence, uint64 InValue)
+		: Fence(InFence)
+		, Value(InValue)
+	{
+	}
+
+	bool IsComplete() const;
+	void WaitForCompletion() const;
+
+private:
+	FD3D12Fence* Fence;
+	uint64 Value;
+};
+
+
+static bool IsBlockCompressFormat(DXGI_FORMAT Format)
+{
+	// Returns true if BC1, BC2, BC3, BC4, BC5, BC6, BC7
+	return (Format >= DXGI_FORMAT_BC1_TYPELESS && Format <= DXGI_FORMAT_BC5_SNORM) ||
+		(Format >= DXGI_FORMAT_BC6H_TYPELESS && Format <= DXGI_FORMAT_BC7_UNORM_SRGB);
+}
+
+static inline uint64 GetTilesNeeded(uint32 Width, uint32 Height, uint32 Depth, const D3D12_TILE_SHAPE& Shape)
+{
+	return uint64((Width + Shape.WidthInTexels - 1) / Shape.WidthInTexels) *
+		((Height + Shape.HeightInTexels - 1) / Shape.HeightInTexels) *
+		((Depth + Shape.DepthInTexels - 1) / Shape.DepthInTexels);
+}
+
+static uint32 GetWidthAlignment(DXGI_FORMAT Format)
+{
+	switch (Format)
+	{
+	case DXGI_FORMAT_R8G8_B8G8_UNORM: return 2;
+	case DXGI_FORMAT_G8R8_G8B8_UNORM: return 2;
+	case DXGI_FORMAT_NV12: return 2;
+	case DXGI_FORMAT_P010: return 2;
+	case DXGI_FORMAT_P016: return 2;
+	case DXGI_FORMAT_420_OPAQUE: return 2;
+	case DXGI_FORMAT_YUY2: return 2;
+	case DXGI_FORMAT_Y210: return 2;
+	case DXGI_FORMAT_Y216: return 2;
+	case DXGI_FORMAT_BC1_TYPELESS: return 4;
+	case DXGI_FORMAT_BC1_UNORM: return 4;
+	case DXGI_FORMAT_BC1_UNORM_SRGB: return 4;
+	case DXGI_FORMAT_BC2_TYPELESS: return 4;
+	case DXGI_FORMAT_BC2_UNORM: return 4;
+	case DXGI_FORMAT_BC2_UNORM_SRGB: return 4;
+	case DXGI_FORMAT_BC3_TYPELESS: return 4;
+	case DXGI_FORMAT_BC3_UNORM: return 4;
+	case DXGI_FORMAT_BC3_UNORM_SRGB: return 4;
+	case DXGI_FORMAT_BC4_TYPELESS: return 4;
+	case DXGI_FORMAT_BC4_UNORM: return 4;
+	case DXGI_FORMAT_BC4_SNORM: return 4;
+	case DXGI_FORMAT_BC5_TYPELESS: return 4;
+	case DXGI_FORMAT_BC5_UNORM: return 4;
+	case DXGI_FORMAT_BC5_SNORM: return 4;
+	case DXGI_FORMAT_BC6H_TYPELESS: return 4;
+	case DXGI_FORMAT_BC6H_UF16: return 4;
+	case DXGI_FORMAT_BC6H_SF16: return 4;
+	case DXGI_FORMAT_BC7_TYPELESS: return 4;
+	case DXGI_FORMAT_BC7_UNORM: return 4;
+	case DXGI_FORMAT_BC7_UNORM_SRGB: return 4;
+	case DXGI_FORMAT_NV11: return 4;
+	case DXGI_FORMAT_R1_UNORM: return 8;
+	default: return 1;
+	}
+}
+
+static uint32 GetHeightAlignment(DXGI_FORMAT Format)
+{
+	switch (Format)
+	{
+	case DXGI_FORMAT_NV12: return 2;
+	case DXGI_FORMAT_P010: return 2;
+	case DXGI_FORMAT_P016: return 2;
+	case DXGI_FORMAT_420_OPAQUE: return 2;
+	case DXGI_FORMAT_BC1_TYPELESS: return 4;
+	case DXGI_FORMAT_BC1_UNORM: return 4;
+	case DXGI_FORMAT_BC1_UNORM_SRGB: return 4;
+	case DXGI_FORMAT_BC2_TYPELESS: return 4;
+	case DXGI_FORMAT_BC2_UNORM: return 4;
+	case DXGI_FORMAT_BC2_UNORM_SRGB: return 4;
+	case DXGI_FORMAT_BC3_TYPELESS: return 4;
+	case DXGI_FORMAT_BC3_UNORM: return 4;
+	case DXGI_FORMAT_BC3_UNORM_SRGB: return 4;
+	case DXGI_FORMAT_BC4_TYPELESS: return 4;
+	case DXGI_FORMAT_BC4_UNORM: return 4;
+	case DXGI_FORMAT_BC4_SNORM: return 4;
+	case DXGI_FORMAT_BC5_TYPELESS: return 4;
+	case DXGI_FORMAT_BC5_UNORM: return 4;
+	case DXGI_FORMAT_BC5_SNORM: return 4;
+	case DXGI_FORMAT_BC6H_TYPELESS: return 4;
+	case DXGI_FORMAT_BC6H_UF16: return 4;
+	case DXGI_FORMAT_BC6H_SF16: return 4;
+	case DXGI_FORMAT_BC7_TYPELESS: return 4;
+	case DXGI_FORMAT_BC7_UNORM: return 4;
+	case DXGI_FORMAT_BC7_UNORM_SRGB: return 4;
+	default: return 1;
+	}
+}
+
+static void Get4KTileShape(D3D12_TILE_SHAPE* pTileShape, DXGI_FORMAT Format, uint8 UEFormat, D3D12_RESOURCE_DIMENSION Dimension, uint32 SampleCount)
+{
+	//Bits per unit
+	uint32 BPU = GPixelFormats[UEFormat].BlockBytes * 8;
+
+	switch (Dimension)
+	{
+	case D3D12_RESOURCE_DIMENSION_BUFFER:
+	case D3D12_RESOURCE_DIMENSION_TEXTURE1D:
+	{
+		check(!IsBlockCompressFormat(Format));
+		pTileShape->WidthInTexels = (BPU == 0) ? 4096 : 4096 * 8 / BPU;
+		pTileShape->HeightInTexels = 1;
+		pTileShape->DepthInTexels = 1;
+	}
+	break;
+	case D3D12_RESOURCE_DIMENSION_TEXTURE2D:
+	{
+		pTileShape->DepthInTexels = 1;
+		if (IsBlockCompressFormat(Format))
+		{
+			// Currently only supported block sizes are 64 and 128.
+			// These equations calculate the size in texels for a tile. It relies on the fact that 16*16*16 blocks fit in a tile if the block size is 128 bits.
+			check(BPU == 64 || BPU == 128);
+			pTileShape->WidthInTexels = 16 * GetWidthAlignment(Format);
+			pTileShape->HeightInTexels = 16 * GetHeightAlignment(Format);
+			if (BPU == 64)
+			{
+				// If bits per block are 64 we double width so it takes up the full tile size.
+				// This is only true for BC1 and BC4
+				check((Format >= DXGI_FORMAT_BC1_TYPELESS && Format <= DXGI_FORMAT_BC1_UNORM_SRGB) ||
+					(Format >= DXGI_FORMAT_BC4_TYPELESS && Format <= DXGI_FORMAT_BC4_SNORM));
+				pTileShape->WidthInTexels *= 2;
+			}
+		}
+		else
+		{
+			if (BPU <= 8)
+			{
+				pTileShape->WidthInTexels = 64;
+				pTileShape->HeightInTexels = 64;
+			}
+			else if (BPU <= 16)
+			{
+				pTileShape->WidthInTexels = 64;
+				pTileShape->HeightInTexels = 32;
+			}
+			else if (BPU <= 32)
+			{
+				pTileShape->WidthInTexels = 32;
+				pTileShape->HeightInTexels = 32;
+			}
+			else if (BPU <= 64)
+			{
+				pTileShape->WidthInTexels = 32;
+				pTileShape->HeightInTexels = 16;
+			}
+			else if (BPU <= 128)
+			{
+				pTileShape->WidthInTexels = 16;
+				pTileShape->HeightInTexels = 16;
+			}
+			else
+			{
+				check(false);
+			}
+
+			if (SampleCount <= 1)
+			{ /* Do nothing */
+			}
+			else if (SampleCount <= 2)
+			{
+				pTileShape->WidthInTexels /= 2;
+				pTileShape->HeightInTexels /= 1;
+			}
+			else if (SampleCount <= 4)
+			{
+				pTileShape->WidthInTexels /= 2;
+				pTileShape->HeightInTexels /= 2;
+			}
+			else if (SampleCount <= 8)
+			{
+				pTileShape->WidthInTexels /= 4;
+				pTileShape->HeightInTexels /= 2;
+			}
+			else if (SampleCount <= 16)
+			{
+				pTileShape->WidthInTexels /= 4;
+				pTileShape->HeightInTexels /= 4;
+			}
+			else
+			{
+				check(false);
+			}
+
+			check(GetWidthAlignment(Format) == 1);
+			check(GetHeightAlignment(Format) == 1);
+		}
+
+		break;
+	}
+	case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
+	{
+		if (IsBlockCompressFormat(Format))
+		{
+			// Currently only supported block sizes are 64 and 128.
+			// These equations calculate the size in texels for a tile. It relies on the fact that 16*16*16 blocks fit in a tile if the block size is 128 bits.
+			check(BPU == 64 || BPU == 128);
+			pTileShape->WidthInTexels = 8 * GetWidthAlignment(Format);
+			pTileShape->HeightInTexels = 8 * GetHeightAlignment(Format);
+			pTileShape->DepthInTexels = 4;
+			if (BPU == 64)
+			{
+				// If bits per block are 64 we double width so it takes up the full tile size.
+				// This is only true for BC1 and BC4
+				check((Format >= DXGI_FORMAT_BC1_TYPELESS && Format <= DXGI_FORMAT_BC1_UNORM_SRGB) ||
+					(Format >= DXGI_FORMAT_BC4_TYPELESS && Format <= DXGI_FORMAT_BC4_SNORM));
+				pTileShape->DepthInTexels *= 2;
+			}
+		}
+		else
+		{
+			if (BPU <= 8)
+			{
+				pTileShape->WidthInTexels = 16;
+				pTileShape->HeightInTexels = 16;
+				pTileShape->DepthInTexels = 16;
+			}
+			else if (BPU <= 16)
+			{
+				pTileShape->WidthInTexels = 16;
+				pTileShape->HeightInTexels = 16;
+				pTileShape->DepthInTexels = 8;
+			}
+			else if (BPU <= 32)
+			{
+				pTileShape->WidthInTexels = 16;
+				pTileShape->HeightInTexels = 8;
+				pTileShape->DepthInTexels = 8;
+			}
+			else if (BPU <= 64)
+			{
+				pTileShape->WidthInTexels = 8;
+				pTileShape->HeightInTexels = 8;
+				pTileShape->DepthInTexels = 8;
+			}
+			else if (BPU <= 128)
+			{
+				pTileShape->WidthInTexels = 8;
+				pTileShape->HeightInTexels = 8;
+				pTileShape->DepthInTexels = 4;
+			}
+			else
+			{
+				check(false);
+			}
+
+			check(GetWidthAlignment(Format) == 1);
+			check(GetHeightAlignment(Format) == 1);
+		}
+	}
+	break;
+	}
+}
+
+#define NUM_4K_BLOCKS_PER_64K_PAGE (16)
+
+static bool TextureCanBe4KAligned(D3D12_RESOURCE_DESC& Desc, uint8 UEFormat)
+{
+	D3D12_TILE_SHAPE Tile = {};
+	Get4KTileShape(&Tile, Desc.Format, UEFormat, Desc.Dimension, Desc.SampleDesc.Count);
+
+	uint32 TilesNeeded = GetTilesNeeded(Desc.Width, Desc.Height, Desc.DepthOrArraySize, Tile);
+
+	return TilesNeeded <= NUM_4K_BLOCKS_PER_64K_PAGE;
+}

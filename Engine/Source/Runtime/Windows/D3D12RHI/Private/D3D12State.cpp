@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12State.cpp: D3D state implementation.
@@ -124,79 +124,79 @@ uint32 GetTypeHash(const D3D12_SAMPLER_DESC& Desc)
 
 FSamplerStateRHIRef FD3D12DynamicRHI::RHICreateSamplerState(const FSamplerStateInitializerRHI& Initializer)
 {
-    return GetRHIDevice()->CreateSamplerState(Initializer);
+	return GetRHIDevice()->CreateSamplerState(Initializer);
 }
 
 FSamplerStateRHIRef FD3D12Device::CreateSamplerState(const FSamplerStateInitializerRHI& Initializer)
 {
-    D3D12_SAMPLER_DESC SamplerDesc;
-    FMemory::Memzero(&SamplerDesc, sizeof(D3D12_SAMPLER_DESC));
+	D3D12_SAMPLER_DESC SamplerDesc;
+	FMemory::Memzero(&SamplerDesc, sizeof(D3D12_SAMPLER_DESC));
 
-    SamplerDesc.AddressU = TranslateAddressMode(Initializer.AddressU);
-    SamplerDesc.AddressV = TranslateAddressMode(Initializer.AddressV);
-    SamplerDesc.AddressW = TranslateAddressMode(Initializer.AddressW);
-    SamplerDesc.MipLODBias = Initializer.MipBias;
-    SamplerDesc.MaxAnisotropy = ComputeAnisotropyRT(Initializer.MaxAnisotropy);
-    SamplerDesc.MinLOD = Initializer.MinMipLevel;
-    SamplerDesc.MaxLOD = Initializer.MaxMipLevel;
+	SamplerDesc.AddressU = TranslateAddressMode(Initializer.AddressU);
+	SamplerDesc.AddressV = TranslateAddressMode(Initializer.AddressV);
+	SamplerDesc.AddressW = TranslateAddressMode(Initializer.AddressW);
+	SamplerDesc.MipLODBias = Initializer.MipBias;
+	SamplerDesc.MaxAnisotropy = ComputeAnisotropyRT(Initializer.MaxAnisotropy);
+	SamplerDesc.MinLOD = Initializer.MinMipLevel;
+	SamplerDesc.MaxLOD = Initializer.MaxMipLevel;
 
-    // Determine whether we should use one of the comparison modes
-    const bool bComparisonEnabled = Initializer.SamplerComparisonFunction != SCF_Never;
-    switch (Initializer.Filter)
-    {
-    case SF_AnisotropicLinear:
-    case SF_AnisotropicPoint:
-        if (SamplerDesc.MaxAnisotropy == 1)
-        {
-            SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR : D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-        }
-        else
-        {
-            // D3D11 doesn't allow using point filtering for mip filter when using anisotropic filtering
-            SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_ANISOTROPIC : D3D12_FILTER_ANISOTROPIC;
-        }
+	// Determine whether we should use one of the comparison modes
+	const bool bComparisonEnabled = Initializer.SamplerComparisonFunction != SCF_Never;
+	switch (Initializer.Filter)
+	{
+	case SF_AnisotropicLinear:
+	case SF_AnisotropicPoint:
+		if (SamplerDesc.MaxAnisotropy == 1)
+		{
+			SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR : D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		}
+		else
+		{
+			// D3D11 doesn't allow using point filtering for mip filter when using anisotropic filtering
+			SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_ANISOTROPIC : D3D12_FILTER_ANISOTROPIC;
+		}
 
-        break;
-    case SF_Trilinear:
-        SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR : D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-        break;
-    case SF_Bilinear:
-        SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT : D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
-        break;
-    case SF_Point:
-        SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT : D3D12_FILTER_MIN_MAG_MIP_POINT;
-        break;
-    }
-    const FLinearColor LinearBorderColor = FColor(Initializer.BorderColor);
-    SamplerDesc.BorderColor[0] = LinearBorderColor.R;
-    SamplerDesc.BorderColor[1] = LinearBorderColor.G;
-    SamplerDesc.BorderColor[2] = LinearBorderColor.B;
-    SamplerDesc.BorderColor[3] = LinearBorderColor.A;
-    SamplerDesc.ComparisonFunc = TranslateSamplerCompareFunction(Initializer.SamplerComparisonFunction);
+		break;
+	case SF_Trilinear:
+		SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR : D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		break;
+	case SF_Bilinear:
+		SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT : D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+		break;
+	case SF_Point:
+		SamplerDesc.Filter = bComparisonEnabled ? D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT : D3D12_FILTER_MIN_MAG_MIP_POINT;
+		break;
+	}
+	const FLinearColor LinearBorderColor = FColor(Initializer.BorderColor);
+	SamplerDesc.BorderColor[0] = LinearBorderColor.R;
+	SamplerDesc.BorderColor[1] = LinearBorderColor.G;
+	SamplerDesc.BorderColor[2] = LinearBorderColor.B;
+	SamplerDesc.BorderColor[3] = LinearBorderColor.A;
+	SamplerDesc.ComparisonFunc = TranslateSamplerCompareFunction(Initializer.SamplerComparisonFunction);
 
 	QUICK_SCOPE_CYCLE_COUNTER(FD3D12DynamicRHI_RHICreateSamplerState_LockAndCreate);
 	FScopeLock Lock(&GD3D12SamplerStateCacheLock);
 
-    // Check to see if the sampler has already been created
-    // This is done to reduce cache misses accessing sampler objects
-    TRefCountPtr<FD3D12SamplerState>* PreviouslyCreated = SamplerMap.Find(SamplerDesc);
-    if (PreviouslyCreated)
-    {
-        return PreviouslyCreated->GetReference();
-    }
-    else
-    {
-        // 16-bit IDs are used for faster hashing
-        check(SamplerID < 0xffff);
+	// Check to see if the sampler has already been created
+	// This is done to reduce cache misses accessing sampler objects
+	TRefCountPtr<FD3D12SamplerState>* PreviouslyCreated = SamplerMap.Find(SamplerDesc);
+	if (PreviouslyCreated)
+	{
+		return PreviouslyCreated->GetReference();
+	}
+	else
+	{
+		// 16-bit IDs are used for faster hashing
+		check(SamplerID < 0xffff);
 
-        FD3D12SamplerState* NewSampler = new FD3D12SamplerState(this, SamplerDesc, static_cast<uint16>(SamplerID));
+		FD3D12SamplerState* NewSampler = new FD3D12SamplerState(this, SamplerDesc, static_cast<uint16>(SamplerID));
 
-        SamplerMap.Add(SamplerDesc, NewSampler);
+		SamplerMap.Add(SamplerDesc, NewSampler);
 
-        SamplerID++;
+		SamplerID++;
 
-        return NewSampler;
-    }
+		return NewSampler;
+	}
 }
 
 FRasterizerStateRHIRef FD3D12DynamicRHI::RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
@@ -299,19 +299,19 @@ FBlendStateRHIRef FD3D12DynamicRHI::RHICreateBlendState(const FBlendStateInitial
 
 FD3D12SamplerState::FD3D12SamplerState(FD3D12Device* InParent, const D3D12_SAMPLER_DESC& Desc, uint16 SamplerID)
 	: ID(SamplerID),
-    FD3D12DeviceChild(InParent)
+	FD3D12DeviceChild(InParent)
 {
 	Descriptor.ptr = 0;
 	FDescriptorHeapManager& DescriptorAllocator = GetParentDevice()->GetSamplerDescriptorAllocator();
 	Descriptor = DescriptorAllocator.AllocateHeapSlot(DescriptorHeapIndex);
-    GetParentDevice()->GetDevice()->CreateSampler(&Desc, Descriptor);
+	GetParentDevice()->GetDevice()->CreateSampler(&Desc, Descriptor);
 }
 
 FD3D12SamplerState::~FD3D12SamplerState()
 {
 	if (Descriptor.ptr)
 	{
-        FDescriptorHeapManager& DescriptorAllocator = GetParentDevice()->GetSamplerDescriptorAllocator();
+		FDescriptorHeapManager& DescriptorAllocator = GetParentDevice()->GetSamplerDescriptorAllocator();
 		DescriptorAllocator.FreeHeapSlot(Descriptor, DescriptorHeapIndex);
 		Descriptor.ptr = 0;
 	}

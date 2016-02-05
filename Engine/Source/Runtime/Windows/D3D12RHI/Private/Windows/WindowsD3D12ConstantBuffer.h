@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WindowsD3D12ConstantBuffer.h: D3D Constant Buffer functions
@@ -10,7 +10,7 @@ class FWinD3D12ConstantBuffer : public FD3D12ConstantBuffer
 {
 public:
 	FWinD3D12ConstantBuffer(FD3D12Device* InParent, uint32 InSize = 0, uint32 SubBuffers = 1) :
-        FD3D12ConstantBuffer(InParent, InSize, SubBuffers)
+		FD3D12ConstantBuffer(InParent, InSize, SubBuffers)
 	{
 	}
 
@@ -19,18 +19,8 @@ public:
 	virtual void	ReleaseDynamicRHI() override;
 
 	/**
-	* Get the current buffer
-	*/
-	FD3D12ResourceLocation* GetConstantBufferLocation() const
-	{
-		return CurrentBuffer.GetReference();
-	}
-
-	/**
 	* Unlocks the constant buffer so the data can be transmitted to the device
 	*/
-    bool CommitConstantsToDevice(FD3D12DynamicHeapAllocator& UploadHeap, bool bDiscardSharedConstants);
+	bool CommitConstantsToDevice(FD3D12FastAllocator& Allocator, FD3D12ResourceLocation& Location, bool bDiscardSharedConstants);
 
-private:
-    TRefCountPtr<FD3D12ResourceLocation> CurrentBuffer;
 };

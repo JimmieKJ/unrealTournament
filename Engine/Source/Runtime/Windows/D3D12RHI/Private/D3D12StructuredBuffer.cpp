@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "D3D12RHIPrivate.h"
 
@@ -9,19 +9,19 @@ FStructuredBufferRHIRef FD3D12DynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 	// Check for values that will cause D3D calls to fail
 	check(Size / Stride > 0 && Size % Stride == 0);
 
-    // Describe the structured buffer.
-    const bool bIsDynamic = (InUsage & BUF_AnyDynamic) ? true : false;
-    D3D12_RESOURCE_DESC Desc = CD3DX12_RESOURCE_DESC::Buffer(Size);
+	// Describe the structured buffer.
+	const bool bIsDynamic = (InUsage & BUF_AnyDynamic) ? true : false;
+	D3D12_RESOURCE_DESC Desc = CD3DX12_RESOURCE_DESC::Buffer(Size);
 
-    if ((InUsage & BUF_ShaderResource) == 0)
-    {
-        Desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
-    }
+	if ((InUsage & BUF_ShaderResource) == 0)
+	{
+		Desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+	}
 
-    if (InUsage & BUF_UnorderedAccess)
-    {
-        Desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-    }
+	if (InUsage & BUF_UnorderedAccess)
+	{
+		Desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	}
 
 	if (FPlatformProperties::SupportsFastVRAMMemory())
 	{
@@ -43,11 +43,11 @@ FStructuredBufferRHIRef FD3D12DynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 		pInitData = &InitData;
 	}
 
-	TRefCountPtr<FD3D12ResourceLocation> StructuredBufferResource;
-    if (bIsDynamic)
+	TRefCountPtr<FD3D12ResourceLocation> StructuredBufferResource = new FD3D12ResourceLocation(GetRHIDevice());
+	if (bIsDynamic)
 	{
 		// Use an upload heap for dynamic resources and map its memory for writing.
-		void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(Desc.Width, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, StructuredBufferResource.GetInitReference());
+		void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().AllocUploadResource(Desc.Width, DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT, StructuredBufferResource);
 
 		// Add the lock to the lock map.
 		FD3D12LockedKey LockedKey(StructuredBufferResource.GetReference());
@@ -67,11 +67,14 @@ FStructuredBufferRHIRef FD3D12DynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 		// Structured buffers, non-byte address buffers, need to be aligned to their stride to ensure that they
 		// can be addressed correctly with element based offsets.
 		if ((InUsage & (BUF_ByteAddressBuffer | BUF_DrawIndirect)) == 0)
+		{
 			GetRHIDevice()->GetDefaultBufferAllocator().AllocDefaultResource(Desc, pInitData, StructuredBufferResource.GetInitReference(), Stride);
-
+		}
 		else
 #endif
-		GetRHIDevice()->GetDefaultBufferAllocator().AllocDefaultResource(Desc, pInitData, StructuredBufferResource.GetInitReference());
+		{
+			GetRHIDevice()->GetDefaultBufferAllocator().AllocDefaultResource(Desc, pInitData, StructuredBufferResource.GetInitReference());
+		}
 	}
 
 	UpdateBufferStats(StructuredBufferResource, true, D3D12_BUFFER_TYPE_STRUCTURED);
@@ -93,7 +96,7 @@ FD3D12StructuredBuffer::~FD3D12StructuredBuffer()
 	if (GetUsage() & BUF_AnyDynamic)
 	{
 		FD3D12LockedKey LockedKey(ResourceLocation.GetReference());
-		FD3D12DynamicRHI::GetD3DRHI()->OutstandingLocks.Remove (LockedKey);
+		FD3D12DynamicRHI::GetD3DRHI()->OutstandingLocks.Remove(LockedKey);
 	}
 }
 
@@ -101,15 +104,15 @@ void* FD3D12DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef Str
 {
 	FD3D12StructuredBuffer*  StructuredBuffer = FD3D12DynamicRHI::ResourceCast(StructuredBufferRHI);
 
-    FD3D12CommandContext& DefaultContext = GetRHIDevice()->GetDefaultCommandContext();
+	FD3D12CommandContext& DefaultContext = GetRHIDevice()->GetDefaultCommandContext();
 
 	// If this resource is bound to the device, unbind it
 	DefaultContext.ConditionalClearShaderResource(StructuredBuffer->ResourceLocation);
 
 	// Determine whether the Structured buffer is dynamic or not.
 	D3D12_RESOURCE_DESC const& Desc = StructuredBuffer->Resource->GetDesc();
-    const uint32 BufferUsage = StructuredBuffer->GetUsage();
-    const bool bIsDynamic = (BufferUsage & BUF_AnyDynamic) ? true : false;
+	const uint32 BufferUsage = StructuredBuffer->GetUsage();
+	const bool bIsDynamic = (BufferUsage & BUF_AnyDynamic) ? true : false;
 
 	FD3D12LockedKey LockedKey(StructuredBuffer->Resource.GetReference());
 	FD3D12LockedData LockedData;
@@ -129,14 +132,14 @@ void* FD3D12DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef Str
 		{
 			// If the static buffer is being locked for reading, create a staging buffer.
 			TRefCountPtr<FD3D12Resource> StagingStructuredBuffer;
-            VERIFYD3D11RESULT(GetRHIDevice()->GetResourceHelper().CreateBuffer(D3D12_HEAP_TYPE_READBACK, Offset + Size, StagingStructuredBuffer.GetInitReference()));
+			VERIFYD3D11RESULT(GetRHIDevice()->GetResourceHelper().CreateBuffer(D3D12_HEAP_TYPE_READBACK, Offset + Size, StagingStructuredBuffer.GetInitReference()));
 			LockedData.StagingResource = StagingStructuredBuffer;
 
 			// Copy the contents of the Structured buffer to the staging buffer.
 			DefaultContext.numCopies++;
 			DefaultContext.CommandListHandle->CopyResource(StagingStructuredBuffer->GetResource(), StructuredBuffer->Resource->GetResource());
 
-            GetRHIDevice()->GetDefaultCommandContext().FlushCommands(true);
+			GetRHIDevice()->GetDefaultCommandContext().FlushCommands(true);
 
 			// Map the staging buffer's memory for reading.
 			void* pData;
@@ -150,8 +153,8 @@ void* FD3D12DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef Str
 			check(StructuredBuffer->ResourceLocation->GetEffectiveBufferSize() >= Size);
 
 			// Use an upload heap to copy data to a default resource.
-			TRefCountPtr<FD3D12ResourceLocation> UploadBuffer = new FD3D12ResourceLocation();
-            void *pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().FastAlloc(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, UploadBuffer);
+			TRefCountPtr<FD3D12ResourceLocation> UploadBuffer = new FD3D12ResourceLocation(GetRHIDevice());
+			void *pData = GetRHIDevice()->GetDefaultFastAllocator().Allocate(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, UploadBuffer);
 
 			// Add the lock to the lock map.
 			FD3D12LockedKey LockedKey(UploadBuffer);
@@ -176,8 +179,8 @@ void FD3D12DynamicRHI::RHIUnlockStructuredBuffer(FStructuredBufferRHIParamRef St
 
 	// Determine whether the Structured buffer is dynamic or not.
 	D3D12_RESOURCE_DESC const& Desc = StructuredBuffer->Resource->GetDesc();
-    const uint32 BufferUsage = StructuredBuffer->GetUsage();
-    const bool bIsDynamic = (BufferUsage & BUF_AnyDynamic) ? true : false;
+	const uint32 BufferUsage = StructuredBuffer->GetUsage();
+	const bool bIsDynamic = (BufferUsage & BUF_AnyDynamic) ? true : false;
 
 	// Find the outstanding lock for this VB.
 	FD3D12LockedKey LockedKey(StructuredBuffer->Resource.GetReference());
@@ -212,7 +215,7 @@ void FD3D12DynamicRHI::RHIUnlockStructuredBuffer(FStructuredBufferRHIParamRef St
 
 			GetRHIDevice()->GetDefaultCommandContext().numCopies++;
 			hCommandList->CopyBufferRegion(
-                StructuredBuffer->Resource->GetResource(),
+				StructuredBuffer->Resource->GetResource(),
 				StructuredBuffer->ResourceLocation->GetOffset(),
 				UploadHeap->GetResource()->GetResource(),
 				UploadHeap->GetOffset(),

@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Device.cpp: D3D device RHI implementation.
@@ -7,6 +7,11 @@ D3D12Device.cpp: D3D device RHI implementation.
 #include "D3D12RHIPrivate.h"
 #include "AllowWindowsPlatformTypes.h"
 	#include <delayimp.h>
+
+	#if D3D12_PROFILING_ENABLED
+		#define USE_PIX 0
+		#include "pix.h"
+	#endif
 #include "HideWindowsPlatformTypes.h"
 
 namespace D3D12RHI
@@ -19,14 +24,14 @@ bool D3D12RHI_ShouldCreateWithD3DDebug()
 {
 	// Use a debug device if specified on the command line.
 	return
-		FParse::Param(FCommandLine::Get(),TEXT("d3ddebug")) ||
-		FParse::Param(FCommandLine::Get(),TEXT("d3debug")) ||
-		FParse::Param(FCommandLine::Get(),TEXT("dxdebug"));
+		FParse::Param(FCommandLine::Get(), TEXT("d3ddebug")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("d3debug")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("dxdebug"));
 }
 
 bool D3D12RHI_ShouldAllowAsyncResourceCreation()
 {
-	static bool bAllowAsyncResourceCreation = !FParse::Param(FCommandLine::Get(),TEXT("nod3dasync"));
+	static bool bAllowAsyncResourceCreation = !FParse::Param(FCommandLine::Get(), TEXT("nod3dasync"));
 	return bAllowAsyncResourceCreation;
 }
 
@@ -59,7 +64,7 @@ public:
 	FD3D12CommandContextContainer(FD3D12Device* InOwningDevice)
 		: OwningDevice(InOwningDevice), CmdContext(nullptr)
 	{
-		CommandLists.Reserve (16);
+		CommandLists.Reserve(16);
 	}
 
 	virtual ~FD3D12CommandContextContainer() override
@@ -71,12 +76,9 @@ public:
 		check(CmdContext == nullptr);
 		CmdContext = OwningDevice->ObtainCommandContext();
 		check(CmdContext != nullptr);
+		check(CmdContext->CommandListHandle == nullptr);
 
-		if (CmdContext->CommandListHandle == nullptr)
-		{
-			CmdContext->OpenCommandList();
-		}
-
+		CmdContext->OpenCommandList();
 		CmdContext->ClearState();
 
 		return CmdContext;
@@ -99,10 +101,22 @@ public:
 		{
 			check((IsInRenderingThread() || IsInRHIThread()));
 
-			OwningDevice->GetDefaultCommandContext().FlushCommands();
+			FD3D12CommandContext& DefaultContext = OwningDevice->GetDefaultCommandContext();
+
+			// Don't really submit the default context yet, just start a new command list.
+			// Close the command list, add it to the pending command lists, then open a new command list (with the previous state restored).
+			DefaultContext.CloseCommandList();
+
+			OwningDevice->PendingCommandLists.Add(DefaultContext.CommandListHandle);
+			OwningDevice->PendingCommandListsTotalWorkCommands +=
+				DefaultContext.numClears +
+				DefaultContext.numCopies +
+				DefaultContext.numDraws;
+
+			DefaultContext.OpenCommandList(true);
 		}
 
-		// Add the current lists for execution (now or possibly later)
+		// Add the current lists for execution (now or possibly later depending on the command list batching mode).
 		for (int32 i = 0; i < CommandLists.Num(); ++i)
 		{
 			OwningDevice->PendingCommandLists.Add(CommandLists[i]);
@@ -114,23 +128,26 @@ public:
 
 		CommandLists.Reset();
 
-		// Submission occurs when a batch is finished
-		const bool FinalCommandListInBatch = Index == (Num - 1);
-		if (FinalCommandListInBatch && OwningDevice->PendingCommandLists.Num() > 0)
+		if (GCommandListBatchingMode != CLB_AggressiveBatching)
 		{
+			// Submit when the batch is finished.
+			const bool FinalCommandListInBatch = Index == (Num - 1);
+			if (FinalCommandListInBatch && OwningDevice->PendingCommandLists.Num() > 0)
+			{
 #if SUPPORTS_MEMORY_RESIDENCY
-			OwningDevice->GetOwningRHI()->GetResourceResidencyManager().MakeResident();
+				OwningDevice->GetOwningRHI()->GetResourceResidencyManager().MakeResident();
 #endif
-			OwningDevice->GetCommandListManager().ExecuteCommandLists(OwningDevice->PendingCommandLists);
-			OwningDevice->PendingCommandLists.Reset();
-			OwningDevice->PendingCommandListsTotalWorkCommands = 0;
+				OwningDevice->GetCommandListManager().ExecuteCommandLists(OwningDevice->PendingCommandLists);
+				OwningDevice->PendingCommandLists.Reset();
+				OwningDevice->PendingCommandListsTotalWorkCommands = 0;
+			}
 		}
 
 		delete this;
 	}
 };
 
-static TLockFreeFixedSizeAllocator<sizeof(FD3D12CommandContextContainer), FThreadSafeCounter> FD3D12CommandContextContainerAllocator;
+static TLockFreeFixedSizeAllocator<sizeof(FD3D12CommandContextContainer), PLATFORM_CACHE_LINE_SIZE, FThreadSafeCounter> FD3D12CommandContextContainerAllocator;
 
 void* FD3D12CommandContextContainer::operator new(size_t Size)
 {
@@ -142,7 +159,7 @@ void* FD3D12CommandContextContainer::operator new(size_t Size)
 void FD3D12CommandContextContainer::operator delete(void* RawMemory)
 {
 	FD3D12CommandContextContainerAllocator.Free(RawMemory);
-}	
+}
 
 IRHICommandContextContainer* FD3D12DynamicRHI::RHIGetCommandContextContainer()
 {
@@ -151,9 +168,8 @@ IRHICommandContextContainer* FD3D12DynamicRHI::RHIGetCommandContextContainer()
 
 #endif // D3D12_SUPPORTS_PARALLEL_RHI_EXECUTE
 
-FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent) :
+FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc) :
 	OwningRHI(*InParent->GetOwningRHI()),
-	UploadHeapAllocator(InParent, D3D12_HEAP_TYPE_UPLOAD),
 	bUsingTessellation(false),
 	PendingNumVertices(0),
 	PendingVertexDataStride(0),
@@ -168,20 +184,24 @@ FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent) :
 	CurrentDSVAccessType(FExclusiveDepthStencil::DepthWrite_StencilWrite),
 	bDiscardSharedConstants(false),
 	CommandListHandle(),
-    FD3D12DeviceChild(InParent)
+	CommandAllocator(nullptr),
+	CommandAllocatorManager(InParent, D3D12_COMMAND_LIST_TYPE_DIRECT),
+	FastAllocatorPagePool(InParent, D3D12_HEAP_TYPE_UPLOAD, 1024 * 512),
+	FastAllocator(InParent, &FastAllocatorPagePool),
+	ConstantsAllocatorPagePool(InParent, InParent->GetConstantBufferPageProperties(), 1024 * 512),
+	ConstantsAllocator(InParent, &ConstantsAllocatorPagePool),
+	FD3D12DeviceChild(InParent)
 {
 	FMemory::Memzero(DirtyUniformBuffers, sizeof(DirtyUniformBuffers));
-
-	UploadHeapAllocator.SetCurrentCommandContext(this);
 
 	// Initialize the constant buffers.
 	InitConstantBuffers();
 
 	// Create the dynamic vertex and index buffers used for Draw[Indexed]PrimitiveUP.
-	DynamicVB = new FD3D12DynamicBuffer(GetParentDevice(), UploadHeapAllocator);
-	DynamicIB = new FD3D12DynamicBuffer(GetParentDevice(), UploadHeapAllocator);
+	DynamicVB = new FD3D12DynamicBuffer(GetParentDevice(), FastAllocator);
+	DynamicIB = new FD3D12DynamicBuffer(GetParentDevice(), FastAllocator);
 
-	StateCache.Init(GetParentDevice(), this, nullptr);
+	StateCache.Init(GetParentDevice(), this, nullptr, SubHeapDesc);
 }
 
 FD3D12CommandContext::~FD3D12CommandContext()
@@ -200,35 +220,45 @@ FD3D12CommandContext::~FD3D12CommandContext()
 			BoundUniformBuffers[Frequency][BindIndex].SafeRelease();
 		}
 	}
-
-	// Release allocators last because when other objects are deleted, they may be returned to an allocator
-	UploadHeapAllocator.ReleaseAllResources();
 }
 
 FD3D12Device::FD3D12Device(FD3D12DynamicRHI* InOwningRHI, IDXGIFactory4* InDXGIFactory, FD3D12Adapter& InAdapter) :
-    OwningRHI(InOwningRHI),
-    DXGIFactory(InDXGIFactory),
-    DeviceAdapter(InAdapter),
-    Direct3DDevice(nullptr),
-    DxgiAdapter3(nullptr),
-    bDeviceRemoved(false),
-    RTVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256),
-    DSVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 256),
-    SRVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
-    UAVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
-    SamplerAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 128),
-    CBVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
-    SamplerID(0),
-    OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 32768),
-    PipelineStateCache(this),
-    ResourceHelper(this),
-    DeferredDeletionQueue(this),
-    DefaultBufferAllocator(this),
-    PendingCommandListsTotalWorkCommands(0)
+	OwningRHI(InOwningRHI),
+	DXGIFactory(InDXGIFactory),
+	DeviceAdapter(InAdapter),
+	Direct3DDevice(nullptr),
+	DxgiAdapter3(nullptr),
+	bDeviceRemoved(false),
+	RTVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256),
+	DSVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 256),
+	SRVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
+	UAVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
+	SamplerAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 128),
+	CBVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
+	SamplerID(0),
+	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 32768),
+	PipelineStateCache(this),
+	ResourceHelper(this),
+	DeferredDeletionQueue(this),
+	DefaultBufferAllocator(this),
+	PendingCommandListsTotalWorkCommands(0),
+	RootSignatureManager(this),
+	CommandListManager(this, D3D12_COMMAND_LIST_TYPE_DIRECT),
+	CopyCommandListManager(this, D3D12_COMMAND_LIST_TYPE_COPY),
+	TextureStreamingCommandAllocatorManager(this, GEnableMultiEngine ? D3D12_COMMAND_LIST_TYPE_COPY : D3D12_COMMAND_LIST_TYPE_DIRECT),
+	GlobalSamplerHeap(this),
+	GlobalViewHeap(this),
+	FirstFrameSeen(false),
+	DefaultFastAllocatorPagePool(this, D3D12_HEAP_TYPE_UPLOAD, 1024 * 1024 * 4),
+	DefaultFastAllocator(this, &DefaultFastAllocatorPagePool),
+	BufferInitializerFastAllocatorPagePool(this, D3D12_HEAP_TYPE_UPLOAD, 1024 * 512),
+	BufferInitializerFastAllocator(this, &BufferInitializerFastAllocatorPagePool),
+	DefaultUploadHeapAllocator(this, kManualSubAllocationStrategy, DEFAULT_CONTEXT_UPLOAD_POOL_MAX_ALLOC_SIZE, DEFAULT_CONTEXT_UPLOAD_POOL_SIZE, DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT),
+	TextureAllocator(this)
 {
 }
 
-FD3D12DynamicHeapAllocator* FD3D12DynamicRHI::HelperThreadDynamicHeapAllocator = nullptr;
+FD3D12ThreadSafeFastAllocator* FD3D12DynamicRHI::HelperThreadDynamicHeapAllocator = nullptr;
 
 TAutoConsoleVariable<int32> CVarD3D12ZeroBufferSizeInMB(
 	TEXT("d3d12.ZeroBufferSizeInMB"),
@@ -247,7 +277,6 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(IDXGIFactory4* InDXGIFactory, FD3D12Adapter& 
 	SetTextureInTableCalls(0),
 	SceneFrameCounter(0),
 	ResourceTableFrameCounter(INDEX_NONE),
-	bForceSingleQueueGPU(false),
 	NumThreadDynamicHeapAllocators(0),
 	ViewportFrameCounter(0),
 	MainAdapter(InAdapter),
@@ -259,17 +288,17 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(IDXGIFactory4* InDXGIFactory, FD3D12Adapter& 
 	check(SingleD3DRHI == nullptr);
 
 	// This should be called once at the start 
-	check( IsInGameThread() );
-	check( !GIsThreadedRendering );
+	check(IsInGameThread());
+	check(!GIsThreadedRendering);
 
 	SingleD3DRHI = this;
 
 	check(MainAdapter.IsValid());
 	MainDevice = new FD3D12Device(this, DXGIFactory, MainAdapter);
 
-    FeatureLevel = MainAdapter.MaxSupportedFeatureLevel;
+	FeatureLevel = MainAdapter.MaxSupportedFeatureLevel;
 
-    GPUProfilingData.Init(MainDevice);
+	GPUProfilingData.Init(MainDevice);
 
 #if SUPPORTS_MEMORY_RESIDENCY
 	ResourceResidencyManager.Init(MainDevice);
@@ -279,14 +308,14 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(IDXGIFactory4* InDXGIFactory, FD3D12Adapter& 
 	// that we don't care about and will overwrite with valid data in the future.
 	ZeroBufferSize = FMath::Max(CVarD3D12ZeroBufferSizeInMB.GetValueOnAnyThread(), 0) * (1 << 20);
 	ZeroBuffer = FMemory::Malloc(ZeroBufferSize);
-	FMemory::Memzero(ZeroBuffer,ZeroBufferSize);
+	FMemory::Memzero(ZeroBuffer, ZeroBufferSize);
 
 	GPoolSizeVRAMPercentage = 0;
 	GTexturePoolSize = 0;
 	GConfig->GetInt(TEXT("TextureStreaming"), TEXT("PoolSizeVRAMPercentage"), GPoolSizeVRAMPercentage, GEngineIni);
 
 	// Initialize the RHI capabilities.
-	check(FeatureLevel == D3D_FEATURE_LEVEL_11_0 || FeatureLevel == D3D_FEATURE_LEVEL_10_0 );
+	check(FeatureLevel == D3D_FEATURE_LEVEL_11_0 || FeatureLevel == D3D_FEATURE_LEVEL_10_0);
 
 	if (FeatureLevel == D3D_FEATURE_LEVEL_10_0)
 	{
@@ -313,11 +342,6 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(IDXGIFactory4* InDXGIFactory, FD3D12Adapter& 
 	{
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM4;
 		GMaxRHIShaderPlatform = SP_PCD3D_SM4;
-	}
-
-	if (FParse::Param(FCommandLine::Get(), TEXT("ForceSingleQueue")))
-	{
-		bForceSingleQueueGPU = true;
 	}
 
 	// Initialize the platform pixel format map.
@@ -384,13 +408,12 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(IDXGIFactory4* InDXGIFactory, FD3D12Adapter& 
 	GPixelFormats[ PF_BC6H			].PlatformFormat	= DXGI_FORMAT_BC6H_UF16;
 	GPixelFormats[ PF_BC7			].PlatformFormat	= DXGI_FORMAT_BC7_TYPELESS;
 
-    // MS - Not doing any feature level checks. D3D12 currently supports these limits.
-    // However this may need to be revisited if new feature levels are introduced with different HW requirement
+	// MS - Not doing any feature level checks. D3D12 currently supports these limits.
+	// However this may need to be revisited if new feature levels are introduced with different HW requirement
 	GSupportsSeparateRenderTargetBlendState = true;
 	GMaxTextureDimensions = D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION;
 	GMaxCubeTextureDimensions = D3D12_REQ_TEXTURECUBE_DIMENSION;
 	GMaxTextureArrayLayers = D3D12_REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION;
-	GRHISupportsMSAADepthSampleAccess = true;
 
 	GMaxShadowDepthBufferSizeX = 4096;
 	GMaxShadowDepthBufferSizeY = 4096;
@@ -405,7 +428,7 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(IDXGIFactory4* InDXGIFactory, FD3D12Adapter& 
 
 void FD3D12Device::CreateCommandContexts()
 {
-    check(CommandContextArray.Num() == 0);
+	check(CommandContextArray.Num() == 0);
 
 	const uint32 NumContexts = FTaskGraphInterface::Get().GetNumWorkerThreads() + 1;
 
@@ -413,9 +436,15 @@ void FD3D12Device::CreateCommandContexts()
 	CommandContextArray.Reserve(NumContexts);
 	FreeCommandContexts.Reserve(NumContexts - 1);
 
+	const uint32 DescriptorSuballocationPerContext = GlobalViewHeap.GetTotalSize() / NumContexts;
+	uint32 CurrentGlobalHeapOffset = 0;
+
 	for (uint32 i = 0; i < NumContexts; ++i)
 	{
-		FD3D12CommandContext* NewCmdContext = new FD3D12CommandContext(this);
+		FD3D12SubAllocatedOnlineHeap::SubAllocationDesc SubHeapDesc(&GlobalViewHeap, CurrentGlobalHeapOffset, DescriptorSuballocationPerContext);
+
+		FD3D12CommandContext* NewCmdContext = new FD3D12CommandContext(this, SubHeapDesc);
+		CurrentGlobalHeapOffset += DescriptorSuballocationPerContext;
 
 		// without that the first RHIClear would get a scissor rect of (0,0)-(0,0) which means we get a draw call clear 
 		NewCmdContext->RHISetScissorRect(false, 0, 0, 0, 0);
@@ -430,6 +459,8 @@ void FD3D12Device::CreateCommandContexts()
 	}
 
 	CommandContextArray[0]->OpenCommandList();
+
+	DefaultUploadHeapAllocator.SetCurrentCommandContext(CommandContextArray[0]);
 }
 
 FD3D12DynamicRHI::~FD3D12DynamicRHI()
@@ -457,14 +488,20 @@ void FD3D12DynamicRHI::Shutdown()
 	ZeroBufferSize = 0;
 }
 
-void FD3D12CommandContext::RHIPushEvent(const TCHAR* Name)
+void FD3D12CommandContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 {
-    OwningRHI.PushGPUEvent(Name);
+	OwningRHI.PushGPUEvent(Name, Color);
+#if USE_PIX
+	PIXBeginEvent(CommandListHandle.CommandList(), PIX_COLOR_DEFAULT, Name);
+#endif
 }
 
 void FD3D12CommandContext::RHIPopEvent()
 {
-    OwningRHI.PopGPUEvent();
+	OwningRHI.PopGPUEvent();
+#if USE_PIX
+	PIXEndEvent(CommandListHandle.CommandList());
+#endif
 }
 
 /**
@@ -472,7 +509,7 @@ void FD3D12CommandContext::RHIPopEvent()
 * @param Width - Input: Desired resolution width in pixels. Output: A width that the platform supports.
 * @param Height - Input: Desired resolution height in pixels. Output: A height that the platform supports.
 */
-void FD3D12DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height )
+void FD3D12DynamicRHI::RHIGetSupportedResolution(uint32 &Width, uint32 &Height)
 {
 	uint32 InitializedMode = false;
 	DXGI_MODE_DESC BestMode;
@@ -499,10 +536,10 @@ void FD3D12DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height 
 #ifndef PLATFORM_XBOXONE // No need for display mode enumeration on console
 		// Enumerate outputs for this adapter
 		// TODO: Cap at 1 for default output
-		for(uint32 o = 0;o < 1; o++)
+		for (uint32 o = 0;o < 1; o++)
 		{
 			TRefCountPtr<IDXGIOutput> Output;
-			HResult = Adapter->EnumOutputs(o,Output.GetInitReference());
+			HResult = Adapter->EnumOutputs(o, Output.GetInitReference());
 			if (DXGI_ERROR_NOT_FOUND == HResult)
 			{
 				break;
@@ -516,7 +553,7 @@ void FD3D12DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height 
 			//  We might want to work around some DXGI badness here.
 			DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 			uint32 NumModes = 0;
-			HResult = Output->GetDisplayModeList(Format,0,&NumModes,NULL);
+			HResult = Output->GetDisplayModeList(Format, 0, &NumModes, NULL);
 			if (HResult == DXGI_ERROR_NOT_FOUND)
 			{
 				return;
@@ -528,15 +565,15 @@ void FD3D12DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height 
 					);
 				return;
 			}
-			DXGI_MODE_DESC* ModeList = new DXGI_MODE_DESC[ NumModes ];
-			VERIFYD3D11RESULT(Output->GetDisplayModeList(Format,0,&NumModes,ModeList));
+			DXGI_MODE_DESC* ModeList = new DXGI_MODE_DESC[NumModes];
+			VERIFYD3D11RESULT(Output->GetDisplayModeList(Format, 0, &NumModes, ModeList));
 
-			for(uint32 m = 0;m < NumModes;m++)
+			for (uint32 m = 0;m < NumModes;m++)
 			{
 				// Search for the best mode
 
 				// Suppress static analysis warnings about a potentially out-of-bounds read access to ModeList. This is a false positive - Index is always within range.
-				CA_SUPPRESS( 6385 );
+				CA_SUPPRESS(6385);
 				bool IsEqualOrBetterWidth = FMath::Abs((int32)ModeList[m].Width - (int32)Width) <= FMath::Abs((int32)BestMode.Width - (int32)Width);
 				bool IsEqualOrBetterHeight = FMath::Abs((int32)ModeList[m].Height - (int32)Height) <= FMath::Abs((int32)BestMode.Height - (int32)Height);
 				if (!InitializedMode || (IsEqualOrBetterWidth && IsEqualOrBetterHeight))
@@ -546,7 +583,7 @@ void FD3D12DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height 
 				}
 			}
 
-			delete [] ModeList;
+			delete[] ModeList;
 		}
 #endif // PLATFORM_XBOXONE
 	}
@@ -558,16 +595,16 @@ void FD3D12DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height 
 
 // Suppress static analysis warnings in FD3D12DynamicRHI::RHIGetAvailableResolutions() about a potentially out-of-bounds read access to ModeList. This is a false positive - Index is always within range.
 #if USING_CODE_ANALYSIS
-MSVC_PRAGMA(warning(push))
+	MSVC_PRAGMA(warning(push))
 	MSVC_PRAGMA(warning(disable:6385))
 #endif	// USING_CODE_ANALYSIS
 
-	// Re-enable static code analysis warning C6385.
+// Re-enable static code analysis warning C6385.
 #if USING_CODE_ANALYSIS
 	MSVC_PRAGMA(warning(pop))
 #endif	// USING_CODE_ANALYSIS
 
-	void FD3D12DynamicRHI::GetBestSupportedMSAASetting( DXGI_FORMAT PlatformFormat, uint32 MSAACount, uint32& OutBestMSAACount, uint32& OutMSAAQualityLevels )
+void FD3D12DynamicRHI::GetBestSupportedMSAASetting(DXGI_FORMAT PlatformFormat, uint32 MSAACount, uint32& OutBestMSAACount, uint32& OutMSAAQualityLevels)
 {
 	//  We disable MSAA for Feature level 10
 	if (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM4)
@@ -581,10 +618,10 @@ MSVC_PRAGMA(warning(push))
 	for (uint32 SampleCount = MSAACount; SampleCount > 0; SampleCount--)
 	{
 		// The multisampleQualityLevels struct serves as both the input and output to CheckFeatureSupport.
-		D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS multisampleQualityLevels = {};
+		D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS multisampleQualityLevels ={};
 		multisampleQualityLevels.SampleCount = SampleCount;
 
-        if (SUCCEEDED(GetRHIDevice()->GetDevice()->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &multisampleQualityLevels, sizeof(multisampleQualityLevels))))
+		if (SUCCEEDED(GetRHIDevice()->GetDevice()->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &multisampleQualityLevels, sizeof(multisampleQualityLevels))))
 		{
 			OutBestMSAACount = SampleCount;
 			OutMSAAQualityLevels = multisampleQualityLevels.NumQualityLevels;
@@ -610,92 +647,13 @@ uint32 FD3D12DynamicRHI::GetMaxMSAAQuality(uint32 SampleCount)
 
 void FD3D12Device::CreateSignatures()
 {
-	// Graphics
-	struct
-	{
-		D3D12_SHADER_VISIBILITY Vis;
-		D3D12_DESCRIPTOR_RANGE_TYPE Type;
-		uint32 Count;
-		uint32 BaseShaderReg;
-	} RangeDesc[Graphics_DescriptorTableCount] =
-	{
-		{ D3D12_SHADER_VISIBILITY_PIXEL, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MAX_SRVS, 0 },
-		{ D3D12_SHADER_VISIBILITY_PIXEL, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, MAX_CBS, 0 },
-		{ D3D12_SHADER_VISIBILITY_PIXEL, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT, 0 },
-
-		{ D3D12_SHADER_VISIBILITY_VERTEX, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MAX_SRVS, 0 },
-		{ D3D12_SHADER_VISIBILITY_VERTEX, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, MAX_CBS, 0 },
-		{ D3D12_SHADER_VISIBILITY_VERTEX, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT, 0 },
-
-		{ D3D12_SHADER_VISIBILITY_GEOMETRY, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MAX_SRVS, 0 },
-		{ D3D12_SHADER_VISIBILITY_GEOMETRY, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, MAX_CBS, 0 },
-		{ D3D12_SHADER_VISIBILITY_GEOMETRY, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT, 0 },
-
-		{ D3D12_SHADER_VISIBILITY_HULL, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MAX_SRVS, 0 },
-		{ D3D12_SHADER_VISIBILITY_HULL, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, MAX_CBS, 0 },
-		{ D3D12_SHADER_VISIBILITY_HULL, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT, 0 },
-
-		{ D3D12_SHADER_VISIBILITY_DOMAIN, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MAX_SRVS, 0 },
-		{ D3D12_SHADER_VISIBILITY_DOMAIN, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, MAX_CBS, 0 },
-		{ D3D12_SHADER_VISIBILITY_DOMAIN, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT, 0 },
-
-		{ D3D12_SHADER_VISIBILITY_ALL, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, D3D12_PS_CS_UAV_REGISTER_COUNT, 0 },
-	};
-
-	CD3DX12_ROOT_PARAMETER TableSlots[Graphics_DescriptorTableCount];
-	CD3DX12_DESCRIPTOR_RANGE DescriptorRanges[Graphics_DescriptorTableCount];
-
-	for (uint32 i = 0; i < Graphics_DescriptorTableCount; i++)
-	{
-		DescriptorRanges[i].Init(
-			RangeDesc[i].Type,
-			RangeDesc[i].Count,
-			RangeDesc[i].BaseShaderReg
-			);
-
-		TableSlots[i].InitAsDescriptorTable(1, &DescriptorRanges[i], RangeDesc[i].Vis);
-	}
-
-	{
-		CD3DX12_ROOT_SIGNATURE_DESC RootDesc;
-		RootDesc.Init(Graphics_DescriptorTableCount, TableSlots, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-		TRefCountPtr<ID3DBlob> SerializedRS;
-		VERIFYD3D11RESULT(D3D12SerializeRootSignature(&RootDesc, D3D_ROOT_SIGNATURE_VERSION_1, SerializedRS.GetInitReference(), nullptr));
-		VERIFYD3D11RESULT(GetDevice()->CreateRootSignature(0, SerializedRS->GetBufferPointer(), SerializedRS->GetBufferSize(), IID_PPV_ARGS(GraphicsRS.GetInitReference())));
-	}
-
-	// Compute
-	uint32 RangeIndex = 0;
-	DescriptorRanges[RangeIndex].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MAX_SRVS, 0);
-	TableSlots[RangeIndex].InitAsDescriptorTable(1, &DescriptorRanges[RangeIndex], D3D12_SHADER_VISIBILITY_ALL);
-	++RangeIndex;
-	DescriptorRanges[RangeIndex].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, MAX_CBS, 0);
-	TableSlots[RangeIndex].InitAsDescriptorTable(1, &DescriptorRanges[RangeIndex], D3D12_SHADER_VISIBILITY_ALL);
-	++RangeIndex;
-	DescriptorRanges[RangeIndex].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT, 0);
-	TableSlots[RangeIndex].InitAsDescriptorTable(1, &DescriptorRanges[RangeIndex], D3D12_SHADER_VISIBILITY_ALL);
-	++RangeIndex;
-	DescriptorRanges[RangeIndex].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, D3D12_PS_CS_UAV_REGISTER_COUNT, 0);
-	TableSlots[RangeIndex].InitAsDescriptorTable(1, &DescriptorRanges[RangeIndex], D3D12_SHADER_VISIBILITY_ALL);
-	++RangeIndex;
-
-	{
-		CD3DX12_ROOT_SIGNATURE_DESC RootDesc;
-		RootDesc.Init(RangeIndex, TableSlots, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
-
-		TRefCountPtr<ID3DBlob> SerializedRS;
-		VERIFYD3D11RESULT(D3D12SerializeRootSignature(&RootDesc, D3D_ROOT_SIGNATURE_VERSION_1, SerializedRS.GetInitReference(), nullptr));
-		VERIFYD3D11RESULT(GetDevice()->CreateRootSignature(0, SerializedRS->GetBufferPointer(), SerializedRS->GetBufferSize(), IID_PPV_ARGS(ComputeRS.GetInitReference())));
-	}
-
 	// ExecuteIndirect command signatures
-	D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
+	D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc ={};
 	commandSignatureDesc.NumArgumentDescs = 1;
 	commandSignatureDesc.ByteStride = 20;
 
-	D3D12_INDIRECT_ARGUMENT_DESC indirectParameterDesc[1] = {};
-    indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+	D3D12_INDIRECT_ARGUMENT_DESC indirectParameterDesc[1] ={};
+	indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
 
 	commandSignatureDesc.pArgumentDescs = indirectParameterDesc;
 
@@ -704,7 +662,7 @@ void FD3D12Device::CreateSignatures()
 	indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
 	VERIFYD3D11RESULT(GetDevice()->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(DrawIndexedIndirectCommandSignature.GetInitReference())));
 
-    indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+	indirectParameterDesc[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
 	VERIFYD3D11RESULT(GetDevice()->CreateCommandSignature(&commandSignatureDesc, nullptr, IID_PPV_ARGS(DispatchIndirectCommandSignature.GetInitReference())));
 
 	CD3DX12_HEAP_PROPERTIES CounterHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -712,20 +670,20 @@ void FD3D12Device::CreateSignatures()
 
 	VERIFYD3D11RESULT(
 		GetDevice()->CreateCommittedResource(
-		&CounterHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&CounterBufferDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(CounterUploadHeap.GetInitReference())
-		)
+			&CounterHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&CounterBufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(CounterUploadHeap.GetInitReference())
+			)
 		);
 
 	VERIFYD3D11RESULT(
-		CounterUploadHeap->Map (
-		0,
-		NULL,
-		&CounterUploadHeapData)
+		CounterUploadHeap->Map(
+			0,
+			NULL,
+			&CounterUploadHeapData)
 		);
 
 	CounterUploadHeapIndex = 0;
@@ -733,14 +691,23 @@ void FD3D12Device::CreateSignatures()
 
 void FD3D12Device::SetupAfterDeviceCreation()
 {
+	DXGI_ADAPTER_DESC* AdapterDesc = GetD3DAdapterDesc();
+
+	// Need to get these early to make vendor-specific decisions in initialization
+	GRHIAdapterName = AdapterDesc->Description;
+	GRHIVendorId = AdapterDesc->VendorId;
+
 	CreateSignatures();
 
-    PipelineStateCache = FD3D12PipelineStateCache(this);
-    FString GraphicsCacheFile = FPaths::GameSavedDir() / TEXT("D3DGraphics.ushaderprecache");
-    FString ComputeCacheFile = FPaths::GameSavedDir() / TEXT("D3DCompute.ushaderprecache");
+	PipelineStateCache = FD3D12PipelineStateCache(this);
+	FString GraphicsCacheFile = FPaths::GameSavedDir() / TEXT("D3DGraphics.ushaderprecache");
+	FString ComputeCacheFile = FPaths::GameSavedDir() / TEXT("D3DCompute.ushaderprecache");
 
 	PipelineStateCache.Init(GraphicsCacheFile, ComputeCacheFile);
-	PipelineStateCache.RebuildFromDiskCache(GraphicsRS, ComputeRS);
+	PipelineStateCache.RebuildFromDiskCache();
+
+	// Needs to be called before creating command contexts
+	UpdateConstantBufferPageProperties();
 
 	CreateCommandContexts();
 
@@ -757,8 +724,24 @@ void FD3D12Device::SetupAfterDeviceCreation()
 	}
 }
 
+void FD3D12Device::UpdateConstantBufferPageProperties()
+{
+	//In genera, constant buffers should use write-combine memory (i.e. upload heaps) for optimal performance
+	bool bForceWriteBackConstantBuffers = false;
+
+	if (bForceWriteBackConstantBuffers)
+	{
+		ConstantBufferPageProperties = GetDevice()->GetCustomHeapProperties(0, D3D12_HEAP_TYPE_UPLOAD);
+		ConstantBufferPageProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	}
+	else
+	{
+		ConstantBufferPageProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+	}
+}
+
 void FD3D12Device::UpdateMSAASettings()
-{	
+{
 	check(DX_MAX_MSAA_COUNT == 8);
 
 	// quality levels are only needed for CSAA which we cannot use with custom resolves
@@ -784,7 +767,7 @@ void FD3D12Device::CleanupD3DDevice()
 
 		check(Direct3DDevice);
 
-        PipelineStateCache.Close();
+		PipelineStateCache.Close();
 
 		// Reset the RHI initialized flag.
 		GIsRHIInitialized = false;
@@ -792,14 +775,14 @@ void FD3D12Device::CleanupD3DDevice()
 		check(!GIsCriticalError);
 
 		// Ask all initialized FRenderResources to release their RHI resources.
-		for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
+		for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
 		{
 			FRenderResource* Resource = *ResourceIt;
 			check(Resource->IsInitialized());
 			Resource->ReleaseRHI();
 		}
 
-		for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
+		for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
 		{
 			ResourceIt->ReleaseDynamicRHI();
 		}
@@ -818,6 +801,11 @@ void FD3D12Device::CleanupD3DDevice()
 		// Delete array index 0 (the default context) last
 		for (int32 i = CommandContextArray.Num() - 1; i > 0; i--)
 		{
+			CommandContextArray[i]->FastAllocatorPagePool.CleanUpPages(0, true);
+			CommandContextArray[i]->FastAllocatorPagePool.Destroy();
+			CommandContextArray[i]->ConstantsAllocatorPagePool.CleanUpPages(0, true);
+			CommandContextArray[i]->ConstantsAllocatorPagePool.Destroy();
+
 			delete CommandContextArray[i];
 			CommandContextArray[i] = nullptr;
 		}
@@ -827,33 +815,50 @@ void FD3D12Device::CleanupD3DDevice()
 		// after the above signal frame
 		GetCommandListManager().SignalFrameComplete(true);
 
-		// Cleanup resources
-		DeferredDeletionQueue.Clear();
-
 		// Cleanup the allocator near the end, as some resources may be returned to the allocator
 		DefaultBufferAllocator.FreeDefaultBufferPools();
+
+		DefaultFastAllocatorPagePool.CleanUpPages(0, true);
+		DefaultFastAllocatorPagePool.Destroy();
+		BufferInitializerFastAllocatorPagePool.CleanUpPages(0, true);
+		BufferInitializerFastAllocatorPagePool.Destroy();
+
+		DefaultUploadHeapAllocator.CleanUpAllocations();
+		DefaultUploadHeapAllocator.Destroy();
+
+		TextureAllocator.CleanUpAllocations();
+		TextureAllocator.Destroy();
 		/*
 		// Cleanup thread resources
-        for (uint32 index; (index = InterlockedDecrement(&NumThreadDynamicHeapAllocators)) != (uint32)-1;)
+		for (uint32 index; (index = InterlockedDecrement(&NumThreadDynamicHeapAllocators)) != (uint32)-1;)
 		{
-            FD3D12DynamicHeapAllocator* pHeapAllocator = ThreadDynamicHeapAllocatorArray[index];
+			FD3D12DynamicHeapAllocator* pHeapAllocator = ThreadDynamicHeapAllocatorArray[index];
 			pHeapAllocator->ReleaseAllResources();
 			delete(pHeapAllocator);
 		}
 		*/
 
-		// enable the code below to view detailed resource leaks report
-		//TRefCountPtr<ID3D11Debug> d3dDebug;
-		//if (SUCCEEDED(Direct3DDevice->QueryInterface(__uuidof(ID3D11Debug), (void**)d3dDebug.GetInitReference())))
-		//{
-		//          d3dDebug->ReportLiveDeviceObjects((D3D11_RLDO_FLAGS)0x2);
-		//}
+		// Cleanup resources
+		DeferredDeletionQueue.Clear();
 
 		CommandListManager.Destroy();
 		CopyCommandListManager.Destroy();
 
 		// Flush all pending deletes before destroying the device.
 		FRHIResource::FlushPendingDeletes();
+
+		const bool bWithD3DDebug = D3D12RHI_ShouldCreateWithD3DDebug();
+		if (bWithD3DDebug)
+		{
+			TRefCountPtr<ID3D12DebugDevice> Debug;
+
+			if (SUCCEEDED(Direct3DDevice->QueryInterface(IID_PPV_ARGS(Debug.GetInitReference()))))
+			{
+				D3D12_RLDO_FLAGS rldoFlags = D3D12_RLDO_DETAIL;
+
+				Debug->ReportLiveDeviceObjects(rldoFlags);
+			}
+		}
 
 		Direct3DDevice = nullptr;
 	}
@@ -885,5 +890,5 @@ void FD3D12CommandContext::RHIFlushComputeShaderCache()
 
 void* FD3D12DynamicRHI::RHIGetNativeDevice()
 {
-    return (void*)GetRHIDevice()->GetDevice();
+	return (void*)GetRHIDevice()->GetDevice();
 }

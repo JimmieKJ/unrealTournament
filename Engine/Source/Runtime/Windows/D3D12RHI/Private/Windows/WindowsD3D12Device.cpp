@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12Device.cpp: D3D device RHI implementation.
@@ -113,7 +113,7 @@ static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL M
 	ID3D12Device* D3DDevice = nullptr;
 
 	// Use a debug device if specified on the command line.
-	if(D3D12RHI_ShouldCreateWithD3DDebug())
+	if (D3D12RHI_ShouldCreateWithD3DDebug())
 	{
 		ID3D12Debug* DebugController = nullptr;
 		VERIFYD3D11RESULT(D3D12GetDebugInterface(IID_PPV_ARGS(&DebugController)));
@@ -169,45 +169,45 @@ static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL M
 
 // Re-enable C6322
 #if USING_CODE_ANALYSIS
-	MSVC_PRAGMA(warning(pop)) 
+	MSVC_PRAGMA(warning(pop))
 #endif // USING_CODE_ANALYSIS
 
 bool FD3D12DynamicRHIModule::IsSupported()
 {
 	// if not computed yet
-    if (ChosenAdapter.IsValid() == 0)
+	if (ChosenAdapter.IsValid() == 0)
 	{
 		FindAdapter();
 	}
 	if (ChosenAdapter.IsValid() == 0)
-    {
-        return false;
-    }
-    else
-    {
-        // The hardware must support at least 10.0 (usually 11_0, 10_0 or 10_1).
-        return ChosenAdapter.IsValid()
-            && ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_1
-            && ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_2
-            && ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_3;
-    }
+	{
+		return false;
+	}
+	else
+	{
+		// The hardware must support at least 10.0 (usually 11_0, 10_0 or 10_1).
+		return ChosenAdapter.IsValid()
+			&& ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_1
+			&& ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_2
+			&& ChosenAdapter.MaxSupportedFeatureLevel != D3D_FEATURE_LEVEL_9_3;
+	}
 }
 
 namespace D3D12RHI
 {
-const TCHAR* GetFeatureLevelString(D3D_FEATURE_LEVEL FeatureLevel)
-{
-	switch (FeatureLevel)
+	const TCHAR* GetFeatureLevelString(D3D_FEATURE_LEVEL FeatureLevel)
 	{
+		switch (FeatureLevel)
+		{
 		case D3D_FEATURE_LEVEL_9_1:		return TEXT("9_1");
 		case D3D_FEATURE_LEVEL_9_2:		return TEXT("9_2");
 		case D3D_FEATURE_LEVEL_9_3:		return TEXT("9_3");
 		case D3D_FEATURE_LEVEL_10_0:	return TEXT("10_0");
 		case D3D_FEATURE_LEVEL_10_1:	return TEXT("10_1");
 		case D3D_FEATURE_LEVEL_11_0:	return TEXT("11_0");
+		}
+		return TEXT("X_X");
 	}
-	return TEXT("X_X");
-}
 }
 
 static uint32 CountAdapterOutputs(TRefCountPtr<IDXGIAdapter>& Adapter)
@@ -229,8 +229,8 @@ static uint32 CountAdapterOutputs(TRefCountPtr<IDXGIAdapter>& Adapter)
 
 void FD3D12DynamicRHIModule::FindAdapter()
 {
-    // Once we chosen one we don't need to do it again.
-    check(ChosenAdapter.IsValid() == 0);
+	// Once we've chosen one we don't need to do it again.
+	check(ChosenAdapter.IsValid() == 0);
 
 	// Try to create the DXGIFactory.  This will fail if we're not running Vista.
 	TRefCountPtr<IDXGIFactory4> DXGIFactory;
@@ -291,10 +291,10 @@ void FD3D12DynamicRHIModule::FindAdapter()
 				bool bIsAMD = AdapterDesc.VendorId == 0x1002;
 				bool bIsIntel = AdapterDesc.VendorId == 0x8086;
 				bool bIsNVIDIA = AdapterDesc.VendorId == 0x10DE;
-                bool bIsWARP = FParse::Param(FCommandLine::Get(), TEXT("warp"));
+				bool bIsWARP = FParse::Param(FCommandLine::Get(), TEXT("warp"));
 
 				if (bIsAMD) bIsAnyAMD = true;
-                if (bIsIntel) bIsAnyIntel = true;
+				if (bIsIntel) bIsAnyIntel = true;
 				if (bIsNVIDIA) bIsAnyNVIDIA = true;
 
 				// Simple heuristic but without profiling it's hard to do better
@@ -306,14 +306,14 @@ void FD3D12DynamicRHIModule::FindAdapter()
 
 				if (!OutputCount && !bIsWARP)
 				{
-                    // Add special check to support WARP, which does not have an output associated with it.
+					// Add special check to support WARP, which does not have an output associated with it.
 
 					// This device has no outputs. Reject it, 
 					// http://msdn.microsoft.com/en-us/library/windows/desktop/bb205075%28v=vs.85%29.aspx#WARP_new_for_Win8
 					continue;
 				}
 
-				if(bIsPerfHUD && !bAllowPerfHUD)
+				if (bIsPerfHUD && !bAllowPerfHUD)
 				{
 					// we don't allow the PerfHUD adapter
 					continue;
@@ -368,15 +368,15 @@ FDynamicRHI* FD3D12DynamicRHIModule::CreateRHI()
 	TRefCountPtr<IDXGIFactory4> DXGIFactory;
 	SafeCreateDXGIFactory(DXGIFactory.GetInitReference());
 	check(DXGIFactory);
-    return new FD3D12DynamicRHI(DXGIFactory, ChosenAdapter);
+	return new FD3D12DynamicRHI(DXGIFactory, ChosenAdapter);
 }
 
 void FD3D12DynamicRHI::Init()
 {
 #if UE_BUILD_DEBUG	
 	SubmissionLockStalls = 0;
-    DrawCount = 0;
-    PresentCount = 0;
+	DrawCount = 0;
+	PresentCount = 0;
 #endif
 	InitD3DDevices();
 }
@@ -391,34 +391,35 @@ void FD3D12DynamicRHI::PostInit()
 
 void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
 {
-    bool bIsWARP = FParse::Param(FCommandLine::Get(), TEXT("warp"));
+	bool bIsWARP = FParse::Param(FCommandLine::Get(), TEXT("warp"));
 
-    check(!GIsRHIInitialized);
+	check(!GIsRHIInitialized);
 
-    DXGI_ADAPTER_DESC* AdapterDesc = MainDevice->GetD3DAdapterDesc();
-   
+	DXGI_ADAPTER_DESC* AdapterDesc = MainDevice->GetD3DAdapterDesc();
+
     GTexturePoolSize = 0;
 
     // TODO MS: We need to do this after CreateDevice due to a bug in QueryVideoMemoryInfo
     GRHIAdapterName = AdapterDesc->Description;
     GRHIVendorId = AdapterDesc->VendorId;
+	GRHIDeviceId = AdapterDesc->DeviceId;
 
-    // Issue: 32bit windows doesn't report 64bit value, we take what we get.
-    FD3D12GlobalStats::GDedicatedVideoMemory = int64(AdapterDesc->DedicatedVideoMemory);
-    FD3D12GlobalStats::GDedicatedSystemMemory = int64(AdapterDesc->DedicatedSystemMemory);
-    FD3D12GlobalStats::GSharedSystemMemory = int64(AdapterDesc->SharedSystemMemory);
+	// Issue: 32bit windows doesn't report 64bit value, we take what we get.
+	FD3D12GlobalStats::GDedicatedVideoMemory = int64(AdapterDesc->DedicatedVideoMemory);
+	FD3D12GlobalStats::GDedicatedSystemMemory = int64(AdapterDesc->DedicatedSystemMemory);
+	FD3D12GlobalStats::GSharedSystemMemory = int64(AdapterDesc->SharedSystemMemory);
 
-    // Total amount of system memory, clamped to 8 GB
-    int64 TotalPhysicalMemory = FMath::Min(int64(FPlatformMemory::GetConstants().TotalPhysicalGB), 8ll) * (1024ll * 1024ll * 1024ll);
+	// Total amount of system memory, clamped to 8 GB
+	int64 TotalPhysicalMemory = FMath::Min(int64(FPlatformMemory::GetConstants().TotalPhysicalGB), 8ll) * (1024ll * 1024ll * 1024ll);
 
-    // Consider 50% of the shared memory but max 25% of total system memory.
-    int64 ConsideredSharedSystemMemory = FMath::Min(FD3D12GlobalStats::GSharedSystemMemory / 2ll, TotalPhysicalMemory / 4ll);
+	// Consider 50% of the shared memory but max 25% of total system memory.
+	int64 ConsideredSharedSystemMemory = FMath::Min(FD3D12GlobalStats::GSharedSystemMemory / 2ll, TotalPhysicalMemory / 4ll);
 
-    IDXGIAdapter3* DxgiAdapter3 = MainDevice->GetAdapter3();
-    TRefCountPtr<IDXGIAdapter> EnumAdapter;
+	IDXGIAdapter3* DxgiAdapter3 = MainDevice->GetAdapter3();
+	TRefCountPtr<IDXGIAdapter> EnumAdapter;
 
 	// Hack to handle a kernel bug where QueryVideomMemoryInfo can't be called on WARP
-	DXGI_QUERY_VIDEO_MEMORY_INFO LocalVideoMemoryInfo = {};
+	DXGI_QUERY_VIDEO_MEMORY_INFO LocalVideoMemoryInfo ={};
 	if (!bIsWARP)
 	{
 		FD3D12GlobalStats::GTotalGraphicsMemory = 0;
@@ -466,58 +467,58 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
 
 
 
-    if (GPoolSizeVRAMPercentage > 0)
-    {
-        float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * float(FD3D12GlobalStats::GTotalGraphicsMemory);
+	if (GPoolSizeVRAMPercentage > 0)
+	{
+		float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * float(FD3D12GlobalStats::GTotalGraphicsMemory);
 
-        // Truncate GTexturePoolSize to MB (but still counted in bytes)
-        GTexturePoolSize = int64(FGenericPlatformMath::TruncToFloat(PoolSize / 1024.0f / 1024.0f)) * 1024 * 1024;
+		// Truncate GTexturePoolSize to MB (but still counted in bytes)
+		GTexturePoolSize = int64(FGenericPlatformMath::TruncToFloat(PoolSize / 1024.0f / 1024.0f)) * 1024 * 1024;
 
-        UE_LOG(LogRHI, Log, TEXT("Texture pool is %llu MB (%d%% of %llu MB)"),
-            GTexturePoolSize / 1024 / 1024,
-            GPoolSizeVRAMPercentage,
-            FD3D12GlobalStats::GTotalGraphicsMemory / 1024 / 1024);
-    }
+		UE_LOG(LogRHI, Log, TEXT("Texture pool is %llu MB (%d%% of %llu MB)"),
+			GTexturePoolSize / 1024 / 1024,
+			GPoolSizeVRAMPercentage,
+			FD3D12GlobalStats::GTotalGraphicsMemory / 1024 / 1024);
+	}
 
 #if (UE_BUILD_SHIPPING && WITH_EDITOR) && PLATFORM_WINDOWS && !PLATFORM_64BITS
-    // Disable PIX for windows in the shipping editor builds
-    D3DPERF_SetOptions(1);
+	// Disable PIX for windows in the shipping editor builds
+	D3DPERF_SetOptions(1);
 #endif
 
-    // Multi-threaded resource creation is always supported in DX12.
-    GRHISupportsAsyncTextureCreation = true;
+	// Multi-threaded resource creation is always supported in DX12.
+	GRHISupportsAsyncTextureCreation = true;
 
-    GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_PCD3D_ES2;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_PCD3D_ES2;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_PCD3D_ES3_1;
-    GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_PCD3D_SM4;
-    GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_PCD3D_SM5;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_PCD3D_SM4;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_PCD3D_SM5;
 
-    if (IsRHIDeviceIntel())
-    {
-        // MS: To work around current known issue on Intel, TextureQuality be '0'.
-        // SetQualityLevels responsible for setting this value, must be re-run now after device creation.
-        Scalability::FQualityLevels currentQualityLevels = Scalability::GetQualityLevels();
-        Scalability::SetQualityLevels(currentQualityLevels);
-    }
+	if (IsRHIDeviceIntel())
+	{
+		// MS: To work around current known issue on Intel, TextureQuality be '0'.
+		// SetQualityLevels responsible for setting this value, must be re-run now after device creation.
+		Scalability::FQualityLevels currentQualityLevels = Scalability::GetQualityLevels();
+		Scalability::SetQualityLevels(currentQualityLevels);
+	}
 
-    // Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
-    for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
-    {
-        ResourceIt->InitRHI();
-    }
+	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
+	for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
+	{
+		ResourceIt->InitRHI();
+	}
 	// Dynamic resources can have dependencies on static resources (with uniform buffers) and must initialized last!
-    for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
-    {
-        ResourceIt->InitDynamicRHI();
-    }
+	for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
+	{
+		ResourceIt->InitDynamicRHI();
+	}
 
-    FHardwareInfo::RegisterHardwareInfo(NAME_RHI, TEXT("D3D12"));
+	FHardwareInfo::RegisterHardwareInfo(NAME_RHI, TEXT("D3D12"));
 
-    GRHISupportsTextureStreaming = true;
+	GRHISupportsTextureStreaming = true;
 	GRHISupportsFirstInstance = true;
 
-    // Set the RHI initialized flag.
-    GIsRHIInitialized = true;
+	// Set the RHI initialized flag.
+	GIsRHIInitialized = true;
 }
 
 
@@ -538,11 +539,11 @@ void FD3D12Device::InitD3DDevice()
 		const TCHAR* Reason = TEXT("?");
 		switch (hRes)
 		{
-			case DXGI_ERROR_DEVICE_HUNG:			Reason = TEXT("HUNG"); break;
-			case DXGI_ERROR_DEVICE_REMOVED:			Reason = TEXT("REMOVED"); break;
-			case DXGI_ERROR_DEVICE_RESET:			Reason = TEXT("RESET"); break;
-			case DXGI_ERROR_DRIVER_INTERNAL_ERROR:	Reason = TEXT("INTERNAL_ERROR"); break;
-			case DXGI_ERROR_INVALID_CALL:			Reason = TEXT("INVALID_CALL"); break;
+		case DXGI_ERROR_DEVICE_HUNG:			Reason = TEXT("HUNG"); break;
+		case DXGI_ERROR_DEVICE_REMOVED:			Reason = TEXT("REMOVED"); break;
+		case DXGI_ERROR_DEVICE_RESET:			Reason = TEXT("RESET"); break;
+		case DXGI_ERROR_DRIVER_INTERNAL_ERROR:	Reason = TEXT("INTERNAL_ERROR"); break;
+		case DXGI_ERROR_INVALID_CALL:			Reason = TEXT("INVALID_CALL"); break;
 		}
 
 		bDeviceRemoved = false;
@@ -560,11 +561,11 @@ void FD3D12Device::InitD3DDevice()
 	{
 		// Determine the adapter and device type to use.
 		TRefCountPtr<IDXGIAdapter> Adapter;
-		
+
 		// In Direct3D 11, if you are trying to create a hardware or a software device, set pAdapter != NULL which constrains the other inputs to be:
 		//		DriverType must be D3D_DRIVER_TYPE_UNKNOWN 
 		//		Software must be NULL. 
-		D3D_DRIVER_TYPE DriverType = D3D_DRIVER_TYPE_UNKNOWN;	
+		D3D_DRIVER_TYPE DriverType = D3D_DRIVER_TYPE_UNKNOWN;
 
 		// Use a debug device if specified on the command line.
 		const bool bWithD3DDebug = D3D12RHI_ShouldCreateWithD3DDebug();
@@ -577,39 +578,44 @@ void FD3D12Device::InitD3DDevice()
 
 			UE_LOG(LogD3D12RHI, Log, TEXT("InitD3DDevice: -D3DDebug = %s"), bWithD3DDebug ? TEXT("on") : TEXT("off"));
 		}
-        
-        TRefCountPtr<IDXGIAdapter> EnumAdapter;
 
-        if (DXGIFactory->EnumAdapters(GetAdapterIndex(), EnumAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND)
-        {
-            if (EnumAdapter)
-            {
-                if (SUCCEEDED(EnumAdapter->GetDesc(&AdapterDesc)))
-                {
-                    Adapter = EnumAdapter;
-
-                    const bool bIsPerfHUD = !FCString::Stricmp(AdapterDesc.Description, TEXT("NVIDIA PerfHUD"));
-
-                    if (bIsPerfHUD)
-                    {
-                        DriverType = D3D_DRIVER_TYPE_REFERENCE;
-                    }
-
-                    VERIFYD3D11RESULT(EnumAdapter->QueryInterface(_uuidof(DxgiAdapter3), (void **)DxgiAdapter3.GetInitReference()));
-                }
-                else
-                {
-                    check(!"Internal error, GetDesc() failed but before it worked")
-                }
-            }
-        }
-        else
-        {
-            check(!"Internal error, EnumAdapters() failed but before it worked")
-        }
-
-        D3D_FEATURE_LEVEL ActualFeatureLevel = GetFeatureLevel();
+#if USE_PIX
+		UE_LOG(LogD3D12RHI, Log, TEXT("Emitting draw events for PIX profiling."));
+		GEmitDrawEvents = true;
+#endif
 		
+		TRefCountPtr<IDXGIAdapter> EnumAdapter;
+
+		if (DXGIFactory->EnumAdapters(GetAdapterIndex(), EnumAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND)
+		{
+			if (EnumAdapter)
+			{
+				if (SUCCEEDED(EnumAdapter->GetDesc(&AdapterDesc)))
+				{
+					Adapter = EnumAdapter;
+
+					const bool bIsPerfHUD = !FCString::Stricmp(AdapterDesc.Description, TEXT("NVIDIA PerfHUD"));
+
+					if (bIsPerfHUD)
+					{
+						DriverType = D3D_DRIVER_TYPE_REFERENCE;
+					}
+
+					VERIFYD3D11RESULT(EnumAdapter->QueryInterface(_uuidof(DxgiAdapter3), (void **)DxgiAdapter3.GetInitReference()));
+				}
+				else
+				{
+					check(!"Internal error, GetDesc() failed but before it worked")
+				}
+			}
+		}
+		else
+		{
+			check(!"Internal error, EnumAdapters() failed but before it worked")
+		}
+
+		D3D_FEATURE_LEVEL ActualFeatureLevel = GetFeatureLevel();
+
 		if (FParse::Param(FCommandLine::Get(), TEXT("warp")))
 		{
 			TRefCountPtr<IDXGIAdapter> WarpAdapter;
@@ -632,15 +638,6 @@ void FD3D12Device::InitD3DDevice()
 				IID_PPV_ARGS(Direct3DDevice.GetInitReference())
 				));
 		}
-
-        TRefCountPtr<ID3D12RootSignature> NullRS;
-        {
-            CD3DX12_ROOT_SIGNATURE_DESC NullRSDesc;
-            NullRSDesc.Init(0, nullptr, 0);
-            TRefCountPtr<ID3DBlob> Blob;
-            VERIFYD3D11RESULT(D3D12SerializeRootSignature(&NullRSDesc, D3D_ROOT_SIGNATURE_VERSION_1, Blob.GetInitReference(), nullptr));
-            VERIFYD3D11RESULT(Direct3DDevice->CreateRootSignature(0, Blob->GetBufferPointer(), Blob->GetBufferSize(), IID_PPV_ARGS(NullRS.GetInitReference())));
-        }
 
 #if UE_BUILD_DEBUG	
 		//break on debug
@@ -672,20 +669,40 @@ void FD3D12Device::InitD3DDevice()
 		UAVAllocator.Init(GetDevice());
 		SamplerAllocator.Init(GetDevice());
 		CBVAllocator.Init(GetDevice());
+		GlobalSamplerHeap.Init(NUM_SAMPLER_DESCRIPTORS, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+
+		// This value can be tuned on a per app basis. I.e. most apps will never run into descriptor heap pressure so
+		// can make this global heap smaller
+		uint32 NumGlobalViewDesc = NUM_VIEW_DESCRIPTORS_TIER_1;
+		switch (ResourceBindingTier)
+		{
+		case D3D12_RESOURCE_BINDING_TIER_1:
+			NumGlobalViewDesc = NUM_VIEW_DESCRIPTORS_TIER_1;
+			break;
+		case D3D12_RESOURCE_BINDING_TIER_2:
+			NumGlobalViewDesc = NUM_VIEW_DESCRIPTORS_TIER_2;
+			break;
+		case D3D12_RESOURCE_BINDING_TIER_3:
+		default:
+			NumGlobalViewDesc = NUM_VIEW_DESCRIPTORS_TIER_3;
+			break;
+		}
+		
+		GlobalViewHeap.Init(NumGlobalViewDesc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 		// Init the occlusion query heap
 		OcclusionQueryHeap.Init();
 
 		// Create the main set of command lists used for rendering a frame
-		CommandListManager.Create(Direct3DDevice, D3D12_COMMAND_LIST_TYPE_DIRECT);
-		CopyCommandListManager.Create(Direct3DDevice, D3D12_COMMAND_LIST_TYPE_COPY);
+		CommandListManager.Create();
+		CopyCommandListManager.Create();
 
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
 		// Add some filter outs for known debug spew messages (that we don't care about)
 		if (D3D12RHI_ShouldCreateWithD3DDebug())
 		{
 			ID3D12InfoQueue *pd3dInfoQueue = nullptr;
-            VERIFYD3D11RESULT(Direct3DDevice->QueryInterface(__uuidof(ID3D12InfoQueue), (void**)&pd3dInfoQueue));
+			VERIFYD3D11RESULT(Direct3DDevice->QueryInterface(__uuidof(ID3D12InfoQueue), (void**)&pd3dInfoQueue));
 			if (pd3dInfoQueue)
 			{
 				D3D12_INFO_QUEUE_FILTER NewFilter;
@@ -701,7 +718,7 @@ void FD3D12Device::InitD3DDevice()
 					// OMSETRENDERTARGETS_INVALIDVIEW - d3d will complain if depth and color targets don't have the exact same dimensions, but actually
 					//	if the color target is smaller then things are ok.  So turn off this error.  There is a manual check in FD3D12DynamicRHI::SetRenderTarget
 					//	that tests for depth smaller than color and MSAA settings to match.
-					D3D12_MESSAGE_ID_OMSETRENDERTARGETS_INVALIDVIEW, 
+					D3D12_MESSAGE_ID_OMSETRENDERTARGETS_INVALIDVIEW,
 
 					// QUERY_BEGIN_ABANDONING_PREVIOUS_RESULTS - The RHI exposes the interface to make and issue queries and a separate interface to use that data.
 					//		Currently there is a situation where queries are issued and the results may be ignored on purpose.  Filtering out this message so it doesn't
@@ -716,19 +733,19 @@ void FD3D12Device::InitD3DDevice()
 					// D3D12_MESSAGE_ID_COMMAND_LIST_DRAW_INDEX_BUFFER_TOO_SMALL - This warning gets triggered by Slate draws which are actually using a valid index range.
 					//		The invalid warning seems to only happen when VS 2012 is installed.  Reported to MS.  
 					//		There is now an assert in DrawIndexedPrimitive to catch any valid errors reading from the index buffer outside of range.
-                    D3D12_MESSAGE_ID_COMMAND_LIST_DRAW_INDEX_BUFFER_TOO_SMALL,
+					D3D12_MESSAGE_ID_COMMAND_LIST_DRAW_INDEX_BUFFER_TOO_SMALL,
 
 					// D3D12_MESSAGE_ID_DEVICE_DRAW_RENDERTARGETVIEW_NOT_SET - This warning gets triggered by shadow depth rendering because the shader outputs
 					//		a color but we don't bind a color render target. That is safe as writes to unbound render targets are discarded.
 					//		Also, batched elements triggers it when rendering outside of scene rendering as it outputs to the GBuffer containing normals which is not bound.
 					//(D3D12_MESSAGE_ID)3146081, // D3D12_MESSAGE_ID_DEVICE_DRAW_RENDERTARGETVIEW_NOT_SET,
-                    // BUGBUG: There is a D3D12_MESSAGE_ID_DEVICE_DRAW_DEPTHSTENCILVIEW_NOT_SET, why not one for RT?
+					// BUGBUG: There is a D3D12_MESSAGE_ID_DEVICE_DRAW_DEPTHSTENCILVIEW_NOT_SET, why not one for RT?
 
-                    // D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE/D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE - 
-                    //      This warning gets triggered by ClearDepthStencilView/ClearRenderTargetView because when the resource was created
-                    //      it wasn't passed an optimized clear color (see CreateCommitedResource). This shows up a lot and is very noisy.
-                    D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
-                    D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE,
+					// D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE/D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE - 
+					//      This warning gets triggered by ClearDepthStencilView/ClearRenderTargetView because when the resource was created
+					//      it wasn't passed an optimized clear color (see CreateCommitedResource). This shows up a lot and is very noisy.
+					D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+					D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE,
 
 					// D3D12_MESSAGE_ID_EXECUTECOMMANDLISTS_GPU_WRITTEN_READBACK_RESOURCE_MAPPED - This warning gets triggered by ExecuteCommandLists.
 					//		if it contains a readback resource that still has mapped subresources when executing a command list that performs a copy operation to the resource.
@@ -794,7 +811,7 @@ bool FD3D12DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 
 	HRESULT HResult = S_OK;
 	TRefCountPtr<IDXGIAdapter> Adapter;
-    //TODO: should only be called on display out device
+	//TODO: should only be called on display out device
 	HResult = DXGIFactory->EnumAdapters(GetRHIDevice()->GetAdapterIndex(), Adapter.GetInitReference());
 
 	if (DXGI_ERROR_NOT_FOUND == HResult)
@@ -814,7 +831,7 @@ bool FD3D12DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 	}
 
 	int32 CurrentOutput = 0;
-	do 
+	do
 	{
 		TRefCountPtr<IDXGIOutput> Output;
 		HResult = Adapter->EnumOutputs(CurrentOutput, Output.GetInitReference());
