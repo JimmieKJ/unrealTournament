@@ -313,7 +313,7 @@ void SUTQuickMatchWindow::OnServerBeaconResult(AUTServerBeaconClient* Sender, FS
 		{
 			// Discard training ground hubs if the player isn't a beginner
 			if ( !bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) 
-				 			{
+			{
 				PingTrackers.RemoveAt(i, 1);
 				break;
 			}
@@ -322,7 +322,6 @@ void SUTQuickMatchWindow::OnServerBeaconResult(AUTServerBeaconClient* Sender, FS
 				PingTrackers[i].Server->Ping = Sender->Ping;
 
 				// Insert sort it in to the final list of servers by ping.
-			
 				bool bInserted = false;
 				for (int32 Idx=0; Idx < FinalList.Num(); Idx++)
 				{

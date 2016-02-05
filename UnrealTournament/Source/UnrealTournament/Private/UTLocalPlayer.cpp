@@ -1387,7 +1387,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(IsConsideredABeginnner(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
+			UTBasePlayer->ServerReceiveRank(IsConsideredABeginnner(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1479,7 +1479,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(IsConsideredABeginnner(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(IsConsideredABeginnner(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
 		}
 	}
 }
@@ -1749,22 +1749,22 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	}
 
 	int32 MaxElo = 0;
-	bool bHasValidElo = DuelEloValid() || DMEloValid() || TDMEloValid() || ShowdownEloValid();
+	bool bHasValidElo = (DuelMatchesPlayed > 10) || (FFAMatchesPlayed > 10) || (TDMMatchesPlayed > 10) || (ShowdownMatchesPlayed > 10);
 	if (bHasValidElo)
 	{
-		if (DuelEloValid())
+		if (DuelMatchesPlayed > 10)
 		{
 			MaxElo = FMath::Max(MaxElo, GetRankDuel());
 		}
-		if (DMEloValid())
+		if (FFAMatchesPlayed > 10)
 		{
 			MaxElo = FMath::Max(MaxElo, GetRankDM());
 		}
-		if (TDMEloValid())
+		if (TDMMatchesPlayed > 10)
 		{
 			MaxElo = FMath::Max(MaxElo, GetRankTDM());
 		}
-		if (ShowdownEloValid())
+		if (ShowdownMatchesPlayed > 10)
 		{
 			MaxElo = FMath::Max(MaxElo, GetRankShowdown());
 		}
@@ -1825,9 +1825,16 @@ void UUTLocalPlayer::GetBadgeFromELO(bool bIsBeginner, int32 EloRating, bool bEl
 
 bool UUTLocalPlayer::IsConsideredABeginnner()
 {
-	float BaseELO = GetBaseELORank();
-
-	return (BaseELO < 1660) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed + ShowdownMatchesPlayed) < 50;
+	if (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed + ShowdownMatchesPlayed < 50)
+	{
+		bool bHasValidElo = (DuelMatchesPlayed > 10) || (FFAMatchesPlayed > 10) || (TDMMatchesPlayed > 10) || (ShowdownMatchesPlayed > 10);
+		if (!bHasValidElo)
+		{
+			return true;
+		}
+		return (GetBaseELORank() < 1590);
+	}
+	return false;
 }
 
 int32 UUTLocalPlayer::GetHatVariant() const
@@ -2050,6 +2057,7 @@ void UUTLocalPlayer::SetDefaultURLOption(const FString& Key, const FString& Valu
 	DefaultURL.AddOption(*FString::Printf(TEXT("%s=%s"), *Key, *Value));
 	DefaultURL.SaveURLConfig(TEXT("DefaultPlayer"), *Key, GGameIni);
 }
+
 void UUTLocalPlayer::ClearDefaultURLOption(const FString& Key)
 {
 	FURL DefaultURL;

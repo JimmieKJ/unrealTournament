@@ -463,12 +463,13 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveRank(LP->IsConsideredABeginnner(), LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), LP->DuelEloValid(), LP->CTFEloValid(), LP->TDMEloValid(), LP->DMEloValid(), LP->ShowdownEloValid());
+		ServerReceiveRank(LP->IsConsideredABeginnner(), LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), LP->DuelEloMatches(), LP->CTFEloMatches(), LP->TDMEloMatches(), LP->DMEloMatches(), LP->ShowdownEloMatches());
 	}
 }
 
-bool AUTBasePlayerController::ServerReceiveRank_Validate(bool bIsBeginner, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid) { return true; }
-void AUTBasePlayerController::ServerReceiveRank_Implementation(bool bIsBeginner, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid)
+// FIXMESTEVE shouldn't receive this from client
+bool AUTBasePlayerController::ServerReceiveRank_Validate(bool bIsBeginner, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, int32 DuelMatchesPlayed, int32 CTFMatchesPlayed, int32 TDMMatchesPlayed, int32 DMMatchesPlayed, int32 ShowdownMatchesPlayed) { return true; }
+void AUTBasePlayerController::ServerReceiveRank_Implementation(bool bIsBeginner, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, int32 DuelMatchesPlayed, int32 CTFMatchesPlayed, int32 TDMMatchesPlayed, int32 DMMatchesPlayed, int32 ShowdownMatchesPlayed)
 {
 	if (UTPlayerState)
 	{
@@ -479,11 +480,11 @@ void AUTBasePlayerController::ServerReceiveRank_Implementation(bool bIsBeginner,
 		UTPlayerState->DMRank = NewDMRank;
 		UTPlayerState->ShowdownRank = NewShowdownRank;
 		UTPlayerState->TotalChallengeStars = TotalStars;
-		UTPlayerState->bDuelEloValid = bDuelEloValid;
-		UTPlayerState->bCTFEloValid = bCTFEloValid;
-		UTPlayerState->bTDMEloValid = bTDMEloValid;
-		UTPlayerState->bDMEloValid = bDMEloValid;
-		UTPlayerState->bShowdownEloValid = bShowdownEloValid;
+		UTPlayerState->bDuelEloValid = (DuelMatchesPlayed > 10);
+		UTPlayerState->bCTFEloValid = (CTFMatchesPlayed > 10);
+		UTPlayerState->bTDMEloValid = (TDMMatchesPlayed > 10);
+		UTPlayerState->bDMEloValid = (DMMatchesPlayed > 10);
+		UTPlayerState->bShowdownEloValid = (ShowdownMatchesPlayed > 10);
 
 		AUTBaseGameMode* BaseGameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 		if (BaseGameMode)

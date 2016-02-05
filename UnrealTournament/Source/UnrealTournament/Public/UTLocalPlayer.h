@@ -482,11 +482,11 @@ public:
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
 	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
 
-	virtual bool DuelEloValid() { return DuelMatchesPlayed > 10; }
-	virtual bool CTFEloValid() { return CTFMatchesPlayed > 10; }
-	virtual bool TDMEloValid() { return TDMMatchesPlayed > 10; }
-	virtual bool DMEloValid() { return FFAMatchesPlayed > 10; }
-	virtual bool ShowdownEloValid() { return ShowdownMatchesPlayed > 10; }
+	virtual int32 DuelEloMatches() { return DuelMatchesPlayed; }
+	virtual int32 CTFEloMatches() { return CTFMatchesPlayed; }
+	virtual int32 TDMEloMatches() { return TDMMatchesPlayed; }
+	virtual int32 DMEloMatches() { return FFAMatchesPlayed; }
+	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
 
 	// Returns what badge should represent player's skill level.
 	UFUNCTION(BlueprintCallable, Category = Badge)

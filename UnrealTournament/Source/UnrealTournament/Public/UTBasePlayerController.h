@@ -108,7 +108,7 @@ public:
 	virtual void ClientGenericInitialization();
 
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerReceiveRank(bool bIsBeginner, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid);
+		virtual void ServerReceiveRank(bool bIsBeginner, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, int32 DuelMatchesPlayed, int32 CTFMatchesPlayed, int32 TDMMatchesPlayed, int32 DMMatchesPlayed, int32 ShowdownMatchesPlayed);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListBegin(const FString& CloudId);
