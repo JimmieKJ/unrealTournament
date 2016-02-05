@@ -140,6 +140,10 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	Settings.no_sandbox = true;
 	Settings.command_line_args_disabled = true;
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	Settings.remote_debugging_port = 8088;
+#endif
+
 	FString CefLogFile(FPaths::Combine(*FPaths::GameLogDir(), TEXT("cef3.log")));
 	CefLogFile = FPaths::ConvertRelativePathToFull(CefLogFile);
 	CefString(&Settings.log_file) = *CefLogFile;
