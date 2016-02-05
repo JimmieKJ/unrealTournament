@@ -117,8 +117,9 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	SightRadius = 20000.0f;
 	RotationRate = FRotator(300.0f, 300.0f, 0.0f);
 	PeripheralVision = 0.7f;
-	TrackingReactionTime = 0.28f;
-	MaxTrackingPredictionError = 0.22f;
+	TrackingReactionTime = 0.22f;
+	TrackingInterpTime = 0.2f;
+	MaxTrackingPredictionError = 0.2f;
 	MaxTrackingOffsetError = 0.15f;
 	TrackingErrorUpdateInterval = 0.4f;
 	TrackingErrorUpdateTime = 0.f;
@@ -127,6 +128,7 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	StoppedOffsetErrorReduction = 0.8f;
 	BothStoppedOffsetErrorReduction = 0.6f;
 	UsingSquadRouteIndex = INDEX_NONE;
+	DirectionChangeOffsetPct = 0.5f;
 
 	WaitForMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
 	WaitForLandingAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForLanding>(this, FName(TEXT("WaitForLanding")));
@@ -328,20 +330,18 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	float AimingSkill = Skill + Personality.Accuracy;
 
 	TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (AimingSkill + 2.0f);
+	TrackingInterpTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingInterpTime * 7.0f / (AimingSkill + 7.0f);
 
-	// no prediction error for really high skill bots
+	// very little prediction error for really high skill bots
 	// we still want some offset error because that will sometimes actually cause "correct" aim when combined with TrackingReactionTime
+	MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 5.0f / (AimingSkill + 2.0f);
 	if (AimingSkill > 7.0f)
 	{
-		MaxTrackingPredictionError = 0.f;
-	}
-	else
-	{
-		MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 5.0f / (AimingSkill + 2.0f);
+		MaxTrackingPredictionError *= 0.3f;
 	}
 	MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 6.0f / (AimingSkill + 2.0f);
 
-	TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 12.f / (AimingSkill + 5.f);
+	TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 12.f / (AimingSkill + 9.f);
 	TrackingPredictionError = MaxTrackingPredictionError;
 	AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 
@@ -936,6 +936,15 @@ void AUTBot::Tick(float DeltaTime)
 // @TODO FIXMESTEVE tracking offset error should go down at higher skills over time as long as enemy is still visible and tracked
 void AUTBot::UpdateTrackingError(bool bNewEnemy)
 {
+	if (bNewEnemy)
+	{
+		TrackedVelocity = FVector(0.f);
+	}
+	else if (bLargeTrackedVelocityChange)
+	{
+		// possibly increase tracking error if enemy just had sudden direction change
+		AdjustedMaxTrackingOffsetError = FMath::Max(AdjustedMaxTrackingOffsetError, DirectionChangeOffsetPct*MaxTrackingOffsetError);
+	}
 	if (bNewEnemy || GetWorld()->TimeSeconds > TrackingErrorUpdateTime)
 	{
 		TrackingPredictionError = MaxTrackingPredictionError * (2.f * FMath::FRand() - 1.f);
@@ -1476,7 +1485,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 		{
 			const float WorldTime = GetWorld()->TimeSeconds;
 
-			TrackedVelocity = (GetFocusActor() != NULL) ? GetFocusActor()->GetVelocity() : FVector::ZeroVector;
+			FVector NewTrackedVelocity = (GetFocusActor() != NULL) ? GetFocusActor()->GetVelocity() : FVector::ZeroVector;
 			bLastCanAttackSuccess = false;
 
 			// warning: assumption that if bot wants to shoot an enemy Pawn it always sets it as Enemy
@@ -1492,6 +1501,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 					}
 				}
 				bool bGotPredictedPosition = false;
+				bLargeTrackedVelocityChange = false;
 				if (SavedPositions.Num() > 1)
 				{
 					// determine his position and velocity at the appropriate point in the past
@@ -1500,12 +1510,19 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 						if (SavedPositions[i].Time > WorldTime - TrackingReactionTime)
 						{
 							FVector TargetLoc = SavedPositions[i - 1].Position + (SavedPositions[i].Position - SavedPositions[i - 1].Position) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
-							TrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
+							NewTrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
+							float VelInterpTime = FMath::Min((GetWorld()->GetTimeSeconds() - TrackingTimeStamp) / TrackingInterpTime, 1.f);
+							TrackingTimeStamp = GetWorld()->GetTimeSeconds();
+							TrackedVelocity = (1.f - VelInterpTime)*TrackedVelocity + VelInterpTime*NewTrackedVelocity;
+							TrackedVelocity.Z = NewTrackedVelocity.Z; // check it doesn't disappear, check vs dodging, adad, faster catch up when stop
+							// fixme more shoot at feet with rocket
+							bLargeTrackedVelocityChange = EnemyUTC && !SavedPositions[i - 1].Velocity.IsNearlyZero() && !SavedPositions[i].Velocity.IsNearlyZero() && (SavedPositions[i - 1].Velocity.Z == 0.f) && (SavedPositions[i].Velocity.Z != 0.f) && (SavedPositions[i].Velocity.Size2D() > 1.2f*EnemyUTC->GetCharacterMovement()->MaxWalkSpeed);
 							FVector SideDir = ((TargetLoc - P->GetActorLocation()) ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
-							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FLinearColor::White, false);
-							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*(TrackingReactionTime + TrackingPredictionError), 40.f, 8, FLinearColor::Yellow, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc + NewTrackedVelocity*TrackingReactionTime, 40.f, 8, FColor::White, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FColor::Yellow, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*(TrackingReactionTime + TrackingPredictionError), 40.f, 8, FColor::Red, false);
 							TargetLoc = TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError) + SideDir * (TrackingOffsetError * FMath::Min<float>(500.f, (TargetLoc - P->GetActorLocation()).Size()));
-							//DrawDebugSphere(GetWorld(), TargetLoc, 40.f, 8, FLinearColor::Red, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc, 40.f, 8, FColor::Red, false); // FIXME THIS SEEMS TO SMALL AT SKILL 4
 							if (EnemyUTC != NULL)
 							{
 								TargetLoc += EnemyUTC->GetLocationCenterOffset();
@@ -1543,21 +1560,26 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 					}
 				}
 			}
-			else if (Target != NULL && GetFocusActor() == Target)
+			else
 			{
-				FVector TargetLoc = GetFocusActor()->GetTargetLocation();
-				if (CanAttack(GetFocusActor(), TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+				float VelInterpTime = FMath::Min(DeltaTime/TrackingInterpTime, 1.f);
+				TrackedVelocity = (1.f - VelInterpTime)*TrackedVelocity + VelInterpTime*NewTrackedVelocity;
+				if (Target != NULL && GetFocusActor() == Target)
 				{
-					bLastCanAttackSuccess = true;
-					bPickNewFireMode = false;
-					ApplyWeaponAimAdjust(TargetLoc, FocalPoint);
+					FVector TargetLoc = GetFocusActor()->GetTargetLocation();
+					if (CanAttack(GetFocusActor(), TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+					{
+						bLastCanAttackSuccess = true;
+						bPickNewFireMode = false;
+						ApplyWeaponAimAdjust(TargetLoc, FocalPoint);
+					}
 				}
-			}
-			// check for aiming weapon at scripted target as part of a special movement action (translocator, impact jump, etc)
-			else if (FocusInformation.Priorities.IsValidIndex(SCRIPTEDMOVE_FOCUS_PRIORITY) && FocusInformation.Priorities[SCRIPTEDMOVE_FOCUS_PRIORITY].Position != FAISystem::InvalidLocation)
-			{
-				// note: lack of CanAttack() here is intentional as the target location may be intentionally OOE (e.g. firing straight down for impact jump)
-				ApplyWeaponAimAdjust(FocalPoint, FocalPoint);
+				// check for aiming weapon at scripted target as part of a special movement action (translocator, impact jump, etc)
+				else if (FocusInformation.Priorities.IsValidIndex(SCRIPTEDMOVE_FOCUS_PRIORITY) && FocusInformation.Priorities[SCRIPTEDMOVE_FOCUS_PRIORITY].Position != FAISystem::InvalidLocation)
+				{
+					// note: lack of CanAttack() here is intentional as the target location may be intentionally OOE (e.g. firing straight down for impact jump)
+					ApplyWeaponAimAdjust(FocalPoint, FocalPoint);
+				}
 			}
 
 			FinalFocalPoint = FocalPoint; // for later GetFocalPoint() queries
