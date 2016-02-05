@@ -117,4 +117,6 @@ public:
 	virtual void RconAuth(AUTBasePlayerController* Admin, const FString& Password);
 	virtual void RconNormal(AUTBasePlayerController* Admin);
 
+	virtual void ReceivedRankForPlayer(AUTPlayerState* UTPlayerState);
+
 };

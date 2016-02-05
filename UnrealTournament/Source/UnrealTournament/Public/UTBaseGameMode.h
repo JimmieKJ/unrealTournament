@@ -189,4 +189,10 @@ public:
 	
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const;
 	int32 GetAverageElo();
+
+	/**
+	 *	Event that is called on servers when the initial Client->Server replication of the ELO/Rank/Progression occurs.
+	 **/
+	virtual void ReceivedRankForPlayer(AUTPlayerState* UTPlayerState);
+
 };

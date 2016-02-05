@@ -509,3 +509,8 @@ int32 AUTBaseGameMode::GetAverageElo()
 
 	return Cnt > 0 ? Total / Cnt : NEW_USER_ELO;
 }
+
+void AUTBaseGameMode::ReceivedRankForPlayer(AUTPlayerState* UTPlayerState)
+{
+	// By default we do nothing here.  Hubs do things with this functions, look at AUTLobbyGameMode::ReveivedRankForPlayer()
+}

@@ -1387,7 +1387,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
+			UTBasePlayer->ServerReceiveRank(IsConsideredABeginnner(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1479,7 +1479,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(IsConsideredABeginnner(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloValid(), CTFEloValid(), TDMEloValid(), DMEloValid(), ShowdownEloValid());
 		}
 	}
 }
@@ -1783,7 +1783,7 @@ void UUTLocalPlayer::GetStarsFromXP(int32 XPValue, int32& Star)
 	Star = (XPValue > 0) ? int32(FMath::Clamp<float>((XPValue / 10.0), 0, 5)) : -1;
 }
 
-void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel)
+void UUTLocalPlayer::GetBadgeFromELO(bool bIsBeginner, int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel)
 {
 	if (!bEloIsValid)
 	{
@@ -1804,19 +1804,22 @@ void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& B
 					break;
 				}
 			}
-			BadgeLevel = 0;
+			BadgeLevel = 1;
 			SubLevel = i;
 		}
 		else if (EloRating < 2000)
 		{
-			BadgeLevel = 1;
+			BadgeLevel = 2;
 			SubLevel = FMath::Clamp((float(EloRating) - 1500.f) / 55.6f, 0.f, 8.f);
 		}
 		else
 		{
-			BadgeLevel = 2;
+			BadgeLevel = 3;
 			SubLevel = FMath::Clamp((float(EloRating) - 2000.f) / 40.f, 0.f, 8.f);
 		}
+
+		if (bIsBeginner) BadgeLevel = 0;	// Force beginners to the first badge.
+
 	}
 }
 

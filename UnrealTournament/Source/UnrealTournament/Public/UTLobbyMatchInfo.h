@@ -19,6 +19,7 @@ const uint32 MATCH_FLAG_Ranked = 0x0002;
 const uint32 MATCH_FLAG_Private = 0x0004;
 const uint32 MATCH_FLAG_NoJoinInProgress = 0x0008;
 const uint32 MATCH_FLAG_NoSpectators = 0x0010;
+const uint32 MATCH_FLAG_Beginner = 0x0020;
 
 const int32 RANK_CHECK_MIN = -400;
 const int32 RANK_CHECK_MAX =  400;
@@ -54,6 +55,9 @@ public:
 	UPROPERTY(Replicated)
 	uint32 bRankLocked : 1;
 
+	UPROPERTY(Replicated)
+	bool bBeginnerMatch;
+
 	// -1 means no bots.
 	UPROPERTY(Replicated)
 	int32 BotSkillLevel;
@@ -85,6 +89,9 @@ public:
 	// This is the process handle of the game instance that is running.
 	FProcHandle GameInstanceProcessHandle;
 
+	// This value is set client-side and holds the id that is beinig used in the MatchList.
+	uint32 TrackedMatchId;
+
 	// This is the lobby server generated instance id
 	UPROPERTY()
 	uint32 GameInstanceID;
@@ -111,7 +118,7 @@ public:
 	virtual FText GetActionText();
 
 	// The GameState needs to tell this MatchInfo what settings should be made available
-	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy = NULL);
+	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);
 
 	virtual void SetAllowJoinInProgress(bool bAllow)
 	{

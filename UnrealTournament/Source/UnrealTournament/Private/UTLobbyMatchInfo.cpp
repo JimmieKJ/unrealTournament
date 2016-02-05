@@ -40,6 +40,8 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 	bJoinAnytime = true;
 	bMapChanged = false;
 	BotSkillLevel = -1;
+	bBeginnerMatch = false;
+	TrackedMatchId = -1;
 }
 
 void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -63,6 +65,7 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, AllowedPlayerList);
 	DOREPLIFETIME(AUTLobbyMatchInfo, DedicatedServerMaxPlayers);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bDedicatedTeamGame);
+	DOREPLIFETIME(AUTLobbyMatchInfo, bBeginnerMatch);
 
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerDescription, COND_InitialOnly);
@@ -291,12 +294,18 @@ FText AUTLobbyMatchInfo::GetActionText()
 	return FText::GetEmpty();
 }
 
-void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy)
+void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState,  AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy)
 {
 	if (MatchToCopy)
 	{
 		SetRules(MatchToCopy->CurrentRuleset, MatchToCopy->InitialMap);
 		BotSkillLevel = MatchToCopy->BotSkillLevel;
+	}
+
+	if (MatchOwner && MatchOwner->bIsBeginner)
+	{
+		bRankLocked = true;
+		bBeginnerMatch = true;
 	}
 
 	SetLobbyMatchState(ELobbyMatchState::Setup);
@@ -1167,6 +1176,11 @@ uint32 AUTLobbyMatchInfo::GetMatchFlags()
 	if (!bSpectatable)
 	{
 		Flags = Flags | MATCH_FLAG_NoSpectators;
+	}
+
+	if (bBeginnerMatch)
+	{
+		Flags = Flags | MATCH_FLAG_Beginner;
 	}
 
 	return Flags;

@@ -42,6 +42,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	BadgeNumberUVs.Add(FVector2D(248,219));
 	BadgeNumberUVs.Add(FVector2D(283,219));
 
+	BadgeUVs.Add(FVector2D(423,219));
 	BadgeUVs.Add(FVector2D(388,219));
 	BadgeUVs.Add(FVector2D(353,219));
 	BadgeUVs.Add(FVector2D(318,219));
@@ -453,15 +454,16 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 			{
 				bool bEloIsValid = false;
 				int32 EloRating = DefaultGame->GetEloFor(PlayerState, bEloIsValid);
-				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+				UUTLocalPlayer::GetBadgeFromELO(PlayerState->bIsBeginner, EloRating, bEloIsValid, Badge, Level);
 				UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState->GetPrevXP()), Stars);
 				Badge = FMath::Clamp<int32>(Badge, 0, 3);
 				Level = FMath::Clamp<int32>(Level, 0, 8);
 				float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
 
-				FLinearColor BadgeColor = FLinearColor(0.4f, 0.235f, 0.07f, 1.0f);
-				if (Badge == 1) BadgeColor = FLinearColor(0.96f, 0.96f, 0.96f, 1.0f);
-				else if (Badge == 2) BadgeColor = FLinearColor(1.0f, 0.95f, 0.42f, 1.0f);
+				FLinearColor BadgeColor = FLinearColor(0.36f, 0.8f, 0.34f, 1.0f);
+				if (Badge == 1) BadgeColor = FLinearColor(0.4f, 0.235f, 0.07f, 1.0f);
+				else if (Badge == 2) BadgeColor = FLinearColor(0.96f, 0.96f, 0.96f, 1.0f);
+				else if (Badge == 3) BadgeColor = FLinearColor(1.0f, 0.95f, 0.42f, 1.0f);
 
 				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, BadgeColor, FVector2D(0.5f, 0.5f));
 				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));

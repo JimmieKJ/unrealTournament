@@ -237,6 +237,10 @@ TSharedRef<ITableRow> SUTPlayerListPanel::OnGenerateWidgetForPlayerList( TShared
 									]
 								]
 							]
+							+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth().Padding(FMargin(5.0,0.0,0.0,0.0))
+							[
+								GetPlayerMatchId(InItem)
+							]
 							+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth()
 							.Padding(FMargin(5.0,0.0,0.0,0.0))
 							[
@@ -250,6 +254,33 @@ TSharedRef<ITableRow> SUTPlayerListPanel::OnGenerateWidgetForPlayerList( TShared
 			]
 		];
 	}
+}
+
+TSharedRef<SWidget> SUTPlayerListPanel::GetPlayerMatchId(TSharedPtr<FTrackedPlayer> TrackedPlayer)
+{
+	TSharedPtr<SBox> Box;
+	SAssignNew(Box, SBox).WidthOverride(32).HeightOverride(32).Visibility(TrackedPlayer.Get(), &FTrackedPlayer::GetMatchIdVis)
+	[
+		SNew(SOverlay)
+		+SOverlay::Slot()
+		[
+			SNew(SImage)
+			.Image(SUTStyle::Get().GetBrush("UT.MatchBadge.Circle.Tight"))
+		]
+		+SOverlay::Slot()
+		.VAlign(VAlign_Center)
+		.Padding(FMargin(0.0,0.0,0.0,0.0))
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(TrackedPlayer.Get(), &FTrackedPlayer::GetMatchId)
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+			.ShadowOffset(FVector2D(0.0f,1.0f))
+			.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))
+		]
+	];
+
+	return Box.ToSharedRef();
 }
 
 void SUTPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData>& MenuOptions)
@@ -505,6 +536,7 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 				bool bIsHost = (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->OwnerId == LobbyPlayerState->UniqueId);
 				bool bIsInAnyMatch = (LobbyPlayerState && LobbyPlayerState->CurrentMatch);
 
+
 				// Update the player's team info...
 
 				uint8 TeamNum = PlayerState->GetTeamNum();
@@ -526,6 +558,15 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 
 					if (Idx != INDEX_NONE && Idx < TrackedPlayers.Num())
 					{
+						if (bIsInAnyMatch)
+						{
+							TrackedPlayers[Idx]->TrackedMatchId = LobbyPlayerState->CurrentMatch->TrackedMatchId;
+						}
+						else
+						{
+							TrackedPlayers[Idx]->TrackedMatchId = -1;
+						}
+
 						// This player lives to see another day
 						TrackedPlayers[Idx]->bPendingKill = false;
 

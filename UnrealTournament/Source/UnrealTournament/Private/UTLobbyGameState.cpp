@@ -228,13 +228,19 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 void AUTLobbyGameState::CheckForAutoPlacement(AUTLobbyPlayerState* NewPlayer)
 { 
 	// We are looking to join a player's match.. see if we can find the player....
-	if (NewPlayer->DesiredFriendToJoin != TEXT(""))
+	if (!NewPlayer->DesiredFriendToJoin.IsEmpty())
 	{
 		AUTLobbyMatchInfo* FriendsMatch = FindMatchPlayerIsIn(NewPlayer->DesiredFriendToJoin);
 		if (FriendsMatch)
 		{
 			JoinMatch(FriendsMatch, NewPlayer);
 		}
+	}
+
+	// Otherwise, look to see if we want to join a match.
+	else if (!NewPlayer->DesiredMatchIdToJoin.IsEmpty())
+	{
+		AttemptDirectJoin(NewPlayer, NewPlayer->DesiredMatchIdToJoin, NewPlayer->bDesiredJoinAsSpectator);
 	}
 }
 
@@ -270,7 +276,7 @@ void AUTLobbyGameState::HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 {
 	MatchInfo->SetOwner(MatchOwner->GetOwner());
 	MatchInfo->AddPlayer(MatchOwner, true);
-	MatchInfo->SetSettings(this, MatchToCopy);
+	MatchInfo->SetSettings(this, MatchOwner, MatchToCopy);
 }
 
 void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer, bool bAsSpectator)
@@ -700,12 +706,6 @@ bool AUTLobbyGameState::IsMatchStillValid(AUTLobbyMatchInfo* TestMatch)
 	return false;
 }
 
-// A New Client has joined.. Send them all of the server side settings
-void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
-{
-	CheckForAutoPlacement(NewPlayer);
-}
-
 
 bool AUTLobbyGameState::CanLaunch()
 {
@@ -966,7 +966,7 @@ bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& 
 		NumGameInstances = GameInstances.Num();
 
 		NewMatchInfo->GameInstanceID = GameInstanceID;
-		NewMatchInfo->SetSettings(this, NULL);
+		NewMatchInfo->SetSettings(this, nullptr, nullptr);
 		NewMatchInfo->bDedicatedMatch = true;
 		NewMatchInfo->AccessKey = AccessKey;
 		NewMatchInfo->DedicatedServerName = ServerName;

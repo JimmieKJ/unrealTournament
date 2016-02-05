@@ -662,6 +662,10 @@ public:
 	void ModifyStatsValue(FName StatsName, float Change);
 
 	// Average ELO rank for this player.
+
+	UPROPERTY(Replicated)
+	bool bIsBeginner;
+
 	UPROPERTY(Replicated)
 	int32 DuelRank;
 	UPROPERTY(Replicated)
@@ -708,9 +712,9 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage(int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
+	const FSlateBrush* GetELOBadgeImage(bool bIsBeginner, int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
 	const FSlateBrush* GetXPStarImage(bool bSmall = false) const;
-	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const;
+	const FSlateBrush* GetELOBadgeNumberImage(bool bIsBeginner, int32 EloRating, bool bEloIsValid) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();

@@ -149,9 +149,6 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 
 	bool IsMatchStillValid(AUTLobbyMatchInfo* TestMatch);
 
-	// Called when a new player enters the game.  This causes all of the allowed gametypes and maps to be replicated to that player
-	void InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer);
-
 	// returns true if a match can start
 	bool CanLaunch();
 

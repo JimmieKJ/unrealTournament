@@ -463,15 +463,16 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveRank(LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), LP->DuelEloValid(), LP->CTFEloValid(), LP->TDMEloValid(), LP->DMEloValid(), LP->ShowdownEloValid());
+		ServerReceiveRank(LP->IsConsideredABeginnner(), LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), LP->DuelEloValid(), LP->CTFEloValid(), LP->TDMEloValid(), LP->DMEloValid(), LP->ShowdownEloValid());
 	}
 }
 
-bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid) { return true; }
-void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid)
+bool AUTBasePlayerController::ServerReceiveRank_Validate(bool bIsBeginner, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid) { return true; }
+void AUTBasePlayerController::ServerReceiveRank_Implementation(bool bIsBeginner, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid)
 {
 	if (UTPlayerState)
 	{
+		UTPlayerState->bIsBeginner = bIsBeginner;
 		UTPlayerState->DuelRank = NewDuelRank;
 		UTPlayerState->CTFRank = NewCTFRank;
 		UTPlayerState->TDMRank = NewTDMRank;
@@ -483,6 +484,12 @@ void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank
 		UTPlayerState->bTDMEloValid = bTDMEloValid;
 		UTPlayerState->bDMEloValid = bDMEloValid;
 		UTPlayerState->bShowdownEloValid = bShowdownEloValid;
+
+		AUTBaseGameMode* BaseGameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+		if (BaseGameMode)
+		{
+			BaseGameMode->ReceivedRankForPlayer(UTPlayerState);
+		}
 	}
 }
 

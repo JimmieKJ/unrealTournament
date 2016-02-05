@@ -47,6 +47,9 @@ public:
 	// Will be true if this player is in any match
 	bool bIsInAnyMatch;
 
+	// Will be set to the TrackedMatchId that this player is in
+	int32 TrackedMatchId;
+
 	// Will be true if this player is the host of a match (only useful in hubs)
 	bool bIsHost;
 
@@ -79,6 +82,7 @@ public:
 		bPendingKill = false;
 		TeamNum = 255;
 		bIsInMatch = false;
+		bIsInAnyMatch = false;
 		bIsHost = false;
 		bInInstance = false;
 	}
@@ -98,6 +102,7 @@ public:
 		bPendingKill = false;
 		TeamNum = 255;
 		bIsInMatch = false;
+		bIsInAnyMatch = false;
 		bIsHost = false;
 		EntryType = ETrackedPlayerType::Player;
 		bInInstance = inPlayerState == NULL;
@@ -156,6 +161,17 @@ public:
 		return FText::GetEmpty();
 	}
 
+	FText GetMatchId() const
+	{
+		return FText::AsNumber(TrackedMatchId);
+	}
+
+
+	EVisibility GetMatchIdVis() const
+	{
+		return (bIsInAnyMatch && !bIsInMatch) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
 	const FSlateBrush* GetAvatar() const
 	{
 		if (Avatar == NAME_None) 
@@ -174,9 +190,11 @@ public:
 		int32 Level;
 		int32 EloRating = NEW_USER_ELO;
 		bool bEloIsValid = false;
+		bool bIsBeginner = false;
 
 		if (PlayerState.IsValid())
 		{
+			bIsBeginner = PlayerState->bIsBeginner;
 			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 			if (DefaultGame)
@@ -189,7 +207,7 @@ public:
 			EloRating = Elo;
 		}
 
-		UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+		UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, EloRating, bEloIsValid, Badge, Level);
 		Badge = FMath::Clamp<int32>(Badge, 0, 3);
 		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 		return SUTStyle::Get().GetBrush(*BadgeStr);
@@ -201,9 +219,10 @@ public:
 		int32 Level = 1;
 		int32 EloRating = NEW_USER_ELO;
 		bool bEloIsValid = false;
-
+		bool bIsBeginner = false;
 		if (PlayerState.IsValid())
 		{
+			bIsBeginner = PlayerState->bIsBeginner;
 			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 			if (DefaultGame)
@@ -215,7 +234,7 @@ public:
 		{
 			EloRating = Elo;
 		}
-		UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+		UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, EloRating, bEloIsValid, Badge, Level);
 		return FText::AsNumber(Level+1);
 	}
 
@@ -305,6 +324,8 @@ protected:
 	void BuildInvite();
 
 	FReply OnMatchInviteAction(bool bAccept);
+
+	TSharedRef<SWidget> GetPlayerMatchId(TSharedPtr<FTrackedPlayer> TrackedPlayer);
 
 };
 

@@ -1,4 +1,3 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SlateBasics.h"
@@ -491,11 +490,11 @@ public:
 
 	// Returns what badge should represent player's skill level.
 	UFUNCTION(BlueprintCallable, Category = Badge)
-		static void GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel);
+	static void GetBadgeFromELO(bool bIsBeginner, int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel);
 
 	// Returns the # of stars to show based on XP value. 
 	UFUNCTION(BlueprintCallable, Category = Badge)
-		static void GetStarsFromXP(int32 XPValue, int32& StarLevel);
+	static void GetStarsFromXP(int32 XPValue, int32& StarLevel);
 
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start

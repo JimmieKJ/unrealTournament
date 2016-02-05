@@ -160,14 +160,15 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 	AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(NewPlayerController->PlayerState);
 
+	// Look for auto-join options.  Don't attempt to auto-join until we receive all of the relevant information from the client though
 	if (PS)
 	{	
 		FString InstanceID = UGameplayStatics::ParseOption(Options,"Session");
 		if (!InstanceID.IsEmpty())
 		{
 			// Can't use the playerstate's version here because it hasn't been set yet.
-			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
-			UTLobbyGameState->AttemptDirectJoin(PS, InstanceID, bSpectator);
+			PS->bDesiredJoinAsSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+			PS->DesiredMatchIdToJoin = InstanceID;
 		}
 
 		FString FriendId = UGameplayStatics::ParseOption(Options, TEXT("Friend"));
@@ -187,11 +188,6 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 
 	UpdateLobbySession();
 
-	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(NewPlayer->PlayerState);
-	if (LPS)
-	{
-		UTLobbyGameState->InitializeNewPlayer(LPS);
-	}
 	// Set my Initial Presence
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
 	if (PC)
@@ -200,7 +196,6 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 		// Set my initial presence....
 		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false);
 	}
-
 }
 
 
@@ -454,5 +449,14 @@ void AUTLobbyGameMode::RconNormal(AUTBasePlayerController* Admin)
 				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_AuthorizeAdmin(Admin->UTPlayerState->UniqueId.ToString(),false);
 			}
 		}
+	}
+}
+
+void AUTLobbyGameMode::ReceivedRankForPlayer(AUTPlayerState* UTPlayerState)
+{
+	AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(UTPlayerState);
+	if (LobbyPlayerState)
+	{
+		UTLobbyGameState->CheckForAutoPlacement(LobbyPlayerState);
 	}
 }

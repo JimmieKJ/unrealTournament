@@ -173,6 +173,11 @@ bool SUTMatchPanel::ShouldUseLiveData()
 TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTrackedMatch> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	int32 Index = TrackedMatches.Find(InItem) + 1;
+	
+	if (InItem->MatchInfo.IsValid())
+	{
+		InItem->MatchInfo->TrackedMatchId = Index;
+	}
 
 	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
 		.Style(SUTStyle::Get(),"UT.List.Row")

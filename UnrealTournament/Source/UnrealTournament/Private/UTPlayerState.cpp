@@ -92,6 +92,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
+	DOREPLIFETIME(AUTPlayerState, bIsBeginner);
 	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
 	DOREPLIFETIME(AUTPlayerState, CTFRank);
@@ -1907,12 +1908,12 @@ void AUTPlayerState::UnregisterPlayerWithSession()
 
 #if !UE_SERVER
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeImage(int32 EloRating, bool bEloIsValid, bool bSmall) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage(bool bIsBeginner, int32 EloRating, bool bEloIsValid, bool bSmall) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, EloRating, bEloIsValid, Badge, Level);
 	FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 	if (bSmall) BadgeStr += TEXT(".Small");
 	return SUTStyle::Get().GetBrush(*BadgeStr);
@@ -1933,12 +1934,12 @@ const FSlateBrush* AUTPlayerState::GetXPStarImage(bool bSmall) const
 }
 
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(bool bIsBeginner, int32 EloRating, bool bEloIsValid) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, EloRating, bEloIsValid, Badge, Level);
 	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
 	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
 }
@@ -1948,7 +1949,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 	FText ELOText = FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScore", "     ({0})"), FText::AsNumber(Rank));
 	int32 Badge;
 	int32 Level;
-	UUTLocalPlayer::GetBadgeFromELO(Rank, bEloIsValid, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, Rank, bEloIsValid, Badge, Level);
 
 	FText RankNumber = FText::AsNumber(Level+1);
 
@@ -1983,7 +1984,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeImage(Rank, bEloIsValid, true))
+						.Image(GetELOBadgeImage(bIsBeginner, Rank, bEloIsValid, true))
 					]
 					+ SOverlay::Slot()
 					[
@@ -1991,7 +1992,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 						+SVerticalBox::Slot()
 						.HAlign(HAlign_Center)
 						.VAlign(VAlign_Center)
-						.Padding(FMargin(-2.0,0.0,0.0,0.0))
+						.Padding(FMargin(-1.0,0.0,0.0,0.0))
 						[
 							SNew(STextBlock)
 							.Text(RankNumber)
