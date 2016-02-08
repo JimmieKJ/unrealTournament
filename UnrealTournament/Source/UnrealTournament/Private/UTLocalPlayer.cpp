@@ -1387,7 +1387,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(IsConsideredABeginnner(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
+			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1479,7 +1479,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(IsConsideredABeginnner(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
 		}
 	}
 }
@@ -1743,8 +1743,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		AUTGameMode* UTGame = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
 		if (UTGame)
 		{
-			bool bIsValidElo = false;
-			return UTGame->GetEloFor(PC->UTPlayerState, bIsValidElo);
+			return UTGame->GetEloFor(PC->UTPlayerState);
 		}
 	}
 
@@ -1781,60 +1780,6 @@ int32 UUTLocalPlayer::GetBaseELORank()
 void UUTLocalPlayer::GetStarsFromXP(int32 XPValue, int32& Star)
 {
 	Star = (XPValue > 0) ? int32(FMath::Clamp<float>((XPValue / 10.f), 0.f, 5.f)) : -1;
-}
-
-void UUTLocalPlayer::GetBadgeFromELO(bool bIsBeginner, int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel)
-{
-	if (!bEloIsValid)
-	{
-		// beginner badges
-		BadgeLevel = 0;
-		SubLevel = 0;
-	}
-	else
-	{
-		if (EloRating < 1590)
-		{
-			int32 EloBounds[9] = { 670, 820, 960, 1090, 1210, 1320, 1420, 1510, 1590 };
-			int32 i = 0;
-			for (i = 0; i < 9; i++)
-			{
-				if (EloRating < EloBounds[i])
-				{
-					break;
-				}
-			}
-			BadgeLevel = 1;
-			SubLevel = i;
-		}
-		else if (EloRating < 2000)
-		{
-			BadgeLevel = 2;
-			SubLevel = FMath::Clamp((float(EloRating) - 1500.f) / 55.6f, 0.f, 8.f);
-		}
-		else
-		{
-			BadgeLevel = 3;
-			SubLevel = FMath::Clamp((float(EloRating) - 2000.f) / 40.f, 0.f, 8.f);
-		}
-
-		if (bIsBeginner) BadgeLevel = 0;	// Force beginners to the first badge.
-
-	}
-}
-
-bool UUTLocalPlayer::IsConsideredABeginnner()
-{
-	if (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed + ShowdownMatchesPlayed < 50)
-	{
-		bool bHasValidElo = (DuelMatchesPlayed > 10) || (FFAMatchesPlayed > 10) || (TDMMatchesPlayed > 10) || (ShowdownMatchesPlayed > 10);
-		if (!bHasValidElo)
-		{
-			return true;
-		}
-		return (GetBaseELORank() < 1590);
-	}
-	return false;
 }
 
 int32 UUTLocalPlayer::GetHatVariant() const

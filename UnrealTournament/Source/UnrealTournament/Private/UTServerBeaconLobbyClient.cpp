@@ -64,8 +64,7 @@ void AUTServerBeaconLobbyClient::UpdateMatch(const FMatchUpdate& MatchUpdate)
 
 void AUTServerBeaconLobbyClient::UpdatePlayer(AUTBaseGameMode* GameMode, AUTPlayerState* PlayerState, bool bLastUpdate)
 {
-	bool bEloIsValid = false;
-	int32 Elo = GameMode->GetEloFor(PlayerState, bEloIsValid);
+	int32 Elo = GameMode->GetEloFor(PlayerState);
 
 	FRemotePlayerInfo PlayerInfo(PlayerState,Elo);
 	UE_LOG(UT,Verbose,TEXT("UpdatePlayer: Instance %i [%s] Player = %s [%s] Score = %i"), GameInstanceID, *GameInstanceGUID.ToString(), *PlayerInfo.PlayerName, *PlayerInfo.PlayerID.ToString(),  PlayerInfo.PlayerScore);

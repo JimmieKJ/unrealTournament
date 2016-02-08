@@ -1469,7 +1469,8 @@ void SUTServerBrowserPanel::AddServer(TSharedPtr<FServerData> Server)
 
 void SUTServerBrowserPanel::AddHub(TSharedPtr<FServerData> Hub)
 {
-	bool bIsBeginner = GetPlayerOwner()->IsConsideredABeginnner();
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(nullptr); // FIXMEJOE pass appropriate gamemode
 
 	Hub->UpdateFriends(PlayerOwner);
 

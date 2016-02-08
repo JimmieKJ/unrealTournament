@@ -186,9 +186,15 @@ public:
 	// This will be set to true if this is a private match.  
 	UPROPERTY()
 	bool bPrivateMatch;
-	
+
+	/** How many matches (up to 255) have been played in this game mode. */
+	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS) const;
+
+	/** Returns whether enough matches have been played for this gamemode's Elo to be valid. */
+	virtual bool IsValidElo(AUTPlayerState* PS) const;
+
 	/** Get the Elo rating for PS for this game mode. */
-	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const;
+	virtual int32 GetEloFor(AUTPlayerState* PS) const;
 	int32 GetAverageElo();
 
 	/** Locally set Elo rating for this game mode (updated from server). */

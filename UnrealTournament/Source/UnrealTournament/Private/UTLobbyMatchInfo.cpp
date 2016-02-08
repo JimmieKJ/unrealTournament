@@ -302,7 +302,7 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState,  AUTLobbyPlaye
 		BotSkillLevel = MatchToCopy->BotSkillLevel;
 	}
 
-	if (MatchOwner && MatchOwner->bIsBeginner)
+	if (MatchOwner && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
 	{
 		bRankLocked = true;
 		bBeginnerMatch = true;
@@ -1002,12 +1002,11 @@ void AUTLobbyMatchInfo::UpdateRank()
 		if (Players.Num() > 0)
 		{
 			AUTGameMode* UTGame = CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-			bool bIsValidElo = false;
-			AverageRank = UTGame ? UTGame->GetEloFor(Players[0].Get(), bIsValidElo) : NEW_USER_ELO;
+			AverageRank = UTGame ? UTGame->GetEloFor(Players[0].Get()) : NEW_USER_ELO;
 
 			for (int32 i=1; i < Players.Num(); i++)
 			{
-				int32 PlayerRank = UTGame ? UTGame->GetEloFor(Players[i].Get(), bIsValidElo) : NEW_USER_ELO;
+				int32 PlayerRank = UTGame ? UTGame->GetEloFor(Players[i].Get()) : NEW_USER_ELO;
 				AverageRank += PlayerRank;
 			}
 		

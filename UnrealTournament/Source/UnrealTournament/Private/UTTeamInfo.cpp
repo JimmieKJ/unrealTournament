@@ -46,7 +46,6 @@ int32 AUTTeamInfo::AverageEloFor(AUTGameMode* GameMode)
 {
 	if (GameMode)
 	{
-		bool bEloIsValid = false;
 		int32 TeamElo = 0;
 		int32 EloCount = 0;
 		for (AController* C : TeamMembers)
@@ -54,11 +53,7 @@ int32 AUTTeamInfo::AverageEloFor(AUTGameMode* GameMode)
 			AUTPlayerState* TeamPS = Cast<AUTPlayerState>(C->PlayerState);
 			if (TeamPS)
 			{
-				int32 NewElo = GameMode->GetEloFor(TeamPS, bEloIsValid);
-				if (!bEloIsValid)
-				{
-					NewElo = NEW_USER_ELO;
-				}
+				int32 NewElo = GameMode->IsValidElo(TeamPS) ? GameMode->GetEloFor(TeamPS) : NEW_USER_ELO;
 				EloCount++;
 				TeamElo += NewElo;
 			}
@@ -73,17 +68,12 @@ AController* AUTTeamInfo::MemberClosestToElo(class AUTGameMode* GameMode, int32 
 {
 	AController* BestMatch = nullptr;
 	int32 BestDiff = 0;
-	bool bEloIsValid = false;
 	for (AController* C : TeamMembers)
 	{
 		AUTPlayerState* TeamPS = Cast<AUTPlayerState>(C->PlayerState);
 		if (TeamPS)
 		{
-			int32 NewElo = GameMode->GetEloFor(TeamPS, bEloIsValid);
-			if (!bEloIsValid)
-			{
-				NewElo = NEW_USER_ELO;
-			}
+			int32 NewElo = GameMode->IsValidElo(TeamPS) ? GameMode->GetEloFor(TeamPS) : NEW_USER_ELO;
 			int32 NewEloDiff = FMath::Abs(DesiredElo - NewElo);
 			if (!BestMatch || (NewEloDiff < BestDiff))
 			{

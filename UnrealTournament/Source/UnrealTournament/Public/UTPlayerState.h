@@ -664,9 +664,6 @@ public:
 	// Average ELO rank for this player.
 
 	UPROPERTY(Replicated)
-	bool bIsBeginner;
-
-	UPROPERTY(Replicated)
 	int32 DuelRank;
 	UPROPERTY(Replicated)
 	int32 CTFRank;
@@ -677,19 +674,27 @@ public:
 	UPROPERTY(Replicated)
 	int32 ShowdownRank;
 	
+	/** Note only valid up to 255, enough to figure out beginner badges. */
 	UPROPERTY(Replicated)
-		bool bDuelEloValid;
+		uint8 DuelMatchesPlayed;
 	UPROPERTY(Replicated)
-		bool bCTFEloValid;
+		uint8 CTFMatchesPlayed;
 	UPROPERTY(Replicated)
-		bool bTDMEloValid;
+		uint8 TDMMatchesPlayed;
 	UPROPERTY(Replicated)
-		bool bDMEloValid;
+		uint8 DMMatchesPlayed;
 	UPROPERTY(Replicated)
-		bool bShowdownEloValid;
+		uint8 ShowdownMatchesPlayed;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;
+
+	// Returns what badge should represent player's skill level.
+	UFUNCTION(BlueprintCallable, Category = Badge)
+		void GetBadgeFromELO(AUTBaseGameMode* DefaultGame, int32& BadgeLevel, int32& SubLevel) const;
+
+	UFUNCTION(BlueprintCallable, Category = Badge)
+		bool IsABeginner(AUTBaseGameMode* DefaultGameMode) const;
 
 #if !UE_SERVER
 	FText GetTrainingLevelText();
@@ -712,13 +717,13 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage(bool bIsBeginner, int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
+	const FSlateBrush* GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bSmall = false) const;
 	const FSlateBrush* GetXPStarImage(bool bSmall = false) const;
-	const FSlateBrush* GetELOBadgeNumberImage(bool bIsBeginner, int32 EloRating, bool bEloIsValid) const;
+	const FSlateBrush* GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();
-	TSharedRef<SWidget> BuildRank(FText RankName, int32 Rank, bool bEloIsValid);
+	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, FText RankName);
 	void EpicIDClicked();
 #endif
 

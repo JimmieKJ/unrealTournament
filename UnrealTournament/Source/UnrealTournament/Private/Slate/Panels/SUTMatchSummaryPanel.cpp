@@ -645,8 +645,7 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 				{
 					int32 Badge = 0;
 					int32 Level = 0;
-					bool bEloIsValid = false;
-					UUTLocalPlayer::GetBadgeFromELO(UTPS->bIsBeginner, DefaultGameMode->GetEloFor(UTPS, bEloIsValid), bEloIsValid, Badge, Level);
+					UTPS->GetBadgeFromELO(DefaultGameMode, Badge, Level);
 					FText RankNumber = FText::AsNumber(Level + 1);
 					TSharedPtr<class SBorder> HighlightBorder;
 					VBox->AddSlot()
@@ -694,7 +693,7 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 												+ SOverlay::Slot()
 												[
 													SNew(SImage)
-													.Image(UTPS->GetELOBadgeImage(UTPS->bIsBeginner, DefaultGameMode->GetEloFor(UTPS, bEloIsValid), bEloIsValid, false))
+													.Image(UTPS->GetELOBadgeImage(DefaultGameMode, false))
 												]
 												+ SOverlay::Slot()
 												[

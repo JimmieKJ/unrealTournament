@@ -306,7 +306,8 @@ void SUTQuickMatchWindow::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 
 void SUTQuickMatchWindow::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
 {
-	bool bIsBeginner = GetPlayerOwner()->IsConsideredABeginnner();
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(nullptr);  // FIXMEJOE pass in correct gamemode here
 	for (int32 i = 0; i < PingTrackers.Num(); i++)
 	{
 		if (PingTrackers[i].Beacon == Sender)
@@ -611,7 +612,9 @@ void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> Desire
 	else
 	{
 		ConnectingServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatchWindow::RequestQuickPlayResults);
-		ConnectingServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank(), GetPlayerOwner()->IsConsideredABeginnner());
+		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+		bool bIsBeginner = PlayerState && PlayerState->IsABeginner(nullptr); // FIXMEJOE pass in correct gamemode here and to get game elo instead of baseelofor below
+		ConnectingServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank(), bIsBeginner);
 	}
 }
 

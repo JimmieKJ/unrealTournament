@@ -116,7 +116,8 @@ public:
 		if ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("In Progress");
 		if ((Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner)
 		{
-			if (!PlayerOwner->IsConsideredABeginnner())	
+			AUTGameMode* UTGame = (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid()) ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
+			if (!PlayerState || !PlayerState->IsABeginner(UTGame))	
 			{
 				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Beginner");
 			}
@@ -133,8 +134,7 @@ public:
 		{
 			int32 AllowedRank = MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : NEW_USER_ELO);
 			AUTGameMode* UTGame = (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid()) ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-			bool bEloIsValid = false;
-			int32 PlayerRank = (UTGame && PlayerState) ? UTGame->GetEloFor(PlayerState, bEloIsValid) : NEW_USER_ELO;
+			int32 PlayerRank = (UTGame && PlayerState) ? UTGame->GetEloFor(PlayerState) : NEW_USER_ELO;
 			if (PlayerRank < AllowedRank - 400 || PlayerRank > AllowedRank + 400)
 			{
 				// Second check.  If both the client, and the match is ranked below beginner (1400) then we want to skip the icon
@@ -217,11 +217,11 @@ public:
 
 	const FSlateBrush* GetBadge() const
 	{
-		int32 Badge;
-		int32 Level;
+		int32 Badge =  0;
+		int32 Level = 0;
 
 		bool bIsBeginner = MatchInfo.IsValid() ? MatchInfo->bBeginnerMatch : ( MatchData.IsValid() ? ((MatchData->Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner) : false );
-		UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, (MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : NEW_USER_ELO)), true, Badge, Level);
+//		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : NEW_USER_ELO)), true, Badge, Level);  // FIXMEJOE pass in correct gamemode here
 		
 		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 		return SUTStyle::Get().GetBrush(*BadgeStr);
@@ -229,10 +229,10 @@ public:
 
 	FText GetRank()
 	{
-		int32 Badge;
-		int32 Level;
+		int32 Badge = 0;
+		int32 Level = 0;
 		bool bIsBeginner = MatchInfo.IsValid() ? MatchInfo->bBeginnerMatch : ( MatchData.IsValid() ? ((MatchData->Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner) : false );
-		UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, (MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : NEW_USER_ELO)), true, Badge, Level);
+//		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : NEW_USER_ELO)), true, Badge, Level);   // FIXMEJOE pass in correct gamemode here
 
 		return FText::AsNumber(Level);
 	}

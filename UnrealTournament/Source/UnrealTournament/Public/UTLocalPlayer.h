@@ -488,10 +488,6 @@ public:
 	virtual int32 DMEloMatches() { return FFAMatchesPlayed; }
 	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
 
-	// Returns what badge should represent player's skill level.
-	UFUNCTION(BlueprintCallable, Category = Badge)
-	static void GetBadgeFromELO(bool bIsBeginner, int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel);
-
 	// Returns the # of stars to show based on XP value. 
 	UFUNCTION(BlueprintCallable, Category = Badge)
 	static void GetStarsFromXP(int32 XPValue, int32& StarLevel);
@@ -688,9 +684,6 @@ public:
 #endif
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);
-
-	/** Return whether the progression system considers this player a beginner. **/
-	virtual bool IsConsideredABeginnner();
 
 	/** Closes any slate UI elements that are open. **/
 	virtual void CloseAllUI(bool bExceptDialogs = false);

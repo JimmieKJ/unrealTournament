@@ -465,10 +465,14 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 	}
 }
 
-int32 AUTCTFGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
+uint8 AUTCTFGameMode::GetNumMatchesFor(AUTPlayerState* PS) const
 {
-	bEloIsValid = PS ? PS->bCTFEloValid : false;
-	return PS ? PS->CTFRank : Super::GetEloFor(PS, bEloIsValid);
+	return PS ? PS->CTFMatchesPlayed : 0;
+}
+
+int32 AUTCTFGameMode::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->CTFRank : Super::GetEloFor(PS);
 }
 
 void AUTCTFGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)

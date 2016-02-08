@@ -911,7 +911,7 @@ public:
 	virtual void ClientUpdateTeamStats(uint8 TeamNum, uint8 TeamStatsIndex, float NewValue);
 
 	UFUNCTION(client, reliable)
-		virtual void ClientUpdateSkillRating(int32 OldRating, int32 NewRating, bool bEloIsValid);
+		virtual void ClientUpdateSkillRating(int32 OldRating, int32 NewRating);
 
 	/** Set at end of match if ranking badge changed. */
 	UPROPERTY()

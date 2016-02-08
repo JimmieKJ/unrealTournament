@@ -24,6 +24,11 @@
 #include "UTDemoRecSpectator.h"
 #include "SUTStyle.h"
 #include "UTHUDWidget_SpectatorSlideOut.h"
+#include "UTShowdownGame.h"
+#include "UTDuelGame.h"
+#include "UTDMGameMode.h"
+#include "UTTeamDMGameMode.h"
+#include "UTCTFBaseGame.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -92,7 +97,6 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
-	DOREPLIFETIME(AUTPlayerState, bIsBeginner);
 	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
 	DOREPLIFETIME(AUTPlayerState, CTFRank);
@@ -119,11 +123,11 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bIsRconAdmin);
 	DOREPLIFETIME(AUTPlayerState, SelectionOrder);
 
-	DOREPLIFETIME(AUTPlayerState, bDuelEloValid);
-	DOREPLIFETIME(AUTPlayerState, bCTFEloValid);
-	DOREPLIFETIME(AUTPlayerState, bTDMEloValid);
-	DOREPLIFETIME(AUTPlayerState, bDMEloValid);
-	DOREPLIFETIME(AUTPlayerState, bShowdownEloValid);
+	DOREPLIFETIME(AUTPlayerState, DuelMatchesPlayed);
+	DOREPLIFETIME(AUTPlayerState, CTFMatchesPlayed);
+	DOREPLIFETIME(AUTPlayerState, TDMMatchesPlayed);
+	DOREPLIFETIME(AUTPlayerState, DMMatchesPlayed);
+	DOREPLIFETIME(AUTPlayerState, ShowdownMatchesPlayed);
 
 	DOREPLIFETIME(AUTPlayerState, bHasVoted);
 
@@ -1683,7 +1687,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
 	if (PC)
 	{
-		PC->ClientUpdateSkillRating(SkillRating, NewSkillRating, true);
+		PC->ClientUpdateSkillRating(SkillRating, NewSkillRating);
 	}
 }
 
@@ -1777,7 +1781,7 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
 	if (PC)
 	{
-		PC->ClientUpdateSkillRating(SkillRating, NewSkillRating, true);
+		PC->ClientUpdateSkillRating(SkillRating, NewSkillRating);
 	}
 }
 
@@ -1920,18 +1924,6 @@ void AUTPlayerState::UnregisterPlayerWithSession()
 }
 
 #if !UE_SERVER
-
-const FSlateBrush* AUTPlayerState::GetELOBadgeImage(bool bIsBeginner, int32 EloRating, bool bEloIsValid, bool bSmall) const
-{
-	int32 Badge = 0;
-	int32 Level = 0;
-
-	UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, EloRating, bEloIsValid, Badge, Level);
-	FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
-	if (bSmall) BadgeStr += TEXT(".Small");
-	return SUTStyle::Get().GetBrush(*BadgeStr);
-}
-
 const FSlateBrush* AUTPlayerState::GetXPStarImage(bool bSmall) const
 {
 	int32 Star = 0;
@@ -1946,23 +1938,12 @@ const FSlateBrush* AUTPlayerState::GetXPStarImage(bool bSmall) const
 	return SUTStyle::Get().GetBrush("UT.RankStar.Empty");
 }
 
-
-const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(bool bIsBeginner, int32 EloRating, bool bEloIsValid) const
+TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FText RankName)
 {
-	int32 Badge = 0;
-	int32 Level = 0;
-
-	UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, EloRating, bEloIsValid, Badge, Level);
-	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
-	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
-}
-
-TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool bEloIsValid)
-{
-	FText ELOText = FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScore", "     ({0})"), FText::AsNumber(Rank));
+	FText ELOText = FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScore", "     ({0})"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this) : 0));
 	int32 Badge;
 	int32 Level;
-	UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, Rank, bEloIsValid, Badge, Level);
+	GetBadgeFromELO(DefaultGame, Badge, Level);
 
 	FText RankNumber = FText::AsNumber(Level+1);
 
@@ -1997,7 +1978,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeImage(bIsBeginner, Rank, bEloIsValid, true))
+						.Image(GetELOBadgeImage(DefaultGame, true))
 					]
 					+ SOverlay::Slot()
 					[
@@ -2027,7 +2008,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank, bool b
 			.WidthOverride(500)
 			[
 				SNew(STextBlock)
-				.Text((bEloIsValid ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
+				.Text(((DefaultGame->GetNumMatchesFor(this) < 10) ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -2052,31 +2033,31 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank, bShowdownEloValid)
+		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank, bCTFEloValid)
+		BuildRank(AUTCTFBaseGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank, bDuelEloValid)
+		BuildRank(AUTDuelGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"), TDMRank, bTDMEloValid)
+		BuildRank(AUTTeamDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank, bDMEloValid)
+		BuildRank(AUTDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
@@ -2827,3 +2808,106 @@ void AUTPlayerState::ClientReceiveRconMessage_Implementation(const FString& Mess
 		PC->ShowAdminMessage(Message);
 	}
 }
+
+bool AUTPlayerState::IsABeginner(AUTBaseGameMode* DefaultGameMode) const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+	GetBadgeFromELO(DefaultGameMode, Badge, Level);
+	return (Badge == 0);
+}
+
+void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, int32& BadgeLevel, int32& SubLevel) const
+{
+	if (DefaultGameMode == nullptr)
+	{
+		DefaultGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+	}
+	int32 NumMatches = DefaultGameMode->GetNumMatchesFor((AUTPlayerState *)this); // note this is replicated to client as a byte, so max value of 255
+	int32 EloRating = DefaultGameMode->GetEloFor((AUTPlayerState *)this);
+	BadgeLevel = 0;
+	SubLevel = 0;
+
+	// Elo bounds for bronze levels
+	int32 EloBounds[9] = { 670, 820, 960, 1090, 1210, 1320, 1420, 1510, 1590 };
+	if (NumMatches < 40)
+	{
+		// possibly beginner badges
+		if (NumMatches < 2)
+		{
+			SubLevel = 0;
+			return;
+		}
+		else if (NumMatches < 5)
+		{
+			SubLevel = 1;
+			return;
+		}
+		else if (NumMatches < 10)
+		{
+			SubLevel = 2;
+			return;
+		}
+		else if ((EloRating < 1590) || (NumMatches < 20))
+		{
+			int32 i = 0;
+			for (i = 0; i < 9; i++)
+			{
+				if (EloRating < EloBounds[i])
+				{
+					break;
+				}
+			}
+			SubLevel = FMath::Clamp(i, 2, NumMatches/3);
+			return;
+		}
+	}
+
+	if (EloRating < 1590)
+	{
+		int32 i = 0;
+		for (i = 0; i < 9; i++)
+		{
+			if (EloRating < EloBounds[i])
+			{
+				break;
+			}
+		}
+		BadgeLevel = 1;
+		SubLevel = i;
+	}
+	else if (EloRating < 2000)
+	{
+		BadgeLevel = 2;
+		SubLevel = FMath::Clamp((float(EloRating) - 1500.f) / 55.6f, 0.f, 8.f);
+	}
+	else
+	{
+		BadgeLevel = 3;
+		SubLevel = FMath::Clamp((float(EloRating) - 2000.f) / 40.f, 0.f, 8.f);
+	}
+}
+
+#if !UE_SERVER
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bSmall) const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	GetBadgeFromELO(DefaultGame, Badge, Level);
+	FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
+	if (bSmall) BadgeStr += TEXT(".Small");
+	return SUTStyle::Get().GetBrush(*BadgeStr);
+}
+
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame) const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	GetBadgeFromELO(DefaultGame, Badge, Level);
+	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
+	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
+}
+#endif
+

@@ -320,11 +320,11 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 		PS->DMRank = PS->TDMRank;
 		PS->DuelRank = PS->TDMRank;
 		PS->ShowdownRank = PS->TDMRank;
-		PS->bTDMEloValid = true;
-		PS->bDuelEloValid = true;
-		PS->bCTFEloValid = true;
-		PS->bDMEloValid = true;
-		PS->bShowdownEloValid = true;
+		PS->TDMMatchesPlayed = 255;
+		PS->DuelMatchesPlayed = 255;
+		PS->CTFMatchesPlayed = 255;
+		PS->DMMatchesPlayed = 255;
+		PS->ShowdownMatchesPlayed = 255;
 	}
 
 	float AimingSkill = Skill + Personality.Accuracy;

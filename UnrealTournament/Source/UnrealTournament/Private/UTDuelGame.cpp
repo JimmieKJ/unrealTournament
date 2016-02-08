@@ -266,10 +266,14 @@ void AUTDuelGame::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 	}
 }
 
-int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
+uint8 AUTDuelGame::GetNumMatchesFor(AUTPlayerState* PS) const
 {
-	bEloIsValid = PS ? PS->bDuelEloValid : false;
-	return PS ? PS->DuelRank : Super::GetEloFor(PS, bEloIsValid);
+	return PS ? PS->DuelMatchesPlayed : 0;
+}
+
+int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->DuelRank : Super::GetEloFor(PS);
 }
 
 void AUTDuelGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)

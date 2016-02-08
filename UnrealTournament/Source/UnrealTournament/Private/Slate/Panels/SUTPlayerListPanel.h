@@ -186,28 +186,16 @@ public:
 
 	const FSlateBrush* GetBadge() const
 	{
-		int32 Badge;
-		int32 Level;
-		int32 EloRating = NEW_USER_ELO;
-		bool bEloIsValid = false;
-		bool bIsBeginner = false;
+		int32 Badge = 0;
+		int32 Level = 0;
 
 		if (PlayerState.IsValid())
 		{
-			bIsBeginner = PlayerState->bIsBeginner;
 			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-			if (DefaultGame)
-			{
-				int32 EloRating = DefaultGame->GetEloFor(PlayerState.Get(), bEloIsValid);
-			}
-		}
-		else
-		{
-			EloRating = Elo;
+			PlayerState->GetBadgeFromELO(DefaultGame, Badge, Level);
 		}
 
-		UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, EloRating, bEloIsValid, Badge, Level);
 		Badge = FMath::Clamp<int32>(Badge, 0, 3);
 		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 		return SUTStyle::Get().GetBrush(*BadgeStr);
@@ -215,26 +203,14 @@ public:
 
 	FText GetRank()
 	{
-		int32 Badge;
-		int32 Level = 1;
-		int32 EloRating = NEW_USER_ELO;
-		bool bEloIsValid = false;
-		bool bIsBeginner = false;
+		int32 Badge = 0;
+		int32 Level = 0;
 		if (PlayerState.IsValid())
 		{
-			bIsBeginner = PlayerState->bIsBeginner;
 			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-			if (DefaultGame)
-			{
-				int32 EloRating = DefaultGame->GetEloFor(PlayerState.Get(), bEloIsValid);
-			}
+			PlayerState->GetBadgeFromELO(DefaultGame, Badge, Level);
 		}
-		else
-		{
-			EloRating = Elo;
-		}
-		UUTLocalPlayer::GetBadgeFromELO(bIsBeginner, EloRating, bEloIsValid, Badge, Level);
 		return FText::AsNumber(Level+1);
 	}
 

@@ -452,9 +452,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 			if (DefaultGame)
 			{
-				bool bEloIsValid = false;
-				int32 EloRating = DefaultGame->GetEloFor(PlayerState, bEloIsValid);
-				UUTLocalPlayer::GetBadgeFromELO(PlayerState->bIsBeginner, EloRating, bEloIsValid, Badge, Level);
+				PlayerState->GetBadgeFromELO(DefaultGame, Badge, Level);
 				UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState->GetPrevXP()), Stars);
 				Badge = FMath::Clamp<int32>(Badge, 0, 3);
 				Level = FMath::Clamp<int32>(Level, 0, 8);
