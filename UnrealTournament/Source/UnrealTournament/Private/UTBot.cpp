@@ -3177,6 +3177,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			{
 				HuntingTarget = NULL;
 				HuntingCheckedSpots.Empty();
+				DoTacticalMove();
 			}
 		}
 		else
