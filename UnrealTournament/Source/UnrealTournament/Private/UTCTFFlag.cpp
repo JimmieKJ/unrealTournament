@@ -210,10 +210,11 @@ void AUTCTFFlag::PlayReturnedEffects()
 			ReturningMeshMID->SetScalarParameterValue(NAME_Wipe, ReturnParamCurve->GetFloatValue(0.0f));
 			ReturningMesh->RegisterComponent();
 		}
-		UGameplayStatics::SpawnEmitterAtLocation(this, ReturnSrcEffect, GetActorLocation(), GetActorRotation());
+		FVector FlagPoleOffset = GetRootComponent()->ComponentToWorld.TransformVectorNoScale(GetMesh()->RelativeLocation);
+		UGameplayStatics::SpawnEmitterAtLocation(this, ReturnSrcEffect, GetActorLocation() + FlagPoleOffset, GetActorRotation());
 		if (HomeBase != NULL)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation(), GetHomeRotation());
+			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation() + FlagPoleOffset, GetHomeRotation());
 		}
 	}
 }
