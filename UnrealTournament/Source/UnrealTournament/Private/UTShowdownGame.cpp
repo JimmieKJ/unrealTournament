@@ -25,7 +25,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	TimeLimit = 2.0f; // per round
 	GoalScore = 5;
 	SpawnSelectionTime = 9;
-	PowerupDuration = 15.0f;
+	PowerupDuration = 20.0f;
 	XPMultiplier = 15.0f;
 	bHasRespawnChoices = false; // unique system
 	HUDClass = AUTHUD_Showdown::StaticClass();
