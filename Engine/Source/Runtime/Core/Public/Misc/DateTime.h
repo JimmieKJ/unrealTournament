@@ -467,6 +467,16 @@ public:
 	CORE_API FString ToIso8601() const;
 
 	/**
+	 * Returns the RFC 1123 string representation of the FDateTime.
+	 *
+	 * The resulting string assumes that the FDateTime is in UTC.
+	 * 
+	 * @return String representation.
+	 * @see ParseHttpDate, ToString
+	 */
+	CORE_API FString ToHttpDate() const;
+
+	/**
 	 * Returns the string representation of this date using a default format.
 	 *
 	 * The returned string has the following format:
@@ -611,6 +621,17 @@ public:
 	 * @see Parse, ToIso8601
 	 */
 	static CORE_API bool ParseIso8601( const TCHAR* DateTimeString, FDateTime& OutDateTime );
+
+	/**
+	 * Parses a date string in HTTP-date format (rfc1123-date | rfc850-date | asctime-date)
+	 * https://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3.1
+	 * 
+	 * @param HttpDate The string to be parsed
+	 * @param OutDateTime FDateTime object (assumes UTC) corresponding to the input string.
+	 * @return true if the string was converted successfully, false otherwise.
+	 * @see Parse
+	 */
+	static CORE_API bool ParseHttpDate( const FString& HttpDate, FDateTime& OutDateTime );
 
 	/**
 	 * Gets the local date on this computer.
