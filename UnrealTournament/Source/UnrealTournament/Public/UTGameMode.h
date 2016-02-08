@@ -651,6 +651,8 @@ protected:
 
 	virtual void AwardXP();
 
+	void ReportRankedMatchResults(const FString& MatchRatingType);
+	void GetRankedTeamInfo(int32 TeamId, struct FRankedTeamInfo& RankedTeamInfoOut);
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);

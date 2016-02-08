@@ -143,6 +143,8 @@ AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner_Implementation(bool& bTied)
 
 void AUTTeamDMGameMode::UpdateSkillRating()
 {
+	ReportRankedMatchResults(NAME_TDMSkillRating.ToString());
+
 	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);

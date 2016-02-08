@@ -41,6 +41,7 @@
 #include "DataChannel.h"
 #include "UTGameInstance.h"
 #include "UTDemoRecSpectator.h"
+#include "UTMcpUtils.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -4240,3 +4241,94 @@ void AUTGameMode::GetGood()
 #endif
 }
 
+void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInfoOut)
+{
+	// report the social party initial size
+	RankedTeamInfoOut.SocialPartySize = 1;
+
+	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			FRankedTeamMemberInfo RankedMemberInfo;
+			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
+		}
+	}
+
+	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			FRankedTeamMemberInfo RankedMemberInfo;
+			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
+		}
+	}
+}
+
+void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
+{
+	// get MCP Utils
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), TSharedPtr<const FUniqueNetId>());
+	if (McpUtils == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to report the results of this ranked match"));
+		return;
+	}
+
+	// prepare a MatchResult structure
+	FRankedMatchResult MatchResult;
+	MatchResult.RatingType = MatchRatingType;
+
+	// get the winner
+	if (UTGameState->WinningTeam->TeamIndex == 0)
+	{
+		// red team wins
+		MatchResult.MatchInfo.RedScore = 1.0f;
+	}
+	else
+	{
+		// red team loses
+		MatchResult.MatchInfo.RedScore = 0.0f;
+	}
+
+	// get the length of the match (in seconds)
+	if (ensure(GameState))
+	{
+		MatchResult.MatchInfo.MatchLengthSeconds = GameState->ElapsedTime;
+	}
+
+	// get the session ID
+	IOnlineSessionPtr SessionInt = IOnlineSubsystem::Get()->GetSessionInterface();
+	FNamedOnlineSession* SessionPtr = SessionInt.IsValid() ? SessionInt->GetNamedSession(GameSessionName) : nullptr;
+	TSharedPtr<FOnlineSessionInfo> SessionInfo = SessionPtr ? SessionPtr->SessionInfo : TSharedPtr<FOnlineSessionInfo>();
+	if (SessionInfo.IsValid())
+	{
+		MatchResult.MatchInfo.SessionId = SessionInfo->GetSessionId().ToString();
+		UE_LOG(UT, Log, TEXT("Reporting ranked results for session {0}"), *MatchResult.MatchInfo.SessionId);
+	}
+	else
+	{
+		// just make a new one so we can submit
+		MatchResult.MatchInfo.SessionId = FGuid::NewGuid().ToString();
+		UE_LOG(UT, Warning, TEXT("Unable to get match session ID. Will report the results of this ranked match with sessionID = {0}"), *MatchResult.MatchInfo.SessionId);
+	}
+
+	// add team member info
+	GetRankedTeamInfo(0, MatchResult.RedTeam);
+	GetRankedTeamInfo(1, MatchResult.BlueTeam);
+
+	// tell MCP about the match to update players' MMRs
+	McpUtils->ReportRankedMatchResult(MatchResult, [](const FOnlineError& Result) {
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to report Match Results to the server. User ELOs will not be updated. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+	});
+}
