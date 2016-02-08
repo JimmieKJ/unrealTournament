@@ -52,6 +52,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
 	FiringViewKickback = -50.f;
+	bRecommendSplashDamage = true;
 
 	KillStatsName = NAME_RocketKills;
 	DeathStatsName = NAME_RocketDeaths;
