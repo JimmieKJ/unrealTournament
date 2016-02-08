@@ -2436,6 +2436,8 @@ void AUTPlayerState::UpdateOldName()
 
 void AUTPlayerState::OnRep_PlayerName()
 {
+	bHasValidClampedName = false;
+
 	if (PlayerName.IsEmpty())
 	{
 		// Demo rec spectator is allowed empty name
@@ -2462,7 +2464,7 @@ void AUTPlayerState::OnRep_PlayerName()
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				APlayerController* PlayerController = *Iterator;
-				if (PlayerController)
+				if (PlayerController != NULL && PlayerController->IsLocalPlayerController())
 				{
 					PlayerController->ClientReceiveLocalizedMessage(EngineMessageClass, 2, this);
 				}
@@ -2479,13 +2481,13 @@ void AUTPlayerState::OnRep_PlayerName()
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				APlayerController* PlayerController = *Iterator;
-				if (PlayerController)
+				if (PlayerController != NULL && PlayerController->IsLocalPlayerController())
 				{
 					PlayerController->ClientReceiveLocalizedMessage(EngineMessageClass, WelcomeMessageNum, this);
 				}
 			}
 		}
-	}	bHasValidClampedName = false;
+	}
 }
 
 
