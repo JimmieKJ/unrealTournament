@@ -1746,35 +1746,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 			return UTGame->GetEloFor(PC->UTPlayerState);
 		}
 	}
-
-	int32 MaxElo = 0;
-	bool bHasValidElo = (DuelMatchesPlayed > 10) || (FFAMatchesPlayed > 10) || (TDMMatchesPlayed > 10) || (ShowdownMatchesPlayed > 10);
-	if (bHasValidElo)
-	{
-		if (DuelMatchesPlayed > 10)
-		{
-			MaxElo = FMath::Max(MaxElo, GetRankDuel());
-		}
-		if (FFAMatchesPlayed > 10)
-		{
-			MaxElo = FMath::Max(MaxElo, GetRankDM());
-		}
-		if (TDMMatchesPlayed > 10)
-		{
-			MaxElo = FMath::Max(MaxElo, GetRankTDM());
-		}
-		if (ShowdownMatchesPlayed > 10)
-		{
-			MaxElo = FMath::Max(MaxElo, GetRankShowdown());
-		}
-	}
-	else
-	{
-		MaxElo = FMath::Max(GetRankDuel(), GetRankTDM());
-		MaxElo = FMath::Max(MaxElo, GetRankShowdown());
-		MaxElo = FMath::Max(MaxElo, GetRankDM());
-	}
-	return MaxElo;
+	return 1500;
 }
 
 void UUTLocalPlayer::GetStarsFromXP(int32 XPValue, int32& Star)
