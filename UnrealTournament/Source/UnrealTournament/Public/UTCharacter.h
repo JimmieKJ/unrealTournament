@@ -1507,7 +1507,7 @@ public:
 	float FullEyeOffsetLandBobVelZ;
 
 	/** Get Max weapon land bob deflection at landing velocity Z of FullWeaponLandBobVelZ+WeaponLandBobThreshold */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
 	float DefaultBaseEyeHeight;
 
 	/** maximum amount of time Pawn stays around when dead even if visible (may be cleaned up earlier if not visible) */
