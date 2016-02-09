@@ -795,11 +795,15 @@ int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS) const
 	return PS ? PS->ShowdownRank : Super::GetEloFor(PS);
 }
 
-void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{
 		PS->ShowdownRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->ShowdownMatchesPlayed < 255))
+		{
+			PS->ShowdownMatchesPlayed++;
+		}
 	}
 }
 

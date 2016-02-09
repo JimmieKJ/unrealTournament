@@ -3824,9 +3824,9 @@ void AUTPlayerController::ClientUpdateSkillRating_Implementation(int32 OldRating
 			int32 OldBadge = 0;
 			int32 NewLevel = 0;
 			int32 NewBadge = 0;
-			DefaultGame->SetEloFor(UTPlayerState, OldRating);
+			DefaultGame->SetEloFor(UTPlayerState, OldRating, false);
 			UTPlayerState->GetBadgeFromELO(DefaultGame, OldBadge, OldLevel);
-			DefaultGame->SetEloFor(UTPlayerState, NewRating);
+			DefaultGame->SetEloFor(UTPlayerState, NewRating, true);
 			UTPlayerState->GetBadgeFromELO(DefaultGame, NewBadge, NewLevel);
 			bBadgeChanged = ((OldLevel != NewLevel) || (OldBadge != NewBadge));
 		}

@@ -198,7 +198,7 @@ public:
 	int32 GetAverageElo();
 
 	/** Locally set Elo rating for this game mode (updated from server). */
-	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue);
+	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue, bool bIncrementMatchCount);
 
 	/** Event that is called on servers when the initial Client->Server replication of the ELO/Rank/Progression occurs. **/
 	virtual void ReceivedRankForPlayer(AUTPlayerState* UTPlayerState);

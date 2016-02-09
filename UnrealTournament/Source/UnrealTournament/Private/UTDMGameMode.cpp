@@ -46,10 +46,14 @@ int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS) const
 	return PS ? PS->DMRank : Super::GetEloFor(PS);
 }
 
-void AUTDMGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+void AUTDMGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{
 		PS->DMRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->DMMatchesPlayed < 255))
+		{
+			PS->DMMatchesPlayed++;
+		}
 	}
 }

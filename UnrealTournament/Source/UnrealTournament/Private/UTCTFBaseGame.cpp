@@ -649,3 +649,25 @@ void AUTCTFBaseGame::SetBlueScore(int32 NewScore)
 		Teams[1]->Score = NewScore;
 	}
 }
+
+uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->CTFMatchesPlayed : 0;
+}
+
+int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->CTFRank : Super::GetEloFor(PS);
+}
+
+void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+{
+	if (PS)
+	{
+		PS->CTFRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->CTFMatchesPlayed < 255))
+		{
+			PS->CTFMatchesPlayed++;
+		}
+	}
+}

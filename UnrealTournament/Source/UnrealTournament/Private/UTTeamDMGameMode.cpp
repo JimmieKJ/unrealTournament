@@ -174,10 +174,14 @@ int32 AUTTeamDMGameMode::GetEloFor(AUTPlayerState* PS) const
 	return PS ? PS->TDMRank : Super::GetEloFor(PS);
 }
 
-void AUTTeamDMGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+void AUTTeamDMGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{
 		PS->TDMRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->TDMMatchesPlayed < 255))
+		{
+			PS->TDMMatchesPlayed++;
+		}
 	}
 }

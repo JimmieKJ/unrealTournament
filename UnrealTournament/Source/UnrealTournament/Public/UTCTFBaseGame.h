@@ -66,6 +66,10 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	virtual void CheckGameTime() override;
 	virtual void HandleFlagCapture(AUTPlayerState* Holder);
 
+	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS) const override;
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue, bool bIncrementMatchCount) override;
+
 protected:
 
 	virtual void ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker) override;

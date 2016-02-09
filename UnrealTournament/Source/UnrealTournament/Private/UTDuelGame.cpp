@@ -276,10 +276,14 @@ int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS) const
 	return PS ? PS->DuelRank : Super::GetEloFor(PS);
 }
 
-void AUTDuelGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+void AUTDuelGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{
 		PS->DuelRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->DuelMatchesPlayed < 255))
+		{
+			PS->DuelMatchesPlayed++;
+		}
 	}
 }

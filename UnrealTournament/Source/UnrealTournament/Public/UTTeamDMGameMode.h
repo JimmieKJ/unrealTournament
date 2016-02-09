@@ -21,5 +21,5 @@ class UNREALTOURNAMENT_API AUTTeamDMGameMode : public AUTTeamGameMode
 	virtual void UpdateSkillRating() override;
 	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS) const override;
 	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
-	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue) override;
+	virtual void SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount) override;
 };

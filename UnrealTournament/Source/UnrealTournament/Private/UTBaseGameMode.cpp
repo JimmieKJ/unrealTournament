@@ -508,7 +508,7 @@ int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS) const
 	return MaxElo;
 }
 
-void AUTBaseGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue)
+void AUTBaseGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
 {
 }
 
