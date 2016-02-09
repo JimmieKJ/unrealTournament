@@ -17,6 +17,7 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 	GENERATED_UCLASS_BODY()
 	
 	virtual void Init();
+	virtual bool PerfExecCmd(const FString& ExecCmd, FOutputDevice& Ar);
 	virtual void StartGameInstance() override;
 
 	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions = TArray<FString>()) override;

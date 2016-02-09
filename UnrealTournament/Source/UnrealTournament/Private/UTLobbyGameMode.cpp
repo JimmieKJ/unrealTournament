@@ -460,3 +460,4 @@ void AUTLobbyGameMode::ReceivedRankForPlayer(AUTPlayerState* UTPlayerState)
 		UTLobbyGameState->CheckForAutoPlacement(LobbyPlayerState);
 	}
 }
+

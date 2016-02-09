@@ -366,6 +366,8 @@ public:
 		return (RankToCheck <= 1400 && TargetRank <= 1400) || (RankToCheck >= TargetRank + RANK_CHECK_MIN && RankToCheck <= TargetRank + RANK_CHECK_MAX);
 	}
 
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
 };
 
 

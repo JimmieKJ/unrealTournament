@@ -1216,5 +1216,47 @@ FString AUTLobbyMatchInfo::GetOwnerName()
 	return PS.IsValid() ? PS->PlayerName : TEXT("N/A");
 }
 
+void AUTLobbyMatchInfo::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	JsonObject->SetStringField(TEXT("State"), CurrentState.ToString());
+	JsonObject->SetStringField(TEXT("OwnerId"), OwnerId.ToString());
+
+	JsonObject->SetNumberField(TEXT("GameInstanceID"), GameInstanceID);
+	JsonObject->SetStringField(TEXT("GameInstanceGUID"), GameInstanceGUID);
+
+	if (CurrentRuleset.IsValid())
+	{
+		TSharedPtr<FJsonObject> MatchJson = MakeShareable(new FJsonObject);
+		CurrentRuleset->MakeJsonReport(MatchJson);
+		JsonObject->SetObjectField(TEXT("CurrentRuleset"), MatchJson);
+	}
+
+	JsonObject->SetBoolField(TEXT("bPrivateMatch"),	bPrivateMatch);
+	JsonObject->SetBoolField(TEXT("bJoinAnyTime"), bJoinAnytime);
+	JsonObject->SetBoolField(TEXT("bRankLocked"), bRankLocked);
+	JsonObject->SetBoolField(TEXT("bBeginnerMatch"), bBeginnerMatch );
+	JsonObject->SetNumberField(TEXT("BotSkillLevel"), BotSkillLevel);
+
+	TArray<TSharedPtr<FJsonValue>> APArray;
+	for (int32 i=0; i < Players.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> PJson = MakeShareable(new FJsonObject);
+		Players[i]->MakeJsonReport(PJson);
+		APArray.Add( MakeShareable( new FJsonValueObject( PJson )) );			
+	}
+
+	JsonObject->SetArrayField(TEXT("Players"),  APArray);
+
+	TArray<TSharedPtr<FJsonValue>> IPArray;
+	for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> PJson = MakeShareable(new FJsonObject);
+		PlayersInMatchInstance[i].MakeJsonReport(PJson);
+		IPArray.Add( MakeShareable( new FJsonValueObject( PJson )) );			
+	}
+
+	JsonObject->SetArrayField(TEXT("InstancePlayers"),  IPArray);
+
+}
 
 

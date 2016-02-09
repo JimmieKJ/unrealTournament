@@ -118,5 +118,4 @@ public:
 	virtual void RconNormal(AUTBasePlayerController* Admin);
 
 	virtual void ReceivedRankForPlayer(AUTPlayerState* UTPlayerState);
-
 };

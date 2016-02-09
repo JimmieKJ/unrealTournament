@@ -826,6 +826,10 @@ public:
 	{
 		return bOnlySpectator;
 	}
+
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+	
+
 };
 
 USTRUCT()
@@ -911,7 +915,11 @@ struct FRemotePlayerInfo
 		Avatar = NewInfo.Avatar;
 	}
 
+	void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+	{
+		FJsonObjectConverter::UStructToJsonObject(FRemotePlayerInfo::StaticStruct(), this,JsonObject.ToSharedRef(), 0, 0);
+		JsonObject->SetStringField("PlayerId", PlayerID.ToString());
+	}
 };
-
 
 

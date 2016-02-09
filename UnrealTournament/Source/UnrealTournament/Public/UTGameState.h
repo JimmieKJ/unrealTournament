@@ -500,6 +500,9 @@ public:
 	{
 		return GameModeClass;
 	}
+
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
 };
 
 

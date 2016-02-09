@@ -202,4 +202,11 @@ public:
 
 	/** Event that is called on servers when the initial Client->Server replication of the ELO/Rank/Progression occurs. **/
 	virtual void ReceivedRankForPlayer(AUTPlayerState* UTPlayerState);
+
+	/** Handle console exec commands */
+	virtual bool ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor);
+
+	/** Build a JSON object that contains information about this game mode. */
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
 };

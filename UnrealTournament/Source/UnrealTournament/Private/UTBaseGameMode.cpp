@@ -537,3 +537,31 @@ void AUTBaseGameMode::ReceivedRankForPlayer(AUTPlayerState* UTPlayerState)
 {
 	// By default we do nothing here.  Hubs do things with this functions, look at AUTLobbyGameMode::ReveivedRankForPlayer()
 }
+
+bool AUTBaseGameMode::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor)
+{
+	if( FParse::Command( &Cmd, TEXT("dumpgame") ) )
+	{
+		TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+		MakeJsonReport(JsonObject);
+
+		FString Result;
+		TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Result);
+		FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+		Ar.Logf(TEXT("%s"), *Result);
+		return true;
+	}
+
+	return Super::ProcessConsoleExec(Cmd, Ar, Executor);
+
+}
+
+
+void AUTBaseGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		GameState->MakeJsonReport(JsonObject);
+	}
+}

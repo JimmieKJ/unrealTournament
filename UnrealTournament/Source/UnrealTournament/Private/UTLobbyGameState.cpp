@@ -1217,3 +1217,50 @@ void AUTLobbyGameState::AttemptDirectJoin(AUTLobbyPlayerState* PlayerState, cons
 		}
 	}
 }
+
+void AUTLobbyGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	Super::MakeJsonReport(JsonObject);
+
+	TArray<TSharedPtr<FJsonValue>> AvailableMatchJson;
+	for (int32 i=0; i < AvailableMatches.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> MatchJson = MakeShareable(new FJsonObject);
+		AvailableMatches[i]->MakeJsonReport(MatchJson);
+		AvailableMatchJson.Add( MakeShareable( new FJsonValueObject( MatchJson )) );			
+	}
+
+	JsonObject->SetArrayField(TEXT("AvailableMatches"),  AvailableMatchJson);
+
+	TArray<TSharedPtr<FJsonValue>> InstancesJson;
+	for (int32 i=0; i < GameInstances.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> IJson = MakeShareable(new FJsonObject);
+		if (GameInstances[i].MatchInfo)
+		{
+			IJson->SetStringField(TEXT("InstanceID"), GameInstances[i].MatchInfo->GameInstanceGUID);
+		}
+		else
+		{
+			IJson->SetStringField(TEXT("InstanceID"), TEXT("<INVALID>"));
+		}
+
+		IJson->SetNumberField(TEXT("InstancePort"), GameInstances[i].InstancePort);
+	}
+
+	JsonObject->SetArrayField(TEXT("GameInstances"),  InstancesJson);
+	JsonObject->SetNumberField(TEXT("ProcessesAwaitingReturnCodes"),  ProcessesToGetReturnCode.Num());
+
+
+	TArray<TSharedPtr<FJsonValue>> RulesetJson;
+	for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> RJson = MakeShareable(new FJsonObject);
+		AvailableGameRulesets[i]->MakeJsonReport(RJson);
+		RulesetJson.Add( MakeShareable( new FJsonValueObject( RJson )) );			
+	}
+
+	JsonObject->SetArrayField(TEXT("Rulesets"),  RulesetJson);
+
+
+}

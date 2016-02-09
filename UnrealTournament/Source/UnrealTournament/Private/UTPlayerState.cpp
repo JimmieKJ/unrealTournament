@@ -2911,3 +2911,21 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(AUTBaseGameMode* Defau
 }
 #endif
 
+void AUTPlayerState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	JsonObject->SetStringField(TEXT("PlayerName"), PlayerName);
+	JsonObject->SetStringField(TEXT("UniqueId"), UniqueId.ToString());
+	JsonObject->SetNumberField(TEXT("Score"), Score);
+	JsonObject->SetNumberField(TEXT("Team Num"), GetTeamNum());
+
+	JsonObject->SetNumberField(TEXT("Duel Rank"), DuelRank);
+	JsonObject->SetNumberField(TEXT("No_of_Duel_Played"), DuelMatchesPlayed);
+	JsonObject->SetNumberField(TEXT("CTF Rank"), CTFRank);
+	JsonObject->SetNumberField(TEXT("No_CTF_Matches Played"), CTFMatchesPlayed);
+	JsonObject->SetNumberField(TEXT("TDM Rank"), TDMRank);
+	JsonObject->SetNumberField(TEXT("No_TDM_Matches Played"), TDMMatchesPlayed);
+	JsonObject->SetNumberField(TEXT("DMRank"), DMRank);
+	JsonObject->SetNumberField(TEXT("No_DM_Matches_Played"), DMMatchesPlayed);
+	JsonObject->SetNumberField(TEXT("ShowdownRank"), ShowdownRank);
+	JsonObject->SetNumberField(TEXT("No_Showdowns"), ShowdownMatchesPlayed);
+}

@@ -1678,3 +1678,43 @@ void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
 	}
 }
 
+void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	JsonObject->SetStringField(TEXT("ServerName"), ServerName);
+
+	JsonObject->SetBoolField(TEXT("bWeaponStay"), bWeaponStay);
+	JsonObject->SetBoolField(TEXT("bTeamGame"), bTeamGame);
+	JsonObject->SetBoolField(TEXT("bAllowTeamSwitches"), bAllowTeamSwitches);
+	JsonObject->SetBoolField(TEXT("bStopGameClock"), bStopGameClock);
+	JsonObject->SetBoolField(TEXT("bCasterControl"), bCasterControl);
+	JsonObject->SetBoolField(TEXT("bForcedBalance"), bForcedBalance);
+	JsonObject->SetBoolField(TEXT("bPlayPlayerIntro"), bPlayPlayerIntro);
+
+	JsonObject->SetNumberField(TEXT("GoalScore"), GoalScore);
+	JsonObject->SetNumberField(TEXT("TimeLimit"), TimeLimit);
+	JsonObject->SetNumberField(TEXT("SpawnProtectionTime"), SpawnProtectionTime);
+	JsonObject->SetNumberField(TEXT("RemainingTime"), RemainingTime);
+	JsonObject->SetNumberField(TEXT("ElapsedTime"), ElapsedTime);
+	JsonObject->SetNumberField(TEXT("RespawnWaitTime"), RespawnWaitTime);
+	JsonObject->SetNumberField(TEXT("ForceRespawnTime"), ForceRespawnTime);
+
+	TArray<TSharedPtr<FJsonValue>> PlayersJson;
+	for (int32 i=0; i < PlayerArray.Num(); i++)
+	{
+		if (PlayerArray[i])
+		{
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (PlayerState)
+			{
+				TSharedPtr<FJsonObject> PJson = MakeShareable(new FJsonObject);
+				PlayerState->MakeJsonReport(PJson);
+				PlayersJson.Add( MakeShareable( new FJsonValueObject( PJson )) );			
+			}
+		}
+	}
+
+	JsonObject->SetArrayField(TEXT("Players"),  PlayersJson);
+	
+
+
+}

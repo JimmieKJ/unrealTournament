@@ -256,6 +256,9 @@ public:
 
 	virtual void AttemptDirectJoin(AUTLobbyPlayerState* PlayerState, const FString& SessionID, bool bSpectator = false);
 
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
+
 };
 
 

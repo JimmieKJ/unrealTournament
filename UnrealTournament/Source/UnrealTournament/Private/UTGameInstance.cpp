@@ -17,6 +17,35 @@ void UUTGameInstance::Init()
 {
 	Super::Init();
 	InitPerfCounters();
+
+	IPerfCounters* PerfCounters = IPerfCountersModule::Get().GetPerformanceCounters();
+	if (PerfCounters)
+	{
+		// Attach a handler for exec commands passed in via the perf counter query port
+		PerfCounters->OnPerfCounterExecCommand() = FPerfCounterExecCommandCallback::CreateUObject(this, &ThisClass::PerfExecCmd);
+	}
+}
+
+bool UUTGameInstance::PerfExecCmd(const FString& ExecCmd, FOutputDevice& Ar)
+{
+
+	FWorldContext* WorldContext = GetWorldContext();
+	if (WorldContext)
+	{
+		UWorld* World = WorldContext->World();
+		if (World)
+		{
+			if (GEngine->Exec(World, *ExecCmd, Ar))
+			{
+				return true;
+			}
+			Ar.Log(FString::Printf(TEXT("ExecCmd %s not found"), *ExecCmd));
+			return false;
+		}
+	}
+
+	Ar.Log(FString::Printf(TEXT("WorldContext for ExecCmd %s not found"), *ExecCmd));
+	return false;
 }
 
 void UUTGameInstance::StartGameInstance()
