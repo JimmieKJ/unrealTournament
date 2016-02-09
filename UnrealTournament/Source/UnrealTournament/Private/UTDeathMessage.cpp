@@ -108,8 +108,8 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 					GetDefault<UUTVictimMessage>()->ResolveMessage(ClientData.MessageIndex, true, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 					ClientData.OptionalObject);
 			}
-			UTHUD->NotifyKill(LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2);
 		}
+		UTHUD->NotifyKill(LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2);
 	}
 
 	// add the message to the console's output history
