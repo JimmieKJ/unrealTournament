@@ -224,7 +224,10 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		}
 
 		//draw powerup clocks
-		DrawSelector("ToggleShowTimers", !UTHUDOwner->UTPlayerOwner->bShowPowerupTimers, XOffset, DrawOffset);
+		if (PowerupList.Num() > 0)
+		{
+			DrawSelector("ToggleShowTimers", !UTHUDOwner->UTPlayerOwner->bShowPowerupTimers, XOffset, DrawOffset);
+		}
 		if (UTHUDOwner->UTPlayerOwner->bShowPowerupTimers)
 		{
 			if (!bPowerupListInitialized)
