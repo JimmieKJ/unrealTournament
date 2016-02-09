@@ -85,7 +85,6 @@ float AUTProj_ShockBall::TakeDamage(float Damage, const FDamageEvent& DamageEven
 
 void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
 {
-	// @TODO FIXMESTEVE - do I limit how far I move combo, so fair to all?
 	TArray<USphereComponent*> Components;
 	GetComponents<USphereComponent>(Components);
 	for (int32 i = 0; i < Components.Num(); i++)
@@ -94,6 +93,14 @@ void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, F
 		{
 			Components[i]->SetCollisionResponseToAllChannels(ECR_Ignore);
 		}
+	}
+	// clamp movement to max prediction time
+	// TODO: need to verify that projectile was really at that location - either here or in AUTPlayerController::ServerNotifyProjectileHit()
+	const FVector Diff = HitLocation - GetActorLocation();
+	const float MaxChange = ProjectileMovement->MaxSpeed * (InstigatedBy->MaxPredictionPing + InstigatedBy->PredictionFudgeFactor);
+	if (Diff.SizeSquared() > FMath::Square<float>(MaxChange))
+	{
+		HitLocation = GetActorLocation() + Diff.SafeNormal() * MaxChange;
 	}
 	SetActorLocation(HitLocation);
 	PerformCombo(InstigatedBy, DamageCauser);

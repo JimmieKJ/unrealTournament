@@ -146,8 +146,8 @@ public:
 	virtual void ServerNP();
 
 	/** Notification from client that it detected a client side projectile hit (like a shock combo) */
-	UFUNCTION(server, unreliable, withvalidation)
-		virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp);
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp);
 
 	void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
 	{
