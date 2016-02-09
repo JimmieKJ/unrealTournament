@@ -64,7 +64,7 @@ bool UUTLocalMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientDat
 bool UUTLocalMessage::IsLocalForAnnouncement(const FClientReceiveData& ClientData, bool bCheckFirstPS, bool bCheckSecondPS) const
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-	if ((PC != NULL) & (PC->Announcer != NULL))
+	if ((PC != NULL) && (PC->Announcer != NULL))
 	{
 		APlayerState* ViewedPS = (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && PC->LastSpectatedPlayerState) ? PC->LastSpectatedPlayerState : PC->PlayerState;
 		if (bCheckFirstPS && ViewedPS && (ClientData.RelatedPlayerState_1 == ViewedPS))
