@@ -26,6 +26,7 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 	if (CollisionComp != NULL)
 	{
 		CollisionComp->bTraceComplexOnMove = false;
+		CollisionComp->OnComponentHit.AddDynamic(this, &AUTProj_TransDisk::OnBlockingHit);
 	}
 }
 
@@ -103,6 +104,17 @@ void AUTProj_TransDisk::OnRep_TransState()
 	else if (TransState == TLS_OnGround)
 	{
 		OnLanded();
+	}
+}
+
+void AUTProj_TransDisk::OnBlockingHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (TransState == TLS_InAir && Cast<AUTLift>(OtherActor) != NULL && Hit.Normal.Z > Hit.Normal.Size2D())
+	{
+		// force disk to land on lift so it doesn't continue to block the lift's movement (which will get it destroyed)
+		ProjectileMovement->StopMovementImmediately();
+		// the passed in HitResult will generally have 'this' as Hit.Actor so we need to make a new one
+		OnStop(FHitResult(OtherActor, OtherComp, Hit.Location, Hit.Normal));
 	}
 }
 
