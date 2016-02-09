@@ -2653,8 +2653,8 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		{
 			int32 WaitCountDown = (NumPlayers > 1) ? MaxReadyWaitTime  : FMath::Max(MaxReadyWaitTime, MaxWaitForPlayers);
 			WaitCountDown -= ElapsedWaitTime;
-			UTGameState->RemainingTime = WaitCountDown;
-			UTGameState->RemainingMinute = WaitCountDown;
+			UTGameState->RemainingTime = FMath::Max(0, WaitCountDown);
+			UTGameState->RemainingMinute = UTGameState->RemainingTime;
 		}
 	}
 	return false;
