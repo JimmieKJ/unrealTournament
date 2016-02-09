@@ -82,10 +82,8 @@ void UUTShowdownScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		DrawText((GetWorld()->GetNetMode() == NM_Standalone) ? CH_Skill : CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		XOffset = Size.X - Width;
 	}
-
 	YOffset += Height + 4.f;
 }
-
 
 void UUTShowdownScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)
 {
