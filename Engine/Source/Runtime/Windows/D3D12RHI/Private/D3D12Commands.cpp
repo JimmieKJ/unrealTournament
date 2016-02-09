@@ -1151,19 +1151,29 @@ void FD3D12CommandContext::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 }
 void FD3D12CommandContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 {
-	FD3D12OcclusionQuery*  Query = FD3D12DynamicRHI::ResourceCast(QueryRHI);
-	if (Query != NULL)
+	FD3D12OcclusionQuery* Query = FD3D12DynamicRHI::ResourceCast(QueryRHI);
+	if (Query != nullptr)
 	{
-		// This code always assumed it was an occlusion query
-		check(Query->Type == RQT_Occlusion);
-
-		// End the query
-		GetParentDevice()->GetQueryHeap()->EndQuery(*this, D3D12_QUERY_TYPE_OCCLUSION, Query->HeapIndex);
-
-		check(Query->OwningCommandList == CommandListHandle);
-		check(Query->OwningContext == this);
+		switch (Query->Type)
+		{
+		case RQT_Occlusion:
+			// End the query
+			GetParentDevice()->GetQueryHeap()->EndQuery(*this, D3D12_QUERY_TYPE_OCCLUSION, Query->HeapIndex);
+			check(Query->OwningCommandList == CommandListHandle);
+			check(Query->OwningContext == this);
+			break;
+		case RQT_AbsoluteTime:
+			Query->bResultIsCached = false;
+			Query->OwningCommandList = CommandListHandle;
+			Query->OwningContext = this;
+			this->otherWorkCounter += 2;
+			CommandListHandle->EndQuery(Query->QueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, Query->HeapIndex);
+			CommandListHandle->ResolveQueryData(Query->QueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, Query->HeapIndex, 1, Query->ResultBuffer, 8 * Query->HeapIndex);
+			break;
+		default:
+			check(false);
+		}
 	}
-
 #if EXECUTE_DEBUG_COMMAND_LISTS
 	GIsDoingQuery = false;
 #endif

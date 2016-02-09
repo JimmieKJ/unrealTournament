@@ -26,36 +26,33 @@ using namespace D3D12RHI;
 
 FRenderQueryRHIRef FD3D12DynamicRHI::RHICreateRenderQuery(ERenderQueryType QueryType)
 {
-	TRefCountPtr<ID3D12QueryHeap> queryHeap;
-	TRefCountPtr<ID3D12Resource> queryResultBuffer;
-
 	check(QueryType == RQT_Occlusion || QueryType == RQT_AbsoluteTime);
 	if (QueryType == RQT_AbsoluteTime)
 	{
-		D3D12_QUERY_HEAP_DESC queryHeapDesc ={};
-		queryHeapDesc.Count = 1;
-
-		queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
-
-		VERIFYD3D11RESULT(GetRHIDevice()->GetDevice()->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(queryHeap.GetInitReference())));
-
-		D3D12_HEAP_PROPERTIES heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK);
-
-		D3D12_RESOURCE_DESC heapDesc = CD3DX12_RESOURCE_DESC::Buffer(8);
-
+		ID3D12QueryHeap* pQueryHeap = nullptr;
+		ID3D12Resource* pQueryResultBuffer = nullptr;
+		D3D12_QUERY_HEAP_DESC QueryHeapDesc = {};
+		QueryHeapDesc.Count = 1;
+		QueryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+		VERIFYD3D11RESULT(GetRHIDevice()->GetDevice()->CreateQueryHeap(&QueryHeapDesc, IID_PPV_ARGS(&pQueryHeap)));
+		const D3D12_HEAP_PROPERTIES HeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK);
+		const D3D12_RESOURCE_DESC HeapDesc = CD3DX12_RESOURCE_DESC::Buffer(8);
 		VERIFYD3D11RESULT(
 			GetRHIDevice()->GetDevice()->CreateCommittedResource(
-				&heapProperties,
-				D3D12_HEAP_FLAG_NONE,
-				&heapDesc,
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				nullptr,
-				IID_PPV_ARGS(queryResultBuffer.GetInitReference())
-				)
+			&HeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&HeapDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&pQueryResultBuffer)
+			)
 			);
+		FD3D12OcclusionQuery* Query = new FD3D12OcclusionQuery(pQueryHeap, pQueryResultBuffer, QueryType);
+		Query->HeapIndex = 0;
+		return Query;
 	}
-
-	return new FD3D12OcclusionQuery(queryHeap, queryResultBuffer, QueryType);
+	// Occlusion query heap and result buffer will be assigned later.
+	return new FD3D12OcclusionQuery(nullptr, nullptr, QueryType);
 }
 
 bool FD3D12DynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI, uint64& OutResult, bool bWait)
