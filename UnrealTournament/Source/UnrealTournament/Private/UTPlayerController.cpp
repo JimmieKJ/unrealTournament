@@ -720,7 +720,8 @@ void AUTPlayerController::ServerThrowWeapon_Implementation()
 {
 	if (UTCharacter != NULL && !UTCharacter->IsRagdoll())
 	{
-		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon && !UTCharacter->GetWeapon()->IsFiring())
+		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (UTGM && !UTGM->bBasicTrainingGame && UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon && !UTCharacter->GetWeapon()->IsFiring())
 		{
 			UTCharacter->TossInventory(UTCharacter->GetWeapon(), FVector(400.0f, 0, 200.f));
 		}
