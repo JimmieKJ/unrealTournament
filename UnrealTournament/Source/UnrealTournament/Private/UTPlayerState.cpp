@@ -1758,7 +1758,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FTex
 			.WidthOverride(500)
 			[
 				SNew(STextBlock)
-				.Text(((DefaultGame->GetNumMatchesFor(this) < 10) ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
+				.Text(((DefaultGame->GetNumMatchesFor(this) > 10) ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
