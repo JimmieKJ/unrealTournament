@@ -1490,7 +1490,7 @@ void UUTLocalPlayer::CheckReportELOandStarsToServer()
 	{
 		// Set the ranks/etc so the player card is right.
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-		if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
+		if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), FMath::Min(255, DuelEloMatches()), FMath::Min(255, CTFEloMatches()), FMath::Min(255, TDMEloMatches()), FMath::Min(255, DMEloMatches()), FMath::Min(255, ShowdownEloMatches()));
 	}
 }
 
