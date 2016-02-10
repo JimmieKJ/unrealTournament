@@ -81,6 +81,16 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	bDrawPopupKillMsg = true;
 
 	bCustomWeaponCrosshairs = true;
+	HUDWidgetOpacity = 1.f;
+	HUDWidgetSlateOpacity = 0.5f;
+	HUDWidgetBorderOpacity = 1.0f;
+	HUDWidgetWeaponbarInactiveOpacity = 0.25f;
+	HUDWidgetScaleOverride = 0.7f;
+	HUDMessageScaleOverride = 1.0f;
+	HUDWidgetWeaponBarScaleOverride = 0.9f;
+	HUDWidgetWeaponBarInactiveIconOpacity = 0.25f;
+	HUDWidgetWeaponBarEmptyOpacity = 0.0f;
+	bUseWeaponColors = false;
 
 	TimerHours = NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}");
 	TimerMinutes = NSLOCTEXT("UTHUD", "TIMERMINUTES", "{Prefix}{Minutes}:{Seconds}{Suffix}");

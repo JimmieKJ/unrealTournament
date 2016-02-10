@@ -188,6 +188,7 @@ public:
 
 	virtual void InitializeWidget(AUTHUD* Hud);
 	virtual void DumpMessages();
+	virtual float GetDrawScaleOverride() override;
 
 protected:
 

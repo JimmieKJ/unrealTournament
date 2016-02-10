@@ -40,6 +40,11 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 	MegaFont = Hud->GetFontFromSizeIndex(3);
 }
 
+float UUTHUDWidgetMessage::GetDrawScaleOverride()
+{
+	return (UTHUDOwner) ? UTHUDOwner->HUDMessageScaleOverride : 1.f;
+}
+
 void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);

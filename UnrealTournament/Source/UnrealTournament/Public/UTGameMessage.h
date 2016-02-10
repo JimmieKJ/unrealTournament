@@ -59,5 +59,6 @@ class UNREALTOURNAMENT_API UUTGameMessage : public UUTLocalMessage
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;
 	virtual bool UseLargeFont(int32 MessageIndex) const override;
 	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override;
+	virtual float GetLifeTime(int32 Switch) const override;
 };
 

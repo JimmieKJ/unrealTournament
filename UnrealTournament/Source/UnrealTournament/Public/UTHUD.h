@@ -310,6 +310,10 @@ public:
 	UPROPERTY(globalconfig)
 	float HUDWidgetScaleOverride;
 
+	// Allows the user to override the scaling factor for their hud.
+	UPROPERTY(globalconfig)
+		float HUDMessageScaleOverride;
+
 	UPROPERTY(globalconfig)
 	bool bUseWeaponColors;
 
