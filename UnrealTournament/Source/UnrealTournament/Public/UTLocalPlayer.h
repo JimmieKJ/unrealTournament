@@ -471,6 +471,8 @@ private:
 	void ReadCloudFileListing();
 public:
 
+	void ReadSpecificELOFromBackend(const FString& MatchRatingType);
+
 	// Returns the filename for stats.
 	static FString GetStatsFilename() { return TEXT("stats.json"); }
 

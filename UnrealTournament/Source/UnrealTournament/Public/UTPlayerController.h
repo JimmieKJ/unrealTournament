@@ -911,11 +911,11 @@ public:
 	virtual void ClientUpdateTeamStats(uint8 TeamNum, uint8 TeamStatsIndex, float NewValue);
 
 	UFUNCTION(client, reliable)
-		virtual void ClientUpdateSkillRating(int32 OldRating, int32 NewRating);
+	virtual void ClientUpdateSkillRating(const FString& MatchRatingType);
 
 	/** Set at end of match if ranking badge changed. */
 	UPROPERTY()
-		bool bBadgeChanged;
+	bool bBadgeChanged;
 
 	virtual void AdvanceStatsPage(int32 Increment);
 

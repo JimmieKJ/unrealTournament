@@ -60,6 +60,7 @@
 #include "SUTMatchSummaryPanel.h"
 #include "SUTInGameHomePanel.h"
 #include "UTMcpUtils.h"
+#include "UTPlayerState.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -1650,6 +1651,93 @@ FName UUTLocalPlayer::TeamStyleRef(FName InName)
 	}
 
 	return FName( *(TEXT("Blue.") + InName.ToString()));
+}
+
+void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
+{
+	// get MCP Utils
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()));
+	if (McpUtils == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read ELO from MCP"));
+		return;
+	}
+
+	McpUtils->GetAccountElo(MatchRatingType, [this, MatchRatingType](const FOnlineError& Result, const FAccountElo& Response)
+	{
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			UE_LOG(UT, Display, TEXT("%s ELO read %d, %d matches"), *MatchRatingType, Response.Rating, Response.NumGamesPlayed);
+
+			int32 OldRating = 0;
+			int32 NewRating = 0;
+			
+			if (MatchRatingType == NAME_SkillRating.ToString())
+			{
+				OldRating = DUEL_ELO;
+				DUEL_ELO = Response.Rating;
+				NewRating = DUEL_ELO;
+				DuelMatchesPlayed = Response.NumGamesPlayed;
+			}
+			else if (MatchRatingType == NAME_TDMSkillRating.ToString())
+			{
+				OldRating = TDM_ELO;
+				TDM_ELO = Response.Rating;
+				NewRating = TDM_ELO;
+				TDMMatchesPlayed = Response.NumGamesPlayed;
+			}
+			else if (MatchRatingType == NAME_DMSkillRating.ToString())
+			{
+				OldRating = FFA_ELO;
+				FFA_ELO = Response.Rating;
+				NewRating = FFA_ELO;
+				FFAMatchesPlayed = Response.NumGamesPlayed;
+			}
+			else if (MatchRatingType == NAME_CTFSkillRating.ToString())
+			{
+				OldRating = CTF_ELO;
+				CTF_ELO = Response.Rating;
+				NewRating = CTF_ELO;
+				CTFMatchesPlayed = Response.NumGamesPlayed;
+			}
+			else if (MatchRatingType == NAME_ShowdownSkillRating.ToString())
+			{
+				OldRating = Showdown_ELO;
+				Showdown_ELO = Response.Rating;
+				NewRating = Showdown_ELO;
+				ShowdownMatchesPlayed = Response.NumGamesPlayed;
+			}
+
+			int32 OldLevel = 0;
+			int32 OldBadge = 0;
+			int32 NewLevel = 0;
+			int32 NewBadge = 0;
+
+			AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+			if (PC)
+			{
+				AUTGameState* UTGameState = PC->GetWorld()->GetGameState<AUTGameState>();
+				if (UTGameState)
+				{
+					AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+					if (DefaultGame && PC->UTPlayerState)
+					{
+						DefaultGame->SetEloFor(PC->UTPlayerState, OldRating, false);
+						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, OldBadge, OldLevel);
+						DefaultGame->SetEloFor(PC->UTPlayerState, NewRating, true);
+						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, NewBadge, NewLevel);
+						PC->bBadgeChanged = ((OldLevel != NewLevel) || (OldBadge != NewBadge));
+					}
+				}
+			}
+		}
+		CheckReportELOandStarsToServer();
+	});
 }
 
 void UUTLocalPlayer::ReadELOFromBackend()

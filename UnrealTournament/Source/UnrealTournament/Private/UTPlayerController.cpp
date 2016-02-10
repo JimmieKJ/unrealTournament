@@ -3813,25 +3813,12 @@ void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, ui
 	}
 }
 
-void AUTPlayerController::ClientUpdateSkillRating_Implementation(int32 OldRating, int32 NewRating)
+void AUTPlayerController::ClientUpdateSkillRating_Implementation(const FString& MatchRatingType)
 {
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	if (LocalPlayer && UTGameState)
+	if (LocalPlayer)
 	{
-		AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-		if (DefaultGame && UTPlayerState)
-		{
-			int32 OldLevel = 0;
-			int32 OldBadge = 0;
-			int32 NewLevel = 0;
-			int32 NewBadge = 0;
-			DefaultGame->SetEloFor(UTPlayerState, OldRating, false);
-			UTPlayerState->GetBadgeFromELO(DefaultGame, OldBadge, OldLevel);
-			DefaultGame->SetEloFor(UTPlayerState, NewRating, true);
-			UTPlayerState->GetBadgeFromELO(DefaultGame, NewBadge, NewLevel);
-			bBadgeChanged = ((OldLevel != NewLevel) || (OldBadge != NewBadge));
-		}
+		LocalPlayer->ReadSpecificELOFromBackend(MatchRatingType);
 	}
 }
 

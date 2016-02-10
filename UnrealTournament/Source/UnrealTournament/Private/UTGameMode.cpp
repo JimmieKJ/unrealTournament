@@ -4327,7 +4327,7 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 	PrepareRankedMatchResultGameCustom(MatchResult);
 
 	// tell MCP about the match to update players' MMRs
-	McpUtils->ReportRankedMatchResult(MatchResult, [](const FOnlineError& Result) {
+	McpUtils->ReportRankedMatchResult(MatchResult, [this, MatchRatingType](const FOnlineError& Result) {
 		if (!Result.bSucceeded)
 		{
 			// best we can do is log an error
@@ -4336,6 +4336,18 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 		else
 		{
 			UE_LOG(UT, Display, TEXT("Ranked match reported to backend"));
+		}
+
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			if (UTGameState->PlayerArray[i])
+			{
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTGameState->PlayerArray[i]->GetOwner());
+				if (UTPC)
+				{
+					UTPC->ClientUpdateSkillRating(MatchRatingType);
+				}
+			}
 		}
 	});
 }
