@@ -100,7 +100,7 @@ void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, F
 	const float MaxChange = ProjectileMovement->MaxSpeed * (InstigatedBy->MaxPredictionPing + InstigatedBy->PredictionFudgeFactor);
 	if (Diff.SizeSquared() > FMath::Square<float>(MaxChange))
 	{
-		HitLocation = GetActorLocation() + Diff.SafeNormal() * MaxChange;
+		HitLocation = GetActorLocation() + Diff.GetSafeNormal() * MaxChange;
 	}
 	SetActorLocation(HitLocation);
 	PerformCombo(InstigatedBy, DamageCauser);
