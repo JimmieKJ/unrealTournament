@@ -205,7 +205,7 @@ void UUTMcpUtils::GetTeamElo(const FString& RatingType, const TArray<FUniqueNetI
 	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
 }
 
-void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountEloCb& Callback)
+void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountMmrCb& Callback)
 {
 	// build request URL
 	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/mmr/`ratingType");

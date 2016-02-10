@@ -1663,7 +1663,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 		return;
 	}
 
-	McpUtils->GetAccountMmr(MatchRatingType, [this, MatchRatingType](const FOnlineError& Result, const FAccountElo& Response)
+	McpUtils->GetAccountMmr(MatchRatingType, [this, MatchRatingType](const FOnlineError& Result, const FAccountMmr& Response)
 	{
 		if (!Result.bSucceeded)
 		{
@@ -1752,7 +1752,7 @@ void UUTLocalPlayer::ReadELOFromBackend()
 		return;
 	}	
 
-	McpUtils->GetAccountMmr(NAME_SkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
+	McpUtils->GetAccountMmr(NAME_SkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
 	{
 		if (!Result.bSucceeded)
 		{
@@ -1768,7 +1768,7 @@ void UUTLocalPlayer::ReadELOFromBackend()
 		CheckReportELOandStarsToServer();
 	});
 
-	McpUtils->GetAccountMmr(NAME_TDMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
+	McpUtils->GetAccountMmr(NAME_TDMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
 	{
 		if (!Result.bSucceeded)
 		{
@@ -1784,7 +1784,7 @@ void UUTLocalPlayer::ReadELOFromBackend()
 		CheckReportELOandStarsToServer();
 	});
 
-	McpUtils->GetAccountMmr(NAME_DMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
+	McpUtils->GetAccountMmr(NAME_DMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
 	{
 		if (!Result.bSucceeded)
 		{
@@ -1800,7 +1800,7 @@ void UUTLocalPlayer::ReadELOFromBackend()
 		CheckReportELOandStarsToServer();
 	});
 
-	McpUtils->GetAccountMmr(NAME_CTFSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
+	McpUtils->GetAccountMmr(NAME_CTFSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
 	{
 		if (!Result.bSucceeded)
 		{
@@ -1816,7 +1816,7 @@ void UUTLocalPlayer::ReadELOFromBackend()
 		CheckReportELOandStarsToServer();
 	});
 
-	McpUtils->GetAccountMmr(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
+	McpUtils->GetAccountMmr(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
 	{
 		if (!Result.bSucceeded)
 		{
