@@ -1071,7 +1071,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
 			if (PC != NULL && PC->GetViewTarget() == this && PC->GetPawn() != this)
 			{
-				PC->ClientNotifyTakeHit(false, FMath::Clamp(LastTakeHitInfo.Damage, 0, 255), LastTakeHitInfo.RelHitLocation);
+				PC->ClientNotifyTakeHit(false, FMath::Clamp(LastTakeHitInfo.Damage, 0, 255), LastTakeHitInfo.ShotDirYaw);
 			}
 		}
 

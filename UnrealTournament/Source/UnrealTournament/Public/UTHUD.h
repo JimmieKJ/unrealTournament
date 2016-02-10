@@ -246,7 +246,7 @@ public:
 	/** Creates the scoreboard */
 	virtual void CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass);
 
-	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire);
+	virtual void PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
 
 	/** called when PlayerOwner caused damage to HitPawn */

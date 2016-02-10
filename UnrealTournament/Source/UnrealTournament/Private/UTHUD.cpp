@@ -621,55 +621,38 @@ void AUTHUD::DrawNumber(int32 Number, float X, float Y, FLinearColor Color, floa
 	DrawString(FText::AsNumber(Number, &Opts), X, Y, bRightAlign ? ETextHorzPos::Right : ETextHorzPos::Left, ETextVertPos::Top, NumberFont, Color, Scale, true);
 }
 
-void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire)
+void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire)
 {
 	// Calculate the rotation 	
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
 	if (UTC != NULL && !UTC->IsDead() && DamageAmount > 0)	// If have a pawn and it's alive...
 	{
-		if (HitLocation == UTC->GetActorLocation())
+		// Figure out Left/Right....
+		float FinalAng = FRotator::DecompressAxisFromByte(ShotDirYaw);
+
+		int32 BestIndex = 0;
+		float BestTime = DamageIndicators[0].FadeTime;
+		for (int32 i = 0; i < MAX_DAMAGE_INDICATORS; i++)
 		{
-			// trigger all damage indicators
-			for (int32 i = 0; i < MAX_DAMAGE_INDICATORS; i++)
+			if (DamageIndicators[i].FadeTime <= 0.0f)
 			{
-				DamageIndicators[i].FadeTime = DAMAGE_FADE_DURATION;
-				DamageIndicators[i].RotationAngle = i* 360/MAX_DAMAGE_INDICATORS;
-				DamageIndicators[i].bFriendlyFire = bFriendlyFire;
+				BestIndex = i;
+				break;
 			}
-		}
-		else
-		{
-			FVector CharacterLocation;
-			FRotator CharacterRotation;
-			UTC->GetActorEyesViewPoint(CharacterLocation, CharacterRotation);
-			FVector HitSafeNormal = (HitLocation - CharacterLocation).GetSafeNormal2D();
-			float Ang = FMath::Acos(FVector::DotProduct(CharacterRotation.Vector().GetSafeNormal2D(), HitSafeNormal)) * (180.0f / PI);
-
-			// Figure out Left/Right....
-			float FinalAng = (FVector::DotProduct(FVector::CrossProduct(CharacterRotation.Vector(), FVector(0, 0, 1)), HitSafeNormal)) > 0 ? 360 - Ang : Ang;
-
-			int32 BestIndex = 0;
-			float BestTime = DamageIndicators[0].FadeTime;
-			for (int32 i = 0; i < MAX_DAMAGE_INDICATORS; i++)
+			else
 			{
-				if (DamageIndicators[i].FadeTime <= 0.0f)
+				if (DamageIndicators[i].FadeTime < BestTime)
 				{
 					BestIndex = i;
-					break;
-				}
-				else
-				{
-					if (DamageIndicators[i].FadeTime < BestTime)
-					{
-						BestIndex = i;
-						BestTime = DamageIndicators[i].FadeTime;
-					}
+					BestTime = DamageIndicators[i].FadeTime;
 				}
 			}
-			DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION;
-			DamageIndicators[BestIndex].RotationAngle = FinalAng;
-			DamageIndicators[BestIndex].bFriendlyFire = bFriendlyFire;
 		}
+		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION * FMath::Clamp(0.025f*DamageAmount, 0.7f, 2.f);
+		DamageIndicators[BestIndex].RotationAngle = FinalAng;
+		DamageIndicators[BestIndex].bFriendlyFire = bFriendlyFire;
+		DamageIndicators[BestIndex].DamageAmount = DamageAmount;
+
 		if (DamageAmount > 0)
 		{
 			UTC->PlayDamageEffects();
@@ -684,14 +667,14 @@ void AUTHUD::DrawDamageIndicators()
 		if (DamageIndicators[i].FadeTime > 0.0f)
 		{
 			FLinearColor DrawColor = DamageIndicators[i].bFriendlyFire ? FLinearColor::Green : FLinearColor::Red;
-			DrawColor.A = 1.0 * (DamageIndicators[i].FadeTime / DAMAGE_FADE_DURATION);
+			DrawColor.A = 1.f * (DamageIndicators[i].FadeTime / DAMAGE_FADE_DURATION);
 
 			float Size = 384 * (Canvas->ClipY / 720.0f);
-			float Half = Size * 0.5;
+			float Half = Size * 0.5f;
 
-			FCanvasTileItem ImageItem(FVector2D((Canvas->ClipX * 0.5) - Half, (Canvas->ClipY * 0.5) - Half), DamageIndicatorTexture->Resource, FVector2D(Size, Size), FVector2D(0,0), FVector2D(1,1), DrawColor);
-			ImageItem.Rotation = FRotator(0,DamageIndicators[i].RotationAngle,0);
-			ImageItem.PivotPoint = FVector2D(0.5,0.5);
+			FCanvasTileItem ImageItem(FVector2D((Canvas->ClipX * 0.5f) - Half, (Canvas->ClipY * 0.5f) - Half), DamageIndicatorTexture->Resource, FVector2D(Size, Size), FVector2D(0.f,0.f), FVector2D(1.f,1.f), DrawColor);
+			ImageItem.Rotation = FRotator(0.f,DamageIndicators[i].RotationAngle,0.f);
+			ImageItem.PivotPoint = FVector2D(0.5f,0.5f);
 			ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
 			Canvas->DrawItem( ImageItem );
 			DamageIndicators[i].FadeTime -= RenderDelta;

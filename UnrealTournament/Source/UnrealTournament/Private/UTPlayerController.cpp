@@ -2815,25 +2815,26 @@ void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage,
 {
 	APlayerState* InstigatedByState = (InstigatedBy != NULL) ? InstigatedBy->PlayerState : NULL;
 	FVector RelHitLocation(FVector::ZeroVector);
+	FVector ShotDir(FVector::ZeroVector);
 	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 	{
-		RelHitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location - GetViewTarget()->GetActorLocation();
+		ShotDir = ((FPointDamageEvent*)&DamageEvent)->ShotDirection;
 	}
 	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
 	{
-		RelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetViewTarget()->GetActorLocation();
+		ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
 	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
 	uint8 RepDamage = FMath::Clamp(Damage, 0, 255);
-	ClientNotifyTakeHit(bFriendlyFire, RepDamage, RelHitLocation);
+	ClientNotifyTakeHit(bFriendlyFire, RepDamage, FRotator::CompressAxisToByte(ShotDir.Rotation().Yaw));
 }
 
-void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, FVector_NetQuantize RelHitLocation)
+void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw)
 {
 	if (MyUTHUD != NULL)
 	{
-		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : GetViewTarget()->GetActorLocation()) + RelHitLocation, Damage, bFriendlyFire);
+		MyUTHUD->PawnDamaged(ShotDirYaw, Damage, bFriendlyFire);
 	}
 }
 
