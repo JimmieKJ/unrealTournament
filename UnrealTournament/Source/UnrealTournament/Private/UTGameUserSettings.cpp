@@ -17,7 +17,7 @@ UUTGameUserSettings::UUTGameUserSettings(const class FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 {
 	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
-	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Music] = 0.5f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
 	InitialBenchmarkState = -1;
@@ -41,7 +41,7 @@ void UUTGameUserSettings::SetToDefaults()
 {
 	Super::SetToDefaults();
 	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
-	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Music] = 0.5f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f; 
 	FullscreenMode = EWindowMode::Fullscreen;
