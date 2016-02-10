@@ -1501,7 +1501,17 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
 	bool bIsOccluded = false;
-	if (SoundPlayer == this || (GetViewTarget() != NULL && InSoundCue->IsAudible(SoundLocation, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true)))
+	FVector AudibleLoc = SoundLocation;
+	if (bAmplifyVolume)
+	{
+		if (AudibleLoc.IsZero())
+		{
+			AudibleLoc = SoundPlayer->GetActorLocation();
+		}
+		FVector SoundOffset = AudibleLoc - GetViewTarget()->GetActorLocation();
+		AudibleLoc = GetViewTarget()->GetActorLocation() + SoundOffset * 0.6f;
+	}
+	if (SoundPlayer == this || (GetViewTarget() != NULL && InSoundCue->IsAudible(AudibleLoc, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true)))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
@@ -1540,6 +1550,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		else
 		{
 			USoundAttenuation* AttenuationOverride = NULL;
+			float VolumeMultiplier = bIsOccluded ? 0.5f : 1.0f;
 			if (bAmplifyVolume)
 			{
 				// the UGameplayStatics functions copy the FAttenuationSettings by value so no need to create more than one, just reuse
@@ -1553,20 +1564,10 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				}
 				// set minimum volume
 				// we're assuming that the radius was already checked via HearSound() and thus this won't cause hearing the audio level-wide
-				AttenuationOverride->Attenuation.dBAttenuationAtMax = 50.0f;
-				// move sound closer
-				AActor* ViewTarget = GetViewTarget();
-				if (ViewTarget != NULL)
-				{
-					if (SoundLocation.IsZero())
-					{
-						SoundLocation = SoundPlayer->GetActorLocation();
-					}
-					FVector SoundOffset = GetViewTarget()->GetActorLocation() - SoundLocation;
-					SoundLocation = SoundLocation + SoundOffset.GetSafeNormal() * FMath::Min<float>(SoundOffset.Size() * 0.25f, 2000.0f);
-				}
+				AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
+				AttenuationOverride->Attenuation.FalloffDistance *= 4.f;
+				VolumeMultiplier *= 2.f;
 			}
-			float VolumeMultiplier = bIsOccluded ? 0.5f : 1.0f;
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 			{
 				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
