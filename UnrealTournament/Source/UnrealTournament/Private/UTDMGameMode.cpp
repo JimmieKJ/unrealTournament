@@ -34,8 +34,8 @@ void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& Match
 		{
 			FRankedTeamMemberInfo RankedMemberInfo;
 			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.Score = PS->Score;
 			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
-			MatchResult.MatchInfo.IndividualScores.Add(PS->Score);
 		}
 	}
 
@@ -46,8 +46,8 @@ void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& Match
 		{
 			FRankedTeamMemberInfo RankedMemberInfo;
 			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.Score = PS->Score;
 			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
-			MatchResult.MatchInfo.IndividualScores.Add(PS->Score);
 		}
 	}
 }

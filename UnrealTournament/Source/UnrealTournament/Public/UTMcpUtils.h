@@ -15,6 +15,8 @@ struct FRankedTeamMemberInfo
 public:
 	UPROPERTY()
 	FString AccountId;
+	UPROPERTY()
+	int32 Score;
 };
 
 USTRUCT()
@@ -44,9 +46,6 @@ public:
 	float RedScore;
 	UPROPERTY()
 	int32 MatchLengthSeconds;
-	/** Only used for DM */
-	UPROPERTY()
-	TArray<int32> IndividualScores;
 };
 
 USTRUCT()
@@ -76,11 +75,11 @@ public:
 };
 
 USTRUCT()
-struct FAccountElo
+struct FAccountMmr
 {
 	GENERATED_USTRUCT_BODY()
 public:
-	FAccountElo() : Rating(0), NumGamesPlayed(0) {}
+	FAccountMmr() : Rating(0), NumGamesPlayed(0) {}
 
 	UPROPERTY()
 	int32 Rating;
@@ -113,7 +112,7 @@ public:
 	void GetTeamElo(const FString& RatingType, const TArray<FUniqueNetIdRepl>& AccountIds, int32 SocialPartySize, const FGetTeamEloCb& Callback);
 
 public:
-	typedef TFunction<void(const FOnlineError& /*Result*/, const FAccountElo& /*Response*/)> FGetAccountEloCb;
+	typedef TFunction<void(const FOnlineError& /*Result*/, const FAccountMmr& /*Response*/)> FGetAccountMmrCb;
 
 	/**
 	* Query the server for an individual user's MMR (needed for team builder)
@@ -122,7 +121,7 @@ public:
 	* @param RatingType The type of rating we are querying for
 	* @param Callback Callback delegate
 	*/
-	void GetAccountElo(const FString& RatingType, const FGetAccountEloCb& Callback);
+	void GetAccountMmr(const FString& RatingType, const FGetAccountMmrCb& Callback);
 
 public:
 	typedef TFunction<void(const FOnlineError& /*Result*/)> FReportRankedMatchResultCb;
