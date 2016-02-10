@@ -94,6 +94,10 @@ void UUTWeaponStateFiringLinkBeam::EndState()
 void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 {
 	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+	if (LinkGun && (LinkGun->Role == ROLE_Authority))
+	{
+		LinkGun->bLinkCausingDamage = false;
+	}
 	if (bPendingEndFire && (!LinkGun || !LinkGun->IsLinkPulsing()))
 	{
 		EndFiringSequence(1);
@@ -135,9 +139,10 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 		AUTPlayerState* PS = (LinkGun->Role == ROLE_Authority) && LinkGun->GetUTOwner() && LinkGun->GetUTOwner()->Controller ? Cast<AUTPlayerState>(LinkGun->GetUTOwner()->Controller->PlayerState) : NULL;
 		if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && Hit.Actor != LinkGun->GetUTOwner())
         {   
-            // Check to see if our HitActor is linkable, if so, link to it
 			if (LinkGun->Role == ROLE_Authority)
 			{
+				LinkGun->bLinkCausingDamage = true;
+				// Check to see if our HitActor is linkable, if so, link to it
 				if (LinkGun->IsLinkable(Hit.Actor.Get()))
 				{
 					LinkGun->SetLinkTo(Hit.Actor.Get());

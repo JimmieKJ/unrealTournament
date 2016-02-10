@@ -1721,6 +1721,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=AmbientSoundUpdated, Category = "Audio")
 	USoundBase* AmbientSound;
 
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = AmbientSoundPitchUpdated, Category = "Audio")
+		float AmbientSoundPitch;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 	UAudioComponent* AmbientSoundComp;
 
@@ -1762,6 +1765,9 @@ public:
 	UFUNCTION()
 	void AmbientSoundUpdated();
 
+	UFUNCTION()
+	void AmbientSoundPitchUpdated();
+
 	/** sets local (not replicated) ambient (looping) sound on this Pawn
 	* only one ambient sound can be set at a time
 	* pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
@@ -1771,6 +1777,10 @@ public:
 
 	UFUNCTION()
 	void LocalAmbientSoundUpdated();
+
+	/** Adjust pitch of currently playing ambient sound if it is InAmbientSound. */
+	UFUNCTION(BlueprintCallable, Category = Audio)
+		void ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch);
 
 
 	/** sets local (not replicated) status ambient (looping) sound on this Pawn

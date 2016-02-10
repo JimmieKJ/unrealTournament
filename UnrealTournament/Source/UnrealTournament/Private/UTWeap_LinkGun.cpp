@@ -32,7 +32,6 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 467.0, 147.0f, 41.0f);
 
-	LinkVolume = 240;
 	LinkBreakDelay = 0.5f;
 	LinkFlexibility = 0.64f;
 	LinkDistanceScaling = 1.5f;
@@ -220,7 +219,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 1.0f)
+	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 0.1f)
 	{
 		ScreenTexture->FastUpdateResource();
 	}
@@ -232,31 +231,38 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 		MuzzleFlash[1]->SetVectorParameter(NAME_PulseScale, FVector(NewScale, NewScale, NewScale));
 	}
 
-	if (UTOwner && IsLinkPulsing()) 
+	if (UTOwner && IsFiring())
 	{
-		// update link pull pulse beam endpoint
-		const FVector SpawnLocation = GetFireStartLoc();
-		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-		const FVector FireDir = SpawnRotation.Vector();
-		PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : PulseLoc - 5.f * DeltaTime * (PulseLoc - (SpawnLocation + 80.f*FireDir));
-
-		// don't allow beam to go behind player
-		FVector PulseDir = PulseLoc - SpawnLocation;
-		float PulseDist = PulseDir.Size();
-		PulseDir = (PulseDist > 0.f) ? PulseDir / PulseDist : PulseDir;
-		if ((PulseDir | FireDir) < 0.7f)
+		if ((Role == ROLE_Authority) && FireLoopingSound.IsValidIndex(CurrentFireMode) && FireLoopingSound[CurrentFireMode] != NULL)
 		{
-			PulseDir = PulseDir - FireDir * ((PulseDir | FireDir) - 0.7f);
-			PulseDir = PulseDir.GetSafeNormal() * PulseDist;
-			PulseLoc = PulseDir + SpawnLocation;
+			UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], bLinkCausingDamage ? 2.f : 1.f);
 		}
-
-		// make sure beam doesn't clip through geometry
-		FHitResult Hit;
-		HitScanTrace(SpawnLocation, PulseLoc, 0.f, Hit, 0.f);
-		if (Hit.Time < 1.f)
+		if (IsLinkPulsing())
 		{
-			PulseLoc = Hit.Location;
+			// update link pull pulse beam endpoint
+			const FVector SpawnLocation = GetFireStartLoc();
+			const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+			const FVector FireDir = SpawnRotation.Vector();
+			PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : PulseLoc - 5.f * DeltaTime * (PulseLoc - (SpawnLocation + 80.f*FireDir));
+
+			// don't allow beam to go behind player
+			FVector PulseDir = PulseLoc - SpawnLocation;
+			float PulseDist = PulseDir.Size();
+			PulseDir = (PulseDist > 0.f) ? PulseDir / PulseDist : PulseDir;
+			if ((PulseDir | FireDir) < 0.7f)
+			{
+				PulseDir = PulseDir - FireDir * ((PulseDir | FireDir) - 0.7f);
+				PulseDir = PulseDir.GetSafeNormal() * PulseDist;
+				PulseLoc = PulseDir + SpawnLocation;
+			}
+
+			// make sure beam doesn't clip through geometry
+			FHitResult Hit;
+			HitScanTrace(SpawnLocation, PulseLoc, 0.f, Hit, 0.f);
+			if (Hit.Time < 1.f)
+			{
+				PulseLoc = Hit.Location;
+			}
 		}
 	}
 }

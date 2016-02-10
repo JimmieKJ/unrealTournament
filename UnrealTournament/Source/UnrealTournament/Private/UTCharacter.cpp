@@ -1927,6 +1927,7 @@ void AUTCharacter::AmbientSoundUpdated()
 		{
 			// don't attenuate/spatialize sounds made by a local viewtarget
 			AmbientSoundComp->bAllowSpatialization = true;
+			AmbientSoundComp->SetPitchMultiplier(1.f);
 
 			if (GEngine->GetMainAudioDevice() && !GEngine->GetMainAudioDevice()->IsHRTFEnabledForAll())
 			{
@@ -1949,6 +1950,22 @@ void AUTCharacter::AmbientSoundUpdated()
 	}
 }
 
+void AUTCharacter::ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch)
+{
+	if (AmbientSoundComp && AmbientSound && (AmbientSound == InAmbientSound))
+	{
+		AmbientSoundPitch = NewPitch;
+		AmbientSoundPitchUpdated();
+	}
+}
+
+void AUTCharacter::AmbientSoundPitchUpdated()
+{
+	if (AmbientSoundComp && AmbientSound)
+	{
+		AmbientSoundComp->SetPitchMultiplier(AmbientSoundPitch);
+	}
+}
 
 void AUTCharacter::SetLocalAmbientSound(USoundBase* NewAmbientSound, float SoundVolume, bool bClear)
 {
@@ -2857,6 +2874,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsSwitchingWeapon, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, AmbientSoundPitch, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);

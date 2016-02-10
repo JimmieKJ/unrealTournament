@@ -122,6 +122,10 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 		LastClientKillTime = GetWorld()->TimeSeconds;
 	}
 
+	/** True if link beam is currently causing damage. */
+	UPROPERTY(BlueprintReadOnly, Category = LinkGun)
+		bool bLinkCausingDamage;
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = LinkGun)
 	AActor* LinkTarget;
@@ -144,19 +148,6 @@ public:
 	// sound made when link is established another player (played from self)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	USoundBase* LinkEstablishedSelfSound;
-
-
-	// default link ambient sound volume
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
-	uint8    LinkVolume;
-
-	// final volume to play link ambient sound
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
-	uint8    SentLinkVolume;
-
-	//
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LinkGun)
-	bool bDoHit;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LinkGun)
 	bool bFeedbackDeath;
