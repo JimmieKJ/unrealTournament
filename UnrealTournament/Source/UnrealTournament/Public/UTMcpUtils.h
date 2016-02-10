@@ -15,9 +15,6 @@ struct FRankedTeamMemberInfo
 public:
 	UPROPERTY()
 	FString AccountId;
-
-	UPROPERTY()
-	bool IsBot;
 };
 
 USTRUCT()
@@ -83,10 +80,12 @@ struct FAccountElo
 {
 	GENERATED_USTRUCT_BODY()
 public:
-	FAccountElo() : Rating(0) {}
+	FAccountElo() : Rating(0), NumGamesPlayed(0) {}
 
 	UPROPERTY()
 	int32 Rating;
+	UPROPERTY()
+	int32 NumGamesPlayed;
 };
 
 

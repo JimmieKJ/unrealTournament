@@ -459,23 +459,7 @@ void AUTCTFBaseGame::SetEndGameFocus(AUTPlayerState* Winner)
 
 void AUTCTFBaseGame::UpdateSkillRating()
 {
-	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_CTFSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
-
-	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_CTFSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
+	ReportRankedMatchResults(NAME_CTFSkillRating.ToString());
 }
 
 void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum)

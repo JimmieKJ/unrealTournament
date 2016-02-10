@@ -9,161 +9,149 @@ DEFINE_LOG_CATEGORY(LogGameStats);
 UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Stats.Add(NAME_SkillRating, new FStat(false));
-	Stats.Add(NAME_TDMSkillRating, new FStat(false));
-	Stats.Add(NAME_DMSkillRating, new FStat(false));
-	Stats.Add(NAME_CTFSkillRating, new FStat(false));
-	Stats.Add(NAME_ShowdownSkillRating, new FStat(false));
-
-	Stats.Add(NAME_SkillRatingSamples, new FStat(false));
-	Stats.Add(NAME_TDMSkillRatingSamples, new FStat(false));
-	Stats.Add(NAME_DMSkillRatingSamples, new FStat(false));
-	Stats.Add(NAME_CTFSkillRatingSamples, new FStat(false));
-	Stats.Add(NAME_ShowdownSkillRatingSamples, new FStat(false));
-
-	Stats.Add(NAME_MatchesPlayed, new FStat(true));
-	Stats.Add(NAME_MatchesQuit, new FStat(true));
-	Stats.Add(NAME_TimePlayed, new FStat(true));
-	Stats.Add(NAME_Wins, new FStat(true));
-	Stats.Add(NAME_Losses, new FStat(true));
-	Stats.Add(NAME_Kills, new FStat(true));
-	Stats.Add(NAME_Deaths, new FStat(true));
-	Stats.Add(NAME_Suicides, new FStat(true));
+	Stats.Add(NAME_MatchesPlayed, new FStat());
+	Stats.Add(NAME_MatchesQuit, new FStat());
+	Stats.Add(NAME_TimePlayed, new FStat());
+	Stats.Add(NAME_Wins, new FStat());
+	Stats.Add(NAME_Losses, new FStat());
+	Stats.Add(NAME_Kills, new FStat());
+	Stats.Add(NAME_Deaths, new FStat());
+	Stats.Add(NAME_Suicides, new FStat());
 	
-	Stats.Add(NAME_MultiKillLevel0, new FStat(true, FNewKillAwardXP(5)));
-	Stats.Add(NAME_MultiKillLevel1, new FStat(true, FNewKillAwardXP(7)));
-	Stats.Add(NAME_MultiKillLevel2, new FStat(true, FNewKillAwardXP(9)));
-	Stats.Add(NAME_MultiKillLevel3, new FStat(true, FNewKillAwardXP(10)));
+	Stats.Add(NAME_MultiKillLevel0, new FStat(FNewKillAwardXP(5)));
+	Stats.Add(NAME_MultiKillLevel1, new FStat(FNewKillAwardXP(7)));
+	Stats.Add(NAME_MultiKillLevel2, new FStat(FNewKillAwardXP(9)));
+	Stats.Add(NAME_MultiKillLevel3, new FStat(FNewKillAwardXP(10)));
 
-	Stats.Add(NAME_SpreeKillLevel0, new FStat(true, FNewKillAwardXP(10)));
-	Stats.Add(NAME_SpreeKillLevel1, new FStat(true, FNewKillAwardXP(15)));
-	Stats.Add(NAME_SpreeKillLevel2, new FStat(true, FNewKillAwardXP(20)));
-	Stats.Add(NAME_SpreeKillLevel3, new FStat(true, FNewKillAwardXP(25)));
-	Stats.Add(NAME_SpreeKillLevel4, new FStat(true, FNewKillAwardXP(30)));
+	Stats.Add(NAME_SpreeKillLevel0, new FStat(FNewKillAwardXP(10)));
+	Stats.Add(NAME_SpreeKillLevel1, new FStat(FNewKillAwardXP(15)));
+	Stats.Add(NAME_SpreeKillLevel2, new FStat(FNewKillAwardXP(20)));
+	Stats.Add(NAME_SpreeKillLevel3, new FStat(FNewKillAwardXP(25)));
+	Stats.Add(NAME_SpreeKillLevel4, new FStat(FNewKillAwardXP(30)));
 
-	Stats.Add(NAME_ImpactHammerKills, new FStat(true));
-	Stats.Add(NAME_EnforcerKills, new FStat(true));
-	Stats.Add(NAME_BioRifleKills, new FStat(true));
-	Stats.Add(NAME_ShockBeamKills, new FStat(true));
-	Stats.Add(NAME_ShockCoreKills, new FStat(true));
-	Stats.Add(NAME_ShockComboKills, new FStat(true));
-	Stats.Add(NAME_LinkKills, new FStat(true));
-	Stats.Add(NAME_LinkBeamKills, new FStat(true));
-	Stats.Add(NAME_MinigunKills, new FStat(true));
-	Stats.Add(NAME_MinigunShardKills, new FStat(true));
-	Stats.Add(NAME_FlakShardKills, new FStat(true));
-	Stats.Add(NAME_FlakShellKills, new FStat(true));
-	Stats.Add(NAME_RocketKills, new FStat(true));
-	Stats.Add(NAME_SniperKills, new FStat(true));
-	Stats.Add(NAME_SniperHeadshotKills, new FStat(true, FNewKillAwardXP(3)));
-	Stats.Add(NAME_RedeemerKills, new FStat(true));
-	Stats.Add(NAME_InstagibKills, new FStat(true));
-	Stats.Add(NAME_TelefragKills, new FStat(true));
+	Stats.Add(NAME_ImpactHammerKills, new FStat());
+	Stats.Add(NAME_EnforcerKills, new FStat());
+	Stats.Add(NAME_BioRifleKills, new FStat());
+	Stats.Add(NAME_ShockBeamKills, new FStat());
+	Stats.Add(NAME_ShockCoreKills, new FStat());
+	Stats.Add(NAME_ShockComboKills, new FStat());
+	Stats.Add(NAME_LinkKills, new FStat());
+	Stats.Add(NAME_LinkBeamKills, new FStat());
+	Stats.Add(NAME_MinigunKills, new FStat());
+	Stats.Add(NAME_MinigunShardKills, new FStat());
+	Stats.Add(NAME_FlakShardKills, new FStat());
+	Stats.Add(NAME_FlakShellKills, new FStat());
+	Stats.Add(NAME_RocketKills, new FStat());
+	Stats.Add(NAME_SniperKills, new FStat());
+	Stats.Add(NAME_SniperHeadshotKills, new FStat(FNewKillAwardXP(3)));
+	Stats.Add(NAME_RedeemerKills, new FStat());
+	Stats.Add(NAME_InstagibKills, new FStat());
+	Stats.Add(NAME_TelefragKills, new FStat());
 
-	Stats.Add(NAME_ImpactHammerDeaths, new FStat(true));
-	Stats.Add(NAME_EnforcerDeaths, new FStat(true));
-	Stats.Add(NAME_BioRifleDeaths, new FStat(true));
-	Stats.Add(NAME_ShockBeamDeaths, new FStat(true));
-	Stats.Add(NAME_ShockCoreDeaths, new FStat(true));
-	Stats.Add(NAME_ShockComboDeaths, new FStat(true));
-	Stats.Add(NAME_LinkDeaths, new FStat(true));
-	Stats.Add(NAME_LinkBeamDeaths, new FStat(true));
-	Stats.Add(NAME_MinigunDeaths, new FStat(true));
-	Stats.Add(NAME_MinigunShardDeaths, new FStat(true));
-	Stats.Add(NAME_FlakShardDeaths, new FStat(true));
-	Stats.Add(NAME_FlakShellDeaths, new FStat(true));
-	Stats.Add(NAME_RocketDeaths, new FStat(true));
-	Stats.Add(NAME_SniperDeaths, new FStat(true));
-	Stats.Add(NAME_SniperHeadshotDeaths, new FStat(true));
-	Stats.Add(NAME_RedeemerDeaths, new FStat(true));
-	Stats.Add(NAME_InstagibDeaths, new FStat(true));
-	Stats.Add(NAME_TelefragDeaths, new FStat(true));
+	Stats.Add(NAME_ImpactHammerDeaths, new FStat());
+	Stats.Add(NAME_EnforcerDeaths, new FStat());
+	Stats.Add(NAME_BioRifleDeaths, new FStat());
+	Stats.Add(NAME_ShockBeamDeaths, new FStat());
+	Stats.Add(NAME_ShockCoreDeaths, new FStat());
+	Stats.Add(NAME_ShockComboDeaths, new FStat());
+	Stats.Add(NAME_LinkDeaths, new FStat());
+	Stats.Add(NAME_LinkBeamDeaths, new FStat());
+	Stats.Add(NAME_MinigunDeaths, new FStat());
+	Stats.Add(NAME_MinigunShardDeaths, new FStat());
+	Stats.Add(NAME_FlakShardDeaths, new FStat());
+	Stats.Add(NAME_FlakShellDeaths, new FStat());
+	Stats.Add(NAME_RocketDeaths, new FStat());
+	Stats.Add(NAME_SniperDeaths, new FStat());
+	Stats.Add(NAME_SniperHeadshotDeaths, new FStat());
+	Stats.Add(NAME_RedeemerDeaths, new FStat());
+	Stats.Add(NAME_InstagibDeaths, new FStat());
+	Stats.Add(NAME_TelefragDeaths, new FStat());
 
-	Stats.Add(NAME_EnforcerShots, new FStat(true));
-	Stats.Add(NAME_BioRifleShots, new FStat(true));
-	Stats.Add(NAME_ShockRifleShots, new FStat(true));
-	Stats.Add(NAME_LinkShots, new FStat(true));
-	Stats.Add(NAME_MinigunShots, new FStat(true));
-	Stats.Add(NAME_FlakShots, new FStat(true));
-	Stats.Add(NAME_RocketShots, new FStat(true));
-	Stats.Add(NAME_SniperShots, new FStat(true));
-	Stats.Add(NAME_RedeemerShots, new FStat(true));
-	Stats.Add(NAME_InstagibShots, new FStat(true));
+	Stats.Add(NAME_EnforcerShots, new FStat());
+	Stats.Add(NAME_BioRifleShots, new FStat());
+	Stats.Add(NAME_ShockRifleShots, new FStat());
+	Stats.Add(NAME_LinkShots, new FStat());
+	Stats.Add(NAME_MinigunShots, new FStat());
+	Stats.Add(NAME_FlakShots, new FStat());
+	Stats.Add(NAME_RocketShots, new FStat());
+	Stats.Add(NAME_SniperShots, new FStat());
+	Stats.Add(NAME_RedeemerShots, new FStat());
+	Stats.Add(NAME_InstagibShots, new FStat());
 
 	// Hits can be fractional, multiply by 100 to make sure that we don't lose much precision when going to integers
-	Stats.Add(NAME_EnforcerHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_BioRifleHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_ShockRifleHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_LinkHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_MinigunHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_FlakHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_RocketHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_SniperHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_RedeemerHits, new FStat(true, 100.0f));
-	Stats.Add(NAME_InstagibHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_EnforcerHits, new FStat(100.0f));
+	Stats.Add(NAME_BioRifleHits, new FStat(100.0f));
+	Stats.Add(NAME_ShockRifleHits, new FStat(100.0f));
+	Stats.Add(NAME_LinkHits, new FStat(100.0f));
+	Stats.Add(NAME_MinigunHits, new FStat(100.0f));
+	Stats.Add(NAME_FlakHits, new FStat(100.0f));
+	Stats.Add(NAME_RocketHits, new FStat(100.0f));
+	Stats.Add(NAME_SniperHits, new FStat(100.0f));
+	Stats.Add(NAME_RedeemerHits, new FStat(100.0f));
+	Stats.Add(NAME_InstagibHits, new FStat(100.0f));
 
-	Stats.Add(NAME_UDamageTime, new FStat(true));
-	Stats.Add(NAME_BerserkTime, new FStat(true));
-	Stats.Add(NAME_InvisibilityTime, new FStat(true));
-	Stats.Add(NAME_UDamageCount, new FStat(true));
-	Stats.Add(NAME_BerserkCount, new FStat(true));
-	Stats.Add(NAME_InvisibilityCount, new FStat(true));
-	Stats.Add(NAME_KegCount, new FStat(true));
-	Stats.Add(NAME_BootJumps, new FStat(true));
-	Stats.Add(NAME_ShieldBeltCount, new FStat(true));
-	Stats.Add(NAME_ArmorVestCount, new FStat(true));
-	Stats.Add(NAME_ArmorPadsCount, new FStat(true));
-	Stats.Add(NAME_HelmetCount, new FStat(true));
+	Stats.Add(NAME_UDamageTime, new FStat());
+	Stats.Add(NAME_BerserkTime, new FStat());
+	Stats.Add(NAME_InvisibilityTime, new FStat());
+	Stats.Add(NAME_UDamageCount, new FStat());
+	Stats.Add(NAME_BerserkCount, new FStat());
+	Stats.Add(NAME_InvisibilityCount, new FStat());
+	Stats.Add(NAME_KegCount, new FStat());
+	Stats.Add(NAME_BootJumps, new FStat());
+	Stats.Add(NAME_ShieldBeltCount, new FStat());
+	Stats.Add(NAME_ArmorVestCount, new FStat());
+	Stats.Add(NAME_ArmorPadsCount, new FStat());
+	Stats.Add(NAME_HelmetCount, new FStat());
 
-	Stats.Add(NAME_BestShockCombo, new FStat(true));
-	Stats.Add(NAME_AmazingCombos, new FStat(true, FNewKillAwardXP(3)));
-	Stats.Add(NAME_AirRox, new FStat(true, FNewKillAwardXP(3)));
-	Stats.Add(NAME_FlakShreds, new FStat(true, FNewKillAwardXP(3)));
-	Stats.Add(NAME_AirSnot, new FStat(true, FNewKillAwardXP(3)));
+	Stats.Add(NAME_BestShockCombo, new FStat());
+	Stats.Add(NAME_AmazingCombos, new FStat(FNewKillAwardXP(3)));
+	Stats.Add(NAME_AirRox, new FStat(FNewKillAwardXP(3)));
+	Stats.Add(NAME_FlakShreds, new FStat(FNewKillAwardXP(3)));
+	Stats.Add(NAME_AirSnot, new FStat(FNewKillAwardXP(3)));
 
-	Stats.Add(NAME_RunDist, new FStat(true));
-	Stats.Add(NAME_SprintDist, new FStat(true));
-	Stats.Add(NAME_InAirDist, new FStat(true));
-	Stats.Add(NAME_SwimDist, new FStat(true));
-	Stats.Add(NAME_TranslocDist, new FStat(true));
-	Stats.Add(NAME_NumDodges, new FStat(true));
-	Stats.Add(NAME_NumWallDodges, new FStat(true));
-	Stats.Add(NAME_NumJumps, new FStat(true));
-	Stats.Add(NAME_NumLiftJumps, new FStat(true));
-	Stats.Add(NAME_NumFloorSlides, new FStat(true));
-	Stats.Add(NAME_NumWallRuns, new FStat(true));
-	Stats.Add(NAME_NumImpactJumps, new FStat(true));
-	Stats.Add(NAME_NumRocketJumps, new FStat(true));
-	Stats.Add(NAME_SlideDist, new FStat(true));
-	Stats.Add(NAME_WallRunDist, new FStat(true));
+	Stats.Add(NAME_RunDist, new FStat());
+	Stats.Add(NAME_SprintDist, new FStat());
+	Stats.Add(NAME_InAirDist, new FStat());
+	Stats.Add(NAME_SwimDist, new FStat());
+	Stats.Add(NAME_TranslocDist, new FStat());
+	Stats.Add(NAME_NumDodges, new FStat());
+	Stats.Add(NAME_NumWallDodges, new FStat());
+	Stats.Add(NAME_NumJumps, new FStat());
+	Stats.Add(NAME_NumLiftJumps, new FStat());
+	Stats.Add(NAME_NumFloorSlides, new FStat());
+	Stats.Add(NAME_NumWallRuns, new FStat());
+	Stats.Add(NAME_NumImpactJumps, new FStat());
+	Stats.Add(NAME_NumRocketJumps, new FStat());
+	Stats.Add(NAME_SlideDist, new FStat());
+	Stats.Add(NAME_WallRunDist, new FStat());
 
-	Stats.Add(NAME_FlagCaptures, new FStat(true));
-	Stats.Add(NAME_FlagReturns, new FStat(true));
-	Stats.Add(NAME_FlagAssists, new FStat(true));
-	Stats.Add(NAME_FlagHeldDeny, new FStat(true));
-	Stats.Add(NAME_FlagHeldDenyTime, new FStat(true));
-	Stats.Add(NAME_FlagHeldTime, new FStat(true));
-	Stats.Add(NAME_FlagReturnPoints, new FStat(true));
-	Stats.Add(NAME_CarryAssist, new FStat(true, FNewOffenseXP(5)));
-	Stats.Add(NAME_CarryAssistPoints, new FStat(true));
-	Stats.Add(NAME_FlagCapPoints, new FStat(true));
-	Stats.Add(NAME_DefendAssist, new FStat(true, FNewDefenseXP(5)));
-	Stats.Add(NAME_DefendAssistPoints, new FStat(true));
-	Stats.Add(NAME_ReturnAssist, new FStat(true, FNewDefenseXP(5)));
-	Stats.Add(NAME_ReturnAssistPoints, new FStat(true));
-	Stats.Add(NAME_TeamCapPoints, new FStat(true));
-	Stats.Add(NAME_EnemyFCDamage, new FStat(true));
-	Stats.Add(NAME_FCKills, new FStat(true, FNewDefenseXP(5)));
-	Stats.Add(NAME_FCKillPoints, new FStat(true));
-	Stats.Add(NAME_FlagSupportKills, new FStat(true, FNewOffenseXP(3)));
-	Stats.Add(NAME_FlagSupportKillPoints, new FStat(true));
-	Stats.Add(NAME_RegularKillPoints, new FStat(true));
-	Stats.Add(NAME_FlagGrabs, new FStat(true, FNewOffenseXP(1)));
-	Stats.Add(NAME_AttackerScore, new FStat(true));
-	Stats.Add(NAME_DefenderScore, new FStat(true));
-	Stats.Add(NAME_SupporterScore, new FStat(true));
+	Stats.Add(NAME_FlagCaptures, new FStat());
+	Stats.Add(NAME_FlagReturns, new FStat());
+	Stats.Add(NAME_FlagAssists, new FStat());
+	Stats.Add(NAME_FlagHeldDeny, new FStat());
+	Stats.Add(NAME_FlagHeldDenyTime, new FStat());
+	Stats.Add(NAME_FlagHeldTime, new FStat());
+	Stats.Add(NAME_FlagReturnPoints, new FStat());
+	Stats.Add(NAME_CarryAssist, new FStat(FNewOffenseXP(5)));
+	Stats.Add(NAME_CarryAssistPoints, new FStat());
+	Stats.Add(NAME_FlagCapPoints, new FStat());
+	Stats.Add(NAME_DefendAssist, new FStat(FNewDefenseXP(5)));
+	Stats.Add(NAME_DefendAssistPoints, new FStat());
+	Stats.Add(NAME_ReturnAssist, new FStat(FNewDefenseXP(5)));
+	Stats.Add(NAME_ReturnAssistPoints, new FStat());
+	Stats.Add(NAME_TeamCapPoints, new FStat());
+	Stats.Add(NAME_EnemyFCDamage, new FStat());
+	Stats.Add(NAME_FCKills, new FStat(FNewDefenseXP(5)));
+	Stats.Add(NAME_FCKillPoints, new FStat());
+	Stats.Add(NAME_FlagSupportKills, new FStat(FNewOffenseXP(3)));
+	Stats.Add(NAME_FlagSupportKillPoints, new FStat());
+	Stats.Add(NAME_RegularKillPoints, new FStat());
+	Stats.Add(NAME_FlagGrabs, new FStat(FNewOffenseXP(1)));
+	Stats.Add(NAME_AttackerScore, new FStat());
+	Stats.Add(NAME_DefenderScore, new FStat());
+	Stats.Add(NAME_SupporterScore, new FStat());
 	
-	Stats.Add(NAME_PlayerXP, new FStat(true));
+	Stats.Add(NAME_PlayerXP, new FStat());
 
 	NumMatchesToKeep = 5;
 	NumPreviousPlayerNamesToKeep = 5;
@@ -230,16 +218,8 @@ bool UStatManager::ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModTy
 	FStat* Stat = GetStatByName(StatName);
 	if (Stat != NULL)
 	{
-		if (!Stat->bBackendStat)
-		{
-			Stat->ModifyStat(Amount, ModType);
-			return true;
-		}
-		else
-		{
-			UE_LOG(LogGameStats, Warning, TEXT("Don't use UStatManager::ModifyStat '%s' on backend stats"), *StatName.ToString());
-			return false;
-		}
+		Stat->ModifyStat(Amount, ModType);
+		return true;
 	}
 	else
 	{
@@ -281,7 +261,7 @@ void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> Jso
 {
 	for (auto Stat = Stats.CreateConstIterator(); Stat; ++Stat)
 	{
-		if (Stat.Value()->bBackendStat && PS)
+		if (PS)
 		{
 			float NewStatValue = PS->GetStatsValue(Stat.Key());
 			if (Stat.Value()->WriteMultiplier > 0.0f)
@@ -300,15 +280,7 @@ void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> Jso
 void UStatManager::PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> JsonObject)
 {
 	JsonObject->SetNumberField(TEXT("Version"), JSONVersionNumber);
-
-	for (auto Stat = Stats.CreateConstIterator(); Stat; ++Stat)
-	{
-		if (!Stat.Value()->bBackendStat)
-		{
-			JsonObject->SetNumberField(Stat.Key().ToString(), GetStatValue(Stat.Value()));
-		}
-	}
-
+	
 	if (PreviousPlayerNames.Num() > 0)
 	{
 		TArray< TSharedPtr<FJsonValue> > PreviousPlayerNamesJson;
@@ -385,25 +357,7 @@ void UStatManager::PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> 
 }
 
 void UStatManager::InsertDataFromNonBackendJsonObject(TSharedPtr<FJsonObject> JsonObject)
-{
-	for (auto Stat = Stats.CreateConstIterator(); Stat; ++Stat)
-	{
-		if (!Stat.Value()->bBackendStat)
-		{
-			int32 StatInput = 0;
-			if (JsonObject->TryGetNumberField(Stat.Key().ToString(), StatInput))
-			{
-				// Sanitize the stat data in case it get's corrupted.
-				if (StatInput < 0)
-				{
-					UE_LOG(LogGameStats,Verbose,TEXT("Detected an out of bounds stat [%s] %i"), *Stat.Key().ToString(), StatInput);
-					StatInput = 0;
-				}
-				Stat.Value()->ModifyStat(StatInput, EStatMod::Set);
-			}
-		}
-	}
-	
+{	
 	const TArray<TSharedPtr<FJsonValue>>* Aliases;
 	if (JsonObject->TryGetArrayField(TEXT("Aliases"), Aliases))
 	{

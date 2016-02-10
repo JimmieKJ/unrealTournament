@@ -653,6 +653,8 @@ protected:
 
 	void ReportRankedMatchResults(const FString& MatchRatingType);
 	void GetRankedTeamInfo(int32 TeamId, struct FRankedTeamInfo& RankedTeamInfoOut);
+	// Base version handles 2 teams
+	virtual void PrepareRankedMatchResultGameCustom(struct FRankedMatchResult& MatchResult);
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);

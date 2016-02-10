@@ -59,6 +59,7 @@
 #include "Runtime/JsonUtilities/Public/JsonUtilities.h"
 #include "SUTMatchSummaryPanel.h"
 #include "SUTInGameHomePanel.h"
+#include "UTMcpUtils.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -87,6 +88,9 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	CloudProfileUE4VerForUnversionedProfile = 452;
 	McpProfileManager = nullptr;
 	bShowingFriendsMenu = false;
+
+	bProgressionReadFromCloud = false;
+	ELOReportCount = 0;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -916,7 +920,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
 		}
 
-		ReadELOFromCloud();
+		ReadELOFromBackend();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
 		// query entitlements for UI
@@ -1470,17 +1474,22 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			CurrentProgression->LoadFromProfile(CurrentProfileSettings);
 			SaveProgression();
 		}
-	}
-	else if (FileName == GetStatsFilename())
-	{
-		if (bWasSuccessful)
-		{
-			UpdateBaseELOFromCloudData();
 
-			// Set the ranks/etc so the player card is right.
-			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
-		}
+		bProgressionReadFromCloud = true;
+		CheckReportELOandStarsToServer();
+	}
+}
+
+// Only send ELO and stars to the server once all the server responses are complete
+void UUTLocalPlayer::CheckReportELOandStarsToServer()
+{
+	ELOReportCount++;
+
+	if (ELOReportCount >= 5 && bProgressionReadFromCloud)
+	{
+		// Set the ranks/etc so the player card is right.
+		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
+		if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
 	}
 }
 
@@ -1643,95 +1652,97 @@ FName UUTLocalPlayer::TeamStyleRef(FName InName)
 	return FName( *(TEXT("Blue.") + InName.ToString()));
 }
 
-void UUTLocalPlayer::ReadELOFromCloud()
+void UUTLocalPlayer::ReadELOFromBackend()
 {
-	TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (OnlineUserCloudInterface.IsValid() && UserId.IsValid())
-	{
-		OnlineUserCloudInterface->ReadUserFile(*UserId, GetStatsFilename());
-	}
-}
+	ELOReportCount = 0;
 
-void UUTLocalPlayer::UpdateBaseELOFromCloudData()
-{
-	TArray<uint8> FileContents;
-	TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (UserId.IsValid() && OnlineUserCloudInterface.IsValid() && OnlineUserCloudInterface->GetFileContents(*UserId, GetStatsFilename(), FileContents))
+	// get MCP Utils
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()));
+	if (McpUtils == nullptr)
 	{
-		if (FileContents.Num() <= 0)
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read ELO from MCP"));
+		return;
+	}	
+
+	McpUtils->GetAccountElo(NAME_SkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
+	{
+		if (!Result.bSucceeded)
 		{
-			UE_LOG(LogGameStats, Warning, TEXT("Stats json content is empty"));
-			return;
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
 		}
-
-		if (FileContents.GetData()[FileContents.Num() - 1] != 0)
+		else
 		{
-			UE_LOG(LogGameStats, Warning, TEXT("Failed to get proper stats json"));
-			return;
+			UE_LOG(UT, Display, TEXT("Duel ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
+			DUEL_ELO = Response.Rating;
+			DuelMatchesPlayed = Response.NumGamesPlayed;
 		}
+		CheckReportELOandStarsToServer();
+	});
 
-		FString JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
-		UE_LOG(LogGameStats,VeryVerbose,TEXT("Stats JSON: %s"),*JsonString);
-		TSharedPtr<FJsonObject> StatsJson;
-		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
-		if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.IsValid())
+	McpUtils->GetAccountElo(NAME_TDMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response) 
+	{
+		if (!Result.bSucceeded)
 		{
-			FString JsonStatsID;
-			if (StatsJson->TryGetStringField(TEXT("StatsID"), JsonStatsID) && JsonStatsID == UserId->ToString())
-			{
-				StatsJson->TryGetNumberField(NAME_SkillRating.ToString(), DUEL_ELO);
-				StatsJson->TryGetNumberField(NAME_TDMSkillRating.ToString(), TDM_ELO);
-				StatsJson->TryGetNumberField(NAME_DMSkillRating.ToString(), FFA_ELO);
-				StatsJson->TryGetNumberField(NAME_CTFSkillRating.ToString(), CTF_ELO);
-				StatsJson->TryGetNumberField(NAME_ShowdownSkillRating.ToString(), Showdown_ELO);
-				StatsJson->TryGetNumberField(NAME_MatchesPlayed.ToString(), MatchesPlayed);
-				StatsJson->TryGetNumberField(NAME_SkillRatingSamples.ToString(), DuelMatchesPlayed);
-				StatsJson->TryGetNumberField(NAME_TDMSkillRatingSamples.ToString(), TDMMatchesPlayed);
-				StatsJson->TryGetNumberField(NAME_DMSkillRatingSamples.ToString(), FFAMatchesPlayed);
-				StatsJson->TryGetNumberField(NAME_CTFSkillRatingSamples.ToString(), CTFMatchesPlayed);
-				StatsJson->TryGetNumberField(NAME_ShowdownSkillRatingSamples.ToString(), ShowdownMatchesPlayed);
-			}
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
 		}
-	}
+		else
+		{
+			UE_LOG(UT, Display, TEXT("TDM ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
+			TDM_ELO = Response.Rating;
+			TDMMatchesPlayed = Response.NumGamesPlayed;
+		}
+		CheckReportELOandStarsToServer();
+	});
 
-	// Sanitize the elo rankings
-	const int32 StartingELO = 1500;
-	if (DUEL_ELO <= 0)
+	McpUtils->GetAccountElo(NAME_DMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
 	{
-		DUEL_ELO = StartingELO;
-	}
-	if (TDM_ELO <= 0)
-	{
-		TDM_ELO = StartingELO;
-	}
-	if (FFA_ELO <= 0)
-	{
-		FFA_ELO = StartingELO;
-	}
-	if (CTF_ELO <= 0)
-	{
-		CTF_ELO = StartingELO;
-	}
-	if (Showdown_ELO <= 0)
-	{
-		Showdown_ELO = StartingELO;
-	}
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			UE_LOG(UT, Display, TEXT("DM ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
+			FFA_ELO = Response.Rating;
+			FFAMatchesPlayed = Response.NumGamesPlayed;
+		}
+		CheckReportELOandStarsToServer();
+	});
 
-	// 4000 should be fairly difficult to achieve
-	// Have some possible bugged profiles with overlarge ELOs
-	const int32 MaximumElo = 4000;
-	DUEL_ELO = FMath::Min(DUEL_ELO, MaximumElo);
-	TDM_ELO = FMath::Min(TDM_ELO, MaximumElo);
-	FFA_ELO = FMath::Min(FFA_ELO, MaximumElo);
-	CTF_ELO = FMath::Min(CTF_ELO, MaximumElo);
-	Showdown_ELO = FMath::Min(Showdown_ELO, MaximumElo);
+	McpUtils->GetAccountElo(NAME_CTFSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
+	{
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			UE_LOG(UT, Display, TEXT("CTF ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
+			CTF_ELO = Response.Rating;
+			CTFMatchesPlayed = Response.NumGamesPlayed;
+		}
+		CheckReportELOandStarsToServer();
+	});
 
-	MatchesPlayed = FMath::Max(MatchesPlayed, 0);
-	DuelMatchesPlayed = FMath::Max(DuelMatchesPlayed, 0);
-	TDMMatchesPlayed = FMath::Max(TDMMatchesPlayed, 0);
-	FFAMatchesPlayed = FMath::Max(FFAMatchesPlayed, 0);
-	CTFMatchesPlayed = FMath::Max(CTFMatchesPlayed, 0);
-	ShowdownMatchesPlayed = FMath::Max(ShowdownMatchesPlayed, 0);
+	McpUtils->GetAccountElo(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountElo& Response)
+	{
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			UE_LOG(UT, Display, TEXT("Showdown ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
+			Showdown_ELO = Response.Rating;
+			ShowdownMatchesPlayed = Response.NumGamesPlayed;
+		}
+		CheckReportELOandStarsToServer();
+	});
 }
 
 int32 UUTLocalPlayer::GetBaseELORank()

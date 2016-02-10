@@ -4249,11 +4249,10 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
+		if (PS && !PS->bOnlySpectator && PS->GetTeamNum() == TeamId)
 		{
 			FRankedTeamMemberInfo RankedMemberInfo;
 			RankedMemberInfo.AccountId = PS->StatsID;
-			RankedMemberInfo.IsBot = PS->bIsABot;
 			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
 		}
 	}
@@ -4261,14 +4260,32 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
+		if (PS && !PS->bOnlySpectator && PS->GetTeamNum() == TeamId)
 		{
 			FRankedTeamMemberInfo RankedMemberInfo;
 			RankedMemberInfo.AccountId = PS->StatsID;
-			RankedMemberInfo.IsBot = PS->bIsABot;
 			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
 		}
 	}
+}
+
+void AUTGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& MatchResult)
+{
+	// get the winner
+	if (UTGameState->WinningTeam->TeamIndex == 0)
+	{
+		// red team wins
+		MatchResult.MatchInfo.RedScore = 1.0f;
+	}
+	else
+	{
+		// red team loses
+		MatchResult.MatchInfo.RedScore = 0.0f;
+	}
+	
+	// add team member info
+	GetRankedTeamInfo(0, MatchResult.RedTeam);
+	GetRankedTeamInfo(1, MatchResult.BlueTeam);
 }
 
 void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
@@ -4284,25 +4301,7 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 	// prepare a MatchResult structure
 	FRankedMatchResult MatchResult;
 	MatchResult.RatingType = MatchRatingType;
-
-	// get the winner
-	if (UTGameState->WinningTeam->TeamIndex == 0)
-	{
-		// red team wins
-		MatchResult.MatchInfo.RedScore = 1.0f;
-	}
-	else
-	{
-		// red team loses
-		MatchResult.MatchInfo.RedScore = 0.0f;
-	}
-
-	// get the length of the match (in seconds)
-	if (ensure(GameState))
-	{
-		MatchResult.MatchInfo.MatchLengthSeconds = GameState->ElapsedTime;
-	}
-
+	
 	// get the session ID
 	IOnlineSessionPtr SessionInt = IOnlineSubsystem::Get()->GetSessionInterface();
 	FNamedOnlineSession* SessionPtr = SessionInt.IsValid() ? SessionInt->GetNamedSession(GameSessionName) : nullptr;
@@ -4319,9 +4318,13 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 		UE_LOG(UT, Warning, TEXT("Unable to get match session ID. Will report the results of this ranked match with sessionID = {0}"), *MatchResult.MatchInfo.SessionId);
 	}
 
-	// add team member info
-	GetRankedTeamInfo(0, MatchResult.RedTeam);
-	GetRankedTeamInfo(1, MatchResult.BlueTeam);
+	// get the length of the match (in seconds)
+	if (ensure(GameState))
+	{
+		MatchResult.MatchInfo.MatchLengthSeconds = GameState->ElapsedTime;
+	}
+
+	PrepareRankedMatchResultGameCustom(MatchResult);
 
 	// tell MCP about the match to update players' MMRs
 	McpUtils->ReportRankedMatchResult(MatchResult, [](const FOnlineError& Result) {
@@ -4329,6 +4332,10 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 		{
 			// best we can do is log an error
 			UE_LOG(UT, Warning, TEXT("Failed to report Match Results to the server. User ELOs will not be updated. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			UE_LOG(UT, Display, TEXT("Ranked match reported to backend"));
 		}
 	});
 }

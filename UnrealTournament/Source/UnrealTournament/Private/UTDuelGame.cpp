@@ -228,23 +228,7 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 
 void AUTDuelGame::UpdateSkillRating()
 {
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS != nullptr && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_SkillRating, UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
-
-	for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
-		if (PS != nullptr && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_SkillRating, UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
+	ReportRankedMatchResults(NAME_SkillRating.ToString());
 }
 
 void AUTDuelGame::FindAndMarkHighScorer()

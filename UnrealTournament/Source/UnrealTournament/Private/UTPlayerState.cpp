@@ -59,11 +59,6 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bReadStatsFromCloud = false;
 	bSuccessfullyReadStatsFromCloud = false;
 	bWroteStatsToCloud = false;
-	DuelSkillRatingThisMatch = 0;
-	TDMSkillRatingThisMatch = 0;
-	DMSkillRatingThisMatch = 0;
-	CTFSkillRatingThisMatch = 0;
-	ShowdownSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
 	ReadyScale = 1.f;
 	bIsDemoRecording = false;
@@ -72,7 +67,6 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	PrevXP = -1;
 	TotalChallengeStars = 0;
 	EmoteSpeed = 1.0f;
-	BotELOLimit = 1500;
 	bAnnounceWeaponSpree = false;
 	bAnnounceWeaponReward = false;
 }
@@ -924,11 +918,6 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->bReadStatsFromCloud = bReadStatsFromCloud;
 		PS->bSuccessfullyReadStatsFromCloud = bSuccessfullyReadStatsFromCloud;
 		PS->bWroteStatsToCloud = bWroteStatsToCloud;
-		PS->DuelSkillRatingThisMatch = DuelSkillRatingThisMatch;
-		PS->DMSkillRatingThisMatch = DMSkillRatingThisMatch;
-		PS->TDMSkillRatingThisMatch = TDMSkillRatingThisMatch;
-		PS->CTFSkillRatingThisMatch = CTFSkillRatingThisMatch;
-		PS->ShowdownSkillRatingThisMatch = ShowdownSkillRatingThisMatch;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
 		PS->DamageDone = DamageDone;
@@ -1282,65 +1271,6 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					}
 
 					StatManager->InsertDataFromNonBackendJsonObject(StatsJson);
-
-					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_SkillRating);
-					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_TDMSkillRating);
-					DMSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_DMSkillRating);
-					CTFSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_CTFSkillRating);
-					ShowdownSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_ShowdownSkillRating);
-
-					// Sanitize the elo rankings
-					const int32 StartingELO = 1500;
-					if (DuelSkillRatingThisMatch <= 0)
-					{
-						DuelSkillRatingThisMatch = StartingELO;
-					}
-					if (TDMSkillRatingThisMatch <= 0)
-					{
-						TDMSkillRatingThisMatch = StartingELO;
-					}
-					if (DMSkillRatingThisMatch <= 0)
-					{
-						DMSkillRatingThisMatch = StartingELO;
-					}
-					if (CTFSkillRatingThisMatch <= 0)
-					{
-						CTFSkillRatingThisMatch = StartingELO;
-					}
-					if (ShowdownSkillRatingThisMatch <= 0)
-					{
-						ShowdownSkillRatingThisMatch = StartingELO;
-					}
-
-					// 3000 should be fairly difficult to achieve
-					// Have some possible bugged profiles with overlarge ELOs
-					const int32 MaximumELO = 3000;
-					if (DuelSkillRatingThisMatch > MaximumELO)
-					{
-						DuelSkillRatingThisMatch = MaximumELO;
-					}
-					if (TDMSkillRatingThisMatch > MaximumELO)
-					{
-						TDMSkillRatingThisMatch = MaximumELO;
-					}
-					if (DMSkillRatingThisMatch > MaximumELO)
-					{
-						DMSkillRatingThisMatch = MaximumELO;
-					}
-					if (CTFSkillRatingThisMatch > MaximumELO)
-					{
-						CTFSkillRatingThisMatch = MaximumELO;
-					}
-					if (ShowdownSkillRatingThisMatch > MaximumELO)
-					{
-						ShowdownSkillRatingThisMatch = MaximumELO;
-					}
-
-					StatManager->ModifyStat(NAME_SkillRating, DuelSkillRatingThisMatch, EStatMod::Set);
-					StatManager->ModifyStat(NAME_TDMSkillRating, TDMSkillRatingThisMatch, EStatMod::Set);
-					StatManager->ModifyStat(NAME_DMSkillRating, DMSkillRatingThisMatch, EStatMod::Set);
-					StatManager->ModifyStat(NAME_CTFSkillRating, CTFSkillRatingThisMatch, EStatMod::Set);
-					StatManager->ModifyStat(NAME_ShowdownSkillRating, ShowdownSkillRatingThisMatch, EStatMod::Set);
 				}
 			}
 		}
@@ -1603,186 +1533,6 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 	}
 
 	return SkillRating;
-}
-
-void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
-{
-	// Not writing stats for this player
-	if (StatManager == nullptr || StatsID.IsEmpty() || bSkipELO)
-	{
-		return;
-	}
-
-	int32 SkillRating = GetSkillRating(SkillStatName);
-	
-	int32 OpponentCount = 0;
-	float ExpectedWinPercentage = 0.0f;
-	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < ActivePlayerStates->Num(); OuterPlayerIdx++)
-	{
-		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent->Team != Team && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
-		{
-			if (SkillRating > BotELOLimit && Opponent->bIsABot)
-			{
-				UE_LOG(LogGameStats, Verbose, TEXT("UpdateTeamSkillRating skipping bot consideration as player has over %d ELO"), BotELOLimit);
-				continue;
-			}
-
-			OpponentCount++;
-			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
-			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
-		}
-	}
-	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
-	{
-		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent && Opponent->Team != Team && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
-		{
-			if (SkillRating > BotELOLimit && Opponent->bIsABot)
-			{
-				UE_LOG(LogGameStats, Verbose, TEXT("UpdateTeamSkillRating skipping bot consideration as player has over %d ELO"), BotELOLimit);
-				continue;
-			}
-
-			OpponentCount++;
-			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
-			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
-		}
-	}
-
-	UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
-
-	if (OpponentCount == 0)
-	{
-		UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s no opponents found, can't adjust skill rating"), *PlayerName);
-		return;
-	}
-
-	// KFactor selection can be chosen many different ways, feel free to change it
-	float KFactor = 32.0f / float(OpponentCount);
-	if (SkillRating > 2400)
-	{
-		KFactor = 16.0f / float(OpponentCount);
-	}
-	else if (SkillRating >= 2100)
-	{
-		KFactor = 24.0f / float(OpponentCount);
-	}
-
-	int32 NewSkillRating = 0;
-	if (bWonMatch)
-	{
-		NewSkillRating = SkillRating + KFactor*(float(OpponentCount) - ExpectedWinPercentage);
-	}
-	else
-	{
-		NewSkillRating = SkillRating + KFactor*(0.0f - ExpectedWinPercentage);
-	}
-
-	UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s New Skill Rating %d"), *PlayerName, NewSkillRating);
-	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
-	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
-
-	// tell player about rating change, so can display if desired
-	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
-	if (PC)
-	{
-		PC->ClientUpdateSkillRating(SkillRating, NewSkillRating);
-	}
-}
-
-void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
-{
-	// Not writing stats for this player
-	if (StatManager == nullptr || StatsID.IsEmpty() || bSkipELO)
-	{
-		return;
-	}
-
-	int32 SkillRating = GetSkillRating(SkillStatName);
-
-	int32 OpponentCount = 0;
-	float ExpectedWinPercentage = 0.0f;
-	float ActualWinPercentage = 0.0f;
-	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < ActivePlayerStates->Num(); OuterPlayerIdx++)
-	{
-		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent != this && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
-		{
-			if (SkillRating > BotELOLimit && Opponent->bIsABot)
-			{
-				UE_LOG(LogGameStats, Verbose, TEXT("UpdateIndividualSkillRating skipping bot consideration as player has over %d ELO"), BotELOLimit);
-				continue;
-			}
-
-			OpponentCount++;
-			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
-			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
-
-			if (Score > Opponent->Score)
-			{
-				ActualWinPercentage += 1.0f;
-			}
-			else if (Score == Opponent->Score)
-			{
-				ActualWinPercentage += 0.5f;
-			}
-		}
-	}
-	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
-	{
-		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent && Opponent != this && !Opponent->bOnlySpectator && !Opponent->bSkipELO)
-		{
-			if (SkillRating > BotELOLimit && Opponent->bIsABot)
-			{
-				UE_LOG(LogGameStats, Verbose, TEXT("UpdateIndividualSkillRating skipping bot consideration as player has over %d ELO"), BotELOLimit);
-				continue;
-			}
-
-			OpponentCount++;
-			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
-			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
-
-			if (Score > Opponent->Score)
-			{
-				ActualWinPercentage += 1.0f;
-			}
-			else if (Score == Opponent->Score)
-			{
-				ActualWinPercentage += 0.5f;
-			}
-		}
-	}
-
-	if (OpponentCount == 0)
-	{
-		UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s no opponents found, can't adjust skill rating"), *PlayerName);
-		return;
-	}
-
-	// KFactor selection can be chosen many different ways, feel free to change it
-	float KFactor = 32.0f / float(OpponentCount);
-	if (SkillRating > 2400)
-	{
-		KFactor = 16.0f / float(OpponentCount);
-	}
-	else if (SkillRating >= 2100)
-	{
-		KFactor = 24.0f / float(OpponentCount);
-	}
-
-	int32 NewSkillRating = SkillRating + KFactor*(ActualWinPercentage - ExpectedWinPercentage);
-
-	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s  RA: %d ExpectWinPct %f New Skill Rating %d"), *PlayerName, SkillRating, ExpectedWinPercentage, NewSkillRating);
-	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
-	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
-
-	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
-	if (PC)
-	{
-		PC->ClientUpdateSkillRating(SkillRating, NewSkillRating);
-	}
 }
 
 bool AUTPlayerState::OwnsItemFor(const FString& Path, int32 VariantId) const

@@ -208,7 +208,7 @@ void UUTMcpUtils::GetTeamElo(const FString& RatingType, const TArray<FUniqueNetI
 void UUTMcpUtils::GetAccountElo(const FString& RatingType, const FGetAccountEloCb& Callback)
 {
 	// build request URL
-	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/mmr/`ratingType");
+	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/elo/`ratingType");
 	auto HttpRequest = CreateRequest(TEXT("GET"), ServerPath
 		.Replace(TEXT("`accountId"), *GameAccountId->ToString(), ESearchCase::CaseSensitive)
 		.Replace(TEXT("`ratingType"), *RatingType, ESearchCase::CaseSensitive)

@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUD_DM.h"
 #include "StatNames.h"
+#include "UTMcpUtils.h"
 #include "UTDMGameMode.h"
 
 
@@ -17,12 +18,24 @@ AUTDMGameMode::AUTDMGameMode(const class FObjectInitializer& ObjectInitializer)
 
 void AUTDMGameMode::UpdateSkillRating()
 {
+	ReportRankedMatchResults(NAME_DMSkillRating.ToString());
+}
+
+void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& MatchResult)
+{	
+	// report the social party initial size
+	MatchResult.RedTeam.SocialPartySize = 1;
+
+	// In DM, all players go on the red team and IndividualScores is filled out
 	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateIndividualSkillRating(NAME_DMSkillRating, &UTGameState->PlayerArray, &InactivePlayerArray);
+			FRankedTeamMemberInfo RankedMemberInfo;
+			RankedMemberInfo.AccountId = PS->StatsID;
+			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
+			MatchResult.MatchInfo.IndividualScores.Add(PS->Score);
 		}
 	}
 
@@ -31,7 +44,10 @@ void AUTDMGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateIndividualSkillRating(NAME_DMSkillRating, &UTGameState->PlayerArray, &InactivePlayerArray);
+			FRankedTeamMemberInfo RankedMemberInfo;
+			RankedMemberInfo.AccountId = PS->StatsID;
+			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
+			MatchResult.MatchInfo.IndividualScores.Add(PS->Score);
 		}
 	}
 }

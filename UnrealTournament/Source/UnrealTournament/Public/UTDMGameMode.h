@@ -24,6 +24,7 @@ class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 
 protected:
 	virtual void UpdateSkillRating() override;
+	virtual void PrepareRankedMatchResultGameCustom(FRankedMatchResult& MatchResult) override;
 };
 
 
