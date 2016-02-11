@@ -31,8 +31,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeJumpImpulse = 600.f;
 	DodgeLandingSpeedFactor = 0.19f;
 	DodgeJumpLandingSpeedFactor = 0.19f;
-	DodgeResetInterval = 0.35f;
-	DodgeJumpResetInterval = 0.35f;
+	DodgeResetInterval = 0.4f;
+	DodgeJumpResetInterval = 0.4f;
 	WallDodgeResetInterval = 0.2f;
 	SprintSpeed = 1230.f;
 	SprintAccel = 300.f;
@@ -56,12 +56,12 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	MaxSwimmingAcceleration = 5500.f;
 	MaxRelativeSwimmingAccelNumerator = 0.f;
 	MaxRelativeSwimmingAccelDenominator = 1000.f;
-	BrakingDecelerationWalking = 500.f;
+	BrakingDecelerationWalking = 520.f;
 	DefaultBrakingDecelerationWalking = BrakingDecelerationWalking;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 11.5f;
+	GroundFriction = 11.f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
@@ -84,16 +84,16 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
-	DodgeImpulseHorizontal = 1410.f;
-	DodgeMaxHorizontalVelocity = 1565.f; // DodgeImpulseHorizontal * 1.11
+	DodgeImpulseHorizontal = 1500.f;
+	DodgeMaxHorizontalVelocity = 1700.f; 
 	WallDodgeSecondImpulseVertical = 320.f;
-	DodgeImpulseVertical = 502.5f;
+	DodgeImpulseVertical = 500.f;
 	WallDodgeImpulseHorizontal = 1350.f; 
 	WallDodgeImpulseVertical = 470.f; 
 
 	MaxSlideRiseZ = 650.f; 
 	MaxSlideFallZ = -180.f;
-	SlideGravityScaling = 0.16f;
+	SlideGravityScaling = 0.15f;
 	MinWallSlideSpeed = 500.f;
 	MaxSlideWallDist = 20.f;
 
