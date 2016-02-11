@@ -64,9 +64,9 @@ void AUTServerBeaconLobbyClient::UpdateMatch(const FMatchUpdate& MatchUpdate)
 
 void AUTServerBeaconLobbyClient::UpdatePlayer(AUTBaseGameMode* GameMode, AUTPlayerState* PlayerState, bool bLastUpdate)
 {
-	int32 Elo = GameMode->GetEloFor(PlayerState);
+	int32 RankCheck = PlayerState->GetRankCheck(GameMode);
 
-	FRemotePlayerInfo PlayerInfo(PlayerState,Elo);
+	FRemotePlayerInfo PlayerInfo(PlayerState,RankCheck);
 	UE_LOG(UT,Verbose,TEXT("UpdatePlayer: Instance %i [%s] Player = %s [%s] Score = %i"), GameInstanceID, *GameInstanceGUID.ToString(), *PlayerInfo.PlayerName, *PlayerInfo.PlayerID.ToString(),  PlayerInfo.PlayerScore);
 
 	Lobby_UpdatePlayer(GameInstanceID, PlayerInfo, bLastUpdate);
@@ -117,7 +117,7 @@ void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 Instanc
 bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FRemotePlayerInfo PlayerInfo, bool bLastUpdate) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FRemotePlayerInfo PlayerInfo, bool bLastUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate = %i, PlayerRank = %i"), InstanceID, *PlayerInfo.PlayerName, *PlayerInfo.PlayerID.ToString(), PlayerInfo.PlayerScore, bLastUpdate, PlayerInfo.PlayerRank);
+	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate = %i, RankCheck = %i"), InstanceID, *PlayerInfo.PlayerName, *PlayerInfo.PlayerID.ToString(), PlayerInfo.PlayerScore, bLastUpdate, PlayerInfo.RankCheck);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{

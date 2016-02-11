@@ -886,7 +886,7 @@ struct FRemotePlayerInfo
 	int32 PlayerScore;
 	
 	UPROPERTY()
-	int32 PlayerRank;
+	int32 RankCheck;
 
 	UPROPERTY()
 	int32 XPLevel;
@@ -899,12 +899,12 @@ struct FRemotePlayerInfo
 
 	FRemotePlayerInfo() {};
 
-	FRemotePlayerInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inPlayerRank, int32 inXPLevel, FName inAvatar)
+	FRemotePlayerInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inRankCheck, int32 inXPLevel, FName inAvatar)
 		: PlayerID(inPlayerID)
 		, bIsSpectator(inbIsSpectator)
 		, PlayerName(inPlayerName)
 		, PlayerScore(inPlayerScore)
-		, PlayerRank(inPlayerRank)
+		, RankCheck(inRankCheck)
 		, XPLevel(inXPLevel)
 		, TeamNum(inTeamNum)
 		, Avatar(inAvatar)
@@ -916,19 +916,19 @@ struct FRemotePlayerInfo
 		, bIsSpectator(NewInfo.bIsSpectator)
 		, PlayerName(NewInfo.PlayerName)
 		, PlayerScore(NewInfo.PlayerScore)
-		, PlayerRank(NewInfo.PlayerRank)
+		, RankCheck(NewInfo.RankCheck)
 		, XPLevel(NewInfo.XPLevel)
 		, TeamNum(NewInfo.TeamNum)
 		, Avatar(NewInfo.Avatar)
 	{
 	}
 
-	FRemotePlayerInfo(AUTPlayerState* PlayerState, int32 inElo)
+	FRemotePlayerInfo(AUTPlayerState* PlayerState, int32 RankCheck)
 		: PlayerID(PlayerState->UniqueId)
 		, bIsSpectator(PlayerState->bOnlySpectator)
 		, PlayerName(PlayerState->PlayerName)
 		, PlayerScore(PlayerState->Score)
-		, PlayerRank(inElo)
+		, RankCheck(RankCheck)
 		, XPLevel(PlayerState->GetPrevXP())
 		, TeamNum(PlayerState->GetTeamNum())
 		, Avatar(PlayerState->Avatar)
@@ -942,7 +942,7 @@ struct FRemotePlayerInfo
 		bIsSpectator = NewInfo.bIsSpectator;
 		PlayerName = NewInfo.PlayerName;
 		PlayerScore = NewInfo.PlayerScore;
-		PlayerRank = NewInfo.PlayerRank;
+		RankCheck = NewInfo.RankCheck;
 		XPLevel = NewInfo.XPLevel;
 		TeamNum = NewInfo.TeamNum;
 		Avatar = NewInfo.Avatar;

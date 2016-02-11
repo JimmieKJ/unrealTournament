@@ -642,7 +642,7 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 																				MatchInfo->PlayersInMatchInstance[j].PlayerName,
 																				MatchInfo->PlayersInMatchInstance[j].TeamNum,
 																				MatchInfo->PlayersInMatchInstance[j].Avatar, false, false, false,
-																				MatchInfo->PlayersInMatchInstance[j].PlayerRank,
+																				MatchInfo->PlayersInMatchInstance[j].RankCheck,
 																				MatchInfo->PlayersInMatchInstance[j].XPLevel));
 							}
 						}

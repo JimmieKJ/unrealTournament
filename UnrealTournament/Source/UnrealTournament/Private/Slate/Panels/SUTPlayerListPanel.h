@@ -69,7 +69,7 @@ public:
 
 	float SortOrder;
 
-	int32 Elo;
+	int32 RankCheck;
 
 	int32 XP;
 
@@ -87,7 +87,7 @@ public:
 		bInInstance = false;
 	}
 
-	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator, int32 inElo, int32 inXP)
+	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator, int32 inRankCheck, int32 inXP)
 		: PlayerID(inPlayerID)
 		, PlayerName(inPlayerName)
 		, Avatar(inAvatar)
@@ -96,7 +96,7 @@ public:
 		, TeamNum(inTeamNum)
 		, bIsSpectator(inbIsSpectator)
 		, PlayerState(inPlayerState)
-		, Elo(inElo)
+		, RankCheck(inRankCheck)
 		, XP(inXP)
 	{
 		bPendingKill = false;
@@ -108,9 +108,9 @@ public:
 		bInInstance = inPlayerState == NULL;
 	}
 
-	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator, int32 inElo, int32 inXP)
+	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator, int32 inRankCheck, int32 inXP)
 	{
-		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost, inbIsSpectator, inElo, inXP));
+		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost, inbIsSpectator, inRankCheck, inXP));
 	}
 
 	static TSharedRef<FTrackedPlayer> MakeHeader(FString inHeaderText, ETrackedPlayerType::Type inEntryType)
@@ -191,9 +191,24 @@ public:
 
 		if (PlayerState.IsValid())
 		{
-			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
-			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-			PlayerState->GetBadgeFromELO(DefaultGame, Badge, Level);
+			AUTBaseGameMode* BaseGame = nullptr;
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
+			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
+			{
+				BaseGame = LobbyPlayerState->CurrentMatch->CurrentRuleset->GetDefaultGameModeObject();
+			}
+			else
+			{
+				// Attempt to use the GameMode
+				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
+		}
+		else
+		{
+			AUTPlayerState::SplitRankCheck(RankCheck, Badge,Level);
 		}
 
 		Badge = FMath::Clamp<int32>(Badge, 0, 3);
@@ -205,12 +220,29 @@ public:
 	{
 		int32 Badge = 0;
 		int32 Level = 0;
+
 		if (PlayerState.IsValid())
 		{
-			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
-			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-			PlayerState->GetBadgeFromELO(DefaultGame, Badge, Level);
+			AUTBaseGameMode* BaseGame = nullptr;
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
+			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
+			{
+				BaseGame = LobbyPlayerState->CurrentMatch->CurrentRuleset->GetDefaultGameModeObject();
+			}
+			else
+			{
+				// Attempt to use the GameMode
+				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
 		}
+		else
+		{
+			AUTPlayerState::SplitRankCheck(RankCheck, Badge,Level);
+		}
+
 		return FText::AsNumber(Level+1);
 	}
 

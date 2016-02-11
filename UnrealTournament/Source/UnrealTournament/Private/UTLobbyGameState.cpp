@@ -1144,7 +1144,7 @@ void AUTLobbyGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerLis
 
 				if (!bFound)
 				{
-					int32 Rank = Match->PlayersInMatchInstance[i].PlayerRank;
+					int32 Rank = Match->PlayersInMatchInstance[i].RankCheck;
 					FString PlayerIP = TEXT("N/A")
 					;
 					PlayerList.Add( FRconPlayerData(Match->PlayersInMatchInstance[i].PlayerName, PlayerID, PlayerIP, Rank, Match->GameInstanceGUID) );
