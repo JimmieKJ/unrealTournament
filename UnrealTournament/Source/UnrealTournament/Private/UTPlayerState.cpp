@@ -1747,7 +1747,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FTex
 						+SVerticalBox::Slot()
 						.HAlign(HAlign_Center)
 						.VAlign(VAlign_Center)
-						.Padding(FMargin(-1.0,0.0,0.0,0.0))
+						.Padding(FMargin(0.00,0.0,0.0,0.0))
 						[
 							SNew(STextBlock)
 							.Text(RankNumber)
