@@ -52,7 +52,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 5500.f; 
-	MaxFallingAcceleration = 4200.f;
+	MaxFallingAcceleration = 4300.f;
 	MaxSwimmingAcceleration = 5500.f;
 	MaxRelativeSwimmingAccelNumerator = 0.f;
 	MaxRelativeSwimmingAccelDenominator = 1000.f;

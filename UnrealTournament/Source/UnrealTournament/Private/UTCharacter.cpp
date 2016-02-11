@@ -102,7 +102,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	WeaponLandBob = FVector(0.f, 0.f, 10.5f);
 	WeaponSlideBob = FVector(0.f, 12.f, 15.f);
 	WeaponBreathingBobRate = 0.2f;
-	WeaponRunningBobRate = 0.8f;
+	WeaponRunningBobRate = 1.2f;
 	WeaponJumpBobInterpRate = 6.5f;
 	WeaponHorizontalBobInterpRate = 4.3f;
 	WeaponLandBobDecayRate = 5.f;
