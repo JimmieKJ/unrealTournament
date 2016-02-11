@@ -190,7 +190,31 @@ void SUTJoinInstanceWindow::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 void SUTJoinInstanceWindow::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
 {
 	Sender->OnRequestJoinInstanceResult = FServerRequestJoinInstanceResult::CreateSP(this, &SUTJoinInstanceWindow::OnRequestJoinResult);
-	Sender->ServerRequestInstanceJoin(InstanceId, bSpectator, PlayerOwner->GetBaseELORank());
+
+	int32 RankCheck = DEFAULT_RANK_CHECK;
+	AUTBaseGameMode* BaseGameMode = nullptr;
+	if (ServerData.IsValid())
+	{
+		FString GameModeClassname = ServerData->GetInstanceGameModeClass(InstanceId);
+		if (!GameModeClassname.IsEmpty())
+		{
+			UClass* GameModeClass = LoadClass<AUTGameMode>(NULL, *GameModeClassname, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+			if (GameModeClass)
+			{
+				BaseGameMode = GameModeClass->GetDefaultObject<AUTBaseGameMode>();
+			}
+		}
+	}
+
+	if (BaseGameMode == nullptr) BaseGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+	if (PlayerState)
+	{
+		RankCheck = PlayerState->GetRankCheck(BaseGameMode);
+	}
+
+	Sender->ServerRequestInstanceJoin(InstanceId, bSpectator, RankCheck);
 }
 
 void SUTJoinInstanceWindow::OnRequestJoinResult(EInstanceJoinResult::Type Result, const FString& Params)

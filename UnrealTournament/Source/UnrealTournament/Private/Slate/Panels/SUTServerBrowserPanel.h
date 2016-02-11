@@ -451,6 +451,19 @@ public:
 		return (SearchResult.Session.SessionSettings.bIsLANMatch) ? IP : SearchResult.Session.SessionInfo->GetSessionId().ToString();
 	}
 
+	FString GetInstanceGameModeClass(const FString& InstanceId)
+	{
+		for (int i=0; i < HUBInstances.Num(); i++)
+		{
+			if (HUBInstances[i]->InstanceId.ToString() == InstanceId)
+			{
+				return HUBInstances[i]->GameModeClass;
+			}
+		}
+
+		return TEXT("");
+	}
+
 };
 
 
