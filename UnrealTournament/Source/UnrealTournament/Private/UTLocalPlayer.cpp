@@ -2749,7 +2749,6 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target, bool 
 {
 #if !UE_SERVER
 	TSharedPtr<SUTMatchSummaryPanel> MatchSummary = GetSummaryPanel();
-	if (MatchSummary.IsValid() && Target.IsValid())
 	if (MatchSummary.IsValid() && Target.IsValid() && MatchSummary->CanSelectPlayerState(Target.Get()))
 	{
 		MatchSummary->SelectPlayerState(Target.Get());
