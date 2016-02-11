@@ -39,6 +39,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	BeamPulseInterval = 0.7f;
 	BeamPulseMomentum = -220000.0f;
 	BeamPulseAmmoCost = 8;
+	LinkPullDamage = 32;
 
 	PerLinkDamageScalingPrimary = 1.f;
 	PerLinkDamageScalingSecondary = 1.25f;
@@ -170,7 +171,7 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 			{
 				// use owner to target direction instead of exactly the weapon orientation so that shooting below center doesn't cause the pull to send them over the shooter's head
 				const FVector Dir = (PulseTarget->GetActorLocation() - PulseStart).GetSafeNormal();
-				PulseTarget->TakeDamage(0.0f, FUTPointDamageEvent(0.0f, *OutHit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), PulseInstigator, this);
+				PulseTarget->TakeDamage(LinkPullDamage, FUTPointDamageEvent(0.0f, *OutHit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), PulseInstigator, this);
 				PulseLoc = PulseTarget->GetActorLocation();
 			}
 			else

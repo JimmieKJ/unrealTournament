@@ -57,6 +57,8 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UAnimMontage* PulseAnim;
 	UPROPERTY(EditAnywhere, blueprintReadWrite, Category = LinkGun)
 	UAnimMontage* PulseAnimHands;
+	UPROPERTY(EditAnywhere, blueprintReadWrite, Category = LinkGun)
+		int32 LinkPullDamage;
 
 	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
 	bool bPendingBeamPulse;
