@@ -352,9 +352,13 @@ public:
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
 	float FloorSlideAcceleration;
 
-	/** Max speed during a floor slide. */
+	/** Max speed during a floor slide (decelerates to this if too fast). */
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
 	float MaxFloorSlideSpeed;
+
+	/** Max initial speed for a floor slide. */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+		float MaxInitialFloorSlideSpeed;
 
 	/** How long floor slide lasts. */
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
