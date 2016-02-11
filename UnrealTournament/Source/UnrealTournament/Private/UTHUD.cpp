@@ -79,6 +79,8 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 
 	bDrawChatKillMsg = false;
 	bDrawPopupKillMsg = true;
+	bDrawHUDKillIconMsg = true;
+	bPlayKillSoundMsg = true;
 
 	bCustomWeaponCrosshairs = true;
 	HUDWidgetOpacity = 1.f;
@@ -1207,5 +1209,8 @@ void AUTHUD::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerStat
 
 void AUTHUD::PlayKillNotification()
 {
-	PlayerOwner->ClientPlaySound(KillSound);
+	if (bPlayKillSoundMsg)
+	{
+		PlayerOwner->ClientPlaySound(KillSound);
+	}
 }

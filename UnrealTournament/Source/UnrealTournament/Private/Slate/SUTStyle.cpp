@@ -430,7 +430,15 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		LoadingScreenBrushAsset->AddToRoot();
 		Style.Set("UT.LoadingScreen", &LoadingScreenBrushAsset->Brush);
 	}
-	
+
+
+	Style.Set("UT.Slider", FSliderStyle()
+		.SetNormalBarImage(FSlateColorBrush(FColor::White))
+		.SetDisabledBarImage(FSlateColorBrush(FLinearColor::Gray))
+		.SetNormalThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Normal", FVector2D(32,32)))
+		.SetDisabledThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Disabled", FVector2D(32,32)))
+		);
+
 
 }
 

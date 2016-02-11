@@ -2,7 +2,9 @@
 #pragma once
 
 #include "SlateBasics.h"
+#include "SWidgetSwitcher.h"
 #include "../Base/SUTDialogBase.h"
+#include "../Widgets/SUTButton.h"
 #include "UTAudioSettings.h"
 
 #if !UE_SERVER
@@ -34,6 +36,19 @@ public:
 protected:
 	SVerticalBox::FSlot& AddSliderWidget(TSharedPtr<STextBlock>& LabelWidget, TSharedPtr<SSlider>& SliderWidget, float StartingValue);
 
+	TSharedPtr<SWidgetSwitcher> TabWidget;
+	TSharedPtr<SUTButton> GeneralSettingsTabButton;
+	TSharedPtr<SUTButton> WeaponBarSettingsTabButton;
+	TSharedPtr<SUTButton> NotificationsSettingsTabButton;
+
+	TSharedRef<SWidget> BuildGeneralTab();
+	TSharedRef<SWidget> BuildWeaponBarTab();
+	TSharedRef<SWidget> BuildNotificationsTab();
+
+	FReply OnTabClickGeneral();
+	FReply OnTabClickWeaponBar();
+	FReply OnTabClickNotifications();
+
 	TSharedPtr<SSlider> HUDOpacity;
 	TSharedPtr<STextBlock> HUDOpacityLabel;
 
@@ -59,6 +74,8 @@ protected:
 
 	TSharedPtr<SCheckBox> DrawPopupKillMsg;
 	TSharedPtr<SCheckBox> DrawChatKillMsg;
+	TSharedPtr<SCheckBox> DrawHUDKillIconMsg;
+	TSharedPtr<SCheckBox> DrawPlayKillSoundMsg;
 	
 	// A reference to the target HUD..
 	TWeakObjectPtr<AUTHUD> TargetHUD;
@@ -80,14 +97,17 @@ protected:
 	void OnHUDBorderOpacityChanged(float NewValue);
 	void OnHUDSlateOpacityChanged(float NewValue);
 	void OnHUDScaleChanged(float NewValue);
+
 	void OnWeaponBarOpacityChanged(float NewValue);
 	void OnWeaponBarIconOpacityChanged(float NewValue);
 	void OnWeaponBarEmptyOpacityChanged(float NewValue);
 	void OnWeaponBarScaleChanged(float NewValue);
-
 	void OnUseWeaponColorChanged(ECheckBoxState NewState);
+
 	void OnDrawPopupKillMsgChanged(ECheckBoxState NewState);
 	void OnDrawChatKillMsgMsgChanged(ECheckBoxState NewState);
+	void OnDrawHUDKillIconMsgChanged(ECheckBoxState NewState);
+	void OnPlayKillSoundMsgChanged(ECheckBoxState NewState);
 
 private:
 
@@ -103,6 +123,8 @@ private:
 	bool Old_bUseWeaponColors;
 	bool Old_bDrawChatKillMsg;
 	bool Old_bDrawPopupKillMsg;
+	bool Old_bDrawHUDKillIconMsg;
+	bool Old_bPlayKillSoundMsg;
 
 	bool bInGame;
 };

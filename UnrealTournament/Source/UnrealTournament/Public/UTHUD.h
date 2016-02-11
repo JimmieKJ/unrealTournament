@@ -323,6 +323,12 @@ public:
 	UPROPERTY(globalconfig)
 	bool bDrawPopupKillMsg;
 
+	UPROPERTY(globalconfig)
+	bool bDrawHUDKillIconMsg;
+
+	UPROPERTY(globalconfig)
+	bool bPlayKillSoundMsg;
+
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
 
