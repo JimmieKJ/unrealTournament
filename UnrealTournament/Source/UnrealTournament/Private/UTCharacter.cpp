@@ -168,6 +168,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	SlideTargetHeight = 55.f;
 
 	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
+	bTrophyChar = false;
 }
 
 float AUTCharacter::GetWeaponBobScaling()

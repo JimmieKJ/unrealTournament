@@ -13,6 +13,7 @@
 #include "../Widgets/SUTButton.h"
 #include "SUTMatchSummaryPanel.h"
 #include "UTConsole.h"
+#include "UTTrophyRoom.h"
 
 #if !UE_SERVER
 
@@ -175,10 +176,15 @@ EVisibility SUTInGameHomePanel::GetSummaryVisibility() const
 	if (PlayerOwner.IsValid() && SummaryPanel.IsValid())
 	{
 		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (GameState && (GameState->GetMatchState() == MatchState::PlayerIntro || GameState->GetMatchState() == MatchState::WaitingPostMatch))
+		AUTTrophyRoom* TrophyRoom = GameState != nullptr ? GameState->GetTrophyRoom() : nullptr;
+		if (TrophyRoom != nullptr)
 		{
 			return bFocusSummaryInv ? EVisibility::Hidden : EVisibility::Visible;
 		}
+/*		if (GameState && (GameState->GetMatchState() == MatchState::PlayerIntro || GameState->GetMatchState() == MatchState::WaitingPostMatch))
+		{
+			return bFocusSummaryInv ? EVisibility::Hidden : EVisibility::Visible;
+		}*/
 	}
 	return EVisibility::Hidden;
 }
@@ -296,11 +302,14 @@ void SUTInGameHomePanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
-		PC->MyUTHUD->bForceScores = true;
-		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
-		if (SB)
+		if (bShowScoreboard)
 		{
-			SB->BecomeInteractive();
+			PC->MyUTHUD->bForceScores = true;
+			UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+			if (SB)
+			{
+				SB->BecomeInteractive();
+			}
 		}
 		UUTHUDWidget_ReplayTimeSlider* ReplayTimeSlider = PC->MyUTHUD->GetReplayTimeSlider();
 		if (ReplayTimeSlider)
@@ -596,33 +605,36 @@ FReply SUTInGameHomePanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FP
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
-		PC->MyUTHUD->bForceScores = true;
 		FVector2D MousePosition;
 		if (GetGameMousePosition(MousePosition))
 		{
-			UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
-			if (SB)
+			if (bShowScoreboard)
 			{
-				if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
+				PC->MyUTHUD->bForceScores = true;
+				UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+				if (SB)
 				{
-					if (SB->AttemptSelection(MousePosition))
+					if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
 					{
-						// We are over a item.. pop up the context menu
-						FVector2D LocalPosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() );
-						ShowContextMenu(SB, LocalPosition, MyGeometry.GetLocalSize());
+						if (SB->AttemptSelection(MousePosition))
+						{
+							// We are over a item.. pop up the context menu
+							FVector2D LocalPosition = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
+							ShowContextMenu(SB, LocalPosition, MyGeometry.GetLocalSize());
+						}
+						else
+						{
+							HideContextMenu();
+						}
 					}
 					else
 					{
 						HideContextMenu();
-					}
-				}
-				else
-				{
-					HideContextMenu();
-					if (SB->AttemptSelection(MousePosition))
-					{
-						SB->SelectionClick();
-						return FReply::Handled();
+						if (SB->AttemptSelection(MousePosition))
+						{
+							SB->SelectionClick();
+							return FReply::Handled();
+						}
 					}
 				}
 			}
@@ -646,14 +658,17 @@ FReply SUTInGameHomePanel::OnMouseMove(const FGeometry& MyGeometry, const FPoint
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
-		PC->MyUTHUD->bForceScores = true;
 		FVector2D MousePosition;
 		if (GetGameMousePosition(MousePosition))
 		{
-			UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
-			if (SB)
+			if (bShowScoreboard)
 			{
-				SB->TrackMouseMovement(MousePosition);
+				PC->MyUTHUD->bForceScores = true;
+				UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+				if (SB)
+				{
+					SB->TrackMouseMovement(MousePosition);
+				}
 			}
 			UUTHUDWidget_ReplayTimeSlider* ReplayTimeSlider = PC->MyUTHUD->GetReplayTimeSlider();
 			if (ReplayTimeSlider)
@@ -670,7 +685,7 @@ FReply SUTInGameHomePanel::OnMouseMove(const FGeometry& MyGeometry, const FPoint
 FReply SUTInGameHomePanel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent)
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
-	if (PC && PC->MyUTHUD)
+	if (bShowScoreboard && PC && PC->MyUTHUD)
 	{
 		PC->MyUTHUD->bForceScores = true;
 		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
@@ -716,18 +731,25 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 {
 	if (!SummaryPanel.IsValid())
 	{
-		
-		if (SummaryOverlay.IsValid())
+		AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+		AUTTrophyRoom* TrophyRoom = GS != nullptr ? GS->GetTrophyRoom() : nullptr;
+		if (SummaryOverlay.IsValid() && TrophyRoom != nullptr)
 		{
 			SummaryOverlay->AddSlot().HAlign(HAlign_Fill).VAlign(VAlign_Fill)
 			[
 				SAssignNew(SummaryPanel, SUTMatchSummaryPanel, PlayerOwner)
-				.GameState(PlayerOwner->GetWorld()->GetGameState<AUTGameState>())
+				.TrophyRoom(TrophyRoom)
 			];
 
 			if ( SummaryPanel.IsValid() )
 			{
 				SummaryPanel->ParentPanel = SharedThis(this);
+				AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+				if (PC && PC->MyUTHUD)
+				{
+					bShowScoreboard = false;
+					PC->MyUTHUD->bForceScores = false;
+				}
 			}
 		}
 		else
@@ -739,7 +761,7 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 	bFocusSummaryInv = false;
 	if (bInitial && SummaryPanel.IsValid())
 	{
-		SummaryPanel->SetInitialCams();
+		//SummaryPanel->SetInitialCams();
 	}
 }
 

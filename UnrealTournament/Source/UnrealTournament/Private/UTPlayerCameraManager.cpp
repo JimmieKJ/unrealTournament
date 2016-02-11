@@ -4,6 +4,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCTFFlagBase.h"
 #include "UTViewPlaceholder.h"
+#include "UTTrophyRoom.h"
 
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -159,8 +160,13 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	FName SavedCameraStyle = CameraStyle;
 	CameraStyle = GetCameraStyleWithOverrides();
 
+	if (Cast<AUTTrophyRoom>(OutVT.Target) != nullptr)
+	{
+		//TODOTIM: Remove this when camera switching works
+		UpdateViewTargetInternal(OutVT, DeltaTime);
+	}
 	// smooth third person camera all the time
-	if (OutVT.Target == PCOwner)
+	else if (OutVT.Target == PCOwner)
 	{
 		OutVT.POV.FOV = DefaultFOV;
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;

@@ -795,7 +795,7 @@ public:
 	FString GetGameRulesDescription();
 
 	UFUNCTION(exec)
-		virtual void GetGood();
+	virtual void GetGood();
 
 	// Will be true if this instance is rank locked
 	bool bRankLocked;
@@ -803,5 +803,9 @@ public:
 	// The average rank allowed
 	int32 RankCheck;
 
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+	ETrophyType::Type GetTrophyType_Intro();
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+	ETrophyType::Type GetTrophyType_PostMatch();
 };
 

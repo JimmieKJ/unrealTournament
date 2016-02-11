@@ -392,7 +392,7 @@ void AUTHUD::NotifyMatchStateChange()
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
-		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
+		/*if (GS->GetMatchState() == MatchState::WaitingPostMatch)
 		{
 			if (GS->GameModeClass != nullptr)
 			{
@@ -418,22 +418,7 @@ void AUTHUD::NotifyMatchStateChange()
 		else
 		{
 			UTLP->HideMenu();
-		}
-	}
-}
-
-void AUTHUD::OpenMatchSummary()
-{
-	if (Cast<AUTDemoRecSpectator>(UTPlayerOwner))
-	{
-		return;
-	}
-
-	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
-	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
-	if (UTLP && GS && !GS->IsPendingKillPending())
-	{
-		UTLP->ShowMenu(TEXT("forcesummary"));
+		}*/
 	}
 }
 
@@ -495,7 +480,7 @@ void AUTHUD::DrawHUD()
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
+		bool bPreMatchScoreBoard = false; // (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
 		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores;
 		if (!bFontsCached)
 		{

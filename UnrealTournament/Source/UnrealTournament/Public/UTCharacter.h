@@ -1878,6 +1878,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
 	class UUTGhostComponent* GhostComponent;
+
+	/** Is this a dummy character used for the Intro/Match summary*/
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	bool bTrophyChar;
 };
 
 inline bool AUTCharacter::IsDead()

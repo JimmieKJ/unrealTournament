@@ -29,6 +29,7 @@
 #include "UTDMGameMode.h"
 #include "UTTeamDMGameMode.h"
 #include "UTCTFBaseGame.h"
+#include "UTTrophyRoom.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -320,6 +321,16 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 			{
 				LP->SetDefaultURLOption(TEXT("Team"), FString::FromInt(Team->TeamIndex));
 			}
+		}
+	}
+
+	//Make sure trophy rooms update their characters
+	for (TActorIterator<AUTTrophyRoom> It(GetWorld()); It; ++It)
+	{
+		AUTTrophyRoom* TrophyRoom = *It;
+		if (TrophyRoom != nullptr && TrophyRoom->bShowCharacters)
+		{
+			TrophyRoom->PositionPlayers(); 
 		}
 	}
 }

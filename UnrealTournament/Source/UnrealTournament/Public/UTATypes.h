@@ -1345,3 +1345,19 @@ namespace AchievementIDs
 	const FName FacePumpkins(TEXT("FacePumpkins"));
 };
 
+UENUM()
+namespace ETrophyType
+{
+	enum Type
+	{
+		FFA_Intro,
+		FFA_PostMatch,
+		FFA_Intermission,
+		Team_Intro,
+		Team_Intermission,
+		Team_PostMatch,
+		Team_PostMatch_RedWin,
+		Team_PostMatch_BlueWin,
+		None UMETA(Hidden),
+	};
+}

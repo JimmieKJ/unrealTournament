@@ -65,6 +65,7 @@
 #if WITH_SOCIAL
 #include "Social.h"
 #endif
+#include "UTTrophyRoom.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -392,13 +393,14 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 			{
 				if (!IsMenuGame())
 				{
-					// If we are in a single player game, and that game is either in the player intro or the post match state, then
-					// clear the menu pause.
+					// If we are in a single player game, and that game is either in the player intro or the post match state and there is no trophy room assigned, then
+					// pause the menu.
 
 					if (GetWorld()->GetNetMode() != NM_Client)
 					{
 						AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-						if (GameMode && GameMode->GetMatchState() != MatchState::PlayerIntro && GameMode->GetMatchState() != MatchState::WaitingPostMatch)
+						AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+						if (GameMode && GameMode->GetMatchState() != MatchState::PlayerIntro && GameMode->GetMatchState() != MatchState::WaitingPostMatch && GameState && GameState->GetTrophyRoom() == nullptr)
 						{
 							PlayerController->SetPause(true);
 						}
@@ -2732,6 +2734,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target, bool 
 #if !UE_SERVER
 	TSharedPtr<SUTMatchSummaryPanel> MatchSummary = GetSummaryPanel();
 	if (MatchSummary.IsValid() && Target.IsValid())
+	if (MatchSummary.IsValid() && Target.IsValid() && MatchSummary->CanSelectPlayerState(Target.Get()))
 	{
 		MatchSummary->SelectPlayerState(Target.Get());
 	}
@@ -3021,24 +3024,35 @@ void UUTLocalPlayer::CloseMapVote()
 #endif
 }
 
-void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
+void UUTLocalPlayer::OpenMatchSummary(AUTTrophyRoom* TrophyRoom)
 {
 	ShowMenu(TEXT(""));
 
 /*
 #if !UE_SERVER
-	PlayerController->DisableInput(PlayerController);
-	if (MatchSummaryWindow.IsValid())
+	if (TrophyRoom != nullptr)
+	{
+		if (PlayerController != nullptr)
+		{
+			PlayerController->DisableInput(PlayerController);
+		}
+
+			if (MatchSummaryWindow.IsValid())
 	{
 		CloseMatchSummary();
 	}
-	SAssignNew(MatchSummaryWindow, SUTMatchSummaryPanel, this).GameState(GameState);
+	SAssignNew(MatchSummaryWindow, SUTMatchSummaryPanel, this).TrophyRoom(TrophyRoom);
 	
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
 		OpenWindow(MatchSummaryWindow);
 		FSlateApplication::Get().SetKeyboardFocus(MatchSummaryWindow.ToSharedRef(), EKeyboardFocusCause::Keyboard);
+	}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("(TrophyRoom == null) MatchSummary needs a AUTTrophyRoom"));
 	}
 #endif
 */
@@ -3047,7 +3061,7 @@ void UUTLocalPlayer::CloseMatchSummary()
 {
 /*
 #if !UE_SERVER
-	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+		UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
 		CloseWindow(MatchSummaryWindow);
@@ -3055,9 +3069,25 @@ void UUTLocalPlayer::CloseMatchSummary()
 		
 		//Since we use SUTInGameHomePanel for the time being for chat, we need to clear bForceScores
 		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
-		if (PC && PC->MyUTHUD)
+		if (PC)
 		{
-			PC->MyUTHUD->bForceScores = false;
+			//Make sure the view target is set back
+			AActor* ViewTarget = PC;
+			if (PC->GetPawn() != nullptr)
+			{
+				ViewTarget = PC->GetPawn();
+			}
+			else if (PC->GetSpectatorPawn() != nullptr)
+			{
+				ViewTarget = PC->GetSpectatorPawn();
+			}
+			PC->SetViewTarget(ViewTarget);
+
+			//Since we use SUInGameHomePanel for the time being for chat, we need to clear bForceScores
+			if (PC->MyUTHUD)
+			{
+				PC->MyUTHUD->bForceScores = false;
+			}
 		}
 
 		PlayerController->FlushPressedKeys();
@@ -4018,16 +4048,6 @@ int32 UUTLocalPlayer::NumDialogsOpened()
 bool UUTLocalPlayer::SkipWorldRender()
 {
 #if !UE_SERVER
-
-	if (DesktopSlateWidget.IsValid() && DesktopSlateWidget->SkipWorldRender())
-	{
-		return true;
-	}
-
-	if (GetSummaryPanel().IsValid())
-	{
-		return true;
-	}
 	for (auto& Dialog : OpenDialogs)
 	{
 		if (Dialog.IsValid() && Dialog.Get()->bSkipWorldRender)

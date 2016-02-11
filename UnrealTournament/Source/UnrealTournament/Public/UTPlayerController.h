@@ -971,7 +971,10 @@ public:
 	virtual void TestCallstack();
 
 	UFUNCTION(exec)
-	virtual void OpenMatchSummary();
+	virtual void OpenMatchSummary(ETrophyType::Type TrophyType);
+
+	UFUNCTION(exec)
+	virtual void CloseMatchSummary();
 
 	/**The last recieved XP breakdown from ClientReceiveXP()*/
 	UPROPERTY()

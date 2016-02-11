@@ -59,6 +59,7 @@ public:
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
 #endif
 
+	ETrophyType::Type GetTrophyType_PostMatch_Implementation() override;
 
 };
 

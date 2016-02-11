@@ -108,7 +108,7 @@ void UUTCheatManager::Sum()
 	AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
 	if (LP && GS)
 	{
-		LP->OpenMatchSummary(GS);
+		LP->OpenMatchSummary(nullptr);
 	}
 }
 
