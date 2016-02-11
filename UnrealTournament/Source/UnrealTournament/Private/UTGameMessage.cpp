@@ -60,7 +60,7 @@ float UUTGameMessage::GetLifeTime(int32 MessageIndex) const
 {
 	if ((MessageIndex >= 9) && (MessageIndex <= 10))
 	{
-		return 10.f;
+		return 8.f;
 	}
 	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
 }

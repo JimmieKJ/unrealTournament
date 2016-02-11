@@ -37,13 +37,13 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	FLinearColor BlueColor = (GS->Teams.Num() > 1 && GS->Teams[1]) ? GS->Teams[1]->TeamColor : FLinearColor::Blue;
 	if (bStatusDir)
 	{
-		StatusScale += DeltaTime;
-		bStatusDir = (StatusScale < 1.f);
+		StatusScale += 2.f*DeltaTime;
+		bStatusDir = (StatusScale < 2.f);
 	}
 	else
 	{
-		StatusScale -= DeltaTime;
-		bStatusDir = (StatusScale < 0.7f);
+		StatusScale -= 2.f*DeltaTime;
+		bStatusDir = (StatusScale < 1.2f);
 	}
 	FVector ViewPoint;
 	FRotator ViewRotation;
@@ -59,7 +59,8 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		FName FlagState = GS->GetFlagState(Team);
 		if (FlagState == CarriedObjectState::Held)
 		{
-			TakenIconTemplate.RenderColor = 0.7f * FLinearColor::White;
+			FlagStateY += 0.5f * FlagIconTemplate.GetHeight();
+			TakenIconTemplate.RenderColor = 0.8f * FLinearColor::Yellow;
 			RenderObj_TextureAt(TakenIconTemplate, FlagStateX + 0.1f * FlagIconTemplate.GetWidth(), FlagStateY + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
 			AUTPlayerState* Holder = GS->GetFlagHolder(Team);
 			if (Holder)
@@ -67,8 +68,8 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				FlagHolderNames[Team].Text = FText::FromString(Holder->PlayerName);
 				RenderObj_Text(FlagHolderNames[Team]);
 			}
-			float CarriedX = FlagStateX - 0.25f * FlagIconTemplate.GetWidth();
-			float CarriedY = FlagStateY - 0.25f * FlagIconTemplate.GetHeight();
+			float CarriedX = FlagStateX - 0.25f * FlagIconTemplate.GetWidth() * StatusScale;
+			float CarriedY = FlagStateY - 0.25f * FlagIconTemplate.GetHeight() * StatusScale;
 			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, StatusScale * FlagIconTemplate.GetWidth(), StatusScale * FlagIconTemplate.GetHeight());
 		}
 		else
