@@ -2578,6 +2578,14 @@ bool AUTPlayerState::IsABeginner(AUTBaseGameMode* DefaultGameMode) const
 	return (Badge == 0);
 }
 
+int32 AUTPlayerState::GetRankCheck(AUTBaseGameMode* DefaultGameMode)
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+	GetBadgeFromELO(DefaultGameMode, Badge, Level);
+	return AUTPlayerState::CalcRankCheck(Badge,Level);
+}
+
 void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, int32& BadgeLevel, int32& SubLevel) const
 {
 	if (DefaultGameMode == nullptr)
@@ -2672,12 +2680,20 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(AUTBaseGameMode* Defau
 }
 #endif
 
+
+
 void AUTPlayerState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 {
 	JsonObject->SetStringField(TEXT("PlayerName"), PlayerName);
 	JsonObject->SetStringField(TEXT("UniqueId"), UniqueId.ToString());
 	JsonObject->SetNumberField(TEXT("Score"), Score);
 	JsonObject->SetNumberField(TEXT("Team Num"), GetTeamNum());
+
+	AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GameMode)
+	{
+		JsonObject->SetNumberField(TEXT("RankCheck"), GetRankCheck(GameMode));
+	}
 
 	JsonObject->SetNumberField(TEXT("Duel Rank"), DuelRank);
 	JsonObject->SetNumberField(TEXT("No_of_Duel_Played"), DuelMatchesPlayed);

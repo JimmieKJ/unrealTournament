@@ -693,6 +693,42 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Badge)
 		bool IsABeginner(AUTBaseGameMode* DefaultGameMode) const;
 
+	// Returns the rank check
+	UFUNCTION(BlueprintCallable, Category = Badge)
+	int32 GetRankCheck(AUTBaseGameMode* DefaultGame);
+
+	// Splits a RankCheck in to it's badge and level
+	static void SplitRankCheck(int32 RankCheck, int32& BadgeLevel, int32& SubLevel)
+	{
+		BadgeLevel = FMath::Clamp<int>((RankCheck / NUMBER_RANK_LEVELS), 0, 3);
+		SubLevel = FMath::Clamp<int>( (RankCheck - (BadgeLevel * NUMBER_RANK_LEVELS)),0, NUMBER_RANK_LEVELS-1);		// NOTE: It's the UI's responsibility to adjust this to be 1 based not 0.
+	}
+
+	// Combines a Badge and a Level in to a single rank check value
+	static int32 CalcRankCheck(int32 PlayerBadge, int32 PlayerLevel)
+	{
+		return (PlayerBadge * NUMBER_RANK_LEVELS) + PlayerLevel;
+	}
+
+	// Three functions to check if a rank is within a given range.  Remove all unuse functions soon
+	static bool CheckRank(int32 PlayerBadge, int32 PlayerLevel, int32 TargetBadge, int32 TargetLevel)
+	{
+		int32 TargetRank = AUTPlayerState::CalcRankCheck(TargetBadge, TargetLevel);
+		return AUTPlayerState::CheckRank(PlayerBadge, PlayerLevel, TargetRank);
+	}
+
+	static bool CheckRank(int32 PlayerBadge, int32 PlayerLevel, int32 TargetRank)
+	{
+		int32 PlayerRank = AUTPlayerState::CalcRankCheck(PlayerBadge, PlayerLevel);
+		return AUTPlayerState::CheckRank(PlayerRank, TargetRank);
+	}
+
+	static bool CheckRank(int32 PlayerRank, int32 TargetRank)
+	{
+		return PlayerRank <= TargetRank;
+	}
+
+
 #if !UE_SERVER
 	FText GetTrainingLevelText();
 #endif

@@ -18,7 +18,10 @@ const uint16 UTDIALOG_BUTTON_PLAY = 0x0400;
 const uint16 UTDIALOG_BUTTON_LAN = 0x0800;
 const uint16 UTDIALOG_BUTTON_CLOSE = 0x1000;
 
+const int32 DEFAULT_RANK_CHECK = 0;
 const int32 NEW_USER_ELO = 1000;
+const int32 NUMBER_RANK_LEVELS = 9;
+const int32 RANK_LOCK_TOLERANCE = 2;
 
 UENUM()
 namespace EGameStage
@@ -720,7 +723,7 @@ struct FMatchUpdate
 	bool bMatchHasEnded;
 
 	UPROPERTY()
-	int32 AverageElo;
+	int32 RankCheck;
 
 	FMatchUpdate()
 	{
@@ -750,6 +753,10 @@ struct FServerInstanceData
 	UPROPERTY()
 	FString RulesTag;
 
+	// The actual game mode that this match is running.
+	UPROPERTY()
+	FString GameModeClass;
+
 	// The name of the map being played.  It will be the friendly name if possible
 	UPROPERTY()
 	FString MapName;
@@ -762,10 +769,10 @@ struct FServerInstanceData
 	UPROPERTY()
 	uint32 Flags;
 
-	// The current average rank of this sever.  If it's range lock, then the average rank will be +/- 400 points of this
+	// The rank check value for this match
 	UPROPERTY()
-	int32 Rank;
-
+	int32 RankCheck;
+	
 	// Will be true if this is a team game
 	UPROPERTY()
 	bool bTeamGame;
@@ -796,10 +803,11 @@ struct FServerInstanceData
 	FServerInstanceData()
 		: RulesTitle(TEXT(""))
 		, RulesTag(TEXT(""))
+		, GameModeClass(TEXT(""))
 		, MapName(TEXT(""))
 		, MaxPlayers(0)
 		, Flags(0x00)
-		, Rank(NEW_USER_ELO)
+		, RankCheck(DEFAULT_RANK_CHECK)
 		, bTeamGame(false)
 		, bJoinableAsPlayer(false)
 		, bJoinableAsSpectator(false)
@@ -809,14 +817,15 @@ struct FServerInstanceData
 		MatchData = FMatchUpdate();
 	}
 
-	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, bool inbQuickplayMatch)
+	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString&  inGameModeClass, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRankCheck, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, bool inbQuickplayMatch)
 		: InstanceId(inInstanceId)
 		, RulesTitle(inRulesTitle)
 		, RulesTag(inRulesTag)
+		, GameModeClass(inGameModeClass)
 		, MapName(inMapName)
 		, MaxPlayers(inMaxPlayers)
 		, Flags(inFlags)
-		, Rank(inRank)
+		, RankCheck(inRankCheck)
 		, bTeamGame(inbTeamGame)
 		, bJoinableAsPlayer(inbJoinableAsPlayer)
 		, bJoinableAsSpectator(inbJoinableAsSpectator)
@@ -845,9 +854,9 @@ struct FServerInstanceData
 		return Count;
 	}
 
-	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, bool inbQuickplayMatch)
+	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inGameModeClass, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRankCheck, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, bool inbQuickplayMatch)
 	{
-		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inRulesTag, inMapName, inMaxPlayers, inFlags, inRank, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator, inMutatorList, inbQuickplayMatch));
+		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inRulesTag, inGameModeClass, inMapName, inMaxPlayers, inFlags, inRankCheck, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator, inMutatorList, inbQuickplayMatch));
 	}
 	static TSharedRef<FServerInstanceData> Make(const FServerInstanceData& Other)
 	{

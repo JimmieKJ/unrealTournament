@@ -8,6 +8,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "../Widgets/SUTComboButton.h"
 #include "../Widgets/SUTPopOverAnchor.h"
+#include "UTPlayerState.h"
 
 #if !UE_SERVER
 
@@ -113,11 +114,27 @@ public:
 		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
 		FString Final = TEXT("");
 
+		AUTBaseGameMode* BaseGameMode = nullptr;
+		if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
+		{
+			BaseGameMode = MatchInfo->CurrentRuleset->GetDefaultGameModeObject();		
+		}
+		else if ( MatchData.IsValid() && !MatchData->GameModeClass.IsEmpty() )
+		{
+			UClass* GameModeClass = LoadClass<AUTGameMode>(NULL, *MatchData->GameModeClass, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+			if (GameModeClass)
+			{
+				BaseGameMode = GameModeClass->GetDefaultObject<AUTBaseGameMode>();
+			}
+		}
+
+		if (BaseGameMode == nullptr) BaseGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+
+
 		if ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("In Progress");
 		if ((Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner)
 		{
-			AUTGameMode* UTGame = (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid()) ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-			if (!PlayerState || !PlayerState->IsABeginner(UTGame))	
+			if (!PlayerState || !PlayerState->IsABeginner(BaseGameMode))	
 			{
 				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Beginner");
 			}
@@ -132,21 +149,15 @@ public:
 		}
 		else if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
 		{
-			int32 AllowedRank = MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : NEW_USER_ELO);
-			AUTGameMode* UTGame = (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid()) ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-			int32 PlayerRank = (UTGame && PlayerState) ? UTGame->GetEloFor(PlayerState) : NEW_USER_ELO;
-			if (PlayerRank < AllowedRank - 400 || PlayerRank > AllowedRank + 400)
+			int32 MatchRankCheck = MatchInfo.IsValid() ? MatchInfo->RankCheck : (MatchData.IsValid() ? MatchData->RankCheck: DEFAULT_RANK_CHECK);
+			int32 PlayerRankCheck = PlayerState->GetRankCheck(BaseGameMode);
+
+			if ( !AUTPlayerState::CheckRank(PlayerRankCheck, MatchRankCheck) )
 			{
-				// Second check.  If both the client, and the match is ranked below beginner (1400) then we want to skip the icon
-				if (PlayerRank > 1400 || AllowedRank > 1400)
-				{
-					Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
-				}
+				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
 			}
 		}
 
-			
-			
 		if ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Join in Progress");
 		if (bInvited) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<UT.Font.NormalText.Tiny.Bold.Gold>!!Invited!!</>");
 
@@ -217,24 +228,42 @@ public:
 
 	const FSlateBrush* GetBadge() const
 	{
+		// Grab the current game 
+
 		int32 Badge =  0;
 		int32 Level = 0;
 
-		bool bIsBeginner = MatchInfo.IsValid() ? MatchInfo->bBeginnerMatch : ( MatchData.IsValid() ? ((MatchData->Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner) : false );
-//		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : NEW_USER_ELO)), true, Badge, Level);  // FIXMEJOE pass in correct gamemode here
-		
+		if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
+		{
+			AUTPlayerState::SplitRankCheck(MatchInfo->RankCheck, Badge, Level);
+		}
+		else if ( MatchData.IsValid() )
+		{
+			AUTPlayerState::SplitRankCheck(MatchData->RankCheck, Badge, Level);
+		}
+
 		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 		return SUTStyle::Get().GetBrush(*BadgeStr);
 	}
 
 	FText GetRank()
 	{
-		int32 Badge = 0;
-		int32 Level = 0;
-		bool bIsBeginner = MatchInfo.IsValid() ? MatchInfo->bBeginnerMatch : ( MatchData.IsValid() ? ((MatchData->Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner) : false );
-//		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : NEW_USER_ELO)), true, Badge, Level);   // FIXMEJOE pass in correct gamemode here
+		// Grab the current game 
 
-		return FText::AsNumber(Level);
+		int32 Badge =  0;
+		int32 Level = 0;
+
+		AUTBaseGameMode* BaseGameMode = nullptr;
+		if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
+		{
+			AUTPlayerState::SplitRankCheck(MatchInfo->RankCheck, Badge, Level);
+		}
+		else if ( MatchData.IsValid() )
+		{
+			AUTPlayerState::SplitRankCheck(MatchData->RankCheck, Badge, Level);
+		}
+
+		return FText::AsNumber(Level + 1);
 	}
 
 	bool CanJoin()

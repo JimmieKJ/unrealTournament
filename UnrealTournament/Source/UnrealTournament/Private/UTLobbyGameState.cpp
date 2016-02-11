@@ -308,10 +308,10 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	}
 
 	AUTGameMode* UTGame = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-	int32 PlayerRank = (UTGame && NewPlayer) ? UTGame->GetEloFor(NewPlayer) : 1500;
-	if (!MatchInfo->SkillTest(PlayerRank)) // MAKE THIS CONFIG
+	int32 PlayerRankCheck = NewPlayer->GetRankCheck(UTGame);
+	if (!MatchInfo->SkillTest(PlayerRankCheck)) 
 	{
-		if (PlayerRank > MatchInfo->AverageRank)
+		if (PlayerRankCheck > MatchInfo->RankCheck)
 		{
 			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchTooGood", "Your skill rating is too high for this match."));
 		}
@@ -476,7 +476,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 
 		if (MatchOwner->bRankLocked)
 		{
-			GameURL += FString::Printf(TEXT("?RankCheck=%i"), MatchOwner->AverageRank);
+			GameURL += FString::Printf(TEXT("?RankCheck=%i"), MatchOwner->RankCheck);
 		}
 
 		if (MatchOwner->bQuickPlayMatch)
@@ -624,7 +624,6 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, const
 						if (bLastUpdate)
 						{
 							Match->PlayersInMatchInstance.RemoveAt(j,1);
-							Match->UpdateRank();
 
 							// Update the Game state.
 							if (LobbyGameMode)
@@ -638,7 +637,6 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, const
 						{
 
 							Match->PlayersInMatchInstance[j].Update(PlayerInfo);
-							Match->UpdateRank();
 							return;
 						}
 						break;
@@ -647,7 +645,6 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, const
 	
 				// A player not in the instance table.. add them
 				Match->PlayersInMatchInstance.Add( FRemotePlayerInfo(PlayerInfo) );
-				Match->UpdateRank();
 
 				// Update the Game state.
 				if (LobbyGameMode)
@@ -996,14 +993,14 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatch(FGuid MatchID)
 	return NULL;
 }
 
-void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank, bool bBeginner)
+void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 RankCheck, bool bBeginner)
 {
 	// Look through all available matches and see if there is 
 
 	int32 BestInstanceIndex = -1;
 
 	UE_LOG(UT,Verbose,TEXT("===================================================="));
-	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i"), *MatchType, ELORank);
+	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i"), *MatchType, RankCheck);
 	UE_LOG(UT,Verbose,TEXT("===================================================="));
 
 	if (CanLaunch())
@@ -1033,13 +1030,8 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->NotifyBeacons.Add(Beacon);
 			NewMatchInfo->bJoinAnytime = true;
 			NewMatchInfo->bSpectatable = true;
-
-			if (!bTrainingGround && bBeginner)
-			{
-				NewMatchInfo->bRankLocked = true;
-				NewMatchInfo->AverageRank = ELORank;
-			}
-
+			NewMatchInfo->bRankLocked = true;
+			NewMatchInfo->RankCheck = RankCheck;
 			NewMatchInfo->LaunchMatch(true,1);
 		}
 	}

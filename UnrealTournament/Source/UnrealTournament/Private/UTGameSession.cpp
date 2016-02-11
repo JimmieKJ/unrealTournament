@@ -179,9 +179,9 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 		{
 			if (UTGameMode->bRankLocked)
 			{
-				int32 IncomingRank = UGameplayStatics::GetIntOption(Options, TEXT("Rank"), -1);
-				UE_LOG(UT,Log,TEXT("Rank Check: %i vs %i = %i"), IncomingRank, UTGameMode->RankCheck, AUTLobbyMatchInfo::CheckRank(IncomingRank, UTGameMode->RankCheck) )
-				if (!AUTLobbyMatchInfo::CheckRank(IncomingRank, UTGameMode->RankCheck))
+				int32 IncomingRank = UGameplayStatics::GetIntOption(Options, TEXT("PlayerRank"), 0);
+
+				if (IncomingRank > UTGameMode->RankCheck)
 				{
 					return TEXT("TOOSTRONG");
 				}

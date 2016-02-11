@@ -1470,23 +1470,11 @@ void SUTServerBrowserPanel::AddServer(TSharedPtr<FServerData> Server)
 void SUTServerBrowserPanel::AddHub(TSharedPtr<FServerData> Hub)
 {
 	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
-	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(nullptr); // FIXMEJOE pass appropriate gamemode
 
 	Hub->UpdateFriends(PlayerOwner);
 
-	bool ServerIsTrainingGround;
-	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRAININGGROUND, ServerIsTrainingGround);
-
 	int32 ServerTrustLevel; 
 	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
-
-	// Only trusted servers can be training grounds.  TODO: Move this to the MCP.
-	if ( ServerTrustLevel >0 ) ServerIsTrainingGround = 0;
-
-	if ( !bIsBeginner && ServerIsTrainingGround == 1 )
-	{
-		Hub->Flags |= SERVERFLAG_Restricted;
-	}
 
 	if (HUBServerList->GetNumItemsSelected() > 0)
 	{

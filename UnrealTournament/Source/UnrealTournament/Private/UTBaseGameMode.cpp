@@ -512,26 +512,6 @@ void AUTBaseGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bInc
 {
 }
 
-int32 AUTBaseGameMode::GetAverageElo()
-{
-	AUTGameState* UTGameState = Cast<AUTGameState>(GameState);
-	int32 Total = 0;
-	int32 Cnt = 0;
-	if (UTGameState)
-	{
-		for (int i=0; i < UTGameState->PlayerArray.Num(); i++)
-		{
-			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PlayerState)
-			{
-				Total += GetEloFor(PlayerState);
-				Cnt++;
-			}
-		}
-	}
-
-	return Cnt > 0 ? Total / Cnt : NEW_USER_ELO;
-}
 
 void AUTBaseGameMode::ReceivedRankForPlayer(AUTPlayerState* UTPlayerState)
 {
@@ -549,6 +529,11 @@ bool AUTBaseGameMode::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UO
 		TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Result);
 		FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
 		Ar.Logf(TEXT("%s"), *Result);
+		return true;
+	}
+	else if (FParse::Command( &Cmd, TEXT("dumpsession") ))
+	{
+		Ar.Logf(TEXT("Coming Soon"));
 		return true;
 	}
 

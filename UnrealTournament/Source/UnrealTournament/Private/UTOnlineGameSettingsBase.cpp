@@ -33,6 +33,7 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(FOnlineSessionSettings* Settin
 	if (UTGameMode)
 	{
 		Settings->Set(SETTING_GAMENAME, UTGameMode->DisplayName.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+		Settings->Set(SETTING_UTMATCHELO, UTGameMode->RankCheck, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	}
 
 	int32 RedTeamSize = 0;
@@ -81,6 +82,5 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(FOnlineSessionSettings* Settin
 
 
 	Settings->Set(SETTING_UTMAXSPECTATORS, CurrentGame->GetMatchState().ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	Settings->Set(SETTING_UTMATCHELO, CurrentGame->GetAverageElo(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 }
 

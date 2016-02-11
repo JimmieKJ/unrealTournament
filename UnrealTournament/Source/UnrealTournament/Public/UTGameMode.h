@@ -800,12 +800,14 @@ public:
 	// Will be true if this instance is rank locked
 	bool bRankLocked;
 
-	// The average rank allowed
+	// This is the match's combined ELO rank.  It incorporates the both the level and the sublevel and is set with the url option
+	// ?RankCheck=xxxxx
 	int32 RankCheck;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game")
 	ETrophyType::Type GetTrophyType_Intro();
 	UFUNCTION(BlueprintNativeEvent, Category = "Game")
 	ETrophyType::Type GetTrophyType_PostMatch();
+
 };
 

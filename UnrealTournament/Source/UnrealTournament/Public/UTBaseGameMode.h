@@ -195,7 +195,6 @@ public:
 
 	/** Get the Elo rating for PS for this game mode. */
 	virtual int32 GetEloFor(AUTPlayerState* PS) const;
-	int32 GetAverageElo();
 
 	/** Locally set Elo rating for this game mode (updated from server). */
 	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue, bool bIncrementMatchCount);

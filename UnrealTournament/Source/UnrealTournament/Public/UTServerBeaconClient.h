@@ -21,6 +21,9 @@ struct FServerBeaconInfo
 	UPROPERTY()
 	FString CurrentMap;
 
+	UPROPERTY()
+	FString CurrentGameMode;
+
 };
 
 

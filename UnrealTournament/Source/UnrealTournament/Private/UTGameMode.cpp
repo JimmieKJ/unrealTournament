@@ -216,8 +216,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	if (!InOpt.IsEmpty())
 	{
 		bRankLocked = true;
-		RankCheck = UGameplayStatics::GetIntOption(Options, TEXT("RankCheck"), 1400);
-		UE_LOG(UT,Log,TEXT("---------- RankLocked to %i"), RankCheck);
+		RankCheck = UGameplayStatics::GetIntOption(Options, TEXT("RankCheck"), DEFAULT_RANK_CHECK);
 	}
 	else
 	{
@@ -3521,7 +3520,7 @@ void AUTGameMode::UpdateLobbyMatchStats()
 		MatchUpdate.MatchState = MatchState;
 		MatchUpdate.bMatchHasBegun = HasMatchStarted();
 		MatchUpdate.bMatchHasEnded = HasMatchEnded();
-		MatchUpdate.AverageElo = GetAverageElo();
+		MatchUpdate.RankCheck = RankCheck;
 
 		UpdateLobbyScore(MatchUpdate);
 		LobbyBeacon->UpdateMatch(MatchUpdate);

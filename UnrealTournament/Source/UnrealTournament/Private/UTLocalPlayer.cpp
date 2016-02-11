@@ -2232,6 +2232,8 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
 
+	SearchResult.Session.SessionSettings.Get(SETTING_GAMEMODE,PendingGameMode);
+
 	PendingInstanceID = InstanceId;
 	bWantsToConnectAsSpectator = bSpectate;
 	ConnectDesiredTeam = DesiredTeam;
@@ -2333,8 +2335,22 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 				PendingFriendInviteFriendId = TEXT("");
 			}
 
-			ConnectionString += FString::Printf(TEXT("?Rank=%i"), GetBaseELORank());
+			int32 RankCheck = DEFAULT_RANK_CHECK;
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerController->PlayerState);
+			if (PlayerState)
+			{
 
+				UClass* GameModeClass = LoadClass<AUTGameMode>(NULL, *PendingGameMode, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+				if (GameModeClass)
+				{
+					AUTBaseGameMode* BaseGameMode = GameModeClass->GetDefaultObject<AUTBaseGameMode>();
+					if (BaseGameMode)
+					{
+						RankCheck = PlayerState->GetRankCheck(BaseGameMode);
+					}
+				}
+			}
+			ConnectionString += FString::Printf(TEXT("?RankCheck=%i"), RankCheck);
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 
 			if (ConnectDesiredTeam >= 0)

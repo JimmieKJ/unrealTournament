@@ -218,7 +218,7 @@ public:
 
 	FText GetDebugInfo();
 
-	bool SkillTest(int32 Rank, bool bForceLock=false);
+	bool SkillTest(int32 PlayerRankCheck, bool bForceLock=false);
 
 	/**
 	 *	Returns the Owner's UTLobbyPlayerState
@@ -301,16 +301,17 @@ public:
 	// Check to see if this match is of a given type.  This is used in Quickplay
 	virtual bool IsMatchofType(const FString& MatchType);
 
-	// Returns true if we can add a player to this match
-	virtual bool CanAddPlayer(int32 ELORank, bool bForceRankLock = false);
-
 	// When the hub receives the notice that the instance for this match is ready, notify any beacons in this array.
 	UPROPERTY()
 	TArray<AUTServerBeaconClient*> NotifyBeacons;
 
 	// Holds the average rank of the players in this match
 	UPROPERTY(replicated)
-	int32 AverageRank;
+	int32 RankCheck;
+
+	// Will be true if the host of this match is a beginner
+	UPROPERTY(replicated)
+	uint32 bHostIsBeginner:1;
 
 	// Updates the rank variables based on an event
 	void UpdateRank();
@@ -359,12 +360,6 @@ public:
 	// A reference to the beacon client for communication to this instance..
 	UPROPERTY()
 	AUTServerBeaconLobbyClient* InstanceBeacon;
-
-	// Looks to see if a rank falls within the acceptable range.
-	static bool CheckRank(int32 RankToCheck, int32 TargetRank)
-	{
-		return (RankToCheck <= 1400 && TargetRank <= 1400) || (RankToCheck >= TargetRank + RANK_CHECK_MIN && RankToCheck <= TargetRank + RANK_CHECK_MAX);
-	}
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 

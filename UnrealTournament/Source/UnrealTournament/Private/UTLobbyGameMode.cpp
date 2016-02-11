@@ -272,17 +272,21 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 
 			if (MatchInfo && MatchInfo->ShouldShowInDock())
 			{
+				FString GameModeClassname = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GameMode : TEXT("");
+
 				int32 NumPlayers = MatchInfo->NumPlayersInMatch();
 				TSharedPtr<FServerInstanceData> Data;
 				if (MatchInfo->bDedicatedMatch)
 				{
 					FString Map = FString::Printf(TEXT("%s (%s)"), *MatchInfo->InitialMap, *MatchInfo->DedicatedServerGameMode);
-					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, TEXT(""), Map, MatchInfo->DedicatedServerMaxPlayers, MatchInfo->GetMatchFlags(), 1500, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, false);
+					// FIXMEJOE - Allow dedicated instances to pass an allowed rank
+
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, TEXT(""), GameModeClassname, Map, MatchInfo->DedicatedServerMaxPlayers, MatchInfo->GetMatchFlags(),DEFAULT_RANK_CHECK, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, false);
 				}
 				else
 				{
 					FString Map = (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap);
-					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, MatchInfo->CurrentRuleset->UniqueTag, Map, MatchInfo->CurrentRuleset->MaxPlayers, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, MatchInfo->bQuickPlayMatch);
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, MatchInfo->CurrentRuleset->UniqueTag, GameModeClassname, Map, MatchInfo->CurrentRuleset->MaxPlayers, MatchInfo->GetMatchFlags(), MatchInfo->RankCheck, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, MatchInfo->bQuickPlayMatch);
 				}
 
 				Data->MatchData = MatchInfo->MatchUpdate;
