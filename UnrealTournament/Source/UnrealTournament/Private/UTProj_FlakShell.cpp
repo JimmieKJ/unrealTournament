@@ -9,7 +9,7 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FObjectInitializer& ObjectIniti
 	: Super(ObjectInitializer)
 {
 	// Movement
-	ProjectileMovement->InitialSpeed = 2400.f;
+	ProjectileMovement->InitialSpeed = 2300.f;
 	ProjectileMovement->MaxSpeed = 2400.f;
 	ProjectileMovement->ProjectileGravityScale = 1.0f;
 
@@ -18,14 +18,14 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FObjectInitializer& ObjectIniti
 	TossZ = 430.0f;
 
 	DamageParams.BaseDamage = 90.0f;
-	DamageParams.OuterRadius = 370.0f;
+	DamageParams.OuterRadius = 240.0f;
 
-	Momentum = 150000.0f;
+	Momentum = 110000.0f;
 
 	InitialLifeSpan = 6.0f;
 
 	// Flak shell
-	ShardSpawnCount = 5;
+	ShardSpawnCount = 4;
 	ShardSpawnAngle = 20.0f;
 }
 

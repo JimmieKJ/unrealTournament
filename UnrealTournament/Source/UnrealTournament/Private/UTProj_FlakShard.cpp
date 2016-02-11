@@ -27,8 +27,8 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	HotTrailColor = FLinearColor(2.0f, 1.65f, 0.65f, 1.0f);
 	ColdTrailColor = FLinearColor(0.165f, 0.135f, 0.097f, 0.0f);
 
-	ProjectileMovement->InitialSpeed = 7600.0f;
-	ProjectileMovement->MaxSpeed = 7600.0f;
+	ProjectileMovement->InitialSpeed = 4500.0f;
+	ProjectileMovement->MaxSpeed = 5000.0f;
 	ProjectileMovement->ProjectileGravityScale = 0.f;
 	ProjectileMovement->bShouldBounce = true;
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 0.0f;

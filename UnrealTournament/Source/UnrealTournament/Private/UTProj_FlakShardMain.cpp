@@ -10,7 +10,7 @@ AUTProj_FlakShardMain::AUTProj_FlakShardMain(const class FObjectInitializer& Obj
 	: Super(ObjectInitializer)
 {
 	CenteredMomentumBonus = 0.f;
-	CenteredDamageBonus = 20.0f;
+	CenteredDamageBonus = 15.0f;
 	MaxBonusTime = 0.15f;
 	NumSatelliteShards = 3;
 }
