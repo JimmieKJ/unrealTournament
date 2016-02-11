@@ -179,7 +179,7 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 		{
 			if (UTGameMode->bRankLocked)
 			{
-				int32 IncomingRank = UGameplayStatics::GetIntOption(Options, TEXT("PlayerRank"), 0);
+				int32 IncomingRank = UGameplayStatics::GetIntOption(Options, TEXT("RankCheck"), 0);
 
 				if (IncomingRank > UTGameMode->RankCheck)
 				{
