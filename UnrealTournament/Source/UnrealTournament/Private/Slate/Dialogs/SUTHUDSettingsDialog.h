@@ -104,7 +104,7 @@ protected:
 	void OnWeaponBarScaleChanged(float NewValue);
 	void OnUseWeaponColorChanged(ECheckBoxState NewState);
 
-	void OnDrawPopupKillMsgChanged(ECheckBoxState NewState);
+	void OnDrawCenteredKillMsgChanged(ECheckBoxState NewState);
 	void OnDrawChatKillMsgMsgChanged(ECheckBoxState NewState);
 	void OnDrawHUDKillIconMsgChanged(ECheckBoxState NewState);
 	void OnPlayKillSoundMsgChanged(ECheckBoxState NewState);

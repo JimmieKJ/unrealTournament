@@ -321,7 +321,7 @@ public:
 	bool bDrawChatKillMsg;
 
 	UPROPERTY(globalconfig)
-	bool bDrawPopupKillMsg;
+	bool bDrawCenteredKillMsg;
 
 	UPROPERTY(globalconfig)
 	bool bDrawHUDKillIconMsg;

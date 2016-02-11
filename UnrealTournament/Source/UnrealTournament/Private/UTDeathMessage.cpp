@@ -49,7 +49,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			ClientData.OptionalObject);
 
 		//Draw the big white kill text if the player wants
-		if (UTHUD->bDrawPopupKillMsg)
+		if (UTHUD->bDrawCenteredKillMsg)
 		{
 			if (LocalPlayerState && LocalPlayerState->bOnlySpectator)
 			{

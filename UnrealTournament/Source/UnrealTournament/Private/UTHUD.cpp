@@ -78,7 +78,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
 
 	bDrawChatKillMsg = false;
-	bDrawPopupKillMsg = true;
+	bDrawCenteredKillMsg = true;
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
 

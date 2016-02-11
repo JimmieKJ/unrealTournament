@@ -59,7 +59,7 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 	Old_HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
 	Old_bUseWeaponColors = TargetHUD->bUseWeaponColors;
 	Old_bDrawChatKillMsg = TargetHUD->bDrawChatKillMsg;
-	Old_bDrawPopupKillMsg = TargetHUD->bDrawPopupKillMsg;
+	Old_bDrawPopupKillMsg = TargetHUD->bDrawCenteredKillMsg;
 	Old_bDrawHUDKillIconMsg = TargetHUD->bDrawHUDKillIconMsg;
 	Old_bPlayKillSoundMsg = TargetHUD->bPlayKillSoundMsg;
 
@@ -537,7 +537,7 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildNotificationsTab()
 				[
 					SNew(STextBlock)
 					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-					.Text(NSLOCTEXT("SUTHUDSettingsDialog", "DrawPopupKillMsg", "Popup Kill Messages"))
+					.Text(NSLOCTEXT("SUTHUDSettingsDialog", "DrawCenteredKillMsg", "Centered Kill Messages"))
 				]
 			]
 			+ SHorizontalBox::Slot()
@@ -548,8 +548,8 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildNotificationsTab()
 				[
 					SAssignNew(DrawPopupKillMsg, SCheckBox)
 					.ForegroundColor(FLinearColor::White)
-					.IsChecked(TargetHUD->bDrawPopupKillMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
-					.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnDrawPopupKillMsgChanged)
+					.IsChecked(TargetHUD->bDrawCenteredKillMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+					.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnDrawCenteredKillMsgChanged)
 					.Style(SUTStyle::Get(), "UT.CheckBox")
 				]
 		]
@@ -771,11 +771,11 @@ void SUTHUDSettingsDialog::OnUseWeaponColorChanged(ECheckBoxState NewState)
 	}
 }
 
-void SUTHUDSettingsDialog::OnDrawPopupKillMsgChanged(ECheckBoxState NewState)
+void SUTHUDSettingsDialog::OnDrawCenteredKillMsgChanged(ECheckBoxState NewState)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->bDrawPopupKillMsg = NewState == ECheckBoxState::Checked;
+		TargetHUD->bDrawCenteredKillMsg = NewState == ECheckBoxState::Checked;
 	}
 }
 
@@ -823,7 +823,7 @@ FReply SUTHUDSettingsDialog::OKClick()
 				HudCDO->HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
 				HudCDO->bUseWeaponColors = TargetHUD->bUseWeaponColors;
 				HudCDO->bDrawChatKillMsg = TargetHUD->bDrawChatKillMsg;
-				HudCDO->bDrawPopupKillMsg = TargetHUD->bDrawPopupKillMsg;
+				HudCDO->bDrawCenteredKillMsg = TargetHUD->bDrawCenteredKillMsg;
 				HudCDO->bDrawHUDKillIconMsg = TargetHUD->bDrawHUDKillIconMsg;
 				HudCDO->bPlayKillSoundMsg = TargetHUD->bPlayKillSoundMsg;
 
@@ -854,7 +854,7 @@ FReply SUTHUDSettingsDialog::CancelClick()
 		TargetHUD->HUDWidgetScaleOverride = Old_HUDWidgetScaleOverride;
 		TargetHUD->bUseWeaponColors = Old_bUseWeaponColors;
 		TargetHUD->bDrawChatKillMsg = Old_bDrawChatKillMsg;
-		TargetHUD->bDrawPopupKillMsg = Old_bDrawPopupKillMsg;
+		TargetHUD->bDrawCenteredKillMsg = Old_bDrawPopupKillMsg;
 		TargetHUD->bDrawHUDKillIconMsg = Old_bDrawHUDKillIconMsg;
 		TargetHUD->bPlayKillSoundMsg = Old_bPlayKillSoundMsg;
 	}
