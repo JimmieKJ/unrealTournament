@@ -52,7 +52,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CharacterData = DefaultCharContentRef.Object;
 
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(45.5f, 108.0f);
+	GetCapsuleComponent()->InitCapsuleSize(40.f, 108.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
