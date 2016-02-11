@@ -3958,22 +3958,18 @@ void AUTPlayerController::GhostPlay()
 
 void AUTPlayerController::OpenMatchSummary(ETrophyType::Type TrophyType)
 {
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer != nullptr)
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
 	{
-		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		if (GameState)
-		{
-			GameState->SetTrophyRoom(TrophyType);
-		}
+		GameState->SetTrophyRoom(TrophyType);
 	}
 }
 void AUTPlayerController::CloseMatchSummary()
 {
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer != nullptr)
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
 	{
-		LocalPlayer->CloseMatchSummary();
+		GameState->SetTrophyRoom(ETrophyType::None);
 	}
 }
 

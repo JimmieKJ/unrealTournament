@@ -480,7 +480,7 @@ void AUTHUD::DrawHUD()
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bool bPreMatchScoreBoard = false; // (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
+		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
 		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores;
 		if (!bFontsCached)
 		{

@@ -181,10 +181,6 @@ EVisibility SUTInGameHomePanel::GetSummaryVisibility() const
 		{
 			return bFocusSummaryInv ? EVisibility::Hidden : EVisibility::Visible;
 		}
-/*		if (GameState && (GameState->GetMatchState() == MatchState::PlayerIntro || GameState->GetMatchState() == MatchState::WaitingPostMatch))
-		{
-			return bFocusSummaryInv ? EVisibility::Hidden : EVisibility::Visible;
-		}*/
 	}
 	return EVisibility::Hidden;
 }

@@ -78,7 +78,7 @@ public:
 class SUTInGameHomePanel;
 
 #if !UE_SERVER
-class UNREALTOURNAMENT_API SUTMatchSummaryPanel : public SCompoundWidget/*, public FGCObject*/
+class UNREALTOURNAMENT_API SUTMatchSummaryPanel : public SCompoundWidget
 {
 public:
 	friend struct FTeamCamera;
@@ -110,7 +110,6 @@ public:
 	virtual FReply OnKeyChar(const FGeometry& InGeometry, const FCharacterEvent& InCharacterEvent) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-//	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 	virtual bool GetGameMousePosition(FVector2D& MousePosition);

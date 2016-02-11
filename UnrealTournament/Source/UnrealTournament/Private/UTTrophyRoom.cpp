@@ -523,101 +523,6 @@ void AUTTrophyRoom::PositionPlayers()
 
 static int32 WeaponIndex = 0;
 
-/*
-AUTCharacter* AUTTrophyRoom::RecreatePlayerPreview(AUTPlayerState* NewPS)
-{
-	if (NewPS != nullptr)
-	{
-		//First check to see if there is already a character for this playerstate and destoy it
-		AUTCharacter* OldUTC = FindCharacter(NewPS);
-		if (OldUTC != nullptr)
-		{
-			Characters.Remove(OldUTC);
-			OldUTC->Destroy();
-		}
-
-		AUTWeaponAttachment* PreviewWeapon = nullptr;
-
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.bNoCollisionFail = true;
-		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
-
-		AUTCharacter* PlayerPreviewMesh = GetWorld()->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-
-		if (PlayerPreviewMesh)
-		{
-			PlayerPreviewMesh->PlayerState = NewPS; //PS needed for team colors
-			PlayerPreviewMesh->Health = 100; //Set to 100 so the TacCom Overlay doesn't show damage
-			PlayerPreviewMesh->DeactivateSpawnProtection();
-
-			//Remove from hud. We will do character drawing from this actor
-			APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
-			if (PC != NULL && PC->MyHUD != NULL)
-			{
-				PC->MyHUD->RemovePostRenderedActor(PlayerPreviewMesh);
-			}
-
-			UClass* PlayerPreviewAnimBlueprint = nullptr;
-			if (NewPS->IsFemale())
-			{
-				PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
-			}
-			else
-			{
-				PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
-			}
-
-			if (PlayerPreviewAnimBlueprint != nullptr)
-			{
-				PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
-
-				PlayerPreviewMesh->ApplyCharacterData(NewPS->GetSelectedCharacter());
-				PlayerPreviewMesh->NotifyTeamChanged();
-
-				PlayerPreviewMesh->SetHatClass(NewPS->HatClass);
-				PlayerPreviewMesh->SetHatVariant(NewPS->HatVariant);
-				PlayerPreviewMesh->SetEyewearClass(NewPS->EyewearClass);
-				PlayerPreviewMesh->SetEyewearVariant(NewPS->EyewearVariant);
-
-				UClass* PreviewAttachmentType = NewPS->FavoriteWeapon ? NewPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
-				if (!PreviewAttachmentType)
-				{
-					// @TODO FIXMESTEVE - should always have a favorite weapon (choose from stats)
-					UClass* PreviewAttachments[6];
-					PreviewAttachments[0] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.BP_LinkGun_Attach_C"), NULL, LOAD_None, NULL);
-					PreviewAttachments[1] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper_Attach.BP_Sniper_Attach_C"), NULL, LOAD_None, NULL);
-					PreviewAttachments[2] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/RocketLauncher/BP_Rocket_Attachment.BP_Rocket_Attachment_C"), NULL, LOAD_None, NULL);
-					PreviewAttachments[3] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
-					PreviewAttachments[4] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_Flak_Attach.BP_Flak_Attach_C"), NULL, LOAD_None, NULL);
-					PreviewAttachments[5] = PreviewAttachments[3];
-					PreviewAttachmentType = PreviewAttachments[WeaponIndex % 6];
-					WeaponIndex++;
-				}
-				if (PreviewAttachmentType != NULL)
-				{
-					FActorSpawnParameters Params;
-					Params.Instigator = PlayerPreviewMesh;
-					Params.Owner = PlayerPreviewMesh;
-					PreviewWeapon = GetWorld()->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0), Params);
-					if (PreviewWeapon)
-					{
-						if (!PreviewWeapon->HasActorBegunPlay())
-						{
-							PreviewWeapon->BeginPlay();
-						}
-
-						PreviewWeapon->AttachToOwner();
-						PreviewWeapons.Add(PreviewWeapon);
-					}
-				}
-			}
-			Characters.Add(PlayerPreviewMesh);
-			return PlayerPreviewMesh;
-		}
-	}
-	return nullptr;
-}*/
-
 AUTCharacter* AUTTrophyRoom::RecreatePlayerPreview(AUTPlayerState* NewPS/*, FVector Location, FRotator Rotation*/)
 {
 	FActorSpawnParameters SpawnParams;
@@ -647,7 +552,6 @@ AUTCharacter* AUTTrophyRoom::RecreatePlayerPreview(AUTPlayerState* NewPS/*, FVec
 		UClass* PreviewAttachmentType = NewPS->FavoriteWeapon ? NewPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
 		if (!PreviewAttachmentType)
 		{
-			// @TODO FIXMESTEVE - should always have a favorite weapon (choose from stats)
 			UClass* PreviewAttachments[6];
 			PreviewAttachments[0] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.BP_LinkGun_Attach_C"), NULL, LOAD_None, NULL);
 			PreviewAttachments[1] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper_Attach.BP_Sniper_Attach_C"), NULL, LOAD_None, NULL);

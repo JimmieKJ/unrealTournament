@@ -84,7 +84,6 @@ public:
 	virtual void CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult) override;
 	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir) override;
 
-
 	virtual void AddPlayerState(AUTPlayerState* PlayerState);
 	virtual void RemovePlayerState(AUTPlayerState* PlayerState);
 
@@ -95,11 +94,16 @@ public:
 
 	virtual AUTCharacter* FindCharacter(AUTPlayerState* PS);
 
+	void PositionPlayers();
+	virtual void CollectPlayerStates();
 
 	virtual void GetTeamCameraTransform(uint8 Team, FTransform& Transform);
 	virtual void GetAllCameraTransform(FTransform& Transform);
 
-	void PositionPlayers();
+	UFUNCTION(BlueprintCallable, Category = "Trophy Room", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
+	static AUTTrophyRoom* GetTrophyRoom(UObject* WorldContextObject, ETrophyType::Type WantedType);
+
+	static int32 GetNumTeamsFromType(ETrophyType::Type WantedType);
 
 	UPROPERTY()
 	TArray<AUTPlayerState*> PlayerStates;
@@ -110,14 +114,6 @@ public:
 	UPROPERTY()
 	TArray<class UAnimationAsset*> PreviewAnimations;
 
-	UFUNCTION(BlueprintCallable, Category = "Trophy Room", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
-	static AUTTrophyRoom* GetTrophyRoom(UObject* WorldContextObject, ETrophyType::Type WantedType);
-
-
-	static int32 GetNumTeamsFromType(ETrophyType::Type WantedType);
-
-
-	virtual void CollectPlayerStates();
 
 	bool FindSpot(uint8 Team, int32 Index, FTransform& OutSpot);
 
@@ -149,7 +145,6 @@ protected:
 	/**This is used for the camera when the trophy room is in the level. Set by SUWMatchSummary*/
 	UPROPERTY()
 	FTransform CamTransform;
-
 
 	UTexture2D* ScoreboardAtlas;
 };
