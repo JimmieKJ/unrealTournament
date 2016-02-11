@@ -392,7 +392,7 @@ void AUTHUD::NotifyMatchStateChange()
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
-		/*if (GS->GetMatchState() == MatchState::WaitingPostMatch)
+		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
 		{
 			if (GS->GameModeClass != nullptr)
 			{
@@ -418,7 +418,22 @@ void AUTHUD::NotifyMatchStateChange()
 		else
 		{
 			UTLP->HideMenu();
-		}*/
+		}
+	}
+}
+
+void AUTHUD::OpenMatchSummary()
+{
+	if (Cast<AUTDemoRecSpectator>(UTPlayerOwner))
+	{
+		return;
+	}
+
+	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+	if (UTLP && GS && !GS->IsPendingKillPending())
+	{
+		UTLP->ShowMenu(TEXT("forcesummary"));
 	}
 }
 

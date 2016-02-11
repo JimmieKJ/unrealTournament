@@ -270,8 +270,6 @@ void AUTCTFGameMode::HandleMatchIntermission()
 	}
 
 	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 11, NULL, NULL, NULL);
-
-	UTGameState->SetTrophyRoom(ETrophyType::Team_Intermission);
 }
 
 void AUTCTFGameMode::DefaultTimer()
@@ -546,19 +544,3 @@ void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpac
 }
 
 #endif
-
-ETrophyType::Type AUTCTFGameMode::GetTrophyType_PostMatch_Implementation()
-{
-	if (UTGameState != nullptr && UTGameState->WinningTeam != nullptr)
-	{
-		if (UTGameState->WinningTeam->GetTeamNum() == 0)
-		{
-			return ETrophyType::Team_PostMatch_RedWin;
-		}
-		else
-		{
-			return ETrophyType::Team_PostMatch_BlueWin;
-		}
-	}
-	return ETrophyType::Team_PostMatch;
-}

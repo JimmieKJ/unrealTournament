@@ -266,9 +266,9 @@ public:
 
 	virtual void NotifyMatchStateChange();
 
-	//FTimerHandle MatchSummaryHandle;
+	FTimerHandle MatchSummaryHandle;
 
-	//virtual void OpenMatchSummary();
+	virtual void OpenMatchSummary();
 
 	inline UUTScoreboard* GetScoreboard() const
 	{

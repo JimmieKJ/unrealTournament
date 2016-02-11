@@ -15,7 +15,6 @@
 #include "StatNames.h"
 #include "UTGameEngine.h"
 #include "UTBaseGameMode.h"
-#include "UTTrophyRoom.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -294,7 +293,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayPlayerIntro, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, bForcedBalance);
-	DOREPLIFETIME(AUTGameState, TrophyRoom);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -849,35 +847,7 @@ void AUTGameState::AddPlayerState(APlayerState* PlayerState)
 		}
 	}
 
-	//Add new players to the trophy room
-	for (TActorIterator<AUTTrophyRoom> It(GetWorld()); It; ++It)
-	{
-		AUTTrophyRoom* TrophyRoom = *It;
-		if (TrophyRoom != nullptr && TrophyRoom->bShowCharacters)
-		{
-			TrophyRoom->AddPlayerState(PS);
-		}
-	}
-
 	Super::AddPlayerState(PlayerState);
-}
-
-void AUTGameState::RemovePlayerState(APlayerState* PlayerState)
-{
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS != nullptr)
-	{
-		for (TActorIterator<AUTTrophyRoom> It(GetWorld()); It; ++It)
-		{
-			AUTTrophyRoom* TrophyRoom = *It;
-			if (TrophyRoom != nullptr && TrophyRoom->bShowCharacters)
-			{
-				TrophyRoom->RemovePlayerState(PS);
-			}
-		}
-	}
-
-	Super::RemovePlayerState(PlayerState);
 }
 
 void AUTGameState::CompactSpectatingIDs()
@@ -1747,55 +1717,4 @@ void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	
 
 
-}
-void AUTGameState::SetTrophyRoom(ETrophyType::Type NewType)
-{
-	if (Role == ROLE_Authority)
-	{
-		TrophyRoom = AUTTrophyRoom::GetTrophyRoom(GetWorld(), NewType);
-		ForceNetUpdate();
-		if (GetWorld()->GetNetMode() != NM_DedicatedServer)
-		{
-			OnRep_TrophyRoom();
-		}
-	}
-}
-
-AUTTrophyRoom* AUTGameState::GetTrophyRoom()
-{
-	return TrophyRoom;
-}
-
-void AUTGameState::OnRep_TrophyRoom()
-{
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(), 0));
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(LocalPlayer->PlayerController);
-	if (LocalPlayer != nullptr && UTPC != nullptr)
-	{
-		if (TrophyRoom != nullptr)
-		{
-			LocalPlayer->ShowMenu(TEXT("forcesummary"));
-			UTPC->SetViewTarget(TrophyRoom);
-		}
-		else
-		{
-			LocalPlayer->HideMenu();
-
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(LocalPlayer->PlayerController);
-			if (UTPC)
-			{
-				//Make sure the view target is set back
-				AActor* ViewTarget = UTPC;
-				if (UTPC->GetPawn() != nullptr)
-				{
-					ViewTarget = UTPC->GetPawn();
-				}
-				else if (UTPC->GetSpectatorPawn() != nullptr)
-				{
-					ViewTarget = UTPC->GetSpectatorPawn();
-				}
-				UTPC->SetViewTarget(ViewTarget);
-			}
-		}
-	}
 }

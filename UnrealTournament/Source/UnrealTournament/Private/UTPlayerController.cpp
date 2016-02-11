@@ -34,7 +34,6 @@
 #include "UTFlagInfo.h"
 #include "UTProfileItem.h"
 #include "UTMutator.h"
-#include "UTTrophyRoom.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -2267,12 +2266,6 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		NewViewTarget = FinalViewTarget;
 	}
 
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS != nullptr && GS->GetTrophyRoom() != nullptr)
-	{
-		NewViewTarget = GS->GetTrophyRoom();
-	}
-
 	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 
@@ -3566,7 +3559,7 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP) 
 	{
-		//LP->OpenMatchSummary(GetWorld()->GetGameState<AUTGameState>());
+		LP->OpenMatchSummary(GetWorld()->GetGameState<AUTGameState>());
 	}
 }
 
@@ -3956,20 +3949,13 @@ void AUTPlayerController::GhostPlay()
 	}
 }
 
-void AUTPlayerController::OpenMatchSummary(ETrophyType::Type TrophyType)
+void AUTPlayerController::OpenMatchSummary()
 {
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (LocalPlayer != nullptr && UTGS != nullptr)
 	{
-		GameState->SetTrophyRoom(TrophyType);
-	}
-}
-void AUTPlayerController::CloseMatchSummary()
-{
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
-	{
-		GameState->SetTrophyRoom(ETrophyType::None);
+		LocalPlayer->OpenMatchSummary(UTGS);
 	}
 }
 

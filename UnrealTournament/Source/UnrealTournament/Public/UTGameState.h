@@ -303,7 +303,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void OnRep_MatchState() override;
 
 	virtual void AddPlayerState(class APlayerState* PlayerState) override;
-	virtual void RemovePlayerState(class APlayerState* PlayerState) override;
 
 	/** rearrange any players' SpectatingID so that the list of values is continuous starting from 1
 	 * generally should not be called during gameplay as reshuffling this list unnecessarily defeats the point
@@ -504,19 +503,6 @@ public:
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
-	
-	UFUNCTION(BlueprintCallable, Category = GameState)
-	void SetTrophyRoom(ETrophyType::Type NewType);
-
-	UFUNCTION()
-	virtual void OnRep_TrophyRoom();
-
-	UFUNCTION(BlueprintCallable, Category = GameState)
-	AUTTrophyRoom* GetTrophyRoom();
-
-protected:
-	UPROPERTY(Replicated, ReplicatedUsing = OnRep_TrophyRoom)
-	AUTTrophyRoom* TrophyRoom;
 };
 
 

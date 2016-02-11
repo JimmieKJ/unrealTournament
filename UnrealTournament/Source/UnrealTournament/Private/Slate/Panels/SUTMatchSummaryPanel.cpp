@@ -26,8 +26,6 @@
 #include "UTHUDWidgetMessage_GameMessages.h"
 #include "../Widgets/SUTXPBar.h"
 #include "../Widgets/SUTButton.h"
-#include "UTTrophyRoom.h"
-#include "UTGameViewportClient.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -100,9 +98,7 @@ void FAllCamera::InitCam(class SUTMatchSummaryPanel* MatchWidget)
 void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
 {
 	PlayerOwner = InPlayerOwner;
-	TrophyRoom = InArgs._TrophyRoom;
-
-	GameState = Cast<AUTGameState>(TrophyRoom->GetWorld()->GameState);
+	GameState = InArgs._GameState;
 
 	ViewingState = MatchSummaryViewState::ViewingTeam;
 
@@ -130,10 +126,74 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 	bAutoScrollTeam = true;
 	AutoScrollTeamDirection = 1.0f;
 
+	// allocate a preview scene for rendering
+	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Game, true); // NOTE: Custom depth does not work with EWorldType::Preview
+	PlayerPreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
+	PlayerPreviewWorld->bShouldSimulatePhysics = true;
+#if WITH_EDITOR
+	PlayerPreviewWorld->bEnableTraceCollision = false;
+#endif
+	GEngine->CreateNewWorldContext(EWorldType::Game).SetCurrentWorld(PlayerPreviewWorld);
+	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
+	ViewState.Allocate();
+	{
+		UClass* EnvironmentClass = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewEnvironment.PlayerPreviewEnvironment_C"));
+		PreviewEnvironment = PlayerPreviewWorld->SpawnActor<AActor>(EnvironmentClass, FVector(500.f, 50.f, 0.f), FRotator(0, 0, 0));
+	}
+
+	//Spawn a gamestate and add the taccom overlay so we can outline the character on mouse over
+	FActorSpawnParameters SpawnInfo;
+	SpawnInfo.ObjectFlags |= RF_Transient;
+	AUTGameState* NewGS = PlayerPreviewWorld->SpawnActor<AUTGameState>(GameState->GetClass(), SpawnInfo);
+	if (NewGS != nullptr)
+	{
+		TSubclassOf<class AUTCharacter> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+		if (DefaultPawnClass != nullptr)
+		{
+			NewGS->AddOverlayMaterial(DefaultPawnClass.GetDefaultObject()->TacComOverlayMaterial);
+		}
+	}
 	
+	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
+	if (BaseMat != NULL)
+	{
+		PlayerPreviewTexture = Cast<UUTCanvasRenderTarget2D>(UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetPlayerOwner().Get(), UUTCanvasRenderTarget2D::StaticClass(), CurrentViewportSize.X, CurrentViewportSize.Y));
+		PlayerPreviewTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.BindSP(this, &SUTMatchSummaryPanel::UpdatePlayerRender);
+		PlayerPreviewMID = UMaterialInstanceDynamic::Create(BaseMat, PlayerPreviewWorld);
+		PlayerPreviewMID->SetTextureParameterValue(FName(TEXT("TheTexture")), PlayerPreviewTexture);
+		PlayerPreviewBrush = new FSlateMaterialBrush(*PlayerPreviewMID, CurrentViewportSize);
+	}
+	else
+	{
+		PlayerPreviewTexture = NULL;
+		PlayerPreviewMID = NULL;
+		PlayerPreviewBrush = new FSlateMaterialBrush(*UMaterial::GetDefaultMaterial(MD_Surface), CurrentViewportSize);
+	}
+
+	PlayerPreviewTexture->TargetGamma = GEngine->GetDisplayGamma();
+	PlayerPreviewTexture->InitCustomFormat(CurrentViewportSize.X, CurrentViewportSize.Y, PF_B8G8R8A8, false);
+	PlayerPreviewTexture->UpdateResourceImmediate();
+
 	FVector2D ResolutionScale(CurrentViewportSize.X / 1280.0f, CurrentViewportSize.Y / 720.0f);
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+
+	// Add the preview area
+	Content->AddSlot()
+	[
+		SNew(SScaleBox)
+		.Stretch(EStretch::ScaleToFill)
+		[
+			SNew(SDragImage)
+			.Image(PlayerPreviewBrush)
+			.OnDrag(this, &SUTMatchSummaryPanel::DragPlayerPreview)
+			.OnZoom(this, &SUTMatchSummaryPanel::ZoomPlayerPreview)
+			.OnMove(this, &SUTMatchSummaryPanel::MovePlayerPreview)
+			.OnMousePressed(this, &SUTMatchSummaryPanel::OnMouseDownPlayerPreview)
+		]
+	];
+
 
 	// Add the results
 	Content->AddSlot()
@@ -309,6 +369,59 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 		];
 	}
 
+	// Add the Chat Display
+	Content->AddSlot()
+	.VAlign(VAlign_Bottom)
+	.HAlign(HAlign_Left)
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SBox)
+			.HeightOverride(140.0f)
+			.WidthOverride(800.0f)
+			[
+				SNew(SOverlay)
+				+ SOverlay::Slot()
+				[
+					SNew(SBorder)
+					.BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.7))
+					.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Dark"))
+					.Padding(0)
+				]
+				+ SOverlay::Slot()
+				[
+					SAssignNew(ChatScroller, SScrollBox)
+					+ SScrollBox::Slot()
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
+						.VAlign(VAlign_Bottom)
+						.AutoHeight()
+						[
+							SAssignNew(ChatDisplay, SRichTextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Chat.Text.Global")
+							.Justification(ETextJustify::Left)
+							.DecoratorStyleSet(&SUWindowsStyle::Get())
+							.AutoWrapText(true)
+						]
+					]
+				]
+			]
+		]
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SBox)
+			.HeightOverride(ButtonOffset)
+			[
+				SNew(SCanvas)
+			]
+		]
+	];
+
+
 	// Create a TeamAnchor for each team found
 	int32 TeamCount = 0;
 	if (GameState.IsValid())
@@ -318,10 +431,15 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 			TeamCount++;
 		}
 	}
+	TeamCount = FMath::Max(TeamCount, 1);
 
-	if (TrophyRoom.IsValid() && GameState.IsValid())
+	for (int32 iTeam = 0; iTeam < TeamCount; iTeam++)
 	{
-		TrophyRoom->GetAllCameraTransform(CameraTransform);
+		AActor* TeamAnchor = PlayerPreviewWorld->SpawnActor<AActor>(ATargetPoint::StaticClass(), FVector(0.f, 0.f, 0.0f), FRotator::ZeroRotator);
+		if (TeamAnchor != nullptr)
+		{
+			TeamAnchors.Add(TeamAnchor);
+		}
 	}
 
 	ViewTeam(0);
@@ -335,6 +453,31 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 
 }
 
+void SUTMatchSummaryPanel::SetInitialCams()
+{
+	//Set the camera state based on the game state
+	if (GameState.IsValid())
+	{
+		if (!GameState->HasMatchStarted())
+		{
+			SetupIntroCam();
+		}
+		//View the winning team at the end of game
+		else if(GameState->GetMatchState() == MatchState::WaitingPostMatch)
+		{
+			SetupMatchCam();
+		}
+		else
+		{
+			int32 TeamToView = 0;
+			if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+			{
+				TeamToView = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController)->GetTeamNum();
+			}
+			ViewTeam(TeamToView);
+		}
+	}
+}
 
 SUTMatchSummaryPanel::~SUTMatchSummaryPanel()
 {
@@ -345,6 +488,36 @@ SUTMatchSummaryPanel::~SUTMatchSummaryPanel()
 	SSRQualityCVar->Set(OldSSRQuality, ECVF_SetByCode);
 	SSRQualityCVar->SetFlags(Flags);
 
+	if (!GExitPurge)
+	{
+		if (PlayerPreviewTexture != NULL)
+		{
+			PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
+			PlayerPreviewTexture = NULL;
+		}
+		FlushRenderingCommands();
+		if (PlayerPreviewBrush != NULL)
+		{
+			// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
+			//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
+			//delete PlayerPreviewBrush;
+			PlayerPreviewBrush->SetResourceObject(NULL);
+			PlayerPreviewBrush = NULL;
+		}
+		for (int32 i = 0; i < PlayerPreviewMeshs.Num(); i++)
+		{
+			PlayerPreviewMeshs[i]->Destroy();
+		}
+		PlayerPreviewMeshs.Empty();
+		if (PlayerPreviewWorld != NULL)
+		{
+			PlayerPreviewWorld->DestroyWorld(true);
+			GEngine->DestroyWorldContext(PlayerPreviewWorld);
+			PlayerPreviewWorld = NULL;
+			GetPlayerOwner()->GetWorld()->ForceGarbageCollection(true);
+		}
+	}
+	ViewState.Destroy();
 }
 
 void SUTMatchSummaryPanel::OnTabButtonSelectionChanged(const FText& NewText)
@@ -495,55 +668,55 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 										.Image(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.BG"))
 									]
 									+ SOverlay::Slot()
-										.HAlign(HAlign_Fill)
+									.HAlign(HAlign_Fill)
+									[
+										SNew(SHorizontalBox)
+										+ SHorizontalBox::Slot()
+										.AutoWidth()
+										.VAlign(VAlign_Center)
 										[
-											SNew(SHorizontalBox)
-											+ SHorizontalBox::Slot()
-											.AutoWidth()
-											.VAlign(VAlign_Center)
+											SNew(SRichTextBlock)
+											.Text(NSLOCTEXT("AUTGameMode", "RankChanged", "Rank Updated "))
+											.TextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.HighlightText.Normal")
+											.Justification(ETextJustify::Center)
+											.DecoratorStyleSet(&SUWindowsStyle::Get())
+											.AutoWrapText(false)
+										]
+										+ SHorizontalBox::Slot()
+										.AutoWidth()
+										[
+											SNew(SBox)
+											.WidthOverride(100)
+											.HeightOverride(100)
 											[
-												SNew(SRichTextBlock)
-												.Text(NSLOCTEXT("AUTGameMode", "RankChanged", "Rank Updated "))
-												.TextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.HighlightText.Normal")
-												.Justification(ETextJustify::Center)
-												.DecoratorStyleSet(&SUWindowsStyle::Get())
-												.AutoWrapText(false)
-											]
-											+ SHorizontalBox::Slot()
-												.AutoWidth()
+												SNew(SOverlay)
+												+ SOverlay::Slot()
 												[
-													SNew(SBox)
-													.WidthOverride(100)
-													.HeightOverride(100)
+													SNew(SImage)
+													.Image(UTPS->GetELOBadgeImage(DefaultGameMode, false))
+												]
+												+ SOverlay::Slot()
+												[
+													SNew(SVerticalBox)
+													+ SVerticalBox::Slot()
+													.HAlign(HAlign_Center)
+													.VAlign(VAlign_Center)
+													.Padding(FMargin(-2.0, 0.0, 0.0, 0.0))
 													[
-														SNew(SOverlay)
-														+ SOverlay::Slot()
-														[
-															SNew(SImage)
-															.Image(UTPS->GetELOBadgeImage(DefaultGameMode, false))
-														]
-														+ SOverlay::Slot()
-															[
-																SNew(SVerticalBox)
-																+ SVerticalBox::Slot()
-																.HAlign(HAlign_Center)
-																.VAlign(VAlign_Center)
-																.Padding(FMargin(-2.0, 0.0, 0.0, 0.0))
-																[
-																	SNew(STextBlock)
-																	.Text(RankNumber)
-																	.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween.Bold")
-																	.ShadowOffset(FVector2D(0.0f, 2.0f))
-																	.ShadowColorAndOpacity(FLinearColor(0.0f, 0.0f, 0.0f, 1.0f))
-																]
-															]
+														SNew(STextBlock)
+														.Text(RankNumber)
+														.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween.Bold")
+														.ShadowOffset(FVector2D(0.0f, 2.0f))
+														.ShadowColorAndOpacity(FLinearColor(0.0f, 0.0f, 0.0f, 1.0f))
 													]
 												]
-
+											]
 										]
+
+									]
+									]
 								]
-							]
-						];
+							];
 					HighlightBoxes.Add(HighlightBorder);
 				}
 
@@ -625,11 +798,130 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
 }
 
+void SUTMatchSummaryPanel::UpdateChatText()
+{
+	if (PlayerOwner->ChatArchive.Num() != LastChatCount)
+	{
+		LastChatCount = PlayerOwner->ChatArchive.Num();
+
+		FString RichText = TEXT("");
+		for (int32 i = 0; i<PlayerOwner->ChatArchive.Num(); i++)
+		{
+			TSharedPtr<FStoredChatMessage> Msg = PlayerOwner->ChatArchive[i];
+			if (i>0) RichText += TEXT("\n");
+			if (Msg->Type != ChatDestinations::MOTD)
+			{
+				FString Style;
+				FString PlayerName = Msg->Sender + TEXT(": ");
+
+				if (Msg->Type == ChatDestinations::Friends)
+				{
+					Style = TEXT("UWindows.Chat.Text.Friends");
+				}
+				else if (Msg->Type == ChatDestinations::System || Msg->Type == ChatDestinations::MOTD)
+				{
+					Style = TEXT("UWindows.Chat.Text.Admin");
+					PlayerName.Empty(); //Don't show player name for system messages
+				}
+				else if (Msg->Type == ChatDestinations::Lobby)
+				{
+					Style = TEXT("UWindows.Chat.Text.Lobby");
+				}
+				else if (Msg->Type == ChatDestinations::Match)
+				{
+					Style = TEXT("UWindows.Chat.Text.Match");
+				}
+				else if (Msg->Type == ChatDestinations::Local)
+				{
+					Style = TEXT("UWindows.Chat.Text.Local");
+				}
+				else if (Msg->Type == ChatDestinations::Team)
+				{
+					if (Msg->Color.R > Msg->Color.B)
+					{
+						Style = TEXT("UWindows.Chat.Text.Team.Red");
+					}
+					else
+					{
+						Style = TEXT("UWindows.Chat.Text.Team.Blue");
+					}
+				}
+				else
+				{
+					Style = TEXT("UWindows.Chat.Text.Global");
+				}
+
+				RichText += FString::Printf(TEXT("<%s>%s%s</>"), *Style, *PlayerName, *Msg->Message);
+			}
+			else
+			{
+				RichText += Msg->Message;
+			}
+		}
+
+		ChatDisplay->SetText(FText::FromString(RichText));
+		ChatScroller->SetScrollOffset(290999);
+	}
+}
+
+void SUTMatchSummaryPanel::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(PlayerPreviewTexture);
+	Collector.AddReferencedObject(PlayerPreviewMID);
+	Collector.AddReferencedObject(PlayerPreviewWorld);
+
+	for (int32 i = 0; i < TeamPreviewMeshs.Num(); i++)
+	{
+		Collector.AddReferencedObjects(TeamPreviewMeshs[i]);
+	}
+	Collector.AddReferencedObjects(PreviewAnimations);
+}
 
 void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
+	if (GameState.IsValid() && (GameState->GetMatchState() == MatchState::WaitingToStart))
+	{
+		// recreate players if something has changed
+		bool bPlayersAreValid = true;
+		int32 TotalPlayers = 0;
+
+		// @TODO FIXMESTEVE - this could be reported to match summary on valid change, rather than checking every tick
+		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[ViewedTeamNum];
+		for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
+		{
+			AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
+			if (!PS || PS->bOnlySpectator || PS->IsPendingKillPending() || (GameState->bTeamGame && (!PS->Team || (PS->Team->TeamIndex != ViewedTeamNum))))
+			{
+				bPlayersAreValid = false;
+				break;
+			}
+			if (!PS->bIsInactive)
+			{
+				TotalPlayers++;
+			}
+		}
+		if (TotalPlayers != GameState->PlayerArray.Num())
+		{
+			bPlayersAreValid = false;
+		}
+		if (!bPlayersAreValid)
+		{
+			RecreateAllPlayers(ViewedTeamNum);
+		}
+	}
+	if (PlayerPreviewWorld != nullptr)
+	{
+		PlayerPreviewWorld->Tick(LEVELTICK_All, InDeltaTime);
+	}
+
+	if ( PlayerPreviewTexture != nullptr )
+	{
+		PlayerPreviewTexture->FastUpdateResource();
+	}
+
+	UpdateChatText();
 	BuildFriendPanel();
 
 	if (CameraShots.IsValidIndex(CurrentShot) && GameState.IsValid())
@@ -639,26 +931,6 @@ void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double 
 		{
 			SetCamShot(CurrentShot+1);
 		}
-
-		//Update the trophy cam if the trophy room is in the level
-		if (TrophyRoom.IsValid())
-		{
-			TrophyRoom->SetCameraTransform(CameraTransform);
-		}
-	}
-
-	//Update the mouse player highlighting if were using the in level trophy room
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (GameState.IsValid() && UTPC != nullptr && HasCamFlag(CF_CanInteract))
-	{
-		FVector WorldLocation, WorldDirection;
-		UTPC->DeprojectMousePositionToWorld(WorldLocation, WorldDirection);
-		UpdatePlayerHighlight(GameState->GetWorld(), WorldLocation, WorldDirection);
-	}
-
-	if (UTPC != nullptr && UTPC->MyUTHUD != nullptr)
-	{
-		UTPC->MyUTHUD->bForceScores = HasCamFlag(CF_ShowScoreboard);
 	}
 
 	bool bShowXPBar = HasCamFlag(CF_ShowXPBar);
@@ -722,7 +994,7 @@ void SUTMatchSummaryPanel::SetCamShot(int32 ShotIndex)
 		CameraShots[CurrentShot]->InitCam(this);
 
 		//Make sure all the characters are rotated in their proper team rotation
-		/*for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
+		for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
 		{
 			for (int32 iCharacter = 0; iCharacter < TeamPreviewMeshs[iTeam].Num(); iCharacter++)
 			{
@@ -731,7 +1003,7 @@ void SUTMatchSummaryPanel::SetCamShot(int32 ShotIndex)
 					TeamPreviewMeshs[iTeam][iCharacter]->SetActorRotation(TeamAnchors[iTeam]->GetActorRotation());
 				}
 			}
-		}*/
+		}
 	}
 }
 
@@ -767,14 +1039,14 @@ void SUTMatchSummaryPanel::SetupIntroCam()
 
 void SUTMatchSummaryPanel::GetTeamCamTransforms(int32 TeamNum, FTransform& Start, FTransform& End)
 {
-	if (TrophyRoom != nullptr)
+	if (TeamAnchors.IsValidIndex(TeamNum))
 	{
-		FTransform Transform;
-		TrophyRoom->GetTeamCameraTransform(TeamNum, Transform);
+		int32 TeamCharacterNum = TeamPreviewMeshs.IsValidIndex(TeamNum) ? TeamPreviewMeshs[TeamNum].Num() : 5;
+		float CamZOffset = (TeamCharacterNum > 5) ? LARGETEAM_CAMERA_ZOFFSET : TEAM_CAMERA_ZOFFSET;
 
-		FVector Dir = Transform.Rotator().Vector();
-		FVector Location = Transform.GetLocation();
-
+		FVector Dir = TeamAnchors[TeamNum]->GetActorRotation().Vector();
+		FVector Location = TeamAnchors[TeamNum]->GetActorLocation() + (Dir.GetSafeNormal() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, CamZOffset);
+		Dir = FVector(0.f, 0.f, 45.f) + TeamAnchors[TeamNum]->GetActorLocation() - Location;
 		Start.SetLocation(Location - 100.f * Dir.GetSafeNormal());
 		Start.SetRotation(Dir.Rotation().Quaternion());
 		End.SetLocation(Location);
@@ -784,7 +1056,7 @@ void SUTMatchSummaryPanel::GetTeamCamTransforms(int32 TeamNum, FTransform& Start
 
 void SUTMatchSummaryPanel::SetupMatchCam()
 {
-	/*int32 TeamToView = 0;
+	int32 TeamToView = 0;
 	if (GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && GameState->WinningTeam != nullptr)
 	{
 		TeamToView = GameState->WinningTeam->GetTeamNum();
@@ -882,13 +1154,13 @@ void SUTMatchSummaryPanel::SetupMatchCam()
 	InteractTeamCam->Time = DefaultGame ? DefaultGame->TeamSummaryDisplayTime : 5.f;
 	CameraShots.Add(InteractTeamCam);
 
-	SetCamShot(0);*/
+	SetCamShot(0);
 }
 
 void SUTMatchSummaryPanel::HideAllPlayersBut(AUTCharacter* UTC)
 {
 	// hide everyone else, show this player
-	/*for (int32 i = 0; i< PlayerPreviewMeshs.Num(); i++)
+	for (int32 i = 0; i< PlayerPreviewMeshs.Num(); i++)
 	{
 		PlayerPreviewMeshs[i]->HideCharacter(PlayerPreviewMeshs[i] != UTC);
 	}
@@ -896,7 +1168,427 @@ void SUTMatchSummaryPanel::HideAllPlayersBut(AUTCharacter* UTC)
 	{
 		AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
 		Weapon->SetActorHiddenInGame(Holder != UTC);
-	}*/
+	}
+}
+
+void SUTMatchSummaryPanel::RecreateAllPlayers(int32 TeamIndex)
+{
+	//Destroy all the characters and their weapons
+	for (auto Weapon : PreviewWeapons)
+	{
+		Weapon->Destroy();
+	}
+	PreviewWeapons.Empty();
+
+	for (auto Char : PlayerPreviewMeshs)
+	{
+		Char->Destroy();
+	}
+	PlayerPreviewMeshs.Empty();
+	TeamPreviewMeshs.Empty();
+	if (TeamIndex == 255)
+	{
+		TeamIndex = 0;
+	}
+
+	//Gather All of the playerstates
+	TArray<TArray<class AUTPlayerState*> > TeamPlayerStates;
+	if (GameState.IsValid())
+	{
+		for (TActorIterator<AUTPlayerState> It(GameState->GetWorld()); It; ++It)
+		{
+			AUTPlayerState* PS = *It;
+
+			if (!PS->bOnlySpectator && !PS->IsPendingKillPending() && (!PS->bIsInactive ||(GameState->HasMatchStarted() && (PS->Score > 0.f))))
+			{
+				int32 TeamNum = PS->GetTeamNum() == 255 ? 0 : PS->GetTeamNum();
+				if (!TeamPlayerStates.IsValidIndex(TeamNum))
+				{
+					TeamPlayerStates.SetNum(TeamNum + 1);
+				}
+				TeamPlayerStates[TeamNum].Add(PS);
+			}
+		}
+	}
+
+	if (!TeamPlayerStates.IsValidIndex(TeamIndex))
+	{
+		return;
+	}
+	// determine match highlight scores to use for sorting
+	for (int32 i = 0; i < TeamPlayerStates[TeamIndex].Num(); i++)
+	{
+		AUTPlayerState* PS = TeamPlayerStates[TeamIndex][i];
+		if (PS != nullptr)
+		{
+			PS->MatchHighlightScore = GameState->MatchHighlightScore(PS);
+		}
+	}
+
+	// sort winners
+	bool(*SortFunc)(const AUTPlayerState&, const AUTPlayerState&);
+	SortFunc = [](const AUTPlayerState& A, const AUTPlayerState& B)
+	{
+		return (A.MatchHighlightScore > B.MatchHighlightScore);
+	};
+	TeamPlayerStates[TeamIndex].Sort(SortFunc);
+
+	//Create an actor that all team actors will attach to for easy team manipulation
+	if (TeamAnchors.IsValidIndex(TeamIndex))
+	{
+		float BaseOffsetY = 2.f * PLAYER_SPACING;
+		//Spawn all of the characters for this team
+		for (int32 iPlayer = 0; iPlayer < TeamPlayerStates[TeamIndex].Num(); iPlayer++)
+		{
+			int32 PlayerRowIndex = iPlayer % 5;
+			int32 PlayerRow = iPlayer / 5;
+			// X is forward to back, Y is left to right
+			float CurrentOffsetX = 0.25f * (5.f - PlayerRowIndex) *  PLAYER_ALTOFFSET - 1.6f * PLAYER_ALTOFFSET * PlayerRow;
+			float CurrentOffsetY = ((PlayerRowIndex % 2 == 0) ? PLAYER_SPACING * (int32(PlayerRowIndex / 2) + 0.8f*PlayerRow + 2) : PLAYER_SPACING * (2 - int32((PlayerRowIndex + 1) / 2)) - 0.8f*PlayerRow) - BaseOffsetY;
+			float CurrentOffsetZ = 10.f * PlayerRow;
+			AUTCharacter* NewCharacter = RecreatePlayerPreview(TeamPlayerStates[TeamIndex][iPlayer], FVector(CurrentOffsetX, CurrentOffsetY, CurrentOffsetZ), FRotator(0.f));
+			NewCharacter->AttachRootComponentToActor(TeamAnchors[TeamIndex], NAME_None, EAttachLocation::KeepWorldPosition);
+
+			//Add the character to the team list
+			if (!TeamPreviewMeshs.IsValidIndex(TeamIndex))
+			{
+				TeamPreviewMeshs.SetNum(TeamIndex + 1);
+			}
+			TeamPreviewMeshs[TeamIndex].Add(NewCharacter);
+		}
+	}
+}
+
+static int32 WeaponIndex = 0;
+
+AUTCharacter* SUTMatchSummaryPanel::RecreatePlayerPreview(AUTPlayerState* NewPS, FVector Location, FRotator Rotation)
+{
+	AUTWeaponAttachment* PreviewWeapon = nullptr;
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+
+	AUTCharacter* PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, Location, Rotation, SpawnParams);
+	
+	if (PlayerPreviewMesh)
+	{
+		// We need to get our tick functions registered, this seemed like best way to do it
+		PlayerPreviewMesh->RegisterAllActorTickFunctions(true, true);
+
+		PlayerPreviewMesh->PlayerState = NewPS; //PS needed for team colors
+		PlayerPreviewMesh->Health = 100; //Set to 100 so the TacCom Overlay doesn't show damage
+		PlayerPreviewMesh->DeactivateSpawnProtection();
+		
+		PlayerPreviewMesh->ApplyCharacterData(NewPS->GetSelectedCharacter());
+		PlayerPreviewMesh->NotifyTeamChanged();
+
+		PlayerPreviewMesh->SetHatClass(NewPS->HatClass);
+		PlayerPreviewMesh->SetHatVariant(NewPS->HatVariant);
+		PlayerPreviewMesh->SetEyewearClass(NewPS->EyewearClass);
+		PlayerPreviewMesh->SetEyewearVariant(NewPS->EyewearVariant);
+
+		int32 WeaponIndexToSpawn = 0;
+		if (!PreviewWeapon)
+		{
+			UClass* PreviewAttachmentType = NewPS->FavoriteWeapon ? NewPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
+			if (!PreviewAttachmentType)
+			{
+				UClass* PreviewAttachments[6];
+				PreviewAttachments[0] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.BP_LinkGun_Attach_C"), NULL, LOAD_None, NULL);
+				PreviewAttachments[1] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper_Attach.BP_Sniper_Attach_C"), NULL, LOAD_None, NULL);
+				PreviewAttachments[2] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/RocketLauncher/BP_Rocket_Attachment.BP_Rocket_Attachment_C"), NULL, LOAD_None, NULL);
+				PreviewAttachments[3] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
+				PreviewAttachments[4] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_Flak_Attach.BP_Flak_Attach_C"), NULL, LOAD_None, NULL);
+				PreviewAttachments[5] = PreviewAttachments[3];
+				WeaponIndexToSpawn = WeaponIndex % 6;
+				PreviewAttachmentType = PreviewAttachments[WeaponIndexToSpawn];
+				WeaponIndex++;
+			}
+			if (PreviewAttachmentType != NULL)
+			{
+				PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
+			}
+		}
+		if (PreviewWeapon)
+		{
+			PreviewWeapon->Instigator = PlayerPreviewMesh;
+			PreviewWeapon->BeginPlay();
+			PreviewWeapon->AttachToOwner();
+			PreviewWeapons.Add(PreviewWeapon);
+		}
+
+		if (NewPS->IsFemale())
+		{
+			switch (WeaponIndexToSpawn)
+			{
+			case 1:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Sniper.MatchPoseFemale_Sniper"));
+				break;
+			case 2:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak_B.MatchPoseFemale_Flak_B"));
+				break;
+			case 4:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak.MatchPoseFemale_Flak"));
+				break;
+			case 0:
+			case 3:
+			case 5:
+			default:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_ShockRifle.MatchPoseFemale_ShockRifle"));
+			}
+		}
+		else
+		{
+			switch (WeaponIndexToSpawn)
+			{
+			case 1:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Sniper.MatchPose_Sniper"));
+				break;
+			case 2:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak_B.MatchPose_Flak_B"));
+				break;
+			case 4:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak.MatchPose_Flak"));
+				break;
+			case 0:
+			case 3:
+			case 5:
+			default:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_ShockRifle.MatchPose_ShockRifle"));
+			}
+		}
+		
+		PreviewAnimations.AddUnique(PlayerPreviewAnim);
+
+		PlayerPreviewMesh->GetMesh()->PlayAnimation(PlayerPreviewAnim, true);
+		PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+
+		PlayerPreviewMeshs.Add(PlayerPreviewMesh);
+		return PlayerPreviewMesh;
+	}
+	return nullptr;
+}
+
+void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
+{
+	FEngineShowFlags ShowFlags(ESFIM_Game);
+	//ShowFlags.SetLighting(false); // FIXME: create some proxy light and use lit mode
+	ShowFlags.SetMotionBlur(false);
+	ShowFlags.SetGrain(false);
+	//ShowFlags.SetPostProcessing(false);
+	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
+
+	//	EngineShowFlagOverride(ESFIM_Game, VMI_Lit, ViewFamily.EngineShowFlags, NAME_None, false);
+	const float PreviewFOV = 45;
+	const float AspectRatio = Width / (float)Height;
+
+	FSceneViewInitOptions PlayerPreviewInitOptions;
+	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
+	PlayerPreviewInitOptions.ViewOrigin = CameraTransform.GetLocation();
+	PlayerPreviewInitOptions.ViewRotationMatrix = FInverseRotationMatrix(CameraTransform.Rotator());
+	PlayerPreviewInitOptions.ViewRotationMatrix = PlayerPreviewInitOptions.ViewRotationMatrix * FMatrix(
+		FPlane(0, 0, 1, 0),
+		FPlane(1, 0, 0, 0),
+		FPlane(0, 1, 0, 0),
+		FPlane(0, 0, 0, 1));
+	PlayerPreviewInitOptions.ProjectionMatrix =
+		FReversedZPerspectiveMatrix(
+		FMath::Max(0.001f, PreviewFOV) * (float)PI / 360.0f,
+		AspectRatio,
+		1.0f,
+		GNearClippingPlane);
+	PlayerPreviewInitOptions.ViewFamily = &ViewFamily;
+	PlayerPreviewInitOptions.SceneViewStateInterface = ViewState.GetReference();
+	PlayerPreviewInitOptions.BackgroundColor = FLinearColor::Black;
+	PlayerPreviewInitOptions.WorldToMetersScale = GetPlayerOwner()->GetWorld()->GetWorldSettings()->WorldToMeters;
+	PlayerPreviewInitOptions.CursorPos = FIntPoint(-1, -1);
+
+	ViewFamily.bUseSeparateRenderTarget = true;
+
+	FSceneView* View = new FSceneView(PlayerPreviewInitOptions); // note: renderer gets ownership
+	View->ViewLocation = FVector::ZeroVector;
+	View->ViewRotation = FRotator::ZeroRotator;
+	FPostProcessSettings PPSettings = GetDefault<AUTPlayerCameraManager>()->DefaultPPSettings;
+
+	ViewFamily.Views.Add(View);
+
+	View->StartFinalPostprocessSettings(CameraTransform.GetLocation());
+	//View->OverridePostProcessSettings(PPSettings, 1.0f);
+	View->EndFinalPostprocessSettings(PlayerPreviewInitOptions);
+
+	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
+	--GFrameNumber;
+	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
+
+	// Force the preview mesh and weapons to put the highest mips into memory if visible. This assumes each char has a weapon
+	FConvexVolume Frustum;
+	GetViewFrustumBounds(Frustum, PlayerPreviewInitOptions.ComputeViewProjectionMatrix(), true);
+	for (auto Weapon : PreviewWeapons)
+	{
+		AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
+		if (Holder != nullptr)
+		{
+			if (!Holder->bHidden)
+			{
+				FVector Origin, BoxExtent;
+				Holder->GetActorBounds(true, Origin, BoxExtent);
+
+				if (Frustum.IntersectBox(Origin, BoxExtent))
+				{
+					if (Holder->Hat)
+					{
+						Holder->Hat->PrestreamTextures(1, true);
+					}
+					Holder->PrestreamTextures(1, true);
+					Weapon->PrestreamTextures(1, true);
+					continue;
+				}
+			}
+			Holder->PrestreamTextures(0, false);
+			Weapon->PrestreamTextures(0, false);
+			if (Holder->Hat)
+			{
+				Holder->Hat->PrestreamTextures(0, false);
+			}
+		}
+	}
+
+	//Check if the mouse is over a player and apply taccom effect
+	if (HasCamFlag(CF_CanInteract) && !HasCamFlag(CF_Player))
+	{
+		FVector Start, Direction;
+		View->DeprojectFVector2D(MousePos, Start, Direction);
+
+		FHitResult Hit;
+		PlayerPreviewWorld->LineTraceSingleByChannel(Hit, Start, Start + Direction * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CharacterMouseOver"))));
+		if (Hit.bBlockingHit && Cast<AUTCharacter>(Hit.GetActor()) != nullptr)
+		{
+			AUTCharacter* HitChar = Cast<AUTCharacter>(Hit.GetActor());
+			if (HitChar != HighlightedChar && HighlightedChar != nullptr)
+			{
+				HighlightedChar->UpdateTacComMesh(false);
+			}
+
+			if (HitChar != nullptr)
+			{
+				HitChar->UpdateTacComMesh(true);
+				HighlightedChar = HitChar;
+			}
+		}
+		else if (HighlightedChar != nullptr)
+		{
+			HighlightedChar->UpdateTacComMesh(false);
+			HighlightedChar = nullptr;
+		}
+	}
+
+	//Draw the player names above their heads
+	if (HasCamFlag(CF_ShowPlayerNames))
+	{
+		//Helper for making sure player names don't overlap
+		//TODO: do this better. Smooth the spacing of names when they overlap
+		struct FPlayerName
+		{
+			FPlayerName(FString InPlayerName, FString InHighlight, FVector InLocation3D, FVector2D InLocation, FVector2D InSize, UFont* InFont)
+				: PlayerName(InPlayerName), Highlight(InHighlight), Location3D(InLocation3D), Location(InLocation), Size(InSize), DrawFont(InFont) {}
+			FString PlayerName;
+			FString Highlight;
+			FVector Location3D;
+			FVector2D Location;
+			FVector2D Size;
+			UFont* DrawFont;
+		};
+
+		UFont* HighlightFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+		UFont* SmallFont = HasCamFlag(CF_Team) ? AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont : AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+		AUTCharacter* SelectedChar = ViewedChar.IsValid() ? ViewedChar.Get() : (HighlightedChar.IsValid() ? HighlightedChar.Get() : NULL);
+
+		//Gather all of the player names
+		TArray<FPlayerName> PlayerNames;
+		int32 NumHighlights = 0;
+		for (AUTCharacter* UTC : PlayerPreviewMeshs)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+			if (PS != nullptr && !UTC->bHidden && FVector::DotProduct(CameraTransform.Rotator().Vector(), (UTC->GetActorLocation() - CameraTransform.GetLocation())) > 0.0f)
+			{
+				FVector ActorLocation = UTC->GetActorLocation() + FVector(0.0f, 0.0f, 148.0f);
+				FVector2D ScreenLoc;
+				View->WorldToPixel(ActorLocation, ScreenLoc);
+
+				FString MainHighlight = ((NumHighlights < 5) && HasCamFlag(CF_Highlights)) ? GameState->ShortPlayerHighlightText(PS).ToString() : TEXT("");
+				NumHighlights++;
+				PlayerNames.Add(FPlayerName(PS->PlayerName, MainHighlight, ActorLocation, ScreenLoc, FVector2D(0.f, 0.f), SmallFont));
+			}
+		}
+
+		int32 NumNames = HasCamFlag(CF_Highlights) ? FMath::Min(PlayerNames.Num(), 5) : PlayerNames.Num();
+		for (int32 i = 0; i < NumNames; i++)
+		{
+			//Draw the Player name
+			FFontRenderInfo FontInfo;
+			FontInfo.bEnableShadow = true;
+			FontInfo.bClipText = true;
+			C->DrawColor = FColor::White;
+			float XL = 0.f, YL = 0.f;
+			C->TextSize(PlayerNames[i].DrawFont, PlayerNames[i].PlayerName, XL, YL);
+			PlayerNames[i].Size = FVector2D(XL, YL);
+			C->DrawText(PlayerNames[i].DrawFont, FText::FromString(PlayerNames[i].PlayerName), PlayerNames[i].Location.X - 0.5f*XL, PlayerNames[i].Location.Y - 0.5f*YL, 1.0f, 1.0f, FontInfo);
+			if (HasCamFlag(CF_Highlights))
+			{
+				C->DrawColor = FColor::Yellow;
+				C->TextSize(HighlightFont, PlayerNames[i].Highlight, XL, YL);
+				C->DrawText(HighlightFont, FText::FromString(PlayerNames[i].Highlight), PlayerNames[i].Location.X - 0.5f*XL, PlayerNames[i].Location.Y + 0.25f * YL, 1.0f, 1.0f, FontInfo);
+				PlayerNames[i].Size.X = FMath::Max(PlayerNames[i].Size.X, XL);
+				PlayerNames[i].Size.Y += YL;
+			}
+
+			//Move the remaining names out of the way
+			for (int32 j = i + 1; j < PlayerNames.Num(); j++)
+			{
+				FPlayerName& A = PlayerNames[i];
+				FPlayerName& B = PlayerNames[j];
+
+				//if the names intersect, move it up along the Y axis
+				if (A.Location.X < B.Location.X + B.Size.X && A.Location.X + A.Size.X > B.Location.X
+					&& A.Location.Y < B.Location.Y + B.Size.Y && A.Location.Y + A.Size.Y > B.Location.Y)
+				{
+					B.Location.Y = A.Location.Y - (B.Size.Y * 0.6f);
+				}
+			}
+		}
+	}
+
+	//Draw any needed hud canvas stuff
+	AUTPlayerController* UTPC = GetPlayerOwner().IsValid() ? Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) : nullptr;
+	if (UTPC != nullptr && UTPC->MyUTHUD != nullptr)
+	{
+		TArray<UUTHUDWidget*> DrawWidgets;
+
+		//Draw the scoreboard if its not the intro
+		if (HasCamFlag(CF_ShowScoreboard))
+		{
+			UUTScoreboard* Scoreboard = UTPC->MyUTHUD->GetScoreboard();
+			if (Scoreboard != nullptr)
+			{
+				DrawWidgets.Add(Scoreboard);
+			}
+		}
+
+		UUTHUDWidget* GameMessagesWidget = UTPC->MyUTHUD->FindHudWidgetByClass(UUTHUDWidgetMessage_GameMessages::StaticClass(), true);
+		if (GameMessagesWidget != nullptr)
+		{
+			DrawWidgets.Add(GameMessagesWidget);
+		}
+
+		//Draw all the widgets
+		for (auto Widget : DrawWidgets)
+		{
+			Widget->PreDraw(UTPC->GetWorld()->DeltaTimeSeconds, UTPC->MyUTHUD, C, FVector2D(C->SizeX * 0.5f, C->SizeY * 0.5f));
+			Widget->Draw(UTPC->GetWorld()->DeltaTimeSeconds);
+			Widget->PostDraw(UTPC->GetWorld()->GetTimeSeconds());
+		}
+	}
 }
 
 FReply SUTMatchSummaryPanel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
@@ -1030,13 +1722,13 @@ AUTCharacter* SUTMatchSummaryPanel::FindCharacter(class AUTPlayerState* PS)
 {
 	if (PS != nullptr)
 	{
-		/*for (AUTCharacter* UTC : PlayerPreviewMeshs)
+		for (AUTCharacter* UTC : PlayerPreviewMeshs)
 		{
 			if (UTC->PlayerState != nullptr && UTC->PlayerState == PS)
 			{
 				return UTC;
 			}
-		}*/
+		}
 	}
 	return nullptr;
 }
@@ -1085,75 +1777,71 @@ void SUTMatchSummaryPanel::SelectPlayerState(AUTPlayerState* PS)
 void SUTMatchSummaryPanel::ViewTeam(int32 NewTeam)
 {
 	CurrentlyViewedCharacter.Reset();
-
-	if (TrophyRoom.IsValid())
+	if (TeamAnchors.Num() == 0)
 	{
-		if (TrophyRoom->TeamGroups.Num() == 0)
-		{
-			return;
-		}
-		ViewedTeamNum = NewTeam;
-		if (!TrophyRoom->TeamGroups.IsValidIndex(ViewedTeamNum))
-		{
-			ViewedTeamNum = 0;
-		}
-
-		TSharedPtr<FTeamCameraPan> TeamCam = MakeShareable(new FTeamCameraPan(NewTeam));
-		TeamCam->CamFlags |= CF_CanInteract;
-		if (GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
-		{
-			TeamCam->CamFlags |= CF_Highlights;
-		}
-		CameraShots.Empty();
-		CameraShots.Add(TeamCam);
-		SetCamShot(0);
-		ChangeViewingState(MatchSummaryViewState::ViewingTeam);
-		bAutoScrollTeam = true;
-		BuildInfoPanel();
-		//	RecreateAllPlayers(NewTeam);
+		return;
 	}
+	ViewedTeamNum = NewTeam;
+	if (!TeamAnchors.IsValidIndex(ViewedTeamNum))
+	{
+		ViewedTeamNum = 0;
+	}
+
+	TSharedPtr<FTeamCameraPan> TeamCam = MakeShareable(new FTeamCameraPan(NewTeam));
+	TeamCam->CamFlags |= CF_CanInteract;
+	if (GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
+	{
+		TeamCam->CamFlags |= CF_Highlights;
+	}
+	CameraShots.Empty();
+	CameraShots.Add(TeamCam);
+	SetCamShot(0);
+	ChangeViewingState(MatchSummaryViewState::ViewingTeam);
+	bAutoScrollTeam = true;
+	BuildInfoPanel();
+	RecreateAllPlayers(NewTeam);
 }
 
 void SUTMatchSummaryPanel::ShowTeam(int32 TeamNum)
 {
-	/*bFirstViewOwnHighlights = false;
-	RecreateAllPlayers(TeamNum);*/
+	bFirstViewOwnHighlights = false;
+	RecreateAllPlayers(TeamNum);
 }
 
 void SUTMatchSummaryPanel::ShowCharacter(AUTCharacter* UTC)
 {
-	/*AUTPlayerState* ViewedPS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
+	AUTPlayerState* ViewedPS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
 	int32 TeamNum = (ViewedPS && ViewedPS->Team) ? ViewedPS->Team->TeamIndex : 0;
 	if (TeamNum != ViewedTeamNum)
 	{
 		RecreateAllPlayers(TeamNum);
 	}
-	HideAllPlayersBut(UTC);*/
+	HideAllPlayersBut(UTC);
 }
 
 void SUTMatchSummaryPanel::ShowAllCharacters()
 {
-	/*int32 TeamToView = 0;
+	int32 TeamToView = 0;
 	if ((TeamPreviewMeshs.Num() > 1) && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && GameState->WinningTeam != nullptr)
 	{
 		TeamToView = GameState->WinningTeam->GetTeamNum();
 	}
-	ShowTeam(TeamToView);*/
+	ShowTeam(TeamToView);
 }
 
 float SUTMatchSummaryPanel::GetAllCameraOffset()
 {
 	int32 MaxSize = 1;
-	/*for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
+	for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
 	{
 		MaxSize = FMath::Max(MaxSize, TeamPreviewMeshs[iTeam].Num());
-	}*/
+	}
 	MaxSize += 1.f;
-/*	if (TeamPreviewMeshs.Num() < 2)
+	if (TeamPreviewMeshs.Num() < 2)
 	{
 		// players are across rather than angled.
 		return ALL_CAMERA_OFFSET + (MaxSize * PLAYER_SPACING) / FMath::Tan(45.f * PI / 180.f);
-	}*/
+	}
 	float BaseCameraOffset = ALL_CAMERA_OFFSET + 0.5f * MaxSize * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI / 180.f);
 	float Width = 2.f*MIN_TEAM_SPACING + 0.5f * MaxSize * PLAYER_SPACING * FMath::Cos(TEAMANGLE * PI / 180.f);
 	return BaseCameraOffset + Width / FMath::Tan(45.f * PI / 180.f);
@@ -1185,7 +1873,7 @@ UUTScoreboard* SUTMatchSummaryPanel::GetScoreboard()
 	return nullptr;
 }
 
-/*void SUTMatchSummaryPanel::OnMouseDownPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+void SUTMatchSummaryPanel::OnMouseDownPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	MousePos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
 
@@ -1205,7 +1893,7 @@ UUTScoreboard* SUTMatchSummaryPanel::GetScoreboard()
 	{
 		ViewCharacter(HighlightedChar.Get());
 	}
-}*/
+}
 
 bool SUTMatchSummaryPanel::HasCamFlag(ECamFlags CamFlag) const
 {
@@ -1216,7 +1904,7 @@ bool SUTMatchSummaryPanel::HasCamFlag(ECamFlags CamFlag) const
 	}
 	return false;
 }
-/*
+
 void SUTMatchSummaryPanel::DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	if (HasCamFlag(CF_CanInteract))
@@ -1255,9 +1943,9 @@ void SUTMatchSummaryPanel::DragPlayerPreview(const FGeometry& MyGeometry, const 
 			}
 		}
 	}
-}*/
+}
 
-/*void SUTMatchSummaryPanel::ZoomPlayerPreview(float WheelDelta)
+void SUTMatchSummaryPanel::ZoomPlayerPreview(float WheelDelta)
 {
 	if (HasCamFlag(CF_CanInteract))
 	{
@@ -1278,23 +1966,31 @@ void SUTMatchSummaryPanel::DragPlayerPreview(const FGeometry& MyGeometry, const 
 		FKey ScrollKey = WheelDelta > 0.0f ? EKeys::MouseScrollUp : EKeys::MouseScrollDown;
 		UTInput->InputKey(ScrollKey, EInputEvent::IE_Pressed, 1.0f, false);
 	}
-}*/
+}
 
 FReply SUTMatchSummaryPanel::OnSwitcherNext()
 {
-	if (TrophyRoom.IsValid())
+	if (HasCamFlag(CF_Team))
 	{
-		if (HasCamFlag(CF_Team))
+		int32 Index = ViewedTeamNum + 1;
+		ViewTeam(TeamAnchors.IsValidIndex(Index) ? Index : 0);
+	}
+	else if (HasCamFlag(CF_Player) && ViewedChar.IsValid())
+	{
+		int32 Index = PlayerPreviewMeshs.Find(ViewedChar.Get());
+		if (Index == INDEX_NONE)
 		{
-			int32 Index = ViewedTeamNum + 1;
-			ViewTeam(TrophyRoom->TeamGroups.IsValidIndex(Index) ? Index : 0);
+			Index = 0;
 		}
-		else if (HasCamFlag(CF_Player) && ViewedChar.IsValid())
+
+		Index++;
+		if (PlayerPreviewMeshs.IsValidIndex(Index))
 		{
-			if (TrophyRoom.IsValid())
-			{
-				ViewCharacter(TrophyRoom->FindCharacter(TrophyRoom->NextCharacter(Cast<AUTPlayerState>(ViewedChar->PlayerState), false)));
-			}
+			ViewCharacter(PlayerPreviewMeshs[Index]);
+		}
+		else
+		{
+			ViewCharacter(PlayerPreviewMeshs[0]);
 		}
 	}
 	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
@@ -1303,16 +1999,27 @@ FReply SUTMatchSummaryPanel::OnSwitcherNext()
 
 FReply SUTMatchSummaryPanel::OnSwitcherPrevious()
 {
-	if (TrophyRoom.IsValid())
+	if (HasCamFlag(CF_Team))
 	{
-		if (HasCamFlag(CF_Team))
+		int32 Index = ViewedTeamNum - 1;
+		ViewTeam(TeamAnchors.IsValidIndex(Index) ? Index : TeamAnchors.Num() - 1);
+	}
+	else if (HasCamFlag(CF_Player) && ViewedChar.IsValid())
+	{
+		int32 Index = PlayerPreviewMeshs.Find(ViewedChar.Get());
+		if (Index == INDEX_NONE)
 		{
-			int32 Index = ViewedTeamNum - 1;
-			ViewTeam(TrophyRoom->TeamGroups.IsValidIndex(Index) ? Index : TrophyRoom->TeamGroups.Num() - 1);
+			Index = 0;
 		}
-		else if (HasCamFlag(CF_Player) && ViewedChar.IsValid())
+
+		Index--;
+		if (PlayerPreviewMeshs.IsValidIndex(Index))
 		{
-			ViewCharacter(TrophyRoom->FindCharacter(TrophyRoom->NextCharacter(Cast<AUTPlayerState>(ViewedChar->PlayerState), true)));
+			ViewCharacter(PlayerPreviewMeshs[Index]);
+		}
+		else
+		{
+			ViewCharacter(PlayerPreviewMeshs[PlayerPreviewMeshs.Num() - 1]);
 		}
 	}
 	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
@@ -1369,18 +2076,18 @@ FReply SUTMatchSummaryPanel::OnClose()
 		int32 TeamToView = 0;
 		if (GameState->GetMatchState() == MatchState::WaitingToStart)
 		{
-			/*if ((TeamPreviewMeshs.Num() > 1) && GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+			if ((TeamPreviewMeshs.Num() > 1) && GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
 			{
 				TeamToView = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController)->GetTeamNum();
-			}*/
+			}
 			ViewTeam(TeamToView);
 		}
 		else if (GameState->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-			/*if ((TeamPreviewMeshs.Num() > 1) && (GameState->WinningTeam != nullptr))
+			if ((TeamPreviewMeshs.Num() > 1) && (GameState->WinningTeam != nullptr))
 			{
 				TeamToView = GameState->WinningTeam->GetTeamNum();
-			}*/
+			}
 			ViewTeam(TeamToView);
 		}
 		else
@@ -1545,23 +2252,6 @@ EVisibility SUTMatchSummaryPanel::GetExitViewVis() const
 
 FReply SUTMatchSummaryPanel::HideMatchPanel()
 {
-	//TIMTEMP:: Need to set viewtarget back
-	/*AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (UTPC)
-	{
-		//Make sure the view target is set back
-		AActor* ViewTarget = UTPC;
-		if (UTPC->GetPawn() != nullptr)
-		{
-			ViewTarget = UTPC->GetPawn();
-		}
-		else if (UTPC->GetSpectatorPawn() != nullptr)
-		{
-			ViewTarget = UTPC->GetSpectatorPawn();
-		}
-		UTPC->SetViewTarget(ViewTarget);
-	}*/
-
 	if (ParentPanel.IsValid())
 	{
 		ParentPanel->HideMatchSummary();
@@ -1571,12 +2261,6 @@ FReply SUTMatchSummaryPanel::HideMatchPanel()
 
 FReply SUTMatchSummaryPanel::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (UTPC != nullptr && UTPC->MyUTHUD != nullptr)
-	{
-		UTPC->MyUTHUD->bForceScores = HasCamFlag(CF_ShowScoreboard);
-	}
-
 	MousePos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
 	return FReply::Unhandled();
 }
@@ -1584,210 +2268,6 @@ FReply SUTMatchSummaryPanel::OnMouseMove(const FGeometry& MyGeometry, const FPoi
 void SUTMatchSummaryPanel::MovePlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	MousePos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
-}
-
-FReply SUTMatchSummaryPanel::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
-{
-	//Try to Click the scoreboard first
-	if (HasCamFlag(CF_ShowScoreboard) && HasCamFlag(CF_CanInteract))
-	{
-		FVector2D MousePosition;
-		UUTScoreboard* Scoreboard = GetScoreboard();
-		if (Scoreboard != nullptr && Scoreboard->UTHUDOwner != nullptr && Scoreboard->UTHUDOwner->ScoreboardPage == 0 && GetGameMousePosition(MousePosition)
-			&& (Scoreboard->UTHUDOwner->bShowScores || Scoreboard->UTHUDOwner->bForceScores)
-			&& Scoreboard->AttemptSelection(MousePosition))
-		{
-			Scoreboard->SelectionClick();
-			return FReply::Handled();
-		}
-	}
-
-	//Click a character
-	if (HasCamFlag(CF_CanInteract) && !HasCamFlag(CF_Player) && HighlightedChar.IsValid())
-	{
-		ViewCharacter(HighlightedChar.Get());
-		return FReply::Handled();
-	}
-	return HandleInput(MouseEvent.GetEffectingButton(), EInputEvent::IE_Pressed);
-}
-
-FReply SUTMatchSummaryPanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
-{
-	return FReply::Unhandled();
-}
-
-FReply SUTMatchSummaryPanel::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
-{
-	/*if (TrophyRoom.IsValid())
-	{
-		TrophyRoom->MoveCamera(FVector(0.0f, 0.0f, MouseEvent.GetWheelDelta()));
-	}*/
-
-	//scroll wheel to leave character view
-	/*if (HasCamFlag(CF_CanInteract))
-	{
-		if (HasCamFlag(CF_Player) && MouseEvent.GetWheelDelta() < 0.0f)
-		{
-			ViewAll();
-		}
-	}*/
-
-	FKey ScrollKey = MouseEvent.GetWheelDelta() > 0.0f ? EKeys::MouseScrollUp : EKeys::MouseScrollDown;
-	return HandleInput(ScrollKey, EInputEvent::IE_Pressed);
-}
-
-bool SUTMatchSummaryPanel::GetGameMousePosition(FVector2D& MousePosition)
-{
-	// We need to get the mouse input but the mouse event only has the mouse in screen space.  We need it in viewport space and there
-	// isn't a good way to get there.  So we punt and just get it from the game viewport.
-	UUTGameViewportClient* GVC = Cast<UUTGameViewportClient>(PlayerOwner->ViewportClient);
-	if (GVC)
-	{
-		return GVC->GetMousePosition(MousePosition);
-	}
-	return false;
-}
-
-bool SUTMatchSummaryPanel::IsActionKey(const FKey Key, const FName ActionName)
-{
-	UUTPlayerInput* UTInput = Cast<UUTPlayerInput>(GetPlayerOwner()->PlayerController->PlayerInput);
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-
-	if (UTInput != nullptr && UTPC != nullptr)
-	{
-		auto ActionKeys = UTInput->GetKeysForAction(ActionName);
-		for (auto& ActionKey : ActionKeys)
-		{
-			if (Key == ActionKey.Key)
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-FReply SUTMatchSummaryPanel::HandleInput(const FKey Key, const EInputEvent InputEvent)
-{
-	UUTPlayerInput* UTInput = Cast<UUTPlayerInput>(GetPlayerOwner()->PlayerController->PlayerInput);
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (UTInput != nullptr && UTPC != nullptr)
-	{
-		if (InputEvent == EInputEvent::IE_Pressed && IsActionKey(Key, "PlayTaunt"))
-		{
-			UTPC->PlayTaunt();
-			return FReply::Handled();
-		}
-		if (InputEvent == EInputEvent::IE_Pressed && IsActionKey(Key, "PlayTaunt2"))
-		{
-			UTPC->PlayTaunt2();
-			return FReply::Handled();
-		}
-		if (InputEvent == EInputEvent::IE_Pressed && IsActionKey(Key, "SlowerEmote"))
-		{
-			UTPC->SlowerEmote();
-			return FReply::Handled();
-		}
-		if (InputEvent == EInputEvent::IE_Pressed && IsActionKey(Key, "FasterEmote"))
-		{
-			UTPC->FasterEmote();
-			return FReply::Handled();
-		}
-		if (InputEvent == EInputEvent::IE_Released && IsActionKey(Key, "ShowMenu"))
-		{
-			UTPC->execShowMenu();
-			return FReply::Handled();
-		}
-		if (IsActionKey(Key, "ShowScores"))
-		{
-			UTPC->ToggleScoreboard(InputEvent == EInputEvent::IE_Pressed);
-			return FReply::Handled();
-		}
-		if (InputEvent == EInputEvent::IE_Pressed && IsActionKey(Key, "StartFire"))
-		{
-			UTPC->ServerRestartPlayer();
-			return FReply::Handled();
-		}
-		if (InputEvent == EInputEvent::IE_Pressed && IsActionKey(Key, "StartAltFire"))
-		{
-			UTPC->ServerRestartPlayerAltFire();
-			return FReply::Handled();
-		}
-
-		//Special caster control case for starting the game with enter
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTPC->PlayerState);
-		AUTGameState* GS = Cast<AUTGameState>(UTPC->GetWorld()->GameState);
-		if (Key == EKeys::Enter && GS != nullptr && PS != nullptr && PS->bCaster && !PS->bReadyToPlay)
-		{
-			UTPC->ServerRestartPlayer();
-			return FReply::Handled();
-		}
-
-		UUTScoreboard* Scoreboard = GetScoreboard();
-		if (InputEvent == EInputEvent::IE_Pressed && Scoreboard != nullptr && Scoreboard->UTHUDOwner != nullptr && Scoreboard->UTHUDOwner->bShowScores)
-		{
-			if (Key == EKeys::Left)
-			{
-				Scoreboard->AdvancePage(-1);
-				return FReply::Handled();
-			}
-			else if (Key == EKeys::Right)
-			{
-				Scoreboard->AdvancePage(+1);
-				return FReply::Handled();
-			}
-			else if (Key == EKeys::Up)
-			{
-				UTPC->AdvanceStatsPage(-1);
-				return FReply::Handled();
-			}
-			else if (Key == EKeys::Down)
-			{
-				UTPC->AdvanceStatsPage(+1);
-				return FReply::Handled();
-			}
-		}
-	}
-	return FReply::Unhandled();
-}
-
-bool SUTMatchSummaryPanel::CanSelectPlayerState(AUTPlayerState* PS)
-{
-	AUTCharacter* UTC = FindCharacter(PS);
-	if (UTC != nullptr && !UTC->bHidden)
-	{
-		return true;
-	}
-	return false;
-}
-
-void SUTMatchSummaryPanel::UpdatePlayerHighlight(UWorld* World, FVector Start, FVector Direction)
-{
-	//Check if the mouse is over a player and apply taccom effect
-	if (HasCamFlag(CF_CanInteract) && !HasCamFlag(CF_Player))
-	{
-		FHitResult Hit;
-		World->LineTraceSingleByChannel(Hit, Start, Start + Direction * 50000.0f, ECC_Pawn, FCollisionQueryParams(FName(TEXT("CharacterMouseOver"))));
-		if (Hit.bBlockingHit && Cast<AUTCharacter>(Hit.GetActor()) != nullptr)
-		{
-			AUTCharacter* HitChar = Cast<AUTCharacter>(Hit.GetActor());
-			if (HitChar != HighlightedChar && HighlightedChar != nullptr)
-			{
-				HighlightedChar->UpdateTacComMesh(false);
-			}
-
-			if (HitChar != nullptr)
-			{
-				HitChar->UpdateTacComMesh(true);
-				HighlightedChar = HitChar;
-			}
-		}
-		else if (HighlightedChar != nullptr)
-		{
-			HighlightedChar->UpdateTacComMesh(false);
-			HighlightedChar = nullptr;
-		}
-	}
 }
 
 #endif

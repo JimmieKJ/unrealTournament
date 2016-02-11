@@ -126,8 +126,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	TimeMarginSlack = 0.1f;
 
 	bCasterControl = false;
-	bPlayPlayerIntro = false;
-	bShowMatchSummary = false;
+	bPlayPlayerIntro = true;
+	bShowMatchSummary = true;
 	bOfflineChallenge = false;
 	bBasicTrainingGame = false;
 
@@ -1630,8 +1630,6 @@ void AUTGameMode::HandleMatchHasStarted()
 	UTGameState->SetTimeLimit(TimeLimit);
 	bFirstBloodOccurred = false;
 	AnnounceMatchStart();
-
-	UTGameState->SetTrophyRoom(ETrophyType::None);
 }
 
 void AUTGameMode::AnnounceMatchStart()
@@ -2760,11 +2758,6 @@ void AUTGameMode::HandleMatchHasEnded()
 	{
 		NavData->SaveMapLearningData();
 	}
-
-	if (bShowMatchSummary)
-	{
-		UTGameState->SetTrophyRoom(GetTrophyType_PostMatch());
-	}
 }
 
 void AUTGameMode::HandleEnteringOvertime()
@@ -2782,7 +2775,6 @@ void AUTGameMode::HandlePlayerIntro()
 {
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 5.f*GetActorTimeDilation(), false);
-	UTGameState->SetTrophyRoom(GetTrophyType_Intro());
 }
 
 void AUTGameMode::EndPlayerIntro()
@@ -4357,13 +4349,4 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 			}
 		}
 	});
-}
-
-ETrophyType::Type AUTGameMode::GetTrophyType_Intro_Implementation()
-{
-	return bTeamGame ? ETrophyType::Team_Intro : ETrophyType::FFA_Intro;
-}
-ETrophyType::Type AUTGameMode::GetTrophyType_PostMatch_Implementation()
-{
-	return bTeamGame ? ETrophyType::Team_PostMatch : ETrophyType::FFA_PostMatch;
 }

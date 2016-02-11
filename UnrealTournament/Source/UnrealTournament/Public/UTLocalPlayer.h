@@ -649,17 +649,8 @@ public:
 	virtual void OpenMapVote(AUTGameState* GameState);
 	virtual void CloseMapVote();
 
-	virtual void OpenMatchSummary(class AUTTrophyRoom* TrophyRoom);
+	virtual void OpenMatchSummary(AUTGameState* GameState);
 	virtual void CloseMatchSummary();
-
-	virtual bool IsMatchSummaryOpen() 
-	{
-#if !UE_SERVER
-		return GetSummaryPanel().IsValid();
-#else
-		return false;
-#endif
-	}
 
 	// What is your role within the unreal community.
 	EUnrealRoles::Type CommunityRole;

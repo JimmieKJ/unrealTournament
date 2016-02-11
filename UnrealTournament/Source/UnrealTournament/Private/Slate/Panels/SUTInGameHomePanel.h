@@ -39,8 +39,6 @@ public:
 	// If true, submitting text chat will close the menu
 	bool bCloseOnSubmit;
 
-	bool bShowScoreboard;
-
 protected:
 
 	bool bFocusSummaryInv;

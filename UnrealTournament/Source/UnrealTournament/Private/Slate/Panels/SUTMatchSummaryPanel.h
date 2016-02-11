@@ -78,7 +78,7 @@ public:
 class SUTInGameHomePanel;
 
 #if !UE_SERVER
-class UNREALTOURNAMENT_API SUTMatchSummaryPanel : public SCompoundWidget
+class UNREALTOURNAMENT_API SUTMatchSummaryPanel : public SCompoundWidget, public FGCObject
 {
 public:
 	friend struct FTeamCamera;
@@ -88,7 +88,6 @@ public:
 	SLATE_BEGIN_ARGS(SUTMatchSummaryPanel)
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class AUTGameState>, GameState)	
-	SLATE_ARGUMENT(TWeakObjectPtr<class AUTTrophyRoom>, TrophyRoom)
 	SLATE_END_ARGS()
 
 public:
@@ -108,26 +107,31 @@ public:
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply OnKeyChar(const FGeometry& InGeometry, const FCharacterEvent& InCharacterEvent) override;
-	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual bool SupportsKeyboardFocus() const override { return true; }
-	virtual bool GetGameMousePosition(FVector2D& MousePosition);
-
-	virtual bool IsActionKey(const FKey Key, const FName ActionName);
-	virtual FReply HandleInput(const FKey Key, const EInputEvent InputEvent);
-
 	virtual void PlayTauntByClass(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed);
 	virtual void SetEmoteSpeed(AUTPlayerState* PS, float EmoteSpeed);
 	virtual void SelectPlayerState(AUTPlayerState* PS);
-	virtual bool CanSelectPlayerState(AUTPlayerState* PS);
 
 	float TeamCamAlpha;
 
 	TSharedPtr<SUTInGameHomePanel> ParentPanel;
 
 protected:
+
 	TSharedPtr<SOverlay> Content;
+
+	/** world for rendering the player preview */
+	class UWorld* PlayerPreviewWorld;
+	/** view state for player preview (needed for LastRenderTime to work) */
+	FSceneViewStateReference ViewState;
+
+	UAnimationAsset* PlayerPreviewAnim;
+
+	/** render target for player mesh and cosmetic items */
+	class UUTCanvasRenderTarget2D* PlayerPreviewTexture;
+	/** material for the player preview since Slate doesn't support rendering the target directly */
+	class UMaterialInstanceDynamic* PlayerPreviewMID;
+	/** Slate brush to render the preview */
+	FSlateBrush* PlayerPreviewBrush;
 
 	TSharedPtr<class SScrollBox> ChatScroller;
 	TSharedPtr<class SRichTextBlock> ChatDisplay;
@@ -155,7 +159,7 @@ protected:
 
 	// Camera offset when viewing all players
 	virtual float GetAllCameraOffset();
-
+	
 	FVector2D MousePos;
 	int32 ViewedTeamNum;
 	TWeakObjectPtr<class AUTCharacter> HighlightedChar;
@@ -177,16 +181,35 @@ protected:
 	FOptionalSize GetStatsWidth() const;
 	mutable float StatsWidth;
 
+	/** preview actors */
+	TArray<class AUTCharacter*> PlayerPreviewMeshs;
+	/**preview characters separated by team*/
+	TArray<TArray<class AUTCharacter*> > TeamPreviewMeshs;
+	/** preview weapon */
+	TArray<class AUTWeaponAttachment*> PreviewWeapons;
+
+	TArray<class UAnimationAsset*> PreviewAnimations;
+
+	/**Each team is attached to an Actor for easy team tranforms*/
+	TArray<class AActor*> TeamAnchors;
+	AActor* PreviewEnvironment;
+
 	TWeakObjectPtr<class AUTGameState> GameState;
-	TWeakObjectPtr<class AUTTrophyRoom> TrophyRoom;
 
-	virtual class AUTCharacter* FindCharacter(class AUTPlayerState* PS);
+	virtual void DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
+	virtual void ZoomPlayerPreview(float WheelDelta);
+	virtual void OnMouseDownPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
-	virtual void UpdatePlayerHighlight(UWorld* World, FVector Start, FVector Direction);
+	virtual AUTCharacter* RecreatePlayerPreview(AUTPlayerState* NewPS, FVector Location, FRotator Rotation);
+	virtual void RecreateAllPlayers(int32 TeamIndex);
 	virtual void HideAllPlayersBut(AUTCharacter* UTC);
+	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
+	virtual class AUTCharacter* FindCharacter(class AUTPlayerState* PS);
 
 	class UUTScoreboard* GetScoreboard();
 	
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
 	virtual FReply OnClose();
 
 
@@ -227,6 +250,7 @@ protected:
 public:
 	void ChangeViewingState(FName NewViewState);
 	FReply OnExpandViewClicked();
+	void SetInitialCams();
 
 protected:
 	// Used to determine what is being view by this panel.  
