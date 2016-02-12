@@ -2866,12 +2866,15 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 	if (OnlineFriendsInterface.IsValid() && OnlineUserInterface.IsValid())
 	{
 		TArray< TSharedRef< FOnlineFriend > > RecentPlayersList;
-		for (auto RecentPlayer : RecentPlayersList)
+		if (OnlineFriendsInterface->GetRecentPlayers(0, TEXT("ut"), FriendsList))
 		{
-			TSharedPtr<FOnlineUser> User = OnlineUserInterface->GetUserInfo(0, *RecentPlayer->GetUserId());
-			if (User.IsValid())
+			for (auto RecentPlayer : RecentPlayersList)
 			{
-				OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUserId()->ToString(), User->GetDisplayName(), true));
+				TSharedPtr<FOnlineUser> User = OnlineUserInterface->GetUserInfo(0, *RecentPlayer->GetUserId());
+				if (User.IsValid())
+				{
+					OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUserId()->ToString(), User->GetDisplayName(), true));
+				}
 			}
 		}
 	}
