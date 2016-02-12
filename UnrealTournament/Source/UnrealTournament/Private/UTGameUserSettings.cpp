@@ -311,6 +311,8 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 			}
 		}
 
+		CorrectScreenPercentageOnHighResLowGPU(DetectedLevels);
+
 		ScalabilityQuality = DetectedLevels;
 		Scalability::SetQualityLevels(ScalabilityQuality);
 		Scalability::SaveState(GGameUserSettingsIni);
@@ -335,4 +337,36 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 	}
 }
 
+/**
+ Looks for cases with High Res machines with low/mid hardware and lowers the ScreenPercentage to accommodate
+*/
+void UUTGameUserSettings::CorrectScreenPercentageOnHighResLowGPU(Scalability::FQualityLevels& DetectedLevels)
+{
+	const int MaxResolutionForLowerEndSystems = 1080;
+	const int ValueOfHighSetting = 2;
+	const int ScreenResY = UUTGameUserSettings::GetScreenResolution().Y;
+
+	const float NumberOfScalabilitySettings = 6;
+	const float AverageScalabilitySetting = static_cast<float>(DetectedLevels.AntiAliasingQuality +
+															   DetectedLevels.EffectsQuality +
+															   DetectedLevels.PostProcessQuality +
+															   DetectedLevels.ShadowQuality +
+															   DetectedLevels.TextureQuality +
+															   DetectedLevels.ViewDistanceQuality)
+															   / NumberOfScalabilitySettings;
+
+	//our resolution is >1080p but we don't have a system good enough to run everything on high, we need to turn down screen res!
+	if ((ScreenResY > MaxResolutionForLowerEndSystems) && (AverageScalabilitySetting < ValueOfHighSetting))
+	{
+		const float ResPercentage = static_cast<float>(MaxResolutionForLowerEndSystems) / static_cast<float>(ScreenResY);
+		const int32 NewScreenPercentage = static_cast<int32>(ResPercentage * 100);
+
+		//If we already set it to something lower, no point in changing it
+		if (NewScreenPercentage < DetectedLevels.ResolutionQuality)
+		{
+			DetectedLevels.ResolutionQuality = NewScreenPercentage;
+		}
+	}
+
+}
 #endif // !UE_SERVER

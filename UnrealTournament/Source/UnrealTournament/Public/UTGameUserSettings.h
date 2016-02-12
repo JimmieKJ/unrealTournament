@@ -132,6 +132,7 @@ public:
 private:
 #if !UE_SERVER
 	void RunSynthBenchmark(bool bSaveSettingsOnceDetected);
+	void CorrectScreenPercentageOnHighResLowGPU(Scalability::FQualityLevels& DetectedLevels);
 
 	FSettingsAutodetected SettingsAutodetectedEvent;
 	TSharedPtr<class SUTDialogBase> AutoDetectingSettingsDialog;
