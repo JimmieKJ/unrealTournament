@@ -4252,6 +4252,11 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 		{
 			FRankedTeamMemberInfo RankedMemberInfo;
 			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			if (PS->bIsABot)
+			{
+				RankedMemberInfo.AccountId = PS->PlayerName;
+			}
 			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
 		}
 	}
@@ -4263,6 +4268,11 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 		{
 			FRankedTeamMemberInfo RankedMemberInfo;
 			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			if (PS->bIsABot)
+			{
+				RankedMemberInfo.AccountId = PS->PlayerName;
+			}
 			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
 		}
 	}

@@ -34,6 +34,11 @@ void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& Match
 		{
 			FRankedTeamMemberInfo RankedMemberInfo;
 			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			if (PS->bIsABot)
+			{
+				RankedMemberInfo.AccountId = PS->PlayerName;
+			}
 			RankedMemberInfo.Score = PS->Score;
 			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
 		}
@@ -46,6 +51,11 @@ void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& Match
 		{
 			FRankedTeamMemberInfo RankedMemberInfo;
 			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			if (PS->bIsABot)
+			{
+				RankedMemberInfo.AccountId = PS->PlayerName;
+			}
 			RankedMemberInfo.Score = PS->Score;
 			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
 		}

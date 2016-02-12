@@ -17,6 +17,8 @@ public:
 	FString AccountId;
 	UPROPERTY()
 	int32 Score;
+	UPROPERTY()
+	bool IsBot;
 };
 
 USTRUCT()
