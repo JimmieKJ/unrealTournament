@@ -2863,10 +2863,10 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 
 	int32 RetVal = 0;
 
-	if (OnlineFriendsInterface.IsValid() && OnlineUserInterface.IsValid())
+	if (OnlineIdentityInterface.IsValid() && OnlineFriendsInterface.IsValid() && OnlineUserInterface.IsValid())
 	{
-		TArray< TSharedRef< FOnlineFriend > > RecentPlayersList;
-		if (OnlineFriendsInterface->GetRecentPlayers(0, TEXT("ut"), FriendsList))
+		TArray< TSharedRef< FOnlineRecentPlayer > > RecentPlayersList;
+		if (OnlineFriendsInterface->GetRecentPlayers(*OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()), TEXT("ut"), RecentPlayersList))
 		{
 			for (auto RecentPlayer : RecentPlayersList)
 			{
