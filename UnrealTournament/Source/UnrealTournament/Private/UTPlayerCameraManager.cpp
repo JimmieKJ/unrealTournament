@@ -4,6 +4,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCTFFlagBase.h"
 #include "UTViewPlaceholder.h"
+#include "UTNoCameraVolume.h"
 
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -292,7 +293,33 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		}
 	}
 
+	bIsForcingGoodCamLoc = false;
+	if (!IsValidCamLocation(OutVT.POV.Location))
+	{
+		OutVT.POV.Location = LastGoodCamLocation;
+		OutVT.POV.Rotation = (GetViewTarget()->GetActorLocation() - LastGoodCamLocation).Rotation();
+		bIsForcingGoodCamLoc = true;
+	}
+	LastGoodCamLocation = OutVT.POV.Location;
 	CameraStyle = SavedCameraStyle;
+}
+
+bool AUTPlayerCameraManager::IsValidCamLocation(FVector InLoc)
+{
+	// check the variations of KillZ
+	AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings(true);
+	if (!WorldSettings->bEnableWorldBoundsChecks)
+	{
+		return true;
+	}
+
+	if (InLoc.Z < WorldSettings->KillZ)
+	{
+		return false;
+	}
+		
+	APhysicsVolume* PV = Cast<APawn>(GetViewTarget()) ? ((APawn *)GetViewTarget())->GetPawnPhysicsVolume() : NULL;
+	return !PV || !Cast<AKillZVolume>(PV) || !Cast<AUTNoCameraVolume>(PV);
 }
 
 void AUTPlayerCameraManager::CheckCameraSweep(FHitResult& OutHit, AActor* TargetActor, const FVector& Start, const FVector& End)

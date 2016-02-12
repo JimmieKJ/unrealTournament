@@ -2111,8 +2111,11 @@ bool AUTPlayerController::IsBehindView()
 		static FName NAME_FreeCam(TEXT("FreeCam"));
 
 		AUTPlayerCameraManager* UTCam = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+		if (UTCam && UTCam->bIsForcingGoodCamLoc)
+		{
+			return true;
+		}
 		FName CameraStyle = (UTCam != NULL) ? UTCam->GetCameraStyleWithOverrides() : PlayerCameraManager->CameraStyle;
-
 		return CameraStyle == NAME_FreeCam;
 	}
 	else
