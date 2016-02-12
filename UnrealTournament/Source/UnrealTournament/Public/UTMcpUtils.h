@@ -176,8 +176,11 @@ private:
 
 	static UUTMcpUtils* McpUtilsSingleton;
 
+#if WITH_PROFILE
 	/** Access to the online subsystem */
 	FOnlineSubsystemMcp* McpSubsystem;
+#endif
+
 	/** Game Account Id of the requestor */
 	TSharedPtr<const FUniqueNetId> GameAccountId;
 

@@ -28,7 +28,9 @@ UUTMcpUtils* UUTMcpUtils::McpUtilsSingleton = nullptr;
 
 UUTMcpUtils::UUTMcpUtils(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
+#if WITH_PROFILE
 , McpSubsystem(nullptr)
+#endif
 , GameAccountId(nullptr)
 {
 }
@@ -42,7 +44,7 @@ UUTMcpUtils* UUTMcpUtils::Get(UWorld* World, const TSharedPtr<const FUniqueNetId
 		McpUtilsSingleton->RemoveFromRoot();
 		McpUtilsSingleton = nullptr;
 	}
-
+#if WITH_PROFILE
 	if (!McpUtilsSingleton)
 	{
 		FOnlineSubsystemMcp* WorldMcp = (FOnlineSubsystemMcp*)Online::GetSubsystem(World, MCP_SUBSYSTEM);
@@ -58,6 +60,7 @@ UUTMcpUtils* UUTMcpUtils::Get(UWorld* World, const TSharedPtr<const FUniqueNetId
 		McpUtilsSingleton->McpSubsystem = WorldMcp;
 		McpUtilsSingleton->AddToRoot();
 	}
+#endif
 
 	// set this every time
 	if (InGameAccountId.IsValid() && InGameAccountId->IsValid())
@@ -69,6 +72,7 @@ UUTMcpUtils* UUTMcpUtils::Get(UWorld* World, const TSharedPtr<const FUniqueNetId
 
 TSharedRef<FOnlineHttpRequest> UUTMcpUtils::CreateRequest(const FString& Verb, const FString& Path) const
 {
+#if WITH_PROFILE
 	check(McpSubsystem);
 
 	// create the request
@@ -76,10 +80,14 @@ TSharedRef<FOnlineHttpRequest> UUTMcpUtils::CreateRequest(const FString& Verb, c
 	HttpRequest->SetURL(McpSubsystem->GetMcpGameService()->GetBaseUrl() + Path);
 	HttpRequest->SetVerb(Verb);
 	return HttpRequest;
+#else
+	return TSharedRef<IHttpRequest>(new FNullHttpRequest());
+#endif
 }
 
 void UUTMcpUtils::SendRequest(const TSharedRef<FOnlineHttpRequest>& RequestIn, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete)
 {
+#if WITH_PROFILE
 	check(McpSubsystem);
 	TSharedRef<FOnlineHttpRequest> Request = RequestIn;
 
@@ -117,6 +125,7 @@ void UUTMcpUtils::SendRequest(const TSharedRef<FOnlineHttpRequest>& RequestIn, c
 			Capture->CancelRequest(RequestStupid);
 		});
 	}
+#endif
 }
 
 void UUTMcpUtils::HttpRequestComplete(TSharedRef<FHttpRetrySystem::FRequest>& HttpRequest, bool bSucceeded, TFunction<bool(const FHttpResponsePtr& HttpResponse)> OnComplete)
@@ -171,6 +180,7 @@ static TFunction<bool(const FHttpResponsePtr&)> SimpleResponseHandler(const TFun
 
 void UUTMcpUtils::GetTeamElo(const FString& RatingType, const TArray<FUniqueNetIdRepl>& AccountIds, int32 SocialPartySize, const FGetTeamEloCb& Callback)
 {
+#if WITH_PROFILE
 	// build parameters struct
 	FRankedTeamInfo Team;
 	Team.SocialPartySize = SocialPartySize;
@@ -203,6 +213,7 @@ void UUTMcpUtils::GetTeamElo(const FString& RatingType, const TArray<FUniqueNetI
 	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 	HttpRequest->SetContentAsString(JsonSerialize(Team));
 	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
+#endif
 }
 
 void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountMmrCb& Callback)
@@ -233,6 +244,7 @@ void UUTMcpUtils::GetAccountLeague(const FString& LeagueType, const FGetAccountL
 
 void UUTMcpUtils::ReportRankedMatchResult(const FRankedMatchResult& MatchResult, const FReportRankedMatchResultCb& Callback)
 {
+#if WITH_PROFILE
 	// check for error case
 	if (MatchResult.RedTeam.Members.Num() <= 0 && MatchResult.BlueTeam.Members.Num() <= 0)
 	{
@@ -258,4 +270,5 @@ void UUTMcpUtils::ReportRankedMatchResult(const FRankedMatchResult& MatchResult,
 		Callback(Result);
 		return Result.bSucceeded;
 	});
+#endif
 }
