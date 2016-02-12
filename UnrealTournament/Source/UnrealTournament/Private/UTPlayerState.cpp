@@ -1690,10 +1690,14 @@ const FSlateBrush* AUTPlayerState::GetXPStarImage(bool bSmall) const
 
 TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FText RankName)
 {
-	FText ELOText = FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScore", "     ({0})"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this) : 0));
 	int32 Badge;
 	int32 Level;
 	GetBadgeFromELO(DefaultGame, Badge, Level);
+
+	FText ELOText = (Badge > 0 ?
+			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreA", "     ({0})"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this) : 0)) :
+			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreB", "     Provisional Rating: {0}"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this) : 0))
+			);
 
 	FText RankNumber = FText::AsNumber(Level+1);
 
