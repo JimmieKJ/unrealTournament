@@ -92,6 +92,14 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 
 	bProgressionReadFromCloud = false;
 	ELOReportCount = 0;
+
+	ShowdownLeaguePlacementMatches = 0;
+	ShowdownLeaguePoints = 0;
+	ShowdownLeagueTier = 0;
+	ShowdownLeagueDivision = 0;
+	ShowdownLeaguePromotionMatchesAttempted = 0;
+	ShowdownLeaguePromotionMatchesWon = 0;
+	bShowdownLeaguePromotionSeries = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -1738,6 +1746,38 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 		}
 		CheckReportELOandStarsToServer();
 	});
+	
+	// Refresh showdown league if we played showdown
+	if (MatchRatingType == NAME_ShowdownSkillRating.ToString())
+	{
+		McpUtils->GetAccountLeague(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
+		{
+			if (!Result.bSucceeded)
+			{
+				// best we can do is log an error
+				UE_LOG(UT, Warning, TEXT("Failed to read Showdown League info from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+			}
+			else
+			{
+				if (Response.PlacementMatchesAttempted < 10)
+				{
+					UE_LOG(UT, Display, TEXT("Showdown league read placement matches: %d"), Response.PlacementMatchesAttempted);
+				}
+				else
+				{
+					UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division, Response.Points);
+				}
+
+				ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
+				ShowdownLeaguePoints = Response.Points;
+				ShowdownLeagueTier = Response.Tier;
+				ShowdownLeagueDivision = Response.Division;
+				ShowdownLeaguePromotionMatchesAttempted = Response.PromotionMatchesAttempted;
+				ShowdownLeaguePromotionMatchesWon = Response.PromotionMatchesWon;
+				bShowdownLeaguePromotionSeries = Response.IsInPromotionSeries;
+			}
+		});
+	}
 }
 
 void UUTLocalPlayer::ReadELOFromBackend()
@@ -1830,6 +1870,31 @@ void UUTLocalPlayer::ReadELOFromBackend()
 			ShowdownMatchesPlayed = Response.NumGamesPlayed;
 		}
 		CheckReportELOandStarsToServer();
+	});
+
+	McpUtils->GetAccountLeague(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
+	{
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read Showdown League info from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			if (Response.PlacementMatchesAttempted < 10)
+			{
+				UE_LOG(UT, Display, TEXT("Showdown league read placement matches: %d"), Response.PlacementMatchesAttempted);
+			}
+			else
+			{
+				UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division, Response.Points);
+			}
+
+			ShowdownLeagueTier = Response.Tier;
+			ShowdownLeagueDivision = Response.Division;
+			ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
+			ShowdownLeaguePoints = Response.Points;
+		}
 	});
 }
 

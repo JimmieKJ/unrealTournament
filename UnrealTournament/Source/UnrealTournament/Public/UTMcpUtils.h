@@ -87,6 +87,29 @@ public:
 	int32 NumGamesPlayed;
 };
 
+USTRUCT()
+struct FAccountLeague
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FAccountLeague() : Tier(0), Division(0), Points(0), IsInPromotionSeries(false), PromotionMatchesAttempted(0), 
+					   PromotionMatchesWon(0), PlacementMatchesAttempted(0) {}
+
+	UPROPERTY()
+	int32 Tier;
+	UPROPERTY()
+	int32 Division;
+	UPROPERTY()
+	int32 Points;
+	UPROPERTY()
+	bool IsInPromotionSeries;
+	UPROPERTY()
+	int32 PromotionMatchesAttempted;
+	UPROPERTY()
+	int32 PromotionMatchesWon;
+	UPROPERTY()
+	int32 PlacementMatchesAttempted;
+};
 
 // Class that handles various talking to various endpoints with mcp
 UCLASS(config = Game)
@@ -115,13 +138,25 @@ public:
 	typedef TFunction<void(const FOnlineError& /*Result*/, const FAccountMmr& /*Response*/)> FGetAccountMmrCb;
 
 	/**
-	* Query the server for an individual user's MMR (needed for team builder)
+	* Query the server for an individual user's MMR
 	* NOTE: this currently will only succeed if this is the user's own account ID
 	*
 	* @param RatingType The type of rating we are querying for
 	* @param Callback Callback delegate
 	*/
 	void GetAccountMmr(const FString& RatingType, const FGetAccountMmrCb& Callback);
+
+public:
+	typedef TFunction<void(const FOnlineError& /*Result*/, const FAccountLeague& /*Response*/)> FGetAccountLeagueCb;
+
+	/**
+	* Query the server for an individual user's league info
+	* NOTE: this currently will only succeed if this is the user's own account ID
+	*
+	* @param LeagueType The type of rating we are querying for
+	* @param Callback Callback delegate
+	*/
+	void GetAccountLeague(const FString& LeagueType, const FGetAccountLeagueCb& Callback);
 
 public:
 	typedef TFunction<void(const FOnlineError& /*Result*/)> FReportRankedMatchResultCb;

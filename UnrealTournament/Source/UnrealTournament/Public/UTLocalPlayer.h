@@ -462,6 +462,14 @@ private:
 	int32 FFAMatchesPlayed;	// The # of matches this player has played.
 	int32 CTFMatchesPlayed;	// The # of matches this player has played.
 	int32 ShowdownMatchesPlayed;	// The # of matches this player has played.
+
+	int32 ShowdownLeaguePlacementMatches;
+	int32 ShowdownLeaguePoints;
+	int32 ShowdownLeagueTier;
+	int32 ShowdownLeagueDivision;
+	int32 ShowdownLeaguePromotionMatchesAttempted;
+	int32 ShowdownLeaguePromotionMatchesWon;
+	bool bShowdownLeaguePromotionSeries;
 	
 	bool bProgressionReadFromCloud;
 	int32 ELOReportCount;
@@ -490,6 +498,11 @@ public:
 	virtual int32 TDMEloMatches() { return TDMMatchesPlayed; }
 	virtual int32 DMEloMatches() { return FFAMatchesPlayed; }
 	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
+
+	inline virtual int32 GetShowdownPlacementMatches() { return ShowdownLeaguePlacementMatches; }
+	inline virtual int32 GetShowdownLeagueTier() { return ShowdownLeagueTier; }
+	inline virtual int32 GetShowdownLeagueDivision() { return ShowdownLeagueDivision; }
+	inline virtual int32 GetShowdownLeaguePoints() { return ShowdownLeaguePoints; }
 
 	// Returns the # of stars to show based on XP value. 
 	UFUNCTION(BlueprintCallable, Category = Badge)

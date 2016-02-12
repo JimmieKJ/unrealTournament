@@ -218,6 +218,19 @@ void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountMmrC
 	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
 }
 
+void UUTMcpUtils::GetAccountLeague(const FString& LeagueType, const FGetAccountLeagueCb& Callback)
+{
+	// build request URL
+	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/league/`leagueType");
+	auto HttpRequest = CreateRequest(TEXT("GET"), ServerPath
+		.Replace(TEXT("`accountId"), *GameAccountId->ToString(), ESearchCase::CaseSensitive)
+		.Replace(TEXT("`leagueType"), *LeagueType, ESearchCase::CaseSensitive)
+		);
+
+	// send the request
+	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
+}
+
 void UUTMcpUtils::ReportRankedMatchResult(const FRankedMatchResult& MatchResult, const FReportRankedMatchResultCb& Callback)
 {
 	// check for error case

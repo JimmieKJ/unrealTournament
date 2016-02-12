@@ -1769,8 +1769,109 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FTex
 		];
 }
 
+FText AUTPlayerState::LeagueTierToText(int32 Tier)
+{
+	switch (Tier)
+	{
+	case 5:
+		return NSLOCTEXT("Generic", "GrandMasterLeague", "Grand Master");
+	case 4:
+		return NSLOCTEXT("Generic", "MasterLeague", "Master");
+	case 3:
+		return NSLOCTEXT("Generic", "PlatinumLeague", "Platinum");
+	case 2:
+		return NSLOCTEXT("Generic", "GoldLeague", "Gold");
+	case 1:
+		return NSLOCTEXT("Generic", "SilverLeague", "Silver");
+	}
+
+	return NSLOCTEXT("Generic", "BronzeLeague", "Bronze");
+}
+
+TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName)
+{
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	UUTLocalPlayer* LP = nullptr;
+	if (PC != NULL)
+	{
+		LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP != NULL)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		}
+	}
+
+	FText LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
+			FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision()), FText::AsNumber(LP->GetShowdownLeaguePoints())) :
+			FText::Format(NSLOCTEXT("AUTPlayerState", "LeaguePlacementText", "     Play {0} more placement matches"), FText::AsNumber(10 - LP->GetShowdownPlacementMatches()))
+			);
+
+
+	return SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			[
+				SNew(STextBlock)
+				.Text(LeagueName)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[				
+				SNew(SBox)
+				.WidthOverride(48)
+				.HeightOverride(48)
+				[
+					SNew(STextBlock)
+					.Text(FText())
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+					.ColorAndOpacity(FLinearColor::Gray)
+				]
+			]
+		]
+		+SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(500)
+			[
+				SNew(STextBlock)
+				.Text(LeagueText)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		];
+}
+
 TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 {
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	UUTLocalPlayer* LP = nullptr;
+	if (PC != NULL)
+	{
+		LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP != NULL)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		}
+	}
+
 	TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
 	VBox->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
@@ -1789,6 +1890,15 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	[
 		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
 	];
+	if (LP && LP->GetShowdownPlacementMatches() > 0)
+	{
+		VBox->AddSlot()
+		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+		.AutoHeight()
+		[
+			BuildLeague(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownLeague", "Showdown League :"))
+		];
+	}
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
@@ -1828,17 +1938,9 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 #if WITH_PROFILE
 	// use profile if available, in case new data was received from MCP since the server set the replicated value
 	UUtMcpProfile* Profile = GetMcpProfile();
-	if (Profile == NULL)
+	if (Profile == NULL && LP != NULL)
 	{
-		APlayerController* PC = Cast<APlayerController>(GetOwner());
-		if (PC != NULL)
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-			if (LP != NULL)
-			{
-				Profile = LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
-			}
-		}
+		Profile = LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
 	}
 	if (Profile != NULL)
 	{
