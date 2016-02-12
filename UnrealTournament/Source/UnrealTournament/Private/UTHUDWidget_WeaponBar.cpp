@@ -7,11 +7,12 @@
 
 UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	Position=FVector2D(-8.0f, -500.0f);
-	Size=FVector2D(0,0);
-	ScreenPosition=FVector2D(1.0f, 1.0f);
-	Origin=FVector2D(1.f,1.f);
+	Position=FVector2D(-8.0f, 0.0f);
+	Size=FVector2D(1.0f,0.0f);
+	ScreenPosition=FVector2D(1.0f, 0.5f);
+	Origin=FVector2D(1.f,0.5f);
 
+	PaddingBetweenCells = 10.0f;
 	SelectedCellScale=1.1;
 	SelectedAnimRate=0.3;
 	CellWidth = 145;
@@ -44,6 +45,27 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 	}
 	WeaponNameText.Font = Hud->MediumFont;
 	Super::InitializeWidget(Hud);
+}
+
+/**
+	The WeaponBar scaling size is incorrect due to it having a dynamic size. We need to adjust the end RenderPosition to account for its size to keep it centered.
+*/
+void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
+{
+	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
+
+	//Calculate size of WeaponBar
+	TArray<FWeaponGroup> WeaponGroups;
+	const int32 NumWeapons = CollectWeaponData(WeaponGroups, DeltaTime);
+	const int32 NumberOfCells = (NumWeapons > RequiredGroups) ? NumWeapons : RequiredGroups; //We always draw at least enough cells for the required groups, but it could be more cells if we have >1 weapon in any groups.
+
+	const float NormalCellHeight = CellBackground[0].GetHeight() + PaddingBetweenCells;
+	const float SelectedCellHeight = (CellBackground[0].GetHeight() * SelectedCellScale) + PaddingBetweenCells;
+
+	const float WeaponBarSize = ((NormalCellHeight * (NumberOfCells - 1)) + SelectedCellHeight) * RenderScale;
+
+	//Move the bar down by 1/2 the size to keep it centered on the screen.
+	RenderPosition.Y += WeaponBarSize / 2;
 }
 
 /**
@@ -289,7 +311,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].Group);
 			}
 			RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ((Y2 - YPosition) * 0.5f) + GroupText.Position.Y);
-			YPosition -= 10;
+			YPosition -= PaddingBetweenCells;
 		}
 	}
 
