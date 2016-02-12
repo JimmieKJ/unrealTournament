@@ -49,8 +49,8 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	BouncesRemaining = 2;
 	FirstBounceDamping = 0.9f;
 	BounceDamping = 0.75f;
-	BounceDamagePct = 0.8f;
-	RandomBounceCone = 0.2f;
+	BounceDamagePct = 0.7f;
+	RandomBounceCone = 0.3f;
 	FullGravityDelay = 0.5f;
 
 	PrimaryActorTick.bCanEverTick = true;

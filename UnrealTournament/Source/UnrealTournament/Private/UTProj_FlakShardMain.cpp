@@ -52,6 +52,10 @@ void AUTProj_FlakShardMain::OnBounce(const struct FHitResult& ImpactResult, cons
 
 	// no damage/momentum bonus after bounce
 	MaxBonusTime = 0.f;
+	if (PawnOverlapSphere != NULL)
+	{
+		PawnOverlapSphere->SetSphereRadius(0.5f*OverlapRadius, false);
+	}
 }
 
 /**

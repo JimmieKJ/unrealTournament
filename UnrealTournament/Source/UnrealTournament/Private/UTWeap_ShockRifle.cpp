@@ -84,7 +84,7 @@ void AUTWeap_ShockRifle::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 1.0f)
+	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 0.1f)
 	{
 		ScreenTexture->FastUpdateResource();
 	}
