@@ -259,7 +259,7 @@ public:
 		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
 		
 		// If this match is in progress and we do not support join in progress...
-		if ( ((Flags & MATCH_FLAG_InProgress) != MATCH_FLAG_InProgress) || ((Flags & MATCH_FLAG_NoJoinInProgress) != MATCH_FLAG_NoJoinInProgress) )
+		if ( ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) && ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) )
 		{
 			return false;
 		}

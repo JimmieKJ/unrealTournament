@@ -142,6 +142,9 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 	if (OnlineSessionInterface.IsValid())
 	{
 		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnJoinSessionComplete));
+		OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
+		OnDestroySessionCompleteDelegate = OnlineSessionInterface->AddOnDestroySessionCompleteDelegate_Handle(FOnDestroySessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnDestroySessionComplete));
+		OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
 	}
 
 	if (OnlineTitleFileInterface.IsValid())
@@ -170,6 +173,9 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 		if (OnlineSessionInterface.IsValid())
 		{
 			OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
+			OnlineSessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
+			OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
+			OnlineSessionInterface->ClearOnFindFriendSessionCompleteDelegate_Handle(0, OnFindFriendSessionCompleteDelegate);
 		}
 	}
 }
@@ -2430,6 +2436,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
 			Context.LastURL.RemoveOption(TEXT("QuickMatch"));
 			Context.LastURL.RemoveOption(TEXT("Friend"));
+			Context.LastURL.RemoveOption(TEXT("Session"));
 			
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
@@ -2468,7 +2475,6 @@ void UUTLocalPlayer::LeaveSession()
 		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
 		if (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
 		{
-			OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
 			OnlineSessionInterface->EndSession(GameSessionName);
 		}
 		else if (bPendingLoginCreds)
@@ -2480,16 +2486,12 @@ void UUTLocalPlayer::LeaveSession()
 
 void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	OnlineSessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
-	OnDestroySessionCompleteDelegate = OnlineSessionInterface->AddOnDestroySessionCompleteDelegate_Handle(FOnDestroySessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnDestroySessionComplete));
 	OnlineSessionInterface->DestroySession(GameSessionName);
 }
 
 void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	UE_LOG(UT,Warning, TEXT("----------- [OnDestroySessionComplete %i"), bDelayedJoinSession);
-	
-	OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
 
 	if (bPendingLoginCreds)
 	{
@@ -2599,13 +2601,11 @@ void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FUniq
 	//@todo samz - use FindSessionById instead of FindFriendSession with a pending SessionId
 	PendingFriendInviteSessionId = SessionId.ToString();
 	PendingFriendInviteFriendId = FriendId.ToString();
-	OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
 	OnlineSessionInterface->FindFriendSession(0, FriendId);
 }
 
 void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult)
 {
-	OnlineSessionInterface->ClearOnFindFriendSessionCompleteDelegate_Handle(LocalUserNum, OnFindFriendSessionCompleteDelegate);
 	if (bWasSuccessful)
 	{
 		if (SearchResult.Session.SessionInfo.IsValid())
