@@ -381,7 +381,7 @@ TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FT
 									SNew(SButton)
 									.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
 									.OnClicked(this, &SUTMatchPanel::JoinMatchButtonClicked, InItem)
-									.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanJoin)))
+									.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanJoin, PlayerOwner)))
 									[
 										SNew(SVerticalBox)
 										+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
@@ -1004,7 +1004,7 @@ TSharedRef<SWidget> SUTMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Ancho
 
 void SUTMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> SelectedMatch)
 {
-	if (!SelectedMatch->CanJoin()) return;
+	if (!SelectedMatch->CanJoin(PlayerOwner)) return;
 
 	bSuspendPopups = true;
 
@@ -1033,7 +1033,7 @@ void SUTMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> Selec
 
 FReply SUTMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
-	if (InItem.IsValid() && InItem->CanJoin() )
+	if (InItem.IsValid() && InItem->CanJoin(PlayerOwner) )
 	{
 		bSuspendPopups = true;
 		if (ShouldUseLiveData())

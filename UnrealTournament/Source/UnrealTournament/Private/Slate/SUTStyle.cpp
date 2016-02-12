@@ -232,7 +232,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetNormal( FSlateColorBrush(Medium) )
 		.SetHovered( FSlateColorBrush(Hovered) )
 		.SetPressed( FSlateColorBrush(Pressed) )
-		.SetDisabled( FSlateColorBrush(Disabled) )
+		.SetDisabled( FSlateColorBrush(SuperDark) )
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
