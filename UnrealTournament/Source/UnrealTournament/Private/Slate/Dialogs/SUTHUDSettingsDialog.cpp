@@ -59,7 +59,7 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 	Old_HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
 	Old_bUseWeaponColors = TargetHUD->bUseWeaponColors;
 	Old_bDrawChatKillMsg = TargetHUD->bDrawChatKillMsg;
-	Old_bDrawPopupKillMsg = TargetHUD->bDrawCenteredKillMsg;
+	Old_bDrawCenteredKillMsg = TargetHUD->bDrawCenteredKillMsg;
 	Old_bDrawHUDKillIconMsg = TargetHUD->bDrawHUDKillIconMsg;
 	Old_bPlayKillSoundMsg = TargetHUD->bPlayKillSoundMsg;
 
@@ -854,7 +854,7 @@ FReply SUTHUDSettingsDialog::CancelClick()
 		TargetHUD->HUDWidgetScaleOverride = Old_HUDWidgetScaleOverride;
 		TargetHUD->bUseWeaponColors = Old_bUseWeaponColors;
 		TargetHUD->bDrawChatKillMsg = Old_bDrawChatKillMsg;
-		TargetHUD->bDrawCenteredKillMsg = Old_bDrawPopupKillMsg;
+		TargetHUD->bDrawCenteredKillMsg = Old_bDrawCenteredKillMsg;
 		TargetHUD->bDrawHUDKillIconMsg = Old_bDrawHUDKillIconMsg;
 		TargetHUD->bPlayKillSoundMsg = Old_bPlayKillSoundMsg;
 	}

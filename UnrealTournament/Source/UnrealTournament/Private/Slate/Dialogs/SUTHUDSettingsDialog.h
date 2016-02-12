@@ -122,7 +122,7 @@ private:
 	float Old_HUDWidgetScaleOverride;
 	bool Old_bUseWeaponColors;
 	bool Old_bDrawChatKillMsg;
-	bool Old_bDrawPopupKillMsg;
+	bool Old_bDrawCenteredKillMsg;
 	bool Old_bDrawHUDKillIconMsg;
 	bool Old_bPlayKillSoundMsg;
 
