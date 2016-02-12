@@ -762,7 +762,10 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 {
 	if (!bOnlySpectator && (GetWorld()->IsPlayInEditor() || GetNetMode() == NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, GetCosmeticLoadFlags(), NULL);
+		if (!NewHatClass.IsEmpty())
+		{
+			HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, GetCosmeticLoadFlags(), NULL);
+		}
 
 		// Allow the game mode to validate the hat.
 		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -794,7 +797,10 @@ void AUTPlayerState::ServerReceiveLeaderHatClass_Implementation(const FString& N
 {
 	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || LeaderHatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, GetCosmeticLoadFlags(), NULL);
+		if (!NewLeaderHatClass.IsEmpty())
+		{
+			LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, GetCosmeticLoadFlags(), NULL);
+		}
 
 		if (LeaderHatClass != nullptr)
 		{
@@ -812,7 +818,11 @@ void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& New
 {
 	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, GetCosmeticLoadFlags(), NULL);
+		if (!NewEyewearClass.IsEmpty())
+		{
+			EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, GetCosmeticLoadFlags(), NULL);
+		}
+
 		OnRepEyewear();
 		if (EyewearClass != NULL)
 		{
