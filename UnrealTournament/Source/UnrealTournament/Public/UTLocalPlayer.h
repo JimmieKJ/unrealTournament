@@ -386,6 +386,7 @@ private:
 	IOnlinePresencePtr OnlinePresenceInterface;
 	IOnlineFriendsPtr OnlineFriendsInterface;
 	IOnlineTitleFilePtr OnlineTitleFileInterface;
+	IOnlineUserPtr OnlineUserInterface;
 
 	// Our delegate references....
 	FDelegateHandle OnLoginCompleteDelegate;

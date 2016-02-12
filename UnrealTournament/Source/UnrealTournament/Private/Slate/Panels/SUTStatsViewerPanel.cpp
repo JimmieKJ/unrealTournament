@@ -39,58 +39,8 @@ void SUTStatsViewerPanel::ConstructPanel(FVector2D ViewportSize)
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Monthly"))));
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Weekly"))));
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Daily"))));
-		
-	FriendList.Add(MakeShareable(new FString(TEXT("My Stats")))); 
 	
-	if (OnlineIdentityInterface.IsValid())
-	{
-		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
-		if (UserId.IsValid())
-		{
-			FriendStatIDList.Add(UserId->ToString());
-		}
-		else
-		{
-			FriendStatIDList.AddZeroed();
-		}
-	}
-	else
-	{
-		FriendStatIDList.AddZeroed();
-	}
-
-	// Real friends
-	TArray<FUTFriend> OnlineFriendsList;
-	PlayerOwner->GetFriendsList(OnlineFriendsList);
-	for (auto Friend : OnlineFriendsList)
-	{
-		FriendList.Add(MakeShareable(new FString(Friend.DisplayName)));
-		FriendStatIDList.Add(Friend.UserId);
-	}
-
-	// Recent players
-	TArray<FUTFriend> OnlineRecentPlayersList;
-	PlayerOwner->GetRecentPlayersList(OnlineRecentPlayersList);
-	for (auto RecentPlayer : OnlineRecentPlayersList)
-	{
-		FriendList.Add(MakeShareable(new FString(RecentPlayer.DisplayName)));
-		FriendStatIDList.Add(RecentPlayer.UserId);
-	}
-
-	// Players in current game
-	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
-	{
-		for (auto PlayerState : GameState->PlayerArray)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-			if (PS && !PS->StatsID.IsEmpty() && !FriendStatIDList.Contains(PS->StatsID))
-			{
-				FriendList.Add(MakeShareable(new FString(PS->PlayerName)));
-				FriendStatIDList.Add(PS->StatsID);
-			}
-		}
-	}
+	SetupFriendsList();
 
 	this->ChildSlot
 	[
@@ -189,6 +139,64 @@ void SUTStatsViewerPanel::ConstructPanel(FVector2D ViewportSize)
 	}
 }
 
+void SUTStatsViewerPanel::SetupFriendsList()
+{
+	FriendList.Empty();
+	FriendStatIDList.Empty();
+
+	FriendList.Add(MakeShareable(new FString(TEXT("My Stats"))));
+
+	if (OnlineIdentityInterface.IsValid())
+	{
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
+		if (UserId.IsValid())
+		{
+			FriendStatIDList.Add(UserId->ToString());
+		}
+		else
+		{
+			FriendStatIDList.AddZeroed();
+		}
+	}
+	else
+	{
+		FriendStatIDList.AddZeroed();
+	}
+
+	// Real friends
+	TArray<FUTFriend> OnlineFriendsList;
+	PlayerOwner->GetFriendsList(OnlineFriendsList);
+	for (auto Friend : OnlineFriendsList)
+	{
+		FriendList.Add(MakeShareable(new FString(Friend.DisplayName)));
+		FriendStatIDList.Add(Friend.UserId);
+	}
+
+	// Recent players
+	TArray<FUTFriend> OnlineRecentPlayersList;
+	PlayerOwner->GetRecentPlayersList(OnlineRecentPlayersList);
+	for (auto RecentPlayer : OnlineRecentPlayersList)
+	{
+		FriendList.Add(MakeShareable(new FString(RecentPlayer.DisplayName)));
+		FriendStatIDList.Add(RecentPlayer.UserId);
+	}
+
+	// Players in current game
+	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		for (auto PlayerState : GameState->PlayerArray)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS && !PS->StatsID.IsEmpty() && !FriendStatIDList.Contains(PS->StatsID))
+			{
+				FriendList.Add(MakeShareable(new FString(PS->PlayerName)));
+				FriendStatIDList.Add(PS->StatsID);
+			}
+		}
+	}
+}
+
 TSharedRef<SWidget> SUTStatsViewerPanel::GenerateStringListWidget(TSharedPtr<FString> InItem)
 {
 	return SNew(SBox)
@@ -228,6 +236,7 @@ void SUTStatsViewerPanel::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwn
 	if (NewStatus == ELoginStatus::LoggedIn)
 	{
 		StatsID.Empty();
+		SetupFriendsList();
 		DownloadStats();
 	}
 }

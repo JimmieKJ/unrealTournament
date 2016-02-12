@@ -122,6 +122,7 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnlinePresenceInterface = OnlineSubsystem->GetPresenceInterface();
 		OnlineFriendsInterface = OnlineSubsystem->GetFriendsInterface();
 		OnlineTitleFileInterface = OnlineSubsystem->GetTitleFileInterface();
+		OnlineUserInterface = OnlineSubsystem->GetUserInterface();
 	}
 
 	if (OnlineIdentityInterface.IsValid())
@@ -2832,20 +2833,26 @@ int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
 	OutFriendsList.Empty();
 	int32 RetVal = 0;
 
-	// GetFilteredFriendsList is not exposed
-#if 0
-	TArray< TSharedPtr< IFriendItem > > FriendsList;
-	RetVal = ISocialModule::Get().GetFriendsAndChatManager()->GetFilteredFriendsList(FriendsList);
-	for (auto Friend : FriendsList)
+	if (OnlineFriendsInterface.IsValid() && OnlineUserInterface.IsValid())
 	{
-		OutFriendsList.Add(FUTFriend(Friend->GetUniqueID()->ToString(), Friend->GetName(), true));
-	}
+		TArray< TSharedRef< FOnlineFriend > > FriendsList;
+		if (OnlineFriendsInterface->GetFriendsList(0, TEXT("default"), FriendsList))
+		{
+			for (auto Friend : FriendsList)
+			{
+				TSharedPtr<FOnlineUser> User = OnlineUserInterface->GetUserInfo(0, *Friend->GetUserId());
+				if (User.IsValid())
+				{
+					OutFriendsList.Add(FUTFriend(Friend->GetUserId()->ToString(), User->GetDisplayName(), true));
+				}
+			}
 
-	OutFriendsList.Sort([](const FUTFriend& A, const FUTFriend& B) -> bool
-	{
-		return A.DisplayName < B.DisplayName;
-	});
-#endif
+			OutFriendsList.Sort([](const FUTFriend& A, const FUTFriend& B) -> bool
+			{
+				return A.DisplayName < B.DisplayName;
+			});
+		}
+	}
 
 	return RetVal;
 }
@@ -2856,19 +2863,18 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 
 	int32 RetVal = 0;
 
-	// GetRecentPlayersList is not exposed
-#if 0
-	TArray< TSharedPtr< IFriendItem > > RecentPlayersList;
-	RetVal = ISocialModule::Get().GetFriendsAndChatManager()->GetRecentPlayersList(RecentPlayersList);
-	for (auto RecentPlayer : RecentPlayersList)
+	if (OnlineFriendsInterface.IsValid() && OnlineUserInterface.IsValid())
 	{
-		OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUniqueID()->ToString(), RecentPlayer->GetName(), false));
+		TArray< TSharedRef< FOnlineFriend > > RecentPlayersList;
+		for (auto RecentPlayer : RecentPlayersList)
+		{
+			TSharedPtr<FOnlineUser> User = OnlineUserInterface->GetUserInfo(0, *RecentPlayer->GetUserId());
+			if (User.IsValid())
+			{
+				OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUserId()->ToString(), User->GetDisplayName(), true));
+			}
+		}
 	}
-	OutRecentPlayersList.Sort([](const FUTFriend& A, const FUTFriend& B) -> bool
-	{
-		return A.DisplayName < B.DisplayName;
-	});
-#endif
 
 	return RetVal;
 }
