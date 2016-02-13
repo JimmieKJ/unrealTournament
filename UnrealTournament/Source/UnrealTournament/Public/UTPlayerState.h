@@ -17,6 +17,7 @@
 #include "StatManager.h"
 #include "UTWeaponSkin.h"
 #include "OnlineNotification.h"
+#include "JsonObjectConverter.h"
 #if WITH_PROFILE
 #include "UtMcpProfile.h"
 #endif

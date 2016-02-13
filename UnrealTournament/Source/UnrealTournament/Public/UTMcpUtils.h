@@ -184,6 +184,7 @@ private:
 	/** Game Account Id of the requestor */
 	TSharedPtr<const FUniqueNetId> GameAccountId;
 
+#if WITH_PROFILE
 	TSharedRef<FOnlineHttpRequest> CreateRequest(const FString& Verb, const FString& Path) const;
 
 	/** Generic send http request */
@@ -193,6 +194,7 @@ private:
 	* Delegate fired when Http Requests complete (generic)
 	*/
 	void HttpRequestComplete(TSharedRef<FHttpRetrySystem::FRequest>& HttpRequest, bool bSucceeded, TFunction<bool(const FHttpResponsePtr& HttpResponse)> OnComplete);
-	
+#endif
+
 	TWeakObjectPtr<UWorld> OwnerWorld;
 };
