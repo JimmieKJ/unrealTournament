@@ -197,6 +197,9 @@ struct FMovementEventInfo
 	TEnumAsByte<EMovementEvent> EventType;
 
 	UPROPERTY(BlueprintReadOnly)
+		uint8 EventCount;
+
+	UPROPERTY(BlueprintReadOnly)
 	FVector_NetQuantize EventLocation;
 };
 
@@ -1363,10 +1366,6 @@ public:
 	/** For replicating movement events to generate client side sounds and effects. */
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = MovementEventReplicated, Category = "Movement")
 		FMovementEventInfo MovementEvent;
-
-	/** Last time MovementEvent was updated.  @TODO FIXMESTEVE - like flashcount, should not rep to owner, or if more than 0.5f since updated. */
-	UPROPERTY(BlueprintReadOnly, Category = "Movement")
-		float MovementEventTime;
 
 	/** Direction associated with movement event.  Only accurate on server and player creating event, otherwise, uses Velocity normal. */
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")

@@ -3210,6 +3210,7 @@ void AUTCharacter::OnSlide_Implementation(const FVector & SlideLocation, const F
 
 void AUTCharacter::PlayLandedEffect_Implementation()
 {
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
 	UParticleSystem* EffectToPlay = ((GetNetMode() != NM_DedicatedServer) && (FMath::Abs(GetCharacterMovement()->Velocity.Z)) > LandEffectSpeed) ? LandEffect : NULL;
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if ((EffectToPlay != nullptr) && WS->EffectIsRelevant(this, GetActorLocation(), true, true, 10000.f, 0.f, false))
@@ -3282,7 +3283,6 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		}
 		else
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
 			PlayLandedEffect();
 		}
 
@@ -5630,9 +5630,9 @@ bool AUTCharacter::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObje
 
 void AUTCharacter::MovementEventUpdated(EMovementEvent MovementEventType, FVector Dir)
 {
-	MovementEventTime = GetWorld()->GetTimeSeconds();
 	MovementEvent.EventType = MovementEventType;
 	MovementEvent.EventLocation = GetActorLocation();
+	MovementEvent.EventCount++;
 	MovementEventDir = Dir;
 	if (IsLocallyViewed())
 	{
