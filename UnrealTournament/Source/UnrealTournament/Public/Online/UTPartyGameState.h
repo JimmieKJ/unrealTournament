@@ -19,6 +19,38 @@ enum class EUTPartyState : uint8
 };
 
 /**
+ * Current state of the party
+ */
+USTRUCT()
+struct FUTPartyRepState : public FPartyState
+{
+	GENERATED_USTRUCT_BODY();
+
+	/** Has the leader begun connecting to lobby */
+	UPROPERTY()
+	bool bLobbyConnectionStarted;
+
+	/** Result of matchmaking by the leader */
+	UPROPERTY()
+	EMatchmakingCompleteResult MatchmakingResult;
+
+	/** Session id to join when set */
+	UPROPERTY()
+	FString SessionId;
+
+	FUTPartyRepState()
+	{
+		Reset();
+		PartyType = EPartyType::Public;
+		bLeaderFriendsOnly = false;
+		bLeaderInvitesOnly = false;
+	}
+
+	/** Reset party back to defaults */
+	virtual void Reset() override;
+};
+
+/**
  * Party game state that contains all information relevant to the communication within a party
  * Keeps all players in sync with the state of the party and its individual members
  */
@@ -45,6 +77,12 @@ private:
 	/** Passenger view related delegates prior to joining a lobby/game */
 	FOnClientPartyStateChanged ClientPartyStateChanged;
 	FOnClientMatchmakingComplete ClientMatchmakingComplete;
+	
+	/**
+	 * Cached data for the party, only modifiable by the party leader
+	 */
+	UPROPERTY()
+	FUTPartyRepState PartyState;
 
 public:
 	FOnClientPartyStateChanged& OnClientPartyStateChanged() { return ClientPartyStateChanged; }
