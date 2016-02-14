@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTReplicatedLoadoutInfo.h"
+#include "UTLobbyBeaconState.h"
 #include "UTGameState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
@@ -503,6 +504,14 @@ public:
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
+	/** Set the lobby game state object when it exists */
+	void SetLobbyGameState(AUTLobbyBeaconState* InLobbyGameState);
+
+	/** Get the lobby game state object if it exists */
+	AUTLobbyBeaconState* GetLobbyGameState() const { return LobbyGameState; }
+
+protected:
+	AUTLobbyBeaconState* LobbyGameState;
 };
 
 

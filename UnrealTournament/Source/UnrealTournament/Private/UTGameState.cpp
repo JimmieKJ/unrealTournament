@@ -15,6 +15,7 @@
 #include "StatNames.h"
 #include "UTGameEngine.h"
 #include "UTBaseGameMode.h"
+#include "UTGameInstance.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1717,4 +1718,18 @@ void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	
 
 
+}
+
+void AUTGameState::SetLobbyGameState(AUTLobbyBeaconState* InLobbyGameState)
+{
+	if (LobbyGameState != InLobbyGameState)
+	{
+		LobbyGameState = InLobbyGameState;
+
+		UUTGameInstance* GameInstance = UUTGameInstance::Get(this);
+		if (GameInstance)
+		{
+			GameInstance->OnLobbyStateSet().Broadcast(LobbyGameState);
+		}
+	}
 }

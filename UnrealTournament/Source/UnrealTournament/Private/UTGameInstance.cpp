@@ -7,9 +7,16 @@
 #include "UTDemoNetDriver.h"
 #include "UTGameEngine.h"
 #include "UTGameViewportClient.h"
+#include "UTMatchmaking.h"
+#include "UTParty.h"
+
+/* Delays for various timers during matchmaking */
+#define DELETESESSION_DELAY 1.0f
 
 UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, Matchmaking(nullptr)
+	, Party(nullptr)
 {
 }
 
@@ -23,6 +30,22 @@ void UUTGameInstance::Init()
 	{
 		// Attach a handler for exec commands passed in via the perf counter query port
 		PerfCounters->OnPerfCounterExecCommand() = FPerfCounterExecCommandCallback::CreateUObject(this, &ThisClass::PerfExecCmd);
+	}
+
+	// Don't turn on parties yet
+	if (0 && !IsDedicatedServerInstance())
+	{
+		// handles all matchmaking in game
+		Matchmaking = NewObject<UUTMatchmaking>(this);
+		check(Matchmaking);
+
+		// party management
+		Party = NewObject<UUTParty>(this);
+		check(Party);
+
+		// Initialize both after construction (each needs the pointer of the other)
+		Matchmaking->Init();
+		Party->Init();
 	}
 }
 
@@ -306,4 +329,133 @@ void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, con
 	{
 		FCoreUObjectDelegates::PostDemoPlay.Broadcast();
 	}
+}
+
+
+void UUTGameInstance::Shutdown()
+{
+	if (Matchmaking)
+	{
+		Matchmaking->DisconnectFromLobby();
+	}
+
+	if (Party)
+	{
+		Party->OnShutdown();
+	}
+	
+	Super::Shutdown();
+}
+
+/*static*/ UUTGameInstance* UUTGameInstance::Get(UObject* ContextObject)
+{
+	UUTGameInstance* GameInstance = NULL;
+	UWorld* OwningWorld = GEngine->GetWorldFromContextObject(ContextObject, false);
+
+	if (OwningWorld)
+	{
+		GameInstance = Cast<UUTGameInstance>(OwningWorld->GetGameInstance());
+	}
+	return GameInstance;
+}
+
+UUTParty* UUTGameInstance::GetParties() const
+{
+	return Party;
+}
+
+void UUTGameInstance::SafeSessionDelete(FName SessionName, FOnDestroySessionCompleteDelegate DestroySessionComplete)
+{
+	UWorld* World = GetWorld();
+	check(World);
+
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(/*World*/);
+	if (SessionInt.IsValid())
+	{
+		EOnlineSessionState::Type SessionState = SessionInt->GetSessionState(SessionName);
+		if (SessionState != EOnlineSessionState::NoSession)
+		{
+			if (SessionState != EOnlineSessionState::Destroying)
+			{
+				if (SessionState != EOnlineSessionState::Creating &&
+					SessionState != EOnlineSessionState::Ending)
+				{
+					SafeSessionDeleteTimerHandle.Invalidate();
+
+					FOnDestroySessionCompleteDelegate CompletionDelegate;
+					CompletionDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UUTGameInstance::OnDeleteSessionComplete, DestroySessionComplete);
+
+					DeleteSessionDelegateHandle = SessionInt->AddOnDestroySessionCompleteDelegate_Handle(CompletionDelegate);
+					SessionInt->DestroySession(SessionName);
+				}
+				else
+				{
+					if (!SafeSessionDeleteTimerHandle.IsValid())
+					{
+						// Retry shortly
+						FTimerDelegate RetryDelegate;
+						RetryDelegate.BindUObject(this, &UUTGameInstance::SafeSessionDelete, SessionName, DestroySessionComplete);
+						World->GetTimerManager().SetTimer(SafeSessionDeleteTimerHandle, RetryDelegate, DELETESESSION_DELAY, false);
+					}
+					else
+					{
+						// Timer already in flight
+						TArray<FOnDestroySessionCompleteDelegate>& DestroyDelegates = PendingDeletionDelegates.FindOrAdd(SessionName);
+						DestroyDelegates.Add(DestroySessionComplete);
+					}
+				}
+			}
+			else
+			{
+				// Destroy already in flight
+				TArray<FOnDestroySessionCompleteDelegate>& DestroyDelegates = PendingDeletionDelegates.FindOrAdd(SessionName);
+				DestroyDelegates.Add(DestroySessionComplete);
+			}
+		}
+		else
+		{
+			UE_LOG(LogOnlineGame, Verbose, TEXT("SafeSessionDelete called on session %s in state %s, skipping."), *SessionName.ToString(), EOnlineSessionState::ToString(SessionState));
+			DestroySessionComplete.ExecuteIfBound(SessionName, false);
+		}
+
+		return;
+	}
+
+	// Non shipping builds can return success, otherwise fail
+	bool bWasSuccessful = !UE_BUILD_SHIPPING;
+	DestroySessionComplete.ExecuteIfBound(SessionName, bWasSuccessful);
+}
+
+void UUTGameInstance::OnDeleteSessionComplete(FName SessionName, bool bWasSuccessful, FOnDestroySessionCompleteDelegate DestroySessionComplete)
+{
+	UE_LOG(LogOnlineGame, Verbose, TEXT("OnDeleteSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+	SafeSessionDeleteTimerHandle.Invalidate();
+
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(/*GetWorld()*/);
+	if (SessionInt.IsValid())
+	{
+		SessionInt->ClearOnDestroySessionCompleteDelegate_Handle(DeleteSessionDelegateHandle);
+	}
+
+	DestroySessionComplete.ExecuteIfBound(SessionName, bWasSuccessful);
+
+	TArray<FOnDestroySessionCompleteDelegate> DelegatesCopy;
+	if (PendingDeletionDelegates.RemoveAndCopyValue(SessionName, DelegatesCopy))
+	{
+		// All other delegates captured while destroy was in flight
+		for (const FOnDestroySessionCompleteDelegate& ExtraDelegate : DelegatesCopy)
+		{
+			ExtraDelegate.ExecuteIfBound(SessionName, bWasSuccessful);
+		}
+	}
+}
+
+AUTLobbyBeaconClient* UUTGameInstance::GetLobbyBeaconClient() const
+{
+	if (Matchmaking)
+	{
+		return Matchmaking->GetLobbyBeaconClient();
+	}
+
+	return nullptr;
 }

@@ -4,6 +4,8 @@
 
 #include "UnrealTemplate.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogUTAnalytics, Display, All);
+
 class IAnalyticsProvider;
 
 class FUTAnalytics : FNoncopyable
