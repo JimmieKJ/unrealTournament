@@ -2562,7 +2562,7 @@ void AUTBot::ExecuteWhatToDoNext()
 			}
 
 			// FALLBACK: just wander randomly
-			if (CurrentAction == NULL)
+			if (CurrentAction == NULL && GetPawn() != NULL)
 			{
 				GoalString = TEXT("Lost, wander randomly...");
 				FRandomDestEval NodeEval;
