@@ -283,6 +283,7 @@ void AUTTeamInfo::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType
 				new(EnemyList) FBotEnemyInfo(NewEnemy, UpdateType);
 				// tell bots on team to consider new enemy
 				/* TODO: notify squads, let it decide if this enemy is worth disrupting bots for
+				 TODO: enemies aren't really 'lost' from this list, so requiring enemy to be 'new' in this context isn't good enough
 				for (AController* Member : TeamMembers)
 				{
 					AUTBot* B = Cast<AUTBot>(Member);

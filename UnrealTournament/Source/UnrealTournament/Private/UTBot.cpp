@@ -701,7 +701,7 @@ void AUTBot::Tick(float DeltaTime)
 		// check current enemy every frame, others on a slightly random timer to avoid hitches
 		if (Enemy != NULL)
 		{
-			if (Enemy->IsPendingKillPending())
+			if (!FBotEnemyInfo(Enemy, EUT_Seen).IsValid())
 			{
 				// enemy was destroyed directly instead of killed so we didn't get notify
 				SetEnemy(NULL);
@@ -2516,17 +2516,9 @@ void AUTBot::ExecuteWhatToDoNext()
 		}*/
 
 		// make sure enemy is valid
-		if (Enemy != NULL)
+		if (Enemy != NULL && !FBotEnemyInfo(Enemy, EUT_Seen).IsValid())
 		{
-			if (Enemy->IsPendingKillPending())
-			{
-				Enemy = NULL;
-			}
-			AUTCharacter* EnemyUTChar = Cast<AUTCharacter>(Enemy);
-			if (EnemyUTChar != NULL && EnemyUTChar->IsDead())
-			{
-				Enemy = NULL;
-			}
+			SetEnemy(NULL);
 		}
 		if (Enemy == NULL)
 		{
@@ -3015,7 +3007,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 	}
 	if (NewHuntTarget == NULL || GetEnemyInfo(NewHuntTarget, false) == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no enemy"), *PlayerState->PlayerName);
+		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no or invalid enemy %s"), *PlayerState->PlayerName, *GetNameSafe(NewHuntTarget));
 		GoalString = TEXT("BUG - HUNT WITH BAD TARGET - Force CampAction");
 		StartNewAction(CampAction);
 	}
