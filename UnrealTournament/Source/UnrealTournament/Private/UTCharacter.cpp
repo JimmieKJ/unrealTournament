@@ -1201,7 +1201,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->ReceivedDamageSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
-			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesBlood)
+			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesPainSound)
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}

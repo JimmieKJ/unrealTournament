@@ -15,6 +15,7 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	GibHealthThreshold = -50;
 	GibDamageThreshold = 99;
 	bCausesBlood = true;
+	bCausesPainSound = true;
 	bBlockedByArmor = true;
 	RewardAnnouncementClass = NULL;
 	WeaponSpreeCount = 15;

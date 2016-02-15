@@ -97,6 +97,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	uint32 bCausesBlood : 1;
 
+	/** whether this damagetype causes normal pain sounds */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+		uint32 bCausesPainSound : 1;
+
 	/** Whether armor can reduce this damage. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	uint32 bBlockedByArmor : 1;
@@ -123,9 +127,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = DamageType)
 	int32 GibHealthThreshold;
+
 	/** if the damage of the fatal blow exceeds this value than the Pawn gibs (unless hard disabled by client option) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = DamageType)
-	int32 GibDamageThreshold;
+		int32 GibDamageThreshold;
 
 	/** called on the server when a player is killed by this damagetype */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
