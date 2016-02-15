@@ -15,6 +15,7 @@
 #include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 #include "StatNames.h"
+#include "UTSpectatorCamera.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -574,6 +575,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 				{
 					PC->ChangeState(NAME_Spectating);
 					PC->ClientGotoState(NAME_Spectating);
+					PC->SetViewTarget(P);
 				}
 			}
 		}
