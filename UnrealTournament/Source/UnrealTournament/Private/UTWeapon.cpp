@@ -1833,8 +1833,8 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 			}
 			else
 			{
-				UUTCrosshair* Crosshair = WeaponHudWidget->UTHUDOwner->GetCrosshair(this);
-				FCrosshairInfo* CrosshairInfo = WeaponHudWidget->UTHUDOwner->GetCrosshairInfo(this);
+				UUTCrosshair* Crosshair = WeaponHudWidget->UTHUDOwner->GetCrosshair(GetClass());
+				FCrosshairInfo* CrosshairInfo = WeaponHudWidget->UTHUDOwner->GetCrosshairInfo(GetClass());
 
 				if (Crosshair != nullptr && CrosshairInfo != nullptr)
 				{

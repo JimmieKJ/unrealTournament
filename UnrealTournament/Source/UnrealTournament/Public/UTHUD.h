@@ -442,9 +442,9 @@ public:
 
 	/**Gets the crosshair for the weapon. Creates a new one if necessary*/
 	UFUNCTION(BlueprintCallable, Category = Crosshair)
-	class UUTCrosshair* GetCrosshair(AUTWeapon* Weapon);
+	class UUTCrosshair* GetCrosshair(TSubclassOf<AUTWeapon> Weapon);
 
-	FCrosshairInfo* GetCrosshairInfo(AUTWeapon* Weapon);
+	FCrosshairInfo* GetCrosshairInfo(TSubclassOf<AUTWeapon> Weapon);
 
 	UPROPERTY()
 	TArray<class UUTCrosshair*> LoadedCrosshairs;

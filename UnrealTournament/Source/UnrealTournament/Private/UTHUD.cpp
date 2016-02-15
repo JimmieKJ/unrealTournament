@@ -126,6 +126,15 @@ void AUTHUD::BeginPlay()
 		DamageIndicators[i].DamageAmount = 0.0f;
 		DamageIndicators[i].FadeTime = 0.0f;
 	}
+
+	// preload all known required crosshairs
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		if (It->IsChildOf(AUTWeapon::StaticClass()))
+		{
+			GetCrosshair(*It);
+		}
+	}
 }
 
 void AUTHUD::AddSpectatorWidgets()
@@ -962,7 +971,7 @@ EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 	return EInputMode::EIM_None;
 }
 
-UUTCrosshair* AUTHUD::GetCrosshair(AUTWeapon* Weapon)
+UUTCrosshair* AUTHUD::GetCrosshair(TSubclassOf<AUTWeapon> Weapon)
 {
 	FCrosshairInfo* CrosshairInfo = GetCrosshairInfo(Weapon);
 	if (CrosshairInfo != nullptr)
@@ -986,9 +995,9 @@ UUTCrosshair* AUTHUD::GetCrosshair(AUTWeapon* Weapon)
 	return nullptr;
 }
 
-FCrosshairInfo* AUTHUD::GetCrosshairInfo(AUTWeapon* Weapon)
+FCrosshairInfo* AUTHUD::GetCrosshairInfo(TSubclassOf<AUTWeapon> Weapon)
 {
-	FString WeaponClass = (!bCustomWeaponCrosshairs || Weapon == nullptr) ? TEXT("Global") : Weapon->GetClass()->GetPathName();
+	FString WeaponClass = (!bCustomWeaponCrosshairs || Weapon == nullptr) ? TEXT("Global") : Weapon->GetPathName();
 
 	FCrosshairInfo* FoundInfo = CrosshairInfos.FindByPredicate([WeaponClass](const FCrosshairInfo& Info) { return Info.WeaponClassName == WeaponClass; });
 	if (FoundInfo != nullptr)
