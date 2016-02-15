@@ -387,6 +387,7 @@ private:
 	IOnlineFriendsPtr OnlineFriendsInterface;
 	IOnlineTitleFilePtr OnlineTitleFileInterface;
 	IOnlineUserPtr OnlineUserInterface;
+	IOnlinePartyPtr OnlinePartyInterface;
 
 	// Our delegate references....
 	FDelegateHandle OnLoginCompleteDelegate;
@@ -868,9 +869,14 @@ protected:
 	UPROPERTY(Config)
 	int32 FragCenterCounter;
 
+	/** Party related items */
 	void CreatePersistentParty();
 	void DelayedCreatePersistentParty();
 	FTimerHandle PersistentPartyCreationHandle;
+	void OnFriendsListJoinParty(const FUniqueNetId& SenderId, const TSharedRef<class IOnlinePartyJoinInfo>& PartyJoinInfo, bool bIsFromInvite);
+	void JoinPartyInternal(const FUniqueNetId& LocalPlayerId, bool bIsFromInvite, const TSharedRef<const IOnlinePartyJoinInfo>& PartyJoinInfo);
+	void OnJoinPartyCompleteInternal(const FUniqueNetId& LocalUserId, EJoinPartyCompletionResult Result, int32 DeniedResultCode);
+	TSharedPtr<const FOnlineUser> PendingPartyPlayerInfo;
 
 	bool bCancelJoinSession;
 
