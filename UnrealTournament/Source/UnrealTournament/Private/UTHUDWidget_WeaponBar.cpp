@@ -241,23 +241,23 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 						Opacity = (UTHUDOwner->HUDWidgetOpacity > 0.f) ? 1.f : 0.f;
 						float AmmoPerc = CurrentWeapon->MaxAmmo > 0 ? float(CurrentWeapon->Ammo) / float(CurrentWeapon->MaxAmmo) : 0.f;
 						float BarHeight = CellHeight - 16.f;
-						float Width = bSelected ? 9.f : 7.f;
+						float Width = bSelected ? 12.f : 9.f;
 						float X = (Width * -1.f) - 2.f;
 						float Y = YPosition + 4.f;
 						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.f, FLinearColor::Black);
 
 						Y = Y + BarHeight - 1.f - ((BarHeight-2.f) * AmmoPerc);
 						BarHeight = (BarHeight -2.f) * AmmoPerc;
-						FLinearColor BarColor = FLinearColor(0.5f, 0.5f, 1.f ,1.f);
+						FLinearColor BarColor = FLinearColor(0.4f, 1.f, 0.4f ,1.f);
 						if (AmmoPerc <= 0.33f)
 						{
-							BarColor = FLinearColor(1.f, 0.5f, 0.5f, 1.f);
+							BarColor = FLinearColor(1.f, 0.f, 0.f, 1.f);
 						}
 						else if (AmmoPerc <= 0.66f)
 						{
-							BarColor = FLinearColor(1.f, 1.f, 0.5f, 1.f);
+							BarColor = FLinearColor(1.f, 1.f, 0.4f, 1.f);
 						}
-						DrawTexture(BarTexture, X + 1.f, Y, Width - 2.f, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, Opacity, BarColor);
+						DrawTexture(BarTexture, X, Y, Width - 1.f, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, Opacity, BarColor);
 					}
 				}
 
