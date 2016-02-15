@@ -40,15 +40,6 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	ClothBlendHeld = 0.5f;
 }
 
-void AUTCTFFlag::OnConstruction(const FTransform& Transform)
-{
-	Super::OnConstruction(Transform);
-
-	// backwards compatibility; force values on existing instances
-	GetMesh()->SetAbsolute(false, false, true);
-	GetMesh()->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
-}
-
 void AUTCTFFlag::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
