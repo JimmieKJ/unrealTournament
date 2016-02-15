@@ -868,6 +868,10 @@ protected:
 	UPROPERTY(Config)
 	int32 FragCenterCounter;
 
+	void CreatePersistentParty();
+	void DelayedCreatePersistentParty();
+	FTimerHandle PersistentPartyCreationHandle;
+
 	bool bCancelJoinSession;
 
 	void OnProfileManagerInitComplete(bool bSuccess, const FText& ErrorText);

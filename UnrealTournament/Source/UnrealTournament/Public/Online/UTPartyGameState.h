@@ -5,7 +5,11 @@
 #include "PartyGameState.h"
 #include "UTPartyGameState.generated.h"
 
+class UUTParty;
+class UUTPartyMemberState;
+
 enum class EMatchmakingCompleteResult : uint8;
+enum class EUTPartyMemberLocation : uint8;
 
 UENUM(BlueprintType)
 enum class EUTPartyState : uint8
@@ -25,6 +29,10 @@ USTRUCT()
 struct FUTPartyRepState : public FPartyState
 {
 	GENERATED_USTRUCT_BODY();
+	
+	/** What the party is doing at the moment */
+	UPROPERTY()
+	EUTPartyState PartyProgression;
 
 	/** Has the leader begun connecting to lobby */
 	UPROPERTY()
@@ -58,7 +66,10 @@ UCLASS(config=Game, notplaceable)
 class UNREALTOURNAMENT_API UUTPartyGameState : public UPartyGameState
 {
 	GENERATED_UCLASS_BODY()
-	
+
+	virtual void RegisterFrontendDelegates() override;
+	virtual void UnregisterFrontendDelegates() override;
+
 	/**
 	 * Delegate fired when a party state changes
 	 * 
@@ -84,7 +95,68 @@ private:
 	UPROPERTY()
 	FUTPartyRepState PartyState;
 
+	/** Delegates related to party member data changes */
+	FOnPartyMemberPropertyChanged LocationChanged;
+
+	/**
+	 * Handle matchmaking started delegate
+	 */
+	void OnPartyMatchmakingStarted();
+	
+	/**
+	 * Delegate triggered when matchmaking is complete
+	 *
+	 * @param EndResult in what state matchmaking ended
+	 * @param SearchResult the result returned if successful
+	 */
+	void OnPartyMatchmakingComplete(EMatchmakingCompleteResult EndResult);
+
+	/**
+	 * Handle lobby connection started delegate
+	 */
+	void OnLobbyConnectionStarted();
+
+	/**
+	 * Handle lobby connection attempt failure
+	 */
+	void OnLobbyConnectionAttemptFailed();
+	
+	/**
+	 * Handle lobby connect success and now waiting for players
+	 */
+	void OnLobbyWaitingForPlayers();
+
+	/**
+	 * Handle joining the game from the lobby
+	 */
+	void OnLobbyConnectingToGame();
+
+	/**
+	 * Handle disconnect from a lobby
+	 */
+	void OnLobbyDisconnected();
+
+	/**
+	 * Handle lobby connect request made by the party leader to members
+	 *
+	 * @param SearchResult destination of the party leader
+	 */
+	void OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult, const FString& CriticalMissionSessionId);
+
+	friend UUTParty;
+	friend UUTPartyMemberState;
+
 public:
+	/**
+	 * Tell other party members about the location of local players
+	 * 
+	 * @param NewLocation new "location" within the game (see EFortPartyMemberLocation)
+	 */
+	void SetLocation(EUTPartyMemberLocation NewLocation);
+	
+	/** @return delegate fired when the location of the player has changed */
+	FOnPartyMemberPropertyChanged& OnLocationChanged() { return LocationChanged; }
+
 	FOnClientPartyStateChanged& OnClientPartyStateChanged() { return ClientPartyStateChanged; }
 	FOnClientMatchmakingComplete& OnClientMatchmakingComplete() { return ClientMatchmakingComplete; }
 };

@@ -61,6 +61,8 @@
 #include "SUTInGameHomePanel.h"
 #include "UTMcpUtils.h"
 #include "UTPlayerState.h"
+#include "UTGameInstance.h"
+#include "UTParty.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -852,6 +854,8 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 					{
 						UTPC->PlayerState->SetUniqueId(UserId); 
 					}
+
+					CreatePersistentParty();
 				}
 			}
 		}
@@ -873,6 +877,33 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		// Broadcast the failure to the UI.
 		PlayerOnlineStatusChanged.Broadcast(this, ELoginStatus::NotLoggedIn, UniqueID);
 		GetAuth(ErrorMessage);
+	}
+}
+
+// When MCP gets the XMPP login, it wipes parties of 1, other games have multiple step logins that mask this race condition, UT does not.
+// Avoid race condition with lazy SetTimer for now until XMPP delegates can be created
+void UUTLocalPlayer::CreatePersistentParty()
+{
+	GetWorld()->GetTimerManager().SetTimer(PersistentPartyCreationHandle, this, &UUTLocalPlayer::DelayedCreatePersistentParty, 2.0f, false);
+}
+
+void UUTLocalPlayer::DelayedCreatePersistentParty()
+{
+	if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
+	{
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		if (UserId.IsValid())
+		{
+			UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+			if (UTGameInstance)
+			{
+				UUTParty* UTParty = UTGameInstance->GetParties();
+				if (UTParty)
+				{
+					UTParty->CreatePersistentParty(*UserId);
+				}
+			}
+		}
 	}
 }
 

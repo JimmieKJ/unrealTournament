@@ -359,6 +359,11 @@ void UUTGameInstance::Shutdown()
 	return GameInstance;
 }
 
+UUTMatchmaking* UUTGameInstance::GetMatchmaking() const
+{
+	return Matchmaking;
+}
+
 UUTParty* UUTGameInstance::GetParties() const
 {
 	return Party;

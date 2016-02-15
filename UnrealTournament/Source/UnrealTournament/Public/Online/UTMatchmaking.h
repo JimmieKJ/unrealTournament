@@ -97,6 +97,34 @@ public:
 
 	/** Generic delegate for lobby flow */
 	DECLARE_MULTICAST_DELEGATE(FOnLobbyNotification);
+	DECLARE_MULTICAST_DELEGATE(FOnMatchmakingStarted);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnMatchmakingStateChange, EMatchmakingState::Type /*OldState*/, EMatchmakingState::Type /*NewState*/, const FMMAttemptState& /*MMState*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnConnectToLobby, const FOnlineSessionSearchResult& /*SearchResult*/, const FString& /*CriticalMissionSessionId*/)
+
+	/** @return the delegate fired when matchmaking starts */
+	FOnMatchmakingStarted& OnMatchmakingStarted() { return MatchmakingStarted; }
+
+	/** @return the delegate fired when matchmaking is complete for any reason */
+	FOnMatchmakingComplete& OnMatchmakingComplete() { return MatchmakingComplete; }
+
+	/** @return the delegate fired when matchmaking state changes */
+	FOnMatchmakingStateChange& OnMatchmakingStateChange() { return MatchmakingStateChange; }
+
+	/** @return the delegate triggered when the lobby connection attempt starts */
+	FOnLobbyNotification& OnLobbyConnectionStarted() { return LobbyConnectionAttemptStarted; }
+
+	/** @return the delegate triggered when the lobby connection attempt fails */
+	FOnLobbyNotification& OnLobbyConnectionAttemptFailed() { return LobbyConnectionAttemptFailed; }
+
+	/** @return the delegate triggered when the lobby connection attempt begins */
+	FOnConnectToLobby& OnConnectToLobby() { return ConnectToLobbyDelegates; }
+
+	/** @return the delegate triggered when the lobby is ready, but waiting for more players */
+	FOnLobbyNotification& OnLobbyWaitingForPlayers() { return LobbyWaitingForPlayers; }
+
+	/** @return the delegate triggered when beginning to join the game from the lobby */
+	FOnLobbyNotification& OnLobbyConnectingToGame() { return LobbyConnectingToGame; }
 
 	/** @return the delegate triggered when this client has been disconnected from the lobby */
 	FOnLobbyNotification& OnLobbyDisconnecting() { return LobbyDisconnecting; }
@@ -105,6 +133,44 @@ public:
 	FOnLobbyNotification& OnLobbyDisconnected() { return LobbyDisconnected; }
 
 private:
+
+	/** Delegate triggered when matchmaking starts */
+	FOnMatchmakingStarted MatchmakingStarted;
+	
+	/**
+	 * Delegate triggered when matchmaking is complete
+	 *
+	 * @param Result end result of the matchmaking attempt
+	 */
+	FOnMatchmakingComplete MatchmakingComplete;
+	
+	/**
+	 * Delegate triggered when matchmaking state changes
+	 *
+	 * @param OldState leaving state
+	 * @param NewState entering state
+	 * @param MMState structure containing extended information about matchmaking
+	 */
+	FOnMatchmakingStateChange MatchmakingStateChange;
+
+	/** Delegate triggered when the lobby connection attempt starts */
+	FOnLobbyNotification LobbyConnectionAttemptStarted;
+
+	/** Delegate triggered when the lobby connection attempt fails */
+	FOnLobbyNotification LobbyConnectionAttemptFailed;
+	
+	/** 
+	 * Delegate triggered when a connection to a lobby begins 
+	 * 
+	 * @param SearchResult lobby result to connect to 
+	 */
+	FOnConnectToLobby ConnectToLobbyDelegates;
+
+	/** Delegate triggered when the lobby is ready, but waiting for more players */
+	FOnLobbyNotification LobbyWaitingForPlayers;
+
+	/** Delegate triggered when the lobby has been disconnected */
+	FOnLobbyNotification LobbyConnectingToGame;
 
 	/** Delegate triggered when the lobby has started the async process of disconnecting */
 	FOnLobbyNotification LobbyDisconnecting;
