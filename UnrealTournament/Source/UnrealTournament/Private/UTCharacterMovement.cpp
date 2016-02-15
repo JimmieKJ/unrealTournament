@@ -1333,6 +1333,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 	{
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{
+			((AUTCharacter*)CharacterOwner)->OnJumped();
 			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
 			((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::Jump);
 		}
