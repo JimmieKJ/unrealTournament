@@ -33,19 +33,22 @@ FReply SUTSpectatorWindow::OnMouseButtonUp(const FGeometry& MyGeometry, const FP
 	{
 		if ( !PC->bSpectatorMouseChangesView )
 		{
-			FVector2D MousePosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ).IntPoint();
-			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
-			if (SpectatorWidget)
+			FVector2D MousePosition;
+			if ( GetGameMousePosition(MousePosition) )
 			{
-				SpectatorWidget->SetMouseInteractive(true);
-				if ( SpectatorWidget->MouseClick(MousePosition) )
+				UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
+				if (SpectatorWidget)
 				{
-					return FReply::Handled();
-				}
+					SpectatorWidget->SetMouseInteractive(true);
+					if ( SpectatorWidget->MouseClick(MousePosition) )
+					{
+						return FReply::Handled();
+					}
 
-				if (!PC->bSpectatorMouseChangesView)
-				{
-					PC->SetSpectatorMouseChangesView(true);
+					if (!PC->bSpectatorMouseChangesView)
+					{
+						PC->SetSpectatorMouseChangesView(true);
+					}
 				}
 			}
 		}
@@ -61,7 +64,7 @@ FReply SUTSpectatorWindow::OnMouseMove(const FGeometry& MyGeometry, const FPoint
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
-		FVector2D MousePosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ).IntPoint();
+		FVector2D MousePosition;
 		if (!PC->bSpectatorMouseChangesView && GetGameMousePosition(MousePosition))
 		{
 			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
