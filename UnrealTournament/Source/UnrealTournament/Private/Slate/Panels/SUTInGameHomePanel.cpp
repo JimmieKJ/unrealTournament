@@ -327,7 +327,9 @@ void SUTInGameHomePanel::OnHidePanel()
 			ReplayTimeSlider->BecomeNonInteractive();
 		}
 	}
-	}
+
+	HideMatchSummary();
+}
 
 FText SUTInGameHomePanel::GetChatDestinationText() const
 {
@@ -746,6 +748,11 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 void SUTInGameHomePanel::HideMatchSummary()
 {
 	bFocusSummaryInv = true;
+	if (SummaryOverlay.IsValid())
+	{
+		SummaryOverlay->RemoveSlot(SummaryPanel.ToSharedRef());
+	}
+	SummaryPanel.Reset();
 }
 
 TSharedPtr<SUTMatchSummaryPanel> SUTInGameHomePanel::GetSummaryPanel()
