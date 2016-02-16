@@ -177,7 +177,7 @@ void AUTPlayerController::NetStats()
 	bShowNetInfo = !bShowNetInfo;
 	if (MyUTHUD && !MyUTHUD->HasHudWidget(UUTHUDWidget_NetInfo::StaticClass()))
 	{
-		MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass());
+		NetInfoWidget = Cast<UUTHUDWidget_NetInfo>(MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass()));
 	}
 }
 
@@ -2623,7 +2623,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-	if (IsInState(NAME_Spectating) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
+	if (IsInState(NAME_Spectating) && UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{
 		// possibly switch cameras
 		ChooseBestCamera();

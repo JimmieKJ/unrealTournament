@@ -228,6 +228,10 @@ public:
 	UPROPERTY()
 		bool bShowNetInfo;
 
+	/** Net info widget if bShowNetInfo. */
+	UPROPERTY()
+		class UUTHUDWidget_NetInfo* NetInfoWidget;
+
 	/** Toggle showing net stats on HUD. */
 	UFUNCTION(exec)
 		virtual void NetStats();
