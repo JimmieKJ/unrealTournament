@@ -748,7 +748,7 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 void SUTInGameHomePanel::HideMatchSummary()
 {
 	bFocusSummaryInv = true;
-	if (SummaryOverlay.IsValid())
+	if (SummaryOverlay.IsValid() && SummaryPanel.IsValid())
 	{
 		SummaryOverlay->RemoveSlot(SummaryPanel.ToSharedRef());
 	}
