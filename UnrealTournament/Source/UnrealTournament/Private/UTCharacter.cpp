@@ -4324,7 +4324,8 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 		GetMesh()->RelativeScale3D = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeScale3D * Data->Mesh->RelativeScale3D;
 		if (GetMesh() != GetRootComponent())
 		{
-			GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
+			// FIXMESTEVE re-enable after fixing content, also need to override startcrouch and endcrouch to use this value
+			//GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
 			GetMesh()->RelativeRotation = Data->Mesh->RelativeRotation;
 		}
 		// reapply any temporary override effects
