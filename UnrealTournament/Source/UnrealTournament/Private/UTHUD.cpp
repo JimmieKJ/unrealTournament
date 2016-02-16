@@ -546,7 +546,7 @@ void AUTHUD::DrawHUD()
 				}
 				if (SpectatorSlideOutWidget && SpectatorSlideOutWidget->bShowingStats)
 				{
-					if (!UTPlayerOwner->CurrentlyViewedScorePS)
+					if (UTPlayerOwner->CurrentlyViewedScorePS != GetScorerPlayerState())
 					{
 						UTPlayerOwner->CurrentlyViewedStatsTab = 1;
 						UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
