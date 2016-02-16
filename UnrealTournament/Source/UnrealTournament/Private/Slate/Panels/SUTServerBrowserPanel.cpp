@@ -104,6 +104,9 @@ struct FComparePlayersByNameDesc	{FORCEINLINE bool operator()( const TSharedPtr<
 struct FComparePlayersByScore		{FORCEINLINE bool operator()( const TSharedPtr< FServerPlayerData > A, const TSharedPtr< FServerPlayerData > B ) const {return ( A->Score > B->Score);	}};
 struct FComparePlayersByScoreDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerPlayerData > A, const TSharedPtr< FServerPlayerData > B ) const {return ( A->Score < B->Score);	}};
 
+// Const Variables
+const int SUTServerBrowserPanel::MAXCHARCOUNTFORSERVERFILTER = 150;
+
 SUTServerBrowserPanel::~SUTServerBrowserPanel()
 {
 	if (PlayerOwner.IsValid())
@@ -1949,7 +1952,16 @@ void SUTServerBrowserPanel::OnQuickFilterTextCommited(const FText& NewText, ETex
 
 void SUTServerBrowserPanel::OnFilterTextChanged(const FText& NewText)
 {
-	FilterMsg->SetVisibility( NewText.IsEmpty() ? EVisibility::Visible : EVisibility::Hidden);
+	const FString& QuickFilterTextAsString = QuickFilterText->GetText().ToString();
+	
+	if (QuickFilterTextAsString.Len() > MAXCHARCOUNTFORSERVERFILTER)
+	{
+		QuickFilterText->SetText(FText::FromString(QuickFilterTextAsString.Left(MAXCHARCOUNTFORSERVERFILTER)));
+	}
+	else
+	{
+		FilterMsg->SetVisibility(NewText.IsEmpty() ? EVisibility::Visible : EVisibility::Hidden);
+	}
 }
 
 

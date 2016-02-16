@@ -661,6 +661,8 @@ private:
 
 protected:
 
+	static const int MAXCHARCOUNTFORSERVERFILTER;
+
 	TSharedPtr<SUTBorder> AnimWidget;
 
 	FName BrowserState;
