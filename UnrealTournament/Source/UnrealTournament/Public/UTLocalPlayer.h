@@ -298,6 +298,14 @@ public:
 	// Log this local player out
 	virtual void Logout();
 
+	/** Called when the player has completed logging in, all data is downloaded but UI may still be showing */
+	DECLARE_MULTICAST_DELEGATE(FPlayerLoggedInDelegate);
+	FORCEINLINE FPlayerLoggedInDelegate& OnPlayerLoggedIn() { return PlayerLoggedIn; }
+
+	/** Called when the player has completed logging out, may be about to return to main menu or fail login */
+	DECLARE_MULTICAST_DELEGATE(FPlayerLoggedOutDelegate);
+	FORCEINLINE FPlayerLoggedOutDelegate& OnPlayerLoggedOut() { return PlayerLoggedOut; }
+
 	/**
 	 *	Gives a call back to an object looking to know when a player's status changed.
 	 **/
@@ -873,10 +881,6 @@ protected:
 	void CreatePersistentParty();
 	void DelayedCreatePersistentParty();
 	FTimerHandle PersistentPartyCreationHandle;
-	void OnFriendsListJoinParty(const FUniqueNetId& SenderId, const TSharedRef<class IOnlinePartyJoinInfo>& PartyJoinInfo, bool bIsFromInvite);
-	void JoinPartyInternal(const FUniqueNetId& LocalPlayerId, bool bIsFromInvite, const TSharedRef<const IOnlinePartyJoinInfo>& PartyJoinInfo);
-	void OnJoinPartyCompleteInternal(const FUniqueNetId& LocalUserId, EJoinPartyCompletionResult Result, int32 DeniedResultCode);
-	TSharedPtr<const FOnlineUser> PendingPartyPlayerInfo;
 
 	bool bCancelJoinSession;
 
@@ -904,4 +908,6 @@ protected:
 
 	FString PendingGameMode;
 
+	FPlayerLoggedInDelegate PlayerLoggedIn;
+	FPlayerLoggedOutDelegate PlayerLoggedOut;
 };

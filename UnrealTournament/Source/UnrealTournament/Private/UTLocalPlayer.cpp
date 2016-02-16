@@ -824,13 +824,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
  		{
 			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
  		}
-
-		TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
-		if (!GameAndPartyService->OnFriendsJoinParty().IsBoundToObject(this))
-		{
-			GameAndPartyService->OnFriendsJoinParty().AddUObject(this, &ThisClass::OnFriendsListJoinParty);
-		}
-		
+				
 #endif
 
 #if !UE_SERVER
@@ -916,95 +910,6 @@ void UUTLocalPlayer::DelayedCreatePersistentParty()
 	}
 }
 
-void UUTLocalPlayer::OnFriendsListJoinParty(const FUniqueNetId& SenderId, const TSharedRef<class IOnlinePartyJoinInfo>& PartyJoinInfo, bool bIsFromInvite)
-{
-	TSharedPtr<const FUniqueNetId> LocalUserId = GetPreferredUniqueNetId();
-
-	if (LocalUserId.IsValid())
-	{
-		TSharedPtr<const IOnlinePartyJoinInfo> UpdatedPartyJoinInfo;
-		if (OnlinePartyInterface.IsValid())
-		{
-			UpdatedPartyJoinInfo = OnlinePartyInterface->GetAdvertisedParty(*LocalUserId, SenderId, IOnlinePartySystem::GetPrimaryPartyTypeId());
-		}
-
-		if (!UpdatedPartyJoinInfo.IsValid() || !UpdatedPartyJoinInfo->CanJoin())
-		{
-			// Prefer the advertised party information, but get the social item invite data if necessary
-			UpdatedPartyJoinInfo = PartyJoinInfo;
-		}
-
-		if (UpdatedPartyJoinInfo.IsValid())
-		{
-			JoinPartyInternal(*LocalUserId, bIsFromInvite, UpdatedPartyJoinInfo.ToSharedRef());
-		}
-	}
-}
-
-void UUTLocalPlayer::JoinPartyInternal(const FUniqueNetId& LocalPlayerId, bool bIsFromInvite, const TSharedRef<const IOnlinePartyJoinInfo>& PartyJoinInfo)
-{
-	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
-	check(UTGameInstance);
-
-	UUTParty* UTParty = UTGameInstance->GetParties();
-	check(UTParty);
-
-	if (OnlineUserInterface.IsValid())
-	{
-		PendingPartyPlayerInfo = OnlineUserInterface->GetUserInfo(GetControllerId(), *(PartyJoinInfo->GetSourceUserId()));
-		if (!ensure(PendingPartyPlayerInfo.IsValid()))
-		{
-			UE_LOG(LogParty, Warning, TEXT("Invalid online user info!"));
-			return;
-		}
-
-		FPartyDetails PartyDetails(PartyJoinInfo, true);
-		UTParty->AddPendingJoin(LocalPlayerId.AsShared(), PartyDetails, UPartyDelegates::FOnJoinUPartyComplete::CreateUObject(this, &ThisClass::OnJoinPartyCompleteInternal));
-		
-		// Put confirm dialog here
-
-		UTParty->HandlePendingJoin();
-	}
-}
-
-void UUTLocalPlayer::OnJoinPartyCompleteInternal(const FUniqueNetId& LocalUserId, EJoinPartyCompletionResult Result, int32 DeniedResultCode)
-{
-	UE_LOG(LogParty, Display, TEXT("UUTLocalPlayer::OnJoinPartyCompleteInternal Result: %s"), ToString(Result));
-
-	if (Result != EJoinPartyCompletionResult::Succeeded)
-	{
-		//return HandleJoinPartyFailure(Result, DeniedResultCode);
-		return;
-	}
-
-	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
-	check(UTGameInstance);
-
-	UUTParty* UTParty = UTGameInstance->GetParties();
-	check(UTParty);
-
-	UPartyGameState* PartyState = UTParty ? UTParty->GetPersistentParty() : nullptr;
-	if (!PartyState)
-	{
-		UE_LOG(LogParty, Warning, TEXT("OnJoinPartyComplete: Invalid party state (null)"));
-		return;
-	}
-
-	TSharedPtr<const FUniqueNetId> PartyLeaderId = PartyState->GetPartyLeader();
-	if (!PartyLeaderId.IsValid() || *PartyLeaderId == LocalUserId)
-	{
-		return;
-	}
-
-	if (!PendingPartyPlayerInfo.IsValid())
-	{
-		UE_LOG(LogParty, Warning, TEXT("OnJoinPartyComplete: Invalid pending player info"));
-		return;
-	}
-
-	// Send toast about joining party
-}
-
 void UUTLocalPlayer::GetAuth(FString ErrorMessage)
 {
 #if !UE_SERVER
@@ -1045,6 +950,8 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		CurrentProfileSettings = NULL;
 		FUTAnalytics::LoginStatusChanged(FString());
 
+		OnPlayerLoggedOut().Broadcast();
+
 		if (bPendingLoginCreds)
 		{
 			bPendingLoginCreds = false;
@@ -1084,6 +991,8 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 
 		// If we have a pending session, then join it.
 		JoinPendingSession();
+
+		OnPlayerLoggedIn().Broadcast();
 	}
 
 

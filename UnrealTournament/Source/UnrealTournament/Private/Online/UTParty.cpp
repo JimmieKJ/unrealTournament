@@ -149,4 +149,37 @@ void UUTParty::OnLeavePartyForNewJoin(const FUniqueNetId& LocalUserId, const ELe
 	}
 }
 
+void UUTParty::ProcessInviteFromSearchResult(TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult)
+{
+	if (UserId.IsValid())
+	{
+		IOnlinePartyPtr PartyInt = Online::GetPartyInterface(/*GetWorld()*/);
+		check(PartyInt.IsValid());
+
+		FString JoinInfoJson;
+		InviteResult.Session.SessionSettings.Get(SETTING_CUSTOM, JoinInfoJson);
+
+		TSharedPtr<IOnlinePartyJoinInfo> JoinInfo = PartyInt->MakeJoinInfoFromJson(JoinInfoJson);
+
+		if (JoinInfo.IsValid())
+		{
+			FPartyDetails PartyDetails(JoinInfo.ToSharedRef(), true);
+			PendingPartyJoin = MakeShareable(new FPendingPartyJoin(UserId.ToSharedRef(), PartyDetails, UPartyDelegates::FOnJoinUPartyComplete::CreateUObject(this, &ThisClass::OnJoinPersistentPartyFromInviteComplete)));
+			HandlePendingJoin();
+		}
+	}
+}
+
+void UUTParty::OnJoinPersistentPartyFromInviteComplete(const FUniqueNetId& LocalUserId, const EJoinPartyCompletionResult Result, const int32 NotApprovedReason)
+{
+	FString PersistentPartyId = "Invalid";
+	if (GetPersistentPartyId().IsValid())
+	{
+		PersistentPartyId = GetPersistentPartyId()->ToString();
+	}
+	UE_LOG(LogOnlineGame, Verbose, TEXT("OnJoinPersistentPartyFromInviteComplete result %d for user %s with party ID %s"), (int32)Result, *LocalUserId.ToString(), *PersistentPartyId);
+
+	OnPartyJoinComplete().Broadcast(LocalUserId, Result, NotApprovedReason);
+}
+
 #undef LOCTEXT_NAMESPACE

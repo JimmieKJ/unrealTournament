@@ -5,9 +5,10 @@
 #include "UTInventory.h"
 #include "UTProjectile.h"
 #include "UTATypes.h"
-#include "UTPlayerController.h"
 
 #include "UTWeapon.generated.h"
+
+enum class EWeaponHand : uint8;
 
 USTRUCT(BlueprintType)
 struct FInstantHitDamageInfo

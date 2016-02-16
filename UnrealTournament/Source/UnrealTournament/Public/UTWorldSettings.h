@@ -4,6 +4,8 @@
 
 #include "UTWorldSettings.generated.h"
 
+class AUTPickupWeapon;
+
 USTRUCT()
 struct FTimedImpactEffect
 {

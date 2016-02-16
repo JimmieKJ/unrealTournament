@@ -5,6 +5,7 @@
  **/
 #pragma once
 
+#include "UTATypes.h"
 #include "SlateBasics.h"
 
 #if !UE_SERVER

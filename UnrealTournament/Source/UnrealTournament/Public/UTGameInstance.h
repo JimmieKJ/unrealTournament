@@ -5,6 +5,7 @@
 #include "Engine/GameInstance.h"
 #include "../../Engine/Source/Runtime/PerfCounters/Private/PerfCounters.h"
 #include "UTLobbyBeaconClient.h"
+#include "OnlineSessionInterface.h"
 #include "UTGameInstance.generated.h"
 
 class UUTMatchmaking;
@@ -66,7 +67,7 @@ inline void InitPerfCounters()
 	if (PerfCounters != nullptr)
 	{
 		// Not exactly full version string, but the build number
-		UE_LOG(UT,Log,TEXT("GEngineNetVersion %i"),GEngineNetVersion);
+		//UE_LOG(UT,Log,TEXT("GEngineNetVersion %i"),GEngineNetVersion);
 		PerfCounters->Set(TEXT("BuildVersion"), GEngineNetVersion);
 	}
 	else

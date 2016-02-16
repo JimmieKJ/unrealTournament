@@ -28,6 +28,9 @@ class UNREALTOURNAMENTEDITOR_API UUTUnrealEdEngine : public UUnrealEdEngine
 
 		// remove the priority of "ConsoleVariables.ini" from console variables because it prevents the UI from working
 		IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+
+		FModuleManager::Get().LoadModule("BlueprintContext");
+		FModuleManager::Get().LoadModule("BlueprintContextEditor");
 	}
 
 	virtual FString BuildPlayWorldURL(const TCHAR* MapName, bool bSpectatorMode, FString AdditionalURLOptions) override

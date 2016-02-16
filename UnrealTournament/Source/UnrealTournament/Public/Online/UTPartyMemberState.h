@@ -47,7 +47,7 @@ struct FUTPartyMemberRepState : public FPartyMemberRepState
  * Main representation of a party member
  */
 UCLASS(config = Game, notplaceable)
-class UUTPartyMemberState : public UPartyMemberState
+class UNREALTOURNAMENT_API UUTPartyMemberState : public UPartyMemberState
 {
 	GENERATED_UCLASS_BODY()
 

@@ -98,7 +98,7 @@ void AUTWeap_Enforcer::UpdateViewBob(float DeltaTime)
 	Super::UpdateViewBob(DeltaTime);
 
 	// if weapon is up in first person, view bob with movement
-	if (LeftMesh != NULL && LeftMesh->AttachParent != NULL && UTOwner != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals() && GetWeaponHand() != HAND_Hidden)
+	if (LeftMesh != NULL && LeftMesh->AttachParent != NULL && UTOwner != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals() && GetWeaponHand() != EWeaponHand::HAND_Hidden)
 	{
 		if (FirstPLeftMeshOffset.IsZero())
 		{
@@ -508,20 +508,20 @@ void AUTWeap_Enforcer::UpdateWeaponHand()
 		FirstPLeftMeshRotation = FRotator::ZeroRotator;
 		switch (GetWeaponHand())
 		{
-			case HAND_Center:
+			case EWeaponHand::HAND_Center:
 				// TODO: not implemented, fallthrough
 				UE_LOG(UT, Warning, TEXT("HAND_Center is not implemented yet!"));
-			case HAND_Right:
+			case EWeaponHand::HAND_Right:
 				LeftMesh->SetRelativeLocationAndRotation(GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->LeftMesh->RelativeLocation, GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->LeftMesh->RelativeRotation);
 				break;
-			case HAND_Left:
+			case EWeaponHand::HAND_Left:
 			{
 				// swap
 				LeftMesh->SetRelativeLocationAndRotation(GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->Mesh->RelativeLocation, GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->Mesh->RelativeRotation);
 				Mesh->SetRelativeLocationAndRotation(GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->LeftMesh->RelativeLocation, GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->LeftMesh->RelativeRotation);
 				break;
 			}
-			case HAND_Hidden:
+			case EWeaponHand::HAND_Hidden:
 			{
 				Mesh->SetRelativeLocationAndRotation(FVector(-50.0f, 20.0f, -50.0f), FRotator::ZeroRotator);
 				LeftMesh->SetRelativeLocationAndRotation(FVector(-50.0f, -20.0f, -50.0f), FRotator::ZeroRotator);

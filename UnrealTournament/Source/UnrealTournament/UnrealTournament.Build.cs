@@ -55,6 +55,7 @@ public class UnrealTournament : ModuleRules
 				                                    "Party",
 				                                    "Lobby",
 				                                    "Qos",
+                                                    "BlueprintContext",
                                                     "EngineSettings", 
 			                                        "Landscape",
                                                     "Foliage",
@@ -72,6 +73,8 @@ public class UnrealTournament : ModuleRules
         {
             PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "SourceControl", "PropertyEditor", "ShaderCore" });
         }
+
+        CircularlyReferencedDependentModules.Add("BlueprintContext");
         
         if (UEBuildConfiguration.bCompileMcpOSS == true)
         {

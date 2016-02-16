@@ -548,7 +548,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		UpdateWeaponHand();
-		Mesh->AttachTo(UTOwner->FirstPersonMesh, (GetWeaponHand() != HAND_Hidden) ? HandsAttachSocket : NAME_None);
+		Mesh->AttachTo(UTOwner->FirstPersonMesh, (GetWeaponHand() != EWeaponHand::HAND_Hidden) ? HandsAttachSocket : NAME_None);
 		if (ShouldPlay1PVisuals())
 		{
 			Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
@@ -619,13 +619,13 @@ void AUTWeapon::UpdateWeaponHand()
 
 		switch (GetWeaponHand())
 		{
-			case HAND_Center:
+			case EWeaponHand::HAND_Center:
 				// TODO: not implemented, fallthrough
 				UE_LOG(UT, Warning, TEXT("HAND_Center is not implemented yet!"));
-			case HAND_Right:
+			case EWeaponHand::HAND_Right:
 				AdjustMesh->SetRelativeLocationAndRotation(AdjustMeshArchetype->RelativeLocation, AdjustMeshArchetype->RelativeRotation);
 				break;
-			case HAND_Left:
+			case EWeaponHand::HAND_Left:
 			{
 				// TODO: should probably mirror, but mirroring breaks sockets at the moment (engine bug)
 				AdjustMesh->SetRelativeLocation(AdjustMeshArchetype->RelativeLocation * FVector(1.0f, -1.0f, 1.0f));
@@ -633,7 +633,7 @@ void AUTWeapon::UpdateWeaponHand()
 				AdjustMesh->SetRelativeRotation(AdjustedRotation);
 				break;
 			}
-			case HAND_Hidden:
+			case EWeaponHand::HAND_Hidden:
 			{
 				AdjustMesh->SetRelativeLocationAndRotation(FVector(-50.0f, 0.0f, -50.0f), FRotator::ZeroRotator);
 				if (AdjustMesh != Mesh)
@@ -659,7 +659,7 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 {
 	if (UTOwner == NULL && Role == ROLE_Authority)
 	{
-		return HAND_Right;
+		return EWeaponHand::HAND_Right;
 	}
 	else
 	{
@@ -680,7 +680,7 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 				}
 			}
 		}
-		return (Viewer != NULL) ? Viewer->GetWeaponHand() : HAND_Right;
+		return (Viewer != NULL) ? Viewer->GetWeaponHand() : EWeaponHand::HAND_Right;
 	}
 }
 
@@ -787,7 +787,7 @@ void AUTWeapon::PlayFiringEffects()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), ReloadSound[EffectFiringMode], UTOwner, SRT_None);
 		}
 
-		if (ShouldPlay1PVisuals() && GetWeaponHand() != HAND_Hidden)
+		if (ShouldPlay1PVisuals() && GetWeaponHand() != EWeaponHand::HAND_Hidden)
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
 			// try and play a firing animation if specified
@@ -1087,15 +1087,15 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 			FVector AdjustedFireOffset;
 			switch (GetWeaponHand())
 			{
-				case HAND_Right:
+				case EWeaponHand::HAND_Right:
 					AdjustedFireOffset = FireOffset;
 					break;
-				case HAND_Left:
+				case EWeaponHand::HAND_Left:
 					AdjustedFireOffset = FireOffset;
 					AdjustedFireOffset.Y *= -1.0f;
 					break;
-				case HAND_Center:
-				case HAND_Hidden:
+				case EWeaponHand::HAND_Center:
+				case EWeaponHand::HAND_Hidden:
 					AdjustedFireOffset = FVector::ZeroVector;
 					AdjustedFireOffset.X = FireOffset.X;
 					break;
@@ -1671,7 +1671,7 @@ void AUTWeapon::UpdateViewBob(float DeltaTime)
 	if (MyPC != NULL && Mesh != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals())
 	{
 		// if weapon is up in first person, view bob with movement
-		if (GetWeaponHand() != HAND_Hidden)
+		if (GetWeaponHand() != EWeaponHand::HAND_Hidden)
 		{
 			USkeletalMeshComponent* BobbedMesh = (HandsAttachSocket != NAME_None) ? UTOwner->FirstPersonMesh : Mesh;
 			if (FirstPMeshOffset.IsZero())

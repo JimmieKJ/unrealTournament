@@ -31,9 +31,24 @@ public:
 
 	static FOnlinePartyTypeId GetPersistentPartyTypeId() { return IOnlinePartySystem::GetPrimaryPartyTypeId(); }
 
+	/**
+	*	Delegate fired when a party join completes
+	*
+	*	@param LocalUserId The user that was attempting to join
+	*	@param Result - result of the operation
+	*	@param NotApprovedReason - client defined value describing why you were not approved
+	*/
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPartyJoinComplete, const FUniqueNetId& /*LocalUserId*/, const EJoinPartyCompletionResult /*Result*/, const int32 /*NotApprovedReason*/);
+
+	/** @return delegate when party join fails */
+	FOnPartyJoinComplete& OnPartyJoinComplete() { return PartyJoinComplete; }
 private:
 
 	UUTGameInstance* GetUTGameInstance() const;
 
+	FOnPartyJoinComplete PartyJoinComplete;
+
+	void ProcessInviteFromSearchResult(TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult);
+	void OnJoinPersistentPartyFromInviteComplete(const FUniqueNetId& LocalUserId, const EJoinPartyCompletionResult Result, const int32 NotApprovedReason);
 	void OnLeavePartyForNewJoin(const FUniqueNetId& LocalUserId, const ELeavePartyCompletionResult Result, TSharedRef<FPendingPartyJoin> InPendingPartyJoin);
 };

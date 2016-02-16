@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "UTTeamInterface.h"
 #include "UTBasePlayerController.generated.h"
 
 class UUTGameViewportClient;

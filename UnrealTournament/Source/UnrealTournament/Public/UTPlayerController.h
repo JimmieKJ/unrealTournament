@@ -32,7 +32,7 @@ struct FDeferredFireInput
 
 /** controls location and orientation of first person weapon */
 UENUM()
-enum EWeaponHand
+enum class EWeaponHand : uint8
 {
 	HAND_Right,
 	HAND_Left,
@@ -667,7 +667,7 @@ public:
 	inline EWeaponHand GetWeaponHand() const
 	{
 		//Spectators always see right handed weapons
-		return IsInState(NAME_Spectating) ? HAND_Right : GetPreferredWeaponHand();
+		return IsInState(NAME_Spectating) ? EWeaponHand::HAND_Right : GetPreferredWeaponHand();
 	}
 
 	inline EWeaponHand GetPreferredWeaponHand() const

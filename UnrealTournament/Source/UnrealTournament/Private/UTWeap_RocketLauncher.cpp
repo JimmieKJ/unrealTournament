@@ -312,7 +312,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 
 		//Adjust from the center of the gun to the barrel
 		EWeaponHand Hand = GetWeaponHand();
-		if (Hand != HAND_Hidden && Hand != HAND_Center)
+		if (Hand != EWeaponHand::HAND_Hidden && Hand != EWeaponHand::HAND_Center)
 		{
 			FVector AdjustedSpawnLoc = SpawnLocation + FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
 			FHitResult Hit;

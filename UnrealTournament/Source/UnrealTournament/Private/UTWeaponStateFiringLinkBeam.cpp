@@ -24,7 +24,7 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 		}
 
 		//Special case for hidden weapons since we really need the MuzzleFlash to play for the link beam
-		if (LinkGun->ShouldPlay1PVisuals() && LinkGun->GetWeaponHand() == HAND_Hidden)
+		if (LinkGun->ShouldPlay1PVisuals() && LinkGun->GetWeaponHand() == EWeaponHand::HAND_Hidden)
 		{
 			if (LinkGun->MuzzleFlash.IsValidIndex(LinkGun->GetCurrentFireMode()) && LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()] != NULL && LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()]->Template != NULL)
 			{
