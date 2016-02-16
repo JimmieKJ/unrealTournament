@@ -29,6 +29,7 @@
 #include "UTDMGameMode.h"
 #include "UTTeamDMGameMode.h"
 #include "UTCTFBaseGame.h"
+#include "UTHUDWidget_NetInfo.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -194,6 +195,10 @@ void AUTPlayerState::CalculatePing(float NewPing)
 		if (ExactPing != OldPing)
 		{
 			PC->ServerUpdatePing(ExactPing);
+		}
+		if (PC->bShowNetInfo && PC->NetInfoWidget)
+		{
+			PC->NetInfoWidget->AddPing(NewPing);
 		}
 	}
 }

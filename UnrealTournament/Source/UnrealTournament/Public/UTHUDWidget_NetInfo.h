@@ -12,6 +12,8 @@ public:
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 
+	virtual void AddPing(float NewPing);
+
 	// The total Height of a given cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		float CellHeight;
@@ -27,4 +29,17 @@ protected:
 
 	UPROPERTY()
 		FLinearColor ValueHighlight[3];
+
+	UPROPERTY()
+		int32 CurrentBucket;
+
+	UPROPERTY()
+		int32 BucketIndex;
+
+	UPROPERTY()
+		float PingHistory[300];
+
+	virtual float CalcAvgPing();
+	virtual float CalcPingStandardDeviation(float AvgPing);
+
 };
