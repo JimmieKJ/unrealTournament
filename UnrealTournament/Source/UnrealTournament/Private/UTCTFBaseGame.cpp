@@ -451,7 +451,7 @@ void AUTCTFBaseGame::SetEndGameFocus(AUTPlayerState* Winner)
 
 			if (BaseToView)
 			{
-				Controller->GameHasEnded(BaseToView, Controller->UTPlayerState->Team->TeamIndex == WinnerTeamNum);
+				Controller->GameHasEnded(BaseToView, (Controller->UTPlayerState->Team && (Controller->UTPlayerState->Team->TeamIndex == WinnerTeamNum)));
 			}
 		}
 	}
