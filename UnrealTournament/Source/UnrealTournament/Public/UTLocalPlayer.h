@@ -144,7 +144,8 @@ public:
 	virtual FString GetAccountName() const;
 	virtual FText GetAccountDisplayName() const;
 
-	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
+	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID) override;
+	virtual void PlayerRemoved() override;
 
 	virtual void ShowMenu(const FString& Parameters);
 	virtual void HideMenu();

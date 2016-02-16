@@ -174,20 +174,23 @@ void UPartyContext::HandlePlayerLoggedIn()
 	if (auto GameInstance = GetGameInstance<const UUTGameInstance>())
 	{
 		Party = GameInstance->GetParties();
-		PartyStack.Push(Party->GetPersistentParty());
-
-		Party->OnPartyJoined().AddUObject(this, &ThisClass::OnPartyJoined);
-		Party->OnPartyLeft().AddUObject(this, &ThisClass::OnPartyLeft);
-		Party->OnPartyResetForFrontend().AddUObject(this, &ThisClass::OnPartyResetForFrontend);
-		Party->OnPartyMemberJoined().AddUObject(this, &ThisClass::OnPartyMemberJoined);
-		Party->OnPartyMemberPromoted().AddUObject(this, &ThisClass::OnPartyMemberPromoted);
-		Party->OnPartyMemberLeaving().AddUObject(this, &ThisClass::OnPartyMemberLeaving);
-		Party->OnPartyMemberLeft().AddUObject(this, &ThisClass::OnPartyMemberLeft);
-
-		UUTParty* UTParty = Cast<UUTParty>(Party.Get());
-		if (UTParty)
+		if (Party.IsValid())
 		{
-			UTParty->OnPartyJoinComplete().AddUObject(this, &ThisClass::OnUTJoinPartyComplete);
+			PartyStack.Push(Party->GetPersistentParty());
+
+			Party->OnPartyJoined().AddUObject(this, &ThisClass::OnPartyJoined);
+			Party->OnPartyLeft().AddUObject(this, &ThisClass::OnPartyLeft);
+			Party->OnPartyResetForFrontend().AddUObject(this, &ThisClass::OnPartyResetForFrontend);
+			Party->OnPartyMemberJoined().AddUObject(this, &ThisClass::OnPartyMemberJoined);
+			Party->OnPartyMemberPromoted().AddUObject(this, &ThisClass::OnPartyMemberPromoted);
+			Party->OnPartyMemberLeaving().AddUObject(this, &ThisClass::OnPartyMemberLeaving);
+			Party->OnPartyMemberLeft().AddUObject(this, &ThisClass::OnPartyMemberLeft);
+
+			UUTParty* UTParty = Cast<UUTParty>(Party.Get());
+			if (UTParty)
+			{
+				UTParty->OnPartyJoinComplete().AddUObject(this, &ThisClass::OnUTJoinPartyComplete);
+			}
 		}
 	}
 

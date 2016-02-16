@@ -64,6 +64,7 @@
 #include "UTGameInstance.h"
 #include "UTParty.h"
 #include "PartyGameState.h"
+#include "IBlueprintContextModule.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -299,6 +300,25 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 					bInitialSignInAttempt = false;
 				}
 			}
+		}
+	}
+
+	if (!IsRunningDedicatedServer())
+	{
+		if (IBlueprintContextModule* BlueprintContext = FModuleManager::GetModulePtr< IBlueprintContextModule >("BlueprintContext"))
+		{
+			BlueprintContext->LocalPlayerAdded(this);
+		}
+	}
+}
+
+void UUTLocalPlayer::PlayerRemoved()
+{
+	if (!IsRunningDedicatedServer())
+	{
+		if (IBlueprintContextModule* BlueprintContext = FModuleManager::GetModulePtr< IBlueprintContextModule >("BlueprintContext"))
+		{
+			BlueprintContext->LocalPlayerRemoved(this);
 		}
 	}
 }
