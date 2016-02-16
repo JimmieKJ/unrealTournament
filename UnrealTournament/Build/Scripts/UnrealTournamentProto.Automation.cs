@@ -616,7 +616,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 
             AddPseudodependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
-            AddPseudodependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
+            AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
             //var Chunker = bp.Branch.FindProgram("BuildPatchTool");
             //AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
 
@@ -624,7 +624,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			if(!bp.ParseParam("nomac"))
 			{
                 AddPseudodependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
-                AddPseudodependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
+                AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
 				//AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
 			}
         }
