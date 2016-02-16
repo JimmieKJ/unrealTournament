@@ -222,6 +222,30 @@ TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FT
 									]
 								]
 							]
+							+SOverlay::Slot()
+							.VAlign(VAlign_Center)
+							.HAlign(HAlign_Left)
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(SHorizontalBox)
+									+SHorizontalBox::Slot()
+									.Padding(FMargin(5.0,0.0,0.0,0.0))
+									.AutoWidth()
+									[
+										SNew(SBox).WidthOverride(24).HeightOverride(24)
+										[
+											SNew(SImage)
+											.Image(SUTStyle::Get().GetBrush("UT.Icon.Lock.Small"))
+											.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetLockVis, PlayerOwner)))
+										]
+									]
+								]
+							]
+
+
 						]
 					]
 					+SHorizontalBox::Slot()

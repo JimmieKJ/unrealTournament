@@ -119,28 +119,19 @@ public:
 		if ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("In Progress");
 		if ((Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner)
 		{
-			if (!PlayerState || !PlayerState->IsABeginner(BaseGameMode))	
-			{
-				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Beginner");
-			}
+			Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("Beginner");
 		}
 
 		if ((Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private) 
 		{
-			if (!bInvited)
-			{
-				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Private");
-			}
+			Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("Private");
 		}
 		else if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
 		{
 			int32 MatchRankCheck = MatchInfo.IsValid() ? MatchInfo->RankCheck : (MatchData.IsValid() ? MatchData->RankCheck: DEFAULT_RANK_CHECK);
 			int32 PlayerRankCheck = PlayerState->GetRankCheck(BaseGameMode);
 
-			if ( !AUTPlayerState::CheckRank(PlayerRankCheck, MatchRankCheck) )
-			{
-				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
-			}
+			Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("Ranked");
 		}
 
 		if ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Join in Progress");
@@ -210,6 +201,45 @@ public:
 
 		return FText::Format(NSLOCTEXT("SUTMatchPanel","MaxPlayerFormat","Out of {0}"), FText::AsNumber(MP));
 	}
+
+	EVisibility GetLockVis(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner) 
+	{
+		bool bLocked = false;
+		
+		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
+
+		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		AUTLobbyPlayerState* OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		AUTBaseGameMode* BaseGameMode = GetBaseGameMode();
+
+		if ( (Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private) 
+		{
+			if (!MatchInfo.IsValid() || OwnerPlayerState == nullptr || MatchInfo->AllowedPlayerList.Find(OwnerPlayerState->UniqueId.ToString()) == INDEX_NONE)
+			{
+				bLocked = true;
+			}
+		}
+
+		if ( ((Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner) &&
+			  (!PlayerState || !PlayerState->IsABeginner(BaseGameMode))	)
+		{		
+			bLocked = true;
+		}
+	
+		if ( (Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked) 
+		{
+			int32 MatchRankCheck = MatchInfo.IsValid() ? MatchInfo->RankCheck : (MatchData.IsValid() ? MatchData->RankCheck: DEFAULT_RANK_CHECK);
+			int32 PlayerRankCheck = PlayerState->GetRankCheck(BaseGameMode);
+
+			if ( !AUTPlayerState::CheckRank(PlayerRankCheck, MatchRankCheck) )
+			{
+				bLocked = true;
+			}
+		}
+
+		return bLocked ? EVisibility::Visible : EVisibility::Hidden;
+	}
+
 
 	const FSlateBrush* GetBadge() const
 	{
@@ -287,7 +317,7 @@ public:
 		return (Flags & MATCH_FLAG_NoSpectators) != MATCH_FLAG_NoSpectators;
 	}
 
-	AUTBaseGameMode* GetBaseGameMode()
+	AUTBaseGameMode* GetBaseGameMode() const
 	{
 		AUTBaseGameMode* BaseGameMode = nullptr;
 		if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())

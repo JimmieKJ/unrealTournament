@@ -309,7 +309,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 
 	AUTGameMode* UTGame = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
 	int32 PlayerRankCheck = NewPlayer->GetRankCheck(UTGame);
-	if (!MatchInfo->SkillTest(PlayerRankCheck)) 
+	if (!bAsSpectator && !MatchInfo->SkillTest(PlayerRankCheck)) 
 	{
 		if (PlayerRankCheck > MatchInfo->RankCheck)
 		{
@@ -1073,7 +1073,7 @@ void AUTLobbyGameState::RequestInstanceJoin(AUTServerBeaconClient* Beacon, const
 
 	if (DestinationMatchInfo && (DestinationMatchInfo->CurrentState == ELobbyMatchState::InProgress || DestinationMatchInfo->CurrentState != ELobbyMatchState::WaitingForPlayers || DestinationMatchInfo->CurrentState != ELobbyMatchState::Launching) )
 	{
-		if (DestinationMatchInfo->SkillTest(Rank,false))
+		if (bSpectator || DestinationMatchInfo->SkillTest(Rank,false))
 		{
 			if (!DestinationMatchInfo->bPrivateMatch)
 			{
