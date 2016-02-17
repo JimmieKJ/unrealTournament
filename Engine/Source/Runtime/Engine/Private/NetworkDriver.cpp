@@ -140,6 +140,7 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	OutOutOfOrderPackets(0)
 ,	StatUpdateTime(0.0)
 ,	StatPeriod(1.f)
+,	bCollectNetStats(false)
 ,	NetTag(0)
 ,	DebugRelevantActors(false)
 ,	ProcessQueuedBunchesCurrentFrameMilliseconds(0.0f)
@@ -259,7 +260,7 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 		int32 PendingCount = 0;
 		int32 NetSaturated = 0;
 
-		if (FThreadStats::IsCollectingData())
+		if (FThreadStats::IsCollectingData() || bCollectNetStats)
 		{
 			const float RealTime = CurrentRealtimeSeconds - StatUpdateTime;
 
@@ -279,9 +280,9 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 			OutPackets = FMath::TruncToInt(OutPackets / RealTime);
 			InBunches = FMath::TruncToInt(InBunches / RealTime);
 			OutBunches = FMath::TruncToInt(OutBunches / RealTime);
-			OutPacketsLost = FMath::TruncToInt(100.f * OutPacketsLost / FMath::Max((float)OutPackets,1.f));
-			InPacketsLost = FMath::TruncToInt(100.f * InPacketsLost / FMath::Max((float)InPackets + InPacketsLost,1.f));
-			
+			OutPacketsLost = FMath::TruncToInt(100.f * OutPacketsLost / FMath::Max((float)OutPackets, 1.f));
+			InPacketsLost = FMath::TruncToInt(100.f * InPacketsLost / FMath::Max((float)InPackets + InPacketsLost, 1.f));
+
 			if (ServerConnection != NULL && ServerConnection->PlayerController != NULL && ServerConnection->PlayerController->PlayerState != NULL)
 			{
 				Ping = FMath::TruncToInt(ServerConnection->PlayerController->PlayerState->ExactPing);
