@@ -39,6 +39,12 @@ protected:
 	UPROPERTY()
 		float PingHistory[300];
 
+	UPROPERTY()
+		float MaxDeviation;
+
+	UPROPERTY()
+		int32 NumPingsRcvd;
+
 	virtual float CalcAvgPing();
 	virtual float CalcPingStandardDeviation(float AvgPing);
 

@@ -7,7 +7,7 @@ UUTHUDWidget_NetInfo::UUTHUDWidget_NetInfo(const class FObjectInitializer& Objec
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
-	Size = FVector2D(300.0f, 540.0f);
+	Size = FVector2D(350.0f, 540.0f);
 	ScreenPosition = FVector2D(0.0f, 0.25f);
 	Origin = FVector2D(0.0f, 0.0f);
 
@@ -35,6 +35,7 @@ void UUTHUDWidget_NetInfo::AddPing(float NewPing)
 	{
 		BucketIndex = 0;
 	}
+	NumPingsRcvd++;
 }
 
 float UUTHUDWidget_NetInfo::CalcAvgPing()
@@ -52,26 +53,29 @@ float UUTHUDWidget_NetInfo::CalcAvgPing()
 	{
 		TotalPing += PingHistory[i];
 	}
-	return 0.01f * TotalPing;
+	return TotalPing/FMath::Min(100.f, float(NumPingsRcvd));
 }
 
 float UUTHUDWidget_NetInfo::CalcPingStandardDeviation(float AvgPing)
 {
 	float Variance = 0.f;
+	MaxDeviation = 0.f;
+	int32 NumPings = FMath::Min(100, NumPingsRcvd);
 	if (BucketIndex < 100)
 	{
 		// wrap around
-		for (int32 i = 200 + BucketIndex; i < 300; i++)
+		for (int32 i = 200 + BucketIndex; i < 200+NumPings; i++)
 		{
 			Variance += FMath::Square(PingHistory[i] - AvgPing);
+			MaxDeviation = FMath::Max(MaxDeviation, FMath::Abs(PingHistory[i] - AvgPing));
 		}
 	}
-	for (int32 i = FMath::Max(0, BucketIndex - 100); i < BucketIndex; i++)
+	for (int32 i = FMath::Max(0, BucketIndex - NumPings); i < BucketIndex; i++)
 	{
 		Variance += FMath::Square(PingHistory[i] - AvgPing);
+		MaxDeviation = FMath::Max(MaxDeviation, FMath::Abs(PingHistory[i] - AvgPing));
 	}
-
-	Variance = 0.01f * Variance;
+	Variance = Variance / float(NumPings);
 	return FMath::Sqrt(Variance);
 }
 
@@ -103,17 +107,20 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 		float AvgPing = CalcAvgPing();
 		FFormatNamedArguments AltArgs;
 		AltArgs.Add("PingMS", FText::AsNumber(int32(1000.f*AvgPing)));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "AltPing", "{PingMS} ms ALT"), AltArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(AvgPing, 70.f, 160.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "AltPing", "{PingMS} ms Avg"), AltArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(1000.f*AvgPing, 70.f, 160.f), ETextHorzPos::Left, ETextVertPos::Center);
 		DrawOffset += CellHeight;
 
 		float PingSD = CalcPingStandardDeviation(AvgPing);
 		FFormatNamedArguments SDArgs;
 		SDArgs.Add("PingSD", FText::AsNumber(int32(1000.f*PingSD)));
-		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping Standard Deviation", "{PingSD} StdDev"), SDArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(PingSD, 5.f, 20.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping Standard Deviation", "{PingSD} StdDev"), SDArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(1000.f*PingSD, 20.f, 40.f), ETextHorzPos::Left, ETextVertPos::Center);
 		DrawOffset += CellHeight;
 
-		//fixmesteve add max deviation, chart of moving ping
-		// FIXMESTEVE - updating slowly, not per frame - why?
+		FFormatNamedArguments MaxArgs;
+		MaxArgs.Add("MaxD", FText::AsNumber(int32(1000.f*MaxDeviation)));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping Max Deviation", "{MaxD} MaxDev"), MaxArgs), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(1000.f*MaxDeviation, 35.f, 60.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += CellHeight;
+
 		DrawOffset += CellHeight;
 	}
 
@@ -125,10 +132,9 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 		Args.Add("NetBytes", FText::AsNumber(UTHUDOwner->PlayerOwner->Player->CurrentNetSpeed));
 		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytes", "{NetBytes} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		DrawOffset += CellHeight;
-		DrawOffset += CellHeight;
 	}
 
-	// bytes in and out
+	// bytes in and out, and packet loss
 	if (NetDriver)
 	{
 		DrawText(NSLOCTEXT("NetInfo", "BytesIn title", "Bytes In"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
@@ -141,9 +147,18 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 		Args.Add("NetBytes", FText::AsNumber(NetDriver->OutBytesPerSecond));
 		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytes", "{NetBytes} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		DrawOffset += CellHeight;
-	}
+		DrawOffset += CellHeight;
 
-	// cool graph options
+		DrawText(NSLOCTEXT("NetInfo", "PLOUT title", "Packet Loss Out"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		Args.Add("PLOUT", FText::AsNumber(NetDriver->OutPacketsLost));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "PLOUT", "{PLOUT}%"), Args), XOffset + 1.1f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(NetDriver->OutPacketsLost, 0.1f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += CellHeight;
+
+		DrawText(NSLOCTEXT("NetInfo", "PLIN title", "Packet Loss In"), XOffset, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		Args.Add("PLIN", FText::AsNumber(NetDriver->InPacketsLost));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "PLIN", "{PLIN}%"), Args), XOffset + 1.1f*DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(NetDriver->InPacketsLost, 0.1f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += CellHeight;
+	}
 
 	// packet loss - also measure burstiness
 
