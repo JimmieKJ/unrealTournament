@@ -722,6 +722,9 @@ protected:
 	UFUNCTION(exec)
 	void ToggleTranslocator();
 
+	UFUNCTION(exec)
+	void SelectTranslocator();
+
 	void ThrowWeapon();
 	
 	UFUNCTION(Reliable, Server, WithValidation)

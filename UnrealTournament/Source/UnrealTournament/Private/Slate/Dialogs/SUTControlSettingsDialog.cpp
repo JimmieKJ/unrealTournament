@@ -303,9 +303,12 @@ void SUTControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Throw Weapon", "Throw Weapon")))
 		->AddActionMapping("ThrowWeapon")
 		->AddDefaults(EKeys::M)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Translocator", "Toggle Translocator")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Toggle Translocator", "Toggle Translocator")))
 		->AddCustomBinding("ToggleTranslocator")
 		->AddDefaults(EKeys::Q)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Translocator", "Select Translocator")))
+		->AddCustomBinding("SelectTranslocator")
+		->AddDefaults(FKey())));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup1", "Select Group 1")))
 		->AddCustomBinding("SwitchWeapon 1")
 		->AddDefaults(EKeys::One)));

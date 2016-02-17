@@ -49,7 +49,7 @@ bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 			{
 				bGotBind = true;
 				// special case allow binding multiple weapon switches to the same key
-				if (!CustomBinds[i].Command.StartsWith(TEXT("SwitchWeapon")) && !CustomBinds[i].Command.StartsWith("ToggleTranslocator"))
+				if (!CustomBinds[i].Command.StartsWith(TEXT("SwitchWeapon")) && !CustomBinds[i].Command.StartsWith("ToggleTranslocator") && !CustomBinds[i].Command.StartsWith("SelectTranslocator"))
 				{
 					return true;
 				}
@@ -71,7 +71,7 @@ bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 				{
 					bGotBind = true;
 					// special case allow binding multiple weapon switches to the same key
-					if (!LocalBinds[i].Command.StartsWith(TEXT("SwitchWeapon")) && !LocalBinds[i].Command.StartsWith("ToggleTranslocator"))
+					if (!LocalBinds[i].Command.StartsWith(TEXT("SwitchWeapon")) && !LocalBinds[i].Command.StartsWith("ToggleTranslocator") && !LocalBinds[i].Command.StartsWith("SelectTranslocator"))
 					{
 						return true;
 					}

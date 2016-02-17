@@ -705,6 +705,18 @@ void AUTPlayerController::ToggleTranslocator()
 	}
 }
 
+void AUTPlayerController::SelectTranslocator()
+{
+	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
+	{
+		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
+		if (CurrentGroup != 0)
+		{
+			ToggleTranslocator();
+		}
+	}
+}
+
 void AUTPlayerController::ThrowWeapon()
 {
 	if (UTCharacter != NULL && IsLocalPlayerController() && !UTCharacter->IsRagdoll())
