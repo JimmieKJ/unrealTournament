@@ -175,6 +175,11 @@ void AUTPlayerController::ClientReceivePersonalMessage_Implementation(TSubclassO
 void AUTPlayerController::NetStats()
 {
 	bShowNetInfo = !bShowNetInfo;
+	UNetDriver* NetDriver = GetWorld()->GetNetDriver();
+	if (NetDriver)
+	{
+		NetDriver->bCollectNetStats = bShowNetInfo;
+	}
 	if (MyUTHUD && !MyUTHUD->HasHudWidget(UUTHUDWidget_NetInfo::StaticClass()))
 	{
 		NetInfoWidget = Cast<UUTHUDWidget_NetInfo>(MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass()));
