@@ -836,7 +836,18 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
 			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 			.Text(NSLOCTEXT("SUTSystemSettingsDialog", "AutoSettingsButtonText", "Auto Detect Settings"))
 			.OnClicked(this, &SUTSystemSettingsDialog::OnAutodetectClick)
+			.Visibility(this, &SUTSystemSettingsDialog::AutoDetectSettingsVisibility)
 		];
+}
+
+EVisibility SUTSystemSettingsDialog::AutoDetectSettingsVisibility() const
+{
+	if (PlayerOwner->IsMenuGame())
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Hidden;
 }
 
 TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
