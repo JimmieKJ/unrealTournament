@@ -224,16 +224,16 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		}
 
 		//draw powerup clocks
+		if (!bPowerupListInitialized)
+		{
+			InitPowerupList();
+		}
 		if (PowerupList.Num() > 0)
 		{
 			DrawSelector("ToggleShowTimers", !UTHUDOwner->UTPlayerOwner->bShowPowerupTimers, XOffset, DrawOffset);
 		}
 		if (UTHUDOwner->UTPlayerOwner->bShowPowerupTimers)
 		{
-			if (!bPowerupListInitialized)
-			{
-				InitPowerupList();
-			}
 			int32 TimerOffset = XOffset + CamTypeButtonStart*Size.X;
 			float DrawOffsetRed = DrawOffset;
 			float DrawOffsetBlue = DrawOffset;
