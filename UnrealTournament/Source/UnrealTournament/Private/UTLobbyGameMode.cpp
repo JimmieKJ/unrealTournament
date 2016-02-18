@@ -9,6 +9,7 @@
 #include "UTLobbyHUD.h"
 #include "UTGameMessage.h"
 #include "UTAnalytics.h"
+#include "UTGameSessionNonRanked.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
@@ -220,7 +221,7 @@ bool AUTLobbyGameMode::PlayerCanRestart_Implementation(APlayerController* Player
 
 TSubclassOf<AGameSession> AUTLobbyGameMode::GetGameSessionClass() const
 {
-	return AUTGameSession::StaticClass();
+	return AUTGameSessionNonRanked::StaticClass();
 }
 
 FName AUTLobbyGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination)
@@ -380,7 +381,7 @@ void AUTLobbyGameMode::DefaultTimer()
 					FPackageName::SearchForPackageOnDisk(MapName, &MapName); 
 				}
 
-				AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+				AUTGameSessionNonRanked* UTGameSession = Cast<AUTGameSessionNonRanked>(GameSession);
 				if (UTGameSession)
 				{
 					// kill the host beacon before we start the travel so hopefully the port will be released before

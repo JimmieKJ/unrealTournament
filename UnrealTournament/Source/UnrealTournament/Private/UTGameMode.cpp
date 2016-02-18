@@ -42,6 +42,8 @@
 #include "UTGameInstance.h"
 #include "UTDemoRecSpectator.h"
 #include "UTMcpUtils.h"
+#include "UTGameSessionRanked.h"
+#include "UTGameSessionNonRanked.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -3079,7 +3081,12 @@ bool AUTGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast
 
 TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 {
-	return AUTGameSession::StaticClass();
+	if (bRankedSession)
+	{
+		return AUTGameSessionRanked::StaticClass();
+	}
+
+	return AUTGameSessionNonRanked::StaticClass();
 }
 
 void AUTGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)

@@ -564,6 +564,9 @@ public:
 	 * passed in team number is used as tiebreaker if the teams would be just as balanced either way
 	 */
 
+	UPROPERTY()
+	bool bRankedSession;
+
 	virtual TSubclassOf<class AGameSession> GetGameSessionClass() const;
 	
 	virtual void PreInitializeComponents() override;

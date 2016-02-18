@@ -10,8 +10,21 @@
 
 #define UT_GAMEMODE_PVP		TEXT("UTPVP")
 
+/** Named interface reference for storing beacon state between levels */
+#define UT_BEACON_STATE FName(TEXT("PartyBeaconState"))
+
+#define UT_DEFAULT_MAX_TEAM_COUNT 2
+#define UT_DEFAULT_MAX_TEAM_SIZE 5
+#define UT_DEFAULT_PARTY_SIZE 5
+
+/** Number of players needed to fill out this session (value is int32) */
+#define SETTING_NEEDS FName(TEXT("NEEDS"))
+
+/** Second key for "needs" because can't set same value with two criteria (value is int32) */
+#define SETTING_NEEDSSORT FName(TEXT("NEEDSSORT"))
+
 /**
- * General session settings for a Fortnite game
+ * General session settings for a UT game
  */
 class UNREALTOURNAMENT_API FUTOnlineSessionSettings : public FOnlineSessionSettings
 {
@@ -25,7 +38,7 @@ public:
 };
 
 /**
- * General session settings for a Fortnite lobby game
+ * General session settings for a UT lobby game
  */
 class UNREALTOURNAMENT_API FUTOnlineSessionSettingsLobby : public FUTOnlineSessionSettings
 {

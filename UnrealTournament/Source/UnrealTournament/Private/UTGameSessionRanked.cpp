@@ -1,0 +1,465 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "UnrealTournament.h"
+#include "UTGameSessionRanked.h"
+#include "UTPartyBeaconHost.h"
+#include "QoSBeaconHost.h"
+#include "UTOnlineGameSettings.h"
+
+static const float IdleServerTimeout = 30.0f * 60.0f;
+
+AUTGameSessionRanked::AUTGameSessionRanked()
+{
+	ReservationBeaconHostClass = AUTPartyBeaconHost::StaticClass();
+	QosBeaconHostClass = AQosBeaconHost::StaticClass();
+
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		OnConnectionStatusChangedDelegate = FOnConnectionStatusChangedDelegate::CreateUObject(this, &AUTGameSessionRanked::OnConnectionStatusChanged);
+		OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnCreateSessionComplete);
+		OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnDestroySessionComplete);
+		OnVerifyAuthCompleteDelegate = FOnVerifyAuthCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnVerifyAuthComplete);
+		OnRefreshAuthCompleteDelegate = FOnRefreshAuthCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnRefreshAuthComplete);
+	}
+}
+
+void AUTGameSessionRanked::RegisterServer()
+{
+	UE_LOG(UT, Verbose, TEXT("--------------[REGISTER SERVER]----------------"));
+
+	const auto OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
+	{
+		IOnlineIdentityPtr OnlineIdentity = OnlineSub->GetIdentityInterface();
+		if (OnlineIdentity.IsValid())
+		{
+			FOnlineIdentityMcp* OnlineIdentityMcp = (FOnlineIdentityMcp*)OnlineIdentity.Get();
+			if (OnlineIdentityMcp)
+			{
+				OnlineIdentityMcp->AddOnVerifyAuthCompleteDelegate_Handle(OnVerifyAuthCompleteDelegate);
+				OnlineIdentityMcp->AddOnRefreshAuthCompleteDelegate_Handle(OnRefreshAuthCompleteDelegate);
+			}
+		}
+
+		OnConnectionStatusChangedDelegateHandle = OnlineSub->AddOnConnectionStatusChangedDelegate_Handle(OnConnectionStatusChangedDelegate);
+	}
+}
+
+void AUTGameSessionRanked::OnVerifyAuthComplete(bool bWasSuccessful, const class FAuthTokenMcp& AuthToken, const class FAuthTokenVerifyMcp& AuthTokenVerify, const FString& ErrorStr)
+{
+	if (!bWasSuccessful)
+	{
+		if (AuthToken.AuthType != EAuthTokenType::AuthClient)
+		{
+			FString ReturnReason = NSLOCTEXT("NetworkErrors", "FailedAuth", "User auth check failed.").ToString();
+
+			// failed activation check so find the user and kick him
+			bool bDidFindClient = false;
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				APlayerController* PC = *It;
+				if (PC != nullptr &&
+					PC->PlayerState != nullptr &&
+					PC->PlayerState->UniqueId.IsValid() &&
+					PC->PlayerState->UniqueId->ToString().Equals(AuthToken.AccountId))
+				{
+					bDidFindClient = true;
+					// If gamesession is on a localplayer, then we're standalone, client will catch OnLogoutComplete delegate
+					// If this isnt a local player, kick them from the server to login screen.  Server only verifies at client login time though, not periodically
+					if (!PC->IsLocalPlayerController())
+					{
+						// Server is seeing a client token fail, tell the client to get lost
+						UE_LOG(LogOnlineGame, Warning, TEXT("User auth check failed. Server requesting to kick user to login screen UserId=%s bSuccess=%d Error=%s"),
+							*AuthToken.AccountId, bWasSuccessful, *ErrorStr);
+						PC->ClientReturnToMainMenu(ReturnReason);
+
+					}
+				}
+			}
+			if (bDidFindClient == false)
+			{
+				UE_LOG(LogOnlineGame, Warning, TEXT("User auth check failed but unable to find playercontroller for UserId=%s bSuccess=%d Error=%s "),
+					*AuthToken.AccountId, bWasSuccessful, *ErrorStr);
+			}
+		}
+		else
+		{
+			// The server auth failed, listen server case.  Listen server will be logged out when/if RefreshAuth fails
+			UE_LOG(LogOnlineGame, Error, TEXT("Client auth check failed.  bSuccess=%d Error=%s"),
+				bWasSuccessful, *ErrorStr);
+		}
+	}
+}
+
+void AUTGameSessionRanked::OnRefreshAuthComplete(bool bWasSuccessful, const FAuthTokenMcp& AuthToken, const FAuthTokenMcp& AuthTokenRefresh, const FString& ErrorStr)
+{
+	if (!bWasSuccessful &&
+		AuthToken.AuthType == EAuthTokenType::AuthClient)
+	{
+		// The server auth failed, only thing to do is shutdown
+		UE_LOG(LogOnlineGame, Error, TEXT("Client auth refresh failed. Server shutting down! bSuccess=%d Error=%s"),
+			bWasSuccessful, *ErrorStr);
+
+		ShutdownDedicatedServer();
+	}
+}
+
+void AUTGameSessionRanked::CleanUpOnlineSubsystem()
+{
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		OnlineSub->ClearOnConnectionStatusChangedDelegate_Handle(OnConnectionStatusChangedDelegateHandle);
+
+		const auto SessionInterface = OnlineSub->GetSessionInterface();
+		if (SessionInterface.IsValid())
+		{
+			SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegateHandle);
+			SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(OnStartSessionCompleteDelegateHandle);
+			SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegateHandle);
+			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegateHandle);
+			SessionInterface->ClearOnUpdateSessionCompleteDelegate_Handle(OnUpdateSessionCompleteDelegateHandle);
+		}
+	}
+
+	Super::CleanUpOnlineSubsystem();
+}
+
+void AUTGameSessionRanked::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	if (SessionName == GameSessionName)
+	{
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
+		{
+			IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+			SessionInt->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegateHandle);
+		}
+
+		if (!bWasSuccessful)
+		{
+			UE_LOG(LogOnlineGame, Warning, TEXT("Failed to destroy previous game session %s"), *SessionName.ToString());
+		}
+
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameSessionRanked::RegisterServer, 0.1f);
+	}
+}
+
+void AUTGameSessionRanked::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	if (SessionName == GameSessionName)
+	{
+		UE_LOG(LogOnlineGame, Verbose, TEXT("OnCreateSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
+		{
+			IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+			SessionInt->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegateHandle);
+		}
+
+		if (bWasSuccessful)
+		{
+			FinalizeCreation();
+		}
+		else
+		{
+			ShutdownDedicatedServer();
+		}
+	}
+}
+
+void AUTGameSessionRanked::OnConnectionStatusChanged(EOnlineServerConnectionStatus::Type LastConnectionStatus, EOnlineServerConnectionStatus::Type ConnectionStatus)
+{
+	if (!FPlatformMisc::IsDebuggerPresent())
+	{
+		switch (ConnectionStatus)
+		{
+		case EOnlineServerConnectionStatus::InvalidUser:
+		case EOnlineServerConnectionStatus::NotAuthorized:
+			UE_LOG(LogOnlineGame, Warning, TEXT("Bad user credentials: %s"), EOnlineServerConnectionStatus::ToString(ConnectionStatus));
+			ShutdownDedicatedServer();
+			break;
+		case EOnlineServerConnectionStatus::ConnectionDropped:
+		case EOnlineServerConnectionStatus::NoNetworkConnection:
+		case EOnlineServerConnectionStatus::ServiceUnavailable:
+		case EOnlineServerConnectionStatus::UpdateRequired:
+		case EOnlineServerConnectionStatus::ServersTooBusy:
+			UE_LOG(LogOnlineGame, Warning, TEXT("Connection has been interrupted: %s"), EOnlineServerConnectionStatus::ToString(ConnectionStatus));
+			ShutdownDedicatedServer();
+			break;
+		case EOnlineServerConnectionStatus::DuplicateLoginDetected:
+			UE_LOG(LogOnlineGame, Warning, TEXT("Duplicate login detected: %s"), EOnlineServerConnectionStatus::ToString(ConnectionStatus));
+			ShutdownDedicatedServer();
+			break;
+		case EOnlineServerConnectionStatus::InvalidSession:
+			UE_LOG(LogOnlineGame, Warning, TEXT("Invalid session id: %s"), EOnlineServerConnectionStatus::ToString(ConnectionStatus));
+			Restart();
+			break;
+		}
+	}
+}
+
+void AUTGameSessionRanked::PauseBeaconRequests(bool bPause)
+{
+	if (BeaconHostListener)
+	{
+		BeaconHostListener->PauseBeaconRequests(bPause);
+	}
+}
+
+void AUTGameSessionRanked::Restart()
+{
+	UWorld* const World = GetWorld();
+	check(World);
+
+	World->GetTimerManager().ClearTimer(RestartTimerHandle);
+
+	if (World->IsInSeamlessTravel())
+	{
+		UE_LOG(LogOnlineGame, Warning, TEXT("Ignoring dedicated server restart, already in a level travel"));
+		// TODO: What should happen here?
+		return;
+	}
+	
+	UE_LOG(LogOnlineGame, Display, TEXT("Restarting dedicated server"));
+
+	// Deny future beacon traffic while we restart
+	PauseBeaconRequests(true);
+
+	AUTBaseGameMode* const UTGameModeBase = World->GetAuthGameMode<AUTBaseGameMode>();
+	check(UTGameModeBase);
+
+	bool bPreserveState = false;
+	DestroyHostBeacon(bPreserveState);
+
+	UTGameModeBase->bUseSeamlessTravel = false;
+
+	FString TravelURL = FString::Printf(TEXT("ut-entry?game=empty"));
+
+	World->ServerTravel(TravelURL, true, true);
+}
+
+void AUTGameSessionRanked::ShutdownDedicatedServer()
+{
+	UE_LOG(LogOnlineGame, Warning, TEXT("Shutting down dedicated server..."));
+	
+	CleanUpOnlineSubsystem();
+	DestroyHostBeacon();
+
+	GetWorldTimerManager().ClearTimer(StartDedicatedServerTimerHandle);
+	GetWorldTimerManager().ClearTimer(RestartTimerHandle);
+	FPlatformMisc::RequestExit(false);
+}
+
+void AUTGameSessionRanked::FinalizeCreation()
+{
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+		if (SessionInt.IsValid())
+		{
+			GetWorldTimerManager().SetTimer(RestartTimerHandle, this, &AUTGameSessionRanked::Restart, IdleServerTimeout);
+		}
+	}
+	
+	UE_LOG(LogOnlineGame, Display, TEXT("Dedicated Server Ready!"));
+	GLog->Flush();
+}
+
+void AUTGameSessionRanked::DestroyHostBeacon(bool bPreserveReservations)
+{
+	if (BeaconHostListener)
+	{
+		if (ReservationBeaconHost)
+		{
+			BeaconHostListener->UnregisterHost(ReservationBeaconHost->GetBeaconType());
+		}
+
+		if (QosBeaconHost)
+		{
+			BeaconHostListener->UnregisterHost(QosBeaconHost->GetBeaconType());
+		}
+		
+		UE_LOG(LogOnlineGame, Verbose, TEXT("Destroying Host Beacon."));
+	}
+
+	if (ReservationBeaconHost)
+	{
+		ReservationBeaconHost->OnValidatePlayers().Unbind();
+		ReservationBeaconHost->OnReservationChanged().Unbind();
+		ReservationBeaconHost->OnReservationsFull().Unbind();
+		ReservationBeaconHost->OnDuplicateReservation().Unbind();
+		ReservationBeaconHost->OnCancelationReceived().Unbind();
+		ReservationBeaconHost->OnServerConfigurationRequest().Unbind();
+		ReservationBeaconHost->OnProcessReconnectForClient().Unbind();
+
+		UE_LOG(LogOnlineGame, Verbose, TEXT("Destroying Reservation Beacon."));
+		ReservationBeaconHost->Destroy();
+		ReservationBeaconHost = nullptr;
+	}
+
+	if (QosBeaconHost)
+	{
+		UE_LOG(LogOnlineGame, Verbose, TEXT("Destroying QoS Beacon."));
+		QosBeaconHost->Destroy();
+		QosBeaconHost = nullptr;
+	}
+	
+	if (!bPreserveReservations)
+	{
+		// Drop the previous state of the beacon
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
+		{
+			OnlineSub->SetNamedInterface(UT_BEACON_STATE, nullptr);
+		}
+	}
+}
+
+void AUTGameSessionRanked::OnServerConfigurationRequest(const FUniqueNetIdRepl& GameSessionOwner, const FEmptyServerReservation& ReservationData)
+{
+	UWorld* const World = GetWorld();
+	check(World);
+
+	if (ReservationBeaconHost && GameSessionOwner.IsValid() && ReservationData.IsValid())
+	{
+		int32 TeamCount = UT_DEFAULT_MAX_TEAM_COUNT;
+		int32 TeamSize = UT_DEFAULT_MAX_TEAM_SIZE;
+		int32 MaxPartySize = UT_DEFAULT_PARTY_SIZE;
+
+		// Get the playlist configuration for team/reservation sizes
+		if (ReservationData.PlaylistId > INDEX_NONE)
+		{
+			//if (FUTPlaylistManager::Get().GetTeamInfoForGame(ReservationData.PlaylistId, ReservationData.ZoneInstanceId, TeamCount, TeamSize, MaxPartySize))
+			{
+				MaxPlayers = TeamCount * TeamSize;
+				ReservationBeaconHost->ReconfigureTeamAndPlayerCount(TeamCount, TeamSize, MaxPlayers);
+			}
+		}
+
+		// Save the state of the beacon as we're about to travel
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
+		{
+			OnlineSub->SetNamedInterface(UT_BEACON_STATE, ReservationBeaconHost->GetState());
+		}
+
+		// Remove the idle timer for dedicated server once owning player makes request
+		GetWorldTimerManager().ClearTimer(RestartTimerHandle);
+
+		if (OnlineSub)
+		{
+			IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+			FOnlineSessionSettings* SessionSettings = SessionInt.IsValid() ? SessionInt->GetSessionSettings(GameSessionName) : NULL;
+			if (SessionSettings)
+			{
+				SessionSettings->bShouldAdvertise = !ReservationData.bMakePrivate;
+
+				// Update the session settings with the reservation data
+				ApplyGameSessionSettings(SessionSettings, ReservationData.PlaylistId);
+
+				// Block all party needs
+				SetPlayerNeedsSize(GameSessionName, 0, false);
+
+				// Update the connection count to match the team size above
+				if (MaxPlayers != 0)
+				{
+					SessionSettings->NumPublicConnections = MaxPlayers;
+				}
+			}
+		}
+
+		GetWorldTimerManager().SetTimerForNextTick(this, &AUTGameSessionRanked::CreateServerGame);
+	}
+}
+
+void AUTGameSessionRanked::SetPlayerNeedsSize(FName SessionName, int32 NeedsSize, bool bUpdateSession)
+{
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+		if (SessionInt.IsValid())
+		{
+			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(SessionName);
+			if (SessionSettings)
+			{
+				UE_LOG(LogOnlineGame, Verbose, TEXT("Setting %s player need size to %d"), *SessionName.ToString(), NeedsSize);
+				if (GetPlayerNeedsSize(SessionName) != NeedsSize)
+				{
+					// Two values to overcome query limitation
+					SessionSettings->Set(SETTING_NEEDS, NeedsSize, EOnlineDataAdvertisementType::ViaOnlineService);
+					SessionSettings->Set(SETTING_NEEDSSORT, NeedsSize, EOnlineDataAdvertisementType::ViaOnlineService);
+					SessionInt->UpdateSession(SessionName, *SessionSettings, bUpdateSession);
+				}
+				else
+				{
+					UE_LOG(LogOnlineGame, Verbose, TEXT("Need size already at %d"), NeedsSize);
+				}
+			}
+		}
+	}
+}
+
+int32 AUTGameSessionRanked::GetPlayerNeedsSize(FName SessionName)
+{
+	int32 CurrentNeedsSize = 0;
+
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+		if (SessionInt.IsValid())
+		{
+			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(SessionName);
+			if (SessionSettings)
+			{
+				SessionSettings->Get(SETTING_NEEDS, CurrentNeedsSize);
+			}
+		}
+	}
+
+	return CurrentNeedsSize;
+}
+
+const int32 AUTGameSessionRanked::GetPlaylistId() const
+{
+	if (ReservationBeaconHost)
+	{
+		return ReservationBeaconHost->GetPlaylistId();
+	}
+
+	return INDEX_NONE;
+}
+
+void AUTGameSessionRanked::CreateServerGame()
+{
+	UWorld* World = GetWorld();
+	check(World);
+	int32 PlaylistId = GetPlaylistId();
+	
+	PauseBeaconRequests(true);
+	// Let the beacon get destroyed on actor cleanup.  Allows RPCs to finish during the server travel countdown
+	bool bPreserveState = true;
+	DestroyHostBeacon(bPreserveState);
+	
+	FString TravelURL = TEXT("dm-chill?game=tsd?Ranked=1"); // GetMatchURL(PlaylistId);
+	
+	World->ServerTravel(TravelURL, true, false);
+}
+
+void AUTGameSessionRanked::ApplyGameSessionSettings(FOnlineSessionSettings* SessionSettings, int32 PlaylistId) const
+{
+	if (!SessionSettings)
+	{
+		return;
+	}
+
+	if (PlaylistId > INDEX_NONE)
+	{
+		SessionSettings->Set(SETTING_PLAYLISTID, PlaylistId, EOnlineDataAdvertisementType::ViaOnlineService);
+	}
+}

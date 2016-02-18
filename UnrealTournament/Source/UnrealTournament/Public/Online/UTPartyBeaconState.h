@@ -42,6 +42,20 @@ UCLASS(transient, config = Engine)
 class UUTPartyBeaconState : public UPartyBeaconState
 {
 	GENERATED_UCLASS_BODY()
+	
+	/**
+	 * @return the index of the game mode in use
+	 */
+	const int32 GetPlaylistId() const { return ReservationData.PlaylistId; }
+
+protected:
+	
+    /** 
+	 * Reservation data at the time empty server was allocated
+	 * (ie WorldId, WorldDataOwner, PlaylistId)
+	 */
+	UPROPERTY()
+	FEmptyServerReservation ReservationData;
 
 	friend class AUTPartyBeaconHost;
 };
