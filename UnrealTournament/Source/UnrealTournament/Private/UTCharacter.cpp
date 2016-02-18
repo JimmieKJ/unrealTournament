@@ -603,10 +603,9 @@ bool AUTCharacter::BlockedHeadShot(FVector HitLocation, FVector ShotDirection, f
 			{
 				ShotInstigator->HeadShotBlocked();
 			}
-			break;
+			return true;
 		}
 	}
-
 	return false;
 }
 
