@@ -532,7 +532,6 @@ void AUTGameMode::PreLogin(const FString& Options, const FString& Address, const
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
-
 	if (ErrorMessage.IsEmpty())
 	{
 		// broadcast incoming player's character choices for preloading
@@ -545,7 +544,11 @@ void AUTGameMode::PreLogin(const FString& Options, const FString& Address, const
 			{
 				for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 				{
-
+					AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
+					if (PC != NULL)
+					{
+						PC->PreloadItem(InOpt);
+					}
 				}
 			}
 		}
