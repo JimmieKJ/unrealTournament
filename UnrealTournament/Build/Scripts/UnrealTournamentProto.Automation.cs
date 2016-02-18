@@ -1614,19 +1614,9 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			{
 				var StagingInfo = GameStagingInfos[Platform]; // We can use the target here, as it's guaranteed to have the correct manifest filename embedded
 
-				// Check for the manifest on the prod CDN
-				Log("Verifying manifest for prod promotion of UT Game {0} {1} was already staged to the internal origin server", BuildVersion, Platform);
-				bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
-				if (!bWasManifestFound)
-				{
-					string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(LiveLabel, Platform);
-					throw new AutomationException("Promotion to Prod requires the build first be staged to the internal origin server. Manifest {0} not found for promotion to label {1} of app {2}"
-						, StagingInfo.ManifestFilename
-						, DestinationLabelWithPlatform
-						, ToGameApp.ToString());
-				}
+				// Check for the manifest on the S3 bucket which seeds the production CDN
 				Log("Verifying manifest for prod promotion of Ocean {0} {1} was already staged to the S3 origin", BuildVersion, Platform);
-				bWasManifestFound = CloudStorage.IsManifestOnCloudStorage(S3Bucket, StagingInfo);
+				bool bWasManifestFound = CloudStorage.IsManifestOnCloudStorage(S3Bucket, StagingInfo);
 				if (!bWasManifestFound)
 				{
 					string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(LiveLabel, Platform);
@@ -1641,19 +1631,9 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			{
 				var StagingInfo = EditorStagingInfos[Platform]; // We can use the target here, as it's guaranteed to have the correct manifest filename embedded
 
-				// Check for the manifest on the prod CDN
-				Log("Verifying manifest for prod promotion of UT Editor {0} {1} was already staged to the internal origin server", BuildVersion, Platform);
-				bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
-				if (!bWasManifestFound)
-				{
-					string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(LiveLabel, Platform);
-					throw new AutomationException("Promotion to Prod requires the build first be staged to the internal origin server. Manifest {0} not found for promotion to label {1} of app {2}"
-						, StagingInfo.ManifestFilename
-						, DestinationLabelWithPlatform
-						, ToEditorApp.ToString());
-				}
+				// Check for the manifest on the S3 bucket which seeds the production CDN
 				Log("Verifying manifest for prod promotion of Ocean {0} {1} was already staged to the S3 origin", BuildVersion, Platform);
-				bWasManifestFound = CloudStorage.IsManifestOnCloudStorage(S3Bucket, StagingInfo);
+				bool bWasManifestFound = CloudStorage.IsManifestOnCloudStorage(S3Bucket, StagingInfo);
 				if (!bWasManifestFound)
 				{
 					string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(LiveLabel, Platform);
@@ -1686,8 +1666,6 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			{
 				var StagingInfo = GameStagingInfos[Platform];
 				{
-					Log("-- Promoting game chunks to internal origin server");
-					BuildInfoPublisherBase.Get().CopyChunksToProductionCDN(StagingInfo);
 					Log("Promoting game chunks to S3 origin");
 					CloudStorage.CopyChunksToCloudStorage(S3Bucket, StagingInfo);
 					Log("DONE Promoting game chunks");
@@ -1698,8 +1676,6 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			{
 				var StagingInfo = EditorStagingInfos[Platform];
 				{
-					Log("-- Promoting editor chunks to internal origin server");
-					BuildInfoPublisherBase.Get().CopyChunksToProductionCDN(StagingInfo);
 					Log("Promoting editor chunks to S3 origin");
 					CloudStorage.CopyChunksToCloudStorage(S3Bucket, StagingInfo);
 					Log("DONE Promoting editor chunks");
