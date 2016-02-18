@@ -233,6 +233,22 @@ struct FOverlayEffect
 	}
 };
 
+USTRUCT(BlueprintType)
+struct FPhysicalSoundResponse
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** the generic name of the sound that will be used to look up the audio */
+	UPROPERTY(EditDefaultsOnly, Category = Sound)
+	TEnumAsByte<EPhysicalSurface> SurfaceType;
+	/** reference to the actual sound object */
+	UPROPERTY(EditDefaultsOnly, Category = Sound)
+	USoundBase* Sound;
+	/** reference to the actual sound object */
+	UPROPERTY(EditDefaultsOnly, Category = Sound)
+	USoundBase* SoundOwner;
+};
+
 UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoExposure,LensFlares,AmbientOcclusion,DepthOfField,MotionBlur,Misc,ScreenSpaceReflections,Bloom,SceneColor,Film,AmbientCubemap,AgentPhysics,Attachment,Avoidance,PlanarMovement,AI,Replication,Input,Actor,Tags,GlobalIllumination))
 class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInterface
 {
@@ -1105,7 +1121,7 @@ public:
 	/** particle component for teleport */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
-
+	
 	/** particle component for normal ground footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		UParticleSystem* GroundFootstepEffect;
@@ -1162,6 +1178,14 @@ public:
 
 	UFUNCTION()
 		virtual void OnRepHeadArmorFlashCount();
+	
+	UPROPERTY(EditAnywhere, Category = Sounds)
+	TArray<FPhysicalSoundResponse> FootstepSounds;
+
+	UPROPERTY()
+	TMap<TEnumAsByte<EPhysicalSurface>, USoundBase*> FootstepSoundsMap;
+	UPROPERTY()
+	TMap<TEnumAsByte<EPhysicalSurface>, USoundBase*> OwnFootstepSoundsMap;
 
 	/** Footstep sound played for characters you don't control. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
@@ -1173,6 +1197,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;
+
+	USoundBase* GetFootstepSoundForSurfaceType(EPhysicalSurface SurfaceType, bool bLocalPlayer);
 	
 	// @TODO FIXMESTEVE temp
 	float DefaultMeshTranslationZ;
