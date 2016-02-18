@@ -3,10 +3,12 @@
 #pragma once
 
 #include "OnlineIdentityMcp.h"
+#include "PartyBeaconState.h"
 
 #include "UTGameSessionRanked.generated.h"
 
 class AUTPartyBeaconHost;
+class AUTPartyBeaconClient;
 class AQosBeaconHost;
 struct FEmptyServerReservation;
 
@@ -50,6 +52,24 @@ class UNREALTOURNAMENT_API AUTGameSessionRanked : public AUTGameSession
 	virtual void OnConnectionStatusChanged(EOnlineServerConnectionStatus::Type LastConnectionState, EOnlineServerConnectionStatus::Type ConnectionState);
 	virtual void OnVerifyAuthComplete(bool bWasSuccessful, const class FAuthTokenMcp& AuthToken, const class FAuthTokenVerifyMcp& AuthTokenVerify, const FString& ErrorStr);
 	virtual void OnRefreshAuthComplete(bool bWasSuccessful, const FAuthTokenMcp& AuthToken, const FAuthTokenMcp& AuthTokenRefresh, const FString& ErrorStr);
+	
+	/** Delegate fired when asking the beacon owner if this reservation is legit */
+	//virtual bool OnBeaconValidatePlayers(const TArray<FPlayerReservation>& PartyMembers);
+
+	/** Delegate fired when the beacon indicates a reservation add/remove */
+	virtual void OnBeaconReservationChange();
+
+	/** Delegate fired when the beacon indicates all reservations are taken */
+	//virtual void OnBeaconReservationsFull();
+
+	/** Delegate fired when the beacon indicates a duplicate reservation request */
+	virtual void OnDuplicateReservation(const FPartyReservation& DuplicateReservation);
+
+	/** Delegate fired when the beacon indicates a cancellation has occurred */
+	//virtual void OnCancelationReceived(const FUniqueNetId& PartyLeader);
+
+	/** Delegate fired when the beacon indicates a party beacon client has reconnected */
+	//virtual void OnProcessReconnectForClient(AUTPartyBeaconClient* ReconnectClient, EPartyReservationResult::Type ReconnectResult);
 
 	virtual void RegisterServer() override;
 	virtual void CleanUpOnlineSubsystem() override;
@@ -58,9 +78,11 @@ class UNREALTOURNAMENT_API AUTGameSessionRanked : public AUTGameSession
 	virtual void Restart();
 	virtual void PauseBeaconRequests(bool bPause);
 
-	void SetPlayerNeedsSize(FName SessionName, int32 NeedsSize, bool bUpdateSession);
-	int32 GetPlayerNeedsSize(FName SessionName);
-	void CreateServerGame();
+	virtual void UpdatePlayerNeedsStatus();
+	virtual void SetPlayerNeedsSize(FName SessionName, int32 NeedsSize, bool bUpdateSession);
+	virtual int32 GetPlayerNeedsSize(FName SessionName);
+	virtual void CreateServerGame();
+	virtual void CheckForDuplicatePlayer(const FUniqueNetIdRepl& PlayerId);
 	
 	/**
 	 * Modifies session settings object to have the passed in values
@@ -68,6 +90,9 @@ class UNREALTOURNAMENT_API AUTGameSessionRanked : public AUTGameSession
 	 * @param PlaylistId Sets playlist id setting always
 	 */
 	virtual void ApplyGameSessionSettings(FOnlineSessionSettings* SessionSettings, int32 PlaylistId) const;
+	virtual bool GetGameSessionSettings(const FOnlineSessionSettings* SessionSettings, int32& OutPlaylistId) const;
+
+	virtual void InitHostBeacon(FOnlineSessionSettings* SessionSettings);
 
 	/**
 	 * Cleanup host beacon
@@ -97,5 +122,7 @@ class UNREALTOURNAMENT_API AUTGameSessionRanked : public AUTGameSession
 	/** Beacon giving Qos details about this server */
 	UPROPERTY(Transient)
 	AQosBeaconHost* QosBeaconHost;
+	/** Current host settings */
+	TSharedPtr<FOnlineSessionSettings> HostSettings;
 
 };

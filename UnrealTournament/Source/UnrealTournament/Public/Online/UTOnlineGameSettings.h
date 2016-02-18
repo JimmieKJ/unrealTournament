@@ -9,6 +9,7 @@
 #define SETTING_ISLOBBY		FName(TEXT("ISLOBBY"))
 
 #define UT_GAMEMODE_PVP		TEXT("UTPVP")
+#define UT_GAMEMODE_EMPTY	TEXT("UTEMPTY")
 
 /** Named interface reference for storing beacon state between levels */
 #define UT_BEACON_STATE FName(TEXT("PartyBeaconState"))
@@ -30,7 +31,7 @@ class UNREALTOURNAMENT_API FUTOnlineSessionSettings : public FOnlineSessionSetti
 {
 public:
 
-	FUTOnlineSessionSettings(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 4);
+	FUTOnlineSessionSettings(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 10);
 	virtual ~FUTOnlineSessionSettings() {}
 
 	/** Returns the configured region */
@@ -44,7 +45,7 @@ class UNREALTOURNAMENT_API FUTOnlineSessionSettingsLobby : public FUTOnlineSessi
 {
 public:
 
-	FUTOnlineSessionSettingsLobby(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 4);
+	FUTOnlineSessionSettingsLobby(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 10);
 	virtual ~FUTOnlineSessionSettingsLobby() {}
 };
 
@@ -55,8 +56,19 @@ class UNREALTOURNAMENT_API FUTOnlineSessionSettingsLobbyPvP : public FUTOnlineSe
 {
 public:
 
-	FUTOnlineSessionSettingsLobbyPvP(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 4);
+	FUTOnlineSessionSettingsLobbyPvP(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 10);
 	virtual ~FUTOnlineSessionSettingsLobbyPvP() {}
+};
+
+/**
+* General session settings for a Fortnite lobby (dedicated) game
+*/
+class UNREALTOURNAMENT_API FUTOnlineSessionSettingsDedicatedEmpty : public FUTOnlineSessionSettings
+{
+public:
+
+	FUTOnlineSessionSettingsDedicatedEmpty(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 10);
+	virtual ~FUTOnlineSessionSettingsDedicatedEmpty() {}
 };
 
 /**

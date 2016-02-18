@@ -33,3 +33,10 @@ FUTOnlineSessionSettingsLobby(bIsLAN, bIsPresence, MaxNumPlayers)
 	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
 	Set(SETTING_ISLOBBY, true, EOnlineDataAdvertisementType::ViaOnlineService);
 }
+
+FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(bool bIsLAN, bool bIsPresence, int32 MaxNumPlayers) :
+	FUTOnlineSessionSettings(bIsLAN, bIsPresence, MaxNumPlayers)
+{
+	FString GameModeStr(UT_GAMEMODE_EMPTY);
+	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
+}
