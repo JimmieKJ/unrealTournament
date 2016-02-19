@@ -861,10 +861,38 @@ void AUTBot::Tick(float DeltaTime)
 						{
 							const FVector MyLoc = MyPawn->GetActorLocation();
 							const FVector PathDir = (TargetLoc - LastReachedMovePoint).GetSafeNormal();
-							const float MaxSideDist = CurrentPath.IsSet() ? FMath::Min<float>(CurrentPath.CollisionRadius, MyPawn->GetSimpleCollisionRadius() * 2.0f) : MyPawn->GetSimpleCollisionRadius();
+							// amount that Pawn exceeds min agent radius
+							// nav building already has a buffer of AgentRadius away from walls so we need not include that amount of radius when checking there is enough space
+							const float ExtraRadius = FMath::Max<float>(0.0f, MyPawn->GetSimpleCollisionRadius() - NavData->AgentRadius);
+							// try to determine how wide the path is
+							// if in doubt, we'll use a default guess that results in reasonable strafing since we're going to do a navmesh trace to make sure it's valid
+							float MaxSideDist = MyPawn->GetSimpleCollisionRadius() * 1.5f;
+							if (CurrentPath.IsSet())
+							{
+								float PathSize = float(CurrentPath.CollisionRadius);
+								// attempt to find the navmesh edge between the polys we're traversing and intersect our default movement direction with it
+								// that gives us the amount of leeway to the side we can move and still make it through
+								NavNodeRef SrcPoly = NavData->UTFindNearestPoly(LastReachedMovePoint - FVector(0.0f, 0.0f, MyPawn->GetSimpleCollisionHalfHeight()), MyPawn->GetSimpleCollisionCylinderExtent());
+								NavNodeRef DestPoly = NavData->UTFindNearestPoly(TargetLoc - FVector(0.0f, 0.0f, MyPawn->GetSimpleCollisionHalfHeight()), MyPawn->GetSimpleCollisionCylinderExtent());
+								TArray<FNavigationPortalEdge> Edges;
+								NavData->GetPolyNeighbors(SrcPoly, Edges);
+								for (const FNavigationPortalEdge& TestEdge : Edges)
+								{
+									if (TestEdge.ToRef == DestPoly)
+									{
+										FVector OutP1, OutP2;
+										FMath::SegmentDistToSegmentSafe(TestEdge.Left, TestEdge.Right, LastReachedMovePoint, TargetLoc, OutP1, OutP2);
+										PathSize = FMath::Min<float>((OutP1 - TestEdge.Left).Size(), (OutP1 - TestEdge.Right).Size()) - ExtraRadius;
+										break;
+									}
+								}
+								MaxSideDist = FMath::Max<float>(MaxSideDist, PathSize);
+							}
 							const FVector Side = (PathDir ^ FVector(0.0f, 0.0f, 1.0f)) * MaxSideDist * SerpentineDir;
-							const FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLoc, LastReachedMovePoint, TargetLoc);
-							float DistFromStrafeGoal = (ClosestPoint - MyLoc).Size();
+							// push the start point back somewhat for this calculation so we don't get bad results on the start of the path where we might be slightly behind the 'official' start point
+							// because reaching it only requires that our capsule touches
+							const FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLoc, LastReachedMovePoint + (LastReachedMovePoint - TargetLoc).GetSafeNormal() * MyPawn->GetSimpleCollisionRadius(), TargetLoc);
+							float DistFromStrafeGoal = (ClosestPoint - MyLoc).Size2D();
 							if ((Side | (MyLoc - ClosestPoint)) < 0.0f)
 							{
 								DistFromStrafeGoal += MaxSideDist;
@@ -878,10 +906,10 @@ void AUTBot::Tick(float DeltaTime)
 								// switch directions
 								SerpentineDir *= -1.0f;
 							}
-							else if (DistFromStrafeGoal * 2.0f < (TargetLoc - MyLoc).Size())
+							else if (DistFromStrafeGoal * 2.0f < (TargetLoc - MyLoc).Size()) // maybe should be Size2D(), but worried about effect when on a slope
 							{
 								// make sure strafe adjustment stays on the navmesh
-								if (!NavData->RaycastWithZCheck(GetPawn()->GetNavAgentLocation(), ClosestPoint + Side.GetSafeNormal() * (Side.Size() + MyPawn->GetSimpleCollisionRadius())))
+								if (!NavData->RaycastWithZCheck(GetPawn()->GetNavAgentLocation(), ClosestPoint + Side.GetSafeNormal() * (Side.Size() + ExtraRadius)))
 								{
 									Accel = (Accel + Side.GetSafeNormal()).GetSafeNormal();
 								}
