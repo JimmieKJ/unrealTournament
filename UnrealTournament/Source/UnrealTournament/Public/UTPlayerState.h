@@ -76,7 +76,6 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 	GENERATED_UCLASS_BODY()
 
 private:
-
 	/** Instance of a stat manager that tracks gameplay/reward stats for this Player Controller */
 	UPROPERTY()
 	class UStatManager *StatManager;
@@ -133,6 +132,11 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
+	virtual void SetReadyToPlay(bool bNewReadyState);
+
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		uint8 ReadyMode;
+
 	/** Whether this spectator is a caster */
 	UPROPERTY(replicated)
 	uint32 bCaster : 1;
@@ -149,12 +153,6 @@ public:
 	UPROPERTY()
 		uint32 bAnnounceWeaponReward : 1;
 
-	/** Color to display ready text. */
-	FLinearColor ReadyColor;
-
-	/** Scale to display ready text. */
-	float ReadyScale;
-
 	/** Last displayed ready state. */
 	uint8 LastReadyState;
 
@@ -163,9 +161,6 @@ public:
 
 	/** Count of fast ready state changes. */
 	int32 ReadySwitchCount;
-
-	UFUNCTION(BlueprintCallable, Category = PlayerState)
-	virtual void UpdateReady();
 
 	/** Voice used by this player/bot for speech (taunts, etc.). */
 	UPROPERTY(BlueprintReadOnly, Category = Sounds)

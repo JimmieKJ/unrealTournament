@@ -60,8 +60,6 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bReadStatsFromCloud = false;
 	bSuccessfullyReadStatsFromCloud = false;
 	bWroteStatsToCloud = false;
-	ReadyColor = FLinearColor::White;
-	ReadyScale = 1.f;
 	bIsDemoRecording = false;
 	EngineMessageClass = UUTEngineMessage::StaticClass();
 	LastTauntTime = -1000.f;
@@ -70,6 +68,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	EmoteSpeed = 1.0f;
 	bAnnounceWeaponSpree = false;
 	bAnnounceWeaponReward = false;
+	ReadyMode = 0;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -140,6 +139,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, EmoteReplicationInfo);
 	DOREPLIFETIME(AUTPlayerState, EmoteSpeed);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSkins, COND_OwnerOnly);
+	DOREPLIFETIME(AUTPlayerState, ReadyMode);
 }
 
 void AUTPlayerState::Destroyed()
@@ -2407,8 +2407,10 @@ void AUTPlayerState::ClientShowLoadoutMenu_Implementation()
 	}
 }
 
-void AUTPlayerState::UpdateReady()
+void AUTPlayerState::SetReadyToPlay(bool bNewReadyState)
 {
+	bReadyToPlay = bNewReadyState;
+
 	uint8 NewReadyState = bReadyToPlay + (bPendingTeamSwitch >> 2);
 	if ((ReadySwitchCount > 2) && bReadyToPlay)
 	{
@@ -2416,32 +2418,21 @@ void AUTPlayerState::UpdateReady()
 		{
 			ReadySwitchCount++;
 			LastReadySwitchTime = GetWorld()->GetTimeSeconds();
-			if ((ReadySwitchCount & 14) == 0)
-			{
-				ReadySwitchCount += 2;
-			}
-			ReadyColor.R = (ReadySwitchCount & 2) ? 1.f : 0.f;
-			ReadyColor.G = (ReadySwitchCount & 4) ? 1.f : 0.f;
-			ReadyColor.B = (ReadySwitchCount & 8) ? 1.f : 0.f;
+			ReadyMode = 1;
 		}
 		if (ReadySwitchCount > 10)
 		{
-			ReadyScale = (ReadySwitchCount % 2 == 0) 
-							? 1.f + 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime)
-							: 1.4f - 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime);
+			ReadyMode = 2;
 		}
 	}
 	else if (!bReadyToPlay && (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f))
 	{
-		ReadySwitchCount = 0;
-		ReadyColor = FLinearColor::White;
-		ReadyScale = 1.f;
+		ReadyMode = 0;
 	}
 	else if (NewReadyState != LastReadyState)
 	{
 		ReadySwitchCount = (GetWorld()->GetTimeSeconds() - LastReadySwitchTime < 0.5f) ? ReadySwitchCount + 1 : 0;
 		LastReadySwitchTime = GetWorld()->GetTimeSeconds();
-		ReadyScale = 1.f;
 	}
 	LastReadyState = NewReadyState;
 }

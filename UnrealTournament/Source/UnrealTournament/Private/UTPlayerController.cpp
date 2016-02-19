@@ -726,6 +726,10 @@ void AUTPlayerController::ThrowWeapon()
 			ServerThrowWeapon();
 		}
 	}
+	else if ((UTCharacter == nullptr) && UTPlayerState && (UTPlayerState->ReadyMode > 1))
+	{
+		ServerThrowWeapon();
+	}
 }
 
 bool AUTPlayerController::ServerThrowWeapon_Validate()
@@ -735,13 +739,17 @@ bool AUTPlayerController::ServerThrowWeapon_Validate()
 
 void AUTPlayerController::ServerThrowWeapon_Implementation()
 {
-	if (UTCharacter != NULL && !UTCharacter->IsRagdoll())
+	if (UTCharacter != nullptr && !UTCharacter->IsRagdoll())
 	{
 		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (UTGM && !UTGM->bBasicTrainingGame && UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon && !UTCharacter->GetWeapon()->IsFiring())
 		{
 			UTCharacter->TossInventory(UTCharacter->GetWeapon(), FVector(400.0f, 0, 200.f));
 		}
+	}
+	else if ((UTCharacter == nullptr) && UTPlayerState && (UTPlayerState->ReadyMode > 1))
+	{
+		UTPlayerState->ReadyMode = 4;
 	}
 }
 
@@ -1579,11 +1587,22 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				{
 					AttenuationOverride->Attenuation = *DefaultAttenuation;
 				}
+
+				// FIXMESTEVE - less hacky than this - pass in amplification
 				// set minimum volume
 				// we're assuming that the radius was already checked via HearSound() and thus this won't cause hearing the audio level-wide
-				AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
-				AttenuationOverride->Attenuation.FalloffDistance *= 4.f;
-				VolumeMultiplier *= 2.f;
+				if (Cast<APawn>(SoundPlayer))
+				{
+					// extra amplify pain sounds
+					AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
+					AttenuationOverride->Attenuation.FalloffDistance *= 4.f;
+					VolumeMultiplier *= 2.f;
+				}
+				else
+				{
+					//AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
+					AttenuationOverride->Attenuation.FalloffDistance *= 1.7f;
+				}
 			}
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 			{
@@ -1937,13 +1956,13 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
 				if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
 				{
-					UTPlayerState->bReadyToPlay = true;
+					UTPlayerState->SetReadyToPlay(true);
 					UTPlayerState->ForceNetUpdate();
 				}
 			}
 			else
 			{
-				UTPlayerState->bReadyToPlay = !UTPlayerState->bReadyToPlay;
+				UTPlayerState->SetReadyToPlay(!UTPlayerState->bReadyToPlay);
 				UTPlayerState->bPendingTeamSwitch = false;
 				UTPlayerState->ForceNetUpdate();
 			}
@@ -1952,7 +1971,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	//Half-time ready up for caster control
 	else if (UTGM->bCasterControl && UTGM->GetMatchState() == MatchState::MatchIntermission && UTPlayerState != nullptr && UTPlayerState->bCaster)
 	{
-		UTPlayerState->bReadyToPlay = true;
+		UTPlayerState->SetReadyToPlay(true);
 		UTPlayerState->ForceNetUpdate();
 	}
 	else if (IsFrozen())
@@ -1988,7 +2007,7 @@ void AUTPlayerController::ServerSwitchTeam_Implementation()
 				ChangeTeam(NewTeam);
 				if (UTPlayerState->bPendingTeamSwitch)
 				{
-					UTPlayerState->bReadyToPlay = false;
+					UTPlayerState->SetReadyToPlay(false);
 				}
 			}
 		}
@@ -2912,7 +2931,12 @@ void AUTPlayerController::ServerSuicide_Implementation()
 			Char->PlayerSuicide();
 		}
 	}
+	else if ((UTCharacter == nullptr) && UTPlayerState && (UTPlayerState->ReadyMode == 4))
+	{
+		UTPlayerState->ReadyMode = 3;
+	}
 }
+
 bool AUTPlayerController::ServerSuicide_Validate()
 {
 	return true;
