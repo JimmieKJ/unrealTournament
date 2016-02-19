@@ -1728,6 +1728,11 @@ FName UUTLocalPlayer::TeamStyleRef(FName InName)
 
 void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 {
+	if (!IsLoggedIn())
+	{
+		return;
+	}
+
 	// get MCP Utils
 	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()));
 	if (McpUtils == nullptr)
