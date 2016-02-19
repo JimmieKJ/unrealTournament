@@ -434,3 +434,12 @@ void UUTCheatManager::McpRefreshProfile()
 	}
 #endif
 }
+
+void UUTCheatManager::SoloQueueMe()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
+	if (LP)
+	{
+		LP->StartSoloQueueMatchmaking();
+	}
+}

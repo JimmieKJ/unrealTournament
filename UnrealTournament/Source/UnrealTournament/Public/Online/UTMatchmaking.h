@@ -12,12 +12,16 @@
 class UQosEvaluator;
 
 enum class EUTPartyState : uint8;
+enum class EQosCompletionResult : uint8;
+
+/** Time before actually reconnecting to the reservation beacon */
+#define CONNECT_TO_RESERVATION_BEACON_DELAY 3.0f
 
 /** Enum for possible types of matchmaking */
 UENUM()
 enum class EUTMatchmakingType : uint8
 {
-	Ranked,
+	Gathering,
 };
 
 /** Struct to represent params used for past matchmaking attempts */
@@ -87,6 +91,15 @@ public:
 	 */
 	void UnregisterDelegates();
 	
+	/**
+	 * Start gathering players for a game
+	 *
+	 * @param FMatchmakingParams desired matchmaking parameters
+	 *
+	 * @return true if the operation started, false otherwise
+	 */
+	bool FindGatheringSession(const FMatchmakingParams& InParams);
+
 	/**
 	 * Get the lobby beacon client that is controlling the lobby for this client
 	 *
@@ -232,17 +245,7 @@ private:
 	 * @param bWasSuccessful was the delete successful
 	 */
 	void OnDisconnectFromReservationBeaconComplete(FName SessionName, bool bWasSuccessful);
-
-	/** 
-	 * Called via delegate when the reservation beacon's reservations are allowed to proceed past the reservation phase 
-	 */
-	void OnAllowedToProceedFromReservation();
-
-	/** 
-	 * Called via delegate when the reservation beacon's reservations have timed out waiting for permission to proceed past the reservation phase 
-	 */
-	void OnAllowedToProceedFromReservationTimeout();
-
+	
 	/**
 	 * Notification that the local players have joined a party,
 	 * register with party state delegates
@@ -292,6 +295,30 @@ private:
 	 */
 	void OnClientMatchmakingComplete(EMatchmakingCompleteResult Result);
 	
+	/**
+	 * Progression through actual matchmaking after a datacenter id has been determined
+	 *
+	 * @param Result datacenter qos completion result
+	 * @param DatacenterId datacenter id chosen by the evaluator
+	 * @param InParams matchmaking parameters passed along from the original request
+	 *
+	 */
+	void ContinueMatchmaking(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams);
+
+	/**
+	 * Handle the end of matchmaking (reserved space and joined the session, now connect to the reservation / lobby beacons
+	 *
+	 * @param Result end result of the matchmaking attempt
+	 * @param SearchResult the session of interest
+	 */
+	void OnGatherMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
+
+	/** Internal notification that matchmaking state has changed, routes externally */
+	void OnGatherMatchmakingStateChangeInternal(EMatchmakingState::Type OldState, EMatchmakingState::Type NewState);
+
+	/** Internal notification that the matchmaking has completed, routes externally */
+	void OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
+
 	/** Reservation beacon class */
 	UPROPERTY(Transient)
 	TSubclassOf<APartyBeaconClient> ReservationBeaconClientClass;
@@ -303,6 +330,46 @@ private:
 	/** Lobby beacon client instance */
 	UPROPERTY(Transient)
 	AUTLobbyBeaconClient* LobbyBeaconClient;
+		
+	/**
+	 * Connect to a reservation beacon
+	 *
+	 * @param SearchResult session to connect to
+	 */
+	void ConnectToReservationBeacon(FOnlineSessionSearchResult SearchResult);
+	
+	/**
+	 * Handle a failure to connect to the reservation beacon
+	 */
+	void OnReservationBeaconConnectionFailure();
+
+	/**
+	 * Handle a reservation count update from the reservation beacon
+	 */
+	void OnReservationCountUpdate(int32 NumRemaining);
+
+	/** 
+	 * Called via delegate when the reservation beacon hits its capacity for reservations 
+	 */
+	void OnReservationFull();
+
+	/** 
+	 * Called via delegate when the reservation beacon's reservations are allowed to proceed past the reservation phase 
+	 */
+	void OnAllowedToProceedFromReservation();
+
+	/** 
+	 * Called via delegate when the reservation beacon's reservations have timed out waiting for permission to proceed past the reservation phase 
+	 */
+	void OnAllowedToProceedFromReservationTimeout();
+	
+	/**
+	 * Handle results after reconnection with the reservation beacon
+	 *
+	 * @param ReservationResponse response from the reservation beacon regarding an existing reservation
+	 * @param SearchResult the session of interest
+	 */
+	void OnReconnectResponseReceived(EPartyReservationResult::Type ReservationResponse, FOnlineSessionSearchResult SearchResult);
 
 	/**
 	 * Helpers

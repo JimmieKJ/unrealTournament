@@ -32,20 +32,20 @@ void UUTGameInstance::Init()
 		PerfCounters->OnPerfCounterExecCommand() = FPerfCounterExecCommandCallback::CreateUObject(this, &ThisClass::PerfExecCmd);
 	}
 
-	// Don't turn on parties yet
-	if (0 && !IsDedicatedServerInstance())
+	if (!IsDedicatedServerInstance())
 	{
 		// handles all matchmaking in game
 		Matchmaking = NewObject<UUTMatchmaking>(this);
 		check(Matchmaking);
 
+		// Don't turn on parties yet
 		// party management
-		Party = NewObject<UUTParty>(this);
-		check(Party);
+		//Party = NewObject<UUTParty>(this);
+		//check(Party);
 
 		// Initialize both after construction (each needs the pointer of the other)
 		Matchmaking->Init();
-		Party->Init();
+		//Party->Init();
 	}
 }
 

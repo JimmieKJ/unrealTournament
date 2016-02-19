@@ -7,3 +7,14 @@ UUTPartyBeaconState::UUTPartyBeaconState(const FObjectInitializer& ObjectInitial
 Super(ObjectInitializer)
 {
 }
+
+void UUTPartyBeaconState::ChangeSessionOwner(const TSharedRef<const FUniqueNetId>& InNewSessionOwner)
+{
+	GameSessionOwner = InNewSessionOwner;
+}
+
+void UUTPartyBeaconState::SetUserConfiguration(const FEmptyServerReservation& InReservationData, const TSharedPtr<const FUniqueNetId>& InGameSessionOwner)
+{
+	ReservationData = InReservationData;
+	GameSessionOwner = InGameSessionOwner;
+}

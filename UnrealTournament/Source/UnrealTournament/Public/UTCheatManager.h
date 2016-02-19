@@ -77,6 +77,9 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	UFUNCTION(exec)
 	void Spread(float Scaling);
 
+	UFUNCTION(exec)
+	void SoloQueueMe();
+
 #if WITH_PROFILE
 	void LogWebResponse(const FMcpQueryResult& Response);
 #endif

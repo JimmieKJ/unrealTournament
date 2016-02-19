@@ -227,6 +227,16 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	RespawnWaitTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("RespawnWait"), RespawnWaitTime));
 
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Ranked"));
+	if (!InOpt.IsEmpty())
+	{
+		bRankedSession = true;
+	}
+	else
+	{
+		bRankedSession = false;
+	}
+
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Hub"));
 	if (!InOpt.IsEmpty()) HubAddress = InOpt;
 

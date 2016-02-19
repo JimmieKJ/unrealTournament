@@ -190,6 +190,20 @@ protected:
 	UUTGameInstance* GetUTGameInstance() const;
 
 public:
+	
+	/**
+	 * Initialize the matchmaking with the parameters desired for matchmaking
+	 *
+	 * @param InParams valid parameters for a new matchmaking attempt
+	 */
+	virtual void Init(const FMatchmakingParams& InParams);
+
+	/**
+	 * Get the search results found and the current search result being probed
+	 *
+	 * @return State of search result query
+	 */
+	FMMAttemptState GetMatchmakingState() const;
 
 	/** @return the delegate fired when matchmaking state changes */
 	FOnMatchmakingStateChange& OnMatchmakingStateChange() { return MatchmakingStateChange; }

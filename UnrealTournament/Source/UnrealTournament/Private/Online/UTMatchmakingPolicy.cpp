@@ -4,6 +4,7 @@
 #include "UTMatchmakingPolicy.h"
 #include "UTGameInstance.h"
 #include "OnlineSubsystemUtils.h"
+#include "UTSearchPass.h"
 #include "UTGameViewportClient.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
@@ -13,6 +14,25 @@ UUTMatchmakingPolicy::UUTMatchmakingPolicy(const FObjectInitializer& ObjectIniti
 	bMatchmakingInProgress(false),
 	MMPass(nullptr)
 {
+}
+
+void UUTMatchmakingPolicy::Init(const FMatchmakingParams& InParams)
+{
+	SessionName = GameSessionName;
+	CurrentParams = InParams;
+
+	MMPass = NewObject<UUTSearchPass>();
+}
+
+FMMAttemptState UUTMatchmakingPolicy::GetMatchmakingState() const
+{
+	if (MMPass)
+	{
+		return MMPass->GetSearchResultStatus();
+	}
+
+	FMMAttemptState EmptyState;
+	return EmptyState;
 }
 
 bool UUTMatchmakingPolicy::IsMatchmaking() const

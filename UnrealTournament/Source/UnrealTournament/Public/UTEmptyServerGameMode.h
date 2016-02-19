@@ -16,4 +16,6 @@ public:
 
 	AUTEmptyServerGameMode();
 
+	TSubclassOf<AGameSession> GetGameSessionClass() const override;
+	void InitGameState() override;
 };

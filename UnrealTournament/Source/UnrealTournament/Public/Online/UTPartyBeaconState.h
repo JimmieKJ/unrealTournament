@@ -47,15 +47,39 @@ class UUTPartyBeaconState : public UPartyBeaconState
 	 * @return the index of the game mode in use
 	 */
 	const int32 GetPlaylistId() const { return ReservationData.PlaylistId; }
+	
+	/**
+	 * @return the unique id for the player who configured the beacon
+	 */
+	const TSharedPtr<const FUniqueNetId>& GetGameSessionOwner() const { return GameSessionOwner.GetUniqueNetId(); }
+	
+	/**
+	 * Change the current owner of the session as far as the beacon is concerned
+	 *
+	 * @param InNewSessionOwner new user id with admin rights to carry on the session
+	 */
+	void ChangeSessionOwner(const TSharedRef<const FUniqueNetId>& InNewSessionOwner);
 
 protected:
 	
+	/** UniqueId of player owning the world session */
+	UPROPERTY()
+	FUniqueNetIdRepl GameSessionOwner;
+
     /** 
 	 * Reservation data at the time empty server was allocated
 	 * (ie WorldId, WorldDataOwner, PlaylistId)
 	 */
 	UPROPERTY()
 	FEmptyServerReservation ReservationData;
+	
+	/**
+	 * Set the various properties associated with this beacon state
+	 *
+	 * @param ReservationData all reservation data for the request
+	 * @param InGameSessionOwner owner of this world cloud save
+	 */
+	void SetUserConfiguration(const FEmptyServerReservation& InReservationData, const TSharedPtr<const FUniqueNetId>& InGameSessionOwner);
 
 	friend class AUTPartyBeaconHost;
 };

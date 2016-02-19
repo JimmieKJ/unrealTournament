@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTEmptyServerGameMode.h"
+#include "UTGameSessionRanked.h"
 
 
 AUTEmptyServerGameMode::AUTEmptyServerGameMode()
@@ -13,4 +14,23 @@ AUTEmptyServerGameMode::AUTEmptyServerGameMode()
 	//FailsafeServerRestartTimer = 60.f * 10.f;
 
 	PlayerControllerClass = AUTBasePlayerController::StaticClass();
+}
+
+TSubclassOf<AGameSession> AUTEmptyServerGameMode::GetGameSessionClass() const
+{
+	return AUTGameSessionRanked::StaticClass();
+}
+
+void AUTEmptyServerGameMode::InitGameState()
+{
+	Super::InitGameState();
+
+	if (GameSession != NULL && GetWorld()->GetNetMode() == NM_DedicatedServer)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession)
+		{
+			UTGameSession->RegisterServer();
+		}
+	}
 }

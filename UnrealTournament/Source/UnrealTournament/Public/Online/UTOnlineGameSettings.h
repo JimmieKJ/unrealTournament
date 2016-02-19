@@ -8,6 +8,9 @@
 /** String describing if the game is in lobby mode (value is bool) */
 #define SETTING_ISLOBBY		FName(TEXT("ISLOBBY"))
 
+/** Setting describing the trust level of the session (value is FString) */
+#define SETTING_TRUSTLEVEL FName(TEXT("UT_SERVERTRUSTLEVEL"))
+
 #define UT_GAMEMODE_PVP		TEXT("UTPVP")
 #define UT_GAMEMODE_EMPTY	TEXT("UTEMPTY")
 

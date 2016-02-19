@@ -37,6 +37,10 @@ FUTOnlineSessionSettingsLobby(bIsLAN, bIsPresence, MaxNumPlayers)
 FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(bool bIsLAN, bool bIsPresence, int32 MaxNumPlayers) :
 	FUTOnlineSessionSettings(bIsLAN, bIsPresence, MaxNumPlayers)
 {
+	bAllowInvites = false;
+	bAllowJoinViaPresence = false;
+	bAllowJoinViaPresenceFriendsOnly = false;
+
 	FString GameModeStr(UT_GAMEMODE_EMPTY);
 	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
 }
@@ -44,6 +48,7 @@ FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(b
 FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, bool bSearchingLAN, bool bSearchingPresence) :
 	FUTOnlineSessionSearchBase(InPlaylistId, bSearchingLAN, bSearchingPresence)
 {
+	MaxSearchResults = 20;
 }
 
 void FUTOnlineSessionSearchGather::SortSearchResults()
@@ -53,24 +58,35 @@ void FUTOnlineSessionSearchGather::SortSearchResults()
 
 FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated()
 {
+	MaxSearchResults = 20;
 }
 	
 FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const FEmptyServerReservation& InReservationData, bool bSearchingLAN, bool bSearchingPresence) :
 	FUTOnlineSessionSearchBase(InReservationData.PlaylistId, bSearchingLAN, bSearchingPresence)
 {
+	MaxSearchResults = 20;
+
 	QuerySettings.Set(SEARCH_DEDICATED_ONLY, true, EOnlineComparisonOp::Equals);
 	QuerySettings.Set(SEARCH_EMPTY_SERVERS_ONLY, true, EOnlineComparisonOp::Equals);
 
 	FString GameModeStr(UT_GAMEMODE_EMPTY);
 	QuerySettings.Set(SETTING_GAMEMODE, GameModeStr, EOnlineComparisonOp::Equals);
+
+	// Only find Epic hosted servers
+	QuerySettings.Set(SETTING_TRUSTLEVEL, 0, EOnlineComparisonOp::Equals);
 }
 
 FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase()
 {
+	bIsLanQuery = false;
 }
 
 FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase(int32 InPlaylistId, bool bSearchingLAN, bool bSearchingPresence)
 {
+	bIsLanQuery = bSearchingLAN;
+
+	PlaylistId = InPlaylistId;
+
 	QuerySettings.Set(SEARCH_MINSLOTSAVAILABLE, 1, EOnlineComparisonOp::Equals);
 
 	if (PlaylistId != INDEX_NONE)

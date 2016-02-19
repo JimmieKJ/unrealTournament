@@ -63,6 +63,8 @@
 #include "UTMcpUtils.h"
 #include "UTPlayerState.h"
 #include "UTGameInstance.h"
+#include "UTMatchmaking.h"
+#include "UTMatchmakingPolicy.h"
 #include "UTParty.h"
 #include "PartyGameState.h"
 #include "IBlueprintContextModule.h"
@@ -4494,6 +4496,20 @@ void UUTLocalPlayer::EpicFlagCheck()
 		CurrentProfileSettings->CountryFlag = FName(TEXT("Epic"));
 		CurrentProfileSettings->bForcedToEpicAtLeastOnce = true;
 		SaveProfileSettings();
+	}
+}
+
+void UUTLocalPlayer::StartSoloQueueMatchmaking()
+{
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking(); 
+	if (ensure(Matchmaking))
+	{
+		FMatchmakingParams MatchmakingParams;
+		MatchmakingParams.ControllerId = GetControllerId();
+		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
+		MatchmakingParams.PlaylistId = 0;
+		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
 	}
 }
 

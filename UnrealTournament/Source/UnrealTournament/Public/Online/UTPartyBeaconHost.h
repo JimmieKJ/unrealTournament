@@ -36,6 +36,9 @@ class AUTPartyBeaconHost : public APartyBeaconHost
 
 	virtual bool InitHostBeacon(int32 InTeamCount, int32 InTeamSize, int32 InMaxReservations, FName InSessionName, int32 InForceTeamNum = 0) override;
 	virtual bool InitFromBeaconState(UPartyBeaconState* PrevState) override;
+	virtual void ProcessReservationRequest(APartyBeaconClient* Client, const FString& SessionId, const FPartyReservation& ReservationRequest) override;
+	virtual void HandlePlayerLogout(const FUniqueNetIdRepl& PlayerId) override;
+	virtual void DumpReservations() const override;
 	
 	/**
 	 * Simple accessor for the delegate fired when a beacon client's reconnect request is processed
@@ -47,6 +50,26 @@ class AUTPartyBeaconHost : public APartyBeaconHost
 	 * All normal reservations are rejected until a configuration attempt has been made
 	 */
 	FOnServerConfigurationRequest& OnServerConfigurationRequest() { return ServerConfigurationRequest; }
+	
+	/**
+	 * Attempts to add a party reservation to the beacon, configuring the beacon in the process
+     *
+	 * @param ReservationData all reservation data for the request
+     * @param ReservationRequest reservation attempt
+     *
+     * @return add attempt result
+	 */
+	EPartyReservationResult::Type AddEmptyServerReservationRequest(const FEmptyServerReservation& ReservationData, const FPartyReservation& ReservationRequest);
+
+	/**
+	 * Handle a reservation request received from an incoming client (configure new server)
+	 *
+	 * @param Client client beacon making the request
+	 * @param SessionId id of the session to join
+	 * @param ReservationData all reservation data for the request
+	 * @param ReservationRequest payload of request
+	 */
+	void ProcessEmptyServerReservationRequest(APartyBeaconClient* Client, const FString& SessionId, const FEmptyServerReservation& ReservationData, const FPartyReservation& ReservationRequest);
 
 	/**
 	 * @return the index of the game mode in use

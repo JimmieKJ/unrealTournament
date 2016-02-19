@@ -866,6 +866,9 @@ public:
 
 #endif
 
+	/** Matchmaking related items */
+	void StartSoloQueueMatchmaking();
+
 	void InvalidateLastSession();
 	void Reconnect(bool bAsSpectator);
 
@@ -884,7 +887,7 @@ protected:
 	void CreatePersistentParty();
 	void DelayedCreatePersistentParty();
 	FTimerHandle PersistentPartyCreationHandle;
-
+	
 	bool bCancelJoinSession;
 
 	void OnProfileManagerInitComplete(bool bSuccess, const FText& ErrorText);

@@ -492,7 +492,7 @@ void AUTGameSessionRanked::CreateServerGame()
 	bool bPreserveState = true;
 	DestroyHostBeacon(bPreserveState);
 	
-	FString TravelURL = TEXT("dm-chill?game=tsd?Ranked=1"); // GetMatchURL(PlaylistId);
+	FString TravelURL = TEXT("/Game/RestrictedAssets/Maps/WIP/DM-Chill?game=TEAMSHOWDOWN?Ranked=1"); // GetMatchURL(PlaylistId);
 	
 	World->ServerTravel(TravelURL, true, false);
 }

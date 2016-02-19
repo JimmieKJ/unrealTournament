@@ -224,6 +224,8 @@ public:
 	UPROPERTY()
 	bool bSpectatorMouseChangesView;
 
+	// Will actually query the UParty once persistent parties are enabled
+	bool IsPartyLeader() { return true; }
 
 protected:
 	// Sends a message directly to a user.  
