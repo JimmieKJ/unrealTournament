@@ -24,6 +24,13 @@
 /** Second key for "needs" because can't set same value with two criteria (value is int32) */
 #define SETTING_NEEDSSORT FName(TEXT("NEEDSSORT"))
 
+/** Value to sort results in ascending order given a "distance" sort criteria */
+#define SORT_ASC MIN_int32
+/** Value to sort results in descending order given a "distance" sort criteria */
+#define SORC_DESC MAX_int32
+
+struct FEmptyServerReservation;
+
 /**
  * General session settings for a UT game
  */
@@ -90,4 +97,36 @@ public:
 
 	/** @return the playlist id query param */
 	int32 GetPlaylistId() const { return PlaylistId; }
+};
+
+/**
+ * Search settings for a session that is gathering players 
+ */
+class UNREALTOURNAMENT_API FUTOnlineSessionSearchGather : public FUTOnlineSessionSearchBase
+{
+public:
+	FUTOnlineSessionSearchGather(int32 InPlaylistId = INDEX_NONE, bool bSearchingLAN = false, bool bSearchingPresence = false);
+	virtual ~FUTOnlineSessionSearchGather() {}
+
+	// FOnlineSessionSearch Interface begin
+	virtual TSharedPtr<FOnlineSessionSettings> GetDefaultSessionSettings() const override { return MakeShareable(new FUTOnlineSessionSettings()); }
+	virtual void SortSearchResults() override;
+	// FOnlineSessionSearch Interface end
+};
+
+/**
+ * Search settings for an empty dedicated server to host a match
+ */
+class UNREALTOURNAMENT_API FUTOnlineSessionSearchEmptyDedicated : public FUTOnlineSessionSearchBase
+{
+protected:
+	FUTOnlineSessionSearchEmptyDedicated();
+
+public:
+	FUTOnlineSessionSearchEmptyDedicated(const FEmptyServerReservation& InReservationData, bool bSearchingLAN = false, bool bSearchingPresence = false);
+	virtual ~FUTOnlineSessionSearchEmptyDedicated() {}
+
+	// FOnlineSessionSearch Interface begin
+	virtual TSharedPtr<FOnlineSessionSettings> GetDefaultSessionSettings() const override { return MakeShareable(new FUTOnlineSessionSettingsDedicatedEmpty()); }
+	// FOnlineSessionSearch Interface end
 };

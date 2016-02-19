@@ -27,6 +27,11 @@ bool UUTMatchmakingPolicy::IsMatchmaking() const
 	return bMatchmakingInProgress;
 }
 
+void UUTMatchmakingPolicy::StartMatchmaking()
+{
+	bMatchmakingInProgress = true;
+}
+
 void UUTMatchmakingPolicy::CancelMatchmaking()
 {
 	if (bMatchmakingInProgress)
@@ -69,6 +74,44 @@ void UUTMatchmakingPolicy::SignalMatchmakingComplete(EMatchmakingCompleteResult 
 	}
 
 	OnMatchmakingComplete().ExecuteIfBound(Result, SearchResult);
+}
+
+
+UWorld* UUTMatchmakingPolicy::GetWorld() const
+{
+	check(GEngine);
+	check(GEngine->GameViewport);
+	UGameInstance* GameInstance = GEngine->GameViewport->GetGameInstance();
+	return GameInstance->GetWorld();
+}
+
+FTimerManager& UUTMatchmakingPolicy::GetWorldTimerManager() const
+{
+	return GetWorld()->GetTimerManager();
+}
+
+UUTGameInstance* UUTMatchmakingPolicy::GetUTGameInstance() const
+{
+	check(GEngine);
+	check(GEngine->GameViewport);
+	return Cast<UUTGameInstance>(GEngine->GameViewport->GetGameInstance());
+}
+
+void UUTMatchmakingPolicy::CleanupJoinFailure()
+{
+	UUTGameInstance* GameInstance = GetUTGameInstance();
+	check(GameInstance);
+
+	// Need to cleanup the possibly good session that we aren't joining
+	FOnDestroySessionCompleteDelegate CompletionDelegate;
+	CompletionDelegate.BindUObject(this, &ThisClass::OnJoinFailureCleanupComplete);
+	GameInstance->SafeSessionDelete(GameSessionName, CompletionDelegate);
+}
+
+void UUTMatchmakingPolicy::OnJoinFailureCleanupComplete(FName InSessionName, bool bWasSuccessful)
+{
+	FOnlineSessionSearchResult EmptyResult;
+	SignalMatchmakingComplete(EMatchmakingCompleteResult::Failure, EmptyResult);
 }
 
 #undef LOCTEXT_NAMESPACE

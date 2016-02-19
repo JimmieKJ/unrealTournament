@@ -25,6 +25,22 @@ enum class EMatchmakingCompleteResult : uint8
 	Success
 };
 
+/**
+ * Possible start locations within matchmaking flow
+ */
+UENUM()
+enum class EMatchmakingStartLocation : uint8
+{
+	/** Start with a lobby search */
+	Lobby,
+	/** Start with an existing game search */
+	Game,
+	/** Start by creating a new game */
+	CreateNew,
+	/** Find a single session */
+	FindSingle
+};
+
 UENUM()
 enum class EMatchmakingFlags : uint8
 {
@@ -49,7 +65,9 @@ struct FMatchmakingParams
 		ControllerId(INVALID_CONTROLLERID),
 		PartySize(1),
 		PlaylistId(INDEX_NONE),
-		Flags(EMatchmakingFlags::None)
+		Flags(EMatchmakingFlags::None),
+		StartWith(EMatchmakingStartLocation::Lobby),
+		ChanceToHostOverride(0.f)
 	{}
 
 	~FMatchmakingParams() {}
@@ -60,12 +78,21 @@ struct FMatchmakingParams
 	/** Number of players in the party */
 	UPROPERTY()
 	int32 PartySize;
+	/** Datacenter to use */
+	UPROPERTY()
+	FString DatacenterId;
 	/** Game mode to play */
 	UPROPERTY()
 	int32 PlaylistId;
 	/** Matchmaking flags */
 	UPROPERTY()
 	EMatchmakingFlags Flags;
+	/** Where to begin matchmaking */
+	UPROPERTY()
+	EMatchmakingStartLocation StartWith;
+	/** If > 0.f, acts as an override to the chance to host during matchmaking */
+	UPROPERTY()
+	float ChanceToHostOverride;
 };
 
 /**
@@ -85,6 +112,11 @@ public:
 	virtual bool IsMatchmaking() const;
 	
 	/**
+	 * Start matchmaking
+	 */
+	virtual void StartMatchmaking();
+
+	/**
 	 * Cancel matchmaking in progress
 	 */
 	virtual void CancelMatchmaking();
@@ -99,6 +131,31 @@ private:
 	 */
 	DECLARE_DELEGATE_TwoParams(FOnMatchmakingComplete, EMatchmakingCompleteResult /** Result */, const FOnlineSessionSearchResult& /** SearchResult */);
 	FOnMatchmakingComplete MatchmakingComplete;
+	
+	/**
+	 * Delegate triggered when matchmaking state changes
+	 *
+	 * @param OldState leaving state
+	 * @param NewState entering state
+	 */
+	DECLARE_DELEGATE_TwoParams(FOnMatchmakingStateChange, EMatchmakingState::Type /*OldState*/, EMatchmakingState::Type /*NewState*/);
+	FOnMatchmakingStateChange MatchmakingStateChange;
+	
+protected:
+	
+	/**
+	 * Generic function to cleanup after a join failure initiated at the policy level
+	 * Cleans up the game session and signals matchmaking complete with a failure indication
+	 */
+	void CleanupJoinFailure();
+	
+	/**
+	 * Delegate called when everything is cleaned up after a failure
+	 *
+	 * @param SessionName session that was cleaned up
+	 * @param bWasSuccessful true if cleanup was successful, false otherwise
+	 */
+	void OnJoinFailureCleanupComplete(FName SessionName, bool bWasSuccessful);
 
 	/** 
 	 * Notify the caller that matchmaking has completed 
@@ -108,17 +165,34 @@ private:
 	 */
 	void SignalMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
 
-protected:
+	/** Name of the session acted upon */
+	UPROPERTY(Transient)
+	FName SessionName;
 
 	/** Has matchmaking started */
 	UPROPERTY(Transient)
 	bool bMatchmakingInProgress;
 	
+	/** Transient properties during game creation/matchmaking */
+	UPROPERTY(Transient)
+	FMatchmakingParams CurrentParams;
+
 	/** Helper to facilitate a single matchmaking pass */
 	UPROPERTY(Transient)
 	UUTSearchPass* MMPass;
-	
+
+	virtual UWorld* GetWorld() const override;
+
+	/** Quick access to the world timer manager */
+	FTimerManager& GetWorldTimerManager() const;
+
+	/** Quick access to game instance */
+	UUTGameInstance* GetUTGameInstance() const;
+
 public:
+
+	/** @return the delegate fired when matchmaking state changes */
+	FOnMatchmakingStateChange& OnMatchmakingStateChange() { return MatchmakingStateChange; }
 
 	/** @return the delegate fired when matchmaking is complete for any reason */
 	FOnMatchmakingComplete& OnMatchmakingComplete() { return MatchmakingComplete; }

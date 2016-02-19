@@ -5,6 +5,8 @@
 #include "UTParty.h"
 #include "UTPartyGameState.h"
 #include "UTMatchmaking.h"
+#include "QoSInterface.h"
+#include "QoSEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
 #define JOIN_ACK_FAILSAFE_TIMER 30.0f
@@ -48,6 +50,12 @@ UUTMatchmaking::UUTMatchmaking(const FObjectInitializer& ObjectInitializer) :
 	LobbyBeaconClient(nullptr)
 {
 	ReservationBeaconClientClass = AUTPartyBeaconClient::StaticClass();
+
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		FQosInterface* QosInterface = FQosInterface::Get();
+		QosEvaluator = ensure(QosInterface) ? QosInterface->CreateQosEvaluator() : nullptr;
+	}
 }
 
 void UUTMatchmaking::Init()
@@ -339,14 +347,12 @@ void UUTMatchmaking::CancelMatchmaking()
 	if (Matchmaking)
 	{
 		ensure(LobbyBeaconClient == nullptr && ReservationBeaconClient == nullptr);
-		/*
 		if (QosEvaluator && QosEvaluator->IsActive())
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during qos evaluation"));
 			QosEvaluator->Cancel();
 		}
 		else
-		*/
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during matchmaking"));
 			Matchmaking->CancelMatchmaking();

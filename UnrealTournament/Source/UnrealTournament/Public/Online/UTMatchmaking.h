@@ -9,6 +9,8 @@
 #include "UTMatchmakingPolicy.h"
 #include "UTMatchmaking.generated.h"
 
+class UQosEvaluator;
+
 enum class EUTPartyState : uint8;
 
 /** Enum for possible types of matchmaking */
@@ -133,6 +135,13 @@ public:
 	FOnLobbyNotification& OnLobbyDisconnected() { return LobbyDisconnected; }
 
 private:
+
+	/**
+	 * QoS evaluation
+	 */
+
+	UPROPERTY()
+	UQosEvaluator* QosEvaluator;
 
 	/** Delegate triggered when matchmaking starts */
 	FOnMatchmakingStarted MatchmakingStarted;
