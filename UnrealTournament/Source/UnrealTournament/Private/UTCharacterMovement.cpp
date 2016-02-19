@@ -31,8 +31,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeJumpImpulse = 600.f;
 	DodgeLandingSpeedFactor = 0.19f;
 	DodgeJumpLandingSpeedFactor = 0.19f;
-	DodgeResetInterval = 0.4f;
-	DodgeJumpResetInterval = 0.4f;
+	DodgeResetInterval = 0.35f;
+	DodgeJumpResetInterval = 0.35f;
 	WallDodgeResetInterval = 0.2f;
 	SprintSpeed = 1230.f;
 	SprintAccel = 300.f;
