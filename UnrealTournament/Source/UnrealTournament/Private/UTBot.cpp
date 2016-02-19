@@ -650,7 +650,7 @@ void AUTBot::Tick(float DeltaTime)
 								TranslocTarget = FVector::ZeroVector;
 								ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
 							}
-							UpdateMovementOptions();
+							UpdateMovementOptions(false);
 						}
 					}
 
@@ -799,7 +799,7 @@ void AUTBot::Tick(float DeltaTime)
 					float TotalDistance = 0.0f;
 					if (NavData->GetMovePoints(MyPawn->GetNavAgentLocation(), MyPawn, MyPawn->GetNavAgentPropertiesRef(), MoveTarget, RouteCache, MoveTargetPoints, CurrentPath, &TotalDistance))
 					{
-						UpdateMovementOptions();
+						UpdateMovementOptions(true);
 						MoveTimer = TotalDistance / FMath::Max<float>(100.0f, MyPawn->GetMovementComponent()->GetMaxSpeed()) + 1.0f;
 						if (Cast<APawn>(MoveTarget.Actor.Get()) != NULL)
 						{
@@ -821,6 +821,11 @@ void AUTBot::Tick(float DeltaTime)
 				{
 					GetCharacter()->GetCharacterMovement()->bCanWalkOffLedges = (!CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP) || (CurrentPath.Spec.IsValid() && CurrentPath.Spec->AllowWalkOffLedges(CurrentPath, GetPawn(), GetMoveBasedPosition())))
 																				&& (CurrentAction == NULL || CurrentAction->AllowWalkOffLedges());
+				}
+				if (bFinishRotation)
+				{
+					const float DesiredYaw = FRotator::ClampAxis((GetFocalPoint() - MyPawn->GetActorLocation()).Rotation().Yaw);
+					bFinishRotation = FMath::Abs<float>(FRotator::ClampAxis(ControlRotation.Yaw) - DesiredYaw) > KINDA_SMALL_NUMBER;
 				}
 				if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && GetCharacter()->GetCharacterMovement()->AirControl > 0.0f && GetCharacter()->GetCharacterMovement()->MaxWalkSpeed > 0.0f)
 				{
@@ -853,6 +858,10 @@ void AUTBot::Tick(float DeltaTime)
 						{
 							UTChar->UTCharacterMovement->PerformWaterJump();
 						}
+					}
+					else if (bFinishRotation)
+					{
+						MoveTimer += DeltaTime;
 					}
 					else if (MyPawn->GetMovementComponent() != NULL) // FIXME: remote redeemer doesn't set this, need to control a different way...
 					{
@@ -1019,7 +1028,7 @@ void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FC
 	MoveTimer = FMath::Max<float>(MoveTimer, 1.0f);
 }
 
-void AUTBot::UpdateMovementOptions()
+void AUTBot::UpdateMovementOptions(bool bNewPath)
 {
 	bUseSerpentineMovement = false;
 	SerpentineDir = (FMath::FRand() < 0.5f) ? 1.0f : -1.0f;
@@ -1087,6 +1096,15 @@ void AUTBot::UpdateMovementOptions()
 			}
 			checkSlow(BestIndex != INDEX_NONE);
 			GetUTChar()->Dodge(DodgeDirs[BestIndex].GetSafeNormal2D(), (DodgeDirs[BestIndex] ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
+		}
+	}
+
+	if (bNewPath && Skill + Personality.MovementAbility < 2.0f)
+	{
+		float DesiredYaw = FRotator::ClampAxis((GetMovePoint() - GetPawn()->GetActorLocation()).Rotation().Yaw);
+		if (FMath::Abs<float>(FMath::FixedTurn(ControlRotation.Yaw, DesiredYaw, 45.0f + 30.0f * FMath::Max<float>(0.0f, Skill + Personality.MovementAbility)) - DesiredYaw) > KINDA_SMALL_NUMBER)
+		{
+			bFinishRotation = true;
 		}
 	}
 	

@@ -352,6 +352,11 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** if set use serpentine movement for current move (when allowed by path being followed) */
 	UPROPERTY()
 	bool bUseSerpentineMovement;
+	/** if set, pause current move until completely rotated towards FocalPoint (currently only applies while walking)
+	 * automatically cleared when rotation is finished
+	 */
+	UPROPERTY()
+	bool bFinishRotation;
 
 	/** aggression value for most recent combat action after all personality/enemy strength/squad/weapon modifiers */
 	UPROPERTY()
@@ -777,7 +782,7 @@ public:
 	virtual bool NeedsWeapon();
 
 	/** called for each new move point to check for advanced movement options (strafing, dodge, translocator, etc) */
-	virtual void UpdateMovementOptions();
+	virtual void UpdateMovementOptions(bool bNewPath);
 	/** set default focus
 	 * note that decision code, special paths, etc can override by setting a higher priority focus item
 	 */
