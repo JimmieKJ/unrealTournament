@@ -1155,11 +1155,13 @@ void AUTLobbyGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerLis
 	}
 }
 
-bool AUTLobbyGameState::SendSayToInstance(const FString& User, const FString& FinalMessage)
+bool AUTLobbyGameState::SendSayToInstance(const FString& User, const FString& PlayerName, const FString& Message)
 {
 	bool bSent = false;
 
 	// Try and this user.	
+
+	FString FinalMessage = FString::Printf(TEXT("%s: %s"), *PlayerName, *Message);
 
 	for (int32 MatchIndex = 0; MatchIndex < AvailableMatches.Num(); MatchIndex++)
 	{

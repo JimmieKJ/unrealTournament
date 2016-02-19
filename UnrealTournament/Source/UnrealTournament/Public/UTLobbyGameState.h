@@ -243,7 +243,7 @@ public:
 	UPROPERTY(Replicated)
 	int32 NumGameInstances;
 
-	bool SendSayToInstance(const FString& User, const FString& FinalMessage);
+	bool SendSayToInstance(const FString& User, const FString& PlayerName, const FString& Message);
 
 	UPROPERTY(replicated)
 	bool bCustomContentAvailable;

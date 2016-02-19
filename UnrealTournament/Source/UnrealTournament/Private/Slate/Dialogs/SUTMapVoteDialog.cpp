@@ -743,8 +743,15 @@ FText SUTMapVoteDialog::GetClockTime() const
 	return FText::GetEmpty();
 }
 
+void SUTMapVoteDialog::OnDialogOpened()
+{
+	TextChatPanel->OnShowPanel();
+}
+
+
 void SUTMapVoteDialog::OnDialogClosed()
 {
+	TextChatPanel->OnHidePanel();
 	for (int32 i=0; i < VoteButtons.Num(); i++)
 	{
 		VoteButtons[i].MapImage = nullptr;

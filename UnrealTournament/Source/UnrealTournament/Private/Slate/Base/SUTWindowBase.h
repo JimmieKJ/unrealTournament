@@ -22,6 +22,7 @@ class UNREALTOURNAMENT_API SUTWindowBase : public SCompoundWidget
 	, _AnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
 	, _bShadow(true)
+	, _ShadowAlpha(1.0f)
 	{}
 
 	// The size of this window.  Note all of UT's UI is designed for 1080p and then sized accordingly
@@ -44,6 +45,8 @@ class UNREALTOURNAMENT_API SUTWindowBase : public SCompoundWidget
 
 	// If true, then a slightly transparent grey shadow is displayed full screen behind the window.
 	SLATE_ARGUMENT(bool, bShadow)
+
+	SLATE_ARGUMENT(float, ShadowAlpha)
 
 	SLATE_END_ARGS()
 
@@ -101,8 +104,9 @@ protected:
 		return FCoreStyle::Get().GetBrush("NoBrush");
 	}
 
-private:
 	TSharedPtr<class SWidget> GameViewportWidget;
+
+private:
 	bool bClosing;
 
 public:

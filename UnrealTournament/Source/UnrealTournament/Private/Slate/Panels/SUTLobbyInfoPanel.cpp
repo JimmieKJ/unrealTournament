@@ -339,12 +339,16 @@ void SUTLobbyInfoPanel::PlayerClicked(FUniqueNetIdRepl PlayerId)
 	}
 }
 
-void SUTLobbyInfoPanel::FocusChat(const FCharacterEvent& InCharacterEvent)
+void SUTLobbyInfoPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
-	if (TextChatPanel.IsValid())
-	{
-		TextChatPanel->FocusChat(InCharacterEvent);
-	}
+	SUTPanelBase::OnShowPanel(inParentWindow);
+	if (TextChatPanel.IsValid()) TextChatPanel->OnShowPanel();
 }
+void SUTLobbyInfoPanel::OnHidePanel()
+{
+	SUTPanelBase::OnHidePanel();
+	if (TextChatPanel.IsValid()) TextChatPanel->OnHidePanel();
+}
+
 
 #endif

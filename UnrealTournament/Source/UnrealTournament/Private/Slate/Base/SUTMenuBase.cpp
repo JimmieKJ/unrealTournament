@@ -77,6 +77,16 @@ bool SUTMenuBase::SupportsKeyboardFocus() const
 
 FReply SUTMenuBase::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent )
 {
+	if ( ActivePanel.IsValid() )
+	{
+		TSharedPtr<SWidget> InitialFocus = ActivePanel->GetInitialFocus();
+		if (InitialFocus.IsValid())
+		{
+			PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(InitialFocus.ToSharedRef(), EFocusCause::SetDirectly);
+		}
+		return FReply::Handled().ReleaseMouseCapture();
+	}
+
 	return FReply::Handled().ReleaseMouseCapture();
 
 }
@@ -173,7 +183,9 @@ void SUTMenuBase::ActivatePanel(TSharedPtr<class SUTPanelBase> PanelToActivate)
 		];
 		PanelToActivate->ZOrder = ZOrderIndex;
 		ActivePanel = PanelToActivate;
+		FSlateApplication::Get().SetKeyboardFocus(ActivePanel, EFocusCause::SetDirectly);
 		ActivePanel->OnShowPanel(SharedThis(this));
+		
 	}
 }
 
@@ -1050,5 +1062,7 @@ bool SUTMenuBase::SkipWorldRender()
 {
 	return false;
 }
+
+
 
 #endif

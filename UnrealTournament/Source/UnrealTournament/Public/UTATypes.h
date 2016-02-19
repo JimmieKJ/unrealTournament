@@ -151,6 +151,8 @@ namespace ChatDestinations
 	const FName System = FName(TEXT("CHAT_System"));			// This chat message is a system message
 	const FName MOTD = FName(TEXT("CHAT_MOTD"));				// This chat message is a message of the day
 
+	const FName Instance = FName(TEXT("CHAT_Instance"));		// This is chat message from a player in an instance to everyone in the lobby
+
 }
 
 // Our Dialog results delegate.  It passes in a reference to the dialog triggering it, as well as the button id 

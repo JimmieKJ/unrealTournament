@@ -13,6 +13,7 @@
 #include "../Widgets/SUTButton.h"
 #include "SUTMatchSummaryPanel.h"
 #include "UTConsole.h"
+#include "SUTChatEditBox.h"
 
 #if !UE_SERVER
 
@@ -23,7 +24,6 @@ void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 	bCloseOnSubmit = false;
 
 	bFocusSummaryInv = false;
-	ChatDestination = ChatDestinations::Local;
 	bShowingContextMenu = false;
 	this->ChildSlot
 	.VAlign(VAlign_Fill)
@@ -41,91 +41,16 @@ void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 			[
 				SAssignNew(SubMenuOverlay, SOverlay)
 			]
-
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.HAlign(HAlign_Fill)
 			[
-				SNew(SOverlay)
-				+SOverlay::Slot()
+				SNew(SBox).HeightOverride(42)
 				[
-					SNew(SBox)
-					.HeightOverride(42)
-					[
-						SNew(SBorder)
-						.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
-					]
+					SAssignNew(ChatBar, SUTChatBar, PlayerOwner)
+					.InitialChatDestination(ChatDestinations::Local)
 				]
-				+SOverlay::Slot()
-				[
-					SAssignNew(MenuArea, SVerticalBox)
-					+SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SBox)
-							.HeightOverride(42)
-							.WidthOverride(60)
-							[
-								BuildChatDestinationsButton()
-							]
-						]
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(STextBlock)
-							.Text(this, &SUTInGameHomePanel::GetChatDestinationText)
-							.TextStyle(SUWindowsStyle::Get(), "UT.ChatBar.Button.TextStyle")
-						]
-			
-						+SHorizontalBox::Slot()
-						.FillWidth(1.0f)
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.AutoWidth()
-							.Padding(0.0f,5.0f,0.0f,0.0f)
-							[
-								SNew(STextBlock)
-								.Text(FText::FromString(TEXT(">")))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-							]
-							+SHorizontalBox::Slot()
-							.FillWidth(1.0)
-							.Padding(5.0)
-							[
-								SNew(SOverlay)
-								+SOverlay::Slot()
-								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
-									.Padding(8.0, 5.0)
-									[
-										SAssignNew(TypeMsg, STextBlock)
-										.Text(FText::FromString(TEXT("type your message here")))
-										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-										.ColorAndOpacity(FLinearColor(1.0,1.0,1.0,0.3))
-									]
-								]
-								+SOverlay::Slot()
-								[
-									SAssignNew(ChatText, SEditableTextBox)
-									.Style(SUTStyle::Get(), "UT.ChatEditBox")
-									.OnTextCommitted(this, &SUTInGameHomePanel::ChatTextCommited)
-									.OnTextChanged(this, &SUTInGameHomePanel::ChatTextChanged)
-									.ClearKeyboardFocusOnCommit(false)
-									.MinDesiredWidth(300.0f)
-									.Text(FText::GetEmpty())
-								]
-							]
-						]
-					]
-				]
-		
 			]
+
 		]
 	];
 
@@ -148,26 +73,6 @@ void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 		];
 	}
 
-	if (ChatText.IsValid())
-	{
-		UUTConsole* Console = (PlayerOwner != nullptr && PlayerOwner->ViewportClient != nullptr) ? Cast<UUTConsole>(PlayerOwner->ViewportClient->ViewportConsole) : nullptr;
-		if (Console)
-		{
-			Console->FakeGotoState(NAME_None);
-
-			if (Console->TypedStr.Left(4).Equals(TEXT("say "), ESearchCase::IgnoreCase))
-			{
-				ChatText->SetText(FText::FromString(Console->TypedStr.Right(Console->TypedStr.Len()-4)));
-				ChatDestination = ChatDestinations::Local;
-			}
-			else if (Console->TypedStr.Left(8).Equals(TEXT("teamsay "), ESearchCase::IgnoreCase))
-			{
-				ChatText->SetText(FText::FromString(Console->TypedStr.Right(Console->TypedStr.Len()-8)));
-				ChatDestination = ChatDestinations::Team;
-			}
-		}
-	}
-
 }
 
 EVisibility SUTInGameHomePanel::GetSummaryVisibility() const
@@ -184,111 +89,6 @@ EVisibility SUTInGameHomePanel::GetSummaryVisibility() const
 }
 
 
-
-
-TSharedRef<SWidget> SUTInGameHomePanel::BuildChatDestinationsButton()
-{
-	SAssignNew(ChatDestinationsButton, SComboButton)
-		.HasDownArrow(false)
-		.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Dark")
-		.ButtonContent()
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot().AutoHeight()
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot().AutoWidth()
-				[
-					SNew(SBox).WidthOverride(36).HeightOverride(36)
-					[
-						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.Icon.Chat36"))
-					]
-				]
-			]
-		];
-
-	SAssignNew(ChatMenu, SVerticalBox);
-	if (ChatMenu.IsValid())
-	{
-		BuildChatDestinationMenu();
-	}
-
-	ChatDestinationsButton->SetMenuContent(ChatMenu.ToSharedRef());
-	return ChatDestinationsButton.ToSharedRef();
-
-}
-
-void SUTInGameHomePanel::BuildChatDestinationMenu()
-{
-	if (ChatMenu.IsValid())
-	{
-		ChatMenu->ClearChildren();
-		ChatMenu->AddSlot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("Chat", "ChatDestination_Game", "Game"))
-			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-			.OnClicked(this, &SUTInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Local)
-		];
-	
-		AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (GS)
-		{
-			if (GS->bTeamGame)
-			{
-				ChatMenu->AddSlot()
-				.AutoHeight()
-				[
-					SNew(SButton)
-					.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
-					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("Chat", "ChatDestination_Team", "Team"))
-					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-					.OnClicked(this, &SUTInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Team)
-				];
-			}
-
-			if (GS->bIsInstanceServer)
-			{
-				ChatMenu->AddSlot()
-				.AutoHeight()
-				[
-					SNew(SButton)
-					.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
-					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("Chat", "ChatDestination_Lobby", "Lobby"))
-					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-					.OnClicked(this, &SUTInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Lobby)
-				];
-			}
-
-			if (PlayerOwner->IsLoggedIn())
-			{
-				ChatMenu->AddSlot()
-				.AutoHeight()
-				[
-					SNew(SButton)
-					.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
-					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("Chat", "ChatDestination_Friends", "Friends"))
-					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-					.OnClicked(this, &SUTInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Friends)
-				];
-			}
-		}
-	}
-}
-
-FReply SUTInGameHomePanel::ChangeChatDestination(TSharedPtr<SComboButton> Button, FName NewDestination)
-{
-	if (Button.IsValid()) Button->SetIsOpen(false);
-	SetChatDestination(NewDestination);
-	return FReply::Handled();
-}
 
 void SUTInGameHomePanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
@@ -329,81 +129,13 @@ void SUTInGameHomePanel::OnHidePanel()
 	}
 
 	HideMatchSummary();
-}
 
-FText SUTInGameHomePanel::GetChatDestinationText() const
-{
-	if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Team");
-	if (ChatDestination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Game");
-	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper");
-	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Hub");
-	if (ChatDestination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","Match");
-	
-	return NSLOCTEXT("Chat", "GlobalTag","Global Chat");
-}
-
-void SUTInGameHomePanel::ChatTextChanged(const FText& NewText)
-{
-	if (NewText.ToString().Len() > 128)
-	{
-		ChatText->SetText(FText::FromString(NewText.ToString().Left(128)));
-	}
-
-	TypeMsg->SetVisibility( NewText.IsEmpty() ? EVisibility::Visible : EVisibility::Hidden);
-}
-
-void SUTInGameHomePanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
-{
-	if (CommitType == ETextCommit::OnEnter)
-	{
-		FString FinalText = NewText.ToString();
-		// Figure out the type of chat...
-		if (FinalText != TEXT(""))
-		{
-			if (FinalText.Left(1) == TEXT("\\") || FinalText.Left(1) == TEXT("/"))
-			{
-				FinalText = FinalText.Right(FinalText.Len() - 1);
-				PlayerOwner->ConsoleCommand(FinalText);
-				ChatText->SetText(FText::GetEmpty());
-				return;
-			}
-
-			if (ChatDestination == ChatDestinations::Global)	ConsoleCommand(FString::Printf(TEXT("GlobalChat %s"), *FinalText));
-			if (ChatDestination == ChatDestinations::Friends)	ConsoleCommand(FString::Printf(TEXT("FriendSay %s"), *FinalText));
-			if (ChatDestination == ChatDestinations::Lobby)		ConsoleCommand(FString::Printf(TEXT("LobbySay %s"), *FinalText));
-			if (ChatDestination == ChatDestinations::Local)		ConsoleCommand(FString::Printf(TEXT("Say %s"), *FinalText));
-			if (ChatDestination == ChatDestinations::Match)		ConsoleCommand(FString::Printf(TEXT("MatchChat %s"), *FinalText));
-			if (ChatDestination == ChatDestinations::Team)		ConsoleCommand(FString::Printf(TEXT("TeamSay %s"), *FinalText));
-			ChatText->SetText(FText::GetEmpty());
-		}
-		else
-		{
-			// Add code to change chat mode here.
-		}
-	}
-
-	if (bCloseOnSubmit)
-	{
-		PlayerOwner->HideMenu();
-	}
-
-}
-
-FText SUTInGameHomePanel::GetChatDestinationTag(FName Destination)
-{
-	if (Destination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Team");
-	if (Destination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Local");
-	if (Destination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper");
-	if (Destination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","Hub");
-	if (Destination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Lobby");
-	if (Destination == FName(TEXT("debug")))		return NSLOCTEXT("Chat", "DebugTag","DEBUG");
-	
-	return NSLOCTEXT("Chat", "GlobalTag","Global");
 }
 
 FReply SUTInGameHomePanel::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	return FReply::Unhandled();
+	PlayerOwner->HideMenu();
+	return FReply::Handled();
 }
 
 // @Returns true if the mouse position is inside the viewport
@@ -626,6 +358,10 @@ FReply SUTInGameHomePanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FP
 						SB->SelectionClick();
 						return FReply::Handled();
 					}
+					else
+					{
+						//PlayerOwner->HideMenu();
+					}
 				}
 			}
 
@@ -709,16 +445,11 @@ FReply SUTInGameHomePanel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEven
 
 }
 
-void SUTInGameHomePanel::FocusChat()
-{
-	FSlateApplication::Get().SetKeyboardFocus(ChatText, EKeyboardFocusCause::SetDirectly);
-}
-
 void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 {
 	if (!SummaryPanel.IsValid())
 	{
-		
+		UE_LOG(UT,Log,TEXT("###### ShowMatchSummaryPanel"));
 		if (SummaryOverlay.IsValid())
 		{
 			SummaryOverlay->AddSlot().HAlign(HAlign_Fill).VAlign(VAlign_Fill)
@@ -742,7 +473,9 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 	if (bInitial && SummaryPanel.IsValid())
 	{
 		SummaryPanel->SetInitialCams();
+		PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(SummaryPanel.ToSharedRef(), EFocusCause::SetDirectly);
 	}
+
 }
 
 void SUTInGameHomePanel::HideMatchSummary()
@@ -758,6 +491,16 @@ void SUTInGameHomePanel::HideMatchSummary()
 TSharedPtr<SUTMatchSummaryPanel> SUTInGameHomePanel::GetSummaryPanel()
 {
 	return SummaryPanel;
+}
+
+TSharedPtr<SWidget> SUTInGameHomePanel::GetInitialFocus()
+{
+	if (SummaryPanel.IsValid())
+	{
+		return GetSummaryPanel();
+	}
+	
+	return PlayerOwner->GetChatWidget();
 }
 
 #endif

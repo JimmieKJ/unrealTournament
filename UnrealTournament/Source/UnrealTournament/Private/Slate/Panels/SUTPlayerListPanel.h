@@ -201,7 +201,7 @@ public:
 			{
 				// Attempt to use the GameMode
 				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
-				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			}
 
 			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
@@ -233,7 +233,7 @@ public:
 			{
 				// Attempt to use the GameMode
 				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
-				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			}
 
 			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);

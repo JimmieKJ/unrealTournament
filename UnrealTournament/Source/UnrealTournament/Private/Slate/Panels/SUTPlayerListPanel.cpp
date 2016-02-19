@@ -13,6 +13,7 @@
 #include "UTLobbyPC.h"
 #include "UTLobbyPlayerState.h"
 #include "SUTTextChatPanel.h"
+#include "SUTChatEditBox.h"
 
 #if !UE_SERVER
 
@@ -803,7 +804,8 @@ void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> I
 		{
 			if (ConnectedChatPanel.IsValid())
 			{
-				ConnectedChatPanel->SetChatText(FString::Printf(TEXT("@%s "), *InItem->PlayerName));
+				FText NewText = FText::FromString(FString::Printf(TEXT("@%s "), *InItem->PlayerName));
+				PlayerOwner->GetChatWidget()->SetText(NewText);
 			}
 		}
 	}

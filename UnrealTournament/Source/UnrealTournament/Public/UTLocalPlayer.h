@@ -32,6 +32,8 @@ class AUTRconAdminInfo;
 class SUTDownloadAllDialog;
 class SUTSpectatorWindow;
 class SUTMatchSummaryPanel;
+class SUTChatEditBox;
+class SUTQuickChatWindow;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -911,4 +913,29 @@ protected:
 
 	FPlayerLoggedInDelegate PlayerLoggedIn;
 	FPlayerLoggedOutDelegate PlayerLoggedOut;
+
+public:
+
+#if !UE_SERVER
+	TSharedPtr<SUTChatEditBox> ChatWidget;
+
+	virtual void VerifyChatWidget();
+
+	TSharedPtr<SUTChatEditBox> GetChatWidget();
+#endif
+
+	FText UIChatTextBuffer;
+	FText GetUIChatTextBackBuffer(int Direction);
+	void UpdateUIChatTextBackBuffer(const FText& NewText);
+
+	void ShowQuickChat(FName ChatDestination);
+	void CloseQuickChat();
+
+protected:
+#if !UE_SERVER
+	TSharedPtr<SUTQuickChatWindow> QuickChatWindow;
+#endif
+
+	int32 UIChatTextBackBufferPosition;
+	TArray<FText> UIChatTextBackBuffer;
 };

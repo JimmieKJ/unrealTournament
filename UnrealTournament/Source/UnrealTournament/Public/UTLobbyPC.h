@@ -77,11 +77,12 @@ protected:
 	// Will be true when the initial player replication is completed.  At that point it's safe to bring up the menu
 	bool bInitialReplicationCompleted;
 
-	virtual void ServerSay_Implementation(const FString& Message, bool bTeamMessage);
-
 	void DownloadAllContent();
 
 	int32 RedirectCount;
+
+	virtual void DirectSay(const FString& User, const FString& Message);
+
 public:
 	TArray<FPackageRedirectReference> AllRedirects;
 

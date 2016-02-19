@@ -132,8 +132,8 @@ public:
 							.BorderImage(SUTStyle::Get().GetBrush( (ChatMessage->bMyChat ? "UT.HeaderBackground.Shaded" : "UT.NoStyle")))
 							[
 								SNew(SRichTextBlock)
-								.Text(FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormat","<UT.Font.ChatText.Name>{0}</>:   {1}"), FText::FromString(ChatMessage->Sender), FText::FromString(ChatMessage->Message)))
-								.TextStyle(SUTStyle::Get(), "UT.Font.ChatText.Text")
+								.Text(FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormat","<UT.Font.Chat.Name>{0}</>:   {1}"), FText::FromString(ChatMessage->Sender), FText::FromString(ChatMessage->Message)))
+								.TextStyle(SUTStyle::Get(), "UT.Font.Chat.Text")
 								.DecoratorStyleSet(&SUTStyle::Get())
 								.AutoWrapText(true)
 							]
@@ -148,7 +148,6 @@ public:
 };
 
 class SUTPlayerListPanel;
-class SUTEditableTextBox;
 
 class UNREALTOURNAMENT_API SUTTextChatPanel : public SCompoundWidget
 {
@@ -162,7 +161,9 @@ class UNREALTOURNAMENT_API SUTTextChatPanel : public SCompoundWidget
 public:	
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
-	void FocusChat(const FCharacterEvent& InCharacterEvent);
+
+	virtual void OnShowPanel();
+	virtual void OnHidePanel();
 
 	// Make sure to clean up the delegates in the destructor
 	virtual ~SUTTextChatPanel();
@@ -179,17 +180,15 @@ public:
 
 	void RouteBufferedChat();
 
-	virtual void SetChatText(const FString& NewText);
-
 protected:
 	// The Player Owner that owns this panel
 	TWeakObjectPtr<UUTLocalPlayer> PlayerOwner;
 
+	TSharedPtr<SHorizontalBox> ChatSlot;
+
 	TArray<TSharedPtr<FChatDestination>> ChatDestinationList;
 	TSharedPtr<SHorizontalBox> ChatDestinationBar;
 	TSharedPtr<SScrollBox> ChatScrollBox;
-	TSharedPtr<SUTEditableTextBox> ChatEditBox;
-	TSharedPtr<STextBlock> TypeMsg;
 
 	FReply OnDestinationClick(TSharedPtr<FChatDestination> Destination);
 
@@ -202,7 +201,6 @@ protected:
 	// Routes chat to the proper destination
 	void RouteChat(UUTLocalPlayer* LocalPlayer, TSharedPtr<FStoredChatMessage> ChatMessage);
 
-	void ChatTextChanged(const FText& NewText);
 	void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
 	FChatDestinationChangedDelegate ChatDestinationChangedDelegate;

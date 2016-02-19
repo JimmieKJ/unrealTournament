@@ -35,6 +35,8 @@ protected:
 	virtual TSharedRef<SWidget> BuildBackground();
 	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
 	FReply OpenHUDSettings();
+
+
 };
 
 #endif

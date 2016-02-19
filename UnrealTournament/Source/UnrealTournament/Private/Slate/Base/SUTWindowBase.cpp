@@ -53,6 +53,7 @@ void SUTWindowBase::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalP
 		[
 			SNew(SImage)
 			.Image(InArgs._bShadow ? SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded") : new FSlateNoResource)
+			.ColorAndOpacity(FLinearColor(1.0f,1.0f,1.0f,InArgs._ShadowAlpha))
 		]
 		+ SOverlay::Slot()
 		.VAlign(VAlign_Fill)

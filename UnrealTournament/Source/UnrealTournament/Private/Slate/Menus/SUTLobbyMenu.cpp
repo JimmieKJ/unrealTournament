@@ -154,7 +154,6 @@ TSharedRef<SWidget> SUTLobbyMenu::BuildOptionsSubMenu()
 
 FReply SUTLobbyMenu::OnKeyChar(const FGeometry& MyGeometry, const FCharacterEvent& InCharacterEvent)
 {
-	if (InfoPanel.IsValid()) InfoPanel->FocusChat(InCharacterEvent);
 	return FReply::Unhandled();
 }
 
@@ -163,5 +162,8 @@ FReply SUTLobbyMenu::OpenHUDSettings()
 	PlayerOwner->ShowHUDSettings();
 	return FReply::Handled();
 }
+
+
+
 
 #endif

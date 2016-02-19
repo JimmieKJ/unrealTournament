@@ -147,8 +147,7 @@ void AUTBasePlayerController::Talk()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
 	{
-		LP->ShowMenu(TEXT("say"));
-		//LP->ViewportClient->ViewportConsole->StartTyping("Say ");
+		LP->ShowQuickChat(ChatDestinations::Local);
 	}
 }
 
@@ -157,8 +156,7 @@ void AUTBasePlayerController::TeamTalk()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
 	{
-		LP->ShowMenu(TEXT("teamsay"));
-		//LP->ViewportClient->ViewportConsole->StartTyping("TeamSay ");
+		LP->ShowQuickChat(ChatDestinations::Team);
 	}
 }
 
@@ -230,6 +228,25 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 {
 	if (AllowTextMessage(Message) && PlayerState != nullptr)
 	{
+		// Look to see if this message is a direct message to a given player.
+
+		if (Message.Left(1) == TEXT("@"))
+		{
+			// Remove the @
+			FString TrimmedMessage = Message.Right(Message.Len()-1);
+
+			// Talking to someone directly.
+	
+			int32 Pos = -1;
+			if (TrimmedMessage.FindChar(TEXT(' '), Pos) && Pos > 0)
+			{
+				FString User = TrimmedMessage.Left(Pos);
+				FString FinalMessage = TrimmedMessage.Right(Message.Len() - Pos - 1);		
+				DirectSay(User, FinalMessage);
+			}
+			return;
+		}
+
 		bool bSpectatorMsg = PlayerState->bOnlySpectator;
 
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -250,8 +267,22 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 	}
 }
 
+void AUTBasePlayerController::DirectSay(const FString& User, const FString& Message)
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+		if (UTPC != nullptr && UTPC->PlayerState->PlayerName.Equals(User, ESearchCase::IgnoreCase))
+		{
+			UTPC->ClientSay(UTPlayerState, Message, ChatDestinations::Whisper);
+		}
+	}
+}
+
 void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
 {
+
+
 	FClientReceiveData ClientData;
 	ClientData.LocalPC = this;
 	ClientData.MessageIndex = Destination == ChatDestinations::Team;

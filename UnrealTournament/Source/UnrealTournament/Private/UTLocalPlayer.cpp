@@ -28,6 +28,7 @@
 #include "SUTPlayerInfoDialog.h"
 #include "SUTHUDSettingsDialog.h"
 #include "SUTQuickMatchWindow.h"
+#include "SUTQuickChatWindow.h"
 #include "SUTJoinInstanceWindow.h"
 #include "SUTFriendsPopupWindow.h"
 #include "SUTRedirectDialog.h"
@@ -65,6 +66,8 @@
 #include "UTParty.h"
 #include "PartyGameState.h"
 #include "IBlueprintContextModule.h"
+#include "SUTChatEditBox.h"
+
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -104,6 +107,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	ShowdownLeaguePromotionMatchesAttempted = 0;
 	ShowdownLeaguePromotionMatchesWon = 0;
 	bShowdownLeaguePromotionSeries = false;
+	UIChatTextBackBufferPosition = 0;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -341,7 +345,18 @@ void UUTLocalPlayer::OpenWindow(TSharedPtr<SUTWindowBase> WindowToOpen)
 	// Make sure this window isn't already in the stack.
 	if (WindowStack.Find(WindowToOpen) == INDEX_NONE)
 	{
+		// Toggle on the proper input mode
+		if (PlayerController)
+		{
+			AUTBasePlayerController* BasePlayerController = Cast<AUTBasePlayerController>(PlayerController);
+			if (BasePlayerController)
+			{
+				BasePlayerController->UpdateInputMode();
+			}
+		}
+
 		GEngine->GameViewport->AddViewportWidgetContent(WindowToOpen.ToSharedRef(), 1);
+		
 		WindowStack.Add(WindowToOpen);
 		WindowToOpen->Open();
 	}
@@ -368,9 +383,16 @@ void UUTLocalPlayer::WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed)
 }
 #endif
 
+
 void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 {
 #if !UE_SERVER
+
+	if (QuickChatWindow.IsValid())
+	{
+		CloseQuickChat();
+	}
+
 	if (bRecordingReplay)
 	{
 		static const FName VideoRecordingFeatureName("VideoRecording");
@@ -425,10 +447,14 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 		{
 			// Widget is already valid, just make it visible.
 			DesktopSlateWidget->SetVisibility(EVisibility::Visible);
-			DesktopSlateWidget->OnMenuOpened(Parameters);
-
 			if (PlayerController)
 			{
+				AUTBasePlayerController* BasePlayerController = Cast<AUTBasePlayerController>(PlayerController);
+				if (BasePlayerController)
+				{
+					BasePlayerController->UpdateInputMode();
+				}
+
 				if (!IsMenuGame())
 				{
 					// If we are in a single player game, and that game is either in the player intro or the post match state, then
@@ -444,8 +470,10 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 					}
 				}
 			}
+			DesktopSlateWidget->OnMenuOpened(Parameters);
 		}
 	}
+
 #endif
 }
 void UUTLocalPlayer::HideMenu()
@@ -635,6 +663,7 @@ bool UUTLocalPlayer::AreMenusOpen()
 {
 	return DesktopSlateWidget.IsValid()
 		|| LoadoutMenu.IsValid()
+		|| QuickChatWindow.IsValid()
 		|| OpenDialogs.Num() > 0;
 	//Add any widget thats not in the menu here
 	//TODO: Should look through each active widget and determine the needed input mode EIM_UIOnly > EIM_GameAndUI > EIM_GameOnly
@@ -4465,6 +4494,80 @@ void UUTLocalPlayer::EpicFlagCheck()
 		CurrentProfileSettings->CountryFlag = FName(TEXT("Epic"));
 		CurrentProfileSettings->bForcedToEpicAtLeastOnce = true;
 		SaveProfileSettings();
+	}
+}
+
+#if !UE_SERVER
+
+void UUTLocalPlayer::VerifyChatWidget()
+{
+	if ( !ChatWidget.IsValid() )
+	{
+		SAssignNew(ChatWidget, SUTChatEditBox, this)
+		.Style(SUTStyle::Get(), "UT.ChatEditBox")
+		.MinDesiredWidth(500.0f)
+		.MaxTextSize(128);
+	}
+}
+
+TSharedPtr<SUTChatEditBox> UUTLocalPlayer::GetChatWidget()
+{
+	VerifyChatWidget();
+	return ChatWidget;
+
+}
+
+#endif
+
+FText UUTLocalPlayer::GetUIChatTextBackBuffer(int Direction)
+{
+	UIChatTextBackBufferPosition = FMath::Clamp<int32>(UIChatTextBackBufferPosition + Direction, 0, UIChatTextBackBuffer.Num()-1);
+	return (UIChatTextBackBuffer.Num() > UIChatTextBackBufferPosition) ? UIChatTextBackBuffer[UIChatTextBackBufferPosition] : FText::GetEmpty();
+}
+
+void UUTLocalPlayer::UpdateUIChatTextBackBuffer(const FText& NewText)
+{
+	if (!NewText.IsEmpty())
+	{
+		for (int32 i=0; i < UIChatTextBackBuffer.Num(); i++)
+		{
+			if (UIChatTextBackBuffer[i].EqualToCaseIgnored(NewText))
+			{
+				return;
+			}
+		}
+
+		if (UIChatTextBackBuffer.Num() >= 30)	
+		{
+			UIChatTextBackBuffer.RemoveAt(0);
+		}
+
+		UIChatTextBackBuffer.Add(NewText);
+		UIChatTextBackBufferPosition = UIChatTextBackBuffer.Num();
+	}
+}
+
+void UUTLocalPlayer::ShowQuickChat(FName ChatDestination)
+{
+	if (!QuickChatWindow.IsValid())
+	{
+		SAssignNew(QuickChatWindow, SUTQuickChatWindow, this)
+			.InitialChatDestination(ChatDestination);
+
+		if (QuickChatWindow.IsValid())
+		{
+			OpenWindow(QuickChatWindow);
+			FSlateApplication::Get().SetAllUserFocus(QuickChatWindow.ToSharedRef(), EKeyboardFocusCause::SetDirectly);
+		}
+	}
+}
+
+void UUTLocalPlayer::CloseQuickChat()
+{
+	if (QuickChatWindow.IsValid())
+	{
+		CloseWindow(QuickChatWindow);
+		QuickChatWindow.Reset();
 	}
 }
 

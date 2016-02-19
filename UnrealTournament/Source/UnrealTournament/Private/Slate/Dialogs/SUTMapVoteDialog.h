@@ -46,6 +46,8 @@ class UNREALTOURNAMENT_API SUTMapVoteDialog : public SUTDialogBase, public FGCOb
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+	
+	virtual void OnDialogOpened() override;
 	virtual void OnDialogClosed() override;
 
 	TWeakObjectPtr<class AUTGameState> GameState;
