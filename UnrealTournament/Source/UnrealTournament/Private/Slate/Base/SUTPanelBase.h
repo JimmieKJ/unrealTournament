@@ -55,6 +55,8 @@ public:
 	FName Tag;
 
 
+	TSharedPtr<SWidget> GetInitialFocus();
+
 protected:
 
 	// Will be true if this panel is closing
