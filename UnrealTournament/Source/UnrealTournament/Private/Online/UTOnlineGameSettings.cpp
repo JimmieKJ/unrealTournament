@@ -38,7 +38,7 @@ FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(b
 	FUTOnlineSessionSettings(bIsLAN, bIsPresence, MaxNumPlayers)
 {
 	bAllowInvites = false;
-	bAllowJoinViaPresence = false;
+	bAllowJoinViaPresence = true;
 	bAllowJoinViaPresenceFriendsOnly = false;
 
 	FString GameModeStr(UT_GAMEMODE_EMPTY);
