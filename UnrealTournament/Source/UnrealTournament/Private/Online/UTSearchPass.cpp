@@ -6,7 +6,6 @@
 #include "UTGameInstance.h"
 #include "UTSessionHelper.h"
 #include "UTOnlineGameSettings.h"
-#include "UTLobbyBeaconClient.h"
 #include "UTMatchmakingPolicy.h"
 #include "OnlineSubsystemUtils.h"
 #include "OnlineIdentityMcp.h"

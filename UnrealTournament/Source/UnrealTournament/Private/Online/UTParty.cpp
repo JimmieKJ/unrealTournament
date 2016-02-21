@@ -56,13 +56,13 @@ void UUTParty::UpdatePersistentPartyLeader(const FUniqueNetIdRepl& NewPartyLeade
 
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTGameInstance->GetPrimaryPlayerController());
 	if (UTPC)
-	{
+	{/*
 		AUTLobbyBeaconClient* LobbyBeaconClient = UTGameInstance->GetLobbyBeaconClient();
 		if (LobbyBeaconClient)
 		{
 			LobbyBeaconClient->SetPartyOwnerId(UTPC->PlayerState->UniqueId, NewPartyLeader);
 		}
-
+		*/
 		//UTPC->ClientRegisterWithParty();
 	}
 }

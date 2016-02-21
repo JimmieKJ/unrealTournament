@@ -47,8 +47,7 @@ const FMatchmakingParams& FUTCachedMatchmakingSearchParams::GetMatchmakingParams
 UUTMatchmaking::UUTMatchmaking(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
 	ReservationBeaconClientClass(nullptr),
-	ReservationBeaconClient(nullptr),
-	LobbyBeaconClient(nullptr)
+	ReservationBeaconClient(nullptr)
 {
 	ReservationBeaconClientClass = AUTPartyBeaconClient::StaticClass();
 
@@ -102,11 +101,6 @@ void UUTMatchmaking::UnregisterDelegates()
 			UTParty->OnPartyMemberPromoted().RemoveAll(this);
 		}
 	}
-}
-
-AUTLobbyBeaconClient* UUTMatchmaking::GetLobbyBeaconClient() const
-{
-	return LobbyBeaconClient;
 }
 
 void UUTMatchmaking::OnAllowedToProceedFromReservationTimeout()
@@ -221,95 +215,12 @@ void UUTMatchmaking::OnPartyMemberPromoted(UPartyGameState* InParty, const FUniq
 				}
 			}
 		}
-		else
-		{
-			UWorld* World = GetWorld();
-			FTimerManager& TimerManager = World->GetTimerManager();
-
-			bool bReservationTimerActive = TimerManager.IsTimerActive(ConnectToReservationBeaconTimerHandle);
-			bool bLobbyTimerActive = TimerManager.IsTimerActive(ConnectToLobbyTimerHandle);
-			bool bLobbyConnectionNotFinished = LobbyBeaconClient && LobbyBeaconClient->GetConnectionState() != EBeaconConnectionState::Open;
-			if (bReservationTimerActive || bLobbyTimerActive || bLobbyConnectionNotFinished)
-			{
-				UE_LOG(LogOnline, Log, TEXT("Lobby connection cancelled during leader promotion"));
-				CancelMatchmaking();
-			}
-		}
 	}
 }
 
 void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 {
 	UE_LOG(LogOnline, Log, TEXT("OnClientPartyStateChanged %d"), (int32)NewPartyState);
-}
-
-void UUTMatchmaking::DisconnectFromLobby()
-{
-	UUTGameInstance* GameInstance = GetUTGameInstance();
-	check(GameInstance);
-
-	UWorld* World = GameInstance->GetWorld();
-
-	// Signal the start of lobby disconnect
-	OnLobbyDisconnecting().Broadcast();
-
-	if (World)
-	{
-		World->GetTimerManager().ClearTimer(ConnectToLobbyTimerHandle);
-		World->GetTimerManager().ClearTimer(ConnectToReservationBeaconTimerHandle);
-		World->GetTimerManager().ClearTimer(JoiningAckTimerHandle);
-
-		AUTGameState* UTGameState = Cast<AUTGameState>(World->GetGameState());
-		if (UTGameState)
-		{
-			AUTLobbyBeaconState* LobbyGameState = UTGameState->GetLobbyGameState();
-			if (LobbyGameState)
-			{
-				LobbyGameState->Destroy();
-				UTGameState->SetLobbyGameState(nullptr);
-			}
-		}
-	}
-
-	// If the reservation beacon client still exists, haven't transitioned to the lobby yet, so cancel reservation
-	if (ReservationBeaconClient)
-	{
-		ReservationBeaconClient->CancelReservation();
-	}
-
-	CleanupLobbyBeacons();
-
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(/*World*/);
-	if (SessionInt.IsValid())
-	{
-		FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(GameSessionName);
-		if (SessionSettings)
-		{
-			// Cleanup the existing game session before proceeding
-			FOnDestroySessionCompleteDelegate CompletionDelegate;
-			CompletionDelegate.BindUObject(this, &ThisClass::OnDisconnectFromLobbyComplete);
-			GameInstance->SafeSessionDelete(GameSessionName, CompletionDelegate);
-		}
-		else
-		{
-			// Proceed directly to disconnect
-			OnDisconnectFromLobbyComplete(GameSessionName, true);
-		}
-	}
-	else
-	{
-		UE_LOG(LogOnlineGame, Verbose, TEXT("No session interface!"));
-		OnDisconnectFromLobbyComplete(GameSessionName, false);
-	}
-
-	// Clear cached data so reconnection attempts aren't made against faulty data
-	ClearCachedMatchmakingData();
-}
-
-void UUTMatchmaking::OnDisconnectFromLobbyComplete(FName SessionName, bool bWasSuccessful)
-{
-	UE_LOG(LogOnlineGame, Verbose, TEXT("OnDisconnectFromLobbyComplete %s Success: %d"), *SessionName.ToString(), bWasSuccessful);
-	OnLobbyDisconnected().Broadcast();
 }
 
 void UUTMatchmaking::CleanupReservationBeacon()
@@ -327,29 +238,11 @@ void UUTMatchmaking::CleanupReservationBeacon()
 	}
 }
 
-void UUTMatchmaking::CleanupLobbyBeacons()
-{
-	if (LobbyBeaconClient)
-	{
-		LobbyBeaconClient->DisconnectFromLobby();
-		LobbyBeaconClient->OnJoiningGame().Unbind();
-		LobbyBeaconClient->OnJoiningGameAck().Unbind();
-		LobbyBeaconClient->OnHostConnectionFailure().Unbind();
-		LobbyBeaconClient->OnLobbyConnectionEstablished().Unbind();
-		LobbyBeaconClient->OnLoginComplete().Unbind();
-		LobbyBeaconClient->DestroyBeacon();
-		LobbyBeaconClient = nullptr;
-	}
-
-	CleanupReservationBeacon();
-}
-
-
 void UUTMatchmaking::CancelMatchmaking()
 {
 	if (Matchmaking)
 	{
-		ensure(LobbyBeaconClient == nullptr && ReservationBeaconClient == nullptr);
+		ensure(ReservationBeaconClient == nullptr);
 		if (QosEvaluator && QosEvaluator->IsActive())
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during qos evaluation"));
@@ -371,26 +264,12 @@ void UUTMatchmaking::CancelMatchmaking()
 			// caught right before actually trying to reconnect to beacon, no lobby beacon active
 			// should tell server about cancel but currently don't
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling between matchmaking and reservation reconnect"));
-			ensure(LobbyBeaconClient == nullptr && ReservationBeaconClient == nullptr);
-		}
-		else if (TimerManager.IsTimerActive(ConnectToLobbyTimerHandle))
-		{
-			// caught right before lobby beacon connection, but have a reservation beacon connection
-			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling between reservation connect and lobby connect"));
-			ensure(LobbyBeaconClient == nullptr);
-		}
-		else if (LobbyBeaconClient)
-		{
-			// already established a lobby connection, cancel the reservation and disconnect
-			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling while in lobby"));
+			ensure(ReservationBeaconClient == nullptr);
 		}
 		else
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling with no timer and no lobby"));
 		}
-
-		// Everything will cancel if possible and cleanup lobby locally
-		DisconnectFromLobby();
 	}
 
 	ClearCachedMatchmakingData();
@@ -413,10 +292,6 @@ void UUTMatchmaking::DisconnectFromReservationBeacon()
 		{
 			FTimerManager& WorldTimerManager = World->GetTimerManager();
 
-			// Ensure on the lobby timer, as the code should never have gotten to this state if disconnecting from the reservation beacon
-			ensure(!WorldTimerManager.IsTimerActive(ConnectToLobbyTimerHandle));
-
-			World->GetTimerManager().ClearTimer(ConnectToLobbyTimerHandle);
 			World->GetTimerManager().ClearTimer(ConnectToReservationBeaconTimerHandle);
 		}
 
@@ -617,7 +492,6 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 				ReservationBeaconClient->OnAllowedToProceedFromReservationTimeout().BindUObject(this, &ThisClass::OnAllowedToProceedFromReservationTimeout);
 				ReservationBeaconClient->Reconnect(SearchResult, PC->PlayerState->UniqueId);
 
-				OnLobbyConnectionStarted().Broadcast();
 			}
 			else
 			{
@@ -640,7 +514,6 @@ void UUTMatchmaking::OnReservationBeaconConnectionFailure()
 	UE_LOG(LogOnlineGame, Verbose, TEXT("Reservation beacon failure %s."), ReservationBeaconClient ? *ReservationBeaconClient->GetName() : *FString(TEXT("")));
 	//DisconnectFromReservationBeacon();
 
-	OnLobbyConnectionAttemptFailed().Broadcast();
 }
 
 void UUTMatchmaking::OnReservationCountUpdate(int32 NumRemaining)

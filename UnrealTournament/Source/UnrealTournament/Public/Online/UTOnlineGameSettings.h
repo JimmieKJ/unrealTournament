@@ -5,14 +5,10 @@
 /** Setting describing the game mode of the session (value is int32) */
 #define SETTING_PLAYLISTID FName(TEXT("PLAYLISTID"))
 
-/** String describing if the game is in lobby mode (value is bool) */
-#define SETTING_ISLOBBY		FName(TEXT("ISLOBBY"))
-
 /** Setting describing the trust level of the session (value is FString) */
 #define SETTING_TRUSTLEVEL FName(TEXT("UT_SERVERTRUSTLEVEL"))
 
-#define UT_GAMEMODE_PVP		TEXT("UTPVP")
-#define UT_GAMEMODE_EMPTY	TEXT("UTEMPTY")
+#define GAMEMODE_EMPTY	TEXT("EMPTY")
 
 /** Named interface reference for storing beacon state between levels */
 #define UT_BEACON_STATE FName(TEXT("PartyBeaconState"))
@@ -49,29 +45,7 @@ public:
 };
 
 /**
- * General session settings for a UT lobby game
- */
-class UNREALTOURNAMENT_API FUTOnlineSessionSettingsLobby : public FUTOnlineSessionSettings
-{
-public:
-
-	FUTOnlineSessionSettingsLobby(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 10);
-	virtual ~FUTOnlineSessionSettingsLobby() {}
-};
-
-/**
- * General session settings for a Fortnite pvp lobby game
- */
-class UNREALTOURNAMENT_API FUTOnlineSessionSettingsLobbyPvP : public FUTOnlineSessionSettingsLobby
-{
-public:
-
-	FUTOnlineSessionSettingsLobbyPvP(bool bIsLAN = false, bool bIsPresence = false, int32 MaxNumPlayers = 10);
-	virtual ~FUTOnlineSessionSettingsLobbyPvP() {}
-};
-
-/**
-* General session settings for a Fortnite lobby (dedicated) game
+* General session settings for a UT dedicated game
 */
 class UNREALTOURNAMENT_API FUTOnlineSessionSettingsDedicatedEmpty : public FUTOnlineSessionSettings
 {
@@ -82,7 +56,7 @@ public:
 };
 
 /**
- * Base search settings for a Fortnite game
+ * Base search settings for a UT game
  */
 class UNREALTOURNAMENT_API FUTOnlineSessionSearchBase : public FOnlineSessionSearch
 {

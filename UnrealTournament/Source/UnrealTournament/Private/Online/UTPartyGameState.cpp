@@ -48,12 +48,6 @@ void UUTPartyGameState::RegisterFrontendDelegates()
 			{
 				Matchmaking->OnMatchmakingStarted().AddUObject(this, &ThisClass::OnPartyMatchmakingStarted);
 				Matchmaking->OnMatchmakingComplete().AddUObject(this, &ThisClass::OnPartyMatchmakingComplete);
-				Matchmaking->OnLobbyConnectionStarted().AddUObject(this, &ThisClass::OnLobbyConnectionStarted);
-				Matchmaking->OnLobbyConnectionAttemptFailed().AddUObject(this, &ThisClass::OnLobbyConnectionAttemptFailed);
-				Matchmaking->OnConnectToLobby().AddUObject(this, &ThisClass::OnConnectToLobby);
-				Matchmaking->OnLobbyWaitingForPlayers().AddUObject(this, &ThisClass::OnLobbyWaitingForPlayers);
-				Matchmaking->OnLobbyConnectingToGame().AddUObject(this, &ThisClass::OnLobbyConnectingToGame);
-				Matchmaking->OnLobbyDisconnected().AddUObject(this, &ThisClass::OnLobbyDisconnected);
 			}
 		}
 	}
@@ -73,15 +67,6 @@ void UUTPartyGameState::UnregisterFrontendDelegates()
 		{
 			Matchmaking->OnMatchmakingStarted().RemoveAll(this);
 			Matchmaking->OnMatchmakingComplete().RemoveAll(this);
-
-			Matchmaking->OnLobbyConnectionStarted().RemoveAll(this);
-			Matchmaking->OnLobbyConnectionAttemptFailed().RemoveAll(this);
-
-			Matchmaking->OnConnectToLobby().RemoveAll(this);
-			Matchmaking->OnLobbyWaitingForPlayers().RemoveAll(this);
-			Matchmaking->OnLobbyConnectingToGame().RemoveAll(this);
-
-			Matchmaking->OnLobbyDisconnected().RemoveAll(this);
 		}
 	}
 }

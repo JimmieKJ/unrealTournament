@@ -4,7 +4,6 @@
 
 #include "UTGameInstance.h"
 #include "UTPartyBeaconClient.h"
-#include "UTLobbyBeaconClient.h"
 #include "PartyGameState.h"
 #include "UTMatchmakingPolicy.h"
 #include "UTMatchmaking.generated.h"
@@ -99,23 +98,11 @@ public:
 	 * @return true if the operation started, false otherwise
 	 */
 	bool FindGatheringSession(const FMatchmakingParams& InParams);
-
-	/**
-	 * Get the lobby beacon client that is controlling the lobby for this client
-	 *
-	 * @return the lobby beacon client
-	 */
-	AUTLobbyBeaconClient* GetLobbyBeaconClient() const;
-
-	/** Disconnect and leave the lobby */
-	void DisconnectFromLobby();
-
+	
 	/** Generic delegate for lobby flow */
-	DECLARE_MULTICAST_DELEGATE(FOnLobbyNotification);
 	DECLARE_MULTICAST_DELEGATE(FOnMatchmakingStarted);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnMatchmakingStateChange, EMatchmakingState::Type /*OldState*/, EMatchmakingState::Type /*NewState*/, const FMMAttemptState& /*MMState*/);
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnConnectToLobby, const FOnlineSessionSearchResult& /*SearchResult*/, const FString& /*CriticalMissionSessionId*/)
 
 	/** @return the delegate fired when matchmaking starts */
 	FOnMatchmakingStarted& OnMatchmakingStarted() { return MatchmakingStarted; }
@@ -125,27 +112,6 @@ public:
 
 	/** @return the delegate fired when matchmaking state changes */
 	FOnMatchmakingStateChange& OnMatchmakingStateChange() { return MatchmakingStateChange; }
-
-	/** @return the delegate triggered when the lobby connection attempt starts */
-	FOnLobbyNotification& OnLobbyConnectionStarted() { return LobbyConnectionAttemptStarted; }
-
-	/** @return the delegate triggered when the lobby connection attempt fails */
-	FOnLobbyNotification& OnLobbyConnectionAttemptFailed() { return LobbyConnectionAttemptFailed; }
-
-	/** @return the delegate triggered when the lobby connection attempt begins */
-	FOnConnectToLobby& OnConnectToLobby() { return ConnectToLobbyDelegates; }
-
-	/** @return the delegate triggered when the lobby is ready, but waiting for more players */
-	FOnLobbyNotification& OnLobbyWaitingForPlayers() { return LobbyWaitingForPlayers; }
-
-	/** @return the delegate triggered when beginning to join the game from the lobby */
-	FOnLobbyNotification& OnLobbyConnectingToGame() { return LobbyConnectingToGame; }
-
-	/** @return the delegate triggered when this client has been disconnected from the lobby */
-	FOnLobbyNotification& OnLobbyDisconnecting() { return LobbyDisconnecting; }
-
-	/** @return the delegate triggered when this client has been disconnected from the lobby */
-	FOnLobbyNotification& OnLobbyDisconnected() { return LobbyDisconnected; }
 
 private:
 
@@ -174,50 +140,12 @@ private:
 	 * @param MMState structure containing extended information about matchmaking
 	 */
 	FOnMatchmakingStateChange MatchmakingStateChange;
-
-	/** Delegate triggered when the lobby connection attempt starts */
-	FOnLobbyNotification LobbyConnectionAttemptStarted;
-
-	/** Delegate triggered when the lobby connection attempt fails */
-	FOnLobbyNotification LobbyConnectionAttemptFailed;
-	
-	/** 
-	 * Delegate triggered when a connection to a lobby begins 
-	 * 
-	 * @param SearchResult lobby result to connect to 
-	 */
-	FOnConnectToLobby ConnectToLobbyDelegates;
-
-	/** Delegate triggered when the lobby is ready, but waiting for more players */
-	FOnLobbyNotification LobbyWaitingForPlayers;
-
-	/** Delegate triggered when the lobby has been disconnected */
-	FOnLobbyNotification LobbyConnectingToGame;
-
-	/** Delegate triggered when the lobby has started the async process of disconnecting */
-	FOnLobbyNotification LobbyDisconnecting;
-
-	/** Delegate triggered when the lobby has been disconnected */
-	FOnLobbyNotification LobbyDisconnected;
-
-	/**
-	 * Lobby disconnect has completed (beacons cleared, game session deleted)
-	 *
-	 * @param SessionName name of session deleted
-	 * @param bWasSuccessful was the delete successful
-	 */
-	void OnDisconnectFromLobbyComplete(FName SessionName, bool bWasSuccessful);
-	
+		
 	/**
 	 * Cleanup the reservation beacon
 	 */
 	void CleanupReservationBeacon();
-
-	/**
-	 * Cleanup a lobby connection
-	 */
-	void CleanupLobbyBeacons();
-
+	
 	/**
 	 * Cancels matchmaking and restores the menu
 	 */
@@ -326,11 +254,7 @@ private:
 	/** Reservation beacon client instance */
 	UPROPERTY(Transient)
 	AUTPartyBeaconClient* ReservationBeaconClient;
-
-	/** Lobby beacon client instance */
-	UPROPERTY(Transient)
-	AUTLobbyBeaconClient* LobbyBeaconClient;
-		
+			
 	/**
 	 * Connect to a reservation beacon
 	 *
@@ -395,10 +319,7 @@ private:
 
 	/** @return the owning controller */
 	AUTPlayerController* GetOwningController() const;
-
-	/** Timer handle for waiting before attempting a lobby connection */
-	FTimerHandle ConnectToLobbyTimerHandle;
-
+	
 	/** Timer handle for waiting before attempting to reconnect to the reservation beacon */
 	FTimerHandle ConnectToReservationBeaconTimerHandle;
 

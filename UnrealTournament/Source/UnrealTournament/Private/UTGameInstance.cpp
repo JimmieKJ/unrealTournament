@@ -334,11 +334,6 @@ void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, con
 
 void UUTGameInstance::Shutdown()
 {
-	if (Matchmaking)
-	{
-		Matchmaking->DisconnectFromLobby();
-	}
-
 	if (Party)
 	{
 		Party->OnShutdown();
@@ -453,14 +448,4 @@ void UUTGameInstance::OnDeleteSessionComplete(FName SessionName, bool bWasSucces
 			ExtraDelegate.ExecuteIfBound(SessionName, bWasSuccessful);
 		}
 	}
-}
-
-AUTLobbyBeaconClient* UUTGameInstance::GetLobbyBeaconClient() const
-{
-	if (Matchmaking)
-	{
-		return Matchmaking->GetLobbyBeaconClient();
-	}
-
-	return nullptr;
 }

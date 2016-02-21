@@ -4,13 +4,11 @@
 
 #include "Engine/GameInstance.h"
 #include "../../Engine/Source/Runtime/PerfCounters/Private/PerfCounters.h"
-#include "UTLobbyBeaconClient.h"
 #include "OnlineSessionInterface.h"
 #include "UTGameInstance.generated.h"
 
 class UUTMatchmaking;
 class UUTParty;
-class AUTLobbyBeaconClient;
 
 enum EUTNetControlMessage
 {
@@ -101,10 +99,7 @@ protected:
 	/** Parties singleton */
 	UPROPERTY(Transient)
 	UUTParty* Party;
-
-	DECLARE_MULTICAST_DELEGATE_OneParam(FLobbyStateSetDelegate, class AUTLobbyBeaconState*);
-	FLobbyStateSetDelegate LobbyStateSet;
-
+	
 	/** Timer waiting to call SafeSessionDelete again because session was in a creating/ending state */
 	FTimerHandle SafeSessionDeleteTimerHandle;
 
@@ -130,10 +125,7 @@ public:
 	 * Matchmaking
 	 */
 	UUTMatchmaking* GetMatchmaking() const;
-
-	/** @return the lobby beacon client, if connected to a lobby (only one per game) */
-	AUTLobbyBeaconClient* GetLobbyBeaconClient() const;
-
+	
 	/**
 	 * Parties
 	 */
@@ -146,8 +138,5 @@ public:
 	 * @param DestroySessionComplete delegate to call on completion, in all cases
 	 */
 	void SafeSessionDelete(FName SessionName, FOnDestroySessionCompleteDelegate DestroySessionComplete);
-
-	/** Called when a new lobby state is created/replicated  */
-	FORCEINLINE FLobbyStateSetDelegate& OnLobbyStateSet() { return LobbyStateSet; }
 };
 

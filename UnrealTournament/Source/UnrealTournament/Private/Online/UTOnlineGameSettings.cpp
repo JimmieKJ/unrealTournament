@@ -21,19 +21,6 @@ FUTOnlineSessionSettings::FUTOnlineSessionSettings(bool bIsLAN, bool bIsPresence
 	Set(SETTING_REGION, UQosEvaluator::GetDefaultRegionString(), EOnlineDataAdvertisementType::ViaOnlineService);
 }
 
-FUTOnlineSessionSettingsLobby::FUTOnlineSessionSettingsLobby(bool bIsLAN, bool bIsPresence, int32 MaxNumPlayers) :
-FUTOnlineSessionSettings(bIsLAN, bIsPresence, MaxNumPlayers)
-{
-}
-
-FUTOnlineSessionSettingsLobbyPvP::FUTOnlineSessionSettingsLobbyPvP(bool bIsLAN, bool bIsPresence, int32 MaxNumPlayers) :
-FUTOnlineSessionSettingsLobby(bIsLAN, bIsPresence, MaxNumPlayers)
-{
-	FString GameModeStr(UT_GAMEMODE_PVP);
-	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
-	Set(SETTING_ISLOBBY, true, EOnlineDataAdvertisementType::ViaOnlineService);
-}
-
 FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(bool bIsLAN, bool bIsPresence, int32 MaxNumPlayers) :
 	FUTOnlineSessionSettings(bIsLAN, bIsPresence, MaxNumPlayers)
 {
@@ -41,7 +28,7 @@ FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(b
 	bAllowJoinViaPresence = true;
 	bAllowJoinViaPresenceFriendsOnly = false;
 
-	FString GameModeStr(UT_GAMEMODE_EMPTY);
+	FString GameModeStr(GAMEMODE_EMPTY);
 	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
 }
 
@@ -49,6 +36,9 @@ FUTOnlineSessionSearchGather::FUTOnlineSessionSearchGather(int32 InPlaylistId, b
 	FUTOnlineSessionSearchBase(InPlaylistId, bSearchingLAN, bSearchingPresence)
 {
 	MaxSearchResults = 20;
+
+	// Only find Epic hosted servers
+	QuerySettings.Set(SETTING_TRUSTLEVEL, 0, EOnlineComparisonOp::Equals);
 }
 
 void FUTOnlineSessionSearchGather::SortSearchResults()
@@ -69,7 +59,7 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const
 	QuerySettings.Set(SEARCH_DEDICATED_ONLY, true, EOnlineComparisonOp::Equals);
 	QuerySettings.Set(SEARCH_EMPTY_SERVERS_ONLY, true, EOnlineComparisonOp::Equals);
 
-	FString GameModeStr(UT_GAMEMODE_EMPTY);
+	FString GameModeStr(GAMEMODE_EMPTY);
 	QuerySettings.Set(SETTING_GAMEMODE, GameModeStr, EOnlineComparisonOp::Equals);
 
 	// Only find Epic hosted servers
