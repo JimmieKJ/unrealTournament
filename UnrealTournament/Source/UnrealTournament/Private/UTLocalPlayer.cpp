@@ -4565,6 +4565,7 @@ void UUTLocalPlayer::UpdateUIChatTextBackBuffer(const FText& NewText)
 
 void UUTLocalPlayer::ShowQuickChat(FName ChatDestination)
 {
+#if !UE_SERVER
 	if (!QuickChatWindow.IsValid())
 	{
 		SAssignNew(QuickChatWindow, SUTQuickChatWindow, this)
@@ -4576,15 +4577,18 @@ void UUTLocalPlayer::ShowQuickChat(FName ChatDestination)
 			FSlateApplication::Get().SetAllUserFocus(QuickChatWindow.ToSharedRef(), EKeyboardFocusCause::SetDirectly);
 		}
 	}
+#endif
 }
 
 void UUTLocalPlayer::CloseQuickChat()
 {
+#if !UE_SERVER
 	if (QuickChatWindow.IsValid())
 	{
 		CloseWindow(QuickChatWindow);
 		QuickChatWindow.Reset();
 	}
+#endif
 }
 
 
