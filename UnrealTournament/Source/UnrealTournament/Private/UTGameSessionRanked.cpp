@@ -570,6 +570,8 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 			{
 				UE_LOG(LogOnline, Warning, TEXT("Playlist team size != Beacon team size"));
 			}
+
+			UpdatePlayerNeedsStatus();
 		}
 		else
 		{
@@ -664,6 +666,8 @@ void AUTGameSessionRanked::OnDuplicateReservation(const FPartyReservation& Dupli
 		const FUniqueNetIdRepl& PlayerId = DuplicateReservation.PartyMembers[PartyMemberIdx].UniqueId;
 		CheckForDuplicatePlayer(PlayerId);
 	}
+
+	UpdatePlayerNeedsStatus();
 }
 
 void AUTGameSessionRanked::CheckForDuplicatePlayer(const FUniqueNetIdRepl& PlayerId)
