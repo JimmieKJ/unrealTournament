@@ -648,6 +648,7 @@ protected:
 
 	// Updates the MCP with the current game state.  Happens once per minute.
 	virtual void UpdateOnlineServer();
+	virtual void RegisterServerWithSession();
 
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateSkillRating();

@@ -36,6 +36,7 @@ class UNREALTOURNAMENT_API AUTGameSessionNonRanked : public AUTGameSession
 {
 	GENERATED_BODY()
 
+public:
 	virtual void RegisterServer() override;
 	virtual void UnRegisterServer(bool bShuttingDown) override;
 

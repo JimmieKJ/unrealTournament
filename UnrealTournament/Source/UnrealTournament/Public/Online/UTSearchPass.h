@@ -14,7 +14,7 @@ enum class EQosResponseType : uint8;
 enum class EMatchmakingFlags : uint8;
 
 /** Time between a successful reservation and the time the session join attempt is made */
-#define JOIN_RESERVED_SESSION_DELAY 0.1f
+#define JOIN_RESERVED_SESSION_DELAY 20.0f 
 /** Time between a failed reservation attempt and the next search result is attempted */
 #define CONTINUE_MATCHMAKING_DELAY 0.3f
 /** Time between the cancellation complete delegate and notifying the higher level */

@@ -694,3 +694,17 @@ bool AUTGameSessionRanked::GetGameSessionSettings(const FOnlineSessionSettings* 
 
 	return bFound;
 }
+
+void AUTGameSessionRanked::UpdateSession(FName SessionName, FOnlineSessionSettings& SessionSettings)
+{
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub)
+	{
+		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+		if (SessionInt.IsValid())
+		{
+			OnUpdateSessionCompleteDelegateHandle = SessionInt->AddOnUpdateSessionCompleteDelegate_Handle(OnUpdateSessionCompleteDelegate);
+			SessionInt->UpdateSession(SessionName, SessionSettings, true);
+		}
+	}
+}

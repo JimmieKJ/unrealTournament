@@ -17,6 +17,7 @@ class UNREALTOURNAMENT_API AUTGameSessionRanked : public AUTGameSession
 {
 	GENERATED_BODY()
 
+public:
 	AUTGameSessionRanked();
 	
 	/**
@@ -39,6 +40,7 @@ class UNREALTOURNAMENT_API AUTGameSessionRanked : public AUTGameSession
 	FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
 	FOnVerifyAuthCompleteDelegate OnVerifyAuthCompleteDelegate;
 	FOnRefreshAuthCompleteDelegate OnRefreshAuthCompleteDelegate;
+	FOnUpdateSessionCompleteDelegate OnUpdateSessionCompleteDelegate;
 
 	FDelegateHandle OnConnectionStatusChangedDelegateHandle;
 	FDelegateHandle OnCreateSessionCompleteDelegateHandle;
@@ -84,6 +86,14 @@ class UNREALTOURNAMENT_API AUTGameSessionRanked : public AUTGameSession
 	virtual void CreateServerGame();
 	virtual void CheckForDuplicatePlayer(const FUniqueNetIdRepl& PlayerId);
 	
+	/**
+	 * Update the online session object based on current settings
+	 *
+	 * @param SessionName Name of session to update
+	 * @param SessionSettings Settings to use for update
+	 */
+	virtual void UpdateSession(FName SessionName, FOnlineSessionSettings& SessionSettings);
+
 	/**
 	 * Modifies session settings object to have the passed in values
 	 *

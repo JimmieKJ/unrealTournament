@@ -195,12 +195,23 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		}
 	}
 
+	// Must happen before Super call because GetGameSessionClass() is switched on this
+	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Ranked"));
+	if (!InOpt.IsEmpty())
+	{
+		bRankedSession = true;
+	}
+	else
+	{
+		bRankedSession = false;
+	}
+
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	GameDifficulty = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
 	
 	HostLobbyListenPort = UGameplayStatics::GetIntOption(Options, TEXT("HostPort"), 14000);
-	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("ForceRespawn"));
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("ForceRespawn"));
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
 
 	MaxWaitForPlayers = UGameplayStatics::GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
@@ -226,17 +237,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	}
 
 	RespawnWaitTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("RespawnWait"), RespawnWaitTime));
-
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Ranked"));
-	if (!InOpt.IsEmpty())
-	{
-		bRankedSession = true;
-	}
-	else
-	{
-		bRankedSession = false;
-	}
-
+	
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Hub"));
 	if (!InOpt.IsEmpty()) HubAddress = InOpt;
 
@@ -491,18 +492,52 @@ void AUTGameMode::InitGameState()
 		UE_LOG(UT,Error, TEXT("UTGameState is NULL %s"), *GameStateClass->GetFullName());
 	}
 
+	RegisterServerWithSession();
+}
+
+void AUTGameMode::RegisterServerWithSession()
+{
 	if (GameSession != NULL && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession)
+		AUTGameSessionNonRanked* UTGameSessionNonRanked = Cast<AUTGameSessionNonRanked>(GameSession);
+		AUTGameSessionRanked* UTGameSessionRanked = Cast<AUTGameSessionRanked>(GameSession);
+		if (UTGameSessionNonRanked)
 		{
-			UTGameSession->RegisterServer();
+			UTGameSessionNonRanked->RegisterServer();
 			FTimerHandle TempHandle;
 			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f*GetActorTimeDilation());
 
-			if (UTGameSession->bSessionValid)
+			if (UTGameSessionNonRanked->bSessionValid)
 			{
 				NotifyLobbyGameIsReady();
+			}
+		}
+		else if (UTGameSessionRanked)
+		{
+			FOnlineSessionSettings* SessionSettings = NULL;
+			const IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+			if (OnlineSub)
+			{
+				const IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+				if (SessionInt.IsValid())
+				{
+					SessionSettings = SessionInt->GetSessionSettings(GameSessionName);
+				}
+			}
+
+			if (SessionSettings)
+			{
+				UTGameSessionRanked->UpdatePlayerNeedsStatus();
+
+				// Init the host beacon again to continue receiving reservation requests
+				UTGameSessionRanked->InitHostBeacon(SessionSettings);
+
+				// Update the session settings (to include the new game mode setting)
+				UTGameSessionRanked->UpdateSession(GameSessionName, *SessionSettings);
+			}
+			else
+			{
+				UTGameSessionRanked->RegisterServer();
 			}
 		}
 	}
