@@ -2,12 +2,14 @@
 
 #include "UnrealTournament.h"
 
+#if WITH_PROFILE
 #include "OnlineSubsystemMcp.h"
-#include "OnlineSubsystemUtils.h"
 #include "GameServiceMcp.h"
-#include "JsonUtilities.h"
-#include "OnlineSubsystemUtils.h"
 #include "OnlineHttpRequest.h"
+#endif
+
+#include "OnlineSubsystemUtils.h"
+#include "JsonUtilities.h"
 
 #include "UTMcpUtils.h"
 
@@ -70,9 +72,9 @@ UUTMcpUtils* UUTMcpUtils::Get(UWorld* World, const TSharedPtr<const FUniqueNetId
 	return McpUtilsSingleton;
 }
 
+#if WITH_PROFILE
 TSharedRef<FOnlineHttpRequest> UUTMcpUtils::CreateRequest(const FString& Verb, const FString& Path) const
 {
-#if WITH_PROFILE
 	check(McpSubsystem);
 
 	// create the request
@@ -80,14 +82,12 @@ TSharedRef<FOnlineHttpRequest> UUTMcpUtils::CreateRequest(const FString& Verb, c
 	HttpRequest->SetURL(McpSubsystem->GetMcpGameService()->GetBaseUrl() + Path);
 	HttpRequest->SetVerb(Verb);
 	return HttpRequest;
-#else
-	return TSharedRef<IHttpRequest>(new FNullHttpRequest());
-#endif
 }
+#endif
 
+#if WITH_PROFILE
 void UUTMcpUtils::SendRequest(const TSharedRef<FOnlineHttpRequest>& RequestIn, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete)
 {
-#if WITH_PROFILE
 	check(McpSubsystem);
 	TSharedRef<FOnlineHttpRequest> Request = RequestIn;
 
@@ -125,9 +125,10 @@ void UUTMcpUtils::SendRequest(const TSharedRef<FOnlineHttpRequest>& RequestIn, c
 			Capture->CancelRequest(RequestStupid);
 		});
 	}
-#endif
 }
+#endif
 
+#if WITH_PROFILE
 void UUTMcpUtils::HttpRequestComplete(TSharedRef<FHttpRetrySystem::FRequest>& HttpRequest, bool bSucceeded, TFunction<bool(const FHttpResponsePtr& HttpResponse)> OnComplete)
 {
 	FHttpResponsePtr HttpResponse = HttpRequest->GetResponse();
@@ -153,6 +154,7 @@ void UUTMcpUtils::HttpRequestComplete(TSharedRef<FHttpRetrySystem::FRequest>& Ht
 		OnComplete(FHttpResponsePtr());
 	}
 }
+#endif
 
 template<typename RESPONSE_T>
 static TFunction<bool(const FHttpResponsePtr&)> SimpleResponseHandler(const TFunction<void(const FOnlineError&, const RESPONSE_T&)>& Callback)
@@ -218,6 +220,12 @@ void UUTMcpUtils::GetTeamElo(const FString& RatingType, const TArray<FUniqueNetI
 
 void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountMmrCb& Callback)
 {
+#if WITH_PROFILE
+	if (!GameAccountId.IsValid())
+	{
+		return;
+	}
+
 	// build request URL
 	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/mmr/`ratingType");
 	auto HttpRequest = CreateRequest(TEXT("GET"), ServerPath
@@ -227,10 +235,17 @@ void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountMmrC
 
 	// send the request
 	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
+#endif
 }
 
 void UUTMcpUtils::GetAccountLeague(const FString& LeagueType, const FGetAccountLeagueCb& Callback)
 {
+#if WITH_PROFILE
+	if (!GameAccountId.IsValid())
+	{
+		return;
+	}
+
 	// build request URL
 	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/league/`leagueType");
 	auto HttpRequest = CreateRequest(TEXT("GET"), ServerPath
@@ -240,6 +255,7 @@ void UUTMcpUtils::GetAccountLeague(const FString& LeagueType, const FGetAccountL
 
 	// send the request
 	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
+#endif
 }
 
 void UUTMcpUtils::ReportRankedMatchResult(const FRankedMatchResult& MatchResult, const FReportRankedMatchResultCb& Callback)

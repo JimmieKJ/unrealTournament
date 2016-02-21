@@ -19,8 +19,10 @@ AUTGameSessionRanked::AUTGameSessionRanked()
 		OnConnectionStatusChangedDelegate = FOnConnectionStatusChangedDelegate::CreateUObject(this, &AUTGameSessionRanked::OnConnectionStatusChanged);
 		OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnCreateSessionComplete);
 		OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnDestroySessionComplete);
+#if WITH_PROFILE
 		OnVerifyAuthCompleteDelegate = FOnVerifyAuthCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnVerifyAuthComplete);
 		OnRefreshAuthCompleteDelegate = FOnRefreshAuthCompleteDelegate::CreateUObject(this, &AUTGameSessionRanked::OnRefreshAuthComplete);
+#endif
 	}
 }
 
@@ -33,6 +35,7 @@ void AUTGameSessionRanked::RegisterServer()
 	{
 		OnConnectionStatusChangedDelegateHandle = OnlineSub->AddOnConnectionStatusChangedDelegate_Handle(OnConnectionStatusChangedDelegate);
 
+#if WITH_PROFILE
 		IOnlineIdentityPtr OnlineIdentity = OnlineSub->GetIdentityInterface();
 		if (OnlineIdentity.IsValid())
 		{
@@ -43,6 +46,7 @@ void AUTGameSessionRanked::RegisterServer()
 				OnlineIdentityMcp->AddOnRefreshAuthCompleteDelegate_Handle(OnRefreshAuthCompleteDelegate);
 			}
 		}
+#endif
 
 
 		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
@@ -91,6 +95,7 @@ void AUTGameSessionRanked::RegisterServer()
 	}
 }
 
+#if WITH_PROFILE
 void AUTGameSessionRanked::OnVerifyAuthComplete(bool bWasSuccessful, const class FAuthTokenMcp& AuthToken, const class FAuthTokenVerifyMcp& AuthTokenVerify, const FString& ErrorStr)
 {
 	if (!bWasSuccessful)
@@ -149,6 +154,7 @@ void AUTGameSessionRanked::OnRefreshAuthComplete(bool bWasSuccessful, const FAut
 		ShutdownDedicatedServer();
 	}
 }
+#endif // WITH_PROFILE
 
 void AUTGameSessionRanked::CleanUpOnlineSubsystem()
 {

@@ -2,7 +2,10 @@
 
 #pragma once
 
+#if WITH_PROFILE
 #include "OnlineIdentityMcp.h"
+#endif
+
 #include "PartyBeaconState.h"
 
 #include "UTGameSessionRanked.generated.h"
@@ -38,8 +41,10 @@ public:
 	FOnConnectionStatusChangedDelegate OnConnectionStatusChangedDelegate;
 	FOnCreateSessionCompleteDelegate OnCreateSessionCompleteDelegate;
 	FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
+#if WITH_PROFILE
 	FOnVerifyAuthCompleteDelegate OnVerifyAuthCompleteDelegate;
 	FOnRefreshAuthCompleteDelegate OnRefreshAuthCompleteDelegate;
+#endif
 	FOnUpdateSessionCompleteDelegate OnUpdateSessionCompleteDelegate;
 
 	FDelegateHandle OnConnectionStatusChangedDelegateHandle;
@@ -52,8 +57,11 @@ public:
 	virtual void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnConnectionStatusChanged(EOnlineServerConnectionStatus::Type LastConnectionState, EOnlineServerConnectionStatus::Type ConnectionState);
+
+#if WITH_PROFILE
 	virtual void OnVerifyAuthComplete(bool bWasSuccessful, const class FAuthTokenMcp& AuthToken, const class FAuthTokenVerifyMcp& AuthTokenVerify, const FString& ErrorStr);
 	virtual void OnRefreshAuthComplete(bool bWasSuccessful, const FAuthTokenMcp& AuthToken, const FAuthTokenMcp& AuthTokenRefresh, const FString& ErrorStr);
+#endif
 	
 	/** Delegate fired when asking the beacon owner if this reservation is legit */
 	//virtual bool OnBeaconValidatePlayers(const TArray<FPlayerReservation>& PartyMembers);

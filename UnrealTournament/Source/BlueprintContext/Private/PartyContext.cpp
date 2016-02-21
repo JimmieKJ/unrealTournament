@@ -8,8 +8,12 @@
 #include "PartyGameState.h"
 #include "OnlineSubsystemUtils.h"
 #include "UTLocalPlayer.h"
-#include "Social.h"
 #include "UTParty.h"
+
+#if WITH_SOCIAL
+#include "Social.h"
+#endif
+
 
 #define LOCTEXT_NAMESPACE "UTPartyContext"
 
@@ -71,6 +75,7 @@ void UPartyContext::OnWorldCleanup(UWorld* World)
 
 void UPartyContext::BindOnlineDelegates(UWorld* World)
 {
+#if WITH_SOCIAL
 	TSharedRef<IFriendsAndChatManager> FriendsAndChatManager =
 		ISocialModule::Get().GetFriendsAndChatManager(Online::GetUtils()->GetOnlineIdentifier(World), true);
 	TSharedPtr<IGameAndPartyService> SharedGame = FriendsAndChatManager->GetGameAndPartyService();
@@ -116,6 +121,7 @@ void UPartyContext::BindOnlineDelegates(UWorld* World)
 
 	GameAndPartyService = SharedGame;
 	NotificationService = SharedNotificationService;
+#endif
 }
 
 void UPartyContext::UnbindOnlineDelegates(UWorld* World)
@@ -138,6 +144,7 @@ void UPartyContext::UnbindOnlineDelegates(UWorld* World)
 		}
 	}
 
+#if WITH_SOCIAL
 	TSharedRef<IFriendsAndChatManager> FriendsAndChatManager =
 		ISocialModule::Get().GetFriendsAndChatManager(Online::GetUtils()->GetOnlineIdentifier(World), true);
 	FriendsAndChatManager->OnSendPartyInvitationComplete().RemoveAll(this);
@@ -161,6 +168,7 @@ void UPartyContext::UnbindOnlineDelegates(UWorld* World)
 
 	GameAndPartyService.Reset();
 	NotificationService.Reset();
+#endif
 }
 
 void UPartyContext::HandlePlayerLoggedIn()

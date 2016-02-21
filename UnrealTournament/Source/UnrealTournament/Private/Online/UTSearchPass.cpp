@@ -8,9 +8,12 @@
 #include "UTOnlineGameSettings.h"
 #include "UTMatchmakingPolicy.h"
 #include "OnlineSubsystemUtils.h"
-#include "OnlineIdentityMcp.h"
 #include "Qos.h"
 #include "UTPartyBeaconState.h"
+
+#if WITH_PROFILE
+#include "OnlineIdentityMcp.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
 
