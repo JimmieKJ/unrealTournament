@@ -213,6 +213,7 @@ void SUTQuickMatchWindow::FindHUBToJoin()
 		FString GameVer = FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion());
 		SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);			// Must equal the game version
 		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);				// Must not be a lobby server instance
+		SearchSettings->QuerySettings.Set(SETTING_RANKED, 1, EOnlineComparisonOp::NotEquals);
 
 		FString GameMode = TEXT("/Script/UnrealTournament.UTLobbyGameMode");
 		SearchSettings->QuerySettings.Set(SETTING_GAMEMODE, GameMode, EOnlineComparisonOp::Equals);				// Must be a lobby server

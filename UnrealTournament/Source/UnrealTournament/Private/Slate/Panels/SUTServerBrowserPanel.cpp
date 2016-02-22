@@ -1128,6 +1128,7 @@ void SUTServerBrowserPanel::RefreshServers()
 		SearchSettings->MaxSearchResults = 10000;
 		SearchSettings->bIsLanQuery = false;
 		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
+		SearchSettings->QuerySettings.Set(SETTING_RANKED, 1, EOnlineComparisonOp::NotEquals);
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = SearchSettings.ToSharedRef();
 
@@ -1270,6 +1271,7 @@ void SUTServerBrowserPanel::OnFindSessionsComplete(bool bWasSuccessful)
 	LanSearchSettings->bIsLanQuery = true;
 	LanSearchSettings->TimeoutInSeconds = 2.0;
 	LanSearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
+	LanSearchSettings->QuerySettings.Set(SETTING_RANKED, 1, EOnlineComparisonOp::NotEquals);
 
 	TSharedRef<FUTOnlineGameSearchBase> LanSearchSettingsRef = LanSearchSettings.ToSharedRef();
 	FOnFindSessionsCompleteDelegate Delegate;

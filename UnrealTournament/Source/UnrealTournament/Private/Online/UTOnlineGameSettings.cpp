@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTOnlineGameSettings.h"
+#include "UTOnlineGameSettingsBase.h"
 #include "Qos.h"
 #include "UTPartyBeaconState.h"
 
@@ -19,6 +20,8 @@ FUTOnlineSessionSettings::FUTOnlineSessionSettings(bool bIsLAN, bool bIsPresence
 	bAllowJoinViaPresenceFriendsOnly = false;
 
 	Set(SETTING_REGION, UQosEvaluator::GetDefaultRegionString(), EOnlineDataAdvertisementType::ViaOnlineService);
+
+	Set(SETTING_RANKED, 1, EOnlineDataAdvertisementType::ViaOnlineService);
 }
 
 FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(bool bIsLAN, bool bIsPresence, int32 MaxNumPlayers) :
