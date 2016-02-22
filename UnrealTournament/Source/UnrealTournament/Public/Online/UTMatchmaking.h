@@ -247,6 +247,8 @@ private:
 	/** Internal notification that the matchmaking has completed, routes externally */
 	void OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
 
+	void TravelToServer();
+
 	/** Reservation beacon class */
 	UPROPERTY(Transient)
 	TSubclassOf<APartyBeaconClient> ReservationBeaconClientClass;

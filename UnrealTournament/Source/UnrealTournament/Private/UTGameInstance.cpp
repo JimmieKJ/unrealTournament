@@ -9,6 +9,7 @@
 #include "UTGameViewportClient.h"
 #include "UTMatchmaking.h"
 #include "UTParty.h"
+#include "UTPlaylistManager.h"
 
 /* Delays for various timers during matchmaking */
 #define DELETESESSION_DELAY 1.0f
@@ -46,6 +47,10 @@ void UUTGameInstance::Init()
 		// Initialize both after construction (each needs the pointer of the other)
 		Matchmaking->Init();
 		//Party->Init();
+	}
+	else
+	{
+		PlaylistManager = NewObject<UUTPlaylistManager>(this);
 	}
 }
 
@@ -364,6 +369,11 @@ UUTParty* UUTGameInstance::GetParties() const
 	return Party;
 }
 
+UUTPlaylistManager* UUTGameInstance::GetPlaylistManager() const
+{
+	return PlaylistManager;
+}
+
 void UUTGameInstance::SafeSessionDelete(FName SessionName, FOnDestroySessionCompleteDelegate DestroySessionComplete)
 {
 	UWorld* World = GetWorld();
@@ -448,4 +458,39 @@ void UUTGameInstance::OnDeleteSessionComplete(FName SessionName, bool bWasSucces
 			ExtraDelegate.ExecuteIfBound(SessionName, bWasSuccessful);
 		}
 	}
+}
+
+bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionName)
+{
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(/*World*/);
+	if (SessionInt.IsValid())
+	{
+		FString URL;
+		if (SessionInt->GetResolvedConnectString(InSessionName, URL))
+		{
+			APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), ControllerId);
+			if (PC)
+			{
+				/*
+				UUTParty* Parties = GetParties();
+				if (Parties)
+				{
+					Parties->NotifyPreClientTravel();
+				}*/
+
+				PC->ClientTravel(URL, TRAVEL_Absolute);
+				return true;
+			}
+		}
+		else
+		{
+			UE_LOG(LogOnlineGame, Warning, TEXT("Failed to resolve session connect string for %s"), *InSessionName.ToString());
+		}
+	}
+	else
+	{
+		UE_LOG(LogOnlineGame, Warning, TEXT("ClientTravelToSession: No online subsystem"));
+	}
+
+	return false;
 }

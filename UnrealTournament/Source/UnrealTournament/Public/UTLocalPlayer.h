@@ -867,7 +867,7 @@ public:
 #endif
 
 	/** Matchmaking related items */
-	void StartSoloQueueMatchmaking();
+	void StartSoloQueueMatchmaking(int32 PlaylistId);
 
 	void InvalidateLastSession();
 	void Reconnect(bool bAsSpectator);

@@ -491,7 +491,6 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 				ReservationBeaconClient->OnAllowedToProceedFromReservation().BindUObject(this, &ThisClass::OnAllowedToProceedFromReservation);
 				ReservationBeaconClient->OnAllowedToProceedFromReservationTimeout().BindUObject(this, &ThisClass::OnAllowedToProceedFromReservationTimeout);
 				ReservationBeaconClient->Reconnect(SearchResult, PC->PlayerState->UniqueId);
-
 			}
 			else
 			{
@@ -524,6 +523,8 @@ void UUTMatchmaking::OnReservationCountUpdate(int32 NumRemaining)
 void UUTMatchmaking::OnReservationFull()
 {
 	UE_LOG(LogOnline, Log, TEXT("OnReservationFull"));
+
+	TravelToServer();
 }
 
 void UUTMatchmaking::OnAllowedToProceedFromReservation()
@@ -569,6 +570,25 @@ void UUTMatchmaking::OnReconnectResponseReceived(EPartyReservationResult::Type R
 	else
 	{
 		OnReservationBeaconConnectionFailure();
+	}
+}
+
+void UUTMatchmaking::TravelToServer()
+{
+	bool bWillTravel = false;
+
+	UUTGameInstance* GameInstance = GetUTGameInstance();
+	check(GameInstance);
+
+	if (GameInstance->ClientTravelToSession(ControllerId, GameSessionName))
+	{
+		bWillTravel = false;
+	}
+
+	if (!bWillTravel)
+	{
+		// Heavy handed clean up
+		//DisconnectFromLobby();
 	}
 }
 
