@@ -40,6 +40,11 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 	MegaFont = Hud->GetFontFromSizeIndex(3);
 }
 
+float UUTHUDWidgetMessage::GetDrawScaleOverride()
+{
+	return (UTHUDOwner) ? UTHUDOwner->HUDMessageScaleOverride : 1.f;
+}
+
 void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
@@ -257,6 +262,9 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 	MessageQueue[QueueIndex].bHasBeenRendered = false;
 	MessageQueue[QueueIndex].TextWidth = 0;
 	MessageQueue[QueueIndex].TextHeight = 0;
+
+	MessageQueue[QueueIndex].RelatedPlayerState_1 = RelatedPlayerState_1;
+	MessageQueue[QueueIndex].RelatedPlayerState_2 = RelatedPlayerState_2;
 }
 
 void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)

@@ -448,9 +448,6 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
 	OldSSRQuality = SSRQualityCVar->GetInt();
 	SSRQualityCVar->Set(4, ECVF_SetByCode);
-
-	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
-
 }
 
 void SUTMatchSummaryPanel::SetInitialCams()
@@ -553,8 +550,6 @@ void SUTMatchSummaryPanel::OnTabButtonSelectionChanged(const FText& NewText)
 		}
 	}
 
-	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
-
 }
 
 void SUTMatchSummaryPanel::BuildInfoPanel()
@@ -594,8 +589,10 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 
 				TArray<FText> Highlights = GameState->GetPlayerHighlights(UTPS);
 
-				//Cap at 5 highlights
-				if (Highlights.Num() > 5)
+				//Cap at 5 highlights, 4 if own rank change
+				bool bShowBadgeHighlight = (UTPS && Cast<AUTPlayerController>(UTPS->GetOwner()) && Cast<AUTPlayerController>(UTPS->GetOwner())->bBadgeChanged);
+				int32 MaxHighlights = bShowBadgeHighlight ? 4 : 5;
+				if (Highlights.Num() > MaxHighlights)
 				{
 					Highlights.SetNum(5);
 				}
@@ -636,6 +633,85 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 								]
 							]
 						];
+					HighlightBoxes.Add(HighlightBorder);
+				}
+
+				if (bShowBadgeHighlight)
+				{
+					int32 Badge = 0;
+					int32 Level = 0;
+					UTPS->GetBadgeFromELO(DefaultGameMode, Badge, Level);
+					FText RankNumber = FText::AsNumber(Level + 1);
+					TSharedPtr<class SBorder> HighlightBorder;
+					VBox->AddSlot()
+						.Padding(100, 20)
+						.AutoHeight()
+						[
+							SAssignNew(HighlightBorder, SBorder)
+							.BorderImage(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.Border"))
+							.Padding(2)
+							.Content()
+							[
+								SNew(SBox)
+								.MinDesiredHeight(100.0f)
+								.Content()
+								[
+									SNew(SOverlay)
+									+ SOverlay::Slot()
+									[
+										SNew(SImage)
+										.Image(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.BG"))
+									]
+									+ SOverlay::Slot()
+									.HAlign(HAlign_Fill)
+									[
+										SNew(SHorizontalBox)
+										+ SHorizontalBox::Slot()
+										.AutoWidth()
+										.VAlign(VAlign_Center)
+										[
+											SNew(SRichTextBlock)
+											.Text(NSLOCTEXT("AUTGameMode", "RankChanged", "Rank Updated "))
+											.TextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.HighlightText.Normal")
+											.Justification(ETextJustify::Center)
+											.DecoratorStyleSet(&SUWindowsStyle::Get())
+											.AutoWrapText(false)
+										]
+										+ SHorizontalBox::Slot()
+										.AutoWidth()
+										[
+											SNew(SBox)
+											.WidthOverride(100)
+											.HeightOverride(100)
+											[
+												SNew(SOverlay)
+												+ SOverlay::Slot()
+												[
+													SNew(SImage)
+													.Image(UTPS->GetELOBadgeImage(DefaultGameMode, false))
+												]
+												+ SOverlay::Slot()
+												[
+													SNew(SVerticalBox)
+													+ SVerticalBox::Slot()
+													.HAlign(HAlign_Center)
+													.VAlign(VAlign_Center)
+													.Padding(FMargin(-2.0, 0.0, 0.0, 0.0))
+													[
+														SNew(STextBlock)
+														.Text(RankNumber)
+														.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween.Bold")
+														.ShadowOffset(FVector2D(0.0f, 2.0f))
+														.ShadowColorAndOpacity(FLinearColor(0.0f, 0.0f, 0.0f, 1.0f))
+													]
+												]
+											]
+										]
+
+									]
+									]
+								]
+							];
 					HighlightBoxes.Add(HighlightBorder);
 				}
 
@@ -713,8 +789,6 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 			TabWidget->SelectTab(0);
 		}
 	}
-
-	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
 }
 
 void SUTMatchSummaryPanel::UpdateChatText()
@@ -1213,7 +1287,6 @@ AUTCharacter* SUTMatchSummaryPanel::RecreatePlayerPreview(AUTPlayerState* NewPS,
 			UClass* PreviewAttachmentType = NewPS->FavoriteWeapon ? NewPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
 			if (!PreviewAttachmentType)
 			{
-				// @TODO FIXMESTEVE - should always have a favorite weapon (choose from stats)
 				UClass* PreviewAttachments[6];
 				PreviewAttachments[0] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.BP_LinkGun_Attach_C"), NULL, LOAD_None, NULL);
 				PreviewAttachments[1] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper_Attach.BP_Sniper_Attach_C"), NULL, LOAD_None, NULL);
@@ -1913,7 +1986,6 @@ FReply SUTMatchSummaryPanel::OnSwitcherNext()
 			ViewCharacter(PlayerPreviewMeshs[0]);
 		}
 	}
-	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
 	return FReply::Handled();
 }
 
@@ -1942,7 +2014,6 @@ FReply SUTMatchSummaryPanel::OnSwitcherPrevious()
 			ViewCharacter(PlayerPreviewMeshs[PlayerPreviewMeshs.Num() - 1]);
 		}
 	}
-	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
 	return FReply::Handled();
 }
 

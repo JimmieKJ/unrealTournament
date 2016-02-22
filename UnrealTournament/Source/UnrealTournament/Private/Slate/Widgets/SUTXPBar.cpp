@@ -263,16 +263,9 @@ FMargin SUTXPBar::GetBreakdownMargin() const
 
 float SUTXPBar::GetXP() const
 {
-	if (PlayerOwner.IsValid())
+	if (PlayerOwner.IsValid() && PlayerOwner->IsEarningXP())
 	{
-		if (PlayerOwner->IsEarningXP())
-		{
-			return PlayerOwner->GetOnlineXP();
-		}
-		else if (PlayerOwner->GetProfileSettings() != nullptr)
-		{
-			return PlayerOwner->GetProfileSettings()->LocalXP;
-		}
+		return PlayerOwner->GetOnlineXP();
 	}
 	return 0.f;
 }

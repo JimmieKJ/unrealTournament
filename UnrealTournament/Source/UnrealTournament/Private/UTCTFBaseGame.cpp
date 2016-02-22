@@ -32,6 +32,7 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 	SquadType = AUTCTFSquadAI::StaticClass();
 	CTFScoringClass = AUTCTFScoring::StaticClass();
 	IntermissionDuration = 10.f;
+	FlagCapScore = 1;
 
 	//Add the translocator here for now :(
 	TranslocatorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C"));
@@ -220,7 +221,7 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		if (Reason == FName("FlagCapture"))
 		{
 			// Give the team a capture.
-			Holder->Team->Score++;
+			Holder->Team->Score += FlagCapScore;
 			Holder->Team->ForceNetUpdate();
 			LastTeamToScore = Holder->Team;
 			BroadcastScoreUpdate(Holder, Holder->Team);
@@ -427,13 +428,10 @@ void AUTCTFBaseGame::EndGame(AUTPlayerState* Winner, FName Reason)
 
 void AUTCTFBaseGame::SetEndGameFocus(AUTPlayerState* Winner)
 {
+	int32 WinnerTeamNum = Winner ? Winner->GetTeamNum() : (LastTeamToScore ? LastTeamToScore->TeamIndex : 0);
 	AUTCTFFlagBase* WinningBase = NULL;
-	if (Winner != NULL)
-	{
-		WinningBase = CTFGameState->FlagBases[Winner->GetTeamNum()];
-
-		PlacePlayersAroundFlagBase(Winner->GetTeamNum());
-	}
+	WinningBase = CTFGameState->FlagBases[WinnerTeamNum];
+	PlacePlayersAroundFlagBase(WinnerTeamNum);
 
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
@@ -453,7 +451,7 @@ void AUTCTFBaseGame::SetEndGameFocus(AUTPlayerState* Winner)
 
 			if (BaseToView)
 			{
-				Controller->GameHasEnded(BaseToView, Controller->UTPlayerState->Team == Winner->Team);
+				Controller->GameHasEnded(BaseToView, (Controller->UTPlayerState->Team && (Controller->UTPlayerState->Team->TeamIndex == WinnerTeamNum)));
 			}
 		}
 	}
@@ -461,23 +459,7 @@ void AUTCTFBaseGame::SetEndGameFocus(AUTPlayerState* Winner)
 
 void AUTCTFBaseGame::UpdateSkillRating()
 {
-	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_CTFSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
-
-	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_CTFSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
+	ReportRankedMatchResults(NAME_CTFSkillRating.ToString());
 }
 
 void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum)
@@ -649,5 +631,27 @@ void AUTCTFBaseGame::SetBlueScore(int32 NewScore)
 	if (!bOfflineChallenge && !bBasicTrainingGame)
 	{
 		Teams[1]->Score = NewScore;
+	}
+}
+
+uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->CTFMatchesPlayed : 0;
+}
+
+int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->CTFRank : Super::GetEloFor(PS);
+}
+
+void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+{
+	if (PS)
+	{
+		PS->CTFRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->CTFMatchesPlayed < 255))
+		{
+			PS->CTFMatchesPlayed++;
+		}
 	}
 }

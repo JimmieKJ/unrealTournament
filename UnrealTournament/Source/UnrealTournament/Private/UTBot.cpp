@@ -117,8 +117,9 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	SightRadius = 20000.0f;
 	RotationRate = FRotator(300.0f, 300.0f, 0.0f);
 	PeripheralVision = 0.7f;
-	TrackingReactionTime = 0.28f;
-	MaxTrackingPredictionError = 0.22f;
+	TrackingReactionTime = 0.22f;
+	TrackingInterpTime = 0.2f;
+	MaxTrackingPredictionError = 0.2f;
 	MaxTrackingOffsetError = 0.15f;
 	TrackingErrorUpdateInterval = 0.4f;
 	TrackingErrorUpdateTime = 0.f;
@@ -127,6 +128,7 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	StoppedOffsetErrorReduction = 0.8f;
 	BothStoppedOffsetErrorReduction = 0.6f;
 	UsingSquadRouteIndex = INDEX_NONE;
+	DirectionChangeOffsetPct = 0.5f;
 
 	WaitForMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
 	WaitForLandingAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForLanding>(this, FName(TEXT("WaitForLanding")));
@@ -156,6 +158,21 @@ void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
 		{
 			PS->ServerReceiveEyewearClass(CharacterData->EyewearType.ToString());
 			PS->ServerReceiveEyewearVariant(CharacterData->EyewearVariantId);
+		}
+		if (!PS->FavoriteWeapon && (Personality.FavoriteWeapon != NAME_None))
+		{
+			for (FActorIterator It(GetWorld()); It; ++It)
+			{
+				AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+				if (Pickup && Pickup->WeaponType)
+				{
+					if (IsFavoriteWeapon(Pickup->WeaponType))
+					{
+						PS->FavoriteWeapon = Pickup->WeaponType;
+						break;
+					}
+				}
+			}
 		}
 	}
 
@@ -303,30 +320,28 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 		PS->DMRank = PS->TDMRank;
 		PS->DuelRank = PS->TDMRank;
 		PS->ShowdownRank = PS->TDMRank;
-		PS->bTDMEloValid = true;
-		PS->bDuelEloValid = true;
-		PS->bCTFEloValid = true;
-		PS->bDMEloValid = true;
-		PS->bShowdownEloValid = true;
+		PS->TDMMatchesPlayed = 255;
+		PS->DuelMatchesPlayed = 255;
+		PS->CTFMatchesPlayed = 255;
+		PS->DMMatchesPlayed = 255;
+		PS->ShowdownMatchesPlayed = 255;
 	}
 
 	float AimingSkill = Skill + Personality.Accuracy;
 
 	TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (AimingSkill + 2.0f);
+	TrackingInterpTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingInterpTime * 7.0f / (AimingSkill + 7.0f);
 
-	// no prediction error for really high skill bots
+	// very little prediction error for really high skill bots
 	// we still want some offset error because that will sometimes actually cause "correct" aim when combined with TrackingReactionTime
+	MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 5.0f / (AimingSkill + 2.0f);
 	if (AimingSkill > 7.0f)
 	{
-		MaxTrackingPredictionError = 0.f;
-	}
-	else
-	{
-		MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 5.0f / (AimingSkill + 2.0f);
+		MaxTrackingPredictionError *= 0.3f;
 	}
 	MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 6.0f / (AimingSkill + 2.0f);
 
-	TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 12.f / (AimingSkill + 5.f);
+	TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 12.f / (AimingSkill + 9.f);
 	TrackingPredictionError = MaxTrackingPredictionError;
 	AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 
@@ -635,7 +650,7 @@ void AUTBot::Tick(float DeltaTime)
 								TranslocTarget = FVector::ZeroVector;
 								ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
 							}
-							UpdateMovementOptions();
+							UpdateMovementOptions(false);
 						}
 					}
 
@@ -686,7 +701,7 @@ void AUTBot::Tick(float DeltaTime)
 		// check current enemy every frame, others on a slightly random timer to avoid hitches
 		if (Enemy != NULL)
 		{
-			if (Enemy->IsPendingKillPending())
+			if (!FBotEnemyInfo(Enemy, EUT_Seen).IsValid())
 			{
 				// enemy was destroyed directly instead of killed so we didn't get notify
 				SetEnemy(NULL);
@@ -784,7 +799,7 @@ void AUTBot::Tick(float DeltaTime)
 					float TotalDistance = 0.0f;
 					if (NavData->GetMovePoints(MyPawn->GetNavAgentLocation(), MyPawn, MyPawn->GetNavAgentPropertiesRef(), MoveTarget, RouteCache, MoveTargetPoints, CurrentPath, &TotalDistance))
 					{
-						UpdateMovementOptions();
+						UpdateMovementOptions(true);
 						MoveTimer = TotalDistance / FMath::Max<float>(100.0f, MyPawn->GetMovementComponent()->GetMaxSpeed()) + 1.0f;
 						if (Cast<APawn>(MoveTarget.Actor.Get()) != NULL)
 						{
@@ -806,6 +821,11 @@ void AUTBot::Tick(float DeltaTime)
 				{
 					GetCharacter()->GetCharacterMovement()->bCanWalkOffLedges = (!CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP) || (CurrentPath.Spec.IsValid() && CurrentPath.Spec->AllowWalkOffLedges(CurrentPath, GetPawn(), GetMoveBasedPosition())))
 																				&& (CurrentAction == NULL || CurrentAction->AllowWalkOffLedges());
+				}
+				if (bFinishRotation)
+				{
+					const float DesiredYaw = FRotator::ClampAxis((GetFocalPoint() - MyPawn->GetActorLocation()).Rotation().Yaw);
+					bFinishRotation = FMath::Abs<float>(FRotator::ClampAxis(ControlRotation.Yaw) - DesiredYaw) > KINDA_SMALL_NUMBER;
 				}
 				if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && GetCharacter()->GetCharacterMovement()->AirControl > 0.0f && GetCharacter()->GetCharacterMovement()->MaxWalkSpeed > 0.0f)
 				{
@@ -839,6 +859,10 @@ void AUTBot::Tick(float DeltaTime)
 							UTChar->UTCharacterMovement->PerformWaterJump();
 						}
 					}
+					else if (bFinishRotation)
+					{
+						MoveTimer += DeltaTime;
+					}
 					else if (MyPawn->GetMovementComponent() != NULL) // FIXME: remote redeemer doesn't set this, need to control a different way...
 					{
 						FVector Accel = (TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal2D();
@@ -846,10 +870,38 @@ void AUTBot::Tick(float DeltaTime)
 						{
 							const FVector MyLoc = MyPawn->GetActorLocation();
 							const FVector PathDir = (TargetLoc - LastReachedMovePoint).GetSafeNormal();
-							const float MaxSideDist = CurrentPath.IsSet() ? FMath::Min<float>(CurrentPath.CollisionRadius, MyPawn->GetSimpleCollisionRadius() * 2.0f) : MyPawn->GetSimpleCollisionRadius();
+							// amount that Pawn exceeds min agent radius
+							// nav building already has a buffer of AgentRadius away from walls so we need not include that amount of radius when checking there is enough space
+							const float ExtraRadius = FMath::Max<float>(0.0f, MyPawn->GetSimpleCollisionRadius() - NavData->AgentRadius);
+							// try to determine how wide the path is
+							// if in doubt, we'll use a default guess that results in reasonable strafing since we're going to do a navmesh trace to make sure it's valid
+							float MaxSideDist = MyPawn->GetSimpleCollisionRadius() * 1.5f;
+							if (CurrentPath.IsSet())
+							{
+								float PathSize = float(CurrentPath.CollisionRadius);
+								// attempt to find the navmesh edge between the polys we're traversing and intersect our default movement direction with it
+								// that gives us the amount of leeway to the side we can move and still make it through
+								NavNodeRef SrcPoly = NavData->UTFindNearestPoly(LastReachedMovePoint - FVector(0.0f, 0.0f, MyPawn->GetSimpleCollisionHalfHeight()), MyPawn->GetSimpleCollisionCylinderExtent());
+								NavNodeRef DestPoly = NavData->UTFindNearestPoly(TargetLoc - FVector(0.0f, 0.0f, MyPawn->GetSimpleCollisionHalfHeight()), MyPawn->GetSimpleCollisionCylinderExtent());
+								TArray<FNavigationPortalEdge> Edges;
+								NavData->GetPolyNeighbors(SrcPoly, Edges);
+								for (const FNavigationPortalEdge& TestEdge : Edges)
+								{
+									if (TestEdge.ToRef == DestPoly)
+									{
+										FVector OutP1, OutP2;
+										FMath::SegmentDistToSegmentSafe(TestEdge.Left, TestEdge.Right, LastReachedMovePoint, TargetLoc, OutP1, OutP2);
+										PathSize = FMath::Min<float>((OutP1 - TestEdge.Left).Size(), (OutP1 - TestEdge.Right).Size()) - ExtraRadius;
+										break;
+									}
+								}
+								MaxSideDist = FMath::Max<float>(MaxSideDist, PathSize);
+							}
 							const FVector Side = (PathDir ^ FVector(0.0f, 0.0f, 1.0f)) * MaxSideDist * SerpentineDir;
-							const FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLoc, LastReachedMovePoint, TargetLoc);
-							float DistFromStrafeGoal = (ClosestPoint - MyLoc).Size();
+							// push the start point back somewhat for this calculation so we don't get bad results on the start of the path where we might be slightly behind the 'official' start point
+							// because reaching it only requires that our capsule touches
+							const FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLoc, LastReachedMovePoint + (LastReachedMovePoint - TargetLoc).GetSafeNormal() * MyPawn->GetSimpleCollisionRadius(), TargetLoc);
+							float DistFromStrafeGoal = (ClosestPoint - MyLoc).Size2D();
 							if ((Side | (MyLoc - ClosestPoint)) < 0.0f)
 							{
 								DistFromStrafeGoal += MaxSideDist;
@@ -863,10 +915,10 @@ void AUTBot::Tick(float DeltaTime)
 								// switch directions
 								SerpentineDir *= -1.0f;
 							}
-							else if (DistFromStrafeGoal * 2.0f < (TargetLoc - MyLoc).Size())
+							else if (DistFromStrafeGoal * 2.0f < (TargetLoc - MyLoc).Size()) // maybe should be Size2D(), but worried about effect when on a slope
 							{
 								// make sure strafe adjustment stays on the navmesh
-								if (!NavData->RaycastWithZCheck(GetPawn()->GetNavAgentLocation(), ClosestPoint + Side.GetSafeNormal() * (Side.Size() + MyPawn->GetSimpleCollisionRadius())))
+								if (!NavData->RaycastWithZCheck(GetPawn()->GetNavAgentLocation(), ClosestPoint + Side.GetSafeNormal() * (Side.Size() + ExtraRadius)))
 								{
 									Accel = (Accel + Side.GetSafeNormal()).GetSafeNormal();
 								}
@@ -921,6 +973,15 @@ void AUTBot::Tick(float DeltaTime)
 // @TODO FIXMESTEVE tracking offset error should go down at higher skills over time as long as enemy is still visible and tracked
 void AUTBot::UpdateTrackingError(bool bNewEnemy)
 {
+	if (bNewEnemy)
+	{
+		TrackedVelocity = FVector(0.f);
+	}
+	else if (bLargeTrackedVelocityChange)
+	{
+		// possibly increase tracking error if enemy just had sudden direction change
+		AdjustedMaxTrackingOffsetError = FMath::Max(AdjustedMaxTrackingOffsetError, DirectionChangeOffsetPct*MaxTrackingOffsetError);
+	}
 	if (bNewEnemy || GetWorld()->TimeSeconds > TrackingErrorUpdateTime)
 	{
 		TrackingPredictionError = MaxTrackingPredictionError * (2.f * FMath::FRand() - 1.f);
@@ -967,7 +1028,7 @@ void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FC
 	MoveTimer = FMath::Max<float>(MoveTimer, 1.0f);
 }
 
-void AUTBot::UpdateMovementOptions()
+void AUTBot::UpdateMovementOptions(bool bNewPath)
 {
 	bUseSerpentineMovement = false;
 	SerpentineDir = (FMath::FRand() < 0.5f) ? 1.0f : -1.0f;
@@ -1035,6 +1096,15 @@ void AUTBot::UpdateMovementOptions()
 			}
 			checkSlow(BestIndex != INDEX_NONE);
 			GetUTChar()->Dodge(DodgeDirs[BestIndex].GetSafeNormal2D(), (DodgeDirs[BestIndex] ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
+		}
+	}
+
+	if (bNewPath && Skill + Personality.MovementAbility < 2.0f)
+	{
+		float DesiredYaw = FRotator::ClampAxis((GetMovePoint() - GetPawn()->GetActorLocation()).Rotation().Yaw);
+		if (FMath::Abs<float>(FMath::FixedTurn(ControlRotation.Yaw, DesiredYaw, 45.0f + 30.0f * FMath::Max<float>(0.0f, Skill + Personality.MovementAbility)) - DesiredYaw) > KINDA_SMALL_NUMBER)
+		{
+			bFinishRotation = true;
 		}
 	}
 	
@@ -1461,7 +1531,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 		{
 			const float WorldTime = GetWorld()->TimeSeconds;
 
-			TrackedVelocity = (GetFocusActor() != NULL) ? GetFocusActor()->GetVelocity() : FVector::ZeroVector;
+			FVector NewTrackedVelocity = (GetFocusActor() != NULL) ? GetFocusActor()->GetVelocity() : FVector::ZeroVector;
 			bLastCanAttackSuccess = false;
 
 			// warning: assumption that if bot wants to shoot an enemy Pawn it always sets it as Enemy
@@ -1477,6 +1547,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 					}
 				}
 				bool bGotPredictedPosition = false;
+				bLargeTrackedVelocityChange = false;
 				if (SavedPositions.Num() > 1)
 				{
 					// determine his position and velocity at the appropriate point in the past
@@ -1485,12 +1556,19 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 						if (SavedPositions[i].Time > WorldTime - TrackingReactionTime)
 						{
 							FVector TargetLoc = SavedPositions[i - 1].Position + (SavedPositions[i].Position - SavedPositions[i - 1].Position) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
-							TrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
+							NewTrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
+							float VelInterpTime = FMath::Min((GetWorld()->GetTimeSeconds() - TrackingTimeStamp) / TrackingInterpTime, 1.f);
+							TrackingTimeStamp = GetWorld()->GetTimeSeconds();
+							TrackedVelocity = (1.f - VelInterpTime)*TrackedVelocity + VelInterpTime*NewTrackedVelocity;
+							TrackedVelocity.Z = NewTrackedVelocity.Z; // check it doesn't disappear, check vs dodging, adad, faster catch up when stop
+							// fixme more shoot at feet with rocket
+							bLargeTrackedVelocityChange = EnemyUTC && !SavedPositions[i - 1].Velocity.IsNearlyZero() && !SavedPositions[i].Velocity.IsNearlyZero() && (SavedPositions[i - 1].Velocity.Z == 0.f) && (SavedPositions[i].Velocity.Z != 0.f) && (SavedPositions[i].Velocity.Size2D() > 1.2f*EnemyUTC->GetCharacterMovement()->MaxWalkSpeed);
 							FVector SideDir = ((TargetLoc - P->GetActorLocation()) ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
-							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FLinearColor::White, false);
-							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*(TrackingReactionTime + TrackingPredictionError), 40.f, 8, FLinearColor::Yellow, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc + NewTrackedVelocity*TrackingReactionTime, 40.f, 8, FColor::White, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FColor::Yellow, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*(TrackingReactionTime + TrackingPredictionError), 40.f, 8, FColor::Red, false);
 							TargetLoc = TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError) + SideDir * (TrackingOffsetError * FMath::Min<float>(500.f, (TargetLoc - P->GetActorLocation()).Size()));
-							//DrawDebugSphere(GetWorld(), TargetLoc, 40.f, 8, FLinearColor::Red, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc, 40.f, 8, FColor::Red, false); // FIXME THIS SEEMS TO SMALL AT SKILL 4
 							if (EnemyUTC != NULL)
 							{
 								TargetLoc += EnemyUTC->GetLocationCenterOffset();
@@ -1528,21 +1606,26 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 					}
 				}
 			}
-			else if (Target != NULL && GetFocusActor() == Target)
+			else
 			{
-				FVector TargetLoc = GetFocusActor()->GetTargetLocation();
-				if (CanAttack(GetFocusActor(), TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+				float VelInterpTime = FMath::Min(DeltaTime/TrackingInterpTime, 1.f);
+				TrackedVelocity = (1.f - VelInterpTime)*TrackedVelocity + VelInterpTime*NewTrackedVelocity;
+				if (Target != NULL && GetFocusActor() == Target)
 				{
-					bLastCanAttackSuccess = true;
-					bPickNewFireMode = false;
-					ApplyWeaponAimAdjust(TargetLoc, FocalPoint);
+					FVector TargetLoc = GetFocusActor()->GetTargetLocation();
+					if (CanAttack(GetFocusActor(), TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+					{
+						bLastCanAttackSuccess = true;
+						bPickNewFireMode = false;
+						ApplyWeaponAimAdjust(TargetLoc, FocalPoint);
+					}
 				}
-			}
-			// check for aiming weapon at scripted target as part of a special movement action (translocator, impact jump, etc)
-			else if (FocusInformation.Priorities.IsValidIndex(SCRIPTEDMOVE_FOCUS_PRIORITY) && FocusInformation.Priorities[SCRIPTEDMOVE_FOCUS_PRIORITY].Position != FAISystem::InvalidLocation)
-			{
-				// note: lack of CanAttack() here is intentional as the target location may be intentionally OOE (e.g. firing straight down for impact jump)
-				ApplyWeaponAimAdjust(FocalPoint, FocalPoint);
+				// check for aiming weapon at scripted target as part of a special movement action (translocator, impact jump, etc)
+				else if (FocusInformation.Priorities.IsValidIndex(SCRIPTEDMOVE_FOCUS_PRIORITY) && FocusInformation.Priorities[SCRIPTEDMOVE_FOCUS_PRIORITY].Position != FAISystem::InvalidLocation)
+				{
+					// note: lack of CanAttack() here is intentional as the target location may be intentionally OOE (e.g. firing straight down for impact jump)
+					ApplyWeaponAimAdjust(FocalPoint, FocalPoint);
+				}
 			}
 
 			FinalFocalPoint = FocalPoint; // for later GetFocalPoint() queries
@@ -2479,17 +2562,9 @@ void AUTBot::ExecuteWhatToDoNext()
 		}*/
 
 		// make sure enemy is valid
-		if (Enemy != NULL)
+		if (Enemy != NULL && !FBotEnemyInfo(Enemy, EUT_Seen).IsValid())
 		{
-			if (Enemy->IsPendingKillPending())
-			{
-				Enemy = NULL;
-			}
-			AUTCharacter* EnemyUTChar = Cast<AUTCharacter>(Enemy);
-			if (EnemyUTChar != NULL && EnemyUTChar->IsDead())
-			{
-				Enemy = NULL;
-			}
+			SetEnemy(NULL);
 		}
 		if (Enemy == NULL)
 		{
@@ -2533,7 +2608,7 @@ void AUTBot::ExecuteWhatToDoNext()
 			}
 
 			// FALLBACK: just wander randomly
-			if (CurrentAction == NULL)
+			if (CurrentAction == NULL && GetPawn() != NULL)
 			{
 				GoalString = TEXT("Lost, wander randomly...");
 				FRandomDestEval NodeEval;
@@ -2978,7 +3053,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 	}
 	if (NewHuntTarget == NULL || GetEnemyInfo(NewHuntTarget, false) == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no enemy"), *PlayerState->PlayerName);
+		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no or invalid enemy %s"), *PlayerState->PlayerName, *GetNameSafe(NewHuntTarget));
 		GoalString = TEXT("BUG - HUNT WITH BAD TARGET - Force CampAction");
 		StartNewAction(CampAction);
 	}
@@ -3140,6 +3215,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			{
 				HuntingTarget = NULL;
 				HuntingCheckedSpots.Empty();
+				DoTacticalMove();
 			}
 		}
 		else

@@ -7,11 +7,12 @@
 
 UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	Position=FVector2D(-8.0f, -500.0f);
-	Size=FVector2D(0,0);
-	ScreenPosition=FVector2D(1.0f, 1.0f);
-	Origin=FVector2D(1.f,1.f);
+	Position=FVector2D(-8.0f, 0.0f);
+	Size=FVector2D(1.0f,0.0f);
+	ScreenPosition=FVector2D(1.0f, 0.5f);
+	Origin=FVector2D(1.f,0.5f);
 
+	PaddingBetweenCells = 10.0f;
 	SelectedCellScale=1.1;
 	SelectedAnimRate=0.3;
 	CellWidth = 145;
@@ -47,6 +48,27 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 }
 
 /**
+	The WeaponBar scaling size is incorrect due to it having a dynamic size. We need to adjust the end RenderPosition to account for its size to keep it centered.
+*/
+void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
+{
+	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
+
+	//Calculate size of WeaponBar
+	TArray<FWeaponGroup> WeaponGroups;
+	const int32 NumWeapons = CollectWeaponData(WeaponGroups, DeltaTime);
+	const int32 NumberOfCells = (NumWeapons > RequiredGroups) ? NumWeapons : RequiredGroups; //We always draw at least enough cells for the required groups, but it could be more cells if we have >1 weapon in any groups.
+
+	const float NormalCellHeight = CellBackground[0].GetHeight() + PaddingBetweenCells;
+	const float SelectedCellHeight = (CellBackground[0].GetHeight() * SelectedCellScale) + PaddingBetweenCells;
+
+	const float WeaponBarSize = ((NormalCellHeight * (NumberOfCells - 1)) + SelectedCellHeight) * RenderScale;
+
+	//Move the bar down by 1/2 the size to keep it centered on the screen.
+	RenderPosition.Y += WeaponBarSize / 2;
+}
+
+/**
  *	We aren't going to use DrawAllRenderObjects.  Instead we are going to have a nice little custom bit of drawing based on what weapon group this is.
  **/
 void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
@@ -54,6 +76,13 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	TArray<FWeaponGroup> WeaponGroups;
 
 	if (UTCharacterOwner == NULL) return; // Don't draw without a character
+
+	if (UTHUDOwner->bHUDWeaponBarSettingChanged)
+	{
+		InactiveOpacity = UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity;
+		InactiveIconOpacity = UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity;
+		UTHUDOwner->bHUDWeaponBarSettingChanged = false;
+	}
 
 	// Handle fading out.
 	if (FadeTimer > 0.0f)
@@ -152,7 +181,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			}
 			// We have now allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.
 			float Y2 = YPosition;
-			float TextXPosition = 0;
+			float TextXPosition = 0.f;
 			bool bSelectedGroup = false;
 			if (WeaponGroups[GroupIdx].WeaponsInGroup.Num() > 0)
 			{
@@ -161,22 +190,17 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				{
 					AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 					bool bSelected = CurrentWeapon == SelectedWeapon;
-					int32 CurrentGroup = CurrentWeapon->Group;
-
-					if (bSelected)
-					{
-						bSelectedGroup = true;
-					}
+					bSelectedGroup = bSelectedGroup || bSelected;
 					Opacity = bSelected ? 1.f : InactiveOpacity;
 
 					// Draw the background and the background's border.
 					int32 Idx = (WeapIdx == 0) ? 0 : 1;
-					float FullIconCellWidth = (CurrentGroup == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
+					float FullIconCellWidth = (CurrentWeapon->Group == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
 					float FullCellWidth = FullIconCellWidth + HeaderTab[Idx].GetWidth() + 3.f + GroupHeaderCap[Idx].GetWidth();
 					float CellScale = bSelected ? SelectedCellScale : 1.f;
-					float CellHeight =CellBackground[Idx].GetHeight() * CellScale;
+					float CellHeight = CellBackground[Idx].GetHeight() * CellScale;
 					float IconCellWidth = CellWidth * CellScale;
-					float XPosition = (FullCellWidth * -1);
+					float XPosition = -1.f * FullCellWidth;
 					YPosition -= HeaderTab[Idx].GetHeight() * CellScale;
 
 					// Draw the Tab.
@@ -205,7 +229,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					if (CurrentWeapon)
 					{
 						WeaponIcon.UVs = CurrentWeapon->WeaponBarSelectedUVs;
-						WeaponIcon.RenderColor = bSelected ? CurrentWeapon->IconColor : FLinearColor::White;
+						WeaponIcon.RenderColor = (bSelected || UTHUDOwner->bUseWeaponColors) ? CurrentWeapon->IconColor : FLinearColor::White;
 					}
 
 					float WeaponY = (CellHeight * 0.5f) - (WeaponIcon.UVs.VL * CellScale * 0.5f);
@@ -217,23 +241,23 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 						Opacity = (UTHUDOwner->HUDWidgetOpacity > 0.f) ? 1.f : 0.f;
 						float AmmoPerc = CurrentWeapon->MaxAmmo > 0 ? float(CurrentWeapon->Ammo) / float(CurrentWeapon->MaxAmmo) : 0.f;
 						float BarHeight = CellHeight - 16.f;
-						float Width = bSelected ? 9.f : 7.f;
+						float Width = bSelected ? 12.f : 9.f;
 						float X = (Width * -1.f) - 2.f;
 						float Y = YPosition + 4.f;
 						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.f, FLinearColor::Black);
 
 						Y = Y + BarHeight - 1.f - ((BarHeight-2.f) * AmmoPerc);
 						BarHeight = (BarHeight -2.f) * AmmoPerc;
-						FLinearColor BarColor = FLinearColor(0.5f, 0.5f, 1.f ,1.f);
+						FLinearColor BarColor = FLinearColor(0.4f, 1.f, 0.4f ,1.f);
 						if (AmmoPerc <= 0.33f)
 						{
-							BarColor = FLinearColor(1.f, 0.5f, 0.5f, 1.f);
+							BarColor = FLinearColor(1.f, 0.f, 0.f, 1.f);
 						}
 						else if (AmmoPerc <= 0.66f)
 						{
-							BarColor = FLinearColor(1.f, 1.f, 0.5f, 1.f);
+							BarColor = FLinearColor(1.f, 1.f, 0.4f, 1.f);
 						}
-						DrawTexture(BarTexture, X + 1.f, Y, Width - 2.f, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, Opacity, BarColor);
+						DrawTexture(BarTexture, X, Y, Width - 1.f, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, Opacity, BarColor);
 					}
 				}
 
@@ -258,7 +282,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				// Draw the background and the background's border.
 				float FullIconCellWidth = CellWidth;
 				float FullCellWidth = FullIconCellWidth + HeaderTab[0].GetWidth() + 3 + GroupHeaderCap[0].GetWidth();
-				float CellScale = 1.0;
+				float CellScale = 1.f;
 				float CellHeight = CellBackground[0].GetHeight() * CellScale;
 				float IconCellWidth = CellWidth * CellScale;
 				float XPosition = (FullCellWidth * -1);
@@ -287,7 +311,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].Group);
 			}
 			RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ((Y2 - YPosition) * 0.5f) + GroupText.Position.Y);
-			YPosition -= 10;
+			YPosition -= PaddingBetweenCells;
 		}
 	}
 

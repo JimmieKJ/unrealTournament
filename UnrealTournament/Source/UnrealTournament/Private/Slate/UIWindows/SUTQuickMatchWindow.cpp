@@ -12,8 +12,16 @@
 #include "UTServerBeaconClient.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "UnrealNetwork.h"
+#include "UTDMGameMode.h"
+#include "UTCTFBaseGame.h"
+#include "UTTeamShowdownGame.h"
 
 #if !UE_SERVER
+
+SUTQuickMatchWindow::~SUTQuickMatchWindow()
+{
+	DefaultGameModeObject.Reset();
+}
 
 void SUTQuickMatchWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
 {
@@ -22,6 +30,23 @@ void SUTQuickMatchWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUT
 	bWaitingForMatch = false;
 	checkSlow(PlayerOwner != NULL);
 	StartTime = PlayerOwner->GetWorld()->GetTimeSeconds();
+
+	DefaultGameModeObject = nullptr;
+	UClass* GameModeClass = AUTDMGameMode::StaticClass();
+
+	if (QuickMatchType.Equals(EEpicDefaultRuleTags::CTF, ESearchCase::IgnoreCase))
+	{
+		GameModeClass = AUTCTFBaseGame::StaticClass();
+	}
+	else if (QuickMatchType.Equals(EEpicDefaultRuleTags::TEAMSHOWDOWN, ESearchCase::IgnoreCase))
+	{
+		GameModeClass = AUTTeamShowdownGame::StaticClass();
+	}
+
+	if (GameModeClass)
+	{
+		DefaultGameModeObject = GameModeClass->GetDefaultObject<AUTBaseGameMode>();
+	}
 
 	SUTWindowBase::Construct
 	(
@@ -102,7 +127,7 @@ void SUTQuickMatchWindow::BuildWindow()
 				.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Dark")
 				.OnClicked(this, &SUTQuickMatchWindow::OnCancelClick)
 				.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
-				.Text(NSLOCTEXT("QuickMatchg", "CancelText", "ESC to Cancel"))
+				.Text(NSLOCTEXT("QuickMatch", "CancelText", "ESC to Cancel"))
 				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 			]
 		]
@@ -306,43 +331,32 @@ void SUTQuickMatchWindow::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 
 void SUTQuickMatchWindow::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
 {
-	bool bIsBeginner = GetPlayerOwner()->IsConsideredABeginnner();
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get());  
+
 	for (int32 i = 0; i < PingTrackers.Num(); i++)
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
-			// Discard training ground hubs if the player isn't a beginner
-			if ( !bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) 
-				 			{
-				PingTrackers.RemoveAt(i, 1);
-				break;
-			}
-			else
+			PingTrackers[i].Server->Ping = Sender->Ping;
+
+			// Insert sort it in to the final list of servers by ping.
+			bool bInserted = false;
+			for (int32 Idx=0; Idx < FinalList.Num(); Idx++)
 			{
-				PingTrackers[i].Server->Ping = Sender->Ping;
-
-				// Insert sort it in to the final list of servers by ping.
-			
-				bool bInserted = false;
-				for (int32 Idx=0; Idx < FinalList.Num(); Idx++)
+				if ( (FinalList[Idx]->ServerTrustLevel > PingTrackers[i].Server->ServerTrustLevel) || (FinalList[Idx]->Ping > Sender->Ping) )
 				{
-					if ( (!FinalList[Idx]->bServerIsTrainingGround && bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||			
-						 (FinalList[Idx]->ServerTrustLevel > PingTrackers[i].Server->ServerTrustLevel) ||											
-						 (FinalList[Idx]->Ping > Sender->Ping) )
-					{
-						// Insert here..
-
-						FinalList.Insert(PingTrackers[i].Server, Idx);
-						bInserted = true;
-						break;					
-					}
+					// Insert here..
+					FinalList.Insert(PingTrackers[i].Server, Idx);
+					bInserted = true;
+					break;					
 				}
-
-				PingTrackers[i].Server->bHasFriends = HasFriendsInInstances(Sender->Instances, PlayerOwner);
-				if (!bInserted) FinalList.Add(PingTrackers[i].Server);
-				PingTrackers.RemoveAt(i, 1);
-				break;
 			}
+
+			PingTrackers[i].Server->bHasFriends = HasFriendsInInstances(Sender->Instances, PlayerOwner);
+			if (!bInserted) FinalList.Add(PingTrackers[i].Server);
+			PingTrackers.RemoveAt(i, 1);
+			break;
 		}
 	}
 
@@ -358,15 +372,10 @@ bool SUTQuickMatchWindow::HasFriendsInInstances(const TArray<TSharedPtr<FServerI
 		{
 			for (int32 i = 0; i < InstancesToCheck.Num(); i++)
 			{
-				for (int32 p = 0; p < InstancesToCheck[i]->Players.Num(); p++)
+				int32 Count = CountFriendsInInstance(FriendsList, InstancesToCheck[i], PlayerOwner);
+				if (Count >0)
 				{
-					for (int32 j = 0; j < FriendsList.Num(); j++)
-					{
-						if (InstancesToCheck[i]->Players[p].PlayerId == FriendsList[j].UserId)
-						{
-							return true;
-						}
-					}
+					return true;
 				}
 			}
 		}
@@ -374,8 +383,31 @@ bool SUTQuickMatchWindow::HasFriendsInInstances(const TArray<TSharedPtr<FServerI
 	return false;
 }
 
+int32 SUTQuickMatchWindow::CountFriendsInInstance(const TArray<FUTFriend>& FriendsList, TSharedPtr<FServerInstanceData> InstanceToCheck, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer)
+{
+	int32 FinalCount = 0;
+	if (PlayerOwner.IsValid() && InstanceToCheck.IsValid() )
+	{
+		for (int32 p = 0; p < InstanceToCheck->Players.Num(); p++)
+		{
+			for (int32 j = 0; j < FriendsList.Num(); j++)
+			{
+				if (InstanceToCheck->Players[p].PlayerId == FriendsList[j].UserId)
+				{
+					FinalCount++;
+				}
+			}
+		}
+	}
+
+	return FinalCount;
+}
+
 void SUTQuickMatchWindow::CollectInstances()
 {
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get());  
+
 	for (int32 i=0; i < FinalList.Num(); i++)
 	{
 		if (FinalList[i]->Beacon.IsValid())
@@ -394,6 +426,8 @@ void SUTQuickMatchWindow::CollectInstances()
 						// Cull any instances that do not match this quickmatch type or is not joinable as a player.
 						if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
 						{
+
+							// If the player owner is a beginner, reject any non-beginner matchers.
 							Instances.Add(FInstanceTracker(FinalList[i], FinalList[i]->Beacon->Instances[j]));					
 						}
 					}
@@ -408,7 +442,7 @@ void SUTQuickMatchWindow::CollectInstances()
 
 void SUTQuickMatchWindow::FindBestMatch()
 {
-	// At this point, FileList contains a list of hub servers grouped first by beginner (if available), then trust level and then each group is sorted by ping.
+	// At this point, FinalList contains a list of hub servers grouped first by beginner (if available), then trust level and then each group is sorted by ping.
 	// Instances contains a full list of active instances available to play.  
 
 	if (FinalList.Num() > 0)
@@ -597,7 +631,9 @@ void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> Desire
 	else
 	{
 		ConnectingServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatchWindow::RequestQuickPlayResults);
-		ConnectingServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank(), GetPlayerOwner()->IsConsideredABeginnner());
+		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+		bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get()); 
+		ConnectingServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank(), bIsBeginner);
 	}
 }
 
@@ -628,7 +664,7 @@ void SUTQuickMatchWindow::RequestQuickPlayResults(AUTServerBeaconClient* Beacon,
 
 	if (CommandCode == EQuickMatchResults::WaitingForStart || CommandCode == EQuickMatchResults::WaitingForStartNew )
 	{
-		UE_LOG(UT,Log,TEXT("Quickplay hub is spooling up instance"));
+		UE_LOG(UT,Log,TEXT("Quickmatch instance is spooling up."));
 		bWaitingForMatch = true;
 		if ( CommandCode == EQuickMatchResults::WaitingForStartNew )
 		{

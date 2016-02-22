@@ -15,7 +15,7 @@ class UNREALTOURNAMENT_API UUTDmgType_Drown : public UUTDamageType
 		bCausedByWorld = true;
 		bBlockedByArmor = false;
 		bCausesBlood = false;
-
+		bCausesPainSound = false;
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_Drown", "{Player1Name} caused {Player2Name} to drown.");
 		MaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "MaleSuicideMessage_Drown", "{Player2Name} drowned.");
 		FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "FemaleSuicideMessage_Drown", "{Player2Name} drowned.");

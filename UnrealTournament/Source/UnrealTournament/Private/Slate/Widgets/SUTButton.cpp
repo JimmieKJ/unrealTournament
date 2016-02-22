@@ -125,7 +125,7 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 				return OnClicked.Execute();
 			}
 
-			return FReply::Handled().CaptureMouse( AsShared() );
+			return bIsToggleButton ? FReply::Handled().ReleaseMouseCapture() : FReply::Handled().CaptureMouse( AsShared() );
 		}
 		else
 		{

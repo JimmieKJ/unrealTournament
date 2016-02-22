@@ -17,6 +17,7 @@
 #include "StatManager.h"
 #include "UTWeaponSkin.h"
 #include "OnlineNotification.h"
+#include "JsonObjectConverter.h"
 #if WITH_PROFILE
 #include "UtMcpProfile.h"
 #endif
@@ -75,7 +76,6 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 	GENERATED_UCLASS_BODY()
 
 private:
-
 	/** Instance of a stat manager that tracks gameplay/reward stats for this Player Controller */
 	UPROPERTY()
 	class UStatManager *StatManager;
@@ -132,6 +132,11 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
+	virtual void SetReadyToPlay(bool bNewReadyState);
+
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		uint8 ReadyMode;
+
 	/** Whether this spectator is a caster */
 	UPROPERTY(replicated)
 	uint32 bCaster : 1;
@@ -148,12 +153,6 @@ public:
 	UPROPERTY()
 		uint32 bAnnounceWeaponReward : 1;
 
-	/** Color to display ready text. */
-	FLinearColor ReadyColor;
-
-	/** Scale to display ready text. */
-	float ReadyScale;
-
 	/** Last displayed ready state. */
 	uint8 LastReadyState;
 
@@ -162,9 +161,6 @@ public:
 
 	/** Count of fast ready state changes. */
 	int32 ReadySwitchCount;
-
-	UFUNCTION(BlueprintCallable, Category = PlayerState)
-	virtual void UpdateReady();
 
 	/** Voice used by this player/bot for speech (taunts, etc.). */
 	UPROPERTY(BlueprintReadOnly, Category = Sounds)
@@ -219,6 +215,10 @@ public:
 	/** Damage done by this player this round.  Not replicated. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 RoundDamageDone;
+
+	/** Enemy kills by this player this round.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		int32 RoundKills;
 
 	virtual void IncrementDamageDone(int32 AddedDamage);
 
@@ -539,6 +539,7 @@ public:
 	struct FMcpProfileSetter
 	{
 		friend class AUTBaseGameMode;
+		friend class AUTPlayerState;
 	private:
 		static void Set(AUTPlayerState* PS, UUtMcpProfile* Profile)
 		{
@@ -602,10 +603,7 @@ public:
 	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	virtual void AddMatchToStats(const FString& MapName, const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
-	int32 BotELOLimit;
 	virtual int32 GetSkillRating(FName SkillStatName);
-	virtual void UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
-	virtual void UpdateIndividualSkillRating(FName SkillStatName, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	/** Cached clamped player name for display. */
 	UPROPERTY(BlueprintReadWrite)
@@ -657,6 +655,7 @@ public:
 	void ModifyStatsValue(FName StatsName, float Change);
 
 	// Average ELO rank for this player.
+
 	UPROPERTY(Replicated)
 	int32 DuelRank;
 	UPROPERTY(Replicated)
@@ -668,19 +667,63 @@ public:
 	UPROPERTY(Replicated)
 	int32 ShowdownRank;
 	
+	/** Note only valid up to 255, enough to figure out beginner badges. */
 	UPROPERTY(Replicated)
-		bool bDuelEloValid;
+		uint8 DuelMatchesPlayed;
 	UPROPERTY(Replicated)
-		bool bCTFEloValid;
+		uint8 CTFMatchesPlayed;
 	UPROPERTY(Replicated)
-		bool bTDMEloValid;
+		uint8 TDMMatchesPlayed;
 	UPROPERTY(Replicated)
-		bool bDMEloValid;
+		uint8 DMMatchesPlayed;
 	UPROPERTY(Replicated)
-		bool bShowdownEloValid;
+		uint8 ShowdownMatchesPlayed;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;
+
+	// Returns what badge should represent player's skill level.
+	UFUNCTION(BlueprintCallable, Category = Badge)
+		void GetBadgeFromELO(AUTBaseGameMode* DefaultGame, int32& BadgeLevel, int32& SubLevel) const;
+
+	UFUNCTION(BlueprintCallable, Category = Badge)
+		bool IsABeginner(AUTBaseGameMode* DefaultGameMode) const;
+
+	// Returns the rank check
+	UFUNCTION(BlueprintCallable, Category = Badge)
+	int32 GetRankCheck(AUTBaseGameMode* DefaultGame);
+
+	// Splits a RankCheck in to it's badge and level
+	static void SplitRankCheck(int32 RankCheck, int32& BadgeLevel, int32& SubLevel)
+	{
+		BadgeLevel = FMath::Clamp<int>((RankCheck / NUMBER_RANK_LEVELS), 0, 3);
+		SubLevel = FMath::Clamp<int>( (RankCheck - (BadgeLevel * NUMBER_RANK_LEVELS)),0, NUMBER_RANK_LEVELS-1);		// NOTE: It's the UI's responsibility to adjust this to be 1 based not 0.
+	}
+
+	// Combines a Badge and a Level in to a single rank check value
+	static int32 CalcRankCheck(int32 PlayerBadge, int32 PlayerLevel)
+	{
+		return (PlayerBadge * NUMBER_RANK_LEVELS) + PlayerLevel;
+	}
+
+	// Three functions to check if a rank is within a given range.  Remove all unuse functions soon
+	static bool CheckRank(int32 PlayerBadge, int32 PlayerLevel, int32 TargetBadge, int32 TargetLevel)
+	{
+		int32 TargetRank = AUTPlayerState::CalcRankCheck(TargetBadge, TargetLevel);
+		return AUTPlayerState::CheckRank(PlayerBadge, PlayerLevel, TargetRank);
+	}
+
+	static bool CheckRank(int32 PlayerBadge, int32 PlayerLevel, int32 TargetRank)
+	{
+		int32 PlayerRank = AUTPlayerState::CalcRankCheck(PlayerBadge, PlayerLevel);
+		return AUTPlayerState::CheckRank(PlayerRank, TargetRank);
+	}
+
+	static bool CheckRank(int32 PlayerRank, int32 TargetRank)
+	{
+		return PlayerRank <= TargetRank;
+	}
+
 
 #if !UE_SERVER
 	FText GetTrainingLevelText();
@@ -703,13 +746,15 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage(int32 EloRating, bool bEloIsValid, bool bSmall = false) const;
+	const FSlateBrush* GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bSmall = false) const;
 	const FSlateBrush* GetXPStarImage(bool bSmall = false) const;
-	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating, bool bEloIsValid) const;
+	const FSlateBrush* GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();
-	TSharedRef<SWidget> BuildRank(FText RankName, int32 Rank, bool bEloIsValid);
+	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, FText RankName);
+	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
+	FText LeagueTierToText(int32 Tier);
 	void EpicIDClicked();
 #endif
 
@@ -761,6 +806,9 @@ public:
 	UPROPERTY(Replicated)
 	uint8 KickPercent;
 
+	UPROPERTY(Replicated)
+	uint32 bHasVoted : 1;
+
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void RegisterVote(AUTReplicatedMapInfo* VoteInfo);
 
@@ -809,7 +857,100 @@ public:
 	{
 		return bOnlySpectator;
 	}
+
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+	
+
 };
 
+USTRUCT()
+struct FRemotePlayerInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The unique ID of this player.  This will be used to associate any incoming updates for a player
+	UPROPERTY()
+	FUniqueNetIdRepl PlayerID;
+
+	UPROPERTY()
+	bool bIsSpectator;
+
+	// The current name of this player
+	UPROPERTY()
+	FString PlayerName;
+
+	// The current score for this player
+	UPROPERTY()
+	int32 PlayerScore;
+	
+	UPROPERTY()
+	int32 RankCheck;
+
+	UPROPERTY()
+	int32 XPLevel;
+
+	UPROPERTY()
+	uint8 TeamNum;
+
+	UPROPERTY()
+	FName Avatar;
+
+	FRemotePlayerInfo() {};
+
+	FRemotePlayerInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inRankCheck, int32 inXPLevel, FName inAvatar)
+		: PlayerID(inPlayerID)
+		, bIsSpectator(inbIsSpectator)
+		, PlayerName(inPlayerName)
+		, PlayerScore(inPlayerScore)
+		, RankCheck(inRankCheck)
+		, XPLevel(inXPLevel)
+		, TeamNum(inTeamNum)
+		, Avatar(inAvatar)
+	{
+	}
+
+	FRemotePlayerInfo(const FRemotePlayerInfo& NewInfo)
+		: PlayerID(NewInfo.PlayerID)
+		, bIsSpectator(NewInfo.bIsSpectator)
+		, PlayerName(NewInfo.PlayerName)
+		, PlayerScore(NewInfo.PlayerScore)
+		, RankCheck(NewInfo.RankCheck)
+		, XPLevel(NewInfo.XPLevel)
+		, TeamNum(NewInfo.TeamNum)
+		, Avatar(NewInfo.Avatar)
+	{
+	}
+
+	FRemotePlayerInfo(AUTPlayerState* PlayerState, int32 RankCheck)
+		: PlayerID(PlayerState->UniqueId)
+		, bIsSpectator(PlayerState->bOnlySpectator)
+		, PlayerName(PlayerState->PlayerName)
+		, PlayerScore(PlayerState->Score)
+		, RankCheck(RankCheck)
+		, XPLevel(PlayerState->GetPrevXP())
+		, TeamNum(PlayerState->GetTeamNum())
+		, Avatar(PlayerState->Avatar)
+	{
+	}
+
+
+	void Update(const FRemotePlayerInfo& NewInfo)
+	{
+		PlayerID = NewInfo.PlayerID;
+		bIsSpectator = NewInfo.bIsSpectator;
+		PlayerName = NewInfo.PlayerName;
+		PlayerScore = NewInfo.PlayerScore;
+		RankCheck = NewInfo.RankCheck;
+		XPLevel = NewInfo.XPLevel;
+		TeamNum = NewInfo.TeamNum;
+		Avatar = NewInfo.Avatar;
+	}
+
+	void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+	{
+		FJsonObjectConverter::UStructToJsonObject(FRemotePlayerInfo::StaticStruct(), this,JsonObject.ToSharedRef(), 0, 0);
+		JsonObject->SetStringField("PlayerId", PlayerID.ToString());
+	}
+};
 
 

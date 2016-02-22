@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Util.h: D3D RHI utility implementation.
@@ -101,13 +101,13 @@ namespace D3D12RHI
 				D3DFORMATCASE(DXGI_FORMAT_D32_FLOAT_S8X24_UINT)
 				D3DFORMATCASE(DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS)
 #endif
-                D3DFORMATCASE(DXGI_FORMAT_R32G8X24_TYPELESS)
+				D3DFORMATCASE(DXGI_FORMAT_R32G8X24_TYPELESS)
 				D3DFORMATCASE(DXGI_FORMAT_D24_UNORM_S8_UINT)
 				D3DFORMATCASE(DXGI_FORMAT_R24_UNORM_X8_TYPELESS)
 				D3DFORMATCASE(DXGI_FORMAT_R32_FLOAT)
 				D3DFORMATCASE(DXGI_FORMAT_R16G16_UINT)
-                D3DFORMATCASE(DXGI_FORMAT_R16G16_UNORM)
-                D3DFORMATCASE(DXGI_FORMAT_R16G16_SNORM)
+				D3DFORMATCASE(DXGI_FORMAT_R16G16_UNORM)
+				D3DFORMATCASE(DXGI_FORMAT_R16G16_SNORM)
 				D3DFORMATCASE(DXGI_FORMAT_R16G16_FLOAT)
 				D3DFORMATCASE(DXGI_FORMAT_R32G32_FLOAT)
 				D3DFORMATCASE(DXGI_FORMAT_R10G10B10A2_UNORM)
@@ -136,17 +136,17 @@ static FString GetD3D12TextureFlagString(uint32 TextureFlags)
 		TextureFormatText += TEXT("D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET ");
 	}
 
-    if (TextureFlags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)
+	if (TextureFlags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)
 	{
 		TextureFormatText += TEXT("D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL ");
 	}
 
-    if (TextureFlags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)
+	if (TextureFlags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)
 	{
 		TextureFormatText += TEXT("D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE ");
 	}
 
-    if (TextureFlags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
+	if (TextureFlags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
 	{
 		TextureFormatText += TEXT("D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS ");
 	}
@@ -274,6 +274,82 @@ namespace D3D12RHI
 	}
 }
 
+void FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier, const FShaderCodePackedResourceCounts& Counts, FShaderRegisterCounts& Shader, bool bAllowUAVs)
+{
+	static const uint32 MaxSamplerCount = D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT;
+	static const uint32 MaxConstantBufferCount = MAX_CBS;
+	static const uint32 MaxShaderResourceCount = MAX_SRVS;
+	static const uint32 MaxUnorderedAccessCount = D3D12_PS_CS_UAV_REGISTER_COUNT;
+
+	// Round up and clamp values to their max
+	// Note: Rounding and setting counts based on binding tier allows us to create fewer root signatures.
+
+	// To reduce the size of the root signature, we only allow UAVs for certain shaders. 
+	// This code makes the assumption that the engine only uses UAVs at the PS or CS shader stages.
+	check(bAllowUAVs || (!bAllowUAVs && Counts.NumUAVs == 0));
+
+	if (ResourceBindingTier <= D3D12_RESOURCE_BINDING_TIER_1)
+	{
+		Shader.SamplerCount = (Counts.NumSamplers > 0) ? FMath::Min(MaxSamplerCount, FMath::RoundUpToPowerOfTwo(Counts.NumSamplers)) : 0;
+		Shader.ShaderResourceCount = (Counts.NumSRVs > 0) ? FMath::Min(MaxShaderResourceCount, FMath::RoundUpToPowerOfTwo(Counts.NumSRVs)) : 0;
+	}
+	else
+	{
+		Shader.SamplerCount = MaxSamplerCount;
+		Shader.ShaderResourceCount = MaxShaderResourceCount;
+	}
+
+	if (ResourceBindingTier <= D3D12_RESOURCE_BINDING_TIER_2)
+	{
+		Shader.ConstantBufferCount = (Counts.NumCBs > 0) ? FMath::Min(MaxConstantBufferCount, FMath::RoundUpToPowerOfTwo(Counts.NumCBs)) : 0;
+		Shader.UnorderedAccessCount = (Counts.NumUAVs > 0 && bAllowUAVs) ? FMath::Min(MaxUnorderedAccessCount, FMath::RoundUpToPowerOfTwo(Counts.NumUAVs)) : 0;
+	}
+	else
+	{
+		Shader.ConstantBufferCount = MaxConstantBufferCount;
+		Shader.UnorderedAccessCount = (bAllowUAVs) ? MaxUnorderedAccessCount : 0;
+	}
+}
+
+void QuantizeBoundShaderState(
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12BoundShaderState* const BSS,
+	FD3D12QuantizedBoundShaderState &QBSS
+	)
+{
+	// BSS quantizer. There is a 1:1 mapping of quantized bound shader state objects to root signatures.
+	// The objective is to allow a single root signature to represent many bound shader state objects.
+	// The bigger the quantization step sizes, the fewer the root signatures.
+	FMemory::Memzero(&QBSS, sizeof(QBSS));
+	QBSS.bAllowIAInputLayout = BSS->InputLayout.NumElements > 0;	// Does the root signature need access to vertex buffers?
+
+	const FD3D12VertexShader* const VertexShader = BSS->GetVertexShader();
+	const FD3D12PixelShader* const PixelShader = BSS->GetPixelShader();
+	const FD3D12HullShader* const HullShader = BSS->GetHullShader();
+	const FD3D12DomainShader* const DomainShader = BSS->GetDomainShader();
+	const FD3D12GeometryShader* const GeometryShader = BSS->GetGeometryShader();
+	if (VertexShader) FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, VertexShader->ResourceCounts, QBSS.RegisterCounts[SV_Vertex]);
+	if (PixelShader) FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, PixelShader->ResourceCounts, QBSS.RegisterCounts[SV_Pixel], true);
+	if (HullShader) FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, HullShader->ResourceCounts, QBSS.RegisterCounts[SV_Hull]);
+	if (DomainShader) FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, DomainShader->ResourceCounts, QBSS.RegisterCounts[SV_Domain]);
+	if (GeometryShader) FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, GeometryShader->ResourceCounts, QBSS.RegisterCounts[SV_Geometry]);
+}
+
+void QuantizeBoundShaderState(
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12ComputeShader* const ComputeShader,
+	FD3D12QuantizedBoundShaderState &QBSS
+	)
+{
+	// BSS quantizer. There is a 1:1 mapping of quantized bound shader state objects to root signatures.
+	// The objective is to allow a single root signature to represent many bound shader state objects.
+	// The bigger the quantization step sizes, the fewer the root signatures.
+	FMemory::Memzero(&QBSS, sizeof(QBSS));
+	check(QBSS.bAllowIAInputLayout == false);	// No access to vertex buffers needed
+	check(ComputeShader);
+	FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, ComputeShader->ResourceCounts, QBSS.RegisterCounts[SV_All], true);
+}
+
 FD3D12BoundRenderTargets::FD3D12BoundRenderTargets(FD3D12RenderTargetView** RTArray, uint32 NumActiveRTs, FD3D12DepthStencilView* DSView)
 {
 	FMemory::Memcpy(RenderTargetViews, RTArray, sizeof(RenderTargetViews));
@@ -286,8 +362,8 @@ FD3D12BoundRenderTargets::~FD3D12BoundRenderTargets()
 }
 
 
-FD3D12DynamicBuffer::FD3D12DynamicBuffer(FD3D12Device* InParent, FD3D12DynamicHeapAllocator& UploadHeap)
-: UploadHeapAllocator(UploadHeap),
+FD3D12DynamicBuffer::FD3D12DynamicBuffer(FD3D12Device* InParent, FD3D12FastAllocator& Allocator)
+: FastAllocator(Allocator),
  FD3D12DeviceChild(InParent)
 {
 	InitResource();
@@ -308,14 +384,14 @@ void FD3D12DynamicBuffer::ReleaseRHI()
 
 void* FD3D12DynamicBuffer::Lock(uint32 Size)
 {
-	FD3D12ResourceLocation* NewResourceLocation = new FD3D12ResourceLocation();
+	FD3D12ResourceLocation* NewResourceLocation = new FD3D12ResourceLocation(FastAllocator.GetParentDevice());
 	ResourceLocation = NewResourceLocation;
-    return UploadHeapAllocator.FastAlloc(Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, NewResourceLocation);
+	return FastAllocator.Allocate(Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, NewResourceLocation);
 }
 
 FD3D12ResourceLocation* FD3D12DynamicBuffer::Unlock()
 {
-    return ResourceLocation;
+	return ResourceLocation;
 }
 
 
@@ -337,20 +413,20 @@ FString ConvertToResourceStateString(uint32 ResourceState)
 
 	TCHAR* ResourceStateNames[] =
 	{
-		TEXT("D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER"	  ), 
-		TEXT("D3D12_RESOURCE_STATE_INDEX_BUFFER"				  ), 
-		TEXT("D3D12_RESOURCE_STATE_RENDER_TARGET"				  ), 
-		TEXT("D3D12_RESOURCE_STATE_UNORDERED_ACCESS"			  ), 
-		TEXT("D3D12_RESOURCE_STATE_DEPTH_WRITE"					  ), 
-		TEXT("D3D12_RESOURCE_STATE_DEPTH_READ"					  ), 
-		TEXT("D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE"	  ), 
-		TEXT("D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE"		  ), 
-		TEXT("D3D12_RESOURCE_STATE_STREAM_OUT"					  ), 
-		TEXT("D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT"			  ), 
-		TEXT("D3D12_RESOURCE_STATE_COPY_DEST"					  ), 
-		TEXT("D3D12_RESOURCE_STATE_COPY_SOURCE"					  ), 
-		TEXT("D3D12_RESOURCE_STATE_RESOLVE_DEST"				  ), 
-		TEXT("D3D12_RESOURCE_STATE_RESOLVE_SOURCE"				  ), 
+		TEXT("D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER"),
+		TEXT("D3D12_RESOURCE_STATE_INDEX_BUFFER"),
+		TEXT("D3D12_RESOURCE_STATE_RENDER_TARGET"),
+		TEXT("D3D12_RESOURCE_STATE_UNORDERED_ACCESS"),
+		TEXT("D3D12_RESOURCE_STATE_DEPTH_WRITE"),
+		TEXT("D3D12_RESOURCE_STATE_DEPTH_READ"),
+		TEXT("D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE"),
+		TEXT("D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE"),
+		TEXT("D3D12_RESOURCE_STATE_STREAM_OUT"),
+		TEXT("D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT"),
+		TEXT("D3D12_RESOURCE_STATE_COPY_DEST"),
+		TEXT("D3D12_RESOURCE_STATE_COPY_SOURCE"),
+		TEXT("D3D12_RESOURCE_STATE_RESOLVE_DEST"),
+		TEXT("D3D12_RESOURCE_STATE_RESOLVE_SOURCE"),
 	};
 
 	FString ResourceStateString;
@@ -509,6 +585,15 @@ void CResourceState::SetSubresourceState(uint32 SubresourceIndex, D3D12_RESOURCE
 	}
 }
 
+bool FD3D12SyncPoint::IsComplete() const
+{
+	return (Fence == nullptr) || (Fence->IsFenceComplete(Value));
+}
+
+void FD3D12SyncPoint::WaitForCompletion() const
+{
+	Fence->WaitForFence(Value);
+}
 
 //
 // Stat declarations.

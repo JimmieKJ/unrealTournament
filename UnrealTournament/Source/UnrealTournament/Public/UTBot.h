@@ -253,6 +253,12 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** reaction time (in real seconds) for enemy positional tracking (i.e. use enemy's position this far in the past as basis) */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float TrackingReactionTime;
+	/** time needed for bot mental model to interpolate between velocities as enemy changes direction */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float TrackingInterpTime;
+	/** timestamp when last tracked velocity */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float TrackingTimeStamp;
 	/** Max Error in bots estimate about how far to lead player based on misjudging tracking reaction */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float MaxTrackingPredictionError;
@@ -262,12 +268,19 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** Max offset error, scaled by distance to player */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float MaxTrackingOffsetError;
+	/** Increase AdjustedMaxTrackingOffsetError error back to this pct of MaxTrackingOffsetError when enemy makes sudden direction change */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float DirectionChangeOffsetPct;
+
 	/** max offset error adjusted for current combat factors (stopped, have a bead on current enemy, etc) */
 	UPROPERTY()
 	float AdjustedMaxTrackingOffsetError;
 	/** Current offset error, scaled by distance to player */
 	UPROPERTY()
 	float TrackingOffsetError;
+	/** True if tracked enemy just had a large velocity change. */
+	UPROPERTY(BlueprintReadOnly)
+		bool bLargeTrackedVelocityChange;
 	/** How frequently to update tracking error */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float TrackingErrorUpdateInterval;
@@ -339,6 +352,11 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** if set use serpentine movement for current move (when allowed by path being followed) */
 	UPROPERTY()
 	bool bUseSerpentineMovement;
+	/** if set, pause current move until completely rotated towards FocalPoint (currently only applies while walking)
+	 * automatically cleared when rotation is finished
+	 */
+	UPROPERTY()
+	bool bFinishRotation;
 
 	/** aggression value for most recent combat action after all personality/enemy strength/squad/weapon modifiers */
 	UPROPERTY()
@@ -764,7 +782,7 @@ public:
 	virtual bool NeedsWeapon();
 
 	/** called for each new move point to check for advanced movement options (strafing, dodge, translocator, etc) */
-	virtual void UpdateMovementOptions();
+	virtual void UpdateMovementOptions(bool bNewPath);
 	/** set default focus
 	 * note that decision code, special paths, etc can override by setting a higher priority focus item
 	 */

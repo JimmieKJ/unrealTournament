@@ -4,6 +4,17 @@
 #include "UTAudioSettings.h"
 #include "UTGameUserSettings.generated.h"
 
+UENUM()
+enum EBotSpeechOption
+{
+	// bots are silent
+	BSO_None,
+	// bots send status messages as text only
+	BSO_StatusTextOnly,
+	// bots send voice taunts and status messages
+	BSO_All,
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTGameUserSettings : public UGameUserSettings, public FTickableGameObject
 {
@@ -43,8 +54,8 @@ public:
 	virtual int32 GetScreenPercentage();
 	virtual void SetScreenPercentage(int32 NewScreenPercentage);
 
-	virtual bool IsBotSpeechEnabled();
-	virtual void SetBotSpeechEnabled(bool NewBotSpeechEnabled);
+	virtual EBotSpeechOption GetBotSpeech() const;
+	virtual void SetBotSpeech(EBotSpeechOption NewSetting);
 
 	virtual bool IsHRTFEnabled();
 	virtual void SetHRTFEnabled(bool NewHRTFEnabled);
@@ -98,7 +109,7 @@ protected:
 	int32 InitialBenchmarkState;
 
 	UPROPERTY(config)
-		bool bBotSpeechEnabled;
+	TEnumAsByte<EBotSpeechOption> BotSpeech;
 
 	UPROPERTY(config)
 	bool bHRTFEnabled;
@@ -121,6 +132,7 @@ public:
 private:
 #if !UE_SERVER
 	void RunSynthBenchmark(bool bSaveSettingsOnceDetected);
+	void CorrectScreenPercentageOnHighResLowGPU(Scalability::FQualityLevels& DetectedLevels);
 
 	FSettingsAutodetected SettingsAutodetectedEvent;
 	TSharedPtr<class SUTDialogBase> AutoDetectingSettingsDialog;

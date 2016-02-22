@@ -42,6 +42,50 @@ void AUTTeamInfo::Destroyed()
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
+int32 AUTTeamInfo::AverageEloFor(AUTGameMode* GameMode)
+{
+	if (GameMode)
+	{
+		int32 TeamElo = 0;
+		int32 EloCount = 0;
+		for (AController* C : TeamMembers)
+		{
+			AUTPlayerState* TeamPS = Cast<AUTPlayerState>(C->PlayerState);
+			if (TeamPS)
+			{
+				int32 NewElo = GameMode->IsValidElo(TeamPS) ? GameMode->GetEloFor(TeamPS) : NEW_USER_ELO;
+				EloCount++;
+				TeamElo += NewElo;
+			}
+		}
+		return (EloCount > 0) ? TeamElo / EloCount : NEW_USER_ELO;
+	}
+
+	return 0;
+}
+
+AController* AUTTeamInfo::MemberClosestToElo(class AUTGameMode* GameMode, int32 DesiredElo)
+{
+	AController* BestMatch = nullptr;
+	int32 BestDiff = 0;
+	for (AController* C : TeamMembers)
+	{
+		AUTPlayerState* TeamPS = Cast<AUTPlayerState>(C->PlayerState);
+		if (TeamPS)
+		{
+			int32 NewElo = GameMode->IsValidElo(TeamPS) ? GameMode->GetEloFor(TeamPS) : NEW_USER_ELO;
+			int32 NewEloDiff = FMath::Abs(DesiredElo - NewElo);
+			if (!BestMatch || (NewEloDiff < BestDiff))
+			{
+				BestMatch = C;
+				BestDiff = NewEloDiff;
+			}
+		}
+	}
+	return BestMatch ? BestMatch : TeamMembers[0];
+}
+
+
 void AUTTeamInfo::UpdateTeamLeaders()
 {
 	TArray<AUTPlayerState*> MemberPS;
@@ -239,6 +283,7 @@ void AUTTeamInfo::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType
 				new(EnemyList) FBotEnemyInfo(NewEnemy, UpdateType);
 				// tell bots on team to consider new enemy
 				/* TODO: notify squads, let it decide if this enemy is worth disrupting bots for
+				 TODO: enemies aren't really 'lost' from this list, so requiring enemy to be 'new' in this context isn't good enough
 				for (AController* Member : TeamMembers)
 				{
 					AUTBot* B = Cast<AUTBot>(Member);

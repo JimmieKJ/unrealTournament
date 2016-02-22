@@ -27,7 +27,7 @@ void SUTPlayerInfoDialog::Construct(const FArguments& InArgs)
 	bAllowLogout = InArgs._bAllowLogout;
 
 	TargetPlayerState = InArgs._TargetPlayerState;
-
+	
 	FText DialogTitle = FText::Format(NSLOCTEXT("SUTMenuBase", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(InArgs._TargetPlayerState->PlayerName));
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -45,6 +45,15 @@ void SUTPlayerInfoDialog::Construct(const FArguments& InArgs)
 	if (TargetPlayerState.IsValid()) 
 	{
 		TargetUniqueId = TargetPlayerState->UniqueId.GetUniqueNetId();
+
+		if (TargetPlayerState->Role == ROLE_Authority && PlayerOwner.IsValid() && PlayerOwner->GetProfileSettings())
+		{
+			TargetPlayerState->ServerSetCharacter(PlayerOwner->GetProfileSettings()->CharacterPath);
+			TargetPlayerState->ServerReceiveHatClass(PlayerOwner->GetProfileSettings()->HatPath);
+			TargetPlayerState->ServerReceiveHatVariant(PlayerOwner->GetProfileSettings()->HatVariant);
+			TargetPlayerState->ServerReceiveEyewearClass(PlayerOwner->GetProfileSettings()->EyewearPath);
+			TargetPlayerState->ServerReceiveEyewearVariant(PlayerOwner->GetProfileSettings()->EyewearVariant);
+		}
 	}
 
 	PlayerPreviewMesh = nullptr;
@@ -295,7 +304,11 @@ void SUTPlayerInfoDialog::RecreatePlayerPreview()
 				}
 			}
 
-			UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
+			UClass* PreviewAttachmentType = TargetPlayerState.IsValid() && TargetPlayerState->FavoriteWeapon ? TargetPlayerState->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
+			if (!PreviewAttachmentType)
+			{
+				PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
+			}
 			if (PreviewAttachmentType != NULL)
 			{
 				PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));

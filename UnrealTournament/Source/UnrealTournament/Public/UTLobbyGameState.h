@@ -131,7 +131,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	/**
 	 *	Called when an instance needs to update a player in a match's info
 	 **/
-	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar);
+	void GameInstance_PlayerUpdate(uint32 GameInstanceID, const FRemotePlayerInfo& PlayerInfo, bool bLastUpdate);
 
 	/**
 	 *	Called when an instance's game is over.  It this called via GameEnded and doesn't mean any of the
@@ -148,9 +148,6 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	void CheckForAutoPlacement(AUTLobbyPlayerState* NewPlayer);
 
 	bool IsMatchStillValid(AUTLobbyMatchInfo* TestMatch);
-
-	// Called when a new player enters the game.  This causes all of the allowed gametypes and maps to be replicated to that player
-	void InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer);
 
 	// returns true if a match can start
 	bool CanLaunch();
@@ -228,7 +225,7 @@ protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame);
 	void FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList);
 public:
-	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank, bool bBeginner);
+	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 RankCheck, bool bBeginner);
 
 	// Sets a limit on the # of spectators allowed in an instance
 	UPROPERTY(Config)
@@ -246,7 +243,7 @@ public:
 	UPROPERTY(Replicated)
 	int32 NumGameInstances;
 
-	bool SendSayToInstance(const FString& User, const FString& FinalMessage);
+	bool SendSayToInstance(const FString& User, const FString& PlayerName, const FString& Message);
 
 	UPROPERTY(replicated)
 	bool bCustomContentAvailable;
@@ -258,6 +255,9 @@ public:
 	int32 NumMatchesInProgress();
 
 	virtual void AttemptDirectJoin(AUTLobbyPlayerState* PlayerState, const FString& SessionID, bool bSpectator = false);
+
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
 
 };
 

@@ -5,6 +5,8 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTAnalytics.h"
 
+DEFINE_LOG_CATEGORY(LogUTAnalytics);
+
 bool FUTAnalytics::bIsInitialized = false;
 TSharedPtr<IAnalyticsProvider> FUTAnalytics::Analytics = NULL;
 // initialize to a dummy value to ensure the first time we set the AccountID it detects it as a change.

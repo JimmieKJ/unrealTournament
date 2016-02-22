@@ -8,6 +8,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "../Widgets/SUTComboButton.h"
 #include "../Widgets/SUTPopOverAnchor.h"
+#include "UTPlayerState.h"
 
 #if !UE_SERVER
 
@@ -113,32 +114,26 @@ public:
 		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
 		FString Final = TEXT("");
 
+		AUTBaseGameMode* BaseGameMode = GetBaseGameMode();
+
 		if ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("In Progress");
+		if ((Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner)
+		{
+			Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("Beginner");
+		}
+
 		if ((Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private) 
 		{
-			if (!bInvited)
-			{
-				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Private");
-			}
+			Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("Private");
 		}
 		else if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
 		{
-			int32 AllowedRank = MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500);
-			AUTGameMode* UTGame = (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid()) ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-			bool bEloIsValid = false;
-			int32 PlayerRank = (UTGame && PlayerState) ? UTGame->GetEloFor(PlayerState, bEloIsValid) : 1500;
-			if (PlayerRank < AllowedRank - 400 || PlayerRank > AllowedRank + 400)
-			{
-				// Second check.  If both the client, and the match is ranked below beginner (1400) then we want to skip the icon
-				if (PlayerRank > 1400 || AllowedRank > 1400)
-				{
-					Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
-				}
-			}
+			int32 MatchRankCheck = MatchInfo.IsValid() ? MatchInfo->RankCheck : (MatchData.IsValid() ? MatchData->RankCheck: DEFAULT_RANK_CHECK);
+			int32 PlayerRankCheck = PlayerState->GetRankCheck(BaseGameMode);
+
+			Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("Ranked");
 		}
 
-			
-			
 		if ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Join in Progress");
 		if (bInvited) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<UT.Font.NormalText.Tiny.Bold.Gold>!!Invited!!</>");
 
@@ -207,35 +202,139 @@ public:
 		return FText::Format(NSLOCTEXT("SUTMatchPanel","MaxPlayerFormat","Out of {0}"), FText::AsNumber(MP));
 	}
 
+	EVisibility GetLockVis(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner) 
+	{
+		bool bLocked = false;
+		
+		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
+
+		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		AUTLobbyPlayerState* OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		AUTBaseGameMode* BaseGameMode = GetBaseGameMode();
+
+		if ( (Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private) 
+		{
+			if (!MatchInfo.IsValid() || OwnerPlayerState == nullptr || MatchInfo->AllowedPlayerList.Find(OwnerPlayerState->UniqueId.ToString()) == INDEX_NONE)
+			{
+				bLocked = true;
+			}
+		}
+
+		if ( ((Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner) &&
+			  (!PlayerState || !PlayerState->IsABeginner(BaseGameMode))	)
+		{		
+			bLocked = true;
+		}
+	
+		if ( (Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked) 
+		{
+			int32 MatchRankCheck = MatchInfo.IsValid() ? MatchInfo->RankCheck : (MatchData.IsValid() ? MatchData->RankCheck: DEFAULT_RANK_CHECK);
+			int32 PlayerRankCheck = PlayerState->GetRankCheck(BaseGameMode);
+
+			if ( !AUTPlayerState::CheckRank(PlayerRankCheck, MatchRankCheck) )
+			{
+				bLocked = true;
+			}
+		}
+
+		return bLocked ? EVisibility::Visible : EVisibility::Hidden;
+	}
+
+
 	const FSlateBrush* GetBadge() const
 	{
-		int32 Badge;
-		int32 Level;
-		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500)), true, Badge, Level);
-		
+		// Grab the current game 
+
+		int32 Badge =  0;
+		int32 Level = 0;
+
+		if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
+		{
+			AUTPlayerState::SplitRankCheck(MatchInfo->RankCheck, Badge, Level);
+		}
+		else if ( MatchData.IsValid() )
+		{
+			AUTPlayerState::SplitRankCheck(MatchData->RankCheck, Badge, Level);
+		}
+
 		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 		return SUTStyle::Get().GetBrush(*BadgeStr);
 	}
 
 	FText GetRank()
 	{
-		int32 Badge;
-		int32 Level;
-		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500)), true, Badge, Level);
+		// Grab the current game 
 
-		return FText::AsNumber(Level);
+		int32 Badge =  0;
+		int32 Level = 0;
+
+		AUTBaseGameMode* BaseGameMode = nullptr;
+		if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
+		{
+			AUTPlayerState::SplitRankCheck(MatchInfo->RankCheck, Badge, Level);
+		}
+		else if ( MatchData.IsValid() )
+		{
+			AUTPlayerState::SplitRankCheck(MatchData->RankCheck, Badge, Level);
+		}
+
+		return FText::AsNumber(Level + 1);
 	}
 
-	bool CanJoin()
+	bool CanJoin(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
 	{
+		//int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
+		//return ((Flags & MATCH_FLAG_InProgress) != MATCH_FLAG_InProgress) || ((Flags & MATCH_FLAG_NoJoinInProgress) != MATCH_FLAG_NoJoinInProgress);
+
 		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
-		return ((Flags & MATCH_FLAG_InProgress) != MATCH_FLAG_InProgress) || ((Flags & MATCH_FLAG_NoJoinInProgress) != MATCH_FLAG_NoJoinInProgress);
+		
+		// If this match is in progress and we do not support join in progress...
+		if ( ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) && ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) )
+		{
+			return false;
+		}
+
+		// If this is a ranked match, check the rank
+		if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
+		{
+
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			int32 MatchRankCheck = MatchInfo.IsValid() ? MatchInfo->RankCheck : (MatchData.IsValid() ? MatchData->RankCheck: DEFAULT_RANK_CHECK);
+			int32 PlayerRankCheck = PlayerState->GetRankCheck(GetBaseGameMode());
+
+			if ( !AUTPlayerState::CheckRank(PlayerRankCheck, MatchRankCheck) )
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	bool CanSpectate()
 	{
 		int32 Flags = MatchInfo.IsValid() ? MatchInfo->GetMatchFlags() : ( MatchData.IsValid() ? MatchData->Flags : 0);
 		return (Flags & MATCH_FLAG_NoSpectators) != MATCH_FLAG_NoSpectators;
+	}
+
+	AUTBaseGameMode* GetBaseGameMode() const
+	{
+		AUTBaseGameMode* BaseGameMode = nullptr;
+		if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
+		{
+			BaseGameMode = MatchInfo->CurrentRuleset->GetDefaultGameModeObject();		
+		}
+		else if ( MatchData.IsValid() && !MatchData->GameModeClass.IsEmpty() )
+		{
+			UClass* GameModeClass = LoadClass<AUTGameMode>(NULL, *MatchData->GameModeClass, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+			if (GameModeClass)
+			{
+				BaseGameMode = GameModeClass->GetDefaultObject<AUTBaseGameMode>();
+			}
+		}
+
+		if (BaseGameMode == nullptr) BaseGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+		return BaseGameMode;
 	}
 
 };

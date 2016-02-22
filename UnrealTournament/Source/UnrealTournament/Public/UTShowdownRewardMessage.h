@@ -22,6 +22,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		FName Termination;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName Annihilation;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText FinishItMsg;
 
@@ -33,6 +36,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		FText TerminationMsg;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FText AnnihilationMsg;
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override;
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;

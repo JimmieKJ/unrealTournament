@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTWaterVolume.h"
 #include "UTPainVolume.h"
+#include "UTNoCameraVolume.h"
 #include "UTCarriedObject.h"
 
 AUTWaterVolume::AUTWaterVolume(const FObjectInitializer& ObjectInitializer)
@@ -26,6 +27,11 @@ AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
 	BrakingDecelerationSwimming = 2000.f;
 	TerminalVelocity = 3000.f;
 	bEntryPain = false;
+}
+
+AUTNoCameraVolume::AUTNoCameraVolume(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
+{
 }
 
 void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)

@@ -55,7 +55,7 @@ void FNullDynamicRHI::Shutdown()
  */
 void* FNullDynamicRHI::GetStaticBuffer()
 {
-	static void* Buffer = NULL;
+	static void* Buffer = nullptr;
 	if (!Buffer)
 	{
 		// allocate an 64 meg buffer, should be big enough for any texture/surface

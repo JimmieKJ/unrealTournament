@@ -40,15 +40,6 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	ClothBlendHeld = 0.5f;
 }
 
-void AUTCTFFlag::OnConstruction(const FTransform& Transform)
-{
-	Super::OnConstruction(Transform);
-
-	// backwards compatibility; force values on existing instances
-	GetMesh()->SetAbsolute(false, false, true);
-	GetMesh()->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
-}
-
 void AUTCTFFlag::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
@@ -210,10 +201,10 @@ void AUTCTFFlag::PlayReturnedEffects()
 			ReturningMeshMID->SetScalarParameterValue(NAME_Wipe, ReturnParamCurve->GetFloatValue(0.0f));
 			ReturningMesh->RegisterComponent();
 		}
-		UGameplayStatics::SpawnEmitterAtLocation(this, ReturnSrcEffect, GetActorLocation(), GetActorRotation());
+		UGameplayStatics::SpawnEmitterAtLocation(this, ReturnSrcEffect, GetActorLocation() + GetRootComponent()->ComponentToWorld.TransformVectorNoScale(GetMesh()->RelativeLocation), GetActorRotation());
 		if (HomeBase != NULL)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation(), GetHomeRotation());
+			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation() + FRotationMatrix(GetHomeRotation()).TransformVector(GetMesh()->RelativeLocation), GetHomeRotation());
 		}
 	}
 }

@@ -12,7 +12,7 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	if (FiringState.Num() > 0)
 	{
 		FireInterval[0] = 0.091f;
-		Spread.Add(0.0675f);
+		Spread.Add(0.07425f);
 		InstantHitInfo.AddZeroed();
 		InstantHitInfo[0].Damage = 14;
 		InstantHitInfo[0].TraceRange = 10000.0f;

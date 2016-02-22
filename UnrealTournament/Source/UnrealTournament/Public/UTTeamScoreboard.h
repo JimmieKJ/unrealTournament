@@ -15,6 +15,12 @@ public:
 	virtual void SelectionLeft();
 	virtual void SelectionRight();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText RedTeamText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText BlueTeamText;
+
 protected:
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);

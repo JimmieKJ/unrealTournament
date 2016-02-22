@@ -163,7 +163,11 @@ protected:
 	TSharedPtr<SCheckBox> VSync;
 	TSharedPtr<SEditableTextBox> FrameRateCap;
 
-	TSharedPtr<SCheckBox> BotSpeechCheckBox;
+	TArray<TSharedPtr<FString>> BotSpeechList;
+	TSharedPtr<SComboBox<TSharedPtr<FString>>> BotSpeechCombo;
+	TSharedPtr<STextBlock> SelectedBotSpeech;
+	void OnBotSpeechSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
 	TSharedPtr<SCheckBox> HRTFCheckBox;
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	TSharedPtr<STextBlock> SoundVolumesLabels[EUTSoundClass::MAX];
@@ -247,6 +251,8 @@ protected:
 
 	FText GetVSyncText() const;
 
+	EVisibility AutoDetectSettingsVisibility() const;
+
 	SVerticalBox::FSlot& AddSectionHeader(const FText& SectionDesc);
 	SVerticalBox::FSlot& AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUTSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue, const TAttribute<FText>& TooltipText = TAttribute<FText>());
 	SVerticalBox::FSlot& AddAAModeWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUTSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue, const TAttribute<FText>& TooltipText = TAttribute<FText>());
@@ -254,6 +260,7 @@ protected:
 	SVerticalBox::FSlot& AddConsoleVarSliderWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label);
 	SVerticalBox::FSlot& AddConsoleVarCheckboxWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label);
 	SVerticalBox::FSlot& AddGeneralSliderWithLabelWidget(TSharedPtr<SSlider>& SliderWidget, TSharedPtr<STextBlock>& LabelWidget, void(SUTSystemSettingsDialog::*SelectionFunc)(float), const FString& InitialLabel, float SettingValue, const TAttribute<FText>& TooltipText = TAttribute<FText>());
+	SVerticalBox::FSlot& AddTopLevelConsoleVarCheckboxWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label);
 };
 
 #endif

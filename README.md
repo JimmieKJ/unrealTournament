@@ -27,7 +27,7 @@ Be sure to have [Xcode 5.1](https://itunes.apple.com/us/app/xcode/id497799835) i
 How to get started (Windows)
 -------------------
 
-The current Unreal Tournament project is based on Unreal Engine version 4.7. The engine source is now included in our repository for your convenience. Visual Studio 2013 is required for Windows usage.
+The current Unreal Tournament project is based on Unreal Engine version 4.11 preview. The engine source is now included in our repository for your convenience. Visual Studio 2013 is required for Windows usage.
 
 **Downloading the Unreal Tournament project:**
 

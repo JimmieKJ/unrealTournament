@@ -94,6 +94,7 @@ void AUTShowdownGameState::OnRep_MatchState()
 			if (UTPS)
 			{
 				UTPS->RoundDamageDone = 0;
+				UTPS->RoundKills = 0;
 			}
 		}
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)

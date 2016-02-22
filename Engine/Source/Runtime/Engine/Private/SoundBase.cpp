@@ -12,7 +12,7 @@ USoundBase::USoundBase(const FObjectInitializer& ObjectInitializer)
 	, FocusDistanceScale(1.0f)
 {
 	MaxConcurrentPlayCount_DEPRECATED = 16;
-	MaxConcurrentResolutionRule_DEPRECATED = EMaxConcurrentResolutionRule::StopFarthestThenOldest;
+	MaxConcurrentResolutionRule_DEPRECATED = EMaxConcurrentResolutionRule::StopQuietist;
 }
 
 void USoundBase::PostInitProperties()

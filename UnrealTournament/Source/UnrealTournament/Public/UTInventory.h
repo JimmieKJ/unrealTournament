@@ -206,16 +206,15 @@ public:
 	float HUDRenderPriority;
 
 	/** Returns the HUD text to display for this item */
-	virtual FText GetHUDText() 
+	UFUNCTION(BlueprintCallable, Category = HUD)
+	virtual FText GetHUDText() const
 	{ 
 		return FText::GetEmpty(); 
 	}
 
 	// Allows inventory items to decide if a widget should be allowed to render them.
-	virtual bool HUDShouldRender(UUTHUDWidget* TargetWidget) 
-	{
-		return false;
-	}
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = HUD)
+	bool HUDShouldRender(UUTHUDWidget* TargetWidget);
 
 	/** Used to initially flash icon if HUD rendered */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")

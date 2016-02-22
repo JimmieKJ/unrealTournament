@@ -42,6 +42,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	BadgeNumberUVs.Add(FVector2D(248,219));
 	BadgeNumberUVs.Add(FVector2D(283,219));
 
+	BadgeUVs.Add(FVector2D(423,219));
 	BadgeUVs.Add(FVector2D(388,219));
 	BadgeUVs.Add(FVector2D(353,219));
 	BadgeUVs.Add(FVector2D(318,219));
@@ -78,6 +79,25 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_SpecSwitch01.A_UI_SpecSwitch01'"));
 	ScoreUpdateSound = OtherSpreeSoundFinder.Object;
+
+	GameMessageText = NSLOCTEXT("UTScoreboard", "ScoreboardHeader", "{GameName} in {MapName}");
+	CH_PlayerName = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerName", "Player");
+	CH_Score = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerScore", "Score");
+	CH_Kills = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerKills", "Kills");
+	CH_Deaths = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerDeaths", "Deaths");
+	CH_Skill = NSLOCTEXT("UTScoreboard", "ColumnHeader_BotSkill", "SKILL");
+	CH_Ping = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "Ping");
+	CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "");
+	OneSpectatorWatchingText = NSLOCTEXT("UTScoreboard", "OneSpectator", "1 spectator is watching this match");
+	SpectatorsWatchingText = NSLOCTEXT("UTScoreboard", "SpectatorFormat", "{0} spectators are watching this match");
+	PingFormatText = NSLOCTEXT("UTScoreboard", "PingFormatText", "{0}ms");
+	PositionFormatText = NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}.");
+	TeamSwapText = NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP");
+	ReadyText = NSLOCTEXT("UTScoreboard", "READY", "READY");
+	NotReadyText = NSLOCTEXT("UTScoreboard", "NOTREADY", "");
+	ArrowKeysText = NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})");
+	ReadyColor = FLinearColor::White;
+	ReadyScale = 1.f;
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
@@ -224,7 +244,7 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 	FFormatNamedArguments Args;
 	Args.Add("GameName", FText::AsCultureInvariant(GameName));
 	Args.Add("MapName", FText::AsCultureInvariant(MapName));
-	FText GameMessage = FText::Format(NSLOCTEXT("UTScoreboard", "ScoreboardHeader", "{GameName} in {MapName}"), Args);
+	FText GameMessage = FText::Format(GameMessageText, Args);
 	DrawText(GameMessage, 220, YOffset + 36.f, UTHUDOwner->MediumFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
 
 	DrawGameOptions(RenderDelta, YOffset);
@@ -277,11 +297,6 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	float Width = (Size.X * 0.5f) - CenterBuffer;  
 	float Height = 23.f;
 
-	FText CH_PlayerName = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerName", "PLAYER");
-	FText CH_Score = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerScore", "SCORE");
-	FText CH_Deaths = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerDeaths", "DEATHS");
-	FText CH_Ping = (GetWorld()->GetNetMode() == NM_Standalone) ? NSLOCTEXT("UTScoreboard", "ColumnHeader_BotSkill", "SKILL") : NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "PING");
-	FText CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "");
 
 	int32 ColumnCnt = ((UTGameState && UTGameState->bTeamGame) || ActualPlayerCount > 16) ? 2 : 1;
 	float XOffset = ColumnCnt > 1 ? 0.f : (Size.X * 0.5f) - (Width * 0.5f);
@@ -300,7 +315,7 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		{
 			DrawText(CH_Ready, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		}
-		DrawText(CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText((GetWorld()->GetNetMode() == NM_Standalone) ? CH_Skill : CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		XOffset = Size.X - Width;
 	}
 
@@ -344,8 +359,8 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	if (UTGameState->PlayerArray.Num() <= 28 && NumSpectators > 0)
 	{
 		FText SpectatorCount = (NumSpectators == 1) 
-			? NSLOCTEXT("UTScoreboard", "OneSpectator", "1 spectator is watching this match")
-			: FText::Format(NSLOCTEXT("UTScoreboard","SpectatorFormat","{0} spectators are watching this match"), FText::AsNumber(NumSpectators));
+			? OneSpectatorWatchingText
+			: FText::Format(SpectatorsWatchingText, FText::AsNumber(NumSpectators));
 		DrawText(SpectatorCount, 635, 765, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor(0.75f, 0.75f, 0.75f, 1.0f), ETextHorzPos::Center, ETextVertPos::Bottom);
 	}
 }
@@ -401,7 +416,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 	else
 	{
-		PlayerPing = FText::Format(NSLOCTEXT("UTScoreboard", "PingFormatText", "{0}ms"), FText::AsNumber(Ping));
+		PlayerPing = FText::Format(PingFormatText, FText::AsNumber(Ping));
 	}
 	
 	// Draw the background border.
@@ -439,17 +454,16 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 			if (DefaultGame)
 			{
-				bool bEloIsValid = false;
-				int32 EloRating = DefaultGame->GetEloFor(PlayerState, bEloIsValid);
-				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+				PlayerState->GetBadgeFromELO(DefaultGame, Badge, Level);
 				UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState->GetPrevXP()), Stars);
 				Badge = FMath::Clamp<int32>(Badge, 0, 3);
 				Level = FMath::Clamp<int32>(Level, 0, 8);
 				float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
 
-				FLinearColor BadgeColor = FLinearColor(0.4f, 0.235f, 0.07f, 1.0f);
-				if (Badge == 1) BadgeColor = FLinearColor(0.96f, 0.96f, 0.96f, 1.0f);
-				else if (Badge == 2) BadgeColor = FLinearColor(1.0f, 0.95f, 0.42f, 1.0f);
+				FLinearColor BadgeColor = FLinearColor(0.36f, 0.8f, 0.34f, 1.0f);
+				if (Badge == 1) BadgeColor = FLinearColor(0.4f, 0.235f, 0.07f, 1.0f);
+				else if (Badge == 2) BadgeColor = FLinearColor(0.96f, 0.96f, 0.96f, 1.0f);
+				else if (Badge == 3) BadgeColor = FLinearColor(1.0f, 0.95f, 0.42f, 1.0f);
 
 				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, BadgeColor, FVector2D(0.5f, 0.5f));
 				DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
@@ -469,7 +483,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	// Draw the Text
 	if (UTGameState && !UTGameState->bTeamGame)
 	{
-		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
+		FText Position = FText::Format(PositionFormatText, FText::AsNumber(Index));
 		DrawText(Position, XOffset + (Width * FlagX - 5.f), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 	}
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
@@ -483,7 +497,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	{
 		if (PlayerState->bPendingTeamSwitch)
 		{
-			DrawText(NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP"), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, PlayerState->ReadyScale, 1.0f, PlayerState->ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(TeamSwapText, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 		else
 		{
@@ -492,16 +506,65 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 	else
 	{
-		PlayerState->UpdateReady();
-		FText PlayerReady = PlayerState->bReadyToPlay ? NSLOCTEXT("UTScoreboard", "READY", "READY") : NSLOCTEXT("UTScoreboard", "NOTREADY", "");
-		if (PlayerState->bPendingTeamSwitch)
-		{
-			PlayerReady = NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP");
-		}
-		DrawText(PlayerReady, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, PlayerState->ReadyScale, 1.0f, PlayerState->ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawReadyText(PlayerState, XOffset, YOffset, Width);
 	}
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+}
 
+void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)
+{
+	FText PlayerReady = PlayerState->bReadyToPlay ? ReadyText : NotReadyText;
+	float ReadyX = XOffset;
+	if (PlayerState->bPendingTeamSwitch)
+	{
+		PlayerReady = TeamSwapText;
+	}
+	if (PlayerState->ReadyMode > 0)
+	{
+		int32 ReadyColorState = 2.f * GetWorld()->GetTimeSeconds() + PlayerState->PlayerId;
+		if ((ReadyColorState & 14) == 0)
+		{
+			ReadyColorState += 2;
+		}
+		ReadyColor.R = (ReadyColorState & 2) ? 1.f : 0.f;
+		ReadyColor.G = (ReadyColorState & 4) ? 1.f : 0.f;
+		ReadyColor.B = (ReadyColorState & 8) ? 1.f : 0.f;
+		float Speed = (PlayerState->ReadyMode == 4) ? 1.f : 2.f;
+		float ScaleTime = Speed*GetWorld()->GetTimeSeconds() - int32(Speed*GetWorld()->GetTimeSeconds());
+		float Scaling = (ScaleTime < 0.5f)
+			? ScaleTime
+			: 1.f - ScaleTime;
+		if (PlayerState->PlayerId % 2 == 0)
+		{
+			Scaling = 1.f - Scaling;
+		}
+		if ((PlayerState->ReadyMode == 2) || (PlayerState->ReadyMode == 3))
+		{
+			ReadyScale = Scaling * 1.2f + 0.7f;
+		}
+		if ((PlayerState->ReadyMode == 3) && PlayerState->bReadyToPlay)
+		{
+			PlayerReady = NSLOCTEXT("UTScoreboard", "Plead", "COME ON!");
+			ReadyX += 30.f;
+		}
+		if (PlayerState->ReadyMode == 4)
+		{
+			ReadyScale = 1.15f;
+			ReadyX -= 10.f;
+			ReadyX += 220.f * Scaling;
+			if (ScaleTime < 0.5f)
+			{
+				ReadyColor.B = 0.5f;
+				ReadyColor.G = 0.5f;
+			}
+		}
+	}
+	else
+	{
+		ReadyColor = FLinearColor::White;
+		ReadyScale = 1.f;
+	}
+	DrawText(PlayerReady, ReadyX + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, ReadyScale, 1.0f, ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
 void UUTScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)
@@ -538,7 +601,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		DrawText(FText::FromString(UTGameState->ServerDescription), 1259, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if ((NumPages > 1) && UTGameState->HasMatchStarted())
 		{
-			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages - 1 + GetWorld()->GameState->PlayerArray.Num()));
+			FText PageText = FText::Format(ArrowKeysText, FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages - 1 + GetWorld()->GameState->PlayerArray.Num()));
 			DrawText(PageText, Size.X * 0.5f, YOffset + 13, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}

@@ -147,8 +147,7 @@ void AUTBasePlayerController::Talk()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
 	{
-		LP->ShowMenu(TEXT("say"));
-		//LP->ViewportClient->ViewportConsole->StartTyping("Say ");
+		LP->ShowQuickChat(ChatDestinations::Local);
 	}
 }
 
@@ -157,8 +156,7 @@ void AUTBasePlayerController::TeamTalk()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
 	{
-		LP->ShowMenu(TEXT("teamsay"));
-		//LP->ViewportClient->ViewportConsole->StartTyping("TeamSay ");
+		LP->ShowQuickChat(ChatDestinations::Team);
 	}
 }
 
@@ -230,6 +228,25 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 {
 	if (AllowTextMessage(Message) && PlayerState != nullptr)
 	{
+		// Look to see if this message is a direct message to a given player.
+
+		if (Message.Left(1) == TEXT("@"))
+		{
+			// Remove the @
+			FString TrimmedMessage = Message.Right(Message.Len()-1);
+
+			// Talking to someone directly.
+	
+			int32 Pos = -1;
+			if (TrimmedMessage.FindChar(TEXT(' '), Pos) && Pos > 0)
+			{
+				FString User = TrimmedMessage.Left(Pos);
+				FString FinalMessage = TrimmedMessage.Right(Message.Len() - Pos - 1);		
+				DirectSay(User, FinalMessage);
+			}
+			return;
+		}
+
 		bool bSpectatorMsg = PlayerState->bOnlySpectator;
 
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -250,8 +267,22 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 	}
 }
 
+void AUTBasePlayerController::DirectSay(const FString& User, const FString& Message)
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+		if (UTPC != nullptr && UTPC->PlayerState->PlayerName.Equals(User, ESearchCase::IgnoreCase))
+		{
+			UTPC->ClientSay(UTPlayerState, Message, ChatDestinations::Whisper);
+		}
+	}
+}
+
 void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
 {
+
+
 	FClientReceiveData ClientData;
 	ClientData.LocalPC = this;
 	ClientData.MessageIndex = Destination == ChatDestinations::Team;
@@ -463,12 +494,13 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveRank(LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), LP->DuelEloValid(), LP->CTFEloValid(), LP->TDMEloValid(), LP->DMEloValid(), LP->ShowdownEloValid());
+		ServerReceiveRank(LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), FMath::Min(255, LP->DuelEloMatches()), FMath::Min(255, LP->CTFEloMatches()), FMath::Min(255, LP->TDMEloMatches()), FMath::Min(255, LP->DMEloMatches()), FMath::Min(255, LP->ShowdownEloMatches()));
 	}
 }
 
-bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid) { return true; }
-void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, bool bDuelEloValid, bool bCTFEloValid, bool bTDMEloValid, bool bDMEloValid, bool bShowdownEloValid)
+// FIXMESTEVE shouldn't receive this from client
+bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed) { return true; }
+void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed)
 {
 	if (UTPlayerState)
 	{
@@ -478,11 +510,17 @@ void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank
 		UTPlayerState->DMRank = NewDMRank;
 		UTPlayerState->ShowdownRank = NewShowdownRank;
 		UTPlayerState->TotalChallengeStars = TotalStars;
-		UTPlayerState->bDuelEloValid = bDuelEloValid;
-		UTPlayerState->bCTFEloValid = bCTFEloValid;
-		UTPlayerState->bTDMEloValid = bTDMEloValid;
-		UTPlayerState->bDMEloValid = bDMEloValid;
-		UTPlayerState->bShowdownEloValid = bShowdownEloValid;
+		UTPlayerState->DuelMatchesPlayed = DuelMatchesPlayed;
+		UTPlayerState->CTFMatchesPlayed = CTFMatchesPlayed;
+		UTPlayerState->TDMMatchesPlayed = TDMMatchesPlayed;
+		UTPlayerState->DMMatchesPlayed = DMMatchesPlayed;
+		UTPlayerState->ShowdownMatchesPlayed = ShowdownMatchesPlayed;
+
+		AUTBaseGameMode* BaseGameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+		if (BaseGameMode)
+		{
+			BaseGameMode->ReceivedRankForPlayer(UTPlayerState);
+		}
 	}
 }
 
@@ -691,10 +729,6 @@ void AUTBasePlayerController::UpdateInputMode()
 			if (UTHUD != nullptr)
 			{
 				NewInputMode = UTHUD->GetInputMode();
-				if (NewInputMode == EInputMode::EIM_GameAndUI || NewInputMode == EInputMode::EIM_UIOnly)
-				{
-					bShowMouseCursor = true;
-				}
 			}
 			
 			//Default to game only if no other input mode is wanted
@@ -704,6 +738,7 @@ void AUTBasePlayerController::UpdateInputMode()
 			}
 		}
 
+
 		//Apply the new input if it needs to be changed
 		if (NewInputMode != InputMode && NewInputMode != EInputMode::EIM_None)
 		{
@@ -711,19 +746,19 @@ void AUTBasePlayerController::UpdateInputMode()
 			switch (NewInputMode)
 			{
 			case EInputMode::EIM_GameOnly:
-				bShowMouseCursor = false;
 				Super::SetInputMode(FInputModeGameOnly());
 				break;
 			case EInputMode::EIM_GameAndUI:
-				bShowMouseCursor = true;
 				Super::SetInputMode(FInputModeGameAndUI().SetLockMouseToViewport(true).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
 				break;
 			case EInputMode::EIM_UIOnly:
-				bShowMouseCursor = true;
-				Super::SetInputMode(FInputModeUIOnly().SetLockMouseToViewport(true));
+				Super::SetInputMode(FInputModeUIOnly().SetLockMouseToViewport(true).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
 				break;
 			}
 		}
+
+		bShowMouseCursor = (InputMode == EInputMode::EIM_GameAndUI || InputMode == EInputMode::EIM_UIOnly);
+	
 	}
 }
 #endif

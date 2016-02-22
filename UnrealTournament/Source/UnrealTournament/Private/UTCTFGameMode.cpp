@@ -28,6 +28,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	MercyScore = 5;
 	GoalScore = 0;
 	TimeLimit = 14;
+	QuickPlayersToStart = 8;
 
 	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
 }
@@ -462,12 +463,6 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 		TimeLimit = RemainingSeconds;
 		IntermissionDuration = 5;
 	}
-}
-
-int32 AUTCTFGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
-{
-	bEloIsValid = PS ? PS->bCTFEloValid : false;
-	return PS ? PS->CTFRank : Super::GetEloFor(PS, bEloIsValid);
 }
 
 void AUTCTFGameMode::GetGood()

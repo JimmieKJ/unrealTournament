@@ -32,7 +32,7 @@ struct FDeferredFireInput
 
 /** controls location and orientation of first person weapon */
 UENUM()
-enum EWeaponHand
+enum class EWeaponHand : uint8
 {
 	HAND_Right,
 	HAND_Left,
@@ -118,11 +118,7 @@ public:
 	UFUNCTION(client, unreliable)
 	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
 
-	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override
-	{
-		ClientPlaySound(ChatMsgSound);
-		Super::ClientSay_Implementation(Speaker, Message, Destination);
-	}
+	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override;
 
 	UFUNCTION(client, unreliable)
 		void ClientUpdateDamageDone(int32 DamageDone, int32 RoundDamageDone);
@@ -150,8 +146,8 @@ public:
 	virtual void ServerNP();
 
 	/** Notification from client that it detected a client side projectile hit (like a shock combo) */
-	UFUNCTION(server, unreliable, withvalidation)
-		virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp);
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector_NetQuantize HitLocation, AActor* DamageCauser, float TimeStamp);
 
 	void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
 	{
@@ -231,6 +227,10 @@ public:
 	/** If true, show networking stats widget on HUD. */
 	UPROPERTY()
 		bool bShowNetInfo;
+
+	/** Net info widget if bShowNetInfo. */
+	UPROPERTY()
+		class UUTHUDWidget_NetInfo* NetInfoWidget;
 
 	/** Toggle showing net stats on HUD. */
 	UFUNCTION(exec)
@@ -329,7 +329,7 @@ public:
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyTakeHit(bool bFriendlyFire, uint8 Damage, FVector_NetQuantize RelHitLocation);
+	void ClientNotifyTakeHit(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw);
 
 	/** notification that we successfully hit HitPawn
 	 * note that HitPawn may be NULL if it is not currently relevant to the client
@@ -667,7 +667,7 @@ public:
 	inline EWeaponHand GetWeaponHand() const
 	{
 		//Spectators always see right handed weapons
-		return IsInState(NAME_Spectating) ? HAND_Right : GetPreferredWeaponHand();
+		return IsInState(NAME_Spectating) ? EWeaponHand::HAND_Right : GetPreferredWeaponHand();
 	}
 
 	inline EWeaponHand GetPreferredWeaponHand() const
@@ -721,6 +721,9 @@ protected:
 
 	UFUNCTION(exec)
 	void ToggleTranslocator();
+
+	UFUNCTION(exec)
+	void SelectTranslocator();
 
 	void ThrowWeapon();
 	
@@ -913,6 +916,13 @@ public:
 
 	UFUNCTION(client, unreliable)
 	virtual void ClientUpdateTeamStats(uint8 TeamNum, uint8 TeamStatsIndex, float NewValue);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientUpdateSkillRating(const FString& MatchRatingType);
+
+	/** Set at end of match if ranking badge changed. */
+	UPROPERTY()
+	bool bBadgeChanged;
 
 	virtual void AdvanceStatsPage(int32 Increment);
 

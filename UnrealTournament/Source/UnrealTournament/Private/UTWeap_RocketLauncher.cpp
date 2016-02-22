@@ -52,6 +52,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
 	FiringViewKickback = -50.f;
+	bRecommendSplashDamage = true;
 
 	KillStatsName = NAME_RocketKills;
 	DeathStatsName = NAME_RocketDeaths;
@@ -311,7 +312,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 
 		//Adjust from the center of the gun to the barrel
 		EWeaponHand Hand = GetWeaponHand();
-		if (Hand != HAND_Hidden && Hand != HAND_Center)
+		if (Hand != EWeaponHand::HAND_Hidden && Hand != EWeaponHand::HAND_Center)
 		{
 			FVector AdjustedSpawnLoc = SpawnLocation + FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
 			FHitResult Hit;

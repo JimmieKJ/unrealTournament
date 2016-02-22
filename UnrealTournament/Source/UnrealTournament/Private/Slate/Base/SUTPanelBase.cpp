@@ -63,5 +63,10 @@ AUTPlayerState* SUTPanelBase::GetOwnerPlayerState()
 	return NULL;
 }
 
+TSharedPtr<SWidget> SUTPanelBase::GetInitialFocus()
+{
+	return nullptr;
+}
+
 
 #endif

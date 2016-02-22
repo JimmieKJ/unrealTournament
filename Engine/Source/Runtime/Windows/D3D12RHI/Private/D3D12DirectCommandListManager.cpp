@@ -1,3 +1,5 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
 #include "D3D12RHIPrivate.h"
 #include "Windows.h"
 
@@ -47,13 +49,15 @@ uint64 FD3D12Fence::Signal(ID3D12CommandQueue* pCommandQueue)
 	return SignaledFence;
 }
 
-bool FD3D12Fence::IsFenceFinished(uint64 FenceValue)
+bool FD3D12Fence::IsFenceComplete(uint64 FenceValue)
 {
 	check(Fence != nullptr);
 
 	// Avoid repeatedly calling GetCompletedValue()
 	if (FenceValue <= LastCompletedFence)
+	{
 		return true;
+	}
 
 	// Refresh the completed fence value
 	LastCompletedFence = Fence->GetCompletedValue();
@@ -72,8 +76,10 @@ void FD3D12Fence::WaitForFence(uint64 FenceValue)
 
 	check(Fence != nullptr);
 
-	if (IsFenceFinished(FenceValue))
+	if (IsFenceComplete(FenceValue))
+	{
 		return;
+	}
 
 	// We must wait.  Do so with an event handler so we don't oversleep.
 	VERIFYD3D11RESULT(Fence->SetEventOnCompletion(FenceValue, hFenceCompleteEvent));
@@ -85,8 +91,42 @@ void FD3D12Fence::WaitForFence(uint64 FenceValue)
 	LastCompletedFence = FenceValue;
 }
 
-FD3D12CommandListManager::FD3D12CommandListManager()
+FD3D12CommandAllocator* FD3D12CommandAllocatorManager::ObtainCommandAllocator()
+{
+	FScopeLock Lock(&CS);
+
+	// See if the first command allocator in the queue is ready to be reset (will check associated fence)
+	FD3D12CommandAllocator* pCommandAllocator = nullptr;
+	if (CommandAllocatorQueue.Peek(pCommandAllocator) && pCommandAllocator->IsReady())
+	{
+		// Reset the allocator and remove it from the queue.
+		pCommandAllocator->Reset();
+		CommandAllocatorQueue.Dequeue(pCommandAllocator);
+	}
+	else
+	{
+		// The queue was empty, or no command allocators were ready, so create a new command allocator.
+		pCommandAllocator = new FD3D12CommandAllocator(GetParentDevice()->GetDevice(), Type);
+		check(pCommandAllocator);
+		CommandAllocators.Add(pCommandAllocator);	// The command allocator's lifetime is managed by this manager
+	}
+
+	check(pCommandAllocator->IsReady());
+	return pCommandAllocator;
+}
+
+void FD3D12CommandAllocatorManager::ReleaseCommandAllocator(FD3D12CommandAllocator* pCommandAllocator)
+{
+	FScopeLock Lock(&CS);
+	CommandAllocatorQueue.Enqueue(pCommandAllocator);
+}
+
+FD3D12CommandListManager::FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE CommandListType)
 	: NumCommandListsAllocated(0)
+	, CommandListType(CommandListType)
+	, FD3D12DeviceChild(InParent)
+	, ResourceBarrierCommandAllocator(nullptr)
+	, ResourceBarrierCommandAllocatorManager(InParent, D3D12_COMMAND_LIST_TYPE_DIRECT)
 {
 }
 
@@ -104,66 +144,59 @@ void FD3D12CommandListManager::Destroy()
 
 	FD3D12CommandListHandle hList;
 	while (!ReadyLists.IsEmpty())
-		ReadyLists.Dequeue (hList);
+	{
+		ReadyLists.Dequeue(hList);
+	}
 }
 
-void FD3D12CommandListManager::Create(ID3D12Device* InDirect3DDevice,  D3D12_COMMAND_LIST_TYPE InCommandListType, uint32 NumCommandLists)
+void FD3D12CommandListManager::Create(uint32 NumCommandLists)
 {
-	Direct3DDevice = InDirect3DDevice;
-	CommandListType = InCommandListType;
-
 	check(D3DCommandQueue.GetReference() == nullptr);
 	check(ReadyLists.IsEmpty());
 	checkf(NumCommandLists <= 0xffff, TEXT("Exceeded maximum supported command lists"));
 
-    D3D12_COMMAND_QUEUE_DESC CommandQueueDesc = {};
-    CommandQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-    CommandQueueDesc.NodeMask = 0;
-    CommandQueueDesc.Priority = 0;
-    CommandQueueDesc.Type = CommandListType;
-    VERIFYD3D11RESULT(Direct3DDevice->CreateCommandQueue(&CommandQueueDesc, IID_PPV_ARGS(D3DCommandQueue.GetInitReference())));
+	ID3D12Device* Direct3DDevice = GetParentDevice()->GetDevice();
+	D3D12_COMMAND_QUEUE_DESC CommandQueueDesc ={};
+	CommandQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	CommandQueueDesc.NodeMask = 0;
+	CommandQueueDesc.Priority = 0;
+	CommandQueueDesc.Type = CommandListType;
+	VERIFYD3D11RESULT(Direct3DDevice->CreateCommandQueue(&CommandQueueDesc, IID_PPV_ARGS(D3DCommandQueue.GetInitReference())));
 
 	for (uint32 i = 0; i < FT_NumTypes; i++)
 	{
 		Fences[i].CreateFence(Direct3DDevice, 0);
 	}
 
-	for (uint32 i = 0; i < NumCommandLists; ++i)
+	if (NumCommandLists > 0)
 	{
-		FD3D12CommandListHandle hList = CreateCommandListHandle();
-		ReadyLists.Enqueue(hList);
+		// Create a temp command allocator for command list creation.
+		FD3D12CommandAllocator TempCommandAllocator(Direct3DDevice, CommandListType);
+		for (uint32 i = 0; i < NumCommandLists; ++i)
+		{
+			FD3D12CommandListHandle hList = CreateCommandListHandle(TempCommandAllocator);
+			ReadyLists.Enqueue(hList);
+		}
 	}
 }
 
-FD3D12CommandListHandle FD3D12CommandListManager::BeginCommandList(ID3D12PipelineState* InitialPSO)
+FD3D12CommandListHandle FD3D12CommandListManager::ObtainCommandList(FD3D12CommandAllocator& CommandAllocator)
 {
-    FD3D12CommandListHandle List;
-
-	bool FoundFreeList = false;
+	FD3D12CommandListHandle List;
+	if (!ReadyLists.Dequeue(List))
 	{
-		// Need to lock in case of race conditions between the peek and dequeue
-		FScopeLock Lock(&PeekReadyListCS);
-		FD3D12Fence& Fence = Fences[FT_CommandList];
-		FoundFreeList = ReadyLists.Peek(List);
-		if (FoundFreeList && Fence.IsFenceFinished(List.FenceIndex()))
-		{
-			ReadyLists.Dequeue(List);
-		}
-		else
-		{
-			// Command List in the ReadyList is still pending, just allocate another command list instead of waiting
-			FoundFreeList = false;
-		}
+		// Create a command list if there are none available.
+		List = CreateCommandListHandle(CommandAllocator);
 	}
 
-	if (!FoundFreeList)
-	{
-		List = CreateCommandListHandle();
-	}
-
-	List.Reset(InitialPSO);
-
+	List.Reset(CommandAllocator);
 	return List;
+}
+
+void FD3D12CommandListManager::ReleaseCommandList(FD3D12CommandListHandle& hList)
+{
+	check(hList.IsClosed());
+	ReadyLists.Enqueue(hList);
 }
 
 void FD3D12CommandListManager::SignalFrameComplete(bool WaitForCompletion)
@@ -174,6 +207,13 @@ void FD3D12CommandListManager::SignalFrameComplete(bool WaitForCompletion)
 	if (WaitForCompletion)
 	{
 		Fence.WaitForFence(SignaledFence);
+	}
+
+	// Release the resource barrier command allocator.
+	if (ResourceBarrierCommandAllocator != nullptr)
+	{
+		ResourceBarrierCommandAllocatorManager.ReleaseCommandAllocator(ResourceBarrierCommandAllocator);
+		ResourceBarrierCommandAllocator = nullptr;
 	}
 }
 
@@ -245,13 +285,14 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 	FD3D12CommandListHandle BarrierCommandList[128];
 	if (NeedsResourceBarriers)
 	{
-#if UE_BUILD_DEBUG	
+		//#todo-rco: Need verification from MS
+#if 0//UE_BUILD_DEBUG	
 		if (!ResourceStateCS.TryLock())
 		{
 			FD3D12DynamicRHI::GetD3DRHI()->SubmissionLockStalls++;
 			// We don't think this will get hit but it's possible. If we do see this happen,
 			// we should evaluate how often and why this is happening
-			check(0); 
+			check(0);
 		}
 #endif
 		FScopeLock Lock(&ResourceStateCS);
@@ -260,7 +301,7 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 		{
 			FD3D12CommandListHandle& commandList = Lists[i];
 
-			FD3D12CommandListHandle barrierCommandList = {};
+			FD3D12CommandListHandle barrierCommandList ={};
 			const uint32 numBarriers = GetResourceBarrierCommandList(commandList, barrierCommandList);
 			if (numBarriers)
 			{
@@ -268,7 +309,6 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 				BarrierCommandList[barrierCommandListIndex] = barrierCommandList;
 				barrierCommandListIndex++;
 
-				check(barrierCommandList.FenceIndex() == (uint64)-1);
 				barrierCommandList.Close();
 
 				pD3DCommandLists[commandListIndex] = barrierCommandList.CommandList();
@@ -276,8 +316,6 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 
 				check(commandListIndex < 127);
 			}
-
-			check(commandList.FenceIndex() == (uint64)-1);
 
 			pD3DCommandLists[commandListIndex] = commandList.CommandList();
 			commandListIndex++;
@@ -289,31 +327,38 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 		for (int32 i = 0; i < Lists.Num(); i++)
 		{
 			FD3D12CommandListHandle& commandList = Lists[i];
-			check(commandList.FenceIndex() == (uint64)-1);
-
 			pD3DCommandLists[commandListIndex] = commandList.CommandList();
 			commandListIndex++;
 		}
 		SignaledFence = ExecuteAndIncrementFence(pD3DCommandLists, commandListIndex, Fence);
 	}
 
+	FD3D12SyncPoint SyncPoint(&Fence, SignaledFence);
+
 	for (int32 i = 0; i < Lists.Num(); i++)
 	{
 		FD3D12CommandListHandle& commandList = Lists[i];
-		commandList.SetFenceIndex(SignaledFence);
-		ReadyLists.Enqueue(commandList);
+
+		// Set a sync point on the command list so we know when it's current generation is complete on the GPU, then release it so it can be reused later.
+		// Note this also updates the command list's command allocator
+		commandList.SetSyncPoint(SyncPoint);
+		ReleaseCommandList(commandList);
 	}
 
 	for (int32 i = 0; i < barrierCommandListIndex; i++)
 	{
 		FD3D12CommandListHandle& commandList = BarrierCommandList[i];
-		commandList.SetFenceIndex(SignaledFence);
-		ReadyLists.Enqueue(commandList);
+
+		// Set a sync point on the command list so we know when it's current generation is complete on the GPU, then release it so it can be reused later.
+		// Note this also updates the command list's command allocator
+		commandList.SetSyncPoint(SyncPoint);
+		ReleaseCommandList(commandList);
 	}
 
 	if (WaitForCompletion)
 	{
 		Fence.WaitForFence(SignaledFence);
+		check(SyncPoint.IsComplete());
 	}
 }
 
@@ -330,8 +375,8 @@ uint32 FD3D12CommandListManager::GetResourceBarrierCommandList(FD3D12CommandList
 		BarrierDescs.Reserve(NumPendingResourceBarriers);
 
 		// Fill out the descs
-		D3D12_RESOURCE_BARRIER desc = {};
-		desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		D3D12_RESOURCE_BARRIER Desc ={};
+		Desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 
 		for (uint32 i = 0; i < NumPendingResourceBarriers; ++i)
 		{
@@ -343,41 +388,38 @@ uint32 FD3D12CommandListManager::GetResourceBarrierCommandList(FD3D12CommandList
 			CResourceState* pResourceState = PRB.Resource->GetResourceState();
 			check(pResourceState);
 
-			desc.Transition.Subresource = PRB.SubResource;
-			const D3D12_RESOURCE_STATES before = pResourceState->GetSubresourceState(desc.Transition.Subresource);
-			const D3D12_RESOURCE_STATES after = PRB.State;
+			Desc.Transition.Subresource = PRB.SubResource;
+			const D3D12_RESOURCE_STATES Before = pResourceState->GetSubresourceState(Desc.Transition.Subresource);
+			const D3D12_RESOURCE_STATES After = PRB.State;
 
-			check(before != D3D12_RESOURCE_STATE_TBD && before != D3D12_RESOURCE_STATE_CORRUPT);
-			if (before != after)
+			check(Before != D3D12_RESOURCE_STATE_TBD && Before != D3D12_RESOURCE_STATE_CORRUPT);
+			if (Before != After)
 			{
-				desc.Transition.pResource = PRB.Resource->GetResource();
-				desc.Transition.StateBefore = before;
-				desc.Transition.StateAfter = after;
+				Desc.Transition.pResource = PRB.Resource->GetResource();
+				Desc.Transition.StateBefore = Before;
+				Desc.Transition.StateAfter = After;
 
 				// Add the desc
-				BarrierDescs.Add(desc);
+				BarrierDescs.Add(Desc);
 			}
 
 			// Update the state to the what it will be after hList executes
-			const D3D12_RESOURCE_STATES LastState = hList.GetResourceState(PRB.Resource).GetSubresourceState(desc.Transition.Subresource);
-			if (before != LastState)
+			const D3D12_RESOURCE_STATES LastState = hList.GetResourceState(PRB.Resource).GetSubresourceState(Desc.Transition.Subresource);
+			if (Before != LastState)
 			{
-				pResourceState->SetSubresourceState(desc.Transition.Subresource, LastState);
+				pResourceState->SetSubresourceState(Desc.Transition.Subresource, LastState);
 			}
 		}
 
-		// Remove all pendering barriers from the command list
-		PendingResourceBarriers.Reset();
-
-		// Empty tracked resource state for this command list
-		hList.EmptyTrackedResourceState();
-
 		if (BarrierDescs.Num() > 0)
 		{
-			// MSFT: TODO: Use a special pool of "smaller" command lists+allocators, specifically for resource barriers. Makes the cost
-			// of reseting the allocator less. Also consider opening the resource barrier command list while it's being
-			// recorded on another thread.
-			hResourceBarrierList = BeginCommandList(nullptr);
+			// Get a new resource barrier command allocator if we don't already have one.
+			if (ResourceBarrierCommandAllocator == nullptr)
+			{
+				ResourceBarrierCommandAllocator = ResourceBarrierCommandAllocatorManager.ObtainCommandAllocator();
+			}
+
+			hResourceBarrierList = ObtainCommandList(*ResourceBarrierCommandAllocator);
 
 #if DEBUG_RESOURCE_STATES
 			LogResourceBarriers(BarrierDescs.Num(), BarrierDescs.GetData(), hResourceBarrierList.CommandList());
@@ -394,60 +436,35 @@ uint32 FD3D12CommandListManager::GetResourceBarrierCommandList(FD3D12CommandList
 
 void FD3D12CommandListManager::WaitForCompletion(const FD3D12CLSyncPoint& hSyncPoint)
 {
-	// First compare the list handle's generation to the managed list's current generation.  If it's
-	// an older generation, then we know it was completed a while ago.
-	if ((hSyncPoint.Generation) < hSyncPoint.CommandList.CurrentGeneration())
-		return;
-
-	const uint64 ListFenceValue = hSyncPoint.CommandList.FenceIndex();
-	checkf(ListFenceValue != (uint64)-1, TEXT("You can't wait for an unsubmitted command list to complete.  Kick first!"));
-
-	FD3D12Fence& Fence = Fences[FT_CommandList];
-	Fence.WaitForFence(ListFenceValue);
+	hSyncPoint.WaitForCompletion();
 }
 
-bool FD3D12CommandListManager::IsFinished(const FD3D12CLSyncPoint& hSyncPoint, uint64 FenceOffset)
+bool FD3D12CommandListManager::IsComplete(const FD3D12CLSyncPoint& hSyncPoint, uint64 FenceOffset)
 {
 	if (!hSyncPoint)
+	{
 		return false;
+	}
 
-    if (FenceOffset == 0 && hSyncPoint.Generation < hSyncPoint.CommandList.CurrentGeneration())
-		return true;
-
-	const uint64 ListFenceValue = hSyncPoint.CommandList.FenceIndex() + FenceOffset;
-	FD3D12Fence& Fence = Fences[FT_CommandList];
-	return Fence.IsFenceFinished(ListFenceValue);
+	checkf(FenceOffset == 0, TEXT("This currently doesn't support offsetting fence values."));
+	return hSyncPoint.IsComplete();
 }
 
 CommandListState FD3D12CommandListManager::GetCommandListState(const FD3D12CLSyncPoint& hSyncPoint)
 {
 	check(hSyncPoint);
-
-	// First compare the list handle's generation to the managed list's current generation.  If it's
-	// an older generation, then we know it was completed a while ago.
-	if (hSyncPoint.Generation < hSyncPoint.CommandList.CurrentGeneration())
+	if (hSyncPoint.IsComplete())
+	{
 		return CommandListState::kFinished;
-
-	uint64 ListFenceValue = hSyncPoint.CommandList.FenceIndex();
-	if (ListFenceValue == (uint64)-1)
+	}
+	else if (hSyncPoint.Generation == hSyncPoint.CommandList.CurrentGeneration())
+	{
 		return CommandListState::kOpen;
-
-	FD3D12Fence& Fence = Fences[FT_CommandList];
-	return Fence.IsFenceFinished(ListFenceValue) ? CommandListState::kFinished : CommandListState::kQueued;
-}
-
-bool FD3D12CommandListManager::IsFinished(const FD3D12FrameSyncPoint& hSyncPoint)
-{
-	FD3D12Fence& Fence = Fences[FT_Frame];
-	const uint64 FrameFenceValue = hSyncPoint.FrameFence;
-	return Fence.IsFenceFinished(FrameFenceValue);
-}
-
-void FD3D12CommandListManager::WaitForCompletion(const FD3D12FrameSyncPoint& hSyncPoint)
-{
-	FD3D12Fence& Fence = Fences[FT_Frame];
-	const uint64 FrameFenceValue = hSyncPoint.FrameFence;
-	Fence.WaitForFence(FrameFenceValue);
+	}
+	else
+	{
+		return CommandListState::kQueued;
+	}
 }
 
 void FD3D12CommandListManager::WaitForCommandQueueFlush()
@@ -460,10 +477,10 @@ void FD3D12CommandListManager::WaitForCommandQueueFlush()
 	}
 }
 
-FD3D12CommandListHandle FD3D12CommandListManager::CreateCommandListHandle()
+FD3D12CommandListHandle FD3D12CommandListManager::CreateCommandListHandle(FD3D12CommandAllocator& CommandAllocator)
 {
-	FD3D12CommandListHandle List = FD3D12CommandListHandle();
-	List.Create(Direct3DDevice, CommandListType, this);
+	FD3D12CommandListHandle List;
+	List.Create(GetParentDevice()->GetDevice(), CommandListType, CommandAllocator, this);
 	const int64 CommandListCount = FPlatformAtomics::InterlockedIncrement(&NumCommandListsAllocated);
 
 	// If we hit this, we should really evaluate why we need so many command lists, especially since

@@ -129,7 +129,13 @@ void SUTInGameMenu::BuildLeftMenuBar()
 				]
 			];
 
-			PlayerOwner->OpenMapVote(NULL);
+			// Look to see if this player has already voted.
+
+			AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			if (UTPlayerState == nullptr || !UTPlayerState->bHasVoted)
+			{
+				PlayerOwner->OpenMapVote(NULL);
+			}
 		}
 
 		LeftMenuBar->AddSlot()
@@ -324,7 +330,7 @@ void SUTInGameMenu::ShowExitDestinationMenu()
 		.HAlign(HAlign_Center)
 		[
 			SNew(STextBlock)
-			.Text(NSLOCTEXT("ExitMenu", "ExitGameMessage", "Exit the game and return to the opperating system."))
+			.Text(NSLOCTEXT("ExitMenu", "ExitGameMessage", "Exit the game and return to the operating system."))
 			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 			.AutoWrapText(true)
 		]
@@ -499,16 +505,6 @@ void SUTInGameMenu::OnMenuOpened(const FString& Parameters)
 	if (Parameters.Equals(TEXT("forcesummary"),ESearchCase::IgnoreCase))
 	{
 		StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->ShowMatchSummary(true);
-	}
-
-	if (Parameters.Equals(TEXT("say"),ESearchCase::IgnoreCase) || Parameters.Equals(TEXT("teamsay"),ESearchCase::IgnoreCase))
-	{
-		if (Parameters.Equals(TEXT("teamsay"),ESearchCase::IgnoreCase))
-		{
-			StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->SetChatDestination(ChatDestinations::Team);
-		}
-		StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->bCloseOnSubmit = true;
-		StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->FocusChat();
 	}
 }
 

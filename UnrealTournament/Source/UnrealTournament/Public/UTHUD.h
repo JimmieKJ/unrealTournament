@@ -246,7 +246,7 @@ public:
 	/** Creates the scoreboard */
 	virtual void CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass);
 
-	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire);
+	virtual void PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
 
 	/** called when PlayerOwner caused damage to HitPawn */
@@ -302,9 +302,17 @@ public:
 	UPROPERTY(globalconfig)
 	float HUDWidgetWeaponBarEmptyOpacity;
 
+	/** Set true to force weapon bar to immediately update. */
+	UPROPERTY()
+		bool bHUDWeaponBarSettingChanged;
+
 	// Allows the user to override the scaling factor for their hud.
 	UPROPERTY(globalconfig)
 	float HUDWidgetScaleOverride;
+
+	// Allows the user to override the scaling factor for their hud.
+	UPROPERTY(globalconfig)
+		float HUDMessageScaleOverride;
 
 	UPROPERTY(globalconfig)
 	bool bUseWeaponColors;
@@ -313,7 +321,13 @@ public:
 	bool bDrawChatKillMsg;
 
 	UPROPERTY(globalconfig)
-	bool bDrawPopupKillMsg;
+	bool bDrawCenteredKillMsg;
+
+	UPROPERTY(globalconfig)
+	bool bDrawHUDKillIconMsg;
+
+	UPROPERTY(globalconfig)
+	bool bPlayKillSoundMsg;
 
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
@@ -380,6 +394,27 @@ public:
 	// Creates a suffix string based on a value (st, nd, rd, th).
 	FText GetPlaceSuffix(int32 Value);
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+	FText TimerHours;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText TimerMinutes;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText TimerSeconds;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText SuffixFirst;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText SuffixSecond;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText SuffixThird;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUDText)
+		FText SuffixNth;
+
 	void DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);
 	void DrawNumber(int32 Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int32 MinDigits=0, bool bRightAlign=false);
 
@@ -407,9 +442,9 @@ public:
 
 	/**Gets the crosshair for the weapon. Creates a new one if necessary*/
 	UFUNCTION(BlueprintCallable, Category = Crosshair)
-	class UUTCrosshair* GetCrosshair(AUTWeapon* Weapon);
+	class UUTCrosshair* GetCrosshair(TSubclassOf<AUTWeapon> Weapon);
 
-	FCrosshairInfo* GetCrosshairInfo(AUTWeapon* Weapon);
+	FCrosshairInfo* GetCrosshairInfo(TSubclassOf<AUTWeapon> Weapon);
 
 	UPROPERTY()
 	TArray<class UUTCrosshair*> LoadedCrosshairs;
@@ -465,5 +500,7 @@ protected:
 	{
 		return FVector2D(MapToScreen.TransformPosition(MinimapTransform.TransformPosition(InPos)));
 	}
+
+
 };
 

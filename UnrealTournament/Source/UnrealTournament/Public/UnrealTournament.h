@@ -112,6 +112,11 @@ extern UNREALTOURNAMENT_API void SetTimerUFunc(UObject* Obj, FName FuncName, flo
 extern UNREALTOURNAMENT_API bool IsTimerActiveUFunc(UObject* Obj, FName FuncName);
 extern UNREALTOURNAMENT_API void ClearTimerUFunc(UObject* Obj, FName FuncName);
 
+/** get the epic launcher app name we're running from */
+extern UNREALTOURNAMENT_API const FString GetEpicAppName();
+/** get the mcp backend URL */
+extern UNREALTOURNAMENT_API const FString GetBackendBaseUrl();
+
 /** reads stats data for a user and calls the delegate when done
  * NOTE: stats data currently also contains profile item counters!
  * @param StatsId - user ID to query

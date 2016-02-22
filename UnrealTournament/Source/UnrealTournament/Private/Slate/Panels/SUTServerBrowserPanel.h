@@ -387,7 +387,13 @@ public:
 
 	FText GetNumPlayers()
 	{
-		return FText::Format(NSLOCTEXT("HUBBrowser", "NumPlayersFormat", "{0} Players"), FText::AsNumber(NumPlayers));
+		int32 PlayerCount = NumPlayers;
+		for (int32 i=0; i < HUBInstances.Num(); i++)
+		{
+			PlayerCount += HUBInstances[i]->NumPlayers();
+		}
+
+		return FText::Format(NSLOCTEXT("HUBBrowser", "NumPlayersFormat", "{0} Players"), FText::AsNumber(PlayerCount));
 	}
 
 	FText GetNumFriends()
@@ -443,6 +449,19 @@ public:
 	FString GetId()
 	{
 		return (SearchResult.Session.SessionSettings.bIsLANMatch) ? IP : SearchResult.Session.SessionInfo->GetSessionId().ToString();
+	}
+
+	FString GetInstanceGameModeClass(const FString& InstanceId)
+	{
+		for (int i=0; i < HUBInstances.Num(); i++)
+		{
+			if (HUBInstances[i]->InstanceId.ToString() == InstanceId)
+			{
+				return HUBInstances[i]->GameModeClass;
+			}
+		}
+
+		return TEXT("");
 	}
 
 };
@@ -641,6 +660,8 @@ private:
 	virtual void ConstructPanel(FVector2D ViewportSize);	
 
 protected:
+
+	static const int MAXCHARCOUNTFORSERVERFILTER;
 
 	TSharedPtr<SUTBorder> AnimWidget;
 
@@ -852,6 +873,11 @@ protected:
 	FReply OnCancelJoinClick();
 	FReply OnIPClick();
 	void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+	FTimerHandle RefreshTimerHandle;
+	virtual void RefreshSelectedServer();
+
+
 };
 
 #endif

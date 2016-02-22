@@ -148,6 +148,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, UClass* PickupInventoryT
 				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 				Prim->bShouldUpdatePhysicsVolume = false;
 			}
+			NewComp->bAutoRegister = false;
 			NewComp->RegisterComponent();
 			NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
 			// recurse
@@ -207,6 +208,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				{
 					((USkeletalMeshComponent*)PickupMesh)->bForceRefpose = true;
 				}
+				PickupMesh->bAutoRegister = false;
 				PickupMesh->RegisterComponent();
 				PickupMesh->AttachTo(Pickup->GetRootComponent());
 				FVector Offset = Pickup->GetRootComponent()->ComponentToWorld.InverseTransformVectorNoScale(PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation());

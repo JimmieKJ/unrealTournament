@@ -39,7 +39,7 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 	}
 	else
 	{
-		UUTGameplayStatics::UTPlaySound(World, Audio, SpawnedBy, SoundReplication, false, InTransform.GetLocation());
+		UUTGameplayStatics::UTPlaySound(World, Audio, SpawnedBy, SoundReplication, false, InTransform.GetLocation(), Cast<AUTPlayerController>(InstigatedBy), NULL, false);
 
 		if (World->GetNetMode() == NM_DedicatedServer)
 		{

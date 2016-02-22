@@ -255,6 +255,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	FMargin NameColumnPadding = FMargin(10, 4);
 	FMargin ValueColumnPadding = FMargin(0, 4);
+	const float NameColumnForcedSizing = 250.f;
 	
 	float FOVSliderSetting = (GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN);
 
@@ -684,9 +685,13 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						+ SGridPanel::Slot(0, 2)
 						.Padding(NameColumnPadding)
 						[
-							SAssignNew(FOVLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(FText::FromString(GetFOVLabelText(FOVSliderSetting)))
+							SNew(SBox)
+							.WidthOverride(NameColumnForcedSizing)
+							[
+								SAssignNew(FOVLabel, STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+								.Text(FText::FromString(GetFOVLabelText(FOVSliderSetting)))
+							]
 						]
 						+ SGridPanel::Slot(1, 2)
 						.Padding(ValueColumnPadding)

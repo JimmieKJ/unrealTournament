@@ -19,9 +19,6 @@ class UNREALTOURNAMENT_API SUTLobbyInfoPanel : public SUTPanelBase
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
-	// Put focus to the Chat Panel;
-	void FocusChat(const FCharacterEvent& InCharacterEvent);
-
 protected:
 	TSharedPtr<SOverlay> MainOverlay;
 	TSharedPtr<SVerticalBox> LeftPanel;
@@ -59,6 +56,10 @@ protected:
 	virtual void ChatDestionationChanged(FName NewDestination);
 	virtual void RulesetChanged();
 	virtual void PlayerClicked(FUniqueNetIdRepl PlayerId);
+
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
+	virtual void OnHidePanel();
+
 };
 
 #endif

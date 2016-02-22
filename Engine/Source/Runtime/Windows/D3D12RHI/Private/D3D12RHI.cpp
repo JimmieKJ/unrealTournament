@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12RHI.cpp: Unreal D3D RHI library implementation.
@@ -31,16 +31,40 @@ namespace D3D12RHI
 }
 using namespace D3D12RHI;
 
+void FD3D12CommandContext::ConditionalObtainCommandAllocator()
+{
+	if (CommandAllocator == nullptr)
+	{
+		// Obtain a command allocator if the context doesn't already have one.
+		// This will check necessary fence values to ensure the returned command allocator isn't being used by the GPU, then reset it.
+		CommandAllocator = CommandAllocatorManager.ObtainCommandAllocator();
+	}
+}
+
+void FD3D12CommandContext::ReleaseCommandAllocator()
+{
+	if (CommandAllocator != nullptr)
+	{
+		// Release the command allocator so it can be reused.
+		CommandAllocatorManager.ReleaseCommandAllocator(CommandAllocator);
+		CommandAllocator = nullptr;
+	}
+}
+
 void FD3D12CommandContext::OpenCommandList(bool bRestoreState)
 {
 	FD3D12CommandListManager& CommandListManager = GetParentDevice()->GetCommandListManager();
 
+	// Conditionally get a new command allocator.
+	// Each command context uses a new allocator for all command lists with a single frame.
+	ConditionalObtainCommandAllocator();
+
 	// Get a new command list
-	CommandListHandle = CommandListManager.BeginCommandList(StateCache.GetPipelineStateObject());
+	CommandListHandle = CommandListManager.ObtainCommandList(*CommandAllocator);
 
 	CommandListHandle->SetDescriptorHeaps(DescriptorHeaps.Num(), DescriptorHeaps.GetData());
-	CommandListHandle->SetGraphicsRootSignature(GetParentDevice()->GetGraphicsRootSignature());
-	CommandListHandle->SetComputeRootSignature(GetParentDevice()->GetComputeRootSignature());
+	StateCache.ForceSetGraphicsRootSignature();
+	StateCache.ForceSetComputeRootSignature();
 
 	StateCache.GetDescriptorCache()->NotifyCurrentCommandList(CommandListHandle);
 
@@ -59,21 +83,58 @@ void FD3D12CommandContext::OpenCommandList(bool bRestoreState)
 	CommandListHandle.SetCurrentOwningContext(this);
 }
 
-FD3D12CommandListHandle FD3D12CommandContext::FlushCommands(bool WaitForCompletion)
+void FD3D12CommandContext::CloseCommandList()
 {
-	// We should only be flushing the default context
-	check(IsDefaultContext());
+	CommandListHandle.Close();
+}
 
-	// Only submit a command list if it does meaningful work or the flush is expected to wait for completion.
+void FD3D12CommandContext::ExecuteCommandList(bool WaitForCompletion)
+{
+	check(CommandListHandle.IsClosed());
+
+	// Only submit a command list if it does meaningful work or is expected to wait for completion.
 	if (WaitForCompletion || HasDoneWork())
 	{
 #if SUPPORTS_MEMORY_RESIDENCY
 		GetParentDevice()->GetOwningRHI()->GetResourceResidencyManager().MakeResident();
 #endif
-		// Close the current command list
-		CommandListHandle.Close();
 
 		CommandListHandle.Execute(WaitForCompletion);
+	}
+}
+
+FD3D12CommandListHandle FD3D12CommandContext::FlushCommands(bool WaitForCompletion)
+{
+	// We should only be flushing the default context
+	check(IsDefaultContext());
+
+	FD3D12Device* Device = GetParentDevice();
+	const bool bExecutePendingWork = GCommandListBatchingMode == CLB_AggressiveBatching;
+	const bool bHasPendingWork = bExecutePendingWork && (Device->PendingCommandListsTotalWorkCommands > 0);
+	const bool bHasDoneWork = HasDoneWork() || bHasPendingWork;
+
+	// Only submit a command list if it does meaningful work or the flush is expected to wait for completion.
+	if (WaitForCompletion || bHasDoneWork)
+	{
+#if SUPPORTS_MEMORY_RESIDENCY
+		Device->GetOwningRHI()->GetResourceResidencyManager().MakeResident();
+#endif
+		// Close the current command list
+		CloseCommandList();
+
+		if (bHasPendingWork)
+		{
+			// Submit all pending command lists and the current command list
+			Device->PendingCommandLists.Add(CommandListHandle);
+			Device->GetCommandListManager().ExecuteCommandLists(Device->PendingCommandLists, WaitForCompletion);
+			Device->PendingCommandLists.Reset();
+			Device->PendingCommandListsTotalWorkCommands = 0;
+		}
+		else
+		{
+			// Just submit the current command list
+		CommandListHandle.Execute(WaitForCompletion);
+		}
 
 		// Get a new command list to replace the one we submitted for execution. 
 		// Restore the state from the previous command list.
@@ -85,22 +146,44 @@ FD3D12CommandListHandle FD3D12CommandContext::FlushCommands(bool WaitForCompleti
 
 void FD3D12CommandContext::Finish(TArray<FD3D12CommandListHandle>& CommandLists)
 {
+	CloseCommandList();
+
 	if (HasDoneWork())
 	{
-		// Close the current command list
-		CommandListHandle.Close();
-
 		CommandLists.Add(CommandListHandle);
-
-		// Get a new command list to replace the one we submitted for execution
-		OpenCommandList();
 	}
+	else
+	{
+		// Release the unused command list.
+		GetParentDevice()->GetCommandListManager().ReleaseCommandList(CommandListHandle);
+	}
+
+	// The context is done with this command list handle.
+	CommandListHandle = nullptr;
 }
 
 void FD3D12CommandContext::RHIBeginFrame()
 {
 	check(IsDefaultContext());
 	RHIPrivateBeginFrame();
+
+	FD3D12Device* Device = GetParentDevice();
+	FD3D12GlobalOnlineHeap& SamplerHeap = Device->GetGlobalSamplerHeap();
+	const uint32 NumContexts = Device->GetNumContexts();
+
+	if (SamplerHeap.DescriptorTablesDirty())
+	{
+		//Rearrange the set for better look-up performance
+		SamplerHeap.GetUniqueDescriptorTables().Compact();
+	}
+
+	for (uint32 i = 0; i < NumContexts; ++i)
+	{
+		Device->GetCommandContext(i).StateCache.GetDescriptorCache()->BeginFrame();
+	}
+
+	Device->GetGlobalSamplerHeap().ToggleDescriptorTablesDirtyFlag(false);
+
 	UniformBufferBeginFrame();
 	OwningRHI.GPUProfilingData.BeginFrame(&OwningRHI);
 }
@@ -126,7 +209,7 @@ void FD3D12CommandContext::ClearState()
 	{
 		CurrentUAVs[Index] = nullptr;
 	}
-	
+
 	CurrentDepthStencilTarget = nullptr;
 	CurrentDepthTexture = nullptr;
 
@@ -167,8 +250,6 @@ void FD3D12CommandContext::ClearState()
 
 	CurrentComputeShader = nullptr;
 	CurrentBoundShaderState = nullptr;
-
-	UploadHeapAllocator.CleanupFreeBlocks();
 }
 
 void FD3D12CommandContext::CheckIfSRVIsResolved(FD3D12ShaderResourceView* SRV)
@@ -243,7 +324,7 @@ void FD3D12DynamicRHI::IssueLongGPUTask()
 
 		for (int32 ViewportIndex = 0; ViewportIndex < GetRHIDevice()->GetViewports().Num(); ViewportIndex++)
 		{
-            FD3D12Viewport* Viewport = GetRHIDevice()->GetViewports()[ViewportIndex];
+			FD3D12Viewport* Viewport = GetRHIDevice()->GetViewports()[ViewportIndex];
 
 			if (Viewport->GetSizeXY().X * Viewport->GetSizeXY().Y > LargestViewportPixels)
 			{
@@ -254,7 +335,7 @@ void FD3D12DynamicRHI::IssueLongGPUTask()
 
 		if (LargestViewportIndex >= 0)
 		{
-            FD3D12Viewport* Viewport = GetRHIDevice()->GetViewports()[LargestViewportIndex];
+			FD3D12Viewport* Viewport = GetRHIDevice()->GetViewports()[LargestViewportIndex];
 
 			FRHICommandList_RecursiveHazardous RHICmdList(RHIGetDefaultContext());
 
@@ -355,23 +436,40 @@ void FD3D12CommandContext::RHIEndFrame()
 
 	FD3D12Device* Device = GetParentDevice();
 
-	// MSFT: Seb: Is any of this needed? Perhaps there is now a better place to clean up this stuff
-	//TODO: do for all devices?
-	//TODO: move this into the device
+	Device->FirstFrameSeen = true;
+
 	Device->GetDeferredDeletionQueue().ReleaseResources();
 	Device->GetDefaultBufferAllocator().CleanupFreeBlocks();
 
-	for (uint32 i = 0; i < Device->GetNumContexts(); ++i)
+	const uint32 NumContexts = Device->GetNumContexts();
+	for (uint32 i = 0; i < NumContexts; ++i)
     {
-		Device->GetCommandContext(i).StateCache.GetDescriptorCache()->EndFrame();
-		Device->GetCommandContext(i).UploadHeapAllocator.CleanupFreeBlocks();
+		Device->GetCommandContext(i).EndFrame();
 	}
 
-	for (uint32 i = 0; i < FD3D12DynamicRHI::GetD3DRHI()->NumThreadDynamicHeapAllocators; ++i)
-    {
-		FD3D12DynamicHeapAllocator* pCurrentHelperThreadDynamicHeapAllocator = FD3D12DynamicRHI::GetD3DRHI()->ThreadDynamicHeapAllocatorArray[i];
-		check(pCurrentHelperThreadDynamicHeapAllocator != nullptr);
-		pCurrentHelperThreadDynamicHeapAllocator->CleanupFreeBlocks();
+	Device->GetDefaultUploadHeapAllocator().CleanUpAllocations();
+
+	Device->GetTextureAllocator().CleanUpAllocations();
+
+	Device->GetDefaultFastAllocatorPool().CleanUpPages(10);
+	{
+		FScopeLock Lock(Device->GetBufferInitFastAllocator().GetCriticalSection());
+		Device->GetBufferInitFastAllocatorPool().CleanUpPages(10);
+	}
+
+	// The Texture streaming threads share a pool
+	{
+		FD3D12ThreadSafeFastAllocator* pCurrentHelperThreadDynamicHeapAllocator = nullptr;
+		for (uint32 i = 0; i < FD3D12DynamicRHI::GetD3DRHI()->NumThreadDynamicHeapAllocators; ++i)
+		{
+			pCurrentHelperThreadDynamicHeapAllocator = FD3D12DynamicRHI::GetD3DRHI()->ThreadDynamicHeapAllocatorArray[i];
+			if (pCurrentHelperThreadDynamicHeapAllocator)
+			{
+				FScopeLock Lock(pCurrentHelperThreadDynamicHeapAllocator->GetCriticalSection());
+				pCurrentHelperThreadDynamicHeapAllocator->GetPool()->CleanUpPages(10);
+				break;
+			}
+		}
     }
 
 #if SUPPORTS_MEMORY_RESIDENCY
@@ -547,7 +645,8 @@ void FD3D12CommandContext::RHIEndScene()
 void FD3DGPUProfiler::PushEvent(const TCHAR* Name)
 {
 #if WITH_DX_PERF
-	D3DPERF_BeginEvent(FColor(0, 0, 0).DWColor(), Name);
+	// plk hacks
+	//D3DPERF_BeginEvent(Color.DWColor(), Name);
 #endif
 
 	FGPUProfiler::PushEvent(Name);
@@ -648,25 +747,20 @@ FD3D12ResourceLocation::~FD3D12ResourceLocation()
 
 void FD3D12ResourceLocation::InternalReleaseResource()
 {
-	if (LinkedResourceLocation.GetReference() != nullptr)
+	if (IsSubAllocatedFastAlloc)
 	{
-		// This is a FastAlloc resource location object
-		check(BlockInfo.GetReference() == nullptr);
-
-		// Dereference linked resource
-		LinkedResourceLocation = nullptr;
+		Resource = nullptr;
 		return;
 	}
 
-	if (BlockInfo.GetReference() != nullptr)
+	if (BlockInfo != nullptr)
 	{
-		Resource = nullptr;
-
 		FD3D12ResourceAllocator* Allocator = BlockInfo->Allocator;
 		check(!!Allocator);
 
-		Allocator->ExpireBlock(BlockInfo);
+		Allocator->Deallocate(BlockInfo);
 		BlockInfo = nullptr;
+		Resource = nullptr;
 	}
 	else
 	{
@@ -693,6 +787,11 @@ void FD3D12ResourceLocation::Clear()
 {
 	InternalReleaseResource();
 
+	ClearNoUpdate();
+}
+
+void FD3D12ResourceLocation::ClearNoUpdate()
+{
 	EffectiveBufferSize = 0;
 	Resource = nullptr;
 	Offset = 0;
@@ -724,7 +823,7 @@ void FD3D12ResourceLocation::UpdateStateCache(FD3D12StateCache& StateCache)
 
 void FD3D12ResourceLocation::UpdateDefaultStateCache()
 {
-    UpdateStateCache(GetParentDevice()->GetDefaultCommandContext().StateCache);
+	UpdateStateCache(GetParentDevice()->GetDefaultCommandContext().StateCache);
 }
 
 void FD3D12DeferredDeletionQueue::EnqueueResource(FD3D12Resource* pResource)
@@ -753,10 +852,10 @@ FFastVRAMAllocator* FFastVRAMAllocator::GetFastVRAMAllocator()
 }
 #endif
 
-void FD3D12DynamicRHI::GetLocalVideoMemoryInfo (DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo)
+void FD3D12DynamicRHI::GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo)
 {
 	VERIFYD3D11RESULT(MainDevice->GetAdapter3()->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, LocalVideoMemoryInfo));
-}	
+}
 
 #if SUPPORTS_MEMORY_RESIDENCY
 int32 bLogMemoryResidency = 1;
@@ -772,22 +871,24 @@ static FAutoConsoleVariableRef CVarLogMemoryResidency(
 
 const uint32 FD3D12ResourceResidencyManager::MEMORY_PRESSURE_FENCE_THRESHOLD[FD3D12ResourceResidencyManager::MEMORY_PRESSURE_LEVELS] = { 60, 30, 15, 7, 3, 1, 0, 0 };
 
-void FD3D12ResourceResidencyManager::ResourceFreed (FD3D12Resource* Resource)
+void FD3D12ResourceResidencyManager::ResourceFreed(FD3D12Resource* Resource)
 {
-	check (Resource);
+	check(Resource);
 
-	FScopeLock Lock (&CS);
+	FScopeLock Lock(&CS);
 
 	FD3D12ResidencyHandle& Handle = Resource->ResidencyHandle;
 
 	if (!Handle.IsResident)
-		UpdateResidency (Resource);
+	{
+		UpdateResidency(Resource);
+	}
 
 	// Clear any pending resident calls.
 	MakeResident();
-	
-	check (Handle.IsResident && Handle.Index != FD3D12ResidencyHandle::INVALID_INDEX);
-	check (Handle.Index >= 0 && Handle.Index < MAX_RESOURCES)
+
+	check(Handle.IsResident && Handle.Index != FD3D12ResidencyHandle::INVALID_INDEX);
+	check(Handle.Index >= 0 && Handle.Index < MAX_RESOURCES)
 
 	Resources[Handle.Index].LastUsedFence = 0;
 	Resources[Handle.Index].Resource      = nullptr;
@@ -797,40 +898,39 @@ void FD3D12ResourceResidencyManager::ResourceFreed (FD3D12Resource* Resource)
 	ResidentStats.ResourceCount--;
 }
 
-void FD3D12ResourceResidencyManager::UpdateResidency (FD3D12Resource* Resource)
+void FD3D12ResourceResidencyManager::UpdateResidency(FD3D12Resource* Resource)
 {
-	check (Resource);
+	check(Resource);
 
-	FScopeLock Lock (&CS);
+	FScopeLock Lock(&CS);
 
-    FD3D12ResidencyHandle& Handle = Resource->ResidencyHandle;
+	FD3D12ResidencyHandle& Handle = Resource->ResidencyHandle;
 
 	uint64 CurrentFence = GetParentDevice()->GetCommandListManager().GetCurrentFence();
-    
+
 	// Only update once an command list.
 	if (Handle.LastUpdatedFence == CurrentFence)
 		return;
 
-    // Check if the resource is not resident in memory. If it is
-    // not, make it resident as it will be used soon.
-    if (Handle.IsResident == false)
-    {
+	// Check if the resource is not resident in memory. If it is
+	// not, make it resident as it will be used soon.
+	if (Handle.IsResident == false)
+	{
 		MakeResidentResources.Enqueue(Resource->GetResourceUntracked());
 
 		ResidentStats.PendingMemory += Resource->GetResourceSize();
 		ResidentStats.PendingResouceCount++;
-    }
-       
-    // Clear the residency flag to get the previous index
-    // and clear the element.
-    else if (Handle.Index != FD3D12ResidencyHandle::INVALID_INDEX)
-    {
-		check (Handle.Index >= 0 && Handle.Index < MAX_RESOURCES);
+	}
+	else if (Handle.Index != FD3D12ResidencyHandle::INVALID_INDEX)
+	{
+		// Clear the residency flag to get the previous index
+		// and clear the element.
+		check(Handle.Index >= 0 && Handle.Index < MAX_RESOURCES);
 
-        // Free the current element.
-        Resources[Handle.Index].LastUsedFence = 0;
-        Resources[Handle.Index].Resource      = nullptr;
-    }
+		// Free the current element.
+		Resources[Handle.Index].LastUsedFence = 0;
+		Resources[Handle.Index].Resource      = nullptr;
+	}
 
 	// First entry into the manager. Keep track of it's memory.
 	else
@@ -838,10 +938,10 @@ void FD3D12ResourceResidencyManager::UpdateResidency (FD3D12Resource* Resource)
 		ResidentStats.Memory += Resource->GetResourceSize();
 		ResidentStats.ResourceCount++;
 	}
-    
+
 	Handle.IsResident       = true;
 	Handle.LastUpdatedFence = CurrentFence;
-    Handle.Index            = HeadIndex;
+	Handle.Index            = HeadIndex;
 
 	uint32 NewHeadIndex = (HeadIndex + 1) % MAX_RESOURCES;
 
@@ -855,17 +955,17 @@ void FD3D12ResourceResidencyManager::UpdateResidency (FD3D12Resource* Resource)
 	}
 
 	HeadIndex = NewHeadIndex;
-    
-    Resources[Handle.Index].LastUsedFence = CurrentFence;
-    Resources[Handle.Index].Resource      = Resource;
+
+	Resources[Handle.Index].LastUsedFence = CurrentFence;
+	Resources[Handle.Index].Resource      = Resource;
 }
 
 void FD3D12ResourceResidencyManager::Process(uint32 MemoryPressureLevel, uint32 BytesToFree)
 {
-	FScopeLock Lock (&CS);
+	FScopeLock Lock(&CS);
 
 	TArray<ID3D12Resource*> EvictedResources;
-	
+
 	// Any memory pressure levels higher than the stall point should execute the current command list
 	// and wait for it to finish before attempting to evict the memory to ensure it's not in use.
 	if (MemoryPressureLevel >= STALL_MEMORY_PRESSURE_LEVEL || BytesToFree != 0)
@@ -873,50 +973,54 @@ void FD3D12ResourceResidencyManager::Process(uint32 MemoryPressureLevel, uint32 
 		// TODO: Needs to wait for the GPU to idle.
 		//FD3D12DynamicRHI::GetD3DRHI()->COMMANDL>ExecuteCommandListAndWaitForCompletion();
 	}
-	
+
 	uint64 LastCompletedFence = GetParentDevice()->GetCommandListManager().GetLastCompletedFence();
 
 	uint32 MemoryPressureFenceThreshold = (BytesToFree != 0) ? 0 : MEMORY_PRESSURE_FENCE_THRESHOLD[MemoryPressureLevel];
 
 	uint64 FenceThreshold = (LastCompletedFence <= MemoryPressureFenceThreshold) ? 0 : LastCompletedFence - MemoryPressureFenceThreshold;
 
-    while (HeadIndex != TailIndex)
-    {
-        FD3D12Element& Element = Resources[TailIndex];
+	while (HeadIndex != TailIndex)
+	{
+		FD3D12Element& Element = Resources[TailIndex];
 
 		// Check if it's been used too recently.
-        if (Element.LastUsedFence > FenceThreshold)
-            break;
-           
-        if (Element.Resource != nullptr)
-        {
-            // Add to the list of resources to evict.
-			EvictedResources.Add (Element.Resource->GetResourceUntracked());
+		if (Element.LastUsedFence > FenceThreshold)
+		{
+			break;
+		}
+
+		if (Element.Resource != nullptr)
+		{
+			// Add to the list of resources to evict.
+			EvictedResources.Add(Element.Resource->GetResourceUntracked());
 
 			EvictedStats.PendingMemory += Element.Resource->GetResourceSize();
 			EvictedStats.PendingResouceCount++;
-               
-            // Clear the handle.
-            Element.Resource->ResidencyHandle.IsResident       = false;
+
+			// Clear the handle.
+			Element.Resource->ResidencyHandle.IsResident       = false;
 			Element.Resource->ResidencyHandle.LastUpdatedFence = 0;
 			Element.Resource->ResidencyHandle.Index            = FD3D12ResidencyHandle::INVALID_INDEX;
-               
-            // Clear the element.
-            Element.LastUsedFence = 0;
-            Element.Resource      = nullptr;
+
+			// Clear the element.
+			Element.LastUsedFence = 0;
+			Element.Resource      = nullptr;
 
 			// Check if there is a specific amount of memory to be freed and break after it's been reached.
 			if (BytesToFree != 0 && EvictedStats.PendingMemory > BytesToFree)
+			{
 				break;
-        }
-           
-        // Move the tail up.
-        TailIndex = (TailIndex + 1) % MAX_RESOURCES;
-    }
-	
+			}
+		}
+
+		// Move the tail up.
+		TailIndex = (TailIndex + 1) % MAX_RESOURCES;
+	}
+
 	if (EvictedResources.Num())
 	{
-		VERIFYD3D11RESULT (GetParentDevice()->GetDevice()->Evict (EvictedResources.Num(), (ID3D12Pageable**)EvictedResources.GetData()));
+		VERIFYD3D11RESULT(GetParentDevice()->GetDevice()->Evict(EvictedResources.Num(), (ID3D12Pageable**)EvictedResources.GetData()));
 
 		EvictedResources.Empty();
 
@@ -960,11 +1064,11 @@ void FD3D12ResourceResidencyManager::Process(uint32 MemoryPressureLevel, uint32 
 	}
 }
 
-void FD3D12ResourceResidencyManager::FreeMemory (uint32 BytesToFree)
+void FD3D12ResourceResidencyManager::FreeMemory(uint32 BytesToFree)
 {
 	DXGI_QUERY_VIDEO_MEMORY_INFO LocalVideoMemoryInfo;
-	
-	FD3D12DynamicRHI::GetD3DRHI()->GetLocalVideoMemoryInfo (&LocalVideoMemoryInfo);
+
+	FD3D12DynamicRHI::GetD3DRHI()->GetLocalVideoMemoryInfo(&LocalVideoMemoryInfo);
 
 	int64 budget = LocalVideoMemoryInfo.Budget;
 
@@ -972,23 +1076,23 @@ void FD3D12ResourceResidencyManager::FreeMemory (uint32 BytesToFree)
 
 	if (AvailableSpace < BytesToFree)
 	{
-		Process (0, BytesToFree - AvailableSpace);
+		Process(0, BytesToFree - AvailableSpace);
 	}
 }
 
 void FD3D12ResourceResidencyManager::MakeResident()
 {
 	TArray<ID3D12Pageable*> PageableResources;
-	PageableResources.Reserve (128);
+	PageableResources.Reserve(128);
 
 	ID3D12Resource* Resource;
 
 	while (MakeResidentResources.Dequeue(Resource))
-		PageableResources.Add (Resource);
+		PageableResources.Add(Resource);
 
 	if (PageableResources.Num())
 	{
-		HRESULT hresult = GetParentDevice()->GetDevice()->MakeResident (PageableResources.Num(), PageableResources.GetData());
+		HRESULT hresult = GetParentDevice()->GetDevice()->MakeResident(PageableResources.Num(), PageableResources.GetData());
 
 		if (hresult == E_OUTOFMEMORY)
 		{
@@ -996,7 +1100,7 @@ void FD3D12ResourceResidencyManager::MakeResident()
 			{
 				FD3D12DynamicRHI::GetD3DRHI()->GetResourceResidencyManager().Process(MemoryPressureLevel);
 
-				hresult = GetParentDevice()->GetDevice()->MakeResident (PageableResources.Num(), PageableResources.GetData());
+				hresult = GetParentDevice()->GetDevice()->MakeResident(PageableResources.Num(), PageableResources.GetData());
 
 				if (hresult != E_OUTOFMEMORY)
 				{
@@ -1009,7 +1113,7 @@ void FD3D12ResourceResidencyManager::MakeResident()
 			FScopeLock Lock(&CS);
 
 			VERIFYD3D11RESULT(hresult);
-		
+
 			ResidentStats.MemoryChurn			+= ResidentStats.PendingMemory;
 			ResidentStats.ResourceCountChurn	+= ResidentStats.PendingResouceCount;
 

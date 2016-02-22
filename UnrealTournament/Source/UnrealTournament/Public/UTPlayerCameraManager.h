@@ -18,6 +18,12 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 
 	FVector LastThirdPersonCameraLoc;
 
+	FVector LastGoodCamLocation;
+
+	bool bIsForcingGoodCamLoc;
+
+	virtual bool IsValidCamLocation(FVector InLoc);
+
 	UPROPERTY()
 		AActor* LastThirdPersonTarget;
 

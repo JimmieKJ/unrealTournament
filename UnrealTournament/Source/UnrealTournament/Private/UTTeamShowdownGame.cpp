@@ -25,6 +25,7 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	GoalScore = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Team Showdown");
 	bAnnounceTeam = true;
+	QuickPlayersToStart = 6;
 }
 
 void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -32,6 +33,8 @@ void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Option
 	int32 SavedBotFillCount = BotFillCount;
 
 	Super::InitGame(MapName, Options, ErrorMessage);
+
+	bAutoGrantNearestWeapon = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("AutoGrantWeapon")), bAutoGrantNearestWeapon);
 
 	// skip Duel overrides we don't want
 	if (bOfflineChallenge)
@@ -84,6 +87,42 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 {
 	Super::RestartPlayer(aPlayer);
+
+	if (bAutoGrantNearestWeapon)
+	{
+		AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
+		if (UTC != NULL)
+		{
+			AUTPickupWeapon* Best = NULL;
+			float BestDistSq = FMath::Square<float>(2500.0f); // max allowed
+			for (TActorIterator<AUTPickupWeapon> It(GetWorld()); It; ++It)
+			{
+				// note: we don't check if the pickup is active - intentional so that multiple players near a single weapon all get one
+				if (It->GetInventoryType() != NULL && It->GetInventoryType()->IsChildOf(AUTWeapon::StaticClass()))
+				{
+					float DistSq = (It->GetActorLocation() - UTC->GetActorLocation()).SizeSquared();
+					if (DistSq < BestDistSq)
+					{
+						Best = *It;
+						BestDistSq = DistSq;
+					}
+				}
+			}
+			if (Best != NULL)
+			{
+				AUTWeapon* NewWeapon = GetWorld()->SpawnActor<AUTWeapon>(Best->GetInventoryType());
+				if (NewWeapon != NULL)
+				{
+					UTC->AddInventory(NewWeapon, true);
+					// turn off the pickup for the actual game (note that this doesn't prevent further autogrants, see above)
+					if (Best->State.bActive)
+					{
+						Best->StartSleeping();
+					}
+				}
+			}
+		}
+	}
 
 	// go to spectating if dead and can't respawn
 	if (!bAllowPlayerRespawns && IsMatchInProgress() && aPlayer->GetPawn() == NULL)
@@ -168,66 +207,6 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 {
 	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
 	{
-		if (Other != NULL)
-		{
-			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
-			if (OtherPS != NULL && OtherPS->Team != NULL)
-			{
-				OtherPS->SetOutOfLives(true);
-				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
-				AUTTeamInfo* KillerTeam = (KillerPS != NULL && KillerPS->Team != OtherPS->Team) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
-
-				int32 AliveCount = 0;
-				AController* LastAlive = NULL;
-				for (AController* C : OtherPS->Team->GetTeamMembers())
-				{
-					if (C != Other && C->GetPawn() != NULL && !C->GetPawn()->bTearOff)
-					{
-						LastAlive = C;
-						AliveCount++;
-					}
-				}
-				if (AliveCount == 1)
-				{
-					for (AController* C : OtherPS->Team->GetTeamMembers())
-					{
-						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
-						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
-						{
-							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 1, PC->PlayerState, NULL, NULL);
-						}
-					}
-					for (AController* C : KillerTeam->GetTeamMembers())
-					{
-						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
-						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
-						{
-							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 0, PC->PlayerState, NULL, NULL);
-						}
-					}
-				}
-				else if (AliveCount == 0)
-				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(Killer);
-					if (PC && (Killer != Other))
-					{
-						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
-					}
-					KillerTeam->Score += 1;
-					if (LastRoundWinner == NULL)
-					{
-						LastRoundWinner = KillerTeam;
-					}
-					else if (LastRoundWinner != KillerTeam)
-					{
-						LastRoundWinner = NULL; // both teams got a point so nobody won
-					}
-
-					// this is delayed so mutual kills can happen
-					SetTimerUFunc(this, FName(TEXT("StartIntermission")), 1.0f, false);
-				}
-			}
-		}
 		if (Killer != Other && Killer != NULL && UTGameState->OnSameTeam(Killer, Other))
 		{
 			// AUTGameMode doesn't handle team kills and AUTTeamDMGameMode would change the team score so we need to do it ourselves
@@ -256,13 +235,81 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 				{
 					KillerPlayerState->AdjustScore(+100);
 					KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
-					CheckScore(KillerPlayerState);
 				}
 
 				if (!bFirstBloodOccurred)
 				{
 					BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
 					bFirstBloodOccurred = true;
+				}
+			}
+		}
+		if (Other != NULL)
+		{
+			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
+			if (OtherPS != NULL && OtherPS->Team != NULL)
+			{
+				OtherPS->SetOutOfLives(true);
+				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
+				AUTTeamInfo* KillerTeam = (KillerPS != NULL && KillerPS->Team != OtherPS->Team) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
+
+				int32 AliveCount = 0;
+				AController* LastAlive = NULL;
+				int32 TeamCount = 0;
+				for (AController* C : OtherPS->Team->GetTeamMembers())
+				{
+					if (C != Other && C->GetPawn() != NULL && !C->GetPawn()->bTearOff)
+					{
+						LastAlive = C;
+						AliveCount++;
+					}
+					TeamCount++;
+				}
+				if (AliveCount == 1)
+				{
+					for (AController* C : OtherPS->Team->GetTeamMembers())
+					{
+						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 1, PC->PlayerState, NULL, NULL);
+						}
+					}
+					for (AController* C : KillerTeam->GetTeamMembers())
+					{
+						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 0, PC->PlayerState, NULL, NULL);
+						}
+					}
+				}
+				else if (AliveCount == 0)
+				{
+					AUTPlayerController* PC = Cast<AUTPlayerController>(Killer);
+					if (PC && (Killer != Other))
+					{
+						if (KillerPS && (KillerPS->RoundKills >= FMath::Min(3, TeamCount)))
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+						}
+						else
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+						}
+					}
+					KillerTeam->Score += 1;
+					if (LastRoundWinner == NULL)
+					{
+						LastRoundWinner = KillerTeam;
+					}
+					else if (LastRoundWinner != KillerTeam)
+					{
+						LastRoundWinner = NULL; // both teams got a point so nobody won
+					}
+
+					// this is delayed so mutual kills can happen
+					SetTimerUFunc(this, FName(TEXT("StartIntermission")), 1.0f, false);
 				}
 			}
 		}
@@ -377,6 +424,7 @@ void AUTTeamShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePrope
 {
 	Super::CreateGameURLOptions(MenuProps);
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
+	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bAutoGrantNearestWeapon, TEXT("AutoGrantWeapon"))));
 }
 #if !UE_SERVER
 void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
@@ -384,6 +432,7 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 	CreateGameURLOptions(ConfigProps);
 
 	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("BotFill")));
+	TSharedPtr< TAttributePropertyBool > GrantWeaponAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("AutoGrantWeapon")));
 
 	if (CombatantsAttr.IsValid())
 	{
@@ -437,5 +486,50 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 	}
 
 	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
+
+	MenuSpace->AddSlot()
+	.AutoHeight()
+	.VAlign(VAlign_Top)
+	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SBox)
+			.WidthOverride(350)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("UTGameMode", "AutoGrantWeapon", "Auto Pickup Nearest Weapon"))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(20.0f, 0.0f, 0.0f, 10.0f)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			[
+				bCreateReadOnly ?
+				StaticCastSharedRef<SWidget>(
+				SNew(SCheckBox)
+				.IsChecked(GrantWeaponAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+				.ForegroundColor(FLinearColor::White)
+				.Type(ESlateCheckBoxType::CheckBox)
+				) :
+				StaticCastSharedRef<SWidget>(
+				SNew(SCheckBox)
+				.IsChecked(GrantWeaponAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+				.OnCheckStateChanged(GrantWeaponAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+				.ForegroundColor(FLinearColor::White)
+				.Type(ESlateCheckBoxType::CheckBox)
+				)
+			]
+		]
+	];
 }
 #endif

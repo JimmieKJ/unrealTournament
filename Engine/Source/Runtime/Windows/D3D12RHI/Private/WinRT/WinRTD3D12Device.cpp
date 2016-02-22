@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "D3D12RHIPrivate.h"
 
@@ -10,7 +10,7 @@ bool FD3D12DynamicRHIModule::IsSupported()
 
 FDynamicRHI* FD3D12DynamicRHIModule::CreateRHI()
 {
-	FDynamicRHI* DynamicRHI = new FD3D12DynamicRHI(NULL,D3D_FEATURE_LEVEL_11_0,ChosenAdapter.AdapterIndex);
+	FDynamicRHI* DynamicRHI = new FD3D12DynamicRHI(NULL, D3D_FEATURE_LEVEL_11_0, ChosenAdapter.AdapterIndex);
 	if (DynamicRHI)
 	{
 		// Initialize the RHI capabilities.
@@ -54,37 +54,44 @@ bool FD3D12DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 
 	HRESULT hr = S_OK;
 	TRefCountPtr<IDXGIAdapter> Adapter;
-	hr = DXGIFactory->EnumAdapters(ChosenAdapter,Adapter.GetInitReference());
+	hr = DXGIFactory->EnumAdapters(ChosenAdapter, Adapter.GetInitReference());
 
-	if( DXGI_ERROR_NOT_FOUND == hr )
+	if (DXGI_ERROR_NOT_FOUND == hr)
+	{
 		return false;
-	if( FAILED(hr) )
+	}
+	if (FAILED(hr))
+	{
 		return false;
+	}
 
 	// get the description of the adapter
 	DXGI_ADAPTER_DESC AdapterDesc;
 	VERIFYD3D11RESULT(Adapter->GetDesc(&AdapterDesc));
 
 	int32 CurrentOutput = 0;
-	do 
+	do
 	{
 		TRefCountPtr<IDXGIOutput> Output;
-		hr = Adapter->EnumOutputs(CurrentOutput,Output.GetInitReference());
-		if(DXGI_ERROR_NOT_FOUND == hr)
+		hr = Adapter->EnumOutputs(CurrentOutput, Output.GetInitReference());
+		if (DXGI_ERROR_NOT_FOUND == hr)
+		{
 			break;
-		if(FAILED(hr))
+		}
+		if (FAILED(hr))
+		{
 			return false;
-
+		}
 		// TODO: GetDisplayModeList is a terribly SLOW call.  It can take up to a second per invocation.
 		//  We might want to work around some DXGI badness here.
 		DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		uint32 NumModes = 0;
 		hr = Output->GetDisplayModeList(Format, 0, &NumModes, NULL);
-		if(hr == DXGI_ERROR_NOT_FOUND)
+		if (hr == DXGI_ERROR_NOT_FOUND)
 		{
 			continue;
 		}
-		else if(hr == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
+		else if (hr == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
 		{
 			UE_LOG(LogD3D12RHI, Fatal,
 				TEXT("This application cannot be run over a remote desktop configuration")
@@ -92,10 +99,10 @@ bool FD3D12DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 			return false;
 		}
 
-		DXGI_MODE_DESC* ModeList = new DXGI_MODE_DESC[ NumModes ];
+		DXGI_MODE_DESC* ModeList = new DXGI_MODE_DESC[NumModes];
 		VERIFYD3D11RESULT(Output->GetDisplayModeList(Format, 0, &NumModes, ModeList));
 
-		for(uint32 m = 0;m < NumModes;m++)
+		for (uint32 m = 0;m < NumModes;m++)
 		{
 			if (((int32)ModeList[m].Width >= MinAllowableResolutionX) &&
 				((int32)ModeList[m].Width <= MaxAllowableResolutionX) &&
@@ -146,8 +153,9 @@ bool FD3D12DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 
 		++CurrentOutput;
 
-	// TODO: Cap at 1 for default output
-	} while(CurrentOutput < 1);
+		// TODO: Cap at 1 for default output
+	}
+	while (CurrentOutput < 1);
 
 	return true;
 }

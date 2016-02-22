@@ -1,4 +1,3 @@
-
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
@@ -81,6 +80,7 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
 	if (GameMode)
 	{
+		ServerInfo.CurrentGameMode = GameMode->GetFullName();
 		ServerInfo.ServerRules = TEXT("");
 		GameMode->BuildServerResponseRules(ServerInfo.ServerRules);	
 	}

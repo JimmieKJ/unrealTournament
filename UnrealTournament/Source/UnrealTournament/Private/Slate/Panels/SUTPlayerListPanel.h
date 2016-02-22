@@ -47,6 +47,9 @@ public:
 	// Will be true if this player is in any match
 	bool bIsInAnyMatch;
 
+	// Will be set to the TrackedMatchId that this player is in
+	int32 TrackedMatchId;
+
 	// Will be true if this player is the host of a match (only useful in hubs)
 	bool bIsHost;
 
@@ -66,6 +69,10 @@ public:
 
 	float SortOrder;
 
+	int32 RankCheck;
+
+	int32 XP;
+
 	TWeakObjectPtr<AUTPlayerState> PlayerState;
 
 	FTrackedPlayer(FString inHeaderText, ETrackedPlayerType::Type inEntryType)
@@ -75,11 +82,12 @@ public:
 		bPendingKill = false;
 		TeamNum = 255;
 		bIsInMatch = false;
+		bIsInAnyMatch = false;
 		bIsHost = false;
 		bInInstance = false;
 	}
 
-	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator)
+	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator, int32 inRankCheck, int32 inXP)
 		: PlayerID(inPlayerID)
 		, PlayerName(inPlayerName)
 		, Avatar(inAvatar)
@@ -88,18 +96,21 @@ public:
 		, TeamNum(inTeamNum)
 		, bIsSpectator(inbIsSpectator)
 		, PlayerState(inPlayerState)
+		, RankCheck(inRankCheck)
+		, XP(inXP)
 	{
 		bPendingKill = false;
 		TeamNum = 255;
 		bIsInMatch = false;
+		bIsInAnyMatch = false;
 		bIsHost = false;
 		EntryType = ETrackedPlayerType::Player;
 		bInInstance = inPlayerState == NULL;
 	}
 
-	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator)
+	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator, int32 inRankCheck, int32 inXP)
 	{
-		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost, inbIsSpectator));
+		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost, inbIsSpectator, inRankCheck, inXP));
 	}
 
 	static TSharedRef<FTrackedPlayer> MakeHeader(FString inHeaderText, ETrackedPlayerType::Type inEntryType)
@@ -150,6 +161,17 @@ public:
 		return FText::GetEmpty();
 	}
 
+	FText GetMatchId() const
+	{
+		return FText::AsNumber(TrackedMatchId);
+	}
+
+
+	EVisibility GetMatchIdVis() const
+	{
+		return (bIsInAnyMatch && !bIsInMatch) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
 	const FSlateBrush* GetAvatar() const
 	{
 		if (Avatar == NAME_None) 
@@ -164,41 +186,61 @@ public:
 
 	const FSlateBrush* GetBadge() const
 	{
-		int32 Badge;
-		int32 Level;
+		int32 Badge = 0;
+		int32 Level = 0;
 
 		if (PlayerState.IsValid())
 		{
-			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
-			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-			if (DefaultGame)
+			AUTBaseGameMode* BaseGame = nullptr;
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
+			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
 			{
-				bool bEloIsValid = false;
-				int32 EloRating = DefaultGame->GetEloFor(PlayerState.Get(), bEloIsValid);
-				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
-				Badge = FMath::Clamp<int32>(Badge, 0, 3);
-				FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
-				return SUTStyle::Get().GetBrush(*BadgeStr);
+				BaseGame = LobbyPlayerState->CurrentMatch->CurrentRuleset->GetDefaultGameModeObject();
 			}
+			else
+			{
+				// Attempt to use the GameMode
+				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
 		}
-		return SUTStyle::Get().GetBrush("UT.NoStyle");
+		else
+		{
+			AUTPlayerState::SplitRankCheck(RankCheck, Badge,Level);
+		}
+
+		Badge = FMath::Clamp<int32>(Badge, 0, 3);
+		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
+		return SUTStyle::Get().GetBrush(*BadgeStr);
 	}
 
 	FText GetRank()
 	{
-		int32 Badge;
-		int32 Level = 1;
+		int32 Badge = 0;
+		int32 Level = 0;
 
 		if (PlayerState.IsValid())
 		{
-			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
-			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-			if (DefaultGame)
+			AUTBaseGameMode* BaseGame = nullptr;
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
+			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
 			{
-				bool bEloIsValid = false;
-				int32 EloRating = DefaultGame->GetEloFor(PlayerState.Get(), bEloIsValid);
-				UUTLocalPlayer::GetBadgeFromELO(EloRating, bEloIsValid, Badge, Level);
+				BaseGame = LobbyPlayerState->CurrentMatch->CurrentRuleset->GetDefaultGameModeObject();
 			}
+			else
+			{
+				// Attempt to use the GameMode
+				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
+		}
+		else
+		{
+			AUTPlayerState::SplitRankCheck(RankCheck, Badge,Level);
 		}
 
 		return FText::AsNumber(Level+1);
@@ -207,7 +249,7 @@ public:
 	const FSlateBrush* GetXPStarImage() const
 	{
 		int32 Star = 0;
-		UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState.IsValid() ? PlayerState->GetPrevXP() : 0), Star);
+		UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState.IsValid() ? PlayerState->GetPrevXP() : XP), Star);
 		if (Star > 0 && Star <= 5)
 		{
 			FString StarStr = FString::Printf(TEXT("UT.RankStar.%i.Tiny"), Star-1);
@@ -216,8 +258,6 @@ public:
 
 		return SUTStyle::Get().GetBrush("UT.RankStar.Empty");
 	}
-
-
 
 };
 
@@ -292,6 +332,8 @@ protected:
 	void BuildInvite();
 
 	FReply OnMatchInviteAction(bool bAccept);
+
+	TSharedRef<SWidget> GetPlayerMatchId(TSharedPtr<FTrackedPlayer> TrackedPlayer);
 
 };
 

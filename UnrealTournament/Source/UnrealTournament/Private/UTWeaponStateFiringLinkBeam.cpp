@@ -24,7 +24,7 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 		}
 
 		//Special case for hidden weapons since we really need the MuzzleFlash to play for the link beam
-		if (LinkGun->ShouldPlay1PVisuals() && LinkGun->GetWeaponHand() == HAND_Hidden)
+		if (LinkGun->ShouldPlay1PVisuals() && LinkGun->GetWeaponHand() == EWeaponHand::HAND_Hidden)
 		{
 			if (LinkGun->MuzzleFlash.IsValidIndex(LinkGun->GetCurrentFireMode()) && LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()] != NULL && LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()]->Template != NULL)
 			{
@@ -52,8 +52,36 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
     }
 }
 
+void UUTWeaponStateFiringLinkBeam::EndFiringSequence(uint8 FireModeNum)
+{
+	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+	if (LinkGun && !LinkGun->IsLinkPulsing())
+	{
+		Super::EndFiringSequence(FireModeNum);
+		if (FireModeNum == GetOuterAUTWeapon()->GetCurrentFireMode())
+		{
+			GetOuterAUTWeapon()->GotoActiveState();
+		}
+	}
+	else
+	{
+		bPendingEndFire = true;
+	}
+}
+
+
+void UUTWeaponStateFiringLinkBeam::RefireCheckTimer()
+{
+	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+	if (!LinkGun || !LinkGun->IsLinkPulsing())
+	{
+		Super::RefireCheckTimer();
+	}
+}
+
 void UUTWeaponStateFiringLinkBeam::EndState()
 {
+	bPendingEndFire = false;
     AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
 	if (LinkGun->GetLinkTarget() != nullptr)
     {
@@ -65,22 +93,23 @@ void UUTWeaponStateFiringLinkBeam::EndState()
 
 void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 {
+	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+	if (LinkGun && (LinkGun->Role == ROLE_Authority))
+	{
+		LinkGun->bLinkCausingDamage = false;
+	}
+	if (bPendingEndFire && (!LinkGun || !LinkGun->IsLinkPulsing()))
+	{
+		EndFiringSequence(1);
+		return;
+	}
 	HandleDelayedShot();
 	
-	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
     if (LinkGun && !LinkGun->FireShotOverride() && LinkGun->InstantHitInfo.IsValidIndex(LinkGun->GetCurrentFireMode()))
     {
-		if (GetWorld()->GetTimeSeconds() - LinkGun->LastBeamPulseTime < LinkGun->BeamPulseInterval)
+		if (LinkGun->IsLinkPulsing())
 		{
-			if (LinkGun->PulseTarget && !LinkGun->PulseTarget->IsPendingKillPending())
-			{
-				LinkGun->PulseLoc = LinkGun->PulseTarget->GetActorLocation();
-				LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseTarget->GetActorLocation(), LinkGun->GetCurrentFireMode());
-			}
-			else
-			{
-				LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseLoc, LinkGun->GetCurrentFireMode());
-			}
+			LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseLoc, LinkGun->GetCurrentFireMode());
 			return;
 		}
 
@@ -110,9 +139,10 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 		AUTPlayerState* PS = (LinkGun->Role == ROLE_Authority) && LinkGun->GetUTOwner() && LinkGun->GetUTOwner()->Controller ? Cast<AUTPlayerState>(LinkGun->GetUTOwner()->Controller->PlayerState) : NULL;
 		if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && Hit.Actor != LinkGun->GetUTOwner())
         {   
-            // Check to see if our HitActor is linkable, if so, link to it
 			if (LinkGun->Role == ROLE_Authority)
 			{
+				LinkGun->bLinkCausingDamage = true;
+				// Check to see if our HitActor is linkable, if so, link to it
 				if (LinkGun->IsLinkable(Hit.Actor.Get()))
 				{
 					LinkGun->SetLinkTo(Hit.Actor.Get());

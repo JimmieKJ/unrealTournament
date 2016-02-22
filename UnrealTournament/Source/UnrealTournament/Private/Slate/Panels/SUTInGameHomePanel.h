@@ -4,6 +4,7 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "../Base/SUTPanelBase.h"
+#include "../Widgets/SUTChatBar.h"
 #include "../SUWindowsStyle.h"
 
 #if !UE_SERVER
@@ -18,18 +19,6 @@ public:
 	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 	virtual void OnHidePanel();
 
-	FReply virtual ChangeChatDestination(TSharedPtr<SComboButton> Button, FName NewDestination);
-
-	void SetChatDestination(FName NewDestination)
-	{
-		ChatDestination = NewDestination;
-	}
-
-	FText GetChatDestinationText() const;
-	FText GetChatDestinationTag(FName Destination);
-
-	void FocusChat();
-
 	void ShowMatchSummary(bool bInitial);
 	void HideMatchSummary();
 	TSharedPtr<SUTMatchSummaryPanel> GetSummaryPanel();
@@ -39,34 +28,23 @@ public:
 	// If true, submitting text chat will close the menu
 	bool bCloseOnSubmit;
 
+	virtual TSharedPtr<SWidget> GetInitialFocus();
+
 protected:
 
 	bool bFocusSummaryInv;
 
 
-	FName ChatDestination;
-
 	// This is the portion of the UI that contains the chat area
+	TSharedPtr<SUTChatBar> ChatBar;
+	
 	TSharedPtr<SVerticalBox> ChatArea;
-
-	// The Vertical Box that makes up the menu
-	TSharedPtr<SVerticalBox> ChatMenu;
 
 	// This is the portion of the UI that contains the menu area
 	TSharedPtr<SVerticalBox> MenuArea;
 
-	TSharedPtr<SComboButton> ChatDestinationsButton;
-	TSharedPtr<SEditableTextBox> ChatText;
-	TSharedRef<SWidget> BuildChatDestinationsButton();
-
 	TSharedPtr<SOverlay> SummaryOverlay;
 	TSharedPtr<SUTMatchSummaryPanel> SummaryPanel;
-	TSharedPtr<STextBlock> TypeMsg;
-
-	virtual void BuildChatDestinationMenu();
-
-	virtual void ChatTextChanged(const FText& NewText);
-	virtual void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
 	virtual bool SupportsKeyboardFocus() const override
 	{

@@ -75,6 +75,12 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	/** Timer to update replicated team leaders. */
 	virtual void UpdateTeamLeaders();
 
+	/** Returns average Elo of team members for passed in gamemode. */
+	virtual int32 AverageEloFor(class AUTGameMode* GameMode);
+
+	/** Return team member closest to this Elo. */
+	virtual AController* MemberClosestToElo(class AUTGameMode* GameMode, int32 DesiredElo);
+
 	virtual void BeginPlay() override;
 	virtual void Destroyed() override;
 

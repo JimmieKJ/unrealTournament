@@ -212,8 +212,8 @@ FReply SUTComboButton::SimpleSubMenuButtonClicked(int32 MenuItemIndex)
 
 void SUTComboButton::OnMenuDismissed()
 {
-	SMenuAnchor::OnMenuDismissed();
 	SetIsOpen(false, false);
+	SMenuAnchor::OnMenuDismissed();
 }
 
 void SUTComboButton::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
@@ -240,38 +240,46 @@ void SUTComboButton::UTOnButtonClicked(int32 ButtonIndex)
 		bDismissedThisTick = false;
 		TSharedPtr<SWidget> Content = nullptr;
 
-		// Button was clicked; show the popup.
-		// Do nothing if clicking on the button also dismissed the menu, because we will end up doing the same thing twice.
-		this->SetIsOpen( ShouldOpenDueToClick(), bIsFocusable );
-
-		// If the menu is open, execute the related delegate.
-		if( IsOpen() && OnSubmenuShown.IsBound() )
+		if (ShouldOpenDueToClick())
 		{
-			OnSubmenuShown.Execute();
-		}
+			// Button was clicked; show the popup.
+			// Do nothing if clicking on the button also dismissed the menu, because we will end up doing the same thing twice.
+			this->SetIsOpen( true, bIsFocusable );
 
-		// Focusing any newly-created widgets must occur after they have been added to the UI root.
-		FReply ButtonClickedReply = FReply::Handled();
+			// If the menu is open, execute the related delegate.
+			if( OnSubmenuShown.IsBound() )
+			{
+				OnSubmenuShown.Execute();
+			}
+
+			// Focusing any newly-created widgets must occur after they have been added to the UI root.
+			FReply ButtonClickedReply = FReply::Handled();
 	
-		if (bIsFocusable)
+			if (bIsFocusable)
+			{
+				TSharedPtr<SWidget> WidgetToFocus = WidgetToFocusPtr.Pin();
+				if (!WidgetToFocus.IsValid())
+				{
+					// no explicitly focused widget, try to focus the content
+					WidgetToFocus = Content;
+				}
+
+				if (!WidgetToFocus.IsValid())
+				{
+					// no content, so try to focus the original widget set on construction
+					WidgetToFocus = ContentWidgetPtr.Pin();
+				}
+
+				if (WidgetToFocus.IsValid())
+				{
+					ButtonClickedReply.SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
+				}
+			}
+		}
+		else
 		{
-			TSharedPtr<SWidget> WidgetToFocus = WidgetToFocusPtr.Pin();
-			if (!WidgetToFocus.IsValid())
-			{
-				// no explicitly focused widget, try to focus the content
-				WidgetToFocus = Content;
-			}
-
-			if (!WidgetToFocus.IsValid())
-			{
-				// no content, so try to focus the original widget set on construction
-				WidgetToFocus = ContentWidgetPtr.Pin();
-			}
-
-			if (WidgetToFocus.IsValid())
-			{
-				ButtonClickedReply.SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
-			}
+			OnMenuDismissed();
+			MyButton->UnPressed();
 		}
 	}
 

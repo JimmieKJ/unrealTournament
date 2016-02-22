@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Implementation of Device Context State Caching to improve draw
 //	thread performance by removing redundant device context calls.
@@ -29,95 +29,18 @@
 //#define VERBOSE_DESCRIPTOR_HEAP_DEBUG 1
 
 // The number of view descriptors available per (online) descriptor heap, depending on hardware tier
-#define NUM_VIEW_DESCRIPTORS_TIER_1 250000
-#define NUM_VIEW_DESCRIPTORS_TIER_2 250000
-#define NUM_SAMPLER_DESCRIPTORS 2000
+#define NUM_VIEW_DESCRIPTORS_PER_CONTEXT_TIER_1 250000
+#define NUM_VIEW_DESCRIPTORS_PER_CONTEXT_TIER_2 150000
+#define NUM_SAMPLER_DESCRIPTORS D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE
+#define DESCRIPTOR_HEAP_BLOCK_SIZE 10000
+
+#define NUM_VIEW_DESCRIPTORS_TIER_1 D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1
+#define NUM_VIEW_DESCRIPTORS_TIER_2 D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2
+// Tier 3 Hardware is essentially bounded by available memory
+#define NUM_VIEW_DESCRIPTORS_TIER_3 1500000
 
 // Heap for updating UAV counter values.
 #define COUNTER_HEAP_SIZE 1024 * 64
-
-enum EGraphicsDescriptorTables
-{
-	Graphics_PS_SRVs,
-	Graphics_PS_CBs,
-	Graphics_PS_Samplers,
-	Graphics_VS_SRVs,
-	Graphics_VS_CBs,
-	Graphics_VS_Samplers,
-	Graphics_GS_SRVs,
-	Graphics_GS_CBs,
-	Graphics_GS_Samplers,
-	Graphics_HS_SRVs,
-	Graphics_HS_CBs,
-	Graphics_HS_Samplers,
-	Graphics_DS_SRVs,
-	Graphics_DS_CBs,
-	Graphics_DS_Samplers,
-	Graphics_UAVs,
-	Graphics_DescriptorTableCount,
-};
-
-enum EComputeDescriptorTables
-{
-	Compute_SRVs,
-	Compute_CBs,
-	Compute_Samplers,
-	Compute_UAVs,
-	Compute_DescriptorTableCount,
-};
-
-enum EShaderStageDescriptorTables
-{
-	Descriptors_SRVs,
-	Descriptors_CBs,
-	Descriptors_Samplers,
-	Descriptors_ShaderStageTableCount,
-};
-
-#define NUM_CB_RTL_SLOTS 4
-
-inline uint32 SamplerRTLBindSlot(EShaderFrequency SF)
-{
-	switch (SF)
-	{
-	case SF_Vertex: return Graphics_VS_Samplers;
-	case SF_Pixel: return Graphics_PS_Samplers;
-	case SF_Geometry: return Graphics_GS_Samplers;
-	case SF_Hull: return Graphics_HS_Samplers;
-	case SF_Domain: return Graphics_DS_Samplers;
-
-	default: check(false); // Caller should check compute first if it's an option
-	}
-	return UINT_MAX;
-}
-
-inline uint32 SRVRTLBindSlot(EShaderFrequency SF)
-{
-	switch (SF)
-	{
-	case SF_Vertex: return Graphics_VS_SRVs;
-	case SF_Pixel: return Graphics_PS_SRVs;
-	case SF_Geometry: return Graphics_GS_SRVs;
-	case SF_Hull: return Graphics_HS_SRVs;
-	case SF_Domain: return Graphics_DS_SRVs;
-	default: check(false); // Caller should check compute first if it's an option
-	}
-	return UINT_MAX;
-}
-
-inline uint32 CBCRTLBindSlot(EShaderFrequency SF)
-{
-	switch (SF)
-	{
-	case SF_Vertex: return Graphics_VS_CBs;
-	case SF_Pixel: return Graphics_PS_CBs;
-	case SF_Geometry: return Graphics_GS_CBs;
-	case SF_Hull: return Graphics_HS_CBs;
-	case SF_Domain: return Graphics_DS_CBs;
-	default: check(false); // Caller should check compute first if it's an option
-		return UINT_MAX;
-	}
-}
 
 // Keep set state functions inline to reduce call overhead
 #define D3D12_STATE_CACHE_INLINE FORCEINLINE
@@ -138,8 +61,8 @@ inline void hash_combine(SIZE_T & seed, const T & v)
 #define PSO_IF_MEMCMP_FAILS_RETURN_FALSE( value ) if(FMemory::Memcmp(&lhs.##value, &rhs.##value, sizeof(rhs.##value)) != 0){ return false; }
 
 #define PSO_IF_STRING_COMPARE_FAILS_RETURN_FALSE( value ) \
-	const char* lhString = lhs.##value##; \
-	const char* rhString = rhs.##value##; \
+	const char* const lhString = lhs.##value##; \
+	const char* const rhString = rhs.##value##; \
 	if (lhString != rhString) \
 	{ \
 		if (strcmp(lhString, rhString) != 0) \
@@ -279,6 +202,12 @@ template <> struct equality_pipeline_state_desc<FD3D12ComputePipelineStateDesc>
 		PSO_IF_NOT_EQUAL_RETURN_FALSE(Desc.pRootSignature)
 		PSO_IF_NOT_EQUAL_RETURN_FALSE(Desc.NodeMask)
 		
+		// Shader byte code is hashed with SHA1 (160 bit) so the chances of collision
+		// should be tiny i.e if there were 1 quadrillion shaders the chance of a 
+		// collision is ~ 1 in 10^18. so only do a full check on debug builds
+		PSO_IF_NOT_EQUAL_RETURN_FALSE(CSHash)
+
+#if UE_BUILD_DEBUG
 		if (lhs.Desc.CS.pShaderBytecode != rhs.Desc.CS.pShaderBytecode &&
 			lhs.Desc.CS.BytecodeLength)
 		{
@@ -287,6 +216,7 @@ template <> struct equality_pipeline_state_desc<FD3D12ComputePipelineStateDesc>
 				return false;
 			}
 		}
+#endif
 
 		return true;
 	}
@@ -412,10 +342,10 @@ public:
 	HRESULT CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_HEAP_PROPERTIES& HeapProps, const D3D12_CLEAR_VALUE* ClearValue, FD3D12Resource** ppOutResource);
 	HRESULT CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_HEAP_PROPERTIES& HeapProps, const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, FD3D12Resource** ppOutResource);
 	HRESULT CreateDefaultResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12Resource** ppOutResource);
-	HRESULT CreateBuffer(D3D12_HEAP_TYPE heapType, uint64 heapSize, FD3D12Resource** ppOutResource);
+	HRESULT CreateBuffer(D3D12_HEAP_TYPE heapType, uint64 heapSize, FD3D12Resource** ppOutResource, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE, const D3D12_HEAP_PROPERTIES *pCustomHeapProperties = nullptr);
+	HRESULT CreatePlacedBuffer(ID3D12Heap* BackingHeap, uint64 HeapOffset, D3D12_HEAP_TYPE HeapType, uint64 BufferSize, FD3D12Resource** ppOutResource, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
 
 	FD3D12ResourceHelper(FD3D12Device* InParent);
-
 };
 
 // Vertex Buffer State
@@ -435,6 +365,258 @@ struct FD3D12ConstantBufferState
 
 class FD3D12DynamicRHI;
 
+template< uint32 CPUTableSize>
+struct FD3D12UniqueDescriptorTable
+{
+	FD3D12UniqueDescriptorTable() : GPUHandle({}){};
+	FD3D12UniqueDescriptorTable(FD3D12SamplerArrayDesc KeyIn, CD3DX12_CPU_DESCRIPTOR_HANDLE* Table) : GPUHandle({})
+	{
+		FMemory::Memcpy(&Key, &KeyIn, sizeof(Key));//Memcpy to avoid alignement issues
+		FMemory::Memcpy(CPUTable, Table, Key.Count * sizeof(CD3DX12_CPU_DESCRIPTOR_HANDLE));
+	}
+
+	FORCEINLINE uint32 GetTypeHash(const FD3D12UniqueDescriptorTable& Table)
+	{
+		return uint32(FD3D12PipelineStateCache::HashData((void*)Table.Key.SamplerID, Table.Key.Count * sizeof(Table.Key.SamplerID[0])));
+	}
+
+	FD3D12SamplerArrayDesc Key;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE CPUTable[D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT];
+
+	// This will point to the table start in the global heap
+	D3D12_GPU_DESCRIPTOR_HANDLE GPUHandle;
+};
+
+template<typename FD3D12UniqueDescriptorTable, bool bInAllowDuplicateKeys = false>
+struct FD3D12UniqueDescriptorTableKeyFuncs : BaseKeyFuncs<FD3D12UniqueDescriptorTable, FD3D12UniqueDescriptorTable, bInAllowDuplicateKeys>
+{
+	typedef typename TCallTraits<FD3D12UniqueDescriptorTable>::ParamType KeyInitType;
+	typedef typename TCallTraits<FD3D12UniqueDescriptorTable>::ParamType ElementInitType;
+
+	/**
+	* @return The key used to index the given element.
+	*/
+	static FORCEINLINE KeyInitType GetSetKey(ElementInitType Element)
+	{
+		return Element;
+	}
+
+	/**
+	* @return True if the keys match.
+	*/
+	static FORCEINLINE bool Matches(KeyInitType A, KeyInitType B)
+	{
+		return A.Key == B.Key;
+	}
+
+	/** Calculates a hash index for a key. */
+	static FORCEINLINE uint32 GetKeyHash(KeyInitType Key)
+	{
+		return GetTypeHash(Key.Key);
+	}
+};
+
+typedef FD3D12UniqueDescriptorTable<D3D12_COMMONSHADER_SAMPLER_SLOT_COUNT> FD3D12UniqueSamplerTable;
+
+typedef TSet<FD3D12UniqueSamplerTable, FD3D12UniqueDescriptorTableKeyFuncs<FD3D12UniqueSamplerTable>> FD3D12SamplerSet;
+
+class FD3D12DescriptorCache;
+
+class FD3D12OnlineHeap : public FD3D12DeviceChild
+{
+public:
+	FD3D12OnlineHeap(FD3D12Device* Device, bool CanLoopAround, FD3D12DescriptorCache* _Parent = nullptr) : 
+		DescriptorSize(0)
+		, Desc({})
+		, NextSlotIndex(0)
+		, FirstUsedSlot(0)
+		, Parent(_Parent)
+		, bCanLoopAround(CanLoopAround)
+		, FD3D12DeviceChild(Device){};
+
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUSlotHandle(uint32 Slot) const { return{ CPUBase.ptr + Slot * DescriptorSize }; }
+	D3D12_GPU_DESCRIPTOR_HANDLE GetGPUSlotHandle(uint32 Slot) const { return{ GPUBase.ptr + Slot * DescriptorSize }; }
+
+	uint32 GetDescriptorSize() const { return DescriptorSize; }
+
+	const D3D12_DESCRIPTOR_HEAP_DESC& GetDesc() const { return Desc; }
+
+	// Call this to reserve descriptor heap slots for use by the command list you are currently recording. This will wait if
+	// necessary until slots are free (if they are currently in use by another command list.) If the reservation can be
+	// fulfilled, the index of the first reserved slot is returned (all reserved slots are consecutive.) If not, it will 
+	// throw an exception.
+	bool CanReserveSlots(uint32 NumSlots);
+
+	uint32 ReserveSlots(uint32 NumSlotsRequested);
+
+	void SetNextSlot(uint32 NextSlot);
+
+	ID3D12DescriptorHeap* GetHeap() { return Heap.GetReference(); }
+
+	void SetParent(FD3D12DescriptorCache* InParent) { Parent = InParent; }
+
+	// Roll over behavior depends on the heap type
+	virtual void RollOver() = 0;
+	virtual void NotifyCurrentCommandList(const FD3D12CommandListHandle& CommandListHandle);
+	virtual uint32 GetTotalSize();
+
+	static const uint32 HeapExhaustedValue = uint32(-1);
+
+protected:
+
+	FD3D12DescriptorCache* Parent;
+
+	FD3D12CommandListHandle CurrentCommandList;
+
+	// Handles for manipulation of the heap
+	uint32 DescriptorSize;
+	D3D12_CPU_DESCRIPTOR_HANDLE CPUBase;
+	D3D12_GPU_DESCRIPTOR_HANDLE GPUBase;
+
+	// This index indicate where the next set of descriptors should be placed *if* there's room
+	uint32 NextSlotIndex;
+
+	// Indicates the last free slot marked by the command list being finished
+	uint32 FirstUsedSlot;
+
+	// Keeping this ptr around is basically just for lifetime management
+	TRefCountPtr<ID3D12DescriptorHeap> Heap;
+
+	// Desc contains the number of slots and allows for easy recreation
+	D3D12_DESCRIPTOR_HEAP_DESC Desc;
+
+	const bool bCanLoopAround;
+};
+
+class FD3D12GlobalOnlineHeap : public FD3D12OnlineHeap
+{
+public:
+	FD3D12GlobalOnlineHeap(FD3D12Device* Device)
+		: bUniqueDescriptorTablesAreDirty(false)
+		, FD3D12OnlineHeap(Device, false)
+	{ }
+
+	void Init(uint32 TotalSize, D3D12_DESCRIPTOR_HEAP_TYPE Type);
+
+	void ToggleDescriptorTablesDirtyFlag(bool Value) { bUniqueDescriptorTablesAreDirty = Value; }
+	bool DescriptorTablesDirty() { return bUniqueDescriptorTablesAreDirty; }
+	FD3D12SamplerSet& GetUniqueDescriptorTables() { return UniqueDescriptorTables; }
+	FCriticalSection& GetCriticalSection() { return CriticalSection; }
+
+	void RollOver();
+private:
+
+	FD3D12SamplerSet UniqueDescriptorTables;
+	bool bUniqueDescriptorTablesAreDirty;
+
+	FCriticalSection CriticalSection;
+};
+
+struct FD3D12OnlineHeapBlock
+{
+public:
+	FD3D12OnlineHeapBlock(uint32 _BaseSlot, uint32 _Size) :
+		BaseSlot(_BaseSlot), Size(_Size), SizeUsed(0), bFresh(true){};
+	FD3D12OnlineHeapBlock() : BaseSlot(0), Size(0), SizeUsed(0), bFresh(true){}
+
+	FD3D12CLSyncPoint SyncPoint;
+	uint32 BaseSlot;
+	uint32 Size;
+	uint32 SizeUsed;
+	// Indicates that this has never been used in a Command List before
+	bool bFresh;
+};
+
+class FD3D12SubAllocatedOnlineHeap : public FD3D12OnlineHeap
+{
+public:
+	struct SubAllocationDesc 
+	{
+		SubAllocationDesc() :ParentHeap(nullptr), BaseSlot(0), Size(0){};
+		SubAllocationDesc(FD3D12GlobalOnlineHeap* _ParentHeap, uint32 _BaseSlot, uint32 _Size) :
+			ParentHeap(_ParentHeap), BaseSlot(_BaseSlot), Size(_Size){};
+
+		FD3D12GlobalOnlineHeap* ParentHeap;
+		uint32 BaseSlot;
+		uint32 Size;
+	};
+
+	FD3D12SubAllocatedOnlineHeap(FD3D12Device* Device, FD3D12DescriptorCache* Parent) :
+		FD3D12OnlineHeap(Device, false, Parent){};
+
+	void Init(SubAllocationDesc _Desc);
+
+	// Specializations
+	void RollOver();
+	void NotifyCurrentCommandList(const FD3D12CommandListHandle& CommandListHandle);
+	uint32 GetTotalSize();
+
+private:
+
+	TQueue<FD3D12OnlineHeapBlock> DescriptorBlockPool;
+	SubAllocationDesc SubDesc;
+
+	FD3D12OnlineHeapBlock CurrentSubAllocation;
+};
+
+class FD3D12ThreadLocalOnlineHeap : public FD3D12OnlineHeap
+{
+public:
+	FD3D12ThreadLocalOnlineHeap(FD3D12Device* Device, FD3D12DescriptorCache* _Parent)
+		: FD3D12OnlineHeap(Device, true, _Parent)
+	{ }
+
+	void RollOver();
+
+	void NotifyCurrentCommandList(const FD3D12CommandListHandle& CommandListHandle);
+
+	void Init(uint32 NumDescriptors, D3D12_DESCRIPTOR_HEAP_TYPE Type);
+
+private:
+	struct SyncPointEntry
+	{
+		FD3D12CLSyncPoint SyncPoint;
+		uint32 LastSlotInUse;
+
+		SyncPointEntry() : LastSlotInUse(0)
+		{}
+
+		SyncPointEntry(const SyncPointEntry& InSyncPoint) : SyncPoint(InSyncPoint.SyncPoint), LastSlotInUse(InSyncPoint.LastSlotInUse)
+		{}
+
+		SyncPointEntry& operator = (const SyncPointEntry& InSyncPoint)
+		{
+			SyncPoint = InSyncPoint.SyncPoint;
+			LastSlotInUse = InSyncPoint.LastSlotInUse;
+
+			return *this;
+		}
+	};
+	TQueue<SyncPointEntry> SyncPoints;
+
+	struct PoolEntry
+	{
+		TRefCountPtr<ID3D12DescriptorHeap> Heap;
+		FD3D12CLSyncPoint SyncPoint;
+
+		PoolEntry()
+		{}
+
+		PoolEntry(const PoolEntry& InPoolEntry) : Heap(InPoolEntry.Heap), SyncPoint(InPoolEntry.SyncPoint)
+		{}
+
+		PoolEntry& operator = (const PoolEntry& InPoolEntry)
+		{
+			Heap = InPoolEntry.Heap;
+			SyncPoint = InPoolEntry.SyncPoint;
+
+			return *this;
+		}
+	};
+	PoolEntry Entry;
+	TQueue<PoolEntry> ReclaimPool;
+};
+
 //-----------------------------------------------------------------------------
 //	FD3D12DescriptorCache Class Definition
 //-----------------------------------------------------------------------------
@@ -444,91 +626,44 @@ protected:
 	FD3D12CommandContext* CmdContext;
 
 public:
-	class OnlineHeap
-	{
-		OnlineHeap(FD3D12DescriptorCache* _Parent) 
-		: Parent(_Parent)
-		, Desc({})
-		, DescriptorSize(0)
-		, NextSlotIndex(0)
-		{ }
-
-		friend class FD3D12DescriptorCache;
-		FD3D12DescriptorCache* Parent;
-
-		void SetParent(FD3D12DescriptorCache* InParent) { Parent = InParent; }
-		FD3D12Device* GetParentDevice() { return Parent->GetParentDevice(); }
-
-		// Desc contains the number of slots and allows for easy recreation
-		D3D12_DESCRIPTOR_HEAP_DESC Desc;
-
-		// Keeping this ptr around is basically just for lifetime management
-		TRefCountPtr<ID3D12DescriptorHeap> Heap;
-
-		// Handles for manipulation of the heap
-		uint32 DescriptorSize;
-		D3D12_CPU_DESCRIPTOR_HANDLE CPUBase;
-		D3D12_GPU_DESCRIPTOR_HANDLE GPUBase;
-
-		// This index indicate where the next set of descriptors should be placed *if* there's room
-		uint32 NextSlotIndex;
-
-		FD3D12CommandListHandle CurrentCommandList;
-
-		struct PoolEntry
-		{
-			TRefCountPtr<ID3D12DescriptorHeap> Heap;
-			FD3D12CLSyncPoint SyncPoint;
-		};
-		TQueue<PoolEntry> ReclaimPool;
-
-	public:
-		// Call this to reserve descriptor heap slots for use by the command list you are currently recording. This will wait if
-		// necessary until slots are free (if they are currently in use by another command list.) If the reservation can be
-		// fulfilled, the index of the first reserved slot is returned (all reserved slots are consecutive.) If not, it will 
-		// throw an exception.
-		bool CanReserveSlots(uint32 NumSlots);
-		void RollOver();
-		uint32 ReserveSlots(uint32 NumSlotsRequested);
-		void SetNextSlot(uint32 NextSlot);
-		D3D12_CPU_DESCRIPTOR_HANDLE GetCPUSlotHandle(uint32 Slot) const { return{ CPUBase.ptr + Slot * DescriptorSize }; }
-		D3D12_GPU_DESCRIPTOR_HANDLE GetGPUSlotHandle(uint32 Slot) const { return{ GPUBase.ptr + Slot * DescriptorSize }; }
-	};
-
-	OnlineHeap ViewHeap;
-	OnlineHeap SamplerHeap;
+	FD3D12OnlineHeap* GetCurrentViewHeap() { return CurrentViewHeap; }
+	FD3D12OnlineHeap* GetCurrentSamplerHeap() { return CurrentSamplerHeap; }
 
 	FD3D12DescriptorCache()
-		: ViewHeap(this)
-		, SamplerHeap(this)
+		: LocalViewHeap(nullptr)
+		, SubAllocatedViewHeap(nullptr, this)
+		, LocalSamplerHeap(nullptr, this)
 		, CBVAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1)
 		, ViewHeapSequenceNumber(1) // starts at 1, because 0 means "is not in any heap"
 		, SamplerMap(271) // Prime numbers for better hashing
 		, SRVMap(271)
+		, bUsingGlobalSamplerHeap(false)
+		, CurrentViewHeap(nullptr)
+		, CurrentSamplerHeap(nullptr)
+		, NumLocalViewDescriptors(0)
 		, FD3D12DeviceChild(nullptr)
 	{
 		CmdContext = nullptr;
 	}
 
-	~FD3D12DescriptorCache(){}
+	~FD3D12DescriptorCache()
+	{
+		if (LocalViewHeap) { delete(LocalViewHeap); }
+	}
 
 	inline ID3D12DescriptorHeap *GetViewDescriptorHeap()
 	{
-		return ViewHeap.Heap;
+		return CurrentViewHeap->GetHeap();
 	}
 
 	inline ID3D12DescriptorHeap *GetSamplerDescriptorHeap()
 	{
-		return SamplerHeap.Heap;
+		return CurrentSamplerHeap->GetHeap();
 	}
 
 	// Notify the descriptor cache of the current fence value every time you start recording a command list; this allows
 	// us to avoid querying DX12 for that value thousands of times per frame, which can be costly.
-	inline void NotifyCurrentCommandList(FD3D12CommandListHandle CommandListHandle)
-	{
-		ViewHeap.CurrentCommandList = CommandListHandle;
-		SamplerHeap.CurrentCommandList = CommandListHandle;
-	}
+	void NotifyCurrentCommandList(const FD3D12CommandListHandle& CommandListHandle);
 
 	// ------------------------------------------------------
 	// end Descriptor Slot Reservation stuff
@@ -543,7 +678,7 @@ public:
 
 	void SetIndexBuffer(FD3D12ResourceLocation* IndexBufferLocation, DXGI_FORMAT Format, uint32 Offset);
 	void SetVertexBuffers(FD3D12VertexBufferState* VertexBuffers, uint32 Count);
-	void SetUAVs(EShaderFrequency ShaderStage,uint32 UAVStartSlot, TRefCountPtr<FD3D12UnorderedAccessView>* UnorderedAccessViewArray, uint32 Count, uint32 &HeapSlot);
+	void SetUAVs(EShaderFrequency ShaderStage, uint32 UAVStartSlot, TRefCountPtr<FD3D12UnorderedAccessView>* UnorderedAccessViewArray, uint32 Count, uint32 &HeapSlot);
 	void SetRenderTargets(FD3D12RenderTargetView **RenderTargetViewArray, uint32 Count, FD3D12DepthStencilView* DepthStencilTarget, bool bDepthIsBoundAsSRV);
 	void SetSamplers(EShaderFrequency ShaderStage, FD3D12SamplerState** Samplers, uint32 Count, uint32 &HeapSlot);
 	void SetSRVs(EShaderFrequency ShaderStage, TRefCountPtr<FD3D12ShaderResourceView> * SRVs, uint32 Count, bool* CurrentShaderResourceViewsIntersectWithDepthRT, uint32 &HeapSlot);
@@ -555,9 +690,16 @@ public:
 	void ClearConstantBuffer(EShaderFrequency ShaderStage, uint32 SlotIndex);
 
 	void HeapRolledOver(D3D12_DESCRIPTOR_HEAP_TYPE Type);
-	void Init(FD3D12Device* InParent, FD3D12CommandContext* InCmdContext);
+	void HeapLoopedAround(D3D12_DESCRIPTOR_HEAP_TYPE Type);
+	void Init(FD3D12Device* InParent, FD3D12CommandContext* InCmdContext, uint32 InNumViewDescriptors, uint32 InNumSamplerDescriptors, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc);
 	void Clear();
+	void BeginFrame();
 	void EndFrame();
+	void GatherUniqueSamplerTables();
+
+	void SwitchToContextLocalViewHeap();
+	void SwitchToContextLocalSamplerHeap();
+	void SwitchToGlobalSamplerHeap();
 
 	struct
 	{
@@ -570,17 +712,37 @@ public:
 		CD3DX12_CPU_DESCRIPTOR_HANDLE CBVBaseHandle;
 	} OfflineHeap[SF_NumFrequencies];
 
+	TArray<FD3D12UniqueSamplerTable>& GetUniqueTables() { return UniqueTables; }
+
+	bool UsingGlobalSamplerHeap() { return bUsingGlobalSamplerHeap; }
+	void DisableGlobalSamplerHeap() { bUsingGlobalSamplerHeap = false; }
+	FD3D12SamplerSet& GetLocalSamplerSet() { return LocalSamplerSet; }
+
 private:
+	FD3D12OnlineHeap* CurrentViewHeap;
+	FD3D12OnlineHeap* CurrentSamplerHeap;
+
+	FD3D12ThreadLocalOnlineHeap* LocalViewHeap;
+	FD3D12ThreadLocalOnlineHeap LocalSamplerHeap;
+	FD3D12SubAllocatedOnlineHeap SubAllocatedViewHeap;
+
 	FD3D12SamplerMap SamplerMap;
 	FD3D12SRVMap SRVMap;
 	uint64 ViewHeapSequenceNumber;
+
+	TArray<FD3D12UniqueSamplerTable> UniqueTables;
+
+	FD3D12SamplerSet LocalSamplerSet;
+	bool bUsingGlobalSamplerHeap;
+
+	uint32 NumLocalViewDescriptors;
 };
 
 class FDiskCacheInterface
 {
 	// Increment this if changes are made to the
 	// disk caches so stale caches get updated correctly
-	static const uint32 mCurrentHeaderVersion = 2;
+	static const uint32 mCurrentHeaderVersion = 3;
 	struct FDiskCacheHeader
 	{
 		uint32 mHeaderVersion;
@@ -638,6 +800,50 @@ public:
 
 static bool GCPUSupportsSSE4;
 
+struct FD3D12PipelineStateWorker : public FD3D12DeviceChild, public FNonAbandonableTask
+{
+	FD3D12PipelineStateWorker(FD3D12Device* Device, D3D12_COMPUTE_PIPELINE_STATE_DESC* _Desc)
+		: bIsGraphics(false), FD3D12DeviceChild(Device) { Desc.ComputeDesc = *_Desc; };
+
+	FD3D12PipelineStateWorker(FD3D12Device* Device, D3D12_GRAPHICS_PIPELINE_STATE_DESC* _Desc)
+		: bIsGraphics(true), FD3D12DeviceChild(Device) { Desc.GraphicsDesc = *_Desc; };
+
+	void DoWork();
+
+	FORCEINLINE TStatId GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(FD3D12PipelineStateWorker, STATGROUP_ThreadPoolAsyncTasks); }
+
+	union
+	{
+		D3D12_COMPUTE_PIPELINE_STATE_DESC ComputeDesc;
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC GraphicsDesc;
+	} Desc;
+
+	bool bIsGraphics;
+	TRefCountPtr<ID3D12PipelineState> PSO;
+};
+
+struct FD3D12PipelineState : public FD3D12DeviceChild
+{
+public:
+	FD3D12PipelineState() :Worker(nullptr), FD3D12DeviceChild(nullptr){};
+	FD3D12PipelineState(FD3D12Device* Parent) : Worker(nullptr), FD3D12DeviceChild(Parent){};
+
+	~FD3D12PipelineState();
+
+	void Create(FD3D12ComputePipelineStateDesc* Desc);
+	void CreateAsync(FD3D12ComputePipelineStateDesc* Desc);
+
+	void Create(FD3D12LowLevelGraphicsPipelineStateDesc* Desc);
+	void CreateAsync(FD3D12LowLevelGraphicsPipelineStateDesc* Desc);
+
+	ID3D12PipelineState* GetPipelineState();
+
+private:
+	TRefCountPtr<ID3D12PipelineState> PipelineState;
+
+	FAsyncTask<FD3D12PipelineStateWorker>*	Worker;
+};
+
 class FD3D12PipelineStateCache : public FD3D12DeviceChild
 {
 private:
@@ -668,7 +874,7 @@ private:
 		}
 	};
 
-	template <typename TDesc, typename TValue = TRefCountPtr<ID3D12PipelineState>>
+	template <typename TDesc, typename TValue = FD3D12PipelineState>
 	using TPipelineCache = TMap<TDesc, TValue, FDefaultSetAllocator, TStateCacheKeyFuncs<TDesc, TValue>>;
 
 	TPipelineCache<FD3D12HighLevelGraphicsPipelineStateDesc, TPair<ID3D12PipelineState*, uint64>> HighLevelGraphicsPipelineStateCache;
@@ -678,10 +884,10 @@ private:
 	FCriticalSection CS;
 	FDiskCacheInterface DiskCaches[NUM_PSO_CACHE_TYPES];
 
-	ID3D12PipelineState* Add(FD3D12LowLevelGraphicsPipelineStateDesc &graphicsPSODesc, bool insertIntoDiskCache = false);
-	ID3D12PipelineState* Add(FD3D12ComputePipelineStateDesc &computePSODesc, bool insertIntoDiskCache = false);
+	ID3D12PipelineState* Add(FD3D12LowLevelGraphicsPipelineStateDesc &graphicsPSODesc);
+	ID3D12PipelineState* Add(FD3D12ComputePipelineStateDesc &computePSODesc);
 
-	ID3D12PipelineState* FindGraphicsLowLevel(FD3D12LowLevelGraphicsPipelineStateDesc &graphicsPSODesc, bool insertIntoDiskCache = false);
+	ID3D12PipelineState* FindGraphicsLowLevel(FD3D12LowLevelGraphicsPipelineStateDesc &graphicsPSODesc);
 
 #if UE_BUILD_DEBUG
 	uint64 GraphicsCacheRequestCount = 0;
@@ -691,10 +897,10 @@ private:
 #endif
 
 public:
-	void RebuildFromDiskCache(ID3D12RootSignature* pGraphicsRootSig, ID3D12RootSignature* pComputeRootSignature);
+	void RebuildFromDiskCache();
 
-	ID3D12PipelineState* FindGraphics(FD3D12HighLevelGraphicsPipelineStateDesc &graphicsPSODesc, ID3D12RootSignature* rootSignature, bool insertIntoDiskCache = false);
-	ID3D12PipelineState* FindCompute(FD3D12ComputePipelineStateDesc &computePSODesc, bool insertIntoDiskCache = false);
+	ID3D12PipelineState* FindGraphics(FD3D12HighLevelGraphicsPipelineStateDesc &graphicsPSODesc);
+	ID3D12PipelineState* FindCompute(FD3D12ComputePipelineStateDesc &computePSODesc);
 
 	void Close();
 
@@ -709,6 +915,8 @@ public:
 	FD3D12PipelineStateCache(FD3D12Device* InParent);
 	~FD3D12PipelineStateCache();
 
+	FD3D12PipelineStateCache& operator=(const FD3D12PipelineStateCache&);
+
 	static const bool bUseAPILibaries = false;
 };
 
@@ -716,25 +924,25 @@ class FD3D12BitArray
 {
 public:
 
-	FD3D12BitArray() : Array (0) {}
-	FD3D12BitArray (uint32 InArray) : Array (InArray) {}
+	FD3D12BitArray() : Array(0) {}
+	FD3D12BitArray(uint32 InArray) : Array(InArray) {}
 
 	void Clear()
 	{
 		Array = 0;
 	}
 
-	void SetIndex (uint32 Index)
+	void SetIndex(uint32 Index)
 	{
 		Array |= (1 << Index);
 	}
 
-	void ClearIndex (uint32 Index)
+	void ClearIndex(uint32 Index)
 	{
 		Array &= ~(1 << Index);
 	}
 
-	void Set (uint32 Bits)
+	void Set(uint32 Bits)
 	{
 		for (uint32 i = 0; i < Bits; ++i)
 		{
@@ -749,7 +957,7 @@ public:
 
 	uint32 LastSet() const
 	{
-		return 32 - FMath::CountLeadingZeros (Array);
+		return 32 - FMath::CountLeadingZeros(Array);
 	}
 
 	uint32 GetValue() const
@@ -766,21 +974,21 @@ class FD3D12StateArray
 {
 public:
 
-	void SetIndex (uint32 Index)
+	void SetIndex(uint32 Index)
 	{
-		SetIndices.SetIndex     (Index);
-		ChangedIndices.SetIndex (Index);
+		SetIndices.SetIndex(Index);
+		ChangedIndices.SetIndex(Index);
 	}
 
-	void ClearIndex (uint32 Index)
+	void ClearIndex(uint32 Index)
 	{
-		SetIndices.ClearIndex   (Index);
-		ChangedIndices.SetIndex (Index);
+		SetIndices.ClearIndex(Index);
+		ChangedIndices.SetIndex(Index);
 	}
 
 	uint32 LastSet() const
 	{
-		FD3D12BitArray Merged (SetIndices.GetValue() | ChangedIndices.GetValue());
+		FD3D12BitArray Merged(SetIndices.GetValue() | ChangedIndices.GetValue());
 
 		return Merged.LastSet();
 	}
@@ -821,7 +1029,7 @@ protected:
 
 	bool bNeedSetVB;
 	bool bNeedSetIB;
-	bool bNeedSetUAVs;
+	bool bNeedSetUAVsPerShaderStage[SF_NumFrequencies];
 	bool bNeedSetRTs;
 	bool bNeedSetSOs;
 	bool bNeedSetSamplersPerShaderStage[SF_NumFrequencies];
@@ -847,6 +1055,9 @@ protected:
 			ID3D12PipelineState* CurrentPipelineStateObject;
 			bool bNeedRebuildPSO;
 
+			// Note: Current root signature is part of the bound shader state
+			bool bNeedSetRootSignature;
+
 			// Full high level PSO desc
 			FD3D12HighLevelGraphicsPipelineStateDesc HighLevelDesc;
 
@@ -862,6 +1073,7 @@ protected:
 
 			// Vertex Buffer State
 			FD3D12VertexBufferState CurrentVertexBuffers[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
+			int32 MaxBoundVertexBufferIndex;
 
 			// SO
 			uint32			CurrentNumberOfStreamOutTargets;
@@ -882,7 +1094,7 @@ protected:
 			uint32 CurrentNumberOfScissorRects;
 
 			FD3D12RenderTargetView* RenderTargetArray[D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT];
-			
+
 			FD3D12DepthStencilView* CurrentDepthStencilTarget;
 		} Graphics;
 
@@ -892,6 +1104,9 @@ protected:
 			ID3D12PipelineState* CurrentPipelineStateObject;
 			bool bNeedRebuildPSO;
 
+			// Note: Current root signature is part of the bound compute shader
+			bool bNeedSetRootSignature;
+
 			// Compute
 			FD3D12ComputeShader* CurrentComputeShader;
 		} Compute;
@@ -899,10 +1114,8 @@ protected:
 		struct
 		{
 			// UAVs
-			TRefCountPtr<FD3D12UnorderedAccessView> UnorderedAccessViewArray[D3D12_PS_CS_UAV_REGISTER_COUNT];
-			EShaderFrequency CurrentUAVStage;
-			uint32	CurrentUAVStartSlot;
-			uint32	CurrentNumberOfSimultaneousUAVs;
+			TRefCountPtr<FD3D12UnorderedAccessView> UnorderedAccessViewArray[SF_NumFrequencies][D3D12_PS_CS_UAV_REGISTER_COUNT];
+			uint32	CurrentUAVStartSlot[SF_NumFrequencies];
 
 			// Shader Resource Views Cache
 			TRefCountPtr<FD3D12ShaderResourceView> CurrentShaderResourceViews[SF_NumFrequencies][D3D12_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
@@ -1055,9 +1268,9 @@ protected:
 		if (OldShader != Shader)
 		{
 			PipelineState.Common.CurrentShaderSamplerCounts[Traits::Frequency] = (Shader) ? Shader->ResourceCounts.NumSamplers : 0;
-			PipelineState.Common.CurrentShaderSRVCounts[Traits::Frequency]     = (Shader) ? Shader->ResourceCounts.NumSRVs : 0;
-			PipelineState.Common.CurrentShaderCBCounts[Traits::Frequency]      = (Shader) ? Shader->ResourceCounts.NumCBs : 0;
-			PipelineState.Common.CurrentShaderUAVCounts[Traits::Frequency]     = (Shader) ? Shader->ResourceCounts.NumUAVs : 0;
+			PipelineState.Common.CurrentShaderSRVCounts[Traits::Frequency]     = (Shader) ? Shader->ResourceCounts.NumSRVs     : 0;
+			PipelineState.Common.CurrentShaderCBCounts[Traits::Frequency]      = (Shader) ? Shader->ResourceCounts.NumCBs      : 0;
+			PipelineState.Common.CurrentShaderUAVCounts[Traits::Frequency]     = (Shader) ? Shader->ResourceCounts.NumUAVs     : 0;
 		}
 	}
 
@@ -1068,7 +1281,7 @@ protected:
 
 public:
 
-	void InheritState( const FD3D12StateCacheBase& AncestralCache )
+	void InheritState(const FD3D12StateCacheBase& AncestralCache)
 	{
 		FMemory::Memcpy(&PipelineState, &AncestralCache.PipelineState, sizeof(PipelineState));
 		RestoreState();
@@ -1082,6 +1295,18 @@ public:
 	ID3D12PipelineState* GetPipelineStateObject()
 	{
 		return PipelineState.Common.CurrentPipelineStateObject;
+	}
+
+	FD3D12RootSignature* GetGraphicsRootSignature()
+	{
+		return PipelineState.Graphics.HighLevelDesc.BoundShaderState ?
+			PipelineState.Graphics.HighLevelDesc.BoundShaderState->pRootSignature : nullptr;
+	}
+
+	FD3D12RootSignature* GetComputeRootSignature()
+	{
+		return PipelineState.Compute.CurrentComputeShader ?
+			PipelineState.Compute.CurrentComputeShader->pRootSignature : nullptr;
 	}
 
 	void ClearSamplers();
@@ -1295,9 +1520,17 @@ public:
 			SetShader<FD3D12GeometryShader>(nullptr);
 		}
 
-		if (PipelineState.Graphics.HighLevelDesc.BoundShaderState != BoundShaderState)
+		FD3D12BoundShaderState*& CurrentBSS = PipelineState.Graphics.HighLevelDesc.BoundShaderState;
+		if (CurrentBSS != BoundShaderState)
 		{
-			PipelineState.Graphics.HighLevelDesc.BoundShaderState = BoundShaderState;
+			const FD3D12RootSignature* const pCurrentRootSignature = CurrentBSS ? CurrentBSS->pRootSignature : nullptr;
+			const FD3D12RootSignature* const pNewRootSignature = BoundShaderState ? BoundShaderState->pRootSignature : nullptr;
+			if (pCurrentRootSignature != pNewRootSignature)
+			{
+				PipelineState.Graphics.bNeedSetRootSignature = true;
+			}
+
+			CurrentBSS = BoundShaderState;
 			PipelineState.Graphics.bNeedRebuildPSO = true;
 		}
 	}
@@ -1311,12 +1544,20 @@ public:
 	{
 		if (PipelineState.Compute.CurrentComputeShader != Shader)
 		{
+			// See if we need to change the root signature
+			const FD3D12RootSignature* const pCurrentRootSignature = PipelineState.Compute.CurrentComputeShader ? PipelineState.Compute.CurrentComputeShader->pRootSignature : nullptr;
+			const FD3D12RootSignature* const pNewRootSignature = Shader ? Shader->pRootSignature : nullptr;
+			if (pCurrentRootSignature != pNewRootSignature)
+			{
+				PipelineState.Compute.bNeedSetRootSignature = true;
+			}
+
 			PipelineState.Compute.CurrentComputeShader                  = Shader;
 			PipelineState.Compute.bNeedRebuildPSO = true;
 			PipelineState.Common.CurrentShaderSamplerCounts[SF_Compute] = (Shader) ? Shader->ResourceCounts.NumSamplers : 0;
-			PipelineState.Common.CurrentShaderSRVCounts[SF_Compute]     = (Shader) ? Shader->ResourceCounts.NumSRVs : 0;
-			PipelineState.Common.CurrentShaderCBCounts[SF_Compute]      = (Shader) ? Shader->ResourceCounts.NumCBs : 0;
-			PipelineState.Common.CurrentShaderUAVCounts[SF_Compute]     = (Shader) ? Shader->ResourceCounts.NumUAVs : 0;
+			PipelineState.Common.CurrentShaderSRVCounts[SF_Compute]     = (Shader) ? Shader->ResourceCounts.NumSRVs     : 0;
+			PipelineState.Common.CurrentShaderCBCounts[SF_Compute]      = (Shader) ? Shader->ResourceCounts.NumCBs      : 0;
+			PipelineState.Common.CurrentShaderUAVCounts[SF_Compute]     = (Shader) ? Shader->ResourceCounts.NumUAVs     : 0;
 		}
 	}
 
@@ -1380,7 +1621,7 @@ public:
 
 	D3D12_STATE_CACHE_INLINE bool IsStreamSource(const FD3D12ResourceLocation* VertexBufferLocation) const
 	{
-		for (uint32 index = 0; index < D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; ++index)
+		for (int32 index = 0; index <= PipelineState.Graphics.MaxBoundVertexBufferIndex; ++index)
 		{
 			if (PipelineState.Graphics.CurrentVertexBuffers[index].VertexBufferLocation.GetReference() == VertexBufferLocation)
 			{
@@ -1425,15 +1666,18 @@ public:
 		{
 			Index = INDEX_NONE;
 		}
+
+		PipelineState.Graphics.MaxBoundVertexBufferIndex = INDEX_NONE;
 	}
 
-	void Init(FD3D12Device* InParent, FD3D12CommandContext* InCmdContext, const FD3D12StateCacheBase* AncestralState, bool bInAlwaysSetIndexBuffers = false);
+	void Init(FD3D12Device* InParent, FD3D12CommandContext* InCmdContext, const FD3D12StateCacheBase* AncestralState, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc, bool bInAlwaysSetIndexBuffers = false);
 
 	~FD3D12StateCacheBase()
 	{
 	}
 
 	void ApplyState(bool IsCompute = false);
+	void ApplySamplers(const FD3D12RootSignature* const pRootSignature, uint32 StartStage, uint32 EndStage);
 	void RestoreState();
 	void DirtyViewDescriptorTables();
 	void DirtySamplerDescriptorTables();
@@ -1461,22 +1705,6 @@ public:
 
 	void SetUAVs(EShaderFrequency ShaderStage, uint32 UAVStartSlot, uint32 NumSimultaneousUAVs, FD3D12UnorderedAccessView** UAVArray, uint32 *UAVInitialCountArray);
 
-	D3D12_STATE_CACHE_INLINE void GetUAVs(FD3D12UnorderedAccessView** UAVArray, uint32* UAVStartSlot, uint32* NumSimultaneousUAVs)
-	{
-		if (UAVArray)
-		{
-			FMemory::Memcpy(UAVArray, PipelineState.Common.UnorderedAccessViewArray, sizeof(FD3D12UnorderedAccessView*) * PipelineState.Common.CurrentNumberOfSimultaneousUAVs);
-			*UAVStartSlot = PipelineState.Common.CurrentUAVStartSlot;
-			*NumSimultaneousUAVs = PipelineState.Common.CurrentNumberOfSimultaneousUAVs;
-		}
-	}
-
-	D3D12_STATE_CACHE_INLINE FD3D12UnorderedAccessView* GetUAV(const uint32 &UAVIndex)
-	{
-		check(UAVIndex < _countof(PipelineState.Common.UnorderedAccessViewArray));
-		return PipelineState.Common.UnorderedAccessViewArray[UAVIndex];
-	}
-
 	D3D12_STATE_CACHE_INLINE void AutoFlushComputeShaderCache(bool bEnable)
 	{
 		bAutoFlushComputeShaderCache = bEnable;
@@ -1496,9 +1724,10 @@ public:
 
 	void ForceRebuildGraphicsPSO() { PipelineState.Graphics.bNeedRebuildPSO = true; }
 	void ForceRebuildComputePSO() { PipelineState.Compute.bNeedRebuildPSO = true; }
+	void ForceSetGraphicsRootSignature() { PipelineState.Graphics.bNeedSetRootSignature = true; }
+	void ForceSetComputeRootSignature() { PipelineState.Compute.bNeedSetRootSignature = true; }
 	void ForceSetVB() { bNeedSetVB = true; }
 	void ForceSetIB() { bNeedSetIB = true; }
-	void ForceSetUAVs() { bNeedSetUAVs = true; }
 	void ForceSetRTs() { bNeedSetRTs = true; }
 	void ForceSetSOs() { bNeedSetSOs = true; }
 	void ForceSetSamplersPerShaderStage(uint32 Frequency) { bNeedSetSamplersPerShaderStage[Frequency] = true; }
@@ -1516,7 +1745,6 @@ public:
 	bool GetForceRebuildComputePSO() const { return PipelineState.Compute.bNeedRebuildPSO; }
 	bool GetForceSetVB() const { return bNeedSetVB; }
 	bool GetForceSetIB() const { return bNeedSetIB; }
-	bool GetForceSetUAVs() const { return bNeedSetUAVs; }
 	bool GetForceSetRTs() const { return bNeedSetRTs; }
 	bool GetForceSetSOs() const { return bNeedSetSOs; }
 	bool GetForceSetSamplersPerShaderStage(uint32 Frequency) const { return bNeedSetSamplersPerShaderStage[Frequency]; }

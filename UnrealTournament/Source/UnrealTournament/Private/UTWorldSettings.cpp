@@ -70,11 +70,21 @@ void AUTWorldSettings::NotifyBeginPlay()
 		World->bBegunPlay = true;
 		// in order to avoid double calls to newly added actors we need to track what we started with
 		TArray<AActor*> FullActorList;
+		TArray<AActor*> LevelActorList;
 		FullActorList.Reserve(World->PersistentLevel->Actors.Num());
 		for (FActorIterator It(World); It; ++It)
 		{
-			FullActorList.Add(*It);
+			// prioritize Level script actors to be called at last to have all other Actors being initialized
+			if (It->IsA(ALevelScriptActor::StaticClass()))
+			{
+				LevelActorList.Add(*It);
+			}
+			else
+			{
+				FullActorList.Add(*It);
+			}
 		}
+		FullActorList.Append(LevelActorList);
 		for (AActor* Actor : FullActorList)
 		{
 			Actor->BeginPlay();

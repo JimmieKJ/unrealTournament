@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12UniformBuffer.cpp: D3D uniform buffer RHI implementation.
@@ -57,7 +57,7 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 
 	FD3D12UniformBuffer* NewUniformBuffer = nullptr;
 	const uint32 NumBytesActualData = Layout.ConstantBufferSize;
-    const uint32 NumBytes = Align(NumBytesActualData, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);	// Allocate a size that is big enough for a multiple of 256
+	const uint32 NumBytes = Align(NumBytesActualData, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);	// Allocate a size that is big enough for a multiple of 256
 	if (NumBytes > 0)
 	{
 		// Constant buffers must also be 16-byte aligned.
@@ -69,8 +69,8 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 		SCOPE_CYCLE_COUNTER(STAT_D3D12UpdateUniformBufferTime);
 
 		// Use an upload heap
-		TRefCountPtr<FD3D12ResourceLocation> ResourceLocation = new FD3D12ResourceLocation();
-        void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(NumBytes, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, ResourceLocation);
+		TRefCountPtr<FD3D12ResourceLocation> ResourceLocation = new FD3D12ResourceLocation(GetRHIDevice());
+		void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().AllocUploadResource(NumBytes, DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT, ResourceLocation);
 
 		check(pData != nullptr);
 
@@ -82,22 +82,22 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 		NewUniformBuffer = new FD3D12UniformBuffer(GetRHIDevice(), Layout, ResourceLocation, FRingAllocation(), SequenceNumber);
 
 		// Create an offline CBV descriptor
-        NewUniformBuffer->OfflineDescriptorHandle = 
-            GetRHIDevice()->GetViewDescriptorAllocator<D3D12_CONSTANT_BUFFER_VIEW_DESC>().AllocateHeapSlot(NewUniformBuffer->OfflineHeapIndex);
+		NewUniformBuffer->OfflineDescriptorHandle =
+			GetRHIDevice()->GetViewDescriptorAllocator<D3D12_CONSTANT_BUFFER_VIEW_DESC>().AllocateHeapSlot(NewUniformBuffer->OfflineHeapIndex);
 
 		D3D12_CONSTANT_BUFFER_VIEW_DESC CBView;
-        CBView.BufferLocation = ResourceLocation->GetResource()->GetResource()->GetGPUVirtualAddress() + ResourceLocation->GetOffset();
-        CBView.SizeInBytes = NumBytes;
-        check(ResourceLocation->GetOffset() % 256 == 0);
-        check(CBView.SizeInBytes <= 4096 * 16);
-        check(CBView.SizeInBytes % 256 == 0);
+		CBView.BufferLocation = ResourceLocation->GetResource()->GetResource()->GetGPUVirtualAddress() + ResourceLocation->GetOffset();
+		CBView.SizeInBytes = NumBytes;
+		check(ResourceLocation->GetOffset() % 256 == 0);
+		check(CBView.SizeInBytes <= 4096 * 16);
+		check(CBView.SizeInBytes % 256 == 0);
 
-        GetRHIDevice()->GetDevice()->CreateConstantBufferView(&CBView, NewUniformBuffer->OfflineDescriptorHandle);
+		GetRHIDevice()->GetDevice()->CreateConstantBufferView(&CBView, NewUniformBuffer->OfflineDescriptorHandle);
 	}
 	else
 	{
 		// This uniform buffer contains no constants, only a resource table.
-        NewUniformBuffer = new FD3D12UniformBuffer(GetRHIDevice(), Layout, nullptr, FRingAllocation(), SequenceNumber);
+		NewUniformBuffer = new FD3D12UniformBuffer(GetRHIDevice(), Layout, nullptr, FRingAllocation(), SequenceNumber);
 
 		check(0 == NewUniformBuffer->OfflineDescriptorHandle.ptr);
 	}
@@ -126,7 +126,7 @@ FD3D12UniformBuffer::~FD3D12UniformBuffer()
 
 	if (OfflineDescriptorHandle.ptr != 0)
 	{
-        FDescriptorHeapManager& HeapManager = GetParentDevice()->GetViewDescriptorAllocator<D3D12_CONSTANT_BUFFER_VIEW_DESC>();
+		FDescriptorHeapManager& HeapManager = GetParentDevice()->GetViewDescriptorAllocator<D3D12_CONSTANT_BUFFER_VIEW_DESC>();
 
 		HeapManager.FreeHeapSlot(OfflineDescriptorHandle, OfflineHeapIndex);
 	}
@@ -186,7 +186,7 @@ void FD3D12UniformBuffer::CacheResourcesInternal()
 		}
 	}
 
-    GetParentDevice()->GetOwningRHI()->IncrementCacheResourceTableCycles(FPlatformTime::Cycles() - Start);
+	GetParentDevice()->GetOwningRHI()->IncrementCacheResourceTableCycles(FPlatformTime::Cycles() - Start);
 	GetParentDevice()->GetOwningRHI()->IncrementCacheResourceTableCalls();
 }
 

@@ -81,6 +81,26 @@ void UUTCheatManager::Ann(int32 Switch)
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 }
+void UUTCheatManager::Spread(float Scaling)
+{
+	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (!MyPawn)
+	{
+		return;
+	}
+	for (TInventoryIterator<AUTWeapon> It(MyPawn); It; ++It)
+	{
+		for (int32 i = 0; i < It->Spread.Num(); i++)
+		{
+			It->Spread[i] = It->GetClass()->GetDefaultObject<AUTWeapon>()->Spread[i] * Scaling;
+			if (It->Spread[i] != 0.f)
+			{
+				UE_LOG(UT, Warning, TEXT("%s New Spread %d is %f"), *It->GetName(), i, It->Spread[i]);
+			}
+		}
+	}
+
+}
 
 void UUTCheatManager::Sum()
 {
@@ -413,4 +433,13 @@ void UUTCheatManager::McpRefreshProfile()
 		McpProfile->ForceQueryProfile(FMcpQueryComplete());
 	}
 #endif
+}
+
+void UUTCheatManager::SoloQueueMe()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
+	if (LP)
+	{
+		LP->StartSoloQueueMatchmaking();
+	}
 }

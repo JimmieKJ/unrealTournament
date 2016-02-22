@@ -104,6 +104,9 @@ struct FComparePlayersByNameDesc	{FORCEINLINE bool operator()( const TSharedPtr<
 struct FComparePlayersByScore		{FORCEINLINE bool operator()( const TSharedPtr< FServerPlayerData > A, const TSharedPtr< FServerPlayerData > B ) const {return ( A->Score > B->Score);	}};
 struct FComparePlayersByScoreDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerPlayerData > A, const TSharedPtr< FServerPlayerData > B ) const {return ( A->Score < B->Score);	}};
 
+// Const Variables
+const int SUTServerBrowserPanel::MAXCHARCOUNTFORSERVERFILTER = 150;
+
 SUTServerBrowserPanel::~SUTServerBrowserPanel()
 {
 	if (PlayerOwner.IsValid())
@@ -1469,23 +1472,12 @@ void SUTServerBrowserPanel::AddServer(TSharedPtr<FServerData> Server)
 
 void SUTServerBrowserPanel::AddHub(TSharedPtr<FServerData> Hub)
 {
-	bool bIsBeginner = GetPlayerOwner()->IsConsideredABeginnner();
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
 
 	Hub->UpdateFriends(PlayerOwner);
 
-	bool ServerIsTrainingGround;
-	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRAININGGROUND, ServerIsTrainingGround);
-
 	int32 ServerTrustLevel; 
 	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
-
-	// Only trusted servers can be training grounds.  TODO: Move this to the MCP.
-	if ( ServerTrustLevel >0 ) ServerIsTrainingGround = 0;
-
-	if ( !bIsBeginner && ServerIsTrainingGround == 1 )
-	{
-		Hub->Flags |= SERVERFLAG_Restricted;
-	}
 
 	if (HUBServerList->GetNumItemsSelected() > 0)
 	{
@@ -1960,7 +1952,16 @@ void SUTServerBrowserPanel::OnQuickFilterTextCommited(const FText& NewText, ETex
 
 void SUTServerBrowserPanel::OnFilterTextChanged(const FText& NewText)
 {
-	FilterMsg->SetVisibility( NewText.IsEmpty() ? EVisibility::Visible : EVisibility::Hidden);
+	const FString& QuickFilterTextAsString = QuickFilterText->GetText().ToString();
+	
+	if (QuickFilterTextAsString.Len() > MAXCHARCOUNTFORSERVERFILTER)
+	{
+		QuickFilterText->SetText(FText::FromString(QuickFilterTextAsString.Left(MAXCHARCOUNTFORSERVERFILTER)));
+	}
+	else
+	{
+		FilterMsg->SetVisibility(NewText.IsEmpty() ? EVisibility::Visible : EVisibility::Hidden);
+	}
 }
 
 
@@ -2294,6 +2295,8 @@ void SUTServerBrowserPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 	{
 		RefreshServers();
 	}
+
+	PlayerOwner->GetWorld()->GetTimerManager().SetTimer(RefreshTimerHandle, FTimerDelegate::CreateSP(this, &SUTServerBrowserPanel::RefreshSelectedServer), 30.f, true);
 }
 
 void SUTServerBrowserPanel::OnHidePanel()
@@ -2307,8 +2310,18 @@ void SUTServerBrowserPanel::OnHidePanel()
 	{
 		SUTPanelBase::OnHidePanel();
 	}
+
+	PlayerOwner->GetWorld()->GetTimerManager().ClearTimer(RefreshTimerHandle);
 }
 
+void SUTServerBrowserPanel::RefreshSelectedServer()
+{
+	TArray<TSharedPtr<FServerData>> SelectedItems = (bShowingHubs ? HUBServerList->GetSelectedItems() : InternetServerList->GetSelectedItems());
+	if (SelectedItems.Num() > 0)
+	{
+		PingServer(SelectedItems[0]);
+	}
+}
 
 void SUTServerBrowserPanel::AnimEnd()
 {

@@ -17,12 +17,12 @@ UUTGameUserSettings::UUTGameUserSettings(const class FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 {
 	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
-	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Music] = 0.5f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
 	InitialBenchmarkState = -1;
 	bBenchmarkInProgress=false;
-	bBotSpeechEnabled = true;
+	BotSpeech = BSO_All;
 }
 
 bool UUTGameUserSettings::IsVersionValid()
@@ -41,7 +41,7 @@ void UUTGameUserSettings::SetToDefaults()
 {
 	Super::SetToDefaults();
 	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
-	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Music] = 0.5f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f; 
 	FullscreenMode = EWindowMode::Fullscreen;
@@ -61,7 +61,7 @@ void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 	SetAAMode(AAMode);
 	SetScreenPercentage(ScreenPercentage);
 	SetHRTFEnabled(bHRTFEnabled);
-	SetBotSpeechEnabled(bBotSpeechEnabled);
+	SetBotSpeech(BotSpeech);
 }
 
 void UUTGameUserSettings::SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue)
@@ -182,14 +182,14 @@ void UUTGameUserSettings::SetScreenPercentage(int32 NewScreenPercentage)
 	ScreenPercentageCVar->Set(ScreenPercentage, ECVF_SetByGameSetting);
 }
 
-bool UUTGameUserSettings::IsBotSpeechEnabled()
+EBotSpeechOption UUTGameUserSettings::GetBotSpeech() const
 {
-	return bBotSpeechEnabled;
+	return BotSpeech;
 }
 
-void UUTGameUserSettings::SetBotSpeechEnabled(bool NewBotSpeechEnabled)
+void UUTGameUserSettings::SetBotSpeech(EBotSpeechOption NewSetting)
 {
-	bBotSpeechEnabled = NewBotSpeechEnabled;
+	BotSpeech = NewSetting;
 }
 
 bool UUTGameUserSettings::IsHRTFEnabled()
@@ -311,6 +311,8 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 			}
 		}
 
+		CorrectScreenPercentageOnHighResLowGPU(DetectedLevels);
+
 		ScalabilityQuality = DetectedLevels;
 		Scalability::SetQualityLevels(ScalabilityQuality);
 		Scalability::SaveState(GGameUserSettingsIni);
@@ -335,4 +337,36 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 	}
 }
 
+/**
+ Looks for cases with High Res machines with low/mid hardware and lowers the ScreenPercentage to accommodate
+*/
+void UUTGameUserSettings::CorrectScreenPercentageOnHighResLowGPU(Scalability::FQualityLevels& DetectedLevels)
+{
+	const int MaxResolutionForLowerEndSystems = 1080;
+	const int ValueOfHighSetting = 2;
+	const int ScreenResY = UUTGameUserSettings::GetScreenResolution().Y;
+
+	const float NumberOfScalabilitySettings = 6;
+	const float AverageScalabilitySetting = static_cast<float>(DetectedLevels.AntiAliasingQuality +
+															   DetectedLevels.EffectsQuality +
+															   DetectedLevels.PostProcessQuality +
+															   DetectedLevels.ShadowQuality +
+															   DetectedLevels.TextureQuality +
+															   DetectedLevels.ViewDistanceQuality)
+															   / NumberOfScalabilitySettings;
+
+	//our resolution is >1080p but we don't have a system good enough to run everything on high, we need to turn down screen res!
+	if ((ScreenResY > MaxResolutionForLowerEndSystems) && (AverageScalabilitySetting < ValueOfHighSetting))
+	{
+		const float ResPercentage = static_cast<float>(MaxResolutionForLowerEndSystems) / static_cast<float>(ScreenResY);
+		const int32 NewScreenPercentage = static_cast<int32>(ResPercentage * 100);
+
+		//If we already set it to something lower, no point in changing it
+		if (NewScreenPercentage < DetectedLevels.ResolutionQuality)
+		{
+			DetectedLevels.ResolutionQuality = NewScreenPercentage;
+		}
+	}
+
+}
 #endif // !UE_SERVER

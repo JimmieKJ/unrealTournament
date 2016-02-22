@@ -19,53 +19,10 @@ const uint32 MATCH_FLAG_Ranked = 0x0002;
 const uint32 MATCH_FLAG_Private = 0x0004;
 const uint32 MATCH_FLAG_NoJoinInProgress = 0x0008;
 const uint32 MATCH_FLAG_NoSpectators = 0x0010;
+const uint32 MATCH_FLAG_Beginner = 0x0020;
 
 const int32 RANK_CHECK_MIN = -400;
 const int32 RANK_CHECK_MAX =  400;
-
-USTRUCT()
-struct FPlayerListInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	// The unique ID of this player.  This will be used to associate any incoming updates for a player
-	UPROPERTY()
-	FUniqueNetIdRepl PlayerID;
-
-	UPROPERTY()
-	bool bIsSpectator;
-
-	// The current name of this player
-	UPROPERTY()
-	FString PlayerName;
-
-	// The current score for this player
-	UPROPERTY()
-	int32 PlayerScore;
-	
-	UPROPERTY()
-	int32 PlayerRank;
-
-	UPROPERTY()
-	uint8 TeamNum;
-
-	UPROPERTY()
-	FName Avatar;
-
-	FPlayerListInfo() {};
-
-	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inPlayerRank, FName inAvatar)
-		: PlayerID(inPlayerID)
-		, bIsSpectator(inbIsSpectator)
-		, PlayerName(inPlayerName)
-		, PlayerScore(inPlayerScore)
-		, PlayerRank(inPlayerRank)
-		, TeamNum(inTeamNum)
-		, Avatar(inAvatar)
-	{
-	}
-
-};
 
 class AUTServerBeaconLobbyClient;
 
@@ -98,6 +55,9 @@ public:
 	UPROPERTY(Replicated)
 	uint32 bRankLocked : 1;
 
+	UPROPERTY(Replicated)
+	bool bBeginnerMatch;
+
 	// -1 means no bots.
 	UPROPERTY(Replicated)
 	int32 BotSkillLevel;
@@ -129,6 +89,9 @@ public:
 	// This is the process handle of the game instance that is running.
 	FProcHandle GameInstanceProcessHandle;
 
+	// This value is set client-side and holds the id that is beinig used in the MatchList.
+	uint32 TrackedMatchId;
+
 	// This is the lobby server generated instance id
 	UPROPERTY()
 	uint32 GameInstanceID;
@@ -143,7 +106,7 @@ public:
 
 	// Holds a list of Unique IDs of players who are currently in the match.  When a player returns to lobby if their ID is in this list, they will be re-added to the match.
 	UPROPERTY(Replicated)
-	TArray<FPlayerListInfo> PlayersInMatchInstance;
+	TArray<FRemotePlayerInfo> PlayersInMatchInstance;
 
 	~AUTLobbyMatchInfo();
 
@@ -155,7 +118,7 @@ public:
 	virtual FText GetActionText();
 
 	// The GameState needs to tell this MatchInfo what settings should be made available
-	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy = NULL);
+	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);
 
 	virtual void SetAllowJoinInProgress(bool bAllow)
 	{
@@ -255,7 +218,7 @@ public:
 
 	FText GetDebugInfo();
 
-	bool SkillTest(int32 Rank, bool bForceLock=false);
+	bool SkillTest(int32 PlayerRankCheck, bool bForceLock=false);
 
 	/**
 	 *	Returns the Owner's UTLobbyPlayerState
@@ -338,25 +301,20 @@ public:
 	// Check to see if this match is of a given type.  This is used in Quickplay
 	virtual bool IsMatchofType(const FString& MatchType);
 
-	// Returns true if we can add a player to this match
-	virtual bool CanAddPlayer(int32 ELORank, bool bForceRankLock = false);
-
 	// When the hub receives the notice that the instance for this match is ready, notify any beacons in this array.
 	UPROPERTY()
 	TArray<AUTServerBeaconClient*> NotifyBeacons;
 
 	// Holds the average rank of the players in this match
 	UPROPERTY(replicated)
-	int32 AverageRank;
+	int32 RankCheck;
+
+	// Will be true if the host of this match is a beginner
+	UPROPERTY(replicated)
+	uint32 bHostIsBeginner:1;
 
 	// Updates the rank variables based on an event
 	void UpdateRank();
-
-protected:
-	// Holds the min/max ranks of the players in this match.
-	int32 MinRank;
-	int32 MaxRank;
-
 
 public:
 	/**
@@ -403,11 +361,7 @@ public:
 	UPROPERTY()
 	AUTServerBeaconLobbyClient* InstanceBeacon;
 
-	// Looks to see if a rank falls within the acceptable range.
-	static bool CheckRank(int32 RankToCheck, int32 TargetRank)
-	{
-		return (RankToCheck <= 1400 && TargetRank <= 1400) || (RankToCheck >= TargetRank + RANK_CHECK_MIN && RankToCheck <= TargetRank + RANK_CHECK_MAX);
-	}
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
 };
 

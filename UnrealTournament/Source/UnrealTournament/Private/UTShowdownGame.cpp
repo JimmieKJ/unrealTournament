@@ -15,6 +15,7 @@
 #include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 #include "StatNames.h"
+#include "UTSpectatorCamera.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -25,7 +26,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	TimeLimit = 2.0f; // per round
 	GoalScore = 5;
 	SpawnSelectionTime = 9;
-	PowerupDuration = 15.0f;
+	PowerupDuration = 20.0f;
 	XPMultiplier = 15.0f;
 	bHasRespawnChoices = false; // unique system
 	HUDClass = AUTHUD_Showdown::StaticClass();
@@ -548,17 +549,20 @@ void AUTShowdownGame::HandleMatchIntermission()
 				AUTCharacter* UTC = Cast<AUTCharacter>(P);
 				if (UTC != NULL)
 				{
-					// weapon doesn't want to seem to stop firing consistently on clients, just destroy it since the round is over
-					if (UTC->GetWeapon() != NULL)
-					{
-						UTC->GetWeapon()->Destroy();
-					}
 					for (TInventoryIterator<AUTInventory> It((AUTCharacter*)P); It; ++It)
 					{
-						// prevent tick so powerups don't count down and so forth
-						// don't want to destroy all of these because they might affect the status display (armor, etc)
-						It->SetActorTickEnabled(false);
-						GetWorldTimerManager().ClearAllTimersForObject(*It);
+						// weapon doesn't want to seem to stop firing consistently on clients, just destroy it since the round is over
+						if (It->IsA(AUTWeapon::StaticClass()))
+						{
+							It->Destroy();
+						}
+						else
+						{
+							// prevent tick so powerups don't count down and so forth
+							// don't want to destroy all of these because they might affect the status display (armor, etc)
+							It->SetActorTickEnabled(false);
+							GetWorldTimerManager().ClearAllTimersForObject(*It);
+						}
 					}
 				}
 			}
@@ -574,6 +578,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 				{
 					PC->ChangeState(NAME_Spectating);
 					PC->ClientGotoState(NAME_Spectating);
+					PC->SetViewTarget(P);
 				}
 			}
 		}
@@ -766,29 +771,29 @@ void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 
 void AUTShowdownGame::UpdateSkillRating()
 {
-	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_ShowdownSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
-
-	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_ShowdownSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
+	ReportRankedMatchResults(NAME_ShowdownSkillRating.ToString());
 }
 
-int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
+uint8 AUTShowdownGame::GetNumMatchesFor(AUTPlayerState* PS) const
 {
-	bEloIsValid = PS ? PS->bShowdownEloValid : false;
-	return PS ? PS->ShowdownRank : Super::GetEloFor(PS, bEloIsValid);
+	return PS ? PS->ShowdownMatchesPlayed : 0;
+}
+
+int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->ShowdownRank : Super::GetEloFor(PS);
+}
+
+void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+{
+	if (PS)
+	{
+		PS->ShowdownRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->ShowdownMatchesPlayed < 255))
+		{
+			PS->ShowdownMatchesPlayed++;
+		}
+	}
 }
 
 #if !UE_SERVER

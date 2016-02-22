@@ -156,6 +156,12 @@ protected:
 	virtual void QuitConfirmation();
 	virtual void QuitConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
+	const FSlateBrush* GetFocusBrush() const
+	{
+		return FCoreStyle::Get().GetBrush("NoBrush");
+	}
+
+
 
 public:
 	virtual bool SkipWorldRender();

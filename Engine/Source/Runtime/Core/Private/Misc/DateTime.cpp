@@ -181,6 +181,40 @@ FString FDateTime::ToIso8601() const
 	return ToString(TEXT("%Y-%m-%dT%H:%M:%S.%sZ"));
 }
 
+FString FDateTime::ToHttpDate() const
+{
+	FString DayStr;
+	switch (GetDayOfWeek())
+	{
+		case EDayOfWeek::Monday:	DayStr = TEXT("Mon");	break;
+		case EDayOfWeek::Tuesday:	DayStr = TEXT("Tue");	break;
+		case EDayOfWeek::Wednesday:	DayStr = TEXT("Wed");	break;
+		case EDayOfWeek::Thursday:	DayStr = TEXT("Thu");	break;
+		case EDayOfWeek::Friday:	DayStr = TEXT("Fri");	break;
+		case EDayOfWeek::Saturday:	DayStr = TEXT("Sat");	break;
+		case EDayOfWeek::Sunday:	DayStr = TEXT("Sun");	break;
+	}
+
+	FString MonthStr;
+	switch (GetMonthOfYear())
+	{
+		case EMonthOfYear::January:		MonthStr = TEXT("Jan");	break;
+		case EMonthOfYear::February:	MonthStr = TEXT("Feb");	break;
+		case EMonthOfYear::March:		MonthStr = TEXT("Mar");	break;
+		case EMonthOfYear::April:		MonthStr = TEXT("Apr");	break;
+		case EMonthOfYear::May:			MonthStr = TEXT("May");	break;
+		case EMonthOfYear::June:		MonthStr = TEXT("Jun");	break;
+		case EMonthOfYear::July:		MonthStr = TEXT("Jul");	break;
+		case EMonthOfYear::August:		MonthStr = TEXT("Aug");	break;
+		case EMonthOfYear::September:	MonthStr = TEXT("Sep");	break;
+		case EMonthOfYear::October:		MonthStr = TEXT("Oct");	break;
+		case EMonthOfYear::November:	MonthStr = TEXT("Nov");	break;
+		case EMonthOfYear::December:	MonthStr = TEXT("Dec");	break;
+	}
+
+	FString Time = FString::Printf(TEXT("%02i:%02i:%02i"), GetHour(), GetMinute(), GetSecond());
+	return FString::Printf(TEXT("%s, %02d %s %d %s GMT"), *DayStr, GetDay(), *MonthStr, GetYear(), *Time);
+}
 
 FString FDateTime::ToString() const
 {
@@ -447,6 +481,310 @@ bool FDateTime::ParseIso8601( const TCHAR* DateTimeString, FDateTime& OutDateTim
 	return true;
 }
 
+/**
+ * Parse a string of the HTTP-date format from a web server
+ * https://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3.1
+ *
+ *   HTTP-date    = rfc1123-date | rfc850-date | asctime-date
+ *	 rfc1123-date = wkday "," SP date1 SP time SP "GMT"
+ *	 rfc850-date  = weekday "," SP date2 SP time SP "GMT"
+ *   asctime-date = wkday SP date3 SP time SP 4DIGIT
+ *   date1        = 2DIGIT SP month SP 4DIGIT
+ *				  ; day month year (e.g., 02 Jun 1982)
+ *   date2        = 2DIGIT "-" month "-" 2DIGIT
+ *				  ; day-month-year (e.g., 02-Jun-82)
+ *   date3        = month SP ( 2DIGIT | ( SP 1DIGIT ))
+ *				  ; month day (e.g., Jun  2)
+ *   time         = 2DIGIT ":" 2DIGIT ":" 2DIGIT
+ *				  ; 00:00:00 - 23:59:59
+ *   wkday        = "Mon" | "Tue" | "Wed"
+ *				  | "Thu" | "Fri" | "Sat" | "Sun"
+ *   weekday      = "Monday" | "Tuesday" | "Wednesday"
+ *				  | "Thursday" | "Friday" | "Saturday" | "Sunday"
+ *   month        = "Jan" | "Feb" | "Mar" | "Apr"
+ *				  | "May" | "Jun" | "Jul" | "Aug"
+ *				  | "Sep" | "Oct" | "Nov" | "Dec"
+ */
+bool FDateTime::ParseHttpDate(const FString& HttpDate, FDateTime& OutDateTime)
+{
+	auto ParseTime = [](const FString& Time, int32& Hour, int32& Minute, int32& Second) -> bool
+	{
+		// 2DIGIT ":" 2DIGIT ":" 2DIGIT
+		// ; 00:00 : 00 - 23 : 59 : 59
+		TArray<FString> Tokens;
+
+		// split up on a single delimiter
+		int32 NumTokens = Time.ParseIntoArray(Tokens, TEXT(":"), true);
+		if (NumTokens == 3)
+		{
+			Hour = FCString::Atoi(*Tokens[0]);
+			Minute = FCString::Atoi(*Tokens[1]);
+			Second = FCString::Atoi(*Tokens[2]);
+			return (Hour >= 0 && Hour < 24) && (Minute >= 0 && Minute <= 59) && (Second >= 0 && Second <= 59);
+		}
+
+		return false;
+	};
+
+	auto ParseWkday = [](const FString& WkDay) -> int32
+	{
+		const int32 NumChars = WkDay.Len();
+		if (NumChars == 3)
+		{
+			if (WkDay.Equals(TEXT("Mon")))
+			{
+				return 1;
+			}
+			else if (WkDay.Equals(TEXT("Tue")))
+			{
+				return 2;
+			}
+			else if (WkDay.Equals(TEXT("Wed")))
+			{
+				return 3;
+			}
+			else if (WkDay.Equals(TEXT("Thu")))
+			{
+				return 4;
+			}
+			else if (WkDay.Equals(TEXT("Fri")))
+			{
+				return 5;
+			}
+			else if (WkDay.Equals(TEXT("Sat")))
+			{
+				return 6;
+			}
+			else if (WkDay.Equals(TEXT("Sun")))
+			{
+				return 7;
+			}
+		}
+
+		return -1;
+	};
+
+	auto ParseWeekday = [](const FString& WeekDay) -> int32
+	{
+		const int32 NumChars = WeekDay.Len();
+		if (NumChars >= 6 && NumChars <= 9)
+		{
+			if (WeekDay.Equals(TEXT("Monday")))
+			{
+				return 1;
+			}
+			else if (WeekDay.Equals(TEXT("Tueday")))
+			{
+				return 2;
+			}
+			else if (WeekDay.Equals(TEXT("Wednesday")))
+			{
+				return 3;
+			}
+			else if (WeekDay.Equals(TEXT("Thursday")))
+			{
+				return 4;
+			}
+			else if (WeekDay.Equals(TEXT("Friday")))
+			{
+				return 5;
+			}
+			else if (WeekDay.Equals(TEXT("Saturday")))
+			{
+				return 6;
+			}
+			else if (WeekDay.Equals(TEXT("Sunday")))
+			{
+				return 7;
+			}
+		}
+
+		return -1;
+	};
+
+	auto ParseMonth = [](const FString& Month) -> int32
+	{
+		const int32 NumChars = Month.Len();
+		if (NumChars == 3)
+		{
+			if (Month.Equals(TEXT("Jan")))
+			{
+				return 1;
+			}
+			else if (Month.Equals(TEXT("Feb")))
+			{
+				return 2;
+			}
+			else if (Month.Equals(TEXT("Mar")))
+			{
+				return 3;
+			}
+			else if (Month.Equals(TEXT("Apr")))
+			{
+				return 4;
+			}
+			else if (Month.Equals(TEXT("May")))
+			{
+				return 5;
+			}
+			else if (Month.Equals(TEXT("Jun")))
+			{
+				return 6;
+			}
+			else if (Month.Equals(TEXT("Jul")))
+			{
+				return 7;
+			}
+			else if (Month.Equals(TEXT("Aug")))
+			{
+				return 8;
+			}
+			else if (Month.Equals(TEXT("Sep")))
+			{
+				return 9;
+			}
+			else if (Month.Equals(TEXT("Oct")))
+			{
+				return 10;
+			}
+			else if (Month.Equals(TEXT("Nov")))
+			{
+				return 11;
+			}
+			else if (Month.Equals(TEXT("Dec")))
+			{
+				return 12;
+			}
+		}
+
+		return -1;
+	};
+
+	auto ParseDate1 = [ParseMonth](const FString& DayStr, const FString& MonStr, const FString& YearStr, int32& Month, int32& Day, int32& Year) -> bool
+	{
+		// date1 = 2DIGIT SP month SP 4DIGIT
+		// ; day month year(e.g., 02 Jun 1982)
+
+		Day = FCString::Atoi(*DayStr);
+		Month = ParseMonth(MonStr);
+		Year = (YearStr.Len() == 4) ? FCString::Atoi(*YearStr) : -1;
+
+		return (Day > 0 && Day <= 31) && (Month > 0 && Month <= 12) && (Year > 0 && Year <= 9999);
+	};
+
+	auto ParseDate2 = [ParseMonth](const FString& Date2, int32& Month, int32& Day, int32& Year) -> bool
+	{
+		// date2 = 2DIGIT "-" month "-" 2DIGIT
+		// ; day - month - year(e.g., 02 - Jun - 82)
+		TArray<FString> Tokens;
+
+		// split up on a single delimiter
+		int32 NumTokens = Date2.ParseIntoArray(Tokens, TEXT("-"), true);
+		if (NumTokens == 3)
+		{
+			Day = FCString::Atoi(*Tokens[0]);
+			Month = ParseMonth(Tokens[1]);
+			Year = FCString::Atoi(*Tokens[2]);
+			
+			// Horrible assumption here, but this is a deprecated part of the spec
+			Year += 1900;
+		}
+
+		return (Day > 0 && Day <= 31) && (Month > 0 && Month <= 12) && (Year > 0 && Year <= 9999);
+	};
+
+	auto ParseDate3 = [ParseMonth](const FString& MonStr, const FString& DayStr, int32& Month, int32& Day) -> bool
+	{
+		// date3 = month SP(2DIGIT | (SP 1DIGIT))
+		// ; month day(e.g., Jun  2)
+		const int32 NumDigits = DayStr.Len();
+		Day = (NumDigits > 0 && NumDigits <= 2) ? FCString::Atoi(*DayStr) : -1;
+		Month = ParseMonth(MonStr);
+
+		return (Day > 0 && Day <= 31) && (Month > 0 && Month <= 12);
+	};
+
+	if (!HttpDate.IsEmpty())
+	{
+		TArray<FString> Tokens;
+
+		// split up on a single delimiter
+		int32 NumTokens = HttpDate.ParseIntoArray(Tokens, TEXT(" "), true);
+
+		if (NumTokens > 0 && ensure(Tokens.Num() == NumTokens))
+		{
+			int32 Month = 0;
+			int32 Day = 0;
+			int32 Year = 0;
+			int32 Hour = 0;
+			int32 Minute = 0;
+			int32 Second = 0;
+			int32 Millisecond = 0;
+
+			if (Tokens[0].EndsWith(TEXT(",")))
+			{
+				Tokens[0].RemoveAt(Tokens[0].Len() - 1, 1);
+			}
+
+			if (Tokens[Tokens.Num() - 1].Equals(TEXT("GMT")))
+			{
+				// rfc1123 - date | rfc850 - date 
+				if (Tokens.Num() == 6)
+				{
+					int32 WkDay = ParseWkday(Tokens[0]);
+					if (WkDay > 0)
+					{
+						// rfc1123 - date = wkday "," SP date1 SP time SP "GMT"
+						if (ParseDate1(Tokens[1], Tokens[2], Tokens[3], Month, Day, Year))
+						{
+							ParseTime(Tokens[4], Hour, Minute, Second);
+						}
+					}
+				}
+				else if (Tokens.Num() == 4)
+				{
+					// rfc850 - date = weekday "," SP date2 SP time SP "GMT"
+					int32 WeekDay = ParseWeekday(Tokens[0]);
+					if (WeekDay > 0)
+					{
+						if (ParseDate2(Tokens[1], Month, Day, Year))
+						{
+							ParseTime(Tokens[2], Hour, Minute, Second);
+						}
+					}
+				}
+
+			}
+			else if (Tokens.Num() == 5)
+			{
+				// asctime - date = wkday SP date3 SP time SP 4DIGIT
+				int32 WkDay = ParseWkday(Tokens[0]);
+				if (WkDay > 0)
+				{
+					if (ParseDate3(Tokens[1], Tokens[2], Month, Day))
+					{
+						if (ParseTime(Tokens[3], Hour, Minute, Second))
+						{
+							if (Tokens[4].Len() == 4)
+							{
+								Year = FCString::Atoi(*Tokens[4]);
+							}
+						}
+					}
+				}
+			}
+
+			if (Validate(Year, Month, Day, Hour, Minute, Second, Millisecond))
+			{
+				// convert the tokens to numbers
+				OutDateTime = FDateTime(Year, Month, Day, Hour, Minute, Second, Millisecond);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
 
 FDateTime FDateTime::UtcNow()
 {

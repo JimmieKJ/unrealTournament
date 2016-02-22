@@ -266,6 +266,9 @@ public:
 	/** Interval between gathering stats */
 	float						StatPeriod;
 
+	/** Collect net stats even if not FThreadStats::IsCollectingData(). */
+	bool bCollectNetStats;
+
 	/** Used to determine if checking for standby cheats should occur */
 	bool						bIsStandbyCheckingEnabled;
 	/** Used to determine whether we've already caught a cheat or not */

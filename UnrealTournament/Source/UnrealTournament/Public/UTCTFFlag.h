@@ -85,7 +85,6 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	FTimerHandle SendHomeWithNotifyHandle;
 	virtual void SendHome() override;
 	virtual void SendHomeWithNotify() override;
-	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void Drop(AController* Killer) override;
 	virtual void MoveToHome() override;
 

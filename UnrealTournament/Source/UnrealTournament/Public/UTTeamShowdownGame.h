@@ -12,6 +12,10 @@ class UNREALTOURNAMENT_API AUTTeamShowdownGame : public AUTShowdownGame
 public:
 	AUTTeamShowdownGame(const FObjectInitializer& OI);
 
+	/** experimental option - players spawn in with the closest weapon pickup within reasonable distance */
+	UPROPERTY(config)
+	bool bAutoGrantNearestWeapon;
+
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override
 	{
 		return AUTTeamDMGameMode::ChangeTeam(Player, NewTeam, bBroadcast);

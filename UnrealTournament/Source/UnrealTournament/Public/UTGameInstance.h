@@ -4,7 +4,11 @@
 
 #include "Engine/GameInstance.h"
 #include "../../Engine/Source/Runtime/PerfCounters/Private/PerfCounters.h"
+#include "OnlineSessionInterface.h"
 #include "UTGameInstance.generated.h"
+
+class UUTMatchmaking;
+class UUTParty;
 
 enum EUTNetControlMessage
 {
@@ -16,7 +20,9 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 {
 	GENERATED_UCLASS_BODY()
 	
-	virtual void Init();
+	virtual void Init() override;
+	virtual void Shutdown() override;
+	virtual bool PerfExecCmd(const FString& ExecCmd, FOutputDevice& Ar);
 	virtual void StartGameInstance() override;
 
 	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions = TArray<FString>()) override;
@@ -59,7 +65,7 @@ inline void InitPerfCounters()
 	if (PerfCounters != nullptr)
 	{
 		// Not exactly full version string, but the build number
-		UE_LOG(UT,Log,TEXT("GEngineNetVersion %i"),GEngineNetVersion);
+		//UE_LOG(UT,Log,TEXT("GEngineNetVersion %i"),GEngineNetVersion);
 		PerfCounters->Set(TEXT("BuildVersion"), GEngineNetVersion);
 	}
 	else
@@ -84,5 +90,53 @@ protected:
 	// this tracks the demo we need to retry
 	FString LastTriedDemo;
 	bool bRetriedDemoAfterRedirects;
+
+
+	/** Matchmaking singleton */
+	UPROPERTY(Transient)
+	UUTMatchmaking* Matchmaking;
+
+	/** Parties singleton */
+	UPROPERTY(Transient)
+	UUTParty* Party;
+	
+	/** Timer waiting to call SafeSessionDelete again because session was in a creating/ending state */
+	FTimerHandle SafeSessionDeleteTimerHandle;
+
+	/** Array of destroy session delegates gathered while the session was in a destroying state */
+	TMap<FName, TArray<FOnDestroySessionCompleteDelegate>> PendingDeletionDelegates;
+	FDelegateHandle DeleteSessionDelegateHandle;
+	
+	/**
+	 * Internal handler for SafeSessionDelete calls and then fire the user delegate on success
+	 *
+	 * @param SessionName name of session
+	 * @param bWasSuccessful true if successful, false otherwise
+	 * @param DestroySessionComplete delegate to fire when the entire operation is done, successful or not
+	 */
+	void OnDeleteSessionComplete(FName SessionName, bool bWasSuccessful, FOnDestroySessionCompleteDelegate DestroySessionComplete);
+
+public:
+	
+	/** Returns the game instance corresponding to the context object, or NULL if none */
+	static UUTGameInstance* Get(UObject* ContextObject);
+
+	/**
+	 * Matchmaking
+	 */
+	UUTMatchmaking* GetMatchmaking() const;
+	
+	/**
+	 * Parties
+	 */
+	UUTParty* GetParties() const;
+	
+	/**
+	 * Safe delete mechanism to make sure we aren't deleting a session too soon after its creation
+	 *
+	 * @param SessionName the name of the session this callback is for
+	 * @param DestroySessionComplete delegate to call on completion, in all cases
+	 */
+	void SafeSessionDelete(FName SessionName, FOnDestroySessionCompleteDelegate DestroySessionComplete);
 };
 

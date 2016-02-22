@@ -115,8 +115,8 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Font.NormalText.Small", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Small.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 
-	Style.Set("UT.Font.ChatText.Text", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor(0.7,0.7,0.7,1.0)));
-	Style.Set("UT.Font.ChatText.Name", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.Chat.Text", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor(0.7,0.7,0.7,1.0)));
+	Style.Set("UT.Font.Chat.Name", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 
 	Style.Set("UT.Font.NormalText.Tween", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Tween)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Tween.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tween)).SetColorAndOpacity(FLinearColor::White));
@@ -144,6 +144,7 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Font.ServerBrowser.List.Normal", TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Browser));
 	Style.Set("UT.Font.ServerBrowser.List.Bold", TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Browser));
 
+	SetTextChatStyle(StyleRef);
 }
 
 
@@ -231,7 +232,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetNormal( FSlateColorBrush(Medium) )
 		.SetHovered( FSlateColorBrush(Hovered) )
 		.SetPressed( FSlateColorBrush(Pressed) )
-		.SetDisabled( FSlateColorBrush(Disabled) )
+		.SetDisabled( FSlateColorBrush(SuperDark) )
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
@@ -310,6 +311,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.MatchBadge.Circle", new IMAGE_BRUSH( "UTStyle/MatchBadges/UT.MatchBadge.Circle", FVector2D(78.0f, 78.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.MatchBadge.Circle.Thin", new IMAGE_BRUSH( "UTStyle/MatchBadges/UT.MatchBadge.Circle.Thin", FVector2D(78.0f, 78.0f), FLinearColor(0.3f, 0.3f, 0.3f, 1.0f) ));
+	Style.Set("UT.MatchBadge.Circle.Tight", new IMAGE_BRUSH( "UTStyle/MatchBadges/UT.MatchBadge.Circle.Tight", FVector2D(78.0f, 78.0f), FLinearColor(0.3f, 0.3f, 0.3f, 1.0f) ));
 
 	Style.Set("UT.List.Row", FTableRowStyle()
 		.SetEvenRowBackgroundBrush(FSlateColorBrush(FColor(4,4,4,255)))
@@ -428,7 +430,15 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		LoadingScreenBrushAsset->AddToRoot();
 		Style.Set("UT.LoadingScreen", &LoadingScreenBrushAsset->Brush);
 	}
-	
+
+
+	Style.Set("UT.Slider", FSliderStyle()
+		.SetNormalBarImage(FSlateColorBrush(FColor::White))
+		.SetDisabledBarImage(FSlateColorBrush(FLinearColor::Gray))
+		.SetNormalThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Normal", FVector2D(32,32)))
+		.SetDisabledThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Disabled", FVector2D(32,32)))
+		);
+
 
 }
 
@@ -449,14 +459,17 @@ void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
 {
 	FSlateStyleSet& Style = StyleRef.Get();
 
-	Style.Set("UT.RankBadge.0", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Steel.77x77", FVector2D(77.0f, 77.0f), FLinearColor(0.4f, 0.235f, 0.07f, 1.0f) ));
-	Style.Set("UT.RankBadge.0.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Steel.48x48", FVector2D(48.0f, 48.0f), FLinearColor(0.4f, 0.235f, 0.07f, 1.0f) ));
+	Style.Set("UT.RankBadge.0", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Beginner.77x77", FVector2D(77.0f, 77.0f), FLinearColor(0.36f, 0.8f, 0.34f, 1.0f) ));
+	Style.Set("UT.RankBadge.0.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Beginner.48x48", FVector2D(48.0f, 48.0f), FLinearColor(0.36f, 0.8f, 0.34f, 1.0f) ));
 
-	Style.Set("UT.RankBadge.1", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Gold.77x77", FVector2D(77.0f, 77.0f), FLinearColor(0.96f, 0.96f, 0.96f, 1.0f) ));
-	Style.Set("UT.RankBadge.1.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Gold.48x48", FVector2D(48.0f, 48.0f), FLinearColor(0.96f, 0.96f, 0.96f, 1.0f) ));
+	Style.Set("UT.RankBadge.1", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Steel.77x77", FVector2D(77.0f, 77.0f), FLinearColor(0.4f, 0.235f, 0.07f, 1.0f) ));
+	Style.Set("UT.RankBadge.1.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Steel.48x48", FVector2D(48.0f, 48.0f), FLinearColor(0.4f, 0.235f, 0.07f, 1.0f) ));
 
-	Style.Set("UT.RankBadge.2", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Tarydium.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
-	Style.Set("UT.RankBadge.2.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Tarydium.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
+	Style.Set("UT.RankBadge.2", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Gold.77x77", FVector2D(77.0f, 77.0f), FLinearColor(0.96f, 0.96f, 0.96f, 1.0f) ));
+	Style.Set("UT.RankBadge.2.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Gold.48x48", FVector2D(48.0f, 48.0f), FLinearColor(0.96f, 0.96f, 0.96f, 1.0f) ));
+
+	Style.Set("UT.RankBadge.3", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Tarydium.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
+	Style.Set("UT.RankBadge.3.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Tarydium.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 
 	Style.Set("UT.RankStar.0", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.One.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
 	Style.Set("UT.RankStar.0.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankStar.One.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 0.95f, 0.42f, 1.0f) ));
@@ -591,5 +604,25 @@ const FSlateColor SUTStyle::GetSlateColor( const FName PropertyName, const ANSIC
 	
 	return FSlateColor(FLinearColor(0.6,0.6,0.6,1.0));
 }
+
+
+void SUTStyle::SetTextChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
+{	
+	// Text Chat styles
+
+	FSlateStyleSet& Style = StyleRef.Get();
+	FTextBlockStyle NormalChatStyle = Style.GetWidgetStyle<FTextBlockStyle>("UT.Font.Chat.Text");
+
+	Style.Set("UT.Font.Chat.Text.Global",		FTextBlockStyle(NormalChatStyle));
+	Style.Set("UT.Font.Chat.Text.Lobby",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.Chat.Text.Match",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+	Style.Set("UT.Font.Chat.Text.Friends",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Green));
+	Style.Set("UT.Font.Chat.Text.Team",			FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+	Style.Set("UT.Font.Chat.Text.Team.Red",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor(1.0f, 0.25f, 0.25f, 1.0f)));
+	Style.Set("UT.Font.Chat.Text.Team.Blue",	FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor(0.25, 0.25, 1.0, 1.0)));
+	Style.Set("UT.Font.Chat.Text.Local",		FTextBlockStyle(NormalChatStyle));
+	Style.Set("UT.Font.Chat.Text.Admin",		FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+}
+
 
 #endif

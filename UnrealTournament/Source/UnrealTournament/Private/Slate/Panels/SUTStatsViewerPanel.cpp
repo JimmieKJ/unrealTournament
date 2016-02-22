@@ -39,58 +39,8 @@ void SUTStatsViewerPanel::ConstructPanel(FVector2D ViewportSize)
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Monthly"))));
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Weekly"))));
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Daily"))));
-		
-	FriendList.Add(MakeShareable(new FString(TEXT("My Stats")))); 
 	
-	if (OnlineIdentityInterface.IsValid())
-	{
-		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
-		if (UserId.IsValid())
-		{
-			FriendStatIDList.Add(UserId->ToString());
-		}
-		else
-		{
-			FriendStatIDList.AddZeroed();
-		}
-	}
-	else
-	{
-		FriendStatIDList.AddZeroed();
-	}
-
-	// Real friends
-	TArray<FUTFriend> OnlineFriendsList;
-	PlayerOwner->GetFriendsList(OnlineFriendsList);
-	for (auto Friend : OnlineFriendsList)
-	{
-		FriendList.Add(MakeShareable(new FString(Friend.DisplayName)));
-		FriendStatIDList.Add(Friend.UserId);
-	}
-
-	// Recent players
-	TArray<FUTFriend> OnlineRecentPlayersList;
-	PlayerOwner->GetRecentPlayersList(OnlineRecentPlayersList);
-	for (auto RecentPlayer : OnlineRecentPlayersList)
-	{
-		FriendList.Add(MakeShareable(new FString(RecentPlayer.DisplayName)));
-		FriendStatIDList.Add(RecentPlayer.UserId);
-	}
-
-	// Players in current game
-	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
-	{
-		for (auto PlayerState : GameState->PlayerArray)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-			if (PS && !PS->StatsID.IsEmpty() && !FriendStatIDList.Contains(PS->StatsID))
-			{
-				FriendList.Add(MakeShareable(new FString(PS->PlayerName)));
-				FriendStatIDList.Add(PS->StatsID);
-			}
-		}
-	}
+	SetupFriendsList();
 
 	this->ChildSlot
 	[
@@ -189,6 +139,64 @@ void SUTStatsViewerPanel::ConstructPanel(FVector2D ViewportSize)
 	}
 }
 
+void SUTStatsViewerPanel::SetupFriendsList()
+{
+	FriendList.Empty();
+	FriendStatIDList.Empty();
+
+	FriendList.Add(MakeShareable(new FString(TEXT("My Stats"))));
+
+	if (OnlineIdentityInterface.IsValid())
+	{
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
+		if (UserId.IsValid())
+		{
+			FriendStatIDList.Add(UserId->ToString());
+		}
+		else
+		{
+			FriendStatIDList.AddZeroed();
+		}
+	}
+	else
+	{
+		FriendStatIDList.AddZeroed();
+	}
+
+	// Real friends
+	TArray<FUTFriend> OnlineFriendsList;
+	PlayerOwner->GetFriendsList(OnlineFriendsList);
+	for (auto Friend : OnlineFriendsList)
+	{
+		FriendList.Add(MakeShareable(new FString(Friend.DisplayName)));
+		FriendStatIDList.Add(Friend.UserId);
+	}
+
+	// Recent players
+	TArray<FUTFriend> OnlineRecentPlayersList;
+	PlayerOwner->GetRecentPlayersList(OnlineRecentPlayersList);
+	for (auto RecentPlayer : OnlineRecentPlayersList)
+	{
+		FriendList.Add(MakeShareable(new FString(RecentPlayer.DisplayName)));
+		FriendStatIDList.Add(RecentPlayer.UserId);
+	}
+
+	// Players in current game
+	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		for (auto PlayerState : GameState->PlayerArray)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS && !PS->StatsID.IsEmpty() && !FriendStatIDList.Contains(PS->StatsID))
+			{
+				FriendList.Add(MakeShareable(new FString(PS->PlayerName)));
+				FriendStatIDList.Add(PS->StatsID);
+			}
+		}
+	}
+}
+
 TSharedRef<SWidget> SUTStatsViewerPanel::GenerateStringListWidget(TSharedPtr<FString> InItem)
 {
 	return SNew(SBox)
@@ -228,6 +236,7 @@ void SUTStatsViewerPanel::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwn
 	if (NewStatus == ELoginStatus::LoggedIn)
 	{
 		StatsID.Empty();
+		SetupFriendsList();
 		DownloadStats();
 	}
 }
@@ -308,37 +317,10 @@ void SUTStatsViewerPanel::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, 
 
 void SUTStatsViewerPanel::ReadCloudStats()
 {
+
 	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
-	if (StatsReadRequest.IsValid())
-	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-	}
-	FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-#endif
-	FString McpConfigOverride;
-	FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-	if (McpConfigOverride == TEXT("localhost"))
-	{
-		BaseURL = TEXT("http://localhost:8080/");
-	}
-	else if (McpConfigOverride == TEXT("gamedev"))
-	{
-		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-	}
-	else
-	{
-		FString EpicApp;
-		FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
-		const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
-		if (bIsPublicTest)
-		{
-			BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
-		}
-	}
-
+	
+	FString BaseURL = GetBackendBaseUrl();
 	FString CommandURL = TEXT("/ut/api/cloudstorage/user/");
 
 	FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/stats.json");

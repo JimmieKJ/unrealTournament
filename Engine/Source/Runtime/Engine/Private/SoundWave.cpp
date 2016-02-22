@@ -682,11 +682,7 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 			WaveInstance->SpatializationAlgorithm = ParseParams.SpatializationAlgorithm;
 		}
 
-		// Don't add wave instances that are not going to be played at this point.
-		if( WaveInstance->Volume > KINDA_SMALL_NUMBER )
-		{
-			WaveInstances.Add( WaveInstance );
-		}
+		WaveInstances.Add( WaveInstance );
 
 		// We're still alive.
 		ActiveSound.bFinished = false;

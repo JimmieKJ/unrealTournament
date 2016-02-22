@@ -15,6 +15,7 @@ UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class
 	Origin = FVector2D(0.5f, 0.0f);				
 	FadeTime = 1.0;
 	ScaleInDirection = -1.f;
+	PaddingBetweenTextAndDamageIcon = 10.0f;
 }
 
 void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)
@@ -37,3 +38,46 @@ bool UUTHUDWidgetMessage_DeathMessages::ShouldDraw_Implementation(bool bShowScor
 {
 	return !bShowScores && GetWorld()->GetGameState() &&  (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission);
 }
+
+void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, float Y)
+{
+	//Figure out the DamageType that we killed with
+	UClass* DamageTypeClass = Cast<UClass>(MessageQueue[QueueIndex].OptionalObject);
+	const UUTDamageType* DmgType = DamageTypeClass ? Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject()) : nullptr;
+	if (DmgType == nullptr)
+	{
+		//Make sure non UUTDamageType damages still get the default icon
+		DmgType = Cast<UUTDamageType>(UUTDamageType::StaticClass()->GetDefaultObject());
+	}
+
+	//Draw Kill Text
+	FVector2D TextSize = FVector2D(0, 0);
+	if (UTHUDOwner->bDrawCenteredKillMsg)
+	{
+		ShadowDirection = (MessageQueue[QueueIndex].DisplayFont == MessageFont) ? LargeShadowDirection : SmallShadowDirection;
+		TextSize = DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), 1.0f /*alpha*/, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	}
+	
+	//Gather all the info needed to display the message
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	AUTPlayerState* LocalPS = (LocalPC != nullptr) ? Cast<AUTPlayerState>(LocalPC->PlayerState) : nullptr;
+	AUTPlayerState* VictimPS = Cast<AUTPlayerState>(MessageQueue[QueueIndex].RelatedPlayerState_2);
+
+	if ((DmgType != nullptr) && (DmgType->HUDIcon.Texture != nullptr) && (VictimPS == LocalPS))
+	{
+		float XL = FMath::Abs(DmgType->HUDIcon.UL) * GetTextScale(QueueIndex);
+		float YL = FMath::Abs(DmgType->HUDIcon.VL) * GetTextScale(QueueIndex);
+
+		//Move X so we are rendering after text
+		if (UTHUDOwner->bDrawCenteredKillMsg)
+		{
+			X += (TextSize.X / 2) + PaddingBetweenTextAndDamageIcon;
+		}
+
+		////Center message on Y
+		Y -= (YL / 2);
+
+		DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->HUDWidgetOpacity);
+	}
+}
+

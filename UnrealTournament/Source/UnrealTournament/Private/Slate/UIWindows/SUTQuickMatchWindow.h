@@ -103,6 +103,8 @@ public:
 
 public:
 
+	~SUTQuickMatchWindow();
+
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner);
 	virtual void BuildWindow();
@@ -123,6 +125,8 @@ protected:
 	/** Holds a reference to the SOverlay that defines the content for this dialog */
 	TSharedPtr<SOverlay> WindowContent;
 
+
+	TWeakObjectPtr<AUTBaseGameMode> DefaultGameModeObject;
 
 private:
 
@@ -192,6 +196,7 @@ protected:
 	TSharedPtr<FServerInstanceData> ConnectingInstance;
 
 	bool HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& Instances, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer);
+	int32 CountFriendsInInstance(const TArray<FUTFriend>& FriendsList, TSharedPtr<FServerInstanceData> InstanceToCheck, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer);
 
 	bool bWaitingForResponseFromHub;
 	float HubResponseWaitTime;

@@ -26,16 +26,15 @@ bool SUTSpectatorWindow::GetGameMousePosition(FVector2D& MousePosition)
 }
 
 
-FReply SUTSpectatorWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+FReply SUTSpectatorWindow::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
 		if ( !PC->bSpectatorMouseChangesView )
-
 		{
 			FVector2D MousePosition;
-			if (GetGameMousePosition(MousePosition))
+			if ( GetGameMousePosition(MousePosition) )
 			{
 				UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
 				if (SpectatorWidget)
@@ -54,6 +53,7 @@ FReply SUTSpectatorWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const 
 			}
 		}
 	}
+
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 	return FReply::Handled();
 }

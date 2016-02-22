@@ -15,8 +15,8 @@ AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer
 	DamageParams.MinimumDamage = 20.f;
 	Momentum = 140000.0f;
 	InitialLifeSpan = 10.f;
-	ProjectileMovement->InitialSpeed = 2900.f;
-	ProjectileMovement->MaxSpeed = 2900.f;
+	ProjectileMovement->InitialSpeed = 2750.f;
+	ProjectileMovement->MaxSpeed = 2750.f;
 	ProjectileMovement->ProjectileGravityScale = 0.f;
 
 	PrimaryActorTick.bCanEverTick = true;

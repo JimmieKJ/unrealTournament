@@ -186,7 +186,26 @@ public:
 	// This will be set to true if this is a private match.  
 	UPROPERTY()
 	bool bPrivateMatch;
-	
-	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const;
+
+	/** How many matches (up to 255) have been played in this game mode. */
+	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS) const;
+
+	/** Returns whether enough matches have been played for this gamemode's Elo to be valid. */
+	virtual bool IsValidElo(AUTPlayerState* PS) const;
+
+	/** Get the Elo rating for PS for this game mode. */
+	virtual int32 GetEloFor(AUTPlayerState* PS) const;
+
+	/** Locally set Elo rating for this game mode (updated from server). */
+	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue, bool bIncrementMatchCount);
+
+	/** Event that is called on servers when the initial Client->Server replication of the ELO/Rank/Progression occurs. **/
+	virtual void ReceivedRankForPlayer(AUTPlayerState* UTPlayerState);
+
+	/** Handle console exec commands */
+	virtual bool ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor);
+
+	/** Build a JSON object that contains information about this game mode. */
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
 };

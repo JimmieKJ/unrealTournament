@@ -6,7 +6,7 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsStyle.h"
-#include "../Widgets/SUTEditableTextBox.h"
+#include "../Widgets/SUTChatEditBox.h"
 #include "UTGameEngine.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyMatchInfo.h"
@@ -76,7 +76,7 @@ void SUTTextChatPanel::Construct(const FArguments& InArgs)
 				+SVerticalBox::Slot()
 				.AutoHeight()
 				[
-					SNew(SHorizontalBox)
+					SAssignNew(ChatSlot, SHorizontalBox)
 					+SHorizontalBox::Slot()
 					.AutoWidth()
 					.Padding(0.0f,5.0f,0.0f,0.0f)
@@ -84,35 +84,6 @@ void SUTTextChatPanel::Construct(const FArguments& InArgs)
 						SNew(STextBlock)
 						.Text(FText::FromString(TEXT(">")))
 						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-					]
-					+SHorizontalBox::Slot()
-					.FillWidth(1.0)
-					.Padding(5.0)
-					[
-						SNew(SOverlay)
-						+SOverlay::Slot()
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.Padding(8.0, 5.0)
-							[
-								SAssignNew(TypeMsg, STextBlock)
-								.Text(FText::FromString(TEXT("type your message here")))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-								.ColorAndOpacity(FLinearColor(1.0,1.0,1.0,0.3))
-							]
-						]
-						+SOverlay::Slot()
-						[
-							SAssignNew(ChatEditBox, SUTEditableTextBox)
-							.Style(SUTStyle::Get(), "UT.ChatEditBox")
-							.OnTextChanged(this, &SUTTextChatPanel::ChatTextChanged)
-							.OnTextCommitted(this, &SUTTextChatPanel::ChatTextCommited)
-							.IsCaretMovedWhenGainFocus(false)
-							.ClearKeyboardFocusOnCommit(false)
-							.MinDesiredWidth(500.0f)
-							.Text(FText::GetEmpty())
-						]
 					]
 				]
 				+SVerticalBox::Slot()
@@ -128,6 +99,32 @@ void SUTTextChatPanel::Construct(const FArguments& InArgs)
 		]
 	];
 }
+
+void SUTTextChatPanel::OnShowPanel()
+{
+	TSharedPtr<SUTChatEditBox>ChatWidget = PlayerOwner->GetChatWidget();
+	if (ChatWidget.IsValid() && ChatSlot.IsValid())
+	{
+		ChatSlot->AddSlot()
+		.FillWidth(1.0)
+		.Padding(5.0)
+		[
+			ChatWidget.ToSharedRef()
+		];
+
+		ChatWidget->SetCommittedDelegate(FOnTextCommitted::CreateSP(this,&SUTTextChatPanel::ChatTextCommited));
+	}
+}
+void SUTTextChatPanel::OnHidePanel()
+{
+	TSharedPtr<SUTChatEditBox>ChatWidget = PlayerOwner->GetChatWidget();
+	if (ChatWidget.IsValid() && ChatSlot.IsValid())
+	{
+		ChatSlot->RemoveSlot(ChatWidget.ToSharedRef());
+	}
+
+}
+
 
 void SUTTextChatPanel::AddDestination(const FText& Caption, const FName ChatDestionation, float Weight, bool bSelect)
 {
@@ -321,29 +318,6 @@ void SUTTextChatPanel::RouteChat(UUTLocalPlayer* LocalPlayer, TSharedPtr<FStored
 	}
 }
 
-void SUTTextChatPanel::ChatTextChanged(const FText& NewText)
-{
-	TypeMsg->SetVisibility( NewText.IsEmpty() ? EVisibility::Visible : EVisibility::Hidden);
-	if (NewText.ToString().Len() > 128)
-	{
-		ChatEditBox->SetText(FText::FromString(NewText.ToString().Left(128)));
-	}
-
-	if (NewText.ToString() == TEXT("`"))
-	{
-		ChatEditBox->SetText(FText::GetEmpty());
-		if (PlayerOwner.IsValid())
-		{
-			if (PlayerOwner.IsValid() && PlayerOwner->ViewportClient->ViewportConsole)
-			{
-				PlayerOwner->ViewportClient->ViewportConsole->FakeGotoState(FName(TEXT("Open")));
-			}
-		}
-	
-	}
-
-}
-
 void SUTTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
 {
 	if (CommitType == ETextCommit::OnEnter)
@@ -355,10 +329,9 @@ void SUTTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 		{
 			FinalText = FinalText.Right(FinalText.Len() - 1);
 			PlayerOwner->ConsoleCommand(FinalText);
-			ChatEditBox->SetText(FText::GetEmpty());
+			PlayerOwner->GetChatWidget()->SetText(FText::GetEmpty());
 			return;
 		}
-
 
 		if (FinalText != TEXT(""))
 		{
@@ -393,7 +366,7 @@ void SUTTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 			PlayerOwner->Exec(PlayerOwner->GetWorld(), *FinalText, *GLog);
 		}
 
-		ChatEditBox->SetText(FText::GetEmpty());
+		PlayerOwner->GetChatWidget()->SetText(FText::GetEmpty());
 	}
 }
 
@@ -458,24 +431,6 @@ void SUTTextChatPanel::RouteBufferedChat()
 		}
 	}
 
-}
-
-void SUTTextChatPanel::SetChatText(const FString& NewText)
-{
-	if (ChatEditBox.IsValid())
-	{
-		ChatEditBox->ForceFocus(FCharacterEvent());
-		ChatEditBox->SetText(FText::FromString(NewText));
-		ChatEditBox->JumpToEnd();
-	}
-}
-
-void SUTTextChatPanel::FocusChat(const FCharacterEvent& InCharacterEvent)
-{
-	if (ChatEditBox.IsValid())
-	{
-		ChatEditBox->ForceFocus(InCharacterEvent);
-	}
 }
 
 

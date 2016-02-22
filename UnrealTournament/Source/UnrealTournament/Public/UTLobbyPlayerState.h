@@ -75,12 +75,14 @@ protected:
 	void OnRep_CurrentMatch();
 
 public:
-	FString DesiredQuickStartGameMode;
 	// The Unique ID of a friend this player wants to join
 	FString DesiredFriendToJoin;
 
 	// The Match Id we are trying to join
 	FString DesiredMatchIdToJoin;
+
+	// Will be true if this player wants to auto-join a match as a spectator.  Note this only comes from the url when connecting to the hub
+	bool bDesiredJoinAsSpectator;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void Server_ReadyToBeginDataPush();

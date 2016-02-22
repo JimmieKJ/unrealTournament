@@ -41,14 +41,14 @@ void AUTWeap_Translocator::PostInitProperties()
 	Group = DefaultGroup;
 }
 
-FText AUTWeap_Translocator::GetHUDText()
+FText AUTWeap_Translocator::GetHUDText() const
 {
 	return FText::FromString(TEXT("Q"));
 }
 
-bool AUTWeap_Translocator::HUDShouldRender(UUTHUDWidget* TargetWidget)
+bool AUTWeap_Translocator::HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget)
 {
-	return (TargetWidget && Cast<UUTHUDWidget_Powerups>(TargetWidget));
+	return (Cast<UUTHUDWidget_Powerups>(TargetWidget) != NULL);
 }
 
 void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
@@ -93,6 +93,12 @@ void AUTWeap_Translocator::RecallDisk()
 		// server side since can be picked up by server movement as well
 		UUTGameplayStatics::UTPlaySound(GetWorld(), RecallSound, UTOwner, SRT_All);
 	}
+	if (FakeTransDisk)
+	{
+		FakeTransDisk->Destroy();
+		FakeTransDisk = NULL;
+	}
+
 	// special recovery time for recall
 	UUTWeaponStateFiringOnce* CurrentFiringState = Cast<UUTWeaponStateFiringOnce>(CurrentState);
 	if (CurrentFiringState && GetWorldTimerManager().IsTimerActive(CurrentFiringState->RefireCheckHandle))
@@ -293,6 +299,16 @@ void AUTWeap_Translocator::FireShot()
 				UUTGameplayStatics::UTPlaySound(GetWorld(), TeleSound, UTOwner, SRT_AllButOwner);
 			}
 			ClearDisk();
+			if (FakeTransDisk != nullptr)
+			{
+				FakeTransDisk->Destroy();
+				FakeTransDisk = nullptr;
+			}
+		}
+		else if (FakeTransDisk != nullptr)
+		{
+			FakeTransDisk->Destroy();
+			FakeTransDisk = nullptr;
 		}
 
 		PlayFiringEffects();

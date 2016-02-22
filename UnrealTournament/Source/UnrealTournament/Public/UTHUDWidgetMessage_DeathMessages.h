@@ -10,5 +10,11 @@ class UNREALTOURNAMENT_API UUTHUDWidgetMessage_DeathMessages : public UUTHUDWidg
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
 protected:
+	
+	// This is the Padding Distance Between The Death Message and Damage Icon
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeathMessage")
+	float PaddingBetweenTextAndDamageIcon;
+
 	virtual void DrawMessages(float DeltaTime);
+	virtual void DrawMessage(int32 QueueIndex, float X, float Y) override;
 };

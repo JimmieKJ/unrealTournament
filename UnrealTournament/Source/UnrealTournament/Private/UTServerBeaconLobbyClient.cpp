@@ -48,8 +48,6 @@ void AUTServerBeaconLobbyClient::OnConnected()
 		}
 
 	}
-
-
 }
 
 void AUTServerBeaconLobbyClient::OnFailure()
@@ -64,10 +62,14 @@ void AUTServerBeaconLobbyClient::UpdateMatch(const FMatchUpdate& MatchUpdate)
 	Lobby_UpdateMatch(GameInstanceID, MatchUpdate);
 }
 
-void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
+void AUTServerBeaconLobbyClient::UpdatePlayer(AUTBaseGameMode* GameMode, AUTPlayerState* PlayerState, bool bLastUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("UpdatePlayer: Instance %i [%s] Player = %s [%s] Score = %i"), GameInstanceID, *GameInstanceGUID.ToString(), *PlayerName, *PlayerID.ToString(),  PlayerScore);
-	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, bLastUpdate, PlayerRank, Avatar);
+	int32 RankCheck = PlayerState->GetRankCheck(GameMode);
+
+	FRemotePlayerInfo PlayerInfo(PlayerState,RankCheck);
+	UE_LOG(UT,Verbose,TEXT("UpdatePlayer: Instance %i [%s] Player = %s [%s] Score = %i"), GameInstanceID, *GameInstanceGUID.ToString(), *PlayerInfo.PlayerName, *PlayerInfo.PlayerID.ToString(),  PlayerInfo.PlayerScore);
+
+	Lobby_UpdatePlayer(GameInstanceID, PlayerInfo, bLastUpdate);
 }
 
 void AUTServerBeaconLobbyClient::EndGame(const FMatchUpdate& FinalMatchUpdate)
@@ -112,14 +114,14 @@ void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 Instanc
 }
 
 
-bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
+bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FRemotePlayerInfo PlayerInfo, bool bLastUpdate) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FRemotePlayerInfo PlayerInfo, bool bLastUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate = %i, PlayerRank = %i"), InstanceID, *PlayerName, *PlayerID.ToString(), PlayerScore, bLastUpdate, PlayerRank);
+	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate = %i, RankCheck = %i"), InstanceID, *PlayerInfo.PlayerName, *PlayerInfo.PlayerID.ToString(), PlayerInfo.PlayerScore, bLastUpdate, PlayerInfo.RankCheck);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, bLastUpdate, PlayerRank, Avatar);
+		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerInfo, bLastUpdate);
 	}
 }
 

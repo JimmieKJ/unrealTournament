@@ -24,6 +24,9 @@ class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTM
 
 	virtual void OnStop(const FHitResult& Hit);
 
+	UFUNCTION()
+	virtual void OnBlockingHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
 	/** Transdisk replaces fake projectile instead of using it */
 	virtual void BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile) override;
 

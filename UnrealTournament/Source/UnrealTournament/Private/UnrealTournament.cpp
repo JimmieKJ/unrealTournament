@@ -12,6 +12,11 @@
 #include "StatNames.h"
 #include "Runtime/PakFile/Public/IPlatformFilePak.h"
 
+#if WITH_PROFILE
+#include "OnlineSubsystemMcp.h"
+#include "GameServiceMcp.h"
+#endif
+
 class FUTModule : public FDefaultGameModuleImpl
 {
 	virtual void StartupModule() override;
@@ -25,7 +30,7 @@ DEFINE_LOG_CATEGORY(UTLoading);
 
 static uint32 UTGetNetworkVersion()
 {
-	return 3008042;
+	return 3008043;
 }
 
 const FString ITEM_STAT_PREFIX = TEXT("ITEM_");
@@ -652,39 +657,38 @@ void ClearTimerUFunc(UObject* Obj, FName FuncName)
 	}
 }
 
+const FString GetEpicAppName()
+{
+	FString EpicAppName;
+#if WITH_PROFILE
+	FOnlineSubsystemMcp* OnlineSubMcp = IOnlineSubsystem::Get() ? (FOnlineSubsystemMcp*)IOnlineSubsystem::Get() : nullptr;
+	if (OnlineSubMcp && OnlineSubMcp->GetMcpGameService().IsValid())
+	{
+		EpicAppName = OnlineSubMcp->GetMcpGameService()->GetAppName();
+	}
+#endif
+	return EpicAppName;
+}
+
+const FString GetBackendBaseUrl()
+{
+	FString BaseURL;
+#if WITH_PROFILE
+	FOnlineSubsystemMcp* OnlineSubMcp = IOnlineSubsystem::Get() ? (FOnlineSubsystemMcp*)IOnlineSubsystem::Get() : nullptr;
+	if (OnlineSubMcp && OnlineSubMcp->GetMcpGameService().IsValid())
+	{
+		BaseURL = OnlineSubMcp->GetMcpGameService()->GetBaseUrl();
+	}
+#endif
+	return BaseURL;
+}
+
 FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDelegate, const FString& StatsID, const FString& QueryWindow)
 {
 	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
 	if (StatsReadRequest.IsValid())
 	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/");
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-#endif
-		FString McpConfigOverride;
-		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-		if (McpConfigOverride == TEXT("localhost"))
-		{
-			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/");
-		}
-		else if (McpConfigOverride == TEXT("gamedev"))
-		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-		}
-		else if (McpConfigOverride == TEXT("prodnet"))
-		{
-			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-		}
-
-		FString EpicApp;
-		FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
-		const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
-		if (bIsPublicTest)
-		{
-			BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
-		}
-
+		FString BaseURL = GetBackendBaseUrl();
 		FString CommandURL = TEXT("/ut/api/stats/accountId/");
 		FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
 
@@ -792,36 +796,7 @@ void GiveProfileItems(TSharedPtr<const FUniqueNetId> UniqueId, const TArray<FPro
 
 		FString StatsID = UniqueId->ToString();
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-#else
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-#endif
-
-		FString McpConfigOverride;
-		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-
-		if (McpConfigOverride == TEXT("prodnet"))
-		{
-			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-		}
-		else if (McpConfigOverride == TEXT("localhost"))
-		{
-			BaseURL = TEXT("http://localhost:8080");
-		}
-		else if (McpConfigOverride == TEXT("gamedev"))
-		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-		}
-
-		FString EpicApp;
-		FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
-		const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
-		if (bIsPublicTest)
-		{
-			BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
-		}
-
+		FString BaseURL = GetBackendBaseUrl();
 		FString CommandURL = TEXT("/ut/api/stats/accountId/");
 		FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk?ownertype=1");
 

@@ -175,24 +175,18 @@ struct FStat
 {
 	GENERATED_USTRUCT_BODY()
 public:
-	FStat()
-		: StatData(0), bBackendStat(false), WriteMultiplier(0.0f), XPPerPoint(FXPBreakdown(ForceInitToZero))
+
+	explicit FStat(const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))
+		: StatData(0), WriteMultiplier(0.0f), XPPerPoint(InXP)
 	{}
 
-	explicit FStat(bool inbBackendStat, const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))
-		: StatData(0), bBackendStat(inbBackendStat), WriteMultiplier(0.0f), XPPerPoint(InXP)
-	{}
-
-	FStat(bool inbBackendStat, float inWriteMultiplier, const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))
-		: StatData(0), bBackendStat(inbBackendStat), WriteMultiplier(inWriteMultiplier), XPPerPoint(InXP)
+	FStat(float inWriteMultiplier, const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))
+		: StatData(0), WriteMultiplier(inWriteMultiplier), XPPerPoint(InXP)
 	{}
 
 	UPROPERTY()
 	int32 StatData;
-
-	UPROPERTY()
-	bool bBackendStat;
-
+	
 	UPROPERTY()
 	float WriteMultiplier;
 

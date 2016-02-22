@@ -101,21 +101,24 @@ void UUTHUDWidget_Intermission::Draw_Implementation(float DeltaTime)
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		Canvas->DrawText(UTHUDOwner->SmallFont, AssistLine, XOffset + 0.22f*ScoreWidth, YPos + MedYL, RenderScale, RenderScale, TextRenderInfo);
 
-		float SingleXL, SingleYL;
-		YPos = YPos + 0.5f*ScoreHeight - 0.6f*ScoringOffsetY;
-		float ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
-		Canvas->SetLinearDrawColor(CTFState->Teams[0]->TeamColor);
-		FString SingleScorePart = FString::Printf(TEXT(" %i"), Play.TeamScores[0]);
-		Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
-		Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-		Canvas->SetLinearDrawColor(FLinearColor::White);
-		ScoreX += SingleXL;
-		Canvas->TextSize(UTHUDOwner->MediumFont, "-", SingleXL, SingleYL, RenderScale, RenderScale);
-		ScoreX += SingleXL;
-		Canvas->DrawText(UTHUDOwner->MediumFont, "-", ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-		Canvas->SetLinearDrawColor(CTFState->Teams[1]->TeamColor);
-		ScoreX += SingleXL;
-		Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-		YPos = YPos + ScoreHeight + 8.f*RenderScale;
+		if (CTFState->Teams[0] && CTFState->Teams[1])
+		{
+			float SingleXL, SingleYL;
+			YPos = YPos + 0.5f*ScoreHeight - 0.6f*ScoringOffsetY;
+			float ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
+			Canvas->SetLinearDrawColor(CTFState->Teams[0]->TeamColor);
+			FString SingleScorePart = FString::Printf(TEXT(" %i"), Play.TeamScores[0]);
+			Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
+			Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+			Canvas->SetLinearDrawColor(FLinearColor::White);
+			ScoreX += SingleXL;
+			Canvas->TextSize(UTHUDOwner->MediumFont, "-", SingleXL, SingleYL, RenderScale, RenderScale);
+			ScoreX += SingleXL;
+			Canvas->DrawText(UTHUDOwner->MediumFont, "-", ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+			Canvas->SetLinearDrawColor(CTFState->Teams[1]->TeamColor);
+			ScoreX += SingleXL;
+			Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+			YPos = YPos + ScoreHeight + 8.f*RenderScale;
+		}
 	}
 }

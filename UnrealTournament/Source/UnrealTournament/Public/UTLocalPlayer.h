@@ -1,4 +1,3 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SlateBasics.h"
@@ -33,6 +32,8 @@ class AUTRconAdminInfo;
 class SUTDownloadAllDialog;
 class SUTSpectatorWindow;
 class SUTMatchSummaryPanel;
+class SUTChatEditBox;
+class SUTQuickChatWindow;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -145,7 +146,8 @@ public:
 	virtual FString GetAccountName() const;
 	virtual FText GetAccountDisplayName() const;
 
-	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
+	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID) override;
+	virtual void PlayerRemoved() override;
 
 	virtual void ShowMenu(const FString& Parameters);
 	virtual void HideMenu();
@@ -174,10 +176,7 @@ public:
 	TSharedPtr<class SUTReplayBrowserPanel> GetReplayBrowser();
 	TSharedPtr<class SUTStatsViewerPanel> GetStatsViewer();
 	TSharedPtr<class SUTCreditsPanel> GetCreditsPanel();
-
-	UFUNCTION()
-		virtual void ChangeStatsViewerTarget(FString InStatsID);
-
+	
 	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
 
@@ -188,6 +187,9 @@ public:
 
 	virtual bool AreMenusOpen();
 #endif
+
+	UFUNCTION()
+	virtual void ChangeStatsViewerTarget(FString InStatsID);
 
 	// Holds all of the chat this client has received.
 	TArray<TSharedPtr<FStoredChatMessage>> ChatArchive;
@@ -299,6 +301,14 @@ public:
 	// Log this local player out
 	virtual void Logout();
 
+	/** Called when the player has completed logging in, all data is downloaded but UI may still be showing */
+	DECLARE_MULTICAST_DELEGATE(FPlayerLoggedInDelegate);
+	FORCEINLINE FPlayerLoggedInDelegate& OnPlayerLoggedIn() { return PlayerLoggedIn; }
+
+	/** Called when the player has completed logging out, may be about to return to main menu or fail login */
+	DECLARE_MULTICAST_DELEGATE(FPlayerLoggedOutDelegate);
+	FORCEINLINE FPlayerLoggedOutDelegate& OnPlayerLoggedOut() { return PlayerLoggedOut; }
+
 	/**
 	 *	Gives a call back to an object looking to know when a player's status changed.
 	 **/
@@ -387,6 +397,8 @@ private:
 	IOnlinePresencePtr OnlinePresenceInterface;
 	IOnlineFriendsPtr OnlineFriendsInterface;
 	IOnlineTitleFilePtr OnlineTitleFileInterface;
+	IOnlineUserPtr OnlineUserInterface;
+	IOnlinePartyPtr OnlinePartyInterface;
 
 	// Our delegate references....
 	FDelegateHandle OnLoginCompleteDelegate;
@@ -458,18 +470,29 @@ private:
 	int32 FFA_ELO;	// The Player's current FFA ELO rank
 	int32 CTF_ELO;	// The Player's current CTF ELO rank
 	int32 Showdown_ELO;
-	int32 MatchesPlayed;	// The # of matches this player has played.
 	int32 DuelMatchesPlayed;	// The # of matches this player has played.
 	int32 TDMMatchesPlayed;	// The # of matches this player has played.
 	int32 FFAMatchesPlayed;	// The # of matches this player has played.
 	int32 CTFMatchesPlayed;	// The # of matches this player has played.
 	int32 ShowdownMatchesPlayed;	// The # of matches this player has played.
 
-	void ReadELOFromCloud();
-	void UpdateBaseELOFromCloudData();
+	int32 ShowdownLeaguePlacementMatches;
+	int32 ShowdownLeaguePoints;
+	int32 ShowdownLeagueTier;
+	int32 ShowdownLeagueDivision;
+	int32 ShowdownLeaguePromotionMatchesAttempted;
+	int32 ShowdownLeaguePromotionMatchesWon;
+	bool bShowdownLeaguePromotionSeries;
+	
+	bool bProgressionReadFromCloud;
+	int32 ELOReportCount;
+	void ReadELOFromBackend();
+	void CheckReportELOandStarsToServer();
 
 	void ReadCloudFileListing();
 public:
+
+	void ReadSpecificELOFromBackend(const FString& MatchRatingType);
 
 	// Returns the filename for stats.
 	static FString GetStatsFilename() { return TEXT("stats.json"); }
@@ -483,19 +506,20 @@ public:
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
 	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
 
-	virtual bool DuelEloValid() { return DuelMatchesPlayed > 10; }
-	virtual bool CTFEloValid() { return CTFMatchesPlayed > 10; }
-	virtual bool TDMEloValid() { return TDMMatchesPlayed > 10; }
-	virtual bool DMEloValid() { return FFAMatchesPlayed > 10; }
-	virtual bool ShowdownEloValid() { return ShowdownMatchesPlayed > 10; }
+	virtual int32 DuelEloMatches() { return DuelMatchesPlayed; }
+	virtual int32 CTFEloMatches() { return CTFMatchesPlayed; }
+	virtual int32 TDMEloMatches() { return TDMMatchesPlayed; }
+	virtual int32 DMEloMatches() { return FFAMatchesPlayed; }
+	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
 
-	// Returns what badge should represent player's skill level.
-	UFUNCTION(BlueprintCallable, Category = Badge)
-		static void GetBadgeFromELO(int32 EloRating, bool bEloIsValid, int32& BadgeLevel, int32& SubLevel);
+	inline virtual int32 GetShowdownPlacementMatches() { return ShowdownLeaguePlacementMatches; }
+	inline virtual int32 GetShowdownLeagueTier() { return ShowdownLeagueTier; }
+	inline virtual int32 GetShowdownLeagueDivision() { return ShowdownLeagueDivision; }
+	inline virtual int32 GetShowdownLeaguePoints() { return ShowdownLeaguePoints; }
 
 	// Returns the # of stars to show based on XP value. 
 	UFUNCTION(BlueprintCallable, Category = Badge)
-		static void GetStarsFromXP(int32 XPValue, int32& StarLevel);
+	static void GetStarsFromXP(int32 XPValue, int32& StarLevel);
 
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
@@ -690,9 +714,6 @@ public:
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);
 
-	/** Return whether the progression system considers this player a beginner. **/
-	virtual bool IsConsideredABeginnner();
-
 	/** Closes any slate UI elements that are open. **/
 	virtual void CloseAllUI(bool bExceptDialogs = false);
 
@@ -845,6 +866,9 @@ public:
 
 #endif
 
+	/** Matchmaking related items */
+	void StartSoloQueueMatchmaking();
+
 	void InvalidateLastSession();
 	void Reconnect(bool bAsSpectator);
 
@@ -859,6 +883,11 @@ protected:
 	UPROPERTY(Config)
 	int32 FragCenterCounter;
 
+	/** Party related items */
+	void CreatePersistentParty();
+	void DelayedCreatePersistentParty();
+	FTimerHandle PersistentPartyCreationHandle;
+	
 	bool bCancelJoinSession;
 
 	void OnProfileManagerInitComplete(bool bSuccess, const FText& ErrorText);
@@ -882,4 +911,34 @@ protected:
 
 	// Check to see if this user should be using the Epic branded flag
 	void EpicFlagCheck();
+
+	FString PendingGameMode;
+
+	FPlayerLoggedInDelegate PlayerLoggedIn;
+	FPlayerLoggedOutDelegate PlayerLoggedOut;
+
+public:
+
+#if !UE_SERVER
+	TSharedPtr<SUTChatEditBox> ChatWidget;
+
+	virtual void VerifyChatWidget();
+
+	TSharedPtr<SUTChatEditBox> GetChatWidget();
+#endif
+
+	FText UIChatTextBuffer;
+	FText GetUIChatTextBackBuffer(int Direction);
+	void UpdateUIChatTextBackBuffer(const FText& NewText);
+
+	void ShowQuickChat(FName ChatDestination);
+	void CloseQuickChat();
+
+protected:
+#if !UE_SERVER
+	TSharedPtr<SUTQuickChatWindow> QuickChatWindow;
+#endif
+
+	int32 UIChatTextBackBufferPosition;
+	TArray<FText> UIChatTextBackBuffer;
 };

@@ -56,6 +56,15 @@ FLinearColor UUTGameMessage::GetMessageColor_Implementation(int32 MessageIndex) 
 	return FLinearColor::Yellow;
 }
 
+float UUTGameMessage::GetLifeTime(int32 MessageIndex) const
+{
+	if ((MessageIndex >= 9) && (MessageIndex <= 10))
+	{
+		return 8.f;
+	}
+	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
+}
+
 FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false,class APlayerState* RelatedPlayerState_1 = NULL,class APlayerState* RelatedPlayerState_2 = NULL,class UObject* OptionalObject = NULL) const
 {
 	switch (Switch)

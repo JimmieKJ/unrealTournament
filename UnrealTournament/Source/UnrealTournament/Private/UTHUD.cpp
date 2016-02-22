@@ -78,9 +78,29 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
 
 	bDrawChatKillMsg = false;
-	bDrawPopupKillMsg = true;
+	bDrawCenteredKillMsg = true;
+	bDrawHUDKillIconMsg = true;
+	bPlayKillSoundMsg = true;
 
 	bCustomWeaponCrosshairs = true;
+	HUDWidgetOpacity = 1.f;
+	HUDWidgetSlateOpacity = 0.5f;
+	HUDWidgetBorderOpacity = 1.0f;
+	HUDWidgetWeaponbarInactiveOpacity = 0.25f;
+	HUDWidgetScaleOverride = 0.7f;
+	HUDMessageScaleOverride = 1.0f;
+	HUDWidgetWeaponBarScaleOverride = 0.9f;
+	HUDWidgetWeaponBarInactiveIconOpacity = 0.25f;
+	HUDWidgetWeaponBarEmptyOpacity = 0.0f;
+	bUseWeaponColors = false;
+
+	TimerHours = NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}");
+	TimerMinutes = NSLOCTEXT("UTHUD", "TIMERMINUTES", "{Prefix}{Minutes}:{Seconds}{Suffix}");
+	TimerSeconds = NSLOCTEXT("UTHUD", "TIMERSECONDS", "{Prefix}{Seconds}{Suffix}");
+	SuffixFirst = NSLOCTEXT("UTHUD", "FirstPlaceSuffix", "st");
+	SuffixSecond = NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd");
+	SuffixThird = NSLOCTEXT("UTHUD", "ThirdPlaceSuffix", "rd");
+	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
 }
 
 void AUTHUD::BeginPlay()
@@ -105,6 +125,15 @@ void AUTHUD::BeginPlay()
 		DamageIndicators[i].RotationAngle = 0.0f;
 		DamageIndicators[i].DamageAmount = 0.0f;
 		DamageIndicators[i].FadeTime = 0.0f;
+	}
+
+	// preload all known required crosshairs
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		if (It->IsChildOf(AUTWeapon::StaticClass()))
+		{
+			GetCrosshair(*It);
+		}
 	}
 }
 
@@ -385,7 +414,7 @@ void AUTHUD::NotifyMatchStateChange()
 
 			AUTGameMode* DefaultGame = Cast<AUTGameMode>(GS->GetDefaultGameMode());
 			float MatchSummaryDelay = DefaultGame ? DefaultGame->EndScoreboardDelay + DefaultGame->MainScoreboardDisplayTime + DefaultGame->ScoringPlaysDisplayTime : 10.f;
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, MatchSummaryDelay, false);
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, MatchSummaryDelay*GetActorTimeDilation(), false);
 		}
 		else if (GS->GetMatchState() == MatchState::WaitingToStart)
 		{
@@ -433,6 +462,13 @@ void AUTHUD::PostRender()
 		GS->SortPRIArray();
 	}
 	Super::PostRender();
+
+/*
+	DrawString(FText::Format( NSLOCTEXT("a","b","InputMode: {0}"),  FText::AsNumber(Cast<AUTBasePlayerController>(PlayerOwner)->InputMode)), 0, 0, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+	Canvas->SetDrawColor(255,0,0,255);
+	Canvas->K2_DrawBox(DebugMousePosition, FVector2D(3,3),1.0);
+*/
+
 }
 
 void AUTHUD::CacheFonts()
@@ -510,7 +546,7 @@ void AUTHUD::DrawHUD()
 				}
 				if (SpectatorSlideOutWidget && SpectatorSlideOutWidget->bShowingStats)
 				{
-					if (!UTPlayerOwner->CurrentlyViewedScorePS)
+					if (UTPlayerOwner->CurrentlyViewedScorePS != GetScorerPlayerState())
 					{
 						UTPlayerOwner->CurrentlyViewedStatsTab = 1;
 						UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
@@ -557,15 +593,15 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForce
 
 	if (bDisplayHours)
 	{
-		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}"), Args);
+		return FText::Format(TimerHours, Args);
 	}
 	else if (bDisplayMinutes)
 	{
-		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Minutes}:{Seconds}{Suffix}"), Args);
+		return FText::Format(TimerMinutes, Args);
 	}
 	else
 	{
-		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Seconds}{Suffix}"), Args);
+		return FText::Format(TimerSeconds, Args);
 	}
 }
 
@@ -606,27 +642,20 @@ void AUTHUD::DrawNumber(int32 Number, float X, float Y, FLinearColor Color, floa
 	DrawString(FText::AsNumber(Number, &Opts), X, Y, bRightAlign ? ETextHorzPos::Right : ETextHorzPos::Left, ETextVertPos::Top, NumberFont, Color, Scale, true);
 }
 
-void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire)
+void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFire)
 {
 	// Calculate the rotation 	
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
 	if (UTC != NULL && !UTC->IsDead() && DamageAmount > 0)	// If have a pawn and it's alive...
 	{
-		FVector CharacterLocation;
-		FRotator CharacterRotation;
-
-		UTC->GetActorEyesViewPoint(CharacterLocation, CharacterRotation);
-		FVector HitSafeNormal = (HitLocation - CharacterLocation).GetSafeNormal2D();
-		float Ang = FMath::Acos(FVector::DotProduct(CharacterRotation.Vector().GetSafeNormal2D(), HitSafeNormal)) * (180.0f / PI);
-
 		// Figure out Left/Right....
-		float FinalAng = ( FVector::DotProduct( FVector::CrossProduct(CharacterRotation.Vector(), FVector(0,0,1)), HitSafeNormal)) > 0 ? 360 - Ang : Ang;
+		float FinalAng = FRotator::DecompressAxisFromByte(ShotDirYaw);
 
 		int32 BestIndex = 0;
 		float BestTime = DamageIndicators[0].FadeTime;
-		for (int32 i=0; i < MAX_DAMAGE_INDICATORS; i++)
+		for (int32 i = 0; i < MAX_DAMAGE_INDICATORS; i++)
 		{
-			if (DamageIndicators[i].FadeTime <= 0.0f)					
+			if (DamageIndicators[i].FadeTime <= 0.0f)
 			{
 				BestIndex = i;
 				break;
@@ -640,9 +669,11 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendly
 				}
 			}
 		}
-		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION;
+		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION * FMath::Clamp(0.025f*DamageAmount, 0.7f, 2.f);
 		DamageIndicators[BestIndex].RotationAngle = FinalAng;
 		DamageIndicators[BestIndex].bFriendlyFire = bFriendlyFire;
+		DamageIndicators[BestIndex].DamageAmount = DamageAmount;
+
 		if (DamageAmount > 0)
 		{
 			UTC->PlayDamageEffects();
@@ -657,14 +688,14 @@ void AUTHUD::DrawDamageIndicators()
 		if (DamageIndicators[i].FadeTime > 0.0f)
 		{
 			FLinearColor DrawColor = DamageIndicators[i].bFriendlyFire ? FLinearColor::Green : FLinearColor::Red;
-			DrawColor.A = 1.0 * (DamageIndicators[i].FadeTime / DAMAGE_FADE_DURATION);
+			DrawColor.A = 1.f * (DamageIndicators[i].FadeTime / DAMAGE_FADE_DURATION);
 
 			float Size = 384 * (Canvas->ClipY / 720.0f);
-			float Half = Size * 0.5;
+			float Half = Size * 0.5f;
 
-			FCanvasTileItem ImageItem(FVector2D((Canvas->ClipX * 0.5) - Half, (Canvas->ClipY * 0.5) - Half), DamageIndicatorTexture->Resource, FVector2D(Size, Size), FVector2D(0,0), FVector2D(1,1), DrawColor);
-			ImageItem.Rotation = FRotator(0,DamageIndicators[i].RotationAngle,0);
-			ImageItem.PivotPoint = FVector2D(0.5,0.5);
+			FCanvasTileItem ImageItem(FVector2D((Canvas->ClipX * 0.5f) - Half, (Canvas->ClipY * 0.5f) - Half), DamageIndicatorTexture->Resource, FVector2D(Size, Size), FVector2D(0.f,0.f), FVector2D(1.f,1.f), DrawColor);
+			ImageItem.Rotation = FRotator(0.f,DamageIndicators[i].RotationAngle,0.f);
+			ImageItem.PivotPoint = FVector2D(0.5f,0.5f);
 			ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
 			Canvas->DrawItem( ImageItem );
 			DamageIndicators[i].FadeTime -= RenderDelta;
@@ -875,15 +906,15 @@ FText AUTHUD::GetPlaceSuffix(int32 Value)
 	switch (Value)
 	{
 		case 0: return FText::GetEmpty(); break;
-		case 1:  return NSLOCTEXT("UTHUD","FirstPlaceSuffix","st"); break;
-		case 2:  return NSLOCTEXT("UTHUD","SecondPlaceSuffix","nd"); break;
-		case 3:  return NSLOCTEXT("UTHUD","ThirdPlaceSuffix","rd"); break;
-		case 21:  return NSLOCTEXT("UTHUD", "FirstPlaceSuffix", "st"); break;
-		case 22:  return NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd"); break;
-		case 23:  return NSLOCTEXT("UTHUD", "ThirdPlaceSuffix", "rd"); break;
-		case 31:  return NSLOCTEXT("UTHUD", "FirstPlaceSuffix", "st"); break;
-		case 32:  return NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd"); break;
-		default: return NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th"); break;
+		case 1:  return SuffixFirst; break;
+		case 2:  return SuffixSecond; break;
+		case 3:  return SuffixThird; break;
+		case 21:  return SuffixFirst; break;
+		case 22:  return SuffixSecond; break;
+		case 23:  return SuffixThird; break;
+		case 31:  return SuffixFirst; break;
+		case 32:  return SuffixSecond; break;
+		default: return SuffixNth; break;
 	}
 
 	return FText::GetEmpty();
@@ -940,7 +971,7 @@ EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 	return EInputMode::EIM_None;
 }
 
-UUTCrosshair* AUTHUD::GetCrosshair(AUTWeapon* Weapon)
+UUTCrosshair* AUTHUD::GetCrosshair(TSubclassOf<AUTWeapon> Weapon)
 {
 	FCrosshairInfo* CrosshairInfo = GetCrosshairInfo(Weapon);
 	if (CrosshairInfo != nullptr)
@@ -964,9 +995,9 @@ UUTCrosshair* AUTHUD::GetCrosshair(AUTWeapon* Weapon)
 	return nullptr;
 }
 
-FCrosshairInfo* AUTHUD::GetCrosshairInfo(AUTWeapon* Weapon)
+FCrosshairInfo* AUTHUD::GetCrosshairInfo(TSubclassOf<AUTWeapon> Weapon)
 {
-	FString WeaponClass = (!bCustomWeaponCrosshairs || Weapon == nullptr) ? TEXT("Global") : Weapon->GetClass()->GetPathName();
+	FString WeaponClass = (!bCustomWeaponCrosshairs || Weapon == nullptr) ? TEXT("Global") : Weapon->GetPathName();
 
 	FCrosshairInfo* FoundInfo = CrosshairInfos.FindByPredicate([WeaponClass](const FCrosshairInfo& Info) { return Info.WeaponClassName == WeaponClass; });
 	if (FoundInfo != nullptr)
@@ -1187,5 +1218,8 @@ void AUTHUD::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerStat
 
 void AUTHUD::PlayKillNotification()
 {
-	PlayerOwner->ClientPlaySound(KillSound);
+	if (bPlayKillSoundMsg)
+	{
+		PlayerOwner->ClientPlaySound(KillSound);
+	}
 }

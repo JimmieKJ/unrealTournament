@@ -13,6 +13,7 @@
 #include "UTLobbyPC.h"
 #include "UTLobbyPlayerState.h"
 #include "SUTTextChatPanel.h"
+#include "SUTChatEditBox.h"
 
 #if !UE_SERVER
 
@@ -237,6 +238,10 @@ TSharedRef<ITableRow> SUTPlayerListPanel::OnGenerateWidgetForPlayerList( TShared
 									]
 								]
 							]
+							+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth().Padding(FMargin(5.0,0.0,0.0,0.0))
+							[
+								GetPlayerMatchId(InItem)
+							]
 							+SHorizontalBox::Slot().VAlign(VAlign_Top).AutoWidth()
 							.Padding(FMargin(5.0,0.0,0.0,0.0))
 							[
@@ -250,6 +255,33 @@ TSharedRef<ITableRow> SUTPlayerListPanel::OnGenerateWidgetForPlayerList( TShared
 			]
 		];
 	}
+}
+
+TSharedRef<SWidget> SUTPlayerListPanel::GetPlayerMatchId(TSharedPtr<FTrackedPlayer> TrackedPlayer)
+{
+	TSharedPtr<SBox> Box;
+	SAssignNew(Box, SBox).WidthOverride(32).HeightOverride(32).Visibility(TrackedPlayer.Get(), &FTrackedPlayer::GetMatchIdVis)
+	[
+		SNew(SOverlay)
+		+SOverlay::Slot()
+		[
+			SNew(SImage)
+			.Image(SUTStyle::Get().GetBrush("UT.MatchBadge.Circle.Tight"))
+		]
+		+SOverlay::Slot()
+		.VAlign(VAlign_Center)
+		.Padding(FMargin(0.0,0.0,0.0,0.0))
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(TrackedPlayer.Get(), &FTrackedPlayer::GetMatchId)
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+			.ShadowOffset(FVector2D(0.0f,1.0f))
+			.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))
+		]
+	];
+
+	return Box.ToSharedRef();
 }
 
 void SUTPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData>& MenuOptions)
@@ -272,6 +304,10 @@ void SUTPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionDat
 	if (!TrackedPlayers[Idx]->bInInstance)
 	{
 		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ShowPlayerCard","Player Card"), EPlayerListContentCommand::PlayerCard));
+	}
+	else
+	{
+		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","PlayerCardUnAvail","Player Card Unavailable"), EPlayerListContentCommand::PlayerCard));
 	}
 
 	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
@@ -501,6 +537,7 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 				bool bIsHost = (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->OwnerId == LobbyPlayerState->UniqueId);
 				bool bIsInAnyMatch = (LobbyPlayerState && LobbyPlayerState->CurrentMatch);
 
+
 				// Update the player's team info...
 
 				uint8 TeamNum = PlayerState->GetTeamNum();
@@ -522,6 +559,15 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 
 					if (Idx != INDEX_NONE && Idx < TrackedPlayers.Num())
 					{
+						if (bIsInAnyMatch)
+						{
+							TrackedPlayers[Idx]->TrackedMatchId = LobbyPlayerState->CurrentMatch->TrackedMatchId;
+						}
+						else
+						{
+							TrackedPlayers[Idx]->TrackedMatchId = -1;
+						}
+
 						// This player lives to see another day
 						TrackedPlayers[Idx]->bPendingKill = false;
 
@@ -563,7 +609,7 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 						bListNeedsUpdate = true;
 						// This is a new player.. Add them.
 
-						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost, LobbyPlayerState ? (LobbyPlayerState->DesiredTeamNum == 255) : false));
+						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost, LobbyPlayerState ? (LobbyPlayerState->DesiredTeamNum == 255) : false, 0, 0));
 					}
 				}
 			}
@@ -596,7 +642,9 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 								TrackedPlayers.Add(FTrackedPlayer::Make(nullptr, MatchInfo->PlayersInMatchInstance[j].PlayerID, 
 																				MatchInfo->PlayersInMatchInstance[j].PlayerName,
 																				MatchInfo->PlayersInMatchInstance[j].TeamNum,
-																				MatchInfo->PlayersInMatchInstance[j].Avatar, false, false, false));
+																				MatchInfo->PlayersInMatchInstance[j].Avatar, false, false, false,
+																				MatchInfo->PlayersInMatchInstance[j].RankCheck,
+																				MatchInfo->PlayersInMatchInstance[j].XPLevel));
 							}
 						}
 					}
@@ -756,7 +804,8 @@ void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> I
 		{
 			if (ConnectedChatPanel.IsValid())
 			{
-				ConnectedChatPanel->SetChatText(FString::Printf(TEXT("@%s "), *InItem->PlayerName));
+				FText NewText = FText::FromString(FString::Printf(TEXT("@%s "), *InItem->PlayerName));
+				PlayerOwner->GetChatWidget()->SetText(NewText);
 			}
 		}
 	}

@@ -10,6 +10,7 @@ UUTHUDWidget_DMPlayerLeaderboard::UUTHUDWidget_DMPlayerLeaderboard(const class F
 	ScreenPosition=FVector2D(1.0f, 0.0f);
 	Origin=FVector2D(1.0f,0.0f);
 	OwnerNameColor = FLinearColor::White;
+	SpreadText = NSLOCTEXT("DMPlayerLeaderboard", "PlusFormat", "+{0}");
 }
 
 void UUTHUDWidget_DMPlayerLeaderboard::InitializeWidget(AUTHUD* Hud)
@@ -117,7 +118,7 @@ void UUTHUDWidget_DMPlayerLeaderboard::DrawPlayer(float& YPosition, int32 Player
 		RenderObj_TextureAt(SpreadBar[0], XPosition + SpreadBar[0].Position.X, YPosition + SpreadBar[0].Position.Y, SpreadBar[0].GetWidth(), SpreadBar[0].GetHeight());
 		RenderObj_TextureAt(SpreadBar[1], XPosition + SpreadBar[0].Position.X, YPosition + SpreadBar[0].Position.Y, SpreadBar[1].GetWidth(), SpreadBar[1].GetHeight());
 
-		SpreadTextTemplate.Text = Spread > 0 ? FText::Format(NSLOCTEXT("DMPlayerLeaderboard","PlusFormat","+{0}"), FText::AsNumber(Spread)) : FText::AsNumber(Spread);
+		SpreadTextTemplate.Text = Spread > 0 ? FText::Format(SpreadText, FText::AsNumber(Spread)) : FText::AsNumber(Spread);
 		RenderObj_TextAt(SpreadTextTemplate, XPosition + SpreadTextTemplate.Position.X, YPosition + SpreadTextTemplate.Position.Y);
 	}
 

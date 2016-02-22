@@ -115,6 +115,10 @@ protected:
 
 	FString Fixup(FString OldText);
 	int32 AddMapAssetToMapList(const FAssetData& Asset);
+
+public:
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
 };
 
 

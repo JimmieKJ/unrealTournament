@@ -40,6 +40,7 @@ class UNREALTOURNAMENT_API UUTHUDWidget_WeaponBar : public UUTHUDWidget
 	GENERATED_UCLASS_BODY()
 
 public:
+	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter) override;
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
@@ -89,6 +90,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	float CellWidth;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
+	float PaddingBetweenCells;
 
 	// How much should a selected cell be scaled by.  NOTE: All of
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")

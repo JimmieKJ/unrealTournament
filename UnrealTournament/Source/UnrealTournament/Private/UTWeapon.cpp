@@ -99,6 +99,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
 	bShowPowerupTimer = false;
 
+	bCheckHeadSphere = false;
+	bCheckMovingHeadSphere = false;
 }
 
 void AUTWeapon::PostInitProperties()
@@ -546,7 +548,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		UpdateWeaponHand();
-		Mesh->AttachTo(UTOwner->FirstPersonMesh, (GetWeaponHand() != HAND_Hidden) ? HandsAttachSocket : NAME_None);
+		Mesh->AttachTo(UTOwner->FirstPersonMesh, (GetWeaponHand() != EWeaponHand::HAND_Hidden) ? HandsAttachSocket : NAME_None);
 		if (ShouldPlay1PVisuals())
 		{
 			Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
@@ -617,13 +619,13 @@ void AUTWeapon::UpdateWeaponHand()
 
 		switch (GetWeaponHand())
 		{
-			case HAND_Center:
+			case EWeaponHand::HAND_Center:
 				// TODO: not implemented, fallthrough
 				UE_LOG(UT, Warning, TEXT("HAND_Center is not implemented yet!"));
-			case HAND_Right:
+			case EWeaponHand::HAND_Right:
 				AdjustMesh->SetRelativeLocationAndRotation(AdjustMeshArchetype->RelativeLocation, AdjustMeshArchetype->RelativeRotation);
 				break;
-			case HAND_Left:
+			case EWeaponHand::HAND_Left:
 			{
 				// TODO: should probably mirror, but mirroring breaks sockets at the moment (engine bug)
 				AdjustMesh->SetRelativeLocation(AdjustMeshArchetype->RelativeLocation * FVector(1.0f, -1.0f, 1.0f));
@@ -631,7 +633,7 @@ void AUTWeapon::UpdateWeaponHand()
 				AdjustMesh->SetRelativeRotation(AdjustedRotation);
 				break;
 			}
-			case HAND_Hidden:
+			case EWeaponHand::HAND_Hidden:
 			{
 				AdjustMesh->SetRelativeLocationAndRotation(FVector(-50.0f, 0.0f, -50.0f), FRotator::ZeroRotator);
 				if (AdjustMesh != Mesh)
@@ -657,7 +659,7 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 {
 	if (UTOwner == NULL && Role == ROLE_Authority)
 	{
-		return HAND_Right;
+		return EWeaponHand::HAND_Right;
 	}
 	else
 	{
@@ -678,7 +680,7 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 				}
 			}
 		}
-		return (Viewer != NULL) ? Viewer->GetWeaponHand() : HAND_Right;
+		return (Viewer != NULL) ? Viewer->GetWeaponHand() : EWeaponHand::HAND_Right;
 	}
 }
 
@@ -785,7 +787,7 @@ void AUTWeapon::PlayFiringEffects()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), ReloadSound[EffectFiringMode], UTOwner, SRT_None);
 		}
 
-		if (ShouldPlay1PVisuals() && GetWeaponHand() != HAND_Hidden)
+		if (ShouldPlay1PVisuals() && GetWeaponHand() != EWeaponHand::HAND_Hidden)
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
 			// try and play a firing animation if specified
@@ -1085,15 +1087,15 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 			FVector AdjustedFireOffset;
 			switch (GetWeaponHand())
 			{
-				case HAND_Right:
+				case EWeaponHand::HAND_Right:
 					AdjustedFireOffset = FireOffset;
 					break;
-				case HAND_Left:
+				case EWeaponHand::HAND_Left:
 					AdjustedFireOffset = FireOffset;
 					AdjustedFireOffset.Y *= -1.0f;
 					break;
-				case HAND_Center:
-				case HAND_Hidden:
+				case EWeaponHand::HAND_Center:
+				case EWeaponHand::HAND_Hidden:
 					AdjustedFireOffset = FVector::ZeroVector;
 					AdjustedFireOffset.X = FireOffset.X;
 					break;
@@ -1286,10 +1288,22 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
 	FHitResult Hit;
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
-	AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+	AUTPlayerController* UTPC = UTOwner ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
+	AUTPlayerState* PS = (UTOwner && UTOwner->Controller) ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
 	HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[CurrentFireMode].TraceHalfSize, Hit, PredictionTime);
+
+	if (Role == ROLE_Authority && UTPC && bCheckHeadSphere && (Cast<AUTCharacter>(Hit.Actor.Get()) == NULL) && ((Spread.Num() <= GetCurrentFireMode()) || (Spread[GetCurrentFireMode()] == 0.f)) && (UTOwner->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere))
+	{
+		// in some cases the head sphere is partially outside the capsule
+		// so do a second search just for that
+		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(UTPC, SpawnLocation, FireDir, 0.9f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
+		if (AltTarget != NULL && (AltTarget->GetVelocity().IsNearlyZero() || bCheckMovingHeadSphere) && AltTarget->IsHeadShot(SpawnLocation, FireDir, 1.f, UTOwner, PredictionTime))
+		{
+			Hit = FHitResult(AltTarget, AltTarget->GetCapsuleComponent(), SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), -FireDir);
+		}
+	}
+
 	if (Role == ROLE_Authority)
 	{
 		if (PS && (ShotsStatsName != NAME_None))
@@ -1657,7 +1671,7 @@ void AUTWeapon::UpdateViewBob(float DeltaTime)
 	if (MyPC != NULL && Mesh != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals())
 	{
 		// if weapon is up in first person, view bob with movement
-		if (GetWeaponHand() != HAND_Hidden)
+		if (GetWeaponHand() != EWeaponHand::HAND_Hidden)
 		{
 			USkeletalMeshComponent* BobbedMesh = (HandsAttachSocket != NAME_None) ? UTOwner->FirstPersonMesh : Mesh;
 			if (FirstPMeshOffset.IsZero())
@@ -1819,8 +1833,8 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 			}
 			else
 			{
-				UUTCrosshair* Crosshair = WeaponHudWidget->UTHUDOwner->GetCrosshair(this);
-				FCrosshairInfo* CrosshairInfo = WeaponHudWidget->UTHUDOwner->GetCrosshairInfo(this);
+				UUTCrosshair* Crosshair = WeaponHudWidget->UTHUDOwner->GetCrosshair(GetClass());
+				FCrosshairInfo* CrosshairInfo = WeaponHudWidget->UTHUDOwner->GetCrosshairInfo(GetClass());
 
 				if (Crosshair != nullptr && CrosshairInfo != nullptr)
 				{

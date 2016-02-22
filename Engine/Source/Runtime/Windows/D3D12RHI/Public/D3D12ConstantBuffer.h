@@ -1,11 +1,10 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12ConstantBuffer.h: Public D3D Constant Buffer definitions.
 	=============================================================================*/
 
-#ifndef __D3D11ConstantBuffer_H__
-#define __D3D11ConstantBuffer_H__
+#pragma once
 
 #include "RenderResource.h"
 
@@ -71,5 +70,3 @@ protected:
 };
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Global Constant buffer update time"), STAT_D3D12GlobalConstantBufferUpdateTime, STATGROUP_D3D12RHI, );
-
-#endif

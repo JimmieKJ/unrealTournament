@@ -23,6 +23,7 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	AltDeathStatsName = NAME_ShockCoreDeaths;
 	HitsStatsName = NAME_ShockRifleHits;
 	ShotsStatsName = NAME_ShockRifleShots;
+	bCheckHeadSphere = true;
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()
@@ -83,7 +84,7 @@ void AUTWeap_ShockRifle::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 1.0f)
+	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 0.1f)
 	{
 		ScreenTexture->FastUpdateResource();
 	}

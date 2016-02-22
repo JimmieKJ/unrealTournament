@@ -40,6 +40,8 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 	bJoinAnytime = true;
 	bMapChanged = false;
 	BotSkillLevel = -1;
+	bBeginnerMatch = false;
+	TrackedMatchId = -1;
 }
 
 void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -58,11 +60,12 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bRankLocked);
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
-	DOREPLIFETIME(AUTLobbyMatchInfo, AverageRank);
+	DOREPLIFETIME(AUTLobbyMatchInfo, RankCheck);
 	DOREPLIFETIME(AUTLobbyMatchInfo, Redirects);
 	DOREPLIFETIME(AUTLobbyMatchInfo, AllowedPlayerList);
 	DOREPLIFETIME(AUTLobbyMatchInfo, DedicatedServerMaxPlayers);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bDedicatedTeamGame);
+	DOREPLIFETIME(AUTLobbyMatchInfo, bBeginnerMatch);
 
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerDescription, COND_InitialOnly);
@@ -188,7 +191,6 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 
 	// Players default to ready
 	PlayerToAdd->bReadyToPlay = true;
-	UpdateRank();
 }
 
 bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
@@ -221,7 +223,6 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 	{
 		Players.Remove(PlayerToRemove);
 		PlayerToRemove->RemovedFromMatch(this);
-		UpdateRank();
 	}
 
 	return false;
@@ -291,12 +292,18 @@ FText AUTLobbyMatchInfo::GetActionText()
 	return FText::GetEmpty();
 }
 
-void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy)
+void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState,  AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy)
 {
 	if (MatchToCopy)
 	{
 		SetRules(MatchToCopy->CurrentRuleset, MatchToCopy->InitialMap);
 		BotSkillLevel = MatchToCopy->BotSkillLevel;
+	}
+
+	if (MatchOwner && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
+	{
+		bRankLocked = true;
+		bBeginnerMatch = true;
 	}
 
 	SetLobbyMatchState(ELobbyMatchState::Setup);
@@ -740,6 +747,15 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 			SetRules(NewRuleSet, StartingMap);
 		}
 		BotSkillLevel = NewBotSkillLevel;
+
+		// Update the rank badges...
+		TWeakObjectPtr<AUTLobbyPlayerState> OwnerPlayerState = GetOwnerPlayerState();
+		if (OwnerPlayerState.IsValid() && CurrentRuleset.IsValid())
+		{
+			AUTBaseGameMode* DefaultGameMode = CurrentRuleset->GetDefaultGameModeObject();
+			if (DefaultGameMode == nullptr) DefaultGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode) + RANK_LOCK_TOLERANCE;
+		}
 	}
 }
 
@@ -849,6 +865,13 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		if (CurrentRuleset->bTeamGame != bOldTeamGame) AssignTeams();
 		SetRedirects();
+
+		AUTBaseGameMode* DefaultGameMode = (CustomGameModeDefaultObject == nullptr) ? AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>() : CustomGameModeDefaultObject;
+		TWeakObjectPtr<AUTLobbyPlayerState> OwnerPlayerState = GetOwnerPlayerState();
+		if (OwnerPlayerState.IsValid())
+		{
+			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode) + RANK_LOCK_TOLERANCE;
+		}
 	}
 }
 
@@ -967,64 +990,16 @@ bool AUTLobbyMatchInfo::MatchHasRoom(bool bForSpectator)
 	return true;
 }
 
-bool AUTLobbyMatchInfo::SkillTest(int32 Rank, bool bForceLock)
+bool AUTLobbyMatchInfo::SkillTest(int32 PlayerRankCheck, bool bForceLock)
 {
 	if (bRankLocked || bForceLock)
 	{
-		return CheckRank(Rank, AverageRank);
+		return AUTPlayerState::CheckRank(PlayerRankCheck,RankCheck);
 	}
 
 	return true;
 }
 
-bool AUTLobbyMatchInfo::CanAddPlayer(int32 ELORank, bool bForceRankLock)
-{
-	return SkillTest(ELORank, bForceRankLock) && MatchHasRoom();
-}
-
-void AUTLobbyMatchInfo::UpdateRank()
-{
-	if (CurrentState == ELobbyMatchState::InProgress)
-	{
-		if (PlayersInMatchInstance.Num() > 0)
-		{
-			MinRank = PlayersInMatchInstance[0].PlayerRank;
-			MaxRank = PlayersInMatchInstance[0].PlayerRank;
-			AverageRank = PlayersInMatchInstance[0].PlayerRank;
-
-			for (int32 i=1; i < PlayersInMatchInstance.Num(); i++)
-			{
-				int32 PlayerRank = PlayersInMatchInstance[i].PlayerRank;
-				if (PlayerRank < MinRank) MinRank = PlayerRank;
-				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
-				AverageRank += PlayerRank;
-			}
-		
-			AverageRank = int32( float(AverageRank) / float(PlayersInMatchInstance.Num()));
-		}
-	}
-	else
-	{
-		if (Players.Num() > 0)
-		{
-			AUTGameMode* UTGame = CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-			bool bIsValidElo = false;
-			MinRank = UTGame ? UTGame->GetEloFor(Players[0].Get(), bIsValidElo) : 1400;
-			MaxRank = MinRank;
-			AverageRank = MinRank;
-
-			for (int32 i=1; i < Players.Num(); i++)
-			{
-				int32 PlayerRank = UTGame ? UTGame->GetEloFor(Players[i].Get(), bIsValidElo) : 1400;
-				if (PlayerRank < MinRank) MinRank = PlayerRank;
-				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
-				AverageRank += PlayerRank;
-			}
-		
-			AverageRank = int32( float(AverageRank) / float(Players.Num()));
-		}
-	}
-}
 
 void AUTLobbyMatchInfo::OnRep_RedirectsChanged()
 {
@@ -1188,6 +1163,11 @@ uint32 AUTLobbyMatchInfo::GetMatchFlags()
 		Flags = Flags | MATCH_FLAG_NoSpectators;
 	}
 
+	if (bBeginnerMatch)
+	{
+		Flags = Flags | MATCH_FLAG_Beginner;
+	}
+
 	return Flags;
 }
 
@@ -1222,5 +1202,47 @@ FString AUTLobbyMatchInfo::GetOwnerName()
 	return PS.IsValid() ? PS->PlayerName : TEXT("N/A");
 }
 
+void AUTLobbyMatchInfo::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	JsonObject->SetStringField(TEXT("State"), CurrentState.ToString());
+	JsonObject->SetStringField(TEXT("OwnerId"), OwnerId.ToString());
+
+	JsonObject->SetNumberField(TEXT("GameInstanceID"), GameInstanceID);
+	JsonObject->SetStringField(TEXT("GameInstanceGUID"), GameInstanceGUID);
+
+	if (CurrentRuleset.IsValid())
+	{
+		TSharedPtr<FJsonObject> MatchJson = MakeShareable(new FJsonObject);
+		CurrentRuleset->MakeJsonReport(MatchJson);
+		JsonObject->SetObjectField(TEXT("CurrentRuleset"), MatchJson);
+	}
+
+	JsonObject->SetBoolField(TEXT("bPrivateMatch"),	bPrivateMatch);
+	JsonObject->SetBoolField(TEXT("bJoinAnyTime"), bJoinAnytime);
+	JsonObject->SetBoolField(TEXT("bRankLocked"), bRankLocked);
+	JsonObject->SetBoolField(TEXT("bBeginnerMatch"), bBeginnerMatch );
+	JsonObject->SetNumberField(TEXT("BotSkillLevel"), BotSkillLevel);
+
+	TArray<TSharedPtr<FJsonValue>> APArray;
+	for (int32 i=0; i < Players.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> PJson = MakeShareable(new FJsonObject);
+		Players[i]->MakeJsonReport(PJson);
+		APArray.Add( MakeShareable( new FJsonValueObject( PJson )) );			
+	}
+
+	JsonObject->SetArrayField(TEXT("Players"),  APArray);
+
+	TArray<TSharedPtr<FJsonValue>> IPArray;
+	for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> PJson = MakeShareable(new FJsonObject);
+		PlayersInMatchInstance[i].MakeJsonReport(PJson);
+		IPArray.Add( MakeShareable( new FJsonValueObject( PJson )) );			
+	}
+
+	JsonObject->SetArrayField(TEXT("InstancePlayers"),  IPArray);
+
+}
 
 

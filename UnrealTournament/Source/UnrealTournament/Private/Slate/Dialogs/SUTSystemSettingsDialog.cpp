@@ -109,6 +109,45 @@ SVerticalBox::FSlot& SUTSystemSettingsDialog::AddConsoleVarSliderWidget(TSharedR
 			]
 		];
 }
+SVerticalBox::FSlot& SUTSystemSettingsDialog::AddTopLevelConsoleVarCheckboxWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label)
+{
+
+	CVarDelegates.Add(CVar);
+
+	return SVerticalBox::Slot()
+		.HAlign(HAlign_Fill)
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(650)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(Label)
+					.ToolTip(SUTUtils::CreateTooltip(CVar->GetTooltip()))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.Padding(FMargin(0.0f, 2.0f))
+				.Content()
+				[
+					SNew(SCheckBox)
+					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+					.IsChecked(CVar, &SSlateConsoleVarDelegate::GetCheckbox)
+					.OnCheckStateChanged(CVar, &SSlateConsoleVarDelegate::SetCheckbox)
+				]
+			]
+		];
+}
 
 SVerticalBox::FSlot& SUTSystemSettingsDialog::AddConsoleVarCheckboxWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label)
 {
@@ -782,6 +821,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
 		+ AddGeneralSliderWithLabelWidget(DecalLifetime, DecalLifetimeLabel, &SUTSystemSettingsDialog::OnDecalLifetimeChange, GetDecalLifetimeLabelText(DecalSliderSetting), DecalSliderSetting,
 		NSLOCTEXT("SUTSystemSettingsDialog", "DecalLifetime_Tooltip", "Controls how long decals last (like the bullet impact marks left on walls)."))
 
+		+ AddTopLevelConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.FinishCurrentFrame"))), NSLOCTEXT("SUTSystemSettingsDialog", "RenderBeforeSubmit", "Skip GPU buffering"))
 
 		// Autodetect settings button
 		+SVerticalBox::Slot()
@@ -796,12 +836,28 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
 			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 			.Text(NSLOCTEXT("SUTSystemSettingsDialog", "AutoSettingsButtonText", "Auto Detect Settings"))
 			.OnClicked(this, &SUTSystemSettingsDialog::OnAutodetectClick)
+			.Visibility(this, &SUTSystemSettingsDialog::AutoDetectSettingsVisibility)
 		];
+}
+
+EVisibility SUTSystemSettingsDialog::AutoDetectSettingsVisibility() const
+{
+	if (PlayerOwner->IsMenuGame())
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Hidden;
 }
 
 TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 {
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+
+	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechNone", "None").ToString())));
+	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechStatusText", "Status Text").ToString())));
+	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechAll", "All").ToString())));
+	const int32 SpeechSettingValue = FMath::Clamp<int32>(int32(UserSettings->GetBotSpeech()), 0, BotSpeechList.Num() - 1);
 
 	return SNew(SVerticalBox)
 
@@ -829,12 +885,27 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			]
 		]
 		+ SHorizontalBox::Slot()
-			.AutoWidth()
+		.AutoWidth()
+		[
+			SAssignNew(BotSpeechCombo, SComboBox<TSharedPtr<FString>>)
+			.InitiallySelectedItem(BotSpeechList[SpeechSettingValue])
+			.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+			.OptionsSource(&BotSpeechList)
+			.OnGenerateWidget(this, &SUTDialogBase::GenerateStringListWidget)
+			.OnSelectionChanged(this, &SUTSystemSettingsDialog::OnBotSpeechSelected)
+			.Content()
 			[
-				SAssignNew(BotSpeechCheckBox, SCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.IsChecked(UserSettings->IsBotSpeechEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				[
+					SAssignNew(SelectedBotSpeech, STextBlock)
+					.Text(FText::FromString(*BotSpeechList[SpeechSettingValue].Get()))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+				]
 			]
+		]
 	]
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -861,6 +932,11 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]
 	];
+}
+
+void SUTSystemSettingsDialog::OnBotSpeechSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedBotSpeech->SetText(*NewSelection.Get());
 }
 
 void SUTSystemSettingsDialog::OnSoundVolumeChangedMaster(float NewValue)
@@ -1029,7 +1105,7 @@ FReply SUTSystemSettingsDialog::OKClick()
 	Suffixes.Add(FString("w"));
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), *Suffixes[NewDisplayMode]));
 
-	UserSettings->SetBotSpeechEnabled(BotSpeechCheckBox->IsChecked());
+	UserSettings->SetBotSpeech(EBotSpeechOption(FMath::Max<int32>(0, BotSpeechList.Find(BotSpeechCombo->GetSelectedItem()))));
 	UserSettings->SetHRTFEnabled(HRTFCheckBox->IsChecked());
 	UserSettings->SetAAMode(ConvertComboSelectionToAAMode(*AAMode->GetSelectedItem().Get()));
 

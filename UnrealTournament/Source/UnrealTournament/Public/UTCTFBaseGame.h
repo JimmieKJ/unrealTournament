@@ -29,6 +29,10 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		AUTTeamInfo* LastTeamToScore;
 
+	/**Amount of score to give team for flag capture. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
+		int32 FlagCapScore;
+
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC);
 
 	TAssetSubclassOf<AUTWeapon> TranslocatorObject;
@@ -61,6 +65,10 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	virtual void HandleExitingIntermission();
 	virtual void CheckGameTime() override;
 	virtual void HandleFlagCapture(AUTPlayerState* Holder);
+
+	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS) const override;
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue, bool bIncrementMatchCount) override;
 
 protected:
 

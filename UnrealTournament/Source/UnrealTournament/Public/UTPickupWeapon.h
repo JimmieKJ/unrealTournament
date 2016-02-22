@@ -2,6 +2,8 @@
 #pragma once
 
 #include "UTPickupInventory.h"
+#include "UTWeapon.h"
+#include "UTInventory.h"
 
 #include "UTPickupWeapon.generated.h"
 

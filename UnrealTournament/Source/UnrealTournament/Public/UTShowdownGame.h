@@ -89,7 +89,9 @@ public:
 	virtual void CallMatchStateChangeNotify() override;
 	virtual void DefaultTimer() override;
 
-	virtual int32 GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const override;
+	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS) const override;
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+	virtual void SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount) override;
 
 	// Creates the URL options for custom games
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);

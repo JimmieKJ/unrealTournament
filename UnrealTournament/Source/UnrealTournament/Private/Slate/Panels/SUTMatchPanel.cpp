@@ -173,6 +173,11 @@ bool SUTMatchPanel::ShouldUseLiveData()
 TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTrackedMatch> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	int32 Index = TrackedMatches.Find(InItem) + 1;
+	
+	if (InItem->MatchInfo.IsValid())
+	{
+		InItem->MatchInfo->TrackedMatchId = Index;
+	}
 
 	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
 		.Style(SUTStyle::Get(),"UT.List.Row")
@@ -217,6 +222,30 @@ TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FT
 									]
 								]
 							]
+							+SOverlay::Slot()
+							.VAlign(VAlign_Center)
+							.HAlign(HAlign_Left)
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(SHorizontalBox)
+									+SHorizontalBox::Slot()
+									.Padding(FMargin(5.0,0.0,0.0,0.0))
+									.AutoWidth()
+									[
+										SNew(SBox).WidthOverride(24).HeightOverride(24)
+										[
+											SNew(SImage)
+											.Image(SUTStyle::Get().GetBrush("UT.Icon.Lock.Small"))
+											.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetLockVis, PlayerOwner)))
+										]
+									]
+								]
+							]
+
+
 						]
 					]
 					+SHorizontalBox::Slot()
@@ -376,7 +405,7 @@ TSharedRef<ITableRow> SUTMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FT
 									SNew(SButton)
 									.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
 									.OnClicked(this, &SUTMatchPanel::JoinMatchButtonClicked, InItem)
-									.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanJoin)))
+									.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanJoin, PlayerOwner)))
 									[
 										SNew(SVerticalBox)
 										+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
@@ -908,33 +937,6 @@ TSharedRef<SWidget> SUTMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor
 		];
 	}
 
-	if ( TrackedMatch.IsValid() )
-	{
-		int32 Flags = TrackedMatch->MatchInfo.IsValid() ? TrackedMatch->MatchInfo->GetMatchFlags() : ( TrackedMatch->MatchData.IsValid() ? TrackedMatch->MatchData->Flags : 0);
-		if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
-		{
-			int32 Rank = TrackedMatch->MatchInfo.IsValid() ? TrackedMatch->MatchInfo->AverageRank : (TrackedMatch->MatchData.IsValid() ? TrackedMatch->MatchData->Rank : 1500);
-			FString RankLockStr = FString::Printf(TEXT("Allowed Ranks %i - %i"), Rank + RANK_CHECK_MIN, Rank + RANK_CHECK_MAX);
-			VertBox->AddSlot()
-			.HAlign(HAlign_Center)
-			.AutoHeight()
-			.Padding(5.0f,0.0f,5.0f,5.0)
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.FillWidth(1.0)
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString(RankLockStr))
-					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
-					.AutoWrapText(true)
-				]
-			];
-		}
-	}
-
-
-
 	if (Scores.Num() == 2)
 	{
 		FText ScoreText = FText::Format( NSLOCTEXT("SUTMatchPanel","ScoreTextFormat","<UT.Font.TeamScore.Red>{0}</> - <UT.Font.TeamScore.Blue>{1}</>"), FText::AsNumber(Scores[0]), FText::AsNumber(Scores[1]) );
@@ -1026,7 +1028,7 @@ TSharedRef<SWidget> SUTMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Ancho
 
 void SUTMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> SelectedMatch)
 {
-	if (!SelectedMatch->CanJoin()) return;
+	if (!SelectedMatch->CanJoin(PlayerOwner)) return;
 
 	bSuspendPopups = true;
 
@@ -1055,7 +1057,7 @@ void SUTMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> Selec
 
 FReply SUTMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
-	if (InItem.IsValid() && InItem->CanJoin() )
+	if (InItem.IsValid() && InItem->CanJoin(PlayerOwner) )
 	{
 		bSuspendPopups = true;
 		if (ShouldUseLiveData())

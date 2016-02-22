@@ -14,10 +14,12 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	LastManMsg = NSLOCTEXT("ShowdownRewardMessage", "LastManMsg", "Last Man Standing");
 	OverChargeMsg = NSLOCTEXT("ShowdownRewardMessage", "OverChargeMsg", "OVERCHARGE AVAILABLE!");
 	TerminationMsg = NSLOCTEXT("ShowdownRewardMessage", "TerminationMsg", "TERMINATED!");
+	AnnihilationMsg = NSLOCTEXT("ShowdownRewardMessage", "AnnihilationMsg", "ANNIHILATION!");
 	FinishIt = FName(TEXT("RW_FinishIt"));
 	LastMan = FName(TEXT("RW_LMS"));
 	OverCharge = FName(TEXT("Overload"));
 	Termination = FName(TEXT("RW_Termination"));
+	Annihilation = FName(TEXT("RW_Annihilation"));
 	AnnouncementDelay = 0.5f;
 }
 
@@ -33,6 +35,8 @@ FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1,
 		return OverChargeMsg;
 	case 3:
 		return TerminationMsg;
+	case 4:
+		return AnnihilationMsg;
 	default:
 		return FText();
 	}
@@ -65,6 +69,8 @@ FName UUTShowdownRewardMessage::GetAnnouncementName_Implementation(int32 Switch,
 		return OverCharge;
 	case 3:
 		return Termination;
+	case 4:
+		return Annihilation;
 	default:
 		return NAME_None;
 	}
@@ -76,4 +82,5 @@ void UUTShowdownRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer
 	Announcer->PrecacheAnnouncement(LastMan);
 	Announcer->PrecacheAnnouncement(OverCharge);
 	Announcer->PrecacheAnnouncement(Termination);
+	Announcer->PrecacheAnnouncement(Annihilation);
 }

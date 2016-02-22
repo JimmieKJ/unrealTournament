@@ -130,6 +130,10 @@ public:
 	UPROPERTY()
 	uint32 bCasterControl:1;
 
+	/** True if this match was started as a quickmatch. */
+	UPROPERTY()
+		uint32 bIsQuickMatch : 1;
+
 	/** If TRUE, force dead players to respawn immediately. Can be overridden with ForceRespawn=x on the url */
 	UPROPERTY(Config, EditDefaultsOnly)
 	bool bForceRespawn;
@@ -183,9 +187,17 @@ public:
 	UPROPERTY()
 	int32 MinPlayersToStart;
 
+	/** Minimum number of players that must have joined quickmatch before it will start. */
+	UPROPERTY()
+		int32 QuickPlayersToStart;
+
 	/** After this wait, add bots to min players level */
 	UPROPERTY()
 	int32 MaxWaitForPlayers;
+
+	/** Wait at least this long in quick match to fill to QuickPlayersToStart */
+	UPROPERTY()
+		int32 MaxWaitForQuickMatch;
 
 	/** World time when match was first ready to start. */
 	UPROPERTY()
@@ -552,6 +564,9 @@ public:
 	 * passed in team number is used as tiebreaker if the teams would be just as balanced either way
 	 */
 
+	UPROPERTY()
+	bool bRankedSession;
+
 	virtual TSubclassOf<class AGameSession> GetGameSessionClass() const;
 	
 	virtual void PreInitializeComponents() override;
@@ -633,12 +648,17 @@ protected:
 
 	// Updates the MCP with the current game state.  Happens once per minute.
 	virtual void UpdateOnlineServer();
+	virtual void RegisterServerWithSession();
 
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateSkillRating();
 
 	virtual void AwardXP();
 
+	void ReportRankedMatchResults(const FString& MatchRatingType);
+	void GetRankedTeamInfo(int32 TeamId, struct FRankedTeamInfo& RankedTeamInfoOut);
+	// Base version handles 2 teams
+	virtual void PrepareRankedMatchResultGameCustom(struct FRankedMatchResult& MatchResult);
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);
@@ -784,8 +804,10 @@ public:
 	// Will be true if this instance is rank locked
 	bool bRankLocked;
 
-	// The average rank allowed
+	// This is the match's combined ELO rank.  It incorporates the both the level and the sublevel and is set with the url option
+	// ?RankCheck=xxxxx
 	int32 RankCheck;
+
 
 };
 

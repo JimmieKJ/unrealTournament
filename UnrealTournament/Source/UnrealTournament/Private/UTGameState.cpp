@@ -15,6 +15,7 @@
 #include "StatNames.h"
 #include "UTGameEngine.h"
 #include "UTBaseGameMode.h"
+#include "UTGameInstance.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -247,6 +248,10 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightPriority.Add(HighlightNames::KillsAward, 0.2f);
 	HighlightPriority.Add(HighlightNames::DamageAward, 0.15f);
 	HighlightPriority.Add(HighlightNames::ParticipationAward, 0.1f);
+
+	GameOverStatus = NSLOCTEXT("UTGameState", "PostGame", "Game Over");
+	MapVoteStatus = NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
+	PreGameStatus = NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -757,15 +762,15 @@ FText AUTGameState::GetGameStatusText()
 	{
 		if (HasMatchEnded())
 		{
-			return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
+			return GameOverStatus;
 		}
 		else if (GetMatchState() == MatchState::MapVoteHappening)
 		{
-			return NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
+			return MapVoteStatus;
 		}
 		else
 		{
-			return NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
+			return PreGameStatus;
 		}
 	}
 
@@ -1328,7 +1333,6 @@ void AUTGameState::UpdateHighlights_Implementation()
 		{
 			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
 
-			// @TODO FIXMESTEVE support tie scores!
 			if (PS->Score >(TopScorer[TeamIndex] ? TopScorer[TeamIndex]->Score : 0))
 			{
 				TopScorer[TeamIndex] = PS;
@@ -1595,6 +1599,16 @@ FText AUTGameState::FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index)
 		return FText::GetEmpty();
 	}
 	FText BestWeaponText = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
+
+	// special case for float KDR
+	if (PS->MatchHighlights[Index] == HighlightNames::BestKD)
+	{
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(HighlightMap.FindRef(PS->MatchHighlights[Index]), FText::AsNumber(PS->MatchHighlightData[Index], &FormatOptions), BestWeaponText);
+	}
+
 	return FText::Format(HighlightMap.FindRef(PS->MatchHighlights[Index]), FText::AsNumber(PS->MatchHighlightData[Index]), BestWeaponText);
 }
 
@@ -1655,8 +1669,7 @@ void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
 				{
 					AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerArray[i]);
 					AUTGameMode* DefaultGame = GameModeClass ? GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-					bool bIsValidElo = false;
-					int32 Rank = UTPlayerState && DefaultGame ? DefaultGame->GetEloFor(UTPlayerState, bIsValidElo) : 0;
+					int32 Rank = UTPlayerState && DefaultGame ? DefaultGame->GetEloFor(UTPlayerState) : 0;
 					FString PlayerIP = PlayerController->GetPlayerNetworkAddress();
 					FRconPlayerData PlayerInfo(PlayerArray[i]->PlayerName, PlayerID, PlayerIP, Rank);
 					PlayerList.Add( PlayerInfo );
@@ -1666,3 +1679,43 @@ void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
 	}
 }
 
+void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	JsonObject->SetStringField(TEXT("ServerName"), ServerName);
+
+	JsonObject->SetBoolField(TEXT("bWeaponStay"), bWeaponStay);
+	JsonObject->SetBoolField(TEXT("bTeamGame"), bTeamGame);
+	JsonObject->SetBoolField(TEXT("bAllowTeamSwitches"), bAllowTeamSwitches);
+	JsonObject->SetBoolField(TEXT("bStopGameClock"), bStopGameClock);
+	JsonObject->SetBoolField(TEXT("bCasterControl"), bCasterControl);
+	JsonObject->SetBoolField(TEXT("bForcedBalance"), bForcedBalance);
+	JsonObject->SetBoolField(TEXT("bPlayPlayerIntro"), bPlayPlayerIntro);
+
+	JsonObject->SetNumberField(TEXT("GoalScore"), GoalScore);
+	JsonObject->SetNumberField(TEXT("TimeLimit"), TimeLimit);
+	JsonObject->SetNumberField(TEXT("SpawnProtectionTime"), SpawnProtectionTime);
+	JsonObject->SetNumberField(TEXT("RemainingTime"), RemainingTime);
+	JsonObject->SetNumberField(TEXT("ElapsedTime"), ElapsedTime);
+	JsonObject->SetNumberField(TEXT("RespawnWaitTime"), RespawnWaitTime);
+	JsonObject->SetNumberField(TEXT("ForceRespawnTime"), ForceRespawnTime);
+
+	TArray<TSharedPtr<FJsonValue>> PlayersJson;
+	for (int32 i=0; i < PlayerArray.Num(); i++)
+	{
+		if (PlayerArray[i])
+		{
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (PlayerState)
+			{
+				TSharedPtr<FJsonObject> PJson = MakeShareable(new FJsonObject);
+				PlayerState->MakeJsonReport(PJson);
+				PlayersJson.Add( MakeShareable( new FJsonValueObject( PJson )) );			
+			}
+		}
+	}
+
+	JsonObject->SetArrayField(TEXT("Players"),  PlayersJson);
+	
+
+
+}

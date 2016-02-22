@@ -228,23 +228,7 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 
 void AUTDuelGame::UpdateSkillRating()
 {
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS != nullptr && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_SkillRating, UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
-
-	for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
-		if (PS != nullptr && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_SkillRating, UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
+	ReportRankedMatchResults(NAME_SkillRating.ToString());
 }
 
 void AUTDuelGame::FindAndMarkHighScorer()
@@ -266,8 +250,24 @@ void AUTDuelGame::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 	}
 }
 
-int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
+uint8 AUTDuelGame::GetNumMatchesFor(AUTPlayerState* PS) const
 {
-	bEloIsValid = PS ? PS->bDuelEloValid : false;
-	return PS ? PS->DuelRank : Super::GetEloFor(PS, bEloIsValid);
+	return PS ? PS->DuelMatchesPlayed : 0;
+}
+
+int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->DuelRank : Super::GetEloFor(PS);
+}
+
+void AUTDuelGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+{
+	if (PS)
+	{
+		PS->DuelRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->DuelMatchesPlayed < 255))
+		{
+			PS->DuelMatchesPlayed++;
+		}
+	}
 }

@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUD_DM.h"
 #include "StatNames.h"
+#include "UTMcpUtils.h"
 #include "UTDMGameMode.h"
 
 
@@ -17,12 +18,29 @@ AUTDMGameMode::AUTDMGameMode(const class FObjectInitializer& ObjectInitializer)
 
 void AUTDMGameMode::UpdateSkillRating()
 {
+	ReportRankedMatchResults(NAME_DMSkillRating.ToString());
+}
+
+void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& MatchResult)
+{	
+	// report the social party initial size
+	MatchResult.RedTeam.SocialPartySize = 1;
+
+	// In DM, all players go on the red team and IndividualScores is filled out
 	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateIndividualSkillRating(NAME_DMSkillRating, &UTGameState->PlayerArray, &InactivePlayerArray);
+			FRankedTeamMemberInfo RankedMemberInfo;
+			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			if (PS->bIsABot)
+			{
+				RankedMemberInfo.AccountId = PS->PlayerName;
+			}
+			RankedMemberInfo.Score = PS->Score;
+			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
 		}
 	}
 
@@ -31,13 +49,37 @@ void AUTDMGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateIndividualSkillRating(NAME_DMSkillRating, &UTGameState->PlayerArray, &InactivePlayerArray);
+			FRankedTeamMemberInfo RankedMemberInfo;
+			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			if (PS->bIsABot)
+			{
+				RankedMemberInfo.AccountId = PS->PlayerName;
+			}
+			RankedMemberInfo.Score = PS->Score;
+			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
 		}
 	}
 }
 
-int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
+uint8 AUTDMGameMode::GetNumMatchesFor(AUTPlayerState* PS) const
 {
-	bEloIsValid = PS ? PS->bDMEloValid : false;
-	return PS ? PS->DMRank : Super::GetEloFor(PS, bEloIsValid);
+	return PS ? PS->DMMatchesPlayed : 0;
+}
+
+int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->DMRank : Super::GetEloFor(PS);
+}
+
+void AUTDMGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+{
+	if (PS)
+	{
+		PS->DMRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->DMMatchesPlayed < 255))
+		{
+			PS->DMMatchesPlayed++;
+		}
+	}
 }

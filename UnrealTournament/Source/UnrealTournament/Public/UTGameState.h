@@ -94,6 +94,15 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText GoalScoreText;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText GameOverStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText MapVoteStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText PreGameStatus;
+
 	/** amount of time between kills to qualify as a multikill */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float MultiKillDelay;
@@ -491,6 +500,8 @@ public:
 	{
 		return GameModeClass;
 	}
+
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 };
 
 

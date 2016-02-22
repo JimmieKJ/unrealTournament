@@ -143,27 +143,27 @@ AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner_Implementation(bool& bTied)
 
 void AUTTeamDMGameMode::UpdateSkillRating()
 {
-	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_TDMSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
-
-	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(NAME_TDMSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
-		}
-	}
+	ReportRankedMatchResults(NAME_TDMSkillRating.ToString());
 }
 
-int32 AUTTeamDMGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
+uint8 AUTTeamDMGameMode::GetNumMatchesFor(AUTPlayerState* PS) const
 {
-	bEloIsValid = PS ? PS->bTDMEloValid : false;
-	return PS ? PS->TDMRank : Super::GetEloFor(PS, bEloIsValid);
+	return PS ? PS->TDMMatchesPlayed : 0;
+}
+
+int32 AUTTeamDMGameMode::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->TDMRank : Super::GetEloFor(PS);
+}
+
+void AUTTeamDMGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+{
+	if (PS)
+	{
+		PS->TDMRank = NewEloValue;
+		if (bIncrementMatchCount && (PS->TDMMatchesPlayed < 255))
+		{
+			PS->TDMMatchesPlayed++;
+		}
+	}
 }

@@ -228,13 +228,19 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 void AUTLobbyGameState::CheckForAutoPlacement(AUTLobbyPlayerState* NewPlayer)
 { 
 	// We are looking to join a player's match.. see if we can find the player....
-	if (NewPlayer->DesiredFriendToJoin != TEXT(""))
+	if (!NewPlayer->DesiredFriendToJoin.IsEmpty())
 	{
 		AUTLobbyMatchInfo* FriendsMatch = FindMatchPlayerIsIn(NewPlayer->DesiredFriendToJoin);
 		if (FriendsMatch)
 		{
 			JoinMatch(FriendsMatch, NewPlayer);
 		}
+	}
+
+	// Otherwise, look to see if we want to join a match.
+	else if (!NewPlayer->DesiredMatchIdToJoin.IsEmpty())
+	{
+		AttemptDirectJoin(NewPlayer, NewPlayer->DesiredMatchIdToJoin, NewPlayer->bDesiredJoinAsSpectator);
 	}
 }
 
@@ -270,7 +276,7 @@ void AUTLobbyGameState::HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 {
 	MatchInfo->SetOwner(MatchOwner->GetOwner());
 	MatchInfo->AddPlayer(MatchOwner, true);
-	MatchInfo->SetSettings(this, MatchToCopy);
+	MatchInfo->SetSettings(this, MatchOwner, MatchToCopy);
 }
 
 void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer, bool bAsSpectator)
@@ -302,11 +308,10 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	}
 
 	AUTGameMode* UTGame = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GetDefaultGameModeObject() : AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
-	bool bIsValidElo = false;
-	int32 PlayerRank = (UTGame && NewPlayer) ? UTGame->GetEloFor(NewPlayer, bIsValidElo) : 1500;
-	if (!MatchInfo->SkillTest(PlayerRank)) // MAKE THIS CONFIG
+	int32 PlayerRankCheck = NewPlayer->GetRankCheck(UTGame);
+	if (!bAsSpectator && !MatchInfo->SkillTest(PlayerRankCheck)) 
 	{
-		if (PlayerRank > MatchInfo->AverageRank)
+		if (PlayerRankCheck > MatchInfo->RankCheck)
 		{
 			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchTooGood", "Your skill rating is too high for this match."));
 		}
@@ -471,7 +476,12 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 
 		if (MatchOwner->bRankLocked)
 		{
-			GameURL += FString::Printf(TEXT("?RankCheck=%i"), MatchOwner->AverageRank);
+			GameURL += FString::Printf(TEXT("?RankCheck=%i"), MatchOwner->RankCheck);
+		}
+
+		if (MatchOwner->bQuickPlayMatch)
+		{
+			GameURL += TEXT("?QuickMatch=1");
 		}
 
 		if (MatchOwner->bPrivateMatch)
@@ -575,6 +585,9 @@ void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameIn
 			GameInstances[i].MatchInfo->InitialMap = MapName;
 			GameInstances[i].MatchInfo->InstanceBeacon = InstanceBeacon;
 
+			// Load the map info
+			GameInstances[i].MatchInfo->GetMapInformation();
+
 			break;
 		}
 	}
@@ -592,7 +605,7 @@ void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 InGameInstanceID, const 
 	}
 }
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, const FRemotePlayerInfo& PlayerInfo, bool bLastUpdate)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
@@ -606,12 +619,11 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 			{
 				for (int32 j=0; j < Match->PlayersInMatchInstance.Num(); j++)
 				{
-					if (Match->PlayersInMatchInstance[j].PlayerID == PlayerID)
+					if (Match->PlayersInMatchInstance[j].PlayerID == PlayerInfo.PlayerID)
 					{
 						if (bLastUpdate)
 						{
 							Match->PlayersInMatchInstance.RemoveAt(j,1);
-							Match->UpdateRank();
 
 							// Update the Game state.
 							if (LobbyGameMode)
@@ -623,13 +635,8 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 						}
 						else
 						{
-							Match->PlayersInMatchInstance[j].PlayerName = PlayerName;
-							Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
-							Match->PlayersInMatchInstance[j].bIsSpectator = bSpectator;
-							Match->PlayersInMatchInstance[j].PlayerRank = PlayerRank;
-							Match->PlayersInMatchInstance[j].TeamNum = TeamNum;
-							Match->PlayersInMatchInstance[j].Avatar = Avatar;
-							Match->UpdateRank();
+
+							Match->PlayersInMatchInstance[j].Update(PlayerInfo);
 							return;
 						}
 						break;
@@ -637,8 +644,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 				}
 	
 				// A player not in the instance table.. add them
-				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, PlayerRank, Avatar));
-				Match->UpdateRank();
+				Match->PlayersInMatchInstance.Add( FRemotePlayerInfo(PlayerInfo) );
 
 				// Update the Game state.
 				if (LobbyGameMode)
@@ -646,8 +652,6 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 					AUTGameSession* UTGameSession = Cast<AUTGameSession>(LobbyGameMode->GameSession);
 					if (UTGameSession) UTGameSession->UpdateGameState();
 				}
-
-
 			}
 		}
 	}
@@ -696,12 +700,6 @@ bool AUTLobbyGameState::IsMatchStillValid(AUTLobbyMatchInfo* TestMatch)
 	}
 
 	return false;
-}
-
-// A New Client has joined.. Send them all of the server side settings
-void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
-{
-	CheckForAutoPlacement(NewPlayer);
 }
 
 
@@ -964,7 +962,7 @@ bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& 
 		NumGameInstances = GameInstances.Num();
 
 		NewMatchInfo->GameInstanceID = GameInstanceID;
-		NewMatchInfo->SetSettings(this, NULL);
+		NewMatchInfo->SetSettings(this, nullptr, nullptr);
 		NewMatchInfo->bDedicatedMatch = true;
 		NewMatchInfo->AccessKey = AccessKey;
 		NewMatchInfo->DedicatedServerName = ServerName;
@@ -995,14 +993,14 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatch(FGuid MatchID)
 	return NULL;
 }
 
-void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank, bool bBeginner)
+void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 RankCheck, bool bBeginner)
 {
 	// Look through all available matches and see if there is 
 
 	int32 BestInstanceIndex = -1;
 
 	UE_LOG(UT,Verbose,TEXT("===================================================="));
-	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i"), *MatchType, ELORank);
+	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i"), *MatchType, RankCheck);
 	UE_LOG(UT,Verbose,TEXT("===================================================="));
 
 	if (CanLaunch())
@@ -1032,13 +1030,8 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->NotifyBeacons.Add(Beacon);
 			NewMatchInfo->bJoinAnytime = true;
 			NewMatchInfo->bSpectatable = true;
-
-			if (!bTrainingGround && bBeginner)
-			{
-				NewMatchInfo->bRankLocked = true;
-				NewMatchInfo->AverageRank = ELORank;
-			}
-
+			NewMatchInfo->bRankLocked = true;
+			NewMatchInfo->RankCheck = RankCheck;
 			NewMatchInfo->LaunchMatch(true,1);
 		}
 	}
@@ -1080,7 +1073,7 @@ void AUTLobbyGameState::RequestInstanceJoin(AUTServerBeaconClient* Beacon, const
 
 	if (DestinationMatchInfo && (DestinationMatchInfo->CurrentState == ELobbyMatchState::InProgress || DestinationMatchInfo->CurrentState != ELobbyMatchState::WaitingForPlayers || DestinationMatchInfo->CurrentState != ELobbyMatchState::Launching) )
 	{
-		if (DestinationMatchInfo->SkillTest(Rank,false))
+		if (bSpectator || DestinationMatchInfo->SkillTest(Rank,false))
 		{
 			if (!DestinationMatchInfo->bPrivateMatch)
 			{
@@ -1151,7 +1144,7 @@ void AUTLobbyGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerLis
 
 				if (!bFound)
 				{
-					int32 Rank = Match->PlayersInMatchInstance[i].PlayerRank;
+					int32 Rank = Match->PlayersInMatchInstance[i].RankCheck;
 					FString PlayerIP = TEXT("N/A")
 					;
 					PlayerList.Add( FRconPlayerData(Match->PlayersInMatchInstance[i].PlayerName, PlayerID, PlayerIP, Rank, Match->GameInstanceGUID) );
@@ -1162,11 +1155,13 @@ void AUTLobbyGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerLis
 	}
 }
 
-bool AUTLobbyGameState::SendSayToInstance(const FString& User, const FString& FinalMessage)
+bool AUTLobbyGameState::SendSayToInstance(const FString& User, const FString& PlayerName, const FString& Message)
 {
 	bool bSent = false;
 
 	// Try and this user.	
+
+	FString FinalMessage = FString::Printf(TEXT("%s: %s"), *PlayerName, *Message);
 
 	for (int32 MatchIndex = 0; MatchIndex < AvailableMatches.Num(); MatchIndex++)
 	{
@@ -1215,4 +1210,51 @@ void AUTLobbyGameState::AttemptDirectJoin(AUTLobbyPlayerState* PlayerState, cons
 			return;
 		}
 	}
+}
+
+void AUTLobbyGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	Super::MakeJsonReport(JsonObject);
+
+	TArray<TSharedPtr<FJsonValue>> AvailableMatchJson;
+	for (int32 i=0; i < AvailableMatches.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> MatchJson = MakeShareable(new FJsonObject);
+		AvailableMatches[i]->MakeJsonReport(MatchJson);
+		AvailableMatchJson.Add( MakeShareable( new FJsonValueObject( MatchJson )) );			
+	}
+
+	JsonObject->SetArrayField(TEXT("AvailableMatches"),  AvailableMatchJson);
+
+	TArray<TSharedPtr<FJsonValue>> InstancesJson;
+	for (int32 i=0; i < GameInstances.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> IJson = MakeShareable(new FJsonObject);
+		if (GameInstances[i].MatchInfo)
+		{
+			IJson->SetStringField(TEXT("InstanceID"), GameInstances[i].MatchInfo->GameInstanceGUID);
+		}
+		else
+		{
+			IJson->SetStringField(TEXT("InstanceID"), TEXT("<INVALID>"));
+		}
+
+		IJson->SetNumberField(TEXT("InstancePort"), GameInstances[i].InstancePort);
+	}
+
+	JsonObject->SetArrayField(TEXT("GameInstances"),  InstancesJson);
+	JsonObject->SetNumberField(TEXT("ProcessesAwaitingReturnCodes"),  ProcessesToGetReturnCode.Num());
+
+
+	TArray<TSharedPtr<FJsonValue>> RulesetJson;
+	for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> RJson = MakeShareable(new FJsonObject);
+		AvailableGameRulesets[i]->MakeJsonReport(RJson);
+		RulesetJson.Add( MakeShareable( new FJsonValueObject( RJson )) );			
+	}
+
+	JsonObject->SetArrayField(TEXT("Rulesets"),  RulesetJson);
+
+
 }

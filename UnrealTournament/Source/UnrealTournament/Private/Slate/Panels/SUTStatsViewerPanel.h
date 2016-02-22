@@ -29,6 +29,8 @@ protected:
 	FString LastStatsIDDownload;
 	FString LastQueryWindowDownload;
 
+	void SetupFriendsList();
+
 	virtual void DownloadStats();
 
 	TSharedPtr<SHorizontalBox> WebBrowserBox;

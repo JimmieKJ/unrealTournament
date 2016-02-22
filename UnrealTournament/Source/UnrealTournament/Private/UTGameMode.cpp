@@ -41,6 +41,9 @@
 #include "DataChannel.h"
 #include "UTGameInstance.h"
 #include "UTDemoRecSpectator.h"
+#include "UTMcpUtils.h"
+#include "UTGameSessionRanked.h"
+#include "UTGameSessionNonRanked.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -81,7 +84,9 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
-	MaxWaitForPlayers = 90;
+	QuickPlayersToStart = 4;
+	MaxWaitForPlayers = 240;
+	MaxWaitForQuickMatch = 180;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
@@ -190,12 +195,23 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		}
 	}
 
+	// Must happen before Super call because GetGameSessionClass() is switched on this
+	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Ranked"));
+	if (!InOpt.IsEmpty())
+	{
+		bRankedSession = true;
+	}
+	else
+	{
+		bRankedSession = false;
+	}
+
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	GameDifficulty = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
 	
 	HostLobbyListenPort = UGameplayStatics::GetIntOption(Options, TEXT("HostPort"), 14000);
-	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("ForceRespawn"));
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("ForceRespawn"));
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
 
 	MaxWaitForPlayers = UGameplayStatics::GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
@@ -213,8 +229,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	if (!InOpt.IsEmpty())
 	{
 		bRankLocked = true;
-		RankCheck = UGameplayStatics::GetIntOption(Options, TEXT("RankCheck"), 1400);
-		UE_LOG(UT,Log,TEXT("---------- RankLocked to %i"), RankCheck);
+		RankCheck = UGameplayStatics::GetIntOption(Options, TEXT("RankCheck"), DEFAULT_RANK_CHECK);
 	}
 	else
 	{
@@ -222,7 +237,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	}
 
 	RespawnWaitTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("RespawnWait"), RespawnWaitTime));
-
+	
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Hub"));
 	if (!InOpt.IsEmpty()) HubAddress = InOpt;
 
@@ -477,18 +492,52 @@ void AUTGameMode::InitGameState()
 		UE_LOG(UT,Error, TEXT("UTGameState is NULL %s"), *GameStateClass->GetFullName());
 	}
 
+	RegisterServerWithSession();
+}
+
+void AUTGameMode::RegisterServerWithSession()
+{
 	if (GameSession != NULL && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession)
+		AUTGameSessionNonRanked* UTGameSessionNonRanked = Cast<AUTGameSessionNonRanked>(GameSession);
+		AUTGameSessionRanked* UTGameSessionRanked = Cast<AUTGameSessionRanked>(GameSession);
+		if (UTGameSessionNonRanked)
 		{
-			UTGameSession->RegisterServer();
+			UTGameSessionNonRanked->RegisterServer();
 			FTimerHandle TempHandle;
-			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
+			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f*GetActorTimeDilation());
 
-			if (UTGameSession->bSessionValid)
+			if (UTGameSessionNonRanked->bSessionValid)
 			{
 				NotifyLobbyGameIsReady();
+			}
+		}
+		else if (UTGameSessionRanked)
+		{
+			FOnlineSessionSettings* SessionSettings = NULL;
+			const IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+			if (OnlineSub)
+			{
+				const IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+				if (SessionInt.IsValid())
+				{
+					SessionSettings = SessionInt->GetSessionSettings(GameSessionName);
+				}
+			}
+
+			if (SessionSettings)
+			{
+				UTGameSessionRanked->UpdatePlayerNeedsStatus();
+
+				// Init the host beacon again to continue receiving reservation requests
+				UTGameSessionRanked->InitHostBeacon(SessionSettings);
+
+				// Update the session settings (to include the new game mode setting)
+				UTGameSessionRanked->UpdateSession(GameSessionName, *SessionSettings);
+			}
+			else
+			{
+				UTGameSessionRanked->RegisterServer();
 			}
 		}
 	}
@@ -530,7 +579,6 @@ void AUTGameMode::PreLogin(const FString& Options, const FString& Address, const
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
-
 	if (ErrorMessage.IsEmpty())
 	{
 		// broadcast incoming player's character choices for preloading
@@ -543,7 +591,11 @@ void AUTGameMode::PreLogin(const FString& Options, const FString& Address, const
 			{
 				for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 				{
-
+					AUTPlayerController* PC = Cast<AUTPlayerController>(It->Get());
+					if (PC != NULL)
+					{
+						PC->PreloadItem(InOpt);
+					}
 				}
 			}
 		}
@@ -1667,7 +1719,7 @@ void AUTGameMode::EndMatch()
 	UTGameState->UpdateMatchHighlights();
 
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, GetActorTimeDilation());
 
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
 	{
@@ -1880,13 +1932,13 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 	// Setup a timer to pop up the final scoreboard on everyone
 	FTimerHandle TempHandle2;
-	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
+	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay*GetActorTimeDilation());
 
 	// Setup a timer to continue to the next map.  Need enough time for match summaries
 	EndTime = GetWorld()->TimeSeconds;
 	float TravelDelay = GetTravelDelay();
 	FTimerHandle TempHandle3;
-	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, TravelDelay);
+	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, TravelDelay*GetActorTimeDilation());
 
 	FTimerHandle TempHandle4;
 	float EndReplayDelay = TravelDelay - 10.f;
@@ -2560,7 +2612,7 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 		}
 
 		// start match, or let player enter, immediately
-		if (UTGameState->HasMatchStarted())
+		if (PlayerCanRestart(NewPlayer))
 		{
 			RestartPlayer(NewPlayer);
 		}
@@ -2598,7 +2650,14 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 	{
 		StartPlayTime = (NumPlayers > 0) ? FMath::Min(StartPlayTime, GetWorld()->GetTimeSeconds()) : 10000000.f;
 		float  ElapsedWaitTime = FMath::Max(0.f, GetWorld()->GetTimeSeconds() - StartPlayTime);
-		UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
+		if (bIsQuickMatch)
+		{
+			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
+		}
+		else
+		{
+			UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
+		}
 		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
 			// Count how many ready players we have
@@ -2622,7 +2681,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			}
 
 			// start if everyone is ready, or have waited long enough and 60% ready.
-			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (ElapsedWaitTime > MaxReadyWaitTime);
+			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
 			if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
 			{
 				if (((ReadyCount > 0) && !bCasterControl) || bCasterReady)
@@ -2631,17 +2690,20 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 				}
 			}
 		}
-		// if not competitive match, Fill with bots if have waited long enough
-		if (!bRequireReady && (MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
+		// if not competitive match, fill with bots if have waited long enough
+		if (!bRequireReady)
 		{
-			BotFillCount = FMath::Max(BotFillCount, MinPlayersToStart);
+			if ((MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
+			{
+				BotFillCount = FMath::Max(BotFillCount, MinPlayersToStart);
+			}
 		}
 		if (!bRequireReady && (MaxReadyWaitTime > 0) && UTGameState && (ElapsedWaitTime > 0))
 		{
 			int32 WaitCountDown = (NumPlayers > 1) ? MaxReadyWaitTime  : FMath::Max(MaxReadyWaitTime, MaxWaitForPlayers);
 			WaitCountDown -= ElapsedWaitTime;
-			UTGameState->RemainingTime = WaitCountDown;
-			UTGameState->RemainingMinute = WaitCountDown;
+			UTGameState->RemainingTime = FMath::Max(0, WaitCountDown);
+			UTGameState->RemainingMinute = UTGameState->RemainingTime;
 		}
 	}
 	return false;
@@ -2762,7 +2824,7 @@ void AUTGameMode::HandleMatchInOvertime()
 void AUTGameMode::HandlePlayerIntro()
 {
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 5.f, false);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 5.f*GetActorTimeDilation(), false);
 }
 
 void AUTGameMode::EndPlayerIntro()
@@ -2781,7 +2843,7 @@ void AUTGameMode::HandleCountdownToBegin()
 	}*/
 	CountDown = 3;
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.0, false);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.f*GetActorTimeDilation(), false);
 }
 
 void AUTGameMode::CheckCountDown()
@@ -2791,7 +2853,7 @@ void AUTGameMode::CheckCountDown()
 		// Broadcast the localized message saying when the game begins.
 		BroadcastLocalized( this, UUTCountDownMessage::StaticClass(), CountDown, NULL, NULL, NULL);
 		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.0, false);
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.f*GetActorTimeDilation(), false);
 		CountDown--;
 	}
 	else
@@ -2888,8 +2950,7 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
 			if (PlayerState && !PlayerState->bIsDemoRecording)
 			{
-				bool bEloIsValid = false;
-				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, GetEloFor(PlayerState, bEloIsValid), PlayerState->Avatar);
+				LobbyBeacon->UpdatePlayer(this, PlayerState, false);
 			}
 		}
 	}
@@ -3004,8 +3065,7 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 		{
-			bool bEloIsValid = false;
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, GetEloFor(PS, bEloIsValid), PS->Avatar);
+			LobbyBeacon->UpdatePlayer(this, PS, true);
 		}
 	}
 }
@@ -3066,7 +3126,12 @@ bool AUTGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast
 
 TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 {
-	return AUTGameSession::StaticClass();
+	if (bRankedSession)
+	{
+		return AUTGameSessionRanked::StaticClass();
+	}
+
+	return AUTGameSessionNonRanked::StaticClass();
 }
 
 void AUTGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
@@ -3494,12 +3559,15 @@ void AUTGameMode::UpdateLobbyMatchStats()
 	if (ensure(LobbyBeacon) && UTGameState)
 	{
 		FMatchUpdate MatchUpdate;
+		MatchUpdate.TimeLimit = TimeLimit;
+		MatchUpdate.GoalScore = GoalScore;
 		MatchUpdate.GameTime = TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
 		MatchUpdate.NumPlayers = NumPlayers;
 		MatchUpdate.NumSpectators = NumSpectators;
 		MatchUpdate.MatchState = MatchState;
 		MatchUpdate.bMatchHasBegun = HasMatchStarted();
 		MatchUpdate.bMatchHasEnded = HasMatchEnded();
+		MatchUpdate.RankCheck = RankCheck;
 
 		UpdateLobbyScore(MatchUpdate);
 		LobbyBeacon->UpdateMatch(MatchUpdate);
@@ -3521,8 +3589,7 @@ void AUTGameMode::UpdateLobbyPlayerList()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 			{
-				bool bEloIsValid = false;
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, GetEloFor(PS, bEloIsValid), PS->Avatar);
+				LobbyBeacon->UpdatePlayer(this, PS, false);
 			}
 		}
 	}
@@ -3953,13 +4020,12 @@ void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid, int32 InstanceID)
 void AUTGameMode::HandleMapVote()
 {
 	// Force at least 20 seconds of map vote time.
-	if (MapVoteTime < 20) MapVoteTime = 20;
-
+	MapVoteTime = FMath::Max(MapVoteTime, 20) * GetActorTimeDilation();
 	UTGameState->VoteTimer = MapVoteTime;
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::TallyMapVotes, MapVoteTime+1);	
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::TallyMapVotes, MapVoteTime + GetActorTimeDilation());
 	FTimerHandle TempHandle2;
-	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::CullMapVotes, MapVoteTime-10);	
+	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::CullMapVotes, MapVoteTime - 10 * GetActorTimeDilation());
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
@@ -4229,3 +4295,123 @@ void AUTGameMode::GetGood()
 #endif
 }
 
+void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInfoOut)
+{
+	// report the social party initial size
+	RankedTeamInfoOut.SocialPartySize = 1;
+
+	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator && PS->GetTeamNum() == TeamId)
+		{
+			FRankedTeamMemberInfo RankedMemberInfo;
+			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			if (PS->bIsABot)
+			{
+				RankedMemberInfo.AccountId = PS->PlayerName;
+			}
+			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
+		}
+	}
+
+	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator && PS->GetTeamNum() == TeamId)
+		{
+			FRankedTeamMemberInfo RankedMemberInfo;
+			RankedMemberInfo.AccountId = PS->StatsID;
+			RankedMemberInfo.IsBot = PS->bIsABot;
+			if (PS->bIsABot)
+			{
+				RankedMemberInfo.AccountId = PS->PlayerName;
+			}
+			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
+		}
+	}
+}
+
+void AUTGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& MatchResult)
+{
+	// get the winner
+	if (UTGameState->WinningTeam->TeamIndex == 0)
+	{
+		// red team wins
+		MatchResult.MatchInfo.RedScore = 1.0f;
+	}
+	else
+	{
+		// red team loses
+		MatchResult.MatchInfo.RedScore = 0.0f;
+	}
+	
+	// add team member info
+	GetRankedTeamInfo(0, MatchResult.RedTeam);
+	GetRankedTeamInfo(1, MatchResult.BlueTeam);
+}
+
+void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
+{
+	// get MCP Utils
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), TSharedPtr<const FUniqueNetId>());
+	if (McpUtils == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to report the results of this ranked match"));
+		return;
+	}
+
+	// prepare a MatchResult structure
+	FRankedMatchResult MatchResult;
+	MatchResult.RatingType = MatchRatingType;
+	
+	// get the session ID
+	IOnlineSessionPtr SessionInt = IOnlineSubsystem::Get()->GetSessionInterface();
+	FNamedOnlineSession* SessionPtr = SessionInt.IsValid() ? SessionInt->GetNamedSession(GameSessionName) : nullptr;
+	TSharedPtr<FOnlineSessionInfo> SessionInfo = SessionPtr ? SessionPtr->SessionInfo : TSharedPtr<FOnlineSessionInfo>();
+	if (SessionInfo.IsValid())
+	{
+		MatchResult.MatchInfo.SessionId = SessionInfo->GetSessionId().ToString();
+		UE_LOG(UT, Log, TEXT("Reporting ranked results for session {0}"), *MatchResult.MatchInfo.SessionId);
+	}
+	else
+	{
+		// just make a new one so we can submit
+		MatchResult.MatchInfo.SessionId = FGuid::NewGuid().ToString();
+		UE_LOG(UT, Warning, TEXT("Unable to get match session ID. Will report the results of this ranked match with sessionID = {0}"), *MatchResult.MatchInfo.SessionId);
+	}
+
+	// get the length of the match (in seconds)
+	if (ensure(GameState))
+	{
+		MatchResult.MatchInfo.MatchLengthSeconds = GameState->ElapsedTime;
+	}
+
+	PrepareRankedMatchResultGameCustom(MatchResult);
+
+	// tell MCP about the match to update players' MMRs
+	McpUtils->ReportRankedMatchResult(MatchResult, [this, MatchRatingType](const FOnlineError& Result) {
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to report Match Results to the server. User ELOs will not be updated. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			UE_LOG(UT, Display, TEXT("Ranked match reported to backend"));
+		}
+
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			if (UTGameState->PlayerArray[i])
+			{
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTGameState->PlayerArray[i]->GetOwner());
+				if (UTPC)
+				{
+					UTPC->ClientUpdateSkillRating(MatchRatingType);
+				}
+			}
+		}
+	});
+}

@@ -267,3 +267,43 @@ FString AUTReplicatedGameRuleset::GetDescription()
 	return Description;
 }
 
+void AUTReplicatedGameRuleset::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	JsonObject->SetStringField(TEXT("Title"), Title);
+	JsonObject->SetStringField(TEXT("GameMode"), GameMode);
+	JsonObject->SetStringField(TEXT("GameOptions"), GameOptions);
+
+	JsonObject->SetNumberField(TEXT("MinPlayersToStart"), MinPlayersToStart);
+	JsonObject->SetNumberField(TEXT("MaxPlayers"), MaxPlayers);
+	JsonObject->SetNumberField(TEXT("OptimalPlayers"), OptimalPlayers);
+
+	JsonObject->SetBoolField(TEXT("bCompetitiveMatch"), bCompetitiveMatch);
+	JsonObject->SetBoolField(TEXT("bTeamGame"), bTeamGame);
+
+	JsonObject->SetStringField(TEXT("DefaultMap"), DefaultMap);
+
+	TArray<TSharedPtr<FJsonValue>> MapArray;
+	for (int32 i=0; i < MapList.Num(); i++)
+	{
+		TSharedPtr<FJsonObject> MapJson = MakeShareable(new FJsonObject);
+		MapJson->SetStringField(TEXT("MapName"), MapList[i]->MapPackageName);
+		MapArray.Add( MakeShareable( new FJsonValueObject( MapJson )));			
+	}
+
+	JsonObject->SetArrayField(TEXT("MapLIst"), MapArray);
+
+	if (RequiredPackages.Num() > 0)
+	{
+		TArray<TSharedPtr<FJsonValue>> ReqArray;
+		for (int32 i=0; i < RequiredPackages.Num(); i++)
+		{
+			TSharedPtr<FJsonObject> ReqJson = MakeShareable(new FJsonObject);
+			ReqJson->SetStringField(TEXT("Package"), RequiredPackages[i]);
+			ReqArray.Add( MakeShareable( new FJsonValueObject( ReqJson )));			
+		}
+
+		JsonObject->SetArrayField(TEXT("RequiredPackages"), ReqArray);
+	}
+}
+
+

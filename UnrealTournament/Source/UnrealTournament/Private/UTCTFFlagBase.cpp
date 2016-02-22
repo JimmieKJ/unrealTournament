@@ -22,6 +22,8 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTCTFFlagBase::OnOverlapBegin);
 	Capsule->RelativeLocation = FVector(0.0f, 0.0f, 134.0f);
 	Capsule->AttachParent = RootComponent;
+
+	RoundLivesAdjustment = 0;
 }
 
 void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

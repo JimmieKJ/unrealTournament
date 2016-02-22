@@ -4,6 +4,7 @@
 #include "UTLocalPlayer.h"
 #include "SUTHUDSettingsDialog.h"
 #include "../SUWindowsStyle.h"
+#include "../SUTStyle.h"
 #include "UTPlayerInput.h"
 #include "Scalability.h"
 #include "UTWorldSettings.h"
@@ -31,6 +32,7 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
 							.ContentPadding(InArgs._ContentPadding)
 							.ButtonMask(InArgs._ButtonMask)
+							.IsScrollable(false)
 							.bShadow(!bInGame) //Don't shadow if ingame
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
@@ -57,7 +59,9 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 	Old_HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
 	Old_bUseWeaponColors = TargetHUD->bUseWeaponColors;
 	Old_bDrawChatKillMsg = TargetHUD->bDrawChatKillMsg;
-	Old_bDrawPopupKillMsg = TargetHUD->bDrawPopupKillMsg;
+	Old_bDrawCenteredKillMsg = TargetHUD->bDrawCenteredKillMsg;
+	Old_bDrawHUDKillIconMsg = TargetHUD->bDrawHUDKillIconMsg;
+	Old_bPlayKillSoundMsg = TargetHUD->bPlayKillSoundMsg;
 
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
@@ -67,333 +71,101 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 		if (TargetHUD.IsValid() )
 		{
 			DialogContent->AddSlot()
+			.VAlign(VAlign_Fill)
 			[
 				SNew(SVerticalBox)
+				+SVerticalBox::Slot()  // Tab Bar
+				.AutoHeight()
+				[
+					SNew(SBox)
+					.HeightOverride(55)
+					[
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.Padding(FMargin(25.0f, 0.0f, 0.0f, 0.0f))
+							.AutoWidth()
+							[
+								SAssignNew(GeneralSettingsTabButton, SUTButton)
+								.IsToggleButton(true)
+								.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+								.Text(NSLOCTEXT("SUTHUDSettingsDialog", "ControlTabGeneral", "General"))
+								.OnClicked(this, &SUTHUDSettingsDialog::OnTabClickGeneral)
+							]
+
+							+ SHorizontalBox::Slot()
+							.Padding(FMargin(25.0f, 0.0f, 0.0f, 0.0f))
+							.AutoWidth()
+							[
+								SAssignNew(WeaponBarSettingsTabButton, SUTButton)
+								.IsToggleButton(true)
+								.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+								.Text(NSLOCTEXT("SUTHUDSettingsDialog", "ControlTabWeaponBar", "Weapon Bar"))
+								.OnClicked(this, &SUTHUDSettingsDialog::OnTabClickWeaponBar)
+							]
+
+							+ SHorizontalBox::Slot()
+							.Padding(FMargin(25.0f, 0.0f, 0.0f, 0.0f))
+							.AutoWidth()
+							[
+								SAssignNew(NotificationsSettingsTabButton, SUTButton)
+								.IsToggleButton(true)
+								.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+								.Text(NSLOCTEXT("SUTHUDSettingsDialog", "ControlNotifications", "Notifications"))
+								.OnClicked(this, &SUTHUDSettingsDialog::OnTabClickNotifications)
+							]
+						]
+					]
+				]
+
+				// Content
+
+				+SVerticalBox::Slot()
+				.FillHeight(1.0)
+				.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+				[
+					// Settings Tabs
+					SAssignNew(TabWidget, SWidgetSwitcher)
+
+					// General Settings
+					+ SWidgetSwitcher::Slot()
+					[
+						BuildGeneralTab()
+					]
+
+					// Weapon Bar Settings
+					+ SWidgetSwitcher::Slot()
+					[
+						BuildWeaponBarTab()
+					]
+
+					// Notification Settings
+					+ SWidgetSwitcher::Slot()
+					[
+						BuildNotificationsTab()
+					]
+				]
+
 				+ SVerticalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
+				.Padding(20.0f, 50.0f, 20.0f, 0.0f)
 				.AutoHeight()
 				[
 					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
 					.Justification(ETextJustify::Center)
-					.WrapTextAt(InArgs._DialogSize.X * 0.6)
+					.AutoWrapText(true)
 					.Text(bInGame ? FText::GetEmpty() : NSLOCTEXT("SUTHUDSettingsDialog", "MainMenuInstruction", "If you modify these options while in game, you will instantly see the effects of your changes."))
 				]
-				+SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(this, &SUTHUDSettingsDialog::GetHUDOpacityLabel)
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","HUDOpacityTT","Adjusts how transparent the HUD should be.")))
-						]
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SBox)
-							.WidthOverride(300.0f)
-							.Content()
-							[
-								SAssignNew(HUDOpacity, SSlider)
-								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
-								.Orientation(Orient_Horizontal)
-								.Value(TargetHUD->HUDWidgetOpacity)
-								.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDOpacityChanged)
-							]
-						]
-					]
-
-				+SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(this, &SUTHUDSettingsDialog::GetHUDBorderOpacityLabel)
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","HUDBorderOpacityTT","Adjusts how transparent the hard edge border around each element of the HUD should be.")))
-						]
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SBox)
-							.WidthOverride(300.0f)
-							.Content()
-							[
-								SAssignNew(HUDOpacity, SSlider)
-								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
-								.Orientation(Orient_Horizontal)
-								.Value(TargetHUD->HUDWidgetBorderOpacity)
-								.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDBorderOpacityChanged)
-							]
-						]
-					]
-
-				+SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(this, &SUTHUDSettingsDialog::GetHUDSlateOpacityLabel)
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","HUDSlateOpacityTT","Adjusts how transparent the background portion of each HUD element should be.")))
-						]
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SBox)
-							.WidthOverride(300.0f)
-							.Content()
-							[
-								SAssignNew(HUDOpacity, SSlider)
-								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
-								.Orientation(Orient_Horizontal)
-								.Value(TargetHUD->HUDWidgetSlateOpacity)
-								.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDSlateOpacityChanged)
-							]
-						]
-					]
-
-				+SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(this, &SUTHUDSettingsDialog::GetHUDScaleLabel)
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","HUDScaleTT","Makes the HUD elements bigger or smaller.")))
-						]
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SBox)
-							.WidthOverride(300.0f)
-							.Content()
-							[
-								SAssignNew(HUDOpacity, SSlider)
-								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
-								.Orientation(Orient_Horizontal)
-								.Value(TargetHUD->HUDWidgetScaleOverride / 2.0f)
-								.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDScaleChanged)
-							]
-						]
-					]
-
-				+SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(this, &SUTHUDSettingsDialog::GetWeaponBarOpacityLabel)
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","HUDWeaponBarOpaictyTT","Adjusts how transparent the Weapon Bar should be.  NOTE this is applied in addition to the normal transparency setting.")))
-						]
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SBox)
-							.WidthOverride(300.0f)
-							.Content()
-							[
-								SAssignNew(HUDOpacity, SSlider)
-								.Orientation(Orient_Horizontal)
-								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
-								.Value(TargetHUD->HUDWidgetWeaponbarInactiveOpacity)
-								.OnValueChanged(this, &SUTHUDSettingsDialog::OnWeaponBarOpacityChanged)
-							]
-						]
-					]
-
-				+SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(this, &SUTHUDSettingsDialog::GetWeaponBarIconOpacityLabel)
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","HUDWeaponBarIconOpacityTT","Adjusts how transparent the icons on the Weapon Bar should be.")))
-						]
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SBox)
-							.WidthOverride(300.0f)
-							.Content()
-							[
-								SAssignNew(HUDOpacity, SSlider)
-								.Orientation(Orient_Horizontal)
-								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
-								.Value(TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity)
-								.OnValueChanged(this, &SUTHUDSettingsDialog::OnWeaponBarIconOpacityChanged)
-							]
-						]
-					]
-
-				+SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(this, &SUTHUDSettingsDialog::GetWeaponBarEmptyOpacityLabel)
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","HUDWeaponBarEmptyOpacityTT","Adjusts how transparent an empty Weapon Bar slot should be.")))
-						]
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SBox)
-							.WidthOverride(300.0f)
-							.Content()
-							[
-								SAssignNew(HUDOpacity, SSlider)
-								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
-								.Orientation(Orient_Horizontal)
-								.Value(TargetHUD->HUDWidgetWeaponBarEmptyOpacity)
-								.OnValueChanged(this, &SUTHUDSettingsDialog::OnWeaponBarEmptyOpacityChanged)
-							]
-						]
-					]
-
-
-				+SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(this, &SUTHUDSettingsDialog::GetWeaponBarScaleLabel)
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog","HUDWeaponBarScaleTT","Adjusts how big or small the Weapon Bar should be.")))
-						]
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
-						[
-							SNew(SBox)
-							.WidthOverride(300.0f)
-							.Content()
-							[
-								SAssignNew(HUDOpacity, SSlider)
-								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
-								.Orientation(Orient_Horizontal)
-								.Value(TargetHUD->HUDWidgetWeaponBarScaleOverride / 2.0f)
-								.OnValueChanged(this, &SUTHUDSettingsDialog::OnWeaponBarScaleChanged)
-							]
-						]
-					]
-				+ SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					.HAlign(HAlign_Right)
-					[
-						SAssignNew(DrawChatKillMsg, SCheckBox)
-						.ForegroundColor(FLinearColor::White)
-						.IsChecked(TargetHUD->bDrawChatKillMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
-						.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnDrawChatKillMsgMsgChanged)
-						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-						.Content()
-						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(NSLOCTEXT("SUTHUDSettingsDialog", "ChatKillMessages", "Show Kill Messages In Chat"))
-						]
-					]
-				+ SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					.HAlign(HAlign_Right)
-					[
-						SAssignNew(DrawPopupKillMsg, SCheckBox)
-						.ForegroundColor(FLinearColor::White)
-						.IsChecked(TargetHUD->bDrawPopupKillMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
-						.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnDrawPopupKillMsgChanged)
-						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-						.Content()
-						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(NSLOCTEXT("SUTHUDSettingsDialog", "DrawPopupKillMsg", "Popup Kill Messages"))
-						]
-					]
-				+ SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-					.HAlign(HAlign_Right)
-					[
-						SAssignNew(UseWeaponColor, SCheckBox)
-						.ForegroundColor(FLinearColor::White)
-						.IsChecked(TargetHUD->bUseWeaponColors ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
-						.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnUseWeaponColorChanged)
-						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-						.Content()
-						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(NSLOCTEXT("SUTHUDSettingsDialog", "UseWeaponColors", "Colorize All Icons"))
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponColorsTT", "Whether to colorize all weapon bar icons.")))
-						]
-					]
 			];
 		}
 		else
@@ -406,12 +178,480 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
 					.Text(NSLOCTEXT("SUTHUDSettingsDialog","NeedsHUD","No HUD available!  Please use in game."))
 				]
 			];
 		}
 	}
+
+	if (GeneralSettingsTabButton.IsValid()) GeneralSettingsTabButton->BePressed();
+}
+
+TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
+{
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(HUDOpacityLabel, STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(this, &SUTHUDSettingsDialog::GetHUDOpacityLabel)
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDOpacityTT", "Adjusts how transparent the HUD should be.")))
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.Content()
+				[
+					SAssignNew(HUDOpacity, SSlider)
+					.Style(SUTStyle::Get(), "UT.Slider")
+					.Orientation(Orient_Horizontal)
+					.Value(TargetHUD->HUDWidgetOpacity)
+					.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDOpacityChanged)
+				]
+			]
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(HUDOpacityLabel, STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(this, &SUTHUDSettingsDialog::GetHUDBorderOpacityLabel)
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDBorderOpacityTT", "Adjusts how transparent the hard edge border around each element of the HUD should be.")))
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.Content()
+				[
+					SAssignNew(HUDOpacity, SSlider)
+					.Style(SUTStyle::Get(), "UT.Slider")
+					.Orientation(Orient_Horizontal)
+					.Value(TargetHUD->HUDWidgetBorderOpacity)
+					.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDBorderOpacityChanged)
+				]
+			]
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(HUDOpacityLabel, STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(this, &SUTHUDSettingsDialog::GetHUDSlateOpacityLabel)
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDSlateOpacityTT", "Adjusts how transparent the background portion of each HUD element should be.")))
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.Content()
+				[
+					SAssignNew(HUDOpacity, SSlider)
+					.Style(SUTStyle::Get(), "UT.Slider")
+					.Orientation(Orient_Horizontal)
+					.Value(TargetHUD->HUDWidgetSlateOpacity)
+					.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDSlateOpacityChanged)
+				]
+			]
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(HUDOpacityLabel, STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(this, &SUTHUDSettingsDialog::GetHUDScaleLabel)
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDScaleTT", "Makes the HUD elements bigger or smaller.")))
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.Content()
+				[
+					SAssignNew(HUDOpacity, SSlider)
+					.Style(SUTStyle::Get(), "UT.Slider")
+					.Orientation(Orient_Horizontal)
+					.Value(TargetHUD->HUDWidgetScaleOverride / 2.0f)
+					.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDScaleChanged)
+				]
+			]
+		];
+}
+
+TSharedRef<SWidget> SUTHUDSettingsDialog::BuildWeaponBarTab()
+{
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(HUDOpacityLabel, STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(this, &SUTHUDSettingsDialog::GetWeaponBarOpacityLabel)
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarOpaictyTT", "Adjusts how transparent the Weapon Bar should be.  NOTE this is applied in addition to the normal transparency setting.")))
+			]
+			+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Right)
+				[
+					SNew(SBox)
+					.WidthOverride(300.0f)
+					.Content()
+					[
+						SAssignNew(HUDOpacity, SSlider)
+						.Orientation(Orient_Horizontal)
+						.Style(SUTStyle::Get(), "UT.Slider")
+						.Value(TargetHUD->HUDWidgetWeaponbarInactiveOpacity)
+						.OnValueChanged(this, &SUTHUDSettingsDialog::OnWeaponBarOpacityChanged)
+					]
+				]
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(HUDOpacityLabel, STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(this, &SUTHUDSettingsDialog::GetWeaponBarIconOpacityLabel)
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarIconOpacityTT", "Adjusts how transparent the icons on the Weapon Bar should be.")))
+			]
+			+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Right)
+				[
+					SNew(SBox)
+					.WidthOverride(300.0f)
+					.Content()
+					[
+						SAssignNew(HUDOpacity, SSlider)
+						.Orientation(Orient_Horizontal)
+						.Style(SUTStyle::Get(), "UT.Slider")
+						.Value(TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity)
+						.OnValueChanged(this, &SUTHUDSettingsDialog::OnWeaponBarIconOpacityChanged)
+					]
+				]
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(HUDOpacityLabel, STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(this, &SUTHUDSettingsDialog::GetWeaponBarEmptyOpacityLabel)
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarEmptyOpacityTT", "Adjusts how transparent an empty Weapon Bar slot should be.")))
+			]
+			+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Right)
+				[
+					SNew(SBox)
+					.WidthOverride(300.0f)
+					.Content()
+					[
+						SAssignNew(HUDOpacity, SSlider)
+						.Style(SUTStyle::Get(), "UT.Slider")
+						.Orientation(Orient_Horizontal)
+						.Value(TargetHUD->HUDWidgetWeaponBarEmptyOpacity)
+						.OnValueChanged(this, &SUTHUDSettingsDialog::OnWeaponBarEmptyOpacityChanged)
+					]
+				]
+		]
+
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(HUDOpacityLabel, STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(this, &SUTHUDSettingsDialog::GetWeaponBarScaleLabel)
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponBarScaleTT", "Adjusts how big or small the Weapon Bar should be.")))
+			]
+			+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.Content()
+				[
+					SAssignNew(HUDOpacity, SSlider)
+					.Style(SUTStyle::Get(), "UT.Slider")
+					.Orientation(Orient_Horizontal)
+					.Value(TargetHUD->HUDWidgetWeaponBarScaleOverride / 2.0f)
+					.OnValueChanged(this, &SUTHUDSettingsDialog::OnWeaponBarScaleChanged)
+				]
+			]
+		]
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Right)
+		[
+			SAssignNew(UseWeaponColor, SCheckBox)
+			.ForegroundColor(FLinearColor::White)
+			.IsChecked(TargetHUD->bUseWeaponColors ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+			.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnUseWeaponColorChanged)
+			.Style(SUTStyle::Get(), "UT.CheckBox")
+			.Content()
+			[
+				SNew(STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(NSLOCTEXT("SUTHUDSettingsDialog", "UseWeaponColors", "Colorize All Icons"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "HUDWeaponColorsTT", "Whether to colorize all weapon bar icons.")))
+			]
+		];
+}
+
+TSharedRef<SWidget> SUTHUDSettingsDialog::BuildNotificationsTab()
+{
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SBox)
+				.WidthOverride(650.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+					.Text(NSLOCTEXT("SUTHUDSettingsDialog", "ChatKillMessages", "Show Kill Messages In Chat"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(DrawChatKillMsg, SCheckBox)
+				.ForegroundColor(FLinearColor::White)
+				.IsChecked(TargetHUD->bDrawChatKillMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnDrawChatKillMsgMsgChanged)
+				.Style(SUTStyle::Get(), "UT.CheckBox")
+			]
+		]
+		
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SBox)
+				.WidthOverride(650.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+					.Text(NSLOCTEXT("SUTHUDSettingsDialog", "DrawCenteredKillMsg", "Centered Kill Messages"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SAssignNew(DrawPopupKillMsg, SCheckBox)
+					.ForegroundColor(FLinearColor::White)
+					.IsChecked(TargetHUD->bDrawCenteredKillMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+					.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnDrawCenteredKillMsgChanged)
+					.Style(SUTStyle::Get(), "UT.CheckBox")
+				]
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SBox)
+				.WidthOverride(650.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+					.Text(NSLOCTEXT("SUTHUDSettingsDialog", "DrawHUDKillIconMsg", "Display Skull On Kills"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(DrawHUDKillIconMsg, SCheckBox)
+				.ForegroundColor(FLinearColor::White)
+				.IsChecked(TargetHUD->bDrawHUDKillIconMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnDrawHUDKillIconMsgChanged)
+				.Style(SUTStyle::Get(), "UT.CheckBox")
+			]
+		]
+		
+		+ SVerticalBox::Slot()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SBox)
+				.WidthOverride(650.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+					.Text(NSLOCTEXT("SUTHUDSettingsDialog", "PlayKillSoundMsg", "Play Kill Sound Effect"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(DrawPlayKillSoundMsg, SCheckBox)
+				.ForegroundColor(FLinearColor::White)
+				.IsChecked(TargetHUD->bPlayKillSoundMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnPlayKillSoundMsgChanged)
+				.Style(SUTStyle::Get(), "UT.CheckBox")
+			]
+		];
+}
+
+FReply SUTHUDSettingsDialog::OnTabClickGeneral()
+{
+	TabWidget->SetActiveWidgetIndex(0);
+
+	GeneralSettingsTabButton->BePressed();
+	WeaponBarSettingsTabButton->UnPressed();
+	NotificationsSettingsTabButton->UnPressed();
+
+	return FReply::Handled();
+}
+
+FReply SUTHUDSettingsDialog::OnTabClickWeaponBar()
+{
+	TabWidget->SetActiveWidgetIndex(1);
+
+	GeneralSettingsTabButton->UnPressed();
+	WeaponBarSettingsTabButton->BePressed();
+	NotificationsSettingsTabButton->UnPressed();
+
+	return FReply::Handled();
+}
+
+FReply SUTHUDSettingsDialog::OnTabClickNotifications()
+{
+	TabWidget->SetActiveWidgetIndex(2);
+
+	GeneralSettingsTabButton->UnPressed();
+	WeaponBarSettingsTabButton->UnPressed();
+	NotificationsSettingsTabButton->BePressed();
+
+	return FReply::Handled();
 }
 
 FText SUTHUDSettingsDialog::GetHUDOpacityLabel() const
@@ -493,6 +733,7 @@ void SUTHUDSettingsDialog::OnWeaponBarOpacityChanged(float NewValue)
 	if (TargetHUD.IsValid())
 	{
 		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->bHUDWeaponBarSettingChanged = true;
 	}
 }
 
@@ -501,6 +742,7 @@ void SUTHUDSettingsDialog::OnWeaponBarIconOpacityChanged(float NewValue)
 	if (TargetHUD.IsValid())
 	{
 		TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->bHUDWeaponBarSettingChanged = true;
 	}
 }
 
@@ -509,10 +751,9 @@ void SUTHUDSettingsDialog::OnWeaponBarEmptyOpacityChanged(float NewValue)
 	if (TargetHUD.IsValid())
 	{
 		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->bHUDWeaponBarSettingChanged = true;
 	}
 }
-
-
 
 void SUTHUDSettingsDialog::OnWeaponBarScaleChanged(float NewValue)
 {
@@ -530,11 +771,11 @@ void SUTHUDSettingsDialog::OnUseWeaponColorChanged(ECheckBoxState NewState)
 	}
 }
 
-void SUTHUDSettingsDialog::OnDrawPopupKillMsgChanged(ECheckBoxState NewState)
+void SUTHUDSettingsDialog::OnDrawCenteredKillMsgChanged(ECheckBoxState NewState)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->bDrawPopupKillMsg = NewState == ECheckBoxState::Checked;
+		TargetHUD->bDrawCenteredKillMsg = NewState == ECheckBoxState::Checked;
 	}
 }
 
@@ -543,6 +784,22 @@ void SUTHUDSettingsDialog::OnDrawChatKillMsgMsgChanged(ECheckBoxState NewState)
 	if (TargetHUD.IsValid())
 	{
 		TargetHUD->bDrawChatKillMsg = NewState == ECheckBoxState::Checked;
+	}
+}
+
+void SUTHUDSettingsDialog::OnDrawHUDKillIconMsgChanged(ECheckBoxState NewState)
+{
+	if (TargetHUD.IsValid())
+	{
+		TargetHUD->bDrawHUDKillIconMsg = (NewState == ECheckBoxState::Checked);
+	}
+}
+
+void SUTHUDSettingsDialog::OnPlayKillSoundMsgChanged(ECheckBoxState NewState)
+{
+	if (TargetHUD.IsValid())
+	{
+		TargetHUD->bPlayKillSoundMsg = (NewState == ECheckBoxState::Checked);
 	}
 }
 
@@ -566,7 +823,9 @@ FReply SUTHUDSettingsDialog::OKClick()
 				HudCDO->HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
 				HudCDO->bUseWeaponColors = TargetHUD->bUseWeaponColors;
 				HudCDO->bDrawChatKillMsg = TargetHUD->bDrawChatKillMsg;
-				HudCDO->bDrawPopupKillMsg = TargetHUD->bDrawPopupKillMsg;
+				HudCDO->bDrawCenteredKillMsg = TargetHUD->bDrawCenteredKillMsg;
+				HudCDO->bDrawHUDKillIconMsg = TargetHUD->bDrawHUDKillIconMsg;
+				HudCDO->bPlayKillSoundMsg = TargetHUD->bPlayKillSoundMsg;
 
 				if (HudCDO == AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>())
 				{
@@ -595,7 +854,9 @@ FReply SUTHUDSettingsDialog::CancelClick()
 		TargetHUD->HUDWidgetScaleOverride = Old_HUDWidgetScaleOverride;
 		TargetHUD->bUseWeaponColors = Old_bUseWeaponColors;
 		TargetHUD->bDrawChatKillMsg = Old_bDrawChatKillMsg;
-		TargetHUD->bDrawPopupKillMsg = Old_bDrawPopupKillMsg;
+		TargetHUD->bDrawCenteredKillMsg = Old_bDrawCenteredKillMsg;
+		TargetHUD->bDrawHUDKillIconMsg = Old_bDrawHUDKillIconMsg;
+		TargetHUD->bPlayKillSoundMsg = Old_bPlayKillSoundMsg;
 	}
 
 	TargetHUD.Reset();

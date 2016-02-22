@@ -13,7 +13,12 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringLinkBeam : public UUTWeaponStateF
 	UPROPERTY()
 	float AccumulatedFiringTime;
 
-    virtual void FireShot() override;
+	UPROPERTY()
+		bool bPendingEndFire;
+
+	virtual void RefireCheckTimer() override;
+	virtual void FireShot() override;
     virtual void Tick(float DeltaTime) override;
     virtual void EndState() override;
+	virtual void EndFiringSequence(uint8 FireModeNum) override;
 };

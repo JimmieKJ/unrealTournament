@@ -171,15 +171,15 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Center", "Center"));
 	WeaponHandDesc.Add(NSLOCTEXT("UT", "Hidden", "Hidden"));
 
-	WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[HAND_Right])));
-	//WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[HAND_Left])));
-	//WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[HAND_Center])));
-	WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[HAND_Hidden])));
+	WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[uint8(EWeaponHand::HAND_Right)])));
+	//WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[EWeaponHand::HAND_Left])));
+	//WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[EWeaponHand::HAND_Center])));
+	WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[uint8(EWeaponHand::HAND_Hidden)])));
 
 	TSharedPtr<FText> InitiallySelectedHand = WeaponHandList[0];
 	for (TSharedPtr<FText> TestItem : WeaponHandList)
 	{
-		if (TestItem.Get()->EqualTo(WeaponHandDesc[GetDefault<AUTPlayerController>()->GetWeaponHand()]))
+		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(GetDefault<AUTPlayerController>()->GetWeaponHand())]))
 		{
 			InitiallySelectedHand = TestItem;
 		}
@@ -808,7 +808,7 @@ FReply SUTWeaponConfigDialog::WeaponPriorityDown()
 
 FReply SUTWeaponConfigDialog::OKClick()
 {
-	EWeaponHand NewHand = HAND_Right;
+	EWeaponHand NewHand = EWeaponHand::HAND_Right;
 	for (int32 i = 0; i < WeaponHandDesc.Num(); i++)
 	{
 		if (WeaponHandDesc[i].EqualTo(*WeaponHand->GetSelectedItem().Get()))
@@ -958,6 +958,18 @@ FReply SUTWeaponConfigDialog::OKClick()
 					if (!bFoundInProfile)
 					{
 						ProfileSettings->WeaponSkins.Add(Skin);
+					}
+				}
+				else
+				{
+					// User selected "No Skin"
+					for (int i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+					{
+						if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType == Selection.Key)
+						{
+							ProfileSettings->WeaponSkins.RemoveAt(i);
+							break;
+						}
 					}
 				}
 			}

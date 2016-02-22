@@ -197,6 +197,9 @@ struct FMovementEventInfo
 	TEnumAsByte<EMovementEvent> EventType;
 
 	UPROPERTY(BlueprintReadOnly)
+		uint8 EventCount;
+
+	UPROPERTY(BlueprintReadOnly)
 	FVector_NetQuantize EventLocation;
 };
 
@@ -228,6 +231,22 @@ struct FOverlayEffect
 	{
 		return FString::Printf(TEXT("(Material=%s,Particles=%s)"), *GetFullNameSafe(Material), *GetFullNameSafe(Particles));
 	}
+};
+
+USTRUCT(BlueprintType)
+struct FPhysicalSoundResponse
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** the generic name of the sound that will be used to look up the audio */
+	UPROPERTY(EditDefaultsOnly, Category = Sound)
+	TEnumAsByte<EPhysicalSurface> SurfaceType;
+	/** reference to the actual sound object */
+	UPROPERTY(EditDefaultsOnly, Category = Sound)
+	USoundBase* Sound;
+	/** reference to the actual sound object */
+	UPROPERTY(EditDefaultsOnly, Category = Sound)
+	USoundBase* SoundOwner;
 };
 
 UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoExposure,LensFlares,AmbientOcclusion,DepthOfField,MotionBlur,Misc,ScreenSpaceReflections,Bloom,SceneColor,Film,AmbientCubemap,AgentPhysics,Attachment,Avoidance,PlanarMovement,AI,Replication,Input,Actor,Tags,GlobalIllumination))
@@ -665,7 +684,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	float HeadRadius;
 	/** head scale factor (generally for use at runtime) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, ReplicatedUsing = HeadScaleUpdated, Category = Pawn)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Replicated, Category = Pawn)
 	float HeadScale;
 
 	/** multiplier to damage caused by this Pawn */
@@ -867,10 +886,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
 	
-	/** apply HeadScale to mesh */
-	UFUNCTION()
-	virtual void HeadScaleUpdated();
-
 	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit 
 	AppliedDamage is the damage inflicted, Damage is the net damage taken after armor, etc. reductions. */
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
@@ -1106,7 +1121,7 @@ public:
 	/** particle component for teleport */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
-
+	
 	/** particle component for normal ground footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		UParticleSystem* GroundFootstepEffect;
@@ -1163,6 +1178,14 @@ public:
 
 	UFUNCTION()
 		virtual void OnRepHeadArmorFlashCount();
+	
+	UPROPERTY(EditAnywhere, Category = Sounds)
+	TArray<FPhysicalSoundResponse> FootstepSounds;
+
+	UPROPERTY()
+	TMap<TEnumAsByte<EPhysicalSurface>, USoundBase*> FootstepSoundsMap;
+	UPROPERTY()
+	TMap<TEnumAsByte<EPhysicalSurface>, USoundBase*> OwnFootstepSoundsMap;
 
 	/** Footstep sound played for characters you don't control. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
@@ -1174,6 +1197,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;
+
+	USoundBase* GetFootstepSoundForSurfaceType(EPhysicalSurface SurfaceType, bool bLocalPlayer);
 	
 	// @TODO FIXMESTEVE temp
 	float DefaultMeshTranslationZ;
@@ -1368,10 +1393,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = MovementEventReplicated, Category = "Movement")
 		FMovementEventInfo MovementEvent;
 
-	/** Last time MovementEvent was updated.  @TODO FIXMESTEVE - like flashcount, should not rep to owner, or if more than 0.5f since updated. */
-	UPROPERTY(BlueprintReadOnly, Category = "Movement")
-		float MovementEventTime;
-
 	/** Direction associated with movement event.  Only accurate on server and player creating event, otherwise, uses Velocity normal. */
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 		FVector MovementEventDir;
@@ -1511,7 +1532,7 @@ public:
 	float FullEyeOffsetLandBobVelZ;
 
 	/** Get Max weapon land bob deflection at landing velocity Z of FullWeaponLandBobVelZ+WeaponLandBobThreshold */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
 	float DefaultBaseEyeHeight;
 
 	/** maximum amount of time Pawn stays around when dead even if visible (may be cleaned up earlier if not visible) */
@@ -1725,6 +1746,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=AmbientSoundUpdated, Category = "Audio")
 	USoundBase* AmbientSound;
 
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = AmbientSoundPitchUpdated, Category = "Audio")
+		float AmbientSoundPitch;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 	UAudioComponent* AmbientSoundComp;
 
@@ -1766,6 +1790,9 @@ public:
 	UFUNCTION()
 	void AmbientSoundUpdated();
 
+	UFUNCTION()
+	void AmbientSoundPitchUpdated();
+
 	/** sets local (not replicated) ambient (looping) sound on this Pawn
 	* only one ambient sound can be set at a time
 	* pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
@@ -1775,6 +1802,10 @@ public:
 
 	UFUNCTION()
 	void LocalAmbientSoundUpdated();
+
+	/** Adjust pitch of currently playing ambient sound if it is InAmbientSound. */
+	UFUNCTION(BlueprintCallable, Category = Audio)
+		void ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch);
 
 
 	/** sets local (not replicated) status ambient (looping) sound on this Pawn

@@ -12,7 +12,7 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	Lifetime = 3.0f;
 	MessageArea = FName(TEXT("DeathMessage"));
 	StyleTag = FName(TEXT("Victim"));
-	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","You were killed by {Player1Name}"); //  with {WeaponName} -- Removed for now
+	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","Killed by {Player1Name}"); 
 }
 
 

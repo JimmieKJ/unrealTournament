@@ -309,22 +309,7 @@ void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& Red
 		FString CloudID = GetCloudID();
 		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
 		{
-			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-			FString McpConfigOverride;
-			FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-			if (McpConfigOverride == TEXT("gamedev"))
-			{
-				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-			}
-
-			FString EpicApp;
-			FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
-			const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
-			if (bIsPublicTest)
-			{
-				BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
-			}
-
+			FString BaseURL = GetBackendBaseUrl();
 			FString CommandURL = TEXT("/ut/api/stats/accountId/");
 			RedirectURL = BaseURL + CommandURL + GetCloudID() + TEXT("/") + PackageBaseFilename + TEXT(".pak") + TEXT(" ") + PackageChecksum;
 		}
@@ -447,43 +432,106 @@ void AUTBaseGameMode::RconNormal(AUTBasePlayerController* Admin)
 	}
 }
 
-int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS, bool& bEloIsValid) const
+bool AUTBaseGameMode::IsValidElo(AUTPlayerState* PS) const
+{
+	return (PS && (GetNumMatchesFor(PS) >= 10));
+}
+
+uint8 AUTBaseGameMode::GetNumMatchesFor(AUTPlayerState* PS) const
 {
 	if (!PS)
 	{
-		bEloIsValid = false;
-		return 1400;
+		return 0;
+	}
+	uint8 MaxMatches = FMath::Max(PS->DMMatchesPlayed, PS->DuelMatchesPlayed);
+	MaxMatches = FMath::Max(MaxMatches, PS->CTFMatchesPlayed);
+	MaxMatches = FMath::Max(MaxMatches, PS->TDMMatchesPlayed);
+	MaxMatches = FMath::Max(MaxMatches, PS->ShowdownMatchesPlayed);
+	return MaxMatches;
+}
+
+int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS) const
+{
+	if (!PS)
+	{
+		return NEW_USER_ELO;
 	}
 
-	bEloIsValid = PS ? PS->bDMEloValid : false;
 	int32 MaxElo = 0;
-	bool bHasValidElo = PS->bDMEloValid || PS->bTDMEloValid || PS->bShowdownEloValid || PS->bDuelEloValid;
-	if (bHasValidElo)
+	if (IsValidElo(PS))
 	{
 		//only consider valid Elos
-		if (PS->bDuelEloValid)
+		if (PS->DuelMatchesPlayed >= 10)
 		{
 			MaxElo = FMath::Max(MaxElo, PS->DuelRank);
 		}
-		if (PS->bShowdownEloValid)
+		if (PS->ShowdownMatchesPlayed >= 10)
 		{
 			MaxElo = FMath::Max(MaxElo, PS->ShowdownRank);
 		}
-		if (PS->bTDMEloValid)
+		if (PS->TDMMatchesPlayed >= 10)
 		{
 			MaxElo = FMath::Max(MaxElo, PS->TDMRank);
 		}
-		if (PS->bDMEloValid)
+		if (PS->DMMatchesPlayed >= 10)
 		{
 			MaxElo = FMath::Max(MaxElo, PS->DMRank);
+		}
+		if (PS->CTFMatchesPlayed >= 10)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->CTFRank);
 		}
 	}
 	else
 	{
-		// return highest non-CTF Elo
+		// return highest Elo
 		MaxElo = FMath::Max(PS->DuelRank, PS->TDMRank);
 		MaxElo = FMath::Max(MaxElo, PS->ShowdownRank);
 		MaxElo = FMath::Max(MaxElo, PS->DMRank);
+		MaxElo = FMath::Max(MaxElo, PS->CTFRank);
 	}
 	return MaxElo;
+}
+
+void AUTBaseGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+{
+}
+
+
+void AUTBaseGameMode::ReceivedRankForPlayer(AUTPlayerState* UTPlayerState)
+{
+	// By default we do nothing here.  Hubs do things with this functions, look at AUTLobbyGameMode::ReveivedRankForPlayer()
+}
+
+bool AUTBaseGameMode::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor)
+{
+	if( FParse::Command( &Cmd, TEXT("dumpgame") ) )
+	{
+		TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+		MakeJsonReport(JsonObject);
+
+		FString Result;
+		TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Result);
+		FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+		Ar.Logf(TEXT("%s"), *Result);
+		return true;
+	}
+	else if (FParse::Command( &Cmd, TEXT("dumpsession") ))
+	{
+		Ar.Logf(TEXT("Coming Soon"));
+		return true;
+	}
+
+	return Super::ProcessConsoleExec(Cmd, Ar, Executor);
+
+}
+
+
+void AUTBaseGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		GameState->MakeJsonReport(JsonObject);
+	}
 }

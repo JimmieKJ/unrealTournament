@@ -52,7 +52,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CharacterData = DefaultCharContentRef.Object;
 
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(45.5f, 108.0f);
+	GetCapsuleComponent()->InitCapsuleSize(40.f, 108.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
@@ -102,7 +102,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	WeaponLandBob = FVector(0.f, 0.f, 10.5f);
 	WeaponSlideBob = FVector(0.f, 12.f, 15.f);
 	WeaponBreathingBobRate = 0.2f;
-	WeaponRunningBobRate = 0.8f;
+	WeaponRunningBobRate = 1.2f;
 	WeaponJumpBobInterpRate = 6.5f;
 	WeaponHorizontalBobInterpRate = 4.3f;
 	WeaponLandBobDecayRate = 5.f;
@@ -249,6 +249,13 @@ void AUTCharacter::BeginPlay()
 			MaxSavedPositionAge = FMath::Max<float>(MaxSavedPositionAge, B->TrackingReactionTime);
 		}
 	}
+
+	for (int32 i = 0; i < FootstepSounds.Num(); i++)
+	{
+		FootstepSoundsMap.Add(FootstepSounds[i].SurfaceType, FootstepSounds[i].Sound);
+		OwnFootstepSoundsMap.Add(FootstepSounds[i].SurfaceType, FootstepSounds[i].SoundOwner);
+	}
+
 	Super::BeginPlay();
 }
 
@@ -519,15 +526,6 @@ bool AUTCharacter::IsSpawnProtected()
 void AUTCharacter::SetHeadScale(float NewHeadScale)
 {
 	HeadScale = NewHeadScale;
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-		HeadScaleUpdated();
-	}
-}
-
-void AUTCharacter::HeadScaleUpdated()
-{
-	// TODO
 }
 
 static TAutoConsoleVariable<int32> CVarDebugHeadshots(
@@ -612,17 +610,9 @@ bool AUTCharacter::BlockedHeadShot(FVector HitLocation, FVector ShotDirection, f
 			{
 				ShotInstigator->HeadShotBlocked();
 			}
-
-			// @TODO FIXMESTEVE - hack - need more elegant way of keeping headshots w/ udamage
-			if (!ShotInstigator || (ShotInstigator->DamageScaling < 2.f))
-			{
-				return true;
-			}
-
-			break;
+			return true;
 		}
 	}
-
 	return false;
 }
 
@@ -1087,7 +1077,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
 			if (PC != NULL && PC->GetViewTarget() == this && PC->GetPawn() != this)
 			{
-				PC->ClientNotifyTakeHit(false, FMath::Clamp(LastTakeHitInfo.Damage, 0, 255), LastTakeHitInfo.RelHitLocation);
+				PC->ClientNotifyTakeHit(false, FMath::Clamp(LastTakeHitInfo.Damage, 0, 255), LastTakeHitInfo.ShotDirYaw);
 			}
 		}
 
@@ -1217,7 +1207,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->ReceivedDamageSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
-			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesBlood)
+			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesPainSound)
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
@@ -1943,6 +1933,7 @@ void AUTCharacter::AmbientSoundUpdated()
 		{
 			// don't attenuate/spatialize sounds made by a local viewtarget
 			AmbientSoundComp->bAllowSpatialization = true;
+			AmbientSoundComp->SetPitchMultiplier(1.f);
 
 			if (GEngine->GetMainAudioDevice() && !GEngine->GetMainAudioDevice()->IsHRTFEnabledForAll())
 			{
@@ -1965,6 +1956,22 @@ void AUTCharacter::AmbientSoundUpdated()
 	}
 }
 
+void AUTCharacter::ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch)
+{
+	if (AmbientSoundComp && AmbientSound && (AmbientSound == InAmbientSound))
+	{
+		AmbientSoundPitch = NewPitch;
+		AmbientSoundPitchUpdated();
+	}
+}
+
+void AUTCharacter::AmbientSoundPitchUpdated()
+{
+	if (AmbientSoundComp && AmbientSound)
+	{
+		AmbientSoundComp->SetPitchMultiplier(AmbientSoundPitch);
+	}
+}
 
 void AUTCharacter::SetLocalAmbientSound(USoundBase* NewAmbientSound, float SoundVolume, bool bClear)
 {
@@ -2873,6 +2880,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsSwitchingWeapon, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, AmbientSoundPitch, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);
@@ -3050,6 +3058,20 @@ APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
 	return PC != NULL ? PC->PlayerCameraManager : NULL;
 }
 
+USoundBase* AUTCharacter::GetFootstepSoundForSurfaceType(EPhysicalSurface SurfaceType, bool bLocalPlayer)
+{
+	USoundBase** SoundPtr = nullptr;
+
+	if (bLocalPlayer)
+	{
+		SoundPtr = OwnFootstepSoundsMap.Find(SurfaceType);
+		return SoundPtr ? *SoundPtr : nullptr;
+	}
+	
+	SoundPtr = FootstepSoundsMap.Find(SurfaceType);
+	return SoundPtr ? *SoundPtr : nullptr;
+}
+
 void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 {
 	if ((GetWorld()->TimeSeconds - LastFootstepTime < 0.1f) || bFeigningDeath || IsDead() || bIsCrouched)
@@ -3073,16 +3095,55 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 		FootStepEffect = WaterFootstepEffect;
 		MaxParticleDist = 5000.f;
 	}
-	else if (GetLocalViewer())
-	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), OwnFootstepSound, this, SRT_IfSourceNotReplicated);
-		FootStepEffect = GetLocalViewer()->IsBehindView() && (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
-	}
 	else
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSound, this, SRT_IfSourceNotReplicated);
-		FootStepEffect = (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
+		float PawnRadius, PawnHalfHeight;
+		GetCapsuleComponent()->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
+
+		static FName NAME_FootstepTrace(TEXT("FootstepTrace"));
+		FCollisionQueryParams QueryParams(NAME_FootstepTrace, false, this);
+		QueryParams.bReturnPhysicalMaterial = true;
+		QueryParams.bTraceAsyncScene = true;
+		const float ShrinkHeight = PawnHalfHeight;
+		const FVector LineTraceStart = GetCapsuleComponent()->GetComponentLocation();
+		const float TraceDist = 40.0f + ShrinkHeight;
+		const FVector Down = FVector(0.f, 0.f, -TraceDist);
+
+		const bool bLocalViewer = (GetLocalViewer() != nullptr);
+		USoundBase* FootstepSoundToPlay = FootstepSound;
+
+		if (bLocalViewer)
+		{
+			FootstepSoundToPlay = OwnFootstepSound;
+		}
+
+		FHitResult Hit(1.f);
+		bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, LineTraceStart, LineTraceStart + Down, GetCapsuleComponent()->GetCollisionObjectType(), QueryParams);
+		if (bBlockingHit)
+		{
+			if (Hit.PhysMaterial.IsValid())
+			{
+				EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+				USoundBase* NewFootStepSound = GetFootstepSoundForSurfaceType(SurfaceType, bLocalViewer);
+				if (NewFootStepSound)
+				{
+					FootstepSoundToPlay = NewFootStepSound;
+				}
+			}
+		}
+		
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSoundToPlay, this, SRT_IfSourceNotReplicated);
+
+		if (bLocalViewer)
+		{
+			FootStepEffect = GetLocalViewer()->IsBehindView() && (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
+		}
+		else
+		{
+			FootStepEffect = (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
+		}
 	}
+
 	if (FootStepEffect && GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
 		&& (GetLocalViewer() || (GetCachedScalabilityCVars().DetailMode != 0)))
 	{
@@ -3208,6 +3269,7 @@ void AUTCharacter::OnSlide_Implementation(const FVector & SlideLocation, const F
 
 void AUTCharacter::PlayLandedEffect_Implementation()
 {
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
 	UParticleSystem* EffectToPlay = ((GetNetMode() != NM_DedicatedServer) && (FMath::Abs(GetCharacterMovement()->Velocity.Z)) > LandEffectSpeed) ? LandEffect : NULL;
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if ((EffectToPlay != nullptr) && WS->EffectIsRelevant(this, GetActorLocation(), true, true, 10000.f, 0.f, false))
@@ -3280,7 +3342,6 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		}
 		else
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
 			PlayLandedEffect();
 		}
 
@@ -3986,7 +4047,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			SetLocalAmbientSound(FallingAmbientSound, 0.f, true);
 			if (bApplyWallSlide || (UTCharacterMovement && UTCharacterMovement->bSlidingAlongWall))
 			{
-				SetLocalAmbientSound(WallSlideAmbientSound, 2.f, false);
+				SetLocalAmbientSound(WallSlideAmbientSound, 1.f, false);
 			}
 			else if (GetCharacterMovement()->IsMovingOnGround() && (GetCharacterMovement()->Velocity.Size2D() > SprintAmbientStartSpeed))
 			{
@@ -4322,7 +4383,8 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 		GetMesh()->RelativeScale3D = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeScale3D * Data->Mesh->RelativeScale3D;
 		if (GetMesh() != GetRootComponent())
 		{
-			GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
+			// FIXMESTEVE re-enable after fixing content, also need to override startcrouch and endcrouch to use this value
+			//GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
 			GetMesh()->RelativeRotation = Data->Mesh->RelativeRotation;
 		}
 		// reapply any temporary override effects
@@ -5628,9 +5690,9 @@ bool AUTCharacter::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObje
 
 void AUTCharacter::MovementEventUpdated(EMovementEvent MovementEventType, FVector Dir)
 {
-	MovementEventTime = GetWorld()->GetTimeSeconds();
 	MovementEvent.EventType = MovementEventType;
 	MovementEvent.EventLocation = GetActorLocation();
+	MovementEvent.EventCount++;
 	MovementEventDir = Dir;
 	if (IsLocallyViewed())
 	{

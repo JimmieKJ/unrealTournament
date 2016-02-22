@@ -52,16 +52,16 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 5500.f; 
-	MaxFallingAcceleration = 4200.f;
+	MaxFallingAcceleration = 4300.f;
 	MaxSwimmingAcceleration = 5500.f;
 	MaxRelativeSwimmingAccelNumerator = 0.f;
 	MaxRelativeSwimmingAccelDenominator = 1000.f;
-	BrakingDecelerationWalking = 500.f;
+	BrakingDecelerationWalking = 520.f;
 	DefaultBrakingDecelerationWalking = BrakingDecelerationWalking;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 11.5f;
+	GroundFriction = 11.f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
@@ -69,9 +69,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CrouchedHalfHeight = 69.0f;
 	SlopeDodgeScaling = 0.93f;
 
-	FloorSlideAcceleration = 1500.f;
+	FloorSlideAcceleration = 1300.f;
 	MaxFloorSlideSpeed = MaxWalkSpeed;
-	FloorSlideDuration = 0.5f;
+	MaxInitialFloorSlideSpeed = 1350.f;
+	FloorSlideDuration = 0.55f;
 	FloorSlideBonusTapInterval = 0.17f;
 	FloorSlideEndingSpeedFactor = 0.4f;
 	FloorSlideSlopeBraking = 2.7f;
@@ -84,16 +85,16 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
-	DodgeImpulseHorizontal = 1410.f;
-	DodgeMaxHorizontalVelocity = 1565.f; // DodgeImpulseHorizontal * 1.11
+	DodgeImpulseHorizontal = 1500.f;
+	DodgeMaxHorizontalVelocity = 1700.f; 
 	WallDodgeSecondImpulseVertical = 320.f;
-	DodgeImpulseVertical = 502.5f;
+	DodgeImpulseVertical = 500.f;
 	WallDodgeImpulseHorizontal = 1350.f; 
 	WallDodgeImpulseVertical = 470.f; 
 
 	MaxSlideRiseZ = 650.f; 
 	MaxSlideFallZ = -180.f;
-	SlideGravityScaling = 0.16f;
+	SlideGravityScaling = 0.15f;
 	MinWallSlideSpeed = 500.f;
 	MaxSlideWallDist = 20.f;
 
@@ -926,7 +927,7 @@ void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir, const FVec
 		FloorSlideEndTime = GetCurrentMovementTime() + FloorSlideDuration;
 		Acceleration = FloorSlideAcceleration * DodgeDir;
 		DodgeResetTime = FloorSlideEndTime + DodgeResetInterval;
-		float NewSpeed = FMath::Max(MaxFloorSlideSpeed, FMath::Min(Velocity.Size2D(), SprintSpeed));
+		float NewSpeed = FMath::Max(MaxFloorSlideSpeed, FMath::Min(Velocity.Size2D(), MaxInitialFloorSlideSpeed));
 		if ((NewSpeed > MaxFloorSlideSpeed) && ((DodgeDir | FloorNormal) < 0.f))
 		{
 			// don't allow sliding up steep slopes at faster than MaxFloorSlideSpeed
@@ -1103,7 +1104,7 @@ float UUTCharacterMovement::GetMaxSpeed() const
 		float CurrentSpeed = Velocity.Size();
 		if ((CurrentSpeed > MaxFloorSlideSpeed) && (CurrentFloor.HitResult.ImpactNormal.Z < 1.f))
 		{
-			float TopSlideSpeed = FMath::Min(SprintSpeed, CurrentSpeed);
+			float TopSlideSpeed = FMath::Min(MaxInitialFloorSlideSpeed, CurrentSpeed);
 			return FMath::Min(TopSlideSpeed, MaxFloorSlideSpeed + FMath::Max(0.f, (Velocity | CurrentFloor.HitResult.ImpactNormal)));
 		}
 		return MaxFloorSlideSpeed;
@@ -1332,6 +1333,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 	{
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{
+			((AUTCharacter*)CharacterOwner)->OnJumped();
 			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
 			((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::Jump);
 		}

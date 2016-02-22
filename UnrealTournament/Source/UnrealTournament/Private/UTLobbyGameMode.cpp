@@ -9,6 +9,7 @@
 #include "UTLobbyHUD.h"
 #include "UTGameMessage.h"
 #include "UTAnalytics.h"
+#include "UTGameSessionNonRanked.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
@@ -160,21 +161,15 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 	AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(NewPlayerController->PlayerState);
 
+	// Look for auto-join options.  Don't attempt to auto-join until we receive all of the relevant information from the client though
 	if (PS)
 	{	
-		FString QuickStartOption = UGameplayStatics::ParseOption(Options, TEXT("QuickStart"));
-
-		if ( QuickStartOption != TEXT("") )
-		{
-			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? EEpicDefaultRuleTags::CTF : EEpicDefaultRuleTags::Deathmatch;
-		}
-
 		FString InstanceID = UGameplayStatics::ParseOption(Options,"Session");
 		if (!InstanceID.IsEmpty())
 		{
 			// Can't use the playerstate's version here because it hasn't been set yet.
-			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
-			UTLobbyGameState->AttemptDirectJoin(PS, InstanceID, bSpectator);
+			PS->bDesiredJoinAsSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+			PS->DesiredMatchIdToJoin = InstanceID;
 		}
 
 		FString FriendId = UGameplayStatics::ParseOption(Options, TEXT("Friend"));
@@ -194,11 +189,6 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 
 	UpdateLobbySession();
 
-	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(NewPlayer->PlayerState);
-	if (LPS)
-	{
-		UTLobbyGameState->InitializeNewPlayer(LPS);
-	}
 	// Set my Initial Presence
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
 	if (PC)
@@ -207,7 +197,6 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 		// Set my initial presence....
 		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false);
 	}
-
 }
 
 
@@ -232,7 +221,7 @@ bool AUTLobbyGameMode::PlayerCanRestart_Implementation(APlayerController* Player
 
 TSubclassOf<AGameSession> AUTLobbyGameMode::GetGameSessionClass() const
 {
-	return AUTGameSession::StaticClass();
+	return AUTGameSessionNonRanked::StaticClass();
 }
 
 FName AUTLobbyGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination)
@@ -284,16 +273,21 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 
 			if (MatchInfo && MatchInfo->ShouldShowInDock())
 			{
+				FString GameModeClassname = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GameMode : TEXT("");
+
 				int32 NumPlayers = MatchInfo->NumPlayersInMatch();
 				TSharedPtr<FServerInstanceData> Data;
 				if (MatchInfo->bDedicatedMatch)
 				{
 					FString Map = FString::Printf(TEXT("%s (%s)"), *MatchInfo->InitialMap, *MatchInfo->DedicatedServerGameMode);
-					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, TEXT(""), Map, MatchInfo->DedicatedServerMaxPlayers, MatchInfo->GetMatchFlags(), 1500, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, false);
+					// FIXMEJOE - Allow dedicated instances to pass an allowed rank
+
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, TEXT(""), GameModeClassname, Map, MatchInfo->DedicatedServerMaxPlayers, MatchInfo->GetMatchFlags(),DEFAULT_RANK_CHECK, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, false);
 				}
 				else
 				{
-					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, MatchInfo->CurrentRuleset->UniqueTag, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), MatchInfo->CurrentRuleset->MaxPlayers, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, MatchInfo->bQuickPlayMatch);
+					FString Map = (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap);
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, MatchInfo->CurrentRuleset->UniqueTag, GameModeClassname, Map, MatchInfo->CurrentRuleset->MaxPlayers, MatchInfo->GetMatchFlags(), MatchInfo->RankCheck, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, MatchInfo->bQuickPlayMatch);
 				}
 
 				Data->MatchData = MatchInfo->MatchUpdate;
@@ -387,7 +381,7 @@ void AUTLobbyGameMode::DefaultTimer()
 					FPackageName::SearchForPackageOnDisk(MapName, &MapName); 
 				}
 
-				AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+				AUTGameSessionNonRanked* UTGameSession = Cast<AUTGameSessionNonRanked>(GameSession);
 				if (UTGameSession)
 				{
 					// kill the host beacon before we start the travel so hopefully the port will be released before
@@ -462,3 +456,13 @@ void AUTLobbyGameMode::RconNormal(AUTBasePlayerController* Admin)
 		}
 	}
 }
+
+void AUTLobbyGameMode::ReceivedRankForPlayer(AUTPlayerState* UTPlayerState)
+{
+	AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(UTPlayerState);
+	if (LobbyPlayerState)
+	{
+		UTLobbyGameState->CheckForAutoPlacement(LobbyPlayerState);
+	}
+}
+

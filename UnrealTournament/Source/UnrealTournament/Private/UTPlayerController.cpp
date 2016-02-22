@@ -175,9 +175,14 @@ void AUTPlayerController::ClientReceivePersonalMessage_Implementation(TSubclassO
 void AUTPlayerController::NetStats()
 {
 	bShowNetInfo = !bShowNetInfo;
+	UNetDriver* NetDriver = GetWorld()->GetNetDriver();
+	if (NetDriver)
+	{
+		NetDriver->bCollectNetStats = bShowNetInfo;
+	}
 	if (MyUTHUD && !MyUTHUD->HasHudWidget(UUTHUDWidget_NetInfo::StaticClass()))
 	{
-		MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass());
+		NetInfoWidget = Cast<UUTHUDWidget_NetInfo>(MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass()));
 	}
 }
 
@@ -592,7 +597,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 
 
 #if !UE_SERVER
-	else if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Pressed && bSpectatorMouseChangesView)
+	else if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && EventType == IE_Released && bSpectatorMouseChangesView)
 	{
 		SetSpectatorMouseChangesView(false);
 	}
@@ -700,6 +705,18 @@ void AUTPlayerController::ToggleTranslocator()
 	}
 }
 
+void AUTPlayerController::SelectTranslocator()
+{
+	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
+	{
+		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
+		if (CurrentGroup != 0)
+		{
+			ToggleTranslocator();
+		}
+	}
+}
+
 void AUTPlayerController::ThrowWeapon()
 {
 	if (UTCharacter != NULL && IsLocalPlayerController() && !UTCharacter->IsRagdoll())
@@ -708,6 +725,10 @@ void AUTPlayerController::ThrowWeapon()
 		{
 			ServerThrowWeapon();
 		}
+	}
+	else if ((UTCharacter == nullptr) && UTPlayerState && (UTPlayerState->ReadyMode > 1))
+	{
+		ServerThrowWeapon();
 	}
 }
 
@@ -718,12 +739,17 @@ bool AUTPlayerController::ServerThrowWeapon_Validate()
 
 void AUTPlayerController::ServerThrowWeapon_Implementation()
 {
-	if (UTCharacter != NULL && !UTCharacter->IsRagdoll())
+	if (UTCharacter != nullptr && !UTCharacter->IsRagdoll())
 	{
-		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon && !UTCharacter->GetWeapon()->IsFiring())
+		AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (UTGM && !UTGM->bBasicTrainingGame && UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon && !UTCharacter->GetWeapon()->IsFiring())
 		{
 			UTCharacter->TossInventory(UTCharacter->GetWeapon(), FVector(400.0f, 0, 200.f));
 		}
+	}
+	else if ((UTCharacter == nullptr) && UTPlayerState && (UTPlayerState->ReadyMode > 1))
+	{
+		UTPlayerState->ReadyMode = 4;
 	}
 }
 
@@ -1500,7 +1526,17 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
 	bool bIsOccluded = false;
-	if (SoundPlayer == this || (GetViewTarget() != NULL && InSoundCue->IsAudible(SoundLocation, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true)))
+	FVector AudibleLoc = SoundLocation;
+	if (bAmplifyVolume)
+	{
+		if (AudibleLoc.IsZero())
+		{
+			AudibleLoc = SoundPlayer->GetActorLocation();
+		}
+		FVector SoundOffset = AudibleLoc - GetViewTarget()->GetActorLocation();
+		AudibleLoc = GetViewTarget()->GetActorLocation() + SoundOffset * 0.6f;
+	}
+	if (SoundPlayer == this || (GetViewTarget() != NULL && InSoundCue->IsAudible(AudibleLoc, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true)))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
@@ -1513,12 +1549,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
-		bool bHRTFEnabled = false;
-		if (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll())
-		{
-			bHRTFEnabled = true;
-		}
-
+		bool bHRTFEnabled = (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll());
 		if (!bHRTFEnabled && (SoundPlayer == this || SoundPlayer == GetViewTarget()))
 		{
 			// no attenuation/spatialization, full volume
@@ -1544,6 +1575,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		else
 		{
 			USoundAttenuation* AttenuationOverride = NULL;
+			float VolumeMultiplier = bIsOccluded ? 0.5f : 1.0f;
 			if (bAmplifyVolume)
 			{
 				// the UGameplayStatics functions copy the FAttenuationSettings by value so no need to create more than one, just reuse
@@ -1555,22 +1587,23 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				{
 					AttenuationOverride->Attenuation = *DefaultAttenuation;
 				}
+
+				// FIXMESTEVE - less hacky than this - pass in amplification
 				// set minimum volume
 				// we're assuming that the radius was already checked via HearSound() and thus this won't cause hearing the audio level-wide
-				AttenuationOverride->Attenuation.dBAttenuationAtMax = 50.0f;
-				// move sound closer
-				AActor* ViewTarget = GetViewTarget();
-				if (ViewTarget != NULL)
+				if (Cast<APawn>(SoundPlayer))
 				{
-					if (SoundLocation.IsZero())
-					{
-						SoundLocation = SoundPlayer->GetActorLocation();
-					}
-					FVector SoundOffset = GetViewTarget()->GetActorLocation() - SoundLocation;
-					SoundLocation = SoundLocation + SoundOffset.GetSafeNormal() * FMath::Min<float>(SoundOffset.Size() * 0.25f, 2000.0f);
+					// extra amplify pain sounds
+					AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
+					AttenuationOverride->Attenuation.FalloffDistance *= 4.f;
+					VolumeMultiplier *= 2.f;
+				}
+				else
+				{
+					//AttenuationOverride->Attenuation.dBAttenuationAtMax = -20.0f;
+					AttenuationOverride->Attenuation.FalloffDistance *= 1.7f;
 				}
 			}
-			float VolumeMultiplier = bIsOccluded ? 0.5f : 1.0f;
 			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 			{
 				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
@@ -1806,7 +1839,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	else if (P != NULL)
 	{
 		// hide first person mesh (but not attachments) if hidden weapons
-		if (GetWeaponHand() == HAND_Hidden || (P->GetWeapon() != NULL && P->GetWeapon()->ZoomState != EZoomState::EZS_NotZoomed))
+		if (GetWeaponHand() == EWeaponHand::HAND_Hidden || (P->GetWeapon() != NULL && P->GetWeapon()->ZoomState != EZoomState::EZS_NotZoomed))
 		{
 			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
 			if (P->GetWeapon() != NULL)
@@ -1923,13 +1956,13 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
 				if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
 				{
-					UTPlayerState->bReadyToPlay = true;
+					UTPlayerState->SetReadyToPlay(true);
 					UTPlayerState->ForceNetUpdate();
 				}
 			}
 			else
 			{
-				UTPlayerState->bReadyToPlay = !UTPlayerState->bReadyToPlay;
+				UTPlayerState->SetReadyToPlay(!UTPlayerState->bReadyToPlay);
 				UTPlayerState->bPendingTeamSwitch = false;
 				UTPlayerState->ForceNetUpdate();
 			}
@@ -1938,7 +1971,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	//Half-time ready up for caster control
 	else if (UTGM->bCasterControl && UTGM->GetMatchState() == MatchState::MatchIntermission && UTPlayerState != nullptr && UTPlayerState->bCaster)
 	{
-		UTPlayerState->bReadyToPlay = true;
+		UTPlayerState->SetReadyToPlay(true);
 		UTPlayerState->ForceNetUpdate();
 	}
 	else if (IsFrozen())
@@ -1974,7 +2007,7 @@ void AUTPlayerController::ServerSwitchTeam_Implementation()
 				ChangeTeam(NewTeam);
 				if (UTPlayerState->bPendingTeamSwitch)
 				{
-					UTPlayerState->bReadyToPlay = false;
+					UTPlayerState->SetReadyToPlay(false);
 				}
 			}
 		}
@@ -2114,8 +2147,11 @@ bool AUTPlayerController::IsBehindView()
 		static FName NAME_FreeCam(TEXT("FreeCam"));
 
 		AUTPlayerCameraManager* UTCam = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+		if (UTCam && UTCam->bIsForcingGoodCamLoc)
+		{
+			return true;
+		}
 		FName CameraStyle = (UTCam != NULL) ? UTCam->GetCameraStyleWithOverrides() : PlayerCameraManager->CameraStyle;
-
 		return CameraStyle == NAME_FreeCam;
 	}
 	else
@@ -2623,7 +2659,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-	if (IsInState(NAME_Spectating) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
+	if (IsInState(NAME_Spectating) && UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{
 		// possibly switch cameras
 		ChooseBestCamera();
@@ -2820,25 +2856,26 @@ void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage,
 {
 	APlayerState* InstigatedByState = (InstigatedBy != NULL) ? InstigatedBy->PlayerState : NULL;
 	FVector RelHitLocation(FVector::ZeroVector);
+	FVector ShotDir(FVector::ZeroVector);
 	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 	{
-		RelHitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location - GetViewTarget()->GetActorLocation();
+		ShotDir = ((FPointDamageEvent*)&DamageEvent)->ShotDirection;
 	}
 	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
 	{
-		RelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetViewTarget()->GetActorLocation();
+		ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
 	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
 	uint8 RepDamage = FMath::Clamp(Damage, 0, 255);
-	ClientNotifyTakeHit(bFriendlyFire, RepDamage, RelHitLocation);
+	ClientNotifyTakeHit(bFriendlyFire, RepDamage, FRotator::CompressAxisToByte(ShotDir.Rotation().Yaw));
 }
 
-void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, FVector_NetQuantize RelHitLocation)
+void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, uint8 ShotDirYaw)
 {
 	if (MyUTHUD != NULL)
 	{
-		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : GetViewTarget()->GetActorLocation()) + RelHitLocation, Damage, bFriendlyFire);
+		MyUTHUD->PawnDamaged(ShotDirYaw, Damage, bFriendlyFire);
 	}
 }
 
@@ -2894,7 +2931,12 @@ void AUTPlayerController::ServerSuicide_Implementation()
 			Char->PlayerSuicide();
 		}
 	}
+	else if ((UTCharacter == nullptr) && UTPlayerState && (UTPlayerState->ReadyMode == 4))
+	{
+		UTPlayerState->ReadyMode = 3;
+	}
 }
+
 bool AUTPlayerController::ServerSuicide_Validate()
 {
 	return true;
@@ -3194,6 +3236,16 @@ void AUTPlayerController::SetWeaponGroup(AUTWeapon* InWeapon)
 				InWeapon->Group = ProfileSettings->WeaponGroupLookup[WeaponClassName].Group;
 			}
 		}
+	}
+}
+
+void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
+{
+	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (Speaker == NULL || !Speaker->bIsABot || GS == NULL || GS->GetBotSpeech() > BSO_None)
+	{
+		ClientPlaySound(ChatMsgSound);
+		Super::ClientSay_Implementation(Speaker, Message, Destination);
 	}
 }
 
@@ -3803,6 +3855,15 @@ void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, ui
 			UE_LOG(UT, Warning, TEXT("Failed teamstats assignment index %d"), TeamStatsIndex);
 		}
 		GS->Teams[TeamNum]->SetStatsValue(StatsName, NewValue);
+	}
+}
+
+void AUTPlayerController::ClientUpdateSkillRating_Implementation(const FString& MatchRatingType)
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->ReadSpecificELOFromBackend(MatchRatingType);
 	}
 }
 
