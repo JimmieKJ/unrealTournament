@@ -309,22 +309,7 @@ void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& Red
 		FString CloudID = GetCloudID();
 		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
 		{
-			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-			FString McpConfigOverride;
-			FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-			if (McpConfigOverride == TEXT("gamedev"))
-			{
-				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-			}
-
-			FString EpicApp;
-			FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
-			const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
-			if (bIsPublicTest)
-			{
-				BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
-			}
-
+			FString BaseURL = GetBackendBaseUrl();
 			FString CommandURL = TEXT("/ut/api/stats/accountId/");
 			RedirectURL = BaseURL + CommandURL + GetCloudID() + TEXT("/") + PackageBaseFilename + TEXT(".pak") + TEXT(" ") + PackageChecksum;
 		}

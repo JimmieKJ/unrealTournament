@@ -317,37 +317,10 @@ void SUTStatsViewerPanel::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, 
 
 void SUTStatsViewerPanel::ReadCloudStats()
 {
+
 	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
-	if (StatsReadRequest.IsValid())
-	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-	}
-	FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-#endif
-	FString McpConfigOverride;
-	FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-	if (McpConfigOverride == TEXT("localhost"))
-	{
-		BaseURL = TEXT("http://localhost:8080/");
-	}
-	else if (McpConfigOverride == TEXT("gamedev"))
-	{
-		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
-	}
-	else
-	{
-		FString EpicApp;
-		FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
-		const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
-		if (bIsPublicTest)
-		{
-			BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
-		}
-	}
-
+	
+	FString BaseURL = GetBackendBaseUrl();
 	FString CommandURL = TEXT("/ut/api/cloudstorage/user/");
 
 	FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/stats.json");

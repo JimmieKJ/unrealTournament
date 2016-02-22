@@ -515,10 +515,14 @@ public:
 				FString LauncherCommandLine = TEXT("-assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
 
 				FString McpConfigOverride;
-				FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+				FParse::Value(FCommandLine::Get(), TEXT("EPICENV="), McpConfigOverride);
+				if (McpConfigOverride.IsEmpty())
+				{
+					FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+				}
 				if (McpConfigOverride == TEXT("gamedev"))
 				{
-					LauncherCommandLine += TEXT(" -mcpconfig=gamedev -Launcherlabel=LatestLauncherDev -applabel=Production-Latest");
+					LauncherCommandLine += TEXT(" -mcpconfig=gamedev -epicenv=gamedev -Launcherlabel=LatestLauncherDev -applabel=Production-Latest");
 				}
 
 				if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine, FString()))

@@ -703,10 +703,10 @@ void SUTMainMenu::StartGame(bool bLanGame)
 			}
 		}
 
-		FString McpConfigOverride;
-		if (FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride))
+		FString AppName = GetEpicAppName();
+		if (!AppName.IsEmpty())
 		{
-			Options += FString::Printf(TEXT(" -MCPCONFIG=%s"), *McpConfigOverride);
+			Options += FString::Printf(TEXT(" -EPICAPP=%s"), *AppName);
 		}
 
 		PlayerOwner->DedicatedServerProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *(Options + FString::Printf(TEXT(" -ClientProcID=%u"), FPlatformProcess::GetCurrentProcessId())), true, false, false, NULL, 0, NULL, NULL);

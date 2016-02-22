@@ -14,10 +14,13 @@ DEFINE_LOG_CATEGORY_STATIC( LogUTReplay, Log, All );
 FUTReplayStreamer::FUTReplayStreamer()
 {
 	FString McpConfigOverride;
+	FParse::Value( FCommandLine::Get(), TEXT( "EPICENV=" ), McpConfigOverride );
+	if (McpConfigOverride.IsEmpty())
+	{
+		FParse::Value( FCommandLine::Get(), TEXT( "MCPCONFIG=" ), McpConfigOverride );
+	}
 
-	FParse::Value( FCommandLine::Get(), TEXT( "MCPCONFIG=" ), McpConfigOverride );
-
-	const bool bCmdProductionEnvironment	= McpConfigOverride.Equals( TEXT( "prodnet" ), ESearchCase::IgnoreCase );
+	const bool bCmdProductionEnvironment	= McpConfigOverride.Equals( TEXT( "prod" ), ESearchCase::IgnoreCase );
 	const bool bCmdGamedevEnvironment		= McpConfigOverride.Equals( TEXT( "gamedev" ), ESearchCase::IgnoreCase );
 	const bool bCmdLocalhostEnvironment		= McpConfigOverride.Equals( TEXT( "localhost" ), ESearchCase::IgnoreCase );
 
