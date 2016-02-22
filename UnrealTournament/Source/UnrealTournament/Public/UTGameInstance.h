@@ -5,11 +5,11 @@
 #include "Engine/GameInstance.h"
 #include "../../Engine/Source/Runtime/PerfCounters/Private/PerfCounters.h"
 #include "OnlineSessionInterface.h"
+#include "UTPlaylistManager.h"
 #include "UTGameInstance.generated.h"
 
 class UUTMatchmaking;
 class UUTParty;
-class UUTPlaylistManager;
 
 enum EUTNetControlMessage
 {
