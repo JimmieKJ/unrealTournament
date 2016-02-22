@@ -55,7 +55,7 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated()
 }
 	
 FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const FEmptyServerReservation& InReservationData, bool bSearchingLAN, bool bSearchingPresence) :
-	FUTOnlineSessionSearchBase(InReservationData.PlaylistId, bSearchingLAN, bSearchingPresence)
+	FUTOnlineSessionSearchBase(INDEX_NONE, bSearchingLAN, bSearchingPresence)
 {
 	MaxSearchResults = 20;
 
@@ -67,6 +67,8 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const
 
 	// Only find Epic hosted servers
 	QuerySettings.Set(SETTING_TRUSTLEVEL, 0, EOnlineComparisonOp::Equals);
+
+	PlaylistId = InReservationData.PlaylistId;
 }
 
 FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase()

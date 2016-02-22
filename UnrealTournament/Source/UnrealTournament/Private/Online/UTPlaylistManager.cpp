@@ -25,8 +25,9 @@ bool  UUTPlaylistManager::GetURLForPlaylist(int32 PlaylistId, FString& URL)
 	{
 		if (PlaylistEntry.PlaylistId == PlaylistId)
 		{
-			URL = PlaylistEntry.MapNames[FMath::RandRange(0, Playlist.Num() - 1)];
+			URL = PlaylistEntry.MapNames[FMath::RandRange(0, PlaylistEntry.MapNames.Num() - 1)];
 			URL += TEXT("?game=") + PlaylistEntry.GameMode;
+			URL += PlaylistEntry.ExtraCommandline;
 			URL += TEXT("?Ranked=1");
 		}
 	}
