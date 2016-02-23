@@ -4,6 +4,7 @@
 #include "Online/UTPartyBeaconClient.h"
 #include "Online/UTPartyBeaconHost.h"
 #include "OnlineSubsystemUtils.h"
+#include "UTSessionHelper.h"
 
 AUTPartyBeaconClient::AUTPartyBeaconClient(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)
@@ -15,13 +16,18 @@ void AUTPartyBeaconClient::OnConnected()
 	bool bExistingSessionRequest = PendingEmptyReservation.PlaylistId < 0;
 	if ((RequestType == EClientRequestType::ExistingSessionReservation || RequestType == EClientRequestType::ReservationUpdate) && bExistingSessionRequest)
 	{
-		APartyBeaconClient::OnConnected();
+		Super::OnConnected();
 	}
 	else if (RequestType == EClientRequestType::EmptyServerReservation)
 	{
 		UE_LOG(LogBeacon, Verbose, TEXT("Beacon connection established, sending empty server reservation request."));
 		ServerEmptyServerReservationRequest(DestSessionId, PendingEmptyReservation, PendingReservation);
 		bPendingReservationSent = true;
+	}
+	else if (RequestType == EClientRequestType::Reconnect)
+	{
+		RequestType = EClientRequestType::ExistingSessionReservation;
+		Super::OnConnected();
 	}
 	else
 	{
@@ -108,6 +114,8 @@ void AUTPartyBeaconClient::Reconnect(const FOnlineSessionSearchResult& DesiredHo
 	if (ConnectInternal(DesiredHost))
 	{
 		PendingReservation.PartyLeader = RequestingPartyLeader;
+		BuildPartyMembers(GetWorld(), RequestingPartyLeader, PendingReservation.PartyMembers);
+
 		bPendingReservationSent = false;
 
 		// Configure the net driver with the reconnection-specific timeouts

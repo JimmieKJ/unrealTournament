@@ -1031,7 +1031,8 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->bJoinAnytime = true;
 			NewMatchInfo->bSpectatable = true;
 			NewMatchInfo->bRankLocked = true;
-			NewMatchInfo->RankCheck = RankCheck;
+			NewMatchInfo->bBeginnerMatch = bBeginner;
+			NewMatchInfo->RankCheck = RankCheck + RANK_LOCK_TOLERANCE;
 			NewMatchInfo->LaunchMatch(true,1);
 		}
 	}

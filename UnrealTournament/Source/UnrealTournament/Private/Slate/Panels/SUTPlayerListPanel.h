@@ -169,7 +169,7 @@ public:
 
 	EVisibility GetMatchIdVis() const
 	{
-		return (bIsInAnyMatch && !bIsInMatch) ? EVisibility::Visible : EVisibility::Collapsed;
+		return (bIsInAnyMatch && !bIsInMatch && TrackedMatchId >= 0) ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
 	const FSlateBrush* GetAvatar() const

@@ -20,7 +20,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Crosshair)
 	FText CrosshairName;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Crosshair)
+		FVector2D OffsetAdjust;
+
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawCrosshair(UCanvas* Canvas, AUTWeapon* Weapon, float DeltaTime, float Scale, FLinearColor Color);
 

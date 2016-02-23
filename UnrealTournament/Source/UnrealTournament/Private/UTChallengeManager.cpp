@@ -426,12 +426,16 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 			{
 				if (Storage)
 				{
-					// If this challenge has a result, reject it.
+					// If this challenge does not have a result, reject it.
 					const FUTChallengeResult* ChallengeResult = Storage->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) { return Result.Tag == ChallengeTag; });
 					if (ChallengeResult == nullptr)
 					{
 						continue;
 					}
+				}
+				else
+				{
+					continue;
 				}
 			}
 			else if (Filter == EChallengeFilterType::Expired)

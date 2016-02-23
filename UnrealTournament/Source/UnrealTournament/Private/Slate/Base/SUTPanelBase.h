@@ -55,7 +55,7 @@ public:
 	FName Tag;
 
 
-	TSharedPtr<SWidget> GetInitialFocus();
+	virtual TSharedPtr<SWidget> GetInitialFocus();
 
 protected:
 

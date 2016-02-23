@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTOnlineGameSettings.h"
+#include "UTOnlineGameSettingsBase.h"
 #include "Qos.h"
 #include "UTPartyBeaconState.h"
 
@@ -19,6 +20,8 @@ FUTOnlineSessionSettings::FUTOnlineSessionSettings(bool bIsLAN, bool bIsPresence
 	bAllowJoinViaPresenceFriendsOnly = false;
 
 	Set(SETTING_REGION, UQosEvaluator::GetDefaultRegionString(), EOnlineDataAdvertisementType::ViaOnlineService);
+
+	Set(SETTING_RANKED, 1, EOnlineDataAdvertisementType::ViaOnlineService);
 }
 
 FUTOnlineSessionSettingsDedicatedEmpty::FUTOnlineSessionSettingsDedicatedEmpty(bool bIsLAN, bool bIsPresence, int32 MaxNumPlayers) :
@@ -52,7 +55,7 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated()
 }
 	
 FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const FEmptyServerReservation& InReservationData, bool bSearchingLAN, bool bSearchingPresence) :
-	FUTOnlineSessionSearchBase(InReservationData.PlaylistId, bSearchingLAN, bSearchingPresence)
+	FUTOnlineSessionSearchBase(INDEX_NONE, bSearchingLAN, bSearchingPresence)
 {
 	MaxSearchResults = 20;
 
@@ -64,6 +67,8 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const
 
 	// Only find Epic hosted servers
 	QuerySettings.Set(SETTING_TRUSTLEVEL, 0, EOnlineComparisonOp::Equals);
+
+	PlaylistId = InReservationData.PlaylistId;
 }
 
 FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase()

@@ -405,7 +405,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	if (UTHUDOwner->UTPlayerOwner->UTPlayerState == PlayerState)
 	{
 		Ping = PlayerState->ExactPing;
-		BarOpacity = 0.5;
+		BarOpacity = 0.5f;
 	}
 
 	FText PlayerPing;
@@ -514,7 +514,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)
 {
 	FText PlayerReady = PlayerState->bReadyToPlay ? ReadyText : NotReadyText;
-	float ReadyX = XOffset;
+	float ReadyX = XOffset + (Width * ColumnHeaderScoreX);
 	if (PlayerState->bPendingTeamSwitch)
 	{
 		PlayerReady = TeamSwapText;
@@ -550,13 +550,17 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 		if (PlayerState->ReadyMode == 4)
 		{
 			ReadyScale = 1.15f;
-			ReadyX -= 10.f;
-			ReadyX += 220.f * Scaling;
+			float XL, YL;
+			Canvas->TextSize(UTHUDOwner->MediumFont, "READY", XL, YL, ReadyScale*RenderScale, ReadyScale*RenderScale);
+			float Dist = 0.75f * Width * (ColumnHeaderPingX - 0.5f) - 0.75f * XL;
+			ReadyX = XOffset + 0.25f*Width + 2.f * Dist * Scaling;
 			if (ScaleTime < 0.5f)
 			{
 				ReadyColor.B = 0.5f;
 				ReadyColor.G = 0.5f;
 			}
+			DrawText(PlayerReady, ReadyX, YOffset + ColumnY, UTHUDOwner->MediumFont, ReadyScale, 1.0f, ReadyColor, ETextHorzPos::Left, ETextVertPos::Center);
+			return;
 		}
 	}
 	else
@@ -564,7 +568,7 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 		ReadyColor = FLinearColor::White;
 		ReadyScale = 1.f;
 	}
-	DrawText(PlayerReady, ReadyX + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, ReadyScale, 1.0f, ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText(PlayerReady, ReadyX, YOffset + ColumnY, UTHUDOwner->MediumFont, ReadyScale, 1.0f, ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
 void UUTScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)

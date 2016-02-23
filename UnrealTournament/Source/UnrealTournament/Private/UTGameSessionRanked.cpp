@@ -6,6 +6,8 @@
 #include "QoSBeaconHost.h"
 #include "UTOnlineGameSettings.h"
 #include "UTEmptyServerGameMode.h"
+#include "UTGameInstance.h"
+#include "UTPlaylistManager.h"
 
 static const float IdleServerTimeout = 30.0f * 60.0f;
 
@@ -58,19 +60,7 @@ void AUTGameSessionRanked::RegisterServer()
 
 			UWorld* const World = GetWorld();
 			check(World);
-
-			AUTGameMode* const UTGame = World->GetAuthGameMode<AUTGameMode>();
-			if (UTGame)
-			{
-				// If we have an existing playlistid use that
-				//FUTPlaylistManager::Get().GetTeamInfoForGame(UTGame->CurrentPlaylistId, TeamCount, TeamSize, MaxPartySize);
-			}
-			else
-			{
-				// Get the playlist with the largest team count so we have space for large parties at config time
-				//FUTPlaylistManager::Get().GetMaxTeamInfo(TeamCount, TeamSize, MaxPartySize);
-			}
-
+			
 			MaxPlayers = TeamCount * TeamSize;
 
 			HostSettings = MakeShareable(new FUTOnlineSessionSettingsDedicatedEmpty(false, false, MaxPlayers));
@@ -385,7 +375,9 @@ void AUTGameSessionRanked::OnServerConfigurationRequest(const FUniqueNetIdRepl& 
 		// Get the playlist configuration for team/reservation sizes
 		if (ReservationData.PlaylistId > INDEX_NONE)
 		{
-			//if (FUTPlaylistManager::Get().GetTeamInfoForGame(ReservationData.PlaylistId, ReservationData.ZoneInstanceId, TeamCount, TeamSize, MaxPartySize))
+			UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+			if (UTGameInstance && UTGameInstance->GetPlaylistManager() && 
+				UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(ReservationData.PlaylistId, TeamCount, TeamSize, MaxPartySize))
 			{
 				MaxPlayers = TeamCount * TeamSize;
 				ReservationBeaconHost->ReconfigureTeamAndPlayerCount(TeamCount, TeamSize, MaxPlayers);
@@ -498,8 +490,13 @@ void AUTGameSessionRanked::CreateServerGame()
 	bool bPreserveState = true;
 	DestroyHostBeacon(bPreserveState);
 	
-	FString TravelURL = TEXT("/Game/RestrictedAssets/Maps/WIP/DM-Chill?game=TEAMSHOWDOWN?Ranked=1"); // GetMatchURL(PlaylistId);
-	
+	FString TravelURL;
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (UTGameInstance && UTGameInstance->GetPlaylistManager())
+	{
+		UTGameInstance->GetPlaylistManager()->GetURLForPlaylist(PlaylistId, TravelURL);
+	}
+		
 	World->ServerTravel(TravelURL, true, false);
 }
 
@@ -566,7 +563,12 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 
 			MaxPlayers = ReservationBeaconHost->GetNumTeams() * ReservationBeaconHost->GetMaxPlayersPerTeam();
 
-//			PlaylistManager.GetTeamInfoForGame(PlaylistId, ZoneInstanceId, TeamCount, TeamSize, MaxPartySize);
+			UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+			if (UTGameInstance && UTGameInstance->GetPlaylistManager())
+			{
+				UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(PlaylistId, TeamCount, TeamSize, MaxPartySize);
+			}
+
 			if (TeamCount != ReservationBeaconHost->GetNumTeams())
 			{
 				UE_LOG(LogOnline, Warning, TEXT("Playlist team count != Beacon team count"));
@@ -587,7 +589,11 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 				UE_LOG(LogOnline, Warning, TEXT("Invalid playlist id at beacon creation time"));
 			}
 
-			//PlaylistManager.GetTeamInfoForGame(PlaylistId, ZoneInstanceId, TeamCount, TeamSize, MaxPartySize);
+			UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+			if (UTGameInstance && UTGameInstance->GetPlaylistManager())
+			{
+				UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(PlaylistId, TeamCount, TeamSize, MaxPartySize);
+			}
 
 			MaxPlayers = TeamCount * TeamSize;
 

@@ -177,7 +177,8 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
                     int32 AppliedDamage = FMath::TruncToInt(Accumulator);
                     Accumulator -= AppliedDamage;
                     FVector FireDir = (Hit.Location - Hit.TraceStart).GetSafeNormal();
-					Hit.Actor->TakeDamage(AppliedDamage, FUTPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType, FireDir * (GetOuterAUTWeapon()->GetImpartedMomentumMag(Hit.Actor.Get()) * float(AppliedDamage) / float(DamageInfo.Damage))), GetOuterAUTWeapon()->GetUTOwner()->Controller, GetOuterAUTWeapon());
+					AController* LinkDamageInstigator = LinkGun->GetUTOwner() ? LinkGun->GetUTOwner()->Controller : nullptr;
+					Hit.Actor->TakeDamage(AppliedDamage, FUTPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType, FireDir * (LinkGun->GetImpartedMomentumMag(Hit.Actor.Get()) * float(AppliedDamage) / float(DamageInfo.Damage))), LinkDamageInstigator, LinkGun);
 					if (PS && (LinkGun->HitsStatsName != NAME_None))
 					{
 						PS->ModifyStatsValue(LinkGun->HitsStatsName, AppliedDamage/FMath::Max(LinkedDamage, 1.f));

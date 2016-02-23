@@ -559,7 +559,7 @@ bool FSwarmInterfaceLocalImpl::IsJobProcessRunning( int32* OutStatus )
 	const bool bIsRunning = FPlatformProcess::IsProcRunning(LightmassProcHandle);
 	if (!bIsRunning && OutStatus)
 	{
-		*OutStatus = FPlatformProcess::GetProcReturnCode(LightmassProcHandle, OutStatus);
+		FPlatformProcess::GetProcReturnCode(LightmassProcHandle, OutStatus);
 	}
 	return bIsRunning;
 #else

@@ -5,6 +5,7 @@
 #include "Engine/GameInstance.h"
 #include "../../Engine/Source/Runtime/PerfCounters/Private/PerfCounters.h"
 #include "OnlineSessionInterface.h"
+#include "UTPlaylistManager.h"
 #include "UTGameInstance.generated.h"
 
 class UUTMatchmaking;
@@ -99,6 +100,9 @@ protected:
 	/** Parties singleton */
 	UPROPERTY(Transient)
 	UUTParty* Party;
+
+	UPROPERTY(Transient)
+	UUTPlaylistManager* PlaylistManager;
 	
 	/** Timer waiting to call SafeSessionDelete again because session was in a creating/ending state */
 	FTimerHandle SafeSessionDeleteTimerHandle;
@@ -130,6 +134,8 @@ public:
 	 * Parties
 	 */
 	UUTParty* GetParties() const;
+
+	UUTPlaylistManager* GetPlaylistManager() const;
 	
 	/**
 	 * Safe delete mechanism to make sure we aren't deleting a session too soon after its creation
@@ -138,5 +144,16 @@ public:
 	 * @param DestroySessionComplete delegate to call on completion, in all cases
 	 */
 	void SafeSessionDelete(FName SessionName, FOnDestroySessionCompleteDelegate DestroySessionComplete);
+	
+	/**
+	 * Helper function for traveling to a session that has already been joined via the online platform
+	 * Grabs the URL from the session info and travels
+	 *
+	 * @param ControllerId controller initiating the request
+	 * @param InSessionName name of session to travel to 
+	 *
+	 * @return true if able or attempting to travel, false otherwise
+	 */
+	bool ClientTravelToSession(int32 ControllerId, FName InSessionName);
 };
 

@@ -155,7 +155,6 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 
 	if (OnlineSessionInterface.IsValid())
 	{
-		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnJoinSessionComplete));
 		OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
 		OnDestroySessionCompleteDelegate = OnlineSessionInterface->AddOnDestroySessionCompleteDelegate_Handle(FOnDestroySessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnDestroySessionComplete));
 		OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
@@ -2434,6 +2433,8 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 		}
 		else
 		{
+			OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete));
+
 			SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
 			OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 		}
@@ -2477,6 +2478,11 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 #endif
 
 	UE_LOG(UT,Log, TEXT("----------- [OnJoinSessionComplete %i"), (Result == EOnJoinSessionCompleteResult::Success));
+
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
+	}
 
 	// If we are trying to be crammed in to an existing session, we can just exit.
 	if (bAttemptingForceJoin)
@@ -4516,7 +4522,7 @@ void UUTLocalPlayer::EpicFlagCheck()
 	}
 }
 
-void UUTLocalPlayer::StartSoloQueueMatchmaking()
+void UUTLocalPlayer::StartSoloQueueMatchmaking(int32 PlaylistId)
 {
 	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking(); 
@@ -4525,7 +4531,7 @@ void UUTLocalPlayer::StartSoloQueueMatchmaking()
 		FMatchmakingParams MatchmakingParams;
 		MatchmakingParams.ControllerId = GetControllerId();
 		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
-		MatchmakingParams.PlaylistId = 0;
+		MatchmakingParams.PlaylistId = PlaylistId;
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
 	}
 }

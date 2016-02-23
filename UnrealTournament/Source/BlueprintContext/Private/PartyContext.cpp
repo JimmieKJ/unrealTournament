@@ -177,6 +177,9 @@ void UPartyContext::HandlePlayerLoggedIn()
 	{
 		Owner->OnPlayerLoggedIn().RemoveAll(this);
 		Owner->OnPlayerLoggedOut().AddUObject(this, &ThisClass::HandlePlayerLoggedOut);
+
+		UnbindOnlineDelegates(Owner->GetWorld());
+		BindOnlineDelegates(Owner->GetWorld());
 	}
 
 	if (auto GameInstance = GetGameInstance<const UUTGameInstance>())
@@ -227,6 +230,12 @@ void UPartyContext::HandlePlayerLoggedOut()
 		Party->OnPartyMemberPromoted().RemoveAll(this);
 		Party->OnPartyMemberLeaving().RemoveAll(this);
 		Party->OnPartyMemberLeft().RemoveAll(this);
+
+		UUTParty* UTParty = Cast<UUTParty>(Party.Get());
+		if (UTParty)
+		{
+			UTParty->OnPartyJoinComplete().RemoveAll(this);
+		}
 
 		Party.Reset();
 	}

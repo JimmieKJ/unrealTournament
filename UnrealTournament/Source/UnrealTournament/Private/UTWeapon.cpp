@@ -1816,6 +1816,10 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 		bDrawCrosshair = FiringState[i]->DrawHUD(WeaponHudWidget) && bDrawCrosshair;
 	}
 
+	// for debugging crosshair centering
+	//WeaponHudWidget->UTHUDOwner->DrawLine(0.f, WeaponHudWidget->GetCanvas()->SizeY*0.5f, WeaponHudWidget->GetCanvas()->SizeX - 8.f, WeaponHudWidget->GetCanvas()->SizeY*0.5f, FLinearColor::Yellow);
+	//WeaponHudWidget->UTHUDOwner->DrawLine(WeaponHudWidget->GetCanvas()->SizeX*0.5f, 0.f, WeaponHudWidget->GetCanvas()->SizeX*0.5f, WeaponHudWidget->GetCanvas()->SizeY, FLinearColor::Yellow);
+
 	if (bDrawCrosshair && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
 	{
 		UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex;
