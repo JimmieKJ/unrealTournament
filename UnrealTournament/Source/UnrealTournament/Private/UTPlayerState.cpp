@@ -1407,7 +1407,7 @@ void AUTPlayerState::WriteStatsToCloud()
 			}
 
 			FString BaseURL = GetBackendBaseUrl();
-			FString CommandURL = TEXT("/ut/api/stats/accountId/");
+			FString CommandURL = TEXT("/api/stats/accountId/");
 			FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk?ownertype=1");
 
 			FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();

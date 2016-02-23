@@ -212,7 +212,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 				{
 
 					FString BaseURL = GetBackendBaseUrl();
-					FString CommandURL = TEXT("/ut/api/cloudstorage/user/");
+					FString CommandURL = TEXT("/api/cloudstorage/user/");
 
 					FileURLs.Add(BaseURL + CommandURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key() + TEXT(".pak"));
 				}
