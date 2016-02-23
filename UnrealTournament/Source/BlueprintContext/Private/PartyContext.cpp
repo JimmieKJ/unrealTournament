@@ -228,6 +228,12 @@ void UPartyContext::HandlePlayerLoggedOut()
 		Party->OnPartyMemberLeaving().RemoveAll(this);
 		Party->OnPartyMemberLeft().RemoveAll(this);
 
+		UUTParty* UTParty = Cast<UUTParty>(Party.Get());
+		if (UTParty)
+		{
+			UTParty->OnPartyJoinComplete().RemoveAll(this);
+		}
+
 		Party.Reset();
 	}
 }
