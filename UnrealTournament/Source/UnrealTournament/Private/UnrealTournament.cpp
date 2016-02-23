@@ -689,7 +689,7 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 	if (StatsReadRequest.IsValid())
 	{
 		FString BaseURL = GetBackendBaseUrl();
-		FString CommandURL = TEXT("/ut/api/stats/accountId/");
+		FString CommandURL = TEXT("/api/stats/accountId/");
 		FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
 
 		StatsReadRequest->SetURL(FinalStatsURL);
@@ -797,7 +797,7 @@ void GiveProfileItems(TSharedPtr<const FUniqueNetId> UniqueId, const TArray<FPro
 		FString StatsID = UniqueId->ToString();
 
 		FString BaseURL = GetBackendBaseUrl();
-		FString CommandURL = TEXT("/ut/api/stats/accountId/");
+		FString CommandURL = TEXT("/api/stats/accountId/");
 		FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk?ownertype=1");
 
 		FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();

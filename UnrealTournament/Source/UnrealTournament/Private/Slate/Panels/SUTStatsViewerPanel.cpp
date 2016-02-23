@@ -321,7 +321,7 @@ void SUTStatsViewerPanel::ReadCloudStats()
 	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
 	
 	FString BaseURL = GetBackendBaseUrl();
-	FString CommandURL = TEXT("/ut/api/cloudstorage/user/");
+	FString CommandURL = TEXT("/api/cloudstorage/user/");
 
 	FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/stats.json");
 

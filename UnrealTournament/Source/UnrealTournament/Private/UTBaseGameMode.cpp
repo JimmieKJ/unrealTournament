@@ -310,7 +310,7 @@ void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& Red
 		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
 		{
 			FString BaseURL = GetBackendBaseUrl();
-			FString CommandURL = TEXT("/ut/api/stats/accountId/");
+			FString CommandURL = TEXT("/api/stats/accountId/");
 			RedirectURL = BaseURL + CommandURL + GetCloudID() + TEXT("/") + PackageBaseFilename + TEXT(".pak") + TEXT(" ") + PackageChecksum;
 		}
 	}
