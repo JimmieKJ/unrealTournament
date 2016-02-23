@@ -2449,15 +2449,18 @@ void FOpenGLDynamicRHI::SetResourcesFromTables(const ShaderType* RESTRICT Shader
 		DirtyBits ^= LowestBitMask;
 
 		FOpenGLUniformBuffer* Buffer = (FOpenGLUniformBuffer*)PendingState.BoundUniformBuffers[ShaderType::StaticFrequency][BufferIndex].GetReference();
-		check(Buffer);
-		check(BufferIndex < SRT->ResourceTableLayoutHashes.Num());
-		check(Buffer->GetLayout().GetHash() == SRT->ResourceTableLayoutHashes[BufferIndex]);
-		Buffer->CacheResources(ResourceTableFrameCounter);
-
-		// todo: could make this two pass: gather then set
-		NumSetCalls += SetShaderResourcesFromBuffer<FOpenGLTextureBase,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->TextureMap.GetData(),BufferIndex);
-		NumSetCalls += SetShaderResourcesFromBuffer<FOpenGLShaderResourceView,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->ShaderResourceViewMap.GetData(),BufferIndex);
-		SetShaderResourcesFromBuffer<FOpenGLSamplerState,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->SamplerMap.GetData(),BufferIndex);
+		if(!FShaderCache::IsPredrawCall())
+		{
+			check(Buffer);
+			check(BufferIndex < SRT->ResourceTableLayoutHashes.Num());
+			check(Buffer->GetLayout().GetHash() == SRT->ResourceTableLayoutHashes[BufferIndex]);
+			Buffer->CacheResources(ResourceTableFrameCounter);
+			
+			// todo: could make this two pass: gather then set
+			NumSetCalls += SetShaderResourcesFromBuffer<FOpenGLTextureBase,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->TextureMap.GetData(),BufferIndex);
+			NumSetCalls += SetShaderResourcesFromBuffer<FOpenGLShaderResourceView,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->ShaderResourceViewMap.GetData(),BufferIndex);
+			SetShaderResourcesFromBuffer<FOpenGLSamplerState,(EShaderFrequency)ShaderType::StaticFrequency>(this,Buffer,SRT->SamplerMap.GetData(),BufferIndex);
+		}
 	}
 	PendingState.DirtyUniformBuffers[ShaderType::StaticFrequency] = 0;
 	//SetTextureInTableCalls += NumSetCalls;
