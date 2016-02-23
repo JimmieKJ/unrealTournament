@@ -72,9 +72,6 @@ public:
 	/** Number of times this cue is currently being played. */
 	int32 CurrentPlayCount;
 
-	/** Amount to scale distance checks for this sound based on listener-focus */
-	float FocusDistanceScale;
-
 	//~ Begin UObject Interface.
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
@@ -130,12 +127,6 @@ public:
 
 	/** Returns the sound concurrency object ID if it exists. If it doesn't exist, returns 0. */
 	uint32 GetSoundConcurrencyObjectID() const;
-
-	/** Set the amount of distance scale this sound is using based on listener-focus */
-	void SetFocusDistanceScale(const float InFocusDistanceScale) { FocusDistanceScale = InFocusDistanceScale; }
-
-	/** Get the amount of distance scale this sound is using based on listener-focus */
-	float GetFocusDistanceScale() const { return FocusDistanceScale; }
 
 };
 
