@@ -105,9 +105,20 @@ FReply SUTSpectatorWindow::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent&
 		PlayerOwner->ShowMenu(TEXT(""));
 		return FReply::Handled();
 	}
-
+	else if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->InputKey(InKeyEvent.GetKey(), EInputEvent::IE_Released, 1.f, false))
+	{
+		return FReply::Handled();
+	}
 	return FReply::Unhandled();
 }
 
+FReply SUTSpectatorWindow::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->InputKey(InKeyEvent.GetKey(), EInputEvent::IE_Pressed, 1.f, false))
+	{
+		return FReply::Handled();
+	}
+	return FReply::Unhandled();
+}
 
 #endif
