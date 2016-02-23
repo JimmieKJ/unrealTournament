@@ -301,7 +301,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 		.Padding(5.0f,0.0f,0.0f,0.0f)
 		.AutoWidth()
 		[
-			SNew(SUTButton)
+			SAssignNew(HomeButton, SUTButton)
 			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 			.OnClicked(this, &SUTMenuBase::OnShowHomePanel)
 			.Visibility(this, &SUTMenuBase::GetBackVis)

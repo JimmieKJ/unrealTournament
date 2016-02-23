@@ -449,7 +449,6 @@ void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 {
 	if (!SummaryPanel.IsValid())
 	{
-		UE_LOG(UT,Log,TEXT("###### ShowMatchSummaryPanel"));
 		if (SummaryOverlay.IsValid())
 		{
 			SummaryOverlay->AddSlot().HAlign(HAlign_Fill).VAlign(VAlign_Fill)

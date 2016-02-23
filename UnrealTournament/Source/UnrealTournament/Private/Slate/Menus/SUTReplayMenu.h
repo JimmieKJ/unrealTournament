@@ -20,6 +20,8 @@ class UNREALTOURNAMENT_API SUTReplayMenu : public SUTMainMenu
 	virtual EVisibility GetBackVis() const;
 	virtual FReply OnShowHomePanel();
 
+	FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent );
+
 protected:
 	virtual TSharedRef<SWidget> BuildBackground();
 };
