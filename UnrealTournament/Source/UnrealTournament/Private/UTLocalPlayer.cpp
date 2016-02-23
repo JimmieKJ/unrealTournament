@@ -2448,6 +2448,7 @@ void UUTLocalPlayer::JoinPendingSession()
 	{
 		bDelayedJoinSession = false;
 		PendingSession.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
+		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete));
 		OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
 	}
 }
