@@ -330,7 +330,7 @@ void SUTInGameMenu::ShowExitDestinationMenu()
 		.HAlign(HAlign_Center)
 		[
 			SNew(STextBlock)
-			.Text(NSLOCTEXT("ExitMenu", "ExitGameMessage", "Exit the game and return to the operating system."))
+			.Text(NSLOCTEXT("ExitMenu", "ExitGameMessage", "Exit the game and return to the desktop."))
 			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 			.AutoWrapText(true)
 		]
