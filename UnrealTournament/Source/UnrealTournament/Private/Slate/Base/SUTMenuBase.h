@@ -161,7 +161,7 @@ protected:
 		return FCoreStyle::Get().GetBrush("NoBrush");
 	}
 
-
+	TSharedPtr<SUTButton> HomeButton;
 
 public:
 	virtual bool SkipWorldRender();

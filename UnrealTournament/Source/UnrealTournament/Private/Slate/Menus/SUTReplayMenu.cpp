@@ -61,4 +61,12 @@ TSharedRef<SWidget> SUTReplayMenu::BuildBackground()
 	return SNew(SCanvas);
 }
 
+FReply SUTReplayMenu::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent )
+{
+	PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(HomeButton.ToSharedRef(), EFocusCause::SetDirectly);
+	return FReply::Handled().ReleaseMouseCapture();
+}
+
+
+
 #endif
