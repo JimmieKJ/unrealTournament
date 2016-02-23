@@ -755,11 +755,14 @@ void FActiveSound::GetAttenuationListenerData(FAttenuationListenerData& Listener
 	ListenerData.bDataComputed = true;
 }
 
-void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FListener& Listener)
+void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FListener& Listener, const FAttenuationSettings* SettingsAttenuationNode)
 {
 	float& Volume = ParseParams.Volume;
 	const FTransform& SoundTransform = ParseParams.Transform;
 	const FVector& ListenerLocation = Listener.Transform.GetTranslation();
+
+	// Get the attenuation settings to use for this application to the active sound
+	const FAttenuationSettings* Settings = SettingsAttenuationNode ? SettingsAttenuationNode : &AttenuationSettings;
 
 	FAttenuationListenerData ListenerData;
 
@@ -771,7 +774,7 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 
 	// Computer the focus factor if needed
 	check(Sound);
-	if (AttenuationSettings.bSpatialize && AttenuationSettings.bEnableListenerFocus && !Sound->bIgnoreFocus)
+	if (Settings->bSpatialize && Settings->bEnableListenerFocus && !Sound->bIgnoreFocus)
 	{
 		// Get the attenuation listener data
 		GetAttenuationListenerData(ListenerData, ParseParams, Listener);
@@ -782,8 +785,8 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 		const float FocusDotProduct = FVector::DotProduct(ListenerForwardDir, ListenerToSoundDir);
 		const float FocusAngle = FMath::RadiansToDegrees(FMath::Acos(FocusDotProduct));
 
-		const float FocusAzimuth = FMath::Clamp(AttenuationSettings.FocusAzimuth, 0.0f, 360.0f);
-		const float NonFocusAzimuth = FMath::Clamp(AttenuationSettings.NonFocusAzimuth, 0.0f, 360.0f);
+		const float FocusAzimuth = FMath::Clamp(Settings->FocusAzimuth, 0.0f, 360.0f);
+		const float NonFocusAzimuth = FMath::Clamp(Settings->NonFocusAzimuth, 0.0f, 360.0f);
 
 		if (FocusAzimuth != NonFocusAzimuth)
 		{
@@ -800,48 +803,45 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 		}
 
 		// Get the volume scale to apply the volume calculation based on the focus factor
-		const float NonFocusVolumeAttenuation = FMath::Clamp(AttenuationSettings.NonFocusVolumeAttenuation, 0.0f, 1.0f);
+		const float NonFocusVolumeAttenuation = FMath::Clamp(Settings->NonFocusVolumeAttenuation, 0.0f, 1.0f);
 		const float FocusVolumeAttenuation = FMath::Lerp(1.0f, NonFocusVolumeAttenuation, FocusFactor);
 		Volume *= FocusVolumeAttenuation;
 
 		// Scale the volume-weighted priority scale value we use for sorting this sound for voice-stealing
-		const float NonFocusPriorityScale = FMath::Max(AttenuationSettings.NonFocusPriorityScale, 0.0f);
-		const float FocusPriorityScale = FMath::Max(AttenuationSettings.FocusPriorityScale, 0.0f);
+		const float NonFocusPriorityScale = FMath::Max(Settings->NonFocusPriorityScale, 0.0f);
+		const float FocusPriorityScale = FMath::Max(Settings->FocusPriorityScale, 0.0f);
 		const float PriorityScale = FMath::Lerp(FocusPriorityScale, NonFocusPriorityScale, FocusFactor);
 		ParseParams.Priority *= PriorityScale;
 
 		// Get the distance scale to use when computing distance-calculations for 3d atttenuation
-		const float FocusDistanceScale = FMath::Max(AttenuationSettings.FocusDistanceScale, 0.0f);
-		const float NonFocusDistanceScale = FMath::Max(AttenuationSettings.NonFocusDistanceScale, 0.0f);
+		const float FocusDistanceScale = FMath::Max(Settings->FocusDistanceScale, 0.0f);
+		const float NonFocusDistanceScale = FMath::Max(Settings->NonFocusDistanceScale, 0.0f);
 		DistanceScale = FMath::Lerp(FocusDistanceScale, NonFocusDistanceScale, FocusFactor);
-
-		// Update the sound's distance scale value for checks based on max distance
-		Sound->SetFocusDistanceScale(DistanceScale);
 	}
 
 	// Attenuate the volume based on the model
-	if (AttenuationSettings.bAttenuate)
+	if (Settings->bAttenuate)
 	{
-		switch (AttenuationSettings.AttenuationShape)
+		switch (Settings->AttenuationShape)
 		{
 			case EAttenuationShape::Sphere:
 			{
 				// Update attenuation data in-case it hasn't been updated
 				GetAttenuationListenerData(ListenerData, ParseParams, Listener);
-				Volume *= AttenuationSettings.AttenuationEval(ListenerData.AttenuationDistance, AttenuationSettings.FalloffDistance, DistanceScale);
+				Volume *= Settings->AttenuationEval(ListenerData.AttenuationDistance, Settings->FalloffDistance, DistanceScale);
 				break;
 			}
 
 			case EAttenuationShape::Box:
-			Volume *= AttenuationSettings.AttenuationEvalBox(SoundTransform, ListenerLocation, DistanceScale);
+			Volume *= Settings->AttenuationEvalBox(SoundTransform, ListenerLocation, DistanceScale);
 			break;
 
 			case EAttenuationShape::Capsule:
-			Volume *= AttenuationSettings.AttenuationEvalCapsule(SoundTransform, ListenerLocation, DistanceScale);
+			Volume *= Settings->AttenuationEvalCapsule(SoundTransform, ListenerLocation, DistanceScale);
 			break;
 
 			case EAttenuationShape::Cone:
-			Volume *= AttenuationSettings.AttenuationEvalCone(SoundTransform, ListenerLocation, DistanceScale);
+			Volume *= Settings->AttenuationEvalCone(SoundTransform, ListenerLocation, DistanceScale);
 			break;
 
 			default:
@@ -850,13 +850,13 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 	}
 
 	// Attenuate with the low pass filter if necessary
-	if (AttenuationSettings.bAttenuateWithLPF)
+	if (Settings->bAttenuateWithLPF)
 	{
 		GetAttenuationListenerData(ListenerData, ParseParams, Listener);
 
 		// Attenuate with the low pass filter if necessary
-		FVector2D InputRange(AttenuationSettings.LPFRadiusMin, AttenuationSettings.LPFRadiusMax);
-		FVector2D OutputRange(AttenuationSettings.LPFFrequencyAtMin, AttenuationSettings.LPFFrequencyAtMax);
+		FVector2D InputRange(Settings->LPFRadiusMin, Settings->LPFRadiusMax);
+		FVector2D OutputRange(Settings->LPFFrequencyAtMin, Settings->LPFFrequencyAtMax);
 		float AttenuationFilterFrequency = FMath::GetMappedRangeValueClamped(InputRange, OutputRange, ListenerData.AttenuationDistance);
 
 		// Only apply the attenuation filter frequency if it results in a lower attenuation filter frequency than is already being used by ParseParams (the struct pass into the sound cue node tree)
@@ -867,16 +867,16 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 		}
 	}
 
-	ParseParams.OmniRadius = AttenuationSettings.OmniRadius;
-	ParseParams.StereoSpread = AttenuationSettings.StereoSpread;
-	ParseParams.bUseSpatialization |= AttenuationSettings.bSpatialize;
+	ParseParams.OmniRadius = Settings->OmniRadius;
+	ParseParams.StereoSpread = Settings->StereoSpread;
+	ParseParams.bUseSpatialization |= Settings->bSpatialize;
 
-	if (AttenuationSettings.SpatializationAlgorithm == SPATIALIZATION_Default && AudioDevice->IsHRTFEnabledForAll())
+	if (Settings->SpatializationAlgorithm == SPATIALIZATION_Default && AudioDevice->IsHRTFEnabledForAll())
 	{
 		ParseParams.SpatializationAlgorithm = SPATIALIZATION_HRTF;
 	}
 	else
 	{
-		ParseParams.SpatializationAlgorithm = AttenuationSettings.SpatializationAlgorithm;
+		ParseParams.SpatializationAlgorithm = Settings->SpatializationAlgorithm;
 	}
 }

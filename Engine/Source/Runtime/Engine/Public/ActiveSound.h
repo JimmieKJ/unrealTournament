@@ -363,7 +363,7 @@ public:
 	uint32 GetSoundConcurrencyObjectID() const;
 
 	/** Applies the active sound's attenuation settings to the input parse params using the given listener */
-	void ApplyAttenuation(FSoundParseParameters& ParseParams, const FListener& Listener);
+	void ApplyAttenuation(FSoundParseParameters& ParseParams, const FListener& Listener, const FAttenuationSettings* SettingsAttenuationNode = nullptr);
 
 	/** Whether or not this active sound is out of range of its max distance relative to the closest listener */
 	bool IsOutOfRange() const;
