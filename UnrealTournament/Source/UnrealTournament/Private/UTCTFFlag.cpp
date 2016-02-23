@@ -192,7 +192,13 @@ void AUTCTFFlag::PlayReturnedEffects()
 	{
 		if (ReturnParamCurve != NULL)
 		{
+			GetMesh()->bDisableClothSimulation = true;
+			GetMesh()->ClothBlendWeight = ClothBlendHome;
 			ReturningMesh = DuplicateObject<USkeletalMeshComponent>(Mesh, this);
+			if (GetCachedScalabilityCVars().DetailMode != 0)
+			{
+				GetMesh()->bDisableClothSimulation = false;
+			}
 			ReturningMesh->AttachParent = NULL;
 			ReturningMesh->RelativeLocation = Mesh->GetComponentLocation();
 			ReturningMesh->RelativeRotation = Mesh->GetComponentRotation();
