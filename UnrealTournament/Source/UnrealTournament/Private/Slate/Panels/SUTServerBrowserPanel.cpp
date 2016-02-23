@@ -1583,8 +1583,6 @@ void SUTServerBrowserPanel::OnServerBeaconResult(AUTServerBeaconClient* Sender, 
 
 			PingTrackers[i].Server->AddRule(TEXT("Version"), PingTrackers[i].Server->Version);
 
-			UE_LOG(UT,Log,TEXT("Got Ping:  %s %i"), *PingTrackers[i].Server->GetBrowserName().ToString(), PingTrackers[i].Beacon->Instances.Num() );
-
 			PingTrackers[i].Server->HUBInstances.Empty();
 			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->Instances.Num(); InstIndex++ )
 			{

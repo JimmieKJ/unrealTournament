@@ -69,6 +69,8 @@
 #include "PartyGameState.h"
 #include "IBlueprintContextModule.h"
 #include "SUTChatEditBox.h"
+#include "UserWidget.h"
+#include "WidgetBlueprintLibrary.h"
 
 
 #if WITH_SOCIAL
@@ -663,12 +665,26 @@ TSharedPtr<class SUTCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 
 bool UUTLocalPlayer::AreMenusOpen()
 {
+
+	// TODO: Ugly hack.  We don't have a good way right now to notify the player controller that UMG wants input.  So I hack it here for
+	// tutorial menu.  Need to add a better way next build.
+	TArray<UUserWidget*> UMGWidgets;
+	UWidgetBlueprintLibrary::GetAllWidgetsOfClass(GetWorld(), UMGWidgets, UUserWidget::StaticClass(), true);
+	bool UMGWidgetsPresent = false;
+	for (int32 i = 0; i < UMGWidgets.Num(); i++)
+	{
+		if (UMGWidgets[i]->GetName().Equals(TEXT("TutFinishScreenWidget_C_0"), ESearchCase::IgnoreCase))
+		{
+			UMGWidgetsPresent = true;
+			break;
+		}
+	}
+	
 	return DesktopSlateWidget.IsValid()
 		|| LoadoutMenu.IsValid()
 		|| QuickChatWindow.IsValid()
-		|| OpenDialogs.Num() > 0;
-	//Add any widget thats not in the menu here
-	//TODO: Should look through each active widget and determine the needed input mode EIM_UIOnly > EIM_GameAndUI > EIM_GameOnly
+		|| OpenDialogs.Num() > 0
+		|| UMGWidgetsPresent;
 }
 
 #endif
