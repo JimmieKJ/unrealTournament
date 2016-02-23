@@ -730,6 +730,24 @@ void UUTGameEngine::IndexExpansionContent()
 				bValidPak = CheckVersionOfPakFile(PakFilename);
 				if (bValidPak)
 				{
+					// TODO: temporary workaround until we have smarter checksum handling for hub instances is to use the .ini value without checking if it is set
+					AUTBaseGameMode* DefGame = GetMutableDefault<AUTBaseGameMode>();
+					FPackageRedirectReference Redirect;
+					if (DefGame->FindRedirect(PakFilename, Redirect))
+					{
+						DownloadedContentChecksums.Add(PakFilename, Redirect.PackageChecksum);
+						MountedDownloadedContentChecksums.Add(PakFilename, Redirect.PackageChecksum);
+					}
+					else
+					{
+						TArray<uint8> Data;
+						if (FFileHelper::LoadFileToArray(Data, *PakPath))
+						{
+							FString MD5 = MD5Sum(Data);
+							DownloadedContentChecksums.Add(PakFilename, MD5);
+							MountedDownloadedContentChecksums.Add(PakFilename, MD5);
+						}
+					}
 					AddAssetRegistry(PakFilename);
 				}
 			}
