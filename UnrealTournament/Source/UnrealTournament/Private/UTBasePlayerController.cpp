@@ -389,6 +389,7 @@ void AUTBasePlayerController::OnCancelGUIDFindSessionComplete(bool bWasSuccessfu
 	{
 		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelGUIDFindSessionCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegateHandle);
 		AttemptGUIDJoin();
 	}
 }
@@ -434,16 +435,22 @@ void AUTBasePlayerController::AttemptGUIDJoin()
 
 void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 {
+	// Clear the delegate
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegateHandle);
+		}
+	}
+
 	UE_LOG(UT,Log,TEXT("OnFindSesssionComplete %i"), bWasSuccessful);
 	if (bWasSuccessful)
 	{
-		// Clear the delegate
-		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-		if (OnlineSubsystem && GUIDSessionSearchSettings.IsValid()) 
+		if (GUIDSessionSearchSettings.IsValid()) 
 		{
-			IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
-			OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegateHandle);
-
 			if (GUIDSessionSearchSettings->SearchResults.Num() > 0)
 			{
 				FOnlineSessionSearchResult Result = GUIDSessionSearchSettings->SearchResults[0];
