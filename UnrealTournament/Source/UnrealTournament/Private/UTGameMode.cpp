@@ -4277,7 +4277,7 @@ void AUTGameMode::GatherRequiredRedirects(TArray<FPackageRedirectReference>& Red
 
 void AUTGameMode::GetGood()
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !(UE_BUILD_SHIPPING)
 	if (GetNetMode() == NM_Standalone)
 	{
 		UTGameState->RemainingTime = 1;

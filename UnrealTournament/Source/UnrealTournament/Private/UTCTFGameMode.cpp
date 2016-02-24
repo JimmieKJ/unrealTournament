@@ -467,7 +467,7 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 
 void AUTCTFGameMode::GetGood()
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !(UE_BUILD_SHIPPING)
 	if (GetNetMode() == NM_Standalone)
 	{
 		Super::GetGood();
