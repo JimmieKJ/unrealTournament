@@ -635,6 +635,7 @@ void SUTPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double I
 							{
 								TrackedPlayers[Idx]->bPendingKill = false;
 								TrackedPlayers[Idx]->Avatar = MatchInfo->PlayersInMatchInstance[j].Avatar;
+								TrackedPlayers[Idx]->RankCheck = MatchInfo->PlayersInMatchInstance[j].RankCheck;
 							}
 							else
 							{
