@@ -634,7 +634,9 @@ void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> Desire
 		ConnectingServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatchWindow::RequestQuickPlayResults);
 		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
 		bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get()); 
-		ConnectingServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank(), bIsBeginner);
+
+		int32 PlayerRankCheck = PlayerState->GetRankCheck(DefaultGameModeObject.Get());
+		ConnectingServer->Beacon->ServerRequestQuickplay(QuickMatchType, PlayerRankCheck, bIsBeginner);
 	}
 }
 

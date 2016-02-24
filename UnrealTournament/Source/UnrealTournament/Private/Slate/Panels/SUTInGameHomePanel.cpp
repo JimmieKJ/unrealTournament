@@ -132,12 +132,6 @@ void SUTInGameHomePanel::OnHidePanel()
 
 }
 
-FReply SUTInGameHomePanel::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
-{
-	PlayerOwner->HideMenu();
-	return FReply::Handled();
-}
-
 // @Returns true if the mouse position is inside the viewport
 bool SUTInGameHomePanel::GetGameMousePosition(FVector2D& MousePosition)
 {
@@ -360,7 +354,7 @@ FReply SUTInGameHomePanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FP
 					}
 					else
 					{
-						//PlayerOwner->HideMenu();
+						PlayerOwner->HideMenu();
 					}
 				}
 			}

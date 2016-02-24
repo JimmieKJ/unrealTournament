@@ -258,6 +258,7 @@ public:
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
+	virtual void GetMatchBans(int32 GameInstanceId, TArray<FUniqueNetIdRepl> &BanList);
 
 };
 

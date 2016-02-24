@@ -1000,7 +1000,7 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 	int32 BestInstanceIndex = -1;
 
 	UE_LOG(UT,Verbose,TEXT("===================================================="));
-	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i"), *MatchType, RankCheck);
+	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i %i"), *MatchType, RankCheck, bBeginner);
 	UE_LOG(UT,Verbose,TEXT("===================================================="));
 
 	if (CanLaunch())
@@ -1256,6 +1256,16 @@ void AUTLobbyGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	}
 
 	JsonObject->SetArrayField(TEXT("Rulesets"),  RulesetJson);
+}
 
-
+void AUTLobbyGameState::GetMatchBans(int32 GameInstanceId, TArray<FUniqueNetIdRepl> &BanList)
+{
+	for (int32 i=0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		{
+			BanList = GameInstances[i].MatchInfo->BannedIDs;			
+			return;
+		}
+	}
 }

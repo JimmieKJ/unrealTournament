@@ -204,7 +204,7 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 	// Reset queued bunch amortization timer
 	ProcessQueuedBunchesCurrentFrameMilliseconds = 0.0f;
 
-#if USE_SERVER_PERF_COUNTERS || STATS
+#if 1 //USE_SERVER_PERF_COUNTERS || STATS
 	const double CurrentRealtimeSeconds = FPlatformTime::Seconds();
 
 	// Update network stats (only main game net driver for now) if stats or perf counters are used
@@ -248,7 +248,6 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 			ClientOutBytesAvg /= NumClients;
 		}
 
-#if STATS
 		int32 Ping = 0;
 		int32 NumOpenChannels = 0;
 		int32 NumActorChannels = 0;
@@ -260,7 +259,11 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 		int32 PendingCount = 0;
 		int32 NetSaturated = 0;
 
-		if (FThreadStats::IsCollectingData() || bCollectNetStats)
+		if (
+#if STATS
+			FThreadStats::IsCollectingData() || 
+#endif			
+			bCollectNetStats)
 		{
 			const float RealTime = CurrentRealtimeSeconds - StatUpdateTime;
 
@@ -330,12 +333,14 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 					}
 				}
 
+#if STATS
 				Connection->PackageMap->GetNetGUIDStats(AckCount, UnAckCount, PendingCount);
-
+#endif
 				NetSaturated = Connection->IsNetReady(false) ? 0 : 1;
 			}
 		}
 
+#if STATS
 		// Copy the net status values over
 		SET_DWORD_STAT(STAT_Ping, Ping);
 		SET_DWORD_STAT(STAT_Channels, NumOpenChannels);

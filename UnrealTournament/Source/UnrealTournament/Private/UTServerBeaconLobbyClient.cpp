@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTServerBeaconLobbyClient.h"
 #include "Net/UnrealNetwork.h"
+#include "UTGameState.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyMatchInfo.h"
 
@@ -92,7 +93,7 @@ void AUTServerBeaconLobbyClient::Empty()
 bool AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Validate(uint32 InstanceID, FGuid InstanceGUID, const FString& MapName) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Implementation(uint32 InstanceID, FGuid InstanceGUID, const FString& MapName)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] NotifyInstanceIsReady: Instance %i [%s]"), InstanceID, *InstanceGUID.ToString());
+	UE_LOG(UT,Verbose,TEXT("[Hub] NotifyInstanceIsReady: Instance %i [%s]"), InstanceID, *InstanceGUID.ToString());
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
@@ -117,7 +118,7 @@ void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 Instanc
 bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FRemotePlayerInfo PlayerInfo, bool bLastUpdate) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FRemotePlayerInfo PlayerInfo, bool bLastUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate = %i, RankCheck = %i"), InstanceID, *PlayerInfo.PlayerName, *PlayerInfo.PlayerID.ToString(), PlayerInfo.PlayerScore, bLastUpdate, PlayerInfo.RankCheck);
+	UE_LOG(UT,Verbose,TEXT("[Hub] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate = %i, RankCheck = %i"), InstanceID, *PlayerInfo.PlayerName, *PlayerInfo.PlayerID.ToString(), PlayerInfo.PlayerScore, bLastUpdate, PlayerInfo.RankCheck);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
@@ -130,6 +131,7 @@ void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 Instan
 bool AUTServerBeaconLobbyClient::Lobby_EndGame_Validate(uint32 InstanceID, const FMatchUpdate& FinalMatchUpdate) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_EndGame_Implementation(uint32 InstanceID, const FMatchUpdate& FinalMatchUpdate)
 {
+	UE_LOG(UT,Verbose,TEXT("[Hub] EndGame: Instance %i"), InstanceID);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
@@ -140,7 +142,7 @@ void AUTServerBeaconLobbyClient::Lobby_EndGame_Implementation(uint32 InstanceID,
 bool AUTServerBeaconLobbyClient::Lobby_InstanceEmpty_Validate(uint32 InstanceID) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_InstanceEmpty_Implementation(uint32 InstanceID)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] Empty: Instance %i"), InstanceID);
+	UE_LOG(UT,Verbose,TEXT("[Hub] Empty: Instance %i"), InstanceID);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
@@ -153,7 +155,7 @@ void AUTServerBeaconLobbyClient::Lobby_InstanceEmpty_Implementation(uint32 Insta
 bool AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Validate(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Implementation(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription,  int32 MaxPlayers, bool bTeamGame)
 {
-	UE_LOG(UT, Verbose, TEXT("Dedicated Instance (%s) requesting authorization with key %s"), *ServerName, *InHubKey);
+	UE_LOG(UT, Verbose, TEXT("[Hub] Dedicated Instance (%s) requesting authorization with key %s"), *ServerName, *InHubKey);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
@@ -163,7 +165,7 @@ void AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Implementation(FGuid 
 
 void AUTServerBeaconLobbyClient::AuthorizeDedicatedInstance_Implementation(FGuid HubGuid, int32 InstanceID)
 {
-	UE_LOG(UT, Verbose, TEXT("This server has been authorized as a dedicated instance with id: %i!"), InstanceID);
+	UE_LOG(UT, Verbose, TEXT("[Hub] This server has been authorized as a dedicated instance with id: %i!"), InstanceID);
 	AUTGameMode* CurrentGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (CurrentGameMode)
 	{
@@ -175,7 +177,7 @@ void AUTServerBeaconLobbyClient::AuthorizeDedicatedInstance_Implementation(FGuid
 bool AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Validate(int32 InstanceID) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Implementation(int32 InstanceID)
 {
-	UE_LOG(UT,Verbose, TEXT("Lobby_PrimeMapList - Searching for maps"));
+	UE_LOG(UT,Verbose, TEXT("[Hub] Lobby_PrimeMapList - Searching for maps"));
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
@@ -225,11 +227,16 @@ void AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Implementation(int32 Instanc
 		// Grab the allowed maps
 		
 
-		UE_LOG(UT,Verbose, TEXT("Lobby_PrimeMapList - GameState returned %i maps"),AllowedMaps.Num());
+		UE_LOG(UT,Verbose, TEXT("[Hub] Lobby_PrimeMapList - GameState returned %i maps"),AllowedMaps.Num());
 
 		if (AllowedMaps.Num() > 0)
 		{
 			Instance_ReceiveMap(AllowedMaps[0]->MapPackageName, AllowedMaps[0]->Title, AllowedMaps[0]->MapScreenshotReference,0);
+		}
+		else
+		{
+			// Immediately send the ban list
+			Lobby_RequestFirstBanFromServer(InstanceID);
 		}
 	}
 
@@ -237,30 +244,37 @@ void AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Implementation(int32 Instanc
 
 void AUTServerBeaconLobbyClient::Instance_ReceiveMap_Implementation(const FString& MapPackageName, const FString& MapTitle, const FString& MapScreenshotReference, int32 Index)
 {
+	UE_LOG(UT,Verbose,TEXT("[Instance] ReceiveMap %s [%s] %s %i"), *MapPackageName, *MapTitle, *MapScreenshotReference, Index);
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState)
 	{
 		UTGameState->CreateMapVoteInfo(MapPackageName, MapTitle, MapScreenshotReference);
 	}
 
-	Lobby_SendNextMap(Index);
+	Lobby_SendNextMap(GameInstanceID, Index);
 }
 
-bool AUTServerBeaconLobbyClient::Lobby_SendNextMap_Validate(int32 LastIndex) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_SendNextMap_Implementation(int32 LastIndex)
+bool AUTServerBeaconLobbyClient::Lobby_SendNextMap_Validate(int32 InstanceID, int32 LastIndex) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_SendNextMap_Implementation(int32 InstanceID, int32 LastIndex)
 {
+	UE_LOG(UT,Verbose,TEXT("[Hub] SendNextMap %i"), LastIndex);
 
 	LastIndex++;
 	if (AllowedMaps.Num() > LastIndex)
 	{
 		Instance_ReceiveMap(AllowedMaps[LastIndex]->MapPackageName, AllowedMaps[LastIndex]->Title, AllowedMaps[LastIndex]->MapScreenshotReference,LastIndex);
 	}
+	else
+	{
+		// Send the ban list
+		Lobby_RequestFirstBanFromServer(InstanceID);
+	}
 
 }
 
 void AUTServerBeaconLobbyClient::Instance_ReceiveHubID_Implementation(FGuid HubGuid)
 {
-	UE_LOG(UT,Verbose,TEXT("Instance has received Hub GUID: %s"), *HubGuid.ToString());
+	UE_LOG(UT,Verbose,TEXT("[Instance] Instance has received Hub GUID: %s"), *HubGuid.ToString());
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState)
 	{
@@ -270,6 +284,7 @@ void AUTServerBeaconLobbyClient::Instance_ReceiveHubID_Implementation(FGuid HubG
 
 void AUTServerBeaconLobbyClient::Instance_ReceieveRconMessage_Implementation(const FString& TargetUniqueId, const FString& AdminMessage)
 {
+	UE_LOG(UT,Verbose,TEXT("[Instance] ReceivedRconMessage: %s"), TargetUniqueId.IsEmpty() ? TEXT("<none>") : *TargetUniqueId, *AdminMessage);
 	AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 	if (GameMode)
 	{
@@ -278,6 +293,7 @@ void AUTServerBeaconLobbyClient::Instance_ReceieveRconMessage_Implementation(con
 }
 void AUTServerBeaconLobbyClient::Instance_ReceiveUserMessage_Implementation(const FString& TargetUniqueId, const FString& Message)
 {
+	UE_LOG(UT,Verbose,TEXT("[Instance] ReceivedUserMessage: %s"), TargetUniqueId.IsEmpty() ? TEXT("<none>") : *TargetUniqueId, *Message);
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
@@ -293,6 +309,7 @@ void AUTServerBeaconLobbyClient::Instance_ReceiveUserMessage_Implementation(cons
 
 void AUTServerBeaconLobbyClient::Instance_ForceShutdown_Implementation()
 {
+	UE_LOG(UT,Verbose,TEXT("[Instance] ForceShutdown"));
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode)
 	{
@@ -303,6 +320,7 @@ void AUTServerBeaconLobbyClient::Instance_ForceShutdown_Implementation()
 
 void AUTServerBeaconLobbyClient::Instance_Kick_Implementation(const FString& TargetUniqueId)
 {
+	UE_LOG(UT,Verbose,TEXT("[Instance] Kick: %s"), TargetUniqueId.IsEmpty() ? TEXT("<none>") : *TargetUniqueId);
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode)
 	{
@@ -312,6 +330,7 @@ void AUTServerBeaconLobbyClient::Instance_Kick_Implementation(const FString& Tar
 
 void AUTServerBeaconLobbyClient::Instance_AuthorizeAdmin_Implementation(const FString& AdminId, bool bIsAdmin)
 {
+	UE_LOG(UT,Verbose,TEXT("[Instance] AuthorizeAdmin: %s %i"), AdminId.IsEmpty() ? TEXT("<none>") : *AdminId, bIsAdmin);
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode)
 	{
@@ -320,5 +339,47 @@ void AUTServerBeaconLobbyClient::Instance_AuthorizeAdmin_Implementation(const FS
 		{
 			Session->AcknowledgeAdmin(AdminId, bIsAdmin);
 		}
+	}
+}
+
+void AUTServerBeaconLobbyClient::Lobby_RequestFirstBanFromServer(uint32 InstanceID)
+{
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		LobbyGameState->GetMatchBans(InstanceID, BannedIds);
+	}
+
+	UE_LOG(UT,Verbose,TEXT("[Hub] REquestFirstBanFromServer: %i -- %i"), InstanceID, BannedIds.Num());
+	if (BannedIds.Num() > 0)
+	{
+		Instance_ReceiveBan(BannedIds[0], 0, BannedIds.Num(), BannedIds.Num() <= 1);
+	}
+}
+
+bool AUTServerBeaconLobbyClient::Lobby_RequestNextBanFromServer_Validate(uint32 InstanceID, int32 LastIndex) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_RequestNextBanFromServer_Implementation(uint32 InstanceID, int32 LastIndex)
+{
+	UE_LOG(UT,Verbose,TEXT("[Hub] RequestNextBanFromServer: %i -- %i"), InstanceID, LastIndex);
+	LastIndex++;
+	if (LastIndex < BannedIds.Num())
+	{
+		UE_LOG(UT,Verbose,TEXT("    Sending Next Ban: %s %i %i %i"),*BannedIds[LastIndex].ToString(), LastIndex, BannedIds.Num(), (LastIndex == BannedIds.Num()-1));
+		Instance_ReceiveBan(BannedIds[LastIndex], LastIndex, BannedIds.Num(), LastIndex == BannedIds.Num()-1);
+	}
+
+}
+
+void AUTServerBeaconLobbyClient::Instance_ReceiveBan_Implementation(FUniqueNetIdRepl BanId, int32 Index, int32 Total, bool bFinished)
+{
+	UE_LOG(UT,Verbose,TEXT("[Instance] AuthorizeAdmin: %s [Index=%i  Total=%i  bFinished=%i]"), *BanId.ToString(), Index, Total, bFinished);
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		GameState->TempBans.Add(BanId.GetUniqueNetId());
+	}
+	if (!bFinished)
+	{
+		Lobby_RequestNextBanFromServer(GameInstanceID, Index);
 	}
 }
