@@ -1256,6 +1256,16 @@ void AUTLobbyGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	}
 
 	JsonObject->SetArrayField(TEXT("Rulesets"),  RulesetJson);
+}
 
-
+void AUTLobbyGameState::GetMatchBans(int32 GameInstanceId, TArray<FUniqueNetIdRepl> &BanList)
+{
+	for (int32 i=0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		{
+			BanList = GameInstances[i].MatchInfo->BannedIDs;			
+			return;
+		}
+	}
 }
