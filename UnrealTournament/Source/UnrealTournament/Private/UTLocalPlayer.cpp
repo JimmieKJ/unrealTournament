@@ -4522,7 +4522,7 @@ void UUTLocalPlayer::EpicFlagCheck()
 	}
 }
 
-void UUTLocalPlayer::StartSoloQueueMatchmaking(int32 PlaylistId)
+void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 {
 	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking(); 

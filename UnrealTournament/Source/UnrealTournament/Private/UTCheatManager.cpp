@@ -435,11 +435,11 @@ void UUTCheatManager::McpRefreshProfile()
 #endif
 }
 
-void UUTCheatManager::SoloQueueMe(int32 PlaylistId)
+void UUTCheatManager::MatchmakeMyParty(int32 PlaylistId)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
 	if (LP)
 	{
-		LP->StartSoloQueueMatchmaking(PlaylistId);
+		LP->StartMatchmaking(PlaylistId);
 	}
 }

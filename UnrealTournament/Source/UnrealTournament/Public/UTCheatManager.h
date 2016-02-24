@@ -78,7 +78,7 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	void Spread(float Scaling);
 
 	UFUNCTION(exec)
-	void SoloQueueMe(int32 PlaylistId);
+	void MatchmakeMyParty(int32 PlaylistId);
 
 #if WITH_PROFILE
 	void LogWebResponse(const FMcpQueryResult& Response);
