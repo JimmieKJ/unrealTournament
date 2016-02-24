@@ -860,7 +860,7 @@ void AUTTeamGameMode::UpdateLobbyScore(FMatchUpdate& MatchUpdate)
 
 void AUTTeamGameMode::GetGood()
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !(UE_BUILD_SHIPPING)
 	if (GetNetMode() == NM_Standalone)
 	{
 		Super::GetGood();
