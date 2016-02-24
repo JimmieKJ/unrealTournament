@@ -518,10 +518,21 @@ bool AUTBaseGameMode::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UO
 	}
 	else if (FParse::Command( &Cmd, TEXT("dumpsession") ))
 	{
-		Ar.Logf(TEXT("Coming Soon"));
+		GLog->AddOutputDevice(&Ar);
+		UE_SET_LOG_VERBOSITY(LogOnline, VeryVerbose);
+		const IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
+		{
+			const IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+			if (SessionInt.IsValid())
+			{
+				SessionInt->DumpSessionState();
+			}
+		}
+		UE_SET_LOG_VERBOSITY(LogOnline, Warning);
+		GLog->RemoveOutputDevice(&Ar);
 		return true;
 	}
-
 	return Super::ProcessConsoleExec(Cmd, Ar, Executor);
 
 }
