@@ -219,12 +219,6 @@ public:
 				bLocked = true;
 			}
 		}
-
-		if ( ((Flags & MATCH_FLAG_Beginner) == MATCH_FLAG_Beginner) &&
-			  (!PlayerState || !PlayerState->IsABeginner(BaseGameMode))	)
-		{		
-			bLocked = true;
-		}
 	
 		if ( (Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked) 
 		{
