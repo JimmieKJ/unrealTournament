@@ -1000,7 +1000,7 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 	int32 BestInstanceIndex = -1;
 
 	UE_LOG(UT,Verbose,TEXT("===================================================="));
-	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i"), *MatchType, RankCheck);
+	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i %i"), *MatchType, RankCheck, bBeginner);
 	UE_LOG(UT,Verbose,TEXT("===================================================="));
 
 	if (CanLaunch())
