@@ -72,6 +72,17 @@ public:
 	UPROPERTY(BlueprintAssignable, Category=PartyContext)
 	FOnPartyTransitionCompleteDelegate OnPartyTransitionCompleted;
 
+	/**
+	 * Gets the list of unique net IDs that correspond to each player in same party as the local player
+	 *
+	 * @param PartyMemberIDs The list of unique IDs for the players in the local party
+	 */
+	UFUNCTION(BlueprintCallable, Category = PartyContext)
+	void GetLocalPartyMemberIDs(TArray<FUniqueNetIdRepl>& PartyMemberIDs) const;
+	
+	UFUNCTION(BlueprintCallable, Category = PartyContext)
+	void GetLocalPartyMemberNames(TArray<FText>& PartyMemberNamess) const;
+
 	virtual void Initialize() override;
 	virtual void Finalize() override;
 };

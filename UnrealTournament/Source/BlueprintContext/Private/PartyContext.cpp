@@ -180,3 +180,45 @@ void UPartyContext::HandleJoinPartyFailure(EJoinPartyCompletionResult Result, in
 
 	// Let something know we failed
 }
+
+void UPartyContext::GetLocalPartyMemberIDs(TArray<FUniqueNetIdRepl>& PartyMemberIDs) const
+{
+	TArray<UPartyMemberState*> PartyMembers;
+
+	if (UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>())
+	{
+		if (UUTParty* Parties = GameInstance->GetParties())
+		{
+			if (UPartyGameState* Party = Parties->GetPersistentParty())
+			{
+				Party->GetAllPartyMembers(PartyMembers);
+			}
+		}
+	}
+
+	for (UPartyMemberState* PartyMember : PartyMembers)
+	{	
+		PartyMemberIDs.Add(PartyMember->UniqueId);
+	}
+}
+
+void UPartyContext::GetLocalPartyMemberNames(TArray<FText>& PartyMemberNames) const
+{
+	TArray<UPartyMemberState*> PartyMembers;
+
+	if (UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>())
+	{
+		if (UUTParty* Parties = GameInstance->GetParties())
+		{
+			if (UPartyGameState* Party = Parties->GetPersistentParty())
+			{
+				Party->GetAllPartyMembers(PartyMembers);
+			}
+		}
+	}
+
+	for (UPartyMemberState* PartyMember : PartyMembers)
+	{
+		PartyMemberNames.Add(PartyMember->DisplayName);
+	}
+}
