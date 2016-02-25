@@ -28,7 +28,7 @@ public class XMPP : ModuleRules
 			Target.Platform == UnrealTargetPlatform.Mac ||
 			Target.Platform == UnrealTargetPlatform.PS4)
 		{
-            AddThirdPartyPrivateStaticDependencies(Target, "WebRTC");	
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "WebRTC");	
 		}
 	}
 }
