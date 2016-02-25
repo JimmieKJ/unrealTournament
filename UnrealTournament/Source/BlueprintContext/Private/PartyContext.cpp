@@ -48,8 +48,12 @@ void UPartyContext::Initialize()
 	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
 
 	UUTParty* UTParty = GameInstance->GetParties();
-	UTParty->OnPartyJoined().AddUObject(this, &ThisClass::HandlePartyJoined);
-	UTParty->OnPartyLeft().AddUObject(this, &ThisClass::HandlePartyLeft);
+	if (UTParty)
+	{
+		UTParty->OnPartyJoined().AddUObject(this, &ThisClass::HandlePartyJoined);
+		UTParty->OnPartyLeft().AddUObject(this, &ThisClass::HandlePartyLeft);
+	}
+
 	/*
 	UTParty->OnPartyResetForFrontend().AddUObject(this, &ThisClass::HandlePartyResetForFrontend);
 	UTParty->OnPartyMemberJoined().AddUObject(this, &ThisClass::HandlePartyMemberJoined);
