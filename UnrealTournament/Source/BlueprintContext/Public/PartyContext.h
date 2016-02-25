@@ -62,6 +62,8 @@ protected:
 	void HandleJoinPartyFailure(EJoinPartyCompletionResult Result, int32 DeniedResultCode);
 	void HandlePartyJoined(UPartyGameState* PartyState);
 	void HandlePartyLeft(UPartyGameState* PartyState, EMemberExitedReason Reason);
+	void HandlePartyMemberJoined(UPartyGameState* PartyState, const FUniqueNetIdRepl& UniqueId);
+	void HandlePartyMemberLeft(UPartyGameState* PartyState, const FUniqueNetIdRepl& RemovedMemberId, EMemberExitedReason Reason);
 
 public:
 
@@ -69,6 +71,7 @@ public:
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPartyTransitionCompleteDelegate, EUTPartyTransition, PartyTransition);
 	DECLARE_MULTICAST_DELEGATE(FOnPartyJoinedDelegate);
 	DECLARE_MULTICAST_DELEGATE(FOnPartyLeftDelegate);
+	DECLARE_MULTICAST_DELEGATE(FOnPlayerStateChangedDelegate);
 
 	/** Called when a player starts joining or leaving a party */
 	UPROPERTY(BlueprintAssignable, Category=PartyContext)
@@ -85,6 +88,9 @@ public:
 	//UPROPERTY(BlueprintAssignable, Category=PartyContext)
 	FOnPartyLeftDelegate OnPartyLeft;
 
+	//UPROPERTY(BlueprintAssignable, Category = PartyContext)
+	FOnPlayerStateChangedDelegate OnPlayerStateChanged;
+
 	/**
 	 * Gets the list of unique net IDs that correspond to each player in same party as the local player
 	 *
@@ -95,7 +101,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = PartyContext)
 	void GetLocalPartyMemberNames(TArray<FText>& PartyMemberNamess) const;
-
+	
 	virtual void Initialize() override;
 	virtual void Finalize() override;
 };

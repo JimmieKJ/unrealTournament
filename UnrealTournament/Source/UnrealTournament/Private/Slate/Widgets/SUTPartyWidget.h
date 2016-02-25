@@ -22,8 +22,11 @@ public:
 
 private:
 
-	void PartyJoined();
-	void PartyLeft();
+	FReply PlayerNameClicked(int32 PartyMemberIdx);
+	FReply KickFromParty(int32 PartyMemberIdx);
+	FReply PromoteToLeader(int32 PartyMemberIdx);
+
+	void PartyStateChanged();
 
 	void SetupPartyMemberBox();
 

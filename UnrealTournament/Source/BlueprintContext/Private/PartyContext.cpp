@@ -52,13 +52,13 @@ void UPartyContext::Initialize()
 	{
 		UTParty->OnPartyJoined().AddUObject(this, &ThisClass::HandlePartyJoined);
 		UTParty->OnPartyLeft().AddUObject(this, &ThisClass::HandlePartyLeft);
+		UTParty->OnPartyMemberJoined().AddUObject(this, &ThisClass::HandlePartyMemberJoined);
+		UTParty->OnPartyMemberLeft().AddUObject(this, &ThisClass::HandlePartyMemberLeft);
 	}
 
 	/*
 	UTParty->OnPartyResetForFrontend().AddUObject(this, &ThisClass::HandlePartyResetForFrontend);
-	UTParty->OnPartyMemberJoined().AddUObject(this, &ThisClass::HandlePartyMemberJoined);
 	UTParty->OnPartyMemberLeaving().AddUObject(this, &ThisClass::HandlePartyMemberLeaving);
-	UTParty->OnPartyMemberLeft().AddUObject(this, &ThisClass::HandlePartyMemberLeft);
 	UTParty->OnPartyMemberPromoted().AddUObject(this, &ThisClass::HandlePartyMemberPromoted);
 	*/
 
@@ -84,6 +84,22 @@ void UPartyContext::HandlePartyJoined(UPartyGameState* PartyState)
 void UPartyContext::HandlePartyLeft(UPartyGameState* PartyState, EMemberExitedReason Reason)
 {
 	OnPartyLeft.Broadcast();
+}
+
+void UPartyContext::HandlePartyMemberJoined(UPartyGameState* PartyState, const FUniqueNetIdRepl& UniqueId)
+{
+	UPartyMemberState* NewPartyMember = PartyState->GetPartyMember(UniqueId);
+	UUTPartyMemberState* NewUTPartyMember = Cast<UUTPartyMemberState>(NewPartyMember);
+	if (NewUTPartyMember)
+	{
+		UE_LOG(LogParty, Verbose, TEXT("HandlePartyMemberJoined: Registering team member!"));
+		OnPlayerStateChanged.Broadcast();
+	}
+}
+
+void UPartyContext::HandlePartyMemberLeft(UPartyGameState* PartyState, const FUniqueNetIdRepl& RemovedMemberId, EMemberExitedReason Reason)
+{
+	OnPlayerStateChanged.Broadcast();
 }
 
 void UPartyContext::Finalize()
