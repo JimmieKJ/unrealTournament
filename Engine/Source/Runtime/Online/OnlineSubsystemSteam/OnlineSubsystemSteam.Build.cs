@@ -27,6 +27,6 @@ public class OnlineSubsystemSteam : ModuleRules
 			}
 		);
 
-		AddEngineThirdPartyPrivateStaticDependencies(Target, "Steamworks");
+		AddThirdPartyPrivateStaticDependencies(Target, "Steamworks");
 	}
 }
