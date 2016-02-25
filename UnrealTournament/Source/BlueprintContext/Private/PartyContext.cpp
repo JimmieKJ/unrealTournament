@@ -30,7 +30,6 @@ void UPartyContext::Initialize()
 	FriendsInterface = OnlineSub->GetFriendsInterface();
 	UserInfoInterface = OnlineSub->GetUserInterface();
 	PresenceInterface = OnlineSub->GetPresenceInterface();
-	FriendsAndChatManager = ISocialModule::Get().GetFriendsAndChatManager();
 
 	if (!PartyInterface.IsValid() ||
 		!FriendsInterface.IsValid() ||
@@ -40,8 +39,11 @@ void UPartyContext::Initialize()
 		return;
 	}
 
+#if WITH_SOCIAL
+	FriendsAndChatManager = ISocialModule::Get().GetFriendsAndChatManager();
 	TSharedPtr<IGameAndPartyService> GameAndPartyService = FriendsAndChatManager->GetGameAndPartyService();
 	GameAndPartyService->OnFriendsJoinParty().AddUObject(this, &ThisClass::OnFriendsListJoinParty);
+#endif
 	
 	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
 
@@ -65,6 +67,7 @@ void UPartyContext::Initialize()
 
 void UPartyContext::Finalize()
 {
+#if WITH_SOCIAL
 	if (FriendsAndChatManager.IsValid())
 	{
 		TSharedPtr<IGameAndPartyService> GameAndPartyService = FriendsAndChatManager->GetGameAndPartyService();
@@ -73,12 +76,13 @@ void UPartyContext::Finalize()
 			GameAndPartyService->OnFriendsJoinParty().RemoveAll(this);
 		}
 	}
+	FriendsAndChatManager.Reset();
+#endif
 
 	UserInfoInterface.Reset();
 	PresenceInterface.Reset();
 	FriendsInterface.Reset();
 	PartyInterface.Reset();
-	FriendsAndChatManager.Reset();
 }
 
 void UPartyContext::OnFriendsListJoinParty(const FUniqueNetId& SenderId, const TSharedRef<class IOnlinePartyJoinInfo>& PartyJoinInfo, bool bIsFromInvite)
