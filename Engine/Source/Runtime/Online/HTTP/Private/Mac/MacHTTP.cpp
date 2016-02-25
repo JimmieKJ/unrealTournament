@@ -1,10 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 #include "HttpPrivatePCH.h"
 #include "MacHTTP.h"
 #include "EngineVersion.h"
-
+#include "Security/Security.h"
 
 /****************************************************************************
  * FMacHttpRequest implementation
@@ -12,7 +12,7 @@
 
 
 FMacHttpRequest::FMacHttpRequest()
-:	Connection(NULL)
+:	Connection(nullptr)
 ,	CompletionStatus(EHttpRequestStatus::NotStarted)
 ,	ProgressBytesSent(0)
 ,	StartRequestTime(0.0)
@@ -20,13 +20,14 @@ FMacHttpRequest::FMacHttpRequest()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::FMacHttpRequest()"));
 	Request = [[NSMutableURLRequest alloc] init];
-	[Request setTimeoutInterval: FHttpModule::Get().GetHttpTimeout()];
+	Request.timeoutInterval = FHttpModule::Get().GetHttpTimeout();
 }
 
 
 FMacHttpRequest::~FMacHttpRequest()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::~FMacHttpRequest()"));
+	check(Connection == nullptr);
 	[Request release];
 }
 
@@ -34,33 +35,42 @@ FMacHttpRequest::~FMacHttpRequest()
 FString FMacHttpRequest::GetURL()
 {
 	SCOPED_AUTORELEASE_POOL;
-	FString URL([[Request URL] absoluteString]);
-	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetURL() - %s"), *URL);
-	return URL;
+	NSURL* URL = Request.URL;
+	if (URL != nullptr)
+	{
+		FString ConvertedURL(URL.absoluteString);
+		UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetURL() - %s"), *ConvertedURL);
+		return ConvertedURL;
+	}
+	else
+	{
+		UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetURL() - NULL"));
+		return FString();
+	}
 }
-
 
 void FMacHttpRequest::SetURL(const FString& URL)
 {
 	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::SetURL() - %s"), *URL);
-	[Request setURL: [NSURL URLWithString: URL.GetNSString()]];
+	Request.URL = [NSURL URLWithString: URL.GetNSString()];
 }
 
 
 FString FMacHttpRequest::GetURLParameter(const FString& ParameterName)
 {
+	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetURLParameter() - %s"), *ParameterName);
 
 	NSString* ParameterNameStr = ParameterName.GetNSString();
-	NSArray* Parameters = [[[Request URL] query] componentsSeparatedByString:@"&"];
+	NSArray* Parameters = [Request.URL.query componentsSeparatedByString:@"&"];
 	for (NSString* Parameter in Parameters)
 	{
 		NSArray* KeyValue = [Parameter componentsSeparatedByString:@"="];
-		NSString* Key = [KeyValue objectAtIndex:0];
+		NSString* Key = KeyValue[0];
 		if ([Key compare:ParameterNameStr] == NSOrderedSame)
 		{
-			return FString([KeyValue objectAtIndex:1]);
+			return FString(KeyValue[1]);
 		}
 	}
 	return FString();
@@ -69,6 +79,7 @@ FString FMacHttpRequest::GetURLParameter(const FString& ParameterName)
 
 FString FMacHttpRequest::GetHeader(const FString& HeaderName)
 {
+	SCOPED_AUTORELEASE_POOL;
 	FString Header([Request valueForHTTPHeaderField:HeaderName.GetNSString()]);
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetHeader() - %s"), *Header);
 	return Header;
@@ -77,6 +88,7 @@ FString FMacHttpRequest::GetHeader(const FString& HeaderName)
 
 void FMacHttpRequest::SetHeader(const FString& HeaderName, const FString& HeaderValue)
 {
+	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::SetHeader() - %s / %s"), *HeaderName, *HeaderValue );
 	[Request setValue: HeaderValue.GetNSString() forHTTPHeaderField: HeaderName.GetNSString()];
 }
@@ -84,13 +96,14 @@ void FMacHttpRequest::SetHeader(const FString& HeaderName, const FString& Header
 
 TArray<FString> FMacHttpRequest::GetAllHeaders()
 {
+	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetAllHeaders()"));
-	NSDictionary* Headers = [Request allHTTPHeaderFields];
+	NSDictionary* Headers = Request.allHTTPHeaderFields;
 	TArray<FString> Result;
-	Result.Reserve([Headers count]);
-	for (NSString* Key in [Headers allKeys])
+	Result.Reserve(Headers.count);
+	for (NSString* Key in Headers.allKeys)
 	{
-		FString ConvertedValue([Headers objectForKey:Key]);
+		FString ConvertedValue(Headers[Key]);
 		FString ConvertedKey(Key);
 		UE_LOG(LogHttp, Verbose, TEXT("Header= %s, Key= %s"), *ConvertedValue, *ConvertedKey);
 
@@ -102,9 +115,11 @@ TArray<FString> FMacHttpRequest::GetAllHeaders()
 
 const TArray<uint8>& FMacHttpRequest::GetContent()
 {
+	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetContent()"));
+	NSData* Body = Request.HTTPBody; // accessing HTTPBody will call copy on the value, increasing its retain count
 	RequestPayload.Empty();
-	RequestPayload.Append((const uint8*)[[Request HTTPBody] bytes], GetContentLength());
+	RequestPayload.Append((const uint8*)Body.bytes, Body.length);
 	return RequestPayload;
 }
 
@@ -112,7 +127,7 @@ const TArray<uint8>& FMacHttpRequest::GetContent()
 void FMacHttpRequest::SetContent(const TArray<uint8>& ContentPayload)
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::SetContent()"));
-	[Request setHTTPBody:[NSData dataWithBytes:ContentPayload.GetData() length:ContentPayload.Num()]];
+	Request.HTTPBody = [NSData dataWithBytes:ContentPayload.GetData() length:ContentPayload.Num()];
 }
 
 
@@ -126,7 +141,9 @@ FString FMacHttpRequest::GetContentType()
 
 int32 FMacHttpRequest::GetContentLength()
 {
-	int Len = [[Request HTTPBody] length];
+	SCOPED_AUTORELEASE_POOL;
+	NSData* Body = Request.HTTPBody;
+	int Len = Body.length;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetContentLength() - %i"), Len);
 	return Len;
 }
@@ -138,13 +155,13 @@ void FMacHttpRequest::SetContentAsString(const FString& ContentString)
 	FTCHARToUTF8 Converter(*ContentString);
 	
 	// The extra length computation here is unfortunate, but it's technically not safe to assume the length is the same.
-	[Request setHTTPBody:[NSData dataWithBytes:(ANSICHAR*)Converter.Get() length:Converter.Length()]];
+	Request.HTTPBody = [NSData dataWithBytes:(ANSICHAR*)Converter.Get() length:Converter.Length()];
 }
 
 
 FString FMacHttpRequest::GetVerb()
 {
-	FString ConvertedVerb([Request HTTPMethod]);
+	FString ConvertedVerb(Request.HTTPMethod);
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetVerb() - %s"), *ConvertedVerb);
 	return ConvertedVerb;
 }
@@ -152,8 +169,9 @@ FString FMacHttpRequest::GetVerb()
 
 void FMacHttpRequest::SetVerb(const FString& Verb)
 {
+	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::SetVerb() - %s"), *Verb);
-	[Request setHTTPMethod: Verb.GetNSString()];
+	Request.HTTPMethod = Verb.GetNSString();
 }
 
 
@@ -163,7 +181,7 @@ bool FMacHttpRequest::ProcessRequest()
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::ProcessRequest()"));
 	bool bStarted = false;
 
-	FString Scheme([[Request URL] scheme]);
+	FString Scheme(Request.URL.scheme);
 	Scheme = Scheme.ToLower();
 
 	// Prevent overlapped requests using the same instance
@@ -208,6 +226,7 @@ FHttpRequestProgressDelegate& FMacHttpRequest::OnRequestProgress()
 
 bool FMacHttpRequest::StartRequest()
 {
+	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::StartRequest()"));
 	bool bStarted = false;
 
@@ -232,7 +251,7 @@ bool FMacHttpRequest::StartRequest()
 
 	// Create the connection, tell it to run in the main run loop, and kick it off.
 	Connection = [[NSURLConnection alloc] initWithRequest:Request delegate:Response->ResponseWrapper startImmediately:NO];
-	if( Connection != NULL && Response->ResponseWrapper != NULL )
+	if( Connection != nullptr && Response->ResponseWrapper != nullptr )
 	{
 		CompletionStatus = EHttpRequestStatus::Processing;
 		[Connection scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
@@ -246,7 +265,7 @@ bool FMacHttpRequest::StartRequest()
 	else
 	{
 		UE_LOG(LogHttp, Warning, TEXT("ProcessRequest failed. Could not initialize Internet connection."));
-		CompletionStatus = EHttpRequestStatus::Failed;
+		CompletionStatus = EHttpRequestStatus::Failed_ConnectionError;
 	}
 	StartRequestTime = FPlatformTime::Seconds();
 	// reset the elapsed time.
@@ -272,8 +291,8 @@ void FMacHttpRequest::FinishedRequest()
 		FString URL([[Request URL] absoluteString]);
 		CompletionStatus = EHttpRequestStatus::Failed;
 
-		Response = NULL;
-		OnProcessRequestComplete().ExecuteIfBound(SharedThis(this), NULL, false);
+		Response = nullptr;
+		OnProcessRequestComplete().ExecuteIfBound(SharedThis(this), nullptr, false);
 	}
 
 	// Clean up session/request handles that may have been created
@@ -290,14 +309,11 @@ void FMacHttpRequest::FinishedRequest()
 void FMacHttpRequest::CleanupRequest()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::CleanupRequest()"));
-	if(CompletionStatus == EHttpRequestStatus::Processing)
-	{
-		CancelRequest();
-	}
-	if(Connection != NULL)
+
+	if(Connection != nullptr)
 	{
 		[Connection release];
-		Connection = NULL;
+		Connection = nullptr;
 	}
 }
 
@@ -305,7 +321,7 @@ void FMacHttpRequest::CleanupRequest()
 void FMacHttpRequest::CancelRequest()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::CancelRequest()"));
-	if(Connection != NULL)
+	if(Connection != nullptr)
 	{
 		[Connection cancel];
 	}
@@ -407,6 +423,34 @@ float FMacHttpRequest::GetElapsedTime()
 		*FString([error localizedDescription]),
 		*FString([[error userInfo] objectForKey:NSURLErrorFailingURLStringErrorKey]),
 		self);
+	// Log more details if verbose logging is enabled and this is an SSL error
+	if (UE_LOG_ACTIVE(LogHttp, Verbose))
+	{
+		SecTrustRef PeerTrustInfo = reinterpret_cast<SecTrustRef>([[error userInfo] objectForKey:NSURLErrorFailingURLPeerTrustErrorKey]);
+		if (PeerTrustInfo != nullptr)
+		{
+			SecTrustResultType TrustResult = 0;
+			SecTrustGetTrustResult(PeerTrustInfo, &TrustResult);
+
+			FString TrustResultString;
+			switch (TrustResult)
+			{
+#define MAP_TO_RESULTSTRING(Constant) case Constant: TrustResultString = TEXT(#Constant); break;
+			MAP_TO_RESULTSTRING(kSecTrustResultInvalid)
+			MAP_TO_RESULTSTRING(kSecTrustResultProceed)
+			MAP_TO_RESULTSTRING(kSecTrustResultDeny)
+			MAP_TO_RESULTSTRING(kSecTrustResultUnspecified)
+			MAP_TO_RESULTSTRING(kSecTrustResultRecoverableTrustFailure)
+			MAP_TO_RESULTSTRING(kSecTrustResultFatalTrustFailure)
+			MAP_TO_RESULTSTRING(kSecTrustResultOtherError)
+#undef MAP_TO_RESULTSTRING
+			default:
+				TrustResultString = TEXT("unknown");
+				break;
+			}
+			UE_LOG(LogHttp, Verbose, TEXT("didFailWithError. SSL trust result: %s (%d)"), *TrustResultString, TrustResult);
+		}
+	}
 }
 
 
@@ -456,12 +500,13 @@ FMacHttpResponse::~FMacHttpResponse()
 FString FMacHttpResponse::GetURL()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpResponse::GetURL()"));
-	return FString([[Request.Request URL] query]);
+	return FString(Request.Request.URL.query);
 }
 
 
 FString FMacHttpResponse::GetURLParameter(const FString& ParameterName)
 {
+	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpResponse::GetURLParameter()"));
 
 	NSString* ParameterNameStr = ParameterName.GetNSString();
@@ -472,7 +517,7 @@ FString FMacHttpResponse::GetURLParameter(const FString& ParameterName)
 		NSString* Key = [KeyValue objectAtIndex:0];
 		if ([Key compare:ParameterNameStr] == NSOrderedSame)
 		{
-			return FString([[KeyValue objectAtIndex:1] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]);
+			return FString([[KeyValue objectAtIndex:1] stringByRemovingPercentEncoding]);
 		}
 	}
 	return FString();
@@ -481,6 +526,7 @@ FString FMacHttpResponse::GetURLParameter(const FString& ParameterName)
 
 FString FMacHttpResponse::GetHeader(const FString& HeaderName)
 {
+	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpResponse::GetHeader()"));
 
 	NSString* ConvertedHeaderName = HeaderName.GetNSString();
@@ -599,6 +645,6 @@ const int32 FMacHttpResponse::GetNumBytesReceived() const
 
 const int32 FMacHttpResponse::GetNumBytesWritten() const
 {
-    int32 NumBytesWritten = [ResponseWrapper getBytesWritten];
-    return NumBytesWritten;
+	int32 NumBytesWritten = [ResponseWrapper getBytesWritten];
+	return NumBytesWritten;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "InAppPurchaseCallbackProxy.h"
@@ -21,7 +21,7 @@ void UInAppPurchaseCallbackProxy::Trigger(APlayerController* PlayerController, c
 	WorldPtr = (PlayerController != nullptr) ? PlayerController->GetWorld() : nullptr;
 	if (APlayerState* PlayerState = (PlayerController != nullptr) ? PlayerController->PlayerState : nullptr)
 	{
-		if (IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get())
+		if (IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::IsLoaded() ? IOnlineSubsystem::Get() : nullptr)
 		{
 			IOnlineStorePtr StoreInterface = OnlineSub->GetStoreInterface();
 			if (StoreInterface.IsValid())
@@ -80,7 +80,7 @@ void UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete(EInAppPurchaseState::T
 void UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete_Delayed()
 {
     /** Cached product details of the purchased product */
-    FInAppPurchaseProductInfo ProductInformation;
+    FInAppPurchaseProductInfo ProductInformation; 
     
     if (SavedPurchaseState == EInAppPurchaseState::Success && PurchaseRequest.IsValid())
     {
@@ -104,7 +104,7 @@ void UInAppPurchaseCallbackProxy::RemoveDelegate()
 {
 	if (!bFailedToEvenSubmit)
 	{
-		if (IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get())
+		if (IOnlineSubsystem* OnlineSub = IOnlineSubsystem::IsLoaded() ? IOnlineSubsystem::Get() : nullptr)
 		{
 			IOnlineStorePtr InAppPurchases = OnlineSub->GetStoreInterface();
 			if (InAppPurchases.IsValid())

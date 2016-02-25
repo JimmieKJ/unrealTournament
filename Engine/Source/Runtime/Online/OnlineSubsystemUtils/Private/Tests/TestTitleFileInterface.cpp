@@ -1,7 +1,9 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "TestTitleFileInterface.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 void FTestTitleFileInterface::Test(UWorld* InWorld)
 {
@@ -82,3 +84,5 @@ void FTestTitleFileInterface::OnReadFileComplete(bool bSuccess, const FString& F
 		FinishTest();
 	}
 }
+
+#endif //WITH_DEV_AUTOMATION_TESTS

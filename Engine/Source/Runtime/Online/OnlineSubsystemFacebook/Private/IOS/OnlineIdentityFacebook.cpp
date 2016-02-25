@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
 // Module includes
@@ -34,7 +34,7 @@ FString FUserOnlineAccountFacebook::GetRealName() const
 	return FString();
 }
 
-FString FUserOnlineAccountFacebook::GetDisplayName() const
+FString FUserOnlineAccountFacebook::GetDisplayName(const FString& Platform) const
 {
 	//@todo samz - implement
 	return FString();

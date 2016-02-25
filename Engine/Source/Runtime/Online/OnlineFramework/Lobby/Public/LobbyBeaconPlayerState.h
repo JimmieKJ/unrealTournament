@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "Gameframework/Info.h"
+#include "GameFramework/Info.h"
 #include "LobbyBeaconPlayerState.generated.h"
 
 class AOnlineBeaconClient;

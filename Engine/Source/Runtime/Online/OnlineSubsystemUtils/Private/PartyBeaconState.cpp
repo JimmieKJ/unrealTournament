@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineBeacon.h"
@@ -546,7 +546,7 @@ bool UPartyBeaconState::GetPlayerValidation(const FUniqueNetId& PlayerId, FStrin
 	bool bFound = false;
 	OutValidation = FString();
 
-	for (int32 ResIdx = 0; ResIdx < Reservations.Num(); ResIdx++)
+	for (int32 ResIdx = 0; ResIdx < Reservations.Num() && !bFound; ResIdx++)
 	{
 		const FPartyReservation& ReservationEntry = Reservations[ResIdx];
 		for (int32 PlayerIdx = 0; PlayerIdx < ReservationEntry.PartyMembers.Num(); PlayerIdx++)
@@ -561,6 +561,40 @@ bool UPartyBeaconState::GetPlayerValidation(const FUniqueNetId& PlayerId, FStrin
 	}
 
 	return bFound;
+}
+
+bool UPartyBeaconState::GetPartyLeader(const FUniqueNetIdRepl& InPartyMemberId, FUniqueNetIdRepl& OutPartyLeaderId) const
+{
+	bool bFoundReservation = false;
+
+	if (InPartyMemberId.IsValid())
+	{
+		for (int32 ResIdx = 0; ResIdx < Reservations.Num() && !bFoundReservation; ResIdx++)
+		{
+			const FPartyReservation& ReservationEntry = Reservations[ResIdx];
+
+			const FPlayerReservation* PlayerRes = ReservationEntry.PartyMembers.FindByPredicate(
+				[InPartyMemberId](const FPlayerReservation& ExistingPlayerRes)
+			{
+				return InPartyMemberId == ExistingPlayerRes.UniqueId;
+			});
+
+			if (PlayerRes)
+			{
+				UE_LOG(LogBeacon, Display, TEXT("Found party leader for member %s."), *InPartyMemberId.ToString());
+				OutPartyLeaderId = ReservationEntry.PartyLeader;
+				bFoundReservation = true;
+				break;
+			}
+		}
+
+		if (!bFoundReservation)
+		{
+			UE_LOG(LogBeacon, Warning, TEXT("Found no reservation for player %s, while looking for party leader."), *InPartyMemberId.ToString());
+		}
+	}
+
+	return bFoundReservation;
 }
 
 void UPartyBeaconState::DumpReservations() const

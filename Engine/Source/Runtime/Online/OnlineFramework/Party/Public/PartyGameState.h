@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -85,10 +85,15 @@ struct FPartyState
 	UPROPERTY()
 	bool bLeaderInvitesOnly;
 
+	/** Are invites allowed at all? */
+	UPROPERTY()
+	bool bInvitesDisabled;
+
 	FPartyState() :
 		PartyType(EPartyType::FriendsOnly),
 		bLeaderFriendsOnly(false),
-		bLeaderInvitesOnly(false)
+		bLeaderInvitesOnly(false),
+		bInvitesDisabled(false)
 	{
 	}
 
@@ -142,11 +147,19 @@ private:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLeaderFriendsOnlyChanged, bool /* bLeaderFriendsOnly */);
 
 	/**
-	 * Delegate fired when a invite permissions change
+	 * Delegate fired when leader invite permissions change
 	 * 
 	 * @param bLeaderInviteOnly only leader invites are allowed
 	 */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLeaderInvitesOnlyChanged, bool /* bLeaderInviteOnly */);
+
+	/**
+	 * Delegate fired when invites disabled changes
+	 * 
+	 * @param bInvitesDisabled invites are disabled
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnInvitesDisabledChanged, bool /* bInvitesDisabled */);
+
 
 protected:
 
@@ -203,6 +216,13 @@ public:
 	 * @param bLeaderInvitesOnly only leader can send invites to others
 	 */
 	void SetPartyType(EPartyType InPartyType, bool bLeaderFriendsOnly, bool bLeaderInvitesOnly);
+
+	/**
+	 * Disable (or re-enable) the ability to send party invites
+	 *
+	 * @param bInvitesDisabled invites are allowed to be sent
+	 */
+	void SetInvitesDisabled(bool bInvitesDisabled);
 
 	/**
 	 * Set stay with party on disconnects or not
@@ -277,6 +297,13 @@ public:
 	 */
 	void GetAllPartyMembers(TArray<UPartyMemberState*>& PartyMembers) const;
 
+	/**
+	 * Get the chat room ID for this party
+	 *
+	 * @return The chat room ID
+	 */
+	FChatRoomId GetChatRoomID() const;
+
 	template< typename TPartyMemberState >
 	void GetTypedPartyMembers(TArray< TPartyMemberState* >& PartyMembers) const
 	{
@@ -298,6 +325,8 @@ public:
 	FOnLeaderFriendsOnlyChanged& OnLeaderFriendsOnlyChanged() { return LeaderFriendsOnlyChanged; }
 	/** @return delegate fired when the leader based invite permissions have changed */
 	FOnLeaderInvitesOnlyChanged& OnLeaderInvitesOnlyChanged() { return LeaderInvitesOnlyChanged; }
+	/** @return delegate fired when invite permissions have changed */
+	FOnInvitesDisabledChanged& OnInvitesDisabledChanged() { return InvitesDisabledChanged; }
 	
 protected:
 
@@ -405,6 +434,7 @@ protected:
 	FOnPartyTypeChanged PartyTypeChanged;
 	FOnLeaderFriendsOnlyChanged LeaderFriendsOnlyChanged;
 	FOnLeaderInvitesOnlyChanged LeaderInvitesOnlyChanged;
+	FOnInvitesDisabledChanged InvitesDisabledChanged;
 
 	/**
 	 * Common initialization for a newly instantiated party
@@ -440,9 +470,9 @@ protected:
 	void UpdatePartyMemberState(const FUniqueNetIdRepl& InLocalUserId, const UPartyMemberState* InPartyPlayerData);
 
 	/**
-	 * Create and initialize a party member state value for each local player prior to transmission to other party members
+	 * Create and initialize a party member state value for a local player prior to transmission to other party members
 	 */
-	virtual void InitLocalPlayerPartyData();
+	virtual UPartyMemberState* InitPartyMemberStateFromLocalPlayer(const ULocalPlayer* LocalPlayer);
 
 	/**
 	 * Send all local player data to other party members, typically the initial call
@@ -607,6 +637,8 @@ protected:
 	UParty* GetPartyOuter() const;
 
 private:
+	
+	virtual void PrePromoteMember();
 
 	/** Scratch copy of child USTRUCT for handling replication comparisons */
 	FPartyState* PartyStateRefScratch;

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemSteamPrivatePCH.h"
 #include "OnlineSubsystemSteam.h"
@@ -25,7 +25,7 @@ FString FOnlineFriendSteam::GetRealName() const
 	return Result;
 }
 
-FString FOnlineFriendSteam::GetDisplayName() const
+FString FOnlineFriendSteam::GetDisplayName(const FString& Platform) const
 {
 	FString Result;
 	GetAccountData(TEXT("nickname"),Result);

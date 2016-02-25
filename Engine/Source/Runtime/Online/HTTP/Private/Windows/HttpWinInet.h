@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -274,6 +274,8 @@ private:
 	int32 volatile bIsReady;
 	/** True if the response was successfully received/processed */
 	int32 volatile bResponseSucceeded;
+	/** Whether or not the request was actually sent */
+	int32 volatile bRequestSent;
 	/** Threadsafe counter for exchanging bytes read so far with main thread tick */
 	FThreadSafeCounter ProgressBytesRead;
 	/** Max buffer size for individual http reads */

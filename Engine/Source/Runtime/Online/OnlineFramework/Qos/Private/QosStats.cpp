@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "QosPrivatePCH.h"
 #include "QosStats.h"
@@ -19,7 +19,6 @@ const FString FQosDatacenterStats::QosStats_TotalTime = TEXT("QosStats_TotalTime
 
 // Qos stats
 const FString FQosDatacenterStats::QosStats_DeterminationType = TEXT("QosStats_DeterminationType");
-const FString FQosDatacenterStats::QosStats_DatacenterId = TEXT("QosStats_DatacenterId");
 const FString FQosDatacenterStats::QosStats_NumRegions = TEXT("QosStats_NumRegions");
 const FString FQosDatacenterStats::QosStats_RegionDetails = TEXT("QosStats_RegionDetails");
 const FString FQosDatacenterStats::QosStats_NumResults = TEXT("QosStats_NumResults");
@@ -107,13 +106,12 @@ void FQosDatacenterStats::RecordQosAttempt(const FOnlineSessionSearchResult& Sea
 	}
 }
 
-void FQosDatacenterStats::EndQosPass(EDatacenterResultType Result, const FString& DatacenterId)
+void FQosDatacenterStats::EndQosPass(EDatacenterResultType Result)
 {
 	if (bAnalyticsInProgress)
 	{
 		Finalize();
 		QosData.DeterminationType = Result;
-		QosData.BestDatacenterId = DatacenterId;
 	}
 }
 
@@ -164,7 +162,6 @@ void FQosDatacenterStats::ParseQosResults(TSharedPtr<IAnalyticsProvider>& Analyt
 	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_TotalTime, QosData.SearchTime.MSecs));
 
 	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_DeterminationType, ToString(QosData.DeterminationType)));
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_DatacenterId, QosData.BestDatacenterId));
 	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_NumRegions, QosData.Regions.Num()));
 	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_NumResults, QosData.NumTotalSearches));
 	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_NumSuccessCount, QosData.NumSuccessAttempts));

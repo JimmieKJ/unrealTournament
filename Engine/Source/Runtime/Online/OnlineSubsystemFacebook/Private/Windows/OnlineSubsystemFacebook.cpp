@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemFacebookPrivatePCH.h"
 #include "OnlineIdentityFacebook.h"
@@ -14,6 +14,11 @@ IOnlineSessionPtr FOnlineSubsystemFacebook::GetSessionInterface() const
 IOnlineFriendsPtr FOnlineSubsystemFacebook::GetFriendsInterface() const
 {
 	return FacebookFriends;
+}
+
+IMessageSanitizerPtr FOnlineSubsystemFacebook::GetMessageSanitizerInterface() const
+{
+	return nullptr;
 }
 
 IOnlinePartyPtr FOnlineSubsystemFacebook::GetPartyInterface() const

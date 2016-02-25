@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IpConnection.cpp: Unreal IP network connection.
@@ -194,5 +194,5 @@ int32 UIpConnection::GetAddrPort(void)
 
 FString UIpConnection::RemoteAddressToString()
 {
-	return RemoteAddr.IsValid() ? RemoteAddr->ToString(true) : TEXT("Unconnected");
+	return RemoteAddr->ToString(true);
 }

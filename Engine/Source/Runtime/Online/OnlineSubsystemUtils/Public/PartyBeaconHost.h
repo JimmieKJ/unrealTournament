@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Runtime/Online/OnlineSubsystemUtils/Public/OnlineBeaconHostObject.h"
@@ -200,13 +200,23 @@ class ONLINESUBSYSTEMUTILS_API APartyBeaconHost : public AOnlineBeaconHostObject
 	virtual bool GetPlayerValidation(const FUniqueNetId& PlayerId, FString& OutValidation) const;
 
 	/**
+	 * Get the party leader for a given unique id
+	 *
+	 * @param InPartyMemberId valid party member of some reservation looking for its leader
+	 * @param OutPartyLeaderId valid party leader id for the given party member if found, invalid if function returns false
+	 *
+	 * @return true if a party leader was found for a given user id, false otherwise
+	 */
+	bool GetPartyLeader(const FUniqueNetIdRepl& InPartyMemberId, FUniqueNetIdRepl& OutPartyLeaderId) const;
+
+	/**
 	 * Attempts to add a party reservation to the beacon
      *
      * @param ReservationRequest reservation attempt
      *
      * @return add attempt result
 	 */
-	EPartyReservationResult::Type AddPartyReservation(const FPartyReservation& ReservationRequest);
+	virtual EPartyReservationResult::Type AddPartyReservation(const FPartyReservation& ReservationRequest);
 
 	/**
 	 * Updates an existing party reservation on the beacon
@@ -216,7 +226,7 @@ class ONLINESUBSYSTEMUTILS_API APartyBeaconHost : public AOnlineBeaconHostObject
 	 *
 	 * @return update attempt result
 	 */
-	EPartyReservationResult::Type UpdatePartyReservation(const FPartyReservation& ReservationUpdateRequest);
+	virtual EPartyReservationResult::Type UpdatePartyReservation(const FPartyReservation& ReservationUpdateRequest);
 
 	/**
 	 * Attempts to remove a party reservation from the beacon
