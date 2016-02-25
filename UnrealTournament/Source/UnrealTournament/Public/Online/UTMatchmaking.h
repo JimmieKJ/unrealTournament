@@ -8,8 +8,6 @@
 #include "UTMatchmakingPolicy.h"
 #include "UTMatchmaking.generated.h"
 
-class UQosEvaluator;
-
 enum class EUTPartyState : uint8;
 enum class EQosCompletionResult : uint8;
 
@@ -114,14 +112,7 @@ public:
 	FOnMatchmakingStateChange& OnMatchmakingStateChange() { return MatchmakingStateChange; }
 
 private:
-
-	/**
-	 * QoS evaluation
-	 */
-
-	UPROPERTY()
-	UQosEvaluator* QosEvaluator;
-
+	
 	/** Delegate triggered when matchmaking starts */
 	FOnMatchmakingStarted MatchmakingStarted;
 	

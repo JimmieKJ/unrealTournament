@@ -19,7 +19,7 @@ FUTOnlineSessionSettings::FUTOnlineSessionSettings(bool bIsLAN, bool bIsPresence
 	bAllowJoinViaPresence = true;
 	bAllowJoinViaPresenceFriendsOnly = false;
 
-	Set(SETTING_REGION, UQosEvaluator::GetDefaultRegionString(), EOnlineDataAdvertisementType::ViaOnlineService);
+	Set(SETTING_REGION, FQosEvaluator::GetDefaultRegionString(), EOnlineDataAdvertisementType::ViaOnlineService);
 
 	Set(SETTING_RANKED, 1, EOnlineDataAdvertisementType::ViaOnlineService);
 }

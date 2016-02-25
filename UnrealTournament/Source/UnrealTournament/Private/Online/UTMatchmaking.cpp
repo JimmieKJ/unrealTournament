@@ -7,7 +7,6 @@
 #include "UTMatchmaking.h"
 #include "UTMatchmakingGather.h"
 #include "QoSInterface.h"
-#include "QoSEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
 #define JOIN_ACK_FAILSAFE_TIMER 30.0f
@@ -50,12 +49,6 @@ UUTMatchmaking::UUTMatchmaking(const FObjectInitializer& ObjectInitializer) :
 	ReservationBeaconClient(nullptr)
 {
 	ReservationBeaconClientClass = AUTPartyBeaconClient::StaticClass();
-
-	if (!HasAnyFlags(RF_ClassDefaultObject))
-	{
-		FQosInterface* QosInterface = FQosInterface::Get();
-		QosEvaluator = ensure(QosInterface) ? QosInterface->CreateQosEvaluator() : nullptr;
-	}
 }
 
 void UUTMatchmaking::Init()
@@ -243,16 +236,9 @@ void UUTMatchmaking::CancelMatchmaking()
 	if (Matchmaking)
 	{
 		ensure(ReservationBeaconClient == nullptr);
-		if (QosEvaluator && QosEvaluator->IsActive())
-		{
-			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during qos evaluation"));
-			QosEvaluator->Cancel();
-		}
-		else
-		{
-			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during matchmaking"));
-			Matchmaking->CancelMatchmaking();
-		}
+
+		UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling during matchmaking"));
+		Matchmaking->CancelMatchmaking();
 	}
 	else
 	{
@@ -421,9 +407,7 @@ void UUTMatchmaking::OnGatherMatchmakingStateChangeInternal(EMatchmakingState::T
 void UUTMatchmaking::ContinueMatchmaking(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams)
 {
 	UE_LOG(LogOnline, Log, TEXT("ContinueMatchmaking %d"), (int32)Result);
-
-	QosEvaluator->SetAnalyticsProvider(nullptr);
-
+	
 	if (Matchmaking &&
 		(Result == EQosCompletionResult::Cached || Result == EQosCompletionResult::Success)
 		)
