@@ -118,4 +118,7 @@ public:
 	virtual void RconNormal(AUTBasePlayerController* Admin);
 
 	virtual void ReceivedRankForPlayer(AUTPlayerState* UTPlayerState);
+	
+	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
 };
