@@ -35,6 +35,8 @@ public class UnrealTournamentEditor : ModuleRules
                 new string[]
                 {
 			        "McpProfileSys",
+			        "GameSubCatalog",
+			        "GameSubCatalogEditor",
 			        "LootTables",
                 }
             );

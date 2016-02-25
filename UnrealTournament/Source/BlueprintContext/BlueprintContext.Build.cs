@@ -38,7 +38,8 @@ public class BlueprintContext : ModuleRules
                 {
 			        "McpProfileSys",
                     "Social",
-                    "OnlineSubsystemMcp"
+                    "OnlineSubsystemMcp",
+			        "GameSubCatalog"
                 }
             );
         }
