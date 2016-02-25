@@ -533,6 +533,11 @@ bool AUTBaseGameMode::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UO
 		GLog->RemoveOutputDevice(&Ar);
 		return true;
 	}
+	else if (FParse::Command( &Cmd, TEXT("dumptime") ))
+	{
+		Ar.Logf(TEXT("TimeSeconds: %f   RealTimeSeconds: %f    DeltaSeconds: %f"), GetWorld()->GetTimeSeconds(), GetWorld()->GetRealTimeSeconds(), GetWorld()->GetDeltaSeconds());
+		return true;
+	}
 	return Super::ProcessConsoleExec(Cmd, Ar, Executor);
 
 }
