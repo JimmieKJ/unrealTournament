@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,9 +37,6 @@ public:
 	FXmppUserPresence UserPresence;
 	EXmppChatMemberRole::Type Affiliation;
 };
-
-typedef TSharedPtr<FXmppChatMember, ESPMode::ThreadSafe> FXmppChatMemberPtr;
-typedef TSharedRef<FXmppChatMember, ESPMode::ThreadSafe> FXmppChatMemberRef;
 
 /**
  * Info for a joined/created chat room
@@ -157,8 +154,8 @@ public:
 	virtual void GetJoinedRooms(TArray<FXmppRoomId>& OutRooms) = 0;
 	virtual bool RefreshRoomInfo(const FXmppRoomId& RoomId) = 0;
 	virtual bool GetRoomInfo(const FXmppRoomId& RoomId, FXmppRoomInfo& OutRoomInfo) = 0;
-	virtual bool GetMembers(const FXmppRoomId& RoomId, TArray<FXmppChatMemberRef>& OutMembers) = 0;
-	virtual FXmppChatMemberPtr GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid) = 0;
+	virtual bool GetMembers(const FXmppRoomId& RoomId, TArray< TSharedRef<FXmppChatMember> >& OutMembers) = 0;
+	virtual TSharedPtr<FXmppChatMember> GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid) = 0;
 	virtual bool GetLastMessages(const FXmppRoomId& RoomId, int32 NumMessages, TArray< TSharedRef<FXmppChatMessage> >& OutMessages) = 0;
 
 	DECLARE_MULTICAST_DELEGATE_FourParams(FOnXmppRoomCreateComplete, const TSharedRef<IXmppConnection>& /*Connection*/, bool /*bSuccess*/, const FXmppRoomId& /*RoomId*/, const FString& /*Error*/);

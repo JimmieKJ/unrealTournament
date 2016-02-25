@@ -1,10 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Ticker.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 class FTestVoice : public FTickerObjectBase, public FSelfRegisteringExec
 {
@@ -49,4 +47,3 @@ private:
 	void SetStaticVoiceData(TArray<uint8>& VoiceData, uint32& TotalVoiceBytes);
 };
 
-#endif //WITH_DEV_AUTOMATION_TESTS

@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemSteamPrivatePCH.h"
 #include "SocketSubsystemSteam.h"
@@ -272,14 +272,9 @@ void FSocketSubsystemSteam::UnregisterConnection(USteamNetConnection* Connection
 	check(!Connection->bIsPassthrough);
 
 	FWeakObjectPtr ObjectPtr = Connection;
-	int32 NumRemoved = SteamConnections.RemoveSingleSwap(ObjectPtr);
+	SteamConnections.RemoveSingleSwap(ObjectPtr);
 
-	// Don't call P2PRemove again if we didn't actually remove a connection. This 
-	// will get called twice - once the connection is closed and when the connection
-	// is garbage collected. It's possible that the player who left rejoined before garbage
-	// collection runs (their connection object will be different), so P2PRemove would kick
-	// them from the session when it shouldn't.
-	if (NumRemoved > 0 && Connection->RemoteAddr.IsValid())
+	if (Connection->RemoteAddr.IsValid())
 	{
 		FInternetAddrSteam& SteamAddr = (FInternetAddrSteam&)(*Connection->RemoteAddr);
 		P2PRemove(SteamAddr.SteamId, SteamAddr.SteamChannel);

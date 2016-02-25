@@ -1,8 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#if WITH_DEV_AUTOMATION_TESTS
+#if UE_BUILD_SHIPPING
 
 uint8 RawVoiceTestData[] = { 0x0, 0x0 };
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchChunkCache.cpp: Implements classes involved with chunks for the build system.
@@ -379,8 +379,8 @@ bool FBuildPatchChunkCache::ReadChunkFromDriveCache( const FGuid& ChunkGuid )
 		bSuccess = ChunkHeader->IsValidMagic();
 		if ( bSuccess )
 		{
-			// Check the right data size
-			bSuccess = ChunkHeader->DataSize == FBuildPatchData::ChunkDataSize;
+			// Check a rolling hash has the right data size
+			bSuccess = ( ChunkHeader->HashType == FChunkHeader::HASH_ROLLING && ChunkHeader->DataSize == FBuildPatchData::ChunkDataSize );
 			if( bSuccess )
 			{
 				// Check Header and data size
@@ -390,19 +390,7 @@ bool FBuildPatchChunkCache::ReadChunkFromDriveCache( const FGuid& ChunkGuid )
 					// Read the data
 					FileReader->Serialize( ChunkData, FBuildPatchData::ChunkDataSize );
 					// Verify the data hash
-					FSHAHashData ShaHashCheck;
-					switch (ChunkHeader->HashType)
-					{
-					case FChunkHeader::HASH_ROLLING:
-						bSuccess = ChunkHeader->RollingHash == FRollingHash< FBuildPatchData::ChunkDataSize >::GetHashForDataSet(ChunkData);
-						break;
-					case FChunkHeader::HASH_SHA1:
-						FSHA1::HashBuffer(ChunkData, FBuildPatchData::ChunkDataSize, ShaHashCheck.Hash);
-						bSuccess = ShaHashCheck == ChunkHeader->SHAHash;
-						break;
-					default:
-						bSuccess = false;
-					}
+					bSuccess = ChunkHeader->RollingHash == FRollingHash< FBuildPatchData::ChunkDataSize >::GetHashForDataSet( ChunkData );
 					if( !bSuccess )
 					{
 						FBuildPatchAnalytics::RecordChunkCacheError( ChunkGuid, Filename, INDEX_NONE, TEXT( "DriveCache" ), TEXT( "Hash Check Failed" ) );
@@ -495,19 +483,9 @@ bool FBuildPatchChunkCache::RecycleChunkFromBuild( const FGuid& ChunkGuid )
 	int64 BuildFileInSize = 0;
 
 	// We must have a hash for this chunk or else we cant verify it
-	uint8 HashType = 0;
 	uint64 ChunkHash = 0;
-	FSHAHashData ChunkShaHash;
-	if (InstallManifet->GetChunkShaHash(ChunkGuid, ChunkShaHash))
-	{
-		HashType = FChunkHeader::HASH_SHA1;
-	}
-	else if (ChunkSourceAppManifest->GetChunkHash(ChunkGuid, ChunkHash))
-	{
-		HashType = FChunkHeader::HASH_ROLLING;
-	}
 	TArray< FFileChunkPart >* FileChunkPartsPtr = ChunkPartInventory.Find( ChunkGuid );
-	bSuccess = (FileChunkPartsPtr != NULL && HashType != 0);
+	bSuccess = (FileChunkPartsPtr != NULL && ChunkSourceAppManifest->GetChunkHash(ChunkGuid, ChunkHash));
 	if( bSuccess )
 	{
 		const TArray< FFileChunkPart >& FileChunkParts = *FileChunkPartsPtr;
@@ -571,19 +549,7 @@ bool FBuildPatchChunkCache::RecycleChunkFromBuild( const FGuid& ChunkGuid )
 		// Check chunk hash
 		if( bSuccess )
 		{
-			FSHAHashData ShaHashCheck;
-			switch (HashType)
-			{
-			case FChunkHeader::HASH_ROLLING:
-				bSuccess = FRollingHash< FBuildPatchData::ChunkDataSize >::GetHashForDataSet(TempChunkConstruction) == ChunkHash;
-				break;
-			case FChunkHeader::HASH_SHA1:
-				FSHA1::HashBuffer(TempChunkConstruction, FBuildPatchData::ChunkDataSize, ShaHashCheck.Hash);
-				bSuccess = ShaHashCheck == ChunkShaHash;
-				break;
-			default:
-				bSuccess = false;
-			}
+			bSuccess = FRollingHash< FBuildPatchData::ChunkDataSize >::GetHashForDataSet( TempChunkConstruction ) == ChunkHash;
 			if( !bSuccess )
 			{
 				FBuildPatchAnalytics::RecordChunkCacheError( ChunkGuid, TEXT( "" ), INDEX_NONE, TEXT( "ChunkRecycle" ), TEXT( "Chunk Hash Fail" ) );
@@ -613,9 +579,8 @@ bool FBuildPatchChunkCache::RecycleChunkFromBuild( const FGuid& ChunkGuid )
 			ChunkHeader->Guid = ChunkGuid;
 			ChunkHeader->StoredAs = FChunkHeader::STORED_RAW;
 			ChunkHeader->DataSize = FBuildPatchData::ChunkDataSize; // This would change if compressing/encrypting
-			ChunkHeader->HashType = HashType;
+			ChunkHeader->HashType = FChunkHeader::HASH_ROLLING;
 			ChunkHeader->RollingHash = ChunkHash;
-			ChunkHeader->SHAHash = ChunkShaHash;
 
 			// Release data
 			NewChunkFile->ReleaseDataLock();
@@ -865,6 +830,7 @@ void FBuildPatchChunkCache::ReserveChunkInventorySlotForce( const FGuid& ChunkGu
 					LowPriChunkHeader->HeaderSize = FileOut->Tell();
 					LowPriChunkHeader->StoredAs = FChunkHeader::STORED_RAW;
 					LowPriChunkHeader->DataSize = FBuildPatchData::ChunkDataSize; // This would change if compressing/encrypting
+					LowPriChunkHeader->HashType = FChunkHeader::HASH_ROLLING;
 
 					// Write out file
 					FileOut->Seek( 0 );

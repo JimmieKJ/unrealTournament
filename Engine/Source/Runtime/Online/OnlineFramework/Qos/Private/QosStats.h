@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -105,6 +105,8 @@ private:
 	{
 		/** Time of the search */
 		FString Timestamp;
+		/** Id of the datacenter chosen */
+		FString BestDatacenterId;
 		/** Way the datacenter was chosen */
 		EDatacenterResultType DeterminationType;
 		/** Time in ms it took to find the search results (exclusive) */
@@ -139,6 +141,7 @@ private:
 
 	// Qos stats
 	static const FString QosStats_DeterminationType;
+	static const FString QosStats_DatacenterId;
 	static const FString QosStats_NumRegions;
 	static const FString QosStats_RegionDetails;
 	static const FString QosStats_NumResults;
@@ -212,8 +215,9 @@ public:
 	 * End recording of a Qos determination
 	 *
 	 * @param Result results of the qos pass
+	 * @param DatacenterId resulting datacenter choice
 	 */
-	void EndQosPass(EDatacenterResultType Result);
+	void EndQosPass(EDatacenterResultType Result, const FString& DatacenterId);
 
 	/**
 	 * Record previously saved stats to an analytics provider

@@ -1,8 +1,7 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemPrivatePCH.h"
 #include "OnlineKeyValuePair.h"
-#include "JsonObjectConverter.h"
 #include "Json.h"
 
 /**
@@ -753,10 +752,6 @@ bool FVariantData::operator==(const FVariantData& Other) const
 				return (Value.AsBlob.BlobSize == Other.Value.AsBlob.BlobSize) && 
 						 (FMemory::Memcmp(Value.AsBlob.BlobData, Other.Value.AsBlob.BlobData, Value.AsBlob.BlobSize) == 0);
 			}
-		case EOnlineKeyValuePairDataType::Bool:
-			{
-				return Value.AsBool == Other.Value.AsBool;
-			}
 		}
 	}
 	return false;
@@ -807,6 +802,13 @@ bool FVariantDataConverter::VariantDataToUProperty(const FVariantData* Variant, 
 	if (!Variant)
 	{
 		UE_LOG(LogOnline, Error, TEXT("VariantDataToUProperty - Invalid value"));
+		return false;
+	}
+
+	bool bArrayProperty = Property->IsA<UArrayProperty>();
+	if (bArrayProperty)
+	{
+		UE_LOG(LogOnline, Error, TEXT("VariantDataToUProperty - doesn't support array properties"));
 		return false;
 	}
 
@@ -928,22 +930,8 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 	}
 	else if (UArrayProperty *ArrayProperty = Cast<UArrayProperty>(Property))
 	{
-		FString StrValue;
-		Variant->GetValue(StrValue);
-
-		TSharedPtr<FJsonObject> JsonObject;
-		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(StrValue);
-		if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
-		{
-			UE_LOG(LogOnline, Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse json=[%s]"), *StrValue);
-			return false;
-		}
-		
-		if (!FJsonObjectConverter::JsonValueToUProperty(JsonObject->GetField<EJson::Array>(Property->GetNameCPP()), Property, OutValue, 0, 0))
-		{
-			UE_LOG(LogOnline, Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse %s from JSON"), *Property->GetNameCPP());
-			return false;
-		}
+		UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - arrays not supported for property %s"), *Property->GetNameCPP());
+		return false;
 	}
 	else if (UTextProperty *TextProperty = Cast<UTextProperty>(Property))
 	{
@@ -1109,26 +1097,9 @@ bool FVariantDataConverter::ConvertScalarUPropertyToVariant(UProperty* Property,
 		FString StringValue = StringProperty->GetPropertyValue(Value);
 		OutVariantData.SetValue(StringValue);
 	}
-	else if (UTextProperty *TextProperty = Cast<UTextProperty>(Property))
-	{
-		FText TextValue = TextProperty->GetPropertyValue(Value);
-		OutVariantData.SetValue(TextValue.ToString());
-	}
 	else if (UArrayProperty *ArrayProperty = Cast<UArrayProperty>(Property))
 	{
-		TSharedPtr<FJsonValue> Json = FJsonObjectConverter::UPropertyToJsonValue(Property, Value, 0, 0);
-
-		TSharedRef<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
-		JsonObject->SetField(Property->GetNameCPP(), Json);
-		
-		FString Contents;
-		TSharedRef< TJsonWriter<> > Writer = TJsonWriterFactory<>::Create(&Contents);
-		if (!FJsonSerializer::Serialize(JsonObject, Writer))
-		{
-			return false;
-		}
-
-		OutVariantData.SetValue(Contents);
+		// not supported yet
 	}
 	else if (UStructProperty *StructProperty = Cast<UStructProperty>(Property))
 	{

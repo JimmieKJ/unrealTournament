@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -105,11 +105,6 @@ public:
 	}
 
 	/**
-	 * Initialize the task - called on game thread when queued
-	 */
-	virtual void Initialize() {}
-
-	/**
 	 * Check the state of the async task
 	 * @return true if complete, false otherwise
 	 */
@@ -128,7 +123,7 @@ public:
 	virtual void Tick()
 	{
 		// assert that we're not on the game thread
-		check(!IsInGameThread() || !FPlatformProcess::SupportsMultithreading());
+		check(!IsInGameThread());
 	}
 };
 
@@ -229,13 +224,7 @@ protected:
 	TArray<FOnlineAsyncTask*> InQueue;
 	/** Critical section for thread safe operation of the event in queue */
 	FCriticalSection InQueueLock;
-
-	/** blah */
-	FOnlineAsyncTask* ActiveTask;
-
-	/** blah */
-	FCriticalSection ActiveTaskLock;
-
+	
 	/** This queue is for tasks that are safe to run in parallel with one another */
 	TArray<FOnlineAsyncTask*> ParallelTasks;
 	/** Critical section for thread safe operation of the list */
@@ -310,6 +299,11 @@ public:
 	 * @param NewTask - some request of the online services
 	 */
 	void AddToInQueue(FOnlineAsyncTask* NewTask);
+
+	/**
+	 *	Remove the current async task from the queue
+	 */
+	void PopFromInQueue();
 
 	/**
 	 * Add completed online async tasks that need processing onto the queue

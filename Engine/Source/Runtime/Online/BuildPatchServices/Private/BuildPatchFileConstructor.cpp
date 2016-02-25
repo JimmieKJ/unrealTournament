@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchFileConstructor.cpp: Implements the BuildPatchFileConstructor class
@@ -39,36 +39,30 @@ public:
 	// Whether we have resume data for this install
 	bool bHasResumeData;
 
-	// Whether we have resume data for a different install.
-	bool bHasIncompatibleResumeData;
-
 public:
 	/**
 	 * Constructor - reads in the resume data
 	 * @param InStagingDir      The install staging directory
 	 * @param InBuildManifest   The manifest we are installing from
 	 */
-	FResumeData(const FString& InStagingDir, const FBuildPatchAppManifestRef& InBuildManifest)
-		: StagingDir(InStagingDir)
-		, ResumeDataFile(InStagingDir / TEXT("$resumeData"))
-		, PatchVersion(InBuildManifest->GetAppName() + InBuildManifest->GetVersionString())
-		, BuildManifest(InBuildManifest)
-		, bHasResumeData(false)
-		, bHasIncompatibleResumeData(false)
+	FResumeData( const FString& InStagingDir, const FBuildPatchAppManifestRef& InBuildManifest )
+		: StagingDir( InStagingDir )
+		, ResumeDataFile( InStagingDir / TEXT( "$resumeData" ) )
+		, PatchVersion( InBuildManifest->GetAppName() + InBuildManifest->GetVersionString() )
+		, BuildManifest( InBuildManifest )
 	{
 		// Load data from previous resume file
 		bHasResumeData = FPlatformFileManager::Get().GetPlatformFile().FileExists(*ResumeDataFile);
 		GLog->Logf(TEXT("BuildPatchResumeData file found %d"), bHasResumeData);
-		if (bHasResumeData)
+		if( bHasResumeData )
 		{
 			FString PrevResumeData;
 			TArray< FString > ResumeDataLines;
-			FFileHelper::LoadFileToString(PrevResumeData, *ResumeDataFile);
-			PrevResumeData.ParseIntoArray(ResumeDataLines, TEXT("\n"), true);
+			FFileHelper::LoadFileToString( PrevResumeData, *ResumeDataFile );
+			PrevResumeData.ParseIntoArray( ResumeDataLines, TEXT( "\n" ), true );
 			// Line 1 will be the previously attempted version
 			FString PreviousVersion = (ResumeDataLines.Num() > 0) ? MoveTemp(ResumeDataLines[0]) : TEXT("");
-			bHasResumeData = PreviousVersion == PatchVersion;
-			bHasIncompatibleResumeData = !bHasResumeData;
+			bHasResumeData = PreviousVersion  == PatchVersion;
 			GLog->Logf(TEXT("BuildPatchResumeData version matched %d %s == %s"), bHasResumeData, *PreviousVersion, *PatchVersion);
 		}
 	}
@@ -176,14 +170,6 @@ uint32 FBuildPatchFileConstructor::Run()
 
 	// Check for resume data
 	FResumeData ResumeData( StagingDirectory, BuildManifest );
-
-	// If we found incompatible resume data, we need to clean out the staging folder
-	// We don't delete the folder itself though as we should presume it was created with desired attributes
-	if (ResumeData.bHasIncompatibleResumeData)
-	{
-		GLog->Logf(TEXT("BuildPatchServices: Deleting incompatible stage files"));
-		DeleteDirectoryContents(StagingDirectory);
-	}
 
 	// Save for started version
 	ResumeData.SaveOut();
@@ -651,24 +637,6 @@ bool FBuildPatchFileConstructor::InsertChunkData(const FChunkPartData& ChunkPart
 		return true;
 	}
 	return false;
-}
-
-
-void FBuildPatchFileConstructor::DeleteDirectoryContents(const FString& RootDirectory)
-{
-	TArray<FString> SubDirNames;
-	IFileManager::Get().FindFiles(SubDirNames, *(RootDirectory / TEXT("*")), false, true);
-	for (const FString& DirName : SubDirNames)
-	{
-		IFileManager::Get().DeleteDirectory(*(RootDirectory / DirName), false, true);
-	}
-
-	TArray<FString> SubFileNames;
-	IFileManager::Get().FindFiles(SubFileNames, *(RootDirectory / TEXT("*")), true, false);
-	for (const FString& FileName : SubFileNames)
-	{
-		IFileManager::Get().Delete(*(RootDirectory / FileName), false, true);
-	}
 }
 
 /**

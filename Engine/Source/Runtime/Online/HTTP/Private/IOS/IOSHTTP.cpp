@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 
 #include "HttpPrivatePCH.h"
@@ -60,7 +60,7 @@ FString FIOSHttpRequest::GetURLParameter(const FString& ParameterName)
 		NSString* Key = [KeyValue objectAtIndex:0];
 		if ([Key compare:ParameterNameStr] == NSOrderedSame)
 		{
-			return FString([[KeyValue objectAtIndex:1] stringByRemovingPercentEncoding]);
+			return FString([[KeyValue objectAtIndex:1] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]);
 		}
 	}
 	return FString();
@@ -242,7 +242,7 @@ bool FIOSHttpRequest::StartRequest()
 	else
 	{
 		UE_LOG(LogHttp, Warning, TEXT("ProcessRequest failed. Could not initialize Internet connection."));
-		CompletionStatus = EHttpRequestStatus::Failed_ConnectionError;
+		CompletionStatus = EHttpRequestStatus::Failed;
 	}
 	StartRequestTime = FPlatformTime::Seconds();
 	// reset the elapsed time.
@@ -440,7 +440,7 @@ FString FIOSHttpResponse::GetURLParameter(const FString& ParameterName)
 		NSString* Key = [KeyValue objectAtIndex:0];
 		if ([Key compare:ParameterNameStr] == NSOrderedSame)
 		{
-			return FString([[KeyValue objectAtIndex:1] stringByRemovingPercentEncoding]);
+			return FString([[KeyValue objectAtIndex:1] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]);
 		}
 	}
 	return FString();

@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "XmppPrivatePCH.h"
 #include "XmppJingle.h"
@@ -1129,7 +1129,7 @@ bool FXmppMultiUserChatJingle::GetRoomInfo(const FXmppRoomId& RoomId, FXmppRoomI
 	return bResult;
 }
 
-bool FXmppMultiUserChatJingle::GetMembers(const FXmppRoomId& RoomId, TArray<FXmppChatMemberRef>& OutMembers)
+bool FXmppMultiUserChatJingle::GetMembers(const FXmppRoomId& RoomId, TArray< TSharedRef<FXmppChatMember> >& OutMembers)
 {
 	bool bResult = false;
 
@@ -1147,9 +1147,9 @@ bool FXmppMultiUserChatJingle::GetMembers(const FXmppRoomId& RoomId, TArray<FXmp
 	return bResult;
 }
 
-FXmppChatMemberPtr FXmppMultiUserChatJingle::GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid)
+TSharedPtr<FXmppChatMember> FXmppMultiUserChatJingle::GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid)
 {
-	FXmppChatMemberPtr Result;
+	TSharedPtr<FXmppChatMember> Result;
 
 	FScopeLock Lock(&ChatroomsLock);
 	for (auto Entry : Chatrooms)
@@ -1545,7 +1545,7 @@ void FXmppMultiUserChatJingle::MemberEntered(
 		{
 			FXmppUserJid MemberJid;
 			FXmppJingle::ConvertToJid(MemberJid, XmppMember->member_jid());
-			FXmppChatMemberPtr UpdatedMember;
+			TSharedPtr<FXmppChatMember> UpdatedMember;
 
 			for (auto Member : XmppRoom->Members)
 			{
@@ -1634,7 +1634,7 @@ void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 	{
 		FString ErrorStr;
 		FXmppRoomJingle::ERoomStatus LastStatus = XmppRoom->Status;
-		FXmppChatMemberPtr MyChatMember;
+		TSharedPtr<FXmppChatMember> MyChatMember;
 		if (EnterStatus == buzz::XMPP_CHATROOM_ENTERED_SUCCESS)
 		{
 			// update status for successful join
@@ -1657,7 +1657,7 @@ void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 					buzz::XmppChatroomMember* XmppMember = Enumerator->current();
 					if (XmppMember != NULL)
 					{
-						FXmppChatMemberRef NewChatMember(MakeShareable(new FXmppChatMember()));
+						TSharedRef<FXmppChatMember> NewChatMember(MakeShareable(new FXmppChatMember()));
 						XmppRoom->Members.Add(NewChatMember);
 						ConvertToChatMember(*NewChatMember, *XmppMember);
 					}
@@ -1793,7 +1793,7 @@ void FXmppMultiUserChatJingle::MemberChanged(
 		{
 			FXmppUserJid MemberJid;
 			FXmppJingle::ConvertToJid(MemberJid, XmppMember->member_jid());
-			FXmppChatMemberPtr UpdatedMember;
+			TSharedPtr<FXmppChatMember> UpdatedMember;
 			for (auto Member : XmppRoom->Members)
 			{
 				if (Member->MemberJid == MemberJid)

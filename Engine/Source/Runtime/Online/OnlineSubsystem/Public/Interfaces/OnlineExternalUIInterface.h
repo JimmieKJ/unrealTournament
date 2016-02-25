@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OnlineSubsystemTypes.h"
@@ -79,14 +79,6 @@ struct FShowWebUrlParams
 		, SizeX(0)
 		, SizeY(0)
 	{}
-};
-
-/**
- * Union of all the platform informational message types we handle (some may be handled by more than one platform)
- */
-enum class EPlatformMessageType
-{
-	EmptyStore
 };
 
 /** 
@@ -184,24 +176,6 @@ public:
 	* @return true if it was able to show the UI, false if it failed
 	*/
 	virtual bool ShowAccountUpgradeUI(const FUniqueNetId& UniqueId) = 0;
-
-	/**
-	 * Displays an informational system dialog.
-	 *
-	 * @param UserId Who to show this dialog for.
-	 * @param MessageId Platform-specific identifier for the message box to display.
-	 */
-	virtual bool ShowPlatformMessageBox(const FUniqueNetId& UserId, EPlatformMessageType MessageType) { return false; }
-
-	/**
-	 * Tell the system that you've entered into a screen considered in-game store.
-	 */
-	virtual void ReportEnterInGameStoreUI() {}
-
-	/**
-	 * Tell the system that you've entered into a screen considered in-game store.
-	 */
-	virtual void ReportExitInGameStoreUI() {}
 
 	/**
 	 * Delegate called when the external UI is opened or closed

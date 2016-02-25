@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchFileConstructor.h: Declares the BuildPatchFileConstructor class
@@ -194,10 +194,4 @@ private:
 	 * @return true if no errors were detected
 	 */
 	bool InsertChunkData(const FChunkPartData& ChunkPart, FArchive& DestinationFile, FSHA1& HashState);
-
-	/**
-	 * Delete all contents of a directory
-	 * @param RootDirectory	 	Directory to make empty
-	 */
-	void DeleteDirectoryContents(const FString& RootDirectory);
 };

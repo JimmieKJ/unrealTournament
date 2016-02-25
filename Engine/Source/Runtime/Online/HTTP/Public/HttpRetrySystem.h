@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -52,8 +52,7 @@ namespace FHttpRetrySystem
     /**
      * class FRequest is what the retry system accepts as inputs
      */
-    class FRequest 
-		: public FHttpRequestAdapterBase
+    class FRequest : public FHttpRequestAdapterBase
     {
     public:
         struct EStatus
@@ -70,39 +69,37 @@ namespace FHttpRetrySystem
             };
         };
 
+        /**
+        * Delegate called when an FRequest completes
+        *
+        * @param first parameter -  original FRequest
+        * @param second parameter - indicates whether or not the request completed successfully
+        */
+        DECLARE_DELEGATE_TwoParams(FOnProcessRequestCompleteDelegate, TSharedRef<class FRequest>&, bool);
+
     public:
-		// IHttpRequest interface
-		HTTP_API virtual bool ProcessRequest() override;
-		HTTP_API virtual void CancelRequest() override;
-		virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override { return OnProcessRequestCompleteDelegate; }
-		virtual FHttpRequestProgressDelegate& OnRequestProgress() override { return OnProcessRequestProgressDelegate; }
-		
-		// FRequest
-		EStatus::Type GetRetryStatus() const { return Status; }
-
-    protected:
-		friend class FManager;
-
-		HTTP_API FRequest(
-			class FManager& InManager,
+        HTTP_API FRequest(
 			const TSharedRef<IHttpRequest>& HttpRequest,
 			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting::Unused(),
 			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting::Unused(),
-			const FRetryResponseCodes& InRetryResponseCodes = FRetryResponseCodes()
-			);
+			const FRetryResponseCodes& InRetryResponseCodes = FRetryResponseCodes());
 
-		void HttpOnRequestProgress(FHttpRequestPtr InHttpRequest, int32 BytesSent, int32 BytesRcv);
+        EStatus::Type                      GetStatus()                { return Status; }
+        FOnProcessRequestCompleteDelegate& OnProcessRequestComplete() { return OnProcessRequestCompleteDelegate; }
 
-		EStatus::Type                        Status;
+    protected:
+        friend class FManager;
+
+        bool ProcessRequest() { return HttpRequest->ProcessRequest(); }
+        void CancelRequest()  { HttpRequest->CancelRequest(); }
+
+        EStatus::Type                        Status;
 
         FRetryLimitCountSetting              RetryLimitCountOverride;
         FRetryTimeoutRelativeSecondsSetting  RetryTimeoutRelativeSecondsOverride;
-		FRetryResponseCodes					 RetryResponseCodes;
+		FRetryResponseCodes					 RetryResponseCodesOverride;
 
-		FHttpRequestCompleteDelegate OnProcessRequestCompleteDelegate;
-		FHttpRequestProgressDelegate OnProcessRequestProgressDelegate;
-
-		FManager& RetryManager;
+        FOnProcessRequestCompleteDelegate    OnProcessRequestCompleteDelegate;
     };
 }
 
@@ -112,17 +109,7 @@ namespace FHttpRetrySystem
     {
     public:
         // FManager
-		HTTP_API FManager(const FRetryLimitCountSetting& InRetryLimitCountDefault, const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsDefault);
-
-		/**
-		 * Create a new http request with retries
-		 */
-		HTTP_API TSharedRef<class FHttpRetrySystem::FRequest> CreateRequest(
-			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting::Unused(),
-			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting::Unused(),
-			const FRetryResponseCodes& InRetryResponseCodes = FRetryResponseCodes()
-			);
-
+		HTTP_API FManager(const FRetryLimitCountSetting& InRetryLimitCountDefault, const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsDefault, const FRetryResponseCodes& InRetryResponseCodesDefault);
 
         /**
          * Updates the entries in the list of retry requests. Optional parameters are for future connection health assessment
@@ -135,25 +122,24 @@ namespace FHttpRetrySystem
          * @return                true if there are no failures or retries
          */
         HTTP_API bool Update(uint32* FileCount = NULL, uint32* FailingCount = NULL, uint32* FailedCount = NULL, uint32* CompletedCount = NULL);
-		HTTP_API void SetRandomFailureRate(float Value) { RandomFailureRate = FRandomFailureRateSetting::Create(Value); }
+
+        HTTP_API bool ProcessRequest(TSharedRef<FRequest>& HttpRequest);
+        HTTP_API void CancelRequest (TSharedRef<FRequest>& HttpRequest);
+
+        void SetRandomFailureRate(float Value) { RandomFailureRate = FRandomFailureRateSetting::Create(Value); }
 
     protected:
-		friend class FRequest;
-
         struct FHttpRetryRequestEntry
         {
-            FHttpRetryRequestEntry(TSharedRef<FRequest>& InRequest);
+            FHttpRetryRequestEntry(TSharedRef<FRequest>& HttpRequestValue);
 
             bool                    bShouldCancel;
             uint32                  CurrentRetryCount;
             double                  RequestStartTimeAbsoluteSeconds;
             double                  LockoutEndTimeAbsoluteSeconds;
 
-            TSharedRef<FRequest>	Request;
+            TSharedRef<FRequest>	HttpRequest;
         };
-
-		bool ProcessRequest(TSharedRef<FRequest>& HttpRequest);
-		void CancelRequest(TSharedRef<FRequest>& HttpRequest);
 
         // @return true if there is a no formal response to the request
         // @TODO return true if a variety of 5xx errors are the result of a formal response
@@ -172,6 +158,7 @@ namespace FHttpRetrySystem
         FRandomFailureRateSetting            RandomFailureRate;
         FRetryLimitCountSetting              RetryLimitCountDefault;
         FRetryTimeoutRelativeSecondsSetting  RetryTimeoutRelativeSecondsDefault;
+		FRetryResponseCodes					 RetryResponseCodesDefault;
 
         TArray<FHttpRetryRequestEntry>        RequestList;
     };

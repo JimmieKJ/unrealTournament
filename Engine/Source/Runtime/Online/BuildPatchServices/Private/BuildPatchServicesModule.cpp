@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchServicesModule.cpp: Implements the FBuildPatchServicesModule class.
@@ -63,29 +63,6 @@ void FBuildPatchServicesModule::StartupModule()
 	// We need to initialize the lookup for our hashing functions
 	FRollingHashConst::Init();
 
-	// Set the local machine config filename
-	LocalMachineConfigFile = FPaths::Combine(FPlatformProcess::ApplicationSettingsDir(), FApp::GetGameName(), TEXT("BuildPatchServicesLocal.ini"));
-
-	// Fix up any legacy configuration data
-	FixupLegacyConfig();
-
-	// Check if the user has opted to force skip prerequisites install
-	bool bForceSkipPrereqsCmdline = FParse::Param(FCommandLine::Get(), TEXT("skipbuildpatchprereq"));
-	bool bForceSkipPrereqsConfig = false;
-	GConfig->GetBool(TEXT("Portal.BuildPatch"), TEXT("skipbuildpatchprereq"), bForceSkipPrereqsConfig, GEngineIni);
-
-	if (bForceSkipPrereqsCmdline)
-	{
-		GLog->Log(TEXT("BuildPatchServicesModule: Setup to skip prerequisites install via commandline."));
-	}
-
-	if (bForceSkipPrereqsConfig)
-	{
-		GLog->Log( TEXT("BuildPatchServicesModule: Setup to skip prerequisites install via config."));
-	}
-	
-	bForceSkipPrereqs = bForceSkipPrereqsCmdline || bForceSkipPrereqsConfig;
-
 	// Add our ticker
 	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateRaw( this, &FBuildPatchServicesModule::Tick ) );
 
@@ -149,7 +126,7 @@ bool FBuildPatchServicesModule::SaveManifestToFile(const FString& Filename, IBui
 	return StaticCastSharedRef< FBuildPatchAppManifest >(Manifest)->SaveToFile(Filename, bUseBinary);
 }
 
-IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair, TSet<FString> InstallTags)
+IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, TSet<FString> InstallTags)
 {
 	// Using a local bool for this check will improve the assert message that gets displayed
 	const bool bIsCalledFromMainThread = IsInGameThread();
@@ -171,14 +148,14 @@ IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstall(IBuildManifestPt
 	// Make sure the http wrapper is already created
 	FBuildPatchHTTP::Initialize();
 	// Run the install thread
-	FBuildPatchInstallerRef Installer = MakeShareable(new FBuildPatchInstaller(OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo, false, LocalMachineConfigFile, bIsRepair, bForceSkipPrereqs));
+	FBuildPatchInstallerRef Installer = MakeShareable(new FBuildPatchInstaller(OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo, false));
 	Installer->SetRequiredInstallTags(InstallTags);
 	Installer->StartInstallation();
 	BuildPatchInstallers.Add(Installer);
 	return Installer;
 }
 
-IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair, TSet<FString> InstallTags)
+IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, TSet<FString> InstallTags)
 {
 	// Using a local bool for this check will improve the assert message that gets displayed
 	const bool bIsCalledFromMainThread = IsInGameThread();
@@ -194,7 +171,7 @@ IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstallStageOnly(IBuildM
 	// Make sure the http wrapper is already created
 	FBuildPatchHTTP::Initialize();
 	// Run the install thread
-	FBuildPatchInstallerRef Installer = MakeShareable(new FBuildPatchInstaller(OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo, true, LocalMachineConfigFile, bIsRepair, bForceSkipPrereqs));
+	FBuildPatchInstallerRef Installer = MakeShareable(new FBuildPatchInstaller(OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo, true));
 	Installer->SetRequiredInstallTags(InstallTags);
 	Installer->StartInstallation();
 	BuildPatchInstallers.Add(Installer);
@@ -328,40 +305,6 @@ void FBuildPatchServicesModule::PreExit()
 	// Release our ptr to analytics
 	FBuildPatchAnalytics::SetAnalyticsProvider(NULL);
 	FBuildPatchAnalytics::SetHttpTracker(nullptr);
-}
-
-void FBuildPatchServicesModule::FixupLegacyConfig()
-{
-	// Check for old prerequisite installation values to bring in from user configuration
-	TArray<FString> OldInstalledPrereqs;
-	if (GConfig->GetArray(TEXT("Portal.BuildPatch"), TEXT("InstalledPrereqs"), OldInstalledPrereqs, GEngineIni) && OldInstalledPrereqs.Num() > 0)
-	{
-		bool bShouldSaveOut = false;
-		TArray<FString> InstalledPrereqs;
-		if (GConfig->GetArray(TEXT("Portal.BuildPatch"), TEXT("InstalledPrereqs"), InstalledPrereqs, LocalMachineConfigFile) && InstalledPrereqs.Num() > 0)
-		{
-			// Add old values to the new array
-			for (const FString& OldInstalledPrereq : OldInstalledPrereqs)
-			{
-				int32 PrevNum = InstalledPrereqs.Num();
-				bool bAlreadyInArray = InstalledPrereqs.AddUnique(OldInstalledPrereq) < PrevNum;
-				bShouldSaveOut = bShouldSaveOut || !bAlreadyInArray;
-			}
-		}
-		else
-		{
-			// Just use the old array
-			InstalledPrereqs = MoveTemp(OldInstalledPrereqs);
-			bShouldSaveOut = true;
-		}
-		// If we added extra then save new config
-		if (bShouldSaveOut)
-		{
-			GConfig->SetArray(TEXT("Portal.BuildPatch"), TEXT("InstalledPrereqs"), InstalledPrereqs, LocalMachineConfigFile);
-		}
-		// Clear out the old config
-		GConfig->RemoveKey(TEXT("Portal.BuildPatch"), TEXT("InstalledPrereqs"), GEngineIni);
-	}
 }
 
 const FString& FBuildPatchServicesModule::GetStagingDirectory()

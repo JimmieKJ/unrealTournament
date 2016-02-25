@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -245,9 +245,6 @@ public:
 	 */
 	void AddPendingPartyJoin(const FUniqueNetId& LocalUserId, const FPartyDetails& PartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& JoinCompleteDelegate);
 
-	/** Clears the join data associated with a pending party join. */
-	void ClearPendingPartyJoin();
-
 	/**
 	 * Is any local player in the given party
 	 *
@@ -467,14 +464,6 @@ private:
 	void PartyMemberExitedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId, const EMemberExitedReason InReason);
 	void PartyPromotionLockoutStateChangedInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId, const bool bLockoutState);
 
-	void PartyExitedInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId);
-	void OnPersistentPartyExitedInternalCompleted(const FUniqueNetId& LocalUserId, const ECreatePartyCompletionResult Result);
-
-	/**
-	 *
-	 */
-	void OnCreatePesistentPartyCompletedCommon(const FUniqueNetId& LocalUserId);
-
 	/**
 	 * Identity interface status change delegates
 	 */
@@ -498,7 +487,6 @@ private:
 	FDelegateHandle PartyJoinRequestReceivedDelegateHandle;
 	FDelegateHandle PartyMemberChangedDelegateHandle;
 	FDelegateHandle PartyMemberExitedDelegateHandle;
-	FDelegateHandle PartyExitedDelegateHandle;
 
 	FDelegateHandle LogoutStatusChangedDelegateHandle[MAX_LOCAL_PLAYERS];
 	FDelegateHandle LogoutCompleteDelegateHandle[MAX_LOCAL_PLAYERS];

@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "ImageDownloadPCH.h"
 #include "WebImage.h"
@@ -7,11 +7,6 @@ FWebImage::FWebImage()
 : StandInBrush(FCoreStyle::Get().GetDefaultBrush())
 , bDownloadSuccess(false)
 {
-}
-
-FWebImage::~FWebImage()
-{
-	CancelDownload();
 }
 
 TAttribute< const FSlateBrush* > FWebImage::Attr() const
@@ -31,7 +26,7 @@ bool FWebImage::BeginDownload(const FString& UrlIn, const TOptional<FString>& St
 	HttpRequest->SetVerb(TEXT("GET"));
 	HttpRequest->SetURL(Url);
 	HttpRequest->SetHeader(TEXT("Accept"), TEXT("image/png, image/x-png, image/jpeg; q=0.8, image/vnd.microsoft.icon, image/x-icon, image/bmp, image/*; q=0.5, image/webp; q=0.0"));
-	HttpRequest->OnProcessRequestComplete().BindSP(this, &FWebImage::HttpRequestComplete);
+	HttpRequest->OnProcessRequestComplete().BindSP(this, &FWebImage::HttpRequestComplete, DownloadCb);
 
 	if (StandInETag.IsSet())
 	{
@@ -39,29 +34,23 @@ bool FWebImage::BeginDownload(const FString& UrlIn, const TOptional<FString>& St
 	}
 
 	// queue the request
+	PendingRequest = HttpRequest;
 	if (!HttpRequest->ProcessRequest())
 	{
+		// clear our local handle
+		PendingRequest.Reset();
 		return false;
 	}
-	else
-	{
-		PendingRequest = HttpRequest;
-		PendingCallback = DownloadCb;
-		return true;
-	}
+	return true;
 }
 
-void FWebImage::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void FWebImage::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FOnImageDownloaded DownloadCb)
 {
 	// clear our handle to the request
 	PendingRequest.Reset();
 
 	// get the request URL
 	check(HttpRequest.IsValid()); // this should be valid, we did just send a request...
-	if (HttpRequest->OnProcessRequestComplete().IsBound())
-	{
-		HttpRequest->OnProcessRequestComplete().Unbind();
-	}
 	bool bSuccess = ProcessHttpResponse(HttpRequest->GetURL(), bSucceeded ? HttpResponse : FHttpResponsePtr());
 
 	// save this info
@@ -69,10 +58,9 @@ void FWebImage::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePt
 	DownloadTimeUtc = FDateTime::UtcNow();
 
 	// fire the response delegate
-	if (PendingCallback.IsBound())
+	if (DownloadCb.IsBound())
 	{
-		PendingCallback.Execute(bSuccess);
-		PendingCallback.Unbind();
+		DownloadCb.Execute(bSuccess);
 	}
 }
 
@@ -131,7 +119,7 @@ bool FWebImage::ProcessHttpResponse(const FString& RequestUrl, FHttpResponsePtr 
 
 	// get the raw image data
 	const TArray<uint8>* RawImageData = nullptr;
-	if (!ImageWrapper->GetRaw(ERGBFormat::RGBA, 8, RawImageData) || RawImageData == nullptr)
+	if (!ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawImageData) || RawImageData == nullptr)
 	{
 		UE_LOG(LogImageDownload, Error, TEXT("Image Download: Unable to convert image format %d to BGRA 8"), (int32)ImageFormat);
 		return false;
@@ -147,16 +135,9 @@ void FWebImage::CancelDownload()
 {
 	if (PendingRequest.IsValid())
 	{
-		if (PendingRequest->OnProcessRequestComplete().IsBound())
-		{
-			PendingRequest->OnProcessRequestComplete().Unbind();
-		}
-		PendingRequest->CancelRequest();
+		FHttpRequestPtr Request = PendingRequest;
 		PendingRequest.Reset();
-	}
-	if (PendingCallback.IsBound())
-	{
-		PendingCallback.Unbind();
+		Request->CancelRequest();
 	}
 	bDownloadSuccess = false;
 }

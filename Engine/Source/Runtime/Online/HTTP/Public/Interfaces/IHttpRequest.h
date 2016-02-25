@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,8 +17,6 @@ namespace EHttpRequestStatus
 		Processing,
 		/** Finished but failed */
 		Failed,
-		/** Failed because it was unable to connect (safe to retry) */
-		Failed_ConnectionError,
 		/** Finished and was successful */
 		Succeeded
 	};
@@ -39,10 +37,6 @@ namespace EHttpRequestStatus
 			case Failed:
 			{
 				return TEXT("Failed");
-			}
-			case Failed_ConnectionError:
-			{
-				return TEXT("ConnectionError");
 			}
 			case Succeeded:
 			{

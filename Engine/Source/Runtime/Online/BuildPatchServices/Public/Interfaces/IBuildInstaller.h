@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IBuildInstaller.h: Declares the IBuildInstaller interface.
@@ -17,7 +17,7 @@ enum class EBuildPatchInstallError
 	// There has been no registered error
 	NoError = 0,
 
-	// A download request failed and ran out of allowed retries
+	// A download registered a fatal error
 	DownloadError = 1,
 
 	// A file failed to construct properly
@@ -49,24 +49,6 @@ enum class EBuildPatchInstallError
 
 	// An error occurred creating a file due to their not being enough space left on the disk
 	OutOfDiskSpace = 11
-};
-
-// Enum describing download health. The actual percentage values used are configurable in the engine ini.
-enum class EBuildPatchDownloadHealth
-{
-	// All requests are in the retrying state. No progress currently. Possibly disconnected.
-	Disconnected = 0,
-	// More than 10% of requests are failing.
-	Poor,
-	// 10% or fewer requests are failing.
-	OK,
-	// 1% or fewer requests are failing.
-	Good,
-	// No requests are failing.
-	Excellent,
-
-	// Must be last value, only used for value counts.
-	NUM_Values
 };
 
 /**
@@ -257,12 +239,6 @@ public:
 	 * @return	A struct containing information about the build
 	 */
 	virtual FBuildInstallStats GetBuildStatistics() = 0;
-
-	/**
-	 * Get the current download health rating.
-	 * @return	the enum representing the download health
-	 */
-	virtual EBuildPatchDownloadHealth GetDownloadHealth() const = 0;
 
 	/**
 	 * Get the display text for the error that occurred. Only valid to call after completion

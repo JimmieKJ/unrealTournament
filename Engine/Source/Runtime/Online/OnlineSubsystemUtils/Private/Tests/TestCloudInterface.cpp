@@ -1,11 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "TestCloudInterface.h"
 #include "OnlineIdentityInterface.h"
 #include "ModuleManager.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 void FTestCloudInterface::Test(UWorld* InWorld)
 {
@@ -412,4 +410,3 @@ void FTestCloudInterface::OnReadEnumeratedSharedFileCompleteDelegate(bool bWasSu
 	}
 }
 
-#endif //WITH_DEV_AUTOMATION_TESTS

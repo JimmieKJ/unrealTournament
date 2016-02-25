@@ -1,8 +1,7 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#if 0 // this doesn't compile in 2013 express
 /**
 * An utility function for allocation chunk of zero initialized memory
 *
@@ -26,7 +25,6 @@ void * CallocZero(size_t NumElems, size_t ElemSize)
 
 	return Return;
 }
-#endif
 
 /**
 * HTML5 implementation of an Http request

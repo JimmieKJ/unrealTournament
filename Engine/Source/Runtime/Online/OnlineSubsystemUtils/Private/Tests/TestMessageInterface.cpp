@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
@@ -6,8 +6,6 @@
 #include "OnlineMessageInterface.h"
 #include "ModuleManager.h"
 #include "TestMessageInterface.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 struct TestAttribute
 {
@@ -315,5 +313,3 @@ void FTestMessageInterface::OnDeleteMessageComplete(int32 LocalPlayer, bool bWas
 	// kick off next test
 	StartNextTest();
 }
-
-#endif //WITH_DEV_AUTOMATION_TESTS

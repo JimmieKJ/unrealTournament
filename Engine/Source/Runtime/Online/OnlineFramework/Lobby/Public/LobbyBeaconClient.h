@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -179,7 +179,6 @@ protected:
 	/**
 	 * Acknowledge that client is traveling
 	 */
-	void AckJoiningServer();
 	UFUNCTION(client, reliable)
 	virtual void ClientAckJoiningServer();
 

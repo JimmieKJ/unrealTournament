@@ -1,11 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Core.h"
 #include "OnlineExternalUIInterface.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 /** Enumeration of external UI tests */
 namespace ETestExternalUIInterfaceState
@@ -109,4 +107,3 @@ namespace ETestExternalUIInterfaceState
 
  };
 
-#endif //WITH_DEV_AUTOMATION_TESTS

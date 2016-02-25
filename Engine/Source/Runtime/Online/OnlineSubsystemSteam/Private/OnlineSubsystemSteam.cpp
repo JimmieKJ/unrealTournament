@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemSteamPrivatePCH.h"
 #include "OnlineSubsystemSteam.h"
@@ -160,11 +160,6 @@ IOnlineSessionPtr FOnlineSubsystemSteam::GetSessionInterface() const
 IOnlineFriendsPtr FOnlineSubsystemSteam::GetFriendsInterface() const
 {
 	return FriendInterface;
-}
-
-IMessageSanitizerPtr FOnlineSubsystemSteam::GetMessageSanitizerInterface() const
-{
-	return nullptr;
 }
 
 IOnlineGroupsPtr FOnlineSubsystemSteam::GetGroupsInterface() const

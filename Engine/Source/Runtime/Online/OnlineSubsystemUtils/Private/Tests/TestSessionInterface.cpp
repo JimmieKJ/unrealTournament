@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "TestSessionInterface.h"
@@ -9,8 +9,6 @@
 #include "Kismet/GameplayStatics.h"
 
 #include "Engine.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 /**
  *	Example of a hosted session
@@ -545,5 +543,3 @@ bool FTestSessionInterface::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevic
 
 	return bWasHandled;
 }
-
-#endif //WITH_DEV_AUTOMATION_TESTS

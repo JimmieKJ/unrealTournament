@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchUtil.cpp: Implements miscellaneous utility functions.
@@ -296,7 +296,7 @@ bool FBuildPatchUtils::UncompressChunkFile( TArray< uint8 >& ChunkFileArray )
 	ChunkArrayReader << Header;
 	// Check header
 	const bool bValidHeader = Header.IsValidMagic();
-	const bool bSupportedFormat = !( Header.StoredAs & FChunkHeader::STORED_ENCRYPTED );
+	const bool bSupportedFormat = Header.HashType == FChunkHeader::HASH_ROLLING && !( Header.StoredAs & FChunkHeader::STORED_ENCRYPTED );
 	if( bValidHeader && bSupportedFormat )
 	{
 		bool bSuccess = true;
@@ -332,26 +332,6 @@ bool FBuildPatchUtils::UncompressChunkFile( TArray< uint8 >& ChunkFileArray )
 			}
 		}
 		return bSuccess;
-	}
-	return false;
-}
-
-bool FBuildPatchUtils::InjectShaToChunkFile(TArray<uint8>& ChunkFileArray, const FSHAHashData& SHAHash)
-{
-	FMemoryReader ChunkArrayReader(ChunkFileArray);
-	// Read the header
-	FChunkHeader Header;
-	ChunkArrayReader << Header;
-	// Check header
-	const bool bValidHeader = Header.IsValidMagic();
-	if (bValidHeader)
-	{
-		Header.SHAHash = SHAHash;
-		Header.HashType = FChunkHeader::HASH_SHA1;
-		FMemoryWriter ChunkArrayWriter(ChunkFileArray);
-		ChunkArrayWriter << Header;
-		ChunkArrayWriter.Close();
-		return true;
 	}
 	return false;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemFacebookPrivatePCH.h"
 #include "IOSAppDelegate.h"
@@ -6,9 +6,7 @@
 #include "OnlineSharingFacebook.h"
 #include "OnlineUserFacebook.h"
 
-#import <FBSDKCoreKit/FBSDKCoreKit.h>
-
-FOnlineSubsystemFacebook::FOnlineSubsystemFacebook()
+FOnlineSubsystemFacebook::FOnlineSubsystemFacebook() 
 	: FacebookIdentity(nullptr)
 	, FacebookFriends(nullptr)
 	, FacebookSharing(nullptr)
@@ -38,11 +36,6 @@ IOnlineIdentityPtr FOnlineSubsystemFacebook::GetIdentityInterface() const
 IOnlineFriendsPtr FOnlineSubsystemFacebook::GetFriendsInterface() const
 {
 	return FacebookFriends;
-}
-
-IMessageSanitizerPtr FOnlineSubsystemFacebook::GetMessageSanitizerInterface() const
-{
-	return nullptr;
 }
 
 IOnlineGroupsPtr FOnlineSubsystemFacebook::GetGroupsInterface() const

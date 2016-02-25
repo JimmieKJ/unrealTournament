@@ -1,9 +1,7 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "TestIdentityInterface.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 DEFINE_LOG_CATEGORY_STATIC(OSSUtilsTestLog, All, All);
 
@@ -197,5 +195,3 @@ bool FTestIdentityInterfaceLogoutWhileNotLoggedIn::RunTest(const FString& Parame
 
 	return true;
 }
-
-#endif //#if WITH_DEV_AUTOMATION_TESTS

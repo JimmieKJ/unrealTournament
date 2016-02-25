@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchInstaller.h: Declares the FBuildPatchInstaller class which
@@ -51,9 +51,6 @@ private:
 	// The filename used to mark a previous install that did not complete but moved staged files into the install directory
 	FString PreviousMoveMarker;
 
-	// The filename for the local machine config. This is used for per-machine values rather than per-user or shipped config.
-	const FString LocalMachineConfigFile;
-
 	// A critical section to protect variables
 	mutable FCriticalSection ThreadLock;
 
@@ -78,14 +75,8 @@ private:
 	// A flag marking that we initialized correctly
 	bool bIsInited;
 
-	// A flag specifying whether prerequisites install should be skipped
-	bool bForceSkipPrereqs;
-
 	// The download speed value
 	double DownloadSpeedValue;
-
-	// The current download health value
-	EBuildPatchDownloadHealth DownloadHealthValue;
 
 	// The number of bytes left to download
 	int64 DownloadBytesLeft;
@@ -117,27 +108,21 @@ private:
 	// Holds the files which are all required
 	TSet<FString> TaggedFiles;
 
-	// The list of prerequisites that have already been installed. Will also be updated on successful installation
-	TSet<FString> InstalledPrereqs;
-
-	// Reference to the module's installation info
+	// Referecne to the module's installation info
 	FBuildPatchInstallationInfo& InstallationInfo;
 
 public:
 	/**
 	 * Constructor takes the required arguments, CurrentManifest can be invalid for fresh install.
-	 * @param OnCompleteDelegate		Delegate for when the process has completed
-	 * @param CurrentManifest			The manifest for the currently installed build. Can be invalid if fresh install.
-	 * @param InstallManifest			The manifest for the build to be installed
-	 * @param InstallDirectory			The directory where the build will be installed
-	 * @param StagingDirectory			The directory for storing the intermediate files
-	 * @param InstallationInfoRef		Reference to the module's installation info that keeps record of locally installed apps for use as chunk sources
-	 * @param ShouldStageOnly			Whether the installer should only stage the required files, and skip moving them to the install directory
-	 * @param InLocalMachineConfigFile	Filename for the local machine's config. This is used for per-machine configuration rather than shipped or user config.
-	 * @param bIsRepair					Whether the operation is to repair an existing installation
-	 * @param bShouldForceSkipPrereqs	Whether the installer should skip prerequisites installs
+	 * @param OnCompleteDelegate	Delegate for when the process has completed
+	 * @param CurrentManifest		The manifest for the currently installed build. Can be invalid if fresh install.
+	 * @param InstallManifest		The manifest for the build to be installed
+	 * @param InstallDirectory		The directory where the build will be installed
+	 * @param StagingDirectory		The directory for storing the intermediate files
+	 * @param InstallationInfoRef	Reference to the module's installation info that keeps record of locally installed apps for use as chunk sources
+	 * @param ShouldStageOnly		Whether the installer should only stage the required files, and skip moving them to the install directory
 	 */
-	FBuildPatchInstaller(FBuildPatchBoolManifestDelegate OnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InstallDirectory, const FString& StagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef, bool ShouldStageOnly, const FString& InLocalMachineConfigFile, bool bIsRepair, bool bShouldForceSkipPrereqs);
+	FBuildPatchInstaller(FBuildPatchBoolManifestDelegate OnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InstallDirectory, const FString& StagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef, bool ShouldStageOnly);
 
 	/**
 	 * Default Destructor, will delete the allocated Thread
@@ -166,7 +151,6 @@ public:
 	virtual FText GetStatusText(bool ShortError = false) override;
 	virtual float GetUpdateProgress() override;
 	virtual FBuildInstallStats GetBuildStatistics() override;
-	virtual EBuildPatchDownloadHealth GetDownloadHealth() const override;
 	virtual FText GetErrorText() override;
 	virtual void CancelInstall() override;
 	virtual bool TogglePauseInstall() override;
@@ -274,12 +258,6 @@ private:
 	void SetDownloadBytesLeft( const int64& BytesLeft );
 
 	/**
-	 * Sets the current download health
-	 * @param DownloadHealth	The download health
-	 */
-	void SetDownloadHealth(EBuildPatchDownloadHealth DownloadHealth);
-
-	/**
 	 * Helper to calculate new chunk progress values
 	 * @param bReset	Resets internals without updating
 	 */
@@ -296,14 +274,4 @@ private:
 	 * @param RootDirectory	 Root Directory for search
 	 */
 	void CleanupEmptyDirectories( const FString& RootDirectory );
-
-	/**
-	 * Loads the configuration values for this computer, call from main thread.
-	 */
-	void LoadLocalMachineConfig();
-
-	/**
-	 * Saves updated configuration values for this computer, call from main thread.
-	 */
-	void SaveLocalMachineConfig();
 };

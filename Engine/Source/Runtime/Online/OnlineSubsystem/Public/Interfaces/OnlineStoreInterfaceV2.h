@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OnlineDelegateMacros.h"
@@ -13,49 +13,18 @@ typedef FString FUniqueCategoryId;
 class FOnlineStoreOffer
 {
 public:
-	FOnlineStoreOffer()
-	: NumericPrice(-1)
-	, ReleaseDate(0)
-	{
-	}
-	virtual ~FOnlineStoreOffer()
-	{
-	}
-
 	/** Unique offer identifier */
 	FUniqueOfferId OfferId;
-
 	/** Title for display */
 	FText Title;	
 	/** Short description for display */
 	FText Description;
 	/** Full description for display */
 	FText LongDescription;
-	/** Full pricing info as text for display */
-	FText PriceText;
-	
-	/** Price in numeric form for comparison/sorting */
-	int32 NumericPrice;
-	/** Price currency code */
-	FString CurrencyCode;
-
+	/** Price in text for display */
+	FText DisplayPrice;
 	/** Date the offer was released */
 	FDateTime ReleaseDate;
-
-	/** @return FText suitable for localized display */
-	virtual FText GetDisplayPrice() const
-	{
-		if (!PriceText.IsEmpty())
-		{
-			return PriceText;			
-		}
-		else
-		{
-			return FText::AsCurrencyBase(NumericPrice, CurrencyCode);
-		}
-		
-	}
-
 	/** @return True if offer can be purchased */
 	virtual bool IsPurchaseable() const 
 	{ 
@@ -84,23 +53,27 @@ public:
 class FOnlineStoreFilter
 {
 public:
+	/** Namespace for identifying an entire store */
+	FString Namespace;
 	/** Keyword strings to match when filtering items/offers */
 	TArray<FString> Keywords;
 	/** Category paths to match when filtering offers */
 	TArray<FOnlineStoreCategory> IncludeCategories;
 	/** Category paths to exclude when filtering offers */
 	TArray<FOnlineStoreCategory> ExcludeCategories;
+	/** Currency to use for viewing catalog */
+	FString CurrencyCode;
 };
 
 /**
  * Delegate called when available online categories have been queried
  */
-DECLARE_DELEGATE_TwoParams(FOnQueryOnlineStoreCategoriesComplete, bool /*bWasSuccessful*/, const FString& /*Error*/);
+DECLARE_DELEGATE_ThreeParams(FOnQueryOnlineStoreCategoriesComplete, const FUniqueNetId& /*UserId*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
 
 /**
  * Delegate called when online store query completes
  */
-DECLARE_DELEGATE_ThreeParams(FOnQueryOnlineStoreOffersComplete, bool /*bWasSuccessful*/, const TArray<FUniqueOfferId>& /*OfferIds*/, const FString& /*Error*/);
+DECLARE_DELEGATE_FourParams(FOnQueryOnlineStoreOffersComplete, const FUniqueNetId& /*UserId*/, bool /*bWasSuccessful*/, const TArray<FUniqueOfferId>& /*OfferIds*/, const FString& /*Error*/);
 
 /**
  *	Access to available offers for purchase
@@ -110,12 +83,14 @@ class IOnlineStoreV2
 public:
 
 	/**
-	 * Query for available store categories. Delegate callback is guaranteed.
+	 * Query for available store categories
 	 *
 	 * @param UserId user initiating the request
 	 * @param Delegate completion callback
+	 *
+	 * @return true if async operation started
 	 */
-	virtual void QueryCategories(const FUniqueNetId& UserId, const FOnQueryOnlineStoreCategoriesComplete& Delegate = FOnQueryOnlineStoreCategoriesComplete()) = 0;
+	virtual bool QueryCategories(const FUniqueNetId& UserId, const FOnQueryOnlineStoreCategoriesComplete& Delegate = FOnQueryOnlineStoreCategoriesComplete()) = 0;
 
 	/**
 	 * Get currently cached store categories
@@ -125,16 +100,18 @@ public:
 	virtual void GetCategories(TArray<FOnlineStoreCategory>& OutCategories) const = 0;
 
 	/**
-	 * Query for available store offers using a filter. Delegate callback is guaranteed.
+	 * Query for available store offers using a filter
 	 *
 	 * @param UserId user initiating the request
 	 * @param Filter only return offers matching the filter
 	 * @param Delegate completion callback
+	 *
+	 * @return true if async operation started
 	 */
-	virtual void QueryOffersByFilter(const FUniqueNetId& UserId, const FOnlineStoreFilter& Filter, const FOnQueryOnlineStoreOffersComplete& Delegate = FOnQueryOnlineStoreOffersComplete()) = 0;
+	virtual bool QueryOffersByFilter(const FUniqueNetId& UserId, const FOnlineStoreFilter& Filter, const FOnQueryOnlineStoreOffersComplete& Delegate = FOnQueryOnlineStoreOffersComplete()) = 0;
 
 	/**
-	 * Query for available store offers matching the given ids. Delegate callback is guaranteed.
+	 * Query for available store offers matching the given ids
 	 *
 	 * @param UserId user initiating the request
 	 * @param OfferIds only return offers matching these ids
@@ -142,7 +119,7 @@ public:
 	 *
 	 * @return true if async operation started
 	 */
-	virtual void QueryOffersById(const FUniqueNetId& UserId, const TArray<FUniqueOfferId>& OfferIds, const FOnQueryOnlineStoreOffersComplete& Delegate = FOnQueryOnlineStoreOffersComplete()) = 0;
+	virtual bool QueryOffersById(const FUniqueNetId& UserId, const TArray<FUniqueOfferId>& OfferIds, const FOnQueryOnlineStoreOffersComplete& Delegate = FOnQueryOnlineStoreOffersComplete()) = 0;
 
 	/**
 	 * Get currently cached store offers

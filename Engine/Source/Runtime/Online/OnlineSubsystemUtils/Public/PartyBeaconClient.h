@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -81,10 +81,6 @@ UCLASS(transient, notplaceable, config=Engine)
 class ONLINESUBSYSTEMUTILS_API APartyBeaconClient : public AOnlineBeaconClient
 {
 	GENERATED_UCLASS_BODY()
-
-	//~ Begin UObject Interface
-	virtual void BeginDestroy() override;
-	//~ End UObject Interface
 
 	//~ Begin AOnlineBeaconClient Interface
 	virtual void OnConnected() override;
@@ -169,14 +165,6 @@ class ONLINESUBSYSTEMUTILS_API APartyBeaconClient : public AOnlineBeaconClient
 	virtual void ClientReservationResponse(EPartyReservationResult::Type ReservationResponse);
 
 	/**
-	 * Response from the host session after making a cancellation request
-	 *
-	 * @param ReservationResponse response from server
-	 */
-	UFUNCTION(client, reliable)
-	virtual void ClientCancelReservationResponse(EPartyReservationResult::Type ReservationResponse);
-	
-	/**
 	 * Response from the host session that the reservation count has changed
 	 *
 	 * @param NumRemainingReservations number of slots remaining until a full session
@@ -238,31 +226,6 @@ protected:
 	UPROPERTY()
 	bool bCancelReservation;
 
-	/** Timer to trigger a cancel reservation request if the server doesn't respond in time */
-	FTimerHandle CancelRPCFailsafe;
-
-	/** Timers for delaying various responses (debug) */
-	FTimerHandle PendingResponseTimerHandle;
-	FTimerHandle PendingCancelResponseTimerHandle;
-	FTimerHandle PendingReservationUpdateTimerHandle;
-	FTimerHandle PendingReservationFullTimerHandle;
-
-	/** Clear out all the timer handles listed above */
-	void ClearTimers();
-	/** Delegate triggered if the client doesn't hear from the server in time */
-	void OnCancelledFailsafe();
-	/** Delegate triggered when a cancel reservation request is complete */
-	void OnCancelledComplete();
-
-	/** Process a response to our RequestReservation request to the server */
-	void ProcessReservationResponse(EPartyReservationResult::Type ReservationResponse);
-	/** Process a response to our CancelReservation request to the server */
-	void ProcessCancelReservationResponse(EPartyReservationResult::Type ReservationResponse);
-	/** Process a response from the server with an update to the number of consumed reservations */
-	void ProcessReservationUpdate(int32 NumRemainingReservations);
-	/** Process a response from the server that the reservation beacon is full */
-	void ProcessReservationFull();
-
 	/**
 	 * Tell the server about the reservation request being made
 	 *
@@ -288,14 +251,4 @@ protected:
 	 */
 	UFUNCTION(server, reliable, WithValidation)
 	virtual void ServerCancelReservationRequest(const FUniqueNetIdRepl& PartyLeader);
-
-	/**
-	 * Trigger the given delegate at a later time
-	 *
-	 * @param Delegate function to call at a later date
-	 * @param Delay time to wait before calling function
-	 *
-	 * @return handle in the timer system for this entry
-	 */
-	FTimerHandle DelayResponse(FTimerDelegate& Delegate, float Delay);
 };

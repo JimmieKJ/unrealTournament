@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemPrivatePCH.h"
 #include "OnlineSessionInterface.h"
@@ -10,6 +10,7 @@
 
 DEFINE_LOG_CATEGORY(LogOnline);
 DEFINE_LOG_CATEGORY(LogOnlineGame);
+DEFINE_LOG_CATEGORY(LogOnlineParty);
 DEFINE_LOG_CATEGORY(LogOnlineChat);
 
 #if STATS
@@ -48,7 +49,7 @@ int32 GetBuildUniqueId()
 		bStaticCheck = true;
 	}
 
-	int32 BuildId = 0;
+	int32 Crc = 0;
 	if (bUseBuildIdOverride == false)
 	{
 		/** Engine package CRC doesn't change, can't be used as the version - BZ */
@@ -56,23 +57,20 @@ int32 GetBuildUniqueId()
 		// Serialize to a NBO buffer for consistent CRCs across platforms
 		Buffer << GEngineNetVersion;
 		// Now calculate the CRC
-		uint32 Crc = FCrc::MemCrc32((uint8*)Buffer, Buffer.GetByteCount());
-
-		// make sure it's positive when it's cast back to an int
-		BuildId = static_cast<int32>(Crc & 0x7fffffff);
+		Crc = static_cast<int32>(FCrc::MemCrc_DEPRECATED((uint8*)Buffer, Buffer.GetByteCount()));
 	}
 	else
 	{
-		BuildId = BuildIdOverride;
+		Crc = BuildIdOverride;
 	}
 
-	UE_LOG_ONLINE(VeryVerbose, TEXT("GetBuildUniqueId: GEngineNetVersion %d bUseBuildIdOverride %d BuildIdOverride %d BuildId %d"),
+	UE_LOG_ONLINE(VeryVerbose, TEXT("GetBuildUniqueId: GEngineNetVersion %d bUseBuildIdOverride %d BuildIdOverride %d Crc %d"),
 		GEngineNetVersion,
 		bUseBuildIdOverride,
 		BuildIdOverride,
-		BuildId);
+		Crc);
 
-	return BuildId;
+	return Crc;
 }
 
 bool IsPlayerInSessionImpl(IOnlineSession* SessionInt, FName SessionName, const FUniqueNetId& UniqueId)

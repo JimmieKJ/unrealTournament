@@ -1,8 +1,6 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
-
-#if !PLATFORM_TVOS // @todo tvos: What is up with all this being busted?? Multipeer is gone, but so is older stuff? What's to do??
 
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
 @implementation FGameCenterSessionDelegateGK
@@ -106,7 +104,7 @@
 @end
 #endif
 
-#if defined(__IPHONE_7_0)
+#ifdef __IPHONE_7_0
 @implementation FGameCenterSessionDelegateMC
 @synthesize Session;
 @synthesize PeerID;
@@ -259,10 +257,6 @@
 @end
 
 
-
-#endif
-
-
 FOnlineSessionIOS::FOnlineSessionIOS() :
 	IOSSubsystem(NULL),
 	CurrentSessionSearch(NULL)
@@ -366,7 +360,6 @@ bool FOnlineSessionIOS::HasPresenceSession()
 bool FOnlineSessionIOS::CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
 {
 	bool bSuccessfullyCreatedSession = false;
-#if !PLATFORM_TVOS
 	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::CreateSession"));
 	
 	// Check for an existing session
@@ -399,8 +392,7 @@ bool FOnlineSessionIOS::CreateSession(int32 HostingPlayerNum, FName SessionName,
 	
 	UE_LOG(LogOnline, Display, TEXT("TriggerOnCreateSessionCompleteDelegates: %s, %d"), *SessionName.ToString(), bSuccessfullyCreatedSession);
 	TriggerOnCreateSessionCompleteDelegates(SessionName, bSuccessfullyCreatedSession);
-#endif
-	
+
 	return bSuccessfullyCreatedSession;
 }
 
@@ -415,7 +407,6 @@ bool FOnlineSessionIOS::CreateSession(const FUniqueNetId& HostingPlayerId, FName
 bool FOnlineSessionIOS::StartSession(FName SessionName)
 {
 	bool bSuccessfullyStartedSession = false;
-#if !PLATFORM_TVOS
 	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::StartSession"));
 		
 	// Check for an existing session
@@ -437,7 +428,7 @@ bool FOnlineSessionIOS::StartSession(FName SessionName)
 	}
 
 	TriggerOnStartSessionCompleteDelegates(SessionName, bSuccessfullyStartedSession);
-#endif
+
 	return bSuccessfullyStartedSession;
 }
 
@@ -469,7 +460,6 @@ bool FOnlineSessionIOS::EndSession(FName SessionName)
 bool FOnlineSessionIOS::DestroySession(FName SessionName, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
 	bool bSuccessfullyDestroyedSession = false;
-#if !PLATFORM_TVOS
 	
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session == NULL)
@@ -487,7 +477,7 @@ bool FOnlineSessionIOS::DestroySession(FName SessionName, const FOnDestroySessio
 
 	CompletionDelegate.ExecuteIfBound(SessionName, bSuccessfullyDestroyedSession);
 	TriggerOnDestroySessionCompleteDelegates(SessionName, bSuccessfullyDestroyedSession);
-#endif
+
 	return bSuccessfullyDestroyedSession;
 }
 
@@ -523,7 +513,6 @@ bool FOnlineSessionIOS::FindSessions(int32 SearchingPlayerNum, const TSharedRef<
 {
 	bool bSuccessfullyFoundSessions = false;
 
-#if !PLATFORM_TVOS
 	// Don't start another search while one is in progress
 	if (!CurrentSessionSearch.IsValid() && SearchSettings->SearchState != EOnlineAsyncTaskState::InProgress)
 	{
@@ -535,7 +524,7 @@ bool FOnlineSessionIOS::FindSessions(int32 SearchingPlayerNum, const TSharedRef<
 	}
 
 	TriggerOnFindSessionsCompleteDelegates(bSuccessfullyFoundSessions);
-#endif
+
 	return bSuccessfullyFoundSessions;
 }
 
@@ -578,7 +567,6 @@ bool FOnlineSessionIOS::PingSearchResults(const FOnlineSessionSearchResult& Sear
 bool FOnlineSessionIOS::JoinSession(int32 PlayerNum, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
 {
 	EOnJoinSessionCompleteResult::Type JoinSessionResult = EOnJoinSessionCompleteResult::UnknownError;
-#if !PLATFORM_TVOS
 	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::JoinSession"));
 
 	FGameCenterSessionDelegate* SessionDelegate = *GKSessions.Find( SessionName );
@@ -589,7 +577,7 @@ bool FOnlineSessionIOS::JoinSession(int32 PlayerNum, FName SessionName, const FO
 	}
 
 	TriggerOnJoinSessionCompleteDelegates(SessionName, JoinSessionResult);
-#endif
+
 	return JoinSessionResult == EOnJoinSessionCompleteResult::Success;
 }
 

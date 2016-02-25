@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
@@ -6,8 +6,6 @@
 #include "ModuleManager.h"
 #include "ImageCore.h"
 #include "TestSharingInterface.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 FTestSharingInterface::FTestSharingInterface(const FString& InSubsystem)
 {
@@ -191,5 +189,3 @@ void FTestSharingInterface::OnNewsFeedRead(int32 LocalPlayer, bool bWasSuccessfu
 		delete this;
 	}
 }
-
-#endif //WITH_DEV_AUTOMATION_TESTS

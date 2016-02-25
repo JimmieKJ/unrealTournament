@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlinePIESettings.h"
@@ -111,8 +111,11 @@ void UOnlinePIESettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 		FName SubPropName = PropertyChangedEvent.Property->GetFName();
 		if (MemberPropName == "bOnlinePIEEnabled")
 		{
-			// Possibly get rid of the null subsystem in favor of the real default or if we are disabling online pie then get rid of the real subsystem to replace it with null
-			IOnlineSubsystem::ReloadDefaultSubsystem();
+			if (bOnlinePIEEnabled)
+			{
+				// Possibly get rid of the null subsystem in favor of the real default
+				IOnlineSubsystem::ReloadDefaultSubsystem();
+			}
 		}
 		if (MemberPropName == "Logins")
 		{

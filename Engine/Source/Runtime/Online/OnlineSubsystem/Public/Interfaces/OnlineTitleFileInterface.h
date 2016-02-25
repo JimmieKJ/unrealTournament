@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
  #include "OnlineDelegateMacros.h"
@@ -11,15 +11,6 @@
  */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnEnumerateFilesComplete, bool);
 typedef FOnEnumerateFilesComplete::FDelegate FOnEnumerateFilesCompleteDelegate;
-
-/**
- * Delegate fired when as file read from the network platform's storage progresses
- *
- * @param FileName the name of the file this was for
- * @param NumBytes the number of bytes read so far
- */
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnReadFileProgress, const FString&, uint64);
-typedef FOnReadFileProgress::FDelegate FOnReadFileProgressDelegate;
 
 /**
  * Delegate fired when a file read from the network platform's storage is complete
@@ -115,13 +106,8 @@ public:
 	 */
 	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnReadFileComplete, bool, const FString&);
 
-	/**
-	 * Delegate fired when as file read from the network platform's storage progresses
-	 *
-	 * @param FileName the name of the file this was for
-	 * @param NumBytes the number of bytes read so far
-	 */
-	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnReadFileProgress, const FString&, uint64);
+
+
 };
 
 typedef TSharedPtr<IOnlineTitleFile, ESPMode::ThreadSafe> IOnlineTitleFilePtr;

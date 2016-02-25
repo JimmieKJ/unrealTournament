@@ -1,28 +1,14 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemPrivatePCH.h"
 #include "OnlineAsyncTaskManager.h"
 
 int32 FOnlineAsyncTaskManager::InvocationCount = 0;
 
-#if !UE_BUILD_SHIPPING
-namespace OSSConsoleVariables
-{
-	/** Time to delay finalization of a task in the out queue */
-	TAutoConsoleVariable<float> CVarDelayAsyncTaskOutQueue(
-		TEXT("OSS.DelayAsyncTaskOutQueue"),
-		0.0f,
-		TEXT("Min total async task time\n")
-		TEXT("Time in secs"),
-		ECVF_Default);
-}
-#endif
-
 /** The default value for the polling interval when not set by config */
 #define POLLING_INTERVAL_MS 50
 
 FOnlineAsyncTaskManager::FOnlineAsyncTaskManager() :
-	ActiveTask(nullptr),
 	WorkEvent(nullptr),
 	PollingInterval(POLLING_INTERVAL_MS),
 	bRequestingExit(0),
@@ -52,6 +38,8 @@ uint32 FOnlineAsyncTaskManager::Run(void)
 
 	do 
 	{
+		int32 InitialQueueSize = 0;
+		int32 CurrentQueueSize = 0;
 		FOnlineAsyncTask* Task = NULL;
 
 		// Wait for a trigger event to start work
@@ -59,6 +47,11 @@ uint32 FOnlineAsyncTaskManager::Run(void)
 		if (!bRequestingExit)
 		{
 			SCOPE_CYCLE_COUNTER(STAT_Online_Async);
+			{
+				FScopeLock LockInQueue(&InQueueLock);
+				InitialQueueSize = InQueue.Num();
+				SET_DWORD_STAT(STAT_Online_AsyncTasks, InitialQueueSize);
+			}
 			
 			double TimeElapsed = 0;
 
@@ -104,38 +97,50 @@ uint32 FOnlineAsyncTaskManager::Run(void)
 			}
 
 			// Now process the serial "In" queue
-			{
-				FScopeLock LockActiveTask(&ActiveTaskLock);
-				Task = ActiveTask;
-			}
-			if (Task)
-			{
-				Task->Tick();
-	
-				if (Task->IsDone())
+			do
+			{	
+				Task = NULL;
+
+				// Grab the current task from the queue
 				{
-					if (Task->WasSuccessful())
+					FScopeLock LockInQueue(&InQueueLock);
+					CurrentQueueSize = InQueue.Num();
+					if (CurrentQueueSize > 0)
 					{
-						UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' succeeded in %f seconds"),
-							*Task->ToString(),
-							Task->GetElapsedTime());
+						Task = InQueue[0];
+					}
+				}
+
+				if (Task)
+				{
+					Task->Tick();
+	
+					if (Task->IsDone())
+					{
+						if (Task->WasSuccessful())
+						{
+							UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' succeeded in %f seconds"),
+								*Task->ToString(),
+								Task->GetElapsedTime());
+						}
+						else
+						{
+							UE_LOG(LogOnline, Warning, TEXT("Async task '%s' failed in %f seconds"),
+								*Task->ToString(),
+								Task->GetElapsedTime());
+						}
+						
+						// Task is done, remove from the incoming queue and add to the outgoing queue
+						PopFromInQueue();
+						AddToOutQueue(Task);
 					}
 					else
 					{
-						UE_LOG(LogOnline, Warning, TEXT("Async task '%s' failed in %f seconds"),
-							*Task->ToString(),
-							Task->GetElapsedTime());
-					}
-						
-					// Task is done, add to the outgoing queue
-					AddToOutQueue(Task);
-					
-					{
-						FScopeLock LockActiveTask(&ActiveTaskLock);
-						ActiveTask = nullptr;
+						Task = NULL;
 					}
 				}
 			}
+			while (Task != NULL);
 		}
 	} 
 	while (!bRequestingExit);
@@ -162,6 +167,16 @@ void FOnlineAsyncTaskManager::AddToInQueue(FOnlineAsyncTask* NewTask)
 {
 	FScopeLock Lock(&InQueueLock);
 	InQueue.Add(NewTask);
+	WorkEvent->Trigger();
+}
+
+void FOnlineAsyncTaskManager::PopFromInQueue()
+{
+	// assert if not game thread
+	check(FPlatformTLS::GetCurrentThreadId() == OnlineThreadId || !FPlatformProcess::SupportsMultithreading());
+
+	FScopeLock Lock(&InQueueLock);
+	InQueue.RemoveAt(0);
 }
 
 void FOnlineAsyncTaskManager::AddToOutQueue(FOnlineAsyncItem* CompletedItem)
@@ -172,8 +187,6 @@ void FOnlineAsyncTaskManager::AddToOutQueue(FOnlineAsyncItem* CompletedItem)
 
 void FOnlineAsyncTaskManager::AddToParallelTasks(FOnlineAsyncTask* NewTask)
 {
-	NewTask->Initialize();
-
 	FScopeLock LockParallelTasks(&ParallelTasksLock);
 
 	ParallelTasks.Add( NewTask );
@@ -194,10 +207,6 @@ void FOnlineAsyncTaskManager::GameTick()
 	FOnlineAsyncItem* Item = NULL;
 	int32 CurrentQueueSize = 0;
 
-#if !UE_BUILD_SHIPPING
-	const float TimeToWait = OSSConsoleVariables::CVarDelayAsyncTaskOutQueue.GetValueOnGameThread();
-#endif
-
 	do 
 	{
 		Item = NULL;
@@ -208,33 +217,12 @@ void FOnlineAsyncTaskManager::GameTick()
 			if (CurrentQueueSize > 0)
 			{
 				Item = OutQueue[0];
-
-#if !UE_BUILD_SHIPPING
-				if (Item && Item->GetElapsedTime() >= TimeToWait)
-				{
-					OutQueue.RemoveAt(0);
-				}
-				else
-				{
-					Item = nullptr;
-				}
-#else
-				OutQueue.RemoveAt(0);	
-#endif
+				OutQueue.RemoveAt(0);
 			}
 		}
 
 		if (Item)
 		{
-#if !UE_BUILD_SHIPPING
-			if (TimeToWait > 0.0f)
-			{
-				UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' finalizing after %f seconds"),
-					*Item->ToString(),
-					Item->GetElapsedTime());
-			}
-#endif
-
 			// Finish work and trigger delegates
 			Item->Finalize();
 			Item->TriggerDelegates();
@@ -242,93 +230,62 @@ void FOnlineAsyncTaskManager::GameTick()
 		}
 	}
 	while (Item != NULL);
-
-	int32 QueueSize = 0;
-	bool bHasActiveTask = false;
-	{
-		{
-			FScopeLock LockInQueue(&InQueueLock);
-			QueueSize = InQueue.Num();
-		}
-		{
-			FScopeLock LockActiveTask(&ActiveTaskLock);
-			if (ActiveTask != nullptr)
-			{
-				++QueueSize;
-				bHasActiveTask = true;
-			}
-		}
-
-		if (!bHasActiveTask && QueueSize > 0)
-		{
-			// Grab the current task from the queue
-			FOnlineAsyncTask* Task = nullptr;
-			{
-				FScopeLock LockInQueue(&InQueueLock);
-				Task = InQueue[0];
-				InQueue.RemoveAt(0);
-			}
-			{
-				FScopeLock LockActiveTask(&ActiveTaskLock);
-				ActiveTask = Task;
-				ActiveTask->Initialize();
-			}
-			WorkEvent->Trigger();
-		}
-	}
-
-	SET_DWORD_STAT(STAT_Online_AsyncTasks, QueueSize);
 }
 
 void FOnlineAsyncTaskManager::Tick()
 {
+	// parallel Q.
+	FOnlineAsyncTask* Task = NULL;
+
 	// Tick Online services ( possibly callbacks ). 
 	OnlineTick();
 
+	// Tick all the parallel tasks - Tick unrelated tasks together. 
+
+	// Create a copy of existing tasks. 
+	TArray<FOnlineAsyncTask*> CopyParallelTasks = ParallelTasks;
+
+	// Iterate. 
+	for (auto it = CopyParallelTasks.CreateIterator(); it; ++it)
 	{
-		// Tick all the parallel tasks - Tick unrelated tasks together. 
+		Task = *it;
+		Task->Tick();
 
-		// Create a copy of existing tasks. 
-		TArray<FOnlineAsyncTask*> CopyParallelTasks = ParallelTasks;
-
-		// parallel Q.
-		FOnlineAsyncTask* Task = NULL;
-
-		// Iterate. 
-		for (auto it = CopyParallelTasks.CreateIterator(); it; ++it)
+		if (Task->IsDone())
 		{
-			Task = *it;
-			Task->Tick();
+			UE_LOG(LogOnline, Log, TEXT("Async parallel Task '%s' completed in %f seconds with %d (Parallel)"),
+				*Task->ToString(),
+				Task->GetElapsedTime(),
+				Task->WasSuccessful());
 
-			if (Task->IsDone())
-			{
-				UE_LOG(LogOnline, Log, TEXT("Async parallel Task '%s' completed in %f seconds with %d (Parallel)"),
-					*Task->ToString(),
-					Task->GetElapsedTime(),
-					Task->WasSuccessful());
-
-				// Task is done, fixup the original parallel task queue. 
-				RemoveFromParallelTasks(Task);
-				AddToOutQueue(Task);
-			}
+			// Task is done, fixup the original parallel task queue. 
+			RemoveFromParallelTasks(Task);
+			AddToOutQueue(Task);
 		}
 	}
 
 	// Serial Q.
-	if (ActiveTask == nullptr)
+	if (InQueue.Num() == 0)
 		return;
 
-	ActiveTask->Tick();
+	// Pick up the first element in the queue ( "current task" ). 
+	Task = InQueue[0];
 
-	if (ActiveTask->IsDone())
+	// Needed ?
+	if (Task == NULL)
+		return;
+
+	Task->Tick();
+
+	if (Task->IsDone())
 	{
 		UE_LOG(LogOnline, Log, TEXT("Async serial task '%s' completed in %f seconds with %d"),
-			*ActiveTask->ToString(),
-			ActiveTask->GetElapsedTime(),
-			ActiveTask->WasSuccessful());
+			*Task->ToString(),
+			Task->GetElapsedTime(),
+			Task->WasSuccessful());
 
-		// Task is done, add to the outgoing queue
-		AddToOutQueue(ActiveTask);
-		ActiveTask = nullptr;
+		// Task is done, remove from the incoming queue and add to the outgoing queue
+		PopFromInQueue();
+		AddToOutQueue(Task);
 	}
 }

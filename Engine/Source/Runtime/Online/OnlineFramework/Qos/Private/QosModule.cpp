@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "QosPrivatePCH.h"
 #include "QosModule.h"
@@ -11,19 +11,18 @@ DEFINE_LOG_CATEGORY(LogQos);
 
 void FQosModule::StartupModule()
 {
+	QosInterface = new FQosInterface();
 }
 
 void FQosModule::ShutdownModule()
 {
+	delete QosInterface;
+	QosInterface = nullptr;
 }
 
-TSharedRef<FQosInterface> FQosModule::GetQosInterface()
+FQosInterface* FQosModule::GetQosInterface()
 {
-	if (!QosInterface.IsValid())
-	{
-		QosInterface = MakeShareable(new FQosInterface());
-	}
-	return QosInterface.ToSharedRef();
+	return QosInterface;
 }
 
 bool FQosModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)

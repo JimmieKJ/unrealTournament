@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "QosPrivatePCH.h"
 #include "QosEvaluator.h"
@@ -6,6 +6,26 @@
 #include "QosBeaconClient.h"
 #include "QosStats.h"
 #include "OnlineSubsystemUtils.h"
+
+FOnlineSessionSettingsQos::FOnlineSessionSettingsQos(bool bInIsDedicated) 
+{
+	NumPublicConnections = 1;
+	NumPrivateConnections = 0;
+
+	bIsLANMatch = false;
+	bShouldAdvertise = true;
+	bAllowJoinInProgress = true;
+	bAllowInvites = true;
+	bUsesPresence = false;
+	bAllowJoinViaPresence = true;
+	bAllowJoinViaPresenceFriendsOnly = false;
+
+	FString GameModeStr(GAMEMODE_QOS);
+	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
+	Set(SETTING_QOS, 1, EOnlineDataAdvertisementType::ViaOnlineService);
+	Set(SETTING_REGION, UQosEvaluator::GetDefaultRegionString(), EOnlineDataAdvertisementType::ViaOnlineService);
+	bIsDedicated = bInIsDedicated;
+}
 
 FOnlineSessionSearchQos::FOnlineSessionSearchQos()
 {
@@ -15,11 +35,6 @@ FOnlineSessionSearchQos::FOnlineSessionSearchQos()
 	FString GameModeStr(GAMEMODE_QOS);
 	QuerySettings.Set(SETTING_GAMEMODE, GameModeStr, EOnlineComparisonOp::Equals);
 	QuerySettings.Set(SETTING_QOS, 1, EOnlineComparisonOp::Equals);
-}
-
-TSharedPtr<FOnlineSessionSettings> FOnlineSessionSearchQos::GetDefaultSessionSettings() const
-{
-	return MakeShareable(new FOnlineSessionSettingsQos());
 }
 
 void FOnlineSessionSearchQos::SortSearchResults()
@@ -58,29 +73,33 @@ void FOnlineSessionSearchQos::SortSearchResults()
 	}
 }
 
-FQosEvaluator::FQosEvaluator(UWorld* World) 
-:	ParentWorld(World)
-,	QosSearchQuery(nullptr)
-,	QosBeaconClient(nullptr)
-,	bInProgress(false)
-,	bCancelOperation(false)
-,	AnalyticsProvider(nullptr)
-,	QosStats(nullptr)
+
+UQosEvaluator::UQosEvaluator(const FObjectInitializer& ObjectInitializer) :
+	Super(ObjectInitializer),
+	QosSearchQuery(nullptr),
+	QosBeaconClient(nullptr),
+	bInProgress(false),
+	bCancelOperation(false),
+	AnalyticsProvider(nullptr),
+	QosStats(nullptr)
 {
-	check(World != nullptr);
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		SearchState.DatacenterId = GetDefaultRegionString();
+	}
 }
 
-void FQosEvaluator::SetAnalyticsProvider(TSharedPtr<IAnalyticsProvider> InAnalyticsProvider)
+void UQosEvaluator::SetAnalyticsProvider(TSharedPtr<IAnalyticsProvider> InAnalyticsProvider)
 {
 	AnalyticsProvider = InAnalyticsProvider;
 }
 
-void FQosEvaluator::Cancel()
+void UQosEvaluator::Cancel()
 {
 	bCancelOperation = true;
 }
 
-void FQosEvaluator::FindDatacenters(int32 ControllerId, const FOnQosSearchComplete& InCompletionDelegate)
+void UQosEvaluator::FindDatacenters(int32 ControllerId, const FOnQosSearchComplete& InCompletionDelegate)
 {
 	EQosCompletionResult Result = EQosCompletionResult::Failure;
 
@@ -92,53 +111,45 @@ void FQosEvaluator::FindDatacenters(int32 ControllerId, const FOnQosSearchComple
 
 		StartAnalytics();
 
-		IOnlineSubsystem* OnlineSub = Online::GetSubsystem(GetWorld());
-		if (OnlineSub)
+		bool bForcedCached = QOSConsoleVariables::CVarForceCached.GetValueOnGameThread() != 0;
+		bool bOverrideTimestamp = QOSConsoleVariables::CVarOverrideTimestamp.GetValueOnGameThread() != 0;
+		if (!bForcedCached && ((CurTimestamp - SearchState.LastDatacenterIdTimestamp >= DATACENTERQUERY_INTERVAL) || bOverrideTimestamp))
 		{
-			IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
-			if (SessionInt.IsValid())
+			IOnlineSubsystem* OnlineSub = Online::GetSubsystem(GetWorld());
+			if (OnlineSub)
 			{
-				const TSharedRef<FOnlineSessionSearch> QosSearchParams = MakeShareable(new FOnlineSessionSearchQos());
-				QosSearchQuery = QosSearchParams;
-
-				if ( OnFindDatacentersCompleteDelegateHandle.IsValid() )
+				IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+				if (SessionInt.IsValid())
 				{
-					SessionInt->ClearOnFindSessionsCompleteDelegate_Handle( OnFindDatacentersCompleteDelegateHandle );
-				}
-				// now make a new bind
-				{
-					FOnFindSessionsCompleteDelegate OnFindDatacentersCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateSP( this, &FQosEvaluator::OnFindDatacentersComplete, InCompletionDelegate );
-					OnFindDatacentersCompleteDelegateHandle = SessionInt->AddOnFindSessionsCompleteDelegate_Handle( OnFindDatacentersCompleteDelegate );
-				}
+					const TSharedRef<FOnlineSessionSearch> QosSearchParams = MakeShareable(new FOnlineSessionSearchQos());
+					QosSearchQuery = QosSearchParams;
 
-				SessionInt->FindSessions(ControllerId, QosSearchParams);
-				Result = EQosCompletionResult::Success;
+					FOnFindSessionsCompleteDelegate OnFindDatacentersCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnFindDatacentersComplete, InCompletionDelegate);
+					OnFindDatacentersCompleteDelegateHandle = SessionInt->AddOnFindSessionsCompleteDelegate_Handle(OnFindDatacentersCompleteDelegate);
+					SessionInt->FindSessions(ControllerId, QosSearchParams);
+					Result = EQosCompletionResult::Success;
+				}
 			}
+		}
+		else
+		{
+			Result = EQosCompletionResult::Cached;
 		}
 
 		if (Result != EQosCompletionResult::Success)
 		{
-			TWeakPtr<FQosEvaluator> WeakThisCap(AsShared());
-			GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([InCompletionDelegate, Result, WeakThisCap]() {
-				auto StrongThis = WeakThisCap.Pin();
-				if (StrongThis.IsValid())
-				{
-					StrongThis->FinalizeDatacenterResult(InCompletionDelegate, Result, TArray<FQosRegionInfo>());
-				}
-			}));
+			FinalizeDatacenterResult(InCompletionDelegate, Result);
 		}
 	}
 	else
 	{
 		UE_LOG(LogQos, Log, TEXT("Qos evaluation already in progress, ignoring"));
 		// Just trigger delegate now (Finalize resets state vars)
-		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([InCompletionDelegate]() {
-			InCompletionDelegate.ExecuteIfBound(EQosCompletionResult::Failure, TArray<FQosRegionInfo>());
-		}));
+		InCompletionDelegate.ExecuteIfBound(Result, SearchState.DatacenterId);
 	}
 }
 
-void FQosEvaluator::OnFindDatacentersComplete(bool bWasSuccessful, FOnQosSearchComplete InCompletionDelegate)
+void UQosEvaluator::OnFindDatacentersComplete(bool bWasSuccessful, FOnQosSearchComplete InCompletionDelegate)
 {
 	IOnlineSubsystem* OnlineSub = Online::GetSubsystem(GetWorld());
 	if (OnlineSub)
@@ -157,7 +168,7 @@ void FQosEvaluator::OnFindDatacentersComplete(bool bWasSuccessful, FOnQosSearchC
 			// Mark not in progress so it falls into EvaluateServerPing
 			bInProgress = false;
 
-			FOnQosPingEvalComplete CompletionDelegate = FOnQosPingEvalComplete::CreateSP(this, &FQosEvaluator::OnEvaluateForDatacenterComplete, InCompletionDelegate);
+			FOnQosPingEvalComplete CompletionDelegate = FOnQosPingEvalComplete::CreateUObject(this, &ThisClass::OnEvaluateForDatacenterComplete, InCompletionDelegate);
 			EvaluateServerPing(QosSearchQuery, CompletionDelegate);
 		}
 		else
@@ -172,9 +183,8 @@ void FQosEvaluator::OnFindDatacentersComplete(bool bWasSuccessful, FOnQosSearchC
 	}
 }
 
-void FQosEvaluator::OnEvaluateForDatacenterComplete(EQosCompletionResult Result, FOnQosSearchComplete InCompletionDelegate)
+void UQosEvaluator::OnEvaluateForDatacenterComplete(EQosCompletionResult Result, FOnQosSearchComplete InCompletionDelegate)
 {
-	TArray<FQosRegionInfo> RegionInfo;
 	if (Result == EQosCompletionResult::Success)
 	{
 		if (QosSearchQuery.IsValid() && QosSearchQuery->SearchResults.Num() > 0)
@@ -217,36 +227,28 @@ void FQosEvaluator::OnEvaluateForDatacenterComplete(EQosCompletionResult Result,
 				}
 			}
 
-			//@TODO: This is a temporary measure to reduce the effect of framerate on data center ping estimation
-			// (due to the use of beacons that are ticked on the game thread for the estimation)
-			// This value can be 0 to disable discounting or something like 1 or 2
-			const float FractionOfFrameTimeToDiscount = 2.0f;
-
-			extern ENGINE_API float GAverageMS;
-			const int32 TimeToDiscount = (int32)(FractionOfFrameTimeToDiscount * GAverageMS);
-
+			int32 BestAvgPing = MAX_QUERY_PING;
 			for (auto& QosResult : RegionAggregates)
 			{
-				int32 RawAvgPing = MAX_QUERY_PING;
-				int32 AdjustedAvgPing = RawAvgPing;
 				if (QosResult.Value.NumResults > 0)
 				{
-					RawAvgPing = QosResult.Value.TotalPingInMs / QosResult.Value.NumResults;
-					AdjustedAvgPing = FMath::Max<int32>(RawAvgPing - TimeToDiscount, 1);
-
-					FQosRegionInfo Region;
-					Region.RegionId = QosResult.Key;
-					Region.PingMs = AdjustedAvgPing;
-					RegionInfo.Add(Region);
+					QosResult.Value.AvgPing = QosResult.Value.TotalPingInMs / QosResult.Value.NumResults;
+					if (QosResult.Value.AvgPing < BestAvgPing)
+					{
+						BestAvgPing = QosResult.Value.AvgPing;
+						SearchState.DatacenterId = QosResult.Key;
+					}
 				}
 
-				UE_LOG(LogQos, Verbose, TEXT("Region[%s] Avg: %d Num: %d; Adjusted: %d"), *QosResult.Key, RawAvgPing, QosResult.Value.NumResults, AdjustedAvgPing);
+				UE_LOG(LogQos, Verbose, TEXT("Region[%s] Avg: %d Num: %d"), *QosResult.Key, QosResult.Value.AvgPing, QosResult.Value.NumResults);
 
 				if (QosStats.IsValid())
 				{
-					QosStats->RecordRegionInfo(QosResult.Key, AdjustedAvgPing, QosResult.Value.NumResults);
+					QosStats->RecordRegionInfo(QosResult.Key, QosResult.Value.AvgPing, QosResult.Value.NumResults);
 				}
 			}
+
+			SearchState.LastDatacenterIdTimestamp = FPlatformTime::Seconds();
 		}
 		else
 		{
@@ -254,28 +256,39 @@ void FQosEvaluator::OnEvaluateForDatacenterComplete(EQosCompletionResult Result,
 		}
 	}
 
-	FinalizeDatacenterResult(InCompletionDelegate, Result, RegionInfo);
+	FinalizeDatacenterResult(InCompletionDelegate, Result);
 }
 
-void FQosEvaluator::FinalizeDatacenterResult(const FOnQosSearchComplete& InCompletionDelegate, EQosCompletionResult CompletionResult, const TArray<FQosRegionInfo>& RegionInfo)
+void UQosEvaluator::FinalizeDatacenterResult(const FOnQosSearchComplete& InCompletionDelegate, EQosCompletionResult CompletionResult)
 {
-	UE_LOG(LogQos, Log, TEXT("Datacenter evaluation complete. Result: %s "), ToString(CompletionResult));
+	bool bForceDefault = QOSConsoleVariables::CVarForceDefaultRegion.GetValueOnGameThread() != 0;
+	FString ForceRegion = QOSConsoleVariables::CVarForceRegion.GetValueOnGameThread();
+
+	if (!ForceRegion.IsEmpty())
+	{
+		SearchState.DatacenterId = ForceRegion.ToUpper();
+	}
+	else if (bForceDefault)
+	{
+		SearchState.DatacenterId = GetDefaultRegionString();
+	}
+
+	UE_LOG(LogQos, Log, TEXT("Datacenter evaluation complete. Result: %s Region: %s%s"), 
+		ToString(CompletionResult), *SearchState.DatacenterId, ForceRegion.IsEmpty() ? (bForceDefault ? TEXT("[Default]") : TEXT("")) : TEXT("[Forced]")
+		);
+
 
 	EndAnalytics(CompletionResult);
 
 	// Broadcast this data next frame
-	TWeakPtr<FQosEvaluator> WeakThisCap(AsShared());
-	GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([InCompletionDelegate, CompletionResult, RegionInfo, WeakThisCap]() {
-		InCompletionDelegate.ExecuteIfBound(CompletionResult, RegionInfo); 
-		auto StrongThis = WeakThisCap.Pin();
-		if (StrongThis.IsValid())
-		{
-			StrongThis->ResetSearchVars();
-		}
-	}));
+	FString& DatacenterId = SearchState.DatacenterId;
+	FTimerDelegate TimerDelegate = FTimerDelegate::CreateLambda(
+		[InCompletionDelegate, CompletionResult, DatacenterId, this](){ InCompletionDelegate.ExecuteIfBound(CompletionResult, DatacenterId); ResetSearchVars(); }
+	);
+	GetWorldTimerManager().SetTimerForNextTick(TimerDelegate);
 }
 
-void FQosEvaluator::EvaluateServerPing(TSharedPtr<FOnlineSessionSearch>& SearchResults, const FOnQosPingEvalComplete& InCompletionDelegate)
+void UQosEvaluator::EvaluateServerPing(TSharedPtr<FOnlineSessionSearch>& SearchResults, const FOnQosPingEvalComplete& InCompletionDelegate)
 {
 	if (!bInProgress)
 	{
@@ -305,7 +318,7 @@ void FQosEvaluator::EvaluateServerPing(TSharedPtr<FOnlineSessionSearch>& SearchR
 	}
 }
 
-void FQosEvaluator::ContinuePingServers()
+void UQosEvaluator::ContinuePingServers()
 {
 	if (!bCancelOperation)
 	{
@@ -316,8 +329,8 @@ void FQosEvaluator::ContinuePingServers()
 			UWorld* World = GetWorld();
 			QosBeaconClient = World->SpawnActor<AQosBeaconClient>(AQosBeaconClient::StaticClass());
 
-			QosBeaconClient->OnQosRequestComplete().BindSP(this, &FQosEvaluator::OnQosRequestComplete);
-			QosBeaconClient->OnHostConnectionFailure().BindSP(this, &FQosEvaluator::OnQosConnectionFailure);
+			QosBeaconClient->OnQosRequestComplete().BindUObject(this, &ThisClass::OnQosRequestComplete);
+			QosBeaconClient->OnHostConnectionFailure().BindUObject(this, &ThisClass::OnQosConnectionFailure);
 			QosBeaconClient->SendQosRequest(QosSearchQuery->SearchResults[CurrentSearchPass.CurrentSessionIdx]);
 		}
 		else
@@ -333,25 +346,19 @@ void FQosEvaluator::ContinuePingServers()
 	}
 }
 
-void FQosEvaluator::FinalizePingServers(EQosCompletionResult Result)
+void UQosEvaluator::FinalizePingServers(EQosCompletionResult Result)
 {
 	UE_LOG(LogQos, Log, TEXT("Ping evaluation complete. Result:%s"), ToString(Result));
 
-	TWeakPtr<FQosEvaluator> WeakThisCap(AsShared());
-	FTimerDelegate TimerDelegate = FTimerDelegate::CreateLambda([Result, WeakThisCap]() {
-		auto StrongThis = WeakThisCap.Pin();
-		if (StrongThis.IsValid())
-		{
-			StrongThis->OnQosPingEvalComplete.ExecuteIfBound(Result);
-			StrongThis->ResetSearchVars();
-		}
-	});
+	FTimerDelegate TimerDelegate = FTimerDelegate::CreateLambda(
+		[Result, this](){ OnQosPingEvalComplete.ExecuteIfBound(Result); ResetSearchVars(); }
+	);
 	GetWorldTimerManager().SetTimerForNextTick(TimerDelegate);
 }
 
-void FQosEvaluator::OnQosRequestComplete(EQosResponseType QosResponse, int32 ResponseTime)
+void UQosEvaluator::OnQosRequestComplete(EQosResponseType QosResponse, int32 ResponseTime)
 {
-	if (QosBeaconClient.IsValid())
+	if (QosBeaconClient)
 	{
 		DestroyClientBeacons();
 	}
@@ -368,12 +375,7 @@ void FQosEvaluator::OnQosRequestComplete(EQosResponseType QosResponse, int32 Res
 			SearchResult.PingInMs = MAX_QUERY_PING;
 		}
 
-		FString QosRegion;
-		SearchResult.Session.SessionSettings.Get(SETTING_REGION, QosRegion);
-
-		extern ENGINE_API float GAverageFPS;
-		extern ENGINE_API float GAverageMS;
-		UE_LOG(LogQos, Verbose, TEXT("Qos response received for region %s: %d ms FPS: %0.2f MS: %0.2f"), *QosRegion, ResponseTime, GAverageFPS, GAverageMS);
+		UE_LOG(LogQos, Verbose, TEXT("Qos response received: %d ms"), ResponseTime);
 
 		if (QosStats.IsValid())
 		{
@@ -381,16 +383,16 @@ void FQosEvaluator::OnQosRequestComplete(EQosResponseType QosResponse, int32 Res
 		}
 		
 		// Cancel operation will occur next tick if applicable
-		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateSP(this, &FQosEvaluator::ContinuePingServers));
+		GetWorldTimerManager().SetTimerForNextTick(this, &ThisClass::ContinuePingServers);
 	}
 }
 
-void FQosEvaluator::OnQosConnectionFailure()
+void UQosEvaluator::OnQosConnectionFailure()
 {
 	OnQosRequestComplete(EQosResponseType::Failure, MAX_QUERY_PING);
 }
 
-void FQosEvaluator::ResetSearchVars()
+void UQosEvaluator::ResetSearchVars()
 {
 	bInProgress = false;
 	bCancelOperation = false;
@@ -399,18 +401,18 @@ void FQosEvaluator::ResetSearchVars()
 	QosSearchQuery = nullptr;
 }
 
-void FQosEvaluator::DestroyClientBeacons()
+void UQosEvaluator::DestroyClientBeacons()
 {
-	if (QosBeaconClient.IsValid())
+	if (QosBeaconClient)
 	{
 		QosBeaconClient->OnQosRequestComplete().Unbind();
 		QosBeaconClient->OnHostConnectionFailure().Unbind();
 		QosBeaconClient->DestroyBeacon();
-		QosBeaconClient.Reset();
+		QosBeaconClient = nullptr;
 	}
 }
 
-void FQosEvaluator::StartAnalytics()
+void UQosEvaluator::StartAnalytics()
 {
 	if (AnalyticsProvider.IsValid())
 	{
@@ -420,19 +422,38 @@ void FQosEvaluator::StartAnalytics()
 	}
 }
 
-void FQosEvaluator::EndAnalytics(EQosCompletionResult CompletionResult)
+void UQosEvaluator::EndAnalytics(EQosCompletionResult CompletionResult)
 {
 	if (QosStats.IsValid())
 	{
 		if (CompletionResult != EQosCompletionResult::Canceled)
 		{
+			bool bForceDefault = QOSConsoleVariables::CVarForceDefaultRegion.GetValueOnGameThread() != 0;
+			FString ForceRegion = QOSConsoleVariables::CVarForceRegion.GetValueOnGameThread();
+
 			EDatacenterResultType ResultType = EDatacenterResultType::Failure;
 			if (CompletionResult != EQosCompletionResult::Failure)
 			{
-				ResultType = EDatacenterResultType::Normal;
+				if (CompletionResult == EQosCompletionResult::Cached)
+				{
+					ResultType = EDatacenterResultType::Cached;
+				}
+				else
+				{
+					ResultType = EDatacenterResultType::Normal;
+				}
+
+				if (!ForceRegion.IsEmpty())
+				{
+					ResultType = EDatacenterResultType::Forced;
+				}
+				else if (bForceDefault)
+				{
+					ResultType = EDatacenterResultType::Default;
+				}
 			}
 
-			QosStats->EndQosPass(ResultType);
+			QosStats->EndQosPass(ResultType, SearchState.DatacenterId);
 			QosStats->Upload(AnalyticsProvider);
 		}
 
@@ -440,14 +461,20 @@ void FQosEvaluator::EndAnalytics(EQosCompletionResult CompletionResult)
 	}
 }
 
-UWorld* FQosEvaluator::GetWorld() const
+const FString& UQosEvaluator::GetDefaultRegionString()
 {
-	UWorld* World = ParentWorld.Get();
-	check(World);
-	return World;
+	return FQosInterface::GetDefaultRegionString();
 }
 
-FTimerManager& FQosEvaluator::GetWorldTimerManager() const
+UWorld* UQosEvaluator::GetWorld() const
+{
+	check(GEngine);
+	check(GEngine->GameViewport);
+	UGameInstance* GameInstance = GEngine->GameViewport->GetGameInstance();
+	return GameInstance->GetWorld();
+}
+
+FTimerManager& UQosEvaluator::GetWorldTimerManager() const
 {
 	return GetWorld()->GetTimerManager();
 }

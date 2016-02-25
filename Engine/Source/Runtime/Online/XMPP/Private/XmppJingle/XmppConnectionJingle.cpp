@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "XmppPrivatePCH.h"
 #include "XmppJingle.h"
@@ -56,7 +56,7 @@ public:
 		, ServerPingTask(NULL)
 		, ServerPingRetries(0)
 	{
-		Thread = FRunnableThread::Create(this, *FString::Printf(TEXT("XmppConnectionThread_%d"), ThreadInstanceIdx++), 64 * 1024, TPri_Normal);
+		Thread = FRunnableThread::Create(this, TEXT("XmppConnectionThread"), 64 * 1024, TPri_Normal);
 	}
 
 	~FXmppConnectionPumpThread()
@@ -370,12 +370,7 @@ private:
 	class buzz::PingTask* ServerPingTask;
 	/** Number of times ping task has been restarted before logging out */
 	int32 ServerPingRetries;
-
-	/** Index used to disambiguate thread instances for stats reasons */
-	static int32 ThreadInstanceIdx;
 };
-
-int32 FXmppConnectionPumpThread::ThreadInstanceIdx = 0;
 
 FXmppConnectionJingle::FXmppConnectionJingle()
 	: LastLoginState(ELoginProgress::NotStarted)

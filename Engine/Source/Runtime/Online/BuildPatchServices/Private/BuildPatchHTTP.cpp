@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchHTTP.cpp: Implements a simple class to wrap queuing HTTP requests
@@ -23,12 +23,7 @@ bool FBuildPatchHTTP::Tick( float Delta )
 			while( HttpRequestQueue.Num() > 0 )
 			{
 				FHttpRequestInfo HttpRequestInfo = HttpRequestQueue.Pop();
-
-				// Generate a dummy request
-				TSharedRef< IHttpRequest > AbortedRequest = FHttpModule::Get().CreateRequest();
-				AbortedRequest->SetURL(HttpRequestInfo.UrlRequest);
-
-				HttpRequestInfo.OnCompleteDelegate.ExecuteIfBound(AbortedRequest, NULL, false);
+				HttpRequestInfo.OnCompleteDelegate.ExecuteIfBound( NULL, NULL, false );
 			}
 		}
 		else
@@ -97,11 +92,7 @@ int32 FBuildPatchHTTP::QueueHttpRequest( const FString& UrlRequest, const FHttpR
 	}
 	else
 	{
-		// Generate a dummy request
-		TSharedRef< IHttpRequest > AbortedRequest = FHttpModule::Get().CreateRequest();
-		AbortedRequest->SetURL(UrlRequest);
-
-		OnCompleteDelegate.ExecuteIfBound(AbortedRequest, NULL, false);
+		OnCompleteDelegate.ExecuteIfBound( NULL, NULL, false );
 		return INDEX_NONE;
 	}
 }

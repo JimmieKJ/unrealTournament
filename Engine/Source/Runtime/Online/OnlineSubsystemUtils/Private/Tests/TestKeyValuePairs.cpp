@@ -1,8 +1,6 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 /** Simple test cases for key value pair code */
 void TestKeyValuePairs()
@@ -209,5 +207,3 @@ void TestKeyValuePairs()
 
 	UE_LOG(LogOnline, Warning, TEXT("KeyValuePairTest: %s!"), bSuccess ? TEXT("PASSED") : TEXT("FAILED"));
 }
-
-#endif //WITH_DEV_AUTOMATION_TESTS

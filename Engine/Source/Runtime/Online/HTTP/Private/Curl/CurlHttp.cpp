@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "HttpPrivatePCH.h"
 #include "CurlHttp.h"
@@ -715,41 +715,8 @@ void FCurlHttpRequest::FinishedRequest()
 	if (Response.IsValid() &&
 		Response->bSucceeded)
 	{
-		const bool bDebugServerResponse = Response->GetResponseCode() >= 500 && Response->GetResponseCode() <= 505;
-
-		// log info about error responses to identify failed downloads
-		if (UE_LOG_ACTIVE(LogHttp, Verbose) ||
-			bDebugServerResponse)
-		{
-			if (bDebugServerResponse)
-			{
-				UE_LOG(LogHttp, Warning, TEXT("%p: request has been successfully processed. URL: %s, HTTP code: %d, content length: %d, actual payload size: %d"),
-					this, *GetURL(), Response->HttpCode, Response->ContentLength, Response->Payload.Num());
-			}
-			else
-			{
-				UE_LOG(LogHttp, Verbose, TEXT("%p: request has been successfully processed. URL: %s, HTTP code: %d, content length: %d, actual payload size: %d"),
-					this, *GetURL(), Response->HttpCode, Response->ContentLength, Response->Payload.Num());
-			}
-
-			TArray<FString> AllHeaders = Response->GetAllHeaders();
-			for (TArray<FString>::TConstIterator It(AllHeaders); It; ++It)
-			{
-				const FString& HeaderStr = *It;
-				if (!HeaderStr.StartsWith(TEXT("Authorization")) && !HeaderStr.StartsWith(TEXT("Set-Cookie")))
-				{
-					if (bDebugServerResponse)
-					{
-						UE_LOG(LogHttp, Warning, TEXT("%p Response Header %s"), this, *HeaderStr);
-					}
-					else
-					{
-						UE_LOG(LogHttp, Verbose, TEXT("%p Response Header %s"), this, *HeaderStr);
-					}
-				}
-			}
-		}
-
+		UE_LOG(LogHttp, Verbose, TEXT("%p: request has been successfully processed. HTTP code: %d, content length: %d, actual payload size: %d"), 
+			this, Response->HttpCode, Response->ContentLength, Response->Payload.Num() );
 
 		// Mark last request attempt as completed successfully
 		CompletionStatus = EHttpRequestStatus::Succeeded;
@@ -761,20 +728,9 @@ void FCurlHttpRequest::FinishedRequest()
 		UE_LOG(LogHttp, Verbose, TEXT("%p: request failed, libcurl error: %d (%s)"), this, (int32)CurlCompletionResult, ANSI_TO_TCHAR(curl_easy_strerror(CurlCompletionResult)));
 
 		// Mark last request attempt as completed but failed
-		switch (CurlCompletionResult)
-		{
-		case CURLE_COULDNT_CONNECT:
-		case CURLE_COULDNT_RESOLVE_PROXY:
-		case CURLE_COULDNT_RESOLVE_HOST:
-			// report these as connection errors (safe to retry)
-			CompletionStatus = EHttpRequestStatus::Failed_ConnectionError;
-			break;
-		default:
-			CompletionStatus = EHttpRequestStatus::Failed;
-		}
+		CompletionStatus = EHttpRequestStatus::Failed;
 		// No response since connection failed
 		Response = NULL;
-
 		// Call delegate with failure
 		OnProcessRequestComplete().ExecuteIfBound(SharedThis(this),NULL,false);
 	}

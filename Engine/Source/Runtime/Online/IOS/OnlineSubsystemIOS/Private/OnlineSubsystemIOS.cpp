@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 
@@ -16,11 +16,6 @@ IOnlineSessionPtr FOnlineSubsystemIOS::GetSessionInterface() const
 IOnlineFriendsPtr FOnlineSubsystemIOS::GetFriendsInterface() const
 {
 	return FriendsInterface;
-}
-
-IMessageSanitizerPtr FOnlineSubsystemIOS::GetMessageSanitizerInterface() const
-{
-	return nullptr;
 }
 
 IOnlinePartyPtr FOnlineSubsystemIOS::GetPartyInterface() const

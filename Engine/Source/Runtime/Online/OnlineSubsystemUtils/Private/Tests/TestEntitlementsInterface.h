@@ -1,12 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Core.h"
 #include "OnlineEntitlementsInterface.h"
 #include "OnlineIdentityInterface.h"
-
-#if WITH_DEV_AUTOMATION_TESTS
 
 /**
  * Class used to test the Mcp account creation/management process
@@ -76,5 +74,3 @@
 	 */
 	void Test(class UWorld* InWorld);
  };
-
-#endif //WITH_DEV_AUTOMATION_TESTS

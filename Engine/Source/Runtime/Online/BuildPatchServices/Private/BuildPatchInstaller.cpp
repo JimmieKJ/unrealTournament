@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchInstaller.cpp: Implements the FBuildPatchInstaller class which
@@ -48,7 +48,7 @@ namespace
 
 /* FBuildPatchInstaller implementation
 *****************************************************************************/
-FBuildPatchInstaller::FBuildPatchInstaller(FBuildPatchBoolManifestDelegate InOnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InInstallDirectory, const FString& InStagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef, bool ShouldStageOnly, const FString& InLocalMachineConfigFile, bool bInIsRepairing, bool bShouldForceSkipPrereqs)
+FBuildPatchInstaller::FBuildPatchInstaller(FBuildPatchBoolManifestDelegate InOnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InInstallDirectory, const FString& InStagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef, bool ShouldStageOnly)
 	: Thread( NULL )
 	, OnCompleteDelegate( InOnCompleteDelegate )
 	, CurrentBuildManifest( CurrentManifest )
@@ -60,18 +60,15 @@ FBuildPatchInstaller::FBuildPatchInstaller(FBuildPatchBoolManifestDelegate InOnC
 	, CloudDirectory( FBuildPatchServicesModule::GetCloudDirectory() )
 	, BackupDirectory( FBuildPatchServicesModule::GetBackupDirectory() )
 	, PreviousMoveMarker( InstallDirectory / TEXT( "$movedMarker" ) )
-	, LocalMachineConfigFile( InLocalMachineConfigFile )
 	, ThreadLock()
 	, bIsFileData( InstallManifest->IsFileDataManifest() )
 	, bIsChunkData( !bIsFileData )
-	, bIsRepairing(bInIsRepairing)
+	, bIsRepairing(CurrentManifest.IsValid() && CurrentManifest->IsSameAs(InstallManifest))
 	, bShouldStageOnly(ShouldStageOnly)
 	, bSuccess( true )
 	, bIsRunning( false )
 	, bIsInited( false )
-	, bForceSkipPrereqs(bShouldForceSkipPrereqs)
 	, DownloadSpeedValue( -1.0 )
-	, DownloadHealthValue(EBuildPatchDownloadHealth::Excellent)
 	, DownloadBytesLeft( 0 )
 	, BuildStats()
 	, BuildProgress()
@@ -128,9 +125,6 @@ bool FBuildPatchInstaller::StartInstallation()
 		// Always require the empty tag
 		InstallTags.Add(TEXT(""));
 
-		// Load configuration now
-		LoadLocalMachineConfig();
-
 		// Start thread!
 		const TCHAR* ThreadName = TEXT("BuildPatchInstallerThread");
 		Thread = FRunnableThread::Create(this, ThreadName);
@@ -177,7 +171,7 @@ uint32 FBuildPatchInstaller::Run()
 	TArray<FString> CorruptFiles;
 
 	// Init prereqs progress value
-	const bool bInstallPrereqs = !bForceSkipPrereqs && !NewBuildManifest->GetPrereqPath().IsEmpty();
+	const bool bInstallPrereqs = !NewBuildManifest->GetPrereqPath().IsEmpty();
 
 	// Get the start time
 	double StartTime = FPlatformTime::Seconds();
@@ -433,9 +427,6 @@ bool FBuildPatchInstaller::RunInstallation(TArray<FString>& CorruptFiles)
 	// Create the downloader
 	FBuildPatchDownloader::Create(DataStagingDir, CloudDirectory, NewBuildManifest, &BuildProgress);
 
-	// Set initial health
-	SetDownloadHealth(FBuildPatchDownloader::Get().GetDownloadHealth());
-
 	// Create chunk cache
 	if (bIsChunkData)
 	{
@@ -523,9 +514,6 @@ bool FBuildPatchInstaller::RunInstallation(TArray<FString>& CorruptFiles)
 	}
 	TArray< FBuildPatchDownloadRecord > AllChunkDownloads = FBuildPatchDownloader::Get().GetDownloadRecordings();
 	SetDownloadSpeed(-1);
-
-	// Cache the final download health
-	SetDownloadHealth(FBuildPatchDownloader::Get().GetDownloadHealth());
 
 	// Calculate the average download speed from the recordings
 	// NB: Because we are threading several downloads at once this is not simply averaging every download. We have to know about
@@ -615,24 +603,6 @@ void FBuildPatchInstaller::CleanupEmptyDirectories(const FString& RootDirectory)
 		const uint32 LastError = FPlatformMisc::GetLastError();
 		GLog->Logf(TEXT("BuildPatchServices: Deleted Empty Folder (%u,%u) %s"), bDeleteSuccess ? 1 : 0, LastError, *RootDirectory);
 	}
-}
-
-void FBuildPatchInstaller::LoadLocalMachineConfig()
-{
-	check(IsInGameThread());
-	TArray<FString> ConfigStrings;
-	GConfig->GetArray(TEXT("Portal.BuildPatch"), TEXT("InstalledPrereqs"), ConfigStrings, LocalMachineConfigFile);
-	ThreadLock.Lock();
-	InstalledPrereqs.Append(ConfigStrings);
-	ThreadLock.Unlock();
-}
-
-void FBuildPatchInstaller::SaveLocalMachineConfig()
-{
-	check(IsInGameThread());
-	ThreadLock.Lock();
-	GConfig->SetArray(TEXT("Portal.BuildPatch"), TEXT("InstalledPrereqs"), InstalledPrereqs.Array(), LocalMachineConfigFile);
-	ThreadLock.Unlock();
 }
 
 bool FBuildPatchInstaller::RunBackupAndMove()
@@ -903,109 +873,56 @@ bool FBuildPatchInstaller::BackupFileIfNecessary(const FString& Filename, bool b
 bool FBuildPatchInstaller::RunPrereqInstaller()
 {
 	FScopeTimer ScopeTimer(BuildStats.PrereqTime, &ThreadLock);
-	BuildProgress.SetStateProgress(EBuildPatchProgress::PrerequisitesInstall, 0.0f);
 
-	// The prereq fields support some known variables
-	static const TCHAR* RootDirectoryVariable = TEXT("$[RootDirectory]");
-	static const TCHAR* LogDirectoryVariable = TEXT("$[LogDirectory]");
-	static const TCHAR* QuoteVariable = TEXT("$[Quote]");
-	static const TCHAR* Quote = TEXT("\"");
-	const FString InstallDirWithSlash = InstallDirectory / TEXT("");
-	const FString StageDirWithSlash = InstallStagingDir / TEXT("");
-	const FString LogDirWithSlash = FPaths::ConvertRelativePathToFull(FPaths::GameLogDir() / TEXT(""));
-
-	// Get the hash string for the prereq so we can use it to check and set if already installed previously
-	FString PrereqHashString;
-	{
-		FString PrereqFilename = NewBuildManifest->GetPrereqPath();
-		PrereqFilename.ReplaceInline(TEXT("\\"), TEXT("/"));
-		FSHAHashData PrereqHash;
-		if (NewBuildManifest->GetFileHash(PrereqFilename, PrereqHash))
-		{
-			PrereqHashString = PrereqHash.ToString();
-		}
-	}
-
-	// Check to see if we stored a successful run of this prerequisite already, and can therefore skip it.
-	// We only skip if we are not attempting a repair.
-	if (!bIsRepairing && !PrereqHashString.IsEmpty())
-	{
-		FScopeLock ScopeLock(&ThreadLock);
-		if (InstalledPrereqs.Contains(PrereqHashString))
-		{
-			GLog->Logf(TEXT("BuildPatchServices: Skipping already installed prerequisites installer"));
-			BuildProgress.SetStateProgress(EBuildPatchProgress::PrerequisitesInstall, 1.0f);
-			return true;
-		}
-	}
-
-	FString PrereqPath;
-	bool bUsingInstallRoot = false;
-	bool bUsingStageRoot = false;
+	FString PrereqPath = FPaths::ConvertRelativePathToFull(InstallDirectory / NewBuildManifest->GetPrereqPath());
 	if (bShouldStageOnly)
 	{
-		PrereqPath = NewBuildManifest->GetPrereqPath();
-		if (PrereqPath.ReplaceInline(RootDirectoryVariable, *StageDirWithSlash) == 0)
+		FString StagedPrereqPath = FPaths::ConvertRelativePathToFull(InstallStagingDir / NewBuildManifest->GetPrereqPath());
+		if (IFileManager::Get().FileSize(*StagedPrereqPath) > 0)
 		{
-			PrereqPath = StageDirWithSlash + NewBuildManifest->GetPrereqPath();
-		}
-		if (IFileManager::Get().FileSize(*PrereqPath) > 0)
-		{
-			bUsingStageRoot = true;
+			PrereqPath = MoveTemp(StagedPrereqPath);
 		}
 	}
-	if (!bUsingStageRoot)
-	{
-		PrereqPath = NewBuildManifest->GetPrereqPath();
-		if (PrereqPath.ReplaceInline(RootDirectoryVariable, *InstallDirWithSlash) == 0)
-		{
-			PrereqPath = InstallDirWithSlash + NewBuildManifest->GetPrereqPath();
-		}
-		if (IFileManager::Get().FileSize(*PrereqPath) > 0)
-		{
-			bUsingInstallRoot = true;
-		}
-	}
-	// If we found no prerequisite above, then we have nothing to run and this is an error in the shipped build
-	if (!bUsingInstallRoot && !bUsingStageRoot)
-	{
-		PrereqPath = NewBuildManifest->GetPrereqPath();
-	}
-
-	const FString PrereqCommandline = NewBuildManifest->GetPrereqArgs()
-		.Replace(RootDirectoryVariable, *InstallDirWithSlash)
-		.Replace(LogDirectoryVariable, *LogDirWithSlash)
-		.Replace(QuoteVariable, Quote);
+	FString PrereqCommandline = NewBuildManifest->GetPrereqArgs();
+	int32 ReturnCode = INDEX_NONE;
 
 	GLog->Logf(TEXT("BuildPatchServices: Running prerequisites installer %s %s"), *PrereqPath, *PrereqCommandline);
 
-	// Prerequisites have to be ran elevated otherwise a background run of the prereq which asks for elevation itself
-	// on some OSs will result in a minimised or un-focused request.
-	int32 ReturnCode = INDEX_NONE;
-	bool bPrereqInstallSuccessful = FPlatformProcess::ExecElevatedProcess(*PrereqPath, *PrereqCommandline, &ReturnCode);
-	if (!bPrereqInstallSuccessful)
+	BuildProgress.SetStateProgress(EBuildPatchProgress::PrerequisitesInstall, 0.0f);
+
+	FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*PrereqPath, *PrereqCommandline, true, false, false, NULL, 0, *FPaths::GetPath(PrereqPath), NULL);
+	bool bPrereqInstallSuccessful = true;
+
+	if (!ProcessHandle.IsValid())
 	{
-		ReturnCode = FPlatformMisc::GetLastError();
 		GLog->Logf(TEXT("BuildPatchServices: ERROR: Failed to start the prerequisites install process."));
 		FBuildPatchAnalytics::RecordPrereqInstallationError(NewBuildManifest->GetAppName(), NewBuildManifest->GetVersionString(), PrereqPath, PrereqCommandline, ReturnCode, TEXT("Failed to start installer"));
-		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::PrerequisiteError, *FString::Printf(TEXT("E-%u"), ReturnCode));
+		bPrereqInstallSuccessful = false;
 	}
-	else
+
+	if (bPrereqInstallSuccessful)
 	{
+		FPlatformProcess::WaitForProc(ProcessHandle);
+		FPlatformProcess::GetProcReturnCode(ProcessHandle, &ReturnCode);
+
+		FPlatformProcess::CloseProc(ProcessHandle);
+
 		if (ReturnCode != 0)
 		{
 			GLog->Logf(TEXT("BuildPatchServices: ERROR: Prerequisites executable failed with code %d"), ReturnCode);
 			FBuildPatchAnalytics::RecordPrereqInstallationError(NewBuildManifest->GetAppName(), NewBuildManifest->GetVersionString(), PrereqPath, PrereqCommandline, ReturnCode, TEXT("Failed to install"));
 			bPrereqInstallSuccessful = false;
-			FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::PrerequisiteError, *FString::Printf(TEXT("R-%u"), ReturnCode));
 		}
 	}
 
 	if (bPrereqInstallSuccessful)
 	{
-		FScopeLock ScopeLock(&ThreadLock);
 		BuildProgress.SetStateProgress(EBuildPatchProgress::PrerequisitesInstall, 1.0f);
-		InstalledPrereqs.Add(PrereqHashString);
+	}
+	else
+	{
+		FString ExtraPrereqCode = ReturnCode != INDEX_NONE ? FString::Printf(TEXT("%u"), ReturnCode) : TEXT("");
+		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::PrerequisiteError, *ExtraPrereqCode);
 	}
 
 	return bPrereqInstallSuccessful;
@@ -1072,10 +989,6 @@ void FBuildPatchInstaller::UpdateDownloadProgressInfo( bool bReset )
 		return;
 	}
 
-	// Cache the download health.
-	EBuildPatchDownloadHealth CurrentDownloadHealth = FBuildPatchDownloader::Get().GetDownloadHealth();
-	SetDownloadHealth(CurrentDownloadHealth);
-
 	// Calculate percentage complete based on number of chunks
 	const int64 DownloadNumBytesLeft = FBuildPatchDownloader::Get().GetNumBytesLeft();
 	const float DownloadSizeFloat = TotalInitialDownloadSize;
@@ -1105,18 +1018,9 @@ void FBuildPatchInstaller::UpdateDownloadProgressInfo( bool bReset )
 		AverageDownloadSpeed = TotalData / TotalTime;
 	}
 
-	// Use 0 speed while disconnected - this avoids the slow trail off of averaging.
-	if (CurrentDownloadHealth == EBuildPatchDownloadHealth::Disconnected)
-	{
-		// Don't adjust download bytes left either.
-		SetDownloadSpeed(0.0f);
-	}
-	else
-	{
-		// Set download values
-		SetDownloadSpeed( DownloadProgress < 1.0f ? AverageDownloadSpeed : -1.0f );
-		SetDownloadBytesLeft( DownloadNumBytesLeft );
-	}
+	// Set download values
+	SetDownloadSpeed( DownloadProgress < 1.0f ? AverageDownloadSpeed : -1.0f );
+	SetDownloadBytesLeft( DownloadNumBytesLeft );
 
 	// Set last time
 	LastTime = NowTime;
@@ -1246,18 +1150,6 @@ FBuildInstallStats FBuildPatchInstaller::GetBuildStatistics()
 	return BuildStats;
 }
 
-EBuildPatchDownloadHealth FBuildPatchInstaller::GetDownloadHealth() const
-{
-	FScopeLock Lock(&ThreadLock);
-	return DownloadHealthValue;
-}
-
-void FBuildPatchInstaller::SetDownloadHealth(EBuildPatchDownloadHealth DownloadHealth)
-{
-	FScopeLock Lock(&ThreadLock);
-	DownloadHealthValue = DownloadHealth;
-}
-
 FText FBuildPatchInstaller::GetErrorText()
 {
 	FScopeLock Lock( &ThreadLock );
@@ -1307,8 +1199,6 @@ void FBuildPatchInstaller::ExecuteCompleteDelegate()
 	// Should be executed in main thread, and already be complete
 	check( IsInGameThread() );
 	check( IsComplete() );
-	// Take opportunity to save configuration
-	SaveLocalMachineConfig();
 	// Call the complete delegate
 	OnCompleteDelegate.ExecuteIfBound(bSuccess, NewBuildManifest);
 }
