@@ -4,6 +4,7 @@
 #include "Slate/SlateGameResources.h"
 #include "../Base/SUTPanelBase.h"
 #include "../SUWindowsStyle.h"
+#include "SUTPartyWidget.h"
 
 #if !UE_SERVER
 
@@ -45,6 +46,7 @@ protected:
 	virtual FSlateColor GetFadeBKColor() const;
 
 	TSharedPtr<SVerticalBox> AnnouncementBox;
+	TSharedPtr<SUTPartyWidget> PartyBox;
 
 	virtual void BuildAnnouncement();
 

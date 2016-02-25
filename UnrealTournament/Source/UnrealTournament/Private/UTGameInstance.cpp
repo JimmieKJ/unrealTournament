@@ -39,14 +39,19 @@ void UUTGameInstance::Init()
 		Matchmaking = NewObject<UUTMatchmaking>(this);
 		check(Matchmaking);
 
-		// Don't turn on parties yet
-		// party management
-		//Party = NewObject<UUTParty>(this);
-		//check(Party);
+		if (FParse::Param(FCommandLine::Get(), TEXT("PARTY")))
+		{
+			Party = NewObject<UUTParty>(this);
+			check(Party);
+		}
 
 		// Initialize both after construction (each needs the pointer of the other)
 		Matchmaking->Init();
-		//Party->Init();
+
+		if (Party)
+		{
+			Party->Init();
+		}
 	}
 	else
 	{
