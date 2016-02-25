@@ -23,14 +23,14 @@ public class HTTP : ModuleRules
         if (Target.Platform == UnrealTargetPlatform.Win32 ||
             Target.Platform == UnrealTargetPlatform.Win64)
         {
-            AddThirdPartyPrivateStaticDependencies(Target, "WinInet");
-            AddThirdPartyPrivateStaticDependencies(Target, "libcurl");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "WinInet");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
         }
 
         if (Target.Platform == UnrealTargetPlatform.Linux ||
             Target.Platform == UnrealTargetPlatform.Android)
         {
-            AddThirdPartyPrivateStaticDependencies(Target, "libcurl");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
         }
         if (Target.Platform == UnrealTargetPlatform.HTML5)
         {

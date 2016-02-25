@@ -23,14 +23,14 @@ public class Voice : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.Win32 ||
 			Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			AddThirdPartyPrivateStaticDependencies(Target, "DirectSound");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "DirectSound");
 		}
 		else if(Target.Platform == UnrealTargetPlatform.Mac)
 		{
 			PublicFrameworks.AddRange(new string[] { "CoreAudio", "AudioUnit", "AudioToolbox" });
 		}
 
-		AddThirdPartyPrivateStaticDependencies(Target, "libOpus");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "libOpus");
     }
 }
 
