@@ -48,9 +48,9 @@ void UPartyContext::Initialize()
 	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
 
 	UUTParty* UTParty = GameInstance->GetParties();
-	/*
 	UTParty->OnPartyJoined().AddUObject(this, &ThisClass::HandlePartyJoined);
 	UTParty->OnPartyLeft().AddUObject(this, &ThisClass::HandlePartyLeft);
+	/*
 	UTParty->OnPartyResetForFrontend().AddUObject(this, &ThisClass::HandlePartyResetForFrontend);
 	UTParty->OnPartyMemberJoined().AddUObject(this, &ThisClass::HandlePartyMemberJoined);
 	UTParty->OnPartyMemberLeaving().AddUObject(this, &ThisClass::HandlePartyMemberLeaving);
@@ -63,6 +63,23 @@ void UPartyContext::Initialize()
 	LocalPlayer.OnPlayerLoggedIn().AddUObject(this, &ThisClass::OnPlayerLoggedIn);
 	LocalPlayer.OnPlayerLoggedOut().AddUObject(this, &ThisClass::OnPlayerLoggedOut);
 	*/
+}
+
+void UPartyContext::HandlePartyJoined(UPartyGameState* PartyState)
+{
+	UUTPartyGameState* UTPartyState = Cast<UUTPartyGameState>(PartyState);
+	if (UTPartyState)
+	{
+		OnPartyJoined.Broadcast();
+
+		OnPartyTransitionCompleted.Broadcast(CurrentTransition);
+		CurrentTransition = EUTPartyTransition::Idle;
+	}
+}
+
+void UPartyContext::HandlePartyLeft(UPartyGameState* PartyState, EMemberExitedReason Reason)
+{
+	OnPartyLeft.Broadcast();
 }
 
 void UPartyContext::Finalize()

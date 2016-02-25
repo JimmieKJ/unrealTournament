@@ -60,10 +60,15 @@ protected:
 
 	/** Handler for not approved join party failure code */
 	void HandleJoinPartyFailure(EJoinPartyCompletionResult Result, int32 DeniedResultCode);
+	void HandlePartyJoined(UPartyGameState* PartyState);
+	void HandlePartyLeft(UPartyGameState* PartyState, EMemberExitedReason Reason);
+
 public:
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPartyTransitionStartedDelegate, EUTPartyTransition, PartyTransition);
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPartyTransitionCompleteDelegate, EUTPartyTransition, PartyTransition);
+	DECLARE_MULTICAST_DELEGATE(FOnPartyJoinedDelegate);
+	DECLARE_MULTICAST_DELEGATE(FOnPartyLeftDelegate);
 
 	/** Called when a player starts joining or leaving a party */
 	UPROPERTY(BlueprintAssignable, Category=PartyContext)
@@ -71,6 +76,14 @@ public:
 	/** Called when a player has completed joining or leaving a party */
 	UPROPERTY(BlueprintAssignable, Category=PartyContext)
 	FOnPartyTransitionCompleteDelegate OnPartyTransitionCompleted;
+	
+	/** Called when the local player has joined a party */
+	//UPROPERTY(BlueprintAssignable, Category = PartyContext)
+	FOnPartyJoinedDelegate OnPartyJoined;
+
+	/** Called when the local player has left a party */
+	//UPROPERTY(BlueprintAssignable, Category=PartyContext)
+	FOnPartyLeftDelegate OnPartyLeft;
 
 	/**
 	 * Gets the list of unique net IDs that correspond to each player in same party as the local player
