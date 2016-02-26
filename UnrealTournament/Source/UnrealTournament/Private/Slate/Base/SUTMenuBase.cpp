@@ -82,7 +82,7 @@ FReply SUTMenuBase::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEv
 		TSharedPtr<SWidget> InitialFocus = ActivePanel->GetInitialFocus();
 		if (InitialFocus.IsValid())
 		{
-			PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(InitialFocus.ToSharedRef(), EFocusCause::SetDirectly);
+			PlayerOwner->FocusWidget(InitialFocus);
 		}
 		return FReply::Handled().ReleaseMouseCapture();
 	}

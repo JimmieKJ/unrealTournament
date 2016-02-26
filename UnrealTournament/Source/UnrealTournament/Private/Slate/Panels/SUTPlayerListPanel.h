@@ -130,6 +130,11 @@ public:
 			return FSlateColor(FLinearColor::Yellow);
 		}
 
+		if (bIsOwner)
+		{
+			return FSlateColor(FLinearColor(0.25f, 1.0f, 1.0f,1.0f));
+		}
+
 		if (bIsInMatch && !bIsSpectator)
 		{
 			if (TeamNum == 0) return FSlateColor(FLinearColor(1.0f, 0.05f, 0.0f, 1.0f));

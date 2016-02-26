@@ -89,7 +89,7 @@ void SUTChatEditBox::SetCommittedDelegate(FOnTextCommitted inOnTextCommitted)
 
 FReply SUTChatEditBox::InternalOnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
 {
-/*
+
 	if (InKeyEvent.GetKey() == EKeys::Up || InKeyEvent.GetKey() == EKeys::Down)
 	{
 		FText NewText = PlayerOwner->GetUIChatTextBackBuffer((InKeyEvent.GetKey() == EKeys::Up) ? -1 : 1);
@@ -99,7 +99,7 @@ FReply SUTChatEditBox::InternalOnKeyDown( const FGeometry& MyGeometry, const FKe
 			return FReply::Handled();
 		}
 	}
-*/
+
 	return FReply::Unhandled();
 }
 
@@ -157,6 +157,7 @@ const FSlateBrush* SUTChatEditBox::GetBorderImage() const
 
 FReply SUTChatEditBox::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent )
 {
+	JumpToEnd();
 	return (EditableText.IsValid()) ? FReply::Handled().SetUserFocus(EditableText.ToSharedRef(),EFocusCause::SetDirectly) : FReply::Unhandled();
 }
 

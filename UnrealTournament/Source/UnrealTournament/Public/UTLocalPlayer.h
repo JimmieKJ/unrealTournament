@@ -925,6 +925,7 @@ public:
 	virtual void VerifyChatWidget();
 
 	TSharedPtr<SUTChatEditBox> GetChatWidget();
+	virtual void FocusWidget(TSharedPtr<SWidget> WidgetToFocus);
 #endif
 
 	FText UIChatTextBuffer;

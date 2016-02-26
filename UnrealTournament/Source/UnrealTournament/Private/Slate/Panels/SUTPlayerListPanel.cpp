@@ -368,13 +368,8 @@ void SUTPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionDat
 		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ServerBan","Admin Ban"), EPlayerListContentCommand::ServerBan));
 	}
 
-	if (Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState) != NULL && TrackedPlayers[Idx]->bInInstance)
-	{
-		MenuOptions.Add(FMenuOptionData());
-		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Message","Send Message"), EPlayerListContentCommand::SendMessage));
-	}
-
-
+	MenuOptions.Add(FMenuOptionData());
+	MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Message","Send Message"), EPlayerListContentCommand::SendMessage));
 }
 
 int32 SUTPlayerListPanel::IsTracked(const FUniqueNetIdRepl& PlayerID)
@@ -806,7 +801,9 @@ void SUTPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> I
 			if (ConnectedChatPanel.IsValid())
 			{
 				FText NewText = FText::FromString(FString::Printf(TEXT("@%s "), *InItem->PlayerName));
+				PlayerOwner->FocusWidget(PlayerOwner->GetChatWidget());
 				PlayerOwner->GetChatWidget()->SetText(NewText);
+				PlayerOwner->GetChatWidget()->JumpToEnd();
 			}
 		}
 	}

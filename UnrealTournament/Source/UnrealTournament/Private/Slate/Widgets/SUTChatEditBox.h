@@ -55,7 +55,6 @@ class UNREALTOURNAMENT_API SUTChatEditBox : public SUTEditableTextBox
 
 	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent ) override;
 
-
 protected:
 	virtual FReply InternalOnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent );
 

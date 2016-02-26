@@ -116,6 +116,7 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Font.NormalText.Small.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 
 	Style.Set("UT.Font.Chat.Text", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor(0.7,0.7,0.7,1.0)));
+	Style.Set("UT.Font.Chat.Text.Whisper", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-LightItalic", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor(0.7,0.7,0.7,1.0)));
 	Style.Set("UT.Font.Chat.Name", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 
 	Style.Set("UT.Font.NormalText.Tween", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Tween)).SetColorAndOpacity(FLinearColor::White));

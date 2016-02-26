@@ -293,6 +293,7 @@ void SUTTextChatPanel::RouteChat(UUTLocalPlayer* LocalPlayer, TSharedPtr<FStored
 	{
 		if (ChatMessage->Type == ChatDestinations::MOTD || 
 			ChatMessage->Type == ChatDestinations::System || 
+			ChatMessage->Type == ChatDestinations::Whisper ||
 			ChatDestinationList[i]->ChatDestination == ChatMessage->Type)
 		{
 

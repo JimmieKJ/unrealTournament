@@ -277,6 +277,11 @@ void AUTBasePlayerController::DirectSay(const FString& User, const FString& Mess
 			UTPC->ClientSay(UTPlayerState, Message, ChatDestinations::Whisper);
 		}
 	}
+
+	// Make sure I see that I sent it..
+
+	ClientSay(UTPlayerState, Message, ChatDestinations::Whisper);
+
 }
 
 void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
