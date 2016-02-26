@@ -9,9 +9,13 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
-	// The text that will be displayed if you have the flag
+	// The text that will be displayed if you have the enemy flag.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText YouHaveFlagText;
+
+	// The text that will be displayed if you have the team flag, taking it to enemy base.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
+		FText YouHaveFlagTextAlt;
 
 	// The text that will be displayed if the enemy has your flag
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")

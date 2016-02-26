@@ -97,10 +97,6 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				{
 					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position");
 				}
-				else if (UTGameState->bForcedBalance)
-				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "BalanceTeams", "Balancing teams - match is about to start.");
-				}
 				else
 				{
 					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");

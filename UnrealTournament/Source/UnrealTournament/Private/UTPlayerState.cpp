@@ -80,6 +80,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
 	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
+	DOREPLIFETIME(AUTPlayerState, RemainingLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
 	DOREPLIFETIME(AUTPlayerState, Team);

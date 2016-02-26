@@ -509,6 +509,19 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		DrawReadyText(PlayerState, XOffset, YOffset, Width);
 	}
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+
+	// Strike out players that are out of lives
+	if (PlayerState->bOutOfLives)
+	{
+		float Height = 8.0f;
+		float XL, YL;
+		Canvas->TextSize(UTHUDOwner->MediumFont, PlayerState->PlayerName, XL, YL, 1.f, 1.f);
+		float StrikeWidth = FMath::Min(0.475f*Width, XL);
+		DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY + 0.5f*Height, StrikeWidth, Height, 185.f, 400.f, 4.f, 4.f, 1.0f, FLinearColor::Red);
+
+		// draw skull here
+		DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderPlayerX), YOffset + 0.35f*CellHeight, 0.5f*CellHeight, 0.5f*CellHeight, 725, 0, 28, 36, 1.0, FLinearColor::White);
+	}
 }
 
 void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)

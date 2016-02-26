@@ -25,9 +25,16 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GoalScore = 3;
 	TimeLimit = 0;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Round based CTF");
-	RoundLives = 15;
+	RoundLives = 7;
+	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
+	RespawnWaitTime = 3.f;
+	bUseDash = false;
+	bAsymmetricVictoryConditions = true;
+	bCarryOwnFlag = true;
+	bNoFlagReturn = true;
+	bFirstRoundInitialized = false;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -46,6 +53,25 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	{
 		GoalScore = 3;
 	}
+
+	// key options are ?Respawnwait=xx?RoundLives=xx?CTFMode=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx
+	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
+
+	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Dash"));
+	bUseDash = EvalBoolOptions(InOpt, bUseDash);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Asymm"));
+	bAsymmetricVictoryConditions = EvalBoolOptions(InOpt, bAsymmetricVictoryConditions);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("OwnFlag"));
+	bCarryOwnFlag = EvalBoolOptions(InOpt, bCarryOwnFlag);
+	// FIXMESTEVE - if carry own flag, need option whether enemy flag needs to be home to score, and need base effect if not
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("FlagReturn"));
+	bNoFlagReturn = EvalBoolOptions(InOpt, bNoFlagReturn);
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("PerPlayerLives"));
+	bPerPlayerLives = EvalBoolOptions(InOpt, bPerPlayerLives);
 }
 
 bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
@@ -90,6 +116,17 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 	}
 }
 
+void AUTCTFRoundGame::StartMatch()
+{
+	if (!bFirstRoundInitialized)
+	{
+		InitRound();
+		CTFGameState->CTFRound = 1;
+		bFirstRoundInitialized = true;
+	}
+	Super::StartMatch();
+}
+
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	InitRound();
@@ -103,31 +140,111 @@ void AUTCTFRoundGame::InitRound()
 	if (CTFGameState)
 	{
 		CTFGameState->CTFRound++;
-		CTFGameState->RedLivesRemaining = RoundLives;
-		CTFGameState->BlueLivesRemaining = RoundLives;
+		if (!bPerPlayerLives)
+		{
+			CTFGameState->RedLivesRemaining = RoundLives;
+			CTFGameState->BlueLivesRemaining = RoundLives;
+		}
 		if (CTFGameState->FlagBases.Num() > 1)
 		{
 			CTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
 		}
 	}
-}
 
-void AUTCTFRoundGame::InitGameState()
-{
-	Super::InitGameState();
-	InitRound();
-	CTFGameState->CTFRound = 1;
+	bRedToCap = !bRedToCap;
+	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+	{
+		if (Base != NULL && Base->MyFlag)
+		{
+			AUTCarriedObject* Flag = Base->MyFlag;
+			if (bAsymmetricVictoryConditions)
+			{
+				if (bRedToCap == (Flag->GetTeamNum() == 0))
+				{
+					Flag->bEnemyCanPickup = !bCarryOwnFlag;
+					Flag->bFriendlyCanPickup = bCarryOwnFlag;
+					Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
+					Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
+				}
+				else
+				{
+					Flag->bEnemyCanPickup = false;
+					Flag->bFriendlyCanPickup = false;
+					Flag->bTeamPickupSendsHome = false;
+					Flag->bEnemyPickupSendsHome = false;
+				}
+			}
+			else
+			{
+				Flag->bEnemyCanPickup = !bCarryOwnFlag;
+				Flag->bFriendlyCanPickup = bCarryOwnFlag;
+				Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
+				Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
+			}
+		}
+	}
+
+	if (bAsymmetricVictoryConditions)
+	{
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC)
+			{
+				if (bRedToCap == (PC->GetTeamNum() == 0))
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 14);
+				}
+				else
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 15);
+				}
+			}
+		}
+	}
+	else if (RoundLives > 0)
+	{
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 16, NULL, NULL, NULL);
+	}
+
+	if (bPerPlayerLives)
+	{
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS && PS->bIsInactive)
+			{
+				PS->RemainingLives = 0;
+				PS->SetOutOfLives(true);
+			}
+			else if (PS)
+			{
+				PS->RemainingLives = RoundLives;
+				PS->SetOutOfLives(false);
+			}
+		}
+	}
 }
 
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
+	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+	if (bPerPlayerLives && PS && PS->Team)
+	{
+		PS->RemainingLives--;
+		if ((PS->RemainingLives < 0) && (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))))
+		{
+			// this player is out of lives
+			PS->SetOutOfLives(true);
+			return;
+		}
+	}
 	Super::RestartPlayer(aPlayer);
 
-	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
 	if (aPlayer->GetPawn() && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
 	{
-		if (PS->Team->TeamIndex == 0)
+		if ((PS->Team->TeamIndex == 0) && (!bAsymmetricVictoryConditions || bRedToCap))
 		{
 			CTFGameState->RedLivesRemaining--;
 			if (CTFGameState->RedLivesRemaining <= 0)
@@ -142,7 +259,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
 			}
 		}
-		else
+		else if ((PS->Team->TeamIndex == 1) && (!bAsymmetricVictoryConditions || !bRedToCap))
 		{
 			CTFGameState->BlueLivesRemaining--;
 			if (CTFGameState->BlueLivesRemaining <= 0)

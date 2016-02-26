@@ -30,6 +30,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	AutoReturnTime = 30.0f;
 	bMovementEnabled = true;
 	LastTeleportedTime = -1000.f;
+	bEnemyCanPickup = true;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -229,19 +230,57 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTCarriedObject::CheckTouching, 0.1f, false);
 		return false;
 	}
-	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
-	else if (GetTeamNum() == Character->GetTeamNum() && bTeamPickupSendsHome)
+	else if (bAnyoneCanPickup)
 	{
-		if (ObjectState == CarriedObjectState::Dropped)
+		return true;
+	}
+	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
+	else if (GetTeamNum() == Character->GetTeamNum())
+	{
+		if (bFriendlyCanPickup)
 		{
-			SendGameMessage(0, Character->PlayerState, NULL);
-			Score(FName("SentHome"), Character, Cast<AUTPlayerState>(Character->PlayerState));
+			return true;
 		}
-		return false;
+		else if (bTeamPickupSendsHome)
+		{
+			if (ObjectState == CarriedObjectState::Dropped)
+			{
+				SendGameMessage(0, Character->PlayerState, NULL);
+				Score(FName("SentHome"), Character, Cast<AUTPlayerState>(Character->PlayerState));
+			}
+			return false;
+		}
+		else
+		{
+			AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+			}
+			return false;
+		}
 	}
 	else
 	{
-		return Team == NULL || bAnyoneCanPickup || Team->GetTeamNum() == GetTeamNum();
+		if (bEnemyPickupSendsHome)
+		{
+			if (ObjectState == CarriedObjectState::Dropped)
+			{
+				SendGameMessage(0, Character->PlayerState, NULL);
+				Score(FName("SentHome"), Character, Cast<AUTPlayerState>(Character->PlayerState));
+			}
+			return false;
+		}
+		else if (!bEnemyCanPickup)
+		{
+			AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+			}
+			return false;
+		}
+		return bEnemyCanPickup;
 	}
 }
 

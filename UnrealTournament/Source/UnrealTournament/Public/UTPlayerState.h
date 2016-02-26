@@ -220,6 +220,11 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 RoundKills;
 
+	/** If limited lives, remaining lives for this player. */
+	/** Enemy kills by this player this round.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 RemainingLives;
+
 	virtual void IncrementDamageDone(int32 AddedDamage);
 
 	virtual void SetOutOfLives(bool bNewValue);

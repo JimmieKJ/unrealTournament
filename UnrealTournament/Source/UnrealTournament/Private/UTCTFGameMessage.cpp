@@ -18,6 +18,10 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
+	NoReturnMessage = NSLOCTEXT("CTFGameMessage", "NoReturn", "You can't pick up this flag.");
+	CapFlagMessage = NSLOCTEXT("CTFGameMessage", "NoReturn", "Get your flag to the enemy base!");
+	PreventCapMessage = NSLOCTEXT("CTFGameMessage", "NoReturn", "Keep other team's flag out, and exhaust their lives");
+	CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "NoReturn", "Capture or kill to win.");
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
@@ -44,6 +48,10 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 9 : return CaptureMessage; break;
 		case 11: return HalftimeMessage; break;
 		case 12: return OvertimeMessage; break;
+		case 13: return NoReturnMessage; break;
+		case 14: return CapFlagMessage; break;
+		case 15: return PreventCapMessage; break;
+		case 16: return CapAndKillMessage; break;
 	}
 	return FText::GetEmpty();
 }

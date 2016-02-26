@@ -19,44 +19,31 @@ void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState,
 	// strike out players that are dead
 	AUTShowdownGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTShowdownGameState>();
 	float Width = (Size.X * 0.5f) - CenterBuffer;
-	if (GS != NULL && GS->bMatchHasStarted)
+	if (GS != NULL && GS->bMatchHasStarted && !PlayerState->bOutOfLives
+		&& ((GS->GetMatchState() == MatchState::MatchIntermission) || GS->HasMatchEnded() || GS->OnSameTeam(PlayerState, UTHUDOwner->PlayerOwner)))
 	{
-		if (PlayerState->bOutOfLives)
+		AUTCharacter* UTC = PlayerState->GetUTCharacter();
+		if (UTC)
 		{
-			float Height = 8.0f;
-			float XL, YL;
-			Canvas->TextSize(UTHUDOwner->MediumFont, PlayerState->PlayerName, XL, YL, 1.f, 1.f);
-			float StrikeWidth = FMath::Min(0.475f*Width, XL);
-			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY + 0.5f*Height, StrikeWidth, Height, 185.f, 400.f, 4.f, 4.f, 1.0f, FLinearColor::Red);
-
-			// draw skull here
-			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderPlayerX), YOffset + 0.35f*CellHeight, 0.5f*CellHeight, 0.5f*CellHeight, 725, 0, 28, 36, 1.0, FLinearColor::White);
-		}
-		else if ((GS->GetMatchState() == MatchState::MatchIntermission) || GS->HasMatchEnded() || GS->OnSameTeam(PlayerState, UTHUDOwner->PlayerOwner))
-		{
-			AUTCharacter* UTC = PlayerState->GetUTCharacter();
-			if (UTC)
-			{
-				// draw armor and health bars
-				float HealthPct = FMath::Clamp<float>(float(UTC->Health) / float(UTC->SuperHealthMax), 0.f, 1.f);
-				float ArmorPct = float(UTC->ArmorAmount) / float(UTC->MaxStackedArmor);
-				float Height = 8.f;
-				float YPos = YOffset + 0.5f*CellHeight;
-				XOffset += 0.05f*Width;
-				Width *= 0.75f;
-				FLinearColor BarColor = FLinearColor(0.5f, 0.5f, 0.5f, 0.5f);
-				DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 1.0f, YPos, Width, Height, 185.f, 400.f, 4.f, 4.f, 1.f, BarColor);
-				// armor BG
-				DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 1.0f, YPos + 1.25f*Height, Width, Height, 185.f, 400.f, 4.f, 4.f, 1.f, BarColor);
-				// health bar
-				BarColor = FLinearColor::Green;
-				BarColor.A = 0.5f;
-				DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 2.0f, YPos + 1.0f, (Width - 2.0f) * HealthPct, Height - 2.0f, 185.f, 400.f, 4.f, 4.f, 1.f, BarColor);
-				// armor bar
-				BarColor = FLinearColor::Yellow;
-				BarColor.A = 0.5f;
-				DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 2.0f, YPos + 1.0f + 1.25f*Height, (Width - 2.0f) * ArmorPct, Height - 2.0f, 185.f, 400.f, 4.f, 4.f, 1.f, BarColor);
-			}
+			// draw armor and health bars
+			float HealthPct = FMath::Clamp<float>(float(UTC->Health) / float(UTC->SuperHealthMax), 0.f, 1.f);
+			float ArmorPct = float(UTC->ArmorAmount) / float(UTC->MaxStackedArmor);
+			float Height = 8.f;
+			float YPos = YOffset + 0.5f*CellHeight;
+			XOffset += 0.05f*Width;
+			Width *= 0.75f;
+			FLinearColor BarColor = FLinearColor(0.5f, 0.5f, 0.5f, 0.5f);
+			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 1.0f, YPos, Width, Height, 185.f, 400.f, 4.f, 4.f, 1.f, BarColor);
+			// armor BG
+			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 1.0f, YPos + 1.25f*Height, Width, Height, 185.f, 400.f, 4.f, 4.f, 1.f, BarColor);
+			// health bar
+			BarColor = FLinearColor::Green;
+			BarColor.A = 0.5f;
+			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 2.0f, YPos + 1.0f, (Width - 2.0f) * HealthPct, Height - 2.0f, 185.f, 400.f, 4.f, 4.f, 1.f, BarColor);
+			// armor bar
+			BarColor = FLinearColor::Yellow;
+			BarColor.A = 0.5f;
+			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 2.0f, YPos + 1.0f + 1.25f*Height, (Width - 2.0f) * ArmorPct, Height - 2.0f, 185.f, 400.f, 4.f, 4.f, 1.f, BarColor);
 		}
 	}
 }
