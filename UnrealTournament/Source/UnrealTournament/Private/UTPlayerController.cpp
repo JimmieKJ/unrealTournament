@@ -1879,6 +1879,12 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		}
 	}
 
+	int32 MyVisibilityMask = 0;
+	if (GetUTCharacter())
+	{
+		MyVisibilityMask = GetUTCharacter()->VisibilityMask;	
+	}
+
 	// hide other pawns' first person hands/weapons
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
@@ -1888,6 +1894,14 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			if (OtherP != NULL)
 			{
 				HideComponentTree(OtherP->FirstPersonMesh, HiddenComponents);
+			}
+
+			if (PlayerState && !PlayerState->bOnlySpectator)
+			{
+				if (OtherP->VisibilityMask > 0 && (OtherP->VisibilityMask & MyVisibilityMask) == 0)
+				{
+					HideComponentTree(OtherP->GetMesh(), HiddenComponents);
+				}
 			}
 		}
 	}

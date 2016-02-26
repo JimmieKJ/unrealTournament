@@ -1786,7 +1786,18 @@ bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState 
 			{
 				bDrawFriendlyIndicator = GS->OnSameTeam(Hit.Actor.Get(), UTOwner);
 
-				if (Char != NULL && !Char->IsFeigningDeath())
+				int32 MyVisibilityMask = 0;
+				if (UTOwner)
+				{
+					MyVisibilityMask = UTOwner->VisibilityMask;
+				}
+				bool bCanSee = true;
+				if (Char->VisibilityMask > 0 && (MyVisibilityMask & Char->VisibilityMask) == 0)
+				{
+					bCanSee = false;
+				}
+
+				if (Char != NULL && !Char->IsFeigningDeath() && bCanSee)
 				{
 					if (Char->PlayerState != nullptr)
 					{

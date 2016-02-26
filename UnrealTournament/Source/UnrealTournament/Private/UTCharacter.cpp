@@ -2885,6 +2885,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponSkins, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, VisibilityMask, COND_None);
 }
 
 static AUTWeapon* SavedWeapon = NULL;
@@ -5770,4 +5771,24 @@ void AUTCharacter::UpdateWeaponSkin()
 			}
 		}
 	}
+}
+
+void AUTCharacter::AddVisibilityMask(int32 Channel)
+{
+	if (Channel < 0 || Channel > 32)
+	{
+		return;
+	}
+
+	VisibilityMask |= (1 << Channel);
+}
+
+void AUTCharacter::RemoveVisibilityMask(int32 Channel)
+{
+	if (Channel < 0 || Channel > 32)
+	{
+		return;
+	}
+
+	VisibilityMask &= ~(1 << Channel);
 }

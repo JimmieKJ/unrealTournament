@@ -709,6 +709,15 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitReplicatedTime;
 	
+	UPROPERTY(replicated)
+	int32 VisibilityMask;
+	/** Use 1-32 to enable a visibility channel */
+	UFUNCTION(BlueprintCallable, Category = Pawn, BlueprintAuthorityOnly)
+	void AddVisibilityMask(int32 Channel);
+	/** Use 1-32 to disable a visibility channel */
+	UFUNCTION(BlueprintCallable, Category = Pawn, BlueprintAuthorityOnly)
+	void RemoveVisibilityMask(int32 Channel);
+
 protected:
 	/** indicates character is (mostly) invisible so AI only sees at short range, homing effects can't target the character, etc */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Invisible, Category = Pawn)
