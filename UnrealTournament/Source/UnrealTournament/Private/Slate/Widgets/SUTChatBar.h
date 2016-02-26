@@ -21,6 +21,7 @@ class UNREALTOURNAMENT_API SUTChatBar: public SCompoundWidget
 
 	void Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> inPlayerOwner);
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 
 protected:
 	TWeakObjectPtr<UUTLocalPlayer> PlayerOwner;

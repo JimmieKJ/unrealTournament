@@ -71,6 +71,11 @@ FReply SUTChatBar::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointe
 	return FReply::Handled();
 }
 
+FReply SUTChatBar::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	return FReply::Handled();
+}
+
 
 TSharedRef<SWidget> SUTChatBar::BuildChatDestinationsButton()
 {
@@ -181,7 +186,7 @@ FText SUTChatBar::GetChatDestinationText() const
 {
 	if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Team");
 	if (ChatDestination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Game");
-	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper");
+	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Friends");
 	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Hub");
 	if (ChatDestination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","Match");
 	

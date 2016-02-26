@@ -817,3 +817,50 @@ void AUTBasePlayerController::UTLogOut()
 		UTLocalPlayer->Logout();
 	}
 }
+
+void AUTBasePlayerController::FriendSay(FString Message)
+{
+	TArray<FUniqueNetIdRepl> DesiredIds;
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (GameState && LocalPlayer)
+	{
+		for (int32 i = 0; i <  GameState->PlayerArray.Num(); i++)
+		{
+			if (LocalPlayer->IsAFriend(GameState->PlayerArray[i]->UniqueId))
+			{
+				DesiredIds.Add(GameState->PlayerArray[i]->UniqueId);
+			}
+		}
+	}
+
+	if (DesiredIds.Num() > 0)
+	{
+		ServerFriendSay(Message, DesiredIds);	
+	}
+}
+
+bool AUTBasePlayerController::ServerFriendSay_Validate(const FString& Message, const TArray<FUniqueNetIdRepl>& FriendIds) { return true; }
+void AUTBasePlayerController::ServerFriendSay_Implementation(const FString& Message, const TArray<FUniqueNetIdRepl>& FriendIds)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+			if (UTPC != nullptr && UTPC->PlayerState != nullptr)
+			{
+				if (FriendIds.Find(UTPC->PlayerState->UniqueId) != INDEX_NONE)
+				{
+					UTPC->ClientSay(UTPlayerState, Message, ChatDestinations::Friends);
+				}
+			}
+		}
+	}
+
+	// Tell yourself
+	ClientSay(UTPlayerState, Message, ChatDestinations::Friends);
+}
+
+

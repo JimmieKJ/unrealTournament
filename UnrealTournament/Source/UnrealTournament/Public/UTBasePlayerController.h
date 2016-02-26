@@ -66,6 +66,12 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 	UFUNCTION(reliable, client)
 	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, FName Destination);
 
+	UFUNCTION(exec)
+	virtual void FriendSay(FString Message);
+
+	UFUNCTION(reliable, server, WithValidation)
+	virtual void ServerFriendSay(const FString& Message, const TArray<FUniqueNetIdRepl>& FriendIds);
+
 	virtual uint8 GetTeamNum() const;
 	// not applicable
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
