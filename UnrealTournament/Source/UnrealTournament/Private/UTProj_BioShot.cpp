@@ -5,7 +5,6 @@
 #include "UnrealNetwork.h"
 #include "UTImpactEffect.h"
 #include "UTLift.h"
-#include "UTWeap_LinkGun.h"
 #include "UTProjectileMovementComponent.h"
 #include "StatNames.h"
 #include "UTRewardMessage.h"
@@ -60,9 +59,6 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	bLanded = false;
 	bHasMerged = false;
 	bCanTrack = false;
-	WebLifeBoost = 10.f; 
-	WebLifeLowThreshold = 4.f;
-	MaxLinkDistance = 1000.f;
 
 	LandedOverlapRadius = 16.f;
 	LandedOverlapScaling = 16.f;
@@ -81,20 +77,9 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 
 	BlobPulseTime = 0.f;
 	InitialBlobPulseRate = 3.f;
-	MaxBlobPulseRate = 8.f;
-	BlobOverCharge = 0.f;
-	BlobWebThreshold = 100.f;
 	BlobPulseTime = 0.f;
 	BlobPulseScaling = 0.1f;
-	bFoundWebLink = false;
-
-	BaseBeamColor = FLinearColor(0.2f, 0.33f, 0.07f, 1.f);
-	LowLifeBeamColor = FLinearColor(0.1f, 0.5f, 0.f, 0.01f);
-	ChargingBeamColor = FLinearColor(100.f, 500.f, 100.f, 1.f);
-	FriendlyBeamColor = FLinearColor(200.f, 300.f, 0.f, 1.f);
-	WebCollisionRadius = 20.f;
-	bReplaceLinkTwo = false;
-	LastFriendlyHitTime = 0.f;
+	bAlwaysShootable = true;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -144,11 +129,6 @@ void AUTProj_BioShot::Destroyed()
 		FearSpot->Destroy();
 	}
 
-	while (WebLinks.Num() > 0)
-	{
-		RemoveWebLink(WebLinks[0].LinkedBio);
-	}
-
 /*
 	if (GetWorld()->GetNetMode() != NM_DedicatedServer && GEngine->GetWorldContextFromWorld(GetWorld()) != NULL) // might not be able to get world context when exiting PIE
 	{
@@ -158,8 +138,6 @@ void AUTProj_BioShot::Destroyed()
 			PC->MyHUD->RemovePostRenderedActor(this);
 		}
 	}*/
-
-	// @TODO FIXMESTEVE - fix up WebChild list?
 }
 
 void AUTProj_BioShot::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
@@ -183,229 +161,6 @@ void AUTProj_BioShot::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVec
 	}
 }
 
-void AUTProj_BioShot::ShutDown()
-{
-	Super::ShutDown();
-	if (!IsPendingKillPending())
-	{
-		while (WebLinks.Num() > 0)
-		{
-			RemoveWebLink(WebLinks[0].LinkedBio);
-		}
-	}
-}
-
-void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
-{
-	if (bRemovingWebLink)
-	{
-		// prevent re-entry
-		return;
-	}
-
-	// find the associated link
-	bool bFoundLink = false;
-	int32 i = 0;
-	for (i=0; i<WebLinks.Num(); i++)
-	{
-		if (WebLinks[i].LinkedBio == LinkedBio)
-		{
-			bFoundLink = true;
-			break;
-		}
-	}
-	if (WebLinkOne == LinkedBio)
-	{
-		WebLinkOne = NULL;
-	}
-	if (WebLinkTwo == LinkedBio)
-	{
-		WebLinkTwo = NULL;
-	}
-
-	if (bFoundLink)
-	{
-		// remove the link
-		bRemovingWebLink = true;
-		if (WebLinks[i].LinkedBio && !WebLinks[i].LinkedBio->IsPendingKillPending())
-		{
-			WebLinks[i].LinkedBio->RemoveWebLink(this);
-			WebLinks[i].LinkedBio = NULL;
-		}
-		if (WebLinks[i].WebLink)
-		{
-			WebLinks[i].WebLink->DeactivateSystem();
-			WebLinks[i].WebLink->bAutoDestroy = true;
-		}
-		if (WebLinks[i].WebCapsule != NULL)
-		{
-			WebLinks[i].WebCapsule->DestroyComponent();
-			WebLinks[i].WebCapsule = NULL;
-		}
-		WebLinks.RemoveAt(i);
-		bRemovingWebLink = false;
-	}
-}
-
-void AUTProj_BioShot::OnRep_WebLinkOne()
-{
-	if (SavedWebLinkOne)
-	{
-		RemoveWebLink(SavedWebLinkOne);
-		SavedWebLinkOne = NULL;
-	}
-	if (WebLinkOne && !WebLinkOne->IsPendingKillPending() && !WebLinkOne->bExploded)
-	{
-		AddWebLink(WebLinkOne);
-		SavedWebLinkOne = WebLinkOne;
-	}
-}
-
-void AUTProj_BioShot::OnRep_WebLinkTwo()
-{
-	if (SavedWebLinkTwo)
-	{
-		RemoveWebLink(SavedWebLinkTwo);
-		SavedWebLinkTwo = NULL;
-	}
-	if (WebLinkTwo && !WebLinkTwo->IsPendingKillPending() && !WebLinkTwo->bExploded)
-	{
-		AddWebLink(WebLinkTwo);
-		SavedWebLinkTwo = WebLinkTwo;
-	}
-}
-
-void AUTProj_BioShot::OnRep_WebMaster()
-{
-	if (WebMaster && !WebMaster->IsPendingKillPending() && !WebMaster->bExploded)
-	{
-		AddWebLink(WebMaster);
-	}
-}
-
-bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
-{
-	if (bAddingWebLink || !LinkedBio)
-	{
-		// no re-entry
-		return false;
-	}
-	static FName NAME_HitLocation(TEXT("HitLocation"));
-	static FName NAME_LocalHitLocation(TEXT("LocalHitLocation"));
-
-	// find already existing associated link
-	int32 i = 0;
-	for (i = 0; i<WebLinks.Num(); i++)
-	{
-		if (WebLinks[i].LinkedBio == LinkedBio)
-		{
-			return false;
-		}
-	}
-
-	bCanTrack = false;
-	bAddingWebLink = true;
-	if (WebLinks.Num() == 0)
-	{
-		// lifespan boost for being connected to web
-		RemainingLife += WebLifeBoost;
-	}
-	UParticleSystemComponent* NewWebLinkEffect = NULL;
-	UCapsuleComponent* NewCapsule = NULL;
-	if (this != LinkedBio->WebMaster)
-	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_None);
-	}
-
-	if (!LinkedBio->bAddingWebLink)
-	{
-		float Dist2D = (GetActorLocation() - LinkedBio->GetActorLocation()).Size2D();
-		NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation(), EAttachLocation::KeepWorldPosition, false);
-		if (NewWebLinkEffect)
-		{
-			NewWebLinkEffect->bAutoActivate = false;
-			NewWebLinkEffect->bAutoDestroy = false;
-			NewWebLinkEffect->SecondsBeforeInactive = 0.0f;
-			NewWebLinkEffect->ActivateSystem();
-			NewWebLinkEffect->SetVectorParameter(NAME_HitLocation, LinkedBio->GetActorLocation());
-			NewWebLinkEffect->SetVectorParameter(NAME_LocalHitLocation, NewWebLinkEffect->ComponentToWorld.InverseTransformPositionNoScale(LinkedBio->GetActorLocation()));
-			NewWebLinkEffect->SetWorldRotation((LinkedBio->GetActorLocation() - GetActorLocation()).Rotation());
-			static FName NAME_BeamColor("BeamColor");
-			CurrentBeamColor = BaseBeamColor;
-			NewWebLinkEffect->SetColorParameter(NAME_BeamColor, CurrentBeamColor);
-		}
-		if (Role == ROLE_Authority)
-		{
-			NewCapsule = NewObject<UCapsuleComponent>(this);
-			NewCapsule->SetCapsuleSize(WebCollisionRadius, 0.5f*(LinkedBio->GetActorLocation() - GetActorLocation()).Size(), false);
-			NewCapsule->RegisterComponent();
-			NewCapsule->OnComponentBeginOverlap.AddDynamic(this, &AUTProj_BioShot::OnWebOverlapBegin);
-			FRotator WebRot = (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation();
-			WebRot.Pitch += 90.f;
-			NewCapsule->SetWorldLocationAndRotation(0.5f*(LinkedBio->GetActorLocation() + GetActorLocation()), WebRot);
-			NewCapsule->BodyInstance.SetCollisionProfileName("Projectile");
-			NewCapsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		}
-
-		// replication support (temp)
-		if ((Role == ROLE_Authority) && (this != LinkedBio->WebMaster) && (WebMaster != LinkedBio))
-		{
-			if (!WebLinkOne)
-			{
-				WebLinkOne = LinkedBio;
-			}
-			else if (!WebLinkTwo)
-			{
-				WebLinkTwo = LinkedBio;
-			}
-			else if (!LinkedBio->WebLinkOne)
-			{
-				LinkedBio->WebLinkOne = this;
-			}
-			else if (!LinkedBio->WebLinkTwo)
-			{
-				LinkedBio->WebLinkTwo = this;
-			}
-			else if (bReplaceLinkTwo)
-			{
-				RemoveWebLink(WebLinkTwo);
-				WebLinkTwo = LinkedBio;
-				bReplaceLinkTwo = false;
-			}
-			else
-			{
-				RemoveWebLink(WebLinkOne);
-				WebLinkOne = LinkedBio;
-				bReplaceLinkTwo = true;
-			}
-		}
-	}
-
-	new(WebLinks) FBioWebLink(LinkedBio, NewWebLinkEffect, NewCapsule);
-	LinkedBio->AddWebLink(this);
-	bAddingWebLink = false;
-	return true;
-}
-
-void AUTProj_BioShot::OnWebOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
-}
-
-bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
-{
-	if (LinkedBio && (LinkedBio != this) && !LinkedBio->IsPendingKillPending() && (GetActorLocation() - LinkedBio->GetActorLocation()).Size() < MaxLinkDistance)
-	{
-		// verify line of sight
-		FHitResult Hit;
-		static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
-
-		bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation() + 2.f*SurfaceNormal, LinkedBio->GetActorLocation() + 2.f*LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, this));
-		return (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()));
-	}
-	return false;
-}
-
 bool AUTProj_BioShot::ComponentCanBeDamaged(const FHitResult& Hit, float DamageRadius)
 {
 	if ((Hit.Component == CollisionComp) || (Hit.Component == PawnOverlapSphere))
@@ -419,148 +174,12 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 {
 	if (Role == ROLE_Authority)
 	{
-		if (InstigatorController && EventInstigator && Cast<AUTWeap_LinkGun>(DamageCauser))
-		{
-			if ((GlobStrength >= 1.f) && bLanded)
-			{
-				AUTGameState* GameState = InstigatorController->GetWorld()->GetGameState<AUTGameState>();
-				if ((EventInstigator == InstigatorController) || (GameState && GameState->OnSameTeam(InstigatorController, EventInstigator)))
-				{
-					// ignore link damage from teammates and start linking process
-					AUTWeap_LinkGun *Linker = Cast<AUTWeap_LinkGun>(DamageCauser);
-					if (Linker->LinkedBio && CanWebLinkTo(Linker->LinkedBio))
-					{
-						if (AddWebLink(Linker->LinkedBio))
-						{
-							if (Linker->LinkedBio->WebLinkOne && (Linker->LinkedBio->WebLinkOne != this))
-							{
-								AddWebLink(Linker->LinkedBio->WebLinkOne);
-							}
-							else if (Linker->LinkedBio->WebLinkTwo && (Linker->LinkedBio->WebLinkTwo != this))
-							{
-								AddWebLink(Linker->LinkedBio->WebLinkTwo);
-							}
-							else
-							{
-								for (int32 i = 0; i<Linker->LinkedBio->WebLinks.Num(); i++)
-								{
-									if ((Linker->LinkedBio->WebLinks[i].LinkedBio != this) && (Linker->LinkedBio->WebLinks[i].LinkedBio != NULL))
-									{
-										AddWebLink(Linker->LinkedBio->WebLinks[i].LinkedBio);
-										break;
-									}
-								}
-							}
-						}
-					}
-					if (GlobStrength >= MaxRestingGlobStrength)
-					{
-						BlobOverCharge += DamageAmount;
-						if (BlobOverCharge >= BlobWebThreshold)
-						{
-							BlobOverCharge = 0.f;
-							FVector ShotDirection = (DamageEvent.IsOfType(FUTPointDamageEvent::ClassID))
-								? ((const FUTPointDamageEvent&)DamageEvent).ShotDirection
-								: FVector_NetQuantizeNormal(0.f, 0.f, 1.f);
-							BlobToWeb(ShotDirection);
-							return DamageAmount;
-						}
-					}
-					else if (Linker && (WebLinks.Num() > 0))
-					{
-						PropagateCharge(WebLifeBoost * DamageAmount * 0.01f);
-					}
-
-					Linker->LinkedBio = this;
-					return 0.f;
-				}
-			}
-		}
-		if (WebLinks.Num() > 0)
-		{
-			if (DamageEvent.IsOfType(FUTPointDamageEvent::ClassID) && !ComponentCanBeDamaged(((const FUTPointDamageEvent&)DamageEvent).HitInfo, 0.f))
-			{
-				return 0.f;
-			}
-			else if (DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID))
-			{
-				bool bFoundCollisionComp = false;
-				for (int32 i = 0; i < ((const FUTRadialDamageEvent&)DamageEvent).ComponentHits.Num(); i++)
-				{
-					if (ComponentCanBeDamaged(((const FUTRadialDamageEvent&)DamageEvent).ComponentHits[i], ((const FUTRadialDamageEvent&)DamageEvent).Params.OuterRadius))
-					{
-						bFoundCollisionComp = true;
-						break;
-					}
-				}
-				if (!bFoundCollisionComp)
-				{
-					return 0.f;
-				}
-			}
-		}
-		if ((bLanded || TrackedPawn) && !bExploded && (DamageAmount > 12.f))
+		if ((bLanded || TrackedPawn) && !bExploded && ((DamageAmount > 25.f) || DamageEvent.IsOfType(FPointDamageEvent::ClassID)))
 		{
 			Explode(GetActorLocation(), SurfaceNormal);
 		}
 	}
 	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-}
-
-void AUTProj_BioShot::PropagateCharge(float ChargeAmount)
-{
-	if (GetWorld()->GetTimeSeconds() == LastWebChargeTime)
-	{
-		return;
-	}
-	LastWebChargeTime = GetWorld()->GetTimeSeconds();
-
-	// link charging
-	if (RemainingLife < WebLifeBoost + RestTime)
-	{
-		bIsLinkCharging = true;
-		LinkChargeEndTime = GetWorld()->GetTimeSeconds() + 0.3f;
-		RemainingLife = FMath::Min(WebLifeBoost + RestTime, RemainingLife + ChargeAmount);
-	}
-	for (int32 i = 0; i < WebLinks.Num(); i++)
-	{
-		if (WebLinks[i].LinkedBio && !WebLinks[i].LinkedBio->IsPendingKillPending() && (WebLinks[i].LinkedBio->RemainingLife < WebLifeBoost + RestTime))
-		{
-			WebLinks[i].LinkedBio->PropagateCharge(ChargeAmount);
-		}
-	}
-}
-
-void AUTProj_BioShot::BlobToWeb(const FVector& NormalDir)
-{
-	FActorSpawnParameters Params;
-	Params.Instigator = Instigator;
-	Params.Owner = Instigator;
-
-	//Spawn globlings for as many globs above 1, and weblink them
-	bSpawningGloblings = true;
-	//Adjust a bit so globlings don't spawn in the floor
-	FVector FloorOffset = GetActorLocation() + (SurfaceNormal * 10.0f);
-	int32 NumGloblings = int32(GlobStrength);
-	FVector CrossVector = (NormalDir ^ SurfaceNormal).GetSafeNormal();
-
-	for (int32 i = 0; i<NumGloblings; i++)
-	{
-		// 2d splash in plane with link beam as normal 
-		float Offset = -0.3f + 1.5f*float(NumGloblings - 2.f*i) / float(NumGloblings);
-		FVector Dir = SurfaceNormal * FMath::Cos(Offset) + CrossVector * FMath::Sin(Offset);
-		AUTProj_BioShot* Globling = GetWorld()->SpawnActor<AUTProj_BioShot>(GetClass(), FloorOffset, Dir.Rotation(), Params);
-		if (Globling)
-		{
-			Globling->bSpawningGloblings = true; 
-			Globling->ProjectileMovement->InitialSpeed *= 0.4f;
-			Globling->ProjectileMovement->Velocity *= 0.4f;
-			Globling->WebMaster = this;
-		}
-	}
-	bSpawningGloblings = false;
-	SetGlobStrength(1.f);
-	RemainingLife = RestTime + 0.5f;  // to match this blobs remaining life with web
 }
 
 void AUTProj_BioShot::BioStabilityTimer()
@@ -637,55 +256,10 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 				}
 				BioMesh->SetRelativeScale3D(ScalingMesh);
 			}
-
-			if (WebMaster && CanWebLinkTo(WebMaster))
-			{
-				AddWebLink(WebMaster);
-
-				if (Role == ROLE_Authority)
-				{
-					WebChild = WebMaster->WebChild;
-					WebMaster->WebChild = this;
-					FindWebLink();
-
-					if (!bFoundWebLink)
-					{
-						// try later
-						FTimerHandle TempHandle;
-						GetWorldTimerManager().SetTimer(TempHandle, this, &AUTProj_BioShot::FindWebLink, 1.f, false);
-					}
-				}
-			}
 		}
 	}
 	// uncomment to easily test tracking (also remove instigator checks in Track())
 	//Track(Cast<AUTCharacter>(Instigator));
-}
-
-void AUTProj_BioShot::FindWebLink()
-{
-	// connect to furthest with no weblink yet - skip if on same surface
-	AUTProj_BioShot* FurthestBio = NULL;
-	float FurthestDist = 0.f;
-	AUTProj_BioShot* NextBio = WebChild;
-	while (NextBio)
-	{
-		if (!NextBio->IsPendingKillPending() && ((NextBio->SurfaceNormal | SurfaceNormal) < 0.98f))
-		{
-			float Dist = (NextBio->GetActorLocation() - GetActorLocation()).SizeSquared();
-			if (!FurthestBio || ((Dist > FurthestDist) && CanWebLinkTo(NextBio)))
-			{
-				FurthestBio = NextBio;
-				FurthestDist = Dist;
-			}
-		}
-		NextBio = NextBio->WebChild;
-	}
-	if (FurthestBio)
-	{
-		AddWebLink(FurthestBio);
-		bFoundWebLink = true;
-	}
 }
 
 void AUTProj_BioShot::OnLanded_Implementation()
@@ -802,9 +376,6 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			BioStabilityTimer();
 			return;
 		}
-		bWebLifeLow = (RemainingLife < WebLifeLowThreshold);
-		bFriendlyHit = (LastFriendlyHitTime > GetWorld()->GetTimeSeconds() - 0.5f);
-		bIsLinkCharging = (LinkChargeEndTime > GetWorld()->GetTimeSeconds());
 	}
 	if (ProjectileMovement->bIsHomingProjectile)
 	{
@@ -817,46 +388,10 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			BioStabilityTimer();
 		}
 	}
-	else
-	{
-		if (GetWorld()->GetNetMode() != NM_DedicatedServer)
-		{
-			static FName NAME_BeamColor("BeamColor");
-			float PulseMag = FMath::Sin(GetWorld()->GetTimeSeconds()*8.f);
-			for (int32 i = 0; i<WebLinks.Num(); i++)
-			{
-				if (WebLinks[i].WebLink)
-				{
-					if (bFriendlyHit || WebLinks[i].LinkedBio->bFriendlyHit)
-					{
-						CurrentBeamColor = FriendlyBeamColor;
-					}
-					else if (bIsLinkCharging || WebLinks[i].LinkedBio->bIsLinkCharging)
-					{
-						CurrentBeamColor = (PulseMag > 0.f) ? BaseBeamColor : ChargingBeamColor;
-					}
-					else if (bWebLifeLow || WebLinks[i].LinkedBio->bWebLifeLow)
-					{
-						CurrentBeamColor = (PulseMag > 0.f) ? BaseBeamColor : LowLifeBeamColor;
-					}
-					else
-					{
-						CurrentBeamColor = BaseBeamColor;
-					}
-					if (CurrentBeamColor != WebLinks[i].SetBeamColor)
-					{
-						WebLinks[i].WebLink->SetColorParameter(NAME_BeamColor, CurrentBeamColor);
-						WebLinks[i].SetBeamColor = CurrentBeamColor;
-					}
-				}
-			}
-		}
-	}
 
 	if (BioMesh && ((GlobStrength >= MaxRestingGlobStrength) || ProjectileMovement->bIsHomingProjectile))
 	{
-		float PulseRate = InitialBlobPulseRate + BlobOverCharge * (MaxBlobPulseRate - InitialBlobPulseRate)/BlobWebThreshold;
-		BlobPulseTime += DeltaTime * PulseRate;
+		BlobPulseTime += DeltaTime * InitialBlobPulseRate;
 
 		float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
 		FVector GlobScaling(GlobScalingSqrt);
@@ -883,7 +418,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		ProjectileMovement->MaxSpeed = MaxSpeedUnderWater;
 	}
 
-	if (bTriggeringWeb || ShouldIgnoreHit(OtherActor, OtherComp))
+	if (ShouldIgnoreHit(OtherActor, OtherComp))
 	{
 		return;
 	}
@@ -896,39 +431,13 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	AUTProj_BioShot* OtherBio = Cast<AUTProj_BioShot>(OtherActor);
 	if (OtherBio)
 	{
-		if (!bAddingWebLink && !OtherBio->bAddingWebLink)
-		{
-			MergeWithGlob(OtherBio);
-		}
+		MergeWithGlob(OtherBio);
 	}
 	else if (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL || (OtherActor && OtherActor->bCanBeDamaged))
 	{
 		AUTCharacter* TargetCharacter = Cast<AUTCharacter>(OtherActor);
 		if (TargetCharacter && ((TargetCharacter != Instigator) || bCanHitInstigator))
 		{
-			if (WebLinks.Num() > 0)
-			{
-				// web ignores teammates and instigator
-				if (TargetCharacter == Instigator)
-				{
-					if (Role == ROLE_Authority)
-					{
-						UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_All);
-					}
-					LastFriendlyHitTime = GetWorld()->GetTimeSeconds();
-					return;
-				}
-				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-				if (GS && GS->OnSameTeam(InstigatorController, TargetCharacter))
-				{
-					if (Role == ROLE_Authority)
-					{
-						UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_All);
-					}
-					LastFriendlyHitTime = GetWorld()->GetTimeSeconds();
-					return;
-				}
-			}
 			if (!bFakeClientProjectile && (Role == ROLE_Authority) && (TargetCharacter != Instigator))
 			{
 				// tell nearby bio that is on ground @TODO FIXMESTEVE OPTIMIZE
@@ -941,14 +450,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 					}
 				}
 			}
-			bTriggeringWeb = true;
-			for (int32 i = 0; i<WebLinks.Num(); i++)
-			{
-				if (WebLinks[i].LinkedBio)
-				{
-					WebLinks[i].LinkedBio->ProcessHit(OtherActor, OtherComp, HitLocation, HitNormal);
-				}
-			}
+
 			// set different damagetype for charged shots
 			MyDamageType = (GlobStrength > 1.f) ? ChargedDamageType : GetClass()->GetDefaultObject<AUTProjectile>()->MyDamageType;
 			float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
@@ -957,10 +459,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 			DamageParams.OuterRadius += DamageRadiusGain * (GlobStrength - 1.0f);
 			Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * GlobScalingSqrt;
 		}
-		if ((Cast<AUTProjectile>(OtherActor) == NULL) || (WebLinks.Num() == 0))
-		{
-			Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-		}
+		Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 	}
 	else if (!bLanded)
 	{
@@ -1151,11 +650,5 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_None);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkOne, COND_None);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkTwo, COND_None);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebMaster, COND_None);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, bIsLinkCharging, COND_None);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, bWebLifeLow, COND_None);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, bFriendlyHit, COND_None);
 	DOREPLIFETIME(AUTProj_BioShot, bLanded);
 }

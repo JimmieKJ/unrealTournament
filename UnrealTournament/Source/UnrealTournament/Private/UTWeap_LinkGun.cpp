@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWeap_LinkGun.h"
-#include "UTProj_BioShot.h"
 #include "UTProj_LinkPlasma.h"
 #include "UTTeamGameMode.h"
 #include "UnrealNetwork.h"
@@ -45,7 +44,6 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	PerLinkDamageScalingSecondary = 1.25f;
 	PerLinkDistanceScalingSecondary = 0.2f;
 
-	LinkedBio = NULL;
 	bRecommendSuppressiveFire = true;
 
 	KillStatsName = NAME_LinkKills;
@@ -457,29 +455,6 @@ void AUTWeap_LinkGun::ClearLinks()
 void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	FVector ModifiedTargetLoc = TargetLoc;
-
-	if (LinkedBio != NULL) 
-	{
-		if (LinkedBio->IsPendingKillPending() || FireMode != 1 || UTOwner == NULL || ((UTOwner->GetActorLocation() - LinkedBio->GetActorLocation()).Size() > LinkedBio->MaxLinkDistance + InstantHitInfo[1].TraceRange))
-		{
-			LinkedBio = NULL;
-		}
-		else
-		{
-			// verify line of sight
-			FHitResult Hit;
-			static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
-			bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, SpawnLocation, LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, UTOwner));
-			if ((bBlockingHit || (Hit.Actor != NULL)) && !Cast<AUTProj_BioShot>(Hit.Actor.Get()))
-			{
-				LinkedBio = NULL;
-			}
-		}
-	}
-	if (LinkedBio != NULL)
-	{
-		ModifiedTargetLoc = LinkedBio->GetActorLocation();
-	}
 	Super::PlayImpactEffects(ModifiedTargetLoc, FireMode, SpawnLocation, SpawnRotation);
 
 	// color beam if linked
@@ -504,12 +479,6 @@ void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode
 	}
 }
 
-void AUTWeap_LinkGun::StopFire(uint8 FireModeNum)
-{
-	LinkedBio = NULL;
-	Super::StopFire(FireModeNum);
-}
-
 // reset links
 bool AUTWeap_LinkGun::PutDown()
 {
@@ -522,12 +491,6 @@ bool AUTWeap_LinkGun::PutDown()
 	{
 		return false;
 	}
-}
-
-void AUTWeap_LinkGun::ServerStopFire_Implementation(uint8 FireModeNum)
-{
-	LinkedBio = NULL;
-	Super::ServerStopFire_Implementation(FireModeNum);
 }
 
 void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
