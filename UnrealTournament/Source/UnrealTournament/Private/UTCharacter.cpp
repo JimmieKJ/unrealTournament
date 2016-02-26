@@ -3612,10 +3612,12 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); // make sure because could be in ragdoll
 			OverlayMesh->SetSimulatePhysics(false);
 			OverlayMesh->SetCastShadow(false);
+			OverlayMesh->SetMasterPoseComponent(GetMesh());
 			OverlayMesh->BoundsScale = 15000.f;
 			OverlayMesh->InvalidateCachedBounds();
 			OverlayMesh->UpdateBounds();
-			OverlayMesh->SetMasterPoseComponent(GetMesh());
+			OverlayMesh->bVisible = true;
+			OverlayMesh->bHiddenInGame = false;
 		}
 		if (!OverlayMesh->IsRegistered())
 		{
@@ -3623,6 +3625,7 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
 			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			OverlayMesh->SetRenderCustomDepth(true);
+			OverlayMesh->LastRenderTime = GetMesh()->LastRenderTime;
 		}
 
 		FOverlayEffect FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
