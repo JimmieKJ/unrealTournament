@@ -119,6 +119,11 @@ void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 					{
 						Best->StartSleeping();
 					}
+					AUTPlayerController* PC = Cast<AUTPlayerController>(UTC->Controller);
+					if (PC != NULL)
+					{
+						PC->ClientSwitchToBestWeapon();
+					}
 				}
 			}
 		}
