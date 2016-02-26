@@ -1959,7 +1959,8 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		// this is a newly disconnected client
 		return;
 	}
-	if (!UTGM->HasMatchStarted())
+	// Ready up if match hasn't started and not a ranked match
+	if (!UTGM->HasMatchStarted() && !UTGM->bRankedSession)
 	{
 		if (UTPlayerState)
 		{
@@ -2006,6 +2007,13 @@ bool AUTPlayerController::ServerRestartPlayerAltFire_Validate()
 
 void AUTPlayerController::ServerSwitchTeam_Implementation()
 {
+	// Ranked sessions don't allow team changes
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode && GameMode->bRankedSession)
+	{
+		return;
+	}
+
 	if (UTPlayerState != NULL && UTPlayerState->Team != NULL)
 	{
 		uint8 NewTeam = (UTPlayerState->Team->TeamIndex + 1) % GetWorld()->GetGameState<AUTGameState>()->Teams.Num();

@@ -2018,7 +2018,7 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	}
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
-	if ((!IsGameInstanceServer() || bDedicatedInstance) && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
+	if (!bRankedSession && (!IsGameInstanceServer() || bDedicatedInstance) && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
 	{
 		// gather maps for map vote
 		TArray<FString> MapPrefixList;
@@ -2060,7 +2060,11 @@ void AUTGameMode::TravelToNextMap_Implementation()
 		}
 	}
 
-	if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
+	if (bRankedSession)
+	{
+		SendEveryoneBackToLobby();
+	}
+	else if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
 		if (UTGameState->MapVoteList.Num() > 0)
 		{
