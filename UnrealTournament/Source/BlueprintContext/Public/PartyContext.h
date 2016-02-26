@@ -38,6 +38,8 @@ class BLUEPRINTCONTEXT_API UPartyContext : public UBlueprintContextBase
 {
 	GENERATED_BODY()
 
+	UPartyContext();
+
 protected:
 	
 	TSharedPtr<const FOnlineUser> PendingPartyPlayerInfo;

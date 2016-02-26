@@ -24,7 +24,10 @@ void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerConte
 	SetupPartyMemberBox();
 
 	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(Ctx.GetWorld(), UPartyContext::StaticClass()));
-	PartyContext->OnPlayerStateChanged.AddSP(this, &SUTPartyWidget::PartyStateChanged);
+	if (PartyContext)
+	{
+		PartyContext->OnPlayerStateChanged.AddSP(this, &SUTPartyWidget::PartyStateChanged);
+	}
 }
 
 void SUTPartyWidget::PartyStateChanged()

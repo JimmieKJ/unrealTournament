@@ -18,6 +18,10 @@
 
 REGISTER_CONTEXT(UPartyContext);
 
+UPartyContext::UPartyContext()
+{
+}
+
 void UPartyContext::Initialize()
 {
 	IOnlineSubsystem* OnlineSub = Online::GetSubsystem(GetWorld());
