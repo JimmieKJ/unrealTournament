@@ -6,6 +6,7 @@
 #include "UTPartyGameState.h"
 #include "UTMatchmaking.h"
 #include "UTMatchmakingGather.h"
+#include "UTMatchmakingSingleSession.h"
 #include "QoSInterface.h"
 #include "QoSEvaluator.h"
 
@@ -146,6 +147,7 @@ void UUTMatchmaking::OnPartyJoined(UPartyGameState* InParty)
 		check(UTPartyGameState);
 		UTPartyGameState->OnClientPartyStateChanged().AddUObject(this, &ThisClass::OnClientPartyStateChanged);
 		UTPartyGameState->OnClientMatchmakingComplete().AddUObject(this, &ThisClass::OnClientMatchmakingComplete);
+		UTPartyGameState->OnClientSessionIdChanged().AddUObject(this, &ThisClass::OnClientSessionIdChanged);
 	}
 }
 
@@ -407,7 +409,52 @@ bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 	return bResult;
 }
 
+bool UUTMatchmaking::FindSessionAsClient(const FMatchmakingParams& InParams)
+{
+	bool bResult = false;
+	if (InParams.ControllerId != INVALID_CONTROLLERID)
+	{
+		UUTMatchmakingSingleSession* MatchmakingSingleSession = NewObject<UUTMatchmakingSingleSession>();
+		if (MatchmakingSingleSession)
+		{
+			// Starting a new find, clear out any cached matchmaking data
+			ClearCachedMatchmakingData();
+
+			ControllerId = InParams.ControllerId;
+			
+			FMatchmakingParams MatchmakingParams(InParams);
+			MatchmakingParams.StartWith = EMatchmakingStartLocation::FindSingle;
+
+			MatchmakingSingleSession->OnMatchmakingStateChange().BindUObject(this, &ThisClass::OnSingleSessionMatchmakingStateChangeInternal);
+			MatchmakingSingleSession->OnMatchmakingComplete().BindUObject(this, &ThisClass::OnSingleSessionMatchmakingComplete);
+
+			MatchmakingSingleSession->Init(MatchmakingParams);
+			MatchmakingSingleSession->StartMatchmaking();
+
+			Matchmaking = MatchmakingSingleSession;
+
+			OnMatchmakingStarted().Broadcast();
+			bResult = true;
+
+			// FindSessionAsClient intentionally does not cache matchmaking params, as it is intended to go to a very specific session
+		}
+	}
+
+	return bResult;
+}
+
 void UUTMatchmaking::OnGatherMatchmakingStateChangeInternal(EMatchmakingState::Type OldState, EMatchmakingState::Type NewState)
+{
+	FMMAttemptState MMState;
+	if (Matchmaking)
+	{
+		MMState = Matchmaking->GetMatchmakingState();
+	}
+
+	OnMatchmakingStateChange().Broadcast(OldState, NewState, MMState);
+}
+
+void UUTMatchmaking::OnSingleSessionMatchmakingStateChangeInternal(EMatchmakingState::Type OldState, EMatchmakingState::Type NewState)
 {
 	FMMAttemptState MMState;
 	if (Matchmaking)
@@ -450,6 +497,26 @@ void UUTMatchmaking::OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Re
 }
 
 void UUTMatchmaking::OnGatherMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult)
+{
+	if (Result == EMatchmakingCompleteResult::Success && SearchResult.IsValid())
+	{
+		AUTPlayerController* UTPC = GetOwningController();
+		FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
+		UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
+
+		OnMatchmakingCompleteInternal(Result, SearchResult);
+	}
+	else if (Result == EMatchmakingCompleteResult::Cancelled)
+	{
+		OnMatchmakingCompleteInternal(Result, SearchResult);
+	}
+	else
+	{
+		OnMatchmakingCompleteInternal(Result, SearchResult);
+	}
+}
+
+void UUTMatchmaking::OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult)
 {
 	if (Result == EMatchmakingCompleteResult::Success && SearchResult.IsValid())
 	{
@@ -589,6 +656,26 @@ void UUTMatchmaking::TravelToServer()
 	{
 		// Heavy handed clean up
 		//DisconnectFromLobby();
+	}
+}
+
+void UUTMatchmaking::OnClientSessionIdChanged(const FString& SessionId)
+{
+	UE_LOG(LogOnline, Log, TEXT("OnClientSessionIdChanged %s"), *SessionId);
+	
+	if (!SessionId.IsEmpty())
+	{
+		FMatchmakingParams MMParams;
+		MMParams.ControllerId = ControllerId;
+		MMParams.SessionId = SessionId;
+		MMParams.StartWith = EMatchmakingStartLocation::FindSingle;
+		MMParams.Flags = EMatchmakingFlags::NoReservation;
+
+		bool bSuccess = FindSessionAsClient(MMParams);
+	}
+	else
+	{
+		CancelMatchmaking();
 	}
 }
 

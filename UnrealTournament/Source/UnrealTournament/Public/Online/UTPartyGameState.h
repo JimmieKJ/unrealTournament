@@ -83,11 +83,21 @@ class UNREALTOURNAMENT_API UUTPartyGameState : public UPartyGameState
 	 * @param Result result of the last matchmaking attempt by the leader
 	 */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
+	
+	/**
+	 * Delegate fired when a session id has been determined
+	 * 
+	 * @param SessionId session id party members should search for
+	 * @param ZoneInstanceId zone id for the session found
+	 * @param bSessionIsCriticalMission is this a critical mission
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientSessionIdChanged, const FString& /* SessionId */);
 
 private:
 	/** Passenger view related delegates prior to joining a lobby/game */
 	FOnClientPartyStateChanged ClientPartyStateChanged;
 	FOnClientMatchmakingComplete ClientMatchmakingComplete;
+	FOnClientSessionIdChanged ClientSessionIdChanged;
 	
 	/**
 	 * Cached data for the party, only modifiable by the party leader
@@ -159,4 +169,5 @@ public:
 
 	FOnClientPartyStateChanged& OnClientPartyStateChanged() { return ClientPartyStateChanged; }
 	FOnClientMatchmakingComplete& OnClientMatchmakingComplete() { return ClientMatchmakingComplete; }
+	FOnClientSessionIdChanged& OnClientSessionIdChanged() { return ClientSessionIdChanged; }
 };

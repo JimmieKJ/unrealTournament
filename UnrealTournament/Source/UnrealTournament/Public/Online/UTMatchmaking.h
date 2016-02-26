@@ -99,6 +99,15 @@ public:
 	 */
 	bool FindGatheringSession(const FMatchmakingParams& InParams);
 	
+	/**
+	 * Find a session given to the client by a party leader
+	 *
+	 * @param FMatchmakingParams desired matchmaking parameters
+	 *
+	 * @return true if the operation started, false otherwise
+	 */
+	bool FindSessionAsClient(const FMatchmakingParams& InParams);
+
 	/** Generic delegate for lobby flow */
 	DECLARE_MULTICAST_DELEGATE(FOnMatchmakingStarted);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
@@ -224,6 +233,14 @@ private:
 	void OnClientMatchmakingComplete(EMatchmakingCompleteResult Result);
 	
 	/**
+	 * Notification that the leader has found the session id that the party will be joining
+	 * passengers are expected to follow the leader into the given session, failure to do so will exit the party
+	 * 
+	 * @param SessionId session to search for and join
+	 */
+	void OnClientSessionIdChanged(const FString& SessionId);
+
+	/**
 	 * Progression through actual matchmaking after a datacenter id has been determined
 	 *
 	 * @param Result datacenter qos completion result
@@ -240,9 +257,11 @@ private:
 	 * @param SearchResult the session of interest
 	 */
 	void OnGatherMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
+	void OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
 
 	/** Internal notification that matchmaking state has changed, routes externally */
 	void OnGatherMatchmakingStateChangeInternal(EMatchmakingState::Type OldState, EMatchmakingState::Type NewState);
+	void OnSingleSessionMatchmakingStateChangeInternal(EMatchmakingState::Type OldState, EMatchmakingState::Type NewState);
 
 	/** Internal notification that the matchmaking has completed, routes externally */
 	void OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);

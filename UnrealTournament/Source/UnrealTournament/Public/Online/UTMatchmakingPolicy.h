@@ -87,6 +87,9 @@ struct FMatchmakingParams
 	/** Matchmaking flags */
 	UPROPERTY()
 	EMatchmakingFlags Flags;
+	/** Specific session to join */
+	UPROPERTY()
+	FString SessionId;
 	/** Where to begin matchmaking */
 	UPROPERTY()
 	EMatchmakingStartLocation StartWith;

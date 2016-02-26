@@ -379,6 +379,20 @@ UUTPlaylistManager* UUTGameInstance::GetPlaylistManager() const
 	return PlaylistManager;
 }
 
+bool UUTGameInstance::IsInSession(const FUniqueNetId& SessionId) const
+{
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(/*World*/);
+	if (SessionInt.IsValid())
+	{
+		FNamedOnlineSession* Session = SessionInt->GetNamedSession(GameSessionName);
+		if (Session && Session->SessionInfo.IsValid() && Session->SessionInfo->GetSessionId() == SessionId)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void UUTGameInstance::SafeSessionDelete(FName SessionName, FOnDestroySessionCompleteDelegate DestroySessionComplete)
 {
 	UWorld* World = GetWorld();
