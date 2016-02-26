@@ -107,6 +107,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
 	USoundBase* PainSound;
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+		USoundBase* DeathSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+		USoundBase* HeadShotDeathSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
 	USoundBase* FloorSlideSound;
 	/** Ambient sound played while sprinting */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)

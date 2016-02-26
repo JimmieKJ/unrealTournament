@@ -1539,7 +1539,6 @@ void AUTCharacter::PlayDying()
 
 	SetAmbientSound(NULL);
 	SetLocalAmbientSound(NULL);
-
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
@@ -1572,6 +1571,10 @@ void AUTCharacter::PlayDying()
 		}
 		else
 		{
+			if (!UTDmg || !UTDmg.GetDefaultObject()->OverrideDeathSound(this))
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DeathSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
+			}
 			if (!bFeigningDeath)
 			{
 				StartRagdoll();
@@ -1803,6 +1806,7 @@ void AUTCharacter::PlayFeignDeath()
 {
 	if (bFeigningDeath)
 	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DeathSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 		DropFlag();
 
 		if (TauntCount > 0)
@@ -3953,6 +3957,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		// smooth up/down stairs
 		if (GetCharacterMovement()->bJustTeleported && (FMath::Abs(OldZ - GetActorLocation().Z) > GetCharacterMovement()->MaxStepHeight))
 		{
+//			UE_LOG(UT, Warning, TEXT("TELEP"));
 			EyeOffset.Z = 0.f;
 		}
 		else
@@ -4011,6 +4016,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		EyeOffset.Z = (1.f - InterpTimeZ)*EyeOffset.Z + InterpTimeZ*TargetEyeOffset.Z;
 	}
 	EyeOffset.DiagnosticCheckNaN();
+//	UE_LOG(UT, Warning, TEXT("EyeOffset %f"), EyeOffset.Z);
 	TargetEyeOffset.X *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.X*DeltaTime));
 	TargetEyeOffset.Y *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Y*DeltaTime));
 	TargetEyeOffset.Z *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Z*DeltaTime));
