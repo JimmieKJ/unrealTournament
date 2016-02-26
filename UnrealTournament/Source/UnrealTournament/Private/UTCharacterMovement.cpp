@@ -117,6 +117,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bCountWallSlides = true;
 	LastCheckedAgainstWall = 0.f;
 	bIsSettingUpFirstReplayMove = false;
+	bUseFlatBaseForFloorChecks = true;
 
 	EasyImpactImpulse = 1100.f;
 	EasyImpactDamage = 25;
