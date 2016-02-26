@@ -16,7 +16,6 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectIniti
 	ComboMomentum = 330000.0f;
 	bIsEnergyProjectile = true;
 	PrimaryActorTick.bCanEverTick = true;
-	ComboVortexType = AUTPhysicsVortex::StaticClass();
 	bMoveFakeToReplicatedPos = false;
 }
 
@@ -140,16 +139,19 @@ void AUTProj_ShockBall::OnRep_ComboExplosion()
 {
 	//Swap combo damage and effects
 	DamageParams = ComboDamageParams;
-	ExplosionEffects = ComboExplosionEffects;
+	ExplosionEffects = NULL; // done via the vortex
 	MyDamageType = ComboDamageType;
 	Momentum = ComboMomentum;
 }
 
 void AUTProj_ShockBall::OnComboExplode_Implementation()
 {
-	if (ComboVortexType != NULL)
+	if (Role == ROLE_Authority && ComboVortexType != NULL)
 	{
-		GetWorld()->SpawnActor<AUTPhysicsVortex>(ComboVortexType, GetActorLocation(), GetActorRotation());
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		Params.Instigator = Instigator;
+		GetWorld()->SpawnActor<AUTPhysicsVortex>(ComboVortexType, GetActorLocation(), GetActorRotation(), Params);
 	}
 }
 

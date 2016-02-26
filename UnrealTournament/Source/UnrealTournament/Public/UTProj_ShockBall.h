@@ -3,7 +3,7 @@
 #pragma once
 
 #include "UTProjectile.h"
-#include "UTPhysicsVortex.h"
+#include "UTShockComboEffect.h"
 #include "UTProj_ShockBall.generated.h"
 
 UCLASS(Abstract)
@@ -32,9 +32,7 @@ class UNREALTOURNAMENT_API AUTProj_ShockBall : public AUTProjectile
 
 	/** Effects */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<AUTImpactEffect> ComboExplosionEffects;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<AUTPhysicsVortex> ComboVortexType;
+	TSubclassOf<AUTShockComboEffect> ComboVortexType;
 
 protected:
 	/** when set and InstigatorController is a bot, ask it when we should combo */
