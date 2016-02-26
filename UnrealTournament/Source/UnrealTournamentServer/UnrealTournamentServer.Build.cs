@@ -15,6 +15,8 @@ public class UnrealTournamentServer : ModuleRules
 				"Engine",
 				"UnrealTournamentGame",
                 "Json",
+				"PerfCounters",
+
 			}
 		);
 
