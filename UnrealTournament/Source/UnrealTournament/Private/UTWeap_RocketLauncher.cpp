@@ -608,36 +608,22 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	}
 	
 	//Draw the crosshair
-	//TODO TIM: Move this over to a custom UTCrosshair
 	Super::DrawWeaponCrosshair_Implementation(WeaponHudWidget, RenderDelta);
-	/*if (LoadCrosshairTextures.IsValidIndex(NumLoadedRockets) && LoadCrosshairTextures[NumLoadedRockets] != NULL)
+
+	// draw loaded rocket indicator
+	float Scale = WeaponHudWidget->GetRenderScale() * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
+	if ((CurrentFireMode == 1) && (NumLoadedRockets > 0))
 	{
-		UTexture2D* Tex = LoadCrosshairTextures[NumLoadedRockets];
-		float W = Tex->GetSurfaceWidth();
-		float H = Tex->GetSurfaceHeight();
-		float Scale = WeaponHudWidget->GetRenderScale() * CrosshairScale * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
-
-		float DegreesPerRocket = 360.0f / MaxLoadedRockets;
-		float CrosshairRot = 0;
-
-		if (NumLoadedRockets < MaxLoadedRockets)
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, 30.f*Scale, 30.f*Scale, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		if (NumLoadedRockets > 1)
 		{
-			float DeltaTime = GetWorld()->TimeSeconds - LastLoadTime;
-			float Alpha = FMath::Clamp(DeltaTime / CrosshairRotationTime, 0.0f, 1.0f);
-			CrosshairRot = FMath::Lerp(0.f, DegreesPerRocket, Alpha);
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, 30.f*Scale, 30.f*Scale, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			if (NumLoadedRockets > 2)
+			{
+				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, 30.f*Scale, 30.f*Scale, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			}
 		}
-
-		WeaponHudWidget->DrawTexture(Tex, 0, 0, W * Scale, H * Scale, 0.0, 0.0, W, H, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f), CrosshairRot);
-		AUTPlayerState* PS;
-		if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
-		{
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex, 0, 0, W * Scale * 0.75f, H * Scale * 0.75f, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
-		}
-		else
-		{
-			UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
-		}
-	}*/
+	}
 
 	//Draw the locked on crosshair
 	if (HasLockedTarget())
@@ -645,7 +631,6 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		UTexture2D* Tex = LockCrosshairTexture;
 		float W = Tex->GetSurfaceWidth();
 		float H = Tex->GetSurfaceHeight();
-		float Scale = WeaponHudWidget->GetRenderScale() * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 
 		FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
 		ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
@@ -653,7 +638,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 
 		float CrosshairRot = GetWorld()->TimeSeconds * 90.0f;
 
-		WeaponHudWidget->DrawTexture(Tex, ScreenTarget.X, ScreenTarget.Y, W * Scale, H * Scale, 0.0, 0.0, W, H, 1.0, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
+		WeaponHudWidget->DrawTexture(Tex, ScreenTarget.X, ScreenTarget.Y, W * Scale, H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
 	}
 }
 
