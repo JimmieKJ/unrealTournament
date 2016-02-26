@@ -389,7 +389,8 @@ void AUTLobbyGameMode::DefaultTimer()
 					UTGameSession->DestroyHostBeacon();
 				}
 
-				GetWorld()->ServerTravel(MapName);
+				// Shut the hub down and restart.
+				FPlatformMisc::RequestExit(true);
 			}
 		}
 	}
