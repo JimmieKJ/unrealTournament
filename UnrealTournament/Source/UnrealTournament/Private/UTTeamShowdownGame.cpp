@@ -23,7 +23,7 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 {
 	TimeLimit = 3.0f; // per round
 	GoalScore = 5;
-	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Team Showdown");
+	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Showdown");
 	bAnnounceTeam = true;
 	QuickPlayersToStart = 6;
 }
