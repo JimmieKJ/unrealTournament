@@ -112,6 +112,7 @@ public:
 	DECLARE_MULTICAST_DELEGATE(FOnMatchmakingStarted);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnMatchmakingStateChange, EMatchmakingState::Type /*OldState*/, EMatchmakingState::Type /*NewState*/, const FMMAttemptState& /*MMState*/);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnConnectToLobby, const FOnlineSessionSearchResult& /*SearchResult*/)
 
 	/** @return the delegate fired when matchmaking starts */
 	FOnMatchmakingStarted& OnMatchmakingStarted() { return MatchmakingStarted; }
@@ -121,6 +122,9 @@ public:
 
 	/** @return the delegate fired when matchmaking state changes */
 	FOnMatchmakingStateChange& OnMatchmakingStateChange() { return MatchmakingStateChange; }
+
+	/** @return the delegate triggered when the lobby connection attempt begins */
+	FOnConnectToLobby& OnConnectToLobby() { return ConnectToLobbyDelegates; }
 
 private:
 
@@ -150,6 +154,13 @@ private:
 	 */
 	FOnMatchmakingStateChange MatchmakingStateChange;
 		
+	/**
+	 * Delegate triggered when a connection to a lobby begins
+	 *
+	 * @param SearchResult lobby result to connect to
+	 */
+	FOnConnectToLobby ConnectToLobbyDelegates;
+
 	/**
 	 * Cleanup the reservation beacon
 	 */

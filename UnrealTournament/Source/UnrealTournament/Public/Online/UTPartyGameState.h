@@ -151,7 +151,9 @@ private:
 	 *
 	 * @param SearchResult destination of the party leader
 	 */
-	void OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult, const FString& CriticalMissionSessionId);
+	void OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult);
+
+	virtual void ComparePartyData(const FPartyState& OldPartyData, const FPartyState& NewPartyData) override;
 
 	friend UUTParty;
 	friend UUTPartyMemberState;

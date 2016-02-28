@@ -181,6 +181,7 @@ void UUTMatchmaking::OnPartyLeft(UPartyGameState* InParty, EMemberExitedReason R
 		check(UTPartyGameState);
 		UTPartyGameState->OnClientPartyStateChanged().RemoveAll(this);
 		UTPartyGameState->OnClientMatchmakingComplete().RemoveAll(this);
+		UTPartyGameState->OnClientSessionIdChanged().RemoveAll(this);
 	}
 }
 
@@ -558,6 +559,9 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 				ReservationBeaconClient->OnAllowedToProceedFromReservation().BindUObject(this, &ThisClass::OnAllowedToProceedFromReservation);
 				ReservationBeaconClient->OnAllowedToProceedFromReservationTimeout().BindUObject(this, &ThisClass::OnAllowedToProceedFromReservationTimeout);
 				ReservationBeaconClient->Reconnect(SearchResult, PC->PlayerState->UniqueId);
+
+				// Advertise the search result found
+				OnConnectToLobby().Broadcast(SearchResult);
 			}
 			else
 			{

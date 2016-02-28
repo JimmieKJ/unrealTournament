@@ -48,6 +48,7 @@ void UUTPartyGameState::RegisterFrontendDelegates()
 			{
 				Matchmaking->OnMatchmakingStarted().AddUObject(this, &ThisClass::OnPartyMatchmakingStarted);
 				Matchmaking->OnMatchmakingComplete().AddUObject(this, &ThisClass::OnPartyMatchmakingComplete);
+				Matchmaking->OnConnectToLobby().AddUObject(this, &ThisClass::OnConnectToLobby);
 			}
 		}
 	}
@@ -67,6 +68,7 @@ void UUTPartyGameState::UnregisterFrontendDelegates()
 		{
 			Matchmaking->OnMatchmakingStarted().RemoveAll(this);
 			Matchmaking->OnMatchmakingComplete().RemoveAll(this);
+			Matchmaking->OnConnectToLobby().RemoveAll(this);
 		}
 	}
 }
@@ -214,7 +216,7 @@ void UUTPartyGameState::SetLocation(EUTPartyMemberLocation NewLocation)
 	}
 }
 
-void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult, const FString& CriticalMissionSessionId)
+void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult)
 {
 	if (ensure(SearchResult.IsValid()))
 	{
@@ -236,6 +238,33 @@ void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& Searc
 				UE_LOG(LogParty, Verbose, TEXT("Handling party reservation approvals after connection to lobby."));
 				ConnectToReservationBeacon();
 			}
+		}
+	}
+}
+
+void UUTPartyGameState::ComparePartyData(const FPartyState& OldPartyData, const FPartyState& NewPartyData)
+{
+	Super::ComparePartyData(OldPartyData, NewPartyData);
+
+	// Client passenger view delegates, leader won't get these because they are driving
+	if (!IsLocalPartyLeader())
+	{
+		const FUTPartyRepState& OldUTPartyData = static_cast<const FUTPartyRepState&>(OldPartyData);
+		const FUTPartyRepState& NewUTPartyData = static_cast<const FUTPartyRepState&>(NewPartyData);
+
+		if (OldUTPartyData.MatchmakingResult != NewUTPartyData.MatchmakingResult)
+		{
+			OnClientMatchmakingComplete().Broadcast(NewUTPartyData.MatchmakingResult);
+		}
+
+		if (OldUTPartyData.SessionId != NewUTPartyData.SessionId)
+		{
+			OnClientSessionIdChanged().Broadcast(NewUTPartyData.SessionId);
+		}
+
+		if (OldUTPartyData.PartyProgression != NewUTPartyData.PartyProgression)
+		{
+			OnClientPartyStateChanged().Broadcast(NewUTPartyData.PartyProgression);
 		}
 	}
 }
