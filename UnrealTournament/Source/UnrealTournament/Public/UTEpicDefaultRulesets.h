@@ -174,7 +174,7 @@ public:
 			NewRuleset->Categories.Empty();
 			NewRuleset->Categories.Add(TEXT("TeamPlay"));
 
-			NewRuleset->Title = TEXT("Team Showdown");
+			NewRuleset->Title = TEXT("Showdown");
 			NewRuleset->Tooltip = TEXT("Red versus blue team showdown.");
 			NewRuleset->Description = TEXT("Red versus blue team showdown.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minute rounds</>\n<UT.Hub.RulesText_Small>Scoring : First to %goalscore% wins</>\n<UT.Hub.RulesText_Small>Maximum players: %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
@@ -229,7 +229,7 @@ public:
 			NewRuleset->Categories.Empty(); 
 			NewRuleset->Categories.Add(TEXT("Deathmatch"));
 
-			NewRuleset->Title = TEXT("Showdown");
+			NewRuleset->Title = TEXT("Duel Showdown");
 			NewRuleset->Tooltip = TEXT("New School one vs one test of deathmatch skill.");
 			NewRuleset->Description = TEXT("New School one vs one test of deathmatch skill.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minute rounds</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;

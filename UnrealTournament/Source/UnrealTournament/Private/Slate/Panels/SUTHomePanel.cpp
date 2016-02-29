@@ -444,7 +444,7 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 											.AutoHeight()
 											[
 												SNew(STextBlock)
-												.Text(FText::FromString(TEXT("TEAM SHOWDOWN")))
+												.Text(FText::FromString(TEXT("SHOWDOWN")))
 												.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
 												.ColorAndOpacity(FLinearColor(1.0f, 0.412f, 0.027f, 1.0f))
 											]
