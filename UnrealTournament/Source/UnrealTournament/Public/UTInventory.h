@@ -56,6 +56,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	UMeshComponent* PickupMesh;
 
+	FText HUDText;
+
 public:
 	/** returns next inventory item in the chain
 	 * NOTE: usually you should use TInventoryIterator
@@ -207,10 +209,8 @@ public:
 
 	/** Returns the HUD text to display for this item */
 	UFUNCTION(BlueprintCallable, Category = HUD)
-	virtual FText GetHUDText() const
-	{ 
-		return FText::GetEmpty(); 
-	}
+	virtual FText GetHUDText() const;
+	virtual void UpdateHUDText();
 
 	// Allows inventory items to decide if a widget should be allowed to render them.
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = HUD)

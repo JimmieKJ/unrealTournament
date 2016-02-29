@@ -2434,6 +2434,7 @@ bool AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 				}
 			}
 
+			InvToAdd->UpdateHUDText();
 			return true;
 		}
 	}

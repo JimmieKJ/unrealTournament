@@ -3732,6 +3732,15 @@ void AUTPlayerController::UpdateWeaponGroupKeys()
 			}
 		}
 	}
+	
+	//Let the UTWeapons know that any HUD text needs to be updated
+	if (GetUTCharacter())
+	{
+		for (TInventoryIterator<AUTWeapon> It(GetUTCharacter()); It; ++It)
+		{
+			It->UpdateHUDText();
+		}
+	}
 }
 
 bool AUTPlayerController::ServerRegisterBanVote_Validate(AUTPlayerState* BadGuy) { return true; }
