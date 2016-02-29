@@ -487,6 +487,10 @@ struct FPackageRedirectReference
 		return PackageURLProtocol + TEXT("://") + PackageURL + TEXT(" ");
 	}
 
+	bool operator==(const FPackageRedirectReference& Other) const
+	{
+		return PackageName == Other.PackageName && PackageURLProtocol == Other.PackageURLProtocol && PackageURL == Other.PackageURL && PackageChecksum == Other.PackageChecksum;
+	}
 };
 
 

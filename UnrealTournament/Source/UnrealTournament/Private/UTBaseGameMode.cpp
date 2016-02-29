@@ -259,12 +259,12 @@ void AUTBaseGameMode::GatherRequiredRedirects(TArray<FPackageRedirectReference>&
 	FPackageRedirectReference Redirect;
 	if (FindRedirect(GetModPakFilenameFromPkg(GetOutermost()->GetName()), Redirect))
 	{
-		Redirects.Add(Redirect);
+		Redirects.AddUnique(Redirect);
 	}
 	// game class pak
 	if (FindRedirect(GetModPakFilenameFromPkg(GetClass()->GetOutermost()->GetName()), Redirect))
 	{
-		Redirects.Add(Redirect);
+		Redirects.AddUnique(Redirect);
 	}
 }
 
