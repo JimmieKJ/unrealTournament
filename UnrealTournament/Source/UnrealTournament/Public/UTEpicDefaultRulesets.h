@@ -99,7 +99,8 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Lea/DM-Lea";
 
 			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/DM-Chill";
-
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/DM-Chill"));
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"));
 		}
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::BigDM, ESearchCase::IgnoreCase))
 		{
