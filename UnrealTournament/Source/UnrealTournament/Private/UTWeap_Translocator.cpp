@@ -280,7 +280,10 @@ void AUTWeap_Translocator::FireShot()
 					UTOwner->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 					//UE_LOG(UT, Warning, TEXT("Translocate to %f %f %f"), WarpLocation.X, WarpLocation.Y, WarpLocation.Z);
 					// test first so we don't drop the flag on an unsuccessful teleport
-					if (GetWorld()->FindTeleportSpot(UTOwner, WarpLocation, WarpRotation))
+					// FIXME: trace is a workaround for engine bug where FindTeleportSpot() will give back locations inside or on the wrong side of walls in certain edge cases
+					//		this doesn't fully address the issue but reduces the frequency significantly
+					const FVector IdealWarpLocation = WarpLocation;
+					if (GetWorld()->FindTeleportSpot(UTOwner, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(IdealWarpLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams::DefaultQueryParam, WorldResponseParams))
 					{
 						UTOwner->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 						if (Role == ROLE_Authority)
