@@ -1409,6 +1409,7 @@ void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Hei
 	View->StartFinalPostprocessSettings(CameraTransform.GetLocation());
 	//View->OverridePostProcessSettings(PPSettings, 1.0f);
 	View->EndFinalPostprocessSettings(PlayerPreviewInitOptions);
+	View->ViewRect = View->UnscaledViewRect;
 
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
 	--GFrameNumber;
