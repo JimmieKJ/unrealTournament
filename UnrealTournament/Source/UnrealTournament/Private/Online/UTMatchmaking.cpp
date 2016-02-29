@@ -224,6 +224,11 @@ void UUTMatchmaking::OnPartyMemberPromoted(UPartyGameState* InParty, const FUniq
 void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 {
 	UE_LOG(LogOnline, Log, TEXT("OnClientPartyStateChanged %d"), (int32)NewPartyState);
+
+	if (NewPartyState == EUTPartyState::TravelToServer)
+	{
+		TravelToServer();
+	}
 }
 
 void UUTMatchmaking::CleanupReservationBeacon()
@@ -426,6 +431,8 @@ bool UUTMatchmaking::FindSessionAsClient(const FMatchmakingParams& InParams)
 			FMatchmakingParams MatchmakingParams(InParams);
 			MatchmakingParams.StartWith = EMatchmakingStartLocation::FindSingle;
 
+			CachedMatchmakingSearchParams = FUTCachedMatchmakingSearchParams(EUTMatchmakingType::Session, InParams);
+
 			MatchmakingSingleSession->OnMatchmakingStateChange().BindUObject(this, &ThisClass::OnSingleSessionMatchmakingStateChangeInternal);
 			MatchmakingSingleSession->OnMatchmakingComplete().BindUObject(this, &ThisClass::OnSingleSessionMatchmakingComplete);
 
@@ -519,11 +526,15 @@ void UUTMatchmaking::OnGatherMatchmakingComplete(EMatchmakingCompleteResult Resu
 
 void UUTMatchmaking::OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult)
 {
+	UE_LOG(LogOnline, Log, TEXT("OnSingleSessionMatchmakingComplete"));
 	if (Result == EMatchmakingCompleteResult::Success && SearchResult.IsValid())
 	{
-		AUTPlayerController* UTPC = GetOwningController();
-		FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
-		UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
+		if ((CachedMatchmakingSearchParams.GetMatchmakingParams().Flags & EMatchmakingFlags::NoReservation) == EMatchmakingFlags::None)
+		{
+			AUTPlayerController* UTPC = GetOwningController();
+			FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
+			UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
+		}
 
 		OnMatchmakingCompleteInternal(Result, SearchResult);
 	}
@@ -596,6 +607,20 @@ void UUTMatchmaking::OnReservationFull()
 	UE_LOG(LogOnline, Log, TEXT("OnReservationFull"));
 
 	TravelToServer();
+
+	UUTGameInstance* UTGameInstance = GetUTGameInstance();
+	if (ensure(UTGameInstance))
+	{
+		UUTParty* Parties = UTGameInstance->GetParties();
+		if (ensure(Parties))
+		{
+			UUTPartyGameState* PersistentParty = Parties->GetUTPersistentParty();
+			if (ensure(PersistentParty))
+			{
+				PersistentParty->NotifyTravelToServer();
+			}
+		}
+	}
 }
 
 void UUTMatchmaking::OnAllowedToProceedFromReservation()

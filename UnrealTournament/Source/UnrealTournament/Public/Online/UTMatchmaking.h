@@ -21,6 +21,7 @@ UENUM()
 enum class EUTMatchmakingType : uint8
 {
 	Gathering,
+	Session
 };
 
 /** Struct to represent params used for past matchmaking attempts */

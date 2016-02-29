@@ -19,7 +19,8 @@ enum class EUTPartyState : uint8
 	/** Actively matchmaking, no destination yet */
 	Matchmaking,
 	/** Destination found and beyond (attempting to join, lobby, game, etc) */
-	PostMatchmaking
+	PostMatchmaking,
+	TravelToServer
 };
 
 /**
@@ -88,11 +89,9 @@ class UNREALTOURNAMENT_API UUTPartyGameState : public UPartyGameState
 	 * Delegate fired when a session id has been determined
 	 * 
 	 * @param SessionId session id party members should search for
-	 * @param ZoneInstanceId zone id for the session found
-	 * @param bSessionIsCriticalMission is this a critical mission
 	 */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientSessionIdChanged, const FString& /* SessionId */);
-
+	
 private:
 	/** Passenger view related delegates prior to joining a lobby/game */
 	FOnClientPartyStateChanged ClientPartyStateChanged;
@@ -162,10 +161,12 @@ public:
 	/**
 	 * Tell other party members about the location of local players
 	 * 
-	 * @param NewLocation new "location" within the game (see EFortPartyMemberLocation)
+	 * @param NewLocation new "location" within the game (see EUTPartyMemberLocation)
 	 */
 	void SetLocation(EUTPartyMemberLocation NewLocation);
-	
+
+	void NotifyTravelToServer();
+
 	/** @return delegate fired when the location of the player has changed */
 	FOnPartyMemberPropertyChanged& OnLocationChanged() { return LocationChanged; }
 

@@ -268,3 +268,9 @@ void UUTPartyGameState::ComparePartyData(const FPartyState& OldPartyData, const 
 		}
 	}
 }
+
+void UUTPartyGameState::NotifyTravelToServer()
+{
+	PartyState.PartyProgression = EUTPartyState::TravelToServer;
+	UpdatePartyData(OwningUserId);
+}
