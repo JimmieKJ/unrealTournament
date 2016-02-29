@@ -725,7 +725,7 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 
 		//Draw the game specific stats
 		AGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
-		if (GameState && GameState->GameModeClass)
+		if (GameState && GameState->GameModeClass && !TargetPlayerState->bOnlySpectator)
 		{
 			AGameMode* DefaultGameMode = GameState->GameModeClass->GetDefaultObject<AGameMode>();
 			if (DefaultGameMode)
