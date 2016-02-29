@@ -2063,6 +2063,8 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	if (bRankedSession)
 	{
 		SendEveryoneBackToLobby();
+		// Travel back to ut-entry?game=empty
+		GetWorld()->ServerTravel("/Game/RestrictedAssets/Maps/ut-entry?game=empty", false);
 	}
 	else if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
@@ -2686,6 +2688,10 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 
 			// start if everyone is ready, or have waited long enough and 60% ready.
 			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
+			if (bRankedSession && bMaxWaitComplete)
+			{
+				return true;
+			}
 			if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
 			{
 				if (((ReadyCount > 0) && !bCasterControl) || bCasterReady)
