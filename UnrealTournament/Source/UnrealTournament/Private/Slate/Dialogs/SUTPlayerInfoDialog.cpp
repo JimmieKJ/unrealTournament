@@ -720,7 +720,7 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 			SAssignNew(TabWidget, SUTTabWidget)
 			.OnTabButtonSelectionChanged(this, &SUTPlayerInfoDialog::OnTabButtonSelectionChanged)
 		];
-
+	
 		TargetPlayerState->BuildPlayerInfo(TabWidget, StatList);
 
 		//Draw the game specific stats
@@ -742,7 +742,17 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 		RecreatePlayerPreview();
 
 		TabWidget->OnButtonClicked(CurrentTab);
-		DialogTitle->SetText(FText::FromString(TargetPlayerState->PlayerName));
+
+		//We are in a game where we can only ever be a spectator. 
+		//This means we are not in the player list, and thus need to use our Account Display Name as our Player Name isn't accurate.
+		if (TargetPlayerState->bOnlySpectator)
+		{
+			DialogTitle->SetText(GetPlayerOwner()->GetAccountDisplayName());
+		}
+		else
+		{
+			DialogTitle->SetText(FText::FromString(TargetPlayerState->PlayerName));
+		}
 	}
 }
 
