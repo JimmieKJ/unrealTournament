@@ -91,7 +91,9 @@ float UUTProfileSettings::GetWeaponPriority(FString WeaponClassName, float Defau
 {
 	for (int32 i=0;i<WeaponPriorities.Num(); i++)
 	{
-		if (WeaponPriorities[i].WeaponClassName == WeaponClassName)
+		//We need to do a left string compare because unfortunately during the data baking process extra characters can be appended to the name blueprint name.
+		const int WeaponPrioritiesNameSize = WeaponPriorities[i].WeaponClassName.Len();
+		if (WeaponPriorities[i].WeaponClassName == WeaponClassName.Left(WeaponPrioritiesNameSize))
 		{
 			return WeaponPriorities[i].WeaponPriority;
 		}
