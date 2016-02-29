@@ -190,6 +190,8 @@ public:
 
 	virtual void AnnounceStatus(FName NewStatus);
 
+	virtual bool IsOwnedByReplayController() const;
+
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;

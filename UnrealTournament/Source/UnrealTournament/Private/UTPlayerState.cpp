@@ -1076,9 +1076,14 @@ void AUTPlayerState::SetCharacterVoice(const FString& CharacterVoicePath)
 	}
 }
 
+bool AUTPlayerState::IsOwnedByReplayController() const
+{
+	return Cast<AUTDemoRecSpectator>(GetOwner()) != nullptr;
+}
+
 void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
-	if (Role == ROLE_Authority)
+	if (Role == ROLE_Authority || IsOwnedByReplayController())
 	{
 		TSubclassOf<AUTCharacterContent> NewCharacter = (CharacterPath.Len() > 0) ? TSubclassOf<AUTCharacterContent>(FindObject<UClass>(NULL, *CharacterPath, false)) : GetDefault<AUTCharacter>()->CharacterData;
 // redirect from blueprint, for easier testing in the editor via C/P

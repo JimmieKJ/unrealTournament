@@ -708,6 +708,8 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 {
 	if (TargetPlayerState.IsValid())
 	{
+		UpdatePlayerStateInReplays();
+
 		StatList.Empty();
 		InfoPanel->ClearChildren();
 
@@ -741,6 +743,41 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 
 		TabWidget->OnButtonClicked(CurrentTab);
 		DialogTitle->SetText(FText::FromString(TargetPlayerState->PlayerName));
+	}
+}
+
+void SUTPlayerInfoDialog::UpdatePlayerStateInReplays()
+{
+	if (TargetPlayerState.IsValid() && TargetPlayerState->IsOwnedByReplayController())
+	{
+		UpdatePlayerStateRankingStatsFromLocalPlayer(PlayerOwner->GetRankDuel(), PlayerOwner->GetRankCTF(), PlayerOwner->GetRankTDM(), PlayerOwner->GetRankDM(), PlayerOwner->GetRankShowdown(), PlayerOwner->GetTotalChallengeStars(), FMath::Min(255, PlayerOwner->DuelEloMatches()), FMath::Min(255, PlayerOwner->CTFEloMatches()), FMath::Min(255, PlayerOwner->TDMEloMatches()), FMath::Min(255, PlayerOwner->DMEloMatches()), FMath::Min(255, PlayerOwner->ShowdownEloMatches()));
+		UpdatePlayerCharacterPreviewInReplays();
+	}
+}
+
+void SUTPlayerInfoDialog::UpdatePlayerStateRankingStatsFromLocalPlayer(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed)
+{
+	if (TargetPlayerState.IsValid())
+	{
+		TargetPlayerState->DuelRank = NewDuelRank;
+		TargetPlayerState->CTFRank = NewCTFRank;
+		TargetPlayerState->TDMRank = NewTDMRank;
+		TargetPlayerState->DMRank = NewDMRank;
+		TargetPlayerState->ShowdownRank = NewShowdownRank;
+		TargetPlayerState->TotalChallengeStars = TotalStars;
+		TargetPlayerState->DuelMatchesPlayed = DuelMatchesPlayed;
+		TargetPlayerState->CTFMatchesPlayed = CTFMatchesPlayed;
+		TargetPlayerState->TDMMatchesPlayed = TDMMatchesPlayed;
+		TargetPlayerState->DMMatchesPlayed = DMMatchesPlayed;
+		TargetPlayerState->ShowdownMatchesPlayed = ShowdownMatchesPlayed;
+	}
+}
+
+void SUTPlayerInfoDialog::UpdatePlayerCharacterPreviewInReplays()
+{
+	if (TargetPlayerState.IsValid() && PlayerOwner.IsValid() && PlayerOwner->GetProfileSettings())
+	{
+		TargetPlayerState->SetCharacter(PlayerOwner->GetProfileSettings()->CharacterPath);
 	}
 }
 

@@ -192,6 +192,10 @@ protected:
 	FReply Logout();
 	void SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
+private:
+	void UpdatePlayerStateInReplays();
+	void UpdatePlayerCharacterPreviewInReplays();
+	void UpdatePlayerStateRankingStatsFromLocalPlayer(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed);
 
 };
 #endif
