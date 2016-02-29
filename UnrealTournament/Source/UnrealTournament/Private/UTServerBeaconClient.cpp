@@ -4,6 +4,7 @@
 #include "UTLobbyGameState.h"
 #include "UTLobbyMatchInfo.h"
 #include "UTServerBeaconClient.h"
+#include "UTDemoRecSpectator.h"
 
 AUTServerBeaconClient::AUTServerBeaconClient(const class FObjectInitializer& ObjectInitializer) :
 Super(ObjectInitializer)
@@ -65,12 +66,18 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 		ServerInfo.ServerPlayers = TEXT("");
 
 		// Add the Players section3
-		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
+		for (int32 i = 0; i < GameState->PlayerArray.Num(); i++)
 		{
-			FString PlayerName =  GameState->PlayerArray[i]->PlayerName;
-			FString PlayerScore = FString::Printf(TEXT("%i"), int32(GameState->PlayerArray[i]->Score));
-			FString UniqueID = GameState->PlayerArray[i]->UniqueId.IsValid() ? GameState->PlayerArray[i]->UniqueId->ToString() : TEXT("none");
-			ServerInfo.ServerPlayers += FString::Printf(TEXT("%s\t%s\t%s\t"), *PlayerName, *PlayerScore, *UniqueID);
+			//Cull out players that are Replay Spectators
+			AUTDemoRecSpectator* DemoSpectatorController = Cast<AUTDemoRecSpectator>(GameState->PlayerArray[i]->GetOwner());
+			if (DemoSpectatorController == nullptr)
+			{
+
+				FString PlayerName = GameState->PlayerArray[i]->PlayerName;
+				FString PlayerScore = FString::Printf(TEXT("%i"), int32(GameState->PlayerArray[i]->Score));
+				FString UniqueID = GameState->PlayerArray[i]->UniqueId.IsValid() ? GameState->PlayerArray[i]->UniqueId->ToString() : TEXT("none");
+				ServerInfo.ServerPlayers += FString::Printf(TEXT("%s\t%s\t%s\t"), *PlayerName, *PlayerScore, *UniqueID);
+			}
 		}
 
 		ServerInfo.MOTD = GameState->ServerMOTD;
