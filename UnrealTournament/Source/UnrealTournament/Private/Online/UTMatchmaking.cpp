@@ -145,6 +145,7 @@ void UUTMatchmaking::OnPartyJoined(UPartyGameState* InParty)
 	{
 		UUTPartyGameState* UTPartyGameState = Cast<UUTPartyGameState>(InParty);
 		check(UTPartyGameState);
+		UTPartyGameState->OnLeaderPartyStateChanged().AddUObject(this, &ThisClass::OnLeaderPartyStateChanged);
 		UTPartyGameState->OnClientPartyStateChanged().AddUObject(this, &ThisClass::OnClientPartyStateChanged);
 		UTPartyGameState->OnClientMatchmakingComplete().AddUObject(this, &ThisClass::OnClientMatchmakingComplete);
 		UTPartyGameState->OnClientSessionIdChanged().AddUObject(this, &ThisClass::OnClientSessionIdChanged);
@@ -179,6 +180,7 @@ void UUTMatchmaking::OnPartyLeft(UPartyGameState* InParty, EMemberExitedReason R
 
 		UUTPartyGameState* UTPartyGameState = Cast<UUTPartyGameState>(InParty);
 		check(UTPartyGameState);
+		UTPartyGameState->OnLeaderPartyStateChanged().RemoveAll(this);
 		UTPartyGameState->OnClientPartyStateChanged().RemoveAll(this);
 		UTPartyGameState->OnClientMatchmakingComplete().RemoveAll(this);
 		UTPartyGameState->OnClientSessionIdChanged().RemoveAll(this);
@@ -221,9 +223,16 @@ void UUTMatchmaking::OnPartyMemberPromoted(UPartyGameState* InParty, const FUniq
 	}
 }
 
+void UUTMatchmaking::OnLeaderPartyStateChanged(EUTPartyState NewPartyState)
+{
+	OnPartyStateChange().Broadcast(NewPartyState);
+}
+
 void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 {
 	UE_LOG(LogOnline, Log, TEXT("OnClientPartyStateChanged %d"), (int32)NewPartyState);
+
+	OnPartyStateChange().Broadcast(NewPartyState);
 
 	if (NewPartyState == EUTPartyState::TravelToServer)
 	{

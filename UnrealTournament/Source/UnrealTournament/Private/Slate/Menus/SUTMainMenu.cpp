@@ -218,6 +218,12 @@ TSharedRef<SWidget> SUTMainMenu::AddPlayNow()
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_FindGame", "Find a Match..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
 
+	if (FParse::Param(FCommandLine::Get(), TEXT("PARTY")))
+	{
+		DropDownButton->AddSpacer();
+		DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Ranked_Showdown", "Ranked 3v3 Showdown Queue"), FOnClicked::CreateSP(this, &SUTMenuBase::OnRankedShowdown), true);
+	}
+
 	return DropDownButton.ToSharedRef();
 }
 

@@ -715,7 +715,13 @@ public:
 	TSharedPtr<SUTDialogBase> YoutubeDialog;
 	TSharedPtr<class SUTYoutubeConsentDialog> YoutubeConsentDialog;
 
+	TSharedPtr<class SUTMatchmakingDialog> MatchmakingDialog;
+	void MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
+
+	void ShowMatchmakingDialog();
+	void HideMatchmakingDialog();
+	bool IsPartyLeader();
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);
 

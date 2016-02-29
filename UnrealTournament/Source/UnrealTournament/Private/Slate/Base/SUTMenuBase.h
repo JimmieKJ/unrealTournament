@@ -85,6 +85,8 @@ public:
 
 	virtual FReply OnShowServerBrowserPanel();
 
+	virtual FReply OnRankedShowdown();
+
 	virtual TSharedPtr<SUTPanelBase> GetActivePanel();
 
 protected:

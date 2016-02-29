@@ -43,7 +43,7 @@ class UNREALTOURNAMENT_API SUTDialogBase : public SCompoundWidget
 	virtual void OnDialogOpened();
 	virtual void OnDialogClosed();
 
-	inline TWeakObjectPtr<class UUTLocalPlayer> GetPlayerOwner()
+	inline TWeakObjectPtr<class UUTLocalPlayer> GetPlayerOwner() const
 	{
 		return PlayerOwner;
 	}

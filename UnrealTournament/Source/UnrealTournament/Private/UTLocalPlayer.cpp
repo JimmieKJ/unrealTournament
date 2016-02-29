@@ -52,6 +52,7 @@
 #include "UTVideoRecordingFeature.h"
 #include "SUTYoutubeUploadDialog.h"
 #include "SUTYoutubeConsentDialog.h"
+#include "SUTMatchmakingDialog.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyPC.h"
 #include "StatNames.h"
@@ -4554,6 +4555,79 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
 	}
 }
+
+bool UUTLocalPlayer::IsPartyLeader()
+{
+	UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
+	UUTParty* Party = GameInstance->GetParties();
+	if (Party)
+	{
+		UPartyGameState* PersistentParty = Party->GetPersistentParty();
+		if (PersistentParty)
+		{
+			TSharedPtr<const FUniqueNetId> PartyLeaderId = PersistentParty->GetPartyLeader();
+			FUniqueNetIdRepl LocalPlayerId = GetGameAccountId();
+			if (PartyLeaderId.IsValid() && *LocalPlayerId == *PartyLeaderId)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void UUTLocalPlayer::ShowMatchmakingDialog()
+{
+#if !UE_SERVER
+	if (MatchmakingDialog.IsValid())
+	{
+		return;
+	}
+	
+	// Only the party leader can cancel
+	uint16 ButtonMask = 0;
+	if (IsPartyLeader())
+	{
+		ButtonMask = UTDIALOG_BUTTON_CANCEL;
+	}
+
+	OpenDialog(
+		SAssignNew(MatchmakingDialog, SUTMatchmakingDialog)
+		.PlayerOwner(this)
+		.DialogSize(FVector2D(0.6f, 0.4f))
+		.DialogPosition(FVector2D(0.5f, 0.5f))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "Matchmaking", "Searching For Match"))
+		.ButtonMask(ButtonMask)
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::MatchmakingResult))
+		);
+#endif
+}
+
+void UUTLocalPlayer::HideMatchmakingDialog()
+{
+#if !UE_SERVER
+	if (MatchmakingDialog.IsValid())
+	{
+		CloseDialog(MatchmakingDialog.ToSharedRef());
+	}
+#endif
+}
+
+#if !UE_SERVER
+void UUTLocalPlayer::MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
+	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+		UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+		if (ensure(Matchmaking))
+		{
+			Matchmaking->CancelMatchmaking();
+		}
+	}
+}
+#endif
 
 #if !UE_SERVER
 

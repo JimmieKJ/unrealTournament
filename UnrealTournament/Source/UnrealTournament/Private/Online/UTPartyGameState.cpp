@@ -78,6 +78,7 @@ void UUTPartyGameState::OnPartyMatchmakingStarted()
 	if (IsLocalPartyLeader())
 	{
 		PartyState.PartyProgression = EUTPartyState::Matchmaking;
+		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		UpdatePartyData(OwningUserId);
 		SetAcceptingMembers(false, EJoinPartyDenialReason::Busy);
 	}
@@ -92,12 +93,14 @@ void UUTPartyGameState::OnPartyMatchmakingComplete(EMatchmakingCompleteResult Re
 		if (Result == EMatchmakingCompleteResult::Success)
 		{
 			PartyState.PartyProgression = EUTPartyState::PostMatchmaking;
+			OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 			//DoLeaderMatchmakingCompleteAnalytics();
 		}
 		else
 		{
 			UpdateAcceptingMembers();
 			PartyState.PartyProgression = EUTPartyState::Menus;
+			OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		}
 
 		UpdatePartyData(OwningUserId);
@@ -127,6 +130,7 @@ void UUTPartyGameState::OnLobbyConnectionStarted()
 	if (IsLocalPartyLeader())
 	{
 		PartyState.PartyProgression = EUTPartyState::PostMatchmaking;
+		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		PartyState.bLobbyConnectionStarted = true;
 		UpdatePartyData(OwningUserId);
 	}
@@ -140,6 +144,7 @@ void UUTPartyGameState::OnLobbyConnectionAttemptFailed()
 	if (IsLocalPartyLeader())
 	{
 		PartyState.PartyProgression = EUTPartyState::Menus;
+		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		PartyState.bLobbyConnectionStarted = false;
 		UpdatePartyData(OwningUserId);
 	}
@@ -176,6 +181,7 @@ void UUTPartyGameState::OnLobbyDisconnected()
 	if (IsLocalPartyLeader())
 	{
 		PartyState.PartyProgression = EUTPartyState::Menus;
+		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		PartyState.bLobbyConnectionStarted = false;
 		PartyState.SessionId.Empty();
 		UpdatePartyData(OwningUserId);
@@ -226,6 +232,7 @@ void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& Searc
 		if (IsLocalPartyLeader())
 		{
 			PartyState.PartyProgression = EUTPartyState::PostMatchmaking;
+			OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 
 			const FUniqueNetId& SessionId = SearchResult.Session.SessionInfo->GetSessionId();
 			PartyState.SessionId = SessionId.ToString();
@@ -272,5 +279,6 @@ void UUTPartyGameState::ComparePartyData(const FPartyState& OldPartyData, const 
 void UUTPartyGameState::NotifyTravelToServer()
 {
 	PartyState.PartyProgression = EUTPartyState::TravelToServer;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 	UpdatePartyData(OwningUserId);
 }

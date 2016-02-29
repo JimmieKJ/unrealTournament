@@ -880,6 +880,24 @@ FReply SUTMenuBase::OnShowServerBrowserPanel()
 	return FReply::Handled();
 }
 
+FReply SUTMenuBase::OnRankedShowdown()
+{
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline(TEXT(""), TEXT(""));
+		return FReply::Handled();
+	}
+
+	if (!PlayerOwner->IsPartyLeader())
+	{
+		return FReply::Handled();
+	}
+
+	PlayerOwner->StartMatchmaking(0);
+
+	return FReply::Handled();
+}
+
 FReply SUTMenuBase::ToggleFriendsAndChat()
 {
 #if PLATFORM_LINUX

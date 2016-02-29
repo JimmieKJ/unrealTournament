@@ -9,7 +9,7 @@
 #include "UTMatchmaking.generated.h"
 
 class UQosEvaluator;
-
+class AUTPlayerController;
 enum class EUTPartyState : uint8;
 enum class EQosCompletionResult : uint8;
 
@@ -101,6 +101,11 @@ public:
 	bool FindGatheringSession(const FMatchmakingParams& InParams);
 	
 	/**
+	 * Cancels matchmaking and restores the menu
+	 */
+	void CancelMatchmaking();
+
+	/**
 	 * Find a session given to the client by a party leader
 	 *
 	 * @param FMatchmakingParams desired matchmaking parameters
@@ -114,6 +119,7 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnMatchmakingStateChange, EMatchmakingState::Type /*OldState*/, EMatchmakingState::Type /*NewState*/, const FMMAttemptState& /*MMState*/);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnConnectToLobby, const FOnlineSessionSearchResult& /*SearchResult*/)
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPartyStateChange, EUTPartyState)
 
 	/** @return the delegate fired when matchmaking starts */
 	FOnMatchmakingStarted& OnMatchmakingStarted() { return MatchmakingStarted; }
@@ -127,6 +133,8 @@ public:
 	/** @return the delegate triggered when the lobby connection attempt begins */
 	FOnConnectToLobby& OnConnectToLobby() { return ConnectToLobbyDelegates; }
 
+	FOnPartyStateChange& OnPartyStateChange() { return PartyStateChange; }
+
 private:
 
 	/**
@@ -135,6 +143,8 @@ private:
 
 	UPROPERTY()
 	UQosEvaluator* QosEvaluator;
+
+	FOnPartyStateChange PartyStateChange;
 
 	/** Delegate triggered when matchmaking starts */
 	FOnMatchmakingStarted MatchmakingStarted;
@@ -166,12 +176,7 @@ private:
 	 * Cleanup the reservation beacon
 	 */
 	void CleanupReservationBeacon();
-	
-	/**
-	 * Cancels matchmaking and restores the menu
-	 */
-	void CancelMatchmaking();
-	
+		
 	/**
 	 * Cleanup any data that was cached during matchmaking
 	 */
@@ -236,6 +241,8 @@ private:
 	 * @param NewPartyState new Fortnite specific flow progression
 	 */
 	void OnClientPartyStateChanged(EUTPartyState NewPartyState);
+
+	void OnLeaderPartyStateChanged(EUTPartyState NewPartyState);
 
 	/**
 	 * Notification that the leader has finished matchmaking

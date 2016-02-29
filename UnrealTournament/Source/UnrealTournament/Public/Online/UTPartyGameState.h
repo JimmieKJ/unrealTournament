@@ -77,6 +77,13 @@ class UNREALTOURNAMENT_API UUTPartyGameState : public UPartyGameState
 	 * @param NewPartyState current state object containing the changes
 	 */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientPartyStateChanged, EUTPartyState /* NewPartyState */);
+	
+	/**
+	 * Delegate fired when a party state changes
+	 * 
+	 * @param NewPartyState current state object containing the changes
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLeaderPartyStateChanged, EUTPartyState /* NewPartyState */);
 
 	/**
 	 * Delegate fired when a matchmaking state changes
@@ -95,6 +102,7 @@ class UNREALTOURNAMENT_API UUTPartyGameState : public UPartyGameState
 private:
 	/** Passenger view related delegates prior to joining a lobby/game */
 	FOnClientPartyStateChanged ClientPartyStateChanged;
+	FOnLeaderPartyStateChanged LeaderPartyStateChanged;
 	FOnClientMatchmakingComplete ClientMatchmakingComplete;
 	FOnClientSessionIdChanged ClientSessionIdChanged;
 	
@@ -170,7 +178,10 @@ public:
 	/** @return delegate fired when the location of the player has changed */
 	FOnPartyMemberPropertyChanged& OnLocationChanged() { return LocationChanged; }
 
+	FOnLeaderPartyStateChanged& OnLeaderPartyStateChanged() { return LeaderPartyStateChanged; }
 	FOnClientPartyStateChanged& OnClientPartyStateChanged() { return ClientPartyStateChanged; }
 	FOnClientMatchmakingComplete& OnClientMatchmakingComplete() { return ClientMatchmakingComplete; }
 	FOnClientSessionIdChanged& OnClientSessionIdChanged() { return ClientSessionIdChanged; }
+
+	EUTPartyState GetPartyProgression() const { return PartyState.PartyProgression; }
 };
