@@ -751,6 +751,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
+				.IsEnabled(this, &SUTMenuBase::IsPlayerCardDataLoaded)
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
@@ -942,6 +943,11 @@ void SUTMenuBase::OpenDelayedMenu()
 		bNeedsWeaponOptions = false;
 		PlayerOwner->HideContentLoadingMessage();
 	}
+}
+
+bool SUTMenuBase::IsPlayerCardDataLoaded() const
+{
+	return PlayerOwner->IsLoggedIn() && !PlayerOwner->IsPendingMCPLoad();
 }
 
 void SUTMenuBase::ShowHomePanel()

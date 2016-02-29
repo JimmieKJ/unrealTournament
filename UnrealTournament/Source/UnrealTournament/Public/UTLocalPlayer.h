@@ -390,6 +390,9 @@ private:
 	// If true, a login failure will not prompt for a password.  This is for the initial auto-login sequence
 	bool bSilentLoginFail;
 
+	bool bIsPendingProfileLoadFromMCP;
+	bool bIsPendingProgressionLoadFromMCP;
+
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
@@ -433,6 +436,8 @@ public:
 	UFUNCTION()
 		virtual void SaveProgression();
 	virtual UUTProgressionStorage* GetProgressionStorage() { return CurrentProgression; }
+
+	bool IsPendingMCPLoad() const;
 
 protected:
 

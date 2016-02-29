@@ -137,7 +137,7 @@ protected:
 	bool bNeedsPlayerOptions;
 	bool bNeedsWeaponOptions;
 	bool bShowingFriends;
-	
+
 	int32 TickCountDown;
 	virtual void OpenDelayedMenu();
 
@@ -145,6 +145,8 @@ protected:
 	{
 		return true;
 	}
+
+	virtual bool IsPlayerCardDataLoaded() const;
 
 	const FSlateBrush* GetFullvsWindowButtonImage() const;
 	FReply ToggleFullscreenClicked();

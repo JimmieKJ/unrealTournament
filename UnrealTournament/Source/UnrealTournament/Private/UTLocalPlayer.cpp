@@ -112,6 +112,9 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	ShowdownLeaguePromotionMatchesWon = 0;
 	bShowdownLeaguePromotionSeries = false;
 	UIChatTextBackBufferPosition = 0;
+
+	bIsPendingProgressionLoadFromMCP = false;
+	bIsPendingProfileLoadFromMCP = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -802,6 +805,9 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 
 void UUTLocalPlayer::Logout()
 {
+	bIsPendingProfileLoadFromMCP = false;
+	bIsPendingProgressionLoadFromMCP = false;
+
 	if (IsLoggedIn() && OnlineIdentityInterface.IsValid())
 	{
 		// Begin the Login Process....
@@ -1010,6 +1016,9 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	// If we have logged out, or started using the local profile, then clear the online profile.
 	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)
 	{
+		bIsPendingProfileLoadFromMCP = false;
+		bIsPendingProgressionLoadFromMCP = false;
+
 		// Clear out the MCP storage
 		MCPPulledData.bValid = false;
 
@@ -1342,6 +1351,7 @@ void UUTLocalPlayer::LoadProfileSettings()
 		{
 			if (OnlineUserCloudInterface.IsValid())
 			{
+				bIsPendingProfileLoadFromMCP = true;
 				OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
 			}
 		}
@@ -1379,6 +1389,7 @@ void UUTLocalPlayer::LoadProgression()
 		{
 			if (OnlineUserCloudInterface.IsValid())
 			{
+				bIsPendingProgressionLoadFromMCP = true;
 				OnlineUserCloudInterface->ReadUserFile(*UserID, GetProgressionFilename());
 			}
 		}
@@ -1421,6 +1432,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 {
 	if (FileName == GetProfileFilename())
 	{
+		bIsPendingProfileLoadFromMCP = false;
+
 		// We were attempting to read the profile.. see if it was successful.	
 
 		if (bWasSuccessful && OnlineUserCloudInterface.IsValid())	
@@ -1542,6 +1555,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	}
 	else if (FileName == GetProgressionFilename())
 	{
+		bIsPendingProgressionLoadFromMCP = false;
+
 		if (bWasSuccessful)
 		{
 			// Create the current profile.
@@ -1703,6 +1718,10 @@ void UUTLocalPlayer::SaveProgression()
 	}
 }
 
+bool UUTLocalPlayer::IsPendingMCPLoad() const
+{
+	return ( bIsPendingProfileLoadFromMCP || bIsPendingProgressionLoadFromMCP );
+}
 
 void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
