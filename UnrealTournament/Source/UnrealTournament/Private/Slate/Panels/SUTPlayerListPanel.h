@@ -95,9 +95,9 @@ public:
 		, bIsOwner(inbIsOwner)
 		, TeamNum(inTeamNum)
 		, bIsSpectator(inbIsSpectator)
-		, PlayerState(inPlayerState)
 		, RankCheck(inRankCheck)
 		, XP(inXP)
+		, PlayerState(inPlayerState)
 	{
 		bPendingKill = false;
 		TeamNum = 255;
