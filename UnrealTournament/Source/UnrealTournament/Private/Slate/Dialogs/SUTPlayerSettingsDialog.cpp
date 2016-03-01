@@ -861,7 +861,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			CharacterComboBox->SetSelectedItem(CharacterList[0]);
 		}
 
-		if (GetPlayerOwner().IsValid())
+		if (GetPlayerOwner().IsValid() && UTEngine)
 		{
 			SelectedFlag = UTEngine->GetFlag(GetPlayerOwner()->GetCountryFlag());
 			OnFlagSelected(SelectedFlag, ESelectInfo::Direct);
