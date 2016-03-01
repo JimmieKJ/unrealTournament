@@ -41,6 +41,7 @@ void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& Match
 			}
 			RankedMemberInfo.Score = PS->Score;
 			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
+			MatchResult.RedTeam.SocialPartySize = FMath::Max(MatchResult.RedTeam.SocialPartySize, PS->PartySize);
 		}
 	}
 
@@ -58,6 +59,7 @@ void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& Match
 			}
 			RankedMemberInfo.Score = PS->Score;
 			MatchResult.RedTeam.Members.Add(RankedMemberInfo);
+			MatchResult.RedTeam.SocialPartySize = FMath::Max(MatchResult.RedTeam.SocialPartySize, PS->PartySize);
 		}
 	}
 }

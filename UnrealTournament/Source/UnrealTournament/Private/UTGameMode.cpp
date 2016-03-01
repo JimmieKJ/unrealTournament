@@ -706,6 +706,8 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 			
 			// don't consider this player for Elo calculations if he joins too late.
 			PS->bSkipELO = bPastELOLimit && Cast<AUTGameSession>(GameSession) && !((AUTGameSession *)(GameSession))->bNoJoinInProgress;
+
+			PS->PartySize = UGameplayStatics::GetIntOption(Options, TEXT("PartySize"), 1);
 		}
 	}
 
@@ -4324,6 +4326,7 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 				RankedMemberInfo.AccountId = PS->PlayerName;
 			}
 			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
+			RankedTeamInfoOut.SocialPartySize = FMath::Max(RankedTeamInfoOut.SocialPartySize, PS->PartySize);
 		}
 	}
 
@@ -4340,6 +4343,7 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 				RankedMemberInfo.AccountId = PS->PlayerName;
 			}
 			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
+			RankedTeamInfoOut.SocialPartySize = FMath::Max(RankedTeamInfoOut.SocialPartySize, PS->PartySize);
 		}
 	}
 }

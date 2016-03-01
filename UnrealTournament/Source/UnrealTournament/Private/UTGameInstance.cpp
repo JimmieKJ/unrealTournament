@@ -9,6 +9,7 @@
 #include "UTGameViewportClient.h"
 #include "UTMatchmaking.h"
 #include "UTParty.h"
+#include "UTPartyGameState.h"
 #include "UTPlaylistManager.h"
 
 /* Delays for various timers during matchmaking */
@@ -491,12 +492,16 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 			APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), ControllerId);
 			if (PC)
 			{
-				/*
 				UUTParty* Parties = GetParties();
 				if (Parties)
 				{
-					Parties->NotifyPreClientTravel();
-				}*/
+					UUTPartyGameState* PartyGameState = Parties->GetUTPersistentParty();
+					if (PartyGameState)
+					{
+						URL += TEXT("?PartySize=") + PartyGameState->GetPartySize();
+					}
+					//Parties->NotifyPreClientTravel();
+				}
 
 				PC->ClientTravel(URL, TRAVEL_Absolute);
 				return true;

@@ -266,6 +266,9 @@ public:
 	UPROPERTY()
 	bool bAllowedEarlyLeave;
 
+	UPROPERTY()
+	int32 PartySize;
+
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/

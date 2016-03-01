@@ -936,6 +936,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->bReadStatsFromCloud = bReadStatsFromCloud;
 		PS->bSuccessfullyReadStatsFromCloud = bSuccessfullyReadStatsFromCloud;
 		PS->bWroteStatsToCloud = bWroteStatsToCloud;
+		PS->PartySize = PartySize;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
 		PS->DamageDone = DamageDone;
