@@ -498,7 +498,7 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 					UUTPartyGameState* PartyGameState = Parties->GetUTPersistentParty();
 					if (PartyGameState)
 					{
-						URL += TEXT("?PartySize=") + PartyGameState->GetPartySize();
+						URL += TEXT("?PartySize=") + FString::FromInt(PartyGameState->GetPartySize());
 					}
 					//Parties->NotifyPreClientTravel();
 				}
