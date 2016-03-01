@@ -160,6 +160,17 @@ void UUTGameUserSettings::SetAAMode(int32 NewAAMode)
 	auto AAModeCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessAAQuality"));
 	AAModeCVar->ClearFlags(EConsoleVariableFlags::ECVF_SetBySystemSettingsIni);
 	AAModeCVar->Set(AAMode, ECVF_SetByGameSetting);
+
+	auto SharpenCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Tonemapper.Sharpen"));
+	SharpenCVar->ClearFlags(EConsoleVariableFlags::ECVF_SetBySystemSettingsIni);
+	if (NewAAMode == 4)
+	{
+		SharpenCVar->Set(1, ECVF_SetByGameSetting);
+	}
+	else
+	{
+		SharpenCVar->Set(0, ECVF_SetByGameSetting);
+	}
 }
 
 int32 UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(int32 AAScalabilityQuality)
