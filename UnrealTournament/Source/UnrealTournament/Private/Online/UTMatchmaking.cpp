@@ -580,12 +580,12 @@ void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& D
 			AccountIds.Add(PartyMembers[i]->UniqueId);
 		}
 
-		McpUtils->GetTeamElo(MatchRatingType, AccountIds, PartySize, [this, InParams](const FOnlineError& Result, const FTeamElo& Response)
+		McpUtils->GetTeamElo(MatchRatingType, AccountIds, PartySize, [this, InParams](const FOnlineError& TeamEloResult, const FTeamElo& Response)
 		{
-			if (!Result.bSucceeded)
+			if (!TeamEloResult.bSucceeded)
 			{
 				// best we can do is log an error
-				UE_LOG(LogOnline, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+				UE_LOG(LogOnline, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), TeamEloResult.HttpResult, *TeamEloResult.ErrorCode, *TeamEloResult.ErrorMessage.ToString());
 				ContinueMatchmaking(1500, InParams);
 			}
 			else
