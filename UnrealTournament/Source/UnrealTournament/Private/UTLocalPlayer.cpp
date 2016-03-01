@@ -4610,6 +4610,7 @@ void UUTLocalPlayer::HideMatchmakingDialog()
 	if (MatchmakingDialog.IsValid())
 	{
 		CloseDialog(MatchmakingDialog.ToSharedRef());
+		MatchmakingDialog.Reset();
 	}
 #endif
 }
@@ -4626,6 +4627,8 @@ void UUTLocalPlayer::MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint1
 			Matchmaking->CancelMatchmaking();
 		}
 	}
+
+	MatchmakingDialog.Reset();
 }
 #endif
 

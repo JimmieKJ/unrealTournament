@@ -335,6 +335,9 @@ private:
 	 */
 	void OnReconnectResponseReceived(EPartyReservationResult::Type ReservationResponse, FOnlineSessionSearchResult SearchResult);
 
+	void DisconnectFromLobby();
+	void OnDisconnectFromLobbyComplete(FName SessionName, bool bWasSuccessful);
+
 	/**
 	 * Helpers
 	 */

@@ -287,9 +287,47 @@ void UUTMatchmaking::CancelMatchmaking()
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling with no timer and no lobby"));
 		}
+
+		DisconnectFromLobby();
 	}
 
 	ClearCachedMatchmakingData();
+}
+
+void UUTMatchmaking::DisconnectFromLobby()
+{
+	// If the reservation beacon client still exists, haven't transitioned to the lobby yet, so cancel reservation
+	if (ReservationBeaconClient)
+	{
+		ReservationBeaconClient->CancelReservation();
+	}
+	
+	CleanupReservationBeacon();
+
+	UUTGameInstance* GameInstance = GetUTGameInstance();
+	if (GameInstance)
+	{
+		IOnlineSessionPtr SessionInt = Online::GetSessionInterface();
+		if (SessionInt.IsValid())
+		{
+			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(GameSessionName);
+			if (SessionSettings)
+			{
+				// Cleanup the existing game session before proceeding
+				FOnDestroySessionCompleteDelegate CompletionDelegate;
+				CompletionDelegate.BindUObject(this, &ThisClass::OnDisconnectFromLobbyComplete);
+				GameInstance->SafeSessionDelete(GameSessionName, CompletionDelegate);
+			}
+		}
+	}
+
+	// Clear cached data so reconnection attempts aren't made against faulty data
+	ClearCachedMatchmakingData();
+}
+
+void UUTMatchmaking::OnDisconnectFromLobbyComplete(FName SessionName, bool bWasSuccessful)
+{
+	UE_LOG(LogOnlineGame, Verbose, TEXT("OnDisconnectFromLobbyComplete %s Success: %d"), *SessionName.ToString(), bWasSuccessful);
 }
 
 void UUTMatchmaking::ClearCachedMatchmakingData()
