@@ -933,12 +933,12 @@ struct FRemotePlayerInfo
 	{
 	}
 
-	FRemotePlayerInfo(AUTPlayerState* PlayerState, int32 RankCheck)
+	FRemotePlayerInfo(AUTPlayerState* PlayerState, int32 InRankCheck)
 		: PlayerID(PlayerState->UniqueId)
 		, bIsSpectator(PlayerState->bOnlySpectator)
 		, PlayerName(PlayerState->PlayerName)
 		, PlayerScore(PlayerState->Score)
-		, RankCheck(RankCheck)
+		, RankCheck(InRankCheck)
 		, XPLevel(PlayerState->GetPrevXP())
 		, TeamNum(PlayerState->GetTeamNum())
 		, Avatar(PlayerState->Avatar)
