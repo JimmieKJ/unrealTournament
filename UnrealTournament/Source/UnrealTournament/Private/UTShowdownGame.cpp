@@ -771,7 +771,14 @@ void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 
 void AUTShowdownGame::UpdateSkillRating()
 {
-	ReportRankedMatchResults(NAME_ShowdownSkillRating.ToString());
+	if (bRankedSession)
+	{
+		ReportRankedMatchResults(NAME_RankedShowdownSkillRating.ToString());
+	}
+	else
+	{
+		ReportRankedMatchResults(NAME_ShowdownSkillRating.ToString());
+	}
 }
 
 uint8 AUTShowdownGame::GetNumMatchesFor(AUTPlayerState* PS) const

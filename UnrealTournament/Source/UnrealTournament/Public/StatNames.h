@@ -24,12 +24,7 @@ extern UNREALTOURNAMENT_API const FName NAME_TDMSkillRating;
 extern UNREALTOURNAMENT_API const FName NAME_DMSkillRating;
 extern UNREALTOURNAMENT_API const FName NAME_CTFSkillRating;
 extern UNREALTOURNAMENT_API const FName NAME_ShowdownSkillRating;
-
-extern UNREALTOURNAMENT_API const FName NAME_SkillRatingSamples;
-extern UNREALTOURNAMENT_API const FName NAME_TDMSkillRatingSamples;
-extern UNREALTOURNAMENT_API const FName NAME_DMSkillRatingSamples;
-extern UNREALTOURNAMENT_API const FName NAME_CTFSkillRatingSamples;
-extern UNREALTOURNAMENT_API const FName NAME_ShowdownSkillRatingSamples;
+extern UNREALTOURNAMENT_API const FName NAME_RankedShowdownSkillRating;
 
 extern UNREALTOURNAMENT_API const FName NAME_MatchesPlayed;
 extern UNREALTOURNAMENT_API const FName NAME_MatchesQuit;

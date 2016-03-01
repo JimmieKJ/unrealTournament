@@ -609,9 +609,7 @@ public:
 	void WriteStatsToCloud();
 	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	virtual void AddMatchToStats(const FString& MapName, const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
-
-	virtual int32 GetSkillRating(FName SkillStatName);
-
+	
 	/** Cached clamped player name for display. */
 	UPROPERTY(BlueprintReadWrite)
 	FString ClampedName;

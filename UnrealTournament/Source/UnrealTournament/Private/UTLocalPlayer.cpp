@@ -1621,7 +1621,7 @@ void UUTLocalPlayer::CheckReportELOandStarsToServer()
 {
 	ELOReportCount++;
 
-	if (ELOReportCount >= 5 && bProgressionReadFromCloud)
+	if (ELOReportCount >= 6 && bProgressionReadFromCloud)
 	{
 		// Set the ranks/etc so the player card is right.
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
@@ -1856,6 +1856,13 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				NewRating = Showdown_ELO;
 				ShowdownMatchesPlayed = Response.NumGamesPlayed;
 			}
+			else if (MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
+			{
+				OldRating = RankedShowdown_ELO;
+				RankedShowdown_ELO = Response.Rating;
+				NewRating = RankedShowdown_ELO;
+				RankedShowdownMatchesPlayed = Response.NumGamesPlayed;
+			}
 
 			int32 OldLevel = 0;
 			int32 OldBadge = 0;
@@ -1884,9 +1891,9 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 	});
 	
 	// Refresh showdown league if we played showdown
-	if (MatchRatingType == NAME_ShowdownSkillRating.ToString())
+	if (MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
 	{
-		McpUtils->GetAccountLeague(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
+		McpUtils->GetAccountLeague(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
 		{
 			if (!Result.bSucceeded)
 			{
@@ -2008,7 +2015,23 @@ void UUTLocalPlayer::ReadELOFromBackend()
 		CheckReportELOandStarsToServer();
 	});
 
-	McpUtils->GetAccountLeague(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
+	McpUtils->GetAccountMmr(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
+	{
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			UE_LOG(UT, Display, TEXT("Showdown ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
+			RankedShowdown_ELO = Response.Rating;
+			RankedShowdownMatchesPlayed = Response.NumGamesPlayed;
+		}
+		CheckReportELOandStarsToServer();
+	});
+
+	McpUtils->GetAccountLeague(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
 	{
 		if (!Result.bSucceeded)
 		{
