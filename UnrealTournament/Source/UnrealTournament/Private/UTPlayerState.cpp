@@ -1725,10 +1725,6 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 	if (PC != NULL)
 	{
 		LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP != NULL)
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		}
 	}
 
 	FText LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
@@ -1796,10 +1792,6 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	if (PC != NULL)
 	{
 		LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP != NULL)
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		}
 	}
 
 	TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
