@@ -87,3 +87,5 @@ void UMatchmakingContext::OnPartyStateChangeInternal(EUTPartyState NewPartyState
 		}
 	}
 }
+
+#undef LOCTEXT_NAMESPACE
