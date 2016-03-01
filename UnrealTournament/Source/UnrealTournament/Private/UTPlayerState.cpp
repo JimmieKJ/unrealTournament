@@ -93,6 +93,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
 	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
+	DOREPLIFETIME(AUTPlayerState, RankedShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
 	DOREPLIFETIME(AUTPlayerState, CTFRank);
 	DOREPLIFETIME(AUTPlayerState, TDMRank);
@@ -123,6 +124,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, TDMMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, DMMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, ShowdownMatchesPlayed);
+	DOREPLIFETIME(AUTPlayerState, RankedShowdownMatchesPlayed);
 
 	DOREPLIFETIME(AUTPlayerState, bHasVoted);
 
@@ -1615,15 +1617,15 @@ const FSlateBrush* AUTPlayerState::GetXPStarImage(bool bSmall) const
 	return SUTStyle::Get().GetBrush("UT.RankStar.Empty");
 }
 
-TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FText RankName)
+TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName)
 {
 	int32 Badge;
 	int32 Level;
-	GetBadgeFromELO(DefaultGame, Badge, Level);
+	GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
 
 	FText ELOText = (Badge > 0 ?
-			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreA", "     ({0})"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this) : 0)) :
-			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreB", "     Provisional Rating: {0}"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this) : 0))
+			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreA", "     ({0})"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this, bRankedSession) : 0)) :
+			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreB", "     Provisional Rating: {0}"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this, bRankedSession) : 0))
 			);
 
 	FText RankNumber = FText::AsNumber(Level+1);
@@ -1659,7 +1661,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FTex
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeImage(DefaultGame, true))
+						.Image(GetELOBadgeImage(DefaultGame, bRankedSession, true))
 					]
 					+ SOverlay::Slot()
 					[
@@ -1689,7 +1691,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FTex
 			.WidthOverride(500)
 			[
 				SNew(STextBlock)
-				.Text(((DefaultGame->GetNumMatchesFor(this) > 10) ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
+				.Text(((DefaultGame->GetNumMatchesFor(this, bRankedSession) > 10) ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -1815,10 +1817,17 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
+		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
 	];
 	if (LP && LP->GetShowdownPlacementMatches() > 0)
 	{
+		VBox->AddSlot()
+		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+		.AutoHeight()
+		[
+			BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), true, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
+		];
+
 		VBox->AddSlot()
 		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 		.AutoHeight()
@@ -1830,25 +1839,25 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTCTFBaseGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"))
+		BuildRank(AUTCTFBaseGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTDuelGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"))
+		BuildRank(AUTDuelGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTTeamDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"))
+		BuildRank(AUTTeamDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"))
+		BuildRank(AUTDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
@@ -2587,7 +2596,7 @@ bool AUTPlayerState::IsABeginner(AUTBaseGameMode* DefaultGameMode) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
-	GetBadgeFromELO(DefaultGameMode, Badge, Level);
+	GetBadgeFromELO(DefaultGameMode, false, Badge, Level);
 	return (Badge == 0);
 }
 
@@ -2595,18 +2604,18 @@ int32 AUTPlayerState::GetRankCheck(AUTBaseGameMode* DefaultGameMode)
 {
 	int32 Badge = 0;
 	int32 Level = 0;
-	GetBadgeFromELO(DefaultGameMode, Badge, Level);
+	GetBadgeFromELO(DefaultGameMode, false, Badge, Level);
 	return AUTPlayerState::CalcRankCheck(Badge,Level);
 }
 
-void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, int32& BadgeLevel, int32& SubLevel) const
+void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRankedSession, int32& BadgeLevel, int32& SubLevel) const
 {
 	if (DefaultGameMode == nullptr)
 	{
 		DefaultGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 	}
-	int32 NumMatches = DefaultGameMode->GetNumMatchesFor((AUTPlayerState *)this); // note this is replicated to client as a byte, so max value of 255
-	int32 EloRating = DefaultGameMode->GetEloFor((AUTPlayerState *)this);
+	int32 NumMatches = DefaultGameMode->GetNumMatchesFor((AUTPlayerState *)this, bRankedSession); // note this is replicated to client as a byte, so max value of 255
+	int32 EloRating = DefaultGameMode->GetEloFor((AUTPlayerState *)this, bRankedSession);
 	BadgeLevel = 0;
 	SubLevel = 0;
 
@@ -2671,23 +2680,23 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, int32& Ba
 }
 
 #if !UE_SERVER
-const FSlateBrush* AUTPlayerState::GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bSmall) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bRankedSession, bool bSmall) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	GetBadgeFromELO(DefaultGame, Badge, Level);
+	GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
 	FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 	if (bSmall) BadgeStr += TEXT(".Small");
 	return SUTStyle::Get().GetBrush(*BadgeStr);
 }
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame, bool bRankedSession) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	GetBadgeFromELO(DefaultGame, Badge, Level);
+	GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
 	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
 	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
 }

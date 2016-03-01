@@ -1525,7 +1525,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
+			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetRankRankedShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches(), RankedShowdownEloMatches());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1625,7 +1625,7 @@ void UUTLocalPlayer::CheckReportELOandStarsToServer()
 	{
 		// Set the ranks/etc so the player card is right.
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-		if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), FMath::Min(255, DuelEloMatches()), FMath::Min(255, CTFEloMatches()), FMath::Min(255, TDMEloMatches()), FMath::Min(255, DMEloMatches()), FMath::Min(255, ShowdownEloMatches()));
+		if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetRankRankedShowdown(), GetTotalChallengeStars(), FMath::Min(255, DuelEloMatches()), FMath::Min(255, CTFEloMatches()), FMath::Min(255, TDMEloMatches()), FMath::Min(255, DMEloMatches()), FMath::Min(255, ShowdownEloMatches()), FMath::Min(255, RankedShowdownEloMatches()));
 	}
 }
 
@@ -1821,6 +1821,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 			int32 OldRating = 0;
 			int32 NewRating = 0;
 			
+			bool bRankedSession = false;
 			if (MatchRatingType == NAME_SkillRating.ToString())
 			{
 				OldRating = DUEL_ELO;
@@ -1862,6 +1863,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				RankedShowdown_ELO = Response.Rating;
 				NewRating = RankedShowdown_ELO;
 				RankedShowdownMatchesPlayed = Response.NumGamesPlayed;
+				bRankedSession = true;
 			}
 
 			int32 OldLevel = 0;
@@ -1878,10 +1880,10 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 					if (DefaultGame && PC->UTPlayerState)
 					{
-						DefaultGame->SetEloFor(PC->UTPlayerState, OldRating, false);
-						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, OldBadge, OldLevel);
-						DefaultGame->SetEloFor(PC->UTPlayerState, NewRating, true);
-						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, NewBadge, NewLevel);
+						DefaultGame->SetEloFor(PC->UTPlayerState, bRankedSession, OldRating, false);
+						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, bRankedSession, OldBadge, OldLevel);
+						DefaultGame->SetEloFor(PC->UTPlayerState, bRankedSession, NewRating, true);
+						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, bRankedSession, NewBadge, NewLevel);
 						PC->bBadgeChanged = ((OldLevel != NewLevel) || (OldBadge != NewBadge));
 					}
 				}
@@ -2066,7 +2068,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		AUTGameMode* UTGame = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
 		if (UTGame)
 		{
-			return UTGame->GetEloFor(PC->UTPlayerState);
+			return UTGame->GetEloFor(PC->UTPlayerState, false);
 		}
 	}
 	return 1500;

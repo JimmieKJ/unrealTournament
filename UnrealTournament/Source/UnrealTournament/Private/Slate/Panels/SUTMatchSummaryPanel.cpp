@@ -640,7 +640,8 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 				{
 					int32 Badge = 0;
 					int32 Level = 0;
-					UTPS->GetBadgeFromELO(DefaultGameMode, Badge, Level);
+					bool bRankedSession = GameState.IsValid() ? GameState->bRankedSession : false;
+					UTPS->GetBadgeFromELO(DefaultGameMode, bRankedSession, Badge, Level);
 					FText RankNumber = FText::AsNumber(Level + 1);
 					TSharedPtr<class SBorder> HighlightBorder;
 					VBox->AddSlot()

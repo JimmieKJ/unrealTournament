@@ -450,12 +450,13 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		if (LP)
 		{
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+			bool bRankedSession = UTGameState ? UTGameState->bRankedSession : false;
 			if (DefaultGame)
 			{
 				int32 Badge = 0;
 				int32 Level = 0;
 				int32 Stars = 0;
-				PlayerState->GetBadgeFromELO(DefaultGame, Badge, Level);
+				PlayerState->GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
 				UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState->GetPrevXP()), Stars);
 				Badge = FMath::Clamp<int32>(Badge, 0, 3);
 				Level = FMath::Clamp<int32>(Level, 0, 8);

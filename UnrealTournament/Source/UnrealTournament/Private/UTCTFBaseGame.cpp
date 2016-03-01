@@ -634,17 +634,17 @@ void AUTCTFBaseGame::SetBlueScore(int32 NewScore)
 	}
 }
 
-uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS) const
+uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
 {
 	return PS ? PS->CTFMatchesPlayed : 0;
 }
 
-int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS) const
+int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
 {
-	return PS ? PS->CTFRank : Super::GetEloFor(PS);
+	return PS ? PS->CTFRank : Super::GetEloFor(PS, bRankedSession);
 }
 
-void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{

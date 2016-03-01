@@ -62,17 +62,17 @@ void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& Match
 	}
 }
 
-uint8 AUTDMGameMode::GetNumMatchesFor(AUTPlayerState* PS) const
+uint8 AUTDMGameMode::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
 {
 	return PS ? PS->DMMatchesPlayed : 0;
 }
 
-int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS) const
+int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
 {
-	return PS ? PS->DMRank : Super::GetEloFor(PS);
+	return PS ? PS->DMRank : Super::GetEloFor(PS, bRankedSession);
 }
 
-void AUTDMGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTDMGameMode::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{

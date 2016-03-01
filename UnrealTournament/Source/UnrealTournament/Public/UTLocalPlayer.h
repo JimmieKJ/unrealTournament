@@ -512,12 +512,14 @@ public:
 	inline virtual int32 GetRankDM() { return FFA_ELO; }
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
 	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
+	inline virtual int32 GetRankRankedShowdown() { return RankedShowdown_ELO; }
 
 	virtual int32 DuelEloMatches() { return DuelMatchesPlayed; }
 	virtual int32 CTFEloMatches() { return CTFMatchesPlayed; }
 	virtual int32 TDMEloMatches() { return TDMMatchesPlayed; }
 	virtual int32 DMEloMatches() { return FFAMatchesPlayed; }
 	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
+	virtual int32 RankedShowdownEloMatches() { return RankedShowdownMatchesPlayed; }
 
 	inline virtual int32 GetShowdownPlacementMatches() { return ShowdownLeaguePlacementMatches; }
 	inline virtual int32 GetShowdownLeagueTier() { return ShowdownLeagueTier; }

@@ -115,7 +115,7 @@ public:
 	virtual void ClientGenericInitialization();
 
 	UFUNCTION(server, reliable, WithValidation)
-		virtual void ServerReceiveRank(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed);
+	virtual void ServerReceiveRank(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 NewRankedShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed, uint8 RankedShowdownMatchesPlayed);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListBegin(const FString& CloudId);

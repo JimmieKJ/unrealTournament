@@ -188,16 +188,16 @@ public:
 	bool bPrivateMatch;
 
 	/** How many matches (up to 255) have been played in this game mode. */
-	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS) const;
+	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const;
 
 	/** Returns whether enough matches have been played for this gamemode's Elo to be valid. */
-	virtual bool IsValidElo(AUTPlayerState* PS) const;
+	virtual bool IsValidElo(AUTPlayerState* PS, bool bRankedSession) const;
 
 	/** Get the Elo rating for PS for this game mode. */
-	virtual int32 GetEloFor(AUTPlayerState* PS) const;
+	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const;
 
 	/** Locally set Elo rating for this game mode (updated from server). */
-	virtual void SetEloFor(AUTPlayerState* PS, int32 NewELoValue, bool bIncrementMatchCount);
+	virtual void SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewELoValue, bool bIncrementMatchCount);
 
 	/** Event that is called on servers when the initial Client->Server replication of the ELO/Rank/Progression occurs. **/
 	virtual void ReceivedRankForPlayer(AUTPlayerState* UTPlayerState);

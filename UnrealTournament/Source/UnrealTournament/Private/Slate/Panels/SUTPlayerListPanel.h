@@ -196,6 +196,7 @@ public:
 
 		if (PlayerState.IsValid())
 		{
+			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 			AUTBaseGameMode* BaseGame = nullptr;
 			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
 			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
@@ -205,11 +206,16 @@ public:
 			else
 			{
 				// Attempt to use the GameMode
-				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			}
 
-			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
+			bool bRankedSession = false;
+			if (UTGameState)
+			{
+				bRankedSession = UTGameState->bRankedSession;
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, bRankedSession, Badge, Level);
 		}
 		else
 		{
@@ -228,6 +234,7 @@ public:
 
 		if (PlayerState.IsValid())
 		{
+			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 			AUTBaseGameMode* BaseGame = nullptr;
 			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
 			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
@@ -237,11 +244,16 @@ public:
 			else
 			{
 				// Attempt to use the GameMode
-				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			}
 
-			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
+			bool bRankedSession = false;
+			if (UTGameState)
+			{
+				bRankedSession = UTGameState->bRankedSession;
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, bRankedSession, Badge, Level);
 		}
 		else
 		{

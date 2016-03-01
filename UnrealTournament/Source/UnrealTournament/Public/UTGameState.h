@@ -44,6 +44,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bTeamGame : 1;
+	
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
+	uint32 bRankedSession : 1;
 
 	/** True if players are allowed to switch teams (if team game). */
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)

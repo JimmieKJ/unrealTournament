@@ -466,6 +466,7 @@ void AUTGameMode::InitGameState()
 		UTGameState->RespawnWaitTime = RespawnWaitTime;
 		UTGameState->ForceRespawnTime = ForceRespawnTime;
 		UTGameState->bTeamGame = bTeamGame;
+		UTGameState->bRankedSession = bRankedSession;
 		UTGameState->bWeaponStay = bWeaponStayActive;
 		UTGameState->bCasterControl = bCasterControl;
 		UTGameState->bPlayPlayerIntro = bPlayPlayerIntro;

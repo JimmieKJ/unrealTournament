@@ -506,13 +506,13 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveRank(LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), FMath::Min(255, LP->DuelEloMatches()), FMath::Min(255, LP->CTFEloMatches()), FMath::Min(255, LP->TDMEloMatches()), FMath::Min(255, LP->DMEloMatches()), FMath::Min(255, LP->ShowdownEloMatches()));
+		ServerReceiveRank(LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetRankRankedShowdown(), LP->GetTotalChallengeStars(), FMath::Min(255, LP->DuelEloMatches()), FMath::Min(255, LP->CTFEloMatches()), FMath::Min(255, LP->TDMEloMatches()), FMath::Min(255, LP->DMEloMatches()), FMath::Min(255, LP->ShowdownEloMatches()), FMath::Min(255, LP->RankedShowdownEloMatches()));
 	}
 }
 
 // FIXMESTEVE shouldn't receive this from client
-bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed) { return true; }
-void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed)
+bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 NewRankedShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed, uint8 RankedShowdownMatchesPlayed) { return true; }
+void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 NewRankedShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed, uint8 RankedShowdownMatchesPlayed)
 {
 	if (UTPlayerState)
 	{
@@ -521,12 +521,14 @@ void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank
 		UTPlayerState->TDMRank = NewTDMRank;
 		UTPlayerState->DMRank = NewDMRank;
 		UTPlayerState->ShowdownRank = NewShowdownRank;
+		UTPlayerState->RankedShowdownRank = NewRankedShowdownRank;
 		UTPlayerState->TotalChallengeStars = TotalStars;
 		UTPlayerState->DuelMatchesPlayed = DuelMatchesPlayed;
 		UTPlayerState->CTFMatchesPlayed = CTFMatchesPlayed;
 		UTPlayerState->TDMMatchesPlayed = TDMMatchesPlayed;
 		UTPlayerState->DMMatchesPlayed = DMMatchesPlayed;
 		UTPlayerState->ShowdownMatchesPlayed = ShowdownMatchesPlayed;
+		UTPlayerState->RankedShowdownMatchesPlayed = RankedShowdownMatchesPlayed;
 
 		AUTBaseGameMode* BaseGameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 		if (BaseGameMode)

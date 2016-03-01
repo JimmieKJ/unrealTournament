@@ -671,28 +671,32 @@ public:
 	int32 DMRank;
 	UPROPERTY(Replicated)
 	int32 ShowdownRank;
+	UPROPERTY(Replicated)
+	int32 RankedShowdownRank;
 	
 	/** Note only valid up to 255, enough to figure out beginner badges. */
 	UPROPERTY(Replicated)
-		uint8 DuelMatchesPlayed;
+	uint8 DuelMatchesPlayed;
 	UPROPERTY(Replicated)
-		uint8 CTFMatchesPlayed;
+	uint8 CTFMatchesPlayed;
 	UPROPERTY(Replicated)
-		uint8 TDMMatchesPlayed;
+	uint8 TDMMatchesPlayed;
 	UPROPERTY(Replicated)
-		uint8 DMMatchesPlayed;
+	uint8 DMMatchesPlayed;
 	UPROPERTY(Replicated)
-		uint8 ShowdownMatchesPlayed;
+	uint8 ShowdownMatchesPlayed;
+	UPROPERTY(Replicated)
+	uint8 RankedShowdownMatchesPlayed;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;
 
 	// Returns what badge should represent player's skill level.
 	UFUNCTION(BlueprintCallable, Category = Badge)
-		void GetBadgeFromELO(AUTBaseGameMode* DefaultGame, int32& BadgeLevel, int32& SubLevel) const;
+	void GetBadgeFromELO(AUTBaseGameMode* DefaultGame, bool bRankedSession, int32& BadgeLevel, int32& SubLevel) const;
 
 	UFUNCTION(BlueprintCallable, Category = Badge)
-		bool IsABeginner(AUTBaseGameMode* DefaultGameMode) const;
+	bool IsABeginner(AUTBaseGameMode* DefaultGameMode) const;
 
 	// Returns the rank check
 	UFUNCTION(BlueprintCallable, Category = Badge)
@@ -751,13 +755,13 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bSmall = false) const;
+	const FSlateBrush* GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bRankedSession, bool bSmall = false) const;
 	const FSlateBrush* GetXPStarImage(bool bSmall = false) const;
-	const FSlateBrush* GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame) const;
+	const FSlateBrush* GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame, bool bRankedSession) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();
-	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, FText RankName);
+	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName);
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
 	FText LeagueTierToText(int32 Tier);
 	void EpicIDClicked();
