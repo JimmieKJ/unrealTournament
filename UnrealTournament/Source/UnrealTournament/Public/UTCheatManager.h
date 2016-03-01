@@ -32,6 +32,9 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	// Alias to UnlimitedAmmo
 	UFUNCTION(exec)
 	virtual void ua();
+	
+	UFUNCTION(exec)
+	virtual void PlayTaunt(const FString& TauntClass);
 
 	UFUNCTION(exec)
 	virtual void SetChar(const FString& NewChar);

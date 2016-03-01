@@ -268,6 +268,37 @@ void UUTCheatManager::BugItWorker(FVector TheLocation, FRotator TheRotation)
 	Walk();
 }
 
+void UUTCheatManager::PlayTaunt(const FString& TauntClass)
+{
+	AUTCharacter* UTChar = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (UTChar != NULL)
+	{
+		TSubclassOf<AUTTaunt> TauntClassInstance = nullptr;
+
+		FString TauntPackageName;
+		if (FPackageName::SearchForPackageOnDisk(TauntClass, &TauntPackageName))
+		{
+			TauntPackageName += TEXT(".") + TauntClass + TEXT("_C");
+			TauntClassInstance = LoadClass<AUTTaunt>(NULL, *TauntPackageName, NULL, LOAD_None, NULL);
+		}
+
+		if (!TauntClassInstance)
+		{
+			FString MoreSpecificTauntClass = TEXT("/Game/RestrictedAssets/Blueprints/Taunts/") + TauntClass;
+			if (FPackageName::SearchForPackageOnDisk(MoreSpecificTauntClass, &TauntPackageName))
+			{
+				TauntPackageName += TEXT(".") + TauntClass + TEXT("_C");
+				TauntClassInstance = LoadClass<AUTTaunt>(NULL, *TauntPackageName, NULL, LOAD_None, NULL);
+			}
+		}
+
+		if (TauntClassInstance)
+		{
+			UTChar->PlayTauntByClass(TauntClassInstance);
+		}
+	}
+}
+
 void UUTCheatManager::SetChar(const FString& NewChar)
 {
 	AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
