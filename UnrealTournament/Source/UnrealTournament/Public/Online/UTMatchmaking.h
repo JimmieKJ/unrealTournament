@@ -260,6 +260,16 @@ private:
 	void OnClientSessionIdChanged(const FString& SessionId);
 
 	/**
+	 * Progression through actual matchmaking after team elo has been determined
+	 *
+	 * @param Result datacenter qos completion result
+	 * @param DatacenterId datacenter id chosen by the evaluator
+	 * @param InParams matchmaking parameters passed along from the original request
+	 *
+	 */
+	void ContinueMatchmaking(int32 TeamElo, FMatchmakingParams InParams);
+	
+	/**
 	 * Progression through actual matchmaking after a datacenter id has been determined
 	 *
 	 * @param Result datacenter qos completion result
@@ -267,7 +277,7 @@ private:
 	 * @param InParams matchmaking parameters passed along from the original request
 	 *
 	 */
-	void ContinueMatchmaking(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams);
+	void LookupTeamElo(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams);
 
 	/**
 	 * Handle the end of matchmaking (reserved space and joined the session, now connect to the reservation / lobby beacons

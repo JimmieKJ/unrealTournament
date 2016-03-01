@@ -52,6 +52,7 @@ void UUTGameInstance::Init()
 		{
 			Party->Init();
 		}
+		PlaylistManager = NewObject<UUTPlaylistManager>(this);
 	}
 	else
 	{

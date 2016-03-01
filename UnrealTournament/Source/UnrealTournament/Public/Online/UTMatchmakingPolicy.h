@@ -67,7 +67,8 @@ struct FMatchmakingParams
 		PlaylistId(INDEX_NONE),
 		Flags(EMatchmakingFlags::None),
 		StartWith(EMatchmakingStartLocation::Lobby),
-		ChanceToHostOverride(0.f)
+		ChanceToHostOverride(0.f),
+		TeamElo(1500)
 	{}
 
 	~FMatchmakingParams() {}
@@ -96,6 +97,8 @@ struct FMatchmakingParams
 	/** If > 0.f, acts as an override to the chance to host during matchmaking */
 	UPROPERTY()
 	float ChanceToHostOverride;
+	UPROPERTY()
+	int32 TeamElo;
 };
 
 /**

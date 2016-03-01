@@ -22,6 +22,8 @@ struct FPlaylistItem
 	UPROPERTY()
 	FString ExtraCommandline;
 	UPROPERTY()
+	FString TeamEloRating;
+	UPROPERTY()
 	TArray<FString> MapNames;
 };
 
@@ -45,4 +47,6 @@ public:
 	bool GetMaxTeamInfoForPlaylist(int32 PlaylistId, int32& MaxTeamCount, int32& MaxTeamSize, int32& MaxPartySize);
 
 	bool GetURLForPlaylist(int32 PlaylistId, FString& URL);
+
+	bool GetTeamEloRatingForPlaylist(int32 PlaylistId, FString& TeamEloRating);
 };

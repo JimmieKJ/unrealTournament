@@ -90,7 +90,7 @@ void UUTMatchmakingGather::StartGatheringSession()
 	UE_LOG(LogOnlineGame, Log, TEXT("StartGatheringSession"));
 	bool bResult = false;
 
-	FEmptyServerReservation ReservationData(CurrentParams.PlaylistId);
+	FEmptyServerReservation ReservationData(CurrentParams.PlaylistId, CurrentParams.TeamElo);
 
 	if (ReservationData.IsValid())
 	{

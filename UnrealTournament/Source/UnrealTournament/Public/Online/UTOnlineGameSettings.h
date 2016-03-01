@@ -5,6 +5,9 @@
 /** Setting describing the game mode of the session (value is int32) */
 #define SETTING_PLAYLISTID FName(TEXT("PLAYLISTID"))
 
+/** Setting describing the elo of the session (value is int32) */
+#define SETTING_TEAMELO FName(TEXT("TEAMELO"))
+
 /** Setting describing the trust level of the session (value is FString) */
 #define SETTING_TRUSTLEVEL FName(TEXT("UT_SERVERTRUSTLEVEL"))
 
@@ -65,15 +68,20 @@ protected:
 	/** Index of game mode requested */
 	int32 PlaylistId;
 
+	/** Elo of game requested */
+	int32 TeamElo;
+
 	FUTOnlineSessionSearchBase();
 
 public:
 
-	FUTOnlineSessionSearchBase(int32 InPlaylistId, bool bSearchingLAN = false, bool bSearchingPresence = false);
+	FUTOnlineSessionSearchBase(int32 InPlaylistId, int32 InTeamElo, bool bSearchingLAN = false, bool bSearchingPresence = false);
 	virtual ~FUTOnlineSessionSearchBase() {}
 
 	/** @return the playlist id query param */
 	int32 GetPlaylistId() const { return PlaylistId; }
+
+	int32 GetTeamElo() const { return TeamElo; }
 };
 
 /**

@@ -57,6 +57,7 @@ void AUTGameSessionRanked::RegisterServer()
 			int32 TeamCount = UT_DEFAULT_MAX_TEAM_COUNT;
 			int32 TeamSize = UT_DEFAULT_MAX_TEAM_SIZE;
 			int32 CurrentPlaylistId = 0;
+			int32 CurrentTeamElo = 0;
 
 			UWorld* const World = GetWorld();
 			check(World);
@@ -66,7 +67,7 @@ void AUTGameSessionRanked::RegisterServer()
 			HostSettings = MakeShareable(new FUTOnlineSessionSettingsDedicatedEmpty(false, false, MaxPlayers));
 			
 			// Pull the values off the current game if they're set
-			ApplyGameSessionSettings(HostSettings.Get(), CurrentPlaylistId);
+			ApplyGameSessionSettings(HostSettings.Get(), CurrentPlaylistId, CurrentTeamElo);
 		
 			// Create a beacon
 			InitHostBeacon(HostSettings.Get());
@@ -403,7 +404,7 @@ void AUTGameSessionRanked::OnServerConfigurationRequest(const FUniqueNetIdRepl& 
 				SessionSettings->bShouldAdvertise = !ReservationData.bMakePrivate;
 
 				// Update the session settings with the reservation data
-				ApplyGameSessionSettings(SessionSettings, ReservationData.PlaylistId);
+				ApplyGameSessionSettings(SessionSettings, ReservationData.PlaylistId, ReservationData.TeamElo);
 
 				// Block all party needs
 				SetPlayerNeedsSize(GameSessionName, 0, false);
@@ -500,7 +501,7 @@ void AUTGameSessionRanked::CreateServerGame()
 	World->ServerTravel(TravelURL, true, false);
 }
 
-void AUTGameSessionRanked::ApplyGameSessionSettings(FOnlineSessionSettings* SessionSettings, int32 PlaylistId) const
+void AUTGameSessionRanked::ApplyGameSessionSettings(FOnlineSessionSettings* SessionSettings, int32 PlaylistId, int32 TeamElo) const
 {
 	if (!SessionSettings)
 	{
@@ -510,6 +511,11 @@ void AUTGameSessionRanked::ApplyGameSessionSettings(FOnlineSessionSettings* Sess
 	if (PlaylistId > INDEX_NONE)
 	{
 		SessionSettings->Set(SETTING_PLAYLISTID, PlaylistId, EOnlineDataAdvertisementType::ViaOnlineService);
+	}
+
+	if (TeamElo > 0)
+	{
+		SessionSettings->Set(SETTING_TEAMELO, TeamElo, EOnlineDataAdvertisementType::ViaOnlineService);
 	}
 }
 

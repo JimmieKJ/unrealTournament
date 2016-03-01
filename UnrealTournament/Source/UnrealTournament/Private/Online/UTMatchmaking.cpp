@@ -4,9 +4,12 @@
 #include "UTPartyBeaconClient.h"
 #include "UTParty.h"
 #include "UTPartyGameState.h"
+#include "PartyMemberState.h"
 #include "UTMatchmaking.h"
 #include "UTMatchmakingGather.h"
 #include "UTMatchmakingSingleSession.h"
+#include "UTPlaylistManager.h"
+#include "UTMcpUtils.h"
 #include "QoSInterface.h"
 #include "QoSEvaluator.h"
 
@@ -453,8 +456,9 @@ bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 			FOnQosSearchComplete CompletionDelegate = FOnQosSearchComplete::CreateUObject(this, &ThisClass::ContinueMatchmaking, MatchmakingParams);
 			QosEvaluator->FindDatacenters(ControllerId, CompletionDelegate);
 #else
+			// Pretend that QoS query actually happened
 			FString FakeDatacenterId = TEXT("USA");
-			ContinueMatchmaking(EQosCompletionResult::Success, FakeDatacenterId, MatchmakingParams);
+			LookupTeamElo(EQosCompletionResult::Success, FakeDatacenterId, MatchmakingParams);
 #endif
 		}
 	}
@@ -520,25 +524,90 @@ void UUTMatchmaking::OnSingleSessionMatchmakingStateChangeInternal(EMatchmakingS
 	OnMatchmakingStateChange().Broadcast(OldState, NewState, MMState);
 }
 
-void UUTMatchmaking::ContinueMatchmaking(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams)
+void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams)
 {
-	UE_LOG(LogOnline, Log, TEXT("ContinueMatchmaking %d"), (int32)Result);
+	UE_LOG(LogOnline, Log, TEXT("LookupTeamElo %d"), (int32)Result);
 
 	QosEvaluator->SetAnalyticsProvider(nullptr);
+	
+	UUTMcpUtils* McpUtils = nullptr;
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+		if (OnlineIdentityInterface.IsValid())
+		{
+			McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(InParams.ControllerId));
+			if (McpUtils == nullptr)
+			{
+				UE_LOG(LogOnline, Warning, TEXT("Unable to load McpUtils. Will not be able to read ELO from MCP"));
+			}
+		}
+	}
 
-	if (Matchmaking &&
+	if (McpUtils && Matchmaking &&
 		(Result == EQosCompletionResult::Cached || Result == EQosCompletionResult::Success)
 		)
 	{
 		InParams.DatacenterId = DatacenterId;
-		Matchmaking->Init(InParams);
-		Matchmaking->StartMatchmaking();
+
+		UUTGameInstance* UTGameInstance = GetUTGameInstance();
+
+		FString MatchRatingType = TEXT("RankedShowdownSkillRating");
+		if (UTGameInstance)
+		{
+			UTGameInstance->GetPlaylistManager()->GetTeamEloRatingForPlaylist(InParams.PlaylistId, MatchRatingType);
+		}
+		
+		TArray<UPartyMemberState*> PartyMembers;
+		if (UTGameInstance)
+		{
+			UUTParty* Parties = UTGameInstance->GetParties();
+			if (Parties)
+			{
+				UPartyGameState* Party = Parties->GetPersistentParty();
+				if (Party)
+				{
+					Party->GetAllPartyMembers(PartyMembers);
+				}
+			}
+		}
+
+		TArray<FUniqueNetIdRepl> AccountIds;
+		int32 PartySize = PartyMembers.Num();
+		for (int32 i = 0; i < PartySize; i++)
+		{
+			AccountIds.Add(PartyMembers[i]->UniqueId);
+		}
+
+		McpUtils->GetTeamElo(MatchRatingType, AccountIds, PartySize, [this, InParams](const FOnlineError& Result, const FTeamElo& Response)
+		{
+			if (!Result.bSucceeded)
+			{
+				// best we can do is log an error
+				UE_LOG(LogOnline, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+				ContinueMatchmaking(1500, InParams);
+			}
+			else
+			{
+				ContinueMatchmaking(Response.Rating, InParams);
+			}
+		});
 	}
 	else
 	{
 		FOnlineSessionSearchResult EmptySearchResult;
 		OnMatchmakingCompleteInternal(Result == EQosCompletionResult::Canceled ? EMatchmakingCompleteResult::Cancelled : EMatchmakingCompleteResult::Failure, EmptySearchResult);
 	}
+}
+
+void UUTMatchmaking::ContinueMatchmaking(int32 TeamElo, FMatchmakingParams InParams)
+{
+	UE_LOG(LogOnline, Log, TEXT("ContinueMatchmaking TeamElo:%d"), (int32)TeamElo);
+	
+	InParams.TeamElo = TeamElo;
+	Matchmaking->Init(InParams);
+	Matchmaking->StartMatchmaking();
 }
 
 void UUTMatchmaking::OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult)
