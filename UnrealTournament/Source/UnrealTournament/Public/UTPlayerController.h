@@ -5,7 +5,7 @@
 #include "UTPickupWeapon.h"
 
 #if WITH_PROFILE
-#include "UtMcpProfile.h"
+#include "UTMcpProfile.h"
 #include "UtMcpProfileManager.h"
 #endif
 

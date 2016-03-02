@@ -19,7 +19,7 @@
 #include "OnlineNotification.h"
 #include "JsonObjectConverter.h"
 #if WITH_PROFILE
-#include "UtMcpProfile.h"
+#include "UTMcpProfile.h"
 #endif
 
 #include "UTPlayerState.generated.h"

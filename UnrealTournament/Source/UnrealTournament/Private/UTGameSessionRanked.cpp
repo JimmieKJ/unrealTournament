@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTGameSessionRanked.h"
 #include "UTPartyBeaconHost.h"
-#include "QoSBeaconHost.h"
+#include "QosBeaconHost.h"
 #include "UTOnlineGameSettings.h"
 #include "UTEmptyServerGameMode.h"
 #include "UTGameInstance.h"

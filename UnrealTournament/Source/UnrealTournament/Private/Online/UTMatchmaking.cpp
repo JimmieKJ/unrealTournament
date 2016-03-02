@@ -10,8 +10,8 @@
 #include "UTMatchmakingSingleSession.h"
 #include "UTPlaylistManager.h"
 #include "UTMcpUtils.h"
-#include "QoSInterface.h"
-#include "QoSEvaluator.h"
+#include "QosInterface.h"
+#include "QosEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
 #define JOIN_ACK_FAILSAFE_TIMER 30.0f
