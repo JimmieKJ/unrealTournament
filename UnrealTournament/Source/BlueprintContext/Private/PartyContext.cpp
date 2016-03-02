@@ -58,12 +58,12 @@ void UPartyContext::Initialize()
 		UTParty->OnPartyLeft().AddUObject(this, &ThisClass::HandlePartyLeft);
 		UTParty->OnPartyMemberJoined().AddUObject(this, &ThisClass::HandlePartyMemberJoined);
 		UTParty->OnPartyMemberLeft().AddUObject(this, &ThisClass::HandlePartyMemberLeft);
+		UTParty->OnPartyMemberPromoted().AddUObject(this, &ThisClass::HandlePartyMemberPromoted);
 	}
 
 	/*
 	UTParty->OnPartyResetForFrontend().AddUObject(this, &ThisClass::HandlePartyResetForFrontend);
 	UTParty->OnPartyMemberLeaving().AddUObject(this, &ThisClass::HandlePartyMemberLeaving);
-	UTParty->OnPartyMemberPromoted().AddUObject(this, &ThisClass::HandlePartyMemberPromoted);
 	*/
 
 	UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
@@ -104,6 +104,11 @@ void UPartyContext::HandlePartyMemberJoined(UPartyGameState* PartyState, const F
 void UPartyContext::HandlePartyMemberLeft(UPartyGameState* PartyState, const FUniqueNetIdRepl& RemovedMemberId, EMemberExitedReason Reason)
 {
 	OnPlayerStateChanged.Broadcast();
+}
+
+void UPartyContext::HandlePartyMemberPromoted(UPartyGameState* PartyState, const FUniqueNetIdRepl& InMemberId)
+{
+	OnPartyMemberPromoted.Broadcast();
 }
 
 void UPartyContext::Finalize()
@@ -265,5 +270,66 @@ void UPartyContext::GetLocalPartyMemberNames(TArray<FText>& PartyMemberNames) co
 	for (UPartyMemberState* PartyMember : PartyMembers)
 	{
 		PartyMemberNames.Add(PartyMember->DisplayName);
+	}
+}
+
+
+void UPartyContext::PromotePartyMemberToLeader(const FUniqueNetIdRepl& PartyMemberId)
+{
+	if (!PartyMemberId.IsValid())
+	{
+		UE_LOG(LogParty, Warning, TEXT("Promotion failed: Invalid net ID for player to promote."));
+		return;
+	}
+
+	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
+	check(GameInstance);
+	UUTParty* UTParty = GameInstance->GetParties();
+	check(UTParty);
+
+	UPartyGameState* PersistentParty = UTParty->GetPersistentParty();
+	if (ensure(PersistentParty))
+	{
+		TSharedPtr<const FUniqueNetId> PartyLeaderId = PersistentParty->GetPartyLeader();
+		const ULocalPlayer* LocalPlayer = GetOwningPlayer();
+		TSharedPtr<const FUniqueNetId> LocalUserId = LocalPlayer->GetPreferredUniqueNetId();
+		if (ensure(PartyLeaderId.IsValid()) && *LocalUserId == *PartyLeaderId)
+		{
+			PersistentParty->PromoteMember(PartyMemberId);
+		}
+		else
+		{
+			UE_LOG(LogParty, Warning, TEXT("Kick failed: You are not party leader. Must be party leader to kick members."));
+		}
+	}
+}
+
+void UPartyContext::KickPartyMember(const FUniqueNetIdRepl& PartyMemberId)
+{
+	if (!PartyMemberId.IsValid())
+	{
+		UE_LOG(LogParty, Warning, TEXT("Kick failed: Invalid net ID for player to kick."));
+		return;
+	}
+
+	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
+	check(GameInstance);
+	UUTParty* UTParty = GameInstance->GetParties();
+	check(UTParty);
+
+	UPartyGameState* PersistentParty = UTParty->GetPersistentParty();
+	if (ensure(PersistentParty))
+	{
+		TSharedPtr<const FUniqueNetId> PartyLeaderId = PersistentParty->GetPartyLeader();
+		const ULocalPlayer* LocalPlayer = GetOwningPlayer();
+		TSharedPtr<const FUniqueNetId> LocalUserId = LocalPlayer->GetPreferredUniqueNetId();
+		if (ensure(PartyLeaderId.IsValid()) && *LocalUserId == *PartyLeaderId)
+		{
+			PersistentParty->KickMember(PartyMemberId);
+		}
+		else
+		{
+			UE_LOG(LogParty, Warning, TEXT("Kick failed: You are not party leader. Must be party leader to kick members."));
+		}
 	}
 }

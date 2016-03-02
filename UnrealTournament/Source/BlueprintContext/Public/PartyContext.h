@@ -66,6 +66,7 @@ protected:
 	void HandlePartyLeft(UPartyGameState* PartyState, EMemberExitedReason Reason);
 	void HandlePartyMemberJoined(UPartyGameState* PartyState, const FUniqueNetIdRepl& UniqueId);
 	void HandlePartyMemberLeft(UPartyGameState* PartyState, const FUniqueNetIdRepl& RemovedMemberId, EMemberExitedReason Reason);
+	void HandlePartyMemberPromoted(UPartyGameState* PartyState, const FUniqueNetIdRepl& InMemberId);
 
 public:
 
@@ -74,6 +75,7 @@ public:
 	DECLARE_MULTICAST_DELEGATE(FOnPartyJoinedDelegate);
 	DECLARE_MULTICAST_DELEGATE(FOnPartyLeftDelegate);
 	DECLARE_MULTICAST_DELEGATE(FOnPlayerStateChangedDelegate);
+	DECLARE_MULTICAST_DELEGATE(FOnPartyMemberPromotedDelegate);
 
 	/** Called when a player starts joining or leaving a party */
 	UPROPERTY(BlueprintAssignable, Category=PartyContext)
@@ -93,6 +95,9 @@ public:
 	//UPROPERTY(BlueprintAssignable, Category = PartyContext)
 	FOnPlayerStateChangedDelegate OnPlayerStateChanged;
 
+	//UPROPERTY(BlueprintAssignable, Category = PartyContext)
+	FOnPartyMemberPromotedDelegate OnPartyMemberPromoted;
+
 	/**
 	 * Gets the list of unique net IDs that correspond to each player in same party as the local player
 	 *
@@ -106,4 +111,8 @@ public:
 	
 	virtual void Initialize() override;
 	virtual void Finalize() override;
+
+	void KickPartyMember(const FUniqueNetIdRepl& PartyMemberId);
+	void PromotePartyMemberToLeader(const FUniqueNetIdRepl& PartyMemberId);
+
 };

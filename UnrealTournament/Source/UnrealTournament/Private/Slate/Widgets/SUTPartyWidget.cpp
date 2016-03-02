@@ -18,7 +18,12 @@ void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerConte
 	ChildSlot
 	.HAlign(HAlign_Right)
 	[
-		SAssignNew(PartyMemberBox, SHorizontalBox)
+		SNew(SBorder)
+		.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+		.BorderBackgroundColor(FLinearColor::Gray) // Darken the outer border
+		[
+			SAssignNew(PartyMemberBox, SHorizontalBox)
+		]
 	];
 
 	SetupPartyMemberBox();
@@ -27,7 +32,19 @@ void SUTPartyWidget::Construct(const FArguments& InArgs, const FLocalPlayerConte
 	if (PartyContext)
 	{
 		PartyContext->OnPlayerStateChanged.AddSP(this, &SUTPartyWidget::PartyStateChanged);
+		PartyContext->OnPartyLeft.AddSP(this, &SUTPartyWidget::PartyLeft);
+		PartyContext->OnPartyMemberPromoted.AddSP(this, &SUTPartyWidget::PartyMemberPromoted);
 	}
+}
+
+void SUTPartyWidget::PartyMemberPromoted()
+{
+	SetupPartyMemberBox();
+}
+
+void SUTPartyWidget::PartyLeft()
+{
+	SetupPartyMemberBox();
 }
 
 void SUTPartyWidget::PartyStateChanged()
@@ -43,6 +60,11 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	
 	TArray<FText> PartyMembers;
 	PartyContext->GetLocalPartyMemberNames(PartyMembers);
+
+	if (PartyMembers.Num() <= 1)
+	{
+		return;
+	}
 
 	TArray<FUniqueNetIdRepl> PartyMemberIds;
 	PartyContext->GetLocalPartyMemberIDs(PartyMemberIds);
@@ -73,6 +95,19 @@ void SUTPartyWidget::SetupPartyMemberBox()
 	for (int i = 0; i < PartyMembers.Num(); i++)
 	{
 		TSharedPtr<SUTComboButton> DropDownButton = NULL;
+		
+		FSlateColor PartyMemberColor = FLinearColor::White;
+		if (PartyMemberIds[i] == PartyLeaderId)
+		{
+			if (LocalPlayerId == PartyLeaderId)
+			{
+				PartyMemberColor = FLinearColor::Green;
+			}
+			else
+			{
+				PartyMemberColor = FLinearColor::Blue;
+			}
+		}
 
 		PartyMemberBox->AddSlot()
 		[
@@ -89,6 +124,7 @@ void SUTPartyWidget::SetupPartyMemberBox()
 				[
 					SNew(SImage)
 					.Image(SUTStyle::Get().GetBrush("UT.Icon.PlayerCard"))
+					.ColorAndOpacity(PartyMemberColor)
 				]
 			]
 		];
@@ -114,11 +150,27 @@ FReply SUTPartyWidget::PlayerNameClicked(int32 PartyMemberIdx)
 
 FReply SUTPartyWidget::KickFromParty(int32 PartyMemberIdx)
 {
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(Ctx.GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		TArray<FUniqueNetIdRepl> PartyMemberIds;
+		PartyContext->GetLocalPartyMemberIDs(PartyMemberIds);
+		PartyContext->KickPartyMember(PartyMemberIds[PartyMemberIdx]);
+	}
+
 	return FReply::Handled();
 }
 
 FReply SUTPartyWidget::PromoteToLeader(int32 PartyMemberIdx)
 {
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(Ctx.GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		TArray<FUniqueNetIdRepl> PartyMemberIds;
+		PartyContext->GetLocalPartyMemberIDs(PartyMemberIds);
+		PartyContext->PromotePartyMemberToLeader(PartyMemberIds[PartyMemberIdx]);
+	}
+
 	return FReply::Handled();
 }
 

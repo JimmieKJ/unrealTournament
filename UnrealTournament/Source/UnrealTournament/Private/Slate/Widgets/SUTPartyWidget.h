@@ -27,6 +27,8 @@ private:
 	FReply PromoteToLeader(int32 PartyMemberIdx);
 
 	void PartyStateChanged();
+	void PartyLeft();
+	void PartyMemberPromoted();
 
 	void SetupPartyMemberBox();
 
