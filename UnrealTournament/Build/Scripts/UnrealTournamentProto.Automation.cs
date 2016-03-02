@@ -821,7 +821,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
             // Engine/...
             Filter.Include("/Engine/Build/Target.cs.template");
-			Filter.Include("/Engine/Build/BatchFiles/...");
+            Filter.Include("/Engine/Build/BatchFiles/...");
+            Filter.Include("/Engine/Programs/.../Config/...");
 			Filter.Include("/Engine/Config/...");
 			Filter.Include("/Engine/Content/...");
 			Filter.Include("/Engine/Documentation/Source/Shared/...");
