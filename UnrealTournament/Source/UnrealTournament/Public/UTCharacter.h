@@ -1833,8 +1833,16 @@ public:
 
 	virtual void UpdateTacComMesh(bool bNewTacComEnabled);
 
+	/** Selection overlay material */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+	UMaterialInterface* SelectionOverlayMaterial;
+
+	virtual void UpdateSelectionMesh(bool bNewSelectionEnabled);
+
 protected:
 	bool bTacComEnabled;
+	bool bSelectionEnabled;
+	int32 CustomDepthCount;
 
 	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */
 	float LastFootstepTime;

@@ -168,6 +168,9 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	SlideTargetHeight = 55.f;
 
 	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
+	CustomDepthCount = 0;
+	bTacComEnabled = false;
+	bSelectionEnabled = false;
 }
 
 float AUTCharacter::GetWeaponBobScaling()
@@ -1366,6 +1369,7 @@ void AUTCharacter::StartRagdoll()
 	if (bTearOff || !bFeigningDeath)
 	{
 		UpdateTacComMesh(false);
+		UpdateSelectionMesh(false);
 	}
 
 	SetActorEnableCollision(true);
@@ -3570,6 +3574,19 @@ void AUTCharacter::UpdateCharOverlays()
 				CharOverlayFlags &= ~(1 << Index);
 			}
 		}
+
+		Index = GS->FindOverlayMaterial(SelectionOverlayMaterial);
+		if (Index != INDEX_NONE)
+		{
+			if (bSelectionEnabled)
+			{
+				CharOverlayFlags |= (1 << Index);
+			}
+			else
+			{
+				CharOverlayFlags &= ~(1 << Index);
+			}
+		}
 	}
 	if (CharOverlayFlags == 0)
 	{
@@ -3701,15 +3718,33 @@ void AUTCharacter::UpdateCharOverlays()
 
 void AUTCharacter::UpdateTacComMesh(bool bNewTacComEnabled)
 {
-	bTacComEnabled = bNewTacComEnabled;
+	if (bTacComEnabled != bNewTacComEnabled)
+	{
+		bTacComEnabled = bNewTacComEnabled;
+		CustomDepthCount += bTacComEnabled ? 1 : -1;
 
-	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-	GetMesh()->SetRenderCustomDepth(bTacComEnabled);
-	//GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
-	//GetMesh()->InvalidateCachedBounds();
-	//GetMesh()->UpdateBounds();
+		GetMesh()->MeshComponentUpdateFlag = CustomDepthCount > 0 ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+		GetMesh()->SetRenderCustomDepth(CustomDepthCount > 0);
+		//GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
+		//GetMesh()->InvalidateCachedBounds();
+		//GetMesh()->UpdateBounds();
 
-	UpdateCharOverlays();
+		UpdateCharOverlays();
+	}
+}
+
+void AUTCharacter::UpdateSelectionMesh(bool bNewSelectionEnabled)
+{
+	if (bSelectionEnabled != bNewSelectionEnabled)
+	{
+		bSelectionEnabled = bNewSelectionEnabled;
+		CustomDepthCount += bSelectionEnabled ? 1 : -1;
+
+		GetMesh()->MeshComponentUpdateFlag = CustomDepthCount > 0 ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+		GetMesh()->SetRenderCustomDepth(CustomDepthCount > 0);
+
+		UpdateCharOverlays();
+	}
 }
 
 UMaterialInstanceDynamic* AUTCharacter::GetCharOverlayMI()

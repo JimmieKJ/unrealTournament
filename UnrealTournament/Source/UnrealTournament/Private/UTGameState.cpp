@@ -377,6 +377,7 @@ void AUTGameState::BeginPlay()
 			{
 				checkSlow(AllCharacters[i]->IsA(AUTCharacter::StaticClass()));
 				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->TacComOverlayMaterial);
+				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->SelectionOverlayMaterial);
 			}
 		}
 
