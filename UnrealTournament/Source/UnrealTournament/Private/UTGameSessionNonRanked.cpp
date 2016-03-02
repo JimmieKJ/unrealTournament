@@ -121,8 +121,15 @@ void AUTGameSessionNonRanked::RegisterServer()
 			if (State == EOnlineSessionState::NoSession)
 			{
 				bSessionValid = false;
-				OnConnectionStatusDelegate = OnlineSub->AddOnConnectionStatusChangedDelegate_Handle(FOnConnectionStatusChangedDelegate::CreateUObject(this, &ThisClass::OnConnectionStatusChanged));
-				OnCreateSessionCompleteDelegate = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete));
+				if (!OnConnectionStatusDelegate.IsValid())
+				{
+					OnConnectionStatusDelegate = OnlineSub->AddOnConnectionStatusChangedDelegate_Handle(FOnConnectionStatusChangedDelegate::CreateUObject(this, &ThisClass::OnConnectionStatusChanged));
+				}
+				if (!OnCreateSessionCompleteDelegate.IsValid())
+				{
+					OnCreateSessionCompleteDelegate = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete));
+				}
+
 				bool bLanGame = FParse::Param(FCommandLine::Get(), TEXT("lan"));
 				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(bLanGame, false, false, 10000));
 
