@@ -63,6 +63,13 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 	UFUNCTION(reliable, server, WithValidation)
 	virtual void ServerSay(const FString& Message, bool bTeamMessage);
 
+	UFUNCTION(exec)
+	void LobbySay(FString Message);
+
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerLobbySay(const FString& Message);
+
+
 	UFUNCTION(reliable, client)
 	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, FName Destination);
 
@@ -236,5 +243,7 @@ public:
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& User, const FString& Message);
+
+	
 
 };

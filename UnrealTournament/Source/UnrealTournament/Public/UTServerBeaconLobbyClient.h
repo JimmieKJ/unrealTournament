@@ -108,6 +108,8 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	UFUNCTION(client, reliable)
 	virtual void Instance_ReceiveBan(FUniqueNetIdRepl BanId, int32 Index, int32 Total, bool bFinished);
 
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void Lobby_ReceiveUserMessage(const FString& Message, const FString&SenderName);
 protected:
 
 	// Will be set to true when the game instance is empty and has asked the lobby to kill it

@@ -4430,3 +4430,11 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 		}
 	});
 }
+
+void AUTGameMode::SendLobbyMessage(const FString& Message, AUTPlayerState* Sender)
+{
+	if (LobbyBeacon && Sender)
+	{
+		LobbyBeacon->Lobby_ReceiveUserMessage(Message, Sender->PlayerName);
+	}
+}

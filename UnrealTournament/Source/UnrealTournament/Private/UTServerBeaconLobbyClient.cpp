@@ -383,3 +383,20 @@ void AUTServerBeaconLobbyClient::Instance_ReceiveBan_Implementation(FUniqueNetId
 		Lobby_RequestNextBanFromServer(GameInstanceID, Index);
 	}
 }
+
+bool AUTServerBeaconLobbyClient::Lobby_ReceiveUserMessage_Validate(const FString& Message, const FString&SenderName) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_ReceiveUserMessage_Implementation(const FString& Message, const FString&SenderName)
+{
+	UE_LOG(UT,Verbose,TEXT("[Lobby] ReceivedUserMessage: %s from %s"), Message.IsEmpty() ? TEXT("[none]") : *Message, SenderName.IsEmpty() ? TEXT("[none]") :*SenderName);
+
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+		if (UTPC != nullptr && !Message.IsEmpty() && !SenderName.IsEmpty())
+		{
+			FString FinalMessage = FString::Printf(TEXT("[%s] %s"), *SenderName, *Message);
+			UTPC->ClientSay(nullptr, FinalMessage, ChatDestinations::Lobby);
+		}
+	}
+}
+

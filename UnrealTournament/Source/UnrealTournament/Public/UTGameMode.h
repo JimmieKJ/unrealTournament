@@ -682,6 +682,8 @@ public:
 
 	bool bDedicatedInstance;
 
+	void SendLobbyMessage(const FString& Message, AUTPlayerState* Sender);
+
 protected:
 
 	// The Address of the Hub this game wants to connect to.

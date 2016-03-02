@@ -870,4 +870,28 @@ void AUTBasePlayerController::ServerFriendSay_Implementation(const FString& Mess
 	ClientSay(UTPlayerState, Message, ChatDestinations::Friends);
 }
 
+void AUTBasePlayerController::LobbySay(FString Message)
+{
+	// clamp message length; aside from troll prevention this is needed for networking reasons
+	Message = Message.Left(128);
+	if (AllowTextMessage(Message))
+	{
+		ServerLobbySay(Message);
+	}
+	else
+	{
+		//Display spam message to the player
+		ClientSay_Implementation(nullptr, SpamText.ToString(), ChatDestinations::System);
+	}
+}
+
+bool AUTBasePlayerController::ServerLobbySay_Validate(const FString& Message) { return true; }
+void AUTBasePlayerController::ServerLobbySay_Implementation(const FString& Message)
+{
+	AUTGameMode * GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode && GameMode->IsGameInstanceServer()  && AllowTextMessage(Message) && PlayerState != nullptr)
+	{
+		GameMode->SendLobbyMessage(Message, Cast<AUTPlayerState>(PlayerState));
+	}
+}
 
