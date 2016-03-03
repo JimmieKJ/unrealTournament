@@ -4341,7 +4341,7 @@ bool FBodyInstance::OverlapPhysX_AssumesLocked(const PxGeometry& PGeom, const Px
 				if(OutMTD)
 				{
 					OutMTD->Direction = P2UVector(POutDirection);
-					OutMTD->Distance = OutDistance;
+					OutMTD->Distance = FMath::Abs(OutDistance);
 				}
 					
 				return true;

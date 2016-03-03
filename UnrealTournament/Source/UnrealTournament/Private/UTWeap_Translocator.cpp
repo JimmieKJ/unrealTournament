@@ -283,7 +283,7 @@ void AUTWeap_Translocator::FireShot()
 					// FIXME: trace is a workaround for engine bug where FindTeleportSpot() will give back locations inside or on the wrong side of walls in certain edge cases
 					//		this doesn't fully address the issue but reduces the frequency significantly
 					const FVector IdealWarpLocation = WarpLocation;
-					if (GetWorld()->FindTeleportSpot(UTOwner, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(IdealWarpLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams::DefaultQueryParam, WorldResponseParams))
+					if (GetWorld()->FindTeleportSpot(UTOwner, WarpLocation, WarpRotation) && !GetWorld()->LineTraceTestByChannel(IdealWarpLocation, WarpLocation, COLLISION_TELEPORTING_OBJECT, FCollisionQueryParams(FName(TEXT("Translocator")), false), WorldResponseParams))
 					{
 						UTOwner->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 						if (Role == ROLE_Authority)
