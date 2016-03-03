@@ -30,6 +30,7 @@
 #include "UTCarriedObject.h"
 #include "UTCharacterContent.h"
 #include "UTImpactEffect.h"
+#include "UTPathTestBot.h"
 
 #if WITH_PROFILE
 #include "OnlineSubsystemMcp.h"
@@ -472,5 +473,34 @@ void UUTCheatManager::MatchmakeMyParty(int32 PlaylistId)
 	if (LP)
 	{
 		LP->StartMatchmaking(PlaylistId);
+	}
+}
+
+void UUTCheatManager::TestPaths(bool bHighJumps, bool bWallDodges, bool bLifts, bool bLiftJumps)
+{
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (Game != NULL)
+	{
+		Game->KillBots();
+		AUTPathTestBot* NewBot = GetWorld()->SpawnActor<AUTPathTestBot>();
+		if (NewBot != NULL)
+		{
+			static int32 NameCount = 0;
+			NewBot->PlayerState->SetPlayerName(FString(TEXT("PathTestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
+			NameCount++;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+			}
+			Game->NumBots++;
+			Game->BotFillCount = Game->NumPlayers + Game->NumBots;
+			Game->ChangeTeam(NewBot, 0);
+			Game->GenericPlayerInitialization(NewBot);
+
+			NewBot->GatherTestList(bHighJumps, bWallDodges, bLifts, bLiftJumps);
+
+			GetOuterAPlayerController()->SetViewTarget(NewBot->PlayerState);
+		}
 	}
 }

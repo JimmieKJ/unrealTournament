@@ -86,4 +86,7 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 #if WITH_PROFILE
 	void LogWebResponse(const FMcpQueryResult& Response);
 #endif
+
+	UFUNCTION(exec)
+	void TestPaths(bool bHighJumps, bool bWallDodges, bool bLifts, bool bLiftJumps);
 };
