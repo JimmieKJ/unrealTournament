@@ -174,9 +174,16 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				PulseTarget->TakeDamage(LinkPullDamage, FUTPointDamageEvent(0.0f, *OutHit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), PulseInstigator, this);
 				PulseLoc = PulseTarget->GetActorLocation();
 			}
-			else
+			else if (OutHit->bBlockingHit)
 			{
 				PulseLoc = OutHit->Location;
+			}
+			else
+			{
+				const FVector SpawnLocation = GetFireStartLoc();
+				const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+				const FVector FireDir = SpawnRotation.Vector();
+				PulseLoc = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 			}
 		}
 		if (UTOwner != NULL)
