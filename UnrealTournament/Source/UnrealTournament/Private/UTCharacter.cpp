@@ -3935,6 +3935,9 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 	if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
 	{
+		// FIXME: workaround for engine bug with belt material not rendering
+		OverlayMesh->MarkRenderStateDirty();
+
 		// FIXME: temp hack for showdown prototype
 		bool bSendHealthToOverlay = false;
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
