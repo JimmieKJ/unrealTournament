@@ -405,7 +405,7 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 	if (Role == ROLE_Authority && MyTranslocator != NULL && UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this && !MyTranslocator->IsFiring())
 	{
 		AUTBot* B = Cast<AUTBot>(InstigatorController);
-		if (B != NULL)
+		if (B != NULL && B->GetPawn() == UTC) // possible that Pawn got detached, e.g. now in vehicle or at end of round
 		{
 			switch (B->ShouldTriggerTranslocation(GetActorLocation(), GetVelocity()))
 			{
