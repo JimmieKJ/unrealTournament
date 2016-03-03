@@ -824,4 +824,13 @@ void UUTMatchmaking::OnClientSessionIdChanged(const FString& SessionId)
 	}
 }
 
+bool UUTMatchmaking::IsMatchmaking()
+{
+	if (Matchmaking)
+	{
+		return Matchmaking->IsMatchmaking();
+	}
+	return false;
+}
+
 #undef LOCTEXT_NAMESPACE

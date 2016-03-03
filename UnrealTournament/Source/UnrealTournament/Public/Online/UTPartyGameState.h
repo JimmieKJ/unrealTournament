@@ -20,7 +20,9 @@ enum class EUTPartyState : uint8
 	Matchmaking,
 	/** Destination found and beyond (attempting to join, lobby, game, etc) */
 	PostMatchmaking,
-	TravelToServer
+	TravelToServer,
+	/** Hub, custom dedicated server */
+	CustomMatch,
 };
 
 /**
@@ -172,6 +174,8 @@ public:
 	 * @param NewLocation new "location" within the game (see EUTPartyMemberLocation)
 	 */
 	void SetLocation(EUTPartyMemberLocation NewLocation);
+
+	void SetSession(const FOnlineSessionSearchResult& InSearchResult);
 
 	void NotifyTravelToServer();
 

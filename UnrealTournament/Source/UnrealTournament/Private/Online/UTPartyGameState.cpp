@@ -249,6 +249,27 @@ void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& Searc
 	}
 }
 
+// This is the non-ranked experience
+void UUTPartyGameState::SetSession(const FOnlineSessionSearchResult& SearchResult)
+{
+	if (ensure(SearchResult.IsValid()))
+	{
+		// Everyone notes the search result for party leader migration
+		CurrentSession = SearchResult;
+
+		if (IsLocalPartyLeader())
+		{
+			PartyState.PartyProgression = EUTPartyState::CustomMatch;
+			OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+
+			const FUniqueNetId& SessionId = SearchResult.Session.SessionInfo->GetSessionId();
+			PartyState.SessionId = SessionId.ToString();
+
+			UpdatePartyData(OwningUserId);
+		}
+	}
+}
+
 void UUTPartyGameState::ComparePartyData(const FPartyState& OldPartyData, const FPartyState& NewPartyData)
 {
 	Super::ComparePartyData(OldPartyData, NewPartyData);

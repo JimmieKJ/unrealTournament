@@ -86,6 +86,14 @@ void UMatchmakingContext::OnPartyStateChangeInternal(EUTPartyState NewPartyState
 			LocalPlayer->HideMatchmakingDialog();
 		}
 	}
+	else if (NewPartyState == EUTPartyState::CustomMatch)
+	{
+		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+		if (LocalPlayer)
+		{
+			LocalPlayer->HideMatchmakingDialog();
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

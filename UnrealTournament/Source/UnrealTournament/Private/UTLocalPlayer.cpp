@@ -2552,6 +2552,13 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 		// Cache the last session.
 		LastSession = PendingSession;
 
+		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			Party->SetSession(LastSession);
+		}
+
 		FString ConnectionString;
 		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
 		{
@@ -2723,7 +2730,7 @@ void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bW
 
 void UUTLocalPlayer::OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
-	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
+	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
 
 void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)
@@ -2733,6 +2740,16 @@ void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const F
 
 bool UUTLocalPlayer::AllowFriendsJoinGame()
 {
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (UTGameInstance)
+	{
+		UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+		if (Matchmaking && Matchmaking->IsMatchmaking())
+		{
+			return false;
+		}
+	}
+
 	// determine when to disable "join game" option in friends/chat UI
 	return true;
 }

@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTMatchmakingSingleSession.h"
 #include "UTGameInstance.h"
+#include "UTOnlineGameSettingsBase.h"
 #include "OnlineSubsystemUtils.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
@@ -142,23 +143,38 @@ void UUTMatchmakingSingleSession::JoinSessionInternal(FName SessionName, const F
 			TSharedPtr<const FUniqueNetId> LocalUserId = IdentityInt->GetUniquePlayerId(CurrentParams.ControllerId);
 			if (LocalUserId.IsValid())
 			{
-				ProcessMatchmakingStateChange(EMatchmakingState::TestingExistingSessions);
-
-				SessionHelper = NewObject<UUTSessionHelper>();
-
-				// Start client beacon reservation process
-				FOnUTReserveSessionComplete CompletionDelegate;
-				CompletionDelegate.BindUObject(this, &ThisClass::OnReserveSessionComplete);
-
-				if ((CurrentParams.Flags & EMatchmakingFlags::NoReservation) == EMatchmakingFlags::NoReservation)
+				int32 IsRanked = 0;
+				if (!SearchResult.Session.SessionSettings.Get(SETTING_RANKED, IsRanked) || !IsRanked)
 				{
-					SessionHelper->SkipReservation(LocalUserId, SessionName, SearchResult, CompletionDelegate);
+					ProcessMatchmakingStateChange(EMatchmakingState::NotMatchmaking);
+					bSuccess = true;
+
+					UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(), CurrentParams.ControllerId));
+					if (LP)
+					{
+						LP->JoinSession(SearchResult, false);
+					}
 				}
 				else
 				{
-					SessionHelper->ReserveSession(LocalUserId, SessionName, SearchResult, CompletionDelegate);
+					ProcessMatchmakingStateChange(EMatchmakingState::TestingExistingSessions);
+
+					SessionHelper = NewObject<UUTSessionHelper>();
+
+					// Start client beacon reservation process
+					FOnUTReserveSessionComplete CompletionDelegate;
+					CompletionDelegate.BindUObject(this, &ThisClass::OnReserveSessionComplete);
+
+					if ((CurrentParams.Flags & EMatchmakingFlags::NoReservation) == EMatchmakingFlags::NoReservation)
+					{
+						SessionHelper->SkipReservation(LocalUserId, SessionName, SearchResult, CompletionDelegate);
+					}
+					else
+					{
+						SessionHelper->ReserveSession(LocalUserId, SessionName, SearchResult, CompletionDelegate);
+					}
+					bSuccess = true;
 				}
-				bSuccess = true;
 			}
 		}
 	}

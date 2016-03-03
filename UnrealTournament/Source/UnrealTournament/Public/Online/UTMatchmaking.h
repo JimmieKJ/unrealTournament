@@ -135,6 +135,9 @@ public:
 
 	FOnPartyStateChange& OnPartyStateChange() { return PartyStateChange; }
 
+	/** Publicly accessible isMatchmaking check */
+	bool IsMatchmaking();
+
 private:
 
 	/**
