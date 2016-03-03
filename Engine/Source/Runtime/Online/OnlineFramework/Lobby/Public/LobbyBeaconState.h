@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GameFramework/Info.h"
+#include "Gameframework/Info.h"
 #include "LobbyBeaconState.generated.h"
 
 class AOnlineBeaconClient;
