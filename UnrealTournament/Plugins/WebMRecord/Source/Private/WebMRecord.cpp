@@ -758,13 +758,13 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 	{
 		// Read (VideoRecordFirstFrame - VideoRecordStart) * AudioSampleRate out of the buffer to make up for video recording lag
 		int32 ExtraSamples = (VideoRecordFirstFrame - VideoRecordStart) * AudioSampleRate;
-		int32 BytesRead = mmioRead(hAudioFile, (HPSTR)ReadBuffer, ExtraSamples * 2 * SAMPLE_SIZE);
+		mmioSeek(hAudioFile, ExtraSamples * 2 * SAMPLE_SIZE, SEEK_CUR);
 		UE_LOG(LogUTWebM, Log, TEXT("Read %d samples off the audio stream to match up with video"), ExtraSamples);
 	}
 
 	{
 		int32 ExtraFrameSamples = VideoFrameDelay * AudioSampleRate;
-		int32 BytesRead = mmioRead(hAudioFile, (HPSTR)ReadBuffer, ExtraFrameSamples * 2 * SAMPLE_SIZE);
+		mmioSeek(hAudioFile, ExtraFrameSamples * 2 * SAMPLE_SIZE, SEEK_CUR);
 		UE_LOG(LogUTWebM, Log, TEXT("Read %f seconds (%d samples) off the audio stream to match up with video"), VideoFrameDelay, ExtraFrameSamples);
 	}
 
