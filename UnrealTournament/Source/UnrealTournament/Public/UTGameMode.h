@@ -683,6 +683,8 @@ public:
 	bool bDedicatedInstance;
 
 protected:
+	UPROPERTY(Config)
+	bool bSkipReportingMatchResults;
 
 	// The Address of the Hub this game wants to connect to.
 	UPROPERTY(Config)

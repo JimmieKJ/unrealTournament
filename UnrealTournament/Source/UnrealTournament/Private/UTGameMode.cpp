@@ -4358,6 +4358,16 @@ void AUTGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& MatchRe
 
 void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 {
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+	{
+		return;
+	}
+
+	if (bSkipReportingMatchResults)
+	{
+		return;
+	}
+
 	// get MCP Utils
 	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), TSharedPtr<const FUniqueNetId>());
 	if (McpUtils == nullptr)
