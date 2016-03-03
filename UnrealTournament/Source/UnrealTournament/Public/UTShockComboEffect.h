@@ -39,4 +39,19 @@ public:
 			SetLifeSpan(0.5f);
 		}
 	}
+
+	/** make sure LifeSpan works even on client, needed with bNetTemporary */
+	virtual void SetLifeSpan(float InLifespan) override
+	{
+		// Store the new value
+		InitialLifeSpan = InLifespan;
+		if (InLifespan > 0.0f)
+		{
+			GetWorldTimerManager().SetTimer(TimerHandle_LifeSpanExpired, this, &AActor::LifeSpanExpired, InLifespan);
+		}
+		else
+		{
+			GetWorldTimerManager().ClearTimer(TimerHandle_LifeSpanExpired);
+		}
+	}
 };

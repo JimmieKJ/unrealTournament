@@ -146,7 +146,7 @@ void AUTProj_ShockBall::OnRep_ComboExplosion()
 
 void AUTProj_ShockBall::OnComboExplode_Implementation()
 {
-	if (Role == ROLE_Authority && ComboVortexType != NULL)
+	if (GetNetMode() != NM_Client && ComboVortexType != NULL)
 	{
 		FActorSpawnParameters Params;
 		Params.Owner = this;
