@@ -718,10 +718,12 @@ bool UWorld::FindTeleportSpot(AActor* TestActor, FVector& TestLocation, FRotator
 	// now try just XY
 	if (!FMath::IsNearlyZero(Adjust.X) || !FMath::IsNearlyZero(Adjust.Y))
 	{
-		for (int i = 0; i < 8; ++i)
+		const FVector OriginalTestLocation = TestLocation;
+		// If initially spawning allow testing a few permutations (though this needs improvement).
+		// During play only test the first adjustment, permuting axes could put the location on other sides of geometry.
+		const int32 Iterations = (TestActor->HasActorBegunPlay() ? 1 : 8);
+		for (int i = 0; i < Iterations; ++i)
 		{
-			const FVector OriginalTestLocation = TestLocation;
-
 			TestLocation.X += (i < 4 ? Adjust.X : Adjust.Y) * (i % 2 == 0 ? 1 : -1);
 			TestLocation.Y += (i < 4 ? Adjust.Y : Adjust.X) * (i % 4 < 2 ? 1 : -1);
 			if (!EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation, &Adjust))
@@ -859,28 +861,33 @@ static bool ComponentEncroachesBlockingGeometry_WithAdjustment(UWorld const* Wor
 					bool bSuccess = OverlapComponent->ComputePenetration(MTDResult, NonShrunkenCollisionShape, TestWorldTransform.GetLocation(), TestWorldTransform.GetRotation());
 					if (bSuccess)
 					{
-						OutProposedAdjustment += MTDResult.Direction * FMath::Abs<float>(MTDResult.Distance);
+						OutProposedAdjustment += MTDResult.Direction * MTDResult.Distance;
 					}
 					else
 					{
 						UE_LOG(LogPhysics, Log, TEXT("OverlapTest says we are overlapping, yet MTD says we're not. Something is wrong"));
+						// It's not safe to use a partial result, that could push us out to an invalid location (like the other side of a wall).
+						OutProposedAdjustment = FVector::ZeroVector;
+						return true;
 					}
 
-					// #hack: sometimes for boxes, physx returns a 0 MTD even though it reports a contact (returns true)
+					// #hack: sometimes physx returns a 0 MTD even though it reports a contact (returns true)
 					// to get around this, let's go ahead and test again with the epsilon-shrunken collision shape to see if we're really in 
-					// the clear.  if so, we'll say we have no contact (despite what OverlapMultiByChannel said -- it uses a different algorithm)
+					// the clear.
 					if (bSuccess && FMath::IsNearlyZero(MTDResult.Distance))
 					{
 						FCollisionShape const ShrunkenCollisionShape = PrimComp->GetCollisionShape(-Epsilon);
 						bSuccess = OverlapComponent->ComputePenetration(MTDResult, ShrunkenCollisionShape, TestWorldTransform.GetLocation(), TestWorldTransform.GetRotation());
 						if (bSuccess)
 						{
-							OutProposedAdjustment += MTDResult.Direction * FMath::Abs<float>(MTDResult.Distance);
+							OutProposedAdjustment += MTDResult.Direction * MTDResult.Distance;
 						}
 						else
 						{
-							// let's call this "no contact" and be done
-							return false;
+							UE_LOG(LogPhysics, Log, TEXT("OverlapTest says we are overlapping, yet MTD says we're not (with smaller shape). Something is wrong"));
+							// It's not safe to use a partial result, that could push us out to an invalid location.
+							OutProposedAdjustment = FVector::ZeroVector;
+							return true;
 						}
 					}
 				}
