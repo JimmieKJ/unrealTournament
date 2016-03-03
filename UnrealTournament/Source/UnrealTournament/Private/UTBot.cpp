@@ -3353,7 +3353,11 @@ bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector
 
 EBotMonitoringStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDest, const FVector& DestVelocity)
 {
-	if (!TranslocTarget.IsZero())
+	if (GetPawn() == NULL)
+	{
+		return BMS_Abort;
+	}
+	else if (!TranslocTarget.IsZero())
 	{
 		FVector Diff = TranslocTarget - CurrentDest;
 		if ( (Diff.Size2D() < FMath::Max<float>(DestVelocity.Size() * 0.04f, 120.0f) || (TranslocTarget - (CurrentDest + DestVelocity * GetWorld()->DeltaTimeSeconds)).Size2D() > Diff.Size2D()) &&
