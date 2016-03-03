@@ -16,7 +16,7 @@ const FLinearColor BreakdownColor(1.0f, 0.22f, 0.0f);
 void SUTXPBar::Construct(const SUTXPBar::FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
-
+	bItemUnlockToastsProcessed = false;
 	RestartLevelAnimation();
 
 	ChildSlot
@@ -322,11 +322,19 @@ void SUTXPBar::OnLevelUp(int32 NewLevel)
 				UTPC->ClientPlaySound(LevelUpSound, 0.5f);
 			}
 
-			//show the toast
-			if (UTPC->LevelRewards.IsValidIndex(NewLevel) && UTPC->LevelRewards[NewLevel] != nullptr && PlayerOwner->IsEarningXP())
+			if (!bItemUnlockToastsProcessed)
 			{
-				PlayerOwner->ShowToast(FText::Format(NSLOCTEXT("UT", "ItemReward", "You earned {0} for reaching level {1}!"), UTPC->LevelRewards[NewLevel]->DisplayName, FText::AsNumber(NewLevel)));
-				UTPC->LevelRewards[NewLevel] = nullptr;
+				bItemUnlockToastsProcessed = true;
+
+				for (int32 i = 0; i < UTPC->LevelRewards.Num(); i++ )
+				{
+					//show the toast
+					if (UTPC->LevelRewards.IsValidIndex(i) && UTPC->LevelRewards[i] != nullptr && PlayerOwner->IsEarningXP())
+					{
+						PlayerOwner->ShowToast(FText::Format(NSLOCTEXT("UT", "ItemReward", "You earned {0} for reaching level {1}!"), UTPC->LevelRewards[i]->DisplayName, FText::AsNumber(NewLevel)));
+						UTPC->LevelRewards[NewLevel] = nullptr;
+					}
+				}
 			}
 		}
 	}
