@@ -40,11 +40,8 @@ void UUTGameInstance::Init()
 		Matchmaking = NewObject<UUTMatchmaking>(this);
 		check(Matchmaking);
 
-		if (FParse::Param(FCommandLine::Get(), TEXT("PARTY")))
-		{
-			Party = NewObject<UUTParty>(this);
-			check(Party);
-		}
+		Party = NewObject<UUTParty>(this);
+		check(Party);
 
 		// Initialize both after construction (each needs the pointer of the other)
 		Matchmaking->Init();
