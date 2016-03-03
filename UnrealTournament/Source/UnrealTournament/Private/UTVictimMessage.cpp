@@ -28,10 +28,6 @@ FLinearColor UUTVictimMessage::GetMessageColor_Implementation(int32 MessageIndex
 
 FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
-/*	if (RelatedPlayerState_2 && Cast<AController>(RelatedPlayerState_2) && Cast<AController>(RelatedPlayerState_2)->GetPawn())
-	{
-		return FText::GetEmpty();
-	}*/
 	if (Switch == 1)
 	{
 		UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
