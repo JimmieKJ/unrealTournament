@@ -60,6 +60,9 @@ protected:
 	void JoinPartyInternal(const FUniqueNetId& LocalPlayerId, bool bIsFromInvite, const TSharedRef<const IOnlinePartyJoinInfo>& PartyJoinInfo);
 	void OnJoinPartyCompleteInternal(const FUniqueNetId& LocalUserId, EJoinPartyCompletionResult Result, int32 DeniedResultCode);
 
+	void OnLeavePartyFromMenu(const FUniqueNetId& LocalUserId, const ELeavePartyCompletionResult Result);
+	void OnLeavePartyFromGame(const FUniqueNetId& LocalUserId, const ELeavePartyCompletionResult Result);
+
 	/** Handler for not approved join party failure code */
 	void HandleJoinPartyFailure(EJoinPartyCompletionResult Result, int32 DeniedResultCode);
 	void HandlePartyJoined(UPartyGameState* PartyState);
@@ -114,5 +117,5 @@ public:
 
 	void KickPartyMember(const FUniqueNetIdRepl& PartyMemberId);
 	void PromotePartyMemberToLeader(const FUniqueNetIdRepl& PartyMemberId);
-
+	void LeaveParty();
 };

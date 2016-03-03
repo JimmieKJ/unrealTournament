@@ -25,6 +25,7 @@ private:
 	FReply PlayerNameClicked(int32 PartyMemberIdx);
 	FReply KickFromParty(int32 PartyMemberIdx);
 	FReply PromoteToLeader(int32 PartyMemberIdx);
+	FReply LeaveParty();
 
 	void PartyStateChanged();
 	void PartyLeft();

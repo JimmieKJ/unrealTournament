@@ -140,11 +140,30 @@ void SUTPartyWidget::SetupPartyMemberBox()
 		{
 			DropDownButton->AddSubMenuItem(PartyMembers[i], FOnClicked::CreateSP(this, &SUTPartyWidget::PlayerNameClicked, i), true);
 		}
+
+		if (LocalPlayerId == PartyMemberIds[i])
+		{
+			DropDownButton->AddSpacer();
+			DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTPartyWidget", "LeaveParty", "Leave Party"), FOnClicked::CreateSP(this, &SUTPartyWidget::LeaveParty), true);
+		}
 	}
 }
 
 FReply SUTPartyWidget::PlayerNameClicked(int32 PartyMemberIdx)
 {
+	// Show player card or something?
+
+	return FReply::Handled();
+}
+
+FReply SUTPartyWidget::LeaveParty()
+{
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(Ctx.GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		PartyContext->LeaveParty();
+	}
+
 	return FReply::Handled();
 }
 

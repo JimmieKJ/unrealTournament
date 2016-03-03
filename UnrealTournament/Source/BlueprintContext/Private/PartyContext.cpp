@@ -333,3 +333,72 @@ void UPartyContext::KickPartyMember(const FUniqueNetIdRepl& PartyMemberId)
 		}
 	}
 }
+
+void UPartyContext::LeaveParty()
+{
+	UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+	TSharedPtr<const FUniqueNetId> LocalUserId = LocalPlayer->GetPreferredUniqueNetId();
+	if (LocalUserId.IsValid())
+	{
+		UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
+		check(GameInstance);
+
+		UPartyDelegates::FOnLeaveUPartyComplete CompletionDelegate;
+
+		if (LocalPlayer->IsMenuGame())
+		{
+			// Don't need to go anywhere afterwards
+			CompletionDelegate.BindUObject(this, &ThisClass::OnLeavePartyFromMenu);
+		}
+		else
+		{
+			// Delegate should quit game afterwards
+			CompletionDelegate.BindUObject(this, &ThisClass::OnLeavePartyFromGame);
+		}
+
+		// Leaving as party leader should just promote someone else in that party and we'll create a new party later
+		UUTParty* Party = GameInstance->GetParties();
+		check(Party);
+		UPartyGameState* PersistentParty = Party->GetPersistentParty();
+		if (PersistentParty)
+		{
+			CurrentTransition = EUTPartyTransition::Leaving;
+			OnPartyTransitionStarted.Broadcast(CurrentTransition);
+			Party->LeavePersistentParty(*LocalUserId, CompletionDelegate);
+		}
+		else
+		{
+			// Hail Mary here, hope the frontend can restore things
+			FString ErrorStr = TEXT("No persistent party when leaving!");
+			CompletionDelegate.Execute(*LocalUserId, ELeavePartyCompletionResult::UnknownParty);
+		}
+	}
+}
+
+void UPartyContext::OnLeavePartyFromMenu(const FUniqueNetId& LocalUserId, const ELeavePartyCompletionResult Result)
+{
+	UE_LOG(LogParty, Display, TEXT("OnLeavePartyFromMenu Success: %d %s"), Result == ELeavePartyCompletionResult::Succeeded, ToString(Result));
+
+	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
+	check(GameInstance);
+	UUTParty* Party = GameInstance->GetParties();
+	check(Party);
+
+	Party->RestorePersistentPartyState();
+}
+
+void UPartyContext::OnLeavePartyFromGame(const FUniqueNetId& LocalUserId, const ELeavePartyCompletionResult Result)
+{
+	UE_LOG(LogParty, Display, TEXT("OnLeavePartyFromGame Success: %d %s"), Result == ELeavePartyCompletionResult::Succeeded, ToString(Result));
+
+	UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
+	check(GameInstance);
+	UUTParty* Party = GameInstance->GetParties();
+	check(Party);
+
+	// Should exit the game here?
+
+	Party->RestorePersistentPartyState();
+}
+
+#undef LOCTEXT_NAMESPACE
