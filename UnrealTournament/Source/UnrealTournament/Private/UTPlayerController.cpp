@@ -34,6 +34,7 @@
 #include "UTFlagInfo.h"
 #include "UTProfileItem.h"
 #include "UTMutator.h"
+#include "UTVictimMessage.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -2611,6 +2612,9 @@ void AUTPlayerController::Possess(APawn* PawnToPossess)
 			UTChar->SetEyewearClass(UTPlayerState->EyewearClass);
 		}
 	}
+
+	// clear any victim message being displayed
+	ClientReceiveLocalizedMessage(UUTVictimMessage::StaticClass(), 2, NULL, NULL, NULL);
 }
 
 void AUTPlayerController::PawnLeavingGame()
