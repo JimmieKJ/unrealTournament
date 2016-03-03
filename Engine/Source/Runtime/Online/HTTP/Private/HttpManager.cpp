@@ -30,6 +30,7 @@ void FHttpManager::Flush(bool bShutdown)
 		{
 			TSharedRef<IHttpRequest> Request = *It;
 			Request->OnProcessRequestComplete().Unbind();
+			Request->OnRequestProgress().Unbind();
 		}
 	}
 
