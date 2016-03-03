@@ -1398,7 +1398,7 @@ void AUTGameState::UpdateHighlights_Implementation()
 	}
 	if (BestKDPS)
 	{
-		BestKDPS->AddMatchHighlight(HighlightNames::BestKD, (BestKDPS->Deaths > 0) ? BestKDPS->Kills / BestKDPS->Deaths : BestKDPS->Kills);
+		BestKDPS->AddMatchHighlight(HighlightNames::BestKD, (BestKDPS->Deaths > 0) ? float(BestKDPS->Kills) / float(BestKDPS->Deaths) : BestKDPS->Kills);
 	}
 
 	float TopScoreRed = TopScorer[0] ? TopScorer[0]->Score : 1;
