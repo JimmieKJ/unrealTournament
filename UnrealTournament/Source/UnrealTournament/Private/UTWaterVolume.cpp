@@ -76,8 +76,11 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
 		if (P)
 		{
-			P->PlayWaterSound(EntrySound ? EntrySound : P->CharacterData.GetDefaultObject()->WaterEntrySound);
-			if (P->GetCharacterMovement())
+			if (bWaterVolume || EntrySound)
+			{
+				P->PlayWaterSound(EntrySound ? EntrySound : P->CharacterData.GetDefaultObject()->WaterEntrySound);
+			}
+			if (bWaterVolume && P->GetCharacterMovement())
 			{
 				P->GetCharacterMovement()->Velocity.Z *= PawnEntryVelZScaling;
 				P->GetCharacterMovement()->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
@@ -104,7 +107,7 @@ void AUTPainVolume::ActorLeavingVolume(class AActor* Other)
 	if (Other)
 	{
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
-		if (P)
+		if (P && (bWaterVolume || ExitSound))
 		{
 			P->PlayWaterSound(ExitSound ? ExitSound : P->CharacterData.GetDefaultObject()->WaterExitSound);
 		}
