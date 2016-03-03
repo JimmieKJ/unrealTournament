@@ -4336,7 +4336,11 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 void AUTGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& MatchResult)
 {
 	// get the winner
-	if (UTGameState->WinningTeam->TeamIndex == 0)
+	if (UTGameState == nullptr || UTGameState->WinningTeam == nullptr)
+	{
+		MatchResult.MatchInfo.RedScore = 0.5f;
+	}
+	else if (UTGameState->WinningTeam->TeamIndex == 0)
 	{
 		// red team wins
 		MatchResult.MatchInfo.RedScore = 1.0f;
