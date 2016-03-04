@@ -631,9 +631,9 @@ void DebugPrintVisitor::PrintType(const glsl_type* Type)
 	}
 }
 
-std::string DebugPrintVisitor::GetVarName(ir_variable* var)
+FCustomStdString DebugPrintVisitor::GetVarName(ir_variable* var)
 {
-	std::string s("");
+	FCustomStdString s("");
 	if (var->name)
 	{
 		if (var->mode == ir_var_uniform || var->mode == ir_var_in || var->mode == ir_var_out || var->mode == ir_var_inout || var->mode == ir_var_shared)
@@ -652,7 +652,7 @@ std::string DebugPrintVisitor::GetVarName(ir_variable* var)
 				TNameSet::iterator FoundName = UniqueNames.find(var->name);
 				if (FoundName != UniqueNames.end())
 				{
-					std::stringstream ss("");
+					std::basic_stringstream<char, std::char_traits<char>, FCustomStdAllocator<char>> ss("");
 					ss << *FoundName;
 					ss << ID++;
 					s = ss.str();
@@ -678,7 +678,7 @@ std::string DebugPrintVisitor::GetVarName(ir_variable* var)
 			}
 			else
 			{
-				std::stringstream ss("");
+				std::basic_stringstream<char, std::char_traits<char>, FCustomStdAllocator<char>> ss("");
 				ss << var->name;
 				ss << ID++;
 				s = ss.str();
@@ -696,7 +696,7 @@ std::string DebugPrintVisitor::GetVarName(ir_variable* var)
 		}
 		else
 		{
-			std::stringstream ss("");
+			std::basic_stringstream<char, std::char_traits<char>, FCustomStdAllocator<char>> ss("");
 			ss << "Param";
 			ss << ID++;
 			s = ss.str();

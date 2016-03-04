@@ -57,10 +57,10 @@ PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 static bool GDefaultPrecisionIsHalf = true;
 
-static inline std::string FixHlslName(const glsl_type* Type)
+static inline FCustomStdString FixHlslName(const glsl_type* Type)
 {
 	check(Type->is_image() || Type->is_vector() || Type->is_numeric() || Type->is_void() || Type->is_sampler() || Type->is_scalar());
-	std::string Name = Type->name;
+	FCustomStdString Name = Type->name;
 	if (Type == glsl_type::half_type)
 	{
 		return "float";
@@ -661,7 +661,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		}
 		else 
 		{
-			std::string Name = FixHlslName(t);
+			FCustomStdString Name = FixHlslName(t);
 			ralloc_asprintf_append(buffer, "%s", Name.c_str());
 		}
 	}
@@ -2294,7 +2294,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		for (_mesa_glsl_parse_state::TUniformList::iterator Iter = Samplers.begin(); Iter != Samplers.end(); ++Iter)
 		{
 			glsl_packed_uniform& Sampler = *Iter;
-			std::string SamplerStates("");
+			FCustomStdString SamplerStates("");
 			TStringToSetMap::iterator IterFound = TextureToSamplerMap.find(Sampler.Name);
 			if (IterFound != TextureToSamplerMap.end())
 			{
@@ -2331,7 +2331,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 /*
 		for (TStringToSetMap::iterator Iter = state->TextureToSamplerMap.begin(); Iter != state->TextureToSamplerMap.end(); ++Iter)
 		{
-		const std::string& Texture = Iter->first;
+		const FCustomStdString& Texture = Iter->first;
 		TStringSet& Samplers = Iter->second;
 		if (!Samplers.empty())
 		{
@@ -2745,7 +2745,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		if(state->target == tessellation_evaluation_shader)
 		{
 
-			std::stringstream str;
+			std::basic_stringstream<char, std::char_traits<char>, FCustomStdAllocator<char> > str;
 
 			switch (tessellation.outputtopology)
 			{
