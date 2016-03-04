@@ -31,6 +31,8 @@
 #include "UTCharacterContent.h"
 #include "UTImpactEffect.h"
 #include "UTPathTestBot.h"
+#include "BlueprintContextLibrary.h"
+#include "MatchmakingContext.h"
 
 #if WITH_PROFILE
 #include "OnlineSubsystemMcp.h"
@@ -469,10 +471,10 @@ void UUTCheatManager::McpRefreshProfile()
 
 void UUTCheatManager::MatchmakeMyParty(int32 PlaylistId)
 {
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
-	if (LP)
+	UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UMatchmakingContext::StaticClass()));
+	if (MatchmakingContext)
 	{
-		LP->StartMatchmaking(PlaylistId);
+		MatchmakingContext->StartMatchmaking(PlaylistId);
 	}
 }
 

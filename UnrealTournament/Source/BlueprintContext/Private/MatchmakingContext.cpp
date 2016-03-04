@@ -115,7 +115,12 @@ void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)
 			int32 TeamCount = 0;
 			int32 TeamSize = 0;
 			int32 MaxPartySize = 0;
-			GameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(InPlaylistId, TeamCount, TeamSize, MaxPartySize);
+			if (!GameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(InPlaylistId, TeamCount, TeamSize, MaxPartySize))
+			{
+				// Playlist probably doesn't exist :/ Show an error dialog
+				return;
+			}
+
 			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(LocalPlayer->GetWorld(), UPartyContext::StaticClass()));
 			if (PartyContext)
 			{
