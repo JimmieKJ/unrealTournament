@@ -29,8 +29,7 @@ namespace PlatformMiscLimits
 {
 	enum
 	{
-		MaxUserHomeDirLength= MAX_PATH + 1,
-		MaxOsGuidLength = 32,
+		MaxOsGuidLength = 32
 	};
 };
 
@@ -82,40 +81,7 @@ void FLinuxPlatformMisc::NormalizePath(FString& InPath)
 	// only expand if path starts with ~, e.g. ~/ should be expanded, /~ should not
 	if (InPath.StartsWith(TEXT("~"), ESearchCase::CaseSensitive))	// case sensitive is quicker, and our substring doesn't care
 	{
-		static bool bHaveHome = false;
-		static TCHAR CachedResult[PlatformMiscLimits::MaxUserHomeDirLength];
-
-		if (!bHaveHome)
-		{
-			CachedResult[0] = TEXT('~');	// init with a default value that changes nothing
-			CachedResult[1] = TEXT('\0');
-
-			//  get user $HOME var first
-			const char * VarValue = secure_getenv("HOME");
-			if (NULL != VarValue)
-			{
-				FCString::Strcpy(CachedResult, ARRAY_COUNT(CachedResult) - 1, ANSI_TO_TCHAR(VarValue));
-				bHaveHome = true;
-			}
-
-			// if var failed
-			if (!bHaveHome)
-			{
-				struct passwd * UserInfo = getpwuid(geteuid());
-				if (NULL != UserInfo && NULL != UserInfo->pw_dir)
-				{
-					FCString::Strcpy(CachedResult, ARRAY_COUNT(CachedResult) - 1, ANSI_TO_TCHAR(UserInfo->pw_dir));
-					bHaveHome = true;
-				}
-				else
-				{
-					// fail for realz
-					UE_LOG(LogInit, Fatal, TEXT("Could not get determine user home directory."));
-				}
-			}
-		}
-
-		InPath = InPath.Replace(TEXT("~"), CachedResult, ESearchCase::CaseSensitive);
+		InPath = InPath.Replace(TEXT("~"), FPlatformProcess::UserHomeDir(), ESearchCase::CaseSensitive);
 	}
 }
 

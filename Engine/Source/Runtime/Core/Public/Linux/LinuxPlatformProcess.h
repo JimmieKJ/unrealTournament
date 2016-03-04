@@ -288,6 +288,13 @@ struct CORE_API FLinuxPlatformProcess : public FGenericPlatformProcess
 	 * @brief Releases locks that we held for IsFirstInstance check
 	 */
 	static void CeaseBeingFirstInstance();
+
+	/**
+	 * @brief Returns user home directory (i.e. $HOME).
+	 *
+	 * Like other directory functions, cannot return nullptr!
+	 */
+	static const TCHAR* UserHomeDir();
 };
 
 typedef FLinuxPlatformProcess FPlatformProcess;
