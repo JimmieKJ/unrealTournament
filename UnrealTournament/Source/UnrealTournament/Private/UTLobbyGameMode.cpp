@@ -390,7 +390,7 @@ void AUTLobbyGameMode::DefaultTimer()
 				}
 
 				// Shut the hub down and restart.
-				FPlatformMisc::RequestExit(true);
+				FPlatformMisc::RequestExit(false);
 			}
 		}
 	}
