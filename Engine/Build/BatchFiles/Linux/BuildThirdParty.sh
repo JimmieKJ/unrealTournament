@@ -149,8 +149,22 @@ BuildHLSLCC()
   # not building anymore P4Open hlslcc/bin/Linux/hlslcc_64
   P4Open hlslcc/lib/Linux/$TARGET_ARCH/libhlslcc.a
   cd hlslcc/projects/Linux
-  make $MAKE_ARGS clean
-  make $MAKE_ARGS
+  set +e
+  CLANG_TO_USE=`which clang`
+  set -e
+  if [ ! -f "$CLANG_TO_USE" ]; then
+    CLANG_TO_USE=clang-3.5 # this version should be installed by Setup.sh
+  fi
+
+  set +e
+  CLANGXX_TO_USE=`which clang++`
+  set -e
+  if [ ! -f "$CLANGXX_TO_USE" ]; then
+    CLANGXX_TO_USE=clang++-3.5 # this version should be installed by Setup.sh
+  fi
+
+  make $MAKE_ARGS CC=$CLANG_TO_USE CXX=$CLANGXX_TO_USE clean
+  make $MAKE_ARGS CC=$CLANG_TO_USE CXX=$CLANGXX_TO_USE 
   set +x
 }
 
@@ -504,22 +518,8 @@ fi
 if [[ $ALL -eq 1 ]]; then
   build_all
 else
-  # detect the OS and only build on non-Ubuntu
-  BUILD_LND=true
-  if [ -e /etc/os-release ]; then
-    source /etc/os-release
-    if [[ "$ID" == "ubuntu" ]] || [[ "$ID_LIKE" == "ubuntu" ]]; then
-        # assuming reasonably new version. FIXME: should check
-        BUILD_LND=false
-    fi
-  fi
-
-  if [ "$BUILD_LND" = true ]; then
-    echo "You run some non-Ubuntu Linux distro. We have to build LinuxNativeDialogs for your OS."
-    Run BuildLND
-  else
-    echo "You run Ubuntu or its fork. All dependencies have been already prebuilt."
-  fi
+  # we need ot build hlslcc locally because using a different STL results in badness
+  Run BuildHLSLCC
 fi
 
 echo
