@@ -85,7 +85,7 @@ public:
 
 	virtual FReply OnShowServerBrowserPanel();
 
-	virtual FReply OnRankedShowdown();
+	virtual FReply OnRankedMatchmaking(int32 PlaylistId);
 
 	virtual TSharedPtr<SUTPanelBase> GetActivePanel();
 

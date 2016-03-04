@@ -74,4 +74,6 @@ class BLUEPRINTCONTEXT_API UMatchmakingContext : public UBlueprintContextBase
 public:
 	virtual void Initialize() override;
 	virtual void Finalize() override;
+
+	void StartMatchmaking(int32 InPlaylistId);
 };

@@ -26,6 +26,8 @@
 #include "UnrealNetwork.h"
 #include "SUTProfileItemsDialog.h"
 #include "SUTQuickPickDialog.h"
+#include "BlueprintContextLibrary.h"
+#include "MatchmakingContext.h"
 
 #if !UE_SERVER
 
@@ -880,7 +882,7 @@ FReply SUTMenuBase::OnShowServerBrowserPanel()
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OnRankedShowdown()
+FReply SUTMenuBase::OnRankedMatchmaking(int32 PlaylistId)
 {
 	if (!PlayerOwner->IsLoggedIn())
 	{
@@ -888,12 +890,11 @@ FReply SUTMenuBase::OnRankedShowdown()
 		return FReply::Handled();
 	}
 
-	if (!PlayerOwner->IsPartyLeader())
+	UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UMatchmakingContext::StaticClass()));
+	if (MatchmakingContext)
 	{
-		return FReply::Handled();
+		MatchmakingContext->StartMatchmaking(PlaylistId);
 	}
-
-	PlayerOwner->StartMatchmaking(0);
 
 	return FReply::Handled();
 }

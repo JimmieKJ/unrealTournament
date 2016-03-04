@@ -118,4 +118,7 @@ public:
 	void KickPartyMember(const FUniqueNetIdRepl& PartyMemberId);
 	void PromotePartyMemberToLeader(const FUniqueNetIdRepl& PartyMemberId);
 	void LeaveParty();
+
+	UFUNCTION(BlueprintCallable, Category = PartyContext)
+	int32 GetPartySize() const;
 };

@@ -231,6 +231,22 @@ void UPartyContext::HandleJoinPartyFailure(EJoinPartyCompletionResult Result, in
 	// Let something know we failed
 }
 
+int32 UPartyContext::GetPartySize() const
+{
+	if (UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>())
+	{
+		if (UUTParty* Parties = GameInstance->GetParties())
+		{
+			if (UPartyGameState* Party = Parties->GetPersistentParty())
+			{
+				return Party->GetPartySize();
+			}
+		}
+	}
+
+	return 0;
+}
+
 void UPartyContext::GetLocalPartyMemberIDs(TArray<FUniqueNetIdRepl>& PartyMemberIDs) const
 {
 	TArray<UPartyMemberState*> PartyMembers;

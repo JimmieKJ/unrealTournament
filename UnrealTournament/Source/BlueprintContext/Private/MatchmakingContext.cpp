@@ -6,6 +6,8 @@
 #include "UTLocalPlayer.h"
 #include "UTPartyGameState.h"
 #include "MatchmakingContext.h"
+#include "PartyContext.h"
+#include "BlueprintContextLibrary.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmakingContext"
 
@@ -93,6 +95,41 @@ void UMatchmakingContext::OnPartyStateChangeInternal(EUTPartyState NewPartyState
 		{
 			LocalPlayer->HideMatchmakingDialog();
 		}
+	}
+}
+
+void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)
+{
+	UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
+	if (LocalPlayer)
+	{
+		if (!LocalPlayer->IsPartyLeader())
+		{
+			// Show error dialog
+			return;
+		}
+
+		UUTGameInstance* GameInstance = GetGameInstance<UUTGameInstance>();
+		if (GameInstance && GameInstance->GetPlaylistManager())
+		{
+			int32 TeamCount = 0;
+			int32 TeamSize = 0;
+			int32 MaxPartySize = 0;
+			GameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(InPlaylistId, TeamCount, TeamSize, MaxPartySize);
+			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(LocalPlayer->GetWorld(), UPartyContext::StaticClass()));
+			if (PartyContext)
+			{
+				if (MaxPartySize < PartyContext->GetPartySize())
+				{
+					// Show error dialog
+					return; 
+				}
+			}
+			
+		}
+
+
+		LocalPlayer->StartMatchmaking(InPlaylistId);
 	}
 }
 
