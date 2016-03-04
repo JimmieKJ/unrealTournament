@@ -3782,6 +3782,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CloseMapVote();
 	CloseMatchSummary();
 	CloseSpectatorWindow();
+	CloseQuickChat();
 
 	if (ToastList.Num() > 0)
 	{
