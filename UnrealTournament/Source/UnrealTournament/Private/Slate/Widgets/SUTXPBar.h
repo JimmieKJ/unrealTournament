@@ -81,6 +81,7 @@ private:
 	}
 
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
+	bool bItemUnlockToastsProcessed;
 };
 
 
