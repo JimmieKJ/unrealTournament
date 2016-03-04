@@ -654,7 +654,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	FVector Z = RotMatrix.GetScaledAxis(EAxis::Z);
 
 	float InterpTime = FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime);
-	if (!GetCharacterMovement() || GetCharacterMovement()->IsFalling())
+	if (!GetCharacterMovement() || (GetCharacterMovement()->IsFalling() && !bApplyWallSlide))
 	{
 		// interp out weapon bob if falling
 		BobTime = 0.f;
@@ -695,7 +695,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		}
 
 		// play footstep sounds when weapon changes bob direction if walking
-		if (GetCharacterMovement()->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
+		if ((bApplyWallSlide || GetCharacterMovement()->MovementMode == MOVE_Walking) && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
 			&& (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) && !GetMesh()->bRecentlyRendered)
 		{
 			PlayFootstep((LastFoot + 1) & 1, true);
@@ -3107,37 +3107,45 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 	}
 	else
 	{
-		float PawnRadius, PawnHalfHeight;
-		GetCapsuleComponent()->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
-
-		static FName NAME_FootstepTrace(TEXT("FootstepTrace"));
-		FCollisionQueryParams QueryParams(NAME_FootstepTrace, false, this);
-		QueryParams.bReturnPhysicalMaterial = true;
-		QueryParams.bTraceAsyncScene = true;
-		const float ShrinkHeight = PawnHalfHeight;
-		const FVector LineTraceStart = GetCapsuleComponent()->GetComponentLocation();
-		const float TraceDist = 40.0f + ShrinkHeight;
-		const FVector Down = FVector(0.f, 0.f, -TraceDist);
-
 		const bool bLocalViewer = (GetLocalViewer() != nullptr);
-		USoundBase* FootstepSoundToPlay = FootstepSound;
+		USoundBase* FootstepSoundToPlay = bLocalViewer ? OwnFootstepSound : FootstepSound;
 
-		if (bLocalViewer)
+		if (bApplyWallSlide)
 		{
-			FootstepSoundToPlay = OwnFootstepSound;
-		}
-
-		FHitResult Hit(1.f);
-		bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, LineTraceStart, LineTraceStart + Down, GetCapsuleComponent()->GetCollisionObjectType(), QueryParams);
-		if (bBlockingHit)
-		{
-			if (Hit.PhysMaterial.IsValid())
+			if (UTCharacterMovement && UTCharacterMovement->WallRunMaterial)
 			{
-				EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+				EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(UTCharacterMovement->WallRunMaterial);
 				USoundBase* NewFootStepSound = GetFootstepSoundForSurfaceType(SurfaceType, bLocalViewer);
 				if (NewFootStepSound)
 				{
 					FootstepSoundToPlay = NewFootStepSound;
+				}
+			}
+		}
+		else
+		{
+			static FName NAME_FootstepTrace(TEXT("FootstepTrace"));
+			FCollisionQueryParams QueryParams(NAME_FootstepTrace, false, this);
+			QueryParams.bReturnPhysicalMaterial = true;
+			QueryParams.bTraceAsyncScene = true;
+			float PawnRadius, PawnHalfHeight;
+			GetCapsuleComponent()->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
+			const FVector LineTraceStart = GetCapsuleComponent()->GetComponentLocation();
+			const float TraceDist = 40.0f + PawnHalfHeight;
+			const FVector Down = FVector(0.f, 0.f, -TraceDist);
+
+			FHitResult Hit(1.f);
+			bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, LineTraceStart, LineTraceStart + Down, GetCapsuleComponent()->GetCollisionObjectType(), QueryParams);
+			if (bBlockingHit)
+			{
+				if (Hit.PhysMaterial.IsValid())
+				{
+					EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+					USoundBase* NewFootStepSound = GetFootstepSoundForSurfaceType(SurfaceType, bLocalViewer);
+					if (NewFootStepSound)
+					{
+						FootstepSoundToPlay = NewFootStepSound;
+					}
 				}
 			}
 		}
@@ -3884,7 +3892,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 
 	if (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !GetMesh()->bRecentlyRendered && (!IsLocallyControlled() || !Cast<APlayerController>(GetController()))
-		&& GetCharacterMovement()->MovementMode == MOVE_Walking && !bFeigningDeath && !IsDead())
+		&& (bApplyWallSlide || GetCharacterMovement()->MovementMode == MOVE_Walking) && !bFeigningDeath && !IsDead())
 	{
 		// TODO: currently using an arbitrary made up interval and scale factor
 		float Speed = GetCharacterMovement()->Velocity.Size();

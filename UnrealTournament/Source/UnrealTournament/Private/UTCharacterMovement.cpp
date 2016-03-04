@@ -1746,6 +1746,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 				FCollisionQueryParams CapsuleQuery(FallingTraceParamsTag, false, CharacterOwner);
 				FCollisionResponseParams ResponseParam;
 				InitCollisionParams(CapsuleQuery, ResponseParam);
+				CapsuleQuery.bReturnPhysicalMaterial = true;
 				const FVector PawnLocation = CharacterOwner->GetActorLocation();
 				const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
 				const bool bHit = GetWorld()->SweepSingleByChannel(Result, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
@@ -1758,6 +1759,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						// We are against the wall, store info about it
 						bIsAgainstWall = true;
 						WallSlideNormal = Result.Normal;
+						WallRunMaterial = Result.PhysMaterial.Get();
 						CheckWallSlide(Result);
 						if (UTCharOwner && UTCharOwner->bApplyWallSlide)
 						{
