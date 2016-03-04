@@ -306,20 +306,15 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 
 bool AUTPlayerCameraManager::IsValidCamLocation(FVector InLoc)
 {
-	// check the variations of KillZ
-	AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings(true);
-	if (!WorldSettings->bEnableWorldBoundsChecks)
-	{
-		return true;
-	}
-
-	if (InLoc.Z < WorldSettings->KillZ)
+	APhysicsVolume* PV = Cast<APawn>(GetViewTarget()) ? ((APawn *)GetViewTarget())->GetPawnPhysicsVolume() : NULL;
+	if (PV && (Cast<AKillZVolume>(PV) || Cast<AUTNoCameraVolume>(PV)))
 	{
 		return false;
 	}
-		
-	APhysicsVolume* PV = Cast<APawn>(GetViewTarget()) ? ((APawn *)GetViewTarget())->GetPawnPhysicsVolume() : NULL;
-	return !PV || !Cast<AKillZVolume>(PV) || !Cast<AUTNoCameraVolume>(PV);
+
+	// check the variations of KillZ
+	AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings(true);
+	return !WorldSettings->bEnableWorldBoundsChecks || (InLoc.Z > WorldSettings->KillZ);
 }
 
 void AUTPlayerCameraManager::CheckCameraSweep(FHitResult& OutHit, AActor* TargetActor, const FVector& Start, const FVector& End)
