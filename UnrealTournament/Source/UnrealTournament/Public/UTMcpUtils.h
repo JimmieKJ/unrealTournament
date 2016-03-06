@@ -77,6 +77,17 @@ public:
 };
 
 USTRUCT()
+struct FBulkAccountMmrQuery
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FBulkAccountMmrQuery() {}
+	
+	UPROPERTY()
+	TArray<FString> RatingTypes;
+};
+
+USTRUCT()
 struct FAccountMmr
 {
 	GENERATED_USTRUCT_BODY()
@@ -87,6 +98,21 @@ public:
 	int32 Rating;
 	UPROPERTY()
 	int32 NumGamesPlayed;
+};
+
+USTRUCT()
+struct FBulkAccountMmr
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FBulkAccountMmr() {}
+
+	UPROPERTY()
+	TArray<FString> RatingTypes;
+	UPROPERTY()
+	TArray<int32> Ratings;
+	UPROPERTY()
+	TArray<int32> NumGamesPlayed;
 };
 
 USTRUCT()
@@ -147,6 +173,18 @@ public:
 	* @param Callback Callback delegate
 	*/
 	void GetAccountMmr(const FString& RatingType, const FGetAccountMmrCb& Callback);
+
+public:
+	typedef TFunction<void(const FOnlineError& /*Result*/, const FBulkAccountMmr& /*Response*/)> FGetBulkAccountMmrCb;
+
+	/**
+	* Query the server for an individual user's MMR
+	* NOTE: this currently will only succeed if this is the user's own account ID
+	*
+	* @param RatingType The type of rating we are querying for
+	* @param Callback Callback delegate
+	*/
+	void GetBulkAccountMmr(const TArray<FString>& RatingTypes, const FGetBulkAccountMmrCb& Callback);
 
 public:
 	typedef TFunction<void(const FOnlineError& /*Result*/, const FAccountLeague& /*Response*/)> FGetAccountLeagueCb;

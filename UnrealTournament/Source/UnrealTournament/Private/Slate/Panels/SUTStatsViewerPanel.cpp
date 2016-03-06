@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTLocalPlayer.h"
 #include "SUTStatsViewerPanel.h"
+#include "UTMcpUtils.h"
 
 #if !UE_SERVER
 
@@ -256,13 +257,19 @@ void SUTStatsViewerPanel::DownloadStats()
 		return;
 	}
 
-	// If stats ID is empty, grab our own stats
-	if (StatsID.IsEmpty() && OnlineIdentityInterface.IsValid())
+	TSharedPtr<const FUniqueNetId> LocalPlayerUserId;
+	
+	if (OnlineIdentityInterface.IsValid())
 	{
-		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
-		if (UserId.IsValid())
+		LocalPlayerUserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
+	}
+
+	// If stats ID is empty, grab our own stats
+	if (StatsID.IsEmpty())
+	{
+		if (LocalPlayerUserId.IsValid())
 		{
-			StatsID = UserId->ToString();
+			StatsID = LocalPlayerUserId->ToString();
 		}
 	}
 
@@ -272,9 +279,45 @@ void SUTStatsViewerPanel::DownloadStats()
 		LastStatsIDDownload = StatsID;
 		LastQueryWindowDownload = QueryWindow;
 				
-		FHttpRequestCompleteDelegate Delegate;
-		Delegate.BindSP(this, &SUTStatsViewerPanel::ReadBackendStatsComplete);
-		ReadBackendStats(Delegate, StatsID, QueryWindow);
+		TArray<FString> MatchRatingTypes;
+		MatchRatingTypes.Add(TEXT("SkillRating"));
+		MatchRatingTypes.Add(TEXT("TDMSkillRating"));
+		MatchRatingTypes.Add(TEXT("DMSkillRating"));
+		MatchRatingTypes.Add(TEXT("CTFSkillRating"));
+		MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+		UUTMcpUtils* McpUtils = UUTMcpUtils::Get(PlayerOwner->GetWorld(), LocalPlayerUserId);
+		McpUtils->GetBulkAccountMmr(MatchRatingTypes, [this](const FOnlineError& Result, const FBulkAccountMmr& Response)
+		{
+			if (Result.bSucceeded)
+			{
+				// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
+				FString JSONString = FString(TEXT("var MmrStats = ["));
+				for (int i = 0; i < Response.RatingTypes.Num(); i++)
+				{
+					if (i != 0)
+					{
+						JSONString += TEXT(",");
+					}
+
+					JSONString += TEXT("{\"ratingtype\":\"") + Response.RatingTypes[i] + TEXT("\", ");
+					JSONString += TEXT("\"rating\":") + FString::FromInt(Response.Ratings[i]) + TEXT(", ");
+					JSONString += TEXT("\"numgamesplayed\":") + FString::FromInt(Response.NumGamesPlayed[i]) + TEXT("}");
+				}
+				JSONString += TEXT("];");
+
+				FString SavePath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/mmrstats.json"));
+				FArchive* FileOut = IFileManager::Get().CreateFileWriter(*SavePath);
+				if (FileOut)
+				{
+					FileOut->Serialize(TCHAR_TO_ANSI(*JSONString), JSONString.Len());
+					FileOut->Close();
+				}
+			}
+
+			FHttpRequestCompleteDelegate Delegate;
+			Delegate.BindSP(this, &SUTStatsViewerPanel::ReadBackendStatsComplete);
+			ReadBackendStats(Delegate, StatsID, QueryWindow);
+		});
 	}
 }
 
