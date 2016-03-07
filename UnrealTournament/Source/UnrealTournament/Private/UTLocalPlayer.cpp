@@ -116,6 +116,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 
 	bIsPendingProgressionLoadFromMCP = false;
 	bIsPendingProfileLoadFromMCP = false;
+
+	bAutoRankLockWarningShown = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()

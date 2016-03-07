@@ -125,6 +125,9 @@ public:
 	virtual void InviteToMatch(AUTLobbyMatchInfo* Match);
 	virtual void UninviteFromMatch(AUTLobbyMatchInfo* Match);
 
+	// Let's the client know that the server has auto-locked this match
+	UFUNCTION(client, Reliable)
+	virtual void NotifyBeginnerAutoLock();
 
 };
 
