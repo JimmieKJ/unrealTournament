@@ -296,16 +296,6 @@ void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& Red
 			}
 		}
 
-		for (int32 i = 0; i < RedirectReferences.Num(); i++)
-		{
-			if (RedirectReferences[i].PackageName == PackageBaseFilename)
-			{
-				FPackageRedirectReference R = RedirectReferences[i];
-				RedirectURL = R.ToString() + PackageChecksum;
-				return;
-			}
-		}
-
 		FString CloudID = GetCloudID();
 		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
 		{
