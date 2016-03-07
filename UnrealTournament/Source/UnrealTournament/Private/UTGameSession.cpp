@@ -102,11 +102,13 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 			return TEXT("");
 		}
 
+		bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+
 		// If this is a rank locked server, don't allow players in
 		AUTGameMode* UTGameMode = Cast<AUTGameMode>(UTBaseGameMode);
 		if (UTGameMode)
 		{
-			if (UTGameMode->bRankLocked)
+			if (UTGameMode->bRankLocked && !bSpectator)
 			{
 				int32 IncomingRank = UGameplayStatics::GetIntOption(Options, TEXT("RankCheck"), 0);
 
@@ -119,8 +121,6 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 
 		if (GetNetMode() != NM_Standalone && !GetWorld()->IsPlayInEditor())
 		{
-			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
-
 			FString Password = UGameplayStatics::ParseOption(Options, TEXT("Password"));
 			if (!bSpectator && !UTBaseGameMode->ServerPassword.IsEmpty())
 			{
