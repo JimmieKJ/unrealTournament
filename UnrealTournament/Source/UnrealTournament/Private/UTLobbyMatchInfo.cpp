@@ -1196,14 +1196,19 @@ uint32 AUTLobbyMatchInfo::GetMatchFlags()
 bool AUTLobbyMatchInfo::ServerInvitePlayer_Validate(AUTLobbyPlayerState* Who, bool bInvite) { return true; }
 void AUTLobbyMatchInfo::ServerInvitePlayer_Implementation(AUTLobbyPlayerState* Who, bool bInvite)
 {
+	UE_LOG(UT,Verbose,TEXT("ServerInvitePlayer: %s -  %s [%s] to the match"), (bInvite ? TEXT("Inviting") : TEXT("Uninviting")), (Who ? *Who->PlayerName : TEXT("[nullptr]")), (Who ? *Who->UniqueId.ToString() : TEXT("[nullptr]")));
+
 	if (!Who)
 	{
 		return;
 	}
+
 	if (bInvite)
 	{
 		if (AllowedPlayerList.Find(Who->UniqueId.ToString()) == INDEX_NONE)
 		{
+			UE_LOG(UT,Verbose,TEXT("ServerInvitePlayer: Found the player and sending the client an invite"));
+
 			AllowedPlayerList.Add(Who->UniqueId.ToString());
 			Who->InviteToMatch(this);
 		}
@@ -1212,6 +1217,8 @@ void AUTLobbyMatchInfo::ServerInvitePlayer_Implementation(AUTLobbyPlayerState* W
 	{
 		if (AllowedPlayerList.Find(Who->UniqueId.ToString()) != INDEX_NONE)
 		{
+			UE_LOG(UT,Verbose,TEXT("ServerInvitePlayer: Found the player and sending the client an uninvite"));
+
 			AllowedPlayerList.Remove(Who->UniqueId.ToString());
 			Who->UninviteFromMatch(this);
 		}
