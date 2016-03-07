@@ -680,7 +680,8 @@ void AUTBot::Tick(float DeltaTime)
 						{
 							if (GetCharacter() != NULL)
 							{
-								if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
+								// don't fail yet if falling in proper direction, might still reach via jump/gravity
+								if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking || (ZDiff > 0.0f) != (GetCharacter()->GetCharacterMovement()->MovementMode > 0.0f))
 								{
 									// failed - directly above or below target
 									ClearMoveTarget();

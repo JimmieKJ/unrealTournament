@@ -62,7 +62,7 @@ public:
 		AUTCharacter* UTC = Cast<AUTCharacter>(Asker);
 		if (UTC != NULL && (MovePos.Get() - Target.GetLocation(Asker)).IsNearlyZero())
 		{
-			if (UTC->UTCharacterMovement->Velocity.Size2D() < UTC->UTCharacterMovement->MaxWalkSpeed + 1.0f && (UTC->GetActorLocation() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f)
+			if (!UTC->UTCharacterMovement->bIsDodging && (UTC->GetActorLocation() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f)
 			{
 				// check for the wall dodge
 				// ideally wall dodge completely in desired movement direction, but try increments closer to wall 
@@ -70,6 +70,12 @@ public:
 				if (UTC->Dodge(DesiredDir, (DesiredDir ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal()))
 				{
 					UTC->UTCharacterMovement->UpdateWallSlide(false);
+					// end move after jump landing, success or failure, since it's unlikely we could reasonably try again
+					AUTBot* B = Cast<AUTBot>(UTC->Controller);
+					if (B != NULL)
+					{
+						B->MoveTimer = -1.0f;
+					}
 					return false;
 				}
 				else
@@ -78,6 +84,12 @@ public:
 					if (UTC->Dodge(DesiredDir, (DesiredDir ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal()) || UTC->Dodge(WallNormal, (WallNormal ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal()))
 					{
 						UTC->UTCharacterMovement->UpdateWallSlide(false);
+						// end move after jump landing, success or failure, since it's unlikely we could reasonably try again
+						AUTBot* B = Cast<AUTBot>(UTC->Controller);
+						if (B != NULL)
+						{
+							B->MoveTimer = -1.0f;
+						}
 						return false;
 					}
 					else
@@ -93,6 +105,22 @@ public:
 						UTC->UTCharacterMovement->UpdateWallSlide(true);
 						return true;
 					}
+				}
+			}
+			else if (UTC->UTCharacterMovement->bIsDodging)
+			{
+				// adjust air control to counter lingering velocity from wallrun
+				const FVector CurrentDir = UTC->UTCharacterMovement->Velocity.GetSafeNormal2D();
+				const FVector DesiredDir = (MovePos.Get() - UTC->GetActorLocation()).GetSafeNormal2D();
+				const FVector OrigJumpDir = (WallPoint - JumpStart).GetSafeNormal2D();
+				if (((CurrentDir - DesiredDir).GetSafeNormal2D() | OrigJumpDir) > 0.0f)
+				{
+					UTC->UTCharacterMovement->AddInputVector((DesiredDir - OrigJumpDir).GetSafeNormal2D());
+					return true;
+				}
+				else
+				{
+					return false;
 				}
 			}
 			else
