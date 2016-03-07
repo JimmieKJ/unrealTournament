@@ -112,6 +112,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	ShowdownLeaguePromotionMatchesWon = 0;
 	bShowdownLeaguePromotionSeries = false;
 	UIChatTextBackBufferPosition = 0;
+
+	bAutoRankLockWarningShown = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()

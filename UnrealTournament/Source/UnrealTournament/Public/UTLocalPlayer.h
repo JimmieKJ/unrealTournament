@@ -934,6 +934,9 @@ public:
 	void ShowQuickChat(FName ChatDestination);
 	void CloseQuickChat();
 
+	UPROPERTY()
+	bool bAutoRankLockWarningShown;
+
 protected:
 #if !UE_SERVER
 	TSharedPtr<SUTQuickChatWindow> QuickChatWindow;

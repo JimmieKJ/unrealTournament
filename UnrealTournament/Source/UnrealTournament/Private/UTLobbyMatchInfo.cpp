@@ -304,6 +304,13 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState,  AUTLobbyPlaye
 	{
 		bRankLocked = true;
 		bBeginnerMatch = true;
+
+		// Tell the host to display a warning
+
+		if (CurrentRuleset.IsValid())
+		{
+			MatchOwner->NotifyBeginnerAutoLock();
+		}
 	}
 
 	SetLobbyMatchState(ELobbyMatchState::Setup);
@@ -755,6 +762,21 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 			AUTBaseGameMode* DefaultGameMode = CurrentRuleset->GetDefaultGameModeObject();
 			if (DefaultGameMode == nullptr) DefaultGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode) + RANK_LOCK_TOLERANCE;
+
+			TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = GetOwnerPlayerState();
+			if (MatchOwner.IsValid() && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
+			{
+				bRankLocked = true;
+				bBeginnerMatch = true;
+
+				// Tell the host to display a warning
+
+				if (CurrentRuleset.IsValid())
+				{
+					MatchOwner->NotifyBeginnerAutoLock();
+				}
+			}
+
 		}
 	}
 }
