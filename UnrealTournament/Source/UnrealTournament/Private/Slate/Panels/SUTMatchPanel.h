@@ -302,6 +302,15 @@ public:
 			}
 		}
 
+		if (MatchInfo.IsValid())
+		{
+			return MatchInfo->NumPlayersInMatch() < (MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->MaxPlayers : 16);
+		}
+		else if (MatchData.IsValid())
+		{
+			return (MatchData->NumPlayers() < MatchData->MaxPlayers);
+		}
+
 		return true;
 	}
 
