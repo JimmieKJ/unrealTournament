@@ -30,6 +30,7 @@
 #include "UTTeamDMGameMode.h"
 #include "UTCTFBaseGame.h"
 #include "UTHUDWidget_NetInfo.h"
+#include "UTMcpUtils.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -1253,6 +1254,60 @@ void AUTPlayerState::ReadStatsFromCloud()
 	{
 		OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
 	}
+}
+
+void AUTPlayerState::ReadMMRFromBackend()
+{
+	// get MCP Utils
+	TSharedPtr<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*StatsID));
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), UserId);
+	if (McpUtils == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read MMR from MCP"));
+		return;
+	}
+
+	TArray<FString> MatchRatingTypes;
+	MatchRatingTypes.Add(TEXT("SkillRating"));
+	MatchRatingTypes.Add(TEXT("TDMSkillRating"));
+	MatchRatingTypes.Add(TEXT("DMSkillRating"));
+	MatchRatingTypes.Add(TEXT("CTFSkillRating"));
+	MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
+	// This should be a weak ptr here, but UTLocalPlayer is unlikely to go away
+	TWeakObjectPtr<AUTPlayerState> WeakPlayerState(this);
+	McpUtils->GetBulkAccountMmr(MatchRatingTypes, [WeakPlayerState](const FOnlineError& Result, const FBulkAccountMmr& Response)
+	{
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read MMR from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			if (!WeakPlayerState.IsValid())
+			{
+				return;
+			}
+
+			WeakPlayerState->DuelRank = Response.Ratings[0];
+			WeakPlayerState->TDMRank = Response.Ratings[1];
+			WeakPlayerState->DMRank = Response.Ratings[2];
+			WeakPlayerState->CTFRank = Response.Ratings[3];
+			WeakPlayerState->ShowdownRank = Response.Ratings[4];
+			WeakPlayerState->RankedShowdownRank = Response.Ratings[5];
+
+			WeakPlayerState->DuelMatchesPlayed = Response.NumGamesPlayed[0];
+			WeakPlayerState->TDMMatchesPlayed = Response.NumGamesPlayed[1];
+			WeakPlayerState->DMMatchesPlayed = Response.NumGamesPlayed[2];
+			WeakPlayerState->CTFMatchesPlayed = Response.NumGamesPlayed[3];
+			WeakPlayerState->ShowdownMatchesPlayed = Response.NumGamesPlayed[4];
+			WeakPlayerState->RankedShowdownMatchesPlayed = Response.NumGamesPlayed[5];
+
+			UE_LOG(UT, Log, TEXT("%s MMR fetched from the backend (Duel:%d) (TDM:%d) (FFA:%d)"), *WeakPlayerState->PlayerName, WeakPlayerState->DuelRank, WeakPlayerState->TDMRank, WeakPlayerState->DMRank);
+			UE_LOG(UT, Log, TEXT("(CTF:%d) (Showdown:%d) (Ranked Showdown:%d)"), WeakPlayerState->CTFRank, WeakPlayerState->ShowdownRank, WeakPlayerState->RankedShowdownRank);
+		}
+	});
 }
 
 void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)

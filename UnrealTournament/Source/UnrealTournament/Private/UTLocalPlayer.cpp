@@ -103,7 +103,6 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bShowingFriendsMenu = false;
 
 	bProgressionReadFromCloud = false;
-	ELOReportCount = 0;
 
 	ShowdownLeaguePlacementMatches = 0;
 	ShowdownLeaguePoints = 0;
@@ -1050,7 +1049,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
 		}
 
-		ReadELOFromBackend();
+		ReadMMRFromBackend();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
 		// query entitlements for UI
@@ -1527,7 +1526,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetRankRankedShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches(), RankedShowdownEloMatches());
+			UTBasePlayer->ServerReceiveStars(GetTotalChallengeStars());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1614,20 +1613,18 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		}
 
 		bProgressionReadFromCloud = true;
-		CheckReportELOandStarsToServer();
+		ReportStarsToServer();
 	}
 }
 
 // Only send ELO and stars to the server once all the server responses are complete
-void UUTLocalPlayer::CheckReportELOandStarsToServer()
+void UUTLocalPlayer::ReportStarsToServer()
 {
-	ELOReportCount++;
-
-	if (ELOReportCount >= 6 && bProgressionReadFromCloud)
+	if (bProgressionReadFromCloud)
 	{
 		// Set the ranks/etc so the player card is right.
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-		if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetRankRankedShowdown(), GetTotalChallengeStars(), FMath::Min(255, DuelEloMatches()), FMath::Min(255, CTFEloMatches()), FMath::Min(255, TDMEloMatches()), FMath::Min(255, DMEloMatches()), FMath::Min(255, ShowdownEloMatches()), FMath::Min(255, RankedShowdownEloMatches()));
+		if (UTBasePlayer) UTBasePlayer->ServerReceiveStars(GetTotalChallengeStars());
 	}
 }
 
@@ -1891,7 +1888,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				}
 			}
 		}
-		CheckReportELOandStarsToServer();
+
 	});
 	
 	// Refresh showdown league if we played showdown
@@ -1927,112 +1924,98 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 	}
 }
 
-void UUTLocalPlayer::ReadELOFromBackend()
+void UUTLocalPlayer::ReadMMRFromBackend()
 {
-	ELOReportCount = 0;
-
 	// get MCP Utils
 	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()));
 	if (McpUtils == nullptr)
 	{
-		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read ELO from MCP"));
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read MMR from MCP"));
 		return;
 	}	
-
-	McpUtils->GetAccountMmr(NAME_SkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
+	
+	TArray<FString> MatchRatingTypes;
+	MatchRatingTypes.Add(TEXT("SkillRating"));
+	MatchRatingTypes.Add(TEXT("TDMSkillRating"));
+	MatchRatingTypes.Add(TEXT("DMSkillRating"));
+	MatchRatingTypes.Add(TEXT("CTFSkillRating"));
+	MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
+	// This should be a weak ptr here, but UTLocalPlayer is unlikely to go away
+	TWeakObjectPtr<UUTLocalPlayer> WeakLocalPlayer(this);
+	McpUtils->GetBulkAccountMmr(MatchRatingTypes, [WeakLocalPlayer](const FOnlineError& Result, const FBulkAccountMmr& Response)
 	{
 		if (!Result.bSucceeded)
 		{
 			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+			UE_LOG(UT, Warning, TEXT("Failed to read MMR from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
 		}
 		else
 		{
-			UE_LOG(UT, Display, TEXT("Duel ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			DUEL_ELO = Response.Rating;
-			DuelMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
+			if (!WeakLocalPlayer.IsValid())
+			{
+				return;
+			}
 
-	McpUtils->GetAccountMmr(NAME_TDMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
-		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("TDM ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			TDM_ELO = Response.Rating;
-			TDMMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
+			for (int i = 0; i < Response.RatingTypes.Num(); i++)
+			{
+				UE_LOG(UT, Display, TEXT("%s MMR read %d, %d matches"), *Response.RatingTypes[i], Response.Ratings[i], Response.NumGamesPlayed[i]);
 
-	McpUtils->GetAccountMmr(NAME_DMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
-		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("DM ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			FFA_ELO = Response.Rating;
-			FFAMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
+				bool bRankedSession = false;
+				if (Response.RatingTypes[i] == NAME_SkillRating.ToString())
+				{
+					WeakLocalPlayer->DUEL_ELO = Response.Ratings[i];
+					WeakLocalPlayer->DuelMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_TDMSkillRating.ToString())
+				{
+					WeakLocalPlayer->TDM_ELO = Response.Ratings[i];
+					WeakLocalPlayer->TDMMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_DMSkillRating.ToString())
+				{
+					WeakLocalPlayer->FFA_ELO = Response.Ratings[i];
+					WeakLocalPlayer->FFAMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_CTFSkillRating.ToString())
+				{
+					WeakLocalPlayer->CTF_ELO = Response.Ratings[i];
+					WeakLocalPlayer->CTFMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_ShowdownSkillRating.ToString())
+				{
+					WeakLocalPlayer->Showdown_ELO = Response.Ratings[i];
+					WeakLocalPlayer->ShowdownMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_RankedShowdownSkillRating.ToString())
+				{
+					WeakLocalPlayer->RankedShowdown_ELO = Response.Ratings[i];
+					WeakLocalPlayer->RankedShowdownMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+			}
+			
+			// We're in the menus, just fill out the player state for the player card right now
+			if (WeakLocalPlayer->IsMenuGame() && WeakLocalPlayer->PlayerController)
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(WeakLocalPlayer->PlayerController->PlayerState);
+				if (UTPS)
+				{
+					UTPS->DuelRank = WeakLocalPlayer->DUEL_ELO;
+					UTPS->TDMRank = WeakLocalPlayer->TDM_ELO;
+					UTPS->DMRank = WeakLocalPlayer->FFA_ELO;
+					UTPS->CTFRank = WeakLocalPlayer->CTF_ELO;
+					UTPS->ShowdownRank = WeakLocalPlayer->Showdown_ELO;
+					UTPS->RankedShowdownRank = WeakLocalPlayer->RankedShowdown_ELO;
 
-	McpUtils->GetAccountMmr(NAME_CTFSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+					UTPS->DuelMatchesPlayed = WeakLocalPlayer->DuelMatchesPlayed;
+					UTPS->TDMMatchesPlayed = WeakLocalPlayer->TDMMatchesPlayed;
+					UTPS->DMMatchesPlayed = WeakLocalPlayer->FFAMatchesPlayed;
+					UTPS->CTFMatchesPlayed = WeakLocalPlayer->CTFMatchesPlayed;
+					UTPS->ShowdownMatchesPlayed = WeakLocalPlayer->ShowdownMatchesPlayed;
+					UTPS->RankedShowdownMatchesPlayed = WeakLocalPlayer->RankedShowdownMatchesPlayed;
+				}
+			}
 		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("CTF ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			CTF_ELO = Response.Rating;
-			CTFMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
-
-	McpUtils->GetAccountMmr(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
-		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("Showdown ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			Showdown_ELO = Response.Rating;
-			ShowdownMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
-
-	McpUtils->GetAccountMmr(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
-		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("Showdown ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			RankedShowdown_ELO = Response.Rating;
-			RankedShowdownMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
 	});
 
 	McpUtils->GetAccountLeague(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)

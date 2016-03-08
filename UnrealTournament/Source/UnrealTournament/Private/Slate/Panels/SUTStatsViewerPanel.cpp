@@ -286,7 +286,12 @@ void SUTStatsViewerPanel::DownloadStats()
 		MatchRatingTypes.Add(TEXT("CTFSkillRating"));
 		MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
 		UUTMcpUtils* McpUtils = UUTMcpUtils::Get(PlayerOwner->GetWorld(), LocalPlayerUserId);
-		McpUtils->GetBulkAccountMmr(MatchRatingTypes, [this](const FOnlineError& Result, const FBulkAccountMmr& Response)
+		TWeakPtr<SUTStatsViewerPanel> StatsPanelPtr(SharedThis(this));
+		FHttpRequestCompleteDelegate Delegate;
+		Delegate.BindSP(this, &SUTStatsViewerPanel::ReadBackendStatsComplete);
+		FString StatsIDCapture = StatsID;
+		FString QueryWindowCapture = QueryWindow;
+		McpUtils->GetBulkAccountMmr(MatchRatingTypes, [Delegate, StatsIDCapture, QueryWindowCapture](const FOnlineError& Result, const FBulkAccountMmr& Response)
 		{
 			if (Result.bSucceeded)
 			{
@@ -314,9 +319,7 @@ void SUTStatsViewerPanel::DownloadStats()
 				}
 			}
 
-			FHttpRequestCompleteDelegate Delegate;
-			Delegate.BindSP(this, &SUTStatsViewerPanel::ReadBackendStatsComplete);
-			ReadBackendStats(Delegate, StatsID, QueryWindow);
+			ReadBackendStats(Delegate, StatsIDCapture, QueryWindowCapture);
 		});
 	}
 }

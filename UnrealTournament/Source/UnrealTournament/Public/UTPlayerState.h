@@ -631,6 +631,7 @@ public:
 	bool HasWrittenStatsToCloud() { return bWroteStatsToCloud; }
 
 	void ReadStatsFromCloud();
+	void ReadMMRFromBackend();
 
 private:
 	bool bReadStatsFromCloud;

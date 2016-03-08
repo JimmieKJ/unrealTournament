@@ -3127,6 +3127,7 @@ void AUTPlayerController::ServerReceiveStatsID_Implementation(const FString& New
 	{
 		UTPlayerState->StatsID = NewStatsID;
 		UTPlayerState->ReadStatsFromCloud();
+		UTPlayerState->ReadMMRFromBackend();
 	}
 }
 

@@ -492,9 +492,9 @@ private:
 	bool bShowdownLeaguePromotionSeries;
 	
 	bool bProgressionReadFromCloud;
-	int32 ELOReportCount;
-	void ReadELOFromBackend();
-	void CheckReportELOandStarsToServer();
+	void ReadMMRFromBackend();
+
+	void ReportStarsToServer();
 
 	void ReadCloudFileListing();
 public:
