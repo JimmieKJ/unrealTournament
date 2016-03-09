@@ -133,7 +133,7 @@ protected:
 	void RebuildSubMenu();
 
 	FReply SubMenuButtonClicked(FName Tag);
-	void UTOnButtonClicked(int32 ButtonIndex);
+	FReply UTOnButtonClicked(int32 ButtonIndex);
 
 };
 

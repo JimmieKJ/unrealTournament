@@ -65,6 +65,7 @@ void SUTMenuAnchor::RebuildSubMenu()
 
 	for (int32 i=0;i<SubMenuItems.Num();i++)
 	{
+		TSharedPtr<SButton> Button;
 		if (SubMenuItems[i].bSpacer)
 		{
 			MenuBox->AddSlot()
@@ -98,13 +99,18 @@ void SUTMenuAnchor::RebuildSubMenu()
 			MenuBox->AddSlot()
 			.AutoHeight()
 			[
-				SNew(SButton)
+				SAssignNew(Button, SButton)
 				.ButtonStyle(MenuButtonStyle)
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(SubMenuItems[i].OptionText)
 				.TextStyle(MenuButtonTextStyle)
 				.OnClicked(this, &SUTMenuAnchor::SubMenuButtonClicked, SubMenuItems[i].OptionTag)
 			];
+
+			if (!WidgetToFocusPtr.IsValid())
+			{
+				WidgetToFocusPtr = Button.ToSharedRef();
+			}
 
 		}
 	}
@@ -129,7 +135,7 @@ FReply SUTMenuAnchor::SubMenuButtonClicked(FName Tag)
 	return FReply::Handled();
 }
 
-void SUTMenuAnchor::UTOnButtonClicked(int32 ButtonIndex)
+FReply SUTMenuAnchor::UTOnButtonClicked(int32 ButtonIndex)
 {
 
 	if (ButtonIndex > 0)
@@ -172,9 +178,11 @@ void SUTMenuAnchor::UTOnButtonClicked(int32 ButtonIndex)
 
 		if (WidgetToFocus.IsValid())
 		{
-			ButtonClickedReply.SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
+			return FReply::Handled().SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
 		}
 	}
+
+	return FReply::Handled();
 }
 
 
