@@ -26,7 +26,7 @@ namespace EMaxConcurrentResolutionRule
 		StopLowestPriority,
 
 		/** Stop the sound that is quietest in the group. */
-		StopQuietist,
+		StopQuietest,
 	};
 }
 
