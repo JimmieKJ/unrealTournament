@@ -2938,20 +2938,45 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	// call right there.  If you are using the loadout system and want to insure a player has some default items, use bDefaultInclude and make sure their cost is 0.
 
 	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
-	if (UTPlayerState && UTPlayerState->Loadout.Num() > 0)
+	if (UTPlayerState)
 	{
-		for (int32 i=0; i < UTPlayerState->Loadout.Num(); i++)
+		if ( UTPlayerState->Loadout.Num() > 0 )
 		{
-			if (UTPlayerState->GetAvailableCurrency() >= UTPlayerState->Loadout[i]->CurrentCost)
+			for (int32 i=0; i < UTPlayerState->Loadout.Num(); i++)
 			{
-				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
-				UTPlayerState->AdjustCurrency(UTPlayerState->Loadout[i]->CurrentCost * -1);
+				if (UTPlayerState->GetAvailableCurrency() >= UTPlayerState->Loadout[i]->CurrentCost)
+				{
+					AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+					UTPlayerState->AdjustCurrency(UTPlayerState->Loadout[i]->CurrentCost * -1);
+				}
 			}
+
+			return;
 		}
 
-		return;
-
+		if (UTPlayerState->CurrentLoadoutPackTag != NAME_None)
+		{
+			// Verify it's valid.
+			AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if ( UTGameMode )
+			{
+				int32 PackIndex = UTGameMode->LoadoutPackIsValid(UTPlayerState->CurrentLoadoutPackTag);
+				if (PackIndex != INDEX_NONE && PackIndex < UTGameMode->AvailableLoadoutPacks.Num())
+				{
+					for (int32 i=0; i < UTGameMode->AvailableLoadoutPacks[PackIndex].LoadoutCache.Num(); i++)
+					{
+						AUTReplicatedLoadoutInfo* Info = UTGameMode->AvailableLoadoutPacks[PackIndex].LoadoutCache[i];
+						AddInventory(GetWorld()->SpawnActor<AUTInventory>(Info->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+						UTPlayerState->AdjustCurrency(Info->CurrentCost * -1);
+					}
+					return;
+				}
+			}
+		
+		}
 	}
+
+	
 
 	// Add the default character inventory
 	for (int32 i=0;i<DefaultCharacterInventory.Num();i++)

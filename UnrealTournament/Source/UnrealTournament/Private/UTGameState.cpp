@@ -295,6 +295,9 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayPlayerIntro, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, bForcedBalance);
+
+	DOREPLIFETIME(AUTGameState, SpawnPacks);
+
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -953,6 +956,7 @@ void AUTGameState::AddLoadoutItem(const FLoadoutInfo& Item)
 	AUTReplicatedLoadoutInfo* NewLoadoutInfo = GetWorld()->SpawnActor<AUTReplicatedLoadoutInfo>(Params);
 	if (NewLoadoutInfo)
 	{
+		NewLoadoutInfo->ItemTag = Item.ItemTag;
 		NewLoadoutInfo->ItemClass = Item.ItemClass;	
 		NewLoadoutInfo->RoundMask = Item.RoundMask;
 		NewLoadoutInfo->CurrentCost = Item.InitialCost;
@@ -961,6 +965,19 @@ void AUTGameState::AddLoadoutItem(const FLoadoutInfo& Item)
 
 		AvailableLoadout.Add(NewLoadoutInfo);
 	}
+}
+
+AUTReplicatedLoadoutInfo* AUTGameState::FindLoadoutItem(const FName& ItemTag)
+{
+	for (int32 i=0; i < AvailableLoadout.Num();i++)
+	{
+		if (AvailableLoadout[i]->ItemTag == ItemTag)
+		{
+			return AvailableLoadout[i];
+		}
+	}
+
+	return nullptr;
 }
 
 void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float NewCost)

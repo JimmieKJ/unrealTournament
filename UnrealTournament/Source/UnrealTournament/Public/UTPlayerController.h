@@ -854,9 +854,9 @@ public:
 	UFUNCTION(client, reliable)
 	void ClientPumpkinPickedUp(float GainedAmount, float GoalAmount);
 
+	FString FixedupKeyname(FString KeyName);
 protected:
 	int32 ParseWeaponBind(FString ActionName);
-	FString FixedupKeyname(FString KeyName);
 
 	void TurnOffPawns();
 	

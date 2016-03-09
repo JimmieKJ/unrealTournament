@@ -31,6 +31,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bMovementEnabled = true;
 	LastTeleportedTime = -1000.f;
 	bEnemyCanPickup = true;
+	bInitialized = false;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -64,6 +65,7 @@ void AUTCarriedObject::Init(AUTGameObjective* NewBase)
 		}
 	}
 
+	bInitialized = true;
 	HomeBase = NewBase;
 	ObjectState = CarriedObjectState::Home;
 	HomeBase->ObjectStateWasChanged(ObjectState);
@@ -123,7 +125,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (!bIsDropping)
+	if (bInitialized && !bIsDropping)
 	{
 		AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
 		if (Character != NULL)

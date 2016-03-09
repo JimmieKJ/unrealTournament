@@ -349,6 +349,9 @@ public:
 	// Adds a weapon to the list of possible loadout weapons.
 	virtual void AddLoadoutItem(const FLoadoutInfo& Loadout);
 
+	// Finds a loadout item
+	AUTReplicatedLoadoutInfo* FindLoadoutItem(const FName& ItemTag);
+
 	// Adjusts the cost of a weapon available for loadouts
 	virtual void AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float NewCost);
 
@@ -504,6 +507,9 @@ public:
 	}
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
+	UPROPERTY(Replicated)
+	TArray<FLoadoutPackReplicatedInfo> SpawnPacks;
 };
 
 

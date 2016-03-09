@@ -485,28 +485,28 @@ void UUTHUDWidget::DrawAllRenderObjects(float RenderedTime, FVector2D DrawOffset
 
 FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
-	return DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
+	return DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), TextHorzAlignment, TextVertAlignment);
 }
 
 FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
-	return DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, true, OutlineColor, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
+	return DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, true, OutlineColor, TextScale, DrawOpacity, DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), TextHorzAlignment, TextVertAlignment);
 }
 
 FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FVector2D ShadowDirection, FLinearColor ShadowColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
-	return DrawText(Text, X, Y, Font, true, ShadowDirection, ShadowColor, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
+	return DrawText(Text, X, Y, Font, true, ShadowDirection, ShadowColor, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), TextHorzAlignment, TextVertAlignment);
 }
 FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FVector2D ShadowDirection, FLinearColor ShadowColor, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
-	return DrawText(Text, X, Y, Font, true, ShadowDirection, ShadowColor, true, OutlineColor, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
+	return DrawText(Text, X, Y, Font, true, ShadowDirection, ShadowColor, true, OutlineColor, TextScale, DrawOpacity, DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), TextHorzAlignment, TextVertAlignment);
 }
 FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, const FFontRenderInfo& RenderInfo, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
-	return DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment, RenderInfo);
+	return DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), TextHorzAlignment, TextVertAlignment, RenderInfo);
 }
 
-FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow, FVector2D ShadowDirection, FLinearColor ShadowColor, bool bDrawOutline, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment, const FFontRenderInfo& RenderInfo)
+FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow, FVector2D ShadowDirection, FLinearColor ShadowColor, bool bDrawOutline, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, FLinearColor BackColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment, const FFontRenderInfo& RenderInfo)
 {
 	float XL = 0.0f, YL = 0.0f;
 	FVector2D TextSize;
@@ -548,6 +548,13 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 			{
 				RenderPos.Y -= TextVertAlignment == ETextVertPos::Bottom ? YL : YL * 0.5f;
 			}
+		}
+
+		if (BackColor.A > 0.0f)	// Don't even bother if the alpha is 0
+		{
+			Canvas->DrawColor = BackColor.ToFColor(true);
+			Canvas->DrawColor.A = uint8(255.0f * BackColor.A);
+			Canvas->DrawTile(Canvas->DefaultTexture, RenderPos.X, RenderPos.Y, TextSize.X * TextScale * 1.025, TextSize.Y * TextScale, 0,0,1,1,EBlendMode::BLEND_Translucent);
 		}
 
 		DrawColor.A = Opacity * DrawOpacity * UTHUDOwner->WidgetOpacity;
@@ -725,6 +732,7 @@ FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, floa
 				TextObject.TextScale, 
 				TextObject.RenderOpacity * UTHUDOwner->HUDWidgetOpacity, 
 				TextObject.RenderColor, 
+				TextObject.BackgroundColor,
 				TextObject.HorzPosition, 
 				TextObject.VertPosition);
 }

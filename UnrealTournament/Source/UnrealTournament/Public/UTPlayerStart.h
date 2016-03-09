@@ -13,4 +13,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bIgnoreInShowdown;
 
+	/** if set, this player state will be rated higher if the team is on defense */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bDefensiveStart;
+
 };

@@ -880,7 +880,19 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 
 void AUTPlayerController::SwitchWeapon(int32 Group)
 {
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	int32 AdjustedGroup = Group -1;
+	if ( UTGameState && 
+		(UTPlayerState->bOutOfLives || (UTCharacter ? UTCharacter->IsDead() : (GetPawn() == NULL))) &&
+		(AdjustedGroup >= 0 && UTGameState->SpawnPacks.IsValidIndex(AdjustedGroup)) )
+	{
+		UE_LOG(UT,Log,TEXT("SeverSetLoadoutPack %s"),*UTGameState->SpawnPacks[AdjustedGroup].PackTag.ToString());
+		UTPlayerState->ServerSetLoadoutPack(UTGameState->SpawnPacks[AdjustedGroup].PackTag);
+	}
+	else
+	{
 		SwitchWeaponGroup(Group);
+	}
 }
 
 void AUTPlayerController::DemoRestart()
@@ -3626,11 +3638,7 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP) 
-	{
-		LP->OpenMatchSummary(GetWorld()->GetGameState<AUTGameState>());
-	}
+	ShowBuyMenu();
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

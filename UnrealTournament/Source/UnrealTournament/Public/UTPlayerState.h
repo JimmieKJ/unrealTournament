@@ -809,6 +809,10 @@ public:
 
 	virtual void AdjustCurrency(float Adjustment);
 
+	// If true, then spawns for this player costs lives.
+	UPROPERTY()
+	bool bSpawnCostLives;
+
 protected:
 	TArray<FTempBanInfo> BanVotes;
 
@@ -872,7 +876,13 @@ public:
 	}
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
-	
+
+	// Will hold the tag of the current loadout to apply to this character.
+	UPROPERTY(Replicated)
+	FName CurrentLoadoutPackTag;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetLoadoutPack(const FName& NewLoadoutPackTag);
 
 };
 

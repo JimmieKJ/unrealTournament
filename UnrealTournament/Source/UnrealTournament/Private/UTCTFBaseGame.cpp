@@ -236,7 +236,10 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 				if (PC)
 				{
-					PC->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+					if (CTFGameState->FlagBases[Holder->Team->TeamIndex] != nullptr)
+					{
+						PC->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+					}
 
 					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
 					if (PS && PS->bNeedsAssistAnnouncement)

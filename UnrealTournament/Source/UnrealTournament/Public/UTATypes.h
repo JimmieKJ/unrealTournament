@@ -218,16 +218,21 @@ struct FHUDRenderObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float RenderOpacity;
 
+	// Additional Scaler to apply when rendering
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	float RenderScale;
+
 	FHUDRenderObject()
 	{
+		RenderScale = 1.0f;
 		RenderPriority = 0.0f;
 		RenderColor = FLinearColor::White;
 		RenderOpacity = 1.0f;
 	};
 
 public:
-	virtual float GetWidth() { return Size.X; }
-	virtual float GetHeight() { return Size.Y; }
+	virtual float GetWidth() { return Size.X * RenderScale; }
+	virtual float GetHeight() { return Size.Y * RenderScale; }
 };
 
 
@@ -283,12 +288,12 @@ struct FHUDRenderObject_Texture : public FHUDRenderObject
 public:
 	virtual float GetWidth()
 	{
-		return (Size.X <= 0) ? UVs.UL : Size.X;
+		return ((Size.X <= 0) ? UVs.UL : Size.X) * RenderScale;
 	}
 
 	virtual float GetHeight()
 	{
-		return (Size.Y <= 0) ? UVs.VL : Size.Y;
+		return ((Size.Y <= 0) ? UVs.VL : Size.Y) * RenderScale;
 	}
 
 };
@@ -337,6 +342,9 @@ struct FHUDRenderObject_Text : public FHUDRenderObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	TEnumAsByte<ETextVertPos::Type> VertPosition;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FLinearColor BackgroundColor;
+
 	FHUDRenderObject_Text() : FHUDRenderObject()
 	{
 		Font = NULL;
@@ -347,6 +355,7 @@ struct FHUDRenderObject_Text : public FHUDRenderObject
 		OutlineColor = FLinearColor::Black;
 		HorzPosition = ETextHorzPos::Left;
 		VertPosition = ETextVertPos::Top;
+		BackgroundColor = FLinearColor(0.0f,0.0f,0.0f,0.0f);
 	}
 
 public:
@@ -363,7 +372,7 @@ public:
 			int32 Width = 0;
 			int32 Height = 0;
 			Font->GetStringHeightAndWidth(TextToRender.ToString(), Height, Width);
-			return FVector2D(Width * TextScale , Height * TextScale);
+			return FVector2D(Width * TextScale * RenderScale , Height * TextScale * RenderScale);
 		}
 	
 		return FVector2D(0,0);
@@ -1360,3 +1369,17 @@ namespace AchievementIDs
 	const FName FacePumpkins(TEXT("FacePumpkins"));
 };
 
+USTRUCT()
+struct FLoadoutPackReplicatedInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	// Holds the name of of this pack
+	UPROPERTY()
+	FName PackTag;
+
+	// The description for this pack
+	UPROPERTY()
+	FString PackTitle;
+};

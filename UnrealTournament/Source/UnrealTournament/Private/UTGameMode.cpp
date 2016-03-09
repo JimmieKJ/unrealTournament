@@ -487,6 +487,23 @@ void AUTGameMode::InitGameState()
 				UTGameState->AddLoadoutItem(AvailableLoadout[i]);
 			}
 		}
+
+		// Resolve any load out packs
+		if (AvailableLoadoutPacks.Num() > 0 && AvailableLoadout.Num() > 0)
+		{
+			for (int32 i=0; i < AvailableLoadoutPacks.Num(); i++)
+			{
+				for (int32 j=0; j < AvailableLoadoutPacks[i].ItemsInPack.Num(); j++)
+				{
+					AUTReplicatedLoadoutInfo* LoadoutInfo = UTGameState->FindLoadoutItem(AvailableLoadoutPacks[i].ItemsInPack[j]);
+					if (LoadoutInfo != nullptr)
+					{
+						AvailableLoadoutPacks[i].LoadoutCache.Add(LoadoutInfo);
+					}
+				}
+				UTGameState->SpawnPacks.Add(AvailableLoadoutPacks[i].PackInfo);
+			}
+		}
 	}
 	else
 	{
@@ -2949,6 +2966,12 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 {
 	Super::GenericPlayerInitialization(C);
 
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(C->PlayerState);
+	if (UTPlayerState && AvailableLoadoutPacks.Num() > 0)
+	{
+		UTPlayerState->ServerSetLoadoutPack(AvailableLoadoutPacks[0].PackInfo.PackTag);
+	}
+
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->PostPlayerInit(C);
@@ -4451,4 +4474,15 @@ void AUTGameMode::SendLobbyMessage(const FString& Message, AUTPlayerState* Sende
 	{
 		LobbyBeacon->Lobby_ReceiveUserMessage(Message, Sender->PlayerName);
 	}
+}
+int32 AUTGameMode::LoadoutPackIsValid(const FName& PackTag)
+{
+	for (int32 i=0; i < AvailableLoadoutPacks.Num(); i++)
+	{
+		if (AvailableLoadoutPacks[i].PackInfo.PackTag == PackTag)
+		{
+			return i;
+		}
+	}
+	return INDEX_NONE;
 }

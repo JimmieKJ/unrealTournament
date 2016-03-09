@@ -70,6 +70,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bAnnounceWeaponSpree = false;
 	bAnnounceWeaponReward = false;
 	ReadyMode = 0;
+	CurrentLoadoutPackTag = NAME_None;
+	bSpawnCostLives = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -144,6 +146,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, EmoteSpeed);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSkins, COND_OwnerOnly);
 	DOREPLIFETIME(AUTPlayerState, ReadyMode);
+
+	DOREPLIFETIME(AUTPlayerState, CurrentLoadoutPackTag);
 }
 
 void AUTPlayerState::Destroyed()
@@ -2775,4 +2779,20 @@ void AUTPlayerState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	JsonObject->SetNumberField(TEXT("No_DM_Matches_Played"), DMMatchesPlayed);
 	JsonObject->SetNumberField(TEXT("ShowdownRank"), ShowdownRank);
 	JsonObject->SetNumberField(TEXT("No_Showdowns"), ShowdownMatchesPlayed);
+}
+
+bool AUTPlayerState::ServerSetLoadoutPack_Validate(const FName& NewLoadoutPackTag) { return true; }
+void AUTPlayerState::ServerSetLoadoutPack_Implementation(const FName& NewLoadoutPackTag)
+{
+	if (NewLoadoutPackTag != CurrentLoadoutPackTag)
+	{
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode)
+		{
+			if (GameMode->LoadoutPackIsValid(NewLoadoutPackTag) != INDEX_NONE)
+			{
+				CurrentLoadoutPackTag = NewLoadoutPackTag;
+			}
+		}
+	}
 }

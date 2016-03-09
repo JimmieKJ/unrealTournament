@@ -1884,7 +1884,7 @@ void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUD
 
 			float H = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex->GetSurfaceHeight();
 			FText PlayerName = FText::FromString(TargetPlayerState->PlayerName);
-			WeaponHudWidget->DrawText(PlayerName, 0.f, H * 2.f, WeaponHudWidget->UTHUDOwner->SmallFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.0f, Alpha, FLinearColor::Red, ETextHorzPos::Center);
+			WeaponHudWidget->DrawText(PlayerName, 0.f, H * 2.f, WeaponHudWidget->UTHUDOwner->SmallFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.0f, Alpha, FLinearColor::Red, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Center);
 		}
 		else
 		{
