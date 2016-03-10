@@ -162,6 +162,10 @@ protected:
 	TSharedPtr<SCheckBox> SmoothFrameRate;
 	TSharedPtr<SCheckBox> VSync;
 	TSharedPtr<SEditableTextBox> FrameRateCap;
+	TArray< TSharedPtr<FString> > MatchmakingRegionList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > MatchmakingRegion;
+	TSharedPtr<STextBlock> SelectedMatchmakingRegion;
+	bool bChangedMatchmakingRegion;
 
 	TArray<TSharedPtr<FString>> BotSpeechList;
 	TSharedPtr<SComboBox<TSharedPtr<FString>>> BotSpeechCombo;
@@ -233,6 +237,7 @@ protected:
 	void OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnMatchmakingRegionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
 	void OnAdvancedCheckChanged(ECheckBoxState NewState);
 	void UpdateAdvancedWidgets();

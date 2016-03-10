@@ -719,10 +719,13 @@ public:
 	TSharedPtr<SUTDialogBase> YoutubeDialog;
 	TSharedPtr<class SUTYoutubeConsentDialog> YoutubeConsentDialog;
 
+	TSharedPtr<class SUTMatchmakingRegionDialog> MatchmakingRegionDialog;
+
 	TSharedPtr<class SUTMatchmakingDialog> MatchmakingDialog;
 	void MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
+	void ShowRegionSelectDialog();
 	void ShowMatchmakingDialog();
 	void HideMatchmakingDialog();
 	bool IsPartyLeader();

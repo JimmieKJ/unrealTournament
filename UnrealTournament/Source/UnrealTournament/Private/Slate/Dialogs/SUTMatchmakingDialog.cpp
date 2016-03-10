@@ -35,12 +35,28 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SNew(STextBlock)
+				.Text(this, &SUTMatchmakingDialog::GetRegionText)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
 				.Text(this, &SUTMatchmakingDialog::GetMatchmakingText)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
 		];
 	}
+}
+
+FText SUTMatchmakingDialog::GetRegionText() const
+{
+	return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion));
 }
 
 FText SUTMatchmakingDialog::GetMatchmakingText() const

@@ -456,9 +456,8 @@ bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 			FOnQosSearchComplete CompletionDelegate = FOnQosSearchComplete::CreateUObject(this, &ThisClass::ContinueMatchmaking, MatchmakingParams);
 			QosEvaluator->FindDatacenters(ControllerId, CompletionDelegate);
 #else
-			// Pretend that QoS query actually happened
-			FString FakeDatacenterId = TEXT("USA");
-			LookupTeamElo(EQosCompletionResult::Success, FakeDatacenterId, MatchmakingParams);
+			// Pretend that QoS query actually happened, DatacenterId was passed from profile settings
+			LookupTeamElo(EQosCompletionResult::Success, MatchmakingParams.DatacenterId, MatchmakingParams);
 #endif
 		}
 	}

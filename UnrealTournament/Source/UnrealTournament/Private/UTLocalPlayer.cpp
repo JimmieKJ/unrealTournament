@@ -70,6 +70,7 @@
 #include "PartyGameState.h"
 #include "IBlueprintContextModule.h"
 #include "SUTChatEditBox.h"
+#include "SUTMatchmakingRegionDialog.h"
 #include "UserWidget.h"
 #include "WidgetBlueprintLibrary.h"
 
@@ -4580,6 +4581,7 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		MatchmakingParams.ControllerId = GetControllerId();
 		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
 		MatchmakingParams.PlaylistId = PlaylistId;
+		MatchmakingParams.DatacenterId = GetProfileSettings()->MatchmakingRegion.IsEmpty() ? TEXT("USA") : GetProfileSettings()->MatchmakingRegion;
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
 	}
 }
@@ -4605,6 +4607,19 @@ bool UUTLocalPlayer::IsPartyLeader()
 	return false;
 }
 
+void UUTLocalPlayer::ShowRegionSelectDialog()
+{
+#if !UE_SERVER
+	OpenDialog(
+		SAssignNew(MatchmakingRegionDialog, SUTMatchmakingRegionDialog)
+		.PlayerOwner(this)
+		.DialogSize(FVector2D(0.6f, 0.4f))
+		.DialogPosition(FVector2D(0.5f, 0.5f))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "MatchmakingRegion", "Select A Region For Matchmaking"))
+		.ButtonMask(UTDIALOG_BUTTON_OK));
+#endif
+}
+
 void UUTLocalPlayer::ShowMatchmakingDialog()
 {
 #if !UE_SERVER
@@ -4625,7 +4640,7 @@ void UUTLocalPlayer::ShowMatchmakingDialog()
 		.PlayerOwner(this)
 		.DialogSize(FVector2D(0.6f, 0.4f))
 		.DialogPosition(FVector2D(0.5f, 0.5f))
-		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "Matchmaking", "Searching For Match"))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "MatchmakingSearch", "Searching For Match"))
 		.ButtonMask(ButtonMask)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::MatchmakingResult))
 		);

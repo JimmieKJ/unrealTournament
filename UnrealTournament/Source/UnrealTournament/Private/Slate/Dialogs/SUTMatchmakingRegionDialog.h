@@ -6,10 +6,10 @@
 
 #if !UE_SERVER
 
-class UNREALTOURNAMENT_API SUTMatchmakingDialog : public SUTDialogBase
+class UNREALTOURNAMENT_API SUTMatchmakingRegionDialog : public SUTDialogBase
 {
 public:
-	SLATE_BEGIN_ARGS(SUTMatchmakingDialog)
+	SLATE_BEGIN_ARGS(SUTMatchmakingRegionDialog)
 		: _DialogSize(FVector2D(0.5f, 0.25f))
 		, _bDialogSizeIsRelative(true)
 		, _DialogPosition(FVector2D(0.5f, 0.5f))
@@ -32,11 +32,11 @@ public:
 
 	virtual FReply OnButtonClick(uint16 ButtonID);
 
-	FText GetMatchmakingText() const;
-	FText GetRegionText() const;
+	void OnMatchmakingRegionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
-public:
-	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	TArray< TSharedPtr<FString> > MatchmakingRegionList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > MatchmakingRegion;
+	TSharedPtr<STextBlock> SelectedMatchmakingRegion;
 };
 
 #endif

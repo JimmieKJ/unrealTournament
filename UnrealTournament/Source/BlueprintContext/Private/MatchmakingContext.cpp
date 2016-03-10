@@ -106,6 +106,7 @@ void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)
 		if (!LocalPlayer->IsPartyLeader())
 		{
 			// Show error dialog
+			LocalPlayer->MessageBox(LOCTEXT("NotPartyLeaderTitle", "Must Be The Party Leader"), LOCTEXT("NotPartyLeader", "You must be the party leader to initiate matchmaking."));
 			return;
 		}
 
@@ -118,6 +119,7 @@ void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)
 			if (!GameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(InPlaylistId, TeamCount, TeamSize, MaxPartySize))
 			{
 				// Playlist probably doesn't exist :/ Show an error dialog
+				LocalPlayer->MessageBox(LOCTEXT("NoPlaylistTitle", "Invalid Playlist"), LOCTEXT("NoPlaylist", "This playlist doesn't exist, please choose another."));
 				return;
 			}
 
@@ -127,12 +129,20 @@ void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)
 				if (MaxPartySize < PartyContext->GetPartySize())
 				{
 					// Show error dialog
+					LocalPlayer->MessageBox(LOCTEXT("PartyTooLargeTitle", "Party Too Large"), LOCTEXT("PartyTooLarge", "This playlist does not support your party size."));
 					return; 
 				}
 			}
 			
 		}
 
+		// Also should verify it's an accepted region
+		if (LocalPlayer->GetProfileSettings()->MatchmakingRegion.IsEmpty())
+		{
+			// Show selection dialog
+			LocalPlayer->ShowRegionSelectDialog();
+			return;
+		}
 
 		LocalPlayer->StartMatchmaking(InPlaylistId);
 	}
