@@ -4,15 +4,15 @@ using UnrealBuildTool;
 public class SSF : ModuleRules
 {
     public SSF(TargetInfo Target)
-	{
-		Type = ModuleType.External;
+    {
+        Type = ModuleType.External;
 
-		string SSFDirectory = UEBuildConfiguration.UEThirdPartySourceDirectory + "SSF/";
+        string SSFDirectory = UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/SSF/";
         string SSFLibPath = SSFDirectory;
         PublicIncludePaths.Add(SSFDirectory + "Public");
 
-		if (Target.Platform == UnrealTargetPlatform.Win64)
-		{
+        if (Target.Platform == UnrealTargetPlatform.Win64)
+        {
             SSFLibPath = SSFLibPath + "lib/win64/vs" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/";
             PublicLibraryPaths.Add(SSFLibPath);
 
@@ -24,7 +24,7 @@ public class SSF : ModuleRules
             {
                 PublicAdditionalLibraries.Add("SSF.lib");
             }
-		}
-	}
+        }
+    }
 }
 
