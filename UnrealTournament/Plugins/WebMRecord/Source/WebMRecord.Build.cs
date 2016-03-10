@@ -25,12 +25,12 @@ namespace UnrealBuildTool.Rules
 				);
 
             PublicIncludePaths.Add("../../UnrealTournament/Plugins/WebMRecord/Source/ThirdParty");
-
-            var LIBPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "vpx");
+            
+            var LIBPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "vpx", "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName());
 
             if (Target.Platform == UnrealTargetPlatform.Win32)
             {
-                LIBPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "vpx32");
+                LIBPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "vpx32", "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName());
             }
 
             var VPXLibPath = Path.Combine(LIBPath, "vpxmd.lib");
@@ -42,10 +42,10 @@ namespace UnrealBuildTool.Rules
             PublicAdditionalLibraries.Add("avrt.lib");
             
             // LibGD
-            var LIBGDPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "libgd");
+            var LIBGDPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "libgd", "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName());
             if (Target.Platform == UnrealTargetPlatform.Win32)
             {
-                LIBGDPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "libgd32");
+                LIBGDPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "libgd32", "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName());
             }
             PublicLibraryPaths.Add(LIBGDPath);
             var GDLibPath = Path.Combine(LIBGDPath, "libgd.lib");
