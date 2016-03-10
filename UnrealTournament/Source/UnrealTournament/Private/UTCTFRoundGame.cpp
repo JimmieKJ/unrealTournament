@@ -18,6 +18,7 @@
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
 #include "UTShowdownGameMessage.h"
+#include "UTShowdownRewardMessage.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -30,6 +31,8 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
 	RespawnWaitTime = 3.f;
+	ForceRespawnTime = 5.f;
+	bForceRespawn = true;
 	bUseDash = false;
 	bAsymmetricVictoryConditions = true;
 	bCarryOwnFlag = true;
@@ -230,13 +233,25 @@ void AUTCTFRoundGame::InitRound()
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
-	if (bPerPlayerLives && PS && PS->Team)
+	if (bPerPlayerLives && PS && PS->Team && !PS->bOutOfLives)
 	{
 		PS->RemainingLives--;
 		if ((PS->RemainingLives < 0) && (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))))
 		{
 			// this player is out of lives
 			PS->SetOutOfLives(true);
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+			{
+				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+				{
+					// found a live teammate, so round isn't over - notify about termination though
+					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3);
+					return;
+				}
+			}
+			BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
+			ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
 			return;
 		}
 	}
