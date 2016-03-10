@@ -26,7 +26,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	GoalScore = 3;
 	TimeLimit = 0;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Round based CTF");
-	RoundLives = 7;
+	RoundLives = 5;
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
@@ -247,8 +247,12 @@ void AUTCTFRoundGame::InitRound()
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
-	if (bPerPlayerLives && PS && PS->Team && !PS->bOutOfLives)
+	if (bPerPlayerLives && PS && PS->Team)
 	{
+		if (PS->bOutOfLives)
+		{
+			return;
+		}
 		PS->RemainingLives--;
 		if ((PS->RemainingLives < 0) && (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))))
 		{

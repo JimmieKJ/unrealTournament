@@ -128,9 +128,11 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 			// Draw flag state in world
 			bDrawInWorld = false;
-			Dist = (Base->GetCarriedObject()->GetActorLocation() - ViewPoint).Size();
+			Dist = (Flag->GetActorLocation() - ViewPoint).Size();
 			WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
-			if ((bSpectating || bIsEnemyFlag) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home) && ((ViewRotation.Vector() | (Base->GetCarriedObject()->GetActorLocation() - ViewPoint)) > 0.f))
+			bool bShouldDrawFlagIcon = bIsEnemyFlag ? Flag->bEnemyCanPickup : Flag->bFriendlyCanPickup;
+
+			if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home) && ((ViewRotation.Vector() | (Flag->GetActorLocation() - ViewPoint)) > 0.f))
 			{
 				WorldPosition = Flag->GetActorLocation();
 				if (FlagState == CarriedObjectState::Held)
