@@ -242,7 +242,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	}
 	Super::RestartPlayer(aPlayer);
 
-	if (aPlayer->GetPawn() && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
+	if (aPlayer->GetPawn() && !bPerPlayerLives && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
 	{
 		if ((PS->Team->TeamIndex == 0) && (!bAsymmetricVictoryConditions || bRedToCap))
 		{
