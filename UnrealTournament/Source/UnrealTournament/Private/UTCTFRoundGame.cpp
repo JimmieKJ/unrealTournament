@@ -38,6 +38,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bCarryOwnFlag = true;
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
+	ExtraHealth = 0;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -75,6 +76,19 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("PerPlayerLives"));
 	bPerPlayerLives = EvalBoolOptions(InOpt, bPerPlayerLives);
+
+	ExtraHealth = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("XHealth"), ExtraHealth));
+}
+
+void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(PlayerPawn);
+	if (UTC != NULL)
+	{
+		UTC->HealthMax = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->HealthMax + ExtraHealth;
+		UTC->SuperHealthMax = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->SuperHealthMax + ExtraHealth;
+	}
+	Super::SetPlayerDefaults(PlayerPawn);
 }
 
 bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
