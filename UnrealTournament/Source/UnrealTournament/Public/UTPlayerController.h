@@ -393,7 +393,7 @@ public:
 	virtual void DemoGoToLive();
 
 	UFUNCTION(exec)
-	virtual void DemoPause();
+	virtual void UTDemoPause();
 
 	UFUNCTION(exec)
 	virtual void DemoTimeDilation(float DeltaAmount);

@@ -943,7 +943,7 @@ void AUTPlayerController::OnDemoSeeking()
 	}
 }
 
-void AUTPlayerController::DemoPause()
+void AUTPlayerController::UTDemoPause()
 {
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)

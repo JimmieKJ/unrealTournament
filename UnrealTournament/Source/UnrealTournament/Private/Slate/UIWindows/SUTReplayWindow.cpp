@@ -503,7 +503,7 @@ FReply SUTReplayWindow::OnPlayPauseButtonClicked()
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (UTPC != nullptr)
 	{
-		UTPC->DemoPause();
+		UTPC->UTDemoPause();
 	}
 	return FReply::Handled();
 }

@@ -340,7 +340,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				DrawCamBind("DemoGoToLive", "Jump to Real Time", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
 				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind("DemoPause", "Pause Demo", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				DrawCamBind("UTDemoPause", "Pause Demo", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
 				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 			}
 
