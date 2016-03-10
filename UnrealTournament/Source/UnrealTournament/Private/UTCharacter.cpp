@@ -171,6 +171,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CustomDepthCount = 0;
 	bTacComEnabled = false;
 	bSelectionEnabled = false;
+	FFAColor = 0;
 }
 
 float AUTCharacter::GetWeaponBobScaling()
@@ -4439,8 +4440,15 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());
 		GetMesh()->OverrideMaterials = Data->Mesh->OverrideMaterials;
-		// FIXME: TEMP FOR GDC: team override materials
-		if (PS != NULL && PS->Team != NULL)
+		if (Data->DMSkinType == EDMSkin_Base)
+		{
+			FFAColor = 255;
+		}
+		else
+		{
+			FFAColor = (Data->DMSkinType == EDMSkin_Blue) ? 1 : 0;
+		}
+		if ((PS != NULL && PS->Team != NULL) || (FFAColor != 255))
 		{
 			GetMesh()->OverrideMaterials.SetNumZeroed(FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()));
 			for (int32 i = GetMesh()->OverrideMaterials.Num() - 1; i >= 0; i--)
@@ -4486,21 +4494,16 @@ void AUTCharacter::NotifyTeamChanged()
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS != NULL)
 	{
-		// FIXME: TEMP FOR GDC: always need to do this due to team override materials
-		//if (PS->GetSelectedCharacter() != NULL)
-		{
-			ApplyCharacterData(PS->GetSelectedCharacter());
-		}
+		ApplyCharacterData(PS->GetSelectedCharacter());
 		for (UMaterialInstanceDynamic* MI : BodyMIs)
 		{
 			if (MI != NULL)
 			{
 				static FName NAME_TeamColor(TEXT("TeamColor"));
-				if (PS->Team != NULL)
+				if ((PS->Team != NULL)  || (FFAColor != 255))
 				{
-					MI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-					// FIXME: GDC hack: material only supports two team colors at the moment...
-					MI->SetScalarParameterValue(TEXT("TeamSelect"), float(PS->Team->TeamIndex));
+					float SkinSelect = PS->Team ? PS->Team->TeamIndex : FFAColor;
+					MI->SetScalarParameterValue(TEXT("TeamSelect"), SkinSelect);
 				}
 				else
 				{

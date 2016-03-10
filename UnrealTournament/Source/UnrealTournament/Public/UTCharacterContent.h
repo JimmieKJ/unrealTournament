@@ -17,6 +17,15 @@ struct FGibSlotInfo
 	TSubclassOf<AUTGib> GibType;
 };
 
+UENUM(BlueprintType)
+enum EDMSkinType
+{
+	EDMSkin_Red,
+	EDMSkin_Blue,
+	EDMSkin_Base,
+	EDMSkin_None,
+};
+
 UCLASS(BlueprintType, Abstract, NotPlaceable)
 class UNREALTOURNAMENT_API AUTCharacterContent : public AActor
 {
@@ -42,6 +51,7 @@ public:
 		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Mesh->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
 		Mesh->bReceivesDecals = false;
+		DMSkinType = EDMSkin_Red;
 
 		DisplayName = NSLOCTEXT("UT", "UntitledCharacter", "Untitled Character");
 
@@ -135,7 +145,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;
 
-	//FIXME: TEMP FOR GDC: material overrides when playing a team game (NULL for an entry means use default)
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+		TEnumAsByte<EDMSkinType> DMSkinType;
+
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	TArray<UMaterialInterface*> TeamMaterials;
 };

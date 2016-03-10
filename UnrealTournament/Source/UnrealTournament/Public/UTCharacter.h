@@ -1383,6 +1383,9 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	TSubclassOf<class AUTCharacterContent> CharacterData;
 
+	UPROPERTY(BlueprintReadWrite, Category = FFA)
+		uint8 FFAColor;
+
 	// Temp replacement for CharacterData->GetDefaultObject() until 4.9 enables that in blueprints
 	UFUNCTION(BlueprintCallable, Category = Character)
 	AUTCharacterContent* GetCharacterData() const;

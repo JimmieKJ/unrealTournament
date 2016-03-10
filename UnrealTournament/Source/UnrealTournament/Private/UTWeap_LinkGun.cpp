@@ -134,8 +134,6 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		OutHit = &TempHit;
 	}
 
-	const FVector SpawnLocation = GetFireStartLoc();
-
 	FHitResult Hit;
 	if (LinkTarget != nullptr && IsLinkValid())
 	{
@@ -178,6 +176,7 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 			}
 			else
 			{
+				const FVector SpawnLocation = GetFireStartLoc();
 				const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 				const FVector FireDir = SpawnRotation.Vector();
 				PulseLoc = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
