@@ -57,6 +57,40 @@ void AUTWeap_ImpactHammer::DrawWeaponCrosshair_Implementation(UUTHUDWidget* Weap
 	}
 }
 
+FVector AUTWeap_ImpactHammer::GetFireStartLoc(uint8 FireMode)
+{
+	if (bForwardPredictOwner && UTOwner && (GetNetMode() == NM_DedicatedServer) )
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTOwner->GetController());
+		float PredictTime = 0.f;
+		if (UTPC)
+		{
+			float RealFudgeFactor = UTPC->PredictionFudgeFactor;
+			UTPC->PredictionFudgeFactor = 0.f;
+			PredictTime = UTPC->GetPredictionTime();
+			UTPC->PredictionFudgeFactor = RealFudgeFactor;
+		}
+		if (PredictTime > 0.f)
+		{
+			FVector BaseLoc = UTOwner->GetPawnViewLocation();
+			FCollisionQueryParams TraceParams(FName(TEXT("ImpactHammer")), true, UTOwner);
+			FVector PredictedLoc = BaseLoc + UTOwner->GetVelocity() * PredictTime;
+			FHitResult Hit;
+			// trace forward to predicted loc
+			if (GetWorld()->LineTraceSingleByChannel(Hit, BaseLoc, PredictedLoc, COLLISION_TRACE_WEAPON, TraceParams))
+			{
+				float PredictedDist = UTOwner->GetVelocity().Size() * PredictTime;
+				float PawnRadius, PawnHalfHeight;
+				UTOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
+				float PullBack = FMath::Min(PredictedDist, PawnRadius);
+				PredictedLoc = Hit.Location - PullBack * UTOwner->GetVelocity().SafeNormal();
+			}
+			return PredictedLoc;
+		}
+	}
+	return Super::GetFireStartLoc(FireMode);
+}
+
 void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 {
 	UUTWeaponStateFiringCharged* ChargedMode = Cast<UUTWeaponStateFiringCharged>(CurrentState);
@@ -66,6 +100,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	else
 	{
+		UE_LOG(UT, Warning, TEXT("FireInstantHit"));
 		float DamageMult = FMath::Min<float>(ChargedMode->ChargeTime / FullChargeTime, 1.0f);
 
 		const FVector SpawnLocation = GetFireStartLoc();
@@ -111,6 +146,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		{
 			if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged)
 			{
+				UE_LOG(UT, Warning, TEXT("IMPACT DAMAGE"));
 				// if we're against another hammer impacting, then player who is aiming most towards target center should win
 				if (Role == ROLE_Authority)
 				{
@@ -189,6 +225,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 void AUTWeap_ImpactHammer::ClientAutoHit_Implementation(AActor* Target)
 {
+	UE_LOG(UT, Warning, TEXT("Client Autohit"));
 	if (UTOwner != NULL)
 	{
 		UUTWeaponStateFiringCharged* ChargedMode = Cast<UUTWeaponStateFiringCharged>(CurrentState);
@@ -234,8 +271,16 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 
 				FHitResult Hit;
 				FireInstantHit(false, &Hit);
+				if (!Hit.Actor.IsValid() || !AllowAutoHit(Hit.Actor.Get()))
+				{
+					// try again using forward prediction for player position, to improve behavior in netplay
+					bForwardPredictOwner = true;
+					FireInstantHit(false, &Hit);
+					bForwardPredictOwner = false;
+				}
 				if (Hit.Actor.IsValid() && AllowAutoHit(Hit.Actor.Get()))
 				{
+					UE_LOG(UT, Warning, TEXT("Server AutoHit"));
 					AutoHitTarget = Hit.Actor.Get();
 					if (!UTOwner->IsLocallyControlled())
 					{
