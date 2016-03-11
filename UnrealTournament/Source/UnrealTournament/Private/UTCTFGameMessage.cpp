@@ -22,7 +22,9 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base!");
 	PreventCapMessage = NSLOCTEXT("CTFGameMessage", "StopEnemyFlag", "Keep other team's flag out, and exhaust their lives");
 	CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "RCTFRules", "Capture or kill to win.");
-
+	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in");
+	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in");
+	BothFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BothFlagDelay", "Flags can be picked up in");
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 }
@@ -52,6 +54,9 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 14: return CapFlagMessage; break;
 		case 15: return PreventCapMessage; break;
 		case 16: return CapAndKillMessage; break;
+		case 17: return RedFlagDelayMessage; break;
+		case 18: return BlueFlagDelayMessage; break;
+		case 19: return BothFlagDelayMessage; break;
 	}
 	return FText::GetEmpty();
 }

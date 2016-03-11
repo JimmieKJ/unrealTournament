@@ -48,6 +48,13 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		int32 ExtraHealth;
 
+	UPROPERTY()
+		int32 FlagPickupDelay;
+
+	virtual void InitFlags();
+
+	virtual void FlagCountDown();
+
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);

@@ -39,6 +39,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
 	ExtraHealth = 0;
+	FlagPickupDelay = 12;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -78,6 +79,7 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	bPerPlayerLives = EvalBoolOptions(InOpt, bPerPlayerLives);
 
 	ExtraHealth = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("XHealth"), ExtraHealth));
+	FlagPickupDelay = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("FlagDelay"), FlagPickupDelay));
 }
 
 void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
@@ -150,26 +152,8 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 	Super::HandleExitingIntermission();
 }
 
-void AUTCTFRoundGame::InitRound()
+void AUTCTFRoundGame::InitFlags()
 {
-	bFirstBloodOccurred = false;
-	bNeedFiveKillsMessage = true;
-	if (CTFGameState)
-	{
-		CTFGameState->CTFRound++;
-		if (!bPerPlayerLives)
-		{
-			CTFGameState->RedLivesRemaining = RoundLives;
-			CTFGameState->BlueLivesRemaining = RoundLives;
-		}
-		if (CTFGameState->FlagBases.Num() > 1)
-		{
-			CTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
-			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
-		}
-	}
-
-	bRedToCap = !bRedToCap;
 	for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
 	{
 		if (Base != NULL && Base->MyFlag)
@@ -223,6 +207,58 @@ void AUTCTFRoundGame::InitRound()
 	else if (RoundLives > 0)
 	{
 		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 16, NULL, NULL, NULL);
+	}
+}
+
+void AUTCTFRoundGame::FlagCountDown()
+{
+	if (FlagPickupDelay > 0)
+	{
+		if (GetMatchState() == MatchState::InProgress)
+		{
+			int32 CountdownMessage = bAsymmetricVictoryConditions ? (bRedToCap ? 17 : 18) : 19;
+			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), CountdownMessage, NULL, NULL, NULL);
+			FlagPickupDelay--;
+			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), FlagPickupDelay, NULL, NULL, NULL);
+		}
+
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
+	}
+	else
+	{
+		InitFlags();
+	}
+}
+
+void AUTCTFRoundGame::InitRound()
+{
+	bFirstBloodOccurred = false;
+	bNeedFiveKillsMessage = true;
+	if (CTFGameState)
+	{
+		CTFGameState->CTFRound++;
+		if (!bPerPlayerLives)
+		{
+			CTFGameState->RedLivesRemaining = RoundLives;
+			CTFGameState->BlueLivesRemaining = RoundLives;
+		}
+		if (CTFGameState->FlagBases.Num() > 1)
+		{
+			CTFGameState->RedLivesRemaining += CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
+			CTFGameState->BlueLivesRemaining += CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[0]->RoundLivesAdjustment : 0;
+		}
+	}
+
+	bRedToCap = !bRedToCap;
+	if (FlagPickupDelay > 0)
+	{
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
+	}
+	else
+	{
+		InitFlags();
 	}
 
 	if (bPerPlayerLives)
