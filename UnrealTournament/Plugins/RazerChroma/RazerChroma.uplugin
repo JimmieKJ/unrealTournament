@@ -1,0 +1,23 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Razer Chroma Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.4.0",
+	"Description" : "Light up Razer Chroma hardware",
+	"Category" : "UnrealTournament.Mod",
+	"EnabledByDefault" : true,
+	"CanContainContent" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "RazerChroma",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win32", "Win64" ]
+		}
+	]
+}
