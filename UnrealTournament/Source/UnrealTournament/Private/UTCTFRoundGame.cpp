@@ -79,7 +79,7 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("PerPlayerLives"));
 	bPerPlayerLives = EvalBoolOptions(InOpt, bPerPlayerLives);
 
-	ExtraHealth = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("XHealth"), ExtraHealth));
+	ExtraHealth = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("XHealth"), ExtraHealth));
 	FlagPickupDelay = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("FlagDelay"), FlagPickupDelay));
 }
 
@@ -183,6 +183,13 @@ void AUTCTFRoundGame::InitFlags()
 				Flag->bFriendlyCanPickup = bCarryOwnFlag;
 				Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
 				Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
+			}
+			// check for flag carrier already here waiting
+			TArray<AActor*> Overlapping;
+			Base->GetOverlappingActors(Overlapping, APawn::StaticClass());
+			for (AActor* A : Overlapping)
+			{
+				Base->OnOverlapBegin(A, Cast<UPrimitiveComponent>(A->GetRootComponent()), 0, false, FHitResult(Base, Base->Capsule, A->GetActorLocation(), (A->GetActorLocation() - Base->GetActorLocation()).GetSafeNormal()));
 			}
 		}
 	}

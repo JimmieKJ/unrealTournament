@@ -253,11 +253,11 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 					{
 						if (KillerPS && (KillerPS->RoundKills >= FMath::Min(3, TeamCount)))
 						{
-							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, NULL, NULL, NULL);
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 4, NULL, NULL, NULL);
 						}
 						else
 						{
-							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, NULL, NULL, NULL);
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, OtherPS, NULL, NULL);
 						}
 					}
 					KillerTeam->Score += 1;
