@@ -80,7 +80,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	CountDown = 3;
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
-	ForceRespawnTime = 3.5f;
+	ForceRespawnTime = 2.f;
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 1;
@@ -463,7 +463,7 @@ void AUTGameMode::InitGameState()
 	{
 		UTGameState->SetGoalScore(GoalScore);
 		UTGameState->SetTimeLimit(0);
-		UTGameState->RespawnWaitTime = RespawnWaitTime;
+		UTGameState->SetRespawnWaitTime(RespawnWaitTime);
 		UTGameState->ForceRespawnTime = ForceRespawnTime;
 		UTGameState->bTeamGame = bTeamGame;
 		UTGameState->bRankedSession = bRankedSession;

@@ -557,8 +557,8 @@ void AUTPlayerState::OnDeathsReceived()
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState != NULL)
 	{
-		RespawnTime = UTGameState->RespawnWaitTime;
-		ForceRespawnTime = UTGameState->ForceRespawnTime;
+		RespawnTime = UTGameState->GetRespawnWaitTime();
+		ForceRespawnTime = RespawnTime + UTGameState->ForceRespawnTime;
 	}
 }
 

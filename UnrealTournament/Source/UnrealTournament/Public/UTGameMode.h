@@ -237,7 +237,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Rules)
 	float RespawnWaitTime;
 
-	// How long a player can wait before being forced respawned.  Set to 0 for no delay.
+	// How long a player can wait before being forced respawned (added to RespawnWaitTime).  Set to 0 for no delay.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Rules)
 	float ForceRespawnTime;
 

@@ -132,11 +132,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** Returns time in seconds that should be displayed on game clock. */
 	virtual float GetClockTime();
 
-	// How long must a player wait before respawning
-	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
-	float RespawnWaitTime;
-
-	// How long a player can wait before being forced respawned.  Set to 0 for no delay.
+	// How long a player can wait before being forced respawned (added to RespawnWaitTime).  Set to 0 for no delay.
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float ForceRespawnTime;
 
@@ -315,7 +311,19 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY()
 	FName SecondaryAttackerStat;
 
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+		virtual float GetRespawnWaitTime();
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+		virtual void SetRespawnWaitTime(float NewWaitTime);
+
 protected:
+
+	// How long must a player wait before respawning
+	UPROPERTY(Replicated, EditAnywhere, Category = GameState)
+		float RespawnWaitTime;
+
 	static const uint8 MAX_OVERLAY_MATERIALS = 16;
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()

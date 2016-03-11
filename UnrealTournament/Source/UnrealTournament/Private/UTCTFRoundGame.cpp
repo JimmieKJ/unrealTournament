@@ -31,7 +31,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
 	RespawnWaitTime = 3.f;
-	ForceRespawnTime = 5.f;
 	bForceRespawn = true;
 	bUseDash = false;
 	bAsymmetricVictoryConditions = true;

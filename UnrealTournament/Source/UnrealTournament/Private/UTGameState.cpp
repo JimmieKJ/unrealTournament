@@ -400,6 +400,16 @@ void AUTGameState::BeginPlay()
 	}
 }
 
+float AUTGameState::GetRespawnWaitTime()
+{
+	return RespawnWaitTime;
+}
+
+void AUTGameState::SetRespawnWaitTime(float NewWaitTime)
+{
+	RespawnWaitTime = NewWaitTime;
+}
+
 float AUTGameState::GetClockTime()
 {
 	if (IsMatchInOvertime())

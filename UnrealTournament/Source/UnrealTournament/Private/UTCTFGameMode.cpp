@@ -303,7 +303,7 @@ void AUTCTFGameMode::DefaultTimer()
 		{
 			// once overtime has gone too long, increase respawn delay
 			RespawnWaitTime = 10.f;
-			CTFGameState->RespawnWaitTime = RespawnWaitTime;
+			CTFGameState->SetRespawnWaitTime(RespawnWaitTime);
 		}
 	}
 }
