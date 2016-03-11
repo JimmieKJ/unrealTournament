@@ -104,7 +104,6 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, CTFRound); 
 	DOREPLIFETIME(AUTCTFGameState, RedLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, BlueLivesRemaining);
-
 }
 
 void AUTCTFGameState::SetMaxNumberOfTeams(int32 TeamCount)

@@ -13,7 +13,7 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	FinishItMsg = NSLOCTEXT("ShowdownRewardMessage", "FinishItMsg", "FINISH IT!");
 	LastManMsg = NSLOCTEXT("ShowdownRewardMessage", "LastManMsg", "Last Man Standing");
 	OverChargeMsg = NSLOCTEXT("ShowdownRewardMessage", "OverChargeMsg", "OVERCHARGE AVAILABLE!");
-	TerminationMsg = NSLOCTEXT("ShowdownRewardMessage", "TerminationMsg", "TERMINATED!");
+	TerminationMsg = NSLOCTEXT("ShowdownRewardMessage", "TerminationMsg", "{Player1Name} TERMINATED!");
 	AnnihilationMsg = NSLOCTEXT("ShowdownRewardMessage", "AnnihilationMsg", "ANNIHILATION!");
 	FinishIt = FName(TEXT("RW_FinishIt"));
 	LastMan = FName(TEXT("RW_LMS"));

@@ -40,6 +40,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bFirstRoundInitialized = false;
 	ExtraHealth = 0;
 	FlagPickupDelay = 12;
+	RemainingPickupDelay = 0;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -212,14 +213,14 @@ void AUTCTFRoundGame::InitFlags()
 
 void AUTCTFRoundGame::FlagCountDown()
 {
-	if (FlagPickupDelay > 0)
+	if (RemainingPickupDelay > 0)
 	{
 		if (GetMatchState() == MatchState::InProgress)
 		{
 			int32 CountdownMessage = bAsymmetricVictoryConditions ? (bRedToCap ? 17 : 18) : 19;
 			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), CountdownMessage, NULL, NULL, NULL);
-			FlagPickupDelay--;
-			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), FlagPickupDelay, NULL, NULL, NULL);
+			RemainingPickupDelay--;
+			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), RemainingPickupDelay, NULL, NULL, NULL);
 		}
 
 		FTimerHandle TempHandle;
@@ -253,6 +254,7 @@ void AUTCTFRoundGame::InitRound()
 	bRedToCap = !bRedToCap;
 	if (FlagPickupDelay > 0)
 	{
+		RemainingPickupDelay = FlagPickupDelay;
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
 	}
@@ -300,7 +302,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
 				{
 					// found a live teammate, so round isn't over - notify about termination though
-					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3);
+					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
 					return;
 				}
 			}

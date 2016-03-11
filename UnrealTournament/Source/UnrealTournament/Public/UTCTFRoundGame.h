@@ -51,6 +51,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		int32 FlagPickupDelay;
 
+	UPROPERTY()
+		int32 RemainingPickupDelay;
+
 	virtual void InitFlags();
 
 	virtual void FlagCountDown();
