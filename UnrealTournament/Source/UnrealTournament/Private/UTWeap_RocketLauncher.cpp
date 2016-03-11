@@ -46,7 +46,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BarrelRadius = 9.0f;
 
 	GracePeriod = 0.75f;
-	BurstInterval = 0.1f;
+	BurstInterval = 0.06f;
 	FullLoadSpread = 9.f;
 
 	BasePickupDesireability = 0.78f;
@@ -60,8 +60,6 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	ShotsStatsName = NAME_RocketShots;
 
 	WeightSpeedPctModifier = 0.7f;
-
-
 }
 
 void AUTWeap_RocketLauncher::Destroyed()
@@ -618,13 +616,14 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	float Scale = WeaponHudWidget->GetRenderScale() * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 	if ((CurrentFireMode == 1) && (NumLoadedRockets > 0))
 	{
-		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, 30.f*Scale, 30.f*Scale, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		float DotSize = 20.f * Scale;
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		if (NumLoadedRockets > 1)
 		{
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, 30.f*Scale, 30.f*Scale, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			if (NumLoadedRockets > 2)
 			{
-				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, 30.f*Scale, 30.f*Scale, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, 0.5f * WeaponHudWidget->GetRenderScale() * UnderReticlePadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			}
 		}
 	}
