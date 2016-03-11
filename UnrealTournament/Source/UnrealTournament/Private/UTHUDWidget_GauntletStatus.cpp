@@ -33,7 +33,7 @@ void UUTHUDWidget_GauntletStatus::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner,
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
 
 	AUTGauntletGameState* GGameState = Cast<AUTGauntletGameState>(UTGameState);
-	if (GGameState && GGameState->AttackingTeam != 255)
+	if (GGameState && GGameState->Flag && GGameState->AttackingTeam != 255)
 	{
 		PrimaryMessage.bHidden = false;
 		SecondaryMessage.bHidden = false;

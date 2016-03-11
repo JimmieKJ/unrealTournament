@@ -83,7 +83,7 @@ FVector AUTWeap_ImpactHammer::GetFireStartLoc(uint8 FireMode)
 				float PawnRadius, PawnHalfHeight;
 				UTOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
 				float PullBack = FMath::Min(PredictedDist, PawnRadius);
-				PredictedLoc = Hit.Location - PullBack * UTOwner->GetVelocity().SafeNormal();
+				PredictedLoc = Hit.Location - PullBack * UTOwner->GetVelocity().GetSafeNormal();
 			}
 			return PredictedLoc;
 		}
