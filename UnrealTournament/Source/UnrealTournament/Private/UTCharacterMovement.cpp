@@ -61,7 +61,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 11.f;
+	GroundFriction = 10.5f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
