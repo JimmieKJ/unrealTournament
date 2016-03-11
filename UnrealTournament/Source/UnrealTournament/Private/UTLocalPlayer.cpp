@@ -1585,10 +1585,11 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				Ar << CloudProfileUE4Ver;
 				if (Ar.UE4Ver() < CloudProfileUE4Ver)
 				{
+#if !UE_SERVER
 					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ProfileTooNewTitle", "Profile Version Unsupported"), 
 						        NSLOCTEXT("UTLocalPlayer", "ProfileTooNew", "Your profile is from a newer version of Unreal Tournament, we could not load your progression data."), 
 								UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
-
+#endif
 					return;
 				}
 
