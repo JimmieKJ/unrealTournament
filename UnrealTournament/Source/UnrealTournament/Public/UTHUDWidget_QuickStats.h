@@ -67,6 +67,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boots")
 	FHUDRenderObject_Text BootsText;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flag")
+	FHUDRenderObject_Texture FlagIcon;
+
 
 	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
 	FText GetPlayerHealthText();

@@ -47,6 +47,9 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	AUTCharacter* UTC = Cast<AUTCharacter>(InUTHUDOwner->UTPlayerOwner->GetViewTarget());
 	if (UTC && !UTC->IsDead())
 	{
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTC->PlayerState);
+		FlagIcon.bHidden = !(UTPlayerState && UTPlayerState->CarriedObject);
+
 		AUTWeapon* Weap = UTC->GetWeapon();
 		bool bDrawAmmo = false;
 		PlayerAmmo = 0;

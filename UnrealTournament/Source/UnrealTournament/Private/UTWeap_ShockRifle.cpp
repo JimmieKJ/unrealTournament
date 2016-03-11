@@ -24,6 +24,10 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	HitsStatsName = NAME_ShockRifleHits;
 	ShotsStatsName = NAME_ShockRifleShots;
 	bCheckHeadSphere = true;
+
+	WeightSpeedPctModifier = 0.9f;
+
+
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()

@@ -3638,7 +3638,12 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	ShowBuyMenu();
+	AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
+	if (Char)
+	{
+		float NewPct = FCString::Atof(*TestCommand);
+		Char->MaxSpeedPctModifier = Char->MaxSpeedPctModifier != 1.0f ? 1.0f : NewPct;
+	}
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

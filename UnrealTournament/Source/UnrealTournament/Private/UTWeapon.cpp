@@ -101,6 +101,9 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	bCheckHeadSphere = false;
 	bCheckMovingHeadSphere = false;
+
+	WeightSpeedPctModifier = 1.0f;
+
 }
 
 void AUTWeapon::PostInitProperties()

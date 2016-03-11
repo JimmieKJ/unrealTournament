@@ -81,7 +81,7 @@ void AUTGauntletFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent
 		if (Character != NULL)
 		{
 			AUTGauntletFlag* Flag = Cast<AUTGauntletFlag>(Character->GetCarriedObject());
-			if ( Flag != NULL && Flag->GetTeamNum() != GetTeamNum() )
+			if ( Flag != NULL && Flag->GetTeamNum() == GetTeamNum() )
 			{
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 				if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()))

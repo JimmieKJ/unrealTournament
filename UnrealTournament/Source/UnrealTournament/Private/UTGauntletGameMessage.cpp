@@ -12,7 +12,7 @@ UUTGauntletGameMessage::UUTGauntletGameMessage(const FObjectInitializer& ObjectI
 	InitialFlagSpawnMessage = NSLOCTEXT("GauntletGameMessage","FlagSpawnTimer","Flag spawns in 30 seconds!");
 	FlagSpawnMessage = NSLOCTEXT("GauntletGameMessage", "FlagSpawn", "Flag spawns in...");
 	YouAreOnOffenseMessage = NSLOCTEXT("GauntletGameMessage", "OnOffense", "You are on OFFENSE!");
-	YouAreOnDefenseMessage = NSLOCTEXT("GauntletGameMessage", "OnOffense", "You are on DEFENSE!");
+	YouAreOnDefenseMessage = NSLOCTEXT("GauntletGameMessage", "OnDefense", "You are on DEFENSE!");
 }
 
 FText UUTGauntletGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const

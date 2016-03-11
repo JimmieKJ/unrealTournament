@@ -47,6 +47,8 @@ class UNREALTOURNAMENT_API AUTGauntletGame : public AUTCTFRoundGame
 	bool CanFlagTeamSwap(uint8 NewTeamNum);
 	virtual void HandleMatchIntermission();
 
+	virtual void DiscardInventory(APawn* Other, AController* Killer);
+
 protected:
 
 	UPROPERTY()

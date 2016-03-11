@@ -46,6 +46,8 @@ public:
 	virtual void SetTeam(AUTTeamInfo* NewTeam);
 	virtual void TeamSwap();
 
+	void NoLongerHeld(AController* InstigatedBy);
+
 protected:
 	virtual void OnObjectStateChanged();
 	UPROPERTY(Replicated)

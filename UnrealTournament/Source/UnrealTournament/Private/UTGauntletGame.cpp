@@ -23,6 +23,7 @@
 #include "UTCTFScoreboard.h"
 #include "UTShowdownRewardMessage.h"
 #include "UTShowdownGameMessage.h"
+#include "UTDroppedAmmoBox.h"
 
 AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -65,6 +66,8 @@ void AUTGauntletGame::InitGame(const FString& MapName, const FString& Options, F
 		}
 	}
 
+	IntermissionDuration = 5.0f;
+
 }
 
 void AUTGauntletGame::InitGameState()
@@ -74,6 +77,7 @@ void AUTGauntletGame::InitGameState()
 	if (GauntletGameState)
 	{
 		GauntletGameState->FlagSwapTime = FlagSwapTime;
+		GauntletGameState->bWeightedCharacter = true;
 	}
 }
 
@@ -126,7 +130,7 @@ void AUTGauntletGame::FlagTeamChanged(uint8 NewTeamIndex)
 	{
 		for (int32 i = 0; i < TeamInfo[TeamIndex].FlagBases.Num(); i++)
 		{
-			if (TeamIndex == NewTeamIndex)
+			if (TeamIndex != NewTeamIndex)
 			{
 				TeamInfo[TeamIndex].FlagBases[i]->Deactivate();
 			}
@@ -142,7 +146,7 @@ void AUTGauntletGame::FlagTeamChanged(uint8 NewTeamIndex)
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 		if (PC)
 		{
-			PC->ClientReceiveLocalizedMessage(UUTGauntletGameMessage::StaticClass(), PC->GetTeamNum() != NewTeamIndex ? 2 : 3, nullptr, nullptr, nullptr);
+			PC->ClientReceiveLocalizedMessage(UUTGauntletGameMessage::StaticClass(), PC->GetTeamNum() == NewTeamIndex ? 2 : 3, nullptr, nullptr, nullptr);
 		}
 	}
 
@@ -266,4 +270,52 @@ void AUTGauntletGame::HandleMatchIntermission()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(GauntletGameState->PlayerArray[i]);
 		if (PS) PS->bSpawnCostLives	= false;
 	}
+}
+
+void AUTGauntletGame::DiscardInventory(APawn* Other, AController* Killer)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
+	if (UTC != NULL)
+	{
+		// discard all weapons instead of just the one
+		FRotationMatrix RotMat(Other->GetActorRotation());
+		FVector ThrowDirs[] = { RotMat.GetUnitAxis(EAxis::Y), -RotMat.GetUnitAxis(EAxis::Y), -RotMat.GetUnitAxis(EAxis::X) };
+
+		int32 i = 0;
+		for (TInventoryIterator<AUTWeapon> It(UTC); It; ++It)
+		{
+			if (*It != UTC->GetWeapon())
+			{
+				FVector FinalDir;
+				if (i < ARRAY_COUNT(ThrowDirs))
+				{
+					FinalDir = ThrowDirs[i];
+				}
+				else
+				{
+					FinalDir = FMath::VRand();
+					FinalDir.Z = 0.0f;
+					FinalDir.Normalize();
+				}
+				It->DropFrom(UTC->GetActorLocation(), FinalDir * 1000.0f + FVector(0.0f, 0.0f, 250.0f));
+				i++;
+			}
+		}
+		// spawn ammo box with any unassigned ammo
+		if (UTC->SavedAmmo.Num() > 0)
+		{
+			FVector FinalDir = FMath::VRand();
+			FinalDir.Z = 0.0f;
+			FinalDir.Normalize();
+			FActorSpawnParameters Params;
+			Params.Instigator = UTC;
+			AUTDroppedAmmoBox* Pickup = GetWorld()->SpawnActor<AUTDroppedAmmoBox>(AUTDroppedAmmoBox::StaticClass(), UTC->GetActorLocation(), FinalDir.Rotation(), Params);
+			if (Pickup != NULL)
+			{
+				Pickup->Movement->Velocity = FinalDir * 1000.0f + FVector(0.0f, 0.0f, 250.0f);
+				Pickup->Ammo = UTC->SavedAmmo;
+			}
+		}
+	}
+	Super::DiscardInventory(Other, Killer);
 }

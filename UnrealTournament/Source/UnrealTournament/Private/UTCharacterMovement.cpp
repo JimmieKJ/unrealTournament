@@ -828,6 +828,9 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
 	float SpeedXY = FMath::Min(Velocity.Size(), DodgeMaxHorizontalVelocity);
+
+	SpeedXY *= UTCharOwner ? UTCharOwner->MaxSpeedPctModifier : 1.0f;
+
 	Velocity = SpeedXY*Velocity.GetSafeNormal();
 	if (IsMovingOnGround())
 	{
@@ -1089,15 +1092,17 @@ bool UUTCharacterMovement::CanSprint() const
 
 float UUTCharacterMovement::GetMaxSpeed() const
 {
+	float FinalMaxSpeed = 0.0f;
+
 	// ignore standard movement while character is a ragdoll
 	if (Cast<AUTCharacter>(CharacterOwner) != NULL && ((AUTCharacter*)CharacterOwner)->IsRagdoll())
 	{
 		// small non-zero number used to avoid divide by zero issues
-		return 0.01f;
+		FinalMaxSpeed = 0.01f;
 	}
 	else if (bIsTaunting)
 	{
-		return 0.01f;
+		FinalMaxSpeed = 0.01f;
 	}
 	else if (bIsFloorSliding && (MovementMode == MOVE_Walking))
 	{
@@ -1106,23 +1111,34 @@ float UUTCharacterMovement::GetMaxSpeed() const
 		if ((CurrentSpeed > MaxFloorSlideSpeed) && (CurrentFloor.HitResult.ImpactNormal.Z < 1.f))
 		{
 			float TopSlideSpeed = FMath::Min(MaxInitialFloorSlideSpeed, CurrentSpeed);
-			return FMath::Min(TopSlideSpeed, MaxFloorSlideSpeed + FMath::Max(0.f, (Velocity | CurrentFloor.HitResult.ImpactNormal)));
+			FinalMaxSpeed = FMath::Min(TopSlideSpeed, MaxFloorSlideSpeed + FMath::Max(0.f, (Velocity | CurrentFloor.HitResult.ImpactNormal)));
 		}
-		return MaxFloorSlideSpeed;
+		else
+		{
+			FinalMaxSpeed = MaxFloorSlideSpeed;
+		}
 	}
 	else if (bFallingInWater && (MovementMode == MOVE_Falling))
 	{
-		return MaxWaterSpeed;
+		FinalMaxSpeed = MaxWaterSpeed;
 	}
 	else if (MovementMode == MOVE_Swimming)
 	{
 		AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(GetPhysicsVolume());
-		return WaterVolume ? FMath::Min(MaxSwimSpeed, WaterVolume->MaxRelativeSwimSpeed) : MaxSwimSpeed;
+		FinalMaxSpeed = WaterVolume ? FMath::Min(MaxSwimSpeed, WaterVolume->MaxRelativeSwimSpeed) : MaxSwimSpeed;
 	}
 	else
 	{
-		return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
+		FinalMaxSpeed = bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
 	}
+
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner)
+	{
+		return FinalMaxSpeed * UTCharOwner->MaxSpeedPctModifier;
+	}
+
+	return FinalMaxSpeed;
 }
 
 void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration)

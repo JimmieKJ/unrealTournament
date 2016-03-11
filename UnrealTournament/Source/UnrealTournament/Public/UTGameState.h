@@ -510,6 +510,11 @@ public:
 
 	UPROPERTY(Replicated)
 	TArray<FLoadoutPackReplicatedInfo> SpawnPacks;
+
+	// If true, the weapons will carry a weight that will affect the overall max speeds of the player
+	UPROPERTY(Replicated)
+	bool bWeightedCharacter;
+
 };
 
 

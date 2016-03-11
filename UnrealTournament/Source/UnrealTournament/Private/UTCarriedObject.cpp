@@ -32,6 +32,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	LastTeleportedTime = -1000.f;
 	bEnemyCanPickup = true;
 	bInitialized = false;
+	WeightSpeedPctModifier = 1.0f;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const

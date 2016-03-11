@@ -986,4 +986,8 @@ public:
 
 	virtual void TickZoom(float DeltaTime);
 
+	// The Speed modifier for this weapon if we are using weighted weapons
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	float WeightSpeedPctModifier;
+
 };

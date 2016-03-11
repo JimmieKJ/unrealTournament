@@ -252,6 +252,9 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameOverStatus = NSLOCTEXT("UTGameState", "PostGame", "Game Over");
 	MapVoteStatus = NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
 	PreGameStatus = NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
+
+	bWeightedCharacter = false;
+
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -297,7 +300,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, bForcedBalance);
 
 	DOREPLIFETIME(AUTGameState, SpawnPacks);
-
+	DOREPLIFETIME_CONDITION(AUTGameState, bWeightedCharacter, COND_InitialOnly);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)

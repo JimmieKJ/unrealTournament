@@ -775,9 +775,15 @@ public:
 	UPROPERTY(replicatedUsing = OnRepSpecialPlayer)
 	uint32 bSpecialPlayer:1;
 
+	// If true, the game type considers this player special for a given team
+	UPROPERTY(replicatedUsing = OnRepSpecialTeamPlayer)
+	uint32 bSpecialTeamPlayer:1;
+
 	UFUNCTION()
 	virtual void OnRepSpecialPlayer();
 
+	UFUNCTION()
+	virtual void OnRepSpecialTeamPlayer();
 
 	// Allows gametypes to force a given hat on someone
 	UPROPERTY(replicatedUsing = OnRepOverrideHat)

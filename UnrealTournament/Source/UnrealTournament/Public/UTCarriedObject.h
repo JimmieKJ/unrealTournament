@@ -315,4 +315,10 @@ protected:
 	// Will be true if this object has been initialized and is safe for gameplay
 	bool bInitialized;
 
+
+public:
+	// The Speed modifier for this weapon if we are using weighted weapons
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	float WeightSpeedPctModifier;
+
 };

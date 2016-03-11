@@ -172,6 +172,9 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	bTacComEnabled = false;
 	bSelectionEnabled = false;
 	FFAColor = 0;
+
+	MaxSpeedPctModifier = 1.0f;
+
 }
 
 float AUTCharacter::GetWeaponBobScaling()
@@ -265,6 +268,8 @@ void AUTCharacter::BeginPlay()
 
 void AUTCharacter::PostInitializeComponents()
 {
+	MaxSpeedPctModifier = 1.0f;
+
 	Super::PostInitializeComponents();
 	if ((GetNetMode() == NM_DedicatedServer) || (GetCachedScalabilityCVars().DetailMode == 0))
 	{
@@ -2693,6 +2698,13 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 	{
 		GhostComponent->GhostSwitchWeapon(Weapon);
 	}
+
+	// Reset the speed modifier if we need to.
+	if (Role == ROLE_Authority)
+	{
+		ResetMaxSpeedPctModifier();
+	}
+
 }
 
 void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
@@ -2896,6 +2908,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponSkins, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, VisibilityMask, COND_None);
+
+	DOREPLIFETIME_CONDITION(AUTCharacter, MaxSpeedPctModifier, COND_None);
 }
 
 static AUTWeapon* SavedWeapon = NULL;
@@ -5876,3 +5890,20 @@ void AUTCharacter::RemoveVisibilityMask(int32 Channel)
 
 	VisibilityMask &= ~(1 << Channel);
 }
+
+
+void AUTCharacter::ResetMaxSpeedPctModifier()
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->bWeightedCharacter)
+	{
+		AUTCarriedObject* CarriedObject = GetCarriedObject();
+		MaxSpeedPctModifier = (CarriedObject) ? CarriedObject->WeightSpeedPctModifier : 1.0f;
+		MaxSpeedPctModifier = (MaxSpeedPctModifier == 1.0 && Weapon) ? Weapon->WeightSpeedPctModifier : MaxSpeedPctModifier;
+	}
+	else
+	{
+		MaxSpeedPctModifier = 1.0f;
+	}
+}
+

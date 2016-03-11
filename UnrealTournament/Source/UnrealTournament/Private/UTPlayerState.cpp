@@ -113,6 +113,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, HatVariant);
 	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
 	DOREPLIFETIME(AUTPlayerState, bSpecialPlayer);
+	DOREPLIFETIME(AUTPlayerState, bSpecialTeamPlayer);
 	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
 	DOREPLIFETIME(AUTPlayerState, Loadout);
 	DOREPLIFETIME(AUTPlayerState, KickPercent);
@@ -2474,6 +2475,20 @@ void AUTPlayerState::OnRepSpecialPlayer()
 		}
 	}
 }
+
+void AUTPlayerState::OnRepSpecialTeamPlayer()
+{
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter* Character = Cast<AUTCharacter>(*It);
+		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
+		{
+			Character->UpdateTacComMesh(bSpecialTeamPlayer && UTPC->GetTeamNum() == GetTeamNum());
+		}
+	}
+}
+
 
 float AUTPlayerState::GetStatsValue(FName StatsName) const
 {

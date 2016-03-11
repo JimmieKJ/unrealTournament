@@ -1923,6 +1923,18 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
 	class UUTGhostComponent* GhostComponent;
+
+
+	// The character's max speed will be multipled by this value.  It allows for inventory and or game modes to override the max speed
+	// for a character in a simple way.
+	UPROPERTY(Replicated, Transient, BlueprintReadWrite, Category = Movement)
+	float MaxSpeedPctModifier;
+
+	// Used to reset the max speed modifier.  By default, this will return the value to 1.0f, but if the game is using weighted weapons
+	// then calling this function will cause the pawn to pickup it's value from the weapon if possible.
+	UFUNCTION(BlueprintCallable, Category=Weapon)
+	virtual void ResetMaxSpeedPctModifier();
+
 };
 
 inline bool AUTCharacter::IsDead()

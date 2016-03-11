@@ -11,7 +11,7 @@
 #include "UTCTFRewardMessage.h"
 #include "UnrealNetwork.h"
 
-const float DEFAULT_SWAP_TIME = 5.0f;
+const float DEFAULT_SWAP_TIME = 10.0f;
 
 AUTGauntletFlag::AUTGauntletFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -20,6 +20,9 @@ AUTGauntletFlag::AUTGauntletFlag(const FObjectInitializer& ObjectInitializer)
 	bAnyoneCanPickup = true;
 	TimeUntilTeamSwitch = 5;
 	bTeamLocked = false;
+
+	WeightSpeedPctModifier = 0.85f;
+
 }
 
 void AUTGauntletFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -45,7 +48,6 @@ void AUTGauntletFlag::OnRep_Team()
 	if (Team != nullptr)
 	{
 		uint8 TeamNum = GetTeamNum();
-		UE_LOG(UT,Log,TEXT("OnRep_Team: %i"),TeamNum);
 		if ( TeamMaterials.IsValidIndex(TeamNum) )
 		{
 			UE_LOG(UT,Log,TEXT("Setting Material"));
@@ -57,6 +59,23 @@ void AUTGauntletFlag::OnRep_Team()
 		UE_LOG(UT,Log,TEXT("Setting Neutral Material"));
 		Mesh->SetMaterial(1, NeutralMaterial);
 	}
+}
+
+void AUTGauntletFlag::NoLongerHeld(AController* InstigatedBy)
+{
+	Super::NoLongerHeld(InstigatedBy);
+
+	if (LastHoldingPawn)
+	{
+		AUTPlayerState* LastHoldingPS = Cast<AUTPlayerState>(LastHoldingPawn->PlayerState);
+		if (LastHoldingPS)
+		{
+			LastHoldingPS->bSpecialTeamPlayer = false;
+		}
+
+		LastHoldingPawn->ResetMaxSpeedPctModifier();
+	}
+
 }
 
 void AUTGauntletFlag::SetHolder(AUTCharacter* NewHolder)
@@ -73,8 +92,7 @@ void AUTGauntletFlag::SetHolder(AUTCharacter* NewHolder)
 		// If this was our flag, force it to switch teams.
 		if (FlagTeamNum == 255)
 		{
-			uint8 NewTeamNum = 1 - HolderTeamNum;
-			UE_LOG(UT, Log, TEXT("   Setting Team to %i(%i) %i"), NewTeamNum, GameState->Teams[NewTeamNum]->GetTeamNum(), NewHolder->GetTeamNum());
+			uint8 NewTeamNum = HolderTeamNum;
 			SetTeam(GameState->Teams[NewTeamNum]);
 		}
 		else
@@ -82,6 +100,8 @@ void AUTGauntletFlag::SetHolder(AUTCharacter* NewHolder)
 			bTeamLocked = false;
 		}
 	}
+	if (Holder) Holder->bSpecialTeamPlayer = true;
+	if (NewHolder) NewHolder->ResetMaxSpeedPctModifier();
 }
 
 void AUTGauntletFlag::MoveToHome()
@@ -100,7 +120,6 @@ void AUTGauntletFlag::OnObjectStateChanged()
 		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
 		if (PC != NULL && PC->MyHUD != NULL)
 		{
-			UE_LOG(UT,Log,TEXT("HERE"));
 			if (ObjectState == CarriedObjectState::Dropped)
 			{
 				PC->MyHUD->AddPostRenderedActor(this);
@@ -136,6 +155,29 @@ void AUTGauntletFlag::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVec
 			Canvas->DrawItem(TextItem);
 		}
 	}
+
+	if (PC->GetPawn())
+	{
+		float Scale = Canvas->ClipY / 1080.0f;
+		FVector2D Size = FVector2D(44,41) * Scale;
+
+		AUTHUD* HUD = Cast<AUTHUD>(PC->MyHUD);
+		FVector FlagLoc = GetActorLocation() + FVector(0.0f,0.0f,128.0f);
+		FVector ScreenPosition = Canvas->Project(FlagLoc);
+
+		FVector LookVec;
+		FRotator LookDir;
+		PC->GetPawn()->GetActorEyesViewPoint(LookVec,LookDir);
+
+		if (HUD && FVector::DotProduct(LookDir.Vector().GetSafeNormal(), (FlagLoc - LookVec)) > 0.0f && 
+			ScreenPosition.X > 0 && ScreenPosition.X < Canvas->ClipX && 
+			ScreenPosition.Y > 0 && ScreenPosition.Y < Canvas->ClipY)
+		{
+			Canvas->SetDrawColor(255,255,255,255);
+			Canvas->DrawTile(HUD->HUDAtlas, ScreenPosition.X - (Size.X * 0.5f), ScreenPosition.Y - Size.Y, Size.X, Size.Y,843,87,44,41);
+		}
+	}	
+
 }
 
 
@@ -150,6 +192,7 @@ void AUTGauntletFlag::ChangeState(FName NewCarriedObjectState)
 		}
 	}
 }
+
 
 void AUTGauntletFlag::Tick(float DeltaSeconds)
 {
@@ -243,7 +286,7 @@ bool AUTGauntletFlag::CanBePickedUpBy(AUTCharacter* Character)
 		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTCarriedObject::CheckTouching, 0.1f, false);
 		return false;
 	}
-	else if (GetTeamNum() != Character->GetTeamNum())
+	else if (GetTeamNum() == 255 || GetTeamNum() == Character->GetTeamNum())
 	{
 		return true;
 	}
