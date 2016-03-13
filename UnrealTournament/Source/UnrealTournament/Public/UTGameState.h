@@ -313,7 +313,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
-		virtual float GetRespawnWaitTime();
+		virtual float GetRespawnWaitTimeFor(AController *C);
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
 		virtual void SetRespawnWaitTime(float NewWaitTime);
