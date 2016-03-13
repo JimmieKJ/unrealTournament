@@ -87,9 +87,9 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 		}
 	}
 }
-bool FBotEnemyInfo::IsValid(AActor* TeamHolder) const
+bool FBotEnemyInfo::StaticIsValidInternal(APawn* InPawn, AUTCharacter* InUTChar, AActor* TeamHolder)
 {
-	if (Pawn == NULL || Pawn->bTearOff || Pawn->IsPendingKillPending() || (UTChar != NULL && UTChar->IsDead()))
+	if (InPawn == NULL || InPawn->bTearOff || InPawn->IsPendingKillPending() || (InUTChar != NULL && InUTChar->IsDead()))
 	{
 		return false;
 	}
@@ -99,12 +99,12 @@ bool FBotEnemyInfo::IsValid(AActor* TeamHolder) const
 	}
 	else if (Cast<AUTBot>(TeamHolder) != NULL)
 	{
-		return !((AUTBot*)TeamHolder)->IsTeammate(Pawn);
+		return !((AUTBot*)TeamHolder)->IsTeammate(InPawn);
 	}
 	else
 	{
 		AUTGameState* GS = TeamHolder->GetWorld()->GetGameState<AUTGameState>();
-		return (GS == NULL || !GS->OnSameTeam(TeamHolder, Pawn));
+		return (GS == NULL || !GS->OnSameTeam(TeamHolder, InPawn));
 	}
 }
 
@@ -702,7 +702,7 @@ void AUTBot::Tick(float DeltaTime)
 		// check current enemy every frame, others on a slightly random timer to avoid hitches
 		if (Enemy != NULL)
 		{
-			if (!FBotEnemyInfo(Enemy, EUT_Seen).IsValid())
+			if (!FBotEnemyInfo::StaticIsValid(Enemy))
 			{
 				// enemy was destroyed directly instead of killed so we didn't get notify
 				SetEnemy(NULL);
@@ -2563,7 +2563,7 @@ void AUTBot::ExecuteWhatToDoNext()
 		}*/
 
 		// make sure enemy is valid
-		if (Enemy != NULL && !FBotEnemyInfo(Enemy, EUT_Seen).IsValid())
+		if (Enemy != NULL && !FBotEnemyInfo::StaticIsValid(Enemy))
 		{
 			SetEnemy(NULL);
 		}
@@ -3052,7 +3052,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 	{
 		NewHuntTarget = Enemy;
 	}
-	if (NewHuntTarget == NULL || GetEnemyInfo(NewHuntTarget, false) == NULL)
+	if (NewHuntTarget == NULL || !FBotEnemyInfo::StaticIsValid(NewHuntTarget) || GetEnemyInfo(NewHuntTarget, false) == NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no or invalid enemy %s"), *PlayerState->PlayerName, *GetNameSafe(NewHuntTarget));
 		GoalString = TEXT("BUG - HUNT WITH BAD TARGET - Force CampAction");
