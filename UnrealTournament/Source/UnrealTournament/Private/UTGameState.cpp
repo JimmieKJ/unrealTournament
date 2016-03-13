@@ -400,7 +400,7 @@ void AUTGameState::BeginPlay()
 	}
 }
 
-float AUTGameState::GetRespawnWaitTimeFor(AController* C)
+float AUTGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
 {
 	return RespawnWaitTime;
 }

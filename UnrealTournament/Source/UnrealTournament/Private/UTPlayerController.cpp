@@ -3361,7 +3361,7 @@ void AUTPlayerController::BeginInactiveState()
 	SetPawn(NULL);
 
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	float const MinRespawnDelay = GameState ? GameState->GetRespawnWaitTimeFor(this) : 1.0f;
+	float const MinRespawnDelay = GameState ? GameState->GetRespawnWaitTimeFor(UTPlayerState) : 1.0f;
 	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
 }
 

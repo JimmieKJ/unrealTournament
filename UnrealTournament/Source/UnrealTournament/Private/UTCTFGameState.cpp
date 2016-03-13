@@ -104,12 +104,24 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, CTFRound); 
 	DOREPLIFETIME(AUTCTFGameState, RedLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, BlueLivesRemaining);
+	DOREPLIFETIME(AUTCTFGameState, TeamRespawnWaitTime);
+}
+
+
+float AUTCTFGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
+{
+	if (PS && PS->Team && (TeamRespawnWaitTime.Num() > PS->Team->TeamIndex))
+	{
+		return FMath::Max(RespawnWaitTime, TeamRespawnWaitTime[PS->Team->TeamIndex]);
+	}
+	return RespawnWaitTime;
 }
 
 void AUTCTFGameState::SetMaxNumberOfTeams(int32 TeamCount)
 {
 	for (int32 TeamIdx = 0; TeamIdx < TeamCount; TeamIdx++)
 	{
+		TeamRespawnWaitTime.Add(0);
 		FlagBases.Add(NULL);
 	}
 }

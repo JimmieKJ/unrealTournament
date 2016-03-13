@@ -30,7 +30,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
-	RespawnWaitTime = 3.f;
+	UnlimitedRespawnWaitTime = 5.f;
 	bForceRespawn = true;
 	bUseDash = false;
 	bAsymmetricVictoryConditions = true;
@@ -285,6 +285,12 @@ void AUTCTFRoundGame::InitRound()
 				PS->SetOutOfLives(false);
 			}
 		}
+	}
+	CTFGameState->TeamRespawnWaitTime[0] = 0.f;
+	CTFGameState->TeamRespawnWaitTime[1] = 0.f;
+	if (bAsymmetricVictoryConditions)
+	{
+		CTFGameState->TeamRespawnWaitTime[bRedToCap ? 1 : 0] = UnlimitedRespawnWaitTime;
 	}
 }
 
