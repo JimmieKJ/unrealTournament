@@ -285,13 +285,14 @@ public:
 	 * @param TextScale	Additional scaling to add
 	 * @param DrawOpacity	The alpha to use on this draw call.  NOTE: the Widget's Opacity will be multipled in
 	 * @param DrawColor	The color to draw in
+	 * @param BackColor     The Color to draw behind the text.  If Alpha of BackColor <= 0.0f then it's skipped
 	 * @param TextHorzAlignment	How to align the text horizontally within the widget
 	 * @param TextVertAlignment How to align the text vertically within the widget
 	 * @returns The Size (unscaled) of the text drawn
 	 **/
 
 	UFUNCTION(BlueprintCallable, Category = "Widgets", Meta = (AutoCreateRefTerm = "RenderInfo"))
-	virtual FVector2D DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow = false, FVector2D ShadowDirection = FVector2D(0,0), FLinearColor ShadowColor = FLinearColor::Black, bool bDrawOutline = false, FLinearColor OutlineColor = FLinearColor::Black, float TextScale = 1.0, float DrawOpacity = 1.0, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top
+	virtual FVector2D DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow = false, FVector2D ShadowDirection = FVector2D(0,0), FLinearColor ShadowColor = FLinearColor::Black, bool bDrawOutline = false, FLinearColor OutlineColor = FLinearColor::Black, float TextScale = 1.0, float DrawOpacity = 1.0, FLinearColor DrawColor = FLinearColor::White, FLinearColor BackColor = FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top
 		, const FFontRenderInfo& RenderInfo
 #if CPP
 		= FFontRenderInfo()

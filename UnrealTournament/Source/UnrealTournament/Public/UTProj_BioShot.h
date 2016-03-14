@@ -14,33 +14,6 @@ enum EHitType
 	HIT_Floor
 };
 
-USTRUCT()
-struct FBioWebLink
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	class AUTProj_BioShot* LinkedBio;
-
-	UPROPERTY()
-	UParticleSystemComponent* WebLink;
-
-	UPROPERTY()
-	UCapsuleComponent* WebCapsule;
-
-	/** Currently Set Beam Color */
-	UPROPERTY(BlueprintReadWrite, Category = Web)
-		FLinearColor SetBeamColor;
-
-	FBioWebLink()
-		: LinkedBio(NULL)
-		, WebLink(NULL)
-		, WebCapsule(NULL)
-	{}
-
-	FBioWebLink(class AUTProj_BioShot* InLinkedBio, UParticleSystemComponent* InWebLink, UCapsuleComponent* NewCapsule) : LinkedBio(InLinkedBio), WebLink(InWebLink), WebCapsule(NewCapsule) {};
-};
-
 UCLASS()
 class UNREALTOURNAMENT_API AUTProj_BioShot : public AUTProjectile
 {
@@ -48,175 +21,20 @@ class UNREALTOURNAMENT_API AUTProj_BioShot : public AUTProjectile
 
 	virtual void BeginPlay() override;
 
-	/** Array of bio goo web linked to this bio. */
-	UPROPERTY()
-	TArray<FBioWebLink> WebLinks;
-
-	/** Replicated endpoints of web links from this bio. */
-	UPROPERTY(ReplicatedUsing = OnRep_WebLinkOne)
-		AUTProj_BioShot* WebLinkOne;
-
-	UPROPERTY(ReplicatedUsing = OnRep_WebLinkTwo)
-		AUTProj_BioShot* WebLinkTwo;
-	
-	/** Saved previously replicated web links. */
-	UPROPERTY()
-		AUTProj_BioShot* SavedWebLinkOne;
-
-	UPROPERTY()
-		AUTProj_BioShot* SavedWebLinkTwo;
-
-	/** Identifies which weblink should be overwritten next. */
-	UPROPERTY()
-		bool bReplaceLinkTwo;
-
-	/** Should be playing web link charging effect. */
-	UPROPERTY(Replicated)
-		bool bIsLinkCharging;
-
-	/** Should be playing web low life remaining effect. */
-	UPROPERTY(Replicated)
-		bool bWebLifeLow;
-
-	/** Should be playing web friendly hit effect. */
-	UPROPERTY(Replicated)
-		bool bFriendlyHit;
-
-	/** Time to end web charging effect. */
-	UPROPERTY()
-		float LinkChargeEndTime;
-
-	/** Last time friendly walked through me. */
-	UPROPERTY()
-		float LastFriendlyHitTime;
-
-	/** Used to avoid web charging propagation loops */
-	UPROPERTY()
-		float LastWebChargeTime;
-
-	/** Propagate link charging in progress to web neighbors. */
-	virtual void PropagateCharge(float ChargeAmount);
-
-	UFUNCTION()
-		virtual void OnRep_WebLinkOne();
-
-	UFUNCTION()
-		virtual void OnRep_WebLinkTwo();
-
-	UPROPERTY()
-		bool bFoundWebLink;
-
-	virtual void FindWebLink();
-
 	// for debugging
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir);
-
-	/** How much life to add to goo when added to web. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
-		float WebLifeBoost;
-
-	/** Pulse web links when less than this life left */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
-		float WebLifeLowThreshold;
-
-	/** Current desired Beam Color */
-	UPROPERTY(BlueprintReadWrite, Category = Web)
-		FLinearColor CurrentBeamColor;
-
-	/** Current Beam Color */
-	UPROPERTY(BlueprintReadWrite, Category = Web)
-		FLinearColor BaseBeamColor;
-
-	/** Beam Color when web is being charged. */
-	UPROPERTY(BlueprintReadWrite, Category = Web)
-		FLinearColor ChargingBeamColor;
-
-	/** Low Life Beam Color */
-	UPROPERTY(BlueprintReadWrite, Category = Web)
-		FLinearColor LowLifeBeamColor;
-
-	/** Friendly walk through Beam Color */
-	UPROPERTY(BlueprintReadWrite, Category = Web)
-		FLinearColor FriendlyBeamColor;
-
-	/** Prevent re-entrancy of TriggerWeb(). */
-	UPROPERTY()
-		bool bTriggeringWeb;
-
-	/** Prevent re-entrancy of RemoveWebLink(). */
-	UPROPERTY()
-		bool bRemovingWebLink;
-
-	/** Prevent re-entrancy of WebConnected(). */
-	UPROPERTY()
-		bool bAddingWebLink;
-
-	/** Max distance between goo to link in web */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
-		float MaxLinkDistance;
 
 	/** Initial full blob pulse rate */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		float InitialBlobPulseRate;
 
-	/** Max full blob pulse rate (right before web trigger threshold) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
-		float MaxBlobPulseRate;
-
 	/** How much to scale when pulsing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		float BlobPulseScaling;
 
-	/** Current charge of full blob being overcharged to web */
-	UPROPERTY()
-	float BlobOverCharge;
-
 	/** updated to pulse blob sinusoidally */
 	UPROPERTY()
 		float BlobPulseTime;
-
-	/** Web triggering overcharge level */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
-	float BlobWebThreshold;
-
-	/** Overcharged blob disperses smaller blobs to create web trap */
-	UFUNCTION(BlueprintCallable, Category = Bio)
-	virtual void BlobToWeb(const FVector& NormalDir);
-
-	/** Linking effect between webbed bio goo */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
-		UParticleSystem* WebLinkEffect;
-
-	/**The sound played when the globs WebLink together*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
-		USoundBase* WebLinkSound;
-
-	/** Glob which was overcharged to create a linked web. */
-	UPROPERTY(ReplicatedUsing = OnRep_WebMaster, BlueprintReadOnly, Category = Bio)
-		AUTProj_BioShot* WebMaster;
-
-	/** Radius around web strands which collides. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
-		float WebCollisionRadius;
-
-	UFUNCTION()
-		virtual void OnRep_WebMaster();
-
-	/** Linked list of globs in overcharge web. */
-	UPROPERTY(BlueprintReadOnly, Category = Bio)
-		AUTProj_BioShot* WebChild;
-
-	/** Return true if can web link to LinkedBio */
-	UFUNCTION(BlueprintCallable, Category = Bio)
-		virtual bool CanWebLinkTo(AUTProj_BioShot* LinkedBio);
-
-	/** Make a connection between this goo and LinkedBio.  Return true if link was added. */
-	UFUNCTION(BlueprintCallable, Category = Bio)
-	virtual bool AddWebLink(AUTProj_BioShot* LinkedBio);
-
-	/** Remove connection between this goo and LinkedBio */
-	UFUNCTION(BlueprintCallable, Category = Bio)
-	virtual void RemoveWebLink(AUTProj_BioShot* LinkedBio);
 
 	virtual void Destroyed() override;
 	virtual bool DisableEmitterLights() const override;
@@ -290,8 +108,6 @@ class UNREALTOURNAMENT_API AUTProj_BioShot : public AUTProjectile
 	float SurfaceWallThreshold;
 
 	virtual void Landed(UPrimitiveComponent* HitComp, const FVector& HitLocation);
-
-	virtual void ShutDown() override;
 
 	/** hook to spawn effects when the glob lands*/
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Bio)
@@ -382,10 +198,6 @@ class UNREALTOURNAMENT_API AUTProj_BioShot : public AUTProjectile
 
 	/** Return true if the hit info should cause damage to this bio glob. */
 	bool ComponentCanBeDamaged(const FHitResult& Hit, float DamageRadius);
-
-	/** Web capsule got overlapped - currently not enabled. */
-	UFUNCTION()
-		virtual void OnWebOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	/** Reward announcement when kill with loaded goo. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)

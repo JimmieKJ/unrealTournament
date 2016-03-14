@@ -1,18 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
 #include "UTWeapon.h"
-
 #include "UTWeap_LinkGun.generated.h"
 
 UCLASS(Abstract)
 class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
-
-	UPROPERTY(BlueprintReadOnly, Category = Bio)
-	class AUTProj_BioShot* LinkedBio;
 
 	// scale damage on link bolts per link
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
@@ -185,10 +180,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
 	virtual void ClearLinks();
-
-	virtual void StopFire(uint8 FireModeNum) override;
-
-	virtual void ServerStopFire_Implementation(uint8 FireModeNum) override;
     
 	// reset links
 	virtual bool PutDown() override;

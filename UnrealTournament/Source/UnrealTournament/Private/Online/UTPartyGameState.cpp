@@ -48,6 +48,7 @@ void UUTPartyGameState::RegisterFrontendDelegates()
 			{
 				Matchmaking->OnMatchmakingStarted().AddUObject(this, &ThisClass::OnPartyMatchmakingStarted);
 				Matchmaking->OnMatchmakingComplete().AddUObject(this, &ThisClass::OnPartyMatchmakingComplete);
+				Matchmaking->OnConnectToLobby().AddUObject(this, &ThisClass::OnConnectToLobby);
 			}
 		}
 	}
@@ -67,6 +68,7 @@ void UUTPartyGameState::UnregisterFrontendDelegates()
 		{
 			Matchmaking->OnMatchmakingStarted().RemoveAll(this);
 			Matchmaking->OnMatchmakingComplete().RemoveAll(this);
+			Matchmaking->OnConnectToLobby().RemoveAll(this);
 		}
 	}
 }
@@ -76,6 +78,7 @@ void UUTPartyGameState::OnPartyMatchmakingStarted()
 	if (IsLocalPartyLeader())
 	{
 		PartyState.PartyProgression = EUTPartyState::Matchmaking;
+		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		UpdatePartyData(OwningUserId);
 		SetAcceptingMembers(false, EJoinPartyDenialReason::Busy);
 	}
@@ -90,12 +93,14 @@ void UUTPartyGameState::OnPartyMatchmakingComplete(EMatchmakingCompleteResult Re
 		if (Result == EMatchmakingCompleteResult::Success)
 		{
 			PartyState.PartyProgression = EUTPartyState::PostMatchmaking;
+			OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 			//DoLeaderMatchmakingCompleteAnalytics();
 		}
 		else
 		{
 			UpdateAcceptingMembers();
 			PartyState.PartyProgression = EUTPartyState::Menus;
+			OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		}
 
 		UpdatePartyData(OwningUserId);
@@ -125,6 +130,7 @@ void UUTPartyGameState::OnLobbyConnectionStarted()
 	if (IsLocalPartyLeader())
 	{
 		PartyState.PartyProgression = EUTPartyState::PostMatchmaking;
+		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		PartyState.bLobbyConnectionStarted = true;
 		UpdatePartyData(OwningUserId);
 	}
@@ -138,6 +144,7 @@ void UUTPartyGameState::OnLobbyConnectionAttemptFailed()
 	if (IsLocalPartyLeader())
 	{
 		PartyState.PartyProgression = EUTPartyState::Menus;
+		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		PartyState.bLobbyConnectionStarted = false;
 		UpdatePartyData(OwningUserId);
 	}
@@ -174,6 +181,7 @@ void UUTPartyGameState::OnLobbyDisconnected()
 	if (IsLocalPartyLeader())
 	{
 		PartyState.PartyProgression = EUTPartyState::Menus;
+		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		PartyState.bLobbyConnectionStarted = false;
 		PartyState.SessionId.Empty();
 		UpdatePartyData(OwningUserId);
@@ -214,7 +222,7 @@ void UUTPartyGameState::SetLocation(EUTPartyMemberLocation NewLocation)
 	}
 }
 
-void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult, const FString& CriticalMissionSessionId)
+void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult)
 {
 	if (ensure(SearchResult.IsValid()))
 	{
@@ -224,6 +232,7 @@ void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& Searc
 		if (IsLocalPartyLeader())
 		{
 			PartyState.PartyProgression = EUTPartyState::PostMatchmaking;
+			OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 
 			const FUniqueNetId& SessionId = SearchResult.Session.SessionInfo->GetSessionId();
 			PartyState.SessionId = SessionId.ToString();
@@ -238,4 +247,59 @@ void UUTPartyGameState::OnConnectToLobby(const FOnlineSessionSearchResult& Searc
 			}
 		}
 	}
+}
+
+// This is the non-ranked experience
+void UUTPartyGameState::SetSession(const FOnlineSessionSearchResult& SearchResult)
+{
+	if (ensure(SearchResult.IsValid()))
+	{
+		// Everyone notes the search result for party leader migration
+		CurrentSession = SearchResult;
+
+		if (IsLocalPartyLeader())
+		{
+			PartyState.PartyProgression = EUTPartyState::CustomMatch;
+			OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+
+			const FUniqueNetId& SessionId = SearchResult.Session.SessionInfo->GetSessionId();
+			PartyState.SessionId = SessionId.ToString();
+
+			UpdatePartyData(OwningUserId);
+		}
+	}
+}
+
+void UUTPartyGameState::ComparePartyData(const FPartyState& OldPartyData, const FPartyState& NewPartyData)
+{
+	Super::ComparePartyData(OldPartyData, NewPartyData);
+
+	// Client passenger view delegates, leader won't get these because they are driving
+	if (!IsLocalPartyLeader())
+	{
+		const FUTPartyRepState& OldUTPartyData = static_cast<const FUTPartyRepState&>(OldPartyData);
+		const FUTPartyRepState& NewUTPartyData = static_cast<const FUTPartyRepState&>(NewPartyData);
+
+		if (OldUTPartyData.MatchmakingResult != NewUTPartyData.MatchmakingResult)
+		{
+			OnClientMatchmakingComplete().Broadcast(NewUTPartyData.MatchmakingResult);
+		}
+
+		if (OldUTPartyData.SessionId != NewUTPartyData.SessionId)
+		{
+			OnClientSessionIdChanged().Broadcast(NewUTPartyData.SessionId);
+		}
+
+		if (OldUTPartyData.PartyProgression != NewUTPartyData.PartyProgression)
+		{
+			OnClientPartyStateChanged().Broadcast(NewUTPartyData.PartyProgression);
+		}
+	}
+}
+
+void UUTPartyGameState::NotifyTravelToServer()
+{
+	PartyState.PartyProgression = EUTPartyState::TravelToServer;
+	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
 }

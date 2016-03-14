@@ -9,7 +9,7 @@
 #include "UTMatchmaking.generated.h"
 
 class UQosEvaluator;
-
+class AUTPlayerController;
 enum class EUTPartyState : uint8;
 enum class EQosCompletionResult : uint8;
 
@@ -21,6 +21,7 @@ UENUM()
 enum class EUTMatchmakingType : uint8
 {
 	Gathering,
+	Session
 };
 
 /** Struct to represent params used for past matchmaking attempts */
@@ -99,10 +100,26 @@ public:
 	 */
 	bool FindGatheringSession(const FMatchmakingParams& InParams);
 	
+	/**
+	 * Cancels matchmaking and restores the menu
+	 */
+	void CancelMatchmaking();
+
+	/**
+	 * Find a session given to the client by a party leader
+	 *
+	 * @param FMatchmakingParams desired matchmaking parameters
+	 *
+	 * @return true if the operation started, false otherwise
+	 */
+	bool FindSessionAsClient(const FMatchmakingParams& InParams);
+
 	/** Generic delegate for lobby flow */
 	DECLARE_MULTICAST_DELEGATE(FOnMatchmakingStarted);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnMatchmakingStateChange, EMatchmakingState::Type /*OldState*/, EMatchmakingState::Type /*NewState*/, const FMMAttemptState& /*MMState*/);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnConnectToLobby, const FOnlineSessionSearchResult& /*SearchResult*/)
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPartyStateChange, EUTPartyState)
 
 	/** @return the delegate fired when matchmaking starts */
 	FOnMatchmakingStarted& OnMatchmakingStarted() { return MatchmakingStarted; }
@@ -113,6 +130,14 @@ public:
 	/** @return the delegate fired when matchmaking state changes */
 	FOnMatchmakingStateChange& OnMatchmakingStateChange() { return MatchmakingStateChange; }
 
+	/** @return the delegate triggered when the lobby connection attempt begins */
+	FOnConnectToLobby& OnConnectToLobby() { return ConnectToLobbyDelegates; }
+
+	FOnPartyStateChange& OnPartyStateChange() { return PartyStateChange; }
+
+	/** Publicly accessible isMatchmaking check */
+	bool IsMatchmaking();
+
 private:
 
 	/**
@@ -121,6 +146,8 @@ private:
 
 	UPROPERTY()
 	UQosEvaluator* QosEvaluator;
+
+	FOnPartyStateChange PartyStateChange;
 
 	/** Delegate triggered when matchmaking starts */
 	FOnMatchmakingStarted MatchmakingStarted;
@@ -142,15 +169,17 @@ private:
 	FOnMatchmakingStateChange MatchmakingStateChange;
 		
 	/**
+	 * Delegate triggered when a connection to a lobby begins
+	 *
+	 * @param SearchResult lobby result to connect to
+	 */
+	FOnConnectToLobby ConnectToLobbyDelegates;
+
+	/**
 	 * Cleanup the reservation beacon
 	 */
 	void CleanupReservationBeacon();
-	
-	/**
-	 * Cancels matchmaking and restores the menu
-	 */
-	void CancelMatchmaking();
-	
+		
 	/**
 	 * Cleanup any data that was cached during matchmaking
 	 */
@@ -216,12 +245,32 @@ private:
 	 */
 	void OnClientPartyStateChanged(EUTPartyState NewPartyState);
 
+	void OnLeaderPartyStateChanged(EUTPartyState NewPartyState);
+
 	/**
 	 * Notification that the leader has finished matchmaking
 	 *
 	 * @param Result result of the matchmaking (complete, canceled, etc)
 	 */
 	void OnClientMatchmakingComplete(EMatchmakingCompleteResult Result);
+	
+	/**
+	 * Notification that the leader has found the session id that the party will be joining
+	 * passengers are expected to follow the leader into the given session, failure to do so will exit the party
+	 * 
+	 * @param SessionId session to search for and join
+	 */
+	void OnClientSessionIdChanged(const FString& SessionId);
+
+	/**
+	 * Progression through actual matchmaking after team elo has been determined
+	 *
+	 * @param Result datacenter qos completion result
+	 * @param DatacenterId datacenter id chosen by the evaluator
+	 * @param InParams matchmaking parameters passed along from the original request
+	 *
+	 */
+	void ContinueMatchmaking(int32 TeamElo, FMatchmakingParams InParams);
 	
 	/**
 	 * Progression through actual matchmaking after a datacenter id has been determined
@@ -231,7 +280,7 @@ private:
 	 * @param InParams matchmaking parameters passed along from the original request
 	 *
 	 */
-	void ContinueMatchmaking(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams);
+	void LookupTeamElo(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams);
 
 	/**
 	 * Handle the end of matchmaking (reserved space and joined the session, now connect to the reservation / lobby beacons
@@ -240,9 +289,11 @@ private:
 	 * @param SearchResult the session of interest
 	 */
 	void OnGatherMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
+	void OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
 
 	/** Internal notification that matchmaking state has changed, routes externally */
 	void OnGatherMatchmakingStateChangeInternal(EMatchmakingState::Type OldState, EMatchmakingState::Type NewState);
+	void OnSingleSessionMatchmakingStateChangeInternal(EMatchmakingState::Type OldState, EMatchmakingState::Type NewState);
 
 	/** Internal notification that the matchmaking has completed, routes externally */
 	void OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult);
@@ -296,6 +347,9 @@ private:
 	 * @param SearchResult the session of interest
 	 */
 	void OnReconnectResponseReceived(EPartyReservationResult::Type ReservationResponse, FOnlineSessionSearchResult SearchResult);
+
+	void DisconnectFromLobby();
+	void OnDisconnectFromLobbyComplete(FName SessionName, bool bWasSuccessful);
 
 	/**
 	 * Helpers

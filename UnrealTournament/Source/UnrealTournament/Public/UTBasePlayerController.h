@@ -63,6 +63,13 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 	UFUNCTION(reliable, server, WithValidation)
 	virtual void ServerSay(const FString& Message, bool bTeamMessage);
 
+	UFUNCTION(exec)
+	void LobbySay(FString Message);
+
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerLobbySay(const FString& Message);
+
+
 	UFUNCTION(reliable, client)
 	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, FName Destination);
 
@@ -115,7 +122,7 @@ public:
 	virtual void ClientGenericInitialization();
 
 	UFUNCTION(server, reliable, WithValidation)
-		virtual void ServerReceiveRank(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed);
+	virtual void ServerReceiveStars(int32 TotalStars);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListBegin(const FString& CloudId);
@@ -236,5 +243,7 @@ public:
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& User, const FString& Message);
+
+	
 
 };

@@ -238,6 +238,31 @@ void UUTMcpUtils::GetAccountMmr(const FString& RatingType, const FGetAccountMmrC
 #endif
 }
 
+void UUTMcpUtils::GetBulkAccountMmr(const TArray<FString>& RatingTypes, const FGetBulkAccountMmrCb& Callback)
+{
+#if WITH_PROFILE
+	if (!GameAccountId.IsValid())
+	{
+		return;
+	}
+
+	FBulkAccountMmrQuery Query;
+	Query.RatingTypes = RatingTypes;
+
+	// build request URL
+	static const FString ServerPath = TEXT("/api/game/v2/ratings/account/`accountId/mmrbulk");
+	auto HttpRequest = CreateRequest(TEXT("POST"), ServerPath
+		.Replace(TEXT("`accountId"), *GameAccountId->ToString(), ESearchCase::CaseSensitive)
+		);
+
+	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	HttpRequest->SetContentAsString(JsonSerialize(Query));
+
+	// send the request
+	SendRequest(HttpRequest, SimpleResponseHandler(Callback));
+#endif
+}
+
 void UUTMcpUtils::GetAccountLeague(const FString& LeagueType, const FGetAccountLeagueCb& Callback)
 {
 #if WITH_PROFILE

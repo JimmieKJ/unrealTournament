@@ -136,7 +136,9 @@ public:
 	UUTParty* GetParties() const;
 
 	UUTPlaylistManager* GetPlaylistManager() const;
-	
+
+	bool IsInSession(const FUniqueNetId& SessionId) const;
+
 	/**
 	 * Safe delete mechanism to make sure we aren't deleting a session too soon after its creation
 	 *

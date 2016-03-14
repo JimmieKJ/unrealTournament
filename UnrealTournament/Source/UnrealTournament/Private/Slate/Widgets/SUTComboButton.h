@@ -182,7 +182,7 @@ protected:
 
 	TArray<FUTComboSubMenuItem> SubMenuItems;
 
-	void UTOnButtonClicked(int32 ButtonIndex);
+	FReply UTOnButtonClicked(int32 ButtonIndex);
 
 	// The internal handler for when a menu item is clicked.  This will look up the menu item in the 
 	// array and pass along the delegate call

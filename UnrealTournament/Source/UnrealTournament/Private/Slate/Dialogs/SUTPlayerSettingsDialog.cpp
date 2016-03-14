@@ -861,7 +861,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			CharacterComboBox->SetSelectedItem(CharacterList[0]);
 		}
 
-		if (GetPlayerOwner().IsValid())
+		if (GetPlayerOwner().IsValid() && UTEngine)
 		{
 			SelectedFlag = UTEngine->GetFlag(GetPlayerOwner()->GetCountryFlag());
 			OnFlagSelected(SelectedFlag, ESelectInfo::Direct);
@@ -1277,11 +1277,13 @@ void SUTPlayerSettingsDialog::RecreatePlayerPreview()
 		PreviewWeapon->Destroy();
 	}
 
-	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
-	if (Engine)
+	TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
+
+	if (PlayerPreviewMesh == nullptr)
 	{
-		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
+		// everything beyond here needs the preview mesh, bail out
+		return;
 	}
 
 	// set character mesh
@@ -1526,6 +1528,7 @@ void SUTPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	//View->OverridePostProcessSettings(PPSettings, 1.0f);
 
 	View->EndFinalPostprocessSettings(PlayerPreviewInitOptions);
+	View->ViewRect = View->UnscaledViewRect;
 
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
 	--GFrameNumber;

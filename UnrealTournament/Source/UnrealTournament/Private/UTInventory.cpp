@@ -30,6 +30,8 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 
 	MenuDescription = NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
 	IconColor = FLinearColor::White;
+	
+	HUDText = FText::GetEmpty();
 }
 
 void AUTInventory::PostInitProperties()
@@ -315,4 +317,13 @@ float AUTInventory::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, fl
 int32 AUTInventory::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const
 {
 	return 0;
+}
+
+void AUTInventory::UpdateHUDText()
+{
+}
+
+FText AUTInventory::GetHUDText() const
+{
+	return HUDText;
 }

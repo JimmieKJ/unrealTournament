@@ -1,14 +1,29 @@
-xcopy RunUT-Shipping.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%1\WindowsNoEditor
-xcopy RunUT-Shipping32.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%1\WindowsNoEditor
+@ECHO OFF
+if not "%1" == "" GOTO USECOMMANDLINE
 
-pushd P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%1
+:USERINPUT
+ECHO Zip up a build.
+set /p BUILDCL=Enter the CL of the release build you want to package:
+GOTO ZIPUP
 
-"C:\Program Files\7-Zip\7z" a UnrealTournament-Server-XAN-%1-Linux.zip LinuxServer
-"C:\Program Files\7-Zip\7z" a UnrealTournament-Server-XAN-%1-Win64.zip WindowsServer
+:USECOMMANDLINE
+set BUILDCL=%1
+GOTO ZIPUP
 
-"C:\Program Files\7-Zip\7z" a UnrealTournament-Client-XAN-%1-Win.zip WindowsNoEditor
+:ZIPUP
+xcopy RunUT-Shipping.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%BUILDCL%\WindowsNoEditor
+xcopy RunUT-Shipping32.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%BUILDCL%\WindowsNoEditor
+xcopy RunUT-Test.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%BUILDCL%\WindowsNoEditor
+xcopy RunUT-Test32.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%BUILDCL%\WindowsNoEditor
 
-"C:\Program Files\7-Zip\7z" a UnrealTournament-Client-XAN-%1-Linux.zip LinuxNoEditor
-"C:\Program Files\7-Zip\7z" a UnrealTournament-Client-XAN-%1-Mac.zip MacNoEditor
+pushd P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%BUILDCL%
+
+"C:\Program Files\7-Zip\7z" a UnrealTournament-Client-XAN-%BUILDCL%-Win.zip WindowsNoEditor
+
+"C:\Program Files\7-Zip\7z" a UnrealTournament-Server-XAN-%BUILDCL%-Linux.zip LinuxServer
+"C:\Program Files\7-Zip\7z" a UnrealTournament-Server-XAN-%BUILDCL%-Win64.zip WindowsServer
+
+"C:\Program Files\7-Zip\7z" a UnrealTournament-Client-XAN-%BUILDCL%-Linux.zip LinuxNoEditor
+"C:\Program Files\7-Zip\7z" a UnrealTournament-Client-XAN-%BUILDCL%-Mac.zip MacNoEditor
 
 popd

@@ -118,7 +118,7 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 
 			if (OnButtonClick.IsBound())
 			{
-				OnButtonClick.Execute(MouseButtonIndex);
+				return OnButtonClick.Execute(MouseButtonIndex);
 			}
 			else if ( OnClicked.IsBound() )
 			{
@@ -150,8 +150,7 @@ FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 
 				if( HasMouseCapture() && OnButtonClick.IsBound() )
 				{
-					OnButtonClick.Execute(MouseButtonIndex);
-					return FReply::Handled().ReleaseMouseCapture();
+					return OnButtonClick.Execute(MouseButtonIndex).ReleaseMouseCapture();
 				}
 			}
 

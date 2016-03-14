@@ -179,7 +179,17 @@ public:
 	/** returns if this entry still points to a valid Enemy
 	 * if TeamHolder is passed, returns false if Enemy is on same team as TeamHolder, otherwise no team check
 	 */
-	bool IsValid(AActor* TeamHolder = NULL) const;
+	inline bool IsValid(AActor* TeamHolder = NULL) const
+	{
+		return StaticIsValidInternal(Pawn, UTChar, TeamHolder);
+	}
+	static inline bool StaticIsValid(APawn* InPawn, AActor* TeamHolder = NULL)
+	{
+		return StaticIsValidInternal(InPawn, Cast<AUTCharacter>(InPawn), TeamHolder);
+	}
+private:
+	static bool StaticIsValidInternal(APawn* InPawn, AUTCharacter* InUTChar, AActor* TeamHolder);
+public:
 
 	/** returns if this enemy was seen recently enough that we can assume they're still visible */
 	bool IsCurrentlyVisible(float WorldTime) const

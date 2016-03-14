@@ -22,7 +22,7 @@ void UUTHUDWidget_WeaponInfo::InitializeWidget(AUTHUD* Hud)
 	LastWeapon = NULL;
 	LastAmmoAmount = 0;
 	FlashTimer = 0.f;
-	AmmoText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_WeaponInfo::GetAmmoAmount_Implementation);
+	AmmoText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_WeaponInfo::GetAmmoAmount);
 }
 
 bool UUTHUDWidget_WeaponInfo::ShouldDraw_Implementation(bool bShowScores)

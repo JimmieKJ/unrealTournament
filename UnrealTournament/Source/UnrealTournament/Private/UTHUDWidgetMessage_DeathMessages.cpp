@@ -55,7 +55,7 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, f
 	if (UTHUDOwner->bDrawCenteredKillMsg)
 	{
 		ShadowDirection = (MessageQueue[QueueIndex].DisplayFont == MessageFont) ? LargeShadowDirection : SmallShadowDirection;
-		TextSize = DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), 1.0f /*alpha*/, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		TextSize = DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), 1.0f /*alpha*/, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	
 	//Gather all the info needed to display the message

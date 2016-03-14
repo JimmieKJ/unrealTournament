@@ -9,6 +9,9 @@ class UNREALTOURNAMENT_API AUTReplicatedLoadoutInfo : public AInfo
 {
 	GENERATED_UCLASS_BODY()
 
+	UPROPERTY(Replicated)
+	FName ItemTag;
+
 	// The weapon
 	UPROPERTY(Replicated)
 	TSubclassOf<AUTInventory> ItemClass;

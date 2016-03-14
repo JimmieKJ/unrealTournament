@@ -4,29 +4,29 @@
 
 #include "hlslcc.h"
 
-inline std::string FixVecPrefix(std::string Type)
+inline FCustomStdString FixVecPrefix(FCustomStdString Type)
 {
 	if (!strncmp("vec", Type.c_str(), 3))
 	{
-		std::string Num = Type.substr(3);
+		FCustomStdString Num = Type.substr(3);
 		Type = "float";
 		Type += Num;
 	}
 	else if (!strncmp("ivec", Type.c_str(), 4))
 	{
-		std::string Num = Type.substr(4);
+		FCustomStdString Num = Type.substr(4);
 		Type = "int";
 		Type += Num;
 	}
 	else if (!strncmp("uvec", Type.c_str(), 4))
 	{
-		std::string Num = Type.substr(4);
+		FCustomStdString Num = Type.substr(4);
 		Type = "uint";
 		Type += Num;
 	}
 	else if (!strncmp("mat", Type.c_str(), 3))
 	{
-		std::string Num = Type.substr(3);
+		FCustomStdString Num = Type.substr(3);
 		Type = "float";
 		Type += Num;
 		Type += "x";
@@ -51,9 +51,9 @@ struct FBuffers
 	TArray<class ir_instruction*> Buffers;
 
 	// Information about textures & samplers; we need to have unique samplerstate indices, as one they can be used independent of each other
-	TArray<std::string> UniqueSamplerStates;
+	TArray<FCustomStdString> UniqueSamplerStates;
 
-	int32 GetUniqueSamplerStateIndex(const std::string& Name, bool bAddIfNotFound, bool& bOutAdded)
+	int32 GetUniqueSamplerStateIndex(const FCustomStdString& Name, bool bAddIfNotFound, bool& bOutAdded)
 	{
 		int32 Found = INDEX_NONE;
 		bOutAdded = false;
@@ -90,7 +90,7 @@ struct FBuffers
 		return -1;
 	}
 
-	int GetIndex(const std::string& Name, bool bIsDesktop)
+	int GetIndex(const FCustomStdString& Name, bool bIsDesktop)
 	{
 		for (int i = 0, n = Buffers.Num(); i < n; ++i)
 		{

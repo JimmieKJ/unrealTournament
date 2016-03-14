@@ -4,10 +4,14 @@
 #include "UTPartyBeaconClient.h"
 #include "UTParty.h"
 #include "UTPartyGameState.h"
+#include "PartyMemberState.h"
 #include "UTMatchmaking.h"
 #include "UTMatchmakingGather.h"
-#include "QoSInterface.h"
-#include "QoSEvaluator.h"
+#include "UTMatchmakingSingleSession.h"
+#include "UTPlaylistManager.h"
+#include "UTMcpUtils.h"
+#include "QosInterface.h"
+#include "QosEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
 #define JOIN_ACK_FAILSAFE_TIMER 30.0f
@@ -144,8 +148,10 @@ void UUTMatchmaking::OnPartyJoined(UPartyGameState* InParty)
 	{
 		UUTPartyGameState* UTPartyGameState = Cast<UUTPartyGameState>(InParty);
 		check(UTPartyGameState);
+		UTPartyGameState->OnLeaderPartyStateChanged().AddUObject(this, &ThisClass::OnLeaderPartyStateChanged);
 		UTPartyGameState->OnClientPartyStateChanged().AddUObject(this, &ThisClass::OnClientPartyStateChanged);
 		UTPartyGameState->OnClientMatchmakingComplete().AddUObject(this, &ThisClass::OnClientMatchmakingComplete);
+		UTPartyGameState->OnClientSessionIdChanged().AddUObject(this, &ThisClass::OnClientSessionIdChanged);
 	}
 }
 
@@ -177,8 +183,10 @@ void UUTMatchmaking::OnPartyLeft(UPartyGameState* InParty, EMemberExitedReason R
 
 		UUTPartyGameState* UTPartyGameState = Cast<UUTPartyGameState>(InParty);
 		check(UTPartyGameState);
+		UTPartyGameState->OnLeaderPartyStateChanged().RemoveAll(this);
 		UTPartyGameState->OnClientPartyStateChanged().RemoveAll(this);
 		UTPartyGameState->OnClientMatchmakingComplete().RemoveAll(this);
+		UTPartyGameState->OnClientSessionIdChanged().RemoveAll(this);
 	}
 }
 
@@ -218,9 +226,21 @@ void UUTMatchmaking::OnPartyMemberPromoted(UPartyGameState* InParty, const FUniq
 	}
 }
 
+void UUTMatchmaking::OnLeaderPartyStateChanged(EUTPartyState NewPartyState)
+{
+	OnPartyStateChange().Broadcast(NewPartyState);
+}
+
 void UUTMatchmaking::OnClientPartyStateChanged(EUTPartyState NewPartyState)
 {
 	UE_LOG(LogOnline, Log, TEXT("OnClientPartyStateChanged %d"), (int32)NewPartyState);
+
+	OnPartyStateChange().Broadcast(NewPartyState);
+
+	if (NewPartyState == EUTPartyState::TravelToServer)
+	{
+		TravelToServer();
+	}
 }
 
 void UUTMatchmaking::CleanupReservationBeacon()
@@ -270,9 +290,47 @@ void UUTMatchmaking::CancelMatchmaking()
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("Cancelling with no timer and no lobby"));
 		}
+
+		DisconnectFromLobby();
 	}
 
 	ClearCachedMatchmakingData();
+}
+
+void UUTMatchmaking::DisconnectFromLobby()
+{
+	// If the reservation beacon client still exists, haven't transitioned to the lobby yet, so cancel reservation
+	if (ReservationBeaconClient)
+	{
+		ReservationBeaconClient->CancelReservation();
+	}
+	
+	CleanupReservationBeacon();
+
+	UUTGameInstance* GameInstance = GetUTGameInstance();
+	if (GameInstance)
+	{
+		IOnlineSessionPtr SessionInt = Online::GetSessionInterface();
+		if (SessionInt.IsValid())
+		{
+			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(GameSessionName);
+			if (SessionSettings)
+			{
+				// Cleanup the existing game session before proceeding
+				FOnDestroySessionCompleteDelegate CompletionDelegate;
+				CompletionDelegate.BindUObject(this, &ThisClass::OnDisconnectFromLobbyComplete);
+				GameInstance->SafeSessionDelete(GameSessionName, CompletionDelegate);
+			}
+		}
+	}
+
+	// Clear cached data so reconnection attempts aren't made against faulty data
+	ClearCachedMatchmakingData();
+}
+
+void UUTMatchmaking::OnDisconnectFromLobbyComplete(FName SessionName, bool bWasSuccessful)
+{
+	UE_LOG(LogOnlineGame, Verbose, TEXT("OnDisconnectFromLobbyComplete %s Success: %d"), *SessionName.ToString(), bWasSuccessful);
 }
 
 void UUTMatchmaking::ClearCachedMatchmakingData()
@@ -398,9 +456,45 @@ bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 			FOnQosSearchComplete CompletionDelegate = FOnQosSearchComplete::CreateUObject(this, &ThisClass::ContinueMatchmaking, MatchmakingParams);
 			QosEvaluator->FindDatacenters(ControllerId, CompletionDelegate);
 #else
-			FString FakeDatacenterId = TEXT("USA");
-			ContinueMatchmaking(EQosCompletionResult::Success, FakeDatacenterId, MatchmakingParams);
+			// Pretend that QoS query actually happened, DatacenterId was passed from profile settings
+			LookupTeamElo(EQosCompletionResult::Success, MatchmakingParams.DatacenterId, MatchmakingParams);
 #endif
+		}
+	}
+
+	return bResult;
+}
+
+bool UUTMatchmaking::FindSessionAsClient(const FMatchmakingParams& InParams)
+{
+	bool bResult = false;
+	if (InParams.ControllerId != INVALID_CONTROLLERID)
+	{
+		UUTMatchmakingSingleSession* MatchmakingSingleSession = NewObject<UUTMatchmakingSingleSession>();
+		if (MatchmakingSingleSession)
+		{
+			// Starting a new find, clear out any cached matchmaking data
+			ClearCachedMatchmakingData();
+
+			ControllerId = InParams.ControllerId;
+			
+			FMatchmakingParams MatchmakingParams(InParams);
+			MatchmakingParams.StartWith = EMatchmakingStartLocation::FindSingle;
+
+			CachedMatchmakingSearchParams = FUTCachedMatchmakingSearchParams(EUTMatchmakingType::Session, InParams);
+
+			MatchmakingSingleSession->OnMatchmakingStateChange().BindUObject(this, &ThisClass::OnSingleSessionMatchmakingStateChangeInternal);
+			MatchmakingSingleSession->OnMatchmakingComplete().BindUObject(this, &ThisClass::OnSingleSessionMatchmakingComplete);
+
+			MatchmakingSingleSession->Init(MatchmakingParams);
+			MatchmakingSingleSession->StartMatchmaking();
+
+			Matchmaking = MatchmakingSingleSession;
+
+			OnMatchmakingStarted().Broadcast();
+			bResult = true;
+
+			// FindSessionAsClient intentionally does not cache matchmaking params, as it is intended to go to a very specific session
 		}
 	}
 
@@ -418,25 +512,101 @@ void UUTMatchmaking::OnGatherMatchmakingStateChangeInternal(EMatchmakingState::T
 	OnMatchmakingStateChange().Broadcast(OldState, NewState, MMState);
 }
 
-void UUTMatchmaking::ContinueMatchmaking(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams)
+void UUTMatchmaking::OnSingleSessionMatchmakingStateChangeInternal(EMatchmakingState::Type OldState, EMatchmakingState::Type NewState)
 {
-	UE_LOG(LogOnline, Log, TEXT("ContinueMatchmaking %d"), (int32)Result);
+	FMMAttemptState MMState;
+	if (Matchmaking)
+	{
+		MMState = Matchmaking->GetMatchmakingState();
+	}
+
+	OnMatchmakingStateChange().Broadcast(OldState, NewState, MMState);
+}
+
+void UUTMatchmaking::LookupTeamElo(EQosCompletionResult Result, const FString& DatacenterId, FMatchmakingParams InParams)
+{
+	UE_LOG(LogOnline, Log, TEXT("LookupTeamElo %d"), (int32)Result);
 
 	QosEvaluator->SetAnalyticsProvider(nullptr);
+	
+	UUTMcpUtils* McpUtils = nullptr;
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+		if (OnlineIdentityInterface.IsValid())
+		{
+			McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(InParams.ControllerId));
+			if (McpUtils == nullptr)
+			{
+				UE_LOG(LogOnline, Warning, TEXT("Unable to load McpUtils. Will not be able to read ELO from MCP"));
+			}
+		}
+	}
 
-	if (Matchmaking &&
+	if (McpUtils && Matchmaking &&
 		(Result == EQosCompletionResult::Cached || Result == EQosCompletionResult::Success)
 		)
 	{
 		InParams.DatacenterId = DatacenterId;
-		Matchmaking->Init(InParams);
-		Matchmaking->StartMatchmaking();
+
+		UUTGameInstance* UTGameInstance = GetUTGameInstance();
+
+		FString MatchRatingType = TEXT("RankedShowdownSkillRating");
+		if (UTGameInstance)
+		{
+			UTGameInstance->GetPlaylistManager()->GetTeamEloRatingForPlaylist(InParams.PlaylistId, MatchRatingType);
+		}
+		
+		TArray<UPartyMemberState*> PartyMembers;
+		if (UTGameInstance)
+		{
+			UUTParty* Parties = UTGameInstance->GetParties();
+			if (Parties)
+			{
+				UPartyGameState* Party = Parties->GetPersistentParty();
+				if (Party)
+				{
+					Party->GetAllPartyMembers(PartyMembers);
+				}
+			}
+		}
+
+		TArray<FUniqueNetIdRepl> AccountIds;
+		int32 PartySize = PartyMembers.Num();
+		for (int32 i = 0; i < PartySize; i++)
+		{
+			AccountIds.Add(PartyMembers[i]->UniqueId);
+		}
+
+		McpUtils->GetTeamElo(MatchRatingType, AccountIds, PartySize, [this, InParams](const FOnlineError& TeamEloResult, const FTeamElo& Response)
+		{
+			if (!TeamEloResult.bSucceeded)
+			{
+				// best we can do is log an error
+				UE_LOG(LogOnline, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), TeamEloResult.HttpResult, *TeamEloResult.ErrorCode, *TeamEloResult.ErrorMessage.ToString());
+				ContinueMatchmaking(1500, InParams);
+			}
+			else
+			{
+				ContinueMatchmaking(Response.Rating, InParams);
+			}
+		});
 	}
 	else
 	{
 		FOnlineSessionSearchResult EmptySearchResult;
 		OnMatchmakingCompleteInternal(Result == EQosCompletionResult::Canceled ? EMatchmakingCompleteResult::Cancelled : EMatchmakingCompleteResult::Failure, EmptySearchResult);
 	}
+}
+
+void UUTMatchmaking::ContinueMatchmaking(int32 TeamElo, FMatchmakingParams InParams)
+{
+	UE_LOG(LogOnline, Log, TEXT("ContinueMatchmaking TeamElo:%d"), (int32)TeamElo);
+	
+	InParams.TeamElo = TeamElo;
+	Matchmaking->Init(InParams);
+	Matchmaking->StartMatchmaking();
 }
 
 void UUTMatchmaking::OnMatchmakingCompleteInternal(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult)
@@ -456,6 +626,30 @@ void UUTMatchmaking::OnGatherMatchmakingComplete(EMatchmakingCompleteResult Resu
 		AUTPlayerController* UTPC = GetOwningController();
 		FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
 		UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
+
+		OnMatchmakingCompleteInternal(Result, SearchResult);
+	}
+	else if (Result == EMatchmakingCompleteResult::Cancelled)
+	{
+		OnMatchmakingCompleteInternal(Result, SearchResult);
+	}
+	else
+	{
+		OnMatchmakingCompleteInternal(Result, SearchResult);
+	}
+}
+
+void UUTMatchmaking::OnSingleSessionMatchmakingComplete(EMatchmakingCompleteResult Result, const FOnlineSessionSearchResult& SearchResult)
+{
+	UE_LOG(LogOnline, Log, TEXT("OnSingleSessionMatchmakingComplete"));
+	if (Result == EMatchmakingCompleteResult::Success && SearchResult.IsValid())
+	{
+		if ((CachedMatchmakingSearchParams.GetMatchmakingParams().Flags & EMatchmakingFlags::NoReservation) == EMatchmakingFlags::None)
+		{
+			AUTPlayerController* UTPC = GetOwningController();
+			FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &ThisClass::ConnectToReservationBeacon, SearchResult);
+			UTPC->GetWorldTimerManager().SetTimer(ConnectToReservationBeaconTimerHandle, TimerDelegate, CONNECT_TO_RESERVATION_BEACON_DELAY, false);
+		}
 
 		OnMatchmakingCompleteInternal(Result, SearchResult);
 	}
@@ -491,6 +685,9 @@ void UUTMatchmaking::ConnectToReservationBeacon(FOnlineSessionSearchResult Searc
 				ReservationBeaconClient->OnAllowedToProceedFromReservation().BindUObject(this, &ThisClass::OnAllowedToProceedFromReservation);
 				ReservationBeaconClient->OnAllowedToProceedFromReservationTimeout().BindUObject(this, &ThisClass::OnAllowedToProceedFromReservationTimeout);
 				ReservationBeaconClient->Reconnect(SearchResult, PC->PlayerState->UniqueId);
+
+				// Advertise the search result found
+				OnConnectToLobby().Broadcast(SearchResult);
 			}
 			else
 			{
@@ -525,6 +722,20 @@ void UUTMatchmaking::OnReservationFull()
 	UE_LOG(LogOnline, Log, TEXT("OnReservationFull"));
 
 	TravelToServer();
+
+	UUTGameInstance* UTGameInstance = GetUTGameInstance();
+	if (ensure(UTGameInstance))
+	{
+		UUTParty* Parties = UTGameInstance->GetParties();
+		if (ensure(Parties))
+		{
+			UUTPartyGameState* PersistentParty = Parties->GetUTPersistentParty();
+			if (ensure(PersistentParty))
+			{
+				PersistentParty->NotifyTravelToServer();
+			}
+		}
+	}
 }
 
 void UUTMatchmaking::OnAllowedToProceedFromReservation()
@@ -590,6 +801,35 @@ void UUTMatchmaking::TravelToServer()
 		// Heavy handed clean up
 		//DisconnectFromLobby();
 	}
+}
+
+void UUTMatchmaking::OnClientSessionIdChanged(const FString& SessionId)
+{
+	UE_LOG(LogOnline, Log, TEXT("OnClientSessionIdChanged %s"), *SessionId);
+	
+	if (!SessionId.IsEmpty())
+	{
+		FMatchmakingParams MMParams;
+		MMParams.ControllerId = ControllerId;
+		MMParams.SessionId = SessionId;
+		MMParams.StartWith = EMatchmakingStartLocation::FindSingle;
+		MMParams.Flags = EMatchmakingFlags::NoReservation;
+
+		bool bSuccess = FindSessionAsClient(MMParams);
+	}
+	else
+	{
+		CancelMatchmaking();
+	}
+}
+
+bool UUTMatchmaking::IsMatchmaking()
+{
+	if (Matchmaking)
+	{
+		return Matchmaking->IsMatchmaking();
+	}
+	return false;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -128,7 +128,7 @@ void UUTSearchPass::RequestEmptyServerReservation()
 			const FOnlineSessionSearchResult& SearchResult = GetCurrentSearchResult();
 			check(SearchResult.IsValid());
 
-			FEmptyServerReservation ReservationData(SearchFilter->GetPlaylistId());
+			FEmptyServerReservation ReservationData(SearchFilter->GetPlaylistId(), SearchFilter->GetTeamElo());
 			if ((CurrentSearchParams.Flags & EMatchmakingFlags::Private) == EMatchmakingFlags::Private)
 			{
 				ReservationData.bMakePrivate = true;

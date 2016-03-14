@@ -450,6 +450,19 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 		];
 	}
 
+	if (!GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion.IsEmpty())
+	{
+		for (int32 i = 0; i < MatchmakingRegionList.Num(); i++)
+		{
+			if (*MatchmakingRegionList[i].Get() == GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion)
+			{
+				MatchmakingRegion->SetSelectedItem(MatchmakingRegionList[i]);
+				break;
+			}
+		}
+	}
+	bChangedMatchmakingRegion = false;
+
 	UpdateAdvancedWidgets();
 	OnTabClickGeneral();
 }
@@ -539,6 +552,9 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		CurrentResIndex = ResList.Add(MakeShareable(new FString(FString::Printf(TEXT("%ix%i"), int32(ViewportSize.X), int32(ViewportSize.Y)))));
 	}
 	
+	MatchmakingRegionList.Add(MakeShareable(new FString(TEXT("USA"))));
+	MatchmakingRegionList.Add(MakeShareable(new FString(TEXT("EU"))));
+
 	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "DisplayModeFullscreen", "Fullscreen").ToString())));
 	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "DisplayModeWindowedFullscreen", "Windowed (Fullscreen)").ToString())));
 	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "DisplayModeWindowed", "Windowed").ToString())));
@@ -552,6 +568,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			SNew(SBox)
 			.WidthOverride(650)
@@ -564,6 +581,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		]
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			SNew(SComboBox< TSharedPtr<FString> >)
 			.InitiallySelectedItem(ResList[CurrentResIndex])
@@ -588,6 +606,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			SNew(SBox)
 			.WidthOverride(650)
@@ -600,6 +619,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		]
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			SAssignNew(DisplayModeComboBox, SComboBox< TSharedPtr<FString> >)
 			.InitiallySelectedItem(DisplayModeList[CurrentDisplayIndex])
@@ -623,6 +643,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			SNew(SBox)
 			.WidthOverride(650)
@@ -635,6 +656,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		]
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			SAssignNew(VSync, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
@@ -645,10 +667,10 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 	[
-
 		SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			SNew(SBox)
 			.WidthOverride(650)
@@ -661,6 +683,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		]
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
 			SAssignNew(FrameRateCap, SEditableTextBox)
 			.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
@@ -670,30 +693,68 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 		]
 	]
 	+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
 		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
+			SNew(SBox)
+			.WidthOverride(650)
 			[
-				SNew(SBox)
-				.WidthOverride(650)
-				[
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(NSLOCTEXT("SUTSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate"))
-					.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "SmoothFramerate_Tooltip", "This setting is used to smooth framerate spikes which can affect mouse control.")))
-				]
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "SmoothFramerate_Tooltip", "This setting is used to smooth framerate spikes which can affect mouse control.")))
 			]
-			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SAssignNew(SmoothFrameRate, SCheckBox)
-					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-					.IsChecked(GEngine->bSmoothFrameRate ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-				]
-		];
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SAssignNew(SmoothFrameRate, SCheckBox)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.IsChecked(GEngine->bSmoothFrameRate ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		]
+	]	
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "MatchmakingRegion", "Matchmaking Region"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "MatchmakingRegion_Tooltip", "Which region that ranked matchmaking will use.")))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SAssignNew(MatchmakingRegion, SComboBox< TSharedPtr<FString> >)
+			.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+			.OptionsSource(&MatchmakingRegionList)
+			.OnGenerateWidget(this, &SUTDialogBase::GenerateStringListWidget)
+			.OnSelectionChanged(this, &SUTSystemSettingsDialog::OnMatchmakingRegionSelected)
+			.Content()
+			[
+				SAssignNew(SelectedMatchmakingRegion, STextBlock)
+				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "MatchmakingRegionSelect", "Select a Region"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+			]
+		]
+	];
 }
 
 TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
@@ -1154,6 +1215,13 @@ FReply SUTSystemSettingsDialog::OKClick()
 		}
 	}
 	
+	TSharedPtr<FString> MatchmakingRegionSelection = MatchmakingRegion->GetSelectedItem();
+	if (MatchmakingRegionSelection.IsValid() && bChangedMatchmakingRegion)
+	{
+		GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion = *MatchmakingRegionSelection.Get();
+		GetPlayerOwner()->SaveProfileSettings();
+	}
+
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
 }
@@ -1176,6 +1244,11 @@ FReply SUTSystemSettingsDialog::CancelClick()
 	return FReply::Handled();
 }
 
+void SUTSystemSettingsDialog::OnMatchmakingRegionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedMatchmakingRegion->SetText(*NewSelection.Get());
+	bChangedMatchmakingRegion = true;
+}
 void SUTSystemSettingsDialog::OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedRes->SetText(*NewSelection.Get());

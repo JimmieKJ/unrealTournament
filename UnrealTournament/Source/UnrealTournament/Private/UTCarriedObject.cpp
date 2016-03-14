@@ -30,6 +30,9 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	AutoReturnTime = 30.0f;
 	bMovementEnabled = true;
 	LastTeleportedTime = -1000.f;
+	bEnemyCanPickup = true;
+	bInitialized = false;
+	WeightSpeedPctModifier = 1.0f;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -63,6 +66,7 @@ void AUTCarriedObject::Init(AUTGameObjective* NewBase)
 		}
 	}
 
+	bInitialized = true;
 	HomeBase = NewBase;
 	ObjectState = CarriedObjectState::Home;
 	HomeBase->ObjectStateWasChanged(ObjectState);
@@ -122,7 +126,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (!bIsDropping)
+	if (bInitialized && !bIsDropping)
 	{
 		AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
 		if (Character != NULL)
@@ -229,19 +233,57 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTCarriedObject::CheckTouching, 0.1f, false);
 		return false;
 	}
-	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
-	else if (GetTeamNum() == Character->GetTeamNum() && bTeamPickupSendsHome)
+	else if (bAnyoneCanPickup)
 	{
-		if (ObjectState == CarriedObjectState::Dropped)
+		return true;
+	}
+	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
+	else if (GetTeamNum() == Character->GetTeamNum())
+	{
+		if (bFriendlyCanPickup)
 		{
-			SendGameMessage(0, Character->PlayerState, NULL);
-			Score(FName("SentHome"), Character, Cast<AUTPlayerState>(Character->PlayerState));
+			return true;
 		}
-		return false;
+		else if (bTeamPickupSendsHome)
+		{
+			if (ObjectState == CarriedObjectState::Dropped)
+			{
+				SendGameMessage(0, Character->PlayerState, NULL);
+				Score(FName("SentHome"), Character, Cast<AUTPlayerState>(Character->PlayerState));
+			}
+			return false;
+		}
+		else
+		{
+			AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+			}
+			return false;
+		}
 	}
 	else
 	{
-		return Team == NULL || bAnyoneCanPickup || Team->GetTeamNum() == GetTeamNum();
+		if (bEnemyPickupSendsHome)
+		{
+			if (ObjectState == CarriedObjectState::Dropped)
+			{
+				SendGameMessage(0, Character->PlayerState, NULL);
+				Score(FName("SentHome"), Character, Cast<AUTPlayerState>(Character->PlayerState));
+			}
+			return false;
+		}
+		else if (!bEnemyCanPickup)
+		{
+			AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(MessageClass, 13);
+			}
+			return false;
+		}
+		return bEnemyCanPickup;
 	}
 }
 
@@ -310,6 +352,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	}
 
 	Holder->SetCarriedObject(this);
+	Holder->bSpecialTeamPlayer = true;
 	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, HoldingPawn);
 
 	SendGameMessage(4, Holder, NULL);
@@ -376,6 +419,12 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 				TeamIter->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
 			}
 		}
+	}
+
+	AUTPlayerState* LastHoldingPS = LastHoldingPawn ? Cast<AUTPlayerState>(LastHoldingPawn->PlayerState) : nullptr;
+	if (LastHoldingPS)
+	{
+		LastHoldingPS->bSpecialTeamPlayer = false;
 	}
 }
 

@@ -23,7 +23,7 @@ void UUTPlayerInput::PostInitProperties()
 bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOuterAPlayerController());
-	if (PC != NULL && PC->PlayerState != NULL && PC->IsInState(NAME_Spectating))
+	if (PC != NULL && PC->PlayerState != NULL && PC->PlayerState->bOnlySpectator) // PC->IsInState(NAME_Spectating))
 	{
 		for (int32 i = 0; i < SpectatorBinds.Num(); i++)
 		{

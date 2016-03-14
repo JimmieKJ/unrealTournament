@@ -880,7 +880,19 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 
 void AUTPlayerController::SwitchWeapon(int32 Group)
 {
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	int32 AdjustedGroup = Group -1;
+	if ( UTGameState && 
+		(UTPlayerState->bOutOfLives || (UTCharacter ? UTCharacter->IsDead() : (GetPawn() == NULL))) &&
+		(AdjustedGroup >= 0 && UTGameState->SpawnPacks.IsValidIndex(AdjustedGroup)) )
+	{
+		UE_LOG(UT,Log,TEXT("SeverSetLoadoutPack %s"),*UTGameState->SpawnPacks[AdjustedGroup].PackTag.ToString());
+		UTPlayerState->ServerSetLoadoutPack(UTGameState->SpawnPacks[AdjustedGroup].PackTag);
+	}
+	else
+	{
 		SwitchWeaponGroup(Group);
+	}
 }
 
 void AUTPlayerController::DemoRestart()
@@ -931,7 +943,7 @@ void AUTPlayerController::OnDemoSeeking()
 	}
 }
 
-void AUTPlayerController::DemoPause()
+void AUTPlayerController::UTDemoPause()
 {
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)
@@ -1880,6 +1892,12 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		}
 	}
 
+	int32 MyVisibilityMask = 0;
+	if (GetUTCharacter())
+	{
+		MyVisibilityMask = GetUTCharacter()->VisibilityMask;	
+	}
+
 	// hide other pawns' first person hands/weapons
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
@@ -1889,6 +1907,13 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			if (OtherP != NULL)
 			{
 				HideComponentTree(OtherP->FirstPersonMesh, HiddenComponents);
+				if (PlayerState != nullptr && !PlayerState->bOnlySpectator)
+				{
+					if (OtherP->VisibilityMask > 0 && (OtherP->VisibilityMask & MyVisibilityMask) == 0)
+					{
+						HideComponentTree(OtherP->GetMesh(), HiddenComponents);
+					}
+				}
 			}
 		}
 	}
@@ -1947,7 +1972,8 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		// this is a newly disconnected client
 		return;
 	}
-	if (!UTGM->HasMatchStarted())
+	// Ready up if match hasn't started and not a ranked match
+	if (!UTGM->HasMatchStarted() && !UTGM->bRankedSession)
 	{
 		if (UTPlayerState)
 		{
@@ -1994,6 +2020,13 @@ bool AUTPlayerController::ServerRestartPlayerAltFire_Validate()
 
 void AUTPlayerController::ServerSwitchTeam_Implementation()
 {
+	// Ranked sessions don't allow team changes
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode && GameMode->bRankedSession)
+	{
+		return;
+	}
+
 	if (UTPlayerState != NULL && UTPlayerState->Team != NULL)
 	{
 		uint8 NewTeam = (UTPlayerState->Team->TeamIndex + 1) % GetWorld()->GetGameState<AUTGameState>()->Teams.Num();
@@ -3106,6 +3139,7 @@ void AUTPlayerController::ServerReceiveStatsID_Implementation(const FString& New
 	{
 		UTPlayerState->StatsID = NewStatsID;
 		UTPlayerState->ReadStatsFromCloud();
+		UTPlayerState->ReadMMRFromBackend();
 	}
 }
 
@@ -3327,7 +3361,7 @@ void AUTPlayerController::BeginInactiveState()
 	SetPawn(NULL);
 
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	float const MinRespawnDelay = GameState ? GameState->RespawnWaitTime : 1.0f;
+	float const MinRespawnDelay = GameState ? GameState->GetRespawnWaitTimeFor(UTPlayerState) : 1.0f;
 	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
 }
 
@@ -3604,10 +3638,11 @@ void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmoun
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP) 
+	AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
+	if (Char)
 	{
-		LP->OpenMatchSummary(GetWorld()->GetGameState<AUTGameState>());
+		float NewPct = FCString::Atof(*TestCommand);
+		Char->MaxSpeedPctModifier = Char->MaxSpeedPctModifier != 1.0f ? 1.0f : NewPct;
 	}
 }
 
@@ -3713,6 +3748,15 @@ void AUTPlayerController::UpdateWeaponGroupKeys()
 					WeaponGroupKeys.Add(GroupIdx, FixedupKeyname(UTPlayerInput->CustomBinds[i].KeyName.ToString()));
 				}
 			}
+		}
+	}
+	
+	//Let the UTWeapons know that any HUD text needs to be updated
+	if (GetUTCharacter())
+	{
+		for (TInventoryIterator<AUTWeapon> It(GetUTCharacter()); It; ++It)
+		{
+			It->UpdateHUDText();
 		}
 	}
 }

@@ -192,6 +192,17 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 {
 	return SNew(SOverlay)
 
+		+ SOverlay::Slot()
+		.Padding(920.0, 800.0, 0.0, 0.0)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SAssignNew(PartyBox, SUTPartyWidget, PlayerOwner->PlayerController)
+			]
+		]		
+
 		+SOverlay::Slot()
 		.Padding(920.0,32.0,0.0,0.0)
 		[

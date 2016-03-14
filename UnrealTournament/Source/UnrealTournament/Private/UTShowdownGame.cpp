@@ -771,27 +771,56 @@ void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 
 void AUTShowdownGame::UpdateSkillRating()
 {
-	ReportRankedMatchResults(NAME_ShowdownSkillRating.ToString());
+	if (bRankedSession)
+	{
+		ReportRankedMatchResults(NAME_RankedShowdownSkillRating.ToString());
+	}
+	else
+	{
+		ReportRankedMatchResults(NAME_ShowdownSkillRating.ToString());
+	}
 }
 
-uint8 AUTShowdownGame::GetNumMatchesFor(AUTPlayerState* PS) const
+uint8 AUTShowdownGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
 {
+	if (PS && bRankedSession)
+	{
+		return PS->RankedShowdownMatchesPlayed;
+	}
+
 	return PS ? PS->ShowdownMatchesPlayed : 0;
 }
 
-int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS) const
+int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
 {
-	return PS ? PS->ShowdownRank : Super::GetEloFor(PS);
+	if (PS && bRankedSession)
+	{
+		return PS->RankedShowdownRank;
+	}
+
+	return PS ? PS->ShowdownRank : Super::GetEloFor(PS, bRankedSession);
 }
 
-void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{
-		PS->ShowdownRank = NewEloValue;
-		if (bIncrementMatchCount && (PS->ShowdownMatchesPlayed < 255))
+		if (bRankedSession)
 		{
-			PS->ShowdownMatchesPlayed++;
+			PS->RankedShowdownRank = NewEloValue;
+			if (bIncrementMatchCount && (PS->ShowdownMatchesPlayed < 255))
+			{
+				PS->RankedShowdownMatchesPlayed++;
+			}
+			
+		}
+		else
+		{
+			PS->ShowdownRank = NewEloValue;
+			if (bIncrementMatchCount && (PS->ShowdownMatchesPlayed < 255))
+			{
+				PS->ShowdownMatchesPlayed++;
+			}
 		}
 	}
 }

@@ -106,6 +106,31 @@ public:
 			}
 			else
 			{
+
+				FText Text;
+				FText SenderName = FText::FromString(ChatMessage->Sender);
+
+				if (ChatMessage->Type == ChatDestinations::Lobby)
+				{
+					// Pull the name from the message
+
+					int32 Pos;
+					if ( ChatMessage->Message.FindChar(']',Pos) )
+					{
+						SenderName = FText::FromString(ChatMessage->Message.Mid(1, Pos-1));
+						ChatMessage->Message = TEXT("(from Game) ") + ChatMessage->Message.Right(ChatMessage->Message.Len() - Pos - 1).Trim();
+					}
+				}
+
+				if (ChatMessage->Type == ChatDestinations::Whisper)
+				{
+					Text = FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormat","<UT.Font.Chat.Name>{0}</>: [whisper] {1}"), SenderName, FText::FromString(ChatMessage->Message));
+				}
+				else
+				{
+					Text = FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormat","<UT.Font.Chat.Name>{0}</>:   {1}"), SenderName, FText::FromString(ChatMessage->Message));
+				}
+
 				ChatBox->AddSlot()
 				.AutoHeight()
 				.Padding(0.0,0.0,0.0,0.0)
@@ -132,8 +157,8 @@ public:
 							.BorderImage(SUTStyle::Get().GetBrush( (ChatMessage->bMyChat ? "UT.HeaderBackground.Shaded" : "UT.NoStyle")))
 							[
 								SNew(SRichTextBlock)
-								.Text(FText::Format(NSLOCTEXT("SUTTextChatPanel","TextFormat","<UT.Font.Chat.Name>{0}</>:   {1}"), FText::FromString(ChatMessage->Sender), FText::FromString(ChatMessage->Message)))
-								.TextStyle(SUTStyle::Get(), "UT.Font.Chat.Text")
+								.Text(Text)
+								.TextStyle(SUTStyle::Get(), (ChatMessage->Type == ChatDestinations::Whisper) ? "UT.Font.Chat.Text.Whisper" : "UT.Font.Chat.Text")
 								.DecoratorStyleSet(&SUTStyle::Get())
 								.AutoWrapText(true)
 							]

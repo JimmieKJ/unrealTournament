@@ -374,6 +374,7 @@ void SUTPlayerInfoDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Heig
 
 	View->StartFinalPostprocessSettings(CameraPosition);
 	View->EndFinalPostprocessSettings(PlayerPreviewInitOptions);
+	View->ViewRect = View->UnscaledViewRect;
 
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
 	--GFrameNumber;
@@ -707,6 +708,8 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 {
 	if (TargetPlayerState.IsValid())
 	{
+		UpdatePlayerStateInReplays();
+
 		StatList.Empty();
 		InfoPanel->ClearChildren();
 
@@ -717,12 +720,12 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 			SAssignNew(TabWidget, SUTTabWidget)
 			.OnTabButtonSelectionChanged(this, &SUTPlayerInfoDialog::OnTabButtonSelectionChanged)
 		];
-
+	
 		TargetPlayerState->BuildPlayerInfo(TabWidget, StatList);
 
 		//Draw the game specific stats
 		AGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
-		if (GameState && GameState->GameModeClass)
+		if (GameState && GameState->GameModeClass && !TargetPlayerState->bOnlySpectator)
 		{
 			AGameMode* DefaultGameMode = GameState->GameModeClass->GetDefaultObject<AGameMode>();
 			if (DefaultGameMode)
@@ -739,7 +742,52 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 		RecreatePlayerPreview();
 
 		TabWidget->OnButtonClicked(CurrentTab);
-		DialogTitle->SetText(FText::FromString(TargetPlayerState->PlayerName));
+
+		//We are in a game where we can only ever be a spectator. 
+		//This means we are not in the player list, and thus need to use our Account Display Name as our Player Name isn't accurate.
+		if (TargetPlayerState->bOnlySpectator)
+		{
+			DialogTitle->SetText(GetPlayerOwner()->GetAccountDisplayName());
+		}
+		else
+		{
+			DialogTitle->SetText(FText::FromString(TargetPlayerState->PlayerName));
+		}
+	}
+}
+
+void SUTPlayerInfoDialog::UpdatePlayerStateInReplays()
+{
+	if (TargetPlayerState.IsValid() && TargetPlayerState->IsOwnedByReplayController())
+	{
+		UpdatePlayerStateRankingStatsFromLocalPlayer(PlayerOwner->GetRankDuel(), PlayerOwner->GetRankCTF(), PlayerOwner->GetRankTDM(), PlayerOwner->GetRankDM(), PlayerOwner->GetRankShowdown(), PlayerOwner->GetTotalChallengeStars(), FMath::Min(255, PlayerOwner->DuelEloMatches()), FMath::Min(255, PlayerOwner->CTFEloMatches()), FMath::Min(255, PlayerOwner->TDMEloMatches()), FMath::Min(255, PlayerOwner->DMEloMatches()), FMath::Min(255, PlayerOwner->ShowdownEloMatches()));
+		UpdatePlayerCharacterPreviewInReplays();
+	}
+}
+
+void SUTPlayerInfoDialog::UpdatePlayerStateRankingStatsFromLocalPlayer(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed)
+{
+	if (TargetPlayerState.IsValid())
+	{
+		TargetPlayerState->DuelRank = NewDuelRank;
+		TargetPlayerState->CTFRank = NewCTFRank;
+		TargetPlayerState->TDMRank = NewTDMRank;
+		TargetPlayerState->DMRank = NewDMRank;
+		TargetPlayerState->ShowdownRank = NewShowdownRank;
+		TargetPlayerState->TotalChallengeStars = TotalStars;
+		TargetPlayerState->DuelMatchesPlayed = DuelMatchesPlayed;
+		TargetPlayerState->CTFMatchesPlayed = CTFMatchesPlayed;
+		TargetPlayerState->TDMMatchesPlayed = TDMMatchesPlayed;
+		TargetPlayerState->DMMatchesPlayed = DMMatchesPlayed;
+		TargetPlayerState->ShowdownMatchesPlayed = ShowdownMatchesPlayed;
+	}
+}
+
+void SUTPlayerInfoDialog::UpdatePlayerCharacterPreviewInReplays()
+{
+	if (TargetPlayerState.IsValid() && PlayerOwner.IsValid() && PlayerOwner->GetProfileSettings())
+	{
+		TargetPlayerState->SetCharacter(PlayerOwner->GetProfileSettings()->CharacterPath);
 	}
 }
 

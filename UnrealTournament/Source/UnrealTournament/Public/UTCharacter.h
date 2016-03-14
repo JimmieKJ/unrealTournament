@@ -709,6 +709,15 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitReplicatedTime;
 	
+	UPROPERTY(replicated)
+	int32 VisibilityMask;
+	/** Use 1-32 to enable a visibility channel */
+	UFUNCTION(BlueprintCallable, Category = Pawn, BlueprintAuthorityOnly)
+	void AddVisibilityMask(int32 Channel);
+	/** Use 1-32 to disable a visibility channel */
+	UFUNCTION(BlueprintCallable, Category = Pawn, BlueprintAuthorityOnly)
+	void RemoveVisibilityMask(int32 Channel);
+
 protected:
 	/** indicates character is (mostly) invisible so AI only sees at short range, homing effects can't target the character, etc */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Invisible, Category = Pawn)
@@ -1374,6 +1383,9 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	TSubclassOf<class AUTCharacterContent> CharacterData;
 
+	UPROPERTY(BlueprintReadWrite, Category = FFA)
+		uint8 FFAColor;
+
 	// Temp replacement for CharacterData->GetDefaultObject() until 4.9 enables that in blueprints
 	UFUNCTION(BlueprintCallable, Category = Character)
 	AUTCharacterContent* GetCharacterData() const;
@@ -1824,8 +1836,16 @@ public:
 
 	virtual void UpdateTacComMesh(bool bNewTacComEnabled);
 
+	/** Selection overlay material */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+	UMaterialInterface* SelectionOverlayMaterial;
+
+	virtual void UpdateSelectionMesh(bool bNewSelectionEnabled);
+
 protected:
 	bool bTacComEnabled;
+	bool bSelectionEnabled;
+	int32 CustomDepthCount;
 
 	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */
 	float LastFootstepTime;
@@ -1903,6 +1923,22 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
 	class UUTGhostComponent* GhostComponent;
+
+
+	// The character's max speed will be multipled by this value.  It allows for inventory and or game modes to override the max speed
+	// for a character in a simple way.
+	UPROPERTY(Replicated, Transient, BlueprintReadWrite, Category = Movement)
+	float MaxSpeedPctModifier;
+
+	// Used to reset the max speed modifier.  By default, this will return the value to 1.0f, but if the game is using weighted weapons
+	// then calling this function will cause the pawn to pickup it's value from the weapon if possible.
+	UFUNCTION(BlueprintCallable, Category=Weapon)
+	virtual void ResetMaxSpeedPctModifier();
+
+	// Sets the initial health for this character. 
+	UFUNCTION(BlueprintNativeEvent, Category = Pawn)
+	void SetInitialHealth();
+
 };
 
 inline bool AUTCharacter::IsDead()

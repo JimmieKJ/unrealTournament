@@ -233,7 +233,7 @@ void SUTComboButton::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 }
 
 
-void SUTComboButton::UTOnButtonClicked(int32 ButtonIndex)
+FReply SUTComboButton::UTOnButtonClicked(int32 ButtonIndex)
 {
 	if (!bRightClickOpensMenu || ButtonIndex > 0)
 	{
@@ -272,7 +272,7 @@ void SUTComboButton::UTOnButtonClicked(int32 ButtonIndex)
 
 				if (WidgetToFocus.IsValid())
 				{
-					ButtonClickedReply.SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
+					return FReply::Handled().SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
 				}
 			}
 		}
@@ -287,9 +287,11 @@ void SUTComboButton::UTOnButtonClicked(int32 ButtonIndex)
 	{
 		if (OnClicked.IsBound())
 		{
-			OnClicked.Execute();
+			return OnClicked.Execute();
 		}
 	}
+
+	return FReply::Handled();
 
 }
 

@@ -32,6 +32,10 @@ class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = ImpactHammer)
 	AActor* AutoHitTarget;
 
+	/** Transient, used for improving autohit detection in net games. */
+	UPROPERTY()
+	bool bForwardPredictOwner;
+
 	/** Trace dist for impact jumping against world geometry */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
 	float ImpactJumpTraceDist;
@@ -43,6 +47,8 @@ class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 	/** called to make client mirror server autohit success */
 	UFUNCTION(Client, Reliable)
 	virtual void ClientAutoHit(AActor* Target);
+
+	virtual FVector GetFireStartLoc(uint8 FireMode = 255) override;
 
 	virtual bool NeedsAmmoDisplay_Implementation() const override
 	{

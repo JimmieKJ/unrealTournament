@@ -45,8 +45,8 @@ private:
 	/** A list of all group names to choose from */
 	TArray<TSharedPtr<FString>> GroupsSource;
 
-	TWeakObjectPtr<UObject> ScalarParameterObject;
-	TSharedPtr<IPropertyHandle> DefaultValueHandle;
+	TArray<TWeakObjectPtr<UObject>> ScalarParameterObjects;
+	TArray<TSharedPtr<IPropertyHandle>> DefaultValueHandles;
 };
 
 /** 

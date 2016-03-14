@@ -85,6 +85,8 @@ public:
 
 	virtual FReply OnShowServerBrowserPanel();
 
+	virtual FReply OnRankedMatchmaking(int32 PlaylistId);
+
 	virtual TSharedPtr<SUTPanelBase> GetActivePanel();
 
 protected:
@@ -137,7 +139,7 @@ protected:
 	bool bNeedsPlayerOptions;
 	bool bNeedsWeaponOptions;
 	bool bShowingFriends;
-	
+
 	int32 TickCountDown;
 	virtual void OpenDelayedMenu();
 
@@ -145,6 +147,8 @@ protected:
 	{
 		return true;
 	}
+
+	virtual bool IsPlayerCardDataLoaded() const;
 
 	const FSlateBrush* GetFullvsWindowButtonImage() const;
 	FReply ToggleFullscreenClicked();

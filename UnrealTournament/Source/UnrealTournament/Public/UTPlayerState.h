@@ -19,7 +19,7 @@
 #include "OnlineNotification.h"
 #include "JsonObjectConverter.h"
 #if WITH_PROFILE
-#include "UtMcpProfile.h"
+#include "UTMcpProfile.h"
 #endif
 
 #include "UTPlayerState.generated.h"
@@ -190,6 +190,8 @@ public:
 
 	virtual void AnnounceStatus(FName NewStatus);
 
+	virtual bool IsOwnedByReplayController() const;
+
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;
@@ -219,6 +221,11 @@ public:
 	/** Enemy kills by this player this round.  Not replicated. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 RoundKills;
+
+	/** If limited lives, remaining lives for this player. */
+	/** Enemy kills by this player this round.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 RemainingLives;
 
 	virtual void IncrementDamageDone(int32 AddedDamage);
 
@@ -258,6 +265,9 @@ public:
 
 	UPROPERTY()
 	bool bAllowedEarlyLeave;
+
+	UPROPERTY()
+	int32 PartySize;
 
 	// Player Stats 
 
@@ -602,9 +612,7 @@ public:
 	void WriteStatsToCloud();
 	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	virtual void AddMatchToStats(const FString& MapName, const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
-
-	virtual int32 GetSkillRating(FName SkillStatName);
-
+	
 	/** Cached clamped player name for display. */
 	UPROPERTY(BlueprintReadWrite)
 	FString ClampedName;
@@ -623,6 +631,7 @@ public:
 	bool HasWrittenStatsToCloud() { return bWroteStatsToCloud; }
 
 	void ReadStatsFromCloud();
+	void ReadMMRFromBackend();
 
 private:
 	bool bReadStatsFromCloud;
@@ -650,7 +659,9 @@ public:
 		float LastScoreStatsUpdateTime;
 
 	/** Accessors for StatsData. */
+	UFUNCTION(BlueprintCallable, Category = PlayerState)
 	float GetStatsValue(FName StatsName) const;
+
 	void SetStatsValue(FName StatsName, float NewValue);
 	void ModifyStatsValue(FName StatsName, float Change);
 
@@ -666,28 +677,32 @@ public:
 	int32 DMRank;
 	UPROPERTY(Replicated)
 	int32 ShowdownRank;
+	UPROPERTY(Replicated)
+	int32 RankedShowdownRank;
 	
 	/** Note only valid up to 255, enough to figure out beginner badges. */
 	UPROPERTY(Replicated)
-		uint8 DuelMatchesPlayed;
+	uint8 DuelMatchesPlayed;
 	UPROPERTY(Replicated)
-		uint8 CTFMatchesPlayed;
+	uint8 CTFMatchesPlayed;
 	UPROPERTY(Replicated)
-		uint8 TDMMatchesPlayed;
+	uint8 TDMMatchesPlayed;
 	UPROPERTY(Replicated)
-		uint8 DMMatchesPlayed;
+	uint8 DMMatchesPlayed;
 	UPROPERTY(Replicated)
-		uint8 ShowdownMatchesPlayed;
+	uint8 ShowdownMatchesPlayed;
+	UPROPERTY(Replicated)
+	uint8 RankedShowdownMatchesPlayed;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;
 
 	// Returns what badge should represent player's skill level.
 	UFUNCTION(BlueprintCallable, Category = Badge)
-		void GetBadgeFromELO(AUTBaseGameMode* DefaultGame, int32& BadgeLevel, int32& SubLevel) const;
+	void GetBadgeFromELO(AUTBaseGameMode* DefaultGame, bool bRankedSession, int32& BadgeLevel, int32& SubLevel) const;
 
 	UFUNCTION(BlueprintCallable, Category = Badge)
-		bool IsABeginner(AUTBaseGameMode* DefaultGameMode) const;
+	bool IsABeginner(AUTBaseGameMode* DefaultGameMode) const;
 
 	// Returns the rank check
 	UFUNCTION(BlueprintCallable, Category = Badge)
@@ -746,13 +761,13 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bSmall = false) const;
+	const FSlateBrush* GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bRankedSession, bool bSmall = false) const;
 	const FSlateBrush* GetXPStarImage(bool bSmall = false) const;
-	const FSlateBrush* GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame) const;
+	const FSlateBrush* GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame, bool bRankedSession) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();
-	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, FText RankName);
+	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName);
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
 	FText LeagueTierToText(int32 Tier);
 	void EpicIDClicked();
@@ -762,9 +777,15 @@ public:
 	UPROPERTY(replicatedUsing = OnRepSpecialPlayer)
 	uint32 bSpecialPlayer:1;
 
+	// If true, the game type considers this player special for a given team
+	UPROPERTY(replicatedUsing = OnRepSpecialTeamPlayer)
+	uint32 bSpecialTeamPlayer:1;
+
 	UFUNCTION()
 	virtual void OnRepSpecialPlayer();
 
+	UFUNCTION()
+	virtual void OnRepSpecialTeamPlayer();
 
 	// Allows gametypes to force a given hat on someone
 	UPROPERTY(replicatedUsing = OnRepOverrideHat)
@@ -795,6 +816,10 @@ public:
 	virtual float GetAvailableCurrency();
 
 	virtual void AdjustCurrency(float Adjustment);
+
+	// If true, then spawns for this player costs lives.
+	UPROPERTY()
+	bool bSpawnCostLives;
 
 protected:
 	TArray<FTempBanInfo> BanVotes;
@@ -859,7 +884,13 @@ public:
 	}
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
-	
+
+	// Will hold the tag of the current loadout to apply to this character.
+	UPROPERTY(Replicated)
+	FName CurrentLoadoutPackTag;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetLoadoutPack(const FName& NewLoadoutPackTag);
 
 };
 
@@ -921,12 +952,12 @@ struct FRemotePlayerInfo
 	{
 	}
 
-	FRemotePlayerInfo(AUTPlayerState* PlayerState, int32 RankCheck)
+	FRemotePlayerInfo(AUTPlayerState* PlayerState, int32 InRankCheck)
 		: PlayerID(PlayerState->UniqueId)
 		, bIsSpectator(PlayerState->bOnlySpectator)
 		, PlayerName(PlayerState->PlayerName)
 		, PlayerScore(PlayerState->Score)
-		, RankCheck(RankCheck)
+		, RankCheck(InRankCheck)
 		, XPLevel(PlayerState->GetPrevXP())
 		, TeamNum(PlayerState->GetTeamNum())
 		, Avatar(PlayerState->Avatar)

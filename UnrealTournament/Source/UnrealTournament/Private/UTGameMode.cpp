@@ -80,10 +80,10 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	CountDown = 3;
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
-	ForceRespawnTime = 3.5f;
+	ForceRespawnTime = 2.f;
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
-	MinPlayersToStart = 2;
+	MinPlayersToStart = 1;
 	QuickPlayersToStart = 4;
 	MaxWaitForPlayers = 240;
 	MaxWaitForQuickMatch = 180;
@@ -463,9 +463,10 @@ void AUTGameMode::InitGameState()
 	{
 		UTGameState->SetGoalScore(GoalScore);
 		UTGameState->SetTimeLimit(0);
-		UTGameState->RespawnWaitTime = RespawnWaitTime;
+		UTGameState->SetRespawnWaitTime(RespawnWaitTime);
 		UTGameState->ForceRespawnTime = ForceRespawnTime;
 		UTGameState->bTeamGame = bTeamGame;
+		UTGameState->bRankedSession = bRankedSession;
 		UTGameState->bWeaponStay = bWeaponStayActive;
 		UTGameState->bCasterControl = bCasterControl;
 		UTGameState->bPlayPlayerIntro = bPlayPlayerIntro;
@@ -484,6 +485,23 @@ void AUTGameMode::InitGameState()
 			if (AvailableLoadout[i].ItemClass)
 			{
 				UTGameState->AddLoadoutItem(AvailableLoadout[i]);
+			}
+		}
+
+		// Resolve any load out packs
+		if (AvailableLoadoutPacks.Num() > 0 && AvailableLoadout.Num() > 0)
+		{
+			for (int32 i=0; i < AvailableLoadoutPacks.Num(); i++)
+			{
+				for (int32 j=0; j < AvailableLoadoutPacks[i].ItemsInPack.Num(); j++)
+				{
+					AUTReplicatedLoadoutInfo* LoadoutInfo = UTGameState->FindLoadoutItem(AvailableLoadoutPacks[i].ItemsInPack[j]);
+					if (LoadoutInfo != nullptr)
+					{
+						AvailableLoadoutPacks[i].LoadoutCache.Add(LoadoutInfo);
+					}
+				}
+				UTGameState->SpawnPacks.Add(AvailableLoadoutPacks[i].PackInfo);
 			}
 		}
 	}
@@ -705,6 +723,8 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 			
 			// don't consider this player for Elo calculations if he joins too late.
 			PS->bSkipELO = bPastELOLimit && Cast<AUTGameSession>(GameSession) && !((AUTGameSession *)(GameSession))->bNoJoinInProgress;
+
+			PS->PartySize = UGameplayStatics::GetIntOption(Options, TEXT("PartySize"), 1);
 		}
 	}
 
@@ -2018,7 +2038,7 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	}
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
-	if ((!IsGameInstanceServer() || bDedicatedInstance) && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
+	if (!bRankedSession && (!IsGameInstanceServer() || bDedicatedInstance) && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
 	{
 		// gather maps for map vote
 		TArray<FString> MapPrefixList;
@@ -2060,7 +2080,13 @@ void AUTGameMode::TravelToNextMap_Implementation()
 		}
 	}
 
-	if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
+	if (bRankedSession)
+	{
+		SendEveryoneBackToLobby();
+		// Travel back to ut-entry?game=empty
+		GetWorld()->ServerTravel("/Game/RestrictedAssets/Maps/ut-entry?game=empty", false);
+	}
+	else if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
 		if (UTGameState->MapVoteList.Num() > 0)
 		{
@@ -2246,7 +2272,7 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
 		if (UTC != NULL && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->Health == 0)
 		{
-			UTC->Health = UTC->HealthMax;
+			UTC->SetInitialHealth();
 		}
 	}
 
@@ -2682,6 +2708,10 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 
 			// start if everyone is ready, or have waited long enough and 60% ready.
 			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
+			if (bRankedSession && bMaxWaitComplete)
+			{
+				return true;
+			}
 			if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
 			{
 				if (((ReadyCount > 0) && !bCasterControl) || bCasterReady)
@@ -2935,6 +2965,12 @@ void AUTGameMode::OverridePlayerState(APlayerController* PC, APlayerState* OldPl
 void AUTGameMode::GenericPlayerInitialization(AController* C)
 {
 	Super::GenericPlayerInitialization(C);
+
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(C->PlayerState);
+	if (UTPlayerState && AvailableLoadoutPacks.Num() > 0)
+	{
+		UTPlayerState->ServerSetLoadoutPack(AvailableLoadoutPacks[0].PackInfo.PackTag);
+	}
 
 	if (BaseMutator != NULL)
 	{
@@ -4313,6 +4349,7 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 				RankedMemberInfo.AccountId = PS->PlayerName;
 			}
 			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
+			RankedTeamInfoOut.SocialPartySize = FMath::Max(RankedTeamInfoOut.SocialPartySize, PS->PartySize);
 		}
 	}
 
@@ -4329,6 +4366,7 @@ void AUTGameMode::GetRankedTeamInfo(int32 TeamId, FRankedTeamInfo& RankedTeamInf
 				RankedMemberInfo.AccountId = PS->PlayerName;
 			}
 			RankedTeamInfoOut.Members.Add(RankedMemberInfo);
+			RankedTeamInfoOut.SocialPartySize = FMath::Max(RankedTeamInfoOut.SocialPartySize, PS->PartySize);
 		}
 	}
 }
@@ -4428,4 +4466,23 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 			}
 		}
 	});
+}
+
+void AUTGameMode::SendLobbyMessage(const FString& Message, AUTPlayerState* Sender)
+{
+	if (LobbyBeacon && Sender)
+	{
+		LobbyBeacon->Lobby_ReceiveUserMessage(Message, Sender->PlayerName);
+	}
+}
+int32 AUTGameMode::LoadoutPackIsValid(const FName& PackTag)
+{
+	for (int32 i=0; i < AvailableLoadoutPacks.Num(); i++)
+	{
+		if (AvailableLoadoutPacks[i].PackInfo.PackTag == PackTag)
+		{
+			return i;
+		}
+	}
+	return INDEX_NONE;
 }

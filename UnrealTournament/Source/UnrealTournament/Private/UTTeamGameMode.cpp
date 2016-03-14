@@ -361,8 +361,8 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 		}
 		else if (BestSize > 0)
 		{
-			int32 NewElo = GetEloFor(PS);
-			if (IsValidElo(PS) && NewElo > AverageElo)
+			int32 NewElo = GetEloFor(PS, bRankedSession);
+			if (IsValidElo(PS, bRankedSession) && NewElo > AverageElo)
 			{
 				return WorstTeam->TeamIndex;
 			}

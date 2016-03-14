@@ -390,6 +390,9 @@ private:
 	// If true, a login failure will not prompt for a password.  This is for the initial auto-login sequence
 	bool bSilentLoginFail;
 
+	bool bIsPendingProfileLoadFromMCP;
+	bool bIsPendingProgressionLoadFromMCP;
+
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
@@ -434,6 +437,8 @@ public:
 		virtual void SaveProgression();
 	virtual UUTProgressionStorage* GetProgressionStorage() { return CurrentProgression; }
 
+	bool IsPendingMCPLoad() const;
+
 protected:
 
 	// Holds the current profile settings.  
@@ -470,11 +475,13 @@ private:
 	int32 FFA_ELO;	// The Player's current FFA ELO rank
 	int32 CTF_ELO;	// The Player's current CTF ELO rank
 	int32 Showdown_ELO;
+	int32 RankedShowdown_ELO;
 	int32 DuelMatchesPlayed;	// The # of matches this player has played.
 	int32 TDMMatchesPlayed;	// The # of matches this player has played.
 	int32 FFAMatchesPlayed;	// The # of matches this player has played.
 	int32 CTFMatchesPlayed;	// The # of matches this player has played.
 	int32 ShowdownMatchesPlayed;	// The # of matches this player has played.
+	int32 RankedShowdownMatchesPlayed;	// The # of matches this player has played.
 
 	int32 ShowdownLeaguePlacementMatches;
 	int32 ShowdownLeaguePoints;
@@ -485,9 +492,9 @@ private:
 	bool bShowdownLeaguePromotionSeries;
 	
 	bool bProgressionReadFromCloud;
-	int32 ELOReportCount;
-	void ReadELOFromBackend();
-	void CheckReportELOandStarsToServer();
+	void ReadMMRFromBackend();
+
+	void ReportStarsToServer();
 
 	void ReadCloudFileListing();
 public:
@@ -505,12 +512,14 @@ public:
 	inline virtual int32 GetRankDM() { return FFA_ELO; }
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
 	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
+	inline virtual int32 GetRankRankedShowdown() { return RankedShowdown_ELO; }
 
 	virtual int32 DuelEloMatches() { return DuelMatchesPlayed; }
 	virtual int32 CTFEloMatches() { return CTFMatchesPlayed; }
 	virtual int32 TDMEloMatches() { return TDMMatchesPlayed; }
 	virtual int32 DMEloMatches() { return FFAMatchesPlayed; }
 	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
+	virtual int32 RankedShowdownEloMatches() { return RankedShowdownMatchesPlayed; }
 
 	inline virtual int32 GetShowdownPlacementMatches() { return ShowdownLeaguePlacementMatches; }
 	inline virtual int32 GetShowdownLeagueTier() { return ShowdownLeagueTier; }
@@ -710,7 +719,16 @@ public:
 	TSharedPtr<SUTDialogBase> YoutubeDialog;
 	TSharedPtr<class SUTYoutubeConsentDialog> YoutubeConsentDialog;
 
+	TSharedPtr<class SUTMatchmakingRegionDialog> MatchmakingRegionDialog;
+
+	TSharedPtr<class SUTMatchmakingDialog> MatchmakingDialog;
+	void MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
+
+	void ShowRegionSelectDialog();
+	void ShowMatchmakingDialog();
+	void HideMatchmakingDialog();
+	bool IsPartyLeader();
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);
 
@@ -867,7 +885,7 @@ public:
 #endif
 
 	/** Matchmaking related items */
-	void StartSoloQueueMatchmaking(int32 PlaylistId);
+	void StartMatchmaking(int32 PlaylistId);
 
 	void InvalidateLastSession();
 	void Reconnect(bool bAsSpectator);
@@ -925,6 +943,7 @@ public:
 	virtual void VerifyChatWidget();
 
 	TSharedPtr<SUTChatEditBox> GetChatWidget();
+	virtual void FocusWidget(TSharedPtr<SWidget> WidgetToFocus);
 #endif
 
 	FText UIChatTextBuffer;

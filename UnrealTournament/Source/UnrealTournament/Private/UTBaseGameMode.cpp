@@ -432,12 +432,12 @@ void AUTBaseGameMode::RconNormal(AUTBasePlayerController* Admin)
 	}
 }
 
-bool AUTBaseGameMode::IsValidElo(AUTPlayerState* PS) const
+bool AUTBaseGameMode::IsValidElo(AUTPlayerState* PS, bool bRankedSession) const
 {
-	return (PS && (GetNumMatchesFor(PS) >= 10));
+	return (PS && (GetNumMatchesFor(PS, bRankedSession) >= 10));
 }
 
-uint8 AUTBaseGameMode::GetNumMatchesFor(AUTPlayerState* PS) const
+uint8 AUTBaseGameMode::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
 {
 	if (!PS)
 	{
@@ -450,7 +450,7 @@ uint8 AUTBaseGameMode::GetNumMatchesFor(AUTPlayerState* PS) const
 	return MaxMatches;
 }
 
-int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS) const
+int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
 {
 	if (!PS)
 	{
@@ -458,7 +458,7 @@ int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS) const
 	}
 
 	int32 MaxElo = 0;
-	if (IsValidElo(PS))
+	if (IsValidElo(PS, bRankedSession))
 	{
 		//only consider valid Elos
 		if (PS->DuelMatchesPlayed >= 10)
@@ -493,7 +493,7 @@ int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS) const
 	return MaxElo;
 }
 
-void AUTBaseGameMode::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTBaseGameMode::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 }
 

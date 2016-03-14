@@ -29,7 +29,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 		RootComponent = CollisionComp;
 	}
 
-	OverlapRadius = 10.f;
+	OverlapRadius = 8.f;
 	PawnOverlapSphere = ObjectInitializer.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("AssistSphereComp"));
 	if (PawnOverlapSphere != NULL)
 	{

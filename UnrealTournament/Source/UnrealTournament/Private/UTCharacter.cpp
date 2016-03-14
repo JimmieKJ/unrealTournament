@@ -168,6 +168,13 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	SlideTargetHeight = 55.f;
 
 	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
+	CustomDepthCount = 0;
+	bTacComEnabled = false;
+	bSelectionEnabled = false;
+	FFAColor = 0;
+
+	MaxSpeedPctModifier = 1.0f;
+
 }
 
 float AUTCharacter::GetWeaponBobScaling()
@@ -261,6 +268,8 @@ void AUTCharacter::BeginPlay()
 
 void AUTCharacter::PostInitializeComponents()
 {
+	MaxSpeedPctModifier = 1.0f;
+
 	Super::PostInitializeComponents();
 	if ((GetNetMode() == NM_DedicatedServer) || (GetCachedScalabilityCVars().DetailMode == 0))
 	{
@@ -651,7 +660,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	FVector Z = RotMatrix.GetScaledAxis(EAxis::Z);
 
 	float InterpTime = FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime);
-	if (!GetCharacterMovement() || GetCharacterMovement()->IsFalling())
+	if (!GetCharacterMovement() || (GetCharacterMovement()->IsFalling() && !bApplyWallSlide))
 	{
 		// interp out weapon bob if falling
 		BobTime = 0.f;
@@ -692,7 +701,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		}
 
 		// play footstep sounds when weapon changes bob direction if walking
-		if (GetCharacterMovement()->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
+		if ((bApplyWallSlide || GetCharacterMovement()->MovementMode == MOVE_Walking) && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
 			&& (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) && !GetMesh()->bRecentlyRendered)
 		{
 			PlayFootstep((LastFoot + 1) & 1, true);
@@ -1366,6 +1375,7 @@ void AUTCharacter::StartRagdoll()
 	if (bTearOff || !bFeigningDeath)
 	{
 		UpdateTacComMesh(false);
+		UpdateSelectionMesh(false);
 	}
 
 	SetActorEnableCollision(true);
@@ -1539,7 +1549,6 @@ void AUTCharacter::PlayDying()
 
 	SetAmbientSound(NULL);
 	SetLocalAmbientSound(NULL);
-
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
@@ -1572,6 +1581,10 @@ void AUTCharacter::PlayDying()
 		}
 		else
 		{
+			if (!UTDmg || !UTDmg.GetDefaultObject()->OverrideDeathSound(this))
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DeathSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
+			}
 			if (!bFeigningDeath)
 			{
 				StartRagdoll();
@@ -1803,6 +1816,7 @@ void AUTCharacter::PlayFeignDeath()
 {
 	if (bFeigningDeath)
 	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DeathSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 		DropFlag();
 
 		if (TauntCount > 0)
@@ -2430,6 +2444,7 @@ bool AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 				}
 			}
 
+			InvToAdd->UpdateHUDText();
 			return true;
 		}
 	}
@@ -2683,6 +2698,13 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 	{
 		GhostComponent->GhostSwitchWeapon(Weapon);
 	}
+
+	// Reset the speed modifier if we need to.
+	if (Role == ROLE_Authority)
+	{
+		ResetMaxSpeedPctModifier();
+	}
+
 }
 
 void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
@@ -2885,6 +2907,9 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponSkins, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, VisibilityMask, COND_None);
+
+	DOREPLIFETIME_CONDITION(AUTCharacter, MaxSpeedPctModifier, COND_None);
 }
 
 static AUTWeapon* SavedWeapon = NULL;
@@ -2928,19 +2953,43 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	// call right there.  If you are using the loadout system and want to insure a player has some default items, use bDefaultInclude and make sure their cost is 0.
 
 	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
-	if (UTPlayerState && UTPlayerState->Loadout.Num() > 0)
+	if (UTPlayerState)
 	{
-		for (int32 i=0; i < UTPlayerState->Loadout.Num(); i++)
+		if ( UTPlayerState->Loadout.Num() > 0 )
 		{
-			if (UTPlayerState->GetAvailableCurrency() >= UTPlayerState->Loadout[i]->CurrentCost)
+			for (int32 i=0; i < UTPlayerState->Loadout.Num(); i++)
 			{
-				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
-				UTPlayerState->AdjustCurrency(UTPlayerState->Loadout[i]->CurrentCost * -1);
+				if (UTPlayerState->GetAvailableCurrency() >= UTPlayerState->Loadout[i]->CurrentCost)
+				{
+					AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+					UTPlayerState->AdjustCurrency(UTPlayerState->Loadout[i]->CurrentCost * -1);
+				}
 			}
+
+			return;
 		}
 
-		return;
+		if (UTPlayerState->CurrentLoadoutPackTag != NAME_None)
+		{
+			// Verify it's valid.
+			AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if ( UTGameMode )
+			{
+				int32 PackIndex = UTGameMode->LoadoutPackIsValid(UTPlayerState->CurrentLoadoutPackTag);
+				if (PackIndex != INDEX_NONE && PackIndex < UTGameMode->AvailableLoadoutPacks.Num())
+				{
+					for (int32 i=0; i < UTGameMode->AvailableLoadoutPacks[PackIndex].LoadoutCache.Num(); i++)
+					{
+						AUTReplicatedLoadoutInfo* Info = UTGameMode->AvailableLoadoutPacks[PackIndex].LoadoutCache[i];
+						AddInventory(GetWorld()->SpawnActor<AUTInventory>(Info->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+					}
 
+					Health += UTGameMode->AvailableLoadoutPacks[PackIndex].SpawnHealthModifier;
+					return;
+				}
+			}
+		
+		}
 	}
 
 	// Add the default character inventory
@@ -2953,6 +3002,26 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	for (int32 i=0;i<DefaultInventoryToAdd.Num();i++)
 	{
 		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
+	}
+}
+
+void AUTCharacter::SetInitialHealth_Implementation()
+{
+	Health = HealthMax;
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+
+	if (UTPlayerState && UTPlayerState->CurrentLoadoutPackTag != NAME_None)
+	{
+		// Verify it's valid.
+		AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if ( UTGameMode )
+		{
+			int32 PackIndex = UTGameMode->LoadoutPackIsValid(UTPlayerState->CurrentLoadoutPackTag);
+			if (PackIndex != INDEX_NONE && PackIndex < UTGameMode->AvailableLoadoutPacks.Num())
+			{
+				Health += UTGameMode->AvailableLoadoutPacks[PackIndex].SpawnHealthModifier;
+			}
+		}
 	}
 }
 
@@ -3097,37 +3166,45 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 	}
 	else
 	{
-		float PawnRadius, PawnHalfHeight;
-		GetCapsuleComponent()->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
-
-		static FName NAME_FootstepTrace(TEXT("FootstepTrace"));
-		FCollisionQueryParams QueryParams(NAME_FootstepTrace, false, this);
-		QueryParams.bReturnPhysicalMaterial = true;
-		QueryParams.bTraceAsyncScene = true;
-		const float ShrinkHeight = PawnHalfHeight;
-		const FVector LineTraceStart = GetCapsuleComponent()->GetComponentLocation();
-		const float TraceDist = 40.0f + ShrinkHeight;
-		const FVector Down = FVector(0.f, 0.f, -TraceDist);
-
 		const bool bLocalViewer = (GetLocalViewer() != nullptr);
-		USoundBase* FootstepSoundToPlay = FootstepSound;
+		USoundBase* FootstepSoundToPlay = bLocalViewer ? OwnFootstepSound : FootstepSound;
 
-		if (bLocalViewer)
+		if (bApplyWallSlide)
 		{
-			FootstepSoundToPlay = OwnFootstepSound;
-		}
-
-		FHitResult Hit(1.f);
-		bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, LineTraceStart, LineTraceStart + Down, GetCapsuleComponent()->GetCollisionObjectType(), QueryParams);
-		if (bBlockingHit)
-		{
-			if (Hit.PhysMaterial.IsValid())
+			if (UTCharacterMovement && UTCharacterMovement->WallRunMaterial)
 			{
-				EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+				EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(UTCharacterMovement->WallRunMaterial);
 				USoundBase* NewFootStepSound = GetFootstepSoundForSurfaceType(SurfaceType, bLocalViewer);
 				if (NewFootStepSound)
 				{
 					FootstepSoundToPlay = NewFootStepSound;
+				}
+			}
+		}
+		else
+		{
+			static FName NAME_FootstepTrace(TEXT("FootstepTrace"));
+			FCollisionQueryParams QueryParams(NAME_FootstepTrace, false, this);
+			QueryParams.bReturnPhysicalMaterial = true;
+			QueryParams.bTraceAsyncScene = true;
+			float PawnRadius, PawnHalfHeight;
+			GetCapsuleComponent()->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
+			const FVector LineTraceStart = GetCapsuleComponent()->GetComponentLocation();
+			const float TraceDist = 40.0f + PawnHalfHeight;
+			const FVector Down = FVector(0.f, 0.f, -TraceDist);
+
+			FHitResult Hit(1.f);
+			bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, LineTraceStart, LineTraceStart + Down, GetCapsuleComponent()->GetCollisionObjectType(), QueryParams);
+			if (bBlockingHit)
+			{
+				if (Hit.PhysMaterial.IsValid())
+				{
+					EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+					USoundBase* NewFootStepSound = GetFootstepSoundForSurfaceType(SurfaceType, bLocalViewer);
+					if (NewFootStepSound)
+					{
+						FootstepSoundToPlay = NewFootStepSound;
+					}
 				}
 			}
 		}
@@ -3564,6 +3641,19 @@ void AUTCharacter::UpdateCharOverlays()
 				CharOverlayFlags &= ~(1 << Index);
 			}
 		}
+
+		Index = GS->FindOverlayMaterial(SelectionOverlayMaterial);
+		if (Index != INDEX_NONE)
+		{
+			if (bSelectionEnabled)
+			{
+				CharOverlayFlags |= (1 << Index);
+			}
+			else
+			{
+				CharOverlayFlags &= ~(1 << Index);
+			}
+		}
 	}
 	if (CharOverlayFlags == 0)
 	{
@@ -3611,10 +3701,12 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); // make sure because could be in ragdoll
 			OverlayMesh->SetSimulatePhysics(false);
 			OverlayMesh->SetCastShadow(false);
+			OverlayMesh->SetMasterPoseComponent(GetMesh());
 			OverlayMesh->BoundsScale = 15000.f;
 			OverlayMesh->InvalidateCachedBounds();
 			OverlayMesh->UpdateBounds();
-			OverlayMesh->SetMasterPoseComponent(GetMesh());
+			OverlayMesh->bVisible = true;
+			OverlayMesh->bHiddenInGame = false;
 		}
 		if (!OverlayMesh->IsRegistered())
 		{
@@ -3622,6 +3714,7 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
 			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			OverlayMesh->SetRenderCustomDepth(true);
+			OverlayMesh->LastRenderTime = GetMesh()->LastRenderTime;
 		}
 
 		FOverlayEffect FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
@@ -3692,15 +3785,33 @@ void AUTCharacter::UpdateCharOverlays()
 
 void AUTCharacter::UpdateTacComMesh(bool bNewTacComEnabled)
 {
-	bTacComEnabled = bNewTacComEnabled;
+	if (bTacComEnabled != bNewTacComEnabled)
+	{
+		bTacComEnabled = bNewTacComEnabled;
+		CustomDepthCount += bTacComEnabled ? 1 : -1;
 
-	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-	GetMesh()->SetRenderCustomDepth(bTacComEnabled);
-	//GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
-	//GetMesh()->InvalidateCachedBounds();
-	//GetMesh()->UpdateBounds();
+		GetMesh()->MeshComponentUpdateFlag = CustomDepthCount > 0 ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+		GetMesh()->SetRenderCustomDepth(CustomDepthCount > 0);
+		//GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
+		//GetMesh()->InvalidateCachedBounds();
+		//GetMesh()->UpdateBounds();
 
-	UpdateCharOverlays();
+		UpdateCharOverlays();
+	}
+}
+
+void AUTCharacter::UpdateSelectionMesh(bool bNewSelectionEnabled)
+{
+	if (bSelectionEnabled != bNewSelectionEnabled)
+	{
+		bSelectionEnabled = bNewSelectionEnabled;
+		CustomDepthCount += bSelectionEnabled ? 1 : -1;
+
+		GetMesh()->MeshComponentUpdateFlag = CustomDepthCount > 0 ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+		GetMesh()->SetRenderCustomDepth(CustomDepthCount > 0);
+
+		UpdateCharOverlays();
+	}
 }
 
 UMaterialInstanceDynamic* AUTCharacter::GetCharOverlayMI()
@@ -3840,7 +3951,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 
 	if (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !GetMesh()->bRecentlyRendered && (!IsLocallyControlled() || !Cast<APlayerController>(GetController()))
-		&& GetCharacterMovement()->MovementMode == MOVE_Walking && !bFeigningDeath && !IsDead())
+		&& (bApplyWallSlide || GetCharacterMovement()->MovementMode == MOVE_Walking) && !bFeigningDeath && !IsDead())
 	{
 		// TODO: currently using an arbitrary made up interval and scale factor
 		float Speed = GetCharacterMovement()->Velocity.Size();
@@ -3952,6 +4063,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		// smooth up/down stairs
 		if (GetCharacterMovement()->bJustTeleported && (FMath::Abs(OldZ - GetActorLocation().Z) > GetCharacterMovement()->MaxStepHeight))
 		{
+//			UE_LOG(UT, Warning, TEXT("TELEP"));
 			EyeOffset.Z = 0.f;
 		}
 		else
@@ -4010,6 +4122,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		EyeOffset.Z = (1.f - InterpTimeZ)*EyeOffset.Z + InterpTimeZ*TargetEyeOffset.Z;
 	}
 	EyeOffset.DiagnosticCheckNaN();
+//	UE_LOG(UT, Warning, TEXT("EyeOffset %f"), EyeOffset.Z);
 	TargetEyeOffset.X *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.X*DeltaTime));
 	TargetEyeOffset.Y *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Y*DeltaTime));
 	TargetEyeOffset.Z *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Z*DeltaTime));
@@ -4360,8 +4473,15 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());
 		GetMesh()->OverrideMaterials = Data->Mesh->OverrideMaterials;
-		// FIXME: TEMP FOR GDC: team override materials
-		if (PS != NULL && PS->Team != NULL)
+		if (Data->DMSkinType == EDMSkin_Base)
+		{
+			FFAColor = 255;
+		}
+		else
+		{
+			FFAColor = (Data->DMSkinType == EDMSkin_Blue) ? 1 : 0;
+		}
+		if ((PS != NULL && PS->Team != NULL) || (FFAColor != 255))
 		{
 			GetMesh()->OverrideMaterials.SetNumZeroed(FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()));
 			for (int32 i = GetMesh()->OverrideMaterials.Num() - 1; i >= 0; i--)
@@ -4407,21 +4527,16 @@ void AUTCharacter::NotifyTeamChanged()
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS != NULL)
 	{
-		// FIXME: TEMP FOR GDC: always need to do this due to team override materials
-		//if (PS->GetSelectedCharacter() != NULL)
-		{
-			ApplyCharacterData(PS->GetSelectedCharacter());
-		}
+		ApplyCharacterData(PS->GetSelectedCharacter());
 		for (UMaterialInstanceDynamic* MI : BodyMIs)
 		{
 			if (MI != NULL)
 			{
 				static FName NAME_TeamColor(TEXT("TeamColor"));
-				if (PS->Team != NULL)
+				if ((PS->Team != NULL)  || (FFAColor != 255))
 				{
-					MI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-					// FIXME: GDC hack: material only supports two team colors at the moment...
-					MI->SetScalarParameterValue(TEXT("TeamSelect"), float(PS->Team->TeamIndex));
+					float SkinSelect = PS->Team ? PS->Team->TeamIndex : FFAColor;
+					MI->SetScalarParameterValue(TEXT("TeamSelect"), SkinSelect);
 				}
 				else
 				{
@@ -5774,3 +5889,40 @@ void AUTCharacter::UpdateWeaponSkin()
 		}
 	}
 }
+
+void AUTCharacter::AddVisibilityMask(int32 Channel)
+{
+	if (Channel < 0 || Channel > 32)
+	{
+		return;
+	}
+
+	VisibilityMask |= (1 << Channel);
+}
+
+void AUTCharacter::RemoveVisibilityMask(int32 Channel)
+{
+	if (Channel < 0 || Channel > 32)
+	{
+		return;
+	}
+
+	VisibilityMask &= ~(1 << Channel);
+}
+
+
+void AUTCharacter::ResetMaxSpeedPctModifier()
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->bWeightedCharacter)
+	{
+		AUTCarriedObject* CarriedObject = GetCarriedObject();
+		MaxSpeedPctModifier = (CarriedObject) ? CarriedObject->WeightSpeedPctModifier : 1.0f;
+		MaxSpeedPctModifier = (MaxSpeedPctModifier == 1.0 && Weapon) ? Weapon->WeightSpeedPctModifier : MaxSpeedPctModifier;
+	}
+	else
+	{
+		MaxSpeedPctModifier = 1.0f;
+	}
+}
+

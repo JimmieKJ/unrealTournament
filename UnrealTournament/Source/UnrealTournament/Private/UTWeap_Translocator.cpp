@@ -41,9 +41,44 @@ void AUTWeap_Translocator::PostInitProperties()
 	Group = DefaultGroup;
 }
 
-FText AUTWeap_Translocator::GetHUDText() const
+void AUTWeap_Translocator::UpdateHUDText()
 {
-	return FText::FromString(TEXT("Q"));
+	FString NewTranslocatorKeyString("");
+
+	if (UTOwner)
+	{
+		AUTPlayerController* PlayerController = Cast<AUTPlayerController>(UTOwner->GetController());
+		if (PlayerController)
+		{
+			UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PlayerController->PlayerInput);
+			if (UTPlayerInput)
+			{
+				bool foundTranslocatorAlready = false;
+
+				TArray<FCustomKeyBinding>& CustomBinds = UTPlayerInput->CustomBinds;
+				for (int index = 0; index < CustomBinds.Num(); ++index)
+				{
+					if (CustomBinds[index].KeyName.ToString() != "None")
+					{
+						if (CustomBinds[index].Command == "ToggleTranslocator")
+						{
+							NewTranslocatorKeyString = CustomBinds[index].KeyName.ToString();
+
+							//If we have found a keybind for ToggleTranslocator don't bother going through the rest
+							break;
+						}
+						//Only use SelectTranslocator if we haven't already found a valid ToggleTranslocator above
+						else if ((CustomBinds[index].Command == "SelectTranslocator") && (NewTranslocatorKeyString == ""))
+						{
+							NewTranslocatorKeyString = CustomBinds[index].KeyName.ToString();
+						}
+					}
+				}
+			}
+		}
+	}
+
+	HUDText = FText::FromString(NewTranslocatorKeyString);
 }
 
 bool AUTWeap_Translocator::HUDShouldRender_Implementation(UUTHUDWidget* TargetWidget)
@@ -333,6 +368,7 @@ void AUTWeap_Translocator::DropFrom(const FVector& StartLocation, const FVector&
 {
 	Destroy();
 }
+
 void AUTWeap_Translocator::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);

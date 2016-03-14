@@ -9,10 +9,10 @@
 #include <map>
 #include <string>
 #include <set>
+#include "CustomStdAllocator.h"
 
-
-typedef std::map<std::string, ir_variable*> TStringIRVarMap;
-typedef std::map<std::string, TStringIRVarMap> TStringStringIRVarMap;
+typedef std::map<FCustomStdString, ir_variable*> TStringIRVarMap;
+typedef std::map<FCustomStdString, TStringIRVarMap> TStringStringIRVarMap;
 typedef std::list<ir_variable*> TIRVarList;
 
 

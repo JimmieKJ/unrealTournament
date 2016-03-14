@@ -587,7 +587,7 @@ public:
 	virtual void NotifyJumpApex() override;
 
 	//=========================================
-	// Wall Slide
+	// Wall Run
 
 	/**  Max Falling velocity Z to get slide */
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
@@ -617,9 +617,13 @@ public:
 	UPROPERTY()
 	float LastCheckedAgainstWall;
 
-	/** Normal of the wall we are sliding against. */
+	/** Normal of the wall we are wall running against. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	FVector WallSlideNormal;
+
+	/** Wall material we are wall running against. */
+	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
+		UPhysicalMaterial* WallRunMaterial;
 
 	virtual void HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta) override;
 

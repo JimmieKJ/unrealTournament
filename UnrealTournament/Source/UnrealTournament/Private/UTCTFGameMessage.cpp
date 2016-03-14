@@ -18,7 +18,13 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
-
+	NoReturnMessage = NSLOCTEXT("CTFGameMessage", "NoPickupFlag", "You can't pick up this flag.");
+	CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base!");
+	PreventCapMessage = NSLOCTEXT("CTFGameMessage", "StopEnemyFlag", "Keep other team's flag out, and exhaust their lives");
+	CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "RCTFRules", "Capture or kill to win.");
+	RedFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "RedFlagDelay", "Red Flag can be picked up in");
+	BlueFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BlueFlagDelay", "Blue Flag can be picked up in");
+	BothFlagDelayMessage = NSLOCTEXT("CTFGameMessage", "BothFlagDelay", "Flags can be picked up in");
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 }
@@ -44,6 +50,13 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 9 : return CaptureMessage; break;
 		case 11: return HalftimeMessage; break;
 		case 12: return OvertimeMessage; break;
+		case 13: return NoReturnMessage; break;
+		case 14: return CapFlagMessage; break;
+		case 15: return PreventCapMessage; break;
+		case 16: return CapAndKillMessage; break;
+		case 17: return RedFlagDelayMessage; break;
+		case 18: return BlueFlagDelayMessage; break;
+		case 19: return BothFlagDelayMessage; break;
 	}
 	return FText::GetEmpty();
 }
@@ -152,4 +165,13 @@ FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	const AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
 	uint8 TeamNum = (TeamInfo != NULL) ? TeamInfo->GetTeamNum() : 0;
 	return GetTeamAnnouncement(Switch, TeamNum);
+}
+
+float UUTCTFGameMessage::Blueprint_GetLifeTime_Implementation(int32 Switch) const
+{
+	if ((Switch == 14) || (Switch == 15) || (Switch == 16))
+	{
+		return 8.f;
+	}
+	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
 }

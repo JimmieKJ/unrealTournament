@@ -42,6 +42,9 @@ public:
 
 	/** @return delegate when party join fails */
 	FOnPartyJoinComplete& OnPartyJoinComplete() { return PartyJoinComplete; }
+
+	void SetSession(const FOnlineSessionSearchResult& InSearchResult);
+
 private:
 
 	UUTGameInstance* GetUTGameInstance() const;

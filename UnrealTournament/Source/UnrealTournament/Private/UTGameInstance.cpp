@@ -9,6 +9,7 @@
 #include "UTGameViewportClient.h"
 #include "UTMatchmaking.h"
 #include "UTParty.h"
+#include "UTPartyGameState.h"
 #include "UTPlaylistManager.h"
 
 /* Delays for various timers during matchmaking */
@@ -39,14 +40,17 @@ void UUTGameInstance::Init()
 		Matchmaking = NewObject<UUTMatchmaking>(this);
 		check(Matchmaking);
 
-		// Don't turn on parties yet
-		// party management
-		//Party = NewObject<UUTParty>(this);
-		//check(Party);
+		Party = NewObject<UUTParty>(this);
+		check(Party);
 
 		// Initialize both after construction (each needs the pointer of the other)
 		Matchmaking->Init();
-		//Party->Init();
+
+		if (Party)
+		{
+			Party->Init();
+		}
+		PlaylistManager = NewObject<UUTPlaylistManager>(this);
 	}
 	else
 	{
@@ -374,6 +378,20 @@ UUTPlaylistManager* UUTGameInstance::GetPlaylistManager() const
 	return PlaylistManager;
 }
 
+bool UUTGameInstance::IsInSession(const FUniqueNetId& SessionId) const
+{
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(/*World*/);
+	if (SessionInt.IsValid())
+	{
+		FNamedOnlineSession* Session = SessionInt->GetNamedSession(GameSessionName);
+		if (Session && Session->SessionInfo.IsValid() && Session->SessionInfo->GetSessionId() == SessionId)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void UUTGameInstance::SafeSessionDelete(FName SessionName, FOnDestroySessionCompleteDelegate DestroySessionComplete)
 {
 	UWorld* World = GetWorld();
@@ -471,12 +489,16 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 			APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), ControllerId);
 			if (PC)
 			{
-				/*
 				UUTParty* Parties = GetParties();
 				if (Parties)
 				{
-					Parties->NotifyPreClientTravel();
-				}*/
+					UUTPartyGameState* PartyGameState = Parties->GetUTPersistentParty();
+					if (PartyGameState)
+					{
+						URL += TEXT("?PartySize=") + FString::FromInt(PartyGameState->GetPartySize());
+					}
+					//Parties->NotifyPreClientTravel();
+				}
 
 				PC->ClientTravel(URL, TRAVEL_Absolute);
 				return true;

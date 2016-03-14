@@ -18,6 +18,7 @@ void AUTReplicatedLoadoutInfo::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME_CONDITION(AUTReplicatedLoadoutInfo, ItemTag, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTReplicatedLoadoutInfo, ItemClass, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTReplicatedLoadoutInfo, RoundMask, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTReplicatedLoadoutInfo, bDefaultInclude, COND_InitialOnly);

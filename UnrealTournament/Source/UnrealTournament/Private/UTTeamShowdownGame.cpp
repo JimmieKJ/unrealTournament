@@ -34,8 +34,6 @@ void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Option
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bAutoGrantNearestWeapon = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("AutoGrantWeapon")), bAutoGrantNearestWeapon);
-
 	// skip Duel overrides we don't want
 	if (bOfflineChallenge)
 	{
@@ -87,42 +85,6 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 {
 	Super::RestartPlayer(aPlayer);
-
-	if (bAutoGrantNearestWeapon)
-	{
-		AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
-		if (UTC != NULL)
-		{
-			AUTPickupWeapon* Best = NULL;
-			float BestDistSq = FMath::Square<float>(2500.0f); // max allowed
-			for (TActorIterator<AUTPickupWeapon> It(GetWorld()); It; ++It)
-			{
-				// note: we don't check if the pickup is active - intentional so that multiple players near a single weapon all get one
-				if (It->GetInventoryType() != NULL && It->GetInventoryType()->IsChildOf(AUTWeapon::StaticClass()))
-				{
-					float DistSq = (It->GetActorLocation() - UTC->GetActorLocation()).SizeSquared();
-					if (DistSq < BestDistSq)
-					{
-						Best = *It;
-						BestDistSq = DistSq;
-					}
-				}
-			}
-			if (Best != NULL)
-			{
-				AUTWeapon* NewWeapon = GetWorld()->SpawnActor<AUTWeapon>(Best->GetInventoryType());
-				if (NewWeapon != NULL)
-				{
-					UTC->AddInventory(NewWeapon, true);
-					// turn off the pickup for the actual game (note that this doesn't prevent further autogrants, see above)
-					if (Best->State.bActive)
-					{
-						Best->StartSleeping();
-					}
-				}
-			}
-		}
-	}
 
 	// go to spectating if dead and can't respawn
 	if (!bAllowPlayerRespawns && IsMatchInProgress() && aPlayer->GetPawn() == NULL)
@@ -291,11 +253,11 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 					{
 						if (KillerPS && (KillerPS->RoundKills >= FMath::Min(3, TeamCount)))
 						{
-							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 4, NULL, NULL, NULL);
 						}
 						else
 						{
-							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, OtherPS, NULL, NULL);
 						}
 					}
 					KillerTeam->Score += 1;
@@ -424,7 +386,6 @@ void AUTTeamShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePrope
 {
 	Super::CreateGameURLOptions(MenuProps);
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
-	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bAutoGrantNearestWeapon, TEXT("AutoGrantWeapon"))));
 }
 #if !UE_SERVER
 void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
@@ -432,7 +393,6 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 	CreateGameURLOptions(ConfigProps);
 
 	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("BotFill")));
-	TSharedPtr< TAttributePropertyBool > GrantWeaponAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("AutoGrantWeapon")));
 
 	if (CombatantsAttr.IsValid())
 	{
@@ -486,50 +446,5 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 	}
 
 	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
-
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "AutoGrantWeapon", "Auto Pickup Nearest Weapon"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 10.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(GrantWeaponAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(GrantWeaponAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.OnCheckStateChanged(GrantWeaponAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				)
-			]
-		]
-	];
 }
 #endif

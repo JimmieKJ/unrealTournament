@@ -61,7 +61,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 11.f;
+	GroundFriction = 10.5f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
@@ -117,6 +117,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bCountWallSlides = true;
 	LastCheckedAgainstWall = 0.f;
 	bIsSettingUpFirstReplayMove = false;
+	bUseFlatBaseForFloorChecks = true;
 
 	EasyImpactImpulse = 1100.f;
 	EasyImpactDamage = 25;
@@ -827,6 +828,9 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
 	float SpeedXY = FMath::Min(Velocity.Size(), DodgeMaxHorizontalVelocity);
+
+	SpeedXY *= UTCharOwner ? UTCharOwner->MaxSpeedPctModifier : 1.0f;
+
 	Velocity = SpeedXY*Velocity.GetSafeNormal();
 	if (IsMovingOnGround())
 	{
@@ -1088,15 +1092,17 @@ bool UUTCharacterMovement::CanSprint() const
 
 float UUTCharacterMovement::GetMaxSpeed() const
 {
+	float FinalMaxSpeed = 0.0f;
+
 	// ignore standard movement while character is a ragdoll
 	if (Cast<AUTCharacter>(CharacterOwner) != NULL && ((AUTCharacter*)CharacterOwner)->IsRagdoll())
 	{
 		// small non-zero number used to avoid divide by zero issues
-		return 0.01f;
+		FinalMaxSpeed = 0.01f;
 	}
 	else if (bIsTaunting)
 	{
-		return 0.01f;
+		FinalMaxSpeed = 0.01f;
 	}
 	else if (bIsFloorSliding && (MovementMode == MOVE_Walking))
 	{
@@ -1105,23 +1111,34 @@ float UUTCharacterMovement::GetMaxSpeed() const
 		if ((CurrentSpeed > MaxFloorSlideSpeed) && (CurrentFloor.HitResult.ImpactNormal.Z < 1.f))
 		{
 			float TopSlideSpeed = FMath::Min(MaxInitialFloorSlideSpeed, CurrentSpeed);
-			return FMath::Min(TopSlideSpeed, MaxFloorSlideSpeed + FMath::Max(0.f, (Velocity | CurrentFloor.HitResult.ImpactNormal)));
+			FinalMaxSpeed = FMath::Min(TopSlideSpeed, MaxFloorSlideSpeed + FMath::Max(0.f, (Velocity | CurrentFloor.HitResult.ImpactNormal)));
 		}
-		return MaxFloorSlideSpeed;
+		else
+		{
+			FinalMaxSpeed = MaxFloorSlideSpeed;
+		}
 	}
 	else if (bFallingInWater && (MovementMode == MOVE_Falling))
 	{
-		return MaxWaterSpeed;
+		FinalMaxSpeed = MaxWaterSpeed;
 	}
 	else if (MovementMode == MOVE_Swimming)
 	{
 		AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(GetPhysicsVolume());
-		return WaterVolume ? FMath::Min(MaxSwimSpeed, WaterVolume->MaxRelativeSwimSpeed) : MaxSwimSpeed;
+		FinalMaxSpeed = WaterVolume ? FMath::Min(MaxSwimSpeed, WaterVolume->MaxRelativeSwimSpeed) : MaxSwimSpeed;
 	}
 	else
 	{
-		return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
+		FinalMaxSpeed = bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
 	}
+
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner)
+	{
+		return FinalMaxSpeed * UTCharOwner->MaxSpeedPctModifier;
+	}
+
+	return FinalMaxSpeed;
 }
 
 void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration)
@@ -1745,6 +1762,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 				FCollisionQueryParams CapsuleQuery(FallingTraceParamsTag, false, CharacterOwner);
 				FCollisionResponseParams ResponseParam;
 				InitCollisionParams(CapsuleQuery, ResponseParam);
+				CapsuleQuery.bReturnPhysicalMaterial = true;
 				const FVector PawnLocation = CharacterOwner->GetActorLocation();
 				const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
 				const bool bHit = GetWorld()->SweepSingleByChannel(Result, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
@@ -1757,6 +1775,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						// We are against the wall, store info about it
 						bIsAgainstWall = true;
 						WallSlideNormal = Result.Normal;
+						WallRunMaterial = Result.PhysMaterial.Get();
 						CheckWallSlide(Result);
 						if (UTCharOwner && UTCharOwner->bApplyWallSlide)
 						{

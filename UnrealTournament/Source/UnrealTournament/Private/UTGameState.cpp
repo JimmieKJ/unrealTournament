@@ -252,6 +252,9 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameOverStatus = NSLOCTEXT("UTGameState", "PostGame", "Game Over");
 	MapVoteStatus = NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
 	PreGameStatus = NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
+
+	bWeightedCharacter = false;
+
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -265,7 +268,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, TimeLimit);  
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);  
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
-	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);  
+	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bRankedSession, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  
@@ -294,6 +298,9 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayPlayerIntro, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, bForcedBalance);
+
+	DOREPLIFETIME(AUTGameState, SpawnPacks);
+	DOREPLIFETIME_CONDITION(AUTGameState, bWeightedCharacter, COND_InitialOnly);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -376,6 +383,7 @@ void AUTGameState::BeginPlay()
 			{
 				checkSlow(AllCharacters[i]->IsA(AUTCharacter::StaticClass()));
 				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->TacComOverlayMaterial);
+				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->SelectionOverlayMaterial);
 			}
 		}
 
@@ -390,6 +398,16 @@ void AUTGameState::BeginPlay()
 			}
 		}
 	}
+}
+
+float AUTGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
+{
+	return RespawnWaitTime;
+}
+
+void AUTGameState::SetRespawnWaitTime(float NewWaitTime)
+{
+	RespawnWaitTime = NewWaitTime;
 }
 
 float AUTGameState::GetClockTime()
@@ -951,6 +969,7 @@ void AUTGameState::AddLoadoutItem(const FLoadoutInfo& Item)
 	AUTReplicatedLoadoutInfo* NewLoadoutInfo = GetWorld()->SpawnActor<AUTReplicatedLoadoutInfo>(Params);
 	if (NewLoadoutInfo)
 	{
+		NewLoadoutInfo->ItemTag = Item.ItemTag;
 		NewLoadoutInfo->ItemClass = Item.ItemClass;	
 		NewLoadoutInfo->RoundMask = Item.RoundMask;
 		NewLoadoutInfo->CurrentCost = Item.InitialCost;
@@ -959,6 +978,19 @@ void AUTGameState::AddLoadoutItem(const FLoadoutInfo& Item)
 
 		AvailableLoadout.Add(NewLoadoutInfo);
 	}
+}
+
+AUTReplicatedLoadoutInfo* AUTGameState::FindLoadoutItem(const FName& ItemTag)
+{
+	for (int32 i=0; i < AvailableLoadout.Num();i++)
+	{
+		if (AvailableLoadout[i]->ItemTag == ItemTag)
+		{
+			return AvailableLoadout[i];
+		}
+	}
+
+	return nullptr;
 }
 
 void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float NewCost)
@@ -1638,6 +1670,11 @@ float AUTGameState::MatchHighlightScore(AUTPlayerState* PS)
 	return BestHighlightScore;
 }
 
+bool AUTGameState::AllowMinimapFor(AUTPlayerState* PS)
+{
+	return PS && (PS->bOnlySpectator || PS->bOutOfLives);
+}
+
 void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
 {
 	for (int32 i = 0; i < PlayerList.Num(); i++)
@@ -1669,7 +1706,7 @@ void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
 				{
 					AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerArray[i]);
 					AUTGameMode* DefaultGame = GameModeClass ? GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-					int32 Rank = UTPlayerState && DefaultGame ? DefaultGame->GetEloFor(UTPlayerState) : 0;
+					int32 Rank = UTPlayerState && DefaultGame ? DefaultGame->GetEloFor(UTPlayerState, bRankedSession) : 0;
 					FString PlayerIP = PlayerController->GetPlayerNetworkAddress();
 					FRconPlayerData PlayerInfo(PlayerArray[i]->PlayerName, PlayerID, PlayerIP, Rank);
 					PlayerList.Add( PlayerInfo );
@@ -1715,7 +1752,4 @@ void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	}
 
 	JsonObject->SetArrayField(TEXT("Players"),  PlayersJson);
-	
-
-
 }

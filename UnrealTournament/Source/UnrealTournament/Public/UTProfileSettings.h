@@ -167,6 +167,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	float ReplayCustomMotionBlurMax;
 
+	UPROPERTY()
+	FString MatchmakingRegion;
+
 	// the below have been moved to UTProgressionStorage and are only here for backwards compatibility
 private:
 	UPROPERTY()

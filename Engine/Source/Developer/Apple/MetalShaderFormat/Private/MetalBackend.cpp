@@ -1032,7 +1032,7 @@ protected:
 		{
 			check(numOps == 1);
 
-			std::string Type = expr->type->name;
+			FCustomStdString Type = expr->type->name;
 			Type = FixVecPrefix(Type);
 
 			ralloc_asprintf_append(buffer, "(%s(1.0) / ", Type.c_str());
@@ -1049,7 +1049,7 @@ protected:
 		}
 		else if (numOps == 1 && op >= ir_unop_first_conversion && op <= ir_unop_last_conversion)
 		{
-			std::string Type = expr->type->name;
+			FCustomStdString Type = expr->type->name;
 			Type = FixVecPrefix(Type);
 
 			ralloc_asprintf_append(buffer, "%s(", Type.c_str());
@@ -2329,7 +2329,7 @@ protected:
 		for (_mesa_glsl_parse_state::TUniformList::iterator Iter = Samplers.begin(); Iter != Samplers.end(); ++Iter)
 		{
 			glsl_packed_uniform& Sampler = *Iter;
-			std::string SamplerStates("");
+			FCustomStdString SamplerStates("");
 			TStringToSetMap::iterator IterFound = TextureToSamplerMap.find(Sampler.Name);
 			if (IterFound != TextureToSamplerMap.end())
 			{

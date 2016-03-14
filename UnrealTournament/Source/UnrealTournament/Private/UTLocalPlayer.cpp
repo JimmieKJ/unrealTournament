@@ -52,6 +52,7 @@
 #include "UTVideoRecordingFeature.h"
 #include "SUTYoutubeUploadDialog.h"
 #include "SUTYoutubeConsentDialog.h"
+#include "SUTMatchmakingDialog.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyPC.h"
 #include "StatNames.h"
@@ -69,6 +70,7 @@
 #include "PartyGameState.h"
 #include "IBlueprintContextModule.h"
 #include "SUTChatEditBox.h"
+#include "SUTMatchmakingRegionDialog.h"
 #include "UserWidget.h"
 #include "WidgetBlueprintLibrary.h"
 
@@ -102,7 +104,6 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bShowingFriendsMenu = false;
 
 	bProgressionReadFromCloud = false;
-	ELOReportCount = 0;
 
 	ShowdownLeaguePlacementMatches = 0;
 	ShowdownLeaguePoints = 0;
@@ -112,6 +113,9 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	ShowdownLeaguePromotionMatchesWon = 0;
 	bShowdownLeaguePromotionSeries = false;
 	UIChatTextBackBufferPosition = 0;
+
+	bIsPendingProgressionLoadFromMCP = false;
+	bIsPendingProfileLoadFromMCP = false;
 
 	bAutoRankLockWarningShown = false;
 }
@@ -804,6 +808,9 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 
 void UUTLocalPlayer::Logout()
 {
+	bIsPendingProfileLoadFromMCP = false;
+	bIsPendingProgressionLoadFromMCP = false;
+
 	if (IsLoggedIn() && OnlineIdentityInterface.IsValid())
 	{
 		// Begin the Login Process....
@@ -1012,6 +1019,9 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	// If we have logged out, or started using the local profile, then clear the online profile.
 	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)
 	{
+		bIsPendingProfileLoadFromMCP = false;
+		bIsPendingProgressionLoadFromMCP = false;
+
 		// Clear out the MCP storage
 		MCPPulledData.bValid = false;
 
@@ -1040,7 +1050,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
 		}
 
-		ReadELOFromBackend();
+		ReadMMRFromBackend();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
 		// query entitlements for UI
@@ -1344,6 +1354,7 @@ void UUTLocalPlayer::LoadProfileSettings()
 		{
 			if (OnlineUserCloudInterface.IsValid())
 			{
+				bIsPendingProfileLoadFromMCP = true;
 				OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
 			}
 		}
@@ -1381,6 +1392,7 @@ void UUTLocalPlayer::LoadProgression()
 		{
 			if (OnlineUserCloudInterface.IsValid())
 			{
+				bIsPendingProgressionLoadFromMCP = true;
 				OnlineUserCloudInterface->ReadUserFile(*UserID, GetProgressionFilename());
 			}
 		}
@@ -1423,6 +1435,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 {
 	if (FileName == GetProfileFilename())
 	{
+		bIsPendingProfileLoadFromMCP = false;
+
 		// We were attempting to read the profile.. see if it was successful.	
 
 		if (bWasSuccessful && OnlineUserCloudInterface.IsValid())	
@@ -1513,7 +1527,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), DuelEloMatches(), CTFEloMatches(), TDMEloMatches(), DMEloMatches(), ShowdownEloMatches());
+			UTBasePlayer->ServerReceiveStars(GetTotalChallengeStars());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1544,6 +1558,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	}
 	else if (FileName == GetProgressionFilename())
 	{
+		bIsPendingProgressionLoadFromMCP = false;
+
 		if (bWasSuccessful)
 		{
 			// Create the current profile.
@@ -1567,6 +1583,16 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			{
 				int32 CloudProfileUE4Ver;
 				Ar << CloudProfileUE4Ver;
+				if (Ar.UE4Ver() < CloudProfileUE4Ver)
+				{
+#if !UE_SERVER
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ProfileTooNewTitle", "Profile Version Unsupported"), 
+						        NSLOCTEXT("UTLocalPlayer", "ProfileTooNew", "Your profile is from a newer version of Unreal Tournament, we could not load your progression data."), 
+								UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+#endif
+					return;
+				}
+
 				Ar.SetUE4Ver(CloudProfileUE4Ver);
 			}
 			else
@@ -1598,20 +1624,18 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		}
 
 		bProgressionReadFromCloud = true;
-		CheckReportELOandStarsToServer();
+		ReportStarsToServer();
 	}
 }
 
 // Only send ELO and stars to the server once all the server responses are complete
-void UUTLocalPlayer::CheckReportELOandStarsToServer()
+void UUTLocalPlayer::ReportStarsToServer()
 {
-	ELOReportCount++;
-
-	if (ELOReportCount >= 5 && bProgressionReadFromCloud)
+	if (bProgressionReadFromCloud)
 	{
 		// Set the ranks/etc so the player card is right.
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-		if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars(), FMath::Min(255, DuelEloMatches()), FMath::Min(255, CTFEloMatches()), FMath::Min(255, TDMEloMatches()), FMath::Min(255, DMEloMatches()), FMath::Min(255, ShowdownEloMatches()));
+		if (UTBasePlayer) UTBasePlayer->ServerReceiveStars(GetTotalChallengeStars());
 	}
 }
 
@@ -1705,6 +1729,10 @@ void UUTLocalPlayer::SaveProgression()
 	}
 }
 
+bool UUTLocalPlayer::IsPendingMCPLoad() const
+{
+	return ( bIsPendingProfileLoadFromMCP || bIsPendingProgressionLoadFromMCP );
+}
 
 void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
@@ -1803,6 +1831,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 			int32 OldRating = 0;
 			int32 NewRating = 0;
 			
+			bool bRankedSession = false;
 			if (MatchRatingType == NAME_SkillRating.ToString())
 			{
 				OldRating = DUEL_ELO;
@@ -1838,6 +1867,14 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				NewRating = Showdown_ELO;
 				ShowdownMatchesPlayed = Response.NumGamesPlayed;
 			}
+			else if (MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
+			{
+				OldRating = RankedShowdown_ELO;
+				RankedShowdown_ELO = Response.Rating;
+				NewRating = RankedShowdown_ELO;
+				RankedShowdownMatchesPlayed = Response.NumGamesPlayed;
+				bRankedSession = true;
+			}
 
 			int32 OldLevel = 0;
 			int32 OldBadge = 0;
@@ -1853,22 +1890,22 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 					if (DefaultGame && PC->UTPlayerState)
 					{
-						DefaultGame->SetEloFor(PC->UTPlayerState, OldRating, false);
-						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, OldBadge, OldLevel);
-						DefaultGame->SetEloFor(PC->UTPlayerState, NewRating, true);
-						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, NewBadge, NewLevel);
+						DefaultGame->SetEloFor(PC->UTPlayerState, bRankedSession, OldRating, false);
+						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, bRankedSession, OldBadge, OldLevel);
+						DefaultGame->SetEloFor(PC->UTPlayerState, bRankedSession, NewRating, true);
+						PC->UTPlayerState->GetBadgeFromELO(DefaultGame, bRankedSession, NewBadge, NewLevel);
 						PC->bBadgeChanged = ((OldLevel != NewLevel) || (OldBadge != NewBadge));
 					}
 				}
 			}
 		}
-		CheckReportELOandStarsToServer();
+
 	});
 	
 	// Refresh showdown league if we played showdown
-	if (MatchRatingType == NAME_ShowdownSkillRating.ToString())
+	if (MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
 	{
-		McpUtils->GetAccountLeague(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
+		McpUtils->GetAccountLeague(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
 		{
 			if (!Result.bSucceeded)
 			{
@@ -1898,99 +1935,101 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 	}
 }
 
-void UUTLocalPlayer::ReadELOFromBackend()
+void UUTLocalPlayer::ReadMMRFromBackend()
 {
-	ELOReportCount = 0;
-
 	// get MCP Utils
 	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()));
 	if (McpUtils == nullptr)
 	{
-		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read ELO from MCP"));
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read MMR from MCP"));
 		return;
 	}	
-
-	McpUtils->GetAccountMmr(NAME_SkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
+	
+	TArray<FString> MatchRatingTypes;
+	MatchRatingTypes.Add(TEXT("SkillRating"));
+	MatchRatingTypes.Add(TEXT("TDMSkillRating"));
+	MatchRatingTypes.Add(TEXT("DMSkillRating"));
+	MatchRatingTypes.Add(TEXT("CTFSkillRating"));
+	MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
+	// This should be a weak ptr here, but UTLocalPlayer is unlikely to go away
+	TWeakObjectPtr<UUTLocalPlayer> WeakLocalPlayer(this);
+	McpUtils->GetBulkAccountMmr(MatchRatingTypes, [WeakLocalPlayer](const FOnlineError& Result, const FBulkAccountMmr& Response)
 	{
 		if (!Result.bSucceeded)
 		{
 			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+			UE_LOG(UT, Warning, TEXT("Failed to read MMR from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
 		}
 		else
 		{
-			UE_LOG(UT, Display, TEXT("Duel ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			DUEL_ELO = Response.Rating;
-			DuelMatchesPlayed = Response.NumGamesPlayed;
+			if (!WeakLocalPlayer.IsValid())
+			{
+				return;
+			}
+
+			for (int i = 0; i < Response.RatingTypes.Num(); i++)
+			{
+				UE_LOG(UT, Display, TEXT("%s MMR read %d, %d matches"), *Response.RatingTypes[i], Response.Ratings[i], Response.NumGamesPlayed[i]);
+
+				bool bRankedSession = false;
+				if (Response.RatingTypes[i] == NAME_SkillRating.ToString())
+				{
+					WeakLocalPlayer->DUEL_ELO = Response.Ratings[i];
+					WeakLocalPlayer->DuelMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_TDMSkillRating.ToString())
+				{
+					WeakLocalPlayer->TDM_ELO = Response.Ratings[i];
+					WeakLocalPlayer->TDMMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_DMSkillRating.ToString())
+				{
+					WeakLocalPlayer->FFA_ELO = Response.Ratings[i];
+					WeakLocalPlayer->FFAMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_CTFSkillRating.ToString())
+				{
+					WeakLocalPlayer->CTF_ELO = Response.Ratings[i];
+					WeakLocalPlayer->CTFMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_ShowdownSkillRating.ToString())
+				{
+					WeakLocalPlayer->Showdown_ELO = Response.Ratings[i];
+					WeakLocalPlayer->ShowdownMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+				else if (Response.RatingTypes[i] == NAME_RankedShowdownSkillRating.ToString())
+				{
+					WeakLocalPlayer->RankedShowdown_ELO = Response.Ratings[i];
+					WeakLocalPlayer->RankedShowdownMatchesPlayed = Response.NumGamesPlayed[i];
+				}
+			}
+			
+			// We're in the menus, just fill out the player state for the player card right now
+			if (WeakLocalPlayer->IsMenuGame() && WeakLocalPlayer->PlayerController)
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(WeakLocalPlayer->PlayerController->PlayerState);
+				if (UTPS)
+				{
+					UTPS->DuelRank = WeakLocalPlayer->DUEL_ELO;
+					UTPS->TDMRank = WeakLocalPlayer->TDM_ELO;
+					UTPS->DMRank = WeakLocalPlayer->FFA_ELO;
+					UTPS->CTFRank = WeakLocalPlayer->CTF_ELO;
+					UTPS->ShowdownRank = WeakLocalPlayer->Showdown_ELO;
+					UTPS->RankedShowdownRank = WeakLocalPlayer->RankedShowdown_ELO;
+
+					UTPS->DuelMatchesPlayed = WeakLocalPlayer->DuelMatchesPlayed;
+					UTPS->TDMMatchesPlayed = WeakLocalPlayer->TDMMatchesPlayed;
+					UTPS->DMMatchesPlayed = WeakLocalPlayer->FFAMatchesPlayed;
+					UTPS->CTFMatchesPlayed = WeakLocalPlayer->CTFMatchesPlayed;
+					UTPS->ShowdownMatchesPlayed = WeakLocalPlayer->ShowdownMatchesPlayed;
+					UTPS->RankedShowdownMatchesPlayed = WeakLocalPlayer->RankedShowdownMatchesPlayed;
+				}
+			}
 		}
-		CheckReportELOandStarsToServer();
 	});
 
-	McpUtils->GetAccountMmr(NAME_TDMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
-		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("TDM ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			TDM_ELO = Response.Rating;
-			TDMMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
-
-	McpUtils->GetAccountMmr(NAME_DMSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
-		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("DM ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			FFA_ELO = Response.Rating;
-			FFAMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
-
-	McpUtils->GetAccountMmr(NAME_CTFSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
-		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("CTF ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			CTF_ELO = Response.Rating;
-			CTFMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
-
-	McpUtils->GetAccountMmr(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountMmr& Response)
-	{
-		if (!Result.bSucceeded)
-		{
-			// best we can do is log an error
-			UE_LOG(UT, Warning, TEXT("Failed to read ELO from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
-		}
-		else
-		{
-			UE_LOG(UT, Display, TEXT("Showdown ELO read %d, %d matches"), Response.Rating, Response.NumGamesPlayed);
-			Showdown_ELO = Response.Rating;
-			ShowdownMatchesPlayed = Response.NumGamesPlayed;
-		}
-		CheckReportELOandStarsToServer();
-	});
-
-	McpUtils->GetAccountLeague(NAME_ShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
+	McpUtils->GetAccountLeague(NAME_RankedShowdownSkillRating.ToString(), [this](const FOnlineError& Result, const FAccountLeague& Response)
 	{
 		if (!Result.bSucceeded)
 		{
@@ -2025,7 +2064,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		AUTGameMode* UTGame = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>();
 		if (UTGame)
 		{
-			return UTGame->GetEloFor(PC->UTPlayerState);
+			return UTGame->GetEloFor(PC->UTPlayerState, false);
 		}
 	}
 	return 1500;
@@ -2509,6 +2548,13 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 		// Cache the last session.
 		LastSession = PendingSession;
 
+		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			Party->SetSession(LastSession);
+		}
+
 		FString ConnectionString;
 		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
 		{
@@ -2680,7 +2726,7 @@ void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bW
 
 void UUTLocalPlayer::OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
-	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
+	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
 
 void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)
@@ -2690,6 +2736,16 @@ void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const F
 
 bool UUTLocalPlayer::AllowFriendsJoinGame()
 {
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (UTGameInstance)
+	{
+		UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+		if (Matchmaking && Matchmaking->IsMatchmaking())
+		{
+			return false;
+		}
+	}
+
 	// determine when to disable "join game" option in friends/chat UI
 	return true;
 }
@@ -3770,7 +3826,6 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CreditsPanelWidget.Reset();
 	QuickMatchDialog.Reset();
 	LoginDialog.Reset();
-	HUDSettings.Reset();
 	ContentLoadingMessage.Reset();
 	FriendsMenu.Reset();
 	RedirectDialog.Reset();
@@ -3785,6 +3840,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CloseMatchSummary();
 	CloseSpectatorWindow();
 	CloseQuickChat();
+	HideHUDSettings();
 
 	if (ToastList.Num() > 0)
 	{
@@ -4525,7 +4581,7 @@ void UUTLocalPlayer::EpicFlagCheck()
 	}
 }
 
-void UUTLocalPlayer::StartSoloQueueMatchmaking(int32 PlaylistId)
+void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 {
 	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 	UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking(); 
@@ -4535,9 +4591,99 @@ void UUTLocalPlayer::StartSoloQueueMatchmaking(int32 PlaylistId)
 		MatchmakingParams.ControllerId = GetControllerId();
 		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
 		MatchmakingParams.PlaylistId = PlaylistId;
+		MatchmakingParams.DatacenterId = GetProfileSettings()->MatchmakingRegion.IsEmpty() ? TEXT("USA") : GetProfileSettings()->MatchmakingRegion;
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
 	}
 }
+
+bool UUTLocalPlayer::IsPartyLeader()
+{
+	UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
+	UUTParty* Party = GameInstance->GetParties();
+	if (Party)
+	{
+		UPartyGameState* PersistentParty = Party->GetPersistentParty();
+		if (PersistentParty)
+		{
+			TSharedPtr<const FUniqueNetId> PartyLeaderId = PersistentParty->GetPartyLeader();
+			FUniqueNetIdRepl LocalPlayerId = GetGameAccountId();
+			if (PartyLeaderId.IsValid() && *LocalPlayerId == *PartyLeaderId)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void UUTLocalPlayer::ShowRegionSelectDialog()
+{
+#if !UE_SERVER
+	OpenDialog(
+		SAssignNew(MatchmakingRegionDialog, SUTMatchmakingRegionDialog)
+		.PlayerOwner(this)
+		.DialogSize(FVector2D(0.6f, 0.4f))
+		.DialogPosition(FVector2D(0.5f, 0.5f))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "MatchmakingRegion", "Select A Region For Matchmaking"))
+		.ButtonMask(UTDIALOG_BUTTON_OK));
+#endif
+}
+
+void UUTLocalPlayer::ShowMatchmakingDialog()
+{
+#if !UE_SERVER
+	if (MatchmakingDialog.IsValid())
+	{
+		return;
+	}
+	
+	// Only the party leader can cancel
+	uint16 ButtonMask = 0;
+	if (IsPartyLeader())
+	{
+		ButtonMask = UTDIALOG_BUTTON_CANCEL;
+	}
+
+	OpenDialog(
+		SAssignNew(MatchmakingDialog, SUTMatchmakingDialog)
+		.PlayerOwner(this)
+		.DialogSize(FVector2D(0.6f, 0.4f))
+		.DialogPosition(FVector2D(0.5f, 0.5f))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "MatchmakingSearch", "Searching For Match"))
+		.ButtonMask(ButtonMask)
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::MatchmakingResult))
+		);
+#endif
+}
+
+void UUTLocalPlayer::HideMatchmakingDialog()
+{
+#if !UE_SERVER
+	if (MatchmakingDialog.IsValid())
+	{
+		CloseDialog(MatchmakingDialog.ToSharedRef());
+		MatchmakingDialog.Reset();
+	}
+#endif
+}
+
+#if !UE_SERVER
+void UUTLocalPlayer::MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
+	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+		UUTMatchmaking* Matchmaking = UTGameInstance->GetMatchmaking();
+		if (ensure(Matchmaking))
+		{
+			Matchmaking->CancelMatchmaking();
+		}
+	}
+
+	MatchmakingDialog.Reset();
+}
+#endif
 
 #if !UE_SERVER
 
@@ -4558,6 +4704,13 @@ TSharedPtr<SUTChatEditBox> UUTLocalPlayer::GetChatWidget()
 	return ChatWidget;
 
 }
+
+void UUTLocalPlayer::FocusWidget(TSharedPtr<SWidget> WidgetToFocus)
+{
+	FSlateApplication::Get().SetKeyboardFocus(WidgetToFocus, EKeyboardFocusCause::Keyboard);
+	GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
+}
+
 
 #endif
 

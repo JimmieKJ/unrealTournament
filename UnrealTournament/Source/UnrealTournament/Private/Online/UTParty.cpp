@@ -182,4 +182,12 @@ void UUTParty::OnJoinPersistentPartyFromInviteComplete(const FUniqueNetId& Local
 	OnPartyJoinComplete().Broadcast(LocalUserId, Result, NotApprovedReason);
 }
 
+void UUTParty::SetSession(const FOnlineSessionSearchResult& InSearchResult)
+{
+	if (GetUTPersistentParty())
+	{
+		GetUTPersistentParty()->SetSession(InSearchResult);
+	}
+}
+
 #undef LOCTEXT_NAMESPACE

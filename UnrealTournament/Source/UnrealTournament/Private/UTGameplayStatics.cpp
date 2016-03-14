@@ -542,16 +542,23 @@ APlayerController* UUTGameplayStatics::GetLocalPlayerController(UObject* WorldCo
 
 void UUTGameplayStatics::K2_SaveConfig(UObject* Obj)
 {
-	UClass* Cls = Cast<UClass>(Obj);
-	if (Cls != NULL)
+	if (Obj == NULL)
 	{
-		Cls->GetDefaultObject()->SaveConfig();
+		FFrame::KismetExecutionMessage(TEXT("Invalid Obj in SaveConfig()"), ELogVerbosity::Warning);
 	}
 	else
 	{
-		Obj->SaveConfig();
+		UClass* Cls = Cast<UClass>(Obj);
+		if (Cls != NULL)
+		{
+			Cls->GetDefaultObject()->SaveConfig();
+		}
+		else
+		{
+			Obj->SaveConfig();
+		}
+		GConfig->Flush(false);
 	}
-	GConfig->Flush(false);
 }
 
 class UAudioComponent* UUTGameplayStatics::PlaySoundTeamAdjusted(USoundCue* SoundToPlay, AActor* SoundInstigator, AActor* SoundTarget, bool Attached)

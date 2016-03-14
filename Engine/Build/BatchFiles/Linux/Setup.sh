@@ -163,10 +163,10 @@ CreateLinkIfNoneExists ../../Engine/shaders/Fxaa3_11.usf  ../Engine/Shaders/Fxaa
 echo Removing a stable libLND.so binary that was relocated in 4.8
 rm -f ../Engine/Binaries/Linux/libLND.so
 
-# As of 4.9 no third party library needs to be (re)built on any distro, so do not call BuildThirdParty.sh at all
-#echo
-#pushd Build/BatchFiles/Linux > /dev/null
-#./BuildThirdParty.sh
-#popd > /dev/null
+# We have to build libhlslcc locally due to apparent mismatch between system STL and cross-toolchain one
+echo
+pushd Build/BatchFiles/Linux > /dev/null
+./BuildThirdParty.sh
+popd > /dev/null
 
 touch Build/OneTimeSetupPerformed

@@ -3,6 +3,8 @@
 #pragma once
 
 #include "PartyBeaconState.h"
+#include "OnlineSessionSettings.h"
+#include "OnlineSessionInterface.h"
 #include "UTSessionHelper.generated.h"
 
 class FUniqueNetId;

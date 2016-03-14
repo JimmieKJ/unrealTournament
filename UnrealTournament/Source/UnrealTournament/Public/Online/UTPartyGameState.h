@@ -19,7 +19,10 @@ enum class EUTPartyState : uint8
 	/** Actively matchmaking, no destination yet */
 	Matchmaking,
 	/** Destination found and beyond (attempting to join, lobby, game, etc) */
-	PostMatchmaking
+	PostMatchmaking,
+	TravelToServer,
+	/** Hub, custom dedicated server */
+	CustomMatch,
 };
 
 /**
@@ -76,6 +79,13 @@ class UNREALTOURNAMENT_API UUTPartyGameState : public UPartyGameState
 	 * @param NewPartyState current state object containing the changes
 	 */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientPartyStateChanged, EUTPartyState /* NewPartyState */);
+	
+	/**
+	 * Delegate fired when a party state changes
+	 * 
+	 * @param NewPartyState current state object containing the changes
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLeaderPartyStateChanged, EUTPartyState /* NewPartyState */);
 
 	/**
 	 * Delegate fired when a matchmaking state changes
@@ -83,11 +93,20 @@ class UNREALTOURNAMENT_API UUTPartyGameState : public UPartyGameState
 	 * @param Result result of the last matchmaking attempt by the leader
 	 */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
-
+	
+	/**
+	 * Delegate fired when a session id has been determined
+	 * 
+	 * @param SessionId session id party members should search for
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientSessionIdChanged, const FString& /* SessionId */);
+	
 private:
 	/** Passenger view related delegates prior to joining a lobby/game */
 	FOnClientPartyStateChanged ClientPartyStateChanged;
+	FOnLeaderPartyStateChanged LeaderPartyStateChanged;
 	FOnClientMatchmakingComplete ClientMatchmakingComplete;
+	FOnClientSessionIdChanged ClientSessionIdChanged;
 	
 	/**
 	 * Cached data for the party, only modifiable by the party leader
@@ -141,7 +160,9 @@ private:
 	 *
 	 * @param SearchResult destination of the party leader
 	 */
-	void OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult, const FString& CriticalMissionSessionId);
+	void OnConnectToLobby(const FOnlineSessionSearchResult& SearchResult);
+
+	virtual void ComparePartyData(const FPartyState& OldPartyData, const FPartyState& NewPartyData) override;
 
 	friend UUTParty;
 	friend UUTPartyMemberState;
@@ -150,13 +171,21 @@ public:
 	/**
 	 * Tell other party members about the location of local players
 	 * 
-	 * @param NewLocation new "location" within the game (see EFortPartyMemberLocation)
+	 * @param NewLocation new "location" within the game (see EUTPartyMemberLocation)
 	 */
 	void SetLocation(EUTPartyMemberLocation NewLocation);
-	
+
+	void SetSession(const FOnlineSessionSearchResult& InSearchResult);
+
+	void NotifyTravelToServer();
+
 	/** @return delegate fired when the location of the player has changed */
 	FOnPartyMemberPropertyChanged& OnLocationChanged() { return LocationChanged; }
 
+	FOnLeaderPartyStateChanged& OnLeaderPartyStateChanged() { return LeaderPartyStateChanged; }
 	FOnClientPartyStateChanged& OnClientPartyStateChanged() { return ClientPartyStateChanged; }
 	FOnClientMatchmakingComplete& OnClientMatchmakingComplete() { return ClientMatchmakingComplete; }
+	FOnClientSessionIdChanged& OnClientSessionIdChanged() { return ClientSessionIdChanged; }
+
+	EUTPartyState GetPartyProgression() const { return PartyState.PartyProgression; }
 };

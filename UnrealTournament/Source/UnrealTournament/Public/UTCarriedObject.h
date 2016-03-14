@@ -72,8 +72,14 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	class AUTGameObjective* HomeBase;
 
 	// Holds the team that this object belongs to
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject, replicatedUsing = OnRep_Team)
 	AUTTeamInfo* Team;
+
+	// Allow children to know when the team changes
+	UFUNCTION()
+	virtual void OnRep_Team()
+	{
+	}
 
 	// Where to display this object relative to the home base
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
@@ -97,9 +103,21 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	uint32 bAnyoneCanPickup:1;
 
+	// if true, then enemy of this object's team can pick this object up
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+		uint32 bEnemyCanPickup : 1;
+
+	// if true, then player on this object's team can pick this object up
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+		uint32 bFriendlyCanPickup : 1;
+
 	// If true, when a player on the team matching this object's team picks it up, it will be sent home instead of being picked up.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	uint32 bTeamPickupSendsHome:1;
+
+	// If true, when a player on the enemy team picks it up, it will be sent home instead of being picked up.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+		uint32 bEnemyPickupSendsHome : 1;
 
 	// How long before this object is automatically returned to it's base
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
@@ -145,7 +163,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 
 	/**	Changes the current state of the carried object.  NOTE: this should only be called on the server*/
 	UFUNCTION()
-	void ChangeState(FName NewCarriedObjectState);
+	virtual void ChangeState(FName NewCarriedObjectState);
 
 	/**
 	 *	Called when a player picks up this object or called
@@ -234,6 +252,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnStop(const FHitResult& Hit);
 
+	UFUNCTION()
+	virtual void CheckTouching();
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
@@ -286,11 +307,18 @@ protected:
 
 	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 
-	UFUNCTION()
-	virtual void CheckTouching();
-
 	/** used to prevent overlaps from triggering from within the drop code where it could cause inconvenient side effects */
 	bool bIsDropping;
 
 	FTimerHandle CheckTouchingHandle;
+
+	// Will be true if this object has been initialized and is safe for gameplay
+	bool bInitialized;
+
+
+public:
+	// The Speed modifier for this weapon if we are using weighted weapons
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	float WeightSpeedPctModifier;
+
 };

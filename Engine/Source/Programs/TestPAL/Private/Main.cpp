@@ -1,8 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "PrivatePCH.h"
-#include "RequiredProgramMainCPPInclude.h"
+
 #include "TestDirectoryWatcher.h"
+#include "RequiredProgramMainCPPInclude.h"
 
 DEFINE_LOG_CATEGORY(LogTestPAL);
 
@@ -253,6 +254,12 @@ int32 SysInfoTest(const TCHAR* CommandLine)
 
 	FString MacAddress = FPlatformMisc::GetMacAddressString();
 	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformMisc::GetMacAddress() = '%s'"), *MacAddress);
+
+	FString UserDir = FPlatformProcess::UserDir();
+	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformMisc::UserDir() = '%s'"), *UserDir);
+
+	FString ApplicationSettingsDir = FPlatformProcess::ApplicationSettingsDir();
+	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformMisc::ApplicationSettingsDir() = '%s'"), *ApplicationSettingsDir);
 
 	FPlatformMemory::DumpStats(*GLog);
 

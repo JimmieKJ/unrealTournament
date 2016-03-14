@@ -32,6 +32,9 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	// Alias to UnlimitedAmmo
 	UFUNCTION(exec)
 	virtual void ua();
+	
+	UFUNCTION(exec)
+	virtual void PlayTaunt(const FString& TauntClass);
 
 	UFUNCTION(exec)
 	virtual void SetChar(const FString& NewChar);
@@ -78,9 +81,12 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	void Spread(float Scaling);
 
 	UFUNCTION(exec)
-	void SoloQueueMe(int32 PlaylistId);
+	void MatchmakeMyParty(int32 PlaylistId);
 
 #if WITH_PROFILE
 	void LogWebResponse(const FMcpQueryResult& Response);
 #endif
+
+	UFUNCTION(exec)
+	void TestPaths(bool bHighJumps, bool bWallDodges, bool bLifts, bool bLiftJumps);
 };

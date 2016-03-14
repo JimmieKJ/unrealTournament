@@ -1633,7 +1633,7 @@ public:
 	ir_texture_channel channel;
 
 	// HLSL-only
-	std::string SamplerStateName;
+	FCustomStdString SamplerStateName;
 	ir_rvalue* SamplerState;
 };
 

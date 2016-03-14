@@ -37,15 +37,19 @@
 #ifdef __cplusplus
 
 
-#include "glsl_symbol_table.h"
 #include <map>
 #include <list>
 #include <set>
+#include <limits>
+
+#include "CustomStdAllocator.h"
+
+#include "glsl_symbol_table.h"
 
 typedef std::set<ir_variable*> TIRVarSet;
 typedef std::map<ir_variable*, TIRVarSet> TIRVarSetMap;
-typedef std::set<std::string> TStringSet;
-typedef std::map<std::string, TStringSet> TStringToSetMap;
+typedef std::set<FCustomStdString> TStringSet;
+typedef std::map<FCustomStdString, TStringSet> TStringToSetMap;
 
 struct glsl_uniform_block
 {
@@ -65,7 +69,7 @@ struct glsl_uniform_block
 
 struct SCBufferMember
 {
-	std::string Name;
+	FCustomStdString Name;
 	unsigned OffsetInFloats;
 	unsigned SizeInFloats;
 	unsigned NumColumns;
@@ -79,7 +83,7 @@ typedef std::list<SCBufferMember> TCBufferMembers;
 
 struct SCBuffer
 {
-	std::string Name;
+	FCustomStdString Name;
 	TCBufferMembers Members;
 
 	void AddMember(const struct glsl_type * field_type, ir_variable* var);
@@ -197,12 +201,12 @@ static inline int GetArrayCharFromPrecisionType(glsl_base_type Type, bool bAsser
 //	_vs1: Global Sampler 1
 struct glsl_packed_uniform
 {
-	std::string Name;
+	FCustomStdString Name;
 	unsigned offset;
 	unsigned num_components;
 
 	// Extra information for Uniforms coming from CBuffers
-	std::string CB_PackedSampler;	// CB name or the name of the packed sampler
+	FCustomStdString CB_PackedSampler;	// CB name or the name of the packed sampler
 	unsigned OffsetIntoCBufferInFloats;
 	unsigned SizeInFloats;
 
@@ -371,7 +375,7 @@ struct _mesa_glsl_parse_state
 	/** Packed uniforms. */
 	typedef std::list<glsl_packed_uniform> TUniformList;
 	typedef std::map<char, TUniformList> TPackedArraysMap;				// char is the type ('h','m','l','i','u',etc)
-	typedef std::map<std::string, TPackedArraysMap> TCBPackedArraysMap;	// Uniform Buffer name
+	typedef std::map<FCustomStdString, TPackedArraysMap> TCBPackedArraysMap;	// Uniform Buffer name
 	TPackedArraysMap GlobalPackedArraysMap;
 	TCBPackedArraysMap CBPackedArraysMap;
 

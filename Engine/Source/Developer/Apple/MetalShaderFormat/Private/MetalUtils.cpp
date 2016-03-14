@@ -1556,7 +1556,7 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 
 	// Input stage variables
 	ir_variable* VSStageIn = nullptr;
-	std::map<std::string, glsl_struct_field> OriginalVSStageInMembers;
+	std::map<FCustomStdString, glsl_struct_field> OriginalVSStageInMembers;
 	ir_variable* PSStageIn = nullptr;
 
 	// Extra arguments needed for input (VertexID, etc)

@@ -4,6 +4,8 @@
 #include "IDirectoryWatcher.h"
 #include "DirectoryWatcherModule.h"
 #include "TestDirectoryWatcher.h"
+#include "LaunchEngineLoop.h"	// GEngineLoop
+#include "ModuleManager.h"
 
 struct FChangeDetector
 {

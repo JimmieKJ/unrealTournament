@@ -30,6 +30,9 @@
 #include "UTCarriedObject.h"
 #include "UTCharacterContent.h"
 #include "UTImpactEffect.h"
+#include "UTPathTestBot.h"
+#include "BlueprintContextLibrary.h"
+#include "MatchmakingContext.h"
 
 #if WITH_PROFILE
 #include "OnlineSubsystemMcp.h"
@@ -268,6 +271,37 @@ void UUTCheatManager::BugItWorker(FVector TheLocation, FRotator TheRotation)
 	Walk();
 }
 
+void UUTCheatManager::PlayTaunt(const FString& TauntClass)
+{
+	AUTCharacter* UTChar = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (UTChar != NULL)
+	{
+		TSubclassOf<AUTTaunt> TauntClassInstance = nullptr;
+
+		FString TauntPackageName;
+		if (FPackageName::SearchForPackageOnDisk(TauntClass, &TauntPackageName))
+		{
+			TauntPackageName += TEXT(".") + TauntClass + TEXT("_C");
+			TauntClassInstance = LoadClass<AUTTaunt>(NULL, *TauntPackageName, NULL, LOAD_None, NULL);
+		}
+
+		if (!TauntClassInstance)
+		{
+			FString MoreSpecificTauntClass = TEXT("/Game/RestrictedAssets/Blueprints/Taunts/") + TauntClass;
+			if (FPackageName::SearchForPackageOnDisk(MoreSpecificTauntClass, &TauntPackageName))
+			{
+				TauntPackageName += TEXT(".") + TauntClass + TEXT("_C");
+				TauntClassInstance = LoadClass<AUTTaunt>(NULL, *TauntPackageName, NULL, LOAD_None, NULL);
+			}
+		}
+
+		if (TauntClassInstance)
+		{
+			UTChar->PlayTauntByClass(TauntClassInstance);
+		}
+	}
+}
+
 void UUTCheatManager::SetChar(const FString& NewChar)
 {
 	AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
@@ -435,11 +469,40 @@ void UUTCheatManager::McpRefreshProfile()
 #endif
 }
 
-void UUTCheatManager::SoloQueueMe(int32 PlaylistId)
+void UUTCheatManager::MatchmakeMyParty(int32 PlaylistId)
 {
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
-	if (LP)
+	UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UMatchmakingContext::StaticClass()));
+	if (MatchmakingContext)
 	{
-		LP->StartSoloQueueMatchmaking(PlaylistId);
+		MatchmakingContext->StartMatchmaking(PlaylistId);
+	}
+}
+
+void UUTCheatManager::TestPaths(bool bHighJumps, bool bWallDodges, bool bLifts, bool bLiftJumps)
+{
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (Game != NULL)
+	{
+		Game->KillBots();
+		AUTPathTestBot* NewBot = GetWorld()->SpawnActor<AUTPathTestBot>();
+		if (NewBot != NULL)
+		{
+			static int32 NameCount = 0;
+			NewBot->PlayerState->SetPlayerName(FString(TEXT("PathTestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
+			NameCount++;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+			}
+			Game->NumBots++;
+			Game->BotFillCount = Game->NumPlayers + Game->NumBots;
+			Game->ChangeTeam(NewBot, 0);
+			Game->GenericPlayerInitialization(NewBot);
+
+			NewBot->GatherTestList(bHighJumps, bWallDodges, bLifts, bLiftJumps);
+
+			GetOuterAPlayerController()->SetViewTarget(NewBot->PlayerState);
+		}
 	}
 }

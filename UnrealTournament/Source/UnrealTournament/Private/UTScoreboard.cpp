@@ -435,30 +435,31 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.9f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
 
+	float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
 	if (PlayerState->KickPercent > 0)
 	{
 		float XL, SmallYL;
 		Canvas->TextSize(UTHUDOwner->SmallFont, "Kick", XL, SmallYL, RenderScale, RenderScale);
-		DrawText(NSLOCTEXT("UTScoreboard", "Kick", "Kick"), XOffset + 0.01f*Width, YOffset + ColumnY - 0.27f*SmallYL, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(NSLOCTEXT("UTScoreboard", "Kick", "Kick"), XOffset + (Width * MedalPosition), YOffset + ColumnY - 0.27f*SmallYL, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 		FText Kick = FText::Format(NSLOCTEXT("Common", "PercFormat", "{0}%"), FText::AsNumber(PlayerState->KickPercent));
-		DrawText(Kick, XOffset + 0.01f*Width, YOffset + ColumnY + 0.33f*SmallYL, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(Kick, XOffset + (Width * MedalPosition), YOffset + ColumnY + 0.33f*SmallYL, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	else
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
 		if (LP)
 		{
-			int32 Badge;
-			int32 Level;
-			int32 Stars;
 			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+			bool bRankedSession = UTGameState ? UTGameState->bRankedSession : false;
 			if (DefaultGame)
 			{
-				PlayerState->GetBadgeFromELO(DefaultGame, Badge, Level);
+				int32 Badge = 0;
+				int32 Level = 0;
+				int32 Stars = 0;
+				PlayerState->GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
 				UUTLocalPlayer::GetStarsFromXP(GetLevelForXP(PlayerState->GetPrevXP()), Stars);
 				Badge = FMath::Clamp<int32>(Badge, 0, 3);
 				Level = FMath::Clamp<int32>(Level, 0, 8);
-				float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
 
 				FLinearColor BadgeColor = FLinearColor(0.36f, 0.8f, 0.34f, 1.0f);
 				if (Badge == 1) BadgeColor = FLinearColor(0.4f, 0.235f, 0.07f, 1.0f);
@@ -509,6 +510,19 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		DrawReadyText(PlayerState, XOffset, YOffset, Width);
 	}
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+
+	// Strike out players that are out of lives
+	if (PlayerState->bOutOfLives)
+	{
+		float Height = 8.0f;
+		float XL, YL;
+		Canvas->TextSize(UTHUDOwner->MediumFont, PlayerState->PlayerName, XL, YL, 1.f, 1.f);
+		float StrikeWidth = FMath::Min(0.475f*Width, XL);
+		DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY + 0.5f*Height, StrikeWidth, Height, 185.f, 400.f, 4.f, 4.f, 1.0f, FLinearColor::Red);
+
+		// draw skull here
+		DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderPlayerX), YOffset + 0.35f*CellHeight, 0.5f*CellHeight, 0.5f*CellHeight, 725, 0, 28, 36, 1.0, FLinearColor::White);
+	}
 }
 
 void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width)

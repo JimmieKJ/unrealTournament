@@ -109,6 +109,11 @@ bool UUTDamageType::ShouldGib_Implementation(AUTCharacter* Victim) const
 	return (Victim->Health <= GibHealthThreshold || Victim->LastTakeHitInfo.Damage >= GibDamageThreshold);
 }
 
+bool  UUTDamageType::OverrideDeathSound_Implementation(AUTCharacter* Victim) const
+{
+	return !bCausesPainSound;
+}
+
 void UUTDamageType::PlayHitEffects_Implementation(AUTCharacter* HitPawn, bool bPlayedArmorEffect) const
 {
 	if (BodyDamageColor != NULL && (HitPawn->LastTakeHitInfo.Damage > 0 || (HitPawn->LastTakeHitInfo.HitArmor != NULL && !bPlayedArmorEffect)))

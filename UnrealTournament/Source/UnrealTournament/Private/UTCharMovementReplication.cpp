@@ -250,6 +250,7 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 				FCollisionQueryParams CapsuleQuery(FallingTraceParamsTag, false, CharacterOwner);
 				FCollisionResponseParams ResponseParam;
 				InitCollisionParams(CapsuleQuery, ResponseParam);
+				CapsuleQuery.bReturnPhysicalMaterial = true;
 				const FVector PawnLocation = CharacterOwner->GetActorLocation();
 				const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
 				FHitResult Hit(1.f);
@@ -257,6 +258,7 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 				if (bIsAgainstWall)
 				{
 					WallSlideNormal = Hit.Normal;
+					WallRunMaterial = Hit.PhysMaterial.Get();
 				}
 			}
 		}

@@ -12,11 +12,55 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	GENERATED_UCLASS_BODY()
 
 	/**Alternate round victory condition - get this many kills. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
+	UPROPERTY(BlueprintReadWrite, Category = CTF)
 	int32 RoundLives;
+
+	/*  If true, one team wins round by cap, other team wins by kills */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bAsymmetricVictoryConditions;
+
+	/*  If true, trying to deliver own flag to enemy base */ 
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bCarryOwnFlag;
+
+	/*  If true, no auto return flag on touch */ 
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bNoFlagReturn;
+
+	/** Q engages rechargeable through the air dash instead of having translocator. */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bUseDash;
+
+	/** If true, red team is trying to cap with asymmetric conditions. */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bRedToCap;
+
+	/** Respawn wait time for team with no life limit. */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		float UnlimitedRespawnWaitTime;
+
+	/** If true, round lives are per player. */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bPerPlayerLives;
 
 	UPROPERTY()
 		bool bNeedFiveKillsMessage;
+
+	UPROPERTY()
+		bool bFirstRoundInitialized;
+
+	UPROPERTY()
+		int32 ExtraHealth;
+
+	UPROPERTY()
+		int32 FlagPickupDelay;
+
+	UPROPERTY()
+		int32 RemainingPickupDelay;
+
+	virtual void InitFlags();
+
+	virtual void FlagCountDown();
 
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
@@ -24,13 +68,17 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	void BuildServerResponseRules(FString& OutRules);
 	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
 	virtual void HandleExitingIntermission() override;
-	virtual void InitGameState() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
+	virtual void StartMatch() override;
+	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 
 	/** Score round ending due to team out of lives. */
 	virtual void ScoreOutOfLives(int32 WinningTeamIndex);
 
 	/** Initialize for new round. */
 	virtual void InitRound();
+
+	virtual void BroadcastVictoryConditions();
+
 };

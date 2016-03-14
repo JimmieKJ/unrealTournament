@@ -69,6 +69,7 @@ FUTOnlineSessionSearchEmptyDedicated::FUTOnlineSessionSearchEmptyDedicated(const
 	QuerySettings.Set(SETTING_TRUSTLEVEL, 0, EOnlineComparisonOp::Equals);
 
 	PlaylistId = InReservationData.PlaylistId;
+	TeamElo = InReservationData.TeamElo;
 }
 
 FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase()
@@ -76,16 +77,22 @@ FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase()
 	bIsLanQuery = false;
 }
 
-FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase(int32 InPlaylistId, bool bSearchingLAN, bool bSearchingPresence)
+FUTOnlineSessionSearchBase::FUTOnlineSessionSearchBase(int32 InPlaylistId, int32 InTeamElo, bool bSearchingLAN, bool bSearchingPresence)
 {
 	bIsLanQuery = bSearchingLAN;
 
 	PlaylistId = InPlaylistId;
+	TeamElo = InTeamElo;
 
 	QuerySettings.Set(SEARCH_MINSLOTSAVAILABLE, 1, EOnlineComparisonOp::Equals);
 
 	if (PlaylistId != INDEX_NONE)
 	{
 		QuerySettings.Set(SETTING_PLAYLISTID, PlaylistId, EOnlineComparisonOp::Equals);
+	}
+
+	if (TeamElo > 0)
+	{
+		QuerySettings.Set(SETTING_TEAMELO, TeamElo, EOnlineComparisonOp::Near);
 	}
 }

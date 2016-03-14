@@ -95,9 +95,9 @@ public:
 		, bIsOwner(inbIsOwner)
 		, TeamNum(inTeamNum)
 		, bIsSpectator(inbIsSpectator)
-		, PlayerState(inPlayerState)
 		, RankCheck(inRankCheck)
 		, XP(inXP)
+		, PlayerState(inPlayerState)
 	{
 		bPendingKill = false;
 		TeamNum = 255;
@@ -128,6 +128,11 @@ public:
 		if (PlayerState.IsValid() && PlayerState->bIsRconAdmin)
 		{
 			return FSlateColor(FLinearColor::Yellow);
+		}
+
+		if (bIsOwner)
+		{
+			return FSlateColor(FLinearColor(0.25f, 1.0f, 1.0f,1.0f));
 		}
 
 		if (bIsInMatch && !bIsSpectator)
@@ -191,6 +196,7 @@ public:
 
 		if (PlayerState.IsValid())
 		{
+			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 			AUTBaseGameMode* BaseGame = nullptr;
 			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
 			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
@@ -200,11 +206,16 @@ public:
 			else
 			{
 				// Attempt to use the GameMode
-				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			}
 
-			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
+			bool bRankedSession = false;
+			if (UTGameState)
+			{
+				bRankedSession = UTGameState->bRankedSession;
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, bRankedSession, Badge, Level);
 		}
 		else
 		{
@@ -223,6 +234,7 @@ public:
 
 		if (PlayerState.IsValid())
 		{
+			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 			AUTBaseGameMode* BaseGame = nullptr;
 			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
 			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
@@ -232,11 +244,16 @@ public:
 			else
 			{
 				// Attempt to use the GameMode
-				AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
 				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			}
 
-			PlayerState->GetBadgeFromELO(BaseGame, Badge, Level);
+			bool bRankedSession = false;
+			if (UTGameState)
+			{
+				bRankedSession = UTGameState->bRankedSession;
+			}
+
+			PlayerState->GetBadgeFromELO(BaseGame, bRankedSession, Badge, Level);
 		}
 		else
 		{

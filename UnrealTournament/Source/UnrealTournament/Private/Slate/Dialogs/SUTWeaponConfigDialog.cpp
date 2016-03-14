@@ -238,6 +238,16 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 						]
 
 					]
+
+					+SHorizontalBox::Slot().AutoWidth().Padding(20.0f, 0.0f, 20.0f, 0.0f).VAlign(VAlign_Fill)
+					[
+						SNew(SBox).WidthOverride(2)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+						]
+					]
+
 					+SHorizontalBox::Slot().FillWidth(0.34).Padding(FMargin(10.0,0.0,10.0,0.0))
 					[
 						SNew(SVerticalBox)

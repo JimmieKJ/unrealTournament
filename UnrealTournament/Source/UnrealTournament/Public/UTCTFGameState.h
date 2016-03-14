@@ -154,6 +154,13 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
 	TArray<AUTCTFFlagBase*> FlagBases;
 
+	/** Optional team specific respawn times (uses max of this and RespawnWaitTime) */
+	UPROPERTY(Replicated, EditAnywhere, Category = GameState)
+		TArray<float> TeamRespawnWaitTime;
+
+	virtual float GetRespawnWaitTimeFor(AUTPlayerState* PS) override;
+	virtual bool AllowMinimapFor(AUTPlayerState* PS) override;
+
 	UPROPERTY(Replicated)
 	uint8 AdvantageTeamIndex;
 

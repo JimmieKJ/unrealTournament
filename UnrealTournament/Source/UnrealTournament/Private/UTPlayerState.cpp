@@ -30,6 +30,7 @@
 #include "UTTeamDMGameMode.h"
 #include "UTCTFBaseGame.h"
 #include "UTHUDWidget_NetInfo.h"
+#include "UTMcpUtils.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -69,6 +70,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bAnnounceWeaponSpree = false;
 	bAnnounceWeaponReward = false;
 	ReadyMode = 0;
+	CurrentLoadoutPackTag = NAME_None;
+	bSpawnCostLives = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -80,6 +83,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
 	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
+	DOREPLIFETIME(AUTPlayerState, RemainingLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
 	DOREPLIFETIME(AUTPlayerState, Team);
@@ -92,6 +96,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
 	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
+	DOREPLIFETIME(AUTPlayerState, RankedShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
 	DOREPLIFETIME(AUTPlayerState, CTFRank);
 	DOREPLIFETIME(AUTPlayerState, TDMRank);
@@ -108,6 +113,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, HatVariant);
 	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
 	DOREPLIFETIME(AUTPlayerState, bSpecialPlayer);
+	DOREPLIFETIME(AUTPlayerState, bSpecialTeamPlayer);
 	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
 	DOREPLIFETIME(AUTPlayerState, Loadout);
 	DOREPLIFETIME(AUTPlayerState, KickPercent);
@@ -122,6 +128,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, TDMMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, DMMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, ShowdownMatchesPlayed);
+	DOREPLIFETIME(AUTPlayerState, RankedShowdownMatchesPlayed);
 
 	DOREPLIFETIME(AUTPlayerState, bHasVoted);
 
@@ -140,6 +147,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, EmoteSpeed);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSkins, COND_OwnerOnly);
 	DOREPLIFETIME(AUTPlayerState, ReadyMode);
+
+	DOREPLIFETIME(AUTPlayerState, CurrentLoadoutPackTag);
 }
 
 void AUTPlayerState::Destroyed()
@@ -548,8 +557,8 @@ void AUTPlayerState::OnDeathsReceived()
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState != NULL)
 	{
-		RespawnTime = UTGameState->RespawnWaitTime;
-		ForceRespawnTime = UTGameState->ForceRespawnTime;
+		RespawnTime = UTGameState->GetRespawnWaitTimeFor(this);
+		ForceRespawnTime = RespawnTime + UTGameState->ForceRespawnTime;
 	}
 }
 
@@ -933,6 +942,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->bReadStatsFromCloud = bReadStatsFromCloud;
 		PS->bSuccessfullyReadStatsFromCloud = bSuccessfullyReadStatsFromCloud;
 		PS->bWroteStatsToCloud = bWroteStatsToCloud;
+		PS->PartySize = PartySize;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
 		PS->DamageDone = DamageDone;
@@ -1075,9 +1085,14 @@ void AUTPlayerState::SetCharacterVoice(const FString& CharacterVoicePath)
 	}
 }
 
+bool AUTPlayerState::IsOwnedByReplayController() const
+{
+	return Cast<AUTDemoRecSpectator>(GetOwner()) != nullptr;
+}
+
 void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
-	if (Role == ROLE_Authority)
+	if (Role == ROLE_Authority || IsOwnedByReplayController())
 	{
 		TSubclassOf<AUTCharacterContent> NewCharacter = (CharacterPath.Len() > 0) ? TSubclassOf<AUTCharacterContent>(FindObject<UClass>(NULL, *CharacterPath, false)) : GetDefault<AUTCharacter>()->CharacterData;
 // redirect from blueprint, for easier testing in the editor via C/P
@@ -1244,6 +1259,60 @@ void AUTPlayerState::ReadStatsFromCloud()
 	{
 		OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
 	}
+}
+
+void AUTPlayerState::ReadMMRFromBackend()
+{
+	// get MCP Utils
+	TSharedPtr<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*StatsID));
+	UUTMcpUtils* McpUtils = UUTMcpUtils::Get(GetWorld(), UserId);
+	if (McpUtils == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to load McpUtils. Will not be able to read MMR from MCP"));
+		return;
+	}
+
+	TArray<FString> MatchRatingTypes;
+	MatchRatingTypes.Add(TEXT("SkillRating"));
+	MatchRatingTypes.Add(TEXT("TDMSkillRating"));
+	MatchRatingTypes.Add(TEXT("DMSkillRating"));
+	MatchRatingTypes.Add(TEXT("CTFSkillRating"));
+	MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
+	// This should be a weak ptr here, but UTLocalPlayer is unlikely to go away
+	TWeakObjectPtr<AUTPlayerState> WeakPlayerState(this);
+	McpUtils->GetBulkAccountMmr(MatchRatingTypes, [WeakPlayerState](const FOnlineError& Result, const FBulkAccountMmr& Response)
+	{
+		if (!Result.bSucceeded)
+		{
+			// best we can do is log an error
+			UE_LOG(UT, Warning, TEXT("Failed to read MMR from the server. (%d) %s %s"), Result.HttpResult, *Result.ErrorCode, *Result.ErrorMessage.ToString());
+		}
+		else
+		{
+			if (!WeakPlayerState.IsValid())
+			{
+				return;
+			}
+
+			WeakPlayerState->DuelRank = Response.Ratings[0];
+			WeakPlayerState->TDMRank = Response.Ratings[1];
+			WeakPlayerState->DMRank = Response.Ratings[2];
+			WeakPlayerState->CTFRank = Response.Ratings[3];
+			WeakPlayerState->ShowdownRank = Response.Ratings[4];
+			WeakPlayerState->RankedShowdownRank = Response.Ratings[5];
+
+			WeakPlayerState->DuelMatchesPlayed = Response.NumGamesPlayed[0];
+			WeakPlayerState->TDMMatchesPlayed = Response.NumGamesPlayed[1];
+			WeakPlayerState->DMMatchesPlayed = Response.NumGamesPlayed[2];
+			WeakPlayerState->CTFMatchesPlayed = Response.NumGamesPlayed[3];
+			WeakPlayerState->ShowdownMatchesPlayed = Response.NumGamesPlayed[4];
+			WeakPlayerState->RankedShowdownMatchesPlayed = Response.NumGamesPlayed[5];
+
+			UE_LOG(UT, Log, TEXT("%s MMR fetched from the backend (Duel:%d) (TDM:%d) (FFA:%d)"), *WeakPlayerState->PlayerName, WeakPlayerState->DuelRank, WeakPlayerState->TDMRank, WeakPlayerState->DMRank);
+			UE_LOG(UT, Log, TEXT("(CTF:%d) (Showdown:%d) (Ranked Showdown:%d)"), WeakPlayerState->CTFRank, WeakPlayerState->ShowdownRank, WeakPlayerState->RankedShowdownRank);
+		}
+	});
 }
 
 void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
@@ -1456,71 +1525,6 @@ void AUTPlayerState::AddMatchToStats(const FString& MapName, const FString& Game
 	}
 }
 
-// Don't access the skill rating in the statmanager so UpdateSkillRating() can rely on this function
-int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
-{
-	int32 SkillRating = 0;
-		
-	if (SkillStatName == NAME_SkillRating)
-	{
-		SkillRating = DuelSkillRatingThisMatch;
-	}
-	else if (SkillStatName == NAME_TDMSkillRating)
-	{
-		SkillRating = TDMSkillRatingThisMatch;
-	}
-	else if (SkillStatName == NAME_DMSkillRating)
-	{
-		SkillRating = DMSkillRatingThisMatch;
-	}
-	else if (SkillStatName == NAME_CTFSkillRating)
-	{
-		SkillRating = CTFSkillRatingThisMatch;
-	}
-	else if (SkillStatName == NAME_ShowdownSkillRating)
-	{
-		SkillRating = ShowdownSkillRatingThisMatch;
-	}
-	else
-	{
-		UE_LOG(LogGameStats, Warning, TEXT("GetSkillRating could not find skill rating for %s"), *SkillStatName.ToString());
-	}
-
-	// SkillRating was unset previously or a broken value, return the starting value
-	if (SkillRating <= 0)
-	{
-		SkillRating = 1500;
-	}
-
-	if (bIsABot)
-	{
-		if (SkillStatName == NAME_SkillRating)
-		{
-			SkillRating = DuelRank;
-		}
-		else if (SkillStatName == NAME_TDMSkillRating)
-		{
-			SkillRating = TDMRank;
-		}
-		else if (SkillStatName == NAME_DMSkillRating)
-		{
-			SkillRating = DMRank;
-		}
-		else if (SkillStatName == NAME_CTFSkillRating)
-		{
-			SkillRating = CTFRank;
-		}
-		else if (SkillStatName == NAME_ShowdownSkillRating)
-		{
-			SkillRating = ShowdownRank;
-		}
-
-		SkillRating = FMath::Min(SkillRating, 1500);
-	}
-
-	return SkillRating;
-}
-
 bool AUTPlayerState::OwnsItemFor(const FString& Path, int32 VariantId) const
 {
 #if WITH_PROFILE
@@ -1674,15 +1678,15 @@ const FSlateBrush* AUTPlayerState::GetXPStarImage(bool bSmall) const
 	return SUTStyle::Get().GetBrush("UT.RankStar.Empty");
 }
 
-TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FText RankName)
+TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName)
 {
 	int32 Badge;
 	int32 Level;
-	GetBadgeFromELO(DefaultGame, Badge, Level);
+	GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
 
 	FText ELOText = (Badge > 0 ?
-			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreA", "     ({0})"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this) : 0)) :
-			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreB", "     Provisional Rating: {0}"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this) : 0))
+			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreA", "     ({0})"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this, bRankedSession) : 0)) :
+			FText::Format(NSLOCTEXT("AUTPlayerState", "ELOScoreB", "     Provisional Rating: {0}"), FText::AsNumber(DefaultGame ? DefaultGame->GetEloFor(this, bRankedSession) : 0))
 			);
 
 	FText RankNumber = FText::AsNumber(Level+1);
@@ -1718,7 +1722,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FTex
 					+ SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(GetELOBadgeImage(DefaultGame, true))
+						.Image(GetELOBadgeImage(DefaultGame, bRankedSession, true))
 					]
 					+ SOverlay::Slot()
 					[
@@ -1748,7 +1752,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(AUTBaseGameMode* DefaultGame, FTex
 			.WidthOverride(500)
 			[
 				SNew(STextBlock)
-				.Text(((DefaultGame->GetNumMatchesFor(this) > 10) ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
+				.Text(((DefaultGame->GetNumMatchesFor(this, bRankedSession) > 10) ? ELOText : NSLOCTEXT("Generic", "NotValidELO", "     Less than 10 matches played.")))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -1781,10 +1785,6 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 	if (PC != NULL)
 	{
 		LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP != NULL)
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		}
 	}
 
 	FText LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
@@ -1852,10 +1852,6 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	if (PC != NULL)
 	{
 		LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP != NULL)
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		}
 	}
 
 	TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
@@ -1874,10 +1870,17 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
+		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
 	];
 	if (LP && LP->GetShowdownPlacementMatches() > 0)
 	{
+		VBox->AddSlot()
+		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+		.AutoHeight()
+		[
+			BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), true, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
+		];
+
 		VBox->AddSlot()
 		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 		.AutoHeight()
@@ -1889,25 +1892,25 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTCTFBaseGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"))
+		BuildRank(AUTCTFBaseGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTDuelGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"))
+		BuildRank(AUTDuelGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTTeamDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"))
+		BuildRank(AUTTeamDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		BuildRank(AUTDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"))
+		BuildRank(AUTDMGameMode::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
@@ -2473,6 +2476,20 @@ void AUTPlayerState::OnRepSpecialPlayer()
 	}
 }
 
+void AUTPlayerState::OnRepSpecialTeamPlayer()
+{
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter* Character = Cast<AUTCharacter>(*It);
+		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
+		{
+			Character->UpdateTacComMesh(bSpecialTeamPlayer && UTPC->GetTeamNum() == GetTeamNum());
+		}
+	}
+}
+
+
 float AUTPlayerState::GetStatsValue(FName StatsName) const
 {
 	return StatsData.FindRef(StatsName);
@@ -2646,7 +2663,7 @@ bool AUTPlayerState::IsABeginner(AUTBaseGameMode* DefaultGameMode) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
-	GetBadgeFromELO(DefaultGameMode, Badge, Level);
+	GetBadgeFromELO(DefaultGameMode, false, Badge, Level);
 	return (Badge == 0);
 }
 
@@ -2654,18 +2671,18 @@ int32 AUTPlayerState::GetRankCheck(AUTBaseGameMode* DefaultGameMode)
 {
 	int32 Badge = 0;
 	int32 Level = 0;
-	GetBadgeFromELO(DefaultGameMode, Badge, Level);
+	GetBadgeFromELO(DefaultGameMode, false, Badge, Level);
 	return AUTPlayerState::CalcRankCheck(Badge,Level);
 }
 
-void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, int32& BadgeLevel, int32& SubLevel) const
+void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, bool bRankedSession, int32& BadgeLevel, int32& SubLevel) const
 {
 	if (DefaultGameMode == nullptr)
 	{
 		DefaultGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 	}
-	int32 NumMatches = DefaultGameMode->GetNumMatchesFor((AUTPlayerState *)this); // note this is replicated to client as a byte, so max value of 255
-	int32 EloRating = DefaultGameMode->GetEloFor((AUTPlayerState *)this);
+	int32 NumMatches = DefaultGameMode->GetNumMatchesFor((AUTPlayerState *)this, bRankedSession); // note this is replicated to client as a byte, so max value of 255
+	int32 EloRating = DefaultGameMode->GetEloFor((AUTPlayerState *)this, bRankedSession);
 	BadgeLevel = 0;
 	SubLevel = 0;
 
@@ -2730,23 +2747,23 @@ void AUTPlayerState::GetBadgeFromELO(AUTBaseGameMode* DefaultGameMode, int32& Ba
 }
 
 #if !UE_SERVER
-const FSlateBrush* AUTPlayerState::GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bSmall) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage(AUTBaseGameMode* DefaultGame, bool bRankedSession, bool bSmall) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	GetBadgeFromELO(DefaultGame, Badge, Level);
+	GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
 	FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
 	if (bSmall) BadgeStr += TEXT(".Small");
 	return SUTStyle::Get().GetBrush(*BadgeStr);
 }
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame) const
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(AUTBaseGameMode* DefaultGame, bool bRankedSession) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	GetBadgeFromELO(DefaultGame, Badge, Level);
+	GetBadgeFromELO(DefaultGame, bRankedSession, Badge, Level);
 	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
 	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
 }
@@ -2777,4 +2794,20 @@ void AUTPlayerState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	JsonObject->SetNumberField(TEXT("No_DM_Matches_Played"), DMMatchesPlayed);
 	JsonObject->SetNumberField(TEXT("ShowdownRank"), ShowdownRank);
 	JsonObject->SetNumberField(TEXT("No_Showdowns"), ShowdownMatchesPlayed);
+}
+
+bool AUTPlayerState::ServerSetLoadoutPack_Validate(const FName& NewLoadoutPackTag) { return true; }
+void AUTPlayerState::ServerSetLoadoutPack_Implementation(const FName& NewLoadoutPackTag)
+{
+	if (NewLoadoutPackTag != CurrentLoadoutPackTag)
+	{
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode)
+		{
+			if (GameMode->LoadoutPackIsValid(NewLoadoutPackTag) != INDEX_NONE)
+			{
+				CurrentLoadoutPackTag = NewLoadoutPackTag;
+			}
+		}
+	}
 }

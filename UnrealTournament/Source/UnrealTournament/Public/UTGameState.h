@@ -44,6 +44,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bTeamGame : 1;
+	
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
+	uint32 bRankedSession : 1;
 
 	/** True if players are allowed to switch teams (if team game). */
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
@@ -80,6 +83,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** amount of time after a player spawns where they are immune to damage from enemies */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = GameState)
 	float SpawnProtectionTime;
+
+	/** Whether can display minimap. */
+	virtual bool AllowMinimapFor(AUTPlayerState* PS);
 
 	/** Number of winners to display in EOM summary. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = GameState)
@@ -129,11 +135,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** Returns time in seconds that should be displayed on game clock. */
 	virtual float GetClockTime();
 
-	// How long must a player wait before respawning
-	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
-	float RespawnWaitTime;
-
-	// How long a player can wait before being forced respawned.  Set to 0 for no delay.
+	// How long a player can wait before being forced respawned (added to RespawnWaitTime).  Set to 0 for no delay.
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float ForceRespawnTime;
 
@@ -312,7 +314,19 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY()
 	FName SecondaryAttackerStat;
 
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+		virtual float GetRespawnWaitTimeFor(AUTPlayerState* PS);
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+		virtual void SetRespawnWaitTime(float NewWaitTime);
+
 protected:
+
+	// How long must a player wait before respawning
+	UPROPERTY(Replicated, EditAnywhere, Category = GameState)
+		float RespawnWaitTime;
+
 	static const uint8 MAX_OVERLAY_MATERIALS = 16;
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()
@@ -345,6 +359,9 @@ public:
 
 	// Adds a weapon to the list of possible loadout weapons.
 	virtual void AddLoadoutItem(const FLoadoutInfo& Loadout);
+
+	// Finds a loadout item
+	AUTReplicatedLoadoutInfo* FindLoadoutItem(const FName& ItemTag);
 
 	// Adjusts the cost of a weapon available for loadouts
 	virtual void AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float NewCost);
@@ -501,6 +518,14 @@ public:
 	}
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
+	UPROPERTY(Replicated)
+	TArray<FLoadoutPackReplicatedInfo> SpawnPacks;
+
+	// If true, the weapons will carry a weight that will affect the overall max speeds of the player
+	UPROPERTY(Replicated)
+	bool bWeightedCharacter;
+
 };
 
 

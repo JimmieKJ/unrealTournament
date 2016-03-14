@@ -738,6 +738,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 	// expand the nodes into adjacent tiles
 	// if compatible reachability, merge into the node's tiles list, otherwise generate a new node and path link
 	// do this until we have accounted for the entire standard mesh
+	TSet<NavNodeRef> BlockedPolys;
 	for (bool bNodesAdded = true; bNodesAdded;)
 	{
 		bNodesAdded = false;
@@ -903,16 +904,27 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 				for (int32 j = 0; j < TileData->header->polyCount; j++)
 				{
 					NavNodeRef PolyRef = InternalMesh->encodePolyId(TileData->salt, i, j);
-					if (!PolyToNode.Contains(PolyRef))
+					if (!PolyToNode.Contains(PolyRef) && !BlockedPolys.Contains(PolyRef))
 					{
-						UUTPathNode* Node = NewObject<UUTPathNode>(this);
-						PathNodes.Add(Node);
-						PolyToNode.Add(PolyRef, Node);
-						Node->PhysicsVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(PolyRef) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
-						Node->Polys.Add(PolyRef);
-						SetNodeSize(Node);
-						bNodesAdded = true;
-						break; // TODO: not a good plan, way too slow
+						// Recast will generate polys on the inside of solid geometry
+						// attempt to detect this and skip pathnode generation to improve performance
+						FCollisionResponseParams StaticOnly(ECR_Ignore);
+						StaticOnly.CollisionResponse.WorldStatic = ECR_Block;
+						if (GetWorld()->OverlapBlockingTestByChannel(GetPolySurfaceCenter(PolyRef) + FVector(0.0f, 0.0f, AgentHeight * 0.25f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(0.0f), FCollisionQueryParams::DefaultQueryParam, StaticOnly))
+						{
+							BlockedPolys.Add(PolyRef);
+						}
+						else
+						{
+							UUTPathNode* Node = NewObject<UUTPathNode>(this);
+							PathNodes.Add(Node);
+							PolyToNode.Add(PolyRef, Node);
+							Node->PhysicsVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(PolyRef) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
+							Node->Polys.Add(PolyRef);
+							SetNodeSize(Node);
+							bNodesAdded = true;
+							break; // TODO: not a good plan, way too slow
+						}
 					}
 				}
 				if (bNodesAdded)

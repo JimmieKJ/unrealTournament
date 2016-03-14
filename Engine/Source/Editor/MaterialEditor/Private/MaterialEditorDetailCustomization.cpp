@@ -30,19 +30,24 @@ void FMaterialExpressionParameterDetails::CustomizeDetails( IDetailLayoutBuilder
 	TArray< TWeakObjectPtr<UObject> > Objects;
 	DetailLayout.GetObjectsBeingCustomized(Objects);
 
-	if (Objects.Num() > 0)
+	DefaultValueHandles.Reset();
+	ScalarParameterObjects.Reset();
+
+	for (const auto& WeakObjectPtr : Objects)
 	{
-		UMaterialExpressionScalarParameter* ScalarParameter = Cast<UMaterialExpressionScalarParameter>(Objects[0].Get());
+		UObject* Object = WeakObjectPtr.Get();
+
+		UMaterialExpressionScalarParameter* ScalarParameter = Cast<UMaterialExpressionScalarParameter>(Object);
 
 		if (ScalarParameter)
 		{
 			// Store these for OnSliderMinMaxEdited
-			ScalarParameterObject = Objects[0];
-			DefaultValueHandle = DetailLayout.GetProperty("DefaultValue", UMaterialExpressionScalarParameter::StaticClass());
+			ScalarParameterObjects.Emplace(WeakObjectPtr);
+			DefaultValueHandles.Emplace(DetailLayout.GetProperty("DefaultValue", UMaterialExpressionScalarParameter::StaticClass()));
 
 			TSharedPtr<IPropertyHandle> SliderMinHandle = DetailLayout.GetProperty("SliderMin", UMaterialExpressionScalarParameter::StaticClass());
 
-			if (SliderMinHandle.IsValid())
+			if (SliderMinHandle.IsValid() && SliderMinHandle->IsValidHandle())
 			{
 				// Setup a callback when SliderMin changes to update the DefaultValue slider
 				FSimpleDelegate OnSliderMinMaxEditedDelegate = FSimpleDelegate::CreateSP(this, &FMaterialExpressionParameterDetails::OnSliderMinMaxEdited);
@@ -51,7 +56,7 @@ void FMaterialExpressionParameterDetails::CustomizeDetails( IDetailLayoutBuilder
 
 			TSharedPtr<IPropertyHandle> SliderMaxHandle = DetailLayout.GetProperty("SliderMax", UMaterialExpressionScalarParameter::StaticClass());
 
-			if (SliderMaxHandle.IsValid())
+			if (SliderMaxHandle.IsValid() && SliderMaxHandle->IsValidHandle())
 			{
 				FSimpleDelegate OnSliderMinMaxEditedDelegate = FSimpleDelegate::CreateSP(this, &FMaterialExpressionParameterDetails::OnSliderMinMaxEdited);
 				SliderMaxHandle->SetOnPropertyValueChanged(OnSliderMinMaxEditedDelegate);
@@ -60,6 +65,8 @@ void FMaterialExpressionParameterDetails::CustomizeDetails( IDetailLayoutBuilder
 			OnSliderMinMaxEdited();
 		}
 	}
+
+	check(ScalarParameterObjects.Num() == DefaultValueHandles.Num());
 	
 	Category.AddProperty("ParameterName");
 	
@@ -165,21 +172,25 @@ FText FMaterialExpressionParameterDetails::OnGetText() const
 
 void FMaterialExpressionParameterDetails::OnSliderMinMaxEdited()
 {
-	UMaterialExpressionScalarParameter* ScalarParameter = Cast<UMaterialExpressionScalarParameter>(ScalarParameterObject.Get());
-
-	if (ScalarParameter && DefaultValueHandle.IsValid())
+	check(ScalarParameterObjects.Num() == DefaultValueHandles.Num());
+	for (int32 Index = 0; Index < ScalarParameterObjects.Num(); Index++)
 	{
-		if (ScalarParameter->SliderMax > ScalarParameter->SliderMin)
+		UMaterialExpressionScalarParameter* ScalarParameter = Cast<UMaterialExpressionScalarParameter>(ScalarParameterObjects[Index].Get());
+
+		if (ScalarParameter && DefaultValueHandles[Index].IsValid() && DefaultValueHandles[Index]->IsValidHandle())
 		{
-			// Update the values that SPropertyEditorNumeric reads
-			// Unfortuantly there is no way to recreate the widget to actually update the UI with these new values
-			DefaultValueHandle->SetInstanceMetaData("UIMin",FString::Printf(TEXT("%f"), ScalarParameter->SliderMin));
-			DefaultValueHandle->SetInstanceMetaData("UIMax",FString::Printf(TEXT("%f"), ScalarParameter->SliderMax));
-		}
-		else
-		{
-			DefaultValueHandle->SetInstanceMetaData("UIMin", TEXT(""));
-			DefaultValueHandle->SetInstanceMetaData("UIMax", TEXT(""));
+			if (ScalarParameter->SliderMax > ScalarParameter->SliderMin)
+			{
+				// Update the values that SPropertyEditorNumeric reads
+				// Unfortuantly there is no way to recreate the widget to actually update the UI with these new values
+				DefaultValueHandles[Index]->SetInstanceMetaData("UIMin", FString::Printf(TEXT("%f"), ScalarParameter->SliderMin));
+				DefaultValueHandles[Index]->SetInstanceMetaData("UIMax", FString::Printf(TEXT("%f"), ScalarParameter->SliderMax));
+			}
+			else
+			{
+				DefaultValueHandles[Index]->SetInstanceMetaData("UIMin", TEXT(""));
+				DefaultValueHandles[Index]->SetInstanceMetaData("UIMax", TEXT(""));
+			}
 		}
 	}
 }

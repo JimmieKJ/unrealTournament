@@ -7,7 +7,8 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 : Super(ObjectInitializer)
 {
 	YouHaveFlagText = NSLOCTEXT("CTFScore","YouHaveFlagText","You have the flag, return to base!");
-	EnemyHasFlagText = NSLOCTEXT("CTFScore","EnemyHasFlagText","The enemy has your flag, recover it!");
+	YouHaveFlagTextAlt = NSLOCTEXT("CTFScore", "YouHaveFlagText", "You have the flag, take it to the enemy base!");
+	EnemyHasFlagText = NSLOCTEXT("CTFScore", "EnemyHasFlagText", "The enemy has your flag, recover it!");
 	BothFlagsText = NSLOCTEXT("CTFScore","BothFlagsText","You have the enemy flag - hold it until your flag is returned!");
 
 	ScreenPosition = FVector2D(0.5f, 0.0f);
@@ -127,9 +128,11 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 			// Draw flag state in world
 			bDrawInWorld = false;
-			Dist = (Base->GetCarriedObject()->GetActorLocation() - ViewPoint).Size();
+			Dist = (Flag->GetActorLocation() - ViewPoint).Size();
 			WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
-			if ((bSpectating || bIsEnemyFlag) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home) && ((ViewRotation.Vector() | (Base->GetCarriedObject()->GetActorLocation() - ViewPoint)) > 0.f))
+			bool bShouldDrawFlagIcon = bIsEnemyFlag || Flag->bFriendlyCanPickup;
+
+			if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home) && ((ViewRotation.Vector() | (Flag->GetActorLocation() - ViewPoint)) > 0.f))
 			{
 				WorldPosition = Flag->GetActorLocation();
 				if (FlagState == CarriedObjectState::Held)
@@ -219,9 +222,9 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			{
 				DrawColor = FLinearColor::Red;
 				// Look to see if I have the enemy flag
-				if (OwnerPS->CarriedObject != NULL && Cast<AUTCTFFlag>(OwnerPS->CarriedObject) != NULL)
+				if (OwnerPS->CarriedObject != NULL)
 				{
-					StatusText = BothFlagsText;
+					StatusText = (MyTeamNum != OwnerPS->CarriedObject->GetTeamNum()) ? BothFlagsText : YouHaveFlagTextAlt;
 				}
 				else
 				{

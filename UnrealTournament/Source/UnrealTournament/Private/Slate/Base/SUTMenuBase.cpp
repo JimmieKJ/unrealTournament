@@ -26,6 +26,8 @@
 #include "UnrealNetwork.h"
 #include "SUTProfileItemsDialog.h"
 #include "SUTQuickPickDialog.h"
+#include "BlueprintContextLibrary.h"
+#include "MatchmakingContext.h"
 
 #if !UE_SERVER
 
@@ -82,7 +84,7 @@ FReply SUTMenuBase::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEv
 		TSharedPtr<SWidget> InitialFocus = ActivePanel->GetInitialFocus();
 		if (InitialFocus.IsValid())
 		{
-			PlayerOwner->GetSlateOperations() = FReply::Handled().ReleaseMouseCapture().SetUserFocus(InitialFocus.ToSharedRef(), EFocusCause::SetDirectly);
+			PlayerOwner->FocusWidget(InitialFocus);
 		}
 		return FReply::Handled().ReleaseMouseCapture();
 	}
@@ -751,6 +753,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
+				.IsEnabled(this, &SUTMenuBase::IsPlayerCardDataLoaded)
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
@@ -879,6 +882,23 @@ FReply SUTMenuBase::OnShowServerBrowserPanel()
 	return FReply::Handled();
 }
 
+FReply SUTMenuBase::OnRankedMatchmaking(int32 PlaylistId)
+{
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline(TEXT(""), TEXT(""));
+		return FReply::Handled();
+	}
+
+	UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UMatchmakingContext::StaticClass()));
+	if (MatchmakingContext)
+	{
+		MatchmakingContext->StartMatchmaking(PlaylistId);
+	}
+
+	return FReply::Handled();
+}
+
 FReply SUTMenuBase::ToggleFriendsAndChat()
 {
 #if PLATFORM_LINUX
@@ -942,6 +962,11 @@ void SUTMenuBase::OpenDelayedMenu()
 		bNeedsWeaponOptions = false;
 		PlayerOwner->HideContentLoadingMessage();
 	}
+}
+
+bool SUTMenuBase::IsPlayerCardDataLoaded() const
+{
+	return PlayerOwner->IsLoggedIn() && !PlayerOwner->IsPendingMCPLoad();
 }
 
 void SUTMenuBase::ShowHomePanel()

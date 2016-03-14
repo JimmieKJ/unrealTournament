@@ -150,7 +150,7 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 		TSubclassOf<class AUTCharacter> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 		if (DefaultPawnClass != nullptr)
 		{
-			NewGS->AddOverlayMaterial(DefaultPawnClass.GetDefaultObject()->TacComOverlayMaterial);
+			NewGS->AddOverlayMaterial(DefaultPawnClass.GetDefaultObject()->SelectionOverlayMaterial);
 		}
 	}
 	
@@ -640,7 +640,8 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 				{
 					int32 Badge = 0;
 					int32 Level = 0;
-					UTPS->GetBadgeFromELO(DefaultGameMode, Badge, Level);
+					bool bRankedSession = GameState.IsValid() ? GameState->bRankedSession : false;
+					UTPS->GetBadgeFromELO(DefaultGameMode, bRankedSession, Badge, Level);
 					FText RankNumber = FText::AsNumber(Level + 1);
 					TSharedPtr<class SBorder> HighlightBorder;
 					VBox->AddSlot()
@@ -1270,7 +1271,6 @@ AUTCharacter* SUTMatchSummaryPanel::RecreatePlayerPreview(AUTPlayerState* NewPS,
 		PlayerPreviewMesh->RegisterAllActorTickFunctions(true, true);
 
 		PlayerPreviewMesh->PlayerState = NewPS; //PS needed for team colors
-		PlayerPreviewMesh->Health = 100; //Set to 100 so the TacCom Overlay doesn't show damage
 		PlayerPreviewMesh->DeactivateSpawnProtection();
 		
 		PlayerPreviewMesh->ApplyCharacterData(NewPS->GetSelectedCharacter());
@@ -1409,6 +1409,7 @@ void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Hei
 	View->StartFinalPostprocessSettings(CameraTransform.GetLocation());
 	//View->OverridePostProcessSettings(PPSettings, 1.0f);
 	View->EndFinalPostprocessSettings(PlayerPreviewInitOptions);
+	View->ViewRect = View->UnscaledViewRect;
 
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
 	--GFrameNumber;
@@ -1460,18 +1461,18 @@ void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Hei
 			AUTCharacter* HitChar = Cast<AUTCharacter>(Hit.GetActor());
 			if (HitChar != HighlightedChar && HighlightedChar != nullptr)
 			{
-				HighlightedChar->UpdateTacComMesh(false);
+				HighlightedChar->UpdateSelectionMesh(false);
 			}
 
 			if (HitChar != nullptr)
 			{
-				HitChar->UpdateTacComMesh(true);
+				HitChar->UpdateSelectionMesh(true);
 				HighlightedChar = HitChar;
 			}
 		}
 		else if (HighlightedChar != nullptr)
 		{
-			HighlightedChar->UpdateTacComMesh(false);
+			HighlightedChar->UpdateSelectionMesh(false);
 			HighlightedChar = nullptr;
 		}
 	}
@@ -1730,7 +1731,7 @@ void SUTMatchSummaryPanel::ViewCharacter(AUTCharacter* NewChar)
 {
 	if (NewChar != nullptr)
 	{
-		NewChar->UpdateTacComMesh(false);
+		NewChar->UpdateSelectionMesh(false);
 		TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(NewChar));
 		PlayerCam->CamFlags |= CF_CanInteract;
 		CameraShots.Empty();

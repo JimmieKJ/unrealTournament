@@ -7,6 +7,7 @@
 #include "UTCTFGameMode.h"
 #include "UTCTFRewardMessage.h"
 #include "UnrealNetwork.h"
+#include "UTCTFRoundGame.h"
 
 static FName NAME_Wipe(TEXT("Wipe"));
 
@@ -38,6 +39,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 
 	ClothBlendHome = 0.f;
 	ClothBlendHeld = 0.5f;
+	bEnemyCanPickup = true;
 }
 
 void AUTCTFFlag::PostInitializeComponents()

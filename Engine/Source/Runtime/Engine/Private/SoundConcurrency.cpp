@@ -98,7 +98,7 @@ void FConcurrencyGroup::AddActiveSound(FActiveSound* ActiveSound)
 void FConcurrencyGroup::StopQuietSoundsDueToMaxConcurrency()
 {
 	// Nothing to do if our active sound count is less than or equal to our max active sounds
-	if (ResolutionRule != EMaxConcurrentResolutionRule::StopQuietist || ActiveSounds.Num() <= MaxActiveSounds)
+	if (ResolutionRule != EMaxConcurrentResolutionRule::StopQuietest || ActiveSounds.Num() <= MaxActiveSounds)
 	{
 		return;
 	}
@@ -183,7 +183,7 @@ FActiveSound* FSoundConcurrencyManager::ResolveConcurrency(const FActiveSound& N
 	bool bCanPlay = true;
 	FActiveSound* SoundToStop = nullptr;
 
-	if (ActiveSounds.Num() >= Concurrency->MaxCount && Concurrency->ResolutionRule != EMaxConcurrentResolutionRule::StopQuietist)
+	if (ActiveSounds.Num() >= Concurrency->MaxCount && Concurrency->ResolutionRule != EMaxConcurrentResolutionRule::StopQuietest)
 	{
 		switch (Concurrency->ResolutionRule)
 		{
@@ -250,8 +250,8 @@ FActiveSound* FSoundConcurrencyManager::ResolveConcurrency(const FActiveSound& N
 			}
 			break;
 
-			case EMaxConcurrentResolutionRule::StopQuietist:
-			// We won't do anything upfront for StopQuietist resolution rule, but instead resolve it after volumes have been computed
+			case EMaxConcurrentResolutionRule::StopQuietest:
+			// We won't do anything upfront for StopQuietest resolution rule, but instead resolve it after volumes have been computed
 			// and before we stopping sounds that play past the max overall voice count. This is because it is nigh impossible (currently)
 			// for UE4 to evaluate sound volumes *before* they play. In addition to the fact that gain-stages aren't evaluated independently, 
 			// this is primarily because of the way SoundCue nodes work.

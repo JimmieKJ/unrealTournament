@@ -236,7 +236,10 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 				if (PC)
 				{
-					PC->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+					if (CTFGameState->FlagBases[Holder->Team->TeamIndex] != nullptr)
+					{
+						PC->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+					}
 
 					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
 					if (PS && PS->bNeedsAssistAnnouncement)
@@ -634,17 +637,17 @@ void AUTCTFBaseGame::SetBlueScore(int32 NewScore)
 	}
 }
 
-uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS) const
+uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
 {
 	return PS ? PS->CTFMatchesPlayed : 0;
 }
 
-int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS) const
+int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
 {
-	return PS ? PS->CTFRank : Super::GetEloFor(PS);
+	return PS ? PS->CTFRank : Super::GetEloFor(PS, bRankedSession);
 }
 
-void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{

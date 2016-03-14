@@ -52,6 +52,10 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 	AltDeathStatsName = NAME_FlakShellDeaths;
 	HitsStatsName = NAME_FlakHits;
 	ShotsStatsName = NAME_FlakShots;
+
+	WeightSpeedPctModifier = 0.9f;
+
+
 }
 
 FVector AUTWeap_FlakCannon::GetFireLocationForMultiShot_Implementation(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation)

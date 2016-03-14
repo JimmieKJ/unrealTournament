@@ -277,6 +277,11 @@ void AUTBasePlayerController::DirectSay(const FString& User, const FString& Mess
 			UTPC->ClientSay(UTPlayerState, Message, ChatDestinations::Whisper);
 		}
 	}
+
+	// Make sure I see that I sent it..
+
+	ClientSay(UTPlayerState, Message, ChatDestinations::Whisper);
+
 }
 
 void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination)
@@ -501,33 +506,17 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveRank(LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM(), LP->GetRankShowdown(), LP->GetTotalChallengeStars(), FMath::Min(255, LP->DuelEloMatches()), FMath::Min(255, LP->CTFEloMatches()), FMath::Min(255, LP->TDMEloMatches()), FMath::Min(255, LP->DMEloMatches()), FMath::Min(255, LP->ShowdownEloMatches()));
+		ServerReceiveStars(LP->GetTotalChallengeStars());
 	}
 }
 
 // FIXMESTEVE shouldn't receive this from client
-bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed) { return true; }
-void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed)
+bool AUTBasePlayerController::ServerReceiveStars_Validate(int32 TotalStars) { return true; }
+void AUTBasePlayerController::ServerReceiveStars_Implementation(int32 TotalStars)
 {
 	if (UTPlayerState)
 	{
-		UTPlayerState->DuelRank = NewDuelRank;
-		UTPlayerState->CTFRank = NewCTFRank;
-		UTPlayerState->TDMRank = NewTDMRank;
-		UTPlayerState->DMRank = NewDMRank;
-		UTPlayerState->ShowdownRank = NewShowdownRank;
 		UTPlayerState->TotalChallengeStars = TotalStars;
-		UTPlayerState->DuelMatchesPlayed = DuelMatchesPlayed;
-		UTPlayerState->CTFMatchesPlayed = CTFMatchesPlayed;
-		UTPlayerState->TDMMatchesPlayed = TDMMatchesPlayed;
-		UTPlayerState->DMMatchesPlayed = DMMatchesPlayed;
-		UTPlayerState->ShowdownMatchesPlayed = ShowdownMatchesPlayed;
-
-		AUTBaseGameMode* BaseGameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
-		if (BaseGameMode)
-		{
-			BaseGameMode->ReceivedRankForPlayer(UTPlayerState);
-		}
 	}
 }
 
@@ -863,4 +852,28 @@ void AUTBasePlayerController::ServerFriendSay_Implementation(const FString& Mess
 	ClientSay(UTPlayerState, Message, ChatDestinations::Friends);
 }
 
+void AUTBasePlayerController::LobbySay(FString Message)
+{
+	// clamp message length; aside from troll prevention this is needed for networking reasons
+	Message = Message.Left(128);
+	if (AllowTextMessage(Message))
+	{
+		ServerLobbySay(Message);
+	}
+	else
+	{
+		//Display spam message to the player
+		ClientSay_Implementation(nullptr, SpamText.ToString(), ChatDestinations::System);
+	}
+}
+
+bool AUTBasePlayerController::ServerLobbySay_Validate(const FString& Message) { return true; }
+void AUTBasePlayerController::ServerLobbySay_Implementation(const FString& Message)
+{
+	AUTGameMode * GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode && GameMode->IsGameInstanceServer()  && AllowTextMessage(Message) && PlayerState != nullptr)
+	{
+		GameMode->SendLobbyMessage(Message, Cast<AUTPlayerState>(PlayerState));
+	}
+}
 
