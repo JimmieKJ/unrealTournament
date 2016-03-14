@@ -171,7 +171,7 @@ class UNREALTOURNAMENT_API AUTProj_BioShot : public AUTProjectile
 		float RemainingLife;
 
 	/**Remaining life time for this blob*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Bio)
 		UStaticMeshComponent* BioMesh;
 
 	/**Sets the strength of the glob*/
