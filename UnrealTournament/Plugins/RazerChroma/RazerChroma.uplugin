@@ -10,7 +10,7 @@
 	"Description" : "Light up Razer Chroma hardware",
 	"Category" : "UnrealTournament.Mod",
 	"EnabledByDefault" : true,
-	"CanContainContent" : true,
+	"CanContainContent" : false,
 	
 	"Modules" :
 	[

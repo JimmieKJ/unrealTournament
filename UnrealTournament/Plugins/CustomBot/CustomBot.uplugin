@@ -10,7 +10,7 @@
 	"Description" : "Code additions required to be able to created custom-logic bots",
 	"Category" : "UnrealTournament.Expansion",
 	"EnabledByDefault" : false,
-    "CanContainContent" : true,
+    "CanContainContent" : false,
 
 	"Modules" :
 	[

@@ -10,7 +10,7 @@
 	"Description" : "Record in-game video to a WebM",
 	"Category" : "UnrealTournament.Mod",
 	"EnabledByDefault" : true,
-	"CanContainContent" : true,
+	"CanContainContent" : false,
 	
 	"Modules" :
 	[
