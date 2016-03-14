@@ -265,6 +265,17 @@ void AUTCTFRoundGame::InitRound()
 	bRedToCap = !bRedToCap;
 	if (FlagPickupDelay > 0)
 	{
+		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+		{
+			if (Base != NULL && Base->MyFlag)
+			{
+				AUTCarriedObject* Flag = Base->MyFlag;
+				Flag->bEnemyCanPickup = false;
+				Flag->bFriendlyCanPickup = false;
+				Flag->bTeamPickupSendsHome = false;
+				Flag->bEnemyPickupSendsHome = false;
+			}
+		}
 		RemainingPickupDelay = FlagPickupDelay;
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
