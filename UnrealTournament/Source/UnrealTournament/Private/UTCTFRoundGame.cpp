@@ -193,6 +193,11 @@ void AUTCTFRoundGame::InitFlags()
 		}
 	}
 
+	BroadcastVictoryConditions();
+}
+
+void AUTCTFRoundGame::BroadcastVictoryConditions()
+{
 	if (bAsymmetricVictoryConditions)
 	{
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)

@@ -78,4 +78,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	/** Initialize for new round. */
 	virtual void InitRound();
+
+	virtual void BroadcastVictoryConditions();
+
 };

@@ -2982,16 +2982,15 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 					{
 						AUTReplicatedLoadoutInfo* Info = UTGameMode->AvailableLoadoutPacks[PackIndex].LoadoutCache[i];
 						AddInventory(GetWorld()->SpawnActor<AUTInventory>(Info->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
-						UTPlayerState->AdjustCurrency(Info->CurrentCost * -1);
 					}
+
+					Health += UTGameMode->AvailableLoadoutPacks[PackIndex].SpawnHealthModifier;
 					return;
 				}
 			}
 		
 		}
 	}
-
-	
 
 	// Add the default character inventory
 	for (int32 i=0;i<DefaultCharacterInventory.Num();i++)
@@ -3003,6 +3002,26 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	for (int32 i=0;i<DefaultInventoryToAdd.Num();i++)
 	{
 		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
+	}
+}
+
+void AUTCharacter::SetInitialHealth_Implementation()
+{
+	Health = HealthMax;
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+
+	if (UTPlayerState && UTPlayerState->CurrentLoadoutPackTag != NAME_None)
+	{
+		// Verify it's valid.
+		AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if ( UTGameMode )
+		{
+			int32 PackIndex = UTGameMode->LoadoutPackIsValid(UTPlayerState->CurrentLoadoutPackTag);
+			if (PackIndex != INDEX_NONE && PackIndex < UTGameMode->AvailableLoadoutPacks.Num())
+			{
+				Health += UTGameMode->AvailableLoadoutPacks[PackIndex].SpawnHealthModifier;
+			}
+		}
 	}
 }
 

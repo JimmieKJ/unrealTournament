@@ -82,6 +82,10 @@ public:
 	UPROPERTY()
 	TArray<AUTReplicatedLoadoutInfo*> LoadoutCache;
 
+	// This value will be added to the default health of a new character
+	UPROPERTY()
+	int32 SpawnHealthModifier;
+
 };
 
 /** list of bots user asked to put into the game */

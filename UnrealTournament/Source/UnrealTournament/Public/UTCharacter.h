@@ -1935,6 +1935,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Weapon)
 	virtual void ResetMaxSpeedPctModifier();
 
+	// Sets the initial health for this character. 
+	UFUNCTION(BlueprintNativeEvent, Category = Pawn)
+	void SetInitialHealth();
+
 };
 
 inline bool AUTCharacter::IsDead()

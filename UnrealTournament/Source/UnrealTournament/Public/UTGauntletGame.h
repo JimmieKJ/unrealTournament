@@ -48,6 +48,7 @@ class UNREALTOURNAMENT_API AUTGauntletGame : public AUTCTFRoundGame
 	virtual void HandleMatchIntermission();
 
 	virtual void DiscardInventory(APawn* Other, AController* Killer);
+	virtual void BroadcastVictoryConditions();
 
 protected:
 

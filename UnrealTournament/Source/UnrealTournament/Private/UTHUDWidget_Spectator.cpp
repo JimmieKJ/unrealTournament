@@ -75,7 +75,7 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 
 void UUTHUDWidget_Spectator::DrawSpawnPacks(float DeltaTime)
 {
-	if (UTGameState && UTGameState->SpawnPacks.Num() > 0 && UTGameState->GetMatchState() != MatchState::MatchIntermission)
+	if (UTGameState && UTGameState->SpawnPacks.Num() > 0 )
 	{
 		FVector2D TextSize = DrawText(NSLOCTEXT("UUTHUDWidget_Spectator","SpawnPackTitle","Loadouts:"), 20.0f, -50.0f, UTHUDOwner->MediumFont, 1.0, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 

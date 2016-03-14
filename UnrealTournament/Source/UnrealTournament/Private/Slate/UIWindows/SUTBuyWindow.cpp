@@ -17,13 +17,13 @@ void SUTBuyWindow::CreateDesktop()
 {
 	CollectItems();
 
-	float CurrentCurrency = 0;
+	int32 CurrentCurrency = 0;
 	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 		if (PC && PC->UTPlayerState)
 		{
-			CurrentCurrency = PC->UTPlayerState->GetAvailableCurrency();
+			CurrentCurrency = int32(PC->UTPlayerState->GetAvailableCurrency());
 		}
 	}
 
@@ -136,7 +136,7 @@ void SUTBuyWindow::CreateDesktop()
 								.Padding(10.0,0.0,10.0,0.0)
 								[
 									SNew(STextBlock)
-									.Text(FText::Format(NSLOCTEXT("SUTBuyWindow","Status","{0} - Available Items"), FText::AsCurrency(CurrentCurrency)))
+									.Text(FText::Format(NSLOCTEXT("SUTBuyWindow","Status","{0} - Available Items"), FText::AsNumber(CurrentCurrency)))
 									.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.TitleTextStyle")
 								]
 
@@ -390,7 +390,7 @@ void SUTBuyWindow::RefreshAvailableItemsList()
 							.AutoHeight()
 							[
 								SNew(STextBlock)
-								.Text(FText::AsCurrency(AvailableItems[Idx]->LoadoutInfo->CurrentCost))
+								.Text(FText::AsNumber(int32(AvailableItems[Idx]->LoadoutInfo->CurrentCost)))
 								.TextStyle(SUWindowsStyle::Get(), "UT.Hub.MapsText")
 								.ColorAndOpacity(FLinearColor::Black)
 							]

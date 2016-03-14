@@ -39,6 +39,7 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	bPerPlayerLives = false;
 	bAsymmetricVictoryConditions = false;
 	FlagSwapTime=10;
+	FlagPickupDelay=0;
 }
 
 void AUTGauntletGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -68,6 +69,10 @@ void AUTGauntletGame::InitGame(const FString& MapName, const FString& Options, F
 
 	IntermissionDuration = 5.0f;
 
+}
+
+void AUTGauntletGame::BroadcastVictoryConditions()
+{
 }
 
 void AUTGauntletGame::InitGameState()
@@ -200,6 +205,23 @@ void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController*
 	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 
 	AUTPlayerState* PS = Cast<AUTPlayerState>(Other->PlayerState);
+	AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
+
+	UE_LOG(UT,Log,TEXT("Adding Currency"));
+	if (PS && KillerPS && PS->GetTeamNum() != KillerPS->GetTeamNum())
+	{
+		float NewCurrency = 250.0f + (PS->GetAvailableCurrency() * 0.25f);
+		KillerPS->AdjustCurrency(NewCurrency);
+		for (int32 i=0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* Teammate = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (Teammate && Teammate->GetTeamNum() == KillerPS->GetTeamNum() && Teammate != KillerPS)
+			{
+				Teammate->AdjustCurrency(NewCurrency * 0.25f);
+			}
+		}
+	}
+
 	if ( PS && !IsTeamStillAlive(PS->GetTeamNum()) )
 	{
 		uint8 OtherTeamNum = 1 - PS->GetTeamNum();
@@ -277,30 +299,6 @@ void AUTGauntletGame::DiscardInventory(APawn* Other, AController* Killer)
 	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
 	if (UTC != NULL)
 	{
-		// discard all weapons instead of just the one
-		FRotationMatrix RotMat(Other->GetActorRotation());
-		FVector ThrowDirs[] = { RotMat.GetUnitAxis(EAxis::Y), -RotMat.GetUnitAxis(EAxis::Y), -RotMat.GetUnitAxis(EAxis::X) };
-
-		int32 i = 0;
-		for (TInventoryIterator<AUTWeapon> It(UTC); It; ++It)
-		{
-			if (*It != UTC->GetWeapon())
-			{
-				FVector FinalDir;
-				if (i < ARRAY_COUNT(ThrowDirs))
-				{
-					FinalDir = ThrowDirs[i];
-				}
-				else
-				{
-					FinalDir = FMath::VRand();
-					FinalDir.Z = 0.0f;
-					FinalDir.Normalize();
-				}
-				It->DropFrom(UTC->GetActorLocation(), FinalDir * 1000.0f + FVector(0.0f, 0.0f, 250.0f));
-				i++;
-			}
-		}
 		// spawn ammo box with any unassigned ammo
 		if (UTC->SavedAmmo.Num() > 0)
 		{

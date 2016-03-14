@@ -2272,7 +2272,7 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
 		if (UTC != NULL && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->Health == 0)
 		{
-			UTC->Health = UTC->HealthMax;
+			UTC->SetInitialHealth();
 		}
 	}
 
