@@ -423,7 +423,7 @@ void FRazerChroma::Tick(float DeltaTime)
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	if (UserSettings && !UserSettings->IsKeyboardLightingEnabled())
 	{
-		if (bChromaSDKEnabled)
+		if (bChromaSDKEnabled && UnInit)
 		{
 			UnInit();
 			bChromaSDKEnabled = false;
@@ -434,7 +434,7 @@ void FRazerChroma::Tick(float DeltaTime)
 
 	if (!bChromaSDKEnabled)
 	{
-		if (Init() == RZRESULT_SUCCESS)
+		if (Init && Init() == RZRESULT_SUCCESS)
 		{
 			bChromaSDKEnabled = true;
 		}
