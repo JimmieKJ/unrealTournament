@@ -159,6 +159,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		TArray<float> TeamRespawnWaitTime;
 
 	virtual float GetRespawnWaitTimeFor(AUTPlayerState* PS) override;
+	virtual bool AllowMinimapFor(AUTPlayerState* PS) override;
 
 	UPROPERTY(Replicated)
 	uint8 AdvantageTeamIndex;

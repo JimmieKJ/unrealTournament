@@ -107,6 +107,10 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, TeamRespawnWaitTime);
 }
 
+bool AUTCTFGameState::AllowMinimapFor(AUTPlayerState* PS)
+{
+	return true;
+}
 
 float AUTCTFGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
 {

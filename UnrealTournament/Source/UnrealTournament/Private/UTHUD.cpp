@@ -555,9 +555,10 @@ void AUTHUD::DrawHUD()
 				{
 					UTPlayerOwner->SetViewedScorePS(NULL, 0);
 				}
-				if (bDrawMinimap && UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives))
+				if (bDrawMinimap && GS && GS->AllowMinimapFor(UTPlayerOwner->UTPlayerState))
 				{
-					const float MapSize = float(Canvas->SizeY) * 0.75f;
+					float MapScale = (UTPlayerOwner->UTPlayerState && !UTPlayerOwner->UTPlayerState->bOnlySpectator && !UTPlayerOwner->UTPlayerState->bOutOfLives) ? 0.25f : 0.75f;
+					const float MapSize = float(Canvas->SizeY) * MapScale;
 					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
 				}
 				if (bDrawDamageNumbers)
@@ -1134,11 +1135,11 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 		Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
 	}
 
-	if (UTPlayerOwner && UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives))
-	{
-		DrawMinimapSpectatorIcons();
-	}
+	DrawMinimapSpectatorIcons();
 }
+
+// flag to allow enemy team
+// flag to allow enemy flag
 
 void AUTHUD::DrawMinimapSpectatorIcons()
 {

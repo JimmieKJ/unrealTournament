@@ -8,6 +8,7 @@
 AUTHUD_CTF::AUTHUD_CTF(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	bDrawMinimap = true;
 }
 
 FLinearColor AUTHUD_CTF::GetBaseHUDColor()
@@ -44,11 +45,12 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 	if (GS == NULL) return;
 
 	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	bool bShowAllFlags = UTPlayerOwner && UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bOnlySpectator;
 
 	for (int32 Team = 0; Team < 2; Team++)
 	{
 		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
-		if (Base && Base->MyFlag && Base->MyFlag->Team)
+		if (Base && Base->MyFlag && Base->MyFlag->Team && (bShowAllFlags || !GS->OnSameTeam(Base, UTPlayerOwner) || Base->MyFlag->bFriendlyCanPickup || Base->MyFlag->IsHome()))
 		{
 			FVector2D Pos = WorldToMapToScreen(Base->GetActorLocation());
 			Canvas->DrawColor = (Team == 0) ? FColor(255, 0, 0, 255) : FColor(0, 0, 255, 255);

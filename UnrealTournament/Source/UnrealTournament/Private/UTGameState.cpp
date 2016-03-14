@@ -1670,6 +1670,11 @@ float AUTGameState::MatchHighlightScore(AUTPlayerState* PS)
 	return BestHighlightScore;
 }
 
+bool AUTGameState::AllowMinimapFor(AUTPlayerState* PS)
+{
+	return PS && (PS->bOnlySpectator || PS->bOutOfLives);
+}
+
 void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
 {
 	for (int32 i = 0; i < PlayerList.Num(); i++)
@@ -1747,7 +1752,4 @@ void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	}
 
 	JsonObject->SetArrayField(TEXT("Players"),  PlayersJson);
-	
-
-
 }
