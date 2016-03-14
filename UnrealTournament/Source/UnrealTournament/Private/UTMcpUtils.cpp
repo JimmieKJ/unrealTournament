@@ -46,6 +46,7 @@ UUTMcpUtils* UUTMcpUtils::Get(UWorld* World, const TSharedPtr<const FUniqueNetId
 		McpUtilsSingleton->RemoveFromRoot();
 		McpUtilsSingleton = nullptr;
 	}
+
 #if WITH_PROFILE
 	if (!McpUtilsSingleton)
 	{
@@ -62,13 +63,14 @@ UUTMcpUtils* UUTMcpUtils::Get(UWorld* World, const TSharedPtr<const FUniqueNetId
 		McpUtilsSingleton->McpSubsystem = WorldMcp;
 		McpUtilsSingleton->AddToRoot();
 	}
-#endif
 
 	// set this every time
 	if (InGameAccountId.IsValid() && InGameAccountId->IsValid())
 	{
 		McpUtilsSingleton->GameAccountId = InGameAccountId;
 	}
+#endif
+
 	return McpUtilsSingleton;
 }
 
