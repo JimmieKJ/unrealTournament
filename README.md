@@ -3,7 +3,7 @@ Welcome to Unreal Tournament!
 
 This is the project page for **Unreal Tournament** on GitHub.  Unreal Tournament is being created in close collaboration between Epic and the Unreal Engine 4 developer community.  You'll be able to see live commits from Epic developers along with integrated code submissions from the community!  You can also use this code as a starting point for experimentation and Unreal Tournament mod creation.
 
-As described in the [License Agreement](https://github.com/EpicGames/UnrealTournament/blob/master/LICENSE.pdf), the code and assets residing in this repository may only be used for Unreal Tournament submissions.
+As described in the [License Agreement](LICENSE.pdf), the code and assets residing in this repository may only be used for Unreal Tournament submissions.
 
 We now have a basic version of Unreal Tournament deathmatch and CTF which provide a basis for design iteration and further development. You can follow our progress on this fork, and the code is ready for extending or modding. If you want to get involved, join us on our [forums](http://forums.unrealengine.com/forumdisplay.php?34-Unreal-Tournament) to participate in design discussions, find projects that need help, and discover other opportunities to contribute.
 
