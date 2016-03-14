@@ -67,12 +67,6 @@ void AUTGauntletFlag::NoLongerHeld(AController* InstigatedBy)
 
 	if (LastHoldingPawn)
 	{
-		AUTPlayerState* LastHoldingPS = Cast<AUTPlayerState>(LastHoldingPawn->PlayerState);
-		if (LastHoldingPS)
-		{
-			LastHoldingPS->bSpecialTeamPlayer = false;
-		}
-
 		LastHoldingPawn->ResetMaxSpeedPctModifier();
 	}
 
@@ -100,7 +94,6 @@ void AUTGauntletFlag::SetHolder(AUTCharacter* NewHolder)
 			bTeamLocked = false;
 		}
 	}
-	if (Holder) Holder->bSpecialTeamPlayer = true;
 	if (NewHolder) NewHolder->ResetMaxSpeedPctModifier();
 }
 

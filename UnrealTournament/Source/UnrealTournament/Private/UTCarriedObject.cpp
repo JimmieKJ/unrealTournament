@@ -352,6 +352,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	}
 
 	Holder->SetCarriedObject(this);
+	Holder->bSpecialTeamPlayer = true;
 	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, HoldingPawn);
 
 	SendGameMessage(4, Holder, NULL);
@@ -418,6 +419,12 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 				TeamIter->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
 			}
 		}
+	}
+
+	AUTPlayerState* LastHoldingPS = LastHoldingPawn ? Cast<AUTPlayerState>(LastHoldingPawn->PlayerState) : nullptr;
+	if (LastHoldingPS)
+	{
+		LastHoldingPS->bSpecialTeamPlayer = false;
 	}
 }
 
