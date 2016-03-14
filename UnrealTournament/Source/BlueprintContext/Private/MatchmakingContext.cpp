@@ -137,11 +137,15 @@ void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)
 		}
 
 		// Also should verify it's an accepted region
-		if (LocalPlayer->GetProfileSettings()->MatchmakingRegion.IsEmpty())
+		UUTProfileSettings* ProfileSettings = LocalPlayer->GetProfileSettings();
+		if (ProfileSettings)
 		{
-			// Show selection dialog
-			LocalPlayer->ShowRegionSelectDialog();
-			return;
+			if (ProfileSettings->MatchmakingRegion.IsEmpty())
+			{
+				// Show selection dialog
+				LocalPlayer->ShowRegionSelectDialog();
+				return;
+			}
 		}
 
 		LocalPlayer->StartMatchmaking(InPlaylistId);

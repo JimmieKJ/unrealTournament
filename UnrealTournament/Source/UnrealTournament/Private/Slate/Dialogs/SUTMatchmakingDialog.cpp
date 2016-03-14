@@ -56,7 +56,10 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 
 FText SUTMatchmakingDialog::GetRegionText() const
 {
-	return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion));
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+
+	FString MatchMakingRegion = ProfileSettings ? ProfileSettings->MatchmakingRegion : TEXT("USA");
+	return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(MatchMakingRegion));
 }
 
 FText SUTMatchmakingDialog::GetMatchmakingText() const

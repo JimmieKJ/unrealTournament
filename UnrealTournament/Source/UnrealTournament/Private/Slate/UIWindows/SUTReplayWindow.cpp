@@ -779,8 +779,12 @@ FReply SUTReplayWindow::OnRecordButtonClicked()
 
 FReply SUTReplayWindow::OnScreenshotButtonClicked()
 {
-	GScreenshotResolutionX = GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResX;
-	GScreenshotResolutionY = GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResY;
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings)
+	{
+		GScreenshotResolutionX = ProfileSettings->ReplayScreenshotResX;
+		GScreenshotResolutionY = ProfileSettings->ReplayScreenshotResY;
+	}
 
 	if (GScreenshotResolutionX <= 0)
 	{

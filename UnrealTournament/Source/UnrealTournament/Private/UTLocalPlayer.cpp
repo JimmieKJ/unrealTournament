@@ -4591,7 +4591,14 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		MatchmakingParams.ControllerId = GetControllerId();
 		MatchmakingParams.StartWith = EMatchmakingStartLocation::Game;
 		MatchmakingParams.PlaylistId = PlaylistId;
-		MatchmakingParams.DatacenterId = GetProfileSettings()->MatchmakingRegion.IsEmpty() ? TEXT("USA") : GetProfileSettings()->MatchmakingRegion;
+		if (GetProfileSettings() && !GetProfileSettings()->MatchmakingRegion.IsEmpty())
+		{
+			MatchmakingParams.DatacenterId =  GetProfileSettings()->MatchmakingRegion;
+		}
+		else
+		{
+			MatchmakingParams.DatacenterId = TEXT("USA");
+		}
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
 	}
 }

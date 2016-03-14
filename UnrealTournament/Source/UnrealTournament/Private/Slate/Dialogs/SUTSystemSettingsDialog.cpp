@@ -450,11 +450,12 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 		];
 	}
 
-	if (!GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion.IsEmpty())
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings && !ProfileSettings->MatchmakingRegion.IsEmpty())
 	{
 		for (int32 i = 0; i < MatchmakingRegionList.Num(); i++)
 		{
-			if (*MatchmakingRegionList[i].Get() == GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion)
+			if (*MatchmakingRegionList[i].Get() == ProfileSettings->MatchmakingRegion)
 			{
 				MatchmakingRegion->SetSelectedItem(MatchmakingRegionList[i]);
 				break;
@@ -1218,8 +1219,12 @@ FReply SUTSystemSettingsDialog::OKClick()
 	TSharedPtr<FString> MatchmakingRegionSelection = MatchmakingRegion->GetSelectedItem();
 	if (MatchmakingRegionSelection.IsValid() && bChangedMatchmakingRegion)
 	{
-		GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion = *MatchmakingRegionSelection.Get();
-		GetPlayerOwner()->SaveProfileSettings();
+		UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+		if (ProfileSettings)
+		{
+			GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion = *MatchmakingRegionSelection.Get();
+			GetPlayerOwner()->SaveProfileSettings();
+		}
 	}
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
