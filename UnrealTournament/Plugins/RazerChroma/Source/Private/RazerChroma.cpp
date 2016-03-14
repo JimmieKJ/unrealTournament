@@ -39,6 +39,18 @@ FRazerChroma::FRazerChroma()
 	TextScrollerFrame = 0;
 	TextScrollerDeltaTimeAccumulator = 0;
 	TextScrollerFrameTimeMinimum = 0.10f;
+
+	Init = nullptr;
+	CreateEffect = nullptr;
+	CreateKeyboardEffect = nullptr;
+	CreateMouseEffect = nullptr;
+	CreateHeadsetEffect = nullptr;
+	CreateMousepadEffect = nullptr;
+	CreateKeypadEffect = nullptr;
+	SetEffect = nullptr;
+	DeleteEffect = nullptr;
+	QueryDevice = nullptr;
+	UnInit = nullptr;
 }
 
 IMPLEMENT_MODULE(FRazerChroma, RazerChroma)
