@@ -9,4 +9,5 @@ UCLASS()
 class UNREALTOURNAMENT_API AUTHUD_Gauntlet : public AUTHUD_CTF
 {
 	GENERATED_UCLASS_BODY()
+	virtual void DrawMinimapSpectatorIcons() override;
 };

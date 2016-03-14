@@ -31,25 +31,13 @@ AUTPickupCoin::AUTPickupCoin(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bAllowTickOnDedicatedServer = true;
 }
 
-void AUTPickupCoin::SetValue(float NewValue)
-{
-	Value = NewValue;
-	if (Value >= 500) Mesh->SetWorldScale3D(FVector(1.5, 1.5, 1.5f));
-	else if (Value >= 100) Mesh->SetWorldScale3D(FVector(1.0, 1.0, 1.0f));
-	else Mesh->SetWorldScale3D(FVector(0.75, 0.75, 0.75f));
-}
-
-void AUTPickupCoin::GiveTo_Implementation(APawn* Target)
+void AUTPickupCoin::GiveTo_Implementation(APawn* Target) 
 {
 	if (Target->bTearOff) return;	// Don't give to dead pawns.
-
-	UE_LOG(UT,Log,TEXT("GiveTo"))
 	AUTPlayerState* PS = Cast<AUTPlayerState>(Target->PlayerState);
 	if (PS)
 	{
 		PS->AdjustCurrency(Value);
 	}
-
-	Destroy();
 }
 
