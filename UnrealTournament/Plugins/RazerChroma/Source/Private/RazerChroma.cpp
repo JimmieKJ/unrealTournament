@@ -57,22 +57,21 @@ void FRazerChroma::StartupModule()
 #pragma warning(disable: 4191)
 	RZRESULT Result = RZRESULT_INVALID;
 	Init = (INIT)GetProcAddress(ChromaSDKModule, "Init");
+	CreateEffect = (CREATEEFFECT)GetProcAddress(ChromaSDKModule, "CreateEffect");
+	CreateKeyboardEffect = (CREATEKEYBOARDEFFECT)GetProcAddress(ChromaSDKModule, "CreateKeyboardEffect");
+	CreateMouseEffect = (CREATEMOUSEEFFECT)GetProcAddress(ChromaSDKModule, "CreateMouseEffect");
+	CreateHeadsetEffect = (CREATEHEADSETEFFECT)GetProcAddress(ChromaSDKModule, "CreateHeadsetEffect");
+	CreateMousepadEffect = (CREATEMOUSEPADEFFECT)GetProcAddress(ChromaSDKModule, "CreateMousepadEffect");
+	CreateKeypadEffect = (CREATEKEYPADEFFECT)GetProcAddress(ChromaSDKModule, "CreateKeypadEffect");
+	SetEffect = (SETEFFECT)GetProcAddress(ChromaSDKModule, "SetEffect");
+	DeleteEffect = (DELETEEFFECT)GetProcAddress(ChromaSDKModule, "DeleteEffect");
+	QueryDevice = (QUERYDEVICE)GetProcAddress(ChromaSDKModule, "QueryDevice");
+	UnInit = (UNINIT)GetProcAddress(ChromaSDKModule, "UnInit");
 	if (Init)
 	{
 		Result = Init();
 		if (Result == RZRESULT_SUCCESS)
 		{
-			CreateEffect = (CREATEEFFECT)GetProcAddress(ChromaSDKModule, "CreateEffect");
-			CreateKeyboardEffect = (CREATEKEYBOARDEFFECT)GetProcAddress(ChromaSDKModule, "CreateKeyboardEffect");
-			CreateMouseEffect = (CREATEMOUSEEFFECT)GetProcAddress(ChromaSDKModule, "CreateMouseEffect");
-			CreateHeadsetEffect = (CREATEHEADSETEFFECT)GetProcAddress(ChromaSDKModule, "CreateHeadsetEffect");
-			CreateMousepadEffect = (CREATEMOUSEPADEFFECT)GetProcAddress(ChromaSDKModule, "CreateMousepadEffect");
-			CreateKeypadEffect = (CREATEKEYPADEFFECT)GetProcAddress(ChromaSDKModule, "CreateKeypadEffect");
-			SetEffect = (SETEFFECT)GetProcAddress(ChromaSDKModule, "SetEffect");
-			DeleteEffect = (DELETEEFFECT)GetProcAddress(ChromaSDKModule, "DeleteEffect");
-			QueryDevice = (QUERYDEVICE)GetProcAddress(ChromaSDKModule, "QueryDevice");
-			UnInit = (UNINIT)GetProcAddress(ChromaSDKModule, "UnInit");
-
 			if (CreateEffect &&
 				CreateKeyboardEffect &&
 				CreateMouseEffect &&
@@ -416,12 +415,32 @@ void FRazerChroma::OnWorldDestroyed(UWorld* World)
 
 void FRazerChroma::Tick(float DeltaTime)
 {
-	if (!bChromaSDKEnabled)
+	if (GIsEditor)
 	{
 		return;
 	}
 
-	if (GIsEditor)
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (UserSettings && !UserSettings->IsKeyboardLightingEnabled())
+	{
+		if (bChromaSDKEnabled)
+		{
+			UnInit();
+			bChromaSDKEnabled = false;
+		}
+
+		return;
+	}
+
+	if (!bChromaSDKEnabled)
+	{
+		if (Init() == RZRESULT_SUCCESS)
+		{
+			bChromaSDKEnabled = true;
+		}
+	}
+
+	if (!bChromaSDKEnabled)
 	{
 		return;
 	}

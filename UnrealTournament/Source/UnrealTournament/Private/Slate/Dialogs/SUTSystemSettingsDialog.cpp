@@ -435,15 +435,15 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 
 						// Graphics Settings
 						+ SWidgetSwitcher::Slot()
-							[
-								BuildGraphicsTab()
-							]
+						[
+							BuildGraphicsTab()
+						]
 
 						// Audio Settings
 						+ SWidgetSwitcher::Slot()
-							[
-								BuildAudioTab()
-							]
+						[
+							BuildAudioTab()
+						]
 					]
 				]
 			]
@@ -754,6 +754,33 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "MatchmakingRegionSelect", "Select a Region"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 			]
+		]
+	]	
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "KeyboardLighting", "Enable Keyboard Lighting (Razer Chroma)"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "KeyboardLighting_Tooltip", "Keyboard lighting only supported on Razer Chroma at the moment.")))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SAssignNew(KeyboardLightingCheckbox, SCheckBox)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.IsChecked(UserSettings->IsKeyboardLightingEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]
 	];
 }
@@ -1181,6 +1208,7 @@ FReply SUTSystemSettingsDialog::OKClick()
 	UserSettings->SetScreenResolution(FIntPoint(X, Y));
 	UserSettings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
+	UserSettings->SetKeyboardLightingEnabled(KeyboardLightingCheckbox->IsChecked());
 	UserSettings->SaveConfig();
 
 	// Immediately change the vsync, UserSettings would do it, but it's in a function that we don't typically call

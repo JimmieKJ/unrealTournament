@@ -166,6 +166,7 @@ protected:
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > MatchmakingRegion;
 	TSharedPtr<STextBlock> SelectedMatchmakingRegion;
 	bool bChangedMatchmakingRegion;
+	TSharedPtr<SCheckBox> KeyboardLightingCheckbox;
 
 	TArray<TSharedPtr<FString>> BotSpeechList;
 	TSharedPtr<SComboBox<TSharedPtr<FString>>> BotSpeechCombo;

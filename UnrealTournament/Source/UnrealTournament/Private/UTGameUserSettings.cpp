@@ -221,6 +221,16 @@ void UUTGameUserSettings::SetHRTFEnabled(bool NewHRTFEnabled)
 #endif
 }
 
+bool UUTGameUserSettings::IsKeyboardLightingEnabled()
+{
+	return !bDisableKeyboardLighting;
+}
+
+void UUTGameUserSettings::SetKeyboardLightingEnabled(bool NewKeyboardLightingEnabled)
+{
+	bDisableKeyboardLighting = !NewKeyboardLightingEnabled;
+}
+
 #if !UE_SERVER
 void UUTGameUserSettings::BenchmarkDetailSettingsIfNeeded(UUTLocalPlayer* LocalPlayer)
 {
