@@ -16,9 +16,9 @@ void UUTHUDWidget_TeamGameClock::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
 
-	RedScoreText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_TeamGameClock::GetRedScoreText_Implementation);
-	BlueScoreText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_TeamGameClock::GetBlueScoreText_Implementation);
-	ClockText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_TeamGameClock::GetClockText_Implementation);
+	RedScoreText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_TeamGameClock::GetRedScoreText);
+	BlueScoreText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_TeamGameClock::GetBlueScoreText);
+	ClockText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_TeamGameClock::GetClockText);
 }
 
 void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)

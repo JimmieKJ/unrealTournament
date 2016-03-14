@@ -16,8 +16,8 @@ UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FObjectInitializer& O
 void UUTHUDWidget_Paperdoll::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
-	HealthText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerHealth_Implementation);
-	ArmorText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerArmor_Implementation);
+	HealthText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerHealth);
+	ArmorText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerArmor);
 	LastHealth = 100;
 	LastArmor = 0;
 	ArmorFlashTimer = 0.0f;

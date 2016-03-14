@@ -17,11 +17,11 @@ void UUTHUDWidget_GameClock::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
 
-	PlayerScoreText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerScoreText_Implementation);
-	ClockText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetClockText_Implementation);
-	PlayerRankText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerRankText_Implementation);
-	PlayerRankThText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerRankThText_Implementation);
-	NumPlayersText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetNumPlayersText_Implementation);
+	PlayerScoreText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerScoreText);
+	ClockText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetClockText);
+	PlayerRankText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerRankText);
+	PlayerRankThText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerRankThText);
+	NumPlayersText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetNumPlayersText);
 }
 
 void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)

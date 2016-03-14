@@ -3826,7 +3826,6 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CreditsPanelWidget.Reset();
 	QuickMatchDialog.Reset();
 	LoginDialog.Reset();
-	HUDSettings.Reset();
 	ContentLoadingMessage.Reset();
 	FriendsMenu.Reset();
 	RedirectDialog.Reset();
@@ -3841,6 +3840,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CloseMatchSummary();
 	CloseSpectatorWindow();
 	CloseQuickChat();
+	HideHUDSettings();
 
 	if (ToastList.Num() > 0)
 	{

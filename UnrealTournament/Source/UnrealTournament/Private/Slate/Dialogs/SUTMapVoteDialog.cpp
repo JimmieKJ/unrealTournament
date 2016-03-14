@@ -381,6 +381,7 @@ void SUTMapVoteDialog::UpdateTopVotes()
 		if (bClear && LeadingVoteButtons[i].MapVoteInfo.IsValid())
 		{
 			LeadingVoteButtons[i].MapVoteInfo.Reset();
+			LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Hidden);
 			LeadingVoteButtons[i].MapTitle->SetText(NSLOCTEXT("SUTMapVoteDialog","WaitingForVoteText","????"));
 			LeadingVoteButtons[i].VoteCountText->SetVisibility(EVisibility::Hidden);
 			LeadingVoteButtons[i].BorderWidget->SetVisibility(EVisibility::Hidden);

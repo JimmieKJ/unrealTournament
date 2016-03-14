@@ -128,14 +128,6 @@ void SUTInGameMenu::BuildLeftMenuBar()
 					]
 				]
 			];
-
-			// Look to see if this player has already voted.
-
-			AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
-			if (UTPlayerState == nullptr || !UTPlayerState->bHasVoted)
-			{
-				PlayerOwner->OpenMapVote(NULL);
-			}
 		}
 
 		LeftMenuBar->AddSlot()
