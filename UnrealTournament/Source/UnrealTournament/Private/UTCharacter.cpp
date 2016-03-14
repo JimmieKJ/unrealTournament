@@ -5147,7 +5147,7 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 			if (AnimInstance->Montage_Play(TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage, EmoteSpeed))
 			{
 				bool bIncompatibleWeaponForFP = false;
-				if (GetWeapon() && GetWeapon()->HandsAttachSocket == NAME_None)
+				if (!GetWeapon() || GetWeapon()->HandsAttachSocket == NAME_None)
 				{
 					bIncompatibleWeaponForFP = true;
 				}
