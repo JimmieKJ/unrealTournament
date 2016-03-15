@@ -9,8 +9,9 @@ AUTProj_BioGrenade::AUTProj_BioGrenade(const FObjectInitializer& OI)
 	if (ProximitySphere != NULL)
 	{
 		ProximitySphere->InitSphereRadius(200.0f);
-		ProximitySphere->SetCollisionProfileName("NoCollision");
+		ProximitySphere->SetCollisionObjectType(COLLISION_PROJECTILE);
 		ProximitySphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		ProximitySphere->SetCollisionResponseToAllChannels(ECR_Ignore);
 		ProximitySphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 		ProximitySphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProj_BioGrenade::ProximityOverlapBegin);
 		ProximitySphere->bTraceComplexOnMove = false;
