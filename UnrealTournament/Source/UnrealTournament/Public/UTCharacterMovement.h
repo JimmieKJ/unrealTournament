@@ -269,7 +269,7 @@ public:
 		int32 MaxWallDodges;
 
 	/** Current count of wall dodges. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly, meta = (DisplayName = "Current Wall Dodge Count"))
+	UPROPERTY(Category = "Dodging", BlueprintReadWrite, meta = (DisplayName = "Current Wall Dodge Count"))
 		int32 CurrentWallDodgeCount;
 
 	/** Time after starting wall dodge before another can be attempted. */

@@ -5,13 +5,12 @@
 #include "UTPickupCoin.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTPickupCoin : public AUTDroppedPickup
+class UNREALTOURNAMENT_API AUTPickupCoin : public AUTPickupInventory
 {
 	GENERATED_UCLASS_BODY()
 
-	float Value;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Game)
+	int32 Value;
 
 	virtual void GiveTo_Implementation(APawn* Target) override;
-	virtual void SetValue(float NewValue);
-
 };

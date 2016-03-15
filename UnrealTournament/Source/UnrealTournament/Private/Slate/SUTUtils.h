@@ -4,7 +4,7 @@
 #include "SlateBasics.h"
 #include "Base/SUTDialogBase.h"
 
-class SUTUtils
+class UNREALTOURNAMENT_API SUTUtils
 {
 public:
 	static TSharedRef<SToolTip> CreateTooltip(const TAttribute<FText>& Text);

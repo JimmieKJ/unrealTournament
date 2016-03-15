@@ -20,8 +20,8 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 
 	ScalingStartDist = 4000.f;
 	ScalingEndDist = 15000.f;
-	MaxIconScale = 0.8f;
-	MinIconScale = 0.4f;
+	MaxIconScale = 1.f;
+	MinIconScale = 0.5f;
 }
 
 void UUTHUDWidget_CTFFlagStatus::InitializeWidget(AUTHUD* Hud)
@@ -100,13 +100,14 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			FVector WorldPosition = Base->GetActorLocation() + Base->GetActorRotation().RotateVector(Flag->HomeBaseOffset) + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 3.f);
 			float OldFlagAlpha = FlagIconTemplate.RenderOpacity;
 			float CurrentWorldAlpha = InWorldAlpha;
-			if ((ViewRotation.Vector() | (Base->GetActorLocation() - ViewPoint)) > 0.f)
+			FVector ViewDir = ViewRotation.Vector();
+			if ((ViewDir | (Base->GetActorLocation() - ViewPoint)) > 0.f)
 			{
 				ScreenPosition = GetCanvas()->Project(WorldPosition);
 				bDrawInWorld = (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
 			}
 
-			if (bDrawInWorld)
+			if (bDrawInWorld && (Base->GetCarriedObject()->IsHome() || !GS->bAsymmetricVictoryConditions))
 			{
 				float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
 				CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);
@@ -130,7 +131,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			bDrawInWorld = false;
 			Dist = (Flag->GetActorLocation() - ViewPoint).Size();
 			WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
-			bool bShouldDrawFlagIcon = bIsEnemyFlag || Flag->bFriendlyCanPickup;
+			bool bShouldDrawFlagIcon = bIsEnemyFlag ? Flag->bEnemyCanPickup : Flag->bFriendlyCanPickup;
 
 			if ((bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home) && ((ViewRotation.Vector() | (Flag->GetActorLocation() - ViewPoint)) > 0.f))
 			{
@@ -147,8 +148,15 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				{
 					WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
 				}
-				ScreenPosition = GetCanvas()->Project(WorldPosition);
-				bDrawInWorld = (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
+
+				bDrawInWorld = (((WorldPosition - ViewPoint).SafeNormal() | ViewDir) > 0.3f);
+				if (bDrawInWorld)
+				{
+					ScreenPosition = GetCanvas()->Project(WorldPosition);
+					float Edge = CircleBorder[Team].GetWidth()* WorldRenderScale;
+					ScreenPosition.X = FMath::Clamp(ScreenPosition.X, Edge, GetCanvas()->ClipX - Edge);
+					ScreenPosition.Y = FMath::Clamp(ScreenPosition.Y, Edge, GetCanvas()->ClipY - Edge);
+				}
 			}
 
 			if (bDrawInWorld)
@@ -187,14 +195,15 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				}
 				else
 				{
-					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth()* WorldRenderScale, FlagIconTemplate.GetHeight()* WorldRenderScale);
+					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.25f*FlagIconTemplate.GetWidth()* WorldRenderScale, 1.25f*FlagIconTemplate.GetHeight()* WorldRenderScale);
 
 					if (FlagState == CarriedObjectState::Dropped)
 					{
 						float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
 						DroppedIconTemplate.RenderOpacity = CurrentWorldAlpha;
-						RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, DroppedIconTemplate.GetWidth()* WorldRenderScale, DroppedIconTemplate.GetHeight()* WorldRenderScale);
+						RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.25f*DroppedIconTemplate.GetWidth()* WorldRenderScale, 1.25f*DroppedIconTemplate.GetHeight()* WorldRenderScale);
 						DroppedIconTemplate.RenderOpacity = DroppedAlpha;
+						DrawText(FText::AsNumber(Flag->FlagReturnTime), ScreenPosition.X, ScreenPosition.Y, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*WorldRenderScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
 					}
 				}
 			}

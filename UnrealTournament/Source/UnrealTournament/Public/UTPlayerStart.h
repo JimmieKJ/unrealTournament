@@ -13,8 +13,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bIgnoreInShowdown;
 
+	/** if set ignore this PlayerStart for non-team game modes */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIgnoreInNonTeamGame;
+
+	/** if set ignore this PlayerStart for asymmetric CTF */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		bool bIgnoreInASymCTF;
+
 	/** if set, this player state will be rated higher if the team is on defense */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bDefensiveStart;
-
 };

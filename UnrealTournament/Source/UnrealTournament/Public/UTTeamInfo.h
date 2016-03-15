@@ -255,6 +255,7 @@ public:
 		float LastScoreStatsUpdateTime;
 
 	/** Accessors for StatsData. */
+	UFUNCTION(BlueprintCallable, Category = Team)
 	float GetStatsValue(FName StatsName);
 	void SetStatsValue(FName StatsName, float NewValue);
 	void ModifyStatsValue(FName StatsName, float Change);

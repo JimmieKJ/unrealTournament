@@ -8,7 +8,7 @@ UUTHUDWidget_LivesRemaining::UUTHUDWidget_LivesRemaining(const class FObjectInit
 {
 	Position = FVector2D(-5.0f, 5.0f);
 	Size = FVector2D(114.0f, 43.0f);
-	ScreenPosition = FVector2D(1.0f, 0.0f);
+	ScreenPosition = FVector2D(0.85f, 0.0f);
 	Origin = FVector2D(1.0f, 0.0f);
 }
 

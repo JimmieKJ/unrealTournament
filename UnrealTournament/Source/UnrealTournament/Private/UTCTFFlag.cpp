@@ -104,6 +104,7 @@ void AUTCTFFlag::OnObjectStateChanged()
 		if (ObjectState == CarriedObjectState::Dropped)
 		{
 			GetWorldTimerManager().SetTimer(SendHomeWithNotifyHandle, this, &AUTCTFFlag::SendHomeWithNotify, AutoReturnTime, false);
+			FlagReturnTime = FMath::Clamp(int32(AutoReturnTime + 0.5f), 0, 255);
 		}
 		else
 		{
@@ -241,6 +242,10 @@ void AUTCTFFlag::Tick(float DeltaTime)
 			ReturningMeshMID->SetScalarParameterValue(NAME_Wipe, Value);
 			MeshMID->SetScalarParameterValue(NAME_Wipe, 1.0f - Value);
 		}
+	}
+	if ((Role == ROLE_Authority) && (ObjectState == CarriedObjectState::Dropped) && GetWorldTimerManager().IsTimerActive(SendHomeWithNotifyHandle))
+	{
+		FlagReturnTime = FMath::Clamp(int32(GetWorldTimerManager().GetTimerRemaining(SendHomeWithNotifyHandle) + 0.5f), 0, 255);
 	}
 }
 

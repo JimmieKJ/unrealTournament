@@ -474,6 +474,9 @@ public:
 
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
+	/** Return true if playerstart P should be avoided for this game mode. */
+	virtual bool AvoidPlayerStart(class AUTPlayerStart* P);
+
 	virtual void StartNewPlayer(APlayerController* NewPlayer);
 	virtual bool ShouldSpawnAtStartSpot(AController* Player) override;
 	virtual class AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;

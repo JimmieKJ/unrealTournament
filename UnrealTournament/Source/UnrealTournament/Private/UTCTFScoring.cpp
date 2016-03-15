@@ -83,6 +83,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 	{
 		return;
 	}
+	AUTCTFGameMode* GM = GetWorld()->GetAuthGameMode<AUTCTFGameMode>();
 	if (Reason == FName("SentHome"))
 	{
 		ScorerPS->FlagReturns++;
@@ -94,7 +95,6 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		ScorerPS->ModifyStatsValue(NAME_FlagReturnPoints, Points);
 		ScorerPS->ModifyStatsValue(NAME_DefenderScore, Points);
 		
-		AUTCTFGameMode* GM = GetWorld()->GetAuthGameMode<AUTCTFGameMode>();
 		if (GM)
 		{
 			GM->AddReturnEventToReplay(ScorerPS, ScorerPS->Team);
@@ -107,7 +107,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.ScoredBy = FSafePlayerName(ScorerPS);
 		NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 1;
-		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += 1;
+		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += (GM ? GM->FlagCapScore : 1);
 		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->GetClockTime();
 
 		if (CTFGameState->IsMatchInOvertime())

@@ -82,7 +82,11 @@ void SUTMatchmakingRegionDialog::OnMatchmakingRegionSelected(TSharedPtr<FString>
 
 FReply SUTMatchmakingRegionDialog::OnButtonClick(uint16 ButtonID)
 {
-	GetPlayerOwner()->GetProfileSettings()->MatchmakingRegion = *MatchmakingRegion->GetSelectedItem();
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings)
+	{
+		ProfileSettings->MatchmakingRegion = *MatchmakingRegion->GetSelectedItem();
+	}
 
 	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
 	GetPlayerOwner()->CloseDialog(SharedThis(this));

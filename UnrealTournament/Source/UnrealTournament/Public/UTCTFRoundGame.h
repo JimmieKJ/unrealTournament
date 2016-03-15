@@ -72,6 +72,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
 	virtual void StartMatch() override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
+	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
 
 	/** Score round ending due to team out of lives. */
 	virtual void ScoreOutOfLives(int32 WinningTeamIndex);

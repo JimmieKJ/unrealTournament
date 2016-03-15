@@ -19,6 +19,7 @@
 #include "UTCTFScoreboard.h"
 #include "UTShowdownGameMessage.h"
 #include "UTShowdownRewardMessage.h"
+#include "UTPlayerStart.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -40,6 +41,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	ExtraHealth = 0;
 	FlagPickupDelay = 12;
 	RemainingPickupDelay = 0;
+
+	// remove translocator - fixmesteve make this an option
+	TranslocatorObject = nullptr;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -48,6 +52,11 @@ void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &MercyScore, TEXT("MercyScore"))));
+}
+
+bool AUTCTFRoundGame::AvoidPlayerStart(AUTPlayerStart* P)
+{
+	return P && (bAsymmetricVictoryConditions && P->bIgnoreInASymCTF);
 }
 
 void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -141,6 +150,7 @@ void AUTCTFRoundGame::StartMatch()
 	{
 		InitRound();
 		CTFGameState->CTFRound = 1;
+		CTFGameState->bAsymmetricVictoryConditions = bAsymmetricVictoryConditions;
 		bFirstRoundInitialized = true;
 	}
 	Super::StartMatch();
@@ -265,6 +275,17 @@ void AUTCTFRoundGame::InitRound()
 	bRedToCap = !bRedToCap;
 	if (FlagPickupDelay > 0)
 	{
+		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+		{
+			if (Base != NULL && Base->MyFlag)
+			{
+				AUTCarriedObject* Flag = Base->MyFlag;
+				Flag->bEnemyCanPickup = false;
+				Flag->bFriendlyCanPickup = false;
+				Flag->bTeamPickupSendsHome = false;
+				Flag->bEnemyPickupSendsHome = false;
+			}
+		}
 		RemainingPickupDelay = FlagPickupDelay;
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
@@ -372,6 +393,16 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 	if (WinningTeam)
 	{
 		WinningTeam->Score++;
+		if (CTFGameState)
+		{
+			FCTFScoringPlay NewScoringPlay;
+			NewScoringPlay.Team = WinningTeam;
+			NewScoringPlay.bDefenseWon = true;
+			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
+			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 1;
+			CTFGameState->AddScoringPlay(NewScoringPlay);
+		}
+
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
 		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);

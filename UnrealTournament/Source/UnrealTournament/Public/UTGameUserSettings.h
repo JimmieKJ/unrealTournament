@@ -59,6 +59,9 @@ public:
 
 	virtual bool IsHRTFEnabled();
 	virtual void SetHRTFEnabled(bool NewHRTFEnabled);
+	
+	virtual bool IsKeyboardLightingEnabled();
+	virtual void SetKeyboardLightingEnabled(bool NewKeyboardLightingEnabled);
 
 #if !UE_SERVER
 	DECLARE_EVENT_OneParam(UUTGameUserSettings, FSettingsAutodetected, const Scalability::FQualityLevels& /*DetectedQuality*/);
@@ -113,6 +116,9 @@ protected:
 
 	UPROPERTY(config)
 	bool bHRTFEnabled;
+
+	UPROPERTY(config)
+	bool bDisableKeyboardLighting;
 
 public:
 	UPROPERTY(config)

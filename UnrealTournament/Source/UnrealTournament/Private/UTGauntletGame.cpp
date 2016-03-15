@@ -204,10 +204,9 @@ void AUTGauntletGame::ScoreKill_Implementation(AController* Killer, AController*
 {
 	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 
-	AUTPlayerState* PS = Cast<AUTPlayerState>(Other->PlayerState);
-	AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
+	AUTPlayerState* PS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
+	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : nullptr;
 
-	UE_LOG(UT,Log,TEXT("Adding Currency"));
 	if (PS && KillerPS && PS->GetTeamNum() != KillerPS->GetTeamNum())
 	{
 		float NewCurrency = 250.0f + (PS->GetAvailableCurrency() * 0.25f);

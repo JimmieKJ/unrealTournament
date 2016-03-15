@@ -44,6 +44,7 @@
 #include "UTMcpUtils.h"
 #include "UTGameSessionRanked.h"
 #include "UTGameSessionNonRanked.h"
+#include "UTPlayerStart.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1432,8 +1433,10 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 		KillerName.ReplaceInline(TEXT(" "), TEXT("%20"));
 		VictimName.ReplaceInline(TEXT(" "), TEXT("%20"));
 
+		FString DamageName = DamageType ? DamageType->GetName() : TEXT("Unknown");
+		
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s %s %s"), *KillerName, *VictimName, *DamageType->GetName());
+		FString KillInfo = FString::Printf(TEXT("%s %s %s"), *KillerName, *VictimName, *DamageName);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
@@ -2522,7 +2525,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 	AActor* LastSpot = (Player != NULL && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
 	AUTPlayerState *UTPS = Player ? Cast<AUTPlayerState>(Player->PlayerState) : NULL;
-	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot))
+	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot) || AvoidPlayerStart(Cast<AUTPlayerStart>(P)))
 	{
 		// avoid re-using starts
 		Score -= 15.0f;
@@ -2618,6 +2621,11 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 		}
 	}
 	return FMath::Max(Score, 0.2f);
+}
+
+bool AUTGameMode::AvoidPlayerStart(AUTPlayerStart* P)
+{
+	return P && (!bTeamGame && P->bIgnoreInNonTeamGame);
 }
 
 /**

@@ -789,3 +789,13 @@ FString UUTGameplayStatics::GetLevelName(UObject* WorldContextObject, bool bShor
 		}
 	}
 }
+
+float UUTGameplayStatics::GetFloatOption(const FString& Options, const FString& Key, float DefaultValue)
+{
+	const FString InOpt = UGameplayStatics::ParseOption(Options, Key);
+	if (!InOpt.IsEmpty())
+	{
+		return FCString::Atof(*InOpt);
+	}
+	return DefaultValue;
+}

@@ -557,9 +557,11 @@ void AUTHUD::DrawHUD()
 				}
 				if (bDrawMinimap && GS && GS->AllowMinimapFor(UTPlayerOwner->UTPlayerState))
 				{
-					float MapScale = (UTPlayerOwner->UTPlayerState && !UTPlayerOwner->UTPlayerState->bOnlySpectator && !UTPlayerOwner->UTPlayerState->bOutOfLives) ? 0.25f : 0.75f;
+					bool bSpectatingMinimap = UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives);
+					float MapScale = bSpectatingMinimap ? 0.75f : 0.25f;
 					const float MapSize = float(Canvas->SizeY) * MapScale;
-					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
+					uint8 MapAlpha = bSpectatingMinimap ? 210 : 100;
+					DrawMinimap(FColor(192, 192, 192, MapAlpha), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
 				}
 				if (bDrawDamageNumbers)
 				{
@@ -1129,17 +1131,33 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 
 	FVector ScaleFactor(MapSize / MinimapTexture->GetSurfaceWidth(), MapSize / MinimapTexture->GetSurfaceHeight(), 1.0f);
 	MapToScreen = FTranslationMatrix(FVector(DrawPos, 0.0f) / ScaleFactor) * FScaleMatrix(ScaleFactor);
+	bInvertMinimap = ShouldInvertMinimap();
+	if (bInvertMinimap)
+	{
+		ScaleFactor.Y *= -1.f;
+		DrawPos.Y += MapSize;
+		MapToScreen = FTranslationMatrix(FVector(DrawPos, 0.0f) / ScaleFactor) * FScaleMatrix(ScaleFactor);
+	}
 	if (MinimapTexture != NULL)
 	{
 		Canvas->DrawColor = DrawColor;
-		Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
+		if (bInvertMinimap)
+		{
+			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y - MapSize, MapSize, MapSize, 0.0f, MinimapTexture->GetSurfaceHeight(), MinimapTexture->GetSurfaceWidth(), -1.f *MinimapTexture->GetSurfaceHeight());
+		}
+		else
+		{
+			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
+		}
 	}
 
 	DrawMinimapSpectatorIcons();
 }
 
-// flag to allow enemy team
-// flag to allow enemy flag
+bool AUTHUD::ShouldInvertMinimap()
+{
+	return false;
+}
 
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
@@ -1165,8 +1183,9 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 					continue;
 				}
 				FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
-				PlayerColor.A = 0.5f;
-				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, UTChar->GetActorRotation().Yaw + 90.0f);
+				PlayerColor.A = 0.75f;
+				float IconRotation = bInvertMinimap ? -1.f*UTChar->GetActorRotation().Yaw + 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
+				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, IconRotation);
 
 				if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
 				{

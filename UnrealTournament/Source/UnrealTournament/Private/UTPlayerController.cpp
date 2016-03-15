@@ -3232,6 +3232,66 @@ void AUTPlayerController::ServerViewPawn_Implementation(APawn* PawnToView)
 	}
 }
 
+void AUTPlayerController::SetGamepadSensitivityLeft(float NewSensitivity)
+{
+	FInputAxisProperties AxisProps;
+	if (PlayerInput->GetAxisProperties(EKeys::Gamepad_LeftX, AxisProps))
+	{
+		AxisProps.Sensitivity = NewSensitivity;
+		PlayerInput->SetAxisProperties(EKeys::Gamepad_LeftX, AxisProps);
+	}
+	if (PlayerInput->GetAxisProperties(EKeys::Gamepad_LeftY, AxisProps))
+	{
+		AxisProps.Sensitivity = NewSensitivity;
+		PlayerInput->SetAxisProperties(EKeys::Gamepad_LeftY, AxisProps);
+	}
+
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	for (FInputAxisConfigEntry& Entry : InputSettings->AxisConfig)
+	{
+		if (Entry.AxisKeyName == EKeys::Gamepad_LeftX || Entry.AxisKeyName == EKeys::Gamepad_LeftY)
+		{
+			Entry.AxisProperties.Sensitivity = NewSensitivity;
+		}
+	}
+	InputSettings->SaveConfig();
+	
+	if (Cast<UUTLocalPlayer>(Player))
+	{
+		Cast<UUTLocalPlayer>(Player)->SaveProfileSettings();
+	}
+}
+
+void AUTPlayerController::SetGamepadSensitivityRight(float NewSensitivity)
+{
+	FInputAxisProperties AxisProps;
+	if (PlayerInput->GetAxisProperties(EKeys::Gamepad_RightX, AxisProps))
+	{
+		AxisProps.Sensitivity = NewSensitivity;
+		PlayerInput->SetAxisProperties(EKeys::Gamepad_RightX, AxisProps);
+	}
+	if (PlayerInput->GetAxisProperties(EKeys::Gamepad_RightY, AxisProps))
+	{
+		AxisProps.Sensitivity = NewSensitivity;
+		PlayerInput->SetAxisProperties(EKeys::Gamepad_RightY, AxisProps);
+	}
+
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	for (FInputAxisConfigEntry& Entry : InputSettings->AxisConfig)
+	{
+		if (Entry.AxisKeyName == EKeys::Gamepad_RightX || Entry.AxisKeyName == EKeys::Gamepad_RightY)
+		{
+			Entry.AxisProperties.Sensitivity = NewSensitivity;
+		}
+	}
+	InputSettings->SaveConfig();
+
+	if (Cast<UUTLocalPlayer>(Player))
+	{
+		Cast<UUTLocalPlayer>(Player)->SaveProfileSettings();
+	}
+}
+
 void AUTPlayerController::SetMouseSensitivityUT(float NewSensitivity)
 {
 	PlayerInput->SetMouseSensitivity(NewSensitivity);

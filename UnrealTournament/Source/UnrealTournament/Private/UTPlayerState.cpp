@@ -1787,10 +1787,14 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 		LP = Cast<UUTLocalPlayer>(PC->Player);
 	}
 
-	FText LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
+	FText LeagueText = NSLOCTEXT("Generic", "LeagueNoData", "No League Data");
+	if (LP)
+	{
+		LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
 			FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision()), FText::AsNumber(LP->GetShowdownLeaguePoints())) :
 			FText::Format(NSLOCTEXT("AUTPlayerState", "LeaguePlacementText", "     Play {0} more placement matches"), FText::AsNumber(10 - LP->GetShowdownPlacementMatches()))
 			);
+	}
 
 
 	return SNew(SHorizontalBox)
@@ -1872,22 +1876,12 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	[
 		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
 	];
-	if (LP && LP->GetShowdownPlacementMatches() > 0)
-	{
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), true, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
-		];
-
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildLeague(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownLeague", "Showdown League :"))
-		];
-	}
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildLeague(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownLeague", "Showdown League :"))
+	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()

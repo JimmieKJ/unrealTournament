@@ -41,18 +41,18 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 	float ReplayCustomDOFFarBlur = 0;
 	float ReplayCustomMotionBlurAmount = 0;
 	float ReplayCustomMotionBlurMax = 0;
-	AUTPlayerController* PC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (PC)
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings)
 	{
-		bCustomPost = GetPlayerOwner()->GetProfileSettings()->bReplayCustomPostProcess;
-		ReplayCustomBloomIntensity = GetPlayerOwner()->GetProfileSettings()->ReplayCustomBloomIntensity / 8.0f;
-		ReplayCustomDOFAmount = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFAmount / 100.0f;
-		ReplayCustomDOFDistance = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFDistance / 10000.0f;
-		ReplayCustomDOFScale = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFScale / 2.0f;
-		ReplayCustomDOFNearBlur = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFNearBlur / 32.0f;
-		ReplayCustomDOFFarBlur = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFFarBlur / 32.0f;
-		ReplayCustomMotionBlurAmount = GetPlayerOwner()->GetProfileSettings()->ReplayCustomMotionBlurAmount;
-		ReplayCustomMotionBlurMax = GetPlayerOwner()->GetProfileSettings()->ReplayCustomMotionBlurMax / 100.0f;
+		bCustomPost = ProfileSettings->bReplayCustomPostProcess;
+		ReplayCustomBloomIntensity = ProfileSettings->ReplayCustomBloomIntensity / 8.0f;
+		ReplayCustomDOFAmount = ProfileSettings->ReplayCustomDOFAmount / 100.0f;
+		ReplayCustomDOFDistance = ProfileSettings->ReplayCustomDOFDistance / 10000.0f;
+		ReplayCustomDOFScale = ProfileSettings->ReplayCustomDOFScale / 2.0f;
+		ReplayCustomDOFNearBlur = ProfileSettings->ReplayCustomDOFNearBlur / 32.0f;
+		ReplayCustomDOFFarBlur = ProfileSettings->ReplayCustomDOFFarBlur / 32.0f;
+		ReplayCustomMotionBlurAmount = ProfileSettings->ReplayCustomMotionBlurAmount;
+		ReplayCustomMotionBlurMax = ProfileSettings->ReplayCustomMotionBlurMax / 100.0f;
 	}
 
 	FMargin NameColumnPadding = FMargin(10, 4);
@@ -241,11 +241,14 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 	}
 
 	ResolutionComboBox->SetSelectedItem(ResolutionList[1]);
-	for (auto Res : ResolutionList)
+	if (ProfileSettings)
 	{
-		if (Res->StartsWith(FString::FromInt(GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResX)))
+		for (auto Res : ResolutionList)
 		{
-			ResolutionComboBox->SetSelectedItem(Res);
+			if (Res->StartsWith(FString::FromInt(ProfileSettings->ReplayScreenshotResX)))
+			{
+				ResolutionComboBox->SetSelectedItem(Res);
+			}
 		}
 	}
 }
@@ -259,37 +262,42 @@ FReply SUTScreenshotConfigDialog::OnButtonClick(uint16 ButtonID)
 	SelectedRes.FindChar(TEXT(' '), SpaceLoc);
 	FString ResXText = SelectedRes.Left(XLoc);
 	FString ResYText = SelectedRes.Left(SpaceLoc).RightChop(XLoc + 1);
-	LexicalConversion::FromString(GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResX, *ResXText);
-	LexicalConversion::FromString(GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResY, *ResYText);
+	
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings)
+	{
+		LexicalConversion::FromString(ProfileSettings->ReplayScreenshotResX, *ResXText);
+		LexicalConversion::FromString(ProfileSettings->ReplayScreenshotResY, *ResYText);
 
-	GetPlayerOwner()->GetProfileSettings()->bReplayCustomPostProcess = CustomPostCheckBox->IsChecked();
-	GetPlayerOwner()->GetProfileSettings()->ReplayCustomBloomIntensity = 8.0f * BloomIntensitySlider->GetValue();
-	GetPlayerOwner()->GetProfileSettings()->ReplayCustomMotionBlurAmount = MotionBlurAmountSlider->GetValue();
-	GetPlayerOwner()->GetProfileSettings()->ReplayCustomMotionBlurMax = 100.0f * MotionBlurMaxSlider->GetValue();
-	GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFDistance = 10000.0f * DOFDistanceSlider->GetValue();
-	GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFAmount = 100.0f * DOFAmountSlider->GetValue();
-	GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFScale = 2.0f * DOFScaleSlider->GetValue();
-	GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFNearBlur = 32.0f * DOFNearBlurSlider->GetValue();
-	GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFFarBlur = 32.0f * DOFFarBlurSlider->GetValue();
+		ProfileSettings->bReplayCustomPostProcess = CustomPostCheckBox->IsChecked();
+		ProfileSettings->ReplayCustomBloomIntensity = 8.0f * BloomIntensitySlider->GetValue();
+		ProfileSettings->ReplayCustomMotionBlurAmount = MotionBlurAmountSlider->GetValue();
+		ProfileSettings->ReplayCustomMotionBlurMax = 100.0f * MotionBlurMaxSlider->GetValue();
+		ProfileSettings->ReplayCustomDOFDistance = 10000.0f * DOFDistanceSlider->GetValue();
+		ProfileSettings->ReplayCustomDOFAmount = 100.0f * DOFAmountSlider->GetValue();
+		ProfileSettings->ReplayCustomDOFScale = 2.0f * DOFScaleSlider->GetValue();
+		ProfileSettings->ReplayCustomDOFNearBlur = 32.0f * DOFNearBlurSlider->GetValue();
+		ProfileSettings->ReplayCustomDOFFarBlur = 32.0f * DOFFarBlurSlider->GetValue();
 
-	GetPlayerOwner()->SaveProfileSettings();
+		GetPlayerOwner()->SaveProfileSettings();
+	}
 
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (PC)
 	{
-		if (GetPlayerOwner()->GetProfileSettings()->bReplayCustomPostProcess)
+		if (ProfileSettings && ProfileSettings->bReplayCustomPostProcess)
 		{
 			AUTPlayerCameraManager* CamMan = Cast<AUTPlayerCameraManager>(PC->PlayerCameraManager);
 			if (CamMan)
 			{
-				CamMan->StylizedPPSettings[0].BloomIntensity = GetPlayerOwner()->GetProfileSettings()->ReplayCustomBloomIntensity;
-				CamMan->StylizedPPSettings[0].DepthOfFieldDepthBlurAmount = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFAmount;
-				CamMan->StylizedPPSettings[0].DepthOfFieldFocalDistance = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFDistance;
-				CamMan->StylizedPPSettings[0].DepthOfFieldScale = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFScale;
-				CamMan->StylizedPPSettings[0].DepthOfFieldNearBlurSize = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFNearBlur;
-				CamMan->StylizedPPSettings[0].DepthOfFieldFarBlurSize = GetPlayerOwner()->GetProfileSettings()->ReplayCustomDOFFarBlur;
-				CamMan->StylizedPPSettings[0].MotionBlurAmount = GetPlayerOwner()->GetProfileSettings()->ReplayCustomMotionBlurAmount;
-				CamMan->StylizedPPSettings[0].MotionBlurMax = GetPlayerOwner()->GetProfileSettings()->ReplayCustomMotionBlurMax;
+				CamMan->StylizedPPSettings[0].BloomIntensity = ProfileSettings->ReplayCustomBloomIntensity;
+				CamMan->StylizedPPSettings[0].DepthOfFieldDepthBlurAmount = ProfileSettings->ReplayCustomDOFAmount;
+				CamMan->StylizedPPSettings[0].DepthOfFieldFocalDistance = ProfileSettings->ReplayCustomDOFDistance;
+				CamMan->StylizedPPSettings[0].DepthOfFieldScale = ProfileSettings->ReplayCustomDOFScale;
+				CamMan->StylizedPPSettings[0].DepthOfFieldNearBlurSize = ProfileSettings->ReplayCustomDOFNearBlur;
+				CamMan->StylizedPPSettings[0].DepthOfFieldFarBlurSize = ProfileSettings->ReplayCustomDOFFarBlur;
+				CamMan->StylizedPPSettings[0].MotionBlurAmount = ProfileSettings->ReplayCustomMotionBlurAmount;
+				CamMan->StylizedPPSettings[0].MotionBlurMax = ProfileSettings->ReplayCustomMotionBlurMax;
 			}
 			PC->SetStylizedPP(0);
 		}

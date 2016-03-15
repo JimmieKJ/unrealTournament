@@ -672,7 +672,7 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 	}
 
 	//Update the tooltip if the mouse is over the slider
-	if (GetVis() != EVisibility::Hidden)
+	if (GetVis() != EVisibility::Collapsed && GetVis() != EVisibility::Hidden)
 	{
 		const FGeometry TimeSliderGeometry = FindChildGeometry(MyGeometry, TimeSlider.ToSharedRef());
 		bDrawTooltip = TimeSliderGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
@@ -779,8 +779,12 @@ FReply SUTReplayWindow::OnRecordButtonClicked()
 
 FReply SUTReplayWindow::OnScreenshotButtonClicked()
 {
-	GScreenshotResolutionX = GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResX;
-	GScreenshotResolutionY = GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResY;
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings)
+	{
+		GScreenshotResolutionX = ProfileSettings->ReplayScreenshotResX;
+		GScreenshotResolutionY = ProfileSettings->ReplayScreenshotResY;
+	}
 
 	if (GScreenshotResolutionX <= 0)
 	{
@@ -902,7 +906,7 @@ FText SUTReplayWindow::GetTooltipText() const
 
 EVisibility SUTReplayWindow::GetVis() const
 {
-	return PlayerOwner->AreMenusOpen() ? EVisibility::Hidden : EVisibility::Visible;
+	return PlayerOwner->AreMenusOpen() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const

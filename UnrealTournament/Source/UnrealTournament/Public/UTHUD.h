@@ -490,10 +490,16 @@ public:
 
 	virtual void DrawMinimapSpectatorIcons();
 
+	/** Whether minimap should be vertically inverted from default drawing orientation. */
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+		bool bInvertMinimap;
+
+	virtual bool ShouldInvertMinimap();
+
 protected:
 	/** calculates MinimapTransform from the given level bounding box */
 	virtual void CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight);
-	/** transform InPos to cordinates corresponding to the map's position on the screen, i.e. transform world -> map then map -> screen
+	/** transform InPos to coordinates corresponding to the map's position on the screen, i.e. transform world -> map then map -> screen
 	 * note: the transform is updated via DrawMinimap(), so if that isn't be called the values may not be correct
 	 */
 	FVector2D WorldToMapToScreen(const FVector& InPos) const

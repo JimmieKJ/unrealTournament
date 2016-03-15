@@ -114,6 +114,11 @@ struct FCTFScoringPlay
 	/** period in which the cap happened (0 : first half, 1 : second half, 2+: OT) */
 	UPROPERTY()
 	uint8 Period;
+
+	/**For Asymmetric CTF. */
+	UPROPERTY()
+	bool bDefenseWon;
+
 	UPROPERTY()
 		int32 TeamScores[2];
 
@@ -146,6 +151,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	/** Will be true if the game is playing advantage going in to half-time */
 	UPROPERTY(Replicated)
 		uint32 bPlayingAdvantage : 1;
+
+	UPROPERTY(Replicated)
+		uint32 bAsymmetricVictoryConditions : 1;
 
 	/** Delay before bringing up scoreboard at halftime. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)

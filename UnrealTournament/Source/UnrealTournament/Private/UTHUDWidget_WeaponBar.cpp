@@ -423,5 +423,5 @@ float UUTHUDWidget_WeaponBar::GetDrawScaleOverride()
 
 bool UUTHUDWidget_WeaponBar::ShouldDraw_Implementation(bool bShowScores)
 {
-	return Super::ShouldDraw_Implementation(bShowScores) && !UTHUDOwner->bDrawMinimap;
+	return Super::ShouldDraw_Implementation(bShowScores) && (!UTHUDOwner->bDrawMinimap || (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && !UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator && !UTHUDOwner->UTPlayerOwner->UTPlayerState->bOutOfLives));
 }
