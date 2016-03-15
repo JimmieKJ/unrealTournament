@@ -57,7 +57,10 @@ void AUTProj_BioGrenade::StartFuse()
 		UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);
 	}
 	SetTimerUFunc(this, FName(TEXT("FuseExpired")), FuseTime, false);
+	PlayFuseBeep();
 	SetTimerUFunc(this, FName(TEXT("PlayFuseBeep")), 0.5f, true);
+
+	ClearTimerUFunc(this, FName(TEXT("StartFuseTimed")));
 }
 void AUTProj_BioGrenade::FuseExpired()
 {
