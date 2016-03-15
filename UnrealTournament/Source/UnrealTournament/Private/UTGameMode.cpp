@@ -1433,8 +1433,10 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 		KillerName.ReplaceInline(TEXT(" "), TEXT("%20"));
 		VictimName.ReplaceInline(TEXT(" "), TEXT("%20"));
 
+		FString DamageName = DamageType ? DamageType->GetName() : TEXT("Unknown");
+		
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s %s %s"), *KillerName, *VictimName, *DamageType->GetName());
+		FString KillInfo = FString::Printf(TEXT("%s %s %s"), *KillerName, *VictimName, *DamageName);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
