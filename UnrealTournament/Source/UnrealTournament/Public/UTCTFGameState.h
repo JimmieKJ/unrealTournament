@@ -114,6 +114,11 @@ struct FCTFScoringPlay
 	/** period in which the cap happened (0 : first half, 1 : second half, 2+: OT) */
 	UPROPERTY()
 	uint8 Period;
+
+	/**For Asymmetric CTF. */
+	UPROPERTY()
+	bool bDefenseWon;
+
 	UPROPERTY()
 		int32 TeamScores[2];
 

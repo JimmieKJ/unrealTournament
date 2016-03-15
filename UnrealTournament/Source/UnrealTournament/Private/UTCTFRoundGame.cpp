@@ -393,6 +393,16 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 	if (WinningTeam)
 	{
 		WinningTeam->Score++;
+		if (CTFGameState)
+		{
+			FCTFScoringPlay NewScoringPlay;
+			NewScoringPlay.Team = WinningTeam;
+			NewScoringPlay.bDefenseWon = true;
+			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
+			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 1;
+			CTFGameState->AddScoringPlay(NewScoringPlay);
+		}
+
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
 		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
