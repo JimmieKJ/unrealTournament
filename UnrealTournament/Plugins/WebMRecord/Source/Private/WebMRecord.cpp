@@ -274,10 +274,7 @@ void FWebMRecord::OnSlateWindowRenderedDuringCapture(SWindow& SlateWindow, void*
 			//UE_LOG(LogUTWebM, Log, TEXT("Saving video frame %f"), VideoDeltaTimeAccum);
 			const FViewportRHIRef* ViewportRHI = (const FViewportRHIRef*)ViewportRHIPtr;
 			StartCopyingNextGameFrame(*ViewportRHI);
-
-			// Force game frame copy
-			FlushRenderingCommands();
-
+			
 			SaveCurrentFrameToDisk();
 		}
 	}
