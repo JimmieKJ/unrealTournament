@@ -1872,22 +1872,12 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	[
 		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
 	];
-	if (LP && LP->GetShowdownPlacementMatches() > 0)
-	{
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), true, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
-		];
-
-		VBox->AddSlot()
-		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildLeague(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownLeague", "Showdown League :"))
-		];
-	}
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildLeague(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownLeague", "Showdown League :"))
+	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
