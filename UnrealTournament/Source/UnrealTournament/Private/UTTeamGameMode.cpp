@@ -540,6 +540,11 @@ float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 	return Result;
 }
 
+bool AUTTeamGameMode::AvoidPlayerStart(AUTPlayerStart* P)
+{
+	return P && (!bUseTeamStarts && P->bIgnoreInNonTeamGame);
+}
+
 bool AUTTeamGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
 	AUTTeamInfo* WinningTeam = NULL;
