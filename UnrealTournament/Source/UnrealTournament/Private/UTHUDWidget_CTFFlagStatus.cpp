@@ -100,7 +100,8 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			FVector WorldPosition = Base->GetActorLocation() + Base->GetActorRotation().RotateVector(Flag->HomeBaseOffset) + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 3.f);
 			float OldFlagAlpha = FlagIconTemplate.RenderOpacity;
 			float CurrentWorldAlpha = InWorldAlpha;
-			if ((ViewRotation.Vector() | (Base->GetActorLocation() - ViewPoint)) > 0.f)
+			FVector ViewDir = ViewRotation.Vector();
+			if ((ViewDir | (Base->GetActorLocation() - ViewPoint)) > 0.f)
 			{
 				ScreenPosition = GetCanvas()->Project(WorldPosition);
 				bDrawInWorld = (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
@@ -147,8 +148,15 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				{
 					WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
 				}
-				ScreenPosition = GetCanvas()->Project(WorldPosition);
-				bDrawInWorld = (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
+
+				bDrawInWorld = (((WorldPosition - ViewPoint).SafeNormal() | ViewDir) > 0.3f);
+				if (bDrawInWorld)
+				{
+					ScreenPosition = GetCanvas()->Project(WorldPosition);
+					float Edge = CircleBorder[Team].GetWidth()* WorldRenderScale;
+					ScreenPosition.X = FMath::Clamp(ScreenPosition.X, Edge, GetCanvas()->ClipX - Edge);
+					ScreenPosition.Y = FMath::Clamp(ScreenPosition.Y, Edge, GetCanvas()->ClipY - Edge);
+				}
 			}
 
 			if (bDrawInWorld)
