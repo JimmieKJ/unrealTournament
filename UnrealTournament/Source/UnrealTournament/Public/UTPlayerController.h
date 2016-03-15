@@ -487,6 +487,14 @@ public:
 	UFUNCTION(Exec)
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
 
+	/** Set gamepad sensitivity on the left stick and save config files */
+	UFUNCTION(Exec)
+	virtual void SetGamepadSensitivityLeft(float NewSensitivity);
+
+	/** Set gamepad sensitivity on the right stick and save config files */
+	UFUNCTION(Exec)
+	virtual void SetGamepadSensitivityRight(float NewSensitivity);
+
 	UPROPERTY()
 	FVector2D SavedMouseCursorLocation;
 
