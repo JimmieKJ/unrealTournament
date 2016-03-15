@@ -123,6 +123,10 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 	float AutoReturnTime;
 
+	/** Replicated time till flag auto returns. */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Flag)
+		uint8 FlagReturnTime;
+
 	// If true, when a player on the team matching this object's team picks it up, it will be sent home instead of being picked up.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	TSubclassOf<UUTCarriedObjectMessage> MessageClass;
