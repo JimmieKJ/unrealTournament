@@ -1787,10 +1787,14 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 		LP = Cast<UUTLocalPlayer>(PC->Player);
 	}
 
-	FText LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
+	FText LeagueText = NSLOCTEXT("Generic", "LeagueNoData", "No League Data");
+	if (LP)
+	{
+		LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
 			FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision()), FText::AsNumber(LP->GetShowdownLeaguePoints())) :
 			FText::Format(NSLOCTEXT("AUTPlayerState", "LeaguePlacementText", "     Play {0} more placement matches"), FText::AsNumber(10 - LP->GetShowdownPlacementMatches()))
 			);
+	}
 
 
 	return SNew(SHorizontalBox)
