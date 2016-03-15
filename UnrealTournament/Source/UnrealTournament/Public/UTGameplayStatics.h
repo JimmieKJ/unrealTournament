@@ -174,4 +174,13 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
 	static FString GetLevelName(UObject* WorldContextObject, bool bShortName = true);
+
+	/**
+	 * Find an option in the options string and return it as a float.
+	 * @param Options		The string containing the options.
+	 * @param Key			The key to find the value of in Options.
+	 * @return				The value associated with Key as a float if Key found in Options string, otherwise DefaultValue.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Game Options")
+	static float GetFloatOption(const FString& Options, const FString& Key, float DefaultValue);
 };
