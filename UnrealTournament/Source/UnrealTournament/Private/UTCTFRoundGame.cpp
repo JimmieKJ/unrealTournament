@@ -41,6 +41,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	ExtraHealth = 0;
 	FlagPickupDelay = 12;
 	RemainingPickupDelay = 0;
+
+	// remove translocator - fixmesteve make this an option
+	TranslocatorObject = nullptr;
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
