@@ -41,6 +41,8 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 
 void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 {
+	Super::DrawMinimapSpectatorIcons();
+
 	AUTCTFGameState* GS = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
 	if (GS == NULL) return;
 
@@ -50,18 +52,19 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 	for (int32 TeamIndex = 0; TeamIndex < 2; TeamIndex++)
 	{
 		AUTCTFFlagBase* Base = GS->GetFlagBase(TeamIndex);
-		if (Base && Base->MyFlag && Base->MyFlag->Team && (bShowAllFlags || (!GS->OnSameTeam(Base, UTPlayerOwner) ? Base->MyFlag->bEnemyCanPickup : Base->MyFlag->bFriendlyCanPickup) || Base->MyFlag->IsHome()))
+		bool bCanPickupFlag = (!GS->OnSameTeam(Base, UTPlayerOwner) ? Base->MyFlag->bEnemyCanPickup : Base->MyFlag->bFriendlyCanPickup);
+		if (Base && Base->MyFlag)
 		{
 			FVector2D Pos = WorldToMapToScreen(Base->GetActorLocation());
 			Canvas->DrawColor = (TeamIndex == 0) ? FColor(255, 0, 0, 255) : FColor(0, 0, 255, 255);
 			Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
-
-			Pos = WorldToMapToScreen(Base->MyFlag->GetActorLocation());
-			DrawMinimapIcon(HUDAtlas, Pos, FVector2D(24.f, 24.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
+			if (Base->MyFlag->Team && (bShowAllFlags || bCanPickupFlag || Base->MyFlag->IsHome()))
+			{
+				Pos = WorldToMapToScreen(Base->MyFlag->GetActorLocation());
+				DrawMinimapIcon(HUDAtlas, Pos, FVector2D(24.f, 24.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
+			}
 		}
 	}
-
-	Super::DrawMinimapSpectatorIcons();
 }
 
 bool AUTHUD_CTF::ShouldInvertMinimap()

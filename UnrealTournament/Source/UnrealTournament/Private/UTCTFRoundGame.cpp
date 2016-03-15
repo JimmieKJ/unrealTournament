@@ -150,6 +150,7 @@ void AUTCTFRoundGame::StartMatch()
 	{
 		InitRound();
 		CTFGameState->CTFRound = 1;
+		CTFGameState->bAsymmetricVictoryConditions = bAsymmetricVictoryConditions;
 		bFirstRoundInitialized = true;
 	}
 	Super::StartMatch();

@@ -13,6 +13,7 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	bIsAtIntermission = false;
 	HalftimeScoreDelay = 2.f;
 	GoalScoreText = NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "First to {0} Caps");
+	bAsymmetricVictoryConditions = false;
 
 	GameScoreStats.Add(NAME_RegularKillPoints);
 	GameScoreStats.Add(NAME_FCKills);
@@ -105,6 +106,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, RedLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, BlueLivesRemaining);
 	DOREPLIFETIME(AUTCTFGameState, TeamRespawnWaitTime);
+	DOREPLIFETIME(AUTCTFGameState, bAsymmetricVictoryConditions);
 }
 
 bool AUTCTFGameState::AllowMinimapFor(AUTPlayerState* PS)
