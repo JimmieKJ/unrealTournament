@@ -57,7 +57,7 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 			Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
 
 			Pos = WorldToMapToScreen(Base->MyFlag->GetActorLocation());
-			DrawMinimapIcon(HUDAtlas, Pos, FVector2D(30.f, 30.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
+			DrawMinimapIcon(HUDAtlas, Pos, FVector2D(24.f, 24.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
 		}
 	}
 

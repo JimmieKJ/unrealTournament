@@ -104,11 +104,11 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	uint32 bAnyoneCanPickup:1;
 
 	// if true, then enemy of this object's team can pick this object up
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = GameObject)
 		uint32 bEnemyCanPickup : 1;
 
 	// if true, then player on this object's team can pick this object up
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = GameObject)
 		uint32 bFriendlyCanPickup : 1;
 
 	// If true, when a player on the team matching this object's team picks it up, it will be sent home instead of being picked up.
