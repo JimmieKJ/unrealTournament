@@ -531,7 +531,7 @@ float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 	if (bUseTeamStarts && Player != NULL)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
-		if (PS != NULL && PS->Team != NULL && (Cast<AUTTeamPlayerStart>(P) == NULL || ((AUTTeamPlayerStart*)P)->TeamNum != PS->Team->TeamIndex))
+		if (AvoidPlayerStart(Cast<AUTPlayerStart>(P)) || (PS != NULL && PS->Team != NULL && (Cast<AUTTeamPlayerStart>(P) == NULL || ((AUTTeamPlayerStart*)P)->TeamNum != PS->Team->TeamIndex)))
 		{
 			// never ever use wrong team playerstart
 			Result = -20.f;

@@ -19,6 +19,7 @@
 #include "UTCTFScoreboard.h"
 #include "UTShowdownGameMessage.h"
 #include "UTShowdownRewardMessage.h"
+#include "UTPlayerStart.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -48,6 +49,11 @@ void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &MercyScore, TEXT("MercyScore"))));
+}
+
+bool AUTCTFRoundGame::AvoidPlayerStart(AUTPlayerStart* P)
+{
+	return P && (bAsymmetricVictoryConditions && P->bIgnoreInASymCTF);
 }
 
 void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
