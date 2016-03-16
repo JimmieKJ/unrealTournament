@@ -99,6 +99,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, FlagReturnTime);
 	DOREPLIFETIME(AUTCarriedObject, bEnemyCanPickup);
 	DOREPLIFETIME(AUTCarriedObject, bFriendlyCanPickup);
+	DOREPLIFETIME(AUTCarriedObject, bCurrentlyPinged);
 }
 
 void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)

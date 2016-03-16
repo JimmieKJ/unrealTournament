@@ -1192,6 +1192,11 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 {
 	if (Role == ROLE_Authority)
 	{
+		AUTCarriedObject* Flag = GetCarriedObject();
+		if (Flag != nullptr)
+		{
+			Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
+		}
 		AUTPlayerController* InstigatedByPC = Cast<AUTPlayerController>(InstigatedBy);
 		if (InstigatedByPC != NULL)
 		{
