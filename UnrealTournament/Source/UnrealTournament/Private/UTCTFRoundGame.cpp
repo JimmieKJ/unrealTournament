@@ -300,6 +300,7 @@ void AUTCTFRoundGame::InitRound()
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			PS->bHasLifeLimit = false;
 			if (PS && (PS->bIsInactive || !PS->Team))
 			{
 				PS->RemainingLives = 0;
@@ -308,6 +309,7 @@ void AUTCTFRoundGame::InitRound()
 			else if (PS)
 			{
 				PS->RemainingLives = (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))) ? RoundLives : 0;
+				PS->bHasLifeLimit = (PS->RemainingLives > 0);
 				PS->SetOutOfLives(false);
 			}
 		}
