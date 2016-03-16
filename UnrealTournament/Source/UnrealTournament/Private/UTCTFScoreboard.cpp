@@ -189,10 +189,18 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			IconIndex = FMath::Min(IconIndex, 1);
 			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + IconOffset, YPos + 0.1f*CurrentScoreHeight, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[IconIndex].X, UTHUDOwner->TeamIconUV[IconIndex].Y, 72, 72, 1.f, Play.Team->TeamColor);
 
-			FString ScoredByLine = Play.ScoredBy.GetPlayerName();
-			if (Play.ScoredByCaps > 1)
+			FString ScoredByLine;
+			if (Play.bDefenseWon)
 			{
-				ScoredByLine += FString::Printf(TEXT(" (%i)"), Play.ScoredByCaps);
+				ScoredByLine = FString::Printf(TEXT("Defense Won"));
+			}
+			else
+			{
+				ScoredByLine = Play.ScoredBy.GetPlayerName();
+				if (Play.ScoredByCaps > 1)
+				{
+					ScoredByLine += FString::Printf(TEXT(" (%i)"), Play.ScoredByCaps);
+				}
 			}
 
 			// time of game
