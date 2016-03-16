@@ -16,6 +16,7 @@ public:
 		bIsStatusAnnouncement = true;
 		bIsPartiallyUnique = true;
 		MessageArea = FName(TEXT("DeathMessage"));
+		Lifetime = 8.f;
 
 		CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base!");
 		PreventCapMessage = NSLOCTEXT("CTFGameMessage", "StopEnemyFlag", "Keep other team's flag out, and exhaust their lives");

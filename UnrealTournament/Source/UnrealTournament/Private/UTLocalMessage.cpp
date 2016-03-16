@@ -17,6 +17,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	bOptionalSpoken = false;
 	AnnouncementDelay = 0.f;
 	bWantsBotReaction = false;
+	bDrawAsDeathMessage = false;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const

@@ -123,13 +123,13 @@ struct FCTFScoringPlay
 		int32 TeamScores[2];
 
 	FCTFScoringPlay()
-		: Team(NULL), RemainingTime(0), Period(0)
+		: Team(NULL), RemainingTime(0), Period(0), bDefenseWon(false)
 	{}
 	FCTFScoringPlay(const FCTFScoringPlay& Other) = default;
 
 	inline bool operator==(const FCTFScoringPlay& Other) const
 	{
-		return (Team == Other.Team && ScoredBy == Other.ScoredBy && Assists == Other.Assists && RemainingTime == Other.RemainingTime && Period == Other.Period);
+		return (Team == Other.Team && ScoredBy == Other.ScoredBy && Assists == Other.Assists && RemainingTime == Other.RemainingTime && Period == Other.Period && bDefenseWon == Other.bDefenseWon);
 	}
 };
 

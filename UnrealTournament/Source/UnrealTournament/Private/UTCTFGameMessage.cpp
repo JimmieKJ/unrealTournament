@@ -163,11 +163,3 @@ FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	return GetTeamAnnouncement(Switch, TeamNum);
 }
 
-float UUTCTFGameMessage::Blueprint_GetLifeTime_Implementation(int32 Switch) const
-{
-	if ((Switch == 14) || (Switch == 15) || (Switch == 16))
-	{
-		return 8.f;
-	}
-	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
-}
