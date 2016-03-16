@@ -42,7 +42,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	ExtraHealth = 0;
 	FlagPickupDelay = 10;
 	RemainingPickupDelay = 0;
-	bRedToCap = true;
 
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
@@ -273,6 +272,7 @@ void AUTCTFRoundGame::InitRound()
 	}
 
 	bRedToCap = !bRedToCap;
+	BroadcastVictoryConditions();
 	if (FlagPickupDelay > 0)
 	{
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
@@ -289,7 +289,6 @@ void AUTCTFRoundGame::InitRound()
 		RemainingPickupDelay = FlagPickupDelay;
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
-		BroadcastVictoryConditions();
 	}
 	else
 	{
