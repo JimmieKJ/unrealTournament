@@ -39,6 +39,11 @@ void AUTProj_BioLauncherShot::Landed(UPrimitiveComponent* HitComp, const FVector
 
 void AUTProj_BioLauncherShot::SpawnWeb(FVector HitNormal)
 {
+	if (bExploded || IsPendingKill())
+	{
+		return;
+	}
+
 	float SpreadAngle = FMath::Lerp<float>(FMath::Lerp<float>(20.0f, 60.0f, FMath::Clamp<float>(GlobStrength / 10.0f, 0.0f, 1.0f)), 360.0f / FMath::Max<float>(1.0f, GlobStrength), FMath::Abs<float>(WebReferenceAxis | HitNormal));
 
 	if ((HitNormal | FVector(0.0f, 0.0f, -1.0f)) <= 0.5f)
