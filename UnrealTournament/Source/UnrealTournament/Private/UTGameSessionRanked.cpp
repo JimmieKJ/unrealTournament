@@ -540,7 +540,6 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 
 	// All the parameters needed for configuring the beacon host
 	int32 PlaylistId = INDEX_NONE;
-	FString WUID, ZoneInstanceId;
 
 	// Always create a new beacon host, state will be determined in a moment
 	BeaconHostListener = World->SpawnActor<AOnlineBeaconHost>(AOnlineBeaconHost::StaticClass());

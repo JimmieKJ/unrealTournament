@@ -2086,8 +2086,12 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	if (bRankedSession)
 	{
 		SendEveryoneBackToLobby();
-		// Travel back to ut-entry?game=empty
-		GetWorld()->ServerTravel("/Game/RestrictedAssets/Maps/ut-entry?game=empty", false);
+
+		AUTGameSessionRanked* RankedGameSession = Cast<AUTGameSessionRanked>(GameSession);
+		if (RankedGameSession)
+		{
+			RankedGameSession->Restart();
+		}
 	}
 	else if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
