@@ -36,11 +36,13 @@ public:
 	{
 		switch (Switch)
 		{
-		case 1: return CapFlagMessage; break;
-		case 2: return PreventCapMessage; break;
-		case 3: return CapAndKillMessage; break;
-		default:
-			return FText();
+			case 1: return CapFlagMessage; break;
+			case 2: return CapFlagMessage; break;
+			case 3: return PreventCapMessage; break;
+			case 4: return PreventCapMessage; break;
+			case 5: return CapAndKillMessage; break;
+			default:
+				return FText();
 		}
 	}
 
@@ -56,10 +58,25 @@ public:
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
+		switch (Switch)
+		{
+			case 1: return TEXT("RedTeamOnOffense"); break;
+			case 2: return TEXT("BlueTeamOffence"); break;
+			case 3: return TEXT("RedTeamOnOffense"); break;
+			case 4: return TEXT("BlueTeamOffence"); break;
+		}
 		return NAME_None;
 	}
 
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
 	{
+		Announcer->PrecacheAnnouncement(TEXT("RedTeamOnOffense"));
+		Announcer->PrecacheAnnouncement(TEXT("BlueTeamOffence"));
 	}
+
+	virtual float GetAnnouncementSpacing_Implementation(int32 Switch, const UObject* OptionalObject) const override
+	{
+		return 0.1f;
+	}
+
 };

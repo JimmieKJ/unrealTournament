@@ -147,6 +147,7 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 
 void AUTCTFRoundGame::HandleMatchHasStarted()
 {
+	BroadcastVictoryConditions();
 	if (!bFirstRoundInitialized)
 	{
 		InitRound();
@@ -216,18 +217,18 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 			{
 				if (bRedToCap == (PC->GetTeamNum() == 0))
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 1);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bRedToCap ? 1 : 2);
 				}
 				else
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 2);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bRedToCap ? 3 : 4);
 				}
 			}
 		}
 	}
 	else if (RoundLives > 0)
 	{
-		BroadcastLocalized(this, UUTCTFRoleMessage::StaticClass(), 3, NULL, NULL, NULL);
+		BroadcastLocalized(this, UUTCTFRoleMessage::StaticClass(), 5, NULL, NULL, NULL);
 	}
 }
 
@@ -272,7 +273,6 @@ void AUTCTFRoundGame::InitRound()
 	}
 
 	bRedToCap = !bRedToCap;
-	BroadcastVictoryConditions();
 	if (FlagPickupDelay > 0)
 	{
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
