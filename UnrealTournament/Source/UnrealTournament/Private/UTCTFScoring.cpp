@@ -83,7 +83,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 	{
 		return;
 	}
-	AUTCTFGameMode* GM = GetWorld()->GetAuthGameMode<AUTCTFGameMode>();
+	AUTCTFBaseGame* GM = GetWorld()->GetAuthGameMode<AUTCTFBaseGame>();
 	if (Reason == FName("SentHome"))
 	{
 		ScorerPS->FlagReturns++;
@@ -106,7 +106,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.Team = ScorerPS->Team;
 		NewScoringPlay.ScoredBy = FSafePlayerName(ScorerPS);
 		NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
-		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 1;
+		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
 		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += (GM ? GM->FlagCapScore : 1);
 		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->GetClockTime();
 
