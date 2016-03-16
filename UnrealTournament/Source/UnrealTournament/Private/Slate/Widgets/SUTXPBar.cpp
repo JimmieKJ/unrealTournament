@@ -321,7 +321,7 @@ void SUTXPBar::OnLevelUp(int32 NewLevel)
 			{
 				UTPC->ClientPlaySound(LevelUpSound, 0.5f);
 			}
-
+			 
 			if (!bItemUnlockToastsProcessed)
 			{
 				bItemUnlockToastsProcessed = true;
@@ -332,7 +332,7 @@ void SUTXPBar::OnLevelUp(int32 NewLevel)
 					if (UTPC->LevelRewards.IsValidIndex(i) && UTPC->LevelRewards[i] != nullptr && PlayerOwner->IsEarningXP())
 					{
 						PlayerOwner->ShowToast(FText::Format(NSLOCTEXT("UT", "ItemReward", "You earned {0} for reaching level {1}!"), UTPC->LevelRewards[i]->DisplayName, FText::AsNumber(NewLevel)));
-						UTPC->LevelRewards[NewLevel] = nullptr;
+						UTPC->LevelRewards[i] = nullptr;
 					}
 				}
 			}
