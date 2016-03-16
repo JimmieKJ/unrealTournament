@@ -52,9 +52,9 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 	for (int32 TeamIndex = 0; TeamIndex < 2; TeamIndex++)
 	{
 		AUTCTFFlagBase* Base = GS->GetFlagBase(TeamIndex);
-		bool bCanPickupFlag = (!GS->OnSameTeam(Base, UTPlayerOwner) ? Base->MyFlag->bEnemyCanPickup : Base->MyFlag->bFriendlyCanPickup);
 		if (Base && Base->MyFlag)
 		{
+			bool bCanPickupFlag = (!GS->OnSameTeam(Base, UTPlayerOwner) ? Base->MyFlag->bEnemyCanPickup : Base->MyFlag->bFriendlyCanPickup);
 			FVector2D Pos = WorldToMapToScreen(Base->GetActorLocation());
 			Canvas->DrawColor = (TeamIndex == 0) ? FColor(255, 0, 0, 255) : FColor(0, 0, 255, 255);
 			Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
