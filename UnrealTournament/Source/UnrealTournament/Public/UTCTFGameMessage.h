@@ -42,15 +42,6 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 		FText NoReturnMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText CapFlagMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText PreventCapMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText CapAndKillMessage;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText RedFlagDelayMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

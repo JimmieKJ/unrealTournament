@@ -70,7 +70,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleExitingIntermission() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
-	virtual void StartMatch() override;
+	virtual void HandleMatchHasStarted() override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
 

@@ -4,6 +4,7 @@
 #include "UTHUD_CTF.h"
 #include "UTCTFRoundGame.h"
 #include "UTCTFGameMessage.h"
+#include "UTCTFRoleMessage.h"
 #include "UTCTFRewardMessage.h"
 #include "UTFirstBloodMessage.h"
 #include "UTCountDownMessage.h"
@@ -39,8 +40,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
 	ExtraHealth = 0;
-	FlagPickupDelay = 12;
+	FlagPickupDelay = 10;
 	RemainingPickupDelay = 0;
+	bRedToCap = true;
 
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
@@ -144,7 +146,7 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 	}
 }
 
-void AUTCTFRoundGame::StartMatch()
+void AUTCTFRoundGame::HandleMatchHasStarted()
 {
 	if (!bFirstRoundInitialized)
 	{
@@ -153,7 +155,7 @@ void AUTCTFRoundGame::StartMatch()
 		CTFGameState->bAsymmetricVictoryConditions = bAsymmetricVictoryConditions;
 		bFirstRoundInitialized = true;
 	}
-	Super::StartMatch();
+	Super::HandleMatchHasStarted();
 }
 
 void AUTCTFRoundGame::HandleExitingIntermission()
@@ -202,8 +204,6 @@ void AUTCTFRoundGame::InitFlags()
 			}
 		}
 	}
-
-	BroadcastVictoryConditions();
 }
 
 void AUTCTFRoundGame::BroadcastVictoryConditions()
@@ -217,30 +217,30 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 			{
 				if (bRedToCap == (PC->GetTeamNum() == 0))
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 14);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 1);
 				}
 				else
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 15);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 2);
 				}
 			}
 		}
 	}
 	else if (RoundLives > 0)
 	{
-		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 16, NULL, NULL, NULL);
+		BroadcastLocalized(this, UUTCTFRoleMessage::StaticClass(), 3, NULL, NULL, NULL);
 	}
 }
 
 void AUTCTFRoundGame::FlagCountDown()
 {
+	RemainingPickupDelay--;
 	if (RemainingPickupDelay > 0)
 	{
 		if (GetMatchState() == MatchState::InProgress)
 		{
 			int32 CountdownMessage = bAsymmetricVictoryConditions ? (bRedToCap ? 17 : 18) : 19;
 			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), CountdownMessage, NULL, NULL, NULL);
-			RemainingPickupDelay--;
 			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), RemainingPickupDelay, NULL, NULL, NULL);
 		}
 
@@ -289,6 +289,7 @@ void AUTCTFRoundGame::InitRound()
 		RemainingPickupDelay = FlagPickupDelay;
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFRoundGame::FlagCountDown, 1.f*GetActorTimeDilation(), false);
+		BroadcastVictoryConditions();
 	}
 	else
 	{
