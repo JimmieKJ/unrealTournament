@@ -300,14 +300,14 @@ void AUTCTFRoundGame::InitRound()
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PS && PS->bIsInactive)
+			if (PS && (PS->bIsInactive || !PS->Team))
 			{
 				PS->RemainingLives = 0;
 				PS->SetOutOfLives(true);
 			}
 			else if (PS)
 			{
-				PS->RemainingLives = RoundLives;
+				PS->RemainingLives = (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))) ? RoundLives : 0;
 				PS->SetOutOfLives(false);
 			}
 		}
@@ -329,24 +329,27 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		{
 			return;
 		}
-		PS->RemainingLives--;
-		if ((PS->RemainingLives < 0) && (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))))
+		if (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0)))
 		{
-			// this player is out of lives
-			PS->SetOutOfLives(true);
-			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+			PS->RemainingLives--;
+			if (PS->RemainingLives < 0)
 			{
-				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-				if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+				// this player is out of lives
+				PS->SetOutOfLives(true);
+				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{
-					// found a live teammate, so round isn't over - notify about termination though
-					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
-					return;
+					AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+					if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+					{
+						// found a live teammate, so round isn't over - notify about termination though
+						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
+						return;
+					}
 				}
+				BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
+				ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
+				return;
 			}
-			BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
-			ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
-			return;
 		}
 	}
 	Super::RestartPlayer(aPlayer);
