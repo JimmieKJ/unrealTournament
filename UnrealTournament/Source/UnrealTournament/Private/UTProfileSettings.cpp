@@ -16,6 +16,11 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 	ReplayCustomDOFScale = 1.0f;
 
 	Avatar = FName("UT.Avatar.0");
+
+	QuickStatsAngle = 180;
+	QuickStatsDistance = 0.2;
+
+
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()

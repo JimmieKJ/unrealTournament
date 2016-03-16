@@ -13,8 +13,8 @@ UUTHUDWidget_QuickStats::UUTHUDWidget_QuickStats(const FObjectInitializer& Objec
 {
 	Position=FVector2D(0.0f, 0.0f);
 	Size=FVector2D(0.0f,0.0f);
-	ScreenPosition=FVector2D(0.5f, 0.55f);
-	Origin=FVector2D(0.5f,0.0f);
+	ScreenPosition=FVector2D(0.5f, 0.5f);
+	Origin=FVector2D(0.f,0.0f);
 	DesignedResolution=1080;
 }
 
@@ -22,15 +22,8 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
 
-	PlayerArmor = 0;
-	PlayerHealth = 0;
-	PlayerAmmo = 0;
-	PlayerBoots = 0;
-
-	HealthText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_QuickStats::GetPlayerHealthText_Implementation);
-	ArmorText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_QuickStats::GetPlayerArmorText_Implementation);
-	AmmoText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_QuickStats::GetPlayerAmmoText_Implementation);
-	BootsText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_QuickStats::GetPlayerBootsText_Implementation);
+	DrawAngle = 0.0f;
+	CurrentLayoutIndex = 0;
 }
 
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
@@ -39,217 +32,194 @@ bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 	return (!bShowScores && UTC && !UTC->IsDead());
 }
 
+FVector2D UUTHUDWidget_QuickStats::CalcDrawLocation(float DistanceInPixels, float Angle)
+{
+	float Sin = 0;
+	float Cos = 0;
+
+	FMath::SinCos(&Sin,&Cos, FMath::DegreesToRadians(Angle));
+	FVector2D NewPoint;
+
+	NewPoint.X = DistanceInPixels * Sin;
+	NewPoint.Y = -1.0f * DistanceInPixels * Cos;
+	return NewPoint;
+}
 
 void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	// Look to see if we should draw the ammo...
 
-	AUTCharacter* UTC = Cast<AUTCharacter>(InUTHUDOwner->UTPlayerOwner->GetViewTarget());
-	if (UTC && !UTC->IsDead())
+	UUTProfileSettings* ProfileSettings = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
+	float DrawAngle = ProfileSettings ? ProfileSettings->QuickStatsAngle : 180.0f;
+	float DrawDistance = ProfileSettings ? ProfileSettings->QuickStatsDistance : 0.2f;
+	FName DisplayTag = ProfileSettings ? ProfileSettings->QuickStatType : NAME_None;
+
+	if (DisplayTag != NAME_None && DisplayTag != CurrentLayoutTag)
 	{
-		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTC->PlayerState);
-		FlagIcon.bHidden = !(UTPlayerState && UTPlayerState->CarriedObject);
-
-		AUTWeapon* Weap = UTC->GetWeapon();
-		bool bDrawAmmo = false;
-		PlayerAmmo = 0;
-		if (Weap)
+		for (int32 i=0; i < Layouts.Num(); i++)
 		{
-			PlayerAmmo = Weap->Ammo;
-			bDrawAmmo = Weap->NeedsAmmoDisplay();
-		}
-
-		LastWeapon = Weap;
-
-		AmmoText.bHidden = !bDrawAmmo;
-		AmmoIcon.bHidden = !bDrawAmmo;
-		AmmoBackground.bHidden = !bDrawAmmo;
-		AmmoBorder.bHidden = !bDrawAmmo;
-
-		if (bDrawAmmo && Weap)
-		{
-			if (PlayerAmmo > LastAmmoAmount || Weap != LastWeapon)
+			if (Layouts[i].Tag == DisplayTag)
 			{
-				// Set the icon scale
-				AmmoIcon.RenderScale = BOUNCE_SCALE;
-			}
-			else if (AmmoIcon.RenderScale > 1.0f)
-			{
-				AmmoIcon.RenderScale = FMath::Clamp<float>(AmmoIcon.RenderScale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
-			}
-
-			float AmmoPerc = float(PlayerAmmo) / float(Weap->MaxAmmo);
-
-			AmmoBackground.RenderColor = (AmmoPerc <= 0.25) ? GetFlashColor(GetWorld()->TimeSeconds) : FLinearColor(0.25f,0.25f,0.25f,1.0f);
-			AmmoBackground.RenderOpacity = (AmmoPerc <= 0.25f) ? GetFlashOpacity(GetWorld()->TimeSeconds) : 0.5f;
-		}
-
-		LastWeapon = Weap;
-		LastAmmoAmount = PlayerAmmo;
-
-		PlayerHealth = UTC->Health;
-		if (PlayerHealth > LastHealthAmount)
-		{
-			// Set the icon scale
-			HealthIcon.RenderScale = BOUNCE_SCALE;
-		}
-		else if (HealthIcon.RenderScale > 1.0f)
-		{
-			HealthIcon.RenderScale = FMath::Clamp<float>(HealthIcon.RenderScale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
-		}
-
-		float HealthPerc = float(PlayerHealth) / 100.0f;
-		HealthBackground.RenderColor = (HealthPerc < 0.33) ? GetFlashColor(GetWorld()->TimeSeconds) : FLinearColor(0.25f,0.25f,0.25f,0.5f);
-		HealthBackground.RenderOpacity = (HealthPerc < 0.33) ? GetFlashOpacity(GetWorld()->TimeSeconds) : 0.5f;
-		LastHealthAmount = PlayerHealth;
-
-		bool bHasArmor = false;
-		bool bHasBoots = false;
-
-
-		PlayerArmor = 0;
-		PlayerBoots = 0;
-
-		for (TInventoryIterator<> It(UTC); It; ++It)
-		{
-			AUTArmor* Armor = Cast<AUTArmor>(*It);
-			if (Armor != nullptr)
-			{
-				PlayerArmor += Armor->ArmorAmount;
-				bHasArmor = true;
-			}
-
-			AUTJumpBoots* Boots = Cast<AUTJumpBoots>(*It);
-			if (Boots != nullptr)
-			{
-				bHasBoots = true;
-				PlayerBoots = Boots->NumJumps;
+				CurrentLayoutIndex = i;
+				CurrentLayoutTag = DisplayTag;
+				break;
 			}
 		}
-
-		if (bHasArmor)
-		{
-			ArmorBackground.bHidden = false;
-			ArmorBorder.bHidden = false;
-			ArmorIcon.bHidden = false;
-			ArmorText.bHidden = false;
-
-			if (PlayerArmor> LastArmorAmount)
-			{
-				// Set the icon scale
-				ArmorIcon.RenderScale = BOUNCE_SCALE;
-			}
-			else if (ArmorIcon.RenderScale > 1.0f)
-			{
-				ArmorIcon.RenderScale = FMath::Clamp<float>(ArmorIcon.RenderScale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
-			}
-
-			float ArmorPerc = float(PlayerArmor) / 100.0f;
-			ArmorBackground.RenderColor = (ArmorPerc <= 0.33f) ? GetFlashColor(GetWorld()->TimeSeconds) : FLinearColor(0.25f, 0.25f, 0.25f, 0.5f);
-			ArmorBackground.RenderOpacity = (ArmorPerc <= 0.33f) ? GetFlashOpacity(GetWorld()->TimeSeconds) : 0.5f;
-		}
-		else
-		{
-			ArmorBackground.bHidden = true;
-			ArmorBorder.bHidden = true;
-			ArmorIcon.bHidden = true;
-			ArmorText.bHidden = true;
-		}
-		LastArmorAmount = PlayerArmor;
-
-		if (bHasBoots)
-		{
-			BootsBackground.bHidden = false;
-			BootsBorder.bHidden = false;
-			BootsIcon.bHidden = false;
-			BootsText.bHidden = false;
-
-			if (PlayerBoots> LastBootsAmount)
-			{
-				// Set the icon scale
-				BootsIcon.RenderScale = BOUNCE_SCALE;
-			}
-			else if (BootsIcon.RenderScale > 1.0f)
-			{
-				BootsIcon.RenderScale = FMath::Clamp<float>(BootsIcon.RenderScale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
-			}
-
-			BootsBackground.RenderColor = (PlayerBoots < 2) ? GetFlashColor(GetWorld()->TimeSeconds) : FLinearColor(0.25f, 0.25f, 0.25f, 0.5f);
-			BootsBackground.RenderOpacity = (PlayerBoots < 2) ? GetFlashOpacity(GetWorld()->TimeSeconds) : 0.5f;
-		}
-		else
-		{
-			BootsBackground.bHidden = true;
-			BootsBorder.bHidden = true;
-			BootsIcon.bHidden = true;
-			BootsText.bHidden = true;
-		}
-		LastBootsAmount = PlayerBoots;
-
 	}
 
+	Position = CalcDrawLocation( 1920.0f * DrawDistance, DrawAngle);
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
 
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	if (CharOwner)
 	{
-		RenderPosition.X += 3 * CharOwner->CurrentWeaponBob.Y;
-		RenderPosition.Y -= 3 * CharOwner->CurrentWeaponBob.Z;
-	}
+		RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
+		RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;
+	
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(CharOwner->PlayerState);
+		AUTWeapon* Weap = CharOwner->GetWeapon();
 
-}
+		bHorizBorders = Layouts[CurrentLayoutIndex].bHorizontalBorder;
 
-FLinearColor UUTHUDWidget_QuickStats::GetFlashColor(float Delta)
-{
-	float AlphaSin = 1.0 - FMath::Abs<float>(FMath::Sin(Delta * 2));
-	float Color = 0.5f - (0.5f * AlphaSin);
-	float Red = 0.75f + (0.25f * AlphaSin);
-	float Alpha = 0.5 + (0.25f * AlphaSin);
-	return FLinearColor(Red, Color, Color, 1.0);
-}
+		// ----------------- Ammo
+		AmmoInfo.Value = Weap ? Weap->Ammo : 0;
+		AmmoInfo.bInfinite = Weap && !Weap->NeedsAmmoDisplay();
+		
+		if (AmmoInfo.Value > AmmoInfo.LastValue && Weap == LastWeapon)
+		{
+			AmmoInfo.Scale = BOUNCE_SCALE;						
+		}
+		else if (AmmoInfo.Scale > 1.0f)
+		{
+			AmmoInfo.Scale = FMath::Clamp<float>(AmmoInfo.Scale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
+		}
+		else
+		{
+			AmmoInfo.Scale = 1.0f;
+		}
 
-float UUTHUDWidget_QuickStats::GetFlashOpacity(float Delta)
-{
-	float AlphaSin = 1.0 - FMath::Abs<float>(FMath::Sin(Delta * 2));
-	return 0.5 + (0.25f * AlphaSin);
-}
-void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
-{
-	PlayerArmor = 0;
-	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	if (UTC != NULL && !UTC->IsDead())
-	{
-		for (TInventoryIterator<> It(UTC); It; ++It)
+		AmmoInfo.LastValue = AmmoInfo.Value;
+		LastWeapon = Weap;
+		float AmmoPerc = Weap ? (float(AmmoInfo.Value) / float(Weap->MaxAmmo)) : 1.0f;
+		AmmoInfo.BackgroundColor = GetStatColor(AmmoPerc, 0.05f, 0.025f);
+
+		// ----------------- Health
+		HealthInfo.Value = CharOwner->Health;
+		HealthInfo.bInfinite = false;
+		
+		if (HealthInfo.Value > HealthInfo.LastValue)
+		{
+			HealthInfo.Scale = BOUNCE_SCALE;						
+		}
+		else if (HealthInfo.Scale > 1.0f)
+		{
+			HealthInfo.Scale = FMath::Clamp<float>(HealthInfo.Scale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
+		}
+		else
+		{
+			HealthInfo.Scale = 1.0f;
+		}
+		HealthInfo.LastValue = HealthInfo.Value;
+		float HealthPerc = AmmoInfo.bInfinite ? 1.0 : (HealthInfo.Value) / 100.0f;
+		HealthInfo.BackgroundColor = GetStatColor(HealthPerc, 0.5f, 0.33f);
+
+		// ----------------- Health
+
+		bool bHasShieldBelt = false;
+		ArmorInfo.Value = 0;
+		for (TInventoryIterator<> It(CharOwner); It; ++It)
 		{
 			AUTArmor* Armor = Cast<AUTArmor>(*It);
-			if (Armor != NULL)
+			if (Armor != nullptr)
 			{
-				PlayerArmor += Armor->ArmorAmount;
+				bHasShieldBelt |= (Armor->ArmorType == ArmorTypeName::ShieldBelt);
+				ArmorInfo.Value += Armor->ArmorAmount;
 			}
 		}
+
+		ArmorInfo.bInfinite = false;
+		
+		if (ArmorInfo.Value > ArmorInfo.LastValue)
+		{
+			ArmorInfo.Scale = BOUNCE_SCALE;						
+		}
+		else if (ArmorInfo.Scale > 1.0f)
+		{
+			ArmorInfo.Scale = FMath::Clamp<float>(ArmorInfo.Scale - BOUNCE_TIME * DeltaTime, 1.0f, BOUNCE_SCALE);
+		}
+		else
+		{
+			ArmorInfo.Scale = 1.0f;
+		}
+
+		ArmorInfo.LastValue = ArmorInfo.Value;
+		float ArmorPerc = ArmorInfo.Value > 0 ? float(ArmorInfo.Value) / 100.0f : 1.0f;
+		ArmorInfo.BackgroundColor = GetStatColor(ArmorPerc, 0.5f, 0.33f);
+
+	}
+}
+
+void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
+{
+	DrawStat(Layouts[CurrentLayoutIndex].HealthOffset, HealthInfo, FLinearColor(0.4f, 0.95f, 0.48f, 1.0f), HealthIcon);
+	DrawStat(Layouts[CurrentLayoutIndex].ArmorOffset, ArmorInfo, FLinearColor::White, ArmorInfo.bAltIcon ? ArmorIconWithShieldBelt : ArmorIcon);
+	DrawStat(Layouts[CurrentLayoutIndex].AmmoOffset, AmmoInfo, FLinearColor::White, AmmoIcon);
+}
+
+void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FLinearColor TextColor, FHUDRenderObject_Texture Icon)
+{
+	if (bHorizBorders)
+	{
+		HorizontalBackground.RenderColor = Info.BackgroundColor;
+		RenderObj_Texture(HorizontalBackground, StatOffset);
+	}
+	else
+	{
+		VerticalBackground.RenderColor = Info.BackgroundColor;
+		RenderObj_Texture(VerticalBackground, StatOffset);
 	}
 
-	Super::Draw_Implementation(DeltaTime);
+	Icon.RenderScale = Info.Scale;
+	RenderObj_Texture(Icon, StatOffset);
+
+
+	if (Info.bInfinite)
+	{
+		RenderObj_Texture(InfiniteIcon, StatOffset);
+	}
+	else
+	{
+		TextTemplate.TextScale = Info.Scale;
+		TextTemplate.Text = FText::AsNumber(Info.Value);
+		TextTemplate.RenderColor = TextColor;
+		RenderObj_Text(TextTemplate, StatOffset);
+	}
 }
 
-
-FText UUTHUDWidget_QuickStats::GetPlayerHealthText_Implementation()
+FLinearColor UUTHUDWidget_QuickStats::GetStatColor(float Perc, float WarnPerc, float DangerPerc)
 {
-	return FText::AsNumber(PlayerHealth);
+	if (Perc <= WarnPerc)
+	{
+		if (Perc <= DangerPerc)
+		{
+			// Shade of Red
+			return InterpColor(FLinearColor(0.82f,0.0f,0.0f,1.0f), GetWorld()->TimeSeconds * 2.0f);
+		}
+		
+		// Shade of Yellow
+		return InterpColor(FLinearColor(0.8f,0.8f,0.22f,1.0f), GetWorld()->TimeSeconds);
+	}
+	// Black
+	return FLinearColor::Black;
 }
 
-FText UUTHUDWidget_QuickStats::GetPlayerArmorText_Implementation()
+FLinearColor UUTHUDWidget_QuickStats::InterpColor(FLinearColor DestinationColor, float Delta)
 {
-	return FText::AsNumber(PlayerArmor);
-}
-
-FText UUTHUDWidget_QuickStats::GetPlayerAmmoText_Implementation()
-{
-	return FText::AsNumber(PlayerAmmo);
-}
-
-FText UUTHUDWidget_QuickStats::GetPlayerBootsText_Implementation()
-{
-	return FText::AsNumber(PlayerBoots);
+	float AlphaSin = 1.0f - FMath::Abs<float>(FMath::Sin(Delta * 2.0f));
+	
+	float R = FMath::Lerp(DestinationColor.R, 0.0f, AlphaSin);
+	float G = FMath::Lerp(DestinationColor.G, 0.0f, AlphaSin);
+	float B = FMath::Lerp(DestinationColor.B, 0.0f, AlphaSin);
+	return FLinearColor(R, G, B, 1.0f);
 }
 

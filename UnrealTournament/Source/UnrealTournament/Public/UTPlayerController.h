@@ -1019,6 +1019,16 @@ public:
 public:
 	void SetSpectatorMouseChangesView(bool bNewValue);
 	void UpdateCrosshairs(AUTHUD* HUD);
+
+	UFUNCTION(exec)
+	void QSSetType(const FName& Tag);
+
+	UFUNCTION(exec)
+	void QSSetDist(float Distance);
+
+	UFUNCTION(exec)
+	void QSSetAngle(float Angle);
+
 };
 
 

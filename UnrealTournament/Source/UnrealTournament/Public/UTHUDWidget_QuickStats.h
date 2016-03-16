@@ -6,6 +6,44 @@
 
 class AUTWeapon;
 
+USTRUCT()
+struct FQStatLayoutInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The tag for this layout.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
+	FName Tag;
+
+	// Where should the health widget go.  In Pixels based on 1080p
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
+	bool bHorizontalBorder;
+
+	// Where should the health widget go.  In Pixels based on 1080p
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
+	FVector2D HealthOffset;
+
+	// Where should the armor widget go.  In Pixels based on 1080p
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
+	FVector2D ArmorOffset;
+
+	// Where should the Ammo widget go.  In Pixels based on 1080p
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
+	FVector2D AmmoOffset;
+
+	//TODO: Add powerups and flag
+};
+
+struct FStatInfo
+{
+	int32 Value;
+	int32 LastValue;
+	FLinearColor BackgroundColor;
+	float Scale;
+	bool bInfinite;
+	bool bAltIcon;
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTHUDWidget_QuickStats : public UUTHUDWidget
 {
@@ -14,89 +52,58 @@ class UNREALTOURNAMENT_API UUTHUDWidget_QuickStats : public UUTHUDWidget
 	virtual void InitializeWidget(AUTHUD* Hud);
 	virtual void Draw_Implementation(float DeltaTime) override;
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
-
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 
 
+
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
+
+	// the image to use for the background when the widget is in the horizontal layout mode
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Background")
+	TArray<FQStatLayoutInfo> Layouts;
+
+	// the image to use for the background when the widget is in the horizontal layout mode
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Background")
+	FHUDRenderObject_Texture HorizontalBackground;
+
+	// the image to use for the background when the widget is in the vertical layout mode
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Background")
+	FHUDRenderObject_Texture VerticalBackground;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture HealthIcon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
-	FHUDRenderObject_Texture HealthBorder;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
-	FHUDRenderObject_Texture HealthBackground;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
-	FHUDRenderObject_Text HealthText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Armor")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture ArmorIcon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Armor")
-	FHUDRenderObject_Texture ArmorBorder;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+	FHUDRenderObject_Texture ArmorIconWithShieldBelt;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Armor")
-	FHUDRenderObject_Texture ArmorBackground;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Armor")
-	FHUDRenderObject_Text ArmorText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ammo")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture AmmoIcon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ammo")
-	FHUDRenderObject_Texture AmmoBorder;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+	FHUDRenderObject_Texture InfiniteIcon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ammo")
-	FHUDRenderObject_Texture AmmoBackground;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ammo")
-	FHUDRenderObject_Text AmmoText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boots")
-	FHUDRenderObject_Texture BootsIcon;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boots")
-	FHUDRenderObject_Texture BootsBorder;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boots")
-	FHUDRenderObject_Texture BootsBackground;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boots")
-	FHUDRenderObject_Text BootsText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flag")
-	FHUDRenderObject_Texture FlagIcon;
-
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerHealthText();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerArmorText();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerAmmoText();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerBootsText();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
+	FHUDRenderObject_Text TextTemplate;
 
 private:
-	int32 PlayerArmor;
-	int32 PlayerHealth;
-	int32 PlayerAmmo;
-	int32 PlayerBoots;
+	FName CurrentLayoutTag;
+	int32 CurrentLayoutIndex;
+	bool bHorizBorders;
+
+	FStatInfo HealthInfo;
+	FStatInfo ArmorInfo;
+	FStatInfo AmmoInfo;
 
 	AUTWeapon* LastWeapon;
 
-	int32 LastAmmoAmount;
-	int32 LastArmorAmount;
-	int32 LastHealthAmount;
-	int32 LastBootsAmount;
+	FLinearColor GetStatColor(float Perc, float WarnPerc, float DangerPerc);
+	FLinearColor InterpColor(FLinearColor DestinationColor, float Delta);
+	FVector2D CalcDrawLocation(float DistanceInPixels, float Angle);
+	float DrawAngle;
 
-	FLinearColor GetFlashColor(float Delta);
-	float GetFlashOpacity(float Delta);
+	void DrawStat(FVector2D StatOffset, FStatInfo& StatInfo, FLinearColor TextColor, FHUDRenderObject_Texture Icon);
 
 };

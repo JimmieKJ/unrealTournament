@@ -10,6 +10,7 @@
 #include "UTGameViewportClient.h"
 #include "UTRconAdminInfo.h"
 #include "UTLocalPlayer.h"
+#include "UTProfileSettings.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -877,3 +878,8 @@ void AUTBasePlayerController::ServerLobbySay_Implementation(const FString& Messa
 	}
 }
 
+UUTProfileSettings* AUTBasePlayerController::GetProfileSettings()
+{
+	if (Cast<UUTLocalPlayer>(Player) != nullptr) return Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+	return nullptr;
+}

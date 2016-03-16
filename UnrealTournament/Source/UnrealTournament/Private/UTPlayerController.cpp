@@ -4197,3 +4197,40 @@ void AUTPlayerController::UpdateCrosshairs(AUTHUD* HUD)
 	}
 }
 
+void AUTPlayerController::QSSetType(const FName& Tag)
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings)
+		{
+			Settings->QuickStatType = Tag;
+		}
+	}
+}
+void AUTPlayerController::QSSetDist(float Distance)
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings)
+		{
+			Settings->QuickStatsDistance = Distance;
+		}
+	}
+}
+void AUTPlayerController::QSSetAngle(float Angle)
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings)
+		{
+			Settings->QuickStatsAngle = Angle;
+		}
+	}
+}
+

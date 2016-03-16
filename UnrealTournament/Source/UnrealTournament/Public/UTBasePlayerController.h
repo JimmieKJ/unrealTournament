@@ -20,6 +20,7 @@ namespace EInputMode
 }
 
 class AUTRconAdminInfo;
+class UUTProfileSettings;
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , public IUTTeamInterface
@@ -239,6 +240,8 @@ public:
 
 	// Will actually query the UParty once persistent parties are enabled
 	bool IsPartyLeader() { return true; }
+
+	UUTProfileSettings* GetProfileSettings();
 
 protected:
 	// Sends a message directly to a user.  
