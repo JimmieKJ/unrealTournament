@@ -66,7 +66,7 @@ void SUTMatchmakingRegionDialog::Construct(const FArguments& InArgs)
 					.Content()
 					[
 						SAssignNew(SelectedMatchmakingRegion, STextBlock)
-						.Text(MatchmakingRegionList[0])
+						.Text(FText::FromString(*MatchmakingRegionList[0]))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 					]
 				]
