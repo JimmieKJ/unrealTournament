@@ -32,6 +32,12 @@ void AUTGameSessionRanked::RegisterServer()
 {
 	UE_LOG(UT, Verbose, TEXT("--------------[REGISTER SERVER]----------------"));
 
+	// Wait for any other processes to finish/cleanup before we start advertising
+	GetWorldTimerManager().SetTimer(StartServerTimerHandle, this, &ThisClass::StartServer, 0.1f);
+}
+
+void AUTGameSessionRanked::StartServer()
+{
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{

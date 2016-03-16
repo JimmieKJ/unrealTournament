@@ -27,10 +27,28 @@ void AUTEmptyServerGameMode::InitGameState()
 
 	if (GameSession != NULL && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession)
+		FOnlineSessionSettings* SessionSettings = NULL;
+		IOnlineSessionPtr SessionInt = Online::GetSessionInterface();
+		if (SessionInt.IsValid())
 		{
-			UTGameSession->RegisterServer();
+			SessionSettings = SessionInt->GetSessionSettings(GameSessionName);
 		}
+
+		if (!SessionSettings && GameSession)
+		{
+			GameSession->RegisterServer();
+		}
+	}
+}
+
+void AUTEmptyServerGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+
+	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+	if (UTGameSession)
+	{
+		// Destroy the last game if it is still around (comes from restart/travel)
+		UTGameSession->CleanupServerSession();
 	}
 }

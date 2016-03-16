@@ -60,6 +60,12 @@ protected:
 
 	bool bReregisterWhenDone;
 
+	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
+
+	FTimerHandle StartServerTimerHandle;
+
+	virtual void StartServer() {}
+
 public:
 	UPROPERTY()
 	bool bNoJoinInProgress;
@@ -68,4 +74,5 @@ public:
 	bool CantBindBeaconPortIsNotFatal;
 	
 	void AcknowledgeAdmin(const FString& AdminId, bool bIsAdmin);
+	void CleanupServerSession();
 };
