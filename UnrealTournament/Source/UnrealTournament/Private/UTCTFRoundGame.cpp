@@ -329,6 +329,25 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	{
 		if (PS->bOutOfLives)
 		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
+			if (PC != NULL)
+			{
+				PC->ChangeState(NAME_Spectating);
+				PC->ClientGotoState(NAME_Spectating);
+
+				AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+				if (PS != NULL && PS->Team != NULL)
+				{
+					for (AController* Member : PS->Team->GetTeamMembers())
+					{
+						if (Member->GetPawn() != NULL)
+						{
+							PC->ServerViewPlayerState(Member->PlayerState);
+							break;
+						}
+					}
+				}
+			}
 			return;
 		}
 		if (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0)))
