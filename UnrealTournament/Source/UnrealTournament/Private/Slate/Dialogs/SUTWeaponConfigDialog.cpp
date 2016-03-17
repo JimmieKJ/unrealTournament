@@ -42,14 +42,14 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
 				{
-					if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus && (TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup > 0))
+					if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus && (TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup >= 0))
 					{
 						if (WeaponClassList.Find(TestClass) == INDEX_NONE)
 						{
 							//Add weapons for the priority list
 							int32 Group = (TestClass->GetDefaultObject<AUTWeapon>()->Group >= 0) ? TestClass->GetDefaultObject<AUTWeapon>()->Group : TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup;
 							Group = ProfileSettings && ProfileSettings->WeaponGroupLookup.Contains(*ClassPath) ? ProfileSettings->WeaponGroupLookup[*ClassPath].Group : Group;
-							Group = FMath::Clamp<int32>(Group, 1,10);
+							Group = FMath::Clamp<int32>(Group, 0,10);
 							WeaponClassList.Add(TestClass);
 							WeakWeaponClassList.Add(TestClass);
 							WeaponGroups.Add(TestClass, Group);
@@ -506,7 +506,7 @@ void SUTWeaponConfigDialog::Construct(const FArguments& InArgs)
 			]	
 			+SHorizontalBox::Slot().Padding(20.0,0.0,0.0,0.0).FillWidth(1.0)
 			[
-				SNew(SVerticalBox)
+				SAssignNew(GroupControlsBox, SVerticalBox)
 				+ SVerticalBox::Slot()
 				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
 				.AutoHeight()
@@ -671,6 +671,13 @@ void SUTWeaponConfigDialog::OnWeaponChanged(TWeakObjectPtr<UClass> NewSelectedWe
 	UpdateWeaponsInGroup();
 
 	UpdateAvailableWeaponSkins();
+
+	if (GroupControlsBox.Get()) 
+	{
+		bool bDisableGroupControls = SelectedWeapon.IsValid() && WeaponGroups.Contains(SelectedWeapon.Get()) && WeaponGroups[SelectedWeapon.Get()] == 0;
+		GroupControlsBox->SetEnabled(!bDisableGroupControls);
+		GroupControlsBox->SetVisibility(bDisableGroupControls ? EVisibility::Collapsed : EVisibility::Visible);
+	}
 }
 
 void SUTWeaponConfigDialog::UpdateCrosshairRender(UCanvas* C, int32 Width, int32 Height)
@@ -854,7 +861,7 @@ FReply SUTWeaponConfigDialog::OKClick()
 	for (int32 i = 0; i < WeakWeaponClassList.Num(); i++)
 	{
 		float NewPriority = float(WeakWeaponClassList.Num() - i); // top of list is highest priority
-		int32 NewGroup = FMath::Clamp<int32>(WeaponGroups[WeakWeaponClassList[i].Get()], 1, 10);
+		int32 NewGroup = FMath::Clamp<int32>(WeaponGroups[WeakWeaponClassList[i].Get()], 0, 10);
 		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->Group = NewGroup;
 		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = NewPriority;
 		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
@@ -879,7 +886,7 @@ FReply SUTWeaponConfigDialog::OKClick()
 	{
 		for (int32 i = 0; i < WeaponClassList.Num(); i++)
 		{
-			int32 NewGroup = FMath::Clamp<int32>(WeaponGroups[WeaponClassList[i]],1,10);
+			int32 NewGroup = FMath::Clamp<int32>(WeaponGroups[WeaponClassList[i]],0,10);
 			FString ClassPath = GetNameSafe(WeaponClassList[i]);
 
 			FStoredWeaponGroupInfo WeaponInfo(ClassPath, NewGroup);
@@ -1014,7 +1021,8 @@ FReply SUTWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 bool SUTWeaponConfigDialog::CanMoveWeaponPriorityUp() const
 {
 	auto SelectedItems = WeaponList->GetSelectedItems();
-	if (SelectedItems.Num() > 0)
+
+	if ( (SelectedItems.Num() > 0) && (SelectedWeapon.Get()) && (WeaponGroups[SelectedWeapon.Get()] != 0) )
 	{
 		int32 Index = WeakWeaponClassList.Find(SelectedItems[0]);
 		if (Index != INDEX_NONE && Index != 0)
@@ -1028,10 +1036,10 @@ bool SUTWeaponConfigDialog::CanMoveWeaponPriorityUp() const
 bool SUTWeaponConfigDialog::CanMoveWeaponPriorityDown() const
 {
 	auto SelectedItems = WeaponList->GetSelectedItems();
-	if (SelectedItems.Num() > 0)
+	if ((SelectedItems.Num() > 0) && (SelectedWeapon.Get()) && (WeaponGroups[SelectedWeapon.Get()] != 0))
 	{
 		int32 Index = WeakWeaponClassList.Find(SelectedItems[0]);
-		if (Index != INDEX_NONE && Index < WeakWeaponClassList.Num() - 1)
+		if (Index != INDEX_NONE && Index < WeakWeaponClassList.Num() - 2) //-2 because the translocator is always in the last slot.
 		{
 			return true;
 		}
@@ -1047,7 +1055,7 @@ TOptional<int32> SUTWeaponConfigDialog::GetWeaponGroup() const
 
 void SUTWeaponConfigDialog::SetWeaponGroup(int32 NewGroup)
 {
-	if (WeaponGroups.Contains(SelectedWeapon.Get()))
+	if ( (WeaponGroups.Contains(SelectedWeapon.Get())) && (WeaponGroups[SelectedWeapon.Get()] != 0) )
 	{
 		WeaponGroups[SelectedWeapon.Get()] = NewGroup;
 		UpdateWeaponsInGroup();

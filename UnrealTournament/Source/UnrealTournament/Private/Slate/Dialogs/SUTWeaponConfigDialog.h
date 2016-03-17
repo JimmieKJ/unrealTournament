@@ -29,6 +29,7 @@ public:
 
 	TSharedPtr<class SUTTabWidget> TabWidget;
 
+	TSharedPtr<SBoxPanel> GroupControlsBox;
 	TSharedPtr<SCheckBox> ClassicGroups;
 	TSharedPtr<SNumericEntryBox<int32>> GroupEdit;
 	TSharedPtr<SCheckBox> AutoWeaponSwitch;
