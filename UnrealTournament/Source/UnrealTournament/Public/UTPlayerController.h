@@ -1027,6 +1027,10 @@ public:
 	UFUNCTION(exec)
 	void QSSetAngle(float Angle);
 
+	UFUNCTION(exec)
+	void QSSave();
+
+
 };
 
 

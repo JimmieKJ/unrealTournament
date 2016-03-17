@@ -46,6 +46,7 @@ struct FStatInfo
 	float Scale;
 	bool bInfinite;
 	bool bAltIcon;
+	float HighlightStrength;
 };
 
 UCLASS()
@@ -73,6 +74,14 @@ protected:
 	// the image to use for the background when the widget is in the vertical layout mode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Background")
 	FHUDRenderObject_Texture VerticalBackground;
+
+	// the image to use for the highlight in horizontial layout mode
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Background")
+	FHUDRenderObject_Texture HorizontalHighlight;
+
+	// the image to use for the highlight in vertical layout mode
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Background")
+	FHUDRenderObject_Texture VerticalHighlight;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Texture HealthIcon;
@@ -103,7 +112,7 @@ private:
 
 	AUTWeapon* LastWeapon;
 
-	FLinearColor GetStatColor(float Perc, float WarnPerc, float DangerPerc);
+	void GetHighlightStrength(FStatInfo& Stat, float Perc, float WarnPerc);
 	FLinearColor InterpColor(FLinearColor DestinationColor, float Delta);
 	FVector2D CalcDrawLocation(float DistanceInPixels, float Angle);
 	FVector2D CalcRotOffset(FVector2D InitialPosition, float Angle);
@@ -112,6 +121,7 @@ private:
 	float DrawAngle;
 
 	FLinearColor WeaponColor;
+	float ForegroundOpacity;
 
 	void DrawStat(FVector2D StatOffset, FStatInfo& StatInfo, FLinearColor TextColor, FLinearColor IconColor, FHUDRenderObject_Texture Icon);
 

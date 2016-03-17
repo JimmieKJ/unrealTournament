@@ -67,7 +67,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	DrawAngle = ProfileSettings ? ProfileSettings->QuickStatsAngle : 180.0f;
 
 	float DrawDistance = ProfileSettings ? ProfileSettings->QuickStatsDistance : 0.2f;
-	FName DisplayTag = ProfileSettings ? ProfileSettings->QuickStatType : NAME_None;
+	FName DisplayTag = ProfileSettings ? ProfileSettings->QuickStatsType : NAME_None;
+
+	HorizontalBackground.RenderOpacity = ProfileSettings ? ProfileSettings->QuickStatBackgroundAlpha : 0.15f;
+	VerticalBackground.RenderOpacity = ProfileSettings ? ProfileSettings->QuickStatBackgroundAlpha : 0.15f;
+
+	ForegroundOpacity = ProfileSettings ? ProfileSettings->QuickStatForegroundAlpha : 1.0f;
 
 	if (DisplayTag != NAME_None && DisplayTag != CurrentLayoutTag)
 	{
@@ -121,12 +126,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		LastWeapon = Weap;
 		if (Weap && !AmmoInfo.bInfinite && Weap->AmmoWarningAmount > 0)
 		{
-			float AmmoPerc = float(AmmoInfo.Value) / float(Weap->MaxAmmo);
-			AmmoInfo.BackgroundColor = GetStatColor(AmmoPerc, float(Weap->AmmoWarningAmount) / float(Weap->MaxAmmo), float(Weap->AmmoDangerAmount) / float(Weap->MaxAmmo));
+			float AmmoPerc = float(AmmoInfo.Value-1) / float(Weap->MaxAmmo);
+			GetHighlightStrength(AmmoInfo, AmmoPerc, float(Weap->AmmoWarningAmount) / float(Weap->MaxAmmo));
 		}
 		else
 		{
-			AmmoInfo.BackgroundColor = GetStatColor(1.0f, 0.0f, 0.0f);
+			AmmoInfo.HighlightStrength = 0.0f;
 		}
 
 		// ----------------- Health
@@ -146,8 +151,8 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			HealthInfo.Scale = 1.0f;
 		}
 		HealthInfo.LastValue = HealthInfo.Value;
-		float HealthPerc = AmmoInfo.bInfinite ? 1.0 : (HealthInfo.Value) / 100.0f;
-		HealthInfo.BackgroundColor = GetStatColor(HealthPerc, 0.5f, 0.33f);
+		float HealthPerc = float(HealthInfo.Value) / 100.0f;
+		GetHighlightStrength(HealthInfo, HealthPerc, 0.5f);
 
 		// ----------------- Health
 
@@ -181,7 +186,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 		ArmorInfo.LastValue = ArmorInfo.Value;
 		float ArmorPerc = ArmorInfo.Value > 0 ? float(ArmorInfo.Value) / 100.0f : 1.0f;
-		ArmorInfo.BackgroundColor = GetStatColor(ArmorPerc, 0.5f, 0.33f);
+		ArmorInfo.HighlightStrength = 0.0f;
 
 	}
 }
@@ -200,17 +205,39 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FL
 	{
 		HorizontalBackground.RenderColor = Info.BackgroundColor;
 		RenderObj_Texture(HorizontalBackground, StatOffset);
+
+		if (Info.HighlightStrength> 0)
+		{
+			HorizontalHighlight.RenderColor = FLinearColor(0.82f,0.0f,0.0f,1.0f);
+			FVector2D DrawOffset = StatOffset;
+
+			float Height = HorizontalBackground.Size.Y * Info.HighlightStrength;
+			HorizontalHighlight.Size.Y = Height;
+			HorizontalHighlight.UVs.VL = Height;
+
+			DrawOffset.Y -= (HorizontalBackground.Size.Y * 0.5f);
+			RenderObj_Texture(HorizontalHighlight, DrawOffset);
+		}
+
 	}
 	else
 	{
 		VerticalBackground.RenderColor = Info.BackgroundColor;
 		RenderObj_Texture(VerticalBackground, StatOffset);
+/*
+		if (Info.HighlightLevel > 0)
+		{
+			VerticalHighlight.RenderColor = Info.HighlightLevel == 1 ? FLinearColor(0.8f,0.8f,0.22f,1.0f) : FLinearColor(0.82f,0.0f,0.0f,1.0f);
+			RenderObj_Texture(VerticalHighlight, StatOffset);
+		}
+*/
+
 	}
 
 	Icon.RenderScale = Info.Scale;
 	Icon.RenderColor = IconColor;
+	Icon.RenderOpacity = ForegroundOpacity;
 	RenderObj_Texture(Icon, StatOffset);
-
 
 	if (Info.bInfinite)
 	{
@@ -221,25 +248,21 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FL
 		TextTemplate.TextScale = Info.Scale;
 		TextTemplate.Text = FText::AsNumber(Info.Value);
 		TextTemplate.RenderColor = TextColor;
+		TextTemplate.RenderOpacity = ForegroundOpacity;
 		RenderObj_Text(TextTemplate, StatOffset);
 	}
 }
 
-FLinearColor UUTHUDWidget_QuickStats::GetStatColor(float Perc, float WarnPerc, float DangerPerc)
+void UUTHUDWidget_QuickStats::GetHighlightStrength(FStatInfo& Stat, float Perc, float WarnPerc)
 {
 	if (Perc <= WarnPerc)
 	{
-		if (Perc <= DangerPerc)
-		{
-			// Shade of Red
-			return InterpColor(FLinearColor(0.82f,0.0f,0.0f,1.0f), GetWorld()->TimeSeconds * 2.0f);
-		}
-		
-		// Shade of Yellow
-		return InterpColor(FLinearColor(0.8f,0.8f,0.22f,1.0f), GetWorld()->TimeSeconds);
+		Stat.HighlightStrength = 1.0f - (Perc / WarnPerc);
 	}
-	// Black
-	return FLinearColor::Black;
+	else
+	{
+		Stat.HighlightStrength = 0.0f;
+	}
 }
 
 FLinearColor UUTHUDWidget_QuickStats::InterpColor(FLinearColor DestinationColor, float Delta)

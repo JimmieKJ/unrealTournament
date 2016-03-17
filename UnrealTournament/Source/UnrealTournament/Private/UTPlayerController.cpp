@@ -4161,7 +4161,7 @@ void AUTPlayerController::QSSetType(const FName& Tag)
 		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
 		if (Settings)
 		{
-			Settings->QuickStatType = Tag;
+			Settings->QuickStatsType = Tag;
 		}
 	}
 }
@@ -4187,6 +4187,15 @@ void AUTPlayerController::QSSetAngle(float Angle)
 		{
 			Settings->QuickStatsAngle = Angle;
 		}
+	}
+}
+
+void AUTPlayerController::QSSave()
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->SaveProfileSettings();
 	}
 }
 
