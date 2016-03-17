@@ -147,7 +147,6 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 
 void AUTCTFRoundGame::HandleMatchHasStarted()
 {
-	BroadcastVictoryConditions();
 	if (!bFirstRoundInitialized)
 	{
 		InitRound();
@@ -162,6 +161,12 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	InitRound();
 	Super::HandleExitingIntermission();
+}
+
+void AUTCTFRoundGame::AnnounceMatchStart()
+{
+	BroadcastVictoryConditions();
+	Super::AnnounceMatchStart();
 }
 
 void AUTCTFRoundGame::InitFlags()
