@@ -45,12 +45,27 @@ FVector2D UUTHUDWidget_QuickStats::CalcDrawLocation(float DistanceInPixels, floa
 	return NewPoint;
 }
 
+FVector2D UUTHUDWidget_QuickStats::CalcRotOffset(FVector2D InitialPosition, float Angle)
+{
+	float Sin = 0;
+	float Cos = 0;
+
+	FMath::SinCos(&Sin, &Cos, FMath::DegreesToRadians(Angle - 180.0));
+	FVector2D NewPoint;
+	
+	NewPoint.X = InitialPosition.X * Cos - InitialPosition.Y * Sin;
+	NewPoint.Y = InitialPosition.Y * Cos + InitialPosition.X * Sin;
+	return NewPoint;
+}
+
 void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	// Look to see if we should draw the ammo...
 
 	UUTProfileSettings* ProfileSettings = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
-	float DrawAngle = ProfileSettings ? ProfileSettings->QuickStatsAngle : 180.0f;
+	
+	DrawAngle = ProfileSettings ? ProfileSettings->QuickStatsAngle : 180.0f;
+
 	float DrawDistance = ProfileSettings ? ProfileSettings->QuickStatsDistance : 0.2f;
 	FName DisplayTag = ProfileSettings ? ProfileSettings->QuickStatType : NAME_None;
 
@@ -73,12 +88,16 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	if (CharOwner)
 	{
-		RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
-		RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;
+		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0)
+		{
+			RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
+			RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;
+		}
 	
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(CharOwner->PlayerState);
 		AUTWeapon* Weap = CharOwner->GetWeapon();
 
+		WeaponColor = Weap ? Weap->IconColor : FLinearColor::White;
 		bHorizBorders = Layouts[CurrentLayoutIndex].bHorizontalBorder;
 
 		// ----------------- Ammo
@@ -100,8 +119,15 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 		AmmoInfo.LastValue = AmmoInfo.Value;
 		LastWeapon = Weap;
-		float AmmoPerc = Weap ? (float(AmmoInfo.Value) / float(Weap->MaxAmmo)) : 1.0f;
-		AmmoInfo.BackgroundColor = GetStatColor(AmmoPerc, 0.05f, 0.025f);
+		if (Weap && !AmmoInfo.bInfinite && Weap->AmmoWarningAmount > 0)
+		{
+			float AmmoPerc = float(AmmoInfo.Value) / float(Weap->MaxAmmo);
+			AmmoInfo.BackgroundColor = GetStatColor(AmmoPerc, float(Weap->AmmoWarningAmount) / float(Weap->MaxAmmo), float(Weap->AmmoDangerAmount) / float(Weap->MaxAmmo));
+		}
+		else
+		{
+			AmmoInfo.BackgroundColor = GetStatColor(1.0f, 0.0f, 0.0f);
+		}
 
 		// ----------------- Health
 		HealthInfo.Value = CharOwner->Health;
@@ -138,6 +164,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 
 		ArmorInfo.bInfinite = false;
+		ArmorInfo.bAltIcon = bHasShieldBelt;
 		
 		if (ArmorInfo.Value > ArmorInfo.LastValue)
 		{
@@ -161,12 +188,13 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 
 void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 {
-	DrawStat(Layouts[CurrentLayoutIndex].HealthOffset, HealthInfo, FLinearColor(0.4f, 0.95f, 0.48f, 1.0f), HealthIcon);
-	DrawStat(Layouts[CurrentLayoutIndex].ArmorOffset, ArmorInfo, FLinearColor::White, ArmorInfo.bAltIcon ? ArmorIconWithShieldBelt : ArmorIcon);
-	DrawStat(Layouts[CurrentLayoutIndex].AmmoOffset, AmmoInfo, FLinearColor::White, AmmoIcon);
+	bool bFollowRotation = Layouts[CurrentLayoutIndex].bFollowRotation;
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].HealthOffset,DrawAngle) : Layouts[CurrentLayoutIndex].HealthOffset, HealthInfo, FLinearColor(0.4f, 0.95f, 0.48f, 1.0f), FLinearColor(0.4f, 0.95f, 0.48f, 1.0f), HealthIcon);
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].ArmorOffset,DrawAngle) : Layouts[CurrentLayoutIndex].ArmorOffset, ArmorInfo, FLinearColor::White, ArmorInfo.bAltIcon ? FLinearColor::Yellow : FLinearColor::White, ArmorInfo.bAltIcon ? ArmorIconWithShieldBelt : ArmorIcon);
+	DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].AmmoOffset,DrawAngle) : Layouts[CurrentLayoutIndex].AmmoOffset, AmmoInfo, FLinearColor::White, WeaponColor, AmmoIcon);
 }
 
-void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FLinearColor TextColor, FHUDRenderObject_Texture Icon)
+void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FLinearColor TextColor, FLinearColor IconColor, FHUDRenderObject_Texture Icon)
 {
 	if (bHorizBorders)
 	{
@@ -180,6 +208,7 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FL
 	}
 
 	Icon.RenderScale = Info.Scale;
+	Icon.RenderColor = IconColor;
 	RenderObj_Texture(Icon, StatOffset);
 
 

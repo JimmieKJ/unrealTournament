@@ -29,6 +29,10 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	MaxAmmo = 240;
 	FOVOffset = FVector(0.01f, 1.f, 1.6f);
 
+	AmmoWarningAmount = 25;
+	AmmoDangerAmount = 10;
+
+
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 509.0f, 148.0f, 53.0f);
 
 	BaseAISelectRating = 0.71f;

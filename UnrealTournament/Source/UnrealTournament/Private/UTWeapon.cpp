@@ -104,6 +104,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	WeightSpeedPctModifier = 1.0f;
 
+	AmmoWarningAmount = 5;
+	AmmoDangerAmount = 2;
 }
 
 void AUTWeapon::PostInitProperties()

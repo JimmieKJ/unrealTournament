@@ -31,6 +31,10 @@ struct FQStatLayoutInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
 	FVector2D AmmoOffset;
 
+	// If true, this layout will pivot based on the rotation of the widget on the hud
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layout")
+	bool bFollowRotation;
+
 	//TODO: Add powerups and flag
 };
 
@@ -102,8 +106,13 @@ private:
 	FLinearColor GetStatColor(float Perc, float WarnPerc, float DangerPerc);
 	FLinearColor InterpColor(FLinearColor DestinationColor, float Delta);
 	FVector2D CalcDrawLocation(float DistanceInPixels, float Angle);
+	FVector2D CalcRotOffset(FVector2D InitialPosition, float Angle);
+
+	// The Draw Angle this frame
 	float DrawAngle;
 
-	void DrawStat(FVector2D StatOffset, FStatInfo& StatInfo, FLinearColor TextColor, FHUDRenderObject_Texture Icon);
+	FLinearColor WeaponColor;
+
+	void DrawStat(FVector2D StatOffset, FStatInfo& StatInfo, FLinearColor TextColor, FLinearColor IconColor, FHUDRenderObject_Texture Icon);
 
 };

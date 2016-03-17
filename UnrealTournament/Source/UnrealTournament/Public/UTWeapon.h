@@ -990,4 +990,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float WeightSpeedPctModifier;
 
+	// At what ammo tick do we start warning the user we are getting low.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	int32 AmmoWarningAmount;
+
+	// At what ammo tick do we start warning the user we are in danger of running out
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	int32 AmmoDangerAmount;
+
+
 };

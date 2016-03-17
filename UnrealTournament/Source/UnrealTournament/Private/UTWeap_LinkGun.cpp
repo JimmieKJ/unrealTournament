@@ -29,6 +29,9 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	Ammo = 70;
 	MaxAmmo = 200;
 
+	AmmoWarningAmount = 25;
+	AmmoDangerAmount = 10;
+
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 467.0, 147.0f, 41.0f);
 
 	LinkBreakDelay = 0.5f;
