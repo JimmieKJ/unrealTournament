@@ -430,6 +430,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual void UpdateViewBob(float DeltaTime);
 
 	virtual void PostInitProperties() override;
+	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void BeginPlay() override;
 	virtual void RegisterAllComponents() override
 	{

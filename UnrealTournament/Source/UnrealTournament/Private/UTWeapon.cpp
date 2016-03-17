@@ -124,6 +124,33 @@ void AUTWeapon::PostInitProperties()
 	}
 }
 
+#if WITH_EDITOR
+
+static FName NAME_UTWeapon_DefaultGroup("DefaultGroup");
+
+void AUTWeapon::PreEditChange(UProperty* PropertyAboutToChange)
+{
+	Super::PreEditChange(PropertyAboutToChange);
+	
+	// When editing DefaultGroup, the Group property should be updated as well if it's equal DefaultGroup 
+	if (PropertyAboutToChange && PropertyAboutToChange->GetFName() == NAME_UTWeapon_DefaultGroup && Group == DefaultGroup)
+	{
+		Group = -1;
+	}
+}
+
+void AUTWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == NAME_UTWeapon_DefaultGroup && Group == -1)
+	{
+		Group = DefaultGroup;
+	}
+}
+
+#endif // WITH_EDITOR
+
 UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const
 {
 	if (AttachmentType != NULL)
