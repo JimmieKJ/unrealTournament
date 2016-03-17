@@ -27,7 +27,7 @@ class UNREALTOURNAMENT_API AUTSkullPickup : public AUTDroppedPickup
 	virtual void SetInventory(AUTInventory* NewInventory) override;
 	virtual bool AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
-	virtual USoundBase* AUTSkullPickup::GetPickupSound_Implementation() const override;
+	virtual USoundBase* GetPickupSound_Implementation() const override;
 	virtual void PlayTakenEffects_Implementation(APawn* TakenBy) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const override;
 	virtual float BotDesireability_Implementation(APawn* Asker, float PathDistance) override;
