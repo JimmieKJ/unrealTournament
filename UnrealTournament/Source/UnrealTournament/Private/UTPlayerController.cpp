@@ -3053,36 +3053,7 @@ void AUTPlayerController::ReceivedPlayer()
 				FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
 			}
 		}
-
-		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
-		if (OnlineSub != nullptr)
-		{
-			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
-			if (OnlineIdentityInterface.IsValid())
-			{
-				if (OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
-				{
-					TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-					if (UserId.IsValid())
-					{
-						ServerReceiveStatsID(UserId->ToString());
-					}
-					/*
-#if WITH_PROFILE
-					if (GetNetMode() != NM_DedicatedServer)
-					{
-						InitializeMcpProfile();
-					}
-#endif
-					*/
-				}
-				else
-				{
-					//OnLoginStatusChangedDelegate = OnlineIdentityInterface->AddOnLoginStatusChangedDelegate_Handle(LP->GetControllerId(), FOnLoginStatusChangedDelegate::CreateUObject(this, &AUTPlayerController::OnLoginStatusChanged));
-				}
-			}
-		}
-
+		
 		// Send over the country flag....
 		UUTProfileSettings* Settings = LP->GetProfileSettings();
 		if (Settings != NULL)
@@ -3125,21 +3096,6 @@ void AUTPlayerController::ServerReceiveCountryFlag_Implementation(FName NewCount
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("UserId"), UTPlayerState->UniqueId.ToString()));
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("FlagChange"), ParamArray);
 		}
-	}
-}
-
-bool AUTPlayerController::ServerReceiveStatsID_Validate(const FString& NewStatsID)
-{
-	return true;
-}
-/** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have have a proper ID available.  */
-void AUTPlayerController::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
-{
-	if ( UTPlayerState != NULL && !GetWorld()->IsPlayInEditor() ) // && GetWorld()->GetNetMode() != NM_Standalone)
-	{
-		UTPlayerState->StatsID = NewStatsID;
-		UTPlayerState->ReadStatsFromCloud();
-		UTPlayerState->ReadMMRFromBackend();
 	}
 }
 

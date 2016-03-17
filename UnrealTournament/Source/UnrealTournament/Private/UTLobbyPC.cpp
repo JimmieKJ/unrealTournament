@@ -112,6 +112,8 @@ void AUTLobbyPC::ReceivedPlayer()
 	{
 		ServerSetAvatar(UTLocalPlayer->GetAvatar());
 	}
+
+	SendStatsIDToServer();
 }
 
 void AUTLobbyPC::ServerDebugTest_Implementation(const FString& TestCommand)

@@ -825,8 +825,6 @@ protected:
 	 */
 	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
 public:
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveStatsID(const FString& NewStatsID);
 
 	void ApplyDeferredFireInputs();
 
