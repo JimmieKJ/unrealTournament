@@ -73,7 +73,8 @@
 #include "SUTMatchmakingRegionDialog.h"
 #include "UserWidget.h"
 #include "WidgetBlueprintLibrary.h"
-
+#include "BlueprintContextLibrary.h"
+#include "MatchmakingContext.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -4624,7 +4625,7 @@ bool UUTLocalPlayer::IsPartyLeader()
 	return false;
 }
 
-void UUTLocalPlayer::ShowRegionSelectDialog()
+void UUTLocalPlayer::ShowRegionSelectDialog(int32 InPlaylistId)
 {
 #if !UE_SERVER
 	OpenDialog(
@@ -4633,9 +4634,24 @@ void UUTLocalPlayer::ShowRegionSelectDialog()
 		.DialogSize(FVector2D(0.6f, 0.4f))
 		.DialogPosition(FVector2D(0.5f, 0.5f))
 		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "MatchmakingRegion", "Select A Region For Matchmaking"))
-		.ButtonMask(UTDIALOG_BUTTON_OK));
+		.ButtonMask(UTDIALOG_BUTTON_OK)
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::RegionSelectResult, InPlaylistId)));
 #endif
 }
+
+#if !UE_SERVER
+void UUTLocalPlayer::RegionSelectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID, int32 InPlaylistId)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UMatchmakingContext::StaticClass()));
+		if (MatchmakingContext)
+		{
+			MatchmakingContext->StartMatchmaking(InPlaylistId);
+		}
+	}
+}
+#endif
 
 void UUTLocalPlayer::ShowMatchmakingDialog()
 {

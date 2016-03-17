@@ -4437,19 +4437,19 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 	if (SessionInfo.IsValid())
 	{
 		MatchResult.MatchInfo.SessionId = SessionInfo->GetSessionId().ToString();
-		UE_LOG(UT, Log, TEXT("Reporting ranked results for session {0}"), *MatchResult.MatchInfo.SessionId);
+		UE_LOG(UT, Log, TEXT("Reporting ranked results for session %s"), *MatchResult.MatchInfo.SessionId);
 	}
 	else
 	{
 		// just make a new one so we can submit
 		MatchResult.MatchInfo.SessionId = FGuid::NewGuid().ToString();
-		UE_LOG(UT, Warning, TEXT("Unable to get match session ID. Will report the results of this ranked match with sessionID = {0}"), *MatchResult.MatchInfo.SessionId);
+		UE_LOG(UT, Warning, TEXT("Unable to get match session ID. Will report the results of this ranked match with sessionID = %s"), *MatchResult.MatchInfo.SessionId);
 	}
 
 	// get the length of the match (in seconds)
 	if (ensure(GameState))
 	{
-		MatchResult.MatchInfo.MatchLengthSeconds = GameState->ElapsedTime;
+		MatchResult.MatchInfo.MatchLengthSeconds = EndTime - StartPlayTime;
 	}
 
 	PrepareRankedMatchResultGameCustom(MatchResult);
