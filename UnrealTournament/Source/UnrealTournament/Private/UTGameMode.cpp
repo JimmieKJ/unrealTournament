@@ -84,7 +84,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	ForceRespawnTime = 2.f;
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
-	MinPlayersToStart = 1;
+	MinPlayersToStart = 2;
 	QuickPlayersToStart = 4;
 	MaxWaitForPlayers = 240;
 	MaxWaitForQuickMatch = 180;
@@ -2683,19 +2683,12 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		}
 	}
 
-	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
 	{
 		StartPlayTime = (NumPlayers > 0) ? FMath::Min(StartPlayTime, GetWorld()->GetTimeSeconds()) : 10000000.f;
 		float  ElapsedWaitTime = FMath::Max(0.f, GetWorld()->GetTimeSeconds() - StartPlayTime);
-		if (bIsQuickMatch)
-		{
-			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
-		}
-		else
-		{
-			UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
-		}
+		float MaxWaitForDesiredPlayers = bIsQuickMatch ? MaxWaitForQuickMatch : 15;
+		UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForDesiredPlayers) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
 		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
 			// Count how many ready players we have
