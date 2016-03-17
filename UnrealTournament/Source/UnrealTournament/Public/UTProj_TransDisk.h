@@ -39,14 +39,17 @@ class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTM
 	// IUTMovementBaseInterface
 	virtual void AddBasedCharacterNative(class AUTCharacter* BasedCharacter);
 
-	/** hook to spawn effects when the glob lands*/
+	/** hook to spawn effects when the trans disk lands */
 	UFUNCTION(BlueprintNativeEvent, Category=TransDisk)
 	void OnLanded();
 
-	/** hook to spawn effects when the glob lands*/
+	/** hook to spawn effects when the trans disk is destroyed */
 	UFUNCTION(BlueprintNativeEvent, Category=TransDisk)
 	void OnDisrupted();
 	
+	UFUNCTION(BlueprintNativeEvent, Category=TransDisk)
+	void ModifyTakeDamage(UPARAM(ref) float &DamageAmount, struct FDamageEvent const &DamageEvent, class AController* EventInstigator, AActor* DamageCauser);
+
 	virtual void Recall();
 	virtual void ShutDown();
 	virtual void FellOutOfWorld(const UDamageType& dmgType) override;
