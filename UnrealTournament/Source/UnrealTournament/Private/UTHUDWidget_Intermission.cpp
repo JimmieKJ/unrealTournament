@@ -16,6 +16,7 @@ UUTHUDWidget_Intermission::UUTHUDWidget_Intermission(const class FObjectInitiali
 
 bool UUTHUDWidget_Intermission::ShouldDraw_Implementation(bool bShowScores)
 {
+	return false; // @TODO FIXMESTEVE FIX OR REMOVE
 	if (!bShowScores && GetWorld()->GetGameState() && (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission))
 	{
 		AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
@@ -30,36 +31,36 @@ void UUTHUDWidget_Intermission::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
 
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	FFontRenderInfo TextRenderInfo;
-	TextRenderInfo.bEnableShadow = true;
-	TextRenderInfo.bClipText = true;
-
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
-	bool bIsHalfTime = (CTFState->CTFRound == 0);
-	bool bHasScore = (CTFState->GetScoringPlays().Num() > 0) && (!bIsHalfTime || (CTFState->GetScoringPlays().Last().RemainingTime <= 0.f));
-
-	float XL, SmallYL;
-	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
-	float MedYL;
-	Canvas->TextSize(UTHUDOwner->MediumFont, "TEST", XL, MedYL, RenderScale, RenderScale);
-
-	float ScoreHeight = MedYL + SmallYL;
-	float ScoringOffsetX, ScoringOffsetY;
-	Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-
-	// draw background
-	float ScoreWidth = 0.5f * Canvas->ClipX;
-	FLinearColor DrawColor = FLinearColor::White;
-	float IconHeight = 0.8f*ScoreHeight;
-	float IconOffset = 0.1f*ScoreWidth;
-	float BackAlpha = 0.5f;
-	float XOffset = 0.5f*(Canvas->ClipX - ScoreWidth);
-	float YPos = 0.7f*Canvas->ClipY;
-	DrawTexture(TextureAtlas, XOffset, YPos, ScoreWidth, ScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+	bool bIsHalfTime = CTFState && (CTFState->CTFRound == 0);
+	bool bHasScore = CTFState && (CTFState->GetScoringPlays().Num() > 0) && (!bIsHalfTime || (CTFState->GetScoringPlays().Last().RemainingTime <= 0.f));
 
 	if (bHasScore)
 	{
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		FFontRenderInfo TextRenderInfo;
+		TextRenderInfo.bEnableShadow = true;
+		TextRenderInfo.bClipText = true;
+
+		float XL, SmallYL;
+		Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+		float MedYL;
+		Canvas->TextSize(UTHUDOwner->MediumFont, "TEST", XL, MedYL, RenderScale, RenderScale);
+
+		float ScoreHeight = MedYL + SmallYL;
+		float ScoringOffsetX, ScoringOffsetY;
+		Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
+
+		// draw background
+		float ScoreWidth = 0.5f * Canvas->ClipX;
+		FLinearColor DrawColor = FLinearColor::White;
+		float IconHeight = 0.8f*ScoreHeight;
+		float IconOffset = 0.1f*ScoreWidth;
+		float BackAlpha = 0.5f;
+		float XOffset = 0.5f*(Canvas->ClipX - ScoreWidth);
+		float YPos = 0.7f*Canvas->ClipY;
+		DrawTexture(TextureAtlas, XOffset, YPos, ScoreWidth, ScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+
 		const FCTFScoringPlay& Play = CTFState->GetScoringPlays().Last();
 
 		// draw scoring team icon
