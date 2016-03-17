@@ -477,7 +477,7 @@ void FRazerChroma::Tick(float DeltaTime)
 	AUTGameState* GS = nullptr;
 	for (int32 i = 0; i < WorldList.Num(); i++)
 	{
-		if (WorldList[i]->WorldType == EWorldType::Game)
+		if (WorldList[i] && WorldList[i]->WorldType == EWorldType::Game)
 		{
 			UTPC = Cast<AUTPlayerController>(GEngine->GetFirstLocalPlayerController(WorldList[i]));
 			if (UTPC)
