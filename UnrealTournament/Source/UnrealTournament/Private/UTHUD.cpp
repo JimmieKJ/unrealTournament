@@ -92,6 +92,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	HUDWidgetWeaponBarScaleOverride = 0.9f;
 	HUDWidgetWeaponBarInactiveIconOpacity = 0.25f;
 	HUDWidgetWeaponBarEmptyOpacity = 0.0f;
+	bDrawCTFMinimapHUDSetting = true;
 	bUseWeaponColors = false;
 
 	TimerHours = NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}");
@@ -555,7 +556,7 @@ void AUTHUD::DrawHUD()
 				{
 					UTPlayerOwner->SetViewedScorePS(NULL, 0);
 				}
-				if (bDrawMinimap && GS && GS->AllowMinimapFor(UTPlayerOwner->UTPlayerState))
+				if (ShouldDrawMinimap())
 				{
 					bool bSpectatingMinimap = UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives);
 					float MapScale = bSpectatingMinimap ? 0.75f : 0.25f;
@@ -570,6 +571,13 @@ void AUTHUD::DrawHUD()
 			}
 		}
 	}
+}
+
+bool AUTHUD::ShouldDrawMinimap() const
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+
+	return  (bDrawMinimap && GS && GS->AllowMinimapFor(UTPlayerOwner->UTPlayerState));
 }
 
 FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForceHours, bool bForceMinutes, bool bForceTwoDigits) const

@@ -97,4 +97,8 @@ bool AUTHUD_CTF::ShouldInvertMinimap()
 	return false;
 }
 
+bool AUTHUD_CTF::ShouldDrawMinimap() const
+{
+	return bDrawCTFMinimapHUDSetting && Super::ShouldDrawMinimap();
+}
 
