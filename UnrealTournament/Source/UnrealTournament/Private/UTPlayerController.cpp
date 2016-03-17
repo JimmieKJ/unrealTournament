@@ -1176,7 +1176,7 @@ void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 	if (IsInState(NAME_Spectating))
 	{
 		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag )
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag && UTPlayerState && (UTPlayerState->bOnlySpectator || CTFGameState->OnSameTeam(this, CTFGameState->FlagBases[Index]->MyFlag)))
 		{
 			SetViewTarget(CTFGameState->FlagBases[Index]->MyFlag);
 		}
