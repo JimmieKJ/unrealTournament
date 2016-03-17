@@ -270,6 +270,15 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UFUNCTION()
 	virtual void CheckTouching();
 
+	UPROPERTY()
+		TArray<FVector> PastPositions;
+
+	UPROPERTY()
+		float LastPositionUpdateTime;
+
+	UPROPERTY()
+		bool bGradualAutoReturn;
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)

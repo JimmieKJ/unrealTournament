@@ -171,6 +171,8 @@ void AUTCTFRoundGame::InitFlags()
 		if (Base != NULL && Base->MyFlag)
 		{
 			AUTCarriedObject* Flag = Base->MyFlag;
+			Flag->AutoReturnTime = 10.f; // fixmesteve make config
+			Flag->bGradualAutoReturn = true;
 			if (bAsymmetricVictoryConditions)
 			{
 				if (bRedToCap == (Flag->GetTeamNum() == 0))

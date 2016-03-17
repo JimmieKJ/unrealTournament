@@ -150,7 +150,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 					WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
 				}
 
-				bDrawInWorld = (((WorldPosition - ViewPoint).SafeNormal() | ViewDir) > 0.3f);
+				bDrawInWorld = (((WorldPosition - ViewPoint).GetSafeNormal() | ViewDir) > 0.3f);
 				if (bDrawInWorld)
 				{
 					ScreenPosition = GetCanvas()->Project(WorldPosition);

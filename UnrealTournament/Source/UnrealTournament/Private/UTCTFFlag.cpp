@@ -247,6 +247,15 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		bCurrentlyPinged = (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
+		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking())
+		{
+			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1] : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
+			if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > 800.f)
+			{
+				LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
+				PastPositions.Add(HoldingPawn->GetActorLocation());
+			}
+		}
 		if ((ObjectState == CarriedObjectState::Dropped) && GetWorldTimerManager().IsTimerActive(SendHomeWithNotifyHandle))
 		{
 			FlagReturnTime = FMath::Clamp(int32(GetWorldTimerManager().GetTimerRemaining(SendHomeWithNotifyHandle) + 0.5f), 0, 255);
