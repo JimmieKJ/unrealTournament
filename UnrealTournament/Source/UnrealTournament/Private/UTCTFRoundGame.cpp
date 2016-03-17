@@ -174,7 +174,7 @@ bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
 	CheckScore(Holder);
-	if (UTGameState->IsMatchInProgress())
+	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
 		SetMatchState(MatchState::MatchIntermission);
 	}
@@ -383,6 +383,35 @@ void AUTCTFRoundGame::InitRound()
 	{
 		CTFGameState->TeamRespawnWaitTime[bRedToCap ? 1 : 0] = UnlimitedRespawnWaitTime;
 	}
+}
+
+bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
+	AUTTeamInfo* OldTeam = PS->Team;
+	bool bResult = Super::ChangeTeam(Player, NewTeam, bBroadcast);
+	if (bResult && (GetMatchState() == MatchState::InProgress))
+	{
+		if (PS)
+		{
+			PS->RemainingLives = 0;
+			PS->SetOutOfLives(true);
+		}
+		if (OldTeam && UTGameState)
+		{
+			// verify that OldTeam still has players
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+			{
+				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				if (OtherPS && (OtherPS->Team == OldTeam) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+				{
+					return bResult;
+				}
+			}
+			ScoreOutOfLives((OldTeam->TeamIndex == 0) ? 1 : 0);
+		}
+	}
+	return bResult;
 }
 
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)

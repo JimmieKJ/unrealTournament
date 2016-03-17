@@ -75,6 +75,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
+	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
 
 	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 
