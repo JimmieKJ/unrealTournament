@@ -123,7 +123,18 @@ void AUTCTFFlag::SendHome()
 
 void AUTCTFFlag::SendHomeWithNotify()
 {
-	SendGameMessage(1, NULL, NULL);
+	if (bGradualAutoReturn)
+	{
+		AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(HomeBase);
+		if (FlagBase)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FlagBase->FlagReturnedSound, this);
+		}
+	}
+	else
+	{
+		SendGameMessage(1, NULL, NULL);
+	}
 	SendHome();
 }
 
