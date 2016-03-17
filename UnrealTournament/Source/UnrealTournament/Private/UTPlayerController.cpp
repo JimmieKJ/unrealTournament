@@ -1026,6 +1026,10 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 				// can't view opposing players if not spectator
 				return;
 			}
+			if (Cast<AUTPlayerState>(*PlayerToView) && Cast<AUTPlayerState>(*PlayerToView)->bOutOfLives)
+			{
+				return;
+			}
 			bAutoCam = false;
 			BehindView(bSpectateBehindView);
 			ViewPlayerState(*PlayerToView);
