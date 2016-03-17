@@ -74,6 +74,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleMatchHasStarted() override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
+	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
+
+	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 
 	/** Score round ending due to team out of lives. */
 	virtual void ScoreOutOfLives(int32 WinningTeamIndex);

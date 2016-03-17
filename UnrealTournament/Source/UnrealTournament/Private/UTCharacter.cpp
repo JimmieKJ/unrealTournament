@@ -2913,6 +2913,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponSkins, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, VisibilityMask, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, RedSkullCount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, BlueSkullCount, COND_None);
 
 	DOREPLIFETIME_CONDITION(AUTCharacter, MaxSpeedPctModifier, COND_None);
 }

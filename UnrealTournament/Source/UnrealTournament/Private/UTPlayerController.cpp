@@ -3620,21 +3620,6 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 	{
 		Keys.Add(BoundKeys[i].ToString());
 	}
-
-}
-
-void AUTPlayerController::SkullPickedUp()
-{
-	ClientSkullPickedUp();
-}
-
-void AUTPlayerController::ClientSkullPickedUp_Implementation()
-{
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP)
-	{
-		LP->SkullPickedUp();
-	}
 }
 
 void AUTPlayerController::PumpkinPickedUp(float GainedAmount, float GoalAmount)

@@ -849,12 +849,6 @@ public:
 	virtual void DebugTest(FString TestCommand) override;
 
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
-	virtual void SkullPickedUp();
-
-	UFUNCTION(client, reliable)
-	void ClientSkullPickedUp();
-
-	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual void PumpkinPickedUp(float GainedAmount, float GoalAmount);
 
 	UFUNCTION(client, reliable)

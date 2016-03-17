@@ -3984,26 +3984,6 @@ void UUTLocalPlayer::AwardAchievement(FName AchievementName)
 	}
 }
 
-void UUTLocalPlayer::SkullPickedUp()
-{
-	if (CurrentProgression)
-	{
-		CurrentProgression->SetSkullCount(CurrentProgression->SkullCount++);
-		if (CurrentProgression->SkullCount > 200)
-		{
-			AwardAchievement(AchievementIDs::PumpkinHead2015Level1);
-		}
-		if (CurrentProgression->SkullCount > 1000)
-		{
-			AwardAchievement(AchievementIDs::PumpkinHead2015Level2);
-		}
-		if (CurrentProgression->SkullCount > 5000)
-		{
-			AwardAchievement(AchievementIDs::PumpkinHead2015Level3);
-		}
-	}
-}
-
 void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 {
 	EarnedStars = 0;
