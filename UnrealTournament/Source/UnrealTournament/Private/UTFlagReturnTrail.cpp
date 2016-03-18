@@ -36,7 +36,7 @@ void AUTFlagReturnTrail::Tick(float DeltaTime)
 	float Dist = Dir.Size();
 	if (Dist > 1000.f *DeltaTime)
 	{
-		FVector NewLocation = GetActorLocation() + FMath::Min(Dist, 4000.f * DeltaTime * Dir) / Dist;
+		FVector NewLocation = GetActorLocation() + FMath::Min(Dist, 4000.f * DeltaTime) * Dir / Dist;
 		SetActorLocation(NewLocation);
 	}
 }
