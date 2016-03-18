@@ -115,20 +115,6 @@ void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeRotation(Holder3PRotation);
 		AttachRootComponentTo(AttachToMesh, Holder3PSocketName);
 		ClientUpdateAttachment(true);
-
-		if (bDisplayHolderTrail)
-		{
-			HolderTrail = NewObject<UParticleSystemComponent>(this);
-			HolderTrail->bAutoActivate = true;
-			HolderTrail->bAutoDestroy = false;
-			HolderTrail->SetTemplate(HolderTrailEffect);
-			HolderTrail->RegisterComponent();
-			HolderTrail->AttachTo(AttachToMesh, Holder3PSocketName, EAttachLocation::SnapToTarget);
-			if (Team)
-			{
-				HolderTrail->SetColorParameter(FName(TEXT("Color")), Team->TeamColor);
-			}
-		}
 	}
 }
 
@@ -141,7 +127,33 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
 		DetachRootComponentFromParent(true);
 		ClientUpdateAttachment(false);
+	}
+}
 
+void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
+{
+	if (bNowAttached)
+	{
+		if (bDisplayHolderTrail && (GetNetMode() != NM_DedicatedServer) && RootComponent && RootComponent->AttachParent)
+		{
+			HolderTrail = NewObject<UParticleSystemComponent>(this);
+			if (HolderTrail)
+			{
+				HolderTrail->bAutoActivate = true;
+				HolderTrail->bAutoDestroy = false;
+				HolderTrail->SecondsBeforeInactive = 0.0f;
+				HolderTrail->SetTemplate(HolderTrailEffect);
+				HolderTrail->RegisterComponent();
+				HolderTrail->AttachTo(RootComponent->AttachParent, Holder3PSocketName, EAttachLocation::SnapToTarget);
+				if (Team)
+				{
+					HolderTrail->SetColorParameter(FName(TEXT("Color")), Team->TeamColor);
+				}
+			}
+		}
+	}
+	else
+	{
 		if (HolderTrail)
 		{
 			HolderTrail->DeactivateSystem();
@@ -149,9 +161,6 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 		}
 	}
 }
-
-void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
-{}
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {

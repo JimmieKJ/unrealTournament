@@ -94,6 +94,7 @@ void AUTCTFFlag::ClientUpdateAttachment(bool bNowAttachedToPawn)
 			GetMesh()->SetRelativeLocation(MeshOffset);
 		}
 	}
+	Super::ClientUpdateAttachment(bNowAttachedToPawn);
 }
 
 void AUTCTFFlag::OnObjectStateChanged()
