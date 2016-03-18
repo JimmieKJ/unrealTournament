@@ -200,7 +200,7 @@ void SUTInGameMenu::WriteQuitMidGameAnalytics()
 	if (FUTAnalytics::IsAvailable() && PlayerOwner->GetWorld()->GetNetMode() != NM_Standalone)
 	{
 		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (GameState->HasMatchStarted() && !GameState->HasMatchEnded())
+		if (GameState && GameState->HasMatchStarted() && !GameState->HasMatchEnded())
 		{
 			AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 			if (PC)
