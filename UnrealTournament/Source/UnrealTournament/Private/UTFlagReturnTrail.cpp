@@ -7,7 +7,9 @@
 AUTFlagReturnTrail::AUTFlagReturnTrail(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	InitialLifeSpan = 2.0f;
+	PrimaryActorTick.bCanEverTick = true;
+
+	InitialLifeSpan = 1.5f;
 	DedicatedServerLifeSpan = 0.25f; 
 	TeamIndex = 255;
 
@@ -32,9 +34,9 @@ void AUTFlagReturnTrail::Tick(float DeltaTime)
 
 	FVector Dir = EndPoint - GetActorLocation();
 	float Dist = Dir.Size();
-	if (Dist > 2000.f *DeltaTime)
+	if (Dist > 1000.f *DeltaTime)
 	{
-		FVector NewLocation = GetActorLocation() + 2000.f * DeltaTime * Dir / Dist;
+		FVector NewLocation = GetActorLocation() + FMath::Min(Dist, 4000.f * DeltaTime * Dir) / Dist;
 		SetActorLocation(NewLocation);
 	}
 }
