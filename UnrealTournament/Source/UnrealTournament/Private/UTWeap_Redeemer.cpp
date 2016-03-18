@@ -28,6 +28,8 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 	ShotsStatsName = NAME_RedeemerShots;
 
 	WeightSpeedPctModifier = 0.5f;
+	AmmoWarningAmount = 0;
+	AmmoDangerAmount = 0;
 
 }
 

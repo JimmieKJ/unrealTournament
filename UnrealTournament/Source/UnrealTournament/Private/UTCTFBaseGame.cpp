@@ -221,10 +221,11 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		if (Reason == FName("FlagCapture"))
 		{
 			// Give the team a capture.
+			int32 OldScore = Holder->Team->Score;
 			Holder->Team->Score += FlagCapScore;
 			Holder->Team->ForceNetUpdate();
 			LastTeamToScore = Holder->Team;
-			BroadcastScoreUpdate(Holder, Holder->Team);
+			BroadcastScoreUpdate(Holder, Holder->Team, OldScore);
 			AddCaptureEventToReplay(Holder, Holder->Team);
 			if (Holder->FlagCaptures == 3)
 			{

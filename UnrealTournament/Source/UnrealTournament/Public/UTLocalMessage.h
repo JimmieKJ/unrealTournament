@@ -45,6 +45,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	uint32 bWantsBotReaction : 1;
 
+	/** Use special deathmessage handling (if rendered in DeathMessage area). */
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bDrawAsDeathMessage : 1;
+	
 	// # of seconds to stay in HUD message queue.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    

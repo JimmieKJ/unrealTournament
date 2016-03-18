@@ -674,6 +674,18 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)
 		int32 ArmorAmount;
 
+	UPROPERTY(BlueprintReadWrite, Category = Skulls, Replicated)
+		int32 RedSkullCount;
+
+	UPROPERTY(BlueprintReadWrite, Category = Skulls, Replicated)
+		int32 BlueSkullCount;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Skulls)
+	TSubclassOf<class AUTSkullPickup> RedSkullPickupClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Skulls)
+		TSubclassOf<class AUTSkullPickup> BlueSkullPickupClass;
+
 	/** head bone/socket for headshots */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	FName HeadBone;

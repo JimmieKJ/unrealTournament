@@ -41,6 +41,11 @@ bool UUTHUDWidgetMessage_DeathMessages::ShouldDraw_Implementation(bool bShowScor
 
 void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, float Y)
 {
+	if (MessageQueue[QueueIndex].MessageClass && !MessageQueue[QueueIndex].MessageClass->GetDefaultObject<UUTLocalMessage>()->bDrawAsDeathMessage)
+	{
+		Super::DrawMessage(QueueIndex, X, Y);
+		return;
+	}
 	//Figure out the DamageType that we killed with
 	UClass* DamageTypeClass = Cast<UClass>(MessageQueue[QueueIndex].OptionalObject);
 	const UUTDamageType* DmgType = DamageTypeClass ? Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject()) : nullptr;

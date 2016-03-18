@@ -14,6 +14,7 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	StyleTag = FName(TEXT("Victim"));
 	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","Killed by {Player1Name}"); 
 	RespawnedVictimText = NSLOCTEXT("UTVictimMessage", "RespawnedVictimText", "   ");
+	bDrawAsDeathMessage = true;
 }
 
 bool UUTVictimMessage::UseLargeFont(int32 MessageIndex) const

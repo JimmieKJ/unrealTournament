@@ -75,6 +75,17 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject, replicatedUsing = OnRep_Team)
 	AUTTeamInfo* Team;
 
+	// Last time this object was pinged (for enemy status icon relevance).
+	UPROPERTY(BlueprintReadWrite, Category = GameObject)
+	float LastPingedTime;
+
+	// How long a ping is valid
+	UPROPERTY(EditDefaultsOnly, Category = GameObject)
+		float PingedDuration;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
+	bool bCurrentlyPinged;
+
 	// Allow children to know when the team changes
 	UFUNCTION()
 	virtual void OnRep_Team()
@@ -258,6 +269,15 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 
 	UFUNCTION()
 	virtual void CheckTouching();
+
+	UPROPERTY()
+		TArray<FVector> PastPositions;
+
+	UPROPERTY()
+		float LastPositionUpdateTime;
+
+	UPROPERTY()
+		bool bGradualAutoReturn;
 
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object

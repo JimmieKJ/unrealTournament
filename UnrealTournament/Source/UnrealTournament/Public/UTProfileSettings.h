@@ -170,6 +170,21 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	FString MatchmakingRegion;
 
+	UPROPERTY()
+	float QuickStatsAngle;
+
+	UPROPERTY()
+	float QuickStatsDistance;
+
+	UPROPERTY()
+	FName QuickStatsType;
+
+	UPROPERTY()
+	float QuickStatBackgroundAlpha;	
+
+	UPROPERTY()
+	float QuickStatForegroundAlpha;	
+
 	// the below have been moved to UTProgressionStorage and are only here for backwards compatibility
 private:
 	UPROPERTY()

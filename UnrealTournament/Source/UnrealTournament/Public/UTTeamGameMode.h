@@ -114,7 +114,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 		bool bHasBroadcastDominating;
 
 	/** Broadcast a message when team scores */
-	virtual void BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam);
+	virtual void BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0);
 
 	virtual void GetGood() override;
 

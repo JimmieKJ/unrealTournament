@@ -720,12 +720,13 @@ public:
 	TSharedPtr<class SUTYoutubeConsentDialog> YoutubeConsentDialog;
 
 	TSharedPtr<class SUTMatchmakingRegionDialog> MatchmakingRegionDialog;
+	void RegionSelectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID, int32 InPlaylistId);
 
 	TSharedPtr<class SUTMatchmakingDialog> MatchmakingDialog;
 	void MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
-	void ShowRegionSelectDialog();
+	void ShowRegionSelectDialog(int32 InPlaylistId);
 	void ShowMatchmakingDialog();
 	void HideMatchmakingDialog();
 	bool IsPartyLeader();
@@ -819,11 +820,7 @@ public:
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
 
-	void SkullPickedUp();
-
 	void AwardAchievement(FName AchievementName);
-
-
 	bool QuickMatchCheckFull();
 	void RestartQuickMatch();
 

@@ -84,7 +84,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	ForceRespawnTime = 2.f;
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
-	MinPlayersToStart = 1;
+	MinPlayersToStart = 2;
 	QuickPlayersToStart = 4;
 	MaxWaitForPlayers = 240;
 	MaxWaitForQuickMatch = 180;
@@ -2086,8 +2086,12 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	if (bRankedSession)
 	{
 		SendEveryoneBackToLobby();
-		// Travel back to ut-entry?game=empty
-		GetWorld()->ServerTravel("/Game/RestrictedAssets/Maps/ut-entry?game=empty", false);
+
+		AUTGameSessionRanked* RankedGameSession = Cast<AUTGameSessionRanked>(GameSession);
+		if (RankedGameSession)
+		{
+			RankedGameSession->Restart();
+		}
 	}
 	else if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
@@ -2679,19 +2683,12 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		}
 	}
 
-	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
 	{
 		StartPlayTime = (NumPlayers > 0) ? FMath::Min(StartPlayTime, GetWorld()->GetTimeSeconds()) : 10000000.f;
 		float  ElapsedWaitTime = FMath::Max(0.f, GetWorld()->GetTimeSeconds() - StartPlayTime);
-		if (bIsQuickMatch)
-		{
-			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
-		}
-		else
-		{
-			UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
-		}
+		float MaxWaitForDesiredPlayers = bIsQuickMatch ? MaxWaitForQuickMatch : 15;
+		UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForDesiredPlayers) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
 		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
 			// Count how many ready players we have
@@ -4433,19 +4430,19 @@ void AUTGameMode::ReportRankedMatchResults(const FString& MatchRatingType)
 	if (SessionInfo.IsValid())
 	{
 		MatchResult.MatchInfo.SessionId = SessionInfo->GetSessionId().ToString();
-		UE_LOG(UT, Log, TEXT("Reporting ranked results for session {0}"), *MatchResult.MatchInfo.SessionId);
+		UE_LOG(UT, Log, TEXT("Reporting ranked results for session %s"), *MatchResult.MatchInfo.SessionId);
 	}
 	else
 	{
 		// just make a new one so we can submit
 		MatchResult.MatchInfo.SessionId = FGuid::NewGuid().ToString();
-		UE_LOG(UT, Warning, TEXT("Unable to get match session ID. Will report the results of this ranked match with sessionID = {0}"), *MatchResult.MatchInfo.SessionId);
+		UE_LOG(UT, Warning, TEXT("Unable to get match session ID. Will report the results of this ranked match with sessionID = %s"), *MatchResult.MatchInfo.SessionId);
 	}
 
 	// get the length of the match (in seconds)
 	if (ensure(GameState))
 	{
-		MatchResult.MatchInfo.MatchLengthSeconds = GameState->ElapsedTime;
+		MatchResult.MatchInfo.MatchLengthSeconds = EndTime - StartPlayTime;
 	}
 
 	PrepareRankedMatchResultGameCustom(MatchResult);

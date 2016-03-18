@@ -4,6 +4,7 @@
 #include "UTHUD_CTF.h"
 #include "UTCTFRoundGame.h"
 #include "UTCTFGameMessage.h"
+#include "UTCTFRoleMessage.h"
 #include "UTCTFRewardMessage.h"
 #include "UTFirstBloodMessage.h"
 #include "UTCountDownMessage.h"
@@ -20,6 +21,7 @@
 #include "UTShowdownGameMessage.h"
 #include "UTShowdownRewardMessage.h"
 #include "UTPlayerStart.h"
+#include "UTSkullPickup.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -39,7 +41,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bNoFlagReturn = true;
 	bFirstRoundInitialized = false;
 	ExtraHealth = 0;
-	FlagPickupDelay = 12;
+	FlagPickupDelay = 10;
 	RemainingPickupDelay = 0;
 
 	// remove translocator - fixmesteve make this an option
@@ -102,6 +104,61 @@ void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
 	Super::SetPlayerDefaults(PlayerPawn);
 }
 
+void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
+	if (UTC != NULL)
+	{
+		FVector StartLocation = UTC->GetActorLocation() + UTC->GetActorRotation().Vector() * UTC->GetSimpleCollisionCylinderExtent().X;
+		if (UTC->RedSkullPickupClass)
+		{
+			for (int32 i = 0; i < UTC->RedSkullCount; i++)
+			{
+				FVector TossVelocity = UTC->GetVelocity() + UTC->GetActorRotation().RotateVector(FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)) + FVector(300.0f, 0.0f, 150.0f));
+				TossSkull(UTC->RedSkullPickupClass, StartLocation, TossVelocity, UTC);
+			}
+		}
+		if (UTC->BlueSkullPickupClass)
+		{
+			for (int32 i = 0; i < UTC->BlueSkullCount; i++)
+			{
+				FVector TossVelocity = UTC->GetVelocity() + UTC->GetActorRotation().RotateVector(FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)) + FVector(300.0f, 0.0f, 150.0f));
+				TossSkull(UTC->BlueSkullPickupClass, StartLocation, TossVelocity, UTC);
+			}
+		}
+
+		UTC->RedSkullCount = 0;
+		UTC->BlueSkullCount = 0;
+	}
+
+	Super::DiscardInventory(Other, Killer);
+}
+
+void AUTCTFRoundGame::TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator)
+{
+	// pull back spawn location if it is embedded in world geometry
+	FVector AdjustedStartLoc = StartLocation;
+	UCapsuleComponent* TestCapsule = SkullPickupClass.GetDefaultObject()->Collision;
+	if (TestCapsule != NULL)
+	{
+		FCollisionQueryParams QueryParams(FName(TEXT("DropPlacement")), false);
+		FHitResult Hit;
+		if (GetWorld()->SweepSingleByChannel(Hit, StartLocation - FVector(TossVelocity.X, TossVelocity.Y, 0.0f) * 0.25f, StartLocation, FQuat::Identity, TestCapsule->GetCollisionObjectType(), TestCapsule->GetCollisionShape(), QueryParams, TestCapsule->GetCollisionResponseToChannels()) &&
+			!Hit.bStartPenetrating)
+		{
+			AdjustedStartLoc = Hit.Location;
+		}
+	}
+
+	FActorSpawnParameters Params;
+	Params.Instigator = FormerInstigator;
+	AUTDroppedPickup* Pickup = GetWorld()->SpawnActor<AUTDroppedPickup>(SkullPickupClass, AdjustedStartLoc, TossVelocity.Rotation(), Params);
+	if (Pickup != NULL)
+	{
+		Pickup->Movement->Velocity = TossVelocity;
+	}
+}
+
 bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
 	if (Scorer->Team != NULL)
@@ -117,7 +174,7 @@ bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
 	CheckScore(Holder);
-	if (UTGameState->IsMatchInProgress())
+	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
 		SetMatchState(MatchState::MatchIntermission);
 	}
@@ -144,7 +201,7 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 	}
 }
 
-void AUTCTFRoundGame::StartMatch()
+void AUTCTFRoundGame::HandleMatchHasStarted()
 {
 	if (!bFirstRoundInitialized)
 	{
@@ -153,13 +210,19 @@ void AUTCTFRoundGame::StartMatch()
 		CTFGameState->bAsymmetricVictoryConditions = bAsymmetricVictoryConditions;
 		bFirstRoundInitialized = true;
 	}
-	Super::StartMatch();
+	Super::HandleMatchHasStarted();
 }
 
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	InitRound();
 	Super::HandleExitingIntermission();
+}
+
+void AUTCTFRoundGame::AnnounceMatchStart()
+{
+	BroadcastVictoryConditions();
+	Super::AnnounceMatchStart();
 }
 
 void AUTCTFRoundGame::InitFlags()
@@ -169,6 +232,8 @@ void AUTCTFRoundGame::InitFlags()
 		if (Base != NULL && Base->MyFlag)
 		{
 			AUTCarriedObject* Flag = Base->MyFlag;
+			Flag->AutoReturnTime = 10.f; // fixmesteve make config
+			Flag->bGradualAutoReturn = true;
 			if (bAsymmetricVictoryConditions)
 			{
 				if (bRedToCap == (Flag->GetTeamNum() == 0))
@@ -202,8 +267,6 @@ void AUTCTFRoundGame::InitFlags()
 			}
 		}
 	}
-
-	BroadcastVictoryConditions();
 }
 
 void AUTCTFRoundGame::BroadcastVictoryConditions()
@@ -217,30 +280,30 @@ void AUTCTFRoundGame::BroadcastVictoryConditions()
 			{
 				if (bRedToCap == (PC->GetTeamNum() == 0))
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 14);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bRedToCap ? 1 : 2);
 				}
 				else
 				{
-					PC->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 15);
+					PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bRedToCap ? 3 : 4);
 				}
 			}
 		}
 	}
 	else if (RoundLives > 0)
 	{
-		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 16, NULL, NULL, NULL);
+		BroadcastLocalized(this, UUTCTFRoleMessage::StaticClass(), 5, NULL, NULL, NULL);
 	}
 }
 
 void AUTCTFRoundGame::FlagCountDown()
 {
+	RemainingPickupDelay--;
 	if (RemainingPickupDelay > 0)
 	{
 		if (GetMatchState() == MatchState::InProgress)
 		{
 			int32 CountdownMessage = bAsymmetricVictoryConditions ? (bRedToCap ? 17 : 18) : 19;
 			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), CountdownMessage, NULL, NULL, NULL);
-			RemainingPickupDelay--;
 			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), RemainingPickupDelay, NULL, NULL, NULL);
 		}
 
@@ -300,14 +363,16 @@ void AUTCTFRoundGame::InitRound()
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PS && PS->bIsInactive)
+			PS->bHasLifeLimit = false;
+			if (PS && (PS->bIsInactive || !PS->Team))
 			{
 				PS->RemainingLives = 0;
 				PS->SetOutOfLives(true);
 			}
 			else if (PS)
 			{
-				PS->RemainingLives = RoundLives;
+				PS->RemainingLives = (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))) ? RoundLives : 0;
+				PS->bHasLifeLimit = (PS->RemainingLives > 0);
 				PS->SetOutOfLives(false);
 			}
 		}
@@ -320,6 +385,35 @@ void AUTCTFRoundGame::InitRound()
 	}
 }
 
+bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
+	AUTTeamInfo* OldTeam = PS->Team;
+	bool bResult = Super::ChangeTeam(Player, NewTeam, bBroadcast);
+	if (bResult && (GetMatchState() == MatchState::InProgress))
+	{
+		if (PS)
+		{
+			PS->RemainingLives = 0;
+			PS->SetOutOfLives(true);
+		}
+		if (OldTeam && UTGameState)
+		{
+			// verify that OldTeam still has players
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+			{
+				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				if (OtherPS && (OtherPS->Team == OldTeam) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+				{
+					return bResult;
+				}
+			}
+			ScoreOutOfLives((OldTeam->TeamIndex == 0) ? 1 : 0);
+		}
+	}
+	return bResult;
+}
+
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
@@ -327,26 +421,48 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	{
 		if (PS->bOutOfLives)
 		{
-			return;
-		}
-		PS->RemainingLives--;
-		if ((PS->RemainingLives < 0) && (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))))
-		{
-			// this player is out of lives
-			PS->SetOutOfLives(true);
-			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+			AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
+			if (PC != NULL)
 			{
-				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-				if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+				PC->ChangeState(NAME_Spectating);
+				PC->ClientGotoState(NAME_Spectating);
+
+				AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+				if (PS != NULL && PS->Team != NULL)
 				{
-					// found a live teammate, so round isn't over - notify about termination though
-					BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
-					return;
+					for (AController* Member : PS->Team->GetTeamMembers())
+					{
+						if (Member->GetPawn() != NULL)
+						{
+							PC->ServerViewPlayerState(Member->PlayerState);
+							break;
+						}
+					}
 				}
 			}
-			BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
-			ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
 			return;
+		}
+		if (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0)))
+		{
+			PS->RemainingLives--;
+			if (PS->RemainingLives < 0)
+			{
+				// this player is out of lives
+				PS->SetOutOfLives(true);
+				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+				{
+					AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+					if (OtherPS && (OtherPS->Team == PS->Team) && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+					{
+						// found a live teammate, so round isn't over - notify about termination though
+						BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 3, PS);
+						return;
+					}
+				}
+				BroadcastLocalized(NULL, UUTShowdownRewardMessage::StaticClass(), 4);
+				ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
+				return;
+			}
 		}
 	}
 	Super::RestartPlayer(aPlayer);
@@ -399,7 +515,7 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 			NewScoringPlay.Team = WinningTeam;
 			NewScoringPlay.bDefenseWon = true;
 			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
-			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 1;
+			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
 			CTFGameState->AddScoringPlay(NewScoringPlay);
 		}
 

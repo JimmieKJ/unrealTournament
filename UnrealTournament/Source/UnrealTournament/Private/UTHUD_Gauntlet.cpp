@@ -20,12 +20,14 @@ void AUTHUD_Gauntlet::DrawMinimapSpectatorIcons()
 
 	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 
-	if (GS && GS->Flag && GS->Flag->GetTeamNum() != 1 - PC->GetTeamNum())
+	Super::DrawMinimapSpectatorIcons();
+
+	if (GS && GS->Flag && (GS->Flag->GetTeamNum() != 1 - PC->GetTeamNum() || GS->Flag->ObjectState != CarriedObjectState::Held) )
 	{
 		FVector2D Pos = WorldToMapToScreen(GS->Flag->GetActorLocation());
-		Canvas->DrawColor = FColor(0, 200, 0, 255);
-		DrawMinimapIcon(HUDAtlas, Pos, FVector2D(30.f, 30.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), FColor(0,200,0,255), true);
+		uint8 FlagTeam = GS->Flag->GetTeamNum();
+		FColor FlagColor = FlagTeam == 255 ? FColor(0,255,0,255) : GS->Teams[FlagTeam]->TeamColor.ToFColor(true);
+		DrawMinimapIcon(HUDAtlas, Pos, FVector2D(30.f, 30.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), FlagColor, true);
 	}
 
-	Super::DrawMinimapSpectatorIcons();
 }

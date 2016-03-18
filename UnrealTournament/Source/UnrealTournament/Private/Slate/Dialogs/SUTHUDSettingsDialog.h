@@ -70,13 +70,15 @@ protected:
 	TSharedPtr<SSlider> WeaponBarEmptyOpacity;
 	TSharedPtr<STextBlock> WeaponBarEmptyOpacityLabel;
 
+	TSharedPtr<SCheckBox> HUDDisplayCTFMinimap;
+
 	TSharedPtr<SCheckBox> UseWeaponColor;
 
 	TSharedPtr<SCheckBox> DrawPopupKillMsg;
 	TSharedPtr<SCheckBox> DrawChatKillMsg;
 	TSharedPtr<SCheckBox> DrawHUDKillIconMsg;
 	TSharedPtr<SCheckBox> DrawPlayKillSoundMsg;
-	
+
 	// A reference to the target HUD..
 	TWeakObjectPtr<AUTHUD> TargetHUD;
 
@@ -97,6 +99,7 @@ protected:
 	void OnHUDBorderOpacityChanged(float NewValue);
 	void OnHUDSlateOpacityChanged(float NewValue);
 	void OnHUDScaleChanged(float NewValue);
+	void OnDisplayCTFMinimapChanged(ECheckBoxState NewState);
 
 	void OnWeaponBarOpacityChanged(float NewValue);
 	void OnWeaponBarIconOpacityChanged(float NewValue);
@@ -120,6 +123,7 @@ private:
 	float Old_HUDWidgetWeaponBarInactiveIconOpacity;
 	float Old_HUDWidgetWeaponBarEmptyOpacity;
 	float Old_HUDWidgetScaleOverride;
+	bool Old_bDrawCTFMinimap;
 	bool Old_bUseWeaponColors;
 	bool Old_bDrawChatKillMsg;
 	bool Old_bDrawCenteredKillMsg;

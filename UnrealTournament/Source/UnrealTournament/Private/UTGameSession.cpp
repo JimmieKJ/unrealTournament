@@ -7,6 +7,7 @@
 #include "UTBaseGameMode.h"
 #include "UTLobbyGameMode.h"
 #include "UTAnalytics.h"
+#include "UTGameInstance.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
@@ -184,4 +185,32 @@ void AUTGameSession::SessionFailure(const FUniqueNetId& PlayerId, ESessionFailur
 {
 	// Currently, SessionFailure never seems to be called.  Need to discuss it with Josh when he returns as it would
 	// be better to handle this hear then in ConnectionStatusChanged
+}
+
+void AUTGameSession::CleanupServerSession()
+{
+	if (IsRunningDedicatedServer() == false)
+	{
+		return;
+	}
+
+	UUTGameInstance* const GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
+	GameInstance->SafeSessionDelete(GameSessionName, FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete));
+}
+
+void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	if (SessionName == GameSessionName)
+	{
+		UE_LOG(LogOnlineGame, Log, TEXT("[AGameSessionCommon::OnDestroySessionComplete] Previous session destroyed. SessionName: %s, bWasSuccessful: %d"), *SessionName.ToString(), bWasSuccessful);
+
+		if (!bWasSuccessful)
+		{
+			// It is ok if this fails, we will just create another session anyways
+			UE_LOG(LogOnlineGame, Warning, TEXT("[AGameSessionCommon::OnDestroySessionComplete] Failed to destroy previous game session. SessionName: %s"), *SessionName.ToString());
+		}
+
+		// Wait for any other processes to finish/cleanup before we start advertising
+		GetWorldTimerManager().SetTimer(StartServerTimerHandle, this, &ThisClass::StartServer, 0.1f);
+	}
 }

@@ -10,6 +10,7 @@
 #include "UTGameViewportClient.h"
 #include "UTRconAdminInfo.h"
 #include "UTLocalPlayer.h"
+#include "UTProfileSettings.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -769,6 +770,41 @@ void AUTBasePlayerController::ServerSetAvatar_Implementation(FName NewAvatar)
 
 }
 
+void AUTBasePlayerController::SendStatsIDToServer()
+{
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (UTLocalPlayer)
+	{
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub != nullptr)
+		{
+			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
+			if (OnlineIdentityInterface.IsValid())
+			{
+				if (OnlineIdentityInterface->GetLoginStatus(UTLocalPlayer->GetControllerId()))
+				{
+					TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(UTLocalPlayer->GetControllerId());
+					if (UserId.IsValid())
+					{
+						ServerReceiveStatsID(UserId->ToString());
+					}
+					/*
+					#if WITH_PROFILE
+					if (GetNetMode() != NM_DedicatedServer)
+					{
+					InitializeMcpProfile();
+					}
+					#endif
+					*/
+				}
+				else
+				{
+					//OnLoginStatusChangedDelegate = OnlineIdentityInterface->AddOnLoginStatusChangedDelegate_Handle(LP->GetControllerId(), FOnLoginStatusChangedDelegate::CreateUObject(this, &AUTPlayerController::OnLoginStatusChanged));
+				}
+			}
+		}
+	}
+}
 void AUTBasePlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
@@ -777,6 +813,23 @@ void AUTBasePlayerController::ReceivedPlayer()
 	if (UTLocalPlayer)
 	{
 		ServerSetAvatar(UTLocalPlayer->GetAvatar());
+	}
+
+	SendStatsIDToServer();
+}
+
+bool AUTBasePlayerController::ServerReceiveStatsID_Validate(const FString& NewStatsID)
+{
+	return true;
+}
+/** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have have a proper ID available.  */
+void AUTBasePlayerController::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
+{
+	if (UTPlayerState != NULL && !GetWorld()->IsPlayInEditor()) // && GetWorld()->GetNetMode() != NM_Standalone)
+	{
+		UTPlayerState->StatsID = NewStatsID;
+		UTPlayerState->ReadStatsFromCloud();
+		UTPlayerState->ReadMMRFromBackend();
 	}
 }
 
@@ -877,3 +930,8 @@ void AUTBasePlayerController::ServerLobbySay_Implementation(const FString& Messa
 	}
 }
 
+UUTProfileSettings* AUTBasePlayerController::GetProfileSettings()
+{
+	if (Cast<UUTLocalPlayer>(Player) != nullptr) return Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+	return nullptr;
+}

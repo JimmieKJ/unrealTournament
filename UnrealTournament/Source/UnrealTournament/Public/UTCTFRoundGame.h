@@ -62,6 +62,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void FlagCountDown();
 
+	virtual void AnnounceMatchStart() override;
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
@@ -70,9 +71,13 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleExitingIntermission() override;
 	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
-	virtual void StartMatch() override;
+	virtual void HandleMatchHasStarted() override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
+	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
+	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
+
+	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 
 	/** Score round ending due to team out of lives. */
 	virtual void ScoreOutOfLives(int32 WinningTeamIndex);

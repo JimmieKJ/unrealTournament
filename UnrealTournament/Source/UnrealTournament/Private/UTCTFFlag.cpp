@@ -40,6 +40,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	ClothBlendHome = 0.f;
 	ClothBlendHeld = 0.5f;
 	bEnemyCanPickup = true;
+	PingedDuration = 2.5f;
 }
 
 void AUTCTFFlag::PostInitializeComponents()
@@ -122,7 +123,18 @@ void AUTCTFFlag::SendHome()
 
 void AUTCTFFlag::SendHomeWithNotify()
 {
-	SendGameMessage(1, NULL, NULL);
+	if (bGradualAutoReturn)
+	{
+		AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(HomeBase);
+		if (FlagBase)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FlagBase->FlagReturnedSound, this);
+		}
+	}
+	else
+	{
+		SendGameMessage(1, NULL, NULL);
+	}
 	SendHome();
 }
 
@@ -148,7 +160,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 			AUTCTFFlagBase* OtherBase = GameState->FlagBases[1-GetTeamNum()];
 			if (OtherBase && (OtherBase->GetFlagState() == CarriedObjectState::Home) && OtherBase->ActorIsNearMe(this))
 			{
-				AUTCTFGameMode* GM = GetWorld()->GetAuthGameMode<AUTCTFGameMode>();
+				AUTCTFBaseGame* GM = GetWorld()->GetAuthGameMode<AUTCTFBaseGame>();
 				if (GM)
 				{
 					bDelayDroppedMessage = true;
@@ -243,9 +255,22 @@ void AUTCTFFlag::Tick(float DeltaTime)
 			MeshMID->SetScalarParameterValue(NAME_Wipe, 1.0f - Value);
 		}
 	}
-	if ((Role == ROLE_Authority) && (ObjectState == CarriedObjectState::Dropped) && GetWorldTimerManager().IsTimerActive(SendHomeWithNotifyHandle))
+	if (Role == ROLE_Authority)
 	{
-		FlagReturnTime = FMath::Clamp(int32(GetWorldTimerManager().GetTimerRemaining(SendHomeWithNotifyHandle) + 0.5f), 0, 255);
+		bCurrentlyPinged = (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
+		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking())
+		{
+			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1] : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
+			if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > 800.f)
+			{
+				LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
+				PastPositions.Add(HoldingPawn->GetActorLocation());
+			}
+		}
+		if ((ObjectState == CarriedObjectState::Dropped) && GetWorldTimerManager().IsTimerActive(SendHomeWithNotifyHandle))
+		{
+			FlagReturnTime = FMath::Clamp(int32(GetWorldTimerManager().GetTimerRemaining(SendHomeWithNotifyHandle) + 0.5f), 0, 255);
+		}
 	}
 }
 

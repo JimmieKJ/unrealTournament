@@ -506,3 +506,18 @@ void UUTCheatManager::TestPaths(bool bHighJumps, bool bWallDodges, bool bLifts, 
 		}
 	}
 }
+
+void UUTCheatManager::McpGetVersion()
+{
+	UMcpProfileGroup* McpProfileGroup = GetOuterAUTPlayerController()->GetMcpProfileManager()->GetMcpProfileGroup();
+	if (McpProfileGroup)
+	{
+		FString VersionString = McpProfileGroup->GetMcpVersion();
+		UE_LOG(UT, Display, TEXT("MCP-Version = %s"), *VersionString);
+		FPlatformMisc::ClipboardCopy(*VersionString);
+	}
+	else
+	{
+		UE_LOG(UT, Display, TEXT("No MCP version available."));
+	}
+}

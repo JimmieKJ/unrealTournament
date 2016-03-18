@@ -83,6 +83,7 @@ public:
 
 	virtual void RegisterServer() override;
 	virtual void CleanUpOnlineSubsystem() override;
+	virtual void StartServer() override;
 
 	virtual void ShutdownDedicatedServer();
 	virtual void Restart();

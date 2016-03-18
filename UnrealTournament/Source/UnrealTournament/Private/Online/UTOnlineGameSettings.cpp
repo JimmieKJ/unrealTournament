@@ -18,8 +18,15 @@ FUTOnlineSessionSettings::FUTOnlineSessionSettings(bool bIsLAN, bool bIsPresence
 	bUsesPresence = bIsPresence;
 	bAllowJoinViaPresence = true;
 	bAllowJoinViaPresenceFriendsOnly = false;
+	
+	FString Region = UQosEvaluator::GetDefaultRegionString();
+	FString RegionOverride;
+	if (FParse::Value(FCommandLine::Get(), TEXT("REGION="), RegionOverride))
+	{
+		Region = RegionOverride;
+	}
 
-	Set(SETTING_REGION, UQosEvaluator::GetDefaultRegionString(), EOnlineDataAdvertisementType::ViaOnlineService);
+	Set(SETTING_REGION, Region, EOnlineDataAdvertisementType::ViaOnlineService);
 
 	Set(SETTING_RANKED, 1, EOnlineDataAdvertisementType::ViaOnlineService);
 }

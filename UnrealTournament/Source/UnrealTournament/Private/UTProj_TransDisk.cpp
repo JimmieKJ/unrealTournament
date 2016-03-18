@@ -56,6 +56,8 @@ void AUTProj_TransDisk::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 
 float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
 {
+	ModifyTakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
 	if (Role == ROLE_Authority && EventInstigator != NULL && TransState != TLS_Disrupted && (DamageAmount > 0))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -162,6 +164,10 @@ UParticleSystemComponent* AUTProj_TransDisk::SpawnOffsetEffect(UParticleSystem *
 	PSC->SetRelativeLocationAndRotation(Offset, FRotator(0.f));
 	PSC->ActivateSystem(true);
 	return PSC;
+}
+
+void AUTProj_TransDisk::ModifyTakeDamage_Implementation(float &DamageAmount, struct FDamageEvent const &DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
+{
 }
 
 void AUTProj_TransDisk::OnDisrupted_Implementation()

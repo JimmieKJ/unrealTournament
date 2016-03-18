@@ -304,7 +304,7 @@ public:
 
 	/** Set true to force weapon bar to immediately update. */
 	UPROPERTY()
-		bool bHUDWeaponBarSettingChanged;
+	bool bHUDWeaponBarSettingChanged;
 
 	// Allows the user to override the scaling factor for their hud.
 	UPROPERTY(globalconfig)
@@ -312,7 +312,10 @@ public:
 
 	// Allows the user to override the scaling factor for their hud.
 	UPROPERTY(globalconfig)
-		float HUDMessageScaleOverride;
+	float HUDMessageScaleOverride;
+
+	UPROPERTY(globalconfig)
+	bool bDrawCTFMinimapHUDSetting;
 
 	UPROPERTY(globalconfig)
 	bool bUseWeaponColors;
@@ -354,6 +357,8 @@ protected:
 	// The current Scoreboard
 	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
+
+	virtual bool ShouldDrawMinimap() const;
 
 public:
 	// Takes a raw widget string and tries to build a widget from it.  It supports embedded JSON objects that define the widget as follows:

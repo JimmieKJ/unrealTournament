@@ -18,4 +18,5 @@ public:
 
 	TSubclassOf<AGameSession> GetGameSessionClass() const override;
 	void InitGameState() override;
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 };

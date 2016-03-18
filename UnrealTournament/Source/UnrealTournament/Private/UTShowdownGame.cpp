@@ -39,6 +39,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	SuperweaponReplacementItemClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Invis.BP_Invis_C"));
 
 	bPowerupBreaker = true;
+	QuickPlayersToStart = 2;
 }
 
 void AUTShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

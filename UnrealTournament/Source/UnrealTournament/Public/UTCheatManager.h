@@ -72,6 +72,9 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 
 	UFUNCTION(exec)
 	void McpCheat();
+	
+	UFUNCTION(exec)
+	void McpGetVersion();
 
 	UFUNCTION(exec)
 	void McpRefreshProfile();

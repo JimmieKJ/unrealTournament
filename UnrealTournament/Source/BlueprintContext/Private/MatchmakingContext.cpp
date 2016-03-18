@@ -143,7 +143,7 @@ void UMatchmakingContext::StartMatchmaking(int32 InPlaylistId)
 			if (ProfileSettings->MatchmakingRegion.IsEmpty())
 			{
 				// Show selection dialog
-				LocalPlayer->ShowRegionSelectDialog();
+				LocalPlayer->ShowRegionSelectDialog(InPlaylistId);
 				return;
 			}
 		}

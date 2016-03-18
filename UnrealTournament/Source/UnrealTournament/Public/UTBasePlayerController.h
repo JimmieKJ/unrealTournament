@@ -20,6 +20,7 @@ namespace EInputMode
 }
 
 class AUTRconAdminInfo;
+class UUTProfileSettings;
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , public IUTTeamInterface
@@ -138,6 +139,11 @@ public:
 
 	virtual void ReceivedPlayer();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveStatsID(const FString& NewStatsID);
+
+	void SendStatsIDToServer();
+
 protected:
 	FOnFindSessionsCompleteDelegate OnFindGUIDSessionCompleteDelegate;
 	FDelegateHandle OnFindGUIDSessionCompleteDelegateHandle;
@@ -239,6 +245,8 @@ public:
 
 	// Will actually query the UParty once persistent parties are enabled
 	bool IsPartyLeader() { return true; }
+
+	UUTProfileSettings* GetProfileSettings();
 
 protected:
 	// Sends a message directly to a user.  

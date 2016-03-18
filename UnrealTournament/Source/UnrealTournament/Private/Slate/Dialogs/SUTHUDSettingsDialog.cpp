@@ -57,6 +57,7 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 	Old_HUDWidgetWeaponBarInactiveIconOpacity = TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity;
 	Old_HUDWidgetWeaponBarEmptyOpacity = TargetHUD->HUDWidgetWeaponBarEmptyOpacity;
 	Old_HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
+	Old_bDrawCTFMinimap = TargetHUD->bDrawCTFMinimapHUDSetting;
 	Old_bUseWeaponColors = TargetHUD->bUseWeaponColors;
 	Old_bDrawChatKillMsg = TargetHUD->bDrawChatKillMsg;
 	Old_bDrawCenteredKillMsg = TargetHUD->bDrawCenteredKillMsg;
@@ -322,6 +323,26 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
 					.Value(TargetHUD->HUDWidgetScaleOverride / 2.0f)
 					.OnValueChanged(this, &SUTHUDSettingsDialog::OnHUDScaleChanged)
 				]
+			]
+		]
+		
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Right)
+		[
+			 SAssignNew(UseWeaponColor, SCheckBox)
+			.ForegroundColor(FLinearColor::White)
+			.IsChecked(TargetHUD->bDrawCTFMinimapHUDSetting ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+			.OnCheckStateChanged(this, &SUTHUDSettingsDialog::OnDisplayCTFMinimapChanged)
+			.Style(SUTStyle::Get(), "UT.CheckBox")
+			.Content()
+			[
+				SNew(STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.Text(NSLOCTEXT("SUTHUDSettingsDialog", "DisplayCTFMinimapChanged", "Display Minimap in CTF"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHUDSettingsDialog", "DisplayCTFMinimapChangedTT", "Whether to display a minimap in capture the flag game modes.")))
 			]
 		];
 }
@@ -763,6 +784,14 @@ void SUTHUDSettingsDialog::OnWeaponBarScaleChanged(float NewValue)
 	}
 }
 
+void SUTHUDSettingsDialog::OnDisplayCTFMinimapChanged(ECheckBoxState NewState)
+{
+	if (TargetHUD.IsValid())
+	{
+		TargetHUD->bDrawCTFMinimapHUDSetting = NewState == ECheckBoxState::Checked;
+	}
+}
+
 void SUTHUDSettingsDialog::OnUseWeaponColorChanged(ECheckBoxState NewState)
 {
 	if (TargetHUD.IsValid())
@@ -821,6 +850,7 @@ FReply SUTHUDSettingsDialog::OKClick()
 				HudCDO->HUDWidgetWeaponBarInactiveIconOpacity = TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity;
 				HudCDO->HUDWidgetWeaponBarEmptyOpacity = TargetHUD->HUDWidgetWeaponBarEmptyOpacity;
 				HudCDO->HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
+				HudCDO->bDrawCTFMinimapHUDSetting = TargetHUD->bDrawCTFMinimapHUDSetting;
 				HudCDO->bUseWeaponColors = TargetHUD->bUseWeaponColors;
 				HudCDO->bDrawChatKillMsg = TargetHUD->bDrawChatKillMsg;
 				HudCDO->bDrawCenteredKillMsg = TargetHUD->bDrawCenteredKillMsg;
@@ -852,6 +882,7 @@ FReply SUTHUDSettingsDialog::CancelClick()
 		TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity = Old_HUDWidgetWeaponBarInactiveIconOpacity;
 		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = Old_HUDWidgetWeaponBarEmptyOpacity;
 		TargetHUD->HUDWidgetScaleOverride = Old_HUDWidgetScaleOverride;
+		TargetHUD->bDrawCTFMinimapHUDSetting = Old_bDrawCTFMinimap;
 		TargetHUD->bUseWeaponColors = Old_bUseWeaponColors;
 		TargetHUD->bDrawChatKillMsg = Old_bDrawChatKillMsg;
 		TargetHUD->bDrawCenteredKillMsg = Old_bDrawCenteredKillMsg;

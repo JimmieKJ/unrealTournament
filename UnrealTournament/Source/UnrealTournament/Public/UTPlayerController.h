@@ -825,8 +825,6 @@ protected:
 	 */
 	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
 public:
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveStatsID(const FString& NewStatsID);
 
 	void ApplyDeferredFireInputs();
 
@@ -849,12 +847,6 @@ public:
 	virtual void ServerReceiveCountryFlag(FName NewCountryFlag);
 
 	virtual void DebugTest(FString TestCommand) override;
-
-	UFUNCTION(BlueprintCallable, Category = PlayerController)
-	virtual void SkullPickedUp();
-
-	UFUNCTION(client, reliable)
-	void ClientSkullPickedUp();
 
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual void PumpkinPickedUp(float GainedAmount, float GoalAmount);
@@ -1019,6 +1011,20 @@ public:
 public:
 	void SetSpectatorMouseChangesView(bool bNewValue);
 	void UpdateCrosshairs(AUTHUD* HUD);
+
+	UFUNCTION(exec)
+	void QSSetType(const FName& Tag);
+
+	UFUNCTION(exec)
+	void QSSetDist(float Distance);
+
+	UFUNCTION(exec)
+	void QSSetAngle(float Angle);
+
+	UFUNCTION(exec)
+	void QSSave();
+
+
 };
 
 

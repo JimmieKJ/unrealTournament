@@ -32,6 +32,12 @@ void AUTGameSessionRanked::RegisterServer()
 {
 	UE_LOG(UT, Verbose, TEXT("--------------[REGISTER SERVER]----------------"));
 
+	// Wait for any other processes to finish/cleanup before we start advertising
+	GetWorldTimerManager().SetTimer(StartServerTimerHandle, this, &ThisClass::StartServer, 0.1f);
+}
+
+void AUTGameSessionRanked::StartServer()
+{
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
@@ -534,7 +540,6 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 
 	// All the parameters needed for configuring the beacon host
 	int32 PlaylistId = INDEX_NONE;
-	FString WUID, ZoneInstanceId;
 
 	// Always create a new beacon host, state will be determined in a moment
 	BeaconHostListener = World->SpawnActor<AOnlineBeaconHost>(AOnlineBeaconHost::StaticClass());

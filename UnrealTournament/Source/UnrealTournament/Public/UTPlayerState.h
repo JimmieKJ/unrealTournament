@@ -263,6 +263,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	bool bIsDemoRecording;
 
+	/** Whether this player currently has a limited number of lives. */
+	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
+		bool bHasLifeLimit;
+
 	UPROPERTY()
 	bool bAllowedEarlyLeave;
 

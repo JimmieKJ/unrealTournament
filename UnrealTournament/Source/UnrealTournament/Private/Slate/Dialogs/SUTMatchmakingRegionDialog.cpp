@@ -66,7 +66,7 @@ void SUTMatchmakingRegionDialog::Construct(const FArguments& InArgs)
 					.Content()
 					[
 						SAssignNew(SelectedMatchmakingRegion, STextBlock)
-						.Text(NSLOCTEXT("SUTMatchmakingRegionDialog", "MatchmakingRegionSelect", "Select a Region"))
+						.Text(FText::FromString(*MatchmakingRegionList[0]))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 					]
 				]
@@ -86,9 +86,10 @@ FReply SUTMatchmakingRegionDialog::OnButtonClick(uint16 ButtonID)
 	if (ProfileSettings)
 	{
 		ProfileSettings->MatchmakingRegion = *MatchmakingRegion->GetSelectedItem();
+		GetPlayerOwner()->SaveProfileSettings();
 	}
 
-	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
+	OnDialogResult.ExecuteIfBound(SharedThis(this), ButtonID);
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 
 	return FReply::Handled();

@@ -1026,6 +1026,10 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 				// can't view opposing players if not spectator
 				return;
 			}
+			if (Cast<AUTPlayerState>(*PlayerToView) && Cast<AUTPlayerState>(*PlayerToView)->bOutOfLives)
+			{
+				return;
+			}
 			bAutoCam = false;
 			BehindView(bSpectateBehindView);
 			ViewPlayerState(*PlayerToView);
@@ -1176,7 +1180,7 @@ void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 	if (IsInState(NAME_Spectating))
 	{
 		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag )
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag && UTPlayerState && (UTPlayerState->bOnlySpectator || CTFGameState->OnSameTeam(this, CTFGameState->FlagBases[Index]->MyFlag)))
 		{
 			SetViewTarget(CTFGameState->FlagBases[Index]->MyFlag);
 		}
@@ -3053,36 +3057,7 @@ void AUTPlayerController::ReceivedPlayer()
 				FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
 			}
 		}
-
-		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
-		if (OnlineSub != nullptr)
-		{
-			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
-			if (OnlineIdentityInterface.IsValid())
-			{
-				if (OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
-				{
-					TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-					if (UserId.IsValid())
-					{
-						ServerReceiveStatsID(UserId->ToString());
-					}
-					/*
-#if WITH_PROFILE
-					if (GetNetMode() != NM_DedicatedServer)
-					{
-						InitializeMcpProfile();
-					}
-#endif
-					*/
-				}
-				else
-				{
-					//OnLoginStatusChangedDelegate = OnlineIdentityInterface->AddOnLoginStatusChangedDelegate_Handle(LP->GetControllerId(), FOnLoginStatusChangedDelegate::CreateUObject(this, &AUTPlayerController::OnLoginStatusChanged));
-				}
-			}
-		}
-
+		
 		// Send over the country flag....
 		UUTProfileSettings* Settings = LP->GetProfileSettings();
 		if (Settings != NULL)
@@ -3125,21 +3100,6 @@ void AUTPlayerController::ServerReceiveCountryFlag_Implementation(FName NewCount
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("UserId"), UTPlayerState->UniqueId.ToString()));
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("FlagChange"), ParamArray);
 		}
-	}
-}
-
-bool AUTPlayerController::ServerReceiveStatsID_Validate(const FString& NewStatsID)
-{
-	return true;
-}
-/** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have have a proper ID available.  */
-void AUTPlayerController::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
-{
-	if ( UTPlayerState != NULL && !GetWorld()->IsPlayInEditor() ) // && GetWorld()->GetNetMode() != NM_Standalone)
-	{
-		UTPlayerState->StatsID = NewStatsID;
-		UTPlayerState->ReadStatsFromCloud();
-		UTPlayerState->ReadMMRFromBackend();
 	}
 }
 
@@ -3664,21 +3624,6 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 	{
 		Keys.Add(BoundKeys[i].ToString());
 	}
-
-}
-
-void AUTPlayerController::SkullPickedUp()
-{
-	ClientSkullPickedUp();
-}
-
-void AUTPlayerController::ClientSkullPickedUp_Implementation()
-{
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP)
-	{
-		LP->SkullPickedUp();
-	}
 }
 
 void AUTPlayerController::PumpkinPickedUp(float GainedAmount, float GoalAmount)
@@ -4194,6 +4139,52 @@ void AUTPlayerController::UpdateCrosshairs(AUTHUD* HUD)
 		{
 			Settings->UpdateCrosshairs(HUD);
 		}
+	}
+}
+
+void AUTPlayerController::QSSetType(const FName& Tag)
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings)
+		{
+			Settings->QuickStatsType = Tag;
+		}
+	}
+}
+void AUTPlayerController::QSSetDist(float Distance)
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings)
+		{
+			Settings->QuickStatsDistance = Distance;
+		}
+	}
+}
+void AUTPlayerController::QSSetAngle(float Angle)
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings)
+		{
+			Settings->QuickStatsAngle = Angle;
+		}
+	}
+}
+
+void AUTPlayerController::QSSave()
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->SaveProfileSettings();
 	}
 }
 

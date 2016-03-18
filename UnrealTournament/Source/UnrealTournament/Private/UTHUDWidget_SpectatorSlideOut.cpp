@@ -203,21 +203,21 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		DrawOffset += 0.2f*CellHeight;
 
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
+		bool bOnlySpectator = UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator;
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 		{
 			// show flag binds
-			if (CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
+			if (CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, CTFGameState->FlagBases[0]->MyFlag)))
 			{
 				DrawFlag("ViewFlag 0", "Red", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X, DrawOffset);
 			}
-			if (CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
+			if (CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, CTFGameState->FlagBases[1]->MyFlag)))
 			{
 				DrawFlag("ViewFlag 1", "Blue", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X, DrawOffset);
 			}
 			DrawOffset += 1.2f*CellHeight;
 		}
-
-		if (!UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator)
+		if (!bOnlySpectator)
 		{
 			// limit what non-spectators can view
 			return;

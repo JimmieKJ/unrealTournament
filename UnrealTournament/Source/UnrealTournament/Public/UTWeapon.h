@@ -430,6 +430,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual void UpdateViewBob(float DeltaTime);
 
 	virtual void PostInitProperties() override;
+
+#if WITH_EDITOR
+	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
 	virtual void BeginPlay() override;
 	virtual void RegisterAllComponents() override
 	{
@@ -989,5 +995,14 @@ public:
 	// The Speed modifier for this weapon if we are using weighted weapons
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float WeightSpeedPctModifier;
+
+	// At what ammo tick do we start warning the user we are getting low.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	int32 AmmoWarningAmount;
+
+	// At what ammo tick do we start warning the user we are in danger of running out
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	int32 AmmoDangerAmount;
+
 
 };

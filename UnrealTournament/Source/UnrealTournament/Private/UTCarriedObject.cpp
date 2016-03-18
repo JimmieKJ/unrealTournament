@@ -28,6 +28,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	NetPriority = 3.0;
 	LastGameMessageTime = 0.f;
 	AutoReturnTime = 30.0f;
+	bGradualAutoReturn = false;
 	bMovementEnabled = true;
 	LastTeleportedTime = -1000.f;
 	bEnemyCanPickup = true;
@@ -99,6 +100,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, FlagReturnTime);
 	DOREPLIFETIME(AUTCarriedObject, bEnemyCanPickup);
 	DOREPLIFETIME(AUTCarriedObject, bFriendlyCanPickup);
+	DOREPLIFETIME(AUTCarriedObject, bCurrentlyPinged);
 }
 
 void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
@@ -330,6 +332,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 		if (Holder && bWasHome)
 		{
+			LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
 			Holder->ModifyStatsValue(NAME_FlagGrabs, 1);
 			if (Holder->Team)
 			{
@@ -563,6 +566,17 @@ void AUTCarriedObject::SendHome()
 	if (ObjectState == CarriedObjectState::Home) return;	// Don't both if we are already home
 
 	NoLongerHeld();
+	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	{
+		DetachRootComponentFromParent(true);
+		MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
+		Collision->SetRelativeRotation(FRotator(0, 0, 0));
+		SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1], GetActorRotation());
+		PastPositions.RemoveAt(PastPositions.Num() - 1);
+		OnObjectStateChanged();
+		ForceNetUpdate();
+		return;
+	}
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
 	MoveToHome();
@@ -598,6 +612,7 @@ void AUTCarriedObject::MoveToHome()
 	DetachRootComponentFromParent(true);
 	AssistTracking.Empty();
 	HolderRescuers.Empty();
+	PastPositions.Empty();
 	if (HomeBase != NULL)
 	{
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);

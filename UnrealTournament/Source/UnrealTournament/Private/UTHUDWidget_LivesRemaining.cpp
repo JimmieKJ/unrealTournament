@@ -31,7 +31,7 @@ void UUTHUDWidget_LivesRemaining::Draw_Implementation(float DeltaTime)
 	}
 
 	AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();
-	if (!bTeamLifePool && PS != NULL && !PS->bOnlySpectator && (PS->RemainingLives > 0))
+	if (!bTeamLifePool && PS != NULL && !PS->bOnlySpectator && PS->bHasLifeLimit && (PS->RemainingLives >= 0))
 	{
 		DrawTexture(UTHUDOwner->HUDAtlas, 0.f, 0.f, 40.f, 40.f, 725.f, 0.f, 28.f, 36.f, 1.f, FLinearColor::White);
 		DrawText(FText::AsNumber(FMath::Max(0,PS->RemainingLives)), 60.f, 18.f, UTHUDOwner->MediumFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);

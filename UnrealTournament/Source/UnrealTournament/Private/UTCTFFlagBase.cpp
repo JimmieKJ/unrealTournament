@@ -79,7 +79,10 @@ void AUTCTFFlagBase::RecallFlag()
 {
 	if (MyFlag != NULL && MyFlag->ObjectState != CarriedObjectState::Home)
 	{
+		bool bGradualAutoReturn = MyFlag->bGradualAutoReturn;
+		MyFlag->bGradualAutoReturn = false;
 		MyFlag->SendHome();
+		MyFlag->bGradualAutoReturn = bGradualAutoReturn;
 	}
 }
 
