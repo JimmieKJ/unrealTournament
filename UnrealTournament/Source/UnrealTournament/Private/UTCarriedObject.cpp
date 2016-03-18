@@ -131,13 +131,6 @@ void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
 		}
 	}
 }
-bool bDisplayHolderTrail;
-
-UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = GameObject)
-UParticleSystem* HolderTrailEffect;
-
-UPROPERTY()
-UParticleSystemComponent* HolderTrail;
 
 void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 {
