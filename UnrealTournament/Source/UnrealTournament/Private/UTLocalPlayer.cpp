@@ -1924,6 +1924,71 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division, Response.Points);
 				}
 
+				if (ShowdownLeaguePlacementMatches < 10 && Response.PlacementMatchesAttempted == 10)
+				{ 
+					// Report your placement!
+#if !UE_SERVER
+					FString TierString;
+					switch (Response.Tier)
+					{
+					default:
+					case 0:
+						TierString = TEXT("Bronze");
+						break;
+					case 1:
+						TierString = TEXT("Silver");
+						break;
+					case 2:
+						TierString = TEXT("Gold");
+						break;
+					case 3:
+						TierString = TEXT("Platinum");
+						break;
+					case 4:
+						TierString = TEXT("Master");
+						break;
+					}
+
+					if (Response.Tier < 4)
+					{
+						FText PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacement", "You've been placed in {0} {1}."), FText::FromString(TierString), FText::AsNumber(Response.Division));
+						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
+							PlacementText,
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+					}
+					else
+					{
+						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementMasterTier", "You've been placed in Master Tier!"),
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+					}
+#endif
+				}
+				else if (Response.PlacementMatchesAttempted < 10)
+				{
+					// Finished a placement match, encourage the player to keep playing ranked
+				}
+				else if (!bShowdownLeaguePromotionSeries && Response.IsInPromotionSeries)
+				{
+					// Report that we're in a promo series
+				}
+				else if (bShowdownLeaguePromotionSeries && !Response.IsInPromotionSeries)
+				{
+					// Report if we got promoted or failed the series
+				}
+				else if (Response.Tier < ShowdownLeagueTier || (ShowdownLeagueTier == Response.Tier && Response.Division < ShowdownLeagueDivision))
+				{
+					// Report a demotion
+				}
+				else if (Response.Points > ShowdownLeaguePoints)
+				{
+					// Report a regular win
+				}
+				else
+				{
+					// Report a regular loss
+				}
+
 				ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
 				ShowdownLeaguePoints = Response.Points;
 				ShowdownLeagueTier = Response.Tier;
