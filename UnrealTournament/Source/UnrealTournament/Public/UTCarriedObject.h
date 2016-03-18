@@ -276,7 +276,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY()
 		float LastPositionUpdateTime;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
 		bool bGradualAutoReturn;
 
 	/** If true, attach holder trail to character carrying this object. */

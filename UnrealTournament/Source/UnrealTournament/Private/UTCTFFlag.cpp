@@ -223,7 +223,7 @@ void AUTCTFFlag::PlayReturnedEffects()
 			ReturningMesh->RegisterComponent();
 		}
 		UGameplayStatics::SpawnEmitterAtLocation(this, ReturnSrcEffect, GetActorLocation() + GetRootComponent()->ComponentToWorld.TransformVectorNoScale(GetMesh()->RelativeLocation), GetActorRotation());
-		if (!bGradualAutoReturn && (HomeBase != NULL))
+		if (HomeBase != NULL)
 		{
 			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation() + FRotationMatrix(GetHomeRotation()).TransformVector(GetMesh()->RelativeLocation), GetHomeRotation());
 		}

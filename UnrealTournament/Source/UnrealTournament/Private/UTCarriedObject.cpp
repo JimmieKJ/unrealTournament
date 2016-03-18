@@ -6,6 +6,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UTPainVolume.h"
 #include "UTLift.h"
+#include "UTFlagReturnTrail.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -103,6 +104,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, bFriendlyCanPickup);
 	DOREPLIFETIME(AUTCarriedObject, bCurrentlyPinged);
 	DOREPLIFETIME(AUTCarriedObject, bDisplayHolderTrail);
+	DOREPLIFETIME(AUTCarriedObject, bGradualAutoReturn);
 }
 
 void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
@@ -597,6 +599,14 @@ void AUTCarriedObject::SendHome()
 	NoLongerHeld();
 	if (bGradualAutoReturn && (PastPositions.Num() > 0))
 	{
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		AUTFlagReturnTrail* Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), GetActorLocation(), GetActorRotation(), Params);
+		if (Trail)
+		{
+			Trail->EndPoint = PastPositions[PastPositions.Num() - 1];
+			Trail->SetTeamIndex(Team ? Team->TeamIndex : 0);
+		}
 		DetachRootComponentFromParent(true);
 		MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
 		Collision->SetRelativeRotation(FRotator(0, 0, 0));
