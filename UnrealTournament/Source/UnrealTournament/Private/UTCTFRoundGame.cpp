@@ -27,7 +27,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	GoalScore = 3;
-	TimeLimit = 0;
+	TimeLimit = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Round based CTF");
 	RoundLives = 5;
 	bPerPlayerLives = true;
@@ -64,7 +64,6 @@ bool AUTCTFRoundGame::AvoidPlayerStart(AUTPlayerStart* P)
 void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
-	TimeLimit = 0;
 	if (GoalScore == 0)
 	{
 		GoalScore = 3;
@@ -384,6 +383,7 @@ void AUTCTFRoundGame::InitRound()
 	{
 		CTFGameState->TeamRespawnWaitTime[bRedToCap ? 1 : 0] = UnlimitedRespawnWaitTime;
 	}
+	CTFGameState->SetTimeLimit(TimeLimit);
 }
 
 bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
@@ -549,6 +549,14 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 	}
 }
 
+void AUTCTFRoundGame::CheckGameTime()
+{
+	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
+	{
+		// Round is over, defense wins.
+		ScoreOutOfLives(bRedToCap ? 1 : 0);
+	}
+}
 
 
 
