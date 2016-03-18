@@ -3626,6 +3626,11 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 	}
 }
 
+void AUTPlayerController::SkullPickedUp()
+{
+	// deprecated
+}
+
 void AUTPlayerController::PumpkinPickedUp(float GainedAmount, float GoalAmount)
 {
 	ClientPumpkinPickedUp(GainedAmount, GoalAmount);
