@@ -1193,7 +1193,8 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 	if (Role == ROLE_Authority)
 	{
 		AUTCarriedObject* Flag = GetCarriedObject();
-		if (Flag != nullptr)
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (Flag && InstigatedBy && GS && !GS->OnSameTeam(this, InstigatedBy))
 		{
 			Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 		}
