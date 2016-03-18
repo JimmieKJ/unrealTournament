@@ -279,6 +279,16 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY()
 		bool bGradualAutoReturn;
 
+	/** If true, attach holder trail to character carrying this object. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
+		bool bDisplayHolderTrail;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = GameObject)
+		UParticleSystem* HolderTrailEffect;
+
+	UPROPERTY()
+		UParticleSystemComponent* HolderTrail;
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)

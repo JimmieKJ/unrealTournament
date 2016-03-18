@@ -34,6 +34,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bEnemyCanPickup = true;
 	bInitialized = false;
 	WeightSpeedPctModifier = 1.0f;
+	bDisplayHolderTrail = false;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -101,6 +102,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, bEnemyCanPickup);
 	DOREPLIFETIME(AUTCarriedObject, bFriendlyCanPickup);
 	DOREPLIFETIME(AUTCarriedObject, bCurrentlyPinged);
+	DOREPLIFETIME(AUTCarriedObject, bDisplayHolderTrail);
 }
 
 void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
@@ -111,8 +113,29 @@ void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeRotation(Holder3PRotation);
 		AttachRootComponentTo(AttachToMesh, Holder3PSocketName);
 		ClientUpdateAttachment(true);
+
+		if (bDisplayHolderTrail)
+		{
+			HolderTrail = NewObject<UParticleSystemComponent>(this);
+			HolderTrail->bAutoActivate = true;
+			HolderTrail->bAutoDestroy = false;
+			HolderTrail->SetTemplate(HolderTrailEffect);
+			HolderTrail->RegisterComponent();
+			HolderTrail->AttachTo(AttachToMesh, Holder3PSocketName, EAttachLocation::SnapToTarget);
+			if (Team)
+			{
+				HolderTrail->SetColorParameter(FName(TEXT("Color")), Team->TeamColor);
+			}
+		}
 	}
 }
+bool bDisplayHolderTrail;
+
+UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = GameObject)
+UParticleSystem* HolderTrailEffect;
+
+UPROPERTY()
+UParticleSystemComponent* HolderTrail;
 
 void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 {
@@ -123,6 +146,12 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
 		DetachRootComponentFromParent(true);
 		ClientUpdateAttachment(false);
+
+		if (HolderTrail)
+		{
+			HolderTrail->DeactivateSystem();
+			HolderTrail = nullptr;
+		}
 	}
 }
 
