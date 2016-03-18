@@ -262,7 +262,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 		{
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1] : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
-			if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > 800.f)
+			if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > MinGradualReturnDist)
 			{
 				LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
 				PastPositions.Add(HoldingPawn->GetActorLocation());

@@ -279,6 +279,10 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
 		bool bGradualAutoReturn;
 
+	/** Minimum distance between adjacent gradual return points. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+		float MinGradualReturnDist;
+
 	/** If true, attach holder trail to character carrying this object. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
 		bool bDisplayHolderTrail;

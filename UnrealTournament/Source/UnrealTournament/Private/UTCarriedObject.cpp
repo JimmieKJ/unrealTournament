@@ -36,6 +36,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bInitialized = false;
 	WeightSpeedPctModifier = 1.0f;
 	bDisplayHolderTrail = false;
+	MinGradualReturnDist = 800.f;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -601,22 +602,29 @@ void AUTCarriedObject::SendHome()
 	NoLongerHeld();
 	if (bGradualAutoReturn && (PastPositions.Num() > 0))
 	{
-		FActorSpawnParameters Params;
-		Params.Owner = this;
-		AUTFlagReturnTrail* Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), GetActorLocation(), GetActorRotation(), Params);
-		if (Trail)
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
 		{
-			Trail->EndPoint = PastPositions[PastPositions.Num() - 1];
-			Trail->SetTeamIndex(Team ? Team->TeamIndex : 0);
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
-		DetachRootComponentFromParent(true);
-		MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
-		Collision->SetRelativeRotation(FRotator(0, 0, 0));
-		SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1], GetActorRotation());
-		PastPositions.RemoveAt(PastPositions.Num() - 1);
-		OnObjectStateChanged();
-		ForceNetUpdate();
-		return;
+		if (PastPositions.Num() > 0)
+		{
+			FActorSpawnParameters Params;
+			Params.Owner = this;
+			AUTFlagReturnTrail* Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), GetActorLocation(), GetActorRotation(), Params);
+			if (Trail)
+			{
+				Trail->EndPoint = PastPositions[PastPositions.Num() - 1];
+				Trail->SetTeamIndex(Team ? Team->TeamIndex : 0);
+			}
+			DetachRootComponentFromParent(true);
+			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
+			Collision->SetRelativeRotation(FRotator(0, 0, 0));
+			SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1], GetActorRotation());
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+			OnObjectStateChanged();
+			ForceNetUpdate();
+			return;
+		}
 	}
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
