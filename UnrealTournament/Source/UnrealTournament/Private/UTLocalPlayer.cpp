@@ -1923,11 +1923,11 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				{
 					UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division, Response.Points);
 				}
-
+#if !UE_SERVER
 				if (ShowdownLeaguePlacementMatches < 10 && Response.PlacementMatchesAttempted == 10)
 				{ 
 					// Report your placement!
-#if !UE_SERVER
+
 					FString TierString;
 					switch (Response.Tier)
 					{
@@ -1962,7 +1962,6 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementMasterTier", "You've been placed in Master Tier!"),
 							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 					}
-#endif
 				}
 				else if (Response.PlacementMatchesAttempted < 10)
 				{
@@ -2067,7 +2066,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 						WinText,
 						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 				}
-
+#endif
 				ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
 				ShowdownLeaguePoints = Response.Points;
 				ShowdownLeagueTier = Response.Tier;
