@@ -26,7 +26,7 @@
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	GoalScore = 3;
+	GoalScore = 5;
 	TimeLimit = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Round based CTF");
 	RoundLives = 5;
@@ -66,7 +66,7 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	Super::InitGame(MapName, Options, ErrorMessage);
 	if (GoalScore == 0)
 	{
-		GoalScore = 3;
+		GoalScore = 5;
 	}
 
 	// key options are ?Respawnwait=xx?RoundLives=xx?CTFMode=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx
@@ -160,14 +160,41 @@ void AUTCTFRoundGame::TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, co
 
 bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
-	if (Scorer->Team != NULL)
+	CheckReachedGoalScore(Scorer->Team);
+	return true;
+}
+
+bool AUTCTFRoundGame::CheckReachedGoalScore(AUTTeamInfo* ScoringTeam)
+{
+	if (ScoringTeam && CTFGameState)
 	{
-		if (GoalScore > 0 && Scorer->Team->Score >= GoalScore)
+		AUTTeamInfo* BestTeam = ScoringTeam;
+		bool bHaveTie = false;
+
+		// Check if team with highest score has reached goal score
+		for (AUTTeamInfo* Team : Teams)
 		{
-			EndGame(Scorer, FName(TEXT("scorelimit")));
+			if (Team->Score > BestTeam->Score)
+			{
+				BestTeam = Team;
+				bHaveTie = false;
+			}
+			else if ((Team != BestTeam) && (Team->Score == BestTeam->Score))
+			{
+				bHaveTie = true;
+			}
+		}
+		if (!bHaveTie && (BestTeam->Score >= GoalScore))
+		{
+			// game can end after even number of rounds, or if losing team cannot catch up
+			if ((CTFGameState->CTFRound % 2 == 0) || (Teams.Num() <2) || !Teams[0] || !Teams[1] || (FMath::Abs(Teams[0]->Score - Teams[1]->Score) > FlagCapScore))
+			{
+				EndGame(nullptr, FName(TEXT("scorelimit")));
+				return true;
+			}
 		}
 	}
-	return true;
+	return false;
 }
 
 void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
@@ -523,11 +550,7 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
 		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
-		if (GoalScore > 0 && LastTeamToScore->Score >= GoalScore)
-		{
-			EndGame(NULL, FName(TEXT("scorelimit")));
-		}
-		else if (MercyScore > 0)
+		if (!CheckReachedGoalScore(LastTeamToScore) && (MercyScore > 0))
 		{
 			int32 Spread = LastTeamToScore->Score;
 			for (AUTTeamInfo* OtherTeam : Teams)

@@ -66,6 +66,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
+	virtual bool CheckReachedGoalScore(AUTTeamInfo* ScoringTeam);
 	void BuildServerResponseRules(FString& OutRules);
 	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
 	virtual void HandleExitingIntermission() override;
