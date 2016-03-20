@@ -2689,7 +2689,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		float  ElapsedWaitTime = FMath::Max(0.f, GetWorld()->GetTimeSeconds() - StartPlayTime);
 		float MaxWaitForDesiredPlayers = bIsQuickMatch ? MaxWaitForQuickMatch : 15;
 		UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForDesiredPlayers) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
-		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
+		if (((GetNetMode() == NM_Standalone) || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
 		{
 			// Count how many ready players we have
 			bool bCasterReady = false;
