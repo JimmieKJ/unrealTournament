@@ -1678,6 +1678,47 @@ void AUTPlayerController::PerformSingleTapDodge()
 		{
 			MyCharMovement->bPressedDodgeBack = true;
 		}
+		if (!MyCharMovement->IsMovingOnGround() && MyCharMovement->bPressedDodgeForward)
+		{
+			float PawnCapsuleRadius, PawnCapsuleHalfHeight;
+			UTCharacter->GetCapsuleComponent()->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
+			float TraceBoxSize = FMath::Min(0.25f*PawnCapsuleHalfHeight, 0.7f*PawnCapsuleRadius);
+			FVector TraceStart = UTCharacter->GetActorLocation();
+			TraceStart.Z -= 0.5f*TraceBoxSize;
+			static const FName DodgeTag = FName(TEXT("Dodge"));
+			FCollisionQueryParams QueryParams(DodgeTag, false, UTCharacter);
+			FHitResult Result;
+			float DodgeTraceDist = MyCharMovement->WallDodgeTraceDist + PawnCapsuleRadius - 0.5f*TraceBoxSize;
+
+			FVector DodgeDir, DodgeCross;
+			MyCharMovement->GetDodgeDirection(DodgeDir, DodgeCross);
+
+			// if chosen direction is not valid wall dodge, look for alternate
+			FVector TraceEnd = TraceStart - DodgeTraceDist*DodgeDir;
+			bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, MyCharMovement->UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+			if (!bBlockingHit)
+			{
+				// try sides
+				MyCharMovement->bPressedDodgeForward = false;
+				MyCharMovement->bPressedDodgeRight = true;
+				MyCharMovement->GetDodgeDirection(DodgeDir, DodgeCross);
+				TraceEnd = TraceStart - DodgeTraceDist*DodgeDir;
+				bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, MyCharMovement->UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+				if (!bBlockingHit)
+				{
+					MyCharMovement->bPressedDodgeRight = false;
+					MyCharMovement->bPressedDodgeLeft = true;
+					MyCharMovement->GetDodgeDirection(DodgeDir, DodgeCross);
+					TraceEnd = TraceStart - DodgeTraceDist*DodgeDir;
+					bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, MyCharMovement->UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+					if (!bBlockingHit)
+					{
+						MyCharMovement->bPressedDodgeLeft = false;
+						MyCharMovement->bPressedDodgeBack = true;
+					}
+				}
+			}
+		}
 	}
 }
 

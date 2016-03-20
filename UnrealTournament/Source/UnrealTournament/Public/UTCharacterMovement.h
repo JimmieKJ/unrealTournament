@@ -448,6 +448,8 @@ public:
 	/** Handle jump inputs */
 	virtual void CheckJumpInput(float DeltaTime);
 
+	virtual void GetDodgeDirection(FVector& OutDodgeDir, FVector & OutDodgeCross) const;
+
 	/** Optionally allow slope dodge */
 	virtual FVector ComputeSlideVectorUT(const float DeltaTime, const FVector& Delta, const float Time, const FVector& Normal, const FHitResult& Hit);
 
