@@ -5485,7 +5485,7 @@ void AUTCharacter::OnRep_ReplicatedMovement()
 
 void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 {
-	if (UTCharacterMovement->bIsTaunting || IsFeigningDeath())
+	if (UTCharacterMovement->bIsTaunting || IsFeigningDeath() || (UTCharacterMovement->MovementMode == MOVE_None))
 	{
 		return;
 	}
