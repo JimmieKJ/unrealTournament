@@ -771,8 +771,10 @@ public:
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();
+	TSharedRef<SWidget> BuildLeagueInfo();
 	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName);
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
+	TSharedRef<SWidget> BuildLeagueDataRow(FText Label, FText Data);
 	FText LeagueTierToText(int32 Tier);
 	void EpicIDClicked();
 #endif

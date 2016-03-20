@@ -2195,6 +2195,9 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 			ShowdownLeagueDivision = Response.Division;
 			ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
 			ShowdownLeaguePoints = Response.Points;
+			bShowdownLeaguePromotionSeries = Response.IsInPromotionSeries;
+			ShowdownLeaguePromotionMatchesAttempted = Response.PromotionMatchesAttempted;
+			ShowdownLeaguePromotionMatchesWon = Response.PromotionMatchesWon;
 		}
 	});
 }
