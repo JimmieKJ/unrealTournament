@@ -14,6 +14,8 @@ void FUTPartyRepState::Reset()
 	PartyProgression = EUTPartyState::Menus;
 	MatchmakingResult = EMatchmakingCompleteResult::NotStarted;
 	SessionId.Empty();
+	MatchmakingRegion.Empty();
+	MatchmakingPlayersNeeded = 0;
 }
 
 UUTPartyGameState::UUTPartyGameState(const FObjectInitializer& ObjectInitializer) :
@@ -233,5 +235,17 @@ void UUTPartyGameState::NotifyTravelToServer()
 {
 	PartyState.PartyProgression = EUTPartyState::TravelToServer;
 	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetPlayersNeeded(int32 PlayersNeeded)
+{
+	PartyState.MatchmakingPlayersNeeded = PlayersNeeded;
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetMatchmakingRegion(const FString& InMatchmakingRegion)
+{
+	PartyState.MatchmakingRegion = InMatchmakingRegion;
 	UpdatePartyData(OwningUserId);
 }

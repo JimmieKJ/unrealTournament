@@ -45,6 +45,14 @@ struct FUTPartyRepState : public FPartyState
 	UPROPERTY()
 	FString SessionId;
 
+	/** Region that party leader started looking for in matchmaking */
+	UPROPERTY()
+	FString MatchmakingRegion;
+
+	/** Number of players needed on a matchmaking server */
+	UPROPERTY()
+	int32 MatchmakingPlayersNeeded;
+	
 	FUTPartyRepState()
 	{
 		Reset();
@@ -148,6 +156,9 @@ public:
 
 	void SetSession(const FOnlineSessionSearchResult& InSearchResult);
 
+	void SetPlayersNeeded(int32 PlayersNeeded);
+	void SetMatchmakingRegion(const FString& InMatchmakingRegion);
+
 	void NotifyTravelToServer();
 
 	/** @return delegate fired when the location of the player has changed */
@@ -159,4 +170,6 @@ public:
 	FOnClientSessionIdChanged& OnClientSessionIdChanged() { return ClientSessionIdChanged; }
 
 	EUTPartyState GetPartyProgression() const { return PartyState.PartyProgression; }
+	int32 GetMatchmakingPlayersNeeded() const { return PartyState.MatchmakingPlayersNeeded; }
+	FString GetMatchmakingRegion() const { return PartyState.MatchmakingRegion; }
 };

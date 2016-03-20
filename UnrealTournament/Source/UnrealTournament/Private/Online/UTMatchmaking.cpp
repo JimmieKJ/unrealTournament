@@ -715,6 +715,20 @@ void UUTMatchmaking::OnReservationBeaconConnectionFailure()
 void UUTMatchmaking::OnReservationCountUpdate(int32 NumRemaining)
 {
 	UE_LOG(LogOnline, Log, TEXT("OnReservationCountUpdate %d"), NumRemaining);
+
+	UUTGameInstance* UTGameInstance = GetUTGameInstance();
+	if (ensure(UTGameInstance))
+	{
+		UUTParty* Parties = UTGameInstance->GetParties();
+		if (ensure(Parties))
+		{
+			UUTPartyGameState* PersistentParty = Parties->GetUTPersistentParty();
+			if (ensure(PersistentParty))
+			{
+				PersistentParty->SetPlayersNeeded(NumRemaining);
+			}
+		}
+	}
 }
 
 void UUTMatchmaking::OnReservationFull()

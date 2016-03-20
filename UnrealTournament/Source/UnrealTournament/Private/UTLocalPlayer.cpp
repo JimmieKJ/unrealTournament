@@ -67,7 +67,7 @@
 #include "UTMatchmaking.h"
 #include "UTMatchmakingPolicy.h"
 #include "UTParty.h"
-#include "PartyGameState.h"
+#include "UTPartyGameState.h"
 #include "IBlueprintContextModule.h"
 #include "SUTChatEditBox.h"
 #include "SUTMatchmakingRegionDialog.h"
@@ -4726,6 +4726,28 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		{
 			MatchmakingParams.DatacenterId = TEXT("USA");
 		}
+
+		UUTParty* Party = UTGameInstance->GetParties();
+		if (Party)
+		{
+			UUTPartyGameState* PersistentParty = Cast<UUTPartyGameState>(Party->GetPersistentParty());
+			if (PersistentParty)
+			{
+				PersistentParty->SetMatchmakingRegion(MatchmakingParams.DatacenterId);
+
+				if (UTGameInstance && UTGameInstance->GetPlaylistManager())
+				{
+					int32 TeamCount = 0;
+					int32 TeamSize = 0;
+					int32 MaxPartySize = 0;
+					if (UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(PlaylistId, TeamCount, TeamSize, MaxPartySize))
+					{
+						PersistentParty->SetPlayersNeeded((TeamSize * TeamCount) - PersistentParty->GetPartySize());
+					}
+				}
+			}
+		}
+
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
 	}
 }

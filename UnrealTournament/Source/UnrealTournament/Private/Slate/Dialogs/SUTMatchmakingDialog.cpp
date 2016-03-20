@@ -56,10 +56,22 @@ void SUTMatchmakingDialog::Construct(const FArguments& InArgs)
 
 FText SUTMatchmakingDialog::GetRegionText() const
 {
-	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	UUTGameInstance* GameInstance = Cast<UUTGameInstance>(GetPlayerOwner()->GetGameInstance());
+	if (GameInstance)
+	{
+		UUTParty* Party = GameInstance->GetParties();
+		if (Party)
+		{
+			UUTPartyGameState* PartyState = Party->GetUTPersistentParty();
+			if (PartyState)
+			{
+				FString MatchMakingRegion = PartyState->GetMatchmakingRegion();
+				return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(MatchMakingRegion));
+			}
+		}
+	}
 
-	FString MatchMakingRegion = ProfileSettings ? ProfileSettings->MatchmakingRegion : TEXT("USA");
-	return FText::Format(NSLOCTEXT("Generic", "Region", "Region: {0}"), FText::FromString(MatchMakingRegion));
+	return NSLOCTEXT("Generic", "LeaderMatchmaking", "Leader Is Matchmaking");
 }
 
 FText SUTMatchmakingDialog::GetMatchmakingText() const
@@ -76,7 +88,7 @@ FText SUTMatchmakingDialog::GetMatchmakingText() const
 				switch (PartyState->GetPartyProgression())
 				{
 				case EUTPartyState::PostMatchmaking:
-					return NSLOCTEXT("Generic", "WaitingOnOtherPlayers", "Server Found. Waiting For Players To Join...");
+					return FText::Format(NSLOCTEXT("Generic", "WaitingOnOtherPlayers", "Server Found. Waiting For {0} Players To Join..."), FText::AsNumber(PartyState->GetMatchmakingPlayersNeeded()));
 				}
 			}
 		}
