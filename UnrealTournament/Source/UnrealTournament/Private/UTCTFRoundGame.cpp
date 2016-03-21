@@ -33,7 +33,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
-	UnlimitedRespawnWaitTime = 4.f;
+	UnlimitedRespawnWaitTime = 3.f;
 	bForceRespawn = true;
 	bUseDash = false;
 	bAsymmetricVictoryConditions = true;
@@ -493,7 +493,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 		}
 		else if (bAsymmetricVictoryConditions)
 		{
-			PS->RespawnWaitTime += 0.5f;
+			PS->RespawnWaitTime += 1.f;
 		}
 	}
 	Super::RestartPlayer(aPlayer);
