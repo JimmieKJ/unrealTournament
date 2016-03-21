@@ -1795,7 +1795,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 	if (LP)
 	{
 		LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
-			FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision()), FText::AsNumber(LP->GetShowdownLeaguePoints())) :
+			FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision() + 1), FText::AsNumber(LP->GetShowdownLeaguePoints())) :
 			FText::Format(NSLOCTEXT("AUTPlayerState", "LeaguePlacementText", "     Play {0} more placement matches"), FText::AsNumber(10 - LP->GetShowdownPlacementMatches()))
 			);
 	}
@@ -1924,28 +1924,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 		}
 		else
 		{
-			FString TierString;
-			switch (LP->GetShowdownLeagueTier())
-			{
-			default:
-			case 0:
-				TierString = TEXT("Bronze");
-				break;
-			case 1:
-				TierString = TEXT("Silver");
-				break;
-			case 2:
-				TierString = TEXT("Gold");
-				break;
-			case 3:
-				TierString = TEXT("Platinum");
-				break;
-			case 4:
-				TierString = TEXT("Master");
-				break;
-			}
-
-			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPlacement", "{0} {1}"), FText::FromString(TierString), FText::AsNumber(LP->GetShowdownLeagueDivision()));
+			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPlacement", "{0} {1}"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision() + 1));
 
 			VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)

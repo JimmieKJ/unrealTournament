@@ -1942,7 +1942,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				}
 				else
 				{
-					UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division, Response.Points);
+					UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division + 1, Response.Points);
 				}
 #if !UE_SERVER
 				if (ShowdownLeaguePlacementMatches < 10 && Response.PlacementMatchesAttempted == 10)
@@ -1972,7 +1972,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 
 					if (Response.Tier < 4)
 					{
-						FText PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacement", "You've been placed in {0} {1}."), FText::FromString(TierString), FText::AsNumber(Response.Division));
+						FText PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacement", "You've been placed in {0} {1}."), FText::FromString(TierString), FText::AsNumber(Response.Division + 1));
 						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
 							PlacementText,
 							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
@@ -2004,7 +2004,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				else if (!bShowdownLeaguePromotionSeries && Response.IsInPromotionSeries)
 				{
 					FText PromoSeriesText;
-					if (Response.Division == 0)
+					if (Response.Division == 4)
 					{
 						PromoSeriesText = NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesTier", "You've reached a Promotion Series! To reach the next tier, win the next 3 out of 5 games.");
 					}
@@ -2039,7 +2039,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					// Report how many matches still needed to win the promo series
 					FText PromoSeriesText;
 					int32 WinsLeft = 0;
-					if (Response.Division == 0)
+					if (Response.Division == 4)
 					{
 						WinsLeft = 5 - Response.PromotionMatchesWon;
 					}
