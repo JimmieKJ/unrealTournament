@@ -252,7 +252,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 					}
 					AssistLine = AssistLine.LeftChop(2);
 				}
-				else
+				else if (!Play.bDefenseWon)
 				{
 					AssistLine = UnassistedText.ToString();
 				}
