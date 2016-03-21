@@ -577,10 +577,14 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 
 void AUTCTFRoundGame::CheckGameTime()
 {
-	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
+	if ((GetMatchState() == MatchState::InProgress) && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
 	{
 		// Round is over, defense wins.
 		ScoreOutOfLives(bRedToCap ? 1 : 0);
+	}
+	else
+	{
+		Super::CheckGameTime();
 	}
 }
 
