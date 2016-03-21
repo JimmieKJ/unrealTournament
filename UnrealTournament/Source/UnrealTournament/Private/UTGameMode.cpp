@@ -201,6 +201,23 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	if (!InOpt.IsEmpty())
 	{
 		bRankedSession = true;
+
+		if (IOnlineSubsystem::Get() != NULL)
+		{
+			IOnlineSessionPtr OnlineSessionInterface = IOnlineSubsystem::Get()->GetSessionInterface();
+			if (OnlineSessionInterface.IsValid())
+			{
+				FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
+				if (GameSettings != NULL)
+				{
+					GameSettings->bAllowInvites = false;
+					GameSettings->bAllowJoinInProgress = false;
+					GameSettings->bAllowJoinViaPresence = false;
+					GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
+					OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
+				}
+			}
+		}
 	}
 	else
 	{
