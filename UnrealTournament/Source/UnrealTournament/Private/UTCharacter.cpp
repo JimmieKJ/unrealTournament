@@ -1593,7 +1593,23 @@ void AUTCharacter::PlayDying()
 			}
 			if (!bFeigningDeath)
 			{
-				StartRagdoll();
+				bool bPlayedDeathAnim = false;
+				UAnimMontage* DeathAnim = (UTDmg != NULL) ? UTDmg.GetDefaultObject()->GetDeathAnim(this) : NULL;
+				if (DeathAnim != NULL)
+				{
+					UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+					if (AnimInstance != NULL && AnimInstance->Montage_Play(DeathAnim))
+					{
+						bPlayedDeathAnim = true;
+						FOnMontageBlendingOutStarted EndDelegate;
+						EndDelegate.BindUObject(this, &AUTCharacter::DeathAnimEnd);
+						AnimInstance->Montage_SetBlendingOutDelegate(EndDelegate);
+					}
+				}
+				if (!bPlayedDeathAnim)
+				{
+					StartRagdoll();
+				}
 			}
 			if (UTDmg != NULL)
 			{
@@ -1645,6 +1661,14 @@ void AUTCharacter::PlayDying()
 	if (Eyewear && Eyewear->GetAttachParentActor())
 	{
 		Eyewear->DetachRootComponentFromParent(true);
+	}
+}
+
+void AUTCharacter::DeathAnimEnd(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (!bHidden && !IsRagdoll())
+	{
+		StartRagdoll();
 	}
 }
 
@@ -5140,7 +5164,7 @@ bool AUTCharacter::IsThirdPersonTaunting() const
 
 void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
 {
-	if (!bFeigningDeath && TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
+	if (!bFeigningDeath && !IsDead() && TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
 	{
 		StopFiring();
 		if (Hat)

@@ -133,6 +133,11 @@ void UUTDamageType::PlayHitEffects_Implementation(AUTCharacter* HitPawn, bool bP
 	}
 }
 
+UAnimMontage* UUTDamageType::GetDeathAnim_Implementation(AUTCharacter* DyingPawn) const
+{
+	return NULL;
+}
+
 void UUTDamageType::PlayDeathEffects_Implementation(AUTCharacter* DyingPawn) const
 {
 }
