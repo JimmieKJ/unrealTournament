@@ -201,23 +201,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	if (!InOpt.IsEmpty())
 	{
 		bRankedSession = true;
-
-		if (IOnlineSubsystem::Get() != NULL)
-		{
-			IOnlineSessionPtr OnlineSessionInterface = IOnlineSubsystem::Get()->GetSessionInterface();
-			if (OnlineSessionInterface.IsValid())
-			{
-				FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
-				if (GameSettings != NULL)
-				{
-					GameSettings->bAllowInvites = false;
-					GameSettings->bAllowJoinInProgress = false;
-					GameSettings->bAllowJoinViaPresence = false;
-					GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
-					OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
-				}
-			}
-		}
 	}
 	else
 	{
@@ -2748,6 +2731,23 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
 			if (bRankedSession && bMaxWaitComplete)
 			{
+				if (IOnlineSubsystem::Get() != NULL)
+				{
+					IOnlineSessionPtr OnlineSessionInterface = IOnlineSubsystem::Get()->GetSessionInterface();
+					if (OnlineSessionInterface.IsValid())
+					{
+						FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
+						if (GameSettings != NULL)
+						{
+							GameSettings->bAllowInvites = false;
+							GameSettings->bAllowJoinInProgress = false;
+							GameSettings->bAllowJoinViaPresence = false;
+							GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
+							OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, true);
+						}
+					}
+				}
+
 				return true;
 			}
 			if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
