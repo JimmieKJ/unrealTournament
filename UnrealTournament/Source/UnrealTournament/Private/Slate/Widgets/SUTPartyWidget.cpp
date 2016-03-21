@@ -99,14 +99,11 @@ void SUTPartyWidget::SetupPartyMemberBox()
 		FSlateColor PartyMemberColor = FLinearColor::White;
 		if (PartyMemberIds[i] == PartyLeaderId)
 		{
-			if (LocalPlayerId == PartyLeaderId)
-			{
-				PartyMemberColor = FLinearColor::Green;
-			}
-			else
-			{
-				PartyMemberColor = FLinearColor::Blue;
-			}
+			PartyMemberColor = FLinearColor::Blue;
+		}
+		if (LocalPlayerId == PartyMemberIds[i])
+		{
+			PartyMemberColor = FLinearColor::Green;
 		}
 
 		PartyMemberBox->AddSlot()
@@ -174,7 +171,10 @@ FReply SUTPartyWidget::KickFromParty(int32 PartyMemberIdx)
 	{
 		TArray<FUniqueNetIdRepl> PartyMemberIds;
 		PartyContext->GetLocalPartyMemberIDs(PartyMemberIds);
-		PartyContext->KickPartyMember(PartyMemberIds[PartyMemberIdx]);
+		if (PartyMemberIds.IsValidIndex(PartyMemberIdx))
+		{
+			PartyContext->KickPartyMember(PartyMemberIds[PartyMemberIdx]);
+		}
 	}
 
 	return FReply::Handled();
@@ -187,7 +187,10 @@ FReply SUTPartyWidget::PromoteToLeader(int32 PartyMemberIdx)
 	{
 		TArray<FUniqueNetIdRepl> PartyMemberIds;
 		PartyContext->GetLocalPartyMemberIDs(PartyMemberIds);
-		PartyContext->PromotePartyMemberToLeader(PartyMemberIds[PartyMemberIdx]);
+		if (PartyMemberIds.IsValidIndex(PartyMemberIdx))
+		{
+			PartyContext->PromotePartyMemberToLeader(PartyMemberIds[PartyMemberIdx]);
+		}
 	}
 
 	return FReply::Handled();
