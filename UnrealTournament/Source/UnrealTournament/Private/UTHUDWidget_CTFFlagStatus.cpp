@@ -21,7 +21,7 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	ScalingStartDist = 4000.f;
 	ScalingEndDist = 15000.f;
 	MaxIconScale = 1.f;
-	MinIconScale = 0.5f;
+	MinIconScale = 0.75f;
 }
 
 void UUTHUDWidget_CTFFlagStatus::InitializeWidget(AUTHUD* Hud)

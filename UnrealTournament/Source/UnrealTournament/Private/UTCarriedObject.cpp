@@ -641,9 +641,9 @@ void AUTCarriedObject::SendHome()
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
-		bool bWantsGhostFlag = false;
 		if (PastPositions.Num() > 0)
 		{
+			bool bWantsGhostFlag = false;
 			FActorSpawnParameters Params;
 			Params.Owner = this;
 			AUTFlagReturnTrail* Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), GetActorLocation(), GetActorRotation(), Params);
@@ -671,13 +671,18 @@ void AUTCarriedObject::SendHome()
 			}
 			OnObjectStateChanged();
 			ForceNetUpdate();
+			if (MyGhostFlag && !bWantsGhostFlag)
+			{
+				MyGhostFlag->Destroy();
+				MyGhostFlag = nullptr;
+			}
 			return;
 		}
-		if (!bWantsGhostFlag)
-		{
-			MyGhostFlag->Destroy();
-			MyGhostFlag = nullptr;
-		}
+	}
+	if (MyGhostFlag)
+	{
+		MyGhostFlag->Destroy();
+		MyGhostFlag = nullptr;
 	}
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
