@@ -346,6 +346,9 @@ public:
 	/** How long has the server been empty */
 	int32 EmptyServerTime;
 
+	/** Whether player is allowed to suicide. */
+	virtual bool AllowSuicideBy(AUTPlayerController* PC);
+
 	/** HUD class used for the caster's multiview */
 	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
 	TSubclassOf<class AHUD> CastingGuideHUDClass;

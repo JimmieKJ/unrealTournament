@@ -3005,7 +3005,8 @@ void AUTPlayerController::Suicide()
 void AUTPlayerController::ServerSuicide_Implementation()
 {
 	// throttle suicides to avoid spamming to grief own team in TDM
-	if (GetPawn() != NULL && (GetWorld()->TimeSeconds - GetPawn()->CreationTime > 10.0f || GetWorld()->WorldType == EWorldType::PIE || GetNetMode() == NM_Standalone))
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (!Game || Game->AllowSuicideBy(this))
 	{
 		AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
 		if (Char != NULL)

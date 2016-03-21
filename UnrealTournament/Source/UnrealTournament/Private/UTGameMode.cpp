@@ -2258,6 +2258,19 @@ void AUTGameMode::PlayEndOfMatchMessage()
 	}
 }
 
+bool AUTGameMode::AllowSuicideBy(AUTPlayerController* PC)
+{
+	if (GetMatchState() != MatchState::InProgress)
+	{
+		return false;
+	}
+	if (GetWorld()->WorldType == EWorldType::PIE || GetNetMode() == NM_Standalone)
+	{
+		return true;
+	}
+	return (PC->GetPawn() != nullptr) && (GetWorld()->TimeSeconds - PC->GetPawn()->CreationTime > 10.0f);
+}
+
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
 	if ((aPlayer == NULL) || (aPlayer->PlayerState == NULL) || aPlayer->PlayerState->PlayerName.IsEmpty())
