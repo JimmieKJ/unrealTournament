@@ -37,7 +37,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bInitialized = false;
 	WeightSpeedPctModifier = 1.0f;
 	bDisplayHolderTrail = false;
-	MinGradualReturnDist = 800.f;
+	MinGradualReturnDist = 1000.f;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -367,6 +367,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 		if (Holder && bWasHome)
 		{
+			LastPingedTime = GetWorld()->GetTimeSeconds() + 2.5f;
 			LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
 			Holder->ModifyStatsValue(NAME_FlagGrabs, 1);
 			if (Holder->Team)
