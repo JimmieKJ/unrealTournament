@@ -350,6 +350,11 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		return;
 	}
 
+	if (MyGhostFlag != nullptr)
+	{
+		MyGhostFlag->Destroy();
+		MyGhostFlag = nullptr;
+	}
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
 
