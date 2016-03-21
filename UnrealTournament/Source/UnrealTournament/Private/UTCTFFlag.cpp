@@ -192,6 +192,18 @@ void AUTCTFFlag::Drop(AController* Killer)
 
 	// Toss is out
 	TossObject(LastHoldingPawn);
+
+	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	{
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+		{
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+		}
+		if (PastPositions.Num() > 0)
+		{
+			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+		}
+	}
 }
 
 void AUTCTFFlag::DelayedDropMessage()

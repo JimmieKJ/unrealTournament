@@ -7,6 +7,7 @@
 #include "UTPainVolume.h"
 #include "UTLift.h"
 #include "UTFlagReturnTrail.h"
+#include "UTGhostFlag.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -573,12 +574,23 @@ void AUTCarriedObject::Drop(AController* Killer)
 
 	// Toss is out
 	TossObject(LastHoldingPawn);
-	
+
 	if (HomeBase != NULL)
 	{
 		HomeBase->ObjectWasDropped(LastHoldingPawn);
 	}
 	ChangeState(CarriedObjectState::Dropped);
+	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	{
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+		{
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+		}
+		if (PastPositions.Num() > 0)
+		{
+			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+		}
+	}
 }
 
 void AUTCarriedObject::Use()
@@ -589,6 +601,23 @@ void AUTCarriedObject::Use()
 void AUTCarriedObject::SendHomeWithNotify()
 {
 	SendHome();
+}
+
+void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
+{
+	if (GhostFlagClass)
+	{
+		if (MyGhostFlag == nullptr)
+		{
+			FActorSpawnParameters Params;
+			Params.Owner = this;
+			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
+		}
+		else
+		{
+			MyGhostFlag->SetActorLocation(NewGhostLocation);
+		}
+	}
 }
 
 void AUTCarriedObject::SendHome()
@@ -606,6 +635,7 @@ void AUTCarriedObject::SendHome()
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
+		bool bWantsGhostFlag = false;
 		if (PastPositions.Num() > 0)
 		{
 			FActorSpawnParameters Params;
@@ -621,9 +651,26 @@ void AUTCarriedObject::SendHome()
 			Collision->SetRelativeRotation(FRotator(0, 0, 0));
 			SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1], GetActorRotation());
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
+			if (PastPositions.Num() > 0)
+			{
+				if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+				{
+					PastPositions.RemoveAt(PastPositions.Num() - 1);
+				}
+				if (PastPositions.Num() > 0)
+				{
+					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+					bWantsGhostFlag = true;
+				}
+			}
 			OnObjectStateChanged();
 			ForceNetUpdate();
 			return;
+		}
+		if (!bWantsGhostFlag)
+		{
+			MyGhostFlag->Destroy();
+			MyGhostFlag = nullptr;
 		}
 	}
 	ChangeState(CarriedObjectState::Home);

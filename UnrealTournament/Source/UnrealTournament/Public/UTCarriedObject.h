@@ -86,6 +86,14 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
 	bool bCurrentlyPinged;
 
+	UPROPERTY(EditDefaultsOnly, Category = GameObject)
+		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
+
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	class AUTGhostFlag* MyGhostFlag;
+
+	virtual void PutGhostFlagAt(const FVector NewGhostLocation);
+
 	// Allow children to know when the team changes
 	UFUNCTION()
 	virtual void OnRep_Team()
