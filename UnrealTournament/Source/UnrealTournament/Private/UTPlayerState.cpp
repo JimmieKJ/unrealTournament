@@ -1912,7 +1912,6 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 				.AutoWidth()
 				[
 					SNew(SBox)
-					.WidthOverride(300)
 					[
 						SNew(STextBlock)
 						.Text(PlacementText)
