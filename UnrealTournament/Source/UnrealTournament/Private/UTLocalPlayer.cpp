@@ -814,6 +814,20 @@ void UUTLocalPlayer::Logout()
 
 	if (IsLoggedIn() && OnlineIdentityInterface.IsValid())
 	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+		if (UTGameInstance)
+		{
+			UUTParty* Party = UTGameInstance->GetParties();
+			if (Party)
+			{
+				TSharedPtr<const FUniqueNetId> UniqueNetId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+				if (UniqueNetId.IsValid())
+				{
+					Party->LeavePersistentParty(*UniqueNetId);
+				}
+			}
+		}
+
 		// Begin the Login Process....
 		if (!OnlineIdentityInterface->Logout(GetControllerId()))
 		{
@@ -968,6 +982,12 @@ void UUTLocalPlayer::CreatePersistentParty()
 
 void UUTLocalPlayer::DelayedCreatePersistentParty()
 {
+	// Null gamestate will blow up party creation in the engine
+	if (GetWorld()->GetGameState() == nullptr)
+	{
+		GetWorld()->GetTimerManager().SetTimer(PersistentPartyCreationHandle, this, &UUTLocalPlayer::DelayedCreatePersistentParty, 2.0f, false);
+	}
+
 	if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
 	{
 		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
@@ -1028,7 +1048,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 
 		CurrentProfileSettings = NULL;
 		FUTAnalytics::LoginStatusChanged(FString());
-
+		
 		OnPlayerLoggedOut().Broadcast();
 
 		if (bPendingLoginCreds)
