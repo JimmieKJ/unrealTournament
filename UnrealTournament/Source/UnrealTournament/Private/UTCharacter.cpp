@@ -2663,14 +2663,14 @@ void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 				else if (PendingWeapon != NULL)
 				{
 					// switching back to weapon that was on its way down
-					SetPendingWeapon(PendingWeapon);
+					SetPendingWeapon(NULL);
 					Weapon->BringUp();
 				}
 			}
 			else if (Weapon != NULL && PendingWeapon != NULL && PendingWeapon->PutDown())
 			{
 				// stopping weapon switch in progress by passing NULL
-				SetPendingWeapon(PendingWeapon);
+				SetPendingWeapon(NULL);
 				Weapon->BringUp();
 			}
 		}
