@@ -66,6 +66,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
+	virtual bool CheckReachedGoalScore(AUTTeamInfo* ScoringTeam);
 	void BuildServerResponseRules(FString& OutRules);
 	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
 	virtual void HandleExitingIntermission() override;
@@ -76,6 +77,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
+	virtual void CheckGameTime() override;
 
 	virtual void TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator);
 

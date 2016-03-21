@@ -36,11 +36,7 @@ struct FUTPartyRepState : public FPartyState
 	/** What the party is doing at the moment */
 	UPROPERTY()
 	EUTPartyState PartyProgression;
-
-	/** Has the leader begun connecting to lobby */
-	UPROPERTY()
-	bool bLobbyConnectionStarted;
-
+	
 	/** Result of matchmaking by the leader */
 	UPROPERTY()
 	EMatchmakingCompleteResult MatchmakingResult;
@@ -49,6 +45,14 @@ struct FUTPartyRepState : public FPartyState
 	UPROPERTY()
 	FString SessionId;
 
+	/** Region that party leader started looking for in matchmaking */
+	UPROPERTY()
+	FString MatchmakingRegion;
+
+	/** Number of players needed on a matchmaking server */
+	UPROPERTY()
+	int32 MatchmakingPlayersNeeded;
+	
 	FUTPartyRepState()
 	{
 		Reset();
@@ -129,32 +133,7 @@ private:
 	 * @param SearchResult the result returned if successful
 	 */
 	void OnPartyMatchmakingComplete(EMatchmakingCompleteResult EndResult);
-
-	/**
-	 * Handle lobby connection started delegate
-	 */
-	void OnLobbyConnectionStarted();
-
-	/**
-	 * Handle lobby connection attempt failure
-	 */
-	void OnLobbyConnectionAttemptFailed();
 	
-	/**
-	 * Handle lobby connect success and now waiting for players
-	 */
-	void OnLobbyWaitingForPlayers();
-
-	/**
-	 * Handle joining the game from the lobby
-	 */
-	void OnLobbyConnectingToGame();
-
-	/**
-	 * Handle disconnect from a lobby
-	 */
-	void OnLobbyDisconnected();
-
 	/**
 	 * Handle lobby connect request made by the party leader to members
 	 *
@@ -177,6 +156,9 @@ public:
 
 	void SetSession(const FOnlineSessionSearchResult& InSearchResult);
 
+	void SetPlayersNeeded(int32 PlayersNeeded);
+	void SetMatchmakingRegion(const FString& InMatchmakingRegion);
+
 	void NotifyTravelToServer();
 
 	/** @return delegate fired when the location of the player has changed */
@@ -188,4 +170,6 @@ public:
 	FOnClientSessionIdChanged& OnClientSessionIdChanged() { return ClientSessionIdChanged; }
 
 	EUTPartyState GetPartyProgression() const { return PartyState.PartyProgression; }
+	int32 GetMatchmakingPlayersNeeded() const { return PartyState.MatchmakingPlayersNeeded; }
+	FString GetMatchmakingRegion() const { return PartyState.MatchmakingRegion; }
 };

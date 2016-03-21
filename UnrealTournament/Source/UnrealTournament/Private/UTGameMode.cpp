@@ -1718,11 +1718,10 @@ void AUTGameMode::BeginGame()
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
 		AActor* TestActor = *It;
-		if (TestActor &&
-			!TestActor->IsPendingKill() &&
-			TestActor->IsA<APlayerState>())
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTPlayerState>())
 		{
-			Cast<APlayerState>(TestActor)->StartTime = 0;
+			Cast<AUTPlayerState>(TestActor)->StartTime = 0;
+			Cast<AUTPlayerState>(TestActor)->bSentLogoutAnalytics = false;
 		}
 	}
 	GameState->ElapsedTime = 0;
@@ -1784,6 +1783,10 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("WinnerName"), UTGameState->WinnerPlayerState ? UTGameState->WinnerPlayerState->PlayerName : TEXT("None")));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Reason"), *Reason.ToString()));
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("EndFFAMatch"), ParamArray);
+		}
+		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+		{
+			SendLogoutAnalytics(Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]));
 		}
 	}
 
@@ -2258,6 +2261,19 @@ void AUTGameMode::PlayEndOfMatchMessage()
 	}
 }
 
+bool AUTGameMode::AllowSuicideBy(AUTPlayerController* PC)
+{
+	if (GetMatchState() != MatchState::InProgress)
+	{
+		return false;
+	}
+	if (GetWorld()->WorldType == EWorldType::PIE || GetNetMode() == NM_Standalone)
+	{
+		return true;
+	}
+	return (PC->GetPawn() != nullptr) && (GetWorld()->TimeSeconds - PC->GetPawn()->CreationTime > 10.0f);
+}
+
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
 	if ((aPlayer == NULL) || (aPlayer->PlayerState == NULL) || aPlayer->PlayerState->PlayerName.IsEmpty())
@@ -2689,7 +2705,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		float  ElapsedWaitTime = FMath::Max(0.f, GetWorld()->GetTimeSeconds() - StartPlayTime);
 		float MaxWaitForDesiredPlayers = bIsQuickMatch ? MaxWaitForQuickMatch : 15;
 		UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForDesiredPlayers) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, QuickPlayersToStart - NumPlayers - NumBots);
-		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
+		if (((GetNetMode() == NM_Standalone) || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
 		{
 			// Count how many ready players we have
 			bool bCasterReady = false;
@@ -2715,6 +2731,23 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (GetNetMode() != NM_Standalone) && (ElapsedWaitTime > MaxReadyWaitTime);
 			if (bRankedSession && bMaxWaitComplete)
 			{
+				if (IOnlineSubsystem::Get() != NULL)
+				{
+					IOnlineSessionPtr OnlineSessionInterface = IOnlineSubsystem::Get()->GetSessionInterface();
+					if (OnlineSessionInterface.IsValid())
+					{
+						FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
+						if (GameSettings != NULL)
+						{
+							GameSettings->bAllowInvites = false;
+							GameSettings->bAllowJoinInProgress = false;
+							GameSettings->bAllowJoinViaPresence = false;
+							GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
+							OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, true);
+						}
+					}
+				}
+
 				return true;
 			}
 			if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
@@ -3045,18 +3078,11 @@ void AUTGameMode::SwitchToCastingGuide(AUTPlayerController* NewCaster)
 	}
 }
 
-void AUTGameMode::Logout(AController* Exiting)
+void AUTGameMode::SendLogoutAnalytics(AUTPlayerState* PS)
 {
-	if (BaseMutator != NULL)
+	if ((PS != nullptr) && !PS->bSentLogoutAnalytics && FUTAnalytics::IsAvailable())
 	{
-		BaseMutator->NotifyLogout(Exiting);
-	}
-
-	// Lets Analytics know how long this player has been online....
-	AUTPlayerState* PS = Cast<AUTPlayerState>(Exiting->PlayerState);
-	
-	if (PS != NULL && FUTAnalytics::IsAvailable())
-	{
+		PS->bSentLogoutAnalytics = true;
 		float TotalTimeOnline = GameState->ElapsedTime - PS->StartTime;
 		TArray<FAnalyticsEventAttribute> ParamArray;
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ID"), PS->StatsID));
@@ -3070,11 +3096,25 @@ void AUTGameMode::Logout(AController* Exiting)
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerXP"), PS->GetXP().Total()));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerLevel"), GetLevelForXP(PS->GetXP().Total())));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerStars"), PS->TotalChallengeStars));
-		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
+		FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerLogoutStat"), ParamArray);
+	}
+}
+
+void AUTGameMode::Logout(AController* Exiting)
+{
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->NotifyLogout(Exiting);
+	}
+
+	// Lets Analytics know how long this player has been online....
+	AUTPlayerState* PS = Cast<AUTPlayerState>(Exiting->PlayerState);
+	SendLogoutAnalytics(PS);
+	if (PS != NULL)
+	{
 		PS->RespawnChoiceA = NULL;
 		PS->RespawnChoiceB = NULL;
 	}
-
 	if (AntiCheatEngine)
 	{
 		AntiCheatEngine->OnPlayerLogout(Cast<APlayerController>(Exiting));

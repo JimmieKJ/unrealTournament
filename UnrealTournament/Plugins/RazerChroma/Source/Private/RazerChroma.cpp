@@ -105,9 +105,6 @@ void FRazerChroma::StartupModule()
 
 	if (bChromaSDKEnabled)
 	{
-		FWorldDelegates::FWorldInitializationEvent::FDelegate OnWorldCreatedDelegate = FWorldDelegates::FWorldInitializationEvent::FDelegate::CreateRaw(this, &FRazerChroma::OnWorldCreated);
-		FDelegateHandle OnWorldCreatedDelegateHandle = FWorldDelegates::OnPostWorldInitialization.Add(OnWorldCreatedDelegate);
-
 		ChromaSDK::Keyboard::CUSTOM_EFFECT_TYPE Effect = {};
 
 		// U
@@ -390,9 +387,6 @@ void FRazerChroma::StartupModule()
 
 void FRazerChroma::ShutdownModule()
 {
-	FWorldDelegates::FWorldEvent::FDelegate OnWorldDestroyedDelegate = FWorldDelegates::FWorldEvent::FDelegate::CreateRaw(this, &FRazerChroma::OnWorldDestroyed);
-	FDelegateHandle OnWorldDestroyedDelegateHandle = FWorldDelegates::OnPreWorldFinishDestroy.Add(OnWorldDestroyedDelegate);
-
 	if (bChromaSDKEnabled)
 	{
 		for (int i = 0; i < UNREALTEXTSCROLLERFRAMES; i++)
@@ -403,27 +397,6 @@ void FRazerChroma::ShutdownModule()
 		UnInit();
 	}
 }
-
-void FRazerChroma::OnWorldCreated(UWorld* World, const UWorld::InitializationValues IVS)
-{
-	if (IsRunningCommandlet() || IsRunningDedicatedServer())
-	{
-		return;
-	}
-
-	WorldList.Add(World);
-}
-
-void FRazerChroma::OnWorldDestroyed(UWorld* World)
-{
-	if (IsRunningCommandlet() || IsRunningDedicatedServer())
-	{
-		return;
-	}
-
-	WorldList.Remove(World);
-}
-
 
 void FRazerChroma::Tick(float DeltaTime)
 {
@@ -475,11 +448,13 @@ void FRazerChroma::Tick(float DeltaTime)
 
 	AUTPlayerController* UTPC = nullptr;
 	AUTGameState* GS = nullptr;
-	for (int32 i = 0; i < WorldList.Num(); i++)
+	const TIndirectArray<FWorldContext>& AllWorlds = GEngine->GetWorldContexts();
+	for (const FWorldContext& Context : AllWorlds)
 	{
-		if (WorldList[i] && WorldList[i]->WorldType == EWorldType::Game)
+		UWorld* World = Context.World();
+		if (World && World->WorldType == EWorldType::Game)
 		{
-			UTPC = Cast<AUTPlayerController>(GEngine->GetFirstLocalPlayerController(WorldList[i]));
+			UTPC = Cast<AUTPlayerController>(GEngine->GetFirstLocalPlayerController(World));
 			if (UTPC)
 			{
 				UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(UTPC->GetLocalPlayer());
@@ -489,7 +464,7 @@ void FRazerChroma::Tick(float DeltaTime)
 					continue;
 				}
 
-				GS = WorldList[i]->GetGameState<AUTGameState>();
+				GS = World->GetGameState<AUTGameState>();
 				break;
 			}
 		}

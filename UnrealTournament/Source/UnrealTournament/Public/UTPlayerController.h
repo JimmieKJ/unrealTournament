@@ -848,6 +848,10 @@ public:
 
 	virtual void DebugTest(FString TestCommand) override;
 
+        // deprecated
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual void SkullPickedUp();
+
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual void PumpkinPickedUp(float GainedAmount, float GoalAmount);
 

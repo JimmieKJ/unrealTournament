@@ -53,6 +53,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
+	bSentLogoutAnalytics = false;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -72,6 +73,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	ReadyMode = 0;
 	CurrentLoadoutPackTag = NAME_None;
 	bSpawnCostLives = false;
+	RespawnWaitTime = 0.f;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -82,6 +84,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bWaitingPlayer);
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
 	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
+	DOREPLIFETIME(AUTPlayerState, RespawnWaitTime);
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
 	DOREPLIFETIME(AUTPlayerState, RemainingLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
@@ -1792,7 +1795,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 	if (LP)
 	{
 		LeagueText = ((LP->GetShowdownPlacementMatches() >= 10) ?
-			FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision()), FText::AsNumber(LP->GetShowdownLeaguePoints())) :
+			FText::Format(NSLOCTEXT("AUTPlayerState", "LeagueText", "     {0} {1} ({2})"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision() + 1), FText::AsNumber(LP->GetShowdownLeaguePoints())) :
 			FText::Format(NSLOCTEXT("AUTPlayerState", "LeaguePlacementText", "     Play {0} more placement matches"), FText::AsNumber(10 - LP->GetShowdownPlacementMatches()))
 			);
 	}
@@ -1850,6 +1853,164 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeague(AUTBaseGameMode* DefaultGame, FT
 		];
 }
 
+TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
+{
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	UUTLocalPlayer* LP = nullptr;
+	if (PC != NULL)
+	{
+		LP = Cast<UUTLocalPlayer>(PC->Player);
+	}
+	
+	TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
+	
+	VBox->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[				
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "ShowdownLeagueHeader", "3v3 Showdown League"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+	];
+	VBox->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SBox)
+		.HeightOverride(2.f)
+		[
+			SNew(SImage)
+			.Image(SUTStyle::Get().GetBrush("UT.Divider"))
+		]
+	];
+	if (LP)
+	{
+		if (LP->GetShowdownPlacementMatches() < 10)
+		{
+			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "ShowdownNeedPlacement", "{0} Matches Until Placement"), FText::AsNumber(10 - LP->GetShowdownPlacementMatches()));
+
+			VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[				
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Left)
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(SBox)
+					[
+						SNew(STextBlock)
+						.Text(PlacementText)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						.ColorAndOpacity(FLinearColor::Gray)
+					]
+				]
+			];
+		}
+		else
+		{
+			FText PlacementText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPlacement", "{0} {1}"), LeagueTierToText(LP->GetShowdownLeagueTier()), FText::AsNumber(LP->GetShowdownLeagueDivision() + 1));
+
+			VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownPlacementLabel", "Division :"), PlacementText)
+			];
+			
+			VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownPoints", "League Points :"), FText::AsNumber(LP->GetShowdownLeaguePoints()))
+			];
+			
+			VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownMMR", "MMR :"), FText::AsNumber(LP->GetRankRankedShowdown()))
+			];
+			
+			VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownNumMatches", "Matches played :"), FText::AsNumber(LP->RankedShowdownEloMatches()))
+			];
+
+			if (LP->GetShowdownLeagueIsInPromotionSeries())
+			{
+				int32 NeededPromoSeriesWins = 3;
+				if (LP->GetShowdownLeagueDivision() == 0)
+				{
+					NeededPromoSeriesWins = 5;
+				}
+				FText PromoText = FText::Format(NSLOCTEXT("Generic", "3v3ShowdownPromotion", "{0} / {1} (Best of {2})"), FText::AsNumber(LP->GetShowdownLeaguePromotionSeriesWins()), FText::AsNumber(LP->GetShowdownLeaguePromotionSeriesMatches()), FText::AsNumber(NeededPromoSeriesWins));
+				
+				VBox->AddSlot()
+				.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+				.AutoHeight()
+				[
+					BuildLeagueDataRow(NSLOCTEXT("Generic", "3v3ShowdownPromoSeries", "Promotion Series :"), PromoText)
+				];
+			}
+		}
+	}
+	return VBox;
+}
+
+TSharedRef<SWidget> AUTPlayerState::BuildLeagueDataRow(FText Label, FText Data)
+{
+	TSharedRef<SHorizontalBox> HBox = SNew(SHorizontalBox);
+
+	HBox->AddSlot()
+	.HAlign(HAlign_Left)
+	.VAlign(VAlign_Center)
+	.AutoWidth()
+	[
+		SNew(SBox)
+		.WidthOverride(300)
+		[
+			SNew(STextBlock)
+			.Text(Label)
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+	];
+
+	HBox->AddSlot()
+	.HAlign(HAlign_Left)
+	.VAlign(VAlign_Center)
+	.AutoWidth()
+	[
+		SNew(SBox)
+		.WidthOverride(500)
+		[
+			SNew(STextBlock)
+			.Text(Data)
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+	];
+
+	return HBox;
+}
+
 TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 {
 	APlayerController* PC = Cast<APlayerController>(GetOwner());
@@ -1876,12 +2037,6 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	.AutoHeight()
 	[
 		BuildRank(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), false, NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"))
-	];
-	VBox->AddSlot()
-	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-	.AutoHeight()
-	[
-		BuildLeague(AUTShowdownGame::StaticClass()->GetDefaultObject<AUTGameMode>(), NSLOCTEXT("Generic", "ShowdownLeague", "Showdown League :"))
 	];
 	VBox->AddSlot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
@@ -2232,6 +2387,19 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 	[
 		BuildStatsInfo()
 	]);
+
+	// Would be great if this worked on remote players
+	if (LP)
+	{
+		TabWidget->AddTab(NSLOCTEXT("AUTPlayerState", "LeagueInfo", "League Info"),
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.Padding(10.0f, 20.0f, 10.0f, 5.0f)
+		.AutoHeight()
+		[
+			BuildLeagueInfo()
+		]);
+	}
 }
 
 FText AUTPlayerState::GetTrainingLevelText()

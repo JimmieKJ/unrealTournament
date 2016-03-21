@@ -42,12 +42,7 @@ struct FRazerChroma : FTickableGameObject, IModuleInterface
 
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
-
-	void OnWorldCreated(UWorld* World, const UWorld::InitializationValues IVS);
-	void OnWorldDestroyed(UWorld* World);
-
-	TArray<UWorld*> WorldList;
-
+	
 	// Put a real stat id here
 	virtual TStatId GetStatId() const
 	{

@@ -6,6 +6,8 @@
 #include "Net/UnrealNetwork.h"
 #include "UTPainVolume.h"
 #include "UTLift.h"
+#include "UTFlagReturnTrail.h"
+#include "UTGhostFlag.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -34,6 +36,8 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	bEnemyCanPickup = true;
 	bInitialized = false;
 	WeightSpeedPctModifier = 1.0f;
+	bDisplayHolderTrail = false;
+	MinGradualReturnDist = 1000.f;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -101,6 +105,8 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, bEnemyCanPickup);
 	DOREPLIFETIME(AUTCarriedObject, bFriendlyCanPickup);
 	DOREPLIFETIME(AUTCarriedObject, bCurrentlyPinged);
+	DOREPLIFETIME(AUTCarriedObject, bDisplayHolderTrail);
+	DOREPLIFETIME(AUTCarriedObject, bGradualAutoReturn);
 }
 
 void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
@@ -127,7 +133,36 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 }
 
 void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
-{}
+{
+	if (bNowAttached)
+	{
+		if (bDisplayHolderTrail && (GetNetMode() != NM_DedicatedServer) && RootComponent && RootComponent->AttachParent)
+		{
+			HolderTrail = NewObject<UParticleSystemComponent>(this);
+			if (HolderTrail)
+			{
+				HolderTrail->bAutoActivate = true;
+				HolderTrail->bAutoDestroy = false;
+				HolderTrail->SecondsBeforeInactive = 0.0f;
+				HolderTrail->SetTemplate(HolderTrailEffect);
+				HolderTrail->RegisterComponent();
+				HolderTrail->AttachTo(RootComponent->AttachParent, Holder3PSocketName, EAttachLocation::SnapToTarget);
+				if (Team)
+				{
+					HolderTrail->SetColorParameter(FName(TEXT("Color")), Team->TeamColor);
+				}
+			}
+		}
+	}
+	else
+	{
+		if (HolderTrail)
+		{
+			HolderTrail->DeactivateSystem();
+			HolderTrail = nullptr;
+		}
+	}
+}
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -315,6 +350,11 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		return;
 	}
 
+	if (MyGhostFlag != nullptr)
+	{
+		MyGhostFlag->Destroy();
+		MyGhostFlag = nullptr;
+	}
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
 
@@ -332,6 +372,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 		if (Holder && bWasHome)
 		{
+			LastPingedTime = GetWorld()->GetTimeSeconds() + 2.5f;
 			LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
 			Holder->ModifyStatsValue(NAME_FlagGrabs, 1);
 			if (Holder->Team)
@@ -539,12 +580,23 @@ void AUTCarriedObject::Drop(AController* Killer)
 
 	// Toss is out
 	TossObject(LastHoldingPawn);
-	
+
 	if (HomeBase != NULL)
 	{
 		HomeBase->ObjectWasDropped(LastHoldingPawn);
 	}
 	ChangeState(CarriedObjectState::Dropped);
+	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	{
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+		{
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+		}
+		if (PastPositions.Num() > 0)
+		{
+			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+		}
+	}
 }
 
 void AUTCarriedObject::Use()
@@ -555,6 +607,23 @@ void AUTCarriedObject::Use()
 void AUTCarriedObject::SendHomeWithNotify()
 {
 	SendHome();
+}
+
+void AUTCarriedObject::PutGhostFlagAt(const FVector NewGhostLocation)
+{
+	if (GhostFlagClass)
+	{
+		if (MyGhostFlag == nullptr)
+		{
+			FActorSpawnParameters Params;
+			Params.Owner = this;
+			MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewGhostLocation, GetActorRotation(), Params);
+		}
+		else
+		{
+			MyGhostFlag->SetActorLocation(NewGhostLocation);
+		}
+	}
 }
 
 void AUTCarriedObject::SendHome()
@@ -568,14 +637,47 @@ void AUTCarriedObject::SendHome()
 	NoLongerHeld();
 	if (bGradualAutoReturn && (PastPositions.Num() > 0))
 	{
-		DetachRootComponentFromParent(true);
-		MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
-		Collision->SetRelativeRotation(FRotator(0, 0, 0));
-		SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1], GetActorRotation());
-		PastPositions.RemoveAt(PastPositions.Num() - 1);
-		OnObjectStateChanged();
-		ForceNetUpdate();
-		return;
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+		{
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+		}
+		bool bWantsGhostFlag = false;
+		if (PastPositions.Num() > 0)
+		{
+			FActorSpawnParameters Params;
+			Params.Owner = this;
+			AUTFlagReturnTrail* Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(AUTFlagReturnTrail::StaticClass(), GetActorLocation(), GetActorRotation(), Params);
+			if (Trail)
+			{
+				Trail->EndPoint = PastPositions[PastPositions.Num() - 1];
+				Trail->SetTeamIndex(Team ? Team->TeamIndex : 0);
+			}
+			DetachRootComponentFromParent(true);
+			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
+			Collision->SetRelativeRotation(FRotator(0, 0, 0));
+			SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1], GetActorRotation());
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+			if (PastPositions.Num() > 0)
+			{
+				if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+				{
+					PastPositions.RemoveAt(PastPositions.Num() - 1);
+				}
+				if (PastPositions.Num() > 0)
+				{
+					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+					bWantsGhostFlag = true;
+				}
+			}
+			OnObjectStateChanged();
+			ForceNetUpdate();
+			return;
+		}
+		if (!bWantsGhostFlag)
+		{
+			MyGhostFlag->Destroy();
+			MyGhostFlag = nullptr;
+		}
 	}
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);

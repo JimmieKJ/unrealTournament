@@ -12,9 +12,10 @@ void FUTPartyRepState::Reset()
 {
 	FPartyState::Reset();
 	PartyProgression = EUTPartyState::Menus;
-	bLobbyConnectionStarted = false;
 	MatchmakingResult = EMatchmakingCompleteResult::NotStarted;
 	SessionId.Empty();
+	MatchmakingRegion.Empty();
+	MatchmakingPlayersNeeded = 0;
 }
 
 UUTPartyGameState::UUTPartyGameState(const FObjectInitializer& ObjectInitializer) :
@@ -121,73 +122,6 @@ void UUTPartyGameState::OnPartyMatchmakingComplete(EMatchmakingCompleteResult Re
 			}
 		}
 	}
-}
-
-void UUTPartyGameState::OnLobbyConnectionStarted()
-{
-	SetLocation(EUTPartyMemberLocation::ConnectingToLobby);
-
-	if (IsLocalPartyLeader())
-	{
-		PartyState.PartyProgression = EUTPartyState::PostMatchmaking;
-		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
-		PartyState.bLobbyConnectionStarted = true;
-		UpdatePartyData(OwningUserId);
-	}
-}
-
-void UUTPartyGameState::OnLobbyConnectionAttemptFailed()
-{
-	CurrentSession = FOnlineSessionSearchResult();
-	SetLocation(EUTPartyMemberLocation::PreLobby);
-
-	if (IsLocalPartyLeader())
-	{
-		PartyState.PartyProgression = EUTPartyState::Menus;
-		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
-		PartyState.bLobbyConnectionStarted = false;
-		UpdatePartyData(OwningUserId);
-	}
-
-	int32 PartySize = GetPartySize();
-	if (PartySize > 1)
-	{
-		UUTParty* UTParty = Cast<UUTParty>(GetOuter());
-		UTParty->LeaveAndRestorePersistentParty();
-	}
-	else
-	{
-		UpdateAcceptingMembers();
-	}
-}
-
-void UUTPartyGameState::OnLobbyWaitingForPlayers()
-{
-	SetLocation(EUTPartyMemberLocation::Lobby);
-}
-
-void UUTPartyGameState::OnLobbyConnectingToGame()
-{
-	// Possibly deal with pending approvals?
-	CleanupReservationBeacon();
-	SetLocation(EUTPartyMemberLocation::JoiningGame);
-}
-
-void UUTPartyGameState::OnLobbyDisconnected()
-{
-	CurrentSession = FOnlineSessionSearchResult();
-	SetLocation(EUTPartyMemberLocation::PreLobby);
-
-	if (IsLocalPartyLeader())
-	{
-		PartyState.PartyProgression = EUTPartyState::Menus;
-		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
-		PartyState.bLobbyConnectionStarted = false;
-		PartyState.SessionId.Empty();
-		UpdatePartyData(OwningUserId);
-	}
-
-	UpdateAcceptingMembers();
 }
 
 void UUTPartyGameState::SetLocation(EUTPartyMemberLocation NewLocation)
@@ -301,5 +235,17 @@ void UUTPartyGameState::NotifyTravelToServer()
 {
 	PartyState.PartyProgression = EUTPartyState::TravelToServer;
 	OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetPlayersNeeded(int32 PlayersNeeded)
+{
+	PartyState.MatchmakingPlayersNeeded = PlayersNeeded;
+	UpdatePartyData(OwningUserId);
+}
+
+void UUTPartyGameState::SetMatchmakingRegion(const FString& InMatchmakingRegion)
+{
+	PartyState.MatchmakingRegion = InMatchmakingRegion;
 	UpdatePartyData(OwningUserId);
 }

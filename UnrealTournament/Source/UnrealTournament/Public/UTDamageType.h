@@ -147,6 +147,12 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void PlayHitEffects(AUTCharacter* HitPawn, bool bPlayedArmorEffect) const;
 
+	/** if an anim is returned, that anim is played instead of going to ragdoll immediately (ragdoll will be started automatically when anim finishes)
+	 * note: not called if character is gibbed
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
+	class UAnimMontage* GetDeathAnim(AUTCharacter* DyingPawn) const;
+
 	/** spawn/play any clientside effects for a Pawn killed by this damagetype
 	 * not called if the character is gibbed (ShouldGib())
 	 */

@@ -235,6 +235,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, ReplicatedUsing = OnOutOfLives, Category = PlayerState)
 	uint32 bOutOfLives:1;
 
+	/** Max of this and game respawn time is min respawntime */
+	UPROPERTY(replicated)
+		float RespawnWaitTime;
+
 	/** How many times associated player has died */
 	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnDeathsReceived, Category = PlayerState)
 	int32 Deaths;
@@ -383,6 +387,10 @@ public:
 	/** Set if player joined too late to count for ELO calculations */
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 		bool bSkipELO;
+
+	/** Set once final analytic event has been sent (to make sure it isn't sent more than once. */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		bool bSentLogoutAnalytics;
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	TArray<FWeaponSpree> WeaponSprees;
@@ -771,8 +779,10 @@ public:
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
 	TSharedRef<SWidget> BuildStatsInfo();
+	TSharedRef<SWidget> BuildLeagueInfo();
 	TSharedRef<SWidget> BuildRank(AUTBaseGameMode* DefaultGame, bool bRankedSession, FText RankName);
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
+	TSharedRef<SWidget> BuildLeagueDataRow(FText Label, FText Data);
 	FText LeagueTierToText(int32 Tier);
 	void EpicIDClicked();
 #endif

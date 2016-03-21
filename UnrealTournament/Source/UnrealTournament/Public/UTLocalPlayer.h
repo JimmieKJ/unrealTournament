@@ -525,6 +525,9 @@ public:
 	inline virtual int32 GetShowdownLeagueTier() { return ShowdownLeagueTier; }
 	inline virtual int32 GetShowdownLeagueDivision() { return ShowdownLeagueDivision; }
 	inline virtual int32 GetShowdownLeaguePoints() { return ShowdownLeaguePoints; }
+	inline virtual bool GetShowdownLeagueIsInPromotionSeries() { return bShowdownLeaguePromotionSeries; }
+	inline virtual int32 GetShowdownLeaguePromotionSeriesWins() { return ShowdownLeaguePromotionMatchesWon; }
+	inline virtual int32 GetShowdownLeaguePromotionSeriesMatches() { return ShowdownLeaguePromotionMatchesAttempted; }
 
 	// Returns the # of stars to show based on XP value. 
 	UFUNCTION(BlueprintCallable, Category = Badge)

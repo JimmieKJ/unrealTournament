@@ -67,7 +67,7 @@
 #include "UTMatchmaking.h"
 #include "UTMatchmakingPolicy.h"
 #include "UTParty.h"
-#include "PartyGameState.h"
+#include "UTPartyGameState.h"
 #include "IBlueprintContextModule.h"
 #include "SUTChatEditBox.h"
 #include "SUTMatchmakingRegionDialog.h"
@@ -814,6 +814,20 @@ void UUTLocalPlayer::Logout()
 
 	if (IsLoggedIn() && OnlineIdentityInterface.IsValid())
 	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+		if (UTGameInstance)
+		{
+			UUTParty* Party = UTGameInstance->GetParties();
+			if (Party)
+			{
+				TSharedPtr<const FUniqueNetId> UniqueNetId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+				if (UniqueNetId.IsValid())
+				{
+					Party->LeavePersistentParty(*UniqueNetId);
+				}
+			}
+		}
+
 		// Begin the Login Process....
 		if (!OnlineIdentityInterface->Logout(GetControllerId()))
 		{
@@ -968,6 +982,13 @@ void UUTLocalPlayer::CreatePersistentParty()
 
 void UUTLocalPlayer::DelayedCreatePersistentParty()
 {
+	// Null gamestate will blow up party creation in the engine
+	if (GetWorld()->GetGameState() == nullptr)
+	{
+		GetWorld()->GetTimerManager().SetTimer(PersistentPartyCreationHandle, this, &UUTLocalPlayer::DelayedCreatePersistentParty, 2.0f, false);
+		return;
+	}
+
 	if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
 	{
 		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
@@ -1028,7 +1049,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 
 		CurrentProfileSettings = NULL;
 		FUTAnalytics::LoginStatusChanged(FString());
-
+		
 		OnPlayerLoggedOut().Broadcast();
 
 		if (bPendingLoginCreds)
@@ -1921,13 +1942,13 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 				}
 				else
 				{
-					UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division, Response.Points);
+					UE_LOG(UT, Display, TEXT("Showdown league read tier:%d, division:%d, points:%d"), Response.Tier, Response.Division + 1, Response.Points);
 				}
-
+#if !UE_SERVER
 				if (ShowdownLeaguePlacementMatches < 10 && Response.PlacementMatchesAttempted == 10)
 				{ 
 					// Report your placement!
-#if !UE_SERVER
+
 					FString TierString;
 					switch (Response.Tier)
 					{
@@ -1951,7 +1972,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 
 					if (Response.Tier < 4)
 					{
-						FText PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacement", "You've been placed in {0} {1}."), FText::FromString(TierString), FText::AsNumber(Response.Division));
+						FText PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacement", "You've been placed in {0} {1}."), FText::FromString(TierString), FText::AsNumber(Response.Division + 1));
 						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementTitle", "You've Been Placed!"),
 							PlacementText,
 							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
@@ -1962,33 +1983,111 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 							NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementMasterTier", "You've been placed in Master Tier!"),
 							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 					}
-#endif
 				}
 				else if (Response.PlacementMatchesAttempted < 10)
 				{
 					// Finished a placement match, encourage the player to keep playing ranked
+
+					FText PlacementText;
+					if (Response.PlacementMatchesAttempted < 9)
+					{
+						PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementPlural", "Only {0} more matches until you are placed."), FText::AsNumber(10 - Response.PlacementMatchesAttempted));
+					}
+					else
+					{
+						PlacementText = NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementSingular", "Only one match until you are placed!");
+					}
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownMorePlacementsTitle", "You're Almost There!"),
+						PlacementText,
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 				}
 				else if (!bShowdownLeaguePromotionSeries && Response.IsInPromotionSeries)
 				{
+					FText PromoSeriesText;
+					if (Response.Division == 4)
+					{
+						PromoSeriesText = NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesTier", "You've reached a Promotion Series! To reach the next tier, win the next 3 out of 5 games.");
+					}
+					else
+					{
+						PromoSeriesText = NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesDivision", "You've reached a Promotion Series! To reach the next division, win the next 2 out of 3 games.");
+					}
+
 					// Report that we're in a promo series
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesTitle", "Promotion Series!"),
+						PromoSeriesText,
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 				}
 				else if (bShowdownLeaguePromotionSeries && !Response.IsInPromotionSeries)
 				{
 					// Report if we got promoted or failed the series
+					if (Response.Division == ShowdownLeagueDivision && Response.Tier == ShowdownLeagueTier)
+					{
+						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailedTitle", "Better Luck Next Time!"),
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesFailed", "You didn't get promoted! Don't be discouraged, you'll do better next time!"),
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+					}
+					else
+					{
+						ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesSuccessTitle", "Great Job!"),
+							NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesSuccess", "All your hard work has paid off! We've promoted you! Keep up the great work!"),
+							UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+					}
+				}
+				else if (Response.IsInPromotionSeries)
+				{
+					// Report how many matches still needed to win the promo series
+					FText PromoSeriesText;
+					int32 WinsLeft = 0;
+					if (Response.Division == 4)
+					{
+						WinsLeft = 5 - Response.PromotionMatchesWon;
+					}
+					else
+					{
+						WinsLeft = 3 - Response.PromotionMatchesWon;
+					}
+
+					if (WinsLeft > 1)
+					{
+						PromoSeriesText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressPlural", "Only {0} more wins until you are promoted!"), FText::AsNumber(WinsLeft));
+					}
+					else
+					{
+						PromoSeriesText = NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressSingular", "You only need 1 more win for a promotion!");
+					}
+
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownPromoSeriesProgressTitle", "Promotion Series Progress"),
+						PromoSeriesText,
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 				}
 				else if (Response.Tier < ShowdownLeagueTier || (ShowdownLeagueTier == Response.Tier && Response.Division < ShowdownLeagueDivision))
 				{
 					// Report a demotion
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownDemotionTitle", "Demoted"),
+						NSLOCTEXT("UTLocalPlayer", "ShowdownDemotion", "We're sorry about the demotion, hopefully players in this lower bracket are more your speed!"),
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 				}
 				else if (Response.Points > ShowdownLeaguePoints)
 				{
+					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownWin", "Great Win! You now have {0} league points!"), FText::AsNumber(Response.Points));
+
 					// Report a regular win
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdownWinTitle", "You Won!"),
+						WinText,
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 				}
 				else
 				{
 					// Report a regular loss
-				}
+					FText WinText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownLoss", "That was a rough loss, at least you still have {0} league points!"), FText::AsNumber(Response.Points));
 
+					// Report a regular win
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "ShowdowLossTitle", "Tough Luck!"),
+						WinText,
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
+				}
+#endif
 				ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
 				ShowdownLeaguePoints = Response.Points;
 				ShowdownLeagueTier = Response.Tier;
@@ -2117,6 +2216,9 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 			ShowdownLeagueDivision = Response.Division;
 			ShowdownLeaguePlacementMatches = Response.PlacementMatchesAttempted;
 			ShowdownLeaguePoints = Response.Points;
+			bShowdownLeaguePromotionSeries = Response.IsInPromotionSeries;
+			ShowdownLeaguePromotionMatchesAttempted = Response.PromotionMatchesAttempted;
+			ShowdownLeaguePromotionMatchesWon = Response.PromotionMatchesWon;
 		}
 	});
 }
@@ -4645,6 +4747,28 @@ void UUTLocalPlayer::StartMatchmaking(int32 PlaylistId)
 		{
 			MatchmakingParams.DatacenterId = TEXT("USA");
 		}
+
+		UUTParty* Party = UTGameInstance->GetParties();
+		if (Party)
+		{
+			UUTPartyGameState* PersistentParty = Cast<UUTPartyGameState>(Party->GetPersistentParty());
+			if (PersistentParty)
+			{
+				PersistentParty->SetMatchmakingRegion(MatchmakingParams.DatacenterId);
+
+				if (UTGameInstance && UTGameInstance->GetPlaylistManager())
+				{
+					int32 TeamCount = 0;
+					int32 TeamSize = 0;
+					int32 MaxPartySize = 0;
+					if (UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(PlaylistId, TeamCount, TeamSize, MaxPartySize))
+					{
+						PersistentParty->SetPlayersNeeded((TeamSize * TeamCount) - PersistentParty->GetPartySize());
+					}
+				}
+			}
+		}
+
 		bool bSuccessfullyStarted = Matchmaking->FindGatheringSession(MatchmakingParams);
 	}
 }

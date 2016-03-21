@@ -1036,6 +1036,9 @@ public:
 		PlayDying();
 	}
 
+	UFUNCTION()
+	virtual void DeathAnimEnd(UAnimMontage* Montage, bool bInterrupted);
+
 	virtual bool IsRecentlyDead();
 
 	virtual void DeactivateSpawnProtection();

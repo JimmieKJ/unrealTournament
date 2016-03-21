@@ -155,7 +155,7 @@ bool AUTTeamGameMode::PlayerWonChallenge()
 
 bool AUTTeamGameMode::ShouldBalanceTeams(bool bInitialTeam) const
 {
-	return bBalanceTeams && (!bInitialTeam || HasMatchStarted() || GetMatchState() == MatchState::CountdownToBegin);
+	return !bRankedSession && bBalanceTeams && (!bInitialTeam || HasMatchStarted() || GetMatchState() == MatchState::CountdownToBegin);
 }
 
 bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)

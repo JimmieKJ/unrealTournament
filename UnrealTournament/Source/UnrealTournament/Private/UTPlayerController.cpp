@@ -1543,17 +1543,7 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
 	bool bIsOccluded = false;
-	FVector AudibleLoc = SoundLocation;
-	if (bAmplifyVolume)
-	{
-		if (AudibleLoc.IsZero())
-		{
-			AudibleLoc = SoundPlayer->GetActorLocation();
-		}
-		FVector SoundOffset = AudibleLoc - GetViewTarget()->GetActorLocation();
-		AudibleLoc = GetViewTarget()->GetActorLocation() + SoundOffset * 0.6f;
-	}
-	if (SoundPlayer == this || (GetViewTarget() != NULL && InSoundCue->IsAudible(AudibleLoc, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true)))
+	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || InSoundCue->IsAudible(SoundLocation, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true))))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
@@ -1677,6 +1667,47 @@ void AUTPlayerController::PerformSingleTapDodge()
 		else
 		{
 			MyCharMovement->bPressedDodgeBack = true;
+		}
+		if (!MyCharMovement->IsMovingOnGround() && MyCharMovement->bPressedDodgeForward)
+		{
+			float PawnCapsuleRadius, PawnCapsuleHalfHeight;
+			UTCharacter->GetCapsuleComponent()->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
+			float TraceBoxSize = FMath::Min(0.25f*PawnCapsuleHalfHeight, 0.7f*PawnCapsuleRadius);
+			FVector TraceStart = UTCharacter->GetActorLocation();
+			TraceStart.Z -= 0.5f*TraceBoxSize;
+			static const FName DodgeTag = FName(TEXT("Dodge"));
+			FCollisionQueryParams QueryParams(DodgeTag, false, UTCharacter);
+			FHitResult Result;
+			float DodgeTraceDist = MyCharMovement->WallDodgeTraceDist + PawnCapsuleRadius - 0.5f*TraceBoxSize;
+
+			FVector DodgeDir, DodgeCross;
+			MyCharMovement->GetDodgeDirection(DodgeDir, DodgeCross);
+
+			// if chosen direction is not valid wall dodge, look for alternate
+			FVector TraceEnd = TraceStart - DodgeTraceDist*DodgeDir;
+			bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, MyCharMovement->UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+			if (!bBlockingHit)
+			{
+				// try sides
+				MyCharMovement->bPressedDodgeForward = false;
+				MyCharMovement->bPressedDodgeRight = true;
+				MyCharMovement->GetDodgeDirection(DodgeDir, DodgeCross);
+				TraceEnd = TraceStart - DodgeTraceDist*DodgeDir;
+				bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, MyCharMovement->UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+				if (!bBlockingHit)
+				{
+					MyCharMovement->bPressedDodgeRight = false;
+					MyCharMovement->bPressedDodgeLeft = true;
+					MyCharMovement->GetDodgeDirection(DodgeDir, DodgeCross);
+					TraceEnd = TraceStart - DodgeTraceDist*DodgeDir;
+					bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, MyCharMovement->UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+					if (!bBlockingHit)
+					{
+						MyCharMovement->bPressedDodgeLeft = false;
+						MyCharMovement->bPressedDodgeBack = true;
+					}
+				}
+			}
 		}
 	}
 }
@@ -2964,7 +2995,8 @@ void AUTPlayerController::Suicide()
 void AUTPlayerController::ServerSuicide_Implementation()
 {
 	// throttle suicides to avoid spamming to grief own team in TDM
-	if (GetPawn() != NULL && (GetWorld()->TimeSeconds - GetPawn()->CreationTime > 10.0f || GetWorld()->WorldType == EWorldType::PIE || GetNetMode() == NM_Standalone))
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (!Game || Game->AllowSuicideBy(this))
 	{
 		AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
 		if (Char != NULL)
@@ -3624,6 +3656,11 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 	{
 		Keys.Add(BoundKeys[i].ToString());
 	}
+}
+
+void AUTPlayerController::SkullPickedUp()
+{
+	// deprecated
 }
 
 void AUTPlayerController::PumpkinPickedUp(float GainedAmount, float GoalAmount)

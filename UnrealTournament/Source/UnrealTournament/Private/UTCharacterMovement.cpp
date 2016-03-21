@@ -1402,6 +1402,20 @@ void UUTCharacterMovement::ClearDodgeInput()
 	bPressedSlide = false;
 }
 
+void UUTCharacterMovement::GetDodgeDirection(FVector& OutDodgeDir, FVector & OutDodgeCross) const
+{
+	float DodgeDirX = bPressedDodgeForward ? 1.f : (bPressedDodgeBack ? -1.f : 0.f);
+	float DodgeDirY = bPressedDodgeLeft ? -1.f : (bPressedDodgeRight ? 1.f : 0.f);
+	float DodgeCrossX = (bPressedDodgeLeft || bPressedDodgeRight) ? 1.f : 0.f;
+	float DodgeCrossY = (bPressedDodgeForward || bPressedDodgeBack) ? 1.f : 0.f;
+	FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
+	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+	FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
+	FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+	OutDodgeDir = (DodgeDirX*X + DodgeDirY*Y).GetSafeNormal();
+	OutDodgeCross = (DodgeCrossX*X + DodgeCrossY*Y).GetSafeNormal();
+}
+
 void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 {
 	if (CharacterOwner && CharacterOwner->bPressedJump)
@@ -1417,18 +1431,12 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 	}
 	else if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight)
 	{
-		float DodgeDirX = bPressedDodgeForward ? 1.f : (bPressedDodgeBack ? -1.f : 0.f);
-		float DodgeDirY = bPressedDodgeLeft ? -1.f : (bPressedDodgeRight ? 1.f : 0.f);
-		float DodgeCrossX = (bPressedDodgeLeft || bPressedDodgeRight) ? 1.f : 0.f;
-		float DodgeCrossY = (bPressedDodgeForward || bPressedDodgeBack) ? 1.f : 0.f;
-		FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
-		FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
-		FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
-		FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
 		AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 		if (UTCharacterOwner)
 		{
-			UTCharacterOwner->Dodge((DodgeDirX*X + DodgeDirY*Y).GetSafeNormal(), (DodgeCrossX*X + DodgeCrossY*Y).GetSafeNormal());
+			FVector DodgeDir, DodgeCross;
+			GetDodgeDirection(DodgeDir, DodgeCross);
+			UTCharacterOwner->Dodge(DodgeDir, DodgeCross);
 		}
 	}
 

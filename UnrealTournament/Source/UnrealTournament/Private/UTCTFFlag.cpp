@@ -94,6 +94,7 @@ void AUTCTFFlag::ClientUpdateAttachment(bool bNowAttachedToPawn)
 			GetMesh()->SetRelativeLocation(MeshOffset);
 		}
 	}
+	Super::ClientUpdateAttachment(bNowAttachedToPawn);
 }
 
 void AUTCTFFlag::OnObjectStateChanged()
@@ -191,6 +192,18 @@ void AUTCTFFlag::Drop(AController* Killer)
 
 	// Toss is out
 	TossObject(LastHoldingPawn);
+
+	if (bGradualAutoReturn && (PastPositions.Num() > 0))
+	{
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1]).Size() < MinGradualReturnDist)
+		{
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+		}
+		if (PastPositions.Num() > 0)
+		{
+			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+		}
+	}
 }
 
 void AUTCTFFlag::DelayedDropMessage()
@@ -258,10 +271,10 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		bCurrentlyPinged = (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
-		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking())
+		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 		{
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1] : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));
-			if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > 800.f)
+			if ((HoldingPawn->GetActorLocation() - PreviousPos).Size() > MinGradualReturnDist)
 			{
 				LastPositionUpdateTime = GetWorld()->GetTimeSeconds();
 				PastPositions.Add(HoldingPawn->GetActorLocation());

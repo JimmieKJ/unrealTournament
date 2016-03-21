@@ -86,6 +86,14 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
 	bool bCurrentlyPinged;
 
+	UPROPERTY(EditDefaultsOnly, Category = GameObject)
+		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
+
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	class AUTGhostFlag* MyGhostFlag;
+
+	virtual void PutGhostFlagAt(const FVector NewGhostLocation);
+
 	// Allow children to know when the team changes
 	UFUNCTION()
 	virtual void OnRep_Team()
@@ -276,8 +284,22 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY()
 		float LastPositionUpdateTime;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
 		bool bGradualAutoReturn;
+
+	/** Minimum distance between adjacent gradual return points. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+		float MinGradualReturnDist;
+
+	/** If true, attach holder trail to character carrying this object. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
+		bool bDisplayHolderTrail;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = GameObject)
+		UParticleSystem* HolderTrailEffect;
+
+	UPROPERTY()
+		UParticleSystemComponent* HolderTrail;
 
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object

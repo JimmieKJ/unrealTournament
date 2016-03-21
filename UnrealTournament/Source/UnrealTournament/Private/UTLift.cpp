@@ -132,7 +132,15 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 					}
 				}
 			}
-			if (Cast<AUTGib>(Other) || Cast<AUTDroppedPickup>(Other) || Cast<AUTCosmetic>(Other))
+			AUTDroppedPickup* Pickup = Cast<AUTDroppedPickup>(Other);
+			if (Pickup != NULL && Pickup->Movement != NULL && Pickup->Movement->UpdatedComponent != NULL && !bMoveWasBlocked && (LiftVelocity.Z > 0.f || Other->GetActorLocation().Z > MyComp->GetCenterOfMass().Z))
+			{
+				Pickup->Movement->StopSimulating(Hit);
+				Pickup->AttachRootComponentTo(EncroachComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+				bMoveWasBlocked = true;
+				return;
+			}
+			if (Cast<AUTGib>(Other) != NULL || Pickup != NULL || Cast<AUTCosmetic>(Other) != NULL)
 			{
 				if (bMoveWasBlocked)
 				{
