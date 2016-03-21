@@ -1543,17 +1543,7 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
 	bool bIsOccluded = false;
-	FVector AudibleLoc = SoundLocation;
-	if (bAmplifyVolume)
-	{
-		if (AudibleLoc.IsZero())
-		{
-			AudibleLoc = SoundPlayer->GetActorLocation();
-		}
-		FVector SoundOffset = AudibleLoc - GetViewTarget()->GetActorLocation();
-		AudibleLoc = GetViewTarget()->GetActorLocation() + SoundOffset * 0.6f;
-	}
-	if (SoundPlayer == this || (GetViewTarget() != NULL && InSoundCue->IsAudible(AudibleLoc, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true)))
+	if (SoundPlayer == this || (GetViewTarget() != NULL && (bAmplifyVolume || InSoundCue->IsAudible(SoundLocation, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true))))
 	{
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
