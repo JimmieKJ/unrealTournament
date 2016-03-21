@@ -102,7 +102,6 @@ void UUTCheatManager::Spread(float Scaling)
 			}
 		}
 	}
-
 }
 
 void UUTCheatManager::Sum()
@@ -509,6 +508,7 @@ void UUTCheatManager::TestPaths(bool bHighJumps, bool bWallDodges, bool bLifts, 
 
 void UUTCheatManager::McpGetVersion()
 {
+#if WITH_PROFILE
 	UMcpProfileGroup* McpProfileGroup = GetOuterAUTPlayerController()->GetMcpProfileManager()->GetMcpProfileGroup();
 	if (McpProfileGroup)
 	{
@@ -520,4 +520,5 @@ void UUTCheatManager::McpGetVersion()
 	{
 		UE_LOG(UT, Display, TEXT("No MCP version available."));
 	}
+#endif
 }
