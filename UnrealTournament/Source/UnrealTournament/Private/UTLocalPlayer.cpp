@@ -1991,7 +1991,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 					FText PlacementText;
 					if (Response.PlacementMatchesAttempted < 9)
 					{
-						PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementPlural", "Only {0} more matches until you are placed."), FText::AsNumber(Response.PlacementMatchesAttempted - 10));
+						PlacementText = FText::Format(NSLOCTEXT("UTLocalPlayer", "ShowdownPlacementPlural", "Only {0} more matches until you are placed."), FText::AsNumber(10 - Response.PlacementMatchesAttempted));
 					}
 					else
 					{
