@@ -1448,6 +1448,7 @@ void AUTCharacter::StopRagdoll()
 	}
 
 	UTCharacterMovement->Velocity = GetMesh()->GetComponentVelocity();
+	UTCharacterMovement->PendingLaunchVelocity = FVector::ZeroVector;
 
 	GetCapsuleComponent()->DetachFromParent(true);
 	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;
