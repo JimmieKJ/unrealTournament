@@ -688,6 +688,7 @@ protected:
 
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateSkillRating();
+	virtual void SendLogoutAnalytics(class AUTPlayerState* PS);
 
 	virtual void AwardXP();
 

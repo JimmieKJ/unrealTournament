@@ -53,6 +53,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
+	bSentLogoutAnalytics = false;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;

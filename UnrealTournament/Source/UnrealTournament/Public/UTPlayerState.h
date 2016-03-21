@@ -384,6 +384,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 		bool bSkipELO;
 
+	/** Set once final analytic event has been sent (to make sure it isn't sent more than once. */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		bool bSentLogoutAnalytics;
+
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	TArray<FWeaponSpree> WeaponSprees;
 
