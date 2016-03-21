@@ -986,6 +986,7 @@ void UUTLocalPlayer::DelayedCreatePersistentParty()
 	if (GetWorld()->GetGameState() == nullptr)
 	{
 		GetWorld()->GetTimerManager().SetTimer(PersistentPartyCreationHandle, this, &UUTLocalPlayer::DelayedCreatePersistentParty, 2.0f, false);
+		return;
 	}
 
 	if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
