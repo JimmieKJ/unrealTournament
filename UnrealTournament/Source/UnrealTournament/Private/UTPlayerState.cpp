@@ -73,6 +73,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	ReadyMode = 0;
 	CurrentLoadoutPackTag = NAME_None;
 	bSpawnCostLives = false;
+	RespawnWaitTime = 0.f;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -83,6 +84,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bWaitingPlayer);
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
 	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
+	DOREPLIFETIME(AUTPlayerState, RespawnWaitTime);
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
 	DOREPLIFETIME(AUTPlayerState, RemainingLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);

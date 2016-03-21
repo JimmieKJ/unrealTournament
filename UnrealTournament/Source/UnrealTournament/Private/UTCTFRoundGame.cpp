@@ -33,7 +33,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
-	UnlimitedRespawnWaitTime = 5.f;
+	UnlimitedRespawnWaitTime = 4.f;
 	bForceRespawn = true;
 	bUseDash = false;
 	bAsymmetricVictoryConditions = true;
@@ -391,6 +391,7 @@ void AUTCTFRoundGame::InitRound()
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			PS->bHasLifeLimit = false;
+			PS->RespawnWaitTime = 0.f;
 			if (PS && (PS->bIsInactive || !PS->Team))
 			{
 				PS->RemainingLives = 0;
@@ -401,14 +402,12 @@ void AUTCTFRoundGame::InitRound()
 				PS->RemainingLives = (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))) ? RoundLives : 0;
 				PS->bHasLifeLimit = (PS->RemainingLives > 0);
 				PS->SetOutOfLives(false);
+				if (bAsymmetricVictoryConditions && !PS->bHasLifeLimit)
+				{
+					PS->RespawnWaitTime = UnlimitedRespawnWaitTime;
+				}
 			}
 		}
-	}
-	CTFGameState->TeamRespawnWaitTime[0] = 0.f;
-	CTFGameState->TeamRespawnWaitTime[1] = 0.f;
-	if (bAsymmetricVictoryConditions)
-	{
-		CTFGameState->TeamRespawnWaitTime[bRedToCap ? 1 : 0] = UnlimitedRespawnWaitTime;
 	}
 	CTFGameState->SetTimeLimit(TimeLimit);
 }
@@ -491,6 +490,10 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				ScoreOutOfLives((PS->Team->TeamIndex == 0) ? 1 : 0);
 				return;
 			}
+		}
+		else if (bAsymmetricVictoryConditions)
+		{
+			PS->RespawnWaitTime += 0.5f;
 		}
 	}
 	Super::RestartPlayer(aPlayer);

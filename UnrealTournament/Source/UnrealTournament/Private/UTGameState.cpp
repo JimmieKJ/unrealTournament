@@ -402,7 +402,7 @@ void AUTGameState::BeginPlay()
 
 float AUTGameState::GetRespawnWaitTimeFor(AUTPlayerState* PS)
 {
-	return RespawnWaitTime;
+	return (PS != nullptr) ? FMath::Max(RespawnWaitTime, PS->RespawnWaitTime) : RespawnWaitTime;
 }
 
 void AUTGameState::SetRespawnWaitTime(float NewWaitTime)
