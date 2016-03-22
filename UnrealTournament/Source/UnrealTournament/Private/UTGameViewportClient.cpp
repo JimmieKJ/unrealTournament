@@ -242,7 +242,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 	switch (FailureType)
 	{
-		case ETravelFailure::PackageMissing: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient", "TravelErrors_PackageMissing", "Package Missing"); break;
+		case ETravelFailure::PackageMissing: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient", "TravelErrors_PackageMissing", "We were unable to find all the content necessary to join this server."); break;
 
 		default: NetworkErrorMessage = FText::FromString(ErrorString);
 	}
