@@ -4871,6 +4871,12 @@ void UUTLocalPlayer::MatchmakingResult(TSharedPtr<SCompoundWidget> Widget, uint1
 		{
 			Matchmaking->CancelMatchmaking();
 		}
+
+		UUTParty* Party = UTGameInstance->GetParties();
+		if (Party)
+		{
+			Party->RestorePersistentPartyState();
+		}
 	}
 
 	MatchmakingDialog.Reset();
