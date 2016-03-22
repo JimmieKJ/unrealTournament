@@ -33,7 +33,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
 	FlagCapScore = 2;
-	UnlimitedRespawnWaitTime = 3.f;
+	UnlimitedRespawnWaitTime = 2.f;
 	bForceRespawn = true;
 	bUseDash = false;
 	bAsymmetricVictoryConditions = true;
