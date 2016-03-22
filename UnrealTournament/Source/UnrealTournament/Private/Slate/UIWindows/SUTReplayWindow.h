@@ -65,6 +65,7 @@ protected:
 	void OnSpreeKillBookmarksSelected();
 	void OnFlagReturnsBookmarksSelected();
 	FString GetSpectatedPlayerID();
+	void EnumerateEvents();
 
 	//Time remaining to auto hide the time bar
 	float HideTimeBarTime;
