@@ -196,6 +196,23 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** looping (ambient) sound to set on owner while firing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireLoopingSound;
+
+	/** sound played during reload if low on ammo. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		USoundBase* LowAmmoSound;
+
+	/** delay time from firing for low ammo sound. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		float LowAmmoSoundDelay;
+
+	/** ammo threshold for low ammo sound. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		int32 LowAmmoThreshold;
+
+	FTimerHandle PlayLowAmmoSoundHandle;
+
+	virtual void PlayLowAmmoSound();
+
 	/** AnimMontage to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<UAnimMontage*> FireAnimation;
