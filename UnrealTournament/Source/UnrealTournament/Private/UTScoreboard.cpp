@@ -552,13 +552,18 @@ void UUTScoreboard::DrawReadyText(AUTPlayerState* PlayerState, float XOffset, fl
 		{
 			Scaling = 1.f - Scaling;
 		}
-		if ((PlayerState->ReadyMode == 2) || (PlayerState->ReadyMode == 3))
+		if ((PlayerState->ReadyMode == 2) || (PlayerState->ReadyMode == 3) || (PlayerState->ReadyMode == 5))
 		{
 			ReadyScale = Scaling * 1.2f + 0.7f;
 		}
 		if ((PlayerState->ReadyMode == 3) && PlayerState->bReadyToPlay)
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "Plead", "COME ON!");
+			ReadyX += 30.f;
+		}
+		if ((PlayerState->ReadyMode == 5) && PlayerState->bReadyToPlay)
+		{
+			PlayerReady = NSLOCTEXT("UTScoreboard", "PleadRekt", "GET REKT!");
 			ReadyX += 30.f;
 		}
 		if (PlayerState->ReadyMode == 4)
