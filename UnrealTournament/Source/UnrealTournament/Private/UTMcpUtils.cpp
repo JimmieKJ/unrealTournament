@@ -165,6 +165,7 @@ static TFunction<bool(const FHttpResponsePtr&)> SimpleResponseHandler(const TFun
 		FOnlineError Result;
 		RESPONSE_T Response;
 
+#if WITH_PROFILE
 		// parse the result
 		auto JsonValue = FMcpQueryResult::Parse(Result, HttpResponse);
 		if (Result.bSucceeded)
@@ -175,6 +176,7 @@ static TFunction<bool(const FHttpResponsePtr&)> SimpleResponseHandler(const TFun
 				Result.SetFromErrorCode(TEXT("UnableToParseResponse"));
 			}
 		}
+#endif
 
 		// fire the callback
 		Callback(Result, Response);
