@@ -17,6 +17,7 @@ const uint16 UTDIALOG_BUTTON_YESCLEAR = 0x0200;
 const uint16 UTDIALOG_BUTTON_PLAY = 0x0400;
 const uint16 UTDIALOG_BUTTON_LAN = 0x0800;
 const uint16 UTDIALOG_BUTTON_CLOSE = 0x1000;
+const uint16 UTDIALOG_BUTTON_APPLY = 0x2000;
 
 const int32 DEFAULT_RANK_CHECK = 0;
 const int32 NEW_USER_ELO = 1000;
@@ -64,6 +65,7 @@ const FName NAME_Custom = FName(TEXT("Custom"));
 const FName NAME_RedCountryFlag = FName(TEXT("Red.Team"));
 const FName NAME_BlueCountryFlag = FName(TEXT("Blue.Team"));
 const FName NAME_Epic = FName(TEXT("Epic"));
+
 
 namespace CarriedObjectState
 {
@@ -1383,3 +1385,10 @@ public:
 	UPROPERTY()
 	FString PackTitle;
 };
+
+namespace EQuickStatsLayouts
+{
+	const FName Arc = FName(TEXT("Arc"));
+	const FName Bunch = FName(TEXT("Bunch"));
+}
+

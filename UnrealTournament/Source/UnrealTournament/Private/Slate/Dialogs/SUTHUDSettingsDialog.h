@@ -3,11 +3,164 @@
 
 #include "SlateBasics.h"
 #include "SWidgetSwitcher.h"
+#include "SSlider.h"
+#include "SCheckBox.h"
+#include "SEditableTextBox.h"
 #include "../Base/SUTDialogBase.h"
 #include "../Widgets/SUTButton.h"
 #include "UTAudioSettings.h"
 
 #if !UE_SERVER
+
+class UUTProfileSettings;
+
+class SHUDSettingInfo :  public TSharedFromThis<SHUDSettingInfo>
+{
+private:
+	float FloatValue;
+	int32 Int32Value;
+	bool BoolValue;
+
+	FText Prefix;
+
+	float Min;
+	float Max;
+
+public:
+
+	TSharedPtr<SEditableTextBox> EditBox;
+	TSharedPtr<SSlider> Slider;
+	TSharedPtr<SCheckBox> CheckBox;
+
+	SHUDSettingInfo(float inValue, FText inPrefix, float inMin, float inMax)
+	{
+		FloatValue = inValue;
+		Min = inMin;
+		Max = inMax;
+		Prefix = inPrefix;
+	}
+
+	SHUDSettingInfo(int32 inValue, FText inPrefix, int32 inMin, int32 inMax)
+	{
+		Int32Value = inValue;
+		Min = float(inMin);
+		Max = float(inMax);
+		Prefix = inPrefix;
+	}
+
+	SHUDSettingInfo(bool inValue)
+	{
+		BoolValue = inValue;
+	}
+
+	float GetActualValue_float()
+	{
+		return FloatValue;
+	}
+
+	int32 GetActualValue_int32()
+	{
+		return Int32Value;
+	}
+
+	bool GetActualValue_bool()
+	{
+		return BoolValue;
+	}
+
+	FText GetText_float() const
+	{
+		FNumberFormattingOptions Options;
+		Options.MaximumFractionalDigits = 2;
+		Options.MinimumFractionalDigits = 2;
+
+		return Prefix.IsEmpty() ? FText::AsNumber(FloatValue, &Options) : FText::Format(NSLOCTEXT("SUTHUDSettingsDialog","Combier","{0}{1}"), FText::AsNumber(FloatValue, &Options), Prefix);
+	}
+
+	void Set_float(float NewValue)
+	{
+		FloatValue = FMath::Clamp<float>(NewValue, Min, Max);
+		if (Slider.IsValid())
+		{
+			// Figure out the value based on the min/max
+			float NewSliderValue = (NewValue - Min) / (Max-Min);
+			Slider->SetValue(NewSliderValue);
+		}
+
+		FText NewValueText = GetText_float();
+		if (EditBox.IsValid() && EditBox->GetText().ToString() != NewValueText.ToString())
+		{
+			EditBox->SetText(NewValueText);
+		}
+	}
+
+	float GetSliderValue_float() const
+	{
+		return FloatValue;
+	}
+
+	void TextCommited_float(const FText& NewText, ETextCommit::Type CommitType)
+	{
+		float NewValue = FCString::Atof( *NewText.ToString());
+		Set_float(NewValue);
+	}
+
+	void FloatValueChanged(float InSliderValue)
+	{
+		float NewFloatValue = Min + ((Max - Min) * InSliderValue);
+		Set_float(NewFloatValue);
+	}
+
+	float GetSliderValue_int32() const
+	{
+		return float(Int32Value);
+	}
+
+	FText GetText_int32() const
+	{
+		return Prefix.IsEmpty() ? FText::AsNumber(Int32Value) : FText::Format(NSLOCTEXT("SUTHUDSettingsDialog","Combier","{0}{1}"), FText::AsNumber(Int32Value), Prefix);
+	}
+
+	void Set_int32(int32 NewValue)
+	{
+		Int32Value = FMath::Clamp<int32>(NewValue, int32(Min), int32(Max));
+		if (Slider.IsValid())
+		{
+			float NewSliderValue = (float(NewValue) - Min) / (Max-Min);
+			Slider->SetValue(float(NewSliderValue));
+		}
+
+		FText NewValueText = GetText_int32();
+		if (EditBox.IsValid() && EditBox->GetText().ToString() != NewValueText.ToString())
+		{
+			EditBox->SetText(NewValueText);
+		}
+	}
+
+
+	void TextCommited_int32(const FText& NewText, ETextCommit::Type CommitType)
+	{
+		int32 NewValue = FCString::Atoi( *NewText.ToString());
+		Set_int32(NewValue);
+	}
+
+	void Int32ValueChanged(float InSliderValue)
+	{
+		int32 NewInt32Value = int32(Min) + int32((Max - Min) * InSliderValue);
+		Set_int32(NewInt32Value);
+	}
+
+	ECheckBoxState GetCheckBoxState() const
+	{
+		return BoolValue ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	void CheckboxChanged(ECheckBoxState NewState)
+	{
+		BoolValue = (NewState == ECheckBoxState::Checked);
+	}
+
+};
 
 class UNREALTOURNAMENT_API SUTHUDSettingsDialog : public SUTDialogBase
 {
@@ -33,103 +186,47 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+	TSharedRef<class SWidget> BuildCustomButtonBar();
 protected:
-	SVerticalBox::FSlot& AddSliderWidget(TSharedPtr<STextBlock>& LabelWidget, TSharedPtr<SSlider>& SliderWidget, float StartingValue);
+	SVerticalBox::FSlot& AddFloatOption(FName OptionTag, FText CaptionText, FText ToolTip, FText Prefix, float InitialValue, float Min, float Max);
+	SVerticalBox::FSlot& AddIntOption(FName OptionTag, FText CaptionText, FText ToolTip, FText Prefix, int InitialValue, int32 Min, int32 Max);
+	SVerticalBox::FSlot& AddBoolOption(FName OptionTag, FText CaptionText, FText ToolTip, bool bInitialValue);
+
+	TMap<FName, TSharedPtr<SHUDSettingInfo>> SettingsInfos;
 
 	TSharedPtr<SWidgetSwitcher> TabWidget;
 	TSharedPtr<SUTButton> GeneralSettingsTabButton;
 	TSharedPtr<SUTButton> WeaponBarSettingsTabButton;
 	TSharedPtr<SUTButton> NotificationsSettingsTabButton;
+	TSharedPtr<SUTButton> QuickStatsSettingsTabButton;
 
 	TSharedRef<SWidget> BuildGeneralTab();
 	TSharedRef<SWidget> BuildWeaponBarTab();
 	TSharedRef<SWidget> BuildNotificationsTab();
+	TSharedRef<SWidget> BuildQuickStatsTab();
 
 	FReply OnTabClickGeneral();
 	FReply OnTabClickWeaponBar();
 	FReply OnTabClickNotifications();
+	FReply OnTabClickQuickStats();
 
-	TSharedPtr<SSlider> HUDOpacity;
-	TSharedPtr<STextBlock> HUDOpacityLabel;
-
-	TSharedPtr<SSlider> HUDBorderOpacity;
-	TSharedPtr<STextBlock> HUDBorderOpacityLabel;
-
-	TSharedPtr<SSlider> HUDSlateOpacity;
-	TSharedPtr<STextBlock> HUDSlateOpacityLabel;
-
-	TSharedPtr<SSlider> HUDScale;
-	TSharedPtr<STextBlock> HUDScaleLabel;
-
-	TSharedPtr<SSlider> WeaponBarOpacity;
-	TSharedPtr<STextBlock> WeaponBarOpacityLabel;
-
-	TSharedPtr<SSlider> WeaponBarIconOpacity;
-	TSharedPtr<STextBlock> WeaponBarIconOpacityLabel;
-
-	TSharedPtr<SSlider> WeaponBarEmptyOpacity;
-	TSharedPtr<STextBlock> WeaponBarEmptyOpacityLabel;
-
-	TSharedPtr<SCheckBox> HUDDisplayCTFMinimap;
-
-	TSharedPtr<SCheckBox> UseWeaponColor;
-
-	TSharedPtr<SCheckBox> DrawPopupKillMsg;
-	TSharedPtr<SCheckBox> DrawChatKillMsg;
-	TSharedPtr<SCheckBox> DrawHUDKillIconMsg;
-	TSharedPtr<SCheckBox> DrawPlayKillSoundMsg;
-
-	// A reference to the target HUD..
-	TWeakObjectPtr<AUTHUD> TargetHUD;
+	void MakeTabs();
+	void ApplySettings();
+	void ResetSettings();
 
 	FReply OnButtonClick(uint16 ButtonID);
 	FReply OKClick();
 	FReply CancelClick();
+	FReply ResetClick();
 
-	FText GetHUDOpacityLabel() const;
-	FText GetHUDBorderOpacityLabel() const;
-	FText GetHUDSlateOpacityLabel() const;
-	FText GetHUDScaleLabel() const;
-	FText GetWeaponBarOpacityLabel() const;
-	FText GetWeaponBarIconOpacityLabel() const;
-	FText GetWeaponBarEmptyOpacityLabel() const;
-	FText GetWeaponBarScaleLabel() const;
+	TWeakObjectPtr<UUTProfileSettings> ProfileSettings;
 
-	void OnHUDOpacityChanged(float NewValue);
-	void OnHUDBorderOpacityChanged(float NewValue);
-	void OnHUDSlateOpacityChanged(float NewValue);
-	void OnHUDScaleChanged(float NewValue);
-	void OnDisplayCTFMinimapChanged(ECheckBoxState NewState);
+	TArray< TSharedPtr<FString> > QuickStatTypesList;
+	TSharedPtr<STextBlock> SelectedLayout;
 
-	void OnWeaponBarOpacityChanged(float NewValue);
-	void OnWeaponBarIconOpacityChanged(float NewValue);
-	void OnWeaponBarEmptyOpacityChanged(float NewValue);
-	void OnWeaponBarScaleChanged(float NewValue);
-	void OnUseWeaponColorChanged(ECheckBoxState NewState);
-
-	void OnDrawCenteredKillMsgChanged(ECheckBoxState NewState);
-	void OnDrawChatKillMsgMsgChanged(ECheckBoxState NewState);
-	void OnDrawHUDKillIconMsgChanged(ECheckBoxState NewState);
-	void OnPlayKillSoundMsgChanged(ECheckBoxState NewState);
+	void OnLayoutChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
 private:
-
-	/**The backup vars for when the player cancels*/
-	float Old_HUDWidgetOpacity;
-	float Old_HUDWidgetBorderOpacity;
-	float Old_HUDWidgetSlateOpacity;
-	float Old_HUDWidgetWeaponbarInactiveOpacity;
-	float Old_HUDWidgetWeaponBarScaleOverride;
-	float Old_HUDWidgetWeaponBarInactiveIconOpacity;
-	float Old_HUDWidgetWeaponBarEmptyOpacity;
-	float Old_HUDWidgetScaleOverride;
-	bool Old_bDrawCTFMinimap;
-	bool Old_bUseWeaponColors;
-	bool Old_bDrawChatKillMsg;
-	bool Old_bDrawCenteredKillMsg;
-	bool Old_bDrawHUDKillIconMsg;
-	bool Old_bPlayKillSoundMsg;
-
 	bool bInGame;
 };
 

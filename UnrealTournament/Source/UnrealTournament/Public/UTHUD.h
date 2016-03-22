@@ -10,6 +10,8 @@
 const uint32 MAX_DAMAGE_INDICATORS = 3;		// # of damage indicators on the screen at any one time
 const float DAMAGE_FADE_DURATION = 1.0f;	// How fast a damage indicator fades out
 
+class UUTProfileSettings;
+
 USTRUCT()
 struct FDamageHudIndicator
 {
@@ -275,62 +277,94 @@ public:
 		return MyUTScoreboard;
 	}
 
+protected:
+	UUTProfileSettings* CachedProfileSettings;
+
 public:
 	// This is the base HUD opacity level used by HUD Widgets RenderObjects
-	UPROPERTY(globalconfig)
-	float HUDWidgetOpacity;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDWidgetOpacity();
 
 	// HUD widgets that have borders will use this opacity value when rendering.
-	UPROPERTY(globalconfig)
-	float HUDWidgetBorderOpacity;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDWidgetBorderOpacity();
 
 	// HUD widgets that have background slates will use this opacity value when rendering.
-	UPROPERTY(globalconfig)
-	float HUDWidgetSlateOpacity;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDWidgetSlateOpacity();
 
 	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
-	UPROPERTY(globalconfig)
-	float HUDWidgetWeaponbarInactiveOpacity;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDWidgetWeaponbarInactiveOpacity();
 
 	// The weapon bar can get a secondary scale override using this value
-	UPROPERTY(globalconfig)
-	float HUDWidgetWeaponBarScaleOverride;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDWidgetWeaponBarScaleOverride();
 
-	UPROPERTY(globalconfig)
-	float HUDWidgetWeaponBarInactiveIconOpacity;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDWidgetWeaponBarInactiveIconOpacity();
 
-	UPROPERTY(globalconfig)
-	float HUDWidgetWeaponBarEmptyOpacity;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDWidgetWeaponBarEmptyOpacity();
 
 	/** Set true to force weapon bar to immediately update. */
 	UPROPERTY()
 	bool bHUDWeaponBarSettingChanged;
 
 	// Allows the user to override the scaling factor for their hud.
-	UPROPERTY(globalconfig)
-	float HUDWidgetScaleOverride;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDWidgetScaleOverride();
 
 	// Allows the user to override the scaling factor for their hud.
-	UPROPERTY(globalconfig)
-	float HUDMessageScaleOverride;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float HUDMessageScaleOverride();
 
-	UPROPERTY(globalconfig)
-	bool bDrawCTFMinimapHUDSetting;
+	// Allows the user to override the scaling factor for their hud.
 
-	UPROPERTY(globalconfig)
-	bool bUseWeaponColors;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	bool bUseWeaponColors();
 
-	UPROPERTY(globalconfig)
-	bool bDrawChatKillMsg;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	bool bDrawChatKillMsg();
 
-	UPROPERTY(globalconfig)
-	bool bDrawCenteredKillMsg;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	bool bDrawCenteredKillMsg();
 
-	UPROPERTY(globalconfig)
-	bool bDrawHUDKillIconMsg;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	bool bDrawHUDKillIconMsg();
 
-	UPROPERTY(globalconfig)
-	bool bPlayKillSoundMsg;
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	bool bPlayKillSoundMsg();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	bool bDrawCTFMinimapHUDSetting();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float QuickStatsAngle();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float QuickStatsDistance();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float QuickStatScaleOverride();
+	
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	FName QuickStatsType();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float QuickStatsBackgroundAlpha();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float QuickStatsForegroundAlpha();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float bQuickStatsHidden();
+
+	UFUNCTION(BlueprintCallable, Category=HUD)
+	float bQuickStatsBob();
+
+	
+
 
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
@@ -358,7 +392,7 @@ protected:
 	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
 
-	virtual bool ShouldDrawMinimap() const;
+	virtual bool ShouldDrawMinimap();
 
 public:
 	// Takes a raw widget string and tries to build a widget from it.  It supports embedded JSON objects that define the widget as follows:
@@ -512,6 +546,8 @@ protected:
 		return FVector2D(MapToScreen.TransformPosition(MinimapTransform.TransformPosition(InPos)));
 	}
 
-
+public:
+	bool VerifyProfileSettings();
+	virtual void Destroyed();
 };
 

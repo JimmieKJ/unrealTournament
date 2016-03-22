@@ -19,10 +19,11 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 
 	QuickStatsAngle = 180;
 	QuickStatsDistance = 0.1f;
-	QuickStatsType = FName(TEXT("Arc"));
-	QuickStatBackgroundAlpha=0.15f;
-	QuickStatForegroundAlpha=1.0f;
-
+	QuickStatsType = EQuickStatsLayouts::Arc;
+	QuickStatsBackgroundAlpha=0.15f;
+	QuickStatsForegroundAlpha=1.0f;
+	bQuickStatsHidden=false;
+	QuickStatsScaleOverride = 1.0f;
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()
@@ -69,12 +70,44 @@ void UUTProfileSettings::VersionFixup()
 	{
 		new(CustomBinds) FCustomKeyBinding(EKeys::Pause.GetFName(), IE_Pressed, TEXT("Pause"));
 	}
+	if (SettingsRevisionNum < HUDSETTINGS_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		ResetHUD();
+	}
 
 	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
 	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
 	{
 		UnlockedDailyChallenges.Empty();
 	}
+}
+
+void UUTProfileSettings::ResetHUD()
+{
+	QuickStatsAngle = 180.0f;
+	QuickStatsDistance = 0.1f;
+	QuickStatsScaleOverride = 1.0f;
+	QuickStatsType = EQuickStatsLayouts::Arc;
+	QuickStatsBackgroundAlpha = 0.15;
+	QuickStatsForegroundAlpha = 1.0f;
+	bQuickStatsHidden = false;
+	bQuickStatsBob = true;
+			
+	HUDWidgetOpacity = 1.0f;
+	HUDWidgetBorderOpacity = 1.0f;
+	HUDWidgetSlateOpacity = 0.5f;
+	HUDWidgetWeaponbarInactiveOpacity = 0.25f;
+	HUDWidgetWeaponBarScaleOverride = 0.9f;
+	HUDWidgetWeaponBarInactiveIconOpacity = 0.25f;
+	HUDWidgetWeaponBarEmptyOpacity = 0.0f;
+	HUDWidgetScaleOverride = 0.7f;
+	HUDMessageScaleOverride = 1.0f;
+	bUseWeaponColors = false;
+	bDrawChatKillMsg = true;
+	bDrawCenteredKillMsg = true;
+	bDrawHUDKillIconMsg = true;
+	bPlayKillSoundMsg = true;
+	bDrawCTFMinimapHUDSetting = true;
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)

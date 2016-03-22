@@ -42,7 +42,7 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 
 float UUTHUDWidgetMessage::GetDrawScaleOverride()
 {
-	return (UTHUDOwner) ? UTHUDOwner->HUDMessageScaleOverride : 1.f;
+	return (UTHUDOwner) ? UTHUDOwner->HUDMessageScaleOverride() : 1.f;
 }
 
 void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)

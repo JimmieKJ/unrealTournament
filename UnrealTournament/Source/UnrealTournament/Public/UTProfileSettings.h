@@ -18,7 +18,8 @@ static const uint32 SPECTATING_FIXUP_PROFILESETTINGS_VERSION = 8;
 static const uint32 SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION = 8;
 static const uint32 HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION = 10;
 static const uint32 PAUSEKEY_FIXUP_PROFILESETTINGS_VERSION = 11;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 13;
+static const uint32 HUDSETTINGS_FIXUP_PROFILESETTINGS_VERSION = 15;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 15;
 static const uint32 CHALLENGE_FIXUP_VERSION = 12;
 
 
@@ -180,10 +181,20 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	FName QuickStatsType;
 
 	UPROPERTY()
-	float QuickStatBackgroundAlpha;	
+	float QuickStatsBackgroundAlpha;	
 
 	UPROPERTY()
-	float QuickStatForegroundAlpha;	
+	float QuickStatsForegroundAlpha;	
+
+	UPROPERTY()
+	bool bQuickStatsHidden;
+
+	UPROPERTY()
+	bool bQuickStatsBob;
+
+	UPROPERTY()
+	float QuickStatsScaleOverride;	
+
 
 	// the below have been moved to UTProgressionStorage and are only here for backwards compatibility
 private:
@@ -327,6 +338,67 @@ protected:
 	// If true, then the player will not show toasts in game.
 	UPROPERTY()
 	uint32 bSuppressToastsInGame : 1;
+
+public:
+
+	// This is the base HUD opacity level used by HUD Widgets RenderObjects
+	UPROPERTY()
+	float HUDWidgetOpacity;
+
+	// HUD widgets that have borders will use this opacity value when rendering.
+	UPROPERTY()
+	float HUDWidgetBorderOpacity;
+
+	// HUD widgets that have background slates will use this opacity value when rendering.
+	UPROPERTY()
+	float HUDWidgetSlateOpacity;
+
+	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
+	UPROPERTY()
+	float HUDWidgetWeaponbarInactiveOpacity;
+
+	// The weapon bar can get a secondary scale override using this value
+	UPROPERTY()
+	float HUDWidgetWeaponBarScaleOverride;
+
+	UPROPERTY()
+	float HUDWidgetWeaponBarInactiveIconOpacity;
+
+	UPROPERTY()
+	float HUDWidgetWeaponBarEmptyOpacity;
+
+	/** Set true to force weapon bar to immediately update. */
+	UPROPERTY()
+	bool bHUDWeaponBarSettingChanged;
+
+	// Allows the user to override the scaling factor for their hud.
+	UPROPERTY()
+	float HUDWidgetScaleOverride;
+
+	// Allows the user to override the scaling factor for their hud.
+	UPROPERTY()
+	float HUDMessageScaleOverride;
+
+	UPROPERTY()
+	bool bUseWeaponColors;
+
+	UPROPERTY()
+	bool bDrawChatKillMsg;
+
+	UPROPERTY()
+	bool bDrawCenteredKillMsg;
+
+	UPROPERTY()
+	bool bDrawHUDKillIconMsg;
+
+	UPROPERTY()
+	bool bPlayKillSoundMsg;
+
+	UPROPERTY()
+	bool bDrawCTFMinimapHUDSetting;
+
+	UFUNCTION(BlueprintCallable, Category=Hud)
+	void ResetHUD();
 
 public:
 	void UpdateCrosshairs(AUTHUD* HUD);

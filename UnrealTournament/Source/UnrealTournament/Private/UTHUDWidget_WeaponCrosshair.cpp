@@ -36,7 +36,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		}
 		const float TimeSinceKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastKillTime;
 		const float SkullDisplayTime = 0.8f;
-		if ((TimeSinceKill < SkullDisplayTime) && (UTHUDOwner->bDrawHUDKillIconMsg))
+		if ((TimeSinceKill < SkullDisplayTime) && (UTHUDOwner->bDrawHUDKillIconMsg()))
 		{
 			float Size = 32.f * (1.f + FMath::Min(1.5f*(TimeSinceKill - 0.2f) / SkullDisplayTime, 1.f));
 			FLinearColor SkullColor = FLinearColor::White;

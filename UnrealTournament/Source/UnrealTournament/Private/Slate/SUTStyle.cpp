@@ -238,6 +238,14 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetPressedSound(ButtonPressSound)
 	);
 
+	Style.Set("UT.SimpleButton.Bright", FButtonStyle()
+		.SetNormal( FSlateColorBrush(SuperLight) )
+		.SetHovered( FSlateColorBrush(UltraBright) )
+		.SetPressed( FSlateColorBrush(Light) )
+		.SetDisabled( FSlateColorBrush(SuperDark) )
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
 
 	Style.Set("UT.NoStyle", new FSlateNoResource(FVector2D(128.0f, 128.0f)));
 
@@ -283,6 +291,14 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetBackgroundImageReadOnly( FSlateNoResource(FVector2D(128.0f, 128.0f)))
 		);
 
+	Style.Set("UT.EditBox.Boxed", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small))
+		.SetForegroundColor(FLinearColor(0.75f,0.75f,0.75f,1.0f))
+		.SetBackgroundImageNormal( FSlateColorBrush(SuperLight))
+		.SetBackgroundImageHovered( FSlateColorBrush(UltraBright))
+		.SetBackgroundImageFocused( FSlateColorBrush(UltraBright))
+		.SetBackgroundImageReadOnly( FSlateColorBrush(Medium))
+		);
 
 	Style.Set("UT.ChatEditBox", FEditableTextBoxStyle()
 		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small))

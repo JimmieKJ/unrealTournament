@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 
+#include "UTProfileSettings.h"
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidget_Paperdoll.h"
 #include "UTHUDWidgetMessage_DeathMessages.h"
@@ -77,23 +78,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TeamIconUV[0] = FVector2D(257.f, 940.f);
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
 
-	bDrawChatKillMsg = false;
-	bDrawCenteredKillMsg = true;
-	bDrawHUDKillIconMsg = true;
-	bPlayKillSoundMsg = true;
-
 	bCustomWeaponCrosshairs = true;
-	HUDWidgetOpacity = 1.f;
-	HUDWidgetSlateOpacity = 0.5f;
-	HUDWidgetBorderOpacity = 1.0f;
-	HUDWidgetWeaponbarInactiveOpacity = 0.25f;
-	HUDWidgetScaleOverride = 0.7f;
-	HUDMessageScaleOverride = 1.0f;
-	HUDWidgetWeaponBarScaleOverride = 0.9f;
-	HUDWidgetWeaponBarInactiveIconOpacity = 0.25f;
-	HUDWidgetWeaponBarEmptyOpacity = 0.0f;
-	bDrawCTFMinimapHUDSetting = true;
-	bUseWeaponColors = false;
 
 	TimerHours = NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}");
 	TimerMinutes = NSLOCTEXT("UTHUD", "TIMERMINUTES", "{Prefix}{Minutes}:{Seconds}{Suffix}");
@@ -102,6 +87,26 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	SuffixSecond = NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd");
 	SuffixThird = NSLOCTEXT("UTHUD", "ThirdPlaceSuffix", "rd");
 	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
+
+	CachedProfileSettings = nullptr;
+}
+
+void AUTHUD::Destroyed()
+{
+	Super::Destroyed();
+	CachedProfileSettings = nullptr;
+}
+
+
+bool AUTHUD::VerifyProfileSettings()
+{
+	if (CachedProfileSettings == nullptr)
+	{
+		UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+		CachedProfileSettings = UTLP ? UTLP->GetProfileSettings() : nullptr;
+	}
+
+	return CachedProfileSettings != nullptr;
 }
 
 void AUTHUD::BeginPlay()
@@ -463,7 +468,6 @@ void AUTHUD::PostRender()
 	Canvas->SetDrawColor(255,0,0,255);
 	Canvas->K2_DrawBox(DebugMousePosition, FVector2D(3,3),1.0);
 */
-
 }
 
 void AUTHUD::CacheFonts()
@@ -508,7 +512,7 @@ void AUTHUD::DrawHUD()
 		AddSpectatorWidgets();
 		if (PlayerOwner && PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
 		{
-			UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+			UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(PlayerOwner->Player);
 			if (UTLP)
 			{
 				UTLP->OpenSpectatorWindow();
@@ -571,9 +575,11 @@ void AUTHUD::DrawHUD()
 			}
 		}
 	}
+
+	CachedProfileSettings = nullptr;
 }
 
-bool AUTHUD::ShouldDrawMinimap() const
+bool AUTHUD::ShouldDrawMinimap() 
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 
@@ -1245,8 +1251,128 @@ void AUTHUD::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerStat
 
 void AUTHUD::PlayKillNotification()
 {
-	if (bPlayKillSoundMsg)
+	if (bPlayKillSoundMsg())
 	{
 		PlayerOwner->ClientPlaySound(KillSound);
 	}
 }
+
+// NOTE: Defaults are defined here because we don't currently have a local profile.
+
+float AUTHUD::HUDWidgetOpacity()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetOpacity : 1.0f;
+}
+
+float AUTHUD::HUDWidgetBorderOpacity()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetBorderOpacity : 1.0f;
+}
+
+float AUTHUD::HUDWidgetSlateOpacity()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetSlateOpacity: 0.5f;
+}
+
+float AUTHUD::HUDWidgetWeaponbarInactiveOpacity()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponbarInactiveOpacity : 0.25f;
+}
+
+float AUTHUD::HUDWidgetWeaponBarScaleOverride()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarScaleOverride : 0.9f;
+}
+
+float AUTHUD::HUDWidgetWeaponBarInactiveIconOpacity()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity : 0.25f;
+}
+
+float AUTHUD::HUDWidgetWeaponBarEmptyOpacity()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarEmptyOpacity : 0.0f;
+}
+
+float AUTHUD::HUDWidgetScaleOverride()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetScaleOverride : 0.7f;
+}
+
+float AUTHUD::HUDMessageScaleOverride()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDMessageScaleOverride : 1.0f;
+}
+
+bool AUTHUD::bUseWeaponColors()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bUseWeaponColors : false;
+}
+
+bool AUTHUD::bDrawChatKillMsg()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawChatKillMsg : false;
+}
+
+bool AUTHUD::bDrawCenteredKillMsg()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCenteredKillMsg : true;
+}
+
+bool AUTHUD::bDrawHUDKillIconMsg()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawHUDKillIconMsg : true;
+}
+
+bool AUTHUD::bPlayKillSoundMsg()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : true;
+}
+
+bool AUTHUD::bDrawCTFMinimapHUDSetting()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCTFMinimapHUDSetting : true;
+}
+
+float AUTHUD::QuickStatsAngle()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsAngle : 180.0f;
+}
+
+float AUTHUD::QuickStatsDistance()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.1f;
+}
+
+float AUTHUD::QuickStatScaleOverride()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: 1.0f;
+}
+
+FName AUTHUD::QuickStatsType()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsType : EQuickStatsLayouts::Arc;
+
+}
+
+float AUTHUD::QuickStatsBackgroundAlpha()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsBackgroundAlpha: 0.15f;
+}
+
+float AUTHUD::QuickStatsForegroundAlpha()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsForegroundAlpha : 1.0f;
+}
+
+float AUTHUD::bQuickStatsHidden()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : false;
+}
+
+float AUTHUD::bQuickStatsBob()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsBob : true;
+}
+
+

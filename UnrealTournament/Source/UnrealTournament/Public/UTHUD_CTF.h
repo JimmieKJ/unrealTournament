@@ -15,5 +15,5 @@ class UNREALTOURNAMENT_API AUTHUD_CTF : public AUTHUD
 	virtual bool ShouldInvertMinimap() override;
 
 protected:
-	virtual bool ShouldDrawMinimap() const override;
+	virtual bool ShouldDrawMinimap() override;
 };
