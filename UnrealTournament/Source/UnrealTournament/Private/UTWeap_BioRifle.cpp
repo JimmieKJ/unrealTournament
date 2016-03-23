@@ -41,19 +41,22 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 
 void AUTWeap_BioRifle::UpdateSqueeze()
 {
-	if (GetUTOwner() && GetUTOwner()->IsPendingFire(1))
+	if (SqueezeProjClass != NULL)
 	{
-		FireInterval[0] = SqueezeFireInterval;
-		Spread[0] = SqueezeFireSpread;
-		ProjClass[0] = SqueezeProjClass;
-		AmmoCost[0] = SqueezeAmmoCost;
-	}
-	else
-	{
-		FireInterval[0] = GetClass()->GetDefaultObject<AUTWeapon>()->FireInterval[0];
-		Spread[0] = GetClass()->GetDefaultObject<AUTWeapon>()->Spread[0];
-		ProjClass[0] = GetClass()->GetDefaultObject<AUTWeapon>()->ProjClass[0];
-		AmmoCost[0] = GetClass()->GetDefaultObject<AUTWeapon>()->AmmoCost[0];
+		if (GetUTOwner() != NULL && GetUTOwner()->IsPendingFire(1))
+		{
+			FireInterval[0] = SqueezeFireInterval;
+			Spread[0] = SqueezeFireSpread;
+			ProjClass[0] = SqueezeProjClass;
+			AmmoCost[0] = SqueezeAmmoCost;
+		}
+		else
+		{
+			FireInterval[0] = GetClass()->GetDefaultObject<AUTWeapon>()->FireInterval[0];
+			Spread[0] = GetClass()->GetDefaultObject<AUTWeapon>()->Spread[0];
+			ProjClass[0] = GetClass()->GetDefaultObject<AUTWeapon>()->ProjClass[0];
+			AmmoCost[0] = GetClass()->GetDefaultObject<AUTWeapon>()->AmmoCost[0];
+		}
 	}
 }
 
