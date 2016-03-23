@@ -28,7 +28,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 {
 	GoalScore = 5;
 	TimeLimit = 5;
-	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Round based CTF");
+	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Flag Run");
 	RoundLives = 5;
 	bPerPlayerLives = true;
 	bNeedFiveKillsMessage = true;
@@ -46,6 +46,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	// remove translocator - fixmesteve make this an option
 	TranslocatorObject = nullptr;
+
+	ShieldBeltObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ShieldBelt.Armor_ShieldBelt_C"));
+	ThighPadObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
 }
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
@@ -67,6 +70,16 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	if (GoalScore == 0)
 	{
 		GoalScore = 5;
+	}
+
+	UE_LOG(UT, Warning, TEXT("Init Game"));
+	if (!ShieldBeltObject.IsNull())
+	{
+		ShieldBeltClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ShieldBeltObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
+	if (!ThighPadObject.IsNull())
+	{
+		ThighPadClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ThighPadObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
 	// key options are ?Respawnwait=xx?RoundLives=xx?CTFMode=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx
@@ -102,6 +115,25 @@ void AUTCTFRoundGame::SetPlayerDefaults(APawn* PlayerPawn)
 	}
 	Super::SetPlayerDefaults(PlayerPawn);
 }
+
+void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
+{
+	Super::GiveDefaultInventory(PlayerPawn);
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
+	if (UTCharacter != NULL)
+	{
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
+		bool bOnLastLife = (UTPlayerState && (UTPlayerState->RemainingLives == 0));
+		if (bOnLastLife || (CTFGameState && (CTFGameState->CTFRound > 2)))
+		{
+			TSubclassOf<AUTInventory> StartingArmor = bOnLastLife  ? ShieldBeltClass : ThighPadClass;
+			UTCharacter->AddInventory(GetWorld()->SpawnActor<AUTInventory>(StartingArmor, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+		}
+	}
+}
+
+//Blueprint'/Game/RestrictedAssets/Pickups/Powerups/BP_UDamage_RCTF.BP_UDamage_RCTF'
+//589,0 45,39 HUDAtlas01
 
 void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
 {

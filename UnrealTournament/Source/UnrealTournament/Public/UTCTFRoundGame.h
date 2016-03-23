@@ -4,6 +4,7 @@
 #include "UTCTFGameState.h"
 #include "UTCTFScoring.h"
 #include "UTCTFBaseGame.h"
+#include "UTArmor.h"
 #include "UTCTFRoundGame.generated.h"
 
 UCLASS()
@@ -89,4 +90,14 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void BroadcastVictoryConditions();
 
+	TAssetSubclassOf<AUTArmor> ShieldBeltObject;
+	TAssetSubclassOf<AUTArmor> ThighPadObject;
+
+	UPROPERTY()
+		TSubclassOf<AUTArmor> ShieldBeltClass;
+
+	UPROPERTY()
+		TSubclassOf<AUTArmor> ThighPadClass;
+
+	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 };
