@@ -1642,7 +1642,8 @@ public:
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir) override;
 
 	/** returns true if any local PlayerController is viewing this Pawn */
-	bool IsLocallyViewed()
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = PlayerController)
+	bool IsLocallyViewed() const
 	{
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
