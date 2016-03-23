@@ -1091,6 +1091,12 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 {
 	CurrentBookmarks.Empty();
 	FBookmarkTimeAndColor TimeAndColor;
+
+	if (!NewSelection.IsValid())
+	{
+		return;
+	}
+
 	SelectedBookmark->SetText(FText::FromString(*NewSelection));
 	if (*NewSelection == TEXT("Bookmarks"))
 	{

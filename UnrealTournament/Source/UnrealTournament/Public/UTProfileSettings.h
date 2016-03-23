@@ -397,6 +397,10 @@ public:
 	UPROPERTY()
 	bool bDrawCTFMinimapHUDSetting;
 
+	UPROPERTY()
+	float HUDMinimapScale;
+
+	//This is called in the constructor so do not make this virtual / BlueprintImplementable without reworking the constructor to remove it!
 	UFUNCTION(BlueprintCallable, Category=Hud)
 	void ResetHUD();
 

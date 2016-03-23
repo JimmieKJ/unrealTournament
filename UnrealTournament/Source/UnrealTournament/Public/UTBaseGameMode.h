@@ -82,7 +82,7 @@ public:
 	
 	virtual void PostInitProperties();
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-
+	virtual void InitGameState();
 	// Holds the server instance guid.  This is created when 
 	UPROPERTY(GlobalConfig)
 	FString ServerInstanceID;
@@ -207,5 +207,8 @@ public:
 
 	/** Build a JSON object that contains information about this game mode. */
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
+
+protected:
+	FString ServerNameOverride;
 
 };

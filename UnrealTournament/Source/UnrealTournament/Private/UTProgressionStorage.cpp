@@ -101,7 +101,11 @@ void UUTProgressionStorage::TokensCommit()
 		if (bCompletedTutorial)
 		{
 			Achievements.Add(AchievementIDs::TutorialComplete);
-			// TODO: toast
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetFirstGamePlayer(GWorld));	
+			if (LP)
+			{
+				LP->ShowToast(NSLOCTEXT("UT", "ItemRewardVise", "You earned Visse - The Armor of Sacrifce!"));
+			}
 		}
 	}
 

@@ -17,13 +17,7 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 
 	Avatar = FName("UT.Avatar.0");
 
-	QuickStatsAngle = 180;
-	QuickStatsDistance = 0.1f;
-	QuickStatsType = EQuickStatsLayouts::Arc;
-	QuickStatsBackgroundAlpha=0.15f;
-	QuickStatsForegroundAlpha=1.0f;
-	bQuickStatsHidden=false;
-	QuickStatsScaleOverride = 1.0f;
+	ResetHUD();
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()
@@ -108,6 +102,7 @@ void UUTProfileSettings::ResetHUD()
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
 	bDrawCTFMinimapHUDSetting = true;
+	HUDMinimapScale = 1.0f;
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)

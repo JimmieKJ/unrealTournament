@@ -339,6 +339,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	bool bDrawCTFMinimapHUDSetting();
 
+	UFUNCTION(BlueprintCallable, Category = HUD)
+	float HUDMinimapScale();
+
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	float QuickStatsAngle();
 

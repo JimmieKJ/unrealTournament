@@ -2082,6 +2082,12 @@ void USkeletalMeshComponent::RecreateClothingActors()
 
 	ReleaseAllClothingResources();
 
+	// FIXME: before merging to engine bDisableClothSimulation needs to become protected w/accessors so toggling the flag works correctly
+	if (bDisableClothSimulation)
+	{
+		return;
+	}
+
 	const int32 NumAssets = SkeletalMesh->ClothingAssets.Num();
 	for(int32 AssetIdx=0; AssetIdx < NumAssets; AssetIdx++)
 	{

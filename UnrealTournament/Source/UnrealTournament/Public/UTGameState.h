@@ -72,6 +72,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		uint32 bPersistentKillIconMessages : 1;
 
+	/** If true, game overrides toggle translocator  */
+	UPROPERTY(Replicated, BlueprintReadOnly, Replicated, Category = GameState)
+		bool bOverrideToggle;
+
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
 	int32 GoalScore;

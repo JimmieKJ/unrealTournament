@@ -178,6 +178,10 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
 
+	/** Attempts to restart this player, generally called from the client upon respawn request. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerToggleSpecial();
+
 
 	/** Selected an unavailable spawn location. */
 	UPROPERTY()

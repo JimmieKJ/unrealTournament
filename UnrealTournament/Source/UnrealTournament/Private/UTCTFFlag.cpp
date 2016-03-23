@@ -41,6 +41,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	ClothBlendHeld = 0.5f;
 	bEnemyCanPickup = true;
 	PingedDuration = 2.5f;
+	bShouldPingFlag = false;
 }
 
 void AUTCTFFlag::PostInitializeComponents()
@@ -270,7 +271,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	}
 	if (Role == ROLE_Authority)
 	{
-		bCurrentlyPinged = (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
+		bCurrentlyPinged = bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
 		if ((ObjectState == CarriedObjectState::Held) && (GetWorld()->GetTimeSeconds() - LastPositionUpdateTime > 1.f) && HoldingPawn && HoldingPawn->GetCharacterMovement() && HoldingPawn->GetCharacterMovement()->IsWalking() && (!HoldingPawn->GetMovementBase() || !MovementBaseUtility::UseRelativeLocation(HoldingPawn->GetMovementBase())))
 		{
 			FVector PreviousPos = (PastPositions.Num() > 0) ? PastPositions[PastPositions.Num() - 1] : (HomeBase ? HomeBase->GetActorLocation() : FVector(0.f));

@@ -17,7 +17,9 @@ UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& Obj
 	ReconnectAfterDownloadingMapDelay = 0;
 	VerifyFilesToDownloadAndReconnectDelay = 0;
 	MaxSplitscreenPlayers = 6;
-		
+	bReconnectAtNextTick = false;
+	bReconnectAtNextTickNeedSpectator = false;
+
 	SplitscreenInfo.SetNum(10); // we are hijacking entries 8 and 9 for 5 and 6 players
 	
 	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.0f, 0.0f));
@@ -309,11 +311,12 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 					{
 						// We have a cached password and we didn't try it already, just reconnect.  We have to do this here for Hub instances that
 						// have the same password.
-
-						FString LastPass = LastAttemptedURL.GetOption((bNeedSpectator ? TEXT("specpassword=") : TEXT("password=")), TEXT(""));
-						if (LastPass.IsEmpty() || LastPass != StoredPassword)
+						FString LastPass = LastAttemptedURL.GetOption(bNeedSpectator ? TEXT("specpassword=") : TEXT("password="), TEXT(""));
+						if ( LastPass.IsEmpty() || LastPass != StoredPassword )
 						{
-							FirstPlayer->Reconnect(bNeedSpectator);
+							bReconnectAtNextTick = true;
+							bReconnectAtNextTickNeedSpectator = bNeedSpectator;
+
 							return;
 						}
 					}
@@ -754,6 +757,12 @@ void UUTGameViewportClient::Tick(float DeltaSeconds)
 	else
 	{
 		GEngine->GameViewport->bDisableWorldRendering = false;
+	}
+
+	if (bReconnectAtNextTick && FirstPlayer)
+	{
+		FirstPlayer->Reconnect(bReconnectAtNextTickNeedSpectator);
+		bReconnectAtNextTick = false;
 	}
 }
 

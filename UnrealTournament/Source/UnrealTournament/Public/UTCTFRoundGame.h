@@ -89,4 +89,19 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void BroadcastVictoryConditions();
 
+	TAssetSubclassOf<class AUTArmor> ShieldBeltObject;
+	TAssetSubclassOf<class AUTArmor> ThighPadObject;
+	TAssetSubclassOf<class AUTTimedPowerup> UDamageObject;
+
+	UPROPERTY()
+		TSubclassOf<class AUTArmor> ShieldBeltClass;
+
+	UPROPERTY()
+		TSubclassOf<class AUTArmor> ThighPadClass;
+
+	UPROPERTY()
+		TSubclassOf<class AUTTimedPowerup> UDamageClass;
+
+	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
+	virtual void ToggleSpecialFor(AUTCharacter* C) override;
 };

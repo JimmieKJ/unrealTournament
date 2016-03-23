@@ -1545,27 +1545,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 		}
 
-		// Set the ranks/etc so the player card is right.
-		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-		if (UTBasePlayer != NULL)
-		{
-			UTBasePlayer->ServerReceiveStars(GetTotalChallengeStars());
-			// TODO: should this be in BasePlayerController?
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
-			if (UTPC != NULL)
-			{
-				UTPC->ServerReceiveCountryFlag(GetCountryFlag());
-			}
-			else
-			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTBasePlayer->PlayerState);
-				if (UTPS != NULL)
-				{
-					UTPS->CountryFlag = GetCountryFlag();
-				}
-			}
-		}
-
 		EpicFlagCheck();
 
 		PlayerNickname = GetAccountDisplayName().ToString();
@@ -4689,20 +4668,36 @@ void UUTLocalPlayer::CachePassword(FString HostAddress, FString Password, bool b
 
 FString UUTLocalPlayer::RetrievePassword(FString HostAddress, bool bSpectator)
 {
+	FString StrippedHostAddress = StripOptionsFromAddress(HostAddress);
+
 	if (bSpectator)
 	{
-		if (CachedSpecPasswords.Contains(HostAddress))
+		if (CachedSpecPasswords.Contains(StrippedHostAddress))
 		{
-			return FString::Printf(TEXT("%s"), *CachedSpecPasswords[HostAddress]);
+			return FString::Printf(TEXT("%s"), *CachedSpecPasswords[StrippedHostAddress]);
 		}
 	}
-	else if (CachedPasswords.Contains(HostAddress))
+	else if (CachedPasswords.Contains(StrippedHostAddress))
 	{
-		return FString::Printf(TEXT("%s"), *CachedPasswords[HostAddress]);
+		return FString::Printf(TEXT("%s"), *CachedPasswords[StrippedHostAddress]);
 	}
 	return TEXT("");
 }
 
+FString UUTLocalPlayer::StripOptionsFromAddress(FString HostAddress) const
+{
+	const TCHAR OptionCharacter = '?';
+
+	int OptionStartIndex = 0;
+	HostAddress.FindChar(OptionCharacter, OptionStartIndex);
+
+	if (OptionStartIndex > 0)
+	{
+		return HostAddress.Left(OptionStartIndex);
+	}
+
+	return HostAddress;
+}
 
 void UUTLocalPlayer::Reconnect(bool bSpectator)
 {
@@ -4726,6 +4721,27 @@ void UUTLocalPlayer::EpicFlagCheck()
 		CurrentProfileSettings->CountryFlag = FName(TEXT("Epic"));
 		CurrentProfileSettings->bForcedToEpicAtLeastOnce = true;
 		SaveProfileSettings();
+	}
+
+	// Set the ranks/etc so the player card is right.
+	AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
+	if (UTBasePlayer != NULL)
+	{
+		UTBasePlayer->ServerReceiveStars(GetTotalChallengeStars());
+		// TODO: should this be in BasePlayerController?
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
+		if (UTPC != NULL)
+		{
+			UTPC->ServerReceiveCountryFlag(GetCountryFlag());
+		}
+		else
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTBasePlayer->PlayerState);
+			if (UTPS != NULL)
+			{
+				UTPS->CountryFlag = GetCountryFlag();
+			}
+		}
 	}
 }
 
@@ -4914,8 +4930,12 @@ void UUTLocalPlayer::FocusWidget(TSharedPtr<SWidget> WidgetToFocus)
 
 FText UUTLocalPlayer::GetUIChatTextBackBuffer(int Direction)
 {
-	UIChatTextBackBufferPosition = FMath::Clamp<int32>(UIChatTextBackBufferPosition + Direction, 0, UIChatTextBackBuffer.Num()-1);
-	return (UIChatTextBackBuffer.Num() > UIChatTextBackBufferPosition) ? UIChatTextBackBuffer[UIChatTextBackBufferPosition] : FText::GetEmpty();
+	if (UIChatTextBackBuffer.Num() > 0)
+	{
+		UIChatTextBackBufferPosition = FMath::Clamp<int32>(UIChatTextBackBufferPosition + Direction, 0, UIChatTextBackBuffer.Num()-1);
+		return UIChatTextBackBuffer[UIChatTextBackBufferPosition];
+	}
+	return FText::GetEmpty();
 }
 
 void UUTLocalPlayer::UpdateUIChatTextBackBuffer(const FText& NewText)

@@ -689,8 +689,28 @@ void AUTPlayerController::NextWeapon()
 	SwitchWeaponInSequence(false);
 }
 
+bool AUTPlayerController::ServerToggleSpecial_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerToggleSpecial_Implementation()
+{
+	AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (UTGM && UTCharacter)
+	{
+		UTGM->ToggleSpecialFor(UTCharacter);
+	}
+}
+
 void AUTPlayerController::ToggleTranslocator()
 {
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTCharacter && UTGameState && UTGameState->bOverrideToggle)
+	{
+		ServerToggleSpecial();
+		return;
+	}
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
 		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;

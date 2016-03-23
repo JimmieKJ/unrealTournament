@@ -546,6 +546,10 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	FName Avatar;
 
+	/*  Used to determine whether boost can be triggered. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		uint8 RemainingBoosts;
+
 private:
 	UPROPERTY()
 	UObject* McpProfile;

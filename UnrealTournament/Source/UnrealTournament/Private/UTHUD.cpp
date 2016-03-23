@@ -563,10 +563,11 @@ void AUTHUD::DrawHUD()
 				if (ShouldDrawMinimap())
 				{
 					bool bSpectatingMinimap = UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives);
-					float MapScale = bSpectatingMinimap ? 0.75f : 0.25f;
+					float MapScale = (bSpectatingMinimap ? 0.75f : 0.25f) * HUDMinimapScale();
 					const float MapSize = float(Canvas->SizeY) * MapScale;
 					uint8 MapAlpha = bSpectatingMinimap ? 210 : 100;
-					DrawMinimap(FColor(192, 192, 192, MapAlpha), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
+					const float YOffsetToMaintainPosition = MapSize * MinimapOffset.Y * -.5f;
+					DrawMinimap(FColor(192, 192, 192, MapAlpha), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, YOffsetToMaintainPosition));
 				}
 				if (bDrawDamageNumbers)
 				{
@@ -1175,7 +1176,7 @@ bool AUTHUD::ShouldInvertMinimap()
 
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
-	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * HUDMinimapScale();
 	bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 	{
@@ -1213,7 +1214,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 
 void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow)
 {
-	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * HUDMinimapScale();
 	float Height = DrawSize.X * RenderScale;
 	float Width = DrawSize.Y * RenderScale;
 	FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
@@ -1332,6 +1333,11 @@ bool AUTHUD::bPlayKillSoundMsg()
 bool AUTHUD::bDrawCTFMinimapHUDSetting()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCTFMinimapHUDSetting : true;
+}
+
+float AUTHUD::HUDMinimapScale()
+{
+	return VerifyProfileSettings() ? CachedProfileSettings->HUDMinimapScale : 1.0f;
 }
 
 float AUTHUD::QuickStatsAngle()

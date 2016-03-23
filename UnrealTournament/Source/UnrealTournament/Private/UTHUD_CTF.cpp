@@ -46,7 +46,7 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 	AUTCTFGameState* GS = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
 	if (GS == NULL) return;
 
-	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	const float RenderScale = ( float(Canvas->SizeY) / 1080.0f) * HUDMinimapScale();
 	bool bShowAllFlags = UTPlayerOwner && UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bOnlySpectator;
 
 	for (int32 TeamIndex = 0; TeamIndex < 2; TeamIndex++)

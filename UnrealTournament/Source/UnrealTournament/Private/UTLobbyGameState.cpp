@@ -810,7 +810,9 @@ AUTReplicatedMapInfo* AUTLobbyGameState::GetMapInfo(FString MapPackageName)
 {
 	for (int32 j = 0; j < AllMapsOnServer.Num(); j++)
 	{
-		if (AllMapsOnServer[j] && AllMapsOnServer[j]->MapPackageName == MapPackageName)
+		if ( (AllMapsOnServer[j] && AllMapsOnServer[j]->MapPackageName == MapPackageName) ||
+			 (AllMapsOnServer[j] && AllMapsOnServer[j]->MapAssetName == MapPackageName) )
+
 		{
 			return AllMapsOnServer[j];
 		}

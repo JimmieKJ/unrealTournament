@@ -9019,7 +9019,7 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 			BroadcastNetworkFailure(NULL, Context.PendingNetGame->NetDriver, ENetworkFailure::PendingConnectionFailure, Context.PendingNetGame->ConnectionError);
 			CancelPending(Context);
 		}
-		else if( Context.PendingNetGame && Context.PendingNetGame->bSuccessfullyConnected && !Context.PendingNetGame->bSentJoinRequest )
+		else if (Context.PendingNetGame && Context.PendingNetGame->bSuccessfullyConnected && !Context.PendingNetGame->bSentJoinRequest && (Context.OwningGameInstance == NULL || !Context.OwningGameInstance->DelayPendingNetGameTravel()))
 		{
 			if (!MakeSureMapNameIsValid(Context.PendingNetGame->URL.Map))
 			{

@@ -945,7 +945,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 		}
-		else if (IsRagdoll())
+		else
 		{
 			FVector HitLocation = GetMesh()->GetComponentLocation();
 			if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
@@ -960,7 +960,10 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					HitLocation = RadialEvent.ComponentHits[0].Location;
 				}
 			}
-			GetMesh()->AddImpulseAtLocation(ResultMomentum, HitLocation);
+			if (IsRagdoll())
+			{
+				GetMesh()->AddImpulseAtLocation(ResultMomentum, HitLocation);
+			}
 			if (GetNetMode() != NM_DedicatedServer)
 			{
 				Health -= int32(Damage);
@@ -1369,6 +1372,11 @@ void AUTCharacter::AnnounceShred(AUTPlayerController *KillerPC)
 
 void AUTCharacter::StartRagdoll()
 {
+	if (IsActorBeingDestroyed() || !GetMesh()->IsRegistered())
+	{
+		return;
+	}
+
 	// force standing
 	UTCharacterMovement->UnCrouch(true);
 	if (RootComponent == GetMesh() && GetMesh()->IsSimulatingPhysics())
@@ -1607,7 +1615,13 @@ void AUTCharacter::PlayDying()
 						AnimInstance->Montage_SetBlendingOutDelegate(EndDelegate);
 					}
 				}
-				if (!bPlayedDeathAnim)
+				if (bPlayedDeathAnim)
+				{
+					GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+					GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
+					GetCapsuleComponent()->SetCollisionResponseToChannel(COLLISION_TRANSDISK, ECR_Ignore);
+				}
+				else
 				{
 					StartRagdoll();
 				}
