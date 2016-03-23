@@ -4933,7 +4933,7 @@ FText UUTLocalPlayer::GetUIChatTextBackBuffer(int Direction)
 	if (UIChatTextBackBuffer.Num() > 0)
 	{
 		UIChatTextBackBufferPosition = FMath::Clamp<int32>(UIChatTextBackBufferPosition + Direction, 0, UIChatTextBackBuffer.Num()-1);
-		return (UIChatTextBackBuffer.Num() > UIChatTextBackBufferPosition) ? UIChatTextBackBuffer[UIChatTextBackBufferPosition] : FText::GetEmpty();
+		return UIChatTextBackBuffer[UIChatTextBackBufferPosition];
 	}
 	return FText::GetEmpty();
 }
