@@ -2389,6 +2389,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		BuildStatsInfo()
 	]);
 
+#if 0
 	// Would be great if this worked on remote players
 	if (LP)
 	{
@@ -2401,6 +2402,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			BuildLeagueInfo()
 		]);
 	}
+#endif
 }
 
 FText AUTPlayerState::GetTrainingLevelText()

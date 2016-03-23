@@ -36,6 +36,7 @@ void UUTGameInstance::Init()
 
 	if (!IsDedicatedServerInstance())
 	{
+#if 0
 		// handles all matchmaking in game
 		Matchmaking = NewObject<UUTMatchmaking>(this);
 		check(Matchmaking);
@@ -51,6 +52,7 @@ void UUTGameInstance::Init()
 			Party->Init();
 		}
 		PlaylistManager = NewObject<UUTPlaylistManager>(this);
+#endif
 	}
 	else
 	{
