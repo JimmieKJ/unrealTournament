@@ -100,7 +100,6 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("FireInstantHit"));
 		float DamageMult = FMath::Min<float>(ChargedMode->ChargeTime / FullChargeTime, 1.0f);
 
 		const FVector SpawnLocation = GetFireStartLoc();
@@ -146,7 +145,6 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		{
 			if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged)
 			{
-				UE_LOG(UT, Warning, TEXT("IMPACT DAMAGE"));
 				// if we're against another hammer impacting, then player who is aiming most towards target center should win
 				if (Role == ROLE_Authority)
 				{
@@ -225,7 +223,6 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 void AUTWeap_ImpactHammer::ClientAutoHit_Implementation(AActor* Target)
 {
-	UE_LOG(UT, Warning, TEXT("Client Autohit"));
 	if (UTOwner != NULL)
 	{
 		UUTWeaponStateFiringCharged* ChargedMode = Cast<UUTWeaponStateFiringCharged>(CurrentState);
@@ -280,7 +277,6 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 				}
 				if (Hit.Actor.IsValid() && AllowAutoHit(Hit.Actor.Get()))
 				{
-					UE_LOG(UT, Warning, TEXT("Server AutoHit"));
 					AutoHitTarget = Hit.Actor.Get();
 					if (!UTOwner->IsLocallyControlled())
 					{

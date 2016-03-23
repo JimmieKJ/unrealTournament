@@ -53,7 +53,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
-		SAssignNew(MainOverlay,SOverlay)
+		SAssignNew(MainOverlay, SOverlay)
 		.Visibility(this, &SUTReplayWindow::GetVis)
 		+ SOverlay::Slot()
 		[
@@ -123,19 +123,19 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 						+ SVerticalBox::Slot()
 						.HAlign(HAlign_Fill)
 						.AutoHeight()
-						.Padding(0.0f,0.0f,0.0f,10.0f)
+						.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 						[
 							SAssignNew(TimeSlider, SUTProgressSlider)
 							.Value(this, &SUTReplayWindow::GetTimeSlider)
 							.TotalValue(this, &SUTReplayWindow::GetTimeSliderLength)
 							.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
 							.SliderBarColor(FColor(33, 93, 220))
-							.SliderBarBGColor(FLinearColor(0.05f,0.05f,0.05f))
+							.SliderBarBGColor(FLinearColor(0.05f, 0.05f, 0.05f))
 						]
 						+ SVerticalBox::Slot()
 						.HAlign(HAlign_Fill)
 						.AutoHeight()
-						.Padding(50.0f,0.0f)
+						.Padding(50.0f, 0.0f)
 						[
 							//The current / total time
 							SNew(SUniformGridPanel)
@@ -168,7 +168,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
-									[		
+									[
 										MakeMarkRecordStopButton()
 									]
 									+ SHorizontalBox::Slot()
@@ -180,7 +180,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
-									[									
+									[
 										SNew(SVerticalBox)
 										+ SVerticalBox::Slot()
 										.HAlign(HAlign_Fill)
@@ -204,7 +204,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
-									[									
+									[
 										SNew(SVerticalBox)
 										+ SVerticalBox::Slot()
 										.HAlign(HAlign_Fill)
@@ -229,28 +229,28 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
-									[									
-										SNew(SVerticalBox)
-										+ SVerticalBox::Slot()
-										.HAlign(HAlign_Fill)
-										.AutoHeight()
-										[
-											SNew(SBox)
-											.HeightOverride(32)
-											.WidthOverride(32)
-											[
-												SAssignNew(MarkEndButton, SButton)
-												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-												.OnClicked(this, &SUTReplayWindow::OnCommentButtonClicked)
-												.Content()
-												[
-													SNew(SImage)
-													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Comment"))
-												]
-											]
-										]
+									[
+									SNew(SVerticalBox)
+									+ SVerticalBox::Slot()
+									.HAlign(HAlign_Fill)
+									.AutoHeight()
+									[
+									SNew(SBox)
+									.HeightOverride(32)
+									.WidthOverride(32)
+									[
+									SAssignNew(MarkEndButton, SButton)
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+									.OnClicked(this, &SUTReplayWindow::OnCommentButtonClicked)
+									.Content()
+									[
+									SNew(SImage)
+									.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Comment"))
+									]
+									]
+									]
 									]*/
-									+ SHorizontalBox::Slot()
+									+SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
 									.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -291,7 +291,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									.Image(this, &SUTReplayWindow::GetPlayButtonBrush)
 								]
 							]
-			
+
 							//Speed Control
 							+ SUniformGridPanel::Slot(2, 0)
 							.HAlign(HAlign_Right)
@@ -350,8 +350,19 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 		}
 	}
 
+	EnumerateEvents();
+}
+
+void SUTReplayWindow::EnumerateEvents()
+{
 	if (DemoNetDriver.IsValid())
 	{
+		if (DemoNetDriver->ReplayStreamer.IsValid() && DemoNetDriver->ReplayStreamer->IsLive())
+		{
+			FTimerHandle ThrowawayHandle;
+			PlayerOwner->GetWorld()->GetTimerManager().SetTimer(ThrowawayHandle, FTimerDelegate::CreateSP(this, &SUTReplayWindow::EnumerateEvents), 30.0f, false);
+		}
+
 		FEnumerateEventsCompleteDelegate EnumKills = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::KillsEnumerated);
 		FEnumerateEventsCompleteDelegate EnumFlagCaps = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::FlagCapsEnumerated);
 		FEnumerateEventsCompleteDelegate EnumFlagReturns = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::FlagReturnsEnumerated);
@@ -1142,40 +1153,76 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 
 void SUTReplayWindow::RefreshBookmarksComboBox()
 {
+	TSharedPtr<FString> SelectedItem = BookmarksComboBox->GetSelectedItem();
+
 	BookmarkNameList.Empty();
 	TSharedPtr<FString> DefaultVariant = MakeShareable(new FString(TEXT("Bookmarks")));
 	BookmarkNameList.Add(DefaultVariant);
-	BookmarksComboBox->SetSelectedItem(DefaultVariant);
 
 	if (KillEvents.Num())
 	{
 		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Kills")));
 		BookmarkNameList.Add(BookmarkName);
+
+		if (SelectedItem.IsValid() && *BookmarkName == *SelectedItem)
+		{
+			BookmarksComboBox->SetSelectedItem(BookmarkName);
+		}
 	}
 	if (FlagCapEvents.Num())
 	{
 		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Captures")));
 		BookmarkNameList.Add(BookmarkName);
+
+		if (SelectedItem.IsValid() && *BookmarkName == *SelectedItem)
+		{
+			BookmarksComboBox->SetSelectedItem(BookmarkName);
+		}
 	}
 	if (FlagDenyEvents.Num())
 	{
 		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Denies")));
 		BookmarkNameList.Add(BookmarkName);
+
+		if (SelectedItem.IsValid() && *BookmarkName == *SelectedItem)
+		{
+			BookmarksComboBox->SetSelectedItem(BookmarkName);
+		}
 	}
 	if (FlagReturnEvents.Num())
 	{
 		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Returns")));
 		BookmarkNameList.Add(BookmarkName);
+
+		if (SelectedItem.IsValid() && *BookmarkName == *SelectedItem)
+		{
+			BookmarksComboBox->SetSelectedItem(BookmarkName);
+		}
 	}
 	if (MultiKillEvents.Num())
 	{
 		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Multi Kills")));
 		BookmarkNameList.Add(BookmarkName);
+
+		if (SelectedItem.IsValid() && *BookmarkName == *SelectedItem)
+		{
+			BookmarksComboBox->SetSelectedItem(BookmarkName);
+		}
 	}
 	if (SpreeKillEvents.Num())
 	{
 		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Spree Kills")));
 		BookmarkNameList.Add(BookmarkName);
+
+		if (SelectedItem.IsValid() && *BookmarkName == *SelectedItem)
+		{
+			BookmarksComboBox->SetSelectedItem(BookmarkName);
+		}
+	}
+
+	if (!SelectedItem.IsValid())
+	{
+		BookmarksComboBox->SetSelectedItem(DefaultVariant);
 	}
 }
 

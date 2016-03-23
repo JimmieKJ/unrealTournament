@@ -87,5 +87,8 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 		return !bShowScores;
 	}
 
+	virtual FVector GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow);
+
+	virtual void DrawEdgeArrow(FVector ScreenPosition, float CurrentWorldAlpha, float WorldRenderScale, int32 Team);
 
 };

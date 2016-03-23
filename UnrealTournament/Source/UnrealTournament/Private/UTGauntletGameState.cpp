@@ -4,7 +4,7 @@
 #include "UTGauntletGameState.h"
 #include "UTGauntletFlag.h"
 #include "UTGauntletGameMessage.h"
-#include "UTCountdownMessage.h"
+#include "UTCountDownMessage.h"
 #include "Net/UnrealNetwork.h"
 
 AUTGauntletGameState::AUTGauntletGameState(const FObjectInitializer& ObjectInitializer)

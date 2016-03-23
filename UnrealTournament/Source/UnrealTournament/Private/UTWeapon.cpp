@@ -106,6 +106,9 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	AmmoWarningAmount = 5;
 	AmmoDangerAmount = 2;
+
+	LowAmmoSoundDelay = 0.2f;
+	LowAmmoThreshold = 3;
 }
 
 void AUTWeapon::PostInitProperties()
@@ -814,9 +817,16 @@ void AUTWeapon::PlayFiringEffects()
 		}
 
 		// reload sound on local shooter
-		if ((GetNetMode() != NM_DedicatedServer) && UTOwner && UTOwner->GetLocalViewer() && ReloadSound.IsValidIndex(EffectFiringMode) && ReloadSound[EffectFiringMode] != NULL)
+		if ((GetNetMode() != NM_DedicatedServer) && UTOwner && UTOwner->GetLocalViewer())
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), ReloadSound[EffectFiringMode], UTOwner, SRT_None);
+			if (ReloadSound.IsValidIndex(EffectFiringMode) && ReloadSound[EffectFiringMode] != NULL)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), ReloadSound[EffectFiringMode], UTOwner, SRT_None);
+			}
+			if ((Ammo <= LowAmmoThreshold) && (Ammo > 0) && (LowAmmoSound != nullptr))
+			{
+				GetWorldTimerManager().SetTimer(PlayLowAmmoSoundHandle, this, &AUTWeapon::PlayLowAmmoSound, LowAmmoSoundDelay, false);
+			}
 		}
 
 		if (ShouldPlay1PVisuals() && GetWeaponHand() != EWeaponHand::HAND_Hidden)
@@ -836,6 +846,11 @@ void AUTWeapon::PlayFiringEffects()
 			}
 		}
 	}
+}
+
+void AUTWeapon::PlayLowAmmoSound()
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), LowAmmoSound, UTOwner, SRT_None);
 }
 
 void AUTWeapon::StopFiringEffects()

@@ -57,7 +57,7 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, f
 
 	//Draw Kill Text
 	FVector2D TextSize = FVector2D(0, 0);
-	if (UTHUDOwner->bDrawCenteredKillMsg)
+	if (UTHUDOwner->bDrawCenteredKillMsg())
 	{
 		ShadowDirection = (MessageQueue[QueueIndex].DisplayFont == MessageFont) ? LargeShadowDirection : SmallShadowDirection;
 		TextSize = DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), 1.0f /*alpha*/, MessageQueue[QueueIndex].DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Center, ETextVertPos::Center);
@@ -74,7 +74,7 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, f
 		float YL = FMath::Abs(DmgType->HUDIcon.VL) * GetTextScale(QueueIndex);
 
 		//Move X so we are rendering after text
-		if (UTHUDOwner->bDrawCenteredKillMsg)
+		if (UTHUDOwner->bDrawCenteredKillMsg())
 		{
 			X += (TextSize.X / 2) + PaddingBetweenTextAndDamageIcon;
 		}
@@ -82,7 +82,7 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, f
 		////Center message on Y
 		Y -= (YL / 2);
 
-		DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->HUDWidgetOpacity);
+		DrawTexture(DmgType->HUDIcon.Texture, X, Y, XL, YL, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, UTHUDOwner->HUDWidgetOpacity());
 	}
 }
 

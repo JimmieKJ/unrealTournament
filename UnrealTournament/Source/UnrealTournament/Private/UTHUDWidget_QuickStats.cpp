@@ -29,7 +29,7 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	return (!bShowScores && UTC && !UTC->IsDead());
+	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->bQuickStatsHidden());
 }
 
 FVector2D UUTHUDWidget_QuickStats::CalcDrawLocation(float DistanceInPixels, float Angle)
@@ -62,17 +62,16 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 {
 	// Look to see if we should draw the ammo...
 
-	UUTProfileSettings* ProfileSettings = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
-	
-	DrawAngle = ProfileSettings ? ProfileSettings->QuickStatsAngle : 180.0f;
+	DrawAngle = InUTHUDOwner->QuickStatsAngle();
 
-	float DrawDistance = ProfileSettings ? ProfileSettings->QuickStatsDistance : 0.2f;
-	FName DisplayTag = ProfileSettings ? ProfileSettings->QuickStatsType : NAME_None;
+	float DrawDistance = InUTHUDOwner->QuickStatsDistance();
+	FName DisplayTag = InUTHUDOwner->QuickStatsType();
+	DrawScale = InUTHUDOwner->QuickStatScaleOverride();
 
-	HorizontalBackground.RenderOpacity = ProfileSettings ? ProfileSettings->QuickStatBackgroundAlpha : 0.15f;
-	VerticalBackground.RenderOpacity = ProfileSettings ? ProfileSettings->QuickStatBackgroundAlpha : 0.15f;
+	HorizontalBackground.RenderOpacity = InUTHUDOwner->QuickStatsBackgroundAlpha();
+	VerticalBackground.RenderOpacity = InUTHUDOwner->QuickStatsBackgroundAlpha();
 
-	ForegroundOpacity = ProfileSettings ? ProfileSettings->QuickStatForegroundAlpha : 1.0f;
+	ForegroundOpacity = InUTHUDOwner->QuickStatsForegroundAlpha();
 
 	if (DisplayTag != NAME_None && DisplayTag != CurrentLayoutTag)
 	{
@@ -93,7 +92,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	if (CharOwner)
 	{
-		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0)
+		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && (InUTHUDOwner->bQuickStatsBob()))
 		{
 			RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
 			RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;
@@ -224,14 +223,6 @@ void UUTHUDWidget_QuickStats::DrawStat(FVector2D StatOffset, FStatInfo& Info, FL
 	{
 		VerticalBackground.RenderColor = Info.BackgroundColor;
 		RenderObj_Texture(VerticalBackground, StatOffset);
-/*
-		if (Info.HighlightLevel > 0)
-		{
-			VerticalHighlight.RenderColor = Info.HighlightLevel == 1 ? FLinearColor(0.8f,0.8f,0.22f,1.0f) : FLinearColor(0.82f,0.0f,0.0f,1.0f);
-			RenderObj_Texture(VerticalHighlight, StatOffset);
-		}
-*/
-
 	}
 
 	Icon.RenderScale = Info.Scale;
@@ -274,4 +265,10 @@ FLinearColor UUTHUDWidget_QuickStats::InterpColor(FLinearColor DestinationColor,
 	float B = FMath::Lerp(DestinationColor.B, 0.0f, AlphaSin);
 	return FLinearColor(R, G, B, 1.0f);
 }
+
+float UUTHUDWidget_QuickStats::GetDrawScaleOverride()
+{
+	return Super::GetDrawScaleOverride() * DrawScale;
+}
+
 

@@ -1448,6 +1448,7 @@ void AUTCharacter::StopRagdoll()
 	}
 
 	UTCharacterMovement->Velocity = GetMesh()->GetComponentVelocity();
+	UTCharacterMovement->PendingLaunchVelocity = FVector::ZeroVector;
 
 	GetCapsuleComponent()->DetachFromParent(true);
 	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;
@@ -2663,14 +2664,14 @@ void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 				else if (PendingWeapon != NULL)
 				{
 					// switching back to weapon that was on its way down
-					SetPendingWeapon(PendingWeapon);
+					SetPendingWeapon(NULL);
 					Weapon->BringUp();
 				}
 			}
 			else if (Weapon != NULL && PendingWeapon != NULL && PendingWeapon->PutDown())
 			{
 				// stopping weapon switch in progress by passing NULL
-				SetPendingWeapon(PendingWeapon);
+				SetPendingWeapon(NULL);
 				Weapon->BringUp();
 			}
 		}

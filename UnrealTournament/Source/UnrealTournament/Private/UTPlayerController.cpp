@@ -3067,7 +3067,11 @@ bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
 
 void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 {
-	if (UTPlayerState != nullptr)
+	if ((UTCharacter == nullptr) && UTPlayerState && (UTPlayerState->ReadyMode == 3))
+	{
+		UTPlayerState->ReadyMode = 5;
+	}
+	else if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->PlayTauntByIndex(EmoteIndex);
 	}

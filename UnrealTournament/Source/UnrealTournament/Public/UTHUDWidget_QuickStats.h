@@ -101,6 +101,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
 	FHUDRenderObject_Text TextTemplate;
 
+	virtual float GetDrawScaleOverride();
+
 private:
 	FName CurrentLayoutTag;
 	int32 CurrentLayoutIndex;
@@ -119,6 +121,8 @@ private:
 
 	// The Draw Angle this frame
 	float DrawAngle;
+
+	float DrawScale;
 
 	FLinearColor WeaponColor;
 	float ForegroundOpacity;

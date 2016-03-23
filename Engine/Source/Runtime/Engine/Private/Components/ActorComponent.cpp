@@ -1100,7 +1100,7 @@ void UActorComponent::ExecuteUnregisterEvents()
 	if(bPhysicsStateCreated)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_ComponentDestroyPhysicsState);
-		check(bRegistered); // should not have physics state unless we are registered
+		checkf(bRegistered, TEXT("Failed to route OnRegister (%s)"), *GetFullName()); // should not have physics state unless we are registered
 		DestroyPhysicsState();
 		checkf(!bPhysicsStateCreated, TEXT("Failed to route DestroyPhysicsState (%s)"), *GetFullName());
 		checkf(!HasValidPhysicsState(), TEXT("Failed to destroy physics state (%s)"), *GetFullName());

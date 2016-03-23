@@ -691,7 +691,7 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 		}
 	}
 
-	float NewOpacity = UTHUDOwner->HUDWidgetOpacity * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->HUDWidgetSlateOpacity : 1.0f); 
+	float NewOpacity = UTHUDOwner->HUDWidgetOpacity() * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity() : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->HUDWidgetSlateOpacity() : 1.0f); 
 
 	DrawTexture(TextureObject.Atlas, 
 						X, 
@@ -730,7 +730,7 @@ FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, floa
 				TextObject.bDrawOutline, 
 				TextObject.OutlineColor, 
 				TextObject.TextScale, 
-				TextObject.RenderOpacity * UTHUDOwner->HUDWidgetOpacity, 
+				TextObject.RenderOpacity * UTHUDOwner->HUDWidgetOpacity(), 
 				TextObject.RenderColor, 
 				TextObject.BackgroundColor,
 				TextObject.HorzPosition, 
@@ -739,7 +739,7 @@ FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, floa
 
 float UUTHUDWidget::GetDrawScaleOverride()
 {
-	return (UTHUDOwner) ? UTHUDOwner->HUDWidgetScaleOverride : 1.0;
+	return (UTHUDOwner) ? UTHUDOwner->HUDWidgetScaleOverride() : 1.0f;
 }
 
 UWorld* UUTHUDWidget::GetWorld() const

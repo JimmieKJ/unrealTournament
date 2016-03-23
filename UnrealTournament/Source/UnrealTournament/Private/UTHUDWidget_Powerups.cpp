@@ -53,7 +53,7 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 					false,
 					FLinearColor::Black,
 					ScaleFactor,
-					UTHUDOwner->HUDWidgetOpacity,
+					UTHUDOwner->HUDWidgetOpacity(),
 					FLinearColor::White,
 					FLinearColor(0.0f,0.0f,0.0f,0.0f),
 					ETextHorzPos::Left,
