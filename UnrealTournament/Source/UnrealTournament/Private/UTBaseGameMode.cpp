@@ -92,13 +92,39 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
 	bTrainingGround = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("TG")), bTrainingGround);
 
+	if (UGameplayStatics::HasOption(Options, TEXT("ServerName")))
+	{
+		ServerNameOverride = UGameplayStatics::ParseOption(Options, TEXT("ServerName"));
+		if (!ServerNameOverride.IsEmpty())
+		{
+			ServerNameOverride = ServerNameOverride.Replace(TEXT("\""), TEXT(""));		
+		}
+	}
+	else
+	{
+		ServerNameOverride = TEXT("");
+	}
+
+
 	if (bTrainingGround)
 	{
 		UE_LOG(UT,Log,TEXT("=== This is a Training Ground Server.  It will only be visibly to beginners ==="));
 	}
-	
+
+
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
 }
+
+void AUTBaseGameMode::InitGameState()
+{
+	Super::InitGameState();
+	AUTGameState* GS = Cast<AUTGameState>(GameState);
+	if (GS && !ServerNameOverride.IsEmpty())
+	{
+		GS->ServerName = ServerNameOverride;
+	}
+}
+
 
 FName AUTBaseGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination)
 {
