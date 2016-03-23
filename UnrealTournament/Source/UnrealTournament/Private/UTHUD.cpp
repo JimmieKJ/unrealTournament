@@ -1150,7 +1150,9 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 	if (bInvertMinimap)
 	{
 		ScaleFactor.Y *= -1.f;
+		ScaleFactor.X *= -1.f;
 		DrawPos.Y += MapSize;
+		DrawPos.X += MapSize;
 		MapToScreen = FTranslationMatrix(FVector(DrawPos, 0.0f) / ScaleFactor) * FScaleMatrix(ScaleFactor);
 	}
 	if (MinimapTexture != NULL)
@@ -1158,7 +1160,7 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 		Canvas->DrawColor = DrawColor;
 		if (bInvertMinimap)
 		{
-			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y - MapSize, MapSize, MapSize, 0.0f, MinimapTexture->GetSurfaceHeight(), MinimapTexture->GetSurfaceWidth(), -1.f *MinimapTexture->GetSurfaceHeight());
+			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X - MapSize, MapToScreen.GetOrigin().Y - MapSize, MapSize, MapSize, 0.0f, MinimapTexture->GetSurfaceHeight(), MinimapTexture->GetSurfaceWidth(), -1.f *MinimapTexture->GetSurfaceHeight());
 		}
 		else
 		{
@@ -1199,7 +1201,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 				}
 				FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
 				PlayerColor.A = 0.75f;
-				float IconRotation = bInvertMinimap ? -1.f*UTChar->GetActorRotation().Yaw + 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
+				float IconRotation = bInvertMinimap ? UTChar->GetActorRotation().Yaw - 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
 				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, IconRotation);
 
 				if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
