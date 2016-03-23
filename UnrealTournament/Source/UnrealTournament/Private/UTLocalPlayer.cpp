@@ -1545,27 +1545,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 		}
 
-		// Set the ranks/etc so the player card is right.
-		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-		if (UTBasePlayer != NULL)
-		{
-			UTBasePlayer->ServerReceiveStars(GetTotalChallengeStars());
-			// TODO: should this be in BasePlayerController?
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
-			if (UTPC != NULL)
-			{
-				UTPC->ServerReceiveCountryFlag(GetCountryFlag());
-			}
-			else
-			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTBasePlayer->PlayerState);
-				if (UTPS != NULL)
-				{
-					UTPS->CountryFlag = GetCountryFlag();
-				}
-			}
-		}
-
 		EpicFlagCheck();
 
 		PlayerNickname = GetAccountDisplayName().ToString();
@@ -4742,6 +4721,27 @@ void UUTLocalPlayer::EpicFlagCheck()
 		CurrentProfileSettings->CountryFlag = FName(TEXT("Epic"));
 		CurrentProfileSettings->bForcedToEpicAtLeastOnce = true;
 		SaveProfileSettings();
+	}
+
+	// Set the ranks/etc so the player card is right.
+	AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
+	if (UTBasePlayer != NULL)
+	{
+		UTBasePlayer->ServerReceiveStars(GetTotalChallengeStars());
+		// TODO: should this be in BasePlayerController?
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
+		if (UTPC != NULL)
+		{
+			UTPC->ServerReceiveCountryFlag(GetCountryFlag());
+		}
+		else
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTBasePlayer->PlayerState);
+			if (UTPS != NULL)
+			{
+				UTPS->CountryFlag = GetCountryFlag();
+			}
+		}
 	}
 }
 
