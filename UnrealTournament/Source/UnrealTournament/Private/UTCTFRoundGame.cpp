@@ -596,6 +596,7 @@ void AUTCTFRoundGame::ScoreOutOfLives(int32 WinningTeamIndex)
 			NewScoringPlay.bDefenseWon = true;
 			NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 			NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 0;
+			NewScoringPlay.RemainingTime = CTFGameState->GetClockTime();
 			CTFGameState->AddScoringPlay(NewScoringPlay);
 		}
 
