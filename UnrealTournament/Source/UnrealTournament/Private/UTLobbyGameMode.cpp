@@ -177,6 +177,12 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 		{
 			PS->DesiredFriendToJoin = FriendId;
 		}
+
+		FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Character"));
+		if (InOpt.Len() > 0)
+		{
+			PS->SetCharacter(InOpt);
+		}
 	}
 
 	return Result;

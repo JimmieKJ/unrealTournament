@@ -27,6 +27,7 @@
 #include "UTShowdownGame.h"
 #include "UTDuelGame.h"
 #include "UTDMGameMode.h"
+#include "UTLobbyGameMode.h"
 #include "UTTeamDMGameMode.h"
 #include "UTCTFBaseGame.h"
 #include "UTHUDWidget_NetInfo.h"
@@ -1156,7 +1157,7 @@ void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterP
 {
 #if WITH_EDITOR
 	// Don't allow character loading during join in progress right now, it causes poor performance
-	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || !GetWorld()->GetGameState()->HasMatchStarted()))
+	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || !GetWorld()->GetGameState()->HasMatchStarted() || (nullptr != GetWorld()->GetAuthGameMode<AUTLobbyGameMode>())))
 #else
 	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 #endif
