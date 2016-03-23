@@ -566,7 +566,55 @@ void FRazerChroma::Tick(float DeltaTime)
 			}
 		}
 
+		// Spectators and DM players are all on 255
+		int32 TeamNum = UTPC->GetTeamNum();
+
+		uint32 TeamColor = ORANGE;
+		if (TeamNum == 0)
+		{
+			TeamColor = RED;
+		}
+		else if (TeamNum == 1)
+		{
+			TeamColor = BLUE;
+		}
+
+		ChromaSDK::DEVICE_INFO_TYPE DeviceInfo;
+		Result = QueryDevice(BLACKWIDOW_CHROMA_TE, DeviceInfo);
+		bool bBlackWidowChromaTE = DeviceInfo.Connected ? true : false;
+
+		// On keyboards without numpads, don't draw the U
+		if (!bBlackWidowChromaTE)
+		{
+			Effect.Color[HIBYTE(RZKEY_NUMLOCK)][LOBYTE(RZKEY_NUMLOCK)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD7)][LOBYTE(RZKEY_NUMPAD7)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD4)][LOBYTE(RZKEY_NUMPAD4)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD1)][LOBYTE(RZKEY_NUMPAD1)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD2)][LOBYTE(RZKEY_NUMPAD2)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD9)][LOBYTE(RZKEY_NUMPAD9)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD6)][LOBYTE(RZKEY_NUMPAD6)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD3)][LOBYTE(RZKEY_NUMPAD3)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD_MULTIPLY)][LOBYTE(RZKEY_NUMPAD_MULTIPLY)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD_ADD)][LOBYTE(RZKEY_NUMPAD_ADD)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_NUMPAD_ENTER)][LOBYTE(RZKEY_NUMPAD_ENTER)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_PAGEUP)][LOBYTE(RZKEY_PAGEUP)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_PAGEDOWN)][LOBYTE(RZKEY_PAGEDOWN)] = TeamColor;
+			Effect.Color[HIBYTE(RZKEY_END)][LOBYTE(RZKEY_END)] = TeamColor;
+		}
+
 		Result = CreateKeyboardEffect(ChromaSDK::Keyboard::CHROMA_CUSTOM, &Effect, NULL);
+		
+		ChromaSDK::Headset::STATIC_EFFECT_TYPE HeadsetEffect = {};
+		HeadsetEffect.Color = TeamColor;
+		CreateHeadsetEffect(ChromaSDK::Headset::CHROMA_STATIC, &HeadsetEffect, NULL);
+
+		ChromaSDK::Mouse::STATIC_EFFECT_TYPE MouseEffect = {};
+		MouseEffect.Color = TeamColor;
+		CreateMouseEffect(ChromaSDK::Mouse::CHROMA_STATIC, &MouseEffect, NULL);
+
+		ChromaSDK::Mousepad::STATIC_EFFECT_TYPE MousepadEffect = {};
+		MousepadEffect.Color = TeamColor;
+		CreateMousepadEffect(ChromaSDK::Mousepad::CHROMA_STATIC, &MousepadEffect, NULL);
 	}
 	else
 	{
