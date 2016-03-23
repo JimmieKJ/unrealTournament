@@ -504,16 +504,12 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				PC->ChangeState(NAME_Spectating);
 				PC->ClientGotoState(NAME_Spectating);
 
-				AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
-				if (PS != NULL && PS->Team != NULL)
+				for (AController* Member : PS->Team->GetTeamMembers())
 				{
-					for (AController* Member : PS->Team->GetTeamMembers())
+					if (Member->GetPawn() != NULL)
 					{
-						if (Member->GetPawn() != NULL)
-						{
-							PC->ServerViewPlayerState(Member->PlayerState);
-							break;
-						}
+						PC->ServerViewPlayerState(Member->PlayerState);
+						break;
 					}
 				}
 			}
