@@ -310,7 +310,7 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 						SNew(SUTButton)
 						.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
 						.OnClicked(this, &SUTMatchSummaryPanel::OnSwitcherPrevious)
-						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","Previous","Previous Player or Team")))
+						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","Previous","Previous Player")))
 						.Content()
 						[
 							SNew(SImage)
@@ -325,7 +325,7 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 						SNew(SUTButton)
 						.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
 						.OnClicked(this, &SUTMatchSummaryPanel::OnSwitcherNext)
-						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","Next","Next Player or Team")))
+						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","Next","Next Player")))
 						.Content()
 						[
 							SNew(SImage)
@@ -339,13 +339,29 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 					[
 						SNew(SUTButton)
 						.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
-						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","TeamView","Team View")))
-						.OnClicked(this, &SUTMatchSummaryPanel::OnExpandViewClicked)
+						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","TeamViewRed","View Red Team")))
+						.OnClicked(this, &SUTMatchSummaryPanel::ViewRedTeam)
 						.Visibility(this, &SUTMatchSummaryPanel::GetTeamViewVis)
 						.Content()
 						[
 							SNew(SImage)
-							.Image(SUTStyle::Get().GetBrush("UT.Icon.ChangeTeam"))
+							.Image(SUTStyle::Get().GetBrush("UT.Icon.ChangeTeam.Red"))
+						]
+					]
+				]
+				+SHorizontalBox::Slot().AutoWidth().Padding(FMargin(5.0f,5.0f,5.0f,5.0f))
+				[
+					SNew(SBox).WidthOverride(66).HeightOverride(66)
+					[
+						SNew(SUTButton)
+						.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
+						.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTMatchSummaryPanel","TeamViewRed","View Blue Team")))
+						.OnClicked(this, &SUTMatchSummaryPanel::ViewBlueTeam)
+						.Visibility(this, &SUTMatchSummaryPanel::GetTeamViewVis)
+						.Content()
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.Icon.ChangeTeam.Blue"))
 						]
 					]
 				]
@@ -2216,25 +2232,28 @@ void SUTMatchSummaryPanel::ChangeViewingState(FName NewViewState)
 	ViewingState = NewViewState;
 }
 
-FReply SUTMatchSummaryPanel::OnExpandViewClicked()
+FReply SUTMatchSummaryPanel::ViewRedTeam()
 {
-	if (ViewingState == MatchSummaryViewState::ViewingSingle)
-	{
-		uint32 TeamToView = CurrentlyViewedCharacter->GetTeamNum();
-		if (TeamToView == 255)
-		{
-			TeamToView = 0;
-		}
-		ViewTeam(TeamToView);
-		ChangeViewingState(MatchSummaryViewState::ViewingTeam);
-	}
-
+	SwitchViewToTeam(0);
 	return FReply::Handled();
+}
+
+FReply SUTMatchSummaryPanel::ViewBlueTeam()
+{
+	SwitchViewToTeam(1);
+	return FReply::Handled();
+}
+
+void SUTMatchSummaryPanel::SwitchViewToTeam(uint32 TeamToView)
+{
+	ViewTeam(TeamToView);
+	ChangeViewingState(MatchSummaryViewState::ViewingTeam);
 }
 
 EVisibility SUTMatchSummaryPanel::GetTeamViewVis() const
 {
-	return (ViewingState == MatchSummaryViewState::ViewingSingle) ? EVisibility::Visible : EVisibility::Collapsed;
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	return (GameState && GameState->bTeamGame) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SUTMatchSummaryPanel::GetExitViewVis() const

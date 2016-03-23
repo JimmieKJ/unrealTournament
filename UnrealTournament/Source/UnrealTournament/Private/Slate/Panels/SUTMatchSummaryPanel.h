@@ -249,7 +249,9 @@ protected:
 
 public:
 	void ChangeViewingState(FName NewViewState);
-	FReply OnExpandViewClicked();
+	virtual void SwitchViewToTeam(uint32 TeamToView);
+	FReply ViewRedTeam();
+	FReply ViewBlueTeam();
 	void SetInitialCams();
 
 protected:
