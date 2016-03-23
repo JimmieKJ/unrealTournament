@@ -17,13 +17,7 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 
 	Avatar = FName("UT.Avatar.0");
 
-	QuickStatsAngle = 180;
-	QuickStatsDistance = 0.1f;
-	QuickStatsType = EQuickStatsLayouts::Arc;
-	QuickStatsBackgroundAlpha=0.15f;
-	QuickStatsForegroundAlpha=1.0f;
-	bQuickStatsHidden=false;
-	QuickStatsScaleOverride = 1.0f;
+	ResetHUD();
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()
