@@ -70,9 +70,8 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 		{
 			//Cull out players that are Replay Spectators
 			AUTDemoRecSpectator* DemoSpectatorController = Cast<AUTDemoRecSpectator>(GameState->PlayerArray[i]->GetOwner());
-			if (DemoSpectatorController == nullptr)
+			if (DemoSpectatorController == nullptr && !GameState->PlayerArray[i]->bOnlySpectator)
 			{
-
 				FString PlayerName = GameState->PlayerArray[i]->PlayerName;
 				FString PlayerScore = FString::Printf(TEXT("%i"), int32(GameState->PlayerArray[i]->Score));
 				FString UniqueID = GameState->PlayerArray[i]->UniqueId.IsValid() ? GameState->PlayerArray[i]->UniqueId->ToString() : TEXT("none");
