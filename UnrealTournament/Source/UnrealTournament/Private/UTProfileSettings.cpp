@@ -108,6 +108,7 @@ void UUTProfileSettings::ResetHUD()
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
 	bDrawCTFMinimapHUDSetting = true;
+	HUDMinimapScale = 1.0f;
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)

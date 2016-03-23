@@ -397,6 +397,9 @@ public:
 	UPROPERTY()
 	bool bDrawCTFMinimapHUDSetting;
 
+	UPROPERTY()
+	float HUDMinimapScale;
+
 	UFUNCTION(BlueprintCallable, Category=Hud)
 	void ResetHUD();
 
