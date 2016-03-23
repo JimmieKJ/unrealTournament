@@ -124,7 +124,7 @@ bool UUTGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWo
 	if (LocalPlayer != nullptr)
 	{
 		LocalPlayer->InvalidateLastSession();
-		LocalPlayer->LastConnectToIP = Cmd;
+		LocalPlayer->LastConnectToIP = LocalPlayer->StripOptionsFromAddress(Cmd);
 	}
 
 

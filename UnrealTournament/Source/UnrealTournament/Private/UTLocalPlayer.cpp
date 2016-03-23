@@ -4689,20 +4689,36 @@ void UUTLocalPlayer::CachePassword(FString HostAddress, FString Password, bool b
 
 FString UUTLocalPlayer::RetrievePassword(FString HostAddress, bool bSpectator)
 {
+	FString StrippedHostAddress = StripOptionsFromAddress(HostAddress);
+
 	if (bSpectator)
 	{
-		if (CachedSpecPasswords.Contains(HostAddress))
+		if (CachedSpecPasswords.Contains(StrippedHostAddress))
 		{
-			return FString::Printf(TEXT("%s"), *CachedSpecPasswords[HostAddress]);
+			return FString::Printf(TEXT("%s"), *CachedSpecPasswords[StrippedHostAddress]);
 		}
 	}
-	else if (CachedPasswords.Contains(HostAddress))
+	else if (CachedPasswords.Contains(StrippedHostAddress))
 	{
-		return FString::Printf(TEXT("%s"), *CachedPasswords[HostAddress]);
+		return FString::Printf(TEXT("%s"), *CachedPasswords[StrippedHostAddress]);
 	}
 	return TEXT("");
 }
 
+FString UUTLocalPlayer::StripOptionsFromAddress(FString HostAddress) const
+{
+	const TCHAR OptionCharacter = '?';
+
+	int OptionStartIndex = 0;
+	HostAddress.FindChar(OptionCharacter, OptionStartIndex);
+
+	if (OptionStartIndex > 0)
+	{
+		return HostAddress.Left(OptionStartIndex);
+	}
+
+	return HostAddress;
+}
 
 void UUTLocalPlayer::Reconnect(bool bSpectator)
 {

@@ -466,6 +466,8 @@ public:
 	virtual void ShowHUDSettings();
 	virtual void HideHUDSettings();
 
+	FString StripOptionsFromAddress(FString HostAddress) const;
+
 	// NOTE: These functions are for getting the user's ELO rating from the cloud.  This
 	// is temp code and will be changed so don't rely on it staying as is.
 private:

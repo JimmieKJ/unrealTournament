@@ -69,6 +69,9 @@ protected:
 	TSharedPtr<class SUTDialogBase> ReconnectDialog;
 	TSharedPtr<class SUTRedirectDialog> RedirectDialog;
 
+	bool bReconnectAtNextTick;
+	bool bReconnectAtNextTickNeedSpectator;
+
 	// Holds the IP/Port of the last connect so we can try to reconnect
 	FURL LastAttemptedURL;
 	float ReconnectAfterDownloadingMapDelay;
