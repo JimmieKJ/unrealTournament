@@ -4930,8 +4930,12 @@ void UUTLocalPlayer::FocusWidget(TSharedPtr<SWidget> WidgetToFocus)
 
 FText UUTLocalPlayer::GetUIChatTextBackBuffer(int Direction)
 {
-	UIChatTextBackBufferPosition = FMath::Clamp<int32>(UIChatTextBackBufferPosition + Direction, 0, UIChatTextBackBuffer.Num()-1);
-	return (UIChatTextBackBuffer.Num() > UIChatTextBackBufferPosition) ? UIChatTextBackBuffer[UIChatTextBackBufferPosition] : FText::GetEmpty();
+	if (UIChatTextBackBuffer.Num() > 0)
+	{
+		UIChatTextBackBufferPosition = FMath::Clamp<int32>(UIChatTextBackBufferPosition + Direction, 0, UIChatTextBackBuffer.Num()-1);
+		return (UIChatTextBackBuffer.Num() > UIChatTextBackBufferPosition) ? UIChatTextBackBuffer[UIChatTextBackBufferPosition] : FText::GetEmpty();
+	}
+	return FText::GetEmpty();
 }
 
 void UUTLocalPlayer::UpdateUIChatTextBackBuffer(const FText& NewText)
