@@ -83,6 +83,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		float PingedDuration;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
+		bool bShouldPingFlag;
+	
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
 	bool bCurrentlyPinged;
 

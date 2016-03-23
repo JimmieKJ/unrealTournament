@@ -309,6 +309,7 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->AutoReturnTime = 10.f; // fixmesteve make config
 			Flag->bGradualAutoReturn = true;
 			Flag->bDisplayHolderTrail = true;
+			Flag->bShouldPingFlag = true;
 			if (bAsymmetricVictoryConditions)
 			{
 				if (bRedToCap == (Flag->GetTeamNum() == 0))
