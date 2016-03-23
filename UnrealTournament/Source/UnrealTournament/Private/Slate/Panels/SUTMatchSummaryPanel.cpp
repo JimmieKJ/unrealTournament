@@ -2252,8 +2252,7 @@ void SUTMatchSummaryPanel::SwitchViewToTeam(uint32 TeamToView)
 
 EVisibility SUTMatchSummaryPanel::GetTeamViewVis() const
 {
-	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-	return (GameState && GameState->bTeamGame) ? EVisibility::Visible : EVisibility::Collapsed;
+	return (GameState.IsValid() && GameState->bTeamGame) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SUTMatchSummaryPanel::GetExitViewVis() const
