@@ -22,6 +22,8 @@
 #include "UTShowdownRewardMessage.h"
 #include "UTPlayerStart.h"
 #include "UTSkullPickup.h"
+#include "UTArmor.h"
+#include "UTTimedPowerup.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -49,7 +51,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	ShieldBeltObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ShieldBelt.Armor_ShieldBelt_C"));
 	ThighPadObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Armor/Armor_ThighPads.Armor_ThighPads_C"));
+	UDamageObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_UDamage_RCTF.BP_UDamage_RCTF_C"));
 }
+//589,0 45,39 HUDAtlas01
 
 void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
 {
@@ -80,6 +84,10 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	if (!ThighPadObject.IsNull())
 	{
 		ThighPadClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *ThighPadObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
+	}
+	if (!UDamageObject.IsNull())
+	{
+		UDamageClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *UDamageObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
 	// key options are ?Respawnwait=xx?RoundLives=xx?CTFMode=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx
@@ -131,9 +139,6 @@ void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
 		}
 	}
 }
-
-//Blueprint'/Game/RestrictedAssets/Pickups/Powerups/BP_UDamage_RCTF.BP_UDamage_RCTF'
-//589,0 45,39 HUDAtlas01
 
 void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
 {
@@ -229,6 +234,16 @@ bool AUTCTFRoundGame::CheckReachedGoalScore(AUTTeamInfo* ScoringTeam)
 	return false;
 }
 
+void AUTCTFRoundGame::ToggleSpecialFor(AUTCharacter* C)
+{
+	AUTPlayerState* PS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+	if (PS && (PS->RemainingBoosts > 0))
+	{
+		PS->RemainingBoosts--;
+		C->AddInventory(GetWorld()->SpawnActor<AUTInventory>(UDamageClass, FVector(0.0f), FRotator(0.f, 0.f, 0.f)), true);
+	}
+}
+
 void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
 	CheckScore(Holder);
@@ -266,6 +281,7 @@ void AUTCTFRoundGame::HandleMatchHasStarted()
 		InitRound();
 		CTFGameState->CTFRound = 1;
 		CTFGameState->bAsymmetricVictoryConditions = bAsymmetricVictoryConditions;
+		CTFGameState->bOverrideToggle = true;
 		bFirstRoundInitialized = true;
 	}
 	Super::HandleMatchHasStarted();
@@ -424,6 +440,7 @@ void AUTCTFRoundGame::InitRound()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			PS->bHasLifeLimit = false;
 			PS->RespawnWaitTime = 0.f;
+			PS->RemainingBoosts = (CTFGameState && CTFGameState->CTFRound > 2) ? 1 : 0;
 			if (PS && (PS->bIsInactive || !PS->Team))
 			{
 				PS->RemainingLives = 0;

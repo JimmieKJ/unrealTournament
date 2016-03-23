@@ -31,6 +31,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	KickThreshold=51.0f;
 	TauntSelectionIndex = 0;
 	bPersistentKillIconMessages = false;
+	bOverrideToggle = false;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -275,6 +276,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  
 	DOREPLIFETIME(AUTGameState, AvailableLoadout);
 	DOREPLIFETIME(AUTGameState, HubGuid);
+	DOREPLIFETIME(AUTGameState, bOverrideToggle);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);

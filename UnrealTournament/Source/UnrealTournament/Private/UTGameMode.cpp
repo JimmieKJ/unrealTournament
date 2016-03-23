@@ -2336,6 +2336,10 @@ void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
+void AUTGameMode::ToggleSpecialFor(AUTCharacter* C)
+{
+}
+
 /* 
   Make sure pawn properties are back to default
   Also add default inventory
