@@ -212,6 +212,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	/** Returns the current state of a given flag */
 	virtual FName GetFlagState(uint8 TeamNum);
 
+	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual AUTPlayerState* GetFlagHolder(uint8 TeamNum);
 	virtual AUTCTFFlagBase* GetFlagBase(uint8 TeamNum);
 

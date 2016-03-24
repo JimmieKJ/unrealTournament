@@ -1634,7 +1634,7 @@ public:
 
 	virtual bool CanPickupObject(AUTCarriedObject* PendingObject);
 	/** @return the current object carried by this pawn */
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual AUTCarriedObject* GetCarriedObject();
 
 	virtual float GetLastRenderTime() const override;
