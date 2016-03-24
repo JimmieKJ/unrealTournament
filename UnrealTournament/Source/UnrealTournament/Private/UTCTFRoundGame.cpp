@@ -334,12 +334,20 @@ void AUTCTFRoundGame::InitFlags()
 				Flag->bTeamPickupSendsHome = !Flag->bFriendlyCanPickup && !bNoFlagReturn;
 				Flag->bEnemyPickupSendsHome = !Flag->bEnemyCanPickup && !bNoFlagReturn;
 			}
+
 			// check for flag carrier already here waiting
 			TArray<AActor*> Overlapping;
-			Base->GetOverlappingActors(Overlapping, APawn::StaticClass());
+			Flag->GetOverlappingActors(Overlapping, AUTCharacter::StaticClass());
 			for (AActor* A : Overlapping)
 			{
-				Base->OnOverlapBegin(A, Cast<UPrimitiveComponent>(A->GetRootComponent()), 0, false, FHitResult(Base, Base->Capsule, A->GetActorLocation(), (A->GetActorLocation() - Base->GetActorLocation()).GetSafeNormal()));
+				AUTCharacter* Character = Cast<AUTCharacter>(A);
+				if (Character != NULL)
+				{
+					if (!GetWorld()->LineTraceTestByChannel(Character->GetActorLocation(), Flag->GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+					{
+						Flag->TryPickup(Character);
+					}
+				}
 			}
 		}
 	}
