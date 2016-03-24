@@ -563,7 +563,7 @@ void AUTHUD::DrawHUD()
 				if (ShouldDrawMinimap())
 				{
 					bool bSpectatingMinimap = UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->bOnlySpectator || UTPlayerOwner->UTPlayerState->bOutOfLives);
-					float MapScale = (bSpectatingMinimap ? 0.75f : 0.25f) * HUDMinimapScale();
+					float MapScale = (bSpectatingMinimap ? 0.75f : 0.25f) * GetHUDMinimapScale();
 					const float MapSize = float(Canvas->SizeY) * MapScale;
 					uint8 MapAlpha = bSpectatingMinimap ? 210 : 100;
 					const float YOffsetToMaintainPosition = MapSize * MinimapOffset.Y * -.5f;
@@ -1178,7 +1178,7 @@ bool AUTHUD::ShouldInvertMinimap()
 
 void AUTHUD::DrawMinimapSpectatorIcons()
 {
-	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * HUDMinimapScale();
+	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
 	bool bOnlyShowTeammates = !UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator;
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 	{
@@ -1216,7 +1216,7 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 
 void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow)
 {
-	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * HUDMinimapScale();
+	const float RenderScale = (float(Canvas->SizeY) / 1080.0f) * GetHUDMinimapScale();
 	float Height = DrawSize.X * RenderScale;
 	float Width = DrawSize.Y * RenderScale;
 	FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
@@ -1254,7 +1254,7 @@ void AUTHUD::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerStat
 
 void AUTHUD::PlayKillNotification()
 {
-	if (bPlayKillSoundMsg())
+	if (GetPlayKillSoundMsg())
 	{
 		PlayerOwner->ClientPlaySound(KillSound);
 	}
@@ -1262,123 +1262,123 @@ void AUTHUD::PlayKillNotification()
 
 // NOTE: Defaults are defined here because we don't currently have a local profile.
 
-float AUTHUD::HUDWidgetOpacity()
+float AUTHUD::GetHUDWidgetOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetOpacity : 1.0f;
 }
 
-float AUTHUD::HUDWidgetBorderOpacity()
+float AUTHUD::GetHUDWidgetBorderOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetBorderOpacity : 1.0f;
 }
 
-float AUTHUD::HUDWidgetSlateOpacity()
+float AUTHUD::GetHUDWidgetSlateOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetSlateOpacity: 0.5f;
 }
 
-float AUTHUD::HUDWidgetWeaponbarInactiveOpacity()
+float AUTHUD::GetHUDWidgetWeaponbarInactiveOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponbarInactiveOpacity : 0.25f;
 }
 
-float AUTHUD::HUDWidgetWeaponBarScaleOverride()
+float AUTHUD::GetHUDWidgetWeaponBarScaleOverride()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarScaleOverride : 0.9f;
 }
 
-float AUTHUD::HUDWidgetWeaponBarInactiveIconOpacity()
+float AUTHUD::GetHUDWidgetWeaponBarInactiveIconOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarInactiveIconOpacity : 0.25f;
 }
 
-float AUTHUD::HUDWidgetWeaponBarEmptyOpacity()
+float AUTHUD::GetHUDWidgetWeaponBarEmptyOpacity()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetWeaponBarEmptyOpacity : 0.0f;
 }
 
-float AUTHUD::HUDWidgetScaleOverride()
+float AUTHUD::GetHUDWidgetScaleOverride()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDWidgetScaleOverride : 0.7f;
 }
 
-float AUTHUD::HUDMessageScaleOverride()
+float AUTHUD::GetHUDMessageScaleOverride()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDMessageScaleOverride : 1.0f;
 }
 
-bool AUTHUD::bUseWeaponColors()
+bool AUTHUD::GetUseWeaponColors()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bUseWeaponColors : false;
 }
 
-bool AUTHUD::bDrawChatKillMsg()
+bool AUTHUD::GetDrawChatKillMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bDrawChatKillMsg : false;
 }
 
-bool AUTHUD::bDrawCenteredKillMsg()
+bool AUTHUD::GetDrawCenteredKillMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCenteredKillMsg : true;
 }
 
-bool AUTHUD::bDrawHUDKillIconMsg()
+bool AUTHUD::GetDrawHUDKillIconMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bDrawHUDKillIconMsg : true;
 }
 
-bool AUTHUD::bPlayKillSoundMsg()
+bool AUTHUD::GetPlayKillSoundMsg()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bPlayKillSoundMsg : true;
 }
 
-bool AUTHUD::bDrawCTFMinimapHUDSetting()
+bool AUTHUD::GetDrawCTFMinimapHUDSetting()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bDrawCTFMinimapHUDSetting : true;
 }
 
-float AUTHUD::HUDMinimapScale()
+float AUTHUD::GetHUDMinimapScale()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->HUDMinimapScale : 1.0f;
 }
 
-float AUTHUD::QuickStatsAngle()
+float AUTHUD::GetQuickStatsAngle()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsAngle : 180.0f;
 }
 
-float AUTHUD::QuickStatsDistance()
+float AUTHUD::GetQuickStatsDistance()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsDistance : 0.1f;
 }
 
-float AUTHUD::QuickStatScaleOverride()
+float AUTHUD::GetQuickStatScaleOverride()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsScaleOverride: 1.0f;
 }
 
-FName AUTHUD::QuickStatsType()
+FName AUTHUD::GetQuickStatsType()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsType : EQuickStatsLayouts::Arc;
 
 }
 
-float AUTHUD::QuickStatsBackgroundAlpha()
+float AUTHUD::GetQuickStatsBackgroundAlpha()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsBackgroundAlpha: 0.15f;
 }
 
-float AUTHUD::QuickStatsForegroundAlpha()
+float AUTHUD::GetQuickStatsForegroundAlpha()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->QuickStatsForegroundAlpha : 1.0f;
 }
 
-float AUTHUD::bQuickStatsHidden()
+float AUTHUD::GetQuickStatsHidden()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsHidden : false;
 }
 
-float AUTHUD::bQuickStatsBob()
+float AUTHUD::GetQuickStatsBob()
 {
 	return VerifyProfileSettings() ? CachedProfileSettings->bQuickStatsBob : true;
 }

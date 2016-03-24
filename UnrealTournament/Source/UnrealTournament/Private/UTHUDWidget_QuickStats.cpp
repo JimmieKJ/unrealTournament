@@ -29,7 +29,7 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->bQuickStatsHidden());
+	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden());
 }
 
 FVector2D UUTHUDWidget_QuickStats::CalcDrawLocation(float DistanceInPixels, float Angle)
@@ -62,16 +62,16 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 {
 	// Look to see if we should draw the ammo...
 
-	DrawAngle = InUTHUDOwner->QuickStatsAngle();
+	DrawAngle = InUTHUDOwner->GetQuickStatsAngle();
 
-	float DrawDistance = InUTHUDOwner->QuickStatsDistance();
-	FName DisplayTag = InUTHUDOwner->QuickStatsType();
-	DrawScale = InUTHUDOwner->QuickStatScaleOverride();
+	float DrawDistance = InUTHUDOwner->GetQuickStatsDistance();
+	FName DisplayTag = InUTHUDOwner->GetQuickStatsType();
+	DrawScale = InUTHUDOwner->GetQuickStatScaleOverride();
 
-	HorizontalBackground.RenderOpacity = InUTHUDOwner->QuickStatsBackgroundAlpha();
-	VerticalBackground.RenderOpacity = InUTHUDOwner->QuickStatsBackgroundAlpha();
+	HorizontalBackground.RenderOpacity = InUTHUDOwner->GetQuickStatsBackgroundAlpha();
+	VerticalBackground.RenderOpacity = InUTHUDOwner->GetQuickStatsBackgroundAlpha();
 
-	ForegroundOpacity = InUTHUDOwner->QuickStatsForegroundAlpha();
+	ForegroundOpacity = InUTHUDOwner->GetQuickStatsForegroundAlpha();
 
 	if (DisplayTag != NAME_None && DisplayTag != CurrentLayoutTag)
 	{
@@ -92,7 +92,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	AUTCharacter* CharOwner = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	if (CharOwner)
 	{
-		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && (InUTHUDOwner->bQuickStatsBob()))
+		if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->WeaponBobGlobalScaling > 0 && (InUTHUDOwner->GetQuickStatsBob()))
 		{
 			RenderPosition.X += 4.0f * CharOwner->CurrentWeaponBob.Y;
 			RenderPosition.Y -= 4.0f * CharOwner->CurrentWeaponBob.Z;

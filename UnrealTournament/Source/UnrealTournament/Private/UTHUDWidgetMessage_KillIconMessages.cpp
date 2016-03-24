@@ -38,7 +38,7 @@ bool UUTHUDWidgetMessage_KillIconMessages::ShouldDraw_Implementation(bool bShowS
 
 float UUTHUDWidgetMessage_KillIconMessages::GetDrawScaleOverride()
 {
-	return 0.75f * UTHUDOwner->HUDWidgetScaleOverride();
+	return 0.75f * UTHUDOwner->GetHUDWidgetScaleOverride();
 }
 
 void UUTHUDWidgetMessage_KillIconMessages::DrawMessages(float DeltaTime)
@@ -161,24 +161,24 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 	{
 		BG = LocalVictimBG;
 	}
-	DrawTexture(BG.Atlas, BGSize.X, BGSize.Y, BGSize.Z, BGSize.W, BG.UVs.U, BG.UVs.V, BG.UVs.UL, BG.UVs.VL, BG.RenderOpacity * Alpha * UTHUDOwner->HUDWidgetOpacity() * UTHUDOwner->HUDWidgetBorderOpacity(), BG.RenderColor, BG.RenderOffset, BG.Rotation, BG.RotPivot);
+	DrawTexture(BG.Atlas, BGSize.X, BGSize.Y, BGSize.Z, BGSize.W, BG.UVs.U, BG.UVs.V, BG.UVs.UL, BG.UVs.VL, BG.RenderOpacity * Alpha * UTHUDOwner->GetHUDWidgetOpacity() * UTHUDOwner->GetHUDWidgetBorderOpacity(), BG.RenderColor, BG.RenderOffset, BG.Rotation, BG.RotPivot);
 
 	//Draw the killer name
 	if (KillerPS != nullptr)
 	{
-		DrawText(FText::FromString(KillerPS->PlayerName), KillerSize.X, KillerSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity(), GetPlayerColor(KillerPS, true), FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::FromString(KillerPS->PlayerName), KillerSize.X, KillerSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->GetHUDWidgetOpacity(), GetPlayerColor(KillerPS, true), FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 
 	//Draw the Damage Icon
 	if (DmgType != nullptr && DmgType->HUDIcon.Texture != nullptr)
 	{
-		DrawTexture(DmgType->HUDIcon.Texture, DamageSize.X, DamageSize.Y, DamageSize.Z, DamageSize.W, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, Alpha * UTHUDOwner->HUDWidgetOpacity());
+		DrawTexture(DmgType->HUDIcon.Texture, DamageSize.X, DamageSize.Y, DamageSize.Z, DamageSize.W, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, Alpha * UTHUDOwner->GetHUDWidgetOpacity());
 	}
 
 	//Draw the victim name
 	if (VictimPS != nullptr)
 	{
-		DrawText(FText::FromString(VictimPS->PlayerName), VictimSize.X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity(), GetPlayerColor(VictimPS, false), FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::FromString(VictimPS->PlayerName), VictimSize.X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->GetHUDWidgetOpacity(), GetPlayerColor(VictimPS, false), FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 
 	// Draw any rewards gained
@@ -192,7 +192,7 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 			FFormatNamedArguments Args;
 			Args.Add("Reward", DmgType->SpecialRewardText);
 			FText RewardMessage = FText::Format(RewardMessageText, Args);
-			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity(), FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->GetHUDWidgetOpacity(), FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, RewardMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;
 		}
@@ -208,7 +208,7 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 			FFormatNamedArguments Args;
 			Args.Add("Reward", GetDefault<UUTRewardMessage>(DmgType->RewardAnnouncementClass)->MessageText);
 			FText RewardMessage = FText::Format(RewardMessageText, Args);
-			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity(), FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->GetHUDWidgetOpacity(), FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, RewardMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;
 		}
@@ -218,7 +218,7 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 			FFormatNamedArguments Args;
 			Args.Add("Reward", GetDefault<UUTLocalMessage>(UUTMultiKillMessage::StaticClass())->GetText(FMath::Min(MsgIndex - 1, 3), true));
 			FText MKillMessage = FText::Format(RewardMessageText, Args);
-			DrawText(MKillMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity(), FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+			DrawText(MKillMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->GetHUDWidgetOpacity(), FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, MKillMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;
 		}
@@ -227,13 +227,13 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 			FFormatNamedArguments Args;
 			Args.Add("Reward", GetDefault<UUTLocalMessage>(UUTSpreeMessage::StaticClass())->GetText(FMath::Min(SpreeIndex, 5), true));
 			FText SpreeMessage = FText::Format(RewardMessageText, Args);
-			DrawText(SpreeMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity(), FLinearColor::Yellow, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+			DrawText(SpreeMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->GetHUDWidgetOpacity(), FLinearColor::Yellow, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, SpreeMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;
 		}
 		if (bHasWeaponSpree && DmgType)
 		{
-			DrawText(FText::FromString(DmgType->SpreeString), X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity(), FLinearColor::Yellow, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+			DrawText(FText::FromString(DmgType->SpreeString), X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->GetHUDWidgetOpacity(), FLinearColor::Yellow, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 		}
 	}
 }

@@ -18,7 +18,7 @@ void AUTHUD_Gauntlet::DrawMinimapSpectatorIcons()
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner);
 	if (PC == nullptr) return;
 
-	const float RenderScale = float(Canvas->SizeY) / 1080.0f * HUDMinimapScale();
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f * GetHUDMinimapScale();
 
 	Super::DrawMinimapSpectatorIcons();
 

@@ -283,29 +283,29 @@ protected:
 public:
 	// This is the base HUD opacity level used by HUD Widgets RenderObjects
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetOpacity();
+	float GetHUDWidgetOpacity();
 
 	// HUD widgets that have borders will use this opacity value when rendering.
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetBorderOpacity();
+	float GetHUDWidgetBorderOpacity();
 
 	// HUD widgets that have background slates will use this opacity value when rendering.
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetSlateOpacity();
+	float GetHUDWidgetSlateOpacity();
 
 	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetWeaponbarInactiveOpacity();
+	float GetHUDWidgetWeaponbarInactiveOpacity();
 
 	// The weapon bar can get a secondary scale override using this value
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetWeaponBarScaleOverride();
+	float GetHUDWidgetWeaponBarScaleOverride();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetWeaponBarInactiveIconOpacity();
+	float GetHUDWidgetWeaponBarInactiveIconOpacity();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetWeaponBarEmptyOpacity();
+	float GetHUDWidgetWeaponBarEmptyOpacity();
 
 	/** Set true to force weapon bar to immediately update. */
 	UPROPERTY()
@@ -313,58 +313,58 @@ public:
 
 	// Allows the user to override the scaling factor for their hud.
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDWidgetScaleOverride();
+	float GetHUDWidgetScaleOverride();
 
 	// Allows the user to override the scaling factor for their hud.
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float HUDMessageScaleOverride();
+	float GetHUDMessageScaleOverride();
 
 	// Allows the user to override the scaling factor for their hud.
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bUseWeaponColors();
+	bool GetUseWeaponColors();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bDrawChatKillMsg();
+	bool GetDrawChatKillMsg();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bDrawCenteredKillMsg();
+	bool GetDrawCenteredKillMsg();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bDrawHUDKillIconMsg();
+	bool GetDrawHUDKillIconMsg();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bPlayKillSoundMsg();
+	bool GetPlayKillSoundMsg();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	bool bDrawCTFMinimapHUDSetting();
+	bool GetDrawCTFMinimapHUDSetting();
 
 	UFUNCTION(BlueprintCallable, Category = HUD)
-	float HUDMinimapScale();
+	float GetHUDMinimapScale();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatsAngle();
+	float GetQuickStatsAngle();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatsDistance();
+	float GetQuickStatsDistance();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatScaleOverride();
+	float GetQuickStatScaleOverride();
 	
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	FName QuickStatsType();
+	FName GetQuickStatsType();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatsBackgroundAlpha();
+	float GetQuickStatsBackgroundAlpha();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float QuickStatsForegroundAlpha();
+	float GetQuickStatsForegroundAlpha();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float bQuickStatsHidden();
+	float GetQuickStatsHidden();
 
 	UFUNCTION(BlueprintCallable, Category=HUD)
-	float bQuickStatsBob();
+	float GetQuickStatsBob();
 
 	
 
