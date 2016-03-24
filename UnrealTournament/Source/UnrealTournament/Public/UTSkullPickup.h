@@ -22,7 +22,7 @@ class UNREALTOURNAMENT_API AUTSkullPickup : public AUTDroppedPickup
 	UParticleSystem* SkullPickupEffect;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Skull")
-		float BotDesireability;
+		float BotDesireValue;
 
 	virtual void SetInventory(AUTInventory* NewInventory) override;
 	virtual bool AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup) override;

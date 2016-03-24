@@ -6,7 +6,7 @@
 AUTSkullPickup::AUTSkullPickup(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	BotDesireability = 1.f;
+	BotDesireValue = 1.f;
 	InitialLifeSpan = 20.0f;
 	NetUpdateFrequency = 1.0f;
 }
@@ -85,7 +85,7 @@ float AUTSkullPickup::BotDesireability_Implementation(APawn* Asker, float PathDi
 			return 0.f;
 		}
 	}
-	return BotDesireability;
+	return BotDesireValue;
 }
 
 float AUTSkullPickup::DetourWeight_Implementation(APawn* Asker, float PathDistance)
