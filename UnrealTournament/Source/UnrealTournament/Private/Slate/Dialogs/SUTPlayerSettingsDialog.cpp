@@ -1320,18 +1320,6 @@ void SUTPlayerSettingsDialog::RecreatePlayerPreview()
 		PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
 	}
 
-	// set FFA color
-	/*TODO FIX ME
-	const TArray<UMaterialInstanceDynamic*>& BodyMIs = PlayerPreviewMesh->GetBodyMIs();
-	for (UMaterialInstanceDynamic* MI : BodyMIs)
-	{
-		static FName NAME_TeamColor(TEXT("TeamColor"));
-		if (MI != NULL)
-		{
-			MI->SetVectorParameterValue(NAME_TeamColor, SelectedPlayerColor);
-		}
-	}*/
-
 	if (bLeaderHatSelectedLast)
 	{
 		// set leader hat

@@ -4546,7 +4546,9 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			// FIXME: NULL check is hack for editor reimport bug breaking number of materials
 			if (GetMesh()->GetMaterial(i) != NULL)
 			{
-				BodyMIs.Add(GetMesh()->CreateAndSetMaterialInstanceDynamic(i));
+				UMaterialInstanceDynamic* MI = GetMesh()->CreateAndSetMaterialInstanceDynamic(i);
+				MI->SetScalarParameterValue(TEXT("TeamSelect"), FFAColor);
+				BodyMIs.Add(MI);
 			}
 		}
 		GetMesh()->PhysicsAssetOverride = Data->Mesh->PhysicsAssetOverride;
