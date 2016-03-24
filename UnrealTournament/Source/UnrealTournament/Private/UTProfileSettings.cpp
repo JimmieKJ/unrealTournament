@@ -97,7 +97,7 @@ void UUTProfileSettings::ResetHUD()
 	HUDWidgetScaleOverride = 0.7f;
 	HUDMessageScaleOverride = 1.0f;
 	bUseWeaponColors = false;
-	bDrawChatKillMsg = true;
+	bDrawChatKillMsg = false;
 	bDrawCenteredKillMsg = true;
 	bDrawHUDKillIconMsg = true;
 	bPlayKillSoundMsg = true;
