@@ -1313,6 +1313,12 @@ void AUTPlayerState::ReadMMRFromBackend()
 			WeakPlayerState->CTFMatchesPlayed = Response.NumGamesPlayed[3];
 			WeakPlayerState->ShowdownMatchesPlayed = Response.NumGamesPlayed[4];
 			WeakPlayerState->RankedShowdownMatchesPlayed = Response.NumGamesPlayed[5];
+			
+			AUTBaseGameMode* BaseGame = WeakPlayerState->GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+			if (BaseGame)
+			{
+				BaseGame->ReceivedRankForPlayer(WeakPlayerState.Get());
+			}
 
 			UE_LOG(UT, Log, TEXT("%s MMR fetched from the backend (Duel:%d) (TDM:%d) (FFA:%d)"), *WeakPlayerState->PlayerName, WeakPlayerState->DuelRank, WeakPlayerState->TDMRank, WeakPlayerState->DMRank);
 			UE_LOG(UT, Log, TEXT("(CTF:%d) (Showdown:%d) (Ranked Showdown:%d)"), WeakPlayerState->CTFRank, WeakPlayerState->ShowdownRank, WeakPlayerState->RankedShowdownRank);
