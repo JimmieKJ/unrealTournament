@@ -1555,12 +1555,6 @@ void SUTServerBrowserPanel::OnServerBeaconResult(AUTServerBeaconClient* Sender, 
 				PingTrackers[i].Server->AddPlayer(Name, Score, Id);
 			}
 
-			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
-			{
-				PingTrackers[i].Server->NumPlayers = Cnt / 3;
-				PingTrackers[i].Server->UpdateFriends(PlayerOwner);
-			}
-
 			PingTrackers[i].Server->Rules.Empty();
 			TArray<FString> RulesData;
 			Cnt = ServerInfo.ServerRules.ParseIntoArray(RulesData, TEXT("\t"), true);
@@ -1594,6 +1588,32 @@ void SUTServerBrowserPanel::OnServerBeaconResult(AUTServerBeaconClient* Sender, 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
 			{
 				PingTrackers[i].Server->NumMatches = PingTrackers[i].Beacon->Instances.Num();
+				PingTrackers[i].Server->UpdateFriends(PlayerOwner);
+
+				// Calculate the actual player count.  At this point, the Server->Players array will be
+				// built and the Server->HubInstances array will be built.  Reject 
+
+				int32 Count = 0;
+				for (int32 ins=0; ins < PingTrackers[i].Server->HUBInstances.Num(); ins++)
+				{
+					for (int32 pi = 0; pi < PingTrackers[i].Server->HUBInstances[ins]->Players.Num(); pi++ )
+					{
+						bool bFound = false;
+						for (int32 p = 0; p < PingTrackers[i].Server->Players.Num(); p++)
+						{
+							if (PingTrackers[i].Server->HUBInstances[ins]->Players[pi].PlayerId == PingTrackers[i].Server->Players[p]->Id)
+							{
+								bFound = true;
+								break;
+							}
+						}
+
+						if (bFound) Count++;
+					}
+				}
+
+				Count += PingTrackers[i].Server->Players.Num() / 3;
+				PingTrackers[i].Server->NumPlayers = Count;
 			}
 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
