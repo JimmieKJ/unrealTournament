@@ -387,13 +387,7 @@ public:
 
 	FText GetNumPlayers()
 	{
-		int32 PlayerCount = NumPlayers;
-		for (int32 i=0; i < HUBInstances.Num(); i++)
-		{
-			PlayerCount += HUBInstances[i]->NumPlayers();
-		}
-
-		return FText::Format(NSLOCTEXT("HUBBrowser", "NumPlayersFormat", "{0} Players"), FText::AsNumber(PlayerCount));
+		return FText::Format(NSLOCTEXT("HUBBrowser", "NumPlayersFormat", "{0} Players"), FText::AsNumber(NumPlayers));
 	}
 
 	FText GetNumFriends()
