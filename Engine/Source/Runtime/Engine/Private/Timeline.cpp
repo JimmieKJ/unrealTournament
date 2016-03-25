@@ -786,7 +786,12 @@ void UTimelineComponent::SetDirectionPropertyName(FName DirectionPropertyName)
 
 void UTimelineComponent::OnRep_Timeline()
 {
-
+	if (!TheTimeline.IsPlaying())
+	{
+		// make sure a final update call occurs on the client for the final position
+		// FIXME: this is incomplete, we need to compare vs the last simulated position for firing events and such
+		TheTimeline.SetPlaybackPosition(TheTimeline.GetPlaybackPosition(), false, true);
+	}
 }
 
 void UTimelineComponent::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
