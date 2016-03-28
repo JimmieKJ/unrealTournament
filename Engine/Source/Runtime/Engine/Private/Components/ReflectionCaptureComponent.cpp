@@ -1054,7 +1054,7 @@ void UReflectionCaptureComponent::PostLoad()
 		// free up the full hdr data if we no longer need it.
 		if (FullHDRDerivedData && !bFullDataRequired)
 		{
-			delete FullHDRDerivedData;
+			delete FullHDRDerivedData; 
 			FullHDRDerivedData = NULL;
 		}
 	}
@@ -1087,13 +1087,17 @@ void UReflectionCaptureComponent::UpdateDerivedData(FReflectionCaptureFullHDRDer
 {
 	if (FullHDRDerivedData)
 	{
+#if UE_SERVER
+		delete FullHDRDerivedData;
+#else
 		// Delete the derived data on the rendering thread, since the rendering thread may be reading from its contents in FScene::UpdateReflectionCaptureContents
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( 
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 			DeleteCaptureDataCommand,
 			FReflectionCaptureFullHDRDerivedData*, FullHDRDerivedData, FullHDRDerivedData,
-		{
+			{
 			delete FullHDRDerivedData;
 		});
+#endif
 	}
 
 	FullHDRDerivedData = NewDerivedData;
