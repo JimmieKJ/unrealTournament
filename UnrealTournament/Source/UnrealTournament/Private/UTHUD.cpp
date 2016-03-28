@@ -666,8 +666,7 @@ void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFir
 	if (UTC != NULL && !UTC->IsDead() && DamageAmount > 0)	// If have a pawn and it's alive...
 	{
 		// Figure out Left/Right....
-		float FinalAng = FRotator::DecompressAxisFromByte(ShotDirYaw);
-
+		float FinalAng = FRotator::DecompressAxisFromByte(ShotDirYaw) - UTC->GetActorRotation().Yaw;
 		int32 BestIndex = 0;
 		float BestTime = DamageIndicators[0].FadeTime;
 		for (int32 i = 0; i < MAX_DAMAGE_INDICATORS; i++)
@@ -687,7 +686,7 @@ void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFir
 			}
 		}
 		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION * FMath::Clamp(0.025f*DamageAmount, 0.7f, 2.f);
-		DamageIndicators[BestIndex].RotationAngle = FinalAng;
+		DamageIndicators[BestIndex].RotationAngle = FinalAng + 180.f;
 		DamageIndicators[BestIndex].bFriendlyFire = bFriendlyFire;
 		DamageIndicators[BestIndex].DamageAmount = DamageAmount;
 
