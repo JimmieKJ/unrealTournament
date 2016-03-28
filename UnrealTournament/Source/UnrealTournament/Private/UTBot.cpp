@@ -801,7 +801,7 @@ void AUTBot::Tick(float DeltaTime)
 					if (NavData->GetMovePoints(MyPawn->GetNavAgentLocation(), MyPawn, MyPawn->GetNavAgentPropertiesRef(), MoveTarget, RouteCache, MoveTargetPoints, CurrentPath, &TotalDistance))
 					{
 						UpdateMovementOptions(true);
-						MoveTimer = TotalDistance / FMath::Max<float>(100.0f, MyPawn->GetMovementComponent()->GetMaxSpeed()) + 1.0f;
+						MoveTimer = TotalDistance / FMath::Max<float>(100.0f, (MyPawn->GetMovementComponent() != NULL) ? MyPawn->GetMovementComponent()->GetMaxSpeed() : 0.0f) + 1.0f;
 						if (Cast<APawn>(MoveTarget.Actor.Get()) != NULL)
 						{
 							MoveTimer += 2.0f; // TODO: maybe do this for any moving target?
