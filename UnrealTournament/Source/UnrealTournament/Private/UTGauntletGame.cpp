@@ -40,6 +40,8 @@ AUTGauntletGame::AUTGauntletGame(const FObjectInitializer& ObjectInitializer)
 	bAsymmetricVictoryConditions = false;
 	FlagSwapTime=10;
 	FlagPickupDelay=0;
+	MapPrefix = TEXT("GAU");
+	bHideInUI = true;
 }
 
 void AUTGauntletGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
