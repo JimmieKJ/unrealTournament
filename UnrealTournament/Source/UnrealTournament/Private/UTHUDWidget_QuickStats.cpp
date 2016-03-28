@@ -28,14 +28,18 @@ void UUTHUDWidget_QuickStats::InitializeWidget(AUTHUD* Hud)
 
 bool UUTHUDWidget_QuickStats::ShouldDraw_Implementation(bool bShowScores)
 {
+	if (UTGameState && (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted() || UTGameState->IsMatchIntermission()))
+	{
+		return false;
+	}
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	return (!bShowScores && UTC && !UTC->IsDead() && !UTHUDOwner->GetQuickStatsHidden());
 }
 
 FVector2D UUTHUDWidget_QuickStats::CalcDrawLocation(float DistanceInPixels, float Angle)
 {
-	float Sin = 0;
-	float Cos = 0;
+	float Sin = 0.f;
+	float Cos = 0.f;
 
 	FMath::SinCos(&Sin,&Cos, FMath::DegreesToRadians(Angle));
 	FVector2D NewPoint;
@@ -47,10 +51,10 @@ FVector2D UUTHUDWidget_QuickStats::CalcDrawLocation(float DistanceInPixels, floa
 
 FVector2D UUTHUDWidget_QuickStats::CalcRotOffset(FVector2D InitialPosition, float Angle)
 {
-	float Sin = 0;
-	float Cos = 0;
+	float Sin = 0.f;
+	float Cos = 0.f;
 
-	FMath::SinCos(&Sin, &Cos, FMath::DegreesToRadians(Angle - 180.0));
+	FMath::SinCos(&Sin, &Cos, FMath::DegreesToRadians(Angle - 180.0f));
 	FVector2D NewPoint;
 	
 	NewPoint.X = InitialPosition.X * Cos - InitialPosition.Y * Sin;
