@@ -3965,8 +3965,12 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 		OpenDialogs.Empty();
 	}
 	
+	if (DesktopSlateWidget.IsValid())
+	{
+		DesktopSlateWidget->OnMenuClosed();
+		DesktopSlateWidget.Reset();
+	}
 	// These should all be proper closes
-	DesktopSlateWidget.Reset();
 	ServerBrowserWidget.Reset();
 	ReplayBrowserWidget.Reset();
 	StatsViewerWidget.Reset();
