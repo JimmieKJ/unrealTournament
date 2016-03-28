@@ -25,6 +25,8 @@
 #include "UTArmor.h"
 #include "UTTimedPowerup.h"
 
+
+#include "UTPlayerState.h"
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -457,7 +459,7 @@ void AUTCTFRoundGame::InitRound()
 			}
 			else if (PS)
 			{
-				PS->RemainingLives = (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0))) ? RoundLives : 0;
+				PS->RemainingLives = (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(*PS))) ? RoundLives : 0;
 				PS->bHasLifeLimit = (PS->RemainingLives > 0);
 				PS->SetOutOfLives(false);
 				if (bAsymmetricVictoryConditions && !PS->bHasLifeLimit)
@@ -523,7 +525,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 			}
 			return;
 		}
-		if (!bAsymmetricVictoryConditions || (bRedToCap == (PS->Team->TeamIndex == 0)))
+		if (!bAsymmetricVictoryConditions || (IsPlayerOnLifeLimitedTeam(*PS)))
 		{
 			PS->RemainingLives--;
 			if (PS->RemainingLives < 0)
@@ -554,7 +556,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 
 	if (aPlayer->GetPawn() && !bPerPlayerLives && (RoundLives > 0) && PS && PS->Team && CTFGameState && CTFGameState->IsMatchInProgress())
 	{
-		if ((PS->Team->TeamIndex == 0) && (!bAsymmetricVictoryConditions || bRedToCap))
+		if ((PS->Team->TeamIndex == 0) && (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(*PS)))
 		{
 			CTFGameState->RedLivesRemaining--;
 			if (CTFGameState->RedLivesRemaining <= 0)
@@ -569,7 +571,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 7);
 			}
 		}
-		else if ((PS->Team->TeamIndex == 1) && (!bAsymmetricVictoryConditions || !bRedToCap))
+		else if ((PS->Team->TeamIndex == 1) && (!bAsymmetricVictoryConditions || IsPlayerOnLifeLimitedTeam(*PS)))
 		{
 			CTFGameState->BlueLivesRemaining--;
 			if (CTFGameState->BlueLivesRemaining <= 0)
@@ -643,5 +645,18 @@ void AUTCTFRoundGame::CheckGameTime()
 	}
 }
 
+bool AUTCTFRoundGame::IsTeamOnOffense(int32 TeamNumber) const
+{
+	const bool bIsOnRedTeam = (TeamNumber == 0);
+	return (bRedToCap == bIsOnRedTeam);
+}
 
+bool AUTCTFRoundGame::IsTeamOnDefense(int32 TeamNumber) const
+{
+	return !IsTeamOnOffense(TeamNumber);
+}
 
+bool AUTCTFRoundGame::IsPlayerOnLifeLimitedTeam(AUTPlayerState& PlayerState) const
+{
+	return IsTeamOnOffense(PlayerState.Team->TeamIndex);
+}

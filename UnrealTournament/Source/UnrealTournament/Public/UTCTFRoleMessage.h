@@ -21,6 +21,8 @@ public:
 		CapFlagMessage = NSLOCTEXT("CTFGameMessage", "TakeFlagToEnemy", "Get your flag to the enemy base!");
 		PreventCapMessage = NSLOCTEXT("CTFGameMessage", "StopEnemyFlag", "Keep other team's flag out, and exhaust their lives");
 		CapAndKillMessage = NSLOCTEXT("CTFGameMessage", "RCTFRules", "Capture or kill to win.");
+		EarnedSpecialMessage = NSLOCTEXT("CTFGameMessage", "EarnedSpecialMove", "{Player1Name} earned a special move for your team!");
+		EnemyTeamSpecialEarned = NSLOCTEXT("CTFGameMessage", "EnemyEarnedSpecialMove", "The enemy team has earned a special move thanks to {Player1Name}!");
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -31,6 +33,12 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText CapAndKillMessage;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText EarnedSpecialMessage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText EnemyTeamSpecialEarned;
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
@@ -41,6 +49,8 @@ public:
 			case 3: return PreventCapMessage; break;
 			case 4: return PreventCapMessage; break;
 			case 5: return CapAndKillMessage; break;
+			case 6: return EarnedSpecialMessage; break;
+			case 7: return EnemyTeamSpecialEarned; break;
 			default:
 				return FText();
 		}
