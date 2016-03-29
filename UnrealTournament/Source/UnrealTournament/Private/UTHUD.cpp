@@ -1159,7 +1159,7 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 		Canvas->DrawColor = DrawColor;
 		if (bInvertMinimap)
 		{
-			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X - MapSize, MapToScreen.GetOrigin().Y - MapSize, MapSize, MapSize, 0.0f, MinimapTexture->GetSurfaceHeight(), MinimapTexture->GetSurfaceWidth(), -1.f *MinimapTexture->GetSurfaceHeight());
+			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X - MapSize, MapToScreen.GetOrigin().Y - MapSize, MapSize, MapSize, 0.0f, MinimapTexture->GetSurfaceHeight(), -1.f * MinimapTexture->GetSurfaceWidth(), -1.f *MinimapTexture->GetSurfaceHeight());
 		}
 		else
 		{
