@@ -618,24 +618,29 @@ void SUTQuickMatchWindow::Tick( const FGeometry& AllottedGeometry, const double 
 
 void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> DesiredServer, TSharedPtr<FServerInstanceData> DesiredInstance)
 {
+
+
 	bWaitingForResponseFromHub = true;
 	HubResponseWaitTime = 0.0;
 
 	ConnectingServer = DesiredServer;
 	ConnectingInstance = DesiredInstance;
 
+	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get()); 
+
+	int32 PlayerRankCheck = PlayerState->GetRankCheck(DefaultGameModeObject.Get());
+
+
 	if (DesiredInstance.IsValid())
 	{
+
 		ConnectingServer->Beacon->OnRequestJoinInstanceResult = FServerRequestJoinInstanceResult::CreateSP(this, &SUTQuickMatchWindow::RequestJoinInstanceResult);
-		ConnectingServer->Beacon->ServerRequestInstanceJoin(DesiredInstance->InstanceId.ToString(), false, PlayerOwner->GetBaseELORank());
+		ConnectingServer->Beacon->ServerRequestInstanceJoin(DesiredInstance->InstanceId.ToString(), false, PlayerRankCheck);
 	}
 	else
 	{
 		ConnectingServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatchWindow::RequestQuickPlayResults);
-		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
-		bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get()); 
-
-		int32 PlayerRankCheck = PlayerState->GetRankCheck(DefaultGameModeObject.Get());
 		ConnectingServer->Beacon->ServerRequestQuickplay(QuickMatchType, PlayerRankCheck, bIsBeginner);
 	}
 }
