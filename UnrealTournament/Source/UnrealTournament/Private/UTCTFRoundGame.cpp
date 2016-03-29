@@ -24,9 +24,8 @@
 #include "UTSkullPickup.h"
 #include "UTArmor.h"
 #include "UTTimedPowerup.h"
-
-
 #include "UTPlayerState.h"
+
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -172,6 +171,37 @@ void AUTCTFRoundGame::DiscardInventory(APawn* Other, AController* Killer)
 	Super::DiscardInventory(Other, Killer);
 }
 
+void AUTCTFRoundGame::HandleMatchIntermission()
+{
+	// view defender base, with last team to score around it
+	int32 TeamToWatch = IntermissionTeamToView(nullptr);
+	PlacePlayersAroundFlagBase(TeamToWatch, bRedToCap ? 1 : 0);
+
+	// Tell the controllers to look at defender base
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC != NULL)
+		{
+			PC->ClientHalftime();
+			PC->SetViewTarget(CTFGameState->FlagBases[bRedToCap ? 1 : 0]);
+		}
+	}
+
+	// Freeze all of the pawns
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+		{
+			(*It)->TurnOff();
+		}
+	}
+
+	CTFGameState->bIsAtIntermission = true;
+	CTFGameState->OnIntermissionChanged();
+	CTFGameState->SetTimeLimit(IntermissionDuration);	// Reset the Game Clock for intermission
+}
+
 void AUTCTFRoundGame::TossSkull(TSubclassOf<AUTSkullPickup> SkullPickupClass, const FVector& StartLocation, const FVector& TossVelocity, AUTCharacter* FormerInstigator)
 {
 	// pull back spawn location if it is embedded in world geometry
@@ -314,6 +344,7 @@ void AUTCTFRoundGame::InitFlags()
 			Flag->bShouldPingFlag = true;
 			if (bAsymmetricVictoryConditions)
 			{
+				Flag->bSendHomeOnScore = !bNoFlagReturn;
 				if (bRedToCap == (Flag->GetTeamNum() == 0))
 				{
 					Flag->bEnemyCanPickup = !bCarryOwnFlag;
@@ -503,6 +534,12 @@ bool AUTCTFRoundGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
+	if (GetMatchState() == MatchState::MatchIntermission)
+	{
+		// placing players during intermission
+		Super::RestartPlayer(aPlayer);
+		return;
+	}
 	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
 	if (bPerPlayerLives && PS && PS->Team)
 	{

@@ -38,6 +38,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	WeightSpeedPctModifier = 1.0f;
 	bDisplayHolderTrail = false;
 	MinGradualReturnDist = 1000.f;
+	bSendHomeOnScore = true;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -737,7 +738,10 @@ void AUTCarriedObject::Score_Implementation(FName Reason, AUTCharacter* ScoringP
 	{
 		Game->ScoreObject(this, ScoringPawn, ScoringPS, Reason);
 	}
-	SendHome();
+	if (bSendHomeOnScore)
+	{
+		SendHome();
+	}
 }
 
 void AUTCarriedObject::SetTeam(AUTTeamInfo* NewTeam)

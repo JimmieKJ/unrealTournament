@@ -44,7 +44,7 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
-	virtual void PlacePlayersAroundFlagBase(int32 TeamNum);
+	virtual void PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum);
 
 	UFUNCTION(exec)
 		void CheatScore();

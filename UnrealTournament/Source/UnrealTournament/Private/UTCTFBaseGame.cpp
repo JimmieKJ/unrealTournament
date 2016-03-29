@@ -290,34 +290,10 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 	//UTGameState->UpdateMatchHighlights();
 	CTFGameState->ResetFlags();
 
-	// Figure out who we should look at
 	// Init targets
-	TArray<AUTCharacter*> BestPlayers;
 	for (int32 i = 0; i<Teams.Num(); i++)
 	{
-		BestPlayers.Add(NULL);
-		PlacePlayersAroundFlagBase(i);
-	}
-
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-	{
-		AController* Controller = *Iterator;
-		if (Controller->GetPawn() != NULL && Controller->PlayerState != NULL)
-		{
-			AUTCharacter* Char = Cast<AUTCharacter>(Controller->GetPawn());
-			if (Char != NULL)
-			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
-				uint8 TeamNum = PS->GetTeamNum();
-				if (TeamNum < BestPlayers.Num())
-				{
-					if (BestPlayers[TeamNum] == NULL || PS->Score > BestPlayers[TeamNum]->PlayerState->Score || Cast<AUTCTFFlag>(PS->CarriedObject) != NULL)
-					{
-						BestPlayers[TeamNum] = Char;
-					}
-				}
-			}
-		}
+		PlacePlayersAroundFlagBase(i, i);
 	}
 
 	// Tell the controllers to look at own team flag
@@ -348,7 +324,7 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 
 int32 AUTCTFBaseGame::IntermissionTeamToView(AUTPlayerController* PC)
 {
-	if (!PC->PlayerState->bOnlySpectator && (PC->GetTeamNum() < Teams.Num()))
+	if (PC && !PC->PlayerState->bOnlySpectator && (PC->GetTeamNum() < Teams.Num()))
 	{
 		return PC->GetTeamNum();
 	}
@@ -435,7 +411,7 @@ void AUTCTFBaseGame::SetEndGameFocus(AUTPlayerState* Winner)
 	int32 WinnerTeamNum = Winner ? Winner->GetTeamNum() : (LastTeamToScore ? LastTeamToScore->TeamIndex : 0);
 	AUTCTFFlagBase* WinningBase = NULL;
 	WinningBase = CTFGameState->FlagBases[WinnerTeamNum];
-	PlacePlayersAroundFlagBase(WinnerTeamNum);
+	PlacePlayersAroundFlagBase(WinnerTeamNum, WinnerTeamNum);
 
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
@@ -466,9 +442,9 @@ void AUTCTFBaseGame::UpdateSkillRating()
 	ReportRankedMatchResults(NAME_CTFSkillRating.ToString());
 }
 
-void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum)
+void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum)
 {
-	if ((CTFGameState == NULL) || (TeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamNum] == NULL))
+	if ((CTFGameState == NULL) || (FlagTeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[FlagTeamNum] == NULL))
 	{
 		return;
 	}
@@ -476,7 +452,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum)
 	TArray<AController*> Members = Teams[TeamNum]->GetTeamMembers();
 	const int32 MaxPlayers = FMath::Min(8, Members.Num());
 
-	FVector FlagLoc = CTFGameState->FlagBases[TeamNum]->GetActorLocation();
+	FVector FlagLoc = CTFGameState->FlagBases[FlagTeamNum]->GetActorLocation();
 	float AngleSlices = 360.0f / MaxPlayers;
 	int32 PlacementCounter = 0;
 

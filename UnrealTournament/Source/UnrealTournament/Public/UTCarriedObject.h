@@ -141,6 +141,10 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 		uint32 bEnemyPickupSendsHome : 1;
 
+	// If true, scoring plays send the flag home.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+		uint32 bSendHomeOnScore : 1;
+
 	// How long before this object is automatically returned to it's base
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 	float AutoReturnTime;
